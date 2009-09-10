@@ -1,5 +1,5 @@
 //
-// "$Id: ppdc-source.cxx 1558 2009-06-10 19:21:50Z msweet $"
+// "$Id: ppdc-source.cxx 1651 2009-08-29 06:15:51Z msweet $"
 //
 //   Source class for the CUPS PPD Compiler.
 //
@@ -1321,7 +1321,7 @@ ppdcSource::get_integer(const char *v)	// I - Value string
     while (*v && *v != ')')
     {
       // Skip leading whitespace...
-      while (*v && isspace(*v & 255));
+      while (*v && isspace(*v & 255))
         v ++;
 
       if (!*v || *v == ')')
@@ -3896,5 +3896,5 @@ ppdcSource::write_file(const char *f)	// I - File to write
 
 
 //
-// End of "$Id: ppdc-source.cxx 1558 2009-06-10 19:21:50Z msweet $".
+// End of "$Id: ppdc-source.cxx 1651 2009-08-29 06:15:51Z msweet $".
 //

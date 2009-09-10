@@ -1,0 +1,60 @@
+#!/bin/sh
+#
+#	cvs-wrap - Combine a directory into a single tar package.
+#
+
+#ident $Id
+
+program="`basename $0`"
+
+usage="Usage: $program directory output-tarfile
+Wraps a directory into a gzipped tar file.
+"
+
+expr=/bin/expr
+gzip=gzip
+tar=tar
+
+for option
+do
+  case "$option" in
+    -h | --help)
+      echo "$usage"
+      exit 1
+      ;;
+    -*)
+      echo "$program: Unknown option: $option"
+      echo "$usage"
+      exit 1
+      ;;
+    *)
+      ;;
+  esac
+done
+
+if [ $# -ne 2 ]; then
+  echo "$program: Invalid parameters."
+  echo "$usage"
+  exit 1
+fi
+
+# The cwd should be set to "`dirname $1`" by cvs when this script is called.
+
+directory="`basename $1`"
+
+#if [ ! -d "$directory" ]; then
+#  echo "$program: \`$directory' is not a directory."
+#  echo "$usage"
+#  exit 1
+#fi
+
+if $expr "$2" : "^/" > /dev/null ; then
+  output_file="$2"
+else
+  output_file="`pwd`/$2"
+fi
+
+gnutar --preserve --sparse -cf - "$directory" |
+    gzip --no-name --best -c > "$output_file"
+
+exit 0

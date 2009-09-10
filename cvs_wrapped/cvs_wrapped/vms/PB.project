@@ -1,0 +1,50 @@
+{
+    FILESTABLE = {
+        Documentation = (ChangeLog); 
+        Headers = (
+            "vms-types.h", 
+            vmsmunch.h, 
+            vmsmunch_private.h, 
+            vms.h, 
+            pipe.h, 
+            pathnames.h, 
+            dir.h, 
+            ndir.h, 
+            options.h, 
+            pwd.h, 
+            misc.h, 
+            filutils.h, 
+            config.h
+        ); 
+        Makefiles = (Makefile.in); 
+        Resources = (); 
+        SUBPROJECTS = (); 
+        Sources = (
+            utime.c, 
+            unlink.c, 
+            startserver.c, 
+            rmdir.c, 
+            stat.c, 
+            waitpid.c, 
+            rcmd.c, 
+            vmsmunch.c, 
+            piped_child.c, 
+            readlink.c, 
+            pipe.c, 
+            getwd.c, 
+            getpass.c, 
+            ndir.c, 
+            pwd.c, 
+            misc.c, 
+            pc.c, 
+            filutils.c, 
+            filesubr.c
+        ); 
+    }; 
+    NEXTSTEP_BUILDTOOL = /bin/make; 
+    PDO_UNIX_BUILDTOOL = /bin/make; 
+    PROJECTNAME = vms; 
+    PROJECTTYPE = "GNU Source"; 
+    PROJECTVERSION = 2.6; 
+    WINDOWS_BUILDTOOL = "${NEXT_ROOT}/NextDeveloper/Executables/make"; 
+}

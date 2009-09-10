@@ -1,5 +1,5 @@
 /*
- * "$Id: usb-libusb.c 1125 2009-01-14 20:00:02Z msweet $"
+ * "$Id: usb-libusb.c 1661 2009-08-31 18:45:08Z msweet $"
  *
  *   Libusb interface code for the Common UNIX Printing System (CUPS).
  *
@@ -179,7 +179,12 @@ print_device(const char *uri,		/* I - Device URI */
       }
 
       if (pfds[1].revents & POLLIN)
-        tbytes += side_cb(printer, print_fd);
+      {
+        if ((bytes = side_cb(printer, print_fd)) < 0)
+	  pfds[1].events = 0;		/* Filter has gone away... */
+	else
+          tbytes += bytes;
+      }
     }
   }
 
@@ -418,12 +423,14 @@ get_device_id(usb_printer_t *printer,	/* I - Printer */
   * and then limit the length to the size of our buffer...
   */
 
-  if (length > (bufsize - 2))
+  if (length > bufsize)
     length = (((unsigned)buffer[1] & 255) << 8) +
 	     ((unsigned)buffer[0] & 255);
 
-  if (length > (bufsize - 2))
-    length = bufsize - 2;
+  if (length > bufsize)
+    length = bufsize;
+
+  length -= 2;
 
  /*
   * Copy the device ID text to the beginning of the buffer and
@@ -743,10 +750,7 @@ side_cb(usb_printer_t *printer,		/* I - Printer */
   datalen = sizeof(data);
 
   if (cupsSideChannelRead(&command, &status, data, &datalen, 1.0))
-  {
-    _cupsLangPuts(stderr, _("WARNING: Failed to read side-channel request!\n"));
-    return (0);
-  }
+    return (-1);
 
   switch (command)
   {
@@ -814,6 +818,6 @@ side_cb(usb_printer_t *printer,		/* I - Printer */
 
 
 /*
- * End of "$Id: usb-libusb.c 1125 2009-01-14 20:00:02Z msweet $".
+ * End of "$Id: usb-libusb.c 1661 2009-08-31 18:45:08Z msweet $".
  */
 

@@ -1,4 +1,4 @@
-# Mac OS X 10.6
+# Mac OS X 10.6.1
 Apple16X50Serial	24
 AppleAPIC	13
 AppleFileSystemDriver	13
@@ -64,7 +64,7 @@ Libinfo	324
 Libm	315
 Libnotify	53
 Librpcsvc	18
-Libsystem	123
+Libsystem	124.1.1
 Liby	16
 MySQL	49
 NFS	42
@@ -135,9 +135,10 @@ copyfile	66
 cron	35
 crontabs	43
 cscope	15
-cups	218
+cups	218.1
 curl	57
 cvs	42
+cvs_wrapped	15
 cxxfilt	9
 developer_cmds	52.1
 diffstat	5
@@ -187,9 +188,8 @@ launchd	328
 ld64	95.2.12
 less	21.3
 libarchive	13.1
-libauto	141
 libclosure	38
-libdispatch	84.5
+libdispatch	84.5.1
 libedit	12.1
 libevent	1
 libffi	15
@@ -230,6 +230,7 @@ libsecurity_ssl	36800
 libsecurity_utilities	36984
 libsecurityd	36988
 libstdcxx	39
+libstdcxx_40	5
 libtelnet	8
 libutil	20
 libxml2	21

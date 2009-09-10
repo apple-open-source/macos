@@ -16,7 +16,15 @@ BSDMAKEJ = $(BSDMAKE) -f Makefile -j $(NJOBS)
 # always a variable
 dynamic = dynamic
 
-FORMS := debug dynamic profile
+FORMS := dynamic
+
+.if !empty(FEATURE_DEBUG_DYLIB)
+FORMS += debug
+.endif
+
+.if !empty(FEATURE_PROFILE_DYLIB)
+FORMS += profile
+.endif
 
 all: build
 

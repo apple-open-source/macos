@@ -1519,7 +1519,7 @@ Optional Packages:
   --with-snmp-address     set SNMP query address, default=auto
   --with-snmp-community   set SNMP community, default=public
   --with-ipp-port         set port number for IPP, default=631
-  --with-pdftops          set pdftops filter (gs,pdftops,none), default=pdftops
+  --with-pdftops          set pdftops filter (gs,/path/to/gs,pdftops,/path/to/pdftops,none), default=pdftops
   --with-java             set Java interpreter for web interfaces
   --with-perl             set Perl interpreter for web interfaces
   --with-php              set PHP interpreter for web interfaces
@@ -1984,7 +1984,7 @@ esac
 ac_config_headers="$ac_config_headers config.h"
 
 
-CUPS_VERSION="1.4.0"
+CUPS_VERSION="1.4.1"
 CUPS_REVISION=""
 #if test -z "$CUPS_REVISION" -a -d .svn; then
 #	CUPS_REVISION="-r`svnversion . | awk -F: '{print $NF}' | sed -e '1,$s/[[a-zA-Z]]*//g'`"
@@ -18912,7 +18912,7 @@ _ACEOF
 cat confdefs.h >>conftest.$ac_ext
 cat >>conftest.$ac_ext <<_ACEOF
 /* end confdefs.h.  */
-#include <dns_sd.h
+#include <dns_sd.h>
 int
 main ()
 {
@@ -20279,6 +20279,15 @@ echo "$as_me: error: Unable to find gs program!" >&2;}
 	fi
 	;;
 
+	x/*/gs) # Use /path/to/gs without any check:
+	CUPS_GHOSTSCRIPT="$with_pdftops"
+	cat >>confdefs.h <<\_ACEOF
+#define HAVE_GHOSTSCRIPT 1
+_ACEOF
+
+	PDFTOPS="pdftops"
+	;;
+
 	xpdftops)
 	# Extract the first word of "pdftops", so it can be a program name with args.
 set dummy pdftops; ac_word=$2
@@ -20332,6 +20341,25 @@ echo "$as_me: error: Unable to find pdftops program!" >&2;}
    { (exit 1); exit 1; }; }
 		exit 1
 	fi
+	;;
+
+	x/*/pdftops) # Use /path/to/pdftops without any check:
+	CUPS_PDFTOPS="$with_pdftops"
+	cat >>confdefs.h <<\_ACEOF
+#define HAVE_PDFTOPS 1
+_ACEOF
+
+	PDFTOPS="pdftops"
+	;;
+
+	xnone) # Make no pdftops filter if with_pdftops=none:
+	;;
+
+	*) # Invalid with_pdftops value:
+	{ { echo "$as_me:$LINENO: error: Invalid with_pdftops value!" >&5
+echo "$as_me: error: Invalid with_pdftops value!" >&2;}
+   { (exit 1); exit 1; }; }
+	exit 1
 	;;
 esac
 

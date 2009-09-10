@@ -1,0 +1,68 @@
+# <rdar://problem/4207783> libstdcxx-4 libstdc++ tests time out on Leopard9A19
+
+diff -upr /Volumes/Data/gcc/gcc-4.0.0/libstdc++-v3/testsuite/27_io/basic_filebuf/underflow/char/10097.cc /Volumes/Data/gcc/gcc-4.0.0-mod/libstdc++-v3/testsuite/27_io/basic_filebuf/underflow/char/10097.cc
+--- gcc-4.0.0/libstdc++-v3/testsuite/27_io/basic_filebuf/underflow/char/10097.cc      2005-01-03 19:17:15.000000000 -0500
++++ libstdc++-v3/testsuite/27_io/basic_filebuf/underflow/char/10097.cc  2006-03-10 16:29:45.000000000 -0500
+@@ -58,7 +58,7 @@ void test16()
+       VERIFY( false );
+     }
+   
+-  semaphore s1;
++  semaphore s1, s2;
+   int fval = fork();
+   if (fval == -1)
+     {
+@@ -74,6 +74,7 @@ void test16()
+       fbout.pubsync();
+       s1.wait ();
+       fbout.close();
++      s2.signal();
+       exit(0);
+     }
+ 
+@@ -95,6 +96,7 @@ void test16()
+ 
+   fb.close();
+   s1.signal ();
++  s2.wait();
+ }
+ 
+ int main() 
+diff -upr /Volumes/Data/gcc/gcc-4.0.0/libstdc++-v3/testsuite/27_io/objects/char/9661-1.cc /Volumes/Data/gcc/gcc-4.0.0-mod/libstdc++-v3/testsuite/27_io/objects/char/9661-1.cc
+--- gcc-4.0.0/libstdc++-v3/testsuite/27_io/objects/char/9661-1.cc     2005-01-03 19:17:16.000000000 -0500
++++ libstdc++-v3/testsuite/27_io/objects/char/9661-1.cc 2006-03-10 16:18:44.000000000 -0500
+@@ -57,6 +57,7 @@ void test01()
+       s1.signal ();
+       s2.wait ();
+       fclose(file);
++      s1.signal();
+       exit(0);
+     }
+   
+@@ -80,6 +81,7 @@ void test01()
+   VERIFY( c5 != EOF );
+   VERIFY( c5 == c4 );
+   s2.signal ();
++  s1.wait();
+ }
+ 
+ int main()
+diff -upr /Volumes/Data/gcc/gcc-4.0.0/libstdc++-v3/testsuite/27_io/objects/wchar_t/9661-1.cc /Volumes/Data/gcc/gcc-4.0.0-mod/libstdc++-v3/testsuite/27_io/objects/wchar_t/9661-1.cc
+--- gcc-4.0.0/libstdc++-v3/testsuite/27_io/objects/wchar_t/9661-1.cc  2005-01-03 19:17:16.000000000 -0500
++++ libstdc++-v3/testsuite/27_io/objects/wchar_t/9661-1.cc      2006-03-10 16:21:19.000000000 -0500
+@@ -56,6 +56,7 @@ void test01()
+       s1.signal ();
+       s2.wait ();
+       fclose(file);
++      s1.signal();
+       exit(0);
+     }
+   
+@@ -79,6 +80,7 @@ void test01()
+   VERIFY( c5 != WEOF );
+   VERIFY( c5 == c4 );
+   s2.signal ();
++  s1.wait();
+ }
+ 
+ int main()

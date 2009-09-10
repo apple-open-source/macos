@@ -1727,8 +1727,7 @@ add_job(cupsd_client_t  *con,		/* I - Client connection */
     attr = ippAddString(job->attrs, IPP_TAG_JOB, IPP_TAG_KEYWORD,
                         "job-hold-until", NULL, val);
   }
-  if (attr && strcmp(attr->values[0].string.text, "no-hold") &&
-      !(printer->type & CUPS_PRINTER_REMOTE))
+  if (attr && strcmp(attr->values[0].string.text, "no-hold"))
   {
    /*
     * Hold job until specified time...
@@ -6557,7 +6556,7 @@ get_devices(cupsd_client_t *con)	/* I - Client connection */
            "%d+%d+%d+%d+%s%s%s%s%s",
            con->request->request.op.request_id,
            limit ? limit->values[0].integer : 0,
-	   timeout ? timeout->values[0].integer : 10,
+	   timeout ? timeout->values[0].integer : 15,
 	   (int)User,
 	   requested_str,
 	   exclude_str[0] ? "%20" : "", exclude_str,

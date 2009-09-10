@@ -1,5 +1,5 @@
 /*
- * "$Id: snmp.c 1507 2009-05-14 22:51:09Z msweet $"
+ * "$Id: snmp.c 1627 2009-08-07 21:38:19Z msweet $"
  *
  *   SNMP functions for the Common UNIX Printing System (CUPS).
  *
@@ -1280,7 +1280,7 @@ asn1_get_integer(
   int	value;				/* Integer value */
 
 
-  for (value = 0;
+  for (value = (**buffer & 0x80) ? -1 : 0;
        length > 0 && *buffer < bufend;
        length --, (*buffer) ++)
     value = (value << 8) | **buffer;
@@ -1711,5 +1711,5 @@ snmp_set_error(cups_snmp_t *packet,	/* I - Packet */
 
 
 /*
- * End of "$Id: snmp.c 1507 2009-05-14 22:51:09Z msweet $".
+ * End of "$Id: snmp.c 1627 2009-08-07 21:38:19Z msweet $".
  */

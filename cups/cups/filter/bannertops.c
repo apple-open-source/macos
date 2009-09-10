@@ -1,5 +1,5 @@
 /*
- * "$Id: bannertops.c 1482 2009-05-08 19:08:19Z msweet $"
+ * "$Id: bannertops.c 1631 2009-08-07 22:56:39Z msweet $"
  *
  *   Banner to PostScript filter for the Common UNIX Printing System (CUPS).
  *
@@ -593,7 +593,7 @@ write_banner(banner_file_t *banner,	/* I - Banner file */
       printf("%.1f %.1f translate\n", PageLeft, PageBottom);
     else
       printf("%.1f %.1f translate\n", PageWidth - PageRight,
-             PageLength - PageRight);
+             PageLength - PageTop);
     puts("0 setgray");
 
     y = info_top;
@@ -1088,5 +1088,5 @@ write_prolog(const char *title,		/* I - Title of job */
 
 
 /*
- * End of "$Id: bannertops.c 1482 2009-05-08 19:08:19Z msweet $".
+ * End of "$Id: bannertops.c 1631 2009-08-07 22:56:39Z msweet $".
  */

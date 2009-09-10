@@ -4,7 +4,7 @@
 <array>
 	<dict>
 		<key>OpenSourceImportDate</key>
-		<string>2009-07-07</string>
+		<string>2009-08-31</string>
 		<key>OpenSourceLicense</key>
 		<string>GPL</string>
 		<key>OpenSourceLicenseFile</key>
@@ -14,13 +14,14 @@
 		<key>OpenSourceModifications</key>
 		<array>
 			<string>rdar://problem/6880637: SERVER REQUEST:Add Kerberized printing policy.</string>
+			<string>rdar://problem/7174079: Provide Better driver option for the DeskJet 5850</string>
 		</array>
 		<key>OpenSourceProject</key>
 		<string>CUPS</string>
 		<key>OpenSourceURL</key>
 		<string>http://www.cups.org/software.php</string>
 		<key>OpenSourceVersion</key>
-		<string>1.4.0 (r8750)</string>
+		<string>1.4.1 (r8805)</string>
 		<key>OpenSourceWebsiteURL</key>
 		<string>http://www.cups.org/</string>
 	</dict>

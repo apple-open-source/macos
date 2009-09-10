@@ -1,0 +1,351 @@
+# libstdc++ "tool init file" for DejaGNU
+
+# Copyright (C) 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+# 
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  
+
+
+# Define callbacks and load other libraries.  This file is loaded relatively
+# early, and before any other file we write ourselves.  "load_lib" will
+# find anything in the DejaGNU installation tree, or in our lib directory.
+# "load_gcc_lib" will search the core compiler's .exp collection instead.
+#
+# The naming rule is that dg.exp looks for "tool-" and runtest.exp looks
+# for "tool_" when finding callbacks.  Utility routines we define for
+# our callbacks begin with "v3-".
+#
+# libstdc++_* callbacks we don't define, but could:
+# ..._option_help           prints additional --help output
+# ..._option_proc (--foo)   process our own options
+# ..._init (normal.exp)     called once per test file
+# ..._finish                bracketing function for libstdc++_init
+# ...-dg-prune              removing output text, see top of system dg.exp
+#
+# Useful hook:  if ${hostname}_init exists, it will be called, almost
+# the last thing before testing begins.  This can be defined in, e.g.,
+# ~/.dejagnurc or $DEJAGNU.
+
+proc load_gcc_lib { filename } {
+    global srcdir
+    load_file $srcdir/../../gcc/testsuite/lib/$filename
+}
+
+# system routines
+load_lib dg.exp
+load_lib libgloss.exp
+# compiler routines, then ours
+load_gcc_lib target-supports.exp
+load_gcc_lib target-supports-dg.exp
+load_lib prune.exp
+load_lib dg-options.exp
+load_gcc_lib target-libpath.exp
+load_gcc_lib wrapper.exp
+
+# Useful for debugging.  Pass the name of a variable and the verbosity
+# threshold (number of -v's on the command line).
+proc v3track { var n } {
+    upvar $var val
+    verbose "++ $var is $val" $n
+}
+
+# Called by v3-init below.  "Static" to this file.
+proc v3-copy-files {srcfiles} {
+    foreach f $srcfiles {
+        if { [catch { set symlink [file readlink $f] } x] } then {
+	    remote_download target $f
+        } else {
+            if { [regexp "^/" "$symlink"] } then {
+		remote_download target $symlink
+            } else {
+                set dirname [file dirname $f]
+		remote_download target $dirname/$symlink
+            }
+        }
+    }
+}
+
+# Called once, during runtest.exp setup.
+proc libstdc++_init { testfile } {
+    global env
+    global srcdir blddir objdir tool_root_dir
+    global cxx cxxflags
+    global includes
+    global gluefile wrap_flags
+    global ld_library_path
+    global target_triplet
+
+    # We set LC_ALL and LANG to C so that we get the same error messages as expected.
+    setenv LC_ALL C
+    setenv LANG C
+
+    set blddir [lookfor_file [get_multilibs] libstdc++-v3]
+    set flags_file "${blddir}/scripts/testsuite_flags"
+    v3track flags_file 2
+
+    # If a test doesn't have special options, use DEFAULT_CXXFLAGS.
+    # Use this variable if the behavior
+    #   1) only applies to libstdc++ testing
+    #   2) might need to be negated 
+    # In particular, some tests have to be run without precompiled
+    # headers, or without assertions.
+    global DEFAULT_CXXFLAGS
+    if ![info exists DEFAULT_CXXFLAGS] then {
+	# Set up includes for stdc++.h.gch, the precompiled header file.
+	if { [file exists $flags_file] } {
+	    set cxxpchflags [exec sh $flags_file --cxxpchflags]
+	} else {
+	    set cxxpchflags ""
+	}
+	set DEFAULT_CXXFLAGS " ${cxxpchflags}"
+
+	# Host specific goo here.
+	if { [string match "powerpc-*-darwin*" $target_triplet] } {
+	    append DEFAULT_CXXFLAGS " -multiply_defined suppress"
+	} 
+    }
+    v3track DEFAULT_CXXFLAGS 2
+
+    # By default, we assume we want to run program images.
+    global dg-do-what-default
+    set dg-do-what-default run
+
+    # Copy any required data files.
+    v3-copy-files [glob -nocomplain "$srcdir/data/*.tst"]
+    v3-copy-files [glob -nocomplain "$srcdir/data/*.txt"]
+
+    # Locate libgcc.a so we don't need to account for different values of
+    # SHLIB_EXT on different platforms
+    set gccdir [lookfor_file $tool_root_dir gcc/libgcc.a]
+    if {$gccdir != ""} {
+        set gccdir [file dirname $gccdir]
+    }
+    v3track gccdir 3
+
+    # Compute what needs to be added to the existing LD_LIBRARY_PATH.
+    # APPLE LOCAL begin mainline
+    if {$gccdir != ""} {
+	set ld_library_path ""
+	append ld_library_path ":${gccdir}"
+	set compiler ${gccdir}/g++
+	append ld_library_path ":${blddir}/src/.libs"
+
+	if { [is_remote host] == 0 && [which $compiler] != 0 } {
+	  foreach i "[exec $compiler --print-multi-lib]" {
+	    set mldir ""
+	    regexp -- "\[a-z0-9=/\.-\]*;" $i mldir
+	    set mldir [string trimright $mldir "\;@"]
+	    if { "$mldir" == "." } {
+	      continue
+	    }
+	    if { [llength [glob -nocomplain ${gccdir}/${mldir}/libgcc_s*.so.*]] >= 1 } {
+	      append ld_library_path ":${gccdir}/${mldir}"
+	    }
+	  }
+	}
+
+	set_ld_library_path_env_vars
+	if [info exists env(LD_LIBRARY_PATH)] {
+	  verbose -log "LD_LIBRARY_PATH = $env(LD_LIBRARY_PATH)"
+	}
+    } else {
+	set compiler [transform "g++"]
+	# APPLE LOCAL end mainline
+    }
+
+    # Do a bunch of handstands and backflips for cross compiling and
+    # finding simulators...
+    if [is_remote host] {
+        set header [remote_download host ${blddir}/testsuite/testsuite_hooks.h]
+        if { $header == "" } {
+            verbose -log "Unable to download ${blddir}/testsuite/testsuite_hooks.h to host."
+            return "untested"
+        }
+      set cxx [transform "g++"]
+      set cxxflags "-ggdb3"
+      set includes "-I./"
+    } else {
+        # If we find a testsuite_flags file, we're testing in the build dir.
+        if { [file exists $flags_file] } {
+            set cxx [exec sh $flags_file --build-cxx]
+            set cxxflags [exec sh $flags_file --cxxflags]
+            set includes [exec sh $flags_file --build-includes]
+        } else {
+            set cxx [transform "g++"]
+	    # APPLE LOCAL begin libstdc++ testing
+	    # For standalone libstdc++ testing, we need to provide all
+	    # the necessary compiler flags, since we do not have a 
+	    # testsuite_flags file to fall back on.
+	    set cxxflags [concat "-g -O2 -D_GLIBCXX_ASSERT" \
+		" -ffunction-sections" \
+		" -fdata-sections -fmessage-length=0 -DAPPLE_KEYMGR" \
+		" -DLOCALEDIR=\"/usr/share/locale\""]
+	    # APPLE LOCAL end libstdc++ testing
+            set includes "-I${srcdir}"
+        }
+    }
+
+    libstdc++_maybe_build_wrapper "${objdir}/testglue.o"
+}
+
+# Callback for cleanup routines.
+proc libstdc++_exit { } {
+    global gluefile;
+
+    if [info exists gluefile] {
+	file_on_build delete $gluefile;
+	unset gluefile;
+    }
+}
+
+# Callback from system dg-test.
+proc libstdc++-dg-test { prog do_what extra_tool_flags } {
+    # Set up the compiler flags, based on what we're going to do.
+    switch $do_what {
+        "preprocess" {
+            set compile_type "preprocess"
+            set output_file "[file rootname [file tail $prog]].i"
+        }
+        "compile" {
+            set compile_type "assembly"
+            set output_file "[file rootname [file tail $prog]].s"
+        }
+        "assemble" {
+            set compile_type "object"
+            set output_file "[file rootname [file tail $prog]].o"
+        }
+        "link" {
+            set compile_type "executable"
+            set output_file "./[file rootname [file tail $prog]].exe"
+        }
+        "run" {
+            set compile_type "executable"
+            # FIXME: "./" is to cope with "." not being in $PATH.
+            # Should this be handled elsewhere?
+            # YES.
+            set output_file "./[file rootname [file tail $prog]].exe"
+            # This is the only place where we care if an executable was
+            # created or not.  If it was, dg.exp will try to run it.
+            remote_file build delete $output_file;
+        }
+        default {
+            perror "$do_what: not a valid dg-do keyword"
+            return ""
+        }
+    }
+    set options ""
+    if { $extra_tool_flags != "" } {
+        lappend options "additional_flags=$extra_tool_flags"
+    }
+
+    # There is a libstdc++_compile made for us by default (via the tool-
+    # and-target file), but the defaults are lacking in goodness.
+    set comp_output [v3_target_compile "$prog" "$output_file" "$compile_type" $options];
+    set comp_output [ prune_g++_output $comp_output ];
+
+    return [list $comp_output $output_file]
+}
+
+# Called from libstdc++-dg-test above.  Calls back into system's
+# target_compile to actually do the work.
+proc v3_target_compile { source dest type options } {
+    global gluefile 
+    global wrap_flags
+    global cxx
+    global cxxflags
+    global includes
+    global blddir
+
+    if { [target_info needs_status_wrapper] != "" && [info exists gluefile] } {
+        lappend options "libs=${gluefile}"
+        lappend options "ldflags=${wrap_flags}"
+    }
+
+    set cxx_final $cxx
+    set cxxlibglossflags  [libgloss_link_flags]
+    set cxx_final [concat $cxx_final $cxxlibglossflags]
+    set cxx_final [concat $cxx_final $cxxflags]
+    set cxx_final [concat $cxx_final $includes]
+
+    lappend options "compiler=$cxx_final"
+
+    # Picks up the freshly-built testsuite library corresponding to the
+    # multilib under test.
+    lappend options "ldflags=-L${blddir}/testsuite"
+    lappend options "libs=-lv3test"
+
+    return [target_compile $source $dest $type $options]
+}
+
+
+# Called once, from libstdc++/normal.exp.
+proc v3-list-tests { filename } {
+    global srcdir
+    global blddir
+    # APPLE LOCAL begin libstdc++ testing
+    global objdir
+    global libiconv
+
+    # If we are not running in a build directory, we will need to generate
+    # our own testsuite_files, and build our own libv3test.a as well.
+    if { $blddir == "" } {
+	set blddir ${objdir}
+	set libiconv "-liconv"
+	set tmp [exec mkdir ${blddir}/testsuite]
+	set tmp [exec touch ${blddir}/testsuite/testsuite_thread]
+	set tmp [exec touch ${blddir}/testsuite/testsuite_wchar_t]
+	set tmp [exec sh ${srcdir}/../scripts/create_testsuite_files \
+		${srcdir} ${blddir}/testsuite]
+	# Build the support objects.
+	foreach f [list testsuite_abi.cc testsuite_allocator.cc \
+		testsuite_hooks.cc] {
+	    set object_file ${blddir}/testsuite/[file rootname $f].o
+	    # Compile with "-w" so that warnings issued by the compiler
+	    # do not prevent compilation.
+	    if { [v3_target_compile $srcdir/$f $object_file "object" \
+		    [list "incdir=$srcdir" "additional_flags=-w"]]
+		    != "" } {
+		error "could not compile $f"
+	    }
+	}
+	set tmp [exec ar cru ${blddir}/testsuite/libv3test.a \
+		${blddir}/testsuite/testsuite_abi.o \
+		${blddir}/testsuite/testsuite_allocator.o \
+		${blddir}/testsuite/testsuite_hooks.o]
+	set tmp [exec ranlib -c ${blddir}/testsuite/libv3test.a]
+    }
+    # APPLE LOCAL end libstdc++ testing
+
+    set tests_file "${blddir}/testsuite/${filename}"
+    set sfiles ""
+
+    verbose -log "In v3-list-tests"
+    verbose -log "blddir = ${blddir}"
+    verbose -log "tests_file = $tests_file"
+
+    # If there is a testsuite_file, use it. 
+    if { [file exists $tests_file] } {
+        set f [open $tests_file]
+        while { ! [eof $f] } {
+            set t [gets $f]
+            if { [string length "$t"] != 0 } {
+                lappend sfiles  ${srcdir}/${t}
+            }
+        } 
+        close $f
+    } else {
+        verbose "cannot open $tests_file"
+    }
+    return $sfiles
+}

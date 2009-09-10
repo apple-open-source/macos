@@ -1,5 +1,5 @@
 /*
- * "$Id: cups-driverd.cxx 1558 2009-06-10 19:21:50Z msweet $"
+ * "$Id: cups-driverd.cxx 1665 2009-08-31 21:26:58Z msweet $"
  *
  *   PPD/driver support for the Common UNIX Printing System (CUPS).
  *
@@ -328,7 +328,8 @@ cat_drv(const char *name,		/* I - PPD name */
   *pc_file_name++ = '\0';
 
 #ifdef __APPLE__
-  if (!strncmp(resource, "/Library/Printers/PPDs.drv/", 27))
+  if (!strncmp(resource, "/Library/Printers/PPDs/Contents/Resources/", 42) ||
+      !strncmp(resource, "/System/Library/Printers/PPDs/Contents/Resources/", 49))
     strlcpy(filename, resource, sizeof(filename));
   else
 #endif // __APPLE__
@@ -1493,12 +1494,20 @@ load_ppds(const char *d,		/* I - Actual directory */
 	ppd->record.size == dent->fileinfo.st_size &&
 	ppd->record.mtime == dent->fileinfo.st_mtime)
     {
-      do
-      {
-        ppd->found = 1;
-      }
-      while ((ppd = (ppd_info_t *)cupsArrayNext(PPDsByName)) != NULL &&
+     /*
+      * Rewind to the first entry for this file...
+      */
+
+      while ((ppd = (ppd_info_t *)cupsArrayPrev(PPDsByName)) != NULL &&
 	     !strcmp(ppd->record.filename, name));
+
+     /*
+      * Then mark all of the matches for this file as found...
+      */
+
+      while ((ppd = (ppd_info_t *)cupsArrayNext(PPDsByName)) != NULL &&
+	     !strcmp(ppd->record.filename, name))
+        ppd->found = 1;
 
       continue;
     }
@@ -1904,7 +1913,8 @@ load_drv(const char  *filename,		/* I - Actual filename */
 		*cups_fax,		// cupsFax attribute
 		*nick_name;		// NickName attribute
   ppdcFilter	*filter;		// Current filter
-  bool		product_found;		// Found product?
+  ppd_info_t	*ppd;			// Current PPD
+  int		products_found;		// Number of products found
   char		uri[1024],		// Driver URI
 		make_model[1024];	// Make and model
   int		type;			// Driver type
@@ -1929,7 +1939,7 @@ load_drv(const char  *filename,		/* I - Actual filename */
   * Add a dummy entry for the file...
   */
 
-  add_ppd(filename, filename, "", "", "", "", "", "", mtime, size, 0,
+  add_ppd(name, name, "", "", "", "", "", "", mtime, size, 0,
           PPD_TYPE_DRV, "drv");
   ChangedPPD = 1;
 
@@ -1981,22 +1991,28 @@ load_drv(const char  *filename,		/* I - Actual filename */
 	  type = PPD_TYPE_PDF;
     }
 
-    for (product = (ppdcAttr *)d->attrs->first(), product_found = false;
+    for (product = (ppdcAttr *)d->attrs->first(), products_found = 0;
          product;
 	 product = (ppdcAttr *)d->attrs->next())
       if (!strcmp(product->name->value, "Product"))
       {
-        product_found = true;
+        if (!products_found)
+	  ppd = add_ppd(name, uri, "en", d->manufacturer->value, make_model,
+		        device_id ? device_id->value->value : "",
+		        product->value->value,
+		        ps_version ? ps_version->value->value : "(3010) 0",
+		        mtime, size, d->model_number, type, "drv");
+	else if (products_found < PPD_MAX_PROD)
+	  strlcpy(ppd->record.products[products_found], product->value->value,
+	          sizeof(ppd->record.products[0]));
+	else
+	  break;
 
-	add_ppd(filename, uri, "en", d->manufacturer->value, make_model,
-		device_id ? device_id->value->value : "",
-		product->value->value,
-		ps_version ? ps_version->value->value : "(3010) 0",
-		mtime, size, d->model_number, type, "drv");
+	products_found ++;
       }
 
-    if (!product_found)
-      add_ppd(filename, uri, "en", d->manufacturer->value, make_model,
+    if (!products_found)
+      add_ppd(name, uri, "en", d->manufacturer->value, make_model,
 	      device_id ? device_id->value->value : "",
 	      d->model_name->value,
 	      ps_version ? ps_version->value->value : "(3010) 0",
@@ -2460,5 +2476,5 @@ regex_string(const char *s)		/* I - String to compare */
 
 
 /*
- * End of "$Id: cups-driverd.cxx 1558 2009-06-10 19:21:50Z msweet $".
+ * End of "$Id: cups-driverd.cxx 1665 2009-08-31 21:26:58Z msweet $".
  */

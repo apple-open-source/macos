@@ -1,5 +1,5 @@
 /*
- * "$Id: network.c 1126 2009-01-14 22:42:04Z msweet $"
+ * "$Id: network.c 1661 2009-08-31 18:45:08Z msweet $"
  *
  *   Common network APIs for the Common UNIX Printing System (CUPS).
  *
@@ -61,7 +61,7 @@ backendCheckSideChannel(
  * 'backendNetworkSideCB()' - Handle common network side-channel commands.
  */
 
-void
+int					/* O - -1 on error, 0 on success */
 backendNetworkSideCB(
     int         print_fd,		/* I - Print file or -1 */
     int         device_fd,		/* I - Device file or -1 */
@@ -79,10 +79,7 @@ backendNetworkSideCB(
   datalen = sizeof(data);
 
   if (cupsSideChannelRead(&command, &status, data, &datalen, 1.0))
-  {
-    _cupsLangPuts(stderr, _("WARNING: Failed to read side-channel request!\n"));
-    return;
-  }
+    return (-1);
 
   switch (command)
   {
@@ -284,10 +281,10 @@ backendNetworkSideCB(
 	break;
   }
 
-  cupsSideChannelWrite(command, status, data, datalen, 1.0);
+  return (cupsSideChannelWrite(command, status, data, datalen, 1.0));
 }
 
 
 /*
- * End of "$Id: network.c 1126 2009-01-14 22:42:04Z msweet $".
+ * End of "$Id: network.c 1661 2009-08-31 18:45:08Z msweet $".
  */

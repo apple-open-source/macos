@@ -1,10 +1,62 @@
-CHANGES.txt - 2009-07-07
+CHANGES.txt - 2009-08-31
 ------------------------
+
+CHANGES IN CUPS V1.4.1
+
+	- Documention fixes (STR #3296)
+	- SNMP supply levels and states were wrong for some printers.
+	- The IPP backend did not update the auth-info-required value.
+	- SNMP supply levels and states were wrong for some printers.
+	- The IPP backend did not update the auth-info-required value.
+	- The libusb-based USB backend would hang at the end of the job
+	  (STR #3315)
+	- DNS-SD registrations for raw queues had an empty "ty" key (STR #3299)
+	- The JPEG and BMP MIME type rules were broken (STR #3284)
+	- cupsGetNamedDest returned the default printer when the named
+	  destination did not exist (STR #3285)
+	- The JobKillDelay was not triggered for canceled jobs (STR #3292)
+	- The PPD compiler could get in an infinite loop (STR #3293)
+	- The configure check for dns-sd.h was broken (STR #3297)
+	- The "Query Printer for Default Options" page did not go away if the
+	  query job was held (STR #3302)
+	- Boolean options did not show up as selected in the web interface
+	  (STR #3303)
+      	- The scheduler did not cache or report driver information files
+	  correctly, leading to a variety of issues (STR #3283, STR #3297,
+	  STR #3305)
+	- cupsDoIORequest() did not abort on permanent errors (STR #3311)
+	- Modifying a class in the web interface did not work (STR #3312)
+	- BrowseLocalProtocols could be cleared when changing the sharing
+	  setting (STR #3287)
+	- The scheduler could return an empty supported document format
+	  (STR #3308)
+	- The PPD compiler generated invalid PPD files when the locale used
+	  something other than "." for the decimal point (STR #3300)
+	- The IPP backend did not handle some non-comforming IPP printer
+	  implementations (STR #3262)
+	- The scheduler leaked three file descriptors to each job filter
+	  (STR #3263)
+	- The scheduler now uses a default CUPS-Get-Devices timeout of 15
+	  seconds (STR #3307)
+
 
 CHANGES IN CUPS V1.4.0
 
 	- Localization updates (STR #3223, STR #3246, STR #3248, STR #3250)
-	- Documentation updates (STR #3225, STR #3230, STR #3242)
+	- Documentation updates (STR #3225, STR #3230, STR #3242, STR #3260)
+	- The --with-pdftops configure option did not accept a full path to the
+	  filter (STR #3278)
+	- The banner filter did not position the back side image correctly
+	  (STR #3277)
+	- The dnssd backend could crash (STR #3272)
+	- The 1284 device ID sometimes contained trailing garbage (STR #3266)
+	- The USB backend returned different URIs for some printers than in
+	  CUPS 1.3 (STR #3259)
+	- The scheduler did not do local job-hold-until processing for remote
+	  queues (STR #3258)
+	- The scheduler did not try all possible SSL certificates on Mac OS X.
+	- The scheduler did not always remove a file descriptor when using the
+	  kqueue interface (STR #3256)
 	- The scheduler did not protect against bad job control files in all
 	  cases (STR #3253)
 	- The scheduler did not encode "+" in model names (STR #3254)
