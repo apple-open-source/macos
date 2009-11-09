@@ -28,7 +28,7 @@
 
 @implementation DecodeInterfaceDescriptor
 
-+ (void)decodeBytes:(Byte *)p forDevice:(BusProbeDevice *)thisDevice {
++ (void)decodeBytes:(Byte *)p forDevice:(BusProbeDevice *)thisDevice  withDeviceInterface:(IOUSBDeviceRef)deviceIntf{
     /*	struct IOUSBInterfaceDescriptor {
     UInt8 			bLength;
     UInt8 			bDescriptorType;
@@ -42,16 +42,20 @@
     }; */
     
     IOUSBInterfaceDescriptor 	interfaceDescriptor;
-    char 			interfaceHeading[500];
+	NSString					*interfaceName;
     BusProbeClass *             interfaceClass;
     OutlineViewNode *           headingNode;
     NSString                    *tempString1, *tempString2;
-    
+	char                        *cstr1;
+   
     interfaceDescriptor = *(IOUSBInterfaceDescriptor *)p;
-    
-    sprintf(interfaceHeading, "Interface #%d", (int)interfaceDescriptor.bInterfaceNumber);
-    
-    [thisDevice addProperty:interfaceHeading withValue:"" atDepth:INTERFACE_LEVEL-1];
+ 	cstr1 = GetStringFromIndex((UInt8)interfaceDescriptor.iInterface, deviceIntf);
+		// Add property without a name, we'll sort that out later.
+	if (strcmp(cstr1, "0x00") != 0) 
+		[thisDevice addProperty:"" withValue:cstr1 atDepth:INTERFACE_LEVEL-1];
+	else
+		[thisDevice addProperty:"" withValue:"" atDepth:INTERFACE_LEVEL-1];
+		
     headingNode = [[thisDevice rootNode] deepestChild];
     
     [thisDevice addNumberProperty:"Alternate Setting" value: interfaceDescriptor.bAlternateSetting size:sizeof(interfaceDescriptor.bAlternateSetting) atDepth:INTERFACE_LEVEL usingStyle:kIntegerOutputStyle];
@@ -63,6 +67,7 @@
     [thisDevice addProperty:"Interface Subclass;" withValue:(char *)[[interfaceClass subclassDescription] cStringUsingEncoding:NSUTF8StringEncoding] atDepth:INTERFACE_LEVEL];
     [thisDevice addProperty:"Interface Protocol:" withValue:(char *)[[interfaceClass protocolDescription] cStringUsingEncoding:NSUTF8StringEncoding] atDepth:INTERFACE_LEVEL];
     
+	// Sort out interface name
     tempString1 = [interfaceClass className];
     
     // If our subclass name is different than our class name, then add the sub class to the description
@@ -76,10 +81,17 @@
     }
     
     if ( interfaceDescriptor.bAlternateSetting != 0 )
-        [headingNode setName:[NSString stringWithFormat:@"Interface #%d - %@ (#%d)", (int)interfaceDescriptor.bInterfaceNumber, tempString1, (int)interfaceDescriptor.bAlternateSetting]];
+        interfaceName = [NSString stringWithFormat:@"Interface #%d - %@ (#%d)", (int)interfaceDescriptor.bInterfaceNumber, tempString1, (int)interfaceDescriptor.bAlternateSetting];
     else
-        [headingNode setName:[NSString stringWithFormat:@"Interface #%d - %@", (int)interfaceDescriptor.bInterfaceNumber, tempString1]];
+        interfaceName = [NSString stringWithFormat:@"Interface #%d - %@", (int)interfaceDescriptor.bInterfaceNumber, tempString1];
     
+	// If the interface has a name add the heading
+    if (strcmp(cstr1, "0x00") != 0) {
+        interfaceName = [NSString stringWithFormat:@"%@ ..............................................", interfaceName];
+	}
+    FreeString(cstr1);
+	[headingNode setName:interfaceName];
+
    // [thisDevice addNumberProperty:"Interface Protocol" value: interfaceDescriptor.bInterfaceProtocol size:sizeof(interfaceDescriptor.bInterfaceProtocol) atDepth:INTERFACE_LEVEL usingStyle:kIntegerOutputStyle];
 }
 
@@ -103,7 +115,6 @@
     
     IOUSBInterfaceAssociationDescriptor 	interfaceAssocDescriptor;
     BusProbeClass *             interfaceAssocClass;
-    OutlineViewNode *           headingNode;
     NSString                    *tempString1, *tempString2;
     
     interfaceAssocDescriptor = *(IOUSBInterfaceAssociationDescriptor *)p;
@@ -123,7 +134,6 @@
     }
     
     [thisDevice addProperty:"Interface Association" withValue:(char *)([tempString1 cStringUsingEncoding:NSUTF8StringEncoding]) atDepth:INTERFACE_LEVEL-1];
-    headingNode = [[thisDevice rootNode] deepestChild];
     
     [thisDevice addNumberProperty:"First Interface" value: interfaceAssocDescriptor.bFirstInterface size:sizeof(interfaceAssocDescriptor.bFirstInterface) atDepth:INTERFACE_LEVEL usingStyle:kIntegerOutputStyle];
     [thisDevice addNumberProperty:"Interface Count" value: interfaceAssocDescriptor.bInterfaceCount size:sizeof(interfaceAssocDescriptor.bInterfaceCount) atDepth:INTERFACE_LEVEL usingStyle:kIntegerOutputStyle];

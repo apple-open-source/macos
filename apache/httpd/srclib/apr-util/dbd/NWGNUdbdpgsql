@@ -54,6 +54,7 @@ XCFLAGS		+= \
 # These defines will come after DEFINES
 #
 XDEFINES	+= \
+			-DAPU_DSO_MODULE_BUILD \
 			-DAPU_HAVE_PGSQL=1 \
 			-DHAVE_LIBPQ_FE_H \
 			$(EOLIST)

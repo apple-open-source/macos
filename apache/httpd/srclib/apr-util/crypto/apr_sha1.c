@@ -351,10 +351,6 @@ APU_DECLARE(void) apr_sha1_base64(const char *clear, int len, char *out)
     apr_sha1_ctx_t context;
     apr_byte_t digest[APR_SHA1_DIGESTSIZE];
 
-    if (strncmp(clear, APR_SHA1PW_ID, APR_SHA1PW_IDLEN) == 0) {
-	clear += APR_SHA1PW_IDLEN;
-    }
-
     apr_sha1_init(&context);
     apr_sha1_update(&context, clear, len);
     apr_sha1_final(digest, &context);

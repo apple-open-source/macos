@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.0">
+<trk>
+	<name>UTC -9 (all year) Gambier Islands</name>
+	<trkseg>
+		<trkpt lon="-135.097503662" lat="-22.933100747"></trkpt>
+		<trkpt lon="-134.787826538" lat="-22.9375272881"></trkpt>
+		<trkpt lon="-134.778213501" lat="-23.269103904"></trkpt>
+		<trkpt lon="-134.775466919" lat="-23.3725138224"></trkpt>
+		<trkpt lon="-135.121536255" lat="-23.371883518"></trkpt>
+		<trkpt lon="-135.234146118" lat="-23.3794469723"></trkpt>
+		<trkpt lon="-135.210800171" lat="-22.9444829889"></trkpt>
+		<trkpt lon="-135.097503662" lat="-22.933100747"></trkpt>
+	</trkseg>
+</trk>
+</gpx>

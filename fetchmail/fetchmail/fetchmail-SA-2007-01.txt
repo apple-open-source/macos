@@ -1,9 +1,12 @@
+-----BEGIN PGP SIGNED MESSAGE-----
+Hash: SHA1
+
 fetchmail-SA-2007-01: APOP considered insecure
 
 Topics:		APOP authentication insecure, fetchmail implementation lax
 
 Author:		Matthias Andree
-Version:	1.0
+Version:	1.1
 Announced:	2007-04-06
 Type:		password theft when under MITM attack
 Impact:		password disclosure possible
@@ -24,6 +27,7 @@ Corrected:	2007-03-18 fetchmail SVN
 ==================
 
 2007-04-06 1.0	first release
+2008-04-24 1.1	add --ssl to section 3. suggestion A below
 
 
 1. Background
@@ -64,7 +68,7 @@ Either of these is currently considered sufficient.
 
 A. Only use APOP on SSL or TLS secured connections with mandatory and thorough
    certificate validation, such as fetchmail --sslproto tls1 --sslcertck
-   or --sslproto ssl3 --sslcertck), or equivalent in the run control file.
+   or --ssl --sslproto ssl3 --sslcertck), or equivalent in the run control file.
 
 B. Avoid APOP and use stronger authenticators.
 
@@ -78,7 +82,7 @@ C. If you must continue to use APOP without SSL/TLS, then install
 A. Copyright, License and Warranty
 ==================================
 
-(C) Copyright 2007 by Matthias Andree, <matthias.andree@gmx.de>.
+(C) Copyright 2007, 2008 by Matthias Andree, <matthias.andree@gmx.de>.
 Some rights reserved.
 
 This work is licensed under the Creative Commons
@@ -91,3 +95,10 @@ THIS WORK IS PROVIDED FREE OF CHARGE AND WITHOUT ANY WARRANTIES.
 Use the information herein at your own risk.
 
 END OF fetchmail-SA-2007-01.txt
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.5 (GNU/Linux)
+
+iD8DBQFIV7WXvmGDOQUufZURAg8MAKDewyOyTpRs6HMcNLMA0vXx4glwLQCeOov6
+r9AYJJu51+yAhjox79Tli+I=
+=pGe2
+-----END PGP SIGNATURE-----

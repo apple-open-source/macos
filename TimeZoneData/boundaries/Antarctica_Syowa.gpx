@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.0">
+<trk>
+	<name>UTC -3 (all year) Antarctica</name>
+	<trkseg>
+		<trkpt lon="-80.947265625" lat="-69.0056751966"></trkpt>
+		<trkpt lon="-78.486328125" lat="-79.5764597208"></trkpt>
+		<trkpt lon="-77.51953125" lat="-83.715544306"></trkpt>
+		<trkpt lon="-97.03125" lat="-83.7347568286"></trkpt>
+		<trkpt lon="-98.701171875" lat="-68.040461259"></trkpt>
+		<trkpt lon="-81.298828125" lat="-67.974633962"></trkpt>
+		<trkpt lon="-80.947265625" lat="-69.0056751966"></trkpt>
+	</trkseg>
+</trk>
+</gpx>

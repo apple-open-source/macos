@@ -291,8 +291,11 @@ getnameinfo(sa, salen, host, hostlen, serv, servlen, flags)
 				    hostlen) == NULL)
 					return EAI_SYSTEM;
 #else
-				if (afd->a_af == AF_INET)
-				    strlcpy(host, inet_ntoa(addr), hostlen);
+				if (afd->a_af == AF_INET) {
+				    struct in_addr addr_tmp;
+				    addr_tmp.s_addr = addr;
+				    strlcpy(host, inet_ntoa(addr_tmp), hostlen);
+				}
 				else
 				    return EAI_FAMILY;
 #endif

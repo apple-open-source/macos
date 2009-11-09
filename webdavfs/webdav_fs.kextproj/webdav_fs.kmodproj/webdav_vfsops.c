@@ -468,7 +468,7 @@ static int webdav_unmount(struct mount *mp, int mntflags, vfs_context_t context)
 	vnode_rele(rootvp);
 	
 	/* since we blocked (sending the message), drain again */
-	error = vflush(mp, NULLVP, flags);
+	vflush(mp, NULLVP, FORCECLOSE);
 
 	/* clear the webdavmount in the mount point so anyone looking at it will see it's gone */
 	vfs_setfsprivate(mp, NULL);

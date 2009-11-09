@@ -22,10 +22,13 @@
 #define APR_LDAP_URL_H
 
 /**
- * @defgroup APR_Util_LDAP LDAP
- * @ingroup APR_Util
+ * @addtogroup APR_Util_LDAP
  * @{
  */
+
+#if defined(DOXYGEN)
+#include "apr_ldap.h"
+#endif
 
 #if APR_HAS_LDAP
 

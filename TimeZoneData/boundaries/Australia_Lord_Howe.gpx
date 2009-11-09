@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.0">
+<trk>
+	<name>UTC +11 (summer) Lord Howe Island</name>
+	<trkseg>
+		<trkpt lon="157.521972656" lat="-30.2780443778"></trkpt>
+		<trkpt lon="160.202636719" lat="-30.1831218422"></trkpt>
+		<trkpt lon="160.422363281" lat="-32.3057060139"></trkpt>
+		<trkpt lon="157.653808594" lat="-32.4541559394"></trkpt>
+		<trkpt lon="157.521972656" lat="-30.2780443778"></trkpt>
+	</trkseg>
+</trk>
+</gpx>

@@ -526,9 +526,11 @@ static inline void ntfs_inode_unlock_alloc(ntfs_inode *ni)
 	ntfs_inode_wakeup(ni);
 }
 
-__private_extern__ errno_t ntfs_inode_add_vnode(ntfs_inode *ni,
+#define ntfs_inode_add_vnode(ni, is_system, parent_vn, cn)	\
+	ntfs_inode_add_vnode_attr(ni, is_system, parent_vn, cn, FALSE/*isstream*/)
+__private_extern__ errno_t ntfs_inode_add_vnode_attr(ntfs_inode *ni,
 		const BOOL is_system, vnode_t parent_vn,
-		struct componentname *cn);
+		struct componentname *cn, BOOL isstream);
 
 __private_extern__ errno_t ntfs_inode_get(ntfs_volume *vol, ino64_t mft_no,
 		const BOOL is_system, const lck_rw_type_t lock,

@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.0">
+<trk>
+	<name>UTC +11 (all year) PONT</name>
+	<trkseg>
+		<trkpt lon="157.631835938" lat="7.25349605007"></trkpt>
+		<trkpt lon="158.774414062" lat="7.29708756417"></trkpt>
+		<trkpt lon="158.829345703" lat="6.51181470635"></trkpt>
+		<trkpt lon="157.653808594" lat="6.48998333267"></trkpt>
+		<trkpt lon="157.631835938" lat="7.25349605007"></trkpt>
+	</trkseg>
+</trk>
+</gpx>

@@ -52,8 +52,6 @@ oldincludedir = /usr/include
 top_builddir = .
 
 
-AUTOCONF = autoconf
-
 INSTALL = @INSTALL@
 INSTALL_PROGRAM = @INSTALL_PROGRAM@
 INSTALL_DATA = @INSTALL_DATA@
@@ -97,9 +95,6 @@ config.status: configure
 	else \
 		$(SHELL) configure ; \
 	fi
-
-configure: configure.in
-	$(AUTOCONF)
 
 config.h: config.h.in config.status
 	CONFIG_FILES= CONFIG_HEADERS=$(CONFIG_HEADERS) \

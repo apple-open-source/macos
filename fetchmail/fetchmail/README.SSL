@@ -1,92 +1,128 @@
-Fetchmail SSL support
-=====================
+Fetchmail client-side SSL support
+=================================
 
-NOTE: This text is maybe not explanatory enough, so a little knowledge about
-public-key-cryptography and associated topics is required.
+Preface
+-------
 
-Using the fetchmail ssl option, you can have the data transferred between you
-and the server in an encrypted form, so that eavesdropping should become
+Note: there is a separate document "README.SSL-SERVER" describing the server- 
+side requirements for proper SSL support.  It has checklist-style and is not 
+specific to fetchmail.
+
+In case of troubles, mail that other document to your ISP and have them check 
+their server configuration against it.
+
+Unfortunately, fetchmail confuses SSL/TLS protocol levels with whether 
+a service needs to use in-band negotiation (STLS/STARTTLS for POP3/IMAP4) or is 
+totally SSL-wrapped on a separate port.  For compatibility reasons, this cannot 
+be fixed in a bugfix release.
+
+	-- Matthias Andree, 2009-05-09
+
+
+Quickstart
+----------
+
+For use of SSL or TLS with in-band negotiation on the regular service's port, 
+i. e. with STLS or STARTTLS, use these command line options (in the rcfile, 
+omit the leading "--"):
+
+    --sslproto tls1 --sslcertck
+
+For use of SSL or TLS on a separate port, if the whole TCP connection is 
+SSL-encrypted from the very beginning, use these command line options (in the 
+rcfile, omit the leading "--"):
+
+    --ssl --sslproto ssl3 --sslcertck
+
+
+Background and use (long version :-))
+------------------
+
+Using fetchmail's "ssl" option, you can have the data transferred between you 
+and the server in an encrypted form, so that eavesdropping should become 
 practically impossible.
 
-This works as following: the server has a key pair (a secret and a public key),
-and it sends the client it's public key. Messages encrypted with the public key
+This works as following: the server has a key pair (a secret and a public key), 
+and it sends the client it's public key. Messages encrypted with the public key 
 can be decrypted using the private one and vice versa.
-A symmetric session key (symmetric means that the same key is used for
-encryption and decryption) can now be agreed upon by the two parties using
-the secure channel the key pair builds. The session key is now used to encrypt
-the traffic.
 
-In the fetchmail case, the client can now authenticate itself to the server by
+A symmetric session key (symmetric means that the same key is used for 
+encryption and decryption) can now be agreed upon by the two parties using the 
+secure channel the key pair builds. The session key is now used to encrypt the 
+traffic.
+
+In the fetchmail case, the client can now authenticate itself to the server by 
 using the usual POP/IMAP/whatever authentication mechanisms.
 
-However, so called man-in-the-middle attacks are still possible: in such a
-setting, an attacker imposes the server, and thus can e.g. get your
-authentication information if you don't use a challenge based authentication
-mechanism (because he is thought to be the real server, fetchmail will try to
+However, so called man-in-the-middle attacks are still possible: in such 
+a setting, an attacker pretends to be the server, and thus can e.g. get your 
+authentication information if you don't use a challenge based authentication 
+mechanism (because he is thought to be the real server, fetchmail will try to 
 authenticate against it by telling it your password).
 
-So, not only you need to prove your identity to the server, the server likewise
-needs to prove it's to you.
-In the standard setting, the server has a certificate (the client can have a
-certificate too to prove its identity, but this is not covered by this
-document). This certificate contains the server's public key, some data about
+So, not only you need to prove your identity to the server, the server likewise 
+needs to prove (authenticate) its identity to you.
+  In the standard setting, the server has a certificate (the client can have 
+a certificate too to prove its identity, but this is not covered by this 
+document). This certificate contains the server's public key, some data about 
 the server, and a digital signature and data about the signer.
-Digital signatures can also be made using a key pair as described earlier.
+  Digital signatures can also be made using a key pair as described earlier.
 
-To check this certificate, you may use the new option sslcertck. When it is
-specified, the signature of server certificate is checked against local trusted
-certificates to see whether the owner of one of the ceritificates has signed
-that server certificate, and if so, whether the signature is valid.
-So, if the server certificate is signed by a Certification Authority (CA),
-you put the CA's certificate into a directory where you keep trusted
-certificates, and point fetchmail to it. Fetchmail will then accept certificates
-signed by the owner of that certificate with the private key belonging to the
-public key in the certificate.
-You can specifiy this path using the sslcertpath option.
-The idea is that the CA only gives certificates to entities of which it has
-checked and verified the identity of (and in this case, that the server name you
-specify does belong to it). So, if you chose the intentions and the thoroughness
-of a CA, you can be reasonably sure that if a certificate is signed by the CA,
-it really belongs to the server and owner that it claims to.
+To check this certificate, you should use the new option "sslcertck". When it 
+is specified, the signature of server certificate is checked against local 
+trusted certificates to see whether the owner of one of the certificates has 
+signed that server certificate, and if so, whether the signature is valid.
+  So, if the server certificate is signed by a Certification Authority (CA), 
+you put the CA's certificate into a directory where you keep trusted 
+certificates, and point fetchmail to it. Fetchmail will then accept 
+certificates signed by the owner of that certificate with the private key 
+belonging to the public key in the certificate.
+You can specify this path using the "sslcertpath" option if it's different from 
+the one OpenSSL uses by default.
 
-Certificates are only valid in a certain time window, so your system clock
+The idea is that the CA only gives certificates to entities whose identity it 
+has checked and verified (and in this case, that the server name you specify 
+does belong to it). So, if you trust the CA's verification process, you can be 
+reasonably sure that if a certificate is signed by the CA, it really belongs to 
+the server and owner that it claims to.
+
+Certificates are only valid in a certain time window, so your system clock 
 should be reasonably accurate when checking certificates.
 
-Additionally, CAs keep Certificate Revocation Lists (CRLs) in which they note
-the certificates that are to be treated as invalid (e.g. because the server
-name has changed, another ceritifcate was granted, or even because the
+Additionally, CAs keep Certificate Revocation Lists (CRLs) in which they note 
+the certificates that are to be treated as invalid (e.g. because the server 
+name has changed, another certificate was granted, or even because the 
 certificate was not granted to the rightful owner).
 
-The really paranoid (who chose to not trust a CA) can check the fingerprint of
-the public key that is used by the server. The fingerprint is a hash of that
-key that (hopefully) has few collisions and is hard to attack using a "birthday
-attack", i.e. nobody can generate a second key that hashes to the same value
-of the original key in reasonable time. So, if the fingerprint matches, you
-can be reasonable sure that you talk to the original server, because only that
-knows the secret key, and it is very hard to generate a matching secret key from
-the public key. If it doesn't, it might be an attack, but keep in mind that the
-server key may also have changed legitimately before panicing ;)
+The certificate directory must be hashed in a way OpenSSL expects it: each time 
+you modify a file in that directory or add a file to it, you need to use the 
+"c_rehash" perl script that comes with OpenSSL (in the tools/ subdirectory, in 
+case that it isn't installed). Additionally, you might need to convert the 
+certificates to different formats (the PEM format is expected and usually is 
+available, DER is another one; you can convert between both using the 
+openssl(1) utility's x509 sub-mode).
 
-fetchmail will present the fingerprint to you. Another mode, that strictly
-checks the fingerprint, is available (using the sslfingerprint option, and
-giving the desired fingerprint as an argument). If you want to check finger-
-prints, you should use that option, because otherwise, it may be too late
-to cancel if you see the fingerprint (your password may already have been
-transmitted)!
+The really paranoid (who chose to not trust a CA) can check the fingerprint of 
+the public key that is used by the server. The fingerprint is a hash of that 
+key that (hopefully) has few collisions and is hard to attack using a "birthday 
+attack", i.e. nobody can generate a second key that hashes to the same value of 
+the original key in reasonable time. So, if the fingerprint matches, you can be 
+reasonable sure that you talk to the original server, because only that knows 
+the secret key, and it is very hard to generate a matching secret key from the 
+public key. If it doesn't, it might be an attack, but keep in mind that the 
+server key may also have changed legitimately before panicking ;)
 
-The certificate directory must be hashed in a way OpenSSL expects it: each
-time you modify a file in that directory or add a file to it, you need
-to use the c_rehash perl script that comes with OpenSSL (in the tools/
-subdirectory, in case that it isn't installed). Additionally, you might
-need to convert the ceriticates to different formats (the PEM format is expected
-and usually is available, DER is another one; you can convert between
-both using the openssl(1) utility).
+Fetchmail will present the fingerprint to you in verbose mode. You can have 
+fetchmail check the fingerprint (using the "sslfingerprint" option, and giving 
+the desired fingerprint as an argument).
 
-The fingerprints fetchmail uses are MD5 sums. You can generate them e.g. useing
-the openssl(1) "x509 -fingerprint" command. The format is a hexadecimal string
-with a ":" separating two byes (i.e. a ":" every two hex "digits"). The letter
-hex digits must be in upper case!
+The fingerprints fetchmail uses are MD5 sums. You can generate them e.g. using
+openssl(1)'s "x509 -fingerprint" command. The format is a hexadecimal string 
+with a ":" separating two byes (i.e. a ":" every two hex "digits"). The
+match is case insensitive since release 6.3.10 (upper-case digits A to F
+were required up to and including release 6.3.9).
 
-*CAVEAT*: OpenSSL seems to be unable to check CRLs at the moment!
+*CAVEAT*: OpenSSL must be at least version 0.9.7 to be able to check CRLs.
 
 	- Thomas Moestl <tmoestl@gmx.net>
+	- Matthias Andree

@@ -145,6 +145,8 @@ static const command_rec ssl_config_cmds[] = {
                 "Use the server's cipher ordering preference")
     SSL_CMD_ALL(UserName, TAKE1,
                 "Set user name to SSL variable value")
+    SSL_CMD_SRV(StrictSNIVHostCheck, FLAG,
+                "Strict SNI virtual host checking")
 
     /*
      * Proxy configuration for remote SSL connections
@@ -182,6 +184,10 @@ static const command_rec ssl_config_cmds[] = {
     SSL_CMD_SRV(ProxyMachineCertificatePath, TAKE1,
                "SSL Proxy: directory containing client certificates "
                "(`/path/to/dir' - contains PEM encoded certificates)")
+    SSL_CMD_SRV(ProxyCheckPeerExpire, FLAG,
+                "SSL Proxy: check the peers certificate expiration date")
+    SSL_CMD_SRV(ProxyCheckPeerCN, FLAG,
+                "SSL Proxy: check the peers certificate CN")
 
     /*
      * Per-directory context configuration directives
@@ -195,6 +201,10 @@ static const command_rec ssl_config_cmds[] = {
     SSL_CMD_DIR(Require, AUTHCFG, RAW_ARGS,
                "Require a boolean expression to evaluate to true for granting access"
                "(arbitrary complex boolean expression - see manual)")
+    SSL_CMD_DIR(RenegBufferSize, AUTHCFG, TAKE1,
+                "Configure the amount of memory that will be used for buffering the "
+                "request body if a per-location SSL renegotiation is required due to "
+                "changed access control requirements")
 
     /* Deprecated directives. */
     AP_INIT_RAW_ARGS("SSLLog", ap_set_deprecated, NULL, OR_ALL,
@@ -295,6 +305,8 @@ static SSLConnRec *ssl_init_connection_ctx(conn_rec *c)
 
     sslconn = apr_pcalloc(c->pool, sizeof(*sslconn));
 
+    sslconn->server = c->base_server;
+
     myConnConfigSet(c, sslconn);
 
     return sslconn;
@@ -302,9 +314,10 @@ static SSLConnRec *ssl_init_connection_ctx(conn_rec *c)
 
 int ssl_proxy_enable(conn_rec *c)
 {
-    SSLSrvConfigRec *sc = mySrvConfig(c->base_server);
+    SSLSrvConfigRec *sc;
 
     SSLConnRec *sslconn = ssl_init_connection_ctx(c);
+    sc = mySrvConfig(sslconn->server);
 
     if (!sc->proxy_enabled) {
         ap_log_cerror(APLOG_MARK, APLOG_ERR, 0, c,
@@ -322,10 +335,16 @@ int ssl_proxy_enable(conn_rec *c)
 
 int ssl_engine_disable(conn_rec *c)
 {
-    SSLSrvConfigRec *sc = mySrvConfig(c->base_server);
+    SSLSrvConfigRec *sc;
 
-    SSLConnRec *sslconn;
+    SSLConnRec *sslconn = myConnConfig(c);
 
+    if (sslconn) {
+        sc = mySrvConfig(sslconn->server);
+    }
+    else {
+        sc = mySrvConfig(c->base_server);
+    }
     if (sc->enabled == SSL_ENABLED_FALSE) {
         return 0;
     }
@@ -339,20 +358,23 @@ int ssl_engine_disable(conn_rec *c)
 
 int ssl_init_ssl_connection(conn_rec *c)
 {
-    SSLSrvConfigRec *sc = mySrvConfig(c->base_server);
+    SSLSrvConfigRec *sc;
     SSL *ssl;
     SSLConnRec *sslconn = myConnConfig(c);
     char *vhost_md5;
     modssl_ctx_t *mctx;
-
-    /*
-     * Seed the Pseudo Random Number Generator (PRNG)
-     */
-    ssl_rand_seed(c->base_server, c->pool, SSL_RSCTX_CONNECT, "");
+    server_rec *server;
 
     if (!sslconn) {
         sslconn = ssl_init_connection_ctx(c);
     }
+    server = sslconn->server;
+    sc = mySrvConfig(server);
+
+    /*
+     * Seed the Pseudo Random Number Generator (PRNG)
+     */
+    ssl_rand_seed(server, c->pool, SSL_RSCTX_CONNECT, "");
 
     mctx = sslconn->is_proxy ? sc->proxy : sc->server;
 
@@ -365,7 +387,7 @@ int ssl_init_ssl_connection(conn_rec *c)
         ap_log_cerror(APLOG_MARK, APLOG_ERR, 0, c,
                       "Unable to create a new SSL connection from the SSL "
                       "context");
-        ssl_log_ssl_error(APLOG_MARK, APLOG_ERR, c->base_server);
+        ssl_log_ssl_error(APLOG_MARK, APLOG_ERR, server);
 
         c->aborted = 1;
 
@@ -380,7 +402,7 @@ int ssl_init_ssl_connection(conn_rec *c)
     {
         ap_log_cerror(APLOG_MARK, APLOG_ERR, 0, c,
                       "Unable to set session id context to `%s'", vhost_md5);
-        ssl_log_ssl_error(APLOG_MARK, APLOG_ERR, c->base_server);
+        ssl_log_ssl_error(APLOG_MARK, APLOG_ERR, server);
 
         c->aborted = 1;
 
@@ -429,9 +451,15 @@ static apr_port_t ssl_hook_default_port(const request_rec *r)
 
 static int ssl_hook_pre_connection(conn_rec *c, void *csd)
 {
-    SSLSrvConfigRec *sc = mySrvConfig(c->base_server);
+    SSLSrvConfigRec *sc;
     SSLConnRec *sslconn = myConnConfig(c);
 
+    if (sslconn) {
+        sc = mySrvConfig(sslconn->server);
+    }
+    else {
+        sc = mySrvConfig(c->base_server);
+    }
     /*
      * Immediately stop processing if SSL is disabled for this connection
      */

@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 46;
+	objectVersion = 44;
 	objects = {
 
 /* Begin PBXBuildFile section */
@@ -117,7 +117,7 @@
 		021C9E2B000BD0CF11CA285C /* Project object */ = {
 			isa = PBXProject;
 			buildConfigurationList = 2D5B7F6108F71A3A0031C32D /* Build configuration list for PBXProject "IOSerialFamily" */;
-			compatibilityVersion = "Xcode 3.2";
+			compatibilityVersion = "Xcode 3.0";
 			hasScannedForEncodings = 0;
 			mainGroup = 021C9E2C000BD0CF11CA285C /* IOSerialFamily */;
 			productRefGroup = 021C9E44000BD0CF11CA285C /* Products */;

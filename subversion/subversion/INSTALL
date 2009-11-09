@@ -3,7 +3,7 @@
                           A Quick Guide
                ======================================
 
-$LastChangedDate: 2009-02-23 01:38:23 +0000 (Mon, 23 Feb 2009) $
+$LastChangedDate: 2009-06-08 17:55:35 +0000 (Mon, 08 Jun 2009) $
 
 
 Contents:
@@ -381,7 +381,7 @@ I.    INTRODUCTION
            then there should be a file
            "/usr/local/myneon/bin/neon-config".
 
-        b. Serf library 0.1.2 or newer (http://code.google.com/p/serf/)
+        b. Serf library 0.3.0 or newer (http://code.google.com/p/serf/)
 
            serf is a library for HTTP and WebDAV which is an
            alternative to Neon for accessing Subversion repositories

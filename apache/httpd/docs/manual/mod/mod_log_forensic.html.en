@@ -146,7 +146,7 @@ version 2.1</td></tr></table>
 
       <div class="note"><h3>Note</h3>
         <p>When entering a file path on non-Unix platforms, care should be taken
-        to make sure that only forward slashed are used even though the platform
+        to make sure that only forward slashes are used even though the platform
         may allow the use of back slashes. In general it is a good idea to always 
         use forward slashes throughout the configuration files.</p>
       </div></dd>
@@ -159,6 +159,6 @@ version 2.1</td></tr></table>
 <a href="../ja/mod/mod_log_forensic.html" hreflang="ja" rel="alternate" title="Japanese">&nbsp;ja&nbsp;</a> |
 <a href="../tr/mod/mod_log_forensic.html" hreflang="tr" rel="alternate" title="Türkçe">&nbsp;tr&nbsp;</a></p>
 </div><div id="footer">
-<p class="apache">Copyright 2008 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
+<p class="apache">Copyright 2009 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
 <p class="menu"><a href="../mod/">Modules</a> | <a href="../mod/directives.html">Directives</a> | <a href="../faq/">FAQ</a> | <a href="../glossary.html">Glossary</a> | <a href="../sitemap.html">Sitemap</a></p></div>
 </body></html>

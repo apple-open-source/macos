@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.0">
+<trk>
+	<name>UTC +12 (all year) Figi #2</name>
+	<trkseg>
+		<trkpt lon="177.626953125" lat="-16.4782301278"></trkpt>
+		<trkpt lon="178.604736328" lat="-17.1197925008"></trkpt>
+		<trkpt lon="178.9453125" lat="-17.7800741266"></trkpt>
+		<trkpt lon="178.901367188" lat="-18.8854979775"></trkpt>
+		<trkpt lon="178.549804688" lat="-19.6011941613"></trkpt>
+		<trkpt lon="177.176513672" lat="-19.5494374681"></trkpt>
+		<trkpt lon="176.572265625" lat="-18.8647068784"></trkpt>
+		<trkpt lon="176.495361328" lat="-17.821915516"></trkpt>
+		<trkpt lon="176.715087891" lat="-17.0567846099"></trkpt>
+		<trkpt lon="177.626953125" lat="-16.4782301278"></trkpt>
+	</trkseg>
+</trk>
+</gpx>

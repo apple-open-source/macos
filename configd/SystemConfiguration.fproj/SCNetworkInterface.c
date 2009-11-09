@@ -503,8 +503,19 @@ __SCNetworkInterfaceEqual(CFTypeRef cf1, CFTypeRef cf2)
 		return FALSE; // if not the same device
 	}
 
-	if (!_SC_CFEqual(if1->entity_device_unique, if2->entity_device_unique)) {
-		return FALSE; // if not the same device unique identifier
+	if ((if1->entity_device_unique != NULL) && (if2->entity_device_unique != NULL)) {
+		if (!_SC_CFEqual(if1->entity_device_unique, if2->entity_device_unique)) {
+			return FALSE; // if not the same device unique identifier
+		}
+	} else if ((if1->entity_device_unique != NULL) || (if2->entity_device_unique != NULL)) {
+		CFStringRef	name1;
+		CFStringRef	name2;
+
+		name1 = __SCNetworkInterfaceGetNonLocalizedDisplayName((SCNetworkInterfaceRef)if1);
+		name2 = __SCNetworkInterfaceGetNonLocalizedDisplayName((SCNetworkInterfaceRef)if2);
+		if ((name1 != NULL) && (name2 != NULL) && !_SC_CFEqual(name1, name2)) {
+			return FALSE; // if same device but not the same display name
+		}
 	}
 
 #if	!TARGET_OS_IPHONE
@@ -2755,9 +2766,10 @@ _SCNetworkInterfaceCreateWithEntity(CFAllocatorRef		allocator,
 {
 	SCNetworkInterfacePrivateRef	interfacePrivate	= NULL;
 	CFStringRef			ifDevice;
-	CFStringRef			ifUnique;
+	CFStringRef			ifName			= NULL;
 	CFStringRef			ifSubType;
 	CFStringRef			ifType;
+	CFStringRef			ifUnique;
 	CFArrayRef			matching_interfaces	= NULL;
 
 	/* initialize runtime (and kSCNetworkInterfaceIPv4) */
@@ -2838,6 +2850,42 @@ _SCNetworkInterfaceCreateWithEntity(CFAllocatorRef		allocator,
 			// note: the "matching" dictionary will be consumed by the following
 			matching_interfaces = findMatchingInterfaces(matching, processSerialInterface);
 
+			if (ifUnique == NULL) {
+				CFIndex	n;
+				Boolean	useDeviceName	= TRUE;
+
+				n = (matching_interfaces != NULL) ? CFArrayGetCount(matching_interfaces) : 0;
+				if (n > 0) {
+					CFIndex	i;
+
+					for (i = 0; i < n; i++) {
+						SCNetworkInterfacePrivateRef	scanPrivate;
+
+						scanPrivate = (SCNetworkInterfacePrivateRef)CFArrayGetValueAtIndex(matching_interfaces, i);
+						if (scanPrivate->entity_device_unique != NULL) {
+							useDeviceName = FALSE;
+							break;
+						}
+					}
+				}
+
+				if (useDeviceName) {
+					if (matching_interfaces != NULL) {
+						CFRelease(matching_interfaces);
+					}
+
+					match_keys[1] = CFSTR(kIOTTYDeviceKey);
+					matching = CFDictionaryCreate(NULL,
+								      (const void **)match_keys,
+								      (const void **)match_vals,
+								      sizeof(match_keys)/sizeof(match_keys[0]),
+								      &kCFTypeDictionaryKeyCallBacks,
+								      &kCFTypeDictionaryValueCallBacks);
+
+					// note: the "matching" dictionary will be consumed by the following
+					matching_interfaces = findMatchingInterfaces(matching, processSerialInterface);
+				}
+			}
 		} else if (CFEqual(ifSubType, kSCValNetInterfaceSubTypeL2TP)) {
 			interfacePrivate = (SCNetworkInterfacePrivateRef)SCNetworkInterfaceCreateWithInterface(kSCNetworkInterfaceIPv4,
 													       kSCNetworkInterfaceTypeL2TP);
@@ -2903,18 +2951,49 @@ _SCNetworkInterfaceCreateWithEntity(CFAllocatorRef		allocator,
 				if (ifUnique != NULL) {
 					CFIndex	i;
 
+					// we are looking for an interface with a unique ID
+					// so let's try to focus our choices
 					for (i = 0; i < n; i++) {
-						SCNetworkInterfacePrivateRef	scan;
+						SCNetworkInterfacePrivateRef	scanPrivate;
 
-						scan = (SCNetworkInterfacePrivateRef)CFArrayGetValueAtIndex(matching_interfaces, i);
-						if (_SC_CFEqual(ifUnique, scan->entity_device_unique)) {
+						scanPrivate = (SCNetworkInterfacePrivateRef)CFArrayGetValueAtIndex(matching_interfaces, i);
+						if (_SC_CFEqual(ifUnique, scanPrivate->entity_device_unique)) {
 							if (interfacePrivate != NULL) {
 								// if we've matched more than one interface
 								interfacePrivate = NULL;
 								break;
 							}
-							interfacePrivate = scan;
+							interfacePrivate = scanPrivate;
 						}
+					}
+				} else if (CFDictionaryGetValueIfPresent(interface_entity,
+									kSCPropUserDefinedName,
+									(const void **)&ifName)) {
+					CFIndex	i;
+
+					// we don't have a unique ID but do have an interface
+					// name.  If the matching interfaces do have IDs than
+					// we can try to focus our choices using the name
+					for (i = 0; i < n; i++) {
+						SCNetworkInterfacePrivateRef	scanPrivate;
+
+						scanPrivate = (SCNetworkInterfacePrivateRef)CFArrayGetValueAtIndex(matching_interfaces, i);
+						if (scanPrivate->entity_device_unique != NULL) {
+							SCNetworkInterfaceRef	scan	= (SCNetworkInterfaceRef)scanPrivate;
+							CFStringRef		scanName;
+
+							scanName = __SCNetworkInterfaceGetNonLocalizedDisplayName(scan);
+							if ((scanName != NULL) && !_SC_CFEqual(ifName, scanName)) {
+								continue; // if not the same display name
+							}
+						}
+
+						if (interfacePrivate != NULL) {
+							// if we've matched more than one interface
+							interfacePrivate = NULL;
+							break;
+						}
+						interfacePrivate = scanPrivate;
 					}
 				}
 				if (interfacePrivate == NULL) {

@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.0">
+<trk>
+	<name>UTC -11 (all year) WST</name>
+	<trkseg>
+		<trkpt lon="-171.331787109" lat="-13.2292509589"></trkpt>
+		<trkpt lon="-171.331787109" lat="-14.1365756515"></trkpt>
+		<trkpt lon="-173.056640625" lat="-14.1259217806"></trkpt>
+		<trkpt lon="-173.078613281" lat="-13.1971645233"></trkpt>
+		<trkpt lon="-171.331787109" lat="-13.2292509589"></trkpt>
+	</trkseg>
+</trk>
+</gpx>

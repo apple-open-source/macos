@@ -307,7 +307,6 @@ static int pop3_getauth(int sock, struct query *ctl, char *greeting)
     char *challenge;
 #endif /* OPIE_ENABLE */
 #ifdef SSL_ENABLE
-    char *realhost = ctl->server.via ? ctl->server.via : ctl->server.pollname;
     flag connection_may_have_tls_errors = FALSE;
     flag got_tls = FALSE;
 #endif /* SSL_ENABLE */
@@ -329,6 +328,12 @@ static int pop3_getauth(int sock, struct query *ctl, char *greeting)
 
     /* Set this up before authentication quits early. */
     set_peek_capable(ctl);
+
+    /* Hack: allow user to force RETR. */
+    if (peek_capable && getenv("FETCHMAIL_POP3_FORCE_RETR")) {
+	peek_capable = 0;
+    }
+
     /*
      * The "Maillennium POP3/PROXY server" deliberately truncates
      * TOP replies after c. 64 or 80 kByte (we have varying reports), so
@@ -449,7 +454,7 @@ static int pop3_getauth(int sock, struct query *ctl, char *greeting)
 			report(stderr, GT_("TLS is mandatory for this session, but server refused CAPA command.\n"));
 			report(stderr, GT_("The CAPA command is however necessary for TLS.\n"));
 			return ok;
-		    } else {
+		    } else if (maybe_tls(ctl)) {
 			/* defeat opportunistic STLS */
 			xfree(ctl->sslproto);
 			ctl->sslproto = xstrdup("");
@@ -470,6 +475,14 @@ static int pop3_getauth(int sock, struct query *ctl, char *greeting)
 
 #ifdef SSL_ENABLE
 	if (maybe_tls(ctl)) {
+	    char *commonname;
+
+	    commonname = ctl->server.pollname;
+	    if (ctl->server.via)
+		commonname = ctl->server.via;
+	    if (ctl->sslcommonname)
+		commonname = ctl->sslcommonname;
+
 	   if (has_stls)
 	   {
 	       /* Use "tls1" rather than ctl->sslproto because tls1 is the only
@@ -478,7 +491,7 @@ static int pop3_getauth(int sock, struct query *ctl, char *greeting)
 		* (see below). */
 	       if (gen_transact(sock, "STLS") == PS_SUCCESS
 		       && SSLOpen(sock, ctl->sslcert, ctl->sslkey, "tls1", ctl->sslcertck,
-			   ctl->sslcertpath, ctl->sslfingerprint, realhost,
+			   ctl->sslcertpath, ctl->sslfingerprint, commonname,
 			   ctl->server.pollname, &ctl->remotename) != -1)
 	       {
 		   /*
@@ -502,7 +515,7 @@ static int pop3_getauth(int sock, struct query *ctl, char *greeting)
 		   }
 		   if (outlevel >= O_VERBOSE)
 		   {
-		       report(stdout, GT_("%s: upgrade to TLS succeeded.\n"), realhost);
+		       report(stdout, GT_("%s: upgrade to TLS succeeded.\n"), commonname);
 		   }
 	       }
 	   }
@@ -511,7 +524,7 @@ static int pop3_getauth(int sock, struct query *ctl, char *greeting)
 	       if (must_tls(ctl)) {
 		   /* Config required TLS but we couldn't guarantee it, so we must
 		    * stop. */
-		   report(stderr, GT_("%s: upgrade to TLS failed.\n"), realhost);
+		   report(stderr, GT_("%s: upgrade to TLS failed.\n"), commonname);
 		   return PS_SOCKET;
 	       } else {
 		   /* We don't know whether the connection is usable, and there's
@@ -522,11 +535,11 @@ static int pop3_getauth(int sock, struct query *ctl, char *greeting)
 		   connection_may_have_tls_errors = TRUE;
 		   if (outlevel >= O_VERBOSE)
 		   {
-		       report(stdout, GT_("%s: opportunistic upgrade to TLS failed, trying to continue.\n"), realhost);
+		       report(stdout, GT_("%s: opportunistic upgrade to TLS failed, trying to continue.\n"), commonname);
 		   }
 	       }
 	   }
-	}
+	} /* maybe_tls() */
 #endif /* SSL_ENABLE */
 
 	/*
@@ -674,7 +687,7 @@ static int pop3_getauth(int sock, struct query *ctl, char *greeting)
 	}
 
 	/* copy timestamp and password into digestion buffer */
-	msg = xmalloc((end-start+1) + strlen(ctl->password) + 1);
+	msg = (char *)xmalloc((end-start+1) + strlen(ctl->password) + 1);
 	strcpy(msg,start);
 	strcat(msg,ctl->password);
 	strcpy(ctl->digest, MD5Digest((unsigned char *)msg));
@@ -758,7 +771,7 @@ static int pop3_gettopid(int sock, int num , char *id, size_t idsize)
     int got_it;
     char buf [POPBUFSIZE+1];
     snprintf(buf, sizeof(buf), "TOP %d 1", num);
-    if ((ok = gen_transact(sock, buf )) != 0)
+    if ((ok = gen_transact(sock, "%s", buf)) != 0)
        return ok;
     got_it = 0;
     while ((ok = gen_recv(sock, buf, sizeof(buf))) == 0) 

@@ -1,7 +1,7 @@
 /*
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * Copyright (c) 1999-2009 Apple Computer, Inc.  All Rights Reserved.
  * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
@@ -97,6 +97,7 @@
 #define _scrollType                         _reserved->scrollType
 #define _scrollZoomMask                     _reserved->scrollZoomMask
 #define _scrollOff                          _reserved->scrollOff
+#define _lastScrollWasZoom                  _reserved->lastScrollWasZoom
 
 #define _scrollWheelInfo                    _reserved->scrollWheelInfo
 #define _scrollPointerInfo                  _reserved->scrollPointerInfo
@@ -954,17 +955,28 @@ void IOHIPointing::dispatchScrollWheelEventWithAccelInfo(
     // Post the raw event to IOHIDPointingDevice
     if (_hidPointingNub)
         _hidPointingNub->postMouseEvent(0, 0, 0, deltaAxis1);
-        
-    if (_isSeized)
-    {
+    
+    if (_isSeized) {
         DEVICE_UNLOCK;
         return;
     }
-
-    if ( _scrollZoomMask && ((SPECIALKEYS_MODIFIER_MASK & eventFlags) == _scrollZoomMask) )
-        _scrollType = kScrollTypeZoom;
-     
-     if ( _scrollType != kScrollTypeZoom && _scrollOff ) {
+    
+    if (_scrollZoomMask) {
+        bool isModifiedToZoom = ((SPECIALKEYS_MODIFIER_MASK & eventFlags) == _scrollZoomMask);
+        bool isMomentum = (0 != (_scrollType & kScrollTypeMomentumAny));
+        if ((isMomentum && _lastScrollWasZoom) || (isModifiedToZoom && !isMomentum)) {
+            _lastScrollWasZoom = true;
+            _scrollType |= kScrollTypeZoom;
+        }
+        else {
+            _lastScrollWasZoom = false;
+        }
+    }
+    else {
+        _lastScrollWasZoom = false;
+    }
+    
+    if (!(_scrollType & kScrollTypeZoom) && _scrollOff ) {
         DEVICE_UNLOCK;
         return;
     }
@@ -1061,7 +1073,7 @@ void IOHIPointing::dispatchScrollWheelEventWithAccelInfo(
     
     _scrollType |= (isHighResScroll) ? kScrollTypeContinuous : 0;
     
-    _scrollWheelEvent(	this,
+    _scrollWheelEvent(  this,
                         deltaAxis1,
                         deltaAxis2,
                         deltaAxis3,
@@ -1074,7 +1086,7 @@ bool IOHIPointing::updateProperties( void )
     bool	ok;
     UInt32	res = resolution();
 
-    ok = setProperty( kIOHIDPointerResolutionKey, &res, sizeof( res))
+    ok = setProperty( kIOHIDPointerResolutionKey, res, 32)
     &    setProperty( kIOHIDPointerConvertAbsoluteKey, &_convertAbsoluteToRelative,
                         sizeof( _convertAbsoluteToRelative))
     &    setProperty( kIOHIDPointerContactToMoveKey, &_contactToMove,
@@ -1112,9 +1124,15 @@ IOReturn IOHIPointing::setParamProperties( OSDictionary * dict )
         _scrollZoomMask = number->unsigned32BitValue() & SPECIALKEYS_MODIFIER_MASK;
     }
     
-    if((number = OSDynamicCast( OSNumber, dict->getObject("TrackpadScroll"))) && scrollAccelKey && scrollAccelKey->isEqualTo(kIOHIDTrackpadScrollAccelerationKey)) 
+    number = OSDynamicCast( OSNumber, dict->getObject(kIOHIDDeviceScrollWithTrackpadKey));
+    if((number) && scrollAccelKey && scrollAccelKey->isEqualTo(kIOHIDTrackpadScrollAccelerationKey)) 
     {   
         _scrollOff = number->unsigned32BitValue() == 0;
+    }
+    
+    number = OSDynamicCast(OSNumber, dict->getObject(kIOHIDDeviceScrollDisableKey));
+    if (number) {
+        _scrollOff = number->unsigned32BitValue() != 0;
     }
     
     if( pointerAccelKey && 

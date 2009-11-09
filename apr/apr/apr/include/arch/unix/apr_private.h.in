@@ -72,6 +72,9 @@
 /* Define if getservbyname_r has the Solaris style */
 #undef GETSERVBYNAME_R_SOLARIS
 
+/* Define if accept4 function is supported */
+#undef HAVE_ACCEPT4
+
 /* Define to 1 if you have `alloca', as a function or macro. */
 #undef HAVE_ALLOCA
 
@@ -125,11 +128,17 @@
 /* Define to 1 if you have the <dl.h> header file. */
 #undef HAVE_DL_H
 
+/* Define if dup3 function is supported */
+#undef HAVE_DUP3
+
 /* Define if EGD is supported */
 #undef HAVE_EGD
 
 /* Define if the epoll interface is supported */
 #undef HAVE_EPOLL
+
+/* Define if epoll_create1 function is supported */
+#undef HAVE_EPOLL_CREATE1
 
 /* Define to 1 if you have the <errno.h> header file. */
 #undef HAVE_ERRNO_H
@@ -466,6 +475,9 @@
 
 /* Whether you have socklen_t */
 #undef HAVE_SOCKLEN_T
+
+/* Define if the SOCK_CLOEXEC flag is supported */
+#undef HAVE_SOCK_CLOEXEC
 
 /* Define if SO_ACCEPTFILTER is defined in sys/socket.h */
 #undef HAVE_SO_ACCEPTFILTER

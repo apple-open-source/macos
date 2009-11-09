@@ -953,6 +953,7 @@ isakmp_info_send_nx(isakmp, remote, local, type, data)
 		plog(LLV_ERROR, LOCATION, NULL,
 			 "failed to copy ph1 addresses");
 		error = -1;
+		iph1 = NULL; /* deleted in copy_ph1addresses */
 		goto end;
 	}
 

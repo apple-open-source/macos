@@ -109,7 +109,6 @@ krb5_gss_import_sec_context(minor_status, interprocess_token, context_handle)
     krb5_free_context(context);
     if (kret) {
         *minor_status = (OM_uint32) kret;
-        save_error_info(*minor_status, context);
         return(GSS_S_FAILURE);
     }
 

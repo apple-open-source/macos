@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.0">
+<trk>
+	<name>UTC +6 (all year) MAWT</name>
+	<trkseg>
+		<trkpt lon="54.7998046875" lat="-65.3118292538"></trkpt>
+		<trkpt lon="67.8076171875" lat="-65.9464717762"></trkpt>
+		<trkpt lon="67.5" lat="-75.4971573189"></trkpt>
+		<trkpt lon="54.931640625" lat="-75.5191512595"></trkpt>
+		<trkpt lon="54.7998046875" lat="-65.3118292538"></trkpt>
+	</trkseg>
+</trk>
+</gpx>

@@ -24,16 +24,16 @@ content="Frequently asked questions about fetchmail."/>
 <tr>
 <td width="30%">Back to <a href="index.html">Fetchmail Home
 Page</a></td>
-<td width="30%" align="right">$Date: 2007-04-06 20:01:39 +0200 (Fr, 06 Apr 2007) $</td>
+<td width="30%" align="right">$Date: 2009-06-20 11:57:41 +0200 (Sa, 20. Jun 2009) $</td>
 </tr>
 </table>
 
 <hr/>
 <h1 id="FAQ">Frequently Asked Questions About Fetchmail</h1>
 
-<p>Before reporting any bug, please read <a href="#G3">G3</a> for
-advice on how to include diagnostic information that will get your
-bug fixed as quickly as possible.</p>
+<p><strong>Support? Bug reports?</strong> Please read <a
+href="#G3">G3</a> for what information is required to get your problem
+solved as quickly as possible.</p>
 
 <p>Note that this FAQ is occasionally updated from the SVN repository
 and speaks in the past tense ("since") about a fetchmail release that is
@@ -70,9 +70,9 @@ below).</p>
 
 <a href="#G1">G1. What is fetchmail and why should I bother?</a><br/>
 <a href="#G2">G2. Where do I find the latest FAQ and fetchmail sources?</a><br/>
-<a href="#G3">G3. I think I've found a bug. Will you fix it?</a><br/>
+<a href="#G3">G3. Something doesn't work/I think I've found a bug. Will you fix it?</a><br/>
 <a href="#G4">G4. I have this idea for a neat feature. Will you add it?</a><br/>
-<a href="#G5">G5. I want to make fetchmail behave like Outlook Express.</a><br/>
+<a href="#G5">G5. I want to make fetchmail remove kept mail after some days.</a><br/>
 <a href="#G6">G6. Is there a mailing list for exchanging tips?</a><br/>
 <a href="#G7">G7. So, what's this I hear about a fetchmail paper?</a><br/>
 <a href="#G8">G8. What is the best server to use with fetchmail?</a><br/>
@@ -115,8 +115,9 @@ often than others?</a><br/>
 <a href="#C6">C6. Fetchmail works OK started up manually, but not
 from an init script.</a><br/>
 <a href="#C7">C7. How can I forward mail to another
-host?.</a><br/>
-
+host?</a><br/>
+<a href="#C8">C8. Why is "NOMAIL" an error?/I frequently get messages
+from cron!</a><br/>
 
 <h2 id="C_T">How to make fetchmail play nice with various MTAs</h2>
 
@@ -150,6 +151,7 @@ host?.</a><br/>
 <a href="#I7">I7. How can I use fetchmail with SpryNet?</a><br/>
 <a href="#I8">I8. How can I use fetchmail with comcast.net or other
     Maillennium servers?</a><br/>
+<a href="#I9">I9. How can I use fetchmail with GMail/Google Mail?</a><br/>
 
 <h2 id="C_K">How to set up well-known security and authentication
 methods</h2>
@@ -277,6 +279,8 @@ immediately" in my logs.</a><br/>
 <a href="#O16">O16. Why is the Fetchmail FAQ only available in
 	ISO-216 A4 format? How do I get the FAQ in Letter
 	format?</a><br/>
+<a href="#O17">O17. Linux logs "TCP(fetchmail:...): Application bug, race
+    in MSG_PEEK."</a><br/>
 
 <hr/>
 <h1 id="G">General problems</h1>
@@ -333,8 +337,7 @@ POP mail tools directory on iBiblio</a>.</p>
 distribution. Because it freezes at distribution release time, it
 may not be completely current.</p>
 
-<h2><a id="G3" name="G3">G3. I think I've found a bug. Will you fix
-it?</a></h2>
+<h2><a id="G3" name="G3">G3. Something does not work/I think I've found a bug. Will you fix it?</a></h2>
 
 <p>The first thing you should to is to upgrade to the newest version of
 fetchmail, and then see if the problem reproduces. So you'll probably
@@ -353,15 +356,22 @@ When reporting bugs, please include the following:</p>
 name and origin of the RPM or other binary package you
 installed.</li>
 
-<li>A copy of your POP or IMAP server's greeting line.</li>
-
 <li>The name and version of the SMTP listener or MDA you are
 forwarding to.</li>
 
 <li>Any command-line options you used.</li>
 
-<li>The output of fetchmail -V called with whatever other
-command-line options you used.</li>
+<li>The output of <kbd>env LC_ALL=C fetchmail -V</kbd> called with
+whatever other command-line options you used.</li>
+
+<li><strong>The output of <kbd>env LC_ALL=C fetchmail --nodetach -vvv
+--nosyslog</kbd> with whatever other command-line options you use
+routinely.</strong>
+ <p>It is very important that the transcript include your
+POP/IMAP server's greeting line, so I can identify it in case of server
+problems. This transcript will not reveal your passwords, which are
+specially masked out precisely so transcripts can be passed around.</p>
+</li>
 </ol>
 
 <p>If you have FTP access to your remote mail account, and you have
@@ -379,22 +389,17 @@ introduced in the upper half of the sequence; if it doesn't, the
 failure was introduced in the lower half. Now bisect that half in
 the same way. In a very few tries, you should be able to identify
 the exact adjacent pair of versions between which your bug was
-introduced &ndash; and with information like that, I can usually come up
-with a fix very quickly.</p>
+introduced. <strong>Please</strong> include session transcripts (as
+described in the last bullet point above) of <strong>both
+the working and failing versions.</strong> Often, the source of the problem
+can instantly identified by looking at the differences in protocol
+transactions.</p>
 
-<p>Another useful thing you can do, if you're using POP3, is to
-test for IMAP4 support on your mailserver using the autoprobe
-function of fetchmailconf. If you have IMAP4, and fetchmailconf
-doesn't tell you it's broken, switch immediately. POP3 is a weak,
-poorly-designed protocol with chronic problems, and the later
-versions after RFC1725 actually get worse rather than better.
-Changing over to IMAP4 may well make your problem go away &ndash; and if
-your ISP doesn't have IMAP4 support, bug them to supply it.</p>
-
-<p>It is helpful if you include your .fetchmailrc file, but not
+<p>It may helpful if you include your .fetchmailrc file, but not
 necessary unless your symptom seems to involve an error in
 configuration parsing. If you do send in your .fetchmailrc, mask
-the passwords first!</p>
+the passwords first! Otherwise, fetchmail -V &ndash; as directed above
+&ndash; will usually suffice.</p>
 
 <p>If fetchmail seems to run and fetch mail, but the headers look
 mangled (that is, headers are missing or blank lines are inserted
@@ -404,19 +409,6 @@ attention to the item on <a href="#generic_mangling">diagnosing
 mail mangling</a>. There are lots of ways for other programs in the
 mail chain to screw up that look like fetchmail's fault, but you
 may be able to fix these by tweaking your configuration.</p>
-
-<p>A transcript of the failed session with "--nosyslog --nodetach -vvv"
-(yes, that's <em>three</em> -v options, enabling debug mode) will almost
-always be useful. It is very important that the transcript include your
-POP/IMAP server's greeting line, so I can identify it in case of server
-problems. This transcript will not reveal your passwords, which are
-specially masked out precisely so transcripts can be passed around.</p>
-
-<p>If you upgraded your fetchmail and something broke, you should
-include session transcripts with "--nosyslog --nodetach -vvv" of both
-the working and failing versions. Very often, the source of the problem
-can instantly identified by looking at the differences in protocol
-transactions.</p>
 
 <p>If the bug involves a core dump or hang, a gdb stack trace is
 good to have. (Bear in mind that you can attach gdb to a running
@@ -469,17 +461,20 @@ href="esrs-design-notes.html">ESR's design
 notes</a>. Note that this document is partially obsoleted by the
 <a href="design-notes.html">updated design notes.</a></p>
 
-<h2><a id="G5" name="G5">G5. I want to make fetchmail behave like
-Outlook Express.</a></h2>
+<h2><a id="G5" name="G5">G5. I want to make fetchmail remove kept mail after
+some days.</a></h2>
 
 <p>The second-most-requested feature for fetchmail, after
 content-based filtering, is the ability to have it remove messages
 from a maildrop after N days, typically to be used with the
-<code>keep</code> option as a sort of poor man's newsgroup
-facility. Microsoft's Outlook Express supports this.</p>
+<code>keep</code> option. Several messaging programs with graphical
+user interface support this feature.</p>
 
 <p>This feature is not yet implemented. It may be at a future date,
 spare time of developers permitting.</p>
+
+<p>For the time being, the contrib/ directory contains some <em>unsupported</em>
+  tools that may help, namely mold-remover.py and delete-later.</p>
 
 <h2><a id="G6" name="G6">G6. Is there a mailing list for exchanging
 tips?</a></h2>
@@ -487,14 +482,16 @@ tips?</a></h2>
 <p>There is a fetchmail-users list
 &lt;fetchmail-users@lists.berlios.de&gt;
 for bug reports and people who want to discuss configuration issues of
-fetchmail. It's a Mailman list, see <a
-    href="http://lists.berlios.de/mailman/listinfo/fetchmail-users">http://lists.berlios.de/mailman/listinfo/fetchmail-users</a>.</p>
+fetchmail. Please see <a href="#G3">G3 above for information you need to
+report.</a> It's a Mailman list, see <a
+    href="http://lists.berlios.de/mailman/listinfo/fetchmail-users">http://lists.berlios.de/mailman/listinfo/fetchmail-users</a>
+for info and subscription.</p>
 <p>There is a fetchmail-devel list
 &lt;fetchmail-devel@lists.berlios.de&gt; for people who want to discuss
 fixes and improvements in fetchmail and help co-develop it. It's a
 Mailman list, which you can sign up for at <a
-href="http://lists.berlios.de/mailman/listinfo/fetchmail-devel">http://lists.berlios.de/mailman/listinfo/fetchmail-devel</a>.
-There is also an announcements-only list,
+href="http://lists.berlios.de/mailman/listinfo/fetchmail-devel">http://lists.berlios.de/mailman/listinfo/fetchmail-devel</a>.</p>
+<p>There is also an announcements-only list,
 &lt;fetchmail-announce@lists.berlios.de&gt;, which you can sign up for at <a
 href="http://lists.berlios.de/mailman/listinfo/fetchmail-announce">http://lists.berlios.de/mailman/listinfo/fetchmail-announce</a>.</p>
 
@@ -1274,7 +1271,7 @@ mainsite.example.com is polled, which with a polling interval of
 every 5 minutes means that secondary.example.com will be polled
 every 30 minutes.</p>
 
-<h2><a id="C6" name="C6">Fetchmail works OK started up manually,
+<h2><a id="C6" name="C6">C6. Fetchmail works OK started up manually,
 but not from an init script.</a></h2>
 
 <p>Often, startup scripts have a different environment than an
@@ -1293,6 +1290,37 @@ host?</a></h2>
 <p>To forward mail to a host other than the one you are running
 fetchmail on, use the <code>smtphost</code> or
 <code>smtpname</code> option. See the manual page for details.</p>
+
+<h2><a id="C8" name="C8">C8. Why is "NOMAIL" an error?/I frequently get messages
+from cron!</a></h2>
+
+<p>Some users want to write scripts that take action only if mail
+could/could not be retrieved, thus fetchmail reports if it has retrieved
+messages or not.</p>
+
+<p>If you do not want "no mail" to be an error condition (for instance,
+for cron jobs), use a POSIX-compliant shell and add this to the end of
+the fetchmail command line, it will change an exit code of 1 to 0 and
+others to 1:</p>
+<pre>
+|| [ $? -eq 1 ]
+</pre>
+
+<p>If you want to map more than one code to 0, you cannot cascade multiple
+<strong>|| [ $? -eq N ]</strong>, but you must instead use the
+<strong>-o</strong> operator inside the brackets, (see the test(1)
+manpage for details), such as:</p>
+
+<pre>
+|| [ $? -eq 1 -o $? -eq 9 ]
+</pre>
+
+<p>A full cron line might then look like this:</p>
+
+<pre>
+*/15 * * * * fetchmail -s || [ $? -eq 1 ]
+</pre>
+
 
 <hr/>
 <h1>How to make fetchmail play nice with various MTAs</h1>
@@ -1967,6 +1995,16 @@ sites.)</p>
 
 <p>Workaround for older versions: use the <tt>fetchall</tt> option.</p>
 
+<h2><a id="I9" name="I9">I9. How can I use fetchmail with GMail/Google Mail?</a></h2>
+
+<p>Google's IMAP servers, as of April 2008, are broken and re-encode
+MIME-encoded headers improperly and are not feature-complete yet. The
+model how their servers organize mail also deviates in significant ways
+from what the POP3 or IMAP protocol 'fathers' conceived. This means all
+sorts of strange effects, for instance, your sent mail may show up in
+the mail that fetchmail fetches. It's best to avoid fetching mail from
+Google until they are using standards-compliant software.</p>
+
 <hr/>
 <h1>How to set up well-known security and authentication
 methods</h1>
@@ -2075,10 +2113,10 @@ SSL?</a></h2>
 href="http://www.openssl.org/">OpenSSL</a> libraries installed, and they
 should at least be version 0.9.6.
 Configure with --with-ssl. If you have the OpenSSL libraries
-installed in the default location (/usr/local/ssl) ths will
+installed in commonly-used default locations, this will
 suffice. If you have them installed in a non-default location,
-you'll need to specify it as an argument to --with-ssl after an
-equal sign.</p>
+you'll need to specify the OpenSSL installation directory as an argument
+to --with-ssl after an equal sign.</p>
 
 <p>Fetchmail binaries built this way support <code>ssl</code>,
 <code>sslkey</code>, and <code>sslcert</code> options that control
@@ -2674,7 +2712,8 @@ chop the host part off any local addresses in the list.</p>
 <h2><a id="M4" name="M4"><strike>M4. My multidrop fetchmail seems to be
 having DNS problems.</strike></a></h2>
 
-<p>The answer that used to be here no longer applies to fetchmail.</p>
+<p><em>The answer that used to be here no longer applies to
+    fetchmail.</em></p>
 
 <h2><a id="M5" name="M5">M5. I'm seeing long DNS delays before each
 message is processed.</a></h2>
@@ -2968,11 +3007,8 @@ on <a href="#G3">reporting bugs</a>.</p>
 <h2><a id="X5" name="X5"><strike>X5. Using POP3, retrievals seems to be
 	fetching too much!</strike></a></h2>
 
-<p>The information that used to be here pertained to fetchmail 4.4.7 or
-older, which should not be used. Use a recent fetchmail version.</p>
-
-<p>Workaround: set the <code>fetchall</code> option. Under POP3
-this has the side effect of forcing RETR use.</p>
+<p><em>The information that used to be here pertained to fetchmail 4.4.7 or
+    older, which should not be used. Use a recent fetchmail version.</em></p>
 
 <h2><a id="X6" name="X6">X6. My mail attachments are being dropped
 or mangled.</a></h2>
@@ -3361,9 +3397,9 @@ messages seen or delete them. The solution is to either (a) wait
 for the other client to finish, or (b) terminate it.</p>
 
 <h2><a id="O10" name="O10"><strike>O10. Why is the received date on all my
-	messages the same?i</strike></a></h2>
+	messages the same?</strike></a></h2>
 
-<p>The answer that used to be here made no sense.</p>
+<p><em>The answer that used to be here made no sense and was dropped.</em></p>
 
 <h2><a name="O11">O11. I keep getting messages that say "Repoll
 immediately" in my logs.</a></h2>
@@ -3487,13 +3523,18 @@ favorite text editor, replace <samp>--size A4</samp> by <samp>--size
 make fetchmail-FAQ.pdf
 </pre>
 
+<h2><a name="O17">O17. Linux logs "TCP(fetchmail:...): Application bug, race
+    in MSG_PEEK."</a></h2>
+<p>That's in fact a bug in Linux kernels around the late 2.6.2X versions,
+rather than fetchmail.  Fetchmail has no race bugs around MSG_PEEK,
+as of version 6.3.9. The message can safely be ignored.</p>
 <hr/>
 
 <table width="100%" cellpadding="0" summary="Canned page footer">
 <tr>
 <td width="30%">Back to <a href="index.html">Fetchmail Home
 Page</a></td>
-<td width="30%" align="right">$Date: 2007-04-06 20:01:39 +0200 (Fr, 06 Apr 2007) $</td>
+<td width="30%" align="right">$Date: 2009-06-20 11:57:41 +0200 (Sa, 20. Jun 2009) $</td>
 </tr>
 </table>
 

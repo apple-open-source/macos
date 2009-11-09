@@ -1076,8 +1076,8 @@ int main(int argc, char *argv[])
 	strcpy(un.sun_path, TMP_WEBDAV_UDS);
 	require_action(mktemp(un.sun_path) != NULL, error_exit, error = EINVAL);
 
-	/* bind socket with write-only access which is all that's needed for the kext to connect */
-	mode_mask = umask(0555);
+	/* bind socket with owner write-only access (S_IWUSR) which is all that's needed for the kext to connect */
+	mode_mask = umask(0577);
 	require_action(bind(listen_socket, (struct sockaddr *)&un, (socklen_t)sizeof(un)) >= 0, error_exit, error = EINVAL);
 	(void)umask(mode_mask);
 

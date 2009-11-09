@@ -839,8 +839,7 @@ isakmp_cfg_set(iph1, attrpl, msg)
 	if (iph1->mode_cfg->flags & ISAKMP_CFG_DELETE_PH1) {
 		if (iph1->status == PHASE1ST_ESTABLISHED)
 			isakmp_info_send_d1(iph1);
-		remph1(iph1);
-		delph1(iph1);
+		isakmp_ph1expire(iph1);
 		iph1 = NULL;
 	}
 	vfree(payload);
@@ -2265,7 +2264,7 @@ isakmp_cfg_resize_pool(size)
 	/* If a pool already exists, check if we can shrink it */
 	if ((isakmp_cfg_config.port_pool != NULL) &&
 	    (size < isakmp_cfg_config.pool_size)) {
-		for (i = isakmp_cfg_config.pool_size; i >= size; --i) {
+		for (i = isakmp_cfg_config.pool_size-1; i >= size; --i) {
 			if (isakmp_cfg_config.port_pool[i].used) {
 				plog(LLV_ERROR, LOCATION, NULL, 
 				    "resize pool from %zu to %d impossible "
@@ -2361,10 +2360,12 @@ isakmp_cfg_init(cold)
 	isakmp_cfg_config.splitdns_list = NULL;
 	isakmp_cfg_config.splitdns_len = 0;
 
+#if 0
 	if (cold == ISAKMP_CFG_INIT_COLD) {
 		if ((error = isakmp_cfg_resize_pool(ISAKMP_CFG_MAX_CNX)) != 0)
 			return error;
 	}
+#endif
 
 	return 0;
 }

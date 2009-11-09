@@ -911,25 +911,25 @@ AC_DEFUN([APU_CHECK_DBM], [
   AC_SUBST(apu_db_header)
   AC_SUBST(apu_db_version)
 
+  if test "$apu_have_db" = "1"; then
+    LDADD_dbm_db="-l$apu_db_lib"
+    if test -n "apu_db_xtra_libs"; then
+      LDADD_dbm_db="$LDADD_dbm_db $apu_db_xtra_libs"
+    fi
+  fi
+
   dnl Since we have already done the AC_CHECK_LIB tests, if we have it, 
   dnl we know the library is there.
   if test "$apu_have_gdbm" = "1"; then
-    APR_ADDTO(APRUTIL_EXPORT_LIBS,[-lgdbm])
-    APR_ADDTO(APRUTIL_LIBS,[-lgdbm])
+    LDADD_dbm_gdbm="-lgdbm"
   fi
 
   if test "$apu_have_ndbm" = "1"; then
-    APR_ADDTO(APRUTIL_EXPORT_LIBS,[-l$apu_ndbm_lib])
-    APR_ADDTO(APRUTIL_LIBS,[-l$apu_ndbm_lib])
+    LDADD_dbm_ndbm="-l$apu_ndbm_lib"
   fi
 
-  if test "$apu_have_db" = "1"; then
-    APR_ADDTO(APRUTIL_EXPORT_LIBS,[-l$apu_db_lib])
-    APR_ADDTO(APRUTIL_LIBS,[-l$apu_db_lib])
-    if test -n "apu_db_xtra_libs"; then
-      APR_ADDTO(APRUTIL_EXPORT_LIBS,[$apu_db_xtra_libs])
-      APR_ADDTO(APRUTIL_LIBS,[$apu_db_xtra_libs])
-    fi
-  fi
+  AC_SUBST(LDADD_dbm_db)
+  AC_SUBST(LDADD_dbm_gdbm)
+  AC_SUBST(LDADD_dbm_ndbm)
 ])
 

@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.0">
+<trk>
+	<name>UTC +5 (winter) EST Cayman</name>
+	<trkseg>
+		<trkpt lon="-81.4251708984" lat="19.1659242536"></trkpt>
+		<trkpt lon="-81.0955810547" lat="19.186677698"></trkpt>
+		<trkpt lon="-80.7604980469" lat="19.3059591726"></trkpt>
+		<trkpt lon="-79.7717285156" lat="19.5753178929"></trkpt>
+		<trkpt lon="-79.6343994141" lat="19.7563642308"></trkpt>
+		<trkpt lon="-79.7387695312" lat="19.8648936205"></trkpt>
+		<trkpt lon="-80.1892089844" lat="19.7667035517"></trkpt>
+		<trkpt lon="-81.3098144531" lat="19.4873075186"></trkpt>
+		<trkpt lon="-81.6009521484" lat="19.4458742982"></trkpt>
+		<trkpt lon="-81.6009521484" lat="19.2281767378"></trkpt>
+		<trkpt lon="-81.4251708984" lat="19.1659242536"></trkpt>
+	</trkseg>
+</trk>
+</gpx>

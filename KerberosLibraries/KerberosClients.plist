@@ -90,6 +90,9 @@
 		<string>LHA-6849214-failure-is-still-a-failure.patch</string>
 		<string>LHA-6886930-dont-flatten-xib-files.patch</string>
 		<string>LHA-6896152-binary-compat-p.patch</string>
+		<string>LHA-6435378-nsnumber-is-bool.patch</string>
+		<string>LHA-7190048-dont-set-error-on-freed-context.patch</string>
+		<string>LHA-build-fix.patch</string>
 	</array>
 	<key>OpenSourceProject</key>
 	<string>Kerberos</string>

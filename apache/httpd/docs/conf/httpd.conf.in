@@ -374,6 +374,9 @@ DefaultType text/plain
 #EnableMMAP off
 #EnableSendfile off
 
+# 6894961
+TraceEnable off
+
 # Supplemental configuration
 #
 # The configuration files in the @rel_sysconfdir@/extra/ directory can be 

@@ -95,7 +95,7 @@ struct apr_uri_t {
     char *hostname;
     /** port string (integer representation is in "port") */
     char *port_str;
-    /** the request path (or "/" if only scheme://host was given) */
+    /** the request path (or NULL if only scheme://host was given) */
     char *path;
     /** Everything after a '?' in the path, if present */
     char *query;

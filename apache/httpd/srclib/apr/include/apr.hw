@@ -98,9 +98,8 @@
 #define SW_HIDE             0
 #ifndef _WIN32_WCE
 #include <winsock2.h>
-#include <mswsock.h>
 #include <ws2tcpip.h>
-#include <tlhelp32.h>
+#include <mswsock.h>
 #else
 #include <winsock.h>
 #endif

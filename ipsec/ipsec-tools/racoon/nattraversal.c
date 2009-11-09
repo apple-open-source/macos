@@ -464,7 +464,7 @@ void
 natt_float_ports (struct ph1handle *iph1)
 {
 	
-	if (! (iph1->natt_flags && NAT_DETECTED) )
+	if (! (iph1->natt_flags & NAT_DETECTED) )
 		return;
 	if (! iph1->natt_options->float_port){
 		/* Drafts 00 / 01, just schedule keepalive */

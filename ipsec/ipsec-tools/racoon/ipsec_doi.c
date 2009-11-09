@@ -4463,6 +4463,10 @@ ipsecdoi_id2str(id)
 		((struct sockaddr_in6 *)&saddr)->sin6_port = IPSEC_PORT_ANY;
 		memcpy(&((struct sockaddr_in6 *)&saddr)->sin6_addr,
 			id->v + sizeof(*id_b), sizeof(struct in6_addr));
+		((struct sockaddr_in6 *)&saddr)->sin6_scope_id =
+			(IN6_IS_ADDR_LINKLOCAL(&((struct sockaddr_in6 *)&saddr)->sin6_addr) 
+			 ? ((struct sockaddr_in6 *)id_b)->sin6_scope_id 
+			 : 0);
 		break;
 #endif
 	}
@@ -4564,6 +4568,10 @@ ipsecdoi_id2str(id)
 		memcpy(&((struct sockaddr_in6 *)&saddr)->sin6_addr,
 			id->v + sizeof(*id_b) + sizeof(struct in6_addr),
 			sizeof(struct in6_addr));
+		((struct sockaddr_in6 *)&saddr)->sin6_scope_id = 
+			(IN6_IS_ADDR_LINKLOCAL(&((struct sockaddr_in6 *)&saddr)->sin6_addr) 
+			 ? ((struct sockaddr_in6 *)id_b)->sin6_scope_id 
+			 : 0);
 
 		if (len >= 0) {
 		    len += snprintf( buf + len, sizeof(buf) - len, "%s", saddrwop2str((struct sockaddr *)&saddr));

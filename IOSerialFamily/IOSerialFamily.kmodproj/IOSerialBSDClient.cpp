@@ -796,6 +796,9 @@ start(IOService *provider)
 	if (!fIoctlLock)
 		return false;
 	
+	fisBlueTooth = false;
+	fPreemptInProgress = false;
+	
 
     /*
      * First initialise the dial in device.  
@@ -863,11 +866,7 @@ matchPropertyTable(OSDictionary *table)
     const OSMetaClass *providerClass;
     unsigned int desiredLen;
     const char *desiredName;
-    bool logMatch = (0 != (kIOLogMatch & getDebugFlagsTable(table)));
-#if JLOG
-    kprintf("IOSerialBSDClient::matchPropertyTable\n");
-#endif
-	
+    bool logMatch = (0 != (kIOLogMatch & getDebugFlagsTable(table)));	
 
     if (!super::matchPropertyTable(table)) {
         IOLogCond(logMatch, "TTY.%s: Failed superclass match\n",
@@ -903,20 +902,28 @@ matchPropertyTable(OSDictionary *table)
     }
     desiredLen = desiredType->getLength();
     desiredName = desiredType->getCStringNoCopy();
+	debug(FLOW, "desiredName is: %s", desiredName);
 
     // Walk through the provider super class chain looking for an
     // interface but stop at IOService 'cause that aint a IOSerialStream.
     for (providerClass = fProvider->getMetaClass();
+		 
          providerClass && providerClass != IOService::metaClass;
          providerClass = providerClass->getSuperClass())
     {
         // Check if provider class is prefixed by desiredName
         // Prefix 'cause IOModemSerialStream & IOModemSerialStreamSync
         // should both match and if I just look for the prefix they will
-        if (!strncmp(providerClass->getClassName(), desiredName, desiredLen))
-	    return true;
+        if (!strncmp(providerClass->getClassName(), desiredName, desiredLen)) {
+			if (fProvider->metaCast("IOBluetoothSerialClientModemStreamSync") || fProvider->metaCast("IOBluetoothSerialClientSerialStreamSync")) {
+				debug(FLOW,"ah hah, bluetooth");
+				fisBlueTooth = true;
+			}
+			return true;
+		}
     }
 
+	
     // Couldn't find the desired name in the super class chain
     // so report the failure and return false
     IOLogCond(logMatch, "TTY.%s: doesn't have a %s interface\n",
@@ -1439,7 +1446,7 @@ iossioctl(dev_t dev, u_long cmd, caddr_t data, int fflag,				// XXX64
             me->fLastUsedTime = kNever;
             // initialize fPreemptInProgress in case we manage to 
             // call the Preemption ioctl before it is initialized elsewhere
-            me->fPreemptInProgress = false;
+            //me->fPreemptInProgress = false;
         }
         else
             wakeup(&me->fPreemptAllowed);	// Wakeup any pre-empters
@@ -1835,7 +1842,7 @@ open(dev_t dev, int flags, int /* devtype */, struct proc * /* p */)
     bool firstOpen = false;
     // fPreemptInProgress is false at the beginning of every open
     // as Preemption can only occur later in the open process
-    fPreemptInProgress = false;
+    //fPreemptInProgress = false;
 	
 #if JLOG	
 	kprintf("IOSerialBSDClient::open\n");
@@ -1879,10 +1886,12 @@ checkBusy:
         tp = fActiveSession->ftty;
 
         bool isCallout    = IS_TTY_OUTWARD(tp->t_dev);
+		fisCallout = isCallout;
         bool isPreempt    = fPreemptAllowed;
         bool isExclusive  = ISSET(tp->t_state, TS_XCLUDE);
         bool isOpen       = ISSET(tp->t_state, TS_ISOPEN);
         bool wantCallout  = IS_TTY_OUTWARD(dev);
+		fwantCallout = wantCallout;
         // kauth_cred_issuser returns opposite of suser used in Leopard
         bool wantSuser    = kauth_cred_issuser(kauth_cred_get());
 
@@ -2084,7 +2093,19 @@ checkAndWaitForIdle:
 	tty_unlock(tp);
 	if (firstOpen) {
 	    retain();	// Hold a reference until the port is closed
+		// because we can still get caught up if we get yanked late
+		if (!fActiveSession || isInactive()) {
+			SAFE_PORTRELEASE(fProvider);
+            error = ENXIO;
+            goto exitOpen;
+		}		
             launchThreads(); // launch the transmit and receive threads
+		// and we got caught in launchThreads once
+		if (!fActiveSession || isInactive()) {
+			SAFE_PORTRELEASE(fProvider);
+            error = ENXIO;
+            goto exitOpen;
+		}		
 	}
     }
 
@@ -2755,6 +2776,8 @@ rxFunc()
     IOLockLock(fThreadLock);
     frxThread = NULL;
     IOLockWakeup(fThreadLock, &frxThread, true);	// wakeup the thread killer
+	debug(FLOW, "fisCallout is: %d, fwantCallout is: %d, fisBlueTooth is: %d", fisCallout, fwantCallout, fisBlueTooth);
+	debug(FLOW, "fPreemptAllowed is: %d", fPreemptAllowed);
 
     if (fDeferTerminate && !ftxThread && !fInOpensPending) {
 	SAFE_PORTRELEASE(fProvider);
@@ -2776,7 +2799,7 @@ rxFunc()
         // handling in ppp that contributes to this problem
         // 
         // benign except for the preemption case - fixed...
-        if (!ftxThread && !fInOpensPending && !fPreemptInProgress)
+        if (!ftxThread && !fInOpensPending && !fPreemptInProgress && fisBlueTooth)
         {
             // no transmit thread, we're about to kill the receive thread
             // tell the bsd side no more bytes (fErrno = 0)
@@ -3017,6 +3040,8 @@ txFunc()
     IOLockLock(fThreadLock);
     ftxThread = NULL;
     IOLockWakeup(fThreadLock, &ftxThread, true);	// wakeup the thread killer
+	debug(FLOW, "fisCallout is: %d, fwantCallout is: %d, fisBlueTooth is: %d", fisCallout, fwantCallout, fisBlueTooth);
+	debug(FLOW, "fPreemptAllowed is: %d", fPreemptAllowed);
 
     if (fDeferTerminate && !frxThread && !fInOpensPending) {
 		SAFE_PORTRELEASE(fProvider);
@@ -3039,7 +3064,7 @@ txFunc()
         // handling in ppp that contributes to this problem
         //
         // benign except in the preemption case - fixed...
-        if (!frxThread && !fInOpensPending && !fPreemptInProgress)
+        if (!frxThread && !fInOpensPending && !fPreemptInProgress && fisBlueTooth)
         {
             // no receive thread, we're about to kill the transmit thread
             // tell the bsd side no more bytes (fErrno = 0)

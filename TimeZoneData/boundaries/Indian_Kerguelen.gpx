@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.0">
+<trk>
+	<name>UTC +5 (all year) Kerguelen</name>
+	<trkseg>
+		<trkpt lon="66.884765625" lat="-46.6494361634"></trkpt>
+		<trkpt lon="66.796875" lat="-53.9302198639"></trkpt>
+		<trkpt lon="75.5859375" lat="-54.0077687619"></trkpt>
+		<trkpt lon="74.8828125" lat="-46.6192610362"></trkpt>
+		<trkpt lon="66.884765625" lat="-46.6494361634"></trkpt>
+	</trkseg>
+</trk>
+</gpx>

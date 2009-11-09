@@ -87,7 +87,7 @@ __attribute__((format(printf, 1, 2)));
 
 #define ABORTEXPECTED                       _deviceIsDead
 
-#define kMaxQueuedReports					8
+#define kMaxQueuedReports					1
 
 // a USB HID device has two power states, off and on
 // Note: This defines two states. off and on. In the off state, the upstream is suspended.
@@ -896,17 +896,24 @@ IOUSBHIDDriver::powerStateDidChangeTo ( IOPMPowerFlags capabilities, unsigned lo
 	// if we are unsuspending, it is time to issue the interrupt read and start the idle timer
 	if (stateNumber == kUSBHIDPowerStateOn)
 	{
-		USBLog(5, "IOUSBHIDDriver(%s)[%p]::powerStateDidChangeTo - _device (%s) going into RUN mode - issuing read and starting timer", getName(), this, _device->getName());
-		ABORTEXPECTED = false;
-		err = RearmInterruptRead();
-		if (err)
+		if (!_QUEUED_REPORTS)
 		{
-			USBLog(1, "IOUSBHIDDriver(%s)[%p]::powerStateDidChangeTo - err (%p) returned from RearmInterruptRead", getName(), this, (void*)err);
-			USBTrace( kUSBTHID,  kTPHIDpowerStateDidChangeTo, (uintptr_t)this, err, 0, 0);
+			USBLog(5, "IOUSBHIDDriver(%s)[%p]::powerStateDidChangeTo - _device (%s) going into RUN mode - issuing read and starting timer", getName(), this, _device->getName());
+			ABORTEXPECTED = false;
+			err = RearmInterruptRead();
+			if (err)
+			{
+				USBLog(1, "IOUSBHIDDriver(%s)[%p]::powerStateDidChangeTo - err (%p) returned from RearmInterruptRead", getName(), this, (void*)err);
+				USBTrace( kUSBTHID,  kTPHIDpowerStateDidChangeTo, (uintptr_t)this, err, 0, 0);
+			}
+			if ( _SUSPENDPORT_TIMER )
+			{
+				_SUSPENDPORT_TIMER->setTimeoutMS(_SUSPEND_TIMEOUT_IN_MS);
+			}
 		}
-		if ( _SUSPENDPORT_TIMER )
+		else
 		{
-			_SUSPENDPORT_TIMER->setTimeoutMS(_SUSPEND_TIMEOUT_IN_MS);
+			USBLog(2, "IOUSBHIDDriver(%s)[%p]::powerStateDidChangeTo(ON) - not ReArming because _QUEUED_REPORTS was >0", getName(), this);			
 		}
 	}
 	
@@ -1539,7 +1546,7 @@ IOUSBHIDDriver::InterruptReadHandler(IOReturn status, UInt32 bufferSizeRemaining
             // Handle the data.  We do this on a callout thread so that we don't block all
             // of USB I/O if the HID system is blocked.  We only do that if we have less than than kMaxQueuedReports pending
             //
-			if ( _QUEUED_REPORTS <= kMaxQueuedReports)
+			if ( _QUEUED_REPORTS < kMaxQueuedReports)
 			{
 				// Do not call handle report if we have no new data in our buffer
 				if ( bufferSizeRemaining != _buffer->getCapacity() )
@@ -1547,10 +1554,12 @@ IOUSBHIDDriver::InterruptReadHandler(IOReturn status, UInt32 bufferSizeRemaining
 					// If thread_call_enter() returns TRUE, then a call is already
 					// pending, and we need to drop our outstandingIO count.
 					IncrementOutstandingIO();
+					_QUEUED_REPORTS++;				// do this while we are still inside the gate
 					if ( thread_call_enter1(_HANDLE_REPORT_THREAD, (thread_call_param_t) &_INTERRUPT_TIMESTAMP) == TRUE)
 					{
 						USBLog(3, "IOUSBHIDDriver(%s)[%p]::InterruptReadHandler  _HANDLE_REPORT_THREAD was already queued!", getName(), this);
 						DecrementOutstandingIO();
+						_QUEUED_REPORTS--;
 					}
 				}
 				else
@@ -1560,7 +1569,7 @@ IOUSBHIDDriver::InterruptReadHandler(IOReturn status, UInt32 bufferSizeRemaining
 			}
 			else
 			{
-				USBLog(3, "IOUSBHIDDriver(%s)[%p]::InterruptReadHandler  Not calling handleReport thread because we have reached the maximum (%d) of queued reports pending", getName(), this, (uint32_t)_QUEUED_REPORTS);
+				USBLog(2, "IOUSBHIDDriver(%s)[%p]::InterruptReadHandler  Not calling handleReport thread because we already have a report queued", getName(), this);
 			}
             break;
 			
@@ -1870,7 +1879,6 @@ IOUSBHIDDriver::HandleReport(AbsoluteTime timeStamp)
 		}
 
 		//status = handleReportWithTime(_INTERRUPT_TIMESTAMP, _buffer);
-		_QUEUED_REPORTS++;
 		status = handleReport(_buffer);
 		if ( status != kIOReturnSuccess)
 		{
@@ -1880,8 +1888,9 @@ IOUSBHIDDriver::HandleReport(AbsoluteTime timeStamp)
 			LogMemReport(1, _buffer, bytesToLog );
 			USBTrace( kUSBTHID,  kTPHIDHandleReport, (uintptr_t)this, status, 0, 0);
 		}
-		_QUEUED_REPORTS--;
 	}
+
+	_QUEUED_REPORTS--;
 	
 	// Reset our timer, if applicable
 	if ( _SUSPENDPORT_TIMER )

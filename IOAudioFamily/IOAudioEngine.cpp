@@ -57,9 +57,9 @@ OSMetaClassDefineReservedUsed(IOAudioEngine, 9);
 OSMetaClassDefineReservedUsed(IOAudioEngine, 10);
 OSMetaClassDefineReservedUsed(IOAudioEngine, 11);
 OSMetaClassDefineReservedUsed(IOAudioEngine, 12);
+OSMetaClassDefineReservedUsed(IOAudioEngine, 13);
+OSMetaClassDefineReservedUsed(IOAudioEngine, 14);
 
-OSMetaClassDefineReservedUnused(IOAudioEngine, 13);
-OSMetaClassDefineReservedUnused(IOAudioEngine, 14);
 OSMetaClassDefineReservedUnused(IOAudioEngine, 15);
 OSMetaClassDefineReservedUnused(IOAudioEngine, 16);
 OSMetaClassDefineReservedUnused(IOAudioEngine, 17);
@@ -93,6 +93,18 @@ OSMetaClassDefineReservedUnused(IOAudioEngine, 44);
 OSMetaClassDefineReservedUnused(IOAudioEngine, 45);
 OSMetaClassDefineReservedUnused(IOAudioEngine, 46);
 OSMetaClassDefineReservedUnused(IOAudioEngine, 47);
+
+// OSMetaClassDefineReservedUsed(IOAudioEngine, 13);
+IOReturn IOAudioEngine::setAttributeForConnection( SInt32 connectIndex, UInt32 attribute, uintptr_t value )
+{
+	return kIOReturnUnsupported;
+}
+
+// OSMetaClassDefineReservedUsed(IOAudioEngine, 14);
+IOReturn IOAudioEngine::getAttributeForConnection( SInt32 connectIndex, UInt32 attribute, uintptr_t * value )
+{
+	return kIOReturnUnsupported;
+}
 
 // New Code:
 // OSMetaClassDefineReservedUsed(IOAudioEngine, 12);
@@ -1287,8 +1299,39 @@ void IOAudioEngine::updateChannelNumbers()
     UInt32 currentChannelID;
     SInt32 currentChannelNumber;
    
-	audioDebugIOLog(3, "IOAudioEngine[%p]::updateChannelNumbers() - o=%ld i=%ld", this, maxNumOutputChannels, maxNumInputChannels);
+	// BEGIN <rdar://6997438> maxNumOutputChannels may not represent the true number of output channels at this point
+	//					because the the number of formats in the stream may have changed. We recalculate the correct value here.
+	
+	maxNumOutputChannels = 0;
+	maxNumInputChannels = 0;
+    assert(outputStreams);
+    assert(inputStreams);
 
+    if (outputStreams->getCount() > 0) {
+        iterator = OSCollectionIterator::withCollection(outputStreams);
+        if (iterator) {
+            IOAudioStream *audioStream;
+            
+            while (audioStream = (IOAudioStream *)iterator->getNextObject()) {
+				maxNumOutputChannels += audioStream->getMaxNumChannels();
+			}
+		}
+	}
+
+	if (inputStreams->getCount() > 0) {
+        iterator = OSCollectionIterator::withCollection(inputStreams);
+        if (iterator) {
+            IOAudioStream *audioStream;
+            
+            while (audioStream = (IOAudioStream *)iterator->getNextObject()) {
+				maxNumInputChannels += audioStream->getMaxNumChannels();
+			}
+		}
+	}
+	// END <rdar://6997438>
+	
+	audioDebugIOLog(3, "IOAudioEngine[%p]::updateChannelNumbers() - o=%ld i=%ld", this, maxNumOutputChannels, maxNumInputChannels);
+	
     if (maxNumOutputChannels > 0) {
         outputChannelNumbers = (SInt32 *)IOMallocAligned(maxNumOutputChannels * sizeof(SInt32), sizeof (SInt32));
     }
@@ -1299,9 +1342,7 @@ void IOAudioEngine::updateChannelNumbers()
     
     currentChannelID = 1;
     currentChannelNumber = 1;
-    
-    assert(outputStreams);
-    
+
     if (outputStreams->getCount() > 0) {
         iterator = OSCollectionIterator::withCollection(outputStreams);
         if (iterator) {
@@ -1346,8 +1387,6 @@ void IOAudioEngine::updateChannelNumbers()
     
     currentChannelID = 1;
     currentChannelNumber = 1;
-    
-    assert(inputStreams);
     
     if (inputStreams->getCount() > 0) {
         iterator = OSCollectionIterator::withCollection(inputStreams);

@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.0">
+<trk>
+	<name>UTC -10 (all year) TAHT</name>
+	<trkseg>
+		<trkpt lon="-155.21484375" lat="-15.3901357153"></trkpt>
+		<trkpt lon="-155.324707031" lat="-16.8676336168"></trkpt>
+		<trkpt lon="-148.7109375" lat="-18.8335153964"></trkpt>
+		<trkpt lon="-144.799804688" lat="-16.1091532392"></trkpt>
+		<trkpt lon="-145.437011719" lat="-14.7111347589"></trkpt>
+		<trkpt lon="-150.205078125" lat="-15.1569737134"></trkpt>
+		<trkpt lon="-155.21484375" lat="-15.3901357153"></trkpt>
+	</trkseg>
+</trk>
+</gpx>

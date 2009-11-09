@@ -1328,27 +1328,32 @@ bool IONetworkInterface::_setInterfaceProperty(UInt32  value,
     return updateOk;
 }
 
-#define IO_IFNET_GET(func, type, field)                        \
-type IONetworkInterface::func() const                          \
-{																\
-	_syncFromBackingIfnet();	\
-	return _##field;										\
+#define IO_IFNET_GET(func, type, field, kpi)                    \
+type IONetworkInterface::func(void) const                       \
+{                                                               \
+    type val = (_backingIfnet != NULL) ?                        \
+               kpi(_backingIfnet) : _##field;                   \
+	return val;                                                 \
 }
 
-#define IO_IFNET_SET(func, type, field, propName)              \
-bool IONetworkInterface::func(type value)                      \
-{                                                              \
-    _##field = value;											\
-	_syncToBackingIfnet();										\
-	return true;											\
+#define IO_IFNET_SET(func, type, field, kpi)                    \
+bool IONetworkInterface::func(type value)                       \
+{                                                               \
+    if (_backingIfnet)                                          \
+        kpi(_backingIfnet, value);                              \
+    else                                                        \
+        _##field = value;                                       \
+	return true;                                                \
 }
 
-#define IO_IFNET_RMW(func, type, field, propName)              \
-bool IONetworkInterface::func(type set, type clear)          \
-{															\
-	_##field = (_##field & ~clear) | set; \
-	_syncToBackingIfnet();  \
-	return true;											\
+#define IO_IFNET_RMW(func, type, field, kpi)                    \
+bool IONetworkInterface::func(type set, type clear)             \
+{                                                               \
+    if (_backingIfnet)                                          \
+        kpi(_backingIfnet, set, set | clear);                   \
+    else                                                        \
+        _##field = (_##field & ~clear) | set;                   \
+	return true;                                                \
 }
 
 //---------------------------------------------------------------------------
@@ -1365,37 +1370,45 @@ bool IONetworkInterface::setInterfaceType(UInt8 type)
 		_type = type;
 	return true;
 }
-IO_IFNET_GET(getInterfaceType, UInt8, type)
+
+UInt8 IONetworkInterface::getInterfaceType(void) const
+{
+    return _type;
+}
 
 //---------------------------------------------------------------------------
 // Mtu (MaxTransferUnit) accessors (ifp->if_mtu).
 
-IO_IFNET_SET(setMaxTransferUnit, UInt32, mtu, kIOMaxTransferUnit)
-IO_IFNET_GET(getMaxTransferUnit, UInt32, mtu)
+IO_IFNET_SET(setMaxTransferUnit, UInt32, mtu, ifnet_set_mtu)
+IO_IFNET_GET(getMaxTransferUnit, UInt32, mtu, ifnet_mtu)
 
 //---------------------------------------------------------------------------
 // Flags accessors (ifp->if_flags). This is a read-modify-write operation.
 
-IO_IFNET_RMW(setFlags, UInt16, flags, kIOInterfaceFlags)
-IO_IFNET_GET(getFlags, UInt16, flags)
+IO_IFNET_RMW(setFlags, UInt16, flags, ifnet_set_flags)
+IO_IFNET_GET(getFlags, UInt16, flags, ifnet_flags)
 
 //---------------------------------------------------------------------------
 // EFlags accessors (ifp->if_eflags). This is a read-modify-write operation.
 
-IO_IFNET_RMW(setExtraFlags, UInt32, eflags, kIOInterfaceExtraFlags)
-IO_IFNET_GET(getExtraFlags, UInt32, eflags)
+bool IONetworkInterface::setExtraFlags( UInt32 set, UInt32 clear )
+{
+    _eflags = (_eflags & ~clear) | set;
+    return true;
+}
+IO_IFNET_GET(getExtraFlags, UInt32, eflags, ifnet_eflags)
 
 //---------------------------------------------------------------------------
 // MediaAddressLength accessors (ifp->if_addrlen)
 
-IO_IFNET_SET(setMediaAddressLength, UInt8, addrlen, kIOMediaAddressLength)
-IO_IFNET_GET(getMediaAddressLength, UInt8, addrlen)
+IO_IFNET_SET(setMediaAddressLength, UInt8, addrlen, ifnet_set_addrlen)
+IO_IFNET_GET(getMediaAddressLength, UInt8, addrlen, ifnet_addrlen)
 
 //---------------------------------------------------------------------------
 // MediaHeaderLength accessors (ifp->if_hdrlen)
 
-IO_IFNET_SET(setMediaHeaderLength, UInt8, hdrlen, kIOMediaHeaderLength)
-IO_IFNET_GET(getMediaHeaderLength, UInt8, hdrlen)
+IO_IFNET_SET(setMediaHeaderLength, UInt8, hdrlen, ifnet_set_hdrlen)
+IO_IFNET_GET(getMediaHeaderLength, UInt8, hdrlen, ifnet_hdrlen)
 
 //---------------------------------------------------------------------------
 // Interface unit number. The unit number for the interface is assigned
@@ -1415,14 +1428,7 @@ bool IONetworkInterface::setUnitNumber( UInt16 value )
     else
         return false;
 }
-
-UInt16 IONetworkInterface::getUnitNumber(void) const
-{
-	if(_backingIfnet)
-		return ifnet_unit(_backingIfnet);
-	else
-		return _unit;
-}
+IO_IFNET_GET(getUnitNumber, UInt16, unit, ifnet_unit)
 
 //---------------------------------------------------------------------------
 // Return true if the interface has been registered with the network layer,

@@ -382,7 +382,7 @@ static void DeviceRemoved(void *refCon, io_iterator_t iterator)
     }
     
 	if ( needToSuspend )
-		error = SuspendDevice(deviceIntf,true);
+		SuspendDevice(deviceIntf,true);
 	
     [thisDevice release];
 }

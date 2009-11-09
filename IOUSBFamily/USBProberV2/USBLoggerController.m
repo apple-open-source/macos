@@ -241,7 +241,7 @@ static int remainingFreshEntries = 0;
                 return;
             } else 
 			{
-				result = NSRunAlertPanel (@"Need to Restart", @"The required kernel extension \"KLog.kext\" was installed.  Please quit and restart.", @"OK", nil, nil);
+				NSRunAlertPanel (@"Need to Restart", @"The required kernel extension \"KLog.kext\" was installed.  Please quit and restart.", @"OK", nil, nil);
 				_klogKextIsCorrectRevision = NO;
 				return;
 			}
@@ -405,16 +405,19 @@ static int remainingFreshEntries = 0;
 			cpArgs[3] = NULL;
 			
 			err = AuthorizationExecuteWithPrivileges(authorizationRef, "/bin/cp", 0, cpArgs, NULL);
+			if (err) return NO;
 			
 			shArgs[0] = (char *)[permRepairPath cStringUsingEncoding:NSUTF8StringEncoding];
 			shArgs[1] = NULL;
 			
 			err = AuthorizationExecuteWithPrivileges(authorizationRef, "/bin/sh", 0, shArgs, NULL);
+			if (err) return NO;
 			
 			kextloadArgs[0] = (char *)[destPath cStringUsingEncoding:NSUTF8StringEncoding];
 			kextloadArgs[1] = NULL;
 			
 			err = AuthorizationExecuteWithPrivileges(authorizationRef, "/sbin/kextload", 0, kextloadArgs, NULL);
+			if (err) return NO;
 			
 			while (wait(&status) != -1) {
 				// wait for forked process to terminate
@@ -465,6 +468,7 @@ static int remainingFreshEntries = 0;
 			cpArgs[3] = NULL;
 			
 			err = AuthorizationExecuteWithPrivileges(authorizationRef, "/bin/mv", 0, cpArgs, NULL);
+			if (err) return NO;
 			
 			// Copy it
 			cpArgs[0] = "-r";
@@ -473,11 +477,13 @@ static int remainingFreshEntries = 0;
 			cpArgs[3] = NULL;
 			
 			err = AuthorizationExecuteWithPrivileges(authorizationRef, "/bin/cp", 0, cpArgs, NULL);
+			if (err) return NO;
 			
 			shArgs[0] = (char *)[permRepairPath cStringUsingEncoding:NSUTF8StringEncoding];
 			shArgs[1] = NULL;
 			
 			err = AuthorizationExecuteWithPrivileges(authorizationRef, "/bin/sh", 0, shArgs, NULL);
+			if (err) return NO;
 			
 			kextloadArgs[0] = (char *)[destPath cStringUsingEncoding:NSUTF8StringEncoding];
 			kextloadArgs[1] = NULL;

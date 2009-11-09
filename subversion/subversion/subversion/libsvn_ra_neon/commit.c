@@ -631,10 +631,7 @@ static svn_error_t * commit_open_root(void *edit_baton,
   /* create the root resource. no wr_url (yet). */
   rsrc = apr_pcalloc(dir_pool, sizeof(*rsrc));
   rsrc->pool = dir_pool;
-
-  /* ### should this be 'base_revision' here? we might not always be
-     ### working against the head! (think "properties"). */
-  rsrc->revision = SVN_INVALID_REVNUM;
+  rsrc->revision = base_revision;
 
   rsrc->url = cc->ras->root.path;
   rsrc->local_path = "";
@@ -1012,9 +1009,9 @@ static svn_error_t * commit_add_file(const char *path,
 
   /* If the parent directory existed before this commit then there may be a
      file with this URL already. We need to ensure such a file does not
-     exist, which we do by attempting a PROPFIND.  Of course, a
-     PROPFIND *should* succeed if this "add" is actually the second
-     half of a "replace".
+     exist, which we do by attempting a PROPFIND in both public URL (the path
+     in HEAD) and the working URL (the path within the transaction), since
+     we cannot differentiate between deleted items.
 
      ### For now, we'll assume that if this path has already been
      added to the valid targets hash, that addition occurred during the
@@ -1025,25 +1022,31 @@ static svn_error_t * commit_add_file(const char *path,
       && (! apr_hash_get(file->cc->valid_targets, path, APR_HASH_KEY_STRING)))
     {
       svn_ra_neon__resource_t *res;
-      svn_error_t *err = svn_ra_neon__get_starting_props(&res,
-                                                         file->cc->ras,
-                                                         file->rsrc->wr_url,
-                                                         NULL, workpool);
-      if (!err)
+      svn_error_t *err1 = svn_ra_neon__get_starting_props(&res,
+                                                          file->cc->ras,
+                                                          file->rsrc->wr_url,
+                                                          NULL, workpool);
+      svn_error_t *err2 = svn_ra_neon__get_starting_props(&res,
+                                                          file->cc->ras,
+                                                          file->rsrc->url,
+                                                          NULL, workpool);
+      if (! err1 && ! err2)
         {
-          /* If the PROPFIND succeeds the file already exists */
+          /* If the PROPFINDs succeed the file already exists */
           return svn_error_createf(SVN_ERR_RA_DAV_ALREADY_EXISTS, NULL,
                                    _("File '%s' already exists"),
                                    file->rsrc->url);
         }
-      else if (err->apr_err == SVN_ERR_FS_NOT_FOUND)
+      else if ((err1 && (err1->apr_err == SVN_ERR_FS_NOT_FOUND))
+               || (err2 && (err2->apr_err == SVN_ERR_FS_NOT_FOUND)))
         {
-          svn_error_clear(err);
+          svn_error_clear(err1);
+          svn_error_clear(err2);
         }
       else
         {
           /* A real error */
-          return err;
+          return svn_error_compose_create(err1, err2);
         }
     }
 
@@ -1179,6 +1182,8 @@ commit_apply_txdelta(void *file_baton,
   resource_baton_t *file = file_baton;
   put_baton_t *baton;
   svn_stream_t *stream;
+  const char *tempfile_name;
+  svn_checksum_t *checksum;
 
   baton = apr_pcalloc(file->pool, sizeof(*baton));
   baton->ras = file->cc->ras;
@@ -1196,10 +1201,21 @@ commit_apply_txdelta(void *file_baton,
 
   /* Create a temp file in the system area to hold the contents. Note that
      we need a file since we will be rewinding it. The file will be closed
-     and deleted when the pool is cleaned up. */
-  SVN_ERR(svn_io_open_unique_file3(&baton->tmpfile, NULL, NULL,
-                                   svn_io_file_del_on_pool_cleanup,
-                                   file->pool, pool));
+     and deleted when the pool is cleaned up.  Avoid temp file name
+     collisions by requesting unique temp file name based on the checksum
+     of FILE->RSRC->LOCAL_PATH. */
+  SVN_ERR(svn_checksum(&checksum, svn_checksum_md5,
+                       file->rsrc->local_path,
+                       strlen(file->rsrc->local_path),
+                       pool));
+  tempfile_name = apr_psprintf(pool, "tempfile.%s",
+                               svn_checksum_to_cstring_display(checksum,
+                                                               pool));  
+
+  SVN_ERR(svn_io_open_uniquely_named(&baton->tmpfile, NULL, NULL,
+                                     tempfile_name, ".tmp",
+                                     svn_io_file_del_on_pool_cleanup,
+                                     file->pool, pool));
 
   stream = svn_stream_create(baton, pool);
   svn_stream_set_write(stream, commit_stream_write);

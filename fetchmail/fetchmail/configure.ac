@@ -3,28 +3,22 @@ dnl Autoconfigure input file for fetchmail
 # Fetchmail automatic configuration support
 #
 # Eric S. Raymond <esr@thyrsus.com>
-# 2004 - 2007 Matthias Andree <matthias.andree@gmx.de>
+# 2004 - 2009 Matthias Andree <matthias.andree@gmx.de>
 #
 dnl Process this file with autoconf to produce a configure script.
 dnl
 
-AC_INIT([fetchmail],[6.3.8],[fetchmail-users@lists.berlios.de])
+AC_INIT([fetchmail],[6.3.11],[fetchmail-users@lists.berlios.de])
 AC_CONFIG_SRCDIR([fetchmail.h])
 AC_CONFIG_HEADERS([config.h])
 AC_CONFIG_LIBOBJ_DIR([.])
 
-AC_CANONICAL_TARGET
+AC_CANONICAL_HOST
 
 dnl automake options are in Makefile.am
-AC_PREREQ(2.59)
+AC_PREREQ(2.60)
+dnl 2.60 required for AC_USE_SYSTEM_EXTENSIONS
 AM_INIT_AUTOMAKE
-
-dnl autobuild support, see <http://josefsson.org/autobuild/>
-(
-  TZ=GMT
-  export TZ
-  AB_INIT
-)
 
 dnl python is optional
 #
@@ -41,19 +35,35 @@ AC_PROG_INSTALL
 AC_PROG_CPP			dnl Later checks need this.
 AC_PROG_RANLIB
 AM_PROG_CC_C_O
-AC_AIX
+AC_USE_SYSTEM_EXTENSIONS
+
 AC_ISC_POSIX
-AC_MINIX
+dnl AC_ISC_POSIX: - XXX FIXME: remove in fetchmail 6.4.
+dnl This macro adds `-lcposix' to output variable `LIBS' if necessary
+dnl for Posix facilities.  Sun dropped support for the obsolete
+dnl INTERACTIVE Systems Corporation Unix on 2006-07-23.  New programs
+dnl need not use this macro.  It is implemented as
+dnl `AC_SEARCH_LIBS([strerror], [cposix])'
+
 AC_HEADER_STDC
 AC_HEADER_TIME
 AC_TYPE_SIZE_T
 AC_TYPE_PID_T
 AC_TYPE_SIGNAL
-AC_CHECK_TYPE(u_int32_t,unsigned int)
 AC_CHECK_HEADERS([unistd.h termios.h termio.h sgtty.h stdarg.h \
 	sys/itimer.h fcntl.h sys/fcntl.h memory.h sys/wait.h \
-	arpa/inet.h arpa/nameser.h netinet/in.h net/socket.h \
+	arpa/inet.h arpa/nameser.h netinet/in.h net/socket.h netdb.h \
 	sys/select.h sys/socket.h sys/time.h langinfo.h])
+if test _$ac_cv_header_stdarg_h != _yes ; then
+AC_MSG_WARN([stdarg.h is not defined. Unsupported configuration, proceed at your own risk.])
+fi
+AC_CHECK_TYPE(u_int32_t,,
+	AC_DEFINE(u_int32_t,unsigned int,
+		[Define to unsigned int if <sys/types.h> does not define.]),
+	[AC_INCLUDES_DEFAULT
+#ifdef HAVE_ARPA_NAMESER_H
+#include <arpa/nameser.h>
+#endif])
 AC_CHECK_HEADERS([resolv.h],,,[
 #include <sys/types.h>
 #ifdef HAVE_NETINET_IN_H
@@ -71,10 +81,10 @@ AC_PROG_MAKE_SET
 AC_PROG_YACC
 
 # Check for OS special cases
-case $target_os in
+case $host_os in
 darwin*)
     AC_MSG_NOTICE(found Darwin - Adding -DBIND_8_COMPAT to CFLAGS)
-    CPFLAGS="-DBIND_8_COMPAT"
+    CPPFLAGS="$CPPFLAGS -DBIND_8_COMPAT"
     ;;
 # Check for FreeBSD special case: more libs needed
 freebsd*)
@@ -88,7 +98,7 @@ lynxos*)
     LIBS="$LIBS -lbsd"
     LDFLAGS=`echo $LDFLAGS | sed "s/-s //"`
     AC_MSG_NOTICE(found LynxOS - Prepending standard include path to gcc flags)
-    CPFLAGS="-I/usr/include"
+    CPPFLAGS="$CPPFLAGS -I/usr/include"
     ;;
 # Check for Rhapsody special case: it doesn't like -s
 rhapsody*)
@@ -96,6 +106,8 @@ rhapsody*)
     LDFLAGS=`echo $LDFLAGS | sed "s/-s //"`
     ;;
 esac
+
+AC_CACHE_SAVE
 
 dnl i18n
 AM_GNU_GETTEXT([external], [need-ngettext])
@@ -195,10 +207,10 @@ for lib in '' -lresolv; do
 #include <resolv.h>
 #endif
 extern int res_search();
-]], [[res_search(0, 0, 0, 0, 0);]])],
+]], [[res_search(0, 0, 0, 0, 0); dn_skipname(0,0);]])],
     [AC_MSG_RESULT([found])
      AC_DEFINE(HAVE_RES_SEARCH, [1],
-	       [Define to 1 if you have the 'res_search' function.])
+	       [Define to 1 if you have the 'res_search' and 'dn_skipname' functions.])
      break], [AC_MSG_RESULT([not found])])
      LIBS=$old_LIBS
 done
@@ -422,6 +434,8 @@ if test "$with_POP3" != yes && test "$with_POP2" != yes \
     AC_MSG_ERROR([You must enable at least one of POP2, POP3 and IMAP.])
 fi
 
+AC_CACHE_SAVE
+
 ###	use option --enable-opie to compile in the OPIE support
 AC_ARG_ENABLE(opie,
 	[  --enable-opie           support OTP through the OPIE library],
@@ -431,17 +445,57 @@ AC_ARG_ENABLE(opie,
 	[with_opie=no])
 test "$with_opie" = "yes" && AC_DEFINE(OPIE_ENABLE,1,Define if you want OPIE support compiled in)
 
-AC_SEARCH_LIBS(getaddrinfo, inet6, [AC_DEFINE(HAVE_GETADDRINFO,1,[define to 1 if you have the getaddrinfo function])])
-AC_CHECK_FUNCS(getnameinfo inet_ntop)
-AM_CONDITIONAL(NEED_GETADDRINFO, test "$ac_cv_search_getaddrinfo" != "none required")
-AM_CONDITIONAL(NEED_GETNAMEINFO, test "$ac_cv_func_getnameinfo"   != yes)
+dnl Mostly stolen from gnulib's getaddrinfo.m4
+AC_SEARCH_LIBS(getaddrinfo, [nsl socket])
+AC_CACHE_CHECK([for getaddrinfo],[fm_cv_getaddrinfo],[
+  AC_TRY_LINK([
+#include <sys/types.h>
+#ifdef HAVE_SYS_SOCKET_H
+#include <sys/socket.h>
+#endif
+#ifdef HAVE_NETDB_H
+#include <netdb.h>
+#endif
+  ], [getaddrinfo(0, 0, 0, 0);],
+    [ fm_cv_getaddrinfo=yes],
+    [ fm_cv_getaddrinfo=no ])
+])
 
+if test x"$fm_cv_getaddrinfo" = "xyes"; then  
+     AC_DEFINE(HAVE_GETADDRINFO, 1,
+      [Define to 1 if you have the getaddrinfo function.])
+fi
+
+AC_CACHE_CHECK([for getnameinfo],[fm_cv_getnameinfo],[
+  AC_TRY_LINK([
+#include <sys/types.h>
+#ifdef HAVE_SYS_SOCKET_H
+#include <sys/socket.h>
+#endif
+#ifdef HAVE_NETDB_H
+#include <netdb.h>
+#endif
+#ifndef NULL
+#define NULL ((void *)0)
+#endif
+  ], [getnameinfo(NULL,0, NULL,0, NULL, 0, 0);],
+    [ fm_cv_getnameinfo=yes],
+    [ fm_cv_getnameinfo=no ])
+])
+if test $fm_cv_getnameinfo = yes ; then
+    AC_DEFINE(HAVE_GETNAMEINFO,1,[Define to 1 if your system has getnameinfo()])
+fi
+
+AM_CONDITIONAL(NEED_GETADDRINFO, test "$fm_cv_getaddrinfo" != yes)
+AM_CONDITIONAL(NEED_GETNAMEINFO, test "$fm_cv_getnameinfo"   != yes)
+
+AC_CHECK_FUNCS(inet_ntop)
 dnl Check if getaddrinfo is async-signal-safe - most implementations aren't
-if test "$ac_cv_search_getaddrinfo" = "none required" ; then
+if test "$fm_cv_getaddrinfo" = yes ; then
     AC_MSG_CHECKING(if your getaddrinfo is async-signal-safe)
     gai_ts=no
     dnl we have getaddrinfo() - check if the OS is known to have a async-signal-safe implementation
-    case $target_os in
+    case $host_os in
 	darwin9*)				gai_ts=yes ;;
 	linux*)					gai_ts=yes ;;
 	freebsd5.5|freebsd6*|freebsd7*)		gai_ts=yes ;;
@@ -481,23 +535,23 @@ then
   AS_MESSAGE(checking kerberosV for OpenBSD...)
   AC_DEFINE(HEIMDAL,1,Define if you have HEIMDAL kerberos 5)
   AC_DEFINE(KERBEROS_V5,1,Define if you have Kerberos V5)
-  CEFLAGS="$CEFLAGS -I/usr/include/kerberosV"
+  CFLAGS="$CFLAGS -I/usr/include/kerberosV"
   LIBS="$LIBS -lasn1 -lkrb5 -lcom_err -lkafs"
 elif krb5-config 2> /dev/null >/dev/null ; then
   krb5_prefix=`krb5-config --prefix krb5`
   AC_MSG_RESULT([krb5-config points to kerberosV under $krb5_prefix])
   if test -f ${krb5_prefix}/include/et/com_err.h && \
    ! test -f ${krb5_prefix}/include/com_err.h  ; then
-    CEFLAGS="$CEFLAGS -I${krb5_prefix}/include/et"
+    CFLAGS="$CFLAGS -I${krb5_prefix}/include/et"
   fi
   unset krb5_prefix
-  CEFLAGS="$CEFLAGS `krb5-config --cflags krb5`"
+  CFLAGS="$CFLAGS `krb5-config --cflags krb5`"
   LIBS="$LIBS `krb5-config --libs krb5`"
   AC_DEFINE(KERBEROS_V5)
 else
   if test "$with_kerberos5" != "yes" 
   then
-      LDEFLAGS="$LDEFLAGS -L${with_kerberos5}/lib"
+      LDFLAGS="$LDFLAGS -L${with_kerberos5}/lib"
       searchdirs="$with_kerberos5"
   else
       searchdirs="/usr/kerberos /usr/local/krb5 /usr/athena /usr"
@@ -507,7 +561,7 @@ else
   do AC_MSG_CHECKING([for Kerberos V in $dir])
      if test -f "$dir/include/krb5.h" || test -f "$dir/include/krb5/krb5.h"
      then
-	if test -d "$dir/include/krb5" ; then CPFLAGS="$CPFLAGS -I$dir/include/krb5" ; fi
+	if test -d "$dir/include/krb5" ; then CPPFLAGS="$CPPFLAGS -I$dir/include/krb5" ; fi
         ac_krblibs=
         if test -f "$dir/include/roken.h" || test -f "$dir/include/krb5/roken.h"
         then
@@ -516,12 +570,12 @@ else
           dnl Attempt to detect if we need to -ldb2 to link Heimdal
           dnl we assume we do if it is available
            AC_CHECK_LIB(db2, db_open, ac_krblibs="$ac_krblibs -ldb2", [],
-                ${LDEFLAGS})
+                ${LDFLAGS})
            AC_CHECK_LIB(des, des_string_to_key, libk5crypto=-ldes,
               AC_CHECK_LIB(ssl, MD5_Init, [],
                 AC_MSG_ERROR([DES libraries not found. Try adding --with-ssl to enable OpenSSL support]),
-                ${LDEFLAGS} ${ac_krblibs}),
-           ${LDEFLAGS} ${ac_krblibs})
+                ${LDFLAGS} ${ac_krblibs}),
+           ${LDFLAGS} ${ac_krblibs})
            AC_DEFINE(HEIMDAL)
         else
           AC_MSG_RESULT([found])
@@ -533,15 +587,15 @@ else
                    krb5_des_string_to_key,
                    libk5crypto=-lk5crypto,
                       AC_MSG_ERROR([Kerberos 5 DES libraries not found]),
-                   ${LDEFLAGS} ${ac_krblibs}),
-                 ${LDEFLAGS} ${ac_krblibs})
+                   ${LDFLAGS} ${ac_krblibs}),
+                 ${LDFLAGS} ${ac_krblibs})
         fi
         AC_CHECK_LIB(krb5, krb5_init_context,[],
            continue,
-           ${LDEFLAGS} ${ac_krblibs})
+           ${LDFLAGS} ${ac_krblibs})
         AC_DEFINE(KERBEROS_V5)
-        test "$dir" != "/usr" && CEFLAGS="$CEFLAGS -I$dir/include"
-        LDEFLAGS="$LDEFLAGS -L$dir/lib"
+        test "$dir" != "/usr" && CFLAGS="$CFLAGS -I$dir/include"
+        LDFLAGS="$LDFLAGS -L$dir/lib"
        LIBS="$LIBS $ac_krblibs $libk5crypto"
         with_kerberos5=$dir
         break
@@ -569,7 +623,7 @@ if test "$with_kerberos" = "yes" && ( test `uname` = "NetBSD" || test `uname` = 
 then
   AS_MESSAGE(checking kerberosIV for `uname`...)
   KERBEROS_V4=1
-  CEFLAGS="$CEFLAGS -I/usr/include/kerberosIV"
+  CFLAGS="$CFLAGS -I/usr/include/kerberosIV"
   case `uname` in
       NetBSD)  LIBS="$LIBS -lkrb -ldes -lroken -lcom_err" ;;
       OpenBSD) LIBS="$LIBS -lkrb -ldes" ;;
@@ -578,7 +632,7 @@ elif krb4-config 2> /dev/null >/dev/null ; then
   krb4_prefix=`krb4-config --prefix`
   AC_MSG_RESULT([krb4-config points to kerberosIV under $krb4_prefix])
   unset krb4_prefix
-  CEFLAGS="$CEFLAGS `krb4-config --cflags`"
+  CFLAGS="$CFLAGS `krb4-config --cflags`"
   LIBS="$LIBS `krb4-config --libs`"
   KERBEROS_V4=1
 elif krb5-config 2> /dev/null >/dev/null ; then
@@ -588,7 +642,7 @@ elif krb5-config 2> /dev/null >/dev/null ; then
     AC_DEFINE(KERBEROS_V4_V5,1,Define if you have Kerberos V4 headers under a kerberosIV directory)
   fi
   unset krb4_prefix
-  CEFLAGS="$CEFLAGS `krb5-config --cflags krb4`"
+  CFLAGS="$CFLAGS `krb5-config --cflags krb4`"
   LIBS="$LIBS `krb5-config --libs krb4`"
   KERBEROS_V4=1
 else
@@ -631,8 +685,8 @@ else
      fi
      KERBEROS_V4=1
      test -f "$with_kerberos5/roken.h" && AC_DEFINE(HEIMDAL)
-     test "$dir" != "/usr/include" && CEFLAGS="$CEFLAGS -I$dir"
-     LDEFLAGS="$LDEFLAGS -L$with_kerberos/lib"
+     test "$dir" != "/usr/include" && CFLAGS="$CFLAGS -I$dir"
+     LDFLAGS="$LDFLAGS -L$with_kerberos/lib"
      break
   done
   if test -z "$with_kerberos" ; then
@@ -695,22 +749,22 @@ then
   then
     ###	ssl.h found under openssl.  Use openssl configuration preferentially,
     AC_MSG_NOTICE(Enabling OpenSSL support in $with_ssl.)
-    test "$with_ssl" != "/usr" && CEFLAGS="$CEFLAGS -I$with_ssl/include"
+    test "$with_ssl" != "/usr" && CFLAGS="$CFLAGS -I$with_ssl/include"
     ### In Red Hat 9, this file includes a reference to <krb5.h>, so we
     ### force the Kerberos direcory onto the include path so it will build.
-    CEFLAGS="$CEFLAGS -I/usr/kerberos/include"
+    CFLAGS="$CFLAGS -I/usr/kerberos/include"
     ###	OpenBSD comes with ssl headers
   else
     AC_MSG_ERROR([SSL support enabled, but OpenSSL not found])
   fi
-  LDEFLAGS="$LDEFLAGS -L$with_ssl/lib"
+  LDFLAGS="$LDFLAGS -L$with_ssl/lib"
   LIBS="$LIBS -lssl -lcrypto"
   dnl check if -ldl is needed
   AC_MSG_CHECKING([for additional library dependencies of SSL])
   found=0
   save_LIBS="$LIBS"
   for i in "" "-ldl" ; do
-      LIBS="$LDEFLAGS $save_LIBS $i"
+      LIBS="$LDFLAGS $save_LIBS $i"
       AC_LINK_IFELSE([AC_LANG_PROGRAM(,[SSL_library_init()])],[found=1; break])
   done
   if test $found = 0 ; then
@@ -734,13 +788,13 @@ if test "$with_socks" != no
 then
     if test "$with_socks" != yes
     then
-        LDEFLAGS="$LDEFLAGS -L$with_socks"
+        LDFLAGS="$LDFLAGS -L$with_socks"
     else
         AC_CHECK_LIB(socks, Rconnect,,
                AC_MSG_ERROR([could not find libsocks which is needed for built-in SOCKS support]))
     fi
     AC_DEFINE(HAVE_SOCKS,1,Define if you want built-in SOCKS support)
-    CEFLAGS="$CEFLAGS -Dconnect=Rconnect -Dgetsockname=Rgetsockname -Dbind=Rbind -Daccept=Raccept -Dlisten=Rlisten -Dselect=Rselect"
+    CFLAGS="$CFLAGS -Dconnect=Rconnect -Dgetsockname=Rgetsockname -Dbind=Rbind -Daccept=Raccept -Dlisten=Rlisten -Dselect=Rselect"
     LIBS="-lsocks $LIBS"
 fi])
 
@@ -752,14 +806,14 @@ if test "$with_socks5" != no
 then
   if test "$with_socks5" != yes
   then
-    LDEFLAGS="$LDEFLAGS -L$with_socks5"
+    LDFLAGS="$LDFLAGS -L$with_socks5"
   fi
   ac_savedLDFLAGS="$LDFLAGS"
-  LDFLAGS="$LDEFLAGS $LDFLAGS"
+  LDFLAGS="$LDFLAGS $LDFLAGS"
   AC_CHECK_LIB(socks5, SOCKSconnect,,
   	AC_MSG_ERROR([could not find libsocks5 which is needed for built-in SOCKS5 support]))
   AC_DEFINE(HAVE_SOCKS)
-  CEFLAGS="$CEFLAGS -Dconnect=SOCKSconnect -Dgetsockname=SOCKSgetsockname -Dbind=SOCKSbind -Daccept=SOCKSaccept -Dlisten=SOCKSlisten -Dselect=SOCKSselect -Drecvfrom=SOCKSrecvfrom -Dsendto=SOCKSsendto -Drecv=SOCKSrecv -Dsend=SOCKSsend -Dread=SOCKSread -Dwrite=SOCKSwrite -Drresvport=SOCKSrresvport -Dshutdown=SOCKSshutdown -Dlisten=SOCKSlisten -Dclose=SOCKSclose -Ddup=SOCKSdup -Ddup2=SOCKSdup2 -Dgethostbyname=SOCKSgethostbyname"
+  CFLAGS="$CFLAGS -Dconnect=SOCKSconnect -Dgetsockname=SOCKSgetsockname -Dbind=SOCKSbind -Daccept=SOCKSaccept -Dlisten=SOCKSlisten -Dselect=SOCKSselect -Drecvfrom=SOCKSrecvfrom -Dsendto=SOCKSsendto -Drecv=SOCKSrecv -Dsend=SOCKSsend -Dread=SOCKSread -Dwrite=SOCKSwrite -Drresvport=SOCKSrresvport -Dshutdown=SOCKSshutdown -Dlisten=SOCKSlisten -Dclose=SOCKSclose -Ddup=SOCKSdup -Ddup2=SOCKSdup2 -Dgethostbyname=SOCKSgethostbyname"
   AC_CHECK_FUNC(SOCKSfclose, [CFLAGS="$CFLAGS -Dfclose=SOCKSfclose"])
   LDFLAGS="$ac_savedLDFLAGS"
 fi])
@@ -816,7 +870,7 @@ then
   fi
   AC_DEFINE(GSSAPI,1,Define if you want GSSAPI authentication)
   if test "$with_gssapi" != yes ; then
-    CPPFLAGS="-I$with_gssapi/include"
+    CPPFLAGS="$CPPFLAGS-I$with_gssapi/include"
   fi
   AC_CHECK_HEADERS(gss.h gssapi.h gssapi/gssapi.h gssapi/gssapi_generic.h)
   if test "$ac_cv_header_gssapi_h" = "yes"; then
@@ -825,10 +879,6 @@ then
     AC_EGREP_HEADER(GSS_C_NT_HOSTBASED_SERVICE, gssapi/gssapi.h, AC_DEFINE(HAVE_GSS_C_NT_HOSTBASED_SERVICE))
   fi
 fi])
-
-AC_SUBST(CPFLAGS)
-AC_SUBST(CEFLAGS)
-AC_SUBST(LDEFLAGS)
 
 dnl ,------------------------------------------------------------------
 dnl Check if we need TRIO
@@ -882,7 +932,7 @@ if test "$needtrio" = 1 ; then
 fi
 dnl ----------------------------------------------------------------'
 
-AC_CONFIG_FILES([Makefile m4/Makefile po/Makefile.in genlsm.sh])
+AC_CONFIG_FILES([Makefile po/Makefile.in genlsm.sh])
 AC_OUTPUT
 
 dnl Local Variables:

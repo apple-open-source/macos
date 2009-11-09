@@ -526,7 +526,7 @@ EnableUSBTracing ( void )
 	bzero ( &usbArgs, sizeof ( usbArgs ) );
 	
 	usbArgs.type 		= kUSBTypeDebug;
-	usbArgs.operation 	= kUSBOperationSetFlags;
+	usbArgs.operation 	= kUSBOperationGetFlags;
 	
 	error = sysctlbyname ( USB_SYSCTL, NULL, NULL, &usbArgs, sizeof ( usbArgs ) );
 	if ( error != 0 )

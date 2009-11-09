@@ -151,5 +151,6 @@ extern int                ike_session_is_client_ph2_rekey __P((struct ph2handle 
 extern int                ike_session_is_client_ph1_rekey __P((struct ph1handle *));
 extern void               ike_session_start_xauth_timer __P((struct ph1handle *));
 extern void               ike_session_stop_xauth_timer __P((struct ph1handle *));
+extern int                ike_session_get_sainfo_r __P((struct ph2handle *));
 
 #endif /* _IKE_SESSION_H */

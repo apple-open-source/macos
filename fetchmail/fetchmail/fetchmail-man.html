@@ -4,14 +4,21 @@
 <!-- '\" t -->
 <!-- .\" ** The above line should force tbl to be used as a preprocessor ** -->
 <!-- .\" -->
-<!-- .\" Manual page in man(7) format with tbl(1) macros for fetchmail -->
+<!-- .\" Manual page in man(7) format with tbl(1) and groff_www(7) -->
+<!-- .\" macros for fetchmail -->
 <!-- .\" -->
 <!-- .\" For license terms, see the file COPYING in this directory. -->
 <!-- .\" -->
-<!-- .TH fetchmail 1 "fetchmail 6.3.8" "fetchmail" "fetchmail reference manual" -->
+<!-- .\" -->
+<!-- .\" Load www macros to process .URL requests, this requires groff: -->
+<!-- .mso www.tmac -->
+<!-- ignored unsupported tag .mso -->
+<!-- .\" -->
+<!-- .TH fetchmail 1 "fetchmail 6.3.10" "fetchmail" "fetchmail reference manual" -->
 <CENTER>
 <H1><HR><I>Manual Reference Pages &nbsp;-&nbsp;</I><NOBR>fetchmail (1)</NOBR><HR></H1>
 </CENTER>
+<P>
 <!-- .SH NAME -->
 <A name=0>
 
@@ -99,102 +106,121 @@ fetchmail - fetch mail from a POP, IMAP, ETRN, or ODMR-capable server
 
 </A>
 <BLOCKQUOTE>
-<!-- .I fetchmail -->
-<I>fetchmail</I> is a mail-retrieval and forwarding utility; it fetches mail from
-remote mailservers and forwards it to your local (client) machine&#146;s
-delivery system.  You can then handle the retrieved mail using normal
-mail user agents such as <I>mutt</I>(1), <I>elm</I>(1) or <I>Mail</I>(1).
-The <I>fetchmail</I> utility can be run in a daemon mode to repeatedly
-poll one or more systems at a specified interval.
+<B>fetchmail</B> is a mail-retrieval and forwarding utility; it fetches
+mail from remote mailservers and forwards it to your local (client)
+machine&#146;s delivery system.  You can then handle the retrieved mail using
+normal mail user agents such as <B>mutt</B>(1), <B>elm</B>(1) or
+<B>Mail</B>(1).  The <B>fetchmail</B> utility can be run in a daemon mode
+to repeatedly poll one or more systems at a specified interval.
 <!-- .PP -->
 <P>
-The
-<!-- .I fetchmail -->
-<I>fetchmail</I> program can gather mail from servers supporting any of the common
-mail-retrieval protocols: POP2 (legacy, to be removed from future
-release), POP3, IMAP2bis, IMAP4, and IMAP4rev1.
-It can also use the ESMTP ETRN extension and ODMR.  (The RFCs describing all
-these protocols are listed at the end of this manual page.)
+The <B>fetchmail</B> program can gather mail from servers supporting any
+of the common mail-retrieval protocols: POP2 (legacy, to be removed from
+future release), POP3, IMAP2bis, IMAP4, and IMAP4rev1.  It can also use
+the ESMTP ETRN extension and ODMR.  (The RFCs describing all these
+protocols are listed at the end of this manual page.)
 <!-- .PP -->
 <P>
-While
-<!-- .I fetchmail -->
-<I>fetchmail</I> is primarily intended to be used over on-demand TCP/IP links (such as
-SLIP or PPP connections), it may also be useful as a message transfer
-agent for sites which refuse for security reasons to permit
-(sender-initiated) SMTP transactions with sendmail.
+While <B>fetchmail</B> is primarily intended to be used over on-demand
+TCP/IP links (such as SLIP or PPP connections), it may also be useful as
+a message transfer agent for sites which refuse for security reasons to
+permit (sender-initiated) SMTP transactions with sendmail.
 <!-- .PP -->
 <P>
-If
-<!-- .I fetchmail -->
-<I>fetchmail</I> is used with a POP or an IMAP server, it has two fundamental modes of
-operation for each user account from which it retrieves mail:
-<I>singledrop</I>- and <I>multidrop</I>-mode.  In singledrop-mode,
-<!-- .I fetchmail -->
-<I>fetchmail</I> assumes that all messages in the user&#146;s account are intended for a single
-recipient.  An individual mail message will not be inspected for recipient
-information, rather, the identity of the recipient will either default to
-the local user currently executing <I>fetchmail</I>,
-or else will need to be explicitly specified in the configuration file.
-Singledrop-mode is used when the fetchmailrc configuration contains at
-most a single local user specification for a given server account.
+If <B>fetchmail</B> is used with a POP or an IMAP server (but not with
+ETRN or ODMR), it has two fundamental modes of operation for each user
+account from which it retrieves mail: <I>singledrop</I>- and
+<I>multidrop</I>-mode.
+<!-- .IP "In singledrop-mode," -->
+<TABLE cellpadding=3><!-- tsb: If <B>fetchmail</B> is used with a POP or an IMAP server (but not with
+ -->
+<TR></TR><TR></TR>
+<TR valign=top><TD width=6%>
+"In singledrop-mode,"
+</TD><TD>
+<B>fetchmail</B> assumes that all messages in the user&#146;s account
+(mailbox) are intended for a single recipient.  The identity of the
+recipient will either default to the local user currently executing
+<B>fetchmail</B>, or will need to be explicitly specified in the
+configuration file.
+<!-- .IP -->
+</TD></TR>
+<TR valign=top><TD width=6%>
+
+</TD><TD>
+<B>fetchmail</B> uses singledrop-mode when the fetchmailrc configuration
+contains at most a single local user specification for a given server
+account.
+<!-- .IP "In multidrop-mode," -->
+</TD></TR>
+<TR valign=top><TD width=6%>
+"In multidrop-mode,"
+</TD><TD>
+<B>fetchmail</B> assumes that the mail server account actually contains
+mail intended for any number of different recipients.  Therefore,
+<B>fetchmail</B> must attempt to deduce the proper "envelope recipient"
+from the mail headers of each message.  In this mode of operation,
+<B>fetchmail</B> almost resembles a mail transfer agent (MTA).
+<!-- .IP -->
+</TD></TR>
+<TR valign=top><TD width=6%>
+
+</TD><TD>
+Note that neither the POP nor IMAP protocols were intended for use in
+this fashion, and hence envelope information is often not directly
+available.  The ISP must stores the envelope information in some message
+header <B>and</B>. The ISP must also store one copy of the message per
+recipient. If either of the conditions is not fulfilled, this process is
+unreliable, because <B>fetchmail</B> must then resort to guessing the
+true envelope recipient(s) of a message. This usually fails for mailing
+list messages and Bcc:d mail, or mail for multiple recipients in your
+domain.
+<!-- .IP -->
+</TD></TR>
+<TR valign=top><TD width=6%>
+
+</TD><TD>
+<B>fetchmail</B> uses multidrop-mode when more than one local user and/or
+a wildcard is specified for a particular server account in the
+configuration file.
+<!-- .IP "In ETRN and ODMR modes," -->
+</TD></TR>
+<TR valign=top><TD width=6%>
+"In ETRN and ODMR modes,"
+</TD><TD>
+these considerations do not apply, as these protocols are based on SMTP,
+which provides explicit envelope recipient information. These protocols
+always support multiple recipients.
+<!-- .PP -->
+</TD></TR>
+<!-- PP ends table -->
+<TR></TR></TABLE>As each message is retrieved, <B>fetchmail</B> normally delivers it via
+SMTP to port 25 on the machine it is running on (localhost), just as
+though it were being passed in over a normal TCP/IP link.
+<B>fetchmail</B> provides the SMTP server with an envelope recipient
+derived in the manner described previously.  The mail will then be
+delivered according to your MTA&#146;s rules (the Mail Transfer Agent is
+usually <B>sendmail</B>(8), <B>exim</B>(8), or <B>postfix</B>(8)).
+Invoking your system&#146;s MDA (Mail Delivery Agent) is the duty of your
+MTA.  All the delivery-control mechanisms (such as <I>.forward</I> files)
+normally available through your system MTA and local delivery agents
+will therefore be applied as usual.
 <!-- .PP -->
 <P>
-With multidrop-mode,
-<!-- .I fetchmail -->
-<I>fetchmail</I> is not able to assume that there is only a single recipient, but rather
-that the mail server account actually contains mail intended for any
-number of different recipients.  Therefore,
-<!-- .I fetchmail -->
-<I>fetchmail</I> must attempt to deduce the proper "envelope recipient" from the mail
-headers of each message.  In this mode of operation,
-<!-- .I fetchmail -->
-<I>fetchmail</I> almost resembles an MTA, however it is important to note that neither
-the POP nor IMAP protocols were intended for use in this fashion, and
-hence envelope information is often not directly available.  Instead,
-<!-- .I fetchmail -->
-<I>fetchmail</I> must resort to a process of informed guess-work in an attempt to
-discover the true envelope recipient of a message, unless the ISP stores
-the envelope information in some header (not all do).  Even if this
-information is present in the headers, the process can
-be error-prone and is dependent upon the specific mail server used
-for mail retrieval.  Multidrop-mode is used when more than one local
-user is specified for a particular server account in the configuration
-file.  Note that the forgoing discussion of singledrop- and
-multidrop-modes does not apply to the ESMTP ETRN or ODMR retrieval
-methods, since they are based upon the SMTP protocol which
-specifically provides the envelope recipient to <I>fetchmail</I>.
+If your fetchmail configuration sets a local MDA (see the --mda
+option), it will be used directly instead of talking SMTP to port 25.
 <!-- .PP -->
 <P>
-As each message is retrieved, <I>fetchmail</I> normally delivers it via SMTP to
-port 25 on the machine it is running on (localhost), just as though it
-were being passed in over a normal TCP/IP link.  <I>fetchmail</I> provides
-the SMTP server with an envelope recipient derived in the manner described
-previously.  The mail will then be
-delivered locally via your system&#146;s MDA (Mail Delivery Agent, usually
-<I>sendmail</I>(8) but your system may use a different one such
-as <I>smail</I>, <I>mmdf</I>, <I>exim</I>, <I>postfix</I>, or <I>qmail</I>).  All the
-delivery-control mechanisms (such as <I>.forward</I> files) normally
-available through your system MDA and local delivery agents will
-therefore work automatically.
-<!-- .PP -->
-<P>
-If no port 25 listener is available, but your fetchmail configuration
-was told about a reliable local MDA, it will use that MDA for local
-delivery instead.
-<!-- .PP -->
-<P>
-If the program
-<!-- .I fetchmailconf -->
-<I>fetchmailconf</I> is available, it will assist you in setting up and editing a
-fetchmailrc configuration.  It runs under the X window system and
-requires that the language Python and the Tk toolkit be present on your
-system.  If you are first setting up fetchmail for single-user mode, it
-is recommended that you use Novice mode.  Expert mode provides complete
-control of fetchmail configuration, including the multidrop features.
-In either case, the &#146;Autoprobe&#146; button will tell you the most capable
-protocol a given mailserver supports, and warn you of potential problems
-with that server.
+If the program <B>fetchmailconf</B> is available, it will assist you in
+setting up and editing a fetchmailrc configuration.  It runs under the X
+window system and requires that the language Python and the Tk toolkit
+(with Python bindings) be present on your system.  If you are first
+setting up fetchmail for single-user mode, it is recommended that you
+use Novice mode.  Expert mode provides complete control of fetchmail
+configuration, including the multidrop features.  In either case,
+the &#146;Autoprobe&#146; button will tell you the most capable protocol a given
+mailserver supports, and warn you of potential problems with that
+server.
 <P>
 <!-- .SH GENERAL OPERATION -->
 </BLOCKQUOTE>
@@ -204,38 +230,31 @@ with that server.
 
 </A>
 <BLOCKQUOTE>
-The behavior of
-<!-- .I fetchmail -->
-<I>fetchmail</I> is controlled by command-line options and a run control file,
-<!-- .IR ~/.fetchmailrc\fR , -->
-<I>~/.fetchmailrc</I>, the syntax of which we describe in a later section (this file is what
-the <I>fetchmailconf</I> program edits).  Command-line options override
-<!-- .I ~/.fetchmailrc -->
+The behavior of <B>fetchmail</B> is controlled by command-line options and a
+run control file, <I>~/.fetchmailrc</I>,
+the syntax of which we describe in a later section (this file is what
+the <B>fetchmailconf</B> program edits).  Command-line options override
 <I>~/.fetchmailrc</I> declarations.
 <!-- .PP -->
 <P>
-Each server name that you specify following the options on the
-command line will be queried.  If you don&#146;t specify any servers
-on the command line, each &#146;poll&#146; entry in your
-<!-- .I ~/.fetchmailrc -->
-<I>~/.fetchmailrc</I> file will be queried.
+Each server name that you specify following the options on the command
+line will be queried.  If you don&#146;t specify any servers on the command
+line, each &#146;poll&#146; entry in your <I>~/.fetchmailrc</I> file will be
+queried.
 <!-- .PP -->
 <P>
-To facilitate the use of
-<!-- .I fetchmail -->
-<I>fetchmail</I> in scripts and pipelines, it returns an appropriate exit code upon
-termination -- see EXIT CODES below.
+To facilitate the use of <B>fetchmail</B> in scripts and pipelines, it
+returns an appropriate exit code upon termination -- see EXIT CODES
+below.
 <!-- .PP -->
 <P>
-The following options modify the behavior of <I>fetchmail</I>.  It is
+The following options modify the behavior of <B>fetchmail</B>.  It is
 seldom necessary to specify any of these once you have a
 working <I>.fetchmailrc</I> file set up.
 <!-- .PP -->
 <P>
 Almost all options have a corresponding keyword which can be used to
-declare them in a
-<!-- .I .fetchmailrc -->
-<I>.fetchmailrc</I> file.
+declare them in a <I>.fetchmailrc</I> file.
 <!-- .PP -->
 <P>
 Some special options are not covered here, but are documented instead
@@ -252,16 +271,12 @@ in sections on AUTHENTICATION and DAEMON MODE which follow.
 <TR valign=top><TD colspan=2>
 <!-- .B \-V | \-\-version -->
 <B>-V | --version</B> </TD></TR><TR valign=top><TD width=6%>&nbsp;</TD><TD>
-Displays the version information for your copy of
-<!-- .IR fetchmail . -->
-<I>fetchmail</I>. No mail fetch is performed.
-Instead, for each server specified, all the option information
-that would be computed if
-<!-- .I fetchmail -->
-<I>fetchmail</I> were connecting to that server is displayed.  Any non-printables in
-passwords or other string names are shown as backslashed C-like
-escape sequences.  This option is useful for verifying that your
-options are set the way you want them.
+Displays the version information for your copy of <B>fetchmail</B>.  No mail
+fetch is performed.  Instead, for each server specified, all the option
+information that would be computed if <B>fetchmail</B> were connecting to that
+server is displayed.  Any non-printables in passwords or other string names
+are shown as backslashed C-like escape sequences.  This option is useful for
+verifying that your options are set the way you want them.
 <!-- .TP -->
 </TD></TR>
 <TR valign=top><TD colspan=2>
@@ -288,11 +303,32 @@ suppress actual error messages).  The --verbose option overrides this.
 <TR valign=top><TD colspan=2>
 <!-- .B \-v | \-\-verbose -->
 <B>-v | --verbose</B> </TD></TR><TR valign=top><TD width=6%>&nbsp;</TD><TD>
-Verbose mode.  All control messages passed between
-<!-- .I fetchmail -->
-<I>fetchmail</I> and the mailserver are echoed to stdout.  Overrides --silent.
+Verbose mode.  All control messages passed between <B>fetchmail</B>
+and the mailserver are echoed to stdout.  Overrides --silent.
 Doubling this option (-v -v) causes extra diagnostic information
 to be printed.
+<!-- .TP -->
+</TD></TR>
+<TR valign=top><TD colspan=2>
+<!-- .B \-\-nosoftbounce -->
+<B>--nosoftbounce</B> </TD></TR><TR valign=top><TD width=6%>&nbsp;</TD><TD>
+(since v6.3.10, Keyword: set no softbounce, since v6.3.10)
+<!-- .br -->
+<!-- Need break --><BR>
+Hard bounce mode. All permanent delivery errors cause messages to be
+deleted from the upstream server, see "no softbounce" below.
+<!-- .TP -->
+</TD></TR>
+<TR valign=top><TD colspan=2>
+<!-- .B \-\-softbounce -->
+<B>--softbounce</B> </TD></TR><TR valign=top><TD width=6%>&nbsp;</TD><TD>
+(since v6.3.10, Keyword: set softbounce, since v6.3.10)
+<!-- .br -->
+<!-- Need break --><BR>
+Soft bounce mode. All permanent delivery errors cause messages to be
+left on the upstream server if the protocol supports that. Default to
+match historic fetchmail documentation, to be changed to hard bounce
+mode in the next fetchmail release.
 <!-- .SS Disposal Options -->
 </TD></TR>
 <TR></TR></TABLE></BLOCKQUOTE>
@@ -307,6 +343,8 @@ to be printed.
 <!-- .B \-a | \-\-all | (since v6.3.3) \-\-fetchall -->
 <B>-a | --all | (since v6.3.3) --fetchall</B> </TD></TR><TR valign=top><TD width=6%>&nbsp;</TD><TD>
 (Keyword: fetchall, since v3.0)
+<!-- .br -->
+<!-- Need break --><BR>
 Retrieve both old (seen) and new messages from the mailserver.  The
 default is to fetch only messages the server has not marked seen.
 Under POP3, this option also forces the use of RETR rather than TOP.
@@ -321,6 +359,8 @@ command-line option was added in v6.3.3.
 <!-- .B \-k | \-\-keep -->
 <B>-k | --keep</B> </TD></TR><TR valign=top><TD width=6%>&nbsp;</TD><TD>
 (Keyword: keep)
+<!-- .br -->
+<!-- Need break --><BR>
 Keep retrieved messages on the remote mailserver.  Normally, messages
 are deleted from the folder on the mailserver after they have been retrieved.
 Specifying the <B>keep</B> option causes retrieved messages to remain in
@@ -333,6 +373,8 @@ option or uidl keyword.
 <!-- .B \-K | \-\-nokeep -->
 <B>-K | --nokeep</B> </TD></TR><TR valign=top><TD width=6%>&nbsp;</TD><TD>
 (Keyword: nokeep)
+<!-- .br -->
+<!-- Need break --><BR>
 Delete retrieved messages from the remote mailserver.  This
 option forces retrieved mail to be deleted.  It may be useful if
 you have specified a default of <B>keep</B> in your
@@ -342,6 +384,9 @@ you have specified a default of <B>keep</B> in your
 <TR valign=top><TD colspan=2>
 <!-- .B \-F | \-\-flush -->
 <B>-F | --flush</B> </TD></TR><TR valign=top><TD width=6%>&nbsp;</TD><TD>
+(Keyword: flush)
+<!-- .br -->
+<!-- Need break --><BR>
 POP3/IMAP only.  This is a dangerous option and can cause mail loss when
 used improperly. It deletes old (seen) messages from the mailserver
 before retrieving new messages.  <B>Warning:</B> This can cause mail loss if
@@ -376,13 +421,14 @@ work with ETRN or ODMR.
 <!-- .B \-p <proto> | \-\-proto <proto> | \-\-protocol <proto> -->
 <B>-p &lt;proto&gt; | --proto &lt;proto&gt; | --protocol &lt;proto&gt;</B> </TD></TR><TR valign=top><TD width=6%>&nbsp;</TD><TD>
 (Keyword: proto[col])
+<!-- .br -->
+<!-- Need break --><BR>
 Specify the protocol to use when communicating with the remote
 mailserver.  If no protocol is specified, the default is AUTO.
-<!-- .I proto -->
-<I>proto</I> may be one of the following:
+<B>proto</B> may be one of the following:
 <!-- .RS -->
 <!-- .IP AUTO -->
-<TABLE width=100% cellpadding=3><!-- tsb: (Keyword: proto[col])
+<TABLE width=100% cellpadding=3><!-- tsb: Specify the protocol to use when communicating with the remote
  -->
 <TR></TR><TR></TR>
 <TR valign=top><TD width=6%>
@@ -432,7 +478,7 @@ Use POP3 with Demon Internet&#146;s SDPS extensions.
 <TR valign=top><TD width=6%>
 IMAP
 </TD><TD>
-IMAP2bis, IMAP4, or IMAP4rev1 (<I>fetchmail</I> automatically detects their capabilities).
+IMAP2bis, IMAP4, or IMAP4rev1 (<B>fetchmail</B> automatically detects their capabilities).
 <!-- .IP ETRN -->
 </TD></TR>
 <TR valign=top><TD width=6%>
@@ -447,7 +493,7 @@ ODMR
 Use the the On-Demand Mail Relay ESMTP profile.
 <!-- .RE -->
 </TD></TR>
-<TR></TR></TABLE><!-- .P -->
+<TR></TR></TABLE><!-- .PP -->
 </TD></TR>
 <!-- Found tag TP -->
 <TR><TD colspan=2>
@@ -467,6 +513,8 @@ a static DNS.
 <!-- .B \-U | \-\-uidl -->
 <B>-U | --uidl</B> </TD></TR><TR valign=top><TD width=6%>&nbsp;</TD><TD>
 (Keyword: uidl)
+<!-- .br -->
+<!-- Need break --><BR>
 Force UIDL use (effective only with POP3).  Force client-side tracking
 of &#146;newness&#146; of messages (UIDL stands for "unique ID listing" and is
 described in RFC1939).  Use with &#146;keep&#146; to use a mailbox as a baby
@@ -482,6 +530,8 @@ also: --idfile.
 <!-- .B \-\-idle (since 6.3.3) -->
 <B>--idle (since 6.3.3)</B> </TD></TR><TR valign=top><TD width=6%>&nbsp;</TD><TD>
 (Keyword: idle, since before 6.0.0)
+<!-- .br -->
+<!-- Need break --><BR>
 Enable IDLE use (effective only with IMAP). Note that this works with
 only one folder at a given time.  While the idle rcfile keyword had been
 supported for a long time, the --idle command-line option was added in
@@ -494,6 +544,8 @@ be possible with regular polls.
 <!-- .B \-P <portnumber> | \-\-service <servicename> -->
 <B>-P &lt;portnumber&gt; | --service &lt;servicename&gt;</B> </TD></TR><TR valign=top><TD width=6%>&nbsp;</TD><TD>
 (Keyword: service) Since version 6.3.0.
+<!-- .br -->
+<!-- Need break --><BR>
 The service option permits you to specify a service name to connect to.
 You can specify a decimal port number here, if your services database
 lacks the required service-port assignments. See the FAQ item R12 and
@@ -505,8 +557,9 @@ option.
 <!-- .B \-\-port <portnumber> -->
 <B>--port &lt;portnumber&gt;</B> </TD></TR><TR valign=top><TD width=6%>&nbsp;</TD><TD>
 (Keyword: port)
+<!-- .br -->
+<!-- Need break --><BR>
 Obsolete version of --service that does not take service names.
-<!-- .B Note: -->
 <B>Note:</B> this option may be removed from a future version.
 <!-- .TP -->
 </TD></TR>
@@ -514,6 +567,8 @@ Obsolete version of --service that does not take service names.
 <!-- .B \-\-principal <principal> -->
 <B>--principal &lt;principal&gt;</B> </TD></TR><TR valign=top><TD width=6%>&nbsp;</TD><TD>
 (Keyword: principal)
+<!-- .br -->
+<!-- Need break --><BR>
 The principal option permits you to specify a service principal for
 mutual authentication.  This is applicable to POP3 or IMAP with Kerberos
 authentication.
@@ -523,27 +578,45 @@ authentication.
 <!-- .B \-t <seconds> | \-\-timeout <seconds> -->
 <B>-t &lt;seconds&gt; | --timeout &lt;seconds&gt;</B> </TD></TR><TR valign=top><TD width=6%>&nbsp;</TD><TD>
 (Keyword: timeout)
+<!-- .br -->
+<!-- Need break --><BR>
 The timeout option allows you to set a server-nonresponse
 timeout in seconds.  If a mailserver does not send a greeting message
 or respond to commands for the given number of seconds,
-<I>fetchmail</I> will hang up on it.  Without such a timeout
-<I>fetchmail</I> might hang up indefinitely trying to fetch mail from a
-down host.  This would be particularly annoying for a <I>fetchmail</I>
-running in background.  There is a default timeout which fetchmail~-V
-will report.  If a given connection receives too many timeouts in
-succession, fetchmail will consider it wedged and stop retrying,
-the calling user will be notified by email if this happens.
+<B>fetchmail</B> will drop the connection to it.  Without such a timeout
+<B>fetchmail</B> might hang until the TCP connection times out, trying to fetch
+mail from a down host, which may be very long.
+This would be particularly annoying for a <B>fetchmail</B> running in the
+background.  There is a default timeout which fetchmail~-V will report.  If a
+given connection receives too many timeouts in succession, fetchmail will
+consider it wedged and stop retrying.  The calling user will be notified by
+email if this happens.
+<!-- .IP -->
+</TD></TR>
+<TR valign=top><TD width=6%>
+
+</TD><TD>
+Beginning with fetchmail 6.3.10, the SMTP client uses the recommended minimum
+timeouts from RFC-5321 while waiting for the SMTP/LMTP server it is talking to.
+You can raise the timeouts even more, but you cannot shorten it. This is to
+avoid a painful situation where fetchmail has been configured with a short
+timeout (a minute or less), ships a long message (many MBytes) to the local
+MTA, which then takes longer than timeout to respond "OK", which it eventually
+will; that would mean the mail gets delivered properly, but fetchmail cannot
+notice it and will thus refetch this big message over and over again.
 <!-- .TP -->
 </TD></TR>
 <TR valign=top><TD colspan=2>
 <!-- .B \-\-plugin <command> -->
 <B>--plugin &lt;command&gt;</B> </TD></TR><TR valign=top><TD width=6%>&nbsp;</TD><TD>
-(Keyword: plugin) The plugin option allows you to use an external
-program to establish the TCP connection.  This is useful if you want
-to use SSL, ssh, or need some special firewalling setup.  The
-program will be looked up in $PATH and can optionally be passed the
-hostname and port as arguments using "%h" and "%p" respectively (note
-that the interpolation logic is rather primitive, and these token must
+(Keyword: plugin)
+<!-- .br -->
+<!-- Need break --><BR>
+The plugin option allows you to use an external program to establish the TCP
+connection.  This is useful if you want to use ssh, or need some special
+firewalling setup.  The program will be looked up in $PATH and can optionally
+be passed the hostname and port as arguments using "%h" and "%p" respectively
+(note that the interpolation logic is rather primitive, and these tokens must
 be bounded by whitespace or beginning of string or end of string).
 Fetchmail will write to the plugin&#146;s stdin and read from the plugin&#146;s
 stdout.
@@ -553,15 +626,18 @@ stdout.
 <!-- .B \-\-plugout <command> -->
 <B>--plugout &lt;command&gt;</B> </TD></TR><TR valign=top><TD width=6%>&nbsp;</TD><TD>
 (Keyword: plugout)
+<!-- .br -->
+<!-- Need break --><BR>
 Identical to the plugin option above, but this one is used for the SMTP
-connections (which will probably not need it, so it has been separated
-from plugin).
+connections.
 <!-- .TP -->
 </TD></TR>
 <TR valign=top><TD colspan=2>
 <!-- .B \-r <name> | \-\-folder <name> -->
 <B>-r &lt;name&gt; | --folder &lt;name&gt;</B> </TD></TR><TR valign=top><TD width=6%>&nbsp;</TD><TD>
 (Keyword: folder[s])
+<!-- .br -->
+<!-- Need break --><BR>
 Causes a specified non-default mail folder on the mailserver (or
 comma-separated list of folders) to be retrieved.  The syntax of the
 folder name is server-dependent.  This option is not available under
@@ -572,7 +648,9 @@ POP3, ETRN, or ODMR.
 <!-- .B \-\-tracepolls -->
 <B>--tracepolls</B> </TD></TR><TR valign=top><TD width=6%>&nbsp;</TD><TD>
 (Keyword: tracepolls)
-Tell fetchmail to poll trace information in the form &#146;polling %s
+<!-- .br -->
+<!-- Need break --><BR>
+Tell fetchmail to poll trace information in the form &#146;polling
 account %s&#146; and &#146;folder %s&#146; to the Received line it generates,
 where the %s parts are replaced by the user&#146;s remote name, the poll
 label, and the folder (mailbox) where available (the Received header
@@ -585,25 +663,39 @@ from. The folder information is written only since version 6.3.4.
 <!-- .B \-\-ssl -->
 <B>--ssl</B> </TD><TD valign=bottom>
 (Keyword: ssl)
-Causes the connection to the mail server to be encrypted via SSL.  Connect
-to the server using the specified base protocol over a connection secured
-by SSL. This option defeats TLS negotiation. Use --sslcertck to
-validate the certificates presented by the server.
-<!-- .sp -->
-<P>
-Note that fetchmail may still try to negotiate TLS even if this option
-is not given. You can use the --sslproto option to defeat this
-behavior or tell fetchmail to negotiate a particular SSL protocol.
-<!-- .sp -->
-<P>
+<!-- .br -->
+<!-- Need break --><BR>
+Causes the connection to the mail server to be encrypted
+via SSL.  Connect to the server using the specified base protocol over a
+connection secured by SSL. This option defeats opportunistic starttls
+negotiation. It is highly recommended to use --sslproto &#146;SSL3&#146;
+--sslcertck to validate the certificates presented by the server and
+defeat the obsolete SSLv2 negotiation. More information is available in
+the <I>README.SSL</I> file that ships with fetchmail.
+<!-- .IP -->
+</TD></TR>
+<TR valign=top><TD width=6%>
+
+</TD><TD>
+Note that fetchmail may still try to negotiate SSL through starttls even
+if this option is omitted. You can use the --sslproto option to defeat
+this behavior or tell fetchmail to negotiate a particular SSL protocol.
+<!-- .IP -->
+</TD></TR>
+<TR valign=top><TD width=6%>
+
+</TD><TD>
 If no port is specified, the connection is attempted to the well known
 port of the SSL version of the base protocol.  This is generally a
 different port than the port used by the base protocol.  For IMAP, this
 is port 143 for the clear protocol and port 993 for the SSL secured
 protocol, for POP3, it is port 110 for the clear text and port 995 for
 the encrypted variant.
-<!-- .sp -->
-<P>
+<!-- .IP -->
+</TD></TR>
+<TR valign=top><TD width=6%>
+
+</TD><TD>
 If your system lacks the corresponding entries from /etc/services, see
 the --service option and specify the numeric port number as given in
 the previous paragraph (unless your ISP had directed you to different
@@ -614,68 +706,106 @@ ports, which is uncommon however).
 <!-- .B \-\-sslcert <name> -->
 <B>--sslcert &lt;name&gt;</B> </TD></TR><TR valign=top><TD width=6%>&nbsp;</TD><TD>
 (Keyword: sslcert)
-Specifies the file name of the client side public SSL certificate.  Some
-SSL encrypted servers may require client side keys and certificates for
-authentication.  In most cases, this is optional.  This specifies
-the location of the public key certificate to be presented to the server
-at the time the SSL session is established.  It is not required (but may
-be provided) if the server does not require it.  Some servers may
-require it, some servers may request it but not require it, and some
-servers may not request it at all.  It may be the same file
-as the private key (combined key and certificate file) but this is not
-recommended.
+<!-- .br -->
+<!-- Need break --><BR>
+For certificate-based client authentication.  Some SSL encrypted servers
+require client side keys and certificates for authentication.  In most
+cases, this is optional.  This specifies the location of the public key
+certificate to be presented to the server at the time the SSL session is
+established.  It is not required (but may be provided) if the server
+does not require it.  It may be the same file as the private key
+(combined key and certificate file) but this is not recommended. Also
+see --sslkey below.
 <!-- .sp -->
 <P>
-<!-- .B NOTE: -->
-<B>NOTE:</B> If you use client authentication, the user name is fetched from the
-certificate&#146;s CommonName and overrides the name set with --user.
+<B>NOTE:</B> If you use client authentication, the user name is fetched
+from the certificate&#146;s CommonName and overrides the name set with
+--user.
 <!-- .TP -->
 </TD></TR>
 <TR valign=top><TD colspan=2>
 <!-- .B \-\-sslkey <name> -->
 <B>--sslkey &lt;name&gt;</B> </TD></TR><TR valign=top><TD width=6%>&nbsp;</TD><TD>
 (Keyword: sslkey)
+<!-- .br -->
+<!-- Need break --><BR>
 Specifies the file name of the client side private SSL key.  Some SSL
-encrypted servers may require client side keys and certificates for
+encrypted servers require client side keys and certificates for
 authentication.  In most cases, this is optional.  This specifies
 the location of the private key used to sign transactions with the server
 at the time the SSL session is established.  It is not required (but may
-be provided) if the server does not require it.  Some servers may
-require it, some servers may request it but not require it, and some
-servers may not request it at all.  It may be the same file
+be provided) if the server does not require it. It may be the same file
 as the public key (combined key and certificate file) but this is not
-recommended.  If a password is required to unlock the key, it will be
-prompted for at the time just prior to establishing the session to the
-server.  This can cause some complications in daemon mode.
+recommended.
+<!-- .IP -->
+</TD></TR>
+<TR valign=top><TD width=6%>
+
+</TD><TD>
+If a password is required to unlock the key, it will be prompted for at
+the time just prior to establishing the session to the server.  This can
+cause some complications in daemon mode.
+<!-- .IP -->
+</TD></TR>
+<TR valign=top><TD width=6%>
+
+</TD><TD>
+Also see --sslcert above.
 <!-- .TP -->
 </TD></TR>
 <TR valign=top><TD colspan=2>
 <!-- .B \-\-sslproto <name> -->
 <B>--sslproto &lt;name&gt;</B> </TD></TR><TR valign=top><TD width=6%>&nbsp;</TD><TD>
 (Keyword: sslproto)
-Forces an SSL or TLS protocol. Possible values are &#146;<B>SSL2</B>&#146;,
-&#146;<B>SSL3</B>&#146;, &#146;<B>SSL23</B>&#146;, and &#146;<B>TLS1</B>&#146;. Try this if the default
-handshake does not work for your server. Use this option with
-<!-- '\fBTLS1\fR' to enforce a TLS connection. To defeat opportunistic TLSv1 -->
-<!-- ignored unsupported tag .\fBTLS1\fR' -->
-negotiation when the server advertises STARTTLS or STLS, use <B>&#146;&#146;</B>.
-This option, even if the argument is the empty string, will also
-suppress the diagnostic &#146;SERVER: opportunistic upgrade to TLS.&#146; message
-in verbose mode. The default is to try appropriate protocols depending
-on context.
+<!-- .br -->
+<!-- Need break --><BR>
+Forces an SSL/TLS protocol. Possible values are <B>&#146;&#146;</B>,
+&#146;<B>SSL2</B>&#146;, &#146;<B>SSL23</B>&#146;, (use of these two values is discouraged
+and should only be used as a last resort) &#146;<B>SSL3</B>&#146;, and
+&#146;<B>TLS1</B>&#146;.  The default behaviour if this option is unset is: for
+connections without --ssl, use &#146;<B>TLS1</B>&#146; that fetchmail will
+opportunistically try STARTTLS negotiation with TLS1. You can configure
+this option explicitly if the default handshake (TLS1 if --ssl is not
+used, does not work for your server.
+<!-- .IP -->
+</TD></TR>
+<TR valign=top><TD width=6%>
+
+</TD><TD>
+Use this option with &#146;<B>TLS1</B>&#146; value to enforce a STARTTLS
+connection. In this mode, it is highly recommended to also use
+--sslcertck (see below).
+<!-- .IP -->
+</TD></TR>
+<TR valign=top><TD width=6%>
+
+</TD><TD>
+To defeat opportunistic TLSv1 negotiation when the server advertises
+STARTTLS or STLS, use <B>&#146;&#146;</B>.  This option, even if the argument is
+the empty string, will also suppress the diagnostic &#146;SERVER:
+opportunistic upgrade to TLS.&#146; message in verbose mode. The default is
+to try appropriate protocols depending on context.
 <!-- .TP -->
 </TD></TR>
 <TR valign=top><TD colspan=2>
 <!-- .B \-\-sslcertck -->
 <B>--sslcertck</B> </TD></TR><TR valign=top><TD width=6%>&nbsp;</TD><TD>
 (Keyword: sslcertck)
+<!-- .br -->
+<!-- Need break --><BR>
 Causes fetchmail to strictly check the server certificate against a set of
 local trusted certificates (see the <B>sslcertpath</B> option). If the server
 certificate cannot be obtained or is not signed by one of the trusted ones
 (directly or indirectly), the SSL connection will fail, regardless of
 the <B>sslfingerprint</B> option.
-Note that CRL are only supported in OpenSSL 0.9.7 and newer! Your system
-clock should also be reasonably accurate when using this option.
+<!-- .IP -->
+</TD></TR>
+<TR valign=top><TD width=6%>
+
+</TD><TD>
+Note that CRL (certificate revocation lists) are only supported in
+OpenSSL 0.9.7 and newer! Your system clock should also be reasonably
+accurate when using this option.
 <!-- .IP -->
 </TD></TR>
 <TR valign=top><TD width=6%>
@@ -689,6 +819,8 @@ fetchmail versions.
 <!-- .B \-\-sslcertpath <directory> -->
 <B>--sslcertpath &lt;directory&gt;</B> </TD></TR><TR valign=top><TD width=6%>&nbsp;</TD><TD>
 (Keyword: sslcertpath)
+<!-- .br -->
+<!-- Need break --><BR>
 Sets the directory fetchmail uses to look up local certificates. The default
 is your OpenSSL default one. The directory must be hashed as OpenSSL expects
 it - every time you add or modify a certificate in the directory, you need
@@ -697,9 +829,28 @@ subdirectory).
 <!-- .TP -->
 </TD></TR>
 <TR valign=top><TD colspan=2>
+<!-- .B \-\-sslcommonname <common name> -->
+<B>--sslcommonname &lt;common name&gt;</B> </TD></TR><TR valign=top><TD width=6%>&nbsp;</TD><TD>
+(Keyword: sslcommonname)
+<!-- .br -->
+<!-- Need break --><BR>
+Use of this option is discouraged. Before using it, contact the
+administrator of your upstream server and ask for a proper SSL
+certificate to be used. If that cannot be attained, this option can be
+used to specify the name (CommonName) that fetchmail expects on the
+server certificate.  A correctly configured server will have this set to
+the hostname by which it is reached, and by default fetchmail will
+expect as much. Use this option when the CommonName is set to some other
+value, to avoid the "Server CommonName mismatch" warning, and only if
+the upstream server can&#146;t be made to use proper certificates.
+<!-- .TP -->
+</TD></TR>
+<TR valign=top><TD colspan=2>
 <!-- .B \-\-sslfingerprint <fingerprint> -->
 <B>--sslfingerprint &lt;fingerprint&gt;</B> </TD></TR><TR valign=top><TD width=6%>&nbsp;</TD><TD>
 (Keyword: sslfingerprint)
+<!-- .br -->
+<!-- Need break --><BR>
 Specify the fingerprint of the server key (an MD5 hash of the key) in
 hexadecimal notation with colons separating groups of two digits. The letter
 hex digits must be in upper case. This is the default format OpenSSL uses,
@@ -752,6 +903,8 @@ For details, see
 <!-- .B \-S <hosts> | \-\-smtphost <hosts> -->
 <B>-S &lt;hosts&gt; | --smtphost &lt;hosts&gt;</B> </TD></TR><TR valign=top><TD width=6%>&nbsp;</TD><TD>
 (Keyword: smtp[host])
+<!-- .br -->
+<!-- Need break --><BR>
 Specify a hunt list of hosts to forward mail to (one or more
 hostnames, comma-separated). Hosts are tried in list order; the first
 one that is up becomes the forwarding target for the current run.  If
@@ -779,16 +932,20 @@ between the ODMR server and SMTP or LMTP receiver.
 <!-- .B \-\-fetchdomains <hosts> -->
 <B>--fetchdomains &lt;hosts&gt;</B> </TD></TR><TR valign=top><TD width=6%>&nbsp;</TD><TD>
 (Keyword: fetchdomains)
+<!-- .br -->
+<!-- Need break --><BR>
 In ETRN or ODMR mode, this option specifies the list of domains the
 server should ship mail for once the connection is turned around.  The
-default is the FQDN of the machine running
-<!-- .IR fetchmail . -->
-<I>fetchmail</I>. <!-- .TP -->
+default is the FQDN of the machine running <B>fetchmail</B>.
+<!-- .TP -->
 </TD></TR>
 <TR valign=top><TD colspan=2>
 <!-- .B \-D <domain> | \-\-smtpaddress <domain> -->
 <B>-D &lt;domain&gt; | --smtpaddress &lt;domain&gt;</B> </TD></TR><TR valign=top><TD width=6%>&nbsp;</TD><TD>
-(Keyword: smtpaddress) Specify the domain to be appended to addresses
+(Keyword: smtpaddress)
+<!-- .br -->
+<!-- Need break --><BR>
+Specify the domain to be appended to addresses
 in RCPT TO lines shipped to SMTP. When this is not specified, the name
 of the SMTP server (as specified by --smtphost) is used for SMTP/LMTP
 and &#146;localhost&#146; is used for UNIX socket/BSMTP.
@@ -798,6 +955,8 @@ and &#146;localhost&#146; is used for UNIX socket/BSMTP.
 <!-- .B \-\-smtpname <user@domain> -->
 <B>--smtpname &lt;user@domain&gt;</B> </TD></TR><TR valign=top><TD width=6%>&nbsp;</TD><TD>
 (Keyword: smtpname)
+<!-- .br -->
+<!-- Need break --><BR>
 Specify the domain and user to be put in RCPT TO lines shipped to SMTP.
 The default user is the current local user.
 <!-- .TP -->
@@ -806,6 +965,8 @@ The default user is the current local user.
 <!-- .B \-Z <nnn> | \-\-antispam <nnn[, nnn]...> -->
 <B>-Z &lt;nnn&gt; | --antispam &lt;nnn[, nnn]...&gt;</B> </TD></TR><TR valign=top><TD width=6%>&nbsp;</TD><TD>
 (Keyword: antispam)
+<!-- .br -->
+<!-- Need break --><BR>
 Specifies the list of numeric SMTP errors that are to be interpreted
 as a spam-block response from the listener.  A value of -1 disables
 this option.  For the command-line option, the list values should
@@ -815,7 +976,10 @@ be comma-separated.
 <TR valign=top><TD colspan=2>
 <!-- .B \-m <command> | \-\-mda <command> -->
 <B>-m &lt;command&gt; | --mda &lt;command&gt;</B> </TD></TR><TR valign=top><TD width=6%>&nbsp;</TD><TD>
-(Keyword: mda) You can force mail to be passed to an MDA directly
+(Keyword: mda)
+<!-- .br -->
+<!-- Need break --><BR>
+You can force mail to be passed to an MDA directly
 (rather than forwarded to port 25) with the --mda or -m option.
 <P>
 To
@@ -825,7 +989,7 @@ resource-exhaustion errors; the nonzero status tells fetchmail that
 delivery failed and prevents the message from being deleted off the
 server.
 <P>
-If <I>fetchmail</I> is running as root, it sets its user id to
+If <B>fetchmail</B> is running as root, it sets its user id to
 that of the target user while delivering mail through an MDA.  Some
 possible MDAs are "/usr/sbin/sendmail -i -f %F -- %T" (<B>Note:</B>
 some several older or vendor sendmail versions mistake -- for an
@@ -835,20 +999,20 @@ addresses will be inserted into the MDA command wherever you place a
 %T; the mail message&#146;s From address will be inserted where you place
 an %F.
 <P>
-<!-- .B "DO NOT ENCLOSE THE %F OR %T STRING IN SINGLE QUOTES!" -->
-<B>DO NOT ENCLOSE THE %F OR %T STRING IN SINGLE QUOTES!</B> For both %T and %F, fetchmail encloses the addresses in single quotes
+<B>Do NOT enclose the %F or %T string in single quotes!</B>
+For both %T and %F, fetchmail encloses the addresses in single quotes
 (&#146;), after removing any single quotes they may contain, before the MDA
 command is passed to the shell.
 <P>
-Do <I>NOT</I> use an MDA invocation that dispatches on the contents of
-To/Cc/Bcc, like "sendmail -i -t" or "qmail-inject", it will create
+<B>Do NOT use an MDA invocation that dispatches on the contents of
+To/Cc/Bcc,</B> like "sendmail -i -t" or "qmail-inject", it will create
 mail loops and bring the just wrath of many postmasters down upon your
 head.  This is one of the most frequent configuration errors!
 <P>
 Also, do <I>not</I> try to combine multidrop mode with an MDA such
 as maildrop that can only accept one address, unless your upstream
 stores one copy of the message per recipient and transports the envelope
-recipient in a header; you will lose mail. 
+recipient in a header; you will lose mail.
 <P>
 The well-known
 <!-- .BR procmail (1) -->
@@ -864,14 +1028,13 @@ outside the scope of this document. Using
 is usually much easier, and many users find the filter syntax used by
 maildrop easier to understand.
 <P>
-Finally, we strongly advise that you do
-<!-- .B not -->
-<B>not</B> use qmail-inject.  The command line interface is non-standard without
-providing benefits for typical use, and fetchmail makes no attempts to
-accomodate qmail-inject&#146;s deviations from the standard. Some of
-qmail-inject&#146;s command-line and environment options are actually
-dangerous and can cause broken threads, non-detected duplicate messages
-and forwarding loops.
+Finally, we strongly advise that you do <B>not</B> use qmail-inject.  The
+command line interface is non-standard without providing benefits for
+typical use, and fetchmail makes no attempts to accomodate
+qmail-inject&#146;s deviations from the standard. Some of qmail-inject&#146;s
+command-line and environment options are actually dangerous and can
+cause broken threads, non-detected duplicate messages and forwarding
+loops.
 <P>
 <!-- .TP -->
 </TD></TR>
@@ -879,6 +1042,8 @@ and forwarding loops.
 <!-- .B \-\-lmtp -->
 <B>--lmtp</B> </TD><TD valign=bottom>
 (Keyword: lmtp)
+<!-- .br -->
+<!-- Need break --><BR>
 Cause delivery via LMTP (Local Mail Transfer Protocol).  A service
 host and port <B>must</B> be explicitly specified on each host in the
 smtphost hunt list (see above) if this option is selected; the default
@@ -888,7 +1053,9 @@ port 25 will (in accordance with RFC 2033) not be accepted.
 <TR valign=top><TD colspan=2>
 <!-- .B \-\-bsmtp <filename> -->
 <B>--bsmtp &lt;filename&gt;</B> </TD></TR><TR valign=top><TD width=6%>&nbsp;</TD><TD>
-(keyword: bsmtp)
+(Keyword: bsmtp)
+<!-- .br -->
+<!-- Need break --><BR>
 Append fetched mail to a BSMTP file.  This simply contains the SMTP
 commands that would normally be generated by fetchmail when passing
 mail to an SMTP listener daemon.  An argument of &#146;-&#146; causes the mail
@@ -909,7 +1076,10 @@ MAILBOXES below apply.
 <TR valign=top><TD colspan=2>
 <!-- .B \-l <maxbytes> | \-\-limit <maxbytes> -->
 <B>-l &lt;maxbytes&gt; | --limit &lt;maxbytes&gt;</B> </TD></TR><TR valign=top><TD width=6%>&nbsp;</TD><TD>
-(Keyword: limit) Takes a maximum octet size argument, where 0 is the
+(Keyword: limit)
+<!-- .br -->
+<!-- Need break --><BR>
+Takes a maximum octet size argument, where 0 is the
 default and also the special value designating "no limit".
 If nonzero, messages larger than this size will not be fetched and will
 be left on the server (in foreground sessions, the progress messages
@@ -933,9 +1103,10 @@ option does not work with ETRN or ODMR.
 <!-- .B \-w <interval> | \-\-warnings <interval> -->
 <B>-w &lt;interval&gt; | --warnings &lt;interval&gt;</B> </TD></TR><TR valign=top><TD width=6%>&nbsp;</TD><TD>
 (Keyword: warnings)
-Takes an interval in seconds.  When you call
-<!-- .I fetchmail -->
-<I>fetchmail</I> with a &#146;limit&#146; option in daemon mode, this controls the interval at
+<!-- .br -->
+<!-- Need break --><BR>
+Takes an interval in seconds.  When you call <B>fetchmail</B>
+with a &#146;limit&#146; option in daemon mode, this controls the interval at
 which warnings about oversized messages are mailed to the calling user
 (or the user specified by the &#146;postmaster&#146; option).  One such
 notification is always mailed at the end of the the first poll that
@@ -948,15 +1119,17 @@ place at the end of the first following poll).
 <!-- .B \-b <count> | \-\-batchlimit <count> -->
 <B>-b &lt;count&gt; | --batchlimit &lt;count&gt;</B> </TD></TR><TR valign=top><TD width=6%>&nbsp;</TD><TD>
 (Keyword: batchlimit)
+<!-- .br -->
+<!-- Need break --><BR>
 Specify the maximum number of messages that will be shipped to an SMTP
 listener before the connection is deliberately torn down and rebuilt
 (defaults to 0, meaning no limit).  An explicit --batchlimit of 0
 overrides any limits set in your run control file.  While
 <B>sendmail</B>(8) normally initiates delivery of a message immediately
 after receiving the message terminator, some SMTP listeners are not so
-prompt.  MTAs like <I>smail</I>(8) may wait till the
+prompt.  MTAs like <B>smail</B>(8) may wait till the
 delivery socket is shut down to deliver.  This may produce annoying
-delays when <I>fetchmail</I> is processing very large batches.  Setting
+delays when <B>fetchmail</B> is processing very large batches.  Setting
 the batch limit to some nonzero size will prevent these delays.  This
 option does not work with ETRN or ODMR.
 <!-- .TP -->
@@ -965,6 +1138,8 @@ option does not work with ETRN or ODMR.
 <!-- .B \-B <number> | \-\-fetchlimit <number> -->
 <B>-B &lt;number&gt; | --fetchlimit &lt;number&gt;</B> </TD></TR><TR valign=top><TD width=6%>&nbsp;</TD><TD>
 (Keyword: fetchlimit)
+<!-- .br -->
+<!-- Need break --><BR>
 Limit the number of messages accepted from a given server in a single
 poll.  By default there is no limit. An explicit --fetchlimit of 0
 overrides any limits set in your run control file.
@@ -975,6 +1150,8 @@ This option does not work with ETRN or ODMR.
 <!-- .B \-\-fetchsizelimit <number> -->
 <B>--fetchsizelimit &lt;number&gt;</B> </TD></TR><TR valign=top><TD width=6%>&nbsp;</TD><TD>
 (Keyword: fetchsizelimit)
+<!-- .br -->
+<!-- Need break --><BR>
 Limit the number of sizes of messages accepted from a given server in
 a single transaction.  This option is useful in reducing the delay in
 downloading the first mail when there are too many mails in the
@@ -988,6 +1165,8 @@ non-zero value is 1.
 <!-- .B \-\-fastuidl <number> -->
 <B>--fastuidl &lt;number&gt;</B> </TD></TR><TR valign=top><TD width=6%>&nbsp;</TD><TD>
 (Keyword: fastuidl)
+<!-- .br -->
+<!-- Need break --><BR>
 Do a binary instead of linear search for the first unseen UID. Binary
 search avoids downloading the UIDs of all mails. This saves time
 (especially in daemon mode) where downloading the same set of UIDs in
@@ -1003,17 +1182,18 @@ This option works with POP3 only.
 <TR valign=top><TD colspan=2>
 <!-- .B \-e <count> | \-\-expunge <count> -->
 <B>-e &lt;count&gt; | --expunge &lt;count&gt;</B> </TD></TR><TR valign=top><TD width=6%>&nbsp;</TD><TD>
-(keyword: expunge)
+(Keyword: expunge)
+<!-- .br -->
+<!-- Need break --><BR>
 Arrange for deletions to be made final after a given number of
 messages.  Under POP2 or POP3, fetchmail cannot make deletions final
 without sending QUIT and ending the session -- with this option on,
 fetchmail will break a long mail retrieval session into multiple
 sub-sessions, sending QUIT after each sub-session. This is a good
 defense against line drops on POP3 servers.  Under IMAP,
-<!-- .I fetchmail -->
-<I>fetchmail</I> normally issues an EXPUNGE command after each deletion in order to
-force the deletion to be done immediately.  This is safest when your
-connection to the server is flaky and expensive, as it avoids
+<B>fetchmail</B> normally issues an EXPUNGE command after each deletion
+in order to force the deletion to be done immediately.  This is safest
+when your connection to the server is flaky and expensive, as it avoids
 resending duplicate mail after a line hit.  However, on large
 mailboxes the overhead of re-indexing after every message can slam the
 server pretty hard, so if your connection is reliable it is good to do
@@ -1021,11 +1201,11 @@ expunges less frequently.  Also note that some servers enforce a delay
 of a few seconds after each quit, so fetchmail may not be able to get
 back in immediately after an expunge -- you may see "lock busy" errors
 if this happens. If you specify this option to an integer N,
-it tells
-<!-- .I fetchmail -->
-<I>fetchmail</I> to only issue expunges on every Nth delete.  An argument of zero
-suppresses expunges entirely (so no expunges at all will be done until
-the end of run).  This option does not work with ETRN or ODMR.
+it tells <B>fetchmail</B> to only issue expunges on every Nth delete.  An
+argument of zero suppresses expunges entirely (so no expunges at all
+will be done until the end of run).  This option does not work with ETRN
+or ODMR.
+<P>
 <!-- .SS Authentication Options -->
 </TD></TR>
 <TR></TR></TABLE></BLOCKQUOTE>
@@ -1040,20 +1220,24 @@ the end of run).  This option does not work with ETRN or ODMR.
 <!-- .B \-u <name> | \-\-user <name> | \-\-username <name> -->
 <B>-u &lt;name&gt; | --user &lt;name&gt; | --username &lt;name&gt;</B> </TD></TR><TR valign=top><TD width=6%>&nbsp;</TD><TD>
 (Keyword: user[name])
+<!-- .br -->
+<!-- Need break --><BR>
 Specifies the user identification to be used when logging in to the mailserver.
 The appropriate user identification is both server and user-dependent.
 The default is your login name on the client machine that is running
-<!-- .IR fetchmail . -->
-<I>fetchmail</I>. See USER AUTHENTICATION below for a complete description.
+<B>fetchmail</B>.
+See USER AUTHENTICATION below for a complete description.
 <!-- .TP -->
 </TD></TR>
 <TR valign=top><TD colspan=2>
 <!-- .B \-I <specification> | \-\-interface <specification> -->
 <B>-I &lt;specification&gt; | --interface &lt;specification&gt;</B> </TD></TR><TR valign=top><TD width=6%>&nbsp;</TD><TD>
 (Keyword: interface)
+<!-- .br -->
+<!-- Need break --><BR>
 Require that a specific interface device be up and have a specific local
 or remote IPv4 (IPv6 is not supported by this option yet) address (or
-range) before polling.  Frequently <I>fetchmail</I>
+range) before polling.  Frequently <B>fetchmail</B>
 is used over a transient point-to-point TCP/IP link established directly
 to a mailserver via SLIP or PPP.  That is a relatively secure channel.
 But when other TCP/IP routes to the mailserver exist (e.g. when the link
@@ -1077,9 +1261,8 @@ etc.).  The field before the second slash is the acceptable IP address.
 The field after the second slash is a mask which specifies a range of
 IP addresses to accept.  If no mask is present 255.255.255.255 is
 assumed (i.e. an exact match).  This option is currently only supported
-under Linux and FreeBSD. Please see the
-<!-- .B monitor -->
-<B>monitor</B> section for below for FreeBSD specific information.
+under Linux and FreeBSD. Please see the <B>monitor</B> section for below
+for FreeBSD specific information.
 <!-- .sp -->
 <P>
 Note that this option may be removed from a future fetchmail version.
@@ -1089,6 +1272,8 @@ Note that this option may be removed from a future fetchmail version.
 <!-- .B \-M <interface> | \-\-monitor <interface> -->
 <B>-M &lt;interface&gt; | --monitor &lt;interface&gt;</B> </TD></TR><TR valign=top><TD width=6%>&nbsp;</TD><TD>
 (Keyword: monitor)
+<!-- .br -->
+<!-- Need break --><BR>
 Daemon mode can cause transient links which are automatically taken down
 after a period of inactivity (e.g. PPP links) to remain up
 indefinitely.  This option identifies a system TCP/IP interface to be
@@ -1097,15 +1282,11 @@ no other activity has occurred on the link, then the poll will be
 skipped.  However, when fetchmail is woken up by a signal, the
 monitor check is skipped and the poll goes through unconditionally.
 This option is currently only supported under Linux and FreeBSD.
-For the
-<!-- .B monitor -->
-<B>monitor</B> and
-<!-- .B interface -->
-<B>interface</B> options to work for non root users under FreeBSD, the fetchmail binary
-must be installed SGID kmem. This would be a security hole, but
-fetchmail runs with the effective GID set to that of the kmem group
-<!-- .I only -->
-<I>only</I> when interface data is being collected.
+For the <B>monitor</B> and <B>interface</B> options to work for non root
+users under FreeBSD, the fetchmail binary must be installed SGID kmem.
+This would be a security hole, but fetchmail runs with the effective GID
+set to that of the kmem group <I>only</I> when interface data is being
+collected.
 <!-- .sp -->
 <P>
 Note that this option may be removed from a future fetchmail version.
@@ -1115,6 +1296,8 @@ Note that this option may be removed from a future fetchmail version.
 <!-- .B \-\-auth <type> -->
 <B>--auth &lt;type&gt;</B> </TD></TR><TR valign=top><TD width=6%>&nbsp;</TD><TD>
 (Keyword: auth[enticate])
+<!-- .br -->
+<!-- Need break --><BR>
 This option permits you to specify an authentication type (see USER
 AUTHENTICATION below for details).  The possible values are <B>any</B>,
 <B>password</B>, <B>kerberos_v5</B>, <B>kerberos</B> (or, for
@@ -1151,12 +1334,11 @@ authentication.  This option does not work with ETRN.
 <TR valign=top><TD colspan=2>
 <!-- .B \-f <pathname> | \-\-fetchmailrc <pathname> -->
 <B>-f &lt;pathname&gt; | --fetchmailrc &lt;pathname&gt;</B> </TD></TR><TR valign=top><TD width=6%>&nbsp;</TD><TD>
-Specify a non-default name for the
-<!-- .I ~/.fetchmailrc -->
-<I>~/.fetchmailrc</I> run control file.  The pathname argument must be either "-" (a single
+Specify a non-default name for the <I>~/.fetchmailrc</I>
+run control file.  The pathname argument must be either "-" (a single
 dash, meaning to read the configuration from standard input) or a
 filename.  Unless the --version option is also on, a named file
-argument must have permissions no more open than 0600 (u=rw,g=,o=) or
+argument must have permissions no more open than 0700 (u=rwx,g=,o=) or
 else be /dev/null.
 <!-- .TP -->
 </TD></TR>
@@ -1164,7 +1346,9 @@ else be /dev/null.
 <!-- .B \-i <pathname> | \-\-idfile <pathname> -->
 <B>-i &lt;pathname&gt; | --idfile &lt;pathname&gt;</B> </TD></TR><TR valign=top><TD width=6%>&nbsp;</TD><TD>
 (Keyword: idfile)
-Specify an alternate name for the .fetchids file used to save POP3
+<!-- .br -->
+<!-- Need break --><BR>
+Specify an alternate name for the .fetchids file used to save message
 UIDs. NOTE: since fetchmail 6.3.0, write access to the directory
 containing the idfile is required, as fetchmail writes a temporary file
 and renames it into the place of the real idfile only if the temporary
@@ -1176,6 +1360,8 @@ idfiles when running out of disk space.
 <!-- .B \--pidfile <pathname> -->
 <B>--pidfile &lt;pathname&gt;</B> </TD></TR><TR valign=top><TD width=6%>&nbsp;</TD><TD>
 (Keyword: pidfile; since fetchmail v6.3.4)
+<!-- .br -->
+<!-- Need break --><BR>
 Override the default location of the PID file. Default: see
 "ENVIRONMENT" below.
 <!-- .TP -->
@@ -1184,17 +1370,17 @@ Override the default location of the PID file. Default: see
 <!-- .B \-n | \-\-norewrite -->
 <B>-n | --norewrite</B> </TD></TR><TR valign=top><TD width=6%>&nbsp;</TD><TD>
 (Keyword: no rewrite)
-Normally,
-<!-- .I fetchmail -->
-<I>fetchmail</I> edits RFC-822 address headers (To, From, Cc, Bcc, and Reply-To) in
-fetched mail so that any mail IDs local to the server are expanded to
-full addresses (@ and the mailserver hostname are appended).  This enables
-replies on the client to get addressed correctly (otherwise your
-mailer might think they should be addressed to local users on the
-client machine!).  This option disables the rewrite.  (This option is
-provided to pacify people who are paranoid about having an MTA edit
-mail headers and want to know they can prevent it, but it is generally
-not a good idea to actually turn off rewrite.)
+<!-- .br -->
+<!-- Need break --><BR>
+Normally, <B>fetchmail</B> edits RFC-822 address headers (To, From, Cc,
+Bcc, and Reply-To) in fetched mail so that any mail IDs local to the
+server are expanded to full addresses (@ and the mailserver hostname are
+appended).  This enables replies on the client to get addressed
+correctly (otherwise your mailer might think they should be addressed to
+local users on the client machine!).  This option disables the rewrite.
+(This option is provided to pacify people who are paranoid about having
+an MTA edit mail headers and want to know they can prevent it, but it is
+generally not a good idea to actually turn off rewrite.)
 When using ETRN or ODMR, the rewrite option is ineffective.
 <!-- .TP -->
 </TD></TR>
@@ -1206,22 +1392,20 @@ When using ETRN or ODMR, the rewrite option is ineffective.
 <!-- Need break --><BR>
 In the configuration file, an enhanced syntax is used:
 <!-- .br -->
-<!-- .B envelope [<count>] <line> -->
 <!-- Need break --><BR>
-<B>envelope [&lt;count&gt;] &lt;line&gt;</B> <!-- .sp -->
+<B>envelope [&lt;count&gt;] &lt;line&gt;</B>
+<!-- .sp -->
 <P>
-This option changes the header
-<!-- .I fetchmail -->
-<I>fetchmail</I> assumes will carry a copy of the mail&#146;s envelope address.  Normally
-this is &#146;X-Envelope-To&#146;. Other typically found headers to carry envelope
-information are &#146;X-Original-To&#146; and &#146;Delivered-To&#146;.  Now, since
-these headers are not standardized, practice varies. See the discussion
-of multidrop address handling below.  As a special case, &#146;envelope
-"Received"&#146; enables parsing of sendmail-style Received lines.  This is
-the default, but discouraged because it is not fully reliable.
+This option changes the header <B>fetchmail</B> assumes will carry a copy
+of the mail&#146;s envelope address.  Normally this is &#146;X-Envelope-To&#146;.
+Other typically found headers to carry envelope information are
+&#146;X-Original-To&#146; and &#146;Delivered-To&#146;.  Now, since these headers are
+not standardized, practice varies. See the discussion of multidrop
+address handling below.  As a special case, &#146;envelope "Received"&#146;
+enables parsing of sendmail-style Received lines.  This is the default,
+but discouraged because it is not fully reliable.
 <P>
-<!-- .B Note -->
-<B>Note</B> that fetchmail expects the Received-line to be in a specific
+Note that fetchmail expects the Received-line to be in a specific
 format: It must contain "by <I>host</I> for <I>address</I>", where
 <I>host</I> must match one of the mailserver names that fetchmail
 recognizes for the account in question.
@@ -1237,19 +1421,15 @@ first and second, take the third, and so on.
 <!-- .B \-Q <prefix> | \-\-qvirtual <prefix> -->
 <B>-Q &lt;prefix&gt; | --qvirtual &lt;prefix&gt;</B> </TD></TR><TR valign=top><TD width=6%>&nbsp;</TD><TD>
 (Keyword: qvirtual; Multidrop only)
+<!-- .br -->
+<!-- Need break --><BR>
 The string prefix assigned to this option will be removed from the user
 name found in the header specified with the <I>envelope</I> option
 (<I>before</I> doing multidrop name mapping or localdomain checking,
 if either is applicable). This option is useful if you are using
-<!-- .I fetchmail -->
-<I>fetchmail</I> to collect the mail for an entire domain and your ISP (or your mail
-redirection provider) is using qmail.
-One of the basic features of qmail is the
-<!-- .sp -->
-<P>
-&#146;Delivered-To:&#146;
-<!-- .sp -->
-<P>
+<B>fetchmail</B> to collect the mail for an entire domain and your ISP
+(or your mail redirection provider) is using qmail.
+One of the basic features of qmail is the <I>Delivered-To:</I>
 message header.  Whenever qmail delivers a message to a local mailbox
 it puts the username and hostname of the envelope recipient on this
 line.  The major reason for this is to prevent mail loops.  To set up
@@ -1258,12 +1438,17 @@ normally put that site in its &#146;Virtualhosts&#146; control file so it will
 add a prefix to all mail addresses for this site. This results in mail
 <!-- .\" The \&@\& tries to stop HTML converters from making a mailto URL here. -->
 sent to &#146;username@userhost.userdom.dom.com&#146; having a
-&#146;Delivered-To:&#146; line of the form:
-<!-- .sp -->
-<P>
+<I>Delivered-To:</I> line of the form:
+<!-- .IP -->
+</TD></TR>
+<TR valign=top><TD width=6%>
+
+</TD><TD>
 Delivered-To: mbox-userstr-username@userhost.example.com
-<!-- .sp -->
-<P>
+<!-- .PP -->
+</TD></TR>
+<!-- Found tag TP -->
+<TR><TD colspan=2>
 The ISP can make the &#146;mbox-userstr-&#146; prefix anything they choose
 but a string matching the user host name is likely.
 By using the option &#146;envelope Delivered-To:&#146; you can make fetchmail reliably
@@ -1275,16 +1460,12 @@ This is what this option is for.
 <TR valign=top><TD colspan=2>
 <!-- .B \-\-configdump -->
 <B>--configdump</B> </TD></TR><TR valign=top><TD width=6%>&nbsp;</TD><TD>
-Parse the
-<!-- .I ~/.fetchmailrc -->
-<I>~/.fetchmailrc</I> file, interpret any command-line options specified, and dump a
-configuration report to standard output.  The configuration report is
-a data structure assignment in the language Python.  This option
-is meant to be used with an interactive
-<!-- .I ~/.fetchmailrc -->
-<I>~/.fetchmailrc</I> editor like
-<!-- .IR fetchmailconf , -->
-<I>fetchmailconf</I>, written in Python.
+Parse the <I>~/.fetchmailrc</I> file, interpret any command-line options
+specified, and dump a configuration report to standard output.  The
+configuration report is a data structure assignment in the language
+Python.  This option is meant to be used with an interactive
+<I>~/.fetchmailrc</I> editor like <B>fetchmailconf</B>, written in Python.
+<P>
 <!-- .SS Removed Options -->
 </TD></TR>
 <TR></TR></TABLE></BLOCKQUOTE>
@@ -1311,10 +1492,9 @@ had been discontinued and is no longer available.
 </A>
 <BLOCKQUOTE>
 All modes except ETRN require authentication of the client to the server.
-Normal user authentication in
-<!-- .I fetchmail -->
-<I>fetchmail</I> is very much like the authentication mechanism of
-<!-- .IR ftp (1). -->
+Normal user authentication in <B>fetchmail</B> is very much like the
+authentication mechanism of
+<!-- .BR ftp (1). -->
 <B>ftp</B>(1).
 The correct user-id and password depend upon the underlying security
 system at the mailserver.
@@ -1322,8 +1502,8 @@ system at the mailserver.
 <P>
 If the mailserver is a Unix machine on which you have an ordinary user
 account, your regular login name and password are used with
-<!-- .IR fetchmail . -->
-<I>fetchmail</I>. If you use the same login name on both the server and the client machines,
+<!-- .BR fetchmail . -->
+<B>fetchmail</B>. If you use the same login name on both the server and the client machines,
 you needn&#146;t worry about specifying a user-id with the
 <!-- .B \-u -->
 <B>-u</B> option -- the default behavior is to use your login name on the
@@ -1332,9 +1512,7 @@ different login name on the server machine, specify that login name
 with the
 <!-- .B \-u -->
 <B>-u</B> option.  e.g. if your login name is &#146;jsmith&#146; on a machine named &#146;mailgrunt&#146;,
-you would start
-<!-- .I fetchmail -->
-<I>fetchmail</I> as follows:
+you would start <B>fetchmail</B> as follows:
 <!-- .IP -->
 <TABLE cellpadding=3><!-- tsb: If the mailserver is a Unix machine on which you have an ordinary user
  -->
@@ -1346,17 +1524,13 @@ fetchmail -u jsmith mailgrunt
 <!-- .PP -->
 </TD></TR>
 <!-- PP ends table -->
-<TR></TR></TABLE>The default behavior of
-<!-- .I fetchmail -->
-<I>fetchmail</I> is to prompt you for your mailserver password before the connection is
-established.  This is the safest way to use
-<!-- .I fetchmail -->
-<I>fetchmail</I> and ensures that your password will not be compromised.  You may also specify
-your password in your
-<!-- .I ~/.fetchmailrc -->
+<TR></TR></TABLE>The default behavior of <B>fetchmail</B> is to prompt you for your
+mailserver password before the connection is established.  This is the
+safest way to use <B>fetchmail</B> and ensures that your password will
+not be compromised.  You may also specify your password in your
 <I>~/.fetchmailrc</I> file.  This is convenient when using
-<!-- .I fetchmail -->
-<I>fetchmail</I> in daemon mode or with scripts.
+<B>fetchmail</B> in daemon mode or with scripts.
+<P>
 <!-- .SS Using netrc files -->
 </BLOCKQUOTE>
 <A name=13>
@@ -1366,24 +1540,19 @@ your password in your
 <BLOCKQUOTE>
 <!-- .PP -->
 <P>
-If you do not specify a password, and
-<!-- .I fetchmail -->
-<I>fetchmail</I> cannot extract one from your
-<!-- .I ~/.fetchmailrc -->
-<I>~/.fetchmailrc</I> file, it will look for a
-<!-- .I ~/.netrc -->
-<I>~/.netrc</I> file in your home directory before requesting one interactively; if an
+If you do not specify a password, and <B>fetchmail</B> cannot extract one
+from your <I>~/.fetchmailrc</I> file, it will look for a <I>~/.netrc</I>
+file in your home directory before requesting one interactively; if an
 entry matching the mailserver is found in that file, the password will
 be used.  Fetchmail first looks for a match on poll name; if it finds none,
 it checks for a match on via name.  See the
-<!-- .IR ftp (1) -->
+<!-- .BR ftp (1) -->
 <B>ftp</B>(1)
-man page for details of the syntax of the
-<!-- .I ~/.netrc -->
-<I>~/.netrc</I> file.  To show a practical example, a .netrc might look like
+man page for details of the syntax of the <I>~/.netrc</I>
+file.  To show a practical example, a .netrc might look like
 this:
 <!-- .IP -->
-<TABLE cellpadding=3><!-- tsb: If you do not specify a password, and
+<TABLE cellpadding=3><!-- tsb: If you do not specify a password, and <B>fetchmail</B> cannot extract one
  -->
 <TR></TR><TR></TR>
 <TR valign=top><TD width=6%>
@@ -1422,15 +1591,12 @@ the correct user-id and password for your mailbox account.
 <!-- .PP -->
 <P>
 Early versions of POP3 (RFC1081, RFC1225) supported a crude form of
-independent authentication using the
-<!-- .I rhosts -->
-<I>rhosts</I> file on the mailserver side.  Under this RPOP variant, a fixed
-per-user ID equivalent to a password was sent in clear over a link to
-a reserved port, with the command RPOP rather than PASS to alert the
-server that it should do special checking.  RPOP is supported
-by
-<!-- .I fetchmail -->
-<I>fetchmail</I> (you can specify &#146;protocol RPOP&#146; to have the program send &#146;RPOP&#146;
+independent authentication using the <I>.rhosts</I> file on the
+mailserver side.  Under this RPOP variant, a fixed per-user ID
+equivalent to a password was sent in clear over a link to a reserved
+port, with the command RPOP rather than PASS to alert the server that it
+should do special checking.  RPOP is supported by <B>fetchmail</B>
+(you can specify &#146;protocol RPOP&#146; to have the program send &#146;RPOP&#146;
 rather than &#146;PASS&#146;) but its use is strongly discouraged, and support
 will be removed from a future fetchmail version.  This
 facility was vulnerable to spoofing and was withdrawn in RFC1460.
@@ -1438,8 +1604,8 @@ facility was vulnerable to spoofing and was withdrawn in RFC1460.
 <P>
 RFC1460 introduced APOP authentication.  In this variant of POP3,
 you register an APOP password on your server host (on some servers, the
-program to do this is called <I>popauth</I>(8)).  You put the same
-password in your <I>~/.fetchmailrc</I> file.  Each time <I>fetchmail</I>
+program to do this is called <B>popauth</B>(8)).  You put the same
+password in your <I>~/.fetchmailrc</I> file.  Each time <B>fetchmail</B>
 logs in, it sends an MD5 hash of your password and the server greeting
 time to the server, which can verify it by checking its authorization
 database.
@@ -1453,11 +1619,10 @@ man-in-the-middle attacks.</B>
     <H4>&nbsp; &nbsp; RETR or TOP</H4>
 </A>
 <BLOCKQUOTE>
-<!-- .I fetchmail -->
-<I>fetchmail</I> makes some efforts to make the server believe messages had not been
-retrieved, by using the TOP command with a large number of lines when
-possible.  TOP is a command that retrieves the full header and
-a <I>fetchmail</I>-specified amount of body lines. It is optional and
+<B>fetchmail</B> makes some efforts to make the server believe messages
+had not been retrieved, by using the TOP command with a large number of
+lines when possible.  TOP is a command that retrieves the full header
+and a <B>fetchmail</B>-specified amount of body lines. It is optional and
 therefore not implemented by all servers, and some are known to
 implement it improperly. On many servers however, the RETR command which
 retrieves the full message with header and body, sets the "seen" flag
@@ -1465,28 +1630,21 @@ retrieves the full message with header and body, sets the "seen" flag
 that.
 <!-- .PP -->
 <P>
-<!-- .I fetchmail -->
-<I>fetchmail</I> will always use the RETR command if "fetchall" is set.
-<!-- .I fetchmail -->
-<I>fetchmail</I> will also use the RETR command if "keep" is set and "uidl" is unset.
-Finally,
-<!-- .I fetchmail -->
-<I>fetchmail</I> will use the RETR command on Maillennium POP3/PROXY
-servers (used by Comcast) to avoid a deliberate TOP misinterpretation in
-this server that causes message corruption.
+<B>fetchmail</B> will always use the RETR command if "fetchall" is set.
+<B>fetchmail</B> will also use the RETR command if "keep" is set and
+"uidl" is unset.  Finally, <B>fetchmail</B> will use the RETR command on
+Maillennium POP3/PROXY servers (used by Comcast) to avoid a deliberate
+TOP misinterpretation in this server that causes message corruption.
 <!-- .PP -->
 <P>
-In all other cases,
-<!-- .I fetchmail -->
-<I>fetchmail</I> will use the TOP command. This implies that in "keep" setups, "uidl"
-must be set if "TOP" is desired.
+In all other cases, <B>fetchmail</B> will use the TOP command. This
+implies that in "keep" setups, "uidl" must be set if "TOP" is desired.
 <!-- .PP -->
 <P>
-<!-- .B Note -->
-<B>Note</B> that this description is true for the current version of fetchmail, but
-the behavior may change in future versions. In particular, fetchmail may
-prefer the RETR command because the TOP command causes much grief on
-some servers and is only optional.
+<B>Note</B> that this description is true for the current version of
+fetchmail, but the behavior may change in future versions. In
+particular, fetchmail may prefer the RETR command because the TOP
+command causes much grief on some servers and is only optional.
 <!-- .SH ALTERNATE AUTHENTICATION FORMS -->
 </BLOCKQUOTE>
 <A name=16>
@@ -1497,7 +1655,7 @@ some servers and is only optional.
 <BLOCKQUOTE>
 <!-- .PP -->
 <P>
-If your <I>fetchmail</I> was built with Kerberos support and you specify
+If your <B>fetchmail</B> was built with Kerberos support and you specify
 Kerberos authentication (either with --auth or the <I>.fetchmailrc</I>
 option <B>authenticate kerberos_v4</B>) it will try to get a Kerberos
 ticket from the mailserver at the start of each query.  Note: if
@@ -1505,7 +1663,7 @@ either the pollname or via name is &#146;hesiod&#146;, fetchmail will try to use
 Hesiod to look up the mailserver.
 <!-- .PP -->
 <P>
-If you use POP3 or IMAP with GSSAPI authentication, <I>fetchmail</I> will
+If you use POP3 or IMAP with GSSAPI authentication, <B>fetchmail</B> will
 expect the server to have RFC1731- or RFC1734-conforming GSSAPI
 capability, and will use it.  Currently this has only been tested over
 Kerberos V, so you&#146;re expected to already have a ticket-granting
@@ -1527,29 +1685,30 @@ returns the <I>AUTH=EXTERNAL</I> response, fetchmail will notice this
 and will use the authentication shortcut and will not send the
 passphrase. In this case you can declare the authentication value &#146;external&#146;
 <BR>
- on that site to stop <I>fetchmail</I> from asking you for a password
+ on that site to stop <B>fetchmail</B> from asking you for a password
 when it starts up.
 <!-- .PP -->
 <P>
 If you are using POP3, and the server issues a one-time-password
-challenge conforming to RFC1938, <I>fetchmail</I> will use your
+challenge conforming to RFC1938, <B>fetchmail</B> will use your
 password as a pass phrase to generate the required response. This
 avoids sending secrets over the net unencrypted.
 <!-- .PP -->
 <P>
 Compuserve&#146;s RPA authentication is supported. If you
-compile in the support, <I>fetchmail</I> will try to perform an RPA pass-phrase
+compile in the support, <B>fetchmail</B> will try to perform an RPA pass-phrase
 authentication instead of sending over the password en clair if it
 detects "@compuserve.com" in the hostname.
 <!-- .PP -->
 <P>
 If you are using IMAP, Microsoft&#146;s NTLM authentication (used by Microsoft
-Exchange) is supported. If you compile in the support, <I>fetchmail</I>
+Exchange) is supported. If you compile in the support, <B>fetchmail</B>
 will try to perform an NTLM authentication (instead of sending over the
 password en clair) whenever the server returns AUTH=NTLM in its
 capability response. Specify a user option value that looks like
 &#146;user@domain&#146;: the part to the left of the @ will be passed as the
 username and the part to the right as the NTLM domain.
+<P>
 <!-- .SS Secure Socket Layers (SSL) and Transport Layer Security (TLS) -->
 </BLOCKQUOTE>
 <A name=17>
@@ -1561,28 +1720,27 @@ username and the part to the right as the NTLM domain.
 <P>
 You can access SSL encrypted services by specifying the --ssl option.
 You can also do this using the "ssl" user option in the .fetchmailrc
-file. With SSL encryption enabled, queries are initiated over a connection
-after negotiating an SSL session, and the connection fails if SSL cannot
-be negotiated.  Some services, such as POP3 and IMAP, have different
-well known ports defined for the SSL encrypted services.  The encrypted
-ports will be selected automatically when SSL is enabled and no explicit
-port is specified. The --sslproto option can be used to select the SSL
-protocols (default: v2 or v3).  The --sslcertck command line or
-sslcertck run control file option should be used to force strict
-certificate checking - see below.
+file. With SSL encryption enabled, queries are initiated over a
+connection after negotiating an SSL session, and the connection fails if
+SSL cannot be negotiated.  Some services, such as POP3 and IMAP, have
+different well known ports defined for the SSL encrypted services.  The
+encrypted ports will be selected automatically when SSL is enabled and
+no explicit port is specified. The --sslproto &#146;SSL3&#146; option should be
+used to select the SSLv3 protocol (default if unset: v2 or v3).  Also,
+the --sslcertck command line or sslcertck run control file option
+should be used to force strict certificate checking - see below.
 <!-- .PP -->
 <P>
 If SSL is not configured, fetchmail will usually opportunistically try to use
-TLS. TLS can be enforced by using --sslproto "TLS1". TLS
+STARTTLS. STARTTLS can be enforced by using --sslproto "TLS1". TLS
 connections use the same port as the unencrypted version of the
-protocol and negotiate TLS via special parameter. The --sslcertck
+protocol and negotiate TLS via special command. The --sslcertck
 command line or sslcertck run control file option should be used to
 force strict certificate checking - see below.
 <!-- .PP -->
 <P>
-<!-- .B \-\-sslcertck -->
-<B>--sslcertck</B> recommended: When connecting to an SSL or TLS encrypted server, the
-server presents a certificate to the client for validation.  The
+<!-- .B \-\-sslcertck is recommended: When connecting to an SSL or TLS encrypted server, the  -->
+<B>--sslcertck is recommended: When connecting to an SSL or TLS encrypted server, the</B> server presents a certificate to the client for validation.  The
 certificate is checked to verify that the common name in the certificate
 matches the name of the server being contacted and that the effective
 and expiration dates in the certificate indicate that it is currently
@@ -1591,8 +1749,10 @@ the connection continues.  The server certificate does not need to be
 signed by any specific Certifying Authority and may be a "self-signed"
 certificate. If the --sslcertck command line option or sslcertck run
 control file option is used, fetchmail will instead abort if any of
-these checks fail. Use of the sslcertck or --sslcertck option is
-advised.
+these checks fail, because it must assume that there is a
+man-in-the-middle attack in this scenario, hence fetchmail must not
+expose cleartest passwords. Use of the sslcertck or --sslcertck option
+is therefore advised.
 <!-- .PP -->
 <P>
 Some SSL encrypted servers may request a client side certificate.  A client
@@ -1611,11 +1771,14 @@ setup with self-signed server certificates retrieved over the wires
 can protect you from a passive eavesdropper, it doesn&#146;t help against an
 active attacker. It&#146;s clearly an improvement over sending the
 passwords in clear, but you should be aware that a man-in-the-middle
-attack is trivially possible (in particular with tools such as dsniff,
-<A HREF="http://monkey.org/~dugsong/dsniff/">http://monkey.org/~dugsong/dsniff/</A>).  Use of strict certificate checking
-with a certification authority recognized by server and client, or
-perhaps of an SSH tunnel (see below for some examples) is preferable if
-you care seriously about the security of your mailbox and passwords.
+attack is trivially possible (in particular with tools such as
+<!-- .URL "http://monkey.org/~dugsong/dsniff/" "dsniff" , -->
+<!-- ignored unsupported tag .URL -->
+).  Use of strict certificate checking with a certification authority
+recognized by server and client, or perhaps of an SSH tunnel (see below
+for some examples) is preferable if you care seriously about the
+security of your mailbox and passwords.
+<P>
 <!-- .SS ESMTP AUTH -->
 </BLOCKQUOTE>
 <A name=18>
@@ -1625,10 +1788,9 @@ you care seriously about the security of your mailbox and passwords.
 <BLOCKQUOTE>
 <!-- .PP -->
 <P>
-<!-- .B fetchmail -->
-<B>fetchmail</B> also supports authentication to the ESMTP server on the client side
-according to RFC 2554.  You can specify a name/password pair to be
-used with the keywords &#146;esmtpname&#146; and &#146;esmtppassword&#146;; the former
+<B>fetchmail</B> also supports authentication to the ESMTP server on the
+client side according to RFC 2554.  You can specify a name/password pair
+to be used with the keywords &#146;esmtpname&#146; and &#146;esmtppassword&#146;; the former
 defaults to the username of the calling user.
 <P>
 <!-- .SH DAEMON MODE -->
@@ -1646,10 +1808,9 @@ defaults to the username of the calling user.
     <H4>&nbsp; &nbsp; Introducing the daemon mode</H4>
 </A>
 <BLOCKQUOTE>
-In daemon mode,
-<!-- .I fetchmail -->
-<I>fetchmail</I> puts itself into the background and runs forever, querying each
-specified host and then sleeping for a given polling interval.
+In daemon mode, <B>fetchmail</B> puts itself into the background and runs
+forever, querying each specified host and then sleeping for a given
+polling interval.
 <!-- .SS Starting the daemon mode -->
 </BLOCKQUOTE>
 <A name=21>
@@ -1659,8 +1820,10 @@ specified host and then sleeping for a given polling interval.
 <BLOCKQUOTE>
 There are several ways to make fetchmail work in daemon mode. On the
 command line, <B>--daemon &lt;interval&gt;</B> or <B>-d &lt;interval&gt;</B>
-option runs <I>fetchmail</I> in daemon mode.  You must specify a numeric
-argument which is a polling interval in seconds.
+option runs <B>fetchmail</B> in daemon mode.  You must specify a numeric
+argument which is a polling interval (time to wait after completing a
+whole poll cycle with the last server and before starting the next poll
+cycle with the first server) in seconds.
 <!-- .PP -->
 <P>
 Example: simply invoking
@@ -1675,10 +1838,10 @@ fetchmail -d 900
 <!-- .PP -->
 </TD></TR>
 <!-- PP ends table -->
-<TR></TR></TABLE>will, therefore, poll all the hosts described in your
-<!-- .I ~/.fetchmailrc -->
-<I>~/.fetchmailrc</I> file (except those explicitly excluded with the &#146;skip&#146; verb) once
-every 15 minutes.
+<TR></TR></TABLE>will, therefore, poll all the hosts described in your <I>~/.fetchmailrc</I>
+file (except those explicitly excluded with the &#146;skip&#146; verb) a bit less
+often than once every 15 minutes (exactly: 15 minutes + time that the
+poll takes).
 <!-- .PP -->
 <P>
 It is also possible to set a polling interval
@@ -1689,7 +1852,7 @@ the command-line option --daemon 0 or -d0.
 <!-- .PP -->
 <P>
 Only one daemon process is permitted per user; in daemon mode,
-<I>fetchmail</I> sets up a per-user lockfile to guarantee this.
+<B>fetchmail</B> sets up a per-user lockfile to guarantee this.
 (You can however cheat and set the FETCHMAILHOME environment variable to
 overcome this setting, but in that case, it is your responsibility to
 make sure you aren&#146;t polling the same server with two processes at the
@@ -1707,8 +1870,7 @@ Normally, calling fetchmail with a daemon in the background sends a
 wake-up signal to the daemon and quits without output. The background
 daemon then starts its next poll cycle immediately.  The wake-up signal,
 SIGUSR1, can also be sent manually. The wake-up action also clears any
-<!-- 'wedged' flags indicating that connections have wedged due to failed -->
-<!-- ignored unsupported tag .wedged' -->
+&#146;wedged&#146; flags indicating that connections have wedged due to failed
 authentication or multiple timeouts.
 <!-- .SS Terminating the background daemon -->
 </BLOCKQUOTE>
@@ -1722,10 +1884,10 @@ authentication or multiple timeouts.
 The option
 <!-- .B \-\-quit -->
 <B>--quit</B> will kill a running daemon process instead of waking it up (if there
-is no such process, <I>fetchmail</I> will notify you.
-If the --quit option appears last on the command line, <I>fetchmail</I>
+is no such process, <B>fetchmail</B> will notify you).
+If the --quit option appears last on the command line, <B>fetchmail</B>
 will kill the running daemon process and then quit. Otherwise,
-<I>fetchmail</I> will first kill a running daemon process and then
+<B>fetchmail</B> will first kill a running daemon process and then
 continue running with the other options.
 <!-- .SS Useful options for daemon mode -->
 </BLOCKQUOTE>
@@ -1741,7 +1903,14 @@ The
 <B>-L &lt;filename&gt;</B> or
 <!-- .B \-\-logfile <filename> -->
 <B>--logfile &lt;filename&gt;</B> option (keyword: set logfile) is only effective when fetchmail is
-detached. This option allows you to redirect status messages
+detached and in daemon mode. Note that <B>the logfile must exist
+before</B> fetchmail is run, you can use the
+<!-- .BR touch (1) -->
+<B>touch</B>(1)
+command with the filename as its sole argument to create it.
+<!-- .br -->
+<!-- Need break --><BR>
+This option allows you to redirect status messages
 into a specified logfile (follow the option with the logfile name).  The
 logfile is opened for append, so previous messages aren&#146;t deleted.  This
 is primarily useful for debugging configurations. Note that fetchmail
@@ -1754,7 +1923,7 @@ The
 <!-- .B \-\-syslog -->
 <B>--syslog</B> option (keyword: set syslog) allows you to redirect status and error
 messages emitted to the
-<!-- .IR syslog (3) -->
+<!-- .BR syslog (3) -->
 <B>syslog</B>(3)
 system daemon if available.
 Messages are logged with an id of <B>fetchmail</B>, the facility <B>LOG_MAIL</B>,
@@ -1767,31 +1936,25 @@ file are still written to stderr, or to the specified log file.
 The
 <!-- .B \-\-nosyslog -->
 <B>--nosyslog</B> option turns off use of
-<!-- .IR syslog (3), -->
+<!-- .BR syslog (3), -->
 <B>syslog</B>(3),
-assuming it&#146;s turned on in the
-<!-- .I ~/.fetchmailrc -->
-<I>~/.fetchmailrc</I> file, or that the
-<!-- .B \-L -->
-<B>-L</B> or
-<!-- .B \-\-logfile <file> -->
-<B>--logfile &lt;file&gt;</B> option was used.
+assuming it&#146;s turned on in the <I>~/.fetchmailrc</I> file.
 <!-- .PP -->
 <P>
 The
 <!-- .B \-N -->
 <B>-N</B> or
 <!-- .B \-\-nodetach -->
-<B>--nodetach</B> option suppresses backgrounding and detachment of the
-daemon process from its control terminal.  This is useful
-for debugging or when fetchmail runs as the child of a supervisor
-process such as
-<!-- .IR init (8) -->
+<B>--nodetach</B> option suppresses backgrounding and detachment of the daemon process
+from its control terminal.  This is useful for debugging or when
+fetchmail runs as the child of a supervisor process such as
+<!-- .BR init (8) -->
 <B>init</B>(8)
 or Gerrit Pape&#146;s
-<!-- .I runit. -->
-<I>runit.</I> Note that this also causes the logfile option to be
-ignored (though perhaps it shouldn&#146;t).
+<!-- .BR runit (8). -->
+<B>runit</B>(8).
+Note that this also causes the logfile option to be ignored (though
+perhaps it shouldn&#146;t).
 <!-- .PP -->
 <P>
 Note that while running in daemon mode polling a POP2 or IMAP2bis server,
@@ -1804,17 +1967,14 @@ next poll cycle.  (The IMAP logic doesn&#146;t delete messages until
 they&#146;re delivered, so this problem does not arise.)
 <!-- .PP -->
 <P>
-If you touch or change the
-<!-- .I ~/.fetchmailrc -->
-<I>~/.fetchmailrc</I> file while fetchmail is running in daemon mode, this will be detected
-at the beginning of the next poll cycle.  When a changed
-<!-- .I ~/.fetchmailrc -->
-<I>~/.fetchmailrc</I> is detected, fetchmail rereads it and restarts from scratch (using
-exec(2); no state information is retained in the new instance).
-Note also that if you break the
-<!-- .I ~/.fetchmailrc -->
-<I>~/.fetchmailrc</I> file&#146;s syntax, the new instance will softly and silently vanish away
-on startup.
+If you touch or change the <I>~/.fetchmailrc</I> file while fetchmail is
+running in daemon mode, this will be detected at the beginning of the
+next poll cycle.  When a changed <I>~/.fetchmailrc</I> is detected,
+fetchmail rereads it and restarts from scratch (using exec(2); no state
+information is retained in the new instance).  Note that if fetchmail
+needs to query for passwords, of that if you break the
+<I>~/.fetchmailrc</I> file&#146;s syntax, the new instance will softly and
+silently vanish away on startup.
 <P>
 <!-- .SH ADMINISTRATIVE OPTIONS -->
 </BLOCKQUOTE>
@@ -1834,8 +1994,8 @@ can be found. It is also used as destination of undeliverable mail if
 the &#146;bouncemail&#146; global option is off and additionally for spam-blocked
 mail if the &#146;bouncemail&#146; global option is off and the &#146;spambounce&#146;
 global option is on. This option defaults to the user who invoked
-<!-- .IR fetchmail . -->
-<I>fetchmail</I>. If the invoking user is root, then the default of this option is
+<B>fetchmail</B>.
+If the invoking user is root, then the default of this option is
 the user &#146;postmaster&#146;.  Setting postmaster to the empty string causes
 such mail as described above to be discarded - this however is usually a
 bad idea.
@@ -1863,9 +2023,9 @@ mailserver host.
 The
 <!-- .B \-\-showdots -->
 <B>--showdots</B> option (keyword: set showdots) forces fetchmail to show progress dots
-even if the current tty is not stdout (for example logfiles).
-Fetchmail shows the dots by default when run in nodetach mode or when
-daemon mode is not enabled.
+even if the output goes to a file or fetchmail is not in verbose mode.
+Fetchmail shows the dots by default when run in --verbose mode
+<I>and</I> output goes to console. This option is ignored in --silent mode.
 <!-- .PP -->
 <P>
 By specifying the
@@ -1891,10 +2051,10 @@ default is not adding any such header.  In
 
 </A>
 <BLOCKQUOTE>
-The protocols <I>fetchmail</I> uses to talk to mailservers are next to
+The protocols <B>fetchmail</B> uses to talk to mailservers are next to
 bulletproof.  In normal operation forwarding to port 25, no message is
 ever deleted (or even marked for deletion) on the host until the SMTP
-listener on the client side has acknowledged to <I>fetchmail</I> that
+listener on the client side has acknowledged to <B>fetchmail</B> that
 the message has been either accepted for delivery or rejected due to a
 spam block.
 <!-- .PP -->
@@ -1903,14 +2063,14 @@ When forwarding to an MDA, however, there is more possibility
 of error.  Some MDAs are &#146;safe&#146; and reliably return a nonzero status
 on any delivery error, even one due to temporary resource limits.
 The
-<!-- .IR maildrop (1) -->
+<!-- .BR maildrop (1) -->
 <B>maildrop</B>(1)
 program is like this; so are most programs designed as mail transport
 agents, such as
-<!-- .IR sendmail (1), -->
+<!-- .BR sendmail (1), -->
 <B>sendmail</B>(1),
 including the sendmail wrapper of Postfix and
-<!-- .IR exim (1). -->
+<!-- .BR exim (1). -->
 <B>exim</B>(1).
 These programs give back a reliable positive acknowledgement and
 can be used with the mda option with no risk of mail loss.  Unsafe
@@ -1918,7 +2078,7 @@ MDAs, though, may return 0 even on delivery failure.  If this
 happens, you will lose mail.
 <!-- .PP -->
 <P>
-The normal mode of <I>fetchmail</I> is to try to download only &#146;new&#146;
+The normal mode of <B>fetchmail</B> is to try to download only &#146;new&#146;
 messages, leaving untouched (and undeleted) messages you have already
 read directly on the server (or fetched with a previous <I>fetchmail
 --keep</I>).  But you may find that messages you&#146;ve already read on the
@@ -1927,14 +2087,14 @@ server are being fetched (and deleted) even when you don&#146;t specify
 <!-- .PP -->
 <P>
 One could be that you&#146;re using POP2.  The POP2 protocol includes no
-representation of &#146;new&#146; or &#146;old&#146; state in messages, so <I>fetchmail</I>
+representation of &#146;new&#146; or &#146;old&#146; state in messages, so <B>fetchmail</B>
 must treat all messages as new all the time.  But POP2 is obsolete, so
 this is unlikely.
 <!-- .PP -->
 <P>
 A potential POP3 problem might be servers that insert messages
 in the middle of mailboxes (some VMS implementations of mail are
-rumored to do this).  The <I>fetchmail</I> code assumes that new
+rumored to do this).  The <B>fetchmail</B> code assumes that new
 messages are appended to the end of the mailbox; when this is not true
 it may treat some old messages as new and vice versa.  Using UIDL whilst
 setting fastuidl 0 might fix this, otherwise, consider switching to IMAP.
@@ -1959,7 +2119,7 @@ already read on your host will look new to the server.  In this
 will be both undeleted and marked old.
 <!-- .PP -->
 <P>
-In ETRN and ODMR modes, <I>fetchmail</I> does not actually retrieve messages;
+In ETRN and ODMR modes, <B>fetchmail</B> does not actually retrieve messages;
 instead, it asks the server&#146;s SMTP listener to start a queue flush
 to the client via SMTP.  Therefore it sends only undelivered messages.
 <P>
@@ -1978,8 +2138,8 @@ triggers this feature will elicit an SMTP response which
 <!-- .PP -->
 <P>
 Newer versions of
-<!-- .I sendmail -->
-<I>sendmail</I> return an error code of 571.
+<B>sendmail</B>
+return an error code of 571.
 <!-- .PP -->
 <P>
 According to RFC2821, the correct thing to return in this situation is
@@ -1989,33 +2149,33 @@ reasons].").
 <!-- .PP -->
 <P>
 Older versions of the
-<!-- .I exim -->
-<I>exim</I> MTA return 501 "Syntax error in parameters or arguments".
+<B>exim</B>
+MTA return 501 "Syntax error in parameters or arguments".
 <!-- .PP -->
 <P>
 The
-<!-- .I postfix -->
-<I>postfix</I> MTA runs 554 as an antispam response.
+<B>postfix</B>
+MTA runs 554 as an antispam response.
 <!-- .PP -->
 <P>
-<!-- .I Zmailer -->
-<I>Zmailer</I> may reject code with a 500 response (followed by an enhanced status
+<B>Zmailer</B>
+may reject code with a 500 response (followed by an enhanced status
 code that contains more information).
 <!-- .PP -->
 <P>
 Return codes which
-<!-- .I fetchmail -->
-<I>fetchmail</I> treats as antispam responses and discards
+<B>fetchmail</B>
+treats as antispam responses and discards
 the message can be set with the &#146;antispam&#146; option.  This is one of the
-<!-- .I only -->
-<I>only</I> three circumstance under which fetchmail ever discards mail (the others
+<I>only</I>
+three circumstance under which fetchmail ever discards mail (the others
 are the 552 and 553 errors described below, and the suppression of
 multidropped messages with a message-ID already seen).
 <!-- .PP -->
 <P>
 If
-<!-- .I fetchmail -->
-<I>fetchmail</I> is fetching from an IMAP server, the antispam response will be detected and
+<B>fetchmail</B>
+is fetching from an IMAP server, the antispam response will be detected and
 the message rejected immediately after the headers have been fetched,
 without reading the message body.  Thus, you won&#146;t pay for downloading
 spam message bodies.
@@ -2075,22 +2235,22 @@ bounce-mail to the originator.
 <BLOCKQUOTE>
 The preferred way to set up fetchmail is to write a
 <I>.fetchmailrc</I> file in your home directory (you may do this
-directly, with a text editor, or indirectly via <I>fetchmailconf</I>).
+directly, with a text editor, or indirectly via <B>fetchmailconf</B>).
 When there is a conflict between the command-line arguments and the
 arguments in this file, the command-line arguments take precedence.
 <!-- .PP -->
 <P>
 To protect the security of your passwords,
-your <I>~/.fetchmailrc</I> may not normally have more than 0600 (u=rw,g=,o=) permissions;
-<!-- .I fetchmail -->
-<I>fetchmail</I> will complain and exit otherwise (this check is suppressed when
+your <I>~/.fetchmailrc</I> may not normally have more than 0700 (u=rwx,g=,o=) permissions;
+<B>fetchmail</B>
+will complain and exit otherwise (this check is suppressed when
 --version is on).
 <!-- .PP -->
 <P>
 You may read the <I>.fetchmailrc</I> file as a list of commands to
 be executed when
-<!-- .I fetchmail -->
-<I>fetchmail</I> is called with no arguments.
+<B>fetchmail</B>
+is called with no arguments.
 <!-- .SS Run Control Syntax -->
 </BLOCKQUOTE>
 <A name=30>
@@ -2127,8 +2287,8 @@ ignored, so that you can wrap long strings. Without the backslash at the
 line end, the line feed character would become part of the string.
 <!-- .PP -->
 <P>
-<!-- .B Warning: -->
-<B>Warning:</B> while these resemble C-style escape sequences, they are not the same.
+<B>Warning:</B>
+while these resemble C-style escape sequences, they are not the same.
 fetchmail only supports these eight styles. C supports more escape
 sequences that consist of backslash (&#92;) and a single character, but
 does not support decimal codes and does not require the leading 0 in
@@ -2139,8 +2299,9 @@ octal 0233 = &#92;x9B (CSI, control sequence introducer).
 <P>
 Each server entry consists of one of the keywords &#146;poll&#146; or &#146;skip&#146;,
 followed by a server name, followed by server options, followed by any
-number of user descriptions.  Note: the most common cause of syntax
-errors is mixing up user and server options.
+number of user (or username) descriptions, followed by user options.
+Note: the most common cause of syntax errors is mixing up user and
+server options or putting user options before the user descriptions.
 <!-- .PP -->
 <P>
 For backward compatibility, the word &#146;server&#146; is a synonym for &#146;poll&#146;.
@@ -2162,8 +2323,8 @@ easier to read at a glance.  The punctuation characters &#146;:&#146;, &#146;;&#
 <BLOCKQUOTE>
 The &#146;poll&#146; verb tells fetchmail to query this host when it is run with
 no arguments.  The &#146;skip&#146; verb tells
-<!-- .I fetchmail -->
-<I>fetchmail</I> not to poll this host unless it is explicitly named on the command
+<B>fetchmail</B>
+not to poll this host unless it is explicitly named on the command
 line.  (The &#146;skip&#146; verb allows you to experiment with test entries
 safely, or easily disable entries for hosts that are temporarily down.)
 <!-- .PP -->
@@ -2212,6 +2373,14 @@ back to the destination as indicated by the &#146;bouncemail&#146; global option
 Warning: Do not use this to bounce spam back to the sender - most spam
 is sent with false sender address and thus this option hurts innocent
 bystanders.
+</TD></TR>
+<TR valign=top>
+<TD>set no softbounce</TD><TD></TD><TD></TD><TD>Delete permanently undeliverable mail. It is recommended to use this
+option if the configuration has been thoroughly tested.
+</TD></TR>
+<TR valign=top>
+<TD>set    spambounce</TD><TD></TD><TD></TD><TD>Keep permanently undeliverable mail as though a temporary error had
+occurred (default).
 </TD></TR>
 <TR valign=top>
 <TD>set logfile</TD><TD>-L</TD><TD></TD><TD>Name of a file to append error and status messages to.
@@ -2321,7 +2490,7 @@ considered a TCP/IP port number).
 </TD></TR>
 </TABLE></BLOCKQUOTE>
 <P>
-Here are the legal user options:
+Here are the legal user descriptions and options:
 <P>
 <!-- .TS -->
 <P><BLOCKQUOTE><TABLE bgcolor=#E0E0E0 border=1 cellspacing=0 cellpadding=3>
@@ -2330,8 +2499,11 @@ Here are the legal user options:
 <TD>Keyword</TD><TD>Opt</TD><TD>Mode</TD><TD>Function</TD></TR>
 <TR></TR><TR></TR>
 <TR valign=top>
-<TD>user[name]</TD><TD>-u</TD><TD></TD><TD>Set remote user name
-(local user name if name followed by &#146;here&#146;)
+<TD>user[name]</TD><TD>-u</TD><TD></TD><TD>This is the user description and must come first after server
+description and after possible server options, and before user options.
+<BR>
+It sets the remote user name if by itself or followed by &#146;there&#146;, or the
+local user name if followed by &#146;here&#146;.
 </TD></TR>
 <TR valign=top>
 <TD>is</TD><TD></TD><TD></TD><TD>Connect local and remote user names
@@ -2480,7 +2652,8 @@ Here are the legal user options:
 </TABLE></BLOCKQUOTE>
 <!-- .PP -->
 <P>
-Remember that all user options must <I>follow</I> all server options.
+All user options must begin with a user description (user or username
+option) and <I>follow</I> all server descriptions and options.
 <!-- .PP -->
 <P>
 In the .fetchmailrc file, the &#146;envelope&#146; string argument may be
@@ -2536,17 +2709,17 @@ queried every N poll intervals.
 <!-- .PP -->
 <P>
 Please ensure you read the section titled
-<!-- .B THE USE AND ABUSE OF MULTIDROP MAILBOXES  -->
-<B><A HREF=#41>THE USE AND ABUSE OF MULTIDROP MAILBOXES</A></B> if you intend to use multidrop mode.
+<B>THE USE AND ABUSE OF MULTIDROP MAILBOXES </B>
+if you intend to use multidrop mode.
 <!-- .PP -->
 <P>
 The &#146;is&#146; or &#146;to&#146; keywords associate the following local (client)
 name(s) (or server-name to client-name mappings separated by =) with
 the mailserver user name in the entry.  If an is/to list has &#146;*&#146; as
 its last name, unrecognized names are simply passed through. Note that
-until <I>fetchmail</I> version 6.3.4 inclusively, these lists could only
+until <B>fetchmail</B> version 6.3.4 inclusively, these lists could only
 contain local parts of user names (fetchmail would only look at the part
-before the @ sign). <I>fetchmail</I> versions 6.3.5 and
+before the @ sign). <B>fetchmail</B> versions 6.3.5 and
 newer support full addresses on the left hand side of these mappings,
 and they take precedence over any &#146;localdomains&#146;, &#146;aka&#146;, &#146;via&#146; or
 similar mappings.
@@ -2557,12 +2730,12 @@ your username on the client machine is different from your name on the
 mailserver.  When there is only a single local name, mail is forwarded
 to that local username regardless of the message&#146;s Received, To, Cc,
 and Bcc headers.  In this case,
-<!-- .I fetchmail -->
-<I>fetchmail</I> never does DNS lookups.
+<B>fetchmail</B>
+never does DNS lookups.
 <!-- .PP -->
 <P>
 When there is more than one local name (or name mapping),
-<I>fetchmail</I> looks at the envelope header, if configured, and
+<B>fetchmail</B> looks at the envelope header, if configured, and
 otherwise at the Received, To, Cc, and Bcc headers of retrieved mail
 (this is &#146;multidrop mode&#146;).  It looks for addresses with hostname parts
 that match your poll name or your &#146;via&#146;, &#146;aka&#146; or &#146;localdomains&#146;
@@ -2572,7 +2745,7 @@ aliases of the mailserver.  See the discussion of &#146;dns&#146;, &#146;checkal
 handled.
 <!-- .PP -->
 <P>
-If <I>fetchmail</I> cannot match any mailserver usernames or
+If <B>fetchmail</B> cannot match any mailserver usernames or
 localdomain addresses, the mail will be bounced.
 Normally it will be bounced to the sender, but if the &#146;bouncemail&#146;
 global option is off, the mail will go to the local postmaster instead.
@@ -2592,31 +2765,26 @@ by the &#146;dns&#146; keyword in multidrop mode, providing a way to cope with
 remote MTAs that identify themselves using their canonical name, while
 they&#146;re polled using an alias.
 When such a server is polled, checks to extract the envelope address
-fail, and
-<!-- .IR fetchmail -->
-<I>fetchmail</I> reverts to delivery using the To/Cc/Bcc headers (See below
-&#146;Header vs. Envelope addresses&#146;).
-Specifying this option instructs
-<!-- .IR fetchmail -->
-<I>fetchmail</I> to retrieve all the IP addresses associated with both the poll name
-and the name used by the remote MTA and to do a comparison of the IP
-addresses.  This comes in handy in situations where the remote server
-undergoes frequent canonical name changes, that would otherwise
-require modifications to the rcfile.  &#146;checkalias&#146; has no effect if
-&#146;no dns&#146; is specified in the rcfile.
+fail, and <B>fetchmail</B> reverts to delivery using the To/Cc/Bcc
+headers (See below &#146;Header vs. Envelope addresses&#146;).
+Specifying this option instructs <B>fetchmail</B> to retrieve all the IP
+addresses associated with both the poll name and the name used by the
+remote MTA and to do a comparison of the IP addresses.  This comes in
+handy in situations where the remote server undergoes frequent canonical
+name changes, that would otherwise require modifications to the rcfile.
+&#146;checkalias&#146; has no effect if &#146;no dns&#146; is specified in the rcfile.
 <!-- .PP -->
 <P>
 The &#146;aka&#146; option is for use with multidrop mailboxes.  It allows you
 to pre-declare a list of DNS aliases for a server.  This is an
 optimization hack that allows you to trade space for speed.  When
-<!-- .IR fetchmail , -->
-<I>fetchmail</I>, while processing a multidrop mailbox, grovels through message headers
-looking for names of the mailserver, pre-declaring common ones can
-save it from having to do DNS lookups.  Note: the names you give
-as arguments to &#146;aka&#146; are matched as suffixes -- if you specify
-(say) &#146;aka netaxs.com&#146;, this will match not just a hostname
-netaxs.com, but any hostname that ends with &#146;.netaxs.com&#146;; such as
-(say) pop3.netaxs.com and mail.netaxs.com.
+<B>fetchmail</B>, while processing a multidrop mailbox, grovels through
+message headers looking for names of the mailserver, pre-declaring
+common ones can save it from having to do DNS lookups.  Note: the names
+you give as arguments to &#146;aka&#146; are matched as suffixes -- if you specify
+(say) &#146;aka netaxs.com&#146;, this will match not just a hostname netaxs.com,
+but any hostname that ends with &#146;.netaxs.com&#146;; such as (say)
+pop3.netaxs.com and mail.netaxs.com.
 <!-- .PP -->
 <P>
 The &#146;localdomains&#146; option allows you to declare a list of domains
@@ -2628,7 +2796,7 @@ applied).
 <!-- .PP -->
 <P>
 If you are using &#146;localdomains&#146;, you may also need to specify &#146;no
-envelope&#146;, which disables <I>fetchmail</I>&#146;s normal attempt to deduce
+envelope&#146;, which disables <B>fetchmail</B>&#146;s normal attempt to deduce
 an envelope address from the Received line or X-Envelope-To header or
 whatever header has been previously set by &#146;envelope&#146;.  If you set &#146;no
 envelope&#146; in the defaults entry it is possible to undo that in
@@ -2643,10 +2811,10 @@ to be used with the entry&#146;s server.
 <P>
 The &#146;preconnect&#146; keyword allows you to specify a shell command to be
 executed just before each time
-<!-- .I fetchmail -->
-<I>fetchmail</I> establishes a mailserver connection.  This may be useful if you are
+<B>fetchmail</B>
+establishes a mailserver connection.  This may be useful if you are
 attempting to set up secure POP connections with the aid of
-<!-- .IR ssh (1). -->
+<!-- .BR ssh (1). -->
 <B>ssh</B>(1).
 If the command returns a nonzero status, the poll of that mailserver
 will be aborted.
@@ -2675,13 +2843,13 @@ both on, &#146;stripcr&#146; will override.
 The &#146;pass8bits&#146; option exists to cope with Microsoft mail programs that
 stupidly slap a "Content-Transfer-Encoding: 7bit" on everything.  With
 this option off (the default) and such a header present,
-<!-- .I fetchmail -->
-<I>fetchmail</I> declares BODY=7BIT to an ESMTP-capable listener; this causes problems for
+<B>fetchmail</B>
+declares BODY=7BIT to an ESMTP-capable listener; this causes problems for
 messages actually using 8-bit ISO or KOI-8 character sets, which will
 be garbled by having the high bits of all characters stripped.  If
 &#146;pass8bits&#146; is on,
-<!-- .I fetchmail -->
-<I>fetchmail</I> is forced to declare BODY=8BITMIME to any ESMTP-capable listener.  If
+<B>fetchmail</B>
+is forced to declare BODY=8BITMIME to any ESMTP-capable listener.  If
 the listener is 8-bit-clean (as all the major ones now are) the right
 thing will probably result.
 <!-- .PP -->
@@ -2776,7 +2944,7 @@ Legal authentication types are &#146;any&#146;, &#146;password&#146;, &#146;kerb
 The &#146;password&#146; type specifies
 authentication by normal transmission of a password (the password may be
 plain text or subject to protocol-specific encryption as in CRAM-MD5);
-&#146;kerberos&#146; tells <I>fetchmail</I> to try to get a Kerberos ticket at the
+&#146;kerberos&#146; tells <B>fetchmail</B> to try to get a Kerberos ticket at the
 start of each query instead, and send an arbitrary string as the
 password; and &#146;gssapi&#146; tells fetchmail to use GSSAPI authentication.
 See the description of the &#146;auth&#146; keyword for more.
@@ -2789,7 +2957,9 @@ authentication.  These defaults may be overridden by later options.
 There are some global option statements: &#146;set logfile&#146;
 followed by a string sets the same global specified by --logfile.  A
 command-line --logfile option will override this. Note that --logfile is
-only effective if fetchmail detaches itself from the terminal.  Also,
+only effective if fetchmail detaches itself from the terminal and the
+logfile already exists before fetchmail is run, and it overrides
+--syslog in this case.  Also,
 &#146;set daemon&#146; sets the poll interval as --daemon does.  This can be
 overridden by a command-line --daemon option; in particular --daemon~0
 can be used to force foreground operation. The &#146;set postmaster&#146;
@@ -2823,7 +2993,10 @@ the computer is rebooted, or powered off for a few hours, and can happen
 in random locations even if you use the software the same way.
 <P>
 For solving hardware-induced segfaults, find the faulty component and repair or
-replace it. &lt;<A HREF="http://www.bitwizard.nl/sig11/">http://www.bitwizard.nl/sig11/</A>&gt; may help you with details.
+replace it.
+<!-- .URL http://www.bitwizard.nl/sig11/ "The Sig11 FAQ" -->
+<!-- ignored unsupported tag .URL -->
+may help you with details.
 <P>
 For solving software-induced segfaults, the developers may need a "stack
 backtrace".
@@ -2881,8 +3054,8 @@ necessary) <B>gdb ./fetchmail fetchmail.core</B> and then, after GDB
 has started up and read all its files, type <B>backtrace full</B>, save
 the output (copy & paste will do, the backtrace will be read by a human)
 and then type <B>quit</B> to leave gdb.
-<!-- .B Note: -->
-<B>Note:</B> on some systems, the core
+<B>Note:</B>
+on some systems, the core
 files have different names, they might contain a number instead of the
 program name, or number and name, but it will usually have "core" as
 part of their name.
@@ -2947,114 +3120,186 @@ We recommend stashing account/password pairs in your $HOME/.netrc
 file, where they can be used not just by fetchmail but by ftp(1) and
 other programs.
 <P>
-Basic format is:
+The basic format is:
 <P>
-<!-- .nf -->
-<PRE>
-  poll SERVERNAME protocol PROTOCOL username NAME password PASSWORD
-<!-- .fi -->
-</PRE>
+<!-- .IP -->
+<TABLE cellpadding=3>
+<TR valign=top><TD width=6%>
+
+</TD><TD>
+poll <I>SERVERNAME</I> protocol <I>PROTOCOL</I> username <I>NAME</I>
+password <I>PASSWORD</I>
+<P>
 <!-- .PP -->
-<P>
+</TD></TR>
+<!-- Found tag IP -->
+<TR><TD colspan=2>
 Example:
 <P>
+<!-- .IP -->
+</TD></TR>
+<TR valign=top><TD width=6%>
+
+</TD><TD>
 <!-- .nf -->
 <PRE>
-  poll pop.provider.net protocol pop3 username "jsmith" password "secret1"
+poll pop.provider.net protocol pop3 username "jsmith" password "secret1"
 <!-- .fi -->
 </PRE>
-<!-- .PP -->
 <P>
+<!-- .PP -->
+</TD></TR>
+<!-- Found tag IP -->
+<TR><TD colspan=2>
 Or, using some abbreviations:
 <P>
+<!-- .IP -->
+</TD></TR>
+<TR valign=top><TD width=6%>
+
+</TD><TD>
 <!-- .nf -->
 <PRE>
-  poll pop.provider.net proto pop3 user "jsmith" password "secret1"
+poll pop.provider.net proto pop3 user "jsmith" password "secret1"
 <!-- .fi -->
 </PRE>
-<!-- .PP -->
 <P>
+<!-- .PP -->
+</TD></TR>
+<!-- Found tag IP -->
+<TR><TD colspan=2>
 Multiple servers may be listed:
 <P>
+<!-- .IP -->
+</TD></TR>
+<TR valign=top><TD width=6%>
+
+</TD><TD>
 <!-- .nf -->
 <PRE>
-  poll pop.provider.net proto pop3 user "jsmith" pass "secret1"
-  poll other.provider.net proto pop2 user "John.Smith" pass "My^Hat"
+poll pop.provider.net proto pop3 user "jsmith" pass "secret1"
+poll other.provider.net proto pop2 user "John.Smith" pass "My^Hat"
 <!-- .fi -->
 </PRE>
-<P>
-Here&#146;s a version of those two with more whitespace and some noise words:
-<P>
-<!-- .nf -->
-<PRE>
-  poll pop.provider.net proto pop3
-      user "jsmith", with password secret1, is "jsmith" here;
-  poll other.provider.net proto pop2:
-      user "John.Smith", with password "My^Hat", is "John.Smith" here;
-<!-- .fi -->
-</PRE>
-<P>
-This version is much easier to read and doesn&#146;t cost significantly
-more (parsing is done only once, at startup time).
 <P>
 <!-- .PP -->
+</TD></TR>
+<!-- Found tag IP -->
+<TR><TD colspan=2>
+Here&#146;s the same version with more whitespace and some noise words:
 <P>
-If you need to include whitespace in a parameter string, enclose the
-string in double quotes.  Thus:
-<P>
+<!-- .IP -->
+</TD></TR>
+<TR valign=top><TD width=6%>
+
+</TD><TD>
 <!-- .nf -->
 <PRE>
-  poll mail.provider.net with proto pop3:
-        user "jsmith" there has password "u can&#146;t krak this"
-                    is jws here and wants mda "/bin/mail"
+poll pop.provider.net proto pop3
+     user "jsmith", with password secret1, is "jsmith" here;
+poll other.provider.net proto pop2:
+     user "John.Smith", with password "My^Hat", is "John.Smith" here;
 <!-- .fi -->
 </PRE>
 <P>
+<!-- .PP -->
+</TD></TR>
+<!-- Found tag IP -->
+<TR><TD colspan=2>
+If you need to include whitespace in a parameter string or start the
+latter with a number, enclose the string in double quotes.  Thus:
+<P>
+<!-- .IP -->
+</TD></TR>
+<TR valign=top><TD width=6%>
+
+</TD><TD>
+<!-- .nf -->
+<PRE>
+poll mail.provider.net with proto pop3:
+     user "jsmith" there has password "4u but u can&#146;t krak this"
+     is jws here and wants mda "/bin/mail"
+<!-- .fi -->
+</PRE>
+<P>
+<!-- .PP -->
+</TD></TR>
+<!-- Found tag IP -->
+<TR><TD colspan=2>
 You may have an initial server description headed by the keyword
 &#146;defaults&#146; instead of &#146;poll&#146; followed by a name.  Such a record
 is interpreted as defaults for all queries to use. It may be overwritten
 by individual server descriptions.  So, you could write:
 <P>
+<!-- .IP -->
+</TD></TR>
+<TR valign=top><TD width=6%>
+
+</TD><TD>
 <!-- .nf -->
 <PRE>
-  defaults proto pop3
-        user "jsmith"
-  poll pop.provider.net
-        pass "secret1"
-  poll mail.provider.net
-        user "jjsmith" there has password "secret2"
+defaults proto pop3
+     user "jsmith"
+poll pop.provider.net
+     pass "secret1"
+poll mail.provider.net
+     user "jjsmith" there has password "secret2"
 <!-- .fi -->
 </PRE>
 <P>
-It&#146;s possible to specify more than one user per server (this is only
-likely to be useful when running fetchmail in daemon mode as root).
+<!-- .PP -->
+</TD></TR>
+<!-- Found tag IP -->
+<TR><TD colspan=2>
+It&#146;s possible to specify more than one user per server.
 The &#146;user&#146; keyword leads off a user description, and every user specification
 in a multi-user entry must include it.  Here&#146;s an example:
 <P>
+<!-- .IP -->
+</TD></TR>
+<TR valign=top><TD width=6%>
+
+</TD><TD>
 <!-- .nf -->
 <PRE>
-  poll pop.provider.net proto pop3 port 3111
-        user "jsmith" with pass "secret1" is "smith" here
-        user jones with pass "secret2" is "jjones" here keep
+poll pop.provider.net proto pop3 port 3111
+     user "jsmith" with pass "secret1" is "smith" here
+     user jones with pass "secret2" is "jjones" here keep
 <!-- .fi -->
 </PRE>
 <P>
+<!-- .PP -->
+</TD></TR>
+<!-- Found tag IP -->
+<TR><TD colspan=2>
 This associates the local username &#146;smith&#146; with the pop.provider.net
 username &#146;jsmith&#146; and the local username &#146;jjones&#146; with the
 pop.provider.net username &#146;jones&#146;.  Mail for &#146;jones&#146; is kept on the
 server after download.
-<!-- .PP -->
 <P>
+<!-- .PP -->
+</TD></TR>
+<!-- Found tag IP -->
+<TR><TD colspan=2>
 Here&#146;s what a simple retrieval configuration for a multidrop mailbox
 looks like:
 <P>
+<!-- .IP -->
+</TD></TR>
+<TR valign=top><TD width=6%>
+
+</TD><TD>
 <!-- .nf -->
 <PRE>
-  poll pop.provider.net:
-        user maildrop with pass secret1 to golux &#146;hurkle&#146;=&#146;happy&#146; snark here
+poll pop.provider.net:
+     user maildrop with pass secret1 to golux &#146;hurkle&#146;=&#146;happy&#146; snark here
 <!-- .fi -->
 </PRE>
 <P>
+<!-- .PP -->
+</TD></TR>
+<!-- Found tag IP -->
+<TR><TD colspan=2>
 This says that the mailbox of account &#146;maildrop&#146; on the server is a
 multidrop box, and that messages in it should be parsed for the
 server user names &#146;golux&#146;, &#146;hurkle&#146;, and &#146;snark&#146;.  It further
@@ -3062,45 +3307,68 @@ specifies that &#146;golux&#146; and &#146;snark&#146; have the same name on the
 client as on the server, but mail for server user &#146;hurkle&#146; should be
 delivered to client user &#146;happy&#146;.
 <P>
-<!-- .B Note -->
-<B>Note</B> that
-<!-- .I fetchmail, -->
-<I>fetchmail,</I> until version 6.3.4, did NOT allow full user@domain specifications here,
-these would never match. <I>Fetchmail</I> 6.3.5 and newer support
-user@domain specifications on the left-hand side of a user mapping.
 <!-- .PP -->
+</TD></TR>
+<!-- Found tag IP -->
+<TR><TD colspan=2>
+<B>Note</B> that <B>fetchmail,</B> until version 6.3.4, did NOT allow full
+user@domain specifications here, these would never match.
+<I>Fetchmail</I> 6.3.5 and newer support user@domain specifications on
+the left-hand side of a user mapping.
 <P>
+<!-- .PP -->
+</TD></TR>
+<!-- Found tag IP -->
+<TR><TD colspan=2>
 Here&#146;s an example of another kind of multidrop connection:
 <P>
+<!-- .IP -->
+</TD></TR>
+<TR valign=top><TD width=6%>
+
+</TD><TD>
 <!-- .nf -->
 <PRE>
-  poll pop.provider.net localdomains loonytoons.org toons.org
-      envelope X-Envelope-To
-        user maildrop with pass secret1 to * here
+poll pop.provider.net localdomains loonytoons.org toons.org
+     envelope X-Envelope-To
+     user maildrop with pass secret1 to * here
 <!-- .fi -->
 </PRE>
 <P>
+<!-- .PP -->
+</TD></TR>
+<!-- Found tag IP -->
+<TR><TD colspan=2>
 This also says that the mailbox of account &#146;maildrop&#146; on the server is
 a multidrop box.  It tells fetchmail that any address in the
 loonytoons.org or toons.org domains (including sub-domain addresses like
 &#146;<A HREF="mailto:joe@daffy.loonytoons.org">joe@daffy.loonytoons.org</A>&#146;) should be passed through to the local SMTP
 listener without modification.  Be careful of mail loops if you do this!
-<!-- .PP -->
 <P>
+<!-- .PP -->
+</TD></TR>
+<!-- Found tag IP -->
+<TR><TD colspan=2>
 Here&#146;s an example configuration using ssh and the plugin option.  The
 queries are made directly on the stdin and stdout of imapd via ssh.
 Note that in this setup, IMAP authentication can be skipped.
 <P>
+<!-- .IP -->
+</TD></TR>
+<TR valign=top><TD width=6%>
+
+</TD><TD>
 <!-- .nf -->
 <PRE>
 poll mailhost.net with proto imap:
-        plugin "ssh %h /usr/sbin/imapd" auth ssh;
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;user esr is esr here
+     plugin "ssh %h /usr/sbin/imapd" auth ssh;
+     user esr is esr here
 <!-- .fi -->
 </PRE>
 <P>
 <!-- .SH THE USE AND ABUSE OF MULTIDROP MAILBOXES -->
-</BLOCKQUOTE>
+</TD></TR>
+<TR></TR></TABLE></BLOCKQUOTE>
 <A name=41>
 
      <H3>THE USE AND ABUSE OF MULTIDROP MAILBOXES</H3>
@@ -3133,19 +3401,19 @@ in order to reroute mail properly.
 <!-- .PP -->
 <P>
 Sometimes
-<!-- .I fetchmail -->
-<I>fetchmail</I> can deduce the envelope address.  If the mailserver MTA is
-<!-- .I sendmail -->
-<I>sendmail</I> and the item of mail had just one recipient, the MTA will have written
+<B>fetchmail</B>
+can deduce the envelope address.  If the mailserver MTA is
+<B>sendmail</B>
+and the item of mail had just one recipient, the MTA will have written
 a &#146;by/for&#146; clause that gives the envelope addressee into its Received
 header. But this doesn&#146;t work reliably for other MTAs, nor if there is
-more than one recipient.  By default, <I>fetchmail</I> looks for
+more than one recipient.  By default, <B>fetchmail</B> looks for
 envelope addresses in these lines; you can restore this default with
 -E "Received" or &#146;envelope Received&#146;.
 <!-- .PP -->
 <P>
-<!-- .B As a better alternative, -->
-<B>As a better alternative,</B> some SMTP listeners and/or mail servers insert a header
+<B>As a better alternative,</B>
+some SMTP listeners and/or mail servers insert a header
 in each message containing a copy of the envelope addresses.  This
 header (when it exists) is often &#146;X-Original-To&#146;, &#146;Delivered-To&#146; or
 &#146;X-Envelope-To&#146;.  Fetchmail&#146;s assumption about this can be changed with
@@ -3176,42 +3444,55 @@ In particular, mailing-list software often ships mail with only
 the list broadcast address in the To header.
 <!-- .PP -->
 <P>
-<!-- .B Note that a future version of \fIfetchmail\fP may remove To/Cc parsing! -->
-<B>Note that a future version of </B><I>fetchmail</I> may remove To/Cc parsing! <!-- .PP -->
+<B>Note that a future version of </B><B>fetchmail</B> may remove To/Cc parsing!
+<!-- .PP -->
 <P>
 When
-<!-- .I fetchmail -->
-<I>fetchmail</I> cannot deduce a recipient address that is local, and the intended
+<B>fetchmail</B>
+cannot deduce a recipient address that is local, and the intended
 recipient address was anyone other than fetchmail&#146;s invoking user,
-<!-- .B mail will get lost. -->
-<B>mail will get lost.</B> This is what makes the multidrop feature risky without proper envelope
+<B>mail will get lost.</B>
+This is what makes the multidrop feature risky without proper envelope
 information.
 <!-- .PP -->
 <P>
 A related problem is that when you blind-copy a mail message, the Bcc
 information is carried <I>only</I> as envelope address (it&#146;s removed from
 the headers by the sending mail server, so fetchmail can see it only if
-there is an X-<BLINK>\E</BLINK>nvelope-To header).  Thus, blind-copying to someone who
+there is an X-Envelope-To header).  Thus, blind-copying to someone who
 gets mail over a fetchmail multidrop link will fail unless the the
 mailserver host routinely writes X-Envelope-To or an equivalent header
 into messages in your maildrop.
 <!-- .PP -->
 <P>
 <B>In conclusion, mailing lists and Bcc&#146;d mail can only work if the
-server you&#146;re fetching from (1) stores one copy of the message per
-recipient in </B><I>your</I> domain and (2) records the envelope
-information in a special header (X-Original-To, Delivered-To,
-X-Envelope-To).
+server you&#146;re fetching from</B>
+<!-- .IP (1) -->
+<TABLE cellpadding=3><!-- tsb: <B>In conclusion, mailing lists and Bcc&#146;d mail can only work if the
+ -->
+<TR></TR><TR></TR>
+<TR valign=top><TD width=6%>
+(1)
+</TD><TD>
+<B>stores one copy of the message per recipient in your domain and</B>
+<!-- .IP (2) -->
+</TD></TR>
+<TR valign=top><TD width=6%>
+(2)
+</TD><TD>
+<B>records the envelope information in a special header (X-Original-To,
+Delivered-To, X-Envelope-To).</B>
 <P>
 <!-- .SS Good Ways To Use Multidrop Mailboxes -->
-</BLOCKQUOTE>
+</TD></TR>
+<TR></TR></TABLE></BLOCKQUOTE>
 <A name=43>
 
     <H4>&nbsp; &nbsp; Good Ways To Use Multidrop Mailboxes</H4>
 </A>
 <BLOCKQUOTE>
 Multiple local names can be used to administer a mailing list from the
-client side of a <I>fetchmail</I> collection.  Suppose your name is
+client side of a <B>fetchmail</B> collection.  Suppose your name is
 &#146;esr&#146;, and you want to both pick up your own mail and maintain a mailing
 list called (say) "fetchmail-friends", and you want to keep the alias
 list on your client machine.
@@ -3235,9 +3516,8 @@ you do <I>not</I> have declared as a local name.  Each such message
 will feature an &#146;X-Fetchmail-Warning&#146; header which is generated
 because fetchmail cannot find a valid local name in the recipient
 addresses.  Such messages default (as was described above) to being
-sent to the local user running
-<!-- .IR fetchmail , -->
-<I>fetchmail</I>, but the program has no way to know that that&#146;s actually the right thing.
+sent to the local user running <B>fetchmail</B>, but the program has no
+way to know that that&#146;s actually the right thing.
 <P>
 <!-- .SS Bad Ways To Abuse Multidrop Mailboxes -->
 </BLOCKQUOTE>
@@ -3247,19 +3527,19 @@ sent to the local user running
 </A>
 <BLOCKQUOTE>
 Multidrop mailboxes and
-<!-- .I fetchmail -->
-<I>fetchmail</I> serving multiple users in daemon mode do not mix.  The problem, again, is
+<B>fetchmail</B>
+serving multiple users in daemon mode do not mix.  The problem, again, is
 mail from mailing lists, which typically does not have an individual
 recipient address on it.   Unless
-<!-- .I fetchmail -->
-<I>fetchmail</I> can deduce an envelope address, such mail will only go to the account
+<B>fetchmail</B>
+can deduce an envelope address, such mail will only go to the account
 running fetchmail (probably root).  Also, blind-copied users are very
 likely never to see their mail at all.
 <!-- .PP -->
 <P>
 If you&#146;re tempted to use
-<!-- .I fetchmail -->
-<I>fetchmail</I> to retrieve mail for multiple users from a single mail drop via POP or
+<B>fetchmail</B>
+to retrieve mail for multiple users from a single mail drop via POP or
 IMAP, think again (and reread the section on header and envelope
 addresses above).  It would be smarter to just let the mail sit in the
 mailserver&#146;s queue and use fetchmail&#146;s ETRN or ODMR modes to trigger
@@ -3281,8 +3561,8 @@ to haunt you.
 </A>
 <BLOCKQUOTE>
 Normally, when multiple users are declared
-<!-- .I fetchmail -->
-<I>fetchmail</I> extracts recipient addresses as described above and checks each host
+<B>fetchmail</B>
+extracts recipient addresses as described above and checks each host
 part with DNS to see if it&#146;s an alias of the mailserver.  If so, the
 name mappings described in the "to ... here" declaration are done and
 the mail locally delivered.
@@ -3291,8 +3571,8 @@ the mail locally delivered.
 This is a convenient but also slow method.  To speed
 it up, pre-declare mailserver aliases with &#146;aka&#146;; these are checked
 before DNS lookups are done.  If you&#146;re certain your aka list contains
-<!-- .B all -->
-<B>all</B> DNS aliases of the mailserver (and all MX names pointing at it - note
+<B>all</B>
+DNS aliases of the mailserver (and all MX names pointing at it - note
 this may change in a future version)
 you can declare &#146;no dns&#146; to suppress DNS lookups entirely and
 <I>only</I> match against the aka list.
@@ -3332,14 +3612,14 @@ env SOCKS_CONF=/dev/null fetchmail
 </A>
 <BLOCKQUOTE>
 To facilitate the use of
-<!-- .I fetchmail -->
-<I>fetchmail</I> in shell scripts, an exit status code is returned to give an indication
+<B>fetchmail</B>
+in shell scripts, an exit status code is returned to give an indication
 of what occurred during a given connection.
 <!-- .PP -->
 <P>
 The exit codes returned by
-<!-- .I fetchmail -->
-<I>fetchmail</I> are as follows:
+<B>fetchmail</B>
+are as follows:
 <!-- .IP 0 -->
 <TABLE cellpadding=3><!-- tsb: The exit codes returned by
  -->
@@ -3355,7 +3635,19 @@ was selected, were found waiting but not retrieved).
 1
 </TD><TD>
 There was no mail awaiting retrieval.  (There may have been old mail still
-on the server but not selected for retrieval.)
+on the server but not selected for retrieval.) If you do not want "no
+mail" to be an error condition (for instance, for cron jobs), use a
+POSIX-compliant shell and add
+<P>
+<!-- .nf -->
+<PRE>
+|| [ $? -eq 1 ]
+<!-- .fi -->
+</PRE>
+<P>
+to the end of the fetchmail command line, note that this leaves 0
+untouched, maps 1 to 0, and maps all other codes to 1. See also item #C8
+in the FAQ.
 <!-- .IP 2 -->
 </TD></TR>
 <TR valign=top><TD width=6%>
@@ -3387,8 +3679,8 @@ Some sort of fatal protocol error was detected.
 5
 </TD><TD>
 There was a syntax error in the arguments to
-<!-- .IR fetchmail . -->
-<I>fetchmail</I>. <!-- .IP 6 -->
+<B>fetchmail</B>, or a pre- or post-connect command failed.
+<!-- .IP 6 -->
 </TD></TR>
 <TR valign=top><TD width=6%>
 6
@@ -3400,17 +3692,15 @@ The run control file had bad permissions.
 7
 </TD><TD>
 There was an error condition reported by the server.  Can also
-fire if
-<!-- .I fetchmail -->
-<I>fetchmail</I> timed out while waiting for the server.
+fire if <B>fetchmail</B> timed out while waiting for the server.
 <!-- .IP 8 -->
 </TD></TR>
 <TR valign=top><TD width=6%>
 8
 </TD><TD>
 Client-side exclusion error.  This means
-<!-- .I fetchmail -->
-<I>fetchmail</I> either found another copy of itself already running, or failed in such
+<B>fetchmail</B>
+either found another copy of itself already running, or failed in such
 a way that it isn&#146;t sure whether another copy is running.
 <!-- .IP 9 -->
 </TD></TR>
@@ -3429,8 +3719,8 @@ or some similar text containing the word "lock".
 10
 </TD><TD>
 The
-<!-- .I fetchmail -->
-<I>fetchmail</I> run failed while trying to do an SMTP port open or transaction.
+<B>fetchmail</B>
+run failed while trying to do an SMTP port open or transaction.
 <!-- .IP 11 -->
 </TD></TR>
 <TR valign=top><TD width=6%>
@@ -3466,15 +3756,15 @@ details.
 <!-- .IP "24 - 26, 28, 29" -->
 </TD></TR>
 <TR valign=top><TD width=6%>
-24 - 26, 28, 29
+"24 - 26, 28, 29"
 </TD><TD>
 These are internal codes and should not appear externally.
 <!-- .PP -->
 </TD></TR>
 <!-- PP ends table -->
 <TR></TR></TABLE>When
-<!-- .I fetchmail -->
-<I>fetchmail</I> queries more than one host, return status is 0 if <I>any</I> query
+<B>fetchmail</B>
+queries more than one host, return status is 0 if <I>any</I> query
 successfully retrieved mail. Otherwise the returned error status is
 that of the last host queried.
 <P>
@@ -3497,9 +3787,7 @@ default run control file
 <TR valign=top><TD colspan=2>
 ~/.fetchids
 </TD></TR><TR valign=top><TD width=5%>&nbsp;</TD><TD>
-default location of file associating hosts with last message IDs seen
-(used only with newer RFC1939-compliant POP3 servers supporting the
-UIDL command).
+default location of file recording last message UIDs seen per host.
 <!-- .TP 5 -->
 </TD></TR>
 <TR valign=top><TD colspan=2>
@@ -3573,23 +3861,21 @@ this to /dev/null to bypass the SOCKS proxy.
 </A>
 <BLOCKQUOTE>
 If a
-<!-- .I fetchmail -->
-<I>fetchmail</I> daemon is running as root, SIGUSR1 wakes it up from its sleep phase and
+<B>fetchmail</B>
+daemon is running as root, SIGUSR1 wakes it up from its sleep phase and
 forces a poll of all non-skipped servers. For compatibility reasons,
 SIGHUP can also be used in 6.3.X but may not be available in future
 fetchmail versions.
 <!-- .PP -->
 <P>
 If
-<!-- .I fetchmail -->
-<I>fetchmail</I> is running in daemon mode as non-root, use SIGUSR1 to wake it (this is
+<B>fetchmail</B>
+is running in daemon mode as non-root, use SIGUSR1 to wake it (this is
 so SIGHUP due to logout can retain the default action of killing it).
 <!-- .PP -->
 <P>
-Running
-<!-- .I fetchmail -->
-<I>fetchmail</I> in foreground while a background fetchmail is running will do
-whichever of these is appropriate to wake it up.
+Running <B>fetchmail</B> in foreground while a background fetchmail is
+running will do whichever of these is appropriate to wake it up.
 <P>
 <!-- .SH BUGS AND KNOWN PROBLEMS -->
 </BLOCKQUOTE>
@@ -3648,7 +3934,7 @@ availability of a specific interface device with a specific local or
 remote IP address, but snooping is still possible if (a) either host
 has a network device that can be opened in promiscuous mode, or (b)
 the intervening network link can be tapped.  We recommend the use of
-<!-- .IR ssh (1) -->
+<!-- .BR ssh (1) -->
 <B>ssh</B>(1)
 tunnelling to not only shroud your passwords but encrypt the entire
 conversation.
@@ -3668,14 +3954,12 @@ spam bounces requires that port 25 of localhost be available for sending
 mail via SMTP.
 <!-- .PP -->
 <P>
-If you modify a
-<!-- .I ~/.fetchmailrc -->
-<I>~/.fetchmailrc</I> while a background instance is running and break the syntax, the
-background instance will die silently.  Unfortunately, it can&#146;t
-die noisily because we don&#146;t yet know whether syslog should be enabled.
-On some systems, fetchmail dies quietly even if there is no syntax
-error; this seems to have something to do with buggy terminal ioctl
-code in the kernel.
+If you modify <I>~/.fetchmailrc</I> while a background instance is
+running and break the syntax, the background instance will die silently.
+Unfortunately, it can&#146;t die noisily because we don&#146;t yet know whether
+syslog should be enabled.  On some systems, fetchmail dies quietly even
+if there is no syntax error; this seems to have something to do with
+buggy terminal ioctl code in the kernel.
 <!-- .PP -->
 <P>
 The -f~- option (reading a configuration from stdin) is incompatible
@@ -3699,10 +3983,16 @@ messages behind.
 <!-- .PP -->
 <P>
 Send comments, bug reports, gripes, and the like to the
-fetchmail-devel list &lt;<A HREF="mailto:fetchmail-devel@lists.berlios.de">fetchmail-devel@lists.berlios.de</A>&gt;.  An HTML FAQ is
-available at the fetchmail home page; surf to
-<A HREF="http://fetchmail.berlios.de/">http://fetchmail.berlios.de/</A> or do a WWW search for pages with
-&#146;fetchmail&#146; in their titles.
+<!-- .MTO "fetchmail-devel@lists.berlios.de" "fetchmail-devel list" -->
+<!-- ignored unsupported tag .MTO -->
+<P>
+<!-- .PP -->
+<P>
+An
+<!-- .URL "http://fetchmail.berlios.de/fetchmail-FAQ.html" "HTML FAQ" -->
+<!-- ignored unsupported tag .URL -->
+is available at the fetchmail home page, it should also accompany your
+installation.
 <P>
 <!-- .SH AUTHOR -->
 </BLOCKQUOTE>
@@ -3717,19 +4007,23 @@ major assistance from Sunil Shetye (for code) and Rob MacGregor (for the
 mailing lists).
 <!-- .PP -->
 <P>
-Most of the code is from Eric S. Raymond &lt;<A HREF="mailto:esr@snark.thyrsus.com">esr@snark.thyrsus.com</A>&gt;.  Too
-many other people to name here have contributed code and patches.
+Most of the code is from
+<!-- .MTO esr@snark.thyrsus.com "Eric S. Raymond" -->
+<!-- ignored unsupported tag .MTO -->
+&#46;  Too many other people to name here have contributed code and patches.
 <!-- .PP -->
 <P>
 This program is descended from and replaces
-<!-- .IR popclient , -->
-<I>popclient</I>, by Carl Harris &lt;<A HREF="mailto:ceharris@mal.com">ceharris@mal.com</A>&gt;; the internals have become quite different,
-but some of its interface design is directly traceable to that
-ancestral program.
+<!-- .BR popclient , -->
+<B>popclient</B>, by
+<!-- .MTO "ceharris@mal.com" "Carl Harris" -->
+<!-- ignored unsupported tag .MTO -->
+; the internals have become quite different, but some of its interface
+design is directly traceable to that ancestral program.
 <!-- .PP -->
 <P>
-This manual page has been improved by R. Hannes Beinert and H[&#146;e]ctor
-Garc[&#146;i]a.
+This manual page has been improved by Matthias Andree, R. Hannes
+Beinert, and H[&#146;e]ctor Garc[&#146;i]a.
 <P>
 <!-- .SH SEE ALSO -->
 </BLOCKQUOTE>
@@ -3739,11 +4033,38 @@ Garc[&#146;i]a.
 
 </A>
 <BLOCKQUOTE>
-mutt(1), elm(1), mail(1), sendmail(8), popd(8), imapd(8), netrc(5)
+<!-- .PP -->
 <P>
-The fetchmail home page: &lt;<A HREF="http://fetchmail.berlios.de/">http://fetchmail.berlios.de/</A>&gt;
+<!-- .BR README , -->
+<B>README</B>, <!-- .BR README.SSL , -->
+<B>README.SSL</B>, <!-- .BR README.SSL-SERVER , -->
+<B>README.SSL-SERVER</B>, <!-- .URL "http://www.fetchmail.info/fetchmail-FAQ.html" "The Fetchmail FAQ" , -->
+<!-- ignored unsupported tag .URL -->
+<!-- .BR mutt (1), -->
+<B>mutt</B>(1),
+<!-- .BR elm (1), -->
+<B>elm</B>(1),
+<!-- .BR mail (1), -->
+<B>mail</B>(1),
+<!-- .BR sendmail (8), -->
+<B>sendmail</B>(8),
+<!-- .BR popd (8), -->
+<B>popd</B>(8),
+<!-- .BR imapd (8), -->
+<B>imapd</B>(8),
+<!-- .BR netrc (5). -->
+<B>netrc</B>(5).
 <P>
-The maildrop home page: &lt;<A HREF="http://www.courier-mta.org/maildrop/">http://www.courier-mta.org/maildrop/</A>&gt;
+<!-- .PP -->
+<P>
+<!-- .URL "http://fetchmail.berlios.de/" "The fetchmail home page." -->
+<!-- ignored unsupported tag .URL -->
+<P>
+<!-- .PP -->
+<P>
+<!-- .URL "http://www.courier-mta.org/maildrop/" "The maildrop home page." -->
+<!-- ignored unsupported tag .URL -->
+<P>
 <!-- .SH APPLICABLE STANDARDS -->
 </BLOCKQUOTE>
 <A name=54>
@@ -3849,5 +4170,5 @@ RFC 2595.
 </TD></TR>
 <TR></TR></TABLE></BLOCKQUOTE>
 <P><HR>
-<TABLE width=100%><TR> <TD width=33%><I>fetchmail</I></TD> <TD width=33% align=center>fetchmail (1)</TD> <TD align=right width=33%><I>fetchmail 6.3.8</I></TD> </TR></TABLE><FONT SIZE=-1>Generated by <A HREF="http://www.squarebox.co.uk/users/rolf/download/manServer.shtml">manServer 1.07+ma1</A> from ../fetchmail.man using man macros with tbl support.</FONT>
+<TABLE width=100%><TR> <TD width=33%><I>"fetchmail"</I></TD> <TD width=33% align=center>fetchmail (1)</TD> <TD align=right width=33%><I>"fetchmail 6.3.10"</I></TD> </TR></TABLE><FONT SIZE=-1>Generated by <A HREF="http://www.squarebox.co.uk/users/rolf/download/manServer.shtml">manServer 1.07+ma1</A> from ../fetchmail.man using man macros with tbl support.</FONT>
 </BODY></HTML>

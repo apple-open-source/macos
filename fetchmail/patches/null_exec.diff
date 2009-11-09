@@ -1,0 +1,16 @@
+diff -r -u -N --exclude='*.orig' fetchmail-6.3.11.orig/env.c fetchmail-6.3.11/env.c
+--- fetchmail-6.3.11.orig/env.c	2009-06-15 00:09:42.000000000 -0700
++++ fetchmail-6.3.11/env.c	2009-09-25 10:12:33.000000000 -0700
+@@ -48,6 +48,12 @@
+ 	}
+     }
+ 
++    if (argv[0] == NULL)
++    {
++	    fprintf(stderr, "fetchmail: bad program name\n");
++	    exit(PS_UNDEFINED);
++    }
++
+     if ((program_name = strrchr(argv[0], '/')) != NULL)
+ 	++program_name;
+     else

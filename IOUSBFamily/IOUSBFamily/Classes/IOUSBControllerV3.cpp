@@ -120,6 +120,12 @@ IOUSBControllerV3::start( IOService * provider )
 {
 	IOReturn	err;
 	
+	_device = OSDynamicCast(IOPCIDevice, provider);
+	if(_device == NULL)
+	{
+		return false;
+	}
+	
 	// the controller speed is set in the ::init methods of the controller subclasses
 	if (_controllerSpeed == kUSBDeviceSpeedFull)
 	{
@@ -131,8 +137,8 @@ IOUSBControllerV3::start( IOService * provider )
 			return false;
 		}
 	}
-    
-    if( !super::start(provider))
+    	
+   if( !super::start(provider))
         return  false;
 	
 	if (_watchdogUSBTimer && _watchdogTimerActive)
@@ -506,24 +512,24 @@ IOUSBControllerV3::CheckForEHCIController(IOService *provider)
     IOService				*service;
     IORegistryEntry			*entry;
     bool					ehciPresent = false;
-	const char *			myProviderLocation;
-	const char *			ehciProviderLocation;
-	int						myDeviceNum = 0, myFnNum = 0;
-	int						ehciDeviceNum = 0, ehciFnNum = 0;
+	int						myDeviceNum = 0;
+	int						ehciDeviceNum = 0;
 	IOUSBControllerV3 *		testEHCI;
 	int						checkListCount = 0;
     
-    // Check my provide (_device) parent (a PCI bridge) children (sibling PCI functions)
+	USBLog(6, "+%s[%p]::CheckForEHCIController", getName(), this);
+	
+	// Check my provide (_device) parent (a PCI bridge) children (sibling PCI functions)
     // to see if any of them is an EHCI controller - if so, wait for it..
-    
+    if ( _device )
+	{
+		myDeviceNum = _device->getDeviceNumber();
+	}
+	
 	if (provider)
 	{
 		siblings = provider->getParentEntry(gIOServicePlane)->getChildIterator(gIOServicePlane);
-		myProviderLocation = provider->getLocation();
-		if (myProviderLocation)
-		{
-			super::ParsePCILocation(myProviderLocation, &myDeviceNum, &myFnNum);
-		}
+
 	}
 	else
 	{
@@ -553,7 +559,8 @@ IOUSBControllerV3::CheckForEHCIController(IOService *provider)
 		USBLog(2, "%s[%p]::CheckForEHCIController - NULL siblings", getName(), this);
 	}
 	
-	
+	// Look for our "companion" EHCI controller.  If it's not the first one we find, then keep looking
+	// until it appears, timing out after 5 seconds (but loop every 10ms).
     if (ehciPresent) 
 	{
         t.tv_sec = 5;
@@ -563,11 +570,9 @@ IOUSBControllerV3::CheckForEHCIController(IOService *provider)
 		testEHCI = (IOUSBControllerV3*)service;
 		while (testEHCI)
 		{
-			ehciProviderLocation = testEHCI->getParentEntry(gIOServicePlane)->getLocation();
-			if (ehciProviderLocation)
-			{
-				super::ParsePCILocation(ehciProviderLocation, &ehciDeviceNum, &ehciFnNum);
-			}
+			IOPCIDevice *	testPCI = (IOPCIDevice*)testEHCI->getParentEntry(gIOServicePlane);
+			ehciDeviceNum = testPCI->getDeviceNumber();
+			
 			if (myDeviceNum == ehciDeviceNum)
 			{
 				USBLog(5, "%s[%p]::CheckForEHCIController - ehciDeviceNum and myDeviceNum match (%d)", getName(), this, myDeviceNum);
@@ -587,7 +592,7 @@ IOUSBControllerV3::CheckForEHCIController(IOService *provider)
 					testEHCI = (IOUSBControllerV3*)(ehciList->getNextObject());
 					if (testEHCI)
 					{
-						USBLog(5, "%s[%p]::CheckForEHCIController - got AppleUSBEHCI[%p] from the list", getName(), this, testEHCI);
+						USBLog(3, "%s[%p]::CheckForEHCIController - found AppleUSBEHCI after %d ms", getName(), this, checkListCount * 10);
 					}
 				}
 				else
@@ -595,16 +600,12 @@ IOUSBControllerV3::CheckForEHCIController(IOService *provider)
 					testEHCI = NULL;
 				}
 				
-				if (!testEHCI && (checkListCount++ < 2))
+				if (!testEHCI && (checkListCount++ < 500))
 				{
 					if (ehciList)
 						ehciList->release();
-					
-					if (checkListCount == 2)
-					{
-						USBLog(5, "%s[%p]::CheckForEHCIController - waiting for 5 seconds", getName(), this);
-						IOSleep(5000);				// wait 5 seconds the second time around
-					}
+										
+					IOSleep(10);
 					
 					USBLog(5, "%s[%p]::CheckForEHCIController - getting an AppleUSBEHCI list", getName(), this);
 					ehciList = getMatchingServices(serviceMatching("AppleUSBEHCI"));
@@ -620,12 +621,18 @@ IOUSBControllerV3::CheckForEHCIController(IOService *provider)
 			}
 		}
     }
-	else
+	
+	// We know there has to be a "companion" EHCI controller, so if there isn't, log it out
+	if ( !ehciPresent || checkListCount == 500 )
 	{
-		USBLog(5, "%s[%p]::CheckForEHCIController - EHCI controller not found in siblings", getName(), this);
+		USBError(1, "We could not find a corresponding USB EHCI controller for our OHCI controller at PCI device number%d", myDeviceNum);
 	}
+	
 	if (ehciList)
 		ehciList->release();
+
+	USBLog(6, "-%s[%p]::CheckForEHCIController", getName(), this);
+
 	return kIOReturnSuccess;
 }
 

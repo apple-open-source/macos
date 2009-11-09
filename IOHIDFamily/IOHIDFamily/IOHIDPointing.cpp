@@ -1,7 +1,7 @@
 /*
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * Copyright (c) 1999-2009 Apple Computer, Inc.  All Rights Reserved.
  * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
@@ -168,10 +168,54 @@ void IOHIDPointing::dispatchScrollWheelEvent(
                                 UInt32                      deltaAxis3,
                                 IOOptionBits                options)
 {
-    bool    accelerate      = ((options & kHIDDispatchOptionPointerNoAcceleration) == 0);
+    // no good initial check
+    {
+        UInt32  oldEventType    = getScrollType();
+        UInt32  newEventType    = oldEventType & ~kScrollTypeMomentumAny;
+        bool    setScroll       = false;
+        
+        UInt32 dispatchKey = kHIDDispatchOptionScrollMomentumContinue;
+        UInt32 eventKey    = kScrollTypeMomentumContinue;
+        bool   dispatchVal = options & dispatchKey ? true : false;
+        bool   eventVal    = oldEventType & eventKey ? true : false;
+        if (dispatchVal != eventVal) {
+            if (dispatchVal) {
+                newEventType |= eventKey;
+            }
+            setScroll = true;
+        }
+        
+        dispatchKey = kHIDDispatchOptionScrollMomentumStart;
+        eventKey    = kScrollTypeMomentumStart;
+        dispatchVal = options & dispatchKey ? true : false;
+        eventVal    = oldEventType & eventKey ? true : false;
+        if (dispatchVal != eventVal) {
+            if (dispatchVal) {
+                newEventType |= eventKey;
+            }
+            setScroll = true;
+        }
+        
+        dispatchKey = kHIDDispatchOptionScrollMomentumEnd;
+        eventKey    = kScrollTypeMomentumEnd;
+        dispatchVal = options & dispatchKey ? true : false;
+        eventVal    = oldEventType & eventKey ? true : false;
+        if (dispatchVal != eventVal) {
+            if (dispatchVal) {
+                newEventType |= eventKey;
+            }
+            setScroll = true;
+        }
+        
+        if (setScroll) {
+            setScrollType(newEventType);
+        }
+    }
+        
+    bool    accelerate      = ((options & kHIDDispatchOptionScrollNoAcceleration) == 0);
     UInt32  pointingMode    = getPointingMode();
-    
-    if ( ((pointingMode & kAccelScroll) != 0) != accelerate)
+
+    if (((pointingMode & kAccelScroll) != 0) != accelerate)
     {
         if ( accelerate )
             pointingMode |= kAccelScroll;

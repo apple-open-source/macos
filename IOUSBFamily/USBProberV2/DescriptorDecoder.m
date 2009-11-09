@@ -32,7 +32,7 @@
 {
     switch ((UInt8)p[1]) {
         case kUSBInterfaceDesc:
-            [DecodeInterfaceDescriptor decodeBytes:p forDevice:thisDevice];
+            [DecodeInterfaceDescriptor decodeBytes:p forDevice:thisDevice withDeviceInterface:deviceIntf];
             break;
         case kUSBEndpointDesc:
             [DecodeEndpointDescriptor decodeBytes:p forDevice:thisDevice isOtherSpeedDesc:isOtherSpeedDesc];

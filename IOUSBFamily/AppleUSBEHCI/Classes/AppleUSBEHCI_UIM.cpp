@@ -2724,14 +2724,14 @@ AppleUSBEHCI::unlinkIntEndpoint(AppleEHCIQueueHead * pED)
 					pListElem->_logicalNext = pED->_logicalNext;
 					pListElem->SetPhysicalLink(pED->GetPhysicalLink());
 					foundED = true;
-					USBLog(6, "AppleUSBEHCI[%p]::unlinkIntEndpoint- found ED in list %d, new logical=%p, new physical=%p", this, i, pED->_logicalNext, (void*)pED->GetPhysicalLink());
+					USBLog(5, "AppleUSBEHCI[%p]::unlinkIntEndpoint- found ED in list %d, new logical=%p, new physical=%p", this, i, pED->_logicalNext, (void*)pED->GetPhysicalLink());
 					break;
 				}
 				pListElem = OSDynamicCast(IOUSBControllerListElement, pListElem->_logicalNext);
 			}
 			if(pListElem == NULL)
 			{
-				USBLog(2, "AppleUSBEHCI[%p]::unlinkIntEndpoint endpoint not found in list %d", this, i);
+				USBLog(7, "AppleUSBEHCI[%p]::unlinkIntEndpoint endpoint not found in list %d", this, i);
 			}
 			
 		}

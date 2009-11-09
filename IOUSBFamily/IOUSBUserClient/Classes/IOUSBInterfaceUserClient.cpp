@@ -44,6 +44,8 @@
 //
 #define super IOUserClient
 
+// ExpansionData members
+
 #ifndef kIOUserClientCrossEndianKey
 #define kIOUserClientCrossEndianKey "IOUserClientCrossEndian"
 #endif
@@ -460,6 +462,7 @@ IOUSBInterfaceUserClientV2::initWithTask(task_t owningTask,void *security_id , U
         bzero(fIOUSBInterfaceUserClientExpansionData, sizeof(IOUSBInterfaceUserClientExpansionData));
     }
 	
+	
     fTask = owningTask;
     fDead = false;
 	
@@ -488,7 +491,7 @@ IOUSBInterfaceUserClientV2::start( IOService * provider )
 {
     IOWorkLoop	*			workLoop = NULL;
     IOCommandGate *			commandGate = NULL;
-
+	
     USBLog(7, "+IOUSBInterfaceUserClientV2[%p]::start(%p)",  this, provider);
     
 	// retain ourselves so we don't go away while start()'ing
@@ -511,7 +514,8 @@ IOUSBInterfaceUserClientV2::start( IOService * provider )
         goto ErrorExit;
     }
 	
-    commandGate = IOCommandGate::commandGate(this);
+	
+	commandGate = IOCommandGate::commandGate(this);
 	
     if (!commandGate)
     {
@@ -533,7 +537,7 @@ IOUSBInterfaceUserClientV2::start( IOService * provider )
         goto ErrorExit;
     }
 	
-    fFreeUSBLowLatencyCommandPool = IOCommandPool::withWorkLoop(workLoop);
+    fFreeUSBLowLatencyCommandPool = IOUSBCommandPool::withWorkLoop(workLoop);
     if (!fFreeUSBLowLatencyCommandPool)
     {
         USBError(1,"IOUSBInterfaceUserClientV2[%p]::start - unable to create free command pool",  this);

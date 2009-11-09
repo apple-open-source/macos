@@ -1,3 +1,6 @@
+-----BEGIN PGP SIGNED MESSAGE-----
+Hash: SHA1
+
 fetchmail-SA-2006-02: TLS enforcement problem/MITM attack/password exposure
 
 Topics:		fetchmail cannot enforce TLS
@@ -123,3 +126,10 @@ THIS WORK IS PROVIDED FREE OF CHARGE AND WITHOUT ANY WARRANTIES.
 Use the information herein at your own risk.
 
 END OF fetchmail-SA-2006-02.txt
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.5 (GNU/Linux)
+
+iD8DBQFIV7WXvmGDOQUufZURAr4xAKDSgBfyRuCoznZM6vuyA3aDHr/o5QCgvuDX
+OKcBNAf2aVZjS9X0+w/fEc8=
+=PAe2
+-----END PGP SIGNATURE-----

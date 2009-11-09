@@ -1,7 +1,7 @@
 RBLIBDIR = $(shell ruby -r mkmf -e 'puts Config.expand($$libdir)')
 
 Project               = subversion
-ProjectVersion        = 1.6.2
+ProjectVersion        = 1.6.5
 
 #-------------------------------------------------------------------------
 # build/get-py-info.py appends "-framework Python" to its --link and --libs
@@ -14,8 +14,8 @@ ProjectVersion        = 1.6.2
 Patches        = build_get-py-info.py.diff \
                  configure.diff \
                  Makefile.in.diff \
-                 mmmbrains.diff \
-                 spawn.diff
+                 spawn.diff \
+                 xcode.diff
 
 GnuAfterInstall       = perl-bindings python-bindings ruby-bindings \
                         post-install install-plist

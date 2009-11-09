@@ -1,4 +1,193 @@
-                                                         -*- coding: utf-8 -*-
+﻿                                                         -*- coding: utf-8 -*-
+Changes with Apache 2.2.13
+
+  *) SECURITY: CVE-2009-2412 (cve.mitre.org)
+     Distributed with APR 1.3.8 and APR-util 1.3.9 to fix potential overflow
+     in pools and rmm, where size alignment was taking place.
+     [Matt Lewis <mattlewis@google.com>, Sander Striker]
+
+  *) mod_ssl, ab: improve compatibility with OpenSSL 1.0.0 betas.  Report
+     warnings compiling mod_ssl against OpenSSL to the httpd developers.
+     [Guenter Knauf]
+
+  *) mod_cgid: Do not add an empty argument when calling the CGI script.
+     PR 46380 [Ruediger Pluem]
+
+  *) Fix potential segfaults with use of the legacy ap_rputs() etc
+     interfaces, in cases where an output filter fails.  PR 36780.
+     [Joe Orton]
+
+Changes with Apache 2.2.12
+
+  *) SECURITY: CVE-2009-1891 (cve.mitre.org)
+     Fix a potential Denial-of-Service attack against mod_deflate or other 
+     modules, by forcing the server to consume CPU time in compressing a 
+     large file after a client disconnects.  PR 39605.
+     [Joe Orton, Ruediger Pluem]
+
+  *) SECURITY: CVE-2009-1195 (cve.mitre.org)
+     Prevent the "Includes" Option from being enabled in an .htaccess 
+     file if the AllowOverride restrictions do not permit it.
+     [Jonathan Peatfield <j.s.peatfield damtp.cam.ac.uk>, Joe Orton,
+      Ruediger Pluem, Jeff Trawick]
+
+  *) SECURITY: CVE-2009-1890 (cve.mitre.org) 
+     Fix a potential Denial-of-Service attack against mod_proxy in a
+     reverse proxy configuration, where a remote attacker can force a
+     proxy process to consume CPU time indefinitely.  [Nick Kew, Joe Orton]
+
+  *) SECURITY: CVE-2009-1191 (cve.mitre.org)
+     mod_proxy_ajp: Avoid delivering content from a previous request which
+     failed to send a request body. PR 46949 [Ruediger Pluem]
+
+  *) SECURITY: CVE-2009-0023, CVE-2009-1955, CVE-2009-1956 (cve.mitre.org)
+     The bundled copy of the APR-util library has been updated, fixing three
+     different security issues which may affect particular configurations
+     and third-party modules.
+
+  *) mod_include: fix potential segfault when handling back references
+     on an empty SSI variable. [Ruediger Pluem, Lars Eilebrecht, Nick Kew]
+
+  *) mod_alias: check sanity in Redirect arguments.
+     PR 44729 [Sönke Tesch <st kino-fahrplan.de>, Jim Jagielski]
+
+  *) mod_proxy_http: fix Host: header for literal IPv6 addresses.
+     PR 47177 [Carlos Garcia Braschi <cgbraschi gmail.com>]
+
+  *) mod_rewrite: Remove locking for writing to the rewritelog.
+     PR 46942
+
+  *) mod_alias: Ensure Redirect emits HTTP-compliant URLs.
+     PR 44020
+
+  *) mod_proxy_http: fix case sensitivity checking transfer encoding
+     PR 47383 [Ryuzo Yamamoto <ryuzo.yamamoto gmail.com>]
+
+  *) mod_rewrite: Fix the error string returned by RewriteRule.
+     RewriteRule returned "RewriteCond: bad flag delimiters" when the 3rd
+     argument of RewriteRule was not started with "[" or not ended with "]".
+     PR 45082 [Vitaly Polonetsky <m_vitaly topixoft.com>]
+
+  *) mod_proxy: Complete ProxyPassReverse to handle balancer URL's.  Given;
+       BalancerMember balancer://alias http://example.com/foo
+       ProxyPassReverse /bash balancer://alias/bar
+     backend url http://example.com/foo/bar/that is now translated /bash/that
+     [William Rowe]
+
+  *) New piped log syntax: Use "||process args" to launch the given process
+     without invoking the shell/command interpreter.  Use "|$command line"
+     (the default behavior of "|command line" in 2.2) to invoke using shell,
+     consuming an additional shell process for the lifetime of the logging
+     pipe program but granting additional process invocation flexibility.
+     [William Rowe]
+
+  *) mod_ssl: Add server name indication support (RFC 4366) and better
+     support for name based virtual hosts with SSL. PR 34607
+     [Peter Sylvester <peter.sylvester edelweb.fr>,
+      Kaspar Brand <asfbugz velox.ch>, Guenter Knauf, Joe Orton,
+      Ruediger Pluem]
+
+  *) mod_negotiation: Escape pathes of filenames in 406 responses to avoid
+     HTML injections and HTTP response splitting.  PR 46837.
+     [Geoff Keating <geoffk apple.com>]
+
+  *) mod_include: Prevent a case of SSI timefmt-smashing with filter chains
+     including multiple INCLUDES filters. PR 39369 [Joe Orton]
+
+  *) mod_rewrite: When evaluating a proxy rule in directory context, do
+     escape the filename by default. PR 46428 [Joe Orton]
+
+  *) mod_proxy_ajp: Check more strictly that the backend follows the AJP
+     protocol. [Mladen Turk]
+
+  *) mod_ssl: Add SSLProxyCheckPeerExpire and SSLProxyCheckPeerCN directives
+     to enable stricter checking of remote server certificates.
+     [Ruediger Pluem]
+
+  *) mod_substitute: Fix a memory leak. PR 44948
+     [Dan Poirier <poirier pobox.com>]
+
+  *) mod_proxy_ajp: Forward remote port information by default.
+     [Rainer Jung]
+
+  *) mod_disk_cache/mod_mem_cache: Fix handling of CacheIgnoreHeaders
+     directive to correctly remove headers before storing them.
+     [Lars Eilebrecht]
+
+  *) mod_deflate: revert changes in 2.2.8 that caused an invalid
+     etag to be emitted for on-the-fly gzip content-encoding.
+     PR 39727 will require larger fixes and this fix was far more
+     harmful than the original code. PR 45023. [Roy T. Fielding]
+
+  *) mod_disk_cache: The module now turns off sendfile support if
+     'EnableSendfile off' is defined globally. PR 41218.
+     [Lars Eilebrecht, Issac Goldstand]
+
+  *) prefork: Fix child process hang during graceful restart/stop in
+     configurations with multiple listening sockets.  PR 42829.  [Joe Orton,
+     Jeff Trawick]
+
+  *) mod_ssl: Add SSLRenegBufferSize directive to allow changing the
+     size of the buffer used for the request-body where necessary
+     during a per-dir renegotiation.  PR 39243.  [Joe Orton]
+
+  *) mod_rewrite: Introduce DiscardPathInfo|DPI flag to stop the troublesome
+     way that per-directory rewrites append the previous notion of PATH_INFO
+     to each substitution before evaluating subsequent rules. 
+     PR38642 [Eric Covener]
+
+  *) mod_authnz_ldap: Reduce number of initialization debug messages and make
+     information more clear. PR 46342 [Dan Poirier]
+
+  *) mod_cache: Introduce 'no-cache' per-request environment variable
+     to prevent the saving of an otherwise cacheable response.
+     [Eric Covener]
+
+  *) core: Translate the status line to ASCII on EBCDIC platforms in
+     ap_send_interim_response() and for locally generated "100 Continue"
+     responses.  [Eric Covener]
+
+  *) CGI: return 504 (Gateway timeout) rather than 500 when a script
+     times out before returning status line/headers.
+     PR 42190 [Nick Kew]
+
+  *) prefork: Log an error instead of segfaulting when child startup fails
+     due to pollset creation failures.  PR 46467.  [Jeff Trawick]
+
+  *) mod_ext_filter: fix error handling when the filter prog fails to start,
+     and introduce an onfail configuration option to abort the request
+     or to remove the broken filter and continue.
+     PR 41120 [Nick Kew]
+
+  *) mod_include: support generating non-ASCII characters as entities in SSI
+     PR 25202 [Nick Kew] 
+
+  *) core/utils: Enhance ap_escape_html API to support escaping non-ASCII chars
+     [Nick Kew]
+
+  *) mod_rewrite: fix "B" flag breakage by reverting r589343
+     PR 45529 [Bob Ionescu <bobsiegen googlemail.com>]
+
+  *) mod_cgid: fix segfault problem on solaris.
+     PR 39332 [Masaoki Kobayashi <masaoki techfirm.co.jp>, Jeff Trawick]
+
+  *) mod_ldap: Avoid a segfault when result->rc is checked in uldap_connection_init
+     when result is NULL. This could happen if LDAP initialization failed.
+     PR 45994.  [Dan Poirier <poirier pobox.com>]
+
+  *) Set Listen protocol to "https" if port is set to 443 and no proto is specified
+     (as documented but not implemented). PR 46066  [Dan Poirier <poirier pobox.com>]
+
+  *) mod_cache: Correctly save Content-Encoding of cachable entity. PR 46401
+     [Dan Poirier <poirier pobox.com>]
+
+  *) Output -M and -S dumps (modules and vhosts) to stdout instead of stderr.
+     PR 42571 and PR 44266 (dup).  [Dan Poirier <poirier pobox.com>]
+
+  *) mod_cache: When an explicit Expires or Cache-Control header is set, cache
+     normally non-cacheable response statuses. PR 46346.
+     [Alex Polvi <alex polvi.net>]
+
 Changes with Apache 2.2.11
 
   *) core: When the ap_http_header_filter processes an error bucket, cleanup

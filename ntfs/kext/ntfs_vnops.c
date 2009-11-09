@@ -3946,6 +3946,11 @@ static int ntfs_vnop_fsync(struct vnop_fsync_args *a)
 	ntfs_inode *ni = NTFS_I(vn);
 	int sync, err;
 
+	/* If we are mounted read-only, we shouldn't need
+	 * to fsync anything.
+	 */
+	if (vnode_vfsisrdonly(vn))
+		return (0);
 	sync = (a->a_waitfor == MNT_WAIT) ? IO_SYNC : 0;
 	ntfs_debug("Entering for inode 0x%llx, waitfor 0x%x, %ssync i/o.",
 			(unsigned long long)ni->mft_no, a->a_waitfor,

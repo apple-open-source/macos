@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.0">
+<trk>
+	<name>UTC +5 (all  year) MVT</name>
+	<trkseg>
+		<trkpt lon="72.2790527344" lat="-1.06561238988"></trkpt>
+		<trkpt lon="74.2126464844" lat="-1.02167436849"></trkpt>
+		<trkpt lon="74.3664550781" lat="4.58737615345"></trkpt>
+		<trkpt lon="73.8940429688" lat="8.49410453755"></trkpt>
+		<trkpt lon="72.2570800781" lat="8.54842978188"></trkpt>
+		<trkpt lon="72.2021484375" lat="4.19302960536"></trkpt>
+		<trkpt lon="72.2790527344" lat="-1.06561238988"></trkpt>
+	</trkseg>
+</trk>
+</gpx>

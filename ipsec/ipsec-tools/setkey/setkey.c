@@ -337,8 +337,7 @@ stdin_loop()
 #else
 		char rbuf[1024];
 		rbuf[0] = '\0';
-		fgets (rbuf, sizeof(rbuf), stdin);
-		if (!rbuf[0])
+		if (fgets(rbuf, sizeof(rbuf), stdin) == NULL)
 			break;
 		if (rbuf[strlen(rbuf)-1] == '\n')
 			rbuf[strlen(rbuf)-1] = '\0';

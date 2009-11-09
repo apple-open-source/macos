@@ -47,7 +47,7 @@
 /* Define to 1 if you have the <fcntl.h> header file. */
 #undef HAVE_FCNTL_H
 
-/* define to 1 if you have the getaddrinfo function */
+/* Define to 1 if you have the getaddrinfo function. */
 #undef HAVE_GETADDRINFO
 
 /* Define to 1 if you have the `geteuid' function. */
@@ -56,7 +56,7 @@
 /* Number of parameters to gethostbyname_r or 0 if not available */
 #undef HAVE_GETHOSTBYNAME_R
 
-/* Define to 1 if you have the `getnameinfo' function. */
+/* Define to 1 if your system has getnameinfo() */
 #undef HAVE_GETNAMEINFO
 
 /* Define if the GNU gettext() function is already present or preinstalled. */
@@ -134,6 +134,9 @@
 /* Define to 1 if you have the <memory.h> header file. */
 #undef HAVE_MEMORY_H
 
+/* Define to 1 if you have the <netdb.h> header file. */
+#undef HAVE_NETDB_H
+
 /* Define to 1 if you have the <netinet/in.h> header file. */
 #undef HAVE_NETINET_IN_H
 
@@ -146,7 +149,7 @@
 /* Define to 1 if you have the <resolv.h> header file. */
 #undef HAVE_RESOLV_H
 
-/* Define to 1 if you have the 'res_search' function. */
+/* Define to 1 if you have the 'res_search' and 'dn_skipname' functions. */
 #undef HAVE_RES_SEARCH
 
 /* Define to 1 if you have the `seteuid' function. */
@@ -365,19 +368,34 @@
 /* Define to 1 if you can safely include both <sys/time.h> and <time.h>. */
 #undef TIME_WITH_SYS_TIME
 
+/* Enable extensions on AIX 3, Interix.  */
+#ifndef _ALL_SOURCE
+# undef _ALL_SOURCE
+#endif
+/* Enable GNU extensions on systems that have them.  */
+#ifndef _GNU_SOURCE
+# undef _GNU_SOURCE
+#endif
+/* Enable threading extensions on Solaris.  */
+#ifndef _POSIX_PTHREAD_SEMANTICS
+# undef _POSIX_PTHREAD_SEMANTICS
+#endif
+/* Enable extensions on HP NonStop.  */
+#ifndef _TANDEM_SOURCE
+# undef _TANDEM_SOURCE
+#endif
+/* Enable general extensions on Solaris.  */
+#ifndef __EXTENSIONS__
+# undef __EXTENSIONS__
+#endif
+
+
 /* Version number of package */
 #undef VERSION
 
 /* Define to 1 if `lex' declares `yytext' as a `char *' by default, not a
    `char[]'. */
 #undef YYTEXT_POINTER
-
-/* Define to 1 if on AIX 3.
-   System headers sometimes define this.
-   We just want to avoid a redefinition error message.  */
-#ifndef _ALL_SOURCE
-# undef _ALL_SOURCE
-#endif
 
 /* Define to 1 if on MINIX. */
 #undef _MINIX
@@ -401,7 +419,7 @@
 /* Define to trio_snprintf if your system lacks snprintf */
 #undef snprintf
 
-/* Define to `unsigned int' if <sys/types.h> does not define. */
+/* Define to unsigned int if <sys/types.h> does not define. */
 #undef u_int32_t
 
 /* Define to empty if the keyword `volatile' does not work. Warning: valid

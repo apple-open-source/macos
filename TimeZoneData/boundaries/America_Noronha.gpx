@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.0">
+<trk>
+	<name>UTC -2 (all year) Noronha</name>
+	<trkseg>
+		<trkpt lon="-32.5099182129" lat="-3.76970773829"></trkpt>
+		<trkpt lon="-32.3355102539" lat="-3.77244837341"></trkpt>
+		<trkpt lon="-32.3245239258" lat="-3.94372066174"></trkpt>
+		<trkpt lon="-32.520904541" lat="-3.95468090287"></trkpt>
+		<trkpt lon="-32.5099182129" lat="-3.76970773829"></trkpt>
+	</trkseg>
+</trk>
+</gpx>

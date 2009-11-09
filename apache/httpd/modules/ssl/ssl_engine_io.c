@@ -28,6 +28,7 @@
                                   core keeps dumping.''
                                             -- Unknown    */
 #include "ssl_private.h"
+#include "apr_date.h"
 
 /*  _________________________________________________________________
 **
@@ -695,7 +696,7 @@ static apr_status_t ssl_io_input_read(bio_filter_in_ctx_t *inctx,
                  */
                 ap_log_cerror(APLOG_MARK, APLOG_INFO, inctx->rc, c,
                               "SSL library error %d reading data", ssl_err);
-                ssl_log_ssl_error(APLOG_MARK, APLOG_INFO, c->base_server);
+                ssl_log_ssl_error(APLOG_MARK, APLOG_INFO, mySrvFromConn(c));
 
             }
             if (inctx->rc == APR_SUCCESS) {
@@ -799,7 +800,7 @@ static apr_status_t ssl_filter_write(ap_filter_t *f,
              */
             ap_log_cerror(APLOG_MARK, APLOG_INFO, outctx->rc, c,
                           "SSL library error %d writing data", ssl_err);
-            ssl_log_ssl_error(APLOG_MARK, APLOG_INFO, c->base_server);
+            ssl_log_ssl_error(APLOG_MARK, APLOG_INFO, mySrvFromConn(c));
         }
         if (outctx->rc == APR_SUCCESS) {
             outctx->rc = APR_EGENERAL;
@@ -861,7 +862,7 @@ static apr_status_t ssl_io_filter_error(ap_filter_t *f,
             ap_log_cerror(APLOG_MARK, APLOG_INFO, 0, f->c,
                          "SSL handshake failed: HTTP spoken on HTTPS port; "
                          "trying to send HTML error page");
-            ssl_log_ssl_error(APLOG_MARK, APLOG_INFO, f->c->base_server);
+            ssl_log_ssl_error(APLOG_MARK, APLOG_INFO, sslconn->server);
 
             sslconn->non_ssl_request = 1;
             ssl_io_filter_disable(sslconn, f);
@@ -971,11 +972,11 @@ static apr_status_t ssl_filter_io_shutdown(ssl_filter_ctx_t *filter_ctx,
     SSL_smart_shutdown(ssl);
 
     /* and finally log the fact that we've closed the connection */
-    if (c->base_server->loglevel >= APLOG_INFO) {
+    if (mySrvFromConn(c)->loglevel >= APLOG_INFO) {
         ap_log_cerror(APLOG_MARK, APLOG_INFO, 0, c,
                       "Connection closed to child %ld with %s shutdown "
                       "(server %s)",
-                      c->id, type, ssl_util_vhostid(c->pool, c->base_server));
+                      c->id, type, ssl_util_vhostid(c->pool, mySrvFromConn(c)));
     }
 
     /* deallocate the SSL connection */
@@ -1021,24 +1022,66 @@ static int ssl_io_filter_connect(ssl_filter_ctx_t *filter_ctx)
 {
     conn_rec *c         = (conn_rec *)SSL_get_app_data(filter_ctx->pssl);
     SSLConnRec *sslconn = myConnConfig(c);
-    SSLSrvConfigRec *sc = mySrvConfig(c->base_server);
+    SSLSrvConfigRec *sc;
     X509 *cert;
     int n;
     int ssl_err;
     long verify_result;
+    server_rec *server;
 
     if (SSL_is_init_finished(filter_ctx->pssl)) {
         return APR_SUCCESS;
     }
 
+    server = sslconn->server;
     if (sslconn->is_proxy) {
+        const char *hostname_note;
+
+        sc = mySrvConfig(server);
         if ((n = SSL_connect(filter_ctx->pssl)) <= 0) {
             ap_log_cerror(APLOG_MARK, APLOG_INFO, 0, c,
                           "SSL Proxy connect failed");
-            ssl_log_ssl_error(APLOG_MARK, APLOG_INFO, c->base_server);
+            ssl_log_ssl_error(APLOG_MARK, APLOG_INFO, server);
             /* ensure that the SSL structures etc are freed, etc: */
             ssl_filter_io_shutdown(filter_ctx, c, 1);
             return HTTP_BAD_GATEWAY;
+        }
+
+        if (sc->proxy_ssl_check_peer_expire == SSL_ENABLED_TRUE) {
+            cert = SSL_get_peer_certificate(filter_ctx->pssl);
+            if (!cert
+                || (X509_cmp_current_time(
+                     X509_get_notBefore(cert)) >= 0)
+                || (X509_cmp_current_time(
+                     X509_get_notAfter(cert)) <= 0)) {
+                ap_log_cerror(APLOG_MARK, APLOG_INFO, 0, c,
+                              "SSL Proxy: Peer certificate is expired");
+                if (cert) {
+                    X509_free(cert);
+                }
+                /* ensure that the SSL structures etc are freed, etc: */
+                ssl_filter_io_shutdown(filter_ctx, c, 1);
+                return HTTP_BAD_GATEWAY;
+            }
+            X509_free(cert);
+        }
+        if ((sc->proxy_ssl_check_peer_cn == SSL_ENABLED_TRUE)
+            && ((hostname_note =
+                 apr_table_get(c->notes, "proxy-request-hostname")) != NULL)) {
+            const char *hostname;
+
+            hostname = ssl_var_lookup(NULL, server, c, NULL,
+                                      "SSL_CLIENT_S_DN_CN");
+            apr_table_unset(c->notes, "proxy-request-hostname");
+            if (strcasecmp(hostname, hostname_note)) {
+                ap_log_cerror(APLOG_MARK, APLOG_INFO, 0, c,
+                              "SSL Proxy: Peer certificate CN mismatch:"
+                              " Certificate CN: %s Requested hostname: %s",
+                              hostname, hostname_note);
+                /* ensure that the SSL structures etc are freed, etc: */
+                ssl_filter_io_shutdown(filter_ctx, c, 1);
+                return HTTP_BAD_GATEWAY;
+            }
         }
 
         return APR_SUCCESS;
@@ -1092,8 +1135,8 @@ static int ssl_io_filter_connect(ssl_filter_ctx_t *filter_ctx)
             ap_log_cerror(APLOG_MARK, APLOG_INFO, rc, c,
                           "SSL library error %d in handshake "
                           "(server %s)", ssl_err,
-                          ssl_util_vhostid(c->pool, c->base_server));
-            ssl_log_ssl_error(APLOG_MARK, APLOG_INFO, c->base_server);
+                          ssl_util_vhostid(c->pool, server));
+            ssl_log_ssl_error(APLOG_MARK, APLOG_INFO, server);
 
         }
         if (inctx->rc == APR_SUCCESS) {
@@ -1102,6 +1145,7 @@ static int ssl_io_filter_connect(ssl_filter_ctx_t *filter_ctx)
 
         return ssl_filter_io_shutdown(filter_ctx, c, 1);
     }
+    sc = mySrvConfig(sslconn->server);
 
     /*
      * Check for failed client authentication
@@ -1127,7 +1171,7 @@ static int ssl_io_filter_connect(ssl_filter_ctx_t *filter_ctx)
                           "accepting certificate based on "
                           "\"SSLVerifyClient optional_no_ca\" "
                           "configuration");
-            ssl_log_ssl_error(APLOG_MARK, APLOG_INFO, c->base_server);
+            ssl_log_ssl_error(APLOG_MARK, APLOG_INFO, server);
         }
         else {
             const char *error = sslconn->verify_error ?
@@ -1137,7 +1181,7 @@ static int ssl_io_filter_connect(ssl_filter_ctx_t *filter_ctx)
             ap_log_cerror(APLOG_MARK, APLOG_INFO, 0, c,
                          "SSL client authentication failed: %s",
                          error ? error : "unknown");
-            ssl_log_ssl_error(APLOG_MARK, APLOG_INFO, c->base_server);
+            ssl_log_ssl_error(APLOG_MARK, APLOG_INFO, server);
 
             return ssl_filter_io_shutdown(filter_ctx, c, 1);
         }
@@ -1447,17 +1491,12 @@ static apr_status_t ssl_io_filter_output(ap_filter_t *f,
     return status;
 }
 
-/* 128K maximum buffer size by default. */
-#ifndef SSL_MAX_IO_BUFFER
-#define SSL_MAX_IO_BUFFER (128 * 1024)
-#endif
-
 struct modssl_buffer_ctx {
     apr_bucket_brigade *bb;
     apr_pool_t *pool;
 };
 
-int ssl_io_buffer_fill(request_rec *r)
+int ssl_io_buffer_fill(request_rec *r, apr_size_t maxlen)
 {
     conn_rec *c = r->connection;
     struct modssl_buffer_ctx *ctx;
@@ -1475,7 +1514,8 @@ int ssl_io_buffer_fill(request_rec *r)
     /* ... and a temporary brigade. */
     tempb = apr_brigade_create(r->pool, c->bucket_alloc);
 
-    ap_log_cerror(APLOG_MARK, APLOG_DEBUG, 0, c, "filling buffer");
+    ap_log_cerror(APLOG_MARK, APLOG_DEBUG, 0, c, "filling buffer, max size "
+                  "%" APR_SIZE_T_FMT " bytes", maxlen);
 
     do {
         apr_status_t rv;
@@ -1531,9 +1571,10 @@ int ssl_io_buffer_fill(request_rec *r)
                       total, eos);
 
         /* Fail if this exceeds the maximum buffer size. */
-        if (total > SSL_MAX_IO_BUFFER) {
+        if (total > maxlen) {
             ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r,
-                          "request body exceeds maximum size for SSL buffer");
+                          "request body exceeds maximum size (%" APR_SIZE_T_FMT 
+                          ") for SSL buffer", maxlen);
             return HTTP_REQUEST_ENTITY_TOO_LARGE;
         }
 
@@ -1809,7 +1850,7 @@ long ssl_io_data_cb(BIO *bio, int cmd,
         return rc;
     if ((c = (conn_rec *)SSL_get_app_data(ssl)) == NULL)
         return rc;
-    s = c->base_server;
+    s = mySrvFromConn(c);
 
     if (   cmd == (BIO_CB_WRITE|BIO_CB_RETURN)
         || cmd == (BIO_CB_READ |BIO_CB_RETURN) ) {

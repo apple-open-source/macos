@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.0">
+<trk>
+	<name>UTC +9.5 (winter) Australia</name>
+	<trkseg>
+		<trkpt lon="129.001464844" lat="-25.9975499196"></trkpt>
+		<trkpt lon="129.006958008" lat="-28.4614476719"></trkpt>
+		<trkpt lon="129.006958008" lat="-29.4850340192"></trkpt>
+		<trkpt lon="129.005584717" lat="-31.688444722"></trkpt>
+		<trkpt lon="136.680908203" lat="-36.1023764487"></trkpt>
+		<trkpt lon="140.811767578" lat="-38.5739375156"></trkpt>
+		<trkpt lon="140.938110352" lat="-38.6168704639"></trkpt>
+		<trkpt lon="140.954589844" lat="-38.087013204"></trkpt>
+		<trkpt lon="140.943603516" lat="-36.1777910833"></trkpt>
+		<trkpt lon="140.943603516" lat="-32.2395209776"></trkpt>
+		<trkpt lon="141.947479248" lat="-32.1907221758"></trkpt>
+		<trkpt lon="141.952285767" lat="-32.0342737844"></trkpt>
+		<trkpt lon="141.921386719" lat="-31.4356937471"></trkpt>
+		<trkpt lon="141.561584473" lat="-31.4380371731"></trkpt>
+		<trkpt lon="141.009521484" lat="-31.452096499"></trkpt>
+		<trkpt lon="140.921630859" lat="-29.0033362002"></trkpt>
+		<trkpt lon="140.960083008" lat="-26.8975780973"></trkpt>
+		<trkpt lon="140.987548828" lat="-26.0074241568"></trkpt>
+		<trkpt lon="138.010253906" lat="-25.9876748524"></trkpt>
+		<trkpt lon="129.001464844" lat="-25.9975499196"></trkpt>
+	</trkseg>
+</trk>
+</gpx>

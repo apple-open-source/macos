@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2008 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2009 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -473,10 +473,18 @@ struct vnop_read_args {
 		
 		amountToCopy = ( UInt32 ) __u64min ( uio_resid ( uio ), numBytes - offset );
 		
-		uiomove ( ( caddr_t ) &cddaNodePtr->u.xmlFile.fileDataPtr[offset],
+		error = uiomove ( ( caddr_t ) &cddaNodePtr->u.xmlFile.fileDataPtr[offset],
 				  amountToCopy,
 				  uio );
 		
+		if ( error != 0 )
+		{
+			
+			DebugLog ( ( "CDDA_Read: uiomove returned %d!\n", error ) );
+			return ( error );
+
+		}
+
 		return ( 0 );
 		
 	}
@@ -515,9 +523,17 @@ struct vnop_read_args {
 			
 			amountToCopy = ( UInt32 ) __u64min ( uio_resid ( uio ), headerSize - offset );
 			
-			uiomove ( ( caddr_t ) &bytes[offset],
+			error = uiomove ( ( caddr_t ) &bytes[offset],
 				  amountToCopy,
 				  uio );
+			
+			if ( error != 0 )
+			{
+				
+				DebugLog ( ( "CDDA_Read: uiomove returned %d!\n", error ) );
+				return ( error );
+				
+			}			
 			
 			offset += amountToCopy;
 			
@@ -532,9 +548,17 @@ struct vnop_read_args {
 
 			amountToCopy = ( UInt32 ) __u64min ( uio_resid ( uio ), kPhysicalMediaBlockSize - offset );
 
-			uiomove ( ( caddr_t ) &gAIFFHeaderPadData[offset - headerSize],
+			error = uiomove ( ( caddr_t ) &gAIFFHeaderPadData[offset - headerSize],
 				  amountToCopy,
 				  uio );
+			
+			if ( error != 0 )
+			{
+				
+				DebugLog ( ( "CDDA_Read: uiomove returned %d!\n", error ) );
+				return ( error );
+				
+			}			
 			
 			offset += amountToCopy;
 			
@@ -575,13 +599,21 @@ struct vnop_read_args {
 				}
 				
 				// Move the data from the block into the buffer
-				uiomove ( ( caddr_t ) ( ( char * ) buf_dataptr ( bufPtr ) + sectorOffset ), count, uio );
+				error = uiomove ( ( caddr_t ) ( ( char * ) buf_dataptr ( bufPtr ) + sectorOffset ), count, uio );
 				
 				// Make sure we mark this bp invalid as we don't need to keep it around anymore
 				buf_markinvalid ( bufPtr );
 				
 				// Release this buffer back into the buffer pool. 
 				buf_brelse ( bufPtr );
+				
+				if ( error != 0 )
+				{
+					
+					DebugLog ( ( "CDDA_Read: uiomove returned %d!\n", error ) );
+					return ( error );
+					
+				}				
 				
 				// Update offset
 				blockNumber++;
@@ -631,7 +663,7 @@ struct vnop_read_args {
 				count = ( UInt32 ) __u64min ( count, cddaNodePtr->u.file.nodeInfoPtr->numBytes - uio_offset ( uio ) );
 
 				// Move the data from the block into the buffer
-				uiomove ( ( caddr_t ) buf_dataptr ( bufPtr ), count, uio );
+				error = uiomove ( ( caddr_t ) buf_dataptr ( bufPtr ), count, uio );
 				
 				// Make sure we mark any intermediate buffers as invalid as we don't need
 				// to keep them.
@@ -639,6 +671,14 @@ struct vnop_read_args {
 				
 				// Release this buffer back into the buffer pool. 
 				buf_brelse ( bufPtr );
+				
+				if ( error != 0 )
+				{
+					
+					DebugLog ( ( "CDDA_Read: uiomove returned %d!\n", error ) );
+					return ( error );
+					
+				}
 				
 				// Update offset
 				blockNumber += blocksToRead;
@@ -671,7 +711,7 @@ struct vnop_read_args {
 				}
 				
 				// Move the data from the block into the buffer
-				uiomove ( ( caddr_t ) buf_dataptr ( bufPtr ), count, uio );
+				error = uiomove ( ( caddr_t ) buf_dataptr ( bufPtr ), count, uio );
 				
 				// Make sure we mark any intermediate buffers as invalid as we don't need
 				// to keep them.
@@ -679,6 +719,14 @@ struct vnop_read_args {
 				
 				// Release this buffer back into the buffer pool. 
 				buf_brelse ( bufPtr );
+				
+				if ( error != 0 )
+				{
+					
+					DebugLog ( ( "CDDA_Read: uiomove returned %d!\n", error ) );
+					return ( error );
+					
+				}				
 				
 			}
 			
@@ -808,7 +856,7 @@ struct vnop_readdir_args {
 	if ( uio_offset ( uio ) == direntSize * kAppleCDDARootFileID )
 	{
 		
-		offsetValue += AddDirectoryEntry ( kAppleCDDAXMLFileID, kAppleCDDAXMLFileType, ".TOC.plist", uio );
+		offsetValue += AddDirectoryEntry ( kAppleCDDAXMLFileID, DT_REG, ".TOC.plist", uio );
 		if ( offsetValue == 0 )
 		{
 			
@@ -843,7 +891,7 @@ struct vnop_readdir_args {
 			
 			// Return this entry
 			offsetValue = AddDirectoryEntry ( nodeInfoArrayPtr->trackDescriptor.point,
-											  kAppleCDDATrackType,
+											  DT_REG,
 											  nodeInfoArrayPtr->name,
 											  uio );
 			

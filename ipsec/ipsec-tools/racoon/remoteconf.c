@@ -104,6 +104,7 @@ getrmconf_strict(remote, allow_anon)
 	int allow_anon;
 {
 	struct remoteconf *p;
+	struct remoteconf *p_withport_besteffort = NULL;
 	struct remoteconf *anon = NULL;
 	int withport;
 	char buf[NI_MAXHOST + NI_MAXSERV + 10];
@@ -111,12 +112,11 @@ getrmconf_strict(remote, allow_anon)
 
 	withport = 0;
 
-#ifndef ENABLE_NATT
 	/* 
 	 * We never have ports set in our remote configurations, but when
 	 * NAT-T is enabled, the kernel can have policies with ports and
 	 * send us an acquire message for a destination that has a port set.
-	 * If we do this port check here, we don't find the remote config.
+	 * If we do this port check here, we have to fallback to a best-effort result (without the port).
 	 *
 	 * In an ideal world, we would be able to have remote conf with
 	 * port, and the port could be a wildcard. That test could be used.
@@ -138,9 +138,8 @@ getrmconf_strict(remote, allow_anon)
 	default:
 		plog(LLV_ERROR2, LOCATION, NULL,
 			"invalid ip address family: %d\n", remote->sa_family);
-		exit(1);
+		return NULL;
 	}
-#endif /* ENABLE_NATT */
 
 	if (remote->sa_family == AF_UNSPEC)
 		snprintf (buf, sizeof(buf), "%s", "anonymous");
@@ -165,6 +164,9 @@ getrmconf_strict(remote, allow_anon)
 			plog(LLV_DEBUG, LOCATION, NULL,
 				"configuration found for %s.\n", buf);
 			return p;
+		} else if (withport && cmpsaddrwop(remote, p->remote) == 0) {
+			// for withport: save the pointer for the best-effort search
+			p_withport_besteffort = p;
 		}
 
 		/* save the pointer to the anonymous configuration */
@@ -172,6 +174,12 @@ getrmconf_strict(remote, allow_anon)
 			anon = p;
 	}
 
+	if (p_withport_besteffort) {
+		plog(LLV_DEBUG, LOCATION, NULL,
+			 "configuration found for %s.\n", buf);
+		return p_withport_besteffort;
+	}
+	
 	if (allow_anon && anon != NULL) {
 		plog(LLV_DEBUG, LOCATION, NULL,
 			"anonymous configuration selected for %s.\n", buf);

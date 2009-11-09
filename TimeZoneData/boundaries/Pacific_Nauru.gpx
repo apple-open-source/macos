@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.0">
+<trk>
+	<name>UTC +12 (all year) NRT</name>
+	<trkseg>
+		<trkpt lon="166.750488281" lat="-0.373532510229"></trkpt>
+		<trkpt lon="167.14050293" lat="-0.384518597949"></trkpt>
+		<trkpt lon="167.228393555" lat="-0.851409093777"></trkpt>
+		<trkpt lon="166.701049805" lat="-0.84591653229"></trkpt>
+		<trkpt lon="166.750488281" lat="-0.373532510229"></trkpt>
+	</trkseg>
+</trk>
+</gpx>

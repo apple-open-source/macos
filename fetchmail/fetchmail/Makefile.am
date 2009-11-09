@@ -1,11 +1,9 @@
 # Makefile for fetchmail
 
-SUBDIRS=		m4 po
+SUBDIRS=		. po
 AUTOMAKE_OPTIONS=	1.8 foreign no-dist-gzip dist-bzip2
 
-AM_CFLAGS=		@CEFLAGS@
-AM_CPPFLAGS=		@CPFLAGS@ -I$(srcdir)/libesmtp
-AM_LDFLAGS=		@LDEFLAGS@
+AM_CPPFLAGS=		-I$(srcdir)/libesmtp
 ACLOCAL_AMFLAGS=	-I m4 -I m4-local
 AM_YFLAGS=		-d
 BUILT_SOURCES=		rcfile_y.h
@@ -39,7 +37,8 @@ libfm_a_SOURCES=	xmalloc.c base64.c rfc822.c report.c rfc2047e.c \
 			servport.c ntlm.h smbbyteorder.h smbdes.h smbmd4.h \
 			smbencrypt.h smbdes.c smbencrypt.c smbmd4.c smbutil.c \
 			libesmtp/gethostbyname.h libesmtp/gethostbyname.c \
-			smbtypes.h fm_getaddrinfo.c tls.c rfc822valid.c
+			smbtypes.h fm_getaddrinfo.c tls.c rfc822valid.c \
+			xmalloc.h sdump.h sdump.c
 libfm_a_LIBADD=		$(EXTRAOBJ)
 libfm_a_DEPENDENCIES=	$(EXTRAOBJ)
 LDADD	=		libfm.a @LIBINTL@ $(LIBOBJS)
@@ -127,8 +126,11 @@ fetchmail.spec: Makefile.in specgen.sh
 DISTDOCS=	FAQ FEATURES NOTES OLDNEWS fetchmail-man.html \
 		design-notes.html esrs-design-notes.html todo.html \
 		fetchmail-features.html README.SSL README.NTLM \
-		README.packaging \
+		README.packaging README.SSL-SERVER \
 		fetchmail-FAQ.book fetchmail-FAQ.pdf fetchmail-FAQ.html \
+		fetchmail-SA-2009-01.txt \
+		fetchmail-SA-2008-01.txt \
+		fetchmail-SA-2007-02.txt \
 		fetchmail-SA-2007-01.txt \
 		fetchmail-SA-2006-03.txt \
 		fetchmail-SA-2006-02.txt \
@@ -143,16 +145,43 @@ distdirs = rh-config contrib beos
 EXTRA_DIST+=	$(DISTDOCS) fetchmail.spec $(distdirs) ucs/README.svn \
 		trio/CHANGES trio/README \
 		strlcpy.3 bighand.png \
+		m4/codeset.m4 \
+		m4/gettext.m4 \
+		m4/glibc21.m4 \
+		m4/iconv.m4 \
+		m4/intdiv0.m4 \
+		m4/intmax.m4 \
+		m4/inttypes-pri.m4 \
+		m4/inttypes.m4 \
+		m4/inttypes_h.m4 \
+		m4/isc-posix.m4 \
+		m4/lcmessage.m4 \
+		m4/lib-ld.m4 \
+		m4/lib-link.m4 \
+		m4/lib-prefix.m4 \
+		m4/longdouble.m4 \
+		m4/longlong.m4 \
+		m4/nls.m4 \
+		m4/po.m4 \
+		m4/printf-posix.m4 \
+		m4/progtest.m4 \
+		m4/signed.m4 \
+		m4/size_max.m4 \
+		m4/stdint_h.m4 \
+		m4/uintmax_t.m4 \
+		m4/ulonglong.m4 \
+		m4/wchar_t.m4 \
+		m4/wint_t.m4 \
+		m4/xsize.m4 \
 		m4-local/ac-archive-license.txt \
 		m4-local/ac_ma_search_package.m4 \
-		m4-local/autobuild.m4 \
 		t.smoke t.rc \
 		dist-tools/html2txt \
 		dist-tools/manServer.pl \
 		Doxyfile
 
 fetchmailconf:
-	( echo '#! /bin/sh' && echo 'exec @PYTHON@ @pythondir@/fetchmailconf.py "$$@"' ) >$@ || { rm -f $@ ; exit 1; }
+	( echo '#! /bin/sh' && echo 'exec @PYTHON@ @pythondir@/fetchmailconf.py "$$@"' ) >$@ && chmod +x $@ || { rm -f $@ ; exit 1; }
 
 FAQ: fetchmail-FAQ.html $(srcdir)/dist-tools/html2txt
 	AWK=$(AWK) $(SHELL) $(srcdir)/dist-tools/html2txt $(srcdir)/fetchmail-FAQ.html >$@ || { rm -f $@ ; exit 1 ; }

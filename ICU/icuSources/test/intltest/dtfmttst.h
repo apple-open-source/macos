@@ -1,6 +1,6 @@
 /********************************************************************
  * COPYRIGHT: 
- * Copyright (c) 1997-2007, International Business Machines Corporation and
+ * Copyright (c) 1997-2009, International Business Machines Corporation and
  * others. All Rights Reserved.
  ********************************************************************/
 
@@ -136,7 +136,11 @@ public:
     virtual void TestDateFormatZone146(void);
 
     void TestTimeZoneStringsAPI(void);
- 
+
+#if ICU_4_2_1
+    void TestGMTParsing(void);
+#endif
+
 public: // package
     /**
      * Test the formatting of dates in different locales.
@@ -158,6 +162,14 @@ public: // package
     void TestGenericTime(void);
 
     void TestGenericTimeZoneOrder(void);
+
+#if ICU_4_2_1
+    void Test6338(void);
+
+    void Test6726(void);
+
+    void Test6880(void);
+#endif
 
 public:
     /**
@@ -185,17 +197,31 @@ public:
     
     void TestHostClone(void);
 
+#if ICU_4_2_1
+    void TestTimeZoneDisplayName(void);
+
+    void TestRoundtripWithCalendar(void);
+#endif
+
 public:
     /***
      * Test Relative Dates
      */
      void TestRelative(void);
-     void TestTimeZoneDisplayName(void);
+#if !ICU_4_2_1
+    void TestTimeZoneDisplayName(void);
+#endif
 /*   void TestRelativeError(void);
      void TestRelativeOther(void);
 */
 
- private:
+public:
+    /**
+     * Test parsing a number as a string
+     */
+    void TestNumberAsStringParsing(void);
+    
+private:
       void TestRelative(int daysdelta, 
                                   const Locale& loc,
                                   const char *expectChars);

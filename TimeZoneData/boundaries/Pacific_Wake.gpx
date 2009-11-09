@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.0">
+<trk>
+	<name>UTC +12 (all year) WAKT</name>
+	<trkseg>
+		<trkpt lon="-163.168945312" lat="6.71370949505"></trkpt>
+		<trkpt lon="-161.971435547" lat="6.70279838119"></trkpt>
+		<trkpt lon="-161.92199707" lat="5.72531144761"></trkpt>
+		<trkpt lon="-162.998657227" lat="5.69251593675"></trkpt>
+		<trkpt lon="-163.168945312" lat="6.71370949505"></trkpt>
+	</trkseg>
+</trk>
+</gpx>

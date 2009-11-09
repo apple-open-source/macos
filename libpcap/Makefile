@@ -1,6 +1,6 @@
 Project         = libpcap
 ProjectVersion  = 1.0.0
-Patches         = Makefile.in.diff configure.diff pcap-config.in.diff
+Patches         = Makefile.in.diff configure.diff pcap-config.in.diff pcap-bpf.c.diff
 
 include $(MAKEFILEPATH)/CoreOS/ReleaseControl/Common.make
 

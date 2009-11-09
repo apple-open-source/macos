@@ -158,11 +158,19 @@ IOReturn AppleSmartBatteryManager::performExternalTransaction(
         bzero(&newTransaction, sizeof(IOSMBusTransaction));    
     
         // Input: bus address
-        if (0 == inSMBus->batterySelector) 
+        if (kSMBusAppleDoublerAddr == inSMBus->batterySelector 
+            || kSMBusBatteryAddr == inSMBus->batterySelector
+            || kSMBusManagerAddr == inSMBus->batterySelector
+            || kSMBusChargerAddr == inSMBus->batterySelector) 
         {
-            newTransaction.address = kSMBusBatteryAddr;
+            newTransaction.address = inSMBus->batterySelector;
         } else {
-            newTransaction.address = kSMBusManagerAddr;
+            if (0 == inSMBus->batterySelector) 
+            {
+                newTransaction.address = kSMBusBatteryAddr;
+            } else {
+                newTransaction.address = kSMBusManagerAddr;
+            }
         }
         
         // Input: command

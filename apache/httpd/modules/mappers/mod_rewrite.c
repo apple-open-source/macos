@@ -147,6 +147,7 @@
 #define RULEFLAG_NOSUB              1<<12
 #define RULEFLAG_STATUS             1<<13
 #define RULEFLAG_ESCAPEBACKREF      1<<14
+#define RULEFLAG_DISCARDPATHINFO    1<<15
 
 /* return code of the rewrite rule
  * the result may be escaped - or not
@@ -373,13 +374,10 @@ static int rewrite_rand_init_done = 0;
 static const char *lockname;
 static apr_global_mutex_t *rewrite_mapr_lock_acquire = NULL;
 
-#ifndef REWRITELOG_DISABLED
-static apr_global_mutex_t *rewrite_log_lock = NULL;
-#endif
-
 /* Optional functions imported from mod_ssl when loaded: */
 static APR_OPTIONAL_FN_TYPE(ssl_var_lookup) *rewrite_ssl_lookup = NULL;
 static APR_OPTIONAL_FN_TYPE(ssl_is_https) *rewrite_is_https = NULL;
+static char *escape_uri(apr_pool_t *p, const char *path);
 
 /*
  * +-------------------------------------------------------+
@@ -472,7 +470,6 @@ static void do_rewritelog(request_rec *r, int level, char *perdir,
     const char *rhost, *rname;
     apr_size_t nbytes;
     int redir;
-    apr_status_t rv;
     request_rec *req;
     va_list ap;
 
@@ -512,22 +509,8 @@ static void do_rewritelog(request_rec *r, int level, char *perdir,
                            perdir ? "] ": "",
                            text);
 
-    rv = apr_global_mutex_lock(rewrite_log_lock);
-    if (rv != APR_SUCCESS) {
-        ap_log_rerror(APLOG_MARK, APLOG_ERR, rv, r,
-                      "apr_global_mutex_lock(rewrite_log_lock) failed");
-        /* XXX: Maybe this should be fatal? */
-    }
-
     nbytes = strlen(logline);
     apr_file_write(conf->rewritelogfp, logline, &nbytes);
-
-    rv = apr_global_mutex_unlock(rewrite_log_lock);
-    if (rv != APR_SUCCESS) {
-        ap_log_rerror(APLOG_MARK, APLOG_ERR, rv, r,
-                      "apr_global_mutex_unlock(rewrite_log_lock) failed");
-        /* XXX: Maybe this should be fatal? */
-    }
 
     return;
 }
@@ -626,6 +609,46 @@ static unsigned is_absolute_uri(char *uri)
     }
 
     return 0;
+}
+
+static const char c2x_table[] = "0123456789abcdef";
+
+static APR_INLINE unsigned char *c2x(unsigned what, unsigned char prefix,
+                                     unsigned char *where)
+{
+#if APR_CHARSET_EBCDIC
+    what = apr_xlate_conv_byte(ap_hdrs_to_ascii, (unsigned char)what);
+#endif /*APR_CHARSET_EBCDIC*/
+    *where++ = prefix;
+    *where++ = c2x_table[what >> 4];
+    *where++ = c2x_table[what & 0xf];
+    return where;
+}
+
+/*
+ * Escapes a uri in a similar way as php's urlencode does.
+ * Based on ap_os_escape_path in server/util.c
+ */
+static char *escape_uri(apr_pool_t *p, const char *path) {
+    char *copy = apr_palloc(p, 3 * strlen(path) + 3);
+    const unsigned char *s = (const unsigned char *)path;
+    unsigned char *d = (unsigned char *)copy;
+    unsigned c;
+
+    while ((c = *s)) {
+        if (apr_isalnum(c) || c == '_') {
+            *d++ = c;
+        }
+        else if (c == ' ') {
+            *d++ = '+';
+        }
+        else {
+            d = c2x(c, '%', d);
+        }
+        ++s;
+    }
+    *d = '\0';
+    return copy;
 }
 
 /*
@@ -2240,15 +2263,16 @@ static char *do_expand(char *input, rewrite_ctx *ctx, rewriterule_entry *entry)
                 if (entry && (entry->flags & RULEFLAG_ESCAPEBACKREF)) {
                     /* escape the backreference */
                     char *tmp2, *tmp;
-                    tmp = apr_pstrndup(pool, bri->source + bri->regmatch[n].rm_so, span);
-                    tmp2 = ap_escape_path_segment(pool, tmp);
+                    tmp = apr_palloc(pool, span + 1);
+                    strncpy(tmp, bri->source + bri->regmatch[n].rm_so, span);
+                    tmp[span] = '\0';
+                    tmp2 = escape_uri(pool, tmp);
                     rewritelog((ctx->r, 5, ctx->perdir, "escaping backreference '%s' to '%s'",
                             tmp, tmp2));
 
                     current->len = span = strlen(tmp2);
                     current->string = tmp2;
-                }
-                else {
+                } else {
                     current->len = span;
                     current->string = bri->source + bri->regmatch[n].rm_so;
                 }
@@ -3021,7 +3045,7 @@ static const char *cmd_parseflagfield(apr_pool_t *p, void *cfg, char *key,
 
     endp = key + strlen(key) - 1;
     if (*key != '[' || *endp != ']') {
-        return "RewriteCond: bad flag delimiters";
+        return "bad flag delimiters";
     }
 
     *endp = ','; /* for simpler parsing */
@@ -3084,7 +3108,7 @@ static const char *cmd_rewritecond_setflag(apr_pool_t *p, void *_cfg,
         cfg->flags |= CONDFLAG_NOVARY;
     }
     else {
-        return apr_pstrcat(p, "RewriteCond: unknown flag '", key, "'", NULL);
+        return apr_pstrcat(p, "unknown flag '", key, "'", NULL);
     }
     return NULL;
 }
@@ -3133,7 +3157,7 @@ static const char *cmd_rewritecond(cmd_parms *cmd, void *in_dconf,
     if (a3 != NULL) {
         if ((err = cmd_parseflagfield(cmd->pool, newcond, a3,
                                       cmd_rewritecond_setflag)) != NULL) {
-            return err;
+            return apr_pstrcat(cmd->pool, "RewriteCond: ", err, NULL);
         }
     }
 
@@ -3239,7 +3263,12 @@ static const char *cmd_rewriterule_setflag(apr_pool_t *p, void *_cfg,
             ++error;
         }
         break;
-
+    case 'd':
+    case 'D':
+        if (!*key || !strcasecmp(key, "PI") || !strcasecmp(key,"iscardpath")) {       
+            cfg->flags |= (RULEFLAG_DISCARDPATHINFO);
+        } 
+        break;
     case 'e':
     case 'E':
         if (!*key || !strcasecmp(key, "nv")) {             /* env */
@@ -3295,7 +3324,6 @@ static const char *cmd_rewriterule_setflag(apr_pool_t *p, void *_cfg,
             ++error;
         }
         break;
-
     case 'l':
     case 'L':
         if (!*key || !strcasecmp(key, "ast")) {            /* last */
@@ -3376,7 +3404,7 @@ static const char *cmd_rewriterule_setflag(apr_pool_t *p, void *_cfg,
                             ap_index_of_response(HTTP_INTERNAL_SERVER_ERROR);
 
                         if (ap_index_of_response(status) == idx) {
-                            return apr_psprintf(p, "RewriteRule: invalid HTTP "
+                            return apr_psprintf(p, "invalid HTTP "
                                                    "response code '%s' for "
                                                    "flag 'R'",
                                                 val);
@@ -3419,7 +3447,7 @@ static const char *cmd_rewriterule_setflag(apr_pool_t *p, void *_cfg,
     }
 
     if (error) {
-        return apr_pstrcat(p, "RewriteRule: unknown flag '", --key, "'", NULL);
+        return apr_pstrcat(p, "unknown flag '", --key, "'", NULL);
     }
 
     return NULL;
@@ -3465,7 +3493,7 @@ static const char *cmd_rewriterule(cmd_parms *cmd, void *in_dconf,
     if (a3 != NULL) {
         if ((err = cmd_parseflagfield(cmd->pool, newrule, a3,
                                       cmd_rewriterule_setflag)) != NULL) {
-            return err;
+            return apr_pstrcat(cmd->pool, "RewriteRule: ", err, NULL);
         }
     }
 
@@ -3847,6 +3875,11 @@ static int apply_rewrite_rule(rewriterule_entry *p, rewrite_ctx *ctx)
 
     /* Now adjust API's knowledge about r->filename and r->args */
     r->filename = newuri;
+
+    if (ctx->perdir && (p->flags & RULEFLAG_DISCARDPATHINFO)) {
+        r->path_info = NULL; 
+    }
+
     splitout_queryargs(r, p->flags & RULEFLAG_QSAPPEND);
 
     /* Add the previously stripped per-directory location prefix, unless
@@ -3869,7 +3902,20 @@ static int apply_rewrite_rule(rewriterule_entry *p, rewrite_ctx *ctx)
      * ourself).
      */
     if (p->flags & RULEFLAG_PROXY) {
-	/* PR#39746: Escaping things here gets repeated in mod_proxy */
+       /* For rules evaluated in server context, the mod_proxy fixup
+        * hook can be relied upon to escape the URI as and when
+        * necessary, since it occurs later.  If in directory context,
+        * the ordering of the fixup hooks is forced such that
+        * mod_proxy comes first, so the URI must be escaped here
+        * instead.  See PR 39746, 46428, and other headaches. */
+       if (ctx->perdir && (p->flags & RULEFLAG_NOESCAPE) == 0) {
+           char *old_filename = r->filename;
+
+           r->filename = ap_escape_uri(r->pool, r->filename);
+           rewritelog((r, 2, ctx->perdir, "escaped URI in per-dir context "
+                       "for proxy, %s -> %s", old_filename, r->filename));
+       }
+
         fully_qualify_uri(r);
 
         rewritelog((r, 2, ctx->perdir, "forcing proxy-throughput with %s",
@@ -4099,26 +4145,6 @@ static int post_config(apr_pool_t *p,
     /* check if proxy module is available */
     proxy_available = (ap_find_linked_module("mod_proxy.c") != NULL);
 
-#ifndef REWRITELOG_DISABLED
-    /* create the rewriting lockfiles in the parent */
-    if ((rv = apr_global_mutex_create(&rewrite_log_lock, NULL,
-                                      APR_LOCK_DEFAULT, p)) != APR_SUCCESS) {
-        ap_log_error(APLOG_MARK, APLOG_CRIT, rv, s,
-                     "mod_rewrite: could not create rewrite_log_lock");
-        return HTTP_INTERNAL_SERVER_ERROR;
-    }
-
-#ifdef AP_NEED_SET_MUTEX_PERMS
-    rv = unixd_set_global_mutex_perms(rewrite_log_lock);
-    if (rv != APR_SUCCESS) {
-        ap_log_error(APLOG_MARK, APLOG_CRIT, rv, s,
-                     "mod_rewrite: Could not set permissions on "
-                     "rewrite_log_lock; check User and Group directives");
-        return HTTP_INTERNAL_SERVER_ERROR;
-    }
-#endif /* perms */
-#endif /* rewritelog */
-
     rv = rewritelock_create(s, p);
     if (rv != APR_SUCCESS) {
         return HTTP_INTERNAL_SERVER_ERROR;
@@ -4164,14 +4190,6 @@ static void init_child(apr_pool_t *p, server_rec *s)
                          " in child");
         }
     }
-
-#ifndef REWRITELOG_DISABLED
-    rv = apr_global_mutex_child_init(&rewrite_log_lock, NULL, p);
-    if (rv != APR_SUCCESS) {
-        ap_log_error(APLOG_MARK, APLOG_CRIT, rv, s,
-                     "mod_rewrite: could not init rewrite log lock in child");
-    }
-#endif
 
     /* create the lookup cache */
     if (!init_cache(p)) {

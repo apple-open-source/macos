@@ -83,21 +83,22 @@
 /*
  * we always have SDBM (it's in our codebase)
  */
-#define APU_HAVE_SDBM   1
-#define APU_HAVE_GDBM   0
-#define APU_HAVE_NDBM   0
-#define APU_HAVE_DB     0
+#define APU_HAVE_SDBM           1
+
+#ifndef APU_DSO_MODULE_BUILD
+#define APU_HAVE_GDBM           0
+#define APU_HAVE_NDBM           0
+#define APU_HAVE_DB             0
 
 #if APU_HAVE_DB
 #define APU_HAVE_DB_VERSION     0
 #endif
+#endif
 
 /* 
- * we allways enable dynamic driver loads within apr_dbd
+ * we always enable dynamic driver loads within apr_dbd
  */
-#define APU_DSO_BUILD           0
-
-#if !APU_DSO_BUILD
+#ifndef APU_DSO_MODULE_BUILD
 #define APU_HAVE_PGSQL          0
 #define APU_HAVE_MYSQL          0
 #define APU_HAVE_SQLITE3        0

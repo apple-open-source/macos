@@ -1,0 +1,195 @@
+-----BEGIN PGP SIGNED MESSAGE-----
+Hash: SHA1
+
+fetchmail-SA-2008-01: Crash on large log messages in verbose mode
+
+Topics:		Crash in large log messages in verbose mode.
+
+Author:		Matthias Andree
+Version:	1.2
+Announced:	2008-06-17
+Type:		Dereferencing garbage pointer triggered by outside circumstances
+Impact:		denial of service possible
+Danger:		low
+CVSS V2 vector: (AV:N/AC:M/Au:N/C:N/I:N/A:C/E:P/RL:O/RC:C)
+
+Credits:	Petr Uzel (fix), Petr Cerny (analysis), Gunter Nau (bug report)
+CVE Name:	CVE-2008-2711
+URL:		http://www.fetchmail.info/fetchmail-SA-2008-01.txt
+Project URL:	http://www.fetchmail.info/
+
+Affects:	fetchmail release before and excluding 6.3.9
+		fetchmail release candidate 6.3.9-rc1
+
+Not affected:	fetchmail release 6.3.9 and newer
+		fetchmail release candidate 6.3.9-rc2 and newer
+		systems without varargs support.
+
+Corrected:	2008-06-24 fetchmail SVN (rev 5205)
+
+References:	<https://bugzilla.novell.com/show_bug.cgi?id=354291>
+		<http://developer.berlios.de/patch/?func=detailpatch&patch_id=2492&group_id=1824>
+
+
+0. Release history
+==================
+
+2008-06-13 1.0	first draft for MITRE/CVE (visible in SVN,
+		posted to oss-security)
+2008-06-17 1.0	published on http://www.fetchmail.info/
+2008-06-17 1.1	Corrected typo in Type: above (trigged -> triggered)
+2008-06-24 1.2  also fixed issue in report_complete (reported by Petr Uzel)
+
+
+1. Background
+=============
+
+fetchmail is a software package to retrieve mail from remote POP2, POP3,
+IMAP, ETRN or ODMR servers and forward it to local SMTP, LMTP servers or
+message delivery agents.
+
+fetchmail ships with a graphical, Python/Tkinter based configuration
+utility named "fetchmailconf" to help the user create configuration (run
+control) files for fetchmail.
+
+
+2. Problem description and Impact
+=================================
+
+Gunter Nau reported fetchmail crashing on some messages; further
+debugging by Petr Uzel and Petr Cerny at Novell/SUSE Czech Republic
+dug up that this happened when fetchmail was trying to print, in -v -v
+verbose level, headers exceeding 2048 bytes. In this situation,
+fetchmail would resize the buffer and fill in further parts of the
+message, but forget to reinitialize its va_list typed source pointer,
+thus reading data from a garbage address found on the stack at
+addresses above the function arguments the caller passed in; usually
+that would be the caller's stack frame.
+
+It is unknown whether code can be injected remotely, but given that
+the segmentation fault is caused by read accesses, the relevant data
+is not under the remote attacker's control and no buffer overrun
+situation is present that would allow altering program /flow/, it is
+deemed rather unlikely that code can be injected.
+
+Note that the required -vv configuration at hand is both non-default
+and also not common in automated (cron job) setups, but usually used
+in manual debugging, so not many systems would be affected by the
+problem. Nonetheless, in vulnerable configurations, it is remotely
+exploitable to effect a denial of service attack.
+
+
+
+3. Solution
+===========
+
+There are two alternatives, either of them by itself is sufficient:
+
+a. Apply the patch found in section B of this announcement to
+   fetchmail 6.3.8, recompile and reinstall it.
+
+b. Install fetchmail 6.3.9 or newer after it will have become available.
+   The fetchmail source code is always available from
+   <http://developer.berlios.de/project/showfiles.php?group_id=1824>.
+
+
+4. Workaround
+=============
+
+Run fetchmail at low verbosity, avoid using two or three -v arguments;
+internal messages are short and do not contain external message
+sources so they do not cause buffer resizing. It is recommended to
+replace the vulnerable code by a fixed version (see previous
+section 3. Solution) as soon as reasonably possible.
+
+
+A. Copyright, License and Warranty
+==================================
+
+(C) Copyright 2008 by Matthias Andree, <matthias.andree@gmx.de>.
+Some rights reserved.
+
+This work is licensed under the Creative Commons
+Attribution-NonCommercial-NoDerivs German License. To view a copy of
+this license, visit http://creativecommons.org/licenses/by-nc-nd/2.0/de/
+or send a letter to Creative Commons; 559 Nathan Abbott Way;
+Stanford, California 94305; USA.
+
+THIS WORK IS PROVIDED FREE OF CHARGE AND WITHOUT ANY WARRANTIES.
+Use the information herein at your own risk.
+
+
+B. Patch to remedy the problem
+==============================
+
+Note that when taking this from a GnuPG clearsigned file, the lines 
+starting with a "-" character are prefixed by another "- " (dash + 
+blank) combination. Either feed this file through GnuPG to strip them, 
+or strip them manually.
+
+Whitespace differences can usually be ignored by invoking "patch -l",
+so try this if the patch does not apply.
+
+diff --git a/report.c b/report.c
+index 31d4e48..320e60b 100644
+- --- a/report.c
++++ b/report.c
+@@ -238,11 +238,17 @@ report_build (FILE *errfp, message, va_alist)
+     rep_ensuresize();
+ 
+ #if defined(VA_START)
+- -    VA_START (args, message);
+     for ( ; ; )
+     {
++	/*
++	 * args has to be initialized before every call of vsnprintf(), 
++	 * because vsnprintf() invokes va_arg macro and thus args is 
++	 * undefined after the call.
++	 */
++	VA_START(args, message);
+ 	n = vsnprintf (partial_message + partial_message_size_used, partial_message_size - partial_message_size_used,
+ 		       message, args);
++	va_end (args);
+ 
+ 	if (n >= 0
+ 	    && (unsigned)n < partial_message_size - partial_message_size_used)
+@@ -254,7 +260,6 @@ report_build (FILE *errfp, message, va_alist)
+ 	partial_message_size += 2048;
+ 	partial_message = REALLOC (partial_message, partial_message_size);
+     }
+- -    va_end (args);
+ #else
+     for ( ; ; )
+     {
+@@ -304,12 +309,13 @@ report_complete (FILE *errfp, message, va_alist)
+     rep_ensuresize();
+ 
+ #if defined(VA_START)
+- -    VA_START (args, message);
+     for ( ; ; )
+     {
++	VA_START(args, message);
+ 	n = vsnprintf (partial_message + partial_message_size_used,
+ 		       partial_message_size - partial_message_size_used,
+ 		       message, args);
++	va_end(args);
+ 
+ 	/* old glibc versions return -1 for truncation */
+ 	if (n >= 0
+@@ -322,7 +328,6 @@ report_complete (FILE *errfp, message, va_alist)
+ 	partial_message_size += 2048;
+ 	partial_message = REALLOC (partial_message, partial_message_size);
+     }
+- -    va_end (args);
+ #else
+     for ( ; ; )
+     {
+
+END OF fetchmail-SA-2008-01.txt
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.5 (GNU/Linux)
+
+iD8DBQFIYPBuvmGDOQUufZURAuj8AJ9IbN/UMcML6NLKSI0keQzGVGzZSQCg+UCP
+tUVNigLK8Xz40J2Eg7PD8Xs=
+=HAmn
+-----END PGP SIGNATURE-----

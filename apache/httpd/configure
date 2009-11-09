@@ -1730,7 +1730,7 @@ Optional Features:
   --enable-usertrack      user-session tracking
   --enable-unique-id      per-request unique ids
   --disable-setenvif      basing ENV vars on headers
-  --enable-version        determining httpd version in config files
+  --disable-version       determining httpd version in config files
   --enable-proxy          Apache proxy module
   --enable-proxy-connect  Apache proxy CONNECT module
   --enable-proxy-ftp      Apache proxy FTP module
@@ -13423,7 +13423,7 @@ $as_echo_n "checking whether to enable mod_version... " >&6; }
 if test "${enable_version+set}" = set; then
   enableval=$enable_version;
 else
-  enable_version=maybe-all
+  enable_version=yes
 fi
 
     _apmod_extra_msg=""

@@ -1541,7 +1541,7 @@ AppleUSBHubPort::AddDeviceResetChangeHandler(UInt16 changeFlags, UInt16 statusFl
 		}
 		
         // register the NUB
-		USBLog(5, "AppleUSBHubPort[%p]::AddDeviceResetChangeHandler - port %d, calling registerService for device %s", this, _portNum, _portDevice->getName() );
+		USBLog(5, "AppleUSBHubPort[%p]::AddDeviceResetChangeHandler - Hub 0x%x port %d (USB Address: %d), calling registerService for device %s", this, (uint32_t)_hub->_locationID, (uint32_t)_portNum, (uint32_t)address, _portDevice->getName() );
 		USBTrace(kUSBTEnumeration, kTPEnumerationRegisterService, (uintptr_t)this, _portNum, _hub->_locationID, 0);
         _portDevice->registerService();
 		
@@ -2245,7 +2245,7 @@ AppleUSBHubPort::PortStatusChangedHandler(void)
             
 
             _statusChangedState = 2;
-            USBLog(5,"AppleUSBHubPort[%p]::PortStatusChangedHandler - port %d - status(0x%04x)/change(0x%04x) - clearing retryPortStatus", this, _portNum, _portStatus.statusFlags, _portStatus.changeFlags);
+            USBLog(5,"AppleUSBHubPort[%p]::PortStatusChangedHandler - Hub 0x%x port %d - Initial status(0x%04x)/change(0x%04x)", this, (uint32_t)_hub->_locationID, _portNum, _portStatus.statusFlags, _portStatus.changeFlags);
 			USBTrace(kUSBTEnumeration, kTPEnumerationInitialGetPortStatus, (uintptr_t)this, _portNum, _portStatus.statusFlags, _portStatus.changeFlags);
                         
             _retryPortStatus = false;

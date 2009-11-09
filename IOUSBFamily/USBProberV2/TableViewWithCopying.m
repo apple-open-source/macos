@@ -58,6 +58,7 @@
         doneOneRow= YES;
          
 		 current = [indexSet indexGreaterThanIndex: current];
+		[thisRow release];
     }
 
     [[NSPasteboard generalPasteboard] declareTypes:[NSArray arrayWithObject:NSStringPboardType] owner:self];
@@ -93,6 +94,7 @@
 
         [finalString appendString:thisRow];
         doneOneRow= YES;
+		[thisRow release];
     }
     
     return [finalString autorelease];

@@ -1,3 +1,6 @@
+-----BEGIN PGP SIGNED MESSAGE-----
+Hash: SHA1
+
 fetchmail-SA-2005-01: security announcement
 
 Topic:		remote code injection vulnerability in fetchmail
@@ -121,3 +124,10 @@ THIS WORK IS PROVIDED FREE OF CHARGE AND WITHOUT ANY WARRANTIES.
 Use the information herein at your own risk.
 
 END OF fetchmail-SA-2005-01.txt
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.5 (GNU/Linux)
+
+iD8DBQFIV7WWvmGDOQUufZURAqbIAKCZF7CJxDxKOQ0x254dvkx3qhMC6wCfUAlm
+9MT9GHxQYjdYZvzv9G4jOEA=
+=6AoG
+-----END PGP SIGNATURE-----

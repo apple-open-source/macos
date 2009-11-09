@@ -22,8 +22,7 @@
 #define APR_LDAP_INIT_H
 
 /**
- * @defgroup APR_Util_LDAP LDAP
- * @ingroup APR_Util
+ * @addtogroup APR_Util_LDAP
  * @{
  */
 

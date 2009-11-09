@@ -26,7 +26,7 @@ static int etrn_ok (int sock, char *argbuf)
     int ok;
 
     (void)argbuf;
-    ok = SMTP_ok(sock, SMTP_MODE);
+    ok = SMTP_ok(sock, SMTP_MODE, TIMEOUT_DEFAULT);
     if (ok == SM_UNRECOVERABLE)
 	return(PS_PROTOCOL);
     else

@@ -1,3 +1,6 @@
+-----BEGIN PGP SIGNED MESSAGE-----
+Hash: SHA1
+
 fetchmail-SA-2005-03: security announcement
 
 Topics:		#1 crash retrieving headerless message in multidrop mode
@@ -111,3 +114,10 @@ THIS WORK IS PROVIDED FREE OF CHARGE AND WITHOUT ANY WARRANTIES.
 Use the information herein at your own risk.
 
 END OF fetchmail-SA-2005-03.txt
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.5 (GNU/Linux)
+
+iD8DBQFIV7WXvmGDOQUufZURAjqeAJ90wOleuLWpPKGLdPyLHeDqjxXBrQCgktVz
+5rKRtG/LwqXUiqNxjHALy7k=
+=NBXT
+-----END PGP SIGNATURE-----

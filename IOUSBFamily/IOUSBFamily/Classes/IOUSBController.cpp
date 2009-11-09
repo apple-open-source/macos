@@ -383,14 +383,14 @@ IOUSBController::start( IOService * provider )
         
 		commandGateAdded = true;
 		
-		_freeUSBCommandPool = IOCommandPool::withWorkLoop(_workLoop);
+		_freeUSBCommandPool = IOUSBCommandPool::withWorkLoop(_workLoop);
         if (!_freeUSBCommandPool)
         {
             USBError(1,"%s[%p]::start unable to create free command pool", getName(), this);
             break;
         }
 		
-		_freeUSBIsocCommandPool = IOCommandPool::withWorkLoop(_workLoop);
+		_freeUSBIsocCommandPool = IOUSBCommandPool::withWorkLoop(_workLoop);
         if (!_freeUSBIsocCommandPool)
         {
             USBError(1,"%s[%p]::start unable to create free command pool", getName(), this);
@@ -1448,7 +1448,6 @@ void
 IOUSBController::WatchdogTimer(OSObject *target, IOTimerEventSource *source)
 {
     IOUSBController*	me = OSDynamicCast(IOUSBController, target);
-    IOUSBControllerV2*	me2 = OSDynamicCast(IOUSBControllerV2, target);
     IOReturn			err;
 	
     if (!me || !source || me->isInactive() )
@@ -1467,25 +1466,6 @@ IOUSBController::WatchdogTimer(OSObject *target, IOTimerEventSource *source)
     else
     {
         me->UIMCheckForTimeouts();
-		if (me2)
-		{
-			UInt64			frameNumber;
-			AbsoluteTime	frameTime;
-			IOReturn		frameRet;
-			UInt64			timeInMicS;
-			
-			frameRet = me2->GetFrameNumberWithTime(&frameNumber, &frameTime);
-			if (!frameRet)
-			{
-				absolutetime_to_nanoseconds(frameTime, &timeInMicS);
-				timeInMicS /= 1000;				// Convert to microseconds from nanoseconds
-				USBLog(7, "%s[%p]::WatchdogTimer - GetFrameNumberWithTime returned frame [%Ld] at time [%Ld]", me2->getName(), me2, frameNumber, timeInMicS);
-			}
-			else
-			{
-				USBLog(7, "%s[%p]::WatchdogTimer - GetFrameNumberWithTime returned error %p", me2->getName(), me2, (void*)frameRet);
-			}
-		}
     }
     
 }
@@ -2455,7 +2435,7 @@ IOUSBController::TerminatePCCard(OSObject *target)
 
 //=============================================================================================
 //
-//  ParsePCILocation and ValueOfHexDigit
+//  ParsePCILocation and ValueOfHexDigit (deprecated).  Just use the getDeviceNumber() and getFunctionNumber of IOPCIDevice.h
 //
 //	ParsePCILocation is used to get the device number and function number of our PCI device
 //      from its IOKit location.  It takes a string formated in hex as XXXX,YYYY and will get
@@ -3054,9 +3034,10 @@ IOUSBController::CreateRootHubDevice( IOService * provider, IOUSBRootHubDevice *
     OSNumber *					busNumberProp;
     UInt32						bus;
     UInt32						address;
-    const char *				parentLocation;
     int							deviceNum = 0, functionNum = 0;
     SInt32						busIndex;
+	const char *				parentLocation;
+	IOPCIDevice *				pciDevice = OSDynamicCast(IOPCIDevice, provider);
 
 	USBTrace_Start( kUSBTController, kTPControllerCreateRootHubDevice, (uintptr_t)provider, 0, 0, 0);
 	
@@ -3092,12 +3073,20 @@ IOUSBController::CreateRootHubDevice( IOService * provider, IOUSBRootHubDevice *
     // location for part of the locationID because of problems with multifunction PC and PCI cards.
     //
 	
-    parentLocation = provider->getLocation();
-    if ( parentLocation )
-    {
-        ParsePCILocation( parentLocation, &deviceNum, &functionNum );
-    }
-    
+	if ( pciDevice )
+	{
+		deviceNum = pciDevice->getDeviceNumber();
+		functionNum = pciDevice->getFunctionNumber();
+	}
+	else
+	{
+		parentLocation = provider->getLocation();
+		if ( parentLocation )
+		{
+			ParsePCILocation( parentLocation, &deviceNum, &functionNum );
+		}
+	}
+	
     // If our provider already has a "busNumber" property, then use that one for our location ID
     // if it hasn't been used already
     //

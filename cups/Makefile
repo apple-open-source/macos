@@ -14,7 +14,7 @@ GnuAfterInstall	= install-plist
 include $(MAKEFILEPATH)/CoreOS/ReleaseControl/GNUSource.make
 
 # Specify the configure flags to use...
-Configure_Flags = --with-cups-build="cups-218.1" \
+Configure_Flags = --with-cups-build="cups-218.4" \
 		  --with-libcupsorder=/usr/local/lib/OrderFiles/libcups.2.order \
 		  --with-libcupsimageorder=/usr/local/lib/OrderFiles/libcupsimage.2.order \
 		  --enable-pie --disable-pap \

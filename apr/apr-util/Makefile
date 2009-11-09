@@ -9,8 +9,8 @@ include $(MAKEFILEPATH)/CoreOS/ReleaseControl/GNUSource.make
 Install_Target = install
 
 post-install:
-	$(CP) $(DSTROOT)/usr/lib/libaprutil-1.0.3.7.dylib $(SYMROOT)
-	$(STRIP) -x $(DSTROOT)/usr/lib/libaprutil-1.0.3.7.dylib
+	$(CP) $(DSTROOT)/usr/lib/libaprutil-1.0.3.9.dylib $(SYMROOT)
+	$(STRIP) -x $(DSTROOT)/usr/lib/libaprutil-1.0.3.9.dylib
 	$(RM) $(DSTROOT)/usr/lib/aprutil.exp
 	$(RM) $(DSTROOT)/usr/lib/libaprutil-1.la
 	$(MKDIR) $(DSTROOT)/usr/local/lib
@@ -18,7 +18,7 @@ post-install:
 
 # Automatic Extract & Patch
 AEP_Project    = apr-util
-AEP_Version    = 1.3.7
+AEP_Version    = 1.3.9
 AEP_ProjVers   = $(AEP_Project)-$(AEP_Version)
 AEP_Filename   = $(AEP_ProjVers).tar.bz2
 AEP_ExtractDir = $(AEP_ProjVers)

@@ -743,7 +743,7 @@ AppleUSBHub::powerStateWillChangeTo ( IOPMPowerFlags capabilities, unsigned long
 
 		while (retries-- && (IsPortInitThreadActiveForAnyPort() || IsStatusChangedThreadActiveForAnyPort() || _checkPortsThreadActive))
 		{
-			USBLog(2, "AppleUSBHub[%p]::powerStateWillChangeTo - an init thread or status changed thread or checkPorts thread is still active for some port - waiting 100ms (retries=%d)", this, retries);
+			USBLog(retries ? 5 : 1, "AppleUSBHub[%p]::powerStateWillChangeTo - an init thread or status changed thread or checkPorts thread is still active for some port - waiting 100ms (retries=%d)", this, retries);
 			USBTrace( kUSBTHub,  kTPHubPowerStateWillChangeTo, (uintptr_t)this, retries, _powerStateChangingTo, kIOUSBHubPowerStateLowPower );
 			IOSleep(100);
 		}
@@ -1151,6 +1151,9 @@ AppleUSBHub::CheckPortPowerRequirements(void)
     UInt32	powerNeededForPorts = 0;
     bool	startExternal;
 	OSNumber *	hubWakePowerReserved;
+	
+	_device->setProperty("Ports", _hubDescriptor.numPorts, 32);
+
     do
     {
         if (hubPower > busPower)

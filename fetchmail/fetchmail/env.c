@@ -48,10 +48,10 @@ void envquery(int argc, char **argv)
 	}
     }
 
-    if (argv[0]==NULL)
+    if (argv[0] == NULL)
     {
-        fprintf(stderr,"fetchmail: bad program name\n");
-        exit(PS_UNDEFINED);
+	    fprintf(stderr, "fetchmail: bad program name\n");
+	    exit(PS_UNDEFINED);
     }
 
     if ((program_name = strrchr(argv[0], '/')) != NULL)
@@ -165,7 +165,7 @@ char *host_fqdn(int required)
 	memset(&hints, 0, sizeof hints);
 	hints.ai_family = AF_UNSPEC;
 	hints.ai_socktype = SOCK_STREAM;
-	hints.ai_flags=AI_CANONNAME;
+	hints.ai_flags = AI_CANONNAME;
 
 	e = fm_getaddrinfo(tmpbuf, NULL, &hints, &res);
 	if (e) {
@@ -298,7 +298,7 @@ char *visbuf(const char *buf)
 
     if (needed > vbufs) {
 	vbufs = needed;
-	vbuf = xrealloc(vbuf, vbufs);
+	vbuf = (char *)xrealloc(vbuf, vbufs);
     }
 
     tp = vbuf;

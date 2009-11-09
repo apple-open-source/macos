@@ -78,12 +78,12 @@ figure out why sendmail is slow, however.
 
 This is a shell script for creating a $HOME/.fetchmailrc file, it will ask
 you some questions and based on your answers it will create a .fetchmailrc
-file, fetchsetup is linux specific so it may not work on another operating
+file. fetchsetup is linux specific so it may not work on another operating
 system.
 
 ### mailqueue.pl:
 
-This script will connect to your isp (if not already connected),
+This script will connect to your ISP (if not already connected),
 send any outgoing mail and retrieve any incoming mail.  If this
 program made the connection, it will also break the connection
 when it is done.  By Bill Adams, <bill@evil.inetarena.com>.  The
@@ -184,8 +184,7 @@ Watchdog script to check whether fetchmail is working in daemon mode.
 ### mold-remover.py
 
 A short python script to remove old read mail from a pop3 mailserver.
-Dovetails with fetchmail with keep option.
-Run it as a cron job...
+Dovetails with fetchmail with keep option.  Run it as a cron job.
 
 ### PopDel.py
 

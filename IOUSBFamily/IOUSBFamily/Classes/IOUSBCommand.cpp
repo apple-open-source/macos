@@ -23,9 +23,10 @@
  */
 
 
+#include <libkern/OSDebug.h>
 #include <IOKit/IOLib.h>
-
 #include <IOKit/usb/IOUSBCommand.h>
+#include <IOKit/usb/IOUSBLog.h>
 
 OSDefineMetaClassAndStructors(IOUSBCommand, IOCommand)
 
@@ -485,5 +486,72 @@ IOUSBIsocCommand::free()
     }
     super::free();
 }
+
+//================================================================================================
+//
+//   IOUSBCommandPool
+//
+//================================================================================================
+//
+OSDefineMetaClassAndStructors(IOUSBCommandPool, IOCommandPool);
+
+IOCommandPool *
+IOUSBCommandPool::withWorkLoop(IOWorkLoop * inWorkLoop)
+{
+	IOCommandPool * me = new IOUSBCommandPool;
+    
+	if (me && !me->initWithWorkLoop(inWorkLoop)) {
+		me->release();
+		return 0;
+	}
+	
+	return me;
+}
+
+IOReturn
+IOUSBCommandPool::gatedGetCommand(IOCommand ** command, bool blockForCommand)
+{
+	IOReturn ret;
+	
+	ret = IOCommandPool::gatedGetCommand(command, blockForCommand);
+
+	return ret;
+}
+
+IOReturn
+IOUSBCommandPool::gatedReturnCommand(IOCommand * command)
+{
+	USBLog(7,"IOUSBCommandPool[%p]::gatedReturnCommand %p", this, command);
+	if (!command)
+	{
+#if DEBUG_LEVEL != DEBUG_LEVEL_PRODUCTION
+		panic("IOUSBCommandPool::gatedReturnCommand( NULL )");
+#else
+		return kIOReturnBadArgument;
+#endif
+	}
+	
+	if (command->fCommandChain.next &&
+	    (&command->fCommandChain != command->fCommandChain.next || 
+		 &command->fCommandChain != command->fCommandChain.prev))
+	{
+#if DEBUG_LEVEL != DEBUG_LEVEL_PRODUCTION
+		kprintf("WARNING: gatedReturnCommand(%p) already on queue [next=%p prev=%p]\n",
+				command, command->fCommandChain.next, command->fCommandChain.prev);
+		
+		panic("IOUSBCommandPool::gatedReturnCommand already on queue");
+#else
+		char*		bt[8];
+		
+		OSBacktrace((void**)bt, 8);
+		
+		USBError(1,"IOUSBCommandPool[%p]::gatedReturnCommand  command already in queue, not putting it back into the queue, bt: [%p][%p][%p][%p][%p][%p][%p][%p]", this, bt[0], bt[1], bt[2], bt[3], bt[4], bt[5], bt[6], bt[7]);
+		return kIOReturnBadArgument;
+#endif
+	}
+	
+	return IOCommandPool::gatedReturnCommand(command);
+}
+
 
 

@@ -463,7 +463,8 @@ enum {
 	kIOAudioDeviceTransportTypeWireless				= 'wrls',
 	kIOAudioDeviceTransportTypeOther				= 'othr',
 	kIOAudioDeviceTransportTypeBluetooth			= 'blue',
-	kIOAudioDeviceTransportTypeVirtual				= 'virt'
+	kIOAudioDeviceTransportTypeVirtual				= 'virt',
+	kIOAudioDeviceTransportTypeDisplayPort			= 'dprt'
 };
 
 // types that go nowhere
@@ -558,5 +559,94 @@ enum {
 	PROCESSOR_UNDEFINED								= 0x0800,
 	PROCESSOR_GENERAL								= 0x0801
 };
+
+//	Channel spatial position types
+
+#define	kIOAudioChannelLabel_Discrete_field_ba		16
+enum {
+    kIOAudioChannelLabel_Unknown                  = 0xFFFFFFFF,   // unknown or unspecified other use
+    kIOAudioChannelLabel_Unused                   = 0,            // channel is present, but has no intended use or destination
+    kIOAudioChannelLabel_UseCoordinates           = 100,          // channel is described by the mCoordinates fields.
+	
+    kIOAudioChannelLabel_Left                     = 1,
+    kIOAudioChannelLabel_Right                    = 2,
+    kIOAudioChannelLabel_Center                   = 3,
+    kIOAudioChannelLabel_LFEScreen                = 4,
+    kIOAudioChannelLabel_LeftSurround             = 5,            // WAVE: "Back Left"
+    kIOAudioChannelLabel_RightSurround            = 6,            // WAVE: "Back Right"
+    kIOAudioChannelLabel_LeftCenter               = 7,
+    kIOAudioChannelLabel_RightCenter              = 8,
+    kIOAudioChannelLabel_CenterSurround           = 9,            // WAVE: "Back Center" or plain "Rear Surround"
+    kIOAudioChannelLabel_LeftSurroundDirect       = 10,           // WAVE: "Side Left"
+    kIOAudioChannelLabel_RightSurroundDirect      = 11,           // WAVE: "Side Right"
+    kIOAudioChannelLabel_TopCenterSurround        = 12,
+    kIOAudioChannelLabel_VerticalHeightLeft       = 13,           // WAVE: "Top Front Left"
+    kIOAudioChannelLabel_VerticalHeightCenter     = 14,           // WAVE: "Top Front Center"
+    kIOAudioChannelLabel_VerticalHeightRight      = 15,           // WAVE: "Top Front Right"
+	
+    kIOAudioChannelLabel_TopBackLeft              = 16,
+    kIOAudioChannelLabel_TopBackCenter            = 17,
+    kIOAudioChannelLabel_TopBackRight             = 18,
+	
+    kIOAudioChannelLabel_RearSurroundLeft         = 33,
+    kIOAudioChannelLabel_RearSurroundRight        = 34,
+    kIOAudioChannelLabel_LeftWide                 = 35,
+    kIOAudioChannelLabel_RightWide                = 36,
+    kIOAudioChannelLabel_LFE2                     = 37,
+    kIOAudioChannelLabel_LeftTotal                = 38,           // matrix encoded 4 channels
+    kIOAudioChannelLabel_RightTotal               = 39,           // matrix encoded 4 channels
+    kIOAudioChannelLabel_HearingImpaired          = 40,
+    kIOAudioChannelLabel_Narration                = 41,
+    kIOAudioChannelLabel_Mono                     = 42,
+    kIOAudioChannelLabel_DialogCentricMix         = 43,
+	
+    kIOAudioChannelLabel_CenterSurroundDirect     = 44,           // back center, non diffuse
+    
+    kIOAudioChannelLabel_Haptic                   = 45,
+	
+    // first order ambisonic channels
+    kIOAudioChannelLabel_Ambisonic_W              = 200,
+    kIOAudioChannelLabel_Ambisonic_X              = 201,
+    kIOAudioChannelLabel_Ambisonic_Y              = 202,
+    kIOAudioChannelLabel_Ambisonic_Z              = 203,
+	
+    // Mid/Side Recording
+    kIOAudioChannelLabel_MS_Mid                   = 204,
+    kIOAudioChannelLabel_MS_Side                  = 205,
+	
+    // X-Y Recording
+    kIOAudioChannelLabel_XY_X                     = 206,
+    kIOAudioChannelLabel_XY_Y                     = 207,
+	
+    // other
+    kIOAudioChannelLabel_HeadphonesLeft           = 301,
+    kIOAudioChannelLabel_HeadphonesRight          = 302,
+    kIOAudioChannelLabel_ClickTrack               = 304,
+    kIOAudioChannelLabel_ForeignLanguage          = 305,
+	
+    // generic discrete channel
+    kIOAudioChannelLabel_Discrete                 = 400,
+	
+    // numbered discrete channel
+    kIOAudioChannelLabel_Discrete_0               = ( 1 << kIOAudioChannelLabel_Discrete_field_ba ) | 0,
+    kIOAudioChannelLabel_Discrete_1               = ( 1 << kIOAudioChannelLabel_Discrete_field_ba ) | 1,
+    kIOAudioChannelLabel_Discrete_2               = ( 1 << kIOAudioChannelLabel_Discrete_field_ba ) | 2,
+    kIOAudioChannelLabel_Discrete_3               = ( 1 << kIOAudioChannelLabel_Discrete_field_ba ) | 3,
+    kIOAudioChannelLabel_Discrete_4               = ( 1 << kIOAudioChannelLabel_Discrete_field_ba ) | 4,
+    kIOAudioChannelLabel_Discrete_5               = ( 1 << kIOAudioChannelLabel_Discrete_field_ba ) | 5,
+    kIOAudioChannelLabel_Discrete_6               = ( 1 << kIOAudioChannelLabel_Discrete_field_ba ) | 6,
+    kIOAudioChannelLabel_Discrete_7               = ( 1 << kIOAudioChannelLabel_Discrete_field_ba ) | 7,
+    kIOAudioChannelLabel_Discrete_8               = ( 1 << kIOAudioChannelLabel_Discrete_field_ba ) | 8,
+    kIOAudioChannelLabel_Discrete_9               = ( 1 << kIOAudioChannelLabel_Discrete_field_ba ) | 9,
+    kIOAudioChannelLabel_Discrete_10              = ( 1 << kIOAudioChannelLabel_Discrete_field_ba ) | 10,
+    kIOAudioChannelLabel_Discrete_11              = ( 1 << kIOAudioChannelLabel_Discrete_field_ba ) | 11,
+    kIOAudioChannelLabel_Discrete_12              = ( 1 << kIOAudioChannelLabel_Discrete_field_ba ) | 12,
+    kIOAudioChannelLabel_Discrete_13              = ( 1 << kIOAudioChannelLabel_Discrete_field_ba ) | 13,
+    kIOAudioChannelLabel_Discrete_14              = ( 1 << kIOAudioChannelLabel_Discrete_field_ba ) | 14,
+    kIOAudioChannelLabel_Discrete_15              = ( 1 << kIOAudioChannelLabel_Discrete_field_ba ) | 15,
+    kIOAudioChannelLabel_Discrete_65535           = ( 1 << kIOAudioChannelLabel_Discrete_field_ba ) | 65535
+};
+
+
 
 #endif /* _IOKIT_IOAUDIOTYPES_H */

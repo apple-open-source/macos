@@ -1,0 +1,3397 @@
+# Turkish translation for fetchmail messages
+# Copyright (C) 2002 Free Software Foundation, Inc.
+# Engin Gündüz <engin@ripe.net>, 2002.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: fetchmail 6.2.5\n"
+"Report-Msgid-Bugs-To: fetchmail-devel@lists.berlios.de\n"
+"POT-Creation-Date: 2009-08-06 01:21+0200\n"
+"PO-Revision-Date: 2003-10-17 17:27+0200\n"
+"Last-Translator: Engin Gündüz <engin@ripe.net>\n"
+"Language-Team: Turkish <gnu-tr-u12a@lists.sourceforge.net>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=ISO-8859-9\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+#: checkalias.c:179
+#, c-format
+msgid "Checking if %s is really the same node as %s\n"
+msgstr "`%s' düðümünün gerçekten `%s' ile ayný olup olmadýðýna bakýlýyor\n"
+
+#: checkalias.c:183
+msgid "Yes, their IP addresses match\n"
+msgstr "Evet, IP adresleri birbirine uyuyor\n"
+
+#: checkalias.c:187
+msgid "No, their IP addresses don't match\n"
+msgstr "Hayýr, IP adresleri birbirine uymuyor\n"
+
+#: checkalias.c:203
+#, fuzzy, c-format
+msgid "nameserver failure while looking for '%s' during poll of %s: %s\n"
+msgstr ""
+"%2$s yoklanýrken `%1$s'in aranmasý sýrasýnda DNS sorgusu baþarýsýz oldu.\n"
+
+#: checkalias.c:228
+#, c-format
+msgid "nameserver failure while looking for `%s' during poll of %s.\n"
+msgstr ""
+"%2$s yoklanýrken `%1$s'in aranmasý sýrasýnda DNS sorgusu baþarýsýz oldu.\n"
+
+#: cram.c:95
+msgid "could not decode BASE64 challenge\n"
+msgstr "BASE64 challenge'ýnýn kodunu çözemedim\n"
+
+#: cram.c:103
+#, c-format
+msgid "decoded as %s\n"
+msgstr "%s olarak kodu çözüldü\n"
+
+#: driver.c:191
+#, c-format
+msgid "kerberos error %s\n"
+msgstr "kerberos hatasý %s\n"
+
+#: driver.c:249 driver.c:254
+#, c-format
+msgid "krb5_sendauth: %s [server says '%*s'] \n"
+msgstr "krb5_sendauth: %s [sunucu '%*s' diyor] \n"
+
+#: driver.c:335
+msgid "Subject: Fetchmail oversized-messages warning"
+msgstr ""
+
+#: driver.c:339
+#, fuzzy, c-format
+msgid "The following oversized messages were deleted on server %s account %s:"
+msgstr ""
+"`fetchlimit' %d ulaþýldý; %d ileti %s sunucusunda %s hesabýnda býrakýldý\n"
+
+#: driver.c:343
+#, fuzzy, c-format
+msgid "The following oversized messages remain on server %s account %s:"
+msgstr ""
+"`fetchlimit' %d ulaþýldý; %d ileti %s sunucusunda %s hesabýnda býrakýldý\n"
+
+#: driver.c:362
+#, fuzzy, c-format
+msgid "  %d message  %d octets long deleted by fetchmail."
+msgid_plural "  %d messages %d octets long deleted by fetchmail."
+msgstr[0] "\tfetchmail %2$d sekizlik büyüklüðündeki %1$d. iletiyi atlýyor.\n"
+msgstr[1] "\tfetchmail %2$d sekizlik büyüklüðündeki %1$d. iletiyi atlýyor.\n"
+
+#: driver.c:367
+#, fuzzy, c-format
+msgid "  %d message  %d octets long skipped by fetchmail."
+msgid_plural "  %d messages %d octets long skipped by fetchmail."
+msgstr[0] "\tfetchmail %2$d sekizlik büyüklüðündeki %1$d. iletiyi atlýyor.\n"
+msgstr[1] "\tfetchmail %2$d sekizlik büyüklüðündeki %1$d. iletiyi atlýyor.\n"
+
+#: driver.c:511
+#, c-format
+msgid "skipping message %s@%s:%d"
+msgstr "ileti %s@%s:%d atlanýyor"
+
+#: driver.c:565
+#, c-format
+msgid "skipping message %s@%s:%d (%d octets)"
+msgstr "ileti %s@%s:%d atlanýyor (%d sekizlik)"
+
+#: driver.c:581
+msgid " (length -1)"
+msgstr " (büyüklük -1)"
+
+#: driver.c:584
+msgid " (oversized)"
+msgstr " (çok büyük)"
+
+#: driver.c:602
+#, c-format
+msgid "couldn't fetch headers, message %s@%s:%d (%d octets)\n"
+msgstr "baþlýklar getirilemedi, ileti %s@%s:%d (%d sekizlik)\n"
+
+#: driver.c:619
+#, c-format
+msgid "reading message %s@%s:%d of %d"
+msgstr "ileti %s@%s:%d okunuyor (%d taneden)"
+
+#: driver.c:624
+#, fuzzy, c-format
+msgid " (%d octets)"
+msgstr " (%d %ssekizlik)"
+
+#: driver.c:625
+#, fuzzy, c-format
+msgid " (%d header octets)"
+msgstr " (ileti gövdesi %d sekizlik) "
+
+#: driver.c:692
+#, fuzzy, c-format
+msgid " (%d body octets)"
+msgstr " (ileti gövdesi %d sekizlik) "
+
+#: driver.c:751
+#, c-format
+msgid ""
+"message %s@%s:%d was not the expected length (%d actual != %d expected)\n"
+msgstr ""
+"%s@%s:%d iletisinin uzunluðu beklendiði kadar deðil (gerçekte %d != beklenen "
+"%d)\n"
+
+#: driver.c:783
+msgid " retained\n"
+msgstr " býrakýldý\n"
+
+#: driver.c:793
+msgid " flushed\n"
+msgstr " boþaltýldý\n"
+
+#: driver.c:810
+msgid " not flushed\n"
+msgstr " boþaltýlmadý\n"
+
+#: driver.c:828
+#, fuzzy, c-format
+msgid "fetchlimit %d reached; %d message left on server %s account %s\n"
+msgid_plural ""
+"fetchlimit %d reached; %d messages left on server %s account %s\n"
+msgstr[0] ""
+"`fetchlimit' %d ulaþýldý; %d ileti %s sunucusunda %s hesabýnda býrakýldý\n"
+msgstr[1] ""
+"`fetchlimit' %d ulaþýldý; %d ileti %s sunucusunda %s hesabýnda býrakýldý\n"
+
+#: driver.c:885
+#, c-format
+msgid "timeout after %d seconds waiting to connect to server %s.\n"
+msgstr ""
+"%d saniye %s sunucusuna baðlanmak beklendi ve zamanaþýmý süresi doldu.\n"
+
+#: driver.c:889
+#, c-format
+msgid "timeout after %d seconds waiting for server %s.\n"
+msgstr "sunucu %2$s %1$d saniye beklendi ve zamanaþýmý süresi doldu.\n"
+
+#: driver.c:893
+#, c-format
+msgid "timeout after %d seconds waiting for %s.\n"
+msgstr "%2$s %1$d saniye beklendi ve zamanaþýmý süresi doldu.\n"
+
+#: driver.c:898
+#, c-format
+msgid "timeout after %d seconds waiting for listener to respond.\n"
+msgstr "dinleyici %d saniye beklendikten sonra zamanaþýmýna uðrandý.\n"
+
+#: driver.c:901
+#, c-format
+msgid "timeout after %d seconds.\n"
+msgstr "%d saniye beklendi ve zamanaþýmý süresi doldu.\n"
+
+#: driver.c:913
+#, fuzzy
+msgid "Subject: fetchmail sees repeated timeouts"
+msgstr "Subject: fetchmail çok sayýda zamanaþýmý ile karþýlaþýyor\n"
+
+#: driver.c:916
+#, c-format
+msgid ""
+"Fetchmail saw more than %d timeouts while attempting to get mail from %s@%"
+"s.\n"
+msgstr ""
+"Fetchmail %2$s@%3$s'den posta almaya çalýþýrken %1$d'den çok zamanaþýmý ile "
+"karþýlaþtý.\n"
+
+#: driver.c:920
+msgid ""
+"This could mean that your mailserver is stuck, or that your SMTP\n"
+"server is wedged, or that your mailbox file on the server has been\n"
+"corrupted by a server error.  You can run `fetchmail -v -v' to\n"
+"diagnose the problem.\n"
+"\n"
+"Fetchmail won't poll this mailbox again until you restart it.\n"
+msgstr ""
+"Bunun nedeni posta sunucunuzun takýlmýþ olmasý, SMTP sunucunuzun\n"
+"sýkýþmýþ olmasý ya da sunucu üzerindeki mektup kutusu dosyanýzýn\n"
+"bir sunucu hatasýyla bozulmuþ olmasý olabilir. Sorunu tanýlamak için\n"
+"`fetchmail -v -v' çalýþtýrabilirsiniz.\n"
+"\n"
+"Fetchmail yeniden çalýþtýrýlana dek bir daha bu posta kutusuna\n"
+"bakmayacak.\n"
+
+#: driver.c:946
+#, fuzzy, c-format
+msgid "pre-connection command terminated with signal %d\n"
+msgstr "baðlantý sonrasý komut baþarýsýz oldu, durum kodu %d\n"
+
+#: driver.c:949
+#, c-format
+msgid "pre-connection command failed with status %d\n"
+msgstr "baðlantý sonrasý komut baþarýsýz oldu, durum kodu %d\n"
+
+#: driver.c:973
+#, c-format
+msgid "couldn't find HESIOD pobox for %s\n"
+msgstr "%s için HESIOD pobox bulunamadý\n"
+
+#: driver.c:994
+msgid "Lead server has no name.\n"
+msgstr "Lead sunucunun adý yok.\n"
+
+# canonical'in Türkçesi ne ola? kanonik hiç hoþ deðil.
+#: driver.c:1021
+#, fuzzy, c-format
+msgid "couldn't find canonical DNS name of %s (%s): %s\n"
+msgstr "%s (%s)'in kanonik DNS adýný bulamadým\n"
+
+#: driver.c:1068
+#, c-format
+msgid "%s connection to %s failed"
+msgstr "%2$s'ye %1$s baðlantýsý baþarýsýz oldu"
+
+#: driver.c:1084
+#, fuzzy
+msgid "Subject: Fetchmail unreachable-server warning."
+msgstr ""
+"Subject: Fetcmail ulaþýlamayan sunucu uyarýsý.\n"
+"\n"
+"Fetchmail posta sunucusuna (%s) ulaþamadý:"
+
+#: driver.c:1086
+#, fuzzy, c-format
+msgid "Fetchmail could not reach the mail server %s:"
+msgstr "Fetchmail %s@%s'den posta alamadý.\n"
+
+#: driver.c:1114
+msgid "SSL connection failed.\n"
+msgstr "SSL baðlantýsý baþarýsýz oldu.\n"
+
+#: driver.c:1167
+#, c-format
+msgid "Lock-busy error on %s@%s\n"
+msgstr "Meþgul kilit hatasý (%s@%s)\n"
+
+#: driver.c:1171
+#, c-format
+msgid "Server busy error on %s@%s\n"
+msgstr "Sunucu meþgul hatasý (%s@%s)\n"
+
+#: driver.c:1176
+#, c-format
+msgid "Authorization failure on %s@%s%s\n"
+msgstr "%s@%s%s'te yetkilendirme hatasý\n"
+
+#: driver.c:1179
+msgid " (previously authorized)"
+msgstr " (önceden yetkilendirilmiþ)"
+
+#: driver.c:1200
+#, fuzzy, c-format
+msgid "Subject: fetchmail authentication failed on %s@%s"
+msgstr "Subject: %s@%s'te fetchmail kimlik denetlemesi baþarýsýz oldu\n"
+
+#: driver.c:1204
+#, c-format
+msgid "Fetchmail could not get mail from %s@%s.\n"
+msgstr "Fetchmail %s@%s'den posta alamadý.\n"
+
+#: driver.c:1208
+#, fuzzy
+msgid ""
+"The attempt to get authorization failed.\n"
+"Since we have already succeeded in getting authorization for this\n"
+"connection, this is probably another failure mode (such as busy server)\n"
+"that fetchmail cannot distinguish because the server didn't send a useful\n"
+"error message."
+msgstr ""
+"Yetki alma denemesi baþarýsýz oldu.\n"
+"Bu baðlantý için daha önce yetki almýþ olduðumuza göre, bu bir olasýlýkla\n"
+"baþka bir hata (örneðin sunucunun meþgul olmasý) nedeniyle olabilir, fakat\n"
+"fetchmail sunucudan iþe yarar bir hata iletisi almadýðýndan bunu "
+"anlayamamýþ\n"
+"olabilir.\n"
+"\n"
+"Fakat eðer hesabýnýzýn bilgilerini fetchmail daemon'ý baþlatýldýðýndan\n"
+"beri deðiþtirilmiþse, þimdi daemon'ý durdurup, fetchmail yapýlandýrmasýný\n"
+"deðiþtirip, daemon'ý yeniden baþlatmanýz gerekiyor.\n"
+"\n"
+"Fetchmail daemon'ý çalýþmaya devam edecek ve sýrasý geldikçe baðlanmaya\n"
+"çalýþacak. Hizmet yeniden saðlanana dek baþka bir bildirim gönderilmeyecek."
+
+#: driver.c:1214
+#, fuzzy
+msgid ""
+"\n"
+"However, if you HAVE changed your account details since starting the\n"
+"fetchmail daemon, you need to stop the daemon, change your configuration\n"
+"of fetchmail, and then restart the daemon.\n"
+"\n"
+"The fetchmail daemon will continue running and attempt to connect\n"
+"at each cycle.  No future notifications will be sent until service\n"
+"is restored."
+msgstr ""
+"Yetki alma denemesi baþarýsýz oldu.\n"
+"Bu baðlantý için daha önce yetki almýþ olduðumuza göre, bu bir olasýlýkla\n"
+"baþka bir hata (örneðin sunucunun meþgul olmasý) nedeniyle olabilir, fakat\n"
+"fetchmail sunucudan iþe yarar bir hata iletisi almadýðýndan bunu "
+"anlayamamýþ\n"
+"olabilir.\n"
+"\n"
+"Fakat eðer hesabýnýzýn bilgilerini fetchmail daemon'ý baþlatýldýðýndan\n"
+"beri deðiþtirilmiþse, þimdi daemon'ý durdurup, fetchmail yapýlandýrmasýný\n"
+"deðiþtirip, daemon'ý yeniden baþlatmanýz gerekiyor.\n"
+"\n"
+"Fetchmail daemon'ý çalýþmaya devam edecek ve sýrasý geldikçe baðlanmaya\n"
+"çalýþacak. Hizmet yeniden saðlanana dek baþka bir bildirim gönderilmeyecek."
+
+#: driver.c:1224
+msgid ""
+"The attempt to get authorization failed.\n"
+"This probably means your password is invalid, but some servers have\n"
+"other failure modes that fetchmail cannot distinguish from this\n"
+"because they don't send useful error messages on login failure.\n"
+"\n"
+"The fetchmail daemon will continue running and attempt to connect\n"
+"at each cycle.  No future notifications will be sent until service\n"
+"is restored."
+msgstr ""
+"Yetki alma denemesi baþarýsýz oldu.\n"
+"Bu, parolanýzýn geçersiz olmasýndan kaynaklanýyor olabilir, ancak\n"
+"bazý sunucularýn giriþ sýrasýnda iþe yarar hata iletisi göndermemelerinden\n"
+"dolayý fetchmail'in anlayamadýðý baþka hata modlarý da vardýr.\n"
+"\n"
+"Fetchmail daemon'ý çalýþmaya devam edecek ve sýrasý geldikçe baðlanmaya\n"
+"çalýþacak. Hizmet yeniden saðlanana dek baþka bir bildirim gönderilmeyecek."
+
+#: driver.c:1240
+#, c-format
+msgid "Repoll immediately on %s@%s\n"
+msgstr "%s@%s'de hemen yeniden kontrol\n"
+
+#: driver.c:1245
+#, c-format
+msgid "Unknown login or authentication error on %s@%s\n"
+msgstr "%s@%s'te bilinmeyen giriþ ya da kimlik denetleme hatasý\n"
+
+#: driver.c:1269
+#, c-format
+msgid "Authorization OK on %s@%s\n"
+msgstr "%s@%s'te yetki denetleme tamam\n"
+
+#: driver.c:1275
+#, fuzzy, c-format
+msgid "Subject: fetchmail authentication OK on %s@%s"
+msgstr "Subject: %s@%s'te fetchmail kimlik denetleme tamam\n"
+
+#: driver.c:1279
+#, c-format
+msgid "Fetchmail was able to log into %s@%s.\n"
+msgstr "Fetchmail %s@%s'e girmeyi baþardý.\n"
+
+#: driver.c:1283
+msgid "Service has been restored.\n"
+msgstr "Hizmet yeniden saðlanýyor.\n"
+
+# Bunu kaynak kodunda kontrol et.
+#: driver.c:1315
+#, c-format
+msgid "selecting or re-polling folder %s\n"
+msgstr "%s klasörünü seçiyor ya da yeniden kontrol ediyorum\n"
+
+#: driver.c:1317
+msgid "selecting or re-polling default folder\n"
+msgstr "öntanýmlý klasörü seçiyor ya da yeniden kotrol ediyorum\n"
+
+# kaynak koduna bakýlacak
+#: driver.c:1329
+#, c-format
+msgid "%s at %s (folder %s)"
+msgstr "%2$s'de %1$s (klasör %3$s)"
+
+# kaynak koduna bakýlacak
+#: driver.c:1332 rcfile_y.y:384
+#, c-format
+msgid "%s at %s"
+msgstr "%2$s'de %1$s"
+
+#: driver.c:1337
+#, c-format
+msgid "Polling %s\n"
+msgstr "%s yoklanýyor\n"
+
+# sonraki iki ileti ile ilgili
+#: driver.c:1341
+#, fuzzy, c-format
+msgid "%d message (%d %s) for %s"
+msgid_plural "%d messages (%d %s) for %s"
+msgstr[0] "%5$s için (%3$d adedi %4$s) %1$d %2$s"
+msgstr[1] "%5$s için (%3$d adedi %4$s) %1$d %2$s"
+
+#: driver.c:1344
+#, fuzzy
+msgid "seen"
+msgid_plural "seen"
+msgstr[0] "görülmüþ"
+msgstr[1] "görülmüþ"
+
+# önceki iki ileti ile ilgili.
+#: driver.c:1347
+#, fuzzy, c-format
+msgid "%d message for %s"
+msgid_plural "%d messages for %s"
+msgstr[0] "%3$s için %1$d %2$s"
+msgstr[1] "%3$s için %1$d %2$s"
+
+#: driver.c:1354
+#, c-format
+msgid " (%d octets).\n"
+msgstr " (%d sekizli).\n"
+
+#: driver.c:1360
+#, c-format
+msgid "No mail for %s\n"
+msgstr "%s için mektup yok\n"
+
+#: driver.c:1393 imap.c:90
+msgid "bogus message count!"
+msgstr "sahte ileti sayýsý!"
+
+#: driver.c:1537
+msgid "socket"
+msgstr "soket"
+
+#: driver.c:1540
+msgid "missing or bad RFC822 header"
+msgstr "RFC822 baþlýðý ya hiç yok ya da formatý kötü"
+
+#: driver.c:1543
+msgid "MDA"
+msgstr "MDA"
+
+#: driver.c:1546
+msgid "client/server synchronization"
+msgstr "istemci/sunucu senkronizasyonu"
+
+#: driver.c:1549
+msgid "client/server protocol"
+msgstr "istemci/sunucu protokolü"
+
+#: driver.c:1552
+msgid "lock busy on server"
+msgstr "sunucuda kilit meþgul"
+
+# transaction'ý iþlem diye çevirdim. Doðru mu?
+#: driver.c:1555
+msgid "SMTP transaction"
+msgstr "SMTP iþlemi"
+
+#: driver.c:1558
+msgid "DNS lookup"
+msgstr "DNS sorgusu"
+
+#: driver.c:1561
+#, fuzzy
+msgid "undefined"
+msgstr "tanýmlanmamýþ hata\n"
+
+#: driver.c:1567
+#, fuzzy, c-format
+msgid "%s error while fetching from %s@%s and delivering to SMTP host %s\n"
+msgstr "SMTP makinasý %2$s'e daðýtýlýrken %1$s hatasý\n"
+
+#: driver.c:1569
+#, fuzzy
+msgid "unknown"
+msgstr "makina bilinmiyor."
+
+#: driver.c:1571
+#, fuzzy, c-format
+msgid "%s error while fetching from %s@%s\n"
+msgstr "%2$s'den getirilirken %1$s hatasý\n"
+
+#: driver.c:1583
+#, fuzzy, c-format
+msgid "post-connection command terminated with signal %d\n"
+msgstr "baðlantý sonrasý komut %d durum kodu ile baþarýsýz oldu\n"
+
+#: driver.c:1585
+#, c-format
+msgid "post-connection command failed with status %d\n"
+msgstr "baðlantý sonrasý komut %d durum kodu ile baþarýsýz oldu\n"
+
+#: driver.c:1604
+msgid "Kerberos V4 support not linked.\n"
+msgstr "Kerberos V4 desteði yok.\n"
+
+#: driver.c:1612
+msgid "Kerberos V5 support not linked.\n"
+msgstr "Kerberos V5 desteði yok.\n"
+
+#: driver.c:1623
+#, c-format
+msgid "Option --flush is not supported with %s\n"
+msgstr "--flush seçeneði %s ile desteklenmiyor\n"
+
+#: driver.c:1629
+#, c-format
+msgid "Option --all is not supported with %s\n"
+msgstr "--all seçeneði %s ile desteklenmiyor\n"
+
+#: driver.c:1638
+#, c-format
+msgid "Option --limit is not supported with %s\n"
+msgstr "--limit seçeneði %s ile desteklenmiyor\n"
+
+#: env.c:59
+#, c-format
+msgid ""
+"%s: The QMAILINJECT environment variable is set.\n"
+"This is dangerous as it can make qmail-inject or qmail's sendmail wrapper\n"
+"tamper with your From: or Message-ID: headers.\n"
+"Try \"env QMAILINJECT= %s YOUR ARGUMENTS HERE\"\n"
+"%s: Abort.\n"
+msgstr ""
+"%s: QMAILINJECT çevre deðiþkeni var.\n"
+"Bu tehlikelidir çünkü qmail-inject ya da qmail'in sendmail\n"
+"wrapper'ýnýn From: ve Message-ID: baþlýklarýný deðiþtirmesine\n"
+"neden olabilir.\n"
+"Þunu deneyin: \"env QMAILINJECT= %s KULLANDIÐINIZ DÝÐER ARGÜMANLAR\"\n"
+"%s: Çýkýyorum.\n"
+
+#: env.c:71
+#, c-format
+msgid ""
+"%s: The NULLMAILER_FLAGS environment variable is set.\n"
+"This is dangerous as it can make nullmailer-inject or nullmailer's\n"
+"sendmail wrapper tamper with your From:, Message-ID: or Return-Path: "
+"headers.\n"
+"Try \"env NULLMAILER_FLAGS= %s YOUR ARGUMENTS HERE\"\n"
+"%s: Abort.\n"
+msgstr ""
+"%s: QMAILINJECT çevre deðiþkeni var.\n"
+"Bu tehlikelidir çünkü qmail-inject ya da qmail'in sendmail\n"
+"wrapper'ýnýn From: ve Message-ID: baþlýklarýný deðiþtirmesine\n"
+"neden olabilir.\n"
+"Þunu deneyin: \"env QMAILINJECT= %s KULLANDIÐINIZ DÝÐER ARGÜMANLAR\"\n"
+"%s: Çýkýyorum.\n"
+
+#: env.c:83
+#, c-format
+msgid "%s: You don't exist.  Go away.\n"
+msgstr "%s: Burada yoksunuz. Uzak durun.\n"
+
+#: env.c:145
+#, c-format
+msgid "%s: can't determine your host!"
+msgstr "%s: makinanýzý belirleyemiyorum!"
+
+#: env.c:168
+#, c-format
+msgid "gethostbyname failed for %s\n"
+msgstr "`gethostbyname' %s için baþarýsýz oldu\n"
+
+#: env.c:170
+msgid "Cannot find my own host in hosts database to qualify it!\n"
+msgstr ""
+
+#: env.c:174
+msgid ""
+"Trying to continue with unqualified hostname.\n"
+"DO NOT report broken Received: headers, HELO/EHLO lines or similar "
+"problems!\n"
+"DO repair your /etc/hosts, DNS, NIS or LDAP instead.\n"
+msgstr ""
+
+#: etrn.c:49 odmr.c:60
+#, c-format
+msgid "%s's SMTP listener does not support ESMTP\n"
+msgstr "%s'nin SMTP dinleyicisi ESMTP'yi desteklemiyor\n"
+
+#: etrn.c:55
+#, c-format
+msgid "%s's SMTP listener does not support ETRN\n"
+msgstr "%s'nin SMTP dinleyicisi ETRN'yi desteklemiyor\n"
+
+#: etrn.c:79
+#, c-format
+msgid "Queuing for %s started\n"
+msgstr "%s için kuyruða koyma baþladý\n"
+
+#: etrn.c:84
+#, c-format
+msgid "No messages waiting for %s\n"
+msgstr "%s için bekleyen ileti yok\n"
+
+#: etrn.c:90
+#, c-format
+msgid "Pending messages for %s started\n"
+msgstr "%s için bekleyen iletiler baþladý\n"
+
+#: etrn.c:94
+#, c-format
+msgid "Unable to queue messages for node %s\n"
+msgstr "%s düðümü için iletiler kuyruða konamýyor\n"
+
+#: etrn.c:98
+#, c-format
+msgid "Node %s not allowed: %s\n"
+msgstr "Düðüm %s'in izni yok: %s\n"
+
+#: etrn.c:102
+msgid "ETRN syntax error\n"
+msgstr "ETRN sözdizim hatasý\n"
+
+#: etrn.c:106
+msgid "ETRN syntax error in parameters\n"
+msgstr "Parametrelerde ETRN sözdizim hatasý\n"
+
+#: etrn.c:110
+#, c-format
+msgid "Unknown ETRN error %d\n"
+msgstr "Bilinmeyen ETRN hatasý %d\n"
+
+#: etrn.c:154
+msgid "Option --keep is not supported with ETRN\n"
+msgstr "--keep seçeneði ETRN ile desteklenmiyor\n"
+
+#: etrn.c:158
+msgid "Option --flush is not supported with ETRN\n"
+msgstr "--flush seçeneði ETRN ile desteklenmiyor\n"
+
+#: etrn.c:162
+#, fuzzy
+msgid "Option --folder is not supported with ETRN\n"
+msgstr "--flush seçeneði ETRN ile desteklenmiyor\n"
+
+#: etrn.c:166
+msgid "Option --check is not supported with ETRN\n"
+msgstr "--check seçeneði ETRN ile desteklenmiyor\n"
+
+#: fetchmail.c:137
+msgid ""
+"Copyright (C) 2002, 2003 Eric S. Raymond\n"
+"Copyright (C) 2004 Matthias Andree, Eric S. Raymond, Robert M. Funk, Graham "
+"Wilson\n"
+"Copyright (C) 2005 - 2006 Sunil Shetye\n"
+"Copyright (C) 2005 - 2009 Matthias Andree\n"
+msgstr ""
+
+#: fetchmail.c:142
+msgid ""
+"Fetchmail comes with ABSOLUTELY NO WARRANTY. This is free software, and you\n"
+"are welcome to redistribute it under certain conditions. For details,\n"
+"please see the file COPYING in the source or documentation directory.\n"
+msgstr ""
+
+#: fetchmail.c:176
+msgid "WARNING: Running as root is discouraged.\n"
+msgstr ""
+
+# bu Türkçe'nin sözdizimine uymuyor??? Ne biçim 'i18n'!! :((
+#: fetchmail.c:188
+msgid "fetchmail: invoked with"
+msgstr "fetchmail: bunlarla baþlatýldý"
+
+#: fetchmail.c:212
+msgid "could not get current working directory\n"
+msgstr "çalýþma dizini bulunamadý\n"
+
+#: fetchmail.c:283
+#, c-format
+msgid "This is fetchmail release %s"
+msgstr "fetchmail sürüm %s"
+
+#: fetchmail.c:403
+#, c-format
+msgid "Taking options from command line%s%s\n"
+msgstr "Seçenekler komut satýrýndan alýnýyor%s%s\n"
+
+#: fetchmail.c:404
+msgid " and "
+msgstr " ve "
+
+#: fetchmail.c:409
+#, c-format
+msgid "No mailservers set up -- perhaps %s is missing?\n"
+msgstr "Hiçbir posta sunucusu yok; belki %s eksik?\n"
+
+#: fetchmail.c:430
+msgid "fetchmail: no mailservers have been specified.\n"
+msgstr "fetchmail: hiçbir posta sunucusu belirtilmedi.\n"
+
+#: fetchmail.c:442
+msgid "fetchmail: no other fetchmail is running\n"
+msgstr "fetchmail: baþka bir fetchmail çalýþmýyor\n"
+
+#: fetchmail.c:448
+#, c-format
+msgid "fetchmail: error killing %s fetchmail at %d; bailing out.\n"
+msgstr ""
+"fetchmail: %2$d'de %1$sda çalýþan fetchmail'i öldürürken hata; çýkýyorum.\n"
+
+#: fetchmail.c:449 fetchmail.c:458
+msgid "background"
+msgstr "arkaplan"
+
+#: fetchmail.c:449 fetchmail.c:458
+msgid "foreground"
+msgstr "önplan"
+
+#: fetchmail.c:457
+#, c-format
+msgid "fetchmail: %s fetchmail at %d killed.\n"
+msgstr "fetchmail: %2$d'de %1$sde çalýþan fetchmail öldürüldü.\n"
+
+#: fetchmail.c:480
+msgid ""
+"fetchmail: can't check mail while another fetchmail to same host is "
+"running.\n"
+msgstr ""
+"fetchmail: ayný makinaya baþka bir fetchmail çalýþýrken iletilere bakamam.\n"
+
+#: fetchmail.c:486
+#, c-format
+msgid ""
+"fetchmail: can't poll specified hosts with another fetchmail running at %d.\n"
+msgstr ""
+"fetchmail: %d'de çalýþan baþka bir fetchmail ile belirtilen makinalarý "
+"yoklayamam.\n"
+
+#: fetchmail.c:493
+#, c-format
+msgid "fetchmail: another foreground fetchmail is running at %d.\n"
+msgstr "fetchmail: %d'de baþka bir fetchmail önplanda çalýþýyor.\n"
+
+#: fetchmail.c:503
+msgid ""
+"fetchmail: can't accept options while a background fetchmail is running.\n"
+msgstr ""
+"fetchmail: arkaplanda bir fetchmail çalýþýrken seçenekleri kabul edemem.\n"
+
+#: fetchmail.c:509
+#, c-format
+msgid "fetchmail: background fetchmail at %d awakened.\n"
+msgstr "fetchmail: %d'de arkaplanda çalýþan fetchmail uyandýrýldý.\n"
+
+#: fetchmail.c:521
+#, c-format
+msgid "fetchmail: elder sibling at %d died mysteriously.\n"
+msgstr "fetchmail: %d büyük kardeþ süreç gizemli bir biçimde öldü.\n"
+
+#: fetchmail.c:536
+#, c-format
+msgid "fetchmail: can't find a password for %s@%s.\n"
+msgstr "fetchmail: %s@%s'in parolasýný bulamýyorum.\n"
+
+#: fetchmail.c:540
+#, c-format
+msgid "Enter password for %s@%s: "
+msgstr "%s@%s'in parolasýný yazýnýz: "
+
+#: fetchmail.c:582
+#, fuzzy
+msgid "fetchmail: Cannot detach into background. Aborting.\n"
+msgstr "fetchmail: baþka bir fetchmail çalýþmýyor\n"
+
+#: fetchmail.c:586
+#, c-format
+msgid "starting fetchmail %s daemon \n"
+msgstr "fetchmail %s daemon baþlatýlýyor \n"
+
+#: fetchmail.c:602 fetchmail.c:604
+#, c-format
+msgid "could not open %s to append logs to \n"
+msgstr "kayýt eklemek için %s açýlamadý \n"
+
+# multidrop'u çeviremedim.
+#: fetchmail.c:606
+#, fuzzy
+msgid "fetchmail: Warning: syslog and logfile are set. Check both for logs!\n"
+msgstr ""
+"fetchmail: uyarý: %s'den multidrop iletileri kontrol etmek için DNS yok\n"
+
+#: fetchmail.c:625
+msgid "--check mode enabled, not fetching mail\n"
+msgstr ""
+
+#: fetchmail.c:647
+#, c-format
+msgid "couldn't time-check %s (error %d)\n"
+msgstr "dosya zamaný kontrol edilemedi %s (hata kodu %d)\n"
+
+#: fetchmail.c:652
+#, c-format
+msgid "restarting fetchmail (%s changed)\n"
+msgstr "fetchmail yeniden baþlatýlýyor (%s deðiþti)\n"
+
+#: fetchmail.c:657
+msgid "attempt to re-exec may fail as directory has not been restored\n"
+msgstr ""
+"yeniden baþlatma denemesi, dizin eski haline döndürülmediðinden baþarýsýz "
+"olabilir\n"
+
+#: fetchmail.c:684
+msgid "attempt to re-exec fetchmail failed\n"
+msgstr "fetchmail'i yeniden baþlatma denemesi baþarýsýz oldu\n"
+
+#: fetchmail.c:714
+#, c-format
+msgid "poll of %s skipped (failed authentication or too many timeouts)\n"
+msgstr ""
+"%s'e bakmadan atlýyorum (ya kimlik denetlemesi baþarýsýz ya da çok fazla "
+"zamamaþýmý)\n"
+
+# interval ne? time interval mi?? kaynak koduna bak
+#: fetchmail.c:726
+#, c-format
+msgid "interval not reached, not querying %s\n"
+msgstr "aralýk ulaþýlmadý, %s'i sorgulamýyorum\n"
+
+#: fetchmail.c:764
+msgid "Query status=0 (SUCCESS)\n"
+msgstr "Sorgulama durumu=0 (SUCCESS)\n"
+
+#: fetchmail.c:766
+msgid "Query status=1 (NOMAIL)\n"
+msgstr "Sorgulama durumu=1 (NOMAIL)\n"
+
+#: fetchmail.c:768
+msgid "Query status=2 (SOCKET)\n"
+msgstr "Sorgulama durumu=2 (SOCKET)\n"
+
+#: fetchmail.c:770
+msgid "Query status=3 (AUTHFAIL)\n"
+msgstr "Sorgulama durumu=3 (AUTHFAIL)\n"
+
+#: fetchmail.c:772
+msgid "Query status=4 (PROTOCOL)\n"
+msgstr "Sorgulama durumu=4 (PROTOCOL)\n"
+
+#: fetchmail.c:774
+msgid "Query status=5 (SYNTAX)\n"
+msgstr "Sorgulama durumu=5 (SYNTAX)\n"
+
+#: fetchmail.c:776
+msgid "Query status=6 (IOERR)\n"
+msgstr "Sorgulama durumu=6 (IOERR)\n"
+
+#: fetchmail.c:778
+msgid "Query status=7 (ERROR)\n"
+msgstr "Sorgulama durumu=7 (ERROR)\n"
+
+#: fetchmail.c:780
+msgid "Query status=8 (EXCLUDE)\n"
+msgstr "Sorgulama durumu=8 (EXCLUDE)\n"
+
+#: fetchmail.c:782
+msgid "Query status=9 (LOCKBUSY)\n"
+msgstr "Sorgulama durumu=9 (LOCKBUSY)\n"
+
+#: fetchmail.c:784
+msgid "Query status=10 (SMTP)\n"
+msgstr "Sorgulama durumu=10 (SMTP)\n"
+
+#: fetchmail.c:786
+msgid "Query status=11 (DNS)\n"
+msgstr "Sorgulama durumu=11 (DNS)\n"
+
+#: fetchmail.c:788
+msgid "Query status=12 (BSMTP)\n"
+msgstr "Sorgulama durumu=12 (BSMTP)\n"
+
+#: fetchmail.c:790
+msgid "Query status=13 (MAXFETCH)\n"
+msgstr "Sorgulama durumu=13 (MAXFETCH)\n"
+
+#: fetchmail.c:792
+#, c-format
+msgid "Query status=%d\n"
+msgstr "Sorgulama durumu=%d\n"
+
+# wedge'yi sýkýþmak diye çevirdim. Uygun mu?
+#: fetchmail.c:834
+msgid "All connections are wedged.  Exiting.\n"
+msgstr "Tüm baðlantýlar sýkýþtý. Çýkýyorum.\n"
+
+#: fetchmail.c:842
+#, fuzzy, c-format
+msgid "sleeping at %s for %d seconds\n"
+msgstr "fetchmail: %s'de uyuyorum\n"
+
+#: fetchmail.c:866
+#, c-format
+msgid "awakened by %s\n"
+msgstr "%s tarafýndan uyandýrýldým\n"
+
+#: fetchmail.c:869
+#, c-format
+msgid "awakened by signal %d\n"
+msgstr "%d sinyali ile tarafýndan uyandýrýldým\n"
+
+#: fetchmail.c:877
+#, c-format
+msgid "awakened at %s\n"
+msgstr "%s'de uyandýrýldým\n"
+
+#: fetchmail.c:882
+#, c-format
+msgid "normal termination, status %d\n"
+msgstr "normal bitiþ, durum kodu %d\n"
+
+#: fetchmail.c:1036
+msgid "couldn't time-check the run-control file\n"
+msgstr "çalýþma denetimi (run-control) dosyasýnýn zamaný kontrol edilemedi\n"
+
+#: fetchmail.c:1069
+#, c-format
+msgid "Warning: multiple mentions of host %s in config file\n"
+msgstr ""
+"Uyarý: yapýlandýrma dosyasýnda %s makinasýnýn adý birden çok kez geçiyor\n"
+
+#: fetchmail.c:1102
+#, fuzzy
+msgid "fetchmail: Error: multiple \"defaults\" records in config file.\n"
+msgstr ""
+"Uyarý: yapýlandýrma dosyasýnda %s makinasýnýn adý birden çok kez geçiyor\n"
+
+#: fetchmail.c:1224
+msgid "SSL support is not compiled in.\n"
+msgstr "SSL desteði derlenirken eklenmemiþ.\n"
+
+#: fetchmail.c:1231
+#, fuzzy
+msgid "KERBEROS v4 support is configured, but not compiled in.\n"
+msgstr "SSL desteði derlenirken eklenmemiþ.\n"
+
+#: fetchmail.c:1237
+#, fuzzy
+msgid "KERBEROS v5 support is configured, but not compiled in.\n"
+msgstr "SSL desteði derlenirken eklenmemiþ.\n"
+
+#: fetchmail.c:1243
+#, fuzzy
+msgid "GSSAPI support is configured, but not compiled in.\n"
+msgstr "SSL desteði derlenirken eklenmemiþ.\n"
+
+# multidrop'u çeviremedim.
+#: fetchmail.c:1273
+#, c-format
+msgid ""
+"fetchmail: warning: no DNS available to check multidrop fetches from %s\n"
+msgstr ""
+"fetchmail: uyarý: %s'den multidrop iletileri kontrol etmek için DNS yok\n"
+
+#: fetchmail.c:1284
+#, c-format
+msgid "warning: multidrop for %s requires envelope option!\n"
+msgstr ""
+
+#: fetchmail.c:1285
+msgid "warning: Do not ask for support if all mail goes to postmaster!\n"
+msgstr ""
+
+#: fetchmail.c:1302
+#, fuzzy, c-format
+msgid ""
+"fetchmail: %s configuration invalid, specify positive port number for "
+"service or port\n"
+msgstr "%s yapýlandýrma geçersiz, port sýfýrdan küçük bir sayý olamaz\n"
+
+# priviledged port = ayrýcalýklý port???
+#: fetchmail.c:1309
+#, fuzzy, c-format
+msgid "fetchmail: %s configuration invalid, RPOP requires a privileged port\n"
+msgstr "%s yapýlandýrma geçersiz, RPOP ayrýcalýklý bir port gerektirir\n"
+
+#: fetchmail.c:1327
+#, c-format
+msgid "%s configuration invalid, LMTP can't use default SMTP port\n"
+msgstr ""
+"%s yapýlandýrma geçersiz, LMTP, SMTP'nin öntanýmlý portunu kullanamaz\n"
+
+#: fetchmail.c:1341
+#, fuzzy
+msgid "Both fetchall and keep on in daemon or idle mode is a mistake!\n"
+msgstr "`fetchall' ve daemon kipinde çalýþma birlikte olmaz!\n"
+
+#: fetchmail.c:1366
+#, c-format
+msgid "terminated with signal %d\n"
+msgstr "%d sinyali ile sona erdirildi\n"
+
+#: fetchmail.c:1439
+#, c-format
+msgid "%s querying %s (protocol %s) at %s: poll started\n"
+msgstr "%4$s'de %1$s %2$s'i sorguluyor (protokol %3$s): yoklama baþlatýldý\n"
+
+#: fetchmail.c:1464
+msgid "POP2 support is not configured.\n"
+msgstr "POP2 desteði yapýlandýrýlmamýþ.\n"
+
+#: fetchmail.c:1476
+msgid "POP3 support is not configured.\n"
+msgstr "POP3 desteði yapýlandýrýlmamýþ.\n"
+
+#: fetchmail.c:1486
+msgid "IMAP support is not configured.\n"
+msgstr "IMAP desteði yapýlandýrýlmamýþ.\n"
+
+#: fetchmail.c:1492
+msgid "ETRN support is not configured.\n"
+msgstr "ETRN desteði yapýlandýrýlmamýþ.\n"
+
+#: fetchmail.c:1500
+msgid "ODMR support is not configured.\n"
+msgstr "ODMR desteði yapýlandýrýlmamýþ.\n"
+
+#: fetchmail.c:1507
+msgid "unsupported protocol selected.\n"
+msgstr "desteklenmeyen protokol seçilmiþ.\n"
+
+# bunu kontrol et kaynak kodunda.
+#: fetchmail.c:1517
+#, c-format
+msgid "%s querying %s (protocol %s) at %s: poll completed\n"
+msgstr ""
+"%4$s'de %1$s %2$s'i sorguluyor (protokol %3$s): yoklama tamamlandý\n"
+"\n"
+
+# poll = yoklama
+#: fetchmail.c:1534
+#, c-format
+msgid "Poll interval is %d seconds\n"
+msgstr "Nabýz yoklama aralýðý %d saniye\n"
+
+# logfile = kayýt dosyasý ?
+#: fetchmail.c:1536
+#, c-format
+msgid "Logfile is %s\n"
+msgstr "Kayýt  dosyasý = %s\n"
+
+# Idfile'i Türkçe'ye çevirebilir miyim burada (kimlik dosyasý?) Kaynak koduna bak
+#: fetchmail.c:1538
+#, c-format
+msgid "Idfile is %s\n"
+msgstr "Kimlik dosyasý %s\n"
+
+#: fetchmail.c:1541
+msgid "Progress messages will be logged via syslog\n"
+msgstr "Ýlerleme durumu iletileri syslog ile kaydedilecek.\n"
+
+#: fetchmail.c:1544
+msgid "Fetchmail will masquerade and will not generate Received\n"
+msgstr "Fetchmail kýlýk deðiþtirecek ve Received satýrý oluþturmayacak\n"
+
+#: fetchmail.c:1546
+msgid "Fetchmail will show progress dots even in logfiles.\n"
+msgstr ""
+"Fetchmail ilerleme durumunu gösteren noktalarý kayýt dosyalarýnda bile "
+"gösterecek.\n"
+
+# multidrop message ne demek?
+#: fetchmail.c:1548
+#, c-format
+msgid "Fetchmail will forward misaddressed multidrop messages to %s.\n"
+msgstr ""
+"Fetchmail yanlýþ adrese gönderilmiþ multidrop iletileri %s'e iletecek.\n"
+
+# postmaster = postmaster ??
+#: fetchmail.c:1552
+msgid "Fetchmail will direct error mail to the postmaster.\n"
+msgstr "Fetchmail hata iletisini postmaster'a iletecek.\n"
+
+#: fetchmail.c:1554
+msgid "Fetchmail will direct error mail to the sender.\n"
+msgstr "Fetchmail hata iletisini göndericiye iletecek.\n"
+
+# multidrop message ne demek?
+#: fetchmail.c:1557
+#, fuzzy
+msgid "Fetchmail will treat permanent errors as permanent (drop messsages).\n"
+msgstr ""
+"Fetchmail yanlýþ adrese gönderilmiþ multidrop iletileri %s'e iletecek.\n"
+
+#: fetchmail.c:1559
+#, fuzzy
+msgid "Fetchmail will treat permanent errors as temporary (keep messages).\n"
+msgstr "Fetchmail hata iletisini göndericiye iletecek.\n"
+
+#: fetchmail.c:1566
+#, c-format
+msgid "Options for retrieving from %s@%s:\n"
+msgstr "%s@%s'den getirmek için seçenekler:\n"
+
+#: fetchmail.c:1570
+#, c-format
+msgid "  Mail will be retrieved via %s\n"
+msgstr "  Mektuplar %s yoluyla getirilecek\n"
+
+# poll = yoklama
+#: fetchmail.c:1573
+#, fuzzy, c-format
+msgid "  Poll of this server will occur every %d interval.\n"
+msgid_plural "  Poll of this server will occur every %d intervals.\n"
+msgstr[0] "  Bu sunucunun yoklamasý her %d zaman aralýðýnda yapýlacak.\n"
+msgstr[1] "  Bu sunucunun yoklamasý her %d zaman aralýðýnda yapýlacak.\n"
+
+#: fetchmail.c:1577
+#, c-format
+msgid "  True name of server is %s.\n"
+msgstr "  Sunucunun gerçek adý %s.\n"
+
+# Bu çeviriyi kontrol et.
+#: fetchmail.c:1580
+#, fuzzy
+msgid "  This host will not be queried when no host is specified.\n"
+msgstr "  Hiçbir makina belirtilmediðinde %s sorgulanacak.\n"
+
+# Bu çeviriyi kontrol et.
+#: fetchmail.c:1581
+#, fuzzy
+msgid "  This host will be queried when no host is specified.\n"
+msgstr "  Hiçbir makina belirtilmediðinde %s sorgulanacak.\n"
+
+#: fetchmail.c:1585
+msgid "  Password will be prompted for.\n"
+msgstr "  Parola sorulacak.\n"
+
+#: fetchmail.c:1589
+#, c-format
+msgid "  APOP secret = \"%s\".\n"
+msgstr "  APOP secret'i = \"%s\".\n"
+
+#: fetchmail.c:1592
+#, c-format
+msgid "  RPOP id = \"%s\".\n"
+msgstr "  RPOP kullanýcý adý = \"%s\".\n"
+
+#: fetchmail.c:1595
+#, c-format
+msgid "  Password = \"%s\".\n"
+msgstr "  Parola = \"%s\".\n"
+
+#: fetchmail.c:1604
+#, c-format
+msgid "  Protocol is KPOP with Kerberos %s authentication"
+msgstr "Protokol olarak Kerberos %s kimlik denetlemesi ile KPOP kullanýlýyor"
+
+#: fetchmail.c:1607
+#, c-format
+msgid "  Protocol is %s"
+msgstr "  Protokol %s"
+
+#: fetchmail.c:1609
+#, c-format
+msgid " (using service %s)"
+msgstr " (%s hizmetini kullanýyorum)"
+
+#: fetchmail.c:1611
+msgid " (using default port)"
+msgstr " (öntanýmlý port kullanýlýyor)"
+
+# 'to force' nasýl çevrilebilir?
+#: fetchmail.c:1613
+msgid " (forcing UIDL use)"
+msgstr " (UIDL kullanýmý istenecek)"
+
+#: fetchmail.c:1619
+msgid "  All available authentication methods will be tried.\n"
+msgstr "  Tüm kimlik denetleme yöntemleri denenecek.\n"
+
+#: fetchmail.c:1622
+msgid "  Password authentication will be forced.\n"
+msgstr "  Parola ile kimlik kanýtlamasý istenecek.\n"
+
+#: fetchmail.c:1625
+#, fuzzy
+msgid "  MSN authentication will be forced.\n"
+msgstr "  NTLM kimlik kanýtlamasý istenecek.\n"
+
+#: fetchmail.c:1628
+msgid "  NTLM authentication will be forced.\n"
+msgstr "  NTLM kimlik kanýtlamasý istenecek.\n"
+
+#: fetchmail.c:1631
+msgid "  OTP authentication will be forced.\n"
+msgstr "  OTP kimlik kanýtlamasý istenecek.\n"
+
+#: fetchmail.c:1634
+msgid "  CRAM-Md5 authentication will be forced.\n"
+msgstr "  CRAM-Md5 kimlik kanýtlamasý istenecek.\n"
+
+#: fetchmail.c:1637
+msgid "  GSSAPI authentication will be forced.\n"
+msgstr "  GSSAPI kimlik kanýtlamasý istenecek.\n"
+
+#: fetchmail.c:1640
+msgid "  Kerberos V4 authentication will be forced.\n"
+msgstr "  Kerberos V4 kimlik kanýtlamasý istenecek.\n"
+
+#: fetchmail.c:1643
+msgid "  Kerberos V5 authentication will be forced.\n"
+msgstr "  Kerberos V5 kimlik kanýtlamasý istenecek.\n"
+
+#: fetchmail.c:1646
+msgid "  End-to-end encryption assumed.\n"
+msgstr "  Uçtan uca þifreleme varsayýlýyor.\n"
+
+# mail service principal ne demek?
+#: fetchmail.c:1650
+#, c-format
+msgid "  Mail service principal is: %s\n"
+msgstr "  Posta hizmeti 'pricipal'i: %s\n"
+
+#: fetchmail.c:1653
+msgid "  SSL encrypted sessions enabled.\n"
+msgstr "  SSL ile þifrelenmiþ oturumlar etkinleþtirildi.\n"
+
+#: fetchmail.c:1655
+#, c-format
+msgid "  SSL protocol: %s.\n"
+msgstr "  SSL protokolü: %s.\n"
+
+#: fetchmail.c:1657
+msgid "  SSL server certificate checking enabled.\n"
+msgstr "  SSL sunucu sertifikasý kontrolü etkinleþtirildi.\n"
+
+#: fetchmail.c:1659
+#, c-format
+msgid "  SSL trusted certificate directory: %s\n"
+msgstr "  SSL güvenilir sertifika dizini: %s\n"
+
+#: fetchmail.c:1662
+#, fuzzy, c-format
+msgid "  SSL server CommonName: %s\n"
+msgstr "Sunucu `CommonName'i: %s\n"
+
+#: fetchmail.c:1664
+#, c-format
+msgid "  SSL key fingerprint (checked against the server key): %s\n"
+msgstr "  SSL anahtar parmakizi (sunucu anahtarý ile denetlendi): %s\n"
+
+#: fetchmail.c:1667
+#, c-format
+msgid "  Server nonresponse timeout is %d seconds"
+msgstr "  Sunucu zamanaþýmý %d saniye"
+
+#: fetchmail.c:1669
+msgid " (default).\n"
+msgstr " (öntanýmlý).\n"
+
+#: fetchmail.c:1676
+msgid "  Default mailbox selected.\n"
+msgstr "  Öntanýmlý posta kutusu seçildi.\n"
+
+#: fetchmail.c:1681
+msgid "  Selected mailboxes are:"
+msgstr "  Seçilen posta kutularý:"
+
+#  bu çeviriyi kontrol et
+#: fetchmail.c:1687
+#, fuzzy
+msgid "  All messages will be retrieved (--all on).\n"
+msgstr "  %s ileti getirilecek (--all %s).\n"
+
+#  bu çeviriyi kontrol et
+#: fetchmail.c:1688
+#, fuzzy
+msgid "  Only new messages will be retrieved (--all off).\n"
+msgstr "  %s ileti getirilecek (--all %s).\n"
+
+#: fetchmail.c:1690
+#, fuzzy
+msgid "  Fetched messages will be kept on the server (--keep on).\n"
+msgstr "  Getirilen iletiler %s sunucuda tutulacak (--keep %s).\n"
+
+#: fetchmail.c:1691
+#, fuzzy
+msgid "  Fetched messages will not be kept on the server (--keep off).\n"
+msgstr "  Getirilen iletiler %s sunucuda tutulacak (--keep %s).\n"
+
+#: fetchmail.c:1693
+#, fuzzy
+msgid "  Old messages will be flushed before message retrieval (--flush on).\n"
+msgstr "  Eski iletiler %s ileti alýmýndan önce boþaltýlacak (--flush %s).\n"
+
+#: fetchmail.c:1694
+#, fuzzy
+msgid ""
+"  Old messages will not be flushed before message retrieval (--flush off).\n"
+msgstr "  Eski iletiler %s ileti alýmýndan önce boþaltýlacak (--flush %s).\n"
+
+#: fetchmail.c:1696
+#, fuzzy
+msgid ""
+"  Oversized messages will be flushed before message retrieval (--limitflush "
+"on).\n"
+msgstr "  Eski iletiler %s ileti alýmýndan önce boþaltýlacak (--flush %s).\n"
+
+#: fetchmail.c:1697
+#, fuzzy
+msgid ""
+"  Oversized messages will not be flushed before message retrieval (--"
+"limitflush off).\n"
+msgstr "  Eski iletiler %s ileti alýmýndan önce boþaltýlacak (--flush %s).\n"
+
+#: fetchmail.c:1699
+#, fuzzy
+msgid "  Rewrite of server-local addresses is enabled (--norewrite off).\n"
+msgstr "  server-local adreslerin yeniden yazýlmasý %s (--norewrite %s).\n"
+
+#: fetchmail.c:1700
+#, fuzzy
+msgid "  Rewrite of server-local addresses is disabled (--norewrite on).\n"
+msgstr "  server-local adreslerin yeniden yazýlmasý %s (--norewrite %s).\n"
+
+# carriage-return?? Baþkalarýna sor
+#: fetchmail.c:1702
+#, fuzzy
+msgid "  Carriage-return stripping is enabled (stripcr on).\n"
+msgstr "  Carriage-return'lerin silinmesi %s (stripcr %s).\n"
+
+# carriage-return?? Baþkalarýna sor
+#: fetchmail.c:1703
+#, fuzzy
+msgid "  Carriage-return stripping is disabled (stripcr off).\n"
+msgstr "  Carriage-return'lerin silinmesi %s (stripcr %s).\n"
+
+# carriage-return?? Baþkalarýna sor
+#: fetchmail.c:1705
+#, fuzzy
+msgid "  Carriage-return forcing is enabled (forcecr on).\n"
+msgstr "  Carriage-return'lerin zorunlu kullanýmý %s (orcecr %s).\n"
+
+# carriage-return?? Baþkalarýna sor
+#: fetchmail.c:1706
+#, fuzzy
+msgid "  Carriage-return forcing is disabled (forcecr off).\n"
+msgstr "  Carriage-return'lerin zorunlu kullanýmý %s (orcecr %s).\n"
+
+#: fetchmail.c:1708
+#, fuzzy
+msgid ""
+"  Interpretation of Content-Transfer-Encoding is disabled (pass8bits on).\n"
+msgstr "  Content-Transfer-Encoding'in yorumu %s (pass8bits %s).\n"
+
+#: fetchmail.c:1709
+#, fuzzy
+msgid ""
+"  Interpretation of Content-Transfer-Encoding is enabled (pass8bits off).\n"
+msgstr "  Content-Transfer-Encoding'in yorumu %s (pass8bits %s).\n"
+
+#: fetchmail.c:1711
+#, fuzzy
+msgid "  MIME decoding is enabled (mimedecode on).\n"
+msgstr "  MIME kod çözümü %s (mimedecode %s).\n"
+
+#: fetchmail.c:1712
+#, fuzzy
+msgid "  MIME decoding is disabled (mimedecode off).\n"
+msgstr "  MIME kod çözümü %s (mimedecode %s).\n"
+
+# idle = ?? Baþkalarýna sor
+#: fetchmail.c:1714
+#, fuzzy
+msgid "  Idle after poll is enabled (idle on).\n"
+msgstr "  Yoklamadan sonra 'idle' kalma %s (idle %s).\n"
+
+# idle = ?? Baþkalarýna sor
+#: fetchmail.c:1715
+#, fuzzy
+msgid "  Idle after poll is disabled (idle off).\n"
+msgstr "  Yoklamadan sonra 'idle' kalma %s (idle %s).\n"
+
+# Bunun aþaðýdaki 'discarded' ve 'kept' ile iliþkisi var, birlikte
+# düþünülmeliler.
+#: fetchmail.c:1717
+#, fuzzy
+msgid "  Nonempty Status lines will be discarded (dropstatus on)\n"
+msgstr "  Boþ olmayan Status satýrlarý %s (dropstatus %s)\n"
+
+# Bunun aþaðýdaki 'discarded' ve 'kept' ile iliþkisi var, birlikte
+# düþünülmeliler.
+#: fetchmail.c:1718
+#, fuzzy
+msgid "  Nonempty Status lines will be kept (dropstatus off)\n"
+msgstr "  Boþ olmayan Status satýrlarý %s (dropstatus %s)\n"
+
+# Bunun yukarýdaki 'discarded' ve 'kept' ile iliþkisi var, birlikte
+# düþünülmeliler.
+#: fetchmail.c:1720
+#, fuzzy
+msgid "  Delivered-To lines will be discarded (dropdelivered on)\n"
+msgstr "  Delivered-To satýrlarý %s (dropdelivered %s)\n"
+
+# Bunun yukarýdaki 'discarded' ve 'kept' ile iliþkisi var, birlikte
+# düþünülmeliler.
+#: fetchmail.c:1721
+#, fuzzy
+msgid "  Delivered-To lines will be kept (dropdelivered off)\n"
+msgstr "  Delivered-To satýrlarý %s (dropdelivered %s)\n"
+
+#: fetchmail.c:1725
+#, c-format
+msgid "  Message size limit is %d octets (--limit %d).\n"
+msgstr "  Ýleti boyut sýnýrý %d sekizlik (--limit %d).\n"
+
+#: fetchmail.c:1728
+msgid "  No message size limit (--limit 0).\n"
+msgstr "  Ýleti boyut sýnýrý yok (--limit 0).\n"
+
+#: fetchmail.c:1730
+#, c-format
+msgid "  Message size warning interval is %d seconds (--warnings %d).\n"
+msgstr "  Ýleti boyut uyarýsý aralýðý %d saniye (--warnings %d).\n"
+
+# poll = yoklama
+#: fetchmail.c:1733
+msgid "  Size warnings on every poll (--warnings 0).\n"
+msgstr "  Her yoklamada büyüklük uyarýsý (--warnings 0).\n"
+
+#: fetchmail.c:1736
+#, c-format
+msgid "  Received-message limit is %d (--fetchlimit %d).\n"
+msgstr "  Alýnan ileti sýnýrý %d (--fetchlimit %d).\n"
+
+#: fetchmail.c:1739
+msgid "  No received-message limit (--fetchlimit 0).\n"
+msgstr "  Alýnan ileti sýnýrý yok (--fetchlimit 0).\n"
+
+#: fetchmail.c:1741
+#, c-format
+msgid "  Fetch message size limit is %d (--fetchsizelimit %d).\n"
+msgstr "  Getirilen ileti boyut sýnýrý %d (--fetchsizelimit %d).\n"
+
+#: fetchmail.c:1744
+msgid "  No fetch message size limit (--fetchsizelimit 0).\n"
+msgstr "  Getirilen ileti boyut sýnýrý yok (--fetchsizelimit 0).\n"
+
+#: fetchmail.c:1748
+msgid "  Do binary search of UIDs during each poll (--fastuidl 1).\n"
+msgstr ""
+"  Her yoklama sýrasýnda UID'lerin 'binary' aramasýný yap (--fastuidl %d).\n"
+
+#: fetchmail.c:1750
+#, c-format
+msgid "  Do binary search of UIDs during %d out of %d polls (--fastuidl %d).\n"
+msgstr ""
+"  Her %2$d yoklamanýn %1$d tanesinde UID'lerin 'binary' aramasýný yap (--"
+"fastuidl %3$d).\n"
+
+#: fetchmail.c:1753
+msgid "   Do linear search of UIDs during each poll (--fastuidl 0).\n"
+msgstr ""
+"   Her yoklama sýrasýnda UID'ler için doðrusal arama yap (--fastuidl 0).\n"
+
+# batch = ?
+#: fetchmail.c:1755
+#, c-format
+msgid "  SMTP message batch limit is %d.\n"
+msgstr "  SMTP ileti 'batch' limiti %d.\n"
+
+# batch = ??
+#: fetchmail.c:1757
+msgid "  No SMTP message batch limit (--batchlimit 0).\n"
+msgstr "  SMTP iletisi 'batch' limiti yok (--batchlimit 0).\n"
+
+#: fetchmail.c:1761
+#, c-format
+msgid "  Deletion interval between expunges forced to %d (--expunge %d).\n"
+msgstr ""
+"  Silmeler arasýndaki zaman aralýðý olarak %d kullanýlacak (--expunge %d).\n"
+
+#: fetchmail.c:1763
+msgid "  No forced expunges (--expunge 0).\n"
+msgstr "  Silmeler zorlanmayacak (--expunge 0).\n"
+
+# bu çeviriye bir bak. domain=alan deyince 'alanlar' sanki 'recipients' gibi anlaþýlabilir??
+#: fetchmail.c:1770
+msgid "  Domains for which mail will be fetched are:"
+msgstr "  Þu alanlar (domains) için posta getirilecek:"
+
+#: fetchmail.c:1775 fetchmail.c:1795
+msgid " (default)"
+msgstr " (öntanýmlý)"
+
+#: fetchmail.c:1780
+#, c-format
+msgid "  Messages will be appended to %s as BSMTP\n"
+msgstr "  Ýletiler %s'e BSMTP olarak eklenecek\n"
+
+#: fetchmail.c:1782
+#, c-format
+msgid "  Messages will be delivered with \"%s\".\n"
+msgstr "  Ýletiler \"%s\" ile ulaþtýrýlacak.\n"
+
+#: fetchmail.c:1789
+#, c-format
+msgid "  Messages will be %cMTP-forwarded to:"
+msgstr "  Ýletiler %cMTP ile aþaðýdakilere iletilecek:"
+
+#: fetchmail.c:1800
+#, c-format
+msgid "  Host part of MAIL FROM line will be %s\n"
+msgstr "  MAIL FROM satýrýnýn bilgisayar bölümü %s olacak\n"
+
+#: fetchmail.c:1803
+#, c-format
+msgid "  Address to be put in RCPT TO lines shipped to SMTP will be %s\n"
+msgstr "  SMTP'ye gönderilecek RCPT TO satýrlarýna konacak adres %s olacak\n"
+
+#: fetchmail.c:1812
+msgid "  Recognized listener spam block responses are:"
+msgstr "  Bilinen dinleyici spam engelleme yanýtlarý þöyle:"
+
+#: fetchmail.c:1818
+msgid "  Spam-blocking disabled\n"
+msgstr "  Spam engelleme etkin deðil\n"
+
+#: fetchmail.c:1821
+#, c-format
+msgid "  Server connection will be brought up with \"%s\".\n"
+msgstr "  Sunucu baðlantýsý \"%s\" ile açýlacak.\n"
+
+#: fetchmail.c:1824
+msgid "  No pre-connection command.\n"
+msgstr "  Hiçbir baðlantý öncesi komutu yok.\n"
+
+#: fetchmail.c:1826
+#, c-format
+msgid "  Server connection will be taken down with \"%s\".\n"
+msgstr "  Sunucu baðlantýsý \"%s\" ile kopatýlacak.\n"
+
+#: fetchmail.c:1829
+msgid "  No post-connection command.\n"
+msgstr "  Hiçbir baðlantý öncesi komutu yok.\n"
+
+#: fetchmail.c:1832
+msgid "  No localnames declared for this host.\n"
+msgstr "  Bu makina için hiçbir yerel ad tanýmlanmamýþ.\n"
+
+#: fetchmail.c:1842
+msgid "  Multi-drop mode: "
+msgstr "  Multi-drop kipi: "
+
+#: fetchmail.c:1844
+msgid "  Single-drop mode: "
+msgstr "  Single-drop kipi: "
+
+#: fetchmail.c:1846
+#, fuzzy, c-format
+msgid "%d local name recognized.\n"
+msgid_plural "%d local names recognized.\n"
+msgstr[0] "%d yerel ad tanýndý.\n"
+msgstr[1] "%d yerel ad tanýndý.\n"
+
+# buradaki %s 'enabled' ve 'disabled' oluyor :(
+#: fetchmail.c:1861
+#, fuzzy
+msgid "  DNS lookup for multidrop addresses is enabled.\n"
+msgstr "  Multidrop adresler için DNS sorgulamasý %s.\n"
+
+# buradaki %s 'enabled' ve 'disabled' oluyor :(
+#: fetchmail.c:1862
+#, fuzzy
+msgid "  DNS lookup for multidrop addresses is disabled.\n"
+msgstr "  Multidrop adresler için DNS sorgulamasý %s.\n"
+
+# Bu string'den hemen sonra aþaðýdaki iki string geliyor ("IP address."
+# ve "name.". Dilbilgisi yapýsý Türkçeye tümüyle ters olduðundan
+# bunlarý aþaðýdaki iki iletide çevirmeyi uygun buldum. Kaynak koduna
+# bakmak gerek niye böyle olduðunu anlamak için.
+#: fetchmail.c:1866
+#, fuzzy
+msgid ""
+"  Server aliases will be compared with multidrop addresses by IP address.\n"
+msgstr "  "
+
+# Bu string'den hemen sonra aþaðýdaki iki string geliyor ("IP address."
+# ve "name.". Dilbilgisi yapýsý Türkçeye tümüyle ters olduðundan
+# bunlarý aþaðýdaki iki iletide çevirmeyi uygun buldum. Kaynak koduna
+# bakmak gerek niye böyle olduðunu anlamak için.
+#: fetchmail.c:1868
+#, fuzzy
+msgid "  Server aliases will be compared with multidrop addresses by name.\n"
+msgstr "  "
+
+#: fetchmail.c:1871
+msgid "  Envelope-address routing is disabled\n"
+msgstr "  Envelope-address routing etkin deðil\n"
+
+#: fetchmail.c:1874
+#, c-format
+msgid "  Envelope header is assumed to be: %s\n"
+msgstr "  Envelope baþlýðý þöyle varsayýlýyor: %s\n"
+
+#: fetchmail.c:1877
+#, fuzzy, c-format
+msgid "  Number of envelope headers to be skipped over: %d\n"
+msgstr "  Parse edilecek envelope baþlýðý sayýsý: %d\n"
+
+#: fetchmail.c:1880
+#, c-format
+msgid "  Prefix %s will be removed from user id\n"
+msgstr "  %s öneki kullanýcý kimliðinden silinecek\n"
+
+#: fetchmail.c:1883
+msgid "  No prefix stripping\n"
+msgstr "  Sonekler silinmeyecek\n"
+
+#: fetchmail.c:1890
+msgid "  Predeclared mailserver aliases:"
+msgstr "  Önceden tanýmlanmýþ posta sunucusu takma adlarý:"
+
+#: fetchmail.c:1899
+msgid "  Local domains:"
+msgstr "  Yerel alanlar:"
+
+#: fetchmail.c:1909
+#, c-format
+msgid "  Connection must be through interface %s.\n"
+msgstr "  Baðlatý %s arayüzünden olmalý.\n"
+
+#: fetchmail.c:1911
+msgid "  No interface requirement specified.\n"
+msgstr "  Belirli bir arayüzün kullanýlmasý zorunlu koþulmamýþ.\n"
+
+#: fetchmail.c:1913
+#, c-format
+msgid "  Polling loop will monitor %s.\n"
+msgstr "  Yoklama döngüsü %s'i gözleyecek.\n"
+
+#: fetchmail.c:1915
+msgid "  No monitor interface specified.\n"
+msgstr "  Gözleme arayüzü belirtilmemiþ.\n"
+
+# plugin == ?
+#: fetchmail.c:1919
+#, c-format
+msgid "  Server connections will be made via plugin %s (--plugin %s).\n"
+msgstr "  Sunucu baðlantýlarý %s plugin'i ile yapýlacak (--plugin %s).\n"
+
+#: fetchmail.c:1921
+msgid "  No plugin command specified.\n"
+msgstr "  Plugin komutu belirtilmemiþ.\n"
+
+# plugout da ne demek?
+#: fetchmail.c:1923
+#, c-format
+msgid "  Listener connections will be made via plugout %s (--plugout %s).\n"
+msgstr "  Dinleyici baðlantýlarý %s plugout'u ile yapýlacak (--plugput %s).\n"
+
+#: fetchmail.c:1925
+msgid "  No plugout command specified.\n"
+msgstr "  Plugout komutu belirtilmemiþ.\n"
+
+#: fetchmail.c:1930
+msgid "  No UIDs saved from this host.\n"
+msgstr "  Bu makineden hiçbir UID saklanmadý.\n"
+
+#: fetchmail.c:1939
+#, c-format
+msgid "  %d UIDs saved.\n"
+msgstr "  %d UID saklandý.\n"
+
+#: fetchmail.c:1947
+msgid "  Poll trace information will be added to the Received header.\n"
+msgstr "  Received baþlýðýna yoklama izleme bilgisi eklenecek.\n"
+
+#: fetchmail.c:1949
+msgid ""
+"  No poll trace information will be added to the Received header.\n"
+".\n"
+msgstr ""
+"  Received baþlýðýna yoklama izleme bilgisi eklenmeyecek.\n"
+".\n"
+
+#: fetchmail.c:1952
+#, c-format
+msgid "  Pass-through properties \"%s\".\n"
+msgstr "  Özellikler geçiriliyor \"%s\".\n"
+
+#: getpass.c:71
+msgid "ERROR: no support for getpassword() routine\n"
+msgstr "HATA: getpassword() desteklenmiyor\n"
+
+#: getpass.c:193
+msgid ""
+"\n"
+"Caught SIGINT... bailing out.\n"
+msgstr ""
+"\n"
+"SIGINT yakalandý... çýkýyorum.\n"
+
+#: gssapi.c:66
+#, c-format
+msgid "Couldn't get service name for [%s]\n"
+msgstr "[%s] için hizmet adý alýnamadý\n"
+
+#: gssapi.c:72
+#, c-format
+msgid "Using service name [%s]\n"
+msgstr "Hizmet adý olarak [%s] kullanýlýyor\n"
+
+#: gssapi.c:89
+msgid "Sending credentials\n"
+msgstr "Credential'lar gönderiliyor\n"
+
+#: gssapi.c:107
+msgid "Error exchanging credentials\n"
+msgstr "Credential takasýnda hata\n"
+
+#: gssapi.c:152
+msgid "Couldn't unwrap security level data\n"
+msgstr "Güvenlik düzeyi verisi elde edilemedi\n"
+
+#: gssapi.c:157
+msgid "Credential exchange complete\n"
+msgstr "Crendential takasý tamamlandý\n"
+
+#: gssapi.c:161
+msgid "Server requires integrity and/or privacy\n"
+msgstr "Sunucu iç tutarlýlýk ve/ya da mahremiyet gerektiriyor\n"
+
+#: gssapi.c:170
+#, c-format
+msgid "Unwrapped security level flags: %s%s%s\n"
+msgstr "Güvenlik düzeyi bayraklarý: %s%s%s\n"
+
+#: gssapi.c:174
+#, c-format
+msgid "Maximum GSS token size is %ld\n"
+msgstr "En büyük GSS token boyutu %ld\n"
+
+#: gssapi.c:187
+msgid "Error creating security level request\n"
+msgstr "Güvenlik düzeyi isteðini oluþtururken hata\n"
+
+#: gssapi.c:198
+msgid "Releasing GSS credentials\n"
+msgstr "GSS credential'larý býrakýlýyor\n"
+
+#: gssapi.c:201
+msgid "Error releasing credentials\n"
+msgstr "Credential'lar býrakýlýrken hata\n"
+
+#: idle.c:61
+#, c-format
+msgid "fetchmail: thread sleeping for %d sec.\n"
+msgstr "fetchmail: thread %d saniye uyuyor.\n"
+
+#: imap.c:326
+msgid "Protocol identified as IMAP4 rev 1\n"
+msgstr "Protokol IMAP4 rev 1 olarak belirlendi\n"
+
+#: imap.c:332
+msgid "Protocol identified as IMAP4 rev 0\n"
+msgstr "Protokol IMAP rev 0 olarak belirlendi.\n"
+
+#: imap.c:339
+msgid "Protocol identified as IMAP2 or IMAP2BIS\n"
+msgstr "Protokol IMAP2 ya da IMAP2BIS olarak belirlendi\n"
+
+#: imap.c:354
+msgid "will idle after poll\n"
+msgstr "yoklamadan sonra idle kalýnacak\n"
+
+#: imap.c:446 pop3.c:518
+#, c-format
+msgid "%s: upgrade to TLS succeeded.\n"
+msgstr ""
+
+#: imap.c:455 pop3.c:527
+#, c-format
+msgid "%s: upgrade to TLS failed.\n"
+msgstr ""
+
+#: imap.c:459
+#, c-format
+msgid "%s: opportunistic upgrade to TLS failed, trying to continue\n"
+msgstr ""
+
+#: imap.c:579
+msgid "Required OTP capability not compiled into fetchmail\n"
+msgstr "fetchmail gerekli OTP desteði ile derlenmemiþ\n"
+
+#: imap.c:601 pop3.c:385
+msgid "Required NTLM capability not compiled into fetchmail\n"
+msgstr "fetchmail gerekli NTLM desteði ile derlenmemiþ\n"
+
+#: imap.c:610
+msgid "Required LOGIN capability not supported by server\n"
+msgstr "Sunucu gerekli LOGIN yeteneðini desteklemiyor\n"
+
+#: imap.c:676
+#, fuzzy, c-format
+msgid "mail expunge mismatch (%d actual != %d expected)\n"
+msgstr ""
+"%s@%s:%d iletisinin uzunluðu beklendiði kadar deðil (gerçekte %d != beklenen "
+"%d)\n"
+
+#: imap.c:782 imap.c:841
+msgid "re-poll failed\n"
+msgstr "yeniden yoklama baþarýsýz oldu\n"
+
+#: imap.c:790 imap.c:846
+#, fuzzy, c-format
+msgid "%d message waiting after re-poll\n"
+msgid_plural "%d messages waiting after re-poll\n"
+msgstr[0] "yeniden yokladýktan sonra %d ileti bekliyor\n"
+msgstr[1] "yeniden yokladýktan sonra %d ileti bekliyor\n"
+
+#: imap.c:807
+msgid "mailbox selection failed\n"
+msgstr "posta kutusu seçimi baþarýsýz oldu\n"
+
+#: imap.c:811
+#, fuzzy, c-format
+msgid "%d message waiting after first poll\n"
+msgid_plural "%d messages waiting after first poll\n"
+msgstr[0] "ilk yoklamadan sonra %d ileti bekliyor\n"
+msgstr[1] "ilk yoklamadan sonra %d ileti bekliyor\n"
+
+#: imap.c:825
+msgid "expunge failed\n"
+msgstr "silme baþarýsýz oldu\n"
+
+#: imap.c:829
+#, fuzzy, c-format
+msgid "%d message waiting after expunge\n"
+msgid_plural "%d messages waiting after expunge\n"
+msgstr[0] "silinmeden sonra %d ileti bekliyor\n"
+msgstr[1] "silinmeden sonra %d ileti bekliyor\n"
+
+#: imap.c:871
+msgid "search for unseen messages failed\n"
+msgstr "görülmemiþ iletileri arama iþlemi baþarýsýz oldu\n"
+
+#: imap.c:899
+#, fuzzy, c-format
+msgid "%lu is unseen\n"
+msgstr "%u görülmemiþ\n"
+
+#: imap.c:911 pop3.c:889
+#, c-format
+msgid "%u is first unseen\n"
+msgstr "%u ilk görülmemiþ\n"
+
+#: imap.c:1002
+msgid ""
+"Warning: ignoring bogus data for message sizes returned by the server.\n"
+msgstr ""
+
+#: interface.c:256
+msgid "Unable to open kvm interface. Make sure fetchmail is SGID kmem."
+msgstr "kvm arayüzü açýlamadý. fetchmail'in SGID kmem olduðundan emin olunuz."
+
+#: interface.c:396
+#, c-format
+msgid "Unable to parse interface name from %s"
+msgstr "%s'den arayüz adýný çýkaramadým"
+
+#: interface.c:418
+msgid "get_ifinfo: sysctl (iflist estimate) failed"
+msgstr "get_ifinfo: sysctl (iflist kestirme) baþarýsýz oldu"
+
+#: interface.c:424
+msgid "get_ifinfo: malloc failed"
+msgstr "get_ifinfo: malloc baþarýsýz oldu"
+
+#: interface.c:430
+msgid "get_ifinfo: sysctl (iflist) failed"
+msgstr "get_ifinfo: sysctl (iflist) baþarýsýz oldu"
+
+#: interface.c:448
+#, c-format
+msgid "Routing message version %d not understood."
+msgstr "Routing iletisi sürüm %d anlaþýlamadý."
+
+#: interface.c:480
+#, c-format
+msgid "No interface found with name %s"
+msgstr "Adý %s olan bir arayüz bulunamadý"
+
+#: interface.c:538
+#, c-format
+msgid "No IP address found for %s"
+msgstr "%s için bir IP adresi bulunamadý"
+
+#: interface.c:589
+msgid "missing IP interface address\n"
+msgstr "IP arayüzü adresi yok\n"
+
+#: interface.c:605
+msgid "invalid IP interface address\n"
+msgstr "geçersiz IP arayüzü adresi\n"
+
+#: interface.c:611
+msgid "invalid IP interface mask\n"
+msgstr "geçersiz IP arayüzü maskesi\n"
+
+#: interface.c:650
+#, c-format
+msgid "activity on %s -noted- as %d\n"
+msgstr "activity on %s -noted- as %d\n"
+
+#: interface.c:665
+#, c-format
+msgid "skipping poll of %s, %s down\n"
+msgstr "%s'in yoklanmasýný atlýyorum, %s çalýþmýyor\n"
+
+#: interface.c:684
+#, c-format
+msgid "skipping poll of %s, %s IP address excluded\n"
+msgstr "%s'in yoklamasý atlanýyor, %s IP adresi dýþarýda tutuluyor\n"
+
+#: interface.c:696
+#, c-format
+msgid "activity on %s checked as %d\n"
+msgstr "activity on %s checked as %d\n"
+
+#: interface.c:722
+#, c-format
+msgid "skipping poll of %s, %s inactive\n"
+msgstr "%s'in yoklamasý atlanýyor, %s etkin deðil\n"
+
+#: interface.c:729
+#, c-format
+msgid "activity on %s was %d, is %d\n"
+msgstr "%s'de etkinlik %d idi, þimdi %d\n"
+
+#: kerberos.c:74
+msgid "could not decode initial BASE64 challenge\n"
+msgstr "Ýlk BASE64 challenge'ýnýn kodu çözülemedi\n"
+
+#: kerberos.c:139
+#, c-format
+msgid "principal %s in ticket does not match -u %s\n"
+msgstr "Ticket'teki %s principal'ý -u %s'e uymuyor\n"
+
+#: kerberos.c:147
+#, c-format
+msgid "non-null instance (%s) might cause strange behavior\n"
+msgstr "null olmayan (%s) garip davranýþa neden olabilir\n"
+
+#: kerberos.c:213
+msgid "could not decode BASE64 ready response\n"
+msgstr "BASE64 hazýr yanýtýnýn kodu çözülemedi\n"
+
+#: kerberos.c:220
+msgid "challenge mismatch\n"
+msgstr "challenge'lar uymuyor\n"
+
+#: lock.c:86
+#, fuzzy, c-format
+msgid "fetchmail: error reading lockfile \"%s\": %s\n"
+msgstr "fetchmail: eski kilit dosyasýný siliyorum \n"
+
+#: lock.c:97
+msgid "fetchmail: removing stale lockfile\n"
+msgstr "fetchmail: eski kilit dosyasýný siliyorum \n"
+
+#: lock.c:121
+#, fuzzy, c-format
+msgid "fetchmail: error opening lockfile \"%s\": %s\n"
+msgstr "fetchmail: eski kilit dosyasýný siliyorum \n"
+
+#: lock.c:168
+msgid "fetchmail: lock creation failed.\n"
+msgstr "fetchmail: kilit oluþturulamadý.\n"
+
+#: netrc.c:219
+#, c-format
+msgid "%s:%d: warning: found \"%s\" before any host names\n"
+msgstr "%s:%d: uyarý: herhangi bir makina adýndan önce \"%s\" bulundu\n"
+
+#: netrc.c:257
+#, c-format
+msgid "%s:%d: warning: unknown token \"%s\"\n"
+msgstr "%s:%d: uyarý: bilinmeyen token \"%s\"\n"
+
+#: odmr.c:66
+#, c-format
+msgid "%s's SMTP listener does not support ATRN\n"
+msgstr "%s'in SMTP dinleyicisi ATRN'yi desteklemiyor\n"
+
+#: odmr.c:104
+msgid "Turnaround now...\n"
+msgstr "Roller deðiþiliyor...\n"
+
+#: odmr.c:109
+msgid "ATRN request refused.\n"
+msgstr "ATRN isteði reddedildi.\n"
+
+#: odmr.c:113
+msgid "Unable to process ATRN request now\n"
+msgstr "ATRN isteðini þimdi iþleyemiyorum\n"
+
+#: odmr.c:118
+msgid "You have no mail.\n"
+msgstr "Mektubunuz yok.\n"
+
+#: odmr.c:122
+msgid "Command not implemented\n"
+msgstr "Bu komut gerçeklenmemiþ\n"
+
+#: odmr.c:126
+msgid "Authentication required.\n"
+msgstr "Kimlik kanýtlamasý gerekiyor.\n"
+
+#: odmr.c:130
+#, c-format
+msgid "Unknown ODMR error %d\n"
+msgstr "Bilinmeyen ODMR hatasý %d\n"
+
+#: odmr.c:189
+#, fuzzy
+msgid "receiving message data\n"
+msgstr "ileti metni yazýlýyor\n"
+
+#: odmr.c:242
+msgid "Option --keep is not supported with ODMR\n"
+msgstr "--keep seçeneði ODMR ile desteklenmiyor\n"
+
+#: odmr.c:246
+msgid "Option --flush is not supported with ODMR\n"
+msgstr "--flush seçeneði ODMR ile desteklenmiyor\n"
+
+#: odmr.c:250
+#, fuzzy
+msgid "Option --folder is not supported with ODMR\n"
+msgstr "--flush seçeneði ODMR ile desteklenmiyor\n"
+
+#: odmr.c:254
+msgid "Option --check is not supported with ODMR\n"
+msgstr "--check seçeneði ODMR ile desteklenmiyor\n"
+
+#: opie.c:42
+msgid "server recv fatal\n"
+msgstr "sunucu recv ölümcül\n"
+
+#: opie.c:56
+msgid "Could not decode OTP challenge\n"
+msgstr "OPT challenge'ýnýn kodu çözülemedi\n"
+
+#: opie.c:64 pop3.c:610
+msgid "Secret pass phrase: "
+msgstr "Parola: "
+
+#: options.c:172 options.c:216
+#, c-format
+msgid "String '%s' is not a valid number string.\n"
+msgstr "'%s' katarý geçerli bir sayý katarý deðil.\n"
+
+#: options.c:181
+#, c-format
+msgid "Value of string '%s' is %s than %d.\n"
+msgstr "'%1$s'in deðeri %3$d'den %2$s.\n"
+
+#: options.c:182
+msgid "smaller"
+msgstr "küçük"
+
+#: options.c:182
+msgid "larger"
+msgstr "büyük"
+
+#: options.c:349
+#, c-format
+msgid "Invalid protocol `%s' specified.\n"
+msgstr "Geçersiz protokol `%s' belirtilmiþ.\n"
+
+#: options.c:396
+#, c-format
+msgid "Invalid authentication `%s' specified.\n"
+msgstr "Geçersiz kimlik denetlemesi yöntemi `%s' belirtilmiþ.\n"
+
+#: options.c:601
+msgid "usage:  fetchmail [options] [server ...]\n"
+msgstr "kullaným: fetchmail [seçenekler] [sunucu ...]\n"
+
+#: options.c:602
+msgid "  Options are as follows:\n"
+msgstr "  Aþaðýdaki seçenekler kullanýlabilir:\n"
+
+#: options.c:603
+msgid "  -?, --help        display this option help\n"
+msgstr "  -?, --help        bu yardým iletisini göster\n"
+
+#: options.c:604
+msgid "  -V, --version     display version info\n"
+msgstr "  -V, --version     sürüm bilgisini göster\n"
+
+#: options.c:606
+msgid "  -c, --check       check for messages without fetching\n"
+msgstr "  -c, --check       iletileri kontrol et ama getirme\n"
+
+#: options.c:607
+msgid "  -s, --silent      work silently\n"
+msgstr "  -s, --silent      sessizce çalýþ\n"
+
+#: options.c:608
+msgid "  -v, --verbose     work noisily (diagnostic output)\n"
+msgstr "  -v, --verbose     çok ayrýntýlý bilgi ver (tanýlama çýktýsý)\n"
+
+#: options.c:609
+msgid "  -d, --daemon      run as a daemon once per n seconds\n"
+msgstr "  -d, --daemon      n saniye için bir kez daemon olarak  çalýþ\n"
+
+#: options.c:610
+msgid "  -N, --nodetach    don't detach daemon process\n"
+msgstr "  -N, --nodetach    deamon sürecini 'detach' etme\n"
+
+#: options.c:611
+msgid "  -q, --quit        kill daemon process\n"
+msgstr "  -q, --quit        daemon sürecini öldür\n"
+
+#: options.c:612
+msgid "  -L, --logfile     specify logfile name\n"
+msgstr "  -L, --logfile     kayýt dosyasý adýný belirle\n"
+
+#: options.c:613
+msgid ""
+"      --syslog      use syslog(3) for most messages when running as a "
+"daemon\n"
+msgstr ""
+"      --syslog      daemon olarak çalýþýrken çoðu ileti için syslog(3) "
+"kullan\n"
+
+#: options.c:614
+msgid "      --invisible   don't write Received & enable host spoofing\n"
+msgstr ""
+"      --invisible   'Received' satýrlarýný yazma ve 'spoof' etmeye izin ver\n"
+
+#: options.c:615
+msgid "  -f, --fetchmailrc specify alternate run control file\n"
+msgstr "  -f, --fetchmailrc baþka bir yapýlandýrma dosyasý kullan\n"
+
+#: options.c:616
+msgid "  -i, --idfile      specify alternate UIDs file\n"
+msgstr "  -i, --idfile      baþka bir UID dosyasý kullan\n"
+
+#: options.c:617
+#, fuzzy
+msgid "      --pidfile     specify alternate PID (lock) file\n"
+msgstr "  -i, --idfile      baþka bir UID dosyasý kullan\n"
+
+#: options.c:618
+msgid "      --postmaster  specify recipient of last resort\n"
+msgstr "      --postmaster  baþka bir \"son çare\" alýcýsý belirle\n"
+
+#: options.c:619
+msgid "      --nobounce    redirect bounces from user to postmaster.\n"
+msgstr ""
+"      --nobounce    bounce eden iletileri kullanýcýdan postmaster'a gönder.\n"
+
+#: options.c:620
+msgid ""
+"      --nosoftbounce fetchmail deletes permanently undeliverable messages.\n"
+msgstr ""
+
+#: options.c:621
+msgid ""
+"      --softbounce  keep permanently undeliverable messages on server "
+"(default).\n"
+msgstr ""
+
+#: options.c:623
+msgid "  -I, --interface   interface required specification\n"
+msgstr "  -I, --interface   interface required specification\n"
+
+#: options.c:624
+msgid "  -M, --monitor     monitor interface for activity\n"
+msgstr "  -M, --monitor     arayüzün etkinliðini gözle\n"
+
+#: options.c:627
+msgid "      --ssl         enable ssl encrypted session\n"
+msgstr "      --ssl         ssl ile þifrelenmiþ oturumu etkinleþtir\n"
+
+#: options.c:628
+msgid "      --sslkey      ssl private key file\n"
+msgstr "      --sslkey      ssl özel anahtar dosyasý\n"
+
+#: options.c:629
+msgid "      --sslcert     ssl client certificate\n"
+msgstr "      --sslcert     ssl istemci sertifikasý\n"
+
+#: options.c:630
+#, fuzzy
+msgid "      --sslcertck   do strict server certificate check (recommended)\n"
+msgstr "      --sslcert     ssl istemci sertifikasý\n"
+
+#: options.c:631
+#, fuzzy
+msgid "      --sslcertpath path to ssl certificates\n"
+msgstr "      --sslcert     ssl istemci sertifikasý\n"
+
+#: options.c:632
+msgid ""
+"      --sslcommonname  expect this CommonName from server (discouraged)\n"
+msgstr ""
+
+#: options.c:633
+msgid ""
+"      --sslfingerprint fingerprint that must match that of the server's "
+"cert.\n"
+msgstr ""
+
+#: options.c:634
+#, fuzzy
+msgid "      --sslproto    force ssl protocol (SSL2/SSL3/TLS1)\n"
+msgstr "      --sslproto    ssl protokolünü seç (ssl2/ssl3/tls1)\n"
+
+#: options.c:636
+msgid "      --plugin      specify external command to open connection\n"
+msgstr ""
+"      --plugin      baðlatýlarý açmak için dýþarýdan bir program belirle\n"
+
+#: options.c:637
+msgid "      --plugout     specify external command to open smtp connection\n"
+msgstr ""
+"      --plugout     SMTP baðlantýlarýný yapmak için dýþarýdan bir program "
+"belirle\n"
+
+#: options.c:639
+msgid "  -p, --protocol    specify retrieval protocol (see man page)\n"
+msgstr ""
+"  -p, --protocol    belirtilen protokolü kullan (man sayfasýna bakýnýz)\n"
+
+#: options.c:640
+msgid "  -U, --uidl        force the use of UIDLs (pop3 only)\n"
+msgstr ""
+"  -U, --uidl        UIDL kullanýmýný zorunlu kýl (yalnýzca pop3 için)\n"
+
+#: options.c:641
+#, fuzzy
+msgid "      --port        TCP port to connect to (obsolete, use --service)\n"
+msgstr "  -P, --port        baðlanýlacak TCP/IP portu\n"
+
+#: options.c:642
+#, fuzzy
+msgid ""
+"  -P, --service     TCP service to connect to (can be numeric TCP port)\n"
+msgstr "  -P, --port        baðlanýlacak TCP/IP portu\n"
+
+#: options.c:643
+msgid "      --auth        authentication type (password/kerberos/ssh/otp)\n"
+msgstr "      --auth        kimlik kanýtama türü (parola/kerberos/ssh/otp)\n"
+
+#: options.c:644
+msgid "  -t, --timeout     server nonresponse timeout\n"
+msgstr "  -t, --timeout     sunucu zamanaþýmý süresi\n"
+
+#: options.c:645
+msgid "  -E, --envelope    envelope address header\n"
+msgstr "  -E, --envelope   envelope adresi baþlýðý\n"
+
+#: options.c:646
+msgid "  -Q, --qvirtual    prefix to remove from local user id\n"
+msgstr "  -Q, --qvirtual    yerel kullanýcý kimliðinden silinecek önek\n"
+
+# 'principal' ne demek?
+#: options.c:647
+msgid "      --principal   mail service principal\n"
+msgstr "      --principal   posta hizmeti pricipal'ý\n"
+
+#: options.c:648
+msgid "      --tracepolls  add poll-tracing information to Received header\n"
+msgstr "      --tracepolls  Received baþlýklarýna yoklama bilgisi ekle\n"
+
+#: options.c:650
+msgid "  -u, --username    specify users's login on server\n"
+msgstr "  -u, --username    kullanýcýnýn sunucudaký kullanýcý adý\n"
+
+#: options.c:651
+#, fuzzy
+msgid "  -a, --[fetch]all  retrieve old and new messages\n"
+msgstr "  -a, --all         eski ve yeni iletileri getir\n"
+
+#: options.c:652
+msgid "  -K, --nokeep      delete new messages after retrieval\n"
+msgstr "  -K, --nokeep      getirdikten sonra yeni iletileri sil\n"
+
+#: options.c:653
+msgid "  -k, --keep        save new messages after retrieval\n"
+msgstr "  -k, --keep       getirdikten sonra yeni iletileri sakla\n"
+
+#: options.c:654
+msgid "  -F, --flush       delete old messages from server\n"
+msgstr "  -F, --flush       eski iletileri sunucudan sil\n"
+
+#: options.c:655
+#, fuzzy
+msgid "      --limitflush  delete oversized messages\n"
+msgstr "  -F, --flush       eski iletileri sunucudan sil\n"
+
+#: options.c:656
+msgid "  -n, --norewrite   don't rewrite header addresses\n"
+msgstr "  -n, --norewrite   baþlýk adreslerini yeniden yazma\n"
+
+#: options.c:657
+msgid "  -l, --limit       don't fetch messages over given size\n"
+msgstr "  -w, --limit       belirtilenden daha büyük iletileri getirme\n"
+
+#: options.c:658
+msgid "  -w, --warnings    interval between warning mail notification\n"
+msgstr "  -w, --warnings    posta bildirimleri arasýndaki zaman aralýðý\n"
+
+#: options.c:660
+msgid "  -S, --smtphost    set SMTP forwarding host\n"
+msgstr "  -S, --smtphost    bu SMTP sunucusunu kullan\n"
+
+#: options.c:661
+msgid "      --fetchdomains fetch mail for specified domains\n"
+msgstr ""
+"      --fetchdomains belirtilen alan adlarý için gelen postalarý getir\n"
+
+#: options.c:662
+msgid "  -D, --smtpaddress set SMTP delivery domain to use\n"
+msgstr "  -D, --smtpaddress kullanýlacak SMTP daðýtým alaný (domain) belirle\n"
+
+#: options.c:663
+msgid "      --smtpname    set SMTP full name username@domain\n"
+msgstr "      --smtpname    bu SMTP kullanýcý@alanadý adresini kullan\n"
+
+#: options.c:664
+msgid "  -Z, --antispam,   set antispam response values\n"
+msgstr "  -Z, --antispam    antispam yanýt deðerlerini kullan\n"
+
+#: options.c:665
+msgid "  -b, --batchlimit  set batch limit for SMTP connections\n"
+msgstr "  -b, --batchlimit  SMTP baðlantýlarý için batch limiti belirle\n"
+
+#: options.c:666
+msgid "  -B, --fetchlimit  set fetch limit for server connections\n"
+msgstr "  -B, --fetchlimit  sunucu baðlantýlarý için getirme sýnýrý\n"
+
+#: options.c:667
+msgid "      --fetchsizelimit set fetch message size limit\n"
+msgstr "      --fetchsizelimit getirilen iletilerin boyut sýnýrýný ayarla\n"
+
+#: options.c:668
+msgid "      --fastuidl    do a binary search for UIDLs\n"
+msgstr "      --fastuidl    UIDL'ler için 'binary' arama yap\n"
+
+#: options.c:669
+msgid "  -e, --expunge     set max deletions between expunges\n"
+msgstr "  -e, --expunge     set max deletions between expunges\n"
+
+#: options.c:670
+msgid "  -m, --mda         set MDA to use for forwarding\n"
+msgstr "  -m, --mda         iletim için kullanýlacak MDA'yý belirle\n"
+
+#: options.c:671
+msgid "      --bsmtp       set output BSMTP file\n"
+msgstr "      --bsmtp       BSMTP çýktýsýný bu dosyaya al\n"
+
+#: options.c:672
+msgid "      --lmtp        use LMTP (RFC2033) for delivery\n"
+msgstr "      --lmtp        daðýtým için LMTP (RFC2033) kullan\n"
+
+#: options.c:673
+msgid "  -r, --folder      specify remote folder name\n"
+msgstr "  -r, --folder    uzaktaki klasör adý olarak bunu kullan\n"
+
+#: options.c:674
+msgid "      --showdots    show progress dots even in logfiles\n"
+msgstr ""
+"      --showdots    ilerlemeyi gösteren noktalarý kayýt dosyalarýnda bile "
+"göster\n"
+
+#: pop3.c:355
+msgid ""
+"Warning: \"Maillennium POP3/PROXY server\" found, using RETR command instead "
+"of TOP.\n"
+msgstr ""
+
+#: pop3.c:454
+msgid "TLS is mandatory for this session, but server refused CAPA command.\n"
+msgstr ""
+
+#: pop3.c:455
+msgid "The CAPA command is however necessary for TLS.\n"
+msgstr ""
+
+#: pop3.c:538
+#, c-format
+msgid "%s: opportunistic upgrade to TLS failed, trying to continue.\n"
+msgstr ""
+
+#: pop3.c:646
+msgid "We've run out of allowed authenticators and cannot continue.\n"
+msgstr ""
+
+# timestamp = zaman damgasý (zaman belirteci daha doðal olurdu bence ama böyle kullanýlmýþ
+# baþka yerlerde)
+#: pop3.c:660
+msgid "Required APOP timestamp not found in greeting\n"
+msgstr "Gerekli olan APOP zaman damgasý selamlama içerisinde bulunamadý\n"
+
+#: pop3.c:669
+msgid "Timestamp syntax error in greeting\n"
+msgstr "Selamlama içindeki zaman damgasýnda sözdizim yanlýþý var\n"
+
+#: pop3.c:685
+msgid "Invalid APOP timestamp.\n"
+msgstr ""
+
+#: pop3.c:709
+msgid "Undefined protocol request in POP3_auth\n"
+msgstr "POP3_auth'ta tanýmlanmamýþ protokol isteði\n"
+
+#: pop3.c:730
+msgid "lock busy!  Is another session active?\n"
+msgstr "kilit meþgul!  Baþka bir oturum açýk olabilir\n"
+
+#: pop3.c:809
+msgid "Cannot handle UIDL response from upstream server.\n"
+msgstr ""
+
+#: pop3.c:832
+msgid "Server responded with UID for wrong message.\n"
+msgstr ""
+
+#: pop3.c:859 pop3.c:1105
+#, c-format
+msgid "id=%s (num=%d) was deleted, but is still present!\n"
+msgstr "id=%s (num=%d) silinmiþti, fakat hala burada!\n"
+
+#: pop3.c:868 pop3.c:880 pop3.c:1114 pop3.c:1121
+#, c-format
+msgid "%u is unseen\n"
+msgstr "%u görülmemiþ\n"
+
+#: pop3.c:965
+msgid "Messages inserted into list on server. Cannot handle this.\n"
+msgstr "Sunucuda listeye iletiler araya sokulmuþ. Bu durumu idare edemem.\n"
+
+#: pop3.c:1057
+msgid "protocol error\n"
+msgstr "protokol hatasý\n"
+
+#: pop3.c:1073
+msgid "protocol error while fetching UIDLs\n"
+msgstr "UIDL'leri getirirken protokol hatasý\n"
+
+#: pop3.c:1443
+#, fuzzy
+msgid "Option --folder is not supported with POP3\n"
+msgstr "--remote seçeneði POP3 ile desteklenmiyor\n"
+
+#: rcfile_y.y:126
+msgid "server option after user options"
+msgstr "kullanýcý seçeneklerinden sonra sunucu seçeneði verilmiþ"
+
+#: rcfile_y.y:169
+msgid "SDPS not enabled."
+msgstr "SDPS etkin deðil."
+
+#: rcfile_y.y:215
+msgid ""
+"fetchmail: interface option is only supported under Linux (without IPv6) and "
+"FreeBSD\n"
+msgstr ""
+"fetchmail: 'interface' seçeneði yalnýzca Linux'ta (IPv6'sýz) ve FreeBSD'de "
+"destekleniyor\n"
+
+#: rcfile_y.y:222
+msgid ""
+"fetchmail: monitor option is only supported under Linux (without IPv6) and "
+"FreeBSD\n"
+msgstr ""
+"fetchmail: 'monitor' seçeneði yalnýzca Linux'ta (IPv6'sýz) ve FreeBSD'de "
+"destekleniyor\n"
+
+#: rcfile_y.y:335
+msgid "SSL is not enabled"
+msgstr "SSL etkin deðil."
+
+#: rcfile_y.y:385
+msgid "end of input"
+msgstr "girdi sonu"
+
+# symbolic link?
+#: rcfile_y.y:423
+#, c-format
+msgid "File %s must be a regular file.\n"
+msgstr "%s dosyasý normal bir dosya olmalý.\n"
+
+#: rcfile_y.y:433
+#, fuzzy, c-format
+msgid "File %s must have no more than -rwx------ (0700) permissions.\n"
+msgstr "Dosyanýn (%s) izinleri -rwx--x--- (0710)'den çok olmamalý.\n"
+
+#: rcfile_y.y:445
+#, c-format
+msgid "File %s must be owned by you.\n"
+msgstr "Dosyanin (%s) sahibi siz olmalýsýnýz.\n"
+
+#: report.c:67
+msgid "Unknown system error"
+msgstr "Bilinmeyen sistem hatasý"
+
+#: report.c:92
+#, fuzzy, c-format
+msgid "%s (log message incomplete)\n"
+msgstr "%s (kayýt iletisi tam deðil)"
+
+#: rfc822.c:76
+#, c-format
+msgid "About to rewrite %s"
+msgstr "%s'i yeniden yazmak üzereyim"
+
+#: rfc822.c:212
+#, c-format
+msgid "Rewritten version is %s\n"
+msgstr "Yeniden yazýlan %s\n"
+
+#: rpa.c:117
+msgid "Success"
+msgstr "Baþarýlý"
+
+#: rpa.c:118
+msgid "Restricted user (something wrong with account)"
+msgstr ""
+"Sýnýrlý kullanýcý (kullanýcý hesabý ile ilgili yanlýþ birþeyler olabilir)"
+
+#: rpa.c:119
+msgid "Invalid userid or passphrase"
+msgstr "Kullanýcý adý ya da parolasý geçersiz"
+
+# deity error???
+#: rpa.c:120
+msgid "Deity error"
+msgstr "`Deity' hatasý"
+
+#: rpa.c:173
+msgid "RPA token 2: Base64 decode error\n"
+msgstr "RPA token 2: Base64 kod çözme hatasý\n"
+
+#: rpa.c:184
+#, c-format
+msgid "Service chose RPA version %d.%d\n"
+msgstr "Hizmet RPA sürüm %d.%d'i seçti\n"
+
+#: rpa.c:190
+#, c-format
+msgid "Service challenge (l=%d):\n"
+msgstr "Hizmet challenge'i (l=%d):\n"
+
+#: rpa.c:199
+#, c-format
+msgid "Service timestamp %s\n"
+msgstr "Hizmet zaman damgasý %s\n"
+
+#: rpa.c:204
+msgid "RPA token 2 length error\n"
+msgstr "RPA token 2'de uzunluk hatasý var\n"
+
+# realm = alem
+#: rpa.c:208
+#, c-format
+msgid "Realm list: %s\n"
+msgstr "Alem listesi: %s\n"
+
+#: rpa.c:212
+msgid "RPA error in service@realm string\n"
+msgstr "hizmet@alem katarýnda RPA hatasý\n"
+
+#: rpa.c:249
+msgid "RPA token 4: Base64 decode error\n"
+msgstr "RPA token 4: Base64 kod çözme hatasý\n"
+
+#: rpa.c:260
+#, c-format
+msgid "User authentication (l=%d):\n"
+msgstr "Kullanýcý kimlik kanýtlama (l=%d):\n"
+
+#: rpa.c:274
+#, c-format
+msgid "RPA status: %02X\n"
+msgstr "RPA durumu: %02X\n"
+
+#: rpa.c:280
+msgid "RPA token 4 length error\n"
+msgstr "RPA token 4: uzunluk hatasý\n"
+
+#: rpa.c:287
+#, c-format
+msgid "RPA rejects you: %s\n"
+msgstr "RPA sizi reddediyor: %s\n"
+
+#: rpa.c:289
+msgid "RPA rejects you, reason unknown\n"
+msgstr "RPA sizi reddediyor, nedeni bilinmiyor\n"
+
+#: rpa.c:297
+#, c-format
+msgid "RPA User Authentication length error: %d\n"
+msgstr "RPA Kullanýcý Kimlik Kanýtlama uzunluk hatasý: %d\n"
+
+#: rpa.c:302
+#, c-format
+msgid "RPA Session key length error: %d\n"
+msgstr "RPA Oturumu anahtar uzunluðu hatasý: %d\n"
+
+#: rpa.c:308
+msgid "RPA _service_ auth fail. Spoof server?\n"
+msgstr "RPA _hizmet_ kimlik kanýtlamasý baþarýsýz oldu.\n"
+
+#: rpa.c:313
+msgid "Session key established:\n"
+msgstr "Oturum anahtarý kuruldu:\n"
+
+#: rpa.c:344
+msgid "RPA authorisation complete\n"
+msgstr "RPA yetkilendirme tamamlandý\n"
+
+#: rpa.c:371
+msgid "Get response\n"
+msgstr "Yanýt al\n"
+
+#: rpa.c:401
+#, c-format
+msgid "Get response return %d [%s]\n"
+msgstr "Yanýt alma %d döndü [%s]\n"
+
+#: rpa.c:462
+msgid "Hdr not 60\n"
+msgstr "Baþlýk 60 deðil\n"
+
+#: rpa.c:483
+msgid "Token length error\n"
+msgstr "Token uzunluk hatasý\n"
+
+#: rpa.c:488
+#, c-format
+msgid "Token Length %d disagrees with rxlen %d\n"
+msgstr "Token uzunluðu %d rxlen (%d) ile uyuþmuyor\n"
+
+#: rpa.c:494
+msgid "Mechanism field incorrect\n"
+msgstr "Mekanizma alaný doðru deðil\n"
+
+#: rpa.c:530
+#, c-format
+msgid "dec64 error at char %d: %x\n"
+msgstr "karakter %d'de dec64 hatasý: %x\n"
+
+#: rpa.c:545
+msgid "Inbound binary data:\n"
+msgstr "Gelen ikilik veri:\n"
+
+#: rpa.c:581
+msgid "Outbound data:\n"
+msgstr "Giden veri:\n"
+
+#: rpa.c:644
+msgid "RPA String too long\n"
+msgstr "RPA katarý çok uzun\n"
+
+#: rpa.c:649
+msgid "Unicode:\n"
+msgstr "Unicode:\n"
+
+#: rpa.c:708
+msgid "RPA Failed open of /dev/urandom. This shouldn't\n"
+msgstr "RPA /dev/urandom açýlamadý. Bu durum sisteme\n"
+
+#: rpa.c:709
+msgid "    prevent you logging in, but means you\n"
+msgstr "    girmenize engel deðildir, ancak konuþtuðunuzu\n"
+
+#: rpa.c:710
+msgid "    cannot be sure you are talking to the\n"
+msgstr "    düþündüðünüz sistem ile konuþmuyor\n"
+
+#: rpa.c:711
+msgid "    service that you think you are (replay\n"
+msgstr "    olabilirsiniz (kötü niyetli sistemler\n"
+
+#: rpa.c:712
+msgid "    attacks by a dishonest service are possible.)\n"
+msgstr "    `replay' saldýrýsý yapabilir).\n"
+
+#: rpa.c:723
+msgid "User challenge:\n"
+msgstr "Kullanýcý challenge'ý:\n"
+
+#: rpa.c:873
+msgid "MD5 being applied to data block:\n"
+msgstr "Veri bloðuna MD5 uygulanýyor:\n"
+
+#: rpa.c:886
+msgid "MD5 result is: \n"
+msgstr "MD5 sonucu:\n"
+
+#: servport.c:53
+#, c-format
+msgid "getaddrinfo(NULL, \"%s\") error: %s\n"
+msgstr ""
+
+#: servport.c:80
+#, c-format
+msgid "Cannot resolve service %s to port number.\n"
+msgstr ""
+
+#: servport.c:81
+msgid "Please specify the service as decimal port number.\n"
+msgstr ""
+
+#: sink.c:220
+#, c-format
+msgid "forwarding to %s\n"
+msgstr "%s'e iletiliyor\n"
+
+#: sink.c:306
+msgid "SMTP: (bounce-message body)\n"
+msgstr "SMTP: ('bounce' iletisi gövdesi)\n"
+
+#: sink.c:309
+#, c-format
+msgid "mail from %s bounced to %s\n"
+msgstr "%s'den gelen ileti %s'e `bounce' edildi\n"
+
+#: sink.c:446
+#, c-format
+msgid "Saved error is still %d\n"
+msgstr "Kaydedilen hata hala %d\n"
+
+#: sink.c:506 sink.c:605
+#, c-format
+msgid "%cMTP error: %s\n"
+msgstr "%cMTP hatasý: %s\n"
+
+#: sink.c:550
+msgid "SMTP server requires STARTTLS, keeping message.\n"
+msgstr ""
+
+#: sink.c:730
+#, fuzzy, c-format
+msgid "BSMTP file open failed: %s\n"
+msgstr "BSMTP dosya açýlamadý ya da önsöz yazýlamadý\n"
+
+#: sink.c:776
+#, fuzzy
+msgid "BSMTP preamble write failed.\n"
+msgstr "BSMTP dosya açýlamadý ya da önsöz yazýlamadý\n"
+
+#: sink.c:990
+#, c-format
+msgid "%cMTP listener doesn't like recipient address `%s'\n"
+msgstr "%cMTP dinleyicisi alýcý adresi olarak `%s'i sevmedi\n"
+
+#: sink.c:997
+#, c-format
+msgid "%cMTP listener doesn't really like recipient address `%s'\n"
+msgstr "%cMTP dinleyicisi alýcý adresi olarak `%s'i sevmedi\n"
+
+#: sink.c:1043
+msgid "no address matches; no postmaster set.\n"
+msgstr "hiçbir adres uyuþmadý; postmaster yok.\n"
+
+#: sink.c:1055
+#, c-format
+msgid "can't even send to %s!\n"
+msgstr ""
+"%s'e bile gönderilemedi!\n"
+"\n"
+
+#: sink.c:1061
+#, c-format
+msgid "no address matches; forwarding to %s.\n"
+msgstr "hiçbir adres uymuyor; %s'e iletiyorum.\n"
+
+#: sink.c:1217
+#, c-format
+msgid "about to deliver with: %s\n"
+msgstr "iletmek üzereyim: %s\n"
+
+#: sink.c:1241
+msgid "MDA open failed\n"
+msgstr "MDA açma baþarýsýz oldu\n"
+
+#: sink.c:1278
+#, c-format
+msgid "%cMTP connect to %s failed\n"
+msgstr "%2$s'e %1$cMTP baðlantýsý baþarýsýz oldu\n"
+
+#: sink.c:1302
+#, c-format
+msgid "can't raise the listener; falling back to %s"
+msgstr "dinleyici çalýþtýrýlamadý; %s denenecek"
+
+#: sink.c:1364
+#, fuzzy, c-format
+msgid "Error writing to MDA: %s\n"
+msgstr "%s'e iletiliyor\n"
+
+#: sink.c:1367
+#, c-format
+msgid "MDA died of signal %d\n"
+msgstr "MDA %d sinyali ile öldürüldü\n"
+
+#: sink.c:1370
+#, c-format
+msgid "MDA returned nonzero status %d\n"
+msgstr "MDA sýfýrdan baþka bir durum kodu döndürdü (%d)\n"
+
+#: sink.c:1373
+#, fuzzy, c-format
+msgid ""
+"Strange: MDA pclose returned %d and errno %d/%s, cannot handle at %s:%d\n"
+msgstr "Garip: MDA pclose durum kodu olarak %d döndürdü, %s:%d'de sorun\n"
+
+#: sink.c:1395
+msgid "Message termination or close of BSMTP file failed\n"
+msgstr ""
+"Ýletiyi bitirme ya da BSMTP dosyasýný kapatma iþlemi baþarýsýzlýkla "
+"sonuçlandý\n"
+
+#: sink.c:1417
+msgid "SMTP listener refused delivery\n"
+msgstr "SMTP dinleyicisi daðýtýmý reddetti\n"
+
+#: sink.c:1447
+msgid "LMTP delivery error on EOM\n"
+msgstr "Ýleti sonunda LMTP daðýtým hatasý\n"
+
+#: sink.c:1450
+#, c-format
+msgid "Unexpected non-503 response to LMTP EOM: %s\n"
+msgstr "LMTP EOM'a beklenmeyen, 503 olmayan yanýt: %s\n"
+
+#: sink.c:1605
+#, fuzzy
+msgid ""
+"-- \n"
+"The Fetchmail Daemon"
+msgstr ""
+"--\n"
+"\t\t\t\tFetchmail Daemon'u\n"
+
+#: smtp.c:80
+msgid "ESMTP CRAM-MD5 Authentication...\n"
+msgstr "ESMTP CRAM-Md5 Kimlik kanýtlamasý...\n"
+
+#: smtp.c:87 smtp.c:138
+msgid "Server rejected the AUTH command.\n"
+msgstr "Sunucu AUTH komutunu reddetti.\n"
+
+#: smtp.c:95 smtp.c:145 smtp.c:155 smtp.c:161
+msgid "Bad base64 reply from server.\n"
+msgstr "Sunucudan geçersiz base64 yanýtý.\n"
+
+#: smtp.c:99
+#, c-format
+msgid "Challenge decoded: %s\n"
+msgstr "'Challenge'ýn kodu çözüldü: %s\n"
+
+#: smtp.c:116
+msgid "ESMTP PLAIN Authentication...\n"
+msgstr "ESMTP PLAIN Kimlik kanýtlamasý...\n"
+
+#: smtp.c:131
+msgid "ESMTP LOGIN Authentication...\n"
+msgstr "ESMTP LOGIN Kimlik kanýtlamasý...\n"
+
+#: smtp.c:339 smtp.c:362
+msgid "smtp listener protocol error\n"
+msgstr "smtp dinleyicisi protokol hatasý\n"
+
+#: socket.c:115 socket.c:141
+msgid "fetchmail: malloc failed\n"
+msgstr "fetchmail: malloc baþarýsýz oldu\n"
+
+#: socket.c:173
+msgid "fetchmail: socketpair failed\n"
+msgstr "fetchmail: socketpair baþarýsýz oldu\n"
+
+#: socket.c:179
+msgid "fetchmail: fork failed\n"
+msgstr "fetchmail: fork baþarýsýz oldu\n"
+
+#: socket.c:186
+msgid "dup2 failed\n"
+msgstr "dup2 baþarýsýz oldu\n"
+
+#: socket.c:192
+#, c-format
+msgid "running %s (host %s service %s)\n"
+msgstr "%s çalýþtýrýlýyor (makina %s hizmet %s)\n"
+
+#: socket.c:195
+#, c-format
+msgid "execvp(%s) failed\n"
+msgstr "execvp(%s) baþarýsýz oldu\n"
+
+#: socket.c:286
+#, c-format
+msgid "getaddrinfo(\"%s\",\"%s\") error: %s\n"
+msgstr ""
+
+#: socket.c:289
+msgid "Try adding the --service option (see also FAQ item R12).\n"
+msgstr ""
+
+#: socket.c:300 socket.c:303
+#, fuzzy, c-format
+msgid "unknown (%s)"
+msgstr "bilinmeyen"
+
+#: socket.c:306
+#, c-format
+msgid "Trying to connect to %s/%s..."
+msgstr ""
+
+#: socket.c:314
+#, fuzzy, c-format
+msgid "cannot create socket: %s\n"
+msgstr ""
+"%s'e bile gönderilemedi!\n"
+"\n"
+
+#: socket.c:330
+#, fuzzy
+msgid "connection failed.\n"
+msgstr "SSL baðlantýsý baþarýsýz oldu.\n"
+
+#: socket.c:332
+#, fuzzy, c-format
+msgid "connection to %s:%s [%s/%s] failed: %s.\n"
+msgstr "%2$s'ye %1$s baðlantýsý baþarýsýz oldu"
+
+#: socket.c:338
+#, fuzzy
+msgid "connected.\n"
+msgstr "SSL baðlantýsý baþarýsýz oldu.\n"
+
+#: socket.c:616
+#, c-format
+msgid "Issuer Organization: %s\n"
+msgstr "Çýkaran Kurum: %s\n"
+
+#: socket.c:619
+msgid "Warning: Issuer Organization Name too long (possibly truncated).\n"
+msgstr "Uyarý: Çýkaran Kurum Adý çok uzun (sonundan kesilmiþ olabilir).\n"
+
+#: socket.c:621
+msgid "Unknown Organization\n"
+msgstr "Bilinmeyen Kurum\n"
+
+#: socket.c:623
+#, c-format
+msgid "Issuer CommonName: %s\n"
+msgstr "Çýkaran `CommonName'i: %s\n"
+
+#: socket.c:626
+msgid "Warning: Issuer CommonName too long (possibly truncated).\n"
+msgstr "Uyarý: Çýkaran `CommonName'i çok uzun (sonundan kesilmiþ olabilir).\n"
+
+#: socket.c:628
+msgid "Unknown Issuer CommonName\n"
+msgstr "Bilinmeyen Çýkaran `CommonName'i\n"
+
+#: socket.c:632
+#, c-format
+msgid "Server CommonName: %s\n"
+msgstr "Sunucu `CommonName'i: %s\n"
+
+#: socket.c:637
+msgid "Bad certificate: Subject CommonName too long!\n"
+msgstr "Kötü sertifika: `Subject CommonName' çok uzun!\n"
+
+#: socket.c:643
+#, fuzzy
+msgid "Bad certificate: Subject CommonName contains NUL, aborting!\n"
+msgstr "Kötü sertifika: `Subject CommonName' çok uzun!\n"
+
+#: socket.c:664
+#, c-format
+msgid "Subject Alternative Name: %s\n"
+msgstr ""
+
+#: socket.c:670
+#, fuzzy
+msgid "Bad certificate: Subject Alternative Name contains NUL, aborting!\n"
+msgstr "Kötü sertifika: `Subject CommonName' çok uzun!\n"
+
+#: socket.c:698
+#, c-format
+msgid "Server CommonName mismatch: %s != %s\n"
+msgstr "Sunucu CommonName'i uyuþmazlýðý: %s != %s\n"
+
+#: socket.c:705
+msgid "Server name not set, could not verify certificate!\n"
+msgstr "Sunucu adý ayarlanmamýþ, sertifikayý doðrulayamýyorum!\n"
+
+#: socket.c:710
+msgid "Unknown Server CommonName\n"
+msgstr "Bilinmeyen Sunucu `CommonName'i\n"
+
+#: socket.c:712
+msgid "Server name not specified in certificate!\n"
+msgstr "Sunucu adý sertifikada belirtilmemiþ!\n"
+
+#: socket.c:724
+msgid "EVP_md5() failed!\n"
+msgstr "EVP_md5() baþarýsýz oldu!\n"
+
+#: socket.c:728
+msgid "Out of memory!\n"
+msgstr "Bellek yetmedi!\n"
+
+#: socket.c:736
+msgid "Digest text buffer too small!\n"
+msgstr "`Digest' metni tamponu çok küçük!\n"
+
+#: socket.c:742
+#, c-format
+msgid "%s key fingerprint: %s\n"
+msgstr "%s anahtarý parmak izi: %s\n"
+
+#: socket.c:746
+#, c-format
+msgid "%s fingerprints match.\n"
+msgstr "%s parmak izleri uyuþuyor.\n"
+
+#: socket.c:748
+#, c-format
+msgid "%s fingerprints do not match!\n"
+msgstr "%s parmak izleri uyuþmuyor!\n"
+
+#: socket.c:757
+#, fuzzy, c-format
+msgid "Server certificate verification error: %s\n"
+msgstr "Uyarý: sunucu sertifikasý doðrulamasý: %s\n"
+
+#: socket.c:763
+#, c-format
+msgid "unknown issuer (first %d characters): %s\n"
+msgstr "bilinmeyen çýkaran firma adý (ilk %d karakter): %s\n"
+
+#: socket.c:850
+msgid "File descriptor out of range for SSL"
+msgstr "Dosya belirteci SSL için sýnýrlar dýþýnda"
+
+#: socket.c:866
+#, fuzzy, c-format
+msgid "Invalid SSL protocol '%s' specified, using default (SSLv23).\n"
+msgstr ""
+"Geçersiz SSL protokolü '%s' belirtildi, öntanýmlý olan kullanýlýyor "
+"(SSLv23).\n"
+
+#: socket.c:942
+msgid "Certificate/fingerprint verification was somehow skipped!\n"
+msgstr "Sertifika/parmak izi doðrulamasý bir biçimde atlandý!\n"
+
+#: socket.c:1020
+msgid "Cygwin socket read retry\n"
+msgstr "Cygwin soketinden okuma yeniden deneniyor\n"
+
+#: socket.c:1023
+msgid "Cygwin socket read retry failed!\n"
+msgstr "Cygwin soketinden okuma baþarýsýz oldu!\n"
+
+#: transact.c:65
+#, fuzzy, c-format
+msgid "mapped address %s to local %s\n"
+msgstr "%s yerel %s'e eþlendi\n"
+
+#: transact.c:87
+#, c-format
+msgid "mapped %s to local %s\n"
+msgstr "%s yerel %s'e eþlendi\n"
+
+# kaynak koduna bakýlacak
+#: transact.c:154
+#, c-format
+msgid "passed through %s matching %s\n"
+msgstr "%2$s ile uyuþan %1$s geçirildi\n"
+
+#: transact.c:224
+#, c-format
+msgid ""
+"analyzing Received line:\n"
+"%s"
+msgstr ""
+"'Received' satýrý çözümleniyor:\n"
+"%s"
+
+#: transact.c:263
+#, c-format
+msgid "line accepted, %s is an alias of the mailserver\n"
+msgstr "satýr kabul edildi, %s posta sunucusu için bir takma ad\n"
+
+#: transact.c:269
+#, c-format
+msgid "line rejected, %s is not an alias of the mailserver\n"
+msgstr "satýr kabul edilmedi, %s posta sunucusu için bir takma ad deðil\n"
+
+#: transact.c:343
+msgid "no Received address found\n"
+msgstr "hiçbir Received adresi bulunamadý\n"
+
+#: transact.c:352
+#, c-format
+msgid "found Received address `%s'\n"
+msgstr "`%s' Received adresi bulundu\n"
+
+# delimiter = sýnýr belirteci  (Sankur'un sözlüðünden)
+#: transact.c:592
+msgid "incorrect header line found while scanning headers\n"
+msgstr "baþlýklar taranýrken geçersiz baþlýk satýrý bulundu\n"
+
+#: transact.c:594
+#, c-format
+msgid "line: %s"
+msgstr "satýr: %s"
+
+#: transact.c:1133
+#, c-format
+msgid "no local matches, forwarding to %s\n"
+msgstr "yerelde uyan bulunamadý, %s'e iletiliyor\n"
+
+#: transact.c:1148
+msgid "forwarding and deletion suppressed due to DNS errors\n"
+msgstr "iletme ve silme DNS hatalarý nedeniyle yapýlmýyor\n"
+
+#: transact.c:1258
+msgid "writing RFC822 msgblk.headers\n"
+msgstr "RFC822 msgblk.headers yazýlýyor\n"
+
+#: transact.c:1277
+msgid "no recipient addresses matched declared local names"
+msgstr ""
+"alýcý adreslerinden hiçbiri bildirilen yerel adlardan hiçbirine uymuyor"
+
+#: transact.c:1284
+#, c-format
+msgid "recipient address %s didn't match any local name"
+msgstr "alýcý adresi %s yerel adlardan hiçbirine uymuyor"
+
+#: transact.c:1293
+msgid "message has embedded NULs"
+msgstr "iletinin içinde NUL karakterleri var"
+
+# listener = dinleyici
+#: transact.c:1301
+msgid "SMTP listener rejected local recipient addresses: "
+msgstr "SMTP dinleyicisi yerel alýcý adreslerini reddetti: "
+
+#: transact.c:1440
+#, fuzzy
+msgid "error writing message text\n"
+msgstr "ileti metni yazýlýyor\n"
+
+#: uid.c:250
+#, c-format
+msgid "Old UID list from %s:"
+msgstr "%s'den eski UID listesi:"
+
+# kaynak koduna bakýlacak
+#: uid.c:255 uid.c:266 uid.c:523 uid.c:573
+msgid " <empty>"
+msgstr " <boþ>"
+
+#: uid.c:262
+msgid "Scratch list of UIDs:"
+msgstr "Müsvedde UID listesi:"
+
+#: uid.c:517 uid.c:569
+#, c-format
+msgid "Merged UID list from %s:"
+msgstr "%s'den UID listesi birleþtirildi:"
+
+#: uid.c:519
+#, c-format
+msgid "New UID list from %s:"
+msgstr "%s'den yeni UID listesi:"
+
+#: uid.c:548
+msgid "swapping UID lists\n"
+msgstr "UID listeleri takas ediliyor\n"
+
+#: uid.c:556
+msgid "not swapping UID lists, no UIDs seen this query\n"
+msgstr "UID listeleri takas edilmiyor, hiçbir UID bu sorguyu görmedi\n"
+
+#: uid.c:581
+msgid "discarding new UID list\n"
+msgstr "yeni UID listeleri siliniyor\n"
+
+#: uid.c:617
+msgid "Deleting fetchids file.\n"
+msgstr "fetchids dosyasý siliniyor.\n"
+
+#: uid.c:620
+#, fuzzy, c-format
+msgid "Error deleting %s: %s\n"
+msgstr "Credential'lar býrakýlýrken hata\n"
+
+#: uid.c:626
+msgid "Writing fetchids file.\n"
+msgstr "fetchids dosyasý yazýlýyor.\n"
+
+#: uid.c:645
+#, c-format
+msgid "Error writing to fetchids file %s, old file left in place.\n"
+msgstr ""
+
+#: uid.c:649
+#, c-format
+msgid "Cannot rename fetchids file %s to %s: %s\n"
+msgstr ""
+
+#: uid.c:653
+#, c-format
+msgid "Cannot open fetchids file %s for writing: %s\n"
+msgstr ""
+
+#: xmalloc.c:33
+msgid "malloc failed\n"
+msgstr "malloc baþarýsýz oldu\n"
+
+#: xmalloc.c:47
+msgid "realloc failed\n"
+msgstr "realloc baþarýsýz oldu\n"
+
+# delimiter = sýnýr belirteci  (Sankur'un sözlüðünden)
+#~ msgid "message delimiter found while scanning headers\n"
+#~ msgstr "baþlýklar taranýrken ileti sýnýr belirteci bulundu\n"
+
+#~ msgid ""
+#~ "Subject: Fetchmail oversized-messages warning.\n"
+#~ "\n"
+#~ "The following oversized messages remain on the mail server %s:"
+#~ msgstr ""
+#~ "Subject: Fetchmail çok büyük ileti uyarýsý.\n"
+#~ "\n"
+#~ "Aþaðýda yazýlý çok büyük iletiler sunucu %s üzerinde býrakýldý:"
+
+#~ msgid "header "
+#~ msgstr "baþlýk "
+
+#~ msgid "SIGPIPE thrown from an MDA or a stream socket error\n"
+#~ msgstr "bir MDA'dan SIGPIPE fýrlatýldý ya da stream soket hatasý\n"
+
+#~ msgid "internal inconsistency\n"
+#~ msgstr "iç tutarsýzlýk\n"
+
+#~ msgid "name is valid but has no IP address."
+#~ msgstr "ad geçerli ama IP adresi yok."
+
+# unrecoverable = düzeltilemez (Sankur'un sözlüðü 'kurtarýlamaz' diyor ama buraya pek
+# uymuyor bence...
+#~ msgid "unrecoverable name server error."
+#~ msgstr "düzeltilemeyen ad sunucusu hatasý."
+
+#~ msgid "temporary name server error."
+#~ msgstr "geçici ad sunucusu hatasý."
+
+#~ msgid "unknown DNS error %d."
+#~ msgstr "bilinmeyen DNS hatasý %d."
+
+# bir önceki ve bir sonraki iletilerle ilgili.
+# Bunun Türkçede tekil çerilmesi gerek, çünkü hemen önünde bir sayý olacak.
+#~ msgid "messages"
+#~ msgstr "ileti"
+
+# önceki iki ileti ile ilgili.
+#~ msgid "message"
+#~ msgstr "ileti"
+
+#~ msgid "Option --remote is not supported with ETRN\n"
+#~ msgstr "--remote seçeneði ETRN ile desteklenmiyor\n"
+
+#~ msgid "Cannot support ETRN without gethostbyname(2).\n"
+#~ msgstr "`gethostbyname(2)' olmadan ETRN'yi destekleyemem.\n"
+
+#~ msgid "Cannot support ODMR without gethostbyname(2).\n"
+#~ msgstr "`gethostbyname(2)' olmadan ODMR'yi destekleyemem.\n"
+
+#~ msgid " (using network security options %s)"
+#~ msgstr " (þu að güvenliði seçeneklerini kullanýyorum: %s)"
+
+#~ msgid " (using port %d)"
+#~ msgstr " (port %d kullanýlýyor)"
+
+#~ msgid "All"
+#~ msgstr "Hepsi"
+
+#~ msgid "Only new"
+#~ msgstr "Yalnýzca yeniler"
+
+#~ msgid "enabled"
+#~ msgstr "etkin"
+
+#~ msgid "disabled"
+#~ msgstr "etkin deðil"
+
+# 	    printf(GT_("  Nonempty Status lines will be %s (dropstatus %s)\n"),
+# 		   ctl->dropstatus ? GT_("discarded") : GT_("kept"),
+# 		   ctl->dropstatus ? "on" : "off");
+# 	    printf(GT_("  Delivered-To lines will be %s (dropdelivered %s)\n"),
+# 		   ctl->dropdelivered ? GT_("discarded") : GT_("kept"),
+# 		   ctl->dropdelivered ? "on" : "off");
+#
+# DIKKAT: 'discarded' ve 'kept'in durumlari özel; atýlacak ve tutulacak
+# olarak çevrilmeleri gerekiyor.
+#~ msgid "discarded"
+#~ msgstr "atýlacak"
+
+#~ msgid "kept"
+#~ msgstr "tutulacak"
+
+# Niçin böyle çevrildiðini anlamak için yukarýdaki iletiye
+# bakýnýz.
+#~ msgid "IP address.\n"
+#~ msgstr "Sunucu takma adlarý IP adresleri kullanýlarak karþýlaþtýrýlacak.\n"
+
+# Niçin böyle çevrildiðini anlamak için yukarýdaki iletiye
+# bakýnýz.
+#~ msgid "name.\n"
+#~ msgstr "Sunucu takma adlarý, adlarý kullanýlarak karþýlaþtýrýlacak.\n"
+
+# Bu ileti yukarýdaki "Envelope header is assumed to be: %" iletisine
+# baðlý.
+#~ msgid "Received"
+#~ msgstr "Received"
+
+#~ msgid "alloca failed"
+#~ msgstr "alloca baþarýsýz oldu"
+
+#~ msgid "warning: found \"%s\" before any host names"
+#~ msgstr "uyarý: herhangi bir makina adýndan önce \"%s\" bulundu"
+
+#~ msgid "Option --remote is not supported with ODMR\n"
+#~ msgstr "--remote seçeneði ODMR ile desteklenmiyor\n"
+
+#~ msgid "fetchmail: network security support is disabled\n"
+#~ msgstr "fetchmail: að güvenliði desteði etkin deðil\n"
+
+#~ msgid "  -T, --netsec      set IP security request\n"
+#~ msgstr "  -T, --netsec      IP güvenliði iste\n"
+
+#~ msgid "invalid security request"
+#~ msgstr "geçersiz güvenlik isteði"
+
+#~ msgid "network-security support disabled"
+#~ msgstr "að güvenliði desteðini etkisizleþtirildi"
+
+#~ msgid "partial error message buffer overflow"
+#~ msgstr "hata ileti tamponu taþmasý"
+
+#~ msgid "fetchmail: getaddrinfo(%s.%s)\n"
+#~ msgstr "fetchmail: getaddrinfo(%s.%s)\n"
+
+#~ msgid "fetchmail: illegal address length received for host %s\n"
+#~ msgstr "fetchmail: %s makinesi için geçersiz adres uzunluðu alýndý\n"
+
+#~ msgid "lstat: %s: %s\n"
+#~ msgstr "lstat: %s: %s\n"
+
+#~ msgid "Skipping message %d, length -1\n"
+#~ msgstr "Ýleti %d atlanýyor, uzunluk -1\n"
+
+#~ msgid "Server Certificate expired"
+#~ msgstr "Sunucu Seritifikasý'nýn kullaným süresi doldu"

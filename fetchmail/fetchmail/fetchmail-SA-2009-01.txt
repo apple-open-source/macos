@@ -1,0 +1,180 @@
+-----BEGIN PGP SIGNED MESSAGE-----
+Hash: SHA1
+
+fetchmail-SA-2009-01: Improper SSL certificate subject verification
+
+Topics:		Improper SSL certificate subject verification
+
+Author:		Matthias Andree
+Version:	1.0
+Announced:	2009-08-06
+Type:		Allows undetected Man-in-the-middle attacks against SSL/TLS.
+Impact:		Credential disclose to eavesdroppers.
+Danger:		medium
+CVSSv2 vectors:	(AV:N/AC:M/Au:N/C:P/I:N/A:N) (E:H/RL:OF/RC:C)
+
+CVE Name:	CVE-2009-2666
+URL:		http://www.fetchmail.info/fetchmail-SA-2009-01.txt
+Project URL:	http://www.fetchmail.info/
+
+Affects:	fetchmail releases up to and including 6.3.10
+
+Not affected:	fetchmail release 6.3.11 and newer
+
+Corrected:	2009-08-04 fetchmail SVN (rev 5389)
+
+References:	"Null Prefix Attacks Against SSL/TLS Certificates",
+		Moxie Marlinspike, 2009-07-29, Defcon 17, Blackhat 09.
+
+		CVE-2009-2408, Mozilla Firefox <3.5 and NSS <3.12.3
+		improper handling of '\0' characters in domain names in
+		the Subject CN field of X.509 certificates.
+
+
+0. Release history
+==================
+
+2009-08-05 0.1	first draft (visible in SVN)
+2009-08-06 1.0	first release
+
+
+1. Background
+=============
+
+fetchmail is a software package to retrieve mail from remote POP2, POP3,
+IMAP, ETRN or ODMR servers and forward it to local SMTP, LMTP servers or
+message delivery agents. It supports SSL and TLS security layers through
+the OpenSSL library, if enabled at compile time and if also enabled at
+run time.
+
+
+2. Problem description and Impact
+=================================
+
+Moxie Marlinspike demonstrated in July 2009 that some CAs would sign
+certificates that contain embedded NUL characters in the Common Name or
+subjectAltName fields of ITU-T X.509 certificates.
+
+Applications that would treat such X.509 strings as NUL-terminated C
+strings (rather than strings that contain an explicit length field)
+would only check the part up to and excluding the NUL character, so that
+certificate names such as www.good.example\0www.bad.example.com would be
+mistaken as a certificate name for www.good.example.  fetchmail also had
+this design and implementation flaw.
+
+Note that fetchmail should always be forced to use strict certificate
+validation through either of these option combinations:
+
+    --sslcertck --ssl --sslproto ssl3    (for service on SSL-wrapped ports)
+or
+    --sslcertck --sslproto tls1          (for STARTTLS-based services)
+
+(These are for the command line, in the rcfile, you will need to omit
+the respective leading --).
+
+The default is relaxed checking for compatibility with historic versions.
+
+
+3. Solution
+===========
+
+There are two alternatives, either of them by itself is sufficient:
+
+a. Apply the patch found in section B of this announcement to
+   fetchmail 6.3.10, recompile and reinstall it.
+
+b. Install fetchmail 6.3.11 or newer after it will have become available.
+   The fetchmail source code is always available from
+   <http://developer.berlios.de/project/showfiles.php?group_id=1824>.
+
+
+4. Workaround
+=============
+
+Obtain the server fingerprints through a separate secure channel and
+configure them with the sslfingerprint option, and enable the sslcertck
+option.
+
+
+A. Copyright, License and Warranty
+==================================
+
+(C) Copyright 2009 by Matthias Andree, <matthias.andree@gmx.de>.
+Some rights reserved.
+
+This work is licensed under the Creative Commons
+Attribution-Noncommercial-No Derivative Works 3.0 Germany License.
+To view a copy of this license, visit
+http://creativecommons.org/licenses/by-nc-nd/3.0/de/ or send a letter to
+
+Creative Commons
+171 Second Street
+Suite 300
+SAN FRANCISCO, CALIFORNIA 94105
+USA
+
+
+THIS WORK IS PROVIDED FREE OF CHARGE AND WITHOUT ANY WARRANTIES.
+Use the information herein at your own risk.
+
+
+B. Patch to remedy the problem
+==============================
+
+Note that when taking this from a GnuPG clearsigned file, the lines 
+starting with a "-" character are prefixed by another "- " (dash + 
+blank) combination. Either feed this file through GnuPG to strip them, 
+or strip them manually.
+
+Whitespace differences can usually be ignored by invoking "patch -l",
+so try this if the patch does not apply.
+
+
+Index: socket.c
+===================================================================
+- --- ./socket.c~
++++ ./socket.c
+@@ -632,6 +632,12 @@
+ 				report(stderr, GT_("Bad certificate: Subject CommonName too long!\n"));
+ 				return (0);
+ 			}
++			if ((size_t)i > strlen(buf)) {
++				/* Name contains embedded NUL characters, so we complain. This is likely
++				 * a certificate spoofing attack. */
++				report(stderr, GT_("Bad certificate: Subject CommonName contains NUL, aborting!\n"));
++				return 0;
++			}
+ 			if (_ssl_server_cname != NULL) {
+ 				char *p1 = buf;
+ 				char *p2 = _ssl_server_cname;
+@@ -643,11 +649,18 @@
+ 				 * first find a match among alternative names */
+ 				gens = (STACK_OF(GENERAL_NAME) *)X509_get_ext_d2i(x509_cert, NID_subject_alt_name, NULL, NULL);
+ 				if (gens) {
+- -					int i, r;
+- -					for (i = 0, r = sk_GENERAL_NAME_num(gens); i < r; ++i) {
+- -						const GENERAL_NAME *gn = sk_GENERAL_NAME_value(gens, i);
++					int j, r;
++					for (j = 0, r = sk_GENERAL_NAME_num(gens); j < r; ++j) {
++						const GENERAL_NAME *gn = sk_GENERAL_NAME_value(gens, j);
+ 						if (gn->type == GEN_DNS) {
+ 							char *p1 = (char *)gn->d.ia5->data;
+ 							char *p2 = _ssl_server_cname;
++							/* Name contains embedded NUL characters, so we complain. This
++							 * is likely a certificate spoofing attack. */
++							if ((size_t)gn->d.ia5->length != strlen(p1)) {
++								report(stderr, GT_("Bad certificate: Subject Alternative Name contains NUL, aborting!\n"));
++								sk_GENERAL_NAME_free(gens);
++								return 0;
++							}
+ 							if (outlevel >= O_VERBOSE)
+ 								report(stderr, "Subject Alternative Name: %s\n", p1);
+
+END OF fetchmail-SA-2009-01.txt
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2.0.9 (GNU/Linux)
+
+iEYEARECAAYFAkp6GP8ACgkQvmGDOQUufZVuQwCgsD/kO/+KHC0/gopx/uiQr9V7
+mXAAnjH6G5DfcxAjCzjmt9DKZHGsqoNv
+=6zGh
+-----END PGP SIGNATURE-----

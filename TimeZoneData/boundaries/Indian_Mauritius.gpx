@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.0">
+<trk>
+	<name>UTC +4 (all year) MUT</name>
+	<trkseg>
+		<trkpt lon="63.8415527344" lat="-19.5183754786"></trkpt>
+		<trkpt lon="63.8305664062" lat="-19.9733487861"></trkpt>
+		<trkpt lon="57.5134277344" lat="-20.6944615979"></trkpt>
+		<trkpt lon="57.0080566406" lat="-20.4167169889"></trkpt>
+		<trkpt lon="57.1508789062" lat="-19.6943142418"></trkpt>
+		<trkpt lon="57.9418945312" lat="-19.6218921803"></trkpt>
+		<trkpt lon="63.0505371094" lat="-19.4458742982"></trkpt>
+		<trkpt lon="63.8415527344" lat="-19.5183754786"></trkpt>
+	</trkseg>
+</trk>
+</gpx>

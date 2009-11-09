@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.0">
+<trk>
+	<name>UTC +13 (all year) Tonga</name>
+	<trkseg>
+		<trkpt lon="-176.506347656" lat="-15.262988555"></trkpt>
+		<trkpt lon="-175.034179688" lat="-15.1357643546"></trkpt>
+		<trkpt lon="-173.49609375" lat="-15.7499625727"></trkpt>
+		<trkpt lon="-173.605957031" lat="-18.8958925594"></trkpt>
+		<trkpt lon="-174.353027344" lat="-21.6574281974"></trkpt>
+		<trkpt lon="-176.923828125" lat="-21.6574281974"></trkpt>
+		<trkpt lon="-176.506347656" lat="-15.262988555"></trkpt>
+	</trkseg>
+</trk>
+</gpx>

@@ -381,7 +381,6 @@ static int imap_getauth(int sock, struct query *ctl, char *greeting)
     int ok = 0;
 #ifdef SSL_ENABLE
     int got_tls = 0;
-    char *realhost;
 #endif
     (void)greeting;
 
@@ -407,9 +406,15 @@ static int imap_getauth(int sock, struct query *ctl, char *greeting)
     }
 
 #ifdef SSL_ENABLE
-    realhost = ctl->server.via ? ctl->server.via : ctl->server.pollname;
-
     if (maybe_tls(ctl)) {
+	char *commonname;
+
+	commonname = ctl->server.pollname;
+	if (ctl->server.via)
+	    commonname = ctl->server.via;
+	if (ctl->sslcommonname)
+	    commonname = ctl->sslcommonname;
+
 	if (strstr(capabilities, "STARTTLS"))
 	{
 	    /* Use "tls1" rather than ctl->sslproto because tls1 is the only
@@ -418,7 +423,7 @@ static int imap_getauth(int sock, struct query *ctl, char *greeting)
 	     * (see below). */
 	    if (gen_transact(sock, "STARTTLS") == PS_SUCCESS
 		    && SSLOpen(sock, ctl->sslcert, ctl->sslkey, "tls1", ctl->sslcertck,
-			ctl->sslcertpath, ctl->sslfingerprint, realhost,
+			ctl->sslcertpath, ctl->sslfingerprint, commonname,
 			ctl->server.pollname, &ctl->remotename) != -1)
 	    {
 		/*
@@ -438,7 +443,7 @@ static int imap_getauth(int sock, struct query *ctl, char *greeting)
 		capa_probe(sock, ctl);
 		if (outlevel >= O_VERBOSE)
 		{
-		    report(stdout, GT_("%s: upgrade to TLS succeeded.\n"), realhost);
+		    report(stdout, GT_("%s: upgrade to TLS succeeded.\n"), commonname);
 		}
 	    }
 	}
@@ -447,11 +452,11 @@ static int imap_getauth(int sock, struct query *ctl, char *greeting)
 	    if (must_tls(ctl)) {
 		/* Config required TLS but we couldn't guarantee it, so we must
 		 * stop. */
-		report(stderr, GT_("%s: upgrade to TLS failed.\n"), realhost);
+		report(stderr, GT_("%s: upgrade to TLS failed.\n"), commonname);
 		return PS_SOCKET;
 	    } else {
 		if (outlevel >= O_VERBOSE) {
-		    report(stdout, GT_("%s: opportunistic upgrade to TLS failed, trying to continue\n"), realhost);
+		    report(stdout, GT_("%s: opportunistic upgrade to TLS failed, trying to continue\n"), commonname);
 		}
 		/* We don't know whether the connection is in a working state, so
 		 * test by issuing a NOOP. */
@@ -472,6 +477,15 @@ static int imap_getauth(int sock, struct query *ctl, char *greeting)
      * Try the protocol variants that don't require passwords first.
      */
     ok = PS_AUTHFAIL;
+
+    /* Yahoo hack - we'll just try ID if it was offered by the server,
+     * and IGNORE errors. */
+    {
+	char *tmp = strstr(capabilities, " ID");
+	if (tmp && !isalnum(tmp[3]) && strstr(ctl->server.via ? ctl->server.via : ctl->server.pollname, "yahoo.com")) {
+		(void)gen_transact(sock, "ID (\"guid\" \"1\")");
+	}
+    }
 
     if ((ctl->server.authenticate == A_ANY 
          || ctl->server.authenticate == A_EXTERNAL)
@@ -612,8 +626,8 @@ static int imap_getauth(int sock, struct query *ctl, char *greeting)
 	size_t rnl, pwl;
 	rnl = 2 * strlen(ctl->remotename) + 1;
 	pwl = 2 * strlen(ctl->password) + 1;
-	remotename = xmalloc(rnl);
-	password = xmalloc(pwl);
+	remotename = (char *)xmalloc(rnl);
+	password = (char *)xmalloc(pwl);
 
 	imap_canonicalize(remotename, ctl->remotename, rnl);
 	imap_canonicalize(password, ctl->password, pwl);
@@ -1148,6 +1162,13 @@ static int imap_fetch_body(int sock, struct query *ctl, int number, int *lenp)
     if (num != number)
 	return(PS_ERROR);
 
+    /* Understand "NIL" as length => no body present
+     * (MS Exchange, BerliOS Bug #11980) */
+    if (strstr(buf+10, "NIL)")) {
+	    *lenp = 0;
+	    return PS_SUCCESS;
+    }
+
     /*
      * Try to extract a length from the FETCH response.  RFC2060 requires
      * it to be present, but at least one IMAP server (Novell GroupWise)
@@ -1240,6 +1261,10 @@ static int imap_mark_seen(int sock, struct query *ctl, int number)
 /* mark the given message as seen */
 {
     (void)ctl;
+
+    /* expunges change the message numbers */
+    number -= expunged;
+
     return(gen_transact(sock,
 	imap_version == IMAP4
 	? "STORE %d +FLAGS.SILENT (\\Seen)"

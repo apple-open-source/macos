@@ -233,6 +233,7 @@ FILES_lib_objs = \
 	$(OBJDIR)/apr_ldap_option.o \
 	$(OBJDIR)/apr_ldap_url.o \
 	$(OBJDIR)/apr_ldap_rebind.o \
+	$(OBJDIR)/apr_ldap_stub.o \
 	$(EOLIST)
 
 #

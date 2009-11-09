@@ -3,7 +3,7 @@
 
 Summary: Apache Portable Runtime library
 Name: apr
-Version: 1.3.5
+Version: 1.3.8
 Release: 1
 License: Apache Software License
 Group: System Environment/Libraries
@@ -47,7 +47,7 @@ make %{?_smp_mflags} && make dox
 # Run non-interactive tests
 pushd test
 make %{?_smp_mflags} all CFLAGS=-fno-strict-aliasing
-./testall -v || exit 1
+make check || exit 1
 popd
 
 %install

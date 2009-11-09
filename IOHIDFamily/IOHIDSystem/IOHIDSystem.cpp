@@ -75,6 +75,9 @@
 #include "IOHIDKeyboard.h"
 #include "IOHIDFamilyTrace.h"
 
+#include <sys/kdebug.h>
+#include <sys/proc.h>
+
 #ifdef __cplusplus
     extern "C"
     {
@@ -603,7 +606,8 @@ bool IOHIDSystem::start(IOService * provider)
           mouseButtonTimeout = mouseTimeout->unsigned64BitValue();
       }
       else {
-          setProperty(kIOHIDSystemMouseButtonTimeout, mouseButtonTimeout, sizeof(mouseButtonTimeout) * 8);
+          mouseTimeout = OSNumber::withNumber(mouseButtonTimeout, sizeof(mouseButtonTimeout) * 8);
+          setProperty(kIOHIDSystemMouseButtonTimeout, mouseTimeout);
       }
 
         /*
@@ -667,7 +671,9 @@ bool IOHIDSystem::start(IOService * provider)
             
             
         // Allocated and publish the systemInfo array
-        if ( systemInfo = OSArray::withCapacity(4) ) {
+		systemInfo = OSArray::withCapacity(4);
+		if (systemInfo)
+		{
             setProperty(kNXSystemInfoKey, systemInfo);
             systemInfo->release();
         }
@@ -844,8 +850,7 @@ bool IOHIDSystem::handleTerminateNotification(
  */
 void IOHIDSystem::free()
 {
-
-// we are going away. stop the workloop.
+	// we are going away. stop the workloop.
     if (workLoop) {
         workLoop->disableAllEventSources();
     }
@@ -2269,7 +2274,7 @@ IOReturn IOHIDSystem::message(UInt32 type, IOService * provider,
       status = super::message(type, provider, argument);
       break;
   }
-
+    
   return status;
 }
 
@@ -2874,7 +2879,8 @@ void IOHIDSystem::scrollWheelEventGated(short	deltaAxis1,
                                         OSObject * sender)
 {
     NXEventData wheelData;
-        
+    bool momentum = (options & kScrollTypeMomentumAny) ? true : false;
+
     if (!eventsOpen)
         return;
 
@@ -2882,7 +2888,8 @@ void IOHIDSystem::scrollWheelEventGated(short	deltaAxis1,
         return;
 
     if ((deltaAxis1 == 0) && (deltaAxis2 == 0) && (deltaAxis3 == 0) && 
-        (pointDeltaAxis1 == 0) && (pointDeltaAxis2 == 0) && (pointDeltaAxis3 == 0))
+        (pointDeltaAxis1 == 0) && (pointDeltaAxis2 == 0) && (pointDeltaAxis3 == 0) &&
+        !momentum)
     {
         return;
     } 
@@ -2899,8 +2906,10 @@ void IOHIDSystem::scrollWheelEventGated(short	deltaAxis1,
     wheelData.scrollWheel.pointDeltaAxis1 = pointDeltaAxis1;
     wheelData.scrollWheel.pointDeltaAxis2 = pointDeltaAxis2;
     wheelData.scrollWheel.pointDeltaAxis3 = pointDeltaAxis3;
-    wheelData.scrollWheel.reserved1       = (UInt16)options & kScrollTypeContinuous;
+    wheelData.scrollWheel.reserved1       = (UInt16)options & (kScrollTypeContinuous | kScrollTypeMomentumAny);
     updateScrollEventForSender(sender, &wheelData);
+	if (momentum)
+		wheelData.scrollWheel.reserved8[2]    = IOHIDevice::GenerateKey(sender);
             
     postEvent(             (options & kScrollTypeZoom) ? NX_ZOOM : NX_SCROLLWHEELMOVED,
             /* at */       (IOGPoint *)&evg->cursorLoc,
@@ -3768,9 +3777,10 @@ void IOHIDSystem::_setButtonState(int buttons,
     // into a button event.  Prior to this we were sending null data to
     // post event.  This won't be much different as the only non-zero
     // contents should be the tablet area of the event.
-    if (cachedMouseEvent = GetCachedMouseEventForService(cachedButtonStates, sender)) {
-        if (evData.mouse.subType != NX_SUBTYPE_MOUSE_TOUCH)
-            evData.mouse.subType = cachedMouseEvent->subType;
+    if (cachedMouseEvent ||
+        (NULL != (cachedMouseEvent = GetCachedMouseEventForService(cachedButtonStates, sender)))) {
+		if (evData.mouse.subType != NX_SUBTYPE_MOUSE_TOUCH)
+	        evData.mouse.subType = cachedMouseEvent->subType;
         evData.mouse.subx = (cachedMouseEvent->pointerFraction.x >> 8) & 0xff;
         evData.mouse.suby = (cachedMouseEvent->pointerFraction.y >> 8) & 0xff;
         evData.mouse.pressure = cachedMouseEvent->lastPressure;
@@ -4261,8 +4271,7 @@ IOReturn IOHIDSystem::extPostEventGated(void *p1,void *p2, void *p3)
     UInt32      buttonState         = 0;
     UInt32      newFlags            = 0;
     AbsoluteTime ts                 = *(AbsoluteTime *)p3;
-    CachedMouseEventStruct *cachedMouseEvent;
-            
+	CachedMouseEventStruct *cachedMouseEvent = NULL;        
 
     if ( eventsOpen == false )
         return kIOReturnNotOpen;

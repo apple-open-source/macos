@@ -3699,19 +3699,23 @@ def update_accept_conflicts(sbox):
                                      beta_path_backup)
 
   # pi: --accept=edit
-  # Run editor and accept the edited file.
-  svntest.actions.run_and_verify_svn(None,
-                                     ['G    %s\n' % (pi_path_backup,),
-                                      'Updated to revision 2.\n'],
-                                     [],
-                                     'update', '--accept=edit',
-                                     pi_path_backup)
+  # Run editor and accept the edited file. The merge tool will leave
+  # conflicts in place, so expect a message on stderr, but expect
+  # svn to exit with an exit code of 0.
+  svntest.actions.run_and_verify_svn2(None,
+                                      ['G    %s\n' % (pi_path_backup,),
+                                       'Updated to revision 2.\n'],
+                                      "system(.*) returned.*", 0,
+                                      'update', '--accept=edit',
+                                      pi_path_backup)
 
   # rho: --accept=launch
-  # Run SVN_MERGE and accept the merged file.
+  # Run the external merge tool, it should leave conflict markers in place.
   svntest.actions.run_and_verify_svn(None,
-                                     ['G    %s\n' % (rho_path_backup,),
-                                      'Updated to revision 2.\n'],
+                                     ['C    %s\n' % (rho_path_backup,),
+                                      'Updated to revision 2.\n',
+                                      'Summary of conflicts:\n',
+                                      '  Text conflicts: 1\n'],
                                      [],
                                      'update', '--accept=launch',
                                      rho_path_backup)
@@ -3753,7 +3757,8 @@ def update_accept_conflicts(sbox):
 
   # Set the expected extra files for the test
   extra_files = ['iota.*\.r1', 'iota.*\.r2', 'iota.*\.mine',
-                 'lambda.*\.r1', 'lambda.*\.r2', 'lambda.*\.mine']
+                 'lambda.*\.r1', 'lambda.*\.r2', 'lambda.*\.mine',
+                 'rho.*\.r1', 'rho.*\.r2', 'rho.*\.mine']
 
   # Set the expected status for the test
   expected_status = svntest.actions.get_virginal_state(wc_backup, 2)
@@ -3766,7 +3771,7 @@ def update_accept_conflicts(sbox):
   expected_status.tweak('A/B/E/alpha', status='M ')
   expected_status.tweak('A/B/E/beta', status='  ')
   expected_status.tweak('A/D/G/pi', status='M ')
-  expected_status.tweak('A/D/G/rho', status='M ')
+  expected_status.tweak('A/D/G/rho', status='C ')
 
   # Set the expected output for the test
   expected_output = wc.State(wc_backup, {})
@@ -4457,7 +4462,7 @@ def tree_conflict_uc1_update_deleted_tree(sbox):
   expected_status = None
 
   run_and_verify_update(A, expected_output, expected_disk, expected_status)
-  run_and_verify_resolve([A], '--recursive', '--accept=mine-full', A)
+  run_and_verify_resolve([A], '--recursive', '--accept=working', A)
 
   resolved_status = svntest.wc.State('', {
       ''            : Item(status='  ', wc_rev=2),
@@ -4583,7 +4588,7 @@ def tree_conflict_uc2_schedule_re_add(sbox):
   expected_disk = None
   expected_status = None
   run_and_verify_update('A', expected_output, expected_disk, expected_status)
-  run_and_verify_resolve([dir], '--recursive', '--accept=mine-full', dir)
+  run_and_verify_resolve([dir], '--recursive', '--accept=working', dir)
 
   os.chdir(saved_cwd)
 
@@ -4725,6 +4730,26 @@ def set_deep_depth_on_target_with_shallow_children(sbox):
                                         '--set-depth', 'infinity',
                                         A_path)
 
+#----------------------------------------------------------------------
+
+def update_wc_of_dir_to_rev_not_containing_this_dir(sbox):
+  "update wc of dir to rev not containing this dir"
+
+  sbox.build()
+
+  # Create working copy of 'A' directory
+  A_url = sbox.repo_url + "/A"
+  other_wc_dir = sbox.add_wc_path("other")
+  svntest.actions.run_and_verify_svn(None, None, [], "co", A_url, other_wc_dir)
+  
+  # Delete 'A' directory from repository
+  svntest.actions.run_and_verify_svn(None, None, [], "rm", A_url, "-m", "")
+
+  # Try to update working copy of 'A' directory
+  svntest.actions.run_and_verify_svn(None, None,
+                                     "svn: Target path '/A' does not exist",
+                                     "up", other_wc_dir)
+
 #######################################################################
 # Run the tests
 
@@ -4789,6 +4814,7 @@ test_list = [ None,
               tree_conflict_uc1_update_deleted_tree,
               tree_conflict_uc2_schedule_re_add,
               set_deep_depth_on_target_with_shallow_children,
+              update_wc_of_dir_to_rev_not_containing_this_dir,
              ]
 
 if __name__ == '__main__':

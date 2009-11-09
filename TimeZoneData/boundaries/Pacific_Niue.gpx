@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.0">
+<trk>
+	<name>UTC -11 (all year) NUT</name>
+	<trkseg>
+		<trkpt lon="-170.705566406" lat="-19.4769502065"></trkpt>
+		<trkpt lon="-168.618164062" lat="-19.4769502065"></trkpt>
+		<trkpt lon="-168.57421875" lat="-18.375379094"></trkpt>
+		<trkpt lon="-170.793457031" lat="-18.396230138"></trkpt>
+		<trkpt lon="-170.705566406" lat="-19.4769502065"></trkpt>
+	</trkseg>
+</trk>
+</gpx>

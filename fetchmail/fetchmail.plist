@@ -3,7 +3,7 @@
 <plist version="1.0">
 <dict>
 	<key>OpenSourceImportDate</key>
-	<string>2007-04-11</string>
+	<string>2009-09-24</string>
 	<key>OpenSourceLicense</key>
 	<string>GPL</string>
 	<key>OpenSourceLicenseFile</key>
@@ -11,11 +11,11 @@
 	<key>OpenSourceProject</key>
 	<string>fetchmail</string>
 	<key>OpenSourceSHA1</key>
-	<string>b8e8c51ed6cf53fc398c821fdb29d166c6713bb0</string>
+	<string>e769bcb81b393a55e02ec4bf7e94a52cf0c8ef8f</string>
 	<key>OpenSourceURL</key>
-	<string>http://download2.berlios.de/fetchmail/fetchmail-6.3.8.tar.bz2</string>
+	<string>http://download2.berlios.de/fetchmail/fetchmail-6.3.11.tar.bz2</string>
 	<key>OpenSourceVersion</key>
-	<string>6.3.8</string>
+	<string>6.3.11</string>
 	<key>OpenSourceWebsiteURL</key>
 	<string>http://fetchmail.berlios.de</string>
 	<key>OpenSourceChanges</key>

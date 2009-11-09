@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.0">
+<trk>
+	<name>UTC -6 CST (all year) No America</name>
+	<trkseg>
+		<trkpt lon="-109.885253906" lat="59.9660097027"></trkpt>
+		<trkpt lon="-102.041015625" lat="59.9879976312"></trkpt>
+		<trkpt lon="-101.997070312" lat="56.6683020758"></trkpt>
+		<trkpt lon="-101.645507812" lat="52.3890110622"></trkpt>
+		<trkpt lon="-101.359863281" lat="48.9946359835"></trkpt>
+		<trkpt lon="-104.304199219" lat="48.987427006"></trkpt>
+		<trkpt lon="-108.588867188" lat="48.9946359835"></trkpt>
+		<trkpt lon="-110.006103516" lat="49.0090508094"></trkpt>
+		<trkpt lon="-109.995117188" lat="50.1487464007"></trkpt>
+		<trkpt lon="-110.006103516" lat="52.3017609637"></trkpt>
+		<trkpt lon="-110.006103516" lat="52.3017609637"></trkpt>
+		<trkpt lon="-109.143676758" lat="52.4057701904"></trkpt>
+		<trkpt lon="-108.66027832" lat="52.3856584728"></trkpt>
+		<trkpt lon="-108.352661133" lat="52.9651837196"></trkpt>
+		<trkpt lon="-109.204101562" lat="53.6185793649"></trkpt>
+		<trkpt lon="-110.000610352" lat="53.5500993146"></trkpt>
+		<trkpt lon="-110.01159668" lat="54.8702852927"></trkpt>
+		<trkpt lon="-110.006103516" lat="57.9177655021"></trkpt>
+		<trkpt lon="-109.995117188" lat="58.7966706337"></trkpt>
+		<trkpt lon="-109.995117188" lat="59.9605104389"></trkpt>
+		<trkpt lon="-109.885253906" lat="59.9660097027"></trkpt>
+	</trkseg>
+</trk>
+</gpx>

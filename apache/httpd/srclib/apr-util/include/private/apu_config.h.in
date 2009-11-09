@@ -3,7 +3,7 @@
 /* Define if the system crypt() function is threadsafe */
 #undef APU_CRYPT_THREADSAFE
 
-/* Define if modular components are built as DSOs */
+/* Define to 1 if modular components are built as DSOs */
 #undef APU_DSO_BUILD
 
 /* Define to be absolute path to DSO directory */
@@ -27,6 +27,9 @@
 /* Define if expat.h is available */
 #undef HAVE_EXPAT_H
 
+/* Define to 1 if you have the <freetds/sybdb.h> header file. */
+#undef HAVE_FREETDS_SYBDB_H
+
 /* Define to 1 if you have the <iconv.h> header file. */
 #undef HAVE_ICONV_H
 
@@ -45,9 +48,6 @@
 /* Define to 1 if you have the <ldap_ssl.h> header file. */
 #undef HAVE_LDAP_SSL_H
 
-/* Define to 1 if you have the `lber' library (-llber). */
-#undef HAVE_LIBLBER
-
 /* Define to 1 if you have the <libpq-fe.h> header file. */
 #undef HAVE_LIBPQ_FE_H
 
@@ -59,6 +59,18 @@
 
 /* Define to 1 if you have the <mysql/mysql.h> header file. */
 #undef HAVE_MYSQL_MYSQL_H
+
+/* Define to 1 if you have the <mysql/my_global.h> header file. */
+#undef HAVE_MYSQL_MY_GLOBAL_H
+
+/* Define to 1 if you have the <mysql/my_sys.h> header file. */
+#undef HAVE_MYSQL_MY_SYS_H
+
+/* Define to 1 if you have the <my_global.h> header file. */
+#undef HAVE_MY_GLOBAL_H
+
+/* Define to 1 if you have the <my_sys.h> header file. */
+#undef HAVE_MY_SYS_H
 
 /* Define to 1 if you have the `nl_langinfo' function. */
 #undef HAVE_NL_LANGINFO

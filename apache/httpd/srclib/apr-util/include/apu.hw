@@ -99,25 +99,31 @@
 /*
  * we always have SDBM (it's in our codebase)
  */
-#define APU_HAVE_SDBM    1
-#define APU_HAVE_GDBM    0
-#define APU_HAVE_NDBM    0
-#define APU_HAVE_DB      0
+#define APU_HAVE_SDBM           1
+
+#ifndef APU_DSO_MODULE_BUILD
+#define APU_HAVE_GDBM           0
+#define APU_HAVE_NDBM           0
+#define APU_HAVE_DB             0
 
 #if APU_HAVE_DB
 #define APU_HAVE_DB_VERSION     0
 #endif
+#endif
 
-#ifndef APU_DBD_DSO_BUILD
+/* 
+ * we always enable dynamic driver loads within apr_dbd
+ * Win32 always has odbc (it's always installed)
+ */
+#ifndef APU_DSO_MODULE_BUILD
 #define APU_HAVE_PGSQL          0
 #define APU_HAVE_MYSQL          0
 #define APU_HAVE_SQLITE3        0
 #define APU_HAVE_SQLITE2        0
 #define APU_HAVE_ORACLE         0
 #define APU_HAVE_FREETDS        0
-#endif
-/* Windows always has ODBC */
 #define APU_HAVE_ODBC           1
+#endif
 
 #define APU_HAVE_APR_ICONV      1
 #define APU_HAVE_ICONV          0

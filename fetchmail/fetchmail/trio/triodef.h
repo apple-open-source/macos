@@ -1,6 +1,6 @@
 /*************************************************************************
  *
- * $Id: triodef.h,v 1.18 2003/03/01 15:34:01 breese Exp $
+ * $Id: triodef.h,v 1.33 2009/05/24 11:39:24 breese Exp $
  *
  * Copyright (C) 2001 Bjorn Reese <breese@users.sourceforge.net>
  *
@@ -19,61 +19,122 @@
 #define TRIO_TRIODEF_H
 
 /*************************************************************************
- * Platform and compiler support detection
+ * Compiler support detection
  */
+
 #if defined(__GNUC__)
 # define TRIO_COMPILER_GCC
-#elif defined(__SUNPRO_C)
-# define TRIO_COMPILER_SUNPRO
-#elif defined(__SUNPRO_CC)
-# define TRIO_COMPILER_SUNPRO
-# define __SUNPRO_C __SUNPRO_CC
-#elif defined(__xlC__) || defined(__IBMC__) || defined(__IBMCPP__)
+#endif
+
+#if defined(__SUNPRO_CC)
+# define TRIO_COMPILER_SUNPRO __SUNPRO_CC
+#else
+# if defined(__SUNPRO_C)
+#  define TRIO_COMPILER_SUNPRO __SUNPRO_C
+# endif
+#endif
+
+#if defined(__xlC__) || defined(__IBMC__) || defined(__IBMCPP__)
 # define TRIO_COMPILER_XLC
-#elif defined(_AIX) && !defined(__GNUC__)
-# define TRIO_COMPILER_XLC /* Workaround for old xlc */
-#elif defined(__DECC) || defined(__DECCXX)
+#else
+# if defined(_AIX) && !defined(__GNUC__)
+#  define TRIO_COMPILER_XLC /* Workaround for old xlc */
+# endif
+#endif
+
+#if defined(__DECC) || defined(__DECCXX)
 # define TRIO_COMPILER_DECC
-#elif defined(__osf__) && defined(__LANGUAGE_C__)
-# define TRIO_COMPILER_DECC /* Workaround for old DEC C compilers */
-#elif defined(_MSC_VER)
+#else
+# if defined(__osf__) && defined(__LANGUAGE_C__) && !defined(__GNUC__)
+#  define TRIO_COMPILER_DECC /* Workaround for old DEC C compilers */
+# endif
+#endif
+
+#if defined(__HP_aCC) || defined(__HP_cc)
+# define TRIO_COMPILER_HP
+#endif
+
+#if defined(sgi) || defined(__sgi)
+# define TRIO_COMPILER_MIPSPRO
+#endif
+
+#if defined(_MSC_VER)
 # define TRIO_COMPILER_MSVC
-#elif defined(__BORLANDC__)
+#endif
+
+#if defined(__BORLANDC__)
 # define TRIO_COMPILER_BCB
 #endif
 
-#if defined(VMS) || defined(__VMS)
-/*
- * VMS is placed first to avoid identifying the platform as Unix
- * based on the DECC compiler later on.
+/*************************************************************************
+ * Platform support detection
  */
+
+#if defined(VMS) || defined(__VMS)
 # define TRIO_PLATFORM_VMS
-#elif defined(unix) || defined(__unix) || defined(__unix__)
+#endif
+
+#if defined(unix) || defined(__unix) || defined(__unix__)
 # define TRIO_PLATFORM_UNIX
-#elif defined(TRIO_COMPILER_XLC) || defined(_AIX)
+#endif
+
+#if defined(TRIO_COMPILER_XLC) || defined(_AIX)
 # define TRIO_PLATFORM_UNIX
-#elif defined(TRIO_COMPILER_DECC) || defined(__osf___)
+#endif
+
+#if defined(TRIO_COMPILER_DECC) || defined(__osf___)
+# if !defined(TRIO_PLATFORM_VMS)
+#  define TRIO_PLATFORM_UNIX
+# endif
+#endif
+
+#if defined(__NetBSD__)
 # define TRIO_PLATFORM_UNIX
-#elif defined(__NetBSD__)
+#endif
+
+#if defined(__Lynx__)
 # define TRIO_PLATFORM_UNIX
-#elif defined(__QNX__)
+# define TRIO_PLATFORM_LYNX
+#endif
+
+#if defined(__APPLE__) && defined(__MACH__)
+# define TRIO_PLATFORM_UNIX
+#endif
+
+#if defined(__QNX__)
 # define TRIO_PLATFORM_UNIX
 # define TRIO_PLATFORM_QNX
-#elif defined(__CYGWIN__)
+#endif
+
+#if defined(__CYGWIN__)
 # define TRIO_PLATFORM_UNIX
-#elif defined(AMIGA) && defined(TRIO_COMPILER_GCC)
+#endif
+
+#if defined(AMIGA) && defined(TRIO_COMPILER_GCC)
 # define TRIO_PLATFORM_UNIX
-#elif defined(TRIO_COMPILER_MSVC) || defined(WIN32) || defined(_WIN32)
+#endif
+
+#if defined(TRIO_COMPILER_MSVC) || defined(WIN32) || defined(_WIN32)
 # define TRIO_PLATFORM_WIN32
-#elif defined(mpeix) || defined(__mpexl)
+#endif
+
+#if defined(_WIN32_WCE)
+# define TRIO_PLATFORM_WINCE
+#endif
+
+#if defined(mpeix) || defined(__mpexl)
 # define TRIO_PLATFORM_MPEIX
 #endif
 
 #if defined(_AIX)
 # define TRIO_PLATFORM_AIX
-#elif defined(__hpux)
+#endif
+
+#if defined(__hpux)
 # define TRIO_PLATFORM_HPUX
-#elif defined(sun) || defined(__sun__)
+#endif
+
+#if defined(sun) || defined(__sun__)
 # if defined(__SVR4) || defined(__svr4__)
 #  define TRIO_PLATFORM_SOLARIS
 # else
@@ -81,33 +142,63 @@
 # endif
 #endif
 
-#if defined(__STDC__) || defined(TRIO_COMPILER_MSVC) || defined(TRIO_COMPILER_BCB)
-# define TRIO_COMPILER_SUPPORTS_C89
-# if defined(__STDC_VERSION__)
-#  define TRIO_COMPILER_SUPPORTS_C90
-#  if (__STDC_VERSION__ >= 199409L)
-#   define TRIO_COMPILER_SUPPORTS_C94
-#  endif
-#  if (__STDC_VERSION__ >= 199901L)
-#   define TRIO_COMPILER_SUPPORTS_C99
-#  endif
-# elif defined(TRIO_COMPILER_SUNPRO)
-#  if (__SUNPRO_C >= 0x420)
-#   define TRIO_COMPILER_SUPPORTS_C94
-#  endif
+/*************************************************************************
+ * Standards support detection
+ */
+
+#if defined(__STDC__) \
+ || defined(_MSC_EXTENSIONS) \
+ || defined(TRIO_COMPILER_BORLAND)
+# define PREDEF_STANDARD_C89
+#endif
+#if defined(__STDC_VERSION__)
+# define PREDEF_STANDARD_C90
+#endif
+#if (__STDC_VERSION__ - 0 >= 199409L)
+# define PREDEF_STANDARD_C94
+#endif
+#if (__STDC_VERSION__ - 0 >= 199901L)
+# define PREDEF_STANDARD_C99
+#endif
+#if defined(TRIO_COMPILER_SUNPRO) && (TRIO_COMPILER_SUNPRO >= 0x420)
+# if !defined(PREDEF_STANDARD_C94)
+#  define PREDEF_STANDARD_C94
 # endif
 #endif
 
-#if defined(_XOPEN_SOURCE)
-# if defined(_XOPEN_SOURCE_EXTENDED)
-#  define TRIO_COMPILER_SUPPORTS_UNIX95
+#if defined(__cplusplus)
+# define PREDEF_STANDARD_CXX
+#endif
+#if __cplusplus - 0 >= 199711L
+# define PREDEF_STANDARD_CXX89
+#endif
+
+#if defined(TRIO_PLATFORM_UNIX)
+# include <unistd.h>
+#endif
+
+#if defined(_POSIX_VERSION)
+# define PREDEF_STANDARD_POSIX _POSIX_VERSION
+# if (_POSIX_VERSION >= 199506L)
+#  define PREDEF_STANDARD_POSIX_1996
 # endif
-# if (_XOPEN_VERSION >= 500)
-#  define TRIO_COMPILER_SUPPORTS_UNIX98
-# endif
-# if (_XOPEN_VERSION >= 600)
-#  define TRIO_COMPILER_SUPPORTS_UNIX01
-# endif
+#endif
+
+#if (_XOPEN_VERSION - 0 >= 3) || defined(_XOPEN_XPG3)
+# define PREDEF_STANDARD_XPG3
+#endif
+#if (_XOPEN_VERSION - 0 >= 4) || defined(_XOPEN_XPG4)
+# define PREDEF_STANDARD_XPG4
+#endif
+#if (_XOPEN_VERSION - 0 > 4) \
+ || (defined(_XOPEN_UNIX) && (_XOPEN_VERSION - 0 == 4))
+# define PREDEF_STANDARD_UNIX95
+#endif
+#if (_XOPEN_VERSION - 0 >= 500)
+# define PREDEF_STANDARD_UNIX98
+#endif
+#if (_XOPEN_VERSION - 0 >= 600)
+# define PREDEF_STANDARD_UNIX03
 #endif
 
 /*************************************************************************
@@ -121,7 +212,7 @@
 # define TRIO_PRIVATE static
 #endif
 
-#if !(defined(TRIO_COMPILER_SUPPORTS_C89) || defined(__cplusplus))
+#if !(defined(PREDEF_STANDARD_C89) || defined(PREDEF_STANDARD_CXX))
 # define TRIO_COMPILER_ANCIENT
 #endif
 
@@ -140,6 +231,7 @@ typedef char * trio_pointer_t;
 # define TRIO_ARGS4(list,a1,a2,a3,a4) list a1; a2; a3; a4;
 # define TRIO_ARGS5(list,a1,a2,a3,a4,a5) list a1; a2; a3; a4; a5;
 # define TRIO_ARGS6(list,a1,a2,a3,a4,a5,a6) list a1; a2; a3; a4; a5; a6;
+# define TRIO_ARGS7(list,a1,a2,a3,a4,a5,a6,a7) list a1; a2; a3; a4; a5; a6; a7;
 # define TRIO_VARGS2(list,a1,a2) list a1; a2
 # define TRIO_VARGS3(list,a1,a2,a3) list a1; a2; a3
 # define TRIO_VARGS4(list,a1,a2,a3,a4) list a1; a2; a3; a4
@@ -162,6 +254,7 @@ typedef void * trio_pointer_t;
 # define TRIO_ARGS4(list,a1,a2,a3,a4) (a1,a2,a3,a4)
 # define TRIO_ARGS5(list,a1,a2,a3,a4,a5) (a1,a2,a3,a4,a5)
 # define TRIO_ARGS6(list,a1,a2,a3,a4,a5,a6) (a1,a2,a3,a4,a5,a6)
+# define TRIO_ARGS7(list,a1,a2,a3,a4,a5,a6,a7) (a1,a2,a3,a4,a5,a6,a7)
 # define TRIO_VARGS2 TRIO_ARGS2
 # define TRIO_VARGS3 TRIO_ARGS3
 # define TRIO_VARGS4 TRIO_ARGS4
@@ -171,15 +264,20 @@ typedef void * trio_pointer_t;
 # define TRIO_VA_END(x) va_end(x)
 #endif
 
-#if defined(TRIO_COMPILER_SUPPORTS_C99) || defined(__cplusplus)
+#if defined(PREDEF_STANDARD_C99) || defined(PREDEF_STANDARD_CXX)
 # define TRIO_INLINE inline
-#elif defined(TRIO_COMPILER_GCC)
-# define TRIO_INLINE __inline__
-#elif defined(TRIO_COMPILER_MSVC)
-# define TRIO_INLINE _inline
-#elif defined(TRIO_COMPILER_BCB)
-# define TRIO_INLINE __inline
 #else
+# if defined(TRIO_COMPILER_GCC)
+#  define TRIO_INLINE __inline__
+# endif
+# if defined(TRIO_COMPILER_MSVC)
+#  define TRIO_INLINE _inline
+# endif
+# if defined(TRIO_COMPILER_BCB)
+#  define TRIO_INLINE __inline
+# endif
+#endif
+#if !defined(TRIO_INLINE)
 # define TRIO_INLINE
 #endif
 
@@ -194,17 +292,13 @@ typedef void * trio_pointer_t;
  */
 # pragma message disable (UNDERFLOW, FLOATOVERFL)
 
-# if (__CRTL_VER > 80000000)
+# if (__CRTL_VER < 80210001)
 /*
  * Although the compiler supports C99 language constructs, the C
  * run-time library does not contain all C99 functions.
- *
- * This was the case for 70300022. Update the 80000000 value when
- * it has been accurately determined what version of the library
- * supports C99.
  */
-#  if defined(TRIO_COMPILER_SUPPORTS_C99)
-#   undef TRIO_COMPILER_SUPPORTS_C99
+#  if defined(PREDEF_STANDARD_C99)
+#   undef PREDEF_STANDARD_C99
 #  endif
 # endif
 #endif
@@ -212,7 +306,7 @@ typedef void * trio_pointer_t;
 /*
  * Not all preprocessors supports the LL token.
  */
-#if defined(TRIO_COMPILER_BCB)
+#if defined(TRIO_COMPILER_MSVC) || defined(TRIO_COMPILER_BCB)
 #else
 # define TRIO_COMPILER_SUPPORTS_LL
 #endif

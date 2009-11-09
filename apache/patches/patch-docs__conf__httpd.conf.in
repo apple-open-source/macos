@@ -1,5 +1,5 @@
---- docs/conf/httpd.conf.in.orig	2005-11-29 08:10:50.000000000 -0800
-+++ docs/conf/httpd.conf.in	2006-05-23 15:01:12.000000000 -0700
+--- docs/conf/httpd.conf.in.orig	2007-12-21 03:43:00.000000000 -0800
++++ docs/conf/httpd.conf.in	2009-09-22 17:16:52.000000000 -0700
 @@ -63,8 +63,8 @@
  # It is usually good practice to create a dedicated user and group for
  # running httpd, as with most system services.
@@ -8,7 +8,7 @@
 -Group daemon
 +User _www
 +Group _www
-
+ 
  </IfModule>
  </IfModule>
 @@ -142,7 +142,7 @@
@@ -20,7 +20,17 @@
  
      #
      # AllowOverride controls what directives may be placed in .htaccess files.
-@@ -368,19 +368,19 @@
+@@ -360,6 +360,9 @@
+ #EnableMMAP off
+ #EnableSendfile off
+ 
++# 6894961
++TraceEnable off
++
+ # Supplemental configuration
+ #
+ # The configuration files in the @rel_sysconfdir@/extra/ directory can be 
+@@ -368,19 +371,19 @@
  # necessary.
  
  # Server-pool management (MPM specific)
@@ -44,7 +54,7 @@
  
  # Real-time info on requests and configuration
  #Include @rel_sysconfdir@/extra/httpd-info.conf
-@@ -389,7 +389,7 @@
+@@ -389,7 +392,7 @@
  #Include @rel_sysconfdir@/extra/httpd-vhosts.conf
  
  # Local access to the Apache HTTP Server Manual
@@ -53,7 +63,7 @@
  
  # Distributed authoring and versioning (WebDAV)
  #Include @rel_sysconfdir@/extra/httpd-dav.conf
-@@ -408,3 +408,5 @@
+@@ -408,3 +411,5 @@
  SSLRandomSeed startup builtin
  SSLRandomSeed connect builtin
  </IfModule>

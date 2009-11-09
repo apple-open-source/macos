@@ -170,7 +170,14 @@ static kim_error kim_os_preferences_copy_value_for_file (CFStringRef         in_
         
         if (value && CFGetTypeID (value) != in_type) {
             err = check_error (KIM_PREFERENCES_READ_ERR);
-        }
+	    if (in_type == CFBooleanGetTypeID() && CFGetTypeID(value) == CFNumberGetTypeID()) {
+		int num;
+		if (CFNumberGetValue(value, kCFNumberIntType, &num)) {
+		    value = num ? kCFBooleanTrue : kCFBooleanFalse;
+		    err = 0;
+		}
+	    }
+	}
     }
     
     
@@ -460,6 +467,13 @@ static kim_error kim_os_preferences_copy_value_for_dict_key (CFDictionaryRef    
         value = CFDictionaryGetValue (in_dictionary, key);
         if (value && CFGetTypeID (value) != in_type) {
             err = check_error (KIM_PREFERENCES_READ_ERR);
+	    if (in_type == CFBooleanGetTypeID() && CFGetTypeID(value) == CFNumberGetTypeID()) {
+		int num;
+		if (CFNumberGetValue(value, kCFNumberIntType, &num)) {
+		    value = num ? kCFBooleanTrue : kCFBooleanFalse;
+		    err = 0;
+		}
+	    }
         }
     }
     

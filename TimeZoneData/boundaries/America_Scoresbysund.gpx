@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.0">
+<trk>
+	<name>UTC -1 (winter) Greenland</name>
+	<trkseg>
+		<trkpt lon="-21.62109375" lat="72.9131806334"></trkpt>
+		<trkpt lon="-22.1923828125" lat="73.048236343"></trkpt>
+		<trkpt lon="-23.4228515625" lat="73.3215531"></trkpt>
+		<trkpt lon="-24.609375" lat="73.4691097707"></trkpt>
+		<trkpt lon="-27.4987792969" lat="73.5159346479"></trkpt>
+		<trkpt lon="-27.7514648438" lat="73.5221682137"></trkpt>
+		<trkpt lon="-29.3334960938" lat="73.5221682137"></trkpt>
+		<trkpt lon="-29.5092773438" lat="70.3261372549"></trkpt>
+		<trkpt lon="-26.9384765625" lat="70.3150380883"></trkpt>
+		<trkpt lon="-26.6198730469" lat="70.31133703"></trkpt>
+		<trkpt lon="-25.1916503906" lat="70.6199068182"></trkpt>
+		<trkpt lon="-24.1149902344" lat="70.6199068182"></trkpt>
+		<trkpt lon="-23.37890625" lat="70.3962925196"></trkpt>
+		<trkpt lon="-21.3244628906" lat="70.3999782375"></trkpt>
+		<trkpt lon="-21.62109375" lat="72.9131806334"></trkpt>
+	</trkseg>
+</trk>
+</gpx>

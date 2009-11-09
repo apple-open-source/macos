@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.0">
+<trk>
+	<name>UTC -9.5 (all year) Marquesas</name>
+	<trkseg>
+		<trkpt lon="-141.064453125" lat="-7.73276506273"></trkpt>
+		<trkpt lon="-140.383300781" lat="-7.59121797094"></trkpt>
+		<trkpt lon="-138.702392578" lat="-8.93934010595"></trkpt>
+		<trkpt lon="-138.361816406" lat="-10.7037917117"></trkpt>
+		<trkpt lon="-139.482421875" lat="-10.8980421597"></trkpt>
+		<trkpt lon="-140.537109375" lat="-9.58991730709"></trkpt>
+		<trkpt lon="-141.064453125" lat="-7.73276506273"></trkpt>
+	</trkseg>
+</trk>
+</gpx>

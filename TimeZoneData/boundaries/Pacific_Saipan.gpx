@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.0">
+<trk>
+	<name>UTC +10 (all year) ChST</name>
+	<trkseg>
+		<trkpt lon="144.272460938" lat="20.8382778061"></trkpt>
+		<trkpt lon="145.546875" lat="20.7766590519"></trkpt>
+		<trkpt lon="146.469726562" lat="17.1617859127"></trkpt>
+		<trkpt lon="146.6015625" lat="14.7961276036"></trkpt>
+		<trkpt lon="144.84375" lat="12.747516275"></trkpt>
+		<trkpt lon="143.61328125" lat="13.0259659263"></trkpt>
+		<trkpt lon="144.997558594" lat="15.7711091736"></trkpt>
+		<trkpt lon="144.733886719" lat="19.6011941613"></trkpt>
+		<trkpt lon="144.272460938" lat="20.8382778061"></trkpt>
+	</trkseg>
+</trk>
+</gpx>

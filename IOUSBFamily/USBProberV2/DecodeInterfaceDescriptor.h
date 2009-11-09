@@ -33,7 +33,7 @@
 
 }
 
-+ (void)decodeBytes:(Byte *)p forDevice:(BusProbeDevice *)thisDevice;
++ (void)decodeBytes:(Byte *)p forDevice:(BusProbeDevice *)thisDevice withDeviceInterface:(IOUSBDeviceRef)deviceIntf;
 
 @end
 

@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.0">
+<trk>
+	<name>UTC +8 (all year) VOST</name>
+	<trkseg>
+		<trkpt lon="119.619140625" lat="-82.4256290003"></trkpt>
+		<trkpt lon="102.83203125" lat="-82.4256290003"></trkpt>
+		<trkpt lon="101.6015625" lat="-72.1009436001"></trkpt>
+		<trkpt lon="101.865234375" lat="-69.8396219407"></trkpt>
+		<trkpt lon="118.30078125" lat="-69.7789517765"></trkpt>
+		<trkpt lon="119.619140625" lat="-82.4256290003"></trkpt>
+	</trkseg>
+</trk>
+</gpx>

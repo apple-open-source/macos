@@ -314,9 +314,6 @@ svn_config__sys_config_path(const char **path_p,
                             const char *fname,
                             apr_pool_t *pool)
 {
-  /* ### This never actually returns error in practice.  Perhaps the
-     prototype should change? */
-
   *path_p = NULL;
 
   /* Note that even if fname is null, svn_path_join_many will DTRT. */
@@ -505,7 +502,7 @@ svn_config_ensure(const char *config_dir, apr_pool_t *pool)
   if (! path)
     return SVN_NO_ERROR;
 
-  err = svn_io_check_path(path, &kind, pool);
+  err = svn_io_check_resolved_path(path, &kind, pool);
   if (err)
     {
       /* Don't throw an error, but don't continue. */
@@ -1012,7 +1009,7 @@ svn_config_ensure(const char *config_dir, apr_pool_t *pool)
         "### passed to the tunnel agent as <user>@<hostname>.)  If the"      NL
         "### built-in ssh scheme were not predefined, it could be defined"   NL
         "### as:"                                                            NL
-        "# ssh = $SVN_SSH ssh"                                               NL
+        "# ssh = $SVN_SSH ssh -q"                                            NL
         "### If you wanted to define a new 'rsh' scheme, to be used with"    NL
         "### 'svn+rsh:' URLs, you could do so as follows:"                   NL
         "# rsh = rsh"                                                        NL

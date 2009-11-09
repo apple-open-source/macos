@@ -1517,7 +1517,8 @@ IOFBBuildModeList( IOFBConnectRef connectRef )
     }
 
     if ( (kIOFBConnectStateOnline & connectRef->state)
-     &&	((kIOScaleRotateFlags & connectRef->transform) || connectRef->useScalerUnderscan) )
+        &&      ((kIOScaleRotateFlags & connectRef->transform) 
+                 || (connectRef->useScalerUnderscan && (kIOFBScalerUnderscan & connectRef->transform))) )
     {
 	for( i = 0; i < (modeCount + arbModeCount); i++)
 	{

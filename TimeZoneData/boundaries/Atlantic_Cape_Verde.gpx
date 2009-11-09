@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.0">
+<trk>
+	<name>UTC-1 (all year) Cape Verde</name>
+	<trkseg>
+		<trkpt lon="-26.3232421875" lat="18.1040870158"></trkpt>
+		<trkpt lon="-21.4013671875" lat="18.3545255291"></trkpt>
+		<trkpt lon="-21.4892578125" lat="13.4109940343"></trkpt>
+		<trkpt lon="-26.19140625" lat="13.7100353425"></trkpt>
+		<trkpt lon="-26.3232421875" lat="18.1040870158"></trkpt>
+	</trkseg>
+</trk>
+</gpx>

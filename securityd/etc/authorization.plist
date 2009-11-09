@@ -379,7 +379,7 @@ See remaining rules for examples.
 			<key>shared</key>
 			<false/>
 			<key>timeout</key>
-			<integer>0</integer>
+			<integer>60</integer>
 		</dict>
 		<key>com.apple.docset.install</key>
 		<dict>

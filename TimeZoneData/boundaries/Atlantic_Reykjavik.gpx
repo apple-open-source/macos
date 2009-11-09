@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.0">
+<trk>
+	<name>UTC +0 (all year) Iceland</name>
+	<trkseg>
+		<trkpt lon="-8.4375" lat="67.609220605"></trkpt>
+		<trkpt lon="-26.103515625" lat="67.5085683629"></trkpt>
+		<trkpt lon="-26.54296875" lat="62.9152330395"></trkpt>
+		<trkpt lon="-8.7890625" lat="62.5123179384"></trkpt>
+		<trkpt lon="-8.4375" lat="67.609220605"></trkpt>
+	</trkseg>
+</trk>
+</gpx>

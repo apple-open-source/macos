@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.0">
+<trk>
+	<name>UTC +12 (all year) TVT</name>
+	<trkseg>
+		<trkpt lon="179.692382812" lat="-8.34195307547"></trkpt>
+		<trkpt lon="179.780273438" lat="-10.8440963207"></trkpt>
+		<trkpt lon="179.439697266" lat="-10.9519782214"></trkpt>
+		<trkpt lon="179.154052734" lat="-10.8009326407"></trkpt>
+		<trkpt lon="178.934326172" lat="-8.47237228291"></trkpt>
+		<trkpt lon="179.088134766" lat="-8.28759884936"></trkpt>
+		<trkpt lon="179.692382812" lat="-8.34195307547"></trkpt>
+	</trkseg>
+</trk>
+</gpx>

@@ -176,21 +176,41 @@ static const char *add_redirect_internal(cmd_parms *cmd,
     alias_server_conf *serverconf = ap_get_module_config(s->module_config,
                                                          &alias_module);
     int status = (int) (long) cmd->info;
+    int grokarg1 = 1;
     ap_regex_t *r = NULL;
     const char *f = arg2;
     const char *url = arg3;
 
-    if (!strcasecmp(arg1, "gone"))
-        status = HTTP_GONE;
-    else if (!strcasecmp(arg1, "permanent"))
+    /*
+     * Logic flow:
+     *   Go ahead and try to grok the 1st arg, in case it is a
+     *   Redirect status. Now if we have 3 args, we expect that
+     *   we were able to understand that 1st argument (it's something
+     *   we expected, so if not, then we bail
+     */
+    if (!strcasecmp(arg1, "permanent"))
         status = HTTP_MOVED_PERMANENTLY;
     else if (!strcasecmp(arg1, "temp"))
         status = HTTP_MOVED_TEMPORARILY;
     else if (!strcasecmp(arg1, "seeother"))
         status = HTTP_SEE_OTHER;
+    else if (!strcasecmp(arg1, "gone"))
+        status = HTTP_GONE;
     else if (apr_isdigit(*arg1))
         status = atoi(arg1);
-    else {
+    else
+        grokarg1 = 0;
+
+    if (arg3 && !grokarg1)
+        return "Redirect: invalid first argument (of three)";
+
+    /*
+     * if we don't have the 3rd arg and we didn't understand the 1st
+     * one, then assume URL-path URL. This also handles case, eg, GONE
+     * we even though we don't have a 3rd arg, we did understand the 1st
+     * one, so we don't want to re-arrange
+     */
+    if (!arg3 && !grokarg1) {
         f = arg1;
         url = arg2;
     }
@@ -405,8 +425,29 @@ static int translate_alias_redir(request_rec *r)
 
     if ((ret = try_alias_list(r, serverconf->redirects, 1, &status)) != NULL) {
         if (ap_is_HTTP_REDIRECT(status)) {
-            /* include QUERY_STRING if any */
-            if (r->args) {
+            char *orig_target = ret;
+            if (ret[0] == '/') {
+
+                ret = ap_construct_url(r->pool, ret, r);
+                ap_log_rerror(APLOG_MARK, APLOG_WARNING, 0, r,
+                              "incomplete redirection target of '%s' for "
+                              "URI '%s' modified to '%s'",
+                              orig_target, r->uri, ret);
+            }
+            if (!ap_is_url(ret)) {
+                ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r,
+                              "cannot redirect '%s' to '%s'; "
+                              "target is not a valid absoluteURI or abs_path",
+                              r->uri, ret);
+                /* restore the config value, so as not to get a
+                 * "regression" on existing "working" configs.
+                 */
+                ret = orig_target;
+            }
+            /* append requested query only, if the config didn't
+             * supply its own.
+             */
+            if (r->args && !ap_strchr(ret, '?')) {
                 ret = apr_pstrcat(r->pool, ret, "?", r->args, NULL);
             }
             apr_table_setn(r->headers_out, "Location", ret);

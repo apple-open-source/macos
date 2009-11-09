@@ -232,7 +232,12 @@ XSASL_SERVER_IMPL *xsasl_cyrus_server_init(const char *unused_server_type,
      */
     if (msg_verbose)
 	msg_info("%s: SASL config file is %s.conf", myname, path_info);
+
+#ifdef __APPLE_OS_X_SERVER__
+    if ((sasl_status = sasl_server_init_alt(callbacks, path_info)) != SASL_OK) {
+#else
     if ((sasl_status = sasl_server_init(callbacks, path_info)) != SASL_OK) {
+#endif /* __APPLE_OS_X_SERVER__ */
 	msg_warn("SASL per-process initialization failed: %s",
 		 xsasl_cyrus_strerror(sasl_status));
 	return (0);

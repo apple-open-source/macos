@@ -2204,5 +2204,6 @@
 25452|CoreLogic, Inc.
 27253|Shanghai Jujo Electronics Co., Ltd.
 32902|Intel Corporation
+32903|Intel Corporation
 38672|Moschip Semiconductor Technology
 60186|Empia Technology, Inc.

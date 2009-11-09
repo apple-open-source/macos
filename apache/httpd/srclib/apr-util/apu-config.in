@@ -31,6 +31,7 @@ LIBS="@APRUTIL_EXPORT_LIBS@"
 INCLUDES="@APRUTIL_INCLUDES@"
 LDFLAGS="@APRUTIL_LDFLAGS@"
 LDAP_LIBS="@LDADD_ldap@"
+DBM_LIBS="@LDADD_dbm_db@ @LDADD_dbm_gdbm@ @LDADD_dbm_ndbm@"
 
 APRUTIL_LIBNAME="@APRUTIL_LIBNAME@"
 
@@ -56,6 +57,8 @@ Known values for OPTION are:
   --libs            print library information
   --avoid-ldap      do not include ldap library information with --libs
   --ldap-libs       print additional library information to link with ldap
+  --avoid-dbm       do not include DBM library information with --libs
+  --dbm-libs        print additional library information to link with DBM
   --srcdir          print APR-util source directory
   --link-ld         print link switch(es) for linking to APR-util
   --link-libtool    print the libtool inputs for linking to APR-util
@@ -115,11 +118,17 @@ while test $# -gt 0; do
     --avoid-ldap)
     LDAP_LIBS=""
     ;;
+    --avoid-dbm)
+    DBM_LIBS=""
+    ;;
     --libs)
-    flags="$flags $LDAP_LIBS $LIBS"
+    flags="$flags $LDAP_LIBS $DBM_LIBS $LIBS"
     ;;
     --ldap-libs)
     flags="$flags $LDAP_LIBS"
+    ;;
+    --dbm-libs)
+    flags="$flags $DBM_LIBS"
     ;;
     --includedir)
     if test "$location" = "installed"; then

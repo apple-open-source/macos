@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.0">
+<trk>
+	<name>UTC +8:45 (Summer 9:45) [new]</name>
+	<trkseg>
+		<trkpt lon="128.990478516" lat="-31.4099121941"></trkpt>
+		<trkpt lon="126.408691406" lat="-31.4099121941"></trkpt>
+		<trkpt lon="126.397705078" lat="-32.3428413564"></trkpt>
+		<trkpt lon="127.210693359" lat="-32.3892391099"></trkpt>
+		<trkpt lon="129.0234375" lat="-31.8215645149"></trkpt>
+		<trkpt lon="128.990478516" lat="-31.4099121941"></trkpt>
+	</trkseg>
+</trk>
+</gpx>

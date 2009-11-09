@@ -422,10 +422,16 @@ static int stream_reqbody_cl(apr_pool_t *p,
     apr_off_t bytes_streamed = 0;
 
     if (old_cl_val) {
+        char *endstr;
+
         add_cl(p, bucket_alloc, header_brigade, old_cl_val);
-        if (APR_SUCCESS != (status = apr_strtoff(&cl_val, old_cl_val, NULL,
-                                                 0))) {
-            return HTTP_INTERNAL_SERVER_ERROR;
+        status = apr_strtoff(&cl_val, old_cl_val, &endstr, 10);
+        
+        if (status || *endstr || endstr == old_cl_val || cl_val < 0) {
+            ap_log_rerror(APLOG_MARK, APLOG_ERR, status, r,
+                          "proxy: could not parse request Content-Length (%s)",
+                          old_cl_val);
+            return HTTP_BAD_REQUEST;
         }
     }
     terminate_headers(bucket_alloc, header_brigade);
@@ -453,8 +459,13 @@ static int stream_reqbody_cl(apr_pool_t *p,
          *
          * Prevents HTTP Response Splitting.
          */
-        if (bytes_streamed > cl_val)
-             continue;
+        if (bytes_streamed > cl_val) {
+            ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r,
+                          "proxy: read more bytes of request body than expected "
+                          "(got %" APR_OFF_T_FMT ", expected %" APR_OFF_T_FMT ")",
+                          bytes_streamed, cl_val);
+            return HTTP_INTERNAL_SERVER_ERROR;
+        }
 
         if (header_brigade) {
             /* we never sent the header brigade, so go ahead and
@@ -720,11 +731,20 @@ int ap_proxy_http_request(apr_pool_t *p, request_rec *r,
     e = apr_bucket_pool_create(buf, strlen(buf), p, c->bucket_alloc);
     APR_BRIGADE_INSERT_TAIL(header_brigade, e);
     if (conf->preserve_host == 0) {
-        if (uri->port_str && uri->port != DEFAULT_HTTP_PORT) {
-            buf = apr_pstrcat(p, "Host: ", uri->hostname, ":", uri->port_str,
-                              CRLF, NULL);
+        if (ap_strchr_c(uri->hostname, ':')) { /* if literal IPv6 address */
+            if (uri->port_str && uri->port != DEFAULT_HTTP_PORT) {
+                buf = apr_pstrcat(p, "Host: [", uri->hostname, "]:", 
+                                  uri->port_str, CRLF, NULL);
+            } else {
+                buf = apr_pstrcat(p, "Host: [", uri->hostname, "]", CRLF, NULL);
+            }
         } else {
-            buf = apr_pstrcat(p, "Host: ", uri->hostname, CRLF, NULL);
+            if (uri->port_str && uri->port != DEFAULT_HTTP_PORT) {
+                buf = apr_pstrcat(p, "Host: ", uri->hostname, ":", 
+                                  uri->port_str, CRLF, NULL);
+            } else {
+                buf = apr_pstrcat(p, "Host: ", uri->hostname, CRLF, NULL);
+            }
         }
     }
     else {
@@ -933,7 +953,7 @@ int ap_proxy_http_request(apr_pool_t *p, request_rec *r,
      * encoding has been done by the extensions' handler, and
      * do not modify add_te_chunked's logic
      */
-    if (old_te_val && strcmp(old_te_val, "chunked") != 0) {
+    if (old_te_val && strcasecmp(old_te_val, "chunked") != 0) {
         ap_log_error(APLOG_MARK, APLOG_ERR, 0, r->server,
                      "proxy: %s Transfer-Encoding is not supported",
                      old_te_val);
@@ -1622,7 +1642,7 @@ apr_status_t ap_proxy_http_process_response(apr_pool_t * p, request_rec *r,
              */
             const char *policy = apr_table_get(r->subprocess_env,
                                                "proxy-interim-response");
-            ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, NULL,
+            ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r,
                          "proxy: HTTP: received interim %d response",
                          r->status);
             if (!policy || !strcasecmp(policy, "RFC")) {
@@ -1632,7 +1652,7 @@ apr_status_t ap_proxy_http_process_response(apr_pool_t * p, request_rec *r,
              * policies and maybe also add option to bail out with 502
              */
             else if (strcasecmp(policy, "Suppress")) {
-                ap_log_error(APLOG_MARK, APLOG_WARNING, 0, NULL,
+                ap_log_rerror(APLOG_MARK, APLOG_WARNING, 0, r,
                              "undefined proxy interim response policy");
             }
         }
@@ -1966,6 +1986,15 @@ static int proxy_http_handler(request_rec *r, proxy_worker *worker,
         if ((status = ap_proxy_connection_create(proxy_function, backend,
                                                  c, r->server)) != OK)
             goto cleanup;
+        /*
+         * On SSL connections set a note on the connection what CN is
+         * requested, such that mod_ssl can check if it is requested to do
+         * so.
+         */
+        if (is_ssl) {
+            apr_table_set(backend->connection->notes, "proxy-request-hostname",
+                          uri->hostname);
+        }
     }
 
     /* Step Four: Send the Request */

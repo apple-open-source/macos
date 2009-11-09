@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.0">
+<trk>
+	<name>UTC -10 (all year) CKT</name>
+	<trkseg>
+		<trkpt lon="-163.322753906" lat="-17.5183441879"></trkpt>
+		<trkpt lon="-159.455566406" lat="-18.396230138"></trkpt>
+		<trkpt lon="-156.203613281" lat="-19.5390841355"></trkpt>
+		<trkpt lon="-156.115722656" lat="-23.1807635831"></trkpt>
+		<trkpt lon="-163.608398438" lat="-23.3019011242"></trkpt>
+		<trkpt lon="-163.322753906" lat="-17.5183441879"></trkpt>
+	</trkseg>
+</trk>
+</gpx>

@@ -337,7 +337,32 @@ protected:
 	
 	// OSMetaClassDeclareReservedUsed(IOAudioEngine, 12);
     virtual IOReturn createUserClient(task_t task, void *securityID, UInt32 type, IOAudioEngineUserClient **newUserClient, OSDictionary *properties);
+
+public:
 	
+	// OSMetaClassDeclareReservedUsed(IOAudioEngine, 13);
+	/*! 
+	 * @function setAttributeForConnection
+	 * @abstract Generic method to set some attribute of the audio engine, specific to one connection.
+	 * @discussion IOAudioEngine subclasses may implement this method to allow arbitrary attribute/value pairs to be set, specific to one connection. 
+	 * @param attribute Defines the attribute to be set. 
+	 * @param value The new value for the attribute.
+	 * @result an IOReturn code.
+	 */
+	
+    virtual IOReturn setAttributeForConnection( SInt32 connectIndex, UInt32 attribute, uintptr_t value );
+	
+	// OSMetaClassDeclareReservedUsed(IOAudioEngine, 14);
+	/*! @function getAttributeForConnection
+	 * @abstract Generic method to retrieve some attribute of the audio engine, specific to one connection.
+	 * @discussion IOAudioEngine subclasses may implement this method to allow arbitrary attribute/value pairs to be returned, specific to one connection. 
+	 * @param attribute Defines the attribute to be returned. Some defined attributes are:<br> 
+	 * @param value Returns the value for the attribute.
+	 * @result an IOReturn code.
+	 */
+	
+    virtual IOReturn getAttributeForConnection( SInt32 connectIndex, UInt32 attribute, uintptr_t * value );
+
 private:
 	OSMetaClassDeclareReservedUsed(IOAudioEngine, 0);
 	OSMetaClassDeclareReservedUsed(IOAudioEngine, 1);
@@ -352,9 +377,9 @@ private:
 	OSMetaClassDeclareReservedUsed(IOAudioEngine, 10);
 	OSMetaClassDeclareReservedUsed(IOAudioEngine, 11);
 	OSMetaClassDeclareReservedUsed(IOAudioEngine, 12);
+	OSMetaClassDeclareReservedUsed(IOAudioEngine, 13);
+	OSMetaClassDeclareReservedUsed(IOAudioEngine, 14);
 
-	OSMetaClassDeclareReservedUnused(IOAudioEngine, 13);
-	OSMetaClassDeclareReservedUnused(IOAudioEngine, 14);
 	OSMetaClassDeclareReservedUnused(IOAudioEngine, 15);
 	OSMetaClassDeclareReservedUnused(IOAudioEngine, 16);
 	OSMetaClassDeclareReservedUnused(IOAudioEngine, 17);

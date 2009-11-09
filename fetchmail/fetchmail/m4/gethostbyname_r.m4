@@ -17,7 +17,7 @@ dnl
 AC_DEFUN([ACX_WHICH_GETHOSTBYNAME_R],
 [AC_CACHE_CHECK(number of arguments to gethostbyname_r,
                 acx_which_gethostbyname_r, [
-	AC_TRY_COMPILE([
+	AC_TRY_LINK([
 #		include <netdb.h> 
   	], 	[
 
@@ -29,7 +29,7 @@ AC_DEFUN([ACX_WHICH_GETHOSTBYNAME_R],
 		],acx_which_gethostbyname_r=3, 
 			[
 dnl			acx_which_gethostbyname_r=0
-  AC_TRY_COMPILE([
+  AC_TRY_LINK([
 #   include <netdb.h>
   ], [
 	char *name;
@@ -42,7 +42,7 @@ dnl			acx_which_gethostbyname_r=0
   
   [
 dnl  acx_which_gethostbyname_r=0
-  AC_TRY_COMPILE([
+  AC_TRY_LINK([
 #   include <netdb.h>
   ], [
 			char *name;

@@ -136,8 +136,8 @@ static RETSIGTYPE donothing(int sig)
 static void printcopyright(FILE *fp) {
 	fprintf(fp, GT_("Copyright (C) 2002, 2003 Eric S. Raymond\n"
 		   "Copyright (C) 2004 Matthias Andree, Eric S. Raymond, Robert M. Funk, Graham Wilson\n"
-		   "Copyright (C) 2005-2006 Sunil Shetye\n"
-		   "Copyright (C) 2005-2007 Matthias Andree\n"
+		   "Copyright (C) 2005 - 2006 Sunil Shetye\n"
+		   "Copyright (C) 2005 - 2009 Matthias Andree\n"
 		   ));
 	fprintf(fp, GT_("Fetchmail comes with ABSOLUTELY NO WARRANTY. This is free software, and you\n"
 		   "are welcome to redistribute it under certain conditions. For details,\n"
@@ -276,6 +276,9 @@ int main(int argc, char **argv)
 #ifdef KERBEROS_V5
 	"+KRB5"
 #endif /* KERBEROS_V5 */
+#ifndef HAVE_RES_SEARCH
+	"-DNS"
+#endif
 	".\n";
 	printf(GT_("This is fetchmail release %s"), VERSION);
 	fputs(features, stdout);
@@ -292,12 +295,17 @@ int main(int argc, char **argv)
 	fflush(stdout);
 
 	/* this is an attempt to help remote debugging */
-	system("uname -a");
+	if (system("uname -a")) { /* NOOP to quench GCC complaint */ }
     }
 
     /* avoid parsing the config file if all we're doing is killing a daemon */
     if (!quitonly)
 	implicitmode = load_params(argc, argv, optind);
+
+    /* precedence: logfile (if effective) overrides syslog. */
+    if (run.logfile && run.poll_interval && !nodetach) {
+	run.use_syslog = 0;
+    }
 
 #if defined(HAVE_SYSLOG)
     /* logging should be set up early in case we were restarted from exec */
@@ -532,7 +540,7 @@ int main(int argc, char **argv)
 		const char* password_prompt = GT_("Enter password for %s@%s: ");
 		size_t pplen = strlen(password_prompt) + strlen(ctl->remotename) + strlen(ctl->server.pollname) + 1;
 
-		tmpbuf = xmalloc(pplen);
+		tmpbuf = (char *)xmalloc(pplen);
 		snprintf(tmpbuf, pplen, password_prompt,
 			ctl->remotename, ctl->server.pollname);
 		ctl->password = xstrdup((char *)fm_getpassword(tmpbuf));
@@ -553,8 +561,13 @@ int main(int argc, char **argv)
     /* avoid zombies from plugins */
     deal_with_sigchld();
 
+    /* Fix up log destination - if the if() is true, the precedence rule
+     * above hasn't killed off the syslog option, because the logfile
+     * option is ineffective (because we're not detached or not in
+     * deamon mode), so kill it for the benefit of other parts of the
+     * code. */
     if (run.logfile && run.use_syslog)
-	fprintf(stderr, GT_("fetchmail: Warning: syslog and logfile are set. Check both for logs!\n"));
+	run.logfile = 0;
 
     /*
      * Maybe time to go to demon mode...
@@ -607,6 +620,10 @@ int main(int argc, char **argv)
 
     /* here's the exclusion lock */
     fm_lock_or_die();
+
+    if (check_only && outlevel >= O_VERBOSE) {
+	report(stdout, GT_("--check mode enabled, not fetching mail\n"));
+    }
 
     /*
      * Query all hosts. If there's only one, the error return will
@@ -666,20 +683,6 @@ int main(int argc, char **argv)
 	    execvp(argv[0], argv);
 	    report(stderr, GT_("attempt to re-exec fetchmail failed\n"));
 	}
-
-#if defined(HAVE_RES_SEARCH) && defined(USE_TCPIP_FOR_DNS)
-	/*
-	 * This was an efficiency hack that backfired.  The theory
-	 * was that using TCP/IP for DNS queries would get us better
-	 * reliability and shave off some per-UDP-packet costs.
-	 * Unfortunately it interacted badly with diald, which effectively 
-	 * filters out DNS queries over TCP/IP for reasons having to do
-	 * with some obscure Linux kernel problem involving bootstrapping of
-	 * dynamically-addressed links.  I don't understand this mess
-	 * and don't want to, so it's "See ya!" to this hack.
-	 */
-	sethostent(TRUE);	/* use TCP/IP for mailserver queries */
-#endif /* HAVE_RES_SEARCH */
 
 #ifdef HAVE_RES_SEARCH
 	/* Boldly assume that we also have res_init() if we have
@@ -805,10 +808,6 @@ int main(int argc, char **argv)
 		}
 	    }
 
-#if defined(HAVE_RES_SEARCH) && defined(USE_TCPIP_FOR_DNS)
-	endhostent();		/* release TCP/IP connection to nameserver */
-#endif /* HAVE_RES_SEARCH */
-
 	/* close connections cleanly */
 	terminate_poll(0);
 
@@ -837,7 +836,8 @@ int main(int argc, char **argv)
 		exit(PS_AUTHFAIL);
 	    }
 
-	    if (outlevel > O_SILENT)
+	    if ((outlevel > O_SILENT && !run.use_syslog && isatty(1))
+		    || outlevel > O_NORMAL)
 		report(stdout,
 		       GT_("sleeping at %s for %d seconds\n"), timestamp(), run.poll_interval);
 
@@ -872,11 +872,11 @@ int main(int argc, char **argv)
 		    ctl->wedged = FALSE;
 	    }
 
-	    if (outlevel > O_SILENT)
+	    if ((outlevel > O_SILENT && !run.use_syslog && isatty(1))
+		    || outlevel > O_NORMAL)
 		report(stdout, GT_("awakened at %s\n"), timestamp());
 	}
-    } while
-	(run.poll_interval);
+    } while (run.poll_interval);
 
     if (outlevel >= O_VERBOSE)
 	report(stdout, GT_("normal termination, status %d\n"),
@@ -980,6 +980,7 @@ static void optmerge(struct query *h2, struct query *h1, int force)
     FLAG_MERGE(sslproto);
     FLAG_MERGE(sslcertck);
     FLAG_MERGE(sslcertpath);
+    FLAG_MERGE(sslcommonname);
     FLAG_MERGE(sslfingerprint);
 #endif
     FLAG_MERGE(expunge);
@@ -1000,6 +1001,7 @@ static int load_params(int argc, char **argv, int optind)
     char *p;
 
     run.bouncemail = TRUE;
+    run.softbounce = TRUE;	/* treat permanent errors as temporary */
     run.spambounce = FALSE;	/* don't bounce back to innocent bystanders */
 
     memset(&def_opts, '\0', sizeof(struct query));
@@ -1125,6 +1127,8 @@ static int load_params(int argc, char **argv, int optind)
 	run.postmaster = cmd_run.postmaster;
     if (cmd_run.bouncemail)
 	run.bouncemail = cmd_run.bouncemail;
+    if (cmd_run.softbounce)
+	run.softbounce = cmd_run.softbounce;
 
     /* check and daemon options are not compatible */
     if (check_only && run.poll_interval)
@@ -1163,8 +1167,6 @@ static int load_params(int argc, char **argv, int optind)
 					flag = FALSE;\
 				else\
 					flag = (dflt)
-    /* one global gets treated specially */
-    DEFAULT(run.showdots, run.poll_interval==0 || nodetach);
 
     /* merge in wired defaults, do sanity checks and prepare internal fields */
     for (ctl = querylist; ctl; ctl = ctl->next)
@@ -1551,6 +1553,11 @@ static void dump_params (struct runctl *runp,
     else if (outlevel >= O_VERBOSE)
 	printf(GT_("Fetchmail will direct error mail to the sender.\n"));
 
+    if (!runp->softbounce)
+	printf(GT_("Fetchmail will treat permanent errors as permanent (drop messsages).\n"));
+    else if (outlevel >= O_VERBOSE)
+	printf(GT_("Fetchmail will treat permanent errors as temporary (keep messages).\n"));
+
     for (ctl = querylist; ctl; ctl = ctl->next)
     {
 	if (!ctl->active || (implicit && ctl->server.skip))
@@ -1651,6 +1658,8 @@ static void dump_params (struct runctl *runp,
 	    if (ctl->sslcertpath != NULL)
 		printf(GT_("  SSL trusted certificate directory: %s\n"), ctl->sslcertpath);
 	}
+	if (ctl->sslcommonname != NULL)
+		printf(GT_("  SSL server CommonName: %s\n"), ctl->sslcommonname);
 	if (ctl->sslfingerprint != NULL)
 		printf(GT_("  SSL key fingerprint (checked against the server key): %s\n"), ctl->sslfingerprint);
 #endif

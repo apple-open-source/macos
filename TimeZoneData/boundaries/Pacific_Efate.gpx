@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.0">
+<trk>
+	<name>UTC +11 (all year) VUT</name>
+	<trkseg>
+		<trkpt lon="165.563964844" lat="-12.7903747876"></trkpt>
+		<trkpt lon="168.134765625" lat="-12.7582315841"></trkpt>
+		<trkpt lon="168.870849609" lat="-16.5308984237"></trkpt>
+		<trkpt lon="170.364990234" lat="-19.2904056395"></trkpt>
+		<trkpt lon="170.463867188" lat="-20.0972062271"></trkpt>
+		<trkpt lon="169.694824219" lat="-20.5196442027"></trkpt>
+		<trkpt lon="167.761230469" lat="-17.9264759792"></trkpt>
+		<trkpt lon="166.212158203" lat="-15.5701278527"></trkpt>
+		<trkpt lon="165.563964844" lat="-12.7903747876"></trkpt>
+	</trkseg>
+</trk>
+</gpx>

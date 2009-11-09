@@ -77,7 +77,9 @@ void DateFormatTest::runIndexedTest( int32_t index, UBool exec, const char* &nam
         /*
         TESTCASE(37,TestRelativeError);
         TESTCASE(38,TestRelativeOther);
-        */
+        TESTCASE(39,TestNumberAsStringParsing);
+         */
+        TESTCASE(37,TestNumberAsStringParsing);
         default: name = ""; break;
     }
 }
@@ -2963,6 +2965,32 @@ void DateFormatTest::TestRelativeOther(void)
     logln("Nothing in this test. When we get more data from CLDR, put in some tests of -2, +2, etc. ");
 }
 */
+
+void DateFormatTest::TestNumberAsStringParsing()
+{
+    UErrorCode status = U_ZERO_ERROR;
+    UnicodeString dateString("2009 7 2 08:14:16");
+    UnicodeString datePattern("y MMMM d HH:mm:ss");
+    SimpleDateFormat *formatter = new SimpleDateFormat(datePattern, Locale(""), status);
+    UDate date1 = 0;
+    
+    formatter->setLenient(FALSE);
+    date1 = formatter->parse(dateString, status);
+    
+    if (U_FAILURE(status)) {
+        errln("FAIL: Could not parse \"2009 7 2 08:14:16\" with pattern \"y MMMM d HH:mm:ss\"");
+    } else {
+        UnicodeString formatted;
+        
+        formatter->format(date1, formatted);
+        
+        if (formatted != dateString) {
+            errln("FAIL: parsed string did not match input.");
+        }
+    }
+    
+    delete formatter;
+}
 
 
 

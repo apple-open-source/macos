@@ -317,8 +317,8 @@ static inline enum vtype ntfs_inode_get_vtype(ntfs_inode *ni)
  *
  * Return 0 on success and errno on error.
  */
-errno_t ntfs_inode_add_vnode(ntfs_inode *ni, const BOOL is_system,
-		vnode_t parent_vn, struct componentname *cn)
+errno_t ntfs_inode_add_vnode_attr(ntfs_inode *ni, const BOOL is_system,
+		vnode_t parent_vn, struct componentname *cn, BOOL isstream)
 {
 	s64 data_size;
 	errno_t err;
@@ -373,6 +373,18 @@ errno_t ntfs_inode_add_vnode(ntfs_inode *ni, const BOOL is_system,
 	}
 	if (!parent_vn || !cache_name)
 		vn_fsp.vnfs_flags |= VNFS_NOCACHE;
+	/*
+	 * If this is a named stream inode, then set it's parent to
+	 * NULL.  This way the VFS will set up the parent vnode and then
+	 * at the end of the VNOP_GETNAMEDSTREAM call, the VFS will call
+	 *  vnode_update_identity, which sets the parent and increments the
+	 * kusecount on the vnode.  If the parent is already set our kusecount
+	 * can go negative!
+	 */
+	if (isstream) {
+		vn_fsp.vnfs_dvp = NULL;
+	}	
+
 	err = vnode_create(VNCREATE_FLAVOR, VCREATESIZE, &vn_fsp, &ni->vn);
 	if (!err) {
 		vnode_t vn = ni->vn;
@@ -786,6 +798,7 @@ errno_t ntfs_attr_inode_get_or_create(ntfs_inode *base_ni, ATTR_TYPE type,
 	int err;
 	BOOL promoted;
 	ntfs_attr na;
+	BOOL isstream = FALSE;
 
 	ntfs_debug("Entering for mft_no 0x%llx, type 0x%x, name_len 0x%x, "
 			"is_system is %s, raw is %s, options 0x%x, lock 0x%x.",
@@ -996,8 +1009,11 @@ allow_rsrc_fork:
 	 * Also, need to allocate and attach a vnode to the new ntfs inode.
 	 */
 	err = ntfs_attr_inode_read_or_create(base_ni, ni, options);
-	if (!err)
-		err = ntfs_inode_add_vnode(ni, is_system, base_ni->vn, NULL);
+	if (!err) {
+		if (name == NTFS_SFM_RESOURCEFORK_NAME)
+			isstream = TRUE;
+		err = ntfs_inode_add_vnode_attr(ni, is_system, base_ni->vn, NULL, isstream);
+	}
 	if (!err) {
 		ntfs_inode_unlock_alloc(ni);
 		*nni = ni;

@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.0">
+<trk>
+	<name>UTC +12 (all year) GILT</name>
+	<trkseg>
+		<trkpt lon="172.309570312" lat="3.55728272654"></trkpt>
+		<trkpt lon="173.649902344" lat="3.546317501"></trkpt>
+		<trkpt lon="174.847412109" lat="0.0878905905308"></trkpt>
+		<trkpt lon="175.594482422" lat="-0.93379654885"></trkpt>
+		<trkpt lon="176.594238281" lat="-0.900841788991"></trkpt>
+		<trkpt lon="177.297363281" lat="-2.77845141505"></trkpt>
+		<trkpt lon="176.528320312" lat="-3.11857621678"></trkpt>
+		<trkpt lon="175.4296875" lat="-2.94304091006"></trkpt>
+		<trkpt lon="173.14453125" lat="-0.164794694662"></trkpt>
+		<trkpt lon="172.551269531" lat="1.38414269279"></trkpt>
+		<trkpt lon="172.44140625" lat="2.17477057221"></trkpt>
+		<trkpt lon="172.309570312" lat="3.55728272654"></trkpt>
+	</trkseg>
+</trk>
+</gpx>

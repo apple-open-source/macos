@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.0">
+<trk>
+	<name>UTC -7 (all year) Canada</name>
+	<trkseg>
+		<trkpt lon="-120.014648438" lat="57.797943885"></trkpt>
+		<trkpt lon="-123.156738281" lat="57.6924055353"></trkpt>
+		<trkpt lon="-125.024414062" lat="57.4094611356"></trkpt>
+		<trkpt lon="-123.464355469" lat="55.9799453579"></trkpt>
+		<trkpt lon="-121.530761719" lat="54.2138610006"></trkpt>
+		<trkpt lon="-120.047607422" lat="54.0722826556"></trkpt>
+		<trkpt lon="-120.014648438" lat="57.797943885"></trkpt>
+	</trkseg>
+</trk>
+</gpx>

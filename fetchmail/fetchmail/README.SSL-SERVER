@@ -1,0 +1,60 @@
+SSL server requirements
+-----------------------
+
+In order to let any mail client (not just fetchmail) verify server certificates 
+properly, so that users can be sure their connection is not eavesdropped, there 
+are several requirements that need to be fulfilled.
+
+1. Match certificate and DNS names:
+
+   The server certificate's "common name" or "subject alternative name" must 
+   match the name by which clients are connecting. Avoid the use of wildmats if 
+   possible, not all clients support them (fetchmail does).
+
+   This may sound trivial, but for load balancing and failover setups, it may  
+   not be obvious.
+
+2. Provide the *full* certificate chain
+
+   Many SSL documents tell you to install the server certificate, silently 
+   assuming that it were directly signed by a trusted root certification 
+   authority (CA).
+
+   If your server certificate is not directly signed by the root certification 
+   authority (root CA), then you are using intermediate CA. In this case, you 
+   *MUST* (as per the TLS standard) provide *ALL* intermediate certificates.
+
+   If you fail to provide intermediate certificates, clients can only connect 
+   if the end user overrides/disables security warnings in his/her software, 
+   and this disables the detection of eavesdroppers.
+
+   The intermediate CA certificates must be issued after the server's 
+   certificate in proper order, that is:
+   first the intermediate CA cert that signed the servers' certificate, then 
+   the intermedate CA cert that signed the previous intermediate CA, and all 
+   the way back to the root CA cert (which you should omit).
+
+   You can optionally add the root CA certificate, but this is redundant, as 
+   the client needs to have that installed anyways (see 3 below) in its store 
+   of trusted root certification authorities in order to verify certificates 
+   that this root CA has signed.
+
+   For software that does not offer "chain certificate" options, but that 
+   supports reading certificates in PEM format, it is usually sufficient to 
+   concatenate all the certs in proper order (again, from server to root).
+
+3. Provide the *root* CA's certificate separately.
+
+   Provide the root CA's certificate in a place where your end users will 
+   quickly and easily find it, or provide a link to it. Depending on which mail 
+   software your clients use, it may not be pre-installed, and users require 
+   this root CA to verify your SSL server certificate, and possibly 
+   intermediate certificates.
+
+   This is particularly important if you're using local self-signed 
+   certificates, as these are never preinstalled into end-users clients.
+
+   Your technical support team should have the finger prints of this root CA 
+   readily available at least in MD5 and SHA1 formats and offer to clients and 
+   be ready to answer client questions as to the fingerprints (for 
+   verification) and installation in commonly used clients.

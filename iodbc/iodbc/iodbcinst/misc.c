@@ -230,7 +230,7 @@ _iodbcadm_getinifile (char *buf, int size, int bIsInst, int doCreate)
        *  1. Check $ODBCINI environment variable
        */
       if ((ptr = getenv (bIsInst ? "ODBCINSTINI" : "ODBCINI")) != NULL)
-	{
+	  {
 	  STRNCPY (buf, ptr, size);
 
 	  if (access (buf, R_OK) == 0)
@@ -270,12 +270,8 @@ _iodbcadm_getinifile (char *buf, int size, int bIsInst, int doCreate)
 
       if (ptr != NULL)
 	{
-	  snprintf (buf, size, bIsInst ? "%s/.odbcinst.ini" : "%s/.odbc.ini",
-	      ptr);
-
-	  if (doCreate || access (buf, R_OK) == 0)
-	    return buf;
-
+		// RDLS changed to look in ~/Library/ODBC/ instead of ~/
+		//<rdar://problem/3872514> iodbc should use ~/Library/ODBC/odbc.ini not ~/.odbc.ini
 #if defined(__APPLE__)
 	  /*
 	   * Try to check the ~/Library/ODBC/odbc.ini

@@ -93,41 +93,43 @@
      POSTMASTER = 309,
      BOUNCEMAIL = 310,
      SPAMBOUNCE = 311,
-     SHOWDOTS = 312,
-     PROTO = 313,
-     AUTHTYPE = 314,
-     STRING = 315,
-     NUMBER = 316,
-     NO = 317,
-     KEEP = 318,
-     FLUSH = 319,
-     LIMITFLUSH = 320,
-     FETCHALL = 321,
-     REWRITE = 322,
-     FORCECR = 323,
-     STRIPCR = 324,
-     PASS8BITS = 325,
-     DROPSTATUS = 326,
-     DROPDELIVERED = 327,
-     DNS = 328,
-     SERVICE = 329,
-     PORT = 330,
-     UIDL = 331,
-     INTERVAL = 332,
-     MIMEDECODE = 333,
-     IDLE = 334,
-     CHECKALIAS = 335,
-     SSL = 336,
-     SSLKEY = 337,
-     SSLCERT = 338,
-     SSLPROTO = 339,
-     SSLCERTCK = 340,
-     SSLCERTPATH = 341,
-     SSLFINGERPRINT = 342,
-     PRINCIPAL = 343,
-     ESMTPNAME = 344,
-     ESMTPPASSWORD = 345,
-     TRACEPOLLS = 346
+     SOFTBOUNCE = 312,
+     SHOWDOTS = 313,
+     PROTO = 314,
+     AUTHTYPE = 315,
+     STRING = 316,
+     NUMBER = 317,
+     NO = 318,
+     KEEP = 319,
+     FLUSH = 320,
+     LIMITFLUSH = 321,
+     FETCHALL = 322,
+     REWRITE = 323,
+     FORCECR = 324,
+     STRIPCR = 325,
+     PASS8BITS = 326,
+     DROPSTATUS = 327,
+     DROPDELIVERED = 328,
+     DNS = 329,
+     SERVICE = 330,
+     PORT = 331,
+     UIDL = 332,
+     INTERVAL = 333,
+     MIMEDECODE = 334,
+     IDLE = 335,
+     CHECKALIAS = 336,
+     SSL = 337,
+     SSLKEY = 338,
+     SSLCERT = 339,
+     SSLPROTO = 340,
+     SSLCERTCK = 341,
+     SSLCERTPATH = 342,
+     SSLCOMMONNAME = 343,
+     SSLFINGERPRINT = 344,
+     PRINCIPAL = 345,
+     ESMTPNAME = 346,
+     ESMTPPASSWORD = 347,
+     TRACEPOLLS = 348
    };
 #endif
 /* Tokens.  */
@@ -185,55 +187,57 @@
 #define POSTMASTER 309
 #define BOUNCEMAIL 310
 #define SPAMBOUNCE 311
-#define SHOWDOTS 312
-#define PROTO 313
-#define AUTHTYPE 314
-#define STRING 315
-#define NUMBER 316
-#define NO 317
-#define KEEP 318
-#define FLUSH 319
-#define LIMITFLUSH 320
-#define FETCHALL 321
-#define REWRITE 322
-#define FORCECR 323
-#define STRIPCR 324
-#define PASS8BITS 325
-#define DROPSTATUS 326
-#define DROPDELIVERED 327
-#define DNS 328
-#define SERVICE 329
-#define PORT 330
-#define UIDL 331
-#define INTERVAL 332
-#define MIMEDECODE 333
-#define IDLE 334
-#define CHECKALIAS 335
-#define SSL 336
-#define SSLKEY 337
-#define SSLCERT 338
-#define SSLPROTO 339
-#define SSLCERTCK 340
-#define SSLCERTPATH 341
-#define SSLFINGERPRINT 342
-#define PRINCIPAL 343
-#define ESMTPNAME 344
-#define ESMTPPASSWORD 345
-#define TRACEPOLLS 346
+#define SOFTBOUNCE 312
+#define SHOWDOTS 313
+#define PROTO 314
+#define AUTHTYPE 315
+#define STRING 316
+#define NUMBER 317
+#define NO 318
+#define KEEP 319
+#define FLUSH 320
+#define LIMITFLUSH 321
+#define FETCHALL 322
+#define REWRITE 323
+#define FORCECR 324
+#define STRIPCR 325
+#define PASS8BITS 326
+#define DROPSTATUS 327
+#define DROPDELIVERED 328
+#define DNS 329
+#define SERVICE 330
+#define PORT 331
+#define UIDL 332
+#define INTERVAL 333
+#define MIMEDECODE 334
+#define IDLE 335
+#define CHECKALIAS 336
+#define SSL 337
+#define SSLKEY 338
+#define SSLCERT 339
+#define SSLPROTO 340
+#define SSLCERTCK 341
+#define SSLCERTPATH 342
+#define SSLCOMMONNAME 343
+#define SSLFINGERPRINT 344
+#define PRINCIPAL 345
+#define ESMTPNAME 346
+#define ESMTPPASSWORD 347
+#define TRACEPOLLS 348
 
 
 
 
 #if ! defined YYSTYPE && ! defined YYSTYPE_IS_DECLARED
 typedef union YYSTYPE
-#line 58 "../rcfile_y.y"
+#line 58 "rcfile_y.y"
 {
   int proto;
   int number;
   char *sval;
 }
-/* Line 1529 of yacc.c.  */
-#line 237 "rcfile_y.h"
+/* Line 1489 of yacc.c.  */
+#line 241 "rcfile_y.h"
 	YYSTYPE;
 # define yystype YYSTYPE /* obsolescent; will be withdrawn */
 # define YYSTYPE_IS_DECLARED 1

@@ -180,6 +180,7 @@ struct runctl
     int		poll_interval;	/** poll interval in seconds (daemon mode, 0 == off) */
     flag	bouncemail;
     flag	spambounce;
+    flag	softbounce;
     flag	use_syslog;
     flag	invisible;
     flag	showdots;
@@ -355,6 +356,7 @@ struct query
 				  use ssl23 for SSL and opportunistic tls1 for non-SSL connections. */
     char *sslcertpath;		/* Trusted certificate directory for checking the server cert */
     flag sslcertck;		/* Strictly check the server cert. */
+    char *sslcommonname;	/* CommonName to expect from server */
     char *sslfingerprint;	/* Fingerprint to check against */
     char *properties;		/* passthrough properties for extensions */
 
@@ -471,6 +473,8 @@ const char *norm_charmap(const char *name);
 /* error.c: Error reporting */
 #if defined(HAVE_STDARG_H)
 void report_init(int foreground);
+ /** Flush partial message, suppress program name tag for next report printout. */
+void report_flush(FILE *fp);
 void report (FILE *fp, const char *format, ...)
     __attribute__ ((format (printf, 2, 3)))
     ;
@@ -619,16 +623,7 @@ void interface_parse(char *, struct hostdata *);
 void interface_note_activity(struct hostdata *);
 int interface_approve(struct hostdata *, flag domonitor);
 
-/* xmalloc.c */
-#if defined(HAVE_VOIDPOINTER)
-#define XMALLOCTYPE void
-#else
-#define XMALLOCTYPE char
-#endif
-XMALLOCTYPE *xmalloc(size_t);
-XMALLOCTYPE *xrealloc(/*@null@*/ XMALLOCTYPE *, size_t);
-#define xfree(p) { if (p) { free(p); } (p) = 0; }
-char *xstrdup(const char *);
+#include "xmalloc.h"
 
 /* protocol driver and methods */
 int doPOP2 (struct query *); 
@@ -716,18 +711,6 @@ char *strerror (int);
 char *stpcpy(char *, const char*);
 #endif
 
-#ifdef FETCHMAIL_DEBUG
-#define exit(e) do { \
-       FILE *out; \
-       out = fopen("/tmp/fetchmail.log", "a"); \
-       fprintf(out, \
-               "Exiting fetchmail from file %s, line %d with status %d\n", \
-               __FILE__, __LINE__, e); \
-       fclose(out); \
-       _exit(e); \
-       } while(0)
-#endif /* FETCHMAIL_DEBUG */
-
 #ifdef __CYGWIN__
 #define ROOT_UID 18
 #else /* !__CYGWIN__ */
@@ -772,6 +755,12 @@ int must_tls(struct query *ctl);
 
 /* prototype from rfc822valid.c */
 int rfc822_valid_msgid(const unsigned char *);
+
+/* macro to determine if we want to spam progress to stdout */
+#define want_progress() \
+	((outlevel >= O_VERBOSE || (outlevel > O_SILENT && run.showdots)) \
+	&& !run.use_syslog \
+	&& (run.showdots || !is_a_file(1)))
 
 #endif
 /* fetchmail.h ends here */

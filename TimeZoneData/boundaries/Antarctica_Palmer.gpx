@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.0">
+<trk>
+	<name>UTC -4 (all year) CLT</name>
+	<trkseg>
+		<trkpt lon="-51.6796875" lat="-60.23981117"></trkpt>
+		<trkpt lon="-51.50390625" lat="-65.6582745198"></trkpt>
+		<trkpt lon="-65.6103515625" lat="-65.2291018832"></trkpt>
+		<trkpt lon="-66.8408203125" lat="-65.1553484722"></trkpt>
+		<trkpt lon="-66.9067382812" lat="-61.9905877362"></trkpt>
+		<trkpt lon="-66.8408203125" lat="-60.326947743"></trkpt>
+		<trkpt lon="-51.6796875" lat="-60.23981117"></trkpt>
+	</trkseg>
+</trk>
+</gpx>

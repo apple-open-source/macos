@@ -5880,7 +5880,7 @@ CFDataRef OSKextCopyResource(
         kextBundle = CFBundleCreate(CFGetAllocator(aKext),
             aKext->bundleURL);
         if (!kextBundle) {
-            OSKextLog(aKext, kOSKextLogErrorLevel | kOSKextLogFileAccessFlag,
+            OSKextLog(aKext, kOSKextLogProgressLevel | kOSKextLogFileAccessFlag,
                 "Couldn't open CFBundle for %s.", kextPath);
             goto finish;
         }
@@ -5889,7 +5889,7 @@ CFDataRef OSKextCopyResource(
 
         if (!resourceURL) {
             resourceCString = createUTF8CStringForCFString(resourceName);
-            OSKextLog(aKext, kOSKextLogErrorLevel | kOSKextLogFileAccessFlag,
+            OSKextLog(aKext, kOSKextLogProgressLevel | kOSKextLogFileAccessFlag,
                 "Couldn't read resource URL in %s for resource %s.",
                 kextPath, resourceCString);
             goto finish;
@@ -5903,7 +5903,7 @@ CFDataRef OSKextCopyResource(
         if (!CFURLCreateDataAndPropertiesFromResource(CFGetAllocator(aKext),
             resourceURL, &resource, NULL, NULL, &error)) {
             // xxx - get error string from error
-            OSKextLog(aKext, kOSKextLogErrorLevel | kOSKextLogFileAccessFlag,
+            OSKextLog(aKext, kOSKextLogProgressLevel | kOSKextLogFileAccessFlag,
                 "Couldn't read resource file %s.",
                 resourcePath);
             goto finish;
@@ -5916,7 +5916,7 @@ finish:
     if (resourceURL) {
         OSKextLogSpec logLevel = kOSKextLogDebugLevel;
         if (!result) {
-            logLevel = kOSKextLogErrorLevel;
+            logLevel = kOSKextLogProgressLevel;
         }
         OSKextLog(aKext, logLevel | kOSKextLogFileAccessFlag,
             "Reading resource file %s%s.",

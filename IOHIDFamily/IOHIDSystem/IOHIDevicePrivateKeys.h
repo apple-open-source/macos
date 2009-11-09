@@ -1,7 +1,7 @@
 /*
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * Copyright (c) 1999-2009 Apple Computer, Inc.  All Rights Reserved.
  * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
@@ -33,14 +33,21 @@ enum {
 enum {
     kScrollTypeContinuous       = 0x0001,
     kScrollTypeZoom             = 0x0002,
-    kScrollTypeIgnored			= 0x0004,
-    kScrollTypeTouch			= 0x0008
+    kScrollTypeMomentumContinue = 0x0004,
+    kScrollTypeTouch            = 0x0008,
+    kScrollTypeMomentumStart    = 0x0010,
+    kScrollTypeMomentumEnd      = 0x0020,
+    
+    kScrollTypeMomentumAny      = kScrollTypeMomentumContinue | kScrollTypeMomentumStart | kScrollTypeMomentumEnd
 };
 
 #define kIOHIDEventServicePropertiesKey "HIDEventServiceProperties"
 #define kIOHIDTemporaryParametersKey    "HIDTemporaryParameters"
 #define kIOHIDDefaultParametersKey      "HIDDefaultParameters"
 #define kIOHIDDeviceParametersKey       "HIDDeviceParameters"
+#define kIOHIDDeviceEventIDKey			"HIDDeviceEventID"
+#define kIOHIDDeviceScrollWithTrackpadKey "TrackpadScroll" // really should be "HIDDeviceScrollWithTrackpad"
+#define kIOHIDDeviceScrollDisableKey    "HIDDeviceScrollDisable"
 
 #endif /* !_IOHIDEVICE_PRIVATE_KEYS_H */
 

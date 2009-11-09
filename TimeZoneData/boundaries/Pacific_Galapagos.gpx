@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.0">
+<trk>
+	<name>UTC -6 (all year) Galapagos</name>
+	<trkseg>
+		<trkpt lon="-87.01171875" lat="7.79807853136"></trkpt>
+		<trkpt lon="-83.759765625" lat="5.96575367107"></trkpt>
+		<trkpt lon="-81.2548828125" lat="5.79089681287"></trkpt>
+		<trkpt lon="-80.1123046875" lat="5.52851052569"></trkpt>
+		<trkpt lon="-82.0458984375" lat="0.571279596633"></trkpt>
+		<trkpt lon="-82.705078125" lat="-2.46018118102"></trkpt>
+		<trkpt lon="-82.8369140625" lat="-4.74067538478"></trkpt>
+		<trkpt lon="-95.1416015625" lat="-5.04717073692"></trkpt>
+		<trkpt lon="-94.658203125" lat="1.71361165988"></trkpt>
+		<trkpt lon="-92.5048828125" lat="7.18810087118"></trkpt>
+		<trkpt lon="-90.2197265625" lat="8.5375653508"></trkpt>
+		<trkpt lon="-87.01171875" lat="7.79807853136"></trkpt>
+	</trkseg>
+</trk>
+</gpx>

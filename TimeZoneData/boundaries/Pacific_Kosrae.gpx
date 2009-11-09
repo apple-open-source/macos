@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.0">
+<trk>
+	<name>UTC +10 (all year) KOST</name>
+	<trkseg>
+		<trkpt lon="163.204650879" lat="5.48750201908"></trkpt>
+		<trkpt lon="163.210144043" lat="5.15659873841"></trkpt>
+		<trkpt lon="162.803649902" lat="5.17574671112"></trkpt>
+		<trkpt lon="162.820129395" lat="5.48750201908"></trkpt>
+		<trkpt lon="163.204650879" lat="5.48750201908"></trkpt>
+	</trkseg>
+</trk>
+</gpx>

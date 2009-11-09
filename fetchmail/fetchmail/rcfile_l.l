@@ -18,6 +18,7 @@ int prc_lineno = 1;
 #else
 #define SETSTATE(n)	BEGIN(n)
 #endif /* LEXDEBUG */
+
 %}
 
 /* this doesn't work with Linux lex, see the INSTALL file */
@@ -55,7 +56,7 @@ int prc_lineno = 1;
 
 			if ((size_t)yyleng + 1 > ins) {
 			    ins = yyleng + 1;
-			    in = xrealloc(in, ins);
+			    in = (char *)xrealloc(in, ins);
 			}
 			memcpy(in, yytext, yyleng);
 			in[yyleng] = '\0';
@@ -77,6 +78,7 @@ showdots	{ return SHOWDOTS; }
 postmaster	{ return POSTMASTER; }
 bouncemail	{ return BOUNCEMAIL; }
 spambounce	{ return SPAMBOUNCE; }
+softbounce	{ return SOFTBOUNCE; }
 warnings	{ return WARNINGS; }
 tracepolls	{ return TRACEPOLLS; }
 
@@ -187,6 +189,7 @@ sslcert		{ return SSLCERT; }
 sslproto	{ return SSLPROTO; }
 sslcertck	{ return SSLCERTCK; }
 sslcertpath	{ return SSLCERTPATH; }
+sslcommonname	{ return SSLCOMMONNAME; }
 sslfingerprint	{ return SSLFINGERPRINT; }
 checkalias	{ return CHECKALIAS; }
 

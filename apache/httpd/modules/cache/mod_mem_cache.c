@@ -604,7 +604,9 @@ static apr_status_t store_headers(cache_handle_t *h, request_rec *r, cache_info 
     mobj->req_hdrs = deep_table_copy(mobj->pool, r->headers_in);
 
     /* Precompute how much storage we need to hold the headers */
-    headers_out = ap_cache_cacheable_hdrs_out(r->pool, r->headers_out,
+    headers_out = apr_table_overlay(r->pool, r->headers_out,
+                                    r->err_headers_out);
+    headers_out = ap_cache_cacheable_hdrs_out(r->pool, headers_out,
                                               r->server);
 
     /* If not set in headers_out, set Content-Type */
@@ -614,7 +616,12 @@ static apr_status_t store_headers(cache_handle_t *h, request_rec *r, cache_info 
                        ap_make_content_type(r, r->content_type));
     }
 
-    headers_out = apr_table_overlay(r->pool, headers_out, r->err_headers_out);
+    if (!apr_table_get(headers_out, "Content-Encoding")
+        && r->content_encoding) {
+        apr_table_setn(headers_out, "Content-Encoding",
+                       r->content_encoding);
+    }
+
     mobj->header_out = deep_table_copy(mobj->pool, headers_out);
 
     /* Init the info struct */

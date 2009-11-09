@@ -9,18 +9,20 @@ Abbreviations in parentheses are the maintainers who committed the respective
 change.  MA = Matthias Andree, ESR = Eric S. Raymond, RF = Rob Funk.)
 
 # ADVANCE WARNING OF FEATURES TO BE REMOVED OR CHANGED IN FUTURE VERSIONS
-(There are no plans to remove these features from a 6.3.X release, but they may
-be removed from a 6.4.0 or newer release.)
+(There are no plans to remove features from a 6.3.X release, but they may be
+removed from a 6.4.0 or newer release.)
 * The MX and host alias DNS lookups that fetchmail performs in multidrop mode
   are based on assumptions that are rarely met in practice, somewhat defective,
-  deprecated and may be removed from a future fetchmail version.  They have
-  never supported IPv6 (including IPv6-mapped IPv4).
+  deprecated and may be removed from a future fetchmail version.
+  They have never supported IPv6 (including IPv6-mapped IPv4).
   Non-DNS based alias keywords such as "aka" will remain in fetchmail.
 * The monitor and interface options may be removed from a future fetchmail
-  version as they are not reasonably portable.
+  version as they are not reasonably portable across operating systems.
 * POP2 is obsolete, support will be removed from a future fetchmail version.
 * RPOP is obsolete, support will be removed from a future fetchmail release.
 * --sslcertck will become a default setting in a future fetchmail version.
+* --sslfingerprint may be removed from a future fetchmail version, because it's
+  just too easily abused to create a false sense of security.
 * The multidrop To/Cc guessing code along with the fragile duplicate suppressor
   is deprecated and may be removed from a future release.
 * The "envelope Received" option may be removed from a future release, because
@@ -39,8 +41,273 @@ be removed from a 6.4.0 or newer release.)
   cause fetchmail to terminate - it was broken for many years.
 * Support for operating systems that are not sufficiently POSIX compliant may be
   removed or operation on such systems may be suboptimal for future releases.
+  This means that fetchmail may only continue to work on C99 and POSIX 2001
+  based systems.
+* The maintainer may migrate fetchmail to C++ with STL or C#, and impose further
+  requirements (dependencies), such as Boost or other class libraries.
+* The softbounce option default will change to "false" in the next release.
 
 --------------------------------------------------------------------------------
+
+fetchmail 6.3.11 (released 2009-08-06):
+
+# SECURITY BUGFIXES
+* CVE-2009-2666: SSL NUL prefix impersonation attack through NULs in a
+  part of a X.509 certificate's CommonName and subjectAltName fields. These
+  fields use opaque strings with a separate length field, so that the NUL
+  character isn't a special character inside the certificate. Fetchmail, being
+  written in the C language, used to treat these strings as C strings
+  nonetheless, so that the domain comparison would end at the first embedded NUL
+  character, rather than at the real end of the string.
+    Fetchmail will now abort certificate verification as failed if NULs are
+  encountered inside either of these fields regardless of their position, and
+  drop the connection even if --sslcertck is not used, because NUL is not a
+  valid character in legitimate DNS names.
+  See fetchmail-SA-2009-01.txt for details, including a minimal patch.
+
+# BUGFIXES
+* Remove the spurious message "message delimiter found while scanning headers".
+  RFC-5322 syntax states that the delimiter is part of the body, and the body is
+  optional.
+* Convert all non-printable characters in certificate Subject/Issuer
+  Common Name or Subject Alternative Name fields to ANSI-C hex escapes (\xnn,
+  where nn are hex digits).
+
+# TRANSLATION UPDATES AND ADDITIONS (ordered by language name):
+* [zh_CN] Chinese/Simplified (Ji ZhengYu)
+* [es]    Spanish/Castilian (Francisco Molinero)
+
+
+fetchmail 6.3.10 (released 2009-07-02):
+
+# INCOMPATIBLE BUGFIXES AND CHANGES
+* Fetchmail no longer drops permanently undelivered messages by default, to
+  match historic documentation.  It does this by adding a new "softbounce"
+  option, see below.
+  Fixes Debian Bug#471283, demotes Debian Bug#494418 to wishlist.
+* There is a new "softbounce" global option that prevents the deletion of
+  messages that have not been forwarded. It defaults to "true" for fetchmail
+  6.3.X in order to match historic documentation. This may change its default
+  in the next major release.
+
+# BUGFIXES
+* Fix misuse of canonical autoconf target as _TARGET when it should have been
+  _HOST. Report and patch courtesy of Diego E. "Flameeyes" Pettenò.
+  Details: http://blog.flameeyes.eu/2009/01/01/the-canonical-target
+* Do not lose PS_MAXFETCH (13) exit status when hitting maxpoll. Reported by
+  Michelle Konzack, Debian Bug#508667.
+* Do not overlap source and destination fields in snprintf() in interface.c.
+  Courtesy of Nico Golde, Debian.
+* When a pre- or post-connect command fails, now report the exit status or
+  termination signal properly through sys/wait.h macros.
+* When acquiring a body, understand NIL ("no such data item"), as returned by
+  some MS Exchange versions. Fixes BerliOS Bug #11980 by KB Sriram.
+* Make progress tickers (-v/--showdots) consistent, and update documentation 
+  accordingly ("." for each 1024 octets read, "#" for a header written, and "*" 
+  for each body line written.)
+  The conditions under which these had been printed were inconsistent,
+  illogical, and documentation hadn't matched real behaviour for long.
+* For NTLM authentication, use dynamically allocated buffers.
+  Fixes Debian Bug#449179, reported by Stepan Golosunov.
+* Non-delivery notice ("bounce mail") now mentions the original reason again,
+  before the address list. This fixes a regression introduced in 6.3.0.
+* Several compiler warnings were fixed.
+* The minimum recommended SMTP (RFC-5321) timeouts are enforced to leave
+  sufficient time for the listener to respond. Some synchronous listeners,
+  particularly when used with spam filtering and other policy enforcement
+  services, take extended amounts of time to process messages after the sender,
+  recipient, or data block and EOM line. This can cause fetchmail to not wait
+  long enough for the "250 Ok" and make fetchmail believe the message wasn't
+  properly delivered when in fact it was; fetchmail would then retry the
+  download next time and never make progress.
+  Fixes Berlios Bug #10972, reported by Viktor Binzberger.
+* The ESMTP/LMTP client will now apply an application-specific timeout while
+  waiting for the EHLO/LHLO response, rather than wait for the server or TCP
+  connection timeout.
+* Treat 530 errors as temporary, so as not to delete messages on configuration
+  errors. Partially taken from Petr Cerny's patch in Novell Bugzilla #246829.
+  The 501 part of said patch was not added, as the maintainer is not convinced
+  501 is a temporary condition, and softbounce takes care of this anyways.
+
+# CHANGES
+* Make the comparison of the SSL fingerprints case insensitive, to
+  ease its use. Suggested by Daniel Richard G.
+* Proper precedence ordering for the syslog and logfile options. If the logfile
+  option is effective (i. e. we're in daemon mode and nodetach isn't used),
+  reset the syslog option. If logfile is ineffective (we're not in daemon mode,
+  or nodetach is set), syslog takes precedence.
+* The sleeping at/awakened at messages appear in logfiles and syslog only if
+  verbose mode is enabled.  On the console, they will still appear without
+  verbose mode.  Fixes Debian Bug#282259.
+* fetchmail only requests IPv6 addresses via name service if at least one is
+  configured on the local host, likewise for IPv4.  (AI_ADDRCONFIG flag to
+  getaddrinfo()) Extended version of Redhat's patch.
+* If the server name contains "yahoo.com", offers the "ID" capability, and we're
+  polling via IMAP, send an ID ("guid" "1") transaction first, ignoring its
+  result. This appears needed to be able to log into Yahoo's Zimbra servers, but
+  there are open issues (such as being only able to download one message and
+  server certificate mismatches).
+
+# CHANGES TO CONTRIB
+* Fix bashism in contrib/fetchsetup. Fixes Debian Bug#530081.
+
+# DOCUMENTATION
+* Some parts of the the manual page were revised for clarity, accuracy, and
+  updated recommendations (particularly SSL/TLS) and formatting conventions from
+  man-pages(7).
+* The README and README.SSL documents were updated.
+* A document, README.SSL-SERVER, was added to describe server-side requirements
+  for proper SSL and/or TLS service offerings. These are not specific to
+  fetchmail.
+* Documentation on how to make "NOMAIL" (exit code 1) not treated an error has
+  been added to the EXIT CODES section of the manpage and to the FAQ as item C8.
+  The suggested solution uses a tiny POSIX shell script fragment.
+  Fixes Debian Bug #530749, filed by Reuben Thomas.
+
+# TRANSLATION UPDATES AND ADDITIONS (ordered by language name):
+* [cs]    Czech (Petr Pisar)
+* [en_GB] English/British
+* [de]    German
+* [id]    Indonesian (Andhika Padmawan)
+* [it]    Italian (Vincenzo Campanella)
+* [ja]    Japanese (Takeshi Hamasaki)
+* [pl]    Polish (Jakub Bogusz)
+* [ru]    Russian (Pavel Maryanov), fixing Debian Bug #531925
+* [es]    Spanish/Castilian (Francisco Molinero)
+* [zh_CN] Chinese/Simplified (Ji ZhengYu)
+
+
+fetchmail 6.3.9 (released 2008-11-16):
+
+# SECURITY AND CRITICAL BUG FIXES:
+* CVE-2007-4565: Denial of service: When fetchmail tries to inject a warning
+  message it created itself, and the message is refused by the SMTP listener,
+  fetchmail dereferences a NULL pointer and crashes. Report & fix by Earl Chew.
+  Note while this is theoretically a remote denial of service attack vector,
+  fetchmail by default talks SMTP to the localhost, so the overall risk is
+  rather low.
+  This bug was apparently introduced on 1998-11-27 when the bouncemail facility
+  was modularized. The bug then made its appearance in fetchmail release 4.6.8.
+  See also fetchmail-SA-2007-02.txt.
+* CVE-2008-2711: Denial of service: When fetchmail logs data blobs
+  (for instance, a To: header in -v -v verbose mode) in excess of 2048
+  bytes, it will crash, because it hands an uninitialized argument
+  pointer (not the format string though) to vsnprintf and reads a
+  random memory location (it calls va_arg() too often without
+  resetting it with va_start()). Based on a patch (BerliOS patch #2492)
+  by Petr Uzel, fixes Novell Bug #354291.
+  Note 6.3.9-rc1 did not completely fix this issue, so it was redrawn a few 
+  hours after its release.
+  See also fetchmail-SA-2008-01.txt.
+* When expunging, mark the right messages as seen to avoid message loss in "keep
+  flush" configurations.  Workaround for previous versions: "expunge 0".
+  Report and patch by Alexander Cherepanov - thanks a lot, Berlios Bug #11797,
+  "imap_mark_seen doesn't consider expunged messages".
+* SSL fix: close memory leak when SSL connection fails; fetchmail used to forget
+  calling SSL_free() on the SSL context, leaking in excess of 500 kB RAM on a
+  x86_64 system per failed SSL connection attempt.
+  Bug reported and patch provided by Seiichi Ikarashi, Fujitsu.
+
+# BUG FIXES:
+* The configure script will additionally check for 'dn_skipname', to fix build
+  failures with µClibc. The new check still recognizes the resolver libraries on
+  Ubuntu 7.04, openSUSE 10.2, Solaris 8, NetBSD 4.0_BETA2 and FreeBSD 6.2.
+  Fixes Gentoo bug #134187.
+  NOTE: this is a bit of a hack, since we twist the HAVE_RES_SEARCH result, but
+  res_search() and dn_skipname() are only used together and scheduled for
+  removal in future versions, so this is probably fine.
+* No longer complain about invalid sslproto "" when POP3 CAPA probe fails.
+  Fixes Debian Bug#421446 (Holger Leskien), Novell Bug #247233 (Jon Nelson).
+  Thanks to Matthias Strauß for a configuration to reproduce the issue.
+* Allow .fetchmailrc and .fetchids to be symlinks, as the manpage does not
+  document they aren't allowed - fixes Debian Bug #452907 (Roger Leigh).
+  TOCTOU race persists.
+* fetchmailconf quotes mailbox (folder) names when writing the configuration.
+  Fixes BerliOS Bug #13207 (reported + fix suggested by Terry Brown).
+* Only print "Deleting fetchids file" if there actually is one.
+  Fixes Debian Bug#374514, reported by Dan Jacobson.
+* SSL fix: check and report if SSL_set_fd fails.
+
+# CHANGES:
+* autoconf 2.60 is now required to build fetchmail; it uses
+  AC_USE_SYSTEM_EXTENSIONS to replace AC_AIX, AC_MINIX, and the like.
+* Removed dead FETCHMAIL_DEBUG code from fetchmail.h that was disabled by 
+  default with no switches in configure to enable it. However, the macro would 
+  have been prone to a symlink attack. Found by Nico Golde.
+* Removed dead FORCE_STUFFING code from socket.c that was disabled by default
+  with no switches in configure to enable it.
+* Include the typedef for int16 in the #ifndef _AIX in smbencrypt.c (Peter
+  O'Gorman)
+* Correct check for u_int32_t in configure.ac (seems to be typedef'ed in
+  namser.h on some platforms.) (Peter O'Gorman)
+* In configure.ac change all CPFLAGS to CPPFLAGS, CEFLAGS to CFLAGS and LDEFLAGS
+  to LDFLAGS otherwise the results of some tests (additional -L and -I flags) do
+  not get used for later tests causing incorrect configure results. Makefile.am
+  was also changed to reflect this. (Peter O'Gorman)
+* m4/gethostbyname_r.m4 does AC_TRY_COMPILE, which unfortunately can pass even
+  if there is no gethostbyname_r. Changed to AC_TRY_LINK. (Peter O'Gorman)
+* Revise getnameinfo check to ensure NULL is defined and the result is properly
+  evaluated, to avoid bogus results on for instance FreeBSD and redefinitions of
+  NI_* at compile time. (Matthias Andree).
+* __attribute__ ((unused)) is a gccism, removed from libesmtp/gethostbyname.c.
+  (Peter O'Gorman)
+* In KAME/getnameinfo.c it's best to use the correct argument to inet_ntoa.
+  (Peter O'Gorman)
+* In verbose mode, log if --check mode is enabled.
+* Add sslcommonname option (rcfile and commandline) as a way to work around
+  misconfigured upstream SSL servers that use the wrong certificate name. It
+  specifies which CommonName fetchmail expects and logs. (Daniel Richard G.)
+* Changed CRLF to LF line endings in contrib/delete-later (reporter: Petr Uzel)
+* SSL change: enable all workarounds with SSL_CTX_set_options(ctx,SSL_OP_ALL)
+* All translations have been re-enabled, in an attempt to rekindle translator or
+  user interest.
+
+# DOCUMENTATION:
+* Add fetchmail-SA-2007-02.txt and fetchmail-SA-2008-01.txt.
+* Re-add two lines to the manual page that had accidentally become comments 
+  to nroff. One was part of the --sslproto documentation, and one in the 
+  "Awakening the background daemon" section.
+* The manual page no longer asserts that .fetchids were for exclusive POP3 use, 
+  since it is planned to use the file with IMAP4 later.
+* Add grammar fixes from Dan Jacobson to fetchmail.man. Debian Bug #461642.
+* The manual page now mentions that user descriptions need to come before user
+  options. Reported by Francensco Pontortì, to fix Debian Bug #467010.
+* The manual page no longer hints that multi-user declarations per server were
+  only useful in daemon mode running as root, to avoid hinting people to doing
+  that.
+* Several manual page rcfile examples now include "ssl".
+* The manual page hints that option arguments beginning with numbers can be
+  enclosed in quotes.
+* The manual page now mentions that the --logfile must already exist before
+  fetchmail is run.
+* The FAQ now recommends (#I9) not to use Google Mail for their disregard to the
+  protocols they claim to support.
+* Documentation and program output now /consistently/ claim that the rcfile must
+  not have more than 0700 (u=rwx,g=,o=) permissions, but fetchmail will still
+  silently accept additional g=x permissions for compatibility with previous
+  6.2.X and 6.3.X versions.
+  Inconsistency (program 0710, manpage 0600) reported by Petr Uzel.
+* The --logfile documentation is now clearer about requiring detached daemon 
+  mode.
+
+# TRANSLATION UPDATES AND ADDITIONS (ordered by language name):
+* [sq]    Albanian (Besnik Bleta)
+* [zh_CN] Chinese, simplified (Ji Zheng-Yu)
+* [cs]    Czech (Petr Pisar)
+* [da]    Danish (Byrial Ole Jensen) - outdated, but newer than in 6.3.8
+* [nl]    Dutch (Tony Vroon, Benno Schulenberg)
+* [en_GB] English, British
+* [fi]    Finnish (Lauri Nurmi)
+* [de]    German
+* [id]    Indonesian (Andhika Padmawan)
+* [ja]    Japanese (Takeshi Hamasaki)
+* [pl]    Polish (Jakub Bogusz)
+* [ru]    Russian (Pavel Maryanov)
+* [es]    Spanish (Javier Fernández-Sanguino Peña, Matthias Andree)
+* [tr]    Turkish (Engin Gündüz) - outdated, but newer than in 6.3.8
+* [vi]    Vietnamese (Clytie Siddall)
+
+
 
 fetchmail 6.3.8 (released 2007-04-06):
 

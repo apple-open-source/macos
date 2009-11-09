@@ -97,6 +97,9 @@ private:
     bool fPreemptAllowed; 		/* Active session is pre-emptible */
     bool fPreemptInProgress;	/* tracks Preemption in progress for syncronization */
     bool fConnectTransit;		/* A thread is open() or closing()  */
+	bool fisCallout;
+	bool fwantCallout;
+	bool fisBlueTooth;
 
     boolean_t   fAcquired:1;		/* provider has been acquired */
     boolean_t   fIsClosing:1;		/* Session is actively closing */

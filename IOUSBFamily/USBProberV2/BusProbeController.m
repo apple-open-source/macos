@@ -206,6 +206,9 @@
 			}
 			[finalString appendFormat:@"%@", usage];
 		}
+		[usage release];
+		[filterDevice release];
+		[filterDeviceClassInfo release];
 	}
 	
 	NSLog(@"%@\n", finalString);

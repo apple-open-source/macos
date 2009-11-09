@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.0">
+<trk>
+	<name>UTC +5 (all  year) IOT</name>
+	<trkseg>
+		<trkpt lon="73.7951660156" lat="-4.26972427227"></trkpt>
+		<trkpt lon="73.1579589844" lat="-7.85249863781"></trkpt>
+		<trkpt lon="70.1257324219" lat="-7.86338180531"></trkpt>
+		<trkpt lon="70.9606933594" lat="-3.90809888189"></trkpt>
+		<trkpt lon="72.1142578125" lat="-3.79848397504"></trkpt>
+		<trkpt lon="73.7951660156" lat="-4.26972427227"></trkpt>
+	</trkseg>
+</trk>
+</gpx>

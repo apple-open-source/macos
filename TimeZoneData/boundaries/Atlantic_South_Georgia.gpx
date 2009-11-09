@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.0">
+<trk>
+	<name>UTC-2 (all year) South Georgia</name>
+	<trkseg>
+		<trkpt lon="-38.84765625" lat="-55.727110085"></trkpt>
+		<trkpt lon="-34.365234375" lat="-55.5783446722"></trkpt>
+		<trkpt lon="-34.8486328125" lat="-53.2783530175"></trkpt>
+		<trkpt lon="-38.759765625" lat="-53.0147832459"></trkpt>
+		<trkpt lon="-38.84765625" lat="-55.727110085"></trkpt>
+	</trkseg>
+</trk>
+</gpx>

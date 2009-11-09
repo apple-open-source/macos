@@ -92,6 +92,10 @@ struct aup_test aup_tests[] =
         0, "http", "sonyamt@[fe80::1]", "sonyamt", NULL, "fe80::1", NULL, "/filespace/", "arg1=store", NULL, 0
     },
     {
+        "http://localhost",
+        0, "http", "localhost", NULL, NULL, "localhost", NULL, NULL, NULL, NULL, 0
+    },
+    {
         "//www.apache.org/",
         0, NULL, "www.apache.org", NULL, NULL, "www.apache.org", NULL, "/", NULL, NULL, 0
     },

@@ -475,8 +475,10 @@ SCNetworkConnectionCopyAvailableServices(SCNetworkSetRef set)
 		SCPreferencesRef	prefs;
 
 		prefs = SCPreferencesCreate(NULL, CFSTR("SCNetworkConnectionCopyAvailableServices"), NULL);
-		set   = SCNetworkSetCopyCurrent(prefs);
-		CFRelease(prefs);
+		if (prefs != NULL) {
+			set = SCNetworkSetCopyCurrent(prefs);
+			CFRelease(prefs);
+		}
 		tempSet = TRUE;
 	}
 
@@ -498,6 +500,10 @@ SCNetworkConnectionCopyAvailableServices(SCNetworkSetRef set)
 
 				service       = CFArrayGetValueAtIndex(services, i);
 				interface     = SCNetworkServiceGetInterface(service);
+				if (interface == NULL) {
+					continue;
+				}
+
 				interfaceType = SCNetworkInterfaceGetInterfaceType(interface);
 				if (CFEqual(interfaceType, kSCNetworkInterfaceTypePPP) ||
 				    CFEqual(interfaceType, kSCNetworkInterfaceTypeIPSec)) {

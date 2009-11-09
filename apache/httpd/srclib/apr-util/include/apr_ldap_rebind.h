@@ -21,12 +21,21 @@
  *
  * Use of this implementation is optional.
  *
- * @file apu_ldap_rebind.h
+ * @file apr_ldap_rebind.h
  * @brief Apache LDAP library
  */
 
 #ifndef APU_LDAP_REBIND_H
 #define APU_LDAP_REBIND_H
+
+/**
+ * @addtogroup APR_Util_LDAP
+ * @{
+ **/
+
+#if defined(DOXYGEN)
+#include "apr_ldap.h"
+#endif
 
 /*
  * Handle the case when LDAP is enabled
@@ -82,6 +91,8 @@ APU_DECLARE_LDAP(apr_status_t) apr_ldap_rebind_add(apr_pool_t *pool,
 APU_DECLARE_LDAP(apr_status_t) apr_ldap_rebind_remove(LDAP *ld);
 
 #endif /* APR_HAS_LDAP */
+
+/** @} */
 
 #endif /* APU_LDAP_REBIND_H */
 

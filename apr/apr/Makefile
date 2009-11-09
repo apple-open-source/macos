@@ -13,8 +13,8 @@ include $(MAKEFILEPATH)/CoreOS/ReleaseControl/GNUSource.make
 Install_Target = install
 
 post-install:
-	$(CP) $(DSTROOT)/usr/lib/libapr-1.0.3.5.dylib $(SYMROOT)
-	$(STRIP) -x $(DSTROOT)/usr/lib/libapr-1.0.3.5.dylib
+	$(CP) $(DSTROOT)/usr/lib/libapr-1.0.3.8.dylib $(SYMROOT)
+	$(STRIP) -x $(DSTROOT)/usr/lib/libapr-1.0.3.8.dylib
 	$(RM) $(DSTROOT)/usr/lib/apr.exp
 	$(RM) $(DSTROOT)/usr/lib/libapr-1.la
 	$(MKDIR) $(DSTROOT)/usr/local/lib
@@ -26,7 +26,7 @@ munge-build-files:
 
 # Automatic Extract & Patch
 AEP_Project    = apr
-AEP_Version    = 1.3.5
+AEP_Version    = 1.3.8
 AEP_ProjVers   = $(AEP_Project)-$(AEP_Version)
 AEP_Filename   = $(AEP_ProjVers).tar.bz2
 AEP_ExtractDir = $(AEP_ProjVers)

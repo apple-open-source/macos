@@ -544,7 +544,7 @@ IOReturn IOHIDLibUserClient::messageGated(UInt32 type, IOService * provider, voi
 	switch ( type ) {
 		case kIOMessageServiceIsRequestingClose:
 			if ((options & kIOHIDOptionsTypeSeizeDevice) && (options != fCachedOptionBits))
-				setValid(false);
+ 				setValid(false);
 			break;
 			
 		case kIOMessageServiceWasClosed:
@@ -1311,10 +1311,10 @@ IOHIDEventQueue* IOHIDLibUserClient::getQueueForToken(u_int token)
 u_int IOHIDLibUserClient::getNextTokenForToken(u_int token)
 {
 	u_int next_token = (token < kIOHIDLibUserClientQueueTokenOffset) ? 
-								kIOHIDLibUserClientQueueTokenOffset : token;
+								kIOHIDLibUserClientQueueTokenOffset - 1 : token;
 	
-	IOHIDEventQueue *queue = NULL;
-	
+    IOHIDEventQueue *queue = NULL;
+    
 	do {
 		next_token++;
 		queue = getQueueForToken(next_token);

@@ -102,15 +102,19 @@
 /*
  * For ldap function calls that input a size limit on the number of returned elements
  * Some SDKs do not have the define for LDAP_DEFAULT_LIMIT (-1) or LDAP_NO_LIMIT (0)
+ * LDAP_DEFAULT_LIMIT is preferred as it allows inheritance from whatever the SDK
+ * or process is configured for.
  */
-#if APR_HAS_ZOS_LDAPSDK || APR_HAS_MICROSOFT_LDAPSDK
-#define APR_LDAP_SIZELIMIT LDAP_NO_LIMIT
-#else
 #ifdef LDAP_DEFAULT_LIMIT
 #define APR_LDAP_SIZELIMIT LDAP_DEFAULT_LIMIT
 #else
-#define APR_LDAP_SIZELIMIT -1 /* equivalent to LDAP_DEFAULT_LIMIT */
+#ifdef LDAP_NO_LIMIT
+#define APR_LDAP_SIZELIMIT LDAP_NO_LIMIT
 #endif
+#endif
+
+#ifndef APR_LDAP_SIZELIMIT
+#define APR_LDAP_SIZELIMIT 0 /* equivalent to LDAP_NO_LIMIT, and what goes on the wire */
 #endif
 
 /*

@@ -37,6 +37,7 @@
 
 /* SMBus Device addresses */
 enum {
+    kSMBusAppleDoublerAddr                  = 0xd,
     kSMBusBatteryAddr                       = 0xb,
     kSMBusManagerAddr                       = 0xa,
     kSMBusChargerAddr                       = 0x9

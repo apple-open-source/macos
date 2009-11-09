@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.0">
+<trk>
+	<name>UTC+13 (all year) Phoenix Islands</name>
+	<trkseg>
+		<trkpt lon="-176.352539062" lat="-0.747049145005"></trkpt>
+		<trkpt lon="-176.352539062" lat="-7.75453734654"></trkpt>
+		<trkpt lon="-168.002929688" lat="-8.0592296272"></trkpt>
+		<trkpt lon="-167.958984375" lat="-0.263670944337"></trkpt>
+		<trkpt lon="-176.352539062" lat="-0.747049145005"></trkpt>
+	</trkseg>
+</trk>
+</gpx>

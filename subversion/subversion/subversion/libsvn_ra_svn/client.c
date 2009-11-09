@@ -43,6 +43,9 @@
 
 #include "ra_svn.h"
 
+#include <dispatch/dispatch.h>
+#include <crt_externs.h>
+
 #ifdef SVN_HAVE_SASL
 #define DO_AUTH svn_ra_svn__do_cyrus_auth
 #else
@@ -154,6 +157,21 @@ static svn_error_t *make_connection(const char *hostname, unsigned short port,
   if (status)
     return svn_error_wrap_apr(status, _("Can't connect to host '%s'"),
                               hostname);
+
+  /* Enable TCP keep-alives on the socket so we time out when
+   * the connection breaks due to network-layer problems.
+   * If the peer has dropped the connection due to a network partition
+   * or a crash, or if the peer no longer considers the connection
+   * valid because we are behind a NAT and our public IP has changed,
+   * it will respond to the keep-alive probe with a RST instead of an
+   * acknowledgment segment, which will cause svn to abort the session
+   * even while it is currently blocked waiting for data from the peer.
+   * See issue #3347. */
+  status = apr_socket_opt_set(*sock, APR_SO_KEEPALIVE, 1);
+  if (status)
+    {
+      /* It's not a fatal error if we cannot enable keep-alives. */
+    }
 
   return SVN_NO_ERROR;
 }
@@ -350,6 +368,8 @@ static svn_error_t *find_tunnel_agent(const char *tunnel,
   apr_size_t len;
   apr_status_t status;
   int n;
+  static dispatch_once_t once;
+  static int this_is_xcode;
 
   /* Look up the tunnel specification in config. */
   cfg = config ? apr_hash_get(config, SVN_CONFIG_CATEGORY_CONFIG,
@@ -358,7 +378,20 @@ static svn_error_t *find_tunnel_agent(const char *tunnel,
 
   /* We have one predefined tunnel scheme, if it isn't overridden by config. */
   if (!val && strcmp(tunnel, "ssh") == 0)
-    val = "$SVN_SSH ssh";
+    {
+      /* Killing the tunnel agent with SIGTERM leads to unsightly
+       * stderr output from ssh, unless we pass -q.
+       * The "-q" option to ssh is widely supported: all versions of
+       * OpenSSH have it, the old ssh-1.x and the 2.x, 3.x ssh.com
+       * versions have it too. If the user is using some other ssh
+       * implementation that doesn't accept it, they can override it
+       * in the [tunnels] section of the config. */
+      // <rdar://7252724>
+      dispatch_once(&once, ^{
+        this_is_xcode = (strcmp(*_NSGetProgname(), "Xcode") == 0);
+      });
+      val = this_is_xcode ? "$SVN_SSH ssh" : "$SVN_SSH ssh -q";
+    }
 
   if (!val || !*val)
     return svn_error_createf(SVN_ERR_BAD_URL, NULL,
@@ -451,7 +484,20 @@ static svn_error_t *make_tunnel(const char **args, svn_ra_svn_conn_t **conn,
   if (status != APR_SUCCESS)
     return svn_error_wrap_apr(status, _("Can't create tunnel"));
 
-  apr_pool_note_subprocess(pool, proc, APR_KILL_ALWAYS);
+  /* Arrange for the tunnel agent to get a SIGTERM on pool
+   * cleanup.  This is a little extreme, but the alternatives
+   * weren't working out.
+   *
+   * Closing the pipes and waiting for the process to die
+   * was prone to mysterious hangs which are difficult to
+   * diagnose (e.g. svnserve dumps core due to unrelated bug;
+   * sshd goes into zombie state; ssh connection is never
+   * closed; ssh never terminates).
+   * See also the long dicussion in issue #2580 if you really
+   * want to know various reasons for these problems and
+   * the different opinions on this issue.
+   */
+  apr_pool_note_subprocess(pool, proc, APR_KILL_ONLY_ONCE);
 
   /* APR pipe objects inherit by default.  But we don't want the
    * tunnel agent's pipes held open by future child processes
@@ -2193,6 +2239,7 @@ ra_svn_replay_range(svn_ra_session_t *session,
   svn_ra_svn__session_baton_t *sess = session->priv;
   apr_pool_t *iterpool;
   svn_revnum_t rev;
+  svn_boolean_t drive_aborted = FALSE;
 
   SVN_ERR(svn_ra_svn_write_cmd(sess->conn, pool, "replay-range", "rrrb",
                                start_revision, end_revision,
@@ -2228,7 +2275,14 @@ ra_svn_replay_range(svn_ra_session_t *session,
                             iterpool));
       SVN_ERR(svn_ra_svn_drive_editor2(sess->conn, iterpool,
                                        editor, edit_baton,
-                                       NULL, TRUE));
+                                       &drive_aborted, TRUE));
+      /* If drive_editor2() aborted the commit, do NOT try to call
+         revfinish_func and commit the transaction! */
+      if (drive_aborted) {
+        svn_pool_destroy(iterpool);
+        return svn_error_create(SVN_ERR_RA_SVN_IO_ERROR, NULL,
+                                _("Error while replaying commit"));
+      }
       SVN_ERR(revfinish_func(rev, replay_baton,
                              editor, edit_baton,
                              rev_props,

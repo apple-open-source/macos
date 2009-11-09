@@ -3510,7 +3510,7 @@ oakley_do_decrypt(iph1, msg, ivdp, ivep)
 	/* do decrypt */
 	new = alg_oakley_encdef_decrypt(iph1->approval->enctype,
 					buf, iph1->key, ivdp);
-	if (new == NULL) {
+	if (new == NULL || new->v == NULL || new->l == 0) {
 		plog(LLV_ERROR, LOCATION, NULL,
 			"decryption %d failed.\n", iph1->approval->enctype);
 		goto end;

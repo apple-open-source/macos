@@ -1,0 +1,15 @@
+diff -r -u -N --exclude='*.orig' fetchmail-6.3.11.orig/fetchmail.man fetchmail-6.3.11/fetchmail.man
+--- fetchmail-6.3.11.orig/fetchmail.man	2009-08-04 09:47:57.000000000 -0700
++++ fetchmail-6.3.11/fetchmail.man	2009-09-25 12:35:44.000000000 -0700
+@@ -1272,9 +1272,9 @@
+ option suppresses backgrounding and detachment of the daemon process
+ from its control terminal.  This is useful for debugging or when
+ fetchmail runs as the child of a supervisor process such as
+-.BR init (8)
++.BR launchd (8)
+ or Gerrit Pape's
+-.BR runit (8).
++.I runit.
+ Note that this also causes the logfile option to be ignored (though
+ perhaps it shouldn't).
+ .PP

@@ -1,0 +1,21 @@
+#!/bin/sh -x
+
+# copy cwd to SRCROOT like installsrc
+
+if [ -z "$SRCROOT" ]; then
+	PWD=`pwd`
+	SRCROOT=/tmp/`basename "$PWD"`
+fi
+
+echo Exporting to $SRCROOT
+mkdir -p "$SRCROOT"
+
+gnutar cf - \
+	--exclude=.svn \
+	--exclude=CVS \
+	--exclude=build \
+	--exclude=testing \
+	--exclude=\*.APPLE \
+	--exclude=install\* \
+	. | (cd "$SRCROOT"; gnutar xf - )
+

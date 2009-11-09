@@ -4830,11 +4830,12 @@ fi
 # Check whether --with-ldap was given.
 if test "${with_ldap+set}" = set; then
   withval=$with_ldap;
-    save_cppflags="$CPPFLAGS"
-    save_ldflags="$LDFLAGS"
-    save_libs="$LIBS"
-    if test -n "$with_ldap_include"; then
-      CPPFLAGS="$CPPFLAGS -I$with_ldap_include"
+    if test "$with_ldap" != "no"; then
+      save_cppflags="$CPPFLAGS"
+      save_ldflags="$LDFLAGS"
+      save_libs="$LIBS"
+      if test -n "$with_ldap_include"; then
+        CPPFLAGS="$CPPFLAGS -I$with_ldap_include"
 
   if test "x$APRUTIL_INCLUDES" = "x"; then
     test "x$silent" != "xyes" && echo "  setting APRUTIL_INCLUDES to \"-I$with_ldap_include\""
@@ -4856,9 +4857,9 @@ if test "${with_ldap+set}" = set; then
     done
   fi
 
-    fi
-    if test -n "$with_ldap_lib"; then
-      LDFLAGS="$LDFLAGS -L$with_ldap_lib"
+      fi
+      if test -n "$with_ldap_lib"; then
+        LDFLAGS="$LDFLAGS -L$with_ldap_lib"
 
   if test "x$APRUTIL_LDFLAGS" = "x"; then
     test "x$silent" != "xyes" && echo "  setting APRUTIL_LDFLAGS to \"-L$with_ldap_lib\""
@@ -4880,10 +4881,10 @@ if test "${with_ldap+set}" = set; then
     done
   fi
 
-    fi
+      fi
 
-    LIBLDAP="$withval"
-    if test "$LIBLDAP" = "yes"; then
+      LIBLDAP="$withval"
+      if test "$LIBLDAP" = "yes"; then
 
   if test ${apu_has_ldap} != "1"; then
     ldaplib="ldap50"
@@ -11561,7 +11562,7 @@ fi
 
   fi
 
-    else
+      else
 
   if test ${apu_has_ldap} != "1"; then
     ldaplib=$LIBLDAP
@@ -13990,12 +13991,12 @@ fi
 
   fi
 
-    fi
+      fi
 
-    test ${apu_has_ldap} != "1" && { { $as_echo "$as_me:$LINENO: error: could not find an LDAP library" >&5
+      test ${apu_has_ldap} != "1" && { { $as_echo "$as_me:$LINENO: error: could not find an LDAP library" >&5
 $as_echo "$as_me: error: could not find an LDAP library" >&2;}
    { (exit 1); exit 1; }; }
-    as_ac_Lib=`$as_echo "ac_cv_lib_$apu_liblber_name''_ber_init" | $as_tr_sh`
+      as_ac_Lib=`$as_echo "ac_cv_lib_$apu_liblber_name''_ber_init" | $as_tr_sh`
 { $as_echo "$as_me:$LINENO: checking for ber_init in -l$apu_liblber_name" >&5
 $as_echo_n "checking for ber_init in -l$apu_liblber_name... " >&6; }
 if { as_var=$as_ac_Lib; eval "test \"\${$as_var+set}\" = set"; }; then
@@ -14217,10 +14218,10 @@ fi
 done
 
 
-    # Solaris has a problem in <ldap.h> which prevents it from
-    # being included by itself.  Check for <ldap.h> manually,
-    # including lber.h first.
-    { $as_echo "$as_me:$LINENO: checking for ldap.h" >&5
+      # Solaris has a problem in <ldap.h> which prevents it from
+      # being included by itself.  Check for <ldap.h> manually,
+      # including lber.h first.
+      { $as_echo "$as_me:$LINENO: checking for ldap.h" >&5
 $as_echo_n "checking for ldap.h... " >&6; }
 if test "${apr_cv_hdr_ldap_h+set}" = set; then
   $as_echo_n "(cached) " >&6
@@ -14232,9 +14233,9 @@ cat confdefs.h >>conftest.$ac_ext
 cat >>conftest.$ac_ext <<_ACEOF
 /* end confdefs.h.  */
 #ifdef HAVE_LBER_H
-    #include <lber.h>
-    #endif
-    #include <ldap.h>
+      #include <lber.h>
+      #endif
+      #include <ldap.h>
 
 _ACEOF
 if { (ac_try="$ac_cpp conftest.$ac_ext"
@@ -14266,14 +14267,14 @@ rm -f conftest.err conftest.$ac_ext
 fi
 { $as_echo "$as_me:$LINENO: result: $apr_cv_hdr_ldap_h" >&5
 $as_echo "$apr_cv_hdr_ldap_h" >&6; }
-    if test "$apr_cv_hdr_ldap_h" = "yes"; then
-      ldap_h="#include <ldap.h>"
+      if test "$apr_cv_hdr_ldap_h" = "yes"; then
+        ldap_h="#include <ldap.h>"
 
 cat >>confdefs.h <<\_ACEOF
 #define HAVE_LDAP_H 1
 _ACEOF
 
-    fi
+      fi
 
 
 for ac_header in ldap_ssl.h
@@ -14422,149 +14423,14 @@ fi
 done
 
 
-    if test "$apr_cv_hdr_ldap_h" = "yes"; then
-      { $as_echo "$as_me:$LINENO: checking for LDAP toolkit" >&5
+      if test "$apr_cv_hdr_ldap_h" = "yes"; then
+        { $as_echo "$as_me:$LINENO: checking for LDAP toolkit" >&5
 $as_echo_n "checking for LDAP toolkit... " >&6; }
 if test "${apr_cv_ldap_toolkit+set}" = set; then
   $as_echo_n "(cached) " >&6
 else
 
-        if test "x$apr_cv_ldap_toolkit" = "x"; then
-          cat >conftest.$ac_ext <<_ACEOF
-/* confdefs.h.  */
-_ACEOF
-cat confdefs.h >>conftest.$ac_ext
-cat >>conftest.$ac_ext <<_ACEOF
-/* end confdefs.h.  */
-$lber_h
-                       $ldap_h
-                       LDAP_VENDOR_NAME
-_ACEOF
-if (eval "$ac_cpp conftest.$ac_ext") 2>&5 |
-  $EGREP "OpenLDAP" >/dev/null 2>&1; then
-  apu_has_ldap_openldap="1"
-                                           apr_cv_ldap_toolkit="OpenLDAP"
-fi
-rm -f conftest*
-
-        fi
-        if test "x$apr_cv_ldap_toolkit" = "x"; then
-          cat >conftest.$ac_ext <<_ACEOF
-/* confdefs.h.  */
-_ACEOF
-cat confdefs.h >>conftest.$ac_ext
-cat >>conftest.$ac_ext <<_ACEOF
-/* end confdefs.h.  */
-$lber_h
-                       $ldap_h
-                       LDAP_VENDOR_NAME
-_ACEOF
-if (eval "$ac_cpp conftest.$ac_ext") 2>&5 |
-  $EGREP "Sun Microsystems Inc." >/dev/null 2>&1; then
-  apu_has_ldap_solaris="1"
-                                           apr_cv_ldap_toolkit="Solaris"
-fi
-rm -f conftest*
-
-        fi
-        if test "x$apr_cv_ldap_toolkit" = "x"; then
-          cat >conftest.$ac_ext <<_ACEOF
-/* confdefs.h.  */
-_ACEOF
-cat confdefs.h >>conftest.$ac_ext
-cat >>conftest.$ac_ext <<_ACEOF
-/* end confdefs.h.  */
-$lber_h
-                       $ldap_h
-                       LDAP_VENDOR_NAME
-_ACEOF
-if (eval "$ac_cpp conftest.$ac_ext") 2>&5 |
-  $EGREP "Novell" >/dev/null 2>&1; then
-  apu_has_ldap_novell="1"
-                                           apr_cv_ldap_toolkit="Novell"
-fi
-rm -f conftest*
-
-        fi
-        if test "x$apr_cv_ldap_toolkit" = "x"; then
-          cat >conftest.$ac_ext <<_ACEOF
-/* confdefs.h.  */
-_ACEOF
-cat confdefs.h >>conftest.$ac_ext
-cat >>conftest.$ac_ext <<_ACEOF
-/* end confdefs.h.  */
-$lber_h
-                       $ldap_h
-                       LDAP_VENDOR_NAME
-_ACEOF
-if (eval "$ac_cpp conftest.$ac_ext") 2>&5 |
-  $EGREP "Microsoft Corporation." >/dev/null 2>&1; then
-  apu_has_ldap_microsoft="1"
-                                           apr_cv_ldap_toolkit="Microsoft"
-fi
-rm -f conftest*
-
-        fi
-        if test "x$apr_cv_ldap_toolkit" = "x"; then
-          cat >conftest.$ac_ext <<_ACEOF
-/* confdefs.h.  */
-_ACEOF
-cat confdefs.h >>conftest.$ac_ext
-cat >>conftest.$ac_ext <<_ACEOF
-/* end confdefs.h.  */
-$lber_h
-                       $ldap_h
-                       LDAP_VENDOR_NAME
-_ACEOF
-if (eval "$ac_cpp conftest.$ac_ext") 2>&5 |
-  $EGREP "Netscape Communications Corp." >/dev/null 2>&1; then
-  apu_has_ldap_netscape="1"
-                                           apr_cv_ldap_toolkit="Netscape"
-fi
-rm -f conftest*
-
-        fi
-        if test "x$apr_cv_ldap_toolkit" = "x"; then
-          cat >conftest.$ac_ext <<_ACEOF
-/* confdefs.h.  */
-_ACEOF
-cat confdefs.h >>conftest.$ac_ext
-cat >>conftest.$ac_ext <<_ACEOF
-/* end confdefs.h.  */
-$lber_h
-                       $ldap_h
-                       LDAP_VENDOR_NAME
-_ACEOF
-if (eval "$ac_cpp conftest.$ac_ext") 2>&5 |
-  $EGREP "mozilla.org" >/dev/null 2>&1; then
-  apu_has_ldap_mozilla="1"
-                                           apr_cv_ldap_toolkit="Mozilla"
-fi
-rm -f conftest*
-
-        fi
-        if test "x$apr_cv_ldap_toolkit" = "x"; then
-          cat >conftest.$ac_ext <<_ACEOF
-/* confdefs.h.  */
-_ACEOF
-cat confdefs.h >>conftest.$ac_ext
-cat >>conftest.$ac_ext <<_ACEOF
-/* end confdefs.h.  */
-$lber_h
-                       $ldap_h
-                       LDAP_VENDOR_NAME
-_ACEOF
-if (eval "$ac_cpp conftest.$ac_ext") 2>&5 |
-  $EGREP "International Business Machines" >/dev/null 2>&1; then
-  apu_has_ldap_tivoli="1"
-                                           apr_cv_ldap_toolkit="Tivoli"
-fi
-rm -f conftest*
-
-        fi
-        if test "x$apr_cv_ldap_toolkit" = "x"; then
-          case "$host" in
-          *-ibm-os390)
+          if test "x$apr_cv_ldap_toolkit" = "x"; then
             cat >conftest.$ac_ext <<_ACEOF
 /* confdefs.h.  */
 _ACEOF
@@ -14572,31 +14438,167 @@ cat confdefs.h >>conftest.$ac_ext
 cat >>conftest.$ac_ext <<_ACEOF
 /* end confdefs.h.  */
 $lber_h
-                                 $ldap_h
+                         $ldap_h
+                         LDAP_VENDOR_NAME
+_ACEOF
+if (eval "$ac_cpp conftest.$ac_ext") 2>&5 |
+  $EGREP "OpenLDAP" >/dev/null 2>&1; then
+  apu_has_ldap_openldap="1"
+                                             apr_cv_ldap_toolkit="OpenLDAP"
+fi
+rm -f conftest*
+
+          fi
+          if test "x$apr_cv_ldap_toolkit" = "x"; then
+            cat >conftest.$ac_ext <<_ACEOF
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+$lber_h
+                         $ldap_h
+                         LDAP_VENDOR_NAME
+_ACEOF
+if (eval "$ac_cpp conftest.$ac_ext") 2>&5 |
+  $EGREP "Sun Microsystems Inc." >/dev/null 2>&1; then
+  apu_has_ldap_solaris="1"
+                                             apr_cv_ldap_toolkit="Solaris"
+fi
+rm -f conftest*
+
+          fi
+          if test "x$apr_cv_ldap_toolkit" = "x"; then
+            cat >conftest.$ac_ext <<_ACEOF
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+$lber_h
+                         $ldap_h
+                         LDAP_VENDOR_NAME
+_ACEOF
+if (eval "$ac_cpp conftest.$ac_ext") 2>&5 |
+  $EGREP "Novell" >/dev/null 2>&1; then
+  apu_has_ldap_novell="1"
+                                             apr_cv_ldap_toolkit="Novell"
+fi
+rm -f conftest*
+
+          fi
+          if test "x$apr_cv_ldap_toolkit" = "x"; then
+            cat >conftest.$ac_ext <<_ACEOF
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+$lber_h
+                         $ldap_h
+                         LDAP_VENDOR_NAME
+_ACEOF
+if (eval "$ac_cpp conftest.$ac_ext") 2>&5 |
+  $EGREP "Microsoft Corporation." >/dev/null 2>&1; then
+  apu_has_ldap_microsoft="1"
+                                             apr_cv_ldap_toolkit="Microsoft"
+fi
+rm -f conftest*
+
+          fi
+          if test "x$apr_cv_ldap_toolkit" = "x"; then
+            cat >conftest.$ac_ext <<_ACEOF
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+$lber_h
+                         $ldap_h
+                         LDAP_VENDOR_NAME
+_ACEOF
+if (eval "$ac_cpp conftest.$ac_ext") 2>&5 |
+  $EGREP "Netscape Communications Corp." >/dev/null 2>&1; then
+  apu_has_ldap_netscape="1"
+                                             apr_cv_ldap_toolkit="Netscape"
+fi
+rm -f conftest*
+
+          fi
+          if test "x$apr_cv_ldap_toolkit" = "x"; then
+            cat >conftest.$ac_ext <<_ACEOF
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+$lber_h
+                         $ldap_h
+                         LDAP_VENDOR_NAME
+_ACEOF
+if (eval "$ac_cpp conftest.$ac_ext") 2>&5 |
+  $EGREP "mozilla.org" >/dev/null 2>&1; then
+  apu_has_ldap_mozilla="1"
+                                             apr_cv_ldap_toolkit="Mozilla"
+fi
+rm -f conftest*
+
+          fi
+          if test "x$apr_cv_ldap_toolkit" = "x"; then
+            cat >conftest.$ac_ext <<_ACEOF
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+$lber_h
+                         $ldap_h
+                         LDAP_VENDOR_NAME
+_ACEOF
+if (eval "$ac_cpp conftest.$ac_ext") 2>&5 |
+  $EGREP "International Business Machines" >/dev/null 2>&1; then
+  apu_has_ldap_tivoli="1"
+                                             apr_cv_ldap_toolkit="Tivoli"
+fi
+rm -f conftest*
+
+          fi
+          if test "x$apr_cv_ldap_toolkit" = "x"; then
+            case "$host" in
+            *-ibm-os390)
+              cat >conftest.$ac_ext <<_ACEOF
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+$lber_h
+                                   $ldap_h
 _ACEOF
 if (eval "$ac_cpp conftest.$ac_ext") 2>&5 |
   $EGREP "IBM" >/dev/null 2>&1; then
   apu_has_ldap_zos="1"
-                                            apr_cv_ldap_toolkit="z/OS"
+                                              apr_cv_ldap_toolkit="z/OS"
 fi
 rm -f conftest*
 
-            ;;
-          esac
-        fi
-        if test "x$apr_cv_ldap_toolkit" = "x"; then
-          apu_has_ldap_other="1"
-          apr_cv_ldap_toolkit="unknown"
-        fi
+              ;;
+            esac
+          fi
+          if test "x$apr_cv_ldap_toolkit" = "x"; then
+            apu_has_ldap_other="1"
+            apr_cv_ldap_toolkit="unknown"
+          fi
 
 fi
 { $as_echo "$as_me:$LINENO: result: $apr_cv_ldap_toolkit" >&5
 $as_echo "$apr_cv_ldap_toolkit" >&6; }
-    fi
+      fi
 
-    CPPFLAGS=$save_cppflags
-    LDFLAGS=$save_ldflags
-    LIBS=$save_libs
+      CPPFLAGS=$save_cppflags
+      LDFLAGS=$save_ldflags
+      LIBS=$save_libs
+    fi
 
 fi
 
@@ -49029,8 +49031,43 @@ fi
   if test "$enable_util_dso" = "no"; then
      apu_dso_build="0"
   else
-     apr_h="`$apr_config --includedir`/apr.h"
-     apu_dso_build="`awk '/^#define APR_HAS_DSO/ { print $3; }' $apr_h`"
+     { $as_echo "$as_me:$LINENO: checking whether APR has DSO support" >&5
+$as_echo_n "checking whether APR has DSO support... " >&6; }
+if test "${apu_cv_aprdso+set}" = set; then
+  $as_echo_n "(cached) " >&6
+else
+  apu_save_CPPFLAGS=$CPPFLAGS
+        CPPFLAGS="$CPPFLAGS $APR_INCLUDES"
+        cat >conftest.$ac_ext <<_ACEOF
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+#include "apr.h"
+#if APR_HAS_DSO
+yes
+#endif
+
+_ACEOF
+if (eval "$ac_cpp conftest.$ac_ext") 2>&5 |
+  $EGREP "yes" >/dev/null 2>&1; then
+  apu_cv_aprdso=yes
+else
+  apu_cv_aprdso=no
+fi
+rm -f conftest*
+
+        CPPFLAGS=$apu_save_CPPFLAGS
+fi
+{ $as_echo "$as_me:$LINENO: result: $apu_cv_aprdso" >&5
+$as_echo "$apu_cv_aprdso" >&6; }
+
+     if test $apu_cv_aprdso = yes; then
+        apu_dso_build=1
+     else
+        apu_dso_build=0
+     fi
   fi
 
   if test "$apu_dso_build" = "0"; then

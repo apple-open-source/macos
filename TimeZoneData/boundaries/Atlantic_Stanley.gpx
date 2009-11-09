@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.0">
+<trk>
+	<name>UTC +10 (all year) FKT</name>
+	<trkseg>
+		<trkpt lon="144.291687012" lat="-14.1925002802"></trkpt>
+		<trkpt lon="144.275550842" lat="-14.1422353175"></trkpt>
+		<trkpt lon="144.233665466" lat="-14.1172651434"></trkpt>
+		<trkpt lon="144.191093445" lat="-14.1711972844"></trkpt>
+		<trkpt lon="144.196586609" lat="-14.213801273"></trkpt>
+		<trkpt lon="144.195899963" lat="-14.2331035654"></trkpt>
+		<trkpt lon="144.232635498" lat="-14.2344346972"></trkpt>
+		<trkpt lon="144.281044006" lat="-14.2447507027"></trkpt>
+		<trkpt lon="144.294776917" lat="-14.210473125"></trkpt>
+		<trkpt lon="144.291687012" lat="-14.1925002802"></trkpt>
+	</trkseg>
+</trk>
+</gpx>

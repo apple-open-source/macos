@@ -47,13 +47,15 @@
 #include "localconf.h"
 #include "remoteconf.h"
 #include "vpn_control.h"
+#include "proposal.h"
+#include "sainfo.h"
 
 const char *ike_session_stopped_by_vpn_disconnect = "Stopped by VPN disconnect";
 const char *ike_session_stopped_by_flush          = "Stopped by Flush";
 const char *ike_session_stopped_by_idle           = "Stopped by Idle";
 const char *ike_session_stopped_by_xauth_timeout  = "Stopped by XAUTH timeout";
 
-static LIST_HEAD(_ike_session_tree_, ike_session) ike_session_tree;
+static LIST_HEAD(_ike_session_tree_, ike_session) ike_session_tree = { NULL };
 
 static ike_session_t *
 new_ike_session (ike_session_id_t *id)
@@ -88,7 +90,7 @@ free_ike_session (ike_session_t *session)
         SCHED_KILL(session->traffic_monitor.sc_idle);
         SCHED_KILL(session->sc_xauth);
 		if (session->start_timestamp.tv_sec || session->start_timestamp.tv_usec) {
-			if (!(session->stop_timestamp.tv_sec || session->start_timestamp.tv_usec)) {
+			if (!(session->stop_timestamp.tv_sec || session->stop_timestamp.tv_usec)) {
 				gettimeofday(&session->stop_timestamp, NULL);
 			}
             if (session->term_reason != ike_session_stopped_by_vpn_disconnect ||
@@ -314,17 +316,17 @@ ike_session_init_traffic_cop_params (struct ph1handle *iph1)
             min_period = MIN(iph1->rmconf->dpd_interval, iph1->rmconf->idle_timeout);
             max_period = MAX(iph1->rmconf->dpd_interval, iph1->rmconf->idle_timeout);
         } else if (iph1->rmconf->idle_timeout) {
-            min_period = max_period = MIN(0, iph1->rmconf->idle_timeout);
+            min_period = max_period = iph1->rmconf->idle_timeout;
         } else {
             // DPD_ALGO_DEFAULT is configured and there's no idle timeout... we don't need to monitor traffic
             return;
         }
         if (min_period) {
-            sample_period = min_period >> 1;
+            sample_period = min_period / 20;
             if (!sample_period)
                 sample_period = 1; // bad
         } else {
-            sample_period = max_period >> 1;
+            sample_period = max_period / 20;
             if (!sample_period)
                 sample_period = 1; // bad
         }
@@ -791,15 +793,24 @@ ike_session_traffic_cop (void *arg)
 static void
 ike_session_cleanup_idle (void *arg)
 {
-    ike_session_t *session = (ike_session_t *)arg;
+    ike_session_cleanup((ike_session_t *)arg, ike_session_stopped_by_idle);
+}
+
+static void
+ike_session_monitor_idle (ike_session_t *session)
+{
+	if (!session)
+		return;
 
     if (session->traffic_monitor.dir_idle == IPSEC_DIR_INBOUND ||
         session->traffic_monitor.dir_idle == IPSEC_DIR_ANY) {
         if (session->peer_sent_data_sc_idle) {
             SCHED_KILL(session->traffic_monitor.sc_idle);
-            session->traffic_monitor.sc_idle = sched_new(session->traffic_monitor.interv_idle,
-                                                         ike_session_cleanup_idle,
-                                                         session);
+			if (session->traffic_monitor.interv_idle) {
+				session->traffic_monitor.sc_idle = sched_new(session->traffic_monitor.interv_idle,
+															 ike_session_cleanup_idle,
+															 session);
+			}
             session->peer_sent_data_sc_idle = 0;
             session->i_sent_data_sc_idle = 0;
             return;
@@ -809,16 +820,16 @@ ike_session_cleanup_idle (void *arg)
         session->traffic_monitor.dir_idle == IPSEC_DIR_ANY) {
         if (session->i_sent_data_sc_idle) {
             SCHED_KILL(session->traffic_monitor.sc_idle);
-            session->traffic_monitor.sc_idle = sched_new(session->traffic_monitor.interv_idle,
-                                                         ike_session_cleanup_idle,
-                                                         session);
+			if (session->traffic_monitor.interv_idle) {
+				session->traffic_monitor.sc_idle = sched_new(session->traffic_monitor.interv_idle,
+															 ike_session_cleanup_idle,
+															 session);
+			}
             session->peer_sent_data_sc_idle = 0;
             session->i_sent_data_sc_idle = 0;
             return;
         }
     }
-
-    ike_session_cleanup((ike_session_t *)arg, ike_session_stopped_by_idle);
 }
 
 void
@@ -1140,6 +1151,11 @@ ike_session_update_traffic_idle_status (ike_session_t *session,
         return;
     }
 
+    if (!session->established || session->stopped_by_vpn_controller || session->stop_timestamp.tv_sec || session->stop_timestamp.tv_usec) {
+        plog(LLV_DEBUG2, LOCATION, NULL, "dropping update on invalid session.\n", __FUNCTION__);
+        return;
+    }
+
     for (i = 0; i < max_stats; i++) {
         if (dir == IPSEC_DIR_INBOUND) {
             for (j = 0; j < session->traffic_monitor.num_in_last_poll; j++) {
@@ -1191,6 +1207,8 @@ ike_session_update_traffic_idle_status (ike_session_t *session,
             session->i_sent_data_sc_idle = 1;
         }
     }
+
+	ike_session_monitor_idle(session);
 }
 
 void
@@ -1203,6 +1221,7 @@ ike_session_cleanup (ike_session_t *session,
     if (!session)
         return;
 
+	SCHED_KILL(session->traffic_monitor.sc_idle);
     // do ph2's first... we need the ph1s for notifications
     for (iph2 = LIST_FIRST(&session->ikev1_state.ph2tree); iph2; iph2 = LIST_NEXT(iph2, ph2ofsession_chain)) {
         if (iph2->status == PHASE2ST_ESTABLISHED) {
@@ -1352,4 +1371,98 @@ ike_session_stop_xauth_timer (struct ph1handle *iph1)
     if (iph1->parent_session) {
         SCHED_KILL(iph1->parent_session->sc_xauth);
     }
+}
+
+static int
+ike_session_is_id_ipany (vchar_t *ext_id)
+{
+	struct id {
+		u_int8_t type;		/* ID Type */
+		u_int8_t proto_id;	/* Protocol ID */
+		u_int16_t port;		/* Port */
+		u_int32_t addr;		/* IPv4 address */
+		u_int32_t mask;
+	} *id_ptr;
+	
+	/* ignore protocol and port */
+	id_ptr = (struct id *)ext_id->v;
+	if (id_ptr->type == IPSECDOI_ID_IPV4_ADDR &&
+	    id_ptr->addr == 0) {
+		return 1;
+	} else if (id_ptr->type == IPSECDOI_ID_IPV4_ADDR_SUBNET &&
+			   id_ptr->mask == 0 &&
+			   id_ptr->addr == 0) {
+		return 1;
+	}
+	plog(LLV_DEBUG2, LOCATION, NULL, "not ipany_ids in %s: type %d, addr %x, mask %x.\n",
+		 __FUNCTION__, id_ptr->type, id_ptr->addr, id_ptr->mask);
+	return 0;
+}
+
+static int
+ike_session_cmp_ph2_ids_ipany (vchar_t *ext_id,
+							   vchar_t *ext_id_p)
+{
+	if (ike_session_is_id_ipany(ext_id) &&
+	    ike_session_is_id_ipany(ext_id_p)) {
+		return 1;
+	}
+	return 0;
+}
+
+static int
+ike_session_cmp_ph2_ids (struct ph2handle *iph2,
+						 struct ph2handle *older_ph2)
+{
+	if (iph2->id && older_ph2->id &&
+	    iph2->id->l == older_ph2->id->l &&
+	    memcmp(iph2->id->v, older_ph2->id->v, iph2->id->l) == 0 &&
+	    iph2->id_p && older_ph2->id_p &&
+	    iph2->id_p->l == older_ph2->id_p->l &&
+	    memcmp(iph2->id_p->v, older_ph2->id_p->v, iph2->id_p->l) == 0) {
+		return 0;
+	}
+	if (iph2->ext_nat_id && older_ph2->ext_nat_id &&
+	    iph2->ext_nat_id->l == older_ph2->ext_nat_id->l &&
+	    memcmp(iph2->ext_nat_id->v, older_ph2->ext_nat_id->v, iph2->ext_nat_id->l) == 0 &&
+	    iph2->ext_nat_id_p && older_ph2->ext_nat_id_p &&
+	    iph2->ext_nat_id_p->l == older_ph2->ext_nat_id_p->l &&
+	    memcmp(iph2->ext_nat_id_p->v, older_ph2->ext_nat_id_p->v, iph2->ext_nat_id_p->l) == 0) {
+		return 0;
+	}
+	if (iph2->id && older_ph2->ext_nat_id &&
+	    iph2->id->l == older_ph2->ext_nat_id->l &&
+	    memcmp(iph2->id->v, older_ph2->ext_nat_id->v, iph2->id->l) == 0 &&
+	    iph2->id_p && older_ph2->ext_nat_id_p &&
+	    iph2->id_p->l == older_ph2->ext_nat_id_p->l &&
+	    memcmp(iph2->id_p->v, older_ph2->ext_nat_id_p->v, iph2->id_p->l) == 0) {
+		return 0;
+	}
+	return -1;
+}
+
+int
+ike_session_get_sainfo_r (struct ph2handle *iph2)
+{
+	if (iph2->parent_session &&
+	    iph2->parent_session->is_client &&
+	    iph2->id && iph2->id_p) {
+		struct ph2handle *p;
+		int ipany_ids = ike_session_cmp_ph2_ids_ipany(iph2->id, iph2->id_p);
+		plog(LLV_DEBUG2, LOCATION, NULL, "ipany_ids %d in %s.\n", ipany_ids, __FUNCTION__);
+		
+		for (p = LIST_FIRST(&iph2->parent_session->ikev1_state.ph2tree); p; p = LIST_NEXT(p, ph2ofsession_chain)) {
+			if (iph2 != p && !p->is_dying && p->status >= PHASE2ST_ESTABLISHED &&
+			    p->sainfo && !p->sainfo->to_delete && !p->sainfo->to_remove) {
+				plog(LLV_DEBUG2, LOCATION, NULL, "candidate ph2 found in %s.\n", __FUNCTION__);
+				if (ipany_ids ||
+				    ike_session_cmp_ph2_ids(iph2, p) == 0) {
+					plog(LLV_DEBUG2, LOCATION, NULL, "candidate ph2 matched in %s.\n", __FUNCTION__);
+					iph2->sainfo = p->sainfo;
+					return 0;
+				}
+			}
+		}
+	}
+	return -1;
 }

@@ -12,8 +12,8 @@
  # offset 4 in a Java bytecode file is the JVM minor version and the
  # short at offset 6 is the JVM major version.  Since there are only 
  # only 18 labeled Mach-O architectures at current, and the first released 
-@@ -19,9 +19,9 @@
- >>4	beshort		x       	\b%d
+@@ -28,9 +28,9 @@
+ 
  
  0	belong		0xcafebabe
 ->4	belong		1		Mach-O fat file with 1 architecture

@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.0">
+<trk>
+	<name>UTC -6 (all year) Easter Island</name>
+	<trkseg>
+		<trkpt lon="-108.665771484" lat="-26.608174374"></trkpt>
+		<trkpt lon="-110.434570312" lat="-26.608174374"></trkpt>
+		<trkpt lon="-110.445556641" lat="-27.6446063819"></trkpt>
+		<trkpt lon="-108.6328125" lat="-75.7156332417"></trkpt>
+		<trkpt lon="-100.01953125" lat="-75.5411125578"></trkpt>
+		<trkpt lon="-103.88671875" lat="-26.2737140244"></trkpt>
+		<trkpt lon="-108.665771484" lat="-26.608174374"></trkpt>
+	</trkseg>
+</trk>
+</gpx>

@@ -52,7 +52,7 @@ static char *encode_words(char *const *words, int nwords, const char *charset)
 	l += strlen(words[i]) * 3; /* worst case, encode everything */
     l += (strlen(charset) + 8) * (l/60 + 1);
 
-    out = v = xmalloc(l);
+    out = v = (char *)xmalloc(l);
     t = stpcpy(out, "=?");
     t = stpcpy(t, charset);
     t = stpcpy(t, "?Q?");
@@ -110,14 +110,14 @@ char *rfc2047e(const char *string, const char *charset) {
     r = string;
     while (*r) {
 	l = strcspn(r, ws);
-	words[idx] = xmalloc(l+1);
+	words[idx] = (char *)xmalloc(l+1);
 	memcpy(words[idx], r, l);
 	words[idx][l] = '\0';
 	idx++;
 	r += l;
 	if (!*r) break;
 	l = strspn(r, ws);
-	words[idx] = xmalloc(l+1);
+	words[idx] = (char *)xmalloc(l+1);
 	memcpy(words[idx], r, l);
 	words[idx][l] = '\0';
 	idx++;
@@ -157,7 +157,7 @@ char *rfc2047e(const char *string, const char *charset) {
     /* phase 3: limit lengths */
     minlen = strlen(charset) + 7;
     /* allocate ample memory */
-    out = xmalloc(l + (l / (72 - minlen) + 1) * (minlen + 2) + 1);
+    out = (char *)xmalloc(l + (l / (72 - minlen) + 1) * (minlen + 2) + 1);
 
     if (count)
 	t = stpcpy(out, words[0]);

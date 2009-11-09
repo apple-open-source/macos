@@ -542,7 +542,7 @@ bool IOHIDDevice::handleOpen(IOService *  client,
 
     do {
         if ( _seizedClient )
-            break;
+            break;            
             
         // Was this object already registered as our client?
 
@@ -562,8 +562,6 @@ bool IOHIDDevice::handleOpen(IOService *  client,
         if (options & kIOServiceSeize)
         {
             messageClients( kIOMessageServiceIsRequestingClose, (void *) options);
-            //if (kIOReturnSuccess != retval)
-            //    break;
                     
             _seizedClient = client;
             

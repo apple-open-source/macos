@@ -19,6 +19,7 @@
 #define APR_WANT_STRFUNC
 #include "apr_want.h"
 
+#include "apu_config.h"
 #include "apu.h"
 
 #if APU_HAVE_SDBM
@@ -206,7 +207,7 @@ static void vt_sdbm_usednames(apr_pool_t *pool, const char *pathname,
     *used2 = apr_pstrcat(pool, pathname, APR_SDBM_PAGFEXT, NULL);
 }
 
-APU_DECLARE_DATA const apr_dbm_type_t apr_dbm_type_sdbm = {
+APU_MODULE_DECLARE_DATA const apr_dbm_type_t apr_dbm_type_sdbm = {
     "sdbm",
     vt_sdbm_open,
     vt_sdbm_close,

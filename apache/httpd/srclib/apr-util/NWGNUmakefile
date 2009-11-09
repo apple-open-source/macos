@@ -13,6 +13,12 @@ SUBDIRS += \
 	$(EOLIST) 
 endif
 
+ifdef WITH_APR_DBM
+SUBDIRS += \
+	dbm \
+	$(EOLIST) 
+endif
+
 #
 # Get the 'head' of the build environment.  This includes default targets and
 # paths to tools
@@ -108,7 +114,7 @@ endif
 # This is used by the link 'name' directive to name the nlm.  If left blank
 # TARGET_nlm (see below) will be used.
 #
-NLM_NAME		= 
+NLM_NAME	= 
 
 #
 # This is used by the link '-desc ' directive. 
@@ -125,7 +131,7 @@ NLM_THREAD_NAME	=
 # If this is specified, it will override VERSION value in 
 # $(APR_WORK)\build\NWGNUenvironment.inc
 #
-NLM_VERSION		=
+NLM_VERSION	=
 
 #
 # If this is specified, it will override the default of 64K
@@ -150,14 +156,14 @@ NLM_CHECK_SYM	=
 #
 # If this is specified it will be used by the link '-flags' directive
 #
-NLM_FLAGS		=
+NLM_FLAGS	=
 
 #
 # If this is specified it will be linked in with the XDCData option in the def 
 # file instead of the default of $(APR)/misc/netware/apache.xdc.  XDCData can 
 # be disabled by setting APACHE_UNIPROC in the environment
 #
-XDCDATA         = 
+XDCDATA		= 
 
 #
 # Declare all target files (you must add your files here)
@@ -223,7 +229,7 @@ FILES_nlm_Ximports = \
 #
 FILES_nlm_exports = \
 	$(EOLIST)
-	
+
 #   
 # These are the OBJ files needed to create the LIB target above.
 # Paths must all use the '/' character
@@ -246,7 +252,6 @@ FILES_lib_objs = \
 	$(OBJDIR)/apr_date.o \
 	$(OBJDIR)/apr_dbm.o \
 	$(OBJDIR)/apr_dbd.o \
-	$(OBJDIR)/apr_dbm_berkeleydb.o \
 	$(OBJDIR)/apr_dbm_sdbm.o \
 	$(OBJDIR)/apu_dso.o \
 	$(OBJDIR)/apr_hooks.o \
@@ -261,6 +266,7 @@ FILES_lib_objs = \
 	$(OBJDIR)/getuuid.o \
 	$(OBJDIR)/uuid.o \
 	$(OBJDIR)/apr_strmatch.o \
+	$(OBJDIR)/apr_thread_pool.o \
 	$(OBJDIR)/apr_uri.o \
 	$(OBJDIR)/sdbm.o \
 	$(OBJDIR)/sdbm_hash.o \

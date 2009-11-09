@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.0">
+<trk>
+	<name>UTC-10 (winter) Aleutians</name>
+	<trkseg>
+		<trkpt lon="-163.539733887" lat="55.1160845399"></trkpt>
+		<trkpt lon="-163.363952637" lat="55.0154259406"></trkpt>
+		<trkpt lon="-163.380432129" lat="54.9145140077"></trkpt>
+		<trkpt lon="-163.388671875" lat="54.8734460973"></trkpt>
+		<trkpt lon="-163.39553833" lat="54.8544775516"></trkpt>
+		<trkpt lon="-163.374938965" lat="54.8315453184"></trkpt>
+		<trkpt lon="-163.365325928" lat="54.8038511269"></trkpt>
+		<trkpt lon="-163.304901123" lat="54.7896010052"></trkpt>
+		<trkpt lon="-163.19229126" lat="54.8078086026"></trkpt>
+		<trkpt lon="-163.004150391" lat="54.6905031908"></trkpt>
+		<trkpt lon="-163.013763428" lat="54.6174122436"></trkpt>
+		<trkpt lon="-163.655090332" lat="54.557729924"></trkpt>
+		<trkpt lon="-164.242858887" lat="54.5178931201"></trkpt>
+		<trkpt lon="-164.377441406" lat="54.3949513003"></trkpt>
+		<trkpt lon="-164.8828125" lat="54.0271334441"></trkpt>
+		<trkpt lon="-166.596679688" lat="53.4029824942"></trkpt>
+		<trkpt lon="-169.123535156" lat="52.6630576708"></trkpt>
+		<trkpt lon="-171.287841797" lat="52.2210695236"></trkpt>
+		<trkpt lon="-172.727050781" lat="51.9645771099"></trkpt>
+		<trkpt lon="-175.341796875" lat="51.808614752"></trkpt>
+		<trkpt lon="-177.758789062" lat="51.316880504"></trkpt>
+		<trkpt lon="-179.527587891" lat="50.9238132719"></trkpt>
+		<trkpt lon="-179.791259766" lat="51.3992056536"></trkpt>
+		<trkpt lon="-178.967285156" lat="52.0930076396"></trkpt>
+		<trkpt lon="-176.462402344" lat="52.348763182"></trkpt>
+		<trkpt lon="-174.232177734" lat="52.7562432396"></trkpt>
+		<trkpt lon="-172.935791016" lat="52.5897007687"></trkpt>
+		<trkpt lon="-169.8046875" lat="53.3833283676"></trkpt>
+		<trkpt lon="-166.871337891" lat="54.1817266024"></trkpt>
+		<trkpt lon="-164.509277344" lat="54.99022172"></trkpt>
+		<trkpt lon="-163.539733887" lat="55.1160845399"></trkpt>
+	</trkseg>
+</trk>
+</gpx>

@@ -25,6 +25,7 @@
 #define _IOKIT_IOUSBCOMMAND_H
 
 #include <IOKit/IOCommand.h>
+#include <IOKit/IOCommandPool.h>
 #include <IOKit/IOMemoryDescriptor.h>
 #include <IOKit/IODMACommand.h>
 #include <IOKit/usb/USB.h>
@@ -246,6 +247,18 @@ public:
 	IODMACommand *			GetDMACommand(void)								{ return _expansionData->_dmaCommand; }
     IOUSBIsocCompletion		GetUSLCompletion(void)							{ return _expansionData->_uslCompletion; }
 	bool					GetLowLatency(void)								{ return _expansionData->_lowLatency; }
+};
+
+class IOUSBCommandPool : public IOCommandPool
+{
+    OSDeclareDefaultStructors( IOUSBCommandPool )
+	
+protected:
+    virtual IOReturn gatedReturnCommand(IOCommand * command);
+	virtual IOReturn gatedGetCommand(IOCommand ** command, bool blockForCommand);
+	
+public:
+    static IOCommandPool * withWorkLoop(IOWorkLoop * inWorkLoop);
 };
 
 

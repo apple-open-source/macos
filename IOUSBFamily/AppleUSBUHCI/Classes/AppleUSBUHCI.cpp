@@ -371,9 +371,12 @@ AppleUSBUHCI::UIMInitialize(IOService * provider)
             USBError(1, "AppleUSBUHCI[%p]::UIMInitialize - ioMap is NULL", this);
             return kIOReturnNoMemory;
         }
-        _ioPhysAddress = _ioMap->getPhysicalAddress();
+
+		_ioPhysAddress = _ioMap->getPhysicalAddress();
         _ioVirtAddress = _ioMap->getVirtualAddress();
         
+		USBLog(3, "AppleUSBUHCI[%p]::UIMInitialize config @ %x (%x)", this, (uint32_t)_ioVirtAddress, (uint32_t)_ioPhysAddress);
+		
         _frameLock = IOLockAlloc();
         if (_frameLock == NULL) 
 		{

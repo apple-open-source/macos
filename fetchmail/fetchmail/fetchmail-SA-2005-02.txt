@@ -1,3 +1,6 @@
+-----BEGIN PGP SIGNED MESSAGE-----
+Hash: SHA1
+
 fetchmail-SA-2005-02: security announcement
 
 Topic:		password exposure in fetchmailconf
@@ -94,3 +97,10 @@ THIS WORK IS PROVIDED FREE OF CHARGE AND WITHOUT ANY WARRANTIES.
 Use the information herein at your own risk.
 
 END OF fetchmail-SA-2005-02.txt
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.5 (GNU/Linux)
+
+iD8DBQFIV7WWvmGDOQUufZURAlq/AKCx+EnXjnakBVkUjtdIh+moYOgIqACdERnd
+TR05jtCG4JEb6iHz8AVcfOc=
+=vL+b
+-----END PGP SIGNATURE-----

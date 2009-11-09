@@ -1263,7 +1263,7 @@ void StorageManager::login(UInt32 nameLength, const void *name,
     }
 
     // make sure that the default keychain is in the search list; if not, reset the default to login.keychain
-	if (!mSavedList.member(mSavedList.defaultDLDbIdentifier())) {
+	if (!mSavedList.defaultDLDbIdentifier() || !mSavedList.member(mSavedList.defaultDLDbIdentifier())) {
     	secdebug("KCLogin", "Changing default keychain to %s", (loginDLDbIdentifier) ? loginDLDbIdentifier.dbName() : "<NULL>");
         mSavedList.defaultDLDbIdentifier(loginDLDbIdentifier);
         mSavedList.save();

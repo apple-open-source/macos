@@ -5,7 +5,7 @@
  /* config.h.in.  Generated from configure.ac by autoheader.  */
  
 +/* Apple build version number */
-+#define APPLE_VERSION "2.1.24.1-326"
++#define APPLE_VERSION "2.1.24.1-326.1"
 +
  /* Define to 1 if the `closedir' function returns void instead of `int'. */
  /* #undef CLOSEDIR_VOID */

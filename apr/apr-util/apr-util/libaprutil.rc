@@ -1,6 +1,6 @@
 #include "apu_version.h"
 
-#define APU_COPYRIGHT "Copyright (c) 2008 The Apache Software " \
+#define APU_COPYRIGHT "Copyright (c) 2009 The Apache Software " \
                       "Foundation or its licensors, as applicable."
 
 #define APU_LICENSE \
@@ -54,7 +54,7 @@ BEGIN
   BEGIN
     BLOCK "040904b0"
     BEGIN
-    VALUE "Comments", APU_LICENSE "\0"
+      VALUE "Comments", APU_LICENSE "\0"
       VALUE "CompanyName", "Apache Software Foundation\0"
       VALUE "FileDescription", APU_DLL_DESCRIPTION "\0"
       VALUE "FileVersion", APU_VERSION_STRING "\0"

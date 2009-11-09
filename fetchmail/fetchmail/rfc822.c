@@ -79,7 +79,7 @@ char *reply_hack(
     for (cp = buf; *cp; cp++)
 	if (*cp == ',' || isspace((unsigned char)*cp))
 	    addresscount++;
-    buf = xrealloc(buf, strlen(buf) + addresscount * (strlen(host) + 1) + 1);
+    buf = (char *)xrealloc(buf, strlen(buf) + addresscount * (strlen(host) + 1) + 1);
 #endif /* MAIN */
 
     /*
@@ -96,7 +96,7 @@ char *reply_hack(
 	if (verbose)
 	{
 	    printf("state %d: %s", state, buf);
-	    printf("%*s^\n", from - buf + 10, " ");
+	    printf("%*s^\n", (int)(from - buf + 10), " ");
 	}
 #endif /* MAIN */
 	if (state != 2)
@@ -253,7 +253,7 @@ char *nxtaddr(const char *hdr /* header to be parsed, NUL to continue previous h
 	if (verbose)
 	{
 	    printf("state %d: %s", state, orighdr);
-	    printf("%*s^\n", hp - orighdr + 10, " ");
+	    printf("%*s^\n", (int)(hp - orighdr + 10), " ");
 	}
 #endif /* MAIN */
 

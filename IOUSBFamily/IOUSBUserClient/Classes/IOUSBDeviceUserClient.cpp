@@ -327,6 +327,7 @@ IOUSBDeviceUserClientV2::initWithTask(task_t owningTask, void *security_id , UIn
     if (!owningTask)
 		return false;
 	
+	
     fTask = owningTask;
 	
 
@@ -357,7 +358,6 @@ IOUSBDeviceUserClientV2::start( IOService * provider )
     IOWorkLoop	*		workLoop = NULL;
     IOCommandGate *		commandGate = NULL;
 	
-	
     USBLog(7, "+IOUSBDeviceUserClientV2[%p]::start(%p)",  this, provider);
 	
 	// retain() ourselves so we don't go away while we are start()'ing
@@ -380,6 +380,7 @@ IOUSBDeviceUserClientV2::start( IOService * provider )
         goto ErrorExit;
     }
     
+
     commandGate = IOCommandGate::commandGate(this);
 	
     if (!commandGate)

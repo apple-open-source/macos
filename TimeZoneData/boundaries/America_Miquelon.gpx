@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.0">
+<trk>
+	<name>UTC-3 (winter) St Pierre</name>
+	<trkseg>
+		<trkpt lon="-56.8212890625" lat="47.1747783393"></trkpt>
+		<trkpt lon="-55.7006835938" lat="47.2195681123"></trkpt>
+		<trkpt lon="-55.458984375" lat="46.7097359441"></trkpt>
+		<trkpt lon="-56.7993164062" lat="46.6795944656"></trkpt>
+		<trkpt lon="-56.8212890625" lat="47.1747783393"></trkpt>
+	</trkseg>
+</trk>
+</gpx>

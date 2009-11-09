@@ -1,0 +1,34 @@
+--- subversion/libsvn_ra_svn/client.c.orig	2009-09-24 19:40:18.000000000 -0700
++++ subversion/libsvn_ra_svn/client.c	2009-09-24 19:46:07.000000000 -0700
+@@ -43,6 +43,9 @@
+ 
+ #include "ra_svn.h"
+ 
++#include <dispatch/dispatch.h>
++#include <crt_externs.h>
++
+ #ifdef SVN_HAVE_SASL
+ #define DO_AUTH svn_ra_svn__do_cyrus_auth
+ #else
+@@ -365,6 +368,8 @@
+   apr_size_t len;
+   apr_status_t status;
+   int n;
++  static dispatch_once_t once;
++  static int this_is_xcode;
+ 
+   /* Look up the tunnel specification in config. */
+   cfg = config ? apr_hash_get(config, SVN_CONFIG_CATEGORY_CONFIG,
+@@ -381,7 +386,11 @@
+        * versions have it too. If the user is using some other ssh
+        * implementation that doesn't accept it, they can override it
+        * in the [tunnels] section of the config. */
+-      val = "$SVN_SSH ssh -q";
++      // <rdar://7252724>
++      dispatch_once(&once, ^{
++        this_is_xcode = (strcmp(*_NSGetProgname(), "Xcode") == 0);
++      });
++      val = this_is_xcode ? "$SVN_SSH ssh" : "$SVN_SSH ssh -q";
+     }
+ 
+   if (!val || !*val)

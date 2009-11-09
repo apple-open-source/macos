@@ -8,40 +8,39 @@ Greetings, dear packager!
 
 The bullet points below mention a few useful hints for package(r)s:
 
-- Please use OpenSSL and add --with-ssl to the ./configure command line.
-  SSL/TLS support hasn't been enabled in the default build in order to
-  maintain fetchmail 6.2 compatibility as far as possible.
-  SSL/TLS however is a highly recommended compilation option.
+- Please use OpenSSL and add --with-ssl to the ./configure command line.  
+  SSL/TLS support hasn't been enabled in the default build in order to maintain 
+  fetchmail 6.2 compatibility as far as possible.  SSL/TLS however is a highly 
+  recommended compilation option.
 
-- Fetchmail now uses automake and supports all common automake targets
-  and overrides such as "make install-strip" or "DESTDIR=..." for staging
-  areas.
+- Fetchmail now uses automake and supports all common automake targets and 
+  overrides such as "make install-strip" or "DESTDIR=..." for staging areas.
 
-- The fetchmailconf script has been renamed to fetchmailconf.py,
-  automake will install it into Python's top-level site-packages directory
-  and byte-compile it (so you need to package or remove
-  fetchmailconf.pyc and fetchmailconf.pyo as well).
+- The fetchmailconf script has been renamed to fetchmailconf.py, automake will 
+  install it into Python's top-level site-packages directory and byte-compile 
+  it (so you need to package or remove fetchmailconf.pyc and fetchmailconf.pyo 
+  as well).
 
-- If you want to defeat Python byte-code compilation and would rather
-  like to install fetchmailconf.py yourself, you can add
+- If you want to defeat Python byte-code compilation and would rather like to 
+  install fetchmailconf.py yourself, you can add
 
       PYTHON=:
 
-  to the ./configure command or pass this in the environment.
-  This pretends that no Python interpreter were installed.
+  to the ./configure command or pass this in the environment.  This pretends 
+  that no Python interpreter were installed.
 
-- The Makefile generates a two-line "fetchmailconf" /bin/sh wrapper
-  script that executes the actual fetchmailconf.py with the python
-  installation found at configuration time, so that users can still type
-  "fetchmailconf" rather than "python fetchmailconf".
+- The Makefile generates a two-line "fetchmailconf" /bin/sh wrapper script that 
+  executes the actual fetchmailconf.py with the python installation found at 
+  configuration time, so that users can still type "fetchmailconf" rather than 
+  "python fetchmailconf".
 
-- Note that fetchmailconf.py supports a few command line arguments, so
-  if you use local wrapper scripts, be sure they pass on their own
-  arguments properly. Remember to use "$@" (with quotes) in shells, not $*.
+- Note that fetchmailconf.py supports a few command line arguments, so if you 
+  use local wrapper scripts, be sure they pass on their own arguments properly. 
+  Remember to use "$@" (with quotes) in shells, not $*.
 
-- There is now a dummy fetchmailconf manual page which will just source
-  (roff's ".so" command) the fetchmail manual page for now. You can of
-  course keep your symlinks in place and ignore this dummy. IF you
-  install the dummy and compress your man pages, be sure to test "man
-  fetchmailconf", on some systems, you'll need to adjust the ".so"
-  command to point to the compressed version.
+- There is now a dummy fetchmailconf manual page which will just source (roff's 
+  ".so" command) the fetchmail manual page for now. You can of course keep your 
+  symlinks in place and ignore this dummy. IF you install the dummy and 
+  compress your man pages, be sure to test "man fetchmailconf", on some 
+  systems, you'll need to adjust the ".so" command to point to the compressed 
+  version.

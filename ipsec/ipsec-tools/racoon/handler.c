@@ -732,6 +732,14 @@ delph2(iph2)
 		unlink_sainfo_from_ph2(iph2->sainfo);
 		iph2->sainfo = NULL;
 	}
+	if (iph2->ext_nat_id) {
+		vfree(iph2->ext_nat_id);
+		iph2->ext_nat_id = NULL;
+	}
+	if (iph2->ext_nat_id_p) {
+		vfree(iph2->ext_nat_id_p);
+		iph2->ext_nat_id_p = NULL;
+	}
 #endif
 
 	racoon_free(iph2);
@@ -1195,7 +1203,7 @@ sweep_recvdpkt(dummy)
 		}
 	}
 
-	sched_new(lt, sweep_recvdpkt, NULL);
+	sched_new(lt, sweep_recvdpkt, &rcptree);
 }
 
 void
@@ -1208,6 +1216,7 @@ clear_recvdpkt()
 		rem_recvdpkt(r);
 		del_recvdpkt(r);
 	}
+	sched_scrub_param(&rcptree);
 }
 
 void
@@ -1217,7 +1226,7 @@ init_recvdpkt()
 
 	LIST_INIT(&rcptree);
 
-	sched_new(lt, sweep_recvdpkt, NULL);
+	sched_new(lt, sweep_recvdpkt, &rcptree);
 }
 
 #ifdef ENABLE_HYBRID

@@ -28,6 +28,7 @@
 
 typedef unsigned char address_t[sizeof (struct in_addr)];
 
+#ifdef HAVE_RES_SEARCH
 static int getaddresses(struct addrinfo **result, const char *name)
 {
     struct addrinfo hints;
@@ -82,15 +83,18 @@ found:
 	fm_freeaddrinfo(res1);
     return rc;
 }
+#endif
 
 int is_host_alias(const char *name, struct query *ctl, struct addrinfo **res)
 /* determine whether name is a DNS alias of the mailserver for this query */
 {
+#ifdef HAVE_RES_SEARCH
     struct mxentry	*mxp, *mxrecords;
-    struct idlist	*idl;
-    size_t		namelen;
     int			e;
     struct addrinfo	hints, *res_st;
+#endif
+    struct idlist	*idl;
+    size_t		namelen;
 
     struct hostdata *lead_server =
 	ctl->server.lead_server ? ctl->server.lead_server : &ctl->server;
@@ -143,6 +147,7 @@ int is_host_alias(const char *name, struct query *ctl, struct addrinfo **res)
     if (!ctl->server.dns)
 	return(FALSE);
 #ifndef HAVE_RES_SEARCH
+    (void)res;
     return(FALSE);
 #else
     /*

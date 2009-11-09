@@ -770,6 +770,18 @@ isakmp_main(msg, remote, local)
 		if (ISSET(isakmp->flags, ISAKMP_FLAG_C))
 			iph2->flags |= ISAKMP_FLAG_C;
 
+		if (ISSET(isakmp->flags, ISAKMP_FLAG_E) &&
+			(iph2->ph1 == NULL || iph2->ph1->approval == NULL)) {
+			IPSECSESSIONTRACEREVENT(iph2->parent_session,
+									IPSECSESSIONEVENTCODE_IKEV1_PH2_INIT_DROP,
+									CONSTSTR("can't continue phase2 without valid phase1"),
+									CONSTSTR("Failed to continue phase2 resonder (invalid linked phase1"));
+			plog(LLV_ERROR, LOCATION, remote,
+				 "can't start the quick mode, "
+				 "invalid linked ISAKMP-SA\n");
+			return -1;			
+		}
+
 		/* call main process of quick mode */
 		if (quick_main(iph2, msg) < 0) {
 			plog(LLV_ERROR, LOCATION, iph1->remote,
@@ -1210,7 +1222,7 @@ isakmp_ph1begin_i(rmconf, remote, local, started_by_api)
 	/* XXX copy remote address */
 	if (copy_ph1addresses(iph1, rmconf, remote, local) < 0) {
 		/* don't call remph1(iph1) until after insph1(iph1) is called */
-		delph1(iph1);
+		iph1 = NULL; /* deleted in copy_ph1addresses */
 		return -1;
 	}
 
@@ -1358,7 +1370,7 @@ isakmp_ph1begin_r(msg, remote, local, etype)
 	/* copy remote address */
 	if (copy_ph1addresses(iph1, rmconf, remote, local) < 0) {
 		/* don't call remph1(iph1) until after insph1(iph1) is called */
-		delph1(iph1);
+		iph1 = NULL; /* deleted in copy_ph1addresses */
 		return -1;
 	}
 	(void)insph1(iph1);
@@ -1763,7 +1775,6 @@ isakmp_init()
 	initph2tree();
 	initctdtree();
 	init_recvdpkt();
-	ike_session_init();
 
 	if (isakmp_open() < 0)
 		goto err;
@@ -1978,6 +1989,7 @@ isakmp_open()
 				"failed to bind to address %s (%s).\n",
 				saddr2str(p->addr), strerror(errno));
 			close(p->sock);
+			p->sock = -1;
 			goto err_and_next;
 		}
 		
@@ -3437,6 +3449,7 @@ copy_ph1addresses(iph1, rmconf, remote, local)
 	default:
 		plog(LLV_ERROR, LOCATION, NULL,
 			"invalid family: %d\n", iph1->remote->sa_family);
+		delph1(iph1);
 		return -1;
 	}
 

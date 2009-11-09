@@ -45,6 +45,10 @@ static const UChar gOtherGroupingSeparatorsPattern[] = {
 		// [       \     SPACE     '      NBSP  \u066C  \u2000     -    \u200A  \u2018  \u2019  \u202F  \u205F  \u3000  \uFF07     ]
         0x005B, 0x005C, 0x0020, 0x0027, 0x00A0, 0x066C, 0x2000, 0x002D, 0x200A, 0x2018, 0x2019, 0x202F, 0x205F, 0x3000, 0xFF07, 0x005D, 0x0000};
 
+static const UChar gDashEquivalentsPattern[] = {
+    // [       \      -     HYPHEN  F_DASH  N_DASH   MINUS     ]
+    0x005B, 0x005C, 0x002D, 0x2010, 0x2012, 0x2013, 0x2212, 0x005D, 0x0000};
+
 static const UChar gStrictDotEquivalentsPattern[] = {
 		// [      .     \u2024  \uFE52  \uFF0E  \uFF61    ]
         0x005B, 0x002E, 0x2024, 0xFE52, 0xFF0E, 0xFF61, 0x005D, 0x0000};
@@ -57,6 +61,10 @@ static const UChar gStrictOtherGroupingSeparatorsPattern[] = {
 		// [       \     SPACE     '      NBSP  \u066C  \u2000     -    \u200A  \u2018  \u2019  \u202F  \u205F  \u3000  \uFF07     ]
         0x005B, 0x005C, 0x0020, 0x0027, 0x00A0, 0x066C, 0x2000, 0x002D, 0x200A, 0x2018, 0x2019, 0x202F, 0x205F, 0x3000, 0xFF07, 0x005D, 0x0000};
 
+static const UChar gStrictDashEquivalentsPattern[] = {
+    // [       \      -      MINUS     ]
+    0x005B, 0x005C, 0x002D, 0x2212, 0x005D, 0x0000};
+
 
 DecimalFormatStaticSets *DecimalFormatStaticSets::gStaticSets = NULL;
 
@@ -64,18 +72,23 @@ DecimalFormatStaticSets::DecimalFormatStaticSets(UErrorCode *status)
 : fDotEquivalents(NULL),
   fCommaEquivalents(NULL),
   fOtherGroupingSeparators(NULL),
+  fDashEquivalents(NULL),
   fStrictDotEquivalents(NULL),
   fStrictCommaEquivalents(NULL),
   fStrictOtherGroupingSeparators(NULL),
+  fStrictDashEquivalents(NULL),
   fDefaultGroupingSeparators(NULL),
   fStrictDefaultGroupingSeparators(NULL)
 {
     fDotEquivalents                = new UnicodeSet(UnicodeString(TRUE, gDotEquivalentsPattern, -1),                *status);
     fCommaEquivalents              = new UnicodeSet(UnicodeString(TRUE, gCommaEquivalentsPattern, -1),              *status);
     fOtherGroupingSeparators       = new UnicodeSet(UnicodeString(TRUE, gOtherGroupingSeparatorsPattern, -1),       *status);
+    fDashEquivalents               = new UnicodeSet(UnicodeString(TRUE, gDashEquivalentsPattern, -1),               *status);
+    
     fStrictDotEquivalents          = new UnicodeSet(UnicodeString(TRUE, gStrictDotEquivalentsPattern, -1),          *status);
     fStrictCommaEquivalents        = new UnicodeSet(UnicodeString(TRUE, gStrictCommaEquivalentsPattern, -1),        *status);
     fStrictOtherGroupingSeparators = new UnicodeSet(UnicodeString(TRUE, gStrictOtherGroupingSeparatorsPattern, -1), *status);
+    fStrictDashEquivalents         = new UnicodeSet(UnicodeString(TRUE, gStrictDashEquivalentsPattern, -1),         *status);
 
 
     fDefaultGroupingSeparators = new UnicodeSet(*fDotEquivalents);
@@ -87,8 +100,8 @@ DecimalFormatStaticSets::DecimalFormatStaticSets(UErrorCode *status)
     fStrictDefaultGroupingSeparators->addAll(*fStrictOtherGroupingSeparators);
 
     // Check for null pointers
-    if (fDotEquivalents == NULL || fCommaEquivalents == NULL || fOtherGroupingSeparators == NULL ||
-    		fStrictDotEquivalents == NULL || fStrictCommaEquivalents == NULL || fStrictOtherGroupingSeparators == NULL ||
+    if (fDotEquivalents == NULL || fCommaEquivalents == NULL || fOtherGroupingSeparators == NULL || fDashEquivalents == NULL ||
+    		fStrictDotEquivalents == NULL || fStrictCommaEquivalents == NULL || fStrictOtherGroupingSeparators == NULL || fStrictDashEquivalents == NULL ||
     		fDefaultGroupingSeparators == NULL || fStrictOtherGroupingSeparators == NULL) {
         goto ExitConstrDeleteAll;
     }
@@ -97,9 +110,11 @@ DecimalFormatStaticSets::DecimalFormatStaticSets(UErrorCode *status)
     fDotEquivalents->freeze();
     fCommaEquivalents->freeze();
     fOtherGroupingSeparators->freeze();
+    fDashEquivalents->freeze();
     fStrictDotEquivalents->freeze();
     fStrictCommaEquivalents->freeze();
     fStrictOtherGroupingSeparators->freeze();
+    fStrictDashEquivalents->freeze();
     fDefaultGroupingSeparators->freeze();
     fStrictDefaultGroupingSeparators->freeze();
 	
@@ -109,9 +124,11 @@ ExitConstrDeleteAll: // Remove fPropSets and fRuleSets and return error
     delete fDotEquivalents; fDotEquivalents = NULL;
     delete fCommaEquivalents; fCommaEquivalents = NULL;
     delete fOtherGroupingSeparators; fOtherGroupingSeparators = NULL;
+    delete fDashEquivalents; fDashEquivalents = NULL;
     delete fStrictDotEquivalents; fStrictDotEquivalents = NULL;
     delete fStrictCommaEquivalents; fStrictCommaEquivalents = NULL;
     delete fStrictOtherGroupingSeparators; fStrictOtherGroupingSeparators = NULL;
+    delete fStrictDashEquivalents; fStrictDashEquivalents = NULL;
     delete fDefaultGroupingSeparators; fDefaultGroupingSeparators = NULL;
     delete fStrictOtherGroupingSeparators; fStrictOtherGroupingSeparators = NULL;
 
@@ -123,9 +140,11 @@ DecimalFormatStaticSets::~DecimalFormatStaticSets() {
     delete fDotEquivalents; fDotEquivalents = NULL;
     delete fCommaEquivalents; fCommaEquivalents = NULL;
     delete fOtherGroupingSeparators; fOtherGroupingSeparators = NULL;
+    delete fDashEquivalents; fDashEquivalents = NULL;
     delete fStrictDotEquivalents; fStrictDotEquivalents = NULL;
     delete fStrictCommaEquivalents; fStrictCommaEquivalents = NULL;
     delete fStrictOtherGroupingSeparators; fStrictOtherGroupingSeparators = NULL;
+    delete fStrictDashEquivalents; fStrictDashEquivalents = NULL;
     delete fDefaultGroupingSeparators; fDefaultGroupingSeparators = NULL;
     delete fStrictOtherGroupingSeparators; fStrictOtherGroupingSeparators = NULL;
 }

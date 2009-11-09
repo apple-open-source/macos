@@ -1,0 +1,3357 @@
+# Galician translation of fetchmail.
+# Copyright (C) 2000 Jesús Bravo Álvarez.
+# Jesús Bravo Álvarez <jba@pobox.com>, 2000.
+#
+# Se desexas colaborar connosco na traducción de programas libres ó galego,
+# vai mira-la páxina do noso grupo:  http://www.ctv.es/USERS/jtarrio/trans
+#
+# First Version: 2000-03-27 20:18+0200
+# Based on pt_BR.po by Jorge Godoy <godoy@conectiva.com.br>
+# Based on es.po by Javier Kohen <jkohen@tough.com>
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: fetchmail 5.3.6\n"
+"Report-Msgid-Bugs-To: fetchmail-devel@lists.berlios.de\n"
+"POT-Creation-Date: 2009-08-06 01:21+0200\n"
+"PO-Revision-Date: 2000-04-10 01:26+0200\n"
+"Last-Translator: Jesús Bravo Álvarez <jba@pobox.com>\n"
+"Language-Team: Galician <gpul-traduccion@ceu.fi.udc.es>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=iso-8859-1\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+#: checkalias.c:179
+#, c-format
+msgid "Checking if %s is really the same node as %s\n"
+msgstr "Comprobando se %s é realmente o mesmo nodo que %s\n"
+
+#: checkalias.c:183
+msgid "Yes, their IP addresses match\n"
+msgstr "Si, os seus enderezos IP coinciden\n"
+
+#: checkalias.c:187
+msgid "No, their IP addresses don't match\n"
+msgstr "Non, os seus enderezos IP non coinciden\n"
+
+#: checkalias.c:203
+#, fuzzy, c-format
+msgid "nameserver failure while looking for '%s' during poll of %s: %s\n"
+msgstr "fallo na resolución do nome ó buscar `%s' mentres se recibía de %s.\n"
+
+#: checkalias.c:228
+#, c-format
+msgid "nameserver failure while looking for `%s' during poll of %s.\n"
+msgstr "fallo na resolución do nome ó buscar `%s' mentres se recibía de %s.\n"
+
+#: cram.c:95
+msgid "could not decode BASE64 challenge\n"
+msgstr "non se puido decodificar o challenge BASE64\n"
+
+#: cram.c:103
+#, fuzzy, c-format
+msgid "decoded as %s\n"
+msgstr "espertado en %s\n"
+
+#: driver.c:191
+#, c-format
+msgid "kerberos error %s\n"
+msgstr "erro %s de kerberos\n"
+
+#: driver.c:249 driver.c:254
+#, c-format
+msgid "krb5_sendauth: %s [server says '%*s'] \n"
+msgstr "krb5_sendauth: %s [o servidor di '%*s'] \n"
+
+#: driver.c:335
+msgid "Subject: Fetchmail oversized-messages warning"
+msgstr ""
+
+#: driver.c:339
+#, fuzzy, c-format
+msgid "The following oversized messages were deleted on server %s account %s:"
+msgstr "atinxiuse o límite de %d mensaxes; %d deixadas no servidor\n"
+
+#: driver.c:343
+#, fuzzy, c-format
+msgid "The following oversized messages remain on server %s account %s:"
+msgstr "atinxiuse o límite de %d mensaxes; %d deixadas no servidor\n"
+
+#: driver.c:362
+#, fuzzy, c-format
+msgid "  %d message  %d octets long deleted by fetchmail."
+msgid_plural "  %d messages %d octets long deleted by fetchmail."
+msgstr[0] "\tmensaxe %d de %d octetos omitido polo fetchmail.\n"
+msgstr[1] "\tmensaxe %d de %d octetos omitido polo fetchmail.\n"
+
+#: driver.c:367
+#, fuzzy, c-format
+msgid "  %d message  %d octets long skipped by fetchmail."
+msgid_plural "  %d messages %d octets long skipped by fetchmail."
+msgstr[0] "\tmensaxe %d de %d octetos omitido polo fetchmail.\n"
+msgstr[1] "\tmensaxe %d de %d octetos omitido polo fetchmail.\n"
+
+#: driver.c:511
+#, fuzzy, c-format
+msgid "skipping message %s@%s:%d"
+msgstr "omitindo mensaxe %d (%d octetos)"
+
+#: driver.c:565
+#, fuzzy, c-format
+msgid "skipping message %s@%s:%d (%d octets)"
+msgstr "omitindo mensaxe %d (%d octetos)"
+
+#: driver.c:581
+msgid " (length -1)"
+msgstr ""
+
+#: driver.c:584
+#, fuzzy
+msgid " (oversized)"
+msgstr " (exceso de tamaño, %d octetos)"
+
+#: driver.c:602
+#, c-format
+msgid "couldn't fetch headers, message %s@%s:%d (%d octets)\n"
+msgstr ""
+
+#: driver.c:619
+#, fuzzy, c-format
+msgid "reading message %s@%s:%d of %d"
+msgstr "lendo mensaxe %d de %d"
+
+#: driver.c:624
+#, fuzzy, c-format
+msgid " (%d octets)"
+msgstr " (%d octetos%s)"
+
+#: driver.c:625
+#, fuzzy, c-format
+msgid " (%d header octets)"
+msgstr " (%d octetos de corpo) "
+
+#: driver.c:692
+#, fuzzy, c-format
+msgid " (%d body octets)"
+msgstr " (%d octetos de corpo) "
+
+#: driver.c:751
+#, fuzzy, c-format
+msgid ""
+"message %s@%s:%d was not the expected length (%d actual != %d expected)\n"
+msgstr "a mensaxe %d non tiña o tamaño agardado (%d real != %d agardado)\n"
+
+#: driver.c:783
+msgid " retained\n"
+msgstr " mantida\n"
+
+#: driver.c:793
+msgid " flushed\n"
+msgstr " eliminada\n"
+
+#: driver.c:810
+msgid " not flushed\n"
+msgstr " non eliminada\n"
+
+#: driver.c:828
+#, fuzzy, c-format
+msgid "fetchlimit %d reached; %d message left on server %s account %s\n"
+msgid_plural ""
+"fetchlimit %d reached; %d messages left on server %s account %s\n"
+msgstr[0] "atinxiuse o límite de %d mensaxes; %d deixadas no servidor\n"
+msgstr[1] "atinxiuse o límite de %d mensaxes; %d deixadas no servidor\n"
+
+#: driver.c:885
+#, c-format
+msgid "timeout after %d seconds waiting to connect to server %s.\n"
+msgstr "tempo esgotado tras %d segundos agardando a conexión ó servidor %s.\n"
+
+#: driver.c:889
+#, c-format
+msgid "timeout after %d seconds waiting for server %s.\n"
+msgstr "tempo esgotado tras %d segundos agardando ó servidor %s.\n"
+
+#: driver.c:893
+#, c-format
+msgid "timeout after %d seconds waiting for %s.\n"
+msgstr "tempo esgotado tras %d segundos agardando a %s.\n"
+
+#: driver.c:898
+#, c-format
+msgid "timeout after %d seconds waiting for listener to respond.\n"
+msgstr ""
+"tempo esgotado tras %d segundos agardando a resposta do servidor receptor.\n"
+
+#: driver.c:901
+#, c-format
+msgid "timeout after %d seconds.\n"
+msgstr "tempo esgotado tras %d segundos.\n"
+
+#: driver.c:913
+#, fuzzy
+msgid "Subject: fetchmail sees repeated timeouts"
+msgstr "Subject: fetchmail atopa repetidas expiracións do tempo de espera\n"
+
+#: driver.c:916
+#, c-format
+msgid ""
+"Fetchmail saw more than %d timeouts while attempting to get mail from %s@%"
+"s.\n"
+msgstr ""
+"Fetchmail atopou máis de %d expiracións do tempo de espera tentando colle-lo "
+"correo de %s@%s.\n"
+
+#: driver.c:920
+msgid ""
+"This could mean that your mailserver is stuck, or that your SMTP\n"
+"server is wedged, or that your mailbox file on the server has been\n"
+"corrupted by a server error.  You can run `fetchmail -v -v' to\n"
+"diagnose the problem.\n"
+"\n"
+"Fetchmail won't poll this mailbox again until you restart it.\n"
+msgstr ""
+"Isto pode significar que o seu servidor de correo está trabado, ou\n"
+"que o seu servidor SMTP local está colgado, ou que a súa caixa de\n"
+"correo no servidor está corrupta por un erro do servidor.  Pode executar\n"
+"`fetchmail -v -v' para diagnostica-lo problema.\n"
+"\n"
+"Fetchmail non recibirá de novo correo desta caixa ata que o reinicie.\n"
+
+#: driver.c:946
+#, fuzzy, c-format
+msgid "pre-connection command terminated with signal %d\n"
+msgstr "o programa de pre-conexión fallou con estado %d\n"
+
+#: driver.c:949
+#, c-format
+msgid "pre-connection command failed with status %d\n"
+msgstr "o programa de pre-conexión fallou con estado %d\n"
+
+#: driver.c:973
+#, c-format
+msgid "couldn't find HESIOD pobox for %s\n"
+msgstr "non se puido atopar a caixa postal HESIOD para %s\n"
+
+#: driver.c:994
+msgid "Lead server has no name.\n"
+msgstr "O servidor principal non ten nome.\n"
+
+#: driver.c:1021
+#, fuzzy, c-format
+msgid "couldn't find canonical DNS name of %s (%s): %s\n"
+msgstr "non se puido atopar o nome DNS canónico de %s\n"
+
+#: driver.c:1068
+#, fuzzy, c-format
+msgid "%s connection to %s failed"
+msgstr "fallou a conexión %cMTP a %s\n"
+
+#: driver.c:1084
+msgid "Subject: Fetchmail unreachable-server warning."
+msgstr ""
+
+#: driver.c:1086
+#, fuzzy, c-format
+msgid "Fetchmail could not reach the mail server %s:"
+msgstr "Fetchmail non puido coller correo de %s@%s.\n"
+
+#: driver.c:1114
+#, fuzzy
+msgid "SSL connection failed.\n"
+msgstr "fallou a conexión %cMTP a %s\n"
+
+#: driver.c:1167
+#, c-format
+msgid "Lock-busy error on %s@%s\n"
+msgstr "Erro de bloqueo/actividade en %s@%s\n"
+
+#: driver.c:1171
+#, fuzzy, c-format
+msgid "Server busy error on %s@%s\n"
+msgstr "Erro de bloqueo/actividade en %s@%s\n"
+
+#: driver.c:1176
+#, fuzzy, c-format
+msgid "Authorization failure on %s@%s%s\n"
+msgstr "Fallou a autorización en %s@%s\n"
+
+#: driver.c:1179
+msgid " (previously authorized)"
+msgstr ""
+
+#: driver.c:1200
+#, fuzzy, c-format
+msgid "Subject: fetchmail authentication failed on %s@%s"
+msgstr "Subject: fallou a autenticación do fetchmail\n"
+
+#: driver.c:1204
+#, c-format
+msgid "Fetchmail could not get mail from %s@%s.\n"
+msgstr "Fetchmail non puido coller correo de %s@%s.\n"
+
+#: driver.c:1208
+msgid ""
+"The attempt to get authorization failed.\n"
+"Since we have already succeeded in getting authorization for this\n"
+"connection, this is probably another failure mode (such as busy server)\n"
+"that fetchmail cannot distinguish because the server didn't send a useful\n"
+"error message."
+msgstr ""
+
+#: driver.c:1214
+#, fuzzy
+msgid ""
+"\n"
+"However, if you HAVE changed your account details since starting the\n"
+"fetchmail daemon, you need to stop the daemon, change your configuration\n"
+"of fetchmail, and then restart the daemon.\n"
+"\n"
+"The fetchmail daemon will continue running and attempt to connect\n"
+"at each cycle.  No future notifications will be sent until service\n"
+"is restored."
+msgstr ""
+"Fallou a tentativa de obter autorización.\n"
+"Probablemente isto quere dicir que a súa contrasinal non é válida,\n"
+"pero os servidores POP3 poden fallar por outras causas, e o fetchmail\n"
+"non pode distinguilas porque non envían mensaxes de erro útiles cando\n"
+"hai un fallo de login.\n"
+
+#: driver.c:1224
+#, fuzzy
+msgid ""
+"The attempt to get authorization failed.\n"
+"This probably means your password is invalid, but some servers have\n"
+"other failure modes that fetchmail cannot distinguish from this\n"
+"because they don't send useful error messages on login failure.\n"
+"\n"
+"The fetchmail daemon will continue running and attempt to connect\n"
+"at each cycle.  No future notifications will be sent until service\n"
+"is restored."
+msgstr ""
+"Fallou a tentativa de obter autorización.\n"
+"Probablemente isto quere dicir que a súa contrasinal non é válida,\n"
+"pero os servidores POP3 poden fallar por outras causas, e o fetchmail\n"
+"non pode distinguilas porque non envían mensaxes de erro útiles cando\n"
+"hai un fallo de login.\n"
+
+#: driver.c:1240
+#, c-format
+msgid "Repoll immediately on %s@%s\n"
+msgstr ""
+
+#: driver.c:1245
+#, c-format
+msgid "Unknown login or authentication error on %s@%s\n"
+msgstr "Erro descoñecido de login ou autenticación en %s@%s\n"
+
+#: driver.c:1269
+#, fuzzy, c-format
+msgid "Authorization OK on %s@%s\n"
+msgstr "Fallou a autorización en %s@%s\n"
+
+#: driver.c:1275
+#, fuzzy, c-format
+msgid "Subject: fetchmail authentication OK on %s@%s"
+msgstr "Subject: fallou a autenticación do fetchmail\n"
+
+#: driver.c:1279
+#, fuzzy, c-format
+msgid "Fetchmail was able to log into %s@%s.\n"
+msgstr "Fetchmail non puido coller correo de %s@%s.\n"
+
+#: driver.c:1283
+#, fuzzy
+msgid "Service has been restored.\n"
+msgstr "O servicio escolleu a versión %d.%d do RPA\n"
+
+#: driver.c:1315
+#, c-format
+msgid "selecting or re-polling folder %s\n"
+msgstr "escollendo ou recibindo de novo mensaxes da carpeta %s\n"
+
+#: driver.c:1317
+msgid "selecting or re-polling default folder\n"
+msgstr "escollendo ou recibindo de novo mensaxes da carpeta por defecto\n"
+
+#: driver.c:1329
+#, c-format
+msgid "%s at %s (folder %s)"
+msgstr "%s en %s (carpeta %s)"
+
+#: driver.c:1332 rcfile_y.y:384
+#, c-format
+msgid "%s at %s"
+msgstr "%s en %s"
+
+#: driver.c:1337
+#, c-format
+msgid "Polling %s\n"
+msgstr "Recibindo de %s\n"
+
+#: driver.c:1341
+#, fuzzy, c-format
+msgid "%d message (%d %s) for %s"
+msgid_plural "%d messages (%d %s) for %s"
+msgstr[0] "%d %s (%d lidas) para %s"
+msgstr[1] "%d %s (%d lidas) para %s"
+
+#: driver.c:1344
+msgid "seen"
+msgid_plural "seen"
+msgstr[0] ""
+msgstr[1] ""
+
+#: driver.c:1347
+#, fuzzy, c-format
+msgid "%d message for %s"
+msgid_plural "%d messages for %s"
+msgstr[0] "%d %s para %s"
+msgstr[1] "%d %s para %s"
+
+#: driver.c:1354
+#, c-format
+msgid " (%d octets).\n"
+msgstr " (%d octetos).\n"
+
+#: driver.c:1360
+#, c-format
+msgid "No mail for %s\n"
+msgstr "Non hai correo para %s\n"
+
+#: driver.c:1393 imap.c:90
+msgid "bogus message count!"
+msgstr ""
+
+#: driver.c:1537
+msgid "socket"
+msgstr "socket"
+
+#: driver.c:1540
+msgid "missing or bad RFC822 header"
+msgstr "a cabeceira RFC822 falta ou é errónea"
+
+#: driver.c:1543
+msgid "MDA"
+msgstr "MDA"
+
+#: driver.c:1546
+msgid "client/server synchronization"
+msgstr "sincronización cliente/servidor"
+
+#: driver.c:1549
+msgid "client/server protocol"
+msgstr "protocolo cliente/servidor"
+
+#: driver.c:1552
+msgid "lock busy on server"
+msgstr "bloqueo activado no servidor"
+
+#: driver.c:1555
+msgid "SMTP transaction"
+msgstr "Transacción SMTP"
+
+#: driver.c:1558
+msgid "DNS lookup"
+msgstr "Busca no DNS"
+
+#: driver.c:1561
+#, fuzzy
+msgid "undefined"
+msgstr "erro indefinido\n"
+
+#: driver.c:1567
+#, fuzzy, c-format
+msgid "%s error while fetching from %s@%s and delivering to SMTP host %s\n"
+msgstr "erro %s ó baixar correo de %s\n"
+
+#: driver.c:1569
+#, fuzzy
+msgid "unknown"
+msgstr "a máquina é descoñecida."
+
+#: driver.c:1571
+#, fuzzy, c-format
+msgid "%s error while fetching from %s@%s\n"
+msgstr "erro %s ó baixar correo de %s\n"
+
+#: driver.c:1583
+#, fuzzy, c-format
+msgid "post-connection command terminated with signal %d\n"
+msgstr "o comando de pos-conexión fallou con estado %d\n"
+
+#: driver.c:1585
+#, c-format
+msgid "post-connection command failed with status %d\n"
+msgstr "o comando de pos-conexión fallou con estado %d\n"
+
+#: driver.c:1604
+msgid "Kerberos V4 support not linked.\n"
+msgstr "Non está enlazado con soporte Kerberos V4.\n"
+
+#: driver.c:1612
+msgid "Kerberos V5 support not linked.\n"
+msgstr "Non está enlazado con soporte Kerberos V5.\n"
+
+#: driver.c:1623
+#, c-format
+msgid "Option --flush is not supported with %s\n"
+msgstr "A opción --flush non está soportada con %s\n"
+
+#: driver.c:1629
+#, c-format
+msgid "Option --all is not supported with %s\n"
+msgstr "A opción --all non está soportada con %s\n"
+
+#: driver.c:1638
+#, c-format
+msgid "Option --limit is not supported with %s\n"
+msgstr "A opción --limit non está soportada con %s\n"
+
+#: env.c:59
+#, c-format
+msgid ""
+"%s: The QMAILINJECT environment variable is set.\n"
+"This is dangerous as it can make qmail-inject or qmail's sendmail wrapper\n"
+"tamper with your From: or Message-ID: headers.\n"
+"Try \"env QMAILINJECT= %s YOUR ARGUMENTS HERE\"\n"
+"%s: Abort.\n"
+msgstr ""
+
+#: env.c:71
+#, c-format
+msgid ""
+"%s: The NULLMAILER_FLAGS environment variable is set.\n"
+"This is dangerous as it can make nullmailer-inject or nullmailer's\n"
+"sendmail wrapper tamper with your From:, Message-ID: or Return-Path: "
+"headers.\n"
+"Try \"env NULLMAILER_FLAGS= %s YOUR ARGUMENTS HERE\"\n"
+"%s: Abort.\n"
+msgstr ""
+
+#: env.c:83
+#, c-format
+msgid "%s: You don't exist.  Go away.\n"
+msgstr "%s: Vostede non existe.  Marche.\n"
+
+#: env.c:145
+#, c-format
+msgid "%s: can't determine your host!"
+msgstr "%s: non se pode determina-la súa máquina"
+
+#: env.c:168
+#, c-format
+msgid "gethostbyname failed for %s\n"
+msgstr "o gethostbyname fallou para %s\n"
+
+#: env.c:170
+msgid "Cannot find my own host in hosts database to qualify it!\n"
+msgstr ""
+
+#: env.c:174
+msgid ""
+"Trying to continue with unqualified hostname.\n"
+"DO NOT report broken Received: headers, HELO/EHLO lines or similar "
+"problems!\n"
+"DO repair your /etc/hosts, DNS, NIS or LDAP instead.\n"
+msgstr ""
+
+#: etrn.c:49 odmr.c:60
+#, c-format
+msgid "%s's SMTP listener does not support ESMTP\n"
+msgstr "O servidor SMTP receptor de %s non soporta ESMTP\n"
+
+#: etrn.c:55
+#, c-format
+msgid "%s's SMTP listener does not support ETRN\n"
+msgstr "O servidor SMTP receptor de %s non soporta ETRN\n"
+
+#: etrn.c:79
+#, c-format
+msgid "Queuing for %s started\n"
+msgstr "Cola para %s iniciada\n"
+
+#: etrn.c:84
+#, c-format
+msgid "No messages waiting for %s\n"
+msgstr "Non hai mensaxes agardando para %s\n"
+
+#: etrn.c:90
+#, c-format
+msgid "Pending messages for %s started\n"
+msgstr "Mensaxes pendentes para %s iniciadas\n"
+
+#: etrn.c:94
+#, c-format
+msgid "Unable to queue messages for node %s\n"
+msgstr "Imposible poñer mensaxes na cola para o nodo %s\n"
+
+#: etrn.c:98
+#, c-format
+msgid "Node %s not allowed: %s\n"
+msgstr "Nodo %s non permitido: %s\n"
+
+#: etrn.c:102
+msgid "ETRN syntax error\n"
+msgstr "Erro de sintaxe de ETRN\n"
+
+#: etrn.c:106
+msgid "ETRN syntax error in parameters\n"
+msgstr "Erro de sintaxe de ETRN nos parámetros\n"
+
+#: etrn.c:110
+#, c-format
+msgid "Unknown ETRN error %d\n"
+msgstr "Erro de ETRN %d descoñecido\n"
+
+#: etrn.c:154
+msgid "Option --keep is not supported with ETRN\n"
+msgstr "A opción --keep non está soportada con ETRN\n"
+
+#: etrn.c:158
+msgid "Option --flush is not supported with ETRN\n"
+msgstr "A opción --flush non está soportada con ETRN\n"
+
+#: etrn.c:162
+#, fuzzy
+msgid "Option --folder is not supported with ETRN\n"
+msgstr "A opción --flush non está soportada con ETRN\n"
+
+#: etrn.c:166
+msgid "Option --check is not supported with ETRN\n"
+msgstr "A opción --check non está soportada con ETRN\n"
+
+#: fetchmail.c:137
+msgid ""
+"Copyright (C) 2002, 2003 Eric S. Raymond\n"
+"Copyright (C) 2004 Matthias Andree, Eric S. Raymond, Robert M. Funk, Graham "
+"Wilson\n"
+"Copyright (C) 2005 - 2006 Sunil Shetye\n"
+"Copyright (C) 2005 - 2009 Matthias Andree\n"
+msgstr ""
+
+#: fetchmail.c:142
+msgid ""
+"Fetchmail comes with ABSOLUTELY NO WARRANTY. This is free software, and you\n"
+"are welcome to redistribute it under certain conditions. For details,\n"
+"please see the file COPYING in the source or documentation directory.\n"
+msgstr ""
+
+#: fetchmail.c:176
+msgid "WARNING: Running as root is discouraged.\n"
+msgstr ""
+
+#: fetchmail.c:188
+#, fuzzy
+msgid "fetchmail: invoked with"
+msgstr "fetchmail: fallou o fork\n"
+
+#: fetchmail.c:212
+msgid "could not get current working directory\n"
+msgstr ""
+
+#: fetchmail.c:283
+#, c-format
+msgid "This is fetchmail release %s"
+msgstr "Isto é fetchmail versión %s"
+
+#: fetchmail.c:403
+#, c-format
+msgid "Taking options from command line%s%s\n"
+msgstr "Collendo as opcións da liña de comandos%s%s\n"
+
+# Estas dúas cadeas quedan "... da liña de comandos e de .fetchmailrc"
+#: fetchmail.c:404
+msgid " and "
+msgstr " e de "
+
+#: fetchmail.c:409
+#, c-format
+msgid "No mailservers set up -- perhaps %s is missing?\n"
+msgstr ""
+"Non hai ningún servidor de correo configurado -- ¿quizais falta o %s?\n"
+
+#: fetchmail.c:430
+msgid "fetchmail: no mailservers have been specified.\n"
+msgstr "fetchmail: non se indicou ningún servidor de correo.\n"
+
+#: fetchmail.c:442
+msgid "fetchmail: no other fetchmail is running\n"
+msgstr "fetchmail: non hai outro fetchmail a se executar\n"
+
+#: fetchmail.c:448
+#, c-format
+msgid "fetchmail: error killing %s fetchmail at %d; bailing out.\n"
+msgstr "fetchmail: erro matando fetchmail en %s co pid %d; saíndo.\n"
+
+#: fetchmail.c:449 fetchmail.c:458
+msgid "background"
+msgstr "segundo plano"
+
+#: fetchmail.c:449 fetchmail.c:458
+msgid "foreground"
+msgstr "primeiro plano"
+
+#: fetchmail.c:457
+#, c-format
+msgid "fetchmail: %s fetchmail at %d killed.\n"
+msgstr "fetchmail: fetchmail en %s co pid %d matado.\n"
+
+#: fetchmail.c:480
+msgid ""
+"fetchmail: can't check mail while another fetchmail to same host is "
+"running.\n"
+msgstr ""
+"fetchmail: non se pode comproba-lo correo cando hai outro fetchmail na\n"
+"mesma máquina a se executar.\n"
+
+#: fetchmail.c:486
+#, c-format
+msgid ""
+"fetchmail: can't poll specified hosts with another fetchmail running at %d.\n"
+msgstr ""
+"fetchmail: non se pode recibir das máquinas indicadas con outro fetchmail a "
+"se executar en %d.\n"
+
+#: fetchmail.c:493
+#, c-format
+msgid "fetchmail: another foreground fetchmail is running at %d.\n"
+msgstr ""
+"fetchmail: outro fetchmail en primeiro plano está a se executar en %d.\n"
+
+#: fetchmail.c:503
+msgid ""
+"fetchmail: can't accept options while a background fetchmail is running.\n"
+msgstr ""
+"fetchmail: non se poden aceptar opcións cando hai un fetchmail en segundo "
+"plano a se executar.\n"
+
+#: fetchmail.c:509
+#, c-format
+msgid "fetchmail: background fetchmail at %d awakened.\n"
+msgstr "fetchmail: fetchmail en segundo plano co pid %d espertado.\n"
+
+#: fetchmail.c:521
+#, c-format
+msgid "fetchmail: elder sibling at %d died mysteriously.\n"
+msgstr "fetchmail: proceso máis antigo en %d morreu misteriosamente.\n"
+
+#: fetchmail.c:536
+#, fuzzy, c-format
+msgid "fetchmail: can't find a password for %s@%s.\n"
+msgstr "fetchmail: non se pode atopar unha contrasinal para %s@%s.\n"
+
+#: fetchmail.c:540
+#, c-format
+msgid "Enter password for %s@%s: "
+msgstr "Introduza a contrasinal para %s@%s: "
+
+#: fetchmail.c:582
+#, fuzzy
+msgid "fetchmail: Cannot detach into background. Aborting.\n"
+msgstr "fetchmail: non hai outro fetchmail a se executar\n"
+
+#: fetchmail.c:586
+#, c-format
+msgid "starting fetchmail %s daemon \n"
+msgstr "iniciando o demonio de fetchmail %s \n"
+
+#: fetchmail.c:602 fetchmail.c:604
+#, c-format
+msgid "could not open %s to append logs to \n"
+msgstr ""
+
+#: fetchmail.c:606
+#, fuzzy
+msgid "fetchmail: Warning: syslog and logfile are set. Check both for logs!\n"
+msgstr ""
+"fetchmail: aviso: ningún DNS dispoñible para comprobar recepcións con "
+"múltiples entregas de %s\n"
+
+#: fetchmail.c:625
+msgid "--check mode enabled, not fetching mail\n"
+msgstr ""
+
+#: fetchmail.c:647
+#, c-format
+msgid "couldn't time-check %s (error %d)\n"
+msgstr "non se puido comproba-la data de %s (erro %d)\n"
+
+#: fetchmail.c:652
+#, c-format
+msgid "restarting fetchmail (%s changed)\n"
+msgstr "iniciando fetchmail (%s cambiou)\n"
+
+#: fetchmail.c:657
+msgid "attempt to re-exec may fail as directory has not been restored\n"
+msgstr ""
+
+#: fetchmail.c:684
+msgid "attempt to re-exec fetchmail failed\n"
+msgstr "fallou a tentativa de reexecutar o fetchmail\n"
+
+#: fetchmail.c:714
+#, c-format
+msgid "poll of %s skipped (failed authentication or too many timeouts)\n"
+msgstr ""
+"recepción de %s omitida (fallo de autenticación ou demasiados excesos de "
+"espera)\n"
+
+#: fetchmail.c:726
+#, c-format
+msgid "interval not reached, not querying %s\n"
+msgstr "non se atinxiu o intervalo, non se interrogará %s\n"
+
+#: fetchmail.c:764
+#, fuzzy
+msgid "Query status=0 (SUCCESS)\n"
+msgstr "Estado da petición=%d\n"
+
+#: fetchmail.c:766
+#, fuzzy
+msgid "Query status=1 (NOMAIL)\n"
+msgstr "Estado da petición=%d\n"
+
+#: fetchmail.c:768
+#, fuzzy
+msgid "Query status=2 (SOCKET)\n"
+msgstr "Estado da petición=%d\n"
+
+#: fetchmail.c:770
+#, fuzzy
+msgid "Query status=3 (AUTHFAIL)\n"
+msgstr "Estado da petición=%d\n"
+
+#: fetchmail.c:772
+#, fuzzy
+msgid "Query status=4 (PROTOCOL)\n"
+msgstr "Estado da petición=%d\n"
+
+#: fetchmail.c:774
+#, fuzzy
+msgid "Query status=5 (SYNTAX)\n"
+msgstr "Estado da petición=%d\n"
+
+#: fetchmail.c:776
+#, fuzzy
+msgid "Query status=6 (IOERR)\n"
+msgstr "Estado da petición=%d\n"
+
+#: fetchmail.c:778
+#, fuzzy
+msgid "Query status=7 (ERROR)\n"
+msgstr "Estado da petición=%d\n"
+
+#: fetchmail.c:780
+#, fuzzy
+msgid "Query status=8 (EXCLUDE)\n"
+msgstr "Estado da petición=%d\n"
+
+#: fetchmail.c:782
+#, fuzzy
+msgid "Query status=9 (LOCKBUSY)\n"
+msgstr "Estado da petición=%d\n"
+
+#: fetchmail.c:784
+#, fuzzy
+msgid "Query status=10 (SMTP)\n"
+msgstr "Estado da petición=%d\n"
+
+#: fetchmail.c:786
+#, fuzzy
+msgid "Query status=11 (DNS)\n"
+msgstr "Estado da petición=%d\n"
+
+#: fetchmail.c:788
+#, fuzzy
+msgid "Query status=12 (BSMTP)\n"
+msgstr "Estado da petición=%d\n"
+
+#: fetchmail.c:790
+#, fuzzy
+msgid "Query status=13 (MAXFETCH)\n"
+msgstr "Estado da petición=%d\n"
+
+#: fetchmail.c:792
+#, c-format
+msgid "Query status=%d\n"
+msgstr "Estado da petición=%d\n"
+
+#: fetchmail.c:834
+msgid "All connections are wedged.  Exiting.\n"
+msgstr "Tódalas las conexións están trabadas.  Saíndo.\n"
+
+#: fetchmail.c:842
+#, fuzzy, c-format
+msgid "sleeping at %s for %d seconds\n"
+msgstr "fetchmail: durmindo en %s\n"
+
+#: fetchmail.c:866
+#, c-format
+msgid "awakened by %s\n"
+msgstr "espertado por %s\n"
+
+#: fetchmail.c:869
+#, c-format
+msgid "awakened by signal %d\n"
+msgstr "espertado por sinal %d\n"
+
+#: fetchmail.c:877
+#, c-format
+msgid "awakened at %s\n"
+msgstr "espertado en %s\n"
+
+#: fetchmail.c:882
+#, c-format
+msgid "normal termination, status %d\n"
+msgstr "finalización normal, estado %d\n"
+
+#: fetchmail.c:1036
+msgid "couldn't time-check the run-control file\n"
+msgstr "non se puido comprobar a data do ficheiro de control de execución\n"
+
+#: fetchmail.c:1069
+#, c-format
+msgid "Warning: multiple mentions of host %s in config file\n"
+msgstr "Aviso: múltiples mencións da máquina %s no ficheiro de configuración\n"
+
+#: fetchmail.c:1102
+#, fuzzy
+msgid "fetchmail: Error: multiple \"defaults\" records in config file.\n"
+msgstr "Aviso: múltiples mencións da máquina %s no ficheiro de configuración\n"
+
+#: fetchmail.c:1224
+#, fuzzy
+msgid "SSL support is not compiled in.\n"
+msgstr "non está configurado o soporte POP2.\n"
+
+#: fetchmail.c:1231
+#, fuzzy
+msgid "KERBEROS v4 support is configured, but not compiled in.\n"
+msgstr "non está configurado o soporte POP2.\n"
+
+#: fetchmail.c:1237
+#, fuzzy
+msgid "KERBEROS v5 support is configured, but not compiled in.\n"
+msgstr "non está configurado o soporte POP2.\n"
+
+#: fetchmail.c:1243
+#, fuzzy
+msgid "GSSAPI support is configured, but not compiled in.\n"
+msgstr "non está configurado o soporte POP2.\n"
+
+#: fetchmail.c:1273
+#, c-format
+msgid ""
+"fetchmail: warning: no DNS available to check multidrop fetches from %s\n"
+msgstr ""
+"fetchmail: aviso: ningún DNS dispoñible para comprobar recepcións con "
+"múltiples entregas de %s\n"
+
+#: fetchmail.c:1284
+#, c-format
+msgid "warning: multidrop for %s requires envelope option!\n"
+msgstr ""
+
+#: fetchmail.c:1285
+msgid "warning: Do not ask for support if all mail goes to postmaster!\n"
+msgstr ""
+
+#: fetchmail.c:1302
+#, fuzzy, c-format
+msgid ""
+"fetchmail: %s configuration invalid, specify positive port number for "
+"service or port\n"
+msgstr ""
+"configuración de %s non válida, o número de porto non pode ser negativo\n"
+
+#: fetchmail.c:1309
+#, fuzzy, c-format
+msgid "fetchmail: %s configuration invalid, RPOP requires a privileged port\n"
+msgstr "configuración de %s non válida, RPOP require un porto privilexiado\n"
+
+#: fetchmail.c:1327
+#, c-format
+msgid "%s configuration invalid, LMTP can't use default SMTP port\n"
+msgstr ""
+"configuración de %s non válida, LMTP non pode usar o porto por defecto SMTP\n"
+
+#: fetchmail.c:1341
+#, fuzzy
+msgid "Both fetchall and keep on in daemon or idle mode is a mistake!\n"
+msgstr "¡Baixar e manter tódalas mensaxes en modo demonio é un erro!\n"
+
+#: fetchmail.c:1366
+#, c-format
+msgid "terminated with signal %d\n"
+msgstr "terminado con sinal %d\n"
+
+#: fetchmail.c:1439
+#, fuzzy, c-format
+msgid "%s querying %s (protocol %s) at %s: poll started\n"
+msgstr "%s interrogando %s (protocolo %s) en %s\n"
+
+#: fetchmail.c:1464
+msgid "POP2 support is not configured.\n"
+msgstr "non está configurado o soporte POP2.\n"
+
+#: fetchmail.c:1476
+msgid "POP3 support is not configured.\n"
+msgstr "non está configurado o soporte POP3.\n"
+
+#: fetchmail.c:1486
+msgid "IMAP support is not configured.\n"
+msgstr "non está configurado o soporte IMAP.\n"
+
+#: fetchmail.c:1492
+msgid "ETRN support is not configured.\n"
+msgstr "non está configurado o soporte ETRN.\n"
+
+#: fetchmail.c:1500
+#, fuzzy
+msgid "ODMR support is not configured.\n"
+msgstr "non está configurado o soporte POP2.\n"
+
+#: fetchmail.c:1507
+msgid "unsupported protocol selected.\n"
+msgstr "o protocolo escollido non está soportado.\n"
+
+#: fetchmail.c:1517
+#, fuzzy, c-format
+msgid "%s querying %s (protocol %s) at %s: poll completed\n"
+msgstr "%s interrogando %s (protocolo %s) en %s\n"
+
+#: fetchmail.c:1534
+#, c-format
+msgid "Poll interval is %d seconds\n"
+msgstr "O intervalo entre peticións é de %d segundos\n"
+
+#: fetchmail.c:1536
+#, c-format
+msgid "Logfile is %s\n"
+msgstr "O ficheiro de rexistro é %s\n"
+
+#: fetchmail.c:1538
+#, c-format
+msgid "Idfile is %s\n"
+msgstr "O ficheiro de identificacións é %s\n"
+
+#: fetchmail.c:1541
+msgid "Progress messages will be logged via syslog\n"
+msgstr "As mensaxes de progreso rexistraranse polo syslog\n"
+
+#: fetchmail.c:1544
+msgid "Fetchmail will masquerade and will not generate Received\n"
+msgstr "Fetchmail enmascararase e non xerará unha liña Received\n"
+
+#: fetchmail.c:1546
+msgid "Fetchmail will show progress dots even in logfiles.\n"
+msgstr ""
+
+#: fetchmail.c:1548
+#, c-format
+msgid "Fetchmail will forward misaddressed multidrop messages to %s.\n"
+msgstr "Fetchmail reenviará mensaxes multidrop con enderezo incorrecto a %s.\n"
+
+#: fetchmail.c:1552
+msgid "Fetchmail will direct error mail to the postmaster.\n"
+msgstr "Fetchmail enviará as mensaxes de erro ó postmaster.\n"
+
+#: fetchmail.c:1554
+msgid "Fetchmail will direct error mail to the sender.\n"
+msgstr "Fetchmail enviará as mensaxes de erro ó autor.\n"
+
+#: fetchmail.c:1557
+#, fuzzy
+msgid "Fetchmail will treat permanent errors as permanent (drop messsages).\n"
+msgstr "Fetchmail reenviará mensaxes multidrop con enderezo incorrecto a %s.\n"
+
+#: fetchmail.c:1559
+#, fuzzy
+msgid "Fetchmail will treat permanent errors as temporary (keep messages).\n"
+msgstr "Fetchmail enviará as mensaxes de erro ó autor.\n"
+
+#: fetchmail.c:1566
+#, c-format
+msgid "Options for retrieving from %s@%s:\n"
+msgstr "Opcións para recibir de %s@%s:\n"
+
+#: fetchmail.c:1570
+#, c-format
+msgid "  Mail will be retrieved via %s\n"
+msgstr "  O correo recibirase vía %s\n"
+
+#: fetchmail.c:1573
+#, fuzzy, c-format
+msgid "  Poll of this server will occur every %d interval.\n"
+msgid_plural "  Poll of this server will occur every %d intervals.\n"
+msgstr[0] "  Recibirase deste servidor cada %d intervalos.\n"
+msgstr[1] "  Recibirase deste servidor cada %d intervalos.\n"
+
+#: fetchmail.c:1577
+#, c-format
+msgid "  True name of server is %s.\n"
+msgstr "  O nome real do servidor é %s.\n"
+
+#: fetchmail.c:1580
+#, fuzzy
+msgid "  This host will not be queried when no host is specified.\n"
+msgstr ""
+"  Esta máquina%sserá interrogada cando non se indique ningunha outra.\n"
+
+#: fetchmail.c:1581
+#, fuzzy
+msgid "  This host will be queried when no host is specified.\n"
+msgstr ""
+"  Esta máquina%sserá interrogada cando non se indique ningunha outra.\n"
+
+#: fetchmail.c:1585
+msgid "  Password will be prompted for.\n"
+msgstr "  Pedirase a contrasinal.\n"
+
+#: fetchmail.c:1589
+#, c-format
+msgid "  APOP secret = \"%s\".\n"
+msgstr "  Segredo APOP = \"%s\".\n"
+
+#: fetchmail.c:1592
+#, c-format
+msgid "  RPOP id = \"%s\".\n"
+msgstr "  Identificación RPOP = \"%s\".\n"
+
+#: fetchmail.c:1595
+#, c-format
+msgid "  Password = \"%s\".\n"
+msgstr "  Contrasinal = \"%s\".\n"
+
+#: fetchmail.c:1604
+#, c-format
+msgid "  Protocol is KPOP with Kerberos %s authentication"
+msgstr "  O protocolo é KPOP con autenticación Kerberos %s"
+
+#: fetchmail.c:1607
+#, c-format
+msgid "  Protocol is %s"
+msgstr "  O protocolo é %s"
+
+#: fetchmail.c:1609
+#, c-format
+msgid " (using service %s)"
+msgstr " (usando o servicio %s)"
+
+#: fetchmail.c:1611
+msgid " (using default port)"
+msgstr " (usando o porto por defecto)"
+
+#: fetchmail.c:1613
+msgid " (forcing UIDL use)"
+msgstr " (forzando o uso de UIDL)"
+
+#: fetchmail.c:1619
+msgid "  All available authentication methods will be tried.\n"
+msgstr ""
+
+#: fetchmail.c:1622
+#, fuzzy
+msgid "  Password authentication will be forced.\n"
+msgstr "Autenticación OTP soportada\n"
+
+#: fetchmail.c:1625
+#, fuzzy
+msgid "  MSN authentication will be forced.\n"
+msgstr "Autenticación NTLM soportada\n"
+
+#: fetchmail.c:1628
+#, fuzzy
+msgid "  NTLM authentication will be forced.\n"
+msgstr "Autenticación NTLM soportada\n"
+
+#: fetchmail.c:1631
+#, fuzzy
+msgid "  OTP authentication will be forced.\n"
+msgstr "Autenticación OTP soportada\n"
+
+#: fetchmail.c:1634
+#, fuzzy
+msgid "  CRAM-Md5 authentication will be forced.\n"
+msgstr "Autenticación CRAM-MD5 soportada\n"
+
+#: fetchmail.c:1637
+#, fuzzy
+msgid "  GSSAPI authentication will be forced.\n"
+msgstr "Autenticación OTP soportada\n"
+
+#: fetchmail.c:1640
+#, fuzzy
+msgid "  Kerberos V4 authentication will be forced.\n"
+msgstr "  Activada a preautenticación Kerberos V4.\n"
+
+#: fetchmail.c:1643
+#, fuzzy
+msgid "  Kerberos V5 authentication will be forced.\n"
+msgstr "  Activada a preautenticación Kerberos V5.\n"
+
+#: fetchmail.c:1646
+msgid "  End-to-end encryption assumed.\n"
+msgstr "  Asúmese encriptado dun punto ó outro.\n"
+
+#: fetchmail.c:1650
+#, c-format
+msgid "  Mail service principal is: %s\n"
+msgstr ""
+
+#: fetchmail.c:1653
+msgid "  SSL encrypted sessions enabled.\n"
+msgstr ""
+
+#: fetchmail.c:1655
+#, fuzzy, c-format
+msgid "  SSL protocol: %s.\n"
+msgstr "  O protocolo é %s"
+
+#: fetchmail.c:1657
+msgid "  SSL server certificate checking enabled.\n"
+msgstr ""
+
+#: fetchmail.c:1659
+#, c-format
+msgid "  SSL trusted certificate directory: %s\n"
+msgstr ""
+
+#: fetchmail.c:1662
+#, fuzzy, c-format
+msgid "  SSL server CommonName: %s\n"
+msgstr "Mostra da data do servicio %s\n"
+
+#: fetchmail.c:1664
+#, c-format
+msgid "  SSL key fingerprint (checked against the server key): %s\n"
+msgstr ""
+
+#: fetchmail.c:1667
+#, c-format
+msgid "  Server nonresponse timeout is %d seconds"
+msgstr "  O tempo de espera de resposta do servidor é %d segundos"
+
+#: fetchmail.c:1669
+msgid " (default).\n"
+msgstr " (por defecto).\n"
+
+#: fetchmail.c:1676
+msgid "  Default mailbox selected.\n"
+msgstr "  Caixa de correo por defecto escollida.\n"
+
+#: fetchmail.c:1681
+msgid "  Selected mailboxes are:"
+msgstr "  As caixas de correo escollidas son:"
+
+#: fetchmail.c:1687
+#, fuzzy
+msgid "  All messages will be retrieved (--all on).\n"
+msgstr "  Baixaranse %s mensaxes (--all %s).\n"
+
+#: fetchmail.c:1688
+#, fuzzy
+msgid "  Only new messages will be retrieved (--all off).\n"
+msgstr "  Baixaranse %s mensaxes (--all %s).\n"
+
+# %s substitúese por " non " ou " "
+#: fetchmail.c:1690
+#, fuzzy
+msgid "  Fetched messages will be kept on the server (--keep on).\n"
+msgstr "  As mensaxes recibidas%sserán mantidas no servidor (--keep %s).\n"
+
+# %s substitúese por " non " ou " "
+#: fetchmail.c:1691
+#, fuzzy
+msgid "  Fetched messages will not be kept on the server (--keep off).\n"
+msgstr "  As mensaxes recibidas%sserán mantidas no servidor (--keep %s).\n"
+
+# %s substitúese por " non " ou " "
+#: fetchmail.c:1693
+#, fuzzy
+msgid "  Old messages will be flushed before message retrieval (--flush on).\n"
+msgstr ""
+"  As mensaxes vellas%sserán eliminadas antes da recepción de mensaxes (--"
+"flush %s).\n"
+
+# %s substitúese por " non " ou " "
+#: fetchmail.c:1694
+#, fuzzy
+msgid ""
+"  Old messages will not be flushed before message retrieval (--flush off).\n"
+msgstr ""
+"  As mensaxes vellas%sserán eliminadas antes da recepción de mensaxes (--"
+"flush %s).\n"
+
+# %s substitúese por " non " ou " "
+#: fetchmail.c:1696
+#, fuzzy
+msgid ""
+"  Oversized messages will be flushed before message retrieval (--limitflush "
+"on).\n"
+msgstr ""
+"  As mensaxes vellas%sserán eliminadas antes da recepción de mensaxes (--"
+"flush %s).\n"
+
+# %s substitúese por " non " ou " "
+#: fetchmail.c:1697
+#, fuzzy
+msgid ""
+"  Oversized messages will not be flushed before message retrieval (--"
+"limitflush off).\n"
+msgstr ""
+"  As mensaxes vellas%sserán eliminadas antes da recepción de mensaxes (--"
+"flush %s).\n"
+
+# A traducción está feita cos : porque é o único xeito de que as
+# palabras "activado" e "desactivado" sirvan para as sentencias
+# masculinas e femininas, sen que quede moi mal
+#: fetchmail.c:1699
+#, fuzzy
+msgid "  Rewrite of server-local addresses is enabled (--norewrite off).\n"
+msgstr "  Rescritura dos enderezos locais: %s (--norewrite %s).\n"
+
+# A traducción está feita cos : porque é o único xeito de que as
+# palabras "activado" e "desactivado" sirvan para as sentencias
+# masculinas e femininas, sen que quede moi mal
+#: fetchmail.c:1700
+#, fuzzy
+msgid "  Rewrite of server-local addresses is disabled (--norewrite on).\n"
+msgstr "  Rescritura dos enderezos locais: %s (--norewrite %s).\n"
+
+#: fetchmail.c:1702
+#, fuzzy
+msgid "  Carriage-return stripping is enabled (stripcr on).\n"
+msgstr "  Eliminación do retorno de carro: %s (stripcr %s).\n"
+
+#: fetchmail.c:1703
+#, fuzzy
+msgid "  Carriage-return stripping is disabled (stripcr off).\n"
+msgstr "  Eliminación do retorno de carro: %s (stripcr %s).\n"
+
+#: fetchmail.c:1705
+#, fuzzy
+msgid "  Carriage-return forcing is enabled (forcecr on).\n"
+msgstr "  Retorno de carro forzado: %s (forcecr %s).\n"
+
+#: fetchmail.c:1706
+#, fuzzy
+msgid "  Carriage-return forcing is disabled (forcecr off).\n"
+msgstr "  Retorno de carro forzado: %s (forcecr %s).\n"
+
+#: fetchmail.c:1708
+#, fuzzy
+msgid ""
+"  Interpretation of Content-Transfer-Encoding is disabled (pass8bits on).\n"
+msgstr "  Interpretación de Content-Transfer-Encoding: %s (pass8bits %s).\n"
+
+#: fetchmail.c:1709
+#, fuzzy
+msgid ""
+"  Interpretation of Content-Transfer-Encoding is enabled (pass8bits off).\n"
+msgstr "  Interpretación de Content-Transfer-Encoding: %s (pass8bits %s).\n"
+
+#: fetchmail.c:1711
+#, fuzzy
+msgid "  MIME decoding is enabled (mimedecode on).\n"
+msgstr "  Decodificación MIME: %s (mimedecode %s).\n"
+
+#: fetchmail.c:1712
+#, fuzzy
+msgid "  MIME decoding is disabled (mimedecode off).\n"
+msgstr "  Decodificación MIME: %s (mimedecode %s).\n"
+
+#: fetchmail.c:1714
+#, fuzzy
+msgid "  Idle after poll is enabled (idle on).\n"
+msgstr "  Inactividade despois da recepción: %s (idle %s).\n"
+
+#: fetchmail.c:1715
+#, fuzzy
+msgid "  Idle after poll is disabled (idle off).\n"
+msgstr "  Inactividade despois da recepción: %s (idle %s).\n"
+
+#: fetchmail.c:1717
+#, fuzzy
+msgid "  Nonempty Status lines will be discarded (dropstatus on)\n"
+msgstr "  As liñas Status non baleiras serán %s (dropstatus %s)\n"
+
+#: fetchmail.c:1718
+#, fuzzy
+msgid "  Nonempty Status lines will be kept (dropstatus off)\n"
+msgstr "  As liñas Status non baleiras serán %s (dropstatus %s)\n"
+
+#: fetchmail.c:1720
+#, fuzzy
+msgid "  Delivered-To lines will be discarded (dropdelivered on)\n"
+msgstr "  As liñas Status non baleiras serán %s (dropstatus %s)\n"
+
+#: fetchmail.c:1721
+#, fuzzy
+msgid "  Delivered-To lines will be kept (dropdelivered off)\n"
+msgstr "  As liñas Status non baleiras serán %s (dropstatus %s)\n"
+
+#: fetchmail.c:1725
+#, c-format
+msgid "  Message size limit is %d octets (--limit %d).\n"
+msgstr "  O límite de tamaño de mensaxe é %d octetos (--limit %d).\n"
+
+#: fetchmail.c:1728
+msgid "  No message size limit (--limit 0).\n"
+msgstr "  Sen límite de tamaño de mensaxe (--limit 0).\n"
+
+#: fetchmail.c:1730
+#, c-format
+msgid "  Message size warning interval is %d seconds (--warnings %d).\n"
+msgstr ""
+"  O intervalo de avisos do tamaño das mensaxes é %d segundos (--warnings %"
+"d).\n"
+
+#: fetchmail.c:1733
+msgid "  Size warnings on every poll (--warnings 0).\n"
+msgstr "  Avisos de tamaño de mensaxe en cada recepción (--warnings 0).\n"
+
+#: fetchmail.c:1736
+#, c-format
+msgid "  Received-message limit is %d (--fetchlimit %d).\n"
+msgstr "  O límite de mensaxes recibidas é %d (--fetchlimit %d).\n"
+
+#: fetchmail.c:1739
+msgid "  No received-message limit (--fetchlimit 0).\n"
+msgstr "  Sen límite de mensaxes recibidas (--fetchlimit 0).\n"
+
+#: fetchmail.c:1741
+#, fuzzy, c-format
+msgid "  Fetch message size limit is %d (--fetchsizelimit %d).\n"
+msgstr "  O límite de mensaxes recibidas é %d (--fetchlimit %d).\n"
+
+#: fetchmail.c:1744
+#, fuzzy
+msgid "  No fetch message size limit (--fetchsizelimit 0).\n"
+msgstr "  Sen límite de tamaño de mensaxe (--limit 0).\n"
+
+#: fetchmail.c:1748
+msgid "  Do binary search of UIDs during each poll (--fastuidl 1).\n"
+msgstr ""
+
+#: fetchmail.c:1750
+#, c-format
+msgid "  Do binary search of UIDs during %d out of %d polls (--fastuidl %d).\n"
+msgstr ""
+
+#: fetchmail.c:1753
+msgid "   Do linear search of UIDs during each poll (--fastuidl 0).\n"
+msgstr ""
+
+#: fetchmail.c:1755
+#, c-format
+msgid "  SMTP message batch limit is %d.\n"
+msgstr "  O límite de lote de mensaxes SMTP é %d.\n"
+
+#: fetchmail.c:1757
+msgid "  No SMTP message batch limit (--batchlimit 0).\n"
+msgstr "  Sen límite de lote de mensaxes SMTP (--bathlimit 0).\n"
+
+#: fetchmail.c:1761
+#, c-format
+msgid "  Deletion interval between expunges forced to %d (--expunge %d).\n"
+msgstr ""
+"  O intervalo de borrado entre eliminacións forzado a %d (--expunge %d).\n"
+
+#: fetchmail.c:1763
+msgid "  No forced expunges (--expunge 0).\n"
+msgstr "  Sen eliminacións forzadas (--expunge 0).\n"
+
+#: fetchmail.c:1770
+msgid "  Domains for which mail will be fetched are:"
+msgstr ""
+
+#: fetchmail.c:1775 fetchmail.c:1795
+msgid " (default)"
+msgstr " (por defecto)"
+
+#: fetchmail.c:1780
+#, c-format
+msgid "  Messages will be appended to %s as BSMTP\n"
+msgstr "  As mensaxes serán engadidas a %s como BSMTP\n"
+
+#: fetchmail.c:1782
+#, c-format
+msgid "  Messages will be delivered with \"%s\".\n"
+msgstr "  As mensaxes serán entregadas con \"%s\".\n"
+
+#: fetchmail.c:1789
+#, c-format
+msgid "  Messages will be %cMTP-forwarded to:"
+msgstr "  As mensaxes serán redirixiadas a través de %cMTP a:"
+
+#: fetchmail.c:1800
+#, c-format
+msgid "  Host part of MAIL FROM line will be %s\n"
+msgstr "  O nome da máquina na liña MAIL FROM será %s\n"
+
+#: fetchmail.c:1803
+#, c-format
+msgid "  Address to be put in RCPT TO lines shipped to SMTP will be %s\n"
+msgstr ""
+
+#: fetchmail.c:1812
+msgid "  Recognized listener spam block responses are:"
+msgstr "  As respostas de bloques spam recoñecidas polo servidor receptor son:"
+
+#: fetchmail.c:1818
+msgid "  Spam-blocking disabled\n"
+msgstr "  Bloqueo de spam desactivado\n"
+
+#: fetchmail.c:1821
+#, c-format
+msgid "  Server connection will be brought up with \"%s\".\n"
+msgstr "  A conexión ó servidor será iniciada con \"%s\".\n"
+
+#: fetchmail.c:1824
+msgid "  No pre-connection command.\n"
+msgstr "  Ningún comando de pre-conexión.\n"
+
+#: fetchmail.c:1826
+#, c-format
+msgid "  Server connection will be taken down with \"%s\".\n"
+msgstr "  A conexión ó servidor será rematada con \"%s\".\n"
+
+#: fetchmail.c:1829
+msgid "  No post-connection command.\n"
+msgstr "  Ningún comando de pos-conexión.\n"
+
+#: fetchmail.c:1832
+msgid "  No localnames declared for this host.\n"
+msgstr "  Non hai ningún nome local declarado para esta máquina.\n"
+
+#: fetchmail.c:1842
+msgid "  Multi-drop mode: "
+msgstr "  Modo de entrega múltiple: "
+
+#: fetchmail.c:1844
+msgid "  Single-drop mode: "
+msgstr "  Modo de entrega simple: "
+
+#: fetchmail.c:1846
+#, fuzzy, c-format
+msgid "%d local name recognized.\n"
+msgid_plural "%d local names recognized.\n"
+msgstr[0] "%d nome(s) local(is) recoñecidos.\n"
+msgstr[1] "%d nome(s) local(is) recoñecidos.\n"
+
+#: fetchmail.c:1861
+#, fuzzy
+msgid "  DNS lookup for multidrop addresses is enabled.\n"
+msgstr "  Busca no DNS por enderezos de múltiple entrega: %s.\n"
+
+#: fetchmail.c:1862
+#, fuzzy
+msgid "  DNS lookup for multidrop addresses is disabled.\n"
+msgstr "  Busca no DNS por enderezos de múltiple entrega: %s.\n"
+
+#: fetchmail.c:1866
+#, fuzzy
+msgid ""
+"  Server aliases will be compared with multidrop addresses by IP address.\n"
+msgstr ""
+"  Os aliases do servidor compararanse cos enderezos de múltiple entrega "
+"segundo "
+
+#: fetchmail.c:1868
+#, fuzzy
+msgid "  Server aliases will be compared with multidrop addresses by name.\n"
+msgstr ""
+"  Os aliases do servidor compararanse cos enderezos de múltiple entrega "
+"segundo "
+
+#: fetchmail.c:1871
+msgid "  Envelope-address routing is disabled\n"
+msgstr "  O encamiñamento dos enderezos do sobre está desactivado\n"
+
+#: fetchmail.c:1874
+#, c-format
+msgid "  Envelope header is assumed to be: %s\n"
+msgstr "  Asúmese que a cabeceira do sobre é: %s\n"
+
+#: fetchmail.c:1877
+#, fuzzy, c-format
+msgid "  Number of envelope headers to be skipped over: %d\n"
+msgstr "  Número da cabeceira do sobre a procesar: %d\n"
+
+#: fetchmail.c:1880
+#, c-format
+msgid "  Prefix %s will be removed from user id\n"
+msgstr "  Eliminarase o prefixo %s do identificador de usuario\n"
+
+#: fetchmail.c:1883
+msgid "  No prefix stripping\n"
+msgstr "  Sen eliminación de prefixo\n"
+
+#: fetchmail.c:1890
+msgid "  Predeclared mailserver aliases:"
+msgstr "  Aliases predeclarados do servidor de correo:"
+
+#: fetchmail.c:1899
+msgid "  Local domains:"
+msgstr "  Dominios locais:"
+
+#: fetchmail.c:1909
+#, c-format
+msgid "  Connection must be through interface %s.\n"
+msgstr "  A conexión ten que ser a través da interfaz %s.\n"
+
+#: fetchmail.c:1911
+msgid "  No interface requirement specified.\n"
+msgstr "  Non se indicou ningún requirimento de interfaz.\n"
+
+#: fetchmail.c:1913
+#, c-format
+msgid "  Polling loop will monitor %s.\n"
+msgstr "  O bucle de recibimento monitorizará %s.\n"
+
+#: fetchmail.c:1915
+msgid "  No monitor interface specified.\n"
+msgstr "  Non se indicou ningunha interfaz de monitorización.\n"
+
+#: fetchmail.c:1919
+#, c-format
+msgid "  Server connections will be made via plugin %s (--plugin %s).\n"
+msgstr "  As conexións ó servidor faranse polo plugin %s (--plugin %s).\n"
+
+#: fetchmail.c:1921
+msgid "  No plugin command specified.\n"
+msgstr "  Non se indicou ningún comando de plugin.\n"
+
+#: fetchmail.c:1923
+#, c-format
+msgid "  Listener connections will be made via plugout %s (--plugout %s).\n"
+msgstr ""
+"  Ás conexións ó servidor receptor faranse polo plugout %s (--plugout %s).\n"
+
+#: fetchmail.c:1925
+msgid "  No plugout command specified.\n"
+msgstr "  Non se indicou ningún comando de plugout.\n"
+
+#: fetchmail.c:1930
+msgid "  No UIDs saved from this host.\n"
+msgstr "  Ningún UID foi grabado desta máquina.\n"
+
+#: fetchmail.c:1939
+#, c-format
+msgid "  %d UIDs saved.\n"
+msgstr "  %d UIDs gravados.\n"
+
+#: fetchmail.c:1947
+msgid "  Poll trace information will be added to the Received header.\n"
+msgstr ""
+
+#: fetchmail.c:1949
+msgid ""
+"  No poll trace information will be added to the Received header.\n"
+".\n"
+msgstr ""
+
+#: fetchmail.c:1952
+#, c-format
+msgid "  Pass-through properties \"%s\".\n"
+msgstr "  Propiedades de paso \"%s\".\n"
+
+#: getpass.c:71
+msgid "ERROR: no support for getpassword() routine\n"
+msgstr "ERRO: non hai soporte para a rotina getpassword()\n"
+
+#: getpass.c:193
+msgid ""
+"\n"
+"Caught SIGINT... bailing out.\n"
+msgstr ""
+"\n"
+"SIGINT recibido... saíndo.\n"
+
+#: gssapi.c:66
+#, c-format
+msgid "Couldn't get service name for [%s]\n"
+msgstr "Non se puido obte-lo nome do servicio para [%s]\n"
+
+#: gssapi.c:72
+#, c-format
+msgid "Using service name [%s]\n"
+msgstr "Usando o nome de servicio [%s]\n"
+
+#: gssapi.c:89
+msgid "Sending credentials\n"
+msgstr "Enviando credenciais\n"
+
+#: gssapi.c:107
+msgid "Error exchanging credentials\n"
+msgstr "Erro no troco de credenciais\n"
+
+#: gssapi.c:152
+msgid "Couldn't unwrap security level data\n"
+msgstr "Non foi posible desempaquetar os datos do nivel de seguridade\n"
+
+#: gssapi.c:157
+msgid "Credential exchange complete\n"
+msgstr "Troco de credenciais completo\n"
+
+#: gssapi.c:161
+msgid "Server requires integrity and/or privacy\n"
+msgstr "O servidor require integridade e/ou privacidade\n"
+
+#: gssapi.c:170
+#, c-format
+msgid "Unwrapped security level flags: %s%s%s\n"
+msgstr "Desempaquetadas as marcas do nivel de seguridade: %s%s%s\n"
+
+#: gssapi.c:174
+#, c-format
+msgid "Maximum GSS token size is %ld\n"
+msgstr "O tamaño máximo do símbolo GSS é %ld\n"
+
+#: gssapi.c:187
+msgid "Error creating security level request\n"
+msgstr "Erro ó crear a petición de nivel de seguridade\n"
+
+#: gssapi.c:198
+msgid "Releasing GSS credentials\n"
+msgstr "Liberando as credenciais GSS\n"
+
+#: gssapi.c:201
+msgid "Error releasing credentials\n"
+msgstr "Erro liberando as credenciais\n"
+
+#: idle.c:61
+#, fuzzy, c-format
+msgid "fetchmail: thread sleeping for %d sec.\n"
+msgstr "fetchmail: durmindo en %s\n"
+
+#: imap.c:326
+msgid "Protocol identified as IMAP4 rev 1\n"
+msgstr "Protocolo identificado como IMAP4 rev 1\n"
+
+#: imap.c:332
+msgid "Protocol identified as IMAP4 rev 0\n"
+msgstr "Protocolo identificado como IMAP4 rev 0\n"
+
+#: imap.c:339
+msgid "Protocol identified as IMAP2 or IMAP2BIS\n"
+msgstr "Protocolo identificabo como IMAP2 ou IMAP2BIS\n"
+
+#: imap.c:354
+msgid "will idle after poll\n"
+msgstr ""
+
+#: imap.c:446 pop3.c:518
+#, c-format
+msgid "%s: upgrade to TLS succeeded.\n"
+msgstr ""
+
+#: imap.c:455 pop3.c:527
+#, c-format
+msgid "%s: upgrade to TLS failed.\n"
+msgstr ""
+
+#: imap.c:459
+#, c-format
+msgid "%s: opportunistic upgrade to TLS failed, trying to continue\n"
+msgstr ""
+
+#: imap.c:579
+#, fuzzy
+msgid "Required OTP capability not compiled into fetchmail\n"
+msgstr "Capacidade LOGIN requirida non soportada polo servidor\n"
+
+#: imap.c:601 pop3.c:385
+#, fuzzy
+msgid "Required NTLM capability not compiled into fetchmail\n"
+msgstr "Capacidade LOGIN requirida non soportada polo servidor\n"
+
+#: imap.c:610
+msgid "Required LOGIN capability not supported by server\n"
+msgstr "Capacidade LOGIN requirida non soportada polo servidor\n"
+
+#: imap.c:676
+#, fuzzy, c-format
+msgid "mail expunge mismatch (%d actual != %d expected)\n"
+msgstr "a mensaxe %d non tiña o tamaño agardado (%d real != %d agardado)\n"
+
+#: imap.c:782 imap.c:841
+msgid "re-poll failed\n"
+msgstr "fallou a nova tentativa de baixar mensaxes\n"
+
+#: imap.c:790 imap.c:846
+#, fuzzy, c-format
+msgid "%d message waiting after re-poll\n"
+msgid_plural "%d messages waiting after re-poll\n"
+msgstr[0] "Non hai mensaxes agardando para %s\n"
+msgstr[1] "Non hai mensaxes agardando para %s\n"
+
+#: imap.c:807
+msgid "mailbox selection failed\n"
+msgstr "fallou a selección de caixa de correo\n"
+
+#: imap.c:811
+#, fuzzy, c-format
+msgid "%d message waiting after first poll\n"
+msgid_plural "%d messages waiting after first poll\n"
+msgstr[0] "Non hai mensaxes agardando para %s\n"
+msgstr[1] "Non hai mensaxes agardando para %s\n"
+
+#: imap.c:825
+#, fuzzy
+msgid "expunge failed\n"
+msgstr "fallou o execl(%s)\n"
+
+#: imap.c:829
+#, fuzzy, c-format
+msgid "%d message waiting after expunge\n"
+msgid_plural "%d messages waiting after expunge\n"
+msgstr[0] "Non hai mensaxes agardando para %s\n"
+msgstr[1] "Non hai mensaxes agardando para %s\n"
+
+#: imap.c:871
+msgid "search for unseen messages failed\n"
+msgstr "fallou a busca de mensaxes non lidas\n"
+
+#: imap.c:899
+#, fuzzy, c-format
+msgid "%lu is unseen\n"
+msgstr "a %u aínda foi lida\n"
+
+#: imap.c:911 pop3.c:889
+#, fuzzy, c-format
+msgid "%u is first unseen\n"
+msgstr "a %u aínda foi lida\n"
+
+#: imap.c:1002
+msgid ""
+"Warning: ignoring bogus data for message sizes returned by the server.\n"
+msgstr ""
+
+#: interface.c:256
+msgid "Unable to open kvm interface. Make sure fetchmail is SGID kmem."
+msgstr ""
+"Non se puido abri-la interfaz kvm. Asegúrese que o fetchmail é SGID de kmem."
+
+#: interface.c:396
+#, c-format
+msgid "Unable to parse interface name from %s"
+msgstr ""
+
+#: interface.c:418
+msgid "get_ifinfo: sysctl (iflist estimate) failed"
+msgstr ""
+
+#: interface.c:424
+#, fuzzy
+msgid "get_ifinfo: malloc failed"
+msgstr "fallou o malloc\n"
+
+#: interface.c:430
+msgid "get_ifinfo: sysctl (iflist) failed"
+msgstr ""
+
+#: interface.c:448
+#, c-format
+msgid "Routing message version %d not understood."
+msgstr ""
+
+#: interface.c:480
+#, c-format
+msgid "No interface found with name %s"
+msgstr ""
+
+#: interface.c:538
+#, fuzzy, c-format
+msgid "No IP address found for %s"
+msgstr "non se atopou ningún enderezo `Received'\n"
+
+#: interface.c:589
+msgid "missing IP interface address\n"
+msgstr "falta o enderezo IP da interfaz\n"
+
+#: interface.c:605
+msgid "invalid IP interface address\n"
+msgstr "enderezo IP da interfaz non válido\n"
+
+#: interface.c:611
+msgid "invalid IP interface mask\n"
+msgstr "máscara IP da interfaz non válida\n"
+
+#: interface.c:650
+#, c-format
+msgid "activity on %s -noted- as %d\n"
+msgstr "actividade en %s -percibida- como %d\n"
+
+#: interface.c:665
+#, c-format
+msgid "skipping poll of %s, %s down\n"
+msgstr "omitindo a recepción de %s, %s está desactivada\n"
+
+#: interface.c:684
+#, c-format
+msgid "skipping poll of %s, %s IP address excluded\n"
+msgstr "omitindo a recepción de %s, enderezo IP de %s excluído\n"
+
+#: interface.c:696
+#, c-format
+msgid "activity on %s checked as %d\n"
+msgstr "actividade en %s comprobada como %d\n"
+
+#: interface.c:722
+#, c-format
+msgid "skipping poll of %s, %s inactive\n"
+msgstr "omitindo a recepción de %s, %s está inactiva\n"
+
+#: interface.c:729
+#, c-format
+msgid "activity on %s was %d, is %d\n"
+msgstr "actividade en %s era %d, é %d\n"
+
+#: kerberos.c:74
+msgid "could not decode initial BASE64 challenge\n"
+msgstr "non se puido decodificar o challenge BASE64 inicial\n"
+
+#: kerberos.c:139
+#, c-format
+msgid "principal %s in ticket does not match -u %s\n"
+msgstr "%s principal no ticket non coincide con -u %s\n"
+
+#: kerberos.c:147
+#, c-format
+msgid "non-null instance (%s) might cause strange behavior\n"
+msgstr "instancia non nula (%s) pode causar comportamento estraño\n"
+
+#: kerberos.c:213
+msgid "could not decode BASE64 ready response\n"
+msgstr "non se puido decodificar a resposta BASE64 de dispoñibilidade\n"
+
+#: kerberos.c:220
+msgid "challenge mismatch\n"
+msgstr "o challenge non encaixa\n"
+
+#: lock.c:86
+#, fuzzy, c-format
+msgid "fetchmail: error reading lockfile \"%s\": %s\n"
+msgstr "fetchmail: borrando ficheiro de bloqueo antigo\n"
+
+#: lock.c:97
+msgid "fetchmail: removing stale lockfile\n"
+msgstr "fetchmail: borrando ficheiro de bloqueo antigo\n"
+
+#: lock.c:121
+#, fuzzy, c-format
+msgid "fetchmail: error opening lockfile \"%s\": %s\n"
+msgstr "fetchmail: borrando ficheiro de bloqueo antigo\n"
+
+#: lock.c:168
+#, fuzzy
+msgid "fetchmail: lock creation failed.\n"
+msgstr "fetchmail: fallou o socketpair\n"
+
+#: netrc.c:219
+#, c-format
+msgid "%s:%d: warning: found \"%s\" before any host names\n"
+msgstr "%s:%d: aviso: atopouse \"%s\" antes de calquera nome de máquina\n"
+
+#: netrc.c:257
+#, c-format
+msgid "%s:%d: warning: unknown token \"%s\"\n"
+msgstr "%s:%d: aviso: símbolo descoñecido \"%s\"\n"
+
+#: odmr.c:66
+#, fuzzy, c-format
+msgid "%s's SMTP listener does not support ATRN\n"
+msgstr "O servidor SMTP receptor de %s non soporta ETRN\n"
+
+#: odmr.c:104
+msgid "Turnaround now...\n"
+msgstr ""
+
+#: odmr.c:109
+msgid "ATRN request refused.\n"
+msgstr ""
+
+#: odmr.c:113
+msgid "Unable to process ATRN request now\n"
+msgstr ""
+
+#: odmr.c:118
+msgid "You have no mail.\n"
+msgstr ""
+
+#: odmr.c:122
+msgid "Command not implemented\n"
+msgstr ""
+
+#: odmr.c:126
+#, fuzzy
+msgid "Authentication required.\n"
+msgstr "Autenticación OTP soportada\n"
+
+#: odmr.c:130
+#, fuzzy, c-format
+msgid "Unknown ODMR error %d\n"
+msgstr "Erro de ETRN %d descoñecido\n"
+
+#: odmr.c:189
+#, fuzzy
+msgid "receiving message data\n"
+msgstr "escribindo o texto da mensaxe\n"
+
+#: odmr.c:242
+#, fuzzy
+msgid "Option --keep is not supported with ODMR\n"
+msgstr "A opción --keep non está soportada con ETRN\n"
+
+#: odmr.c:246
+#, fuzzy
+msgid "Option --flush is not supported with ODMR\n"
+msgstr "A opción --flush non está soportada con ETRN\n"
+
+#: odmr.c:250
+#, fuzzy
+msgid "Option --folder is not supported with ODMR\n"
+msgstr "A opción --flush non está soportada con ETRN\n"
+
+#: odmr.c:254
+#, fuzzy
+msgid "Option --check is not supported with ODMR\n"
+msgstr "A opción --check non está soportada con ETRN\n"
+
+#: opie.c:42
+msgid "server recv fatal\n"
+msgstr ""
+
+#: opie.c:56
+msgid "Could not decode OTP challenge\n"
+msgstr "Non se puido decodificar o challenge OTP\n"
+
+#: opie.c:64 pop3.c:610
+msgid "Secret pass phrase: "
+msgstr "Contrasinal segreda: "
+
+#: options.c:172 options.c:216
+#, c-format
+msgid "String '%s' is not a valid number string.\n"
+msgstr "A cadea '%s' non é unha cadea numérica válida.\n"
+
+#: options.c:181
+#, c-format
+msgid "Value of string '%s' is %s than %d.\n"
+msgstr "O valor da cadea '%s' é %s que %d.\n"
+
+#: options.c:182
+msgid "smaller"
+msgstr "máis pequeno"
+
+#: options.c:182
+msgid "larger"
+msgstr "maior"
+
+#: options.c:349
+#, c-format
+msgid "Invalid protocol `%s' specified.\n"
+msgstr "Protocolo indicado `%s' non válido.\n"
+
+#: options.c:396
+#, fuzzy, c-format
+msgid "Invalid authentication `%s' specified.\n"
+msgstr "Preautenticación `%s' indicada non válida.\n"
+
+#: options.c:601
+msgid "usage:  fetchmail [options] [server ...]\n"
+msgstr "uso:  fetchmail [opcións] [servidor ...]\n"
+
+#: options.c:602
+msgid "  Options are as follows:\n"
+msgstr "  As opcións son as seguintes:\n"
+
+#: options.c:603
+msgid "  -?, --help        display this option help\n"
+msgstr "  -?, --help        amosar esta axuda das opcións\n"
+
+#: options.c:604
+msgid "  -V, --version     display version info\n"
+msgstr "  -V, --version     amosa-la información da versión\n"
+
+#: options.c:606
+msgid "  -c, --check       check for messages without fetching\n"
+msgstr "  -c, --check       comprobar as mensaxes sen recollelas\n"
+
+#: options.c:607
+msgid "  -s, --silent      work silently\n"
+msgstr "  -s, --silent      traballar silenciosamente\n"
+
+#: options.c:608
+msgid "  -v, --verbose     work noisily (diagnostic output)\n"
+msgstr "  -v, --verbose     traballar barullentamente (saída de diagnóstico)\n"
+
+#: options.c:609
+msgid "  -d, --daemon      run as a daemon once per n seconds\n"
+msgstr ""
+"  -d, --daemon      executarse como un demonio unha vez cada n segundos\n"
+
+#: options.c:610
+msgid "  -N, --nodetach    don't detach daemon process\n"
+msgstr "  -N, --nodetach    non quitar do primeiro plano o proceso demonio\n"
+
+#: options.c:611
+msgid "  -q, --quit        kill daemon process\n"
+msgstr "  -q, --quit        mata-lo proceso demonio\n"
+
+#: options.c:612
+msgid "  -L, --logfile     specify logfile name\n"
+msgstr "  -L, --logfile     indica-lo nome do ficheiro de rexistro\n"
+
+#: options.c:613
+msgid ""
+"      --syslog      use syslog(3) for most messages when running as a "
+"daemon\n"
+msgstr ""
+"      --syslog      usar syslog(3) para a maior parte das mensaxes ó "
+"se                     executar como demonio\n"
+
+#: options.c:614
+msgid "      --invisible   don't write Received & enable host spoofing\n"
+msgstr ""
+"      --invisible   non escribir `Received' e activar finximento de máquina\n"
+
+#: options.c:615
+msgid "  -f, --fetchmailrc specify alternate run control file\n"
+msgstr ""
+"  -f, --fetchmailrc indicar un ficheiro de control de execución diferente\n"
+
+#: options.c:616
+msgid "  -i, --idfile      specify alternate UIDs file\n"
+msgstr "  -i, --idfile      indicar un ficheiro de UIDs alternativo\n"
+
+#: options.c:617
+#, fuzzy
+msgid "      --pidfile     specify alternate PID (lock) file\n"
+msgstr "  -i, --idfile      indicar un ficheiro de UIDs alternativo\n"
+
+#: options.c:618
+msgid "      --postmaster  specify recipient of last resort\n"
+msgstr "      --postmaster  indicar o destinatario en último caso\n"
+
+#: options.c:619
+msgid "      --nobounce    redirect bounces from user to postmaster.\n"
+msgstr ""
+"      --nobounce    redirixir as mensaxes erradas do usuario ó postmaster.\n"
+
+#: options.c:620
+msgid ""
+"      --nosoftbounce fetchmail deletes permanently undeliverable messages.\n"
+msgstr ""
+
+#: options.c:621
+msgid ""
+"      --softbounce  keep permanently undeliverable messages on server "
+"(default).\n"
+msgstr ""
+
+#: options.c:623
+msgid "  -I, --interface   interface required specification\n"
+msgstr "  -I, --interface   indicación de requirimento de interfaz\n"
+
+#: options.c:624
+msgid "  -M, --monitor     monitor interface for activity\n"
+msgstr "  -M, --monitor     monitorizar a actividade da interfaz\n"
+
+#: options.c:627
+msgid "      --ssl         enable ssl encrypted session\n"
+msgstr "      --ssl         activar sesión encriptada con ssl\n"
+
+#: options.c:628
+msgid "      --sslkey      ssl private key file\n"
+msgstr "      --sslkey      ficheiro coa chave privada ssl\n"
+
+#: options.c:629
+msgid "      --sslcert     ssl client certificate\n"
+msgstr "      --sslcert     certificado de cliente ssl\n"
+
+#: options.c:630
+#, fuzzy
+msgid "      --sslcertck   do strict server certificate check (recommended)\n"
+msgstr "      --sslcert     certificado de cliente ssl\n"
+
+#: options.c:631
+#, fuzzy
+msgid "      --sslcertpath path to ssl certificates\n"
+msgstr "      --sslcert     certificado de cliente ssl\n"
+
+#: options.c:632
+msgid ""
+"      --sslcommonname  expect this CommonName from server (discouraged)\n"
+msgstr ""
+
+#: options.c:633
+msgid ""
+"      --sslfingerprint fingerprint that must match that of the server's "
+"cert.\n"
+msgstr ""
+
+#: options.c:634
+msgid "      --sslproto    force ssl protocol (SSL2/SSL3/TLS1)\n"
+msgstr ""
+
+#: options.c:636
+msgid "      --plugin      specify external command to open connection\n"
+msgstr "      --plugin      indicar comando externo para abri-la conexión\n"
+
+#: options.c:637
+msgid "      --plugout     specify external command to open smtp connection\n"
+msgstr ""
+"      --plugout     indicar comando externo para abri-la conexión smtp "
+"local\n"
+
+#: options.c:639
+msgid "  -p, --protocol    specify retrieval protocol (see man page)\n"
+msgstr ""
+"  -p, --protocol    indicar o protocolo de recepción (mirar a páxina man)\n"
+
+#: options.c:640
+msgid "  -U, --uidl        force the use of UIDLs (pop3 only)\n"
+msgstr "  -U, --uidl        forzar o uso de UIDLs (só pop3)\n"
+
+#: options.c:641
+#, fuzzy
+msgid "      --port        TCP port to connect to (obsolete, use --service)\n"
+msgstr "  -P, --port        porto do servicio TCP/IP ó que se conectar\n"
+
+#: options.c:642
+#, fuzzy
+msgid ""
+"  -P, --service     TCP service to connect to (can be numeric TCP port)\n"
+msgstr "  -P, --port        porto do servicio TCP/IP ó que se conectar\n"
+
+#: options.c:643
+#, fuzzy
+msgid "      --auth        authentication type (password/kerberos/ssh/otp)\n"
+msgstr ""
+"      --preauth     tipo de preautenticación: password (contrasinal),\n"
+"                    kerberos, ou ssh\n"
+
+#: options.c:644
+msgid "  -t, --timeout     server nonresponse timeout\n"
+msgstr "  -t, --timeout     tempo de espera da resposta do servidor\n"
+
+#: options.c:645
+msgid "  -E, --envelope    envelope address header\n"
+msgstr "  -E, --envelope    cabeceira co enderezo do sobre\n"
+
+#: options.c:646
+msgid "  -Q, --qvirtual    prefix to remove from local user id\n"
+msgstr ""
+"  -Q, --qvirtual    prefixo a borrar da identificación de usuario local\n"
+
+#: options.c:647
+msgid "      --principal   mail service principal\n"
+msgstr ""
+
+#: options.c:648
+msgid "      --tracepolls  add poll-tracing information to Received header\n"
+msgstr ""
+
+#: options.c:650
+msgid "  -u, --username    specify users's login on server\n"
+msgstr "  -u, --username    indicar o login do usuario no servidor\n"
+
+#: options.c:651
+#, fuzzy
+msgid "  -a, --[fetch]all  retrieve old and new messages\n"
+msgstr "  -a, --all         coller as mensaxes vellas e novas\n"
+
+#: options.c:652
+msgid "  -K, --nokeep      delete new messages after retrieval\n"
+msgstr "  -K, --nokeep      borra-las novas mensaxes despois de recollelas\n"
+
+#: options.c:653
+msgid "  -k, --keep        save new messages after retrieval\n"
+msgstr "  -k, --keep        mante-las novas mensaxes despois de recollelas\n"
+
+#: options.c:654
+msgid "  -F, --flush       delete old messages from server\n"
+msgstr "  -F, --flush       elimina-las mensaxes vellas do servidor\n"
+
+#: options.c:655
+#, fuzzy
+msgid "      --limitflush  delete oversized messages\n"
+msgstr "  -F, --flush       elimina-las mensaxes vellas do servidor\n"
+
+#: options.c:656
+msgid "  -n, --norewrite   don't rewrite header addresses\n"
+msgstr "  -n, --norewrite   non rescribi-los enderezos das cabeceiras\n"
+
+#: options.c:657
+msgid "  -l, --limit       don't fetch messages over given size\n"
+msgstr "  -l, --limit       non coller mensaxes meirandes que o tamaño dado\n"
+
+#: options.c:658
+msgid "  -w, --warnings    interval between warning mail notification\n"
+msgstr ""
+"  -w, --warnings    intervalo entre notificacións de avisos de correo\n"
+
+#: options.c:660
+msgid "  -S, --smtphost    set SMTP forwarding host\n"
+msgstr "  -S, --smtphost    establece-lo servidor SMTP para redirixir\n"
+
+#: options.c:661
+#, fuzzy
+msgid "      --fetchdomains fetch mail for specified domains\n"
+msgstr ""
+"  -B, --fetchlimit  establece-lo límite de mensaxes para as conexións\n"
+"                    ó servidor\n"
+
+#: options.c:662
+msgid "  -D, --smtpaddress set SMTP delivery domain to use\n"
+msgstr "  -D, --smtpaddress establece-lo dominio de entrega SMTP a usar\n"
+
+#: options.c:663
+msgid "      --smtpname    set SMTP full name username@domain\n"
+msgstr ""
+
+#: options.c:664
+msgid "  -Z, --antispam,   set antispam response values\n"
+msgstr "  -Z, --antispam,   establece-los valores de resposta antispam\n"
+
+#: options.c:665
+msgid "  -b, --batchlimit  set batch limit for SMTP connections\n"
+msgstr "  -b, --batchlimit  establece-lo límite de lote para conexións SMTP\n"
+
+#: options.c:666
+msgid "  -B, --fetchlimit  set fetch limit for server connections\n"
+msgstr ""
+"  -B, --fetchlimit  establece-lo límite de mensaxes para as conexións\n"
+"                    ó servidor\n"
+
+#: options.c:667
+#, fuzzy
+msgid "      --fetchsizelimit set fetch message size limit\n"
+msgstr ""
+"  -B, --fetchlimit  establece-lo límite de mensaxes para as conexións\n"
+"                    ó servidor\n"
+
+#: options.c:668
+msgid "      --fastuidl    do a binary search for UIDLs\n"
+msgstr ""
+
+#: options.c:669
+msgid "  -e, --expunge     set max deletions between expunges\n"
+msgstr ""
+"  -e, --expunge     establece-lo número máximo de borrados entre "
+"eliminacións\n"
+
+#: options.c:670
+msgid "  -m, --mda         set MDA to use for forwarding\n"
+msgstr "  -m, --mda         establece-lo MDA a usar para redirixir\n"
+
+#: options.c:671
+msgid "      --bsmtp       set output BSMTP file\n"
+msgstr "      --bsmtp       establece-lo ficheiro BSMTP de saída\n"
+
+#: options.c:672
+msgid "      --lmtp        use LMTP (RFC2033) for delivery\n"
+msgstr "      --lmtp        usar LMTP (RFC2033) para a entrega\n"
+
+#: options.c:673
+msgid "  -r, --folder      specify remote folder name\n"
+msgstr "  -r, --folder      indicar o nome da carpeta remota\n"
+
+#: options.c:674
+msgid "      --showdots    show progress dots even in logfiles\n"
+msgstr ""
+
+#: pop3.c:355
+msgid ""
+"Warning: \"Maillennium POP3/PROXY server\" found, using RETR command instead "
+"of TOP.\n"
+msgstr ""
+
+#: pop3.c:454
+msgid "TLS is mandatory for this session, but server refused CAPA command.\n"
+msgstr ""
+
+#: pop3.c:455
+msgid "The CAPA command is however necessary for TLS.\n"
+msgstr ""
+
+#: pop3.c:538
+#, c-format
+msgid "%s: opportunistic upgrade to TLS failed, trying to continue.\n"
+msgstr ""
+
+#: pop3.c:646
+msgid "We've run out of allowed authenticators and cannot continue.\n"
+msgstr ""
+
+#: pop3.c:660
+msgid "Required APOP timestamp not found in greeting\n"
+msgstr "Mostra da data de APOP requirida non atopada no saúdo\n"
+
+#: pop3.c:669
+msgid "Timestamp syntax error in greeting\n"
+msgstr "Erro de sintaxe na mostra da data no saúdo\n"
+
+#: pop3.c:685
+msgid "Invalid APOP timestamp.\n"
+msgstr ""
+
+#: pop3.c:709
+msgid "Undefined protocol request in POP3_auth\n"
+msgstr "Petición de protocolo indefinida en POP3_auth\n"
+
+#: pop3.c:730
+msgid "lock busy!  Is another session active?\n"
+msgstr "¡bloqueo activado!  ¿Hai outra sesión activa?\n"
+
+#: pop3.c:809
+msgid "Cannot handle UIDL response from upstream server.\n"
+msgstr ""
+
+#: pop3.c:832
+msgid "Server responded with UID for wrong message.\n"
+msgstr ""
+
+#: pop3.c:859 pop3.c:1105
+#, c-format
+msgid "id=%s (num=%d) was deleted, but is still present!\n"
+msgstr ""
+
+#: pop3.c:868 pop3.c:880 pop3.c:1114 pop3.c:1121
+#, c-format
+msgid "%u is unseen\n"
+msgstr "a %u aínda foi lida\n"
+
+#: pop3.c:965
+msgid "Messages inserted into list on server. Cannot handle this.\n"
+msgstr ""
+"Mensaxes inseridas nunha lista no servidor. Non se pode manexar isto.\n"
+
+#: pop3.c:1057
+msgid "protocol error\n"
+msgstr "erro de protocolo\n"
+
+#: pop3.c:1073
+msgid "protocol error while fetching UIDLs\n"
+msgstr "erro de protocolo ó obter os UIDLs\n"
+
+#: pop3.c:1443
+#, fuzzy
+msgid "Option --folder is not supported with POP3\n"
+msgstr "A opción --remote non está soportada con POP3\n"
+
+#: rcfile_y.y:126
+msgid "server option after user options"
+msgstr ""
+
+#: rcfile_y.y:169
+msgid "SDPS not enabled."
+msgstr ""
+
+#: rcfile_y.y:215
+msgid ""
+"fetchmail: interface option is only supported under Linux (without IPv6) and "
+"FreeBSD\n"
+msgstr ""
+
+#: rcfile_y.y:222
+msgid ""
+"fetchmail: monitor option is only supported under Linux (without IPv6) and "
+"FreeBSD\n"
+msgstr ""
+
+#: rcfile_y.y:335
+msgid "SSL is not enabled"
+msgstr ""
+
+#: rcfile_y.y:385
+msgid "end of input"
+msgstr ""
+
+#: rcfile_y.y:423
+#, c-format
+msgid "File %s must be a regular file.\n"
+msgstr ""
+
+#: rcfile_y.y:433
+#, c-format
+msgid "File %s must have no more than -rwx------ (0700) permissions.\n"
+msgstr ""
+
+#: rcfile_y.y:445
+#, c-format
+msgid "File %s must be owned by you.\n"
+msgstr ""
+
+#: report.c:67
+msgid "Unknown system error"
+msgstr "Erro de sistema descoñecido"
+
+#: report.c:92
+#, fuzzy, c-format
+msgid "%s (log message incomplete)\n"
+msgstr "%s (mensaxe de rexistro incompleta)"
+
+#: rfc822.c:76
+#, fuzzy, c-format
+msgid "About to rewrite %s"
+msgstr "a piques de entregar con: %s\n"
+
+#: rfc822.c:212
+#, c-format
+msgid "Rewritten version is %s\n"
+msgstr ""
+
+#: rpa.c:117
+msgid "Success"
+msgstr "Éxito"
+
+#: rpa.c:118
+msgid "Restricted user (something wrong with account)"
+msgstr "Usuario restrinxido (algo está mal coa conta)"
+
+#: rpa.c:119
+msgid "Invalid userid or passphrase"
+msgstr "Identificador de usuario ou contrasinal non válidos"
+
+#: rpa.c:120
+msgid "Deity error"
+msgstr "Erro fatal"
+
+#: rpa.c:173
+msgid "RPA token 2: Base64 decode error\n"
+msgstr "RPA símbolo 2: Erro de decodificación Base64\n"
+
+#: rpa.c:184
+#, c-format
+msgid "Service chose RPA version %d.%d\n"
+msgstr "O servicio escolleu a versión %d.%d do RPA\n"
+
+#: rpa.c:190
+#, c-format
+msgid "Service challenge (l=%d):\n"
+msgstr "Challenge do servicio (l=%d):\n"
+
+#: rpa.c:199
+#, c-format
+msgid "Service timestamp %s\n"
+msgstr "Mostra da data do servicio %s\n"
+
+#: rpa.c:204
+msgid "RPA token 2 length error\n"
+msgstr "Erro na lonxitude do símbolo 2 RPA\n"
+
+#: rpa.c:208
+#, c-format
+msgid "Realm list: %s\n"
+msgstr "Lista de dominios: %s\n"
+
+#: rpa.c:212
+msgid "RPA error in service@realm string\n"
+msgstr "Erro RPA na cadea servicio@dominio\n"
+
+#: rpa.c:249
+msgid "RPA token 4: Base64 decode error\n"
+msgstr "RPA símbolo 4: Erro de decodificación Base64\n"
+
+#: rpa.c:260
+#, c-format
+msgid "User authentication (l=%d):\n"
+msgstr "Autenticación de usuario (l=%d):\n"
+
+#: rpa.c:274
+#, c-format
+msgid "RPA status: %02X\n"
+msgstr "Estado RPA: %02X\n"
+
+#: rpa.c:280
+msgid "RPA token 4 length error\n"
+msgstr "Erro na lonxitude do símbolo 4 RPA\n"
+
+#: rpa.c:287
+#, c-format
+msgid "RPA rejects you: %s\n"
+msgstr "RPA rexeitoulle: %s\n"
+
+#: rpa.c:289
+msgid "RPA rejects you, reason unknown\n"
+msgstr "RPA rexeitoulle, razón descoñecida\n"
+
+#: rpa.c:297
+#, c-format
+msgid "RPA User Authentication length error: %d\n"
+msgstr "Erro de lonxitude da autenticación de usuario RPA: %d\n"
+
+#: rpa.c:302
+#, c-format
+msgid "RPA Session key length error: %d\n"
+msgstr "Erro de lonxitude da chave da sesión RPA: %d\n"
+
+#: rpa.c:308
+msgid "RPA _service_ auth fail. Spoof server?\n"
+msgstr "Fallo na autorización do _servicio_ RPA. ¿Servidor falsificado?\n"
+
+#: rpa.c:313
+msgid "Session key established:\n"
+msgstr "Chave de sesión establecida:\n"
+
+#: rpa.c:344
+msgid "RPA authorisation complete\n"
+msgstr "Autorización RPA completa\n"
+
+#: rpa.c:371
+msgid "Get response\n"
+msgstr "Obtención de resposta\n"
+
+#: rpa.c:401
+#, c-format
+msgid "Get response return %d [%s]\n"
+msgstr "A obtención de resposta devolveu %d [%s]\n"
+
+#: rpa.c:462
+msgid "Hdr not 60\n"
+msgstr "A cabeceira non é 60\n"
+
+#: rpa.c:483
+msgid "Token length error\n"
+msgstr "Erro de lonxitude do símbolo\n"
+
+#: rpa.c:488
+#, c-format
+msgid "Token Length %d disagrees with rxlen %d\n"
+msgstr "A lonxitude %d do compoñente non está de acordo coa rxlen %d\n"
+
+#: rpa.c:494
+msgid "Mechanism field incorrect\n"
+msgstr "Campo de mecanismo incorrecto\n"
+
+#: rpa.c:530
+#, c-format
+msgid "dec64 error at char %d: %x\n"
+msgstr "erro dec64 no carácter %d: %x\n"
+
+#: rpa.c:545
+msgid "Inbound binary data:\n"
+msgstr "Datos binarios entrantes:\n"
+
+#: rpa.c:581
+msgid "Outbound data:\n"
+msgstr "Datos saíntes:\n"
+
+#: rpa.c:644
+msgid "RPA String too long\n"
+msgstr "Cadea RPA longa de máis\n"
+
+#: rpa.c:649
+msgid "Unicode:\n"
+msgstr "Unicode:\n"
+
+#: rpa.c:708
+msgid "RPA Failed open of /dev/urandom. This shouldn't\n"
+msgstr "RPA fallou na apertura de /dev/urandom. Isto non debería\n"
+
+#: rpa.c:709
+msgid "    prevent you logging in, but means you\n"
+msgstr "    impedilo de se conectar, pero significa que\n"
+
+#: rpa.c:710
+msgid "    cannot be sure you are talking to the\n"
+msgstr "    non pode estar seguro de estar a falar co\n"
+
+#: rpa.c:711
+msgid "    service that you think you are (replay\n"
+msgstr "    servicio que vostede cre (son posibles\n"
+
+#: rpa.c:712
+msgid "    attacks by a dishonest service are possible.)\n"
+msgstr "    ataques de re-tentativa por un servicio deshonesto.)\n"
+
+#: rpa.c:723
+msgid "User challenge:\n"
+msgstr "Challenge de usuario:\n"
+
+#: rpa.c:873
+msgid "MD5 being applied to data block:\n"
+msgstr "MD5 sendo aplicado ó bloque de datos:\n"
+
+#: rpa.c:886
+msgid "MD5 result is: \n"
+msgstr "O resultado MD5 é: \n"
+
+#: servport.c:53
+#, c-format
+msgid "getaddrinfo(NULL, \"%s\") error: %s\n"
+msgstr ""
+
+#: servport.c:80
+#, c-format
+msgid "Cannot resolve service %s to port number.\n"
+msgstr ""
+
+#: servport.c:81
+msgid "Please specify the service as decimal port number.\n"
+msgstr ""
+
+#: sink.c:220
+#, c-format
+msgid "forwarding to %s\n"
+msgstr "redirixindo a %s\n"
+
+#: sink.c:306
+msgid "SMTP: (bounce-message body)\n"
+msgstr ""
+
+#: sink.c:309
+#, c-format
+msgid "mail from %s bounced to %s\n"
+msgstr ""
+
+#: sink.c:446
+#, c-format
+msgid "Saved error is still %d\n"
+msgstr ""
+
+#: sink.c:506 sink.c:605
+#, c-format
+msgid "%cMTP error: %s\n"
+msgstr "erro de %cMTP: %s\n"
+
+#: sink.c:550
+msgid "SMTP server requires STARTTLS, keeping message.\n"
+msgstr ""
+
+#: sink.c:730
+#, fuzzy, c-format
+msgid "BSMTP file open failed: %s\n"
+msgstr "Fallou a apertura do ficheiro BSMTP ou a escritura do preámbulo\n"
+
+#: sink.c:776
+#, fuzzy
+msgid "BSMTP preamble write failed.\n"
+msgstr "Fallou a apertura do ficheiro BSMTP ou a escritura do preámbulo\n"
+
+#: sink.c:990
+#, c-format
+msgid "%cMTP listener doesn't like recipient address `%s'\n"
+msgstr "O receptor %cMTP non acepta o enderezo de destinatario `%s'\n"
+
+#: sink.c:997
+#, fuzzy, c-format
+msgid "%cMTP listener doesn't really like recipient address `%s'\n"
+msgstr "O receptor %cMTP non acepta o enderezo de destinatario `%s'\n"
+
+#: sink.c:1043
+#, fuzzy
+msgid "no address matches; no postmaster set.\n"
+msgstr "ningunha coincidencia do enderezo; redirixindo a %s.\n"
+
+#: sink.c:1055
+#, c-format
+msgid "can't even send to %s!\n"
+msgstr "¡non se pode nin sequera enviar a %s!\n"
+
+#: sink.c:1061
+#, c-format
+msgid "no address matches; forwarding to %s.\n"
+msgstr "ningunha coincidencia do enderezo; redirixindo a %s.\n"
+
+#: sink.c:1217
+#, c-format
+msgid "about to deliver with: %s\n"
+msgstr "a piques de entregar con: %s\n"
+
+#: sink.c:1241
+msgid "MDA open failed\n"
+msgstr "Fallou a apertura MDA\n"
+
+#: sink.c:1278
+#, c-format
+msgid "%cMTP connect to %s failed\n"
+msgstr "fallou a conexión %cMTP a %s\n"
+
+#: sink.c:1302
+#, c-format
+msgid "can't raise the listener; falling back to %s"
+msgstr ""
+
+#: sink.c:1364
+#, fuzzy, c-format
+msgid "Error writing to MDA: %s\n"
+msgstr "Erro liberando as credenciais\n"
+
+#: sink.c:1367
+#, fuzzy, c-format
+msgid "MDA died of signal %d\n"
+msgstr "espertado por sinal %d\n"
+
+#: sink.c:1370
+#, fuzzy, c-format
+msgid "MDA returned nonzero status %d\n"
+msgstr "O MDA saiu anormalmente ou devolveu estado non cero\n"
+
+#: sink.c:1373
+#, c-format
+msgid ""
+"Strange: MDA pclose returned %d and errno %d/%s, cannot handle at %s:%d\n"
+msgstr ""
+
+#: sink.c:1395
+msgid "Message termination or close of BSMTP file failed\n"
+msgstr "Fallou o remate da mensaxe ou o pechamento do ficheiro BSMTP\n"
+
+#: sink.c:1417
+msgid "SMTP listener refused delivery\n"
+msgstr "O receptor SMTP rexeitou a entrega\n"
+
+#: sink.c:1447
+msgid "LMTP delivery error on EOM\n"
+msgstr "Erro na entrega LMTP no EOM\n"
+
+#: sink.c:1450
+#, c-format
+msgid "Unexpected non-503 response to LMTP EOM: %s\n"
+msgstr "Resposta distinta de 503 non agardada ó LMTP EOM: %s\n"
+
+#: sink.c:1605
+msgid ""
+"-- \n"
+"The Fetchmail Daemon"
+msgstr ""
+
+#: smtp.c:80
+#, fuzzy
+msgid "ESMTP CRAM-MD5 Authentication...\n"
+msgstr "Autenticación CRAM-MD5 soportada\n"
+
+#: smtp.c:87 smtp.c:138
+msgid "Server rejected the AUTH command.\n"
+msgstr ""
+
+#: smtp.c:95 smtp.c:145 smtp.c:155 smtp.c:161
+msgid "Bad base64 reply from server.\n"
+msgstr ""
+
+#: smtp.c:99
+#, c-format
+msgid "Challenge decoded: %s\n"
+msgstr ""
+
+#: smtp.c:116
+msgid "ESMTP PLAIN Authentication...\n"
+msgstr ""
+
+#: smtp.c:131
+msgid "ESMTP LOGIN Authentication...\n"
+msgstr ""
+
+#: smtp.c:339 smtp.c:362
+#, fuzzy
+msgid "smtp listener protocol error\n"
+msgstr "erro de protocolo\n"
+
+#: socket.c:115 socket.c:141
+#, fuzzy
+msgid "fetchmail: malloc failed\n"
+msgstr "fetchmail: fallou o fork\n"
+
+#: socket.c:173
+msgid "fetchmail: socketpair failed\n"
+msgstr "fetchmail: fallou o socketpair\n"
+
+#: socket.c:179
+msgid "fetchmail: fork failed\n"
+msgstr "fetchmail: fallou o fork\n"
+
+#: socket.c:186
+msgid "dup2 failed\n"
+msgstr "fallou o dup2\n"
+
+#: socket.c:192
+#, fuzzy, c-format
+msgid "running %s (host %s service %s)\n"
+msgstr "executando %s %s %s\n"
+
+#: socket.c:195
+#, fuzzy, c-format
+msgid "execvp(%s) failed\n"
+msgstr "fallou o execl(%s)\n"
+
+#: socket.c:286
+#, c-format
+msgid "getaddrinfo(\"%s\",\"%s\") error: %s\n"
+msgstr ""
+
+#: socket.c:289
+msgid "Try adding the --service option (see also FAQ item R12).\n"
+msgstr ""
+
+#: socket.c:300 socket.c:303
+#, fuzzy, c-format
+msgid "unknown (%s)"
+msgstr "a máquina é descoñecida."
+
+#: socket.c:306
+#, c-format
+msgid "Trying to connect to %s/%s..."
+msgstr ""
+
+#: socket.c:314
+#, fuzzy, c-format
+msgid "cannot create socket: %s\n"
+msgstr "¡non se pode nin sequera enviar a %s!\n"
+
+#: socket.c:330
+#, fuzzy
+msgid "connection failed.\n"
+msgstr "fallou a conexión %cMTP a %s\n"
+
+#: socket.c:332
+#, fuzzy, c-format
+msgid "connection to %s:%s [%s/%s] failed: %s.\n"
+msgstr "fallou a conexión %cMTP a %s\n"
+
+#: socket.c:338
+#, fuzzy
+msgid "connected.\n"
+msgstr "fallou a conexión %cMTP a %s\n"
+
+#: socket.c:616
+#, c-format
+msgid "Issuer Organization: %s\n"
+msgstr ""
+
+#: socket.c:619
+msgid "Warning: Issuer Organization Name too long (possibly truncated).\n"
+msgstr ""
+
+#: socket.c:621
+msgid "Unknown Organization\n"
+msgstr ""
+
+#: socket.c:623
+#, c-format
+msgid "Issuer CommonName: %s\n"
+msgstr ""
+
+#: socket.c:626
+msgid "Warning: Issuer CommonName too long (possibly truncated).\n"
+msgstr ""
+
+#: socket.c:628
+msgid "Unknown Issuer CommonName\n"
+msgstr ""
+
+#: socket.c:632
+#, fuzzy, c-format
+msgid "Server CommonName: %s\n"
+msgstr "Mostra da data do servicio %s\n"
+
+#: socket.c:637
+msgid "Bad certificate: Subject CommonName too long!\n"
+msgstr ""
+
+#: socket.c:643
+msgid "Bad certificate: Subject CommonName contains NUL, aborting!\n"
+msgstr ""
+
+#: socket.c:664
+#, c-format
+msgid "Subject Alternative Name: %s\n"
+msgstr ""
+
+#: socket.c:670
+msgid "Bad certificate: Subject Alternative Name contains NUL, aborting!\n"
+msgstr ""
+
+#: socket.c:698
+#, c-format
+msgid "Server CommonName mismatch: %s != %s\n"
+msgstr ""
+
+#: socket.c:705
+msgid "Server name not set, could not verify certificate!\n"
+msgstr ""
+
+#: socket.c:710
+msgid "Unknown Server CommonName\n"
+msgstr ""
+
+#: socket.c:712
+msgid "Server name not specified in certificate!\n"
+msgstr ""
+
+#: socket.c:724
+msgid "EVP_md5() failed!\n"
+msgstr ""
+
+#: socket.c:728
+msgid "Out of memory!\n"
+msgstr ""
+
+#: socket.c:736
+msgid "Digest text buffer too small!\n"
+msgstr ""
+
+#: socket.c:742
+#, c-format
+msgid "%s key fingerprint: %s\n"
+msgstr ""
+
+#: socket.c:746
+#, c-format
+msgid "%s fingerprints match.\n"
+msgstr ""
+
+#: socket.c:748
+#, c-format
+msgid "%s fingerprints do not match!\n"
+msgstr ""
+
+#: socket.c:757
+#, c-format
+msgid "Server certificate verification error: %s\n"
+msgstr ""
+
+#: socket.c:763
+#, c-format
+msgid "unknown issuer (first %d characters): %s\n"
+msgstr ""
+
+#: socket.c:850
+msgid "File descriptor out of range for SSL"
+msgstr ""
+
+#: socket.c:866
+#, fuzzy, c-format
+msgid "Invalid SSL protocol '%s' specified, using default (SSLv23).\n"
+msgstr "Protocolo indicado `%s' non válido.\n"
+
+#: socket.c:942
+msgid "Certificate/fingerprint verification was somehow skipped!\n"
+msgstr ""
+
+#: socket.c:1020
+msgid "Cygwin socket read retry\n"
+msgstr ""
+
+#: socket.c:1023
+msgid "Cygwin socket read retry failed!\n"
+msgstr ""
+
+#: transact.c:65
+#, fuzzy, c-format
+msgid "mapped address %s to local %s\n"
+msgstr "%s asociado a %s local\n"
+
+#: transact.c:87
+#, c-format
+msgid "mapped %s to local %s\n"
+msgstr "%s asociado a %s local\n"
+
+#: transact.c:154
+#, c-format
+msgid "passed through %s matching %s\n"
+msgstr "pasou por %s coincidindo con %s\n"
+
+#: transact.c:224
+#, c-format
+msgid ""
+"analyzing Received line:\n"
+"%s"
+msgstr ""
+"analizando a liña Received:\n"
+"%s"
+
+#: transact.c:263
+#, c-format
+msgid "line accepted, %s is an alias of the mailserver\n"
+msgstr "liña aceptada, %s é un alias do servidor de correo\n"
+
+#: transact.c:269
+#, c-format
+msgid "line rejected, %s is not an alias of the mailserver\n"
+msgstr "liña rexeitada, %s non é un alias do servidor de correo\n"
+
+#: transact.c:343
+msgid "no Received address found\n"
+msgstr "non se atopou ningún enderezo `Received'\n"
+
+#: transact.c:352
+#, c-format
+msgid "found Received address `%s'\n"
+msgstr "atopouse o enderezo `Received' `%s'\n"
+
+#: transact.c:592
+#, fuzzy
+msgid "incorrect header line found while scanning headers\n"
+msgstr "delimitador de mensaxes atopado ó explora-las cabeceiras\n"
+
+#: transact.c:594
+#, fuzzy, c-format
+msgid "line: %s"
+msgstr "Recibindo de %s\n"
+
+#: transact.c:1133
+#, c-format
+msgid "no local matches, forwarding to %s\n"
+msgstr "non hai ningunha coincidencia local, reenviando a %s\n"
+
+#: transact.c:1148
+msgid "forwarding and deletion suppressed due to DNS errors\n"
+msgstr "reenvío e borrado omitidos por causa de erros de DNS\n"
+
+#: transact.c:1258
+msgid "writing RFC822 msgblk.headers\n"
+msgstr "escribindo cabeceiras de mensaxe RFC822\n"
+
+#: transact.c:1277
+msgid "no recipient addresses matched declared local names"
+msgstr "ningún dos enderezos coincidiu cos nomes locais declarados"
+
+#: transact.c:1284
+#, c-format
+msgid "recipient address %s didn't match any local name"
+msgstr "o enderezo de destinatario %s non coincidiu con ningún nome local"
+
+#: transact.c:1293
+msgid "message has embedded NULs"
+msgstr "a mensaxe contén caracteres nulos"
+
+#: transact.c:1301
+msgid "SMTP listener rejected local recipient addresses: "
+msgstr ""
+"O servidor SMTP receptor rexeitou os enderezos de destinatario locais: "
+
+#: transact.c:1440
+#, fuzzy
+msgid "error writing message text\n"
+msgstr "escribindo o texto da mensaxe\n"
+
+#: uid.c:250
+#, c-format
+msgid "Old UID list from %s:"
+msgstr ""
+
+#: uid.c:255 uid.c:266 uid.c:523 uid.c:573
+msgid " <empty>"
+msgstr ""
+
+#: uid.c:262
+msgid "Scratch list of UIDs:"
+msgstr ""
+
+#: uid.c:517 uid.c:569
+#, c-format
+msgid "Merged UID list from %s:"
+msgstr ""
+
+#: uid.c:519
+#, c-format
+msgid "New UID list from %s:"
+msgstr ""
+
+#: uid.c:548
+msgid "swapping UID lists\n"
+msgstr ""
+
+#: uid.c:556
+msgid "not swapping UID lists, no UIDs seen this query\n"
+msgstr ""
+
+#: uid.c:581
+msgid "discarding new UID list\n"
+msgstr ""
+
+#: uid.c:617
+msgid "Deleting fetchids file.\n"
+msgstr ""
+
+#: uid.c:620
+#, fuzzy, c-format
+msgid "Error deleting %s: %s\n"
+msgstr "Erro liberando as credenciais\n"
+
+#: uid.c:626
+#, fuzzy
+msgid "Writing fetchids file.\n"
+msgstr "iniciando o demonio de fetchmail %s \n"
+
+#: uid.c:645
+#, c-format
+msgid "Error writing to fetchids file %s, old file left in place.\n"
+msgstr ""
+
+#: uid.c:649
+#, c-format
+msgid "Cannot rename fetchids file %s to %s: %s\n"
+msgstr ""
+
+#: uid.c:653
+#, c-format
+msgid "Cannot open fetchids file %s for writing: %s\n"
+msgstr ""
+
+#: xmalloc.c:33
+msgid "malloc failed\n"
+msgstr "fallou o malloc\n"
+
+#: xmalloc.c:47
+msgid "realloc failed\n"
+msgstr "fallou o realloc\n"
+
+#~ msgid "message delimiter found while scanning headers\n"
+#~ msgstr "delimitador de mensaxes atopado ó explora-las cabeceiras\n"
+
+#~ msgid "SIGPIPE thrown from an MDA or a stream socket error\n"
+#~ msgstr "SIGPIPE enviado por un MDA ou erro da conexión stream\n"
+
+#~ msgid "header "
+#~ msgstr " de cabeceira"
+
+#, fuzzy
+#~ msgid "internal inconsistency\n"
+#~ msgstr "fetchmail: inconsistencia interna\n"
+
+#~ msgid "name is valid but has no IP address."
+#~ msgstr "o nome é válido mais non ten enderezo IP."
+
+#~ msgid "unrecoverable name server error."
+#~ msgstr "erro irrecuperable do servidor de nomes."
+
+#~ msgid "temporary name server error."
+#~ msgstr "erro temporal do servidor de nomes."
+
+#~ msgid "unknown DNS error %d."
+#~ msgstr "erro %d de DNS descoñecido."
+
+#~ msgid "messages"
+#~ msgstr "mensaxes"
+
+#~ msgid "message"
+#~ msgstr "mensaxe"
+
+#~ msgid "Option --remote is not supported with ETRN\n"
+#~ msgstr "A opción --remote non está soportada con ETRN\n"
+
+#~ msgid "Cannot support ETRN without gethostbyname(2).\n"
+#~ msgstr "Non se pode soportar ETRN sen gethostbyname(2).\n"
+
+#, fuzzy
+#~ msgid "Cannot support ODMR without gethostbyname(2).\n"
+#~ msgstr "Non se pode soportar ETRN sen gethostbyname(2).\n"
+
+#~ msgid "will not"
+#~ msgstr " non "
+
+#~ msgid "will"
+#~ msgstr " "
+
+#~ msgid " (using network security options %s)"
+#~ msgstr " (usando opcións de seguridade de rede %s)"
+
+#~ msgid " (using port %d)"
+#~ msgstr " (usando o porto %d)"
+
+#~ msgid "All"
+#~ msgstr "tódalas"
+
+#~ msgid "Only new"
+#~ msgstr "só as novas"
+
+#~ msgid "enabled"
+#~ msgstr "activado"
+
+#~ msgid "disabled"
+#~ msgstr "desactivado"
+
+#~ msgid "discarded"
+#~ msgstr "descartadas"
+
+#~ msgid "kept"
+#~ msgstr "mantidas"
+
+#~ msgid "IP address.\n"
+#~ msgstr "o enderezo IP.\n"
+
+#~ msgid "name.\n"
+#~ msgstr "o nome.\n"
+
+# Non traducir, refírese á cabeceira Received das mensaxes
+#~ msgid "Received"
+#~ msgstr "Received"
+
+#, fuzzy
+#~ msgid "alloca failed"
+#~ msgstr "fallou o malloc\n"
+
+#~ msgid "warning: found \"%s\" before any host names"
+#~ msgstr "aviso: atopouse \"%s\" antes de calquera nome de máquina"
+
+#, fuzzy
+#~ msgid "Option --remote is not supported with ODMR\n"
+#~ msgstr "A opción --remote non está soportada con ETRN\n"
+
+#~ msgid "fetchmail: network security support is disabled\n"
+#~ msgstr "fetchmail: o soporte de seguridade de rede está desactivado\n"
+
+#~ msgid "  -T, --netsec      set IP security request\n"
+#~ msgstr "  -T, --netsec      establecer petición de seguridade IP\n"
+
+#, fuzzy
+#~ msgid "invalid security request"
+#~ msgstr "Erro ó crear a petición de nivel de seguridade\n"
+
+#, fuzzy
+#~ msgid "network-security support disabled"
+#~ msgstr "fetchmail: o soporte de seguridade de rede está desactivado\n"
+
+#~ msgid "partial error message buffer overflow"
+#~ msgstr "erro parcial de sobrecarga no buffer de mensaxe"
+
+#~ msgid "fetchmail: getaddrinfo(%s.%s)\n"
+#~ msgstr "fetchmail: getaddrinfo(%s.%s)\n"
+
+#~ msgid "fetchmail: illegal address length received for host %s\n"
+#~ msgstr ""
+#~ "fetchmail: lonxitude de enderezo ilegal recibido para a máquina %s\n"
+
+#~ msgid "fetchmail: %s connection to %s failed"
+#~ msgstr "fetchmail: a conexión %s a %s fallou"
+
+#~ msgid "Skipping message %d, length -1\n"
+#~ msgstr "Omitindo mensaxe %d, lonxitude -1\n"
+
+#~ msgid "authorization"
+#~ msgstr "autorización"
+
+#~ msgid "%s: can't find your name and home directory!\n"
+#~ msgstr "%s: non se pode atopa-lo seu nome e o seu directorio home\n"
+
+#~ msgid "Lockfile at %s\n"
+#~ msgstr "Ficheiro de bloqueo en %s\n"
+
+#~ msgid "fetchmail: cannot allocate memory for lock name.\n"
+#~ msgstr ""
+#~ "fetchmail: non se pode asignar memoria para o nome do ficheiro de "
+#~ "bloqueo.\n"
+
+#~ msgid "Could not decode initial BASE64 challenge\n"
+#~ msgstr "Non se puido decodificar o challenge BASE64 inicial\n"
+
+#~ msgid "Requesting authorization as %s\n"
+#~ msgstr "Solicitando autorización como %s\n"
+
+#~ msgid "Required GSS capability not supported by server\n"
+#~ msgstr "Capacidade GSS requirida non está soporta polo servidor\n"
+
+#~ msgid "KERBEROS_V4 authentication is supported\n"
+#~ msgstr "Autenticación KERBEROS_V4 soportada\n"
+
+#~ msgid "Required KERBEROS_V4 capability not supported by server\n"
+#~ msgstr "Capacidade KERBEROS_V4 requirida non soportada polo servidor\n"
+
+#~ msgid "Required CRAM-MD5 capability not supported by server\n"
+#~ msgstr "Capacidade CRAM-MD5 requirida non soportada polo servidor\n"

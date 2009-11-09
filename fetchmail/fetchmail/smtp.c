@@ -39,6 +39,7 @@ static struct opt extensions[] =
 
 char smtp_response[MSGBUFSIZE];
 
+/* XXX: this must not be used for LMTP! */
 int SMTP_helo(int sock, char smtp_mode, const char *host)
 /* send a "HELO" message to the SMTP listener */
 {
@@ -47,7 +48,7 @@ int SMTP_helo(int sock, char smtp_mode, const char *host)
   SockPrintf(sock,"HELO %s\r\n", host);
   if (outlevel >= O_MONITOR)
       report(stdout, "%cMTP> HELO %s\n", smtp_mode, host);
-  ok = SMTP_ok(sock, smtp_mode);
+  ok = SMTP_ok(sock, smtp_mode, TIMEOUT_HELO);
   return ok;
 }
 
@@ -55,7 +56,7 @@ static void SMTP_auth_error(int sock, const char *msg)
 {
     SockPrintf(sock, "*\r\n");
     SockRead(sock, smtp_response, sizeof(smtp_response) - 1);
-    if (outlevel >= O_MONITOR) report(stdout, msg);
+    if (outlevel >= O_MONITOR) report(stdout, "%s", msg);
 }
 
 static void SMTP_auth(int sock, char smtp_mode, char *username, char *password, char *buf)
@@ -107,7 +108,7 @@ static void SMTP_auth(int sock, char smtp_mode, char *username, char *password, 
 
 		to64frombits(b64buf, tmp, strlen(tmp));
 		SockPrintf(sock, "%s\r\n", b64buf);
-		SMTP_ok(sock, smtp_mode);
+		SMTP_ok(sock, smtp_mode, TIMEOUT_DEFAULT);
 	}
 	else if (strstr(buf, "PLAIN")) {
 		int len;
@@ -123,7 +124,7 @@ static void SMTP_auth(int sock, char smtp_mode, char *username, char *password, 
 		}
 		to64frombits(b64buf, tmp, len);
 		SockPrintf(sock, "AUTH PLAIN %s\r\n", b64buf);
-		SMTP_ok(sock, smtp_mode);
+		SMTP_ok(sock, smtp_mode, TIMEOUT_DEFAULT);
 	}
 	else if (strstr(buf, "LOGIN")) {
 		if (outlevel >= O_MONITOR)
@@ -162,7 +163,7 @@ static void SMTP_auth(int sock, char smtp_mode, char *username, char *password, 
 		}
 		to64frombits(b64buf, password, strlen(password));
 		SockPrintf(sock, "%s\r\n", b64buf);
-		SMTP_ok(sock, smtp_mode);
+		SMTP_ok(sock, smtp_mode, TIMEOUT_DEFAULT);
 	}
 	return;
 }
@@ -172,16 +173,24 @@ int SMTP_ehlo(int sock, char smtp_mode, const char *host, char *name, char *pass
 {
   struct opt *hp;
   char auth_response[511];
+  SIGHANDLERTYPE alrmsave;
+  const int tmout = (mytimeout >= TIMEOUT_HELO ? mytimeout : TIMEOUT_HELO);
 
   SockPrintf(sock,"%cHLO %s\r\n", (smtp_mode == 'S') ? 'E' : smtp_mode, host);
   if (outlevel >= O_MONITOR)
       report(stdout, "%cMTP> %cHLO %s\n", 
 	    smtp_mode, (smtp_mode == 'S') ? 'E' : smtp_mode, host);
 
+  alrmsave = set_signal_handler(SIGALRM, null_signal_handler);
+  set_timeout(tmout);
+
   *opt = 0;
   while ((SockRead(sock, smtp_response, sizeof(smtp_response)-1)) != -1)
   {
       int  n = strlen(smtp_response);
+
+      set_timeout(0);
+      (void)set_signal_handler(SIGALRM, alrmsave);
 
       if (smtp_response[strlen(smtp_response)-1] == '\n')
 	  smtp_response[strlen(smtp_response)-1] = '\0';
@@ -206,6 +215,9 @@ int SMTP_ehlo(int sock, char smtp_mode, const char *host, char *name, char *pass
       }
       else if (smtp_response[3] != '-')
 	  return SM_ERROR;
+
+      alrmsave = set_signal_handler(SIGALRM, null_signal_handler);
+      set_timeout(tmout);
   }
   return SM_UNRECOVERABLE;
 }
@@ -225,7 +237,7 @@ int SMTP_from(int sock, char smtp_mode, const char *from, const char *opts)
     SockPrintf(sock,"%s\r\n", buf);
     if (outlevel >= O_MONITOR)
 	report(stdout, "%cMTP> %s\n", smtp_mode, buf);
-    ok = SMTP_ok(sock, smtp_mode);
+    ok = SMTP_ok(sock, smtp_mode, TIMEOUT_MAIL);
     return ok;
 }
 
@@ -237,7 +249,7 @@ int SMTP_rcpt(int sock, char smtp_mode, const char *to)
   SockPrintf(sock,"RCPT TO:<%s>\r\n", to);
   if (outlevel >= O_MONITOR)
       report(stdout, "%cMTP> RCPT TO:<%s>\n", smtp_mode, to);
-  ok = SMTP_ok(sock, smtp_mode);
+  ok = SMTP_ok(sock, smtp_mode, TIMEOUT_RCPT);
   return ok;
 }
 
@@ -249,7 +261,7 @@ int SMTP_data(int sock, char smtp_mode)
   SockPrintf(sock,"DATA\r\n");
   if (outlevel >= O_MONITOR)
       report(stdout, "%cMTP> DATA\n", smtp_mode);
-  ok = SMTP_ok(sock, smtp_mode);
+  ok = SMTP_ok(sock, smtp_mode, TIMEOUT_DATA);
   return ok;
 }
 
@@ -261,7 +273,7 @@ int SMTP_rset(int sock, char smtp_mode)
   SockPrintf(sock,"RSET\r\n");
   if (outlevel >= O_MONITOR)
       report(stdout, "%cMTP> RSET\n", smtp_mode);
-  ok = SMTP_ok(sock, smtp_mode);
+  ok = SMTP_ok(sock, smtp_mode, TIMEOUT_DEFAULT);
   return ok;
 }
 
@@ -273,15 +285,13 @@ int SMTP_quit(int sock, char smtp_mode)
   SockPrintf(sock,"QUIT\r\n");
   if (outlevel >= O_MONITOR)
       report(stdout, "%cMTP> QUIT\n", smtp_mode);
-  ok = SMTP_ok(sock, smtp_mode);
+  ok = SMTP_ok(sock, smtp_mode, TIMEOUT_DEFAULT);
   return ok;
 }
 
 int SMTP_eom(int sock, char smtp_mode)
 /* send a message data terminator to the SMTP listener */
 {
-  int ok;
-
   SockPrintf(sock,".\r\n");
   if (outlevel >= O_MONITOR)
       report(stdout, "%cMTP>. (EOM)\n", smtp_mode);
@@ -290,23 +300,21 @@ int SMTP_eom(int sock, char smtp_mode)
    * When doing LMTP, must process many of these at the outer level. 
    */
   if (smtp_mode == 'S')
-      ok = SMTP_ok(sock, smtp_mode);
+      return SMTP_ok(sock, smtp_mode, TIMEOUT_EOM);
   else
-      ok = SM_OK;
-
-  return ok;
+      return SM_OK;
 }
 
 time_t last_smtp_ok = 0;
 
-int SMTP_ok(int sock, char smtp_mode)
+int SMTP_ok(int sock, char smtp_mode, int mintimeout)
 /* returns status of SMTP connection */
 {
     SIGHANDLERTYPE alrmsave;
 
     /* set an alarm for smtp ok */
     alrmsave = set_signal_handler(SIGALRM, null_signal_handler);
-    set_timeout(mytimeout);
+    set_timeout(mytimeout >= mintimeout ? mytimeout : mintimeout);
 
     while ((SockRead(sock, smtp_response, sizeof(smtp_response)-1)) != -1)
     {

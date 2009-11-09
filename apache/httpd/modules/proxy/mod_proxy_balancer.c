@@ -406,7 +406,15 @@ static void force_recovery(proxy_balancer *balancer, server_rec *s)
     for (i = 0; i < balancer->workers->nelts; i++, worker++) {
         if (!(worker->s->status & PROXY_WORKER_IN_ERROR)) {
             ok = 1;
-            break;    
+            break;
+        }
+        else {
+            /* Try if we can recover */
+            ap_proxy_retry_worker("BALANCER", worker, s);
+            if (!(worker->s->status & PROXY_WORKER_IN_ERROR)) {
+                ok = 1;
+                break;
+            }
         }
     }
     if (!ok) {
@@ -1006,7 +1014,7 @@ static proxy_worker *find_best_byrequests(proxy_balancer *balancer,
                     if (worker->s->lbset > max_lbset)
                         max_lbset = worker->s->lbset;
                 }
-                if (worker->s->lbset > cur_lbset)
+                if (worker->s->lbset != cur_lbset)
                     continue;
                 if ( (checking_standby ? !PROXY_WORKER_IS_STANDBY(worker) : PROXY_WORKER_IS_STANDBY(worker)) )
                     continue;
@@ -1088,7 +1096,7 @@ static proxy_worker *find_best_bytraffic(proxy_balancer *balancer,
                     if (worker->s->lbset > max_lbset)
                         max_lbset = worker->s->lbset;
                 }
-                if (worker->s->lbset > cur_lbset)
+                if (worker->s->lbset != cur_lbset)
                     continue;
                 if ( (checking_standby ? !PROXY_WORKER_IS_STANDBY(worker) : PROXY_WORKER_IS_STANDBY(worker)) )
                     continue;
@@ -1158,7 +1166,7 @@ static proxy_worker *find_best_bybusyness(proxy_balancer *balancer,
                         max_lbset = worker->s->lbset;
                 }
 
-                if (worker->s->lbset > cur_lbset)
+                if (worker->s->lbset != cur_lbset)
                     continue;
 
                 if ( (checking_standby ? !PROXY_WORKER_IS_STANDBY(worker) : PROXY_WORKER_IS_STANDBY(worker)) )

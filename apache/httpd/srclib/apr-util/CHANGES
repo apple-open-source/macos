@@ -1,4 +1,105 @@
                                                      -*- coding: utf-8 -*-
+Changes with APR-util 1.3.9
+
+  *) SECURITY: CVE-2009-2412 (cve.mitre.org)
+     Fix overflow in rmm, where size alignment was taking place.
+     [Matt Lewis <mattlewis@google.com>, Sander Striker]
+
+  *) Make sure that "make check" is used in the RPM spec file, so that
+     the crypto, dbd and dbm tests pass. [Graham Leggett]
+
+  *) Make sure the mysql version of dbd_mysql_get_entry() respects the
+     rule that if the column number exceeds the number of columns, we
+     return NULL. [Graham Leggett]
+
+  *) Ensure the dbm module is packaged up correctly in the RPM.
+     [Graham Leggett]
+
+  *) Clarify the error messages within the dbd tests. [Graham Leggett]
+
+Changes with APR-util 1.3.8
+
+  *) Use locally scoped variables in PostgreSQL driver to avoid stomping
+     on return codes. PR 47431
+     [Wayne Jensen <wayne_jensen trendmicro.com>]
+
+  *) Fix race conditions in initialisation of DBD, DBM and DSO.
+     [Bojan Smojver]
+
+  *) Expose DBM libs in apu-1-config by default. To avoid that, use
+     apu-1-config --avoid-dbm --libs. To get just DBM libs, use
+     apu-1-config --dbm-libs.
+     [Bojan Smojver]
+
+  *) Make sure --without-ldap works.
+     [Arfrever Frehtes Taifersar Arahesis <arfrever.fta gmail.com>]
+
+Changes with APR-util 1.3.7
+
+  *) SECURITY: CVE-2009-1955 (cve.mitre.org)
+     Fix a denial of service attack against the apr_xml_* interface
+     using the "billion laughs" entity expansion technique.
+     [Joe Orton]
+
+Changes with APR-util 1.3.6
+
+  *) Minor build and bug fixes.
+
+Changes with APR-util 1.3.5
+
+  *) SECURITY: CVE-2009-0023 (cve.mitre.org)
+     Fix underflow in apr_strmatch_precompile.
+     [Matthew Palmer <mpalmer debian.org>]
+
+  *) SECURITY: CVE-2009-1956 (cve.mitre.org)
+     Fix off by one overflow in apr_brigade_vprintf.
+     [C. Michael Pilato <cmpilato collab.net>]
+
+  *) APR_LDAP_SIZELIMIT should prefer LDAP_DEFAULT_LIMIT/-1 when the
+     SDK supports it, but in the absence of LDAP_DEFAULT_LIMIT (and
+     LDAP_NO_LIMIT/0) it is not safe to use a literal -1.
+     PR23356 [Eric Covener]
+
+  *) Clean up ODBC types. Warnings seen when compiling packages for
+     Fedora 11. [Bojan Smojver]
+
+  *) Use of my_init() requires my_global.h and my_sys.h. 
+     [Bojan Smojver]
+
+  *) Fix apr_memcache_multgetp memory corruption and incorrect error
+     handling. PR 46588 [Sami Tolvanen <sami.tolvanen mywot.com>]
+
+  *) Fix memcache memory leak with persistent connections.
+     PR 46482 [Sami Tolvanen <sami.tolvanen mywot.com>]
+
+  *) Add Oracle 11 support. [Bojan Smojver]
+
+  *) apr_dbd_freetds: Avoid segfault when process is NULL.
+     Do no print diagnostics to stderr. Never allow driver to exit
+     process. [Bojan Smojver]
+
+  *) apr_dbd_freetds: The sybdb.h header file might be freetds/sybdb.h
+     or sybdb.h. [Graham Leggett]
+
+  *) LDAP detection improvements: --with-ldap now supports library names
+     containing non-alphanumeric characters, such as libldap-2.4.so.  New
+     option --with-lber can be used to override the default liblber name.
+     Fix a problem reporting the lber library from apu-N-config.
+     [Jeff Trawick]
+
+  *) Suppress pgsql column-out-of-range warning.
+     PR 46012 [Michiel van Loon <michiel van-loon.xs4all.nl>]
+
+  *) Fix a buffer overrun and password matching for SHA passwords.
+     PR 45679 [Ben Noordhuis <bnoordhuis gmail.com>]
+
+  *) Introduce DSO handling of the db, gdbm and ndbm drivers, so these are
+     loaded as .so's on first demand, unless --disable-util-dso is configured.
+     [William Rowe]
+
+  *) Fix a segfault in the DBD testcase when the DBD modules were not present.
+     [Graham Leggett]
+
 Changes with APR-util 1.3.4
 
   *) Fix a memory leak introduced in r683756 and a free call to a non malloced

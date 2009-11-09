@@ -20,6 +20,7 @@
 #include <stdlib.h>     /* for free() */
 #endif
 
+#include "apu_config.h"
 #include "apu.h"
 
 #if APU_HAVE_NDBM
@@ -220,7 +221,7 @@ static void vt_ndbm_usednames(apr_pool_t *pool, const char *pathname,
     *used2 = NULL;
 }
 
-APU_DECLARE_DATA const apr_dbm_type_t apr_dbm_type_ndbm = {
+APU_MODULE_DECLARE_DATA const apr_dbm_type_t apr_dbm_type_ndbm = {
     "ndbm",
     vt_ndbm_open,
     vt_ndbm_close,

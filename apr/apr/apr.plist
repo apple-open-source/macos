@@ -5,15 +5,15 @@
 	<key>OpenSourceProject</key>
 	<string>apr</string>
 	<key>OpenSourceVersion</key>
-	<string>1.3.5</string>
+	<string>1.3.8</string>
 	<key>OpenSourceWebsiteURL</key>
 	<string>http://apr.apache.org/</string>
 	<key>OpenSourceURL</key>
-	<string>http://apache.org/dist/apr/apr-1.3.5.tar.bz2</string>
+	<string>http://apache.org/dist/apr/apr-1.3.8.tar.bz2</string>
 	<key>OpenSourceSHA1</key>
-	<string>d8efc666188b49d06d0c967980762370db31ee44</string>
+	<string>a87baf4c81279940df039bffa1e62a16cf094c29</string>
 	<key>OpenSourceImportDate</key>
-	<string>2009-06-16</string>
+	<string>2009-09-21</string>
 	<key>OpenSourceModifications</key>
 	<array>
 		<string>libtool -arch fixes (4386677).</string>

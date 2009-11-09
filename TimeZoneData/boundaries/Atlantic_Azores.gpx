@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.0">
+<trk>
+	<name>UTC-1 (winter) Azores</name>
+	<trkseg>
+		<trkpt lon="-23.2470703125" lat="38.289936598"></trkpt>
+		<trkpt lon="-24.0380859375" lat="35.6751474361"></trkpt>
+		<trkpt lon="-29.267578125" lat="38.0307856938"></trkpt>
+		<trkpt lon="-31.81640625" lat="38.4277735113"></trkpt>
+		<trkpt lon="-31.6625976562" lat="40.2292181887"></trkpt>
+		<trkpt lon="-27.94921875" lat="39.5379397452"></trkpt>
+		<trkpt lon="-23.2470703125" lat="38.289936598"></trkpt>
+	</trkseg>
+</trk>
+</gpx>

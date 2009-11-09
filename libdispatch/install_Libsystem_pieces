@@ -1,0 +1,48 @@
+#!/bin/sh
+dependencies="Libc \
+	Libc_debug \
+	Libc_profile \
+	CommonCrypto \
+	copyfile \
+	mDNSResponderSystemLibraries \
+	libdyld \
+	Libinfo \
+	keymgr \
+	launchd_libs \
+	Libm \
+	cctools_ofiles \
+	configd_libSystem \
+	Libnotify \
+	quarantine \
+	removefile \
+	Sandbox_libs \
+	Seatbelt_libs \
+	Libsyscall \
+	libclosure \
+	libcache \
+	libdispatch \
+	libunwind \
+	Libcompiler_rt \
+	UserNotification"
+
+function rcpath() {
+        dir="$1"
+        build="$2"
+        project="$3"
+        train=$(~rc/bin/getTrainForBuild --quiet "$build")
+        update="$train$build"
+        echo ~rc/Software/$train/Updates/$update/$dir/$project
+}
+
+if [ $# -eq 1 ]; then build="$1" ; else build=$(sw_vers -buildVersion) ; fi
+
+DSTROOT=/usr/local/lib/system
+if [ -n "$ALTUSRLOCALLIBSYSTEM" ]; then
+DSTROOT="$ALTUSRLOCALLIBSYSTEM"
+fi
+
+echo Copying in Libsystem dependencies for $build ...
+for project in $dependencies ; do
+	echo ... $project
+	ditto $(rcpath Roots "$build" "$project")/usr/local/lib/system "$DSTROOT"
+done

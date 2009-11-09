@@ -27,8 +27,21 @@ AC_DEFUN([APU_CHECK_UTIL_DSO], [
   if test "$enable_util_dso" = "no"; then
      apu_dso_build="0"
   else
-     apr_h="`$apr_config --includedir`/apr.h"
-     apu_dso_build="`awk '/^#define APR_HAS_DSO/ { print @S|@3; }' $apr_h`"
+     AC_CACHE_CHECK([whether APR has DSO support], [apu_cv_aprdso],
+       [apu_save_CPPFLAGS=$CPPFLAGS
+        CPPFLAGS="$CPPFLAGS $APR_INCLUDES"
+        AC_EGREP_CPP([yes], [#include "apr.h"
+#if APR_HAS_DSO
+yes
+#endif
+], [apu_cv_aprdso=yes], [apu_cv_aprdso=no])
+        CPPFLAGS=$apu_save_CPPFLAGS])
+
+     if test $apu_cv_aprdso = yes; then
+        apu_dso_build=1
+     else
+        apu_dso_build=0
+     fi
   fi
 
   if test "$apu_dso_build" = "0"; then

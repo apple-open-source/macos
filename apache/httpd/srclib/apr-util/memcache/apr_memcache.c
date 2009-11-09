@@ -25,8 +25,8 @@ struct apr_memcache_conn_t
     char *buffer;
     apr_size_t blen;
     apr_pool_t *p;
+    apr_pool_t *tp;
     apr_socket_t *sock;
-    apr_bucket_alloc_t *balloc;
     apr_bucket_brigade *bb;
     apr_bucket_brigade *tb;
     apr_memcache_server_t *ms;
@@ -224,12 +224,29 @@ APU_DECLARE(apr_memcache_server_t *) apr_memcache_find_server(apr_memcache_t *mc
 
 static apr_status_t ms_find_conn(apr_memcache_server_t *ms, apr_memcache_conn_t **conn) 
 {
+    apr_status_t rv;
+    apr_bucket_alloc_t *balloc;
+    apr_bucket *e;
+
 #if APR_HAS_THREADS
-    return apr_reslist_acquire(ms->conns, (void **)conn);
+    rv = apr_reslist_acquire(ms->conns, (void **)conn);
 #else
     *conn = ms->conn;
-    return APR_SUCCESS;
+    rv = APR_SUCCESS;
 #endif
+
+    if (rv != APR_SUCCESS) {
+        return rv;
+    }
+
+    balloc = apr_bucket_alloc_create((*conn)->tp);
+    (*conn)->bb = apr_brigade_create((*conn)->tp, balloc);
+    (*conn)->tb = apr_brigade_create((*conn)->tp, balloc);
+
+    e = apr_bucket_socket_create((*conn)->sock, balloc);
+    APR_BRIGADE_INSERT_TAIL((*conn)->bb, e);
+
+    return rv;
 }
 
 static apr_status_t ms_bad_conn(apr_memcache_server_t *ms, apr_memcache_conn_t *conn) 
@@ -243,6 +260,7 @@ static apr_status_t ms_bad_conn(apr_memcache_server_t *ms, apr_memcache_conn_t *
 
 static apr_status_t ms_release_conn(apr_memcache_server_t *ms, apr_memcache_conn_t *conn) 
 {
+    apr_pool_clear(conn->tp);
 #if APR_HAS_THREADS
     return apr_reslist_release(ms->conns, conn);
 #else
@@ -322,12 +340,18 @@ mc_conn_construct(void **conn_, void *params, apr_pool_t *pool)
 {
     apr_status_t rv = APR_SUCCESS;
     apr_memcache_conn_t *conn;
-    apr_bucket *e;
     apr_pool_t *np;
+    apr_pool_t *tp;
     apr_memcache_server_t *ms = params;
 
     rv = apr_pool_create(&np, pool);
     if (rv != APR_SUCCESS) {
+        return rv;
+    }
+
+    rv = apr_pool_create(&tp, np);
+    if (rv != APR_SUCCESS) {
+        apr_pool_destroy(np);
         return rv;
     }
 
@@ -338,6 +362,7 @@ mc_conn_construct(void **conn_, void *params, apr_pool_t *pool)
 #endif
 
     conn->p = np;
+    conn->tp = tp;
 
     rv = apr_socket_create(&conn->sock, APR_INET, SOCK_STREAM, 0, np);
 
@@ -349,15 +374,9 @@ mc_conn_construct(void **conn_, void *params, apr_pool_t *pool)
         return rv;
     }
 
-    conn->balloc = apr_bucket_alloc_create(conn->p);
-    conn->bb = apr_brigade_create(conn->p, conn->balloc);
-    conn->tb = apr_brigade_create(conn->p, conn->balloc);
     conn->buffer = apr_palloc(conn->p, BUFFER_SIZE);
     conn->blen = 0;
     conn->ms = ms;
-
-    e = apr_bucket_socket_create(conn->sock, conn->balloc);
-    APR_BRIGADE_INSERT_TAIL(conn->bb, e);
 
     rv = conn_connect(conn);
     if (rv != APR_SUCCESS) {
@@ -1130,7 +1149,8 @@ apr_memcache_add_multget_key(apr_pool_t *data_pool,
     apr_hash_set(*values, value->key, klen, value);
 }
 
-static void mget_conn_result(int up,
+static void mget_conn_result(int serverup,
+                             int connup,
                              apr_status_t rv,
                              apr_memcache_t *mc,
                              apr_memcache_server_t *ms,
@@ -1142,9 +1162,16 @@ static void mget_conn_result(int up,
     apr_int32_t j;
     apr_memcache_value_t* value;
     
-    if (!up) {
+    apr_hash_set(server_queries, &ms, sizeof(ms), NULL);
+
+    if (connup) {
+        ms_release_conn(ms, conn);
+    } else {
         ms_bad_conn(ms, conn);
-        apr_memcache_disable_server(mc, ms);
+
+        if (!serverup) {
+            apr_memcache_disable_server(mc, ms);
+        }
     }
     
     for (j = 1; j < server_query->query_vec_count ; j+=2) {
@@ -1157,10 +1184,6 @@ static void mget_conn_result(int up,
             }
         }
     }
-
-    ms_release_conn(ms, conn);
-    
-    apr_hash_set(server_queries, &ms, sizeof(ms), NULL);
 }
 
 APU_DECLARE(apr_status_t)
@@ -1267,6 +1290,18 @@ apr_memcache_multgetp(apr_memcache_t *mc,
     rv = apr_pollset_create(&pollset, apr_hash_count(server_queries), temp_pool, 0);
 
     if (rv != APR_SUCCESS) {
+        query_hash_index = apr_hash_first(temp_pool, server_queries);
+
+        while (query_hash_index) {
+            void *v;
+            apr_hash_this(query_hash_index, NULL, NULL, &v);
+            server_query = v;
+            query_hash_index = apr_hash_next(query_hash_index);
+
+            mget_conn_result(TRUE, TRUE, rv, mc, server_query->ms, server_query->conn,
+                             server_query, values, server_queries);
+        }
+
         return rv;
     }
 
@@ -1289,7 +1324,7 @@ apr_memcache_multgetp(apr_memcache_t *mc,
         }
 
         if (rv != APR_SUCCESS) {
-            mget_conn_result(FALSE, rv, mc, ms, conn,
+            mget_conn_result(FALSE, FALSE, rv, mc, ms, conn,
                              server_query, values, server_queries);
             continue;
         }
@@ -1321,7 +1356,7 @@ apr_memcache_multgetp(apr_memcache_t *mc,
 
            if (rv != APR_SUCCESS) {
                apr_pollset_remove (pollset, &activefds[i]);
-               mget_conn_result(FALSE, rv, mc, ms, conn,
+               mget_conn_result(FALSE, FALSE, rv, mc, ms, conn,
                                 server_query, values, server_queries);
                queries_sent--;
                continue;
@@ -1351,7 +1386,7 @@ apr_memcache_multgetp(apr_memcache_t *mc,
 
                
                if (value) {
-                   if (len > 0)  {
+                   if (len >= 0)  {
                        apr_bucket_brigade *bbb;
                        apr_bucket *e;
                        
@@ -1360,7 +1395,7 @@ apr_memcache_multgetp(apr_memcache_t *mc,
                        
                        if (rv != APR_SUCCESS) {
                            apr_pollset_remove (pollset, &activefds[i]);
-                           mget_conn_result(FALSE, rv, mc, ms, conn,
+                           mget_conn_result(FALSE, FALSE, rv, mc, ms, conn,
                                             server_query, values, server_queries);
                            queries_sent--;
                            continue;
@@ -1372,7 +1407,7 @@ apr_memcache_multgetp(apr_memcache_t *mc,
                        
                        if (rv != APR_SUCCESS) {
                            apr_pollset_remove (pollset, &activefds[i]);
-                           mget_conn_result(FALSE, rv, mc, ms, conn,
+                           mget_conn_result(FALSE, FALSE, rv, mc, ms, conn,
                                             server_query, values, server_queries);
                            queries_sent--;
                            continue;
@@ -1381,7 +1416,7 @@ apr_memcache_multgetp(apr_memcache_t *mc,
                        rv = apr_brigade_destroy(conn->bb);
                        if (rv != APR_SUCCESS) {
                            apr_pollset_remove (pollset, &activefds[i]);
-                           mget_conn_result(FALSE, rv, mc, ms, conn,
+                           mget_conn_result(FALSE, FALSE, rv, mc, ms, conn,
                                             server_query, values, server_queries);
                            queries_sent--;
                            continue;
@@ -1432,13 +1467,13 @@ apr_memcache_multgetp(apr_memcache_t *mc,
         conn = server_query->conn;
         ms = server_query->ms;
         
-        mget_conn_result(TRUE, rv, mc, ms, conn,
+        mget_conn_result(TRUE, (rv == APR_SUCCESS), rv, mc, ms, conn,
                          server_query, values, server_queries);
         continue;
     }
     
-    apr_pool_clear(temp_pool);
     apr_pollset_destroy(pollset);
+    apr_pool_clear(temp_pool);
     return APR_SUCCESS;
     
 }

@@ -506,6 +506,18 @@ KRBCreateSessionInfo (CFDictionaryRef inDict, KRBHelperContextRef *outKerberosSe
 	find_mapping(hCtx, hostname, lkdcp);
 
 	/*
+	 * If we have a hintrealm and there our initial guessing is right,
+	 * lets skip the reverse lookup since that is potentially very
+	 * expensive.
+	 */
+
+	if (hintrealm) {
+		for (i = 0; i < hCtx->realms.len; i++)
+			if (strcmp(hintrealm, hCtx->realms.data[i].realm) == 0)
+				goto done;
+	}
+
+	/*
 	 * Try to find all name for this address, and the check if we can
 	 * find a mapping.
 	 */

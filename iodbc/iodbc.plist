@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
 	<key>OpenSourceImportDate</key>
@@ -10,6 +10,10 @@
 	<string>iodbc.txt</string>
 	<key>OpenSourceMD5</key>
 	<string>761ad547467bd63ac0b2b4f3ee4b5afb</string>
+	<key>Open Source Modifications</key>
+	<array>
+		<string>rdar://problem/3872514</string>
+	</array>
 	<key>OpenSourceProject</key>
 	<string>iodbc</string>
 	<key>OpenSourceURL</key>

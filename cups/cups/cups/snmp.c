@@ -1,5 +1,5 @@
 /*
- * "$Id: snmp.c 1627 2009-08-07 21:38:19Z msweet $"
+ * "$Id: snmp.c 1687 2009-09-22 18:08:40Z msweet $"
  *
  *   SNMP functions for the Common UNIX Printing System (CUPS).
  *
@@ -608,6 +608,8 @@ _cupsSNMPWalk(int            fd,	/* I - SNMP socket */
   int		count = 0;		/* Number of OIDs found */
   int		request_id = 0;		/* Current request ID */
   cups_snmp_t	packet;			/* Current response packet */
+  int		lastoid[CUPS_SNMP_MAX_OID];
+					/* Last OID we got */
 
 
  /*
@@ -631,14 +633,15 @@ _cupsSNMPWalk(int            fd,	/* I - SNMP socket */
   */
 
   _cupsSNMPCopyOID(packet.object_name, prefix, CUPS_SNMP_MAX_OID);
+  lastoid[0] = -1;
 
   for (;;)
   {
     request_id ++;
 
     if (!_cupsSNMPWrite(fd, address, version, community,
-                       CUPS_ASN1_GET_NEXT_REQUEST, request_id,
-		       packet.object_name))
+                        CUPS_ASN1_GET_NEXT_REQUEST, request_id,
+		        packet.object_name))
     {
       DEBUG_puts("5_cupsSNMPWalk: Returning -1");
 
@@ -652,7 +655,8 @@ _cupsSNMPWalk(int            fd,	/* I - SNMP socket */
       return (-1);
     }
 
-    if (!_cupsSNMPIsOIDPrefixed(&packet, prefix))
+    if (!_cupsSNMPIsOIDPrefixed(&packet, prefix) ||
+        _cupsSNMPIsOID(&packet, lastoid))
     {
       DEBUG_printf(("5_cupsSNMPWalk: Returning %d", count));
 
@@ -665,6 +669,8 @@ _cupsSNMPWalk(int            fd,	/* I - SNMP socket */
 
       return (count > 0 ? count : -1);
     }
+
+    _cupsSNMPCopyOID(lastoid, packet.object_name, CUPS_SNMP_MAX_OID);
 
     count ++;
 
@@ -1711,5 +1717,5 @@ snmp_set_error(cups_snmp_t *packet,	/* I - Packet */
 
 
 /*
- * End of "$Id: snmp.c 1627 2009-08-07 21:38:19Z msweet $".
+ * End of "$Id: snmp.c 1687 2009-09-22 18:08:40Z msweet $".
  */

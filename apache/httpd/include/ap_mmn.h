@@ -15,7 +15,7 @@
  */
 
 /**
- * @file  ap_mpm.h
+ * @file  ap_mmn.h
  * @brief Module Magic Number
  *
  * @defgroup APACHE_CORE_MMN Module Magic Number
@@ -36,7 +36,7 @@
  * Minor API changes that do not cause binary compatibility problems.
  * Should be reset to 0 when upgrading MODULE_MAGIC_NUMBER_MAJOR.
  *
- * See the MODULE_MAGIC_AT_LEAST macro below for an example.
+ * See the AP_MODULE_MAGIC_AT_LEAST macro below for an example.
  */
 
 /*
@@ -135,6 +135,9 @@
  * 20051115.19 (2.2.11) Added ap_timeout_parameter_parse to util.c / httpd.h
  * 20051115.20 (2.2.11) Add ap_proxy_buckets_lifetime_transform to mod_proxy.h
  * 20051115.21 (2.2.11) Export mod_rewrite.h in the public API
+ * 20051115.22 (2.2.12) Add ap_escape_html2 API, with additional option
+ * 20051115.23 (2.2.12) Add ap_open_piped_log_ex API, with cmdtype option,
+ *                      and conditional cmdtype member of piped_log struct
  */
 
 #define MODULE_MAGIC_COOKIE 0x41503232UL /* "AP22" */
@@ -142,7 +145,7 @@
 #ifndef MODULE_MAGIC_NUMBER_MAJOR
 #define MODULE_MAGIC_NUMBER_MAJOR 20051115
 #endif
-#define MODULE_MAGIC_NUMBER_MINOR 21                    /* 0...n */
+#define MODULE_MAGIC_NUMBER_MINOR 23                    /* 0...n */
 
 /**
  * Determine if the server's current MODULE_MAGIC_NUMBER is at least a

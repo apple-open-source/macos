@@ -45,9 +45,7 @@ static apr_status_t load_ldap(apr_pool_t *pool)
         return rv;
     }
 
-#if defined(NETWARE)
-    modname = "aprldap.nlm";
-#elif defined(WIN32)
+#if defined(WIN32)
     modname = "apr_ldap-" APU_STRINGIFY(APU_MAJOR_VERSION) ".dll";
 #else
     modname = "apr_ldap-" APU_STRINGIFY(APU_MAJOR_VERSION) ".so";

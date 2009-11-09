@@ -1,4 +1,4 @@
-/* report.c -- report function for noninteractive utilities
+/** \file report.c report function for noninteractive utilities
  *
  * For license terms, see the file COPYING in this directory.
  *
@@ -38,25 +38,15 @@
 #define MALLOC(n)	xmalloc(n)	
 #define REALLOC(n,s)	xrealloc(n,s)	
 
-/* If NULL, report will flush stderr, then print on stderr the program
-   name, a colon and a space.  Otherwise, report will call this
-   function without parameters instead.  */
-static void (*report_print_progname) (
-#if __STDC__ - 0
-			      void
-#endif
-			      );
-
 /* Used by report_build() and report_complete() to accumulate partial messages.
  */
 static unsigned int partial_message_size = 0;
 static unsigned int partial_message_size_used = 0;
 static char *partial_message;
-static unsigned use_stderr;
-static unsigned int use_syslog;
+static int partial_suppress_tag = 0;
 
-/* This variable is incremented each time `report' is called.  */
-static unsigned int report_message_count;
+static unsigned unbuffered;
+static unsigned int use_syslog;
 
 #ifdef _LIBC
 /* In the GNU C library, there is a predefined variable for this.  */
@@ -80,10 +70,8 @@ char *strerror (int errnum)
 #endif	/* _LIBC */
 
 /* Print the program name and error message MESSAGE, which is a printf-style
-   format string with optional args.
-   If ERRNUM is nonzero, print its corresponding system error message. */
+   format string with optional args. */
 /* VARARGS */
-
 void
 #ifdef HAVE_STDARG_H
 report (FILE *errfp, const char *message, ...)
@@ -101,7 +89,7 @@ report (FILE *errfp, message, va_alist)
     if (partial_message_size_used != 0)
     {
 	partial_message_size_used = 0;
-	report (errfp, GT_("%s (log message incomplete)"), partial_message);
+	report (errfp, GT_("%s (log message incomplete)\n"), partial_message);
     }
 
 #if defined(HAVE_SYSLOG)
@@ -134,21 +122,17 @@ report (FILE *errfp, message, va_alist)
 	va_end(args);
 #endif
     }
-    else
+    else /* i. e. not using syslog */
 #endif
     {
-	if (report_print_progname)
-	    (*report_print_progname) ();
-	else
+	if ( *message == '\n' )
 	{
-	    fflush (errfp);
-	    if ( *message == '\n' )
-	    {
-		fputc( '\n', errfp );
-		++message;
-	    }
-	    fprintf (errfp, "%s: ", program_name);
+	    fputc( '\n', errfp );
+	    ++message;
 	}
+	if (!partial_suppress_tag)
+		fprintf (errfp, "%s: ", program_name);
+	partial_suppress_tag = 0;
 
 #ifdef VA_START
 	VA_START (args, message);
@@ -163,38 +147,36 @@ report (FILE *errfp, message, va_alist)
 #endif
 	fflush (errfp);
     }
-    ++report_message_count;
 }
-
-/*
- * Calling report_init(1) causes report_build and report_complete to write
- * to errfp without buffering.  This is needed for the ticker dots to
- * work correctly.
+
+/**
+ * Configure the report module. The output is set according to
+ * \a mode.
  */
-void report_init(int mode)
+void report_init(int mode /** 0: regular output, 1: unbuffered output, -1: syslog */)
 {
     switch(mode)
     {
     case 0:			/* errfp, buffered */
     default:
-	use_stderr = FALSE;
+	unbuffered = FALSE;
 	use_syslog = FALSE;
 	break;
 
     case 1:			/* errfp, unbuffered */
-	use_stderr = TRUE;
+	unbuffered = TRUE;
 	use_syslog = FALSE;
 	break;
 
 #ifdef HAVE_SYSLOG
     case -1:			/* syslogd */
-	use_stderr = FALSE;
+	unbuffered = FALSE;
 	use_syslog = TRUE;
 	break;
 #endif /* HAVE_SYSLOG */
     }
 }
-
+
 /* Build an report message by appending MESSAGE, which is a printf-style
    format string with optional args, to the existing report message (which may
    be empty.)  The completed report message is finally printed (and reset to
@@ -211,13 +193,13 @@ static void rep_ensuresize(void) {
     {
 	partial_message_size_used = 0;
 	partial_message_size = 2048;
-	partial_message = MALLOC (partial_message_size);
+	partial_message = (char *)MALLOC (partial_message_size);
     }
     else
 	if (partial_message_size - partial_message_size_used < 1024)
 	{
 	    partial_message_size += 2048;
-	    partial_message = REALLOC (partial_message, partial_message_size);
+	    partial_message = (char *)REALLOC (partial_message, partial_message_size);
 	}
 }
 
@@ -258,7 +240,7 @@ report_build (FILE *errfp, message, va_alist)
 	}
 
 	partial_message_size += 2048;
-	partial_message = REALLOC (partial_message, partial_message_size);
+	partial_message = (char *)REALLOC (partial_message, partial_message_size);
     }
 #else
     for ( ; ; )
@@ -279,19 +261,28 @@ report_build (FILE *errfp, message, va_alist)
     }
 #endif
 
-    if (use_stderr && partial_message_size_used != 0)
+    if (unbuffered && partial_message_size_used != 0)
     {
 	partial_message_size_used = 0;
 	fputs(partial_message, errfp);
     }
 }
-
+
+void report_flush(FILE *errfp)
+{
+    if (partial_message_size_used != 0)
+    {
+	partial_message_size_used = 0;
+	report(errfp, "%s", partial_message);
+	partial_suppress_tag = 1;
+    }
+}
+
 /* Complete a report message by appending MESSAGE, which is a printf-style
    format string with optional args, to the existing report message (which may
    be empty.)  The completed report message is then printed (and reset to
    empty.) */
 /* VARARGS */
-
 void
 #ifdef HAVE_STDARG_H
 report_complete (FILE *errfp, const char *message, ...)
@@ -326,7 +317,7 @@ report_complete (FILE *errfp, message, va_alist)
 	}
 
 	partial_message_size += 2048;
-	partial_message = REALLOC (partial_message, partial_message_size);
+	partial_message = (char *)REALLOC (partial_message, partial_message_size);
     }
 #else
     for ( ; ; )
@@ -350,21 +341,20 @@ report_complete (FILE *errfp, message, va_alist)
     /* Finally... print it.  */
     partial_message_size_used = 0;
 
-    if (use_stderr)
+    if (unbuffered)
     {
 	fputs(partial_message, errfp);
 	fflush (errfp);
-
-	++report_message_count;
     }
     else
 	report(errfp, "%s", partial_message);
 }
-
+
 /* Sometimes we want to have at most one error per line.  This
    variable controls whether this mode is selected or not.  */
 static int error_one_per_line;
 
+/* If errnum is nonzero, print its corresponding system error message. */
 void
 #ifdef HAVE_STDARG_H
 report_at_line (FILE *errfp, int errnum, const char *file_name,
@@ -396,18 +386,13 @@ report_at_line (FILE *errfp, errnum, file_name, line_number, message, va_alist)
 	old_line_number = line_number;
     }
 
-    if (report_print_progname)
-	(*report_print_progname) ();
-    else
+    fflush (errfp);
+    if ( *message == '\n' )
     {
-	fflush (errfp);
-	if ( *message == '\n' )
-	{
-	    fputc( '\n', errfp );
-	    ++message;
-	}
-	fprintf (errfp, "%s:", program_name);
+	fputc( '\n', errfp );
+	++message;
     }
+    fprintf (errfp, "%s:", program_name);
 
     if (file_name != NULL)
 	fprintf (errfp, "%s:%u: ", file_name, line_number);
@@ -424,7 +409,6 @@ report_at_line (FILE *errfp, errnum, file_name, line_number, message, va_alist)
     fprintf (errfp, message, a1, a2, a3, a4, a5, a6, a7, a8);
 #endif
 
-    ++report_message_count;
     if (errnum)
 	fprintf (errfp, ": %s", strerror (errnum));
     putc ('\n', errfp);

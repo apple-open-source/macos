@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.0">
+<trk>
+	<name>UTC +9 (all year) PWT</name>
+	<trkseg>
+		<trkpt lon="134.252929688" lat="8.35282301504"></trkpt>
+		<trkpt lon="135.208740234" lat="8.32021228952"></trkpt>
+		<trkpt lon="137.999267578" lat="9.81732918707"></trkpt>
+		<trkpt lon="138.493652344" lat="9.82815445848"></trkpt>
+		<trkpt lon="138.427734375" lat="9.23224879942"></trkpt>
+		<trkpt lon="135.791015625" lat="7.81984742619"></trkpt>
+		<trkpt lon="134.143066406" lat="6.500899138"></trkpt>
+		<trkpt lon="133.703613281" lat="6.58821701672"></trkpt>
+		<trkpt lon="134.252929688" lat="8.35282301504"></trkpt>
+	</trkseg>
+</trk>
+</gpx>

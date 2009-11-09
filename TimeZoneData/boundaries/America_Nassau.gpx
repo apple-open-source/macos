@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.0">
+<trk>
+	<name>UTC -5 (all year) EDT</name>
+	<trkseg>
+		<trkpt lon="-79.3322753906" lat="26.9710376063"></trkpt>
+		<trkpt lon="-79.3762207031" lat="25.869109391"></trkpt>
+		<trkpt lon="-79.365234375" lat="25.5226146476"></trkpt>
+		<trkpt lon="-79.1345214844" lat="24.4471495897"></trkpt>
+		<trkpt lon="-78.134765625" lat="23.9661758713"></trkpt>
+		<trkpt lon="-77.7722167969" lat="23.3825982842"></trkpt>
+		<trkpt lon="-75.8386230469" lat="22.0449133002"></trkpt>
+		<trkpt lon="-74.53125" lat="21.7084730132"></trkpt>
+		<trkpt lon="-73.7622070312" lat="20.9101344817"></trkpt>
+		<trkpt lon="-73.4436035156" lat="20.7663868125"></trkpt>
+		<trkpt lon="-72.4768066406" lat="20.7561138748"></trkpt>
+		<trkpt lon="-70.7299804688" lat="21.1050002754"></trkpt>
+		<trkpt lon="-70.7739257812" lat="21.9022779667"></trkpt>
+		<trkpt lon="-73.0151367188" lat="23.3321683063"></trkpt>
+		<trkpt lon="-74.2565917969" lat="24.32707654"></trkpt>
+		<trkpt lon="-76.3110351562" lat="26.1159859253"></trkpt>
+		<trkpt lon="-76.8933105469" lat="27.3327351369"></trkpt>
+		<trkpt lon="-78.5083007812" lat="27.5472415463"></trkpt>
+		<trkpt lon="-79.3322753906" lat="26.9710376063"></trkpt>
+	</trkseg>
+</trk>
+</gpx>

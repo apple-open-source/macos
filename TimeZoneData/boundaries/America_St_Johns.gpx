@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.0">
+<trk>
+	<name>UTC-3.5 Island of Newfoundland [new]</name>
+	<trkseg>
+		<trkpt lon="-54.8217773438" lat="53.3177490475"></trkpt>
+		<trkpt lon="-57.216796875" lat="53.330872983"></trkpt>
+		<trkpt lon="-57.041015625" lat="51.2894059027"></trkpt>
+		<trkpt lon="-58.7109375" lat="49.253464775"></trkpt>
+		<trkpt lon="-59.677734375" lat="48.5457054918"></trkpt>
+		<trkpt lon="-59.4140625" lat="47.3090342477"></trkpt>
+		<trkpt lon="-56.337890625" lat="47.3983492004"></trkpt>
+		<trkpt lon="-55.7006835938" lat="47.3388226948"></trkpt>
+		<trkpt lon="-55.6787109375" lat="46.6343507029"></trkpt>
+		<trkpt lon="-52.8881835938" lat="46.2710374728"></trkpt>
+		<trkpt lon="-51.3061523438" lat="48.3270391306"></trkpt>
+		<trkpt lon="-54.7338867188" lat="50.7781552747"></trkpt>
+		<trkpt lon="-54.8217773438" lat="53.3177490475"></trkpt>
+	</trkseg>
+</trk>
+</gpx>

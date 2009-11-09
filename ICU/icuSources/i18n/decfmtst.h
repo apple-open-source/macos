@@ -37,10 +37,12 @@ public:
     UnicodeSet *fDotEquivalents;
     UnicodeSet *fCommaEquivalents;
     UnicodeSet *fOtherGroupingSeparators;
+    UnicodeSet *fDashEquivalents;
 
     UnicodeSet *fStrictDotEquivalents;
     UnicodeSet *fStrictCommaEquivalents;
     UnicodeSet *fStrictOtherGroupingSeparators;
+    UnicodeSet *fStrictDashEquivalents;
 
     UnicodeSet *fDefaultGroupingSeparators;
     UnicodeSet *fStrictDefaultGroupingSeparators;

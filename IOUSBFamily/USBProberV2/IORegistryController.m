@@ -161,7 +161,7 @@
             return [_rootNode childAtIndex:index];
         }
         return [(OutlineViewNode *)item childAtIndex:index];
-    } else if (ov = IORegDetailedOutput) {
+    } else if (IORegDetailedOutput) {
         if (item == nil) {
             return [_detailRootNode childAtIndex:index];
         }
@@ -183,7 +183,7 @@
             return [_rootNode childrenCount];
         }
         return [item childrenCount];
-    } else if (ov = IORegDetailedOutput) {
+    } else if (IORegDetailedOutput) {
         if (item == nil) {
             return [_detailRootNode childrenCount];
         }
@@ -197,7 +197,7 @@
 {   
     if (ov == IORegOutputOV) {
         return [item value];
-    } else if (ov = IORegDetailedOutput) {
+    } else if (IORegDetailedOutput) {
         if ([[tableColumn identifier] intValue] == 0) {
             return [(OutlineViewNode *)item name];
         } else if ([[tableColumn identifier] intValue] == 1) {

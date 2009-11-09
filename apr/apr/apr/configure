@@ -25580,6 +25580,9 @@ _ACEOF
        ;;
    *mingw*)
        OSDIR="win32"
+       ac_cv_file__dev_zero="no"
+       ac_cv_func_setpgrp_void="no"
+       apr_cv_tcp_nodelay_with_cork="no"
        enable_threads="system_threads"
        eolstr="\\n"
        proc_mutex_is_global=1
@@ -30026,6 +30029,355 @@ if test "$apr_cv_epoll" = "yes"; then
 
 cat >>confdefs.h <<\_ACEOF
 #define HAVE_EPOLL 1
+_ACEOF
+
+fi
+
+# test for epoll_create1
+{ $as_echo "$as_me:$LINENO: checking for epoll_create1 support" >&5
+$as_echo_n "checking for epoll_create1 support... " >&6; }
+if test "${apr_cv_epoll_create1+set}" = set; then
+  $as_echo_n "(cached) " >&6
+else
+  if test "$cross_compiling" = yes; then
+  apr_cv_epoll_create1=no
+else
+  cat >conftest.$ac_ext <<_ACEOF
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+
+#include <sys/epoll.h>
+#include <unistd.h>
+
+int main()
+{
+    return epoll_create1(0) == -1;
+}
+_ACEOF
+rm -f conftest$ac_exeext
+if { (ac_try="$ac_link"
+case "(($ac_try" in
+  *\"* | *\`* | *\\*) ac_try_echo=\$ac_try;;
+  *) ac_try_echo=$ac_try;;
+esac
+eval ac_try_echo="\"\$as_me:$LINENO: $ac_try_echo\""
+$as_echo "$ac_try_echo") >&5
+  (eval "$ac_link") 2>&5
+  ac_status=$?
+  $as_echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } && { ac_try='./conftest$ac_exeext'
+  { (case "(($ac_try" in
+  *\"* | *\`* | *\\*) ac_try_echo=\$ac_try;;
+  *) ac_try_echo=$ac_try;;
+esac
+eval ac_try_echo="\"\$as_me:$LINENO: $ac_try_echo\""
+$as_echo "$ac_try_echo") >&5
+  (eval "$ac_try") 2>&5
+  ac_status=$?
+  $as_echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; }; then
+  apr_cv_epoll_create1=yes
+else
+  $as_echo "$as_me: program exited with status $ac_status" >&5
+$as_echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+( exit $ac_status )
+apr_cv_epoll_create1=no
+fi
+rm -rf conftest.dSYM
+rm -f core *.core core.conftest.* gmon.out bb.out conftest$ac_exeext conftest.$ac_objext conftest.$ac_ext
+fi
+
+
+fi
+{ $as_echo "$as_me:$LINENO: result: $apr_cv_epoll_create1" >&5
+$as_echo "$apr_cv_epoll_create1" >&6; }
+
+if test "$apr_cv_epoll_create1" = "yes"; then
+
+cat >>confdefs.h <<\_ACEOF
+#define HAVE_EPOLL_CREATE1 1
+_ACEOF
+
+fi
+
+# test for dup3
+{ $as_echo "$as_me:$LINENO: checking for dup3 support" >&5
+$as_echo_n "checking for dup3 support... " >&6; }
+if test "${apr_cv_dup3+set}" = set; then
+  $as_echo_n "(cached) " >&6
+else
+  if test "$cross_compiling" = yes; then
+  apr_cv_dup3=no
+else
+  cat >conftest.$ac_ext <<_ACEOF
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+
+#include <unistd.h>
+
+int main()
+{
+    return dup3(STDOUT_FILENO, STDERR_FILENO, 0) == -1;
+}
+_ACEOF
+rm -f conftest$ac_exeext
+if { (ac_try="$ac_link"
+case "(($ac_try" in
+  *\"* | *\`* | *\\*) ac_try_echo=\$ac_try;;
+  *) ac_try_echo=$ac_try;;
+esac
+eval ac_try_echo="\"\$as_me:$LINENO: $ac_try_echo\""
+$as_echo "$ac_try_echo") >&5
+  (eval "$ac_link") 2>&5
+  ac_status=$?
+  $as_echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } && { ac_try='./conftest$ac_exeext'
+  { (case "(($ac_try" in
+  *\"* | *\`* | *\\*) ac_try_echo=\$ac_try;;
+  *) ac_try_echo=$ac_try;;
+esac
+eval ac_try_echo="\"\$as_me:$LINENO: $ac_try_echo\""
+$as_echo "$ac_try_echo") >&5
+  (eval "$ac_try") 2>&5
+  ac_status=$?
+  $as_echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; }; then
+  apr_cv_dup3=yes
+else
+  $as_echo "$as_me: program exited with status $ac_status" >&5
+$as_echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+( exit $ac_status )
+apr_cv_dup3=no
+fi
+rm -rf conftest.dSYM
+rm -f core *.core core.conftest.* gmon.out bb.out conftest$ac_exeext conftest.$ac_objext conftest.$ac_ext
+fi
+
+
+fi
+{ $as_echo "$as_me:$LINENO: result: $apr_cv_dup3" >&5
+$as_echo "$apr_cv_dup3" >&6; }
+
+if test "$apr_cv_dup3" = "yes"; then
+
+cat >>confdefs.h <<\_ACEOF
+#define HAVE_DUP3 1
+_ACEOF
+
+fi
+
+# test for accept4
+{ $as_echo "$as_me:$LINENO: checking for accept4 support" >&5
+$as_echo_n "checking for accept4 support... " >&6; }
+if test "${apr_cv_accept4+set}" = set; then
+  $as_echo_n "(cached) " >&6
+else
+  if test "$cross_compiling" = yes; then
+  apr_cv_accept4=no
+else
+  cat >conftest.$ac_ext <<_ACEOF
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+
+#include <unistd.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <sys/un.h>
+#include <sys/wait.h>
+#include <signal.h>
+#include <errno.h>
+
+#define A4_SOCK "./apr_accept4_test_socket"
+
+int main()
+{
+    pid_t pid;
+    int fd;
+    struct sockaddr_un loc, rem;
+    socklen_t rem_sz;
+
+    if ((pid = fork())) {
+        int status;
+
+        unlink(A4_SOCK);
+
+        if ((fd = socket(AF_UNIX, SOCK_STREAM, 0)) == -1)
+            goto cleanup_failure2;
+
+        loc.sun_family = AF_UNIX;
+        strncpy(loc.sun_path, A4_SOCK, sizeof(loc.sun_path) - 1);
+
+        if (bind(fd, (struct sockaddr *) &loc,
+                 sizeof(struct sockaddr_un)) == -1)
+            goto cleanup_failure;
+
+        if (listen(fd, 5) == -1)
+            goto cleanup_failure;
+
+        rem_sz = sizeof(struct sockaddr_un);
+        if (accept4(fd, (struct sockaddr *) &rem, &rem_sz, 0) == -1) {
+            goto cleanup_failure;
+        }
+        else {
+            close(fd);
+            waitpid(pid, &status, 0);
+            unlink(A4_SOCK);
+            return 0;
+        }
+
+cleanup_failure:
+        close(fd);
+cleanup_failure2:
+        kill(pid, SIGKILL);
+        waitpid(pid, &status, 0);
+        unlink(A4_SOCK);
+        return 1;
+    }
+    else {
+        if ((fd = socket(AF_UNIX, SOCK_STREAM, 0)) == -1)
+            return 1; /* this will be bad: we'll hang */
+
+        loc.sun_family = AF_UNIX;
+        strncpy(loc.sun_path, A4_SOCK, sizeof(loc.sun_path) - 1);
+
+        while(connect(fd, (struct sockaddr *) &loc,
+                      sizeof(struct sockaddr_un)) == -1 &&
+              (errno==ENOENT || errno==ECONNREFUSED))
+            ;
+
+        close(fd);
+        return 0;
+    }
+}
+_ACEOF
+rm -f conftest$ac_exeext
+if { (ac_try="$ac_link"
+case "(($ac_try" in
+  *\"* | *\`* | *\\*) ac_try_echo=\$ac_try;;
+  *) ac_try_echo=$ac_try;;
+esac
+eval ac_try_echo="\"\$as_me:$LINENO: $ac_try_echo\""
+$as_echo "$ac_try_echo") >&5
+  (eval "$ac_link") 2>&5
+  ac_status=$?
+  $as_echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } && { ac_try='./conftest$ac_exeext'
+  { (case "(($ac_try" in
+  *\"* | *\`* | *\\*) ac_try_echo=\$ac_try;;
+  *) ac_try_echo=$ac_try;;
+esac
+eval ac_try_echo="\"\$as_me:$LINENO: $ac_try_echo\""
+$as_echo "$ac_try_echo") >&5
+  (eval "$ac_try") 2>&5
+  ac_status=$?
+  $as_echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; }; then
+  apr_cv_accept4=yes
+else
+  $as_echo "$as_me: program exited with status $ac_status" >&5
+$as_echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+( exit $ac_status )
+apr_cv_accept4=no
+fi
+rm -rf conftest.dSYM
+rm -f core *.core core.conftest.* gmon.out bb.out conftest$ac_exeext conftest.$ac_objext conftest.$ac_ext
+fi
+
+
+fi
+{ $as_echo "$as_me:$LINENO: result: $apr_cv_accept4" >&5
+$as_echo "$apr_cv_accept4" >&6; }
+
+if test "$apr_cv_accept4" = "yes"; then
+
+cat >>confdefs.h <<\_ACEOF
+#define HAVE_ACCEPT4 1
+_ACEOF
+
+fi
+
+{ $as_echo "$as_me:$LINENO: checking for SOCK_CLOEXEC support" >&5
+$as_echo_n "checking for SOCK_CLOEXEC support... " >&6; }
+if test "${apr_cv_sock_cloexec+set}" = set; then
+  $as_echo_n "(cached) " >&6
+else
+  if test "$cross_compiling" = yes; then
+  apr_cv_sock_cloexec=no
+else
+  cat >conftest.$ac_ext <<_ACEOF
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+
+#include <sys/types.h>
+#include <sys/socket.h>
+
+int main()
+{
+    return socket(AF_INET, SOCK_STREAM|SOCK_CLOEXEC, 0) == -1;
+}
+_ACEOF
+rm -f conftest$ac_exeext
+if { (ac_try="$ac_link"
+case "(($ac_try" in
+  *\"* | *\`* | *\\*) ac_try_echo=\$ac_try;;
+  *) ac_try_echo=$ac_try;;
+esac
+eval ac_try_echo="\"\$as_me:$LINENO: $ac_try_echo\""
+$as_echo "$ac_try_echo") >&5
+  (eval "$ac_link") 2>&5
+  ac_status=$?
+  $as_echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } && { ac_try='./conftest$ac_exeext'
+  { (case "(($ac_try" in
+  *\"* | *\`* | *\\*) ac_try_echo=\$ac_try;;
+  *) ac_try_echo=$ac_try;;
+esac
+eval ac_try_echo="\"\$as_me:$LINENO: $ac_try_echo\""
+$as_echo "$ac_try_echo") >&5
+  (eval "$ac_try") 2>&5
+  ac_status=$?
+  $as_echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; }; then
+  apr_cv_sock_cloexec=yes
+else
+  $as_echo "$as_me: program exited with status $ac_status" >&5
+$as_echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+( exit $ac_status )
+apr_cv_sock_cloexec=no
+fi
+rm -rf conftest.dSYM
+rm -f core *.core core.conftest.* gmon.out bb.out conftest$ac_exeext conftest.$ac_objext conftest.$ac_ext
+fi
+
+
+fi
+{ $as_echo "$as_me:$LINENO: result: $apr_cv_sock_cloexec" >&5
+$as_echo "$apr_cv_sock_cloexec" >&6; }
+
+if test "$apr_cv_sock_cloexec" = "yes"; then
+
+cat >>confdefs.h <<\_ACEOF
+#define HAVE_SOCK_CLOEXEC 1
 _ACEOF
 
 fi

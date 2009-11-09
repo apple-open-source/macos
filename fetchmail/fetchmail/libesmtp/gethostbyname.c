@@ -201,7 +201,7 @@ h_error_ctx (struct ghbnctx *ctx)
 #else
 
 void
-free_ghbnctx (struct ghbnctx *ctx __attribute__ ((unused)))
+free_ghbnctx (struct ghbnctx *ctx )
 {
   assert (ctx != NULL);
 }

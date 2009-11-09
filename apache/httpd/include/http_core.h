@@ -65,7 +65,7 @@ extern "C" {
 #define OPT_NONE 0
 /** Indexes directive */
 #define OPT_INDEXES 1
-/**  Includes directive */
+/** SSI is enabled without exec= permission  */
 #define OPT_INCLUDES 2
 /**  FollowSymLinks directive */
 #define OPT_SYM_LINKS 4
@@ -80,8 +80,21 @@ extern "C" {
 /** MultiViews directive */
 #define OPT_MULTI 128
 /**  All directives */
-#define OPT_ALL (OPT_INDEXES|OPT_INCLUDES|OPT_SYM_LINKS|OPT_EXECCGI)
+#define OPT_ALL (OPT_INDEXES|OPT_INCLUDES|OPT_INCNOEXEC|OPT_SYM_LINKS|OPT_EXECCGI)
 /** @} */
+
+#ifdef CORE_PRIVATE
+/* For internal use only - since 2.2.12, the OPT_INCNOEXEC bit is
+ * internally replaced by OPT_INC_WITH_EXEC.  The internal semantics
+ * of the two SSI-related bits are hence:
+ *
+ *  OPT_INCLUDES => "enable SSI, without exec= permission"
+ *  OPT_INC_WITH_EXEC => "iff OPT_INCLUDES is set, also enable exec="
+ *
+ * The set of options exposed via ap_allow_options() retains the
+ * semantics of OPT_INCNOEXEC by flipping the bit. */
+#define OPT_INC_WITH_EXEC OPT_INCNOEXEC
+#endif
 
 /**
  * @defgroup get_remote_host Remote Host Resolution 

@@ -1251,9 +1251,9 @@ IOUSBDevice::ResetDevice()
         USBLog(1, "%s[%p]::ResetDevice( port %d) our resetLock was not set.  Unexpected", getName(), this, (uint32_t)_PORT_NUMBER );
 	}
 	
-	release();
-	
 	USBTrace( kUSBTDevice,  kTPDeviceResetDevice, (uintptr_t)this, _PORT_NUMBER, kr, 8);
+	
+	release();
 	
 	return kr;
 }

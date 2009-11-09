@@ -176,9 +176,15 @@ AC_DEFUN([APU_CHECK_DBD_MYSQL], [
         APR_ADDTO(LIBS, [$mysql_LIBS])
       fi
 
-      AC_CHECK_HEADERS(mysql.h, AC_CHECK_LIB(mysqlclient_r, mysql_init, [apu_have_mysql=1]))
+      AC_CHECK_HEADERS([mysql.h my_global.h my_sys.h],
+                       AC_CHECK_LIB(mysqlclient_r, mysql_init, [apu_have_mysql=1]),
+                       [apu_have_mysql=0; break],
+                       [#include <my_global.h>])
       if test "$apu_have_mysql" = "0"; then
-        AC_CHECK_HEADERS(mysql/mysql.h, AC_CHECK_LIB(mysqlclient_r, mysql_init, [apu_have_mysql=1]))
+        AC_CHECK_HEADERS([mysql/mysql.h mysql/my_global.h mysql/my_sys.h],
+                         AC_CHECK_LIB(mysqlclient_r, mysql_init, [apu_have_mysql=1]),
+                         [apu_have_mysql=0; break],
+                         [#include <mysql/my_global.h>])
       fi
       if test "$apu_have_mysql" != "0" && test "x$MYSQL_CONFIG" != 'x'; then
         APR_ADDTO(APRUTIL_PRIV_INCLUDES, [$mysql_CPPFLAGS])
@@ -201,10 +207,16 @@ AC_DEFUN([APU_CHECK_DBD_MYSQL], [
       APR_ADDTO(LIBS, [$mysql_LIBS])
 
       AC_MSG_NOTICE(checking for mysql in $withval)
-      AC_CHECK_HEADERS(mysql.h, AC_CHECK_LIB(mysqlclient_r, mysql_init, [apu_have_mysql=1]))
+      AC_CHECK_HEADERS([mysql.h my_global.h my_sys.h],
+                       AC_CHECK_LIB(mysqlclient_r, mysql_init, [apu_have_mysql=1]),
+                       [apu_have_mysql=0; break],
+                       [#include <my_global.h>])
 
       if test "$apu_have_mysql" != "1"; then
-        AC_CHECK_HEADERS(mysql/mysql.h, AC_CHECK_LIB(mysqlclient_r, mysql_init, [apu_have_mysql=1]))
+        AC_CHECK_HEADERS([mysql/mysql.h mysql/my_global.h mysql/my_sys.h],
+                         AC_CHECK_LIB(mysqlclient_r, mysql_init, [apu_have_mysql=1]),
+                         [apu_have_mysql=0; break],
+                         [#include <mysql/my_global.h>])
       fi
       if test "$apu_have_mysql" != "0"; then
         APR_ADDTO(APRUTIL_PRIV_INCLUDES, [$mysql_CPPFLAGS])
@@ -336,9 +348,15 @@ AC_DEFUN([APU_CHECK_DBD_ORACLE], [
 
       AC_CHECK_HEADERS(oci.h, AC_CHECK_LIB(clntsh, OCIEnvCreate, [apu_have_oracle=1],[
         unset ac_cv_lib_clntsh_OCIEnvCreate
-        oracle_LIBS="-lnnz10"
+        oracle_LIBS="-lnnz11"
         APR_ADDTO(LIBS, [$oracle_LIBS])
-        AC_CHECK_LIB(clntsh, OCIEnvCreate, [apu_have_oracle=1])
+        AC_CHECK_LIB(clntsh, OCIEnvCreate, [apu_have_oracle=1],[
+          unset ac_cv_lib_clntsh_OCIEnvCreate
+          APR_REMOVEFROM(LIBS, [$oracle_LIBS])
+          oracle_LIBS="-lnnz10"
+          APR_ADDTO(LIBS, [$oracle_LIBS])
+          AC_CHECK_LIB(clntsh, OCIEnvCreate, [apu_have_oracle=1])
+        ])
       ]))
     elif test "$withval" = "no"; then
       :
@@ -357,9 +375,15 @@ AC_DEFUN([APU_CHECK_DBD_ORACLE], [
       AC_MSG_NOTICE(checking for oracle in $withval)
       AC_CHECK_HEADERS(oci.h, AC_CHECK_LIB(clntsh, OCIEnvCreate, [apu_have_oracle=1],[
         unset ac_cv_lib_clntsh_OCIEnvCreate
-        oracle_LIBS="-lnnz10"
+        oracle_LIBS="-lnnz11"
         APR_ADDTO(LIBS, [$oracle_LIBS])
-        AC_CHECK_LIB(clntsh, OCIEnvCreate, [apu_have_oracle=1])
+        AC_CHECK_LIB(clntsh, OCIEnvCreate, [apu_have_oracle=1],[
+          unset ac_cv_lib_clntsh_OCIEnvCreate
+          APR_REMOVEFROM(LIBS, [$oracle_LIBS])
+          oracle_LIBS="-lnnz10"
+          APR_ADDTO(LIBS, [$oracle_LIBS])
+          AC_CHECK_LIB(clntsh, OCIEnvCreate, [apu_have_oracle=1])
+        ])
       ]))
       if test "$apu_have_oracle" != "0"; then
         oracle_LDFLAGS="$oracle_LDFLAGS -R$withval/lib"
@@ -398,6 +422,9 @@ AC_DEFUN([APU_CHECK_DBD_FREETDS], [
   [
     if test "$withval" = "yes"; then
       AC_CHECK_HEADERS(sybdb.h, AC_CHECK_LIB(sybdb, tdsdbopen, [apu_have_freetds=1]))
+      if test "$apu_have_freetds" = "0"; then
+        AC_CHECK_HEADERS(freetds/sybdb.h, AC_CHECK_LIB(sybdb, tdsdbopen, [apu_have_freetds=1]))
+      fi
     elif test "$withval" = "no"; then
       :
     else
@@ -409,12 +436,18 @@ AC_DEFUN([APU_CHECK_DBD_FREETDS], [
 
       AC_MSG_NOTICE(checking for freetds in $withval)
       AC_CHECK_HEADERS(sybdb.h, AC_CHECK_LIB(sybdb, tdsdbopen, [apu_have_freetds=1]))
+      if test "$apu_have_freetds" = "0"; then
+        AC_CHECK_HEADERS(freetds/sybdb.h, AC_CHECK_LIB(sybdb, tdsdbopen, [apu_have_freetds=1]))
+      fi
       if test "$apu_have_freetds" != "0"; then
         APR_ADDTO(APRUTIL_PRIV_INCLUDES, [-I$withval/include])
       fi
     fi
   ], [
     AC_CHECK_HEADERS(sybdb.h, AC_CHECK_LIB(sybdb, tdsdbopen, [apu_have_freetds=1]))
+    if test "$apu_have_freetds" = "0"; then
+      AC_CHECK_HEADERS(freetds/sybdb.h, AC_CHECK_LIB(sybdb, tdsdbopen, [apu_have_freetds=1]))
+    fi
   ])
 
   AC_SUBST(apu_have_freetds)
@@ -520,4 +553,14 @@ AC_DEFUN([APU_CHECK_DBD_ODBC], [
   LIBS="$old_libs"
   CPPFLAGS="$old_cppflags"
   LDFLAGS="$old_ldflags"
+
+  apu_dbd_tests=""
+  test $apu_have_oracle = 1 &&  apu_dbd_tests="$apu_dbd_tests oracle"
+  test $apu_have_pgsql = 1 &&   apu_dbd_tests="$apu_dbd_tests pgsql"
+  test $apu_have_mysql = 1 &&   apu_dbd_tests="$apu_dbd_tests mysql"
+  test $apu_have_sqlite2 = 1 && apu_dbd_tests="$apu_dbd_tests sqlite2"
+  test $apu_have_sqlite3 = 1 && apu_dbd_tests="$apu_dbd_tests sqlite3"
+  test $apu_have_freetds = 1 && apu_dbd_tests="$apu_dbd_tests freetds"
+  test $apu_have_odbc = 1 &&    apu_dbd_tests="$apu_dbd_tests odbc"
+  AC_SUBST(apu_dbd_tests)
 ])

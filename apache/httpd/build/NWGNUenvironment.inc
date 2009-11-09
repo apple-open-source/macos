@@ -38,11 +38,16 @@ endif
 ifndef NOVELLLIBC
 NOVELLLIBC = C:/novell/ndk/libc
 endif
+ifneq "$(wildcard $(NOVELLLIBC)/include/ndkvers.h)" "$(NOVELLLIBC)/include/ndkvers.h"
+$(error NOVELLLIBC does not point to a valid Novell LIBC SDK) 
+endif
 
-# This is a placeholder
-# ifndef LDAPSDK
-# LDAPSDK = C:/novell/ndk/cldapsdk
-# endif
+ifndef LDAPSDK
+LDAPSDK = C:/novell/ndk/cldapsdk/NetWare/libc
+endif
+ifneq "$(wildcard $(LDAPSDK)/inc/ldap.h)" "$(LDAPSDK)/inc/ldap.h"
+$(error LDAPSDK does not point to a valid Novell CLDAP SDK) 
+endif
 
 # This is a placeholder
 # ifndef ZLIBSDK
@@ -62,8 +67,8 @@ endif
 #
 # Set the Release type that you want to build, possible values are:
 #
-#  debug		- full debug switches are set
-#  noopt		- normal switches are set (default)
+#  debug	- full debug switches are set
+#  noopt	- normal switches are set (default)
 #  optimized	- optimization switches are set
 
 ifdef reltype
@@ -115,6 +120,7 @@ CC	= mwccnlm
 CPP	= mwccnlm
 LINK	= mwldnlm
 LIB	= mwldnlm -type library -w nocmdline
+WIN_CC	= mwcc
 
 # Setup build tools
 AWK	= awk
@@ -127,7 +133,7 @@ endif
 
 NOVI	= $(NOVELLLIBC)\imports
 
-INCDIRS 	= $(NOVELLLIBC)\include;$(NOVELLLIBC)\include\nks;$(NOVELLLIBC)\include\winsock;
+INCDIRS = $(NOVELLLIBC)\include;$(NOVELLLIBC)\include\nks;$(NOVELLLIBC)\include\winsock;
 ifneq "$(LDAPSDK)" ""
 INCDIRS := $(INCDIRS);$(LDAPSDK)/inc
 endif
@@ -149,12 +155,21 @@ else
 VERSION_SKT = (WINSOCK)
 endif
 
-#
 # MetroWerks static Libraries
-
 CLIB3S	= $(METROWERKS)\Novell Support\Metrowerks Support\Libraries\Runtime\mwcrtl.lib
 MATH3S	=
 PLIB3S	= $(METROWERKS)\Novell Support\Metrowerks Support\Libraries\MSL C++\MWCPP.lib
+
+# MetroWerks Win32 build flags to create build tool
+MWCW_MSL   = "$(METROWERKS)/MSL"
+MWCW_W32   = "$(METROWERKS)/Win32-x86 Support"
+WIN_CFLAGS =  -O2 -gccinc -nodefaults -proc 586 -w off
+WIN_CFLAGS += -ir $(MWCW_MSL) -ir $(MWCW_W32) -lr $(MWCW_MSL) -lr $(MWCW_W32)
+WIN_CFLAGS += -lMSL_All_x86.lib -lkernel32.lib -luser32.lib
+
+ifndef BUILDTOOL_AS_NLM
+BUILDTOOL_AS_NLM = 1
+endif
 
 # Base compile flags
 # and prefix or precompiled header added here.

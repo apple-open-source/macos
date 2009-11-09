@@ -2,6 +2,9 @@
 
                          Fetchmail Bugs and To-Do Items
 
+   Note that there is a separate TODO.txt document of different content
+   than this.
+
    I try to respond to urgent bug reports in a timely way. But fetchmail
    is now pretty mature and I have many other projects, so I don't
    personally chase obscure or marginal problems. Help with any of these

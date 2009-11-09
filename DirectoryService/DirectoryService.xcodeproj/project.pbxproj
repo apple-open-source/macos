@@ -533,6 +533,8 @@
 		6BF0D85E0EC8B1900057D9C5 /* _screensaver.plist in Group files */ = {isa = PBXBuildFile; fileRef = 6BF0D85D0EC8B1420057D9C5 /* _screensaver.plist */; };
 		6BF11E580766F94300C8E7C8 /* DirectoryServiceMIG_types.h in Headers */ = {isa = PBXBuildFile; fileRef = 6BF11E570766F94300C8E7C8 /* DirectoryServiceMIG_types.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		6BFAB43C0A26704D008BFAE6 /* libresolv.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 61C3CDC4066D024A00C62A1E /* libresolv.dylib */; };
+		6BFC267C101A5C6B00E0E866 /* _dpaudio.plist in User files */ = {isa = PBXBuildFile; fileRef = 6BFC2659101A59A100E0E866 /* _dpaudio.plist */; };
+		6BFC267D101A5C7B00E0E866 /* _dpaudio.plist in Group files */ = {isa = PBXBuildFile; fileRef = 6BFC2661101A5A4100E0E866 /* _dpaudio.plist */; };
 		6BFDF260099BF32D0017FF47 /* com.apple.DirectoryServices.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = 6BFDF25F099BF3270017FF47 /* com.apple.DirectoryServices.plist */; };
 		6BFF22180BEAC9FB008EE1E8 /* localaccounts.plist in Group files */ = {isa = PBXBuildFile; fileRef = 6BFF22070BEAC854008EE1E8 /* localaccounts.plist */; };
 		6BFF22190BEAC9FB008EE1E8 /* netaccounts.plist in Group files */ = {isa = PBXBuildFile; fileRef = 6BFF21F50BEAC744008EE1E8 /* netaccounts.plist */; };
@@ -723,6 +725,7 @@
 			dstPath = /private/var/db/dslocal/nodes/Default/groups;
 			dstSubfolderSpec = 0;
 			files = (
+				6BFC267D101A5C7B00E0E866 /* _dpaudio.plist in Group files */,
 				6BA744260F689AF300854573 /* _odchpass.plist in Group files */,
 				6BCEE12A0F5C7131002E82CD /* _trustevaluationagent.plist in Group files */,
 				6B9863BB0F4B749D0052C5D8 /* _detachedsig.plist in Group files */,
@@ -838,6 +841,7 @@
 			dstPath = /private/var/db/dslocal/nodes/Default/users;
 			dstSubfolderSpec = 0;
 			files = (
+				6BFC267C101A5C6B00E0E866 /* _dpaudio.plist in User files */,
 				6BCEE12B0F5C7146002E82CD /* _trustevaluationagent.plist in User files */,
 				6B8B63C50F30D7F400FD8F0F /* _locationd.plist in User files */,
 				6B8B642F0F30DDFF00FD8F0F /* _carddav.plist in User files */,
@@ -1298,6 +1302,8 @@
 		6BF0D85D0EC8B1420057D9C5 /* _screensaver.plist */ = {isa = PBXFileReference; explicitFileType = text.xml; fileEncoding = 4; path = _screensaver.plist; sourceTree = "<group>"; };
 		6BF11E570766F94300C8E7C8 /* DirectoryServiceMIG_types.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = DirectoryServiceMIG_types.h; sourceTree = "<group>"; };
 		6BF3475F0AA398FF005871BF /* _update_sharing.plist */ = {isa = PBXFileReference; explicitFileType = text.xml; fileEncoding = 4; path = _update_sharing.plist; sourceTree = "<group>"; };
+		6BFC2659101A59A100E0E866 /* _dpaudio.plist */ = {isa = PBXFileReference; explicitFileType = text.xml; fileEncoding = 4; path = _dpaudio.plist; sourceTree = "<group>"; };
+		6BFC2661101A5A4100E0E866 /* _dpaudio.plist */ = {isa = PBXFileReference; explicitFileType = text.xml; fileEncoding = 4; path = _dpaudio.plist; sourceTree = "<group>"; };
 		6BFDF25F099BF3270017FF47 /* com.apple.DirectoryServices.plist */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.plist.xml; path = com.apple.DirectoryServices.plist; sourceTree = "<group>"; };
 		6BFF21F50BEAC744008EE1E8 /* netaccounts.plist */ = {isa = PBXFileReference; explicitFileType = text.xml; fileEncoding = 4; path = netaccounts.plist; sourceTree = "<group>"; };
 		6BFF22070BEAC854008EE1E8 /* localaccounts.plist */ = {isa = PBXFileReference; explicitFileType = text.xml; fileEncoding = 4; path = localaccounts.plist; sourceTree = "<group>"; };
@@ -1346,7 +1352,7 @@
 		FD4946A70F84679E001288B2 /* _timezone.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = _timezone.plist; sourceTree = "<group>"; };
 		FD985E6D0F86F0B400FE471B /* _cvmsroot.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = _cvmsroot.plist; sourceTree = "<group>"; };
 		FD985E6E0F86F0BF00FE471B /* _cvms.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = _cvms.plist; sourceTree = "<group>"; };
-		FDA5462D0F966EB30090CD25 /* _usbmuxd.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = _usbmuxd.plist; sourceTree = "<group>"; };
+		FDA5462D0F966EB30090CD25 /* _usbmuxd.plist */ = {isa = PBXFileReference; explicitFileType = text.xml; fileEncoding = 4; path = _usbmuxd.plist; sourceTree = "<group>"; };
 		FDA546340F966ED10090CD25 /* _usbmuxd.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = _usbmuxd.plist; sourceTree = "<group>"; };
 		FDD91EA40F858C72006B3580 /* _lda.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = _lda.plist; sourceTree = "<group>"; };
 		FDD91EA50F858C80006B3580 /* _lda.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = _lda.plist; sourceTree = "<group>"; };
@@ -2088,6 +2094,7 @@
 				6B3112010A9535B90057752A /* _cyrus.plist */,
 				0EF4C1C80BCD58A100A7ED51 /* _devdocs.plist */,
 				6BC8C08B0E2C743800C3B485 /* _dovecot.plist */,
+				6BFC2659101A59A100E0E866 /* _dpaudio.plist */,
 				6B3112030A9535B90057752A /* _eppc.plist */,
 				6B14BE8B0FEAE4A60079EF38 /* _ftp.plist */,
 				613759AA0AA4F74F009E2A13 /* _installer.plist */,
@@ -2145,6 +2152,7 @@
 			children = (
 				6B9D973C0EECE566003D8A32 /* _developer.plist */,
 				6B9863540F4B73600052C5D8 /* _detachedsig.plist */,
+				6BFC2661101A5A4100E0E866 /* _dpaudio.plist */,
 				6B8B642D0F30DD5E00FD8F0F /* _carddav.plist */,
 				6B31121A0A9536210057752A /* _amavisd.plist */,
 				6B31121B0A9536210057752A /* _appowner.plist */,

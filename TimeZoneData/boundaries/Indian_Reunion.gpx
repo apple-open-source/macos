@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.0">
+<trk>
+	<name>UTC +4 (all year) RET</name>
+	<trkseg>
+		<trkpt lon="55.3820800781" lat="-20.7047387201"></trkpt>
+		<trkpt lon="54.8107910156" lat="-21.135745255"></trkpt>
+		<trkpt lon="55.3051757812" lat="-21.6676386068"></trkpt>
+		<trkpt lon="56.25" lat="-21.6676386068"></trkpt>
+		<trkpt lon="56.2170410156" lat="-21.1254976366"></trkpt>
+		<trkpt lon="55.6457519531" lat="-20.6225022593"></trkpt>
+		<trkpt lon="55.3820800781" lat="-20.7047387201"></trkpt>
+	</trkseg>
+</trk>
+</gpx>

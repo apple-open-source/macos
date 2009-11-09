@@ -1,6 +1,6 @@
 /** \file tls.c - collect common TLS functionality 
  * \author Matthias Andree
- * \year 2006
+ * \date 2006
  */
 
 #include "fetchmail.h"

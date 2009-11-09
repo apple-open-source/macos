@@ -3,8 +3,6 @@
  *
  * Copyright 2001 by Eric S. Raymond
  * For license terms, see the file COPYING in this directory.
- *
- * 
  */
 
 #include  "config.h"
@@ -361,6 +359,23 @@ static char *parse_received(struct query *ctl, char *bufp)
 /* shared by readheaders and readbody */
 static int sizeticker;
 
+/** Print ticker based on a amount of data transferred of \a bytes.
+ * Increments \a *tickervar by \a bytes, and if it exceeds
+ * \a SIZETICKER, print a dot and reduce *tickervar by \a SIZETICKER. */
+static void print_ticker(int *tickervar, int bytes)
+{
+    *tickervar += bytes;
+    while (*tickervar >= SIZETICKER)
+    {
+	if (want_progress())
+	{
+	    fputc('.', stdout);
+	    fflush(stdout);
+	}
+	*tickervar -= SIZETICKER;
+    }
+}
+
 #define EMPTYLINE(s)   (((s)[0] == '\r' && (s)[1] == '\n' && (s)[2] == '\0') \
                        || ((s)[0] == '\n' && (s)[1] == '\0'))
 
@@ -446,7 +461,7 @@ int readheaders(int sock,
     {
 	char *line, *rline;
 
-	line = xmalloc(sizeof(buf));
+	line = (char *)xmalloc(sizeof(buf));
 	linelen = 0;
 	line[0] = '\0';
 	do {
@@ -533,6 +548,7 @@ int readheaders(int sock,
 	    /* check for end of headers */
 	    if (end_of_header(line))
 	    {
+eoh:
 		if (linelen != strlen (line))
 		    has_nuls = TRUE;
 		free(line);
@@ -546,15 +562,9 @@ int readheaders(int sock,
 	     */
 	    if (protocol->delimited && line[0] == '.' && EMPTYLINE(line+1))
 	    {
-		if (outlevel > O_SILENT)
-		    report(stdout,
-			   GT_("message delimiter found while scanning headers\n"));
 		if (suppress_readbody)
 		    *suppress_readbody = TRUE;
-		if (linelen != strlen (line))
-		    has_nuls = TRUE;
-		free(line);
-		goto process_headers;
+		goto eoh; /* above */
 	    }
 
 	    /*
@@ -595,32 +605,25 @@ int readheaders(int sock,
 	/* write the message size dots */
 	if ((outlevel > O_SILENT && outlevel < O_VERBOSE) && linelen > 0)
 	{
-	    sizeticker += linelen;
-	    while (sizeticker >= SIZETICKER)
-	    {
-		if (outlevel > O_SILENT && run.showdots && !run.use_syslog)
-		{
-		    fputc('.', stdout);
-		    fflush(stdout);
-		}
-		sizeticker -= SIZETICKER;
-	    }
+	    print_ticker(&sizeticker, linelen);
 	}
-		/*
-		 * Decode MIME encoded headers. We MUST do this before
-		 * looking at the Content-Type / Content-Transfer-Encoding
-		 * headers (RFC 2046).
-		 */
-		if ( ctl->mimedecode )
-		{
-		    char *tcp;
-		    UnMimeHeader(line);
-		    /* the line is now shorter. So we retrace back till we find our terminating
-		     * combination \n\0, we move backwards to make sure that we don't catch som
-		     * \n\0 stored in the decoded part of the message */
-		    for(tcp = line + linelen - 1; tcp > line && (*tcp != 0 || tcp[-1] != '\n'); tcp--);
-		    if(tcp > line) linelen = tcp - line;
-		}
+
+	/*
+	 * Decode MIME encoded headers. We MUST do this before
+	 * looking at the Content-Type / Content-Transfer-Encoding
+	 * headers (RFC 2046).
+	 */
+	if ( ctl->mimedecode )
+	{
+	    char *tcp;
+	    UnMimeHeader(line);
+	    /* the line is now shorter. So we retrace back till we find
+	     * our terminating combination \n\0, we move backwards to
+	     * make sure that we don't catch some \n\0 stored in the
+	     * decoded part of the message */
+	    for (tcp = line + linelen - 1; tcp > line && (*tcp != 0 || tcp[-1] != '\n'); tcp--);
+	    if  (tcp > line) linelen = tcp - line;
+	}
 
 
 	/* skip processing if we are going to retain or refuse this mail */
@@ -807,7 +810,7 @@ int readheaders(int sock,
 	if (!msgblk.headers)
 	{
 	    oldlen = linelen;
-	    msgblk.headers = xmalloc(oldlen + 1);
+	    msgblk.headers = (char *)xmalloc(oldlen + 1);
 	    (void) memcpy(msgblk.headers, line, linelen);
 	    msgblk.headers[oldlen] = '\0';
 	    free(line);
@@ -930,12 +933,12 @@ int readheaders(int sock,
 	}
     }
 
- process_headers:    
+process_headers:
 
-    if (retain_mail)
-    {
+    if (retain_mail) {
 	return(PS_RETAINED);
     }
+
     if (refuse_mail)
 	return(PS_REFUSED);
     /*
@@ -1256,7 +1259,8 @@ int readheaders(int sock,
 	release_sink(ctl);
 	return(PS_IOERR);
     }
-    else if ((run.poll_interval == 0 || nodetach) && outlevel >= O_VERBOSE && !is_a_file(1) && !run.use_syslog)
+    
+    if (want_progress())
 	fputc('#', stdout);
 
     /* write error notifications */
@@ -1300,7 +1304,7 @@ int readheaders(int sock,
 		if (idp->val.status.mark == XMIT_RCPTBAD)
 		    errlen += strlen(idp->id) + 2;
 
-	    errmsg = xmalloc(errlen + 3);
+	    errmsg = (char *)xmalloc(errlen + 3);
 	    strcpy(errmsg, errhd);
 	    for (idp = msgblk.recipients; idp; idp = idp->next)
 		if (idp->val.status.mark == XMIT_RCPTBAD)
@@ -1328,7 +1332,7 @@ int readheaders(int sock,
     *cp++ = '\0';
     n = stuffline(ctl, buf);
 
-    if (n == strlen(buf))
+    if ((size_t)n == strlen(buf))
 	return PS_SUCCESS;
     else
 	return PS_SOCKET;
@@ -1373,16 +1377,7 @@ int readbody(int sock, struct query *ctl, flag forward, int len)
 	/* write the message size dots */
 	if (linelen > 0)
 	{
-	    sizeticker += linelen;
-	    while (sizeticker >= SIZETICKER)
-	    {
-		if (outlevel > O_SILENT && run.showdots && !run.use_syslog)
-		{
-		    fputc('.', stdout);
-		    fflush(stdout);
-		}
-		sizeticker -= SIZETICKER;
-	    }
+	    print_ticker(&sizeticker, linelen);
 	}
 
 	/* Mike Jones, Manchester University, 2006:
@@ -1446,7 +1441,7 @@ int readbody(int sock, struct query *ctl, flag forward, int len)
 		release_sink(ctl);
 		return(PS_IOERR);
 	    }
-	    else if (outlevel >= O_VERBOSE && !is_a_file(1) && !run.use_syslog)
+	    else if (want_progress())
 	    {
 		fputc('*', stdout);
 		fflush(stdout);

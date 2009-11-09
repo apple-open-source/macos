@@ -339,6 +339,8 @@ struct ph2handle {
 	int                    is_dying:1;
 	ike_session_t         *parent_session;
 	LIST_ENTRY(ph2handle)  ph2ofsession_chain;
+	vchar_t               *ext_nat_id;
+	vchar_t               *ext_nat_id_p;
 #endif
 	
 	LIST_ENTRY(ph2handle) chain;

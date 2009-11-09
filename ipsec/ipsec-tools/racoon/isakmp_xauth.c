@@ -395,8 +395,7 @@ xauth_reply(iph1, port, id, res)
 		/* Delete Phase 1 SA */
 		if (iph1->status == PHASE1ST_ESTABLISHED)
 			isakmp_info_send_d1(iph1);
-		remph1(iph1);
-		delph1(iph1);
+		isakmp_ph1expire(iph1);
 
 		return -1;
 	}

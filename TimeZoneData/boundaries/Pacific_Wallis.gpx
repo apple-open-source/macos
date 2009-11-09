@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.0">
+<trk>
+	<name>UTC +12 (all year) Wallis and Futuna</name>
+	<trkseg>
+		<trkpt lon="-178.199615479" lat="-14.2351002602"></trkpt>
+		<trkpt lon="-178.150177002" lat="-14.2510731827"></trkpt>
+		<trkpt lon="-178.103485107" lat="-14.2910005386"></trkpt>
+		<trkpt lon="-178.049926758" lat="-14.3136228959"></trkpt>
+		<trkpt lon="-177.977142334" lat="-14.3442259869"></trkpt>
+		<trkpt lon="-177.982635498" lat="-14.3681733171"></trkpt>
+		<trkpt lon="-178.029327393" lat="-14.3961086286"></trkpt>
+		<trkpt lon="-178.082885742" lat="-14.3774854756"></trkpt>
+		<trkpt lon="-178.170776367" lat="-14.3295902469"></trkpt>
+		<trkpt lon="-178.196868896" lat="-14.3029773644"></trkpt>
+		<trkpt lon="-178.216094971" lat="-14.2630521324"></trkpt>
+		<trkpt lon="-178.213348389" lat="-14.2430868627"></trkpt>
+		<trkpt lon="-178.199615479" lat="-14.2351002602"></trkpt>
+	</trkseg>
+</trk>
+</gpx>

@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.0">
+<trk>
+	<name>UTC +12.45 (winter) Catham </name>
+	<trkseg>
+		<trkpt lon="-177.758789062" lat="-43.1971672825"></trkpt>
+		<trkpt lon="-175.297851562" lat="-43.1971672825"></trkpt>
+		<trkpt lon="-174.7265625" lat="-45.182036837"></trkpt>
+		<trkpt lon="-177.890625" lat="-45.6140374114"></trkpt>
+		<trkpt lon="-177.758789062" lat="-43.1971672825"></trkpt>
+	</trkseg>
+</trk>
+</gpx>

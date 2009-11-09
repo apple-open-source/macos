@@ -44,7 +44,7 @@ EXIT_FAILURE=1
 PROGRAM=ltmain.sh
 PACKAGE=libtool
 VERSION=1.5.26
-TIMESTAMP=" (1.1220.2.492 2008/01/30 06:40:56)"
+TIMESTAMP=" (1.1220.2.493 2008/02/01 16:58:18)"
 
 # Be Bourne compatible (taken from Autoconf:_AS_BOURNE_COMPATIBLE).
 if test -n "${ZSH_VERSION+set}" && (emulate sh) >/dev/null 2>&1; then

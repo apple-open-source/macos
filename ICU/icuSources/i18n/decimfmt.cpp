@@ -1580,7 +1580,7 @@ UBool DecimalFormat::subparse(const UnicodeString& text, ParsePosition& parsePos
 				
                 position += U16_LENGTH(ch);
             }
-            else if (matchSymbol(text, position, groupingStringLength, *groupingString, groupingSet, ch) && isGroupingUsed())
+            else if (groupingStringLength > 0 && matchSymbol(text, position, groupingStringLength, *groupingString, groupingSet, ch) && isGroupingUsed())
             {
 #if CHECK_FOR_MISPLACED_GROUPING
                 if (sawDecimal) {
@@ -1888,10 +1888,29 @@ int32_t DecimalFormat::compareSimpleAffix(const UnicodeString& affix,
                                           const UnicodeString& input,
                                           int32_t pos,
                                           UBool strict) {
+    UErrorCode status = U_ZERO_ERROR;
     int32_t start = pos;
+    UChar32 affixChar = affix.char32At(0);
+    int32_t affixLength = affix.length();
+    int32_t inputLength = input.length();
+    int32_t affixCharLength = U16_LENGTH(affixChar);
+    UnicodeSet *affixSet;
 	
+    DecimalFormatStaticSets::initSets(&status);
+    
 	if (strict) {
-		for (int32_t i=0; i<affix.length(); ) {
+        affixSet = DecimalFormatStaticSets::gStaticSets->fStrictDashEquivalents;
+        
+        // If the affix is exactly one character long and that character
+        // is in the dash set and the very next input character is also
+        // in the dash set, return a match.
+        if (affixCharLength == affixLength && affixSet->contains(affixChar))  {
+            if (affixSet->contains(input.char32At(pos))) {
+                return 1;
+            }
+        }
+        
+		for (int32_t i=0; i<affixLength; ) {
 			UChar32 c = affix.char32At(i);
 			int32_t len = U16_LENGTH(c);
 			if (uprv_isRuleWhiteSpace(c)) {
@@ -1902,12 +1921,12 @@ int32_t DecimalFormat::compareSimpleAffix(const UnicodeString& affix,
 				// match of the run of RULE whitespace in the pattern,
 				// then match any extra characters.
 				UBool literalMatch = FALSE;
-				while (pos < input.length() &&
+				while (pos < inputLength &&
 					   input.char32At(pos) == c) {
 					literalMatch = TRUE;
 					i += len;
 					pos += len;
-					if (i == affix.length()) {
+					if (i == affixLength) {
 						break;
 					}
 					c = affix.char32At(i);
@@ -1934,7 +1953,7 @@ int32_t DecimalFormat::compareSimpleAffix(const UnicodeString& affix,
 				// is also in the affix.
 				i = skipUWhiteSpace(affix, i);
 			} else {
-				if (pos < input.length() &&
+				if (pos < inputLength &&
 					input.char32At(pos) == c) {
 					i += len;
 					pos += len;
@@ -1944,9 +1963,17 @@ int32_t DecimalFormat::compareSimpleAffix(const UnicodeString& affix,
 			}
 		}
 	} else {
-		int32_t affixLength = affix.length();
-		int32_t inputLength = input.length();
 		UBool match = FALSE;
+        
+        affixSet = DecimalFormatStaticSets::gStaticSets->fDashEquivalents;
+        
+        if (affixCharLength == affixLength && affixSet->contains(affixChar))  {
+            pos = skipUWhiteSpace(input, pos);
+            
+            if (affixSet->contains(input.char32At(pos))) {
+                return pos - start + 1;
+            }
+        }
 		
 		for (int32_t i = 0; i < affixLength; )
 		{

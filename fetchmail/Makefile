@@ -23,18 +23,13 @@ post-install:
 
 # Automatic Extract & Patch
 AEP_Project    = fetchmail
-AEP_Version    = 6.3.8
+AEP_Version    = 6.3.11
 AEP_ProjVers   = $(AEP_Project)-$(AEP_Version)
 AEP_Filename   = $(AEP_ProjVers).tar.bz2
 AEP_ExtractDir = $(AEP_ProjVers)
-AEP_Patches    = python_config_patch \
-		null_exec_patch \
-		bind9_patch \
-		manpage_patch \
-		krb5_patch \
-		CVE-2007-4565.diff \
-		CVE-2008-2711.diff \
-		configure.diff
+# CVE-2007-4565.diff & CVE-2008-2711.diff are not needed, they were fixed in 6.3.9
+AEP_Patches    = python_config.diff null_exec.diff bind9.diff \
+                 manpage.diff krb5.diff getaddrinfo_signal_unsafe.diff
 
 # Extract the source.
 install_source::
@@ -42,7 +37,7 @@ install_source::
 	$(RMDIR) $(SRCROOT)/$(Project)
 	$(MV) $(SRCROOT)/$(AEP_ExtractDir) $(SRCROOT)/$(Project)
 	for patchfile in $(AEP_Patches); do \
-		patch -d $(SRCROOT)/$(Project) -F0 -p0 < $(SRCROOT)/files/$$patchfile || exit 1; \
+		patch -d $(SRCROOT)/$(Project) -F0 -p1 < $(SRCROOT)/patches/$$patchfile || exit 1; \
 	done
 
 OSV = $(DSTROOT)/usr/local/OpenSourceVersions

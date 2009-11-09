@@ -418,6 +418,14 @@ static void mark_oversized(struct query *ctl, int size)
     }
 }
 
+static int eat_trailer(int sock, struct query *ctl)
+{
+    /* we only need this LF if we're printing ticker dots
+     * AND we are dumping protocol traces. */
+    if (outlevel >= O_VERBOSE && want_progress()) fputc('\n', stdout);
+    return (ctl->server.base_protocol->trail)(sock, ctl, tag);
+}
+
 static int fetch_messages(int mailserver_socket, struct query *ctl, 
 			  int count, int **msgsizes, int maxfetch,
 			  int *fetches, int *dispatches, int *deletions)
@@ -580,6 +588,9 @@ static int fetch_messages(int mailserver_socket, struct query *ctl,
 	}
 	else
 	{
+	  /* XXX FIXME: make this one variable, wholesize and
+	     separatefetchbody query the same variable just with
+	     inverted logic */
 	    flag wholesize = !ctl->server.base_protocol->fetch_body;
 	    flag separatefetchbody = (ctl->server.base_protocol->fetch_body) ? TRUE : FALSE;
 
@@ -612,8 +623,11 @@ static int fetch_messages(int mailserver_socket, struct query *ctl,
 		if (len > 0)
 		    report_build(stdout, wholesize ? GT_(" (%d octets)")
 				 : GT_(" (%d header octets)"), len);
-		if (outlevel >= O_VERBOSE)
-		    report_complete(stdout, "\n");
+		if (want_progress()) {
+		    /* flush and add a blank to append ticker dots */
+		    report_flush(stdout);
+		    putchar(' ');
+		}
 	    }
 
 	    /* 
@@ -625,6 +639,7 @@ static int fetch_messages(int mailserver_socket, struct query *ctl,
 			     /* pass the suppress_readbody flag only if the underlying
 			      * protocol does not fetch the body separately */
 			     separatefetchbody ? 0 : &suppress_readbody);
+
 	    if (err == PS_RETAINED)
 		suppress_forward = suppress_delete = retained = TRUE;
 	    else if (err == PS_TRANSIENT)
@@ -637,14 +652,8 @@ static int fetch_messages(int mailserver_socket, struct query *ctl,
 	    /* tell server we got it OK and resynchronize */
 	    if (separatefetchbody && ctl->server.base_protocol->trail)
 	    {
-		if (outlevel >= O_VERBOSE && !is_a_file(1) && !run.use_syslog)
-		{
-		    fputc('\n', stdout);
-		    fflush(stdout);
-		}
-
-		if ((err = (ctl->server.base_protocol->trail)(mailserver_socket, ctl, tag)))
-		    return(err);
+		err = eat_trailer(mailserver_socket, ctl);
+		if (err) return(err);
 	    }
 
 	    /* do not read the body which is not being forwarded only if
@@ -677,9 +686,15 @@ static int fetch_messages(int mailserver_socket, struct query *ctl,
 		     */
 		    if (len == -1)
 			len = msgsize - msgblk.msglen;
-		    if (outlevel > O_SILENT && !wholesize)
-			report_build(stdout,
-					GT_(" (%d body octets)"), len);
+		    if (!wholesize) {
+			if (outlevel > O_SILENT)
+			    report_build(stdout,
+				    GT_(" (%d body octets)"), len);
+			if (want_progress()) {
+			    report_flush(stdout);
+			    putchar(' ');
+			}
+		    }
 		}
 
 		/* process the body now */
@@ -687,23 +702,16 @@ static int fetch_messages(int mailserver_socket, struct query *ctl,
 			      ctl,
 			      !suppress_forward,
 			      len);
+
 		if (err == PS_TRANSIENT)
 		    suppress_delete = suppress_forward = TRUE;
 		else if (err)
 		    return(err);
 
 		/* tell server we got it OK and resynchronize */
-		if (ctl->server.base_protocol->trail)
-		{
-		    if (outlevel >= O_VERBOSE && !is_a_file(1) && !run.use_syslog)
-		    {
-			fputc('\n', stdout);
-			fflush(stdout);
-		    }
-
-		    err = (ctl->server.base_protocol->trail)(mailserver_socket, ctl, tag);
-		    if (err != 0)
-			return(err);
+		if (ctl->server.base_protocol->trail) {
+		    err = eat_trailer(mailserver_socket, ctl);
+		    if (err) return(err);
 		}
 	    }
 
@@ -757,15 +765,16 @@ static int fetch_messages(int mailserver_socket, struct query *ctl,
 
 flagthemail:
 	/*
-	 * At this point in flow of control, either
-	 * we've bombed on a protocol error or had
-	 * delivery refused by the SMTP server
-	 * (unlikely -- I've never seen it) or we've
-	 * seen `accepted for delivery' and the
-	 * message is shipped.  It's safe to mark the
-	 * message seen and delete it on the server
-	 * now.
+	 * At this point in flow of control,
+	 * either we've bombed on a protocol error
+	 * or had delivery refused by the SMTP server
+	 * or we've seen `accepted for delivery' and the message is shipped.
+	 * It's safe to mark the message seen and delete it on the server now.
 	 */
+
+	/* in softbounce mode, suppress deletion and marking as seen */
+	if (suppress_forward)
+	    suppress_delete = suppress_delete || run.softbounce;
 
 	/* maybe we delete this message now? */
 	if (retained)
@@ -932,8 +941,12 @@ static int do_session(
 	/* execute pre-initialization command, if any */
 	if (ctl->preconnect && (err = system(ctl->preconnect)))
 	{
-	    report(stderr, 
-		   GT_("pre-connection command failed with status %d\n"), err);
+	    if (WIFSIGNALED(err))
+		report(stderr,
+			GT_("pre-connection command terminated with signal %d\n"), WTERMSIG(err));
+	    else
+		report(stderr,
+			GT_("pre-connection command failed with status %d\n"), WEXITSTATUS(err));
 	    err = PS_SYNTAX;
 	    goto closeUp;
 	}
@@ -997,6 +1010,9 @@ static int do_session(
 		hints.ai_socktype = SOCK_STREAM;
 		hints.ai_family = AF_UNSPEC;
 		hints.ai_flags = AI_CANONNAME;
+#ifdef AI_ADDRCONFIG
+		hints.ai_flags |= AI_ADDRCONFIG;
+#endif
 
 		error = fm_getaddrinfo(ctl->server.queryname, NULL, &hints, &res);
 		if (error)
@@ -1088,10 +1104,12 @@ static int do_session(
 	set_timeout(mytimeout);
 
 	/* perform initial SSL handshake on open connection */
-	/* Note:  We pass the realhost name over for certificate
-		verification.  We may want to make this configurable */
-	if (ctl->use_ssl && SSLOpen(mailserver_socket,ctl->sslcert,ctl->sslkey,ctl->sslproto,ctl->sslcertck,
-	    ctl->sslcertpath,ctl->sslfingerprint,realhost,ctl->server.pollname,&ctl->remotename) == -1) 
+	if (ctl->use_ssl &&
+		SSLOpen(mailserver_socket, ctl->sslcert, ctl->sslkey,
+		    ctl->sslproto, ctl->sslcertck, ctl->sslcertpath,
+		    ctl->sslfingerprint, ctl->sslcommonname ?
+		    ctl->sslcommonname : realhost, ctl->server.pollname,
+		    &ctl->remotename) == -1)
 	{
 	    report(stderr, GT_("SSL connection failed.\n"));
 	    err = PS_SOCKET;
@@ -1430,9 +1448,11 @@ is restored."));
 		/* end-of-mailbox processing before we repoll or switch to another one */
 		if (ctl->server.base_protocol->end_mailbox_poll)
 		{
-		    err = (ctl->server.base_protocol->end_mailbox_poll)(mailserver_socket, ctl);
-		    if (err)
+		    tmperr = (ctl->server.base_protocol->end_mailbox_poll)(mailserver_socket, ctl);
+		    if (tmperr) {
+			err = tmperr;
 			goto cleanUp;
+		    }
 		}
 		/* Return now if we have reached the fetchlimit */
 		if (maxfetch && maxfetch <= fetches)
@@ -1559,7 +1579,10 @@ closeUp:
     /* execute wrapup command, if any */
     if (ctl->postconnect && (tmperr = system(ctl->postconnect)))
     {
-	report(stderr, GT_("post-connection command failed with status %d\n"), tmperr);
+	if (WIFSIGNALED(tmperr))
+	    report(stderr, GT_("post-connection command terminated with signal %d\n"), WTERMSIG(tmperr));
+	else
+	    report(stderr, GT_("post-connection command failed with status %d\n"), WEXITSTATUS(tmperr));
 	if (err == PS_SUCCESS)
 	    err = PS_SYNTAX;
     }

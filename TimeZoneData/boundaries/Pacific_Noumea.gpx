@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.0">
+<trk>
+	<name>UTC +11 (all year) NCT</name>
+	<trkseg>
+		<trkpt lon="166.223144531" lat="-19.4147924381"></trkpt>
+		<trkpt lon="168.837890625" lat="-21.51440672"></trkpt>
+		<trkpt lon="171.254882812" lat="-23.0190761873"></trkpt>
+		<trkpt lon="171.606445312" lat="-24.7069152411"></trkpt>
+		<trkpt lon="166.091308594" lat="-24.5671083526"></trkpt>
+		<trkpt lon="160.861816406" lat="-18.1040870158"></trkpt>
+		<trkpt lon="163.872070312" lat="-16.4360851751"></trkpt>
+		<trkpt lon="166.223144531" lat="-19.4147924381"></trkpt>
+	</trkseg>
+</trk>
+</gpx>

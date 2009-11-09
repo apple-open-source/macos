@@ -35,8 +35,8 @@ extern int DEBUGLEVEL;
 
 #ifndef _AIX
 typedef unsigned char uchar;
-#endif
 typedef signed short int16;
+#endif
 typedef int BOOL;
 #define False 0
 #define True  1

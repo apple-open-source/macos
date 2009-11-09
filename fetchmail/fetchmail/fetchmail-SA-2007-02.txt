@@ -1,0 +1,130 @@
+-----BEGIN PGP SIGNED MESSAGE-----
+Hash: SHA1
+
+fetchmail-SA-2007-02: Crash when a local warning message is rejected
+
+Topics:		Crash when a fetchmail-generated warning message is rejected
+
+Author:		Matthias Andree
+Version:	1.1
+Announced:	2007-08-28
+Type:		NULL pointer dereference trigged by outside circumstances
+Impact:		denial of service possible
+Danger:		low
+CVSS V2 vector: (AV:N/AC:M/Au:N/C:N/I:N/A:C/E:?/RL:O/RC:C)
+		
+Credits:	Earl Chew
+CVE Name:	CVE-2007-4565
+URL:		http://www.fetchmail.info/fetchmail-SA-2007-02.txt
+Project URL:	http://www.fetchmail.info/
+
+Affects:	fetchmail release < 6.3.9 exclusively
+
+Not affected:	fetchmail release 6.3.9 and newer
+		fetchmail releases < 4.6.8 exclusively
+
+Corrected:	2007-07-29 fetchmail SVN (rev 5119)
+
+
+0. Release history
+==================
+
+2007-07-29 1.0	first draft for MITRE/CVE (visible in SVN)
+2007-08-28 1.1	reworked, added fix, official release
+
+
+1. Background
+=============
+
+fetchmail is a software package to retrieve mail from remote POP2, POP3,
+IMAP, ETRN or ODMR servers and forward it to local SMTP, LMTP servers or
+message delivery agents.
+
+fetchmail ships with a graphical, Python/Tkinter based configuration
+utility named "fetchmailconf" to help the user create configuration (run
+control) files for fetchmail.
+
+
+2. Problem description and Impact
+=================================
+
+fetchmail will generate warning messages in certain circumstances and 
+send them to the local postmaster or the user starting it. Such warning 
+messages can be generated, for instance, if logging into an upstream 
+server fails repeatedly or if messages beyond the size limit (if 
+configured, default: no limit) are left on the server.
+
+If this warning message is then refused by the SMTP listener that 
+fetchmail is forwarding the message to, fetchmail attempts to 
+dereference a NULL pointer when trying to find out if it should allow a 
+bounce message to be sent.
+
+This causes fetchmail to crash and not collect further messages until it 
+is restarted.
+
+Risk assessment: low. In default configuration, fetchmail will talk 
+through the loopback interface, that means to the SMTP server on the same 
+computer as it is running on. Otherwise, it will commonly be configured 
+to talk to trusted SMTP servers, so a compromise or misconfiguration of 
+a trusted or the same computer is required to exploit this problem - 
+which usually opens up much easier ways of denying service, or worse.
+
+
+3. Solution
+===========
+
+There are two alternatives, either of them by itself is sufficient:
+
+a. Apply the patch found in section B of this announcement to fetchmail 6.3.8,
+   recompile and reinstall it.
+
+b. Install fetchmail 6.3.9 or newer when it becomes available.  The 
+   fetchmail source code is available from 
+   <http://developer.berlios.de/project/showfiles.php?group_id=1824>.
+
+Note there are no workarounds presented here since all known workarounds 
+are more intrusive than the actual solution.
+
+
+A. Copyright, License and Warranty
+==================================
+
+(C) Copyright 2007 by Matthias Andree, <matthias.andree@gmx.de>.
+Some rights reserved.
+
+This work is licensed under the Creative Commons
+Attribution-NonCommercial-NoDerivs German License. To view a copy of
+this license, visit http://creativecommons.org/licenses/by-nc-nd/2.0/de/
+or send a letter to Creative Commons; 559 Nathan Abbott Way;
+Stanford, California 94305; USA.
+
+THIS WORK IS PROVIDED FREE OF CHARGE AND WITHOUT ANY WARRANTIES.
+Use the information herein at your own risk.
+
+
+
+B. Patch to remedy the problem
+==============================
+
+Index: sink.c
+===================================================================
+- --- sink.c	(revision 5118)
++++ sink.c	(revision 5119)
+@@ -262,7 +262,7 @@
+     const char *md1 = "MAILER-DAEMON", *md2 = "MAILER-DAEMON@";
+ 
+     /* don't bounce in reply to undeliverable bounces */
+- -    if (!msg->return_path[0] ||
++    if (!msg || !msg->return_path[0] ||
+ 	strcmp(msg->return_path, "<>") == 0 ||
+ 	strcasecmp(msg->return_path, md1) == 0 ||
+ 	strncasecmp(msg->return_path, md2, strlen(md2)) == 0)
+
+END OF fetchmail-SA-2007-02.txt
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.5 (GNU/Linux)
+
+iD8DBQFIV7WXvmGDOQUufZURAr8+AKC7GpAFvCTaHD69n+g39lWtPIheCwCglj/O
+yh3P8bOmEn3a54h4aH2BFLA=
+=NBQZ
+-----END PGP SIGNATURE-----

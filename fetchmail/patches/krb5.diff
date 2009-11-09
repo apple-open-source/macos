@@ -1,0 +1,17 @@
+diff -r -u -N --exclude='*.orig' fetchmail-6.3.11.orig/configure fetchmail-6.3.11/configure
+--- fetchmail-6.3.11.orig/configure	2009-08-05 16:33:55.000000000 -0700
++++ fetchmail-6.3.11/configure	2009-09-25 13:14:12.000000000 -0700
+@@ -12823,11 +12823,11 @@
+ #ifdef __cplusplus
+ extern "C"
+ #endif
+-char krb5_des_string_to_key ();
++char krb5_decrypt ();
+ int
+ main ()
+ {
+-return krb5_des_string_to_key ();
++return krb5_decrypt ();
+   ;
+   return 0;
+ }

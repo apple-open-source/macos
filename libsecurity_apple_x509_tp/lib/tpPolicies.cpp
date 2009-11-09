@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2001 Apple Computer, Inc. All Rights Reserved.
+ * Copyright (c) 2000-2009, Apple Inc. All Rights Reserved.
  * 
  * The contents of this file constitute Original Code as defined in and are
  * subject to the Apple Public Source License Version 1.2 (the 'License').
@@ -25,11 +25,12 @@
 #include <Security/cssmtype.h>
 #include <Security/cssmapi.h>
 #include "tpPolicies.h"
-#include <Security/oidsattr.h>
 #include <Security/cssmerr.h>
 #include "tpdebugging.h"
 #include "certGroupUtils.h"
 #include <Security/x509defs.h>
+#include <Security/oidsalg.h>
+#include <Security/oidsattr.h>
 #include <Security/oidscert.h>
 #include <Security/certextensions.h>
 #include <Security/cssmapple.h>
@@ -67,6 +68,8 @@ typedef struct {
 	
 	/* flag indicating presence of a critical extension we don't understand */
 	CSSM_BOOL			foundUnknownCritical;
+	/* flag indicating that this certificate was signed with a known-broken algorithm */
+	CSSM_BOOL			untrustedSigAlg;
 	
 } iSignCertInfo;
  
@@ -244,6 +247,31 @@ fini:
 }
 
 /*
+ * Check the signature algorithm. If it's known to be untrusted, 
+ * flag certInfo->untrustedSigAlg.
+ */
+static void iSignCheckSignatureAlgorithm(
+	TPCertInfo			*tpCert,
+	iSignCertInfo		*certInfo)
+{
+	CSSM_X509_ALGORITHM_IDENTIFIER	*algId = NULL;
+	CSSM_DATA_PTR					valueToFree = NULL;
+	
+	algId = tp_CertGetAlgId(tpCert, &valueToFree);
+	if(!algId ||
+	   tpCompareCssmData(&algId->algorithm, &CSSMOID_MD2) ||
+	   tpCompareCssmData(&algId->algorithm, &CSSMOID_MD2WithRSA)) {
+		certInfo->untrustedSigAlg = CSSM_TRUE;
+	} else {
+		certInfo->untrustedSigAlg = CSSM_FALSE;
+	}
+
+	if (valueToFree) {
+		tp_CertFreeAlgId(tpCert->clHand(), valueToFree);
+	}
+}
+
+/*
  * Given a TPCertInfo, fetch the associated iSignCertInfo fields. 
  * Returns CSSM_FAIL on error. 
  */
@@ -311,7 +339,10 @@ static CSSM_RETURN iSignGetCertInfo(
 	if(crtn) {
 		return crtn;
 	}
-
+	
+	/* check signature algorithm field */
+	iSignCheckSignatureAlgorithm(tpCert, certInfo);
+	
 	/* now look for extensions we don't understand - the only thing we're interested
 	 * in is the critical flag. */
 	return iSignSearchUnknownExtensions(tpCert, certInfo);
@@ -1638,7 +1669,7 @@ static CSSM_RETURN tp_verifyCodePkgSignOpts(
  * Public routine to perform TP verification on a constructed 
  * cert group.
  * Returns CSSM_OK on success.
- * Asumes the chain has passed basic subject/issuer verification. First cert of
+ * Assumes the chain has passed basic subject/issuer verification. First cert of
  * incoming certGroup is end-entity (leaf). 
  *
  * Per-policy details:
@@ -2089,7 +2120,21 @@ CSSM_RETURN tp_policyVerify(
 			}
 		}
 	}
-	
+
+	/*
+	 * Check signature algorithm on all non-root certs,
+	 * reject if known to be untrusted
+	 */
+	for(certDex=0; certDex<(numCerts-1); certDex++) {
+		if(certInfo[certDex].untrustedSigAlg) {
+			tpPolicyError("tp_policyVerify: untrusted signature algorithm");
+			if((certGroup->certAtIndex(certDex))->addStatusCode(
+					CSSMERR_TP_INVALID_CERTIFICATE)) {
+				policyFail = CSSM_TRUE;
+			}
+		}
+	}
+
 	/* specific per-policy checking */
 	switch(policy) {
 		case kTP_SSL:

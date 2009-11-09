@@ -134,7 +134,8 @@ or another dump file."""
                                    'svnsync_tests_data')
   # Load the specified dump file into the master repository.
   master_dumpfile_contents = file(os.path.join(svnsync_tests_dir,
-                                               dump_file_name)).readlines()
+                                               dump_file_name),
+                                  'rb').readlines()
   svntest.actions.run_and_verify_load(sbox.repo_dir, master_dumpfile_contents)
 
   # Create the empty destination repository.
@@ -742,6 +743,25 @@ def info_not_synchronized(sbox):
   run_info(sbox.repo_url,
            ".*Repository '%s' is not initialized.*" % sbox.repo_url)
 
+#----------------------------------------------------------------------
+
+def copy_bad_line_endings(sbox):
+  "copy with inconsistent lineendings in svn:props"
+  run_test(sbox, "copy-bad-line-endings.dump",
+           exp_dump_file_name="copy-bad-line-endings.expected.dump")
+
+#----------------------------------------------------------------------
+
+def delete_svn_props(sbox):
+  "copy with svn:prop deletions"
+  run_test(sbox, "delete-svn-props.dump")
+
+def commit_a_copy_of_root(sbox):
+  "commit a copy of root causes sync to fail"
+  #Testcase for issue 3438.
+  run_test(sbox, "repo_with_copy_of_root_dir.dump")
+
+
 ########################################################################
 # Run the tests
 
@@ -777,6 +797,9 @@ test_list = [ None,
               move_and_modify_in_the_same_revision,
               info_synchronized,
               info_not_synchronized,
+              copy_bad_line_endings,
+              delete_svn_props,
+              commit_a_copy_of_root,
              ]
 
 if __name__ == '__main__':

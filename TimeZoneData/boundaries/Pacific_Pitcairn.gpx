@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.0">
+<trk>
+	<name>UTC-8 (all year) Pitcairn Islands</name>
+	<trkseg>
+		<trkpt lon="-129.287109375" lat="-23.8054496123"></trkpt>
+		<trkpt lon="-127.265625" lat="-23.8054496123"></trkpt>
+		<trkpt lon="-127.221679688" lat="-25.2446959513"></trkpt>
+		<trkpt lon="-129.309082031" lat="-25.2446959513"></trkpt>
+		<trkpt lon="-129.287109375" lat="-23.8054496123"></trkpt>
+	</trkseg>
+</trk>
+</gpx>

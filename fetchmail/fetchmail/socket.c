@@ -52,6 +52,7 @@
 #include "fetchmail.h"
 #include "getaddrinfo.h"
 #include "i18n.h"
+#include "sdump.h"
 
 /* Defines to allow BeOS and Cygwin to play nice... */
 #ifdef __BEOS__
@@ -276,6 +277,9 @@ int SockOpen(const char *host, const char *service,
 
     memset(&req, 0, sizeof(struct addrinfo));
     req.ai_socktype = SOCK_STREAM;
+#ifdef AI_ADDRCONFIG
+    req.ai_flags = AI_ADDRCONFIG;
+#endif
 
     i = fm_getaddrinfo(host, service, &req, ai0);
     if (i) {
@@ -415,9 +419,6 @@ int SockRead(int sock, char *buf, int len)
 {
     char *newline, *bp = buf;
     int n;
-#ifdef	FORCE_STUFFING
-    int maxavailable = 0;
-#endif
 #ifdef	SSL_ENABLE
     SSL *ssl;
 #endif
@@ -457,9 +458,6 @@ int SockRead(int sock, char *buf, int len)
 			(void)SSL_get_error(ssl, n);
 			return(-1);
 		}
-#ifdef FORCE_STUFFING
-		maxavailable = n;
-#endif
 		if( 0 == n ) {
 			/* SSL_peek says no data...  Does he mean no data
 			or did the connection blow up?  If we got an error
@@ -474,7 +472,7 @@ int SockRead(int sock, char *buf, int len)
 			 * We don't have a string to pass through
 			 * the strchr at this point yet */
 			newline = NULL;
-		} else if ((newline = memchr(bp, '\n', n)) != NULL)
+		} else if ((newline = (char *)memchr(bp, '\n', n)) != NULL)
 			n = newline - bp + 1;
 		/* Matthias Andree: SSL_read can return 0, in that case
 		 * we must call SSL_get_error to figure if there was
@@ -503,9 +501,6 @@ int SockRead(int sock, char *buf, int len)
 	    if ((n = fm_peek(sock, bp, len)) <= 0)
 #endif
 		return (-1);
-#ifdef FORCE_STUFFING
-	    maxavailable = n;
-#endif
 	    if ((newline = (char *)memchr(bp, '\n', n)) != NULL)
 		n = newline - bp + 1;
 #ifndef __BEOS__
@@ -519,46 +514,6 @@ int SockRead(int sock, char *buf, int len)
 	    (!newline && len);
     *bp = '\0';
 
-#ifdef FORCE_STUFFING		/* too ugly to live -- besides, there's IMAP */
-    /* OK, very weird hack coming up here:
-     * When POP3 servers send us a message, they're supposed to
-     * terminate the message with a line containing only a dot. To protect
-     * against lines in the real message that might contain only a dot,
-     * they're supposed to preface any line that starts with a dot with
-     * an additional dot, which will be removed on the client side. That
-     * process, called byte-stuffing (and unstuffing) is really not the
-     * concern of this low-level routine, ordinarily, but there are some
-     * POP servers (and maybe IMAP servers too, who knows) that fail to
-     * do the byte-stuffing, and this routine is the best place to try to
-     * identify and fix that fault.
-     *
-     * Since the DOT line is supposed to come only at the end of a
-     * message, the implication is that right after we see it, the server
-     * is supposed to go back to waiting for the next command. There
-     * isn't supposed to be any more data to read after we see the dot.
-     * THEREFORE, if we see more data to be read after something that
-     * looks like the dot line, then probably the server is failing to
-     * do byte-stuffing. In that case, we'll byte-pack it for them so
-     * that the higher-level routines see things as hunky-dorey.
-     * This is not a perfect test or fix by any means (it has an
-     * obvious race condition, for one thing), but it should at least
-     * reduce the nastiness that ensues when people don't know how
-     * to write POP servers.
-     */
-    if ((maxavailable > (bp-buf)) &&
-	    ((((bp-buf) == 3) &&
-	      (buf[0] == '.') &&
-	      (buf[1] == '\r') &&
-	      (buf[2] == '\n')) ||
-	     (((bp-buf) == 2) &&
-	      (buf[0] == '.') &&
-	      (buf[1] == '\n')))) {
-
-	memmove(buf+1, buf, (bp-buf)+1);
-	buf[0] = '.';
-	bp++;
-    }
-#endif /* FORCE_STUFFING */
     return bp - buf;
 }
 
@@ -644,6 +599,7 @@ static int SSL_verify_callback( int ok_return, X509_STORE_CTX *ctx, int strict )
 	const EVP_MD *digest_tp;
 	unsigned int dsz, esz;
 	X509_NAME *subj, *issuer;
+	char *tt;
 
 	x509_cert = X509_STORE_CTX_get_current_cert(ctx);
 	err = X509_STORE_CTX_get_error(ctx);
@@ -654,16 +610,18 @@ static int SSL_verify_callback( int ok_return, X509_STORE_CTX *ctx, int strict )
 
 	if (depth == 0 && !_depth0ck) {
 		_depth0ck = 1;
-		
+
 		if (outlevel >= O_VERBOSE) {
 			if ((i = X509_NAME_get_text_by_NID(issuer, NID_organizationName, buf, sizeof(buf))) != -1) {
-				report(stdout, GT_("Issuer Organization: %s\n"), buf);
+				report(stdout, GT_("Issuer Organization: %s\n"), (tt = sdump(buf, i)));
+				xfree(tt);
 				if ((size_t)i >= sizeof(buf) - 1)
 					report(stdout, GT_("Warning: Issuer Organization Name too long (possibly truncated).\n"));
 			} else
 				report(stdout, GT_("Unknown Organization\n"));
 			if ((i = X509_NAME_get_text_by_NID(issuer, NID_commonName, buf, sizeof(buf))) != -1) {
-				report(stdout, GT_("Issuer CommonName: %s\n"), buf);
+				report(stdout, GT_("Issuer CommonName: %s\n"), (tt = sdump(buf, i)));
+				xfree(tt);
 				if ((size_t)i >= sizeof(buf) - 1)
 					report(stdout, GT_("Warning: Issuer CommonName too long (possibly truncated).\n"));
 			} else
@@ -671,12 +629,19 @@ static int SSL_verify_callback( int ok_return, X509_STORE_CTX *ctx, int strict )
 		}
 		if ((i = X509_NAME_get_text_by_NID(subj, NID_commonName, buf, sizeof(buf))) != -1) {
 			if (outlevel >= O_VERBOSE)
-				report(stdout, GT_("Server CommonName: %s\n"), buf);
+				report(stdout, GT_("Server CommonName: %s\n"), (tt = sdump(buf, i)));
+			xfree(tt);
 			if ((size_t)i >= sizeof(buf) - 1) {
 				/* Possible truncation. In this case, this is a DNS name, so this
 				 * is really bad. We do not tolerate this even in the non-strict case. */
 				report(stderr, GT_("Bad certificate: Subject CommonName too long!\n"));
 				return (0);
+			}
+			if ((size_t)i > strlen(buf)) {
+				/* Name contains embedded NUL characters, so we complain. This is likely
+				 * a certificate spoofing attack. */
+				report(stderr, GT_("Bad certificate: Subject CommonName contains NUL, aborting!\n"));
+				return 0;
 			}
 			if (_ssl_server_cname != NULL) {
 				char *p1 = buf;
@@ -687,16 +652,25 @@ static int SSL_verify_callback( int ok_return, X509_STORE_CTX *ctx, int strict )
 				
 				/* RFC 2595 section 2.4: find a matching name
 				 * first find a match among alternative names */
-				gens = X509_get_ext_d2i(x509_cert, NID_subject_alt_name, NULL, NULL);
+				gens = (STACK_OF(GENERAL_NAME) *)X509_get_ext_d2i(x509_cert, NID_subject_alt_name, NULL, NULL);
 				if (gens) {
-					int i, r;
-					for (i = 0, r = sk_GENERAL_NAME_num(gens); i < r; ++i) {
-						const GENERAL_NAME *gn = sk_GENERAL_NAME_value(gens, i);
+					int j, r;
+					for (j = 0, r = sk_GENERAL_NAME_num(gens); j < r; ++j) {
+						const GENERAL_NAME *gn = sk_GENERAL_NAME_value(gens, j);
 						if (gn->type == GEN_DNS) {
 							char *p1 = (char *)gn->d.ia5->data;
 							char *p2 = _ssl_server_cname;
-							if (outlevel >= O_VERBOSE)
-								report(stderr, "Subject Alternative Name: %s\n", p1);
+							if (outlevel >= O_VERBOSE) {
+								report(stdout, GT_("Subject Alternative Name: %s\n"), (tt = sdump(p1, (size_t)gn->d.ia5->length)));
+								xfree(tt);
+							}
+							/* Name contains embedded NUL characters, so we complain. This
+							 * is likely a certificate spoofing attack. */
+							if ((size_t)gn->d.ia5->length != strlen(p1)) {
+								report(stderr, GT_("Bad certificate: Subject Alternative Name contains NUL, aborting!\n"));
+								sk_GENERAL_NAME_free(gens);
+								return 0;
+							}
 							if (*p1 == '*') {
 								++p1;
 								n = strlen(p2) - strlen(p1);
@@ -715,14 +689,15 @@ static int SSL_verify_callback( int ok_return, X509_STORE_CTX *ctx, int strict )
 					n = strlen(p2) - strlen(p1);
 					if (n >= 0)
 						p2 += n;
-				}	
+				}
 				if (0 == strcasecmp(p1, p2)) {
-				  matched = 1;
+					matched = 1;
 				}
 				if (!matched) {
 					report(stderr,
 					    GT_("Server CommonName mismatch: %s != %s\n"),
-					    buf, _ssl_server_cname );
+					    (tt = sdump(buf, i)), _ssl_server_cname );
+					xfree(tt);
 					if (ok_return && strict)
 						return (0);
 				}
@@ -766,7 +741,7 @@ static int SSL_verify_callback( int ok_return, X509_STORE_CTX *ctx, int strict )
 			if (outlevel > O_NORMAL)
 			    report(stdout, GT_("%s key fingerprint: %s\n"), _server_label, text);
 			if (_check_digest != NULL) {
-				if (strcmp(text, _check_digest) == 0) {
+				if (strcasecmp(text, _check_digest) == 0) {
 				    if (outlevel > O_NORMAL)
 					report(stdout, GT_("%s fingerprints match.\n"), _server_label);
 				} else {
@@ -850,7 +825,7 @@ int SSLOpen(int sock, char *mycert, char *mykey, char *myproto, int certck, char
         int i;
 
 	SSL_load_error_strings();
-	SSLeay_add_ssl_algorithms();
+	SSLeay_add_ssl_algorithms(); /* synonym for SSL_library_init() */
 	
 #ifdef SSL_ENABLE
         if (stat("/dev/random", &randstat)  &&
@@ -899,6 +874,8 @@ int SSLOpen(int sock, char *mycert, char *mykey, char *myproto, int certck, char
 		ERR_print_errors_fp(stderr);
 		return(-1);
 	}
+
+	SSL_CTX_set_options(_ctx[sock], SSL_OP_ALL);
 
 	if (certck) {
 		SSL_CTX_set_verify(_ctx[sock], SSL_VERIFY_PEER, SSL_ck_verify_callback);
@@ -950,10 +927,11 @@ int SSLOpen(int sock, char *mycert, char *mykey, char *myproto, int certck, char
         	SSL_use_RSAPrivateKey_file(_ssl_context[sock], mykey, SSL_FILETYPE_PEM);
 	}
 
-	SSL_set_fd(_ssl_context[sock], sock);
-	
-	if(SSL_connect(_ssl_context[sock]) < 1) {
+	if (SSL_set_fd(_ssl_context[sock], sock) == 0 
+	    || SSL_connect(_ssl_context[sock]) < 1) {
 		ERR_print_errors_fp(stderr);
+		SSL_free( _ssl_context[sock] );
+		_ssl_context[sock] = NULL;
 		SSL_CTX_free(_ctx[sock]);
 		_ctx[sock] = NULL;
 		return(-1);

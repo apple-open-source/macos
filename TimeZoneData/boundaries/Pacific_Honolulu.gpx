@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.0">
+<trk>
+	<name>UTC -10 (all year) HST</name>
+	<trkseg>
+		<trkpt lon="-171.03515625" lat="19.9320413061"></trkpt>
+		<trkpt lon="-171.166992188" lat="15.7922535704"></trkpt>
+		<trkpt lon="-159.916992188" lat="15.411319378"></trkpt>
+		<trkpt lon="-150.336914062" lat="15.9613290816"></trkpt>
+		<trkpt lon="-150.600585938" lat="24.4871485632"></trkpt>
+		<trkpt lon="-162.465820312" lat="25.2446959513"></trkpt>
+		<trkpt lon="-170.947265625" lat="24.686952412"></trkpt>
+		<trkpt lon="-171.03515625" lat="19.9320413061"></trkpt>
+	</trkseg>
+</trk>
+</gpx>

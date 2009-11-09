@@ -1698,6 +1698,12 @@ InstallFromEDIDDesc( IOFBConnectRef connectRef,
     if( kIOReturnSuccess != err)
         return (err);
 
+    if ((connectRef->defaultIndex != -1)
+        && !bcmp(desc, &edid->descriptors[connectRef->defaultIndex].timing, 
+        sizeof(EDIDDetailedTimingDesc)))
+    {
+        dmFlags |= kDisplayModeDefaultFlag;
+    }
     if (kIOInterlacedCEATiming & timing->detailedInfo.v2.signalConfig)
     {
 	connectRef->hasInterlaced = true;
@@ -2337,13 +2343,16 @@ InstallVTBEXT( IOFBConnectRef connectRef, EDID * edid, VTBEXT * ext )
 static void
 InstallCEA861EXT( IOFBConnectRef connectRef, EDID * edid, CEA861EXT * ext )
 {
+    IOReturn err;
     IOByteCount offset = ext->detailedTimingsOffset;
 
     enum {
+        // flags
 	kCEASupportUnderscan     = 0x80,
 	kCEASupportBasicAudio    = 0x40,
 	kCEASupportYCbCr444      = 0x20,
 	kCEASupportYCbCr422      = 0x10,
+        kCEASupportNativeCount  = 0x0F,
     };
     enum {
 	kHDMISupportFlagAI      = 0x80,
@@ -2353,6 +2362,9 @@ InstallCEA861EXT( IOFBConnectRef connectRef, EDID * edid, CEA861EXT * ext )
 	kHDMISupportFlagDCY444  = 0x08,
 	kHDMISupportFlagDVIDual = 0x01,
     };
+
+    connectRef->useScalerUnderscan = (connectRef->scalerInfo 
+        && (kIOScaleCanSupportInset & connectRef->scalerInfo->scalerFeatures));
 
     if( offset < 4 )
 	return;
@@ -2377,15 +2389,20 @@ InstallCEA861EXT( IOFBConnectRef connectRef, EDID * edid, CEA861EXT * ext )
 	    {
 		// HDMI Vendor Specific Data Block (HDMI 1.3a, p.119)
 		case 0x60:
+                {
 		    DEBG( connectRef, "Found HDMI VSDB: offset=%d\n", (int) (index + 4) );
-		    if( ext->data[index+1] == 0x03 && ext->data[index+2] == 0x0C && ext->data[index+3] == 0x00 )
-		    {
+                    if ((ext->data[index+1] != 0x03) 
+                      || (ext->data[index+2] != 0x0C)
+                      || (ext->data[index+3] != 0x00))
+                        break;
+
 			DEBG( connectRef, "Found 24-bit IEEE Registration Identifier (0x%02x%02x%02x)\n", 
 				ext->data[index+3], ext->data[index+2], ext->data[index+1] );
 			connectRef->hasHDMI = true;
 
-			if (length >= 6)
-			{
+                    if (length < 6)
+                        break;
+
 			    uint32_t depths;
 			    uint8_t byte;
 			    byte = ext->data[index+4];
@@ -2399,10 +2416,9 @@ InstallCEA861EXT( IOFBConnectRef connectRef, EDID * edid, CEA861EXT * ext )
 			    if (kHDMISupportFlagDCY444 & byte)
 				depths |= (depths * kIODisplayYCbCr444ColorComponentBits6);
 			    connectRef->supportedComponentDepths |= depths;
+                    break;
 			}
 		    }
-		    break;
-            }
             index += length;
         }
 
@@ -2421,15 +2437,31 @@ InstallCEA861EXT( IOFBConnectRef connectRef, EDID * edid, CEA861EXT * ext )
 	    }
             index += length;
         }
+
+        if ((kCEASupportUnderscan & ext->flags) && !connectRef->hasShortVideoDescriptors)
+        {
+            // version 3 requires CEA modes to have short video descriptors, 
+            // so no CEA modes on this display
+            connectRef->useScalerUnderscan = false;
+    }    
     }    
 	
+    if ((1 == (kCEASupportNativeCount & ext->flags))
+        && (kDisplayAppleVendorID == connectRef->displayVendor))
+    {
+//        connectRef->defaultOnly = true;
+    }
+        
     // Process the CEA Detailed Timing Descriptor.
     while (offset <= (sizeof(ext->data) - sizeof(EDIDDetailedTimingDesc)))
     {
 	DEBG(connectRef, "FromCEA:\n");
-	InstallFromEDIDDesc( connectRef,
+        err = InstallFromEDIDDesc( connectRef,
  				 edid, (EDIDDetailedTimingDesc *) &ext->data[offset],
 				 kDisplayModeValidFlag | kDisplayModeSafeFlag );
+        if (connectRef->defaultOnly
+         && ((kIOReturnSuccess == err) || (kIOReturnPortExists == err)))
+            break;
 	offset += sizeof(EDIDDetailedTimingDesc);
     }
 }
@@ -2441,7 +2473,6 @@ LookExtensions( IOFBConnectRef connectRef, EDID * edid, UInt8 * blocks, IOByteCo
     
     while (length >= 128)
     {
-
 	tag = blocks[0];
 	switch (tag)
 	{
@@ -2454,8 +2485,6 @@ LookExtensions( IOFBConnectRef connectRef, EDID * edid, UInt8 * blocks, IOByteCo
 		break;
 	    case kExtTagCEA:
 		connectRef->hasCEAExt = true;
-                if (connectRef->scalerInfo && (kIOScaleCanSupportInset & connectRef->scalerInfo->scalerFeatures))
-                    connectRef->useScalerUnderscan = connectRef->hasCEAExt;
 		InstallCEA861EXT( connectRef, edid, (CEA861EXT *) blocks);
 		break;
 	}
@@ -2466,13 +2495,14 @@ LookExtensions( IOFBConnectRef connectRef, EDID * edid, UInt8 * blocks, IOByteCo
 __private_extern__ void
 IODisplayInstallTimings( IOFBConnectRef connectRef )
 {
-    int				i, defaultIndex;
+    int                         i;
     io_service_t		service = connectRef->framebuffer;
     EDID *			edid = 0;
     CFDataRef			fbRange;
     CFDataRef			data;
     CFArrayRef			array;
     CFIndex			count;
+    bool                        checkDI = false;
 
     static const GTFTimingCurve defaultGTFCurves[] = {
 	{ 0,          40, 600, 128, 20 },
@@ -2486,9 +2516,10 @@ IODisplayInstallTimings( IOFBConnectRef connectRef )
     if (fbRange && (size_t) CFDataGetLength(fbRange) >= sizeof(IODisplayTimingRange))
 	connectRef->fbRange = (IODisplayTimingRange *) CFDataGetBytePtr(fbRange);
 
-
     connectRef->supportedComponentDepths = kIODisplayRGBColorComponentBitsUnknown;
     connectRef->supportedColorModes	 = kIODisplayColorModeRGB;
+    connectRef->defaultIndex         = 0;
+    connectRef->defaultOnly          = false;
     connectRef->gtfDisplay	     = false;
     connectRef->cvtDisplay	     = false;
     connectRef->supportsReducedBlank = false;
@@ -2518,7 +2549,7 @@ IODisplayInstallTimings( IOFBConnectRef connectRef )
 
     DEBG(connectRef, "Display range:\n");
     data = CFDictionaryGetValue(connectRef->overrides, CFSTR("trng"));
-    if (data && CFDataGetLength(data) >= sizeof(IODisplayTimingRange))
+    if (data && (CFDataGetLength(data) >= sizeof(IODisplayTimingRange)))
 	IOFBLogRange(connectRef, (IODisplayTimingRange *) CFDataGetBytePtr(data));
 #endif
 
@@ -2552,12 +2583,33 @@ IODisplayInstallTimings( IOFBConnectRef connectRef )
 	    edid = 0;
             continue;
 	}
+
+        if (2 & edid->featureSupport)
+        {}
+        else if ((edid->version > 1) || (edid->revision >= 3))
+        {
+            checkDI = true;
+        }
+        else
+            connectRef->defaultIndex = -1;
+
+        DEBG(connectRef, "EDID default idx %d, only %d\n",
+                connectRef->defaultIndex, connectRef->defaultOnly);
+
 	count = CFDataGetLength(data);
 	if ((size_t) count > sizeof(EDID))
+        {
 	    LookExtensions(connectRef, edid, (UInt8 *)(edid + 1), count - sizeof(EDID));
+        }
+
+        if (checkDI && connectRef->hasDIEXT)
+        {
+            connectRef->defaultIndex = 1;
+            connectRef->defaultOnly = true;
+        }
 
 	uint8_t videoInput = edid->displayParams[0];
-        if((0x80 & videoInput) && (edid->version > 1) || (edid->revision >= 4))
+        if ((0x80 & videoInput) && ((edid->version > 1) || (edid->revision >= 4)))
 	{
 	    static const uint32_t depths[8] = {
 		kIODisplayRGBColorComponentBitsUnknown, kIODisplayRGBColorComponentBits6,
@@ -2625,30 +2677,15 @@ IODisplayInstallTimings( IOFBConnectRef connectRef )
 				 kDisplayModeValidFlag | kDisplayModeSafeFlag );
         }
 
-	if ((edid->version > 1) || (edid->revision >= 3))
-	{
-	    if (2 & edid->featureSupport)
-		defaultIndex = 0;
-	    else if (connectRef->hasDIEXT)
-		defaultIndex = 1;
-	    else
-		defaultIndex = 0;
-	}
-	else if (2 & edid->featureSupport)
-	    defaultIndex = 0;
-	else
-	    defaultIndex = -1;
-
-	DEBG(connectRef, "EDID default idx %d\n", defaultIndex);
-
-	if ((1 == defaultIndex) 
+        if (connectRef->defaultOnly 
+         && (-1 != connectRef->defaultIndex)
 	 && !CFDictionaryGetValue(connectRef->overrides, CFSTR("trng")))
 	{
 	    // just install the default for scaling, if it works
 	    IOReturn
 	    err = InstallFromEDIDDesc(connectRef,
                                  edid,
-                                 &edid->descriptors[1].timing,
+                                 &edid->descriptors[connectRef->defaultIndex].timing,
 				 kDisplayModeValidFlag | kDisplayModeSafeFlag | kDisplayModeDefaultFlag);
 	    if ((kIOReturnSuccess == err) || (kIOReturnPortExists == err))
 		continue;
@@ -2666,7 +2703,7 @@ IODisplayInstallTimings( IOFBConnectRef connectRef )
                                 edid,
                                 &edid->descriptors[i].timing,
                                 kDisplayModeValidFlag | kDisplayModeSafeFlag
-                                | ((i == defaultIndex) ? kDisplayModeDefaultFlag : 0));
+                                | ((i == connectRef->defaultIndex) ? kDisplayModeDefaultFlag : 0));
         }
 
         if( !connectRef->hasHDMI )
@@ -2779,13 +2816,17 @@ IODisplayForFramebuffer(
     if( kr != kIOReturnSuccess )
 	return( 0 );
 
-    for( ;
-	(service = IOIteratorNext( iter));
-	IOObjectRelease(service)) {
-
-        if( IOObjectConformsTo( service, "IODisplay"))
-            break;
+    do
+    {
+        for( ;
+            (service = IOIteratorNext( iter));
+            IOObjectRelease(service)) {
+    
+            if( IOObjectConformsTo( service, "IODisplay"))
+                break;
+        }
     }
+    while (!service && !IOIteratorIsValid(iter) && (IOIteratorReset(iter), true));
     IOObjectRelease( iter );
 
     return( service );

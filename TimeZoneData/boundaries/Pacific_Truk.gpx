@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.0">
+<trk>
+	<name>UTC +10 (all year) TRUT</name>
+	<trkseg>
+		<trkpt lon="151.094970703" lat="7.96131741919"></trkpt>
+		<trkpt lon="152.292480469" lat="7.91779335263"></trkpt>
+		<trkpt lon="152.40234375" lat="6.85007765479"></trkpt>
+		<trkpt lon="151.204833984" lat="6.85007765479"></trkpt>
+		<trkpt lon="151.094970703" lat="7.96131741919"></trkpt>
+	</trkseg>
+</trk>
+</gpx>

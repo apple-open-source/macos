@@ -21,7 +21,7 @@ include $(MAKEFILEPATH)/CoreOS/ReleaseControl/GNUSource.make
 export LIBTOOL_CMD_SEP = +
 
 # For building fat
-export MACOSX_DEPLOYMENT_TARGET = 10.5
+export MACOSX_DEPLOYMENT_TARGET = 10.6
 export LD_TWOLEVEL_NAMESPACE = 1
 
 Install_Target = install

@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.0">
+<trk>
+	<name>UTC +13 (winter) Russia</name>
+	<trkseg>
+		<trkpt lon="179.6484375" lat="62.1141611259"></trkpt>
+		<trkpt lon="175.012207031" lat="65.4582609786"></trkpt>
+		<trkpt lon="167.34375" lat="70.0355972342"></trkpt>
+		<trkpt lon="169.541015625" lat="70.6708810702"></trkpt>
+		<trkpt lon="179.560546875" lat="64.4727938201"></trkpt>
+		<trkpt lon="179.296875" lat="63.7824860312"></trkpt>
+		<trkpt lon="179.274902344" lat="63.4308602127"></trkpt>
+		<trkpt lon="179.670410156" lat="63.084813777"></trkpt>
+		<trkpt lon="179.6484375" lat="62.8952175449"></trkpt>
+		<trkpt lon="179.780273438" lat="62.6236675755"></trkpt>
+		<trkpt lon="179.6484375" lat="62.1141611259"></trkpt>
+	</trkseg>
+</trk>
+</gpx>

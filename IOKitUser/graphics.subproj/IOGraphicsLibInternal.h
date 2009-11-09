@@ -332,6 +332,7 @@ struct IOFBConnect
     IODisplayVendorID		displayVendor;
     IODisplayProductID		displayProduct;
     IOFBOvrDimensions		dimensions;
+    int32_t                     defaultIndex;
     UInt32			defaultWidth;
     UInt32			defaultHeight;
     UInt32			defaultImageWidth;
@@ -346,6 +347,7 @@ struct IOFBConnect
     UInt64			transform;
     uint32_t			supportedComponentDepths;
     uint32_t			supportedColorModes;
+    Boolean                     defaultOnly;
     Boolean			gtfDisplay;
     Boolean			cvtDisplay;
     Boolean			supportsReducedBlank;

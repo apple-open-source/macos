@@ -627,7 +627,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 2.4.0;
+				CURRENT_PROJECT_VERSION = 2.4.2;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_ENABLE_FIX_AND_CONTINUE = YES;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
@@ -651,7 +651,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				COPY_PHASE_STRIP = YES;
-				CURRENT_PROJECT_VERSION = 2.4.0;
+				CURRENT_PROJECT_VERSION = 2.4.2;
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
@@ -670,7 +670,7 @@
 		ACB746190D621FE1002F4863 /* Default */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CURRENT_PROJECT_VERSION = 2.4.0;
+				CURRENT_PROJECT_VERSION = 2.4.2;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -706,7 +706,7 @@
 				MODULE_NAME = com.apple.filesystems.cddafs;
 				MODULE_START = Apple_CDDA_FS_Module_Start;
 				MODULE_STOP = Apple_CDDA_FS_Module_Stop;
-				MODULE_VERSION = 2.4.0;
+				MODULE_VERSION = 2.4.2;
 				OTHER_CFLAGS = "-Wno-format";
 				OTHER_CPLUSPLUSFLAGS = "-fapple-kext";
 				OTHER_LDFLAGS = "";
@@ -744,7 +744,7 @@
 				MODULE_NAME = com.apple.filesystems.cddafs;
 				MODULE_START = Apple_CDDA_FS_Module_Start;
 				MODULE_STOP = Apple_CDDA_FS_Module_Stop;
-				MODULE_VERSION = 2.4.0;
+				MODULE_VERSION = 2.4.2;
 				OTHER_CFLAGS = "-Wno-format";
 				OTHER_CPLUSPLUSFLAGS = "-fapple-kext";
 				OTHER_LDFLAGS = "";
@@ -780,7 +780,7 @@
 				MODULE_NAME = com.apple.filesystems.cddafs;
 				MODULE_START = Apple_CDDA_FS_Module_Start;
 				MODULE_STOP = Apple_CDDA_FS_Module_Stop;
-				MODULE_VERSION = 2.4.0;
+				MODULE_VERSION = 2.4.2;
 				OTHER_CFLAGS = "-Wno-format";
 				OTHER_CPLUSPLUSFLAGS = "-fapple-kext";
 				OTHER_LDFLAGS = "";

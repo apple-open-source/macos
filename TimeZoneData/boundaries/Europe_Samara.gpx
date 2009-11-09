@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.0">
+<trk>
+	<name>UTC+4 (winter) Самарская область (Samara)</name>
+	<trkseg>
+		<trkpt lon="52.5374" lat="54.3771"></trkpt>
+		<trkpt lon="52.1944" lat="54.2972"></trkpt>
+		<trkpt lon="52.4875" lat="54.0578"></trkpt>
+		<trkpt lon="52.0753" lat="53.5064"></trkpt>
+		<trkpt lon="52.1597" lat="53.0967"></trkpt>
+		<trkpt lon="51.728" lat="52.8719"></trkpt>
+		<trkpt lon="51.7336" lat="52.6675"></trkpt>
+		<trkpt lon="51.5342" lat="52.6742"></trkpt>
+		<trkpt lon="51.4125" lat="52.0897"></trkpt>
+		<trkpt lon="50.7733" lat="51.7692"></trkpt>
+		<trkpt lon="50.7242" lat="51.9292"></trkpt>
+		<trkpt lon="50.1628" lat="52.0217"></trkpt>
+		<trkpt lon="50.2172" lat="52.1339"></trkpt>
+		<trkpt lon="49.6547" lat="52.258"></trkpt>
+		<trkpt lon="49.58" lat="52.4025"></trkpt>
+		<trkpt lon="49.4792" lat="52.328"></trkpt>
+		<trkpt lon="49.2205" lat="52.5119"></trkpt>
+		<trkpt lon="48.8908" lat="52.4111"></trkpt>
+		<trkpt lon="48.6997" lat="52.6458"></trkpt>
+		<trkpt lon="48.3669" lat="52.6742"></trkpt>
+		<trkpt lon="48.5889" lat="52.9222"></trkpt>
+		<trkpt lon="48.3183" lat="52.9855"></trkpt>
+		<trkpt lon="48.3689" lat="53.0664"></trkpt>
+		<trkpt lon="48.2236" lat="52.9972"></trkpt>
+		<trkpt lon="47.943" lat="53.3703"></trkpt>
+		<trkpt lon="48.3783" lat="53.4714"></trkpt>
+		<trkpt lon="48.4408" lat="53.5814"></trkpt>
+		<trkpt lon="48.3142" lat="53.6558"></trkpt>
+		<trkpt lon="48.6033" lat="53.6694"></trkpt>
+		<trkpt lon="48.4722" lat="53.7708"></trkpt>
+		<trkpt lon="50.0378" lat="53.8253"></trkpt>
+		<trkpt lon="49.9744" lat="53.9614"></trkpt>
+		<trkpt lon="50.1975" lat="54.0372"></trkpt>
+		<trkpt lon="50.2622" lat="54.2894"></trkpt>
+		<trkpt lon="50.0769" lat="54.5167"></trkpt>
+		<trkpt lon="50.3889" lat="54.4889"></trkpt>
+		<trkpt lon="50.5186" lat="54.3264"></trkpt>
+		<trkpt lon="50.703" lat="54.4283"></trkpt>
+		<trkpt lon="50.9361" lat="54.34"></trkpt>
+		<trkpt lon="51.0097" lat="54.5517"></trkpt>
+		<trkpt lon="51.3955" lat="54.6772"></trkpt>
+		<trkpt lon="51.9272" lat="54.5361"></trkpt>
+		<trkpt lon="52.0853" lat="54.3394"></trkpt>
+		<trkpt lon="52.4394" lat="54.4789"></trkpt>
+		<trkpt lon="52.5374" lat="54.3771"></trkpt>
+	</trkseg>
+</trk>
+</gpx>

@@ -170,8 +170,8 @@ public:
 	
 	virtual bool init(IOHIKeyboard * delegate,
 					const UInt8 *  mapping,
-					UInt32         mappingLength,
-					bool           mappingShouldBeFreed);
+					  UInt32         mappingLength,
+					  bool           mappingShouldBeFreed);
 	virtual void free();
 	
 	virtual const UInt8 *   mapping();
@@ -196,8 +196,8 @@ private:
 
 
 	virtual bool parseKeyMapping(const UInt8 *        mapping,
-								UInt32               mappingLength,
-							NXParsedKeyMapping * parsedMapping) const;
+								 UInt32               mappingLength,
+							     NXParsedKeyMapping * parsedMapping) const;
 	
 	virtual void calcModBit(int bit, kbdBitVector keyBits);
 	virtual void doModCalc(int key, kbdBitVector keyBits);

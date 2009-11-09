@@ -32,6 +32,7 @@
 #include "apr_sdbm.h"
 #include "apr_sha1.h"
 #include "apr_strmatch.h"
+#include "apr_thread_pool.h"
 #include "apr_uri.h"
 #include "apr_uuid.h"
 #include "apr_xlate.h"

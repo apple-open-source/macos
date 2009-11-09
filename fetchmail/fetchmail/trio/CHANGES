@@ -4,10 +4,152 @@ CHANGES -- trio
 The changes listed without a name attributed to them were most likely done by
 Bjorn Reese and/or Daniel Stenberg.
 
+Version 1.14 - 2009/05/31
+-------------------------
+* Adam McLaurin
+  Improved parsing performance by avoiding memset() and memcpy() on character
+  arrays.
+
+* Gideon Smeding
+  Fixed %u scanning of signed numbers.
+
+* Gideon Smeding
+  Fixed group scanning for non-matching input.
+
+* Fixed missing undo of look-ahead reading for scanf functions. This does only
+  work for the scanf* and fscanf* functions, not dscanf* and cscanf* functions
+  (reported by Gideon Smeding).
+
+* If the format string is empty, scanf does not attempt to read any input.
+
+* Ralf Junker
+  Fixed Borland compilation for user-defined specifiers.
+
+
+Version 1.13 - 2008/11/09
+-------------------------
+* Ives Aerts
+  Added the $<format|skip> format for user-defined specifiers, which is
+  compatible with compiler warnings about mismatches between specifiers and
+  arguments.
+
+* Added TRIO_DEPRECATED flag (reported by David Boyce)
+
+* Fixed rounding adjustment for long double (reported as bug item #2136686).
+
+* Added Makefile dependency for test target (reported as bug item #2136636).
+
+* David Boyce
+  Fixed long long support for MSVC.
+
+* Fixed potential problem with read after buffer end for non-zero terminated
+  strings (reported as bug item #1828465).
+
+* Andreas Stricker
+  Added WinCE support.
+
+* Fixed number of significant digits for %g.
+
+
+Version 1.12 - 2006/10/22
+-------------------------
+* Fixed scanning of floats (reported by Bernd Ahlers).
+
+* Fixed configure.in for GCC on Tru64 and MIPSpro on IRIX (reported by Andreas
+  Maus).
+
+* Olli Savia
+  Added support for LynxOS.
+
+
+Version 1.11 - 2006/04/08
+-------------------------
+* Mark Pickelmann
+  Fixed trio_unregister. If the first element was removed, the remaining
+  list would be removed as well.
+
+* Fixed unintended formatting of %e that would result in non-zero numbers
+  starting with zero (reported by Mark Pickelmann and Gisli Ottarsson).
+
+* Fixed compilation with Sun Workshop 6 (reported by Matthias Andree).
+
+* Fixed accuracy for denormalized numbers (bug item #758327).
+
+* Glen Davidson
+  Fixed scanning of floating-point numbers without a decimal-point (bug item
+  #1370427).
+
+* David Byron
+  Fixed more compiler warnings.
+
+* Fixed compilation of trio_to_long_double and TRIO_FEATURE_FLOAT (reported by
+  David Byron).
+
+* Fixed precision of large floating-point numbers (bug item #1314524).
+
+* Karl Bochert
+  Fixed trio_fpclassify_and_signbit to only restore the floating-point
+  precision.
+
+* Fixed detection of need for ieee option on FreeBSD/Alpha.
+
+* Added TRIO_SNPRINTF_ONLY compilation.
+
+* Fixed trio_to_double by not using strtod() on Tru64/DECC because it does not
+  support hex-floats.
+
+* Fixed crash on 64 bits machines related to a previous workaround in version
+  1.9 for uninitialized va_list (reported by Nicolai Tufar, suggestion by
+  Douglas Gwyn).
+
+* Patrick Jessee
+  Fixed width calculation for %g.
+
+* Added macros for internal features.
+
+* Jon Foster
+  Added macros for conditional compilation of many features. Documented all
+  the features.
+
+* Karl Bochert
+  Fixed problem with Borland C++, which changes the floating-point precision
+  for certain math functions (log10() and _fpclass()).
+
+* Karl Bochert
+  Fixed compilation warnings on Borland C++.
+
+* Removed any occurrence of #elif because Borland C++ reports wrong line
+  numbers when they are present (reported by Karl Bochert).
+
+* David Byron
+  Added trio_asprintfv.
+
+* Brian Chapman
+  Fixed Mac OS X compilation.
+
+* David Byron
+  Fixed several compiler warnings.
+
+* Fixed printing of out-of-range arguments for %hhd and %hd. These arguments
+  can be out of range because of default integer promotion.
+
+* Bob Friesenhahn
+  Fixed installation of header files.
+
+* Joe Orton
+  Added SHELL to Makefile.in to avoid problems with CShells.
+
+* Shaun Tancheff
+  Fixed regresion tests for MSVC.
+
+* Craig Berry
+  Fixed the VMS C99 workaround.
+
+
 Version 1.10 - 2003/03/06
 -------------------------
 * Rearranged some include files to accommodate large file support (reported by
-  Albert Chin-A-Young)
+  Albert Chin-A-Young).
 
 * Added support for SunOS 4.1.x lack of strerror, tolower, and toupper
   (reported by Peter McCluskey).
@@ -370,9 +512,6 @@ Version 0.21 - 2000/07/19
   assume blocking sockets). Stdio buffering is surpassed, so the functions are
   async-safe. However, reading from stdin (STDIN_FILENO) or writing to stdout
   (STDOUT_FILENO) reintroduces the buffering.
-
-* Added trio_dprintf and trio_vdprintf. These can be used to write directly
-  to pipes and sockets.
 
 * Paul Janzen
   Added trio_asprintf and trio_vasprintf, which are compatible with the GNU

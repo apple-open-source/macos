@@ -4,7 +4,7 @@
 %define have_python 1
 
 Name:		fetchmail
-Version:	6.3.8
+Version:	6.3.11
 Release:	1
 Vendor:		The Community Fetchmail Project
 Packager:	Fetchmail Developers <fetchmail-devel@lists.berlios.de>
@@ -184,7 +184,7 @@ rm -rf $RPM_BUILD_ROOT %{_builddir}/%name-%version
 %files
 %defattr (644, root, root, 755)
 %doc ABOUT-NLS FAQ COPYING FEATURES NEWS
-%doc NOTES OLDNEWS README README.SSL
+%doc NOTES OLDNEWS README README.SSL README.SSL-SERVER
 %doc contrib
 %doc fetchmail-features.html fetchmail-FAQ.html esrs-design-notes.html
 %doc design-notes.html
@@ -205,5 +205,5 @@ rm -rf $RPM_BUILD_ROOT %{_builddir}/%name-%version
 %endif
 
 %changelog
-* Fri Apr 06 2007 <fetchmail-devel@lists.berlios.de> 6.3.8
+* Thu Aug 06 2009 <fetchmail-devel@lists.berlios.de> 6.3.11
 - See the project NEWS file for recent changes.

@@ -3,29 +3,29 @@
 MSG() {
 cat << EOF
 
-# Fetchsetup is a shell script for creating a .fetchmailrc file,  
-# that will be used by the program "fetchmail" to connect to your 
-# mail domain and retrieve your mail. 
+# Fetchsetup is a shell script for creating a .fetchmailrc file, that will be
+# used by the program "fetchmail" to connect to your mail domain and retrieve
+# your mail.
 # This script is linux specific, so it may not work on another system.
 # Kent Robotti <krobot@erols.com> (3-31-99)
 
 EOF
 }
 
-if [ ! "$UID" = "0" ]; then
-echo "[$LOGNAME] You need to be [root] to run this script."
-echo "You could login: root"
-echo "You could also try one of these: # sudo fetchsetup"
-echo "                                 # su -c fetchsetup"
-exit 1
+if [ "$(id -ur)" != "0" ]; then
+    echo >&2 "$0: You need to be root [found $(id -un)] to run this script."
+    echo >&2 "You could login as root"
+    echo >&2 "You could also try one of these: # sudo fetchsetup"
+    echo >&2 "                                 # su root -c fetchsetup"
+    exit 1
 fi
 
 MSG
 echo -n "Continue? (Y/n) : "
 read ans
 if [ "$ans" = "n" -o "$ans" = "N" ]; then
-echo "Cancelled."
-exit 0
+    echo "Cancelled."
+    exit 0
 fi
 
 stty erase "^?" 2>/dev/null
@@ -37,7 +37,7 @@ read SITE
 echo
 echo "Protocol?: pop3   <My service provider uses the 'pop3' mail protocol>"
 echo "Protocol?: auto   <If not sure put: auto>"
-echo "Choices: apop auto etrn imap imap-gss imap-k4 kpop pop2 pop3 rpop sdps" 
+echo "Choices: apop auto etrn imap imap-gss imap-k4 kpop pop2 pop3 rpop sdps"
 echo -n "Protocol?: "
 read PROTO
 echo
@@ -53,29 +53,29 @@ echo
 echo -n "Create $HOME/.fetchmailrc file? (Y/n) : "
 read ans
 if [ "$ans" = "n" -o "$ans" = "N" ]; then
-echo
-echo "Fetchsetup cancelled."
-echo
-exit 0
+    echo
+    echo "Fetchsetup cancelled."
+    echo
+    exit 0
 fi
 
 echo 'poll "'$SITE'"' > $HOME/.fetchmailrc
 echo "protocol $PROTO" >> $HOME/.fetchmailrc
 echo 'username "'$USR'"' >> $HOME/.fetchmailrc
 echo 'password "'$PASS'"' >> $HOME/.fetchmailrc
- 
-PROCMAIL=`type -all procmail | sed -n "1 p" | cut -d' ' -f3`  
-SENDMAIL=`type -all sendmail | sed -n "1 p" | cut -d' ' -f3`  
+
+PROCMAIL=`type -all procmail | sed -n "1 p" | cut -d' ' -f3`
+SENDMAIL=`type -all sendmail | sed -n "1 p" | cut -d' ' -f3`
 
 if [ ! "$PROCMAIL" = "" ]; then
-echo 'mda "'$PROCMAIL -d %s'"' >> $HOME/.fetchmailrc
-MDA="1"
+    echo 'mda "'$PROCMAIL -d %s'"' >> $HOME/.fetchmailrc
+    MDA="1"
 elif [ ! "$SENDMAIL" = "" ]; then
-echo 'mda "'$SENDMAIL %s'"' >> $HOME/.fetchmailrc
-MDA="2"
+    echo 'mda "'$SENDMAIL %s'"' >> $HOME/.fetchmailrc
+    MDA="2"
 else
-MDA="3"
-fi 
+    MDA="3"
+fi
 
 echo >> $HOME/.fetchmailrc
 echo
@@ -87,45 +87,45 @@ echo
 cat $HOME/.fetchmailrc
 
 if [ ! "$MAIL" = "" ]; then
-echo "Fetchmail will retrieve your mail and put it in:"
-echo "$MAIL"
-if [ ! -f "$MAIL" ]; then
-touch $MAIL 2>/dev/null
-chmod 600 $MAIL 2>/dev/null
-fi
+    echo "Fetchmail will retrieve your mail and put it in:"
+    echo "$MAIL"
+    if [ ! -f "$MAIL" ]; then
+	touch $MAIL 2>/dev/null
+	chmod 600 $MAIL 2>/dev/null
+    fi
 fi
 
 echo
 if [ "$MDA" = "1" ]; then
-echo "I put that (m)ail (d)elivery (a)gent in .fetchmailrc"
-echo "because i found it on your system, this doesn't mean" 
-echo "it's correct or the one you want to use."
-echo
-echo "The first time you run fetchmail, you should run it"
-echo "this way: # fetchmail -k"
-echo
+    echo "I put that (m)ail (d)elivery (a)gent in .fetchmailrc"
+    echo "because i found it on your system, this doesn't mean"
+    echo "it's correct or the one you want to use."
+    echo
+    echo "The first time you run fetchmail, you should run it"
+    echo "this way: # fetchmail -k"
+    echo
 elif [ "$MDA" = "2" ]; then
-echo "You seem to have sendmail, sendmail will be used"
-echo "as the (m)ail (d)elivery (a)gent for fetchmail."
-echo
-echo "WARNING! There's no way to know if sendmail is set up"
-echo "properly for local mail delivery, so the first time you"
-echo "run fetchmail run it this way: # fetchmail -k"
-echo
-echo "If the mail that fetchmail retrieves is not put in your mailbox," 
-echo "you'll know that sendmail is not set up properly for the delivery" 
-echo "of local mail."
-echo
+    echo "You seem to have sendmail, sendmail will be used"
+    echo "as the (m)ail (d)elivery (a)gent for fetchmail."
+    echo
+    echo "WARNING! There's no way to know if sendmail is set up"
+    echo "properly for local mail delivery, so the first time you"
+    echo "run fetchmail run it this way: # fetchmail -k"
+    echo
+    echo "If the mail that fetchmail retrieves is not put in your mailbox,"
+    echo "you'll know that sendmail is not set up properly for the delivery"
+    echo "of local mail."
+    echo
 elif [ "$MDA" = "3" ]; then
-echo "I Don't know what (m)ail (d)elivery (a)gent you're going to use."
-echo "You need a <mda> to deliver the mail to you, after <fetchmail> retrieves it."
-echo
-echo "Put the <mda> in your .fetchmailrc file, like below."
-echo "password $PASS"
-echo mda '"/usr/bin/procmail -d %s"'
-echo mda '"/usr/sbin/sendmail %s"'
-echo
-echo "The first time you run fetchmail, you should run it"
-echo "this way: # fetchmail -k"
-echo
+    echo "I Don't know what (m)ail (d)elivery (a)gent you're going to use."
+    echo "You need a <mda> to deliver the mail to you, after <fetchmail> retrieves it."
+    echo
+    echo "Put the <mda> in your .fetchmailrc file, like below."
+    echo "password $PASS"
+    echo mda '"/usr/bin/procmail -d %s"'
+    echo mda '"/usr/sbin/sendmail %s"'
+    echo
+    echo "The first time you run fetchmail, you should run it"
+    echo "this way: # fetchmail -k"
+    echo
 fi

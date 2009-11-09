@@ -15,7 +15,6 @@
  */
 
 #include "apu.h"
-#define HAVE_MYSQL_MYSQL_H
 
 #if APU_HAVE_MYSQL
 
@@ -25,12 +24,24 @@
 #include <ctype.h>
 #include <stdlib.h>
 
-#ifdef HAVE_MYSQL_H
-#include <mysql.h>
-#include <errmsg.h>
-#elif defined(HAVE_MYSQL_MYSQL_H)
+#if defined(HAVE_MYSQL_MYSQL_H)
+#if defined(HAVE_MYSQL_MY_GLOBAL_H)
+#include <mysql/my_global.h>
+#if defined(HAVE_MYSQL_MY_SYS_H)
+#include <mysql/my_sys.h>
+#endif
+#endif
 #include <mysql/mysql.h>
 #include <mysql/errmsg.h>
+#else /* !defined(HAVE_MYSQL_MYSQL_H) */
+#if defined(HAVE_MY_GLOBAL_H) 
+#include <my_global.h>
+#if defined(HAVE_MY_SYS_H)
+#include <my_sys.h>
+#endif
+#endif
+#include <mysql.h>
+#include <errmsg.h>
 #endif
 
 #include "apr_strings.h"
@@ -102,6 +113,7 @@ static apr_bucket *apr_bucket_lob_create(const apr_dbd_row_t *row, int col,
                                          apr_off_t offset,
                                          apr_size_t len, apr_pool_t *p,
                                          apr_bucket_alloc_t *list);
+static int dbd_mysql_num_cols(apr_dbd_results_t *res);
 
 static const apr_bucket_type_t apr_bucket_type_lob = {
     "LOB", 5, APR_BUCKET_DATA,
@@ -246,7 +258,7 @@ static int dbd_mysql_select(apr_pool_t *pool, apr_dbd_t *sql,
     } else {
         ret = mysql_errno(sql->conn);
     }
-    
+
     if (TXN_NOTICE_ERRORS(sql->trans)) {
         sql->trans->errnum = ret;
     }
@@ -323,6 +335,9 @@ static int dbd_mysql_get_entry(const apr_dbd_row_t *row, int n,
                                apr_dbd_datum_t *val)
 {
     MYSQL_BIND *bind;
+    if (dbd_mysql_num_cols(row->res) <= n) {
+    	return NULL;
+    }
     if (row->res->statement) {
         bind = &row->res->bind[n];
         if (mysql_stmt_fetch_column(row->res->statement, bind, n, 0) != 0) {
@@ -349,6 +364,9 @@ static int dbd_mysql_get_entry(const apr_dbd_row_t *row, int n,
 static const char *dbd_mysql_get_entry(const apr_dbd_row_t *row, int n)
 {
     MYSQL_BIND *bind;
+    if (dbd_mysql_num_cols(row->res) <= n) {
+    	return NULL;
+    }
     if (row->res->statement) {
         bind = &row->res->bind[n];
         if (mysql_stmt_fetch_column(row->res->statement, bind, n, 0) != 0) {
@@ -1090,7 +1108,7 @@ static apr_dbd_t *dbd_mysql_open(apr_pool_t *pool, const char *params,
 #endif
     MYSQL *real_conn;
     unsigned long flags = 0;
-    
+
     struct {
         const char *field;
         const char *value;
@@ -1166,7 +1184,7 @@ static apr_dbd_t *dbd_mysql_open(apr_pool_t *pool, const char *params,
     /* the MySQL manual says this should be BEFORE mysql_real_connect */
     mysql_options(sql->conn, MYSQL_OPT_RECONNECT, &do_reconnect);
 #endif
-    
+
     real_conn = mysql_real_connect(sql->conn, fields[0].value,
                                    fields[1].value, fields[2].value,
                                    fields[3].value, port,
@@ -1246,8 +1264,8 @@ static void dbd_mysql_init(apr_pool_t *pool)
 {
     my_init();
     mysql_thread_init();
-   
-    /* FIXME: this is a guess; find out what it really does */ 
+
+    /* FIXME: this is a guess; find out what it really does */
     apr_pool_cleanup_register(pool, NULL, thread_end, apr_pool_cleanup_null);
 }
 APU_MODULE_DECLARE_DATA const apr_dbd_driver_t apr_dbd_mysql_driver = {

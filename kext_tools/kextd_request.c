@@ -547,19 +547,19 @@ kextdProcessKernelResourceRequest(
 
     if (!requestArgs) {
         OSKextLog(/* kext */ NULL,
-            kOSKextLogErrorLevel | kOSKextLogIPCFlag,
+            kOSKextLogProgressLevel | kOSKextLogIPCFlag,
             "No arguments in kernel kext resource request.");
         goto finish;
     }
     if (!kextIdentifier) {
         OSKextLog(/* kext */ NULL,
-            kOSKextLogErrorLevel | kOSKextLogIPCFlag,
+            kOSKextLogProgressLevel | kOSKextLogIPCFlag,
             "No kext ID in kernel kext resource request.");
         goto finish;
     }
     if (!resourceName) {
         OSKextLog(/* kext */ NULL,
-            kOSKextLogErrorLevel | kOSKextLogIPCFlag,
+            kOSKextLogProgressLevel | kOSKextLogIPCFlag,
             "No resource name in kernel kext resource request.");
         goto finish;
     }
@@ -577,7 +577,7 @@ kextdProcessKernelResourceRequest(
     if (CFEqual(resourceName, CFSTR(kDSStoreFilename))) {
         requestResult = kOSKextReturnInvalidArgument;
         OSKextLog(/* kext */ NULL,
-            kOSKextLogErrorLevel | kOSKextLogIPCFlag | kOSKextLogFileAccessFlag,
+            kOSKextLogProgressLevel | kOSKextLogIPCFlag | kOSKextLogFileAccessFlag,
             "Request for %s resource by %s - not allowed.",
             kDSStoreFilename, kextIdentifierCString);
         goto finish;
@@ -597,7 +597,7 @@ kextdProcessKernelResourceRequest(
     osKext = OSKextCreateWithIdentifier(kCFAllocatorDefault, kextIdentifier);
     if (!osKext) {
         OSKextLog(/* kext */ NULL,
-            kOSKextLogErrorLevel | kOSKextLogIPCFlag,
+            kOSKextLogProgressLevel | kOSKextLogIPCFlag,
             "Kext id %s not found; can't retrieve requested resource.",
             kextIdentifierCString);
         goto finish;
@@ -620,7 +620,7 @@ kextdProcessKernelResourceRequest(
 
     if (!OSKextIsValid(osKext)) {
         OSKextLog(/* kext */ NULL,
-            kOSKextLogErrorLevel | kOSKextLogIPCFlag | kOSKextLogValidationFlag,
+            kOSKextLogProgressLevel | kOSKextLogIPCFlag | kOSKextLogValidationFlag,
             "%s is not valid; can't retrieve requested resource.",
             kextPathCString);
         requestResult = kOSKextReturnValidation;
@@ -630,7 +630,7 @@ kextdProcessKernelResourceRequest(
 
     if (!OSKextIsAuthentic(osKext)) {
         OSKextLog(/* kext */ NULL,
-            kOSKextLogErrorLevel | kOSKextLogIPCFlag | kOSKextLogAuthenticationFlag,
+            kOSKextLogProgressLevel | kOSKextLogIPCFlag | kOSKextLogAuthenticationFlag,
             "%s is not authentic; can't retrieve requested resource.",
             kextPathCString);
         requestResult = kOSKextReturnAuthentication;
@@ -641,7 +641,7 @@ kextdProcessKernelResourceRequest(
         /* resourceType */ NULL);
     if (!resource) {
         OSKextLog(/* kext */ NULL,
-            kOSKextLogErrorLevel | kOSKextLogIPCFlag | kOSKextLogFileAccessFlag,
+            kOSKextLogProgressLevel | kOSKextLogIPCFlag | kOSKextLogFileAccessFlag,
             "Can't find resource %s in %s.",
             resourceNameCString, kextPathCString);
         requestResult = kOSKextReturnNotFound;

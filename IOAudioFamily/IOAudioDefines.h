@@ -168,6 +168,22 @@
 
 #define	kIOAudioEngineAlwaysLoadCoreAudioPlugInKey		"IOAudioEngineAlwaysLoadCoreAudioPlugIn"
 
+/*!
+ * @defined kIOAudioEngineInputChannelLayoutKey
+ * @abstract The key in the IORegistry for the IOAudioEngine's dictionary describes an array of OSNumber data that describe the spatial position of each channel.  See IOAudioTypes.h.
+ * @discussion
+ */
+
+#define kIOAudioEngineInputChannelLayoutKey				"IOAudioEngineInputChannelLayout"
+
+/*!
+ * @defined kIOAudioEngineOutputChannelLayoutKey
+ * @abstract The key in the IORegistry for the IOAudioEngine's dictionary describes an array of OSNumber data that describe the spatial position of each channel.  See IOAudioTypes.h.
+ * @discussion
+ */
+
+#define kIOAudioEngineOutputChannelLayoutKey			"IOAudioEngineOutputChannelLayout"
+
 /*****
  *
  * IOAudioStream defines

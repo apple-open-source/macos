@@ -1771,7 +1771,11 @@ pfkey_send_x2(so, type, satype, mode, src, dst, spi)
 
 	/* create new sadb_msg to reply. */
 	len = sizeof(struct sadb_msg)
+#ifdef __APPLE__
+		+ sizeof(struct sadb_sa_2)
+#else
 		+ sizeof(struct sadb_sa)
+#endif
 		+ sizeof(struct sadb_address)
 		+ PFKEY_ALIGN8(sysdep_sa_len(src))
 		+ sizeof(struct sadb_address)

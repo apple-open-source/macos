@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.0">
+<trk>
+	<name>UTC+1 (winter) Namibia</name>
+	<trkseg>
+		<trkpt lon="11.689453125" lat="-17.2247582066"></trkpt>
+		<trkpt lon="11.9970703125" lat="-17.1407903933"></trkpt>
+		<trkpt lon="12.2607421875" lat="-17.3086878868"></trkpt>
+		<trkpt lon="12.744140625" lat="-17.3086878868"></trkpt>
+		<trkpt lon="12.7880859375" lat="-17.0567846099"></trkpt>
+		<trkpt lon="13.4912109375" lat="-16.97274102"></trkpt>
+		<trkpt lon="14.0625" lat="-17.4345105515"></trkpt>
+		<trkpt lon="18.3251953125" lat="-17.3925792711"></trkpt>
+		<trkpt lon="18.720703125" lat="-17.8114560886"></trkpt>
+		<trkpt lon="20.830078125" lat="-18.0205276579"></trkpt>
+		<trkpt lon="21.005859375" lat="-17.8951143037"></trkpt>
+		<trkpt lon="21.4453125" lat="-18.0205276579"></trkpt>
+		<trkpt lon="24.3896484375" lat="-17.4764321972"></trkpt>
+		<trkpt lon="24.609375" lat="-17.5392965562"></trkpt>
+		<trkpt lon="24.7412109375" lat="-17.5183441879"></trkpt>
+		<trkpt lon="25.0268554688" lat="-17.5811940265"></trkpt>
+		<trkpt lon="25.2465820312" lat="-17.7696122471"></trkpt>
+		<trkpt lon="25.0927734375" lat="-17.8532901141"></trkpt>
+		<trkpt lon="25.0048828125" lat="-17.7905353936"></trkpt>
+		<trkpt lon="24.521484375" lat="-18.0623123045"></trkpt>
+		<trkpt lon="24.43359375" lat="-17.9369286375"></trkpt>
+		<trkpt lon="23.642578125" lat="-18.5004474585"></trkpt>
+		<trkpt lon="23.291015625" lat="-18.0205276579"></trkpt>
+		<trkpt lon="20.9838867188" lat="-18.3545255291"></trkpt>
+		<trkpt lon="21.0278320312" lat="-21.9838014174"></trkpt>
+		<trkpt lon="20.0390625" lat="-22.0652780678"></trkpt>
+		<trkpt lon="19.9951171875" lat="-28.4783486922"></trkpt>
+		<trkpt lon="19.5776367188" lat="-28.5555760492"></trkpt>
+		<trkpt lon="19.423828125" lat="-28.6905876543"></trkpt>
+		<trkpt lon="19.2260742188" lat="-28.7483965712"></trkpt>
+		<trkpt lon="19.3139648438" lat="-28.9023972286"></trkpt>
+		<trkpt lon="19.1162109375" lat="-29.0369606486"></trkpt>
+		<trkpt lon="18.9624023438" lat="-28.8831596093"></trkpt>
+		<trkpt lon="18.5009765625" lat="-28.8831596093"></trkpt>
+		<trkpt lon="18.1494140625" lat="-28.9408617694"></trkpt>
+		<trkpt lon="17.9077148438" lat="-28.7676591057"></trkpt>
+		<trkpt lon="17.578125" lat="-28.7483965712"></trkpt>
+		<trkpt lon="17.490234375" lat="-28.7098608439"></trkpt>
+		<trkpt lon="17.4462890625" lat="-28.5748740474"></trkpt>
+		<trkpt lon="17.314453125" lat="-28.4590330197"></trkpt>
+		<trkpt lon="17.3803710938" lat="-28.3430649048"></trkpt>
+		<trkpt lon="17.3803710938" lat="-28.246327971"></trkpt>
+		<trkpt lon="17.1826171875" lat="-28.2269700389"></trkpt>
+		<trkpt lon="17.2045898438" lat="-28.0913662814"></trkpt>
+		<trkpt lon="17.0068359375" lat="-28.0525908233"></trkpt>
+		<trkpt lon="16.875" lat="-28.0719803018"></trkpt>
+		<trkpt lon="16.7651367188" lat="-28.3237245535"></trkpt>
+		<trkpt lon="16.7651367188" lat="-28.4783486922"></trkpt>
+		<trkpt lon="16.4575195312" lat="-28.613459424"></trkpt>
+		<trkpt lon="15.5786132812" lat="-27.9749979533"></trkpt>
+		<trkpt lon="15.2490234375" lat="-27.3327351369"></trkpt>
+		<trkpt lon="14.9633789062" lat="-26.3328069229"></trkpt>
+		<trkpt lon="14.7875976562" lat="-25.7009378814"></trkpt>
+		<trkpt lon="14.6118164062" lat="-24.686952412"></trkpt>
+		<trkpt lon="14.4140625" lat="-24.026396666"></trkpt>
+		<trkpt lon="14.3920898438" lat="-22.9786239704"></trkpt>
+		<trkpt lon="14.4140625" lat="-22.6342926938"></trkpt>
+		<trkpt lon="14.3041992188" lat="-22.2484287044"></trkpt>
+		<trkpt lon="13.5131835938" lat="-21.2279419051"></trkpt>
+		<trkpt lon="12.9858398438" lat="-20.0765701045"></trkpt>
+		<trkpt lon="12.4145507812" lat="-19.020577111"></trkpt>
+		<trkpt lon="11.953125" lat="-18.5837756884"></trkpt>
+		<trkpt lon="11.6455078125" lat="-17.9996316149"></trkpt>
+		<trkpt lon="11.689453125" lat="-17.2247582066"></trkpt>
+	</trkseg>
+</trk>
+</gpx>

@@ -79,7 +79,6 @@
     //	Vendor-specific device from unknown vendor
     //
     
-    tempString1 = [deviceClass className];
     
     // If our subclass name is different than our class name, then add the sub class to the description
     // following a "/"
@@ -92,7 +91,6 @@
     }
     
     cstr1 = GetStringFromIndex((UInt8)dev->iProduct, deviceIntf);
-    tempString2 = [tempString1 stringByAppendingString:@" device: "];
     cstr2 = GetStringFromNumber(dev->idVendor, sizeof(dev->idVendor), kIntegerOutputStyle);
     
 	if ( wasSuspended )

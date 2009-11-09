@@ -1,3 +1,6 @@
+-----BEGIN PGP SIGNED MESSAGE-----
+Hash: SHA1
+
 fetchmail-SA-2006-01: crash when bouncing messages.
 
 Topics:		#1 crash when bouncing a message
@@ -101,3 +104,10 @@ THIS WORK IS PROVIDED FREE OF CHARGE AND WITHOUT ANY WARRANTIES.
 Use the information herein at your own risk.
 
 END OF fetchmail-SA-2006-01.txt
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.5 (GNU/Linux)
+
+iD8DBQFIV7WXvmGDOQUufZURAtJBAKCjxJ3q11MxXxAWqqFYlB/z0uJMVwCeLc2O
+SHK7Gu7QlDzSv3lahIbLUTU=
+=g1dk
+-----END PGP SIGNATURE-----

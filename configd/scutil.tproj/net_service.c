@@ -346,7 +346,9 @@ create_service(int argc, char **argv)
 
 	if (net_interface != NULL) CFRelease(net_interface);
 	net_interface = SCNetworkServiceGetInterface(net_service);
-	CFRetain(net_interface);
+	if (net_interface != NULL) {
+		CFRetain(net_interface);
+	}
 
 	interfaceName = SCNetworkInterfaceGetLocalizedDisplayName(interface);
 	if (interfaceName == NULL) {

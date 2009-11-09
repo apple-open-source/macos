@@ -136,7 +136,7 @@ static void DeviceRemoved(void *refCon, io_iterator_t iterator)
     io_iterator_t	intfIterator;
     
     if (!shouldForce && [[NSUserDefaults standardUserDefaults] boolForKey:@"IORegistryDontAutoRefresh"] == YES) {
-        return;
+		goto Exit;
     }
     [_rootNode removeAllChildren];
     
@@ -166,6 +166,7 @@ static void DeviceRemoved(void *refCon, io_iterator_t iterator)
     }
     
     [_listener ioRegInfoGathererInformationDidChange:self];
+Exit:
 	[pool release];
 }
 
@@ -190,7 +191,10 @@ void scan(io_registry_entry_t service, Boolean serviceHasMoreSiblings, UInt32 se
     kern_return_t       status      = KERN_SUCCESS;
     
     status = IORegistryEntryGetChildIterator(service, plane, &children);
-    
+	if (status != KERN_SUCCESS)  {
+		return;
+    }
+	
     childUpNext = IOIteratorNext(children);
     
     if (serviceHasMoreSiblings)
@@ -218,7 +222,7 @@ void scan(io_registry_entry_t service, Boolean serviceHasMoreSiblings, UInt32 se
         //              /* stackOfBits            */ stackOfBits,
         //              /* options                */ options );
         
-        IOObjectRelease(child); child = 0;
+        IOObjectRelease(child);
     }
     
     IOObjectRelease(children); children = 0;
@@ -239,8 +243,8 @@ void show(io_registry_entry_t service, UInt32 serviceDepth, UInt64 stackOfBits, 
  	address = IORegistryEntryCreateCFProperty(service, CFSTR("USB Address"), kCFAllocatorDefault, kNilOptions);
 	if (address)  
 	{
-		UInt32	addr = 0;
-		CFNumberGetValue((CFNumberRef)address, kCFNumberLongType, &addr);
+		SInt32	addr = 0;
+		CFNumberGetValue((CFNumberRef)address, kCFNumberSInt32Type, &addr);
         sprintf((char *)tempbuf, "%d: ", (uint32_t)addr);
         strcat(buf,tempbuf); 
 		CFRelease(address);
@@ -250,8 +254,8 @@ void show(io_registry_entry_t service, UInt32 serviceDepth, UInt64 stackOfBits, 
  	address = IORegistryEntryCreateCFProperty(service, CFSTR("USBBusNumber"), kCFAllocatorDefault, kNilOptions);
 	if (address)  
 	{
-		UInt32	addr = 0;
-		CFNumberGetValue((CFNumberRef)address, kCFNumberLongType, &addr);
+		SInt32	addr = 0;
+		CFNumberGetValue((CFNumberRef)address, kCFNumberSInt32Type, &addr);
         sprintf((char *)tempbuf, "0x%x: ", (uint32_t)addr);
         strcat(buf,tempbuf); 
 		CFRelease(address);
@@ -277,7 +281,10 @@ void show(io_registry_entry_t service, UInt32 serviceDepth, UInt64 stackOfBits, 
     
 	
     status = IOObjectGetClass(service, class);
-    
+	if (status != KERN_SUCCESS)  {
+		return;
+    }
+	
     sprintf((char *)tempbuf, "  <class %s>", class);
     strcat(buf,tempbuf);
 	
@@ -336,8 +343,10 @@ void scanUSBDevices(io_iterator_t intfIterator, OutlineViewNode * rootNode, char
 			{
 				classCode = * (UInt32 *) bytes;
 			}
-			CFRelease(asciiClass);
         }
+		
+		if ( asciiClass)
+			CFRelease(asciiClass);
 
 		if ( (classCode == (0x000c0310)) || (classCode == (0x000c0320)) || (classCode == (0x000c0300)) || 
 			 (classCode == (0x10030c00)) || (classCode == (0x20030c00)) || (classCode == (0x00030c00)) )

@@ -320,6 +320,12 @@ static char *ssl_var_lookup_ssl(apr_pool_t *p, conn_rec *c, char *var)
     else if (ssl != NULL && strcEQ(var, "COMPRESS_METHOD")) {
         result = ssl_var_lookup_ssl_compress_meth(ssl);
     }
+#ifndef OPENSSL_NO_TLSEXT
+    else if (ssl != NULL && strcEQ(var, "TLS_SNI")) {
+        result = apr_pstrdup(p, SSL_get_servername(ssl,
+                                                   TLSEXT_NAMETYPE_host_name));
+    }
+#endif
     return result;
 }
 
@@ -589,7 +595,7 @@ static char *ssl_var_lookup_ssl_cert_verify(apr_pool_t *p, conn_rec *c)
     vrc   = SSL_get_verify_result(ssl);
     xs    = SSL_get_peer_certificate(ssl);
 
-    if (vrc == X509_V_OK && verr == NULL && vinfo == NULL && xs == NULL)
+    if (vrc == X509_V_OK && verr == NULL && xs == NULL)
         /* no client verification done at all */
         result = "NONE";
     else if (vrc == X509_V_OK && verr == NULL && vinfo == NULL && xs != NULL)
@@ -622,7 +628,7 @@ static char *ssl_var_lookup_ssl_cipher(apr_pool_t *p, conn_rec *c, char *var)
     ssl_var_lookup_ssl_cipher_bits(ssl, &usekeysize, &algkeysize);
 
     if (ssl && strEQ(var, "")) {
-        SSL_CIPHER *cipher = SSL_get_current_cipher(ssl);
+        const SSL_CIPHER *cipher = SSL_get_current_cipher(ssl);
         result = (cipher != NULL ? (char *)SSL_CIPHER_get_name(cipher) : NULL);
     }
     else if (strcEQ(var, "_EXPORT"))
@@ -643,7 +649,7 @@ static char *ssl_var_lookup_ssl_cipher(apr_pool_t *p, conn_rec *c, char *var)
 
 static void ssl_var_lookup_ssl_cipher_bits(SSL *ssl, int *usekeysize, int *algkeysize)
 {
-    SSL_CIPHER *cipher;
+    const SSL_CIPHER *cipher;
 
     *usekeysize = 0;
     *algkeysize = 0;

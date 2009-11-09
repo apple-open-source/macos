@@ -28,7 +28,7 @@
  * LEGACY: This header file describles LEGACY interfaces to libdispatch from an
  * earlier revision of the API. These interfaces WILL be removed in the future.
  */
- 
+
 #ifndef __DISPATCH_LEGACY__
 #define __DISPATCH_LEGACY__
 

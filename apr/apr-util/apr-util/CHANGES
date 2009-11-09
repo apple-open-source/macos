@@ -1,7 +1,42 @@
                                                      -*- coding: utf-8 -*-
+Changes with APR-util 1.3.9
+
+  *) SECURITY: CVE-2009-2412 (cve.mitre.org)
+     Fix overflow in rmm, where size alignment was taking place.
+     [Matt Lewis <mattlewis@google.com>, Sander Striker]
+
+  *) Make sure that "make check" is used in the RPM spec file, so that
+     the crypto, dbd and dbm tests pass. [Graham Leggett]
+
+  *) Make sure the mysql version of dbd_mysql_get_entry() respects the
+     rule that if the column number exceeds the number of columns, we
+     return NULL. [Graham Leggett]
+
+  *) Ensure the dbm module is packaged up correctly in the RPM.
+     [Graham Leggett]
+
+  *) Clarify the error messages within the dbd tests. [Graham Leggett]
+
+Changes with APR-util 1.3.8
+
+  *) Use locally scoped variables in PostgreSQL driver to avoid stomping
+     on return codes. PR 47431
+     [Wayne Jensen <wayne_jensen trendmicro.com>]
+
+  *) Fix race conditions in initialisation of DBD, DBM and DSO.
+     [Bojan Smojver]
+
+  *) Expose DBM libs in apu-1-config by default. To avoid that, use
+     apu-1-config --avoid-dbm --libs. To get just DBM libs, use
+     apu-1-config --dbm-libs.
+     [Bojan Smojver]
+
+  *) Make sure --without-ldap works.
+     [Arfrever Frehtes Taifersar Arahesis <arfrever.fta gmail.com>]
+
 Changes with APR-util 1.3.7
 
-  *) SECURITY:        
+  *) SECURITY: CVE-2009-1955 (cve.mitre.org)
      Fix a denial of service attack against the apr_xml_* interface
      using the "billion laughs" entity expansion technique.
      [Joe Orton]
@@ -16,7 +51,8 @@ Changes with APR-util 1.3.5
      Fix underflow in apr_strmatch_precompile.
      [Matthew Palmer <mpalmer debian.org>]
 
-  *) Fix off by one overflow in apr_brigade_vprintf.
+  *) SECURITY: CVE-2009-1956 (cve.mitre.org)
+     Fix off by one overflow in apr_brigade_vprintf.
      [C. Michael Pilato <cmpilato collab.net>]
 
   *) APR_LDAP_SIZELIMIT should prefer LDAP_DEFAULT_LIMIT/-1 when the

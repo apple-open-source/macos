@@ -787,6 +787,7 @@ PAMDIR
 PAMFILE
 PAMLIBS
 PAMMOD
+PAMMODAUTH
 PTHREAD_FLAGS
 LARGEFILE
 DNSSDLIBS
@@ -1984,7 +1985,7 @@ esac
 ac_config_headers="$ac_config_headers config.h"
 
 
-CUPS_VERSION="1.4.1"
+CUPS_VERSION="1.4.2"
 CUPS_REVISION=""
 #if test -z "$CUPS_REVISION" -a -d .svn; then
 #	CUPS_REVISION="-r`svnversion . | awk -F: '{print $NF}' | sed -e '1,$s/[[a-zA-Z]]*//g'`"
@@ -4689,7 +4690,7 @@ if (eval "$ac_cpp conftest.$ac_ext") 2>&5 |
 else
   ac_cv_header_stdc=no
 fi
-rm -f conftest*
+rm -f -r conftest*
 
 fi
 
@@ -4710,7 +4711,7 @@ if (eval "$ac_cpp conftest.$ac_ext") 2>&5 |
 else
   ac_cv_header_stdc=no
 fi
-rm -f conftest*
+rm -f -r conftest*
 
 fi
 
@@ -8072,11 +8073,6 @@ _ACEOF
 
 fi
 
-			if $PKGCONFIG --exists glib-2.0 && $PKGCONFIG --exists dbus-glib-1; then
-				DBUS_NOTIFIER="dbus"
-				DBUS_NOTIFIERLIBS="`$PKGCONFIG --libs glib-2.0` `$PKGCONFIG --libs dbus-glib-1` `$PKGCONFIG --libs dbus-1`"
-				CFLAGS="$CFLAGS `$PKGCONFIG --cflags glib-2.0`"
-			fi
 		else
 			{ echo "$as_me:$LINENO: result: no" >&5
 echo "${ECHO_T}no" >&6; }
@@ -8095,7 +8091,6 @@ LEGACY_BACKENDS="parallel scsi"
 
 case $uname in
         Darwin*)
-#		FONTS=""
 		LEGACY_BACKENDS=""
                 BACKLIBS="$BACKLIBS -framework IOKit"
                 CUPSDLIBS="$CUPSDLIBS -sectorder __TEXT __text cupsd.order -e start -framework IOKit -framework SystemConfiguration -weak_framework ApplicationServices"
@@ -17390,9 +17385,10 @@ if test $uname = AIX; then
 fi
 
 PAMDIR=""
-PAMFILE=""
+PAMFILE="pam.std"
 PAMLIBS=""
 PAMMOD="pam_unknown.so"
+PAMMODAUTH="pam_unknown.so"
 
 if test x$enable_pam != xno; then
 	SAVELIBS="$LIBS"
@@ -17959,7 +17955,7 @@ fi
 
 	case "$uname" in
 		Darwin*)
-			# Darwin, MacOS X
+			# Darwin/Mac OS X
 			if test "x$with_pam_module" != x; then
 				PAMFILE="pam.$with_pam_module"
 			elif test -f /usr/lib/pam/pam_opendirectory.so.2; then
@@ -17969,29 +17965,26 @@ fi
 			fi
 			;;
 
-		IRIX)
-			# SGI IRIX
-			PAMFILE="pam.irix"
-			;;
-
 		*)
 			# All others; this test might need to be updated
 			# as Linux distributors move things around...
 			if test "x$with_pam_module" != x; then
 				PAMMOD="pam_${with_pam_module}.so"
-			else
-				for mod in pam_unix2.so pam_unix.so pam_pwdb.so; do
-					if test -f /lib/security/$mod; then
-						PAMMOD="$mod"
-						break;
-					fi
-				done
+			elif test -f /lib/security/pam_unix2.so; then
+				PAMMOD="pam_unix2.so"
+			elif test -f /lib/security/pam_unix.so; then
+				PAMMOD="pam_unix.so"
 			fi
 
-			PAMFILE="pam.std"
+			if test "x$PAMMOD" = xpam_unix.so; then
+				PAMMODAUTH="$PAMMOD shadow nodelay"
+			else
+				PAMMODAUTH="$PAMMOD nodelay"
+			fi
 			;;
 	esac
 fi
+
 
 
 
@@ -18439,7 +18432,7 @@ cat >>confdefs.h <<_ACEOF
 _ACEOF
 ;;
 esac
-rm -f conftest*
+rm -f -r conftest*
   if test $ac_cv_sys_file_offset_bits = unknown; then
     { echo "$as_me:$LINENO: checking for _LARGE_FILES value needed for large files" >&5
 echo $ECHO_N "checking for _LARGE_FILES value needed for large files... $ECHO_C" >&6; }
@@ -18560,7 +18553,7 @@ cat >>confdefs.h <<_ACEOF
 _ACEOF
 ;;
 esac
-rm -f conftest*
+rm -f -r conftest*
   fi
 fi
 
@@ -19684,8 +19677,8 @@ if test x$default_lpdconfigfile != xno; then
 				CUPS_DEFAULT_LPD_CONFIG_FILE="launchd:///System/Library/LaunchDaemons/org.cups.cups-lpd.plist"
 				;;
 			*)
-				if test -d /etc/xinetd.d; then
-					CUPS_DEFAULT_LPD_CONFIG_FILE="xinetd:///etc/xinetd.d/cups-lpd"
+				if test "x$XINETD" != x; then
+					CUPS_DEFAULT_LPD_CONFIG_FILE="xinetd://$XINETD/cups-lpd"
 				else
 					CUPS_DEFAULT_LPD_CONFIG_FILE=""
 				fi
@@ -21610,6 +21603,7 @@ PAMDIR!$PAMDIR$ac_delim
 PAMFILE!$PAMFILE$ac_delim
 PAMLIBS!$PAMLIBS$ac_delim
 PAMMOD!$PAMMOD$ac_delim
+PAMMODAUTH!$PAMMODAUTH$ac_delim
 PTHREAD_FLAGS!$PTHREAD_FLAGS$ac_delim
 LARGEFILE!$LARGEFILE$ac_delim
 DNSSDLIBS!$DNSSDLIBS$ac_delim
@@ -21630,7 +21624,6 @@ CUPS_DEFAULT_SHARED!$CUPS_DEFAULT_SHARED$ac_delim
 CUPS_IMPLICIT_CLASSES!$CUPS_IMPLICIT_CLASSES$ac_delim
 CUPS_USE_NETWORK_DEFAULT!$CUPS_USE_NETWORK_DEFAULT$ac_delim
 CUPS_USER!$CUPS_USER$ac_delim
-CUPS_GROUP!$CUPS_GROUP$ac_delim
 _ACEOF
 
   if test `sed -n "s/.*$ac_delim\$/X/p" conf$$subs.sed | grep -c X` = 97; then
@@ -21672,6 +21665,7 @@ _ACEOF
 ac_delim='%!_!# '
 for ac_last_try in false false false false false :; do
   cat >conf$$subs.sed <<_ACEOF
+CUPS_GROUP!$CUPS_GROUP$ac_delim
 CUPS_SYSTEM_GROUPS!$CUPS_SYSTEM_GROUPS$ac_delim
 CUPS_PRIMARY_SYSTEM_GROUP!$CUPS_PRIMARY_SYSTEM_GROUP$ac_delim
 CUPS_DEFAULT_PRINTCAP!$CUPS_DEFAULT_PRINTCAP$ac_delim
@@ -21699,7 +21693,7 @@ LIBOBJS!$LIBOBJS$ac_delim
 LTLIBOBJS!$LTLIBOBJS$ac_delim
 _ACEOF
 
-  if test `sed -n "s/.*$ac_delim\$/X/p" conf$$subs.sed | grep -c X` = 25; then
+  if test `sed -n "s/.*$ac_delim\$/X/p" conf$$subs.sed | grep -c X` = 26; then
     break
   elif $ac_last_try; then
     { { echo "$as_me:$LINENO: error: could not make $CONFIG_STATUS" >&5

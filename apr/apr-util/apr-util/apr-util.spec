@@ -3,7 +3,7 @@
 
 Summary: Apache Portable Runtime Utility library
 Name: apr-util
-Version: 1.3.7
+Version: 1.3.9
 Release: 1
 License: Apache Software License
 Group: System Environment/Libraries
@@ -11,7 +11,7 @@ URL: http://apr.apache.org/
 Source0: http://www.apache.org/dist/apr/%{name}-%{version}.tar.bz2
 BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-buildroot
 BuildPrereq: autoconf, libtool, doxygen, apr-devel >= 1.3.0
-BuildPrereq: db4-devel, expat-devel
+BuildPrereq: expat-devel
 
 %description
 The mission of the Apache Portable Runtime (APR) is to provide a
@@ -90,6 +90,15 @@ Requires: apr-util = %{version}-%{release}
 %description ldap
 This package provides the LDAP support for the apr-util.
 
+%package dbm
+Group: Development/Libraries
+Summary: APR utility library DBM support
+BuildRequires: db4-devel
+Requires: apr-util = %{version}-%{release}
+
+%description dbm
+This package provides the dbm support for the apr-util.
+
 %prep
 %setup -q
 
@@ -106,7 +115,7 @@ make %{?_smp_mflags} && make dox
 # Run non-interactive tests
 pushd test
 make %{?_smp_mflags} all CFLAGS=-fno-strict-aliasing
-./testall -v || exit 1
+make check || exit 1
 popd
 
 %install
@@ -155,6 +164,10 @@ rm -rf $RPM_BUILD_ROOT
 %files ldap
 %defattr(-,root,root,-)
 %{_libdir}/apr-util-%{apuver}/apr_ldap*
+
+%files dbm
+%defattr(-,root,root,-)
+%{_libdir}/apr-util-%{apuver}/apr_dbm_db*
 
 %files devel
 %defattr(-,root,root,-)

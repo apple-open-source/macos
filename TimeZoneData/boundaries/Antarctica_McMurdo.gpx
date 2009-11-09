@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.0">
+<trk>
+	<name>UTC +12 (summer) NZST</name>
+	<trkseg>
+		<trkpt lon="170.68359375" lat="-32.6948659779"></trkpt>
+		<trkpt lon="178.76953125" lat="-32.6948659779"></trkpt>
+		<trkpt lon="179.47265625" lat="-39.2322531417"></trkpt>
+		<trkpt lon="175.95703125" lat="-46.8000594468"></trkpt>
+		<trkpt lon="176.30859375" lat="-72.6071204003"></trkpt>
+		<trkpt lon="177.71484375" lat="-84.5747022855"></trkpt>
+		<trkpt lon="177.71484375" lat="-85.1412839812"></trkpt>
+		<trkpt lon="161.19140625" lat="-85.1857452766"></trkpt>
+		<trkpt lon="156.62109375" lat="-85.2004753241"></trkpt>
+		<trkpt lon="152.9296875" lat="-68.6565549848"></trkpt>
+		<trkpt lon="152.578125" lat="-66.6529774006"></trkpt>
+		<trkpt lon="165.234375" lat="-47.9899216674"></trkpt>
+		<trkpt lon="164.8828125" lat="-46.1950421087"></trkpt>
+		<trkpt lon="170.5078125" lat="-38.68550976"></trkpt>
+		<trkpt lon="170.68359375" lat="-32.6948659779"></trkpt>
+	</trkseg>
+</trk>
+</gpx>

@@ -7,7 +7,7 @@
 	<key>CFBundleExecutable</key>
 	<string>IOUSBUserClient</string>
 	<key>CFBundleGetInfoString</key>
-	<string>IOUSBUSERCLIENT_VERSION, Copyright © 2000-2007 Apple Inc.  All Rights Reserved.</string>
+	<string>IOUSBUSERCLIENT_VERSION, Copyright © 2000-2009 Apple Inc.  All Rights Reserved.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -99,10 +99,8 @@
 		<string>10.0.0d4</string>
 		<key>com.apple.kpi.bsd</key>
 		<string>10.0.0d4</string>
-		#if USBDEBUG
 		<key>com.apple.kpi.unsupported</key>
 		<string>9.0.0</string>
-		#endif
 	</dict>
 	<key>OSBundleRequired</key>
 	<string>Root</string>

@@ -120,14 +120,14 @@ RewriteRule   ^/u/(<strong>[^/]+</strong>)$  /$1/$2<strong>/</strong>   [<strong
 RewriteCond %{HTTP_HOST}   !^fully\.qualified\.domain\.name [NC]
 RewriteCond %{HTTP_HOST}   !^$
 RewriteCond %{SERVER_PORT} !^80$
-RewriteRule ^/(.*)         http://fully.qualified.domain.name:%{SERVER_PORT}/$1 [L,R]
+RewriteRule ^/(.*)         http://fully.qualified.domain.name:%{SERVER_PORT}/$1 [L,R,NE]
 </pre></div>
 
 <p>And for a site running on port 80</p>
 <div class="example"><pre>
 RewriteCond %{HTTP_HOST}   !^fully\.qualified\.domain\.name [NC]
 RewriteCond %{HTTP_HOST}   !^$
-RewriteRule ^/(.*)         http://fully.qualified.domain.name/$1 [L,R]
+RewriteRule ^/(.*)         http://fully.qualified.domain.name/$1 [L,R,NE]
 </pre></div>
         </dd>
       </dl>
@@ -772,6 +772,6 @@ while (&lt;&gt;) {
 <div class="bottomlang">
 <p><span>Available Languages: </span><a href="../en/rewrite/rewrite_guide.html" title="English">&nbsp;en&nbsp;</a></p>
 </div><div id="footer">
-<p class="apache">Copyright 2008 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
+<p class="apache">Copyright 2009 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
 <p class="menu"><a href="../mod/">Modules</a> | <a href="../mod/directives.html">Directives</a> | <a href="../faq/">FAQ</a> | <a href="../glossary.html">Glossary</a> | <a href="../sitemap.html">Sitemap</a></p></div>
 </body></html>

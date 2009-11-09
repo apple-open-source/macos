@@ -5,15 +5,15 @@
 	<key>OpenSourceProject</key>
 	<string>apache</string>
 	<key>OpenSourceVersion</key>
-	<string>2.2.11</string>
+	<string>2.2.13</string>
 	<key>OpenSourceWebsiteURL</key>
 	<string>http://httpd.apache.org/</string>
 	<key>OpenSourceURL</key>
-	<string>http://www.apache.org/dist/httpd/httpd-2.2.11.tar.bz2</string>
+	<string>http://www.apache.org/dist/httpd/httpd-2.2.13.tar.bz2</string>
 	<key>OpenSourceSHA1</key>
-	<string>a780774c76715d0b866bb0399769481ab74091c2</string>
+	<string>44d85da1b8e6c579d4514cfefbea00b284717b69</string>
 	<key>OpenSourceImportDate</key>
-	<string>2008-12-15</string>
+	<string>2009-09-22</string>
 	<key>OpenSourceModifications</key>
 	<array/>
 	<key>OpenSourceLicense</key>

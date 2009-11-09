@@ -5,15 +5,15 @@
 	<key>OpenSourceProject</key>
 	<string>apr-util</string>
 	<key>OpenSourceVersion</key>
-	<string>1.3.7</string>
+	<string>1.3.9</string>
 	<key>OpenSourceWebsiteURL</key>
 	<string>http://apr.apache.org/</string>
 	<key>OpenSourceURL</key>
-	<string>http://apache.org/dist/apr/apr-util-1.3.7.tar.bz2</string>
+	<string>http://apache.org/dist/apr/apr-util-1.3.9.tar.bz2</string>
 	<key>OpenSourceSHA1</key>
-	<string>7fb9be40c978bf912d459342ec99f2bbd4235fa8</string>
+	<string>7d8979605765df69795699764a262dcf96b3a1d7</string>
 	<key>OpenSourceImportDate</key>
-	<string>2009-06-16</string>
+	<string>2009-09-21</string>
 	<key>OpenSourceLicense</key>
 	<string>Apache</string>
 	<key>OpenSourceLicenseFile</key>

@@ -1938,7 +1938,7 @@ static void ParseOption (const char* option, const char* parms)
 	{
 		if (forwardedinterfacename != NULL)
 		{
-			if ( realloc(forwardedinterfacename, (numofinterfaces+1) * sizeof(*forwardedinterfacename)) == NULL){
+			if ( (forwardedinterfacename = realloc( forwardedinterfacename, (numofinterfaces+1) * sizeof(*forwardedinterfacename ))) == NULL ){
 				printf("realloc error, cannot allocate memory for fowarded interface name.\n");
 				return;
 			}

@@ -209,7 +209,7 @@ APU_DECLARE(apr_status_t) apr_memcache_disable_server(apr_memcache_t *mc,
  * @param min  minimum number of client sockets to open
  * @param smax soft maximum number of client connections to open
  * @param max  hard maximum number of client connections
- * @param ttl  time to live in seconds of a client connection
+ * @param ttl  time to live in microseconds of a client connection
  * @param ns   location of the new server object
  * @see apr_reslist_create
  * @remark min, smax, and max are only used when APR_HAS_THREADS
@@ -260,10 +260,9 @@ APU_DECLARE(apr_status_t) apr_memcache_getp(apr_memcache_t *mc,
  * @param values hash of keys and values that this key will be added to
  * @return
  */
-APU_DECLARE(void) 
-apr_memcache_add_multget_key(apr_pool_t *data_pool,
-                             const char* key,
-                             apr_hash_t **values);
+APU_DECLARE(void) apr_memcache_add_multget_key(apr_pool_t *data_pool,
+                                               const char* key,
+                                               apr_hash_t **values);
 
 /**
  * Gets multiple values from the server, allocating the values out of p
@@ -275,11 +274,10 @@ apr_memcache_add_multget_key(apr_pool_t *data_pool,
  *        result of the multiget call.
  * @return
  */
-APU_DECLARE(apr_status_t)
-apr_memcache_multgetp(apr_memcache_t *mc,
-                      apr_pool_t *temp_pool,
-                      apr_pool_t *data_pool,
-                      apr_hash_t *values);
+APU_DECLARE(apr_status_t) apr_memcache_multgetp(apr_memcache_t *mc,
+                                                apr_pool_t *temp_pool,
+                                                apr_pool_t *data_pool,
+                                                apr_hash_t *values);
 
 /**
  * Sets a value by key on the server

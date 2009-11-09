@@ -1,0 +1,3151 @@
+# Dutch translations for fetchmail.
+# Copyright (C) 2007 Eric S. Raymond (msgids)
+# This file is distributed under the same license as the fetchmail package.
+#
+# Tony Vroon <tony@vroon.org>, 2003.
+# Benno Schulenberg <benno@vertaalt.nl>, 2008.
+msgid ""
+msgstr ""
+"Project-Id-Version: fetchmail-6.3.8\n"
+"Report-Msgid-Bugs-To: fetchmail-devel@lists.berlios.de\n"
+"POT-Creation-Date: 2009-08-06 01:21+0200\n"
+"PO-Revision-Date: 2008-05-16 00:27+0200\n"
+"Last-Translator: Benno Schulenberg <benno@vertaalt.nl>\n"
+"Language-Team: Dutch <vertaling@vrijschrift.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"X-Generator: KBabel 1.11.4\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+#: checkalias.c:179
+#, c-format
+msgid "Checking if %s is really the same node as %s\n"
+msgstr "Controle of %s echt dezelfde machine is als %s...\n"
+
+#: checkalias.c:183
+msgid "Yes, their IP addresses match\n"
+msgstr "Ja, hun IP-adressen zijn hetzelfde\n"
+
+#: checkalias.c:187
+msgid "No, their IP addresses don't match\n"
+msgstr "Nee, hun IP-adressen verschillen\n"
+
+#: checkalias.c:203
+#, c-format
+msgid "nameserver failure while looking for '%s' during poll of %s: %s\n"
+msgstr "DNS-serverfout bij het zoeken naar '%s' tijdens polsen van %s: %s\n"
+
+#: checkalias.c:228
+#, c-format
+msgid "nameserver failure while looking for `%s' during poll of %s.\n"
+msgstr "DNS-serverfout bij het zoeken naar '%s' tijdens polsen van %s.\n"
+
+#: cram.c:95
+msgid "could not decode BASE64 challenge\n"
+msgstr "kan 'BASE64-challenge' niet decoderen\n"
+
+#: cram.c:103
+#, c-format
+msgid "decoded as %s\n"
+msgstr "gedecodeerd als %s\n"
+
+#: driver.c:191
+#, c-format
+msgid "kerberos error %s\n"
+msgstr "Kerberos-fout %s\n"
+
+#: driver.c:249 driver.c:254
+#, c-format
+msgid "krb5_sendauth: %s [server says '%*s'] \n"
+msgstr "krb5_sendauth(): %s [server zegt '%*s'] \n"
+
+#: driver.c:335
+msgid "Subject: Fetchmail oversized-messages warning"
+msgstr "Subject: Fetchmail-waarschuwing -- te grote berichten"
+
+#: driver.c:339
+#, c-format
+msgid "The following oversized messages were deleted on server %s account %s:"
+msgstr ""
+"De volgende te grote berichten werden verwijderd van server %s, account %s:"
+
+#: driver.c:343
+#, c-format
+msgid "The following oversized messages remain on server %s account %s:"
+msgstr "De volgende te grote berichten staan nog op server %s, account %s:"
+
+#: driver.c:362
+#, c-format
+msgid "  %d message  %d octets long deleted by fetchmail."
+msgid_plural "  %d messages %d octets long deleted by fetchmail."
+msgstr[0] "  %d bericht, %d bytes lang, verwijderd door fetchmail."
+msgstr[1] "  %d berichten, %d bytes lang, verwijderd door fetchmail."
+
+#: driver.c:367
+#, c-format
+msgid "  %d message  %d octets long skipped by fetchmail."
+msgid_plural "  %d messages %d octets long skipped by fetchmail."
+msgstr[0] "  %d bericht, %d bytes lang, overgeslagen door fetchmail."
+msgstr[1] "  %d berichten, %d bytes lang, overgeslagen door fetchmail."
+
+#: driver.c:511
+#, c-format
+msgid "skipping message %s@%s:%d"
+msgstr "overgeslagen bericht: %s@%s:%d"
+
+#: driver.c:565
+#, c-format
+msgid "skipping message %s@%s:%d (%d octets)"
+msgstr "overgeslagen bericht: %s@%s:%d (%d bytes)"
+
+#: driver.c:581
+msgid " (length -1)"
+msgstr " (lengte -1)"
+
+#: driver.c:584
+msgid " (oversized)"
+msgstr " (te groot)"
+
+#: driver.c:602
+#, c-format
+msgid "couldn't fetch headers, message %s@%s:%d (%d octets)\n"
+msgstr "kan kopregels niet ophalen, bericht %s@%s:%d (%d bytes)\n"
+
+#: driver.c:619
+#, c-format
+msgid "reading message %s@%s:%d of %d"
+msgstr "lezen van bericht %s@%s:%d van %d"
+
+#: driver.c:624
+#, c-format
+msgid " (%d octets)"
+msgstr " (%d bytes)"
+
+#: driver.c:625
+#, c-format
+msgid " (%d header octets)"
+msgstr " (%d bytes in kopregels) "
+
+#: driver.c:692
+#, c-format
+msgid " (%d body octets)"
+msgstr " (%d bytes in berichttekst) "
+
+#: driver.c:751
+#, c-format
+msgid ""
+"message %s@%s:%d was not the expected length (%d actual != %d expected)\n"
+msgstr ""
+"bericht %s@%s:%d had niet de verwachte lengte (feitelijk %d, verwachtte %d)\n"
+
+#: driver.c:783
+msgid " retained\n"
+msgstr " laten staan\n"
+
+#: driver.c:793
+msgid " flushed\n"
+msgstr " verwijderd\n"
+
+#: driver.c:810
+msgid " not flushed\n"
+msgstr " niet verwijderd\n"
+
+#: driver.c:828
+#, c-format
+msgid "fetchlimit %d reached; %d message left on server %s account %s\n"
+msgid_plural ""
+"fetchlimit %d reached; %d messages left on server %s account %s\n"
+msgstr[0] ""
+"ophaallimiet %d is bereikt; nog %d bericht op server %s, account %s\n"
+msgstr[1] ""
+"ophaallimiet %d is bereikt; nog %d berichten op server %s, account %s\n"
+
+#: driver.c:885
+#, c-format
+msgid "timeout after %d seconds waiting to connect to server %s.\n"
+msgstr "verbinden met server %2$s duurde te lang -- gestopt na %1$d seconden\n"
+
+#: driver.c:889
+#, c-format
+msgid "timeout after %d seconds waiting for server %s.\n"
+msgstr "wachten op server %2$s duurde te lang -- gestopt na %1$d seconden\n"
+
+#: driver.c:893
+#, c-format
+msgid "timeout after %d seconds waiting for %s.\n"
+msgstr "wachten op %2$s duurde te lang -- gestopt na %1$d seconden\n"
+
+#: driver.c:898
+#, c-format
+msgid "timeout after %d seconds waiting for listener to respond.\n"
+msgstr ""
+"wachten op reactie van luisteraar duurde te lang -- gestopt na %d seconden\n"
+
+#: driver.c:901
+#, c-format
+msgid "timeout after %d seconds.\n"
+msgstr "duurde te lang -- gestopt na %d seconden\n"
+
+#: driver.c:913
+msgid "Subject: fetchmail sees repeated timeouts"
+msgstr "Subject: fetchmail ziet herhaaldelijk tijdslimietoverschrijdingen"
+
+#: driver.c:916
+#, c-format
+msgid ""
+"Fetchmail saw more than %d timeouts while attempting to get mail from %s@%"
+"s.\n"
+msgstr ""
+"Fetchmail zag meer dan %d tijdslimietoverschrijdingen tijdens pogingen om "
+"mail op te halen voor %s@%s.\n"
+
+#: driver.c:920
+msgid ""
+"This could mean that your mailserver is stuck, or that your SMTP\n"
+"server is wedged, or that your mailbox file on the server has been\n"
+"corrupted by a server error.  You can run `fetchmail -v -v' to\n"
+"diagnose the problem.\n"
+"\n"
+"Fetchmail won't poll this mailbox again until you restart it.\n"
+msgstr ""
+"Dit zou kunnen betekenen dat uw mailserver vastgelopen is, of dat uw\n"
+"SMTP-server vastzit, of dat uw mailbox op de server beschadigd is door\n"
+"een serverfout.  U kunt 'fetchmail -v -v' gebruiken om te zien wat er\n"
+"aan de hand is.\n"
+"\n"
+"Fetchmail blijft van deze mailbox af tot u het programma herstart.\n"
+
+#: driver.c:946
+#, fuzzy, c-format
+msgid "pre-connection command terminated with signal %d\n"
+msgstr "pre-verbindingscommando is mislukt met aflsuitwaarde %d\n"
+
+#: driver.c:949
+#, c-format
+msgid "pre-connection command failed with status %d\n"
+msgstr "pre-verbindingscommando is mislukt met aflsuitwaarde %d\n"
+
+#: driver.c:973
+#, c-format
+msgid "couldn't find HESIOD pobox for %s\n"
+msgstr "kan geen HESIOD-pobox vinden voor %s\n"
+
+#: driver.c:994
+msgid "Lead server has no name.\n"
+msgstr "Hoofdserver heeft geen naam.\n"
+
+#: driver.c:1021
+#, c-format
+msgid "couldn't find canonical DNS name of %s (%s): %s\n"
+msgstr "kan canonieke DNS-naam niet vinden van %s (%s): %s\n"
+
+#: driver.c:1068
+#, c-format
+msgid "%s connection to %s failed"
+msgstr "%s-verbinding met %s is mislukt"
+
+#: driver.c:1084
+msgid "Subject: Fetchmail unreachable-server warning."
+msgstr "Subject: Fetchmail-waarschuwing -- onbereikbare server."
+
+#: driver.c:1086
+#, c-format
+msgid "Fetchmail could not reach the mail server %s:"
+msgstr "Fetchmail kon de mailserver %s niet bereiken:"
+
+#: driver.c:1114
+msgid "SSL connection failed.\n"
+msgstr "SSL-connectie is mislukt.\n"
+
+#: driver.c:1167
+#, c-format
+msgid "Lock-busy error on %s@%s\n"
+msgstr "Vergrendelingsfout op %s@%s\n"
+
+#: driver.c:1171
+#, c-format
+msgid "Server busy error on %s@%s\n"
+msgstr "Server is bezet op %s@%s\n"
+
+#: driver.c:1176
+#, c-format
+msgid "Authorization failure on %s@%s%s\n"
+msgstr "Aanmeldingsfout op %s@%s%s\n"
+
+#: driver.c:1179
+msgid " (previously authorized)"
+msgstr " (eerder al aangemeld)"
+
+#: driver.c:1200
+#, c-format
+msgid "Subject: fetchmail authentication failed on %s@%s"
+msgstr "Subject: Fetchmail-aanmelding is mislukt voor %s@%s"
+
+#: driver.c:1204
+#, c-format
+msgid "Fetchmail could not get mail from %s@%s.\n"
+msgstr "Fetchmail kon geen mail ophalen voor %s@%s.\n"
+
+#: driver.c:1208
+msgid ""
+"The attempt to get authorization failed.\n"
+"Since we have already succeeded in getting authorization for this\n"
+"connection, this is probably another failure mode (such as busy server)\n"
+"that fetchmail cannot distinguish because the server didn't send a useful\n"
+"error message."
+msgstr ""
+"Een aanmeldingspoging is mislukt.\n"
+"Aangezien dit eerder wel gelukt is, is de oorzaak waarschijnlijk een\n"
+"overbelaste server, maar deze gaf daar geen bruikbare foutmelding voor."
+
+#: driver.c:1214
+msgid ""
+"\n"
+"However, if you HAVE changed your account details since starting the\n"
+"fetchmail daemon, you need to stop the daemon, change your configuration\n"
+"of fetchmail, and then restart the daemon.\n"
+"\n"
+"The fetchmail daemon will continue running and attempt to connect\n"
+"at each cycle.  No future notifications will be sent until service\n"
+"is restored."
+msgstr ""
+"\n"
+"Als echter uw login-gegevens zijn veranderd nadat u de fetchmail-service\n"
+"startte, dan moet u de fetchmail-service stoppen, de configuratie wijzigen,\n"
+"en dan de service herstarten.\n"
+"\n"
+"Fetchmail blijft draaien en probeert de aanmelding elke ronde opnieuw.\n"
+"Er volgt pas weer bericht als het aanmelden lukt."
+
+#: driver.c:1224
+msgid ""
+"The attempt to get authorization failed.\n"
+"This probably means your password is invalid, but some servers have\n"
+"other failure modes that fetchmail cannot distinguish from this\n"
+"because they don't send useful error messages on login failure.\n"
+"\n"
+"The fetchmail daemon will continue running and attempt to connect\n"
+"at each cycle.  No future notifications will be sent until service\n"
+"is restored."
+msgstr ""
+"Het aanmelden is mislukt.\n"
+"Dit betekent waarschijnlijk dat uw wachtwoord ongeldig is, maar sommige\n"
+"servers versturen geen duidelijke foutmeldingen waardoor fetchmail niet\n"
+"kan zien of er niet eigenlijk iets anders aan de hand is.\n"
+"\n"
+"Fetchmail blijft draaien en probeert de aanmelding elke ronde opnieuw.\n"
+"Er volgt pas weer bericht als het aanmelden lukt."
+
+#: driver.c:1240
+#, c-format
+msgid "Repoll immediately on %s@%s\n"
+msgstr "Onmiddelijk opnieuw ophalen voor %s@%s\n"
+
+#: driver.c:1245
+#, c-format
+msgid "Unknown login or authentication error on %s@%s\n"
+msgstr "Onbekende gebruikersnaam of ongeldig wachtwoord voor %s@%s\n"
+
+#: driver.c:1269
+#, c-format
+msgid "Authorization OK on %s@%s\n"
+msgstr "Aanmelden is gelukt voor %s@%s\n"
+
+#: driver.c:1275
+#, c-format
+msgid "Subject: fetchmail authentication OK on %s@%s"
+msgstr "Subject: Fetchmail-aanmelding is geslaagd voor %s@%s"
+
+#: driver.c:1279
+#, c-format
+msgid "Fetchmail was able to log into %s@%s.\n"
+msgstr "Fetchmail kon inloggen op %s@%s.\n"
+
+#: driver.c:1283
+msgid "Service has been restored.\n"
+msgstr "De dienstverlening is hersteld.\n"
+
+#: driver.c:1315
+#, c-format
+msgid "selecting or re-polling folder %s\n"
+msgstr "map %s wordt geselecteerd of opnieuw opgehaald\n"
+
+#: driver.c:1317
+msgid "selecting or re-polling default folder\n"
+msgstr "standaardmap wordt geselecteerd of opnieuw opgehaald\n"
+
+#: driver.c:1329
+#, c-format
+msgid "%s at %s (folder %s)"
+msgstr "%s op %s (map %s)"
+
+#: driver.c:1332 rcfile_y.y:384
+#, c-format
+msgid "%s at %s"
+msgstr "%s op %s"
+
+#: driver.c:1337
+#, c-format
+msgid "Polling %s\n"
+msgstr "Polsen van %s\n"
+
+#: driver.c:1341
+#, c-format
+msgid "%d message (%d %s) for %s"
+msgid_plural "%d messages (%d %s) for %s"
+msgstr[0] "%d bericht (%d %s) voor %s"
+msgstr[1] "%d berichten (%d %s) voor %s"
+
+#: driver.c:1344
+msgid "seen"
+msgid_plural "seen"
+msgstr[0] "gelezen"
+msgstr[1] "gelezen"
+
+#: driver.c:1347
+#, c-format
+msgid "%d message for %s"
+msgid_plural "%d messages for %s"
+msgstr[0] "%d bericht voor %s"
+msgstr[1] "%d berichten voor %s"
+
+#: driver.c:1354
+#, c-format
+msgid " (%d octets).\n"
+msgstr " (%d bytes).\n"
+
+#: driver.c:1360
+#, c-format
+msgid "No mail for %s\n"
+msgstr "Geen mail voor %s\n"
+
+#: driver.c:1393 imap.c:90
+msgid "bogus message count!"
+msgstr "onjuist berichtenaantal!"
+
+#: driver.c:1537
+msgid "socket"
+msgstr "socket"
+
+#: driver.c:1540
+msgid "missing or bad RFC822 header"
+msgstr "RFC822-kopregels zijn onjuist of ontbreken"
+
+#: driver.c:1543
+msgid "MDA"
+msgstr "MDA"
+
+#: driver.c:1546
+msgid "client/server synchronization"
+msgstr "client/server-synchronisatie"
+
+#: driver.c:1549
+msgid "client/server protocol"
+msgstr "client/server-protocol"
+
+#: driver.c:1552
+msgid "lock busy on server"
+msgstr "vergrendeling nog actief op server"
+
+#: driver.c:1555
+msgid "SMTP transaction"
+msgstr "SMTP-transactie"
+
+#: driver.c:1558
+msgid "DNS lookup"
+msgstr "DNS-opzoekvraag"
+
+#: driver.c:1561
+msgid "undefined"
+msgstr "ongedefinieerde"
+
+#: driver.c:1567
+#, c-format
+msgid "%s error while fetching from %s@%s and delivering to SMTP host %s\n"
+msgstr "%s fout tijdens ophalen van %s@%s en bezorgen op SMTP-host %s\n"
+
+#: driver.c:1569
+msgid "unknown"
+msgstr "onbekende"
+
+#: driver.c:1571
+#, c-format
+msgid "%s error while fetching from %s@%s\n"
+msgstr "%s fout tijdens het ophalen van %s@%s\n"
+
+#: driver.c:1583
+#, fuzzy, c-format
+msgid "post-connection command terminated with signal %d\n"
+msgstr "na-verbindingscommando is mislukt met afsluitwaarde %d\n"
+
+#: driver.c:1585
+#, c-format
+msgid "post-connection command failed with status %d\n"
+msgstr "na-verbindingscommando is mislukt met afsluitwaarde %d\n"
+
+#: driver.c:1604
+msgid "Kerberos V4 support not linked.\n"
+msgstr "Kerberos V4-ondersteuning is niet ingebouwd.\n"
+
+#: driver.c:1612
+msgid "Kerberos V5 support not linked.\n"
+msgstr "Kerberos V5-ondersteuning is niet ingebouwd.\n"
+
+#: driver.c:1623
+#, c-format
+msgid "Option --flush is not supported with %s\n"
+msgstr "Optie '--flush' is niet mogelijk met %s\n"
+
+#: driver.c:1629
+#, c-format
+msgid "Option --all is not supported with %s\n"
+msgstr "Optie '--all' is niet mogelijk met %s\n"
+
+#: driver.c:1638
+#, c-format
+msgid "Option --limit is not supported with %s\n"
+msgstr "Optie '--limit' is niet mogelijk met %s\n"
+
+#: env.c:59
+#, c-format
+msgid ""
+"%s: The QMAILINJECT environment variable is set.\n"
+"This is dangerous as it can make qmail-inject or qmail's sendmail wrapper\n"
+"tamper with your From: or Message-ID: headers.\n"
+"Try \"env QMAILINJECT= %s YOUR ARGUMENTS HERE\"\n"
+"%s: Abort.\n"
+msgstr ""
+"%s: De QMAILINJECT shell-variable is toegekend.\n"
+"Dit is gevaarlijk, qmail-inject of de sendmail-wrapper van qmail zouden\n"
+"je From: en/of Message-ID: headers kunnen verpesten.\n"
+"Probeer \"env QMAILINJECT= %s JOUW PARAMETERS HIER\"\n"
+"%s: Gestopt.\n"
+
+#: env.c:71
+#, c-format
+msgid ""
+"%s: The NULLMAILER_FLAGS environment variable is set.\n"
+"This is dangerous as it can make nullmailer-inject or nullmailer's\n"
+"sendmail wrapper tamper with your From:, Message-ID: or Return-Path: "
+"headers.\n"
+"Try \"env NULLMAILER_FLAGS= %s YOUR ARGUMENTS HERE\"\n"
+"%s: Abort.\n"
+msgstr ""
+"%s:·De·NULLMAILER_FLAGS·shell-variable·is toegekend.\n"
+"Dit·is·gevaarlijk,·nullmailer-inject·of·de·sendmail-"
+"wrapper·van·nullmailer·zouden\n"
+"je·From:·en/of·Message-ID:·headers·kunnen·verpesten.\n"
+"Probeer·\"env·NULLMAILER_FLAGS=·%s·JOUW·PARAMETERS·HIER\"\n"
+"%s:·Gestopt.\n"
+
+#: env.c:83
+#, c-format
+msgid "%s: You don't exist.  Go away.\n"
+msgstr "%s: U bestaat niet.  Ga weg.\n"
+
+#: env.c:145
+#, c-format
+msgid "%s: can't determine your host!"
+msgstr "%s: ik kan uw host niet bepalen!"
+
+#: env.c:168
+#, c-format
+msgid "gethostbyname failed for %s\n"
+msgstr "gethostbyname() is mislukt voor %s\n"
+
+#: env.c:170
+msgid "Cannot find my own host in hosts database to qualify it!\n"
+msgstr ""
+
+#: env.c:174
+msgid ""
+"Trying to continue with unqualified hostname.\n"
+"DO NOT report broken Received: headers, HELO/EHLO lines or similar "
+"problems!\n"
+"DO repair your /etc/hosts, DNS, NIS or LDAP instead.\n"
+msgstr ""
+
+#: etrn.c:49 odmr.c:60
+#, c-format
+msgid "%s's SMTP listener does not support ESMTP\n"
+msgstr "SMTP-programma van %s ondersteunt geen ESMTP\n"
+
+#: etrn.c:55
+#, c-format
+msgid "%s's SMTP listener does not support ETRN\n"
+msgstr "SMTP-programma van %s ondersteunt geen ETRN\n"
+
+#: etrn.c:79
+#, c-format
+msgid "Queuing for %s started\n"
+msgstr "Wachtrij voor %s gestart\n"
+
+#: etrn.c:84
+#, c-format
+msgid "No messages waiting for %s\n"
+msgstr "Geen wachtende berichten voor %s\n"
+
+#: etrn.c:90
+#, c-format
+msgid "Pending messages for %s started\n"
+msgstr "Verwerking wachtende berichten voor %s gestart\n"
+
+#: etrn.c:94
+#, c-format
+msgid "Unable to queue messages for node %s\n"
+msgstr "Kan geen berichten in wachtrij plaatsen voor machine %s\n"
+
+#: etrn.c:98
+#, c-format
+msgid "Node %s not allowed: %s\n"
+msgstr "Machine %s is niet toegestaan: %s\n"
+
+#: etrn.c:102
+msgid "ETRN syntax error\n"
+msgstr "ETRN-syntaxfout:\n"
+
+#: etrn.c:106
+msgid "ETRN syntax error in parameters\n"
+msgstr "ETRN-syntaxfout in parameters\n"
+
+#: etrn.c:110
+#, c-format
+msgid "Unknown ETRN error %d\n"
+msgstr "Onbekende ETRN-fout: %d\n"
+
+#: etrn.c:154
+msgid "Option --keep is not supported with ETRN\n"
+msgstr "Optie '--keep' is niet mogelijk met ETRN\n"
+
+#: etrn.c:158
+msgid "Option --flush is not supported with ETRN\n"
+msgstr "Optie '--flush' is niet mogelijk met ETRN\n"
+
+#: etrn.c:162
+msgid "Option --folder is not supported with ETRN\n"
+msgstr "Optie '--folder' is niet mogelijk met ETRN\n"
+
+#: etrn.c:166
+msgid "Option --check is not supported with ETRN\n"
+msgstr "Optie '--check' is niet mogelijk met ETRN\n"
+
+#: fetchmail.c:137
+#, fuzzy
+msgid ""
+"Copyright (C) 2002, 2003 Eric S. Raymond\n"
+"Copyright (C) 2004 Matthias Andree, Eric S. Raymond, Robert M. Funk, Graham "
+"Wilson\n"
+"Copyright (C) 2005 - 2006 Sunil Shetye\n"
+"Copyright (C) 2005 - 2009 Matthias Andree\n"
+msgstr ""
+"Copyright (C) 2002, 2003 Eric S. Raymond\n"
+"Copyright (C) 2004 Matthias Andree, Eric S. Raymond, Robert M. Funk, Graham "
+"Wilson\n"
+"Copyright (C) 2005-2006 Sunil Shetye\n"
+"Copyright (C) 2005-2007 Matthias Andree\n"
+
+#: fetchmail.c:142
+msgid ""
+"Fetchmail comes with ABSOLUTELY NO WARRANTY. This is free software, and you\n"
+"are welcome to redistribute it under certain conditions. For details,\n"
+"please see the file COPYING in the source or documentation directory.\n"
+msgstr ""
+"Fetchmail kent GEEN ENKELE GARANTIE.  Dit is vrije software; u mag het\n"
+"onder bepaalde voorwaarden verder verspreiden.  Zie voor de details het\n"
+"bestand genaamd COPYING in de programmatekst of documentatiemap.\n"
+
+#: fetchmail.c:176
+msgid "WARNING: Running as root is discouraged.\n"
+msgstr "WAARSCHUWING: Als root draaien wordt ontraden.\n"
+
+#: fetchmail.c:188
+msgid "fetchmail: invoked with"
+msgstr "fetchmail: opgestart met"
+
+#: fetchmail.c:212
+msgid "could not get current working directory\n"
+msgstr "kan huidige werkmap niet bepalen\n"
+
+#: fetchmail.c:283
+#, c-format
+msgid "This is fetchmail release %s"
+msgstr "Dit is fetchmail versie %s"
+
+#: fetchmail.c:403
+#, c-format
+msgid "Taking options from command line%s%s\n"
+msgstr "Deze opties van opdrachtregel gehaald%s%s\n"
+
+#: fetchmail.c:404
+msgid " and "
+msgstr " en "
+
+#: fetchmail.c:409
+#, c-format
+msgid "No mailservers set up -- perhaps %s is missing?\n"
+msgstr "Geen mailservers ingesteld -- misschien ontbreekt %s?\n"
+
+#: fetchmail.c:430
+msgid "fetchmail: no mailservers have been specified.\n"
+msgstr "fetchmail: geen mailservers opgegeven.\n"
+
+#: fetchmail.c:442
+msgid "fetchmail: no other fetchmail is running\n"
+msgstr "fetchmail: er draait geen andere fetchmail\n"
+
+#: fetchmail.c:448
+#, c-format
+msgid "fetchmail: error killing %s fetchmail at %d; bailing out.\n"
+msgstr "fetchmail: kan %s fetchmail op %d niet elimineren -- gestopt\n"
+
+#: fetchmail.c:449 fetchmail.c:458
+msgid "background"
+msgstr "achtergrond"
+
+#: fetchmail.c:449 fetchmail.c:458
+msgid "foreground"
+msgstr "voorgrond"
+
+#: fetchmail.c:457
+#, c-format
+msgid "fetchmail: %s fetchmail at %d killed.\n"
+msgstr "fetchmail: %s fetchmail op %d geëlimineerd.\n"
+
+#: fetchmail.c:480
+msgid ""
+"fetchmail: can't check mail while another fetchmail to same host is "
+"running.\n"
+msgstr ""
+"fetchmail: kan mail niet controleren terwijl er een andere fetchmail\n"
+"naar dezelfde host actief is.\n"
+
+#: fetchmail.c:486
+#, c-format
+msgid ""
+"fetchmail: can't poll specified hosts with another fetchmail running at %d.\n"
+msgstr ""
+"fetchmail: kan opgegeven hosts niet contacteren terwijl een andere fetchmail "
+"draait op %d.\n"
+
+#: fetchmail.c:493
+#, c-format
+msgid "fetchmail: another foreground fetchmail is running at %d.\n"
+msgstr "fetchmail: een andere fetchmail draait op de voorgrond op %d.\n"
+
+#: fetchmail.c:503
+msgid ""
+"fetchmail: can't accept options while a background fetchmail is running.\n"
+msgstr ""
+"fetchmail: kan geen opties accepteren terwijl er een fetchmail op de "
+"achtergrond draait.\n"
+
+#: fetchmail.c:509
+#, c-format
+msgid "fetchmail: background fetchmail at %d awakened.\n"
+msgstr "fetchmail: fetchmail-service in de achtergrond op %d wakkergeschud.\n"
+
+#: fetchmail.c:521
+#, c-format
+msgid "fetchmail: elder sibling at %d died mysteriously.\n"
+msgstr ""
+"fetchmail: ouder zusterproces op %d is om onbekende redenen afgebroken.\n"
+
+#: fetchmail.c:536
+#, c-format
+msgid "fetchmail: can't find a password for %s@%s.\n"
+msgstr "fetchmail: kan geen wachtwoord vinden voor %s@%s.\n"
+
+#: fetchmail.c:540
+#, c-format
+msgid "Enter password for %s@%s: "
+msgstr "Geef wachtwoord voor %s@%s: "
+
+#: fetchmail.c:582
+msgid "fetchmail: Cannot detach into background. Aborting.\n"
+msgstr "fetchmail: Kan niet naar de achtergrond gaan.  Gestopt.\n"
+
+#: fetchmail.c:586
+#, c-format
+msgid "starting fetchmail %s daemon \n"
+msgstr "starten van fetchmail %s-service \n"
+
+#: fetchmail.c:602 fetchmail.c:604
+#, c-format
+msgid "could not open %s to append logs to \n"
+msgstr "kan %s niet openen voor het toevoegen van loginformatie \n"
+
+#: fetchmail.c:606
+msgid "fetchmail: Warning: syslog and logfile are set. Check both for logs!\n"
+msgstr ""
+"fetchmail: Waarschuwing: syslog en logfile zijn ingesteld; controleer beide "
+"op informatie!\n"
+
+#: fetchmail.c:625
+msgid "--check mode enabled, not fetching mail\n"
+msgstr ""
+
+#: fetchmail.c:647
+#, c-format
+msgid "couldn't time-check %s (error %d)\n"
+msgstr "kan geen tijdcontrole op %s uitvoeren (fout %d)\n"
+
+#: fetchmail.c:652
+#, c-format
+msgid "restarting fetchmail (%s changed)\n"
+msgstr "fetchmail wordt herstart (%s is gewijzigd)\n"
+
+#: fetchmail.c:657
+msgid "attempt to re-exec may fail as directory has not been restored\n"
+msgstr "poging tot herstarten kan mislukken omdat de map niet is hersteld\n"
+
+#: fetchmail.c:684
+msgid "attempt to re-exec fetchmail failed\n"
+msgstr "poging tot herstarten van fetchmail is mislukt\n"
+
+#: fetchmail.c:714
+#, c-format
+msgid "poll of %s skipped (failed authentication or too many timeouts)\n"
+msgstr ""
+"mail ophalen van %s wordt overgeslagen (aanmelden is mislukt of duurt te "
+"lang)\n"
+
+#: fetchmail.c:726
+#, c-format
+msgid "interval not reached, not querying %s\n"
+msgstr "interval niet bereikt, %s wordt niet gecontroleerd\n"
+
+#: fetchmail.c:764
+msgid "Query status=0 (SUCCESS)\n"
+msgstr "Resultaatcode = 0 (GELUKT)\n"
+
+#: fetchmail.c:766
+msgid "Query status=1 (NOMAIL)\n"
+msgstr "Resultaatcode=1 (GEEN MAIL)\n"
+
+#: fetchmail.c:768
+msgid "Query status=2 (SOCKET)\n"
+msgstr "Resultaatcode=2 (SOCKETFOUT)\n"
+
+#: fetchmail.c:770
+msgid "Query status=3 (AUTHFAIL)\n"
+msgstr "Resultaatcode=3 (AANMELDEN MISLUKT)\n"
+
+#: fetchmail.c:772
+msgid "Query status=4 (PROTOCOL)\n"
+msgstr "Resultaatcode=4 (PROTOCOLFOUT)\n"
+
+#: fetchmail.c:774
+msgid "Query status=5 (SYNTAX)\n"
+msgstr "Resultaatcode=5 (SYNTAXFOUT)\n"
+
+#: fetchmail.c:776
+msgid "Query status=6 (IOERR)\n"
+msgstr "Resultaatcode=6 (I/O-fout)\n"
+
+#: fetchmail.c:778
+msgid "Query status=7 (ERROR)\n"
+msgstr "Resultaatcode=7 (ALGEMENE FOUT)\n"
+
+#: fetchmail.c:780
+msgid "Query status=8 (EXCLUDE)\n"
+msgstr "Resultaatcode=8 (UITGESLOTEN)\n"
+
+#: fetchmail.c:782
+msgid "Query status=9 (LOCKBUSY)\n"
+msgstr "Resultaatcode=9 (VERGRENDELING ACTIEF)\n"
+
+#: fetchmail.c:784
+msgid "Query status=10 (SMTP)\n"
+msgstr "Resultaatcode=10 (SMTP-fout)\n"
+
+#: fetchmail.c:786
+msgid "Query status=11 (DNS)\n"
+msgstr "Resultaatcode=11 (DNS-fout)\n"
+
+#: fetchmail.c:788
+msgid "Query status=12 (BSMTP)\n"
+msgstr "Resultaatcode=12 (BSMTP-fout)\n"
+
+#: fetchmail.c:790
+msgid "Query status=13 (MAXFETCH)\n"
+msgstr "Resultaatcode=13 (OPHAALLIMIET BEREIKT)\n"
+
+#: fetchmail.c:792
+#, c-format
+msgid "Query status=%d\n"
+msgstr "Resultaatcode=%d\n"
+
+#: fetchmail.c:834
+msgid "All connections are wedged.  Exiting.\n"
+msgstr "Alle verbindingen zijn vastgelopen.  Gestopt.\n"
+
+#: fetchmail.c:842
+#, c-format
+msgid "sleeping at %s for %d seconds\n"
+msgstr "slapen om %s gedurende %d seconden\n"
+
+#: fetchmail.c:866
+#, c-format
+msgid "awakened by %s\n"
+msgstr "gewekt door %s\n"
+
+#: fetchmail.c:869
+#, c-format
+msgid "awakened by signal %d\n"
+msgstr "gewekt door signaal %d\n"
+
+#: fetchmail.c:877
+#, c-format
+msgid "awakened at %s\n"
+msgstr "gewekt op %s\n"
+
+#: fetchmail.c:882
+#, c-format
+msgid "normal termination, status %d\n"
+msgstr "normale afsluiting, afsluitwaarde %d\n"
+
+#: fetchmail.c:1036
+msgid "couldn't time-check the run-control file\n"
+msgstr "kan geen tijdcontrole uitvoeren op het run-control-bestand\n"
+
+#: fetchmail.c:1069
+#, c-format
+msgid "Warning: multiple mentions of host %s in config file\n"
+msgstr ""
+"Waarschuwing: host %s is meerdere malen vermeld in configuratiebestand\n"
+
+#: fetchmail.c:1102
+msgid "fetchmail: Error: multiple \"defaults\" records in config file.\n"
+msgstr ""
+"fetchmail: Fout: meerder \"defaults\"-secties in configuratiebestand.\n"
+
+#: fetchmail.c:1224
+msgid "SSL support is not compiled in.\n"
+msgstr "SSL-ondersteuning is niet ingebouwd.\n"
+
+#: fetchmail.c:1231
+msgid "KERBEROS v4 support is configured, but not compiled in.\n"
+msgstr "Kerberos V4-ondersteuning is geconfigureerd maar niet ingebouwd.\n"
+
+#: fetchmail.c:1237
+msgid "KERBEROS v5 support is configured, but not compiled in.\n"
+msgstr "Kerberos V5-ondersteuning is geconfigureerd maar niet ingebouwd.\n"
+
+#: fetchmail.c:1243
+msgid "GSSAPI support is configured, but not compiled in.\n"
+msgstr "GSSAPI-ondersteuning is geconfigureerd maar niet ingebouwd.\n"
+
+#: fetchmail.c:1273
+#, c-format
+msgid ""
+"fetchmail: warning: no DNS available to check multidrop fetches from %s\n"
+msgstr "fetchmail: Waarschuwing: geen DNS beschikbaar voor multidrop van %s\n"
+
+#: fetchmail.c:1284
+#, c-format
+msgid "warning: multidrop for %s requires envelope option!\n"
+msgstr ""
+
+#: fetchmail.c:1285
+msgid "warning: Do not ask for support if all mail goes to postmaster!\n"
+msgstr ""
+
+#: fetchmail.c:1302
+#, c-format
+msgid ""
+"fetchmail: %s configuration invalid, specify positive port number for "
+"service or port\n"
+msgstr ""
+"fetchmail: configuratie van %s is ongeldig -- poortnummer kan niet negatief "
+"zijn\n"
+
+#: fetchmail.c:1309
+#, c-format
+msgid "fetchmail: %s configuration invalid, RPOP requires a privileged port\n"
+msgstr ""
+"fetchmail: configuratie voor %s is ongeldig -- RPOP vereist een speciale "
+"poort\n"
+
+#: fetchmail.c:1327
+#, c-format
+msgid "%s configuration invalid, LMTP can't use default SMTP port\n"
+msgstr ""
+"configuratie voor %s is ongeldig -- LMTP kan niet de standaard SMTP-poort "
+"gebruiken\n"
+
+#: fetchmail.c:1341
+msgid "Both fetchall and keep on in daemon or idle mode is a mistake!\n"
+msgstr "Zowel 'fetchall' als 'keep on' in service-stand is een vergissing!\n"
+
+#: fetchmail.c:1366
+#, c-format
+msgid "terminated with signal %d\n"
+msgstr "beëindigd door signaal %d\n"
+
+#: fetchmail.c:1439
+#, c-format
+msgid "%s querying %s (protocol %s) at %s: poll started\n"
+msgstr "%s ondervraagt %s (protocol %s) op %s: ophaalsessie gestart\n"
+
+#: fetchmail.c:1464
+msgid "POP2 support is not configured.\n"
+msgstr "POP2-ondersteuning is niet geconfigureerd.\n"
+
+#: fetchmail.c:1476
+msgid "POP3 support is not configured.\n"
+msgstr "POP3-ondersteuning is niet geconfigureerd.\n"
+
+#: fetchmail.c:1486
+msgid "IMAP support is not configured.\n"
+msgstr "IMAP-ondersteuning is niet geconfigureerd.\n"
+
+#: fetchmail.c:1492
+msgid "ETRN support is not configured.\n"
+msgstr "ETRN-ondersteuning is niet geconfigureerd.\n"
+
+#: fetchmail.c:1500
+msgid "ODMR support is not configured.\n"
+msgstr "ODMR-ondersteuning is niet geconfigureerd.\n"
+
+#: fetchmail.c:1507
+msgid "unsupported protocol selected.\n"
+msgstr "een niet-ondersteund protocol is geselecteerd.\n"
+
+#: fetchmail.c:1517
+#, c-format
+msgid "%s querying %s (protocol %s) at %s: poll completed\n"
+msgstr "%s ondervraagt %s (protocol %s) op %s: ophaalsessie voltooid\n"
+
+#: fetchmail.c:1534
+#, c-format
+msgid "Poll interval is %d seconds\n"
+msgstr "Ophaalinterval is %d seconden\n"
+
+#: fetchmail.c:1536
+#, c-format
+msgid "Logfile is %s\n"
+msgstr "Logbestand is %s\n"
+
+#: fetchmail.c:1538
+#, c-format
+msgid "Idfile is %s\n"
+msgstr "ID-bestand is %s\n"
+
+#: fetchmail.c:1541
+msgid "Progress messages will be logged via syslog\n"
+msgstr "Voortgangsberichten worden via syslog opgeslagen\n"
+
+#: fetchmail.c:1544
+msgid "Fetchmail will masquerade and will not generate Received\n"
+msgstr "Fetchmail verstopt zich en maakt geen 'Received'-kopregels aan\n"
+
+#: fetchmail.c:1546
+msgid "Fetchmail will show progress dots even in logfiles.\n"
+msgstr "Fetchmail toont voortgangspuntjes ook in logbestanden.\n"
+
+#: fetchmail.c:1548
+#, c-format
+msgid "Fetchmail will forward misaddressed multidrop messages to %s.\n"
+msgstr ""
+"Fetchmail zal onjuist geadresseerde multidrop-berichten doorsturen naar %s.\n"
+
+#: fetchmail.c:1552
+msgid "Fetchmail will direct error mail to the postmaster.\n"
+msgstr "Fetchmail zal foutmeldingen naar de postmaster sturen.\n"
+
+#: fetchmail.c:1554
+msgid "Fetchmail will direct error mail to the sender.\n"
+msgstr "Fetchmail zal foutmeldingen naar de afzender sturen.\n"
+
+#: fetchmail.c:1557
+#, fuzzy
+msgid "Fetchmail will treat permanent errors as permanent (drop messsages).\n"
+msgstr ""
+"Fetchmail zal onjuist geadresseerde multidrop-berichten doorsturen naar %s.\n"
+
+#: fetchmail.c:1559
+#, fuzzy
+msgid "Fetchmail will treat permanent errors as temporary (keep messages).\n"
+msgstr "Fetchmail zal foutmeldingen naar de afzender sturen.\n"
+
+#: fetchmail.c:1566
+#, c-format
+msgid "Options for retrieving from %s@%s:\n"
+msgstr "Opties voor het ophalen van %s@%s:\n"
+
+#: fetchmail.c:1570
+#, c-format
+msgid "  Mail will be retrieved via %s\n"
+msgstr "  Mail wordt opgehaald via %s\n"
+
+#: fetchmail.c:1573
+#, c-format
+msgid "  Poll of this server will occur every %d interval.\n"
+msgid_plural "  Poll of this server will occur every %d intervals.\n"
+msgstr[0] "  Ondervragen van deze server vindt elk interval plaats.\n"
+msgstr[1] "  Ondervragen van deze server vindt elke %d intervallen plaats.\n"
+
+#: fetchmail.c:1577
+#, c-format
+msgid "  True name of server is %s.\n"
+msgstr "  Werkelijke naam van server is %s.\n"
+
+#: fetchmail.c:1580
+msgid "  This host will not be queried when no host is specified.\n"
+msgstr "  Deze host wordt niet ondervraagd als er geen host is opgegeven.\n"
+
+#: fetchmail.c:1581
+msgid "  This host will be queried when no host is specified.\n"
+msgstr "  Deze host wordt ondervraagd als er geen host is opgegeven.\n"
+
+#: fetchmail.c:1585
+msgid "  Password will be prompted for.\n"
+msgstr "  Wachtwoord wordt aan gebruiker gevraagd.\n"
+
+#: fetchmail.c:1589
+#, c-format
+msgid "  APOP secret = \"%s\".\n"
+msgstr "  APOP-geheim = \"%s\".\n"
+
+#: fetchmail.c:1592
+#, c-format
+msgid "  RPOP id = \"%s\".\n"
+msgstr "  RPOP-ID = \"%s\".\n"
+
+#: fetchmail.c:1595
+#, c-format
+msgid "  Password = \"%s\".\n"
+msgstr "  Wachtwoord = \"%s\".\n"
+
+#: fetchmail.c:1604
+#, c-format
+msgid "  Protocol is KPOP with Kerberos %s authentication"
+msgstr "  Protocol is KPOP met Kerberos %s-authenticatie"
+
+#: fetchmail.c:1607
+#, c-format
+msgid "  Protocol is %s"
+msgstr "  Protocol is %s"
+
+#: fetchmail.c:1609
+#, c-format
+msgid " (using service %s)"
+msgstr " (gebruikmakend van service %s)"
+
+#: fetchmail.c:1611
+msgid " (using default port)"
+msgstr " (gebruikmakend van de standaard poort)"
+
+#: fetchmail.c:1613
+msgid " (forcing UIDL use)"
+msgstr " (gebruik van UIDL wordt afgedwongen)"
+
+#: fetchmail.c:1619
+msgid "  All available authentication methods will be tried.\n"
+msgstr "  Alle beschikbare authenticatiemethoden worden geprobeerd.\n"
+
+#: fetchmail.c:1622
+msgid "  Password authentication will be forced.\n"
+msgstr "  Wachtwoordauthenticatie wordt afgedwongen.\n"
+
+#: fetchmail.c:1625
+msgid "  MSN authentication will be forced.\n"
+msgstr "  MSN-authenticatie wordt afgedwongen.\n"
+
+#: fetchmail.c:1628
+msgid "  NTLM authentication will be forced.\n"
+msgstr "  NTLM-authenticatie wordt afgedwongen.\n"
+
+#: fetchmail.c:1631
+msgid "  OTP authentication will be forced.\n"
+msgstr "  OTP-authenticatie wordt afgedwongen.\n"
+
+#: fetchmail.c:1634
+msgid "  CRAM-Md5 authentication will be forced.\n"
+msgstr "  CRAM-MD5-authenticatie wordt afgedwongen.\n"
+
+#: fetchmail.c:1637
+msgid "  GSSAPI authentication will be forced.\n"
+msgstr "  GSSAPI-authenticatie wordt afgedwongen.\n"
+
+#: fetchmail.c:1640
+msgid "  Kerberos V4 authentication will be forced.\n"
+msgstr "  Kerberos V4-authenticatie wordt afgedwongen.\n"
+
+#: fetchmail.c:1643
+msgid "  Kerberos V5 authentication will be forced.\n"
+msgstr "  Kerberos V5-authenticatie wordt afgedwongen.\n"
+
+#: fetchmail.c:1646
+msgid "  End-to-end encryption assumed.\n"
+msgstr "  Versleuteling van-eindpunt-tot-eindpunt wordt aangenomen.\n"
+
+#: fetchmail.c:1650
+#, fuzzy, c-format
+msgid "  Mail service principal is: %s\n"
+msgstr "  Mail-service principal is: %s\n"
+
+#: fetchmail.c:1653
+msgid "  SSL encrypted sessions enabled.\n"
+msgstr "  SSL-versleutelde sessies zijn ingeschakeld.\n"
+
+#: fetchmail.c:1655
+#, c-format
+msgid "  SSL protocol: %s.\n"
+msgstr "  SSL-protocol: %s.\n"
+
+#: fetchmail.c:1657
+msgid "  SSL server certificate checking enabled.\n"
+msgstr "  Certificaat-controle voor SSL-server is ingeschakeld.\n"
+
+#: fetchmail.c:1659
+#, c-format
+msgid "  SSL trusted certificate directory: %s\n"
+msgstr "  Map voor vertrouwde SSL-certificaten: %s\n"
+
+#: fetchmail.c:1662
+#, fuzzy, c-format
+msgid "  SSL server CommonName: %s\n"
+msgstr "Gewone servernaam: %s\n"
+
+#: fetchmail.c:1664
+#, c-format
+msgid "  SSL key fingerprint (checked against the server key): %s\n"
+msgstr "  SSL-sleutel-afdruk (geverifieerd tegenover server-sleutel): %s\n"
+
+#: fetchmail.c:1667
+#, c-format
+msgid "  Server nonresponse timeout is %d seconds"
+msgstr "  Server-timeout voor geen respons is %d seconden"
+
+#: fetchmail.c:1669
+msgid " (default).\n"
+msgstr " (standaard).\n"
+
+#: fetchmail.c:1676
+msgid "  Default mailbox selected.\n"
+msgstr "  Standaard mailbox geselecteerd.\n"
+
+#: fetchmail.c:1681
+msgid "  Selected mailboxes are:"
+msgstr "  Geselecteerde mailboxen zijn:"
+
+#: fetchmail.c:1687
+msgid "  All messages will be retrieved (--all on).\n"
+msgstr "  Alle berichten zullen worden opgehaald ('--all on').\n"
+
+#: fetchmail.c:1688
+msgid "  Only new messages will be retrieved (--all off).\n"
+msgstr "  Alleen nieuwe berichten zullen worden opgehaald ('--all off').\n"
+
+#: fetchmail.c:1690
+msgid "  Fetched messages will be kept on the server (--keep on).\n"
+msgstr ""
+"  Van opgehaalde berichten worden kopieën op de server bewaard ('--keep "
+"on').\n"
+
+#: fetchmail.c:1691
+msgid "  Fetched messages will not be kept on the server (--keep off).\n"
+msgstr ""
+"  Opgehaalde berichten worden van de server verwijderd ('--keep off').\n"
+
+#: fetchmail.c:1693
+msgid "  Old messages will be flushed before message retrieval (--flush on).\n"
+msgstr ""
+"  Oude berichten worden verwijderd voor het ophalen begint ('--flush on').\n"
+
+#: fetchmail.c:1694
+msgid ""
+"  Old messages will not be flushed before message retrieval (--flush off).\n"
+msgstr ""
+"  Oude berichten worden niet verwijderd voor het ophalen begint ('--flush "
+"off').\n"
+
+#: fetchmail.c:1696
+msgid ""
+"  Oversized messages will be flushed before message retrieval (--limitflush "
+"on).\n"
+msgstr ""
+"  Te grote berichten worden verwijderd voor het ophalen begint ('--"
+"limitflush on').\n"
+
+#: fetchmail.c:1697
+msgid ""
+"  Oversized messages will not be flushed before message retrieval (--"
+"limitflush off).\n"
+msgstr ""
+"  Te grote berichten worden niet verwijderd voor het ophalen begint ('--"
+"limitflush off').\n"
+
+#: fetchmail.c:1699
+msgid "  Rewrite of server-local addresses is enabled (--norewrite off).\n"
+msgstr ""
+"  Herschrijven van lokale server-adressen is ingeschakeld ('--norewrite "
+"off').\n"
+
+#: fetchmail.c:1700
+msgid "  Rewrite of server-local addresses is disabled (--norewrite on).\n"
+msgstr ""
+"  Herschrijven van lokale server-adressen is uitgeschakeld ('--norewrite "
+"on').\n"
+
+#: fetchmail.c:1702
+msgid "  Carriage-return stripping is enabled (stripcr on).\n"
+msgstr "  Verwijderen van CR-tekens is ingeschakeld ('stripcr on').\n"
+
+#: fetchmail.c:1703
+msgid "  Carriage-return stripping is disabled (stripcr off).\n"
+msgstr "  Verwijderen van CR-tekens is uitgeschakeld ('stripcr off').\n"
+
+#: fetchmail.c:1705
+msgid "  Carriage-return forcing is enabled (forcecr on).\n"
+msgstr "  Afdwingen van CR-tekens is ingeschakeld ('forcecr on').\n"
+
+#: fetchmail.c:1706
+msgid "  Carriage-return forcing is disabled (forcecr off).\n"
+msgstr "  Afdwingen van CR-tekens is uitgeschakeld ('forcecr off').\n"
+
+#: fetchmail.c:1708
+msgid ""
+"  Interpretation of Content-Transfer-Encoding is disabled (pass8bits on).\n"
+msgstr ""
+"  Interpretatie van Content-Transfer-Encoding is uitgeschakeld ('pass8bits "
+"on').\n"
+
+#: fetchmail.c:1709
+msgid ""
+"  Interpretation of Content-Transfer-Encoding is enabled (pass8bits off).\n"
+msgstr ""
+"  Interpretatie van Content-Transfer-Encoding is ingeschakeld ('pass8bits "
+"off').\n"
+
+#: fetchmail.c:1711
+msgid "  MIME decoding is enabled (mimedecode on).\n"
+msgstr "  MIME decoderen is ingeschakeld ('mimedecode on').\n"
+
+#: fetchmail.c:1712
+msgid "  MIME decoding is disabled (mimedecode off).\n"
+msgstr "  MIME decoderen is uitgeschakeld ('mimedecode off').\n"
+
+#: fetchmail.c:1714
+msgid "  Idle after poll is enabled (idle on).\n"
+msgstr "  Nietsdoen na ophalen is ingeschakeld ('idle on').\n"
+
+#: fetchmail.c:1715
+msgid "  Idle after poll is disabled (idle off).\n"
+msgstr "  Nietsdoen na ophalen is uitgeschakeld ('idle off').\n"
+
+#: fetchmail.c:1717
+msgid "  Nonempty Status lines will be discarded (dropstatus on)\n"
+msgstr "  Niet-lege Status-regels worden weggegooid ('dropstatus on')\n"
+
+#: fetchmail.c:1718
+msgid "  Nonempty Status lines will be kept (dropstatus off)\n"
+msgstr "  Niet-lege Status-regels worden behouden ('dropstatus off')\n"
+
+#: fetchmail.c:1720
+msgid "  Delivered-To lines will be discarded (dropdelivered on)\n"
+msgstr "  Delivered-To-regels worden weggegooid ('dropdelivered on')\n"
+
+#: fetchmail.c:1721
+msgid "  Delivered-To lines will be kept (dropdelivered off)\n"
+msgstr "  Delivered-To-regels worden behouden ('dropdelivered off')\n"
+
+#: fetchmail.c:1725
+#, c-format
+msgid "  Message size limit is %d octets (--limit %d).\n"
+msgstr "  Berichtgrootte-limiet is %d tekens ('--limit %d').\n"
+
+#: fetchmail.c:1728
+msgid "  No message size limit (--limit 0).\n"
+msgstr "  Berichtgrootte is onbegrensd ('--limit 0').\n"
+
+#: fetchmail.c:1730
+#, c-format
+msgid "  Message size warning interval is %d seconds (--warnings %d).\n"
+msgstr ""
+"  Waarschuwingsinterval voor berichtgrootte is %d seconden ('--warnings %"
+"d').\n"
+
+#: fetchmail.c:1733
+msgid "  Size warnings on every poll (--warnings 0).\n"
+msgstr ""
+"  Waarschuwingen voor grootte tijdens elke ophaalronde ('--warnings 0').\n"
+
+#: fetchmail.c:1736
+#, c-format
+msgid "  Received-message limit is %d (--fetchlimit %d).\n"
+msgstr "  Aantal berichten per keer is beperkt tot %d ('--fetchlimit %d').\n"
+
+#: fetchmail.c:1739
+msgid "  No received-message limit (--fetchlimit 0).\n"
+msgstr ""
+"  Het aantal per keer opgehaalde berichten is onbeperkt ('--fetchlimit 0').\n"
+
+#: fetchmail.c:1741
+#, c-format
+msgid "  Fetch message size limit is %d (--fetchsizelimit %d).\n"
+msgstr "  Maximale berichtgrootte is %d ('--fetchsizelimit %d').\n"
+
+#: fetchmail.c:1744
+msgid "  No fetch message size limit (--fetchsizelimit 0).\n"
+msgstr "  Geen beperking op berichtgrootte ('--fetchsizelimit 0').\n"
+
+#: fetchmail.c:1748
+msgid "  Do binary search of UIDs during each poll (--fastuidl 1).\n"
+msgstr ""
+"  Er wordt binair naar UID's gezocht tijdens het ophalen ('--fastuidl 1').\n"
+
+#: fetchmail.c:1750
+#, c-format
+msgid "  Do binary search of UIDs during %d out of %d polls (--fastuidl %d).\n"
+msgstr ""
+"  Er wordt binair naar UID's gezocht tijdens %d van de %d ophaalacties ('--"
+"fastuidl %d').\n"
+
+#: fetchmail.c:1753
+msgid "   Do linear search of UIDs during each poll (--fastuidl 0).\n"
+msgstr ""
+"  Er wordt lineair naar UID's gezocht tijdens elke ophaalactie ('--fastuidl "
+"0').\n"
+
+#: fetchmail.c:1755
+#, fuzzy, c-format
+msgid "  SMTP message batch limit is %d.\n"
+msgstr "  SMTP bericht-stapel limiet is %d.\n"
+
+#: fetchmail.c:1757
+#, fuzzy
+msgid "  No SMTP message batch limit (--batchlimit 0).\n"
+msgstr "  Er is geen SMTP bericht-stapel limiet (--batchlimit 0).\n"
+
+#: fetchmail.c:1761
+#, c-format
+msgid "  Deletion interval between expunges forced to %d (--expunge %d).\n"
+msgstr ""
+"  Verwijderinterval tussen expunge-operaties geforceerd op %d (--expunge %"
+"d).\n"
+
+#: fetchmail.c:1763
+msgid "  No forced expunges (--expunge 0).\n"
+msgstr "  Geen geforceerde expunges (--expunge 0).\n"
+
+#: fetchmail.c:1770
+msgid "  Domains for which mail will be fetched are:"
+msgstr "  Er wordt mail opgehaald voor de volgende domeinen:"
+
+#: fetchmail.c:1775 fetchmail.c:1795
+msgid " (default)"
+msgstr " (standaard)"
+
+#: fetchmail.c:1780
+#, c-format
+msgid "  Messages will be appended to %s as BSMTP\n"
+msgstr "  Berichten worden toegevoegd aan %s als BSMTP\n"
+
+#: fetchmail.c:1782
+#, c-format
+msgid "  Messages will be delivered with \"%s\".\n"
+msgstr "  Berichten worden bezorgd met \"%s\".\n"
+
+#: fetchmail.c:1789
+#, c-format
+msgid "  Messages will be %cMTP-forwarded to:"
+msgstr "  Berichten worden %cMTP-geforward naar:"
+
+#: fetchmail.c:1800
+#, c-format
+msgid "  Host part of MAIL FROM line will be %s\n"
+msgstr "  Host-gedeelte van de MAIL FROM regel zal %szijn\n"
+
+#: fetchmail.c:1803
+#, c-format
+msgid "  Address to be put in RCPT TO lines shipped to SMTP will be %s\n"
+msgstr "  Het adres in de RCPT TO regels naar SMTP zal %s zijn\n"
+
+#: fetchmail.c:1812
+msgid "  Recognized listener spam block responses are:"
+msgstr "  Herkende foutcodes van spam-blokkades zijn:"
+
+#: fetchmail.c:1818
+msgid "  Spam-blocking disabled\n"
+msgstr "  Spam-blokkades uitgeschakeld\n"
+
+#: fetchmail.c:1821
+#, c-format
+msgid "  Server connection will be brought up with \"%s\".\n"
+msgstr "  Server connectie wordt tot stand gebracht met \"%s\".\n"
+
+#: fetchmail.c:1824
+msgid "  No pre-connection command.\n"
+msgstr "  Geen voor-verbindingscommando.\n"
+
+#: fetchmail.c:1826
+#, c-format
+msgid "  Server connection will be taken down with \"%s\".\n"
+msgstr "  Server connectie wordt verbroken met \"%s\".\n"
+
+#: fetchmail.c:1829
+msgid "  No post-connection command.\n"
+msgstr "  Geen na-verbindingscommando.\n"
+
+#: fetchmail.c:1832
+msgid "  No localnames declared for this host.\n"
+msgstr "  Geen lokale namen gedeclareerd voor deze host.\n"
+
+#: fetchmail.c:1842
+msgid "  Multi-drop mode: "
+msgstr "  Multi-drop mode: "
+
+#: fetchmail.c:1844
+msgid "  Single-drop mode: "
+msgstr "  Single-drop mode: "
+
+#: fetchmail.c:1846
+#, c-format
+msgid "%d local name recognized.\n"
+msgid_plural "%d local names recognized.\n"
+msgstr[0] "%d lokale naam herkend.\n"
+msgstr[1] "%d lokale namen herkend.\n"
+
+#: fetchmail.c:1861
+msgid "  DNS lookup for multidrop addresses is enabled.\n"
+msgstr "  DNS-zoekactie voor multidrop-adressen is ingeschakeld.\n"
+
+#: fetchmail.c:1862
+msgid "  DNS lookup for multidrop addresses is disabled.\n"
+msgstr "  DNS-zoekactie voor multidrop-adressen is uitgeschakeld.\n"
+
+#: fetchmail.c:1866
+msgid ""
+"  Server aliases will be compared with multidrop addresses by IP address.\n"
+msgstr ""
+"  Server-aliassen worden vergeleken met multidrop-adressen via het IP-"
+"adres.\n"
+
+#: fetchmail.c:1868
+msgid "  Server aliases will be compared with multidrop addresses by name.\n"
+msgstr ""
+"  Server-aliassen worden vergeleken met multidrop-adressen via de naam.\n"
+
+#: fetchmail.c:1871
+msgid "  Envelope-address routing is disabled\n"
+msgstr "  Envelopadres-routering is uitgeschakeld\n"
+
+#: fetchmail.c:1874
+#, c-format
+msgid "  Envelope header is assumed to be: %s\n"
+msgstr "  Envelop-header is aangenomen als zijnde: %s\n"
+
+#: fetchmail.c:1877
+#, c-format
+msgid "  Number of envelope headers to be skipped over: %d\n"
+msgstr "  Aantal over te slaan envelop-headers: %d\n"
+
+#: fetchmail.c:1880
+#, c-format
+msgid "  Prefix %s will be removed from user id\n"
+msgstr "  Prefix %s zal van de user-ID worden verwijderd\n"
+
+#: fetchmail.c:1883
+msgid "  No prefix stripping\n"
+msgstr "  Geen prefix-verwijdering\n"
+
+#: fetchmail.c:1890
+msgid "  Predeclared mailserver aliases:"
+msgstr "  Voorgedefinieerde mailserver-aliassen:"
+
+#: fetchmail.c:1899
+msgid "  Local domains:"
+msgstr "  Lokale domeinen:"
+
+#: fetchmail.c:1909
+#, c-format
+msgid "  Connection must be through interface %s.\n"
+msgstr "  Connectie moet door interface %s.\n"
+
+#: fetchmail.c:1911
+msgid "  No interface requirement specified.\n"
+msgstr "  Geen interface-eisen opgegeven.\n"
+
+#: fetchmail.c:1913
+#, c-format
+msgid "  Polling loop will monitor %s.\n"
+msgstr "  Ophaal-lus monitort %s.\n"
+
+#: fetchmail.c:1915
+msgid "  No monitor interface specified.\n"
+msgstr "  Geen monitor-interface opgegeven.\n"
+
+#: fetchmail.c:1919
+#, c-format
+msgid "  Server connections will be made via plugin %s (--plugin %s).\n"
+msgstr "  Server-connecties worden gelegd via plugin %s ('--plugin %s').\n"
+
+#: fetchmail.c:1921
+msgid "  No plugin command specified.\n"
+msgstr "  Geen plugin-commando opgegeven.\n"
+
+#: fetchmail.c:1923
+#, c-format
+msgid "  Listener connections will be made via plugout %s (--plugout %s).\n"
+msgstr ""
+"  Luisterende connecties worden gelegd via plugout %s ('--plugout %s').\n"
+
+#: fetchmail.c:1925
+msgid "  No plugout command specified.\n"
+msgstr "  Geen plugout-commando opgegeven.\n"
+
+#: fetchmail.c:1930
+msgid "  No UIDs saved from this host.\n"
+msgstr "  Geen UID's opgeslagen voor deze host.\n"
+
+#: fetchmail.c:1939
+#, c-format
+msgid "  %d UIDs saved.\n"
+msgstr "  %d UID's opgeslagen.\n"
+
+#: fetchmail.c:1947
+msgid "  Poll trace information will be added to the Received header.\n"
+msgstr "  Poll trace informatie wordt toegevoegd aan de Received header.\n"
+
+#: fetchmail.c:1949
+msgid ""
+"  No poll trace information will be added to the Received header.\n"
+".\n"
+msgstr ""
+"  Er wordt geen poll trace informatie aan de Received header toegevoegd.\n"
+
+#: fetchmail.c:1952
+#, c-format
+msgid "  Pass-through properties \"%s\".\n"
+msgstr "  Doorvoer-eigenschappen \"%s\".\n"
+
+#: getpass.c:71
+msgid "ERROR: no support for getpassword() routine\n"
+msgstr "FOUT: geen ondersteuning voor getpassword()-routine\n"
+
+#: getpass.c:193
+msgid ""
+"\n"
+"Caught SIGINT... bailing out.\n"
+msgstr ""
+"\n"
+"SIGINT ontvangen -- gestopt\n"
+
+#: gssapi.c:66
+#, c-format
+msgid "Couldn't get service name for [%s]\n"
+msgstr "Kan geen service-naam vinden voor [%s]\n"
+
+#: gssapi.c:72
+#, c-format
+msgid "Using service name [%s]\n"
+msgstr "Service-naam [%s] wordt gebruikt\n"
+
+#: gssapi.c:89
+msgid "Sending credentials\n"
+msgstr "Versturen van login-gegevens\n"
+
+#: gssapi.c:107
+msgid "Error exchanging credentials\n"
+msgstr "Fout bij uitwisselen van login-gegevens\n"
+
+#: gssapi.c:152
+msgid "Couldn't unwrap security level data\n"
+msgstr "Kan beveiligingstunnel niet uitvouwen\n"
+
+#: gssapi.c:157
+msgid "Credential exchange complete\n"
+msgstr "Login-gegevens succesvol uitgewisseld\n"
+
+#: gssapi.c:161
+msgid "Server requires integrity and/or privacy\n"
+msgstr "Server vereist integriteit en/of privacy\n"
+
+#: gssapi.c:170
+#, c-format
+msgid "Unwrapped security level flags: %s%s%s\n"
+msgstr "Eigenschappen van uitgevouwen beveiligingstunnel: %s%s%s\n"
+
+#: gssapi.c:174
+#, c-format
+msgid "Maximum GSS token size is %ld\n"
+msgstr "Maximale grootte van GSS-token is %ld\n"
+
+#: gssapi.c:187
+msgid "Error creating security level request\n"
+msgstr "Fout bij het doen van beveiligingsverzoek\n"
+
+#: gssapi.c:198
+msgid "Releasing GSS credentials\n"
+msgstr "GSS-login-gegevens worden afgegeven\n"
+
+#: gssapi.c:201
+msgid "Error releasing credentials\n"
+msgstr "Fout bij het afgeven van gegevens\n"
+
+#: idle.c:61
+#, c-format
+msgid "fetchmail: thread sleeping for %d sec.\n"
+msgstr "fetchmail: thread slaapt gedurende %d seconden.\n"
+
+#: imap.c:326
+msgid "Protocol identified as IMAP4 rev 1\n"
+msgstr "Protocol herkend als IMAP4 revisie 1\n"
+
+#: imap.c:332
+msgid "Protocol identified as IMAP4 rev 0\n"
+msgstr "Protocol herkend als IMAP4 revisie 0\n"
+
+#: imap.c:339
+msgid "Protocol identified as IMAP2 or IMAP2BIS\n"
+msgstr "Protocol herkend als IMAP2 of IMAP2BIS\n"
+
+#: imap.c:354
+msgid "will idle after poll\n"
+msgstr "zal nietsdoen na verzoek\n"
+
+#: imap.c:446 pop3.c:518
+#, c-format
+msgid "%s: upgrade to TLS succeeded.\n"
+msgstr "%s: opwaardering naar TLS is geslaagd.\n"
+
+#: imap.c:455 pop3.c:527
+#, c-format
+msgid "%s: upgrade to TLS failed.\n"
+msgstr "%s: opwaardering naar TLS is mislukt.\n"
+
+#: imap.c:459
+#, c-format
+msgid "%s: opportunistic upgrade to TLS failed, trying to continue\n"
+msgstr "%s: poging tot opwaardering naar TLS is mislukt; doorgegaan\n"
+
+#: imap.c:579
+msgid "Required OTP capability not compiled into fetchmail\n"
+msgstr "Benodigde OTP-ondersteuning is niet in fetchmail gecompileerd\n"
+
+#: imap.c:601 pop3.c:385
+msgid "Required NTLM capability not compiled into fetchmail\n"
+msgstr "Benodigde NTLM-ondersteuning is niet in fetchmail gecompileerd\n"
+
+#: imap.c:610
+msgid "Required LOGIN capability not supported by server\n"
+msgstr "Benodigde LOGIN-mogelijkheid wordt niet door server ondersteund\n"
+
+#: imap.c:676
+#, fuzzy, c-format
+msgid "mail expunge mismatch (%d actual != %d expected)\n"
+msgstr ""
+"bericht %s@%s:%d was niet van de verwachte lengte (was %d != verwachtte %d)\n"
+
+#: imap.c:782 imap.c:841
+msgid "re-poll failed\n"
+msgstr "opnieuw polsen is mislukt\n"
+
+#: imap.c:790 imap.c:846
+#, c-format
+msgid "%d message waiting after re-poll\n"
+msgid_plural "%d messages waiting after re-poll\n"
+msgstr[0] "%d bericht in wachtrij na nieuwe aanvraag\n"
+msgstr[1] "%d berichten in wachtrij na nieuwe aanvraag\n"
+
+#: imap.c:807
+msgid "mailbox selection failed\n"
+msgstr "mailbox-selectie is mislukt\n"
+
+#: imap.c:811
+#, c-format
+msgid "%d message waiting after first poll\n"
+msgid_plural "%d messages waiting after first poll\n"
+msgstr[0] "%d bericht in wachtrij na eerste aanvraag\n"
+msgstr[1] "%d berichten in wachtrij na eerste aanvraag\n"
+
+#: imap.c:825
+msgid "expunge failed\n"
+msgstr "expunge is mislukt\n"
+
+#: imap.c:829
+#, c-format
+msgid "%d message waiting after expunge\n"
+msgid_plural "%d messages waiting after expunge\n"
+msgstr[0] "%d bericht in wachtrij na expunge\n"
+msgstr[1] "%d berichten in wachtrij na expunge\n"
+
+#: imap.c:871
+msgid "search for unseen messages failed\n"
+msgstr "zoeken naar ongelezen berichten is mislukt\n"
+
+#: imap.c:899
+#, c-format
+msgid "%lu is unseen\n"
+msgstr "%lu is nog niet gelezen\n"
+
+#: imap.c:911 pop3.c:889
+#, c-format
+msgid "%u is first unseen\n"
+msgstr "%u is als eerste nog niet gelezen\n"
+
+#: imap.c:1002
+msgid ""
+"Warning: ignoring bogus data for message sizes returned by the server.\n"
+msgstr ""
+
+#: interface.c:256
+msgid "Unable to open kvm interface. Make sure fetchmail is SGID kmem."
+msgstr "Kan kvm-interface niet openen.  Controleer of fetchmail SGID-kmem is."
+
+#: interface.c:396
+#, c-format
+msgid "Unable to parse interface name from %s"
+msgstr "Kan interface-naam van %s niet verwerken"
+
+#: interface.c:418
+msgid "get_ifinfo: sysctl (iflist estimate) failed"
+msgstr "get_ifinfo: sysctl (iflist estimate) is mislukt"
+
+#: interface.c:424
+msgid "get_ifinfo: malloc failed"
+msgstr "get_ifinfo: malloc is mislukt"
+
+#: interface.c:430
+msgid "get_ifinfo: sysctl (iflist) failed"
+msgstr "get_ifinfo: sysctl (iflist) is mislukt"
+
+#: interface.c:448
+#, c-format
+msgid "Routing message version %d not understood."
+msgstr "Routeringsbericht versie %d is niet begrepen."
+
+#: interface.c:480
+#, c-format
+msgid "No interface found with name %s"
+msgstr "Geen interface met naam %s gevonden"
+
+#: interface.c:538
+#, c-format
+msgid "No IP address found for %s"
+msgstr "Geen IP-adres gevonden voor %s"
+
+#: interface.c:589
+msgid "missing IP interface address\n"
+msgstr "IP-interface-adres is niet gevonden\n"
+
+#: interface.c:605
+msgid "invalid IP interface address\n"
+msgstr "ongeldig IP-interface-adres\n"
+
+#: interface.c:611
+msgid "invalid IP interface mask\n"
+msgstr "ongeldig IP-interface-masker\n"
+
+#: interface.c:650
+#, c-format
+msgid "activity on %s -noted- as %d\n"
+msgstr "activiteit op %s -opgevat- als %d\n"
+
+#: interface.c:665
+#, c-format
+msgid "skipping poll of %s, %s down\n"
+msgstr "aanvraag op %s is overgeslagen; %s is down\n"
+
+#: interface.c:684
+#, c-format
+msgid "skipping poll of %s, %s IP address excluded\n"
+msgstr "aanvraag op %s is overgeslagen; %s IP-adres uitgesloten\n"
+
+#: interface.c:696
+#, c-format
+msgid "activity on %s checked as %d\n"
+msgstr "activiteit op %s gecontroleerd als %d\n"
+
+#: interface.c:722
+#, c-format
+msgid "skipping poll of %s, %s inactive\n"
+msgstr "aanvraag op %s is overgeslagen; %s is inactief\n"
+
+#: interface.c:729
+#, c-format
+msgid "activity on %s was %d, is %d\n"
+msgstr "activiteit op %s was %d, is %d\n"
+
+#: kerberos.c:74
+msgid "could not decode initial BASE64 challenge\n"
+msgstr "kan initiële 'BASE64 challenge' niet decoderen\n"
+
+#: kerberos.c:139
+#, c-format
+msgid "principal %s in ticket does not match -u %s\n"
+msgstr "principal %s in ticket komt niet overeen -u %s\n"
+
+#: kerberos.c:147
+#, c-format
+msgid "non-null instance (%s) might cause strange behavior\n"
+msgstr "niet-nul instantie (%s) zou vreemd gedrag kunnen veroorzaken\n"
+
+#: kerberos.c:213
+msgid "could not decode BASE64 ready response\n"
+msgstr "kan 'BASE64 ready'-respons niet decoderen\n"
+
+#: kerberos.c:220
+msgid "challenge mismatch\n"
+msgstr "challenge klopt niet\n"
+
+#: lock.c:86
+#, c-format
+msgid "fetchmail: error reading lockfile \"%s\": %s\n"
+msgstr "fetchmail: fout bij lezen van vergrendelingsbestand \"%s\": %s\n"
+
+#: lock.c:97
+msgid "fetchmail: removing stale lockfile\n"
+msgstr "fetchmail: verwijderen van verouderde vergrendeling\n"
+
+#: lock.c:121
+#, c-format
+msgid "fetchmail: error opening lockfile \"%s\": %s\n"
+msgstr "fetchmail: fout bij openen van vergrendelingsbestand \"%s\": %s\n"
+
+#: lock.c:168
+msgid "fetchmail: lock creation failed.\n"
+msgstr "fetchmail: aanmaken van vergrendeling is mislukt.\n"
+
+#: netrc.c:219
+#, c-format
+msgid "%s:%d: warning: found \"%s\" before any host names\n"
+msgstr "%s:%d: waarschuwing: \"%s\" aangetroffen voor enige hostnamen\n"
+
+#: netrc.c:257
+#, c-format
+msgid "%s:%d: warning: unknown token \"%s\"\n"
+msgstr "%s:%d: waarschuwing: onbekend token \"%s\"\n"
+
+#: odmr.c:66
+#, c-format
+msgid "%s's SMTP listener does not support ATRN\n"
+msgstr "%s's SMTP-programma ondersteund geen ATRN\n"
+
+#: odmr.c:104
+msgid "Turnaround now...\n"
+msgstr "Draai je nu om...\n"
+
+#: odmr.c:109
+msgid "ATRN request refused.\n"
+msgstr "ATRN-verzoek geweigerd.\n"
+
+#: odmr.c:113
+msgid "Unable to process ATRN request now\n"
+msgstr "Kan ATRN-verzoek nu niet verwerken\n"
+
+#: odmr.c:118
+msgid "You have no mail.\n"
+msgstr "U hebt geen mail.\n"
+
+#: odmr.c:122
+msgid "Command not implemented\n"
+msgstr "Commando is niet geïmplementeerd\n"
+
+#: odmr.c:126
+msgid "Authentication required.\n"
+msgstr "Authenticatie vereist.\n"
+
+#: odmr.c:130
+#, c-format
+msgid "Unknown ODMR error %d\n"
+msgstr "Onbekende ODMR-fout %d\n"
+
+#: odmr.c:189
+msgid "receiving message data\n"
+msgstr "ontvangen van berichtdata\n"
+
+#: odmr.c:242
+msgid "Option --keep is not supported with ODMR\n"
+msgstr "Optie '--keep' is niet mogelijk met ODMR\n"
+
+#: odmr.c:246
+msgid "Option --flush is not supported with ODMR\n"
+msgstr "Optie '--flush' is niet mogelijk met ODMR\n"
+
+#: odmr.c:250
+msgid "Option --folder is not supported with ODMR\n"
+msgstr "Optie '--folder' is niet mogelijk met ODMR\n"
+
+#: odmr.c:254
+msgid "Option --check is not supported with ODMR\n"
+msgstr "Optie '--check' is niet mogelijk met ODMR\n"
+
+#: opie.c:42
+msgid "server recv fatal\n"
+msgstr ""
+
+#: opie.c:56
+msgid "Could not decode OTP challenge\n"
+msgstr "Kan OTP-challenge niet decoderen\n"
+
+#: opie.c:64 pop3.c:610
+msgid "Secret pass phrase: "
+msgstr "Geheime wachtwoordzin: "
+
+#: options.c:172 options.c:216
+#, c-format
+msgid "String '%s' is not a valid number string.\n"
+msgstr "String '%s' is geen geldige numerieke string.\n"
+
+#: options.c:181
+#, c-format
+msgid "Value of string '%s' is %s than %d.\n"
+msgstr "Waarde van string '%s' is %s dan %d.\n"
+
+#: options.c:182
+msgid "smaller"
+msgstr "kleiner"
+
+#: options.c:182
+msgid "larger"
+msgstr "groter"
+
+#: options.c:349
+#, c-format
+msgid "Invalid protocol `%s' specified.\n"
+msgstr "Ongeldig protocol '%s' opgegeven.\n"
+
+#: options.c:396
+#, c-format
+msgid "Invalid authentication `%s' specified.\n"
+msgstr "Ongeldige authenticatie '%s' opgegeven.\n"
+
+#: options.c:601
+msgid "usage:  fetchmail [options] [server ...]\n"
+msgstr "Gebruik:  fetchmail [opties] [server ...]\n"
+
+#: options.c:602
+msgid "  Options are as follows:\n"
+msgstr "  Mogelijke opties zijn:\n"
+
+#: options.c:603
+msgid "  -?, --help        display this option help\n"
+msgstr "  -?, --help        deze hulptekst tonen\n"
+
+#: options.c:604
+msgid "  -V, --version     display version info\n"
+msgstr "  -V, --version     programmaversie tonen\n"
+
+#: options.c:606
+msgid "  -c, --check       check for messages without fetching\n"
+msgstr "  -c, --check       op berichten controleren, maar deze niet ophalen\n"
+
+#: options.c:607
+msgid "  -s, --silent      work silently\n"
+msgstr "  -s, --silent      in stilte functioneren\n"
+
+#: options.c:608
+msgid "  -v, --verbose     work noisily (diagnostic output)\n"
+msgstr ""
+"  -v, --verbose     gedetailleerde uitvoer produceren (diagnostische "
+"gegevens)\n"
+
+#: options.c:609
+msgid "  -d, --daemon      run as a daemon once per n seconds\n"
+msgstr "  -d, --daemon      als systeemservice elke N seconden draaien\n"
+
+#: options.c:610
+msgid "  -N, --nodetach    don't detach daemon process\n"
+msgstr ""
+"  -N, --nodetach    wel systeemservice, maar terminal niet teruggeven\n"
+
+#: options.c:611
+msgid "  -q, --quit        kill daemon process\n"
+msgstr "  -q, --quit        systeemserviceproces elimineren\n"
+
+#: options.c:612
+msgid "  -L, --logfile     specify logfile name\n"
+msgstr "  -L, --logfile     te gebruiken logbestand\n"
+
+#: options.c:613
+msgid ""
+"      --syslog      use syslog(3) for most messages when running as a "
+"daemon\n"
+msgstr ""
+"      --syslog      syslog(3) gebruiken voor berichtgeving als "
+"systeemservice\n"
+
+#: options.c:614
+msgid "      --invisible   don't write Received & enable host spoofing\n"
+msgstr "      --invisible   onzichtbaar; geen Received-headers aanmaken\n"
+
+#: options.c:615
+msgid "  -f, --fetchmailrc specify alternate run control file\n"
+msgstr "  -f, --fetchmailrc   te gebruiken run-control-bestand \n"
+
+#: options.c:616
+msgid "  -i, --idfile      specify alternate UIDs file\n"
+msgstr "  -i, --idfile      te gebruiken bestand met UID's\n"
+
+#: options.c:617
+msgid "      --pidfile     specify alternate PID (lock) file\n"
+msgstr "      --pidfile     te gebruiken PID-/vergrendelingsbestand\n"
+
+#: options.c:618
+msgid "      --postmaster  specify recipient of last resort\n"
+msgstr "      --postmaster  mail-ontvanger indien alles faalt\n"
+
+#: options.c:619
+msgid "      --nobounce    redirect bounces from user to postmaster.\n"
+msgstr ""
+"      --nobounce    geen bounces naar gebruikers sturen, alles naar "
+"postmaster\n"
+
+#: options.c:620
+msgid ""
+"      --nosoftbounce fetchmail deletes permanently undeliverable messages.\n"
+msgstr ""
+
+#: options.c:621
+msgid ""
+"      --softbounce  keep permanently undeliverable messages on server "
+"(default).\n"
+msgstr ""
+
+#: options.c:623
+msgid "  -I, --interface   interface required specification\n"
+msgstr "  -I, --interface   vereiste interface\n"
+
+#: options.c:624
+msgid "  -M, --monitor     monitor interface for activity\n"
+msgstr "  -M, --monitor     deze interface op activiteit monitoren\n"
+
+#: options.c:627
+msgid "      --ssl         enable ssl encrypted session\n"
+msgstr "      --ssl        SSL-beveiligde sessies inschakelen\n"
+
+#: options.c:628
+msgid "      --sslkey      ssl private key file\n"
+msgstr "     --sslkey      bestand met SSL-privésleutels\n"
+
+#: options.c:629
+msgid "      --sslcert     ssl client certificate\n"
+msgstr "      --sslcert     SSL-cliëntcertificaat\n"
+
+#: options.c:630
+msgid "      --sslcertck   do strict server certificate check (recommended)\n"
+msgstr ""
+"      --sslcertck   stricte controle van server-certificaat (aangeraden)\n"
+
+#: options.c:631
+msgid "      --sslcertpath path to ssl certificates\n"
+msgstr "      --sslcertpath   pad naar SSL-certificaten\n"
+
+#: options.c:632
+msgid ""
+"      --sslcommonname  expect this CommonName from server (discouraged)\n"
+msgstr ""
+
+#: options.c:633
+msgid ""
+"      --sslfingerprint fingerprint that must match that of the server's "
+"cert.\n"
+msgstr ""
+
+#: options.c:634
+msgid "      --sslproto    force ssl protocol (SSL2/SSL3/TLS1)\n"
+msgstr "      --sslproto    SSL-protocol afdwingen (SSL2/SSL3/TLS1)\n"
+
+#: options.c:636
+msgid "      --plugin      specify external command to open connection\n"
+msgstr "      --plugin      extern commando om verbinding te openen\n"
+
+#: options.c:637
+msgid "      --plugout     specify external command to open smtp connection\n"
+msgstr "      --plugout     extern commando om SMTP-verbinding te openen\n"
+
+#: options.c:639
+msgid "  -p, --protocol    specify retrieval protocol (see man page)\n"
+msgstr "  -p, --protocol    ophaal-protocol (zie man-pagina)\n"
+
+#: options.c:640
+msgid "  -U, --uidl        force the use of UIDLs (pop3 only)\n"
+msgstr "  -U, --uidl        gebruik van UIDL's afdwingen (alleen POP3)\n"
+
+#: options.c:641
+msgid "      --port        TCP port to connect to (obsolete, use --service)\n"
+msgstr ""
+"      --port        met deze TCP-poort verbinden (verouderd; gebruik --"
+"service)\n"
+
+#: options.c:642
+msgid ""
+"  -P, --service     TCP service to connect to (can be numeric TCP port)\n"
+msgstr "  -P, --service     met deze TCP-poort verbinden (mag numeriek zijn)\n"
+
+#: options.c:643
+msgid "      --auth        authentication type (password/kerberos/ssh/otp)\n"
+msgstr "      --auth        authenticatietype (password/kerberos/ssh/otp)\n"
+
+#: options.c:644
+msgid "  -t, --timeout     server nonresponse timeout\n"
+msgstr "  -t, --timeout     server-timeout voor geen respons\n"
+
+#: options.c:645
+msgid "  -E, --envelope    envelope address header\n"
+msgstr "  -E, --envelope    envelop-adres-header\n"
+
+#: options.c:646
+msgid "  -Q, --qvirtual    prefix to remove from local user id\n"
+msgstr "  -Q, --qvirtual    prefix te verwijderen van lokaal user-ID\n"
+
+#: options.c:647
+msgid "      --principal   mail service principal\n"
+msgstr "      --principal   principal voor mail service\n"
+
+#: options.c:648
+msgid "      --tracepolls  add poll-tracing information to Received header\n"
+msgstr ""
+"      --tracepolls  poll-tracing information toevoegen aan de Received-"
+"header\n"
+
+#: options.c:650
+msgid "  -u, --username    specify users's login on server\n"
+msgstr "  -u, --username    loginnaam voor gebruiker op server\n"
+
+#: options.c:651
+msgid "  -a, --[fetch]all  retrieve old and new messages\n"
+msgstr "  -a, --[fetch]all  zowel oude als nieuwe berichten ophalen\n"
+
+#: options.c:652
+msgid "  -K, --nokeep      delete new messages after retrieval\n"
+msgstr "  -K, --nokeep      nieuwe berichten verwijderen na het ophalen\n"
+
+#: options.c:653
+msgid "  -k, --keep        save new messages after retrieval\n"
+msgstr ""
+"  -k, --keep        kopie van nieuwe berichten achterlaten op de server\n"
+
+#: options.c:654
+msgid "  -F, --flush       delete old messages from server\n"
+msgstr "  -F, --flush       oude berichten van de server verwijderen\n"
+
+#: options.c:655
+msgid "      --limitflush  delete oversized messages\n"
+msgstr "      --limitflush  te grote berichten verwijderen\n"
+
+#: options.c:656
+msgid "  -n, --norewrite   don't rewrite header addresses\n"
+msgstr "  -n, --norewrite   header-adressen niet herschrijven\n"
+
+#: options.c:657
+msgid "  -l, --limit       don't fetch messages over given size\n"
+msgstr "  -l, --limit       berichten boven de genoemde grootte niet ophalen\n"
+
+#: options.c:658
+msgid "  -w, --warnings    interval between warning mail notification\n"
+msgstr "  -w, --warnings    interval tussen waarschuwingsmails\n"
+
+#: options.c:660
+msgid "  -S, --smtphost    set SMTP forwarding host\n"
+msgstr "  -S, --smtphost    SMTP forwarding host\n"
+
+#: options.c:661
+msgid "      --fetchdomains fetch mail for specified domains\n"
+msgstr "      --fetchdomains   mail voor deze domeinen ophalen\n"
+
+#: options.c:662
+msgid "  -D, --smtpaddress set SMTP delivery domain to use\n"
+msgstr "  -D, --smtpaddress   te gebruiken SMTP-afleverdomein\n"
+
+#: options.c:663
+msgid "      --smtpname    set SMTP full name username@domain\n"
+msgstr "      --smtpname    SMTP volledige naam gebruikersnaam@domein\n"
+
+#: options.c:664
+msgid "  -Z, --antispam,   set antispam response values\n"
+msgstr "  -Z, --antispam    antispam-responswaarden\n"
+
+#: options.c:665
+msgid "  -b, --batchlimit  set batch limit for SMTP connections\n"
+msgstr "  -b, --batchlimit  stapel-limiet voor SMTP-connecties instellen\n"
+
+#: options.c:666
+msgid "  -B, --fetchlimit  set fetch limit for server connections\n"
+msgstr "  -B, --fetchlimit  maximum aantal berichten per ophaalsessie\n"
+
+#: options.c:667
+msgid "      --fetchsizelimit set fetch message size limit\n"
+msgstr "      --fetchsizelimit maximumgrootte van op te halen berichten\n"
+
+#: options.c:668
+msgid "      --fastuidl    do a binary search for UIDLs\n"
+msgstr "      --fastuidl    UIDL's binair zoeken\n"
+
+#: options.c:669
+msgid "  -e, --expunge     set max deletions between expunges\n"
+msgstr "  -e, --expunge     maximaal aantal verwijderingen tussen expunges\n"
+
+#: options.c:670
+msgid "  -m, --mda         set MDA to use for forwarding\n"
+msgstr "  -m, --mda         MDA voor forwarding\n"
+
+#: options.c:671
+msgid "      --bsmtp       set output BSMTP file\n"
+msgstr "      --bsmtp       BSMTP-uitvoerbestand\n"
+
+#: options.c:672
+msgid "      --lmtp        use LMTP (RFC2033) for delivery\n"
+msgstr "      --lmtp        LMTP (RFC2033) gebruiken voor bezorging\n"
+
+#: options.c:673
+msgid "  -r, --folder      specify remote folder name\n"
+msgstr "  -r, --folder      te gebruiken map op server\n"
+
+#: options.c:674
+msgid "      --showdots    show progress dots even in logfiles\n"
+msgstr "      --showdots    voortgangspuntjes ook in logbestanden tonen\n"
+
+#: pop3.c:355
+msgid ""
+"Warning: \"Maillennium POP3/PROXY server\" found, using RETR command instead "
+"of TOP.\n"
+msgstr ""
+
+#: pop3.c:454
+msgid "TLS is mandatory for this session, but server refused CAPA command.\n"
+msgstr ""
+
+#: pop3.c:455
+msgid "The CAPA command is however necessary for TLS.\n"
+msgstr ""
+
+#: pop3.c:538
+#, c-format
+msgid "%s: opportunistic upgrade to TLS failed, trying to continue.\n"
+msgstr "%s: poging tot opwaardering naar TLS is mislukt; doorgegaan\n"
+
+#: pop3.c:646
+msgid "We've run out of allowed authenticators and cannot continue.\n"
+msgstr ""
+
+#: pop3.c:660
+msgid "Required APOP timestamp not found in greeting\n"
+msgstr "Vereiste APOP tijdstempel niet aangetroffen in begroeting\n"
+
+#: pop3.c:669
+msgid "Timestamp syntax error in greeting\n"
+msgstr "Tijdstempel syntaxfout in begroeting\n"
+
+#: pop3.c:685
+msgid "Invalid APOP timestamp.\n"
+msgstr "Ongeldig APOP-tijdsstempel.\n"
+
+#: pop3.c:709
+msgid "Undefined protocol request in POP3_auth\n"
+msgstr "Ongedefinieerd protocol-verzoek in POP3_auth\n"
+
+#: pop3.c:730
+msgid "lock busy!  Is another session active?\n"
+msgstr "Vergrendeling actief!  Draait er nog een sessie?\n"
+
+#: pop3.c:809
+msgid "Cannot handle UIDL response from upstream server.\n"
+msgstr ""
+
+#: pop3.c:832
+msgid "Server responded with UID for wrong message.\n"
+msgstr ""
+
+#: pop3.c:859 pop3.c:1105
+#, c-format
+msgid "id=%s (num=%d) was deleted, but is still present!\n"
+msgstr "id=%s (num=%d) is al verwijderd, maar bestaat nog steeds!\n"
+
+#: pop3.c:868 pop3.c:880 pop3.c:1114 pop3.c:1121
+#, c-format
+msgid "%u is unseen\n"
+msgstr "%u is nog niet gelezen\n"
+
+#: pop3.c:965
+msgid "Messages inserted into list on server. Cannot handle this.\n"
+msgstr ""
+"Berichten ingevoegd in de lijst op de server. Kan hier niet mee omgaan.\n"
+
+#: pop3.c:1057
+msgid "protocol error\n"
+msgstr "protocolfout\n"
+
+#: pop3.c:1073
+msgid "protocol error while fetching UIDLs\n"
+msgstr "protocolfout tijdens het ophalen van UIDLs\n"
+
+#: pop3.c:1443
+msgid "Option --folder is not supported with POP3\n"
+msgstr "Optie '--folder' is niet mogelijk met POP3\n"
+
+#: rcfile_y.y:126
+msgid "server option after user options"
+msgstr "serveroptie na gebruikersopties"
+
+#: rcfile_y.y:169
+msgid "SDPS not enabled."
+msgstr "SPDS niet ingeschakeld."
+
+#: rcfile_y.y:215
+msgid ""
+"fetchmail: interface option is only supported under Linux (without IPv6) and "
+"FreeBSD\n"
+msgstr ""
+"fetchmail: de interface-optie wordt alleen ondersteund onder Linux (zonder "
+"IPv6) \n"
+"en FreeBSD\n"
+
+#: rcfile_y.y:222
+msgid ""
+"fetchmail: monitor option is only supported under Linux (without IPv6) and "
+"FreeBSD\n"
+msgstr ""
+"fetchmail: de monitor-optie wordt alleen ondersteund onder Linux (zonder "
+"IPv6) \n"
+"en FreeBSD\n"
+
+#: rcfile_y.y:335
+msgid "SSL is not enabled"
+msgstr "SSL is niet ingeschakeld"
+
+#: rcfile_y.y:385
+msgid "end of input"
+msgstr "einde invoer"
+
+#: rcfile_y.y:423
+#, c-format
+msgid "File %s must be a regular file.\n"
+msgstr "Bestand %s moet een regulier bestand zijn.\n"
+
+#: rcfile_y.y:433
+#, fuzzy, c-format
+msgid "File %s must have no more than -rwx------ (0700) permissions.\n"
+msgstr ""
+"Bestandspermissies op %s mogen niet minder strak zijn dan -rwx--x--- "
+"(0710).\n"
+
+#: rcfile_y.y:445
+#, c-format
+msgid "File %s must be owned by you.\n"
+msgstr "Je moet de eigenaar zijn van bestand %s.\n"
+
+#: report.c:67
+msgid "Unknown system error"
+msgstr "Onbekende systeemfout"
+
+#: report.c:92
+#, fuzzy, c-format
+msgid "%s (log message incomplete)\n"
+msgstr "%s (log-entry niet compleet)"
+
+#: rfc822.c:76
+#, c-format
+msgid "About to rewrite %s"
+msgstr "Staat op het punt om %s te herschrijven"
+
+#: rfc822.c:212
+#, c-format
+msgid "Rewritten version is %s\n"
+msgstr "Herschreven versie is %s\n"
+
+#: rpa.c:117
+msgid "Success"
+msgstr "Gelukt"
+
+#: rpa.c:118
+msgid "Restricted user (something wrong with account)"
+msgstr "Gebruiker heeft restricties (is iets mis met deze account)"
+
+#: rpa.c:119
+msgid "Invalid userid or passphrase"
+msgstr "Ongeldige gebruikersnaam of wachtwoord"
+
+#: rpa.c:120
+msgid "Deity error"
+msgstr "Deity-fout"
+
+#: rpa.c:173
+msgid "RPA token 2: Base64 decode error\n"
+msgstr "RPA token 2: Base64-decodeerfout\n"
+
+#: rpa.c:184
+#, c-format
+msgid "Service chose RPA version %d.%d\n"
+msgstr "Service koos RPA versie %d. %d\n"
+
+#: rpa.c:190
+#, c-format
+msgid "Service challenge (l=%d):\n"
+msgstr "Service-challenge (l=%d):\n"
+
+#: rpa.c:199
+#, c-format
+msgid "Service timestamp %s\n"
+msgstr "Service tijdstempel %s\n"
+
+#: rpa.c:204
+msgid "RPA token 2 length error\n"
+msgstr "RPA token 2: onjuiste lengte\n"
+
+#: rpa.c:208
+#, c-format
+msgid "Realm list: %s\n"
+msgstr "Realm-lijst: %s\n"
+
+#: rpa.c:212
+msgid "RPA error in service@realm string\n"
+msgstr "RPA fout in service@realm string\n"
+
+#: rpa.c:249
+msgid "RPA token 4: Base64 decode error\n"
+msgstr "RPA token 4: Base64-decodeerfout\n"
+
+#: rpa.c:260
+#, c-format
+msgid "User authentication (l=%d):\n"
+msgstr "Gebruikersauthenticatie (l=%d):\n"
+
+#: rpa.c:274
+#, c-format
+msgid "RPA status: %02X\n"
+msgstr "RPA-status: %02X\n"
+
+#: rpa.c:280
+msgid "RPA token 4 length error\n"
+msgstr "RPA token 4: lengte onjuist\n"
+
+#: rpa.c:287
+#, c-format
+msgid "RPA rejects you: %s\n"
+msgstr "RPA wijst je af: %s\n"
+
+#: rpa.c:289
+msgid "RPA rejects you, reason unknown\n"
+msgstr "RPA wijst je af, onbekende reden\n"
+
+#: rpa.c:297
+#, c-format
+msgid "RPA User Authentication length error: %d\n"
+msgstr "RPA gebruikersidentificatie: onjuiste lengte: %d\n"
+
+#: rpa.c:302
+#, c-format
+msgid "RPA Session key length error: %d\n"
+msgstr "RPA Sessie-sleutel: onjuiste lengte: %d\n"
+
+#: rpa.c:308
+msgid "RPA _service_ auth fail. Spoof server?\n"
+msgstr "RPA _service_ auth mislukt. Nepserver?\n"
+
+#: rpa.c:313
+msgid "Session key established:\n"
+msgstr "Sessiesleutel bevestigd:\n"
+
+#: rpa.c:344
+msgid "RPA authorisation complete\n"
+msgstr "RPA authorisatie voltooid\n"
+
+#: rpa.c:371
+msgid "Get response\n"
+msgstr "Ontvang respons\n"
+
+#: rpa.c:401
+#, c-format
+msgid "Get response return %d [%s]\n"
+msgstr "Ontvang respons-antwoord %d [%s]\n"
+
+#: rpa.c:462
+msgid "Hdr not 60\n"
+msgstr "Hdr niet 60\n"
+
+#: rpa.c:483
+msgid "Token length error\n"
+msgstr "Token van onjuiste lengte\n"
+
+#: rpa.c:488
+#, c-format
+msgid "Token Length %d disagrees with rxlen %d\n"
+msgstr "Tokenlengte %d klopt niet met rxlen %d\n"
+
+#: rpa.c:494
+msgid "Mechanism field incorrect\n"
+msgstr "Mechanisme-veld onjuist\n"
+
+#: rpa.c:530
+#, c-format
+msgid "dec64 error at char %d: %x\n"
+msgstr "dec64 fout op karakter %d: %x\n"
+
+#: rpa.c:545
+msgid "Inbound binary data:\n"
+msgstr "Binnenkomende binaire data:\n"
+
+#: rpa.c:581
+msgid "Outbound data:\n"
+msgstr "Uitgaande data:\n"
+
+#: rpa.c:644
+msgid "RPA String too long\n"
+msgstr "RPA-string is te lang\n"
+
+#: rpa.c:649
+msgid "Unicode:\n"
+msgstr "Unicode:\n"
+
+#: rpa.c:708
+msgid "RPA Failed open of /dev/urandom. This shouldn't\n"
+msgstr "RPA -- openen van /dev/urandom is mislukt.  Dit belet\n"
+
+#: rpa.c:709
+msgid "    prevent you logging in, but means you\n"
+msgstr "    u niet in te loggen, maar betekent dat u er\n"
+
+#: rpa.c:710
+msgid "    cannot be sure you are talking to the\n"
+msgstr "    niet zeker van kunt zijn dat u met de service\n"
+
+#: rpa.c:711
+msgid "    service that you think you are (replay\n"
+msgstr "    praat waarmee u denkt dat u nu praat (een\n"
+
+#: rpa.c:712
+msgid "    attacks by a dishonest service are possible.)\n"
+msgstr "    aanval door een vijandige service is mogelijk).\n"
+
+#: rpa.c:723
+msgid "User challenge:\n"
+msgstr "Gebruikers-challenge:\n"
+
+#: rpa.c:873
+msgid "MD5 being applied to data block:\n"
+msgstr "MD5 wordt toegepast op data-blok:\n"
+
+#: rpa.c:886
+msgid "MD5 result is: \n"
+msgstr "MD5-resultaat is: \n"
+
+#: servport.c:53
+#, c-format
+msgid "getaddrinfo(NULL, \"%s\") error: %s\n"
+msgstr "Fout in getaddrinfo(NULL, \"%s\"): %s\n"
+
+#: servport.c:80
+#, c-format
+msgid "Cannot resolve service %s to port number.\n"
+msgstr "Kan service %s niet herleiden tot een poortnummer.\n"
+
+#: servport.c:81
+msgid "Please specify the service as decimal port number.\n"
+msgstr "Geef de service op als een tientallig poortnummer.\n"
+
+#: sink.c:220
+#, c-format
+msgid "forwarding to %s\n"
+msgstr "forwarden naar %s\n"
+
+#: sink.c:306
+msgid "SMTP: (bounce-message body)\n"
+msgstr "SMTP: (bounce-message-body)\n"
+
+#: sink.c:309
+#, c-format
+msgid "mail from %s bounced to %s\n"
+msgstr "mail van %s gebounced naar %s\n"
+
+#: sink.c:446
+#, c-format
+msgid "Saved error is still %d\n"
+msgstr "Opgeslagen fout is nog steeds %d\n"
+
+#: sink.c:506 sink.c:605
+#, c-format
+msgid "%cMTP error: %s\n"
+msgstr "%cMTP-fout: %s\n"
+
+#: sink.c:550
+msgid "SMTP server requires STARTTLS, keeping message.\n"
+msgstr ""
+
+#: sink.c:730
+#, c-format
+msgid "BSMTP file open failed: %s\n"
+msgstr "Openen van BSMTP-bestand is mislukt: %s\n"
+
+#: sink.c:776
+msgid "BSMTP preamble write failed.\n"
+msgstr "Schrijven van BSMTP-voorwoord is mislukt.\n"
+
+#: sink.c:990
+#, c-format
+msgid "%cMTP listener doesn't like recipient address `%s'\n"
+msgstr "%cMTP-programma wijst ontvangeradres '%s' af\n"
+
+#: sink.c:997
+#, c-format
+msgid "%cMTP listener doesn't really like recipient address `%s'\n"
+msgstr "%cMTP-programma vindt ontvangeradres '%s' maar zozo\n"
+
+#: sink.c:1043
+msgid "no address matches; no postmaster set.\n"
+msgstr "geen adres komt overeen, geen postmaster ingesteld.\n"
+
+#: sink.c:1055
+#, c-format
+msgid "can't even send to %s!\n"
+msgstr "kan niet eens naar %s zenden!\n"
+
+#: sink.c:1061
+#, c-format
+msgid "no address matches; forwarding to %s.\n"
+msgstr "geen adres komt overeen; forwarden naar %s.\n"
+
+#: sink.c:1217
+#, c-format
+msgid "about to deliver with: %s\n"
+msgstr "Staat op het punt te bezorgen met: %s\n"
+
+#: sink.c:1241
+msgid "MDA open failed\n"
+msgstr "Openen van MDA mislukt\n"
+
+#: sink.c:1278
+#, c-format
+msgid "%cMTP connect to %s failed\n"
+msgstr "%cMTP-verbinding met %s is mislukt\n"
+
+#: sink.c:1302
+#, c-format
+msgid "can't raise the listener; falling back to %s"
+msgstr "kan geen contact krijgen met luisterend programma; valt terug naar %s"
+
+#: sink.c:1364
+#, c-format
+msgid "Error writing to MDA: %s\n"
+msgstr "Fout bij schrijven naar MDA: %s\n"
+
+#: sink.c:1367
+#, c-format
+msgid "MDA died of signal %d\n"
+msgstr "MDA is geëlimineerd door signaal %d\n"
+
+#: sink.c:1370
+#, c-format
+msgid "MDA returned nonzero status %d\n"
+msgstr "afsluitwaarde van MDA is niet nul: %d\n"
+
+#: sink.c:1373
+#, c-format
+msgid ""
+"Strange: MDA pclose returned %d and errno %d/%s, cannot handle at %s:%d\n"
+msgstr ""
+"VreemdRaar: pclose() van MDA gaf %d terug en foutcode %d/%s;\n"
+"kan dit niet verwerken, op %s:%d\n"
+
+#: sink.c:1395
+msgid "Message termination or close of BSMTP file failed\n"
+msgstr "Berichtafsluiting of sluiten van BSMTP-bestand is mislukt\n"
+
+#: sink.c:1417
+msgid "SMTP listener refused delivery\n"
+msgstr "SMTP-programma weigert te bezorgen\n"
+
+#: sink.c:1447
+msgid "LMTP delivery error on EOM\n"
+msgstr "LMTP-bezorgfout op EOM\n"
+
+#: sink.c:1450
+#, c-format
+msgid "Unexpected non-503 response to LMTP EOM: %s\n"
+msgstr "Onverwachte respons (niet 503) op LMTP-EOM: %s\n"
+
+#: sink.c:1605
+msgid ""
+"-- \n"
+"The Fetchmail Daemon"
+msgstr ""
+"-- \n"
+"De Fetchmail-service"
+
+#: smtp.c:80
+msgid "ESMTP CRAM-MD5 Authentication...\n"
+msgstr "ESMTP CRAM-MD5-authenticatie...\n"
+
+#: smtp.c:87 smtp.c:138
+msgid "Server rejected the AUTH command.\n"
+msgstr "Server heeft AUTH-commando geweigerd.\n"
+
+#: smtp.c:95 smtp.c:145 smtp.c:155 smtp.c:161
+msgid "Bad base64 reply from server.\n"
+msgstr "Onjuiste Base64-respons van de server.\n"
+
+#: smtp.c:99
+#, c-format
+msgid "Challenge decoded: %s\n"
+msgstr "Challenge is gedecodeerd: %s\n"
+
+#: smtp.c:116
+msgid "ESMTP PLAIN Authentication...\n"
+msgstr "ESMTP-PLAIN-authenticatie...\n"
+
+#: smtp.c:131
+msgid "ESMTP LOGIN Authentication...\n"
+msgstr "ESMTP-LOGIN-authenticatie...\n"
+
+#: smtp.c:339 smtp.c:362
+msgid "smtp listener protocol error\n"
+msgstr "SMTP-programma geeft protocolfout aan\n"
+
+#: socket.c:115 socket.c:141
+msgid "fetchmail: malloc failed\n"
+msgstr "fetchmail: onvoldoende geheugen beschikbaar\n"
+
+#: socket.c:173
+msgid "fetchmail: socketpair failed\n"
+msgstr "fetchmail: socketpair() is mislukt\n"
+
+#: socket.c:179
+msgid "fetchmail: fork failed\n"
+msgstr "fetchmail: kan geen nieuw proces starten\n"
+
+#: socket.c:186
+msgid "dup2 failed\n"
+msgstr "fetchmail: dup2() is mislukt\n"
+
+#: socket.c:192
+#, c-format
+msgid "running %s (host %s service %s)\n"
+msgstr "draait %s (host %s service %s)\n"
+
+#: socket.c:195
+#, c-format
+msgid "execvp(%s) failed\n"
+msgstr "execvp(%s) is mislukt\n"
+
+#: socket.c:286
+#, c-format
+msgid "getaddrinfo(\"%s\",\"%s\") error: %s\n"
+msgstr "Fout in getaddrinfo(\"%s\",\"%s\"): %s\n"
+
+#: socket.c:289
+msgid "Try adding the --service option (see also FAQ item R12).\n"
+msgstr "Probeer de optie '--service' toe te voegen (zie ook FAQ-item R12).\n"
+
+#: socket.c:300 socket.c:303
+#, c-format
+msgid "unknown (%s)"
+msgstr "onbekend (%s)"
+
+#: socket.c:306
+#, c-format
+msgid "Trying to connect to %s/%s..."
+msgstr "Verbinding maken met %s/%s..."
+
+#: socket.c:314
+#, c-format
+msgid "cannot create socket: %s\n"
+msgstr "kan geen socket aanmaken: %s\n"
+
+#: socket.c:330
+msgid "connection failed.\n"
+msgstr "verbinding is mislukt.\n"
+
+#: socket.c:332
+#, c-format
+msgid "connection to %s:%s [%s/%s] failed: %s.\n"
+msgstr "verbinding met %s:%s [%s/%s] is mislukt: %s.\n"
+
+#: socket.c:338
+msgid "connected.\n"
+msgstr "verbonden.\n"
+
+#: socket.c:616
+#, c-format
+msgid "Issuer Organization: %s\n"
+msgstr "Uitgevende organisatie: %s\n"
+
+#: socket.c:619
+msgid "Warning: Issuer Organization Name too long (possibly truncated).\n"
+msgstr ""
+"Waarschuwing: naam van uitgevende organisatie is te lang (mogelijk "
+"afgebroken).\n"
+
+#: socket.c:621
+msgid "Unknown Organization\n"
+msgstr "Onbekende organisatie\n"
+
+#: socket.c:623
+#, c-format
+msgid "Issuer CommonName: %s\n"
+msgstr "Gewone uitgeversnaam: %s\n"
+
+#: socket.c:626
+msgid "Warning: Issuer CommonName too long (possibly truncated).\n"
+msgstr "Waarschuwing: gewone uitgeversnaam is te lang (mogelijk afgebroken).\n"
+
+#: socket.c:628
+msgid "Unknown Issuer CommonName\n"
+msgstr "Onbekende gewone uitgeversnaam\n"
+
+#: socket.c:632
+#, c-format
+msgid "Server CommonName: %s\n"
+msgstr "Gewone servernaam: %s\n"
+
+#: socket.c:637
+msgid "Bad certificate: Subject CommonName too long!\n"
+msgstr "Ongeldig certificaat: Subject CN is te lang!\n"
+
+#: socket.c:643
+#, fuzzy
+msgid "Bad certificate: Subject CommonName contains NUL, aborting!\n"
+msgstr "Ongeldig certificaat: Subject CN is te lang!\n"
+
+#: socket.c:664
+#, c-format
+msgid "Subject Alternative Name: %s\n"
+msgstr ""
+
+#: socket.c:670
+#, fuzzy
+msgid "Bad certificate: Subject Alternative Name contains NUL, aborting!\n"
+msgstr "Ongeldig certificaat: Subject CN is te lang!\n"
+
+#: socket.c:698
+#, c-format
+msgid "Server CommonName mismatch: %s != %s\n"
+msgstr "Gewone naam (CN) van server klopt niet: %s != %s\n"
+
+#: socket.c:705
+msgid "Server name not set, could not verify certificate!\n"
+msgstr "Servernaam is niet ingesteld; kan certificaat niet verifiëren!\n"
+
+#: socket.c:710
+msgid "Unknown Server CommonName\n"
+msgstr "Onbekende gewone naam (CN) van server\n"
+
+#: socket.c:712
+msgid "Server name not specified in certificate!\n"
+msgstr "Servernaam is niet opgegeven in certificaat!\n"
+
+#: socket.c:724
+msgid "EVP_md5() failed!\n"
+msgstr "EVP_md5() is mislukt!\n"
+
+#: socket.c:728
+msgid "Out of memory!\n"
+msgstr "Onvoldoende geheugen beschikbaar!\n"
+
+#: socket.c:736
+msgid "Digest text buffer too small!\n"
+msgstr "Tekstbuffer voor digest is te klein!\n"
+
+#: socket.c:742
+#, c-format
+msgid "%s key fingerprint: %s\n"
+msgstr "%s-sleutel-vingerafdruk: %s\n"
+
+#: socket.c:746
+#, c-format
+msgid "%s fingerprints match.\n"
+msgstr "%s-vingerafdrukken komen overeen.\n"
+
+#: socket.c:748
+#, c-format
+msgid "%s fingerprints do not match!\n"
+msgstr "%s-vingerafdrukken komen niet overeen!\n"
+
+#: socket.c:757
+#, c-format
+msgid "Server certificate verification error: %s\n"
+msgstr "Fout bij verificatie van servercertificaat: %s\n"
+
+#: socket.c:763
+#, c-format
+msgid "unknown issuer (first %d characters): %s\n"
+msgstr "onbekende uitgever (eerste %d tekens): %s\n"
+
+#: socket.c:850
+msgid "File descriptor out of range for SSL"
+msgstr "Bestandsdescriptor valt buiten bereik voor SSL"
+
+#: socket.c:866
+#, fuzzy, c-format
+msgid "Invalid SSL protocol '%s' specified, using default (SSLv23).\n"
+msgstr ""
+"Ongeldig SSL-protocol '%s' opgegeven; standaard (SSLv23) wordt gebruikt.\n"
+
+#: socket.c:942
+msgid "Certificate/fingerprint verification was somehow skipped!\n"
+msgstr ""
+"Verificatie van certificaat/vingerafdruk is op een of andere manier "
+"overslagen!\n"
+
+#: socket.c:1020
+msgid "Cygwin socket read retry\n"
+msgstr "Poging om Cygwin-socket opnieuw te lezen\n"
+
+#: socket.c:1023
+msgid "Cygwin socket read retry failed!\n"
+msgstr "Poging om Cygwin-socket opnieuw te lezen is mislukt!\n"
+
+#: transact.c:65
+#, c-format
+msgid "mapped address %s to local %s\n"
+msgstr "adres %s is op lokale %s afgebeeld\n"
+
+#: transact.c:87
+#, c-format
+msgid "mapped %s to local %s\n"
+msgstr "%s is op lokale %s afgebeeld\n"
+
+#: transact.c:154
+#, c-format
+msgid "passed through %s matching %s\n"
+msgstr ""
+
+#: transact.c:224
+#, c-format
+msgid ""
+"analyzing Received line:\n"
+"%s"
+msgstr ""
+"analyseren van Received-regel:\n"
+"%s"
+
+#: transact.c:263
+#, c-format
+msgid "line accepted, %s is an alias of the mailserver\n"
+msgstr "regel is geaccepteerd, %s is een alias van de mailserver\n"
+
+#: transact.c:269
+#, c-format
+msgid "line rejected, %s is not an alias of the mailserver\n"
+msgstr "regel is geweigerd, %s is geen alias van de mailserver\n"
+
+#: transact.c:343
+msgid "no Received address found\n"
+msgstr "geen Received-adres gevonden\n"
+
+#: transact.c:352
+#, c-format
+msgid "found Received address `%s'\n"
+msgstr "Received-adres gevonden: '%s'\n"
+
+#: transact.c:592
+msgid "incorrect header line found while scanning headers\n"
+msgstr "incorrecte kopregel gevonden tijdens scannen van de kopregels\n"
+
+#: transact.c:594
+#, c-format
+msgid "line: %s"
+msgstr "regel: %s"
+
+#: transact.c:1133
+#, c-format
+msgid "no local matches, forwarding to %s\n"
+msgstr "geen lokale overeenkomsten; doorsturen naar %s\n"
+
+#: transact.c:1148
+msgid "forwarding and deletion suppressed due to DNS errors\n"
+msgstr "doorsturen en verwijderen is onderdrukt vanwege DNS-fouten\n"
+
+#: transact.c:1258
+msgid "writing RFC822 msgblk.headers\n"
+msgstr "schrijven van RFC822 msgblk.headers\n"
+
+#: transact.c:1277
+msgid "no recipient addresses matched declared local names"
+msgstr ""
+"geen van de ontvangeradressen komt overeen met gedeclareerde lokale namen"
+
+#: transact.c:1284
+#, c-format
+msgid "recipient address %s didn't match any local name"
+msgstr "ontvangeradres %s komt niet overeen met een lokale naam"
+
+#: transact.c:1293
+msgid "message has embedded NULs"
+msgstr "bericht bevat NUL-tekens"
+
+#: transact.c:1301
+msgid "SMTP listener rejected local recipient addresses: "
+msgstr "SMTP-programma heeft de volgende lokale ontvangers geweigerd: "
+
+#: transact.c:1440
+msgid "error writing message text\n"
+msgstr "fout bij schrijven van berichttekst\n"
+
+#: uid.c:250
+#, c-format
+msgid "Old UID list from %s:"
+msgstr "Oude UID-lijst van %s:"
+
+#: uid.c:255 uid.c:266 uid.c:523 uid.c:573
+msgid " <empty>"
+msgstr " <leeg>"
+
+#: uid.c:262
+msgid "Scratch list of UIDs:"
+msgstr "Kladlijst van UID's:"
+
+#: uid.c:517 uid.c:569
+#, c-format
+msgid "Merged UID list from %s:"
+msgstr "Samengevoegde UID-lijst van %s:"
+
+#: uid.c:519
+#, c-format
+msgid "New UID list from %s:"
+msgstr "Nieuwe UID-lijst van %s:"
+
+#: uid.c:548
+msgid "swapping UID lists\n"
+msgstr "omwisselen van UID-lijsten\n"
+
+#: uid.c:556
+msgid "not swapping UID lists, no UIDs seen this query\n"
+msgstr "UID-lijsten worden niet gewisseld; geen UID's in deze aanvraag\n"
+
+#: uid.c:581
+msgid "discarding new UID list\n"
+msgstr "nieuwe UID-lijst wordt weggegooid\n"
+
+#: uid.c:617
+msgid "Deleting fetchids file.\n"
+msgstr "Verwijderen van fetchids-bestand.\n"
+
+#: uid.c:620
+#, c-format
+msgid "Error deleting %s: %s\n"
+msgstr "Fout bij verwijderen van %s: %s\n"
+
+#: uid.c:626
+msgid "Writing fetchids file.\n"
+msgstr "Schrijven van fetchids-bestand.\n"
+
+#: uid.c:645
+#, c-format
+msgid "Error writing to fetchids file %s, old file left in place.\n"
+msgstr ""
+"Fout bij schrijven van fetchids-bestand %s; oude bestand is blijven staan.\n"
+
+#: uid.c:649
+#, c-format
+msgid "Cannot rename fetchids file %s to %s: %s\n"
+msgstr "Kan fetchids-bestand %s niet naar %s hernoemen: %s\n"
+
+#: uid.c:653
+#, c-format
+msgid "Cannot open fetchids file %s for writing: %s\n"
+msgstr "Kan fetchids-bestand %s niet openen om naar te schrijven: %s\n"
+
+#: xmalloc.c:33
+msgid "malloc failed\n"
+msgstr "malloc() is mislukt\n"
+
+#: xmalloc.c:47
+msgid "realloc failed\n"
+msgstr "realloc() is mislukt\n"
+
+#~ msgid "message delimiter found while scanning headers\n"
+#~ msgstr "berichtafsluiter gevonden tijdens scannen van de kopregels\n"

@@ -55,6 +55,7 @@ XCFLAGS		+= \
 #
 XDEFINES	+= \
 			-DAPU_HAVE_FREETDS=1 \
+			-DAPU_DSO_MODULE_BUILD \
 			$(EOLIST)
 
 #

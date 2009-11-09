@@ -199,7 +199,8 @@ isakmp_frag_extract(iph1, msg)
 	 * frag->len is the frag payload data plus the frag payload header,
 	 * whose size is sizeof(*frag) 
 	 */
-	if (msg->l < sizeof(*isakmp) + ntohs(frag->len)) {
+	if (msg->l < sizeof(*isakmp) + ntohs(frag->len) ||
+		ntohs(frag->len) < sizeof(*frag) + 1) {
 		plog(LLV_ERROR, LOCATION, NULL, "Fragment too short\n");
 		return -1;
 	}

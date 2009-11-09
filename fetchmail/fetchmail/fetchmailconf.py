@@ -5,7 +5,7 @@
 # Matthias Andree <matthias.andree@gmx.de>
 # Requires Python with Tkinter, and the following OS-dependent services:
 #	posix, posixpath, socket
-version = "1.52 $Revision: 4740 $"
+version = "1.55 $Revision: 5330 $"
 
 from Tkinter import *
 from Dialog import *
@@ -22,6 +22,7 @@ class Configuration:
 	self.postmaster = None		# No last-resort address, initially
 	self.bouncemail = TRUE		# Bounce errors to users
 	self.spambounce = FALSE		# Bounce spam errors
+	self.softbounce = TRUE		# Treat permanent error as temporary
 	self.properties = None		# No exiguous properties
 	self.invisible = FALSE		# Suppress Received line & spoof?
 	self.syslog = FALSE		# Use syslogd for logging?
@@ -33,6 +34,7 @@ class Configuration:
 	    ('postmaster',	'String'),
 	    ('bouncemail',	'Boolean'),
 	    ('spambounce',	'Boolean'),
+	    ('softbounce',	'Boolean'),
 	    ('properties',	'String'),
 	    ('syslog',	  'Boolean'),
 	    ('invisible',	'Boolean'))
@@ -55,6 +57,10 @@ class Configuration:
 	    str = str + ("set spambounce\n")
 	else:
 	    str = str + ("set no spambounce\n")
+	if self.softbounce:
+	    str = str + ("set softbounce\n")
+	else:
+	    str = str + ("set no softbounce\n")
 	if self.properties != ConfigurationDefaults.properties:
 	    str = str + ("set properties \"%s\"\n" % (self.properties,));
 	if self.poll_interval > 0:
@@ -258,6 +264,7 @@ class User:
 	self.sslproto = None	# Force SSL?
 	self.sslcertck = 0	# Enable strict SSL cert checking
 	self.sslcertpath = None	# Path to trusted certificates
+	self.sslcommonname = None	# SSL CommonName to expect
 	self.sslfingerprint = None	# SSL key fingerprint to check
 	self.properties = None	# Extension properties
 	User.typemap = (
@@ -297,6 +304,7 @@ class User:
 	    ('sslcert',     'String'),
 	    ('sslcertck',   'Boolean'),
 	    ('sslcertpath', 'String'),
+	    ('sslcommonname', 'String'),
 	    ('sslfingerprint', 'String'),
 	    ('properties',  'String'))
 
@@ -371,6 +379,8 @@ class User:
 	    res = res +  flag2str(self.sslcertck, 'sslcertck')
 	if self.sslcertpath and self.sslcertpath != UserDefaults.sslcertpath:
 	    res = res + " sslcertpath " + `self.sslcertpath`
+	if self.sslcommonname and self.sslcommonname != UserDefaults.sslcommonname:
+	    res = res + " sslcommonname " + `self.sslcommonname`
 	if self.sslfingerprint and self.sslfingerprint != UserDefaults.sslfingerprint:
 	    res = res + " sslfingerprint " + `self.sslfingerprint`
 	if self.expunge != UserDefaults.expunge:
@@ -397,7 +407,7 @@ class User:
 	if self.mailboxes:
 	     res = res + "    folder"
 	     for x in self.mailboxes:
-		res = res + " " + x
+		res = res + ' "%s"' % x
 	     res = res + "\n"
 	for fld in ('smtpaddress', 'preconnect', 'postconnect', 'mda', 'bsmtp', 'properties'):
 	    if getattr(self, fld):
@@ -719,6 +729,14 @@ Send spam bounces?
 	postmaster (depending on the "Bounces to sender?" option.  Otherwise,
 	spam bounces are not sent (the default).
 
+Use soft bounces?
+	If this option is on, permanent delivery errors are treated as
+	temporary, i. e. mail is kept on the upstream server. Useful
+	during testing and after configuration changes, and on by
+	default.
+	  If this option is off, permanent delivery errors delete
+	undeliverable mail from the upstream.
+
 Invisible
 	If false (the default) fetchmail generates a Received line into
 	each message and generates a HELO from the machine it is running on.
@@ -809,8 +827,15 @@ class ConfigurationEdit(Frame, MyWidget):
 
 	    sb = Frame(gf)
 	    Checkbutton(sb,
-		{'text':'send spam bounces?',
+		{'text':'Send spam bounces?',
 		'variable':self.spambounce,
+		'relief':GROOVE}).pack(side=LEFT, anchor=W)
+	    sb.pack(fill=X)
+
+	    sb = Frame(gf)
+	    Checkbutton(sb,
+		{'text':'Treat permanent errors as temporary?',
+		'variable':self.softbounce,
 		'relief':GROOVE}).pack(side=LEFT, anchor=W)
 	    sb.pack(fill=X)
 
@@ -1000,8 +1025,10 @@ The ssl option enables SSL communication with a mailserver
 supporting Secure Sockets Layer. The sslkey and sslcert options
 declare key and certificate files for use with SSL.
 The sslcertck option enables strict checking of SSL server
-certificates (and sslcertpath gives trusted certificate
-directory). With sslfingerprint, you can specify a finger-
+certificates (and sslcertpath gives the trusted certificate
+directory). The sslcommonname option helps if the server is
+misconfigured and returning "Server CommonName mismatch"
+warnings. With sslfingerprint, you can specify a finger-
 print the server's key is checked against.
 """}
 
@@ -1641,6 +1668,8 @@ class UserEdit(Frame, MyWidget):
 			variable=self.sslcertck).pack(side=TOP, fill=X)
 	    LabeledEntry(sslwin, 'SSL trusted certificate directory:',
 			 self.sslcertpath, '14').pack(side=TOP, fill=X)
+	    LabeledEntry(sslwin, 'SSL CommonName:',
+			 self.sslcommonname, '14').pack(side=TOP, fill=X)
 	    LabeledEntry(sslwin, 'SSL key fingerprint:',
 			 self.sslfingerprint, '14').pack(side=TOP, fill=X)
 	    sslwin.pack(fill=X, anchor=N)
@@ -1942,7 +1971,7 @@ def copy_instance(toclass, fromdict):
     optional = ('interface', 'monitor',
 		'esmtpname', 'esmtppassword',
 		'ssl', 'sslkey', 'sslcert', 'sslproto', 'sslcertck',
-		'sslcertpath', 'sslfingerprint', 'showdots')
+		'sslcertpath', 'sslcommonname', 'sslfingerprint', 'showdots')
     class_sig = setdiff(toclass.__dict__.keys(), optional)
     class_sig.sort()
     dict_keys = setdiff(fromdict.keys(), optional)
@@ -2056,10 +2085,10 @@ Usage: fetchmailconf {[-d] [-f fetchmailrc]|-h|--help|-V|--version}
 	    print "fetchmailconf %s" % version
 	    print """
 Copyright (C) 1997 - 2003 Eric S. Raymond
-Copyright (C) 2005 - 2006 Matthias Andree
+Copyright (C) 2005, 2006, 2008, 2009 Matthias Andree
 fetchmailconf comes with ABSOLUTELY NO WARRANTY.  This is free software, you are
 welcome to redistribute it under certain conditions.  Please see the file
-COPYING in the source or documentation directory for details.  """
+COPYING in the source or documentation directory for details."""
 	    sys.exit(0)
 
     # Get client host's FQDN

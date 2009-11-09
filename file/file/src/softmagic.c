@@ -32,7 +32,7 @@
 #include "file.h"
 
 #ifndef	lint
-FILE_RCSID("@(#)$File: softmagic.c,v 1.133 2008/11/07 22:50:37 christos Exp $")
+FILE_RCSID("@(#)$File: softmagic.c,v 1.135 2009/03/27 22:42:49 christos Exp $")
 #endif	/* lint */
 
 #include "magic.h"
@@ -256,11 +256,14 @@ match(struct magic_set *ms, struct magic *magic, uint32_t nmagic,
 				 * make sure that we have a separator first.
 				 */
 				if (*m->desc) {
-					printed_something = 1;
 					if ((e = handle_annotation(ms, m)) != 0)
 						return e;
-					if (print_sep(ms, firstline) == -1)
-						return -1;
+					if (!printed_something) {
+						printed_something = 1;
+						if (print_sep(ms, firstline)
+						    == -1)
+							return -1;
+					}
 				}
 				/*
 				 * This continuation matched.  Print
@@ -340,12 +343,11 @@ strndup(const char *str, size_t n)
 
 	for (len = 0; len < n && str[len]; len++)
 		continue;
-
 	if ((copy = malloc(len + 1)) == NULL)
-		return (NULL);
-	memcpy(copy, str, len);
+		return NULL;
+	(void)memcpy(copy, str, len);
 	copy[len] = '\0';
-	return (copy);
+	return copy;
 }
 #endif /* HAVE_STRNDUP */
 

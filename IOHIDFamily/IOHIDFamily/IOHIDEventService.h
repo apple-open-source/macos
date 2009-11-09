@@ -45,9 +45,14 @@ enum
     kHIDDispatchOptionPointerAbsolutToRelative         = 0x04
 };
 
-enum 
+enum
 {
-    kHIDDispatchOptionScrollNoAcceleration             = 0x01
+    kHIDDispatchOptionScrollNoAcceleration             = 0x01,
+    kHIDDispatchOptionScrollMomentumContinue           = 0x02,
+    kHIDDispatchOptionScrollMomentumStart              = 0x04,
+    kHIDDispatchOptionScrollMomentumEnd                = 0x08,
+
+    kHIDDispatchOptionScrollMomentumAny                = kHIDDispatchOptionScrollMomentumContinue | kHIDDispatchOptionScrollMomentumStart | kHIDDispatchOptionScrollMomentumEnd
 };
 
 enum 

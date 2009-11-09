@@ -159,7 +159,8 @@ si_nameinfo(si_mod_t *si, const struct sockaddr *sa, int flags, uint32_t *err)
 				a6.__u6_addr.__u6_addr16[1] = htons(ifnum);
 			}
 
-			if (ifnum != s6->sin6_scope_id)
+			if (ifnum != s6->sin6_scope_id &&
+			    s6->sin6_scope_id != 0)
 			{
 				if (err != NULL) *err = SI_STATUS_EAI_FAIL;
 				return NULL;
@@ -657,20 +658,96 @@ si_wants_addrinfo(si_mod_t *si)
 	return si->sim_wants_addrinfo(si);
 }
 
+static si_list_t *
+_gai_srv(si_mod_t *si, const char *node, const char *serv, uint32_t family, uint32_t socktype, uint32_t proto, uint32_t flags, uint32_t *err)
+{
+	int i;
+	char *qname;
+	si_srv_t *srv;
+	si_item_t *item;
+
+	si_list_t *list = NULL;
+	si_list_t *result = NULL;
+
+	/* Minimum SRV priority is zero. Start below that. */
+	int lastprio = -1;
+	int currprio;
+	
+	if (node == NULL || serv == NULL) return NULL;
+	
+	asprintf(&qname, "%s.%s", serv, node);
+	list = si_srv_byname(si, qname, err);
+	free(qname);
+	
+	/* Iterate the SRV records starting at lowest priority and attempt to
+	 * lookup the target host name. Returns the first successful lookup.
+	 * It's an O(n^2) algorithm but data sets are small (less than 100) and
+	 * sorting overhead is dwarfed by network I/O for each element.
+	 */
+	while (list != NULL && result == NULL)
+	{
+		/* Find the next lowest priority level. */
+		/* Maximum SRV priority is UINT16_MAX. Start above that. */
+		currprio = INT_MAX;
+		
+		for (i = 0; i < list->count; ++i)
+		{
+			item = list->entry[i];
+			srv = (si_srv_t *)((uintptr_t)item + sizeof(si_item_t));
+			
+			if (srv->priority > lastprio && srv->priority < currprio)
+			{
+				currprio = srv->priority;
+			}
+		}
+
+		if (currprio == INT_MAX)
+		{
+			/* All priorities have been evaluated. Done. */
+			break;
+		}
+		else
+		{
+			lastprio = currprio;
+		}
+		
+		/* Lookup hosts at the current priority level. Return first match. */
+		for (i = 0; i < list->count; ++i)
+		{
+			item = list->entry[i];
+			srv = (si_srv_t *)((uintptr_t)item + sizeof(si_item_t));
+			
+			if (srv->priority == currprio)
+			{
+				/* So that _gai_simple expects an integer service. */
+				flags |= AI_NUMERICSERV;
+
+				result = _gai_simple(si, srv->target, &srv->port, family, socktype, proto, flags, err);
+				if (result)
+				{
+					break;
+				}
+			}
+		}
+	}
+
+	if (list != NULL)
+	{
+		si_list_release(list);
+	}
+	
+	return result;
+}
+
 __private_extern__ si_list_t *
 si_addrinfo(si_mod_t *si, const char *node, const char *serv, uint32_t family, uint32_t socktype, uint32_t proto, uint32_t flags, uint32_t *err)
 {
-	int i, lastprio, numerichost, numericserv = 0;
+	int numerichost, numericserv = 0;
 	const void *nodeptr = NULL, *servptr = NULL;
 	uint16_t port;
 	struct in_addr a4, *p4;
 	struct in6_addr a6, *p6;
-	char srvnode[MAXHOSTNAMELEN];
 	const char *cname;
-	si_srv_t *srv;
-	si_item_t *item;
-	si_list_t *list;
-	char *qname;
 
 	if (err != NULL) *err = SI_STATUS_NO_ERROR;
 
@@ -752,34 +829,7 @@ si_addrinfo(si_mod_t *si, const char *node, const char *serv, uint32_t family, u
 	if ((flags & AI_SRV) != 0)
 	{
 		/* AI_SRV SPI */
-		lastprio = INT_MAX;
-
-		/* set so that getaddrinfo(3) fails if the SRV fails */
-		flags |= AI_NUMERICSERV;
-
-		/* XXX what if serv is NULL */
-		asprintf(&qname, "%s.%s", serv, node);
-		list = si_srv_byname(si, qname, err);
-		free(qname);
-
-		if (list != NULL)
-		{
-			for (i = 0; i < list->count; ++i)
-			{
-				item = list->entry[i];
-				srv = (si_srv_t *)((uintptr_t)item + sizeof(si_item_t));
-
-				if (srv->priority < lastprio)
-				{
-					port = srv->port;
-					numericserv = 1;
-					strlcpy(srvnode, srv->target, sizeof(srvnode));
-					node = srvnode;
-				}
-			}
-
-			si_list_release(list);
-		}
+		return _gai_srv(si, node, serv, family, socktype, proto, flags, err);
 	}
 	else
 	{
@@ -1322,7 +1372,7 @@ si_ipnode_byname(si_mod_t *si, const char *name, int family, int flags, uint32_t
 			for (i = 0; h->h_aliases[i] != NULL; i++) merge_alias(h->h_aliases[i], out);
 		}
 
-		for (i = 0; h->h_addr_list[i] != 0; i++) append_addr((const char *)&(h->h_addr_list[i]), IPV6_ADDR_LEN, out);
+		for (i = 0; h->h_addr_list[i] != 0; i++) append_addr(h->h_addr_list[i], IPV6_ADDR_LEN, out);
 	}
 
 	si_item_release(item4);

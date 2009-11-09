@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.0">
+<trk>
+	<name>UTC +4 (all year) SCT</name>
+	<trkseg>
+		<trkpt lon="55.1760864258" lat="-3.66418677777"></trkpt>
+		<trkpt lon="55.7611083984" lat="-3.75737477346"></trkpt>
+		<trkpt lon="56.0852050781" lat="-4.42035207087"></trkpt>
+		<trkpt lon="55.9176635742" lat="-4.74067538478"></trkpt>
+		<trkpt lon="55.4919433594" lat="-4.89120403442"></trkpt>
+		<trkpt lon="55.104675293" lat="-4.48607103437"></trkpt>
+		<trkpt lon="55.1760864258" lat="-3.66418677777"></trkpt>
+	</trkseg>
+</trk>
+</gpx>

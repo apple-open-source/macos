@@ -1006,6 +1006,11 @@ kullanımı önerilmemektedir.</td></tr>
       </span>
       &lt;/Directory&gt;
     </code></p></div>
+    <p><code class="directive">EnableSendfile</code> yönergesinin .htaccess ve diziniçi
+      yapılandırmalarının <code class="module"><a href="../mod/mod_disk_cache.html">mod_disk_cache</a></code> tarafından
+      desteklenmediğini lütfen aklınızdan çıkarmayın.
+      <code class="directive">EnableSendfile</code> yönergesinin sadece küresel
+      tanımları hesaba katılır.</p>
 
 </div>
 <div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
@@ -1966,8 +1971,8 @@ sınırlar.</td></tr>
     </div>
 
     <p>Kaynağa yapılan (vekil olmayan) tüm istekler için eşleşecek URL,
-      <code>/yol/</code> şeklinde bir URL yolu olmalı; ne şema, ne konak ismi
-      ne port ne de sorgu dizgesi içermelidir. Vekil istekleri için eşleşecek
+      <code>/yol/</code> şeklinde bir URL yolu olmalı; <em>ne şema, ne konak ismi
+      ne port ne de sorgu dizgesi içermelidir</em>. Vekil istekleri için eşleşecek
       URL ise <code>şema://sunucuadı/dosya-yolu</code> şeklinde olmalı ve önek
       içermelidir.</p>
 
@@ -2731,9 +2736,10 @@ kullanılacak konak adları için başka isimler belirtebilmeyi sağlar.
       karakterleri içerebilir.</p>
 
     <div class="example"><p><code>
-      &lt;VirtualHost *&gt;<br />
+      &lt;VirtualHost *:80&gt;<br />
       ServerName sunucu.mesela.dom<br />
       ServerAlias sunucu sunucu2.mesela.dom sunucu2<br />
+      ServerAlias *.mesela.dom<br />
       # ...<br />
       &lt;/VirtualHost&gt;
     </code></p></div>
@@ -3057,25 +3063,26 @@ gerçekleşmesi için sunucunun geçmesini bekleyeceği süre.</td></tr>
 <tr><th><a href="directive-dict.html#Status">Durum:</a></th><td>Çekirdek</td></tr>
 <tr><th><a href="directive-dict.html#Module">Modül:</a></th><td>core</td></tr>
 </table>
-    <p><code class="directive">TimeOut</code> yönergesi Apache’nin aşağıdaki üç durum
-      için bekleyeceği süreyi belirler:</p>
+    <p><code class="directive">TimeOut</code> yönergesi çeşitli durumlarda
+      Apache’nin bekleyeceği süreyi belirler:</p>
 
     <ol>
-      <li>Bir GET isteğini almak için geçecek toplam süre.</li>
+      <li>Veri istemciden okunurken, okuma tamponu boş olduğunda bir TCP
+        paketinin gelmesi için beklenecek süre.</li>
 
-      <li>Bir POST veya PUT isteğinde TCP paketlerinin alımları arasında geçen
-        süre.</li>
+      <li>Veri istemciye yazılırken, gönderim tamponu dolu olduğunda bir
+        paket alındı bilgisi için beklenecek süre.</li>
 
-      <li>Yanıtlarda TCP paketlerinin aktarımı için alındılar arasında geçen
-        süre.</li>
+      <li><code class="module"><a href="../mod/mod_cgi.html">mod_cgi</a></code> modülünde bir CGI betiğinin çıktısı için
+        beklenecek süre.</li>
+
+      <li><code class="module"><a href="../mod/mod_ext_filter.html">mod_ext_filter</a></code> modülünde bir süzme işleminin
+        çıktısı için beklenecek süre.</li>
+
+      <li><code class="module"><a href="../mod/mod_proxy.html">mod_proxy</a></code> modülünde
+        <code class="directive"><a href="../mod/mod_proxy.html#proxytimeout">ProxyTimeout</a></code>
+        yapılandırılmamışsa öntanımlı zaman aşımı değeri.</li>
     </ol>
-    <p>Bunları ileride ayrı ayrı yapılandırılabilir kılmayı planlıyoruz. 1.2
-      öncesinde zaman aşımı öntanımlı olarak 1200 saniye idi, fakat çoğu durum
-      için hala gereğinden fazla olsa bile şimdi 300 saniyeye düşürüldü. Kodun
-      içinde, bir paket gönderilmediği takdirde zaman aşımı değerinin
-      sıfırlanmadan kaldığı tuhaf yerler bulunabileceğinden bu değer öntanımlı
-      değerin altına ayarlanmamalıdır.</p>
-
 
 </div>
 <div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
@@ -3340,6 +3347,6 @@ gerçekleşmesi için sunucunun geçmesini bekleyeceği süre.</td></tr>
 <a href="../ja/mod/core.html" hreflang="ja" rel="alternate" title="Japanese">&nbsp;ja&nbsp;</a> |
 <a href="../tr/mod/core.html" title="Türkçe">&nbsp;tr&nbsp;</a></p>
 </div><div id="footer">
-<p class="apache">Copyright 2008 The Apache Software Foundation.<br /><a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a> altında lisanslıdır.</p>
+<p class="apache">Copyright 2009 The Apache Software Foundation.<br /><a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a> altında lisanslıdır.</p>
 <p class="menu"><a href="../mod/">Modüller</a> | <a href="../mod/directives.html">Yönergeler</a> | <a href="../faq/">SSS</a> | <a href="../glossary.html">Terimler</a> | <a href="../sitemap.html">Site Haritası</a></p></div>
 </body></html>

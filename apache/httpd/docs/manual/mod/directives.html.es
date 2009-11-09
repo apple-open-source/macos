@@ -400,6 +400,8 @@
 <li><a href="mod_ssl.html#sslproxycacertificatepath">SSLProxyCACertificatePath</a></li>
 <li><a href="mod_ssl.html#sslproxycarevocationfile">SSLProxyCARevocationFile</a></li>
 <li><a href="mod_ssl.html#sslproxycarevocationpath">SSLProxyCARevocationPath</a></li>
+<li><a href="mod_ssl.html#sslproxycheckpeercn">SSLProxyCheckPeerCN</a></li>
+<li><a href="mod_ssl.html#sslproxycheckpeerexpire">SSLProxyCheckPeerExpire</a></li>
 <li><a href="mod_ssl.html#sslproxyciphersuite">SSLProxyCipherSuite</a></li>
 <li><a href="mod_ssl.html#sslproxyengine">SSLProxyEngine</a></li>
 <li><a href="mod_ssl.html#sslproxymachinecertificatefile">SSLProxyMachineCertificateFile</a></li>
@@ -408,10 +410,12 @@
 <li><a href="mod_ssl.html#sslproxyverify">SSLProxyVerify</a></li>
 <li><a href="mod_ssl.html#sslproxyverifydepth">SSLProxyVerifyDepth</a></li>
 <li><a href="mod_ssl.html#sslrandomseed">SSLRandomSeed</a></li>
+<li><a href="mod_ssl.html#sslrenegbuffersize">SSLRenegBufferSize</a></li>
 <li><a href="mod_ssl.html#sslrequire">SSLRequire</a></li>
 <li><a href="mod_ssl.html#sslrequiressl">SSLRequireSSL</a></li>
 <li><a href="mod_ssl.html#sslsessioncache">SSLSessionCache</a></li>
 <li><a href="mod_ssl.html#sslsessioncachetimeout">SSLSessionCacheTimeout</a></li>
+<li><a href="mod_ssl.html#sslstrictsnivhostcheck">SSLStrictSNIVHostCheck</a></li>
 <li><a href="mod_ssl.html#sslusername">SSLUserName</a></li>
 <li><a href="mod_ssl.html#sslverifyclient">SSLVerifyClient</a></li>
 <li><a href="mod_ssl.html#sslverifydepth">SSLVerifyDepth</a></li>
@@ -448,6 +452,6 @@
 <a href="../ru/mod/directives.html" hreflang="ru" rel="alternate" title="Russian">&nbsp;ru&nbsp;</a> |
 <a href="../tr/mod/directives.html" hreflang="tr" rel="alternate" title="Türkçe">&nbsp;tr&nbsp;</a></p>
 </div><div id="footer">
-<p class="apache">Copyright 2008 The Apache Software Foundation.<br />Licencia bajo los términos de la <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
+<p class="apache">Copyright 2009 The Apache Software Foundation.<br />Licencia bajo los términos de la <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
 <p class="menu"><a href="../mod/">Módulos</a> | <a href="../mod/directives.html">Directivas</a> | <a href="../faq/">Preguntas Frecuentes</a> | <a href="../glossary.html">Glosario</a> | <a href="../sitemap.html">Mapa de este sitio web</a></p></div>
 </body></html>

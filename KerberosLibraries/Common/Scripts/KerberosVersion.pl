@@ -8,7 +8,7 @@ Encode::perlio_ok ("utf16") or die ("can't read utf16");
 Encode::perlio_ok ("utf8") or die ("can't read utf8");
 
 my $kfm = "KfM";
-my $buildVersion = "6.5.8";
+my $buildVersion = "6.5.9";
 my $marketingVersion = "6.5";
 my $copyright = "Copyright © 2008 Massachusetts Institute of Technology";
 my $shortCopyright = "Copyright © 2008 MIT";

@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.0">
+<trk>
+	<name>UTC -3 (all year) ROTT</name>
+	<trkseg>
+		<trkpt lon="-66.9506835938" lat="-65.3668368923"></trkpt>
+		<trkpt lon="-65.3686523438" lat="-65.3668368923"></trkpt>
+		<trkpt lon="-63.8305664062" lat="-65.5129625533"></trkpt>
+		<trkpt lon="-56.7993164062" lat="-65.8926802896"></trkpt>
+		<trkpt lon="-56.7333984375" lat="-69.4883723993"></trkpt>
+		<trkpt lon="-58.359375" lat="-84.4740645846"></trkpt>
+		<trkpt lon="-76.9921875" lat="-84.5078155861"></trkpt>
+		<trkpt lon="-76.640625" lat="-65.2198939361"></trkpt>
+		<trkpt lon="-66.9506835938" lat="-65.3668368923"></trkpt>
+	</trkseg>
+</trk>
+</gpx>

@@ -1,7 +1,7 @@
 /*
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * Copyright (c) 1999-2009 Apple Computer, Inc.  All Rights Reserved.
  * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
@@ -64,6 +64,8 @@ public:
   virtual IOReturn  setProperties( OSObject * properties );
   virtual IOReturn  setParamProperties(OSDictionary * dict);
   virtual UInt64    getGUID();
+  
+  static SInt32		GenerateKey(OSObject *object);
 };
 
 #endif /* !_IOHIDEVICE_H */

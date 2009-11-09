@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.0">
+<trk>
+	<name>UTC +11 (all year) SBT</name>
+	<trkseg>
+		<trkpt lon="167.827148438" lat="-11.7598146744"></trkpt>
+		<trkpt lon="165.915527344" lat="-11.9103535558"></trkpt>
+		<trkpt lon="160.598144531" lat="-12.189703804"></trkpt>
+		<trkpt lon="155.083007812" lat="-7.42783652874"></trkpt>
+		<trkpt lon="155.599365234" lat="-6.9700494173"></trkpt>
+		<trkpt lon="155.731201172" lat="-6.92642684706"></trkpt>
+		<trkpt lon="155.906982422" lat="-6.86643922958"></trkpt>
+		<trkpt lon="156.033325195" lat="-6.69188702313"></trkpt>
+		<trkpt lon="156.033325195" lat="-6.6155007119"></trkpt>
+		<trkpt lon="156.895751953" lat="-6.16240092153"></trkpt>
+		<trkpt lon="157.906494141" lat="-5.53944564855"></trkpt>
+		<trkpt lon="159.060058594" lat="-4.85015407851"></trkpt>
+		<trkpt lon="160.103759766" lat="-4.8829942439"></trkpt>
+		<trkpt lon="166.81640625" lat="-10.0554027366"></trkpt>
+		<trkpt lon="167.827148438" lat="-11.7598146744"></trkpt>
+	</trkseg>
+</trk>
+</gpx>

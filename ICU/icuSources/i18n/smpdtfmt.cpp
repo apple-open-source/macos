@@ -2133,7 +2133,13 @@ int32_t SimpleDateFormat::subParse(const UnicodeString& text, int32_t& start, UC
             // in strict mode, these can only
             // be a number if count <= 2
             if (!lenient && gotNumber && count > 2) {
-                return -1;
+                // We have a string pattern in strict mode
+                // but the input parsed as a number. Ignore
+                // the fact that the input parsed as a number
+                // and try to match it as a string. (Some
+                // locales have numbers for the month names.)
+                gotNumber = FALSE;
+                pos.setIndex(start);
             }
             
             break;

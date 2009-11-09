@@ -271,7 +271,7 @@ get_ifinfo(const char *ifname, ifinfo_t *ifinfo)
 	{
 		kvm_read(kvmfd, ifnet_addr, &ifnet, sizeof(ifnet));
 		kvm_read(kvmfd, (unsigned long) ifnet.if_name, tname, sizeof tname);
-		snprintf(tname, sizeof tname, "%s%d", tname, ifnet.if_unit);
+		snprintf(tname + strlen(tname), sizeof(tname) - strlen(tname), "%d", ifnet.if_unit);
 
 		if (!strcmp(tname, iname))
 		{
@@ -418,7 +418,7 @@ get_ifinfo(const char *ifname, ifinfo_t *ifinfo)
 	    GT_("get_ifinfo: sysctl (iflist estimate) failed"));
 	exit(1);
     }
-    if ((buf = malloc(needed)) == NULL)
+    if ((buf = (char *)malloc(needed)) == NULL)
     {
  	report(stderr, 
 	    GT_("get_ifinfo: malloc failed"));
@@ -736,5 +736,5 @@ int interface_approve(struct hostdata *hp, flag domonitor)
 #endif /* CAN_MONITOR */
 
 #ifndef have_interface_init
-void interface_init(void) {};
+void interface_init(void) {}
 #endif

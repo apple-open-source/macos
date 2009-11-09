@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.0">
+<trk>
+	<name>UTC +12 (all year) Marshall Islands</name>
+	<trkseg>
+		<trkpt lon="165.454101562" lat="22.2280904168"></trkpt>
+		<trkpt lon="165.41015625" lat="14.7748825065"></trkpt>
+		<trkpt lon="165.893554688" lat="-1.36217634666"></trkpt>
+		<trkpt lon="165.9375" lat="-2.32846036857"></trkpt>
+		<trkpt lon="176.989746094" lat="-3.16245553024"></trkpt>
+		<trkpt lon="178.483886719" lat="-8.79822545902"></trkpt>
+		<trkpt lon="179.912109375" lat="-8.81993892828"></trkpt>
+		<trkpt lon="178.989257812" lat="-3.03081212266"></trkpt>
+		<trkpt lon="174.440917969" lat="2.30650568383"></trkpt>
+		<trkpt lon="172.287597656" lat="7.53676432208"></trkpt>
+		<trkpt lon="168.947753906" lat="15.1357643546"></trkpt>
+		<trkpt lon="167.585449219" lat="22.1263547599"></trkpt>
+		<trkpt lon="165.454101562" lat="22.2280904168"></trkpt>
+	</trkseg>
+</trk>
+</gpx>

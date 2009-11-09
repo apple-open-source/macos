@@ -939,6 +939,12 @@ Locations</a></li>
       </span>
       &lt;/Directory&gt;
     </code></p></div>
+    <p>Please note that the per-directory and .htaccess configuration
+       of <code class="directive">EnableSendfile</code> is not supported by
+       <code class="module"><a href="../mod/mod_disk_cache.html">mod_disk_cache</a></code>.
+       Only global definition of <code class="directive">EnableSendfile</code>
+       is taken into account by the module.
+    </p>
 
 </div>
 <div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
@@ -1959,8 +1965,8 @@ URLs</td></tr>
     </div>
 
     <p>For all origin (non-proxy) requests, the URL to be matched is a
-    URL-path of the form <code>/path/</code>.  No scheme, hostname,
-    port, or query string may be included.  For proxy requests, the
+    URL-path of the form <code>/path/</code>.  <em>No scheme, hostname,
+    port, or query string may be included.</em>  For proxy requests, the
     URL to be matched is of the form
     <code>scheme://servername/path</code>, and you must include the
     prefix.</p>
@@ -2806,9 +2812,10 @@ to name-virtual hosts</td></tr>
     <code class="directive">ServerAlias</code> may include wildcards, if appropriate.</p>
 
     <div class="example"><p><code>
-      &lt;VirtualHost *&gt;<br />
+      &lt;VirtualHost *:80&gt;<br />
       ServerName server.domain.com<br />
       ServerAlias server server2.domain.com server2<br />
+      ServerAlias *.example.com<br />
       # ...<br />
       &lt;/VirtualHost&gt;
     </code></p></div>
@@ -3156,26 +3163,29 @@ certain events before failing a request</td></tr>
 <tr><th><a href="directive-dict.html#Status">Status:</a></th><td>Core</td></tr>
 <tr><th><a href="directive-dict.html#Module">Module:</a></th><td>core</td></tr>
 </table>
-    <p>The <code class="directive">TimeOut</code> directive currently defines
-    the amount of time Apache will wait for three things:</p>
+    <p>The <code class="directive">TimeOut</code> directive defines the length
+    of time Apache will wait for I/O in various circumstances:</p>
 
     <ol>
-      <li>The total amount of time it takes to receive a GET
-      request.</li>
+      <li>When reading data from the client, the length of time to
+      wait for a TCP packet to arrive if the read buffer is
+      empty.</li>
 
-      <li>The amount of time between receipt of TCP packets on a
-      POST or PUT request.</li>
+      <li>When writing data to the client, the length of time to wait
+      for an acknowledgement of a packet if the send buffer is
+      full.</li>
 
-      <li>The amount of time between ACKs on transmissions of TCP
-      packets in responses.</li>
+      <li>In <code class="module"><a href="../mod/mod_cgi.html">mod_cgi</a></code>, the length of time to wait for
+      output from a CGI script.</li>
+
+      <li>In <code class="module"><a href="../mod/mod_ext_filter.html">mod_ext_filter</a></code>, the length of time to
+      wait for output from a filtering process.</li>
+
+      <li>In <code class="module"><a href="../mod/mod_proxy.html">mod_proxy</a></code>, the default timeout value if
+      <code class="directive"><a href="../mod/mod_proxy.html#proxytimeout">ProxyTimeout</a></code> is not
+      configured.</li>
     </ol>
 
-    <p>We plan on making these separately configurable at some point
-    down the road. The timer used to default to 1200 before 1.2,
-    but has been lowered to 300 which is still far more than
-    necessary in most situations. It is not set any lower by
-    default because there may still be odd places in the code where
-    the timer is not reset when a packet is sent. </p>
 
 </div>
 <div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
@@ -3448,6 +3458,6 @@ hostname or IP address</td></tr>
 <a href="../ja/mod/core.html" hreflang="ja" rel="alternate" title="Japanese">&nbsp;ja&nbsp;</a> |
 <a href="../tr/mod/core.html" hreflang="tr" rel="alternate" title="Türkçe">&nbsp;tr&nbsp;</a></p>
 </div><div id="footer">
-<p class="apache">Copyright 2008 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
+<p class="apache">Copyright 2009 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
 <p class="menu"><a href="../mod/">Modules</a> | <a href="../mod/directives.html">Directives</a> | <a href="../faq/">FAQ</a> | <a href="../glossary.html">Glossary</a> | <a href="../sitemap.html">Sitemap</a></p></div>
 </body></html>

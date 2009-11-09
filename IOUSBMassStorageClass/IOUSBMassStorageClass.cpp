@@ -2149,117 +2149,88 @@ void
 IOUSBMassStorageClass::sResetDevice ( void * refcon )
 {
 	
-	IOUSBMassStorageClass *		driver          = NULL;;
-	IOReturn					status          = kIOReturnError;
+	IOUSBMassStorageClass *		driver          = NULL;
     IOUSBInterface *			interfaceRef	= NULL;
-	UInt32						deviceInfo		= 0;
 	IOUSBDevice *				deviceRef		= NULL;
+	IOReturn					status          = kIOReturnError;
     thread_t                    thread          = THREAD_NULL;
+	UInt32						deviceInfo		= 0;
 	
 	driver = ( IOUSBMassStorageClass * ) refcon;
     require ( ( driver != NULL ), Exit );
     
-	STATUS_LOG ( ( 4, "%s[%p]: sResetDevice Entered", driver->getName(), driver ) );
+	STATUS_LOG ( ( 4, "%s[%p]: sResetDevice Entered", driver->getName ( ), driver ) );
 
 	// Check if we should bail out because we are
 	// being terminated.
 	if ( ( driver->fTerminating == true ) ||
-		 ( driver->isInactive( ) == true ) )
+		 ( driver->isInactive ( ) == true ) )
 	{
-		STATUS_LOG ( ( 2, "%s[%p]: sResetDevice - We are being terminated!", driver->getName(), driver ) );
+        
+		STATUS_LOG ( ( 2, "%s[%p]: sResetDevice - We are being terminated!", driver->getName ( ), driver ) );
 		RecordUSBTimeStamp ( ( UMC_TRACE ( kUSBDeviceResetWhileTerminating ) | DBG_FUNC_START ), ( uintptr_t ) driver, 
-                             ( unsigned int ) driver->fTerminating, ( unsigned int ) driver->isInactive( ), NULL );
+                             ( unsigned int ) driver->fTerminating, ( unsigned int ) driver->isInactive ( ), NULL );
+        
 		goto ErrorExit;
+        
 	}
     
-    interfaceRef = driver->GetInterfaceReference();
+    interfaceRef = driver->GetInterfaceReference ( );
     require ( ( interfaceRef != NULL ), ErrorExit );
 	
-	deviceRef = interfaceRef->GetDevice();
+	deviceRef = interfaceRef->GetDevice ( );
 	require ( ( deviceRef != NULL ), ErrorExit );
 	
 	// Check that we are still connected to the hub and that our port is enabled.
 	status = deviceRef->GetDeviceInformation ( &deviceInfo );
-	STATUS_LOG ( ( 5, "%s[%p]: GetDeviceInfo returned status = %x deviceInfo = %x", driver->getName(), driver, status, deviceInfo ) );
+	STATUS_LOG ( ( 5, "%s[%p]: GetDeviceInfo returned status = %x deviceInfo = %x", driver->getName ( ), driver, status, deviceInfo ) );
 	
+	// If GetDeviceInformation ( ) failed, or if the device is no longer connected, or if the device
+	// has been disabled by the IOUSBFamily, don't reset it. 
 	if ( ( status != kIOReturnSuccess ) ||
-		 ( ( deviceInfo & ( 1 << kUSBInformationDeviceIsConnectedBit ) ) == 0 ) ||
-		 ( ( deviceInfo & ( 1 << kUSBInformationDeviceIsEnabledBit ) ) ) == 0 )
+		 ( ( deviceInfo & kUSBInformationDeviceIsConnectedMask ) == 0 ) ||
+		 ( ( ( deviceInfo & kUSBInformationDeviceIsEnabledMask ) == 0 ) && ( ( deviceInfo & kUSBInformationDeviceIsInternalMask ) == 0 ) ) )
 	{
-		//	Device is either disconnected or its port is disabled.
-		status = kIOReturnNoDevice;
-	}
-
-	if ( status != kIOReturnNoDevice )
-	{
-		
-        // Ensure that devices has been resumed before we attempt to reset it ( GL137A-05 ).
-        deviceRef->SuspendDevice ( false );
 	
-        // Device is still attached. Lets try resetting.
-		status = deviceRef->ResetDevice();
-		STATUS_LOG ( ( 5, "%s[%p]: ResetDevice() returned = %x", driver->getName(), driver, status ) );
-		RecordUSBTimeStamp ( UMC_TRACE ( kUSBDeviceResetReturned ), ( uintptr_t ) driver, status, NULL, NULL );
-						 
-	}
-	else
-	{
-		RecordUSBTimeStamp ( UMC_TRACE ( kUSBDeviceResetAfterDisconnect ), ( uintptr_t ) driver, NULL, NULL, NULL );   
-	}
-	
-	if ( status == kIOReturnSuccess )
-    {
-     
-        // Reset host side data toggles.
-		if ( driver->fBulkInPipe != NULL )
-		{
-			driver->fBulkInPipe->ClearPipeStall ( false );
-		}
-		
-		if ( driver->fBulkOutPipe != NULL )
-		{
-			driver->fBulkOutPipe->ClearPipeStall ( false );
-        }
-        
-        if ( driver->fInterruptPipe != NULL )
-		{
-			driver->fInterruptPipe->ClearPipeStall ( false );
-        }
-        
-    }
-    else
-	{
-		
-		// Device reset failed, or the device has been disconnected.
-		
-		// Were we attempting to recover the device after a major device error?
-		if ( driver->fWaitingForReconfigurationMessage == true )
-		{
-		
-			// Yes, so we need to abort the command we'll not be able to retry. 
-			driver->fWaitingForReconfigurationMessage = false;
-
-		}
-		
+		RecordUSBTimeStamp ( UMC_TRACE ( kUSBDeviceResetAfterDisconnect ), ( uintptr_t ) driver, NULL, NULL, NULL );  
 		goto ErrorExit;
 		
 	}
-    
-	// We may get terminated during the call to ResetDevice() since it is synchronous.  We should
-	// check again whether we should bail or not.
-	if ( ( driver->fTerminating == true ) ||
-		 ( driver->isInactive( ) == true ) )
+
+	// Make sure our port isn't suspended, it shouldn't be, but just in case.
+    // If the port is active this will be a NOP.
+	if ( deviceInfo & kUSBInformationDeviceIsSuspendedMask )
 	{
-		STATUS_LOG ( ( 2, "%s[%p]: sResetDevice - We are being terminated (ii) !", driver->getName(), driver ) );
-		RecordUSBTimeStamp ( ( UMC_TRACE ( kUSBDeviceResetWhileTerminating ) | DBG_FUNC_END ), ( uintptr_t ) driver, 
-                             ( unsigned int ) driver->fTerminating, ( unsigned int ) driver->isInactive( ), NULL );
-		goto ErrorExit;
+		driver->SuspendPort ( false );
+	}
+	
+	// Device is still attached. Lets try resetting it.
+	status = deviceRef->ResetDevice();
+	STATUS_LOG ( ( 5, "%s[%p]: ResetDevice() returned = %x", driver->getName ( ), driver, status ) );
+	RecordUSBTimeStamp ( UMC_TRACE ( kUSBDeviceResetReturned ), ( uintptr_t ) driver, status, NULL, NULL );
+	require ( ( status == kIOReturnSuccess ), ErrorExit );
+
+	// Reset host side data toggles.
+	if ( driver->fBulkInPipe != NULL )
+	{
+		driver->fBulkInPipe->ClearPipeStall ( false );
+	}
+	
+	if ( driver->fBulkOutPipe != NULL )
+	{
+		driver->fBulkOutPipe->ClearPipeStall ( false );
+	}
+	
+	if ( driver->fInterruptPipe != NULL )
+	{
+		driver->fInterruptPipe->ClearPipeStall ( false );
 	}
 	
 	
 ErrorExit:
+
 	
-	STATUS_LOG ( ( 2, "%s[%p]: sResetDevice status=0x%x fResetInProgress=%d", driver->getName(), driver, status, driver->fResetInProgress ) );
+	STATUS_LOG ( ( 2, "%s[%p]: sResetDevice status=0x%x fResetInProgress=%d", driver->getName ( ), driver, status, driver->fResetInProgress ) );
 
 	if ( status != kIOReturnSuccess )
 	{
@@ -2269,21 +2240,21 @@ ErrorExit:
         driver->fDeviceAttached = false;
         
         // Let the clients know that the device is gone.
-        driver->SendNotification_DeviceRemoved( );
+        driver->SendNotification_DeviceRemoved ( );
 		
 	}
      
 	// We complete the failed I/O with kSCSIServiceResponse_SERVICE_DELIVERY_OR_TARGET_FAILURE  
 	// and either kSCSITaskStatus_DeliveryFailure or kSCSITaskStatus_DeviceNotPresent,
 	// as per the fDeviceAttached flag.
-	driver->AbortCurrentSCSITask();
+	driver->AbortCurrentSCSITask ( );
     
-    if ( ( driver->fTerminating == true ) && ( driver->GetInterfaceReference() != NULL ) ) 
+    if ( ( driver->fTerminating == true ) && ( driver->GetInterfaceReference ( ) != NULL ) ) 
     {
 
         IOUSBInterface * currentInterface;
         
-        currentInterface = driver->GetInterfaceReference();
+        currentInterface = driver->GetInterfaceReference ( );
         
         // We set this to NULL first chance we get to prevent a potential race between
         // our reset thread and our didTeriminate(). 
@@ -2303,7 +2274,7 @@ ErrorExit:
         
 	}
 	
-	STATUS_LOG ( ( 6, "%s[%p]: sResetDevice exiting.", driver->getName(), driver ) );
+	STATUS_LOG ( ( 6, "%s[%p]: sResetDevice exiting.", driver->getName ( ), driver ) );
 	
 	// We retained the driver in ResetDeviceNow() when
 	// we created a thread for sResetDevice().
@@ -2323,6 +2294,7 @@ Exit:
 	return;
 	
 }
+
 
 
 //--------------------------------------------------------------------------------------------------
@@ -2419,59 +2391,55 @@ IOUSBMassStorageClass::DeviceRecoveryCompletionAction (
 void
 IOUSBMassStorageClass::ResetDeviceNow ( bool waitForReset )
 {
-    
-    // Make sure we aren't terminating. 
-	if ( ( fTerminating == false ) && ( isInactive() == false ) )
-	{
 	
-        thread_t        thread = THREAD_NULL;
-        kern_return_t   result = KERN_FAILURE;
-        
-		// We call retain here so that the driver will stick around long enough for
-		// sResetDevice() to do it's thing in case we are being terminated.  The
-		// retain() is balanced with a release in sResetDevice().
-		retain();
+	thread_t        thread = THREAD_NULL;
+	kern_return_t   result = KERN_FAILURE;
+	
+	// Make sure we aren't terminating. 
+	require ( ( fTerminating == false ), Exit );
+	require ( ( isInactive ( ) == false ), Exit );
+	
+	// We call retain here so that the driver will stick around long enough for
+	// sResetDevice() to do it's thing in case we are being terminated.  The
+	// retain() is balanced with a release in sResetDevice().
+	retain ( );
+	
+	STATUS_LOG ( ( 4, "%s[%p]: ResetDeviceNow waitForReset=%d", getName(), this, waitForReset ) );
+	
+	// Reset the device on its own thread so we don't deadlock.
+	fResetInProgress = true;
+	
+	// When peforming a USB device reset, we have two options. We can actively block on the reset thread,
+	// or we can not block and wait for the IOUSBFamily to send us a message about our device being 
+	// reset. If we're reseting from a callback thread, we can't block, so we have to use the message option. 
+	
+	fWaitingForReconfigurationMessage = !waitForReset;
+	
+	result = kernel_thread_start (	( thread_continue_t ) &IOUSBMassStorageClass::sResetDevice,
+									this,
+									&thread );
+	require ( ( result == KERN_SUCCESS ), ErrorExit );
 		
-		// The endpoint status could not be retrieved meaning that the device has
-		// stopped responding. Or this could be a device we know needs a reset.
-		// Begin the device reset sequence.
-		
-		STATUS_LOG ( ( 4, "%s[%p]: ResetDeviceNow waitForReset=%d", getName(), this, waitForReset ) );
-		
-		// Reset the device on its own thread so we don't deadlock.
-		fResetInProgress = true;
-        
-        // When peform a USB device reset, we have two options. We can actively block on the reset thread,
-        // or we can not block and wait for the IOUSBFamily to send us a message about our device being 
-        // reset. If we're reseting from a callback thread, we can't block, so we have to use the message option. 
-        
-		fWaitingForReconfigurationMessage = false;
-        if ( waitForReset == false )
-        {
-            fWaitingForReconfigurationMessage = true;
-        }
-        
-		result = kernel_thread_start (   ( thread_continue_t ) &IOUSBMassStorageClass::sResetDevice,
-                                        this,
-                                        &thread );
-            
-		if ( result == KERN_SUCCESS )
-		{
-			if ( waitForReset == true )
-			{
-		
-				STATUS_LOG ( ( 4, "%s[%p]: kIOMessageServiceIsResumed Waiting for Reset.", getName(), this ) );
-				fCommandGate->runAction ( ( IOCommandGate::Action ) &IOUSBMassStorageClass::sWaitForReset );
-			}
-		}
-		else
-		{
-			// Since we failed to start the thread we should give back the retained token.
-			release();
-		}
-		
+	if ( waitForReset == true )
+	{
+		fCommandGate->runAction ( ( IOCommandGate::Action ) &IOUSBMassStorageClass::sWaitForReset );
 	}
+	
+	
+Exit:
+
+
+	return;
+	
+	
+ErrorExit:
+
+	
+    fResetInProgress = false;
     
+	release ( );
+	
+
 }
 
 

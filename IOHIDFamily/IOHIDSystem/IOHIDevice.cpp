@@ -1,7 +1,7 @@
 /*
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * Copyright (c) 1999-2009 Apple Computer, Inc.  All Rights Reserved.
  * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
@@ -117,12 +117,27 @@ UInt64 IOHIDevice::getGUID()
   return(0xffffffffffffffffULL);
 }
 
+SInt32 IOHIDevice::GenerateKey(OSObject *object)
+{
+	SInt32 key = 0;
+#if __LP64__
+	UInt64 temp = (UInt64)object;
+	temp -= 0xffffff8000111000; // Subtract out the kernel base address
+	temp >>= 4; // Assume that objects can't be closer than 16 bytes apart
+	key = (SInt32)temp;
+#else
+	key = (SInt32)object;
+#endif
+	return key;
+}
+
 bool IOHIDevice::updateProperties( void )
 {
     bool ok;
 
     ok = setProperty( kIOHIDKindKey, hidKind(), 32 )
     &    setProperty( kIOHIDInterfaceIDKey, interfaceID(), 32 )
+    &    setProperty( kIOHIDDeviceEventIDKey, IOHIDevice::GenerateKey(this), 32 )
     &    setProperty( kIOHIDSubinterfaceIDKey, deviceType(), 32 );
 
     return( ok );

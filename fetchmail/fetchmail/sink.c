@@ -158,7 +158,7 @@ int smtp_open(struct query *ctl)
 	    }
 
 	    /* first, probe for ESMTP */
-	    if (SMTP_ok(ctl->smtp_socket, ctl->smtphostmode) == SM_OK &&
+	    if (SMTP_ok(ctl->smtp_socket, ctl->smtphostmode, TIMEOUT_STARTSMTP) == SM_OK &&
 		    SMTP_ehlo(ctl->smtp_socket, ctl->smtphostmode, id_me,
 			ctl->server.esmtp_name, ctl->server.esmtp_password,
 			&ctl->server.esmtp_options) == SM_OK)
@@ -186,7 +186,7 @@ int smtp_open(struct query *ctl)
 		}
 	    }
 
-	    if (SMTP_ok(ctl->smtp_socket, ctl->smtphostmode) == SM_OK &&
+	    if (SMTP_ok(ctl->smtp_socket, ctl->smtphostmode, TIMEOUT_STARTSMTP) == SM_OK &&
 		    SMTP_helo(ctl->smtp_socket, ctl->smtphostmode, id_me) == SM_OK)
 		break;  /* success */
 
@@ -251,7 +251,7 @@ char *rcpt_address(struct query *ctl, const char *id,
 }
 
 static int send_bouncemail(struct query *ctl, struct msgblk *msg,
-			   int userclass, char *message,
+			   int userclass, char *message /* should have \r\n at the end */,
 			   int nerrors, char *errors[])
 /* bounce back an error report a la RFC 1892 */
 {
@@ -282,7 +282,7 @@ static int send_bouncemail(struct query *ctl, struct msgblk *msg,
     if ((sock = SockOpen("localhost", SMTP_PORT, NULL, &ai1)) == -1)
 	return(FALSE);
 
-    if (SMTP_ok(sock, SMTP_MODE) != SM_OK)
+    if (SMTP_ok(sock, SMTP_MODE, TIMEOUT_STARTSMTP) != SM_OK)
     {
 	SockClose(sock);
 	return FALSE;
@@ -322,10 +322,14 @@ static int send_bouncemail(struct query *ctl, struct msgblk *msg,
     SockPrintf(sock, "--%s\r\n", boundary); 
     SockPrintf(sock,"Content-Type: text/plain\r\n");
     SockPrintf(sock, "\r\n");
-    SockPrintf(sock, "This message was created automatically by mail delivery software.\r\n\r\n");
-    SockPrintf(sock, "A message that you sent could not be delivered to one or more of its\r\n");
-    SockPrintf(sock, "recipients. This is a permanent error. The following address(es) failed:\r\n");
+    SockPrintf(sock, "This message was created automatically by mail delivery software.\r\n");
     SockPrintf(sock, "\r\n");
+    SockPrintf(sock, "A message that you sent could not be delivered to one or more of its\r\n");
+    SockPrintf(sock, "recipients. This is a permanent error.\r\n");
+    SockPrintf(sock, "\r\n");
+    SockPrintf(sock, "Reason: %s", message);
+    SockPrintf(sock, "\r\n");
+    SockPrintf(sock, "The following address(es) failed:\r\n");
 
     if (nerrors)
     {
@@ -535,6 +539,18 @@ static int handle_smtp_report(struct query *ctl, struct msgblk *msg)
 	free(responses[0]);
 	return(PS_REFUSED);
 
+    case 530: /* must issue STARTTLS error */
+	/*
+	 * Some SMTP servers insist on encrypted communication
+	 * Let's set PS_TRANSIENT, otherwise all messages to be sent
+	 * over such server would be blackholed - see RFC 3207.
+	 */
+	if (outlevel > O_SILENT)
+		report_complete(stdout,
+				GT_("SMTP server requires STARTTLS, keeping message.\n"));
+	free(responses[0]);
+	return(PS_TRANSIENT);
+
     default:
 	/* bounce non-transient errors back to the sender */
 	if (smtperr >= 500 && smtperr <= 599)
@@ -575,6 +591,8 @@ static int handle_smtp_report_without_bounce(struct query *ctl, struct msgblk *m
  * no PS_TRANSIENT, no PS_SUCCESS: do not send the bounce mail, delete the mail */
 {
     int smtperr = atoi(smtp_response);
+
+    (void)msg;
 
     if (str_find(&ctl->antispam, smtperr))
     {
@@ -1155,7 +1173,7 @@ static int open_mda_sink(struct query *ctl, struct msgblk *msg,
 	    sp += 2;
 	}
 
-	after = xmalloc(length + 1);
+	after = (char *)xmalloc(length + 1);
 
 	/* copy mda source string to after, while expanding %[sTF] */
 	for (dp = after, sp = before; (*dp = *sp); dp++, sp++) {
@@ -1320,7 +1338,7 @@ int close_sink(struct query *ctl, struct msgblk *msg, flag forward)
     int smtp_err;
     if (ctl->mda)
     {
-	int rc,e,e2,err = 0;
+	int rc = 0, e = 0, e2 = 0, err = 0;
 
 	/* close the delivery pipe, we'll reopen before next message */
 	if (sinkfp)
@@ -1416,7 +1434,7 @@ int close_sink(struct query *ctl, struct msgblk *msg, flag forward)
 	{
 	    if (lmtp_responses == 0)
 	    {
-		SMTP_ok(ctl->smtp_socket, ctl->smtphostmode);
+		SMTP_ok(ctl->smtp_socket, ctl->smtphostmode, TIMEOUT_EOM);
 
 		/*
 		 * According to RFC2033, 503 is the only legal response
@@ -1449,7 +1467,7 @@ int close_sink(struct query *ctl, struct msgblk *msg, flag forward)
 		responses = (char **)xmalloc(sizeof(char *) * lmtp_responses);
 		for (errors = i = 0; i < lmtp_responses; i++)
 		{
-		    if ((smtp_err = SMTP_ok(ctl->smtp_socket, ctl->smtphostmode))
+		    if ((smtp_err = SMTP_ok(ctl->smtp_socket, ctl->smtphostmode, TIMEOUT_EOM))
 			    == SM_UNRECOVERABLE)
 		    {
 			smtp_close(ctl, 0);

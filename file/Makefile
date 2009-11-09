@@ -4,7 +4,7 @@
 
 # Project info
 Project               = file
-ProjectVersion        = 5.00
+ProjectVersion        = 5.03
 Extra_Configure_Flags = --enable-fsect-man5 --disable-shared
 Extra_CC_Flags        = -DBUILTIN_MACHO
 GnuAfterInstall       = remove-libs install-plist strip-binary install-magic
@@ -19,9 +19,7 @@ Patches        = configure.diff \
                  PR3881173.diff \
                  PR4324767.diff \
                  buildfix.diff \
-                 PR6431343.diff \
-                 strndup.diff \
-                 cdf.c.diff
+                 PR6431343.diff
 
 # It's a GNU Source project
 include $(MAKEFILEPATH)/CoreOS/ReleaseControl/GNUSource.make

@@ -165,7 +165,7 @@
  .Pp
 --- src/apprentice.c.orig	2008-07-15 20:17:55.000000000 -0700
 +++ src/apprentice.c	2008-07-15 21:09:02.000000000 -0700
-@@ -1243,12 +1243,59 @@
+@@ -1247,12 +1247,59 @@
  	EATAB;
  #endif
  
@@ -453,7 +453,7 @@
  		file_error(ms, 0, "invalid mode 0%o", sb->st_mode);
 --- src/magic.c.orig	2008-07-15 20:03:24.000000000 -0700
 +++ src/magic.c	2008-07-15 20:11:49.000000000 -0700
-@@ -65,6 +65,12 @@
+@@ -61,6 +61,12 @@
  
  #include "patchlevel.h"
  
@@ -466,7 +466,7 @@
  #ifndef PIPE_BUF
  /* Get the PIPE_BUF from pathconf */
  #ifdef _PC_PIPE_BUF
-@@ -146,6 +152,11 @@
+@@ -136,6 +142,11 @@
  unreadable_info(struct magic_set *ms, mode_t md, const char *file)
  {
  	/* We cannot open it, but we were able to stat it. */

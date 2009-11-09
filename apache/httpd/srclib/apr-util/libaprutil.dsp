@@ -302,10 +302,12 @@ SOURCE=.\dbm\apr_dbm.c
 # Begin Source File
 
 SOURCE=.\dbm\apr_dbm_berkeleydb.c
+# PROP Exclude_From_Build 1
 # End Source File
 # Begin Source File
 
 SOURCE=.\dbm\apr_dbm_gdbm.c
+# PROP Exclude_From_Build 1
 # End Source File
 # Begin Source File
 
