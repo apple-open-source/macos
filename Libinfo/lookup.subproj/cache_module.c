@@ -208,7 +208,7 @@ cache_alias_all(si_mod_t *si)
 }
 
 __private_extern__ si_item_t *
-cache_host_byname(si_mod_t *si, const char *name, int af, uint32_t *err)
+cache_host_byname(si_mod_t *si, const char *name, int af, const char *ignored, uint32_t *err)
 {
 	si_item_t *item;
 
@@ -224,7 +224,7 @@ cache_host_byname(si_mod_t *si, const char *name, int af, uint32_t *err)
 }
 
 __private_extern__ si_item_t *
-cache_host_byaddr(si_mod_t *si, const void *addr, int af, uint32_t *err)
+cache_host_byaddr(si_mod_t *si, const void *addr, int af, const char *ignored, uint32_t *err)
 {
 	si_item_t *item;
 
@@ -362,7 +362,7 @@ cache_mac_all(si_mod_t *si)
 }
 
 __private_extern__ si_item_t *
-cache_nameinfo(si_mod_t *si, const struct sockaddr *sa, int flags, uint32_t *err)
+cache_nameinfo(si_mod_t *si, const struct sockaddr *sa, int flags, const char *ignored, uint32_t *err)
 {
 	/*
 	 * Caching of getnameinfo(3) is not supported.
@@ -476,7 +476,6 @@ si_module_static_cache()
 	out->sim_wants_addrinfo = NULL;
 	out->sim_addrinfo = NULL;
 
-	/* no nameinfo support */
 	out->sim_nameinfo = cache_nameinfo;
 
 	return out;

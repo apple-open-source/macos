@@ -29,12 +29,12 @@
 
 
 struct IOGraphicsEngineContext {
-    IOSharedLockData	contextLock;
-    IOOptionBits	state;
-    void *		owner;
-    UInt32 		version;
-    IOByteCount 	structSize;
-    UInt32		reserved[ 8 ];
+    IOSharedLockData    contextLock;
+    IOOptionBits        state;
+    void *              owner;
+    UInt32              version;
+    IOByteCount         structSize;
+    UInt32              reserved[ 8 ];
 };
 #ifndef __cplusplus
 typedef volatile struct IOGraphicsEngineContext IOGraphicsEngineContext;
@@ -42,10 +42,10 @@ typedef volatile struct IOGraphicsEngineContext IOGraphicsEngineContext;
 
 enum {
     // memory type for IOMapMemory
-    kIOGraphicsEngineContext		= 100
+    kIOGraphicsEngineContext            = 100
 };
 
 enum {
     // version
-    kIOGraphicsEngineContextVersion	= 1
+    kIOGraphicsEngineContextVersion     = 1
 };

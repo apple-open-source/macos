@@ -5,7 +5,7 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) 1998 - 2008, Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) 1998 - 2009, Daniel Stenberg, <daniel@haxx.se>, et al.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
@@ -18,7 +18,7 @@
  * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
  * KIND, either express or implied.
  *
- * $Id: sendf.c,v 1.155 2009-01-07 19:39:35 danf Exp $
+ * $Id: sendf.c,v 1.159 2009-06-10 21:26:11 bagder Exp $
  ***************************************************************************/
 
 #include "setup.h"
@@ -56,87 +56,11 @@
 #endif
 
 #include <string.h>
-#include "memory.h"
+#include "curl_memory.h"
 #include "strerror.h"
 #include "easyif.h" /* for the Curl_convert_from_network prototype */
 /* The last #include file should be: */
 #include "memdebug.h"
-
-/* returns last node in linked list */
-static struct curl_slist *slist_get_last(struct curl_slist *list)
-{
-  struct curl_slist     *item;
-
-  /* if caller passed us a NULL, return now */
-  if(!list)
-    return NULL;
-
-  /* loop through to find the last item */
-  item = list;
-  while(item->next) {
-    item = item->next;
-  }
-  return item;
-}
-
-/*
- * curl_slist_append() appends a string to the linked list. It always returns
- * the address of the first record, so that you can use this function as an
- * initialization function as well as an append function. If you find this
- * bothersome, then simply create a separate _init function and call it
- * appropriately from within the program.
- */
-struct curl_slist *curl_slist_append(struct curl_slist *list,
-                                     const char *data)
-{
-  struct curl_slist     *last;
-  struct curl_slist     *new_item;
-
-  new_item = malloc(sizeof(struct curl_slist));
-  if(new_item) {
-    char *dupdata = strdup(data);
-    if(dupdata) {
-      new_item->next = NULL;
-      new_item->data = dupdata;
-    }
-    else {
-      free(new_item);
-      return NULL;
-    }
-  }
-  else
-    return NULL;
-
-  if(list) {
-    last = slist_get_last(list);
-    last->next = new_item;
-    return list;
-  }
-
-  /* if this is the first item, then new_item *is* the list */
-  return new_item;
-}
-
-/* be nice and clean up resources */
-void curl_slist_free_all(struct curl_slist *list)
-{
-  struct curl_slist     *next;
-  struct curl_slist     *item;
-
-  if(!list)
-    return;
-
-  item = list;
-  do {
-    next = item->next;
-
-    if(item->data) {
-      free(item->data);
-    }
-    free(item);
-    item = next;
-  } while(next);
-}
 
 #ifdef CURL_DO_LINEEND_CONV
 /*
@@ -209,12 +133,11 @@ static size_t convert_lineends(struct SessionHandle *data,
         *outPtr = *inPtr;
       }
       outPtr++;
-      inPtr++;
     }
-    if(outPtr < startPtr+size) {
+    if(outPtr < startPtr+size)
       /* tidy up by null terminating the now shorter data */
       *outPtr = '\0';
-    }
+
     return(outPtr - startPtr);
   }
   return(size);
@@ -417,7 +340,7 @@ static CURLcode pausewrite(struct SessionHandle *data,
   data->state.tempwritetype = type;
 
   /* mark the connection as RECV paused */
-  k->keepon |= KEEP_READ_PAUSE;
+  k->keepon |= KEEP_RECV_PAUSE;
 
   DEBUGF(infof(data, "Pausing with %d bytes in buffer for type %02x\n",
                (int)len, type));
@@ -449,7 +372,7 @@ CURLcode Curl_client_write(struct connectdata *conn,
   /* If reading is actually paused, we're forced to append this chunk of data
      to the already held data, but only if it is the same type as otherwise it
      can't work and it'll return error instead. */
-  if(data->req.keepon & KEEP_READ_PAUSE) {
+  if(data->req.keepon & KEEP_RECV_PAUSE) {
     size_t newlen;
     char *newptr;
     if(type != data->state.tempwritetype)

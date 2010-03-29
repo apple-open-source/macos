@@ -68,33 +68,33 @@
 	</dict>
 	<dict>
 		<key>OpenSourceImportDate</key>
-		<string>2009-04-01</string>
+		<string>2010-01-12</string>
 		<key>OpenSourceLicense</key>
 		<string>MIT</string>
 		<key>OpenSourceProject</key>
 		<string>AppleSGLX</string>
 		<key>OpenSourceSHA1</key>
-		<string>80e5eb5cc6e9b1352bef86b67a14e3f6f61ef522</string>
+		<string>4b206c0012d390af3130cca4e6ddfe7006fcdbf1</string>
 		<key>OpenSourceURL</key>
-		<string>http://static.macosforge.org/xquartz/downloads/src/AppleSGLX-57.tar.bz2</string>
+		<string>http://static.macosforge.org/xquartz/downloads/src/AppleSGLX-60.tar.bz2</string>
 		<key>OpenSourceVersion</key>
-		<string>57</string>
+		<string>60</string>
 		<key>OpenSourceWebsiteURL</key>
 		<string>http://www.mesa3d.org</string>
 	</dict>
 	<dict>
 		<key>OpenSourceImportDate</key>
-		<string>2009-07-03</string>
+		<string>2010-01-12</string>
 		<key>OpenSourceLicense</key>
 		<string>MIT</string>
 		<key>OpenSourceProject</key>
 		<string>xorg-server</string>
 		<key>OpenSourceSHA1</key>
-		<string>5cbfea304479ecd456149ae1721ab9392896c091</string>
+		<string>cfad49848163b526d66fa4f7d14e7df1511b3c8d</string>
 		<key>OpenSourceURL</key>
-		<string>http://xquartz.macosforge.org/downloads/src/xorg-server-1.4.2-apple45.tar.bz2</string>
+		<string>http://xquartz.macosforge.org/downloads/src/xorg-server-1.4.2-apple53.tar.bz2</string>
 		<key>OpenSourceVersion</key>
-		<string>1.4.2-apple45</string>
+		<string>1.4.2-apple53</string>
 		<key>OpenSourceWebsiteURL</key>
 		<string>http://xquartz.macosforge.org</string>
 	</dict>
@@ -116,19 +116,18 @@
 	</dict>
 	<dict>
 		<key>OpenSourceImportDate</key>
-		<string>2008-12-17</string>
+		<string>2009-11-14</string>
 		<key>OpenSourceLicense</key>
 		<string>MIT</string>
 		<key>OpenSourceProject</key>
 		<string>xinit</string>
 		<key>OpenSourceSHA1</key>
-		<string>577a111efc9b5a8ec6cc294ae7c35048eebde704</string>
+		<string>85a838c2010f27ef6d09d6ec4b1208a66cc8d697</string>
 		<key>OpenSourceURL</key>
-		<string>http://xorg.freedesktop.org/archive/individual/app/xinit-1.1.1.tar.bz2</string>
+		<string>http://xorg.freedesktop.org/archive/individual/app/xinit-1.2.0.tar.bz2</string>
 		<key>OpenSourceVersion</key>
-		<string>1.1.1</string>
+		<string>1.2.0</string>
 		<key>OpenSourceWebsiteURL</key>
 		<string>http://www.x.org</string>
-	</dict>
-</array>
+	</dict></array>
 </plist>

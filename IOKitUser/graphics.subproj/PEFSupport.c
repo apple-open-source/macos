@@ -53,8 +53,8 @@
 
 enum 
 {
-    kIOPEFparamErr		  = 1001,
-    kIOPEFmemFullErr		  = 1002,
+    kIOPEFparamErr                = 1001,
+    kIOPEFmemFullErr              = 1002,
     kIOPEFcfragFragmentFormatErr  = 1003,
     kIOPEFcfragNoSectionErr       = 1004,
     kIOPEFcfragNoSymbolErr        = 1005,
@@ -559,9 +559,9 @@ static void ExaminePEF(
     io_string_t            path;
     CFStringRef            ndrvPropName = CFSTR("driver,AAPL,MacOS,PowerPC");
     CFDataRef              ndrv;
-    CFStringRef		   matchKey;
-    CFTypeRef		   value = 0;
-    CFDictionaryRef	   matching = 0;
+    CFStringRef            matchKey;
+    CFTypeRef              value = 0;
+    CFDictionaryRef        matching = 0;
     CFMutableDictionaryRef dict;
 
     err = GetSymbolFromPEF(descripName, pef, &descrip, sizeof(descrip));
@@ -580,32 +580,32 @@ static void ExaminePEF(
     matchName[descrip.driverType.nameInfoStr[0]] = 0;
 
     matchKey = CFStringCreateWithCString( kCFAllocatorDefault, matchName,
-					    kCFStringEncodingMacRoman );
+                                            kCFStringEncodingMacRoman );
     if (!matchKey)
-	return;
+        return;
 
     if (allMatching)
     {
-	value = CFDictionaryGetValue(allMatching, matchKey);
-	if (value)
-	{
-	    if (value && (CFDictionaryGetTypeID() == CFGetTypeID(value)))
-		matching = CFRetain(value);
-	    else if (value && (CFStringGetTypeID() == CFGetTypeID(value)))
-	    {
-		CFRelease(matchKey);
-		matchKey = CFRetain(value);
-	    }
-	}
+        value = CFDictionaryGetValue(allMatching, matchKey);
+        if (value)
+        {
+            if (value && (CFDictionaryGetTypeID() == CFGetTypeID(value)))
+                matching = CFRetain(value);
+            else if (value && (CFStringGetTypeID() == CFGetTypeID(value)))
+            {
+                CFRelease(matchKey);
+                matchKey = CFRetain(value);
+            }
+        }
     }
 
     if (!matching)
     {
-	CFStringRef nameMatchKey = CFSTR(kIONameMatchKey);
-	matching = CFDictionaryCreate( kCFAllocatorDefault,
-					(const void **) &nameMatchKey, (const void **) &matchKey, 1,
-					&kCFTypeDictionaryKeyCallBacks,
-					&kCFTypeDictionaryValueCallBacks );
+        CFStringRef nameMatchKey = CFSTR(kIONameMatchKey);
+        matching = CFDictionaryCreate( kCFAllocatorDefault,
+                                        (const void **) &nameMatchKey, (const void **) &matchKey, 1,
+                                        &kCFTypeDictionaryKeyCallBacks,
+                                        &kCFTypeDictionaryValueCallBacks );
     }
     CFRelease(matchKey);
     if (!matching)
@@ -631,28 +631,28 @@ static void ExaminePEF(
             kCFAllocatorDefault, kNilOptions);
 
         if (ndrv)
-	{
-	    DriverDescription   _curDesc;
-	    DriverDescription * curDesc;
+        {
+            DriverDescription   _curDesc;
+            DriverDescription * curDesc;
 
-	    curDesc = (DriverDescription *) CFDataGetBytePtr(ndrv);
-	    err = noErr;
+            curDesc = (DriverDescription *) CFDataGetBytePtr(ndrv);
+            err = noErr;
 
-	    if ((sizeof(DriverDescription) > (size_t) CFDataGetLength(ndrv))
-	     || (curDesc->driverDescSignature != kTheDescriptionSignature))
-	    {
-		curDesc = &_curDesc;
-		err = GetSymbolFromPEF(descripName,
-		    (const LogicalAddress)CFDataGetBytePtr(ndrv),
-		    curDesc, sizeof(DriverDescription));
-	    }
-	    if (err != noErr)
-		printf("GetSymbolFromPEF returns %d\n",err);
+            if ((sizeof(DriverDescription) > (size_t) CFDataGetLength(ndrv))
+             || (curDesc->driverDescSignature != kTheDescriptionSignature))
+            {
+                curDesc = &_curDesc;
+                err = GetSymbolFromPEF(descripName,
+                    (const LogicalAddress)CFDataGetBytePtr(ndrv),
+                    curDesc, sizeof(DriverDescription));
+            }
+            if (err != noErr)
+                printf("GetSymbolFromPEF returns %d\n",err);
             else
-	    {
+            {
                 if ((curDesc->driverDescSignature == kTheDescriptionSignature) &&
                     (curDesc->driverDescVersion == kInitialDriverDescriptor))
-		{
+                {
                     curVersion = curDesc->driverType.version;
                     printf("new version %08x, current version %08x\n",
                         newVersion, curVersion);
@@ -683,33 +683,33 @@ static void ExaminePEF(
             &kCFTypeDictionaryValueCallBacks);
 
         if (dict)
-	{
-	    io_service_t child = MACH_PORT_NULL;
-	    io_iterator_t iter;
+        {
+            io_service_t child = MACH_PORT_NULL;
+            io_iterator_t iter;
 
             CFDictionarySetValue(dict, ndrvPropName, ndrv);
 
-	    kr = IORegistryEntryGetChildIterator(service, kIOServicePlane, &iter);
+            kr = IORegistryEntryGetChildIterator(service, kIOServicePlane, &iter);
             if (kr == kIOReturnSuccess)
-	    {
-		kr = kIOReturnNotFound;
-		for( ;
-		    (child = IOIteratorNext(iter));
-		    IOObjectRelease(child)) {
-	    
-		    if (IOObjectConformsTo(child, "IOFramebuffer"))
-			break;
-		}
-		IOObjectRelease(iter);
-	    }
+            {
+                kr = kIOReturnNotFound;
+                for( ;
+                    (child = IOIteratorNext(iter));
+                    IOObjectRelease(child)) {
+            
+                    if (IOObjectConformsTo(child, "IOFramebuffer"))
+                        break;
+                }
+                IOObjectRelease(iter);
+            }
             if (child)
-	    {
+            {
                 kr = IORegistryEntrySetCFProperties(child, dict);
                 IOObjectRelease(child);
             }
             CFRelease(dict);
         }
-	else
+        else
             kr = kIOReturnNoMemory;
 
         CFRelease(ndrv);
@@ -726,36 +726,36 @@ static void ExaminePEF(
 
 static int PEFExamineFile(mach_port_t masterPort, CFURLRef file, CFDictionaryRef props)
 {
-    vm_offset_t	    pefBytes;
+    vm_offset_t     pefBytes;
     vm_size_t       pefFileLen;
     char *          pef;
     IOByteCount     pefLen, pos = 0;
     int             err;
     CFDictionaryRef fileMatch;
     CFDictionaryRef matching = 0;
-    Boolean	    matches = true;
+    Boolean         matches = true;
     char            cFile[MAXPATHLEN];
 
     do
     {
-	if (!props)
-	    continue;
+        if (!props)
+            continue;
 
-	fileMatch = CFDictionaryGetValue(props, CFSTR("IONDRVFileMatching"));
+        fileMatch = CFDictionaryGetValue(props, CFSTR("IONDRVFileMatching"));
         if (fileMatch && (CFDictionaryGetTypeID() != CFGetTypeID(fileMatch)))
             fileMatch = 0;
 
-	if (fileMatch)
-	{
-	    io_service_t service;
+        if (fileMatch)
+        {
+            io_service_t service;
 
-	    CFRetain(fileMatch);
-	    service = IOServiceGetMatchingService(masterPort, fileMatch);
-	    matches = (MACH_PORT_NULL != service);
-	    if (matches)
-		IOObjectRelease(service);
-	    continue;
-	}
+            CFRetain(fileMatch);
+            service = IOServiceGetMatchingService(masterPort, fileMatch);
+            matches = (MACH_PORT_NULL != service);
+            if (matches)
+                IOObjectRelease(service);
+            continue;
+        }
 
         matching = CFDictionaryGetValue(props, CFSTR("IONDRVMatching"));
         if (matching && (CFDictionaryGetTypeID() != CFGetTypeID(matching)))
@@ -765,7 +765,7 @@ static int PEFExamineFile(mach_port_t masterPort, CFURLRef file, CFDictionaryRef
     while (false);
 
     if (!matches)
-	return (kIOReturnSuccess);
+        return (kIOReturnSuccess);
 
     if (CFURLGetFileSystemRepresentation(file, TRUE, (UInt8 *) cFile, MAXPATHLEN))
         err = readFile(cFile, &pefBytes, &pefFileLen);
@@ -794,30 +794,30 @@ static void _PEFExamineFile(mach_port_t masterPort, CFURLRef ndrvURL, CFDictiona
 {
     if (PEFExamineFile(masterPort, ndrvURL, plist))
     {
-	char buf[PATH_MAX];
-	char * ndrv_path;
-	if(CFURLGetFileSystemRepresentation(ndrvURL, true /*resolve*/,
-		(UInt8*)buf, PATH_MAX)) {
-	    ndrv_path = buf;
-	} else {
-	    ndrv_path = "(unknown)";
-	}
+        char buf[PATH_MAX];
+        char * ndrv_path;
+        if(CFURLGetFileSystemRepresentation(ndrvURL, true /*resolve*/,
+                (UInt8*)buf, PATH_MAX)) {
+            ndrv_path = buf;
+        } else {
+            ndrv_path = "(unknown)";
+        }
 
-	printf("error processing NDRV \"%s\"", ndrv_path);
+        printf("error processing NDRV \"%s\"", ndrv_path);
     }
 }
 
 static void PEFExamineBundle( mach_port_t masterPort __unused, CFBundleRef bdl )
 {
-    CFURLRef	    ndrvURL;
+    CFURLRef        ndrvURL;
     CFDictionaryRef plist;
 
     plist = CFBundleGetInfoDictionary(bdl);
     if (!plist)
-	return;
+        return;
     ndrvURL = CFBundleCopyExecutableURL(bdl);
     if (!ndrvURL)
-	return;
+        return;
 
     _PEFExamineFile(kIOMasterPortDefault, ndrvURL, plist);
 
@@ -831,50 +831,50 @@ void IOLoadPEFsFromURL( CFURLRef ndrvDirURL, io_service_t service __unused )
     SInt32      error;
 
     ndrvDirContents = (CFArrayRef) CFURLCreatePropertyFromResource(
-	kCFAllocatorDefault, ndrvDirURL, kCFURLFileDirectoryContents,
-	&error);
+        kCFAllocatorDefault, ndrvDirURL, kCFURLFileDirectoryContents,
+        &error);
 
     ndrvCount = ndrvDirContents ? CFArrayGetCount(ndrvDirContents) : 0;
 
     for (n = 0; n < ndrvCount; n++)
     {
-	CFURLRef	ndrvURL = NULL;  // don't release
-	CFNumberRef	num;
-	CFBundleRef	bdl;
-	CFStringRef	ext;
-	SInt32		mode;
-	Boolean		skip;
+        CFURLRef        ndrvURL = NULL;  // don't release
+        CFNumberRef     num;
+        CFBundleRef     bdl;
+        CFStringRef     ext;
+        SInt32          mode;
+        Boolean         skip;
 
-	ndrvURL = (CFURLRef)CFArrayGetValueAtIndex(ndrvDirContents, n);
+        ndrvURL = (CFURLRef)CFArrayGetValueAtIndex(ndrvDirContents, n);
 
-	bdl = CFBundleCreate(kCFAllocatorDefault, ndrvURL);
-	if (bdl)
-	{
-	    PEFExamineBundle(kIOMasterPortDefault, bdl);
-	    CFRelease(bdl);
-	    continue;
-	}
+        bdl = CFBundleCreate(kCFAllocatorDefault, ndrvURL);
+        if (bdl)
+        {
+            PEFExamineBundle(kIOMasterPortDefault, bdl);
+            CFRelease(bdl);
+            continue;
+        }
 
-	ext = CFURLCopyPathExtension(ndrvURL);
-	if (ext)
-	{
-	    skip = CFEqual(ext, CFSTR(".plist"));
-	    CFRelease(ext);
-	    if (skip)
-		continue;
-	}
+        ext = CFURLCopyPathExtension(ndrvURL);
+        if (ext)
+        {
+            skip = CFEqual(ext, CFSTR(".plist"));
+            CFRelease(ext);
+            if (skip)
+                continue;
+        }
 
-	num = (CFNumberRef) CFURLCreatePropertyFromResource(
-	    kCFAllocatorDefault, ndrvURL, kCFURLFilePOSIXMode, &error);
-	if (!num)
-	    continue;
-	CFNumberGetValue(num, kCFNumberSInt32Type, (SInt32 *) &mode);
-	CFRelease(num);
-	if ((mode & S_IFMT) == S_IFREG)
-	    _PEFExamineFile(kIOMasterPortDefault, ndrvURL, NULL);
+        num = (CFNumberRef) CFURLCreatePropertyFromResource(
+            kCFAllocatorDefault, ndrvURL, kCFURLFilePOSIXMode, &error);
+        if (!num)
+            continue;
+        CFNumberGetValue(num, kCFNumberSInt32Type, (SInt32 *) &mode);
+        CFRelease(num);
+        if ((mode & S_IFMT) == S_IFREG)
+            _PEFExamineFile(kIOMasterPortDefault, ndrvURL, NULL);
     }
 
     if (ndrvDirContents)
-	CFRelease(ndrvDirContents);
+        CFRelease(ndrvDirContents);
 }
 

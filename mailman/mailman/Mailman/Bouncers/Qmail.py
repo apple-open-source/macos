@@ -1,4 +1,4 @@
-# Copyright (C) 1998-2007 by the Free Software Foundation, Inc.
+# Copyright (C) 1998-2009 by the Free Software Foundation, Inc.
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -32,6 +32,7 @@ import email.Iterators
 # Other (non-standard?) intros have been observed in the wild.
 introtags = [
     'Hi. This is the',
+    'Hi. The MTA program at',
     "We're sorry. There's a problem",
     'Check your send e-mail address.',
     'This is the mail delivery agent at',

@@ -135,136 +135,129 @@ typedef IOReturn	(*IOFireWireLibIsochPortFinalizeCallback)( void* refcon ) ;
 //
 // ============================================================
 
+/*! @parseOnly */
 #define IOFIREWIRELIBISOCHPORT_C_GUTS	\
+	/*!	@function GetSupported \
+		@abstract The method is called to determine which FireWire isochronous \
+			channels and speed this port supports. \
+		@discussion This method is called by the channel object to which a port \
+			has been added. Subclasses of IOFireWireIsochPortInterface override \
+			this method to support specific hardware. Do not call this method \
+			directly. \
+		@param self The isoch port interface to use. \
+		@param maxSpeed A pointer to an IOFWSpeed which should be filled with \
+			the maximum speed this port can talk or listen. \
+		@param chanSupported A pointer to a UInt64 which should be filled with \
+			a bitmask representing the FireWire bus isochonous channels on \
+			which the port can talk or listen. Set '1' for supported, '0' for \
+			unsupported. \
+		@result Return kIOReturnSuccess on success, other return any other \
+			IOReturn error code.*/ \
 	IOReturn	(*GetSupported)	( IOFireWireLibIsochPortRef self, IOFWSpeed* maxSpeed, UInt64* chanSupported ) ;	\
+	/*!	@function AllocatePort \
+		@abstract The method is called when the port should configure its \
+			associated hardware to prepare to send or receive isochronous data \
+			on the channel number and at the speed specified. \
+		@discussion This method is called by the channel object to which a port \
+			has been added. Subclasses of IOFireWireIsochPortInterface override \
+			this method to support specific hardware. Do not call this method \
+			directly. \
+		@param self The isoch port interface to use. \
+		@param speed Channel speed \
+		@param chan Channel number (0-63) \
+		@result Return kIOReturnSuccess on success, other return any other \
+			IOReturn error code.*/ \
 	IOReturn	(*AllocatePort)	( IOFireWireLibIsochPortRef self, IOFWSpeed speed, UInt32 chan ) ;	\
+	/*!	@function ReleasePort \
+		@abstract The method is called to release the hardware after the \
+			channel has been stopped. \
+		@discussion This method is called by the channel object to which a port \
+			has been added. Subclasses of IOFireWireIsochPortInterface override \
+			this method to support specific hardware. Do not call this method \
+			directly. \
+		@param self The isoch port interface to use. \
+		@result Return kIOReturnSuccess on success, other return any other IOReturn error code.*/ \
 	IOReturn 	(*ReleasePort)	( IOFireWireLibIsochPortRef self ) ;	\
+	/*!	@function Start \
+		@abstract The method is called when the port is to begin talking or listening. \
+		@discussion This method is called by the channel object to which a port \
+			has been added. Subclasses of IOFireWireIsochPortInterface override \
+			this method to support specific hardware. Do not call this method \
+			directly. \
+		@param self The isoch port interface to use. \
+		@result Return kIOReturnSuccess on success, other return any other IOReturn error code.*/ \
 	IOReturn	(*Start)		( IOFireWireLibIsochPortRef self ) ;	\
+	/*!	@function Stop \
+		@abstract The method is called when the port is to stop talking or listening. \
+		@discussion This method is called by the channel object to which a port \
+			has been added. Subclasses of IOFireWireIsochPortInterface override \
+			this method to support specific hardware. Do not call this method \
+			directly. \
+		@param self The isoch port interface to use. \
+		@result Return kIOReturnSuccess on success, other return any \
+			other IOReturn error code.*/ \
 	IOReturn	(*Stop)			( IOFireWireLibIsochPortRef self ) ;	\
+	/*!	@function SetRefCon \
+		@abstract Set reference value associated with this port. \
+		@discussion Retrieve the reference value with GetRefCon() \
+		@param self The isoch port interface to use. \
+		@param inRefCon The new reference value.*/ \
 	void 		(*SetRefCon)	( IOFireWireLibIsochPortRef self, void* inRefCon) ;	\
+	/*!	@function GetRefCon \
+		@abstract Get reference value associated with this port. \
+		@discussion Set the reference value with SetRefCon() \
+		@param self The isoch port interface to use. \
+		@result The port refcon value.*/ \
 	void*		(*GetRefCon)	( IOFireWireLibIsochPortRef self)
 
-#if HEADERDOC_COMMENT_ONLY
-	// this class declaration is for headerdoc purposes only...
-	// these methods are actually specified in a macro inserted into port subclass
-	// COM interface structs
-
-	/*!	@class IOFireWireIsochPortInterface
-		@abstract FireWire user client isochronous port interface
-		@discussion Isochronous ports represent talkers or listeners on a
-			FireWire isochronous channel. This is a base class containing all
-			isochronous port functionality not specific to any type of port.
-			Ports are added to channel interfaces
-			(IOFireWireIsochChannelInterface) which coordinate the start and
-			stop of isochronous traffic on a FireWire bus isochronous channel.
-			*/
-class IOFireWireIsochPortInterface {
-	/*!	@function GetSupported
-		@abstract The method is called to determine which FireWire isochronous
-			channels and speed this port supports.
-		@discussion This method is called by the channel object to which a port
-			has been added. Subclasses of IOFireWireIsochPortInterface override
-			this method to support specific hardware. Do not call this method
-			directly.
-		@param self The isoch port interface to use.
-		@param maxSpeed A pointer to an IOFWSpeed which should be filled with
-			the maximum speed this port can talk or listen.
-		@param chanSupported A pointer to a UInt64 which should be filled with
-			a bitmask representing the FireWire bus isochonous channels on
-			which the port can talk or listen. Set '1' for supported, '0' for
-			unsupported.
-		@result Return kIOReturnSuccess on success, other return any other
-			IOReturn error code.*/
-	IOReturn (*GetSupported)( IOFireWireLibIsochPortRef self, IOFWSpeed* maxSpeed, UInt64* chanSupported ) ;
-
-	/*!	@function AllocatePort
-		@abstract The method is called when the port should configure its
-			associated hardware to prepare to send or receive isochronous data
-			on the channel number and at the speed specified.
-		@discussion This method is called by the channel object to which a port
-			has been added. Subclasses of IOFireWireIsochPortInterface override
-			this method to support specific hardware. Do not call this method
-			directly.
-		@param self The isoch port interface to use.
-		@param speed Channel speed
-		@param chan Channel number (0-63)
-		@result Return kIOReturnSuccess on success, other return any other
-			IOReturn error code.*/
-	IOReturn (*AllocatePort)( IOFireWireLibIsochPortRef self, IOFWSpeed speed, UInt32 chan ) ;
-
-	/*!	@function ReleasePort
-		@abstract The method is called to release the hardware after the
-			channel has been stopped.
-		@discussion This method is called by the channel object to which a port
-			has been added. Subclasses of IOFireWireIsochPortInterface override
-			this method to support specific hardware. Do not call this method
-			directly.
-		@param self The isoch port interface to use.
-		@result Return kIOReturnSuccess on success, other return any other IOReturn error code.*/
-	IOReturn (*ReleasePort)( IOFireWireLibIsochPortRef self ) ;
-
-	/*!	@function Start
-		@abstract The method is called when the port is to begin talking or listening.
-		@discussion This method is called by the channel object to which a port
-			has been added. Subclasses of IOFireWireIsochPortInterface override
-			this method to support specific hardware. Do not call this method
-			directly.
-		@param self The isoch port interface to use.
-		@result Return kIOReturnSuccess on success, other return any other IOReturn error code.*/
-	IOReturn (*Start)( IOFireWireLibIsochPortRef self ) ;
-
-	/*!	@function Stop
-		@abstract The method is called when the port is to stop talking or listening.
-		@discussion This method is called by the channel object to which a port
-			has been added. Subclasses of IOFireWireIsochPortInterface override
-			this method to support specific hardware. Do not call this method
-			directly.
-		@param self The isoch port interface to use.
-		@result Return kIOReturnSuccess on success, other return any
-			other IOReturn error code.*/
-	IOReturn (*Stop)( IOFireWireLibIsochPortRef self ) ;
-
-	/*!	@function SetRefCon
-		@abstract Set reference value associated with this port.
-		@discussion Retrieve the reference value with GetRefCon()
-		@param self The isoch port interface to use.
-		@param inRefCon The new reference value.*/
-	void (*SetRefCon)( IOFireWireLibIsochPortRef self, void* inRefCon) ;
-
-	/*!	@function GetRefCon
-		@abstract Get reference value associated with this port.
-		@discussion Set the reference value with SetRefCon()
-		@param self The isoch port interface to use.
-		@result The port refcon value.*/
-	void* (*GetRefCon)( IOFireWireLibIsochPortRef self)
-} ;
-#endif
-
+/*!	@class
+	@abstract FireWire user client isochronous port interface
+	@discussion Isochronous ports represent talkers or listeners on a
+		FireWire isochronous channel. This is a base class containing all
+		isochronous port functionality not specific to any type of port.
+		Ports are added to channel interfaces
+		(IOFireWireIsochChannelInterface) which coordinate the start and
+		stop of isochronous traffic on a FireWire bus isochronous channel.
+ */
 typedef struct IOFireWireIsochPortInterface_t
 {
 	IUNKNOWN_C_GUTS ;
-	UInt32 revision, version ;
+	/*! Interface revision. */
+	UInt32 revision;
+	/*! Interface version. */
+	UInt32 version;
+
 	IOFIREWIRELIBISOCHPORT_C_GUTS ;
 
 } IOFireWireIsochPortInterface ;
 
+/*! @class
+	Description forthcoming
+ */
 typedef struct IOFireWireRemoteIsochPortInterface_t
 {
 	IUNKNOWN_C_GUTS ;
-	UInt32 revision, version ;
+	/*! Interface revision. */
+	UInt32 revision;
+	/*! Interface version. */
+	UInt32 version;
+
 	IOFIREWIRELIBISOCHPORT_C_GUTS ;
 
+	/*! Description forthcoming */
 	IOFireWireLibIsochPortGetSupportedCallback (*SetGetSupportedHandler) ( IOFireWireLibRemoteIsochPortRef self, IOFireWireLibIsochPortGetSupportedCallback inHandler) ;
+	/*! Description forthcoming */
 	IOFireWireLibIsochPortAllocateCallback	   (*SetAllocatePortHandler) ( IOFireWireLibRemoteIsochPortRef self, IOFireWireLibIsochPortAllocateCallback inHandler) ;
+	/*! Description forthcoming */
 	IOFireWireLibIsochPortCallback	(*SetReleasePortHandler)( IOFireWireLibRemoteIsochPortRef self, IOFireWireLibIsochPortCallback inHandler) ;
+	/*! Description forthcoming */
 	IOFireWireLibIsochPortCallback	(*SetStartHandler)( IOFireWireLibRemoteIsochPortRef self, IOFireWireLibIsochPortCallback inHandler) ;
+	/*! Description forthcoming */
 	IOFireWireLibIsochPortCallback	(*SetStopHandler)( IOFireWireLibRemoteIsochPortRef self, IOFireWireLibIsochPortCallback inHandler) ;
 
 } IOFireWireRemoteIsochPortInterface ;
 
-typedef struct IOFireWireLocalIsochPortInterface_t {
-
-/*!	@class IOFireWireLocalIsochPortInterface
+/*!	@class
 	@abstract FireWire user client local isochronous port object.
 	@discussion Represents a FireWire isochronous talker or listener
 		within the local machine. Isochronous transfer is controlled by
@@ -290,12 +283,14 @@ typedef struct IOFireWireLocalIsochPortInterface_t {
 	processed any pending callbacks). The finalize callback will be called when
 	the port is finalized. Set the finalize callback using SetFinalizeCallback().
 	*/
-/* headerdoc parse workaround	
-class IOFireWireLocalIsochPortInterface {
-public:
-*/
+typedef struct IOFireWireLocalIsochPortInterface_t {
+
 	IUNKNOWN_C_GUTS ;
-	UInt32 revision, version ;
+	/*! Interface revision */
+	UInt32 revision;
+	/*! Interface revision */
+	UInt32 version;
+
 	IOFIREWIRELIBISOCHPORT_C_GUTS ;
 	
 	/*!	@function ModifyJumpDCL
@@ -403,7 +398,7 @@ public:
 			Availability: IOFireWireLocalIsochPortInterface_v4 and newer.
 			
 		@param self The local isoch port interface to use.
-		@param finalizeCalback The finalize callback.
+		@param finalizeCallback The finalize callback.
 		@result Returns true if this isoch port has no more pending callbacks and does not
 			need any more runloop time.*/
 	IOReturn		(*SetFinalizeCallback)( IOFireWireLibLocalIsochPortRef self, IOFireWireLibIsochPortFinalizeCallback finalizeCallback ) ;
@@ -423,9 +418,7 @@ public:
 //
 // ============================================================
 
-typedef struct IOFireWireIsochChannelInterface_t
-{
-	/*!	@class IOFireWireIsochChannelInterface
+	/*!	@class
 		@abstract FireWire user client isochronous channel object.
 		@discussion IOFireWireIsochChannelInterface is an abstract
 			representataion of a FireWire bus isochronous channel. This
@@ -440,12 +433,13 @@ typedef struct IOFireWireIsochChannelInterface_t
 			and listeners must be added to the channel using SetTalker() and
 			AddListener()
 	*/
-/* headerdoc parse workaround	
-class IOFireWireLocalIsochPortInterface: public IUnknown {
-public:
-*/
+typedef struct IOFireWireIsochChannelInterface_t
+{
 	IUNKNOWN_C_GUTS ;
-	UInt32 revision, version ;
+	/*! Interface revision. */
+	UInt32 revision;
+	/*! Interface version. */
+	UInt32 version;
 
 	/*!	@function SetTalker
 		@abstract Set the talker port for this channel.
@@ -515,19 +509,22 @@ public:
 		@abstract Set reference value associated with this channel.
 		@discussion Retrieve the reference value with GetRefCon()
 		@param self The isoch channel interface to use.
-		@param inRefCon The new reference value.*/
+		@param stopProcRefCon The new reference value.*/
 	void 				(*SetRefCon)				( IOFireWireLibIsochChannelRef self, void* stopProcRefCon) ;
 
 	/*!	@function GetRefCon
 		@abstract Set reference value associated with this channel.
 		@discussion Retrieve the reference value with SetRefCon()
-		@param self The isoch channel interface to use.
-		@param inRefCon The new reference value.*/
+		@param self The isoch channel interface to use.*/
 	void*				(*GetRefCon)				( IOFireWireLibIsochChannelRef self) ;
 
+	/*! Description forthcoming */
 	Boolean				(*NotificationIsOn) 		( IOFireWireLibIsochChannelRef self) ;
+	/*! Description forthcoming */
 	Boolean				(*TurnOnNotification) 		( IOFireWireLibIsochChannelRef self) ;
+	/*! Description forthcoming */
 	void				(*TurnOffNotification) 		( IOFireWireLibIsochChannelRef self) ;	
+	/*! Description forthcoming */
 	void				(*ClientCommandIsComplete)	( IOFireWireLibIsochChannelRef self, FWClientCommandID commandID, IOReturn status) ;
 
 } IOFireWireIsochChannelInterface ;
@@ -538,60 +535,81 @@ public:
 //
 // ============================================================
 
+/*!	@class IOFireWireDCLCommandPoolInterface
+	Description forthcoming.
+*/
 typedef struct IOFireWireDCLCommandPoolInterface_t
 {
-/*!	@class IOFireWireDCLCommandPoolInterface
-*/
-/* headerdoc parse workaround	
-class IOFireWireDCLCommandPoolInterface {
-public:
-*/
 	IUNKNOWN_C_GUTS ;
-	UInt32 revision, version ;
+	/*! Interface revision. */
+	UInt32 revision;
+	/*! Interface version. */
+	UInt32 version;
 
+	/*! Description forthcoming */
 	DCLCommand*			(*Allocate)						( IOFireWireLibDCLCommandPoolRef self, IOByteCount inSize ) ;
+	/*! Description forthcoming */
 	IOReturn			(*AllocateWithOpcode)			( IOFireWireLibDCLCommandPoolRef self, DCLCommand* inDCL, DCLCommand** outDCL, UInt32 opcode, ... ) ;
 	
+	/*! Description forthcoming */
 	DCLCommand*			(*AllocateTransferPacketDCL)	( IOFireWireLibDCLCommandPoolRef self, DCLCommand* inDCL, UInt32 inOpcode, void* inBuffer, IOByteCount inSize) ;
+	/*! Description forthcoming */
 	DCLCommand*			(*AllocateTransferBufferDCL)	( IOFireWireLibDCLCommandPoolRef self, DCLCommand* inDCL, UInt32 inOpcode, void* inBuffer, IOByteCount inSize, IOByteCount inPacketSize, UInt32 inBufferOffset) ;
 
+	/*! Description forthcoming */
 	DCLCommand*			(*AllocateSendPacketStartDCL)	( IOFireWireLibDCLCommandPoolRef self, DCLCommand* inDCL, void* inBuffer, IOByteCount inSize) ;
 	
 	// AllocateSendPacketWithHeaderStartDCL has been deprecated! If you need this functionality, you should be using NuDCL!
+	/*! Description forthcoming */
 	DCLCommand*			(*AllocateSendPacketWithHeaderStartDCL)( IOFireWireLibDCLCommandPoolRef self, DCLCommand* inDCL, void* inBuffer, IOByteCount inSize) ;
 	
+	/*! Description forthcoming */
 	DCLCommand*			(*AllocateSendBufferDCL)		( IOFireWireLibDCLCommandPoolRef self, DCLCommand* inDCL, void* inBuffer, IOByteCount inSize, IOByteCount inPacketSize, UInt32 inBufferOffset) ;
+	/*! Description forthcoming */
 	DCLCommand*			(*AllocateSendPacketDCL)		( IOFireWireLibDCLCommandPoolRef self, DCLCommand* inDCL, void* inBuffer, IOByteCount inSize) ;
 
+	/*! Description forthcoming */
 	DCLCommand*			(*AllocateReceivePacketStartDCL)( IOFireWireLibDCLCommandPoolRef self, DCLCommand* inDCL, void* inBuffer, IOByteCount inSize) ;
+	/*! Description forthcoming */
 	DCLCommand*			(*AllocateReceivePacketDCL)		( IOFireWireLibDCLCommandPoolRef self, DCLCommand* inDCL, void* inBuffer, IOByteCount inSize) ;
+	/*! Description forthcoming */
 	DCLCommand*			(*AllocateReceiveBufferDCL)		( IOFireWireLibDCLCommandPoolRef self, DCLCommand* inDCL, void* inBuffer, IOByteCount inSize, IOByteCount inPacketSize, UInt32 inBufferOffset) ;
 
+	/*! Description forthcoming */
 	DCLCommand*			(*AllocateCallProcDCL)			( IOFireWireLibDCLCommandPoolRef self, DCLCommand* inDCL, DCLCallCommandProc* inProc, DCLCallProcDataType inProcData) ;
+	/*! Description forthcoming */
 	DCLCommand*			(*AllocateLabelDCL)				( IOFireWireLibDCLCommandPoolRef self, DCLCommand* inDCL) ;
+	/*! Description forthcoming */
 	DCLCommand*			(*AllocateJumpDCL)				( IOFireWireLibDCLCommandPoolRef self, DCLCommand* inDCL, DCLLabel* pInJumpDCLLabel) ;
+	/*! Description forthcoming */
 	DCLCommand*			(*AllocateSetTagSyncBitsDCL)	( IOFireWireLibDCLCommandPoolRef self, DCLCommand* inDCL, UInt16 inTagBits, UInt16 inSyncBits) ;
+	/*! Description forthcoming */
 	DCLCommand*			(*AllocateUpdateDCLListDCL)		( IOFireWireLibDCLCommandPoolRef self, DCLCommand* inDCL, DCLCommand** inDCLCommandList, UInt32 inNumCommands) ;
+	/*! Description forthcoming */
 	DCLCommand*			(*AllocatePtrTimeStampDCL)		( IOFireWireLibDCLCommandPoolRef self, DCLCommand* inDCL, UInt32* inTimeStampPtr) ;
 
+	/*! Description forthcoming */
 	void 				(*Free)							( IOFireWireLibDCLCommandPoolRef self, DCLCommand* inDCL ) ;
 	
+	/*! Description forthcoming */
 	IOByteCount			(*GetSize)						( IOFireWireLibDCLCommandPoolRef self ) ;
+	/*! Description forthcoming */
 	Boolean				(*SetSize)						( IOFireWireLibDCLCommandPoolRef self, IOByteCount inSize ) ;
+	/*! Description forthcoming */
 	IOByteCount			(*GetBytesRemaining)			( IOFireWireLibDCLCommandPoolRef self ) ;
 } IOFireWireDCLCommandPoolInterface ;
 
-typedef struct IOFireWireNuDCLPoolInterface_t
-{
 /*!	@class IOFireWireNuDCLPoolInterface
 	@discussion Use this interface to build NuDCL-based DCL programs.
 */
-/* headerdoc parse workaround	
-class IOFireWireNuDCLPoolInterface {
-public:
-*/
+typedef struct IOFireWireNuDCLPoolInterface_t
+{
 	IUNKNOWN_C_GUTS ;
-	UInt32 revision, version ;
+
+	/*! Interface version */
+	UInt32 revision;
+	/*! Interface version */
+	UInt32 version;
 
 	// Command pool management:
 
@@ -609,7 +627,9 @@ public:
 		@result A CFArrayRef.*/
 	CFArrayRef				(*GetDCLs)( IOFireWireLibNuDCLPoolRef self ) ;
 
+	/*! Description forthcoming */
 	void					(*PrintProgram)( IOFireWireLibNuDCLPoolRef self ) ;
+	/*! Description forthcoming */
 	void					(*PrintDCL)( NuDCLRef dcl ) ;
 	
 	// Allocating transmit NuDCLs:
@@ -690,7 +710,7 @@ public:
 
 	// NuDCL configuration
 
-	/*!	@function GetDCLNextDCL
+	/*!	@function FindDCLNextDCL
 		@abstract Get the next pointer for a NuDCL
 		@discussion Applies: Any NuDCLRef
 		@param dcl The dcl whose next pointer will be returned
@@ -711,7 +731,7 @@ public:
 
 	/*!	@function GetDCLBranch
 		@abstract Get the branch pointer for a NuDCL
-		@discussion: Applies: Any NuDCLRef.
+		@discussion Applies: Any NuDCLRef.
 		@param dcl The dcl whose branch pointer will be returned.
 		@result Returns the branch pointer of 'dcl' or 0 for none is set.*/
 	NuDCLRef			(*GetDCLBranch)( NuDCLRef dcl ) ;
@@ -789,11 +809,11 @@ public:
 			Applies: Any NuDCLRef.
 
 		@param dcl The DCL for which status pointer will be set
-		@param timeStampPtr A pointer to a quadlet which will hold the status after 'dcl' is updated.
+		@param statusPtr A pointer to a quadlet which will hold the status after 'dcl' is updated.
 		@result Returns an IOReturn error code.*/
 	IOReturn			(*SetDCLStatusPtr)( NuDCLRef dcl, UInt32* statusPtr ) ;
 
-	/*!	@function GetDCLTimeStampPtr
+	/*!	@function GetDCLStatusPtr
 		@abstract Get the status pointer for a NuDCL.
 		@discussion Applies: Any NuDCLRef.
 		@param dcl The DCL whose status pointer will be returned.
@@ -801,7 +821,7 @@ public:
 	UInt32*				(*GetDCLStatusPtr)( NuDCLRef dcl ) ;
 	
 
-	/*!	@function AddDCLRange
+	/*!	@function AppendDCLRanges
 		@abstract Add a memory range to the scatter gather list of a NuDCL
 		@discussion This change will apply immediately to a non-running DCL program. To apply the change to a running program
 			use IOFireWireLocalIsochPortInterface::Notify()
@@ -839,7 +859,8 @@ public:
 			Applies: NuDCLSendPacketRef, NuDCLReceivePacketRef
 
 		@param dcl The DCL to query
-		@param stopProc The handler to set.
+		@param maxRanges Description forthcoming.
+		@param outRanges Description forthcoming.
 		@result Returns the previously set handler or NULL is no handler was set.*/
 	UInt32				(*GetDCLRanges)				( NuDCLRef dcl, UInt32 maxRanges, IOVirtualRange* outRanges ) ;
 
@@ -899,7 +920,7 @@ public:
 		@result Returns the DCLs callback function or NULL if none is set.*/
 	NuDCLCallback		(*GetDCLCallback)( NuDCLRef dcl ) ;
 
-	/*!	@function SetDCLCallback
+	/*!	@function SetDCLUserHeaderPtr
 		@abstract Set a user specified header for a send NuDCL
 		@discussion Allows the client to create a custom header for a transmitted isochronous packet. The header is masked with 'mask', 
 			and the FireWire system software fills in the masked out bits.
@@ -915,33 +936,55 @@ public:
 			are replaced by the FireWire system software.
 		@result Returns an IOReturn error code.*/
 	IOReturn			(*SetDCLUserHeaderPtr)( NuDCLRef dcl, UInt32 * headerPtr, UInt32 * mask ) ;
+
+	/*! Description forthcoming */
 	UInt32 *			(*GetDCLUserHeaderPtr)( NuDCLRef dcl ) ;
 
+	/*! Description forthcoming */
 	UInt32 *			(*GetUserHeaderMaskPtr)( NuDCLRef dcl ) ;
 	
+	/*! Description forthcoming */
 	void				(*SetDCLRefcon)( NuDCLRef dcl, void* refcon ) ;
+	/*! Description forthcoming */
 	void*				(*GetDCLRefcon)( NuDCLRef dcl ) ;
 	
+	/*! Description forthcoming */
 	IOReturn			(*AppendDCLUpdateList)( NuDCLRef dcl, NuDCLRef updateDCL ) ;
 
 	// consumes a reference on dclList..
+	/*! Description forthcoming */
 	IOReturn			(*SetDCLUpdateList)( NuDCLRef dcl, CFSetRef dclList ) ;
+	/*! Description forthcoming */
 	CFSetRef			(*CopyDCLUpdateList)( NuDCLRef dcl ) ;
+	/*! Description forthcoming */
 	IOReturn			(*RemoveDCLUpdateList)( NuDCLRef dcl ) ;
 	
+	/*! Description forthcoming */
 	IOReturn			(*SetDCLWaitControl)( NuDCLRef dcl, Boolean wait ) ;
 	
+	/*! Description forthcoming */
 	void				(*SetDCLFlags)( NuDCLRef dcl, UInt32 flags ) ;
+	/*! Description forthcoming */
 	UInt32				(*GetDCLFlags)( NuDCLRef dcl ) ;
+	/*! Description forthcoming */
 	IOReturn			(*SetDCLSkipBranch)( NuDCLRef dcl, NuDCLRef skipCycleDCL ) ;
+	/*! Description forthcoming */
 	NuDCLRef			(*GetDCLSkipBranch)( NuDCLRef dcl ) ;
+	/*! Description forthcoming */
 	IOReturn			(*SetDCLSkipCallback)( NuDCLRef dcl, NuDCLCallback callback ) ;
+	/*! Description forthcoming */
 	NuDCLCallback		(*GetDCLSkipCallback)( NuDCLRef dcl ) ;
+	/*! Description forthcoming */
 	IOReturn			(*SetDCLSkipRefcon)( NuDCLRef dcl, void * refcon ) ;
+	/*! Description forthcoming */
 	void *				(*GetDCLSkipRefcon)( NuDCLRef dcl ) ;
+	/*! Description forthcoming */
 	IOReturn			(*SetDCLSyncBits)( NuDCLRef dcl, UInt8 syncBits ) ;
+	/*! Description forthcoming */
 	UInt8				(*GetDCLSyncBits)( NuDCLRef dcl ) ;
+	/*! Description forthcoming */
 	IOReturn			(*SetDCLTagBits)( NuDCLRef dcl, UInt8 tagBits ) ;
+	/*! Description forthcoming */
 	UInt8				(*GetDCLTagBits)( NuDCLRef dcl ) ;
 
 } IOFireWireNuDCLPoolInterface ;
@@ -952,17 +995,17 @@ public:
 // IOFWAsyncStreamListener Interface
 // ============================================================
 
-typedef struct IOFWAsyncStreamListenerInterface_t
-{
-/*!	@class IOFWAsyncStreamListener (IOFireWireLib)
+/*!	@class
 	@discussion Represents and provides management functions for a asyn stream listener object.
 */
-/* headerdoc parse workaround	
-class IOFWAsyncStreamListenerInterface: public IUnknown {
-public:
-*/
+typedef struct IOFWAsyncStreamListenerInterface_t
+{
 	IUNKNOWN_C_GUTS ;
-	UInt16 version, revision ;
+
+	/*! Interface version. */
+	UInt16 version;
+	/*! Interface revision. */
+	UInt16 revision;
 
 	/*!	@function SetListenerHandler
 		@abstract Set the callback that should be called to handle incoming async stream packets

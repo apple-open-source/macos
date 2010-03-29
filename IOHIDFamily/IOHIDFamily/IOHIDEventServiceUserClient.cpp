@@ -49,7 +49,12 @@ const IOExternalMethodDispatch IOHIDEventServiceUserClient::sMethods[kIOHIDEvent
 	(IOExternalMethodAction) &IOHIDEventServiceUserClient::_copyEvent,
 	2, -1,
     0, -1
-    }
+    },
+    { //    kIOHIDEventServiceUserClientSetElementValue
+	(IOExternalMethodAction) &IOHIDEventServiceUserClient::_setElementValue,
+	3, 0,
+    0, 0
+    },
 };
 
 
@@ -294,6 +299,27 @@ IOReturn IOHIDEventServiceUserClient::_copyEvent(
 IOHIDEvent * IOHIDEventServiceUserClient::copyEvent(IOHIDEventType type, IOHIDEvent * matching, IOOptionBits options)
 {
     return _owner->copyEvent(type, matching, options);
+}
+
+//==============================================================================
+// IOHIDEventServiceUserClient::_setElementValue
+//==============================================================================
+IOReturn IOHIDEventServiceUserClient::_setElementValue(
+                                IOHIDEventServiceUserClient *   target, 
+                                void *                          reference, 
+                                IOExternalMethodArguments *     arguments)
+{
+    target->setElementValue(arguments->scalarInput[0], arguments->scalarInput[1], arguments->scalarInput[2]);
+
+    return kIOReturnSuccess;
+}
+
+//==============================================================================
+// IOHIDEventServiceUserClient::setElementValue
+//==============================================================================
+void IOHIDEventServiceUserClient::setElementValue(UInt32 usagePage, UInt32 usage, UInt32 value)
+{
+    return _owner->setElementValue(usagePage, usage, value);
 }
 
 //==============================================================================

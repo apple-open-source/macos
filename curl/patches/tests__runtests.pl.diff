@@ -1,0 +1,11 @@
+--- tests/runtests.pl.orig	2009-09-28 12:39:13.000000000 -0700
++++ tests/runtests.pl	2009-09-28 12:39:28.000000000 -0700
+@@ -169,7 +169,7 @@
+ my $ftpchecktime; # time it took to verify our test FTP server
+ 
+ my $stunnel = checkcmd("stunnel4") || checkcmd("stunnel");
+-my $valgrind = checktestcmd("valgrind");
++my $valgrind;
+ my $valgrind_logfile="--logfile";
+ my $valgrind_tool;
+ my $gdb = checktestcmd("gdb");

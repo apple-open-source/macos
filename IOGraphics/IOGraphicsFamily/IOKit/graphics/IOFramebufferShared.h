@@ -41,7 +41,7 @@ For a non-kernel task to get access to this slice of shared memory, a connection
     @discussion When IOFB_ARBITRARY_SIZE_CURSOR is not defined, the maximum cursor size is assumed to be CURSORWIDTH x CURSORHEIGHT and this header file will define a number of structures for storing cursor images accordingly. A non-kernel task may define IOFB_ARBITRARY_SIZE_CURSOR and use cursors up to the size specified when IOFBCreateSharedCursor() was called. In this case appropriate structures for storing cursor images must be defined elsewhere. In the kernel, IOFB_ARBITRARY_SIZE_CURSOR is always defined.
 */
 #define IOFB_ARBITRARY_SIZE_CURSOR
-#define IOFB_ARBITRARY_FRAMES_CURSOR	1
+#define IOFB_ARBITRARY_FRAMES_CURSOR    1
 #endif
 
 #define IOFB_SUPPORTS_XOR_CURSOR
@@ -59,14 +59,14 @@ For a non-kernel task to get access to this slice of shared memory, a connection
 */
 enum {
 #if IOFB_ARBITRARY_FRAMES_CURSOR
-    kIOFBMainCursorIndex	= 0,
-    kIOFBWaitCursorIndex	= 1,
-    kIOFBNumCursorIndex		= 4,
+    kIOFBMainCursorIndex        = 0,
+    kIOFBWaitCursorIndex        = 1,
+    kIOFBNumCursorIndex         = 4,
 #else
-    kIOFBNumCursorFrames	= 4,
-    kIOFBNumCursorFramesShift	= 2,
+    kIOFBNumCursorFrames        = 4,
+    kIOFBNumCursorFramesShift   = 2,
 #endif
-    kIOFBMaxCursorDepth		= 32
+    kIOFBMaxCursorDepth         = 32
 };
 
 #ifndef IOFB_ARBITRARY_SIZE_CURSOR
@@ -137,12 +137,12 @@ struct bm38Cursor {
 #endif /* IOFB_ARBITRARY_SIZE_CURSOR */
 
 enum {
-    kIOFBCursorImageNew		= 0x01,
-    kIOFBCursorHWCapable	= 0x02
+    kIOFBCursorImageNew         = 0x01,
+    kIOFBCursorHWCapable        = 0x02
 };
 enum {
-    kIOFBHardwareCursorActive	= 0x01,
-    kIOFBHardwareCursorInVRAM	= 0x02
+    kIOFBHardwareCursorActive   = 0x01,
+    kIOFBHardwareCursorInVRAM   = 0x02
 };
 
 /*! @struct StdFBShmem_t
@@ -174,7 +174,7 @@ enum {
 */
 
 struct StdFBShmem_t {
-    ev_lock_data_t cursorSema;	
+    ev_lock_data_t cursorSema;  
     int frame;
     char cursorShow;
     char cursorObscured;
@@ -210,10 +210,10 @@ struct StdFBShmem_t {
 #endif
 #ifndef IOFB_ARBITRARY_SIZE_CURSOR
     union {
-	struct bm12Cursor bw;
-	struct bm18Cursor bw8;
-	struct bm34Cursor rgb;
-	struct bm38Cursor rgb24;
+        struct bm12Cursor bw;
+        struct bm18Cursor bw8;
+        struct bm34Cursor rgb;
+        struct bm38Cursor rgb24;
     } cursor;
 #else  /* IOFB_ARBITRARY_SIZE_CURSOR */
     unsigned char cursor[0];
@@ -230,23 +230,23 @@ typedef volatile struct StdFBShmem_t StdFBShmem_t;
 */
 enum {
     // version for IOFBCreateSharedCursor
-    kIOFBShmemVersionMask	= 0x000000ff,
-    kIOFBTenPtOneShmemVersion	= 2,
-    kIOFBTenPtTwoShmemVersion	= 3,
-    kIOFBCurrentShmemVersion	= 2,
+    kIOFBShmemVersionMask       = 0x000000ff,
+    kIOFBTenPtOneShmemVersion   = 2,
+    kIOFBTenPtTwoShmemVersion   = 3,
+    kIOFBCurrentShmemVersion    = 2,
 
     // number of frames in animating cursor (if > kIOFBTenPtTwoShmemVersion)
-    kIOFBShmemCursorNumFramesMask	= 0x00ff0000,
-    kIOFBShmemCursorNumFramesShift	= 16,
+    kIOFBShmemCursorNumFramesMask       = 0x00ff0000,
+    kIOFBShmemCursorNumFramesShift      = 16,
 
     // memory types for IOConnectMapMemory.
-    kIOFBCursorMemory		= 100
+    kIOFBCursorMemory           = 100
 };
 
 /*! @defined IOFRAMEBUFFER_CONFORMSTO
     @discussion The class name of the framebuffer service.
 */
-#define IOFRAMEBUFFER_CONFORMSTO	"IOFramebuffer"
+#define IOFRAMEBUFFER_CONFORMSTO        "IOFramebuffer"
 
 #ifdef __cplusplus
 }

@@ -62,12 +62,10 @@ p.roffit {
  &nbsp;    CURLcode result;   /* return code for transfer */
  &nbsp;  } data;
  &nbsp;};
- <p class="level0">When <span Class="bold">msg</span> is <span Class="emphasis">CURLMSG_DONE</span>, the message identifies a transfer that
- is done, and then <span Class="bold">result</span> contains the return code for the easy handle
- that just completed.
- <p class="level0">At this point, there are no other <span Class="bold">msg</span> types defined.
  </pre>
-<a name="RETURN"></a><h2 class="nroffsh">RETURN VALUE</h2>
+
+<p class="level0">When <span Class="bold">msg</span> is <span Class="emphasis">CURLMSG_DONE</span>, the message identifies a transfer that is done, and then <span Class="bold">result</span> contains the return code for the easy handle that just completed. 
+<p class="level0">At this point, there are no other <span Class="bold">msg</span> types defined. <a name="RETURN"></a><h2 class="nroffsh">RETURN VALUE</h2>
 <p class="level0">A pointer to a filled-in struct, or NULL if it failed or ran out of structs. It also writes the number of messages left in the queue (after this read) in the integer the second argument points to. <a name="SEE"></a><h2 class="nroffsh">SEE ALSO</h2>
 <p class="level0"><a class="manpage" href="./curl_multi_cleanup.html">curl_multi_cleanup (3)</a> <a class="manpage" href="./curl_multi_init.html">  curl_multi_init (3)</a> <a class="manpage" href="./curl_multi_perform.html">  curl_multi_perform (3)</a> <p class="roffit">
  This HTML page was made with <a href="http://daniel.haxx.se/projects/roffit/">roffit</a>.

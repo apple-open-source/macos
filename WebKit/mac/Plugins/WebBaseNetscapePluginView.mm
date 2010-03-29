@@ -389,9 +389,10 @@ using namespace WebCore;
     
     _isStarted = YES;
     [[self webView] addPluginInstanceView:self];
-    
-    [self updateAndSetWindow];
-    
+
+    if ([self currentWindow])
+        [self updateAndSetWindow];
+
     if ([self window]) {
         [self addWindowObservers];
         if ([[self window] isKeyWindow]) {
@@ -478,11 +479,16 @@ using namespace WebCore;
                                                  selector:@selector(preferencesHaveChanged:)
                                                      name:WebPreferencesChangedNotification
                                                    object:nil];
-        
+
         // View moved to an actual window. Start it if not already started.
         [self start];
-        [self restartTimers];
-        [self addWindowObservers];
+
+        // Starting the plug-in can result in it removing itself from the window so we need to ensure that we're still in
+        // place before doing anything that requires a window.
+        if ([self window]) {
+            [self restartTimers];
+            [self addWindowObservers];
+        }
     } else if ([[self webView] hostWindow]) {
         // View moved out of an actual window, but still has a host window.
         // Call setWindow to explicitly "clip out" the plug-in from sight.

@@ -161,6 +161,9 @@
 		BE50AE680F687AB900D28C54 /* TrustAdditions.h in Headers */ = {isa = PBXBuildFile; fileRef = BE50AE660F687AB900D28C54 /* TrustAdditions.h */; };
 		BE50AE690F687AB900D28C54 /* TrustAdditions.h in Headers */ = {isa = PBXBuildFile; fileRef = BE50AE660F687AB900D28C54 /* TrustAdditions.h */; };
 		BEA830070EB17344001CA937 /* SecItemConstants.c in Sources */ = {isa = PBXBuildFile; fileRef = BEE897100A62CDD800BF88A5 /* SecItemConstants.c */; };
+		BECE5141106B056C0091E644 /* TrustKeychains.h in Headers */ = {isa = PBXBuildFile; fileRef = BECE5140106B056C0091E644 /* TrustKeychains.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		BECE5142106B056C0091E644 /* TrustKeychains.h in Headers */ = {isa = PBXBuildFile; fileRef = BECE5140106B056C0091E644 /* TrustKeychains.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		BECE515E106BFB990091E644 /* TrustKeychains.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = BECE5140106B056C0091E644 /* TrustKeychains.h */; };
 		BEE896E20A61F0BB00BF88A5 /* SecItem.h in Headers */ = {isa = PBXBuildFile; fileRef = BEE896E00A61F0BB00BF88A5 /* SecItem.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		BEE896E30A61F0BB00BF88A5 /* SecItemPriv.h in Headers */ = {isa = PBXBuildFile; fileRef = BEE896E10A61F0BB00BF88A5 /* SecItemPriv.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		BEE896E40A61F0C900BF88A5 /* SecItem.h in Headers */ = {isa = PBXBuildFile; fileRef = BEE896E00A61F0BB00BF88A5 /* SecItem.h */; settings = {ATTRIBUTES = (Public, ); }; };
@@ -297,6 +300,7 @@
 				4CCBFFCA058002FF00981D43 /* SecTrustPriv.h in CopyFiles */,
 				058C798A09F56DC300DB7E98 /* SecTrustSettingsPriv.h in CopyFiles */,
 				05FE863009FE68CF006A85C1 /* TrustSettingsSchema.h in CopyFiles */,
+				BECE515E106BFB990091E644 /* TrustKeychains.h in CopyFiles */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -377,6 +381,7 @@
 		BE296DC40EAC2B5600FD22BE /* SecInternal.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SecInternal.h; sourceTree = "<group>"; };
 		BE50AE650F687AB900D28C54 /* TrustAdditions.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = TrustAdditions.cpp; sourceTree = "<group>"; };
 		BE50AE660F687AB900D28C54 /* TrustAdditions.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = TrustAdditions.h; sourceTree = "<group>"; };
+		BECE5140106B056C0091E644 /* TrustKeychains.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = TrustKeychains.h; sourceTree = "<group>"; };
 		BEE896E00A61F0BB00BF88A5 /* SecItem.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = SecItem.h; sourceTree = "<group>"; };
 		BEE896E10A61F0BB00BF88A5 /* SecItemPriv.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = SecItemPriv.h; sourceTree = "<group>"; };
 		BEE896E60A61F12300BF88A5 /* SecItem.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = SecItem.cpp; sourceTree = "<group>"; };
@@ -611,6 +616,7 @@
 				C2AA2BAF052E099D006D0211 /* TrustedApplication.h */,
 				058C797709F56D1400DB7E98 /* TrustSettings.cpp */,
 				058C797809F56D1400DB7E98 /* TrustSettings.h */,
+				BECE5140106B056C0091E644 /* TrustKeychains.h */,
 			);
 			name = "API Classes";
 			sourceTree = "<group>";
@@ -759,6 +765,7 @@
 				05A83C370AAF591100906F28 /* SecKeychainItemExtendedAttributes.h in Headers */,
 				05A83C810AAF5D0E00906F28 /* ExtendedAttribute.h in Headers */,
 				BE50AE690F687AB900D28C54 /* TrustAdditions.h in Headers */,
+				BECE5142106B056C0091E644 /* TrustKeychains.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -817,6 +824,7 @@
 				05A83C380AAF591100906F28 /* SecKeychainItemExtendedAttributes.h in Headers */,
 				BE296DC50EAC2B5600FD22BE /* SecInternal.h in Headers */,
 				BE50AE680F687AB900D28C54 /* TrustAdditions.h in Headers */,
+				BECE5141106B056C0091E644 /* TrustKeychains.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1066,7 +1074,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUILD_VARIANTS = debug;
-				CURRENT_PROJECT_VERSION = 37184;
+				CURRENT_PROJECT_VERSION = 38259;
 				EXECUTABLE_PREFIX = "";
 				EXECUTABLE_SUFFIX = "";
 				FRAMEWORK_SEARCH_PATHS = (
@@ -1116,7 +1124,7 @@
 					normal,
 					debug,
 				);
-				CURRENT_PROJECT_VERSION = 37184;
+				CURRENT_PROJECT_VERSION = 38259;
 				EXECUTABLE_PREFIX = "";
 				EXECUTABLE_SUFFIX = "";
 				FRAMEWORK_SEARCH_PATHS = (
@@ -1161,7 +1169,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUILD_VARIANTS = normal;
-				CURRENT_PROJECT_VERSION = 37184;
+				CURRENT_PROJECT_VERSION = 38259;
 				EXECUTABLE_PREFIX = "";
 				EXECUTABLE_SUFFIX = "";
 				FRAMEWORK_SEARCH_PATHS = (
@@ -1208,7 +1216,7 @@
 					normal,
 					debug,
 				);
-				CURRENT_PROJECT_VERSION = 37184;
+				CURRENT_PROJECT_VERSION = 38259;
 				EXECUTABLE_PREFIX = "";
 				EXECUTABLE_SUFFIX = "";
 				FRAMEWORK_SEARCH_PATHS = (

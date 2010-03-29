@@ -40,6 +40,7 @@
 #endif
 
 #include "Scavenger.h"
+#include <setjmp.h>
 
 #define	DisplayTimeRemaining 0
 
@@ -89,6 +90,108 @@ int cancelProc(UInt16 progress, UInt16 secondsRemaining, Boolean progressChanged
     return 0;
 }
 
+static const int kMaxMediumErrors = 25;
+
+/*
+ * Determine whether an error is major or minor.  The main critera we chose for
+ * this is whether you can continue to use -- reading, creating, and deleting --
+ * in a volume with the error present.  This should at some point go into the
+ * message structure itself.
+ */
+static int
+isMinorError(int msg, int *counts)
+{
+	switch (msg) {
+	case hfsExtBTCheck:
+	case hfsCatBTCheck:
+	case hfsCatHierCheck:
+	case hfsExtAttrBTCheck:
+	case hfsVolBitmapCheck:
+	case hfsVolInfoCheck:
+	case hfsHardLinkCheck:
+	case hfsRebuildExtentBTree:
+	case hfsRebuildCatalogBTree:
+	case hfsRebuildAttrBTree:
+	case hfsCaseSensitive:
+	case hfsMultiLinkDirCheck:
+	case hfsJournalVolCheck:
+	case hfsLiveVerifyCheck:
+	case hfsVerifyVolWithWrite:
+	case hfsCheckHFS:
+	case hfsCheckNoJnl:
+	case E_DirVal:
+	case E_CName:
+	case E_NoFile:
+	case E_NoRtThd:
+	case E_NoThd:
+	case E_NoDir:
+	case E_RtDirCnt:
+	case E_RtFilCnt:
+	case E_DirCnt:
+	case E_FilCnt:
+	case E_CatDepth:
+	case E_NoFThdFlg:
+	case E_CatalogFlagsNotZero:
+	case E_BadFileName:
+	case E_InvalidClumpSize:
+	case E_LockedDirName:
+	case E_FreeBlocks:
+	case E_LeafCnt:
+	case E_BadValue:
+	case E_InvalidID:
+	case E_DiskFull:
+	case E_InvalidLinkCount:
+	case E_UnlinkedFile:
+	case E_InvalidPermissions:
+	case E_InvalidUID_Unused:
+	case E_IllegalName:
+	case E_IncorrectNumThdRcd:
+	case E_SymlinkCreate:
+	case E_IncorrectAttrCount:
+	case E_IncorrectSecurityCount:
+	case E_PEOAttr:
+	case E_LEOAttr:
+	case E_FldCount:
+	case E_HsFldCount:
+	case E_BadPermPrivDir:
+	case E_DirInodeBadFlags:
+	case E_DirInodeBadParent:
+	case E_DirInodeBadName:
+	case E_DirHardLinkChain:
+	case E_DirHardLinkOwnerFlags:
+	case E_DirHardLinkFinderInfo:
+	case E_DirLinkAncestorFlags:
+	case E_DirHardLinkNesting:
+	case E_InvalidLinkChainPrev:
+	case E_InvalidLinkChainNext:
+	case E_FileInodeBadFlags:
+	case E_FileInodeBadName:
+	case E_FileHardLinkChain:
+	case E_FileHardLinkFinderInfo:
+	case E_InvalidLinkChainFirst:
+	case E_FileLinkBadFlags:
+	case E_DirLinkBadFlags:
+	case E_OrphanFileLink:
+	case E_OrphanDirLink:
+	case E_OrphanFileInode:
+	case E_OrphanDirInode:
+	case E_UnusedNodeNotZeroed:
+	case E_VBMDamagedOverAlloc:
+		return 1;
+	/*
+	 * A lot of EOF errors may indicate that there were some more significant
+	 * problems with the volume; just one by itself, with no other volume layout
+	 * problems, won't affect the volume usage.  So we keep track of them.
+	 */
+	case E_PEOF:
+	case E_LEOF:
+		if (++counts[abs(msg)] > kMaxMediumErrors)
+			return 0;
+		return 1;
+	default:
+		return 0;
+	}
+}
 
 /*------------------------------------------------------------------------------
 
@@ -100,7 +203,7 @@ External
 int
 CheckHFS( const char *rdevnode, int fsReadRef, int fsWriteRef, int checkLevel, 
 	  int repairLevel, fsck_ctx_t fsckContext, int lostAndFoundMode, 
-	  int canWrite, int *modified, int liveMode )
+	  int canWrite, int *modified, int liveMode, int rebuildOptions )
 {
 	SGlob				dataArea;	// Allocate the scav globals
 	short				temp; 	
@@ -110,6 +213,16 @@ CheckHFS( const char *rdevnode, int fsReadRef, int fsWriteRef, int checkLevel,
 	int					scanCount = 0;
 	int					isJournaled = 0;
 	Boolean 			autoRepair;
+	Boolean				exitEarly = 0;
+	__block int *msgCounts = NULL;
+	jmp_buf				envBuf;
+	Boolean				majorErrors = 0;
+
+	if (checkLevel == kMajorCheck) {
+		checkLevel = kForceCheck;
+		exitEarly = 1;
+		msgCounts = malloc(sizeof(int) * E_LastError);
+	}
 
 	autoRepair = (fsWriteRef != -1 && repairLevel != kNeverRepair);
 
@@ -155,14 +268,44 @@ CheckHFS( const char *rdevnode, int fsReadRef, int fsWriteRef, int checkLevel,
 		free(vstr);
 	}
 
+	if (setjmp(envBuf) == 1) {
+		/*
+		 * setjmp() returns the second argument to longjmp(), so if it returns 1, then
+		 * we've hit a major error.
+		 */
+		dataArea.RepLevel = repairLevelVeryMinorErrors;
+		majorErrors = 1;
+		goto EarlyExitLabel;
+	} else {
+		if (exitEarly && fsckContext) {
+			/*
+			 * Set the after-printing block to a small bit of code that checks to see if
+			 * the message in question corresponds to a major or a minor error.  If it's
+			 * major, we longjmp just above, which causes us to exit out early.
+			 */
+			fsckSetBlock(fsckContext, fsckPhaseAfterMessage, (fsckBlock_t) ^(fsck_ctx_t c, int msgNum, va_list args) {
+				if (abs(msgNum) > E_FirstError && abs(msgNum) < E_LastError) {
+					if (isMinorError(abs(msgNum), msgCounts) == 1)
+						return fsckBlockContinue;
+					longjmp(envBuf, 1);
+					return fsckBlockAbort;
+				} else {
+					return fsckBlockContinue;
+				}
+			});
+		}
+	}
 DoAgain:
 	ClearMemory( &dataArea, sizeof(SGlob) );
+	if (msgCounts)
+		memset(msgCounts, 0, sizeof(int) * E_LastError);
 
 	//	Initialize some scavenger globals
 	dataArea.itemsProcessed		= 0;	//	Initialize to 0% complete
 	dataArea.itemsToProcess		= 1;
 	dataArea.chkLevel			= checkLevel;
 	dataArea.repairLevel		= repairLevel;
+	dataArea.rebuildOptions		= rebuildOptions;
 	dataArea.canWrite			= canWrite;
 	dataArea.writeRef			= fsWriteRef;
 	dataArea.lostAndFoundMode	= lostAndFoundMode;
@@ -219,6 +362,7 @@ DoAgain:
 	if ( scavError == noErr )
 		ScavCtrl( &dataArea, scavVerify, &scavError );
         	
+EarlyExitLabel:
 	if (scavError == noErr && fsckGetVerbosity(dataArea.context) >= kDebugLog)
 		printVerifyStatus(&dataArea);
 
@@ -255,7 +399,15 @@ DoAgain:
 	//
 	if ( dataArea.RepLevel == repairLevelNoProblemsFound && repairLevel == kForceRepairs )
 	{
-		dataArea.CBTStat |= S_RebuildBTree;
+		if (rebuildOptions & REBUILD_CATALOG) {
+			dataArea.CBTStat |= S_RebuildBTree;
+		}
+		if (rebuildOptions & REBUILD_EXTENTS) {
+			dataArea.EBTStat |= S_RebuildBTree;
+		}
+		if (rebuildOptions & REBUILD_ATTRIBUTE) {
+			dataArea.ABTStat |= S_RebuildBTree;
+		}
 		dataArea.RepLevel = repairLevelCatalogBtreeRebuild;
 	}
 		
@@ -353,6 +505,13 @@ termScav:
 		draw_progress(100);
 		end_progress();
 	}
+	if (exitEarly && majorErrors)
+		err = MAJOREXIT;
+
+	if (msgCounts) {
+		free(msgCounts);
+	}
+
 	return( err );
 }
 
@@ -577,7 +736,15 @@ void ScavCtrl( SGlobPtr GPtr, UInt32 ScavOp, short *ScavRes )
 				/* skip the rest of the verify code path the first time */
 				/* through when we are rebuilding the catalog B-Tree file. */
 				/* we will be back here after the rebuild.  */
-				GPtr->CBTStat |= S_RebuildBTree;
+				if (GPtr->rebuildOptions & REBUILD_CATALOG) {
+					GPtr->CBTStat |= S_RebuildBTree;
+				}
+				if (GPtr->rebuildOptions & REBUILD_EXTENTS) {
+					GPtr->EBTStat |= S_RebuildBTree;
+				}
+				if (GPtr->rebuildOptions & REBUILD_ATTRIBUTE) {
+					GPtr->ABTStat |= S_RebuildBTree;
+				}
 				result = errRebuildBtree;
 				break;
 			}
@@ -744,8 +911,12 @@ void ScavCtrl( SGlobPtr GPtr, UInt32 ScavOp, short *ScavRes )
 				break;
 			if ( ( result = CheckForStop(GPtr) ) )
 				break;
-			if ( GPtr->CBTStat & S_RebuildBTree ) {
-				fsckPrint(GPtr->context, hfsRebuildCatalogBTree);
+			if ( GPtr->CBTStat & S_RebuildBTree
+				|| GPtr->EBTStat & S_RebuildBTree
+				|| GPtr->ABTStat & S_RebuildBTree) {
+//				fsckPrint(GPtr->context, hfsRebuildCatalogBTree);
+//				fsckPrint(GPtr->context, hfsRebuildAttrBTree);
+// actually print nothing yet -- we print out when we are rebuilding the trees
 			} else {
 				fsckPrint(GPtr->context, fsckRepairingVolume);
 			}

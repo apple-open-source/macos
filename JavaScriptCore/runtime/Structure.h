@@ -67,7 +67,8 @@ namespace JSC {
         static PassRefPtr<Structure> changePrototypeTransition(Structure*, JSValue prototype);
         static PassRefPtr<Structure> despecifyFunctionTransition(Structure*, const Identifier&);        
         static PassRefPtr<Structure> getterSetterTransition(Structure*);
-        static PassRefPtr<Structure> toDictionaryTransition(Structure*);
+        static PassRefPtr<Structure> toCacheableDictionaryTransition(Structure*);
+        static PassRefPtr<Structure> toUncacheableDictionaryTransition(Structure*);
         static PassRefPtr<Structure> fromDictionaryTransition(Structure*);
 
         ~Structure();
@@ -82,8 +83,9 @@ namespace JSC {
         size_t addPropertyWithoutTransition(const Identifier& propertyName, unsigned attributes, JSCell* specificValue);
         size_t removePropertyWithoutTransition(const Identifier& propertyName);
         void setPrototypeWithoutTransition(JSValue prototype) { m_prototype = prototype; }
-
-        bool isDictionary() const { return m_isDictionary; }
+        
+        bool isDictionary() const { return m_dictionaryKind != NoneDictionaryKind; }
+        bool isUncacheableDictionary() const { return m_dictionaryKind == UncachedDictionaryKind; }
 
         const TypeInfo& typeInfo() const { return m_typeInfo; }
 
@@ -103,7 +105,16 @@ namespace JSC {
         size_t get(const Identifier& propertyName, unsigned& attributes, JSCell*& specificValue)
         {
             ASSERT(!propertyName.isNull());
-            return get(propertyName._ustring.rep(), attributes, specificValue);
+            return get(propertyName.ustring().rep(), attributes, specificValue);
+        }
+        bool transitionedFor(const JSCell* specificValue)
+        {
+            return m_specificValueInPrevious == specificValue;
+        }
+        bool hasTransition(UString::Rep*, unsigned attributes);
+        bool hasTransition(const Identifier& propertyName, unsigned attributes)
+        {
+            return hasTransition(propertyName._ustring.rep(), attributes);
         }
 
         void getEnumerablePropertyNames(ExecState*, PropertyNameArray&, JSObject*);
@@ -118,6 +129,13 @@ namespace JSC {
 
     private:
         Structure(JSValue prototype, const TypeInfo&);
+        
+        typedef enum { 
+            NoneDictionaryKind = 0,
+            CachedDictionaryKind = 1,
+            UncachedDictionaryKind = 2
+        } DictionaryKind;
+        static PassRefPtr<Structure> toDictionaryTransition(Structure*, DictionaryKind);
 
         size_t put(const Identifier& propertyName, unsigned attributes, JSCell* specificValue);
         size_t remove(const Identifier& propertyName);
@@ -166,12 +184,12 @@ namespace JSC {
 
         RefPtr<Structure> m_previous;
         RefPtr<UString::Rep> m_nameInPrevious;
+        JSCell* m_specificValueInPrevious;
 
         union {
             Structure* singleTransition;
             StructureTransitionTable* table;
         } m_transitions;
-        JSCell* m_specificValueInPrevious;
 
         RefPtr<PropertyNameArrayData> m_cachedPropertyNameArrayData;
 
@@ -180,7 +198,7 @@ namespace JSC {
         size_t m_propertyStorageCapacity;
         signed char m_offset;
 
-        bool m_isDictionary : 1;
+        unsigned m_dictionaryKind : 2;
         bool m_isPinnedPropertyTable : 1;
         bool m_hasGetterSetterProperties : 1;
         bool m_usingSingleTransitionSlot : 1;
@@ -231,7 +249,23 @@ namespace JSC {
                 return m_propertyTable->entries()[entryIndex - 1].offset;
         }
     }
+    
+    bool StructureTransitionTable::contains(const StructureTransitionTableHash::Key& key, JSCell* specificValue)
+    {
+        TransitionTable::iterator find = m_table.find(key);
+        if (find == m_table.end())
+            return false;
 
+        return find->second.first || find->second.second->transitionedFor(specificValue);
+    }
+
+    Structure* StructureTransitionTable::get(const StructureTransitionTableHash::Key& key, JSCell* specificValue) const
+    {
+        Transition transition = m_table.get(key);
+        if (transition.second && transition.second->transitionedFor(specificValue))
+            return transition.second;
+        return transition.first;
+    }
 } // namespace JSC
 
 #endif // Structure_h

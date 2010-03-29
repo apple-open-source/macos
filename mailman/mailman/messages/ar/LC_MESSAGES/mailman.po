@@ -7,7 +7,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: mailman_ar\n"
-"POT-Creation-Date: Sun Jan 11 08:28:57 2009\n"
+"POT-Creation-Date: Mon Dec 14 09:44:54 2009\n"
 "PO-Revision-Date: 2006-03-19 17:06+0300\n"
 "Last-Translator: Munzir Taha <munzirtaha@newhorizons.com.sa>\n"
 "Language-Team: Arabic\n"
@@ -26,169 +26,169 @@ msgid " %(size)i bytes "
 msgstr " %(size)i بايتات "
 
 #: Mailman/Archiver/HyperArch.py:289 Mailman/Archiver/HyperArch.py:292
-#: Mailman/Archiver/HyperArch.py:420 Mailman/Archiver/HyperArch.py:474
-#: Mailman/Archiver/HyperArch.py:583 Mailman/Archiver/HyperArch.py:1057
-#: Mailman/Archiver/HyperArch.py:1186
+#: Mailman/Archiver/HyperArch.py:423 Mailman/Archiver/HyperArch.py:477
+#: Mailman/Archiver/HyperArch.py:586 Mailman/Archiver/HyperArch.py:1060
+#: Mailman/Archiver/HyperArch.py:1189
 msgid " at "
 msgstr " عند "
 
-#: Mailman/Archiver/HyperArch.py:503
+#: Mailman/Archiver/HyperArch.py:506
 msgid "Previous message:"
 msgstr "الرسالة السابقة: "
 
-#: Mailman/Archiver/HyperArch.py:525
+#: Mailman/Archiver/HyperArch.py:528
 msgid "Next message:"
 msgstr "الرسالة التالية:"
 
-#: Mailman/Archiver/HyperArch.py:698 Mailman/Archiver/HyperArch.py:734
+#: Mailman/Archiver/HyperArch.py:701 Mailman/Archiver/HyperArch.py:737
 msgid "thread"
 msgstr "النقاش"
 
-#: Mailman/Archiver/HyperArch.py:699 Mailman/Archiver/HyperArch.py:735
+#: Mailman/Archiver/HyperArch.py:702 Mailman/Archiver/HyperArch.py:738
 msgid "subject"
 msgstr "الموضوع"
 
-#: Mailman/Archiver/HyperArch.py:700 Mailman/Archiver/HyperArch.py:736
+#: Mailman/Archiver/HyperArch.py:703 Mailman/Archiver/HyperArch.py:739
 msgid "author"
 msgstr "الكاتب"
 
-#: Mailman/Archiver/HyperArch.py:701 Mailman/Archiver/HyperArch.py:737
+#: Mailman/Archiver/HyperArch.py:704 Mailman/Archiver/HyperArch.py:740
 msgid "date"
 msgstr "التاريخ"
 
-#: Mailman/Archiver/HyperArch.py:773
+#: Mailman/Archiver/HyperArch.py:776
 msgid "<P>Currently, there are no archives. </P>"
 msgstr "<P>حالياً، لا يوجد أي أرشيفات. </P>"
 
-#: Mailman/Archiver/HyperArch.py:811
+#: Mailman/Archiver/HyperArch.py:814
 msgid "Gzip'd Text%(sz)s"
 msgstr "نص مضغوط%(sz)s"
 
-#: Mailman/Archiver/HyperArch.py:816
+#: Mailman/Archiver/HyperArch.py:819
 msgid "Text%(sz)s"
 msgstr "نص%(sz)s"
 
-#: Mailman/Archiver/HyperArch.py:906
+#: Mailman/Archiver/HyperArch.py:909
 msgid "figuring article archives\n"
 msgstr "تحديد أرشيف المقالات\n"
 
-#: Mailman/Archiver/HyperArch.py:916
+#: Mailman/Archiver/HyperArch.py:919
 msgid "April"
 msgstr "أبريل"
 
-#: Mailman/Archiver/HyperArch.py:916
+#: Mailman/Archiver/HyperArch.py:919
 msgid "February"
 msgstr "فبراير"
 
-#: Mailman/Archiver/HyperArch.py:916
+#: Mailman/Archiver/HyperArch.py:919
 msgid "January"
 msgstr "يناير"
 
-#: Mailman/Archiver/HyperArch.py:916
+#: Mailman/Archiver/HyperArch.py:919
 msgid "March"
 msgstr "مارس"
 
-#: Mailman/Archiver/HyperArch.py:917
+#: Mailman/Archiver/HyperArch.py:920
 msgid "August"
 msgstr "أغسطس"
 
-#: Mailman/Archiver/HyperArch.py:917
+#: Mailman/Archiver/HyperArch.py:920
 msgid "July"
 msgstr "يوليو"
 
-#: Mailman/Archiver/HyperArch.py:917
+#: Mailman/Archiver/HyperArch.py:920
 msgid "June"
 msgstr "يونيو"
 
-#: Mailman/Archiver/HyperArch.py:917 Mailman/i18n.py:103
+#: Mailman/Archiver/HyperArch.py:920 Mailman/i18n.py:103
 msgid "May"
 msgstr "مايو"
 
-#: Mailman/Archiver/HyperArch.py:918
+#: Mailman/Archiver/HyperArch.py:921
 msgid "December"
 msgstr "ديسمبر"
 
-#: Mailman/Archiver/HyperArch.py:918
+#: Mailman/Archiver/HyperArch.py:921
 msgid "November"
 msgstr "نوفمبر"
 
-#: Mailman/Archiver/HyperArch.py:918
+#: Mailman/Archiver/HyperArch.py:921
 msgid "October"
 msgstr "أكتوبر"
 
-#: Mailman/Archiver/HyperArch.py:918
+#: Mailman/Archiver/HyperArch.py:921
 msgid "September"
 msgstr "سبتمبر"
 
-#: Mailman/Archiver/HyperArch.py:926
+#: Mailman/Archiver/HyperArch.py:929
 msgid "First"
 msgstr "أول"
 
-#: Mailman/Archiver/HyperArch.py:926
+#: Mailman/Archiver/HyperArch.py:929
 msgid "Fourth"
 msgstr "رابع"
 
-#: Mailman/Archiver/HyperArch.py:926
+#: Mailman/Archiver/HyperArch.py:929
 msgid "Second"
 msgstr "ثاني"
 
-#: Mailman/Archiver/HyperArch.py:926
+#: Mailman/Archiver/HyperArch.py:929
 msgid "Third"
 msgstr "ثالت"
 
-#: Mailman/Archiver/HyperArch.py:928
+#: Mailman/Archiver/HyperArch.py:931
 msgid "%(ord)s quarter %(year)i"
 msgstr "%(ord)s ربع %(year)i"
 
-#: Mailman/Archiver/HyperArch.py:935
+#: Mailman/Archiver/HyperArch.py:938
 msgid "%(month)s %(year)i"
 msgstr "%(month)s %(year)i"
 
-#: Mailman/Archiver/HyperArch.py:940
+#: Mailman/Archiver/HyperArch.py:943
 msgid "The Week Of Monday %(day)i %(month)s %(year)i"
 msgstr "أسبوع الإثنين %(day)i %(month)s %(year)i"
 
-#: Mailman/Archiver/HyperArch.py:944
+#: Mailman/Archiver/HyperArch.py:947
 msgid "%(day)i %(month)s %(year)i"
 msgstr "%(day)i %(month)s %(year)i"
 
-#: Mailman/Archiver/HyperArch.py:1044
+#: Mailman/Archiver/HyperArch.py:1047
 msgid "Computing threaded index\n"
 msgstr "يتم حساب فهرس النقاشات\n"
 
-#: Mailman/Archiver/HyperArch.py:1309
+#: Mailman/Archiver/HyperArch.py:1312
 msgid "Updating HTML for article %(seq)s"
 msgstr "تحديث نص HTML للمقالة %(seq)s"
 
-#: Mailman/Archiver/HyperArch.py:1316
+#: Mailman/Archiver/HyperArch.py:1319
 msgid "article file %(filename)s is missing!"
 msgstr "ملف المقالة %(filename)s مفقود!"
 
-#: Mailman/Archiver/pipermail.py:179 Mailman/Archiver/pipermail.py:180
+#: Mailman/Archiver/pipermail.py:180 Mailman/Archiver/pipermail.py:181
 msgid "No subject"
 msgstr "بدون موضوع"
 
-#: Mailman/Archiver/pipermail.py:287
+#: Mailman/Archiver/pipermail.py:288
 msgid "Creating archive directory "
 msgstr "إنشاء مجلد الأرشيف"
 
-#: Mailman/Archiver/pipermail.py:299
+#: Mailman/Archiver/pipermail.py:300
 msgid "Reloading pickled archive state"
 msgstr "إعادة تحميل حالة الأرشيف القديم"
 
-#: Mailman/Archiver/pipermail.py:326
+#: Mailman/Archiver/pipermail.py:327
 msgid "Pickling archive state into "
 msgstr "كبس حالة الأرشيف في "
 
-#: Mailman/Archiver/pipermail.py:437
+#: Mailman/Archiver/pipermail.py:439
 msgid "Updating index files for archive [%(archive)s]"
 msgstr "تحديث ملفات الفهارس للأرشيف [%(archive)s]"
 
-#: Mailman/Archiver/pipermail.py:470
+#: Mailman/Archiver/pipermail.py:472
 msgid "  Thread"
 msgstr "  نقاش"
 
-#: Mailman/Archiver/pipermail.py:577
+#: Mailman/Archiver/pipermail.py:579
 msgid "#%(counter)05d %(msgid)s"
 msgstr "#%(counter)05d %(msgid)s"
 
@@ -204,31 +204,31 @@ msgstr "من قبلك"
 msgid "by the list administrator"
 msgstr "من قبل مشرف القائمة"
 
-#: Mailman/Bouncer.py:47 Mailman/Bouncer.py:255
+#: Mailman/Bouncer.py:47 Mailman/Bouncer.py:257
 #: Mailman/Commands/cmd_set.py:182
 msgid "for unknown reasons"
 msgstr "لأسباب مجهولة"
 
-#: Mailman/Bouncer.py:202
+#: Mailman/Bouncer.py:204
 msgid "disabled"
 msgstr "معطل"
 
-#: Mailman/Bouncer.py:207
+#: Mailman/Bouncer.py:209
 msgid "Bounce action notification"
 msgstr "تنبيه رد الرفض"
 
-#: Mailman/Bouncer.py:262
+#: Mailman/Bouncer.py:264
 msgid " The last bounce received from you was dated %(date)s"
 msgstr "استقبل رد الرفض الأخير من قبلك بتاريخ %(date)s"
 
-#: Mailman/Bouncer.py:290 Mailman/Deliverer.py:143
+#: Mailman/Bouncer.py:292 Mailman/Deliverer.py:143
 #: Mailman/Handlers/Acknowledge.py:44 Mailman/Handlers/CookHeaders.py:286
 #: Mailman/Handlers/Hold.py:215 Mailman/Handlers/ToDigest.py:235
 #: Mailman/ListAdmin.py:223
 msgid "(no subject)"
 msgstr "(بدون عنوان)"
 
-#: Mailman/Bouncer.py:294
+#: Mailman/Bouncer.py:296
 msgid "[No bounce details are available]"
 msgstr "]لا يوجد تفاصيل لرد الرفض["
 
@@ -240,15 +240,15 @@ msgstr "منظم"
 msgid "Administrator"
 msgstr "مشرف"
 
-#: Mailman/Cgi/admin.py:74 Mailman/Cgi/admindb.py:90 Mailman/Cgi/confirm.py:62
-#: Mailman/Cgi/edithtml.py:70 Mailman/Cgi/listinfo.py:51
+#: Mailman/Cgi/admin.py:74 Mailman/Cgi/admindb.py:91 Mailman/Cgi/confirm.py:62
+#: Mailman/Cgi/edithtml.py:70 Mailman/Cgi/listinfo.py:52
 #: Mailman/Cgi/options.py:78 Mailman/Cgi/private.py:108
 #: Mailman/Cgi/rmlist.py:64 Mailman/Cgi/roster.py:57
-#: Mailman/Cgi/subscribe.py:61
+#: Mailman/Cgi/subscribe.py:62
 msgid "No such list <em>%(safelistname)s</em>"
 msgstr "لا يوجد قائمة بالإسم <em>%(safelistname)s</em>"
 
-#: Mailman/Cgi/admin.py:89 Mailman/Cgi/admindb.py:106
+#: Mailman/Cgi/admin.py:89 Mailman/Cgi/admindb.py:107
 #: Mailman/Cgi/edithtml.py:88 Mailman/Cgi/private.py:133
 msgid "Authorization failed."
 msgstr "فشل التحقق من الشخصية."
@@ -293,11 +293,11 @@ msgstr ""
 msgid "%(hostname)s mailing lists - Admin Links"
 msgstr "%(hostname)s قوائم بريدية - ارتباطات إشرافية"
 
-#: Mailman/Cgi/admin.py:246 Mailman/Cgi/listinfo.py:100
+#: Mailman/Cgi/admin.py:246 Mailman/Cgi/listinfo.py:101
 msgid "Welcome!"
 msgstr "أهلاً وسهلاً!"
 
-#: Mailman/Cgi/admin.py:249 Mailman/Cgi/listinfo.py:103
+#: Mailman/Cgi/admin.py:249 Mailman/Cgi/listinfo.py:104
 msgid "Mailman"
 msgstr "ميلمان"
 
@@ -347,16 +347,16 @@ msgstr "صفحة ملخص القائمة البريدية"
 msgid "<p>(Send questions and comments to "
 msgstr "<p>(أرسل الاستفسارات والملاحظات إلى "
 
-#: Mailman/Cgi/admin.py:287 Mailman/Cgi/listinfo.py:135 cron/mailpasswds:216
+#: Mailman/Cgi/admin.py:287 Mailman/Cgi/listinfo.py:136 cron/mailpasswds:216
 msgid "List"
 msgstr "القائمة"
 
 #: Mailman/Cgi/admin.py:288 Mailman/Cgi/admin.py:555
-#: Mailman/Cgi/listinfo.py:136
+#: Mailman/Cgi/listinfo.py:137
 msgid "Description"
 msgstr "الشرح"
 
-#: Mailman/Cgi/admin.py:294 Mailman/Cgi/listinfo.py:142 bin/list_lists:116
+#: Mailman/Cgi/admin.py:294 Mailman/Cgi/listinfo.py:143 bin/list_lists:116
 msgid "[no description available]"
 msgstr "]لا يوجد شرح["
 
@@ -529,15 +529,15 @@ msgstr "قاعدة تصفية السبام %(i)d"
 msgid "Spam Filter Regexp:"
 msgstr "صيغة نظامية لتصفية السبام:"
 
-#: Mailman/Cgi/admin.py:762 Mailman/Cgi/admindb.py:303
-#: Mailman/Cgi/admindb.py:362 Mailman/Cgi/admindb.py:407
-#: Mailman/Cgi/admindb.py:637
+#: Mailman/Cgi/admin.py:762 Mailman/Cgi/admindb.py:304
+#: Mailman/Cgi/admindb.py:363 Mailman/Cgi/admindb.py:408
+#: Mailman/Cgi/admindb.py:638
 msgid "Defer"
 msgstr "تأجيل"
 
-#: Mailman/Cgi/admin.py:762 Mailman/Cgi/admindb.py:305
-#: Mailman/Cgi/admindb.py:364 Mailman/Cgi/admindb.py:407
-#: Mailman/Cgi/admindb.py:637 Mailman/Gui/ContentFilter.py:37
+#: Mailman/Cgi/admin.py:762 Mailman/Cgi/admindb.py:306
+#: Mailman/Cgi/admindb.py:365 Mailman/Cgi/admindb.py:408
+#: Mailman/Cgi/admindb.py:638 Mailman/Gui/ContentFilter.py:37
 #: Mailman/Gui/Privacy.py:216 Mailman/Gui/Privacy.py:297
 msgid "Reject"
 msgstr "رفض"
@@ -547,19 +547,19 @@ msgstr "رفض"
 msgid "Hold"
 msgstr "تعليق"
 
-#: Mailman/Cgi/admin.py:763 Mailman/Cgi/admindb.py:306
-#: Mailman/Cgi/admindb.py:365 Mailman/Cgi/admindb.py:407
-#: Mailman/Cgi/admindb.py:637 Mailman/Gui/ContentFilter.py:37
+#: Mailman/Cgi/admin.py:763 Mailman/Cgi/admindb.py:307
+#: Mailman/Cgi/admindb.py:366 Mailman/Cgi/admindb.py:408
+#: Mailman/Cgi/admindb.py:638 Mailman/Gui/ContentFilter.py:37
 #: Mailman/Gui/Privacy.py:216 Mailman/Gui/Privacy.py:297
 msgid "Discard"
 msgstr "إلغاء"
 
-#: Mailman/Cgi/admin.py:763 Mailman/Cgi/admindb.py:407
+#: Mailman/Cgi/admin.py:763 Mailman/Cgi/admindb.py:408
 #: Mailman/Gui/Privacy.py:297
 msgid "Accept"
 msgstr "قبول"
 
-#: Mailman/Cgi/admin.py:766 Mailman/Cgi/admindb.py:643
+#: Mailman/Cgi/admin.py:766 Mailman/Cgi/admindb.py:644
 msgid "Action:"
 msgstr "الإجراء:"
 
@@ -795,7 +795,7 @@ msgstr "هل يتم تسجيل هؤلاء المستخدمين الآن أو ي�
 msgid "Invite"
 msgstr "دعوة"
 
-#: Mailman/Cgi/admin.py:1138 Mailman/Cgi/listinfo.py:178
+#: Mailman/Cgi/admin.py:1138 Mailman/Cgi/listinfo.py:179
 msgid "Subscribe"
 msgstr "تسجيل"
 
@@ -1013,235 +1013,235 @@ msgstr "تمت إزالته بنجاح"
 msgid "Error Unsubscribing:"
 msgstr "خطأ في إلغاء الاشتراك"
 
-#: Mailman/Cgi/admindb.py:160 Mailman/Cgi/admindb.py:168
+#: Mailman/Cgi/admindb.py:161 Mailman/Cgi/admindb.py:169
 msgid "%(realname)s Administrative Database"
 msgstr "قاعدة بيانات الإشراف للمشرف %(realname)s"
 
-#: Mailman/Cgi/admindb.py:163
+#: Mailman/Cgi/admindb.py:164
 msgid "%(realname)s Administrative Database Results"
 msgstr "نتائج قاعدة بيانات الإشراف للمشرف %(realname)s"
 
-#: Mailman/Cgi/admindb.py:171
+#: Mailman/Cgi/admindb.py:172
 msgid "There are no pending requests."
 msgstr "لا يوجد طلبات معلقة"
 
-#: Mailman/Cgi/admindb.py:174
+#: Mailman/Cgi/admindb.py:175
 msgid "Click here to reload this page."
 msgstr "انقر هنا لإعادة تحميل هذه الصفحة."
 
-#: Mailman/Cgi/admindb.py:185
+#: Mailman/Cgi/admindb.py:186
 msgid "Detailed instructions for the administrative database"
 msgstr "تعليمات مفصلة لقاعدة بيانات الإشراف"
 
-#: Mailman/Cgi/admindb.py:189
+#: Mailman/Cgi/admindb.py:190
 msgid "Administrative requests for mailing list:"
 msgstr "الطلبات الإشرافية للقائمة البريدية:"
 
-#: Mailman/Cgi/admindb.py:192 Mailman/Cgi/admindb.py:248
+#: Mailman/Cgi/admindb.py:193 Mailman/Cgi/admindb.py:249
 msgid "Submit All Data"
 msgstr "أرسل جميع البيانات"
 
-#: Mailman/Cgi/admindb.py:198 Mailman/Cgi/admindb.py:246
+#: Mailman/Cgi/admindb.py:199 Mailman/Cgi/admindb.py:247
 msgid "Discard all messages marked <em>Defer</em>"
 msgstr "قم بإلغاء جميع الرسائل المحدد لها <em>تأجيل</em>"
 
-#: Mailman/Cgi/admindb.py:212
+#: Mailman/Cgi/admindb.py:213
 msgid "all of %(esender)s's held messages."
 msgstr "جميع الرسائل المتوقفة لـ %(esender)s"
 
-#: Mailman/Cgi/admindb.py:217
+#: Mailman/Cgi/admindb.py:218
 msgid "a single held message."
 msgstr "رسالة متوقفة واحدة."
 
-#: Mailman/Cgi/admindb.py:222
+#: Mailman/Cgi/admindb.py:223
 msgid "all held messages."
 msgstr "جميع الرسائل المتوقفة."
 
-#: Mailman/Cgi/admindb.py:263
+#: Mailman/Cgi/admindb.py:264
 msgid "Mailman Administrative Database Error"
 msgstr "خطأ في قاعدة بيانات إشراف ميلمان"
 
-#: Mailman/Cgi/admindb.py:268
+#: Mailman/Cgi/admindb.py:269
 msgid "list of available mailing lists."
 msgstr "قائمة بالقوئم البريدية الموجودة."
 
-#: Mailman/Cgi/admindb.py:269
+#: Mailman/Cgi/admindb.py:270
 msgid "You must specify a list name.  Here is the %(link)s"
 msgstr "يجب أن تحدد اسم القائمة. هنا هو الارتباط %(link)s"
 
-#: Mailman/Cgi/admindb.py:282
+#: Mailman/Cgi/admindb.py:283
 msgid "Subscription Requests"
 msgstr "طلبات التسجيل"
 
-#: Mailman/Cgi/admindb.py:284
+#: Mailman/Cgi/admindb.py:285
 msgid "Address/name"
 msgstr "العنوان/الاسم"
 
-#: Mailman/Cgi/admindb.py:285 Mailman/Cgi/admindb.py:336
+#: Mailman/Cgi/admindb.py:286 Mailman/Cgi/admindb.py:337
 msgid "Your decision"
 msgstr "قرارك"
 
-#: Mailman/Cgi/admindb.py:286 Mailman/Cgi/admindb.py:337
+#: Mailman/Cgi/admindb.py:287 Mailman/Cgi/admindb.py:338
 msgid "Reason for refusal"
 msgstr "سبب الرفض"
 
-#: Mailman/Cgi/admindb.py:304 Mailman/Cgi/admindb.py:363
-#: Mailman/Cgi/admindb.py:637
+#: Mailman/Cgi/admindb.py:305 Mailman/Cgi/admindb.py:364
+#: Mailman/Cgi/admindb.py:638
 msgid "Approve"
 msgstr "قبول"
 
-#: Mailman/Cgi/admindb.py:314
+#: Mailman/Cgi/admindb.py:315
 msgid "Permanently ban from this list"
 msgstr "استبعاد دائم من هذه القائمة"
 
-#: Mailman/Cgi/admindb.py:335
+#: Mailman/Cgi/admindb.py:336
 msgid "User address/name"
 msgstr "عنوان/اسم المستخدم"
 
-#: Mailman/Cgi/admindb.py:375
+#: Mailman/Cgi/admindb.py:376
 msgid "Unsubscription Requests"
 msgstr "طلبات إلغاء التسجيل"
 
-#: Mailman/Cgi/admindb.py:387
+#: Mailman/Cgi/admindb.py:388
 #, fuzzy
 msgid "Held Messages"
 msgstr "جميع الرسائل المتوقفة."
 
-#: Mailman/Cgi/admindb.py:400 Mailman/Cgi/admindb.py:620
+#: Mailman/Cgi/admindb.py:401 Mailman/Cgi/admindb.py:621
 msgid "From:"
 msgstr "من:"
 
-#: Mailman/Cgi/admindb.py:403
+#: Mailman/Cgi/admindb.py:404
 msgid "Action to take on all these held messages:"
 msgstr "العمل المطلوب القيام به على جميع هذه الرسائل المتوقفة:"
 
-#: Mailman/Cgi/admindb.py:415
+#: Mailman/Cgi/admindb.py:416
 msgid "Preserve messages for the site administrator"
 msgstr "احتفظ بالرسائل لمدير القائمة"
 
-#: Mailman/Cgi/admindb.py:421
+#: Mailman/Cgi/admindb.py:422
 msgid "Forward messages (individually) to:"
 msgstr "أعد إرسال الرسائل (مفردة) إلى:"
 
-#: Mailman/Cgi/admindb.py:439
+#: Mailman/Cgi/admindb.py:440
 msgid "Clear this member's <em>moderate</em> flag"
 msgstr "أزل ميزة <em>تنظيم</em>  عن هذا العضو"
 
-#: Mailman/Cgi/admindb.py:443
+#: Mailman/Cgi/admindb.py:444
 msgid "<em>The sender is now a member of this list</em>"
 msgstr "<em>المرسل الآن عضو في هذه القائمة</em>"
 
-#: Mailman/Cgi/admindb.py:452
+#: Mailman/Cgi/admindb.py:453
 msgid "Add <b>%(esender)s</b> to one of these sender filters:"
 msgstr "أضف <b>%(esender)s</b> إلى أحد مصفيات المرسل:"
 
-#: Mailman/Cgi/admindb.py:457
+#: Mailman/Cgi/admindb.py:458
 msgid "Accepts"
 msgstr "متقبلين"
 
-#: Mailman/Cgi/admindb.py:457
+#: Mailman/Cgi/admindb.py:458
 msgid "Discards"
 msgstr "مزيلين"
 
-#: Mailman/Cgi/admindb.py:457
+#: Mailman/Cgi/admindb.py:458
 msgid "Holds"
 msgstr "موقفين"
 
-#: Mailman/Cgi/admindb.py:457
+#: Mailman/Cgi/admindb.py:458
 msgid "Rejects"
 msgstr "رافضين"
 
-#: Mailman/Cgi/admindb.py:466
+#: Mailman/Cgi/admindb.py:467
 msgid ""
 "Ban <b>%(esender)s</b> from ever subscribing to this\n"
 "                    mailing list"
 msgstr "أبعد <b>%(esender)s</b> نهائياً عن الاشتراك لهذا القائمة البريدية"
 
-#: Mailman/Cgi/admindb.py:471
+#: Mailman/Cgi/admindb.py:472
 msgid ""
 "Click on the message number to view the individual\n"
 "            message, or you can "
 msgstr "انقر على رقم الرسالة لعرض الرسالة المفردة، أو يمكنك "
 
-#: Mailman/Cgi/admindb.py:473
+#: Mailman/Cgi/admindb.py:474
 msgid "view all messages from %(esender)s"
 msgstr "عرض جميع الرسائل المرسلة من قبل %(esender)s"
 
-#: Mailman/Cgi/admindb.py:495 Mailman/Cgi/admindb.py:623
+#: Mailman/Cgi/admindb.py:496 Mailman/Cgi/admindb.py:624
 msgid "Subject:"
 msgstr "العنوان:"
 
-#: Mailman/Cgi/admindb.py:498
+#: Mailman/Cgi/admindb.py:499
 msgid " bytes"
 msgstr " بايت"
 
-#: Mailman/Cgi/admindb.py:498
+#: Mailman/Cgi/admindb.py:499
 msgid "Size:"
 msgstr "الحجم:"
 
-#: Mailman/Cgi/admindb.py:502 Mailman/Handlers/Scrubber.py:221
-#: Mailman/Handlers/Scrubber.py:318 Mailman/Handlers/Scrubber.py:320
+#: Mailman/Cgi/admindb.py:503 Mailman/Handlers/Scrubber.py:203
+#: Mailman/Handlers/Scrubber.py:301 Mailman/Handlers/Scrubber.py:303
 msgid "not available"
 msgstr "غير متوفرة"
 
-#: Mailman/Cgi/admindb.py:503 Mailman/Cgi/admindb.py:626
+#: Mailman/Cgi/admindb.py:504 Mailman/Cgi/admindb.py:627
 msgid "Reason:"
 msgstr "السبب:"
 
-#: Mailman/Cgi/admindb.py:507 Mailman/Cgi/admindb.py:630
+#: Mailman/Cgi/admindb.py:508 Mailman/Cgi/admindb.py:631
 msgid "Received:"
 msgstr "استلمت:"
 
-#: Mailman/Cgi/admindb.py:561
+#: Mailman/Cgi/admindb.py:562
 msgid "Posting Held for Approval"
 msgstr "الإرسال المتوقف من أجل الموافقة"
 
-#: Mailman/Cgi/admindb.py:563
+#: Mailman/Cgi/admindb.py:564
 msgid " (%(count)d of %(total)d)"
 msgstr " (%(count)d من %(total)d)"
 
-#: Mailman/Cgi/admindb.py:574
+#: Mailman/Cgi/admindb.py:575
 msgid "<em>Message with id #%(id)d was lost."
 msgstr "<em>الرسالة ذات المعرف #%(id)d فقدت."
 
-#: Mailman/Cgi/admindb.py:583
+#: Mailman/Cgi/admindb.py:584
 msgid "<em>Message with id #%(id)d is corrupted."
 msgstr "<em>الرسالة ذات المعرف #%(id)d مخربة."
 
-#: Mailman/Cgi/admindb.py:647
+#: Mailman/Cgi/admindb.py:648
 msgid "Preserve message for site administrator"
 msgstr "احفظ الرسالة لمشرف الموقع"
 
-#: Mailman/Cgi/admindb.py:651
+#: Mailman/Cgi/admindb.py:652
 msgid "Additionally, forward this message to: "
 msgstr "قم بإعادة إرسال الرسالة أيضاً إلى: "
 
-#: Mailman/Cgi/admindb.py:655 Mailman/Cgi/admindb.py:713
-#: Mailman/Cgi/admindb.py:773
+#: Mailman/Cgi/admindb.py:656 Mailman/Cgi/admindb.py:714
+#: Mailman/Cgi/admindb.py:776 Mailman/Cgi/admindb.py:778
 msgid "[No explanation given]"
 msgstr "]لا يوجد شرح["
 
-#: Mailman/Cgi/admindb.py:657
+#: Mailman/Cgi/admindb.py:658
 msgid "If you reject this post,<br>please explain (optional):"
 msgstr "إذا قمت برفض الإرسال، <br>الرجاء شرح السبب (اختياري):"
 
-#: Mailman/Cgi/admindb.py:663
+#: Mailman/Cgi/admindb.py:664
 msgid "Message Headers:"
 msgstr "ترويسات الرسالة:"
 
-#: Mailman/Cgi/admindb.py:668
+#: Mailman/Cgi/admindb.py:669
 msgid "Message Excerpt:"
 msgstr "ملخص الرسالة:"
 
-#: Mailman/Cgi/admindb.py:805
+#: Mailman/Cgi/admindb.py:810
 msgid "Database Updated..."
 msgstr "تم تحديث قاعدة البيانات..."
 
-#: Mailman/Cgi/admindb.py:808
+#: Mailman/Cgi/admindb.py:813
 msgid " is already a member"
 msgstr "عضو أصلاً"
 
-#: Mailman/Cgi/admindb.py:811
+#: Mailman/Cgi/admindb.py:816
 msgid "%(addr)s is banned (matched: %(patt)s)"
 msgstr ""
 
@@ -1423,7 +1423,7 @@ msgstr ""
 "منظم القائمة، وسيتم إعلامك بقرار المنظم."
 
 #: Mailman/Cgi/confirm.py:369 Mailman/Cgi/confirm.py:434
-#: Mailman/Cgi/confirm.py:523 Mailman/Cgi/confirm.py:758
+#: Mailman/Cgi/confirm.py:523 Mailman/Cgi/confirm.py:759
 msgid ""
 "Invalid confirmation string.  It is\n"
 "            possible that you are attempting to confirm a request for an\n"
@@ -1626,7 +1626,7 @@ msgstr ""
 msgid "Change address"
 msgstr "غير العنوان"
 
-#: Mailman/Cgi/confirm.py:609 Mailman/Cgi/confirm.py:723
+#: Mailman/Cgi/confirm.py:609 Mailman/Cgi/confirm.py:724
 msgid "Continue awaiting approval"
 msgstr "استمر في انتظار القبول"
 
@@ -1636,11 +1636,11 @@ msgid ""
 "    opportunity to approve or reject this message."
 msgstr "حسناً، المنظم سوف يظل له الخيار في قبول أو رفض هذه الرسالة."
 
-#: Mailman/Cgi/confirm.py:643
+#: Mailman/Cgi/confirm.py:644
 msgid "Sender discarded message via web."
 msgstr "المرسل أزال الرسالة من خلال الموقع."
 
-#: Mailman/Cgi/confirm.py:645
+#: Mailman/Cgi/confirm.py:646
 msgid ""
 "The held message with the Subject:\n"
 "            header <em>%(subject)s</em> could not be found.  The most "
@@ -1654,11 +1654,11 @@ msgstr ""
 "الترويسة <em>%(subject)s</em>.  والسبب الأغلب لهذا هو أن منظم القائمة قبل أو "
 "رفض في السابق الرسالة. لن تستطيع أن تلغيها في الوقت."
 
-#: Mailman/Cgi/confirm.py:653
+#: Mailman/Cgi/confirm.py:654
 msgid "Posted message canceled"
 msgstr "تم إلغاء الرسالة المرسلة"
 
-#: Mailman/Cgi/confirm.py:656
+#: Mailman/Cgi/confirm.py:657
 msgid ""
 "            You have successfully canceled the posting of your message with\n"
 "            the Subject: header <em>%(subject)s</em> to the mailing list\n"
@@ -1667,18 +1667,18 @@ msgstr ""
 "لقد ألغيت بنجاح إرسال رسالتك بالعنوان: ترويسة <em>%(subject)s</em> إلى "
 "القائمة البريدية %(listname)s."
 
-#: Mailman/Cgi/confirm.py:667
+#: Mailman/Cgi/confirm.py:668
 msgid "Cancel held message posting"
 msgstr "ألغ إرسال الرسائل المعلقة"
 
-#: Mailman/Cgi/confirm.py:692
+#: Mailman/Cgi/confirm.py:693
 msgid ""
 "The held message you were referred to has\n"
 "        already been handled by the list administrator."
 msgstr ""
 "الرسالة المعلقة التي تم تحويلك إليها تم التعامل معها أصلاً من قبل المشرف."
 
-#: Mailman/Cgi/confirm.py:706
+#: Mailman/Cgi/confirm.py:707
 msgid ""
 "Your confirmation is required in order to cancel the\n"
 "    posting of your message to the mailing list <em>%(listname)s</em>:\n"
@@ -1704,11 +1704,11 @@ msgstr ""
 "    <p>أو اضغط على الزر <em>استمر في انتظار الموافقة</em> للاستمرار في "
 "السماح لمنظم القائمة بقبول أو رفض الرسالة."
 
-#: Mailman/Cgi/confirm.py:722
+#: Mailman/Cgi/confirm.py:723
 msgid "Cancel posting"
 msgstr "ألغ الإرسال"
 
-#: Mailman/Cgi/confirm.py:734
+#: Mailman/Cgi/confirm.py:735
 msgid ""
 "You have canceled the re-enabling of your membership.  If\n"
 "    we continue to receive bounces from your address, it could be deleted "
@@ -1718,11 +1718,11 @@ msgstr ""
 "لقد ألغيت إعادة تفعيل عضويتك. إذا استمر استلامنا لردود رفض من عنوانك، فقد "
 "يزال عنوانك من هذه القائمة البريدية."
 
-#: Mailman/Cgi/confirm.py:764
+#: Mailman/Cgi/confirm.py:765
 msgid "Membership re-enabled."
 msgstr "تم إعادة تمكين العضوية."
 
-#: Mailman/Cgi/confirm.py:768
+#: Mailman/Cgi/confirm.py:769
 msgid ""
 "            You have successfully re-enabled your membership in the\n"
 "            %(listname)s mailing list.  You can now <a\n"
@@ -1734,11 +1734,11 @@ msgstr ""
 "            href=\"%(optionsurl)s\">الذهاب إلى صفحة خيارات عضويتك</a>.\n"
 "            "
 
-#: Mailman/Cgi/confirm.py:780
+#: Mailman/Cgi/confirm.py:781
 msgid "Re-enable mailing list membership"
 msgstr "أعد تفعيل العضوية في القائمة البريدية"
 
-#: Mailman/Cgi/confirm.py:797
+#: Mailman/Cgi/confirm.py:798
 msgid ""
 "We're sorry, but you have already been unsubscribed\n"
 "        from this mailing list.  To re-subscribe, please visit the\n"
@@ -1747,11 +1747,11 @@ msgstr ""
 "نحن آسفون ولكن تم أصلاً إلغاء اشتراكك من القائمة البريدية.  لإعادة الاشتراك "
 "يرجى الذهاب إلى <a href=\"%(listinfourl)s\">صفخة معلومات القائمة</a>."
 
-#: Mailman/Cgi/confirm.py:812
+#: Mailman/Cgi/confirm.py:813
 msgid "<em>not available</em>"
 msgstr "<em>غير موجودة</em>"
 
-#: Mailman/Cgi/confirm.py:816
+#: Mailman/Cgi/confirm.py:817
 msgid ""
 "Your membership in the %(realname)s mailing list is\n"
 "    currently disabled due to excessive bounces.  Your confirmation is\n"
@@ -1787,11 +1787,11 @@ msgstr ""
 "عضويتك.\n"
 "    "
 
-#: Mailman/Cgi/confirm.py:836
+#: Mailman/Cgi/confirm.py:837
 msgid "Re-enable membership"
 msgstr "أعد تفعيل العضوية"
 
-#: Mailman/Cgi/confirm.py:837
+#: Mailman/Cgi/confirm.py:838
 msgid "Cancel"
 msgstr "إلغاء"
 
@@ -1856,15 +1856,15 @@ msgstr "أنت ليس مسموحاً لك بإنشاء قوائم بريدية �
 msgid "Unknown virtual host: %(safehostname)s"
 msgstr "عنوان مستضيف تخيلي غير معروف: %(safehostname)s"
 
-#: Mailman/Cgi/create.py:199 bin/newlist:206
+#: Mailman/Cgi/create.py:199 bin/newlist:207
 msgid "Bad owner email address: %(s)s"
 msgstr "عنوان بريد مالك سيء: %(s)s"
 
-#: Mailman/Cgi/create.py:204 bin/newlist:170 bin/newlist:208
+#: Mailman/Cgi/create.py:204 bin/newlist:170 bin/newlist:209
 msgid "List already exists: %(listname)s"
 msgstr "القائمة موجودة أصلاً: %(listname)s"
 
-#: Mailman/Cgi/create.py:212 bin/newlist:204
+#: Mailman/Cgi/create.py:212 bin/newlist:205
 msgid "Illegal list name: %(s)s"
 msgstr "اسم قائمة غير نظامي: %(s)s"
 
@@ -1876,7 +1876,7 @@ msgstr ""
 "بعض الأخطاء الغير معلومة حصلت بينما يتم إنشاء القائمة، الرجال الاتصال بمشرف "
 "الموقع للمساعدة."
 
-#: Mailman/Cgi/create.py:254 bin/newlist:249
+#: Mailman/Cgi/create.py:254 bin/newlist:250
 msgid "Your new mailing list: %(listname)s"
 msgstr "قائمتك البريدية الجديدة: %(listname)s"
 
@@ -2106,11 +2106,11 @@ msgstr "لم يتم تعديل صيغة HTML "
 msgid "HTML successfully updated."
 msgstr "تم تحديث HTML بنجاح."
 
-#: Mailman/Cgi/listinfo.py:73
+#: Mailman/Cgi/listinfo.py:74
 msgid "%(hostname)s Mailing Lists"
 msgstr "%(hostname)s القوائم البريدية لخادم الاستضافة"
 
-#: Mailman/Cgi/listinfo.py:106
+#: Mailman/Cgi/listinfo.py:107
 msgid ""
 "<p>There currently are no publicly-advertised\n"
 "            %(mailmanlink)s mailing lists on %(hostname)s."
@@ -2118,7 +2118,7 @@ msgstr ""
 "<p>لا يوجد حالياً أي قائمة بريدية %(mailmanlink)s معلنة للعموم في الخادم %"
 "(hostname)s."
 
-#: Mailman/Cgi/listinfo.py:110
+#: Mailman/Cgi/listinfo.py:111
 msgid ""
 "<p>Below is a listing of all the public mailing lists on\n"
 "            %(hostname)s.  Click on a list name to get more information "
@@ -2131,11 +2131,11 @@ msgstr ""
 "انقر على اسم القائمة لتحصل على معلومات أكثر حولها، أو لتشترك أو لتلغي "
 "الاشتراك أو لتغير خيارات اشتراكك."
 
-#: Mailman/Cgi/listinfo.py:116
+#: Mailman/Cgi/listinfo.py:117
 msgid "right"
 msgstr "صحيح"
 
-#: Mailman/Cgi/listinfo.py:119
+#: Mailman/Cgi/listinfo.py:120
 msgid ""
 " To visit the general information page for an unadvertised list,\n"
 "        open a URL similar to this one, but with a '/' and the %(adj)s\n"
@@ -2147,11 +2147,11 @@ msgstr ""
 "مضافة في الأخير.\n"
 "        <p>وأيها مشرفوا القائمة، يمكنكم الذهاب إلى:"
 
-#: Mailman/Cgi/listinfo.py:124
+#: Mailman/Cgi/listinfo.py:125
 msgid "the list admin overview page"
 msgstr "صفحة الملخص العام لمشرف القائمة"
 
-#: Mailman/Cgi/listinfo.py:125
+#: Mailman/Cgi/listinfo.py:126
 msgid ""
 " to find the management interface for your list.\n"
 "         <p>If you are having trouble using the lists, please contact "
@@ -2159,11 +2159,11 @@ msgstr ""
 "لتجدوا واجهة الإدارة الخاصة بقائمتكم. <p>إن كان لديكم أي مشكلة في استعمال "
 "القوائم، الرجاء الاتصال بـ "
 
-#: Mailman/Cgi/listinfo.py:190
+#: Mailman/Cgi/listinfo.py:191
 msgid "Edit Options"
 msgstr "خيارات التحرير"
 
-#: Mailman/Cgi/listinfo.py:197 Mailman/Cgi/options.py:865
+#: Mailman/Cgi/listinfo.py:198 Mailman/Cgi/options.py:865
 #: Mailman/Cgi/roster.py:114
 msgid "View this page in"
 msgstr "اعرض هذه الصفحة في"
@@ -2657,7 +2657,7 @@ msgstr "<b>ألغ</b> وعد إلى الإشراف على القائمة"
 msgid "Delete this list"
 msgstr "أزل هذه القائمة البريدية"
 
-#: Mailman/Cgi/roster.py:48 Mailman/Cgi/subscribe.py:50
+#: Mailman/Cgi/roster.py:48 Mailman/Cgi/subscribe.py:51
 msgid "Invalid options to CGI script"
 msgstr "خيارات غير صحيحة لبرنامج CGI"
 
@@ -2666,27 +2666,27 @@ msgid "%(realname)s roster authentication failed."
 msgstr "فشل التحقق من الشخصية للجدول %(realname)s."
 
 #: Mailman/Cgi/roster.py:130 Mailman/Cgi/roster.py:131
-#: Mailman/Cgi/subscribe.py:49 Mailman/Cgi/subscribe.py:60
+#: Mailman/Cgi/subscribe.py:50 Mailman/Cgi/subscribe.py:61
 msgid "Error"
 msgstr "خطأ"
 
-#: Mailman/Cgi/subscribe.py:111
+#: Mailman/Cgi/subscribe.py:112
 msgid "You must supply a valid email address."
 msgstr "يجب أن تدخل عنواناً إلكترونياً صحيحاً"
 
-#: Mailman/Cgi/subscribe.py:123
+#: Mailman/Cgi/subscribe.py:124
 msgid "You may not subscribe a list to itself!"
 msgstr "يجب أن لا تشرك قائمة في نفسها"
 
-#: Mailman/Cgi/subscribe.py:131
+#: Mailman/Cgi/subscribe.py:132
 msgid "If you supply a password, you must confirm it."
 msgstr "إذا أدخلت كلمة سر فعليك أن تؤكدها."
 
-#: Mailman/Cgi/subscribe.py:133
+#: Mailman/Cgi/subscribe.py:134
 msgid "Your passwords did not match."
 msgstr "كلمتي سرك غير متطابقتين."
 
-#: Mailman/Cgi/subscribe.py:167
+#: Mailman/Cgi/subscribe.py:168
 msgid ""
 "Your subscription request has been received, and will soon be acted upon.\n"
 "Depending on the configuration of this mailing list, your subscription "
@@ -2700,7 +2700,7 @@ msgstr ""
 "من المنظم. إن كان التأكيد مطلوباً، فسوف تتلقى قريباً رسالة تأكيد تحتوي على "
 "تعليمات أخرى."
 
-#: Mailman/Cgi/subscribe.py:181
+#: Mailman/Cgi/subscribe.py:182
 msgid ""
 "The email address you supplied is banned from this\n"
 "        mailing list.  If you think this restriction is erroneous, please\n"
@@ -2709,7 +2709,7 @@ msgstr ""
 "العنوان البريدي الذي أدخلته مبعد عن هذه القائمة. إن كنت تظن أن هذا التقييد "
 "خاطئ، الرجاء الاتصال بمالكي القائمة في %(listowner)s."
 
-#: Mailman/Cgi/subscribe.py:185
+#: Mailman/Cgi/subscribe.py:186
 msgid ""
 "The email address you supplied is not valid.  (E.g. it must contain an\n"
 "`@'.)"
@@ -2717,13 +2717,13 @@ msgstr ""
 "العنوان البريدي الذي أدخلته ليس صالحاً. (مثل أنه يجب عليه أن يحتوي على "
 "الحرف`@')."
 
-#: Mailman/Cgi/subscribe.py:189
+#: Mailman/Cgi/subscribe.py:190
 msgid ""
 "Your subscription is not allowed because the email address you gave is\n"
 "insecure."
 msgstr "اشتراكك غير مسموح بسبب أن العنوان البريدي المعطى غير مأمون."
 
-#: Mailman/Cgi/subscribe.py:197
+#: Mailman/Cgi/subscribe.py:198
 msgid ""
 "Confirmation from your email address is required, to prevent anyone from\n"
 "subscribing you without permission.  Instructions are being sent to you at\n"
@@ -2734,7 +2734,7 @@ msgstr ""
 "إرسال معلومات إليك على العنوان الإلكتروني %(email)s.  الرجاء ملاحظة أن "
 "اشتراكك لن يبدأ حتى تؤكد اشتراكك."
 
-#: Mailman/Cgi/subscribe.py:209
+#: Mailman/Cgi/subscribe.py:210
 msgid ""
 "Your subscription request was deferred because %(x)s.  Your request has "
 "been\n"
@@ -2745,15 +2745,15 @@ msgstr ""
 "تم تأجيل اشتراكك بسبب  %(x)s.  تم تحويل طلبك إلى منظم القائمة. سوف تستلم "
 "رسالة إلكترونية تعلمك بقرار المنظم عندما يصل إلى طلبك."
 
-#: Mailman/Cgi/subscribe.py:216 Mailman/Commands/cmd_confirm.py:61
+#: Mailman/Cgi/subscribe.py:217 Mailman/Commands/cmd_confirm.py:61
 msgid "You are already subscribed."
 msgstr "أنت مشترك أصلاً."
 
-#: Mailman/Cgi/subscribe.py:230
+#: Mailman/Cgi/subscribe.py:231
 msgid "Mailman privacy alert"
 msgstr "إنذار ميلمان حول الخصوصية"
 
-#: Mailman/Cgi/subscribe.py:231
+#: Mailman/Cgi/subscribe.py:232
 msgid ""
 "An attempt was made to subscribe your address to the mailing list\n"
 "%(listaddr)s.  You are already subscribed to this mailing list.\n"
@@ -2780,15 +2780,15 @@ msgstr ""
 "أجل اكتشاف فيما إذا كنت عضواً أما لا بشكل متستر وأنت قلق حول خصوصيتك، فيمكنك "
 "بكل راحة أن ترسل رسالة إلى مشرف القائمة في %(listowner)s.\n"
 
-#: Mailman/Cgi/subscribe.py:250
+#: Mailman/Cgi/subscribe.py:251
 msgid "This list does not support digest delivery."
 msgstr "هذه القائمة لا تدعم ميزة الارسال على دفعات."
 
-#: Mailman/Cgi/subscribe.py:252
+#: Mailman/Cgi/subscribe.py:253
 msgid "This list only supports digest delivery."
 msgstr "هذه القائمة تدعم فقط الإرسال على دفعات."
 
-#: Mailman/Cgi/subscribe.py:259
+#: Mailman/Cgi/subscribe.py:260
 msgid "You have been successfully subscribed to the %(realname)s mailing list."
 msgstr "لقد اشتركت بنجاح في القائمة البريدية %(realname)s."
 
@@ -3495,149 +3495,154 @@ msgstr "أعضاء لا-دفعات (عاديين):"
 msgid "Digest members:"
 msgstr "أعضاء دفعات:"
 
-#: Mailman/Defaults.py:1376
+#: Mailman/Defaults.py:1379
 msgid "Arabic"
 msgstr ""
 
-#: Mailman/Defaults.py:1377
+#: Mailman/Defaults.py:1380
+#, fuzzy
+msgid "Asturian"
+msgstr "إستونية"
+
+#: Mailman/Defaults.py:1381
 msgid "Catalan"
 msgstr "كتلان"
 
-#: Mailman/Defaults.py:1378
+#: Mailman/Defaults.py:1382
 msgid "Czech"
 msgstr "الشركسية"
 
-#: Mailman/Defaults.py:1379
+#: Mailman/Defaults.py:1383
 msgid "Danish"
 msgstr "الدنماركية"
 
-#: Mailman/Defaults.py:1380
+#: Mailman/Defaults.py:1384
 msgid "German"
 msgstr "الألمانية"
 
-#: Mailman/Defaults.py:1381
+#: Mailman/Defaults.py:1385
 msgid "English (USA)"
 msgstr "الإنجليزية (الولايات)"
 
-#: Mailman/Defaults.py:1382
+#: Mailman/Defaults.py:1386
 msgid "Spanish (Spain)"
 msgstr "الإسبانية (إسبانيا)"
 
-#: Mailman/Defaults.py:1383
+#: Mailman/Defaults.py:1387
 msgid "Estonian"
 msgstr "إستونية"
 
-#: Mailman/Defaults.py:1384
+#: Mailman/Defaults.py:1388
 msgid "Euskara"
 msgstr "إيوسكارتية"
 
-#: Mailman/Defaults.py:1385
+#: Mailman/Defaults.py:1389
 msgid "Finnish"
 msgstr "الفنلندية"
 
-#: Mailman/Defaults.py:1386
+#: Mailman/Defaults.py:1390
 msgid "French"
 msgstr "الفرنسية"
 
-#: Mailman/Defaults.py:1387
+#: Mailman/Defaults.py:1391
 #, fuzzy
 msgid "Galician"
 msgstr "الإيطالية"
 
-#: Mailman/Defaults.py:1388
+#: Mailman/Defaults.py:1392
 msgid "Hebrew"
 msgstr ""
 
-#: Mailman/Defaults.py:1389
+#: Mailman/Defaults.py:1393
 msgid "Croatian"
 msgstr "الكرواتية"
 
-#: Mailman/Defaults.py:1390
+#: Mailman/Defaults.py:1394
 msgid "Hungarian"
 msgstr "الهنغارية"
 
-#: Mailman/Defaults.py:1391
+#: Mailman/Defaults.py:1395
 msgid "Interlingua"
 msgstr ""
 
-#: Mailman/Defaults.py:1392
+#: Mailman/Defaults.py:1396
 msgid "Italian"
 msgstr "الإيطالية"
 
-#: Mailman/Defaults.py:1393
+#: Mailman/Defaults.py:1397
 msgid "Japanese"
 msgstr "اليابانية"
 
-#: Mailman/Defaults.py:1394
+#: Mailman/Defaults.py:1398
 msgid "Korean"
 msgstr "الكورية"
 
-#: Mailman/Defaults.py:1395
+#: Mailman/Defaults.py:1399
 msgid "Lithuanian"
 msgstr "الليثوانية"
 
-#: Mailman/Defaults.py:1396
+#: Mailman/Defaults.py:1400
 msgid "Dutch"
 msgstr "الهولندية"
 
-#: Mailman/Defaults.py:1397
+#: Mailman/Defaults.py:1401
 msgid "Norwegian"
 msgstr "النرويجية"
 
-#: Mailman/Defaults.py:1398
+#: Mailman/Defaults.py:1402
 msgid "Polish"
 msgstr "البولندية"
 
-#: Mailman/Defaults.py:1399
+#: Mailman/Defaults.py:1403
 msgid "Portuguese"
 msgstr "البرتغالية"
 
-#: Mailman/Defaults.py:1400
+#: Mailman/Defaults.py:1404
 msgid "Portuguese (Brazil)"
 msgstr "البرتغالية (البرازيل)"
 
-#: Mailman/Defaults.py:1401
+#: Mailman/Defaults.py:1405
 msgid "Romanian"
 msgstr "الرومانية"
 
-#: Mailman/Defaults.py:1402
+#: Mailman/Defaults.py:1406
 msgid "Russian"
 msgstr "الروسية"
 
-#: Mailman/Defaults.py:1403
+#: Mailman/Defaults.py:1407
 #, fuzzy
 msgid "Slovak"
 msgstr "السلوفاكية"
 
-#: Mailman/Defaults.py:1404
+#: Mailman/Defaults.py:1408
 msgid "Slovenian"
 msgstr "السلوفاكية"
 
-#: Mailman/Defaults.py:1405
+#: Mailman/Defaults.py:1409
 msgid "Serbian"
 msgstr "الصربية"
 
-#: Mailman/Defaults.py:1406
+#: Mailman/Defaults.py:1410
 msgid "Swedish"
 msgstr "السويدية"
 
-#: Mailman/Defaults.py:1407
+#: Mailman/Defaults.py:1411
 msgid "Turkish"
 msgstr "التركية"
 
-#: Mailman/Defaults.py:1408
+#: Mailman/Defaults.py:1412
 msgid "Ukrainian"
 msgstr "الأوكرانية"
 
-#: Mailman/Defaults.py:1409
+#: Mailman/Defaults.py:1413
 msgid "Vietnamese"
 msgstr ""
 
-#: Mailman/Defaults.py:1410
+#: Mailman/Defaults.py:1414
 msgid "Chinese (China)"
 msgstr "الصينية (الصين)"
 
-#: Mailman/Defaults.py:1411
+#: Mailman/Defaults.py:1415
 msgid "Chinese (Taiwan)"
 msgstr "الصينية (التايوانية)"
 
@@ -3701,11 +3706,11 @@ msgstr ""
 msgid "%(listname)s mailing list probe message"
 msgstr "رسالة جس النبض للقائمة البريدية %(listname)s"
 
-#: Mailman/Errors.py:113
+#: Mailman/Errors.py:122
 msgid "For some unknown reason"
 msgstr "لبعض الأسباب الغير معروفة"
 
-#: Mailman/Errors.py:119 Mailman/Errors.py:142
+#: Mailman/Errors.py:128 Mailman/Errors.py:151
 msgid "Your message was rejected"
 msgstr "تم رفض رسالتك "
 
@@ -6464,7 +6469,7 @@ msgid ""
 msgstr ""
 "تحديد الموضوع يتطلب اسماً ووحدة متكررة. سيتم تجاهل العناوين الغير مكتملة."
 
-#: Mailman/Gui/Topics.py:132
+#: Mailman/Gui/Topics.py:133
 msgid ""
 "The topic pattern '%(safepattern)s' is not a\n"
 "                legal regular expression.  It will be discarded."
@@ -7111,15 +7116,15 @@ msgstr "تنبيه الإهمال التلقائي"
 msgid "The attached message has been automatically discarded."
 msgstr "تم إهمال الرسالة المرفقة تلقائياً."
 
-#: Mailman/Handlers/Replybot.py:74
+#: Mailman/Handlers/Replybot.py:75
 msgid "Auto-response for your message to the \"%(realname)s\" mailing list"
 msgstr "رد تلقائي لرسالتك المرسلة إلى القائم البريدية \"%(realname)s\""
 
-#: Mailman/Handlers/Replybot.py:107
+#: Mailman/Handlers/Replybot.py:108
 msgid "The Mailman Replybot"
 msgstr "الرد الآلي لميلمان"
 
-#: Mailman/Handlers/Scrubber.py:223
+#: Mailman/Handlers/Scrubber.py:205
 #, fuzzy
 msgid ""
 "An embedded and charset-unspecified text was scrubbed...\n"
@@ -7130,29 +7135,29 @@ msgstr ""
 "اسم الملف: %(filename)s\n"
 "الرابط: %(url)s\n"
 
-#: Mailman/Handlers/Scrubber.py:233
+#: Mailman/Handlers/Scrubber.py:215
 msgid "HTML attachment scrubbed and removed"
 msgstr "فصل المرفق من نوع HTML وأزيل"
 
-#: Mailman/Handlers/Scrubber.py:249 Mailman/Handlers/Scrubber.py:274
+#: Mailman/Handlers/Scrubber.py:231 Mailman/Handlers/Scrubber.py:256
 msgid ""
 "An HTML attachment was scrubbed...\n"
 "URL: %(url)s\n"
 msgstr "تمت إزالة مرفق HTML... الرابط:  %(url)s\n"
 
-#: Mailman/Handlers/Scrubber.py:286
+#: Mailman/Handlers/Scrubber.py:268
 msgid "no subject"
 msgstr "لا يوجد عنوان"
 
-#: Mailman/Handlers/Scrubber.py:287
+#: Mailman/Handlers/Scrubber.py:270
 msgid "no date"
 msgstr "لا يوجد تاريخ"
 
-#: Mailman/Handlers/Scrubber.py:288
+#: Mailman/Handlers/Scrubber.py:271
 msgid "unknown sender"
 msgstr "مرسل غير معروف"
 
-#: Mailman/Handlers/Scrubber.py:290
+#: Mailman/Handlers/Scrubber.py:273
 #, fuzzy
 msgid ""
 "An embedded message was scrubbed...\n"
@@ -7169,7 +7174,7 @@ msgstr ""
 "الحجم: %(size)s\n"
 "الرابط: %(url)s\n"
 
-#: Mailman/Handlers/Scrubber.py:322
+#: Mailman/Handlers/Scrubber.py:305
 #, fuzzy
 msgid ""
 "A non-text attachment was scrubbed...\n"
@@ -7186,11 +7191,11 @@ msgstr ""
 "شرح: %(desc)s\n"
 "الرابط : %(url)s\n"
 
-#: Mailman/Handlers/Scrubber.py:358
+#: Mailman/Handlers/Scrubber.py:341
 msgid "Skipped content of type %(partctype)s\n"
 msgstr "أنواع المحتويات المتروكة %(partctype)s\n"
 
-#: Mailman/Handlers/Scrubber.py:399
+#: Mailman/Handlers/Scrubber.py:382
 msgid "-------------- next part --------------\n"
 msgstr "-------------- القسم الثاني --------------\n"
 
@@ -7238,39 +7243,39 @@ msgstr "تذييل دفعة"
 msgid "End of "
 msgstr "نهاية "
 
-#: Mailman/ListAdmin.py:295
+#: Mailman/ListAdmin.py:297
 msgid "Posting of your message titled \"%(subject)s\""
 msgstr "إرسال رسالتك المعنونة \"%(subject)s\""
 
-#: Mailman/ListAdmin.py:296 Mailman/ListAdmin.py:414
+#: Mailman/ListAdmin.py:298 Mailman/ListAdmin.py:417
 msgid "[No reason given]"
 msgstr "]بدون سبب معطى["
 
-#: Mailman/ListAdmin.py:334
+#: Mailman/ListAdmin.py:336
 msgid "Forward of moderated message"
 msgstr "تحويل لرسالة منظمة"
 
-#: Mailman/ListAdmin.py:390
+#: Mailman/ListAdmin.py:392
 msgid "New subscription request to list %(realname)s from %(addr)s"
 msgstr "طلب اشتراك جديد في القائمة %(realname)s من العنوان %(addr)s"
 
-#: Mailman/ListAdmin.py:413
+#: Mailman/ListAdmin.py:416
 msgid "Subscription request"
 msgstr "طلب اشتراك"
 
-#: Mailman/ListAdmin.py:442
+#: Mailman/ListAdmin.py:447
 msgid "New unsubscription request from %(realname)s by %(addr)s"
 msgstr "طلب إلغاء اشتراك من القائمة %(realname)s من قبل %(addr)s"
 
-#: Mailman/ListAdmin.py:465
+#: Mailman/ListAdmin.py:471
 msgid "Unsubscription request"
 msgstr "طلب إلغاء اشتراك"
 
-#: Mailman/ListAdmin.py:496
+#: Mailman/ListAdmin.py:504
 msgid "Original Message"
 msgstr "الرسالة الأصلية"
 
-#: Mailman/ListAdmin.py:499
+#: Mailman/ListAdmin.py:507
 msgid "Request to mailing list %(realname)s rejected"
 msgstr "تم رفض طلب إلى القائمة البريدية %(realname)s"
 
@@ -7701,7 +7706,8 @@ msgid "No such list: %(listname)s"
 msgstr ""
 
 #: bin/add_members:233 bin/change_pw:158 bin/check_db:114 bin/discard:83
-#: bin/sync_members:244 bin/update:574 cron/bumpdigests:78
+#: bin/sync_members:244 bin/update:302 bin/update:323 bin/update:577
+#: cron/bumpdigests:78
 msgid "Nothing to do."
 msgstr ""
 
@@ -9130,7 +9136,7 @@ msgstr ""
 msgid "The list password cannot be empty"
 msgstr ""
 
-#: bin/newlist:229
+#: bin/newlist:230
 msgid "Hit enter to notify %(listname)s owner..."
 msgstr ""
 
@@ -9610,7 +9616,7 @@ msgid ""
 "%(e)s"
 msgstr ""
 
-#: bin/update:19
+#: bin/update:20
 msgid ""
 "Perform all necessary upgrades.\n"
 "\n"
@@ -9630,29 +9636,29 @@ msgid ""
 "some previous version.  It knows about versions back to 1.0b4 (?).\n"
 msgstr ""
 
-#: bin/update:106
+#: bin/update:107
 msgid "Fixing language templates: %(listname)s"
 msgstr ""
 
-#: bin/update:195 bin/update:708
+#: bin/update:196 bin/update:711
 msgid "WARNING: could not acquire lock for list: %(listname)s"
 msgstr ""
 
-#: bin/update:214
+#: bin/update:215
 msgid "Resetting %(n)s BYBOUNCEs disabled addrs with no bounce info"
 msgstr ""
 
-#: bin/update:220
+#: bin/update:221
 msgid "Updating the held requests database."
 msgstr ""
 
-#: bin/update:242
+#: bin/update:243
 msgid ""
 "For some reason, %(mbox_dir)s exists as a file.  This won't work with\n"
 "b6, so I'm renaming it to %(mbox_dir)s.tmp and proceeding."
 msgstr ""
 
-#: bin/update:254
+#: bin/update:255
 msgid ""
 "\n"
 "%(listname)s has both public and private mbox archives.  Since this list\n"
@@ -9666,7 +9672,7 @@ msgid ""
 "script.\n"
 msgstr ""
 
-#: bin/update:269
+#: bin/update:270
 msgid ""
 "%s has both public and private mbox archives.  Since this list\n"
 "currently uses public archiving, I'm installing the public mbox file\n"
@@ -9679,11 +9685,11 @@ msgid ""
 "script.\n"
 msgstr ""
 
-#: bin/update:286
+#: bin/update:287
 msgid "- updating old private mbox file"
 msgstr ""
 
-#: bin/update:294
+#: bin/update:295
 msgid ""
 "    unknown file in the way, moving\n"
 "        %(o_pri_mbox_file)s\n"
@@ -9691,17 +9697,11 @@ msgid ""
 "        %(newname)s"
 msgstr ""
 
-#: bin/update:301 bin/update:324
-msgid ""
-"    looks like you have a really recent CVS installation...\n"
-"    you're either one brave soul, or you already ran me"
-msgstr ""
-
-#: bin/update:310
+#: bin/update:309
 msgid "- updating old public mbox file"
 msgstr ""
 
-#: bin/update:318
+#: bin/update:317
 msgid ""
 "    unknown file in the way, moving\n"
 "        %(o_pub_mbox_file)s\n"
@@ -9709,105 +9709,105 @@ msgid ""
 "        %(newname)s"
 msgstr ""
 
-#: bin/update:356
+#: bin/update:353
 msgid "- This list looks like it might have <= b4 list templates around"
 msgstr ""
 
-#: bin/update:364
+#: bin/update:361
 msgid "- moved %(o_tmpl)s to %(n_tmpl)s"
 msgstr ""
 
-#: bin/update:366
+#: bin/update:363
 msgid "- both %(o_tmpl)s and %(n_tmpl)s exist, leaving untouched"
 msgstr ""
 
-#: bin/update:369
+#: bin/update:366
 msgid "- %(o_tmpl)s doesn't exist, leaving untouched"
 msgstr ""
 
-#: bin/update:399
+#: bin/update:396
 msgid "removing directory %(src)s and everything underneath"
 msgstr ""
 
-#: bin/update:402
+#: bin/update:399
 msgid "removing %(src)s"
 msgstr ""
 
-#: bin/update:406
+#: bin/update:403
 msgid "Warning: couldn't remove %(src)s -- %(rest)s"
 msgstr ""
 
-#: bin/update:411
+#: bin/update:408
 msgid "couldn't remove old file %(pyc)s -- %(rest)s"
 msgstr ""
 
-#: bin/update:415
+#: bin/update:412
 msgid "updating old qfiles"
 msgstr ""
 
-#: bin/update:458
+#: bin/update:455
 msgid "Warning!  Not a directory: %(dirpath)s"
 msgstr ""
 
-#: bin/update:527
+#: bin/update:530
 msgid "message is unparsable: %(filebase)s"
 msgstr ""
 
-#: bin/update:541
+#: bin/update:544
 msgid "Warning!  Deleting empty .pck file: %(pckfile)s"
 msgstr ""
 
-#: bin/update:560
+#: bin/update:563
 msgid "Updating Mailman 2.0 pending_subscriptions.db database"
 msgstr ""
 
-#: bin/update:571
+#: bin/update:574
 msgid "Updating Mailman 2.1.4 pending.pck database"
 msgstr ""
 
-#: bin/update:595
+#: bin/update:598
 msgid "Ignoring bad pended data: %(key)s: %(val)s"
 msgstr ""
 
-#: bin/update:611
+#: bin/update:614
 msgid "WARNING: Ignoring duplicate pending ID: %(id)s."
 msgstr ""
 
-#: bin/update:664
+#: bin/update:667
 msgid "getting rid of old source files"
 msgstr ""
 
-#: bin/update:674
+#: bin/update:677
 msgid "no lists == nothing to do, exiting"
 msgstr ""
 
-#: bin/update:681
+#: bin/update:684
 msgid ""
 "fixing all the perms on your old html archives to work with b6\n"
 "If your archives are big, this could take a minute or two..."
 msgstr ""
 
-#: bin/update:686
+#: bin/update:689
 msgid "done"
 msgstr ""
 
-#: bin/update:688
+#: bin/update:691
 msgid "Updating mailing list: %(listname)s"
 msgstr ""
 
-#: bin/update:691
+#: bin/update:694
 msgid "Updating Usenet watermarks"
 msgstr ""
 
-#: bin/update:696
+#: bin/update:699
 msgid "- nothing to update here"
 msgstr ""
 
-#: bin/update:719
+#: bin/update:722
 msgid "- usenet watermarks updated and gate_watermarks removed"
 msgstr ""
 
-#: bin/update:733
+#: bin/update:736
 msgid ""
 "\n"
 "\n"
@@ -9830,22 +9830,22 @@ msgid ""
 "\n"
 msgstr ""
 
-#: bin/update:790
+#: bin/update:793
 msgid "No updates are necessary."
 msgstr ""
 
-#: bin/update:793
+#: bin/update:796
 msgid ""
 "Downgrade detected, from version %(hexlversion)s to version %(hextversion)s\n"
 "This is probably not safe.\n"
 "Exiting."
 msgstr ""
 
-#: bin/update:798
+#: bin/update:801
 msgid "Upgrading from version %(hexlversion)s to %(hextversion)s"
 msgstr ""
 
-#: bin/update:807
+#: bin/update:810
 msgid ""
 "\n"
 "ERROR:\n"

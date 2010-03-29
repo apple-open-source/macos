@@ -97,7 +97,7 @@ bond_print_details(struct if_bond_status * ibs_p, int count)
 }
 
 void
-bond_status(int s, struct rt_addrinfo * info __unused)
+bond_status(int s)
 {
 	int				i;
 	struct if_bond_req		ibr;
@@ -186,8 +186,8 @@ bond_status(int s, struct rt_addrinfo * info __unused)
 	return;
 }
 
-void
-setbonddev(const char *val, int d, int s, const struct afswtch * afp)
+static
+DECL_CMD_FUNC(setbonddev, val, d)
 {
 	struct if_bond_req		ibr;
 
@@ -205,8 +205,8 @@ setbonddev(const char *val, int d, int s, const struct afswtch * afp)
 	return;
 }
 
-void
-unsetbonddev(const char *val, int d, int s, const struct afswtch * afp)
+static
+DECL_CMD_FUNC(unsetbonddev, val, d)
 {
 	struct if_bond_req		ibr;
 
@@ -224,8 +224,8 @@ unsetbonddev(const char *val, int d, int s, const struct afswtch * afp)
 	return;
 }
 
-void
-setbondmode(const char *val, int d, int s, const struct afswtch * afp)
+static
+DECL_CMD_FUNC(setbondmode, val, d)
 {
 	struct if_bond_req		ibr;
 	int				mode;
@@ -259,4 +259,26 @@ setbondmode(const char *val, int d, int s, const struct afswtch * afp)
 	return;
 }
 
+static struct cmd bond_cmds[] = {
+	DEF_CLONE_CMD_ARG("bonddev",		setbonddev),
+	DEF_CLONE_CMD_ARG("-bonddev",		unsetbonddev),
+	DEF_CMD_ARG("bondmode",				setbondmode),
+};
+static struct afswtch af_bond = {
+	.af_name	= "af_bond",
+	.af_af		= AF_UNSPEC,
+	.af_other_status = bond_status,
+};
+
+static __constructor void
+bond_ctor(void)
+{
+#define	N(a)	(sizeof(a) / sizeof(a[0]))
+	int i;
+	
+	for (i = 0; i < N(bond_cmds);  i++)
+		cmd_register(&bond_cmds[i]);
+	af_register(&af_bond);
+#undef N
+}
 

@@ -25,15 +25,12 @@
 
 #import "BusProberSharedFunctions.h"
 
-int GetPortInformation( IOUSBDeviceRef deviceIntf, uint32_t * portInfo ) {
+IOReturn GetPortInformation( IOUSBDeviceRef deviceIntf, uint32_t * portInfo ) {
 	IOReturn err;
     
     err = (*deviceIntf)->GetUSBDeviceInformation(deviceIntf, (UInt32 *)portInfo);
-    if (err) {
-        //NSLog(@"USB Prober: GetUSBDeviceInformation() failed");
-        return -1;
-    }
-    return 0;
+
+    return err;
 }
 
 int GetDeviceLocationID( IOUSBDeviceRef deviceIntf, UInt32 * locationID ) {
@@ -91,8 +88,9 @@ int SuspendDevice( IOUSBDeviceRef deviceIntf, BOOL suspend ) {
     return 0;
 }
 
-IOReturn GetDescriptor(IOUSBDeviceRef deviceIntf, UInt8 descType, UInt8 descIndex, void *buf, UInt16 len) {
+IOReturn GetDescriptor(IOUSBDeviceRef deviceIntf, UInt8 descType, UInt8 descIndex, void *buf, UInt16 len, IOReturn *actError) {
     IOUSBDevRequest req;
+	IOReturn err;
     
 	bzero(&req, sizeof(req));
     req.bmRequestType = USBmakebmRequestType(kUSBIn, kUSBStandard, kUSBDevice);
@@ -102,7 +100,22 @@ IOReturn GetDescriptor(IOUSBDeviceRef deviceIntf, UInt8 descType, UInt8 descInde
     req.wLength = len;
     req.pData = buf;
     
-    return (*deviceIntf)->DeviceRequest(deviceIntf, &req);
+	err = (*deviceIntf)->DeviceRequest(deviceIntf, &req);
+	
+	if (actError != nil)
+	{
+		*actError = kIOReturnSuccess;
+		if (err != kIOReturnSuccess)
+		{
+			if (req.wLenDone == len)
+			{
+				*actError = err;
+				err = kIOReturnSuccess;
+			}
+		}
+	}
+	
+    return err;
 }
 
 int GetStringDescriptor(IOUSBDeviceRef deviceIntf, UInt8 descIndex, void *buf, UInt16 len, UInt16 lang) {
@@ -127,7 +140,7 @@ int GetStringDescriptor(IOUSBDeviceRef deviceIntf, UInt8 descIndex, void *buf, U
     // If the string is 0 (it happens), then just return 0 as the length
     //
     stringLen = desc[0];
-    if(stringLen == 0)
+    if (stringLen == 0)
     {
         return 0;
     }

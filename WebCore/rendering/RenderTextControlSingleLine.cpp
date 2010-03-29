@@ -163,8 +163,6 @@ void RenderTextControlSingleLine::hidePopup()
     ASSERT(node()->isHTMLElement());
     if (m_searchPopup)
         m_searchPopup->hide();
-
-    m_searchPopupIsVisible = false;
 }
 
 void RenderTextControlSingleLine::subtreeHasChanged()
@@ -739,6 +737,11 @@ int RenderTextControlSingleLine::selectedIndex() const
     return -1;
 }
 
+void RenderTextControlSingleLine::popupDidHide()
+{
+    m_searchPopupIsVisible = false;
+}
+
 bool RenderTextControlSingleLine::itemIsSeparator(unsigned listIndex) const
 {
     // The separator will be the second to last item in our list.
@@ -818,12 +821,12 @@ void RenderTextControlSingleLine::setScrollTop(int newTop)
         innerTextElement()->setScrollTop(newTop);
 }
 
-bool RenderTextControlSingleLine::scroll(ScrollDirection direction, ScrollGranularity granularity, float multiplier)
+bool RenderTextControlSingleLine::scroll(ScrollDirection direction, ScrollGranularity granularity, float multiplier, Node** stopNode)
 {
     RenderLayer* layer = innerTextElement()->renderBox()->layer();
     if (layer && layer->scroll(direction, granularity, multiplier))
         return true;
-    return RenderBlock::scroll(direction, granularity, multiplier);
+    return RenderBlock::scroll(direction, granularity, multiplier, stopNode);
 }
 
 PassRefPtr<Scrollbar> RenderTextControlSingleLine::createScrollbar(ScrollbarClient* client, ScrollbarOrientation orientation, ScrollbarControlSize controlSize)

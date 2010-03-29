@@ -22,6 +22,9 @@ extern off_t get_file_limit(void);
 extern void set_file_limit(off_t);
 extern ssize_t peekfd(int);
 extern int read_wait(int, int);
+#ifdef __APPLE_OS_X_SERVER__
+extern int read_wait_no_poll(int fd, int timeout);
+#endif /* __APPLE_OS_X_SERVER__ */
 extern int write_wait(int, int);
 extern ssize_t write_buf(int, const char *, ssize_t, int);
 extern ssize_t timed_read(int, void *, size_t, int, void *);

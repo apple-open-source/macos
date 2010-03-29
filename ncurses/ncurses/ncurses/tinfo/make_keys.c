@@ -36,12 +36,14 @@
  * it that way lets us cut down on the size of the init_keytry() function.
  */
 
+#include <wchar.h>
+wint_t foobaz;
 #define USE_TERMLIB 1
 #include <curses.priv.h>
 
 MODULE_ID("$Id: make_keys.c,v 1.14 2008/08/03 21:57:22 tom Exp $")
 
-#include <names.c>
+#include <../ncurses/names.c.h>
 
 #define UNKNOWN (SIZEOF(strnames) + SIZEOF(strfnames))
 

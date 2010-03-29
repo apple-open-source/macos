@@ -22,8 +22,8 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
-#include "AppleEmbeddedHIDEventService.h"
 #include "IOHIDEvent.h"
+#include "AppleEmbeddedHIDEventService.h"
 
 
 //===========================================================================
@@ -32,13 +32,62 @@
 
 OSDefineMetaClassAndAbstractStructors( AppleEmbeddedHIDEventService, super )
 
+//====================================================================================================
+// AppleEmbeddedHIDEventService::handleStart
+//====================================================================================================
+bool AppleEmbeddedHIDEventService::handleStart(IOService * provider)
+{
+	uint32_t value;
+
+	if ( !super::handleStart(provider) )
+		return FALSE;
+	
+	value = getOrientation();
+	if ( value )
+		setProperty(kIOHIDOrientationKey, value, 32);
+
+	value = getPlacement();
+	if ( value )
+		setProperty(kIOHIDPlacementKey, value, 32);
+	
+	return TRUE;
+}
+
 
 //====================================================================================================
 // AppleEmbeddedHIDEventService::dispatchAccelerometerEvent
 //====================================================================================================
-void AppleEmbeddedHIDEventService::dispatchAccelerometerEvent(AbsoluteTime timestamp, IOFixed x, IOFixed y, IOFixed z, IOHIDAccelerometerType type, IOOptionBits options)
+void AppleEmbeddedHIDEventService::dispatchAccelerometerEvent(AbsoluteTime timestamp, IOFixed x, IOFixed y, IOFixed z, IOHIDAccelerometerType type, IOHIDAccelerometerSubType subType, IOOptionBits options)
 {
-    IOHIDEvent * event = IOHIDEvent::accelerometerEvent(timestamp, x, y, z, type, options);
+    IOHIDEvent * event = IOHIDEvent::accelerometerEvent(timestamp, x, y, z, type, subType, options);
+    
+    if ( event ) {
+        dispatchEvent(event);
+        event->release();
+    }
+}
+
+
+//====================================================================================================
+// AppleEmbeddedHIDEventService::dispatchGyroEvent
+//====================================================================================================
+void AppleEmbeddedHIDEventService::dispatchGyroEvent(AbsoluteTime timestamp, IOFixed x, IOFixed y, IOFixed z, IOHIDGyroType type, IOHIDGyroSubType subType, IOOptionBits options)
+{
+    IOHIDEvent * event = IOHIDEvent::gyroEvent(timestamp, x, y, z, type, subType, options);
+    
+    if ( event ) {
+        dispatchEvent(event);
+        event->release();
+    }
+}
+
+
+//====================================================================================================
+// AppleEmbeddedHIDEventService::dispatchProximityEvent
+//====================================================================================================
+void AppleEmbeddedHIDEventService::dispatchProximityEvent(AbsoluteTime timestamp, IOHIDProximityDetectionMask mask, UInt32 level, IOOptionBits options)
+{
+    IOHIDEvent * event = IOHIDEvent::proximityEvent(timestamp, mask, level, options);
     
     if ( event ) {
         dispatchEvent(event);
@@ -47,19 +96,11 @@ void AppleEmbeddedHIDEventService::dispatchAccelerometerEvent(AbsoluteTime times
 }
 
 //====================================================================================================
-// AppleEmbeddedHIDEventService::dispatchProximityEvent
-//====================================================================================================
-void AppleEmbeddedHIDEventService::dispatchProximityEvent(AbsoluteTime timestamp, IOFixed level, IOOptionBits options)
-{
-
-}
-
-//====================================================================================================
 // AppleEmbeddedHIDEventService::dispatchAmbientLightSensorEvent
 //====================================================================================================
-void AppleEmbeddedHIDEventService::dispatchAmbientLightSensorEvent(AbsoluteTime timestamp, UInt32 level, UInt32 channel0, UInt32 channel1, IOOptionBits options)
+void AppleEmbeddedHIDEventService::dispatchAmbientLightSensorEvent(AbsoluteTime timestamp, UInt32 level, UInt32 channel0, UInt32 channel1, UInt32 channel2, UInt32 channel3, IOOptionBits options)
 {
-    IOHIDEvent * event = IOHIDEvent::ambientLightSensorEvent(timestamp, level, channel0, channel1, options);
+    IOHIDEvent * event = IOHIDEvent::ambientLightSensorEvent(timestamp, level, channel0, channel1, channel2, channel3, options);
     
     if ( event ) {
         dispatchEvent(event);
@@ -79,3 +120,20 @@ void AppleEmbeddedHIDEventService::dispatchTemperatureEvent(AbsoluteTime timesta
         event->release();
     }
 }
+
+//====================================================================================================
+// AppleEmbeddedHIDEventService::getOrientation
+//====================================================================================================
+IOHIDOrientationType AppleEmbeddedHIDEventService::getOrientation()
+{
+	return 0;
+}
+
+//====================================================================================================
+// AppleEmbeddedHIDEventService::getPlacement
+//====================================================================================================
+IOHIDPlacementType AppleEmbeddedHIDEventService::getPlacement()
+{
+	return 0;
+}
+

@@ -27,6 +27,9 @@
 #include <winbase.h>
 #include <wincon.h>
 #include <shlobj.h>
+#if _MSC_VER >= 1400
+#include <crtdbg.h>
+#endif
 #ifdef __MINGW32__
 #include <mswsock.h>
 #include <mbstring.h>
@@ -366,9 +369,16 @@ flock(int fd, int oper)
 static void init_stdhandle(void);
 
 #if _MSC_VER >= 1400
-static void invalid_parameter(const wchar_t *expr, const wchar_t *func, const wchar_t *file, unsigned int line, uintptr_t dummy)
+static void
+invalid_parameter(const wchar_t *expr, const wchar_t *func, const wchar_t *file, unsigned int line, uintptr_t dummy)
 {
     // nothing to do
+}
+
+static int __cdecl
+rtc_error_handler(int e, const char *src, int line, const char *exe, const char *fmt, ...)
+{
+    return 0;
 }
 #endif
 
@@ -452,7 +462,9 @@ NtInitialize(int *argc, char ***argv)
 #if _MSC_VER >= 1400
     static void set_pioinfo_extra(void);
 
+    _CrtSetReportMode(_CRT_ASSERT, 0);
     _set_invalid_parameter_handler(invalid_parameter);
+    _RTC_SetErrorFunc(rtc_error_handler);
     set_pioinfo_extra();
 #endif
 
@@ -508,6 +520,18 @@ FindChildSlot(rb_pid_t pid)
 
     FOREACH_CHILD(child) {
 	if (child->pid == pid) {
+	    return child;
+	}
+    } END_FOREACH_CHILD;
+    return NULL;
+}
+
+static struct ChildRecord *
+FindChildSlotByHandle(HANDLE h)
+{
+
+    FOREACH_CHILD(child) {
+	if (child->hProcess == h) {
 	    return child;
 	}
     } END_FOREACH_CHILD;
@@ -1450,14 +1474,44 @@ rb_w32_cmdvector(const char *cmd, char ***vec)
 #define BitOfIsRep(n) ((n) * 2 + 1)
 #define DIRENT_PER_CHAR (CHAR_BIT / 2)
 
+static HANDLE
+open_dir_handle(const char *filename, WIN32_FIND_DATA *fd)
+{
+    HANDLE fh;
+    static const char wildcard[] = "/*";
+    long len = strlen(filename);
+    char *scanname = malloc(len + sizeof(wildcard));
+
+    //
+    // Create the search pattern
+    //
+    if (!scanname) {
+	return INVALID_HANDLE_VALUE;
+    }
+    memcpy(scanname, filename, len + 1);
+
+    if (index("/\\:", *CharPrev(scanname, scanname + len)) == NULL)
+	memcpy(scanname + len, wildcard, sizeof(wildcard));
+    else
+	memcpy(scanname + len, wildcard + 1, sizeof(wildcard) - 1);
+
+    //
+    // do the FindFirstFile call
+    //
+    fh = FindFirstFile(scanname, fd);
+    free(scanname);
+    if (fh == INVALID_HANDLE_VALUE) {
+	errno = map_errno(GetLastError());
+    }
+    return fh;
+}
+
 DIR *
 rb_w32_opendir(const char *filename)
 {
     DIR               *p;
     long               len;
     long               idx;
-    char               scannamespc[PATHLEN];
-    char	      *scanname = scannamespc;
     struct stat	       sbuf;
     WIN32_FIND_DATA fd;
     HANDLE          fh;
@@ -1475,35 +1529,17 @@ rb_w32_opendir(const char *filename)
 	return NULL;
     }
 
+    fh = open_dir_handle(filename, &fd);
+    if (fh == INVALID_HANDLE_VALUE) {
+	return NULL;
+    }
+
     //
     // Get us a DIR structure
     //
-
-    p = xcalloc(sizeof(DIR), 1);
+    p = calloc(sizeof(DIR), 1);
     if (p == NULL)
 	return NULL;
-    
-    //
-    // Create the search pattern
-    //
-
-    strcpy(scanname, filename);
-
-    if (index("/\\:", *CharPrev(scanname, scanname + strlen(scanname))) == NULL)
-	strcat(scanname, "/*");
-    else
-	strcat(scanname, "*");
-
-    //
-    // do the FindFirstFile call
-    //
-
-    fh = FindFirstFile(scanname, &fd);
-    if (fh == INVALID_HANDLE_VALUE) {
-	errno = map_errno(GetLastError());
-	free(p);
-	return NULL;
-    }
 
     //
     // now allocate the first part of the string table for the
@@ -1635,15 +1671,7 @@ rb_w32_readdir(DIR *dirp)
 long
 rb_w32_telldir(DIR *dirp)
 {
-    long loc = 0; char *p = dirp->curr;
-
-    rb_w32_rewinddir(dirp);
-
-    while (p != dirp->curr) {
-	move_to_next_entry(dirp); loc++;
-    }
-
-    return loc;
+    return dirp->loc;
 }
 
 //
@@ -1668,6 +1696,7 @@ void
 rb_w32_rewinddir(DIR *dirp)
 {
     dirp->curr = dirp->start;
+    dirp->loc = 0;
 }
 
 //
@@ -2177,8 +2206,11 @@ do_select(int nfds, fd_set *rd, fd_set *wr, fd_set *ex,
 }
 
 static inline int
-subst(struct timeval *rest, const struct timeval *wait)
+subtract(struct timeval *rest, const struct timeval *wait)
 {
+    if (rest->tv_sec < wait->tv_sec) {
+	return 0;
+    }
     while (rest->tv_usec < wait->tv_usec) {
 	if (rest->tv_sec <= wait->tv_sec) {
 	    return 0;
@@ -2207,8 +2239,8 @@ compare(const struct timeval *t1, const struct timeval *t2)
 
 #undef Sleep
 long 
-rb_w32_select (int nfds, fd_set *rd, fd_set *wr, fd_set *ex,
-	       struct timeval *timeout)
+rb_w32_select(int nfds, fd_set *rd, fd_set *wr, fd_set *ex,
+	      struct timeval *timeout)
 {
     long r;
     fd_set pipe_rd;
@@ -2216,11 +2248,29 @@ rb_w32_select (int nfds, fd_set *rd, fd_set *wr, fd_set *ex,
     fd_set else_rd;
     fd_set else_wr;
     int nonsock = 0;
+    struct timeval limit;
 
     if (nfds < 0 || (timeout && (timeout->tv_sec < 0 || timeout->tv_usec < 0))) {
 	errno = EINVAL;
 	return -1;
     }
+
+    if (timeout) {
+	if (timeout->tv_sec < 0 ||
+	    timeout->tv_usec < 0 ||
+	    timeout->tv_usec >= 1000000) {
+	    errno = EINVAL;
+	    return -1;
+	}
+	gettimeofday(&limit, NULL);
+	limit.tv_sec += timeout->tv_sec;
+	limit.tv_usec += timeout->tv_usec;
+	if (limit.tv_usec >= 1000000) {
+	    limit.tv_usec -= 1000000;
+	    limit.tv_sec++;
+	}
+    }
+
     if (!NtSocketsInitialized) {
 	StartSockets();
     }
@@ -2253,10 +2303,9 @@ rb_w32_select (int nfds, fd_set *rd, fd_set *wr, fd_set *ex,
 	struct timeval rest;
 	struct timeval wait;
 	struct timeval zero;
-	if (timeout) rest = *timeout;
 	wait.tv_sec = 0; wait.tv_usec = 10 * 1000; // 10ms
 	zero.tv_sec = 0; zero.tv_usec = 0;         //  0ms
-	do {
+	for (;;) {
 	    if (nonsock) {
 		// modifying {else,pipe,cons}_rd is safe because
 		// if they are modified, function returns immediately.
@@ -2272,8 +2321,7 @@ rb_w32_select (int nfds, fd_set *rd, fd_set *wr, fd_set *ex,
 		break;
 	    }
 	    else {
-		struct timeval *dowait =
-		    compare(&rest, &wait) < 0 ? &rest : &wait;
+		struct timeval *dowait = &wait;
 
 		fd_set orig_rd;
 		fd_set orig_wr;
@@ -2287,10 +2335,16 @@ rb_w32_select (int nfds, fd_set *rd, fd_set *wr, fd_set *ex,
 		if (wr) *wr = orig_wr;
 		if (ex) *ex = orig_ex;
 
-		// XXX: should check the time select spent
+		if (timeout) {
+		    struct timeval now;
+		    gettimeofday(&now, NULL);
+		    rest = limit;
+		    if (!subtract(&rest, &now)) break;
+		    if (compare(&rest, &wait) < 0) dowait = &rest;
+		}
 		Sleep(dowait->tv_sec * 1000 + dowait->tv_usec / 1000);
 	    }
-	} while (!timeout || subst(&rest, &wait));
+	}
     }
 
     return r;
@@ -2361,21 +2415,32 @@ int
 rb_w32_accept(int s, struct sockaddr *addr, int *addrlen)
 {
     SOCKET r;
+    int fd;
 
     if (!NtSocketsInitialized) {
 	StartSockets();
     }
     RUBY_CRITICAL({
-	r = accept(TO_SOCKET(s), addr, addrlen);
-	if (r == INVALID_SOCKET) {
-	    errno = map_errno(WSAGetLastError());
-	    s = -1;
+	HANDLE h = CreateFile("NUL", 0, 0, NULL, OPEN_ALWAYS, 0, NULL);
+	fd = rb_w32_open_osfhandle((long)h, O_RDWR|O_BINARY|O_NOINHERIT);
+	if (fd != -1) {
+	    r = accept(TO_SOCKET(s), addr, addrlen);
+	    if (r != INVALID_SOCKET) {
+		MTHREAD_ONLY(EnterCriticalSection(&(_pioinfo(fd)->lock)));
+		_set_osfhnd(fd, r);
+		MTHREAD_ONLY(LeaveCriticalSection(&_pioinfo(fd)->lock));
+		CloseHandle(h);
+	    }
+	    else {
+		errno = map_errno(WSAGetLastError());
+		close(fd);
+		fd = -1;
+	    }
 	}
-	else {
-	    s = rb_w32_open_osfhandle(r, O_RDWR|O_BINARY);
-	}
+	else
+	    CloseHandle(h);
     });
-    return s;
+    return fd;
 }
 
 #undef bind
@@ -2645,6 +2710,8 @@ open_ifs_socket(int af, int type, int protocol)
 		    out = WSASocket(af, type, protocol, &(proto_buffers[i]), 0, 0);
 		    break;
 		}
+		if (out == INVALID_SOCKET)
+		    out = WSASocket(af, type, protocol, NULL, 0, 0);
 	    }
 
 	    free(proto_buffers);
@@ -2936,7 +3003,7 @@ waitpid(rb_pid_t pid, int *stat_loc, int options)
 	    return -1;
 	}
 
-	return poll_child_status(ChildRecord + ret, stat_loc);
+	return poll_child_status(FindChildSlotByHandle(events[ret]), stat_loc);
     }
     else {
 	struct ChildRecord* child = FindChildSlot(pid);
@@ -2960,24 +3027,36 @@ waitpid(rb_pid_t pid, int *stat_loc, int options)
 
 #include <sys/timeb.h>
 
+static int
+filetime_to_timeval(const FILETIME* ft, struct timeval *tv)
+{
+    ULARGE_INTEGER tmp;
+    unsigned LONG_LONG lt;
+
+    tmp.LowPart = ft->dwLowDateTime;
+    tmp.HighPart = ft->dwHighDateTime;
+    lt = tmp.QuadPart;
+
+    /* lt is now 100-nanosec intervals since 1601/01/01 00:00:00 UTC,
+       convert it into UNIX time (since 1970/01/01 00:00:00 UTC).
+       the first leap second is at 1972/06/30, so we doesn't need to think
+       about it. */
+    lt /= 10;	/* to usec */
+    lt -= (LONG_LONG)((1970-1601)*365.2425) * 24 * 60 * 60 * 1000 * 1000;
+
+    tv->tv_sec = lt / (1000 * 1000);
+    tv->tv_usec = lt % (1000 * 1000);
+
+    return tv->tv_sec > 0 ? 0 : -1;
+}
+
 int _cdecl
 gettimeofday(struct timeval *tv, struct timezone *tz)
 {
-    SYSTEMTIME st;
-    time_t t;
-    struct tm tm;
+    FILETIME ft;
 
-    GetLocalTime(&st);
-    tm.tm_sec = st.wSecond;
-    tm.tm_min = st.wMinute;
-    tm.tm_hour = st.wHour;
-    tm.tm_mday = st.wDay;
-    tm.tm_mon = st.wMonth - 1;
-    tm.tm_year = st.wYear - 1900;
-    tm.tm_isdst = -1;
-    t = mktime(&tm);
-    tv->tv_sec = t;
-    tv->tv_usec = st.wMilliseconds * 1000;
+    GetSystemTimeAsFileTime(&ft);
+    filetime_to_timeval(&ft, tv);
 
     return 0;
 }
@@ -3252,27 +3331,12 @@ isUNCRoot(const char *path)
 static time_t
 filetime_to_unixtime(const FILETIME *ft)
 {
-    FILETIME loc;
-    SYSTEMTIME st;
-    struct tm tm;
-    time_t t;
+    struct timeval tv;
 
-    if (!FileTimeToLocalFileTime(ft, &loc)) {
+    if (filetime_to_timeval(ft, &tv) == (time_t)-1)
 	return 0;
-    }
-    if (!FileTimeToSystemTime(&loc, &st)) {
-	return 0;
-    }
-    memset(&tm, 0, sizeof(tm));
-    tm.tm_year = st.wYear - 1900;
-    tm.tm_mon = st.wMonth - 1;
-    tm.tm_mday = st.wDay;
-    tm.tm_hour = st.wHour;
-    tm.tm_min = st.wMinute;
-    tm.tm_sec = st.wSecond;
-    tm.tm_isdst = -1;
-    t = mktime(&tm);
-    return t == -1 ? 0 : t;
+    else
+	return tv.tv_sec;
 }
 
 static unsigned
@@ -3317,6 +3381,17 @@ fileattr_to_unixmode(DWORD attr, const char *path)
 }
 
 static int
+check_valid_dir(const char *path)
+{
+    WIN32_FIND_DATA fd;
+    HANDLE fh = open_dir_handle(path, &fd);
+    if (fh == INVALID_HANDLE_VALUE)
+	return -1;
+    FindClose(fh);
+    return 0;
+}
+
+static int
 winnt_stat(const char *path, struct stat *st)
 {
     HANDLE h;
@@ -3346,6 +3421,9 @@ winnt_stat(const char *path, struct stat *st)
 	    errno = map_errno(GetLastError());
 	    return -1;
 	}
+	if (attr & FILE_ATTRIBUTE_DIRECTORY) {
+	    if (check_valid_dir(path)) return -1;
+	}
 	st->st_mode  = fileattr_to_unixmode(attr, path);
     }
 
@@ -3354,6 +3432,21 @@ winnt_stat(const char *path, struct stat *st)
 
     return 0;
 }
+
+#ifdef WIN95
+static int
+win95_stat(const char *path, struct stat *st)
+{
+    int ret = stat(path, st);
+    if (ret) return ret;
+    if (st->st_mode & S_IFDIR) {
+	return check_valid_dir(path);
+    }
+    return 0;
+}
+#else
+#define win95_stat(path, st) -1
+#endif
 
 int
 rb_w32_stat(const char *path, struct stat *st)
@@ -3390,7 +3483,7 @@ rb_w32_stat(const char *path, struct stat *st)
     } else if (*end == '\\' || (buf1 + 1 == end && *end == ':'))
 	strcat(buf1, ".");
 
-    ret = IsWinNT() ? winnt_stat(buf1, st) : stat(buf1, st);
+    ret = IsWinNT() ? winnt_stat(buf1, st) : win95_stat(buf1, st);
     if (ret == 0) {
 	st->st_mode &= ~(S_IWGRP | S_IWOTH);
     }
@@ -4051,6 +4144,10 @@ rb_w32_unlink(const char *path)
 int
 rb_w32_isatty(int fd)
 {
+    // validate fd by using _get_osfhandle() because we cannot access _nhandle
+    if (_get_osfhandle(fd) == -1) {
+	return 0;
+    }
     if (!(_osfile(fd) & FOPEN)) {
 	errno = EBADF;
 	return 0;
@@ -4114,3 +4211,5 @@ rb_w32_fsopen(const char *path, const char *mode, int shflags)
     return f;
 }
 #endif
+
+RUBY_EXTERN int __cdecl _CrtDbgReportW() {return 0;}

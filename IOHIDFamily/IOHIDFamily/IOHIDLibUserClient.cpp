@@ -308,14 +308,15 @@ bool IOHIDLibUserClient::resourceNotification(void * refcon, IOService *service,
 void IOHIDLibUserClient::resourceNotificationGated()
 {
 	IOReturn ret = kIOReturnSuccess;
-	OSData * data;
-	IOService * service = getResourceService();
 	
 	do {
 		// We should force success on seize
 		if ( kIOHIDOptionsTypeSeizeDevice & fCachedOptionBits )
 			break;
 		
+#if !TARGET_OS_EMBEDDED
+        OSData * data;
+        IOService * service = getResourceService();
 		if ( !service ) {
 			ret = kIOReturnError;
 			break;
@@ -351,7 +352,7 @@ void IOHIDLibUserClient::resourceNotificationGated()
 			return;
 			
 		fCachedConsoleUsersSeed = currentSeed;
-
+#endif
 		ret = clientHasPrivilege(fClient, kIOClientPrivilegeAdministrator);
 		if (ret == kIOReturnSuccess)
 			break;
@@ -528,6 +529,11 @@ void IOHIDLibUserClient::free()
 		fWL = 0;
 	}
 	
+    if ( fValidMessage ) {
+        IOFree(fValidMessage, sizeof (struct _notifyMsg));
+        fValidMessage = NULL;
+    }
+    
 	super::free();
 }
 
@@ -1316,8 +1322,7 @@ u_int IOHIDLibUserClient::getNextTokenForToken(u_int token)
     IOHIDEventQueue *queue = NULL;
     
 	do {
-		next_token++;
-		queue = getQueueForToken(next_token);
+		queue = getQueueForToken(++next_token);
 	}
 	while ((next_token < fQueueMap->getCount() + kIOHIDLibUserClientQueueTokenOffset) && (queue == NULL));
 	

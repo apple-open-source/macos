@@ -43,11 +43,12 @@ def process(mlist, msg, msgdata):
     if ack <> 'yes' and precedence in ('bulk', 'junk', 'list'):
         return
     # Check to see if the list is even configured to autorespond to this email
-    # message.  Note: the mailowner script sets the `toadmin' or `toowner' key
-    # (which for replybot purposes are equivalent), and the mailcmd script
-    # sets the `torequest' key.
+    # message.  Note: the owner script sets the `toowner' key, and the various
+    # confirm, join, leave, request, subscribe and unsubscribe scripts set the
+    # keys we use for `torequest'.
     toadmin = msgdata.get('toowner')
-    torequest = msgdata.get('torequest')
+    torequest = msgdata.get('torequest') or msgdata.get('toconfirm') or \
+                    msgdata.get('tojoin') or msgdata.get('toleave')
     if ((toadmin and not mlist.autorespond_admin) or
            (torequest and not mlist.autorespond_requests) or \
            (not toadmin and not torequest and not mlist.autorespond_postings)):

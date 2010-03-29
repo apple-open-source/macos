@@ -1,0 +1,11 @@
+Requierse la to autorización pa una petición de soscripción de la
+llista de distribución:
+
+    De:     %(username)s
+    Llista: %(listname)s@%(hostname)s
+
+Cuando seya dable, por favor, consulta:
+
+    %(admindb_url)s
+	
+pa procesar la petición

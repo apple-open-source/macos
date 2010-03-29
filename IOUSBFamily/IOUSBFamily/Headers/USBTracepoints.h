@@ -51,13 +51,21 @@ extern "C" {
 		kUSBOperationSetFlags	= 1
 	};
 	
+	// the following bits/masks are for use in the usb boot args
+	// e.g. boot-args="usb=0x102" will turn on Trace Points and set the EHCI retry count to 1
+	// the bits can also be set with a sysctl call
 	enum
 	{
-		kUSBEnableDebugLoggingBit		= 0,
-		kUSBEnableTracePointsBit		= 1,
+		kUSBEnableDebugLoggingBit		= 0,	// bit 0 currently not used
+		kUSBEnableTracePointsBit		= 1,	// bit 1 used to turn on Trace Points when a USB controller first loads
+		kUSBEnableErrorLogBit			= 2,	// bit 2 (4) turns level 1 log for errors
+		kUSBDebugRetryCountShift		= 8,	// bits 8 and 9 will set the retry count for low level bus transactions
+		kUSBDebugRetryCountReserved		= 9,	// must be 1, 2, or 3 (0 is invalid, 3 is the default)
 		
 		kUSBEnableDebugLoggingMask		= (1 << kUSBEnableDebugLoggingBit),
 		kUSBEnableTracePointsMask		= (1 << kUSBEnableTracePointsBit),
+		kUSBDebugRetryCountMask			= (3 << kUSBDebugRetryCountShift),
+		kUSBEnableErrorLogMask				= (1 << kUSBEnableErrorLogBit)
 	};
 	
 	
@@ -131,6 +139,9 @@ extern "C" {
 		// Actions
 		kUSBTOutstandingIO			= 42,
 
+		// kUSBAudio
+		kUSBAudio					= 50
+
 		// 61-63 reserved
 	};
 	
@@ -173,7 +184,11 @@ extern "C" {
 		kTPInterruptPacketHandler					= 33,
 		kTPBulkPacketHandler						= 34,
 		kTPDevZeroLock								= 35,
-		kTPControlPacketHandlerData					= 36
+		kTPControlPacketHandlerData					= 36,
+		kTPDoIOTransferIntrSync						= 37,
+		kTPDoIOTransferBulkSync						= 38,
+		kTPBulkPacketHandlerData					= 39,
+		kTPInterruptPacketHandlerData				= 40
 	};
 	
 	// USB Device Tracepoints			
@@ -267,7 +282,8 @@ extern "C" {
 		kTPHSHubUCSetIndicatorsToAutomatic		= 10,
 		kTPHSHubUCGetPowerSwitchingMode			= 11,
 		kTPHSHubUCGetPortPower					= 12,
-		kTPHSHubUCSetPortPower					= 13
+		kTPHSHubUCSetPortPower					= 13,
+		kTPHSHubUCDisablePwrMgmt				= 14
 	};
 	
 	// USB Hub Tracepoints			
@@ -308,6 +324,7 @@ extern "C" {
 		kTPHubCheckPowerRequirements			= 32,
 		kTPHubWaitForPowerOn					= 33,
 		kTPHubDoPortActionLock					= 34,
+		kTPHubCheckForDeadDevice				= 35
 	};
 	
 	// USB HubPort Tracepoints			
@@ -327,7 +344,8 @@ extern "C" {
 		kTPHubPortGetDevZeroDescriptorWithRetries	= 11,
 		kTPHubPortDisplayOverCurrentNotice			= 12,
 		kTPHubPortWakeSuspendCommand				= 13,
-		kTPHubPortWaitForSuspendCommand				= 14
+		kTPHubPortWaitForSuspendCommand				= 14,
+		kTPHubPortEnablePowerAfterOvercurrent		= 15
 	};
 	
 	// USB HID Tracepoints			
@@ -349,7 +367,8 @@ extern "C" {
 		kTPHIDRearmInterruptRead			= 13,
 		kTPHIDInitializeUSBHIDPowerManagement = 14,
 		kTPHIDInterruptRead					= 15,
-		kTPHIDInterruptReadError			= 16
+		kTPHIDInterruptReadError			= 16,
+		kTPHIDCheckForDeadDevice			= 17
 	};
 	
 	// USB Enumeration Tracepoints			
@@ -418,7 +437,8 @@ extern "C" {
 	{
 		kTPUHCIInterruptsGetFrameNumberInternal	= 1,
 		kTPUHCIInterruptsFilterInterrupt		= 2,
-		kTPUHCIInterruptsHandleInterrupt		= 3
+		kTPUHCIInterruptsHandleInterrupt		= 3,
+		kTPUHCIUpdateFrameList					= 4
 	};
 	
 	// USB EHCI Tracepoints			
@@ -447,7 +467,7 @@ extern "C" {
 		kTPEHCIScavengeCompletedTransactions	= 20,
 		kTPEHCICreateBulkEndpoint				= 21,
 		kTPEHCICreateBulkTransfer				= 22,
-		kTPEHCIValidatePollingRate				= 23,
+
 		kTPEHCICreateInterruptEndpoint			= 24,
 		kTPEHCICreateIsochEndpoint				= 25,
 		kTPEHCIAbortIsochEP						= 26,
@@ -479,7 +499,8 @@ extern "C" {
 	enum
 	{
 		kTPEHCIInterruptsPollInterrupts			= 1,
-		kTPEHCIInterruptsPrimaryInterruptFilter	= 2
+		kTPEHCIInterruptsPrimaryInterruptFilter	= 2,
+		kTPEHCIUpdateFrameList					= 3,
 	};
 	
 	
@@ -523,7 +544,8 @@ extern "C" {
 	enum
 	{
 		kTPOHCIInterruptsPollInterrupts			= 1,
-		kTPOHCIInterruptsPrimaryInterruptFilter	= 2
+		kTPOHCIInterruptsPrimaryInterruptFilter	= 2,
+		kTPOHCIUpdateFrameList					= 3
 	};
 	
 
@@ -553,6 +575,19 @@ extern "C" {
 		kTPHubIncrement			= 6,
 		kTPHIDDecrement			= 7,
 		kTPHIDIncrement			= 8
+	};
+	
+	// USB Audio driver Tracepoints			
+	// kUSBAudio
+	enum
+	{
+		kTPAudioDriverRead						= 1,
+		kTPAudioDriverCoalesceInputSamples		= 2,
+		kTPAudioDriverCoalesceError				= 3,
+		kTPAudioDriverCoalesce					= 4,
+		kTPAudioDriverReadHandler				= 5,
+		kTPAudioDriverCoalesceError2			= 6,
+		kTPAudioDriverConvertInputSamples		= 7
 	};
 	
 	// Tracepoint macros.
@@ -591,6 +626,8 @@ extern "C" {
 
 #define USB_OUTSTANDING_IO_TRACE(code)			USB_TRACE( kUSBTOutstandingIO, code, DBG_FUNC_NONE )	
 	
+#define USB_AUDIO_DRIVER_TRACE(code)			USB_TRACE( kUSBAudio, code, DBG_FUNC_NONE )	
+
 #ifdef KERNEL
 	
 #include <IOKit/IOTimeStamp.h>

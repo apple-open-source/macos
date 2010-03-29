@@ -36,6 +36,7 @@
 #include <stdint.h>
 #include <string.h>
 #include <unistd.h>
+#include <libutil.h>
 
 #include <mach/clock_types.h>
 #include <mach/mach_time.h>
@@ -192,6 +193,14 @@ main ( int argc, const char * argv[] )
 	{
 		
 		fprintf ( stderr, "'%s' must be run as root...\n", gProgramName );
+		exit ( 1 );
+		
+	}
+	
+	if ( reexec_to_match_kernel ( ) )
+	{
+		
+		fprintf ( stderr, "Could not re-execute to match kernel architecture. (Error = %d)\n", errno );
 		exit ( 1 );
 		
 	}
@@ -794,8 +803,9 @@ CollectTrace ( void )
 						{
 
 							printf ( "%-8.8s Response: serviceResponse = 0x%02X, taskStatus = 0x%02X\n",
-								&( ctime ( &currentTime )[11] ),
-								gTraceBuffer[index].arg3 & 0xFF, ( gTraceBuffer[index].arg3 >> 8 ) & 0xFF );
+									 &( ctime ( &currentTime )[11] ),
+									 ( unsigned int ) gTraceBuffer[index].arg3 & 0xFF,
+									 ( unsigned int ) ( gTraceBuffer[index].arg3 >> 8 ) & 0xFF );
 							
 							break;
 							
@@ -835,12 +845,12 @@ CollectTrace ( void )
 							{
 								
 								printf ( "%-8.8s Response: serviceResponse = %d, taskStatus = %d, senseKey = %d, ASC = 0x%02X, ASCQ = 0x%02X\n",
-									&( ctime ( &currentTime )[11] ),
-									 gTraceBuffer[index].arg3 & 0xFF,
-									 ( gTraceBuffer[index].arg3 >> 8 ) & 0xFF,
-									 gTraceBuffer[index].arg4 & 0xFF,
-									 ( gTraceBuffer[index].arg4 >> 8 ) & 0xFF,
-									 ( gTraceBuffer[index].arg4 >> 16 ) & 0xFF );
+										 &( ctime ( &currentTime )[11] ),
+										 ( unsigned int ) gTraceBuffer[index].arg3 & 0xFF,
+										 ( unsigned int ) ( gTraceBuffer[index].arg3 >> 8 ) & 0xFF,
+										 ( unsigned int ) gTraceBuffer[index].arg4 & 0xFF,
+										 ( unsigned int ) ( gTraceBuffer[index].arg4 >> 8 ) & 0xFF,
+										 ( unsigned int ) ( gTraceBuffer[index].arg4 >> 16 ) & 0xFF );
 								
 							}
 							
@@ -848,8 +858,9 @@ CollectTrace ( void )
 							{
 								
 								printf ( "%-8.8s Response: serviceResponse = 0x%02X, taskStatus = 0x%02X\n",
-									&( ctime ( &currentTime )[11] ),
-									 gTraceBuffer[index].arg3 & 0xFF, ( gTraceBuffer[index].arg3 >> 8 ) & 0xFF );
+										 &( ctime ( &currentTime )[11] ),
+										 ( unsigned int ) gTraceBuffer[index].arg3 & 0xFF,
+										 ( unsigned int ) ( gTraceBuffer[index].arg3 >> 8 ) & 0xFF );
 								
 							}
 							
@@ -877,7 +888,10 @@ CollectTrace ( void )
 			case kATADeviceInfoCode:
 			{
 				printf ( "%-8.8s ", &( ctime ( &currentTime )[11] ) );
-				printf ( "ATAPI start, obj = 0x%08X, UnitID = 0x%08X, Device Type = 0x%08X\n", gTraceBuffer[index].arg1, gTraceBuffer[index].arg2, gTraceBuffer[index].arg3 );
+				printf ( "ATAPI start, obj = 0x%08X, UnitID = 0x%08X, Device Type = 0x%08X\n",
+						 ( unsigned int ) gTraceBuffer[index].arg1,
+						 ( unsigned int ) gTraceBuffer[index].arg2,
+						 ( unsigned int ) gTraceBuffer[index].arg3 );
 			}
 			break;
 			
@@ -885,7 +899,11 @@ CollectTrace ( void )
 			{
 				
 				printf ( "%-8.8s ", &( ctime ( &currentTime )[11] ) );
-				printf ( "ATAPI Send SCSI Command, obj = 0x%08X, UnitID = 0x%08X, cmd = 0x%08X, SCSITaskIdentifier = 0x%08X\n", gTraceBuffer[index].arg1, gTraceBuffer[index].arg2, gTraceBuffer[index].arg3, gTraceBuffer[index].arg4 );
+				printf ( "ATAPI Send SCSI Command, obj = 0x%08X, UnitID = 0x%08X, cmd = 0x%08X, SCSITaskIdentifier = 0x%08X\n",
+						 ( unsigned int ) gTraceBuffer[index].arg1,
+						 ( unsigned int ) gTraceBuffer[index].arg2,
+						 ( unsigned int ) gTraceBuffer[index].arg3,
+						 ( unsigned int ) gTraceBuffer[index].arg4 );
 				
 			}
 			break;
@@ -893,7 +911,10 @@ CollectTrace ( void )
 			case kATASendSCSICommandFailedCode:
 			{
 				printf ( "%-8.8s ", &( ctime ( &currentTime )[11] ) );
-				printf ( "ATAPI Send SCSI Command failed!, obj = 0x%08X, UnitID = 0x%08X, SCSITaskIdentifier = 0x%08X\n", gTraceBuffer[index].arg1, gTraceBuffer[index].arg2, gTraceBuffer[index].arg3 );
+				printf ( "ATAPI Send SCSI Command failed!, obj = 0x%08X, UnitID = 0x%08X, SCSITaskIdentifier = 0x%08X\n",
+						 ( unsigned int ) gTraceBuffer[index].arg1,
+						 ( unsigned int ) gTraceBuffer[index].arg2,
+						 ( unsigned int ) gTraceBuffer[index].arg3 );
 			}
 			break;
 
@@ -902,7 +923,11 @@ CollectTrace ( void )
 				
 				printf ( "%-8.8s ", &( ctime ( &currentTime )[11] ) );
 				printf ( "ATAPI Complete SCSI Command, obj = 0x%08X, UnitID = 0x%08X, SCSITaskIdentifier = 0x%08X, serviceResponse = 0x%02X, taskStatus = 0x%02X\n",
-						 gTraceBuffer[index].arg1, gTraceBuffer[index].arg2, gTraceBuffer[index].arg3, ( gTraceBuffer[index].arg4 >> 8 ) & 0xFF, gTraceBuffer[index].arg4 & 0xFF );
+						 ( unsigned int ) gTraceBuffer[index].arg1,
+						 ( unsigned int ) gTraceBuffer[index].arg2,
+						 ( unsigned int ) gTraceBuffer[index].arg3,
+						 ( unsigned int ) ( gTraceBuffer[index].arg4 >> 8 ) & 0xFF,
+						 ( unsigned int ) gTraceBuffer[index].arg4 & 0xFF );
 				
 			}
 			break;
@@ -911,7 +936,10 @@ CollectTrace ( void )
 			{
 				
 				printf ( "%-8.8s ", &( ctime ( &currentTime )[11] ) );
-				printf ( "ATAPI Abort, obj = 0x%08X, UnitID = 0x%08X, SCSITaskIdentifier = 0x%08X\n", gTraceBuffer[index].arg1, gTraceBuffer[index].arg2, gTraceBuffer[index].arg3 );
+				printf ( "ATAPI Abort, obj = 0x%08X, UnitID = 0x%08X, SCSITaskIdentifier = 0x%08X\n",
+						 ( unsigned int ) gTraceBuffer[index].arg1,
+						 ( unsigned int ) gTraceBuffer[index].arg2,
+						 ( unsigned int ) gTraceBuffer[index].arg3 );
 				
 			}
 			break;
@@ -920,7 +948,10 @@ CollectTrace ( void )
 			{
 				
 				printf ( "%-8.8s ", &( ctime ( &currentTime )[11] ) );
-				printf ( "ATAPI Resetting device at Handle Power On, obj = 0x%08X, UnitID = 0x%08X Device Type = 0x%08X\n", gTraceBuffer[index].arg1, gTraceBuffer[index].arg2, gTraceBuffer[index].arg3 );
+				printf ( "ATAPI Resetting device at Handle Power On, obj = 0x%08X, UnitID = 0x%08X Device Type = 0x%08X\n",
+						 ( unsigned int ) gTraceBuffer[index].arg1,
+						 ( unsigned int ) gTraceBuffer[index].arg2,
+						 ( unsigned int ) gTraceBuffer[index].arg3 );
 				
 			}
 			break;
@@ -929,7 +960,10 @@ CollectTrace ( void )
 			{
 				
 				printf ( "%-8.8s ", &( ctime ( &currentTime )[11] ) );
-				printf ( "ATAPI Not resetting device at Handle Power On, obj = 0x%08X, UnitID = 0x%08X Device Type = 0x%08X\n", gTraceBuffer[index].arg1, gTraceBuffer[index].arg2, gTraceBuffer[index].arg3 );
+				printf ( "ATAPI Not resetting device at Handle Power On, obj = 0x%08X, UnitID = 0x%08X Device Type = 0x%08X\n",
+						 ( unsigned int ) gTraceBuffer[index].arg1,
+						 ( unsigned int ) gTraceBuffer[index].arg2,
+						 ( unsigned int ) gTraceBuffer[index].arg3 );
 				
 			}
 			break;
@@ -938,7 +972,10 @@ CollectTrace ( void )
 			{			
 
 				printf ( "%-8.8s ", &( ctime ( &currentTime )[11] ) );
-				printf ( "ATAPI Handle Power Off, obj = 0x%08X, UnitID = 0x%08X Device Type = 0x%08X\n", gTraceBuffer[index].arg1, gTraceBuffer[index].arg2, gTraceBuffer[index].arg3 );
+				printf ( "ATAPI Handle Power Off, obj = 0x%08X, UnitID = 0x%08X Device Type = 0x%08X\n",
+						 ( unsigned int ) gTraceBuffer[index].arg1,
+						 ( unsigned int ) gTraceBuffer[index].arg2,
+						 ( unsigned int ) gTraceBuffer[index].arg3 );
 
 			}
 			break;
@@ -947,7 +984,8 @@ CollectTrace ( void )
 			{
 				
 				printf ( "%-8.8s ", &( ctime ( &currentTime )[11] ) );
-				printf ( "ATAPI Reset complete, UnitID = 0x%08X\n", gTraceBuffer[index].arg1 );
+				printf ( "ATAPI Reset complete, UnitID = 0x%08X\n",
+						 ( unsigned int ) gTraceBuffer[index].arg1 );
 				
 			}
 			break;
@@ -956,7 +994,9 @@ CollectTrace ( void )
 			{
 
 				printf ( "%-8.8s ", &( ctime ( &currentTime )[11] ) );
-				printf ( "ATAPI Device Reset, obj = 0x%08X, UnitID = 0x%08X\n", gTraceBuffer[index].arg1, gTraceBuffer[index].arg2 );
+				printf ( "ATAPI Device Reset, obj = 0x%08X, UnitID = 0x%08X\n",
+						 ( unsigned int ) gTraceBuffer[index].arg1,
+						 ( unsigned int ) gTraceBuffer[index].arg2 );
 
 			}
 			break;
@@ -965,7 +1005,10 @@ CollectTrace ( void )
 			{
 				
 				printf ( "%-8.8s ", &( ctime ( &currentTime )[11] ) );
-				printf ( "ATAPI Driver Power Off, obj = 0x%08X, UnitID = 0x%08X, cmd = 0x%08X\n", gTraceBuffer[index].arg1, gTraceBuffer[index].arg2, gTraceBuffer[index].arg3 );
+				printf ( "ATAPI Driver Power Off, obj = 0x%08X, UnitID = 0x%08X, cmd = 0x%08X\n",
+						 ( unsigned int ) gTraceBuffer[index].arg1,
+						 ( unsigned int ) gTraceBuffer[index].arg2,
+						 ( unsigned int ) gTraceBuffer[index].arg3 );
 				
 			}
 			break;
@@ -974,7 +1017,10 @@ CollectTrace ( void )
 			{
 				
 				printf ( "%-8.8s ", &( ctime ( &currentTime )[11] ) );
-				printf ( "ATAPI Start polling Status Register, obj = 0x%08X, UnitID = 0x%08X, Device Type = 0x%08X\n", gTraceBuffer[index].arg1, gTraceBuffer[index].arg2, gTraceBuffer[index].arg3 );
+				printf ( "ATAPI Start polling Status Register, obj = 0x%08X, UnitID = 0x%08X, Device Type = 0x%08X\n",
+						 ( unsigned int ) gTraceBuffer[index].arg1,
+						 ( unsigned int ) gTraceBuffer[index].arg2,
+						 ( unsigned int ) gTraceBuffer[index].arg3 );
 						
 			}
 			break;
@@ -983,7 +1029,10 @@ CollectTrace ( void )
 			{
 				
 				printf ( "%-8.8s ", &( ctime ( &currentTime )[11] ) );
-				printf ( "ATAPI Polling Status Register, obj = 0x%08X, UnitID = 0x%08X, Device Type = 0x%08X\n", gTraceBuffer[index].arg1, gTraceBuffer[index].arg2, gTraceBuffer[index].arg3 );
+				printf ( "ATAPI Polling Status Register, obj = 0x%08X, UnitID = 0x%08X, Device Type = 0x%08X\n",
+						 ( unsigned int ) gTraceBuffer[index].arg1,
+						 ( unsigned int ) gTraceBuffer[index].arg2,
+						 ( unsigned int ) gTraceBuffer[index].arg3 );
 						
 			}
 			break;
@@ -992,7 +1041,10 @@ CollectTrace ( void )
 			{
 				
 				printf ( "%-8.8s ", &( ctime ( &currentTime )[11] ) );
-				printf ( "ATAPI Stop polling Status Register, obj = 0x%08X, UnitID = 0x%08X, Device Type = 0x%08X\n", gTraceBuffer[index].arg1, gTraceBuffer[index].arg2, gTraceBuffer[index].arg3 );
+				printf ( "ATAPI Stop polling Status Register, obj = 0x%08X, UnitID = 0x%08X, Device Type = 0x%08X\n",
+						 ( unsigned int ) gTraceBuffer[index].arg1,
+						 ( unsigned int ) gTraceBuffer[index].arg2,
+						 ( unsigned int ) gTraceBuffer[index].arg3 );
 						
 			}
 			break;									
@@ -1001,7 +1053,10 @@ CollectTrace ( void )
 			{
 				
 				printf ( "%-8.8s ", &( ctime ( &currentTime )[11] ) );
-				printf ( "ATAPI Send ATA Sleep Command, obj = 0x%08X, UnitID = 0x%08X, cmd = Device Type = 0x%08X\n", gTraceBuffer[index].arg1, gTraceBuffer[index].arg2, gTraceBuffer[index].arg3 );
+				printf ( "ATAPI Send ATA Sleep Command, obj = 0x%08X, UnitID = 0x%08X, cmd = Device Type = 0x%08X\n",
+						 ( unsigned int ) gTraceBuffer[index].arg1,
+						 ( unsigned int ) gTraceBuffer[index].arg2,
+						 ( unsigned int ) gTraceBuffer[index].arg3 );
 						
 			}
 			break;
@@ -1030,9 +1085,11 @@ LoadATAPIExtension ( void )
 {
 	
 	posix_spawn_file_actions_t	fileActions;
-	char * const	argv[]	= { "/sbin/kextload", "/System/Library/Extensions/IOATAFamily.kext/Contents/PlugIns/IOATAPIProtocolTransport.kext", NULL };
-	char * const	env[]	= { NULL };
-	pid_t			child	= 0;
+	char			argv0 []	= "/sbin/kextload";
+	char			argv1 []	= "/System/Library/Extensions/IOATAFamily.kext/Contents/PlugIns/IOATAPIProtocolTransport.kext";
+	char * const	argv[]		= { argv0, argv1, NULL };
+	char * const	env[]		= { NULL };
+	pid_t			child		= 0;
 	union wait 		status;
 	
 	posix_spawn_file_actions_init ( &fileActions );

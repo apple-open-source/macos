@@ -88,7 +88,8 @@ enum {
     service->setProperty(kIOHIDCountryCodeKey, getCountryCode(), 32);       \
     service->setProperty(kIOHIDManufacturerKey, getManufacturer());         \
     service->setProperty(kIOHIDProductKey, getProduct());                   \
-    service->setProperty(kIOHIDSerialNumberKey, getSerialNumber());
+    service->setProperty(kIOHIDSerialNumberKey, getSerialNumber());         \
+    service->setProperty(kIOHIDDeviceUsagePairsKey, getDeviceUsagePairs());
 
 #define		_provider							_reserved->provider
 #define     _workLoop                           _reserved->workLoop
@@ -100,6 +101,7 @@ enum {
 #define     _capsTimerEventSource               _reserved->capsTimerEventSource
 #define     _capsState                          _reserved->capsState
 #define     _capsOptions                        _reserved->capsOptions
+#define     _deviceUsagePairs                   _reserved->deviceUsagePairs
 
 #if TARGET_OS_EMBEDDED
     #define     _clientDict                         _reserved->clientDict
@@ -205,34 +207,7 @@ bool IOHIDEventService::start ( IOService * provider )
     
     SET_HID_PROPERTIES(this);
     SET_HID_PROPERTIES_EMBEDDED(this);
-    
-    //RY: Correctly deal with kIOHIDDeviceUsagePairsKey
-    OSObject * providerUsagePair = provider->getProperty(kIOHIDDeviceUsagePairsKey);
-    if ( providerUsagePair && (providerUsagePair != getProperty(kIOHIDDeviceUsagePairsKey)) ) {
-        setProperty(kIOHIDDeviceUsagePairsKey, providerUsagePair);
-    }
-    else {
-        OSArray* array = OSArray::withCapacity(2);
         
-#if TARGET_OS_EMBEDDED
-        OSDictionary * pair = OSDictionary::withCapacity(2);
-        
-        number = OSNumber::withNumber(getPrimaryUsagePage(), 32);
-        pair->setObject(kIOHIDPrimaryUsagePageKey, number);
-        number->release();
-        
-        number = OSNumber::withNumber(getPrimaryUsage(), 32);
-        pair->setObject(kIOHIDPrimaryUsageKey, number);
-        number->release();
-        
-        array->setObject(pair);
-        pair->release();
-#endif
-        
-        setProperty(kIOHIDDeviceUsagePairsKey, array);
-        array->release();
-    }
-    
     number = OSDynamicCast(OSNumber, getProperty("BootProtocol"));
     if (number)
         bootProtocol = number->unsigned32BitValue();
@@ -279,6 +254,8 @@ bool IOHIDEventService::start ( IOService * provider )
     return true;
 }
 
+#if !TARGET_OS_EMBEDDED
+
 //====================================================================================================
 // stopAndReleaseShim
 //====================================================================================================
@@ -297,6 +274,8 @@ static void stopAndReleaseShim ( IOService * service, IOService * provider )
     }
     service->release();
 }
+
+#endif /* TARGET_OS_EMBEDDED */
 
 //====================================================================================================
 // IOHIDEventService::stop
@@ -782,8 +761,7 @@ void IOHIDEventService::parseSupportedElements ( OSArray * elementArray, UInt32 
             }
         }
         
-        setProperty(kIOHIDDeviceUsagePairsKey, functions);
-        if (functions) functions->release();
+        _deviceUsagePairs = functions;
     }
     
     processTransducerData();
@@ -1159,6 +1137,11 @@ void IOHIDEventService::free()
     }
     
 #if TARGET_OS_EMBEDDED
+    if ( _deviceUsagePairs ) {
+        _deviceUsagePairs->release();
+        _deviceUsagePairs = NULL;
+    }
+    
     if ( _clientDict ) {
         assert(_clientDict->getCount() == 0);
         _clientDict->release();
@@ -1840,6 +1823,55 @@ bool IOHIDEventService::readyForReports()
     return _readyForInputReports;
 }
 
+//==============================================================================
+// IOHIDEventService::getDeviceUsagePairs
+//==============================================================================
+OSMetaClassDefineReservedUsed(IOHIDEventService,  0);
+OSArray * IOHIDEventService::getDeviceUsagePairs()
+{
+    //RY: Correctly deal with kIOHIDDeviceUsagePairsKey
+    OSArray * providerUsagePairs = OSDynamicCast(OSArray, _provider->getProperty(kIOHIDDeviceUsagePairsKey));
+    
+    if ( providerUsagePairs && ( providerUsagePairs != _deviceUsagePairs ) ) {
+        setProperty(kIOHIDDeviceUsagePairsKey, providerUsagePairs);
+        if ( _deviceUsagePairs )
+            _deviceUsagePairs->release();
+        
+        _deviceUsagePairs = providerUsagePairs;
+        _deviceUsagePairs->retain();
+    }
+#if TARGET_OS_EMBEDDED
+    else if ( !_deviceUsagePairs ) {
+        _deviceUsagePairs = OSArray::withCapacity(2);
+        
+        if ( _deviceUsagePairs ) {
+            OSDictionary * pair = OSDictionary::withCapacity(2);
+            
+            if ( pair ) {
+                OSNumber * number;
+                
+                number = OSNumber::withNumber(getPrimaryUsagePage(), 32);
+                if ( number ) {
+                    pair->setObject(kIOHIDDeviceUsagePageKey, number);
+                    number->release();
+                }
+                
+                number = OSNumber::withNumber(getPrimaryUsage(), 32);
+                if ( number ) {
+                    pair->setObject(kIOHIDDeviceUsageKey, number);
+                    number->release();
+                }
+                
+                _deviceUsagePairs->setObject(pair);
+                pair->release();
+            }
+        }
+    }
+#endif
+    
+    return _deviceUsagePairs;
+}
+
 #if TARGET_OS_EMBEDDED
 OSDefineMetaClassAndStructors(IOHIDClientData, OSObject)
 
@@ -1862,7 +1894,7 @@ IOHIDClientData * IOHIDClientData::withClientInfo(IOService *client, void* conte
 
 // IOHIDEventService::open
 //==============================================================================
-OSMetaClassDefineReservedUsed(IOHIDEventService,  0);
+OSMetaClassDefineReservedUsed(IOHIDEventService,  1);
 bool IOHIDEventService::open(   IOService *                 client,
                                 IOOptionBits                options,
                                 void *                      context,
@@ -1884,7 +1916,7 @@ bool IOHIDEventService::open(   IOService *                 client,
 //==============================================================================
 // IOHIDEventService::dispatchEvent
 //==============================================================================
-OSMetaClassDefineReservedUsed(IOHIDEventService,  1);
+OSMetaClassDefineReservedUsed(IOHIDEventService,  2);
 void IOHIDEventService::dispatchEvent(IOHIDEvent * event, IOOptionBits options)
 {
     OSCollectionIterator *  iterator = OSCollectionIterator::withCollection(_clientDict);
@@ -1921,25 +1953,53 @@ void IOHIDEventService::dispatchEvent(IOHIDEvent * event, IOOptionBits options)
 //==============================================================================
 // IOHIDEventService::getPrimaryUsagePage
 //==============================================================================
-OSMetaClassDefineReservedUsed(IOHIDEventService,  2);
+OSMetaClassDefineReservedUsed(IOHIDEventService,  3);
 UInt32 IOHIDEventService::getPrimaryUsagePage ()
 {
-    return 0;
+    UInt32		primaryUsagePage = 0;
+    OSArray *	deviceUsagePairs = getDeviceUsagePairs();
+	
+    if ( deviceUsagePairs && deviceUsagePairs->getCount() ) {
+        OSDictionary * pair = OSDynamicCast(OSDictionary, deviceUsagePairs->getObject(0));
+        
+        if ( pair ) {
+            OSNumber * number = OSDynamicCast(OSNumber, pair->getObject(kIOHIDDeviceUsagePageKey));
+            
+            if ( number )
+                primaryUsagePage = number->unsigned32BitValue();
+        }
+    }
+    
+    return primaryUsagePage;
 }
 
 //==============================================================================
 // IOHIDEventService::getPrimaryUsage
 //==============================================================================
-OSMetaClassDefineReservedUsed(IOHIDEventService,  3);
+OSMetaClassDefineReservedUsed(IOHIDEventService,  4);
 UInt32 IOHIDEventService::getPrimaryUsage ()
 {
-    return 0;
+    UInt32		primaryUsage		= 0;
+    OSArray *	deviceUsagePairs	= getDeviceUsagePairs();
+	
+    if ( deviceUsagePairs && deviceUsagePairs->getCount() ) {
+        OSDictionary * pair = OSDynamicCast(OSDictionary, deviceUsagePairs->getObject(0));
+        
+        if ( pair ) {
+            OSNumber * number = OSDynamicCast(OSNumber, pair->getObject(kIOHIDDeviceUsageKey));
+                                              
+            if ( number )
+                primaryUsage = number->unsigned32BitValue();
+        }
+    }
+    
+    return primaryUsage;
 }
 
 //==============================================================================
 // IOHIDEventService::getReportInterval
 //==============================================================================
-OSMetaClassDefineReservedUsed(IOHIDEventService,  4);
+OSMetaClassDefineReservedUsed(IOHIDEventService,  5);
 UInt32 IOHIDEventService::getReportInterval()
 {
     // default to 8 milliseconds
@@ -1949,7 +2009,7 @@ UInt32 IOHIDEventService::getReportInterval()
 //==============================================================================
 // IOHIDEventService::copyEvent
 //==============================================================================
-OSMetaClassDefineReservedUsed(IOHIDEventService,  5);
+OSMetaClassDefineReservedUsed(IOHIDEventService,  6);
 IOHIDEvent * IOHIDEventService::copyEvent(
                                 IOHIDEventType              type, 
                                 IOHIDEvent *                matching,
@@ -1960,15 +2020,14 @@ IOHIDEvent * IOHIDEventService::copyEvent(
 
 #else
 
-OSMetaClassDefineReservedUnused(IOHIDEventService,  0);
 OSMetaClassDefineReservedUnused(IOHIDEventService,  1);
 OSMetaClassDefineReservedUnused(IOHIDEventService,  2);
 OSMetaClassDefineReservedUnused(IOHIDEventService,  3);
 OSMetaClassDefineReservedUnused(IOHIDEventService,  4);
 OSMetaClassDefineReservedUnused(IOHIDEventService,  5);
+OSMetaClassDefineReservedUnused(IOHIDEventService,  6);
 #endif /* TARGET_OS_EMBEDDED */
 
-OSMetaClassDefineReservedUnused(IOHIDEventService,  6);
 OSMetaClassDefineReservedUnused(IOHIDEventService,  7);
 OSMetaClassDefineReservedUnused(IOHIDEventService,  8);
 OSMetaClassDefineReservedUnused(IOHIDEventService,  9);

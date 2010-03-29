@@ -1,6 +1,6 @@
---- php-5.3.0/php.ini-development	2009-06-28 10:56:18.000000000 -0700
-+++ php/php.ini-development	2009-07-15 23:25:07.000000000 -0700
-@@ -1057,7 +1057,7 @@
+--- php-5.3.1RC3/php.ini-development	2009-10-28 04:03:07.000000000 -0700
++++ php/php.ini-development	2009-11-09 13:37:18.000000000 -0700
+@@ -1060,7 +1060,7 @@
  ; Default socket name for local MySQL connects.  If empty, uses the built-in
  ; MySQL defaults.
  ; http://php.net/pdo_mysql.default-socket
@@ -9,7 +9,13 @@
  
  [Phar]
  ; http://php.net/phar.readonly
-@@ -1210,7 +1210,7 @@
+@@ -1208,12 +1208,12 @@
+ ; compile-time value defined MYSQL_PORT (in that order).  Win32 will only look
+ ; at MYSQL_PORT.
+ ; http://php.net/mysql.default-port
+-mysql.default_port =
++mysql.default_port = 3306
+ 
  ; Default socket name for local MySQL connects.  If empty, uses the built-in
  ; MySQL defaults.
  ; http://php.net/mysql.default-socket
@@ -18,7 +24,7 @@
  
  ; Default host for mysql_connect() (doesn't apply in safe mode).
  ; http://php.net/mysql.default-host
-@@ -1261,7 +1261,7 @@
+@@ -1264,7 +1264,7 @@
  ; Default socket name for local MySQL connects.  If empty, uses the built-in
  ; MySQL defaults.
  ; http://php.net/mysqli.default-socket
@@ -27,9 +33,9 @@
  
  ; Default host for mysql_connect() (doesn't apply in safe mode).
  ; http://php.net/mysqli.default-host
---- php-5.3.0/php.ini-production	2009-06-28 10:56:18.000000000 -0700
-+++ php/php.ini-production	2009-07-15 23:25:07.000000000 -0700
-@@ -1057,7 +1057,7 @@
+--- php-5.3.1RC3/php.ini-production	2009-10-28 04:03:07.000000000 -0700
++++ php/php.ini-production	2009-11-09 13:37:18.000000000 -0700
+@@ -1060,7 +1060,7 @@
  ; Default socket name for local MySQL connects.  If empty, uses the built-in
  ; MySQL defaults.
  ; http://php.net/pdo_mysql.default-socket
@@ -38,7 +44,13 @@
  
  [Phar]
  ; http://php.net/phar.readonly
-@@ -1210,7 +1210,7 @@
+@@ -1208,12 +1208,12 @@
+ ; compile-time value defined MYSQL_PORT (in that order).  Win32 will only look
+ ; at MYSQL_PORT.
+ ; http://php.net/mysql.default-port
+-mysql.default_port =
++mysql.default_port = 3306
+ 
  ; Default socket name for local MySQL connects.  If empty, uses the built-in
  ; MySQL defaults.
  ; http://php.net/mysql.default-socket
@@ -47,7 +59,7 @@
  
  ; Default host for mysql_connect() (doesn't apply in safe mode).
  ; http://php.net/mysql.default-host
-@@ -1269,7 +1269,7 @@
+@@ -1272,7 +1272,7 @@
  ; Default socket name for local MySQL connects.  If empty, uses the built-in
  ; MySQL defaults.
  ; http://php.net/mysqli.default-socket

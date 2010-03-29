@@ -38,7 +38,6 @@
 #include <pthread.h>
 #include <vproc_priv.h>
 #include <mach/mach.h>
-#include <vproc.h>
 #include <assert.h>
 #include <libkern/OSAtomic.h>
 #include "daemon.h"
@@ -68,7 +67,9 @@ static char myname[MAXHOSTNAMELEN + 1] = {0};
 
 static OSSpinLock count_lock = 0;
 
+#ifndef CONFIG_IPHONE
 static vproc_transaction_t vproc_trans = {0};
+#endif
 
 #define QUOTA_TABLE_SIZE 8192
 #define QUOTA_TABLE_SLOTS 8
@@ -224,7 +225,7 @@ freeList(char **l)
  * actually just an array with 8 entry slots (for collisions) per bucket.
  * If there are more than 8 pids that hash to the same bucket, we
  * re-use the one with the lowest message usage (highest remaining
- * quota).  This can lead to "generosity: if there are nine of more
+ * quota).  This can lead to "generosity: if there are nine or more
  * pids with the same last 10 bits all logging like crazy, we may
  * end up allowing some of them to log more than their quota. 
  * That would be a remarkably rare occurrence.
@@ -238,6 +239,8 @@ quota_check(pid_t pid, time_t now, asl_msg_t *msg)
 
 	if (msg == NULL) return VERIFY_STATUS_INVALID_MESSAGE;
 	if (global.mps_limit == 0) return VERIFY_STATUS_OK;
+
+	OSSpinLockLock(&global.lock);
 
 	if (quota_table_time != now)
 	{
@@ -256,6 +259,8 @@ quota_check(pid_t pid, time_t now, asl_msg_t *msg)
 		{
 			quota_table_pid[x] = pid;
 			quota_table_quota[x] = global.mps_limit;
+
+			OSSpinLockUnlock(&global.lock);
 			return VERIFY_STATUS_OK;
 		}
 
@@ -276,11 +281,17 @@ quota_check(pid_t pid, time_t now, asl_msg_t *msg)
 					asl_set(msg, ASL_KEY_LEVEL, QUOTA_EXCEEDED_LEVEL);
 				}
 
+				OSSpinLockUnlock(&global.lock);
 				return VERIFY_STATUS_OK;
 			}
 
-			if (quota_table_quota[x] < 0) return VERIFY_STATUS_EXCEEDED_QUOTA;
+			if (quota_table_quota[x] < 0)
+			{
+				OSSpinLockUnlock(&global.lock);
+				return VERIFY_STATUS_EXCEEDED_QUOTA;
+			}
 
+			OSSpinLockUnlock(&global.lock);
 			return VERIFY_STATUS_OK;
 		}
 
@@ -294,10 +305,10 @@ quota_check(pid_t pid, time_t now, asl_msg_t *msg)
 	}
 
 	/* can't find the pid and no slots were available - reuse slot with highest remaining quota */
-	asldebug("Quotas: reused slot %d pid %d quota %d for new pid %d\n", maxx, (int)quota_table_pid[maxx], quota_table_quota[maxx], (int)pid);
 	quota_table_pid[maxx] = pid;
 	quota_table_quota[maxx] = global.mps_limit;
 
+	OSSpinLockUnlock(&global.lock);
 	return VERIFY_STATUS_OK;
 }
 
@@ -438,7 +449,9 @@ asl_client_count_increment()
 {
 	OSSpinLockLock(&count_lock);
 
+#ifndef CONFIG_IPHONE
 	if (global.client_count == 0) vproc_trans = vproc_transaction_begin(NULL);
+#endif
 	global.client_count++;
 #ifdef DEBUG
 	asldebug("global.client_count++ (%d)\n", global.client_count);
@@ -453,7 +466,9 @@ asl_client_count_decrement()
 	OSSpinLockLock(&count_lock);
 
 	if (global.client_count > 0) global.client_count--;
+#ifndef CONFIG_IPHONE
 	if (global.client_count == 0) vproc_transaction_end(NULL, vproc_trans);
+#endif
 #ifdef DEBUG
 	asldebug("global.client_count-- (%d)\n", global.client_count);
 #endif

@@ -29,6 +29,7 @@ void dumpIOUSBPlane(mach_port_t iokitPort, OutlineViewNode *rootNode, char * pla
 void scan(io_registry_entry_t service, Boolean serviceHasMoreSiblings, UInt32 serviceDepth, UInt64 stackOfBits, OutlineViewNode * rootNode, char * plane);
 void show(io_registry_entry_t service, UInt32 serviceDepth, UInt64 stackOfBits, OutlineViewNode * rootNode, char * plane);
 kern_return_t findUSBPCIDevice(mach_port_t masterPort, io_iterator_t *matchingServices);
+kern_return_t findRemoteUSB(mach_port_t masterPort, io_iterator_t *matchingServices);
 void scanUSBDevices(io_iterator_t intfIterator, OutlineViewNode * rootNode, char * plane);
 
 
@@ -150,15 +151,27 @@ static void DeviceRemoved(void *refCon, io_iterator_t iterator)
                 dumpIOUSBPlane(iokitPort, _rootNode, kIOUSBPlane);
                 break;
             case kIOService_Plane:
+				// Scan not only USB PCI devices, but also any RemoteUSB controllers
                 kernResult = findUSBPCIDevice(iokitPort, &intfIterator);
                 
                 if (KERN_SUCCESS != kernResult)
-                    NSLog(@"USB Prober: FindUSBNode returned 0x%08x\n", kernResult);
+                    NSLog(@"USB Prober: findUSBPCIDevice returned 0x%08x\n", kernResult);
                 else
                 {
                     scanUSBDevices(intfIterator, _rootNode, kIOServicePlane);
                 }
-                    IOObjectRelease(intfIterator);
+				IOObjectRelease(intfIterator);
+				
+                kernResult = findRemoteUSB(iokitPort, &intfIterator);
+                
+                if (KERN_SUCCESS != kernResult)
+                    NSLog(@"USB Prober: findRemoteUSB returned 0x%08x\n", kernResult);
+                else
+                {
+                    scanUSBDevices(intfIterator, _rootNode, kIOServicePlane);
+                }
+				IOObjectRelease(intfIterator);
+				
                 break;
             default:
                 break;
@@ -318,6 +331,25 @@ kern_return_t findUSBPCIDevice(mach_port_t masterPort, io_iterator_t * matchingS
     return kernResult;
 }
 
+kern_return_t findRemoteUSB(mach_port_t masterPort, io_iterator_t * matchingServices)
+{
+    kern_return_t		kernResult;
+    CFMutableDictionaryRef	classesToMatch;
+    
+    // USB controllers are of type IOPCIDevice
+    //
+    classesToMatch = IOServiceMatching("RUSBController");
+    
+    if (classesToMatch == NULL)
+        NSLog(@"USB Prober: IOServiceMatching returned a NULL dictionary.\n");
+    
+    kernResult = IOServiceGetMatchingServices(masterPort, classesToMatch, matchingServices);
+    if (KERN_SUCCESS != kernResult)
+        NSLog(@"USB Prober: IOServiceGetMatchingServices returned %d\n", kernResult);
+    
+    return kernResult;
+}
+
 void scanUSBDevices(io_iterator_t intfIterator, OutlineViewNode * rootNode, char * plane)
 {
     io_object_t		intfService;
@@ -328,7 +360,13 @@ void scanUSBDevices(io_iterator_t intfIterator, OutlineViewNode * rootNode, char
         const UInt8 *				bytes;
         CFIndex						length;
 		UInt32						classCode = 0;
-        
+		io_name_t       class;          // (don't release)
+       
+		IOReturn status = IOObjectGetClass(intfService, class);
+		if (status != KERN_SUCCESS)  {
+			return;
+		}
+		
         // Obtain the service's properties.
         asciiClass = (CFDataRef) IORegistryEntryCreateCFProperty(intfService,
 																 CFSTR( "class-code" ),
@@ -348,8 +386,10 @@ void scanUSBDevices(io_iterator_t intfIterator, OutlineViewNode * rootNode, char
 		if ( asciiClass)
 			CFRelease(asciiClass);
 
+		// Scan USB controllers or any RUSBController
 		if ( (classCode == (0x000c0310)) || (classCode == (0x000c0320)) || (classCode == (0x000c0300)) || 
-			 (classCode == (0x10030c00)) || (classCode == (0x20030c00)) || (classCode == (0x00030c00)) )
+			 (classCode == (0x10030c00)) || (classCode == (0x20030c00)) || (classCode == (0x00030c00)) ||
+			!strncmp("RUSBController", class, 14))
         {
             scan(intfService, FALSE, 0, 0, rootNode,plane);
         }

@@ -375,6 +375,9 @@ ReleaseFragmentedBlock (SFCB *file, BlockDescriptor *block, int age)
 {
 	Cache_t * cache;
 	Buf_t **   bufs;  /* list of Buf_t pointers */
+	char	*buffer;
+	char	*bufEnd;
+	UInt32	fragSize;
 	int i = 0;
 
 	cache = (Cache_t *)file->fcbVolume->vcbBlockCache;
@@ -385,7 +388,12 @@ ReleaseFragmentedBlock (SFCB *file, BlockDescriptor *block, int age)
 		return (-1);
 	}
 
-	while (bufs[i] != NULL && bufs[i]->Length) {
+	buffer = (char*)block->buffer;
+	bufEnd = buffer + file->fcbBlockSize;
+
+	while (bufs[i] != NULL && (buffer < bufEnd)) {
+		fragSize = bufs[i]->Length;
+		buffer += fragSize;
 		(void) CacheRelease (cache, bufs[i], true);
 		++i;
 	}

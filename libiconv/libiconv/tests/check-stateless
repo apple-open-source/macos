@@ -15,7 +15,7 @@ charsetf=`echo "$charset" | sed -e 's,:,-,g'`
 ./table-to "$charset" | sort > tmp-"$charsetf".INVERSE.TXT
 
 # Check 1: charmap and iconv forward should be identical.
-cmp "${srcdir}"/"$charsetf".TXT tmp-"$charsetf".TXT 2> /dev/null
+cmp "${srcdir}"/"$charsetf".TXT tmp-"$charsetf".TXT 2> /dev/null && echo '[PASS]' $charset 1 || echo '[FAIL]' $charset 1
 
 # Check 2: the difference between the charmap and iconv backward.
 sed -e '/	.* 0x/d' < "${srcdir}"/"$charsetf".TXT > tmp-noprecomposed-"$charsetf".TXT
@@ -24,7 +24,7 @@ if test -f "${srcdir}"/"$charsetf".IRREVERSIBLE.TXT; then
 else
   cp tmp-noprecomposed-"$charsetf".TXT tmp-orig-"$charsetf".INVERSE.TXT
 fi
-cmp tmp-orig-"$charsetf".INVERSE.TXT tmp-"$charsetf".INVERSE.TXT 2> /dev/null
+cmp tmp-orig-"$charsetf".INVERSE.TXT tmp-"$charsetf".INVERSE.TXT 2> /dev/null && echo '[PASS]' $charset 2 || echo '[FAIL]' $charset 2
 
 rm -f tmp-"$charsetf".TXT tmp-"$charsetf".INVERSE.TXT tmp-noprecomposed-"$charsetf".TXT tmp-orig-"$charsetf".INVERSE.TXT
 exit 0

@@ -27,6 +27,7 @@ installsrc :
 build :
 	echo "ENV = $(ENV)"
 	$(ENV) $(MAKE) -C $(SRCROOT)/$(PROJECT) makefiles OPT="-DNO_NETINFO -DUSE_TLS -DUSE_CYRUS_SASL -DUSE_SASL_AUTH -D__APPLE_OS_X_SERVER__ -DEVENTS_STYLE=EVENTS_STYLE_KQUEUE\
+			-DUSE_SYSV_POLL\
 			-I/usr/include/sasl -framework OpenDirectory $(CFLAGS)" AUXLIBS="-L/usr/lib -lssl -lsasl2.2.0.1 -lgssapi_krb5"
 	$(ENV) $(MAKE) -C $(SRCROOT)/$(PROJECT)
 	cd $(SRCROOT)/postfix/src/smtpstone && make all
@@ -93,6 +94,7 @@ install : pre-install
 	$(DSTROOT)/usr/sbin/postconf -c $(DSTROOT)/private/etc/postfix -e mynetworks=127.0.0.0/8
 	$(DSTROOT)/usr/sbin/postconf -c $(DSTROOT)/private/etc/postfix -e smtpd_client_restrictions='permit_mynetworks permit_sasl_authenticated permit'
 	$(DSTROOT)/usr/sbin/postconf -c $(DSTROOT)/private/etc/postfix -e recipient_delimiter=+
+	$(DSTROOT)/usr/sbin/postconf -c $(DSTROOT)/private/etc/postfix -e tls_random_source=dev:/dev/urandom
  	#cd $(DSTROOT)/private/etc && $(DSTROOT)/usr/sbin/postmap aliases
 	rm $(DSTROOT)/private/etc/postfix/makedefs.out
 	cd $(SRCROOT)/$(PROJECT) && make tidy

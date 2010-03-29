@@ -399,9 +399,23 @@ void IOUSBDeviceDescriptionSetClass(IOUSBDeviceDescriptionRef devDesc, UInt8 cla
 	CFRelease(aNumber);
 }
 
+void IOUSBDeviceDescriptionSetSubClass(IOUSBDeviceDescriptionRef devDesc, UInt8 subclass)
+{
+	CFNumberRef aNumber = CFNumberCreate(devDesc->allocator, kCFNumberCharType, &subclass);
+	CFDictionarySetValue(devDesc->info, CFSTR("deviceSubClass"), aNumber);
+	CFRelease(aNumber);
+}
+
 uint8_t IOUSBDeviceDescriptionGetSubClass(IOUSBDeviceDescriptionRef ref)
 {
 	return __getDictNumber(ref, CFSTR("deviceSubClass"));	
+}
+
+void IOUSBDeviceDescriptionSetProtocol(IOUSBDeviceDescriptionRef devDesc, UInt8 protocol)
+{
+	CFNumberRef aNumber = CFNumberCreate(devDesc->allocator, kCFNumberCharType, &protocol);
+	CFDictionarySetValue(devDesc->info, CFSTR("deviceProtocol"), aNumber);
+	CFRelease(aNumber);
 }
 
 uint8_t IOUSBDeviceDescriptionGetProtocol(IOUSBDeviceDescriptionRef ref)

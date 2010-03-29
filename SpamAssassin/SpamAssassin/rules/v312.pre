@@ -23,3 +23,7 @@
 #
 #loadplugin Mail::SpamAssassin::Plugin::DKIM
 
+# TextCat - language guesser
+#
+loadplugin Mail::SpamAssassin::Plugin::TextCat
+

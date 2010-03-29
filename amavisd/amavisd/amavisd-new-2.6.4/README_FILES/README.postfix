@@ -1,0 +1,1084 @@
+Integrating amavisd-new in Postfix
+
+  Patrick Ben Koetter
+
+   <[1]patrick.koetter@state-of-mind.de>
+
+  Mark Martinec
+
+   <[2]Mark.Martinec+amavis@ijs.si>
+
+   License: GNU GENERAL PUBLIC LICENSE, Version 2, June 1991
+
+   +------------------------------------------------------------------------+
+   | Revision History                                                       |
+   |------------------------------------------------------------------------|
+   | Revision 141               | 11. Mar 2008             | PK             |
+   |------------------------------------------------------------------------|
+   | Updated parameters that override Postfix defaults for the amavisdfeed  |
+   | and the reentry smtpd servers                                          |
+   |------------------------------------------------------------------------|
+   | Revision 139               | 11. Mar 2008             | PK             |
+   |------------------------------------------------------------------------|
+   | Added corrections sent in from Chris Pepper                            |
+   |------------------------------------------------------------------------|
+   | Revision 122               | 15. Jun 2007             | PK             |
+   |------------------------------------------------------------------------|
+   | Added Section on Advanced Configuration                                |
+   |------------------------------------------------------------------------|
+   | Revision 108               | 22. Apr 2007             | PK             |
+   |------------------------------------------------------------------------|
+   | Initial publication                                                    |
+   +------------------------------------------------------------------------+
+
+   Table of Contents
+
+   [3]1. Requirements
+
+                [4]1.1. Which Postfix version is required?
+
+                [5]1.2. Catching errors during integration
+
+   [6]2. Basic Postfix and amavisd-new configuration
+
+                [7]2.1. Configuring amavisd-new for Postfix
+
+                [8]2.2. Configuring the transport from Postfix to amavisd-new
+
+                [9]2.3. Configuring a dedicated SMTP-server for message
+                reinjection
+
+                [10]2.4. Testing basic configuration
+
+   [11]3. Message filtering examples
+
+                [12]3.1. Filtering E-mail globally
+
+                [13]3.2. Filtering E-mail by Postfix service
+
+                [14]3.3. Filtering E-Mails per Recipient Domain
+
+                [15]3.4. Filtering E-Mails by Sender-Domain
+
+                [16]3.5. Filtering E-mail per Content
+
+   [17]4. Advanced Postfix and amavisd-new configuration
+
+                [18]4.1. Multiple cleanup service architecture
+
+                [19]4.2. Configuring two cleanup services
+
+   [20]5. Tuning
+
+                [21]5.1. Maximum Number of Concurrent Processes
+
+                [22]5.2. Additional Tips for Tuning
+
+   Abstract
+
+   This document describes how amavisd-new can be integrated into the Postfix
+   SMTP delivery process. It lists the necessary requirements, explains how
+   Postfix and amavisd-new need to be configured to basically work together
+   and it gives filter-examples to show how amavisd-new can be called from
+   Postfix.
+
+1. Requirements
+
+   The following requirements must be met before integration can begin:
+
+    1. amavisd-new has already been installed and successfully tested.
+
+    2. Postfix has been installed, configured for basic operations and tested
+       successfully.
+
+   [23][Tip] Tip
+             Independently of the configuration examples shown in this
+             document, it is advisable to set strict_rfc821_envelopes = yes
+             in /etc/postfix/main.cf. Postfix will reject any message from
+             envelope-senders, whose address can't be used to send a reply
+             to.
+
+             This avoids accepting e-mails from erroneous envelope-senders
+             that can't be informed of problems, which finally would result
+             in deleting the message - even if Postfix claimed successful
+             delivery in the first.
+
+  1.1. Which Postfix version is required?
+
+   Integrating amavisd-new into the Postfix delivery process requires that
+   Postfix is able to delegate messages to external content filters. The
+   minimum version that provides content filtering is Postfix
+   release-20010228.
+
+  1.2. Catching errors during integration
+
+   Chances are that configuration errors during implementation cause Postfix
+   to bounce legitimate messages. Setting the soft_bounce parameter during
+   integration and reloading the Postfix configuration afterwards prevents
+   Postfix from bouncing legitimate mail during that time:
+
+ # postconf -e "soft_bounce = yes"
+ # postfix reload
+
+   As soon as soft_bounce has been activated Postfix will treat all delivery
+   errors as temporary errors - any client that wants to send messages to
+   Postfix will keep mail in the mailqueue and it will suspend delivery until
+   the soft_bounce parameter has been removed or set to no.
+
+   Once the integration of amavisd-new into the Postfix delivery process has
+   been completed successfully soft_bounce must be removed or Postfix will
+   not generate bounce messages for legitimate mail.
+
+2. Basic Postfix and amavisd-new configuration
+
+   There are several moments at which Postfix can hand messages over to
+   amavisd-new (before it accepts a message from a client or after) and there
+   are different filter approaches (globally, per recipient (domain), per
+   network interface, etc.) that can trigger Postfix to transport a message
+   to amavisd-new.
+
+   The transport methods - transporting a message from Postfix to amavisd-new
+   and back - however always remain the same. They will be described in this
+   section first. The section that follows will deal with different filtering
+   approaches.
+
+   [24][Tip] Integration procedure
+             The following examples have been structured to cause minimum
+             trouble on an online mail system. The order of steps ensures
+             that filtering will be enabled at the very last moment. Several
+             tests will have been conducted to verify the delivery chain
+             works before the filter is enabled. Once enabled the complete
+             system should work at once.
+
+  2.1. Configuring amavisd-new for Postfix
+
+   Configuring amavisd-new to work with Postfix answers the following two
+   questions:
+
+    1. Which port should the amavisd-new daemon listen to for incoming
+       connections from Postfix?
+
+    2. Which IP-address and port should the amavisd-new SMTP client use to
+       (re)inject filtered messages (and notifications about message status)
+       into the Postfix SMTP delivery system?
+
+    2.1.1. Configuring amavisd-new for incoming connections
+
+   The $inet_socket_port parameter in /etc/amavisd.conf sets the port number
+   where amavisd-new will listen for incoming (E)SMTP connections. The
+   following example explicitly configures amavisd-new to bind to port 10024
+   (default setting undef):
+
+ $inet_socket_port = 10024;
+
+    2.1.2. Configuring the reinjection path
+
+   Two parameters, $forward_method and $notify_method, need to be configured
+   (usually identically) to reinject messages into the Postfix mail system.
+
+   The first parameter, $forward_method, specifies where amavisd-new should
+   transport scanned messages to, while the second parameter, $notify_method,
+   specifies where notifications about scanned messages should be transported
+   to.
+
+   By default amavisd uses 127.0.0.1 on port 10025 to contact a SMTP server
+   for reinjection of filtered messages. Unless a different IP address or
+   port should be used, no modifications must be applied and this section can
+   be skipped.
+
+   In case a different IP address or port should be used, the parameters
+   $notify_method and $forward_method need to be adjusted to reflect these
+   requirements. The following example edits these parameters in
+   /etc/amavisd.conf and uses 192.0.2.1 as IP address and port 20025:
+
+ $notify_method  = 'smtp:[192.0.2.1]:20025';
+ $forward_method = 'smtp:[192.0.2.1]:20025';
+
+  2.2. Configuring the transport from Postfix to amavisd-new
+
+   Both amavisd-new and Postfix are able to use either SMTP- or
+   LMTP-communication to transport a message from Postfix to amavisd-new.
+   Both variants will be described in this section.
+
+    Why configure a dedicated service?
+
+   Theoretically it's possible to transport messages from Postfix to
+   amavisd-new using the existing smtp-, lmtp, or even the relay-service in
+   /etc/postfix/master.cf.
+
+   In practice transporting messages to amavisd-new requires imposing
+   transport limits on the transporting service. Imposing such limits on a
+   globally available service would impose these limits on the complete
+   Postfix mail system - it would slow down the system significantly and
+   should be avoided.
+
+   [25][Note] Note
+              The number of Postfix clients that may connect simultaneously
+              to amavisd-new instances must be limited to the maximum number
+              of daemon child processes amavisd-new starts.
+
+              If the Postfix transport client was allowed to open more
+              connections than amavisd-new can handle, amavisd-new would
+              start to queue incoming Postfix connections. Postfix in turn
+              would interpret such behaviour as "unresponsive remote MTA" and
+              would itself begin to queue mail that should be filtered. All
+              this would possibly throttle down the complete system and all
+              further filtering attempts would suffer.
+
+    2.2.1. Configuring a dedicated lmtp-client
+
+   The following example creates a new, dedicated lmtp-transport named
+   amavisfeed in /etc/postfix/master.cf. Its configuration details are
+   explained following the listing:
+
+ # ==========================================================================
+ # service type  private unpriv  chroot  wakeup  maxproc command + args
+ #               (yes)   (yes)   (yes)   (never) (100)
+ # ==========================================================================
+
+ ...
+
+ amavisfeed unix    -       -       n        -      2     lmtp
+     -o lmtp_data_done_timeout=1200
+     -o lmtp_send_xforward_command=yes
+     -o lmtp_tls_note_starttls_offer=no
+
+   [26][Important] Important
+                   A noteworthy quote from the Postfix documentation: "...do
+                   not specify whitespace around the `='. In parameter
+                   values, either avoid whitespace altogether, ...". Further
+                   details on master.cf configuration syntax can be found in
+                   master.cf or master(5).
+
+   Here's a quick rundown on the settings that differ from other services
+   defaults:
+
+   maxproc
+
+           The maximum number of concurrent Postfix amavis-service processes
+           has been limited to 2 (default: default_process_limit = 100). This
+           value reflects the default of 2 amavisd-daemon children processes
+           and is a good setting to start from. The value may be raised
+           later, when the system works stable and still can take a higher
+           load. It should not exceed the number of simultaneous amavisd
+           child processes.
+
+   lmtp_data_done_timeout
+
+           Setting lmtp_data_done_timeout to 1200 (seconds) doubles the
+           default time span a regular Postfix client waits after message
+           delivery for the server to reply DONE to claim successful
+           delivery. It must be larger than amavisd setting $child_timeout
+           (default 8*60 seconds) and should add a sufficient safety margin,
+           for example to cater for periods of automatic database maintenance
+           (e.g. bayes database on non-SQL database types) which can take a
+           long time in some cases.
+
+           If the server does not reply within the configured time span, the
+           Postfix client will quit the connection, put the message into the
+           deferred queue, log a delivery failure and retry later to
+           transport the message to amavisd-new.
+
+           [27][Note] Note
+                      Raising this value serves a trick amavisd uses to avoid
+                      message loss in case of power outage etc. The trick
+                      consists in keeping the incoming connection as long
+                      open as it takes to filter the message and take
+                      appropriate action (reinjection, notification,
+                      quarantine, etc.).
+
+                      Only when the message (or notifications etc.) has been
+                      reinjected amavisd will send DONE to the client and the
+                      client will close the connection. This way Postfix will
+                      always keep the message in its own mail queue, where it
+                      can be reactivated after a system failure.
+
+   lmtp_send_xforward_command
+
+           Enabling lmtp_send_xforward_command configures the Postfix
+           lmtp-client to forward the original clients HELO name and IP
+           address to amavisd-new. amavisd-new in turn can use this
+           information for
+
+              * logging and notifications (macro %a)
+
+              * switching policy banks (MYNETS, @mynetworks_maps)
+
+              * pen pals functionality
+
+              * p0f fingerprinting
+
+   lmtp_tls_note_starttls_offer
+
+           Starting with version 2.6 amavisd-new can offer TLS to a smtp- or
+           lmtp-client. This option cuts down unnecessary logging by Postfix,
+           just in case logging TLS session offers has been enabled globally
+           setting lmtp_tls_note_starttls_offer in Postfix main.cf
+           configuration file.
+
+    2.2.2. Configuring a dedicated smtp-client
+
+   Configuring a dedicated smtp-client is almost identical to configuring a
+   dedicated lmtp-client. The syntax differences in detail are that the names
+   of parameters start with smtp_ instead of lmtp_ and that the command at
+   the end of the service invokes the smtp- and not lmtp-client. The same
+   reasons given for differing lmtp client options apply to the dedicated
+   smtp client configuration.
+
+   Here's an example of a dedicated smtp client given the service name
+   amavisfeed:
+
+ # ==========================================================================
+ # service type  private unpriv  chroot  wakeup  maxproc command + args
+ #               (yes)   (yes)   (yes)   (never) (100)
+ # ==========================================================================
+
+ ...
+
+ amavisfeed unix    -       -       n       -       2     smtp
+     -o smtp_data_done_timeout=1200
+     -o smtp_send_xforward_command=yes
+     -o smtp_tls_note_starttls_offer=no
+
+  2.3. Configuring a dedicated SMTP-server for message reinjection
+
+   The second service that needs to be added to the Postfix mail system is a
+   dedicated SMTP-server. It will exist only to accept filtered messages and
+   notifications from amavisd-new to transported them closer to their final
+   destination.
+
+   This dedicated smtpd server will differ in many aspects from the default
+   smtpd daemon. The most important difference is that it configures an empty
+   content_filter parameter, thus overriding any global external content
+   filtering settings in Postfix.
+
+   [28][Note] Note
+              Delegating messages to an external content filter in Postfix is
+              done using the content_filter parameter. If the dedicated
+              smtpd-daemon would not override any global content_filter
+              settings, the reinjected message would be sent of to the
+              external content filter again - the mail would end in an
+              endless loop.
+
+   The following Postfix example uses amavisd-new default settings taken from
+   the $forward_method and $notify_method parameters. These settings
+   configure amavisd-new to forward filtered messages and notifications to
+   127.0.0.1 on port 10025; the Postfix smtpd daemon will be configured to
+   bind to that IP address and listen on the specified port for incoming
+   connections:
+
+ # ==========================================================================
+ # service type  private unpriv  chroot  wakeup  maxproc command + args
+ #               (yes)   (yes)   (yes)   (never) (100)
+ # ==========================================================================
+
+ ...
+
+ 127.0.0.1:10025 inet n    -       n       -       -     smtpd
+     -o content_filter=
+     -o smtpd_delay_reject=no
+     -o smtpd_client_restrictions=permit_mynetworks,reject
+     -o smtpd_helo_restrictions=
+     -o smtpd_sender_restrictions=
+     -o smtpd_recipient_restrictions=permit_mynetworks,reject
+     -o smtpd_data_restrictions=reject_unauth_pipelining
+     -o smtpd_end_of_data_restrictions=
+     -o smtpd_restriction_classes=
+     -o mynetworks=127.0.0.0/8
+     -o smtpd_error_sleep_time=0
+     -o smtpd_soft_error_limit=1001
+     -o smtpd_hard_error_limit=1000
+     -o smtpd_client_connection_count_limit=0
+     -o smtpd_client_connection_rate_limit=0
+     -o receive_override_options=no_header_body_checks,no_unknown_recipient_checks,no_milters
+     -o local_header_rewrite_clients=
+     -o smtpd_milters=
+     -o local_recipient_maps=
+     -o relay_recipient_maps=
+
+   Here's a quick rundown on the settings that differ from smtpd defaults:
+
+   content_filter
+
+           The empty content_filter overrides other, globally set
+           content_filter delegations.
+
+   ..._maps
+
+           Empty ..._maps override any other globally set map lookups.
+           Procedures to enforce settings specified in such maps have already
+           taken place when Postfix accepted the message from the external
+           client. Doing them again will not produce new results but only
+           waste resources.
+
+   ..._restrictions_...
+
+           There's no need to apply any already enforced ..._restrictions_...
+           another time. It would also only waste resources.
+
+   mynetworks
+
+           To avoid abuse from remote hosts, the dedicated smtpd-daemon will
+           only allow clients from 127.0.0.0/8 to relay messages.
+
+   local_header_rewrite_clients
+
+           By default this option would "rewrite message header addresses in
+           mail from these clients and update incomplete addresses with the
+           domain name". If such action has already been taken by Postfix
+           before the message went off to amavis, it should not be done a
+           second time when it reenters the Postfix mail system. Leaving this
+           option empty disables local header rewrites and saves resources.
+
+   remaining options
+
+           All remaining options either configure the dedicated smtpd-daemon
+           to be more failure tolerant or exist to avoid unnecessary use of
+           resources.
+
+   Running the postfix reload will activate the new transports (Postfix will
+   not yet send regular mail to amavisd). Combined with the tail command
+   problems can easily be detected:
+
+ # postfix reload && tail -f /var/log/maillog
+
+   If there are no problems reported, basic configuration can be tested.
+
+  2.4. Testing basic configuration
+
+   Testing basic configuration consists of three separate tests, starting at
+   the end of the new delivery chain and working to it's beginning. Their
+   goal is to answer the following questions:
+
+    1. Will amavisd-new accept connections at the specified IP address and
+       port?
+
+    2. Will the new dedicated smtpd-daemon accept connections at the
+       specified IP address and port?
+
+    3. Will a test message, injected into amavisd-new, be filtered, sent to
+       Postfix and delivered into a mailbox?
+
+    2.4.1. Testing amavisd's host and port
+
+   A test, using the telnet command, serves to verify that amavisd listens on
+   the specified IP address and port. A successful connection looks like
+   this:
+
+ $ telnet localhost 10024
+ 220 [127.0.0.1] ESMTP amavisd-new service ready
+ EHLO localhost
+ 250-[127.0.0.1]
+ 250-VRFY
+ 250-PIPELINING
+ 250-SIZE
+ 250-ENHANCEDSTATUSCODES
+ 250-8BITMIME
+ 250-DSN
+ 250 XFORWARD NAME ADDR PROTO HELO
+ QUIT
+ 221 2.0.0 [127.0.0.1] amavisd-new closing transmission channel
+
+   If the test fails, the following questions may help to debug the problem:
+
+     * Is the amavisd-new daemon running?
+
+     * Does amavisd-new write an error to the log?
+
+     * Do the IP address and port number specified in the amavisd-new
+       configuration match the values used during the test?
+
+     * Does a firewall intercept connections?
+
+    2.4.2. Testing the dedicated Postfix smtpd-daemon
+
+   When Postfix was reloaded, the new, dedicated smtpd-daemon
+   (127.0.0.1:10025) should have been activated. A successful connection
+   looks like this:
+
+ $ telnet 127.0.0.1 10025
+ 220 mail.example.com ESMTP Postfix (2.3.2)
+ EHLO localhost
+ 250-mail.example.com
+ 250-PIPELINING
+ 250-SIZE 40960000
+ 250-ETRN
+ 250-STARTTLS
+ 250-AUTH PLAIN CRAM-MD5 LOGIN DIGEST-MD5
+ 250-AUTH=PLAIN CRAM-MD5 LOGIN DIGEST-MD5
+ 250-ENHANCEDSTATUSCODES
+ 250-8BITMIME
+ 250 DSN
+ QUIT
+ 221 2.0.0 Bye
+
+   If the test fails, the following questions may help to debug the problem:
+
+     * Is the Postfix master daemon running?
+
+     * Does Postfix write an error to the log?
+
+     * Do the IP address and port number specified in the new services
+       configuration match the values used during the test?
+
+     * Does a firewall intercept connections?
+
+    2.4.3. Testing the new transport chain
+
+   This test proves amavisd accepts e-mail as specified in [29]Section 2.1,
+   "Configuring amavisd-new for Postfix", filters it and finally hands it
+   over to Postfix' dedicated smtpd-daemon as specified in [30]Section 2.3,
+   "Configuring a dedicated SMTP-server for message reinjection".
+
+   The following example uses the content of test-messages/sample-nonspam.txt
+   from the amavisd test-messages to send an e-mail:
+
+ $ telnet localhost 10024
+ 220 [127.0.0.1] ESMTP amavisd-new service ready
+ HELO localhost
+ 250 [127.0.0.1]
+ MAIL FROM: <>
+ 250 2.1.0 Sender  OK
+ RCPT TO: <postmaster>
+ 250 2.1.5 Recipient postmaster OK
+ DATA
+ 354 End data with <CR><LF>.<CR><LF>
+ From: virus-tester
+ To: undisclosed-recipients:;
+ Subject: amavisd test - simple - no spam test pattern
+
+ This is a simple test message from the amavisd-new test-messages.
+ .
+ 250 2.6.0 Ok, id=30897-02, from MTA([127.0.0.1]:10025): 250 2.0.0 Ok: queued as 079474CE44
+ QUIT
+ 221 2.0.0 [127.0.0.1] amavisd-new closing transmission channel
+
+   The maillog shows the delivery path. Here's an excerpt from a successful
+   delivery process:
+
+ Nov  1 11:28:10 mail postfix/smtpd[30986]: connect from localhost[127.0.0.1] [31]1
+ Nov  1 11:28:10 mail postfix/smtpd[30986]: 079474CE44: client=localhost[127.0.0.1]
+ Nov  1 11:28:10 mail postfix/cleanup[30980]: 079474CE44: message-id=<20061101102810.079474CE44@mail.example.com>
+ Nov  1 11:28:10 mail postfix/qmgr[20432]: 079474CE44: from=<>, size=822, nrcpt=1 (queue active)
+ Nov  1 11:28:10 mail amavis[30897]: (30897-02) Passed BAD-HEADER, <> -> <postmaster>, quarantine: badh-le5gjszxowBk, mail_id: le5gjszxowBk, Hits: -1.76, queued_as: 079474CE44, 39505 ms [32]2
+ Nov  1 11:28:10 mail postfix/smtpd[30986]: disconnect from localhost[127.0.0.1]
+ Nov  1 11:28:10 mail postfix/local[30987]: 079474CE44: to=<postmaster@example.com>, relay=local, delay=0.27, delays=0.14/0.05/0/0.08, dsn=2.0.0, status=sent (delivered to mailbox: postmaster) [33]3
+ Nov  1 11:28:10 mail postfix/qmgr[20432]: 079474CE44: removed
+
+   [34]1 amavisd connects with Postfix dedicated smtpd-daemon and hands over
+         the e-mail that had been sent during the telnet session. smtpd gives
+         a queue-id of 079474CE44 that can be tracked throughout the maillog.
+   [35]2 amavisd notices it has checked and sent an e-mail to <postmaster>.
+   [36]3 Postfix' local-service logs it successfully delivered an e-mail with
+         queue-id 079474CE44 to the mailbox of postmaster.
+
+   If the test fails, the following questions may help to debug the problem:
+
+     * Does amavisd-new log errors?
+
+     * Does running amavisd-new in debug-mode report errors?
+
+3. Message filtering examples
+
+   Postfix can use various criteria to decide whether a message should be
+   sent to amavisd-new for examination. Combinations of criteria may serve to
+   create different configurations. The following section describes the
+   following configurations:
+
+     * Filtering e-mail globally
+
+     * Filtering e-mail globally by service
+
+     * Filtering e-mail per recipient domain
+
+     * Filtering e-mail per sender domain
+
+     * Filtering e-mail by content
+
+  3.1. Filtering E-mail globally
+
+   In most cases email policies require global filtering - every inbound and
+   every outbound e-mail must be filtered by amavisd-new - before it may be
+   sent closer to its final destination.
+
+   [37][Note] Why check outgoing mail traffic?
+              Some reasons for checking mail coming from internal networks or
+              from authenticated roaming users are:
+
+                * detect an internal infected PC which is sending viruses
+
+                * detect an internal zombiized PC (or an internal open relay
+                  or proxy) which is sending or relaying spam
+
+                * let the SpamAssassin Bayes autolearning feature see a
+                  balanced view of all mail, including useful samples of
+                  non-spam originating from inside
+
+                * make it possible for pen pals feature to function (if
+                  enabled)
+
+   In Postfix global settings for its services are written to main.cf. The
+   content_filter parameter, the parameter configuring that messages are sent
+   to amavisd-new, must therefore be placed in main.cf.
+
+   The content_filter parameter requires a triplet, consisting of the
+   transport service's name (here: amavisfeed, given in [38]Section 2.2.1,
+   "Configuring a dedicated lmtp-client"), the target hosts IP address and
+   the port where amavisd-new listens for incoming connections. Following the
+   values used in this documents examples the content_filter configuration
+   results in this:
+
+ content_filter=amavisfeed:[127.0.0.1]:10024
+
+   The new external content filter will be activated once Postfix has been
+   reloaded. Sending a test-mail verifies the system works.
+
+  3.2. Filtering E-mail by Postfix service
+
+   Postfix is able to filter messages per service. Such configuration
+   requires the content_filter not to be applied globally to all services in
+   main.cf (see: [39]Section 3.1, "Filtering E-mail globally"), but
+   selectively, per service in master.cf.
+
+   The following example presumes Postfix runs on a system offering three IP
+   addresses. In this example these are: 192.0.2.1 (WAN), 127.0.0.1
+   (localhost) and 10.0.0.254 (LAN). The goal is to filter only e-mail that
+   enters from the WAN interface.
+
+   This requires to create three dedicated smtpd-daemon instances, each
+   binding to one of the given IP addresses and deactivating the global smtp
+   service calling the smtpd command.
+
+   Additionally the WAN interface (here: 192.0.2.1:25) is configured to use
+   content_filter =amavisfeed:[127.0.0.1]:10024 - it will delegate any
+   message that enters the Postfix mail system at this service to the
+   external amavisd content filter.
+
+ # ==========================================================================
+ # service type  private unpriv  chroot  wakeup  maxproc command + args
+ #               (yes)   (yes)   (yes)   (never) (100)
+ # ==========================================================================
+ # smtp      inet  n       -       n       -       -       smtpd
+
+ ...
+
+ 192.0.2.1:25 inet n    -       n       -       -     smtpd
+     -o content_filter=amavisfeed:[127.0.0.1]:10024
+     -o receive_override_options=no_address_mappings
+
+ 10.0.0.254:25   inet n    -       n       -       -     smtpd
+
+ 127.0.0.1:10025 inet n    -       n       -       -     smtpd
+     -o content_filter=
+     -o smtpd_delay_reject=no
+     -o smtpd_client_restrictions=permit_mynetworks,reject
+     -o smtpd_helo_restrictions=
+     -o smtpd_sender_restrictions=
+     -o smtpd_recipient_restrictions=permit_mynetworks,reject
+     -o smtpd_data_restrictions=reject_unauth_pipelining
+     -o smtpd_end_of_data_restrictions=
+     -o smtpd_restriction_classes=
+     -o mynetworks=127.0.0.0/8
+     -o smtpd_error_sleep_time=0
+     -o smtpd_soft_error_limit=1001
+     -o smtpd_hard_error_limit=1000
+     -o smtpd_client_connection_count_limit=0
+     -o smtpd_client_connection_rate_limit=0
+     -o receive_override_options=no_header_body_checks,no_unknown_recipient_checks,no_milters
+     -o local_header_rewrite_clients=
+     -o smtpd_milters=
+     -o local_recipient_maps=
+     -o relay_recipient_maps=
+
+  3.3. Filtering E-Mails per Recipient Domain
+
+   Postfix is able to filter e-mails per recipient domain. In order to do
+   this the content_filter parameter must not be set globally (see:
+   [40]Section 3.1, "Filtering E-mail globally"). Instead the content_filter
+   parameter has to be associated with one or more recipient domains listed
+   in a lookup table (map).
+
+   [41][Caution] Caution
+                 This filter method is not selective! It will send any mail
+                 with a recipient domain listed in the lookup table to amavis
+                 even if the mail contains another recipient that should not
+                 be examined by the amavis framework.
+
+                 If fully selective rules are required all mail should be
+                 sent to amavis and amavis' own rule sets should be
+                 configured to decide whether a message for a given recipient
+                 should be examined or not.
+
+   When Postfix searches the lookup table and finds the recipients domain
+   listed as key, it will take the action associated with that domain. The
+   action will send the message to a FILTER amavisfeed:[127.0.0.1]:10024.
+
+   The following map /etc/postfix/filter_recipient_domains specifies to send
+   messages to the FILTER amavisfeed whenever a message for any recipient at
+   example.com enters the Postfix mailqueues:
+
+ example.com               FILTER amavisfeed:[127.0.0.1]:10024
+
+   Once the table has been created the postmap command must be used to create
+   an indexed map Postfix can read:
+
+ # postmap /etc/postfix/filter_recipient_domains
+
+   Once the map has been indexed, the postmap command is used to test the
+   map. In the following example the postmap command queries for the domain
+   example.com and returns the associated action:
+
+ # postmap -q "example.com" /etc/postfix/filter_recipient_domains
+ FILTER amavisfeed:[127.0.0.1]:10024
+
+   The tested map must be added to main.cf, before Postfix can make use of
+   the new filter policy. Setting the check_recipient_access parameter in the
+   list of smtpd_recipient_restrictions triggers evaluation of entries in the
+   map - check_recipient_access is triggered by the envelope-recipient(s)
+   given by a SMTP-client in a SMTP-session with Postfix.
+
+   The following example puts the check_recipient_access rule before
+   permit_mynetworks - all clients envelope-recipient(s) will be filtered:
+
+ smtpd_recipient_restrictions =
+     ...
+     check_recipient_access hash:/etc/postfix/filter_recipient_domains
+     ...
+     permit_mynetworks
+     reject_unauth_destination
+     ...
+
+    Filtering E-Mails per Recipient Domain only from External Clients
+
+   This example puts the check_recipient_access rule after permit_mynetworks
+   - only messages sent from clients that are not in Postfix $mynetworks list
+   (external or untrusted clients) will be filtered:
+
+ smtpd_recipient_restrictions =
+     ...
+     permit_mynetworks
+     reject_unauth_destination
+     check_recipient_access hash:/etc/postfix/filter_recipient_domains
+     ...
+
+  3.4. Filtering E-Mails by Sender-Domain
+
+   In general it doesn't make sense to filter e-mails by sender-domain, as
+   anyone can fake a sender-domain during a SMTP-session. Filtering by
+   sender-domain will probably only make sense, if messages are not filtered
+   globally, but e-mails from ones own domain should be checked for spam or
+   viruses before they leave the network.
+
+   Most of the configuration steps are identical with the ones noted in
+   [42]Section 3.3, "Filtering E-Mails per Recipient Domain", except for the
+   parameter that triggers evaluation of the indexed map. In this scenario
+   envelope-senders should trigger map evaluation. The map, named
+   /etc/postfix/filter_sender_domains this time, contains the sender domain
+   (example.com) and associates it with the required FILTER:
+
+ example.com               FILTER amavisfeed:[127.0.0.1]:10024
+
+   Once the map has been converted and tested with the postmap command (see:
+   [43]Section 3.3, "Filtering E-Mails per Recipient Domain") it must be
+   added to the list of smtpd_recipient_restrictions using the
+   check_sender_access parameter:
+
+ smtpd_recipient_restrictions =
+     ...
+     check_sender_access hash:/etc/postfix/filter_sender_domains
+     ...
+     permit_mynetworks
+     reject_unauth_destination
+     ...
+
+   [44][Important] Important
+                   The map must be listed before permit_mynetworks, because
+                   only then it will be applied to all clients - even the
+                   ones Postfix trusts, which are very likely the ones from
+                   example.com.
+
+  3.5. Filtering E-mail per Content
+
+   Postfix is able - with deliberate limitations (see: BUILTIN_FILTER_README)
+   - to search for strings in headers, the body and MIME-headers. If a string
+   matches, Postfix may call appropriate action.
+
+   The following example configures Postfix to look for the string offer in
+   Subject:-headers and delegate the message to an external content filter if
+   if finds a matching string.
+
+   A map, consisting of the search string noted as regexp-expression,
+   associates the search pattern with a FILTER action:
+
+ /^Subject:.*offer/   FILTER amavisfeed:[127.0.0.1]:10024
+
+   [45][Note] Indexing regexp- or pcre-maps?
+              regexp- or pcre-maps are and must be plaintext files. They must
+              not and cannot be converted to an indexed map using the postmap
+              command. They can be tested using the postmap command using the
+              -q command line option.
+
+   Once the map has been created, Postfix must be configured to use it. The
+   following example uses the header_checks parameter (not body_checks or
+   mime_header_checks as they apply to other message parts) to implement the
+   map into the Postfix delivery process:
+
+ header_checks = regexp:/etc/postfix/filter_header
+
+   Once Postfix has been reloaded it will send every e-mail that contains the
+   word offer in the Subject:-header off to the external amavisd content
+   filter.
+
+4. Advanced Postfix and amavisd-new configuration
+
+   In a post-queue content filtering setup, a mail message passes through
+   smtpd and cleanup Postfix services twice, once before a content filter,
+   and the second time when an approved message is reinjected from a content
+   filter into the Postfix mail system. This is because checks and
+   transformations that have been configured in main.cf are globally active
+   and will be loaded and run by any instance of these two services. To avoid
+   wasting resources, options that control runtime behavior of these services
+   should not be applied globally in main.cf, but selectively to separate
+   instances of these services in master.cf.
+
+   Checks and transformations which are performed by a smtpd Postfix service
+   itself, e.g. access controls, recipient validation, milters etc., can be
+   controlled by adding options (-o) to appropriate smtpd services. This has
+   been shown in the basic configuration examples (see: [46]Section 2.3,
+   "Configuring a dedicated SMTP-server for message reinjection").
+
+   Checks and transformations which are performed by a cleanup Postfix
+   service are trickier because in a normal Postfix setup there is only one
+   cleanup service, unlike smtpd services of which there are many. Some of
+   the more important cleanup settings are dynamically controllable by a
+   smtpd service through the use of its receive_override_options option.
+
+   [47][Tip] Transformations and checks
+             Any transformation should preferably only be performed once,
+             either before or after content filtering. When to transform
+             depends on the desired effect, for example whether a content
+             filter should see unchanged or modified mail messages. Typical
+             transformations are:
+
+               * rewrite addresses
+
+               * add BCC recipients
+
+               * modify mail header.
+
+             Most checks should also be performed only once, preferably only
+             on the first passage, when the mail enters the Postfix mail
+             system the first time. This way messages can be rejected early -
+             if needed - and will not tie up downstream resources. Checking
+             early also avoids bounces in case of negative check results on a
+             second passage after content filtering.
+
+  4.1. Multiple cleanup service architecture
+
+   To gain more control over a cleanup service than offered by
+   receive_override_options, two (or more) cleanup services, each with its
+   own set of options, must be run. A Postfix setup with more than one
+   cleanup service is possible either with two separate Postfix instances, or
+   through a specification of services and their options in master.cf file of
+   a single Postfix instance.
+
+   The following diagram illustrates a setup with two cleanup services in a
+   single Postfix instance:
+
+       .......................................
+       :                Postfix              :
+    ----->smtpd \                            :
+       :         -pre-cleanup-\       /local---->
+    ---->pickup /              -queue-       :
+       :             -cleanup-/   |   \smtp----->
+       :     bounces/    ^        v          :
+       : and locally     |        v          :
+       :   forwarded   smtpd  amavisfeed     :
+       :    messages   10025      |          :
+       ...........................|...........
+                         ^        |
+                         |        v
+             ............|...............................
+             :           |   $inet_socket_port=10024    :
+             :           |                              :
+             : $forward_method='smtp:[127.0.0.1]:10025' :
+             : $notify_method ='smtp:[127.0.0.1]:10025' :
+             :                                          :
+             :    amavisd-new                           :
+             ............................................
+
+   Procedure 1. Message flow with two cleanup services
+
+    1. Messages enter the Postfix system at the regular smtpd or pickup
+       service.
+
+    2. The pre-cleanup cleanup service performs transformations and checks on
+       these messages.
+
+    3. The qmgr service schedules the messages to be sent to the amavisd-new
+       content filter.
+
+    4. amavisd-new performs various tests on the messages.
+
+    5. Messages are re-injected into the Postfix mail system, sending them to
+       a dedicated, local smtpd service.
+
+    6. The cleanup cleanup service performs transformations and checks that
+       must be done at this stage, but omits the ones that have already been
+       carried out in step 2.
+
+  4.2. Configuring two cleanup services
+
+   Configuring Postfix smtpd services to use two separate, dedicated cleanup
+   services requires the following steps:
+
+    1. Create a second cleanup instance
+
+    2. Modify the existing cleanup service
+
+    3. Configure smtpd services to use either of the two cleanup services.
+
+    4.2.1. Creating a second cleanup instance
+
+   The following example adds a cleanup daemon named pre-cleanup. It will
+   handle messages before a content filter.
+
+ # ==========================================================================
+ # service type  private unpriv  chroot  wakeup  maxproc command + args
+ #               (yes)   (yes)   (yes)   (never) (100)
+ # ==========================================================================
+ # smtp      inet  n       -       n       -       -       smtpd
+
+ ...
+
+ pre-cleanup unix    n       -       n       -       0       cleanup
+     -o virtual_alias_maps=
+
+   The above leaves canonicalization address rewriting enabled so that a
+   content filter will see canonicalized (external) sender mail addresses,
+   but it disables globally configured virtual alias transformations.
+
+   Such transformations will be done later by the second cleanup service, so
+   that a content filter will see original (external) recipient mail
+   addresses. Other options may also be used as needed.
+
+    4.2.2. Modifying the existing cleanup service
+
+   The already existing cleanup service - having the service name cleanup -
+   will be used to process messages that re-enter the Postfix mail system
+   (also for delivery notifications and forwarding as generated internally by
+   Postfix).
+
+   Cleanup jobs that already have been performed by the pre-cleanup service
+   should not be run again. The following example disables typical checks
+   that have been run before or are not needed for internally generated
+   notifications:
+
+ # ==========================================================================
+ # service type  private unpriv  chroot  wakeup  maxproc command + args
+ #               (yes)   (yes)   (yes)   (never) (100)
+ # ==========================================================================
+ # smtp      inet  n       -       n       -       -       smtpd
+
+ ...
+
+ cleanup unix    n       -       n       -       0       cleanup
+     -o mime_header_checks= [48]1
+     -o nested_header_checks= [49]2
+     -o body_checks= [50]3
+     -o header_checks= [51]4
+
+   [52]1 The specified options disable header and body checks as these would
+   [53]2 already be performed by a pre-cleanup service.
+   [54]3
+   [55]4
+
+   [56][Note] always_bcc
+              This cleanup service would also be the appropriate one for
+              specifying always_bcc option - doing it globally would apply to
+              both cleanup services and would result in two copies of each
+              message to be sent to the specified address.
+
+    4.2.3. Configuring smtpd services
+
+   Finally existing smtpd services on ports 25 and 587 (submission), and the
+   pickup service must be configured to send messages to the new pre-cleanup
+   service instead of a default cleanup service:
+
+ # ==========================================================================
+ # service type  private unpriv  chroot  wakeup  maxproc command + args
+ #               (yes)   (yes)   (yes)   (never) (100)
+ # ==========================================================================
+ # smtp      inet  n       -       n       -       -       smtpd
+
+ ...
+
+ pickup    fifo  n       -       n       60      1       pickup
+     -o cleanup_service_name=pre-cleanup
+ smtp      inet  n       -       n       -       -       smtpd
+     -o cleanup_service_name=pre-cleanup
+ submission inet n       -       n       -       -       smtpd
+     -o cleanup_service_name=pre-cleanup
+
+5. Tuning
+
+  5.1. Maximum Number of Concurrent Processes
+
+   The most important settings to tune and optimize in Postfix and amavisd
+   workflow are the maximum number of concurrent processes. The maximum
+   number of concurrent processes on both sides must be chosen with care.
+
+   If the number is too low, hardware resources aren't used efficiently and
+   delivery time will be unnecessarily prolonged. Experience tells that
+   raising the number of processes a little, will not raise the overall
+   throughput in the same proportion.
+
+   As the system resources are nearing saturation with each increase of the
+   number of processes, an increase in throughput becomes marginal, and
+   eventually even negative when the number of processes exceeds its
+   near-optimum value. E-mail throughput will decrease, because processes
+   need to wait for each other. At worst e-mail delivery stalls.
+
+   Best practice is to start with a (conservative) maximum number of 2
+   concurrent processes. Everyday use has shown that this value may be raised
+   to a value between 10 and 30 concurrent Postfix client and amavisd server
+   processes. This also depends on the overall resources the system may
+   provide, how amavisd has been integrated into the Postfix delivery process
+   and on the anti-virus and anti-spam software being loaded and used by
+   amavisd-new.
+
+   Regardless of the maximum number of concurrent processes, both sides -
+   Postfix and amavisd - should be synchronized. To synchronize both sides
+   edit, the $max_servers parameter for amavisd-new (see: amavisd.conf) and
+   the number of processes in master.cf listed in the dedicated transports
+   maxproc column for Postfix.
+
+   Both values should be identical for two reasons: If amavisd-new offers
+   more processes than Postfix will ever use, amavisd-new wastes resources.
+   On the other hand, if Postfix starts more dedicated transports than
+   amavisd can handle simultaneously, e-mail transport will be refused and
+   logged as error.
+
+   [57][Note] Controlling the maximum number of concurrent processes in
+              main.cf
+              Instead of controlling the maximum number of concurrent
+              processes of Postfix' dedicated transport in master.cf it is
+              also possible to keep the default setting - in master.cf and
+              set the following parameter and option in main.cf:
+
+              amavisfeed_destination_concurrency_limit = 2
+
+              The name of the parameter starts with the service in master.cf
+              (here: amavisfeed) that should be controlled and goes on with
+              the suffix _destination_concurrency_limit. Here also 2 is set
+              as initial (conservative) value.
+
+  5.2. Additional Tips for Tuning
+
+   Further Tuning-Tips can be found in README.performance and the slides from
+   [58]amavisd-new, advanced configuration and management.
+
+References
+
+   Visible links
+  58. http://www.ijs.si/software/amavisd/amavisd-new-magdeburg-20050519.pdf

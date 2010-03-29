@@ -102,8 +102,11 @@
 #include "logfile.h"	/* islogfile, logfflush */
 
 #ifdef __APPLE__
+#include <TargetConditionals.h>
+#if !TARGET_OS_EMBEDDED
 #include <vproc.h>
 #include <vproc_priv.h>
+#endif
 #endif
 
 #ifdef DEBUG
@@ -1226,7 +1229,7 @@ char **av;
   freopen("/dev/null", "w", stderr);
   debug("-- screen.back debug started\n");
 
-#ifdef __APPLE__
+#if defined(__APPLE__) && !TARGET_OS_EMBEDDED
 	if (_vprocmgr_detach_from_console(0) != NULL)
 		errx(1, "can't detach from console");
 #endif

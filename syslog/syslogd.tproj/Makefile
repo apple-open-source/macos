@@ -35,5 +35,6 @@ after_install:
 	$(INSTALL_DIRECTORY) "$(DSTROOT)"/usr/share/sandbox
 	$(INSTALL_FILE) syslogd.sb "$(DSTROOT)"/usr/share/sandbox
 	codesign -s- $(DSTROOT)/usr/sbin/syslogd
+	plutil -convert binary1 $(DSTROOT)/System/Library/LaunchDaemons/com.apple.syslogd.plist
 	mkfile 8 "$(DSTROOT)"/private/var/log/asl/SweepStore
 	chmod 644 "$(DSTROOT)"/private/var/log/asl/SweepStore

@@ -133,7 +133,11 @@ ClientSession::Global::Global()
     // find server port
 	serverPort = findSecurityd();
     
-    IPCN(ucsp_client_verifyPrivileged(serverPort.port(), mig_get_reply_port(), &securitydCreds, &rcode));
+	mach_port_t originPort = MACH_PORT_NULL;
+	IPCN(ucsp_client_verifyPrivileged2(serverPort.port(), mig_get_reply_port(), &securitydCreds, &rcode, &originPort));
+	if (originPort != serverPort.port())
+		CssmError::throwMe(CSSM_ERRCODE_VERIFICATION_FAILURE);
+	mach_port_mod_refs(mach_task_self(), originPort, MACH_PORT_RIGHT_SEND, -1);
 	
     // send identification/setup message
 	static const char extForm[] = "?:obsolete";
@@ -201,7 +205,11 @@ Port ClientSession::findSecurityd()
 void ClientSession::childCheckIn(Port serverPort, Port taskPort)
 {
 	Port securitydPort = findSecurityd();
-	IPCN(ucsp_client_verifyPrivileged(securitydPort, mig_get_reply_port(), &securitydCreds, &rcode));
+	mach_port_t originPort = MACH_PORT_NULL;
+	IPCN(ucsp_client_verifyPrivileged2(securitydPort.port(), mig_get_reply_port(), &securitydCreds, &rcode, &originPort));
+	if (originPort != securitydPort.port())
+		CssmError::throwMe(CSSM_ERRCODE_VERIFICATION_FAILURE);
+	mach_port_mod_refs(mach_task_self(), originPort, MACH_PORT_RIGHT_SEND, -1);
 	check(ucsp_client_childCheckIn(securitydPort, serverPort, taskPort));
 }
 

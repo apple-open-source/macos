@@ -227,10 +227,12 @@ _pthread_getspecific_direct(unsigned long slot)
 #elif defined(__ppc64__)
         register void **__pthread_tsd asm ("r13");
         ret = __pthread_tsd[slot + (_PTHREAD_TSD_OFFSET / sizeof(void *))];
+#elif defined(__arm__) && defined(_ARM_ARCH_6) && !defined(_ARM_ARCH_7) && defined(__thumb__) && !defined(__OPTIMIZE__)
+        ret = pthread_getspecific(slot);
 #elif defined(__arm__) && defined(_ARM_ARCH_6)
-	void **__pthread_tsd;
-	__asm__ ("mrc p15, 0, %0, c13, c0, 3" : "=r"(__pthread_tsd));
-	ret = __pthread_tsd[slot + (_PTHREAD_TSD_OFFSET / sizeof(void *))];
+        void **__pthread_tsd;
+        __asm__ ("mrc p15, 0, %0, c13, c0, 3" : "=r"(__pthread_tsd));
+        ret = __pthread_tsd[slot + (_PTHREAD_TSD_OFFSET / sizeof(void *))];
 #elif defined(__arm__) && !defined(_ARM_ARCH_6)
         register void **__pthread_tsd asm ("r9");
         ret = __pthread_tsd[slot + (_PTHREAD_TSD_OFFSET / sizeof(void *))];

@@ -74,6 +74,7 @@ static const CFRuntimeClass __IOMIGMachPortClass = {
     NULL,                       // equal
     NULL,                       // hash
     NULL,                       // copyFormattingDesc
+    NULL,
     NULL
 };
 
@@ -224,7 +225,7 @@ void IOMIGMachPortRegisterTerminationCallback(IOMIGMachPortRef migPort, IOMIGMac
 //------------------------------------------------------------------------------
 // __IOMIGMachPortPortCallback
 //------------------------------------------------------------------------------
-void __IOMIGMachPortPortCallback(CFMachPortRef port, void *msg, CFIndex size, void *info)
+void __IOMIGMachPortPortCallback(CFMachPortRef port __unused, void *msg, CFIndex size __unused, void *info)
 {
     IOMIGMachPortRef  migPort      = (IOMIGMachPortRef)info;
     mig_reply_error_t * bufRequest  = msg;

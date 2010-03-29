@@ -103,7 +103,7 @@ typedef void * PCodeInstance;
 
 OSStatus
 PCodeOpen( LogicalAddress container, ByteCount containerSize, 
-	    PCodeInstance * instance, UInt32 * createDate );
+            PCodeInstance * instance, UInt32 * createDate );
 OSStatus
 PCodeClose( PCodeInstance instance );
 OSStatus
@@ -117,7 +117,7 @@ PCodeFindMain( PCodeInstance instance, LogicalAddress * mainAddress );
 static __inline__ unsigned int get_R2(void)
 {
     unsigned int result;
-    __asm__ volatile("mr %0,	r2" : "=r" (result));
+    __asm__ volatile("mr %0,    r2" : "=r" (result));
     return result;
 }
 

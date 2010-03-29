@@ -27,8 +27,7 @@
 enum {
     kKextloadExitOK          = EX_OK,
 
-    // don't think we use it
-    kKextloadExitUnspecified = 11,
+    kKextloadExitUnspecified = 10,
 
     // don't actually exit with this, it's just a sentinel value
     kKextloadExitHelp        = 33,
@@ -89,9 +88,12 @@ struct option sOptInfo[] = {
 };
 
 typedef struct {
-    CFMutableArrayRef      kextIDs;                       // -b; must release
-    CFMutableArrayRef      dependencyAndRepositoryURLs;   // -d/-r; must release
-    CFMutableArrayRef      kextURLs;                      // kext args; must release
+    CFMutableArrayRef      kextIDs;          // -b; must release
+    CFMutableArrayRef      dependencyURLs;   // -d; must release
+    CFMutableArrayRef      repositoryURLs;   // -r; must release
+    CFMutableArrayRef      kextURLs;         // kext args; must release
+    CFMutableArrayRef      scanURLs;         // all URLs to scan
+    CFArrayRef             allKexts;         // all opened kexts
 } KextloadArgs;
 
 #pragma mark Function Prototypes
@@ -104,22 +106,11 @@ ExitStatus readArgs(
     char * const * argv,
     KextloadArgs * toolArgs);
 ExitStatus checkArgs(KextloadArgs * toolArgs);
-ExitStatus createKextsToProcess(
-    KextloadArgs * toolArgs,
-    CFArrayRef * outArray,
-    Boolean    * fatal);
-ExitStatus processKexts(
-    CFArrayRef     kextURLsToUse,
-    KextloadArgs * toolArgs);
-ExitStatus processKext(
-    OSKextRef      aKext,
-    KextloadArgs * toolArgs,
-    Boolean      * fatal);
-ExitStatus loadKext(
-    OSKextRef     aKext,
-    char         * kextPathCString,
-    KextloadArgs * toolArgs,
-    Boolean      * fatal);
+
+ExitStatus checkAccess(void);
+
+ExitStatus loadKextsViaKextd(KextloadArgs * toolArgs);
+ExitStatus loadKextsIntoKernel(KextloadArgs * toolArgs);
 
 ExitStatus exitStatusForOSReturn(OSReturn osReturn);
 

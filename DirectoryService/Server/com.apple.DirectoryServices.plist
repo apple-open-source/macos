@@ -23,5 +23,10 @@
 	<true/>
 	<key>EnableTransactions</key>
 	<true/>
+	<key>EnvironmentVariables</key>
+	<dict>
+		<key>OPENSSL_X509_TEA_DISABLE</key>
+		<string>1</string>
+	</dict>
 </dict>
 </plist>

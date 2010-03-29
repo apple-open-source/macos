@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXFileReference section */
+		AA0EC26510C876380043222D /* mysql-5.0.88a.tar.gz */ = {isa = PBXFileReference; lastKnownFileType = archive.gzip; path = "mysql-5.0.88a.tar.gz"; sourceTree = SOURCE_ROOT; };
 		AA5702260F143D5A009D23D9 /* QL_mysql.rb */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.ruby; name = QL_mysql.rb; path = test/QL_mysql.rb; sourceTree = SOURCE_ROOT; };
 		AA5702270F143D5A009D23D9 /* QuickLookTool.rb */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.ruby; name = QuickLookTool.rb; path = test/QuickLookTool.rb; sourceTree = SOURCE_ROOT; };
 		AA8624930E5E5B8C0014D34F /* applemysqlcheckcnf */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; path = applemysqlcheckcnf; sourceTree = SOURCE_ROOT; };
@@ -46,7 +47,6 @@
 		AAF595090E92B03A00F802B2 /* sync0sync.c.patch */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = sync0sync.c.patch; path = ../Volumes/MacHD/Users/steve/Projects2/Servers/MySQL/patch/google/5.0.67/innobase/sync/sync0sync.c.patch; sourceTree = SYSTEM_DEVELOPER_DIR; };
 		AAF5950B0E92B03A00F802B2 /* ha_innodb.cc.patch */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = ha_innodb.cc.patch; path = ../Volumes/MacHD/Users/steve/Projects2/Servers/MySQL/patch/google/5.0.67/libmysqld/ha_innodb.cc.patch; sourceTree = SYSTEM_DEVELOPER_DIR; };
 		AAF5950D0E92B03A00F802B2 /* ha_innodb.cc.patch */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = ha_innodb.cc.patch; path = ../Volumes/MacHD/Users/steve/Projects2/Servers/MySQL/patch/google/5.0.67/sql/ha_innodb.cc.patch; sourceTree = SYSTEM_DEVELOPER_DIR; };
-		AAF6E7711008184200D94986 /* mysql-5.0.82.tar.gz */ = {isa = PBXFileReference; lastKnownFileType = archive.gzip; path = "mysql-5.0.82.tar.gz"; sourceTree = SOURCE_ROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
@@ -54,7 +54,7 @@
 			isa = PBXGroup;
 			children = (
 				AA8624960E5E5B8D0014D34F /* Makefile */,
-				AAF6E7711008184200D94986 /* mysql-5.0.82.tar.gz */,
+				AA0EC26510C876380043222D /* mysql-5.0.88a.tar.gz */,
 				AA8624990E5E5B8D0014D34F /* MySQL.plist */,
 				AA86249B0E5E5B8D0014D34F /* MySQL.txt */,
 				AA8624930E5E5B8C0014D34F /* applemysqlcheckcnf */,

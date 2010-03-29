@@ -122,12 +122,10 @@ AppleUSBUHCI::GetRootHubDescriptor(IOUSBHubDescriptor *desc)
     return kIOReturnSuccess; 
 }
 
-
-
 IOReturn
 AppleUSBUHCI::SetRootHubDescriptor(OSData *buffer)
 {
-    USBLog(3,"%s[%p]: unimplemented set root hub descriptor", getName(), this); 
+    USBLog(3,"AppleUSBUHCI[%p]: unimplemented set root hub descriptor", this); 
     return(kIOReturnSuccess); 
 }
 
@@ -191,18 +189,18 @@ AppleUSBUHCI::SetRootHubFeature(UInt16 wValue)
     switch(wValue) 
     { 
         case kUSBHubLocalPowerChangeFeature : 
-            USBLog(3,"%s[%p]: unimplemented Set Power Change Feature", getName(), this); 
+            USBLog(3,"AppleUSBUHCI[%p]: unimplemented Set Power Change Feature", this); 
             break; 
  
         case kUSBHubOverCurrentChangeFeature : 
-            USBLog(3,"%s[%p]: unimplemented Set Overcurrent Change Feature", getName(), this);
+            USBLog(3,"AppleUSBUHCI[%p]: unimplemented Set Overcurrent Change Feature", this);
             /* XXX This is erroneously called by the hub device
              * setting kUSBFeatureDeviceRemoteWakeup.
              */
             break; 
  
         default: 
-            USBLog(3,"%s[%p]: Unknown set hub feature (%d) in root hub", getName(), this, wValue);
+            USBLog(3,"AppleUSBUHCI[%p]: Unknown set hub feature (%d) in root hub", this, wValue);
             break; 
     } 
  
@@ -220,17 +218,17 @@ AppleUSBUHCI::ClearRootHubFeature(UInt16 wValue)
     switch(wValue) 
     { 
         case kUSBHubLocalPowerChangeFeature : 
-            USBLog(3,"%s[%p]: unimplemented Clear Power Change Feature", getName(), this); 
+            USBLog(3,"AppleUSBUHCI[%p]: unimplemented Clear Power Change Feature", this); 
             // OHCIRootHubLPSChange(false);  // not implemented yet 
             break; 
  
         case kUSBHubOverCurrentChangeFeature : 
-            USBLog(3,"%s[%p]: unimplemented Clear Overcurrent Change Feature", getName(), this); 
+            USBLog(3,"AppleUSBUHCI[%p]: unimplemented Clear Overcurrent Change Feature", this); 
             // OHCIRootHubOCChange(false);  // not implemented yet 
             break; 
  
         default: 
-            USBLog(3,"%s[%p]: Unknown hub clear (%d) in root hub", getName(), this, wValue);
+            USBLog(3,"AppleUSBUHCI[%p]: Unknown hub clear (%d) in root hub", this, wValue);
             break; 
     } 
  
@@ -242,7 +240,7 @@ AppleUSBUHCI::ClearRootHubFeature(UInt16 wValue)
 IOReturn
 AppleUSBUHCI::GetRootHubStatus(IOUSBHubStatus *status)
 {
-    USBLog(5, "%s[%p]::GetRootHubStatus", getName(), this);
+    USBLog(5, "AppleUSBUHCI[%p]::GetRootHubStatus", this);
     status->statusFlags = 0;
     status->changeFlags = 0;
     return kIOReturnSuccess;
@@ -362,7 +360,7 @@ AppleUSBUHCI::SetRootHubPortFeature(UInt16 wValue, UInt16 port)
 {
     IOReturn result = kIOReturnSuccess;
     
-    USBLog(5, "%s[%p]::SetRootHubPortFeature %d %d", getName(), this, wValue, port);
+    USBLog(5, "AppleUSBUHCI[%p]::SetRootHubPortFeature %d %d", this, wValue, port);
     switch(wValue)
     {
         case kUSBHubPortSuspendFeature :
@@ -384,7 +382,7 @@ AppleUSBUHCI::SetRootHubPortFeature(UInt16 wValue, UInt16 port)
             break;
             
         default:
-            USBLog(5, "%s[%p]: unknown feature %d", getName(), this, wValue);
+            USBLog(5, "AppleUSBUHCI[%p]: unknown feature %d", this, wValue);
             break;
     }
     
@@ -397,29 +395,29 @@ IOReturn
 AppleUSBUHCI::ClearRootHubPortFeature(UInt16 wValue, UInt16 port)
 {
     UInt16 value;
-    USBLog(5, "%s[%p]::ClearRootHubPortFeature %d %d", getName(), this, wValue, port);
+    USBLog(5, "AppleUSBUHCI[%p]::ClearRootHubPortFeature %d %d", this, wValue, port);
 
     switch(wValue)
     {
         case kUSBHubPortEnableFeature :
-            USBLog(5, "%s[%p]: Clear port enable", getName(), this);
+            USBLog(5, "AppleUSBUHCI[%p]: Clear port enable", this);
             RHEnablePort(port, false);
             break;
             
         case kUSBHubPortConnectionChangeFeature :
-            USBLog(5, "%s[%p]: Clear connection change", getName(), this);
+            USBLog(5, "AppleUSBUHCI[%p]: Clear connection change", this);
             value = ReadPortStatus(port-1) & kUHCI_PORTSC_MASK;
             WritePortStatus(port-1, value | kUHCI_PORTSC_CSC);
             break;
             
         case kUSBHubPortEnableChangeFeature :
-            USBLog(5, "%s[%p]: Clear port enable change", getName(), this);
+            USBLog(5, "AppleUSBUHCI[%p]: Clear port enable change", this);
             value = ReadPortStatus(port-1) & kUHCI_PORTSC_MASK;
             WritePortStatus(port-1, value | kUHCI_PORTSC_PEDC);
             break;
             
         case kUSBHubPortResetChangeFeature :
-            USBLog(5, "%s[%p]: Clear port reset change", getName(), this);
+            USBLog(5, "AppleUSBUHCI[%p]: Clear port reset change", this);
             _portWasReset[port-1] = false;
             break;
             
@@ -428,7 +426,7 @@ AppleUSBUHCI::ClearRootHubPortFeature(UInt16 wValue, UInt16 port)
             break;
             
         case kUSBHubPortSuspendChangeFeature :
-            USBLog(5, "%s[%p]: Clear port suspend change", getName(), this);
+            USBLog(5, "AppleUSBUHCI[%p]: Clear port suspend change", this);
             _portSuspendChange[port-1] = false;
             break;
             
@@ -444,7 +442,7 @@ AppleUSBUHCI::ClearRootHubPortFeature(UInt16 wValue, UInt16 port)
 #endif
             
         default:
-            USBLog(5,"%s[%p]: clear unknown feature %d", getName(), this, wValue);
+            USBLog(5,"AppleUSBUHCI[%p]: clear unknown feature %d", this, wValue);
             break;
     }
     return kIOReturnSuccess;
@@ -455,7 +453,7 @@ AppleUSBUHCI::ClearRootHubPortFeature(UInt16 wValue, UInt16 port)
 IOReturn
 AppleUSBUHCI::GetRootHubPortState(UInt8 *state, UInt16 port)
 {
-    USBLog(5,"%s[%p]::GetRootHubPortState", getName(), this);
+    USBLog(5,"AppleUSBUHCI[%p]::GetRootHubPortState", this);
     return(kIOReturnSuccess);
 }
 
@@ -464,7 +462,7 @@ AppleUSBUHCI::GetRootHubPortState(UInt8 *state, UInt16 port)
 IOReturn
 AppleUSBUHCI::SetHubAddress(UInt16 functionNumber)
 {
-    USBLog(5, "%s[%p]::SetHubAddress %d", getName(), this, functionNumber);
+    USBLog(5, "AppleUSBUHCI[%p]::SetHubAddress %d", this, functionNumber);
     // XXX Perhaps this is a good point to allocate the root hub endpoint.
     _rootFunctionNumber = functionNumber;
     return kIOReturnSuccess;
@@ -487,7 +485,7 @@ AppleUSBUHCI::UIMRootHubStatusChange(void)
     unsigned int						i, index, move;
     IOUSBHubPortStatus					portStatus;
     
-    USBLog(7, "%s[%p]::UIMRootHubStatusChange (_controllerAvailable: %d)", getName(), this, _controllerAvailable);
+    USBLog(7, "AppleUSBUHCI[%p]::UIMRootHubStatusChange (_controllerAvailable: %d)", this, _controllerAvailable);
 
 	if (_controllerAvailable && !_wakingFromHibernation)
 	{
@@ -779,9 +777,9 @@ AppleUSBUHCI::RHAbortEndpoint (short endpointNumber, short direction)
     if (endpointNumber == 1) 
 	{
         // Interrupt endpoint
-        if(direction != kUSBIn)
+        if (direction != kUSBIn)
 		{
-            USBLog(5, "%s[%p]::RHAbortEndpoint - Root hub wrong direction Int pipe %d", getName(), this, direction);
+            USBLog(5, "AppleUSBUHCI[%p]::RHAbortEndpoint - Root hub wrong direction Int pipe %d", this, direction);
             return kIOReturnBadArgument;
         }
 
@@ -840,10 +838,10 @@ AppleUSBUHCI::RHEnablePort(int port, bool enable)
 {
     UInt16 value;
 
-    // USBLog(5, "%s[%p]::RHEnablePort %d %d", getName(), this, port, enable);
+    // USBLog(5, "AppleUSBUHCI[%p]::RHEnablePort %d %d", this, port, enable);
     port--; // convert 1-based to 0-based.
     value = ReadPortStatus(port) & kUHCI_PORTSC_MASK;
-    USBLog(3, "%s[%p]::RHEnablePort port: %d enable: %d PortSC: 0x%x", getName(), this, port+1, enable, value);
+    USBLog(3, "AppleUSBUHCI[%p]::RHEnablePort port: %d enable: %d PortSC: 0x%x", this, port+1, enable, value);
 	USBLog(2, "AppleUSBUHCI[%p]::RHEnablePort  (CMD:%p STS:%p INTR:%p PORTSC1:%p PORTSC2:%p FRBASEADDR:%p FRNUM:%p, SOFMOD:%p, ConfigCMD:%p)", this, (void*)ioRead16(kUHCI_CMD), (void*)ioRead16(kUHCI_STS), (void*)ioRead16(kUHCI_INTR), (void*)ioRead16(kUHCI_PORTSC1), (void*)ioRead16(kUHCI_PORTSC2), (void*)ioRead32(kUHCI_FRBASEADDR),  
 		   (void*)ioRead32(kUHCI_FRNUM),  (void*)ioRead32(kUHCI_SOFMOD), (void*)_device->configRead16(kIOPCIConfigCommand));
    if (enable) 
@@ -936,7 +934,7 @@ AppleUSBUHCI::RHResetPort(int port)
     UInt16 value;
     int i;
     
-    USBLog(3, "%s[%p]::RHResetPort %d", getName(), this, port);
+    USBLog(3, "AppleUSBUHCI[%p]::RHResetPort %d", this, port);
     port--; // convert 1-based to 0-based.
 
     value = ReadPortStatus(port) & kUHCI_PORTSC_MASK;
@@ -984,14 +982,14 @@ AppleUSBUHCI::RHResetPort(int port)
     
     if (i == 0) 
 	{
-        USBLog(5, "%s[%p]: reset port FAILED", getName(), this);
+        USBLog(5, "AppleUSBUHCI[%p]: reset port FAILED", this);
         return kIOReturnNotResponding;
     }
     
     // Remember that we were reset
     _portWasReset[port] = true;
     
-    USBLog(5, "%s[%p]: reset port succeeded", getName(), this);
+    USBLog(5, "AppleUSBUHCI[%p]: reset port succeeded", this);
     return kIOReturnSuccess;
 }
 
@@ -1002,7 +1000,7 @@ AppleUSBUHCI::RHHoldPortReset(int port)
     UInt16 value;
     int i;
     
-    USBLog(1, "%s[%p]::RHHoldPortReset %d", getName(), this, port);
+    USBLog(1, "AppleUSBUHCI[%p]::RHHoldPortReset %d", this, port);
 	USBTrace( kUSBTUHCI, kTPUHCIRHHoldPortReset, (uintptr_t)this, (int)port, 0, 0);
 	
     port--; // convert 1-based to 0-based.
@@ -1048,7 +1046,7 @@ AppleUSBUHCI::RHDumpPortStatus(int port)
             strlcat(buf, strings[i].string, sizeof(buf));
         }
     }
-    USBLog(7, "%s[%p]: Port %d: status %x %s", getName(), this, port+1, value, buf);
+    USBLog(7, "AppleUSBUHCI[%p]: Port %d: status %x %s", this, port+1, value, buf);
 }
 
 
@@ -1085,7 +1083,7 @@ AppleUSBUHCI::RHDumpHubPortStatus(IOUSBHubPortStatus *status)
             strlcat(buf, strings[i].string, sizeof(buf));
         }
     }
-    USBLog(5, "%s[%p]: Hub port status: %s", getName(), this, buf);
+    USBLog(5, "AppleUSBUHCI[%p]: Hub port status: %s", this, buf);
     buf[0] = '\0';
     value = USBToHostWord(status->changeFlags);
     for (i=0; strings[i].string != 0; i++) 
@@ -1095,7 +1093,7 @@ AppleUSBUHCI::RHDumpHubPortStatus(IOUSBHubPortStatus *status)
             strlcat(buf, strings[i].string, sizeof(buf));
         }
     }
-    USBLog(5, "%s[%p]: Hub port change: %s", getName(), this, buf);
+    USBLog(5, "AppleUSBUHCI[%p]: Hub port change: %s", this, buf);
     
 }
 
@@ -1177,6 +1175,7 @@ AppleUSBUHCI::RHResumePortCompletion(UInt32 port)
 
 	_rhPortBeingResumed[port-1] = false;
 	_portSuspendChange[port-1] = true;
+	EnsureUsability();
 	return kIOReturnSuccess;
 }
 

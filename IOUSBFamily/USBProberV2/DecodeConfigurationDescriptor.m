@@ -45,17 +45,23 @@
     Byte                            *p, *pend;
     char                            *cstr1;
     char                            str[500];
-    int                             descriptorLength;
+    IOReturn                        ret;
     UInt8                           descType = isOtherSpeedDesc ? kUSBOtherSpeedConfDesc : kUSBConfDesc;
     
     if ( cfgHeader->wTotalLength == 0 )
     {
+		IOReturn	actErr;
+		
+		configBuf = malloc(sizeof(cfgHeader));
+	    ret = GetDescriptor(deviceIntf, descType, iconfig, configBuf, sizeof(cfgHeader), &actErr);
+
         // The device did not respond to a request for the first x bytes of the Configuration Descriptor  (We
         // encoded the value in the bDescriptorType field.
         // This description will be shown in the UI
         //
-        sprintf(str, "Device did not respond to request for first %u bytes of descriptor", cfgHeader->bDescriptorType);
+        sprintf(str, "Device gave an error %s (0x%x) when asked for first %u bytes of descriptor", USBErrorToString(actErr), actErr, cfgHeader->bDescriptorType);
         [thisDevice addProperty:"Configuration Descriptor" withValue:str atDepth:CONFIGURATION_DESCRIPTOR_LEVEL-1];
+		free(configBuf);
         return;
     }
     // We only have the Configuration Descriptor Header.  We need to get the full descriptor first:
@@ -63,8 +69,8 @@
     Swap16(&cfgHeader->wTotalLength);
     configBuf = malloc(cfgHeader->wTotalLength*sizeof(Byte));
     
-    descriptorLength = GetDescriptor(deviceIntf, descType, iconfig, configBuf, cfgHeader->wTotalLength);
-    if ( descriptorLength < 0 )
+    ret = GetDescriptor(deviceIntf, descType, iconfig, configBuf, cfgHeader->wTotalLength, nil);
+    if ( ret != kIOReturnSuccess )
         return;
     
     // Save a copy of a full Configuration Buffer

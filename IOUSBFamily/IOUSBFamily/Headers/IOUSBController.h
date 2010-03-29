@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2006 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2010 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -54,28 +54,29 @@
 //
 enum
 {
-    kErrataCMDDisableTestMode			= (1 << 0),		// turn off UHCI test mode
-    kErrataOnlySinglePageTransfers		= (1 << 1),		// Don't cross page boundaries in a single transfer
-    kErrataRetryBufferUnderruns			= (1 << 2),		// Don't cross page boundaries in a single transfer
-    kErrataLSHSOpti						= (1 << 3),		// Don't cross page boundaries in a single transfer
-    kErrataDisableOvercurrent			= (1 << 4),		// Always set the NOCP bit in rhDescriptorA register
-    kErrataLucentSuspendResume			= (1 << 5),		// Don't allow port suspend at the root hub
-    kErrataNeedsWatchdogTimer			= (1 << 6),		// Use Watchdog timer to reset confused controllers
-    kErrataNeedsPortPowerOff			= (1 << 7),		// Power off the ports and back on again to clear weird status.
-    kErrataAgereEHCIAsyncSched			= (1 << 8),		// needs workaround for Async Sched bug
-    kErrataNECOHCIIsochWraparound		= (1 << 9),		// needs workaround for NEC isoch buffer wraparound problem
-	kErrataNECIncompleteWrite			= (1 << 10),	// needs workaround for NEC bits not sticking (errata IBB-2UE-00030 Jun 23 2005)
-	kErrataICH6PowerSequencing			= (1 << 11),	// needs special power sequencing for early Transition machines
-	kErrataICH7ISTBuffer				= (1 << 12),	// buffer for Isochronous Scheduling Threshold
-	kErrataUHCISupportsOvercurrent		= (1 << 13),	// UHCI controller supports overcurrent detection
-	kErrataNeedsOvercurrentDebounce		= (1 << 14),	// The overcurrent indicator should be debounced by 10ms
-	kErrataSupportsPortResumeEnable		= (1 << 15),	// UHCI has resume enable bits at config address 0xC4
-	kErrataNoCSonSplitIsoch				= (1 << 16),	// MCP79 - split iscoh is a little different
-	kErrataOHCINoGlobalSuspendOnSleep	= (1 << 17),	// when sleeping, do not put the OHCI controller in SUSPEND state. just leave it Operational with suspended downstream ports
-	kErrataMissingPortChangeInt			= (1 << 18),	// sometimes the port change interrupt may be missing
-	kErrataMCP79IgnoreDisconnect		= (1 << 19),	// MCP79 - need to ignore a connect/disconnect on wake
-	kErrataUse32bitEHCI					= (1 << 20)	,	// MCP79 - EHCI should only run with 32 bit DMA addresses
-	kErrataUHCISupportsResumeDetectOnConnect	= (1 << 21)	// UHCI controller will generate a ResumeDetect interrupt while in Global Suspend if a device is plugged in
+    kErrataCMDDisableTestMode					= (1 << 0),		// turn off UHCI test mode
+    kErrataOnlySinglePageTransfers				= (1 << 1),		// Don't cross page boundaries in a single transfer
+    kErrataRetryBufferUnderruns					= (1 << 2),		// Don't cross page boundaries in a single transfer
+    kErrataLSHSOpti								= (1 << 3),		// Don't cross page boundaries in a single transfer
+    kErrataDisableOvercurrent					= (1 << 4),		// Always set the NOCP bit in rhDescriptorA register
+    kErrataLucentSuspendResume					= (1 << 5),		// Don't allow port suspend at the root hub
+    kErrataNeedsWatchdogTimer					= (1 << 6),		// Use Watchdog timer to reset confused controllers
+    kErrataNeedsPortPowerOff					= (1 << 7),		// Power off the ports and back on again to clear weird status.
+    kErrataAgereEHCIAsyncSched					= (1 << 8),		// needs workaround for Async Sched bug
+    kErrataNECOHCIIsochWraparound				= (1 << 9),		// needs workaround for NEC isoch buffer wraparound problem
+	kErrataNECIncompleteWrite					= (1 << 10),	// needs workaround for NEC bits not sticking (errata IBB-2UE-00030 Jun 23 2005)
+	kErrataICH6PowerSequencing					= (1 << 11),	// needs special power sequencing for early Transition machines
+	kErrataICH7ISTBuffer						= (1 << 12),	// buffer for Isochronous Scheduling Threshold
+	kErrataUHCISupportsOvercurrent				= (1 << 13),	// UHCI controller supports overcurrent detection
+	kErrataNeedsOvercurrentDebounce				= (1 << 14),	// The overcurrent indicator should be debounced by 10ms
+	kErrataSupportsPortResumeEnable				= (1 << 15),	// UHCI has resume enable bits at config address 0xC4
+	kErrataNoCSonSplitIsoch						= (1 << 16),	// MCP79 - split iscoh is a little different
+	kErrataOHCINoGlobalSuspendOnSleep			= (1 << 17),	// when sleeping, do not put the OHCI controller in SUSPEND state. just leave it Operational with suspended downstream ports
+	kErrataMissingPortChangeInt					= (1 << 18),	// sometimes the port change interrupt may be missing
+	kErrataMCP79IgnoreDisconnect				= (1 << 19),	// MCP79 - need to ignore a connect/disconnect on wake
+	kErrataUse32bitEHCI							= (1 << 20)	,	// MCP79 - EHCI should only run with 32 bit DMA addresses
+	kErrataUHCISupportsResumeDetectOnConnect	= (1 << 21),	// UHCI controller will generate a ResumeDetect interrupt while in Global Suspend if a device is plugged in
+	kErrataDontUseCompanionController			= (1 << 22)		// For systems which will end up being EHCI only
 };
 
 enum
@@ -801,7 +802,7 @@ public:
 
    /*!
 	@function GetBandwidthAvailable
-        Returns the available bandwidth (in bytes) per frame for
+        Returns the available bandwidth (in bytes) per frame or microframe for
 	isochronous transfers.
 	@result maximum number of bytes that a new iso pipe could transfer
 	per frame given current allocations.

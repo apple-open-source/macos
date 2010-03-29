@@ -16,22 +16,22 @@
 # To install in $HOME instead of /usr/local, use:
 #    make install prefix=$HOME
 
-CC=cc
+CC=gcc
 
-CFLAGS=-O
+CFLAGS=-arch ppc -arch i386 -arch x86_64 -g -Os -pipe -fPIC -DUSE_MMAP -isysroot / -dead_strip -DUSE_MMAP
 #CFLAGS=-O -DMAX_WBITS=14 -DMAX_MEM_LEVEL=7
 #CFLAGS=-g -DDEBUG
 #CFLAGS=-O3 -Wall -Wwrite-strings -Wpointer-arith -Wconversion \
 #           -Wstrict-prototypes -Wmissing-prototypes
 
-LDFLAGS=libz.a
-LDSHARED=$(CC)
-CPP=$(CC) -E
+LDFLAGS=-L. libz.1.2.3.dylib
+LDSHARED=gcc -arch ppc -arch i386 -arch x86_64 -g -Os -pipe -fPIC -DUSE_MMAP -isysroot / -dead_strip -dynamiclib -install_name ${exec_prefix}/lib/libz.1.dylib -compatibility_version 1 -current_version 1.2.3
+CPP=gcc -E
 
-LIBS=libz.a
-SHAREDLIB=libz.so
-SHAREDLIBV=libz.so.1.2.3
-SHAREDLIBM=libz.so.1
+LIBS=libz.1.2.3.dylib
+SHAREDLIB=libz.dylib
+SHAREDLIBV=libz.1.2.3.dylib
+SHAREDLIBM=libz.1.dylib
 
 AR=ar rc
 RANLIB=ranlib
@@ -39,11 +39,11 @@ TAR=tar
 SHELL=/bin/sh
 EXE=
 
-prefix = /usr/local
-exec_prefix = ${prefix}
-libdir = ${exec_prefix}/lib
-includedir = ${prefix}/include
-mandir = ${prefix}/share/man
+prefix =/usr
+exec_prefix =${prefix}
+libdir =${exec_prefix}/lib
+includedir =${prefix}/include
+mandir =${prefix}/share/man
 man3dir = ${mandir}/man3
 
 OBJS = adler32.o compress.o crc32.o gzio.o uncompr.o deflate.o trees.o \
@@ -77,8 +77,13 @@ match.o: match.S
 	mv _match.o match.o
 	rm -f _match.s
 
+SECTORDER_FILE=/usr/local/lib/OrderFiles/libz.1.order
+ifeq "$(shell test -f $(SECTORDER_FILE) && echo YES)" "YES"
+	SECTORDER_FLAGS=-sectorder __TEXT __text $(SECTORDER_FILE)
+endif
+
 $(SHAREDLIBV): $(OBJS)
-	$(LDSHARED) -o $@ $(OBJS)
+	$(LDSHARED) -exported_symbols_list $(SRCROOT)/libz.exp $(SECTORDER_FLAGS) -o $@ $(OBJS)
 	rm -f $(SHAREDLIB) $(SHAREDLIBM)
 	ln -s $@ $(SHAREDLIB)
 	ln -s $@ $(SHAREDLIBM)

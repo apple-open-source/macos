@@ -190,8 +190,6 @@ static int disk_default_async(char *disk)
 					if(CFEqual(location, CFSTR(kIOPropertyInternalKey)))
 						result = 1;		/* Internal => async */
 				}
-
-				if (location) CFRelease(location);
 			}
 			if (protocolCharacteristics)
 				CFRelease(protocolCharacteristics);

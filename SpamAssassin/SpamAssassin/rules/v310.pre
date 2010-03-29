@@ -45,7 +45,7 @@ loadplugin Mail::SpamAssassin::Plugin::AutoLearnThreshold
 
 # TextCat - language guesser
 #
-#loadplugin Mail::SpamAssassin::Plugin::TextCat
+loadplugin Mail::SpamAssassin::Plugin::TextCat
 
 # AccessDB - lookup from-addresses in access database
 #

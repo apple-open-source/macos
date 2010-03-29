@@ -59,6 +59,7 @@ static int __connect_to_kernel(void *cookie, size_t cookielen)
 {
 	int sock = -1;
 	int result = 0;
+	int rcvsize = 64 * 1024;
 	
 	// Create a socket
 	sock = socket(PF_SYSTEM, SOCK_DGRAM, SYSPROTO_CONTROL);
@@ -96,8 +97,15 @@ static int __connect_to_kernel(void *cookie, size_t cookielen)
 		close(sock);
 		return -1;
 	}
+	
+	// increase the receive buffer size
+	result = setsockopt(sock, SOL_SOCKET, SO_RCVBUF, &rcvsize, sizeof(rcvsize));
+	if (result != 0) {
+		close(sock);
+		return -1;
+	}
     
-    // make it no blocking
+    // make it non blocking
     result = fcntl(sock, F_SETFL, fcntl(sock, F_GETFL) | O_NONBLOCK);
 	if (result == -1) {
 		close(sock);
@@ -205,6 +213,17 @@ void __IOEthernetControllerRelease( CFTypeRef object )
         controller->properties = NULL;
     }
     
+    if ( controller->socket ) {
+        CFSocketInvalidate(controller->socket);
+        CFRelease(controller->socket);
+        controller->socket = NULL;
+    }
+        
+    if ( controller->socketSource ) {
+        CFRelease(controller->socketSource);
+        controller->socketSource = NULL;
+    }
+
     if ( controller->connect ) {
         IOServiceClose(controller->connect);
         controller->connect = 0;
@@ -228,19 +247,7 @@ void __IOEthernetControllerRelease( CFTypeRef object )
     if ( controller->portSource ) {
         CFRelease(controller->portSource);
         controller->portSource = NULL;
-    }
-
-    if ( controller->socket ) {
-        CFSocketInvalidate(controller->socket);
-        CFRelease(controller->socket);
-        controller->socket = NULL;
-    }
-        
-    if ( controller->socketSource ) {
-        CFRelease(controller->socketSource);
-        controller->socketSource = NULL;
-    }
-   
+    }   
 }
 
 //------------------------------------------------------------------------------

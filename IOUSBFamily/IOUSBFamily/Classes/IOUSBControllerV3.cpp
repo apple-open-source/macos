@@ -105,7 +105,7 @@ IOUSBControllerV3::init(OSDictionary * propTable)
     if (!_v3ExpansionData)
     {
 		_v3ExpansionData = (V3ExpansionData *)IOMalloc(sizeof(V3ExpansionData));
-		if (!_v2ExpansionData)
+		if (!_v3ExpansionData)
 			return false;
 		bzero(_v3ExpansionData, sizeof(V3ExpansionData));
     }
@@ -121,7 +121,7 @@ IOUSBControllerV3::start( IOService * provider )
 	IOReturn	err;
 	
 	_device = OSDynamicCast(IOPCIDevice, provider);
-	if(_device == NULL)
+	if (_device == NULL)
 	{
 		return false;
 	}
@@ -138,10 +138,18 @@ IOUSBControllerV3::start( IOService * provider )
 		}
 	}
     	
-   if( !super::start(provider))
+	if ( !super::start(provider))
+	{
+		if (_ehciController)
+		{
+			_ehciController->release();
+			_ehciController = NULL;
+		}
         return  false;
+	}
 	
-	if (_watchdogUSBTimer && _watchdogTimerActive)
+	
+	if (_expansionData && _watchdogUSBTimer && _watchdogTimerActive)
 	{
 		_watchdogUSBTimer->cancelTimeout();									// cancel the timer
 		_watchdogTimerActive = false;
@@ -330,7 +338,7 @@ IOUSBControllerV3::setPowerState( unsigned long powerStateOrdinal, IOService* wh
 	{
 		// if we are currently running or dozing, and we are going to sleep or lower, then we need to cancel
 		// the watchdog timer
-		if (_watchdogUSBTimer && _watchdogTimerActive)
+		if (_expansionData && _watchdogUSBTimer && _watchdogTimerActive)
 		{
 			_watchdogUSBTimer->cancelTimeout();									// cancel the timer
 			_watchdogTimerActive = false;
@@ -493,8 +501,8 @@ IOUSBControllerV3::free()
     //
     if (_v3ExpansionData)
     {
-        bzero(_v3ExpansionData, sizeof(ExpansionData));
 		IOFree(_v3ExpansionData, sizeof(ExpansionData));
+		_v3ExpansionData = NULL;
     }
 
 	super::free();
@@ -536,7 +544,7 @@ IOUSBControllerV3::CheckForEHCIController(IOService *provider)
 		USBLog(2, "%s[%p]::CheckForEHCIController - NULL provider", getName(), this);
 	}
 	
-	if( siblings ) 
+	if ( siblings ) 
 	{
 		while( (entry = OSDynamicCast(IORegistryEntry, siblings->getNextObject())))
 		{
@@ -841,7 +849,7 @@ IOUSBControllerV3::ControllerOff(void)
 {
 	USBLog(5, "IOUSBControllerV3(%s)[%p]::ControllerOff - calling ResetControllerState", getName(), this);
 	ResetControllerState();
-	if (_watchdogUSBTimer && _watchdogTimerActive)
+	if (_expansionData && _watchdogUSBTimer && _watchdogTimerActive)
 	{
 		_watchdogUSBTimer->cancelTimeout();									// cancel the timer
 		_watchdogTimerActive = false;
@@ -1017,7 +1025,7 @@ IOUSBControllerV3::GatedPowerChange(OSObject *owner, void *arg0, void *arg1, voi
 				me->_rootHubDevice->registerService(kIOServiceRequired | kIOServiceSynchronous);
 			}
 		}
-		if (me->_watchdogUSBTimer && !me->_watchdogTimerActive)
+		if (me->_expansionData && me->_watchdogUSBTimer && !me->_watchdogTimerActive)
 		{
 			me->_watchdogTimerActive = true;
 			me->_watchdogUSBTimer->setTimeoutMS(kUSBWatchdogTimeoutMS);

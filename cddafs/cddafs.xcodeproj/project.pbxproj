@@ -154,6 +154,7 @@
 		AC8075380467378400E41653 /* TSystemUtils.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = TSystemUtils.h; path = Classes/TSystemUtils.h; sourceTree = "<group>"; };
 		AC8075390467378400E41653 /* TSystemUtils.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = TSystemUtils.cpp; path = Classes/TSystemUtils.cpp; sourceTree = "<group>"; };
 		AC80753A0467378400E41653 /* TBundle.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = TBundle.cpp; path = Classes/TBundle.cpp; sourceTree = "<group>"; };
+		ACA4057E106447A400BDDECA /* cddafs.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; path = cddafs.xcconfig; sourceTree = "<group>"; };
 		ACB746320D621FE1002F4863 /* Info-cddafs.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "Info-cddafs.plist"; sourceTree = "<group>"; };
 		ACB746330D621FE1002F4863 /* cddafs.kext */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = cddafs.kext; sourceTree = BUILT_PRODUCTS_DIR; };
 		ACB746400D621FE1002F4863 /* mount_cddafs */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = mount_cddafs; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -208,6 +209,7 @@
 		018938C1FFE55C3511CE15BF /* AppleCDDAFileSystemProj */ = {
 			isa = PBXGroup;
 			children = (
+				ACA4057E106447A400BDDECA /* cddafs.xcconfig */,
 				018938C7FFE55C3511CE15BF /* CDDA Filesystem */,
 				0E9C737AFFE598CE11CE15BF /* FilesystemProber */,
 				018938F7FFE55C3511CE15BF /* Frameworks and Libraries */,
@@ -625,14 +627,14 @@
 		};
 		ACB746170D621FE1002F4863 /* Development */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = ACA4057E106447A400BDDECA /* cddafs.xcconfig */;
 			buildSettings = {
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 2.4.2;
+				CURRENT_PROJECT_VERSION = $CDDAFS_VERSION;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_ENABLE_FIX_AND_CONTINUE = YES;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
-				OPTIMIZATION_CFLAGS = "-O0";
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -649,9 +651,10 @@
 		};
 		ACB746180D621FE1002F4863 /* Deployment */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = ACA4057E106447A400BDDECA /* cddafs.xcconfig */;
 			buildSettings = {
 				COPY_PHASE_STRIP = YES;
-				CURRENT_PROJECT_VERSION = 2.4.2;
+				CURRENT_PROJECT_VERSION = $CDDAFS_VERSION;
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
@@ -669,8 +672,9 @@
 		};
 		ACB746190D621FE1002F4863 /* Default */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = ACA4057E106447A400BDDECA /* cddafs.xcconfig */;
 			buildSettings = {
-				CURRENT_PROJECT_VERSION = 2.4.2;
+				CURRENT_PROJECT_VERSION = $CDDAFS_VERSION;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -686,6 +690,7 @@
 		};
 		ACB7462F0D621FE1002F4863 /* Development */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = ACA4057E106447A400BDDECA /* cddafs.xcconfig */;
 			buildSettings = {
 				ARCHS = "$(NATIVE_ARCH_ACTUAL)";
 				COPY_PHASE_STRIP = NO;
@@ -706,7 +711,7 @@
 				MODULE_NAME = com.apple.filesystems.cddafs;
 				MODULE_START = Apple_CDDA_FS_Module_Start;
 				MODULE_STOP = Apple_CDDA_FS_Module_Stop;
-				MODULE_VERSION = 2.4.2;
+				MODULE_VERSION = $CDDAFS_VERSION;
 				OTHER_CFLAGS = "-Wno-format";
 				OTHER_CPLUSPLUSFLAGS = "-fapple-kext";
 				OTHER_LDFLAGS = "";
@@ -727,6 +732,7 @@
 		};
 		ACB746300D621FE1002F4863 /* Deployment */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = ACA4057E106447A400BDDECA /* cddafs.xcconfig */;
 			buildSettings = {
 				ARCHS = "$(NATIVE_ARCH_ACTUAL)";
 				COPY_PHASE_STRIP = YES;
@@ -744,7 +750,7 @@
 				MODULE_NAME = com.apple.filesystems.cddafs;
 				MODULE_START = Apple_CDDA_FS_Module_Start;
 				MODULE_STOP = Apple_CDDA_FS_Module_Stop;
-				MODULE_VERSION = 2.4.2;
+				MODULE_VERSION = $CDDAFS_VERSION;
 				OTHER_CFLAGS = "-Wno-format";
 				OTHER_CPLUSPLUSFLAGS = "-fapple-kext";
 				OTHER_LDFLAGS = "";
@@ -765,6 +771,7 @@
 		};
 		ACB746310D621FE1002F4863 /* Default */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = ACA4057E106447A400BDDECA /* cddafs.xcconfig */;
 			buildSettings = {
 				ARCHS = "$(NATIVE_ARCH_ACTUAL)";
 				EXPORTED_SYMBOLS_FILE = cddafs.exp;
@@ -780,7 +787,7 @@
 				MODULE_NAME = com.apple.filesystems.cddafs;
 				MODULE_START = Apple_CDDA_FS_Module_Start;
 				MODULE_STOP = Apple_CDDA_FS_Module_Stop;
-				MODULE_VERSION = 2.4.2;
+				MODULE_VERSION = $CDDAFS_VERSION;
 				OTHER_CFLAGS = "-Wno-format";
 				OTHER_CPLUSPLUSFLAGS = "-fapple-kext";
 				OTHER_LDFLAGS = "";
@@ -801,6 +808,7 @@
 		};
 		ACB7463D0D621FE1002F4863 /* Development */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = ACA4057E106447A400BDDECA /* cddafs.xcconfig */;
 			buildSettings = {
 				ARCHS = "$(NATIVE_ARCH_ACTUAL)";
 				COPY_PHASE_STRIP = NO;
@@ -832,6 +840,7 @@
 		};
 		ACB7463E0D621FE1002F4863 /* Deployment */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = ACA4057E106447A400BDDECA /* cddafs.xcconfig */;
 			buildSettings = {
 				ARCHS = "$(NATIVE_ARCH_ACTUAL)";
 				COPY_PHASE_STRIP = YES;
@@ -860,6 +869,7 @@
 		};
 		ACB7463F0D621FE1002F4863 /* Default */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = ACA4057E106447A400BDDECA /* cddafs.xcconfig */;
 			buildSettings = {
 				ARCHS = "$(NATIVE_ARCH_ACTUAL)";
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
@@ -885,6 +895,7 @@
 		};
 		ACB746510D621FE1002F4863 /* Development */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = ACA4057E106447A400BDDECA /* cddafs.xcconfig */;
 			buildSettings = {
 				COPY_PHASE_STRIP = NO;
 				GCC_DYNAMIC_NO_PIC = NO;
@@ -914,6 +925,7 @@
 		};
 		ACB746520D621FE1002F4863 /* Deployment */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = ACA4057E106447A400BDDECA /* cddafs.xcconfig */;
 			buildSettings = {
 				COPY_PHASE_STRIP = YES;
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
@@ -940,6 +952,7 @@
 		};
 		ACB746530D621FE1002F4863 /* Default */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = ACA4057E106447A400BDDECA /* cddafs.xcconfig */;
 			buildSettings = {
 				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
 				INFOPLIST_FILE = "Info-cddafs_fs.plist";
@@ -963,6 +976,7 @@
 		};
 		ACB7466F0D621FE1002F4863 /* Development */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = ACA4057E106447A400BDDECA /* cddafs.xcconfig */;
 			buildSettings = {
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
@@ -990,6 +1004,7 @@
 		};
 		ACB746700D621FE1002F4863 /* Deployment */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = ACA4057E106447A400BDDECA /* cddafs.xcconfig */;
 			buildSettings = {
 				COPY_PHASE_STRIP = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
@@ -1014,6 +1029,7 @@
 		};
 		ACB746710D621FE1002F4863 /* Default */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = ACA4057E106447A400BDDECA /* cddafs.xcconfig */;
 			buildSettings = {
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				FRAMEWORK_SEARCH_PATHS = "";

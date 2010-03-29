@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 44;
+	objectVersion = 45;
 	objects = {
 
 /* Begin PBXAggregateTarget section */
@@ -1335,7 +1335,7 @@
 				GCC_MODEL_TUNING = G5;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				INSTALL_PATH = /usr/bin;
-				OTHER_CFLAGS = "-D__I_AM_PMSET__";
+				OTHER_CFLAGS = "-D__I_AM_PMSET__ -DUSE_SYSTEMCONFIGURATION_PRIVATE_HEADERS";
 				PREBINDING = NO;
 				PRODUCT_NAME = pmset;
 				ZERO_LINK = NO;
@@ -1350,7 +1350,7 @@
 				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
 				GCC_MODEL_TUNING = G5;
 				INSTALL_PATH = /usr/bin;
-				OTHER_CFLAGS = "-D__I_AM_PMSET__";
+				OTHER_CFLAGS = "-D__I_AM_PMSET__ -DUSE_SYSTEMCONFIGURATION_PRIVATE_HEADERS";
 				PREBINDING = NO;
 				PRODUCT_NAME = pmset;
 				STRIP_INSTALLED_PRODUCT = YES;

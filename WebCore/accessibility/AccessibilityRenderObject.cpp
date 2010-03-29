@@ -35,7 +35,6 @@
 #include "CharacterNames.h"
 #include "EventNames.h"
 #include "FloatRect.h"
-#include "FocusController.h"
 #include "Frame.h"
 #include "FrameLoader.h"
 #include "HTMLAreaElement.h"
@@ -54,7 +53,6 @@
 #include "HitTestResult.h"
 #include "LocalizedStrings.h"
 #include "NodeList.h"
-#include "Page.h"
 #include "RenderFieldset.h"
 #include "RenderFileUploadControl.h"
 #include "RenderHTMLCanvas.h"
@@ -1107,22 +1105,10 @@ AccessibilityObject* AccessibilityRenderObject::internalLinkElement() const
     if (!linkedNode)
         return 0;
     
-    // the element we find may not be accessible, keep searching until we find a good one
-    AccessibilityObject* linkedAXElement = m_renderer->document()->axObjectCache()->getOrCreate(linkedNode->renderer());
-    while (linkedAXElement && linkedAXElement->accessibilityIsIgnored()) {
-        linkedNode = linkedNode->traverseNextNode();
-        
-        while (linkedNode && !linkedNode->renderer())
-            linkedNode = linkedNode->traverseNextSibling();
-        
-        if (!linkedNode)
-            return 0;
-        linkedAXElement = m_renderer->document()->axObjectCache()->getOrCreate(linkedNode->renderer());
-    }
-    
-    return linkedAXElement;
+    // The element we find may not be accessible, so find the first accessible object.
+    return firstAccessibleObjectFromNode(linkedNode);
 }
-    
+
 void AccessibilityRenderObject::addRadioButtonGroupMembers(AccessibilityChildrenVector& linkedUIElements) const
 {
     if (!m_renderer || roleValue() != RadioButtonRole)
@@ -2067,32 +2053,11 @@ AccessibilityObject* AccessibilityRenderObject::doAccessibilityHitTest(const Int
 
 AccessibilityObject* AccessibilityRenderObject::focusedUIElement() const
 {
-    // get the focused node in the page
     Page* page = m_renderer->document()->page();
     if (!page)
         return 0;
-    
-    Document* focusedDocument = page->focusController()->focusedOrMainFrame()->document();
-    Node* focusedNode = focusedDocument->focusedNode();
-    if (!focusedNode)
-        focusedNode = focusedDocument;
-    
-    RenderObject* focusedNodeRenderer = focusedNode->renderer();
-    if (!focusedNodeRenderer)
-        return 0;
-    
-    AccessibilityObject* obj = focusedNodeRenderer->document()->axObjectCache()->getOrCreate(focusedNodeRenderer);
-    
-    if (obj->shouldFocusActiveDescendant()) {
-        if (AccessibilityObject* descendant = obj->activeDescendant())
-            obj = descendant;
-    }
-    
-    // the HTML element, for example, is focusable but has an AX object that is ignored
-    if (obj->accessibilityIsIgnored())
-        obj = obj->parentObjectUnignored();
-    
-    return obj;
+
+    return AXObjectCache::focusedUIElementForPage(page);
 }
 
 bool AccessibilityRenderObject::shouldFocusActiveDescendant() const
@@ -2139,7 +2104,7 @@ AccessibilityObject* AccessibilityRenderObject::activeDescendant() const
         return 0;
     
     AccessibilityObject* obj = renderer()->document()->axObjectCache()->getOrCreate(target->renderer());
-    if (obj->isAccessibilityRenderObject())
+    if (obj && obj->isAccessibilityRenderObject())
     // an activedescendant is only useful if it has a renderer, because that's what's needed to post the notification
         return obj;
     return 0;
@@ -2601,7 +2566,109 @@ void AccessibilityRenderObject::updateBackingStore()
 {
     if (!m_renderer)
         return;
-    m_renderer->view()->layoutIfNeeded();
-}    
-    
+
+    // Updating layout may delete m_renderer and this object.
+    m_renderer->document()->updateLayoutIgnorePendingStylesheets();
+}
+
+static bool isLinkable(const AccessibilityRenderObject& object)
+{
+    if (!object.renderer())
+        return false;
+
+    // See https://wiki.mozilla.org/Accessibility/AT-Windows-API for the elements
+    // Mozilla considers linkable.
+    return object.isLink() || object.isImage() || object.renderer()->isText();
+}
+
+String AccessibilityRenderObject::stringValueForMSAA() const
+{
+    if (isLinkable(*this)) {
+        Element* anchor = anchorElement();
+        if (anchor && anchor->hasTagName(aTag))
+            return static_cast<HTMLAnchorElement*>(anchor)->href();
+    }
+
+    return stringValue();
+}
+
+bool AccessibilityRenderObject::isLinked() const
+{
+    if (!isLinkable(*this))
+        return false;
+
+    Element* anchor = anchorElement();
+    if (!anchor || !anchor->hasTagName(aTag))
+        return false;
+
+    return !static_cast<HTMLAnchorElement*>(anchor)->href().isEmpty();
+}
+
+String AccessibilityRenderObject::nameForMSAA() const
+{
+    if (m_renderer && m_renderer->isText())
+        return textUnderElement();
+
+    return title();
+}
+
+static bool shouldReturnTagNameAsRoleForMSAA(const Element& element)
+{
+    // See "document structure",
+    // https://wiki.mozilla.org/Accessibility/AT-Windows-API
+    // FIXME: Add the other tag names that should be returned as the role.
+    return element.hasTagName(h1Tag) || element.hasTagName(h2Tag) ||
+        element.hasTagName(h3Tag) || element.hasTagName(h4Tag) ||
+        element.hasTagName(h5Tag) || element.hasTagName(h6Tag);
+}
+
+String AccessibilityRenderObject::stringRoleForMSAA() const
+{
+    if (!m_renderer)
+        return String();
+
+    Node* node = m_renderer->node();
+    if (!node || !node->isElementNode())
+        return String();
+
+    Element* element = static_cast<Element*>(node);
+    if (!shouldReturnTagNameAsRoleForMSAA(*element))
+        return String();
+
+    return element->tagName();
+}
+
+String AccessibilityRenderObject::positionalDescriptionForMSAA() const
+{
+    if (!m_renderer)
+        return String();
+
+    // See "positional descriptions",
+    // https://wiki.mozilla.org/Accessibility/AT-Windows-API
+    if (isHeading())
+        return "L" + String::number(headingLevel(m_renderer->node()));
+
+    // FIXME: Add positional descriptions for other elements.
+    return String();
+}
+
+String AccessibilityRenderObject::descriptionForMSAA() const
+{
+    String description = positionalDescriptionForMSAA();
+    if (!description.isEmpty())
+        return description;
+
+    description = accessibilityDescription();
+    if (!description.isEmpty()) {
+        // From the Mozilla MSAA implementation:
+        // "Signal to screen readers that this description is speakable and is not
+        // a formatted positional information description. Don't localize the
+        // 'Description: ' part of this string, it will be parsed out by assistive
+        // technologies."
+        return "Description: " + description;
+    }
+
+    return String();
+}
+
 } // namespace WebCore

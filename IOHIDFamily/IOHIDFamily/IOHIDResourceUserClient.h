@@ -24,6 +24,7 @@
 #ifndef _IOHIDRESOURCE_USERCLIENT_H
 #define _IOHIDRESOURCE_USERCLIENT_H
 
+#include <IOKit/hid/IOHIDKeys.h>
 /*!
     @enum IOHIDResourceUserClientType
     @abstract List of support user client types
@@ -39,16 +40,43 @@ typedef enum {
     @abstract List of external methods to be called from user land
     @constant kIOHIDResourceDeviceUserClientMethodCreate Creates a device using a passed serialized property dictionary.
 	@constant kIOHIDResourceDeviceUserClientMethodTerminate Closes the device and releases memory.
-    @constant kIOHIDResourceDeviceUserClientMethodHandleReport Sends a report and generates a keyboard event from that report.
+    @constant kIOHIDResourceDeviceUserClientMethodHandleReport Sends a report.
+    @constant kIOHIDResourceDeviceUserClientMethodPostReportResult Posts a report requested via GetReport and SetReport
     @constant kIOHIDResourceDeviceUserClientMethodCount
 */
 typedef enum {
 	kIOHIDResourceDeviceUserClientMethodCreate,
 	kIOHIDResourceDeviceUserClientMethodTerminate,
 	kIOHIDResourceDeviceUserClientMethodHandleReport,
+    kIOHIDResourceDeviceUserClientMethodPostReportResponse,
 	kIOHIDResourceDeviceUserClientMethodCount
 } IOHIDResourceDeviceUserClientExternalMethods;
 
+/*!
+    @enum IOHIDResourceUserClientResponseIndex
+    @abstract reponse indexes for report response
+*/
+typedef enum {
+	kIOHIDResourceUserClientResponseIndexResult = 0,
+	kIOHIDResourceUserClientResponseIndexToken,
+	kIOHIDResourceUserClientResponseIndexCount
+} IOHIDResourceUserClientResponseIndex;
+
+typedef enum { 
+    kIOHIDResourceReportDirectionIn,
+    kIOHIDResourceReportDirectionOut
+} IOHIDResourceReportDirection;
+/*!
+    @enum IOHIDResourceDataQueueHeader
+    @abstract Header used for sending requests to user process
+*/
+typedef struct {
+    IOHIDResourceReportDirection    direction;    
+    IOHIDReportType                 type;
+    uint32_t                        reportID;
+    uint32_t                        length;
+    uint64_t                        token;
+} IOHIDResourceDataQueueHeader;
 
 /*
  * Kernel
@@ -56,6 +84,7 @@ typedef enum {
 #if KERNEL
 
 #include <IOKit/IOUserClient.h>
+#include <IOKit/IODataQueue.h>
 #include "IOHIDResource.h"
 #include "IOHIDUserDevice.h"
 
@@ -63,24 +92,51 @@ typedef enum {
 /*! @class IOHIDResourceDeviceUserClient : public IOUserClient
     @abstract 
 */
+/*! @class IOHIDResourceQueue : public IODataQueue
+    @abstract 
+*/
+class IOHIDResourceQueue: public IODataQueue
+{
+    OSDeclareDefaultStructors( IOHIDResourceQueue )
+    
+protected:
+    IOMemoryDescriptor *    _descriptor;
+
+public:
+    static IOHIDResourceQueue *withEntries(UInt32 numEntries, UInt32 entrySize);
+    virtual void free();
+    
+    virtual Boolean enqueueReport(IOHIDResourceDataQueueHeader * header, IOMemoryDescriptor * report = NULL);
+
+    virtual IOMemoryDescriptor *getMemoryDescriptor();
+    virtual void setNotificationPort(mach_port_t port);
+};
+
 class IOHIDResourceDeviceUserClient : public IOUserClient
 {
     OSDeclareDefaultStructors(IOHIDResourceDeviceUserClient);
 	
 private:
 
-    IOHIDResource		*_owner;
-	IOHIDUserDevice		*_device;
+    IOHIDResource *         _owner;
+	IOHIDUserDevice *       _device;
+    mach_port_t             _port;
+    IOHIDResourceQueue *    _queue;
+    IOLock *                _lock;
+    OSSet *                 _pending;
 
-	static const IOExternalMethodDispatch		_methods[kIOHIDResourceDeviceUserClientMethodCount];
+	static const IOExternalMethodDispatch _methods[kIOHIDResourceDeviceUserClientMethodCount];
 
 	static IOReturn _createDevice(IOHIDResourceDeviceUserClient *target, void *reference, IOExternalMethodArguments *arguments);
 	static IOReturn _terminateDevice(IOHIDResourceDeviceUserClient *target, void *reference, IOExternalMethodArguments *arguments);
 	static IOReturn _handleReport(IOHIDResourceDeviceUserClient *target,  void *reference, IOExternalMethodArguments *arguments);
+	static IOReturn _postReportResult(IOHIDResourceDeviceUserClient *target,  void *reference, IOExternalMethodArguments *arguments);
 
 	IOReturn createDevice(IOHIDResourceDeviceUserClient *target, void *reference, IOExternalMethodArguments *arguments);
 	IOReturn handleReport(IOHIDResourceDeviceUserClient *target,  void *reference, IOExternalMethodArguments *arguments);
+    IOReturn postReportResult(IOHIDResourceDeviceUserClient *target,  void *reference, IOExternalMethodArguments *arguments);
 	IOReturn terminateDevice();
+    void cleanupPendingReports();
 
     IOMemoryDescriptor * createMemoryDescriptorFromInputArguments(IOExternalMethodArguments * arguments);
 
@@ -89,30 +145,32 @@ public:
 		@abstract 
 		@discussion 
 	*/
-	bool initWithTask(task_t owningTask, void * security_id, UInt32 type);
+	virtual bool initWithTask(task_t owningTask, void * security_id, UInt32 type);
 
 
 	/*! @function clientClose
 		@abstract 
 		@discussion 
 	*/
-	virtual		IOReturn clientClose(void);
+	virtual IOReturn clientClose(void);
 
 
 	/*! @function getService
 		@abstract 
 		@discussion 
 	*/
-	virtual		IOService * getService(void);
+	virtual IOService * getService(void);
 
 
 	/*! @function externalMethod
 		@abstract 
 		@discussion 
 	*/
-	IOReturn	externalMethod(uint32_t selector, IOExternalMethodArguments *arguments,
+	virtual IOReturn externalMethod(uint32_t selector, IOExternalMethodArguments *arguments,
 							   IOExternalMethodDispatch *dispatch, OSObject *target, 
 							   void *reference);
+
+    virtual IOReturn clientMemoryForType(UInt32 type, IOOptionBits * options, IOMemoryDescriptor ** memory );
 
 
 	/*! @function start
@@ -120,9 +178,16 @@ public:
 		@discussion 
 	*/
 	virtual bool start(IOService * provider);
+    
+    virtual void free();
+
+    virtual IOReturn registerNotificationPort(mach_port_t port, UInt32 type, io_user_reference_t refCon);
+    
+    virtual IOReturn getReport(IOMemoryDescriptor *report, IOHIDReportType reportType, IOOptionBits options);
+
+    virtual IOReturn setReport(IOMemoryDescriptor *report, IOHIDReportType reportType, IOOptionBits options);
+
 };
-
-
 
 
 #endif /* KERNEL */

@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		521EBA4E0BF6867B00EB2EC1 /* ATAPILogger.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 521EBA4D0BF6867B00EB2EC1 /* ATAPILogger.cpp */; };
+		E6816C4D1092342500F524E7 /* libutil.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = E6816C4C1092342500F524E7 /* libutil.dylib */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -27,6 +28,7 @@
 		47CD28360D6F5C9A00C087B3 /* IOATAPIProtocolTransportTimeStamps.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = IOATAPIProtocolTransportTimeStamps.h; path = ../IOATAPIProtocolTransportTimeStamps.h; sourceTree = SOURCE_ROOT; };
 		521EBA4D0BF6867B00EB2EC1 /* ATAPILogger.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = ATAPILogger.cpp; sourceTree = "<group>"; };
 		8DD76F6C0486A84900D96B5E /* ATAPILogger */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = ATAPILogger; sourceTree = BUILT_PRODUCTS_DIR; };
+		E6816C4C1092342500F524E7 /* libutil.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libutil.dylib; path = /usr/lib/libutil.dylib; sourceTree = "<absolute>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -34,6 +36,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				E6816C4D1092342500F524E7 /* libutil.dylib in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -43,10 +46,9 @@
 		08FB7794FE84155DC02AAC07 /* SAMLogger */ = {
 			isa = PBXGroup;
 			children = (
-				47CD28350D6F5C9A00C087B3 /* IOATAPIProtocolTransportDebugging.h */,
-				47CD28360D6F5C9A00C087B3 /* IOATAPIProtocolTransportTimeStamps.h */,
 				08FB7795FE84155DC02AAC07 /* Source */,
 				1AB674ADFE9D54B511CA2CBB /* Products */,
+				E6816C4C1092342500F524E7 /* libutil.dylib */,
 			);
 			name = SAMLogger;
 			sourceTree = "<group>";
@@ -54,6 +56,8 @@
 		08FB7795FE84155DC02AAC07 /* Source */ = {
 			isa = PBXGroup;
 			children = (
+				47CD28350D6F5C9A00C087B3 /* IOATAPIProtocolTransportDebugging.h */,
+				47CD28360D6F5C9A00C087B3 /* IOATAPIProtocolTransportTimeStamps.h */,
 				521EBA4D0BF6867B00EB2EC1 /* ATAPILogger.cpp */,
 			);
 			name = Source;
@@ -120,6 +124,8 @@
 		1DEB923208733DC60010E9CD /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ARCHS = "$(ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1)";
+				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
 				COPY_PHASE_STRIP = NO;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_ENABLE_FIX_AND_CONTINUE = YES;
@@ -139,6 +145,7 @@
 					"-D__APPLE_PRIVATE",
 				);
 				PRODUCT_NAME = ATAPILogger;
+				VALID_ARCHS = "ppc7400 ppc970 ppc i386 x86_64";
 				ZERO_LINK = YES;
 			};
 			name = Debug;
@@ -146,10 +153,8 @@
 		1DEB923308733DC60010E9CD /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = (
-					ppc,
-					i386,
-				);
+				ARCHS = "$(ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1)";
+				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				GCC_MODEL_TUNING = G5;
 				HEADER_SEARCH_PATHS = (
@@ -162,6 +167,7 @@
 					"-D__APPLE_PRIVATE",
 				);
 				PRODUCT_NAME = ATAPILogger;
+				VALID_ARCHS = "ppc7400 ppc970 ppc i386 x86_64";
 			};
 			name = Release;
 		};

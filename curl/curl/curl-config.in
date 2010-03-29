@@ -6,7 +6,7 @@
 #                            | (__| |_| |  _ <| |___
 #                             \___|\___/|_| \_\_____|
 #
-# Copyright (C) 2001 - 2008, Daniel Stenberg, <daniel@haxx.se>, et al.
+# Copyright (C) 2001 - 2009, Daniel Stenberg, <daniel@haxx.se>, et al.
 #
 # This software is licensed as described in the file COPYING, which
 # you should have received as part of this distribution. The terms
@@ -19,12 +19,9 @@
 # This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
 # KIND, either express or implied.
 #
-# $Id: curl-config.in,v 1.35 2008-09-03 19:10:48 danf Exp $
+# $Id: curl-config.in,v 1.36 2009-03-20 12:42:29 bagder Exp $
 ###########################################################################
-#
-# The idea to this kind of setup info script was stolen from numerous
-# other packages, such as neon, libxml and gnome.
-#
+
 prefix=@prefix@
 exec_prefix=@exec_prefix@
 includedir=@includedir@
@@ -139,14 +136,13 @@ while test $# -gt 0; do
 	   CURLLIBDIR=""
 	fi
 	if test "X@REQUIRE_LIB_DEPS@" = "Xyes"; then
-	  echo ${CURLLIBDIR}-lcurl @LDFLAGS@ @LIBCURL_LIBS@ @LIBS@
+	  echo ${CURLLIBDIR}-lcurl
 	else
-	  echo ${CURLLIBDIR}-lcurl @LDFLAGS@ @LIBS@
+	  echo ${CURLLIBDIR}-lcurl
 	fi
 	;;
 
     --static-libs)
-	echo @libdir@/libcurl.@libext@ @LDFLAGS@ @LIBCURL_LIBS@ @LIBS@
 	;;
 
     *)

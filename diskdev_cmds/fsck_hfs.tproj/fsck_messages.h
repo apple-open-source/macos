@@ -102,6 +102,48 @@ enum fsck_default_answer_type {
     fsckDefaultYes
 };
 
+/*
+ * Return value from a status block.  The block is called
+ * in fsckPrint(), before and after a status message is
+ * printed.  Returning fsckBlockContinue means to continue as
+ * it would otherwise; returning fsckBlockAbort means that
+ * fsckPrint should return an error at that point; and fsckBlockIgnore
+ * means that fsckPrint should return immediately, but without an error.
+ *
+ * The most common use of fsckBlockIgnore would be to suppress extraneous
+ * messages.
+ */
+enum fsck_block_status_type {
+	fsckBlockAbort = -1,
+	fsckBlockContinue = 0,
+	fsckBlockIgnore,
+};
+typedef enum fsck_block_status_type fsck_block_status_t;
+
+/*
+ * Phases for the status block.  The block is called in fsckPrint(),
+ * either before printing the message (with fsckPhaseBeforeMessage), or
+ * afterwards (with fsckPhaseAfterMessage).  It's allowed ot have both
+ * set up with different blocks.
+ */
+enum fsck_block_phase_type {
+    fsckPhaseNone = 0,
+    fsckPhaseBeforeMessage,
+    fsckPhaseAfterMessage,
+};
+typedef enum fsck_block_phase_type fsck_block_phase_t;
+
+/*
+ * The type of a status block.  The first argument is the context
+ * for the messaging; the second argument is the message number;
+ * the third is a va_list of the arguments for the message.
+ */
+
+typedef fsck_block_status_t (^fsckBlock_t)(fsck_ctx_t, int, va_list);
+
+extern fsckBlock_t fsckGetBlock(fsck_ctx_t, fsck_block_phase_t);
+extern void fsckSetBlock(fsck_ctx_t, fsck_block_phase_t, fsckBlock_t);
+
 extern fsck_ctx_t fsckCreate(void);
 extern int fsckSetOutput(fsck_ctx_t, FILE*);
 extern int fsckSetFile(fsck_ctx_t, int);

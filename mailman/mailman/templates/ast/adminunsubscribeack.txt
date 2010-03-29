@@ -1,0 +1,3 @@
+%(member)s encaboxó la to soscripción de %(listname)s.
+
+

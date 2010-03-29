@@ -39,6 +39,19 @@
 #define PLAINIPSEC_PHASE_DOMAIN                                                 CONSTSTR("com.apple.Networking.ipsec.phasestats.plain")
 #define PLAINIPSECDOMAIN                                                        CONSTSTR("com.apple.Networking.ipsec.main")
 
+#if TARGET_OS_EMBEDDED
+
+#define IPSECCONFIGTRACEREVENT(config, eventCode, message, failure_reason)		
+
+#define IPSECPOLICYTRACEREVENT(policy, eventCode, message, failure_reason)		
+
+#define IPSECSESSIONTRACERSTART(session)										
+#define IPSECSESSIONTRACEREVENT(session, eventCode, message, failure_reason)	
+#define IPSECSESSIONTRACERSTOP(session, is_failure, reason)						
+#define IPSECSESSIONTRACERESTABLISHED(session)                                  
+
+#else
+
 #define IPSECCONFIGTRACEREVENT(config, eventCode, message, failure_reason)		ipsecConfigTracerEvent(config, eventCode, message, failure_reason)
 
 #define IPSECPOLICYTRACEREVENT(policy, eventCode, message, failure_reason)		ipsecPolicyTracerEvent(policy, eventCode, message, failure_reason)
@@ -47,6 +60,8 @@
 #define IPSECSESSIONTRACEREVENT(session, eventCode, message, failure_reason)	ipsecSessionTracerEvent(session, eventCode, message, failure_reason)
 #define IPSECSESSIONTRACERSTOP(session, is_failure, reason)						ipsecSessionTracerStop(session, is_failure, reason)
 #define IPSECSESSIONTRACERESTABLISHED(session)                                  ipsecSessionTracerLogEstablished(session)
+
+#endif
 
 static inline double get_percentage (double numerator, double denominator)
 {

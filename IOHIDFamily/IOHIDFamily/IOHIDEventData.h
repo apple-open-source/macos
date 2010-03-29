@@ -115,13 +115,23 @@ typedef struct _IOHIDAccelerometerEventData {
     IOHIDEVENT_BASE;                            // options = kHIDAxisRelative
     IOHIDAXISEVENT_BASE;
     uint32_t        acclType;
+	uint32_t		acclSubType;
 } IOHIDAccelerometerEventData;
+
+typedef struct _IOHIDGyroEventData {
+    IOHIDEVENT_BASE;                            // options = kHIDAxisRelative
+    IOHIDAXISEVENT_BASE;
+	uint32_t        gyroType;
+	uint32_t		gyroSubType;
+} IOHIDGyroEventData;
 
 typedef struct _IOHIDAmbientLightSensorEventData {
     IOHIDEVENT_BASE;                            // options = kHIDAxisRelative
     uint32_t        level;
     uint32_t        ch0;
     uint32_t        ch1;
+    uint32_t        ch2;
+    uint32_t        ch3;
     Boolean         brightnessChanged;
 } IOHIDAmbientLightSensorEventData;
 
@@ -133,6 +143,7 @@ typedef struct _IOHIDTemperatureEventData {
 typedef struct _IOHIDProximityEventData {
     IOHIDEVENT_BASE;                            
     uint32_t        detectionMask;
+	uint32_t		level;
 } IOHIDProximityEventData;
 
 typedef struct _IOHIDProgressEventData {
@@ -257,7 +268,10 @@ typedef struct _IOHIDSystemQueueElement {
         case kIOHIDEventTypeAccelerometer:\
             size = sizeof(IOHIDAccelerometerEventData);\
             break;\
-        case kIOHIDEventTypeAmbientLightSensor:\
+		case kIOHIDEventTypeGyro:\
+			size = sizeof(IOHIDGyroEventData);\
+			break;\
+		case kIOHIDEventTypeAmbientLightSensor:\
             size = sizeof(IOHIDAmbientLightSensorEventData);\
             break;                      \
         case kIOHIDEventTypeProximity:  \
@@ -394,10 +408,35 @@ typedef struct _IOHIDSystemQueueElement {
                     case IOHIDEventFieldOffset(kIOHIDEventFieldAccelerometerType): \
                         value = accl->acclType;     \
                         break;                          \
-                };                                      \
+					case IOHIDEventFieldOffset(kIOHIDEventFieldAccelerometerSubType): \
+						value = accl->acclSubType;     \
+						break;                          \
+				};                                      \
             }                                           \
             break;                                      \
-        case kIOHIDEventTypeMouse:                     \
+			case kIOHIDEventTypeGyro:                     \
+			{                                           \
+				IOHIDGyroEventData * gyro = (IOHIDGyroEventData*)eventData; \
+				switch ( fieldOffset ) {                \
+					case IOHIDEventFieldOffset(kIOHIDEventFieldGyroX): \
+						value = IOHIDEventValueFloat(gyro->position.x); \
+						break;                              \
+					case IOHIDEventFieldOffset(kIOHIDEventFieldGyroY): \
+						value = IOHIDEventValueFloat(gyro->position.y); \
+						break;                              \
+					case IOHIDEventFieldOffset(kIOHIDEventFieldGyroZ): \
+						value = IOHIDEventValueFloat(gyro->position.z); \
+						break;                              \
+					case IOHIDEventFieldOffset(kIOHIDEventFieldGyroType): \
+						value = gyro->gyroType;     \
+						break;                          \
+					case IOHIDEventFieldOffset(kIOHIDEventFieldGyroSubType): \
+						value = gyro->gyroSubType;     \
+						break;                          \
+				};                                      \
+			}                                           \
+			break;                                      \
+			case kIOHIDEventTypeMouse:                     \
             {                                           \
                 IOHIDMouseEventData * mouse = (IOHIDMouseEventData*)eventData; \
                 switch ( fieldOffset ) {                \
@@ -509,7 +548,13 @@ typedef struct _IOHIDSystemQueueElement {
                     case IOHIDEventFieldOffset(kIOHIDEventFieldAmbientLightSensorRawChannel1): \
                         value = alsEvent->ch1;          \
                         break;                          \
-                    case IOHIDEventFieldOffset(kIOHIDEventFieldAmbientLightDisplayBrightnessChanged): \
+					case IOHIDEventFieldOffset(kIOHIDEventFieldAmbientLightSensorRawChannel2): \
+						value = alsEvent->ch2;          \
+						break;                          \
+					case IOHIDEventFieldOffset(kIOHIDEventFieldAmbientLightSensorRawChannel3): \
+						value = alsEvent->ch3;          \
+						break;                          \
+					case IOHIDEventFieldOffset(kIOHIDEventFieldAmbientLightDisplayBrightnessChanged): \
                         value = alsEvent->brightnessChanged; \
                         break;                          \
                 };                                      \
@@ -522,7 +567,10 @@ typedef struct _IOHIDSystemQueueElement {
                     case IOHIDEventFieldOffset(kIOHIDEventFieldProximityDetectionMask): \
                         value = proxEvent->detectionMask; \
                         break;                          \
-                };                                      \
+					case IOHIDEventFieldOffset(kIOHIDEventFieldProximityLevel): \
+						value = proxEvent->level; \
+						break;                          \
+					};                                      \
             }                                           \
             break;                                      \
         case kIOHIDEventTypeKeyboard:                   \
@@ -742,10 +790,35 @@ typedef struct _IOHIDSystemQueueElement {
                     case IOHIDEventFieldOffset(kIOHIDEventFieldAccelerometerType): \
                         accl->acclType = value;     \
                         break;                          \
-                };                                      \
+					case IOHIDEventFieldOffset(kIOHIDEventFieldAccelerometerSubType): \
+						accl->acclSubType = value;     \
+						break;                          \
+				};                                      \
             }                                           \
             break;                                      \
-        case kIOHIDEventTypeMouse:                     \
+			case kIOHIDEventTypeGyro:              \
+			{                                           \
+				IOHIDGyroEventData * gyro = (IOHIDGyroEventData*)eventData; \
+				switch ( fieldOffset ) {                \
+					case IOHIDEventFieldOffset(kIOHIDEventFieldGyroX): \
+						gyro->position.x = IOHIDEventValueFixed(value); \
+						break;                              \
+					case IOHIDEventFieldOffset(kIOHIDEventFieldGyroY): \
+						gyro->position.y = IOHIDEventValueFixed(value); \
+						break;                              \
+					case IOHIDEventFieldOffset(kIOHIDEventFieldGyroZ): \
+						gyro->position.z = IOHIDEventValueFixed(value); \
+						break;                              \
+					case IOHIDEventFieldOffset(kIOHIDEventFieldGyroType): \
+						gyro->gyroType = value;     \
+						break;                          \
+					case IOHIDEventFieldOffset(kIOHIDEventFieldGyroSubType): \
+						gyro->gyroSubType = value;     \
+						break;                          \
+				};                                      \
+			}                                           \
+			break;                                      \
+			case kIOHIDEventTypeMouse:                     \
             {                                           \
                 IOHIDMouseEventData * mouse = (IOHIDMouseEventData*)eventData; \
                 switch ( fieldOffset ) {                \
@@ -860,7 +933,13 @@ typedef struct _IOHIDSystemQueueElement {
                     case IOHIDEventFieldOffset(kIOHIDEventFieldAmbientLightSensorRawChannel1): \
                         alsEvent->ch1 = value;          \
                         break;                          \
-                    case IOHIDEventFieldOffset(kIOHIDEventFieldAmbientLightDisplayBrightnessChanged): \
+					case IOHIDEventFieldOffset(kIOHIDEventFieldAmbientLightSensorRawChannel2): \
+						alsEvent->ch2 = value;          \
+						break;                          \
+					case IOHIDEventFieldOffset(kIOHIDEventFieldAmbientLightSensorRawChannel3): \
+						alsEvent->ch3 = value;          \
+						break;                          \
+					case IOHIDEventFieldOffset(kIOHIDEventFieldAmbientLightDisplayBrightnessChanged): \
                         alsEvent->brightnessChanged = value; \
                         break;                          \
                 };                                      \
@@ -873,7 +952,10 @@ typedef struct _IOHIDSystemQueueElement {
                     case IOHIDEventFieldOffset(kIOHIDEventFieldProximityDetectionMask): \
                         proxEvent->detectionMask = value; \
                         break;                          \
-                };                                      \
+					case IOHIDEventFieldOffset(kIOHIDEventFieldProximityLevel): \
+						proxEvent->level = value; \
+						break;                          \
+					};                                      \
             }                                           \
             break;                                      \
         case kIOHIDEventTypeKeyboard:                       \

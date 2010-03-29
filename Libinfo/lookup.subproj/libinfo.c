@@ -73,7 +73,7 @@ si_search(void)
 {
 	static si_mod_t *search = NULL;
 	static OSSpinLock spin = OS_SPINLOCK_INIT;
-	
+
 	if (search == NULL)
 	{
 		OSSpinLockLock(&spin);
@@ -209,7 +209,7 @@ getpwnam_async_call(const char *name, si_user_async_callback callback, void *con
 	sictx->cat = CATEGORY_USER;
 	sictx->key_offset = 100;
 
-	return si_async_call(si_search(), SI_CALL_USER_BYNAME, name, NULL, 0, 0, 0, 0, (void *)si_libinfo_general_callback, sictx);
+	return si_async_call(si_search(), SI_CALL_USER_BYNAME, name, NULL, NULL, 0, 0, 0, 0, (void *)si_libinfo_general_callback, sictx);
 }
 
 void
@@ -255,7 +255,7 @@ getpwuid_async_call(uid_t uid, si_user_async_callback callback, void *context)
 	sictx->cat = CATEGORY_USER;
 	sictx->key_offset = 200;
 
-	return si_async_call(si_search(), SI_CALL_USER_BYUID, NULL, NULL, (uint32_t)uid, 0, 0, 0, (void *)si_libinfo_general_callback, sictx);
+	return si_async_call(si_search(), SI_CALL_USER_BYUID, NULL, NULL, NULL, (uint32_t)uid, 0, 0, 0, (void *)si_libinfo_general_callback, sictx);
 }
 
 void
@@ -315,11 +315,11 @@ int
 setpassent(int ignored)
 {
 	si_list_t *list;
-	
+
 #ifdef CALL_TRACE
 	fprintf(stderr, "-> %s\n", __func__);
 #endif
-	
+
 	list = LI_get_thread_list(CATEGORY_USER);
 	si_list_reset(list);
 
@@ -362,7 +362,7 @@ getgrnam_async_call(const char *name, si_group_async_callback callback, void *co
 	sictx->cat = CATEGORY_GROUP;
 	sictx->key_offset = 100;
 
-	return si_async_call(si_search(), SI_CALL_GROUP_BYNAME, name, NULL, 0, 0, 0, 0, (void *)si_libinfo_general_callback, sictx);
+	return si_async_call(si_search(), SI_CALL_GROUP_BYNAME, name, NULL, NULL, 0, 0, 0, 0, (void *)si_libinfo_general_callback, sictx);
 }
 
 void
@@ -408,7 +408,7 @@ getgrgid_async_call(gid_t gid, si_group_async_callback callback, void *context)
 	sictx->cat = CATEGORY_GROUP;
 	sictx->key_offset = 200;
 
-	return si_async_call(si_search(), SI_CALL_GROUP_BYGID, NULL, NULL, (uint32_t)gid, 0, 0, 0, (void *)si_libinfo_general_callback, sictx);
+	return si_async_call(si_search(), SI_CALL_GROUP_BYGID, NULL, NULL, NULL, (uint32_t)gid, 0, 0, 0, (void *)si_libinfo_general_callback, sictx);
 }
 
 void
@@ -468,11 +468,11 @@ int
 setgroupent(int ignored)
 {
 	si_list_t *list;
-	
+
 #ifdef CALL_TRACE
 	fprintf(stderr, "-> %s\n", __func__);
 #endif
-	
+
 	list = LI_get_thread_list(CATEGORY_GROUP);
 	si_list_reset(list);
 
@@ -698,28 +698,28 @@ getgroupcount(const char *name, gid_t basegid)
 	si_item_t *item;
 	si_grouplist_t *gl;
 	gid_t *groups;
-	
+
 #ifdef CALL_TRACE
 	fprintf(stderr, "-> %s %s %d\n", __func__, name, basegid);
 #endif
-	
+
 	if (name == NULL) return 0;
-	
+
 	item = si_grouplist(si_search(), name);
 	LI_set_thread_item(CATEGORY_GROUPLIST, item);
 	if (item == NULL) return -1;
-	
+
 	gl = (si_grouplist_t *)((uintptr_t)item + sizeof(si_item_t));
-	
+
 	count = 0;
 	groups = NULL;
-	
+
 	status = merge_gid(&groups, basegid, &count);
 	if (status != 0) return status;
-	
+
 	status = merge_gid(&groups, gl->gl_basegid, &count);
 	if (status != 0) return status;
-	
+
 	for (i = 0; i < gl->gl_count; i++)
 	{
 		g = (gid_t)*(gl->gl_gid[i]);
@@ -813,7 +813,7 @@ alias_getbyname_async_call(const char *name, si_alias_async_callback callback, v
 	sictx->cat = CATEGORY_ALIAS;
 	sictx->key_offset = 100;
 
-	return si_async_call(si_search(), SI_CALL_ALIAS_BYNAME, name, NULL, 0, 0, 0, 0, (void *)si_libinfo_general_callback, sictx);
+	return si_async_call(si_search(), SI_CALL_ALIAS_BYNAME, name, NULL, NULL, 0, 0, 0, 0, (void *)si_libinfo_general_callback, sictx);
 }
 
 void
@@ -895,8 +895,8 @@ gethostbynameerrno(const char *name, int *err)
 	status = SI_STATUS_NO_ERROR;
 	item = NULL;
 
-	if (inet_aton(name, &addr4) == 1) item = si_ipnode_byname(si_search(), name, AF_INET, 0, &status);
-	else item = si_host_byname(si_search(), name, AF_INET, &status);
+	if (inet_aton(name, &addr4) == 1) item = si_ipnode_byname(si_search(), name, AF_INET, 0, NULL, &status);
+	else item = si_host_byname(si_search(), name, AF_INET, NULL, &status);
 
 	if (status >= SI_STATUS_INTERNAL) status = NO_RECOVERY;
 	if (err != NULL) *err = status;
@@ -922,8 +922,8 @@ gethostbyname(const char *name)
 	status = SI_STATUS_NO_ERROR;
 	item = NULL;
 
-	if (inet_aton(name, &addr4) == 1) item = si_ipnode_byname(si_search(), name, AF_INET, 0, &status);
-	else item = si_host_byname(si_search(), name, AF_INET, &status);
+	if (inet_aton(name, &addr4) == 1) item = si_ipnode_byname(si_search(), name, AF_INET, 0, NULL, &status);
+	else item = si_host_byname(si_search(), name, AF_INET, NULL, &status);
 
 	if (status >= SI_STATUS_INTERNAL) status = NO_RECOVERY;
 	h_errno = status;
@@ -951,7 +951,7 @@ gethostbyname_async_call(const char *name, si_host_async_callback callback, void
 	sictx->cat = CATEGORY_HOST;
 	sictx->key_offset = 100;
 
-	return si_async_call(si_search(), SI_CALL_HOST_BYNAME, name, NULL, AF_INET, 0, 0, 0, (void *)si_libinfo_general_callback, sictx);
+	return si_async_call(si_search(), SI_CALL_HOST_BYNAME, name, NULL, NULL, AF_INET, 0, 0, 0, (void *)si_libinfo_general_callback, sictx);
 }
 
 mach_port_t
@@ -979,7 +979,7 @@ gethostbyname_async_handle_reply(void *param)
 #ifdef CALL_TRACE
 	fprintf(stderr, "<< %s\n", __func__);
 #endif
-	
+
 	msg = (mach_msg_header_t *)param;
 	si_async_handle_reply(msg);
 }
@@ -989,7 +989,7 @@ void
 gethostbyname_async_handleReply(void *param)
 {
 	mach_msg_header_t *msg;
-		
+
 #ifdef CALL_TRACE
 	fprintf(stderr, "<< %s\n", __func__);
 #endif
@@ -1018,11 +1018,11 @@ gethostbyname2(const char *name, int af)
 
 	if (((af == AF_INET) && (inet_aton(name, &addr4) == 1)) || ((af == AF_INET6) && (inet_pton(af, name, &addr6) == 1)))
 	{
-		item = si_ipnode_byname(search, name, (uint32_t)af, 0, &status);
+		item = si_ipnode_byname(search, name, (uint32_t)af, 0, NULL, &status);
 	}
 	else
 	{
-		item = si_host_byname(search, name, (uint32_t)af, &status);
+		item = si_host_byname(search, name, (uint32_t)af, NULL, &status);
 	}
 
 	if (status >= SI_STATUS_INTERNAL) status = NO_RECOVERY;
@@ -1051,7 +1051,7 @@ gethostbyname2_async_call(const char *name, int af, si_group_async_callback call
 	sictx->cat = CATEGORY_HOST;
 	sictx->key_offset = 100;
 
-	return si_async_call(si_search(), SI_CALL_HOST_BYNAME, name, NULL, (uint32_t)af, 0, 0, 0, (void *)si_libinfo_general_callback, sictx);
+	return si_async_call(si_search(), SI_CALL_HOST_BYNAME, name, NULL, NULL, (uint32_t)af, 0, 0, 0, (void *)si_libinfo_general_callback, sictx);
 }
 
 void
@@ -1086,7 +1086,7 @@ gethostbyaddr(const void *addr, socklen_t len, int type)
 
 	status = SI_STATUS_NO_ERROR;
 
-	item = si_host_byaddr(si_search(), addr, (uint32_t)type, &status);
+	item = si_host_byaddr(si_search(), addr, (uint32_t)type, NULL, &status);
 	if (status >= SI_STATUS_INTERNAL) status = NO_RECOVERY;
 	h_errno = status;
 
@@ -1116,7 +1116,7 @@ gethostbyaddr_async_call(const void *addr, socklen_t len, int type, si_host_asyn
 
 	/* addr is not a C string - pass length in num3 */
 	addrlen = len;
-	return si_async_call(si_search(), SI_CALL_HOST_BYADDR, addr, NULL, (uint32_t)type, 0, addrlen, 0, (void *)si_libinfo_general_callback, sictx);
+	return si_async_call(si_search(), SI_CALL_HOST_BYADDR, addr, NULL, NULL, (uint32_t)type, 0, addrlen, 0, (void *)si_libinfo_general_callback, sictx);
 }
 
 mach_port_t
@@ -1147,7 +1147,7 @@ gethostbyaddr_async_handle_reply(void *param)
 #ifdef CALL_TRACE
 	fprintf(stderr, "<< %s\n", __func__);
 #endif
-	
+
 	msg = (mach_msg_header_t *)param;
 	si_async_handle_reply(msg);
 }
@@ -1178,7 +1178,7 @@ getipnodebyname(const char *name, int family, int flags, int *err)
 
 	status = SI_STATUS_NO_ERROR;
 
-	item = si_ipnode_byname(si_search(), name, family, flags, &status);
+	item = si_ipnode_byname(si_search(), name, family, flags, NULL, &status);
 	if (status >= SI_STATUS_INTERNAL) status = NO_RECOVERY;
 	if (err != NULL) *err = status;
 
@@ -1205,7 +1205,7 @@ getipnodebyname_async_call(const char *name, int family, int flags, int *err, si
 	sictx->cat = CATEGORY_HOST;
 	sictx->key_offset = -1;
 
-	return si_async_call(si_search(), SI_CALL_IPNODE_BYNAME, name, NULL, (uint32_t)family, (uint32_t)flags, 0, 0, (void *)si_libinfo_general_callback, sictx);
+	return si_async_call(si_search(), SI_CALL_IPNODE_BYNAME, name, NULL, NULL, (uint32_t)family, (uint32_t)flags, 0, 0, (void *)si_libinfo_general_callback, sictx);
 }
 
 mach_port_t
@@ -1314,7 +1314,7 @@ getipnodebyaddr(const void *src, size_t len, int family, int *err)
 		family = AF_INET;
 	}
 
-	item = si_host_byaddr(si_search(), src, family, (uint32_t *)err);
+	item = si_host_byaddr(si_search(), src, family, NULL, (uint32_t *)err);
 	if (item == NULL) return NULL;
 
 	return (struct hostent *)((uintptr_t)item + sizeof(si_item_t));
@@ -1379,7 +1379,7 @@ getipnodebyaddr_async_call(const void *src, socklen_t len, int family, int *err,
 
 	/* src is not a C string - pass length in num3 */
 	srclen = len;
-	return si_async_call(si_search(), SI_CALL_HOST_BYADDR, src, NULL, (uint32_t)family, 0, srclen, 0, (void *)si_libinfo_ipnode_callback, sictx);
+	return si_async_call(si_search(), SI_CALL_HOST_BYADDR, src, NULL, NULL, (uint32_t)family, 0, srclen, 0, (void *)si_libinfo_ipnode_callback, sictx);
 }
 
 mach_port_t
@@ -1427,7 +1427,7 @@ sethostent(int ignored)
 #ifdef CALL_TRACE
 	fprintf(stderr, "-- %s\n", __func__);
 #endif
-	
+
 	LI_set_thread_list(CATEGORY_HOST, NULL);
 }
 
@@ -1496,7 +1496,8 @@ ether_hostton(const char *name, struct ether_addr *e)
 
 /* XXX to do? async ether_hostton */
 
-int ether_ntohost(char *name, const struct ether_addr *e)
+int
+ether_ntohost(char *name, const struct ether_addr *e)
 {
 	si_item_t *item;
 	char *cname;
@@ -1560,7 +1561,7 @@ getnetbyname_async_call(const char *name, si_network_async_callback callback, vo
 	sictx->cat = CATEGORY_NETWORK;
 	sictx->key_offset = 100;
 
-	return si_async_call(si_search(), SI_CALL_NETWORK_BYNAME, name, NULL, 0, 0, 0, 0, (void *)si_libinfo_general_callback, sictx);
+	return si_async_call(si_search(), SI_CALL_NETWORK_BYNAME, name, NULL, NULL, 0, 0, 0, 0, (void *)si_libinfo_general_callback, sictx);
 }
 
 void
@@ -1610,7 +1611,7 @@ getnetbyaddr_async_call(uint32_t net, int type, si_group_async_callback callback
 	sictx->cat = CATEGORY_NETWORK;
 	sictx->key_offset = 200;
 
-	return si_async_call(si_search(), SI_CALL_NETWORK_BYADDR, NULL, NULL, net, 0, 0, 0, (void *)si_libinfo_general_callback, sictx);
+	return si_async_call(si_search(), SI_CALL_NETWORK_BYADDR, NULL, NULL, NULL, net, 0, 0, 0, (void *)si_libinfo_general_callback, sictx);
 }
 
 void
@@ -1629,7 +1630,7 @@ setnetent(int ignored)
 #ifdef CALL_TRACE
 	fprintf(stderr, "-- %s\n", __func__);
 #endif
-	
+
 	LI_set_thread_list(CATEGORY_NETWORK, NULL);
 }
 
@@ -1701,7 +1702,7 @@ getservbyname_async_call(const char *name, const char *proto, si_service_async_c
 	sictx->cat = CATEGORY_SERVICE;
 	sictx->key_offset = 100;
 
-	return si_async_call(si_search(), SI_CALL_SERVICE_BYNAME, name, proto, 0, 0, 0, 0, (void *)si_libinfo_general_callback, sictx);
+	return si_async_call(si_search(), SI_CALL_SERVICE_BYNAME, name, proto, NULL, 0, 0, 0, 0, (void *)si_libinfo_general_callback, sictx);
 }
 
 void
@@ -1747,7 +1748,7 @@ getservbyport_async_call(int port, const char *proto, si_group_async_callback ca
 	sictx->cat = CATEGORY_SERVICE;
 	sictx->key_offset = 200;
 
-	return si_async_call(si_search(), SI_CALL_SERVICE_BYPORT, NULL, proto, port, 0, 0, 0, (void *)si_libinfo_general_callback, sictx);
+	return si_async_call(si_search(), SI_CALL_SERVICE_BYPORT, NULL, proto, NULL, port, 0, 0, 0, (void *)si_libinfo_general_callback, sictx);
 }
 
 void
@@ -1766,7 +1767,7 @@ setservent(int ignored)
 #ifdef CALL_TRACE
 	fprintf(stderr, "-- %s\n", __func__);
 #endif
-	
+
 	LI_set_thread_list(CATEGORY_SERVICE, NULL);
 }
 
@@ -1838,7 +1839,7 @@ getprotobyname_async_call(const char *name, si_protocol_async_callback callback,
 	sictx->cat = CATEGORY_PROTOCOL;
 	sictx->key_offset = 100;
 
-	return si_async_call(si_search(), SI_CALL_PROTOCOL_BYNAME, name, NULL, 0, 0, 0, 0, (void *)si_libinfo_general_callback, sictx);
+	return si_async_call(si_search(), SI_CALL_PROTOCOL_BYNAME, name, NULL, NULL, 0, 0, 0, 0, (void *)si_libinfo_general_callback, sictx);
 }
 
 void
@@ -1884,7 +1885,7 @@ getprotobynumber_async_call(int number, si_group_async_callback callback, void *
 	sictx->cat = CATEGORY_PROTOCOL;
 	sictx->key_offset = 200;
 
-	return si_async_call(si_search(), SI_CALL_PROTOCOL_BYNUMBER, NULL, NULL, number, 0, 0, 0, (void *)si_libinfo_general_callback, sictx);
+	return si_async_call(si_search(), SI_CALL_PROTOCOL_BYNUMBER, NULL, NULL, NULL, number, 0, 0, 0, (void *)si_libinfo_general_callback, sictx);
 }
 
 void
@@ -1903,7 +1904,7 @@ setprotoent(int ignored)
 #ifdef CALL_TRACE
 	fprintf(stderr, "-- %s\n", __func__);
 #endif
-	
+
 	LI_set_thread_list(CATEGORY_PROTOCOL, NULL);
 }
 
@@ -1975,7 +1976,7 @@ getrpcbyname_async_call(const char *name, si_rpc_async_callback callback, void *
 	sictx->cat = CATEGORY_RPC;
 	sictx->key_offset = 100;
 
-	return si_async_call(si_search(), SI_CALL_RPC_BYNAME, name, NULL, 0, 0, 0, 0, (void *)si_libinfo_general_callback, sictx);
+	return si_async_call(si_search(), SI_CALL_RPC_BYNAME, name, NULL, NULL, 0, 0, 0, 0, (void *)si_libinfo_general_callback, sictx);
 }
 
 void
@@ -2028,7 +2029,7 @@ getrpcbynumber_async_call(int number, si_group_async_callback callback, void *co
 	sictx->cat = CATEGORY_RPC;
 	sictx->key_offset = 200;
 
-	return si_async_call(si_search(), SI_CALL_RPC_BYNUMBER, NULL, NULL, number, 0, 0, 0, (void *)si_libinfo_general_callback, sictx);
+	return si_async_call(si_search(), SI_CALL_RPC_BYNUMBER, NULL, NULL, NULL, number, 0, 0, 0, (void *)si_libinfo_general_callback, sictx);
 }
 
 void
@@ -2047,7 +2048,7 @@ setrpcent(int ignored)
 #ifdef CALL_TRACE
 	fprintf(stderr, "-- %s\n", __func__);
 #endif
-	
+
 	LI_set_thread_list(CATEGORY_RPC, NULL);
 }
 
@@ -2129,7 +2130,7 @@ getfsspec_async_call(const char *spec, si_fs_async_callback callback, void *cont
 	sictx->cat = CATEGORY_FS;
 	sictx->key_offset = 100;
 
-	return si_async_call(si_search(), SI_CALL_FS_BYSPEC, spec, NULL, 0, 0, 0, 0, (void *)si_libinfo_general_callback, sictx);
+	return si_async_call(si_search(), SI_CALL_FS_BYSPEC, spec, NULL, NULL, 0, 0, 0, 0, (void *)si_libinfo_general_callback, sictx);
 }
 
 void
@@ -2175,7 +2176,7 @@ getfsfile_async_call(const char *file, si_fs_async_callback callback, void *cont
 	sictx->cat = CATEGORY_FS;
 	sictx->key_offset = 200;
 
-	return si_async_call(si_search(), SI_CALL_FS_BYFILE, file, NULL, 0, 0, 0, 0, (void *)si_libinfo_general_callback, sictx);
+	return si_async_call(si_search(), SI_CALL_FS_BYFILE, file, NULL, NULL, 0, 0, 0, 0, (void *)si_libinfo_general_callback, sictx);
 }
 
 void
@@ -2234,8 +2235,8 @@ endfsent(void)
 
 /* GETADDRINFO */
 
-int
-getaddrinfo(const char *nodename, const char *servname, const struct addrinfo *hints, struct addrinfo **res)
+static int
+_getaddrinfo_internal(const char *nodename, const char *servname, const struct addrinfo *hints, const char *interface, struct addrinfo **res)
 {
 	si_list_t *list;
 	uint32_t family, socktype, protocol, flags, status;
@@ -2259,10 +2260,10 @@ getaddrinfo(const char *nodename, const char *servname, const struct addrinfo *h
 	}
 
 #ifdef CALL_TRACE
-	fprintf(stderr, "-> %s %s %s %u %u %u 0x%08x\n", __func__, nodename, servname, family, socktype, protocol, flags);
+	fprintf(stderr, "-> %s %s %s %u %u %u 0x%08x %s\n", __func__, nodename, servname, family, socktype, protocol, flags, (interface == NULL) ? "" : interface);
 #endif
 
-	list = si_addrinfo(si_search(), nodename, servname, family, socktype, protocol, flags, &status);
+	list = si_addrinfo(si_search(), nodename, servname, family, socktype, protocol, flags, interface, &status);
 	if ((status != SI_STATUS_NO_ERROR) || (list == NULL))
 	{
 		si_list_release(list);
@@ -2289,6 +2290,12 @@ getaddrinfo(const char *nodename, const char *servname, const struct addrinfo *h
 	}
 
 	return status;
+}
+
+int
+getaddrinfo(const char *nodename, const char *servname, const struct addrinfo *hints, struct addrinfo **res)
+{
+	return _getaddrinfo_internal(nodename, servname, hints, NULL, res);
 }
 
 #ifdef CALL_TRACE
@@ -2509,8 +2516,9 @@ si_libinfo_addrinfo_callback(si_list_t *list, uint32_t status, void *ctx)
 	free(sictx);
 }
 
+/* SPI */
 mach_port_t
-getaddrinfo_async_call(const char *nodename, const char *servname, const struct addrinfo *hints, si_addrinfo_async_callback callback, void *context)
+_getaddrinfo_interface_async_call(const char *nodename, const char *servname, const struct addrinfo *hints, const char *interface, si_addrinfo_async_callback callback, void *context)
 {
 	si_context_t *sictx;
 	uint32_t family, socktype, protocol, flags;
@@ -2540,7 +2548,13 @@ getaddrinfo_async_call(const char *nodename, const char *servname, const struct 
 	sictx->cat = CATEGORY_ADDRINFO;
 	sictx->key_offset = 0;
 
-	return si_async_call(si_search(), SI_CALL_ADDRINFO, nodename, servname, family, socktype, protocol, flags, (void *)si_libinfo_addrinfo_callback, sictx);
+	return si_async_call(si_search(), SI_CALL_ADDRINFO, nodename, servname, interface, family, socktype, protocol, flags, (void *)si_libinfo_addrinfo_callback, sictx);
+}
+
+mach_port_t
+getaddrinfo_async_call(const char *nodename, const char *servname, const struct addrinfo *hints, si_addrinfo_async_callback callback, void *context)
+{
+	return _getaddrinfo_interface_async_call(nodename, servname, hints, NULL, callback, context);
 }
 
 int32_t
@@ -2594,8 +2608,8 @@ getaddrinfo_async_handle_reply(void *param)
 
 /* GETNAMEINFO */
 
-int
-getnameinfo(const struct sockaddr *sa, socklen_t salen, char *node, socklen_t nodelen, char *service, socklen_t servicelen, int flags)
+static int
+_getnameinfo_interface_internal(const struct sockaddr *sa, socklen_t salen, char *node, socklen_t nodelen, char *service, socklen_t servicelen, int flags, const char *interface)
 {
 	si_item_t *item;
 	si_nameinfo_t *ni;
@@ -2618,11 +2632,11 @@ getnameinfo(const struct sockaddr *sa, socklen_t salen, char *node, socklen_t no
 	if (wantn == 0) flags |= NI_NUMERICHOST;
 	if (wants == 0) flags |= NI_NUMERICSERV;
 
-	item = si_nameinfo(si_search(), sa, flags, &status);
+	item = si_nameinfo(si_search(), sa, flags, interface, &status);
 	if ((status != SI_STATUS_NO_ERROR) || (item == NULL))
 	{
 		si_item_release(item);
-	
+
 		if (status == SI_STATUS_NO_ERROR) status = EAI_NONAME;
 		else if (status <= SI_STATUS_EAI_PLUS_100) status = EAI_FAIL;
 		else if (status >= SI_STATUS_ERRNO_PLUS_200) status = EAI_FAIL;
@@ -2662,6 +2676,12 @@ getnameinfo(const struct sockaddr *sa, socklen_t salen, char *node, socklen_t no
 
 	si_item_release(item);
 	return 0;
+}
+
+int
+getnameinfo(const struct sockaddr *sa, socklen_t salen, char *node, socklen_t nodelen, char *service, socklen_t servicelen, int flags)
+{
+	return _getnameinfo_interface_internal(sa, salen, node, nodelen, service, servicelen, flags, NULL);
 }
 
 static void
@@ -2709,8 +2729,9 @@ si_libinfo_nameinfo_callback(si_item_t *item, uint32_t status, void *ctx)
 	free(sictx);
 }
 
+/* SPI */
 mach_port_t
-getnameinfo_async_call(const struct sockaddr *sa, size_t len, int flags, si_nameinfo_async_callback callback, void *context)
+_getnameinfo_interface_async_call(const struct sockaddr *sa, size_t len, int flags, const char *interface, si_nameinfo_async_callback callback, void *context)
 {
 	si_context_t *sictx;
 	uint32_t salen;
@@ -2729,7 +2750,13 @@ getnameinfo_async_call(const struct sockaddr *sa, size_t len, int flags, si_name
 
 	/* sa is not a C string - pass length in num3 */
 	salen = len;
-	return si_async_call(si_search(), SI_CALL_NAMEINFO, (const char *)sa, NULL, flags, 0, salen, 0, (void *)si_libinfo_nameinfo_callback, sictx);
+	return si_async_call(si_search(), SI_CALL_NAMEINFO, (const char *)sa, NULL, interface, flags, 0, salen, 0, (void *)si_libinfo_nameinfo_callback, sictx);
+}
+
+mach_port_t
+getnameinfo_async_call(const struct sockaddr *sa, size_t len, int flags, si_nameinfo_async_callback callback, void *context)
+{
+	return _getnameinfo_interface_async_call(sa, len, flags, NULL, callback, context);
 }
 
 int32_t
@@ -3069,14 +3096,14 @@ user_from_uid(uid_t uid, int nouser)
 {
 	struct passwd *pw;
 	static char buf[16];
-	
+
 	pw = getpwuid(uid);
 	if (pw != NULL) return pw->pw_name;
-	
+
 	if (nouser) return NULL;
-	
+
 	snprintf(buf, sizeof(buf), "%u", uid);
-	return buf;	
+	return buf;
 }
 
 char *
@@ -3084,14 +3111,14 @@ group_from_gid(gid_t gid, int nogroup)
 {
 	struct group *gr;
 	static char buf[16];
-	
+
 	gr = getgrgid(gid);
 	if (gr != NULL) return gr->gr_name;
-	
+
 	if (nogroup) return NULL;
-	
+
 	snprintf(buf, sizeof(buf), "%u", gid);
-	return buf;	
+	return buf;
 }
 
 /* no longer supported */
@@ -3181,4 +3208,3 @@ bootp_getbyip(struct ether_addr *enaddr, char **name, struct in_addr *ipaddr, ch
 #endif
 	return 0;
 }
-

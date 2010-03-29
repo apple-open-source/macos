@@ -71,9 +71,9 @@ bool IOFramebufferUserClient::start( IOService * _owner )
 }
 
 IOReturn IOFramebufferUserClient::registerNotificationPort(
-    mach_port_t 	port,
-    UInt32		type,
-    UInt32		refCon )
+    mach_port_t         port,
+    UInt32              type,
+    UInt32              refCon )
 {
     return (owner->extRegisterNotificationPort(port, type, refCon));
 }
@@ -102,19 +102,19 @@ IOService * IOFramebufferUserClient::getService( void )
 IOReturn IOFramebufferUserClient::clientMemoryForType( UInt32 type,
         IOOptionBits * flags, IOMemoryDescriptor ** memory )
 {
-    static bool		 havePublishedResource;
+    static bool          havePublishedResource;
     IOMemoryDescriptor * mem;
-    IOReturn		 err;
+    IOReturn             err;
 
     switch (type)
     {
         case kIOFBCursorMemory:
 
-	    if (!havePublishedResource)
-	    {
-		havePublishedResource = true;
-		publishResource("WindowServer");
-	    }
+            if (!havePublishedResource)
+            {
+                havePublishedResource = true;
+                publishResource("WindowServer");
+            }
 
             mem = owner->sharedCursor;
             mem->retain();
@@ -141,8 +141,8 @@ IOReturn IOFramebufferUserClient::clientMemoryForType( UInt32 type,
 
 IOReturn IOFramebufferUserClient::setProperties( OSObject * properties )
 {
-    OSDictionary *	props;
-    IOReturn		kr = kIOReturnUnsupported;
+    OSDictionary *      props;
+    IOReturn            kr = kIOReturnUnsupported;
 
     if (!(props = OSDynamicCast(OSDictionary, properties)))
         return (kIOReturnBadArgument);
@@ -153,60 +153,60 @@ IOReturn IOFramebufferUserClient::setProperties( OSObject * properties )
 }
 
 IOReturn IOFramebufferUserClient::externalMethod( uint32_t selector, IOExternalMethodArguments * args,
-					IOExternalMethodDispatch * dispatch, OSObject * target, void * reference )
+                                        IOExternalMethodDispatch * dispatch, OSObject * target, void * reference )
 {
     IOReturn ret;
 
     static const IOExternalMethodDispatch methodTemplate[20] =
     {
-	/*[0]*/  { (IOExternalMethodAction) &IOFramebuffer::extCreateSharedCursor,
-		    3, 0, 0, 0 },
-	/*[1]*/  { (IOExternalMethodAction) &IOFramebuffer::extGetPixelInformation,
-		    3, 0, 0, sizeof(IOPixelInformation) },
-	/*[2]*/  { (IOExternalMethodAction) &IOFramebuffer::extGetCurrentDisplayMode,
-		    0, 0, 2, 0 },
-	/*[3]*/  { (IOExternalMethodAction) &IOFramebuffer::extSetStartupDisplayMode,
-		    2, 0, 0, 0 },
-	/*[4]*/  { (IOExternalMethodAction) &IOFramebuffer::extSetDisplayMode,
-		    2, 0, 0, 0 },
-	/*[5]*/  { (IOExternalMethodAction) &IOFramebuffer::extGetInformationForDisplayMode,
-		    1, 0, 0, kIOUCVariableStructureSize },
-	/*[6]*/  { (IOExternalMethodAction) &IOFramebuffer::extGetDisplayModeCount,
-		    0, 0, 1, 0 },
-	/*[7]*/  { (IOExternalMethodAction) &IOFramebuffer::extGetDisplayModes,
-		    0, 0, 0, kIOUCVariableStructureSize },
-	/*[8]*/  { (IOExternalMethodAction) &IOFramebuffer::extGetVRAMMapOffset,
-		    1, 0, 1, 0 },
-	/*[9]*/  { (IOExternalMethodAction) &IOFramebuffer::extSetBounds,
-		    0, sizeof(IOGBounds), 0, 0 },
-	/*[10]*/ { (IOExternalMethodAction) &IOFramebuffer::extSetNewCursor,
-		    3, 0, 0, 0 },
-	/*[11]*/ { (IOExternalMethodAction) &IOFramebuffer::extSetGammaTable,
-		    3, kIOUCVariableStructureSize, 0, 0 },
-	/*[12]*/ { (IOExternalMethodAction) &IOFramebuffer::extSetCursorVisible,
-		    1, 0, 0, 0 },
-	/*[13]*/ { (IOExternalMethodAction) &IOFramebuffer::extSetCursorPosition,
-		    2, 0, 0, 0 },
-	/*[14]*/ { (IOExternalMethodAction) &IOFramebuffer::extAcknowledgeNotification,
-		    0, 0, 0, 0 },
-	/*[15]*/ { (IOExternalMethodAction) &IOFramebuffer::extSetColorConvertTable,
-		    1, kIOUCVariableStructureSize, 0, 0 },
-	/*[16]*/ { (IOExternalMethodAction) &IOFramebuffer::extSetCLUTWithEntries,
-		    2, kIOUCVariableStructureSize, 0, 0 },
-	/*[17]*/ { (IOExternalMethodAction) &IOFramebuffer::extValidateDetailedTiming,
-		    0, kIOUCVariableStructureSize, 0, kIOUCVariableStructureSize },
-	/*[18]*/ { (IOExternalMethodAction) &IOFramebuffer::extGetAttribute,
-		    1, 0, 1, 0 },
-	/*[19]*/ { (IOExternalMethodAction) &IOFramebuffer::extSetAttribute,
-		    2, 0, 0, 0 },
+        /*[0]*/  { (IOExternalMethodAction) &IOFramebuffer::extCreateSharedCursor,
+                    3, 0, 0, 0 },
+        /*[1]*/  { (IOExternalMethodAction) &IOFramebuffer::extGetPixelInformation,
+                    3, 0, 0, sizeof(IOPixelInformation) },
+        /*[2]*/  { (IOExternalMethodAction) &IOFramebuffer::extGetCurrentDisplayMode,
+                    0, 0, 2, 0 },
+        /*[3]*/  { (IOExternalMethodAction) &IOFramebuffer::extSetStartupDisplayMode,
+                    2, 0, 0, 0 },
+        /*[4]*/  { (IOExternalMethodAction) &IOFramebuffer::extSetDisplayMode,
+                    2, 0, 0, 0 },
+        /*[5]*/  { (IOExternalMethodAction) &IOFramebuffer::extGetInformationForDisplayMode,
+                    1, 0, 0, kIOUCVariableStructureSize },
+        /*[6]*/  { (IOExternalMethodAction) &IOFramebuffer::extGetDisplayModeCount,
+                    0, 0, 1, 0 },
+        /*[7]*/  { (IOExternalMethodAction) &IOFramebuffer::extGetDisplayModes,
+                    0, 0, 0, kIOUCVariableStructureSize },
+        /*[8]*/  { (IOExternalMethodAction) &IOFramebuffer::extGetVRAMMapOffset,
+                    1, 0, 1, 0 },
+        /*[9]*/  { (IOExternalMethodAction) &IOFramebuffer::extSetBounds,
+                    0, sizeof(IOGBounds), 0, 0 },
+        /*[10]*/ { (IOExternalMethodAction) &IOFramebuffer::extSetNewCursor,
+                    3, 0, 0, 0 },
+        /*[11]*/ { (IOExternalMethodAction) &IOFramebuffer::extSetGammaTable,
+                    3, kIOUCVariableStructureSize, 0, 0 },
+        /*[12]*/ { (IOExternalMethodAction) &IOFramebuffer::extSetCursorVisible,
+                    1, 0, 0, 0 },
+        /*[13]*/ { (IOExternalMethodAction) &IOFramebuffer::extSetCursorPosition,
+                    2, 0, 0, 0 },
+        /*[14]*/ { (IOExternalMethodAction) &IOFramebuffer::extAcknowledgeNotification,
+                    0, 0, 0, 0 },
+        /*[15]*/ { (IOExternalMethodAction) &IOFramebuffer::extSetColorConvertTable,
+                    1, kIOUCVariableStructureSize, 0, 0 },
+        /*[16]*/ { (IOExternalMethodAction) &IOFramebuffer::extSetCLUTWithEntries,
+                    2, kIOUCVariableStructureSize, 0, 0 },
+        /*[17]*/ { (IOExternalMethodAction) &IOFramebuffer::extValidateDetailedTiming,
+                    0, kIOUCVariableStructureSize, 0, kIOUCVariableStructureSize },
+        /*[18]*/ { (IOExternalMethodAction) &IOFramebuffer::extGetAttribute,
+                    1, 0, 1, 0 },
+        /*[19]*/ { (IOExternalMethodAction) &IOFramebuffer::extSetAttribute,
+                    2, 0, 0, 0 },
     };
 
     if (selector > (sizeof(methodTemplate) / sizeof(methodTemplate[0])))
         return (kIOReturnBadArgument);
 
     ret = super::externalMethod(selector, args, 
-		    const_cast<IOExternalMethodDispatch *>(&methodTemplate[selector]), 
-		    owner, other);
+                    const_cast<IOExternalMethodDispatch *>(&methodTemplate[selector]), 
+                    owner, other);
 
     return (ret);
 }
@@ -279,8 +279,8 @@ IOService * IOFramebufferSharedUserClient::getService( void )
 IOReturn IOFramebufferSharedUserClient::clientMemoryForType( UInt32 type,
         IOOptionBits * options, IOMemoryDescriptor ** memory )
 {
-    IOMemoryDescriptor *	mem = 0;
-    IOReturn			err;
+    IOMemoryDescriptor *        mem = 0;
+    IOReturn                    err;
 
     switch (type)
     {
@@ -291,8 +291,8 @@ IOReturn IOFramebufferSharedUserClient::clientMemoryForType( UInt32 type,
             break;
 
         case kIOFBVRAMMemory:
-	    if (kIOReturnSuccess == clientHasPrivilege(current_task(), kIOClientPrivilegeLocalUser))
-		mem = owner->getVRAMRange();
+            if (kIOReturnSuccess == clientHasPrivilege(current_task(), kIOClientPrivilegeLocalUser))
+                mem = owner->getVRAMRange();
             break;
     }
 

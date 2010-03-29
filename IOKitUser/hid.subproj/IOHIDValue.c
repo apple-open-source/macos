@@ -59,6 +59,7 @@ static const CFRuntimeClass __IOHIDValueClass = {
     NULL,                   // equal
     NULL,                   // hash
     NULL,                   // copyFormattingDesc
+    NULL,
     NULL
 };
 
@@ -330,7 +331,7 @@ void _IOHIDValueCopyToElementValuePtr(IOHIDValueRef value, IOHIDElementValue * p
     __IOHIDValueConvertByteToWord(IOHIDValueGetBytePtr(value), (uint32_t *)(pElementValue->value), value->length, IOHIDElementGetLogicalMin(element) < 0 || IOHIDElementGetLogicalMax(element) < 0, TRUE);
 }
 
-#if defined (__i386__) || defined(__x86_64__) 
+#if defined (__LITTLE_ENDIAN__) 
     #define ON_INTEL 1
 #else
     #define ON_INTEL 0

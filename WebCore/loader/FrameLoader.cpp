@@ -71,6 +71,7 @@
 #include "Page.h"
 #include "PageCache.h"
 #include "PageGroup.h"
+#include "PlaceholderDocument.h"
 #include "PluginData.h"
 #include "PluginDocument.h"
 #include "ProgressTracker.h"
@@ -897,6 +898,8 @@ void FrameLoader::begin(const KURL& url, bool dispatch, SecurityOrigin* origin)
     // Create a new document before clearing the frame, because it may need to inherit an aliased security context.
     if (!m_isDisplayingInitialEmptyDocument && m_client->shouldUsePluginDocument(m_responseMIMEType))
         document = PluginDocument::create(m_frame);
+    else if (!m_client->hasHTMLView())
+        document = PlaceholderDocument::create(m_frame);
     else
         document = DOMImplementation::createDocument(m_responseMIMEType, m_frame, m_frame->inViewSourceMode());
 
@@ -953,7 +956,7 @@ void FrameLoader::begin(const KURL& url, bool dispatch, SecurityOrigin* origin)
 
     document->implicitOpen();
     
-    if (m_frame->view())
+    if (m_frame->view() && m_client->hasHTMLView())
         m_frame->view()->setContentsSize(IntSize());
 }
 
@@ -2192,6 +2195,9 @@ void FrameLoader::loadFrameRequest(const FrameLoadRequest& request, bool lockHis
 void FrameLoader::loadURL(const KURL& newURL, const String& referrer, const String& frameName, bool lockHistory, FrameLoadType newLoadType,
     PassRefPtr<Event> event, PassRefPtr<FormState> prpFormState)
 {
+    if (m_unloadEventBeingDispatched)
+        return;
+
     RefPtr<FormState> formState = prpFormState;
     bool isFormSubmission = formState;
     
@@ -2335,6 +2341,9 @@ void FrameLoader::loadWithDocumentLoader(DocumentLoader* loader, FrameLoadType t
 
     ASSERT(m_frame->view());
 
+    if (m_unloadEventBeingDispatched)
+        return;
+
     m_policyLoadType = type;
     RefPtr<FormState> formState = prpFormState;
     bool isFormSubmission = formState;
@@ -2416,6 +2425,20 @@ const ResourceRequest& FrameLoader::initialRequest() const
 void FrameLoader::receivedData(const char* data, int length)
 {
     activeDocumentLoader()->receivedData(data, length);
+}
+
+bool FrameLoader::willLoadMediaElementURL(KURL& url)
+{
+    ResourceRequest request(url);
+
+    unsigned long identifier;
+    ResourceError error;
+    requestFromDelegate(request, identifier, error);
+    sendRemainingDelegateMessages(identifier, ResourceResponse(url, String(), -1, String(), String()), -1, error);
+
+    url = request.url();
+
+    return error.isNull();
 }
 
 void FrameLoader::handleUnimplementablePolicy(const ResourceError& error)
@@ -2920,10 +2943,12 @@ void FrameLoader::transitionToCommitted(PassRefPtr<CachedPage> cachedPage)
     
     m_committedFirstRealDocumentLoad = true;
 
-    // For non-cached HTML pages, these methods are called in FrameLoader::begin.
-    if (cachedPage || !m_client->hasHTMLView()) {
-        dispatchDidCommitLoad(); 
-            
+    if (!m_client->hasHTMLView())
+        receivedFirstData();
+    else if (cachedPage) {
+        // For non-cached HTML pages, these methods are called in receivedFirstData().
+        dispatchDidCommitLoad();
+
         // If we have a title let the WebView know about it. 
         if (!ptitle.isNull()) 
             m_client->dispatchDidReceiveTitle(ptitle);         

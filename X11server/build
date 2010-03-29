@@ -1,5 +1,13 @@
 #!/usr/bin/perl
 
+# Handle environment parsing for the MacOSForge releases and set defaults for the OSX release
+$ENV{X11_PREFIX}="/usr/X11" if ($ENV{X11_PREFIX} eq '');
+$ENV{X11_APP_DIR}="/Applications/Utilities" if ($ENV{X11_APP_DIR} eq '');
+$ENV{X11_APP_NAME}="X11" if ($ENV{X11_APP_NAME} eq '');
+$ENV{X11_APP}="$ENV{X11_APP_DIR}/$ENV{X11_APP_NAME}.app";
+$ENV{X11_BUNDLE_ID_PREFIX}="org.x" if ($ENV{X11_BUNDLE_ID_PREFIX} eq '');
+$ENV{LAUNCHD_PREFIX}="/System/Library" if ($ENV{LAUNCHD_PREFIX} eq '');
+
 $target=shift @ARGV;
 
 if($target eq 'installsrc') {
@@ -36,14 +44,13 @@ if($target eq 'clean') {
     sys_print("find . -name \"*.gz\" | xargs rm");
     sys_print("find . -name \"*.bz2\" | xargs rm");
     sys_print("find . -name patches | xargs rm -rf");
-    sys_print("find . -name Sparkle.framework | xargs rm -rf");
 
     exit();
 }
 
 if($target eq 'install') {
     print "Install phase: \n";
-    $prefix="/usr/X11";
+    $prefix="$ENV{X11_PREFIX}";
     sys_print("mkdir $ENV{DSTROOT}") unless -e $ENV{DSTROOT};
     sys_print("mkdir $ENV{OBJROOT}") unless -e $ENV{OBJROOT};
 
@@ -52,7 +59,7 @@ if($target eq 'install') {
     system "mkdir -p $ACLOCAL_LOCALDIR";
         
 # The following is required to make aclocal find our .m4 macros
-    $ENV{ACLOCAL}="aclocal -I $ACLOCAL_LOCALDIR -I $prefix/share/aclocal";
+    $ENV{ACLOCAL}="aclocal -I $ACLOCAL_LOCALDIR -I $prefix/share/aclocal -I/usr/local/share/aclocal";
     $ENV{LIBTOOLIZE}="/usr/bin/glibtoolize";
         
 # The following is required to make pkg-config find our .pc metadata files
@@ -64,35 +71,54 @@ if($target eq 'install') {
     $ENV{PATH}="$prefix/bin:$ENV{PATH}";
     
     # Set the default font path for xserver/xorg unless it's already set
-    $ENV{FONTPATH}="/usr/X11/lib/X11/fonts/misc/,/usr/X11/lib/X11/fonts/TTF/,/usr/X11/lib/X11/fonts/OTF,/usr/X11/lib/X11/fonts/Type1/,/usr/X11/lib/X11/fonts/75dpi/:unscaled,/usr/X11/lib/X11/fonts/100dpi/:unscaled,/usr/X11/lib/X11/fonts/75dpi/,/usr/X11/lib/X11/fonts/100dpi/,/Library/Fonts,/System/Library/Fonts";
+    $ENV{FONTPATH}="$prefix/lib/X11/fonts/misc/,$prefix/lib/X11/fonts/TTF/,$prefix/lib/X11/fonts/OTF,$prefix/lib/X11/fonts/Type1/,$prefix/lib/X11/fonts/75dpi/:unscaled,$prefix/lib/X11/fonts/100dpi/:unscaled,$prefix/lib/X11/fonts/75dpi/,$prefix/lib/X11/fonts/100dpi/,/Library/Fonts,/System/Library/Fonts";
     
     foreach $arch (split(/ /,$ENV{RC_ARCHS})) {
         $arch_flags_lib .= "-arch $arch ";
-        if($ENV{MACOSFORGE_RELEASE} eq "YES") {
+        if($ENV{MACOSFORGE_LEO} eq "YES") {
 	    $arch_flags_exec .= " -arch $arch " unless $arch =~ /64/;
         } else {
             $arch_flags_exec .= " -arch $arch " unless $arch =~ /ppc/;
         }
     }
     
+    $ENV{RC_Project_Source_Version}=0 unless exists $ENV{RC_Project_Source_Version};
+    sys_print("ditto $ENV{SRCROOT}/ $ENV{OBJROOT}");
+
+    if($ENV{MACOSFORGE_RELEASE} eq "YES") {
+        print "Building sparkle\n";
+
+        chdir("$ENV{OBJROOT}/Sparkle/sparkle.git");
+
+        $ENV{CPPFLAGS}="-I$ENV{DSTROOT}$prefix/include -I$prefix/include -DNO_ALLOCA -D__DEBUG__ -D_FORTIFY_SOURCE=2";
+        $ENV{CFLAGS}="-Wall -Wformat-security -ggdb3 -pipe -Os $arch_flags_exec";
+        $ENV{OBJCFLAGS}="$ENV{CFLAGS}";
+        $ENV{LDFLAGS}="-L$ENV{DSTROOT}$prefix/lib -L$prefix/lib -pipe $arch_flags_exec";
+
+        sys_print("xcodebuild -project Sparkle.xcodeproj -configuration Release ARCHS='$ENV{RC_ARCHS}' DSTROOT='$ENV{DSTROOT}' INSTALL_PATH='$ENV{X11_APP}/Contents/Frameworks' install");
+        sys_print("mkdir $ENV{DSTROOT}$ENV{X11_APP}/Contents/Resources");
+        sys_print("cp $ENV{OBJROOT}/Resources/sparkle.pem $ENV{DSTROOT}$ENV{X11_APP}/Contents/Resources");
+
+        sys_print("install_name_tool -id \@executable_path/../Frameworks/Sparkle.framework/Versions/A/Sparkle $ENV{DSTROOT}$ENV{X11_APP}/Contents/Frameworks/Sparkle.framework/Versions/A/Sparkle");
+    }
+
+
     $ENV{CFLAGS}="-I$ENV{DSTROOT}$prefix/include -I$prefix/include -DNO_ALLOCA -D__DEBUG__ -D_FORTIFY_SOURCE=2 -Wall -Wformat-security -ggdb3 -pipe -Os $arch_flags_lib";
     $ENV{OBJCFLAGS}="$ENV{CFLAGS}";
     $ENV{LDFLAGS}="-L$ENV{DSTROOT}$prefix/lib -L$prefix/lib -pipe $arch_flags_lib";
     
-    $ENV{RC_Project_Source_Version}=0 unless exists $ENV{RC_Project_Source_Version};
-    sys_print("ditto $ENV{SRCROOT}/ $ENV{OBJROOT}");
-
     print "Building MesaGL\n";
 
     chdir("$ENV{OBJROOT}/mesa/Mesa-7.2");
-    sys_print("make darwin -j".`sysctl -n hw.activecpu`);
+    sys_print("make darwin INSTALL_DIR='$prefix' -j".`sysctl -n hw.activecpu`);
     lipoexec("progs/xdemos/glxgears");
     lipoexec("progs/xdemos/glxinfo");
 
-    sys_print("make install DESTDIR=$ENV{DSTROOT}");
+    sys_print("make install DESTDIR=$ENV{DSTROOT} INSTALL_DIR='$prefix'");
 
     sys_print("mkdir -p $ENV{DSTROOT}$prefix/lib/internal");
     sys_print("mv $ENV{DSTROOT}$prefix/lib/libGL.1.2.dylib $ENV{DSTROOT}$prefix/lib/internal/libMesaGL.1.dylib");
+    sys_print("install_name_tool -id $prefix/lib/internal/libMesaGL.1.dylib $ENV{DSTROOT}$prefix/lib/internal/libMesaGL.1.dylib");
     sys_print("install_name_tool -change $prefix/lib/libGL.1.dylib $prefix/lib/internal/libMesaGL.1.dylib $ENV{DSTROOT}$prefix/lib/libOSMesa.7.dylib");
 
     sys_print("mkdir -p $ENV{DSTROOT}$prefix/bin");
@@ -106,28 +132,38 @@ if($target eq 'install') {
     sys_print("chown -R root:wheel $ENV{DSTROOT}$prefix/include/GL/internal");
     sys_print("chmod 644 $ENV{DSTROOT}$prefix/include/GL/internal/*.h");
 
-    chdir("$ENV{OBJROOT}/libGL/AppleSGLX-57");
-    sys_print("make builds/libGL.1.2.dylib -j".`sysctl -n hw.activecpu`);
-    sys_print("make install DESTDIR=$ENV{DSTROOT}");
+    chdir("$ENV{OBJROOT}/libGL/AppleSGLX-60");
+    sys_print("make builds/libGL.1.2.dylib -j".`sysctl -n hw.activecpu`." INSTALL_DIR='$prefix'");
+    sys_print("make install DESTDIR=$ENV{DSTROOT} INSTALL_DIR='$prefix'");
 
     $ENV{CPPFLAGS}="-I$ENV{OBJROOT}/mesa/Mesa-7.0.4/include -I$ENV{DSTROOT}$prefix/include -I$prefix/include -DNO_ALLOCA -D__DEBUG__ -D_FORTIFY_SOURCE=2";
     $ENV{CFLAGS}="-Wall -Wformat-security -ggdb3 -pipe -Os $arch_flags_exec";
     $ENV{OBJCFLAGS}="$ENV{CFLAGS}";
     $ENV{LDFLAGS}="-L$ENV{DSTROOT}$prefix/lib -L$prefix/lib -pipe $arch_flags_exec";
 
-    chdir("$ENV{OBJROOT}/Xquartz/xorg-server-1.4.2-apple45");
+    chdir("$ENV{OBJROOT}/Xquartz/xorg-server-1.4.2-apple53");
     print "Building Xquartz\n";
 
     sys_print("autoreconf -fvi");
 
-    $conf_flags="--with-mesa-source=$ENV{OBJROOT}/mesa/Mesa-7.0.4 --disable-dependency-tracking --disable-nls --with-fontdir=$prefix/lib/X11/fonts --with-default-font-path='$ENV{FONTPATH}' --prefix=$prefix ";
+    $conf_flags="--with-mesa-source=$ENV{OBJROOT}/mesa/Mesa-7.0.4 --disable-dependency-tracking --disable-nls --enable-xcsecurity --enable-record --with-fontdir=$prefix/lib/X11/fonts --with-default-font-path='$ENV{FONTPATH}' --prefix=$prefix --with-launchd-id-prefix=$ENV{X11_BUNDLE_ID_PREFIX} --with-apple-application-name=$ENV{X11_APP_NAME} --with-apple-applications-dir=$ENV{X11_APP_DIR}";
+    if($ENV{MACOSFORGE_LEO} eq "YES") {
+        $conf_flags="$conf_flags --without-dtrace";
+    }
+    if($ENV{MACOSFORGE_RELEASE} eq "YES") {
+        $conf_flags="$conf_flags --enable-sparkle";
+
+        $ENV{CFLAGS}="$ENV{CFLAGS} -F$ENV{DSTROOT}$ENV{X11_APP}/Contents/Frameworks";
+        $ENV{OBJCFLAGS}="$ENV{OBJCFLAGS} -F$ENV{DSTROOT}$ENV{X11_APP}/Contents/Frameworks";
+        $ENV{LDFLAGS}="$ENV{LDFLAGS} -F$ENV{DSTROOT}$ENV{X11_APP}/Contents/Frameworks";
+    }
     sys_print( "./configure $conf_flags");
     print "building\n";
     sys_print("make -j".`sysctl -n hw.activecpu`);
     sys_print("make install DESTDIR=$ENV{DSTROOT}");
 
     if($ENV{MACOSFORGE_RELEASE} ne "YES") {
-        chdir("$ENV{DSTROOT}/Applications/Utilities/X11.app/Contents/Resources");
+        chdir("$ENV{DSTROOT}$ENV{X11_APP}/Contents/Resources");
         foreach $locale_dir (glob('*.lproj')) {
 #            next if $locale_dir =~ /English.lproj/;
             sys_print("rm -rf ./$locale_dir");
@@ -142,17 +178,19 @@ if($target eq 'install') {
     sys_print("autoreconf -fvi");
 
     $conf_flags="--disable-dependency-tracking --disable-nls --with-fontdir=$prefix/lib/X11/fonts --with-default-font-path='$ENV{FONTPATH}' --prefix=$prefix --disable-xquartz --enable-kdrive --enable-xfake --enable-xephyr --disable-sdl --enable-xnest --enable-xvfb";
+    # TODO: dtrace in the other DDXs
+    $conf_flags="$conf_flags --without-dtrace";
     sys_print( "./configure $conf_flags");
     print "building\n";
     sys_print("make -j".`sysctl -n hw.activecpu`);
     sys_print("make install DESTDIR=$ENV{DSTROOT}");
 
-    chdir("$ENV{OBJROOT}/xinit/xinit-1.1.1");
+    chdir("$ENV{OBJROOT}/xinit/xinit-1.2.0");
     print "Building xinit\n";
 
     sys_print("autoreconf -fvi");
 
-    $conf_flags="--enable-debug --disable-dependency-tracking --disable-nls --with-xinit=$prefix/bin/xinit --prefix=$prefix --with-launchagents-dir=/System/Library/LaunchAgents --with-launchdaemons-dir=/System/Library/LaunchDaemons";
+    $conf_flags="--enable-debug --disable-dependency-tracking --disable-nls --with-xinit=$prefix/bin/xinit --prefix=$prefix --with-launchagents-dir=$ENV{LAUNCHD_PREFIX}/LaunchAgents --with-launchdaemons-dir=$ENV{LAUNCHD_PREFIX}/LaunchDaemons --with-launchd-id-prefix=$ENV{X11_BUNDLE_ID_PREFIX}";
     sys_print( "./configure $conf_flags");
     print "building\n";
     sys_print("make -j".`sysctl -n hw.activecpu`);
@@ -161,17 +199,21 @@ if($target eq 'install') {
     chdir("../..");
 
     sys_print("mkdir $ENV{DSTROOT}$prefix/lib/X11/xinit/xinitrc.d");
-    sys_print("ditto xinitrc.d $ENV{DSTROOT}$prefix/lib/X11/xinit/xinitrc.d");
+    foreach $file (glob('xinitrc.d/*.sh')) {
+        sys_print("sed 's:PREFIX:".$prefix.":g' ".$file." > $ENV{DSTROOT}$prefix/lib/X11/xinit/".$file);
+    }
     sys_print("chown -R root:wheel $ENV{DSTROOT}$prefix/lib/X11/xinit");
     sys_print("chmod 755 $ENV{DSTROOT}$prefix/lib/X11/xinit/xinitrc.d/*");
 
-    sys_print("ditto $ENV{OBJROOT}/English.lproj $ENV{DSTROOT}/Applications/Utilities/X11.app/Contents/Resources/English.lproj");
     if($ENV{MACOSFORGE_RELEASE} ne "YES") {
-        sys_print("cp $ENV{OBJROOT}/X11.icns $ENV{DSTROOT}/Applications/Utilities/X11.app/Contents/Resources");
+        sys_print("ditto $ENV{OBJROOT}/Resources/English.lproj $ENV{DSTROOT}/Applications/Utilities/X11.app/Contents/Resources/English.lproj");
+        sys_print("cp $ENV{OBJROOT}/Resources/X11.icns $ENV{DSTROOT}$ENV{X11_APP}/Contents/Resources");
     }
 
-    sys_print_nodie("ln -s Xquartz $ENV{DSTROOT}/usr/X11/bin/X");
+    sys_print_nodie("ln -s Xquartz $ENV{DSTROOT}$prefix/bin/X");
     make_dsyms();
+
+    sys_print("/Developer/Makefiles/bin/compress-man-pages.pl -d $ENV{DSTROOT}$prefix/share/man/ man1 man2 man3 man4 man5 man6 man7 man8 man9");
 }
 
 sub get_workdir {
@@ -213,7 +255,7 @@ sub sys_print_nodie {
 
 sub lipoexec {
     $fname=shift;
-    if($ENV{MACOSFORGE_RELEASE} eq "YES") {
+    if($ENV{MACOSFORGE_LEO} eq "YES") {
         sys_print_nodie("lipo $fname -verify_arch x86_64 && lipo -remove x86_64 -output $fname $fname");
         sys_print_nodie("lipo $fname -verify_arch ppc64 && lipo -remove ppc64 -output $fname $fname");
     } else {

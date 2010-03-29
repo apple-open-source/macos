@@ -301,12 +301,14 @@ AppleUSBOHCI::ResumeUSBBus(bool wakingFromSleep)
 				}
 				else
 				{
-					IOLog("USB (OHCI):Port %d on bus 0x%x connected or disconnected. portSC(%p)\n", (int)port+1, (uint32_t)_busNumber, (void*)portSC);
+					USBLog(5, "AppleUSBOHCI[%p]::ResumeUSBBus Port %d on bus 0x%x connected or disconnected. portSC(%p)", this, (int)port+1, (uint32_t)_busNumber, (void*)portSC);
+					// IOLog("USB (OHCI):Port %d on bus 0x%x connected or disconnected. portSC(%p)\n", (int)port+1, (uint32_t)_busNumber, (void*)portSC);
 				}
 			}
 			else if (portSC & kOHCIHcRhPortStatus_PSSC)
 			{
-				IOLog("USB (OHCI):Port %d on bus 0x%x has remote wakeup from some device\n", (int)port+1, (uint32_t)_busNumber);
+				USBLog(5, "AppleUSBOHCI[%p]::ResumeUSBBus Port %d on bus 0x%x has remote wakeup from some device", this, (int)port+1, (uint32_t)_busNumber);
+				// IOLog("USB (OHCI):Port %d on bus 0x%x has remote wakeup from some device\n", (int)port+1, (uint32_t)_busNumber);
 			}
 			else if ((_errataBits & kErrataOHCINoGlobalSuspendOnSleep)					// if we are on these controllers
 					 && (portSC & kOHCIHcRhPortStatus_CCS)								// and we are currently connected
@@ -317,7 +319,7 @@ AppleUSBOHCI::ResumeUSBBus(bool wakingFromSleep)
 				_pOHCIRegisters->hcRhPortStatus[port] = HostToUSBLong(kOHCIHcRhPortStatus_PES);				// CCS when writing is CPE
 				IOSleep(1);
 				portSC = USBToHostLong(_pOHCIRegisters->hcRhPortStatus[port]);
-				USBLog(2, "AppleUSBOHCI[%p}::ResumeUSBBus - new hcRhPortStatus(%p)", this, (void*)portSC);
+				USBLog(2, "AppleUSBOHCI[%p]::ResumeUSBBus - new hcRhPortStatus(%p)", this, (void*)portSC);
 			}
 			_savedHcRhPortStatus[port] = 0;												// clear this out to be safe once we have no more need for it
 		}
@@ -331,7 +333,7 @@ AppleUSBOHCI::ResumeUSBBus(bool wakingFromSleep)
 			// intentional fall through
         case kOHCIFunctionalState_Resume:
 			// Complete the resume by waiting for the required delay
-			if(_errataBits & kErrataLucentSuspendResume)
+			if (_errataBits & kErrataLucentSuspendResume)
                 // JRH 08-27-99
                 // this is a very simple yet clever hack for working around a bug in the Lucent controller
                 // By using 35 instead of 20, we overflow an internal 5 bit counter by exactly 3ms, which 

@@ -2,7 +2,7 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright © 1998-2009 Apple Inc.  All rights reserved.
+ * Copyright ï¿½ 1998-2010 Apple Inc.  All rights reserved.
  * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
@@ -37,6 +37,7 @@
 #include <IOKit/usb/IOUSBRootHubDevice.h>
 
 #include "AppleUSBEHCI.h"
+#include "AppleUSBEHCIDiagnostics.h"
 #include "AppleEHCIedMemoryBlock.h"
 #include "AppleEHCItdMemoryBlock.h"
 #include "AppleEHCIitdMemoryBlock.h"
@@ -54,7 +55,6 @@
 // TDs  per page == 85
 // EDs  per page == 128
 // ITDs per page == 64
-
 
 // Convert USBLog to use kprintf debugging
 // The switch is in the header file, but the work is done here because the header is included by the companion controllers
@@ -118,8 +118,11 @@ AppleUSBEHCI::free()
 {
     // Free our locks
     //
-    IOSimpleLockFree( _wdhLock );
-    IOSimpleLockFree( _isochScheduleLock );
+	if ( _wdhLock )
+		IOSimpleLockFree(_wdhLock);
+	
+	if (_isochScheduleLock)
+		IOSimpleLockFree(_isochScheduleLock);
 
     super::free();
 }
@@ -161,7 +164,7 @@ void AppleUSBEHCI::showRegisters(UInt32 level, const char *s)
     {
         UInt32 x;
         x = USBToHostLong(_pEHCIRegisters->PortSC[i]);
-        if(x != 0x1000)
+        if (x != 0x1000)
 		{
             USBLog(level,"    PortSC[%d]: 0x%x", i+1, (uint32_t)x);
 		}
@@ -175,9 +178,9 @@ AppleUSBEHCI::start( IOService * provider )
 {	
     USBLog(7, "AppleUSBEHCI[%p]::start",  this);
 	
-    if( !super::start(provider))
+    if ( !super::start(provider))
         return (false);
-    
+	
     USBLog(7, "AppleUSBEHCI[%p]::start",  this);
     return true;
 }
@@ -197,7 +200,7 @@ AppleUSBEHCI::UIMInitialize(IOService * provider)
     USBLog(7, "AppleUSBEHCI[%p]::UIMInitialize",  this);
 	
     _device = OSDynamicCast(IOPCIDevice, provider);
-    if(_device == NULL)
+    if (_device == NULL)
         return kIOReturnBadArgument;
 	
     do {
@@ -346,10 +349,12 @@ AppleUSBEHCI::UIMInitialize(IOService * provider)
 			}
 		}
 		
-		_isochBandwidthAvail = 5 *1024;
-		_outSlot = kEHCIPeriodicListEntries+1;			// No Isoc transactions currently
+		_outSlot = kEHCIPeriodicListEntries+1;							// No Isoc transactions currently
 		_frameNumber = 0;
 		_expansionData->_isochMaxBusStall = 25000;						// we need a requireMaxBusStall of 25 microseconds for EHCI
+
+		// this is the "think time" needed for the controller to go from one QH to the next. It is used for periodic scheduling
+		_controllerThinkTime = 100;
 		
 		if ((err = InterruptInitialize()))
 			continue;
@@ -369,6 +374,13 @@ AppleUSBEHCI::UIMInitialize(IOService * provider)
 		}
 		if (!gotTimerThreads)
 			continue;
+		
+		
+		_diagnostics = AppleUSBEHCIDiagnostics::createDiagnostics(this);
+		if( _diagnostics )
+		{
+			setProperty( "Statistics", _diagnostics );
+		}
 		
 		_uimInitialized = true;
 
@@ -451,8 +463,6 @@ IOReturn
 AppleUSBEHCI::InterruptInitialize (void)
 {
     int								i;
-    UInt32							termBit, *list; 
-    IOUSBControllerListElement		**logical;
     IOPhysicalAddress				physPtr;
 	IOReturn						status;
 	UInt64							offset = 0;
@@ -523,7 +533,7 @@ AppleUSBEHCI::InterruptInitialize (void)
 	dmaCommand->release();
 	
     _logicalPeriodicList = IONew(IOUSBControllerListElement *, kEHCIPeriodicListEntries);
-    if(_logicalPeriodicList == NULL)
+    if (_logicalPeriodicList == NULL)
     {
 		_periodicListBuffer->complete();
 		_periodicListBuffer->release();
@@ -533,16 +543,46 @@ AppleUSBEHCI::InterruptInitialize (void)
 	
 	
     // Set all the entries in the periodic list to invalid
-    termBit = HostToUSBLong(kEHCITermFlag);
-    list = (UInt32 *)_periodicList;
-    logical = _logicalPeriodicList;
     for(i= 0; i<kEHCIPeriodicListEntries; i++)
     {
-        *(list++) = termBit;
-        *(logical++) = NULL;
+		AppleEHCIQueueHead	*pQH = NULL;
+		
+		// 4089035 - We need to create a set of dummy interrupt endpoints which will be placed in the interrupt schedule
+		// with polling intervals larger than any other interrupt endpoint will have. These dummy EPs will be in the periodic
+		// list in any slot which has any other interrupt endpoints, but they will never have an active TD. They will never be
+		// officially unlinked, which means that if Isoch is also running, we cannot end up with a conflict between the 
+		// filterInterrupt code removing an Isoch transaction and (un)LinkInterruptEndpoint trying to add or remove an interrupt EP.
+		if (i < kEHCIMaxPollingInterval)
+		{
+			pQH = MakeEmptyIntEndPoint(0, 0, 8, kUSBDeviceSpeedHigh, 0, 0, kUSBIn);
+			
+			if (pQH == NULL)
+			{
+				USBError(1, "AppleUSBEHCI[%p]::InterruptInitialize - could not create empty endpoint", this);
+				return kIOReturnNoResources;
+			}
+			
+			if (pQH->_qTD)
+			{
+				// squash the nextQTDPtr, since this QH will never have a TD
+				pQH->GetSharedLogical()->NextqTDPtr = HostToUSBLong(kEHCITermFlag);
+				DeallocateTD(pQH->_qTD);
+				pQH->_qTD = NULL;
+				pQH->_TailTD =  NULL;
+			}
+			
+			pQH->_maxPacketSize = 0;
+			pQH->_bInterval = 10;														// set the original polling rate
+			pQH->_pollingRate = kEHCIMaxPollingInterval * kEHCIuFramesPerFrame * 2;		// twice as high as a valid polling rate
+			pQH->SetPhysicalLink(kEHCITermFlag);
+			_dummyIntQH[i] = pQH;
+		}
+		else
+		{
+			pQH = _dummyIntQH[i % kEHCIMaxPollingInterval];
+		}
+		SetPeriodicListEntry(i, pQH);
     }
-    for (i=0; i<kEHCIMaxPoll; i++)
-		_periodicBandwidth[i] = kEHCIMaxPeriodicBandwidth;
     
     return kIOReturnSuccess;
 }
@@ -661,6 +701,12 @@ AppleUSBEHCI::UIMFinalize(void)
 		_logicalPeriodicList = NULL;
 	}
 	
+	if( _diagnostics )
+	{
+		_diagnostics->release();
+		_diagnostics = NULL;
+	}
+
     // Need to Free any Isoch Endpoints
     //
 	
@@ -681,12 +727,20 @@ ErrorExit:
 }
 
 
-
+// We need to look at every entry in the periodic bandwidth array and return the lowest # of bytes per microframe
+//
 UInt32 
 AppleUSBEHCI::GetBandwidthAvailable()
 {
-    USBLog(7, "AppleUSBEHCI[%p]::GetBandwidthAvailable -- returning %d",  this, (int)_isochBandwidthAvail);
-    return _isochBandwidthAvail;
+	int		bandwidthAvailable = kEHCIHSMaxPeriodicBytesPeruFrame;
+	int		pollingInterval, microframe;
+	
+	for ( pollingInterval = 0 ; pollingInterval <  kEHCIMaxPollingInterval; pollingInterval++ )
+		for ( microframe = 0; microframe < kEHCIuFramesPerFrame ; microframe++ )
+			bandwidthAvailable = MIN((kEHCIHSMaxPeriodicBytesPeruFrame-_periodicBandwidthUsed[pollingInterval][microframe]), bandwidthAvailable);
+	
+    USBLog(7, "AppleUSBEHCI[%p]::GetBandwidthAvailable -- returning %d",  this, bandwidthAvailable);
+    return bandwidthAvailable;
 }
 
 
@@ -967,6 +1021,8 @@ AppleUSBEHCI::AllocateTD(void)
 		freeTD->callbackOnTD = false;
 		freeTD->multiXferTransaction = false;
 		freeTD->finalXferInTransaction = false;
+		freeTD->tdSize = 0;
+
     }
     return freeTD;
 }
@@ -1373,15 +1429,55 @@ AppleUSBEHCI::DisablePeriodicSchedule(bool waitForOFF)
 
 
 
+IOUSBControllerListElement *
+AppleUSBEHCI::GetPeriodicListLogicalEntry(int offset)
+{
+	return _logicalPeriodicList[offset];
+}
+
+
+
+USBPhysicalAddress32 
+AppleUSBEHCI::GetPeriodicListPhysicalEntry(int offset)
+{
+	return USBToHostLong(_periodicList[offset]);
+}
+
+
+
+void 
+AppleUSBEHCI::SetPeriodicListEntry(int offset, IOUSBControllerListElement *pListElem)
+{
+	_logicalPeriodicList[offset] = pListElem;
+	if (pListElem)
+	{
+		_periodicList[offset] = HostToUSBLong(pListElem->GetPhysicalAddrWithType());
+	}
+	else
+	{
+		_periodicList[offset] = HostToUSBLong(kEHCITermFlag);
+	}
+	// WE CAN'T LOG HERE SINCE THIS IS USED BY FilterInterrupt
+	//USBLog(5, "AppleUSBEHCI[%p]::SetPeriodicListEntry - offset(%d) _logicalPeriodicList[%p] _periodicList[%p]", this, offset, _logicalPeriodicList[offset], (void*)_periodicList[offset]);
+}
+
+
+
 IOReturn
 AppleUSBEHCI::message( UInt32 type, IOService * provider,  void * argument )
 {
 	IOService *					nub = NULL;
 	const IORegistryPlane *		usbPlane = NULL;
 	IOUSBRootHubDevice *		parentHub = NULL;
+	IOReturn					returnValue = kIOReturnSuccess;
 	
     USBLog(6, "AppleUSBEHCI[%p]::message type: %p, isInactive = %d",  this, (void*)type, isInactive());
 
+    // Let our superclass decide handle this method
+    // messages
+    //
+    returnValue = super::message( type, provider, argument );
+	
 	switch (type)
 	{
 		case kIOUSBMessageExpressCardCantWake:
@@ -1399,16 +1495,12 @@ AppleUSBEHCI::message( UInt32 type, IOService * provider,  void * argument )
 				_badExpressCardAttached = true;
 			}
 			nub->release();
-			return kIOReturnSuccess;  // this message was handled
+			returnValue = kIOReturnSuccess;  // this message was handled
 			break;
+			
 	}
 	
-
-    // Let our superclass decide handle this method
-    // messages
-    //
-    return super::message( type, provider, argument );
-	
+	return returnValue;
 }
 
 

@@ -20,17 +20,17 @@
 	</dict>
 	<dict>
 		<key>OpenSourceImportDate</key>
-		<string>2008-09-24</string>
+		<string>2009-09-23</string>
 		<key>OpenSourceLicense</key>
 		<string>MIT</string>
 		<key>OpenSourceProject</key>
 		<string>fontconfig</string>
 		<key>OpenSourceSHA1</key>
-		<string>93752566b8327485b153bd156049614f779b4c57</string>
+		<string>bc84b883673a7f43f2849f06ec110c4eaccfb42c</string>
 		<key>OpenSourceURL</key>
-		<string>http://www.fontconfig.org/release/fontconfig-2.6.0.tar.gz</string>
+		<string>http://www.fontconfig.org/release/fontconfig-2.7.3.tar.gz</string>
 		<key>OpenSourceVersion</key>
-		<string>2.6.0</string>
+		<string>2.7.3</string>
 		<key>OpenSourceWebsiteURL</key>
 		<string>http://www.fontconfig.org</string>
 	</dict>
@@ -246,7 +246,7 @@
 	</dict>
 	<dict>
 		<key>OpenSourceImportDate</key>
-		<string>2008-08-27/string>
+		<string>2008-08-27</string>
 		<key>OpenSourceLicense</key>
 		<string>MIT</string>
 		<key>OpenSourceProject</key>

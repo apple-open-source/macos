@@ -1,0 +1,746 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 45;
+	objects = {
+
+/* Begin PBXAggregateTarget section */
+		FC4F2187104D8EB100613382 /* files */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = FC4F218A104D8ECD00613382 /* Build configuration list for PBXAggregateTarget "files" */;
+			buildPhases = (
+				FC4F2186104D8EB100613382 /* ShellScript */,
+			);
+			dependencies = (
+			);
+			name = files;
+			productName = files;
+		};
+		FCDA87EF104CFCF000143464 /* all */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = FCDA8809104CFD2E00143464 /* Build configuration list for PBXAggregateTarget "all" */;
+			buildPhases = (
+			);
+			dependencies = (
+				FCDA87F8104CFCF800143464 /* PBXTargetDependency */,
+				FCDA87F6104CFCF800143464 /* PBXTargetDependency */,
+				FCDA87F4104CFCF800143464 /* PBXTargetDependency */,
+				FCDA87F2104CFCF800143464 /* PBXTargetDependency */,
+				FC412F06104DFD370015EDB4 /* PBXTargetDependency */,
+			);
+			name = all;
+			productName = all;
+		};
+/* End PBXAggregateTarget section */
+
+/* Begin PBXBuildFile section */
+		FCDA87B7104CFBB900143464 /* basename.c in Sources */ = {isa = PBXBuildFile; fileRef = FCDA87A2104CFBB900143464 /* basename.c */; };
+		FCDA87B8104CFBB900143464 /* c-stack.c in Sources */ = {isa = PBXBuildFile; fileRef = FCDA87A3104CFBB900143464 /* c-stack.c */; };
+		FCDA87B9104CFBB900143464 /* cmpbuf.c in Sources */ = {isa = PBXBuildFile; fileRef = FCDA87A4104CFBB900143464 /* cmpbuf.c */; };
+		FCDA87BA104CFBB900143464 /* error.c in Sources */ = {isa = PBXBuildFile; fileRef = FCDA87A5104CFBB900143464 /* error.c */; };
+		FCDA87BB104CFBB900143464 /* exclude.c in Sources */ = {isa = PBXBuildFile; fileRef = FCDA87A6104CFBB900143464 /* exclude.c */; };
+		FCDA87BC104CFBB900143464 /* exitfail.c in Sources */ = {isa = PBXBuildFile; fileRef = FCDA87A7104CFBB900143464 /* exitfail.c */; };
+		FCDA87BD104CFBB900143464 /* freesoft.c in Sources */ = {isa = PBXBuildFile; fileRef = FCDA87A8104CFBB900143464 /* freesoft.c */; };
+		FCDA87BE104CFBB900143464 /* getopt.c in Sources */ = {isa = PBXBuildFile; fileRef = FCDA87A9104CFBB900143464 /* getopt.c */; };
+		FCDA87BF104CFBB900143464 /* getopt1.c in Sources */ = {isa = PBXBuildFile; fileRef = FCDA87AA104CFBB900143464 /* getopt1.c */; };
+		FCDA87C0104CFBB900143464 /* hard-locale.c in Sources */ = {isa = PBXBuildFile; fileRef = FCDA87AB104CFBB900143464 /* hard-locale.c */; };
+		FCDA87C1104CFBB900143464 /* imaxtostr.c in Sources */ = {isa = PBXBuildFile; fileRef = FCDA87AC104CFBB900143464 /* imaxtostr.c */; };
+		FCDA87C2104CFBB900143464 /* offtostr.c in Sources */ = {isa = PBXBuildFile; fileRef = FCDA87AD104CFBB900143464 /* offtostr.c */; };
+		FCDA87C3104CFBB900143464 /* posixver.c in Sources */ = {isa = PBXBuildFile; fileRef = FCDA87AE104CFBB900143464 /* posixver.c */; };
+		FCDA87C4104CFBB900143464 /* prepargs.c in Sources */ = {isa = PBXBuildFile; fileRef = FCDA87AF104CFBB900143464 /* prepargs.c */; };
+		FCDA87C5104CFBB900143464 /* quotesys.c in Sources */ = {isa = PBXBuildFile; fileRef = FCDA87B0104CFBB900143464 /* quotesys.c */; };
+		FCDA87C6104CFBB900143464 /* regex.c in Sources */ = {isa = PBXBuildFile; fileRef = FCDA87B1104CFBB900143464 /* regex.c */; };
+		FCDA87C7104CFBB900143464 /* setmode.c in Sources */ = {isa = PBXBuildFile; fileRef = FCDA87B2104CFBB900143464 /* setmode.c */; };
+		FCDA87C8104CFBB900143464 /* strftime.c in Sources */ = {isa = PBXBuildFile; fileRef = FCDA87B3104CFBB900143464 /* strftime.c */; };
+		FCDA87C9104CFBB900143464 /* umaxtostr.c in Sources */ = {isa = PBXBuildFile; fileRef = FCDA87B4104CFBB900143464 /* umaxtostr.c */; };
+		FCDA87CA104CFBB900143464 /* xmalloc.c in Sources */ = {isa = PBXBuildFile; fileRef = FCDA87B5104CFBB900143464 /* xmalloc.c */; };
+		FCDA87CB104CFBB900143464 /* xstrtoumax.c in Sources */ = {isa = PBXBuildFile; fileRef = FCDA87B6104CFBB900143464 /* xstrtoumax.c */; };
+		FCDA8801104CFD1D00143464 /* libdiffutils.a in Frameworks */ = {isa = PBXBuildFile; fileRef = FCDA8798104CF95100143464 /* libdiffutils.a */; };
+		FCDA8802104CFD2200143464 /* libdiffutils.a in Frameworks */ = {isa = PBXBuildFile; fileRef = FCDA8798104CF95100143464 /* libdiffutils.a */; };
+		FCDA8803104CFD2700143464 /* libdiffutils.a in Frameworks */ = {isa = PBXBuildFile; fileRef = FCDA8798104CF95100143464 /* libdiffutils.a */; };
+		FCDA8804104CFD2B00143464 /* libdiffutils.a in Frameworks */ = {isa = PBXBuildFile; fileRef = FCDA8798104CF95100143464 /* libdiffutils.a */; };
+		FCDA880A104CFD4E00143464 /* cmp.c in Sources */ = {isa = PBXBuildFile; fileRef = FCDA87D0104CFC9A00143464 /* cmp.c */; };
+		FCDA880B104CFD4E00143464 /* version.c in Sources */ = {isa = PBXBuildFile; fileRef = FCDA87DC104CFC9A00143464 /* version.c */; };
+		FCDA880F104CFD8200143464 /* analyze.c in Sources */ = {isa = PBXBuildFile; fileRef = FCDA87CF104CFC9A00143464 /* analyze.c */; };
+		FCDA8810104CFD8200143464 /* context.c in Sources */ = {isa = PBXBuildFile; fileRef = FCDA87D1104CFC9A00143464 /* context.c */; };
+		FCDA8811104CFD8200143464 /* diff.c in Sources */ = {isa = PBXBuildFile; fileRef = FCDA87D2104CFC9A00143464 /* diff.c */; };
+		FCDA8812104CFD8200143464 /* dir.c in Sources */ = {isa = PBXBuildFile; fileRef = FCDA87D4104CFC9A00143464 /* dir.c */; };
+		FCDA8813104CFD8200143464 /* ed.c in Sources */ = {isa = PBXBuildFile; fileRef = FCDA87D5104CFC9A00143464 /* ed.c */; };
+		FCDA8814104CFD8200143464 /* ifdef.c in Sources */ = {isa = PBXBuildFile; fileRef = FCDA87D6104CFC9A00143464 /* ifdef.c */; };
+		FCDA8815104CFD8200143464 /* io.c in Sources */ = {isa = PBXBuildFile; fileRef = FCDA87D7104CFC9A00143464 /* io.c */; };
+		FCDA8816104CFD8200143464 /* normal.c in Sources */ = {isa = PBXBuildFile; fileRef = FCDA87D8104CFC9A00143464 /* normal.c */; };
+		FCDA8817104CFD8200143464 /* side.c in Sources */ = {isa = PBXBuildFile; fileRef = FCDA87DA104CFC9A00143464 /* side.c */; };
+		FCDA8818104CFD8200143464 /* util.c in Sources */ = {isa = PBXBuildFile; fileRef = FCDA87DB104CFC9A00143464 /* util.c */; };
+		FCDA8819104CFD9600143464 /* diff3.c in Sources */ = {isa = PBXBuildFile; fileRef = FCDA87D3104CFC9A00143464 /* diff3.c */; };
+		FCDA881A104CFD9D00143464 /* sdiff.c in Sources */ = {isa = PBXBuildFile; fileRef = FCDA87D9104CFC9A00143464 /* sdiff.c */; };
+		FCDA8850104D008200143464 /* version.c in Sources */ = {isa = PBXBuildFile; fileRef = FCDA87DC104CFC9A00143464 /* version.c */; };
+		FCDA8851104D008600143464 /* version.c in Sources */ = {isa = PBXBuildFile; fileRef = FCDA87DC104CFC9A00143464 /* version.c */; };
+		FCDA8852104D008D00143464 /* version.c in Sources */ = {isa = PBXBuildFile; fileRef = FCDA87DC104CFC9A00143464 /* version.c */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		FC412F05104DFD370015EDB4 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = FC4F2187104D8EB100613382 /* files */;
+			remoteInfo = files;
+		};
+		FCDA87F1104CFCF800143464 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = FCDA87EB104CFCE000143464;
+			remoteInfo = sdiff;
+		};
+		FCDA87F3104CFCF800143464 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = FCDA87E5104CFCD900143464;
+			remoteInfo = diff3;
+		};
+		FCDA87F5104CFCF800143464 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = FCDA87DF104CFCC900143464;
+			remoteInfo = diff;
+		};
+		FCDA87F7104CFCF800143464 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 8DD76FA90486AB0100D96B5E;
+			remoteInfo = cmp;
+		};
+		FCDA87F9104CFD0900143464 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = FCDA8797104CF95100143464;
+			remoteInfo = diffutils;
+		};
+		FCDA87FB104CFD0C00143464 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = FCDA8797104CF95100143464;
+			remoteInfo = diffutils;
+		};
+		FCDA87FD104CFD0E00143464 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = FCDA8797104CF95100143464;
+			remoteInfo = diffutils;
+		};
+		FCDA87FF104CFD1100143464 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = FCDA8797104CF95100143464;
+			remoteInfo = diffutils;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		8DD76FAF0486AB0100D96B5E /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /usr/share/man/man1/;
+			dstSubfolderSpec = 0;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
+/* Begin PBXFileReference section */
+		8DD76FB20486AB0100D96B5E /* cmp */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = cmp; sourceTree = BUILT_PRODUCTS_DIR; };
+		FCDA8798104CF95100143464 /* libdiffutils.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libdiffutils.a; sourceTree = BUILT_PRODUCTS_DIR; };
+		FCDA87A2104CFBB900143464 /* basename.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = basename.c; path = diffutils/lib/basename.c; sourceTree = "<group>"; };
+		FCDA87A3104CFBB900143464 /* c-stack.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = "c-stack.c"; path = "diffutils/lib/c-stack.c"; sourceTree = "<group>"; };
+		FCDA87A4104CFBB900143464 /* cmpbuf.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = cmpbuf.c; path = diffutils/lib/cmpbuf.c; sourceTree = "<group>"; };
+		FCDA87A5104CFBB900143464 /* error.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = error.c; path = diffutils/lib/error.c; sourceTree = "<group>"; };
+		FCDA87A6104CFBB900143464 /* exclude.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = exclude.c; path = diffutils/lib/exclude.c; sourceTree = "<group>"; };
+		FCDA87A7104CFBB900143464 /* exitfail.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = exitfail.c; path = diffutils/lib/exitfail.c; sourceTree = "<group>"; };
+		FCDA87A8104CFBB900143464 /* freesoft.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = freesoft.c; path = diffutils/lib/freesoft.c; sourceTree = "<group>"; };
+		FCDA87A9104CFBB900143464 /* getopt.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = getopt.c; path = diffutils/lib/getopt.c; sourceTree = "<group>"; };
+		FCDA87AA104CFBB900143464 /* getopt1.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = getopt1.c; path = diffutils/lib/getopt1.c; sourceTree = "<group>"; };
+		FCDA87AB104CFBB900143464 /* hard-locale.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = "hard-locale.c"; path = "diffutils/lib/hard-locale.c"; sourceTree = "<group>"; };
+		FCDA87AC104CFBB900143464 /* imaxtostr.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = imaxtostr.c; path = diffutils/lib/imaxtostr.c; sourceTree = "<group>"; };
+		FCDA87AD104CFBB900143464 /* offtostr.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = offtostr.c; path = diffutils/lib/offtostr.c; sourceTree = "<group>"; };
+		FCDA87AE104CFBB900143464 /* posixver.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = posixver.c; path = diffutils/lib/posixver.c; sourceTree = "<group>"; };
+		FCDA87AF104CFBB900143464 /* prepargs.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = prepargs.c; path = diffutils/lib/prepargs.c; sourceTree = "<group>"; };
+		FCDA87B0104CFBB900143464 /* quotesys.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = quotesys.c; path = diffutils/lib/quotesys.c; sourceTree = "<group>"; };
+		FCDA87B1104CFBB900143464 /* regex.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = regex.c; path = diffutils/lib/regex.c; sourceTree = "<group>"; };
+		FCDA87B2104CFBB900143464 /* setmode.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = setmode.c; path = diffutils/lib/setmode.c; sourceTree = "<group>"; };
+		FCDA87B3104CFBB900143464 /* strftime.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = strftime.c; path = diffutils/lib/strftime.c; sourceTree = "<group>"; };
+		FCDA87B4104CFBB900143464 /* umaxtostr.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = umaxtostr.c; path = diffutils/lib/umaxtostr.c; sourceTree = "<group>"; };
+		FCDA87B5104CFBB900143464 /* xmalloc.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = xmalloc.c; path = diffutils/lib/xmalloc.c; sourceTree = "<group>"; };
+		FCDA87B6104CFBB900143464 /* xstrtoumax.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = xstrtoumax.c; path = diffutils/lib/xstrtoumax.c; sourceTree = "<group>"; };
+		FCDA87CF104CFC9A00143464 /* analyze.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = analyze.c; path = diffutils/src/analyze.c; sourceTree = "<group>"; };
+		FCDA87D0104CFC9A00143464 /* cmp.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = cmp.c; path = diffutils/src/cmp.c; sourceTree = "<group>"; };
+		FCDA87D1104CFC9A00143464 /* context.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = context.c; path = diffutils/src/context.c; sourceTree = "<group>"; };
+		FCDA87D2104CFC9A00143464 /* diff.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = diff.c; path = diffutils/src/diff.c; sourceTree = "<group>"; };
+		FCDA87D3104CFC9A00143464 /* diff3.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = diff3.c; path = diffutils/src/diff3.c; sourceTree = "<group>"; };
+		FCDA87D4104CFC9A00143464 /* dir.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = dir.c; path = diffutils/src/dir.c; sourceTree = "<group>"; };
+		FCDA87D5104CFC9A00143464 /* ed.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = ed.c; path = diffutils/src/ed.c; sourceTree = "<group>"; };
+		FCDA87D6104CFC9A00143464 /* ifdef.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = ifdef.c; path = diffutils/src/ifdef.c; sourceTree = "<group>"; };
+		FCDA87D7104CFC9A00143464 /* io.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = io.c; path = diffutils/src/io.c; sourceTree = "<group>"; };
+		FCDA87D8104CFC9A00143464 /* normal.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = normal.c; path = diffutils/src/normal.c; sourceTree = "<group>"; };
+		FCDA87D9104CFC9A00143464 /* sdiff.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = sdiff.c; path = diffutils/src/sdiff.c; sourceTree = "<group>"; };
+		FCDA87DA104CFC9A00143464 /* side.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = side.c; path = diffutils/src/side.c; sourceTree = "<group>"; };
+		FCDA87DB104CFC9A00143464 /* util.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = util.c; path = diffutils/src/util.c; sourceTree = "<group>"; };
+		FCDA87DC104CFC9A00143464 /* version.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = version.c; path = diffutils/src/version.c; sourceTree = "<group>"; };
+		FCDA87E0104CFCC900143464 /* diff */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = diff; sourceTree = BUILT_PRODUCTS_DIR; };
+		FCDA87E6104CFCD900143464 /* diff3 */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = diff3; sourceTree = BUILT_PRODUCTS_DIR; };
+		FCDA87EC104CFCE000143464 /* sdiff */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = sdiff; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		8DD76FAD0486AB0100D96B5E /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				FCDA8804104CFD2B00143464 /* libdiffutils.a in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		FCDA8796104CF95100143464 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		FCDA87DE104CFCC900143464 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				FCDA8803104CFD2700143464 /* libdiffutils.a in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		FCDA87E4104CFCD900143464 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				FCDA8802104CFD2200143464 /* libdiffutils.a in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		FCDA87EA104CFCE000143464 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				FCDA8801104CFD1D00143464 /* libdiffutils.a in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		08FB7794FE84155DC02AAC07 /* gnudiff */ = {
+			isa = PBXGroup;
+			children = (
+				08FB7795FE84155DC02AAC07 /* Source */,
+				C6A0FF2B0290797F04C91782 /* Documentation */,
+				1AB674ADFE9D54B511CA2CBB /* Products */,
+			);
+			name = gnudiff;
+			sourceTree = "<group>";
+		};
+		08FB7795FE84155DC02AAC07 /* Source */ = {
+			isa = PBXGroup;
+			children = (
+				FCDA879F104CFB3600143464 /* lib */,
+				FCDA87CC104CFBD200143464 /* src */,
+			);
+			name = Source;
+			sourceTree = "<group>";
+		};
+		1AB674ADFE9D54B511CA2CBB /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				8DD76FB20486AB0100D96B5E /* cmp */,
+				FCDA8798104CF95100143464 /* libdiffutils.a */,
+				FCDA87E0104CFCC900143464 /* diff */,
+				FCDA87E6104CFCD900143464 /* diff3 */,
+				FCDA87EC104CFCE000143464 /* sdiff */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		C6A0FF2B0290797F04C91782 /* Documentation */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			name = Documentation;
+			sourceTree = "<group>";
+		};
+		FCDA879F104CFB3600143464 /* lib */ = {
+			isa = PBXGroup;
+			children = (
+				FCDA87A2104CFBB900143464 /* basename.c */,
+				FCDA87A3104CFBB900143464 /* c-stack.c */,
+				FCDA87A4104CFBB900143464 /* cmpbuf.c */,
+				FCDA87A5104CFBB900143464 /* error.c */,
+				FCDA87A6104CFBB900143464 /* exclude.c */,
+				FCDA87A7104CFBB900143464 /* exitfail.c */,
+				FCDA87A8104CFBB900143464 /* freesoft.c */,
+				FCDA87A9104CFBB900143464 /* getopt.c */,
+				FCDA87AA104CFBB900143464 /* getopt1.c */,
+				FCDA87AB104CFBB900143464 /* hard-locale.c */,
+				FCDA87AC104CFBB900143464 /* imaxtostr.c */,
+				FCDA87AD104CFBB900143464 /* offtostr.c */,
+				FCDA87AE104CFBB900143464 /* posixver.c */,
+				FCDA87AF104CFBB900143464 /* prepargs.c */,
+				FCDA87B0104CFBB900143464 /* quotesys.c */,
+				FCDA87B1104CFBB900143464 /* regex.c */,
+				FCDA87B2104CFBB900143464 /* setmode.c */,
+				FCDA87B3104CFBB900143464 /* strftime.c */,
+				FCDA87B4104CFBB900143464 /* umaxtostr.c */,
+				FCDA87B5104CFBB900143464 /* xmalloc.c */,
+				FCDA87B6104CFBB900143464 /* xstrtoumax.c */,
+			);
+			name = lib;
+			sourceTree = "<group>";
+		};
+		FCDA87CC104CFBD200143464 /* src */ = {
+			isa = PBXGroup;
+			children = (
+				FCDA87CF104CFC9A00143464 /* analyze.c */,
+				FCDA87D0104CFC9A00143464 /* cmp.c */,
+				FCDA87D1104CFC9A00143464 /* context.c */,
+				FCDA87D2104CFC9A00143464 /* diff.c */,
+				FCDA87D3104CFC9A00143464 /* diff3.c */,
+				FCDA87D4104CFC9A00143464 /* dir.c */,
+				FCDA87D5104CFC9A00143464 /* ed.c */,
+				FCDA87D6104CFC9A00143464 /* ifdef.c */,
+				FCDA87D7104CFC9A00143464 /* io.c */,
+				FCDA87D8104CFC9A00143464 /* normal.c */,
+				FCDA87D9104CFC9A00143464 /* sdiff.c */,
+				FCDA87DA104CFC9A00143464 /* side.c */,
+				FCDA87DB104CFC9A00143464 /* util.c */,
+				FCDA87DC104CFC9A00143464 /* version.c */,
+			);
+			name = src;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXHeadersBuildPhase section */
+		FCDA8794104CF95100143464 /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXHeadersBuildPhase section */
+
+/* Begin PBXNativeTarget section */
+		8DD76FA90486AB0100D96B5E /* cmp */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 1DEB928508733DD80010E9CD /* Build configuration list for PBXNativeTarget "cmp" */;
+			buildPhases = (
+				8DD76FAB0486AB0100D96B5E /* Sources */,
+				8DD76FAD0486AB0100D96B5E /* Frameworks */,
+				8DD76FAF0486AB0100D96B5E /* CopyFiles */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				FCDA87FA104CFD0900143464 /* PBXTargetDependency */,
+			);
+			name = cmp;
+			productInstallPath = "$(HOME)/bin";
+			productName = gnudiff;
+			productReference = 8DD76FB20486AB0100D96B5E /* cmp */;
+			productType = "com.apple.product-type.tool";
+		};
+		FCDA8797104CF95100143464 /* diffutils */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = FCDA879E104CF96600143464 /* Build configuration list for PBXNativeTarget "diffutils" */;
+			buildPhases = (
+				FCDA8794104CF95100143464 /* Headers */,
+				FCDA8795104CF95100143464 /* Sources */,
+				FCDA8796104CF95100143464 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = diffutils;
+			productName = diffutils;
+			productReference = FCDA8798104CF95100143464 /* libdiffutils.a */;
+			productType = "com.apple.product-type.library.static";
+		};
+		FCDA87DF104CFCC900143464 /* diff */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = FCDA8806104CFD2E00143464 /* Build configuration list for PBXNativeTarget "diff" */;
+			buildPhases = (
+				FCDA87DD104CFCC900143464 /* Sources */,
+				FCDA87DE104CFCC900143464 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				FCDA87FC104CFD0C00143464 /* PBXTargetDependency */,
+			);
+			name = diff;
+			productName = diff;
+			productReference = FCDA87E0104CFCC900143464 /* diff */;
+			productType = "com.apple.product-type.tool";
+		};
+		FCDA87E5104CFCD900143464 /* diff3 */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = FCDA8807104CFD2E00143464 /* Build configuration list for PBXNativeTarget "diff3" */;
+			buildPhases = (
+				FCDA87E3104CFCD900143464 /* Sources */,
+				FCDA87E4104CFCD900143464 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				FCDA87FE104CFD0E00143464 /* PBXTargetDependency */,
+			);
+			name = diff3;
+			productName = diff3;
+			productReference = FCDA87E6104CFCD900143464 /* diff3 */;
+			productType = "com.apple.product-type.tool";
+		};
+		FCDA87EB104CFCE000143464 /* sdiff */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = FCDA8808104CFD2E00143464 /* Build configuration list for PBXNativeTarget "sdiff" */;
+			buildPhases = (
+				FCDA87E9104CFCE000143464 /* Sources */,
+				FCDA87EA104CFCE000143464 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				FCDA8800104CFD1100143464 /* PBXTargetDependency */,
+			);
+			name = sdiff;
+			productName = sdiff;
+			productReference = FCDA87EC104CFCE000143464 /* sdiff */;
+			productType = "com.apple.product-type.tool";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		08FB7793FE84155DC02AAC07 /* Project object */ = {
+			isa = PBXProject;
+			buildConfigurationList = 1DEB928908733DD80010E9CD /* Build configuration list for PBXProject "gnudiff" */;
+			compatibilityVersion = "Xcode 3.1";
+			hasScannedForEncodings = 1;
+			mainGroup = 08FB7794FE84155DC02AAC07 /* gnudiff */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				FCDA87EF104CFCF000143464 /* all */,
+				FCDA8797104CF95100143464 /* diffutils */,
+				8DD76FA90486AB0100D96B5E /* cmp */,
+				FCDA87DF104CFCC900143464 /* diff */,
+				FCDA87E5104CFCD900143464 /* diff3 */,
+				FCDA87EB104CFCE000143464 /* sdiff */,
+				FC4F2187104D8EB100613382 /* files */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		FC4F2186104D8EB100613382 /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 8;
+			files = (
+			);
+			inputPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+			shellPath = /bin/sh;
+			shellScript = "# exit immediately on failure\nset -e\n\nMANDIR=/usr/share/man\nINFODIR=/usr/share/info\n\ninstall -d -o root -g wheel -m 0755 \"$DSTROOT\"/\"$MANDIR\"/man1\ninstall -c -o root -g wheel -m 0644 \"$PROJECT_DIR\"/diffutils/man/cmp.1 \"$DSTROOT\"/\"$MANDIR\"/man1\ninstall -c -o root -g wheel -m 0644 \"$PROJECT_DIR\"/diffutils/man/diff.1 \"$DSTROOT\"/\"$MANDIR\"/man1\ninstall -c -o root -g wheel -m 0644 \"$PROJECT_DIR\"/diffutils/man/diff3.1 \"$DSTROOT\"/\"$MANDIR\"/man1\ninstall -c -o root -g wheel -m 0644 \"$PROJECT_DIR\"/diffutils/man/sdiff.1 \"$DSTROOT\"/\"$MANDIR\"/man1\n\n/Developer/Makefiles/bin/compress-man-pages.pl \"$DSTROOT\"/\"$MANDIR\"\n\ninstall -d -o root -g wheel -m 0755 \"$DSTROOT\"/\"$INFODIR\"\ninstall -c -o root -g wheel -m 0644 \"$PROJECT_DIR\"/diffutils/doc/diff.info \"$DSTROOT\"/\"$INFODIR\"\n\n\n# Install open source information\n\nOSV=/usr/local/OpenSourceVersions\nOSL=/usr/local/OpenSourceLicenses\n\ninstall -d -o root -g wheel -m 0755 \"$DSTROOT\"/\"$OSV\"\ninstall -c -o root -g wheel -m 0444 \"$PROJECT_DIR\"/gnudiff.plist \"$DSTROOT\"/\"$OSV\"\ninstall -d -o root -g wheel -m 0755 \"$DSTROOT\"/\"$OSL\"\ninstall -c -o root -g wheel -m 0444 \"$PROJECT_DIR\"/diffutils/COPYING \"$DSTROOT\"/\"$OSL\"/gnudiff.txt\n";
+		};
+/* End PBXShellScriptBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		8DD76FAB0486AB0100D96B5E /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				FCDA880A104CFD4E00143464 /* cmp.c in Sources */,
+				FCDA880B104CFD4E00143464 /* version.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		FCDA8795104CF95100143464 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				FCDA87B7104CFBB900143464 /* basename.c in Sources */,
+				FCDA87B8104CFBB900143464 /* c-stack.c in Sources */,
+				FCDA87B9104CFBB900143464 /* cmpbuf.c in Sources */,
+				FCDA87BA104CFBB900143464 /* error.c in Sources */,
+				FCDA87BB104CFBB900143464 /* exclude.c in Sources */,
+				FCDA87BC104CFBB900143464 /* exitfail.c in Sources */,
+				FCDA87BD104CFBB900143464 /* freesoft.c in Sources */,
+				FCDA87BE104CFBB900143464 /* getopt.c in Sources */,
+				FCDA87BF104CFBB900143464 /* getopt1.c in Sources */,
+				FCDA87C0104CFBB900143464 /* hard-locale.c in Sources */,
+				FCDA87C1104CFBB900143464 /* imaxtostr.c in Sources */,
+				FCDA87C2104CFBB900143464 /* offtostr.c in Sources */,
+				FCDA87C3104CFBB900143464 /* posixver.c in Sources */,
+				FCDA87C4104CFBB900143464 /* prepargs.c in Sources */,
+				FCDA87C5104CFBB900143464 /* quotesys.c in Sources */,
+				FCDA87C6104CFBB900143464 /* regex.c in Sources */,
+				FCDA87C7104CFBB900143464 /* setmode.c in Sources */,
+				FCDA87C8104CFBB900143464 /* strftime.c in Sources */,
+				FCDA87C9104CFBB900143464 /* umaxtostr.c in Sources */,
+				FCDA87CA104CFBB900143464 /* xmalloc.c in Sources */,
+				FCDA87CB104CFBB900143464 /* xstrtoumax.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		FCDA87DD104CFCC900143464 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				FCDA880F104CFD8200143464 /* analyze.c in Sources */,
+				FCDA8810104CFD8200143464 /* context.c in Sources */,
+				FCDA8811104CFD8200143464 /* diff.c in Sources */,
+				FCDA8812104CFD8200143464 /* dir.c in Sources */,
+				FCDA8813104CFD8200143464 /* ed.c in Sources */,
+				FCDA8814104CFD8200143464 /* ifdef.c in Sources */,
+				FCDA8815104CFD8200143464 /* io.c in Sources */,
+				FCDA8816104CFD8200143464 /* normal.c in Sources */,
+				FCDA8817104CFD8200143464 /* side.c in Sources */,
+				FCDA8818104CFD8200143464 /* util.c in Sources */,
+				FCDA8852104D008D00143464 /* version.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		FCDA87E3104CFCD900143464 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				FCDA8850104D008200143464 /* version.c in Sources */,
+				FCDA8819104CFD9600143464 /* diff3.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		FCDA87E9104CFCE000143464 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				FCDA881A104CFD9D00143464 /* sdiff.c in Sources */,
+				FCDA8851104D008600143464 /* version.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		FC412F06104DFD370015EDB4 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = FC4F2187104D8EB100613382 /* files */;
+			targetProxy = FC412F05104DFD370015EDB4 /* PBXContainerItemProxy */;
+		};
+		FCDA87F2104CFCF800143464 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = FCDA87EB104CFCE000143464 /* sdiff */;
+			targetProxy = FCDA87F1104CFCF800143464 /* PBXContainerItemProxy */;
+		};
+		FCDA87F4104CFCF800143464 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = FCDA87E5104CFCD900143464 /* diff3 */;
+			targetProxy = FCDA87F3104CFCF800143464 /* PBXContainerItemProxy */;
+		};
+		FCDA87F6104CFCF800143464 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = FCDA87DF104CFCC900143464 /* diff */;
+			targetProxy = FCDA87F5104CFCF800143464 /* PBXContainerItemProxy */;
+		};
+		FCDA87F8104CFCF800143464 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 8DD76FA90486AB0100D96B5E /* cmp */;
+			targetProxy = FCDA87F7104CFCF800143464 /* PBXContainerItemProxy */;
+		};
+		FCDA87FA104CFD0900143464 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = FCDA8797104CF95100143464 /* diffutils */;
+			targetProxy = FCDA87F9104CFD0900143464 /* PBXContainerItemProxy */;
+		};
+		FCDA87FC104CFD0C00143464 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = FCDA8797104CF95100143464 /* diffutils */;
+			targetProxy = FCDA87FB104CFD0C00143464 /* PBXContainerItemProxy */;
+		};
+		FCDA87FE104CFD0E00143464 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = FCDA8797104CF95100143464 /* diffutils */;
+			targetProxy = FCDA87FD104CFD0E00143464 /* PBXContainerItemProxy */;
+		};
+		FCDA8800104CFD1100143464 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = FCDA8797104CF95100143464 /* diffutils */;
+			targetProxy = FCDA87FF104CFD1100143464 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		1DEB928708733DD80010E9CD /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = cmp;
+				SKIP_INSTALL = NO;
+			};
+			name = Release;
+		};
+		1DEB928B08733DD80010E9CD /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CODE_SIGN_IDENTITY = "-";
+				CURRENT_PROJECT_VERSION = "$(RC_ProjectSourceVersion)";
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_PREPROCESSOR_DEFINITIONS = HAVE_CONFIG_H;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				HEADER_SEARCH_PATHS = (
+					"$(PROJECT_DIR)/diffutils",
+					"$(PROJECT_DIR)/diffutils/lib",
+					"$(PROJECT_DIR)/diffutils/lib/posix",
+					"$(PROJECT_DIR)/diffutils/src",
+				);
+				INSTALL_PATH = /usr/bin;
+				PREBINDING = NO;
+				VERSIONING_SYSTEM = "apple-generic";
+				ZERO_LINK = NO;
+			};
+			name = Release;
+		};
+		FC4F2188104D8EB100613382 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = files;
+			};
+			name = Release;
+		};
+		FCDA879A104CF95100143464 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = diffutils;
+				SKIP_INSTALL = YES;
+			};
+			name = Release;
+		};
+		FCDA87E2104CFCCA00143464 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = diff;
+				SKIP_INSTALL = NO;
+			};
+			name = Release;
+		};
+		FCDA87E8104CFCDA00143464 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = diff3;
+				SKIP_INSTALL = NO;
+			};
+			name = Release;
+		};
+		FCDA87EE104CFCE100143464 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = sdiff;
+				SKIP_INSTALL = NO;
+			};
+			name = Release;
+		};
+		FCDA87F0104CFCF000143464 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = all;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		1DEB928508733DD80010E9CD /* Build configuration list for PBXNativeTarget "cmp" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				1DEB928708733DD80010E9CD /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		1DEB928908733DD80010E9CD /* Build configuration list for PBXProject "gnudiff" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				1DEB928B08733DD80010E9CD /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		FC4F218A104D8ECD00613382 /* Build configuration list for PBXAggregateTarget "files" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				FC4F2188104D8EB100613382 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		FCDA879E104CF96600143464 /* Build configuration list for PBXNativeTarget "diffutils" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				FCDA879A104CF95100143464 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		FCDA8806104CFD2E00143464 /* Build configuration list for PBXNativeTarget "diff" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				FCDA87E2104CFCCA00143464 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		FCDA8807104CFD2E00143464 /* Build configuration list for PBXNativeTarget "diff3" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				FCDA87E8104CFCDA00143464 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		FCDA8808104CFD2E00143464 /* Build configuration list for PBXNativeTarget "sdiff" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				FCDA87EE104CFCE100143464 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		FCDA8809104CFD2E00143464 /* Build configuration list for PBXAggregateTarget "all" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				FCDA87F0104CFCF000143464 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 08FB7793FE84155DC02AAC07 /* Project object */;
+}

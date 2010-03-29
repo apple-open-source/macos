@@ -56,6 +56,7 @@ __attribute__((format(printf, 1, 2)));
 #define	_CANREQUESTEXTRAPOWER		_expansionData->_canRequestExtraPower
 #define	_EXTRAPOWERFORPORTS			_expansionData->_extraPowerForPorts
 #define	_EXTRAPOWERALLOCATED		_expansionData->_extraPowerAllocated
+#define	_REQUESTFROMPARENT			_expansionData->_requestFromParent
 #define _USBPLANE_PARENT			super::_expansionData->_usbPlaneParent
 
 
@@ -212,7 +213,7 @@ IOUSBHubDevice::RequestExtraPower(UInt32 requestedPower)
 {
 	UInt32	extraAllocated = 0;
 	
-	USBLog(5, "IOUSBHubDevice[%p]::RequestExtraPower - requestedPower = %d, available: %d", this, (uint32_t)requestedPower, (uint32_t) _TOTALEXTRACURRENT);
+	USBLog(5, "IOUSBHubDevice[%p]::RequestExtraPower - requestedPower = %d, hub has %d available", this, (uint32_t)requestedPower, (uint32_t) _TOTALEXTRACURRENT);
 	
 	if (requestedPower == 0)
 		return 0;
@@ -221,7 +222,7 @@ IOUSBHubDevice::RequestExtraPower(UInt32 requestedPower)
 	// Note:  should we see if this is a high power port or not?  It assumes it is
 	if (requestedPower > (_MAXPORTCURRENT-500))		// limit requests to the maximum the HW can support
 	{
-		USBLog(5, "IOUSBHubDevice[%p]::RequestExtraPower - requestedPower of %d, was greater than %d, the (maximum power per port - 500mA).  Requesting %d instead", this, (uint32_t)requestedPower, (uint32_t) (_MAXPORTCURRENT-500), (uint32_t) (_MAXPORTCURRENT-500));
+		USBLog(5, "IOUSBHubDevice[%p]::RequestExtraPower - requestedPower of %d, was greater than %d, (the maximum power per port - 500mA).  Requesting %d instead", this, (uint32_t)requestedPower, (uint32_t) (_MAXPORTCURRENT-500), (uint32_t) (_MAXPORTCURRENT-500));
 		requestedPower = _MAXPORTCURRENT-500;
 	}
 	
@@ -230,36 +231,60 @@ IOUSBHubDevice::RequestExtraPower(UInt32 requestedPower)
 		// honor the request if possible
 		extraAllocated = requestedPower;
 		_TOTALEXTRACURRENT -= extraAllocated;
-		USBLog(5, "IOUSBHubDevice[%p]::RequestExtraPower - Asked for %d, not _TOTALEXTRACURRENT is %d", this, (uint32_t)requestedPower, (uint32_t) _TOTALEXTRACURRENT );
+		USBLog(5, "IOUSBHubDevice[%p]::RequestExtraPower - Asked for %d,  _TOTALEXTRACURRENT is %d", this, (uint32_t)requestedPower, (uint32_t) _TOTALEXTRACURRENT );
 	}
 	
+	// At this point, we can have a hub that can request a set amount of power from its parent (e.g. a Keyboard Hub), or a hub that can pass thru the request to its parent (RMH).
+	
 	// if we don't have any power to allocate, let's see if we have "ExtraPower" that can be requested from our parent (and we haven't already done so).
-	if ( (_CANREQUESTEXTRAPOWER != 0) and not _EXTRAPOWERALLOCATED)
+	if ( _REQUESTFROMPARENT)
 	{
-		if ( requestedPower > _EXTRAPOWERFORPORTS )
+		// 
+		USBLog(5, "IOUSBHubDevice[%p]::RequestExtraPower - requesting %d from our parent", this, (uint32_t) requestedPower);
+		UInt32	parentPowerRequest = super::RequestExtraPower(kUSBPowerDuringWake, requestedPower);
+		
+		USBLog(5, "IOUSBHubDevice[%p]::RequestExtraPower - requested %d from our parent and got %d ", this, (uint32_t) parentPowerRequest, (uint32_t)parentPowerRequest);
+		if ( parentPowerRequest == requestedPower )
 		{
-			USBLog(5, "IOUSBHubDevice[%p]::RequestExtraPower - we can request extra power from our parent but only %d and we want %d ", this, (uint32_t) _EXTRAPOWERFORPORTS, (uint32_t)requestedPower);
-			extraAllocated = 0;
+			// We only can return _EXTRAPOWERFORPORTS, not less
+			extraAllocated = requestedPower;
+			setProperty("PortActualRequestExtraPower", extraAllocated, 32);
 		}
 		else
 		{
-			// Even tho' we only want "requestedPower", we have to ask for _CANREQUESTEXTRAPOWER
-			USBLog(5, "IOUSBHubDevice[%p]::RequestExtraPower - requesting %d from our parent", this, (uint32_t) _CANREQUESTEXTRAPOWER);
-			UInt32	parentPowerRequest = super::RequestExtraPower(kUSBPowerDuringWake, _CANREQUESTEXTRAPOWER);
-			
-			USBLog(5, "IOUSBHubDevice[%p]::RequestExtraPower - requested %d from our parent and got %d ", this, (uint32_t) _CANREQUESTEXTRAPOWER, (uint32_t)parentPowerRequest);
-			
-			if ( parentPowerRequest == _CANREQUESTEXTRAPOWER )
+			USBLog(5, "IOUSBHubDevice[%p]::RequestExtraPower - returning power %d because we didnt get enough", this, (uint32_t)parentPowerRequest);
+			super::ReturnExtraPower(kUSBPowerDuringWake, parentPowerRequest);	
+		}
+	}
+	else
+	{
+		if ( (_CANREQUESTEXTRAPOWER != 0) and not _EXTRAPOWERALLOCATED)
+		{
+			if ( requestedPower > _EXTRAPOWERFORPORTS )
 			{
-				// We only can return _EXTRAPOWERFORPORTS, not less
-				extraAllocated = _EXTRAPOWERFORPORTS;
-				_EXTRAPOWERALLOCATED = true;
-				setProperty("PortActualRequestExtraPower", extraAllocated, 32);
+				USBLog(5, "IOUSBHubDevice[%p]::RequestExtraPower - we can request extra power from our parent but only %d and we want %d ", this, (uint32_t) _EXTRAPOWERFORPORTS, (uint32_t)requestedPower);
+				extraAllocated = 0;
 			}
 			else
 			{
-				USBLog(5, "IOUSBHubDevice[%p]::RequestExtraPower - returning power %d because we didnt get enough", this, (uint32_t)parentPowerRequest);
-				super::ReturnExtraPower(kUSBPowerDuringWake, parentPowerRequest);	
+				// Even tho' we only want "requestedPower", we have to ask for _CANREQUESTEXTRAPOWER
+				USBLog(5, "IOUSBHubDevice[%p]::RequestExtraPower - requesting %d from our parent", this, (uint32_t) _CANREQUESTEXTRAPOWER);
+				UInt32	parentPowerRequest = super::RequestExtraPower(kUSBPowerDuringWake, _CANREQUESTEXTRAPOWER);
+				
+				USBLog(5, "IOUSBHubDevice[%p]::RequestExtraPower - requested %d from our parent and got %d ", this, (uint32_t) _CANREQUESTEXTRAPOWER, (uint32_t)parentPowerRequest);
+				
+				if ( parentPowerRequest == _CANREQUESTEXTRAPOWER )
+				{
+					// We only can return _EXTRAPOWERFORPORTS, not less
+					extraAllocated = _EXTRAPOWERFORPORTS;
+					_EXTRAPOWERALLOCATED = true;
+					setProperty("PortActualRequestExtraPower", extraAllocated, 32);
+				}
+				else
+				{
+					USBLog(5, "IOUSBHubDevice[%p]::RequestExtraPower - returning power %d because we didnt get enough", this, (uint32_t)parentPowerRequest);
+					super::ReturnExtraPower(kUSBPowerDuringWake, parentPowerRequest);	
+				}
 			}
 		}
 	}
@@ -290,6 +315,10 @@ IOUSBHubDevice::ReturnExtraPower(UInt32 returnedPower)
 		// We allocated power from our parent, so return it now
 		super::ReturnExtraPower(kUSBPowerDuringWake, _CANREQUESTEXTRAPOWER);	
 		_EXTRAPOWERALLOCATED = false;
+	}
+	else if ( _REQUESTFROMPARENT )
+	{
+		super::ReturnExtraPower(kUSBPowerDuringWake, returnedPower);	
 	}
 	else
 	{
@@ -325,37 +354,60 @@ IOUSBHubDevice::GetSleepCurrent()
 }
 
 
-
+// ExtraPowerRequest - how much we need to ask from our hub parent in order to get ExtraPowerForPorts mA
+// ExtraPowerForPorts - how much extra power we provide for all ports when a request for ExtraPowerRequest comes thru
 void			
 IOUSBHubDevice::InitializeExtraPower(UInt32 maxPortCurrent, UInt32 totalExtraCurrent)
 {
 	OSNumber *		extraPowerProp = NULL;
 	OSObject *		propertyObject = NULL;
+	OSBoolean *		booleanObj = NULL;
 	
 	USBLog(5, "IOUSBHubDevice[%p]::InitializeExtraPower - maxPortCurrent = %d, totalExtraCurrent: %d", this, (uint32_t)maxPortCurrent, (uint32_t) totalExtraCurrent);
 
 	_MAXPORTCURRENT = maxPortCurrent;
 	_TOTALEXTRACURRENT = totalExtraCurrent;
 	
-	propertyObject = copyProperty("ExtraPowerRequest");
-	extraPowerProp = OSDynamicCast(OSNumber, propertyObject);
-    if ( extraPowerProp )
+	// If we have a "GetExtraPowerPropertiesFromParent" property, then use those to set the _CANREQUESTEXTRAPOWER and _CANREQUESTEXTRAPOWER
+	propertyObject = getProperty("RequestExtraCurrentFromParent");
+	booleanObj = OSDynamicCast(OSBoolean, propertyObject);
+	if (booleanObj && booleanObj->isTrue() && DoLocationOverrideAndModelMatch())
 	{
-        _CANREQUESTEXTRAPOWER = extraPowerProp->unsigned32BitValue();
-		USBLog(6, "IOUSBHubDevice[%p]::InitializeExtraPower  got ExtraPowerRequest of %d", this, (uint32_t) _CANREQUESTEXTRAPOWER );
+		USBLog(6, "IOUSBHubDevice[%p]::InitializeExtraPower  found RequestExtraCurrentFromParent property, setting _REQUESTFROMPARENT to true", this );
+		_REQUESTFROMPARENT = true;
+		
+		if (_USBPLANE_PARENT != NULL)
+		{
+			extraPowerProp = OSDynamicCast(OSNumber, _USBPLANE_PARENT->getProperty(kAppleCurrentAvailable));
+			if ( extraPowerProp )
+			{
+				_MAXPORTCURRENT = extraPowerProp->unsigned32BitValue();
+				USBLog(6, "IOUSBHubDevice[%p]::InitializeExtraPower  setting _MAXPORTCURRENT to %d", this, (uint32_t) _MAXPORTCURRENT );
+			}
+		}
 	}
-	if ( propertyObject)
-		propertyObject->release();
-	
-	propertyObject = copyProperty("ExtraPowerForPorts");
-	extraPowerProp = OSDynamicCast(OSNumber, propertyObject);
-    if ( extraPowerProp )
+	else
 	{
-        _EXTRAPOWERFORPORTS = extraPowerProp->unsigned32BitValue();
-		USBLog(6, "IOUSBHubDevice[%p]::InitializeExtraPower  got ExtraPowerForPorts of %d", this, (uint32_t) _EXTRAPOWERFORPORTS );
+		propertyObject = copyProperty("ExtraPowerRequest");
+		extraPowerProp = OSDynamicCast(OSNumber, propertyObject);
+		if ( extraPowerProp )
+		{
+			_CANREQUESTEXTRAPOWER = extraPowerProp->unsigned32BitValue();
+			USBLog(6, "IOUSBHubDevice[%p]::InitializeExtraPower  got ExtraPowerRequest of %d", this, (uint32_t) _CANREQUESTEXTRAPOWER );
+		}
+		if ( propertyObject)
+			propertyObject->release();
+		
+		propertyObject = copyProperty("ExtraPowerForPorts");
+		extraPowerProp = OSDynamicCast(OSNumber, propertyObject);
+		if ( extraPowerProp )
+		{
+			_EXTRAPOWERFORPORTS = extraPowerProp->unsigned32BitValue();
+			USBLog(6, "IOUSBHubDevice[%p]::InitializeExtraPower  got ExtraPowerForPorts of %d", this, (uint32_t) _EXTRAPOWERFORPORTS );
+		}
+		if ( propertyObject)
+			propertyObject->release();
 	}
-	if ( propertyObject)
-		propertyObject->release();
 	
 	USBLog(6, "IOUSBHubDevice[%p]::InitializeExtraPower  USB Plane Parent is %p (%s)", this, _USBPLANE_PARENT, _USBPLANE_PARENT == NULL ? "" : _USBPLANE_PARENT->getName());
 

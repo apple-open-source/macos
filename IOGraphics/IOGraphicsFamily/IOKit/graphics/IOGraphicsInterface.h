@@ -24,34 +24,34 @@
 #define _IOKIT_IOGRAPHICSINTERFACE_H
 
 #ifdef KERNEL
-#define NO_CFPLUGIN	1
+#define NO_CFPLUGIN     1
 #endif
 
 #ifndef NO_CFPLUGIN
 #include <IOKit/IOCFPlugIn.h>
 #endif /* ! NO_CFPLUGIN */
 
-#define IOGA_COMPAT	1
+#define IOGA_COMPAT     1
 
 #include <IOKit/graphics/IOGraphicsInterfaceTypes.h>
 
-#define kIOGraphicsAcceleratorTypeID			\
-	(CFUUIDGetConstantUUIDWithBytes(NULL,		\
-                                0xAC, 0xCF, 0x00, 0x00,	\
-                                0x00, 0x00,		\
-                                0x00, 0x00,		\
-                                0x00, 0x00,		\
+#define kIOGraphicsAcceleratorTypeID                    \
+        (CFUUIDGetConstantUUIDWithBytes(NULL,           \
+                                0xAC, 0xCF, 0x00, 0x00, \
+                                0x00, 0x00,             \
+                                0x00, 0x00,             \
+                                0x00, 0x00,             \
                                 0x00, 0x0a, 0x27, 0x89, 0x90, 0x4e))
 
 // IOGraphicsAcceleratorType objects must implement the
 // IOGraphicsAcceleratorInterface
 
-#define kIOGraphicsAcceleratorInterfaceID		\
-	(CFUUIDGetConstantUUIDWithBytes(NULL, 		\
-                                0x67, 0x66, 0xE9, 0x4A,	\
-                                0x00, 0x00,		\
-                                0x00, 0x00,		\
-                                0x00, 0x00,		\
+#define kIOGraphicsAcceleratorInterfaceID               \
+        (CFUUIDGetConstantUUIDWithBytes(NULL,           \
+                                0x67, 0x66, 0xE9, 0x4A, \
+                                0x00, 0x00,             \
+                                0x00, 0x00,             \
+                                0x00, 0x00,             \
                                 0x00, 0x0a, 0x27, 0x89, 0x90, 0x4e))
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
@@ -115,7 +115,7 @@ typedef struct IOGraphicsAcceleratorInterfaceStruct {
         (void *thisPointer, IOOptionBits options, SInt32 * position);
     IOReturn (*AllocateSurface)
         (void *thisPointer, IOOptionBits options,
-	 IOBlitSurface * surface, void * cgsSurfaceID );
+         IOBlitSurface * surface, void * cgsSurfaceID );
     IOReturn (*FreeSurface)
         (void *thisPointer, IOOptionBits options, IOBlitSurface * surface);
     IOReturn (*LockSurface)
@@ -123,7 +123,7 @@ typedef struct IOGraphicsAcceleratorInterfaceStruct {
          vm_address_t * address );
     IOReturn (*UnlockSurface)
         (void *thisPointer, IOOptionBits options, IOBlitSurface * surface,
-	 IOOptionBits * swapFlags);
+         IOOptionBits * swapFlags);
     IOReturn (*SwapSurface)
         (void *thisPointer, IOOptionBits options,
          IOBlitSurface * surface, IOOptionBits * swapFlags);

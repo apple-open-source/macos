@@ -61,7 +61,7 @@
 #define kIOMessageFWSBP2ReconnectComplete		((UInt32)iokit_fw_err(0x3E8))
 #define kIOMessageFWSBP2ReconnectFailed       	((UInt32)iokit_fw_err(0x3E9))
 
-/*
+/*!
  * Direction of transfer, with respect to the described memory.
  */
 enum IODirection
@@ -72,6 +72,7 @@ enum IODirection
     kIODirectionOutIn = 3
 };
 
+/*! Virtual address range for SBP2. */
 typedef struct 
 {
 	void * address;
@@ -80,14 +81,20 @@ typedef struct
 
 //////////////////////
 
-// login option flags
+/*! @enum Login Option Flags
+    @discussion
+	Passed to the setLoginFlags member function.
+ */
 enum
 {
 	kFWSBP2DontSynchronizeMgmtAgent = (1 << 0),
     kFWSBP2ExclusiveLogin 			= (1 << 5)
 };
 
-// orb option flags
+/*! @enum ORB Option Flags
+    @discussion
+	Passed to the setCommandFlags member function.
+ */
 enum
 {
     kFWSBP2CommandCompleteNotify			= (1 << 0),
@@ -104,6 +111,10 @@ enum
 	kFWSBP2CommandVirtualORBs				= (1 << 11)     // handy for debugging
 };
 
+/*! @enum SBP2 setCommandFunction values
+    @discussion
+	Passed to the setCommandFunction member function.
+ */
 enum
 {
     kFWSBP2QueryLogins			= 1,
@@ -113,7 +124,10 @@ enum
     kFWSBP2TargetReset			= 0xf
 };
 
-// notification events
+/*! @enum SBP2 Notification Events
+    @discussion
+	Passed to the setStatusNotifyProc member function.
+ */
 enum
 {
     kFWSBP2NormalCommandStatus	= 6,
@@ -148,7 +162,7 @@ typedef struct
     @param sbpStatus SBP2 specific status
     @param orbOffsetHi High 32 bits of address of orb status is for.
     @param orbOffsetLo Low 32 bits of address of orb status is for.
-    @param status[6] Up to 48 bytes of additional data. Length is determined by len field.
+    @param status Up to 48 bytes of additional data. Length is determined by len field.
 */
 
 typedef struct
@@ -307,8 +321,6 @@ typedef void (*IOFWSBP2FetchAgentWriteCallback)(void * refCon, IOReturn status, 
 
 //////////////////////
 
-typedef struct
-{
 
 /*!
     @class IOFireWireSBP2LibLUNInterface
@@ -317,11 +329,8 @@ typedef struct
     The LUN can also create IOFireWireSBP2LibManagementORBInterfaces for configuring and appending non-login related management functions.  Login related management functions (ie. Login, Logout, Reconnect) are supplied by the IOFireWireSBP2LibLoginInterface.
     Finally the LUN can supply a reference to the IOFireWireUnit.  This can be useful if a driver wishes to access the standard FireWire APIs.  
 */
-
-/* headerdoc parse workaround	
-class IOFireWireSBP2LibLUNInterface: public IUnknown {
-public:
-*/
+typedef struct
+{
 
 	IUNKNOWN_C_GUTS;
 
@@ -477,8 +486,6 @@ public:
 } IOFireWireSBP2LibLUNInterface;
 
 
-typedef struct
-{
 
 /*!
     @class IOFireWireSBP2LibORBInterface
@@ -486,11 +493,9 @@ typedef struct
     command ORBs.  This includes setting the command block and writing the page tables for I/O.
     The ORBs are executed using the submitORB method in IOFireWireSBP2LibLoginInterface.
 */
+typedef struct
+{
 
-/* headerdoc parse workaround	
-class IOFireWireSBP2LibORBInterface: public IUnknown {
-public:
-*/
 	IUNKNOWN_C_GUTS;
 
 	UInt16	version;						
@@ -543,7 +548,7 @@ public:
         @discussion This sets the maximum payload size for this ORB only.  This size is clipped by 
         the global max payload size set in the login object.
         @param self Pointer to IOFireWireSBP2LibORBInterface.
-        @param maxPayloadSize The maximum payload size in bytes.
+        @param size The maximum payload size in bytes.
     */
     
 	void (*setMaxORBPayloadSize)( void * self, UInt32 size );
@@ -567,7 +572,7 @@ public:
         @discussion This sets the bus generation this ORB should be appended in.  It is only meaningful 
         when combined with the kFWSBP2CommandCheckGeneration flags above.
         @param self Pointer to IOFireWireSBP2LibORBInterface.
-        @param gen The bus generation for command execution.
+        @param generation The bus generation for command execution.
     */
 
 	void (*setCommandGeneration)( void * self, UInt32 generation );
@@ -664,8 +669,6 @@ public:
 		
 } IOFireWireSBP2LibORBInterface;
 
-typedef struct
- {
  /*!
     @class IOFireWireSBP2LibLoginInterface
     @abstract Supplies the login maintenance and Normal Command ORB execution portions of the API.
@@ -678,11 +681,9 @@ typedef struct
     reset notification via the IOKit message routine.  The SBP2 services build on this behavior 
     and deliver reconnectFailed and reconnectComplete through the message routine as well.
 */
+typedef struct
+ {
 
-/* headerdoc parse workaround	
-class IOFireWireSBP2LibLoginInterface: public IUnknown {
-public:
-*/
 	IUNKNOWN_C_GUTS;
 
 	UInt16	version;						
@@ -719,7 +720,7 @@ public:
         login ORB. kFWSBP2DontSynchronizeMgmtAgent allows simultaneous logins or reconnects to LUNs
         with a common management agent (ie LUNs in the same unit directory).
         @param self Pointer to IOFireWireSBP2LibLoginInterface object.
-        @param loginFlags the login configuration flags.
+        @param flags the login configuration flags.
 	*/
     
 	void (*setLoginFlags)( void * self, UInt32 flags );
@@ -808,7 +809,7 @@ public:
         the maximum for all ORBs sent to this LUN.  This can be trimmed further on an ORB by ORB basis, 
         by a similar call in the IOFireWireSBP2ORB itself.
         @param self Pointer to IOFireWireSBP2LibLoginInterface object.
-        @param reconnectTime The desired maximum payload size in bytes.
+        @param size The desired maximum payload size in bytes.
 	*/
 
 	void (*setMaxPayloadSize)( void * self, UInt32 size );
@@ -822,7 +823,7 @@ public:
         may be less than the reconnect timeout that the intiator specified if this is all that the 
         device can support.
         @param self Pointer to IOFireWireSBP2LibLoginInterface object.
-        @param reconnectTime The desired reconnect timeout encoded as 2^reconnectTime seconds.
+        @param time The desired reconnect timeout encoded as 2^reconnectTime seconds.
 	*/
 
 	void (*setReconnectTime)( void * self, UInt32 time );
@@ -976,8 +977,8 @@ public:
         in the login ORB.  In this case the buffer is not copied and should remain allocated for the 
         duration of the login attempt.
         @param self Pointer to IOFireWireSBP2LibLoginInterface object.
-        @param buf a pointer to the password buffer.
-        @param len the length in bytes of the password buffer.
+        @param buffer a pointer to the password buffer.
+        @param length the length in bytes of the password buffer.
         @result Returns kIOReturnSuccess on success.
 	*/
     	
@@ -985,19 +986,14 @@ public:
 	
 } IOFireWireSBP2LibLoginInterface;
 
-typedef struct
-{
 
 /*!
 	@class IOFireWireSBP2LibMgmtORBInterface
     @abstract Supplies non login related management ORBs.  Management ORBs can be executed independent 
     of a login, if necessary.  Management ORBs are created using the IOFireWireSBP2LibLUNInterface.
 */
-
-/* headerdoc parse workaround	
-class IOFireWireSBP2LibMgmtORBInterface: public IUnknown {
-public:
-*/
+typedef struct
+{
 
 	IUNKNOWN_C_GUTS;
 

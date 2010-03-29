@@ -285,10 +285,13 @@ __expand_uniquing_table(backtrace_uniquing_table *uniquing_table)
 static int 
 __enter_frames_in_table(backtrace_uniquing_table *uniquing_table, uint64_t *foundIndex, mach_vm_address_t *frames, int32_t count)
 {	
+	// The hash values need to be the same size as the addresses (because we use the value -1), for clarity, define a new type
+	typedef mach_vm_address_t hash_index_t;
+
 	mach_vm_address_t thisPC;
-	uint64_t hash, uParent = (uint64_t)(-1ll), modulus = (uniquing_table->numNodes-uniquing_table->untouchableNodes-1);
+	hash_index_t hash, uParent = (hash_index_t)(-1ll), modulus = (uniquing_table->numNodes-uniquing_table->untouchableNodes-1);
 	int32_t collisions, lcopy = count, returnVal = 1;
-	uint64_t hash_multiplier = ((uniquing_table->numNodes - uniquing_table->untouchableNodes)/(uniquing_table->max_collide*2+1));
+	hash_index_t hash_multiplier = ((uniquing_table->numNodes - uniquing_table->untouchableNodes)/(uniquing_table->max_collide*2+1));
 	mach_vm_address_t *node;
 	while (--lcopy >= 0) {
         thisPC = frames[lcopy];

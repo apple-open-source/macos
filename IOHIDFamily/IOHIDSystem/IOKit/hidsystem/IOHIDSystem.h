@@ -207,8 +207,6 @@ private:
     bool setParamPropertiesInProgress;
     
     OSSet * dataQueueSet;
-    UInt64 mouseButtonTimeout;
-	SInt32	identity;
         
 private:
     void vblEvent(void);

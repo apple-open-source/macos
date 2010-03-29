@@ -122,9 +122,10 @@ class Database(DatabaseInterface):
         parentID = article.parentID
         if parentID is not None and self.articleIndex.has_key(parentID):
             parent = self.getArticle(archive, parentID)
-            myThreadKey = parent.threadKey + article.date + '-'
+            myThreadKey = (parent.threadKey + article.date + '.'
+                           + str(article.sequence) + '-')
         else:
-            myThreadKey = article.date + '-'
+            myThreadKey = article.date + '.' + str(article.sequence) + '-'
         article.threadKey = myThreadKey
         key = myThreadKey, article.msgid
         self.setThreadKey(archive, key, article.msgid)
@@ -418,7 +419,8 @@ class T:
                 else:
                     parent = self.database.getArticle(self.archive,
                                                     article.parentID)
-                    article.threadKey = parent.threadKey+article.date+'-'
+                    article.threadKey = (parent.threadKey + article.date + '.'
+                                         + str(article.sequence) + '-')
                 self.database.setThreadKey(self.archive,
                     (article.threadKey, article.msgid),
                     msgid)
@@ -632,9 +634,11 @@ class T:
             article.parentID = parentID = self.get_parent_info(arch, article)
             if parentID:
                 parent = self.database.getArticle(arch, parentID)
-                article.threadKey = parent.threadKey + article.date + '-'
+                article.threadKey = (parent.threadKey + article.date + '.'
+                                     + str(article.sequence) + '-')
             else:
-                article.threadKey = article.date + '-'
+                article.threadKey = (article.date + '.'
+                                     + str(article.sequence) + '-')
             key = article.threadKey, article.msgid
 
             self.database.setThreadKey(arch, key, article.msgid)
@@ -775,7 +779,7 @@ class BSDDBdatabase(Database):
         omask = os.umask(0)
         try:
             try:
-                os.mkdir(arcdir, 0775)
+                os.mkdir(arcdir, 02775)
             except OSError:
                 # BAW: Hmm...
                 pass

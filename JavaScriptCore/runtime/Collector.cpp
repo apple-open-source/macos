@@ -33,6 +33,7 @@
 #include "Nodes.h"
 #include "Tracing.h"
 #include <algorithm>
+#include <limits.h>
 #include <setjmp.h>
 #include <stdlib.h>
 #include <wtf/FastMalloc.h>
@@ -1148,8 +1149,10 @@ static const char* typeName(JSCell* cell)
 {
     if (cell->isString())
         return "string";
+#if USE(JSVALUE32)
     if (cell->isNumber())
         return "number";
+#endif
     if (cell->isGetterSetter())
         return "gettersetter";
     ASSERT(cell->isObject());

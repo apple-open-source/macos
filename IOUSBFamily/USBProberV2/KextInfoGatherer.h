@@ -2,7 +2,7 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  *
- * Copyright (c) 1998-2003 Apple Computer, Inc.  All Rights Reserved.
+ * Copyright © 1998-20010 Apple Inc.  All rights reserved.
  *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
@@ -23,7 +23,6 @@
  */
 
 
-#import <IOKit/kext/OSKext.h>
 #import <Foundation/Foundation.h>
 #import <mach/mach.h>
 #import <mach/mach_error.h>

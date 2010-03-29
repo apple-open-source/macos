@@ -38,10 +38,21 @@ LSOF_CONFIGURE  = $(OBJROOT)/Configure
 install-patched-source: shadow_source
 	$(_v) echo "*** patching Configure"
 	$(_v) $(CAT) $(LSOF_CONFIGURE)						>  /tmp/build.lsof.$(UNIQUE)
-	$(_v) echo '/^[ 	]*1000)/n'					>  /tmp/build.lsof.$(UNIQUE)-ed
+	$(_v) echo '/^[ 	]*900)/n'					>  /tmp/build.lsof.$(UNIQUE)-ed
+	$(_v) echo '/^[ 	]*;;/i'						>> /tmp/build.lsof.$(UNIQUE)-ed
+	$(_v) echo '      LSOF_CC="$(CC)"'					>> /tmp/build.lsof.$(UNIQUE)-ed
+	$(_v) echo '      if [ -n "${SDKROOT}" ]; then'                         >> /tmp/build.lsof.$(UNIQUE)-ed
+	$(_v) echo '        LSOF_CFGF="$$LSOF_CFGF -isysroot $(SDKROOT)"'       >> /tmp/build.lsof.$(UNIQUE)-ed
+	$(_v) echo '      fi'                                                   >> /tmp/build.lsof.$(UNIQUE)-ed
+	$(_v) echo '.'								>> /tmp/build.lsof.$(UNIQUE)-ed
+	$(_v) echo '/^[ 	]*1000)/n'					>> /tmp/build.lsof.$(UNIQUE)-ed
 	$(_v) echo '/^[ 	]*;;/i'						>> /tmp/build.lsof.$(UNIQUE)-ed
 	$(_v) echo '      LSOF_UNSUP=""'					>> /tmp/build.lsof.$(UNIQUE)-ed
 	$(_v) echo '      LSOF_TSTBIGF=" "'					>> /tmp/build.lsof.$(UNIQUE)-ed
+	$(_v) echo '      LSOF_CC="$(CC)"'					>> /tmp/build.lsof.$(UNIQUE)-ed
+	$(_v) echo '      if [ -n "${SDKROOT}" ]; then'                         >> /tmp/build.lsof.$(UNIQUE)-ed
+	$(_v) echo '        LSOF_CFGF="$$LSOF_CFGF -isysroot $(SDKROOT)"'       >> /tmp/build.lsof.$(UNIQUE)-ed
+	$(_v) echo '      fi'                                                   >> /tmp/build.lsof.$(UNIQUE)-ed
 	$(_v) echo '.'								>> /tmp/build.lsof.$(UNIQUE)-ed
 	$(_v) echo '.,$$s/DARWIN_XNU_HEADERS/SDKROOT/'				>> /tmp/build.lsof.$(UNIQUE)-ed
 	$(_v) echo 'w'								>> /tmp/build.lsof.$(UNIQUE)-ed

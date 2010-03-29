@@ -14,11 +14,11 @@ cc -g -o /tmp/setaggro setaggro.c -framework ApplicationServices -framework IOKi
 #endif
 
 #ifndef kIOFBLowPowerAggressiveness
-#define kIOFBLowPowerAggressiveness	iokit_family_err(sub_iokit_graphics, 1)
+#define kIOFBLowPowerAggressiveness     iokit_family_err(sub_iokit_graphics, 1)
 #endif
 
 #ifndef kIODisplayDimAggressiveness
-#define kIODisplayDimAggressiveness	iokit_family_err(sub_iokit_graphics, 3)
+#define kIODisplayDimAggressiveness     iokit_family_err(sub_iokit_graphics, 3)
 #endif
 
 int main(int argc, char * argv[])
@@ -29,15 +29,15 @@ int main(int argc, char * argv[])
 
     if (argc < 2)
     {
-	fprintf(stderr, "%s value\n", argv[0]);
-	return (1);
+        fprintf(stderr, "%s value\n", argv[0]);
+        return (1);
     }
 
     connect = IOPMFindPowerManagement(kIOMasterPortDefault);
     if (!connect) 
     {
-	fprintf(stderr, "IOPMFindPowerManagement(%x)\n", err);
-	return (1);
+        fprintf(stderr, "IOPMFindPowerManagement(%x)\n", err);
+        return (1);
     }
 
     value = strtol(argv[1], 0, 0);

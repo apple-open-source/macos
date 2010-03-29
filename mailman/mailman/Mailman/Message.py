@@ -1,4 +1,4 @@
-# Copyright (C) 1998-2007 by the Free Software Foundation, Inc.
+# Copyright (C) 1998-2009 by the Free Software Foundation, Inc.
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -17,12 +17,15 @@
 
 """Standard Mailman message object.
 
-This is a subclass of mimeo.Message but provides a slightly extended interface
+This is a subclass of email.Message but provides a slightly extended interface
 which is more convenient for use inside Mailman.
 """
 
 import re
+from cStringIO import StringIO
+
 import email
+import email.Generator
 import email.Message
 import email.Utils
 from email.Charset import Charset
@@ -37,6 +40,24 @@ COMMASPACE = ', '
 
 mo = re.match(r'([\d.]+)', email.__version__)
 VERSION = tuple([int(s) for s in mo.group().split('.')])
+
+
+
+class Generator(email.Generator.Generator):
+    """Generates output from a Message object tree, keeping signatures.
+
+       Headers will by default _not_ be folded in attachments.
+    """
+    def __init__(self, outfp, mangle_from_=True,
+                 maxheaderlen=78, children_maxheaderlen=0):
+        email.Generator.Generator.__init__(self, outfp,
+                mangle_from_=mangle_from_, maxheaderlen=maxheaderlen)
+        self.__children_maxheaderlen = children_maxheaderlen
+
+    def clone(self, fp):
+        """Clone this generator with maxheaderlen set for children"""
+        return self.__class__(fp, self._mangle_from_,
+                self.__children_maxheaderlen, self.__children_maxheaderlen)
 
 
 
@@ -206,6 +227,20 @@ class Message(email.Message.Message):
             return filename
         except (UnicodeError, LookupError, ValueError):
             return failobj
+
+
+    def as_string(self, unixfrom=False, mangle_from_=True):
+        """Return entire formatted message as a string using
+        Mailman.Message.Generator.
+
+        Operates like email.Message.Message.as_string, only
+	using Mailman's Message.Generator class. Only the top headers will
+        get folded.
+        """
+        fp = StringIO()
+        g = Generator(fp, mangle_from_=mangle_from_)
+        g.flatten(self, unixfrom=unixfrom)
+        return fp.getvalue()
 
 
 

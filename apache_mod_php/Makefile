@@ -1,6 +1,6 @@
 #
 # Apple wrapper Makefile for PHP
-# Copyright (c) 2008-2009 Apple Inc. All Rights Reserved.
+# Copyright (c) 2008-2010 Apple Inc. All Rights Reserved.
 ##
 #
 
@@ -9,7 +9,7 @@ Project         = php
 ProjectName     = apache_mod_php
 UserType        = Developer
 ToolType        = Plugin
-Submission      = 53
+Submission      = 53.1.1
 
 GnuAfterInstall	= install-macosx
 # Environment is passed to BOTH configure AND make, which can cause problems if these
@@ -61,7 +61,9 @@ Extra_Configure_Flags	= --sysconfdir=$(ETCDIR) \
 			--enable-sysvmsg --enable-sysvsem --enable-sysvshm \
 			--with-xmlrpc \
 				--with-iconv-dir=/usr \
-			--with-xsl=/usr
+			--with-xsl=/usr \
+			--enable-zend-multibyte \
+			--enable-zip
 # MySQL is only installed on X Server.
 #ifneq ($(strip $(wildcard /usr/bin/mysql_conf*)),)
 #Extra_Configure_Flags	+= --with-mysql=/usr \
@@ -73,11 +75,6 @@ Extra_Configure_Flags	= --sysconfdir=$(ETCDIR) \
 ifneq ($(strip $(wildcard /usr/local/include/pcre.*)),)
 Extra_Configure_Flags	+= --with-pcre-regex=/usr
 endif
-# The FreeType2 library is only installed on Snow Leopard.
-# ... but it requires CoreServices and ApplicationServices frameworks. Bad!
-#ifneq ($(strip $(wildcard /usr/local/include/freetype2/*)),)
-#Extra_Configure_Flags	+= --with-freetype-dir=/usr/local
-#endif
 
 Dependencies	= libjpeg libpng
 # Let this Makefile manage source copying.
@@ -85,11 +82,10 @@ CommonNoInstallSource	= YES
 
 # Additional project info used with AEP
 AEP		= YES
-AEP_Version	= 5.3.0
+AEP_Version	= 5.3.1
 AEP_LicenseFile	= $(Sources)/LICENSE
-AEP_Patches	= MacOSX_build.patch force_dlfcn.patch arches.patch \
+AEP_Patches	= MacOSX_build.patch arches.patch \
 				NLS_remove_BIND8.patch iconv.patch \
-				where_is_pcre.patch \
 				mysql_sock.patch
 AEP_ConfigDir	= $(ETCDIR)
 
@@ -174,6 +170,7 @@ install-macosx:
 		$(CP) $${file} $(SYMROOT);	\
 		$(STRIP) -S $${file};		\
 	done
+	-$(MV) $(DSTROOT)$(USRDIR)/local/lib/* $(SYMROOT)
 	@echo "Deleting private dependencies..."
 	-$(RMDIR) $(DSTROOT)/usr/local/lib
 	-$(RMDIR) $(DSTROOT)/usr/local/include
@@ -189,5 +186,5 @@ install-macosx:
 		$(DSTROOT)/usr/lib/php/.depdblock \
 	@echo "Mac OS X-specific cleanup complete."
 
-$(DSTROOT) $(DSTROOT)$(ETCDIR) $(DSTROOT)/usr/libexec/apache2 $(TMPDIR):
+$(DSTROOT) $(DSTROOT)$(ETCDIR) $(DSTROOT)$(LIBEXECDIR)/apache2 $(TMPDIR):
 	$(MKDIR) $@

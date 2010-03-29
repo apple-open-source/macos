@@ -18,7 +18,7 @@
  * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
  * KIND, either express or implied.
  *
- * $Id: sslgen.c,v 1.45 2009-02-25 12:51:39 bagder Exp $
+ * $Id: sslgen.c,v 1.48 2009-05-04 21:57:14 bagder Exp $
  ***************************************************************************/
 
 /* This file is for implementing all "generic" SSL functions that all libcurl
@@ -59,7 +59,7 @@
 #include "sendf.h"
 #include "rawstr.h"
 #include "url.h"
-#include "memory.h"
+#include "curl_memory.h"
 #include "progress.h"
 /* The last #include file should be: */
 #include "memdebug.h"
@@ -195,9 +195,13 @@ Curl_ssl_connect_nonblocking(struct connectdata *conn, int sockindex,
                              bool *done)
 {
 #ifdef curlssl_connect_nonblocking
+  CURLcode res;
   /* mark this is being ssl requested from here on. */
   conn->ssl[sockindex].use = TRUE;
-  return curlssl_connect_nonblocking(conn, sockindex, done);
+  res = curlssl_connect_nonblocking(conn, sockindex, done);
+  if(!res && *done == TRUE)
+    Curl_pgrsTime(conn->data, TIMER_APPCONNECT); /* SSL is connected */
+  return res;
 #else
   *done = TRUE; /* fallback to BLOCKING */
   conn->ssl[sockindex].use = TRUE;
@@ -265,6 +269,22 @@ static int kill_session(struct curl_ssl_session *session)
   }
   else
     return 1;
+}
+
+/*
+ * Delete the given session ID from the cache.
+ */
+void Curl_ssl_delsessionid(struct connectdata *conn, void *ssl_sessionid)
+{
+  int i;
+  for(i=0; i< conn->data->set.ssl.numsessions; i++) {
+    struct curl_ssl_session *check = &conn->data->state.session[i];
+
+    if (check->sessionid == ssl_sessionid) {
+      kill_session(check);
+      break;
+    }
+  }
 }
 
 /*

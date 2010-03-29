@@ -39,7 +39,7 @@ DEFS=		@DEFS@
 # Customizable but not set by configure
 
 OPT=		@OPT@
-CFLAGS=		@CFLAGS@ $(OPT) $(BI_RC_CFLAGS) $(DEFS)
+CFLAGS=		@CFLAGS@ $(OPT) $(DEFS)
 
 VAR_DIRS= \
 	logs archives lists locks data spam qfiles \

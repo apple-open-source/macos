@@ -5,7 +5,7 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * $Id: tftpd.c,v 1.48 2008-10-23 14:34:09 yangtse Exp $
+ * $Id: tftpd.c,v 1.55 2009-09-17 15:33:32 yangtse Exp $
  *
  * Trivial file transfer protocol server.
  *
@@ -65,6 +65,9 @@
 #ifdef HAVE_NETINET_IN_H
 #include <netinet/in.h>
 #endif
+#ifdef HAVE_ARPA_INET_H
+#include <arpa/inet.h>
+#endif
 #ifdef HAVE_ARPA_TFTP_H
 #include <arpa/tftp.h>
 #else
@@ -116,7 +119,6 @@ static struct tftphdr *w_init(void);
 static int readit(struct testcase *test, struct tftphdr **dpp, int convert);
 static int writeit(struct testcase *test, struct tftphdr **dpp, int ct,
                    int convert);
-static void mysignal(int, void (*func)(int));
 
 #define opcode_RRQ   1
 #define opcode_WRQ   2
@@ -145,13 +147,12 @@ static void recvtftp(struct testcase *test, struct formats *pf);
 static int validate_access(struct testcase *test, const char *, int);
 
 static curl_socket_t peer;
-static int rexmtval = TIMEOUT;
 static int maxtimeout = 5*TIMEOUT;
 
 static char buf[PKTSIZE];
 static char ackbuf[PKTSIZE];
 static struct sockaddr_in from;
-static socklen_t fromlen;
+static curl_socklen_t fromlen;
 
 struct bf {
   int counter;            /* size of data in buffer, or flag */
@@ -195,7 +196,7 @@ rw_init(int x)              /* init for either read-ahead or write-behind */
    Free it and return next buffer filled with data.
  */
 static int readit(struct testcase *test, struct tftphdr **dpp,
-           int convert /* if true, convert to ascii */)
+                  int convert /* if true, convert to ascii */)
 {
   struct bf *b;
 
@@ -204,7 +205,7 @@ static int readit(struct testcase *test, struct tftphdr **dpp,
 
   b = &bfs[current];              /* look at new buffer */
   if (b->counter == BF_FREE)      /* if it's empty */
-    read_ahead(test, convert);      /* fill it */
+    read_ahead(test, convert);    /* fill it */
 
   *dpp = (struct tftphdr *)b->buf;        /* set caller's ptr */
   return b->counter;
@@ -375,7 +376,7 @@ static int synchnet(curl_socket_t f /* socket to flush */)
   int j = 0;
   char rbuf[PKTSIZE];
   struct sockaddr_in fromaddr;
-  socklen_t fromaddrlen;
+  curl_socklen_t fromaddrlen;
 
   while (1) {
 #if defined(HAVE_IOCTLSOCKET)
@@ -483,7 +484,7 @@ int main(int argc, char **argv)
     sock = socket(AF_INET6, SOCK_DGRAM, 0);
 #endif
 
-  if (sock < 0) {
+  if(CURL_SOCKET_BAD == sock) {
     perror("opening stream socket");
     logmsg("Error opening socket");
     return 1;
@@ -532,7 +533,7 @@ int main(int argc, char **argv)
     n = (ssize_t)recvfrom(sock, buf, sizeof(buf), 0,
                           (struct sockaddr *)&from, &fromlen);
     if (n < 0) {
-      logmsg("recvfrom:\n");
+      logmsg("recvfrom");
       result = 3;
       break;
     }
@@ -542,14 +543,14 @@ int main(int argc, char **argv)
     from.sin_family = AF_INET;
 
     peer = socket(AF_INET, SOCK_DGRAM, 0);
-    if (peer < 0) {
-      logmsg("socket:\n");
+    if(CURL_SOCKET_BAD == peer) {
+      logmsg("socket");
       result = 2;
       break;
     }
 
     if (connect(peer, (struct sockaddr *)&from, sizeof(from)) < 0) {
-      logmsg("connect: fail\n");
+      logmsg("connect: fail");
       result = 1;
       break;
     }
@@ -567,6 +568,8 @@ int main(int argc, char **argv)
     sclose(peer);
 
     clear_advisor_read_lock(SERVERLOGS_LOCK);
+
+    logmsg("end of one transfer");
 
   } while(1);
 
@@ -620,7 +623,7 @@ again:
   /* store input protocol */
   fprintf(server, "filename: %s\n", filename);
 
-  for (cp = mode; *cp; cp++)
+  for (cp = mode; cp && *cp; cp++)
     if(ISUPPER(*cp))
       *cp = (char)tolower((int)*cp);
 
@@ -736,6 +739,7 @@ static int validate_access(struct testcase *test,
     return EACCESS; /* failure */
   }
 
+  logmsg("file opened and all is good");
   return 0;
 }
 
@@ -743,6 +747,9 @@ static int timeout;
 #ifdef HAVE_SIGSETJMP
 static sigjmp_buf timeoutbuf;
 #endif
+
+#if defined(HAVE_ALARM) && defined(SIGALRM)
+static int rexmtval = TIMEOUT;
 
 static void timer(int signum)
 {
@@ -759,6 +766,12 @@ static void timer(int signum)
   siglongjmp(timeoutbuf, 1);
 #endif
 }
+
+static void justtimeout(int signum)
+{
+  (void)signum;
+}
+#endif  /* HAVE_ALARM && SIGALRM */
 
 static unsigned short sendblock;
 static struct tftphdr *sdp;
@@ -790,7 +803,7 @@ static void sendtftp(struct testcase *test, struct formats *pf)
 #endif
     send_data:
     if (swrite(peer, sdp, size + 4) != size + 4) {
-      logmsg("write\n");
+      logmsg("write");
       return;
     }
     read_ahead(test, pf->f_convert);
@@ -803,7 +816,7 @@ static void sendtftp(struct testcase *test, struct formats *pf)
       alarm(0);
 #endif
       if (n < 0) {
-        logmsg("read: fail\n");
+        logmsg("read: fail");
         return;
       }
       sap->th_opcode = ntohs((u_short)sap->th_opcode);
@@ -828,11 +841,6 @@ static void sendtftp(struct testcase *test, struct formats *pf)
     }
     sendblock++;
   } while (size == SEGSIZE);
-}
-
-static void justtimeout(int signum)
-{
-  (void)signum;
 }
 
 

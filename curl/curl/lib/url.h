@@ -20,7 +20,7 @@
  * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
  * KIND, either express or implied.
  *
- * $Id: url.h,v 1.43 2009-02-07 22:53:38 bagder Exp $
+ * $Id: url.h,v 1.44 2009-05-08 10:59:40 bagder Exp $
  ***************************************************************************/
 
 #include <stdarg.h> /* to make sure we have ap_list */
@@ -84,5 +84,7 @@ void Curl_reset_reqproto(struct connectdata *conn);
 
 #define CURL_DEFAULT_PROXY_PORT 1080 /* default proxy port unless specified */
 #define CURL_DEFAULT_SOCKS5_GSSAPI_SERVICE "rcmd" /* default socks5 gssapi service */
+
+CURLcode Curl_connected_proxy(struct connectdata *conn);
 
 #endif

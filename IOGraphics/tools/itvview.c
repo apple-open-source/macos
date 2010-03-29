@@ -13,24 +13,24 @@
 void EDIDTest( IOI2CConnectRef connect )
 {
     kern_return_t kr;
-    IOI2CRequest	request;
-    UInt8		data[128];
+    IOI2CRequest        request;
+    UInt8               data[128];
     int i;
 
     bzero( &request, sizeof(request) );
 
-    request.commFlags	    		= 0;
+    request.commFlags                   = 0;
 
-    request.sendAddress			= 0xA0;
-    request.sendTransactionType		= kIOI2CSimpleTransactionType;
-    request.sendBuffer			= (vm_address_t) &data[0];
-    request.sendBytes	    		= 0x01;
-    data[0] 		    		= 0x00;
+    request.sendAddress                 = 0xA0;
+    request.sendTransactionType         = kIOI2CSimpleTransactionType;
+    request.sendBuffer                  = (vm_address_t) &data[0];
+    request.sendBytes                   = 0x01;
+    data[0]                             = 0x00;
 
-    request.replyAddress		= 0xA1;
-    request.replyTransactionType	= kIOI2CSimpleTransactionType;
-    request.replyBuffer	    		= (vm_address_t) &data[0];
-    request.replyBytes	    		= 128;
+    request.replyAddress                = 0xA1;
+    request.replyTransactionType        = kIOI2CSimpleTransactionType;
+    request.replyBuffer                 = (vm_address_t) &data[0];
+    request.replyBytes                  = 128;
     bzero( &data[0], request.replyBytes );
 
     kr = IOI2CSendRequest( connect, kNilOptions, &request );
@@ -51,29 +51,29 @@ void EDIDTest( IOI2CConnectRef connect )
 
 void iTVTest( IOI2CConnectRef connect )
 {
-    kern_return_t	kr;
-    IOI2CRequest	request;
-    UInt8		outData[2];
-    UInt8		inData[2];
-    int			i;
+    kern_return_t       kr;
+    IOI2CRequest        request;
+    UInt8               outData[2];
+    UInt8               inData[2];
+    int                 i;
 
     bzero( &request, sizeof(request) );
 
-    request.commFlags	    	= kIOI2CUseSubAddressCommFlag;
-    request.minReplyDelay	= 0;
+    request.commFlags           = kIOI2CUseSubAddressCommFlag;
+    request.minReplyDelay       = 0;
 
     for( i = 0; i < 50; i++ ) {
 
-        request.sendAddress		= 0x94;
-        request.sendSubAddress		= 0x70;
-        request.sendTransactionType	= kIOI2CSimpleTransactionType;
-        request.sendBuffer		= (vm_address_t) &outData[0];
-        request.sendBytes		= 0x02;
-        outData[0]			= i * 2;
-        outData[1]			= 256 - i;
+        request.sendAddress             = 0x94;
+        request.sendSubAddress          = 0x70;
+        request.sendTransactionType     = kIOI2CSimpleTransactionType;
+        request.sendBuffer              = (vm_address_t) &outData[0];
+        request.sendBytes               = 0x02;
+        outData[0]                      = i * 2;
+        outData[1]                      = 256 - i;
     
-        request.replyTransactionType 	= kIOI2CNoTransactionType;
-        request.replyBytes		= 0;
+        request.replyTransactionType    = kIOI2CNoTransactionType;
+        request.replyBytes              = 0;
     
         kr = IOI2CSendRequest( connect, kNilOptions, &request );
         assert( kIOReturnSuccess == kr );
@@ -82,14 +82,14 @@ void iTVTest( IOI2CConnectRef connect )
         if( kIOReturnSuccess != request.result)
             return;
     
-        request.sendTransactionType	= kIOI2CNoTransactionType;
-        request.sendBytes		= 0;
+        request.sendTransactionType     = kIOI2CNoTransactionType;
+        request.sendBytes               = 0;
     
-        request.replyAddress		= 0x95;
-        request.replySubAddress		= 0x70;
-        request.replyTransactionType 	= kIOI2CCombinedTransactionType;
-        request.replyBuffer		= (vm_address_t) &inData[0];
-        request.replyBytes		= 2;
+        request.replyAddress            = 0x95;
+        request.replySubAddress         = 0x70;
+        request.replyTransactionType    = kIOI2CCombinedTransactionType;
+        request.replyBuffer             = (vm_address_t) &inData[0];
+        request.replyBytes              = 2;
         bzero( &inData[0], request.replyBytes );
     
         kr = IOI2CSendRequest( connect, kNilOptions, &request );
@@ -115,7 +115,7 @@ int main( int argc, char * argv[] )
     kern_return_t kr;
     io_service_t  framebuffer, interface;
     IOOptionBits  bus;
-    IOItemCount	  busCount;
+    IOItemCount   busCount;
 
     framebuffer = CGDisplayIOServicePort(CGMainDisplayID());
 
@@ -125,32 +125,32 @@ int main( int argc, char * argv[] )
         assert( KERN_SUCCESS == kr );
         printf("\nUsing device: %s\n", path);
 
-	kr = IOFBGetI2CInterfaceCount( framebuffer, &busCount );
-	assert( kIOReturnSuccess == kr );
+        kr = IOFBGetI2CInterfaceCount( framebuffer, &busCount );
+        assert( kIOReturnSuccess == kr );
     
-	for( bus = 0; bus < busCount; bus++ )
-	{
-	    IOI2CConnectRef  connect;
+        for( bus = 0; bus < busCount; bus++ )
+        {
+            IOI2CConnectRef  connect;
     
-	    kr = IOFBCopyI2CInterfaceForBus(framebuffer, bus, &interface);
-	    if( kIOReturnSuccess != kr)
-		continue;
+            kr = IOFBCopyI2CInterfaceForBus(framebuffer, bus, &interface);
+            if( kIOReturnSuccess != kr)
+                continue;
     
-	    kr = IOI2CInterfaceOpen( interface, kNilOptions, &connect );
+            kr = IOI2CInterfaceOpen( interface, kNilOptions, &connect );
     
-	    IOObjectRelease(interface);
-	    assert( kIOReturnSuccess == kr );
-	    if( kIOReturnSuccess != kr)
-		continue;
+            IOObjectRelease(interface);
+            assert( kIOReturnSuccess == kr );
+            if( kIOReturnSuccess != kr)
+                continue;
     
-	    printf("\nEDID using bus %ld:\n", bus);
-	    EDIDTest( connect );
+            printf("\nEDID using bus %ld:\n", bus);
+            EDIDTest( connect );
     
-	    printf("\niTV using bus %ld:\n", bus);
-	    iTVTest( connect );
+            printf("\niTV using bus %ld:\n", bus);
+            iTVTest( connect );
     
-	    IOI2CInterfaceClose( connect, kNilOptions );
-	}
+            IOI2CInterfaceClose( connect, kNilOptions );
+        }
     }
 
     exit(0);

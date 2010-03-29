@@ -178,7 +178,7 @@ must have shell access to your Mailman server.
     omask = os.umask(0)
     try:
         try:
-            os.mkdir(langdir, 0775)
+            os.mkdir(langdir, 02775)
         except OSError, e:
             if e.errno <> errno.EEXIST: raise
     finally:

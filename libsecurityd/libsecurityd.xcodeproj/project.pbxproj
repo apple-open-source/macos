@@ -769,7 +769,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUILD_VARIANTS = debug;
-				CURRENT_PROJECT_VERSION = 36988;
+				CURRENT_PROJECT_VERSION = 37613;
 				EXECUTABLE_PREFIX = "";
 				EXECUTABLE_SUFFIX = "";
 				FRAMEWORK_SEARCH_PATHS = /usr/local/SecurityPieces/Frameworks;
@@ -819,7 +819,7 @@
 					debug,
 					nopic,
 				);
-				CURRENT_PROJECT_VERSION = 36988;
+				CURRENT_PROJECT_VERSION = 37613;
 				EXECUTABLE_PREFIX = "";
 				EXECUTABLE_SUFFIX = "";
 				FRAMEWORK_SEARCH_PATHS = /usr/local/SecurityPieces/Frameworks;
@@ -866,7 +866,7 @@
 					debug,
 					nopic,
 				);
-				CURRENT_PROJECT_VERSION = 36988;
+				CURRENT_PROJECT_VERSION = 37613;
 				EXECUTABLE_PREFIX = "";
 				EXECUTABLE_SUFFIX = "";
 				FRAMEWORK_SEARCH_PATHS = /usr/local/SecurityPieces/Frameworks;
@@ -953,7 +953,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUILD_VARIANTS = debug;
-				CURRENT_PROJECT_VERSION = 36988;
+				CURRENT_PROJECT_VERSION = 37613;
 				EXECUTABLE_PREFIX = "";
 				EXECUTABLE_SUFFIX = "";
 				FRAMEWORK_SEARCH_PATHS = /usr/local/SecurityPieces/Frameworks;
@@ -1003,7 +1003,7 @@
 					debug,
 					nopic,
 				);
-				CURRENT_PROJECT_VERSION = 36988;
+				CURRENT_PROJECT_VERSION = 37613;
 				EXECUTABLE_PREFIX = "";
 				EXECUTABLE_SUFFIX = "";
 				FRAMEWORK_SEARCH_PATHS = /usr/local/SecurityPieces/Frameworks;
@@ -1050,7 +1050,7 @@
 					debug,
 					nopic,
 				);
-				CURRENT_PROJECT_VERSION = 36988;
+				CURRENT_PROJECT_VERSION = 37613;
 				EXECUTABLE_PREFIX = "";
 				EXECUTABLE_SUFFIX = "";
 				FRAMEWORK_SEARCH_PATHS = /usr/local/SecurityPieces/Frameworks;
@@ -1171,7 +1171,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUILD_VARIANTS = debug;
-				CURRENT_PROJECT_VERSION = 36988;
+				CURRENT_PROJECT_VERSION = 37613;
 				EXECUTABLE_PREFIX = "";
 				EXECUTABLE_SUFFIX = "";
 				FRAMEWORK_SEARCH_PATHS = /usr/local/SecurityPieces/Frameworks;
@@ -1222,7 +1222,7 @@
 					debug,
 					nopic,
 				);
-				CURRENT_PROJECT_VERSION = 36988;
+				CURRENT_PROJECT_VERSION = 37613;
 				EXECUTABLE_PREFIX = "";
 				EXECUTABLE_SUFFIX = "";
 				FRAMEWORK_SEARCH_PATHS = /usr/local/SecurityPieces/Frameworks;
@@ -1270,7 +1270,7 @@
 					debug,
 					nopic,
 				);
-				CURRENT_PROJECT_VERSION = 36988;
+				CURRENT_PROJECT_VERSION = 37613;
 				EXECUTABLE_PREFIX = "";
 				EXECUTABLE_SUFFIX = "";
 				FRAMEWORK_SEARCH_PATHS = /usr/local/SecurityPieces/Frameworks;

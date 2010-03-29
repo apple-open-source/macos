@@ -85,9 +85,6 @@ AppleUSBOHCI::init(OSDictionary * propTable)
 	
 ErrorExit:
 		
-	if ( _wdhLock )
-		IOSimpleLockFree(_wdhLock);
-
 	return false;
 }
 
@@ -99,7 +96,7 @@ AppleUSBOHCI::start( IOService * provider )
 	
     USBLog(5,"+AppleUSBOHCI[%p]::start", this);
 	
-    if( !super::start(provider))
+    if ( !super::start(provider))
         return false;
 	
     // Set our initial time for root hub inactivity
@@ -241,7 +238,7 @@ AppleUSBOHCI::UIMInitialize(IOService * provider)
 		if (!_uimInitialized) 
 		{
 			_device = OSDynamicCast(IOPCIDevice, provider);
-			if(_device == NULL)
+			if (_device == NULL)
 			{
 				err = kIOReturnBadArgument;
 				break;
@@ -586,7 +583,7 @@ AppleUSBOHCI::doCallback(AppleOHCIGeneralTransferDescriptorPtr	nextTD,
     nextTD = AppleUSBOHCIgtdMemoryBlock::GetGTDFromPhysical(PhysAddr);
 	
     pCurrentTD = nextTD;
-    if(pCurrentTD == NULL) 
+    if (pCurrentTD == NULL) 
     {
         USBLog(3, "AppleUSBOHCI[%p]::doCallback No transfer descriptors!", this);
 		return;
@@ -1542,7 +1539,7 @@ AppleUSBOHCI::DoDoneQueueProcessing(IOPhysicalAddress cachedWriteDoneQueueHead, 
             if (pHCDoneTD->uimFlags & kUIMFlagsCallbackTD)
             {
                 IOUSBCompletion completion = pHCDoneTD->command->GetUSLCompletion();
-                if(!safeAction || (safeAction == completion.action)) 
+                if (!safeAction || (safeAction == completion.action)) 
 				{
                     // remove flag before completing
                     pHCDoneTD->uimFlags &= ~kUIMFlagsCallbackTD;
@@ -1550,7 +1547,7 @@ AppleUSBOHCI::DoDoneQueueProcessing(IOPhysicalAddress cachedWriteDoneQueueHead, 
                     DeallocateTD(pHCDoneTD);
                 }
                 else {
-                    if(_pendingHead)
+                    if (_pendingHead)
                         _pendingTail->pLogicalNext = pHCDoneTD;
                     else
                         _pendingHead = pHCDoneTD;
@@ -1694,7 +1691,7 @@ AppleUSBOHCI::ReturnTransactions(
             nextIsochTransaction = AppleUSBOHCIitdMemoryBlock::GetITDFromPhysical (physicalAddress);
             DeallocateITD(isochTransaction);
             isochTransaction = nextIsochTransaction;
-            if(isochTransaction == NULL)
+            if (isochTransaction == NULL)
             {
                 USBLog(1, "AppleUSBOHCI[%p]::ReturnTransactions: Isoc Return queue broken", this);
 				USBTrace( kUSBTOHCI, kTPOHCIReturnTransactions, (uintptr_t)this, 0, 0, 1 );
@@ -1720,7 +1717,7 @@ AppleUSBOHCI::ReturnTransactions(
             nextTransaction = AppleUSBOHCIgtdMemoryBlock::GetGTDFromPhysical(physicalAddress);
             DeallocateTD(transaction);
             transaction = nextTransaction;
-            if(transaction == NULL)
+            if (transaction == NULL)
             {
                 USBLog(1, "AppleUSBOHCI[%p]::ReturnTransactions: Return queue broken", this);
 				USBTrace( kUSBTOHCI, kTPOHCIReturnTransactions, (uintptr_t)this, 0, 0, 2 );
@@ -1799,7 +1796,7 @@ AppleUSBOHCI::ReturnOneTransaction(AppleOHCIGeneralTransferDescriptorPtr	transac
 				DeallocateTD(transaction);
 			
 			transaction = nextTransaction;
-			if(transaction == NULL)
+			if (transaction == NULL)
 			{
 				USBError(1, "ReturnOneTransaction: Return queue broken");
 				break;
@@ -1858,7 +1855,8 @@ AppleUSBOHCI::free()
 {
     // Free our locks
     //
-    IOSimpleLockFree( _wdhLock );
+	if (_wdhLock) 
+		IOSimpleLockFree(_wdhLock);
     
     super::free();
 }

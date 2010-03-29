@@ -766,19 +766,6 @@ int is_ruby_native_thread _((void));
 void ruby_native_thread_kill _((int));
 #endif
 
-
-typedef unsigned int rb_threadswitch_event_t;
-
-#define RUBY_THREADSWITCH_INIT 0x01
-#define RUBY_THREADSWITCH_FREE 0x02
-#define RUBY_THREADSWITCH_SAVE 0x04
-#define RUBY_THREADSWITCH_RESTORE 0x08
-
-typedef void (*rb_threadswitch_hook_func_t) _((rb_threadswitch_event_t,VALUE));
-
-void *rb_add_threadswitch_hook _((rb_threadswitch_hook_func_t func));
-void rb_remove_threadswitch_hook _((void *handle));
-
 #if defined(__cplusplus)
 #if 0
 { /* satisfy cc-mode */

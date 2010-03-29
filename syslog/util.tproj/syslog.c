@@ -112,8 +112,13 @@
 static asl_file_list_t *db_files = NULL;
 static asl_store_t *store = NULL;
 static asl_file_t *legacy = NULL;
-static uint32_t dbselect = DB_SELECT_STORE;
 static asl_file_t *export = NULL;
+
+#ifdef CONFIG_IPHONE
+static uint32_t dbselect = DB_SELECT_SYSLOGD;
+#else
+static uint32_t dbselect = DB_SELECT_STORE;
+#endif
 
 /* notify SPI */
 uint32_t notify_register_plain(const char *name, int *out_token);

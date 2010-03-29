@@ -36,6 +36,9 @@
 #include <TargetConditionals.h>
 #if TARGET_OS_EMBEDDED
 #include <Security/SecItem.h>
+#include <Security/SecTrustPriv.h>
+#include <Security/SecPolicyPriv.h>
+#include <Security/SecCertificatePriv.h>
 #else
 #include <Security/SecBase.h>
 #include <Security/SecIdentityPriv.h>
@@ -55,6 +58,7 @@
 #include "plog.h"
 #include "debug.h"
 #include "misc.h"
+#include "oakley.h"
 
 
 #include "crypto_cssm.h"
@@ -70,7 +74,7 @@ static OSStatus CopySystemKeychain(SecKeychainRef *keychainRef);
 /*
  * Verify cert using security framework
  */
-int crypto_cssm_check_x509cert(vchar_t *cert, CFStringRef hostname)
+int crypto_cssm_check_x509cert(vchar_t *cert, CFStringRef hostname, cert_status_t certStatus)
 {
 	OSStatus			status;
 	SecCertificateRef	certRef = NULL;
@@ -110,19 +114,10 @@ int crypto_cssm_check_x509cert(vchar_t *cert, CFStringRef hostname)
 	}
 
 	if (hostname) {
-		policyRef = SecPolicyCreateSSL(FALSE, hostname);
+		policyRef = SecPolicyCreateIPSec(FALSE, hostname);
 		if (policyRef == NULL) {
 			plog(LLV_ERROR, LOCATION, NULL, 
 				"unable to create a SSL policyRef.\n");
-			status = -1;
-			goto end;
-		}
-	} else
-	  {
-		policyRef = SecPolicyCreateBasicX509();
-		if (policyRef == NULL) {
-			plog(LLV_ERROR, LOCATION, NULL, 
-				"unable to create a Basic X509 policyRef.\n");
 			status = -1;
 			goto end;
 		}
@@ -144,7 +139,11 @@ end:
 		plog(LLV_ERROR, LOCATION, NULL, 
 			"error %d %s.\n", status, GetSecurityErrorString(status));
 		status = -1;
-	}		
+	} else if (certStatus) {
+		plog(LLV_ERROR, LOCATION, NULL,
+			 "certificate failed date verification: %d.\n", certStatus);
+		status = -1;
+	}
 	return status;
 
 }
@@ -350,7 +349,8 @@ end:
 /*
  * Retrieve a cert from the keychain
  */
-vchar_t* crypto_cssm_get_x509cert(CFDataRef persistentCertRef)
+vchar_t* crypto_cssm_get_x509cert(CFDataRef persistentCertRef,
+                                  cert_status_t *certStatus)
 {
 
 	OSStatus				status;
@@ -408,6 +408,10 @@ vchar_t* crypto_cssm_get_x509cert(CFDataRef persistentCertRef)
 	// data must be copied to be returned
 	memcpy(cert->v, cssmData.Data, cssmData.Length);	
 	
+	// verify expiry or missing fields
+	if (certStatus) {
+		*certStatus = CERT_STATUS_OK;
+	}
 #else
 		
 	CFDictionaryRef		persistFind = NULL;
@@ -415,6 +419,21 @@ vchar_t* crypto_cssm_get_x509cert(CFDataRef persistentCertRef)
 	const void			*values_persist[] = { kCFBooleanTrue, persistentCertRef };
 	size_t				dataLen;
 	CFDataRef			certData = NULL;
+	CFAbsoluteTime		timeNow = 0;
+	CFAbsoluteTime		notvalidbeforedate = 0;
+	CFAbsoluteTime		notvalidafterdate = 0;
+	CFDateRef			nowcfdatedata = NULL;
+	CFDateRef			notvalidbeforedatedata = NULL;
+	CFDateRef			notvalidafterdatedata = NULL;
+	CFArrayRef			certProparray = NULL;
+	CFRange				range;
+	CFDictionaryRef		*values = NULL;
+	CFDictionaryRef		propDict = NULL;
+	const void			*datevalue = NULL;
+	const void			*labelvalue = NULL;
+	CFGregorianDate		gregoriandate;
+	int					count;
+	int					i;
 	
 	/* find identity by persistent ref */
 	persistFind = CFDictionaryCreate(NULL, keys_persist, values_persist,
@@ -444,6 +463,68 @@ vchar_t* crypto_cssm_get_x509cert(CFDataRef persistentCertRef)
 	
 	CFDataGetBytes(certData, CFRangeMake(0, dataLen), cert->v); 
 				
+	// verify expiry or missing fields
+	if (certStatus) {
+		
+		*certStatus = CERT_STATUS_OK;
+		
+		if ((certProparray = SecCertificateCopyProperties(certificateRef))){
+			if ((count = CFArrayGetCount( certProparray ))){
+				range.location = 0;
+				range.length = count;
+				if ( (values = CFAllocatorAllocate(NULL, count * sizeof(CFDictionaryRef), 0))){
+					CFArrayGetValues(certProparray, range, (const void **)values);
+					for( i = 0; i < count; i++)
+					{  
+						if ((propDict = values[i])){
+							if ( CFDictionaryContainsValue(propDict, kSecPropertyTypeDate) ){
+								if ( CFDictionaryGetValueIfPresent(propDict, kSecPropertyKeyValue, (const void**)&datevalue)){
+									/* get kSecPropertyKeyLabel */
+									if ( (datevalue) && (CFDictionaryGetValueIfPresent(propDict, kSecPropertyKeyLabel, (const void**)&labelvalue))){
+										if ( (labelvalue) && (CFStringCompare( (CFStringRef)labelvalue, CFSTR("Not Valid Before"), 0) == kCFCompareEqualTo)){
+											if ( notvalidbeforedate = CFDateGetAbsoluteTime(datevalue))
+												notvalidbeforedatedata = CFDateCreate(NULL, notvalidbeforedate);
+										}else if ((labelvalue) && (CFStringCompare( (CFStringRef)labelvalue, CFSTR("Not Valid After"), 0 ) == kCFCompareEqualTo)){
+											if ( notvalidafterdate = CFDateGetAbsoluteTime(datevalue))
+												notvalidafterdatedata = CFDateCreate(NULL, notvalidafterdate);
+										}
+									}
+								}
+							}
+						}
+						
+					}	
+				}
+			}
+		}
+		
+		if ( (timeNow = CFAbsoluteTimeGetCurrent()) && (nowcfdatedata = CFDateCreate( NULL, timeNow))){
+			if ( notvalidbeforedatedata ){
+				gregoriandate = CFAbsoluteTimeGetGregorianDate(notvalidbeforedate, NULL);
+				plog(LLV_DEBUG, LOCATION, NULL, 
+					 "cert not valid before yr %d, mon %d, days %d, hours %d, min %d\n", gregoriandate.year, gregoriandate.month, gregoriandate.day, gregoriandate.hour, gregoriandate.minute);
+				gregoriandate = CFAbsoluteTimeGetGregorianDate(notvalidafterdate, NULL);
+				plog(LLV_DEBUG, LOCATION, NULL, 
+					 "cert not valid after yr %d, mon %d, days %d, hours %d, min %d\n", gregoriandate.year, gregoriandate.month, gregoriandate.day, gregoriandate.hour, gregoriandate.minute);
+				if ( CFDateCompare( nowcfdatedata, notvalidbeforedatedata, NULL ) == kCFCompareLessThan){
+					plog(LLV_ERROR, LOCATION, NULL, 
+						 "current time before valid time\n");
+					*certStatus = CERT_STATUS_PREMATURE;
+				}
+				else if (notvalidafterdatedata && (CFDateCompare( nowcfdatedata, notvalidafterdatedata, NULL ) == kCFCompareGreaterThan)){
+					plog(LLV_ERROR, LOCATION, NULL, 
+						 "current time after valid time\n");
+					*certStatus = CERT_STATUS_EXPIRED;
+				}else {
+					plog(LLV_INFO, LOCATION, NULL, "certificate expiration date OK\n");
+					*certStatus = CERT_STATUS_OK;
+				}
+
+			}
+
+		}
+	}
+
 #endif
 		
 end:
@@ -457,6 +538,16 @@ end:
 	if (keychainRef)
 		CFRelease(keychainRef);
 #else
+	if (notvalidbeforedatedata)
+		CFRelease(notvalidbeforedatedata);
+	if (notvalidafterdatedata)
+		CFRelease(notvalidafterdatedata);
+	if (certProparray)
+		CFRelease(certProparray);
+	if (values)
+		CFAllocatorDeallocate(NULL, values);
+	if (nowcfdatedata)
+		CFRelease(nowcfdatedata);
 	if (persistFind)
 		CFRelease(persistFind);
 	if (certData)
@@ -509,6 +600,13 @@ static OSStatus EvaluateCert(SecCertificateRef cert, CFTypeRef policyRef)
 	OSStatus					status;
 	SecTrustRef					trustRef = 0;
 	SecTrustResultType 			evalResult;
+
+#if TARGET_OS_EMBEDDED	
+	CFArrayRef					errorStrings;
+#else
+	CSSM_TP_APPLE_EVIDENCE_INFO			*statusChain;
+	CFArrayRef					certChain;
+#endif
 	
 	SecCertificateRef			evalCertArray[1] = { cert };
 	
@@ -524,14 +622,89 @@ static OSStatus EvaluateCert(SecCertificateRef cert, CFTypeRef policyRef)
 	status = SecTrustCreateWithCertificates(cfCertRef, policyRef, &trustRef);
 	if (status != noErr)
 		goto end;
-		
+
 	status = SecTrustEvaluate(trustRef, &evalResult);
 	if (status != noErr)
 		goto end;
 	
 	if (evalResult != kSecTrustResultProceed && evalResult != kSecTrustResultUnspecified) {
-		plog(LLV_ERROR, LOCATION, NULL, 
-			"error evaluating certificate.\n");
+		plog(LLV_ERROR, LOCATION, NULL, "Error evaluating certificate.\n");
+
+		switch (evalResult) {
+			case kSecTrustResultInvalid:
+				plog(LLV_DEBUG, LOCATION, NULL, "eval result = kSecTrustResultInvalid.\n");
+				break;
+			case kSecTrustResultProceed:
+				plog(LLV_DEBUG, LOCATION, NULL, "eval result = kSecTrustResultProceed.\n");
+				break;
+			case kSecTrustResultConfirm:
+				plog(LLV_DEBUG, LOCATION, NULL, "eval result = kSecTrustResultConfirm.\n");
+				break;
+			case kSecTrustResultDeny:
+				plog(LLV_DEBUG, LOCATION, NULL, "eval result = kSecTrustResultDeny.\n");
+				break;
+			case kSecTrustResultUnspecified:
+				plog(LLV_DEBUG, LOCATION, NULL, "eval result = kSecTrustResultUnspecified.\n");
+				break;
+			case kSecTrustResultRecoverableTrustFailure:
+				plog(LLV_DEBUG, LOCATION, NULL, "eval result = kSecTrustResultRecoverableTrustFailure.\n");
+				break;
+			case kSecTrustResultFatalTrustFailure:
+				plog(LLV_DEBUG, LOCATION, NULL, "eval result = kSecTrustResultFatalTrustFailure.\n");
+				break;
+			case kSecTrustResultOtherError:
+				plog(LLV_DEBUG, LOCATION, NULL, "eval result = kSecTrustResultOtherError.\n");
+				break;
+			default:
+				plog(LLV_DEBUG, LOCATION, NULL, "eval result unknown: value = %d.\n", (int)evalResult);
+				break;
+		}
+
+
+#if TARGET_OS_EMBEDDED			
+		errorStrings =  SecTrustCopyProperties(trustRef);
+		if (errorStrings) {
+			
+			CFDictionaryRef dict;
+			CFStringRef val;
+			const char *str;	
+			CFIndex count, maxcount = CFArrayGetCount(errorStrings);
+		
+			plog(LLV_ERROR, LOCATION, NULL, "---------------Returned error strings: ---------------.\n");
+			for (count = 0; count < maxcount; count++) {
+				dict = CFArrayGetValueAtIndex(errorStrings, count);
+				if (dict && (CFGetTypeID(dict) == CFDictionaryGetTypeID())) {
+					val = CFDictionaryGetValue(dict, kSecPropertyKeyType);
+					if (val && (CFGetTypeID(val) == CFStringGetTypeID())) {
+						str = CFStringGetCStringPtr(val, kCFStringEncodingMacRoman);	
+						if (str)		
+							plog(LLV_ERROR, LOCATION, NULL, "type = %s.\n", str);
+					}
+					val = CFDictionaryGetValue(dict, kSecPropertyKeyValue);
+					if (val && (CFGetTypeID(val) == CFStringGetTypeID())) {
+						str = CFStringGetCStringPtr(val, kCFStringEncodingMacRoman);	
+						if (str)		
+							plog(LLV_ERROR, LOCATION, NULL, "value = %s.\n", str);
+					}
+				}
+			}
+			plog(LLV_ERROR, LOCATION, NULL, "-----------------------------------------------------.\n");			
+			CFRelease(errorStrings);
+		}
+		
+#else
+		SecTrustGetResult(trustRef, &evalResult, &certChain, &statusChain);
+		plog(LLV_ERROR, LOCATION, NULL, "Cert status bits = 0x%x.\n", statusChain->StatusBits);
+		plog(LLV_ERROR, LOCATION, NULL, "Cert status NumStatusCodes = 0x%x.\n", statusChain->NumStatusCodes);
+		{
+			int i;
+			for (i = 0; i < statusChain->NumStatusCodes; i++)		
+				plog(LLV_ERROR, LOCATION, NULL, "Cert status code i = 0x%x  %d.\n", *(statusChain->StatusCodes + i), *(statusChain->StatusCodes + i));
+		}
+		plog(LLV_ERROR, LOCATION, NULL, "Cert status Index = %d.\n", statusChain->Index);
+		CFRelease(certChain);
+#endif
+		
 		status = -1;
 	}
 			

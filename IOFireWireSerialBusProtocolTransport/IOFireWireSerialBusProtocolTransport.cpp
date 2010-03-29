@@ -182,6 +182,7 @@ enum
 #define kFireWireVendorNameKey							"FireWire Vendor Name"
 #define kSBP2ReceiveBufferByteCountKey					"SBP2ReceiveBufferByteCount"
 #define kAlwaysSetAutoSenseData							"Always Set AutoSense Data"
+#define	kDontUsePTPacketLimitKey						"Do Not Use PT Packet Limit"
 #define kDefaultIOBlockCount							256
 #define kCRSModelInfo_ValidBitsMask						0x00FFFFFF
 #define kCRSModelInfo_TargetDiskMode					0x0054444D
@@ -518,6 +519,20 @@ IOFireWireSerialBusProtocolTransport::start ( IOService * provider )
 			
 			reserved->fAutonomousSpinDownWorkAround = true;
 			
+		}
+		
+	}
+
+	if ( ( getProperty ( kDontUsePTPacketLimitKey ) ) != NULL )
+	{
+		
+		IOFireWireSBP2Target *		target = NULL;
+		
+		target = OSDynamicCast ( IOFireWireSBP2Target, fSBPTarget->getProvider( ) );
+		
+		if ( target != NULL )
+		{
+			target->setTargetFlags ( kIOFWSBP2DontUsePTPacketLimit );
 		}
 		
 	}
@@ -1151,7 +1166,10 @@ IOFireWireSerialBusProtocolTransport::IsProtocolServiceSupported (
 	void *						serviceValue )
 {
 	
-	bool	isSupported = false;
+	bool			isSupported		= false;
+	OSDictionary * 	characterDict 	= NULL;
+	
+	characterDict = OSDynamicCast ( OSDictionary, ( getProperty ( kIOPropertySCSIDeviceCharacteristicsKey ) ) );
 	
 	DLOG ( ( "IOFireWireSerialBusProtocolTransport::IsProtocolServiceSupported called\n" ) );
 	
@@ -1167,10 +1185,48 @@ IOFireWireSerialBusProtocolTransport::IsProtocolServiceSupported (
 		break;
 		
 		case kSCSIProtocolFeature_MaximumReadBlockTransferCount:
-		case kSCSIProtocolFeature_MaximumWriteBlockTransferCount:
 		{
 			
+			OSNumber *		number = NULL;
+			
+			// Start with our default value.
 			* ( ( UInt32 * ) serviceValue ) = kDefaultIOBlockCount;
+			
+			if ( characterDict != NULL )
+			{
+				
+				number = OSDynamicCast ( OSNumber, characterDict->getObject ( kIOMaximumByteCountReadKey ) );
+				if ( number != NULL )
+				{
+					*( ( UInt32 * ) serviceValue ) = number->unsigned32BitValue ( );
+				}
+				
+			}
+			
+			isSupported = true;
+			
+		}
+		break;
+			
+		case kSCSIProtocolFeature_MaximumWriteBlockTransferCount:
+		{
+		
+			OSNumber *		number = NULL;
+			
+			// Start with our default value.
+			* ( ( UInt32 * ) serviceValue ) = kDefaultIOBlockCount;
+			
+			if ( characterDict != NULL )
+			{
+				
+				number = OSDynamicCast ( OSNumber, characterDict->getObject ( kIOMaximumBlockCountWriteKey ) );
+				if ( number != NULL )
+				{
+					*( ( UInt32 * ) serviceValue ) = number->unsigned32BitValue ( );
+				}
+				
+			}
+			
 			isSupported = true;
 			
 		}
@@ -1411,21 +1467,32 @@ IOFireWireSerialBusProtocolTransport::StatusNotify ( FWSBP2NotifyParams * params
 						  ( statusBlock->sbpStatus == kSBP2StatusBlock_SBPStatus_FunctionRejected ) )
 				{
 					
-					if ( clientData != NULL )
+					SetValidAutoSenseData ( clientData, statusBlock, targetData );
+					
+					// Complete the SCSI request without a retry for devices that return a
+					// SBP function rejected status but in actuality have successfully 
+					// processed the SCSI request with a CHECK condition 
+					// and have valid sense data.
+					//
+					// Certain Oxford 911 based devices seem to fall under this category
+					
+					if ( clientData->taskStatus == kSCSITaskStatus_CHECK_CONDITION )
 					{
 						
-						if ( clientData->scsiTask != NULL )
-						{
-							
-							clientData->serviceResponse = kSCSIServiceResponse_SERVICE_DELIVERY_OR_TARGET_FAILURE;
-							clientData->taskStatus		= kSCSITaskStatus_DeviceNotResponding;
-							
-						}
+						CompleteSCSITask ( orb );
 						
-					} 
+					}	
 					
-					reserved->fLUNResetPathFlag = true;	
-					fLUNResetORB->submit ( );
+					else 
+					{
+						
+						clientData->serviceResponse = kSCSIServiceResponse_SERVICE_DELIVERY_OR_TARGET_FAILURE;
+						clientData->taskStatus		= kSCSITaskStatus_DeviceNotResponding;
+						
+						reserved->fLUNResetPathFlag = true;	
+						fLUNResetORB->submit ( );
+
+					}
 					
 				}
 				

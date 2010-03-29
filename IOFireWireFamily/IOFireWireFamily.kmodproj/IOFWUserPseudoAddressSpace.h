@@ -29,6 +29,13 @@
  */
 /*
 	$Log: IOFWUserPseudoAddressSpace.h,v $
+	Revision 1.12  2009/10/16 23:59:06  calderon
+	<rdar://problem/7046489> 10A402 AsyncTester results in Error-Server verified Incorrect number of bytes
+	<rdar://problem/7111060> PanicTracer: 3 panics at IOFireWireFamily : IOFWUserPseudoAddressSpace::doPacket
+	
+	And some help for:
+	<rdar://problem/7116134> PanicTracer: 3 panics at com.apple.iokit.IOFireWireFamily
+	
 	Revision 1.11  2008/09/12 23:44:05  calderon
 	<rdar://5971979/> PseudoAddressSpace skips/mangles packets
 	<rdar://5708169/> FireWire synchronous commands' headerdoc missing callback info
@@ -80,6 +87,7 @@
 
 // private
 #import "IOFireWireLibPriv.h"
+#import "IOFWRingBufferQ.h"
 
 using namespace IOFireWireLib ;
 
@@ -300,14 +308,13 @@ public:
 	void							sendPacketNotification(
 											IOFWPacketHeader*		inPacketHeader) ;
 private:
-    IOMemoryDescriptor*			fPacketQueueBuffer ;			// the queue where incoming packets, etc., go
+	IOFWRingBufferQ *			fPacketQueue;					// the queue where incoming packets go before being written to the backingstore
 	IOLock*						fLock ;							// to lock this object
 
 	mach_vm_address_t			fUserRefCon ;
 	IOFireWireUserClient*		fUserClient ;
 	IOFWPacketHeader*			fLastWrittenHeader ;
 	IOFWPacketHeader*			fLastReadHeader ;
-	UInt32						fBufferAvailable ;				// amount of queue space remaining
 	FWAddress					fAddress ;						// where we are
 	
 	OSAsyncReference64			fSkippedPacketAsyncNotificationRef ;
@@ -320,7 +327,6 @@ private:
 	
 	Boolean						fPacketQueuePrepared ;
 	Boolean						fBackingStorePrepared ;
-	io_user_reference_t			fBufferStartOffset;
 } ;
 
 #endif //__IOFWUserClientPsduAddrSpace_H__

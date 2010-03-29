@@ -35,16 +35,6 @@
 //	Macros
 //--------------------------------------------------------------------------------------------------
 
-// Macros for printing debugging information
-#if ( USB_MASS_STORAGE_DEBUG == 1 )
-// Override the debug level for USBLog to make sure our logs make it out and then import
-// the logging header.
-#define DEBUG_LEVEL		1
-#include <IOKit/usb/IOUSBLog.h>
-#define STATUS_LOG(x)	USBLog x
-#else
-#define STATUS_LOG(x)
-#endif
 
 // CBI State Machine States
 enum
@@ -136,10 +126,6 @@ IOUSBMassStorageClass::SendSCSICommandForCBIProtocol ( SCSITaskIdentifier reques
 												GetTimeoutDuration( theCBIRequestBlock->request ),  // Use the client's timeout
 												&theCBIRequestBlock->cbiCompletion );
    	STATUS_LOG ( ( 5, "%s[%p]: SendSCSICommandForCBIProtocol DeviceRequest returned %x", getName(), this, status ) );
-   	if ( status != kIOReturnSuccess )
-   	{
-   		ReleaseCBIRequestBlock ( theCBIRequestBlock );
-   	}
    	
 	return status;
 	
@@ -352,11 +338,9 @@ IOUSBMassStorageClass::CBIProtocolCommandCompletion(
 		// Our interface has been closed, probably because of an
 		// unplug, return an error for the command since there it
 		// can no longer be executed.
-		SCSITaskIdentifier	request = cbiRequestBlock->request;
 		
-		ReleaseCBIRequestBlock( cbiRequestBlock );
-		CompleteSCSICommand( request, status );
-		return;
+		STATUS_LOG ( ( 4, "%s[%p]: Completion during termination", getName(), this ) );
+		goto Exit;
 		
 	}
 	

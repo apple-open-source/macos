@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2009 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2010 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -402,6 +402,8 @@ public:
      */
     static IOReturn setValueAction(OSObject *owner, void *arg1, void *arg2, void *arg3, void *arg4);
 
+	static IOReturn _setValueAction(OSObject *target, void *arg0, void *arg1, void *arg2, void *arg3);	// <rdar://7529580>
+	
     /*!
      * @function setValue
      * @abstract Sets the value for this control.
@@ -545,6 +547,8 @@ protected:
      */
     static IOReturn addUserClientAction(OSObject *owner, void *arg1, void *arg2, void *arg3, void *arg4);
     
+	static IOReturn _addUserClientAction(OSObject *target, void *arg0, void *arg1, void *arg2, void *arg3);	// <rdar://7529580>
+
     /*!
      * @function removeUserClientAction
      * @abstract IOCommandGate Action which calls removeUserClient() while holding the IOCommandGate.
@@ -555,6 +559,8 @@ protected:
      */
     static IOReturn removeUserClientAction(OSObject *owner, void *arg1, void *arg2, void *arg3, void *arg4);
     
+	static IOReturn _removeUserClientAction(OSObject *target, void *arg0, void *arg1, void *arg2, void *arg3);	// <rdar://7529580>
+
     /*!
      * @function detachUserClientsAction
      */

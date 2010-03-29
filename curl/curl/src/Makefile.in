@@ -40,7 +40,7 @@ build_triplet = @build@
 host_triplet = @host@
 bin_PROGRAMS = curl$(EXEEXT)
 DIST_COMMON = $(srcdir)/Makefile.am $(srcdir)/Makefile.in \
-	$(srcdir)/Makefile.inc $(srcdir)/config.h.in
+	$(srcdir)/Makefile.inc $(srcdir)/curl_config.h.in
 subdir = src
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
 am__aclocal_m4_deps = $(top_srcdir)/m4/curl-compilers.m4 \
@@ -55,7 +55,7 @@ am__aclocal_m4_deps = $(top_srcdir)/m4/curl-compilers.m4 \
 am__configure_deps = $(am__aclocal_m4_deps) $(CONFIGURE_DEPENDENCIES) \
 	$(ACLOCAL_M4)
 mkinstalldirs = $(SHELL) $(top_srcdir)/mkinstalldirs
-CONFIG_HEADER = $(top_builddir)/lib/config.h config.h \
+CONFIG_HEADER = $(top_builddir)/lib/curl_config.h curl_config.h \
 	$(top_builddir)/include/curl/curlbuild.h
 CONFIG_CLEAN_FILES =
 am__installdirs = "$(DESTDIR)$(bindir)"
@@ -63,8 +63,9 @@ binPROGRAMS_INSTALL = $(INSTALL_PROGRAM)
 PROGRAMS = $(bin_PROGRAMS)
 am__objects_1 = main.$(OBJEXT) hugehelp.$(OBJEXT) urlglob.$(OBJEXT) \
 	writeout.$(OBJEXT) writeenv.$(OBJEXT) getpass.$(OBJEXT) \
-	homedir.$(OBJEXT) curlutil.$(OBJEXT)
-am__objects_2 = strtoofft.$(OBJEXT) strdup.$(OBJEXT) rawstr.$(OBJEXT)
+	homedir.$(OBJEXT) curlutil.$(OBJEXT) os-specific.$(OBJEXT)
+am__objects_2 = strtoofft.$(OBJEXT) strdup.$(OBJEXT) rawstr.$(OBJEXT) \
+	nonblock.$(OBJEXT)
 am__objects_3 =
 am_curl_OBJECTS = $(am__objects_1) $(am__objects_2) $(am__objects_3)
 curl_OBJECTS = $(am_curl_OBJECTS)
@@ -101,6 +102,8 @@ CPP = @CPP@
 CPPFLAGS = @CPPFLAGS@
 CROSSCOMPILING_FALSE = @CROSSCOMPILING_FALSE@
 CROSSCOMPILING_TRUE = @CROSSCOMPILING_TRUE@
+CURLDEBUG_FALSE = @CURLDEBUG_FALSE@
+CURLDEBUG_TRUE = @CURLDEBUG_TRUE@
 CURL_CA_BUNDLE = @CURL_CA_BUNDLE@
 CURL_DISABLE_DICT = @CURL_DISABLE_DICT@
 CURL_DISABLE_FILE = @CURL_DISABLE_FILE@
@@ -169,6 +172,7 @@ PACKAGE_BUGREPORT = @PACKAGE_BUGREPORT@
 PACKAGE_NAME = @PACKAGE_NAME@
 PACKAGE_STRING = @PACKAGE_STRING@
 PACKAGE_TARNAME = @PACKAGE_TARNAME@
+PACKAGE_URL = @PACKAGE_URL@
 PACKAGE_VERSION = @PACKAGE_VERSION@
 PATH = @PATH@
 PATH_SEPARATOR = @PATH_SEPARATOR@
@@ -192,6 +196,8 @@ STRIP = @STRIP@
 SUPPORT_FEATURES = @SUPPORT_FEATURES@
 SUPPORT_PROTOCOLS = @SUPPORT_PROTOCOLS@
 TEST_SERVER_LIBS = @TEST_SERVER_LIBS@
+USE_EMBEDDED_ARES_FALSE = @USE_EMBEDDED_ARES_FALSE@
+USE_EMBEDDED_ARES_TRUE = @USE_EMBEDDED_ARES_TRUE@
 USE_GNUTLS = @USE_GNUTLS@
 USE_LIBSSH2 = @USE_LIBSSH2@
 USE_MANUAL_FALSE = @USE_MANUAL_FALSE@
@@ -256,7 +262,7 @@ target_alias = @target_alias@
 #                            | (__| |_| |  _ <| |___
 #                             \___|\___/|_| \_\_____|
 #
-# Copyright (C) 1998 - 2008, Daniel Stenberg, <daniel@haxx.se>, et al.
+# Copyright (C) 1998 - 2009, Daniel Stenberg, <daniel@haxx.se>, et al.
 #
 # This software is licensed as described in the file COPYING, which
 # you should have received as part of this distribution. The terms
@@ -269,7 +275,7 @@ target_alias = @target_alias@
 # This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
 # KIND, either express or implied.
 #
-# $Id: Makefile.am,v 1.59 2008-08-29 02:08:11 yangtse Exp $
+# $Id: Makefile.am,v 1.64 2009-07-14 13:25:14 gknauf Exp $
 ###########################################################################
 AUTOMAKE_OPTIONS = foreign nostdinc
 
@@ -280,8 +286,8 @@ AUTOMAKE_OPTIONS = foreign nostdinc
 #
 # $(top_builddir)/include is for libcurl's generated curl/curlbuild.h file
 # $(top_srcdir)/include is for libcurl's external include files
-# $(top_builddir)/lib is for libcurl's generated lib/config.h file
-# $(top_builddir)/src is for curl's generated src/config.h file
+# $(top_builddir)/lib is for libcurl's generated lib/curl_config.h file
+# $(top_builddir)/src is for curl's generated src/curl_config.h file
 # $(top_srcdir)/lib is for libcurl's lib/setup.h and other "borrowed" files
 # $(top_srcdir)/src is for curl's src/setup.h and "curl-private" files
 INCLUDES = -I$(top_builddir)/include \
@@ -296,31 +302,33 @@ INCLUDES = -I$(top_builddir)/include \
 # the official API, but we re-use the code here to avoid duplication.
 CURLX_ONES = $(top_srcdir)/lib/strtoofft.c \
 	$(top_srcdir)/lib/strdup.c \
-	$(top_srcdir)/lib/rawstr.c 
+	$(top_srcdir)/lib/rawstr.c \
+	$(top_srcdir)/lib/nonblock.c
 
 CURL_SOURCES = main.c hugehelp.c urlglob.c writeout.c writeenv.c \
-	getpass.c homedir.c curlutil.c
+	getpass.c homedir.c curlutil.c os-specific.c
 
 CURL_HFILES = hugehelp.h setup.h config-win32.h config-mac.h \
-	config-riscos.h urlglob.h version.h \
+	config-riscos.h urlglob.h version.h os-specific.h \
 	writeout.h writeenv.h getpass.h homedir.h curlutil.h
 
 curl_SOURCES = $(CURL_SOURCES) $(CURLX_ONES) $(CURL_HFILES)
-curl_LDADD = ../lib/libcurl.la @CURL_LIBS@
-curl_DEPENDENCIES = ../lib/libcurl.la
+curl_LDADD = $(top_builddir)/lib/libcurl.la @CURL_LIBS@
+curl_DEPENDENCIES = $(top_builddir)/lib/libcurl.la
 BUILT_SOURCES = hugehelp.c
 CLEANFILES = hugehelp.c
 EXTRA_DIST = mkhelp.pl makefile.dj Makefile.vc6 Makefile.b32 Makefile.m32 \
-	Makefile.riscos config.h.in macos/curl.mcp.xml.sit.hqx		  \
-	macos/MACINSTALL.TXT macos/src/curl_GUSIConfig.cpp curlsrc.dsp    \
+	Makefile.riscos curl_config.h.in macos/curl.mcp.xml.sit.hqx	  \
+	macos/MACINSTALL.TXT macos/src/curl_GUSIConfig.cpp vc6curlsrc.dsp \
 	macos/src/macos_main.cpp config-amigaos.h makefile.amiga curl.rc  \
-	Makefile.netware Makefile.inc Makefile.Watcom curlsrc.dsw
+	Makefile.netware Makefile.inc Makefile.Watcom vc6curlsrc.dsw      \
+	CMakeLists.txt
 
 MANPAGE = $(top_srcdir)/docs/curl.1
 README = $(top_srcdir)/docs/MANUAL
 MKHELP = $(top_srcdir)/src/mkhelp.pl
 HUGE = hugehelp.c
-all: $(BUILT_SOURCES) config.h
+all: $(BUILT_SOURCES) curl_config.h
 	$(MAKE) $(AM_MAKEFLAGS) all-am
 
 .SUFFIXES:
@@ -355,22 +363,22 @@ $(top_srcdir)/configure: @MAINTAINER_MODE_TRUE@ $(am__configure_deps)
 $(ACLOCAL_M4): @MAINTAINER_MODE_TRUE@ $(am__aclocal_m4_deps)
 	cd $(top_builddir) && $(MAKE) $(AM_MAKEFLAGS) am--refresh
 
-config.h: stamp-h2
+curl_config.h: stamp-h2
 	@if test ! -f $@; then \
 	  rm -f stamp-h2; \
 	  $(MAKE) stamp-h2; \
 	else :; fi
 
-stamp-h2: $(srcdir)/config.h.in $(top_builddir)/config.status
+stamp-h2: $(srcdir)/curl_config.h.in $(top_builddir)/config.status
 	@rm -f stamp-h2
-	cd $(top_builddir) && $(SHELL) ./config.status src/config.h
-$(srcdir)/config.h.in: @MAINTAINER_MODE_TRUE@ $(am__configure_deps) 
+	cd $(top_builddir) && $(SHELL) ./config.status src/curl_config.h
+$(srcdir)/curl_config.h.in: @MAINTAINER_MODE_TRUE@ $(am__configure_deps) 
 	cd $(top_srcdir) && $(AUTOHEADER)
 	rm -f stamp-h2
 	touch $@
 
 distclean-hdr:
-	-rm -f config.h stamp-h2
+	-rm -f curl_config.h stamp-h2
 install-binPROGRAMS: $(bin_PROGRAMS)
 	@$(NORMAL_INSTALL)
 	test -z "$(bindir)" || $(mkdir_p) "$(DESTDIR)$(bindir)"
@@ -414,6 +422,8 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/homedir.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/hugehelp.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/main.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/nonblock.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/os-specific.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/rawstr.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/strdup.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/strtoofft.Po@am__quote@
@@ -484,6 +494,20 @@ rawstr.obj: $(top_srcdir)/lib/rawstr.c
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o rawstr.obj `if test -f '$(top_srcdir)/lib/rawstr.c'; then $(CYGPATH_W) '$(top_srcdir)/lib/rawstr.c'; else $(CYGPATH_W) '$(srcdir)/$(top_srcdir)/lib/rawstr.c'; fi`
 
+nonblock.o: $(top_srcdir)/lib/nonblock.c
+@am__fastdepCC_TRUE@	if $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT nonblock.o -MD -MP -MF "$(DEPDIR)/nonblock.Tpo" -c -o nonblock.o `test -f '$(top_srcdir)/lib/nonblock.c' || echo '$(srcdir)/'`$(top_srcdir)/lib/nonblock.c; \
+@am__fastdepCC_TRUE@	then mv -f "$(DEPDIR)/nonblock.Tpo" "$(DEPDIR)/nonblock.Po"; else rm -f "$(DEPDIR)/nonblock.Tpo"; exit 1; fi
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='$(top_srcdir)/lib/nonblock.c' object='nonblock.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o nonblock.o `test -f '$(top_srcdir)/lib/nonblock.c' || echo '$(srcdir)/'`$(top_srcdir)/lib/nonblock.c
+
+nonblock.obj: $(top_srcdir)/lib/nonblock.c
+@am__fastdepCC_TRUE@	if $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT nonblock.obj -MD -MP -MF "$(DEPDIR)/nonblock.Tpo" -c -o nonblock.obj `if test -f '$(top_srcdir)/lib/nonblock.c'; then $(CYGPATH_W) '$(top_srcdir)/lib/nonblock.c'; else $(CYGPATH_W) '$(srcdir)/$(top_srcdir)/lib/nonblock.c'; fi`; \
+@am__fastdepCC_TRUE@	then mv -f "$(DEPDIR)/nonblock.Tpo" "$(DEPDIR)/nonblock.Po"; else rm -f "$(DEPDIR)/nonblock.Tpo"; exit 1; fi
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='$(top_srcdir)/lib/nonblock.c' object='nonblock.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o nonblock.obj `if test -f '$(top_srcdir)/lib/nonblock.c'; then $(CYGPATH_W) '$(top_srcdir)/lib/nonblock.c'; else $(CYGPATH_W) '$(srcdir)/$(top_srcdir)/lib/nonblock.c'; fi`
+
 mostlyclean-libtool:
 	-rm -f *.lo
 
@@ -504,11 +528,11 @@ ID: $(HEADERS) $(SOURCES) $(LISP) $(TAGS_FILES)
 	mkid -fID $$unique
 tags: TAGS
 
-TAGS:  $(HEADERS) $(SOURCES) config.h.in $(TAGS_DEPENDENCIES) \
+TAGS:  $(HEADERS) $(SOURCES) curl_config.h.in $(TAGS_DEPENDENCIES) \
 		$(TAGS_FILES) $(LISP)
 	tags=; \
 	here=`pwd`; \
-	list='$(SOURCES) $(HEADERS) config.h.in $(LISP) $(TAGS_FILES)'; \
+	list='$(SOURCES) $(HEADERS) curl_config.h.in $(LISP) $(TAGS_FILES)'; \
 	unique=`for i in $$list; do \
 	    if test -f "$$i"; then echo $$i; else echo $(srcdir)/$$i; fi; \
 	  done | \
@@ -520,11 +544,11 @@ TAGS:  $(HEADERS) $(SOURCES) config.h.in $(TAGS_DEPENDENCIES) \
 	    $$tags $$unique; \
 	fi
 ctags: CTAGS
-CTAGS:  $(HEADERS) $(SOURCES) config.h.in $(TAGS_DEPENDENCIES) \
+CTAGS:  $(HEADERS) $(SOURCES) curl_config.h.in $(TAGS_DEPENDENCIES) \
 		$(TAGS_FILES) $(LISP)
 	tags=; \
 	here=`pwd`; \
-	list='$(SOURCES) $(HEADERS) config.h.in $(LISP) $(TAGS_FILES)'; \
+	list='$(SOURCES) $(HEADERS) curl_config.h.in $(LISP) $(TAGS_FILES)'; \
 	unique=`for i in $$list; do \
 	    if test -f "$$i"; then echo $$i; else echo $(srcdir)/$$i; fi; \
 	  done | \
@@ -573,7 +597,7 @@ distdir: $(DISTFILES)
 check-am: all-am
 check: $(BUILT_SOURCES)
 	$(MAKE) $(AM_MAKEFLAGS) check-am
-all-am: Makefile $(PROGRAMS) config.h
+all-am: Makefile $(PROGRAMS) curl_config.h
 installdirs:
 	for dir in "$(DESTDIR)$(bindir)"; do \
 	  test -z "$$dir" || $(mkdir_p) "$$dir"; \

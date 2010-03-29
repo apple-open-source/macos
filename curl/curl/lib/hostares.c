@@ -18,15 +18,15 @@
  * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
  * KIND, either express or implied.
  *
- * $Id: hostares.c,v 1.46 2009-01-31 20:25:56 bagder Exp $
+ * $Id: hostares.c,v 1.52 2009-09-15 00:07:25 yangtse Exp $
  ***************************************************************************/
 
 #include "setup.h"
 
 #include <string.h>
 
-#ifdef NEED_MALLOC_H
-#include <malloc.h>
+#ifdef HAVE_LIMITS_H
+#include <limits.h>
 #endif
 #ifdef HAVE_SYS_SOCKET_H
 #include <sys/socket.h>
@@ -76,7 +76,7 @@
 #define _MPRINTF_REPLACE /* use our functions only */
 #include <curl/mprintf.h>
 
-#include "memory.h"
+#include "curl_memory.h"
 /* The last #include file should be: */
 #include "memdebug.h"
 

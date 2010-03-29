@@ -1,0 +1,11 @@
+Fai falta la to autorización pa qu'un soscriptor pueda esborrase
+d'una llista de distribución.
+
+    De:   %(username)s
+    A:    %(listname)s@%(hostname)s
+
+Cuando lo veas afayadizo, visita:
+
+    %(admindb_url)s
+
+p'atender la solicitú.

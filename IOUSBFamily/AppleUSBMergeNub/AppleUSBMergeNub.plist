@@ -7,7 +7,7 @@
 	<key>CFBundleExecutable</key>
 	<string>AppleUSBMergeNub</string>
 	<key>CFBundleGetInfoString</key>
-	<string>APPLEUSBMERGENUB_VERSION, Copyright © 2000-2009 Apple Inc.  All Rights Reserved.</string>
+	<string>APPLEUSBMERGENUB_VERSION, Copyright © 2000-APPLEUSBMERGENUB_LAST_CHANGE_YEAR Apple Inc.  All Rights Reserved.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -43,6 +43,24 @@
 			<integer>1813</integer>
 			<key>idVendor</key>
 			<integer>1507</integer>
+		</dict>
+		<key>64GB ExpressCard/34 SSD</key>
+		<dict>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.driver.AppleUSBMergeNub</string>
+			<key>IOClass</key>
+			<string>AppleUSBMergeNub</string>
+			<key>IOProviderClass</key>
+			<string>IOUSBDevice</string>
+			<key>IOProviderMergeProperties</key>
+			<dict>
+				<key>ExpressCardCantWake</key>
+				<true/>
+			</dict>
+			<key>idProduct</key>
+			<integer>1538</integer>
+			<key>idVendor</key>
+			<integer>5421</integer>
 		</dict>
 		<key>SIXAXIS controller</key>
 		<dict>
@@ -177,6 +195,19 @@
 			<key>idVendor</key>
 			<integer>1452</integer>
 		</dict>
+		<key>Belkin F2CD007</key>
+		<dict>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.driver.AppleUSBMergeNub</string>
+			<key>IOClass</key>
+			<string>com_belkin_f2cd0007_adapter</string>
+			<key>IOProviderClass</key>
+			<string>IOUSBDevice</string>
+			<key>idProduct</key>
+			<integer>123</integer>
+			<key>idVendor</key>
+			<integer>1293</integer>
+		</dict>
 		<key>Apple 4752</key>
 		<dict>
 			<key>CFBundleIdentifier</key>
@@ -272,7 +303,7 @@
 			<key>idVendor</key>
 			<integer>1452</integer>
 		</dict>
-		<key>Apple PCM2912 USB Audio Codec</key>
+		<key>Apple LED Display Audio</key>
 		<dict>
 			<key>CFBundleIdentifier</key>
 			<string>com.apple.driver.AppleUSBMergeNub</string>
@@ -286,13 +317,15 @@
 				<string>IOUSBFamily.kext/Contents/PlugIns/AppleUSBMergeNub.kext</string>
 				<key>USB Product Name</key>
 				<string>Display Audio</string>
+				<key>DisplayRouting</key>
+				<integer>0</integer>
 			</dict>
 			<key>idProduct</key>
 			<integer>10514</integer>
 			<key>idVendor</key>
 			<integer>1452</integer>
 		</dict>
-		<key>Apple PCM2912 USB Headphone Interface</key>
+		<key>Apple LED Display Headphone Interface</key>
 		<dict>
 			<key>CFBundleIdentifier</key>
 			<string>com.apple.driver.AppleUSBMergeNub</string>
@@ -314,7 +347,7 @@
 			<key>idVendor</key>
 			<integer>1452</integer>
 		</dict>
-		<key>Apple PCM2912 USB Microphone Interface</key>
+		<key>Apple LED Display USB Microphone Interface</key>
 		<dict>
 			<key>CFBundleIdentifier</key>
 			<string>com.apple.driver.AppleUSBMergeNub</string>
@@ -576,6 +609,24 @@
 			<key>idVendor</key>
 			<integer>1452</integer>
 		</dict>
+		<key>USBHub8193-61699</key>
+		<dict>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.driver.AppleUSBMergeNub</string>
+			<key>IOClass</key>
+			<string>AppleUSBMergeNub</string>
+			<key>IOProviderClass</key>
+			<string>IOUSBDevice</string>
+			<key>IOProviderMergeProperties</key>
+			<dict>
+				<key>kUSBHubDontAllowLowPower</key>
+				<true/>
+			</dict>
+			<key>idProduct</key>
+			<integer>61699</integer>
+			<key>idVendor</key>
+			<integer>8193</integer>
+		</dict>
 		<key>AppleUSBHub37174</key>
 		<dict>
 			<key>CFBundleIdentifier</key>
@@ -720,11 +771,60 @@
 			<dict>
 				<key>non-removable</key>
 				<true/>
+				<key>RequestExtraCurrentFromParent</key>
+				<true/>
 			</dict>
 			<key>idProduct</key>
 			<integer>32</integer>
 			<key>idVendor</key>
 			<integer>32903</integer>
+		</dict>
+		<key>SMSC2514i</key>
+		<dict>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.driver.AppleUSBMergeNub</string>
+			<key>IOClass</key>
+			<string>AppleUSBMergeNub</string>
+			<key>IOProviderClass</key>
+			<string>IOUSBDevice</string>
+			<key>IOProviderMergeProperties</key>
+			<dict>
+				<key>kIgnoreDisconnectOnWakeup</key>
+				<true/>
+			</dict>
+			<key>idProduct</key>
+			<integer>9492</integer>
+			<key>idVendor</key>
+			<integer>1060</integer>
+			<key>bcdDevice</key>
+			<integer>0</integer>
+		</dict>
+		<key>SMSC2514x</key>
+		<dict>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.driver.AppleUSBMergeNub</string>
+			<key>IOClass</key>
+			<string>AppleUSBMergeNub</string>
+			<key>IOProviderClass</key>
+			<string>IOUSBDevice</string>
+			<key>IOProviderMergeProperties</key>
+			<dict>
+				<key>MacModel</key>
+				<array>
+					<string>iMac11,1</string>
+				</array>
+				<key>RequestExtraCurrentFromParent</key>
+				<true/>
+				<key>OverrideIfAtLocationID</key>
+				<array>
+					<integer>4195352576</integer>
+					<integer>4245684224</integer>
+				</array>
+			</dict>
+			<key>idProduct</key>
+			<integer>9492</integer>
+			<key>idVendor</key>
+			<integer>1060</integer>
 		</dict>
 		<key>Built-in iSight</key>
 		<dict>
@@ -762,6 +862,30 @@
 			<key>idVendor</key>
 			<integer>1452</integer>
 		</dict>
+		<key>Built-in iSight2 - 0x219</key>
+		<dict>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.driver.AppleUSBMergeNub</string>
+			<key>IOClass</key>
+			<string>AppleUSBMergeNub</string>
+			<key>IOProviderClass</key>
+			<string>IOUSBDevice</string>
+			<key>IOProviderMergeProperties</key>
+			<dict>
+				<key>kSuspendPort</key>
+				<true/>
+				<key>ConfigurationDescriptorOverride</key>
+				<array>
+					<data>CQJ2BQMBAID6CAsAAg4DAAIJBAAAAQ4BAAINJAEAATMAAAk9AAEBEiQCAQECAAAAAAAAAAADCgAACSQDAgEBAAMACyQFAwEAAAJ/FQAHBYEDCAAGBSUDKAAJBAEAAA4CAAAPJAECmwSCAAICAAABAAAbJAQBB1lVWTIAABAAgAAAqgA4m3EQBQAAAABGJAUBAKAAeAAAAHcBAADKCACWAAAVFgUACxUWBQB0jAUAgBoGABzIBgAgoQcAJLgIACssCgAANQwAQEIPAFVYFACAhB4ARiQFAgCwAJAAAAB3AQAAyggAxgAAFRYFAAsVFgUAdIwFAIAaBgAcyAYAIKEHACS4CAArLAoAADUMAEBCDwBVWBQAgIQeAEYkBQMAQAHwAAAAdwEAAMoIAFgCABUWBQALFRYFAHSMBQCAGgYAHMgGACChBwAkuAgAKywKAAA1DABAQg8AVVgUAICEHgBGJAUEAGABIAEAAHcBAADKCAAYAwAVFgUACxUWBQB0jAUAgBoGABzIBgAgoQcAJLgIACssCgAANQwAQEIPAFVYFACAhB4ARiQFBQCAAuABAAB3AQAAyggAYAkAFRYFAAsVFgUAdIwFAIAaBgAcyAYAIKEHACS4CAArLAoAADUMAEBCDwBVWBQAgIQeAD4kBQYA0ALgAQAAdwEAAMoIAIwKAIAaBgAJgBoGABzIBgAgoQcAJLgIACssCgAANQwAQEIPAFVYFACAhB4APiQFBwDAAkACAAB3AQAAyggAYAwAgBoGAAmAGgYAHMgGACChBwAkuAgAKywKAAA1DABAQg8AVVgUAICEHgAiJAMAB6AAeACwAJAAQAHwAGABIAGAAuAB0ALgAcACQAIABiQNAQEBCyQGAggAAQAAAABKJAcBAIAC4AEAAHcBAADKCABgCQAVFgUADAuLAgAVFgUAdIwFAIAaBgAcyAYAIKEHACS4CAArLAoAADUMAEBCDwBVWBQAgIQeAEokBwIA0ALgAQAAdwEAAMoIAIwKABUWBQAMC4sCABUWBQB0jAUAgBoGABzIBgAgoQcAJLgIACssCgAANQwAQEIPAFVYFACAhB4ARiQHAwAgA1gCAAB3AQAAyggApg4AFRYFAAsVFgUAdIwFAIAaBgAcyAYAIKEHACS4CAArLAoAADUMAEBCDwBVWBQAgIQeAEYkBwQAAARAAgAAdwEAAMoIAAASABUWBQALFRYFAHSMBQCAGgYAHMgGACChBwAkuAgAKywKAAA1DABAQg8AVVgUAICEHgBGJAcFAAAEAAMAAHcBAADKCAAAGAAVFgUACxUWBQB0jAUAgBoGABzIBgAgoQcAJLgIACssCgAANQwAQEIPAFVYFACAhB4ARiQHBgAABdACAAB3AQAAyggAIBwAFRYFAAsVFgUAdIwFAIAaBgAcyAYAIKEHACS4CAArLAoAADUMAEBCDwBVWBRCgIQeAEYkBwcAAAXAAwAAdwEAAMoIAIAlABUWBQALFRYFAHSMBQCAGgYAHMgGACChBwAkuAgAKywKAAA1DABAQg8AVVgUAICEHgBGJAcIAAAFAAQAAHcBAADKCAAAKAAVFgUACxUWBQB0jAUAgBoGABzIBgAgoQcAJLgIACssCgAANQwAQEIPAFVYFACAhB4AJiQDAAiAAuAB0ALgASADWAIABEACAAQAAwAF0AIABcADAAUABAAGJA0BAQEJBAEBAQ4CAAAHBYIFgAABCQQBAgEOAgAABwWCBQACAQkEAQMBDgIAAAcFggUABAEJBAEEAQ4CAAAHBYIFAAsBCQQBBQEOAgAABwWCBQAMAQkEAQYBDgIAAAcFggWAEwEJBAEHAQ4CAAAHBYIFABQBCQQCAAD/AAAA</data>
+				</array>
+			</dict>
+			<key>idProduct</key>
+			<integer>34050</integer>
+			<key>idVendor</key>
+			<integer>1452</integer>
+			<key>bcdDevice</key>
+			<integer>537</integer>
+		</dict>
 		<key>Built-in iSight3</key>
 		<dict>
 			<key>CFBundleIdentifier</key>
@@ -779,6 +903,30 @@
 			<integer>34053</integer>
 			<key>idVendor</key>
 			<integer>1452</integer>
+		</dict>
+		<key>Built-in iSight3 - 0x319</key>
+		<dict>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.driver.AppleUSBMergeNub</string>
+			<key>IOClass</key>
+			<string>AppleUSBMergeNub</string>
+			<key>IOProviderClass</key>
+			<string>IOUSBDevice</string>
+			<key>IOProviderMergeProperties</key>
+			<dict>
+				<key>kSuspendPort</key>
+				<true/>
+				<key>ConfigurationDescriptorOverride</key>
+				<array>
+					<data>CQKCAgMBAID6CAsAAg4DAAIJBAAAAQ4BAAINJAEAATMAAAk9AAEBEiQCAQECAAAAAAAAAAADCgAACSQDAgEBAAMACyQFAwEAAAJ/FQAHBYEDCAAGBSUDKAAJBAEAAA4CAAAOJAEBpwGCAAICAAABABskBAEFWVVZMgAAEACAAACqADibcRAFAAAAAEYkBQEAoAB4AAAAdwEAAMoIAJYAABUWBQALFRYFAHSMBQCAGgYAHMgGACChBwAkuAgAKywKAAA1DABAQg8AVVgUAICEHgBGJAUCALAAkAAAAHcBAADKCADGAAAVFgUACxUWBQB0jAUAgBoGABzIBgAgoQcAJLgIACssCgAANQwAQEIPAFVYFACAhB4ARiQFAwBAAfAAAAB3AQAAyggAWAIAFRYFAAsVFgUAdIwFAIAaBgAcyAYAIKEHACS4CAArLAoAADUMAEBCDwBVWBQAgIQeAEYkBQQAYAEgAQAAdwEAAMoIABgDABUWBQALFRYFAHSMBQCAGgYAHMgGACChBwAkuAgAKywKAAA1DABAQg8AVVgUAICEHgBGJAUFAIAC4AEAAHcBAADKCABgCQAVFgUACxUWBQB0jAUAgBoGABzIBgAgoQcAJLgIACssCgAANQwAQEIPAFVYFACAhB4AGiQDAAWgAHgAsACQAEAB8ABgASABgALgAQAGJA0BAQEJBAEBAQ4CAAAHBYIFgAABCQQBAgEOAgAABwWCBQACAQkEAQMBDgIAAAcFggUABAEJBAEEAQ4CAAAHBYIFAAsBCQQBBQEOAgAABwWCBQAMAQkEAQYBDgIAAAcFggWAEwEJBAEHAQ4CAAAHBYIFABQBCQQCAAD/AAAA</data>
+				</array>
+			</dict>
+			<key>idProduct</key>
+			<integer>34053</integer>
+			<key>idVendor</key>
+			<integer>1452</integer>
+			<key>bcdDevice</key>
+			<integer>793</integer>
 		</dict>
 		<key>Built-in iSight4</key>
 		<dict>
@@ -798,6 +946,30 @@
 			<key>idVendor</key>
 			<integer>1452</integer>
 		</dict>
+		<key>DisplayiSight0x219</key>
+		<dict>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.driver.AppleUSBMergeNub</string>
+			<key>IOClass</key>
+			<string>AppleUSBMergeNub</string>
+			<key>IOProviderClass</key>
+			<string>IOUSBDevice</string>
+			<key>IOProviderMergeProperties</key>
+			<dict>
+				<key>kSuspendPort</key>
+				<false/>
+				<key>ConfigurationDescriptorOverride</key>
+				<array>
+					<data>CQJ2BQMBAID6CAsAAg4DAAIJBAAAAQ4BAAINJAEAATMAAAk9AAEBEiQCAQECAAAAAAAAAAADCgAACSQDAgEBAAMACyQFAwEAAAJ/FQAHBYEDCAAGBSUDKAAJBAEAAA4CAAAPJAECmwSCAAICAAABAAAbJAQBB1lVWTIAABAAgAAAqgA4m3EQBQAAAABGJAUBAKAAeAAAAHcBAADKCACWAAAVFgUACxUWBQB0jAUAgBoGABzIBgAgoQcAJLgIACssCgAANQwAQEIPAFVYFACAhB4ARiQFAgCwAJAAAAB3AQAAyggAxgAAFRYFAAsVFgUAdIwFAIAaBgAcyAYAIKEHACS4CAArLAoAADUMAEBCDwBVWBQAgIQeAEYkBQMAQAHwAAAAdwEAAMoIAFgCABUWBQALFRYFAHSMBQCAGgYAHMiAACChBwAkuAgAKywKAAA1DABAQg8AVVgUAICEHgBGJAUEAGABIAEAAHcBAADKCAAYAwAVFgUACxUWBQB0jAUAgBoGABzIBgAgoQcAJLgIACssCgAANQwAQEIPAFVYFACAhB4ARiQFBQCAAuABAAB3AQAAyggAYAkAFRYFAAsVFgUAdIwFAIAaBgAcyAYAIKEHACS4CAArLAoAADUMAEBCDwBVWBQAgIQeAD4kBQYA0ALgAQAAdwEAAMoIAIwKAIAaBgAJgBoGABzIBgAgoQcAJLgIACssCgAANQwAQEIPAFVYFACAhB4APiQFBwDAAkACAAB3AQAAyggAYAwAgBoGAAmAGgYAHMgGACChBwAkuAgAKywKAAA1DABAQg8AVVgUAICEHgAiJAMAB6AAeACwAJAAQAHwAGABIAGAAuAB0ALgAcACQAIABiQNAQEBCyQGAggAAQAAAABKJAcBAIAC4AEAAHcBAADKCABgCQAVFgUADAuLAgAVFgUAdIwFAIAaBgAcyAYAIKEHACS4CAArLAoAADUMAEBCDwBVWBQAgIQeAEokBwIA0ALgAQAAdwEAAMoIAIwKABUWBQAMC4sCABUWBQB0jAUAgBoGABzIBgAgoQcAJLgIACssCgAANQwAQEIPAFVYFACAhB4ARiQHAwAgA1gCAAB3AQAAyggApg4AFRYFAAsVFgUAdIwFAIAaBgAcyAYAIKEHACS4CAArLAoAADUMAEBCDwBVWBQAgIQeAEYkBwQAAARAAgAAdwEAAMoIAAASABUWBQALFRYFAHSMBQCAGgYAHMgGACChBwAkuAgAKywKAAA1DABAQg8AVVgUAICEHgBGJAcFAAAEAAMAAHcBAADKCAAAGAAVFgUACxUWBQB0jAUAgBoGABzIBgAgoQcAJLgIACssCgAANQwAQEIPAFVYFACAhB4ARiQHBgAABdACAAB3AQAAyggAIBwAFRYFAAsVFgUAdIwFAIAaBgAcyAYAIKEHACS4CAArLAoAADUMAEBCDwBVWBQAgIQeAEYkBwcAAAXAAwAAdwEAAMoIAIAlABUWBQALFRYFAHSMBQCAGgYAHMgGACChBwAkuAgAKywKAAA1DABAQg8AVVgUAICEHgBGJAcIAAAFAAQAAHcBAADKCAAAKAAVFgUACxUWBQB0jAUAgBoGABzIBgAgoQcAJLgIACssCgAANQwAQEIPAFVYFACAhB4AJiQDAAiAAuAB0ALgASADWAIABEACAAQAAwAF0AIABcADAAUABAAGJA0BAQEJBAEBAQ4CAAAHBYIFgAABCQQBAgEOAgAABwWCBQACAQkEAQMBDgIAAAcFggUABAEJBAEEAQ4CAAAHBYIFAAsBCQQBBQEOAgAABwWCBQAMAQkEAQYBDgIAAAcFggWAEwEJBAEHAQ4CAAAHBYIFABQBCQQCAAD/AAAA</data>
+				</array>
+			</dict>
+			<key>idProduct</key>
+			<integer>34056</integer>
+			<key>idVendor</key>
+			<integer>1452</integer>
+			<key>bcdDevice</key>
+			<integer>537</integer>
+		</dict>
 		<key>Built-in iSight5</key>
 		<dict>
 			<key>CFBundleIdentifier</key>
@@ -815,6 +987,30 @@
 			<integer>34055</integer>
 			<key>idVendor</key>
 			<integer>1452</integer>
+		</dict>
+		<key>Built-in iSight5-0x419</key>
+		<dict>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.driver.AppleUSBMergeNub</string>
+			<key>IOClass</key>
+			<string>AppleUSBMergeNub</string>
+			<key>IOProviderClass</key>
+			<string>IOUSBDevice</string>
+			<key>IOProviderMergeProperties</key>
+			<dict>
+				<key>kSuspendPort</key>
+				<true/>
+				<key>ConfigurationDescriptorOverride</key>
+				<array>
+					<data>CQKCAgMBAID6CAsAAg4DAAIJBAAAAQ4BAAINJAEAATMAAAk9AAEBEiQCAQECAAAAAAAAAAADCgAACSQDAgEBAAMACyQFAwEAAAJ/FQAHBYEDCAAGBSUDKAAJBAEAAA4CAAAOJAEBpwGCAAICAAABABskBAEFWVVZMgAAEACAAACqADibcRAFAAAAAEYkBQEAoAB4AAAAdwEAAMoIAJYAABUWBQALFRYFAHSMBQCAGgYAHMgGACChBwAkuAgAKywKAAA1DABAQg8AVVgUAICEHgBGJAUCALAAkAAAAHcBAADKCADGAAAVFgUACxUWBQB0jAUAgBoGABzIBgAgoQcAJLgIACssCgAANQwAQEIPAFVYFACAhB4ARiQFAwBAAfAAAAB3AQAAyggAWAIAFRYFAAsVFgUAdIwFAIAaBgAcyAYAIKEHACS4CAArLAoAADUMAEBCDwBVWBQAgIQeAEYkBQQAYAEgAQAAdwEAAMoIABgDABUWBQALFRYFAHSMBQCAGgYAHMgGACChBwAkuAgAKywKAAA1DABAQg8AVVgUAICEHgBGJAUFAIAC4AEAAHcBAADKCABgCQAVFgUACxUWBQB0jAUAgBoGABzIBgAgoQcAJLgIACssCgAANQwAQEIPAFVYFACAhB4AGiQDAAWgAHgAsACQAEAB8ABgASABgALgAQAGJA0BAQEJBAEBAQ4CAAAHBYIFgAABCQQBAgEOAgAABwWCBQACAQkEAQMBDgIAAAcFggUABAEJBAEEAQ4CAAAHBYIFAAsBCQQBBQEOAgAABwWCBQAMAQkEAQYBDgIAAAcFggWAEwEJBAEHAQ4CAAAHBYIFABQBCQQCAAD/AAAA</data>
+				</array>
+			</dict>
+			<key>idProduct</key>
+			<integer>34055</integer>
+			<key>idVendor</key>
+			<integer>1452</integer>
+			<key>bcdDevice</key>
+			<integer>1049</integer>
 		</dict>
 		<key>Digby ExpressCard</key>
 		<dict>
@@ -1494,24 +1690,6 @@
 			<key>idVendor</key>
 			<integer>1452</integer>
 		</dict>
-		<key>Apple 0x1106</key>
-		<dict>
-			<key>CFBundleIdentifier</key>
-			<string>com.apple.driver.AppleUSBMergeNub</string>
-			<key>IOClass</key>
-			<string>AppleUSBMergeNub</string>
-			<key>IOProviderClass</key>
-			<string>IOUSBDevice</string>
-			<key>IOProviderMergeProperties</key>
-			<dict>
-				<key>NeedsAdministratorPrivilege</key>
-				<true/>
-			</dict>
-			<key>idProduct</key>
-			<integer>4358</integer>
-			<key>idVendor</key>
-			<integer>1452</integer>
-		</dict>
 		<key>Apple 0x0227 Device</key>
 		<dict>
 			<key>CFBundleIdentifier</key>
@@ -1545,24 +1723,6 @@
 			</dict>
 			<key>idProduct</key>
 			<integer>552</integer>
-			<key>idVendor</key>
-			<integer>1452</integer>
-		</dict>
-		<key>Apple 0x1601 Device</key>
-		<dict>
-			<key>CFBundleIdentifier</key>
-			<string>com.apple.driver.AppleUSBMergeNub</string>
-			<key>IOClass</key>
-			<string>AppleUSBMergeNub</string>
-			<key>IOProviderClass</key>
-			<string>IOUSBDevice</string>
-			<key>IOProviderMergeProperties</key>
-			<dict>
-				<key>NeedsAdministratorPrivilege</key>
-				<true/>
-			</dict>
-			<key>idProduct</key>
-			<integer>5633</integer>
 			<key>idVendor</key>
 			<integer>1452</integer>
 		</dict>
@@ -1617,6 +1777,24 @@
 			</dict>
 			<key>idProduct</key>
 			<integer>559</integer>
+			<key>idVendor</key>
+			<integer>1452</integer>
+		</dict>
+		<key>Apple 0x1601 Device</key>
+		<dict>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.driver.AppleUSBMergeNub</string>
+			<key>IOClass</key>
+			<string>AppleUSBMergeNub</string>
+			<key>IOProviderClass</key>
+			<string>IOUSBDevice</string>
+			<key>IOProviderMergeProperties</key>
+			<dict>
+				<key>NeedsAdministratorPrivilege</key>
+				<true/>
+			</dict>
+			<key>idProduct</key>
+			<integer>5633</integer>
 			<key>idVendor</key>
 			<integer>1452</integer>
 		</dict>
@@ -1893,6 +2071,28 @@
 			<string>*</string>
 			<key>idProduct</key>
 			<integer>559</integer>
+			<key>idVendor</key>
+			<integer>1452</integer>
+		</dict>
+		<key>Apple 0x1601 Interface</key>
+		<dict>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.driver.AppleUSBMergeNub</string>
+			<key>IOClass</key>
+			<string>AppleUSBMergeNub</string>
+			<key>IOProviderClass</key>
+			<string>IOUSBInterface</string>
+			<key>IOProviderMergeProperties</key>
+			<dict>
+				<key>NeedsAdministratorPrivilege</key>
+				<true/>
+			</dict>
+			<key>bConfigurationValue</key>
+			<string>*</string>
+			<key>bInterfaceNumber</key>
+			<string>*</string>
+			<key>idProduct</key>
+			<integer>5633</integer>
 			<key>idVendor</key>
 			<integer>1452</integer>
 		</dict>

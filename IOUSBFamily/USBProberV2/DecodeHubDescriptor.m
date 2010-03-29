@@ -23,6 +23,7 @@
  */
 
 
+#import "DescriptorDecoder.h"
 #import "DecodeHubDescriptor.h"
 
 
@@ -38,6 +39,11 @@
     
     [thisDevice addProperty:"Hub Descriptor" withValue:"" atDepth:HUB_DESCRIPTOR_LEVEL-1];
     
+    sprintf(buf, "%u", p[0]);
+    [thisDevice addProperty:"Length (and contents):" withValue:buf atDepth:HUB_DESCRIPTOR_LEVEL];
+
+	[DescriptorDecoder dumpRawDescriptor:(Byte *)p forDevice:thisDevice atDepth:HUB_DESCRIPTOR_LEVEL+1];
+	
     [thisDevice addNumberProperty:"Number of Ports:" value: hubDescriptor.numPorts size:sizeof(hubDescriptor.numPorts) atDepth:HUB_DESCRIPTOR_LEVEL usingStyle:kHexOutputStyle];
 //    NUM(hubDescriptor, "Number of Ports:", numPorts, deviceNumber, HUB_DESCRIPTOR_LEVEL, 0);
     

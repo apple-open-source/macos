@@ -15,7 +15,7 @@
 @SET_MAKE@
 
 #
-# $Id: Makefile.am,v 1.1 2001/05/30 04:31:33 crisb Exp $
+# $Id: Makefile.am,v 1.3 2009-05-19 12:12:22 yangtse Exp $
 #
 srcdir = @srcdir@
 top_srcdir = @top_srcdir@
@@ -54,8 +54,8 @@ am__aclocal_m4_deps = $(top_srcdir)/m4/curl-compilers.m4 \
 am__configure_deps = $(am__aclocal_m4_deps) $(CONFIGURE_DEPENDENCIES) \
 	$(ACLOCAL_M4)
 mkinstalldirs = $(SHELL) $(top_srcdir)/mkinstalldirs
-CONFIG_HEADER = $(top_builddir)/lib/config.h \
-	$(top_builddir)/src/config.h \
+CONFIG_HEADER = $(top_builddir)/lib/curl_config.h \
+	$(top_builddir)/src/curl_config.h \
 	$(top_builddir)/include/curl/curlbuild.h
 CONFIG_CLEAN_FILES =
 SOURCES =
@@ -78,6 +78,8 @@ CPP = @CPP@
 CPPFLAGS = @CPPFLAGS@
 CROSSCOMPILING_FALSE = @CROSSCOMPILING_FALSE@
 CROSSCOMPILING_TRUE = @CROSSCOMPILING_TRUE@
+CURLDEBUG_FALSE = @CURLDEBUG_FALSE@
+CURLDEBUG_TRUE = @CURLDEBUG_TRUE@
 CURL_CA_BUNDLE = @CURL_CA_BUNDLE@
 CURL_DISABLE_DICT = @CURL_DISABLE_DICT@
 CURL_DISABLE_FILE = @CURL_DISABLE_FILE@
@@ -144,6 +146,7 @@ PACKAGE_BUGREPORT = @PACKAGE_BUGREPORT@
 PACKAGE_NAME = @PACKAGE_NAME@
 PACKAGE_STRING = @PACKAGE_STRING@
 PACKAGE_TARNAME = @PACKAGE_TARNAME@
+PACKAGE_URL = @PACKAGE_URL@
 PACKAGE_VERSION = @PACKAGE_VERSION@
 PATH = @PATH@
 PATH_SEPARATOR = @PATH_SEPARATOR@
@@ -167,6 +170,8 @@ STRIP = @STRIP@
 SUPPORT_FEATURES = @SUPPORT_FEATURES@
 SUPPORT_PROTOCOLS = @SUPPORT_PROTOCOLS@
 TEST_SERVER_LIBS = @TEST_SERVER_LIBS@
+USE_EMBEDDED_ARES_FALSE = @USE_EMBEDDED_ARES_FALSE@
+USE_EMBEDDED_ARES_TRUE = @USE_EMBEDDED_ARES_TRUE@
 USE_GNUTLS = @USE_GNUTLS@
 USE_LIBSSH2 = @USE_LIBSSH2@
 USE_MANUAL_FALSE = @USE_MANUAL_FALSE@
@@ -240,9 +245,9 @@ $(srcdir)/Makefile.in: @MAINTAINER_MODE_TRUE@ $(srcdir)/Makefile.am  $(am__confi
 	      exit 1;; \
 	  esac; \
 	done; \
-	echo ' cd $(top_srcdir) && $(AUTOMAKE) --foreign  packages/Solaris/Makefile'; \
+	echo ' cd $(top_srcdir) && $(AUTOMAKE) --gnu  packages/Solaris/Makefile'; \
 	cd $(top_srcdir) && \
-	  $(AUTOMAKE) --foreign  packages/Solaris/Makefile
+	  $(AUTOMAKE) --gnu  packages/Solaris/Makefile
 .PRECIOUS: Makefile
 Makefile: $(srcdir)/Makefile.in $(top_builddir)/config.status
 	@case '$?' in \

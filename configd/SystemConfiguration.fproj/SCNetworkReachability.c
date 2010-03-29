@@ -1910,39 +1910,29 @@ enqueueAsyncDNSQuery(SCNetworkReachabilityRef target, mach_port_t mp)
 							  NULL);
 #if	!TARGET_OS_IPHONE
 	if (targetPrivate->dispatchQueue != NULL) {
-		dispatch_queue_attr_t	attr;
-		long			res;
-
-		attr = dispatch_queue_attr_create();
-		res = dispatch_queue_attr_set_finalizer(attr,
-							^(dispatch_queue_t dq) {
-								SCNetworkReachabilityRef	target;
-
-								target = (SCNetworkReachabilityRef)dispatch_get_context(dq);
-								CFRelease(target);
-							});
-		if (res != 0) {
-			SCLog(TRUE, LOG_ERR, CFSTR("SCNetworkReachability dispatch_queue_attr_set_finalizer() failed"));
-			dispatch_release(attr);
-			goto fail;
-		}
-		targetPrivate->asyncDNSQueue = dispatch_queue_create("com.apple.SCNetworkReachabilty.async_DNS_query", attr);
-		dispatch_release(attr);
+		targetPrivate->asyncDNSQueue = dispatch_queue_create("com.apple.SCNetworkReachabilty.async_DNS_query", NULL);
 		if (targetPrivate->asyncDNSQueue == NULL) {
 			SCLog(TRUE, LOG_ERR, CFSTR("SCNetworkReachability dispatch_queue_create() failed"));
 			goto fail;
 		}
 		CFRetain(target);	// Note: will be released when the dispatch queue is released
 		dispatch_set_context(targetPrivate->asyncDNSQueue, (void *)target);
-		targetPrivate->asyncDNSSource = dispatch_source_mig_create(mp,
-									   sizeof(mach_msg_header_t),
-									   NULL,
-									   targetPrivate->asyncDNSQueue,
-									   SCNetworkReachabilityNotifyMIGCallback);
+		dispatch_set_finalizer_f(targetPrivate->asyncDNSQueue, (dispatch_function_t)CFRelease);
+
+		targetPrivate->asyncDNSSource = dispatch_source_create(DISPATCH_SOURCE_TYPE_MACH_RECV,
+								       mp,
+								       0,
+								       targetPrivate->asyncDNSQueue);
 		if (targetPrivate->asyncDNSSource == NULL) {
-			SCLog(TRUE, LOG_ERR, CFSTR("SCNetworkReachability dispatch_source_mig_create() failed"));
+			SCLog(TRUE, LOG_ERR, CFSTR("SCNetworkReachability dispatch_source_create() failed"));
 			goto fail;
 		}
+		dispatch_source_set_event_handler(targetPrivate->asyncDNSSource, ^{
+			dispatch_mig_server(targetPrivate->asyncDNSSource,
+					    sizeof(mach_msg_header_t),
+					    SCNetworkReachabilityNotifyMIGCallback);
+		});
+		dispatch_resume(targetPrivate->asyncDNSSource);
 	} else
 #endif	// !TARGET_OS_IPHONE
 	if (targetPrivate->rls != NULL) {
@@ -1966,7 +1956,7 @@ enqueueAsyncDNSQuery(SCNetworkReachabilityRef target, mach_port_t mp)
     fail :
 
 	if (targetPrivate->asyncDNSSource != NULL) {
-		dispatch_cancel(targetPrivate->asyncDNSSource);
+		dispatch_source_cancel(targetPrivate->asyncDNSSource);
 		dispatch_release(targetPrivate->asyncDNSSource);
 		targetPrivate->asyncDNSSource = NULL;
 	}
@@ -1993,7 +1983,15 @@ dequeueAsyncDNSQuery(SCNetworkReachabilityRef target)
 
 #if	!TARGET_OS_IPHONE
 	if (targetPrivate->asyncDNSSource != NULL) {
-		dispatch_cancel(targetPrivate->asyncDNSSource);
+		dispatch_source_cancel(targetPrivate->asyncDNSSource);
+		if (targetPrivate->asyncDNSQueue != dispatch_get_current_queue()) {
+			// ensure the cancellation has completed
+			pthread_mutex_unlock(&targetPrivate->lock);
+			dispatch_sync(targetPrivate->asyncDNSQueue, ^{});
+			pthread_mutex_lock(&targetPrivate->lock);
+		}
+	}
+	if (targetPrivate->asyncDNSSource != NULL) {
 		dispatch_release(targetPrivate->asyncDNSSource);
 		targetPrivate->asyncDNSSource = NULL;
 	}
@@ -3725,27 +3723,7 @@ __SCNetworkReachabilityScheduleWithRunLoop(SCNetworkReachabilityRef	target,
 		__SCNetworkReachabilityReachabilitySetNotifications(hn_store);
 
 #if	!TARGET_OS_IPHONE
-		dispatch_queue_attr_t	attr;
-		long			res;
-
-		attr = dispatch_queue_attr_create();
-		res = dispatch_queue_attr_set_finalizer(attr,
-							^(dispatch_queue_t dq) {
-								SCDynamicStoreRef	hn_store;
-
-								hn_store = (SCDynamicStoreRef)dispatch_get_context(dq);
-								CFRelease(hn_store);
-							});
-		if (res != 0) {
-			SCLog(TRUE, LOG_ERR, CFSTR("__SCNetworkReachabilityScheduleWithRunLoop dispatch_queue_attr_set_finalizer() failed"));
-			dispatch_release(attr);
-			CFRelease(hn_store);
-			hn_store = NULL;
-			_SCErrorSet(kSCStatusFailed);
-			goto done;
-		}
-		hn_dispatchQueue = dispatch_queue_create("com.apple.SCNetworkReachabilty.network_changes", attr);
-		dispatch_release(attr);
+		hn_dispatchQueue = dispatch_queue_create("com.apple.SCNetworkReachabilty.network_changes", NULL);
 		if (hn_dispatchQueue == NULL) {
 			SCLog(TRUE, LOG_ERR, CFSTR("__SCNetworkReachabilityScheduleWithRunLoop dispatch_queue_create() failed"));
 			_SCErrorSet(kSCStatusFailed);
@@ -3755,6 +3733,7 @@ __SCNetworkReachabilityScheduleWithRunLoop(SCNetworkReachabilityRef	target,
 		}
 		CFRetain(hn_store);	// Note: will be released when the dispatch queue is released
 		dispatch_set_context(hn_dispatchQueue, (void *)hn_store);
+		dispatch_set_finalizer_f(hn_dispatchQueue, (dispatch_function_t)CFRelease);
 
 		ok = SCDynamicStoreSetDispatchQueue(hn_store, hn_dispatchQueue);
 		if (!ok) {

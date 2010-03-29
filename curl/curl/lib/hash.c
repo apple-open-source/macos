@@ -5,7 +5,7 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) 1998 - 2008, Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) 1998 - 2009, Daniel Stenberg, <daniel@haxx.se>, et al.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
@@ -18,7 +18,7 @@
  * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
  * KIND, either express or implied.
  *
- * $Id: hash.c,v 1.39 2008-10-27 05:29:17 yangtse Exp $
+ * $Id: hash.c,v 1.41 2009-06-10 02:49:43 yangtse Exp $
  ***************************************************************************/
 
 #include "setup.h"
@@ -32,7 +32,7 @@
 #define _MPRINTF_REPLACE /* use our functions only */
 #include <curl/mprintf.h>
 
-#include "memory.h"
+#include "curl_memory.h"
 /* The last #include file should be: */
 #include "memdebug.h"
 
@@ -210,7 +210,7 @@ Curl_hash_pick(struct curl_hash *h, void *key, size_t key_len)
   return NULL;
 }
 
-#if defined(CURLDEBUG) && defined(AGGRESIVE_TEST)
+#if defined(DEBUGBUILD) && defined(AGGRESIVE_TEST)
 void
 Curl_hash_apply(curl_hash *h, void *user,
                 void (*cb)(void *user, void *ptr))

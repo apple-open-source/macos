@@ -354,8 +354,8 @@ SetEndOfForkProc ( SFCB *filePtr, FSSize minEOF, FSSize maxEOF )
 	// of the old catalog file with the rebuilt catalog file at the end of
 	// the rebuild process.  Extent records use the file ID as part of the key so 
 	// it would be messy to fix them after the swap.
-	if ( filePtr->fcbFileID == kHFSRepairCatalogFileID )
-		flags |= kEFContigMask;
+	if ( filePtr->fcbFileID == kHFSRepairCatalogFileID)
+		flags |= kEFNoExtOvflwMask;
 	
 	result = ExtendFileC ( vcb, filePtr, (bytesToAdd+511)>>9, flags, &actualSectorsAdded );
 	ReturnIfError(result);
@@ -380,8 +380,8 @@ SetEndOfForkProc ( SFCB *filePtr, FSSize minEOF, FSSize maxEOF )
 		if (	(filePtr->fcbFileID == kHFSExtentsFileID) 
 			 ||	(filePtr->fcbFileID == kHFSCatalogFileID)
 			 ||	(filePtr->fcbFileID == kHFSStartupFileID)
-			 ||	(filePtr->fcbFileID == kHFSRepairCatalogFileID)
-			 ||	(filePtr->fcbFileID == kHFSAttributesFileID) )
+			 ||	(filePtr->fcbFileID == kHFSAttributesFileID)
+			 ||	(filePtr->fcbFileID == kHFSRepairCatalogFileID) )
 		{
 			MarkVCBDirty( vcb );
 			result = FlushAlternateVolumeControlBlock( vcb, true );

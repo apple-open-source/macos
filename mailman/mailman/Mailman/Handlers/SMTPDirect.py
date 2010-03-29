@@ -1,4 +1,4 @@
-# Copyright (C) 1998-2005 by the Free Software Foundation, Inc.
+# Copyright (C) 1998-2009 by the Free Software Foundation, Inc.
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -360,7 +360,9 @@ def bulkdeliver(mlist, msg, msgdata, envsender, failures, conn):
     msg['Sender'] = envsender
     msg['Errors-To'] = envsender
     # Get the plain, flattened text of the message, sans unixfrom
-    msgtext = msg.as_string()
+    # using our as_string() method to not mangle From_ and not fold
+    # sub-part headers possibly breaking signatures.
+    msgtext = msg.as_string(mangle_from_=False)
     refused = {}
     recips = msgdata['recips']
     msgid = msg['message-id']

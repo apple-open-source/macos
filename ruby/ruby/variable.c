@@ -3,7 +3,7 @@
   variable.c -
 
   $Author: shyouhei $
-  $Date: 2008-06-29 18:28:00 +0900 (Sun, 29 Jun 2008) $
+  $Date: 2009-02-02 11:37:26 +0900 (Mon, 02 Feb 2009) $
   created at: Tue Apr 19 23:55:15 JST 1994
 
   Copyright (C) 1993-2003 Yukihiro Matsumoto
@@ -1338,12 +1338,8 @@ autoload_delete(mod, id)
 	st_delete(tbl, (st_data_t*)&id, &load);
 
 	if (tbl->num_entries == 0) {
-	    DATA_PTR(val) = 0;
-	    st_free_table(tbl);
 	    id = autoload;
-	    if (st_delete(RCLASS(mod)->iv_tbl, (st_data_t*)&id, &val)) {
-		rb_gc_force_recycle(val);
-	    }
+	    st_delete(RCLASS(mod)->iv_tbl, (st_data_t*)&id, &val);
 	}
     }
 
@@ -1389,12 +1385,8 @@ autoload_file(mod, id)
     /* already loaded but not defined */
     st_delete(tbl, (st_data_t*)&id, 0);
     if (!tbl->num_entries) {
-	DATA_PTR(val) = 0;
-	st_free_table(tbl);
 	id = autoload;
-	if (st_delete(RCLASS(mod)->iv_tbl, (st_data_t*)&id, &val)) {
-	    rb_gc_force_recycle(val);
-	}
+	st_delete(RCLASS(mod)->iv_tbl, (st_data_t*)&id, &val);
     }
     return Qnil;
 }

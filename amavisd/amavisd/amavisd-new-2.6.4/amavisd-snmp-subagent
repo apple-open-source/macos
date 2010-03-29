@@ -1,0 +1,1154 @@
+#!/usr/bin/perl -T
+
+#------------------------------------------------------------------------------
+# This program implements a SNMP AgentX (RFC 2741) subagent for amavisd-new.
+#
+# Author: Mark Martinec <Mark.Martinec@ijs.si>
+# Copyright (C) 2009  Mark Martinec,  All Rights Reserved.
+#
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions are met:
+#
+# * Redistributions of source code must retain the above copyright notice,
+#   this list of conditions and the following disclaimer.
+# * Redistributions in binary form must reproduce the above copyright notice,
+#   this list of conditions and the following disclaimer in the documentation
+#   and/or other materials provided with the distribution.
+# * Neither the name of the author, nor the name of the "Jozef Stefan"
+#   Institute, nor the names of contributors may be used to endorse or
+#   promote products derived from this software without specific prior
+#   written permission.
+#
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+# "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+# LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A
+# PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER
+# OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
+# EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+# PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
+# OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
+# WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
+# OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
+# ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+#
+#(the license above is the new BSD license, and pertains to this program only)
+#
+# Patches and problem reports are welcome.
+# The latest version of this program is available at:
+#   http://www.ijs.si/software/amavisd/
+#------------------------------------------------------------------------------
+
+package AmavisAgent;
+
+use strict;
+use re 'taint';
+use warnings FATAL => 'utf8';
+
+use Errno qw(ESRCH ENOENT EACCES EEXIST);
+use POSIX ();
+use Time::HiRes ();
+use IO::File qw(O_RDONLY O_WRONLY O_RDWR O_CREAT O_EXCL);
+use Unix::Syslog qw(:macros :subs);
+use BerkeleyDB;
+
+use vars qw($VERSION);  $VERSION = 1.003;
+
+use vars qw($myversion $myproduct_name $myversion_id $myversion_date);
+$myproduct_name = 'amavis-agentx';
+$myversion_id = '1.3'; $myversion_date = '20090623';
+$myversion = "$myproduct_name-$myversion_id ($myversion_date)";
+my($agent_name) = $myproduct_name;
+
+use vars qw($syslog_ident $syslog_facility);
+$syslog_ident = $myproduct_name;
+$syslog_facility = LOG_MAIL;
+
+my($db_home) =  # DB databases directory
+  defined $ENV{'AMAVISD_DB_HOME'} ? $ENV{'AMAVISD_DB_HOME'} : '/var/amavis/db';
+
+my($mta_queue_dir);
+
+my($top) = '1.3.6.1.4.1.15312.2.1';
+my(@databases) = (
+  { root_oid_str => "$top.1",     name => 'am.snmp',     file => 'snmp.db'  },
+  { root_oid_str => "$top.2",     name => 'am.nanny',    file => 'nanny.db' },
+  { root_oid_str => "$top.3.1.1", name => 'pf.maildrop', file => 'maildrop',
+                                  ttl => 18 },
+  { root_oid_str => "$top.3.1.2", name => 'pf.incoming', file => 'incoming',
+                                  ttl => 18 },
+  { root_oid_str => "$top.3.1.3", name => 'pf.active',   file => 'active',
+                                  ttl => 18 },
+  { root_oid_str => "$top.3.1.4", name => 'pf.deferred', file => 'deferred',
+                                  ttl => 18 },
+);
+
+# 1.3.6.1.4.1.15312        enterprises . Jozef Stefan Institute
+# 1.3.6.1.4.1.15312.2      amavisd-new
+# 1.3.6.1.4.1.15312.2.1    amavisd-new SNMP
+# 1.3.6.1.4.1.15312.2.1.1  amavisd-new Statistics
+# 1.3.6.1.4.1.15312.2.1.2  amavisd-new Process status
+# 1.3.6.1.4.1.15312.2.1.3  amavisd-new (a view into MTA queue sizes)
+# 1.3.6.1.4.1.15312.2.2    amavisd-new LDAP Elements
+
+
+my($log_level) = 0;
+my($daemonize) = 1;
+my($pid_filename);  # e.g. "/var/run/amavisd-snmp-subagent.pid";
+
+my($pid_file_created) = 0;
+my($syslog_open) = 0;
+my($num_proc_gone) = 0;
+
+# geometic progression, rounded,
+#   common ratio = exp((ln(60)-ln(1))/6) = 1.97860
+my(@age_slots) = (
+  0.1,    0.2,    0.5,
+  1,      2,      4,      8,      15,      30,        # seconds
+  1*60,   2*60,   4*60,   8*60,   15*60,   30*60,     # minutes
+  1*3600, 2*3600, 4*3600, 8*3600, 15*3600, 30*3600);  # hours
+
+
+package AmavisVariable;
+
+sub new    { my($class) = @_; bless [(undef) x 7], $class }
+sub oid    { my($self)=shift; !@_ ? $self->[0] : ($self->[0]=shift) }
+sub oidstr { my($self)=shift; !@_ ? $self->[1] : ($self->[1]=shift) }
+sub name   { my($self)=shift; !@_ ? $self->[2] : ($self->[2]=shift) }
+sub type   { my($self)=shift; !@_ ? $self->[3] : ($self->[3]=shift) }
+sub suffix { my($self)=shift; !@_ ? $self->[4] : ($self->[4]=shift) }
+sub value  { my($self)=shift; !@_ ? $self->[5] : ($self->[5]=shift) }
+sub next   { my($self)=shift; !@_ ? $self->[6] : ($self->[6]=shift) }
+
+
+package AmavisAgent;
+
+use NetSNMP::OID;
+use NetSNMP::ASN qw(:all);
+use NetSNMP::agent qw(:all);
+use NetSNMP::default_store qw(:all);
+
+my(%oidstr_to_name);
+my(@oid_sorted_list);
+my($keep_running) = 1;
+my(%variables);
+
+my(%asn_name_to_type) = (
+  'C32' => ASN_COUNTER,
+  'C64' => ASN_COUNTER64,
+  'G32' => ASN_GAUGE,
+  'INT' => ASN_INTEGER,
+  'I64' => ASN_INTEGER64,
+  'U32' => ASN_UNSIGNED,
+  'U64' => ASN_UNSIGNED64,
+  'STR' => ASN_OCTET_STR,
+  'OID' => ASN_OBJECT_ID,
+  'TIM' => ASN_TIMETICKS,
+);
+
+my(%asn_type_to_full_name) = (
+  ASN_COUNTER,    'Counter32',
+  ASN_COUNTER64,  'Counter64',
+  ASN_GAUGE,      'Gauge32',
+  ASN_INTEGER,    'Integer32',
+#                 'IpAddress',
+  ASN_INTEGER64,  'Integer64',
+  ASN_UNSIGNED,   'Unsigned32',
+  ASN_UNSIGNED64, 'Unsigned64',
+  ASN_OCTET_STR,  'DisplayString',
+  ASN_OBJECT_ID,  'OBJECT IDENTIFIER',
+  ASN_TIMETICKS,  'TimeTicks',
+);
+
+sub do_log($$;@) {
+  my($level,$errmsg,@args) = @_;
+  if ($level <= $log_level) {
+    # treat $errmsg as sprintf format string if additional arguments provided
+    if (@args) { $errmsg = sprintf($errmsg,@args) }
+    if (!$syslog_open) {
+      print STDERR $errmsg."\n";  # ignoring I/O status
+    } else {
+      my($prio) = $level <= -2 ? LOG_ERR
+                : $level <= -1 ? LOG_WARNING
+                : $level <=  0 ? LOG_NOTICE
+                : $level <=  1 ? LOG_INFO
+                :                LOG_DEBUG;
+      syslog(LOG_INFO, "%s", $errmsg);
+    }
+  }
+}
+
+# Returns the smallest defined number from the list, or undef
+sub min(@) {
+  my($r) = @_ == 1 && ref($_[0]) ? $_[0] : \@_;  # accept list, or a list ref
+  my($m);  for (@$r) { $m = $_  if defined $_ && (!defined $m || $_ < $m) }
+  $m;
+}
+
+# Returns the largest defined number from the list, or undef
+sub max(@) {
+  my($r) = @_ == 1 && ref($_[0]) ? $_[0] : \@_;  # accept list, or a list ref
+  my($m);  for (@$r) { $m = $_  if defined $_ && (!defined $m || $_ > $m) }
+  $m;
+}
+
+# Return untainted copy of a string (argument can be a string or a string ref)
+sub untaint($) {
+  no re 'taint';
+  my($str);
+  if (defined($_[0])) {
+    local($1); # avoid Perl taint bug: tainted global $1 propagates taintedness
+    $str = $1  if (ref($_[0]) ? ${$_[0]} : $_[0]) =~ /^(.*)\z/s;
+  }
+  $str;
+}
+
+sub declare_variable($$;$$$) {
+  my($oid_str,$name, $typename,$instance_lo,$instance_hi) = @_;
+  $typename = 'C32'  if !defined $typename;
+  $instance_lo = 0               if !defined $instance_lo;
+  $instance_hi = $instance_lo    if !defined $instance_hi;
+  $instance_hi = $instance_lo    if $instance_hi < $instance_lo;
+  my($type) = $asn_name_to_type{$typename};
+  for my $ind ($instance_lo .. $instance_hi) {
+    my($full_oid_str) = sprintf("%s.%d", $oid_str,$ind);
+  # do_log(5, "declaring variable %s, %s", $full_oid_str, $name);
+    my($var) = AmavisVariable->new;
+    $var->oidstr($full_oid_str);
+  # $var->oid(NetSNMP::OID->new($full_oid_str));  # later
+    $var->type($type);
+  # $var->suffix($suffix);
+    !exists $variables{"$name.$ind"}
+      or die "Duplicate variable name: $name.$ind";
+    $variables{"$name.$ind"} = $var;
+  }
+}
+
+sub set_variable_value($$) {
+  my($name, $value) = @_;
+  my($instance); local($1,$2);
+  if ($name =~ /^(.*)\.(\d+)/) { $name = $1; $instance = $2 }
+  $instance = 0  if !defined $instance;
+  my($var) = $variables{"$name.$instance"};
+  if (!$var) {
+    do_log(0, "No such variable %s.%s", $name,$instance);
+  } else {
+    my($type) = $var->type;
+    if (   $name =~ /^TimeElapsed/) { $value = $value/10 }  # ms -> 0.01s ticks
+    elsif ($type == ASN_COUNTER   || $type == ASN_GAUGE     ||
+           $type == ASN_INTEGER   || $type == ASN_UNSIGNED  ||
+           $type == ASN_TIMETICKS)  { $value = 0+$value }
+    elsif ($type == ASN_COUNTER64 || $type == ASN_INTEGER64 ||
+           $type == ASN_UNSIGNED64) { $value = sprintf("%1.0f",$value) }
+    elsif ($type == ASN_OCTET_STR)  { $value = "$value" }
+    $var->value($value);
+  }
+}
+
+sub reset_all_variable_values($) {
+  my($root_oid_str) = @_;
+  while (my($key,$var) = each(%variables)) {
+    if (!defined($root_oid_str) || $var->oidstr =~ /^\Q$root_oid_str\E\./) {
+      $var->value(undef);
+    }
+  }
+}
+
+sub dump_variables() {
+  for my $oid (@oid_sorted_list) {
+    my(@oidlist) = $oid->to_array;
+    my($oidstr) = join('.', @oidlist);
+    my($name) = $oidstr_to_name{$oidstr};
+    my($var) = $variables{$name};
+    my($descr) = "";
+    my($suffix_sp) = join(' ', @oidlist[9 .. ($#oidlist-1)]);
+    my($mib_type_name) = $asn_type_to_full_name{$var->type};
+    $name =~ s/\.0\z//;
+    printf STDERR (<<'END', $name, $mib_type_name, $descr, $suffix_sp);
+%s OBJECT-TYPE
+    SYNTAX	%s
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "%s"
+    ::= { amavis %s }
+
+END
+  }
+}
+
+sub init_data() {
+  for my $name (keys %variables) {
+    my($var) = $variables{$name};
+    $var->oid(NetSNMP::OID->new($var->oidstr));
+    $oidstr_to_name{$var->oidstr} = $name;
+  }
+  @oid_sorted_list = sort { snmp_oid_compare($a,$b) }
+                     map  { $_->oid } values(%variables);
+  # build a linked list of variable objects in OID sorted order
+  # to speed up sequential MIB traversal by getnext
+  my($prev_var);
+  for my $oid (@oid_sorted_list) {
+    my($oidstr) = join('.', $oid->to_array);
+    my($name) = $oidstr_to_name{$oidstr};
+    my($var) = $variables{$name};
+    $prev_var->next($var)  if defined $prev_var;
+    $prev_var = $var;
+  }
+}
+
+sub collect_all_db_data($$) {
+  my($database,$values) = @_;
+  my($dbfile) = $database->{file};
+  my(@dbstat) = stat("$db_home/$dbfile");
+  my($errn) = @dbstat ? 0 : 0+$!;
+  $errn==0 || $errn==ENOENT  or die "stat $db_home/$dbfile: $!";
+  if (defined $database->{db} && $database->{old_db_inode} != $dbstat[1]) {
+    $database->{db}->db_close==0
+      or die "BDB db_close error: $BerkeleyDB::Error $!";
+    undef $database->{db};
+    do_log(1, "Reopening snmp database %s/%s", $db_home,$dbfile);
+  }
+  if (!defined $database->{db} && $errn==0) {
+    reset_all_variable_values($database->{root_oid_str});
+    $database->{old_db_inode} = $dbstat[1];
+    $database->{env} = BerkeleyDB::Env->new(
+      -Home => $db_home, -Flags => DB_INIT_CDB | DB_INIT_MPOOL,
+      -ErrFile => \*STDOUT, -Verbose => 1);
+    defined $database->{env} or die "BDB no env: $BerkeleyDB::Error $!";
+    $database->{db} = BerkeleyDB::Hash->new(-Filename => $dbfile,
+                                          -Env => $database->{env});
+    defined $database->{db} or die "BDB no dbS 1: $BerkeleyDB::Error $!";
+  }
+  my($eval_stat,$interrupt); $interrupt = '';
+  if (!defined $database->{db}) {
+    do_log(1, "No snmp database %s/%s", $db_home,$dbfile);
+  } else {
+    my($stat,$key,$val);
+    my($h1) = sub { $interrupt = $_[0] };
+    local(@SIG{qw(INT HUP TERM TSTP QUIT ALRM USR1 USR2)}) = ($h1) x 8;
+    eval {
+      # be as quick as possible while a database is locked by a cursor
+      my($cursor) = $database->{db}->db_cursor;  # obtain read lock
+      $database->{cursor} = $cursor;
+      defined $cursor or die "db_cursor error: $BerkeleyDB::Error";
+      while ( ($stat=$cursor->c_get($key,$val,DB_NEXT)) == 0 ) {
+        $values->{$key} = $val;
+      }
+      $stat==DB_NOTFOUND  or die "c_get: $BerkeleyDB::Error $!";
+      $cursor->c_close==0 or die "c_close error: $BerkeleyDB::Error";
+      undef $database->{cursor};
+      1;
+    } or do {
+      $eval_stat = $@ ne '' ? $@ : "errno=$!";  chomp $eval_stat;
+    };
+    if (defined $database->{db}) {
+      # unlock, ignoring status
+      $database->{cursor}->c_close  if defined $database->{cursor};
+      undef $database->{cursor};
+    }
+  }
+  if ($interrupt ne '') { kill($interrupt,$$) }  # resignal
+  elsif ($eval_stat ne '') { chomp($eval_stat); die "BDB $eval_stat\n" }
+}
+
+sub count_files_in_postfix_dir($$);  # prototype
+sub count_files_in_postfix_dir($$) {
+  my($dir,$deadline) = @_;
+  local(*DIR); my($f); my($cnt) = 0; my($aborted) = 0;
+  if (!opendir(DIR,$dir)) {
+    do_log(-1, "Can't open directory %s: %s", $dir,$!);
+  } else {
+    while (defined($f = readdir(DIR))) {
+      next  if $f eq '.' || $f eq '..';
+      # Postfix uses one-character subdirs
+      if (length($f) == 1 && -d "$dir/$f") {
+        my($n,$abt) = count_files_in_postfix_dir("$dir/$f", $deadline);
+        $cnt += $n;
+        if ($abt) { $aborted = 1; last }
+      } else {
+        $cnt++;
+      }
+      if (defined $deadline && Time::HiRes::time > $deadline) {
+        $aborted = 1; last;
+      }
+    }
+    closedir(DIR) or die "Error closing directory $dir: $!";
+  }
+  ($cnt,$aborted);
+}
+
+sub update_data($) {
+  my($database) = @_;
+  do_log(3, "updating variables from %s", $database->{name});
+  my($start_time) = Time::HiRes::time;
+  if ($database->{name} =~ /^pf/) {
+    # not really a database file, just a 'view' into a MTA spool directory
+    my($dir) = $database->{file};
+    my($cnt,$aborted) =
+      count_files_in_postfix_dir("$mta_queue_dir/$dir", $start_time + 5);
+    my($var_name) = "MtaQueueEntries\u$dir";
+    set_variable_value($var_name, $cnt);
+    do_log(3, "mta queue: %s %d", $var_name,$cnt);
+    do_log(-1,"exceeded time limit on dir %s, aborted after %.1f s, ".
+              "count so far: %d",
+              $var_name, Time::HiRes::time - $start_time, $cnt)  if $aborted;
+  } elsif ($database->{file} eq 'snmp.db') {
+    my(%values); collect_all_db_data($database,\%values);
+    while (my($key,$val) = each(%values)) {
+      next if $key =~ /\.byOS\./s;
+      next if $key =~ /^virus\.byname\./s;
+      next if $key =~ /^(?:OpsDecType|OpsDecBy|OpsSql)/s;
+      next if $key =~ /^entropy/s;
+      next if $key =~ /^ContentBadHdr/ && $key !~ /^ContentBadHdrMsgs/;
+      local($1);
+      if ($val =~ /^(?:C32|C64) (.*)\z/) {
+        set_variable_value($key, 0+$1);
+      } elsif ($val =~ /^STR (.*)\z/) {
+        set_variable_value($key, "$1");
+      } elsif ($key eq 'sysUpTime' && $val =~ /^INT (.*)\z/) {
+        my($uptime) = $start_time - $1; my($ticks) = int($uptime*100);
+        set_variable_value($key, $ticks);
+      } elsif ($val =~ /^(?:G32|INT|I64|U32|U64|TIM) (.*)\z/) {
+        set_variable_value($key, 0+$1);
+      } elsif ($val =~ /^OID (.*)\z/) {
+        set_variable_value($key, $1);
+      } else {
+      # set_variable_value($key, $val);
+      }
+    }
+  } elsif ($database->{file} eq 'nanny.db') {
+    my(%values); collect_all_db_data($database,\%values);
+    my(%proc_timestamp, %proc_state, %proc_task_id);
+    while (my($key,$val) = each(%values)) {
+      local($1,$2);
+      if ($val !~ /^(\d+(?:\.\d*)?) (.*?) *\z/s) {
+        do_log(0, "Bad %s db entry: %s, %s", $database->{file},$key,$val);
+      } else {
+        $proc_timestamp{$key} = $1; my($task_id) = $2;
+        $proc_state{$key} = $1  if $task_id =~ s/^([^0-9])//;
+        $proc_task_id{$key} = $task_id;
+      }
+    }
+    my(@to_be_removed); my($num_proc_idle) = 0; my($num_proc_busy) = 0;
+    my(@num_proc_busy_by_age); my(%num_proc_busy_by_activity);
+    for my $pid (keys(%proc_timestamp)) {
+      my($idling) = $proc_task_id{$pid} eq '' &&
+                    $proc_state{$pid} =~ /^[. ]?\z/s;
+      my($age) = $start_time - $proc_timestamp{$pid};
+      my($n) = kill(0,$pid);  # test if the process is still there
+      if ($n == 0 && $! != ESRCH) {
+        do_log(-1, "Can't check the process %s: %s", $pid,$!);
+      } elsif ($n == 0) {  # ESRCH means there is no such process
+        push(@to_be_removed, $pid);  # process went away!
+      } elsif ($idling) {
+        $num_proc_idle++;
+      } else {  # busy for $age seconds
+        $num_proc_busy++;
+        $num_proc_busy_by_age[0]++;
+        my($j) = 1;
+        for my $t (@age_slots) {
+          if ($age >= $t) { $num_proc_busy_by_age[$j]++ }
+          $j++;
+        }
+        my($s) = $proc_state{$pid};
+        if ($s eq 'm' || $s eq 'd' || $s eq 'F') { $s = 'm' }
+        elsif ($s eq 'D' || $s eq 'V' || $s eq 'S') { }
+        else { $s = ' ' }
+        $num_proc_busy_by_activity{$s}++;
+      }
+    }
+    $num_proc_gone += scalar(@to_be_removed);
+    # all are gauges, except ProcGone
+    set_variable_value('ProcAll',  $num_proc_idle+$num_proc_busy);
+    set_variable_value('ProcIdle', $num_proc_idle);
+    set_variable_value('ProcBusy', $num_proc_busy);
+    set_variable_value('ProcGone', $num_proc_gone);  # counter!
+    for my $j (0..@age_slots) {  # age_slots start at 1, zero is in addition
+      set_variable_value("ProcBusy$j", $num_proc_busy_by_age[$j] || 0);
+    }
+    set_variable_value("ProcBusyTransfer",$num_proc_busy_by_activity{'m'}||0);
+    set_variable_value("ProcBusyDecode",  $num_proc_busy_by_activity{'D'}||0);
+    set_variable_value("ProcBusyVirus",   $num_proc_busy_by_activity{'V'}||0);
+    set_variable_value("ProcBusySpam",    $num_proc_busy_by_activity{'S'}||0);
+    set_variable_value("ProcBusyOther",   $num_proc_busy_by_activity{' '}||0);
+    if (@to_be_removed) {  # some processes no longer exist, update db
+      my($eval_stat,$interrupt); $interrupt = '';
+      my($h1) = sub { $interrupt = $_[0] };
+      local(@SIG{qw(INT HUP TERM TSTP QUIT ALRM USR1 USR2)}) = ($h1) x 8;
+      eval {
+        # obtain a write lock
+        my($cursor) = $database->{db}->db_cursor(DB_WRITECURSOR);
+        $database->{cursor} = $cursor;
+        defined $cursor or die "BDB db_cursor error: $BerkeleyDB::Error";
+        for my $key (@to_be_removed) {
+          my($val); my($stat) = $cursor->c_get($key,$val,DB_SET);
+          $stat==0 || $stat==DB_NOTFOUND
+            or die "BDB c_get: $BerkeleyDB::Error, $!.";
+          if ($stat==0) {  # remove existing entry
+            $cursor->c_del==0 or die "c_del: $BerkeleyDB::Error, $!.";
+          }
+        }
+        $cursor->c_close==0 or die "c_close error: $BerkeleyDB::Error";
+        undef $database->{cursor};
+        1;
+      } or do {
+        $eval_stat = $@ ne '' ? $@ : "errno=$!";  chomp $eval_stat;
+      };
+      if (defined $database->{db}) {
+        # unlock, ignoring status
+        $database->{cursor}->c_close  if defined $database->{cursor};
+        undef $database->{cursor};
+      }
+    }
+  }
+
+  my($now) = Time::HiRes::time;
+
+  my($elapsed) = $now - $start_time;
+  $elapsed = 0  if $elapsed < 0;  # clock jump?
+  my($ll) = $elapsed >= 30 ? -1 : $elapsed >= 5 ? 0 : $elapsed >= 1 ? 2 : 3;
+  do_log($ll, "updating %s took %.3f s", $database->{name}, $elapsed);
+
+  my($ttl_lower_bound) = 8*$elapsed;  # don't be a hog!
+  my($since_query) = $database->{last_query_timestamp};
+  $since_query = $now - $since_query  if defined $since_query;
+  if (defined $since_query && $elapsed > 4) {
+    # there is a chance that a SNMP client timed out on this query;
+    # stretch the next update period to allow one quick next response
+    # from cached data, assuming queries are at about regular intervals
+    $ttl_lower_bound = max($ttl_lower_bound, 1.5 * $since_query);
+  }
+  $ttl_lower_bound = min($ttl_lower_bound, 20*60);  # cap at 20 minutes
+  my($ttl) = $database->{ttl};
+  $ttl = 4  if !defined $ttl || $ttl <= 0;
+  if ($ttl < $ttl_lower_bound) {
+    $ttl = $ttl_lower_bound;
+    do_log(3, "postponing refresh on %s for another %.1f s%s",
+              $database->{name}, $ttl,
+              !defined $since_query ? ''
+                : sprintf(", %.1f s since query",$since_query) );
+  }
+  $database->{last_refreshed} = $now;
+  $database->{update_due_at} = $now + $ttl;
+}
+
+sub find_next_gt($$) {
+  my($x, $a_ref) = @_;
+  my($l, $u) = (0, $#$a_ref);
+  my($j);
+  while ($l <= $u) {
+    $j = int(($l + $u)/2);
+    if ($a_ref->[$j] > $x) { $u = $j-1 } else { $l = $j+1 }
+  }
+  $l > $#$a_ref ? -1 : $l;
+}
+
+my($fast_poll) = 0;
+my($last_query_timestamp) = 0;
+
+sub snmp_handler($$$$) {
+  my($handler, $registration_info, $request_info, $requests) = @_;
+
+  my($now) = Time::HiRes::time;
+  my($dt) = $now - $last_query_timestamp;
+  if ($dt < 1.5) { $fast_poll = 1 } elsif ($dt > 4) { $fast_poll = 0 }
+  $last_query_timestamp = $now;
+
+  my($mode) = $request_info->getMode;
+  for (my $req=$requests; $req; $req=$req->next) {
+    my($oid_in_request) = $req->getOID;  # OID from a request
+    my($actual_oid); my($err); my($eom) = 0;
+    if ($mode == MODE_GET) {
+      $actual_oid = $oid_in_request;
+      do_log(5, "Get %s", $oid_in_request);
+    } elsif ($mode == MODE_GETBULK) {
+      # never happens, not registered for getbulk
+      do_log(2, "GetBulk %s", $oid_in_request);
+    } elsif ($mode == MODE_GETNEXT) {
+      if (!@oid_sorted_list) {
+        $eom = 1;  # end of MIB
+      } elsif ($oid_in_request < $oid_sorted_list[0]) {
+        $actual_oid = $oid_sorted_list[0];
+        $req->setOID($actual_oid);
+        do_log(4, "First: %s -> %s", $oid_in_request,$actual_oid);
+      } elsif ($oid_in_request > $oid_sorted_list[-1]) {
+        $eom = 1;  # end of MIB
+        do_log(4, "Last: %s", $oid_in_request);
+      } else {
+        # check first for a sequential traversal, likely faster
+        my($this_name) = $oidstr_to_name{join('.', $oid_in_request->to_array)};
+        if (defined $this_name) {
+          my($var) = $variables{$this_name};
+          if ($var) {
+            my($next_var) = $var->next;
+            if (!$next_var) {
+              $eom = 1;  # end of MIB
+            } else {
+              $actual_oid = $next_var->oid;
+              $req->setOID($actual_oid);
+            }
+          }
+        }
+        if (!$err && !defined $actual_oid) {  # fall back to a binary search
+          do_log(5, "Using a binary search for %s", $oid_in_request);
+          my($ind) = find_next_gt($oid_in_request, \@oid_sorted_list);
+          if ($ind < 0) {
+            $eom = 1;  # end of MIB
+          } else {
+            $actual_oid = $oid_sorted_list[$ind];
+            $req->setOID($actual_oid);
+          }
+        }
+      }
+      do_log(5, "GetNext %s -> %s", $oid_in_request,
+                !defined $actual_oid ? 'undef' : $actual_oid);
+    } else {
+      do_log(0, "Unknown request %s", $oid_in_request);
+      $req->setError($request_info, SNMP_ERR_NOTWRITABLE); $err = 1;
+    }
+    if ($err) {
+      # already dealt with
+    } elsif ($eom || !defined $actual_oid) {  # end of MIB
+      # just silently not provide a value
+      do_log(5, "No more MIB beyond %s", $oid_in_request);
+    } else {
+      my($oid_str) = join('.', $actual_oid->to_array);
+      my($name) = $oidstr_to_name{$oid_str};
+      if (!defined $name) {
+        $req->setError($request_info, SNMP_ERR_NOSUCHNAME);
+      } else {
+        # find out under which OID root the query falls
+        for my $database (@databases) {
+          next  if !$database->{registered};
+          my($root_oid_str) = $database->{root_oid_str};
+          if ($oid_str =~ /^\Q$root_oid_str\E\./) {
+            $database->{last_query_timestamp} = $now;
+            if (!defined($database->{update_due_at}) ||
+                Time::HiRes::time >=
+                  $database->{update_due_at} + ($fast_poll ? 4 : 0) ) {
+              # fast polling stretches time-to-update a bit, increasing
+              # chances of collecting consistent data from the same moment
+              update_data($database);  # stale MIB, needs updating
+            }
+          }
+        }
+        my($var) = $variables{$name};
+        my($type,$value) = ($var->type, $var->value);
+        if (!defined $type) {
+          $req->setError($request_info, SNMP_ERR_BADVALUE);
+        } else {
+          if (!defined $value) {
+            if    ($type == ASN_OCTET_STR)  { $value = "" }
+            elsif ($type == ASN_OBJECT_ID)  { $value = "0" }
+            elsif ($type == ASN_COUNTER64 || $type == ASN_INTEGER64 ||
+                   $type == ASN_UNSIGNED64) { $value = "0" }
+            else { $value = 0 }
+          }
+          my($status) = $req->setValue($type,$value);
+          if (!$status) {
+            do_log(0, "setValue error: %s, %s, %s", $type,$name,$value);
+            $req->setError($request_info, SNMP_ERR_BADVALUE);
+          }
+        }
+      }
+    }
+  }
+  1;
+}
+
+sub daemonize() {
+  my($pid);
+  closelog(); $syslog_open = 0;
+
+  STDOUT->autoflush(1);
+  STDERR->autoflush(1);
+
+  # the first fork allows the shell to return and allows doing a setsid
+  eval { $pid = fork(); 1 }
+  or do {
+    my($eval_stat) = $@ ne '' ? $@ : "errno=$!";  chomp $eval_stat;
+    die "Error forking #1: $eval_stat";
+  };
+  defined $pid  or die "Can't fork #1: $!";
+  if ($pid) {  # parent process terminates here
+    POSIX::_exit(0);  # avoid END and destructor processing
+  }
+
+  # disassociate from a controlling terminal
+  my($pgid) = POSIX::setsid();
+  defined $pgid && $pgid >= 0 or die "Can't start a new session: $!";
+
+  # We are now a session leader. As a session leader, opening a file
+  # descriptor that is a terminal will make it our controlling terminal.
+  # The second fork makes us NOT a session leader. Only session leaders
+  # can acquire a controlling terminal, so we may now open up any file
+  # we wish without worrying that it will become a controlling terminal.
+
+  # second fork prevents from accidentally reacquiring a controlling terminal
+  eval { $pid = fork(); 1 }
+  or do {
+    my($eval_stat) = $@ ne '' ? $@ : "errno=$!";  chomp $eval_stat;
+    die "Error forking #2: $eval_stat";
+  };
+  defined $pid  or die "Can't fork #2: $!";
+  if ($pid) {  # parent process terminates here
+    POSIX::_exit(0);  # avoid END and destructor processing
+  }
+
+  # a daemonized child process, live long and prosper...
+  do_log(2, "Daemonized as process [%s]", $$);
+
+  chdir('/')  or die "Can't chdir to '/': $!";
+
+  openlog($syslog_ident, LOG_PID | LOG_NDELAY, $syslog_facility);
+  $syslog_open = 1;
+
+  close(STDIN)                or die "Can't close STDIN: $!";
+  close(STDOUT)               or die "Can't close STDOUT: $!";
+  open(STDIN,  '</dev/null')  or die "Can't open /dev/null: $!";
+  open(STDOUT, '>/dev/null')  or die "Can't open /dev/null: $!";
+  close(STDERR)               or die "Can't close STDERR: $!";
+  open(STDERR, '>&STDOUT')    or die "Can't dup STDOUT: $!";
+}
+
+sub usage() {
+  return <<"EOD";
+Usage:
+  $0 [options]
+
+  Options:
+   -V              show version, then exit
+   -h              show help, then exit
+   -f              stay in foreground
+   -d log_level    debugging level, 0..5, default 0
+   -P pid_file     a file name to receive a PID of a damonized process
+   -D db_home_dir  amavis database directory ($db_home),
+                     default AMAVISD_DB_HOME or /var/amavis/db
+EOD
+}
+
+
+# main program starts here
+
+  delete @ENV{'PATH', 'IFS', 'CDPATH', 'ENV', 'BASH_ENV'};
+  $SIG{INT}  = sub { die "interrupted\n" };  # do the END code block
+  $SIG{TERM} = sub { die "terminated\n" };   # do the END code block
+  $SIG{PIPE} = 'IGNORE';  # don't signal on a write to a widowed pipe
+
+  while (@ARGV >= 2 && $ARGV[0] =~ /^-[dDP]\z/ ||
+         @ARGV >= 1 && $ARGV[0] =~ /^-[hVf-]\z/) {
+    my($opt,$val);
+    $opt = shift @ARGV;
+    $val = shift @ARGV  if $opt !~ /^-[hVf-]\z/;  # these take no arguments
+    if ($opt eq '--') {
+      last;
+    } elsif ($opt eq '-h') {  # -h  (help)
+      die "$myversion\n\n" . usage();
+    } elsif ($opt eq '-V') {  # -V  (version)
+      die "$myversion\n";
+    } elsif ($opt eq '-f') {  # -f  (foreground)
+      $daemonize = 0;
+    } elsif ($opt eq '-d') {  # -d log_level
+      $log_level = 0+$val;
+    } elsif ($opt eq '-D') {  # -D db_home_dir, empty string turns off db use
+      $db_home = untaint($val)  if $val ne '';
+    } elsif ($opt eq '-P') {  # -P pid_file
+      $pid_filename = untaint($val)  if $val ne '';
+    } else {
+      die "Error in parsing command line options: $opt\n\n" . usage();
+    }
+  }
+  !@ARGV  or die "Unprocessed command line options: $ARGV[0]\n\n" . usage();
+
+  if (!defined $mta_queue_dir) {  # test for access to Postfix queue directory
+    local($ENV{PATH}) = '/usr/sbin:/usr/local/sbin:/opt/postfix/sbin';
+    $! = 0;
+    $mta_queue_dir = qx(postconf -h queue_directory);
+    if (!defined $mta_queue_dir) {
+      if ($! != 0) {
+        do_log(1, "no postfix (unable to run postconf command): $!");
+      } else {
+        do_log(1, "failed to execute \"postconf queue_directory\": $?");
+      }
+    } else {
+      chomp $mta_queue_dir;
+      if ($mta_queue_dir =~ /^\s*\z/) {
+        do_log(1, "unknown Postfix queue directory");
+        undef $mta_queue_dir;
+      } else {
+        do_log(2, "got a Postfix queue directory: %s", $mta_queue_dir);
+        my($dir) = "$mta_queue_dir/active";
+        local(*DIR);
+        if (!opendir(DIR,$dir)) {  # testing access
+          do_log(1, "can't open directory %s: %s", $dir,$!);
+          undef $mta_queue_dir;
+        } else {
+          closedir(DIR) or die "Error closing directory $dir: $!";
+        }
+      }
+    }
+  }
+
+  { # amavisd statistics MIB
+    my($r) = $databases[0]->{root_oid_str};
+    declare_variable("$r.1.1",     'sysDescr',      'STR');
+    declare_variable("$r.1.2",     'sysObjectID',   'OID');
+    declare_variable("$r.1.3",     'sysUpTime',     'TIM');
+    declare_variable("$r.1.4",     'sysContact',    'STR');
+    declare_variable("$r.1.5",     'sysName',       'STR');
+    declare_variable("$r.1.6",     'sysLocation',   'STR');
+    declare_variable("$r.1.7",     'sysServices',   'INT');
+
+    declare_variable("$r.2.1",     'InMsgs');                  # orig=x locl=x
+    declare_variable("$r.2.2",     'InMsgsInbound');           # orig=0 locl=1
+    declare_variable("$r.2.3",     'InMsgsOutbound');          # orig=1 locl=0
+    declare_variable("$r.2.4",     'InMsgsInternal');          # orig=1 locl=1
+    declare_variable("$r.2.5",     'InMsgsOriginating');       # orig=1 locl=x
+    declare_variable("$r.2.6",     'InMsgsOpenRelay');         # orig=0 locl=0
+
+    declare_variable("$r.2.7",     'InMsgsStatusAccepted');    # 2xx, AM.PDP
+    declare_variable("$r.2.8",     'InMsgsStatusRelayed');     # 2xx, forward
+    declare_variable("$r.2.9",     'InMsgsStatusDiscarded');   # 2xx, no DSN
+    declare_variable("$r.2.10",    'InMsgsStatusNoBounce');    # 2xx, no DSN
+    declare_variable("$r.2.11",    'InMsgsStatusBounced');     # 2xx, DSN sent
+    declare_variable("$r.2.12",    'InMsgsStatusRejected');    # 5xx
+    declare_variable("$r.2.13",    'InMsgsStatusTempFailed');  # 4xx
+
+    declare_variable("$r.3.1",     'InMsgsSize',            'C64');
+    declare_variable("$r.3.2",     'InMsgsSizeInbound',     'C64');
+    declare_variable("$r.3.3",     'InMsgsSizeOutbound',    'C64');
+    declare_variable("$r.3.4",     'InMsgsSizeInternal',    'C64');
+    declare_variable("$r.3.5",     'InMsgsSizeOriginating', 'C64');
+    declare_variable("$r.3.6",     'InMsgsSizeOpenRelay',   'C64');
+
+    declare_variable("$r.4.1",     'InMsgsRecips');            # orig=x locl=x
+    declare_variable("$r.4.2",     'InMsgsRecipsInbound');     # orig=0 locl=1
+    declare_variable("$r.4.3",     'InMsgsRecipsOutbound');    # orig=1 locl=0
+    declare_variable("$r.4.4",     'InMsgsRecipsInternal');    # orig=1 locl=1
+    declare_variable("$r.4.5",     'InMsgsRecipsOriginating'); # orig=1 locl=x
+    declare_variable("$r.4.6",     'InMsgsRecipsOpenRelay');   # orig=0 locl=0
+    declare_variable("$r.4.7",     'InMsgsRecipsLocal');       # orig=x locl=1
+
+    declare_variable("$r.5.1",     'InMsgsBounce');
+    declare_variable("$r.5.2",     'InMsgsBounceNullRPath');
+    declare_variable("$r.5.3",     'InMsgsBounceKilled');
+    declare_variable("$r.5.4",     'InMsgsBounceUnverifiable');
+    declare_variable("$r.5.5",     'InMsgsBounceRescuedByDomain');
+    declare_variable("$r.5.6",     'InMsgsBounceRescuedByOriginating');
+    declare_variable("$r.5.7",     'InMsgsBounceRescuedByPenPals');
+
+    declare_variable("$r.6.1",     'OutMsgs');
+    declare_variable("$r.6.2",     'OutMsgsRelay');
+    declare_variable("$r.6.3",     'OutMsgsSubmit');
+    declare_variable("$r.6.4",     'OutMsgsSubmitQuar');
+    declare_variable("$r.6.5",     'OutMsgsSubmitDsn');
+    declare_variable("$r.6.6",     'OutMsgsSubmitNotif');
+    declare_variable("$r.6.7",     'OutMsgsSubmitAV');
+    declare_variable("$r.6.8",     'OutMsgsSubmitArf');
+    declare_variable("$r.6.9",     'OutMsgsProtoLocal');
+    declare_variable("$r.6.10",    'OutMsgsProtoLocalRelay');
+    declare_variable("$r.6.11",    'OutMsgsProtoLocalSubmit');
+    declare_variable("$r.6.12",    'OutMsgsProtoSMTP');
+    declare_variable("$r.6.13",    'OutMsgsProtoSMTPRelay');
+    declare_variable("$r.6.14",    'OutMsgsProtoSMTPSubmit');
+    declare_variable("$r.6.15",    'OutMsgsProtoLMTP');
+    declare_variable("$r.6.16",    'OutMsgsProtoLMTPRelay');
+    declare_variable("$r.6.17",    'OutMsgsProtoLMTPSubmit');
+    declare_variable("$r.6.18",    'OutMsgsProtoBSMTP');
+    declare_variable("$r.6.19",    'OutMsgsProtoBSMTPRelay');
+    declare_variable("$r.6.20",    'OutMsgsProtoBSMTPSubmit');
+    declare_variable("$r.6.21",    'OutMsgsProtoPipe');
+    declare_variable("$r.6.22",    'OutMsgsProtoPipeRelay');
+    declare_variable("$r.6.23",    'OutMsgsProtoPipeSubmit');
+    declare_variable("$r.6.24",    'OutMsgsProtoSQL');
+    declare_variable("$r.6.25",    'OutMsgsProtoSQLRelay');
+    declare_variable("$r.6.26",    'OutMsgsProtoSQLSubmit');
+    declare_variable("$r.6.27",    'OutMsgsDelivers');      # 2xx
+    declare_variable("$r.6.28",    'OutMsgsAttemptFails');  # 4xx
+    declare_variable("$r.6.29",    'OutMsgsRejects');       # 5xx
+
+    declare_variable("$r.7.1",     'OutMsgsSize');
+    declare_variable("$r.7.2",     'OutMsgsSizeRelay');
+    declare_variable("$r.7.3",     'OutMsgsSizeSubmit');
+    declare_variable("$r.7.4",     'OutMsgsSizeSubmitQuar');
+    declare_variable("$r.7.5",     'OutMsgsSizeSubmitDsn');
+    declare_variable("$r.7.6",     'OutMsgsSizeSubmitNotif');
+    declare_variable("$r.7.7",     'OutMsgsSizeSubmitAV');
+    declare_variable("$r.7.8",     'OutMsgsSizeSubmitArf');
+    declare_variable("$r.7.9",     'OutMsgsSizeProtoLocal');
+    declare_variable("$r.7.10",    'OutMsgsSizeProtoLocalRelay');
+    declare_variable("$r.7.11",    'OutMsgsSizeProtoLocalSubmit');
+    declare_variable("$r.7.12",    'OutMsgsSizeProtoSMTP');
+    declare_variable("$r.7.13",    'OutMsgsSizeProtoSMTPRelay');
+    declare_variable("$r.7.14",    'OutMsgsSizeProtoSMTPSubmit');
+    declare_variable("$r.7.15",    'OutMsgsSizeProtoLMTP');
+    declare_variable("$r.7.16",    'OutMsgsSizeProtoLMTPRelay');
+    declare_variable("$r.7.17",    'OutMsgsSizeProtoLMTPSubmit');
+    declare_variable("$r.7.18",    'OutMsgsSizeProtoBSMTP');
+    declare_variable("$r.7.19",    'OutMsgsSizeProtoBSMTPRelay');
+    declare_variable("$r.7.20",    'OutMsgsSizeProtoBSMTPSubmit');
+    declare_variable("$r.7.21",    'OutMsgsSizeProtoPipe');
+    declare_variable("$r.7.22",    'OutMsgsSizeProtoPipeRelay');
+    declare_variable("$r.7.23",    'OutMsgsSizeProtoPipeSubmit');
+    declare_variable("$r.7.24",    'OutMsgsSizeProtoSQL');
+    declare_variable("$r.7.25",    'OutMsgsSizeProtoSQLRelay');
+    declare_variable("$r.7.26",    'OutMsgsSizeProtoSQLSubmit');
+
+    declare_variable("$r.8.1",     'QuarMsgs');
+    declare_variable("$r.8.2",     'QuarMsgsArch');
+    declare_variable("$r.8.3",     'QuarMsgsClean');
+    declare_variable("$r.8.4",     'QuarMsgsMtaFailed');
+    declare_variable("$r.8.5",     'QuarMsgsOversized');
+    declare_variable("$r.8.6",     'QuarMsgsBadHdr');
+    declare_variable("$r.8.7",     'QuarMsgsSpammy');
+    declare_variable("$r.8.8",     'QuarMsgsSpam');
+    declare_variable("$r.8.9",     'QuarMsgsUnchecked');
+    declare_variable("$r.8.10",    'QuarMsgsBanned');
+    declare_variable("$r.8.11",    'QuarMsgsVirus');
+    declare_variable("$r.8.12",    'QuarAttemptTempFails');
+    declare_variable("$r.8.13",    'QuarAttemptFails');
+
+    declare_variable("$r.9.1",     'QuarMsgsSize',          'C64');
+    declare_variable("$r.9.2",     'QuarMsgsSizeArch',      'C64');
+    declare_variable("$r.9.3",     'QuarMsgsSizeClean',     'C64');
+    declare_variable("$r.9.4",     'QuarMsgsSizeMtaFailed', 'C64');
+    declare_variable("$r.9.5",     'QuarMsgsSizeOversized', 'C64');
+    declare_variable("$r.9.6",     'QuarMsgsSizeBadHdr',    'C64');
+    declare_variable("$r.9.7",     'QuarMsgsSizeSpammy',    'C64');
+    declare_variable("$r.9.8",     'QuarMsgsSizeSpam',      'C64');
+    declare_variable("$r.9.9",     'QuarMsgsSizeUnchecked', 'C64');
+    declare_variable("$r.9.10",    'QuarMsgsSizeBanned',    'C64');
+    declare_variable("$r.9.11",    'QuarMsgsSizeVirus',     'C64');
+
+    declare_variable("$r.10.1.1",  'ContentCleanMsgs');
+    declare_variable("$r.10.1.2",  'ContentCleanMsgsInbound');
+    declare_variable("$r.10.1.3",  'ContentCleanMsgsOutbound');
+    declare_variable("$r.10.1.4",  'ContentCleanMsgsInternal');
+    declare_variable("$r.10.1.5",  'ContentCleanMsgsOriginating');
+    declare_variable("$r.10.1.6",  'ContentCleanMsgsOpenRelay');
+
+    declare_variable("$r.10.2.1",  'ContentMtaFailedMsgs');
+    declare_variable("$r.10.2.2",  'ContentMtaFailedMsgsInbound');
+    declare_variable("$r.10.2.3",  'ContentMtaFailedMsgsOutbound');
+    declare_variable("$r.10.2.4",  'ContentMtaFailedMsgsInternal');
+    declare_variable("$r.10.2.5",  'ContentMtaFailedMsgsOriginating');
+    declare_variable("$r.10.2.6",  'ContentMtaFailedMsgsOpenRelay');
+
+    declare_variable("$r.10.3.1",  'ContentOversizedMsgs');
+    declare_variable("$r.10.3.2",  'ContentOversizedMsgsInbound');
+    declare_variable("$r.10.3.3",  'ContentOversizedMsgsOutbound');
+    declare_variable("$r.10.3.4",  'ContentOversizedMsgsInternal');
+    declare_variable("$r.10.3.5",  'ContentOversizedMsgsOriginating');
+    declare_variable("$r.10.3.6",  'ContentOversizedMsgsOpenRelay');
+
+    declare_variable("$r.10.4.1",  'ContentBadHdrMsgs');
+    declare_variable("$r.10.4.2",  'ContentBadHdrMsgsInbound');
+    declare_variable("$r.10.4.3",  'ContentBadHdrMsgsOutbound');
+    declare_variable("$r.10.4.4",  'ContentBadHdrMsgsInternal');
+    declare_variable("$r.10.4.5",  'ContentBadHdrMsgsOriginating');
+    declare_variable("$r.10.4.6",  'ContentBadHdrMsgsOpenRelay');
+
+    declare_variable("$r.10.5.1",  'ContentSpammyMsgs');
+    declare_variable("$r.10.5.2",  'ContentSpammyMsgsInbound');
+    declare_variable("$r.10.5.3",  'ContentSpammyMsgsOutbound');
+    declare_variable("$r.10.5.4",  'ContentSpammyMsgsInternal');
+    declare_variable("$r.10.5.5",  'ContentSpammyMsgsOriginating');
+    declare_variable("$r.10.5.6",  'ContentSpammyMsgsOpenRelay');
+
+    declare_variable("$r.10.6.1",  'ContentSpamMsgs');
+    declare_variable("$r.10.6.2",  'ContentSpamMsgsInbound');
+    declare_variable("$r.10.6.3",  'ContentSpamMsgsOutbound');
+    declare_variable("$r.10.6.4",  'ContentSpamMsgsInternal');
+    declare_variable("$r.10.6.5",  'ContentSpamMsgsOriginating');
+    declare_variable("$r.10.6.6",  'ContentSpamMsgsOpenRelay');
+
+    declare_variable("$r.10.7.1",  'ContentUncheckedMsgs');
+    declare_variable("$r.10.7.2",  'ContentUncheckedMsgsInbound');
+    declare_variable("$r.10.7.3",  'ContentUncheckedMsgsOutbound');
+    declare_variable("$r.10.7.4",  'ContentUncheckedMsgsInternal');
+    declare_variable("$r.10.7.5",  'ContentUncheckedMsgsOriginating');
+    declare_variable("$r.10.7.6",  'ContentUncheckedMsgsOpenRelay');
+
+    declare_variable("$r.10.8.1",  'ContentBannedMsgs');
+    declare_variable("$r.10.8.2",  'ContentBannedMsgsInbound');
+    declare_variable("$r.10.8.3",  'ContentBannedMsgsOutbound');
+    declare_variable("$r.10.8.4",  'ContentBannedMsgsInternal');
+    declare_variable("$r.10.8.5",  'ContentBannedMsgsOriginating');
+    declare_variable("$r.10.8.6",  'ContentBannedMsgsOpenRelay');
+
+    declare_variable("$r.10.9.1",  'ContentVirusMsgs');
+    declare_variable("$r.10.9.2",  'ContentVirusMsgsInbound');
+    declare_variable("$r.10.9.3",  'ContentVirusMsgsOutbound');
+    declare_variable("$r.10.9.4",  'ContentVirusMsgsInternal');
+    declare_variable("$r.10.9.5",  'ContentVirusMsgsOriginating');
+    declare_variable("$r.10.9.6",  'ContentVirusMsgsOpenRelay');
+
+    declare_variable("$r.11.1",    'CacheAttempts');
+    declare_variable("$r.11.2",    'CacheMisses');
+    declare_variable("$r.11.3",    'CacheHits');
+    declare_variable("$r.11.4",    'CacheHitsVirusCheck');
+    declare_variable("$r.11.5",    'CacheHitsVirusMsgs');
+    declare_variable("$r.11.6",    'OutConnNew');
+    declare_variable("$r.11.7",    'OutConnQuit');
+    declare_variable("$r.11.8",    'OutConnTransact');
+    declare_variable("$r.11.9",    'OutConnReuseFail');
+    declare_variable("$r.11.10",   'OutConnReuseRecent');
+    declare_variable("$r.11.11",   'OutConnReuseRefreshed');
+
+    declare_variable("$r.12.1",    'OpsDec');
+    declare_variable("$r.12.2",    'OpsSpamCheck');
+    declare_variable("$r.12.3",    'OpsVirusCheck');
+
+    declare_variable("$r.13.1",    'PenPalsAttempts');
+    declare_variable("$r.13.2",    'PenPalsAttemptsRid');
+    declare_variable("$r.13.3",    'PenPalsAttemptsMid');
+    declare_variable("$r.13.4",    'PenPalsMisses');
+    declare_variable("$r.13.5",    'PenPalsHits');
+    declare_variable("$r.13.6",    'PenPalsHitsRid');
+    declare_variable("$r.13.7",    'PenPalsHitsMid');
+    declare_variable("$r.13.8",    'PenPalsHitsMidRid');
+    declare_variable("$r.13.9",    'PenPalsSavedFromTag2');
+    declare_variable("$r.13.10",   'PenPalsSavedFromTag3');
+    declare_variable("$r.13.11",   'PenPalsSavedFromKill');
+
+    declare_variable("$r.14.1",    'SqlAddrSenderAttempts');
+    declare_variable("$r.14.2",    'SqlAddrSenderMisses');
+    declare_variable("$r.14.3",    'SqlAddrSenderHits');
+    declare_variable("$r.14.4",    'SqlAddrRecipAttempts');
+    declare_variable("$r.14.5",    'SqlAddrRecipMisses');
+    declare_variable("$r.14.6",    'SqlAddrRecipHits');
+
+    declare_variable("$r.15.1",    'LogEntries',           'C64');
+    declare_variable("$r.15.2",    'LogEntriesEmerg',      'C64');
+    declare_variable("$r.15.3",    'LogEntriesAlert',      'C64');
+    declare_variable("$r.15.4",    'LogEntriesCrit',       'C64'); # lvl le -3
+    declare_variable("$r.15.5",    'LogEntriesErr',        'C64'); # lvl le -2
+    declare_variable("$r.15.6",    'LogEntriesWarning',    'C64'); # lvl le -1
+    declare_variable("$r.15.7",    'LogEntriesNotice',     'C64'); # lvl le  0
+    declare_variable("$r.15.8",    'LogEntriesInfo',       'C64'); # lvl le  1
+    declare_variable("$r.15.9",    'LogEntriesDebug',      'C64'); # lvl le  2
+    declare_variable("$r.15.10",   'LogEntriesLevel0',     'C64'); # le 0
+    declare_variable("$r.15.11",   'LogEntriesLevel1',     'C64'); # eq 1
+    declare_variable("$r.15.12",   'LogEntriesLevel2',     'C64'); # eq 2
+    declare_variable("$r.15.13",   'LogEntriesLevel3',     'C64'); # eq 3
+    declare_variable("$r.15.14",   'LogEntriesLevel4',     'C64'); # eq 4
+    declare_variable("$r.15.15",   'LogEntriesLevel5',     'C64'); # ge 5
+    declare_variable("$r.15.16",   'LogLines',             'C64');
+    declare_variable("$r.15.17",   'LogRetries',           'C64');
+
+    declare_variable("$r.16.1",    'TimeElapsedTotal',     'INT');
+    declare_variable("$r.16.2",    'TimeElapsedReceiving', 'INT');
+    declare_variable("$r.16.3",    'TimeElapsedSending',   'INT');
+    declare_variable("$r.16.4",    'TimeElapsedDecoding',  'INT');
+    declare_variable("$r.16.5",    'TimeElapsedPenPals',   'INT');
+    declare_variable("$r.16.6",    'TimeElapsedVirusCheck','INT');
+    declare_variable("$r.16.7",    'TimeElapsedSpamCheck', 'INT');
+  }
+
+  { # amavisd child processes MIB
+    my($r) = $databases[1]->{root_oid_str};
+    declare_variable("$r.1.1",     'ProcGone');                    # counter!
+    declare_variable("$r.1.2",     'ProcAll',              'G32');
+    declare_variable("$r.1.3",     'ProcIdle',             'G32');
+    declare_variable("$r.1.4",     'ProcBusy',             'G32');
+    declare_variable("$r.1.5",     'ProcBusyTransfer',     'G32');
+    declare_variable("$r.1.6",     'ProcBusyDecode',       'G32');
+    declare_variable("$r.1.7",     'ProcBusyVirus',        'G32');
+    declare_variable("$r.1.8",     'ProcBusySpam',         'G32');
+    declare_variable("$r.1.9",     'ProcBusyOther',        'G32');
+    declare_variable(sprintf("%s.2.%d", $r,$_+1),
+                                   'ProcBusy'.$_, 'G32')  for (0..@age_slots);
+  }
+
+  if (defined $mta_queue_dir) {
+    # Postfix queue size MIB
+    declare_variable($databases[2]->{root_oid_str},
+                                   'MtaQueueEntriesMaildrop', 'G32');
+    declare_variable($databases[3]->{root_oid_str},
+                                   'MtaQueueEntriesIncoming', 'G32');
+    declare_variable($databases[4]->{root_oid_str},
+                                   'MtaQueueEntriesActive',   'G32');
+    declare_variable($databases[5]->{root_oid_str},
+                                   'MtaQueueEntriesDeferred', 'G32');
+  }
+
+  if (!$daemonize) {
+    do_log(0,"%s starting in foreground, perl %s", $myversion,$]);
+  } else {  # daemonize
+    $SIG{'__WARN__'} =  # log warnings
+      sub { my($m) = @_; chomp($m); do_log(-1,"_WARN: %s",$m) };
+    $SIG{'__DIE__' } =  # log uncaught errors
+      sub { if (!$^S) { my($m) = @_; chomp($m); do_log(-2,"_DIE: %s",$m) } };
+    openlog($syslog_ident, LOG_PID | LOG_NDELAY, $syslog_facility);
+    $syslog_open = 1;
+    do_log(2,"to be daemonized");
+    daemonize();
+    do_log(0,"%s starting. daemonized as PID [%s], perl %s", $myversion,$$,$]);
+    if (defined $pid_filename && $pid_filename ne '') {
+      my($pidf) = IO::File->new;
+      my($stat) = $pidf->open($pid_filename, O_CREAT|O_EXCL|O_RDWR, 0640);
+      if (!$stat && $! == EEXIST) {
+        do_log(0,"PID file %s exists, overwriting", $pid_filename);
+        $stat = $pidf->open($pid_filename, O_CREAT|O_RDWR, 0640);
+      }
+      $stat or die "Can't create file $pid_filename: $!";
+      $pid_file_created = 1;
+      $pidf->print("$$\n") or die "Can't write to $pid_filename: $!";
+      $pidf->close or die "Can't close $pid_filename: $!";
+    }
+  }
+
+  #netsnmp_ds_set_boolean(NETSNMP_DS_APPLICATION_ID,
+  #                       NETSNMP_DS_LIB_DONT_READ_CONFIGS, 1);
+
+  my($agent) = NetSNMP::agent->new('Name' => $agent_name, 'AgentX' => 1)
+    or die "Can't create a SNMP agent $agent_name";
+
+  init_data();  # must come *after* NetSNMP::agent->new
+# dump_variables();
+
+  for my $database (@databases) {
+    my($root_oid_str) = $database->{root_oid_str};
+    my($db_name) = $database->{name};
+    if ($db_name =~ /^pf/ && !defined $mta_queue_dir) {
+      do_log(2, "not registering root OID %s for %s", $root_oid_str,$db_name);
+    } else {
+      do_log(2, "registering root OID %s for %s", $root_oid_str,$db_name);
+      $root_oid_str = '.' . $root_oid_str;
+      $agent->register($agent_name, $root_oid_str, \&snmp_handler)
+        or die "Can't register a SNMP agent $agent_name under $root_oid_str";
+      $database->{registered} = 1;
+    }
+  }
+
+  while ($keep_running) {
+    $agent->agent_check_and_process(1);
+  }
+  exit;
+
+END {
+  if (defined $agent) {
+    eval { $agent->shutdown };  # ignoring status
+  }
+  for my $database (@databases) {
+    eval {
+      if (defined $database->{db}) {
+        if (defined $database->{cursor}) {
+          $database->{cursor}->c_close;  # close database, ignoring status
+          undef $database->{cursor};
+        }
+        $database->{db}->db_close == 0
+          or warn(sprintf("BDB db_close error on a %s file: %s %s",
+                          $database->{db}, $BerkeleyDB::Error, $!));
+      }
+    };  # ignoring status
+  }
+  if ($pid_file_created) {
+    unlink($pid_filename)
+      or eval { do_log(0, "Can't remove file %s: %s", $pid_filename,$!) };
+  }
+  eval { do_log(2, "%s shutting down", $myproduct_name) };
+  if ($syslog_open) {
+    eval { closelog() }; $syslog_open = 0;
+  }
+}

@@ -35,8 +35,8 @@ class IOFramebufferUserClient : public IOUserClient
     OSDeclareDefaultStructors(IOFramebufferUserClient)
 
 public:
-    IOFramebuffer *	owner;
-    IOFramebuffer *	other;
+    IOFramebuffer *     owner;
+    IOFramebuffer *     other;
 
     // IOUserClient methods
     virtual IOReturn clientClose( void );
@@ -47,7 +47,7 @@ public:
         IOOptionBits * options, IOMemoryDescriptor ** memory );
 
     virtual IOReturn externalMethod( uint32_t selector, IOExternalMethodArguments * args,
-					IOExternalMethodDispatch * dispatch, OSObject * target, void * reference );
+                                        IOExternalMethodDispatch * dispatch, OSObject * target, void * reference );
 
     virtual IOReturn registerNotificationPort( mach_port_t, UInt32, UInt32 );
     virtual IOReturn getNotificationSemaphore( UInt32 interruptType,
@@ -71,7 +71,7 @@ class IOFramebufferSharedUserClient : public IOUserClient
 
 private:
 
-    IOFramebuffer *	 owner;
+    IOFramebuffer *      owner;
 
 public:
     virtual void free();

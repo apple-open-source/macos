@@ -501,10 +501,7 @@ static void ssl_init_ctx_callbacks(server_rec *s,
     SSL_CTX_set_tmp_rsa_callback(ctx, ssl_callback_TmpRSA);
     SSL_CTX_set_tmp_dh_callback(ctx,  ssl_callback_TmpDH);
 
-    if (s->loglevel >= APLOG_DEBUG) {
-        /* this callback only logs if LogLevel >= info */
-        SSL_CTX_set_info_callback(ctx, ssl_callback_LogTracingState);
-    }
+    SSL_CTX_set_info_callback(ctx, ssl_callback_Info);
 }
 
 static void ssl_init_ctx_verify(server_rec *s,
@@ -1213,7 +1210,7 @@ STACK_OF(X509_NAME) *ssl_init_FindCAList(server_rec *s,
     /*
      * Cleanup
      */
-    sk_X509_NAME_set_cmp_func(ca_list, NULL);
+    (void) sk_X509_NAME_set_cmp_func(ca_list, NULL);
 
     return ca_list;
 }

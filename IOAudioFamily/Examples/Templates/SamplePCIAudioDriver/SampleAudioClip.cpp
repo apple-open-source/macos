@@ -5,7 +5,7 @@
 
   Version:1.0.0
 
-  Copyright:Copyright ) 1997-2000 by Apple Computer, Inc., All Rights Reserved.
+  Copyright:Copyright ) 1997-2010 by Apple Computer, Inc., All Rights Reserved.
 
 Disclaimer:IMPORTANT:  This Apple software is supplied to you by Apple Computer, Inc. 
 ("Apple") in consideration of your agreement to the following terms, and your use, 

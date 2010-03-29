@@ -96,6 +96,7 @@
 #include <IOKit/IOTypes.h>
 #include <libkern/OSMalloc.h>
 #include <libkern/OSKextLib.h>
+#include <TargetConditionals.h>
 
 #include "bpb.h"
 #include "bootsect.h"
@@ -103,6 +104,19 @@
 #include "denode.h"
 #include "msdosfsmount.h"
 #include "fat.h"
+
+/*
+ * By default, don't try to auto unload the KEXT on embedded systems, since
+ * that isn't currently supported.  You can always explicitly set
+ * MSDOSFS_AUTO_UNLOAD to 0 or 1 to override the default.
+ */
+#ifndef MSDOSFS_AUTO_UNLOAD
+#if TARGET_OS_EMBEDDED
+#define MSDOSFS_AUTO_UNLOAD		0
+#else
+#define MSDOSFS_AUTO_UNLOAD		1
+#endif
+#endif
 
 #define MSDOSFS_DFLTBSIZE       4096
 
@@ -213,8 +227,10 @@ msdosfs_mount(mp, devvp, data, context)
 	struct msdosfsmount *pmp = NULL;
 	int error, flags;
 
+#if MSDOSFS_AUTO_UNLOAD
 	OSKextRetainKextWithLoadTag(OSKextGetCurrentLoadTag());
-
+#endif
+	
 	error = copyin(data, &args, sizeof(struct msdosfs_args));
 	if (error)
 		goto error_exit;
@@ -273,7 +289,9 @@ msdosfs_mount(mp, devvp, data, context)
 	return error;
 
 error_exit:
+#if MSDOSFS_AUTO_UNLOAD
 	OSKextReleaseKextWithLoadTag(OSKextGetCurrentLoadTag());
+#endif
 	return error;
 }
 
@@ -847,8 +865,10 @@ msdosfs_unmount(mp, mntflags, context)
 
 	vfs_setfsprivate(mp, (void *)NULL);
 
+#if MSDOSFS_AUTO_UNLOAD
 	OSKextReleaseKextWithLoadTag(OSKextGetCurrentLoadTag());
-	
+#endif
+
 	/*
 	 * If "force" was set, we may get here with error != 0.  Since we have
 	 * in fact completed the unmount (as best we can), we need to return

@@ -29,4 +29,5 @@ frameworkinstallapps:
 	done
 .
 g/cd Mac && /s/$/ CC=$(WITH_GCC)/
+g/-lSystem/s//-framework CoreFoundation &/
 w

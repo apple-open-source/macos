@@ -33,6 +33,7 @@
 */
 
 #include "BTreePrivate.h"
+extern char debug;
 
 #define DEBUG_TREEOPS 0
 
@@ -223,6 +224,7 @@ OSStatus	SearchTree	(BTreeControlBlockPtr	 btreePtr,
         if (curNodeNum == 0)
         {
 //          Panic("\pSearchTree: curNodeNum is zero!");
+			if (debug) fprintf(stderr, "%s(%d):  curNodeNum is 0\n", __FUNCTION__, __LINE__);
             err = fsBTInvalidNodeErr;
             goto ErrorExit;
         }
@@ -241,6 +243,7 @@ OSStatus	SearchTree	(BTreeControlBlockPtr	 btreePtr,
         //
         if (((BTNodeDescriptor*)nodeRec.buffer)->height != level)
         {
+				if (debug) fprintf(stderr, "%s(%d):  height %d != level %d\n", __FUNCTION__, __LINE__, ((BTNodeDescriptor*)nodeRec.buffer)->height, level);
                 err = fsBTInvalidNodeErr;
                 goto ReleaseAndExit;
         }
@@ -250,6 +253,7 @@ OSStatus	SearchTree	(BTreeControlBlockPtr	 btreePtr,
             //	Nodes at level 1 must be leaves, by definition
             if (nodeKind != kBTLeafNode)
             {
+				if (debug) fprintf(stderr, "%s(%d):  wrong kind of node\n", __FUNCTION__, __LINE__);
                 err = fsBTInvalidNodeErr;
                 goto ReleaseAndExit;           
             }
@@ -259,6 +263,7 @@ OSStatus	SearchTree	(BTreeControlBlockPtr	 btreePtr,
             //	A node at any other depth must be an index node
             if (nodeKind != kBTIndexNode)
             {
+				if (debug) fprintf(stderr, "%s(%d):  other wrong kind of node\n", __FUNCTION__, __LINE__);
                 err = fsBTInvalidNodeErr;
                 goto ReleaseAndExit;
             }
@@ -1498,6 +1503,10 @@ static OSStatus	RotateRight		(BTreeControlBlockPtr		 btreePtr,
 	else
 		lengthFieldSize = sizeof(UInt8);
 
+	/*
+	 * A record size in a node is the size of the key, the size of the key length field,
+	 * the size of the record, and the size of the record offset index.
+	 */
 	insertSize = keyLength + lengthFieldSize + recSize + sizeof(UInt16);
 	if ( M_IsOdd (insertSize) )
 		++insertSize;	// add pad byte;
@@ -1507,16 +1516,36 @@ static OSStatus	RotateRight		(BTreeControlBlockPtr		 btreePtr,
 	rightSize		= nodeSize - GetNodeFreeSize( btreePtr, rightNodePtr );
 	leftSize		= nodeSize - GetNodeFreeSize( btreePtr, leftNodePtr ) + insertSize;
 
-	moveIndex	= leftNodePtr->numRecords - 1; // start at last record in the node
+	moveIndex	= leftNodePtr->numRecords; // start at last record in the node
 	moveSize	= 0;
 
+	/*
+	 * The goal here is to attempt to make the nodes as balanced as
+	 * possible.  We do this by "moving" records from the left node to
+	 * the right node, until the right node is larger than the left
+	 * node.
+	 *
+	 * We also need to factor in the new record for this; what we are
+	 * trying to do, as a result, is consider a virtual node that has
+	 * all of the old records in it, plus the new record inserted at
+	 * the proper place.  (This is the reason for the if cases in the
+	 * loop.)
+	 */
 	while ( rightSize < leftSize )
 	{
-		moveSize = GetRecordSize( btreePtr, leftNodePtr, moveIndex ) + 2;
+		/*
+		 * We set moveSize to the size of the record being moved in this
+		 * pass.  We need to add sizeof(UInt16) because we need to account
+		 * for the record offset index, which is two bytes.  This was already
+		 * added to insertSize above.
+		 */
+		if (moveIndex > leftInsertIndex)
+			moveSize = GetRecordSize( btreePtr, leftNodePtr, moveIndex - 1) + sizeof(UInt16);
+		else if (moveIndex == leftInsertIndex)
+			moveSize = insertSize;
+		else // (moveIndex < leftInsertIndex)
+			moveSize = GetRecordSize( btreePtr, leftNodePtr, moveIndex) + sizeof(UInt16);
 
-		if ( moveIndex == leftInsertIndex || leftNodePtr->numRecords == leftInsertIndex )
-			moveSize += insertSize;
-		
 		leftSize	-= moveSize;
 		rightSize	+= moveSize;
 		--moveIndex;
@@ -1539,12 +1568,12 @@ static OSStatus	RotateRight		(BTreeControlBlockPtr		 btreePtr,
 		return	noErr;
 	}
 	
-	// we've found balance point, 
+	// we've found balance point, we rotate up to moveIndex into right node
 
 	//////////////////////////// Rotate Records /////////////////////////////////
 
 	*didRecordFitPtr	= true;
-	index				= leftNodePtr->numRecords - 1;
+	index				= leftNodePtr->numRecords;
 	*recsRotatedPtr		= index - moveIndex;
 	myInsertIndex 		= 0;
 	
@@ -1556,7 +1585,7 @@ static OSStatus	RotateRight		(BTreeControlBlockPtr		 btreePtr,
 									keyPtr, keyLength, recPtr, recSize);
 		if ( !didItFit )
 		{
-			Panic ("\pRotateRight: InsertKeyRecord (left) returned false!");
+			if (debug) plog ("RotateRight: InsertKeyRecord (left) returned false!\n");
 			err = fsBTBadRotateErr;
 			goto ErrorExit;
 		}
@@ -1564,25 +1593,18 @@ static OSStatus	RotateRight		(BTreeControlBlockPtr		 btreePtr,
 		// NOTE - our insert location will slide as we insert more records
 		doIncrement = true;
 		*newNodeNumPtr = leftNodePtr->fLink;
+		index--;
 	}
 
 	while ( index > moveIndex )
 	{
-		didItFit = RotateRecordRight( btreePtr, leftNodePtr, rightNodePtr );
-		if ( !didItFit )
-		{
-			Panic ("\pRotateRight: RotateRecordRight returned false!");
-			err = fsBTBadRotateErr;
-			goto ErrorExit;
-		}
-
 		if ( index == leftInsertIndex )	// insert new record in right node
 		{
 			didItFit = InsertKeyRecord (btreePtr, rightNodePtr, 0,
 										keyPtr, keyLength, recPtr, recSize);
 			if ( !didItFit )
 			{
-				Panic ("\pRotateRight: InsertKeyRecord (left) returned false!");
+				if (debug) plog ("RotateRight: InsertKeyRecord (right) returned false!\n");
 				err = fsBTBadRotateErr;
 				goto ErrorExit;
 			}
@@ -1591,6 +1613,16 @@ static OSStatus	RotateRight		(BTreeControlBlockPtr		 btreePtr,
 			doIncrement = true;
 			myInsertIndex = -1;
 			*newNodeNumPtr = leftNodePtr->fLink;
+		}
+		else
+		{
+			didItFit = RotateRecordRight( btreePtr, leftNodePtr, rightNodePtr );
+			if ( !didItFit )
+			{
+				if (debug) plog ("RotateRight: RotateRecordRight returned false!\n");
+				err = fsBTBadRotateErr;
+				goto ErrorExit;
+			}
 		}
 
 		if ( doIncrement )
@@ -1606,7 +1638,7 @@ static OSStatus	RotateRight		(BTreeControlBlockPtr		 btreePtr,
 									keyPtr, keyLength, recPtr, recSize);
 		if ( !didItFit )
 		{
-			Panic ("\pRotateRight: InsertKeyRecord (right) returned false!");
+			if (debug) plog ("RotateRight: InsertKeyRecord (left) returned false!\n");
 			err = fsBTBadRotateErr;
 			goto ErrorExit;
 		}

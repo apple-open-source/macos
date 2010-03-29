@@ -50,7 +50,7 @@ public:
 
     bool popupIsVisible() const { return m_searchPopupIsVisible; }
     void showPopup();
-    virtual void hidePopup(); // PopupMenuClient method
+    void hidePopup();
 
     virtual void subtreeHasChanged();
     virtual void paint(PaintInfo&, int tx, int ty);
@@ -70,7 +70,7 @@ public:
     virtual int scrollHeight() const;
     virtual void setScrollLeft(int);
     virtual void setScrollTop(int);
-    virtual bool scroll(ScrollDirection, ScrollGranularity, float multiplier = 1.0f);
+    virtual bool scroll(ScrollDirection, ScrollGranularity, float multiplier = 1.0f, Node** stopNode = 0);
 
 private:
     int textBlockWidth() const;
@@ -107,6 +107,7 @@ private:
     virtual int clientPaddingRight() const;
     virtual int listSize() const;
     virtual int selectedIndex() const;
+    virtual void popupDidHide();
     virtual bool itemIsSeparator(unsigned listIndex) const;
     virtual bool itemIsLabel(unsigned listIndex) const;
     virtual bool itemIsSelected(unsigned listIndex) const;

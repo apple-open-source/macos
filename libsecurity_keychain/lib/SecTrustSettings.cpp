@@ -33,6 +33,8 @@
 #include "TrustSettingsUtils.h"
 #include "TrustSettings.h"
 #include "TrustSettingsSchema.h"
+#include "TrustKeychains.h"
+#include "Trust.h"
 #include "SecKeychainPriv.h"
 #include "Globals.h"
 #include <CoreServices/../Frameworks/CarbonCore.framework/Headers/MacErrors.h>
@@ -57,11 +59,25 @@
  * to bite the bullet and grab the big lock. We also have our own lock protecting the
  * global trust settings cache which is also used by the keychain callback function 
  * (which does not grab the Sec API lock).
- */ 
-#define BEGIN_RCSAPI	BEGIN_SECAPI
-						
-#define END_RCSAPI		END_SECAPI
-#define END_RCSAPI0		END_SECAPI0
+ */
+
+#define BEGIN_RCSAPI	\
+	OSStatus __secapiresult; \
+	try { \
+		globals().storageManager.cleanup();
+#define END_RCSAPI		\
+		__secapiresult=noErr; \
+	} \
+	catch (const MacOSError &err) { __secapiresult=err.osStatus(); } \
+	catch (const CommonError &err) { __secapiresult=SecKeychainErrFromOSStatus(err.osStatus()); } \
+	catch (const std::bad_alloc &) { __secapiresult=memFullErr; } \
+	catch (...) { __secapiresult=internalComponentErr; } \
+	return __secapiresult;
+
+#define END_RCSAPI0		\
+	catch (...) {} \
+	return;
+
 
 #pragma mark --- TrustSettings preferences ---
 
@@ -343,7 +359,8 @@ static OSStatus tsCopyCertsCommon(
 	bool					system,
 	CFArrayRef				*certArray)		/* RETURNED */
 {
-	StLock<Mutex>	_(sutCacheLock());
+	StLock<Mutex> _TC(sutCacheLock());
+	StLock<Mutex> _TK(SecTrustKeychainsGetMutex());
 
 	TS_REQUIRED(certArray)
 

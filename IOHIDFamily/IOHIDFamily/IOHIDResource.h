@@ -24,24 +24,20 @@
 #ifndef _IOHIDRESOURCE_H
 #define _IOHIDRESOURCE_H
 
-/*
- * Kernel
- */
-#if defined(KERNEL) && defined(__cplusplus)
-
 #include <IOKit/IOService.h>
+#include <IOKit/IOWorkLoop.h>
 
 class IOHIDResource : public IOService
 {
     OSDeclareDefaultStructors(IOHIDResource);
+    
+    IOWorkLoop * _workLoop;
 
 public:
 	bool start(IOService *provider);
+    void free();
+    IOWorkLoop * getWorkLoop() const;
 };
-
-
-
-#endif /* defined(KERNEL) && defined(__cplusplus) */
 
 #endif /* !_IOHIDRESOURCE_H */
 

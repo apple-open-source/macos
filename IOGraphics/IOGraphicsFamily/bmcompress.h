@@ -69,18 +69,18 @@ static void FillVRAM8by1(int w, int h, uint32_t k0,uint32_t k1, uint8_t *dst, in
         c1  = k1;
 
         if((uintptr_t)d & 0x0001)
-	    WRITEBYTE(c0, c1, d, n);
+            WRITEBYTE(c0, c1, d, n);
 
         if(((uintptr_t)d & 0x0002) && n>=2)
-	    WRITESHORT(c0, c1, d, n);
+            WRITESHORT(c0, c1, d, n);
 
         if(((uintptr_t)d & 0x0004) && n>=4)
-	    WRITEWORD(c0, c1, d, n);
+            WRITEWORD(c0, c1, d, n);
 
         if(n >= 16)
         {
 #if __BIG_ENDIAN__
-	    double  kd, km[1];
+            double  kd, km[1];
 
             ((uint32_t *)km)[0] = c0;
             ((uint32_t *)km)[1] = c1;
@@ -94,27 +94,27 @@ static void FillVRAM8by1(int w, int h, uint32_t k0,uint32_t k1, uint8_t *dst, in
             v  = n >> 3;
             n  = n & 0x07;
             for(i=0 ; i<v ; i++)
-	    {
+            {
                 STOREINC(d, c0, uint32_t);
-		STOREINC(d, c1, uint32_t);
-	    }
+                STOREINC(d, c1, uint32_t);
+            }
 #endif
         }
         else if(n >= 8)
         {
-	    STOREINC(d, c0, uint32_t);
+            STOREINC(d, c0, uint32_t);
             n = n - 8;
-	    STOREINC(d, c1, uint32_t);
+            STOREINC(d, c1, uint32_t);
         }
 
         if(n & 0x04)
-	    WRITEWORD(c0, c1, d, n);
+            WRITEWORD(c0, c1, d, n);
 
         if(n & 0x02)
-	    WRITESHORT(c0, c1, d, n);
+            WRITESHORT(c0, c1, d, n);
 
         if(n & 0x01)
-	    WRITEBYTE(c0, c1, d, n);
+            WRITEBYTE(c0, c1, d, n);
     }
 }
 
@@ -168,8 +168,8 @@ static void DecompressRLE32(uint8_t *srcbase, uint8_t *dstbase, int minx, int ma
 
 static void DecompressRLE16(uint8_t *srcbase, uint8_t *dstbase, int minx, int maxx)
 {
-    typedef u_int16_t	Pixel_Type;
-    typedef u_int32_t	CodeWord_Type;
+    typedef u_int16_t   Pixel_Type;
+    typedef u_int32_t   CodeWord_Type;
     Pixel_Type  *src, *dst;
     CodeWord_Type *codePtr;
     int        cnt, code, n,s,c, x;
@@ -194,7 +194,7 @@ static void DecompressRLE16(uint8_t *srcbase, uint8_t *dstbase, int minx, int ma
                 n = n - s;
 
                 c = src[0];
-                c |= c << 16;	//Note: line not depth independent
+                c |= c << 16;   //Note: line not depth independent
                 FillVRAM8by1(sizeof( Pixel_Type)*n,1, c,c, (UInt8 *)dst,0);
                 dst = dst + n;
             }
@@ -223,8 +223,8 @@ static void DecompressRLE16(uint8_t *srcbase, uint8_t *dstbase, int minx, int ma
 
 static void DecompressRLE8(uint8_t *srcbase, uint8_t *dstbase, int minx, int maxx)
 {
-    typedef u_int8_t	Pixel_Type;
-    typedef u_int32_t	CodeWord_Type;
+    typedef u_int8_t    Pixel_Type;
+    typedef u_int32_t   CodeWord_Type;
     Pixel_Type  *src, *dst;
     CodeWord_Type *codePtr;
     int        cnt, code, n,s,c, x;
@@ -249,8 +249,8 @@ static void DecompressRLE8(uint8_t *srcbase, uint8_t *dstbase, int minx, int max
                 n = n - s;
 
                 c = src[0];
-                c |= c << 8;	//Note: line not depth independent
-                c |= c << 16;	//Note: line not depth independent
+                c |= c << 8;    //Note: line not depth independent
+                c |= c << 16;   //Note: line not depth independent
                 FillVRAM8by1(sizeof( Pixel_Type)*n,1, c,c, (UInt8 *)dst,0);
                 dst = dst + n;
             }
@@ -344,8 +344,8 @@ static inline int compress_line_32(UInt8 *srcbase, int width, UInt8 *dstbase)
 
 static inline int compress_line_16(uint8_t *srcbase, int width, uint8_t *dstbase)
 {
-    typedef u_int16_t	Pixel_Type;
-    typedef u_int32_t	CodeWord_Type;
+    typedef u_int16_t   Pixel_Type;
+    typedef u_int32_t   CodeWord_Type;
     Pixel_Type  *src, *dst;
     Pixel_Type  *start, *end;
     Pixel_Type   c0,c1;
@@ -389,7 +389,7 @@ static inline int compress_line_16(uint8_t *srcbase, int width, uint8_t *dstbase
 
         if(cpyCnt > 0)
         {
-            CodeWord_Type	*codeWord = (CodeWord_Type*) dst;
+            CodeWord_Type       *codeWord = (CodeWord_Type*) dst;
             codeWord[0] = cpyCnt;
             dst = (Pixel_Type*) (codeWord + 1);
             bcopy_nc(start, dst, sizeof( Pixel_Type )*cpyCnt);
@@ -401,7 +401,7 @@ static inline int compress_line_16(uint8_t *srcbase, int width, uint8_t *dstbase
 
         if(rplCnt > 0)
         {
-            CodeWord_Type	*codeWord = (CodeWord_Type*) dst;
+            CodeWord_Type       *codeWord = (CodeWord_Type*) dst;
             codeWord[0] = 0x80000000UL | rplCnt;
             dst = (Pixel_Type*) (codeWord + 1);
             dst[0] = c0;
@@ -417,8 +417,8 @@ static inline int compress_line_16(uint8_t *srcbase, int width, uint8_t *dstbase
 
 static inline int compress_line_8(uint8_t *srcbase, int width, uint8_t *dstbase)
 {
-    typedef u_int8_t	Pixel_Type;
-    typedef u_int32_t	CodeWord_Type;
+    typedef u_int8_t    Pixel_Type;
+    typedef u_int32_t   CodeWord_Type;
     Pixel_Type  *src, *dst;
     Pixel_Type  *start, *end;
     Pixel_Type   c0,c1;
@@ -462,7 +462,7 @@ static inline int compress_line_8(uint8_t *srcbase, int width, uint8_t *dstbase)
 
         if(cpyCnt > 0)
         {
-            CodeWord_Type	*codeWord = (CodeWord_Type*) dst;
+            CodeWord_Type       *codeWord = (CodeWord_Type*) dst;
             codeWord[0] = cpyCnt;
             dst = (Pixel_Type*) (codeWord + 1);
             bcopy_nc(start, dst, sizeof( Pixel_Type )*cpyCnt);
@@ -474,7 +474,7 @@ static inline int compress_line_8(uint8_t *srcbase, int width, uint8_t *dstbase)
 
         if(rplCnt > 0)
         {
-            CodeWord_Type	*codeWord = (CodeWord_Type*) dst;
+            CodeWord_Type       *codeWord = (CodeWord_Type*) dst;
             codeWord[0] = 0x80000000UL | rplCnt;
             dst = (Pixel_Type*) (codeWord + 1);
             dst[0] = c0;
@@ -489,19 +489,19 @@ static inline int compress_line_8(uint8_t *srcbase, int width, uint8_t *dstbase)
 }
 
 
-static int CompressData(UInt8 *srcbase, UInt32 depth, UInt32 width, UInt32 height,
-		 UInt32 rowbytes, UInt8 *dstbase, UInt32 dlen)
+static int CompressData(uint8_t *srcbase, uint32_t depth, uint32_t width, uint32_t height,
+                 uint32_t rowbytes, uint8_t *dstbase, uint32_t dlen)
 {
     uint32_t * dst;
     uint32_t * cScan,*pScan;
     UInt8 *    lineBuffer;
-    SInt32       cSize, pSize;
-    UInt32       y, lineLen;
+    int32_t    cSize, pSize;
+    uint32_t   y, lineLen;
 
     if(dlen <= (3+height)*sizeof(uint32_t))
     {
-    	DEBG(0, "compressData: destination buffer size %ld too small for y index (%ld)\n",
-		dlen, (3+height)*sizeof(uint32_t));
+        DEBG("", "compressData: destination buffer size %d too small for y index (%ld)\n",
+                dlen, (3+height)*sizeof(uint32_t));
         return 0;
     }
 
@@ -524,32 +524,32 @@ static int CompressData(UInt8 *srcbase, UInt32 depth, UInt32 width, UInt32 heigh
     {
         if(((((uint8_t *)cScan)-dstbase) + 8*(width+1)) > dlen)
         {
-            DEBG(0, "compressData: overflow: %d bytes in %ld byte buffer at scanline %ld (of %ld).\n",
-		(uint8_t *)cScan-dstbase, dlen, y, height);
+            DEBG("", "compressData: overflow: %ld bytes in %d byte buffer at scanline %d (of %d).\n",
+                (size_t)(((uint8_t *)cScan)-dstbase), dlen, y, height);
 
-	    return 0;
+            return 0;
         }
 
-	bcopy_nc(srcbase + y*rowbytes, lineBuffer, lineLen);
+        bcopy_nc(srcbase + y*rowbytes, lineBuffer, lineLen);
 
-	if (0 == (y & 7))
-	{
-	    AbsoluteTime deadline;
-	    clock_interval_to_deadline(8, kMicrosecondScale, &deadline);
-	    assert_wait_deadline((event_t)&clock_delay_until, THREAD_UNINT, __OSAbsoluteTime(deadline));
-	    thread_block(NULL);
-	}
+        if (0 == (y & 7))
+        {
+            AbsoluteTime deadline;
+            clock_interval_to_deadline(8, kMicrosecondScale, &deadline);
+            assert_wait_deadline((event_t)&clock_delay_until, THREAD_UNINT, __OSAbsoluteTime(deadline));
+            thread_block(NULL);
+        }
 
         cSize = (depth <= 1 ? compress_line_8 :
                 (depth <= 2 ? compress_line_16 :
                  compress_line_32))(lineBuffer, width, (uint8_t *)cScan);
 
-	if(cSize != pSize  ||  bcmp(pScan, cScan, cSize))
+        if(cSize != pSize  ||  bcmp(pScan, cScan, cSize))
         {
             pScan  = cScan;
             cScan  = (uint32_t *)((uint8_t *)cScan + cSize);
             pSize  = cSize;
-	}
+        }
 
         dst[y] = (uint8_t *)pScan - dstbase;
     }
@@ -558,7 +558,7 @@ static int CompressData(UInt8 *srcbase, UInt32 depth, UInt32 width, UInt32 heigh
 }
 
 static void DecompressData(UInt8 *srcbase, UInt8 *dstbase, int dx, int dy,
-		    int dw, int dh, int rowbytes)
+                    int dw, int dh, int rowbytes)
 {
     uint32_t  *src;
     uint8_t   *dst;
@@ -570,8 +570,8 @@ static void DecompressData(UInt8 *srcbase, UInt8 *dstbase, int dx, int dy,
 
     if ((dw != (int) src[1]) || (dh != (int) src[2]))
     {
-	DEBG(0, " DecompressData mismatch %dx%d, %dx%d\n", dw, dh, src[1], src[2]);
-	return;
+        DEBG("", " DecompressData mismatch %dx%d, %dx%d\n", dw, dh, src[1], src[2]);
+        return;
     }
 
     depth   = src[0];
@@ -586,13 +586,13 @@ static void DecompressData(UInt8 *srcbase, UInt8 *dstbase, int dx, int dy,
 
         scan = (UInt8 *)srcbase + *src;
 
-	if (0 == (y & 7))
-	{
-	    AbsoluteTime deadline;
-	    clock_interval_to_deadline(8, kMicrosecondScale, &deadline);
-	    assert_wait_deadline((event_t)&clock_delay_until, THREAD_UNINT, __OSAbsoluteTime(deadline));
-	    thread_block(NULL);
-	}
+        if (0 == (y & 7))
+        {
+            AbsoluteTime deadline;
+            clock_interval_to_deadline(8, kMicrosecondScale, &deadline);
+            assert_wait_deadline((event_t)&clock_delay_until, THREAD_UNINT, __OSAbsoluteTime(deadline));
+            thread_block(NULL);
+        }
 
         (depth <= 1  ? DecompressRLE8 :
             (depth <= 2 ? DecompressRLE16 : DecompressRLE32))
@@ -654,7 +654,7 @@ PreviewDecompress16(uint32_t * compressBuffer,
                 if (fetch)
                 {
                     data = *((uint16_t *)input);
-		    input = (uint32_t *)(((uint8_t *) input) + sizeof(uint16_t));
+                    input = (uint32_t *)(((uint8_t *) input) + sizeof(uint16_t));
     
                     // grayscale
                     // srgb 13933, 46871, 4732
@@ -807,7 +807,7 @@ PreviewDecompress32(uint32_t * compressBuffer,
 
 bool
 PreviewDecompressData(void *srcbase, void *dstbase,
-		      int dw, int dh, int bytesPerPixel, int rowbytes)
+                      int dw, int dh, int bytesPerPixel, int rowbytes)
 {
     uint32_t * src = (uint32_t *) srcbase;
 

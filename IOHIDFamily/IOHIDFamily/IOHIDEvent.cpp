@@ -340,6 +340,7 @@ IOHIDEvent * IOHIDEvent::accelerometerEvent(
                                         IOFixed                 y,
                                         IOFixed                 z,
                                         IOHIDAccelerometerType  type,
+										IOHIDAccelerometerSubType  subType,
                                         IOOptionBits            options)
 {
     IOHIDEvent *                    event;
@@ -355,6 +356,38 @@ IOHIDEvent * IOHIDEvent::accelerometerEvent(
     if ( event ) {
         data = (IOHIDAccelerometerEventData *)event->_data;
         data->acclType = type;
+		data->acclSubType = subType;
+    }
+    
+    return event;
+}
+
+//==============================================================================
+// IOHIDEvent::gyroEvent
+//==============================================================================
+IOHIDEvent * IOHIDEvent::gyroEvent(
+											AbsoluteTime            timeStamp,
+											IOFixed                 x,
+											IOFixed                 y,
+											IOFixed                 z,
+											IOHIDGyroType		type,
+											IOHIDGyroSubType		subType,
+											IOOptionBits            options)
+{
+    IOHIDEvent *                    event;
+    IOHIDGyroEventData *		data;    
+    
+    event = IOHIDEvent::_axisEvent( kIOHIDEventTypeGyro, 
+								   timeStamp, 
+								   x,
+								   y,
+								   z,
+								   options);
+	
+    if ( event ) {
+        data = (IOHIDGyroEventData *)event->_data;
+        data->gyroType = type;
+        data->gyroSubType = subType;
     }
     
     return event;
@@ -368,6 +401,8 @@ IOHIDEvent * IOHIDEvent::ambientLightSensorEvent(
                                         UInt32                  level,
                                         UInt32                  channel0,
                                         UInt32                  channel1,
+										UInt32                  channel2,
+										UInt32                  channel3,
                                         IOOptionBits            options)
 {
     IOHIDEvent *me = new IOHIDEvent;
@@ -381,9 +416,36 @@ IOHIDEvent * IOHIDEvent::ambientLightSensorEvent(
     event->level = level;
     event->ch0 = channel0;
     event->ch1 = channel1;
+    event->ch2 = channel2;
+    event->ch3 = channel3;
     
     return me;
 }
+
+//==============================================================================
+// IOHIDEvent::proximityEvent
+//==============================================================================
+IOHIDEvent * IOHIDEvent::proximityEvent (
+                                        AbsoluteTime				timeStamp,
+                                        IOHIDProximityDetectionMask	mask,
+										UInt32						level,
+                                        IOOptionBits				options)
+{
+    IOHIDEvent *me = new IOHIDEvent;
+	
+    if (me && !me->initWithTypeTimeStamp(kIOHIDEventTypeProximity, timeStamp, options)) {
+        me->release();
+        return 0;
+    }
+    
+    IOHIDProximityEventData * event = (IOHIDProximityEventData *)me->_data;
+    event->detectionMask	= mask;
+	event->level			= level;
+    
+    return me;
+}
+
+
 
 //==============================================================================
 // IOHIDEvent::temperatureEvent

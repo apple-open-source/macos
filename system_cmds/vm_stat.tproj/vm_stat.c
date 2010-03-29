@@ -225,8 +225,9 @@ void
 get_stats(vm_statistics64_t stat)
 {
 	unsigned int count = HOST_VM_INFO64_COUNT;
-	if (host_statistics64(myHost, HOST_VM_INFO64, (host_info64_t)stat, &count) != KERN_SUCCESS) {
-		fprintf(stderr, "%s: failed to get statistics.\n", pgmname);
+	kern_return_t ret;
+	if ((ret = host_statistics64(myHost, HOST_VM_INFO64, (host_info64_t)stat, &count) != KERN_SUCCESS)) {
+		fprintf(stderr, "%s: failed to get statistics. error %d\n", pgmname, ret);
 		exit(EXIT_FAILURE);
 	}
 	if (stat->lookups == 0)

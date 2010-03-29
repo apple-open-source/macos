@@ -5,7 +5,7 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) 1998 - 2008, Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) 1998 - 2009, Daniel Stenberg, <daniel@haxx.se>, et al.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
@@ -18,7 +18,7 @@
  * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
  * KIND, either express or implied.
  *
- * $Id: base64.c,v 1.51 2008-11-14 16:22:18 bagder Exp $
+ * $Id: base64.c,v 1.53 2009-06-04 23:55:56 yangtse Exp $
  ***************************************************************************/
 
 /* Base64 encoding/decoding
@@ -43,7 +43,7 @@
 #include "urldata.h" /* for the SessionHandle definition */
 #include "easyif.h"  /* for Curl_convert_... prototypes */
 #include "curl_base64.h"
-#include "memory.h"
+#include "curl_memory.h"
 
 /* include memdebug.h last */
 #include "memdebug.h"
@@ -141,7 +141,8 @@ size_t Curl_base64_decode(const char *src, unsigned char **outptr)
  *
  */
 size_t Curl_base64_encode(struct SessionHandle *data,
-                          const char *inp, size_t insize, char **outptr)
+                          const char *inputbuff, size_t insize,
+                          char **outptr)
 {
   unsigned char ibuf[3];
   unsigned char obuf[4];
@@ -153,7 +154,7 @@ size_t Curl_base64_encode(struct SessionHandle *data,
   char *convbuf = NULL;
 #endif
 
-  const char *indata = inp;
+  const char *indata = inputbuff;
 
   *outptr = NULL; /* set to NULL in case of failure before we reach the end */
 

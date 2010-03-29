@@ -2,23 +2,12 @@ Mailman - The GNU Mailing List Management System
 Copyright (C) 1998,1999,2000,2001,2002 by the Free Software Foundation, Inc.
 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA
 
-The Mailman project is being managed on SourceForge at
+The Mailman project is being managed on Launchpad at
 
-    http://sf.net/projects/mailman
+    https://launchpad.net/mailman
 
-You should submit bugs to the SourceForge bug manager at
+You should submit bugs to the Launchpad bug manager at
 
-    http://sf.net/bugs/?group_id=103
+    https://bugs.launchpad.net/mailman
 
-If you're able, please also submit a patch to the SourceForge patch
-manager, taking care to reference your bug report (which should be
-submitted first).  The patch manager is at
-
-    http://sf.net/patch/?group_id=103
-
-
-
-Local Variables:
-mode: indented-text
-indent-tabs-mode: nil
-End:
+If you have a suggested fix, please attach it to your bug report.

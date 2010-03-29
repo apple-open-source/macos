@@ -72,11 +72,28 @@ _dispatch_apply_serial(void *context)
 }
 
 #ifdef __BLOCKS__
+#if DISPATCH_COCOA_COMPAT
+DISPATCH_NOINLINE
+static void
+_dispatch_apply_slow(size_t iterations, dispatch_queue_t dq, void (^work)(size_t))
+{
+	struct Block_basic *bb = (void *)_dispatch_Block_copy((void *)work);
+	dispatch_apply_f(iterations, dq, bb, (void *)bb->Block_invoke);
+	Block_release(bb);
+}
+#endif
+
 void
 dispatch_apply(size_t iterations, dispatch_queue_t dq, void (^work)(size_t))
 {
+#if DISPATCH_COCOA_COMPAT
+	// Under GC, blocks transferred to other threads must be Block_copy()ed
+	// rdar://problem/7455071
+	if (dispatch_begin_thread_4GC) {
+		return _dispatch_apply_slow(iterations, dq, work);
+	}
+#endif
 	struct Block_basic *bb = (void *)work;
-
 	dispatch_apply_f(iterations, dq, bb, (void *)bb->Block_invoke);
 }
 #endif

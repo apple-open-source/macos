@@ -110,7 +110,9 @@ struct netdissect_options {
 
   int ndo_Cflag;                /* rotate dump files after this many bytes */ 
   int ndo_Cflag_count;      /* Keep track of which file number we're writing */
+#ifdef __APPLE__
   int ndo_gflag;            /* no line break in verbose mode for easier grepping */
+#endif
   int ndo_Gflag;            /* rotate dump files after this many seconds */
   int ndo_Gflag_count;      /* number of files created with Gflag rotation */
   time_t ndo_Gflag_time;    /* The last time_t the dump file was rotated. */

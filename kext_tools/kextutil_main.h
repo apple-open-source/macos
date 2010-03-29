@@ -188,8 +188,8 @@ ExitStatus checkArgs(KextutilArgs * toolArgs);
 void adjustLogFilterForInteractive(KextutilArgs * toolArgs);
 ExitStatus createKextsToProcess(
     KextutilArgs * toolArgs,
-    CFArrayRef * outArray,
-    Boolean    * fatal);
+    CFArrayRef   * outArray,
+    Boolean      * fatal);
 ExitStatus processKexts(
     CFArrayRef     kextURLsToUse,
     KextutilArgs * toolArgs);

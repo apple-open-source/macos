@@ -115,7 +115,8 @@ protected:
 		bool					_deviceIsInternal;					// Will be set if all our upstream hubs are captive (internal to the computer)
 		bool					_deviceIsInternalIsValid;			// true if we have already determined whether the device is internal
 		bool					_newGetConfigLock;					// new lock, taken within the WL gate, when doing a GetConfig
-		UInt32					_resetAndReEnumerateLock;			// "Lock" to prevent us from doing a reset or a re-enumerate while the other one is in progress				
+		UInt32					_resetAndReEnumerateLock;			// "Lock" to prevent us from doing a reset or a re-enumerate while the other one is in progress		
+		UInt32					_locationID;
     };	
     ExpansionData * _expansionData;
 
@@ -270,7 +271,7 @@ public:
     */
     virtual UInt16 GetDeviceRelease(void);
     /*!
-        @function GetNumConfigs
+        @function GetNumConfigurations
         returns the number of configs in the device config descriptor
     */
     virtual UInt8 GetNumConfigurations(void);
@@ -478,12 +479,20 @@ public:
 	 @function				GetExtraPowerAllocated
 	 @abstract				Clients can use this API to ask how much extra power has already been reserved by this device.  Units are milliAmps (mA).
 	 @param type			Indicates whether the allocated power was to be used during wake or sleep (One of kUSBPowerDuringSleep or kUSBPowerDuringWake)
-	 @result				Amount of power allocated, in mA.  .
+	 @result				Amount of power allocated, in mA.
 	 
 	 */
-	virtual UInt32	GetExtraPowerAllocated(UInt32 type);
+	virtual UInt32			GetExtraPowerAllocated(UInt32 type);
     
-    OSMetaClassDeclareReservedUnused(IOUSBDevice,  12);
+    OSMetaClassDeclareReservedUsed(IOUSBDevice,  12);
+    /*!
+	 @function				DoLocationOverrideAndModelMatch
+	 @abstract				Will look for a kOverrideIfAtLocationID array proerty with locationID entries and a "MacModel" property.  If any of the locationIDs match to the Mac Model, will return true.
+	 						If there is no kOverrideAtLocationID property, it will also return true.
+	 @result				True if we have a match, false otherwise
+	 */
+	virtual	bool			DoLocationOverrideAndModelMatch();
+	
     OSMetaClassDeclareReservedUnused(IOUSBDevice,  13);
     OSMetaClassDeclareReservedUnused(IOUSBDevice,  14);
     OSMetaClassDeclareReservedUnused(IOUSBDevice,  15);

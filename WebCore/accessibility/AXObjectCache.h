@@ -42,13 +42,12 @@ class WebCoreTextMarker;
 
 namespace WebCore {
 
+    class Document;
+    class Node;
+    class Page;
     class RenderObject;
     class String;
     class VisiblePosition;
-    class AccessibilityObject;
-    class Node;
-    
-    typedef unsigned AXID;
 
     struct TextMarkerData  {
         AXID axID;
@@ -59,9 +58,11 @@ namespace WebCore {
 
     class AXObjectCache {
     public:
-        AXObjectCache();
+        AXObjectCache(const Document*);
         ~AXObjectCache();
-        
+
+        static AccessibilityObject* focusedUIElementForPage(const Page*);
+
         // to be used with render objects
         AccessibilityObject* getOrCreate(RenderObject*);
         
@@ -86,6 +87,8 @@ namespace WebCore {
 #if PLATFORM(GTK)
         void handleFocusedUIElementChangedWithRenderers(RenderObject*, RenderObject*);
 #endif
+        void handleScrolledToAnchor(const Node* anchorNode);
+
         static void enableAccessibility() { gAccessibilityEnabled = true; }
         static void enableEnhancedUserInterfaceAccessibility() { gAccessibilityEnhancedUserInterfaceEnabled = true; }
         
@@ -94,6 +97,8 @@ namespace WebCore {
 
         void removeAXID(AccessibilityObject*);
         bool isIDinUse(AXID id) const { return m_idsInUse.contains(id); }
+        AXID platformGenerateAXID() const;
+        AccessibilityObject* objectFromAXID(AXID id) const { return m_objects.get(id).get(); }
 
     private:
         HashMap<AXID, RefPtr<AccessibilityObject> > m_objects;
@@ -104,11 +109,13 @@ namespace WebCore {
         HashSet<AXID> m_idsInUse;
         
         Timer<AXObjectCache> m_notificationPostTimer;
-        Vector<pair<AccessibilityObject*, const String> > m_notificationsToPost;
+        Vector<pair<RefPtr<AccessibilityObject>, const String> > m_notificationsToPost;
         void notificationPostTimerFired(Timer<AXObjectCache>*);
         
         AXID getAXID(AccessibilityObject*);
         bool nodeIsAriaType(Node* node, String role);
+
+        const Document* m_document;
     };
 
 #if !HAVE(ACCESSIBILITY)
@@ -123,6 +130,7 @@ namespace WebCore {
 #if PLATFORM(GTK)
     inline void AXObjectCache::handleFocusedUIElementChangedWithRenderers(RenderObject*, RenderObject*) { }
 #endif
+    inline void AXObjectCache::handleScrolledToAnchor(const Node*) { }
 #endif
 
 }

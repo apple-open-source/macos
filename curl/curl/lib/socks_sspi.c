@@ -18,7 +18,7 @@
  * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
  * KIND, either express or implied.
  *
- * $Id: socks_sspi.c,v 1.6 2009-02-23 01:04:18 yangtse Exp $
+ * $Id: socks_sspi.c,v 1.7 2009-04-21 10:26:59 yangtse Exp $
  ***************************************************************************/
 
 
@@ -28,9 +28,6 @@
 
 #include <string.h>
 
-#ifdef NEED_MALLOC_H
-#include <malloc.h>
-#endif
 #ifdef HAVE_STDLIB_H
 #include <stdlib.h>
 #endif

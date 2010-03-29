@@ -2,7 +2,7 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright © 1998-2009 Apple Inc.  All rights reserved.
+ * Copyright © 1998-2010 Apple Inc.  All rights reserved.
  * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
@@ -122,7 +122,6 @@ class AppleUSBHub : public IOUSBHubPolicyMaker
     AppleUSBHubPort **					_ports;									// Allocated at runtime
     bool								_multiTTs;								// Hub is multiTT capable, and configured.
     bool								_hsHub;									// our provider is a HS bus
-    bool								_inTestMode;							// T while we are in test mode
 	bool								_needToAckSetPowerState;
 	bool								_checkPortsThreadActive;
 	bool								_abandonCheckPorts;						// T if we should abandon the check ports thread
@@ -144,7 +143,12 @@ class AppleUSBHub : public IOUSBHubPolicyMaker
 	bool								_ignoreDisconnectOnWakeup;
 	bool								_overCurrentNoticeDisplayed;
 	AbsoluteTime						_overCurrentNoticeTimeStamp;
-    
+	bool								_hubWithExpressCardPort;				// T if this hub has a port that connects to an expresscard slot
+	int									_expressCardPort;						// Port # of the hub that connects to the express card slot
+	
+	bool								_hubDeadCheckLock;
+	
+	
     static void 	InterruptReadHandlerEntry(OSObject *target, void *param, IOReturn status, UInt32 bufferSizeRemaining);
     void			InterruptReadHandler(IOReturn status, UInt32 bufferSizeRemaining);
     
@@ -219,19 +223,9 @@ class AppleUSBHub : public IOUSBHubPolicyMaker
 	bool				HubAreAllPortsDisconnectedOrSuspended();
     bool				IsPortInitThreadActiveForAnyPort();
     bool				IsStatusChangedThreadActiveForAnyPort();
-	
-    // test mode functions, called by the AppleUSBHSHubUserClient
-    IOReturn			EnterTestMode();
-    IOReturn			LeaveTestMode();
     bool				IsHSRootHub();
-    IOReturn			PutPortIntoTestMode(UInt32 port, UInt32 mode);
+	bool				HasExpressCardPort();
 	
-	// Port Indicator and Port Power functions, called by the AppleUSBHSHubUserClient
-	IOReturn			SetIndicatorForPort(UInt16 port, UInt16 selector);
-	IOReturn			GetPortIndicatorControl(UInt16 port, UInt32 *defaultColors);
-    IOReturn			SetIndicatorsToAutomatic();
-	IOReturn			GetPortPower(UInt16 port, UInt32 *on);
-	IOReturn			SetPortPower(UInt16 port, UInt32 on);
 	
 	// local function for an initial delay
 	void				InitialDelay(void);

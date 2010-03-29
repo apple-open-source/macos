@@ -157,7 +157,10 @@ static struct dispatch_object_s *_dispatch_queue_concurrent_drain_one(dispatch_q
 static bool _dispatch_program_is_probably_callback_driven;
 
 #if DISPATCH_COCOA_COMPAT
-void (*dispatch_begin_thread_4GC)(void) = dummy_function;
+// dispatch_begin_thread_4GC having non-default value triggers GC-only slow paths and
+// is checked frequently, testing against NULL is faster than comparing for equality
+// with "dummy_function"
+void (*dispatch_begin_thread_4GC)(void) = NULL;
 void (*dispatch_end_thread_4GC)(void) = dummy_function;
 void *(*_dispatch_begin_NSAutoReleasePool)(void) = (void *)dummy_function;
 void (*_dispatch_end_NSAutoReleasePool)(void *) = (void *)dummy_function;
@@ -691,8 +694,10 @@ dispatch_async_f(dispatch_queue_t dq, void *ctxt, dispatch_function_t func)
 
 struct dispatch_barrier_sync_slow2_s {
 	dispatch_queue_t dbss2_dq;
+#if DISPATCH_COCOA_COMPAT
 	dispatch_function_t dbss2_func;
-	dispatch_function_t dbss2_ctxt;	
+	dispatch_function_t dbss2_ctxt;
+#endif
 	dispatch_semaphore_t dbss2_sema;
 };
 
@@ -702,12 +707,16 @@ _dispatch_barrier_sync_f_slow_invoke(void *ctxt)
 	struct dispatch_barrier_sync_slow2_s *dbss2 = ctxt;
 
 	dispatch_assert(dbss2->dbss2_dq == dispatch_get_current_queue());
-	// ALL blocks on the main queue, must be run on the main thread
-	if (dbss2->dbss2_dq == dispatch_get_main_queue()) {
+#if DISPATCH_COCOA_COMPAT
+	// When the main queue is bound to the main thread
+	if (dbss2->dbss2_dq == &_dispatch_main_q && pthread_main_np()) {
 		dbss2->dbss2_func(dbss2->dbss2_ctxt);
-	} else {
-		dispatch_suspend(dbss2->dbss2_dq);
+		dbss2->dbss2_func = NULL;
+		dispatch_semaphore_signal(dbss2->dbss2_sema);
+		return;
 	}
+#endif
+	dispatch_suspend(dbss2->dbss2_dq);
 	dispatch_semaphore_signal(dbss2->dbss2_sema);
 }
 
@@ -722,8 +731,10 @@ _dispatch_barrier_sync_f_slow(dispatch_queue_t dq, void *ctxt, dispatch_function
 	
 	struct dispatch_barrier_sync_slow2_s dbss2 = {
 		.dbss2_dq = dq,
+#if DISPATCH_COCOA_COMPAT
 		.dbss2_func = func,
-		.dbss2_ctxt = ctxt,		
+		.dbss2_ctxt = ctxt,
+#endif
 		.dbss2_sema = _dispatch_get_thread_semaphore(),
 	};
 	struct dispatch_barrier_sync_slow_s {
@@ -734,33 +745,52 @@ _dispatch_barrier_sync_f_slow(dispatch_queue_t dq, void *ctxt, dispatch_function
 		.dc_ctxt = &dbss2,
 	};
 	
-	dispatch_queue_t old_dq = _dispatch_thread_getspecific(dispatch_queue_key);
 	_dispatch_queue_push(dq, (void *)&dbss);
 	dispatch_semaphore_wait(dbss2.dbss2_sema, DISPATCH_TIME_FOREVER);
-
-	if (dq != dispatch_get_main_queue()) {
-		_dispatch_thread_setspecific(dispatch_queue_key, dq);
-		func(ctxt);
-		_dispatch_workitem_inc();
-		_dispatch_thread_setspecific(dispatch_queue_key, old_dq);
-		dispatch_resume(dq);
-	}
 	_dispatch_put_thread_semaphore(dbss2.dbss2_sema);
+
+#if DISPATCH_COCOA_COMPAT
+	// Main queue bound to main thread
+	if (dbss2.dbss2_func == NULL) {
+		return;
+	}
+#endif
+	dispatch_queue_t old_dq = _dispatch_thread_getspecific(dispatch_queue_key);
+	_dispatch_thread_setspecific(dispatch_queue_key, dq);
+	func(ctxt);
+	_dispatch_workitem_inc();
+	_dispatch_thread_setspecific(dispatch_queue_key, old_dq);
+	dispatch_resume(dq);
 }
 
 #ifdef __BLOCKS__
+#if DISPATCH_COCOA_COMPAT
+DISPATCH_NOINLINE
+static void
+_dispatch_barrier_sync_slow(dispatch_queue_t dq, void (^work)(void))
+{
+	// Blocks submitted to the main queue MUST be run on the main thread,
+	// therefore under GC we must Block_copy in order to notify the thread-local
+	// garbage collector that the objects are transferring to the main thread
+	// rdar://problem/7176237&7181849&7458685
+	if (dispatch_begin_thread_4GC) {
+		dispatch_block_t block = _dispatch_Block_copy(work);
+		return dispatch_barrier_sync_f(dq, block, _dispatch_call_block_and_release);
+	}
+	struct Block_basic *bb = (void *)work;
+	dispatch_barrier_sync_f(dq, work, (dispatch_function_t)bb->Block_invoke);
+}
+#endif
+
 void
 dispatch_barrier_sync(dispatch_queue_t dq, void (^work)(void))
 {
-	// Blocks submitted to the main queue MUST be run on the main thread,
-	// therefore we must Block_copy in order to notify the thread-local
-	// garbage collector that the objects are transferring to the main thread
-	if (dq == dispatch_get_main_queue()) {
-		dispatch_block_t block = Block_copy(work);
-		return dispatch_barrier_sync_f(dq, block, _dispatch_call_block_and_release);
-	}	
+#if DISPATCH_COCOA_COMPAT
+	if (slowpath(dq == &_dispatch_main_q)) {
+		return _dispatch_barrier_sync_slow(dq, work);
+	}
+#endif
 	struct Block_basic *bb = (void *)work;
-
 	dispatch_barrier_sync_f(dq, work, (dispatch_function_t)bb->Block_invoke);
 }
 #endif
@@ -821,9 +851,32 @@ _dispatch_sync_f_slow(dispatch_queue_t dq)
 }
 
 #ifdef __BLOCKS__
+#if DISPATCH_COCOA_COMPAT
+DISPATCH_NOINLINE
+static void
+_dispatch_sync_slow(dispatch_queue_t dq, void (^work)(void))
+{
+	// Blocks submitted to the main queue MUST be run on the main thread,
+	// therefore under GC we must Block_copy in order to notify the thread-local
+	// garbage collector that the objects are transferring to the main thread
+	// rdar://problem/7176237&7181849&7458685
+	if (dispatch_begin_thread_4GC) {
+		dispatch_block_t block = _dispatch_Block_copy(work);
+		return dispatch_sync_f(dq, block, _dispatch_call_block_and_release);
+	}
+	struct Block_basic *bb = (void *)work;
+	dispatch_sync_f(dq, work, (dispatch_function_t)bb->Block_invoke);
+}
+#endif
+
 void
 dispatch_sync(dispatch_queue_t dq, void (^work)(void))
 {
+#if DISPATCH_COCOA_COMPAT
+	if (slowpath(dq == &_dispatch_main_q)) {
+		return _dispatch_sync_slow(dq, work);
+	}
+#endif
 	struct Block_basic *bb = (void *)work;
 	dispatch_sync_f(dq, work, (dispatch_function_t)bb->Block_invoke);
 }
@@ -1417,7 +1470,9 @@ _dispatch_worker_thread2(void *context)
 
 #if DISPATCH_COCOA_COMPAT
 	// ensure that high-level memory management techniques do not leak/crash
-	dispatch_begin_thread_4GC();
+	if (dispatch_begin_thread_4GC) {
+		dispatch_begin_thread_4GC();
+	}
 	void *pool = _dispatch_begin_NSAutoReleasePool();
 #endif
 

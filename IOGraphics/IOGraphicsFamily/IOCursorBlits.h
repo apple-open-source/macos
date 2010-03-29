@@ -20,40 +20,40 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
-#define RBMASK	0xF0F0		/* Short, or 16 bit format */
-#define GAMASK	0x0F0F		/* Short, or 16 bit format */
-#define AMASK	0x000F		/* Short, or 16 bit format */
+#define RBMASK  0xF0F0          /* Short, or 16 bit format */
+#define GAMASK  0x0F0F          /* Short, or 16 bit format */
+#define AMASK   0x000F          /* Short, or 16 bit format */
 
 #if 1
-#define short34to35WithGamma(x) 	\
-	(  (((x) & 0xf000) >> 1)	\
-	 | (((x) & 0x0f00) >> 2)  	\
-	 | (((x) & 0x00f0) >> 3)	\
-	 | (((x) & 0x8000) >> 5)  	\
-	 | (((x) & 0x0800) >> 6)  	\
-	 | (((x) & 0x0080) >> 7) )
+#define short34to35WithGamma(x)         \
+        (  (((x) & 0xf000) >> 1)        \
+         | (((x) & 0x0f00) >> 2)        \
+         | (((x) & 0x00f0) >> 3)        \
+         | (((x) & 0x8000) >> 5)        \
+         | (((x) & 0x0800) >> 6)        \
+         | (((x) & 0x0080) >> 7) )
 
-#define short35to34WithGamma(x) 	\
-	(  0x000F			\
-	 | (((x) & 0x001e) << 3)	\
-	 | (((x) & 0x03c0) << 2)	\
-	 | (((x) & 0x7800) << 1) )
+#define short35to34WithGamma(x)         \
+        (  0x000F                       \
+         | (((x) & 0x001e) << 3)        \
+         | (((x) & 0x03c0) << 2)        \
+         | (((x) & 0x7800) << 1) )
 #else
 #define short34to35WithGamma(x) \
-	(  (_bm34To35SampleTable[((x) & 0x00F0) >> 4])		\
-	 | (_bm34To35SampleTable[((x) & 0x0F00) >> 8] << 5)	\
-	 | (_bm34To35SampleTable[(x) >> 12] << 10) )
+        (  (_bm34To35SampleTable[((x) & 0x00F0) >> 4])          \
+         | (_bm34To35SampleTable[((x) & 0x0F00) >> 8] << 5)     \
+         | (_bm34To35SampleTable[(x) >> 12] << 10) )
 
 #define short35to34WithGamma(x) \
-	(  0x000F						\
-	 | (_bm35To34SampleTable[x & 0x001F] << 4)		\
-	 | (_bm35To34SampleTable[(x & 0x03E0) >> 5] << 8)	\
-	 | (_bm35To34SampleTable[(x & 0x7C00) >> 10] << 12) )
+        (  0x000F                                               \
+         | (_bm35To34SampleTable[x & 0x001F] << 4)              \
+         | (_bm35To34SampleTable[(x & 0x03E0) >> 5] << 8)       \
+         | (_bm35To34SampleTable[(x & 0x7C00) >> 10] << 12) )
 #endif
 
 void IOFramebuffer::StdFBDisplayCursor555(
                 IOFramebuffer * inst,
-		StdFBShmem_t *shmem,
+                StdFBShmem_t *shmem,
                 volatile unsigned short *vramPtr,
                 unsigned int cursStart,
                 unsigned int vramRow,
@@ -79,17 +79,17 @@ void IOFramebuffer::StdFBDisplayCursor555(
         for (j = width; --j >= 0; ) {
             d = *savePtr++ = *vramPtr;
             if ( (s = *cursPtr++) == 0 )
-            {	/* Transparent black area.  Leave dst as is. */
+            {   /* Transparent black area.  Leave dst as is. */
                 ++vramPtr;
                 continue;
             }
             if ( (f = (~s) & (unsigned int)AMASK) == 0 )
-            {	/* Opaque cursor pixel.  Mark it. */
+            {   /* Opaque cursor pixel.  Mark it. */
                 *vramPtr++ = short34to35WithGamma(s);
                 continue;
             }
             if ((f == AMASK))
-            {	/* Transparent non black cursor pixel.  xor it. */
+            {   /* Transparent non black cursor pixel.  xor it. */
                 *vramPtr++ = d ^ short34to35WithGamma(s);
                 continue;
             }
@@ -121,11 +121,11 @@ static inline unsigned char map32to256( unsigned char *directToLogical, unsigned
     unsigned char logicalValue;
 
     if ((s ^ (s>>8)) & 0x00FFFF00) {
-	logicalValue =  directToLogical[(s>>24)        + 0] +
-			directToLogical[((s>>16)&0xFF) + 256] +
-			directToLogical[((s>>8)&0xFF)  + 512];
+        logicalValue =  directToLogical[(s>>24)        + 0] +
+                        directToLogical[((s>>16)&0xFF) + 256] +
+                        directToLogical[((s>>8)&0xFF)  + 512];
     } else {
-	logicalValue =  directToLogical[(s>>24)        + 768];
+        logicalValue =  directToLogical[(s>>24)        + 768];
     }
     // final conversion to actual palette
     return( directToLogical[ logicalValue + 1024 ]);
@@ -142,11 +142,11 @@ void IOFramebuffer::StdFBDisplayCursor8P(
                 int height )
 {
     int i, j;
-    volatile unsigned char *savePtr;	/* saved screen data pointer */
+    volatile unsigned char *savePtr;    /* saved screen data pointer */
     volatile unsigned char *cursPtr;
     unsigned char dst, src, alpha, white;
     unsigned int rgb32val;
-    volatile unsigned char *maskPtr;		/* cursor mask pointer */
+    volatile unsigned char *maskPtr;            /* cursor mask pointer */
     unsigned int *_bm256To38SampleTable
         = inst->colorConvert.t._bm256To38SampleTable;
     unsigned char *_bm38To256SampleTable
@@ -192,10 +192,10 @@ void IOFramebuffer::StdFBDisplayCursor8G(
                                  int height )
 {
     int i, j;
-    volatile unsigned char *savePtr;	/* saved screen data pointer */
+    volatile unsigned char *savePtr;    /* saved screen data pointer */
     unsigned short s, d, a;
     volatile unsigned char *cursPtr;
-    volatile unsigned char *maskPtr;		/* cursor mask pointer */
+    volatile unsigned char *maskPtr;            /* cursor mask pointer */
 
     savePtr = (volatile unsigned char *) inst->cursorSave;
     cursPtr = (volatile unsigned char *) inst->__private->cursorImages[ shmem->frame ];
@@ -233,7 +233,7 @@ void IOFramebuffer::StdFBDisplayCursor30Axxx(
                                  int height )
 {
     int i, j;
-    volatile unsigned int *savePtr;	/* saved screen data pointer */
+    volatile unsigned int *savePtr;     /* saved screen data pointer */
     unsigned long long s, d;
     unsigned int f;
     volatile unsigned int *cursPtr;
@@ -248,11 +248,11 @@ void IOFramebuffer::StdFBDisplayCursor30Axxx(
             d = *savePtr++ = *vramPtr;
             s = *cursPtr++;
             f = s >> 24;
-	    s = ((s&0x000000FF)<<2)|((s&0x0000FF00)<<4)|((s&0x00FF0000)<<6);
+            s = ((s&0x000000FF)<<2)|((s&0x0000FF00)<<4)|((s&0x00FF0000)<<6);
             if (f) {
-                if (f == 0xFF)		// Opaque pixel
+                if (f == 0xFF)          // Opaque pixel
                     *vramPtr++ = s;
-                else {			// SOVER the cursor pixel
+                else {                  // SOVER the cursor pixel
                     s <<= 10;  d <<= 10;   /* Now pixels are xxxA */
                     f ^= 0xFF;
                     d = s+(((((d&0xFFC00FFC00ULL)>>8)*f+0x0FF000FF) & 0xFFC00FFC00ULL)
@@ -263,7 +263,7 @@ void IOFramebuffer::StdFBDisplayCursor30Axxx(
                 // Transparent non black cursor pixel.  xor it.
                 *vramPtr++ = d ^ s;
                 continue;
-            } else			// Transparent cursor pixel
+            } else                      // Transparent cursor pixel
                 vramPtr++;
         }
         cursPtr += cursRow; /* starting point of next cursor line */
@@ -282,7 +282,7 @@ void IOFramebuffer::StdFBDisplayCursor32Axxx(
                                  int height )
 {
     int i, j;
-    volatile unsigned int *savePtr;	/* saved screen data pointer */
+    volatile unsigned int *savePtr;     /* saved screen data pointer */
     unsigned int s, d, f;
     volatile unsigned int *cursPtr;
 
@@ -297,9 +297,9 @@ void IOFramebuffer::StdFBDisplayCursor32Axxx(
             s = *cursPtr++;
             f = s >> 24;
             if (f) {
-                if (f == 0xFF)		// Opaque pixel
+                if (f == 0xFF)          // Opaque pixel
                     *vramPtr++ = s;
-                else {			// SOVER the cursor pixel
+                else {                  // SOVER the cursor pixel
                     s <<= 8;  d <<= 8;   /* Now pixels are xxxA */
                     f ^= 0xFF;
                     d = s+(((((d&0xFF00FF00)>>8)*f+0x00FF00FF)&0xFF00FF00)
@@ -311,7 +311,7 @@ void IOFramebuffer::StdFBDisplayCursor32Axxx(
                 // Transparent non black cursor pixel.  xor it.
                 *vramPtr++ = d ^ s;
                 continue;
-            } else			// Transparent cursor pixel
+            } else                      // Transparent cursor pixel
                 vramPtr++;
         }
         cursPtr += cursRow; /* starting point of next cursor line */
@@ -334,8 +334,8 @@ void IOFramebuffer::StdFBRemoveCursor16(
 
     for (i = height; --i >= 0; ) {
         for (j = width; --j >= 0; )
-	    *vramPtr++ = *savePtr++;
-	vramPtr += vramRow;
+            *vramPtr++ = *savePtr++;
+        vramPtr += vramRow;
     }
 }
 
@@ -354,8 +354,8 @@ void IOFramebuffer::StdFBRemoveCursor8(
 
     for (i = height; --i >= 0; ) {
         for (j = width; --j >= 0; )
-	    *vramPtr++ = *savePtr++;
-	vramPtr += vramRow;
+            *vramPtr++ = *savePtr++;
+        vramPtr += vramRow;
     }
 }
 
@@ -373,8 +373,8 @@ void IOFramebuffer::StdFBRemoveCursor32(
     savePtr = (volatile unsigned int *) inst->cursorSave;
 
     for (i = height; --i >= 0; ) {
-	for (j = width; --j >= 0; )
-	    *vramPtr++ = *savePtr++;
-	vramPtr += vramRow;
+        for (j = width; --j >= 0; )
+            *vramPtr++ = *savePtr++;
+        vramPtr += vramRow;
     }
 }

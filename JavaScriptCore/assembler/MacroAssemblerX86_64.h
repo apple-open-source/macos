@@ -32,6 +32,8 @@
 
 #include "MacroAssemblerX86Common.h"
 
+#define REPTACH_OFFSET_CALL_R11 3
+
 namespace JSC {
 
 class MacroAssemblerX86_64 : public MacroAssemblerX86Common {
@@ -48,6 +50,8 @@ public:
     using MacroAssemblerX86Common::load32;
     using MacroAssemblerX86Common::store32;
     using MacroAssemblerX86Common::call;
+    using MacroAssemblerX86Common::loadDouble;
+    using MacroAssemblerX86Common::convertInt32ToDouble;
 
     void add32(Imm32 imm, AbsoluteAddress address)
     {
@@ -82,6 +86,18 @@ public:
             m_assembler.movl_mEAX(address);
             swap(X86::eax, dest);
         }
+    }
+
+    void loadDouble(void* address, FPRegisterID dest)
+    {
+        move(ImmPtr(address), scratchRegister);
+        loadDouble(scratchRegister, dest);
+    }
+
+    void convertInt32ToDouble(AbsoluteAddress src, FPRegisterID dest)
+    {
+        move(Imm32(*static_cast<int32_t*>(src.m_ptr)), scratchRegister);
+        m_assembler.cvtsi2sd_rr(scratchRegister, dest);
     }
 
     void store32(Imm32 imm, void* address)
@@ -446,6 +462,29 @@ public:
     bool supportsFloatingPoint() const { return true; }
     // See comment on MacroAssemblerARMv7::supportsFloatingPointTruncate()
     bool supportsFloatingPointTruncate() const { return true; }
+
+private:
+    friend class LinkBuffer;
+    friend class RepatchBuffer;
+
+    static void linkCall(void* code, Call call, FunctionPtr function)
+    {
+        if (!call.isFlagSet(Call::Near))
+            X86Assembler::linkPointer(code, X86Assembler::labelFor(call.m_jmp, -REPTACH_OFFSET_CALL_R11), function.value());
+        else
+            X86Assembler::linkCall(code, call.m_jmp, function.value());
+    }
+
+    static void repatchCall(CodeLocationCall call, CodeLocationLabel destination)
+    {
+        X86Assembler::repatchPointer(call.dataLabelPtrAtOffset(-REPTACH_OFFSET_CALL_R11).dataLocation(), destination.executableAddress());
+    }
+
+    static void repatchCall(CodeLocationCall call, FunctionPtr destination)
+    {
+        X86Assembler::repatchPointer(call.dataLabelPtrAtOffset(-REPTACH_OFFSET_CALL_R11).dataLocation(), destination.executableAddress());
+    }
+
 };
 
 } // namespace JSC

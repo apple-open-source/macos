@@ -59,6 +59,7 @@
 */
 
 class AppleEHCIIsochEndpoint;
+class AppleUSBEHCISplitPeriodicEndpoint;
 
 class AppleEHCIQueueHead : public IOUSBControllerListElement
 {
@@ -79,17 +80,24 @@ public:
     
     // not a virtual method, because the return type assumes knowledge of the element type
     EHCIQueueHeadSharedPtr					GetSharedLogical(void);
+	
+	// helper method
+	UInt8									NormalizedPollingRate(void);			// returns the polling rate normalized to ms (frames)
     
     EHCIGeneralTransferDescriptorPtr		_qTD;
     EHCIGeneralTransferDescriptorPtr		_TailTD;
+	AppleUSBEHCISplitPeriodicEndpoint		*_pSPE;									// for split interrupt endpoints
     UInt16                                  _maxPacketSize;
-    UInt8									_direction;
-    UInt8									_pollM1;	
-    UInt8									_offset;	
-    UInt8									_responseToStall;
-    UInt8									_queueType;						// Control, interrupt, etc.
     UInt16									_functionNumber;
-	UInt8									_bandwidthUsed[8];
+	UInt16									_endpointNumber;
+    UInt8									_direction;
+    UInt8									_responseToStall;
+    UInt8									_queueType;								// Control, interrupt, etc.
+	UInt8									_speed;									// the speed of this EP
+	UInt8									_bInterval;								// the "raw" bInterval from the endpoint descriptor
+	UInt8									_startFrame;							// beginning ms frame in a 32 ms schedule
+	UInt8									_startuFrame;							// first uFrame (HS endpoints only)
+	UInt16									_pollingRate;							// converted polling rate in frames for FS/LS and uFrames for HS
 };
 
 
@@ -149,18 +157,21 @@ class AppleEHCIIsochEndpoint : public IOUSBControllerIsochEndpoint
     OSDeclareDefaultStructors(AppleEHCIIsochEndpoint)
 
 public:
-	virtual bool	init();
+	virtual bool			init();
+	void					print(int level);
 	
-	void								*hiPtr;						// pointer to the Transaction Translator (for Split EP)
+	AppleUSBEHCISplitPeriodicEndpoint	*pSPE;						// for split  endpoints
+	void								*ttiPtr;					// pointer to the Transaction Translator (for Split EP)
     short								oneMPS;						// For high bandwidth
     short								mult;						// how many oneMPS sized transactions to do
     USBDeviceAddress					highSpeedHub;
     int									highSpeedPort;
-	UInt8								bandwidthUsed[8];			// how many bytes I use on each microframe
-	UInt8								startSplitFlags;
-	UInt8								completeSplitFlags;
 	bool								useBackPtr;
-	UInt8								isochINSSFrame;				// this is an Isoch IN transaction, which uFrame was the SS on?
+	
+	// starting fresh with the new periodic scheduler
+	UInt8								_speed;						// the speed of this EP
+	UInt8								_startFrame;				// beginning ms frame in a 32 ms schedule
+	UInt8								_startuFrame;				// first uFrame, used for HS endpoints only!
 };
 
 #endif

@@ -55,8 +55,8 @@ _unknown:*:99:99::0:0:Unknown User:/var/empty:/usr/bin/false
 _softwareupdate:*:200:200::0:0:Software Update Service:/var/empty:/usr/bin/false
 _coreaudiod:*:202:202::0:0:Core Audio Daemon:/var/empty:/usr/bin/false
 _screensaver:*:203:203::0:0:Screensaver:/var/empty:/usr/bin/false
-_locationd:*:205:205::0:0:Location Daemon:/var/empty/usr/bin/false
-_carddav:*:206:206::0:0:CardDAV Service:/var/empty/usr/bin/false
+_locationd:*:205:205::0:0:Location Daemon:/var/empty:/usr/bin/false
+_carddav:*:206:206::0:0:CardDAV Service:/var/empty:/usr/bin/false
 _trustevaluationagent:*:208:208::0:0:Trust Evaluation Agent:/var/empty:/usr/bin/false
 _timezone:*:210:210::0:0:AutoTimeZoneDaemon:/var/empty:/usr/bin/false
 _lda:*:211:211::0:0:Local Delivery Agent:/var/empty:/usr/bin/false

@@ -13,12 +13,17 @@
 			buildPhases = (
 			);
 			dependencies = (
-				72570DB60EE8EC46000F4CFB /* PBXTargetDependency */,
-				72570E130EE8F517000F4CFB /* PBXTargetDependency */,
-				72570E110EE8F517000F4CFB /* PBXTargetDependency */,
-				7251B2080EE9D36800F29440 /* PBXTargetDependency */,
-				72570E0F0EE8F517000F4CFB /* PBXTargetDependency */,
-				72570E0D0EE8F517000F4CFB /* PBXTargetDependency */,
+				034E4464100BDCA3009CA3DC /* PBXTargetDependency */,
+				03B2DBD1100BE626005349BC /* PBXTargetDependency */,
+				034E4469100BDD00009CA3DC /* PBXTargetDependency */,
+				03B2DBC5100BE332005349BC /* PBXTargetDependency */,
+				034E4475100BDEC6009CA3DC /* PBXTargetDependency */,
+				034E447B100BDF0D009CA3DC /* PBXTargetDependency */,
+				03B2DBD3100BE645005349BC /* PBXTargetDependency */,
+				034E447F100BDF54009CA3DC /* PBXTargetDependency */,
+				03B2DBDB100BE6D2005349BC /* PBXTargetDependency */,
+				034E4485100BE15F009CA3DC /* PBXTargetDependency */,
+				03B2DBDD100BE6D5005349BC /* PBXTargetDependency */,
 			);
 			name = "All-Embedded";
 			productName = "All-Embedded";
@@ -51,6 +56,29 @@
 			);
 			name = All;
 			productName = "network_cmds (Aggregate)";
+		};
+		72ABD0811083D742008C721C /* All-EmbeddedOther */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = 72ABD0A11083D792008C721C /* Build configuration list for PBXAggregateTarget "All-EmbeddedOther" */;
+			buildPhases = (
+			);
+			dependencies = (
+				72ABD0A41083D818008C721C /* PBXTargetDependency */,
+				72ABD0881083D750008C721C /* PBXTargetDependency */,
+				72ABD08A1083D753008C721C /* PBXTargetDependency */,
+				72ABD08C1083D75D008C721C /* PBXTargetDependency */,
+				72ABD08E1083D75F008C721C /* PBXTargetDependency */,
+				72ABD0901083D762008C721C /* PBXTargetDependency */,
+				72ABD0921083D764008C721C /* PBXTargetDependency */,
+				72ABD0941083D767008C721C /* PBXTargetDependency */,
+				72ABD0961083D76A008C721C /* PBXTargetDependency */,
+				72ABD0981083D76D008C721C /* PBXTargetDependency */,
+				72ABD09A1083D76F008C721C /* PBXTargetDependency */,
+				72ABD09C1083D772008C721C /* PBXTargetDependency */,
+				72ABD09E1083D774008C721C /* PBXTargetDependency */,
+			);
+			name = "All-EmbeddedOther";
+			productName = "All-EmbeddedOther";
 		};
 /* End PBXAggregateTarget section */
 
@@ -111,26 +139,6 @@
 		724DABF90EE89269008900D0 /* libalias.A.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 7261210C0EE8707500AFED1B /* libalias.A.dylib */; };
 		724DAC120EE89423008900D0 /* ndp.c in Sources */ = {isa = PBXBuildFile; fileRef = 726120870EE86F4000AFED1B /* ndp.c */; };
 		724DAC3B0EE89555008900D0 /* ndp.8 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 726120860EE86F4000AFED1B /* ndp.8 */; };
-		7251B1F80EE9D2AB00F29440 /* ping.c in Sources */ = {isa = PBXBuildFile; fileRef = 726120A10EE86F5000AFED1B /* ping.c */; };
-		72570DAB0EE8EC2E000F4CFB /* arp.c in Sources */ = {isa = PBXBuildFile; fileRef = 7261204E0EE86EF900AFED1B /* arp.c */; };
-		72570DC10EE8F49A000F4CFB /* ifconfig.c in Sources */ = {isa = PBXBuildFile; fileRef = 726120570EE86F0900AFED1B /* ifconfig.c */; };
-		72570DC20EE8F49A000F4CFB /* ifmedia.c in Sources */ = {isa = PBXBuildFile; fileRef = 726120590EE86F0900AFED1B /* ifmedia.c */; };
-		72570DD40EE8F4C4000F4CFB /* data.c in Sources */ = {isa = PBXBuildFile; fileRef = 7261208B0EE86F4800AFED1B /* data.c */; };
-		72570DD50EE8F4C4000F4CFB /* if.c in Sources */ = {isa = PBXBuildFile; fileRef = 7261208D0EE86F4800AFED1B /* if.c */; };
-		72570DD60EE8F4C4000F4CFB /* inet.c in Sources */ = {isa = PBXBuildFile; fileRef = 7261208E0EE86F4800AFED1B /* inet.c */; };
-		72570DD80EE8F4C4000F4CFB /* ipsec.c in Sources */ = {isa = PBXBuildFile; fileRef = 726120900EE86F4800AFED1B /* ipsec.c */; };
-		72570DD90EE8F4C4000F4CFB /* main.c in Sources */ = {isa = PBXBuildFile; fileRef = 726120910EE86F4800AFED1B /* main.c */; };
-		72570DDA0EE8F4C4000F4CFB /* mbuf.c in Sources */ = {isa = PBXBuildFile; fileRef = 726120930EE86F4800AFED1B /* mbuf.c */; };
-		72570DDB0EE8F4C4000F4CFB /* mcast.c in Sources */ = {isa = PBXBuildFile; fileRef = 726120940EE86F4800AFED1B /* mcast.c */; };
-		72570DDE0EE8F4C4000F4CFB /* route.c in Sources */ = {isa = PBXBuildFile; fileRef = 726120990EE86F4800AFED1B /* route.c */; };
-		72570DDF0EE8F4C4000F4CFB /* tp_astring.c in Sources */ = {isa = PBXBuildFile; fileRef = 7261209A0EE86F4800AFED1B /* tp_astring.c */; };
-		72570DE00EE8F4C4000F4CFB /* unix.c in Sources */ = {isa = PBXBuildFile; fileRef = 7261209B0EE86F4800AFED1B /* unix.c */; };
-		72570DF00EE8F4DE000F4CFB /* route.c in Sources */ = {isa = PBXBuildFile; fileRef = 726120B80EE86F7200AFED1B /* route.c */; };
-		72570DFE0EE8F4EA000F4CFB /* as.c in Sources */ = {isa = PBXBuildFile; fileRef = 726120E50EE86FA700AFED1B /* as.c */; };
-		72570DFF0EE8F4EA000F4CFB /* findsaddr-socket.c in Sources */ = {isa = PBXBuildFile; fileRef = 726120E70EE86FA700AFED1B /* findsaddr-socket.c */; };
-		72570E000EE8F4EA000F4CFB /* ifaddrlist.c in Sources */ = {isa = PBXBuildFile; fileRef = 726120EA0EE86FA700AFED1B /* ifaddrlist.c */; };
-		72570E010EE8F4EA000F4CFB /* traceroute.c in Sources */ = {isa = PBXBuildFile; fileRef = 726120F10EE86FA700AFED1B /* traceroute.c */; };
-		72570E020EE8F4EA000F4CFB /* version.c in Sources */ = {isa = PBXBuildFile; fileRef = 726120F30EE86FA700AFED1B /* version.c */; };
 		726121110EE870AB00AFED1B /* alias.c in Sources */ = {isa = PBXBuildFile; fileRef = 726120390EE86EEB00AFED1B /* alias.c */; };
 		726121130EE870AB00AFED1B /* alias_cuseeme.c in Sources */ = {isa = PBXBuildFile; fileRef = 7261203B0EE86EEB00AFED1B /* alias_cuseeme.c */; };
 		726121140EE870AB00AFED1B /* alias_db.c in Sources */ = {isa = PBXBuildFile; fileRef = 7261203C0EE86EEB00AFED1B /* alias_db.c */; };
@@ -164,6 +172,11 @@
 		7294F12E0EE8BD2F0052EC88 /* traceroute6.c in Sources */ = {isa = PBXBuildFile; fileRef = 726120FB0EE86FB500AFED1B /* traceroute6.c */; };
 		7294F1320EE8BD430052EC88 /* traceroute6.8 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 726120FA0EE86FB500AFED1B /* traceroute6.8 */; };
 		72B894EC0EEDB17C00C218D6 /* libipsec.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 72CD1DB50EE8C619005F825D /* libipsec.dylib */; };
+		72E650A7107BF2F000AAF325 /* af_inet.c in Sources */ = {isa = PBXBuildFile; fileRef = 72E650A2107BF2F000AAF325 /* af_inet.c */; };
+		72E650A8107BF2F000AAF325 /* af_inet6.c in Sources */ = {isa = PBXBuildFile; fileRef = 72E650A3107BF2F000AAF325 /* af_inet6.c */; };
+		72E650A9107BF2F000AAF325 /* af_link.c in Sources */ = {isa = PBXBuildFile; fileRef = 72E650A4107BF2F000AAF325 /* af_link.c */; };
+		72E650AA107BF2F000AAF325 /* ifbridge.c in Sources */ = {isa = PBXBuildFile; fileRef = 72E650A5107BF2F000AAF325 /* ifbridge.c */; };
+		72E650AB107BF2F000AAF325 /* ifclone.c in Sources */ = {isa = PBXBuildFile; fileRef = 72E650A6107BF2F000AAF325 /* ifclone.c */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXBuildRule section */
@@ -182,6 +195,83 @@
 /* End PBXBuildRule section */
 
 /* Begin PBXContainerItemProxy section */
+		034E4463100BDCA3009CA3DC /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 724862310EE86EB7001D0DE9 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 7261212C0EE8710B00AFED1B;
+			remoteInfo = arp;
+		};
+		034E4468100BDD00009CA3DC /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 724862310EE86EB7001D0DE9 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 726121530EE8881700AFED1B;
+			remoteInfo = ifconfig;
+		};
+		034E4474100BDEC6009CA3DC /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 724862310EE86EB7001D0DE9 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 7216D2450EE896C000AE70E4;
+			remoteInfo = netstat;
+		};
+		034E447A100BDF0D009CA3DC /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 724862310EE86EB7001D0DE9 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 7216D27B0EE8980A00AE70E4;
+			remoteInfo = ping;
+		};
+		034E447E100BDF54009CA3DC /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 724862310EE86EB7001D0DE9 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 7216D2EC0EE89CBC00AE70E4;
+			remoteInfo = route;
+		};
+		034E4484100BE15F009CA3DC /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 724862310EE86EB7001D0DE9 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 7294F0F80EE8BB460052EC88;
+			remoteInfo = traceroute;
+		};
+		03B2DBC4100BE332005349BC /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 724862310EE86EB7001D0DE9 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 726121820EE8897C00AFED1B;
+			remoteInfo = ip6conf;
+		};
+		03B2DBD0100BE626005349BC /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 724862310EE86EB7001D0DE9 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 724DAC0C0EE8940D008900D0;
+			remoteInfo = ndp;
+		};
+		03B2DBD2100BE645005349BC /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 724862310EE86EB7001D0DE9 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 7216D2990EE898BD00AE70E4;
+			remoteInfo = ping6;
+		};
+		03B2DBDA100BE6D2005349BC /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 724862310EE86EB7001D0DE9 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 7216D3580EE8A02200AE70E4;
+			remoteInfo = rtsol;
+		};
+		03B2DBDC100BE6D5005349BC /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 724862310EE86EB7001D0DE9 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 7294F1290EE8BD280052EC88;
+			remoteInfo = traceroute6;
+		};
 		7216D2660EE8978F00AE70E4 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 724862310EE86EB7001D0DE9 /* Project object */;
@@ -266,48 +356,6 @@
 			remoteGlobalIDString = 724DAC0C0EE8940D008900D0;
 			remoteInfo = ndp;
 		};
-		7251B2070EE9D36800F29440 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 724862310EE86EB7001D0DE9 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 7251B1F60EE9D2AB00F29440;
-			remoteInfo = "ping embedded";
-		};
-		72570DB50EE8EC46000F4CFB /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 724862310EE86EB7001D0DE9 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 72570DA90EE8EC2E000F4CFB;
-			remoteInfo = "arp-embedded";
-		};
-		72570E0C0EE8F517000F4CFB /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 724862310EE86EB7001D0DE9 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 72570DFC0EE8F4EA000F4CFB;
-			remoteInfo = "traceroute embedded";
-		};
-		72570E0E0EE8F517000F4CFB /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 724862310EE86EB7001D0DE9 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 72570DEE0EE8F4DE000F4CFB;
-			remoteInfo = "route embedded";
-		};
-		72570E100EE8F517000F4CFB /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 724862310EE86EB7001D0DE9 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 72570DD20EE8F4C4000F4CFB;
-			remoteInfo = "netstat embedded";
-		};
-		72570E120EE8F517000F4CFB /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 724862310EE86EB7001D0DE9 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 72570DBE0EE8F49A000F4CFB;
-			remoteInfo = "ifconfig embedded";
-		};
 		726121460EE8717B00AFED1B /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 724862310EE86EB7001D0DE9 /* Project object */;
@@ -349,6 +397,97 @@
 			proxyType = 1;
 			remoteGlobalIDString = 7294F0F80EE8BB460052EC88;
 			remoteInfo = traceroute;
+		};
+		72ABD0871083D750008C721C /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 724862310EE86EB7001D0DE9 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 726121530EE8881700AFED1B /* ifconfig */;
+			remoteInfo = ifconfig;
+		};
+		72ABD0891083D753008C721C /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 724862310EE86EB7001D0DE9 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 726121820EE8897C00AFED1B /* ip6conf */;
+			remoteInfo = ip6conf;
+		};
+		72ABD08B1083D75D008C721C /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 724862310EE86EB7001D0DE9 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 724DAC0C0EE8940D008900D0 /* ndp */;
+			remoteInfo = ndp;
+		};
+		72ABD08D1083D75F008C721C /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 724862310EE86EB7001D0DE9 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 7216D2450EE896C000AE70E4 /* netstat */;
+			remoteInfo = netstat;
+		};
+		72ABD08F1083D762008C721C /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 724862310EE86EB7001D0DE9 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 7216D27B0EE8980A00AE70E4 /* ping */;
+			remoteInfo = ping;
+		};
+		72ABD0911083D764008C721C /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 724862310EE86EB7001D0DE9 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 7216D2990EE898BD00AE70E4 /* ping6 */;
+			remoteInfo = ping6;
+		};
+		72ABD0931083D767008C721C /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 724862310EE86EB7001D0DE9 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 7216D2CC0EE89B7900AE70E4 /* rarpd */;
+			remoteInfo = rarpd;
+		};
+		72ABD0951083D76A008C721C /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 724862310EE86EB7001D0DE9 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 7216D2EC0EE89CBC00AE70E4 /* route */;
+			remoteInfo = route;
+		};
+		72ABD0971083D76D008C721C /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 724862310EE86EB7001D0DE9 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 7216D3130EE89E9E00AE70E4 /* rtadvd */;
+			remoteInfo = rtadvd;
+		};
+		72ABD0991083D76F008C721C /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 724862310EE86EB7001D0DE9 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 7216D3580EE8A02200AE70E4 /* rtsol */;
+			remoteInfo = rtsol;
+		};
+		72ABD09B1083D772008C721C /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 724862310EE86EB7001D0DE9 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 7294F0F80EE8BB460052EC88 /* traceroute */;
+			remoteInfo = traceroute;
+		};
+		72ABD09D1083D774008C721C /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 724862310EE86EB7001D0DE9 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 7294F1290EE8BD280052EC88 /* traceroute6 */;
+			remoteInfo = traceroute6;
+		};
+		72ABD0A31083D818008C721C /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 724862310EE86EB7001D0DE9 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 7261212C0EE8710B00AFED1B /* arp */;
+			remoteInfo = arp;
 		};
 		72CD1D9B0EE8C47C005F825D /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -608,12 +747,6 @@
 		724DABA20EE88FE3008900D0 /* kdumpd */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = kdumpd; sourceTree = BUILT_PRODUCTS_DIR; };
 		724DABDB0EE8912D008900D0 /* natd */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = natd; sourceTree = BUILT_PRODUCTS_DIR; };
 		724DAC0D0EE8940D008900D0 /* ndp */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = ndp; sourceTree = BUILT_PRODUCTS_DIR; };
-		7251B2000EE9D2AB00F29440 /* ping */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = ping; sourceTree = BUILT_PRODUCTS_DIR; };
-		72570DB30EE8EC2E000F4CFB /* arp */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = arp; sourceTree = BUILT_PRODUCTS_DIR; };
-		72570DCB0EE8F49A000F4CFB /* ifconfig */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = ifconfig; sourceTree = BUILT_PRODUCTS_DIR; };
-		72570DE80EE8F4C4000F4CFB /* netstat */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = netstat; sourceTree = BUILT_PRODUCTS_DIR; };
-		72570DF80EE8F4DE000F4CFB /* route */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = route; sourceTree = BUILT_PRODUCTS_DIR; };
-		72570E0A0EE8F4EA000F4CFB /* traceroute */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = traceroute; sourceTree = BUILT_PRODUCTS_DIR; };
 		726120390EE86EEB00AFED1B /* alias.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = alias.c; sourceTree = "<group>"; };
 		7261203B0EE86EEB00AFED1B /* alias_cuseeme.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = alias_cuseeme.c; sourceTree = "<group>"; };
 		7261203C0EE86EEB00AFED1B /* alias_db.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = alias_db.c; sourceTree = "<group>"; };
@@ -745,6 +878,11 @@
 		7294F0F90EE8BB460052EC88 /* traceroute */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = traceroute; sourceTree = BUILT_PRODUCTS_DIR; };
 		7294F12A0EE8BD280052EC88 /* traceroute6 */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = traceroute6; sourceTree = BUILT_PRODUCTS_DIR; };
 		72CD1DB50EE8C619005F825D /* libipsec.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libipsec.dylib; path = /usr/lib/libipsec.dylib; sourceTree = "<absolute>"; };
+		72E650A2107BF2F000AAF325 /* af_inet.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = af_inet.c; sourceTree = "<group>"; };
+		72E650A3107BF2F000AAF325 /* af_inet6.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = af_inet6.c; sourceTree = "<group>"; };
+		72E650A4107BF2F000AAF325 /* af_link.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = af_link.c; sourceTree = "<group>"; };
+		72E650A5107BF2F000AAF325 /* ifbridge.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = ifbridge.c; sourceTree = "<group>"; };
+		72E650A6107BF2F000AAF325 /* ifclone.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = ifclone.c; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -835,48 +973,6 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		724DAC0B0EE8940D008900D0 /* Frameworks */ = {
-			isa = PBXFrameworksBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		7251B1F90EE9D2AB00F29440 /* Frameworks */ = {
-			isa = PBXFrameworksBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		72570DAC0EE8EC2E000F4CFB /* Frameworks */ = {
-			isa = PBXFrameworksBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		72570DC40EE8F49A000F4CFB /* Frameworks */ = {
-			isa = PBXFrameworksBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		72570DE10EE8F4C4000F4CFB /* Frameworks */ = {
-			isa = PBXFrameworksBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		72570DF10EE8F4DE000F4CFB /* Frameworks */ = {
-			isa = PBXFrameworksBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		72570E030EE8F4EA000F4CFB /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -989,6 +1085,11 @@
 		726120540EE86F0900AFED1B /* ifconfig.tproj */ = {
 			isa = PBXGroup;
 			children = (
+				72E650A2107BF2F000AAF325 /* af_inet.c */,
+				72E650A3107BF2F000AAF325 /* af_inet6.c */,
+				72E650A4107BF2F000AAF325 /* af_link.c */,
+				72E650A5107BF2F000AAF325 /* ifbridge.c */,
+				72E650A6107BF2F000AAF325 /* ifclone.c */,
 				726120550EE86F0900AFED1B /* ifbond.c */,
 				726120560EE86F0900AFED1B /* ifconfig.8 */,
 				726120570EE86F0900AFED1B /* ifconfig.c */,
@@ -1235,12 +1336,6 @@
 				7216D3A70EE8A3BB00AE70E4 /* spray */,
 				7294F0F90EE8BB460052EC88 /* traceroute */,
 				7294F12A0EE8BD280052EC88 /* traceroute6 */,
-				72570DB30EE8EC2E000F4CFB /* arp */,
-				72570DCB0EE8F49A000F4CFB /* ifconfig */,
-				72570DE80EE8F4C4000F4CFB /* netstat */,
-				72570DF80EE8F4DE000F4CFB /* route */,
-				72570E0A0EE8F4EA000F4CFB /* traceroute */,
-				7251B2000EE9D2AB00F29440 /* ping */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -1496,102 +1591,6 @@
 			productReference = 724DAC0D0EE8940D008900D0 /* ndp */;
 			productType = "com.apple.product-type.tool";
 		};
-		7251B1F60EE9D2AB00F29440 /* ping embedded */ = {
-			isa = PBXNativeTarget;
-			buildConfigurationList = 7251B1FD0EE9D2AB00F29440 /* Build configuration list for PBXNativeTarget "ping embedded" */;
-			buildPhases = (
-				7251B1F70EE9D2AB00F29440 /* Sources */,
-				7251B1F90EE9D2AB00F29440 /* Frameworks */,
-			);
-			buildRules = (
-			);
-			dependencies = (
-			);
-			name = "ping embedded";
-			productName = ping;
-			productReference = 7251B2000EE9D2AB00F29440 /* ping */;
-			productType = "com.apple.product-type.tool";
-		};
-		72570DA90EE8EC2E000F4CFB /* arp embedded */ = {
-			isa = PBXNativeTarget;
-			buildConfigurationList = 72570DB00EE8EC2E000F4CFB /* Build configuration list for PBXNativeTarget "arp embedded" */;
-			buildPhases = (
-				72570DAA0EE8EC2E000F4CFB /* Sources */,
-				72570DAC0EE8EC2E000F4CFB /* Frameworks */,
-			);
-			buildRules = (
-			);
-			dependencies = (
-			);
-			name = "arp embedded";
-			productName = arp;
-			productReference = 72570DB30EE8EC2E000F4CFB /* arp */;
-			productType = "com.apple.product-type.tool";
-		};
-		72570DBE0EE8F49A000F4CFB /* ifconfig embedded */ = {
-			isa = PBXNativeTarget;
-			buildConfigurationList = 72570DC80EE8F49A000F4CFB /* Build configuration list for PBXNativeTarget "ifconfig embedded" */;
-			buildPhases = (
-				72570DBF0EE8F49A000F4CFB /* Sources */,
-				72570DC40EE8F49A000F4CFB /* Frameworks */,
-			);
-			buildRules = (
-			);
-			dependencies = (
-			);
-			name = "ifconfig embedded";
-			productName = ifconfig;
-			productReference = 72570DCB0EE8F49A000F4CFB /* ifconfig */;
-			productType = "com.apple.product-type.tool";
-		};
-		72570DD20EE8F4C4000F4CFB /* netstat embedded */ = {
-			isa = PBXNativeTarget;
-			buildConfigurationList = 72570DE50EE8F4C4000F4CFB /* Build configuration list for PBXNativeTarget "netstat embedded" */;
-			buildPhases = (
-				72570DD30EE8F4C4000F4CFB /* Sources */,
-				72570DE10EE8F4C4000F4CFB /* Frameworks */,
-			);
-			buildRules = (
-			);
-			dependencies = (
-			);
-			name = "netstat embedded";
-			productName = netstat;
-			productReference = 72570DE80EE8F4C4000F4CFB /* netstat */;
-			productType = "com.apple.product-type.tool";
-		};
-		72570DEE0EE8F4DE000F4CFB /* route embedded */ = {
-			isa = PBXNativeTarget;
-			buildConfigurationList = 72570DF50EE8F4DE000F4CFB /* Build configuration list for PBXNativeTarget "route embedded" */;
-			buildPhases = (
-				72570DEF0EE8F4DE000F4CFB /* Sources */,
-				72570DF10EE8F4DE000F4CFB /* Frameworks */,
-			);
-			buildRules = (
-			);
-			dependencies = (
-			);
-			name = "route embedded";
-			productName = route;
-			productReference = 72570DF80EE8F4DE000F4CFB /* route */;
-			productType = "com.apple.product-type.tool";
-		};
-		72570DFC0EE8F4EA000F4CFB /* traceroute embedded */ = {
-			isa = PBXNativeTarget;
-			buildConfigurationList = 72570E070EE8F4EA000F4CFB /* Build configuration list for PBXNativeTarget "traceroute embedded" */;
-			buildPhases = (
-				72570DFD0EE8F4EA000F4CFB /* Sources */,
-				72570E030EE8F4EA000F4CFB /* Frameworks */,
-			);
-			buildRules = (
-			);
-			dependencies = (
-			);
-			name = "traceroute embedded";
-			productName = traceroute;
-			productReference = 72570E0A0EE8F4EA000F4CFB /* traceroute */;
-			productType = "com.apple.product-type.tool";
-		};
 		7261210B0EE8707500AFED1B /* alias */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 726121100EE8707600AFED1B /* Build configuration list for PBXNativeTarget "alias" */;
@@ -1716,6 +1715,8 @@
 			projectRoot = "";
 			targets = (
 				726121430EE8717500AFED1B /* All */,
+				72570DA20EE8EBF3000F4CFB /* All-Embedded */,
+				72ABD0811083D742008C721C /* All-EmbeddedOther */,
 				7261210B0EE8707500AFED1B /* alias */,
 				7261212C0EE8710B00AFED1B /* arp */,
 				726121530EE8881700AFED1B /* ifconfig */,
@@ -1735,13 +1736,6 @@
 				7216D3A60EE8A3BA00AE70E4 /* spray */,
 				7294F0F80EE8BB460052EC88 /* traceroute */,
 				7294F1290EE8BD280052EC88 /* traceroute6 */,
-				72570DA20EE8EBF3000F4CFB /* All-Embedded */,
-				72570DA90EE8EC2E000F4CFB /* arp embedded */,
-				72570DBE0EE8F49A000F4CFB /* ifconfig embedded */,
-				72570DD20EE8F4C4000F4CFB /* netstat embedded */,
-				7251B1F60EE9D2AB00F29440 /* ping embedded */,
-				72570DEE0EE8F4DE000F4CFB /* route embedded */,
-				72570DFC0EE8F4EA000F4CFB /* traceroute embedded */,
 			);
 		};
 /* End PBXProject section */
@@ -2128,68 +2122,6 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		7251B1F70EE9D2AB00F29440 /* Sources */ = {
-			isa = PBXSourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				7251B1F80EE9D2AB00F29440 /* ping.c in Sources */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		72570DAA0EE8EC2E000F4CFB /* Sources */ = {
-			isa = PBXSourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				72570DAB0EE8EC2E000F4CFB /* arp.c in Sources */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		72570DBF0EE8F49A000F4CFB /* Sources */ = {
-			isa = PBXSourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				72570DC10EE8F49A000F4CFB /* ifconfig.c in Sources */,
-				72570DC20EE8F49A000F4CFB /* ifmedia.c in Sources */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		72570DD30EE8F4C4000F4CFB /* Sources */ = {
-			isa = PBXSourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				72570DD40EE8F4C4000F4CFB /* data.c in Sources */,
-				72570DD50EE8F4C4000F4CFB /* if.c in Sources */,
-				72570DD60EE8F4C4000F4CFB /* inet.c in Sources */,
-				72570DD80EE8F4C4000F4CFB /* ipsec.c in Sources */,
-				72570DD90EE8F4C4000F4CFB /* main.c in Sources */,
-				72570DDA0EE8F4C4000F4CFB /* mbuf.c in Sources */,
-				72570DDB0EE8F4C4000F4CFB /* mcast.c in Sources */,
-				72570DDE0EE8F4C4000F4CFB /* route.c in Sources */,
-				72570DDF0EE8F4C4000F4CFB /* tp_astring.c in Sources */,
-				72570DE00EE8F4C4000F4CFB /* unix.c in Sources */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		72570DEF0EE8F4DE000F4CFB /* Sources */ = {
-			isa = PBXSourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				72570DF00EE8F4DE000F4CFB /* route.c in Sources */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		72570DFD0EE8F4EA000F4CFB /* Sources */ = {
-			isa = PBXSourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				72570DFE0EE8F4EA000F4CFB /* as.c in Sources */,
-				72570DFF0EE8F4EA000F4CFB /* findsaddr-socket.c in Sources */,
-				72570E000EE8F4EA000F4CFB /* ifaddrlist.c in Sources */,
-				72570E010EE8F4EA000F4CFB /* traceroute.c in Sources */,
-				72570E020EE8F4EA000F4CFB /* version.c in Sources */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
 		726121090EE8707500AFED1B /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -2223,6 +2155,11 @@
 				7261215B0EE8883900AFED1B /* ifconfig.c in Sources */,
 				7261215C0EE8883900AFED1B /* ifmedia.c in Sources */,
 				7261215D0EE8883900AFED1B /* ifvlan.c in Sources */,
+				72E650A7107BF2F000AAF325 /* af_inet.c in Sources */,
+				72E650A8107BF2F000AAF325 /* af_inet6.c in Sources */,
+				72E650A9107BF2F000AAF325 /* af_link.c in Sources */,
+				72E650AA107BF2F000AAF325 /* ifbridge.c in Sources */,
+				72E650AB107BF2F000AAF325 /* ifclone.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -2257,6 +2194,61 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
+		034E4464100BDCA3009CA3DC /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 7261212C0EE8710B00AFED1B /* arp */;
+			targetProxy = 034E4463100BDCA3009CA3DC /* PBXContainerItemProxy */;
+		};
+		034E4469100BDD00009CA3DC /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 726121530EE8881700AFED1B /* ifconfig */;
+			targetProxy = 034E4468100BDD00009CA3DC /* PBXContainerItemProxy */;
+		};
+		034E4475100BDEC6009CA3DC /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 7216D2450EE896C000AE70E4 /* netstat */;
+			targetProxy = 034E4474100BDEC6009CA3DC /* PBXContainerItemProxy */;
+		};
+		034E447B100BDF0D009CA3DC /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 7216D27B0EE8980A00AE70E4 /* ping */;
+			targetProxy = 034E447A100BDF0D009CA3DC /* PBXContainerItemProxy */;
+		};
+		034E447F100BDF54009CA3DC /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 7216D2EC0EE89CBC00AE70E4 /* route */;
+			targetProxy = 034E447E100BDF54009CA3DC /* PBXContainerItemProxy */;
+		};
+		034E4485100BE15F009CA3DC /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 7294F0F80EE8BB460052EC88 /* traceroute */;
+			targetProxy = 034E4484100BE15F009CA3DC /* PBXContainerItemProxy */;
+		};
+		03B2DBC5100BE332005349BC /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 726121820EE8897C00AFED1B /* ip6conf */;
+			targetProxy = 03B2DBC4100BE332005349BC /* PBXContainerItemProxy */;
+		};
+		03B2DBD1100BE626005349BC /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 724DAC0C0EE8940D008900D0 /* ndp */;
+			targetProxy = 03B2DBD0100BE626005349BC /* PBXContainerItemProxy */;
+		};
+		03B2DBD3100BE645005349BC /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 7216D2990EE898BD00AE70E4 /* ping6 */;
+			targetProxy = 03B2DBD2100BE645005349BC /* PBXContainerItemProxy */;
+		};
+		03B2DBDB100BE6D2005349BC /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 7216D3580EE8A02200AE70E4 /* rtsol */;
+			targetProxy = 03B2DBDA100BE6D2005349BC /* PBXContainerItemProxy */;
+		};
+		03B2DBDD100BE6D5005349BC /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 7294F1290EE8BD280052EC88 /* traceroute6 */;
+			targetProxy = 03B2DBDC100BE6D5005349BC /* PBXContainerItemProxy */;
+		};
 		7216D2670EE8978F00AE70E4 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = 7216D2450EE896C000AE70E4 /* netstat */;
@@ -2317,36 +2309,6 @@
 			target = 724DAC0C0EE8940D008900D0 /* ndp */;
 			targetProxy = 724DAC230EE89525008900D0 /* PBXContainerItemProxy */;
 		};
-		7251B2080EE9D36800F29440 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 7251B1F60EE9D2AB00F29440 /* ping embedded */;
-			targetProxy = 7251B2070EE9D36800F29440 /* PBXContainerItemProxy */;
-		};
-		72570DB60EE8EC46000F4CFB /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 72570DA90EE8EC2E000F4CFB /* arp embedded */;
-			targetProxy = 72570DB50EE8EC46000F4CFB /* PBXContainerItemProxy */;
-		};
-		72570E0D0EE8F517000F4CFB /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 72570DFC0EE8F4EA000F4CFB /* traceroute embedded */;
-			targetProxy = 72570E0C0EE8F517000F4CFB /* PBXContainerItemProxy */;
-		};
-		72570E0F0EE8F517000F4CFB /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 72570DEE0EE8F4DE000F4CFB /* route embedded */;
-			targetProxy = 72570E0E0EE8F517000F4CFB /* PBXContainerItemProxy */;
-		};
-		72570E110EE8F517000F4CFB /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 72570DD20EE8F4C4000F4CFB /* netstat embedded */;
-			targetProxy = 72570E100EE8F517000F4CFB /* PBXContainerItemProxy */;
-		};
-		72570E130EE8F517000F4CFB /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 72570DBE0EE8F49A000F4CFB /* ifconfig embedded */;
-			targetProxy = 72570E120EE8F517000F4CFB /* PBXContainerItemProxy */;
-		};
 		726121470EE8717B00AFED1B /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = 7261210B0EE8707500AFED1B /* alias */;
@@ -2377,6 +2339,71 @@
 			target = 7294F0F80EE8BB460052EC88 /* traceroute */;
 			targetProxy = 7294F1200EE8BCC20052EC88 /* PBXContainerItemProxy */;
 		};
+		72ABD0881083D750008C721C /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 726121530EE8881700AFED1B /* ifconfig */;
+			targetProxy = 72ABD0871083D750008C721C /* PBXContainerItemProxy */;
+		};
+		72ABD08A1083D753008C721C /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 726121820EE8897C00AFED1B /* ip6conf */;
+			targetProxy = 72ABD0891083D753008C721C /* PBXContainerItemProxy */;
+		};
+		72ABD08C1083D75D008C721C /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 724DAC0C0EE8940D008900D0 /* ndp */;
+			targetProxy = 72ABD08B1083D75D008C721C /* PBXContainerItemProxy */;
+		};
+		72ABD08E1083D75F008C721C /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 7216D2450EE896C000AE70E4 /* netstat */;
+			targetProxy = 72ABD08D1083D75F008C721C /* PBXContainerItemProxy */;
+		};
+		72ABD0901083D762008C721C /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 7216D27B0EE8980A00AE70E4 /* ping */;
+			targetProxy = 72ABD08F1083D762008C721C /* PBXContainerItemProxy */;
+		};
+		72ABD0921083D764008C721C /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 7216D2990EE898BD00AE70E4 /* ping6 */;
+			targetProxy = 72ABD0911083D764008C721C /* PBXContainerItemProxy */;
+		};
+		72ABD0941083D767008C721C /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 7216D2CC0EE89B7900AE70E4 /* rarpd */;
+			targetProxy = 72ABD0931083D767008C721C /* PBXContainerItemProxy */;
+		};
+		72ABD0961083D76A008C721C /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 7216D2EC0EE89CBC00AE70E4 /* route */;
+			targetProxy = 72ABD0951083D76A008C721C /* PBXContainerItemProxy */;
+		};
+		72ABD0981083D76D008C721C /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 7216D3130EE89E9E00AE70E4 /* rtadvd */;
+			targetProxy = 72ABD0971083D76D008C721C /* PBXContainerItemProxy */;
+		};
+		72ABD09A1083D76F008C721C /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 7216D3580EE8A02200AE70E4 /* rtsol */;
+			targetProxy = 72ABD0991083D76F008C721C /* PBXContainerItemProxy */;
+		};
+		72ABD09C1083D772008C721C /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 7294F0F80EE8BB460052EC88 /* traceroute */;
+			targetProxy = 72ABD09B1083D772008C721C /* PBXContainerItemProxy */;
+		};
+		72ABD09E1083D774008C721C /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 7294F1290EE8BD280052EC88 /* traceroute6 */;
+			targetProxy = 72ABD09D1083D774008C721C /* PBXContainerItemProxy */;
+		};
+		72ABD0A41083D818008C721C /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 7261212C0EE8710B00AFED1B /* arp */;
+			targetProxy = 72ABD0A31083D818008C721C /* PBXContainerItemProxy */;
+		};
 		72CD1D9C0EE8C47C005F825D /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = 7294F1290EE8BD280052EC88 /* traceroute6 */;
@@ -2385,16 +2412,196 @@
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
-		7216D2480EE896C100AE70E4 /* Debug */ = {
+		03B2DBE2100BE71D005349BC /* Ignore Me */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
-				COPY_PHASE_STRIP = NO;
-				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				COPY_PHASE_STRIP = YES;
+				DEAD_CODE_STRIPPING = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				"DEBUG_INFORMATION_FORMAT[sdk=iphoneos*][arch=*]" = dwarf;
+				GCC_DYNAMIC_NO_PIC = YES;
 				GCC_MODEL_TUNING = G5;
-				GCC_OPTIMIZATION_LEVEL = 0;
+				"GCC_PREPROCESSOR_DEFINITIONS[sdk=iphoneos*][arch=*]" = (
+					"$(inherited)",
+					"TARGET_OS_EMBEDDED=1",
+				);
+				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
+				PREBINDING = NO;
+				SDKROOT = iphoneos3.1;
+				"STRIPFLAGS[sdk=iphoneos*]" = "-S";
+				WARNING_CFLAGS = "-Wall";
+				ZERO_LINK = NO;
+			};
+			name = "Ignore Me";
+		};
+		03B2DBE3100BE71D005349BC /* Ignore Me */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				PRODUCT_NAME = network_cmds;
+				ZERO_LINK = NO;
+			};
+			name = "Ignore Me";
+		};
+		03B2DBE4100BE71D005349BC /* Ignore Me */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = network_cmds;
+			};
+			name = "Ignore Me";
+		};
+		03B2DBE5100BE71D005349BC /* Ignore Me */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				COPY_PHASE_STRIP = YES;
+				DEAD_CODE_STRIPPING = YES;
+				DYLIB_CURRENT_VERSION = 1;
+				EXECUTABLE_PREFIX = lib;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_MODEL_TUNING = G5;
+				INSTALL_GROUP = wheel;
+				INSTALL_MODE_FLAG = 0555;
+				INSTALL_OWNER = root;
+				INSTALL_PATH = /usr/lib;
+				PREBINDING = NO;
+				PRODUCT_NAME = alias.A;
+				ZERO_LINK = NO;
+			};
+			name = "Ignore Me";
+		};
+		03B2DBE6100BE71D005349BC /* Ignore Me */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				INSTALL_GROUP = wheel;
+				INSTALL_MODE_FLAG = 0555;
+				INSTALL_OWNER = root;
+				INSTALL_PATH = /usr/sbin;
+				PRODUCT_NAME = arp;
+			};
+			name = "Ignore Me";
+		};
+		03B2DBE7100BE71D005349BC /* Ignore Me */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
 				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					USE_IF_MEDIA,
+					NO_IPX,
+					INET6,
+				);
+				"GCC_PREPROCESSOR_DEFINITIONS[sdk=macosx*][arch=*]" = (
+					"$(inherited)",
+					USE_VLANS,
+					USE_BONDS,
+				);
+				HEADER_SEARCH_PATHS = /System/Library/Frameworks/System.framework/PrivateHeaders;
+				INSTALL_GROUP = wheel;
+				INSTALL_MODE_FLAG = 0555;
+				INSTALL_OWNER = root;
+				INSTALL_PATH = /sbin;
+				PRODUCT_NAME = ifconfig;
+				ZERO_LINK = NO;
+			};
+			name = "Ignore Me";
+		};
+		03B2DBE8100BE71D005349BC /* Ignore Me */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				HEADER_SEARCH_PATHS = /System/Library/Frameworks/System.framework/PrivateHeaders;
+				INSTALL_GROUP = wheel;
+				INSTALL_MODE_FLAG = 0555;
+				INSTALL_OWNER = root;
+				INSTALL_PATH = /usr/sbin;
+				PRODUCT_NAME = ip6;
+			};
+			name = "Ignore Me";
+		};
+		03B2DBE9100BE71D005349BC /* Ignore Me */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					IP_FW_PRIVATE,
+				);
+				HEADER_SEARCH_PATHS = /System/Library/Frameworks/System.framework/PrivateHeaders;
+				INSTALL_GROUP = wheel;
+				INSTALL_MODE_FLAG = 0555;
+				INSTALL_OWNER = root;
+				INSTALL_PATH = /sbin;
+				PRODUCT_NAME = ipfw;
+			};
+			name = "Ignore Me";
+		};
+		03B2DBEA100BE71D005349BC /* Ignore Me */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					IP_FW_PRIVATE,
+				);
+				INSTALL_GROUP = wheel;
+				INSTALL_MODE_FLAG = 0555;
+				INSTALL_OWNER = root;
+				INSTALL_PATH = /sbin;
+				PRODUCT_NAME = ip6fw;
+			};
+			name = "Ignore Me";
+		};
+		03B2DBEB100BE71D005349BC /* Ignore Me */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				INSTALL_GROUP = wheel;
+				INSTALL_MODE_FLAG = 0555;
+				INSTALL_OWNER = root;
+				INSTALL_PATH = /usr/libexec;
+				PRODUCT_NAME = kdumpd;
+			};
+			name = "Ignore Me";
+		};
+		03B2DBEC100BE71D005349BC /* Ignore Me */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = YES;
+				HEADER_SEARCH_PATHS = ../alias;
+				INSTALL_GROUP = wheel;
+				INSTALL_MODE_FLAG = 0555;
+				INSTALL_OWNER = root;
+				INSTALL_PATH = /usr/sbin;
+				PRODUCT_NAME = natd;
+				WARNING_CFLAGS = (
+					"$(inherited)",
+					"-Wno-deprecated-declarations",
+				);
+			};
+			name = "Ignore Me";
+		};
+		03B2DBED100BE71D005349BC /* Ignore Me */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					INET6,
+					IPSEC_DEBUG,
+					KAME_SCOPEID,
+				);
+				INSTALL_GROUP = wheel;
+				INSTALL_MODE_FLAG = 0555;
+				INSTALL_OWNER = root;
+				INSTALL_PATH = /usr/sbin;
+				PRODUCT_NAME = ndp;
+			};
+			name = "Ignore Me";
+		};
+		03B2DBEE100BE71D005349BC /* Ignore Me */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					$inherited,
 					INET6,
 					IPSEC,
 				);
@@ -2403,13 +2610,164 @@
 				INSTALL_MODE_FLAG = 0555;
 				INSTALL_OWNER = root;
 				INSTALL_PATH = /usr/sbin;
-				OTHER_CFLAGS = (
-					"-Wall",
-					"-Werror",
-					"-mdynamic-no-pic",
-					"-dead_strip",
+				PRODUCT_NAME = netstat;
+			};
+			name = "Ignore Me";
+		};
+		03B2DBEF100BE71D005349BC /* Ignore Me */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				HEADER_SEARCH_PATHS = /System/Library/Frameworks/System.framework/PrivateHeaders;
+				INSTALL_GROUP = wheel;
+				INSTALL_MODE_FLAG = 0555;
+				INSTALL_OWNER = root;
+				INSTALL_PATH = /sbin;
+				PRODUCT_NAME = ping;
+			};
+			name = "Ignore Me";
+		};
+		03B2DBF0100BE71D005349BC /* Ignore Me */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				INSTALL_GROUP = wheel;
+				INSTALL_MODE_FLAG = 0555;
+				INSTALL_OWNER = root;
+				INSTALL_PATH = /sbin;
+				PRODUCT_NAME = ping6;
+			};
+			name = "Ignore Me";
+		};
+		03B2DBF1100BE71D005349BC /* Ignore Me */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = YES;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"TFTP_DIR=\\\"/tftpboot\\\"",
 				);
-				PREBINDING = NO;
+				INSTALL_GROUP = wheel;
+				INSTALL_MODE_FLAG = 0555;
+				INSTALL_OWNER = root;
+				INSTALL_PATH = /usr/sbin;
+				PRODUCT_NAME = rarpd;
+			};
+			name = "Ignore Me";
+		};
+		03B2DBF2100BE71D005349BC /* Ignore Me */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					INET6,
+					IPSEC,
+				);
+				HEADER_SEARCH_PATHS = /System/Library/Frameworks/System.framework/PrivateHeaders;
+				INSTALL_GROUP = wheel;
+				INSTALL_MODE_FLAG = 0555;
+				INSTALL_OWNER = root;
+				INSTALL_PATH = /sbin;
+				PRODUCT_NAME = route;
+			};
+			name = "Ignore Me";
+		};
+		03B2DBF3100BE71D005349BC /* Ignore Me */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					INET6,
+					HAVE_GETIFADDRS,
+				);
+				HEADER_SEARCH_PATHS = /System/Library/Frameworks/System.framework/PrivateHeaders;
+				INSTALL_GROUP = wheel;
+				INSTALL_MODE_FLAG = 0555;
+				INSTALL_OWNER = root;
+				INSTALL_PATH = /usr/sbin;
+				PRODUCT_NAME = rtadvd;
+				WARNING_CFLAGS = (
+					"$(inherited)",
+					"-Wno-deprecated-declarations",
+				);
+			};
+			name = "Ignore Me";
+		};
+		03B2DBF4100BE71D005349BC /* Ignore Me */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					INET6,
+					HAVE_GETIFADDRS,
+				);
+				HEADER_SEARCH_PATHS = /System/Library/Frameworks/System.framework/PrivateHeaders;
+				INSTALL_GROUP = wheel;
+				INSTALL_MODE_FLAG = 0555;
+				INSTALL_OWNER = root;
+				INSTALL_PATH = /sbin;
+				PRODUCT_NAME = rtsol;
+				WARNING_CFLAGS = (
+					"$(inherited)",
+					"-Wno-deprecated-declarations",
+				);
+			};
+			name = "Ignore Me";
+		};
+		03B2DBF5100BE71D005349BC /* Ignore Me */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				INSTALL_GROUP = wheel;
+				INSTALL_MODE_FLAG = 0555;
+				INSTALL_OWNER = root;
+				INSTALL_PATH = /usr/sbin;
+				PRODUCT_NAME = spray;
+			};
+			name = "Ignore Me";
+		};
+		03B2DBF6100BE71D005349BC /* Ignore Me */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALTERNATE_MODE = 04555;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					HAVE_SOCKADDR_SA_LEN,
+				);
+				INSTALL_GROUP = wheel;
+				INSTALL_MODE_FLAG = 04555;
+				INSTALL_OWNER = root;
+				INSTALL_PATH = /usr/sbin;
+				PRODUCT_NAME = traceroute;
+			};
+			name = "Ignore Me";
+		};
+		03B2DBF7100BE71D005349BC /* Ignore Me */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					INET6,
+					IPSEC,
+				);
+				INSTALL_GROUP = wheel;
+				INSTALL_MODE_FLAG = 04555;
+				INSTALL_OWNER = root;
+				INSTALL_PATH = /usr/sbin;
+				PRODUCT_NAME = traceroute6;
+			};
+			name = "Ignore Me";
+		};
+		7216D2480EE896C100AE70E4 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					$inherited,
+					INET6,
+					IPSEC,
+				);
+				HEADER_SEARCH_PATHS = /System/Library/Frameworks/System.framework/PrivateHeaders;
+				INSTALL_GROUP = wheel;
+				INSTALL_MODE_FLAG = 0555;
+				INSTALL_OWNER = root;
+				INSTALL_PATH = /usr/sbin;
 				PRODUCT_NAME = netstat;
 			};
 			name = Debug;
@@ -2417,12 +2775,8 @@
 		7216D2490EE896C100AE70E4 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ALWAYS_SEARCH_USER_PATHS = NO;
-				COPY_PHASE_STRIP = YES;
-				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
-				GCC_MODEL_TUNING = G5;
 				GCC_PREPROCESSOR_DEFINITIONS = (
+					$inherited,
 					INET6,
 					IPSEC,
 				);
@@ -2431,39 +2785,18 @@
 				INSTALL_MODE_FLAG = 0555;
 				INSTALL_OWNER = root;
 				INSTALL_PATH = /usr/sbin;
-				OTHER_CFLAGS = (
-					"-Wall",
-					"-Werror",
-					"-mdynamic-no-pic",
-					"-dead_strip",
-				);
-				PREBINDING = NO;
 				PRODUCT_NAME = netstat;
-				ZERO_LINK = NO;
 			};
 			name = Release;
 		};
 		7216D27E0EE8980B00AE70E4 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ALWAYS_SEARCH_USER_PATHS = NO;
-				COPY_PHASE_STRIP = NO;
-				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
-				GCC_MODEL_TUNING = G5;
-				GCC_OPTIMIZATION_LEVEL = 0;
 				HEADER_SEARCH_PATHS = /System/Library/Frameworks/System.framework/PrivateHeaders;
 				INSTALL_GROUP = wheel;
 				INSTALL_MODE_FLAG = 0555;
 				INSTALL_OWNER = root;
 				INSTALL_PATH = /sbin;
-				OTHER_CFLAGS = (
-					"-Wall",
-					"-Werror",
-					"-mdynamic-no-pic",
-					"-dead_strip",
-				);
-				PREBINDING = NO;
 				PRODUCT_NAME = ping;
 			};
 			name = Debug;
@@ -2471,42 +2804,22 @@
 		7216D27F0EE8980B00AE70E4 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ALWAYS_SEARCH_USER_PATHS = NO;
-				COPY_PHASE_STRIP = YES;
-				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
-				GCC_MODEL_TUNING = G5;
 				HEADER_SEARCH_PATHS = /System/Library/Frameworks/System.framework/PrivateHeaders;
 				INSTALL_GROUP = wheel;
 				INSTALL_MODE_FLAG = 0555;
 				INSTALL_OWNER = root;
 				INSTALL_PATH = /sbin;
-				OTHER_CFLAGS = (
-					"-Wall",
-					"-Werror",
-					"-mdynamic-no-pic",
-					"-dead_strip",
-				);
-				PREBINDING = NO;
 				PRODUCT_NAME = ping;
-				ZERO_LINK = NO;
 			};
 			name = Release;
 		};
 		7216D29C0EE898BE00AE70E4 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ALWAYS_SEARCH_USER_PATHS = NO;
-				COPY_PHASE_STRIP = NO;
-				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
-				GCC_MODEL_TUNING = G5;
-				GCC_OPTIMIZATION_LEVEL = 0;
 				INSTALL_GROUP = wheel;
 				INSTALL_MODE_FLAG = 0555;
 				INSTALL_OWNER = root;
 				INSTALL_PATH = /sbin;
-				PREBINDING = NO;
 				PRODUCT_NAME = ping6;
 			};
 			name = Debug;
@@ -2514,24 +2827,11 @@
 		7216D29D0EE898BE00AE70E4 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ALWAYS_SEARCH_USER_PATHS = NO;
-				COPY_PHASE_STRIP = YES;
-				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
-				GCC_MODEL_TUNING = G5;
-				GCC_PREPROCESSOR_DEFINITIONS = (
-					INET6,
-					IPSEC_DEBUG,
-					KAME_SCOPEID,
-					IPSEC,
-				);
 				INSTALL_GROUP = wheel;
 				INSTALL_MODE_FLAG = 0555;
 				INSTALL_OWNER = root;
 				INSTALL_PATH = /sbin;
-				PREBINDING = NO;
 				PRODUCT_NAME = ping6;
-				ZERO_LINK = NO;
 			};
 			name = Release;
 		};
@@ -2539,23 +2839,14 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = YES;
-				COPY_PHASE_STRIP = NO;
-				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
-				GCC_MODEL_TUNING = G5;
-				GCC_OPTIMIZATION_LEVEL = 0;
-				GCC_PREPROCESSOR_DEFINITIONS = "TFTP_DIR=\\\"/tftpboot\\\"";
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"TFTP_DIR=\\\"/tftpboot\\\"",
+				);
 				INSTALL_GROUP = wheel;
 				INSTALL_MODE_FLAG = 0555;
 				INSTALL_OWNER = root;
 				INSTALL_PATH = /usr/sbin;
-				OTHER_CFLAGS = (
-					"-Wall",
-					"-Werror",
-					"-mdynamic-no-pic",
-					"-dead_strip",
-				);
-				PREBINDING = NO;
 				PRODUCT_NAME = rarpd;
 			};
 			name = Debug;
@@ -2564,37 +2855,23 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = YES;
-				COPY_PHASE_STRIP = YES;
-				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
-				GCC_MODEL_TUNING = G5;
-				GCC_PREPROCESSOR_DEFINITIONS = "TFTP_DIR=\\\"/tftpboot\\\"";
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"TFTP_DIR=\\\"/tftpboot\\\"",
+				);
 				INSTALL_GROUP = wheel;
 				INSTALL_MODE_FLAG = 0555;
 				INSTALL_OWNER = root;
 				INSTALL_PATH = /usr/sbin;
-				OTHER_CFLAGS = (
-					"-Wall",
-					"-Werror",
-					"-mdynamic-no-pic",
-					"-dead_strip",
-				);
-				PREBINDING = NO;
 				PRODUCT_NAME = rarpd;
-				ZERO_LINK = NO;
 			};
 			name = Release;
 		};
 		7216D2EF0EE89CBC00AE70E4 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ALWAYS_SEARCH_USER_PATHS = NO;
-				COPY_PHASE_STRIP = NO;
-				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
-				GCC_MODEL_TUNING = G5;
-				GCC_OPTIMIZATION_LEVEL = 0;
 				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
 					INET6,
 					IPSEC,
 				);
@@ -2603,13 +2880,6 @@
 				INSTALL_MODE_FLAG = 0555;
 				INSTALL_OWNER = root;
 				INSTALL_PATH = /sbin;
-				OTHER_CFLAGS = (
-					"-Wall",
-					"-Werror",
-					"-mdynamic-no-pic",
-					"-dead_strip",
-				);
-				PREBINDING = NO;
 				PRODUCT_NAME = route;
 			};
 			name = Debug;
@@ -2617,12 +2887,8 @@
 		7216D2F00EE89CBC00AE70E4 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ALWAYS_SEARCH_USER_PATHS = NO;
-				COPY_PHASE_STRIP = YES;
-				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
-				GCC_MODEL_TUNING = G5;
 				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
 					INET6,
 					IPSEC,
 				);
@@ -2631,28 +2897,15 @@
 				INSTALL_MODE_FLAG = 0555;
 				INSTALL_OWNER = root;
 				INSTALL_PATH = /sbin;
-				OTHER_CFLAGS = (
-					"-Wall",
-					"-Werror",
-					"-mdynamic-no-pic",
-					"-dead_strip",
-				);
-				PREBINDING = NO;
 				PRODUCT_NAME = route;
-				ZERO_LINK = NO;
 			};
 			name = Release;
 		};
 		7216D3160EE89E9F00AE70E4 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ALWAYS_SEARCH_USER_PATHS = NO;
-				COPY_PHASE_STRIP = NO;
-				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
-				GCC_MODEL_TUNING = G5;
-				GCC_OPTIMIZATION_LEVEL = 0;
 				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
 					INET6,
 					HAVE_GETIFADDRS,
 				);
@@ -2661,28 +2914,19 @@
 				INSTALL_MODE_FLAG = 0555;
 				INSTALL_OWNER = root;
 				INSTALL_PATH = /usr/sbin;
-				OTHER_CFLAGS = (
-					"-Wall",
-					"-Werror",
-					"-Wno-deprecated-declarations",
-					"-mdynamic-no-pic",
-					"-dead_strip",
-				);
-				PREBINDING = NO;
 				PRODUCT_NAME = rtadvd;
-				WARNING_CFLAGS = "";
+				WARNING_CFLAGS = (
+					"$(inherited)",
+					"-Wno-deprecated-declarations",
+				);
 			};
 			name = Debug;
 		};
 		7216D3170EE89E9F00AE70E4 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ALWAYS_SEARCH_USER_PATHS = NO;
-				COPY_PHASE_STRIP = YES;
-				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
-				GCC_MODEL_TUNING = G5;
 				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
 					INET6,
 					HAVE_GETIFADDRS,
 				);
@@ -2691,30 +2935,19 @@
 				INSTALL_MODE_FLAG = 0555;
 				INSTALL_OWNER = root;
 				INSTALL_PATH = /usr/sbin;
-				OTHER_CFLAGS = (
-					"-Wall",
-					"-Werror",
-					"-Wno-deprecated-declarations",
-					"-mdynamic-no-pic",
-					"-dead_strip",
-				);
-				PREBINDING = NO;
 				PRODUCT_NAME = rtadvd;
-				WARNING_CFLAGS = "";
-				ZERO_LINK = NO;
+				WARNING_CFLAGS = (
+					"$(inherited)",
+					"-Wno-deprecated-declarations",
+				);
 			};
 			name = Release;
 		};
 		7216D35B0EE8A02300AE70E4 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ALWAYS_SEARCH_USER_PATHS = NO;
-				COPY_PHASE_STRIP = NO;
-				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
-				GCC_MODEL_TUNING = G5;
-				GCC_OPTIMIZATION_LEVEL = 0;
 				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
 					INET6,
 					HAVE_GETIFADDRS,
 				);
@@ -2723,27 +2956,19 @@
 				INSTALL_MODE_FLAG = 0555;
 				INSTALL_OWNER = root;
 				INSTALL_PATH = /sbin;
-				OTHER_CFLAGS = (
-					"-Wall",
-					"-Werror",
-					"-Wno-deprecated-declarations",
-					"-mdynamic-no-pic",
-					"-dead_strip",
-				);
-				PREBINDING = NO;
 				PRODUCT_NAME = rtsol;
+				WARNING_CFLAGS = (
+					"$(inherited)",
+					"-Wno-deprecated-declarations",
+				);
 			};
 			name = Debug;
 		};
 		7216D35C0EE8A02300AE70E4 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ALWAYS_SEARCH_USER_PATHS = NO;
-				COPY_PHASE_STRIP = YES;
-				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
-				GCC_MODEL_TUNING = G5;
 				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
 					INET6,
 					HAVE_GETIFADDRS,
 				);
@@ -2752,39 +2977,21 @@
 				INSTALL_MODE_FLAG = 0555;
 				INSTALL_OWNER = root;
 				INSTALL_PATH = /sbin;
-				OTHER_CFLAGS = (
-					"-Wall",
-					"-Werror",
-					"-Wno-deprecated-declarations",
-					"-mdynamic-no-pic",
-					"-dead_strip",
-				);
-				PREBINDING = NO;
 				PRODUCT_NAME = rtsol;
-				ZERO_LINK = NO;
+				WARNING_CFLAGS = (
+					"$(inherited)",
+					"-Wno-deprecated-declarations",
+				);
 			};
 			name = Release;
 		};
 		7216D3A90EE8A3BB00AE70E4 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ALWAYS_SEARCH_USER_PATHS = NO;
-				COPY_PHASE_STRIP = NO;
-				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
-				GCC_MODEL_TUNING = G5;
-				GCC_OPTIMIZATION_LEVEL = 0;
 				INSTALL_GROUP = wheel;
 				INSTALL_MODE_FLAG = 0555;
 				INSTALL_OWNER = root;
 				INSTALL_PATH = /usr/sbin;
-				OTHER_CFLAGS = (
-					"-Wall",
-					"-Werror",
-					"-mdynamic-no-pic",
-					"-dead_strip",
-				);
-				PREBINDING = NO;
 				PRODUCT_NAME = spray;
 			};
 			name = Debug;
@@ -2792,63 +2999,68 @@
 		7216D3AA0EE8A3BB00AE70E4 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ALWAYS_SEARCH_USER_PATHS = NO;
-				COPY_PHASE_STRIP = YES;
-				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
-				GCC_MODEL_TUNING = G5;
 				INSTALL_GROUP = wheel;
 				INSTALL_MODE_FLAG = 0555;
 				INSTALL_OWNER = root;
 				INSTALL_PATH = /usr/sbin;
-				OTHER_CFLAGS = (
-					"-Wall",
-					"-Werror",
-					"-mdynamic-no-pic",
-					"-dead_strip",
-				);
-				PREBINDING = NO;
 				PRODUCT_NAME = spray;
-				ZERO_LINK = NO;
 			};
 			name = Release;
 		};
 		724862320EE86EB7001D0DE9 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
 				COPY_PHASE_STRIP = NO;
+				DEAD_CODE_STRIPPING = YES;
+				GCC_DYNAMIC_NO_PIC = YES;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_MODEL_TUNING = G5;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				"GCC_PREPROCESSOR_DEFINITIONS[sdk=iphoneos*][arch=*]" = (
+					"$(inherited)",
+					"TARGET_OS_EMBEDDED=1",
+				);
+				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
+				PREBINDING = NO;
+				WARNING_CFLAGS = "-Wall";
 			};
 			name = Debug;
 		};
 		724862330EE86EB7001D0DE9 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
 				COPY_PHASE_STRIP = YES;
+				DEAD_CODE_STRIPPING = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				"DEBUG_INFORMATION_FORMAT[sdk=iphoneos*][arch=*]" = dwarf;
+				GCC_DYNAMIC_NO_PIC = YES;
+				GCC_MODEL_TUNING = G5;
+				"GCC_PREPROCESSOR_DEFINITIONS[sdk=iphoneos*][arch=*]" = (
+					"$(inherited)",
+					"TARGET_OS_EMBEDDED=1",
+				);
+				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
+				PREBINDING = NO;
+				"STRIPFLAGS[sdk=iphoneos*]" = "-S";
+				WARNING_CFLAGS = "-Wall";
+				ZERO_LINK = NO;
 			};
 			name = Release;
 		};
 		724DAB610EE88E2B008900D0 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ALWAYS_SEARCH_USER_PATHS = NO;
-				COPY_PHASE_STRIP = NO;
-				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
-				GCC_MODEL_TUNING = G5;
-				GCC_OPTIMIZATION_LEVEL = 0;
-				GCC_PREPROCESSOR_DEFINITIONS = IP_FW_PRIVATE;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					IP_FW_PRIVATE,
+				);
 				HEADER_SEARCH_PATHS = /System/Library/Frameworks/System.framework/PrivateHeaders;
 				INSTALL_GROUP = wheel;
 				INSTALL_MODE_FLAG = 0555;
 				INSTALL_OWNER = root;
 				INSTALL_PATH = /sbin;
-				OTHER_CFLAGS = (
-					"-Wall",
-					"-Werror",
-					"-mdynamic-no-pic",
-					"-dead_strip",
-				);
-				PREBINDING = NO;
 				PRODUCT_NAME = ipfw;
 			};
 			name = Debug;
@@ -2856,50 +3068,30 @@
 		724DAB620EE88E2B008900D0 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ALWAYS_SEARCH_USER_PATHS = NO;
-				COPY_PHASE_STRIP = YES;
-				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
-				GCC_MODEL_TUNING = G5;
-				GCC_PREPROCESSOR_DEFINITIONS = IP_FW_PRIVATE;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					IP_FW_PRIVATE,
+				);
 				HEADER_SEARCH_PATHS = /System/Library/Frameworks/System.framework/PrivateHeaders;
 				INSTALL_GROUP = wheel;
 				INSTALL_MODE_FLAG = 0555;
 				INSTALL_OWNER = root;
 				INSTALL_PATH = /sbin;
-				OTHER_CFLAGS = (
-					"-Wall",
-					"-Werror",
-					"-mdynamic-no-pic",
-					"-dead_strip",
-				);
-				PREBINDING = NO;
 				PRODUCT_NAME = ipfw;
-				ZERO_LINK = NO;
 			};
 			name = Release;
 		};
 		724DAB840EE88EFA008900D0 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ALWAYS_SEARCH_USER_PATHS = NO;
-				COPY_PHASE_STRIP = NO;
-				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
-				GCC_MODEL_TUNING = G5;
-				GCC_OPTIMIZATION_LEVEL = 0;
-				GCC_PREPROCESSOR_DEFINITIONS = IP_FW_PRIVATE;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					IP_FW_PRIVATE,
+				);
 				INSTALL_GROUP = wheel;
 				INSTALL_MODE_FLAG = 0555;
 				INSTALL_OWNER = root;
 				INSTALL_PATH = /sbin;
-				OTHER_CFLAGS = (
-					"-Wall",
-					"-Werror",
-					"-mdynamic-no-pic",
-					"-dead_strip",
-				);
-				PREBINDING = NO;
 				PRODUCT_NAME = ip6fw;
 			};
 			name = Debug;
@@ -2907,48 +3099,25 @@
 		724DAB850EE88EFA008900D0 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ALWAYS_SEARCH_USER_PATHS = NO;
-				COPY_PHASE_STRIP = YES;
-				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
-				GCC_MODEL_TUNING = G5;
-				GCC_PREPROCESSOR_DEFINITIONS = IP_FW_PRIVATE;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					IP_FW_PRIVATE,
+				);
 				INSTALL_GROUP = wheel;
 				INSTALL_MODE_FLAG = 0555;
 				INSTALL_OWNER = root;
 				INSTALL_PATH = /sbin;
-				OTHER_CFLAGS = (
-					"-Wall",
-					"-Werror",
-					"-mdynamic-no-pic",
-					"-dead_strip",
-				);
-				PREBINDING = NO;
 				PRODUCT_NAME = ip6fw;
-				ZERO_LINK = NO;
 			};
 			name = Release;
 		};
 		724DABA40EE88FE3008900D0 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ALWAYS_SEARCH_USER_PATHS = NO;
-				COPY_PHASE_STRIP = NO;
-				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
-				GCC_MODEL_TUNING = G5;
-				GCC_OPTIMIZATION_LEVEL = 0;
 				INSTALL_GROUP = wheel;
 				INSTALL_MODE_FLAG = 0555;
 				INSTALL_OWNER = root;
 				INSTALL_PATH = /usr/libexec;
-				OTHER_CFLAGS = (
-					"-Wall",
-					"-Werror",
-					"-mdynamic-no-pic",
-					"-dead_strip",
-				);
-				PREBINDING = NO;
 				PRODUCT_NAME = kdumpd;
 			};
 			name = Debug;
@@ -2956,24 +3125,11 @@
 		724DABA50EE88FE3008900D0 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ALWAYS_SEARCH_USER_PATHS = NO;
-				COPY_PHASE_STRIP = YES;
-				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
-				GCC_MODEL_TUNING = G5;
 				INSTALL_GROUP = wheel;
 				INSTALL_MODE_FLAG = 0555;
 				INSTALL_OWNER = root;
 				INSTALL_PATH = /usr/libexec;
-				OTHER_CFLAGS = (
-					"-Wall",
-					"-Werror",
-					"-mdynamic-no-pic",
-					"-dead_strip",
-				);
-				PREBINDING = NO;
 				PRODUCT_NAME = kdumpd;
-				ZERO_LINK = NO;
 			};
 			name = Release;
 		};
@@ -2981,26 +3137,16 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = YES;
-				COPY_PHASE_STRIP = NO;
-				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
-				GCC_MODEL_TUNING = G5;
-				GCC_OPTIMIZATION_LEVEL = 0;
-				GCC_PREPROCESSOR_DEFINITIONS = "";
 				HEADER_SEARCH_PATHS = ../alias;
 				INSTALL_GROUP = wheel;
 				INSTALL_MODE_FLAG = 0555;
 				INSTALL_OWNER = root;
 				INSTALL_PATH = /usr/sbin;
-				OTHER_CFLAGS = (
-					"-Wall",
-					"-Werror",
-					"-Wno-deprecated-declarations",
-					"-mdynamic-no-pic",
-					"-dead_strip",
-				);
-				PREBINDING = NO;
 				PRODUCT_NAME = natd;
+				WARNING_CFLAGS = (
+					"$(inherited)",
+					"-Wno-deprecated-declarations",
+				);
 			};
 			name = Debug;
 		};
@@ -3008,39 +3154,24 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = YES;
-				COPY_PHASE_STRIP = YES;
-				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
-				GCC_MODEL_TUNING = G5;
-				GCC_PREPROCESSOR_DEFINITIONS = "";
 				HEADER_SEARCH_PATHS = ../alias;
 				INSTALL_GROUP = wheel;
 				INSTALL_MODE_FLAG = 0555;
 				INSTALL_OWNER = root;
 				INSTALL_PATH = /usr/sbin;
-				OTHER_CFLAGS = (
-					"-Wall",
-					"-Werror",
-					"-Wno-deprecated-declarations",
-					"-mdynamic-no-pic",
-					"-dead_strip",
-				);
-				PREBINDING = NO;
 				PRODUCT_NAME = natd;
-				ZERO_LINK = NO;
+				WARNING_CFLAGS = (
+					"$(inherited)",
+					"-Wno-deprecated-declarations",
+				);
 			};
 			name = Release;
 		};
 		724DAC0F0EE8940E008900D0 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ALWAYS_SEARCH_USER_PATHS = NO;
-				COPY_PHASE_STRIP = NO;
-				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
-				GCC_MODEL_TUNING = G5;
-				GCC_OPTIMIZATION_LEVEL = 0;
 				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
 					INET6,
 					IPSEC_DEBUG,
 					KAME_SCOPEID,
@@ -3049,13 +3180,6 @@
 				INSTALL_MODE_FLAG = 0555;
 				INSTALL_OWNER = root;
 				INSTALL_PATH = /usr/sbin;
-				OTHER_CFLAGS = (
-					"-Wall",
-					"-Werror",
-					"-mdynamic-no-pic",
-					"-dead_strip",
-				);
-				PREBINDING = NO;
 				PRODUCT_NAME = ndp;
 			};
 			name = Debug;
@@ -3063,12 +3187,8 @@
 		724DAC100EE8940E008900D0 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ALWAYS_SEARCH_USER_PATHS = NO;
-				COPY_PHASE_STRIP = YES;
-				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
-				GCC_MODEL_TUNING = G5;
 				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
 					INET6,
 					IPSEC_DEBUG,
 					KAME_SCOPEID,
@@ -3077,79 +3197,13 @@
 				INSTALL_MODE_FLAG = 0555;
 				INSTALL_OWNER = root;
 				INSTALL_PATH = /usr/sbin;
-				OTHER_CFLAGS = (
-					"-Wall",
-					"-Werror",
-					"-mdynamic-no-pic",
-					"-dead_strip",
-				);
-				PREBINDING = NO;
 				PRODUCT_NAME = ndp;
-				ZERO_LINK = NO;
-			};
-			name = Release;
-		};
-		7251B1FE0EE9D2AB00F29440 /* Debug */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				ALWAYS_SEARCH_USER_PATHS = NO;
-				ARCHS = "$(ARCHS_STANDARD_32_BIT)";
-				COPY_PHASE_STRIP = NO;
-				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
-				GCC_MODEL_TUNING = G5;
-				GCC_OPTIMIZATION_LEVEL = 0;
-				HEADER_SEARCH_PATHS = /System/Library/Frameworks/System.framework/PrivateHeaders;
-				INSTALL_GROUP = wheel;
-				INSTALL_MODE_FLAG = 0555;
-				INSTALL_OWNER = root;
-				INSTALL_PATH = /sbin;
-				OTHER_CFLAGS = (
-					"-Wall",
-					"-Werror",
-					"-mdynamic-no-pic",
-					"-dead_strip",
-				);
-				PREBINDING = NO;
-				PRODUCT_NAME = ping;
-				SDKROOT = iphoneos3.0.internal;
-			};
-			name = Debug;
-		};
-		7251B1FF0EE9D2AB00F29440 /* Release */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				ALWAYS_SEARCH_USER_PATHS = NO;
-				ARCHS = "$(ARCHS_STANDARD_32_BIT)";
-				COPY_PHASE_STRIP = YES;
-				DEBUG_INFORMATION_FORMAT = dwarf;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
-				GCC_MODEL_TUNING = G5;
-				HEADER_SEARCH_PATHS = /System/Library/Frameworks/System.framework/PrivateHeaders;
-				INSTALL_GROUP = wheel;
-				INSTALL_MODE_FLAG = 0555;
-				INSTALL_OWNER = root;
-				INSTALL_PATH = /sbin;
-				OTHER_CFLAGS = (
-					"-Wall",
-					"-Werror",
-					"-mdynamic-no-pic",
-					"-dead_strip",
-				);
-				PREBINDING = NO;
-				PRODUCT_NAME = ping;
-				SDKROOT = iphoneos3.0.internal;
-				STRIPFLAGS = "-S";
-				ZERO_LINK = NO;
 			};
 			name = Release;
 		};
 		72570DA30EE8EBF3000F4CFB /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				COPY_PHASE_STRIP = NO;
-				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_OPTIMIZATION_LEVEL = 0;
 				PRODUCT_NAME = network_cmds;
 			};
 			name = Debug;
@@ -3157,334 +3211,7 @@
 		72570DA40EE8EBF3000F4CFB /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				COPY_PHASE_STRIP = YES;
-				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				PRODUCT_NAME = network_cmds;
-				ZERO_LINK = NO;
-			};
-			name = Release;
-		};
-		72570DB10EE8EC2E000F4CFB /* Debug */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				ALWAYS_SEARCH_USER_PATHS = NO;
-				ARCHS = "$(ARCHS_STANDARD_32_BIT)";
-				COPY_PHASE_STRIP = NO;
-				DEAD_CODE_STRIPPING = YES;
-				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
-				GCC_INCREASE_PRECOMPILED_HEADER_SHARING = NO;
-				GCC_MODEL_TUNING = G5;
-				GCC_OPTIMIZATION_LEVEL = 0;
-				GCC_PREPROCESSOR_DEFINITIONS = "TARGET_OS_EMBEDDED=1";
-				INSTALL_GROUP = wheel;
-				INSTALL_MODE_FLAG = 0555;
-				INSTALL_OWNER = root;
-				INSTALL_PATH = /usr/sbin;
-				OTHER_CFLAGS = (
-					"-Wall",
-					"-Werror",
-					"-mdynamic-no-pic",
-					"-dead_strip",
-				);
-				PREBINDING = NO;
-				PRODUCT_NAME = arp;
-				SDKROOT = iphoneos3.0.internal;
-				STRIPFLAGS = "";
-			};
-			name = Debug;
-		};
-		72570DB20EE8EC2E000F4CFB /* Release */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				ALWAYS_SEARCH_USER_PATHS = NO;
-				ARCHS = "$(ARCHS_STANDARD_32_BIT)";
-				COPY_PHASE_STRIP = YES;
-				DEAD_CODE_STRIPPING = YES;
-				DEBUG_INFORMATION_FORMAT = dwarf;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
-				GCC_INCREASE_PRECOMPILED_HEADER_SHARING = NO;
-				GCC_MODEL_TUNING = G5;
-				GCC_PREPROCESSOR_DEFINITIONS = "TARGET_OS_EMBEDDED=1";
-				INSTALL_GROUP = wheel;
-				INSTALL_MODE_FLAG = 0555;
-				INSTALL_OWNER = root;
-				INSTALL_PATH = /usr/sbin;
-				OTHER_CFLAGS = (
-					"-Wall",
-					"-Werror",
-					"-mdynamic-no-pic",
-					"-dead_strip",
-				);
-				PREBINDING = NO;
-				PRODUCT_NAME = arp;
-				SDKROOT = iphoneos3.0.internal;
-				STRIPFLAGS = "-S";
-				ZERO_LINK = NO;
-			};
-			name = Release;
-		};
-		72570DC90EE8F49A000F4CFB /* Debug */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				ALWAYS_SEARCH_USER_PATHS = NO;
-				ARCHS = "$(ARCHS_STANDARD_32_BIT)";
-				COPY_PHASE_STRIP = NO;
-				DEAD_CODE_STRIPPING = YES;
-				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
-				GCC_MODEL_TUNING = G5;
-				GCC_OPTIMIZATION_LEVEL = 0;
-				GCC_PREPROCESSOR_DEFINITIONS = (
-					TARGET_OS_EMBEDDED,
-					USE_IF_MEDIA,
-					NO_IPX,
-				);
-				HEADER_SEARCH_PATHS = /System/Library/Frameworks/System.framework/PrivateHeaders;
-				INSTALL_GROUP = wheel;
-				INSTALL_MODE_FLAG = 0555;
-				INSTALL_OWNER = root;
-				INSTALL_PATH = /sbin;
-				OTHER_CFLAGS = (
-					"-Wall",
-					"-Werror",
-					"-mdynamic-no-pic",
-					"-dead_strip",
-				);
-				PREBINDING = NO;
-				PRODUCT_NAME = ifconfig;
-				SDKROOT = iphoneos3.0.internal;
-				STRIPFLAGS = "-S";
-			};
-			name = Debug;
-		};
-		72570DCA0EE8F49A000F4CFB /* Release */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				ALWAYS_SEARCH_USER_PATHS = NO;
-				ARCHS = "$(ARCHS_STANDARD_32_BIT)";
-				COPY_PHASE_STRIP = YES;
-				DEAD_CODE_STRIPPING = YES;
-				DEBUG_INFORMATION_FORMAT = dwarf;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
-				GCC_MODEL_TUNING = G5;
-				GCC_PREPROCESSOR_DEFINITIONS = (
-					TARGET_OS_EMBEDDED,
-					USE_IF_MEDIA,
-					NO_IPX,
-				);
-				HEADER_SEARCH_PATHS = /System/Library/Frameworks/System.framework/PrivateHeaders;
-				INSTALL_GROUP = wheel;
-				INSTALL_MODE_FLAG = 0555;
-				INSTALL_OWNER = root;
-				INSTALL_PATH = /sbin;
-				OTHER_CFLAGS = (
-					"-Wall",
-					"-Werror",
-					"-mdynamic-no-pic",
-					"-dead_strip",
-				);
-				PREBINDING = NO;
-				PRODUCT_NAME = ifconfig;
-				SDKROOT = iphoneos3.0.internal;
-				STRIPFLAGS = "-S";
-				ZERO_LINK = NO;
-			};
-			name = Release;
-		};
-		72570DE60EE8F4C4000F4CFB /* Debug */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				ALWAYS_SEARCH_USER_PATHS = NO;
-				ARCHS = "$(ARCHS_STANDARD_32_BIT)";
-				COPY_PHASE_STRIP = NO;
-				DEAD_CODE_STRIPPING = YES;
-				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
-				GCC_MODEL_TUNING = G5;
-				GCC_OPTIMIZATION_LEVEL = 0;
-				GCC_PREPROCESSOR_DEFINITIONS = (
-					TARGET_OS_EMBEDDED,
-					IPSEC,
-				);
-				HEADER_SEARCH_PATHS = /System/Library/Frameworks/System.framework/PrivateHeaders;
-				INSTALL_GROUP = wheel;
-				INSTALL_MODE_FLAG = 0555;
-				INSTALL_OWNER = root;
-				INSTALL_PATH = /usr/sbin;
-				OTHER_CFLAGS = (
-					"-Wall",
-					"-Werror",
-					"-mdynamic-no-pic",
-					"-dead_strip",
-				);
-				PREBINDING = NO;
-				PRODUCT_NAME = netstat;
-				SDKROOT = iphoneos3.0.internal;
-			};
-			name = Debug;
-		};
-		72570DE70EE8F4C4000F4CFB /* Release */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				ALWAYS_SEARCH_USER_PATHS = NO;
-				ARCHS = "$(ARCHS_STANDARD_32_BIT)";
-				COPY_PHASE_STRIP = YES;
-				DEAD_CODE_STRIPPING = YES;
-				DEBUG_INFORMATION_FORMAT = dwarf;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
-				GCC_MODEL_TUNING = G5;
-				GCC_PREPROCESSOR_DEFINITIONS = (
-					TARGET_OS_EMBEDDED,
-					IPSEC,
-				);
-				HEADER_SEARCH_PATHS = /System/Library/Frameworks/System.framework/PrivateHeaders;
-				INSTALL_GROUP = wheel;
-				INSTALL_MODE_FLAG = 0555;
-				INSTALL_OWNER = root;
-				INSTALL_PATH = /usr/sbin;
-				OTHER_CFLAGS = (
-					"-Wall",
-					"-Werror",
-					"-mdynamic-no-pic",
-					"-dead_strip",
-				);
-				PREBINDING = NO;
-				PRODUCT_NAME = netstat;
-				SDKROOT = iphoneos3.0.internal;
-				STRIPFLAGS = "-S";
-				ZERO_LINK = NO;
-			};
-			name = Release;
-		};
-		72570DF60EE8F4DE000F4CFB /* Debug */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				ALWAYS_SEARCH_USER_PATHS = NO;
-				ARCHS = "$(ARCHS_STANDARD_32_BIT)";
-				COPY_PHASE_STRIP = NO;
-				DEAD_CODE_STRIPPING = YES;
-				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
-				GCC_MODEL_TUNING = G5;
-				GCC_OPTIMIZATION_LEVEL = 0;
-				GCC_PREPROCESSOR_DEFINITIONS = (
-					TARGET_OS_EMBEDDED,
-					IPSEC,
-				);
-				HEADER_SEARCH_PATHS = /System/Library/Frameworks/System.framework/PrivateHeaders;
-				INSTALL_GROUP = wheel;
-				INSTALL_MODE_FLAG = 0555;
-				INSTALL_OWNER = root;
-				INSTALL_PATH = /sbin;
-				OTHER_CFLAGS = (
-					"-Wall",
-					"-Werror",
-					"-mdynamic-no-pic",
-					"-dead_strip",
-				);
-				PREBINDING = NO;
-				PRODUCT_NAME = route;
-				SDKROOT = iphoneos3.0.internal;
-			};
-			name = Debug;
-		};
-		72570DF70EE8F4DE000F4CFB /* Release */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				ALWAYS_SEARCH_USER_PATHS = NO;
-				ARCHS = "$(ARCHS_STANDARD_32_BIT)";
-				COPY_PHASE_STRIP = YES;
-				DEAD_CODE_STRIPPING = YES;
-				DEBUG_INFORMATION_FORMAT = dwarf;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
-				GCC_MODEL_TUNING = G5;
-				GCC_PREPROCESSOR_DEFINITIONS = (
-					TARGET_OS_EMBEDDED,
-					IPSEC,
-				);
-				HEADER_SEARCH_PATHS = /System/Library/Frameworks/System.framework/PrivateHeaders;
-				INSTALL_GROUP = wheel;
-				INSTALL_MODE_FLAG = 0555;
-				INSTALL_OWNER = root;
-				INSTALL_PATH = /sbin;
-				OTHER_CFLAGS = (
-					"-Wall",
-					"-Werror",
-					"-mdynamic-no-pic",
-					"-dead_strip",
-				);
-				PREBINDING = NO;
-				PRODUCT_NAME = route;
-				SDKROOT = iphoneos3.0.internal;
-				STRIPFLAGS = "-S";
-				ZERO_LINK = NO;
-			};
-			name = Release;
-		};
-		72570E080EE8F4EA000F4CFB /* Debug */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				ALTERNATE_MODE = 04555;
-				ALWAYS_SEARCH_USER_PATHS = NO;
-				ARCHS = "$(ARCHS_STANDARD_32_BIT)";
-				COPY_PHASE_STRIP = NO;
-				DEAD_CODE_STRIPPING = YES;
-				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
-				GCC_MODEL_TUNING = G5;
-				GCC_OPTIMIZATION_LEVEL = 0;
-				GCC_PREPROCESSOR_DEFINITIONS = (
-					TARGET_OS_EMBEDDED,
-					HAVE_SOCKADDR_SA_LEN,
-				);
-				INSTALL_GROUP = wheel;
-				INSTALL_MODE_FLAG = 04555;
-				INSTALL_OWNER = root;
-				INSTALL_PATH = /usr/sbin;
-				OTHER_CFLAGS = (
-					"-Wall",
-					"-Werror",
-					"-mdynamic-no-pic",
-					"-dead_strip",
-				);
-				PREBINDING = NO;
-				PRODUCT_NAME = traceroute;
-				SDKROOT = iphoneos3.0.internal;
-			};
-			name = Debug;
-		};
-		72570E090EE8F4EA000F4CFB /* Release */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				ALTERNATE_MODE = 04555;
-				ALWAYS_SEARCH_USER_PATHS = NO;
-				ARCHS = "$(ARCHS_STANDARD_32_BIT)";
-				COPY_PHASE_STRIP = YES;
-				DEAD_CODE_STRIPPING = YES;
-				DEBUG_INFORMATION_FORMAT = dwarf;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
-				GCC_MODEL_TUNING = G5;
-				GCC_PREPROCESSOR_DEFINITIONS = (
-					TARGET_OS_EMBEDDED,
-					HAVE_SOCKADDR_SA_LEN,
-				);
-				INSTALL_GROUP = wheel;
-				INSTALL_MODE_FLAG = 04555;
-				INSTALL_OWNER = root;
-				INSTALL_PATH = /usr/sbin;
-				OTHER_CFLAGS = (
-					"-Wall",
-					"-Werror",
-					"-mdynamic-no-pic",
-					"-dead_strip",
-				);
-				PREBINDING = NO;
-				PRODUCT_NAME = traceroute;
-				SDKROOT = iphoneos3.0.internal;
-				STRIPFLAGS = "-S";
-				ZERO_LINK = NO;
 			};
 			name = Release;
 		};
@@ -3515,9 +3242,9 @@
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				COPY_PHASE_STRIP = YES;
 				DEAD_CODE_STRIPPING = YES;
-				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DYLIB_CURRENT_VERSION = 1;
 				EXECUTABLE_PREFIX = lib;
+				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_MODEL_TUNING = G5;
 				INSTALL_GROUP = wheel;
@@ -3533,23 +3260,10 @@
 		7261212F0EE8710B00AFED1B /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ALWAYS_SEARCH_USER_PATHS = NO;
-				COPY_PHASE_STRIP = NO;
-				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
-				GCC_MODEL_TUNING = G5;
-				GCC_OPTIMIZATION_LEVEL = 0;
 				INSTALL_GROUP = wheel;
 				INSTALL_MODE_FLAG = 0555;
 				INSTALL_OWNER = root;
 				INSTALL_PATH = /usr/sbin;
-				OTHER_CFLAGS = (
-					"-Wall",
-					"-Werror",
-					"-mdynamic-no-pic",
-					"-dead_strip",
-				);
-				PREBINDING = NO;
 				PRODUCT_NAME = arp;
 			};
 			name = Debug;
@@ -3557,24 +3271,11 @@
 		726121300EE8710B00AFED1B /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ALWAYS_SEARCH_USER_PATHS = NO;
-				COPY_PHASE_STRIP = YES;
-				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
-				GCC_MODEL_TUNING = G5;
 				INSTALL_GROUP = wheel;
 				INSTALL_MODE_FLAG = 0555;
 				INSTALL_OWNER = root;
 				INSTALL_PATH = /usr/sbin;
-				OTHER_CFLAGS = (
-					"-Wall",
-					"-Werror",
-					"-mdynamic-no-pic",
-					"-dead_strip",
-				);
-				PREBINDING = NO;
 				PRODUCT_NAME = arp;
-				ZERO_LINK = NO;
 			};
 			name = Release;
 		};
@@ -3602,16 +3303,14 @@
 		726121560EE8881800AFED1B /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ALWAYS_SEARCH_USER_PATHS = NO;
-				COPY_PHASE_STRIP = NO;
-				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
-				GCC_MODEL_TUNING = G5;
-				GCC_OPTIMIZATION_LEVEL = 0;
 				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
 					USE_IF_MEDIA,
-					INET6,
 					NO_IPX,
+					INET6,
+				);
+				"GCC_PREPROCESSOR_DEFINITIONS[sdk=macosx*][arch=*]" = (
+					$inherited,
 					USE_VLANS,
 					USE_BONDS,
 				);
@@ -3620,13 +3319,6 @@
 				INSTALL_MODE_FLAG = 0555;
 				INSTALL_OWNER = root;
 				INSTALL_PATH = /sbin;
-				OTHER_CFLAGS = (
-					"-Wall",
-					"-Werror",
-					"-mdynamic-no-pic",
-					"-dead_strip",
-				);
-				PREBINDING = NO;
 				PRODUCT_NAME = ifconfig;
 			};
 			name = Debug;
@@ -3634,15 +3326,14 @@
 		726121570EE8881800AFED1B /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ALWAYS_SEARCH_USER_PATHS = NO;
-				COPY_PHASE_STRIP = YES;
-				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
-				GCC_MODEL_TUNING = G5;
 				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
 					USE_IF_MEDIA,
-					INET6,
 					NO_IPX,
+					INET6,
+				);
+				"GCC_PREPROCESSOR_DEFINITIONS[sdk=macosx*][arch=*]" = (
+					"$(inherited)",
 					USE_VLANS,
 					USE_BONDS,
 				);
@@ -3651,13 +3342,6 @@
 				INSTALL_MODE_FLAG = 0555;
 				INSTALL_OWNER = root;
 				INSTALL_PATH = /sbin;
-				OTHER_CFLAGS = (
-					"-Wall",
-					"-Werror",
-					"-mdynamic-no-pic",
-					"-dead_strip",
-				);
-				PREBINDING = NO;
 				PRODUCT_NAME = ifconfig;
 				ZERO_LINK = NO;
 			};
@@ -3666,24 +3350,11 @@
 		726121850EE8897C00AFED1B /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ALWAYS_SEARCH_USER_PATHS = NO;
-				COPY_PHASE_STRIP = NO;
-				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
-				GCC_MODEL_TUNING = G5;
-				GCC_OPTIMIZATION_LEVEL = 0;
 				HEADER_SEARCH_PATHS = /System/Library/Frameworks/System.framework/PrivateHeaders;
 				INSTALL_GROUP = wheel;
 				INSTALL_MODE_FLAG = 0555;
 				INSTALL_OWNER = root;
 				INSTALL_PATH = /usr/sbin;
-				OTHER_CFLAGS = (
-					"-Wall",
-					"-Werror",
-					"-mdynamic-no-pic",
-					"-dead_strip",
-				);
-				PREBINDING = NO;
 				PRODUCT_NAME = ip6;
 			};
 			name = Debug;
@@ -3691,25 +3362,12 @@
 		726121860EE8897C00AFED1B /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ALWAYS_SEARCH_USER_PATHS = NO;
-				COPY_PHASE_STRIP = YES;
-				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
-				GCC_MODEL_TUNING = G5;
 				HEADER_SEARCH_PATHS = /System/Library/Frameworks/System.framework/PrivateHeaders;
 				INSTALL_GROUP = wheel;
 				INSTALL_MODE_FLAG = 0555;
 				INSTALL_OWNER = root;
 				INSTALL_PATH = /usr/sbin;
-				OTHER_CFLAGS = (
-					"-Wall",
-					"-Werror",
-					"-mdynamic-no-pic",
-					"-dead_strip",
-				);
-				PREBINDING = NO;
 				PRODUCT_NAME = ip6;
-				ZERO_LINK = NO;
 			};
 			name = Release;
 		};
@@ -3717,24 +3375,14 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALTERNATE_MODE = 04555;
-				ALWAYS_SEARCH_USER_PATHS = NO;
-				COPY_PHASE_STRIP = NO;
-				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
-				GCC_MODEL_TUNING = G5;
-				GCC_OPTIMIZATION_LEVEL = 0;
-				GCC_PREPROCESSOR_DEFINITIONS = HAVE_SOCKADDR_SA_LEN;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					HAVE_SOCKADDR_SA_LEN,
+				);
 				INSTALL_GROUP = wheel;
 				INSTALL_MODE_FLAG = 04555;
 				INSTALL_OWNER = root;
 				INSTALL_PATH = /usr/sbin;
-				OTHER_CFLAGS = (
-					"-Wall",
-					"-Werror",
-					"-mdynamic-no-pic",
-					"-dead_strip",
-				);
-				PREBINDING = NO;
 				PRODUCT_NAME = traceroute;
 			};
 			name = Debug;
@@ -3743,38 +3391,23 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALTERNATE_MODE = 04555;
-				ALWAYS_SEARCH_USER_PATHS = NO;
-				COPY_PHASE_STRIP = YES;
-				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
-				GCC_MODEL_TUNING = G5;
-				GCC_PREPROCESSOR_DEFINITIONS = HAVE_SOCKADDR_SA_LEN;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					HAVE_SOCKADDR_SA_LEN,
+				);
 				INSTALL_GROUP = wheel;
 				INSTALL_MODE_FLAG = 04555;
 				INSTALL_OWNER = root;
 				INSTALL_PATH = /usr/sbin;
-				OTHER_CFLAGS = (
-					"-Wall",
-					"-Werror",
-					"-mdynamic-no-pic",
-					"-dead_strip",
-				);
-				PREBINDING = NO;
 				PRODUCT_NAME = traceroute;
-				ZERO_LINK = NO;
 			};
 			name = Release;
 		};
 		7294F12C0EE8BD290052EC88 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ALWAYS_SEARCH_USER_PATHS = NO;
-				COPY_PHASE_STRIP = NO;
-				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
-				GCC_MODEL_TUNING = G5;
-				GCC_OPTIMIZATION_LEVEL = 0;
 				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
 					INET6,
 					IPSEC,
 				);
@@ -3782,13 +3415,6 @@
 				INSTALL_MODE_FLAG = 04555;
 				INSTALL_OWNER = root;
 				INSTALL_PATH = /usr/sbin;
-				OTHER_CFLAGS = (
-					"-Wall",
-					"-Werror",
-					"-mdynamic-no-pic",
-					"-dead_strip",
-				);
-				PREBINDING = NO;
 				PRODUCT_NAME = traceroute6;
 			};
 			name = Debug;
@@ -3796,12 +3422,8 @@
 		7294F12D0EE8BD290052EC88 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ALWAYS_SEARCH_USER_PATHS = NO;
-				COPY_PHASE_STRIP = YES;
-				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
-				GCC_MODEL_TUNING = G5;
 				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
 					INET6,
 					IPSEC,
 				);
@@ -3809,17 +3431,41 @@
 				INSTALL_MODE_FLAG = 04555;
 				INSTALL_OWNER = root;
 				INSTALL_PATH = /usr/sbin;
-				OTHER_CFLAGS = (
-					"-Wall",
-					"-Werror",
-					"-mdynamic-no-pic",
-					"-dead_strip",
-				);
-				PREBINDING = NO;
 				PRODUCT_NAME = traceroute6;
+			};
+			name = Release;
+		};
+		72ABD0821083D743008C721C /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				"GCC_PREPROCESSOR_DEFINITIONS[sdk=yola4.0.internal][arch=*]" = (
+					"$(inherited)",
+					"TARGET_OS_EMBEDDED=1",
+				);
+				PRODUCT_NAME = "All-EmbeddedOther";
+			};
+			name = Debug;
+		};
+		72ABD0831083D743008C721C /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				PRODUCT_NAME = "All-EmbeddedOther";
 				ZERO_LINK = NO;
 			};
 			name = Release;
+		};
+		72ABD0841083D743008C721C /* Ignore Me */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = "All-EmbeddedOther";
+			};
+			name = "Ignore Me";
 		};
 /* End XCBuildConfiguration section */
 
@@ -3829,6 +3475,7 @@
 			buildConfigurations = (
 				7216D2480EE896C100AE70E4 /* Debug */,
 				7216D2490EE896C100AE70E4 /* Release */,
+				03B2DBEE100BE71D005349BC /* Ignore Me */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
@@ -3838,6 +3485,7 @@
 			buildConfigurations = (
 				7216D27E0EE8980B00AE70E4 /* Debug */,
 				7216D27F0EE8980B00AE70E4 /* Release */,
+				03B2DBEF100BE71D005349BC /* Ignore Me */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
@@ -3847,6 +3495,7 @@
 			buildConfigurations = (
 				7216D29C0EE898BE00AE70E4 /* Debug */,
 				7216D29D0EE898BE00AE70E4 /* Release */,
+				03B2DBF0100BE71D005349BC /* Ignore Me */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
@@ -3856,6 +3505,7 @@
 			buildConfigurations = (
 				7216D2CF0EE89B7A00AE70E4 /* Debug */,
 				7216D2D00EE89B7A00AE70E4 /* Release */,
+				03B2DBF1100BE71D005349BC /* Ignore Me */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
@@ -3865,6 +3515,7 @@
 			buildConfigurations = (
 				7216D2EF0EE89CBC00AE70E4 /* Debug */,
 				7216D2F00EE89CBC00AE70E4 /* Release */,
+				03B2DBF2100BE71D005349BC /* Ignore Me */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
@@ -3874,6 +3525,7 @@
 			buildConfigurations = (
 				7216D3160EE89E9F00AE70E4 /* Debug */,
 				7216D3170EE89E9F00AE70E4 /* Release */,
+				03B2DBF3100BE71D005349BC /* Ignore Me */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
@@ -3883,6 +3535,7 @@
 			buildConfigurations = (
 				7216D35B0EE8A02300AE70E4 /* Debug */,
 				7216D35C0EE8A02300AE70E4 /* Release */,
+				03B2DBF4100BE71D005349BC /* Ignore Me */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
@@ -3892,6 +3545,7 @@
 			buildConfigurations = (
 				7216D3A90EE8A3BB00AE70E4 /* Debug */,
 				7216D3AA0EE8A3BB00AE70E4 /* Release */,
+				03B2DBF5100BE71D005349BC /* Ignore Me */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
@@ -3901,6 +3555,7 @@
 			buildConfigurations = (
 				724862320EE86EB7001D0DE9 /* Debug */,
 				724862330EE86EB7001D0DE9 /* Release */,
+				03B2DBE2100BE71D005349BC /* Ignore Me */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
@@ -3910,6 +3565,7 @@
 			buildConfigurations = (
 				724DAB610EE88E2B008900D0 /* Debug */,
 				724DAB620EE88E2B008900D0 /* Release */,
+				03B2DBE9100BE71D005349BC /* Ignore Me */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
@@ -3919,6 +3575,7 @@
 			buildConfigurations = (
 				724DAB840EE88EFA008900D0 /* Debug */,
 				724DAB850EE88EFA008900D0 /* Release */,
+				03B2DBEA100BE71D005349BC /* Ignore Me */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
@@ -3928,6 +3585,7 @@
 			buildConfigurations = (
 				724DABA40EE88FE3008900D0 /* Debug */,
 				724DABA50EE88FE3008900D0 /* Release */,
+				03B2DBEB100BE71D005349BC /* Ignore Me */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
@@ -3937,6 +3595,7 @@
 			buildConfigurations = (
 				724DABDD0EE8912E008900D0 /* Debug */,
 				724DABDE0EE8912E008900D0 /* Release */,
+				03B2DBEC100BE71D005349BC /* Ignore Me */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
@@ -3946,15 +3605,7 @@
 			buildConfigurations = (
 				724DAC0F0EE8940E008900D0 /* Debug */,
 				724DAC100EE8940E008900D0 /* Release */,
-			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
-		};
-		7251B1FD0EE9D2AB00F29440 /* Build configuration list for PBXNativeTarget "ping embedded" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				7251B1FE0EE9D2AB00F29440 /* Debug */,
-				7251B1FF0EE9D2AB00F29440 /* Release */,
+				03B2DBED100BE71D005349BC /* Ignore Me */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
@@ -3964,51 +3615,7 @@
 			buildConfigurations = (
 				72570DA30EE8EBF3000F4CFB /* Debug */,
 				72570DA40EE8EBF3000F4CFB /* Release */,
-			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
-		};
-		72570DB00EE8EC2E000F4CFB /* Build configuration list for PBXNativeTarget "arp embedded" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				72570DB10EE8EC2E000F4CFB /* Debug */,
-				72570DB20EE8EC2E000F4CFB /* Release */,
-			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
-		};
-		72570DC80EE8F49A000F4CFB /* Build configuration list for PBXNativeTarget "ifconfig embedded" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				72570DC90EE8F49A000F4CFB /* Debug */,
-				72570DCA0EE8F49A000F4CFB /* Release */,
-			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
-		};
-		72570DE50EE8F4C4000F4CFB /* Build configuration list for PBXNativeTarget "netstat embedded" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				72570DE60EE8F4C4000F4CFB /* Debug */,
-				72570DE70EE8F4C4000F4CFB /* Release */,
-			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
-		};
-		72570DF50EE8F4DE000F4CFB /* Build configuration list for PBXNativeTarget "route embedded" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				72570DF60EE8F4DE000F4CFB /* Debug */,
-				72570DF70EE8F4DE000F4CFB /* Release */,
-			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
-		};
-		72570E070EE8F4EA000F4CFB /* Build configuration list for PBXNativeTarget "traceroute embedded" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				72570E080EE8F4EA000F4CFB /* Debug */,
-				72570E090EE8F4EA000F4CFB /* Release */,
+				03B2DBE4100BE71D005349BC /* Ignore Me */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
@@ -4018,6 +3625,7 @@
 			buildConfigurations = (
 				7261210E0EE8707600AFED1B /* Debug */,
 				7261210F0EE8707600AFED1B /* Release */,
+				03B2DBE5100BE71D005349BC /* Ignore Me */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
@@ -4027,6 +3635,7 @@
 			buildConfigurations = (
 				7261212F0EE8710B00AFED1B /* Debug */,
 				726121300EE8710B00AFED1B /* Release */,
+				03B2DBE6100BE71D005349BC /* Ignore Me */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
@@ -4036,6 +3645,7 @@
 			buildConfigurations = (
 				726121440EE8717500AFED1B /* Debug */,
 				726121450EE8717500AFED1B /* Release */,
+				03B2DBE3100BE71D005349BC /* Ignore Me */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
@@ -4045,6 +3655,7 @@
 			buildConfigurations = (
 				726121560EE8881800AFED1B /* Debug */,
 				726121570EE8881800AFED1B /* Release */,
+				03B2DBE7100BE71D005349BC /* Ignore Me */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
@@ -4054,6 +3665,7 @@
 			buildConfigurations = (
 				726121850EE8897C00AFED1B /* Debug */,
 				726121860EE8897C00AFED1B /* Release */,
+				03B2DBE8100BE71D005349BC /* Ignore Me */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
@@ -4063,6 +3675,7 @@
 			buildConfigurations = (
 				7294F0FB0EE8BB460052EC88 /* Debug */,
 				7294F0FC0EE8BB460052EC88 /* Release */,
+				03B2DBF6100BE71D005349BC /* Ignore Me */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
@@ -4072,6 +3685,17 @@
 			buildConfigurations = (
 				7294F12C0EE8BD290052EC88 /* Debug */,
 				7294F12D0EE8BD290052EC88 /* Release */,
+				03B2DBF7100BE71D005349BC /* Ignore Me */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		72ABD0A11083D792008C721C /* Build configuration list for PBXAggregateTarget "All-EmbeddedOther" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				72ABD0821083D743008C721C /* Debug */,
+				72ABD0831083D743008C721C /* Release */,
+				72ABD0841083D743008C721C /* Ignore Me */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

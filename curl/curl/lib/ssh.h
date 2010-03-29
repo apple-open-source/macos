@@ -7,7 +7,7 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) 1998 - 2008, Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) 1998 - 2009, Daniel Stenberg, <daniel@haxx.se>, et al.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
@@ -20,7 +20,7 @@
  * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
  * KIND, either express or implied.
  *
- * $Id: ssh.h,v 1.17 2008-12-22 18:46:12 giva Exp $
+ * $Id: ssh.h,v 1.19 2009-05-19 23:21:25 gknauf Exp $
  ***************************************************************************/
 
 #ifdef USE_LIBSSH2
@@ -29,17 +29,7 @@
 #  error "SCP/SFTP protocols require libssh2 0.16 or later"
 #endif
 
-#if (LIBSSH2_VERSION_NUM >= 0x001300)
-/* libssh2 0.19 was the planned release version for a while before it was
-   decided to instead become 1.0. Thus >= 0x001300 should still work fine
-   for snapshots done during the 0.19 days as well as things released once
-   it was bumped to 1.0 */
-#  define HAVE_LIBSSH2_SESSION_BLOCK_DIRECTIONS 1
-#else
-#  undef HAVE_LIBSSH2_SESSION_BLOCK_DIRECTIONS
-#endif
-
-#if (LIBSSH2_VERSION_NUM >= 0x010000)
+#if defined(LIBSSH2_VERSION_NUM) && (LIBSSH2_VERSION_NUM >= 0x010000)
 /* libssh2_sftp_seek64() has only ever been provided by libssh2 1.0 or
    later */
 #  define HAVE_LIBSSH2_SFTP_SEEK64 1
@@ -64,6 +54,7 @@ ssize_t Curl_sftp_recv(struct connectdata *conn, int sockindex,
 #define Curl_ssh_enabled(conn,prot) (conn->protocol & prot)
 
 #else /* USE_LIBSSH2 */
+
 #define Curl_ssh_enabled(x,y) 0
 #define Curl_scp_send(a,b,c,d) 0
 #define Curl_sftp_send(a,b,c,d) 0

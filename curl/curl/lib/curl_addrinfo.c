@@ -5,7 +5,7 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) 1998 - 2008, Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) 1998 - 2009, Daniel Stenberg, <daniel@haxx.se>, et al.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
@@ -18,16 +18,13 @@
  * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
  * KIND, either express or implied.
  *
- * $Id: curl_addrinfo.c,v 1.5 2008-11-06 17:19:57 yangtse Exp $
+ * $Id: curl_addrinfo.c,v 1.17 2009-05-10 10:24:53 yangtse Exp $
  ***************************************************************************/
 
 #include "setup.h"
 
 #include <curl/curl.h>
 
-#ifdef NEED_MALLOC_H
-#  include <malloc.h>
-#endif
 #ifdef HAVE_SYS_SOCKET_H
 #  include <sys/socket.h>
 #endif
@@ -57,7 +54,7 @@
 #define _MPRINTF_REPLACE /* use our functions only */
 #include <curl/mprintf.h>
 
-#include "memory.h"
+#include "curl_memory.h"
 /* The last #include file should be: */
 #include "memdebug.h"
 
@@ -71,10 +68,19 @@
  * any function call which actually allocates a Curl_addrinfo struct.
  */
 
+#if defined(__INTEL_COMPILER) && (__INTEL_COMPILER == 910) && \
+    defined(__OPTIMIZE__) && defined(__unix__) &&  defined(__i386__)
+  /* workaround icc 9.1 optimizer issue */
+# define vqualifier volatile
+#else
+# define vqualifier
+#endif
+
 void
 Curl_freeaddrinfo(Curl_addrinfo *cahead)
 {
-  Curl_addrinfo *ca, *canext;
+  Curl_addrinfo *vqualifier canext;
+  Curl_addrinfo *ca;
 
   for(ca = cahead; ca != NULL; ca = canext) {
 
@@ -215,7 +221,7 @@ Curl_getaddrinfo_ex(const char *nodename,
  *       int                   ai_family;
  *       int                   ai_socktype;
  *       int                   ai_protocol;
- *       socklen_t             ai_addrlen;   * Follow rfc3493 struct addrinfo *
+ *       curl_socklen_t        ai_addrlen;   * Follow rfc3493 struct addrinfo *
  *       char                 *ai_canonname;
  *       struct sockaddr      *ai_addr;
  *       struct Curl_addrinfo *ai_next;
@@ -259,7 +265,7 @@ Curl_he2ai(const struct hostent *he, int port)
 
   for(i=0; (curr = he->h_addr_list[i]) != NULL; i++) {
 
-    int ss_size;
+    size_t ss_size;
 #ifdef ENABLE_IPV6
     if (he->h_addrtype == AF_INET6)
       ss_size = sizeof (struct sockaddr_in6);
@@ -297,7 +303,7 @@ Curl_he2ai(const struct hostent *he, int port)
        the type must be ignored and conn->socktype be used instead! */
     ai->ai_socktype = SOCK_STREAM;
 
-    ai->ai_addrlen = ss_size;
+    ai->ai_addrlen = (curl_socklen_t)ss_size;
 
     /* leave the rest of the struct filled with zero */
 
@@ -370,7 +376,7 @@ Curl_ip2addr(int af, const void *inaddr, const char *hostname, int port)
   struct namebuff *buf;
   char  *addrentry;
   char  *hoststr;
-  int    addrsize;
+  size_t addrsize;
 
   DEBUGASSERT(inaddr && hostname);
 

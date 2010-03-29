@@ -130,6 +130,7 @@
 <li><a href="mod_cache.html#cacheignoreheaders">CacheIgnoreHeaders</a></li>
 <li><a href="mod_cache.html#cacheignorenolastmod">CacheIgnoreNoLastMod</a></li>
 <li><a href="mod_cache.html#cacheignorequerystring">CacheIgnoreQueryString</a></li>
+<li><a href="mod_cache.html#cacheignoreurlsessionidentifiers">CacheIgnoreURLSessionIdentifiers</a></li>
 <li><a href="mod_cache.html#cachelastmodifiedfactor">CacheLastModifiedFactor</a></li>
 <li><a href="mod_cache.html#cachemaxexpire">CacheMaxExpire</a></li>
 <li><a href="mod_disk_cache.html#cachemaxfilesize">CacheMaxFileSize</a></li>
@@ -315,6 +316,8 @@
 <li><a href="mod_proxy.html#proxyremote">ProxyRemote</a></li>
 <li><a href="mod_proxy.html#proxyremotematch">ProxyRemoteMatch</a></li>
 <li><a href="mod_proxy.html#proxyrequests">ProxyRequests</a></li>
+<li><a href="mod_proxy_scgi.html#proxyscgiinternalredirect">ProxySCGIInternalRedirect</a></li>
+<li><a href="mod_proxy_scgi.html#proxyscgisendfile">ProxySCGISendfile</a></li>
 <li><a href="mod_proxy.html#proxyset">ProxySet</a></li>
 <li><a href="mod_proxy.html#proxystatus">ProxyStatus</a></li>
 <li><a href="mod_proxy.html#proxytimeout">ProxyTimeout</a></li>

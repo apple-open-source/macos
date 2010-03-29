@@ -54,8 +54,8 @@ SETUPCMD=	setup.py --quiet install $(SETUPINSTOPTS)
 PKGDIR= 	$(srcdir)
 
 EMAILPKG=	@EMAILPKG@
-JACODECSPKG=	JapaneseCodecs-1.4.11
-KOCODECSPKG=	KoreanCodecs-2.0.5
+JACODECSPKG=	@JACODECSPKG@
+KOCODECSPKG=	@KOCODECSPKG@
 
 PACKAGES= $(EMAILPKG) $(JACODECSPKG) $(KOCODECSPKG)
 
@@ -91,14 +91,14 @@ install-other:
 	$(INSTALL) -m $(FILEMODE) sitelist.cfg $(DESTDIR)$(DATADIR)
 
 install-packages:
-	if [ -z "$(EMAILPKG)" -a -d $(PYTHONLIBDIR)/email ] ; \
+	if [ -z "$(EMAILPKG)" -a -d $(DESTDIR)$(PYTHONLIBDIR)/email ] ; \
 	then \
-	    rm -rf $(PYTHONLIBDIR)/email* ; \
+	    rm -rf $(DESTDIR)$(PYTHONLIBDIR)/email* ; \
 	fi
 	for p in $(PACKAGES); \
 	do \
 	    gunzip -c $(srcdir)/$$p.tar.gz | (cd $(PKGDIR) ; tar xf -); \
-	    (cd $(PKGDIR)/$$p ; umask 02 ; PYTHONPATH=$(PYTHONLIBDIR) CFLAGS="$(BI_RC_CFLAGS)" $(PYTHON) $(SETUPCMD)); \
+	    (cd $(PKGDIR)/$$p ; umask 02 ; PYTHONPATH=$(PYTHONLIBDIR) $(PYTHON) $(SETUPCMD)); \
 	done
 
 finish:

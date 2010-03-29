@@ -2,7 +2,7 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright © 1998-2009 Apple Inc.  All rights reserved.
+ * Copyright © 1998-2010 Apple Inc.  All rights reserved.
  * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
@@ -35,7 +35,6 @@
 #include <IOKit/IOService.h>
 
 #include <IOKit/IOPlatformExpert.h>
-#include <IOKit/platform/ApplePlatformExpert.h>
 #include <IOKit/pwr_mgt/RootDomain.h>
 #include <IOKit/IOMessage.h>
 #include <IOKit/IOHibernatePrivate.h>
@@ -43,11 +42,20 @@
 
 #include <IOKit/usb/IOUSBRootHubDevice.h>
 #include <IOKit/usb/IOUSBLog.h>
-#include <IOKit/acpi/IOACPIPlatformDevice.h>
 #include <libkern/libkern.h>
 
 #include "AppleUSBEHCI.h"
 #include "USBTracepoints.h"
+
+//================================================================================================
+//
+//   Globals
+//
+//================================================================================================
+//
+// Declare a statically-initialized instance of the class so that its constructor will be called on driver load 
+// and its destructor will be called on unload.
+static class AppleUSBEHCI_IOLockClass gEHCI_GlobalLock;
 
 //================================================================================================
 //
@@ -107,6 +115,22 @@ enum {
 extern UInt32 getPortSCForWriting(EHCIRegistersPtr _pEHCIRegisters, short port);
 
 
+//================================================================================================
+//
+//   AppleUSBEHCI_IOLockClass methods
+//
+//================================================================================================
+//
+AppleUSBEHCI_IOLockClass::AppleUSBEHCI_IOLockClass() 
+{
+	lock = IOLockAlloc();
+}
+
+AppleUSBEHCI_IOLockClass::~AppleUSBEHCI_IOLockClass() 
+{
+	IOLockFree(lock);
+}		
+
 
 //================================================================================================
 //
@@ -164,7 +188,7 @@ AppleUSBEHCI::CheckSleepCapability(void)
 		
         if (!_hasPCIPwrMgmt)
         {
-            USBError(1, "AppleUSBOHCI[%p]::CheckSleepCapability - controller will be unloaded across sleep",this);
+            USBError(1, "AppleUSBEHCI[%p]::CheckSleepCapability - controller will be unloaded across sleep",this);
             _controllerCanSleep = false;
             setProperty("Card Type","PCI");
         }
@@ -235,14 +259,22 @@ AppleUSBEHCI::ResumeUSBBus()
 	// which was confusing lots of devices.
 	if (USBToHostLong(_savedUSBCMD) & kEHCICMDRunStop)
 	{
-		// if the controller was running before, go ahead and turn it on now, but leave the schedules off
-		_pEHCIRegisters->USBCMD |= HostToUSBLong(kEHCICMDRunStop);
+		UInt32	USBCmd = USBToHostLong(_pEHCIRegisters->USBCMD);
+		
+		// rdar://7315326 - Make sure that the threshold is set back to what we want it.. Some controllers appear to change it during sleep
+		USBCmd &= ~kEHCICMDIntThresholdMask;
+		USBCmd |= 1 << kEHCICMDIntThresholdOffset;						// Interrupt every micro frame as needed (4745296)
+		USBCmd |= kEHCICMDRunStop;
+		
+		USBLog(5, "AppleUSBEHCI[%p]::ResumeUSBBus - initial restart - USBCMD is <%p> will be <%p>",  this, (void*)USBToHostLong(_pEHCIRegisters->USBCMD), (void*)USBCmd);
+		_pEHCIRegisters->USBCMD = HostToUSBLong(USBCmd);
 		IOSync();
+		
 		for (i=0; (i< 100) && (USBToHostLong(_pEHCIRegisters->USBSTS) & kEHCIHCHaltedBit); i++)
 			IODelay(100);
 		if (i>1)
 		{
-			USBError(1, "AppleUSBEHCI[%p]::ResumeUSBBus - controller took (%d) turns to get going", this, i);
+			USBLog(2, "AppleUSBEHCI[%p]::ResumeUSBBus - controller took (%d) turns to get going", this, i);
 		}
 	}
     // resume all enabled ports which we own
@@ -558,6 +590,7 @@ AppleUSBEHCI::RestoreControllerStateFromSleep(void)
 			else if (portSC & kEHCIPortSC_Resume)
 			{
 				IOLog("\tUSB (EHCI):Port %d on bus 0x%x has remote wakeup from some device\n", (int)port+1, (uint32_t)_busNumber);
+				USBLog(5, "AppleUSBEHCI[%p]::RestoreControllerStateFromSleep  Port %d on bus 0x%x - has remote wakeup from some device", this, (int)port+1, (uint32_t)_busNumber);
 				if ((_errataBits & kErrataMissingPortChangeInt) && !_portChangeInterrupt && !(USBToHostLong(_pEHCIRegisters->USBSTS) & kEHCIPortChangeIntBit))
 				{
 					USBLog(2, "AppleUSBEHCI[%p]::RestoreControllerStateFromSleep - reclaiming missing Port Change interrupt for port %d",  this, (int)port+1);
@@ -724,9 +757,6 @@ AppleUSBEHCI::RestartControllerFromReset(void)
 	// get ready for that
 	_savedUSBIntr = HostToUSBLong(kEHCICompleteIntBit | kEHCIErrorIntBit | kEHCIHostErrorIntBit | kEHCIFrListRolloverIntBit | kEHCIPortChangeIntBit);	
 	
-	// Should revisit the Isoc bandwidth issue sometime.
-	//
-	_isochBandwidthAvail = 5 *1024;
 	_outSlot = kEHCIPeriodicListEntries+1;	/* No Isoc transactions currently. */
 	_frameNumber = 0;
 
@@ -937,7 +967,8 @@ AppleUSBEHCI::powerChangeDone ( unsigned long fromState)
 //
 //================================================================================================
 //
-static IOACPIPlatformDevice * CopyACPIDevice( IORegistryEntry * device )
+IOACPIPlatformDevice * 
+AppleUSBEHCI::CopyACPIDevice( IORegistryEntry * device )
 {
 	IOACPIPlatformDevice *  acpiDevice = 0;
 	OSString *				acpiPath;
@@ -955,6 +986,7 @@ static IOACPIPlatformDevice * CopyACPIDevice( IORegistryEntry * device )
 		{
 			IORegistryEntry * entry;
 			
+			// fromPath returns a retain()'d entry that needs to be released later
 			entry = IORegistryEntry::fromPath(acpiPath->getCStringNoCopy());
 			acpiPath->release();
 			
@@ -974,7 +1006,8 @@ static IOACPIPlatformDevice * CopyACPIDevice( IORegistryEntry * device )
 //
 //================================================================================================
 //
-static bool HasExpressCardUSB( IORegistryEntry * acpiDevice, UInt32 * portnum )
+bool 
+AppleUSBEHCI::HasExpressCardUSB( IORegistryEntry * acpiDevice, UInt32 * portnum )
 {
 	const IORegistryPlane *	acpiPlane;
 	bool					match = false;
@@ -1030,7 +1063,7 @@ static bool HasExpressCardUSB( IORegistryEntry * acpiDevice, UInt32 * portnum )
 
 //================================================================================================
 //
-//   HasExpressCardUSB
+//   ExpressCardPort
 //
 // Checks for ExpressCard connected to this controller, and returns the port number (1 based)
 // Will return 0 if no ExpressCard is connected to this controller.
@@ -1049,8 +1082,11 @@ AppleUSBEHCI::ExpressCardPort( IOService * provider )
 	{
 		isPCIeUSB = HasExpressCardUSB( acpiDevice, &portNum );	
 		acpiDevice->release();
+		acpiDevice = NULL;
 	}
 	return(portNum);
 }
+
+
 
 

@@ -29,6 +29,9 @@
 #ifndef HEADER_X509_VFY_APPLE_H
 #define HEADER_X509_VFY_APPLE_H
 
+/* Environment variable name to disable TEA. */
+#define X509_TEA_ENV_DISABLE "OPENSSL_X509_TEA_DISABLE"
+
 /*
  * X509_verify_cert
  *
@@ -36,7 +39,7 @@
  *
  * Verify certificate with OpenSSL created X509_verify_cert. If and only if
  * OpenSSL cannot get certificate issuer locally then OS X security API will
- * verify the certificate, using TrustEvaluationAgent.
+ * verify the certificate, using Trust Evaluation Agent.
  *
  * Return values:
  * --------------
@@ -45,5 +48,25 @@
  *  1: Certificate is not trusted.
  */
 int X509_verify_cert(X509_STORE_CTX *ctx);
+
+/*
+ * X509_TEA_is_enabled
+ *
+ * Is the Trust Evaluation Agent (TEA) used for certificate verification when
+ * the issuer cannot be verified.
+ *
+ * Returns 0 if TEA is disabled and 1 if TEA is enabled.
+ */
+int X509_TEA_is_enabled();
+
+/*
+ * X509_TEA_set_state
+ *
+ * Enables/disables certificate verification with Trust Evaluation Agent (TEA)
+ * when the issuer cannot be verified.
+ *
+ * Pass 0 to disable TEA and non-zero to enable TEA.
+ */
+void X509_TEA_set_state(int change);
 
 #endif /* HEADER_X509_VFY_APPLE_H */

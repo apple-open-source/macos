@@ -3,7 +3,7 @@
   class.c -
 
   $Author: shyouhei $
-  $Date: 2008-06-28 19:23:54 +0900 (Sat, 28 Jun 2008) $
+  $Date: 2009-01-16 11:00:48 +0900 (Fri, 16 Jan 2009) $
   created at: Tue Aug 10 15:05:44 JST 1993
 
   Copyright (C) 1993-2003 Yukihiro Matsumoto
@@ -62,7 +62,10 @@ clone_method(mid, body, data)
     NODE *fbody = body->nd_body;
 
     if (fbody && nd_type(fbody) == NODE_SCOPE) {
-	fbody = rb_copy_node_scope(fbody, ruby_cref);
+	NODE *cref = (NODE*)fbody->nd_rval;
+
+	if (cref) cref = cref->nd_next;
+	fbody = rb_copy_node_scope(fbody, NEW_CREF(data->klass, cref));
     }
     st_insert(data->tbl, mid, (st_data_t)NEW_METHOD(fbody, body->nd_noex));
     return ST_CONTINUE;

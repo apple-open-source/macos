@@ -187,6 +187,30 @@ bool    OSAtomicCompareAndSwap32Barrier( int32_t oldValue, int32_t newValue, vol
     return OSAtomicCompareAndSwap32(oldValue, newValue, theValue);
 }
 
+bool
+OSAtomicCompareAndSwapInt(int oldValue, int newValue, volatile int *theValue)
+{
+	return OSAtomicCompareAndSwap32(oldValue, newValue, theValue);
+}
+
+bool
+OSAtomicCompareAndSwapIntBarrier(int oldValue, int newValue, volatile int *theValue)
+{
+	return OSAtomicCompareAndSwap32(oldValue, newValue, theValue);
+}
+
+bool
+OSAtomicCompareAndSwapLong(long oldValue, long newValue, volatile long *theValue)
+{
+	return OSAtomicCompareAndSwap32(oldValue, newValue, (volatile int32_t *)theValue);
+}
+
+bool
+OSAtomicCompareAndSwapLongBarrier(long oldValue, long newValue, volatile long *theValue)
+{
+	return OSAtomicCompareAndSwap32(oldValue, newValue, (volatile int32_t *)theValue);
+}
+
 bool	OSAtomicCompareAndSwap64( int64_t oldValue, int64_t newValue, volatile int64_t *theValue )
 {
     bool result;

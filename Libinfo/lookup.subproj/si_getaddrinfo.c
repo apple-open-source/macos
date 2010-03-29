@@ -108,7 +108,7 @@ gai_strerror(int32_t err)
  * we inet_ntop() and printf() and return the results.
  */
 __private_extern__ si_item_t *
-si_nameinfo(si_mod_t *si, const struct sockaddr *sa, int flags, uint32_t *err)
+si_nameinfo(si_mod_t *si, const struct sockaddr *sa, int flags, const char *interface, uint32_t *err)
 {
 	si_item_t *out = NULL;
 	const struct sockaddr *lookup_sa;
@@ -195,10 +195,10 @@ si_nameinfo(si_mod_t *si, const struct sockaddr *sa, int flags, uint32_t *err)
 #if 0
 		if ((do_serv_lookup == 1) && (si->sim_nameinfo != NULL))
 		{
-			return si->sim_nameinfo(si, lookup_sa, flags, err);
+			return si->sim_nameinfo(si, lookup_sa, flags, interface, err);
 		}
 #endif
-		si_item_t *item = si_host_byaddr(si, addr, lookup_sa->sa_family, NULL);
+		si_item_t *item = si_host_byaddr(si, addr, lookup_sa->sa_family, interface, NULL);
 		if (item != NULL)
 		{
 			struct hostent *h;
@@ -577,7 +577,7 @@ si_addrinfo_list_from_hostent(si_mod_t *si, uint32_t socktype, uint32_t proto, u
  * Simple lookup via gethostbyname2(3) mechanism.
  */
 static si_list_t *
-_gai_simple(si_mod_t *si, const void *nodeptr, const void *servptr, uint32_t family, uint32_t socktype, uint32_t proto, uint32_t flags, uint32_t *err)
+_gai_simple(si_mod_t *si, const void *nodeptr, const void *servptr, uint32_t family, uint32_t socktype, uint32_t proto, uint32_t flags, const char *interface, uint32_t *err)
 {
 	si_item_t *h4_item = NULL, *h6_item = NULL;
 	struct hostent *h4 = NULL, *h6 = NULL;
@@ -601,25 +601,24 @@ _gai_simple(si_mod_t *si, const void *nodeptr, const void *servptr, uint32_t fam
 	{
 		if (family == AF_INET)
 		{
-			h4_item = si_host_byaddr(si, nodeptr, AF_INET, NULL);
+			h4_item = si_host_byaddr(si, nodeptr, AF_INET, interface, NULL);
 		}
 		else if (family == AF_INET6)
 		{
-			h6_item = si_host_byaddr(si, nodeptr, AF_INET6, NULL);
+			h6_item = si_host_byaddr(si, nodeptr, AF_INET6, interface, NULL);
 		}
 	}
 	else
 	{
 		if ((family == AF_INET) || (family == AF_UNSPEC))
 		{
-			h4_item = si_host_byname(si, nodeptr, AF_INET, NULL);
+			h4_item = si_host_byname(si, nodeptr, AF_INET, interface, NULL);
 		}
-#if !TARGET_OS_EMBEDDED
+
 		if ((family == AF_INET6) || (family == AF_UNSPEC))
 		{
-			h6_item = si_host_byname(si, nodeptr, AF_INET6, NULL);
+			h6_item = si_host_byname(si, nodeptr, AF_INET6, interface, NULL);
 		}
-#endif /* !TARGET_OS_EMBEDDED */
 	}
 
 	if (h4_item != NULL)
@@ -640,12 +639,12 @@ _gai_simple(si_mod_t *si, const void *nodeptr, const void *servptr, uint32_t fam
 }
 
 __private_extern__ si_list_t *
-si_srv_byname(si_mod_t *si, const char *qname, uint32_t *err)
+si_srv_byname(si_mod_t *si, const char *qname, const char *interface, uint32_t *err)
 {
 	if (si == NULL) return 0;
 	if (si->sim_srv_byname == NULL) return 0;
 
-	return si->sim_srv_byname(si, qname, err);
+	return si->sim_srv_byname(si, qname, interface, err);
 }
 
 __private_extern__ int
@@ -659,7 +658,7 @@ si_wants_addrinfo(si_mod_t *si)
 }
 
 static si_list_t *
-_gai_srv(si_mod_t *si, const char *node, const char *serv, uint32_t family, uint32_t socktype, uint32_t proto, uint32_t flags, uint32_t *err)
+_gai_srv(si_mod_t *si, const char *node, const char *serv, uint32_t family, uint32_t socktype, uint32_t proto, uint32_t flags, const char *interface, uint32_t *err)
 {
 	int i;
 	char *qname;
@@ -676,7 +675,7 @@ _gai_srv(si_mod_t *si, const char *node, const char *serv, uint32_t family, uint
 	if (node == NULL || serv == NULL) return NULL;
 	
 	asprintf(&qname, "%s.%s", serv, node);
-	list = si_srv_byname(si, qname, err);
+	list = si_srv_byname(si, qname, interface, err);
 	free(qname);
 	
 	/* Iterate the SRV records starting at lowest priority and attempt to
@@ -722,7 +721,7 @@ _gai_srv(si_mod_t *si, const char *node, const char *serv, uint32_t family, uint
 				/* So that _gai_simple expects an integer service. */
 				flags |= AI_NUMERICSERV;
 
-				result = _gai_simple(si, srv->target, &srv->port, family, socktype, proto, flags, err);
+				result = _gai_simple(si, srv->target, &srv->port, family, socktype, proto, flags, interface, err);
 				if (result)
 				{
 					break;
@@ -740,7 +739,7 @@ _gai_srv(si_mod_t *si, const char *node, const char *serv, uint32_t family, uint
 }
 
 __private_extern__ si_list_t *
-si_addrinfo(si_mod_t *si, const char *node, const char *serv, uint32_t family, uint32_t socktype, uint32_t proto, uint32_t flags, uint32_t *err)
+si_addrinfo(si_mod_t *si, const char *node, const char *serv, uint32_t family, uint32_t socktype, uint32_t proto, uint32_t flags, const char *interface, uint32_t *err)
 {
 	int numerichost, numericserv = 0;
 	const void *nodeptr = NULL, *servptr = NULL;
@@ -772,9 +771,6 @@ si_addrinfo(si_mod_t *si, const char *node, const char *serv, uint32_t family, u
 	switch (family)
 	{
 		case AF_UNSPEC:
-#if TARGET_OS_EMBEDDED
-			family = AF_INET;
-#endif
 		case AF_INET:
 		case AF_INET6:
 			break;
@@ -829,7 +825,7 @@ si_addrinfo(si_mod_t *si, const char *node, const char *serv, uint32_t family, u
 	if ((flags & AI_SRV) != 0)
 	{
 		/* AI_SRV SPI */
-		return _gai_srv(si, node, serv, family, socktype, proto, flags, err);
+		return _gai_srv(si, node, serv, family, socktype, proto, flags, interface, err);
 	}
 	else
 	{
@@ -913,11 +909,11 @@ si_addrinfo(si_mod_t *si, const char *node, const char *serv, uint32_t family, u
 	else if ((si->sim_wants_addrinfo != NULL) && si->sim_wants_addrinfo(si))
 	{
 		/* or let the current module handle the host lookups intelligently */
-		return si->sim_addrinfo(si, nodeptr, servptr, family, socktype, proto, flags, err);
+		return si->sim_addrinfo(si, nodeptr, servptr, family, socktype, proto, flags, interface, err);
 	}
 
 	/* fall back to a default path */
-	return _gai_simple(si, nodeptr, servptr, family, socktype, proto, flags, err);
+	return _gai_simple(si, nodeptr, servptr, family, socktype, proto, flags, interface, err);
 }
 
 static struct addrinfo *
@@ -1137,7 +1133,7 @@ free_build_hostent(build_hostent_t *h)
 }
 
 __private_extern__ si_item_t *
-si_ipnode_byname(si_mod_t *si, const char *name, int family, int flags, uint32_t *err)
+si_ipnode_byname(si_mod_t *si, const char *name, int family, int flags, const char *interface, uint32_t *err)
 {
 	int i, status, want, if4, if6;
 	struct ifaddrs *ifa, *ifap;
@@ -1300,13 +1296,13 @@ si_ipnode_byname(si_mod_t *si, const char *name, int family, int flags, uint32_t
 	/* fetch IPv6 data if required */
 	if ((want == WANT_A6_ONLY) || (want == WANT_A6_OR_MAPPED_A4_IF_NO_A6) || (want == WANT_A6_PLUS_MAPPED_A4))
 	{
-		item6 = si_host_byname(si, name, AF_INET6, (uint32_t *)err);
+		item6 = si_host_byname(si, name, AF_INET6, interface, (uint32_t *)err);
 	}
 
 	/* fetch IPv4 data if required */
 	if ((want == WANT_A4_ONLY) || (want == WANT_A6_PLUS_MAPPED_A4) || ((want == WANT_A6_OR_MAPPED_A4_IF_NO_A6) && (item6 == NULL)))
 	{
-		item4 = si_host_byname(si, name, AF_INET, (uint32_t *)err);
+		item4 = si_host_byname(si, name, AF_INET, interface, (uint32_t *)err);
 	}
 
 	if (want == WANT_A4_ONLY)

@@ -655,6 +655,7 @@ UserGroup **Mbrd_FindItemsAndRetain( tDirNodeReference dirNode, tDataListPtr rec
 	uint64_t *statTime = &gStatBlock.fAverageuSecPerRecordLookup;
 	uint64_t *statCount = &gStatBlock.fTotalRecordLookups;
 	const char *attribute = NULL;
+	tDirPatternMatch match = eDSExact;
 	
 	switch ( idType )
 	{
@@ -707,6 +708,7 @@ UserGroup **Mbrd_FindItemsAndRetain( tDirNodeReference dirNode, tDataListPtr rec
 		case ID_TYPE_GUID:
 			attribute = kDS1AttrGeneratedUID;
 			foundBy = kUGFoundByGUID;
+			match = eDSiExact;
 			break;
 			
 		case ID_TYPE_GROUPMEMBERS:
@@ -740,7 +742,7 @@ UserGroup **Mbrd_FindItemsAndRetain( tDirNodeReference dirNode, tDataListPtr rec
 		do {
 			count = (*recCount);
 			status = dsDoAttributeValueSearchWithData(dirNode, searchBuffer, recType,
-													  attrType, eDSExact, lookUpPtr, gAttrsToGet, 0,
+													  attrType, match, lookUpPtr, gAttrsToGet, 0,
 													  &count, &localContext);
 			if (status == eDSBufferTooSmall) {
 				buffSize *= 2;

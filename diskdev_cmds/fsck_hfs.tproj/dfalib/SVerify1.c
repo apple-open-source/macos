@@ -772,6 +772,8 @@ OSErr	CreateExtentsBTreeControlBlock( SGlobPtr GPtr )
 		{
 			RcdError( GPtr, E_ExtPEOF );
 			err = E_ExtPEOF;
+			if (debug)
+				plog("Extents File totalBlocks = %u, numABlks = %u\n", volumeHeader->extentsFile.totalBlocks, numABlks);
 			goto exit;
 		}
 		else
@@ -833,6 +835,8 @@ OSErr	CreateExtentsBTreeControlBlock( SGlobPtr GPtr )
 		{
 			RcdError(GPtr,E_ExtPEOF);
 			err = E_ExtPEOF;
+			if (debug)
+				plog("Alternate MDB drXTFlSize = %llu, should be %llu\n", (long long)alternateMDB->drXTFlSize, (long long)numABlks * (UInt64)GPtr->calculatedVCB->vcbBlockSize);
 			goto exit;
 		}
 		else
@@ -925,6 +929,7 @@ static	OSErr	CheckNodesFirstOffset( SGlobPtr GPtr, BTreeControlBlock *btcb )
 			 (offset & 1) ||									// offset is odd
 			 (offset >= btcb->nodeSize) )						// offset beyond end of node
 		{
+			if (debug) fprintf(stderr, "%s(%d):  offset is wrong\n", __FUNCTION__, __LINE__);
 			err	= fsBTInvalidNodeErr;
 		}
 	}

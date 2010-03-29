@@ -95,7 +95,7 @@
     if ( desc->bDescriptorType != CS_INTERFACE )
         return;
 	
-    if( SC_VIDEOCONTROL == [[thisDevice lastInterfaceClassInfo] subclassNum] )
+    if ( SC_VIDEOCONTROL == [[thisDevice lastInterfaceClassInfo] subclassNum] )
     {
         switch ( desc->bDescriptorSubType )
         {
@@ -124,7 +124,7 @@
                 sprintf((char *)buf, "Unknown SC_VIDEOCONTROL SubType Descriptor");
         }
     }
-    else if( SC_VIDEOSTREAMING == [[thisDevice lastInterfaceClassInfo] subclassNum] )
+    else if ( SC_VIDEOSTREAMING == [[thisDevice lastInterfaceClassInfo] subclassNum] )
     {
         switch ( desc->bDescriptorSubType )
         {
@@ -197,7 +197,7 @@
     
     
     
-    if( SC_VIDEOCONTROL == [[thisDevice lastInterfaceClassInfo] subclassNum] ) // Video Control Subclass
+    if ( SC_VIDEOCONTROL == [[thisDevice lastInterfaceClassInfo] subclassNum] ) // Video Control Subclass
     {
         switch ( desc->bDescriptorSubType )
         {
@@ -253,7 +253,7 @@
 					sprintf((char *)buf, 	"0x%x (%s)", pVideoInTermDesc->wTerminalType, s );
                 [thisDevice addProperty:"Input Terminal Type:" withValue:buf atDepth:INTERFACE_LEVEL+1];
 				
-                if( !pVideoInTermDesc->bAssocTerminal )
+                if ( !pVideoInTermDesc->bAssocTerminal )
                     sprintf((char *)buf, "%u [NONE]", pVideoInTermDesc->bAssocTerminal );
                 else
                     sprintf((char *)buf, "%u", pVideoInTermDesc->bAssocTerminal );
@@ -261,7 +261,7 @@
                 [thisDevice addProperty:"Input Terminal ID:" withValue:buf atDepth:INTERFACE_LEVEL+1];
 				
 				
-                if( !pVideoInTermDesc->iTerminal )
+                if ( !pVideoInTermDesc->iTerminal )
                 {
                     sprintf((char *)buf, "%u [NONE]", pVideoInTermDesc->iTerminal );
                     [thisDevice addProperty:"Input Terminal String Index:" withValue:buf atDepth:INTERFACE_LEVEL+1];
@@ -416,7 +416,7 @@
 					sprintf((char *)buf, 	"0x%x (%s)", pVideoOutTermDesc->wTerminalType, s );
                 [thisDevice addProperty:"Output Terminal Type:" withValue:buf atDepth:INTERFACE_LEVEL+1];
 				
-                if( !pVideoOutTermDesc->bAssocTerminal )
+                if ( !pVideoOutTermDesc->bAssocTerminal )
                     sprintf((char *)buf, "%u [NONE]", pVideoOutTermDesc->bAssocTerminal );
                 else
                     sprintf((char *)buf, "%u", pVideoOutTermDesc->bAssocTerminal );
@@ -424,7 +424,7 @@
                 [thisDevice addProperty:"Output Terminal ID:" withValue:buf atDepth:INTERFACE_LEVEL+1];
 				
 				
-                if( !pVideoOutTermDesc->iTerminal )
+                if ( !pVideoOutTermDesc->iTerminal )
                 {
                     sprintf((char *)buf, "%u [NONE]", pVideoOutTermDesc->iTerminal );
                     [thisDevice addProperty:"Output Terminal String Index:" withValue:buf atDepth:INTERFACE_LEVEL+1];
@@ -454,7 +454,7 @@
 					// Now, p will point to the IOUSBVCSelectorUnit2Descriptor
 					//
 					pSelectorUnit2Desc = (IOUSBVCSelectorUnit2Descriptor *) p;
-                if( !pSelectorUnit2Desc->iSelector )
+                if ( !pSelectorUnit2Desc->iSelector )
                 {
                     sprintf((char *)buf, "%u [NONE]", pSelectorUnit2Desc->iSelector );
                     [thisDevice addProperty:"Selector Unit String Index:" withValue:buf atDepth:INTERFACE_LEVEL+1];
@@ -577,7 +577,7 @@
 					
 					// At this point, p should be pointing to the iProcessing field:
 					pProcessingUnit2Desc = (IOUSBVCProcessingUnit2Descriptor *) p;
-                if( !pProcessingUnit2Desc->iProcessing )
+                if ( !pProcessingUnit2Desc->iProcessing )
                 {
                     sprintf((char *)buf, "%u [NONE]", pProcessingUnit2Desc->iProcessing );
                     [thisDevice addProperty:"Processing Unit String Index:" withValue:buf atDepth:INTERFACE_LEVEL+1];
@@ -647,7 +647,7 @@
 					
 					// At this point, p should be pointing to the iProcessing field:
 					pExtensionUnit3Desc = ( IOUSBVCExtensionUnit3Descriptor *) p;
-                if( !pExtensionUnit3Desc->iExtension )
+                if ( !pExtensionUnit3Desc->iExtension )
                 {
                     sprintf((char *)buf, "%u [NONE]", pExtensionUnit3Desc->iExtension );
                     [thisDevice addProperty:"Processing Unit String Index:" withValue:buf atDepth:INTERFACE_LEVEL+1];
@@ -664,7 +664,7 @@
 				
         }
     }
-    else if( SC_VIDEOSTREAMING == [[thisDevice lastInterfaceClassInfo] subclassNum] ) // Video Streaming Subclass
+    else if ( SC_VIDEOSTREAMING == [[thisDevice lastInterfaceClassInfo] subclassNum] ) // Video Streaming Subclass
     {
         switch ( desc->bDescriptorSubType )
 		{

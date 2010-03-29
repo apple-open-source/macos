@@ -26,21 +26,31 @@
 
 #define super IOService
 
-/****************************************************************************/
-/*					Default constructors/destructor							*/
-/****************************************************************************/
 OSDefineMetaClassAndStructors( IOHIDResource, IOService )
 
 
-/****************************************************************************/
-/*							Override start to register						*/
-/****************************************************************************/
 bool IOHIDResource::start(IOService *provider)
-{
-    bool res = super::start(provider);
+{    
+    if ( !super::start(provider) )
+        return false;
+        
+    _workLoop = IOWorkLoop::workLoop();
+    if ( !_workLoop )
+        return false;
 
     registerService(kIOServiceSynchronous);
 
-	return res;
+	return true;
+}
+
+void IOHIDResource::free()
+{
+    if ( _workLoop )
+        _workLoop->release();
+}
+
+IOWorkLoop * IOHIDResource::getWorkLoop() const
+{
+	return _workLoop;
 }
 

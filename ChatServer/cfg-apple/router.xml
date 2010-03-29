@@ -37,10 +37,7 @@
   <!-- If message logging is enabled, roll logs if they get larger than this (megabytes) (0 to disable) -->
   <message_logging_roll_megs>256</message_logging_roll_megs>
 
-  <!-- If enabled (set to "1"), and message_logging_enabled is enabled, include group chats in log -->
-  <log_group_chats>1</log_group_chats>
-
-  <!-- If defined, and log_group_chats is enabled, any message sent from this component name will not
+  <!-- If defined, any message sent from this component name will not
         be logged.  The purpose of this preference is to prevent router from logging multiple copies
         of messages sent to MUC chat rooms.  To prevent the logging of duplicates, this preference should
         match your MUC component's name.  Messages sent to MUC will still be logged.  -->

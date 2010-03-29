@@ -26,6 +26,10 @@ $key = q/troubleshooting/;
 $external_labels{$key} = "$URL/" . q|node46.html|; 
 $noresave{$key} = "$nosave";
 
+$key = q/site-list/;
+$external_labels{$key} = "$URL/" . q|node40.html|; 
+$noresave{$key} = "$nosave";
+
 $key = q/customizing/;
 $external_labels{$key} = "$URL/" . q|node39.html|; 
 $noresave{$key} = "$nosave";
@@ -71,6 +75,10 @@ $noresave{$key} = "$nosave";
 
 $key = q/troubleshooting/;
 $external_latex_labels{$key} = q|14|; 
+$noresave{$key} = "$nosave";
+
+$key = q/site-list/;
+$external_latex_labels{$key} = q|8|; 
 $noresave{$key} = "$nosave";
 
 $key = q/customizing/;

@@ -108,6 +108,8 @@
 <File RelativePath="content_encoding.c"></File>
 <File RelativePath="cookie.c"></File>
 <File RelativePath="curl_addrinfo.c"></File>
+<File RelativePath="curl_memrchr.c"></File>
+<File RelativePath="curl_rand.c"></File>
 <File RelativePath="curl_sspi.c"></File>
 <File RelativePath="dict.c"></File>
 <File RelativePath="easy.c"></File>
@@ -143,6 +145,7 @@
 <File RelativePath="mprintf.c"></File>
 <File RelativePath="multi.c"></File>
 <File RelativePath="netrc.c"></File>
+<File RelativePath="nonblock.c"></File>
 <File RelativePath="nss.c"></File>
 <File RelativePath="parsedate.c"></File>
 <File RelativePath="progress.c"></File>
@@ -152,6 +155,7 @@
 <File RelativePath="select.c"></File>
 <File RelativePath="sendf.c"></File>
 <File RelativePath="share.c"></File>
+<File RelativePath="slist.c"></File>
 <File RelativePath="socks.c"></File>
 <File RelativePath="socks_gssapi.c"></File>
 <File RelativePath="socks_sspi.c"></File>
@@ -181,6 +185,9 @@
 <File RelativePath="curl_base64.h"></File>
 <File RelativePath="curl_ldap.h"></File>
 <File RelativePath="curl_md5.h"></File>
+<File RelativePath="curl_memory.h"></File>
+<File RelativePath="curl_memrchr.h"></File>
+<File RelativePath="curl_rand.h"></File>
 <File RelativePath="curl_sspi.h"></File>
 <File RelativePath="curlx.h"></File>
 <File RelativePath="dict.h"></File>
@@ -204,9 +211,9 @@
 <File RelativePath="krb4.h"></File>
 <File RelativePath="llist.h"></File>
 <File RelativePath="memdebug.h"></File>
-<File RelativePath="memory.h"></File>
 <File RelativePath="multiif.h"></File>
 <File RelativePath="netrc.h"></File>
+<File RelativePath="nonblock.h"></File>
 <File RelativePath="nssg.h"></File>
 <File RelativePath="parsedate.h"></File>
 <File RelativePath="progress.h"></File>
@@ -217,6 +224,7 @@
 <File RelativePath="setup.h"></File>
 <File RelativePath="setup_once.h"></File>
 <File RelativePath="share.h"></File>
+<File RelativePath="slist.h"></File>
 <File RelativePath="sockaddr.h"></File>
 <File RelativePath="socks.h"></File>
 <File RelativePath="speedcheck.h"></File>

@@ -19,11 +19,11 @@ SInt32 EDIDSum( const UInt8 * bytes, IOByteCount len )
 
     for (j=0; j < len; j += 128)
     {
-	sum = 0;
-	for (i=0; i < 128; i++)
-	    sum += bytes[j+i];
-	if(sum)
-	    return (j/128);
+        sum = 0;
+        for (i=0; i < 128; i++)
+            sum += bytes[j+i];
+        if(sum)
+            return (j/128);
     }
     return (-1);
 }
@@ -44,25 +44,25 @@ void EDIDDump( const UInt8 * bytes, IOByteCount len )
 
 void EDIDRead( IOI2CConnectRef connect, Boolean save )
 {
-    kern_return_t	kr;
-    IOI2CRequest	request;
-    UInt8		data[128];
-    int 		i;
+    kern_return_t       kr;
+    IOI2CRequest        request;
+    UInt8               data[128];
+    int                 i;
 
     bzero( &request, sizeof(request) );
 
-    request.commFlags	    		= 0;
+    request.commFlags                   = 0;
 
-    request.sendAddress			= 0xA0;
-    request.sendTransactionType		= kIOI2CSimpleTransactionType;
-    request.sendBuffer			= (vm_address_t) &data[0];
-    request.sendBytes	    		= 0x01;
-    data[0] 		    		= 0x00;
+    request.sendAddress                 = 0xA0;
+    request.sendTransactionType         = kIOI2CSimpleTransactionType;
+    request.sendBuffer                  = (vm_address_t) &data[0];
+    request.sendBytes                   = 0x01;
+    data[0]                             = 0x00;
 
-    request.replyAddress		= 0xA1;
-    request.replyTransactionType	= kIOI2CSimpleTransactionType;
-    request.replyBuffer	    		= (vm_address_t) &data[0];
-    request.replyBytes	    		= sizeof(data);
+    request.replyAddress                = 0xA1;
+    request.replyTransactionType        = kIOI2CSimpleTransactionType;
+    request.replyBuffer                 = (vm_address_t) &data[0];
+    request.replyBytes                  = sizeof(data);
     bzero( &data[0], request.replyBytes );
 
     kr = IOI2CSendRequest( connect, kNilOptions, &request );
@@ -76,12 +76,12 @@ void EDIDRead( IOI2CConnectRef connect, Boolean save )
     i = EDIDSum( &data[0], request.replyBytes );
 
     if( i >= 0)
-	fprintf(stderr, "/* Block %d checksum bad */\n", i);
+        fprintf(stderr, "/* Block %d checksum bad */\n", i);
     else
-	fprintf(stderr, "/* Checksums ok */\n");
+        fprintf(stderr, "/* Checksums ok */\n");
 
     if( save)
-	write( STDOUT_FILENO, data, request.replyBytes );
+        write( STDOUT_FILENO, data, request.replyBytes );
 }
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
@@ -90,10 +90,10 @@ int main( int argc, char * argv[] )
 {
     kern_return_t kr;
     io_service_t  framebuffer, interface;
-    io_string_t	  path;
+    io_string_t   path;
     IOOptionBits  bus;
-    IOItemCount	  busCount;
-    Boolean	  save;
+    IOItemCount   busCount;
+    Boolean       save;
 
     framebuffer = CGDisplayIOServicePort(CGMainDisplayID());
 
@@ -102,32 +102,32 @@ int main( int argc, char * argv[] )
         assert( KERN_SUCCESS == kr );
         fprintf(stderr, "\n/* Using device: %s */\n", path);
 
-	kr = IOFBGetI2CInterfaceCount( framebuffer, &busCount );
-	assert( kIOReturnSuccess == kr );
+        kr = IOFBGetI2CInterfaceCount( framebuffer, &busCount );
+        assert( kIOReturnSuccess == kr );
     
-	for( bus = 0; bus < busCount; bus++ )
-	{
-	    IOI2CConnectRef  connect;
+        for( bus = 0; bus < busCount; bus++ )
+        {
+            IOI2CConnectRef  connect;
 
-	    fprintf(stderr, "/* Bus %ld: */\n", bus);
+            fprintf(stderr, "/* Bus %ld: */\n", bus);
     
-	    kr = IOFBCopyI2CInterfaceForBus(framebuffer, bus, &interface);
-	    if( kIOReturnSuccess != kr)
-		continue;
+            kr = IOFBCopyI2CInterfaceForBus(framebuffer, bus, &interface);
+            if( kIOReturnSuccess != kr)
+                continue;
     
-	    kr = IOI2CInterfaceOpen( interface, kNilOptions, &connect );
+            kr = IOI2CInterfaceOpen( interface, kNilOptions, &connect );
     
-	    IOObjectRelease(interface);
-	    assert( kIOReturnSuccess == kr );
-	    if( kIOReturnSuccess != kr)
-		continue;
+            IOObjectRelease(interface);
+            assert( kIOReturnSuccess == kr );
+            if( kIOReturnSuccess != kr)
+                continue;
     
-	    save = (argc > 1) && (argv[1][0] == 's');
+            save = (argc > 1) && (argv[1][0] == 's');
 
-	    EDIDRead( connect, save );
+            EDIDRead( connect, save );
         
-	    IOI2CInterfaceClose( connect, kNilOptions );
-	}
+            IOI2CInterfaceClose( connect, kNilOptions );
+        }
     }
 
     exit(0);

@@ -15,7 +15,7 @@
 # NOTE: You can find Japanese version of this document at:
 # http://www.ruby-lang.org/ja/man/html/net_pop.html
 # 
-#   $Id: pop.rb 16193 2008-04-25 06:51:21Z knu $
+#   $Id: pop.rb 22002 2009-02-03 05:35:56Z shyouhei $
 # 
 # See Net::POP3 for documentation.
 #
@@ -196,7 +196,7 @@ module Net
   # 
   class POP3 < Protocol
 
-    Revision = %q$Revision: 16193 $.split[1]
+    Revision = %q$Revision: 22002 $.split[1]
 
     #
     # Class Parameters
@@ -871,7 +871,7 @@ module Net
       @socket = sock
       @error_occured = false
       res = check_response(critical { recv_response() })
-      @apop_stamp = res.slice(/<.+>/)
+      @apop_stamp = res.slice(/<[!-~]+@[!-~]+>/)
     end
 
     def inspect

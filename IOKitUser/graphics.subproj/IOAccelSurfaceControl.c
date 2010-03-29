@@ -38,12 +38,12 @@ IOReturn IOAccelFindAccelerator( io_service_t framebuffer,
     IOReturn      kr;
     io_service_t  accelerator = MACH_PORT_NULL;
 
-    mach_port_t     	   masterPort;
+    mach_port_t            masterPort;
     CFMutableDictionaryRef props = 0;
     CFStringRef            cfStr;
     CFNumberRef            cfNum;
     const char *           cStr;
-    char *	           buffer = NULL;
+    char *                 buffer = NULL;
 
     *pAccelerator = MACH_PORT_NULL;
     *pFramebufferIndex = 0;
@@ -64,7 +64,7 @@ IOReturn IOAccelFindAccelerator( io_service_t framebuffer,
         cStr = CFStringGetCStringPtr( cfStr, kCFStringEncodingMacRoman);
         if( !cStr) {
             CFIndex bufferSize = CFStringGetMaximumSizeForEncoding( CFStringGetLength(cfStr),
-            	    kCFStringEncodingMacRoman) + sizeof('\0');
+                    kCFStringEncodingMacRoman) + sizeof('\0');
             buffer = malloc( bufferSize);
             if( buffer && CFStringGetCString( cfStr, buffer, bufferSize, kCFStringEncodingMacRoman))
                 cStr = buffer;
@@ -108,25 +108,25 @@ IOReturn IOAccelCreateAccelID(IOOptionBits options, IOAccelID * identifier)
 
     if (!idConnect)
     {
-	io_service_t
-	service = IORegistryEntryFromPath(kIOMasterPortDefault, 
-					kIOServicePlane ":/IOResources/IODisplayWrangler");
-	if (service) 
-	{
-	    err = IOServiceOpen(service, mach_task_self(), 0, &idConnect);
-	    IOObjectRelease(service);
-	}
+        io_service_t
+        service = IORegistryEntryFromPath(kIOMasterPortDefault, 
+                                        kIOServicePlane ":/IOResources/IODisplayWrangler");
+        if (service) 
+        {
+            err = IOServiceOpen(service, mach_task_self(), 0, &idConnect);
+            IOObjectRelease(service);
+        }
     }
 
     if (!idConnect)
-	return (kIOReturnNotReady);
+        return (kIOReturnNotReady);
 
     uint64_t inData[] = { options, *identifier };
     uint64_t outData;
     uint32_t outLen = 1;
     err = IOConnectCallScalarMethod(idConnect, kAlloc,
-			         inData,   arrayCnt(inData),
-			        &outData,  &outLen);
+                                 inData,   arrayCnt(inData),
+                                &outData,  &outLen);
     *identifier = (IOAccelID) outData;
 
     return (err);
@@ -137,11 +137,11 @@ IOReturn IOAccelDestroyAccelID(IOOptionBits options, IOAccelID identifier)
     IOReturn err;
 
     if (!idConnect)
-	return (kIOReturnNotReady);
+        return (kIOReturnNotReady);
 
     uint64_t inData[] = { options, identifier };
     err = IOConnectCallScalarMethod(idConnect, kFree,
-			         inData, arrayCnt(inData), NULL, NULL);
+                                 inData, arrayCnt(inData), NULL, NULL);
 
     return (err);
 }
@@ -149,10 +149,10 @@ IOReturn IOAccelDestroyAccelID(IOOptionBits options, IOAccelID identifier)
 IOReturn IOAccelCreateSurface( io_service_t accelerator, UInt32 wID, eIOAccelSurfaceModeBits modebits,
                                 IOAccelConnect *connect )
 {
-	IOReturn	kr;
-	io_connect_t	window = MACH_PORT_NULL;
+        IOReturn        kr;
+        io_connect_t    window = MACH_PORT_NULL;
 
-	*connect = NULL;
+        *connect = NULL;
 
         /* Create a context */
         kr = IOServiceOpen( accelerator,
@@ -162,218 +162,218 @@ IOReturn IOAccelCreateSurface( io_service_t accelerator, UInt32 wID, eIOAccelSur
 
         if( kr != kIOReturnSuccess)
         {
-		return kr;
+                return kr;
         }
 
-	/* Set the window id */
-	uint64_t data[] = { wID, modebits };
-	kr = IOConnectCallScalarMethod(window, kIOAccelSurfaceSetIDMode,
-				   data, arrayCnt(data), NULL, NULL);
-	if(kr != kIOReturnSuccess)
-	{
-		IOServiceClose(window);
-		return kr;
-	}
+        /* Set the window id */
+        uint64_t data[] = { wID, modebits };
+        kr = IOConnectCallScalarMethod(window, kIOAccelSurfaceSetIDMode,
+                                   data, arrayCnt(data), NULL, NULL);
+        if(kr != kIOReturnSuccess)
+        {
+                IOServiceClose(window);
+                return kr;
+        }
 
-	*connect = (IOAccelConnect) (uintptr_t) window;
+        *connect = (IOAccelConnect) (uintptr_t) window;
 
-	return kIOReturnSuccess;
+        return kIOReturnSuccess;
 }
 
 IOReturn IOAccelDestroySurface( IOAccelConnect connect )
 {
-	IOReturn kr;
+        IOReturn kr;
 
-	if(!connect)
-		return kIOReturnError;
+        if(!connect)
+                return kIOReturnError;
 
-	kr = IOServiceClose((io_connect_t) (uintptr_t) connect);
+        kr = IOServiceClose((io_connect_t) (uintptr_t) connect);
 
-	return kr;
+        return kr;
 }
 
 
 IOReturn IOAccelSetSurfaceScale( IOAccelConnect connect, IOOptionBits options,
                                     IOAccelSurfaceScaling * scaling, UInt32 scalingSize )
 {
-	uint64_t inData = options;
-	IOReturn result;
+        uint64_t inData = options;
+        IOReturn result;
 
-	
-	result = IOConnectCallMethod((io_connect_t) (uintptr_t) connect, 
-				kIOAccelSurfaceSetScale,
-				&inData, 1, 
-				scaling, (size_t) scalingSize,
-			    NULL, NULL, NULL, NULL); // no output
+        
+        result = IOConnectCallMethod((io_connect_t) (uintptr_t) connect, 
+                                kIOAccelSurfaceSetScale,
+                                &inData, 1, 
+                                scaling, (size_t) scalingSize,
+                            NULL, NULL, NULL, NULL); // no output
 
-	return result;
+        return result;
 }
 
 
 IOReturn IOAccelSetSurfaceFramebufferShape( IOAccelConnect connect, IOAccelDeviceRegion *rgn,
                                             eIOAccelSurfaceShapeBits options, UInt32 framebufferIndex )
 {
-	uint64_t inData[] = { options, framebufferIndex };
-	IOReturn result;
-	size_t   rgnSize = regionSize(rgn);
-		
-	result = IOConnectCallMethod((io_connect_t) (uintptr_t) connect, kIOAccelSurfaceSetShape,
-			        inData, arrayCnt(inData), rgn, rgnSize,
-			        NULL, NULL, NULL, NULL); // no output
-	return result;
+        uint64_t inData[] = { options, framebufferIndex };
+        IOReturn result;
+        size_t   rgnSize = regionSize(rgn);
+                
+        result = IOConnectCallMethod((io_connect_t) (uintptr_t) connect, kIOAccelSurfaceSetShape,
+                                inData, arrayCnt(inData), rgn, rgnSize,
+                                NULL, NULL, NULL, NULL); // no output
+        return result;
 }
 
 IOReturn IOAccelSetSurfaceFramebufferShapeWithBacking( IOAccelConnect connect, IOAccelDeviceRegion *rgn,
                                             eIOAccelSurfaceShapeBits options, UInt32 framebufferIndex,
-					    IOVirtualAddress backing, UInt32 rowbytes )
+                                            IOVirtualAddress backing, UInt32 rowbytes )
 {
         IOReturn err;
 
         err = IOAccelSetSurfaceFramebufferShapeWithBackingAndLength(connect, rgn, options, 
-			framebufferIndex, backing, rowbytes, rgn->bounds.h * rowbytes);
+                        framebufferIndex, backing, rowbytes, rgn->bounds.h * rowbytes);
 
-	return (err);
+        return (err);
 }
 
 IOReturn IOAccelSetSurfaceFramebufferShapeWithBackingAndLength( IOAccelConnect connect, IOAccelDeviceRegion *rgn,
                                             eIOAccelSurfaceShapeBits options, UInt32 framebufferIndex,
-					    IOVirtualAddress backing, UInt32 rowbytes, UInt32 backingLength )
+                                            IOVirtualAddress backing, UInt32 rowbytes, UInt32 backingLength )
 {
     IOReturn err;
     uint64_t inData[] =
-		{ options, framebufferIndex, backing, rowbytes, backingLength };
+                { options, framebufferIndex, backing, rowbytes, backingLength };
     size_t   rgnSize = regionSize(rgn);
 
 
     err =  IOConnectCallMethod((io_connect_t) (uintptr_t) connect, kIOAccelSurfaceSetShapeBackingAndLength,
-	    inData, arrayCnt(inData), rgn, rgnSize,
-	    NULL, NULL, NULL, NULL); // no output
-	
-	return (err);
+            inData, arrayCnt(inData), rgn, rgnSize,
+            NULL, NULL, NULL, NULL); // no output
+        
+        return (err);
 }
 
 IOReturn IOAccelSurfaceControl( IOAccelConnect connect,
                                     UInt32 selector, UInt32 arg, UInt32 * result) 
 {
-	uint64_t inData[] = { selector, arg };
-	uint64_t outData;
-	uint32_t outSize = 1;
+        uint64_t inData[] = { selector, arg };
+        uint64_t outData;
+        uint32_t outSize = 1;
 
-	IOReturn err =  IOConnectCallScalarMethod((io_connect_t) (uintptr_t)connect, kIOAccelSurfaceControl,
-		inData, arrayCnt(inData), &outData, &outSize);
-	*result = (UInt32) outData;
+        IOReturn err =  IOConnectCallScalarMethod((io_connect_t) (uintptr_t)connect, kIOAccelSurfaceControl,
+                inData, arrayCnt(inData), &outData, &outSize);
+        *result = (UInt32) outData;
     
         return( err );
 }
 
 IOReturn IOAccelReadLockSurface( IOAccelConnect connect, IOAccelSurfaceInformation * info, UInt32 infoSize )
 {
-	size_t size = (size_t) infoSize;
-	IOReturn ret =  IOConnectCallStructMethod((io_connect_t) (uintptr_t)connect, kIOAccelSurfaceReadLock,
-					      NULL, 0, info, &size);
+        size_t size = (size_t) infoSize;
+        IOReturn ret =  IOConnectCallStructMethod((io_connect_t) (uintptr_t)connect, kIOAccelSurfaceReadLock,
+                                              NULL, 0, info, &size);
 
 
-	return ret;
+        return ret;
 }
 
 IOReturn IOAccelReadLockSurfaceWithOptions( IOAccelConnect connect, IOOptionBits options,
-					    IOAccelSurfaceInformation * info, UInt32 infoSize )
+                                            IOAccelSurfaceInformation * info, UInt32 infoSize )
 {
-	uint64_t inData = options;
-	size_t size = (size_t) infoSize;
-	IOReturn ret =  IOConnectCallMethod((io_connect_t) (uintptr_t) connect, kIOAccelSurfaceReadLockOptions,
-				        &inData, 1,		// in scalar
-				        NULL,    0,		// in struct
-				        NULL,    NULL,		// out scalar
-				        info,    &size);	// out struct
+        uint64_t inData = options;
+        size_t size = (size_t) infoSize;
+        IOReturn ret =  IOConnectCallMethod((io_connect_t) (uintptr_t) connect, kIOAccelSurfaceReadLockOptions,
+                                        &inData, 1,             // in scalar
+                                        NULL,    0,             // in struct
+                                        NULL,    NULL,          // out scalar
+                                        info,    &size);        // out struct
 
 
-	return ret;
+        return ret;
 }
 
 IOReturn IOAccelWriteLockSurface( IOAccelConnect connect, IOAccelSurfaceInformation * info, UInt32 infoSize )
 {
-	size_t size = (size_t) infoSize;
-	IOReturn ret =  IOConnectCallStructMethod((io_connect_t) (uintptr_t) connect, kIOAccelSurfaceWriteLock,
-					      NULL, 0, info, &size);
+        size_t size = (size_t) infoSize;
+        IOReturn ret =  IOConnectCallStructMethod((io_connect_t) (uintptr_t) connect, kIOAccelSurfaceWriteLock,
+                                              NULL, 0, info, &size);
 
-	return ret;
+        return ret;
 }
 
 IOReturn IOAccelWriteLockSurfaceWithOptions( IOAccelConnect connect, IOOptionBits options,
-					     IOAccelSurfaceInformation * info, UInt32 infoSize )
+                                             IOAccelSurfaceInformation * info, UInt32 infoSize )
 {
-	uint64_t inData = options;
-	size_t size = (size_t) infoSize;
-	IOReturn ret =  IOConnectCallMethod((io_connect_t) (uintptr_t) connect, kIOAccelSurfaceWriteLockOptions,
-				        &inData, 1,		// in scalar
-				        NULL,    0,		// in struct
-				        NULL,    NULL,		// out scalar
-				        info,    &size);	// out struct
+        uint64_t inData = options;
+        size_t size = (size_t) infoSize;
+        IOReturn ret =  IOConnectCallMethod((io_connect_t) (uintptr_t) connect, kIOAccelSurfaceWriteLockOptions,
+                                        &inData, 1,             // in scalar
+                                        NULL,    0,             // in struct
+                                        NULL,    NULL,          // out scalar
+                                        info,    &size);        // out struct
 
-	return ret;
+        return ret;
 }
 
 IOReturn IOAccelReadUnlockSurface( IOAccelConnect connect )
 {
-	return IOConnectCallMethod((io_connect_t) (uintptr_t) connect, kIOAccelSurfaceReadUnlock,
-			       NULL, 0,    NULL, 0,	// input
-			       NULL, NULL, NULL, NULL);	// output
+        return IOConnectCallMethod((io_connect_t) (uintptr_t) connect, kIOAccelSurfaceReadUnlock,
+                               NULL, 0,    NULL, 0,     // input
+                               NULL, NULL, NULL, NULL); // output
 }
 
 IOReturn IOAccelReadUnlockSurfaceWithOptions( IOAccelConnect connect, IOOptionBits options )
 {
-	uint64_t inData = options;
-	return IOConnectCallMethod((io_connect_t) (uintptr_t) connect, kIOAccelSurfaceReadUnlockOptions,
-			       &inData, 1, NULL, 0,	// input
-			       NULL, NULL, NULL, NULL);	// output
+        uint64_t inData = options;
+        return IOConnectCallMethod((io_connect_t) (uintptr_t) connect, kIOAccelSurfaceReadUnlockOptions,
+                               &inData, 1, NULL, 0,     // input
+                               NULL, NULL, NULL, NULL); // output
 }
 
 IOReturn IOAccelWriteUnlockSurface( IOAccelConnect connect )
 {
-	return IOConnectCallMethod((io_connect_t) (uintptr_t) connect, kIOAccelSurfaceWriteUnlock,
-			       NULL, 0,    NULL, 0,	// input
-			       NULL, NULL, NULL, NULL);	// output
+        return IOConnectCallMethod((io_connect_t) (uintptr_t) connect, kIOAccelSurfaceWriteUnlock,
+                               NULL, 0,    NULL, 0,     // input
+                               NULL, NULL, NULL, NULL); // output
 }
 
 IOReturn IOAccelWriteUnlockSurfaceWithOptions( IOAccelConnect connect, IOOptionBits options )
 {
-	uint64_t inData = options;
-	return IOConnectCallMethod((io_connect_t) (uintptr_t) connect, kIOAccelSurfaceWriteUnlockOptions,
-			       &inData, 1, NULL, 0,	// input
-			       NULL, NULL, NULL, NULL);	// output
+        uint64_t inData = options;
+        return IOConnectCallMethod((io_connect_t) (uintptr_t) connect, kIOAccelSurfaceWriteUnlockOptions,
+                               &inData, 1, NULL, 0,     // input
+                               NULL, NULL, NULL, NULL); // output
 }
 
 IOReturn IOAccelWaitForSurface( IOAccelConnect connect __unused )
 {
-	return kIOReturnSuccess;
+        return kIOReturnSuccess;
 }
 
 IOReturn IOAccelQueryLockSurface( IOAccelConnect connect )
 {
-	return IOConnectCallMethod((io_connect_t) (uintptr_t) connect, kIOAccelSurfaceQueryLock,
-			       NULL, 0,    NULL, 0,	// input
-			       NULL, NULL, NULL, NULL);	// output
+        return IOConnectCallMethod((io_connect_t) (uintptr_t) connect, kIOAccelSurfaceQueryLock,
+                               NULL, 0,    NULL, 0,     // input
+                               NULL, NULL, NULL, NULL); // output
 }
 
 /* Flush surface to visible region */
 IOReturn IOAccelFlushSurfaceOnFramebuffers( IOAccelConnect connect, IOOptionBits options, UInt32 framebufferMask )
 {
-	uint64_t inData[] = { framebufferMask, options };
-	return IOConnectCallMethod((io_connect_t) (uintptr_t) connect, kIOAccelSurfaceFlush,
-			       inData, arrayCnt(inData), NULL, 0,// input
-				NULL, NULL, NULL, NULL);	 // output
+        uint64_t inData[] = { framebufferMask, options };
+        return IOConnectCallMethod((io_connect_t) (uintptr_t) connect, kIOAccelSurfaceFlush,
+                               inData, arrayCnt(inData), NULL, 0,// input
+                                NULL, NULL, NULL, NULL);         // output
 }
 
 IOReturn IOAccelReadSurface( IOAccelConnect connect, IOAccelSurfaceReadData * parameters )
 {
-	IOReturn result;
-	
+        IOReturn result;
+        
 
-	result = IOConnectCallMethod((io_connect_t) (uintptr_t) connect, kIOAccelSurfaceRead,
-	       NULL, 0, parameters, sizeof( IOAccelSurfaceReadData), // input
-	       NULL, NULL, NULL, NULL); // no output
+        result = IOConnectCallMethod((io_connect_t) (uintptr_t) connect, kIOAccelSurfaceRead,
+               NULL, 0, parameters, sizeof( IOAccelSurfaceReadData), // input
+               NULL, NULL, NULL, NULL); // no output
 
-	return result;
+        return result;
 }
 

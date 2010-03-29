@@ -26,13 +26,16 @@ main(int argc, char **argv)
     io_registry_entry_t regEntry;
 
     regEntry = IORegistryEntryFromPath(kIOMasterPortDefault, 
-				    kIOServicePlane ":/IOResources/IODisplayWrangler");
+                                    kIOServicePlane ":/IOResources/IODisplayWrangler");
 
     obj = CFRetain(kCFBooleanTrue);
     if (argc > 1)
     {
-	SInt32 num = 1000 * strtol(argv[1], 0, 0);
-	obj = CFNumberCreate(kCFAllocatorDefault, kCFNumberSInt32Type, &num);
+        SInt32 num = 1000 * strtol(argv[1], 0, 0);
+        if (!num)
+            obj = CFRetain(kCFBooleanFalse);
+        else
+            obj = CFNumberCreate(kCFAllocatorDefault, kCFNumberSInt32Type, &num);
     }
 
     kr = IORegistryEntrySetCFProperty(regEntry, CFSTR("IORequestIdle"), obj);

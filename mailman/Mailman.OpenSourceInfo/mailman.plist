@@ -3,7 +3,7 @@
 <plist version="1.0">
 <dict>
 	<key>OpenSourceImportDate</key>
-	<string>2008-09-09</string>
+	<string>01-14-2010</string>
 	<key>OpenSourceLicense</key>
 	<string>GNU General Public License</string>
 	<key>OpenSourceLicenseFile</key>
@@ -18,9 +18,9 @@
 	<key>OpenSourceSHA1</key>
 	<string></string>
 	<key>OpenSourceURL</key>
-	<string>http://downloads.sourceforge.net/mailman/mailman-2.1.12rc1.tgz</string>
+	<string>http://launchpad.net/mailman/2.1/2.1.13/+download/mailman-2.1.13.tgz</string>
 	<key>OpenSourceVersion</key>
-	<string>mailman 2.1.12rc1</string>
+	<string>mailman 2.1.13</string>
 	<key>OpenSourceWebsiteURL</key>
 	<string>http://www.list.org</string>
 </dict>

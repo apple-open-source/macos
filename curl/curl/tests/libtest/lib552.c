@@ -5,7 +5,7 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * $Id: lib552.c,v 1.7 2008-09-20 04:26:57 yangtse Exp $
+ * $Id: lib552.c,v 1.8 2009-05-08 02:14:50 yangtse Exp $
  *
  * argv1 = URL
  * argv2 = proxy with embedded user+password
@@ -168,6 +168,11 @@ int test(char *URL)
 
     /* Post */
     curl_easy_setopt(curl, CURLOPT_POST, 1L);
+
+#ifdef CURL_DOES_CONVERSIONS
+    /* Convert the POST data to ASCII */
+    curl_easy_setopt(curl, CURLOPT_TRANSFERTEXT, 1L);
+#endif
 
     /* Setup read callback */
     curl_easy_setopt(curl, CURLOPT_POSTFIELDSIZE, (long) sizeof(databuf));

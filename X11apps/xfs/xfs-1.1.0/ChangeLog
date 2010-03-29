@@ -1,0 +1,867 @@
+commit eccddc3753e97b0b47c68e59b6650eb314ef5402
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Thu Jun 18 14:00:28 2009 -0700
+
+    xfs 1.1.0
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@sun.com>
+
+commit 7fc0d81f660eaec16f10ebdff6367da7bcc204f9
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Thu Jun 18 10:29:39 2009 -0700
+
+    remove SCCS ids
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@sun.com>
+
+commit be599b68334d2dea71e12f478e3201d3087ddf56
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Wed Jun 17 18:56:09 2009 -0700
+
+    Add --disable-devel-docs flag to configure to skip xfs-design doc conversion
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@sun.com>
+
+commit 93f75eed7b7dd1208d6d24ec065dfd1518efa599
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Wed Jun 17 17:29:16 2009 -0700
+
+    Update README and COPYING files and man page
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@sun.com>
+
+commit 66c3c3e95b0faa005d2a5cdcd196cdc6de027d16
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Wed Jun 17 16:49:20 2009 -0700
+
+    Add support for starting xfs from inetd
+    
+    Adds -inetd command line flag to be used when starting via inetd.
+    Assumes inetd is set to "wait" mode, and will thus let xfs, once
+    started, deal with waiting for & handling all further clients,
+    until xfs is killed.
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@sun.com>
+
+commit 6edc36cf965501149889ebb2a8afe61330f895c5
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Wed Jun 17 16:47:04 2009 -0700
+
+    Add --enable-syslog (on by default) to configure for use-syslog option
+    
+    Oops, guess we missed providing a way to #define USE_SYSLOG in the
+    Imake -> autoconf conversion.
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@sun.com>
+
+commit 0f3597e7f313bbc231817172b9786cbfe2e974d0
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Tue Jun 16 20:57:43 2009 -0700
+
+    Bug 22084: XFS server crash with many dropped connections
+    
+    http://bugs.freedesktop.org/show_bug.cgi?id=22084
+    
+    Fixes three crashes I hit investigating this report:
+    
+    1) Replace ffs() with a version that handles fd_mask sized arguments instead
+    of int sized ones, so we don't get stuck in 64-bit builds when fd bits
+    are set past the 32-bit boundary.  (os/WaitFor.c in the X server already does
+    this.)
+    
+    2) Check that the client OsPrivate isn't already NULL before dismantling it
+    in CloseDownConnection()
+    
+    3) Make sure we aren't overflowing the pClientsReady buffer when returning
+    the list of clients ready for processing.
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@sun.com>
+
+commit c8f86a023411c3697fe86beb4be1fe7fffc7e487
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Tue Jun 16 08:16:27 2009 -0700
+
+    daemon(): use configure to see if it exists, FatalError on failure
+    
+    Matches similar changes to xdm's copy of daemon.c
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@sun.com>
+
+commit 33c5f6836d8233f91b2c3890ef8419894b7a94d0
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Mon Jun 15 19:32:06 2009 -0700
+
+    Remove leftover includes that should have gone away with c47d3d3795c8d
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@sun.com>
+
+commit 8d5838bb075dc995dcfce5634c6c70be4ecff832
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Thu Jun 11 17:12:08 2009 -0700
+
+    Use AC_SYSTEM_EXTENSIONS instead of maintaining _GNU_SOURCE OS list
+    
+    Bumps minimum autoconf version required to 2.60
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@sun.com>
+
+commit 91c61d56cf6c780db011b8386ce094e11ec5ef42
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Thu Jun 11 17:05:24 2009 -0700
+
+    Make sure all source files #include "xfs-config.h"
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@sun.com>
+
+commit 6741315a7e839a3c3e8c725e458ec0da5ad3012b
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Tue Jun 9 13:58:59 2009 -0700
+
+    Add #includes of access.h to clear prototype warnings
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@sun.com>
+
+commit 6b8f4459861bda8c2cce70490cca0fe1f7784305
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Mon Jun 8 16:22:33 2009 -0700
+
+    Convert xfs design doc from troff/.ms to docbook/xml
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@sun.com>
+
+commit 6fad03d2626c568ba9563a1d4d4f7c85f488341c
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Wed May 27 11:07:29 2009 -0700
+
+    Remove include/accstr.h from Makefile.am
+    
+    Fixes distcheck error introduced by 4b1a9e1a20049fa55f780c8fd4bb9eaba7540712
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@sun.com>
+
+commit 2c37901f2f64a0e188dd42386f6364c0a154f78b
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Wed May 27 08:03:45 2009 -0700
+
+    Move design.ms from xorg-docs/specs/xfs/design.ms to this module
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@sun.com>
+
+commit 95b40e0235109d4b963d385008bb73636f89aead
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Tue May 19 01:30:52 2009 -0700
+
+    Update AC_DEFINE_DIR to latest version from Autoconf Archive
+
+commit 3c2390c461f15386a8e2676572c520f01e9c600f
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Tue May 19 01:20:14 2009 -0700
+
+    xfs shouldn't re-create the log file every time it clones
+    
+    Port to current xfs of a part of the fix for Sun bug 4302139:
+    patch 108117-01 removes error-file configuration option for xfs
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@sun.com>
+
+commit 346a316f5e39ca6d99b98372914294988e79758d
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Tue May 19 01:14:11 2009 -0700
+
+    Simplify OPEN_MAX #ifdefs down to POSIX standard sysconf(_SC_OPEN_MAX)
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@sun.com>
+
+commit a1583d53a44f65d0930282e193365f5605bde547
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Tue May 19 01:10:06 2009 -0700
+
+    Crash in CloseSockets() after StopListening()
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@sun.com>
+
+commit d78622007b9102d1818f2c73a00670351f026262
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Mon May 18 21:28:46 2009 -0700
+
+    Remove more #if 0 bits
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@sun.com>
+
+commit 4b1a9e1a20049fa55f780c8fd4bb9eaba7540712
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Mon May 18 21:28:03 2009 -0700
+
+    Remove unused HostAddress list manipulation code
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@sun.com>
+
+commit b0c41c110bb05947fccc9a6228bc3e9badff38c5
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Mon May 18 21:06:59 2009 -0700
+
+    Convert to POSIX standard signal handling
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@sun.com>
+
+commit c5985b93dd2c96ab9c1cfbfe7881b0f80e349879
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Mon May 18 21:05:35 2009 -0700
+
+    Fix definition of WRITES macro for debug messages in os/utils.c
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@sun.com>
+
+commit a97048bd750f2d514dd8bb2959e3bbab4443178e
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Mon May 18 19:50:07 2009 -0700
+
+    Server miscounts clients who exit before finishing handshake
+    
+    nClients could go negative since it wasn't incremented until
+    ProcInitialConnection, but was always decremented in DoCloseDownClient
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@sun.com>
+
+commit e47728904d50566ec4390829fc9a511e54e9157e
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Mon May 18 19:17:16 2009 -0700
+
+    Delete #ifdef MEMBUG code
+    
+    Couldn't build since modularization, since it depended on old memleak code
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@sun.com>
+
+commit 02b3a024b151177246e026d05d8e0efe4eda47b4
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Mon May 18 18:58:46 2009 -0700
+
+    Coalesce PATH_MAX ifdefs into a single copy in osdep.h
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@sun.com>
+
+commit c47d3d3795c8d9152dcfed7b806eab1204830e7d
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Mon May 18 18:42:18 2009 -0700
+
+    Remove X_NOT_POSIX #ifdefs
+    
+    Hadn't been compiled since modularization, was previously only used
+    on pre-POSIX-1.1990 systems, which are no longer supported by X.Org.
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@sun.com>
+
+commit 7ccc50b6a7dd47f89e3b2aff5accaab4cad24a64
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Mon May 18 16:53:31 2009 -0700
+
+    Remove #ifdef Lynx code
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@sun.com>
+
+commit a1d254a81b5dffd0f706c77e28ec72aff11169f8
+Author: Paulo Cesar Pereira de Andrade <pcpa@mandriva.com.br>
+Date:   Wed Jan 21 18:02:36 2009 -0200
+
+    Correct all sparse warnings.
+    
+      All extern declarations were moved from C sources to header files,
+    with the exception of the new prototype for SnfSetFormat() as it
+    is not available on installed libXfont headers.
+      difs/difsutils.c:CopyISOLatin1Lowered() had it's arguments sign
+    changed to avoid conflict with libXfont's X11/fonts/fontmisc.h
+    prototype.
+
+commit f7f149457581fa819c88e1958e7c154a6d9824fa
+Author: Ademar de Souza Reis Jr <ademar@mandriva.com.br>
+Date:   Fri Dec 19 18:43:53 2008 -0800
+
+    Bug #11567: Fix handling of invalid, non-path FPE
+    
+    FPE's which are not valid and are not in the form of paths cause a
+    failure on the parser which invalidates all subsequent FPEs. If
+    the invalid FPE is the first on the list, this will cause a
+    fatal-error and the server will abort.
+    
+    https://bugs.freedesktop.org/show_bug.cgi?id=11567
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@sun.com>
+
+commit ffbdfc9bbe8a38a5658197a95e0cf5266ef51604
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Tue Dec 16 16:27:30 2008 -0800
+
+    `ReadConfigFile': 'fp' might be used uninitialized in this function
+    
+    In the unlikely event that default_config_files is completely empty,
+    fp would never have been set to NULL to trigger error check at line 363.
+
+commit 158e7f062a21ea4abfe64aa976735804f00bc3b5
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Tue Dec 16 16:24:37 2008 -0800
+
+    Clear many sparse warnings: Using plain integer as NULL pointer
+
+commit 2b529e155a2a414cc225d8fd8014ff6c2e8231cb
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Fri Dec 5 08:57:11 2008 -0800
+
+    Use XORG_CWARNFLAGS & XORG_CHANGELOG from xorg-macros 1.2
+
+commit cbd9f1b5b36789474788ca6ff60ccbaee4969ff1
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Fri Dec 5 08:54:43 2008 -0800
+
+    Clear warnings about redefining command-line -D values in xfstrans.c
+
+commit b02fa1750fa20cb1784a16cd2402a303146f8c99
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Fri Dec 5 08:51:18 2008 -0800
+
+    os/daemon.c:100: warning: old-style parameter declaration
+
+commit 302e3fcf221843d42141f73277911dfab9428d71
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Thu Dec 4 18:01:17 2008 -0800
+
+    When byte swapping authentication data, try to workaround bad X servers
+    
+    Port/reworking of fix for Sun bug 4783714 ("fix for 4764193 [CERT CA-2002-34]
+    breaks cross-platform font service") to try to figure out whether the
+    authentication data follows the FS protocol spec or the way the X11 Sample
+    Implementation has worked for years, and handle it either way.
+
+commit 3fe28a31a2974287acc182c7c9bfd68d94ea6292
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Thu Dec 4 14:45:17 2008 -0800
+
+    Don't overcalculate size of authentication packets with no data
+    
+    If a font server client wasn't providing any authentication methods,
+    the code was adding 4 to the packet length, then rejecting the packet
+    as having more data than the length field said - but the X server
+    side wasn't actually putting those 4 bytes into the packet anywhere.
+
+commit c1fda34275583b7ae8d2b1b749bd362443874bda
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Wed Dec 3 19:52:16 2008 -0800
+
+    Use cpp instead of sed for processing man page & sample config file
+    
+    Make fontcache entries in sample config only appear #ifdef FONTCACHE
+
+commit c66a46e35ae40a23ad9acee838ab42300eddbd67
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Mon Oct 6 21:19:27 2008 -0700
+
+    Use configure to determine font path to put into xfs config file
+    
+    Uses --default-font-path if specified, otherwise checks for
+    /etc/X11/fontpath.d, otherwise uses default path copied
+    from xserver configure.ac
+
+commit 8b3e40688a9b829eee56d8b2aabadc4093227da6
+Author: Matthieu Herrb <matthieu.herrb@laas.fr>
+Date:   Fri Jun 13 15:37:13 2008 -0600
+
+    remove RCS Ids
+
+commit 3e6b854aa4ce0636fd63f63afd04d68b28c0fa68
+Author: Brice Goglin <bgoglin@debian.org>
+Date:   Fri May 23 22:29:50 2008 +0200
+
+    xfs 1.0.8
+
+commit 8144d75d4e71d8ae0493043f49fe9925f8099244
+Author: Brice Goglin <bgoglin@debian.org>
+Date:   Fri May 23 18:53:55 2008 +0200
+
+    Fix nasty typo in SetConfigValues
+    
+    Nasty typo introduced in 4a163a076e90808fa47ade1504fd0f2893bdc306,
+    causes xfs to crash on startup.
+    http://bugs.debian.org/cgi-bin/bugreport.cgi?bug=482551
+
+commit 9666b767a1f565bae06e84aacb53a1d9b7747f90
+Author: Adam Jackson <ajax@redhat.com>
+Date:   Wed May 21 14:18:01 2008 -0400
+
+    xfs 1.0.7
+
+commit 4a163a076e90808fa47ade1504fd0f2893bdc306
+Author: Petter Reinholdtsen <pere@hungry.com>
+Date:   Fri May 16 20:27:48 2008 +0200
+
+    Return an error to the log instead of segfaulting
+    
+    Return an error to the log instead of segfaulting
+    if catalogue line is omitted from config file.
+    
+    http://bugs.debian.org/cgi-bin/bugreport.cgi?bug=148650
+
+commit 6188cb8538b713296266238b7b780718fcec881b
+Author: Stephan A. Maciej <stephanm@datenfriedhof.net>
+Date:   Mon Mar 17 18:00:49 2008 -0700
+
+    Allow font server to start with pid longer than 5 digits
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@sun.com>
+
+commit 24d4172a71850299c797f887d3027c32068763d0
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Mon Jan 14 19:32:09 2008 -0800
+
+    Fix --with-default-config to work with more than two config files
+
+commit 8337bcb5650581874510514cce7d9df89db54d5c
+Author: Adam Jackson <ajax@redhat.com>
+Date:   Thu Mar 6 17:06:25 2008 -0500
+
+    xfs 1.0.6
+
+commit f253f56e9ff33e7424317be7fa54a60eec4053a8
+Author: Julien Cristau <jcristau@debian.org>
+Date:   Tue Feb 5 21:57:21 2008 +0100
+
+    Install config file in $(sysconfdir) by default instead of $(libdir)
+
+commit 71c2acc3d0fecc5c6c3d63cfae8f38ee2ce72d9d
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Wed Jan 9 16:08:54 2008 -0800
+
+    List multiple config files in man page if specified in --with-default-config-file
+
+commit 5a5d003bfc400471693f88a16d2ed6ed98ca8111
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Mon Jan 7 18:04:36 2008 -0800
+
+    Add xfsinfo & fslsfonts to See Also section of man page
+
+commit 9d19ae3b4d6fcaa01bcb88b9fde644aec3f191b1
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Mon Jan 7 15:08:33 2008 -0800
+
+    Remove another extraneous + from man page
+
+commit c398fae4cf2119f467970a0af4b408948aff12ef
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Fri Jan 4 15:56:31 2008 -0800
+
+    Add hooks for checking sources with tools like sparse & lint
+
+commit 04e94c3d22e6115f40bcced43e78a336613789a9
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Fri Jan 4 15:55:53 2008 -0800
+
+    Remove duplicated section & extra + in xfs.man
+
+commit bc3d7ac63b801b22214ce5d04fa0a585a6223fee
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Thu Jan 3 17:12:58 2008 -0800
+
+    Rename autoconf-generated header to xfs-config.h to avoid clash with os/config.h
+
+commit c0b33d044edc89ec882ac425c91a79cd738167a4
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Thu Jan 3 16:47:59 2008 -0800
+
+    Add --with-default-config-file configure option
+    
+    Allow specifying multiple files, using the first one found at runtime.
+
+commit c7b49319ac3ba99002074021f0cd493aa122439a
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Thu Jan 3 13:58:18 2008 -0800
+
+    xfs.man: Replace Speedo with TrueType, fix typos
+
+commit cfbf2d673d0b764f6f5aa3d802c4796c94b407d0
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Thu Jan 3 13:10:01 2008 -0800
+
+    Use PACKAGE_VERSION_* to set default VENDOR_RELEASE version string
+
+commit 33f185cc94d11279aa3c08ebebf8461225dad4be
+Author: James Cloos <cloos@jhcloos.com>
+Date:   Thu Dec 6 16:37:15 2007 -0500
+
+    Replace static ChangeLog with dist-hook to generate from git log
+
+commit ec8bfac7c5ab048d86bd60ec97526300ef41d2a9
+Author: David Nusinow <dnusinow@debian.org>
+Date:   Wed Oct 3 21:37:46 2007 -0400
+
+    Perform massive manpage cleanup and reformatting.
+    
+    Add "FUTURE DIRECTIONS" section.
+    
+    This patch by Branden Robinson, forward ported by David Nusinow and
+    probably a few others.
+
+commit 0bd59b5938059c7ff5501b928ebe80ecea27f008
+Author: Matthieu Herrb <matthieu@bluenote.herrb.com>
+Date:   Mon Oct 1 21:55:52 2007 +0200
+
+    Bump to 1.0.5
+
+commit ec3ca8fd4c599f41e6f977ce912805ac8ac74f32
+Author: Matthieu Herrb <matthieu@bluenote.herrb.com>
+Date:   Mon Oct 1 21:53:41 2007 +0200
+
+    Fix for heap overwrite in swap_char2b() CVE-2007-4568.
+
+commit 380fb68316f13012ff7cb2ac4addc2626fa2dad0
+Author: Matthieu Herrb <matthieu@bluenote.herrb.com>
+Date:   Mon Oct 1 21:51:40 2007 +0200
+
+    fix for integer overflows in build_range(). CVE-4568.
+
+commit 63596c80ec1c406a35780f45ea43d8004b020869
+Author: Ademar de Souza Reis Jr <ademar@mandriva.com.br>
+Date:   Wed Jun 20 13:31:40 2007 -0300
+
+    Document catalogue:<dir> feature
+
+commit 2037244c4a758d4010da55128fc2b7902f2bc8ad
+Author: Daniel Stone <daniel@fooishbar.org>
+Date:   Thu Nov 30 19:55:47 2006 +0200
+
+    bump to 1.0.4
+
+commit 311483ff1bea8ae31671b5bd6033a27dd0f315a4
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Mon Nov 20 10:58:35 2006 -0800
+
+    Add *~ to .gitignore to skip emacs/patch droppings
+
+commit 2e81fe0c9eeac502e19d7f9696e29d4847f8a8e0
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Mon Nov 20 10:58:10 2006 -0800
+
+    renamed: .cvsignore -> .gitignore
+
+commit 19bc6ee23c7137c8d182738e850621586ba43659
+Author: J.P. Larocque <piranha-fdo-bz@thoughtcrime.us>
+Date:   Mon Nov 20 10:57:28 2006 -0800
+
+    Bug 7317: xfs doesn't build on some GLIBC based systems: _XOPEN_SOURCE undefined
+    
+    Bug 7317: <https://bugs.freedesktop.org/show_bug.cgi?id=7317>
+
+commit 20014d1c8fa416306f5be60d4cd225cc6132d532
+Author: Adam Jackson <ajax@benzedrine.nwnk.net>
+Date:   Fri Oct 13 17:51:32 2006 -0400
+
+    Bump to 1.0.3
+
+commit d68ce54e725aa332c0c74e1aa2e7e59b079fb5fe
+Author: Kristian Høgsberg <krh@redhat.com>
+Date:   Mon Sep 25 18:01:48 2006 -0400
+
+    Substitute config dir into man page.
+
+commit ced4cd44bd177b9579c457a2f108a09e8bbb7eb9
+Author: Adam Jackson <ajax@nwnk.net>
+Date:   Wed Apr 26 23:40:40 2006 +0000
+
+    Bump to 1.0.2
+
+commit 099e52769a0601bca9d731209465d6205cd63fc9
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Tue Mar 14 03:41:28 2006 +0000
+
+    Check for alloc error was reversed, causing memory leak, NULL pointer
+        dereference (if fsalloc actually failed), and failure to rebuild cache.
+        (Coverity ids #560 & #127).
+
+commit 03a3384fe8985419d8ec9507458a8808dafa2758
+Author: Kevin E Martin <kem@kem.org>
+Date:   Wed Dec 21 02:29:50 2005 +0000
+
+    Update package version for X11R7 release.
+
+commit c34fccfa706811aa2d177afd07cc96e7094b10ef
+Author: Adam Jackson <ajax@nwnk.net>
+Date:   Mon Dec 19 16:22:44 2005 +0000
+
+    Stub COPYING files
+
+commit 7cd4bd5a4044fbbcd7b05b5d4c11542353d85e52
+Author: Kevin E Martin <kem@kem.org>
+Date:   Thu Dec 15 00:24:07 2005 +0000
+
+    Update package version number for final X11R7 release candidate.
+
+commit e9ed66a84780a87d1f102b3960007aba9d7d2ed7
+Author: Kevin E Martin <kem@kem.org>
+Date:   Tue Dec 6 22:48:22 2005 +0000
+
+    Change *man_SOURCES ==> *man_PRE to fix autotools warnings.
+
+commit 7d6e0e69cde9b41061eb591d418d3ceab4e5f9a3
+Author: Kevin E Martin <kem@kem.org>
+Date:   Sat Dec 3 05:49:23 2005 +0000
+
+    Update package version number for X11R7 RC3 release.
+
+commit 932e1834195eb85b291b29bac4719cd02830dcc4
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Mon Nov 28 22:01:42 2005 +0000
+
+    Change *mandir targets to use new *_MAN_DIR variables set by xorg-macros.m4
+        update to fix bug #5167 (Linux prefers *.1x man pages in man1 subdir)
+
+commit 02640671a2ef2c5240d87f96f1b3518ac0026a6d
+Author: Eric Anholt <anholt@freebsd.org>
+Date:   Mon Nov 21 10:35:00 2005 +0000
+
+    Another pass at .cvsignores for apps.
+
+commit c23ac3c68be607d8b050b4a50bfe441737c9fed8
+Author: Eric Anholt <anholt@freebsd.org>
+Date:   Sun Nov 20 22:08:52 2005 +0000
+
+    Add/improve .cvsignore files for apps.
+
+commit e3edf1412eacc3efb3bc6d949406474e1f4aacff
+Author: Kevin E Martin <kem@kem.org>
+Date:   Sat Nov 19 07:15:36 2005 +0000
+
+    Update pkgconfig files to separate library build-time dependencies from
+        application build-time dependencies, and update package deps to work
+        with separate build roots.
+
+commit dc896313209b1fc91cfd8f9ed15d7a26d4cdb450
+Author: Kevin E Martin <kem@kem.org>
+Date:   Wed Nov 9 21:09:21 2005 +0000
+
+    Update package version number for X11R7 RC2 release.
+
+commit af24389ccccdf82a8224299f808acf07443ce98b
+Author: Kean Johnson <kean@armory.com>
+Date:   Tue Nov 8 06:33:33 2005 +0000
+
+    See ChangeLog entry 2005-11-07 for details.
+
+commit 75cca7507a37ea2e65a7ff541560047b54da369e
+Author: Kevin E Martin <kem@kem.org>
+Date:   Tue Nov 1 15:05:18 2005 +0000
+
+    Update pkgcheck depedencies to work with separate build roots.
+
+commit 3bca148d9c5d9af5af31c6d4ce6a731fc46ff3b3
+Author: Kevin E Martin <kem@kem.org>
+Date:   Wed Oct 19 02:47:54 2005 +0000
+
+    Update package version number for RC1 release.
+
+commit be42526a6087c63f618bfeb13c7f3b46068528fe
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Mon Oct 17 23:56:22 2005 +0000
+
+    Use @APP_MAN_SUFFIX@ instead of $(APP_MAN_SUFFIX) in macro substitutions to
+        work better with BSD make
+
+commit bc6cbdd5925ffc52abbf0da1834405b8fbe49ee1
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Mon Oct 17 22:28:18 2005 +0000
+
+    Add 's|XCOMM|\#|g' to sed rules for man page processing
+
+commit 91cc5c0c1d36059e6e0792a80b4443b8bb6c0c14
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Fri Oct 14 00:25:45 2005 +0000
+
+    Use sed to fill in variables in man page
+
+commit 68de46d260d44841aab5ecce9d31cf24ccd533f8
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Mon Aug 1 20:25:29 2005 +0000
+
+    Install man pages to section 1 instead of section m (Patch from Donnie
+        Berkholz)
+
+commit 216412edcbf15a9ae918c2066f93680355fc9b0b
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Sat Jul 30 19:32:32 2005 +0000
+
+    Add -D flags to clear more compiler warnings (Stefan Dirsch)
+
+commit 6890ec2cd680eed48c64f9e91fa4b0c8508f4b96
+Author: Kevin E Martin <kem@kem.org>
+Date:   Fri Jul 29 21:22:34 2005 +0000
+
+    Various changes preparing packages for RC0:
+    - Verify and update package version numbers as needed
+    - Implement versioning scheme
+    - Change bug address to point to bugzilla bug entry form
+    - Disable loadable i18n in libX11 by default (use --enable-loadable-i18n to
+        reenable it)
+    - Fix makedepend to use pkgconfig and pass distcheck
+    - Update build script to build macros first
+    - Update modular Xorg version
+
+commit 9a118fcc0ce0e202d31fcf579daf0dc03fc2f6bb
+Author: Søren Sandmann Pedersen <sandmann@daimi.au.dk>
+Date:   Thu Jul 28 22:43:18 2005 +0000
+
+    Thu Jul 28 18:29:06 2005 Søren Sandmann <sandmann@redhat.com>
+    Fix double free when there no valid paths.
+
+commit 9c9f67e12450035b7997c2c3bb3700ea51d8b3d2
+Author: Søren Sandmann Pedersen <sandmann@daimi.au.dk>
+Date:   Thu Jul 28 22:28:21 2005 +0000
+
+    Add flags to make xfs actually load fonts
+
+commit fc670eef6a29564aeddcb2e8f6b6a3fdb791b7f5
+Author: Søren Sandmann Pedersen <sandmann@daimi.au.dk>
+Date:   Thu Jul 28 20:46:54 2005 +0000
+
+    Create and install a config file Fix xfs DEFAULT_CONFIG_FILE
+
+commit b7901095f14ec2ea00f1cbeb57952957e9f0d5aa
+Author: Søren Sandmann Pedersen <sandmann@daimi.au.dk>
+Date:   Wed Jul 27 22:48:39 2005 +0000
+
+    Add -D_XOPEN_SOURCE on Linux
+
+commit cedf6178e2c2becfd40a9ed309714d3957ee7d1f
+Author: Adam Jackson <ajax@nwnk.net>
+Date:   Wed Jul 20 19:31:56 2005 +0000
+
+    Use a unique token for PKG_CHECK_MODULES. Otherwise, if you use a global
+        configure cache, you cache it, and the cached value is probably wrong.
+
+commit f0c7ea00ce16c6f4d7d23fe3f87af335b1bdc591
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Sat Jul 16 23:29:38 2005 +0000
+
+    x11perf/Makefile.am: xinit/Makefile.am: xvidtune/Makefile.am:
+    - Replace $< with portable macro xinit/Makefile.am: xinit/configure.ac:
+        xvidtune/Makefile.am: xvidtune/configure.ac:
+    - Use more portable cpp invocations for pre-processing files
+        xfs/configure.ac:
+    - Add XTRANS_CONNECTION_FLAGS so xtrans transport type defines are set
+        correctly
+
+commit 2dd92fea669cdd34b15cf75455ca7766b5cf9c93
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Sat Jul 16 20:52:25 2005 +0000
+
+    Mark variables modified in signal handlers as volatile (part of Sun bug id
+        4496504)
+
+commit f638b9c31aab9b90b8b9b4dbea79f8a588037498
+Author: Søren Sandmann Pedersen <sandmann@daimi.au.dk>
+Date:   Thu Jul 14 22:40:15 2005 +0000
+
+    Add _BSD_SOURCE to lots of applications - patch from Stefan Dirsch
+
+commit 61c45e7ae8cdcead33392c0a2affc63a00b284c3
+Author: Søren Sandmann Pedersen <sandmann@daimi.au.dk>
+Date:   Tue Jul 12 18:49:12 2005 +0000
+
+    Add include files to sources, so it will distcheck
+
+commit 2ac8a668c645746430031f7f2776e98dc0cf0b98
+Author: Søren Sandmann Pedersen <sandmann@daimi.au.dk>
+Date:   Tue Jul 12 18:45:48 2005 +0000
+
+    - lib/lbxutil/lbxutil.pc.in: link to lbxutil, not Xfixes
+    - symlink.sh: add xedit.h, add xedit/lis/mp directory, add xfs
+    - xc/programs/xedit: include "lisp/../xedit.h" instead of xedit/xedit.h
+    - Change include of "foo.h" to <X11/.../foo.h> in various places in
+        xc/programs/lbxproxy and xc/programs/xfs
+    - add build system for xfs
+    - add forgotten lbxproxytrans.c file
+
+commit 465a53c5deee64fcdc768b5c8a9123ee56a39dd5
+Author: Alexander Gottwald <alexander.gottwald@s1999.tu-chemnitz.de>
+Date:   Thu Jun 9 15:52:02 2005 +0000
+
+    Replace <X11/Xtrans.h> with <X11/Xtrans/Xtrans.h>
+    Copy Xtrans.h to exports/include/X11/Xtrans only
+
+commit 2203407e26a173410b8a96368266f0e860381987
+Author: Adam Jackson <ajax@nwnk.net>
+Date:   Fri Apr 22 20:49:50 2005 +0000
+
+    Bug #3069: Drop the BuildLowMem hack, it doesn't compile and isn't useful.
+
+commit 9971dd3529c07022231fd722cb593f6609dd9d70
+Author: Matthieu Herrb <matthieu.herrb@laas.fr>
+Date:   Mon Jul 26 22:44:25 2004 +0000
+
+    Fix opening of log file with '-user nobody'. Problem reported by Oleg
+        Safiullin and Mike Pechkin.
+
+commit 956b25ecaa203291b5abdfc43451ae34da4ebdc7
+Author: Egbert Eich <eich@suse.de>
+Date:   Fri Apr 23 19:54:48 2004 +0000
+
+    Merging XORG-CURRENT into trunk
+
+commit 54409026c1afcd67c2d548a9efc606e29d47715f
+Author: Egbert Eich <eich@suse.de>
+Date:   Sun Mar 14 08:35:23 2004 +0000
+
+    Importing vendor version xf86-4_4_99_1 on Sun Mar 14 00:26:39 PST 2004
+
+commit 4b40ae3860584b4c4078941f45c6dfe223d2154c
+Author: Egbert Eich <eich@suse.de>
+Date:   Wed Mar 3 12:13:08 2004 +0000
+
+    Importing vendor version xf86-4_4_0 on Wed Mar 3 04:09:24 PST 2004
+
+commit 73d09b90af9e6b5aa389939f913f9f9a826e9269
+Author: Egbert Eich <eich@suse.de>
+Date:   Thu Feb 26 13:36:24 2004 +0000
+
+    readding XFree86's cvs IDs
+
+commit 9cd7676755000e0bf926cab806d8a5b10ce8efab
+Author: Egbert Eich <eich@suse.de>
+Date:   Thu Feb 26 09:24:07 2004 +0000
+
+    Importing vendor version xf86-4_3_99_903 on Wed Feb 26 01:21:00 PST 2004
+
+commit 32d7dc13777fee72c185b64bafc64f6525c474c5
+Author: Kaleb Keithley <kaleb@freedesktop.org>
+Date:   Mon Feb 23 20:35:41 2004 +0000
+
+    Import most of XFree86 4.4RC3. This import excludes files which have the
+        new license. If we want to, later we can import 4.4RC3 again and pick
+        up the files that have the new license, but for now the vendor branch
+        is "pure."
+
+commit 86cae258ef5b7de939d2b4af5669992815145f61
+Author: Egbert Eich <eich@suse.de>
+Date:   Thu Jan 29 08:09:12 2004 +0000
+
+    Importing vendor version xf86-012804-2330 on Thu Jan 29 00:06:33 PST 2004
+
+commit 8e1ac4fe2b5d9e31a37469fb462eb728457ccfb5
+Author: Kaleb Keithley <kaleb@freedesktop.org>
+Date:   Tue Nov 25 19:29:13 2003 +0000
+
+    XFree86 4.3.99.16 Bring the tree up to date for the Cygwin folks
+
+commit 491f741a1b34f20831a30fa017e422154127d54f
+Author: Kaleb Keithley <kaleb@freedesktop.org>
+Date:   Fri Nov 14 16:49:22 2003 +0000
+
+    XFree86 4.3.0.1
+
+commit 58396f7f075f465fe9fb7580af16c96ad0a88738
+Author: Kaleb Keithley <kaleb@freedesktop.org>
+Date:   Fri Nov 14 16:49:22 2003 +0000
+
+    Initial revision
+
+commit db757f1d2a5a951ec26aa4ed64134d8113089fd0
+Author: Kaleb Keithley <kaleb@freedesktop.org>
+Date:   Fri Nov 14 15:54:53 2003 +0000
+
+    R6.6 is the Xorg base-line

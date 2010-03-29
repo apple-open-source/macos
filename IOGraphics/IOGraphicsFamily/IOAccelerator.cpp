@@ -34,20 +34,20 @@ OSDefineMetaClassAndStructors(IOAccelerator, IOService)
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
-static IOLock * 	gLock;
-static queue_head_t	gGlobalList;
-static UInt32		gTotalCount;
-static SInt32		gTweak;
+static IOLock *         gLock;
+static queue_head_t     gGlobalList;
+static UInt32           gTotalCount;
+static SInt32           gTweak;
 
 struct IOAccelIDRecord
 {
-    IOAccelID		id;
-    SInt32		retain;
-    queue_chain_t	task_link;
-    queue_chain_t	glob_link;
+    IOAccelID           id;
+    SInt32              retain;
+    queue_chain_t       task_link;
+    queue_chain_t       glob_link;
 };
 
-enum { kTweakBits = 0x1f };	// sizeof(IOAccelIDRecord) == 24
+enum { kTweakBits = 0x1f };     // sizeof(IOAccelIDRecord) == 24
 
 class IOAccelerationUserClient : public IOUserClient
 {
@@ -59,8 +59,8 @@ class IOAccelerationUserClient : public IOUserClient
     OSDeclareDefaultStructors( IOAccelerationUserClient );
 
 private:
-    task_t		fTask;
-    queue_head_t	fTaskList;
+    task_t              fTask;
+    queue_head_t        fTaskList;
 
     static void initialize();
 
@@ -79,14 +79,14 @@ public:
 
 
     IOReturn extCreate(IOOptionBits options,
-			IOAccelID requestedID, IOAccelID * idOut);
+                        IOAccelID requestedID, IOAccelID * idOut);
     IOReturn extDestroy(IOOptionBits options, IOAccelID id);
 
 };
 
 #define super IOUserClient
 OSDefineMetaClassAndStructorsWithInit(IOAccelerationUserClient, IOUserClient, 
-					IOAccelerationUserClient::initialize());
+                                        IOAccelerationUserClient::initialize());
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
@@ -94,8 +94,8 @@ void IOAccelerationUserClient::initialize()
 {
     if (!gLock)
     {
-	gLock = IOLockAlloc();
-	queue_init(&gGlobalList);
+        gLock = IOLockAlloc();
+        queue_init(&gGlobalList);
     }
 }
 
@@ -104,7 +104,7 @@ bool IOAccelerationUserClient::initWithTask( task_t owningTask, void * securityI
 {
    
     if ( properties != NULL )
-	    properties->setObject ( kIOUserClientCrossEndianCompatibleKey, kOSBooleanTrue );
+            properties->setObject ( kIOUserClientCrossEndianCompatibleKey, kOSBooleanTrue );
    
     fTask = owningTask;
     queue_init(&fTaskList);
@@ -141,17 +141,17 @@ void IOAccelerationUserClient::stop( IOService * provider )
                             IOAccelIDRecord *,
                             task_link );
 
-	if (--record->retain)
-	    record->task_link.next = 0;
-	else
-	{
-	    queue_remove(&gGlobalList,
-			    record,
-			    IOAccelIDRecord *,
-			    glob_link);
-	    gTotalCount--;
-	    IODelete(record, IOAccelIDRecord, 1);
-	}
+        if (--record->retain)
+            record->task_link.next = 0;
+        else
+        {
+            queue_remove(&gGlobalList,
+                            record,
+                            IOAccelIDRecord *,
+                            glob_link);
+            gTotalCount--;
+            IODelete(record, IOAccelIDRecord, 1);
+        }
     }
     IOLockUnlock(gLock);
 
@@ -163,10 +163,10 @@ IOExternalMethod * IOAccelerationUserClient::getTargetAndMethodForIndex(
 {
     static const IOExternalMethod methodTemplate[] =
     {
-	/* 0 */  { NULL, (IOMethod) &IOAccelerationUserClient::extCreate,
-		    kIOUCScalarIScalarO, 2, 1 },
-	/* 1 */  { NULL, (IOMethod) &IOAccelerationUserClient::extDestroy,
-		    kIOUCScalarIScalarO, 2, 0 },
+        /* 0 */  { NULL, (IOMethod) &IOAccelerationUserClient::extCreate,
+                    kIOUCScalarIScalarO, 2, 1 },
+        /* 1 */  { NULL, (IOMethod) &IOAccelerationUserClient::extDestroy,
+                    kIOUCScalarIScalarO, 2, 0 },
     };
 
     if (index > (sizeof(methodTemplate) / sizeof(methodTemplate[0])))
@@ -181,10 +181,10 @@ IOExternalMethod * IOAccelerationUserClient::getTargetAndMethodForIndex(
 
 static 
 IOReturn _CreateID(queue_head_t * taskList, IOOptionBits options,
-		    IOAccelID requestedID, IOAccelID * idOut)
+                    IOAccelID requestedID, IOAccelID * idOut)
 {
-    IOReturn	      err;
-    Boolean	      found;
+    IOReturn          err;
+    Boolean           found;
     IOAccelIDRecord * record;
     IOAccelIDRecord * dup;
 
@@ -197,68 +197,68 @@ IOReturn _CreateID(queue_head_t * taskList, IOOptionBits options,
 
     do
     {
-	if (kIOAccelSpecificID & options)
-	{
-	    if ((requestedID > 4095) || (requestedID < -4096))
-	    {
-		err = kIOReturnExclusiveAccess;
-		break;
-	    }
+        if (kIOAccelSpecificID & options)
+        {
+            if ((requestedID > 4095) || (requestedID < -4096))
+            {
+                err = kIOReturnExclusiveAccess;
+                break;
+            }
     
-	    found = false;
-	    queue_iterate(&gGlobalList,
-			    dup,
-			    IOAccelIDRecord *,
-			    glob_link)
-	    {
-		found = (dup->id == requestedID);
-		if (found)
-		    break;
-	    }
+            found = false;
+            queue_iterate(&gGlobalList,
+                            dup,
+                            IOAccelIDRecord *,
+                            glob_link)
+            {
+                found = (dup->id == requestedID);
+                if (found)
+                    break;
+            }
     
-	    if (found)
-	    {
-		err = kIOReturnExclusiveAccess;
-		break;
-	    }
+            if (found)
+            {
+                err = kIOReturnExclusiveAccess;
+                break;
+            }
     
-	    record->id = requestedID;
-	}
-	else
-	{
-    	    record->id = ((IOAccelID) (intptr_t) record) ^ (kTweakBits & gTweak++);
-	}
+            record->id = requestedID;
+        }
+        else
+        {
+            record->id = ((IOAccelID) (intptr_t) record) ^ (kTweakBits & gTweak++);
+        }
 
-	if (taskList)
-	{
-	    queue_enter(taskList, record,
-			    IOAccelIDRecord *, task_link);
-	}
-	else
-	    record->task_link.next = 0;
+        if (taskList)
+        {
+            queue_enter(taskList, record,
+                            IOAccelIDRecord *, task_link);
+        }
+        else
+            record->task_link.next = 0;
 
-	queue_enter(&gGlobalList, record,
-			IOAccelIDRecord *, glob_link);
+        queue_enter(&gGlobalList, record,
+                        IOAccelIDRecord *, glob_link);
 
-	*idOut = record->id;
-	err = kIOReturnSuccess;
+        *idOut = record->id;
+        err = kIOReturnSuccess;
     }
     while (false);
 
     if (kIOReturnSuccess != err)
-	gTotalCount--;
+        gTotalCount--;
 
     IOLockUnlock(gLock);
 
     if (kIOReturnSuccess != err)
     {
-	IODelete(record, IOAccelIDRecord, 1);
+        IODelete(record, IOAccelIDRecord, 1);
     }
     return (err);
 }
 
 IOReturn IOAccelerationUserClient::extCreate(IOOptionBits options,
-						IOAccelID requestedID, IOAccelID * idOut)
+                                                IOAccelID requestedID, IOAccelID * idOut)
 {
     return (_CreateID(&fTaskList, options, requestedID, idOut));
 }
@@ -275,25 +275,25 @@ IOReturn IOAccelerationUserClient::extDestroy(IOOptionBits options, IOAccelID id
                     task_link)
     {
         found = (record->id == id);
-	if (found)
-	{
-	    queue_remove(&fTaskList,
-			    record,
-			    IOAccelIDRecord *,
-			    task_link);
-	    if (--record->retain)
-		record->task_link.next = 0;
-	    else
-	    {
-		queue_remove(&gGlobalList,
-				record,
-				IOAccelIDRecord *,
-				glob_link);
-		gTotalCount--;
-		IODelete(record, IOAccelIDRecord, 1);
-	    }
-	    break;
-	}
+        if (found)
+        {
+            queue_remove(&fTaskList,
+                            record,
+                            IOAccelIDRecord *,
+                            task_link);
+            if (--record->retain)
+                record->task_link.next = 0;
+            else
+            {
+                queue_remove(&gGlobalList,
+                                record,
+                                IOAccelIDRecord *,
+                                glob_link);
+                gTotalCount--;
+                IODelete(record, IOAccelIDRecord, 1);
+            }
+            break;
+        }
     }
 
     IOLockUnlock(gLock);
@@ -320,11 +320,11 @@ IOAccelerator::retainAccelID(IOOptionBits options, IOAccelID id)
                     glob_link)
     {
         found = (record->id == id);
-	if (found)
-	{
-	    record->retain++;
-	    break;
-	}
+        if (found)
+        {
+            record->retain++;
+            break;
+        }
     }
 
     IOLockUnlock(gLock);
@@ -345,22 +345,22 @@ IOAccelerator::releaseAccelID(IOOptionBits options, IOAccelID id)
                     glob_link)
     {
         found = (record->id == id);
-	if (found)
-	{
-	    if (!--record->retain)
-	    {
-		if (record->task_link.next)
-		    panic("IOAccelerator::releaseID task_link");
+        if (found)
+        {
+            if (!--record->retain)
+            {
+                if (record->task_link.next)
+                    panic("IOAccelerator::releaseID task_link");
 
-		queue_remove(&gGlobalList,
-				record,
-				IOAccelIDRecord *,
-				glob_link);
-		gTotalCount--;
-		IODelete(record, IOAccelIDRecord, 1);
-	    }
-	    break;
-	}
+                queue_remove(&gGlobalList,
+                                record,
+                                IOAccelIDRecord *,
+                                glob_link);
+                gTotalCount--;
+                IODelete(record, IOAccelIDRecord, 1);
+            }
+            break;
+        }
     }
 
     IOLockUnlock(gLock);

@@ -1,5 +1,5 @@
 /*	$NetBSD: ifconfig.c,v 1.34 1997/04/21 01:17:58 lukem Exp $	*/
-/* $FreeBSD: src/sbin/ifconfig/ifmedia.c,v 1.6 1999/08/28 00:13:08 peter Exp $ */
+/* $FreeBSD: src/sbin/ifconfig/ifmedia.c,v 1.25.6.1 2008/11/25 02:59:29 kensmith Exp $ */
 
 /*
  * Copyright (c) 1997 Jason R. Thorpe.
@@ -89,18 +89,23 @@
 
 #include "ifconfig.h"
 
-static void	domediaopt __P((const char *, int, int));
-static int	get_media_subtype __P((int, const char *));
-static int	get_media_options __P((int, const char *));
-static int	lookup_media_word __P((struct ifmedia_description *, const char *));
-static void	print_media_word __P((int));
+static void	domediaopt(const char *, int, int);
+static int	get_media_subtype(int, const char *);
+#ifdef notdef
+static int	get_media_mode(int, const char *);
+#endif
+static int	get_media_options(int, const char *);
+static int	lookup_media_word(struct ifmedia_description *, const char *);
+static void	print_media_word(int, int);
+static void	print_media_word_ifconfig(int);
 
-extern int supmedia;
+static struct ifmedia_description *get_toptype_desc(int);
+static struct ifmedia_type_to_subtype *get_toptype_ttos(int);
+static struct ifmedia_description *get_subtype_desc(int,
+    struct ifmedia_type_to_subtype *ttos);
 
-void
-media_status(s, info)
-	int s;
-	struct rt_addrinfo *info;
+static void
+media_status(int s)
 {
 	struct ifmediareq ifmr;
 	int *media_list, i;
@@ -116,24 +121,35 @@ media_status(s, info)
 	}
 
 	if (ifmr.ifm_count == 0) {
-	    	//warnx("%s: no media types?", name);
-	    	return;
+		warnx("%s: no media types?", name);
+		return;
 	}
 
+	media_list = (int *)malloc(ifmr.ifm_count * sizeof(int));
+	if (media_list == NULL)
+		err(1, "malloc");
+	ifmr.ifm_ulist = media_list;
+
+	if (ioctl(s, SIOCGIFMEDIA, (caddr_t)&ifmr) < 0)
+		err(1, "SIOCGIFMEDIA");
+
 	printf("\tmedia: ");
-	print_media_word(ifmr.ifm_current);
+	print_media_word(ifmr.ifm_current, 1);
 	if (ifmr.ifm_active != ifmr.ifm_current) {
 		putchar(' ');
 		putchar('(');
-		print_media_word(ifmr.ifm_active);
+		print_media_word(ifmr.ifm_active, 0);
 		putchar(')');
 	}
 
+	putchar('\n');
+
 	if (ifmr.ifm_status & IFM_AVALID) {
-		printf(" status: ");
-#if 0
+		printf("\tstatus: ");
+#ifdef notdef
 		switch (IFM_TYPE(ifmr.ifm_active)) {
 		case IFM_ETHER:
+			case IFM_ATM:
 			if (ifmr.ifm_status & IFM_ACTIVE)
 				printf("active");
 			else
@@ -147,66 +163,102 @@ media_status(s, info)
 			else
 				printf("no ring");
 			break;
+
+		case IFM_IEEE80211:
+			/* XXX: Different value for adhoc? */
+			if (ifmr.ifm_status & IFM_ACTIVE)
+				printf("associated");
+			else
+				printf("no carrier");
+			break;
 		}
-#endif 0
+#else
 		if (ifmr.ifm_status & IFM_ACTIVE)
 		    printf("active");
 		else
-		    printf("inactive");
-	}
-	putchar('\n');
-
-#if 0
-	if (supmedia == 0) {
-		return;
-	}
-#endif 0
-	media_list = (int *)malloc(ifmr.ifm_count * sizeof(int));
-	if (media_list == NULL)
-		err(1, "malloc");
-	ifmr.ifm_ulist = media_list;
-
-	if (ioctl(s, SIOCGIFMEDIA, (caddr_t)&ifmr) < 0)
-		err(1, "SIOCGIFMEDIA");
-
-	if (ifmr.ifm_count > 0) {
-		printf("\tsupported media:");
-		for (i = 0; i < ifmr.ifm_count; i++) {
-			putchar(' ');
-			print_media_word(media_list[i]);
-		}
+		    printf("inactive");		
+#endif
 		putchar('\n');
+	}
+
+	if (ifmr.ifm_count > 0 && supmedia) {
+		printf("\tsupported media:\n");
+		for (i = 0; i < ifmr.ifm_count; i++) {
+			printf("\t\t");
+			print_media_word_ifconfig(media_list[i]);
+			putchar('\n');
+		}
 	}
 
 	free(media_list);
 }
 
-void
-setmedia(val, d, s, afp)
-	const char *val;
-	int d;
-	int s;
-	const struct afswtch *afp;
+struct ifmediareq *
+ifmedia_getstate(int s)
 {
-	struct ifmediareq ifmr;
-	int first_type, subtype;
+	static struct ifmediareq *ifmr = NULL;
+	int *mwords;
 
-	(void) memset(&ifmr, 0, sizeof(ifmr));
-	(void) strncpy(ifmr.ifm_name, name, sizeof(ifmr.ifm_name));
+	if (ifmr == NULL) {
+		ifmr = (struct ifmediareq *)malloc(sizeof(struct ifmediareq));
+		if (ifmr == NULL)
+			err(1, "malloc");
 
-	ifmr.ifm_count = 1;
-	ifmr.ifm_ulist = &first_type;
-	if (ioctl(s, SIOCGIFMEDIA, (caddr_t)&ifmr) < 0) {
+		(void) memset(ifmr, 0, sizeof(struct ifmediareq));
+		(void) strncpy(ifmr->ifm_name, name,
+		    sizeof(ifmr->ifm_name));
+
+		ifmr->ifm_count = 0;
+		ifmr->ifm_ulist = NULL;
+
 		/*
-		 * If we get E2BIG, the kernel is telling us
-		 * that there are more, so we can ignore it.
+		 * We must go through the motions of reading all
+		 * supported media because we need to know both
+		 * the current media type and the top-level type.
 		 */
-		if (errno != E2BIG)
+
+		if (ioctl(s, SIOCGIFMEDIA, (caddr_t)ifmr) < 0) {
+			err(1, "SIOCGIFMEDIA");
+		}
+
+		if (ifmr->ifm_count == 0)
+			errx(1, "%s: no media types?", name);
+
+		mwords = (int *)malloc(ifmr->ifm_count * sizeof(int));
+		if (mwords == NULL)
+			err(1, "malloc");
+  
+		ifmr->ifm_ulist = mwords;
+		if (ioctl(s, SIOCGIFMEDIA, (caddr_t)ifmr) < 0)
 			err(1, "SIOCGIFMEDIA");
 	}
 
-	if (ifmr.ifm_count == 0)
-		errx(1, "%s: no media types?", name);
+	return ifmr;
+}
+
+static void
+setifmediacallback(int s, void *arg)
+{
+	struct ifmediareq *ifmr = (struct ifmediareq *)arg;
+	static int did_it = 0;
+
+	if (!did_it) {
+		ifr.ifr_media = ifmr->ifm_current;
+		if (ioctl(s, SIOCSIFMEDIA, (caddr_t)&ifr) < 0)
+			err(1, "SIOCSIFMEDIA (media)");
+		free(ifmr->ifm_ulist);
+		free(ifmr);
+		did_it = 1;
+	}
+}
+
+static void
+setmedia(const char *val, int d, int s, const struct afswtch *afp)
+{
+	struct ifmediareq *ifmr;
+	int subtype;
+
+	ifmr = ifmedia_getstate(s);
 
 	/*
 	 * We are primarily concerned with the top-level type.
@@ -217,84 +269,96 @@ setmedia(val, d, s, afp)
 	 * (I'm assuming that all supported media types for a given
 	 * interface will be the same top-level type..)
 	 */
-	subtype = get_media_subtype(IFM_TYPE(first_type), val);
+	subtype = get_media_subtype(IFM_TYPE(ifmr->ifm_ulist[0]), val);
 
 	strncpy(ifr.ifr_name, name, sizeof(ifr.ifr_name));
-	ifr.ifr_media = (ifmr.ifm_current & ~(IFM_NMASK|IFM_TMASK)) |
-	    IFM_TYPE(first_type) | subtype;
+	ifr.ifr_media = (ifmr->ifm_current & ~(IFM_NMASK|IFM_TMASK)) |
+	    IFM_TYPE(ifmr->ifm_ulist[0]) | subtype;
 
-	if (ioctl(s, SIOCSIFMEDIA, (caddr_t)&ifr) < 0)
-		err(1, "SIOCSIFMEDIA");
+	if ((ifr.ifr_media & IFM_TMASK) == 0) {
+		ifr.ifr_media &= ~IFM_GMASK;
+	}
+
+	ifmr->ifm_current = ifr.ifr_media;
+	callback_register(setifmediacallback, (void *)ifmr);
 }
 
-void
-setmediaopt(val, d, s, afp)
-	const char *val;
-	int d;
-	int s;
-	const struct afswtch *afp;
+static void
+setmediaopt(const char *val, int d, int s, const struct afswtch *afp)
 {
 
 	domediaopt(val, 0, s);
 }
 
-void
-unsetmediaopt(val, d, s, afp)
-	const char *val;
-	int d;
-	int s;
-	const struct afswtch *afp;
+static void
+unsetmediaopt(const char *val, int d, int s, const struct afswtch *afp)
 {
 
 	domediaopt(val, 1, s);
 }
 
 static void
-domediaopt(val, clear, s)
-	const char *val;
-	int clear;
-	int s;
+domediaopt(const char *val, int clear, int s)
 {
-	struct ifmediareq ifmr;
-	int *mwords, options;
+	struct ifmediareq *ifmr;
+	int options;
 
-	(void) memset(&ifmr, 0, sizeof(ifmr));
-	(void) strncpy(ifmr.ifm_name, name, sizeof(ifmr.ifm_name));
+	ifmr = ifmedia_getstate(s);
 
-	/*
-	 * We must go through the motions of reading all
-	 * supported media because we need to know both
-	 * the current media type and the top-level type.
-	 */
-
-	if (ioctl(s, SIOCGIFMEDIA, (caddr_t)&ifmr) < 0)
-		err(1, "SIOCGIFMEDIA");
-
-	if (ifmr.ifm_count == 0)
-		errx(1, "%s: no media types?", name);
-
-	mwords = (int *)malloc(ifmr.ifm_count * sizeof(int));
-	if (mwords == NULL)
-		err(1, "malloc");
-
-	ifmr.ifm_ulist = mwords;
-	if (ioctl(s, SIOCGIFMEDIA, (caddr_t)&ifmr) < 0)
-		err(1, "SIOCGIFMEDIA");
-
-	options = get_media_options(IFM_TYPE(mwords[0]), val);
-
-	free(mwords);
+	options = get_media_options(IFM_TYPE(ifmr->ifm_ulist[0]), val);
 
 	strncpy(ifr.ifr_name, name, sizeof(ifr.ifr_name));
-	ifr.ifr_media = ifmr.ifm_current;
+	ifr.ifr_media = ifmr->ifm_current;
 	if (clear)
 		ifr.ifr_media &= ~options;
-	else
+	else {
+		if (options & IFM_HDX) {
+			ifr.ifr_media &= ~IFM_FDX;
+			options &= ~IFM_HDX;
+		}
 		ifr.ifr_media |= options;
-
-	if (ioctl(s, SIOCSIFMEDIA, (caddr_t)&ifr) < 0)
-		err(1, "SIOCSIFMEDIA");
+	}
+	ifmr->ifm_current = ifr.ifr_media;
+	callback_register(setifmediacallback, (void *)ifmr);
 }
+
+static void
+setmediainst(const char *val, int d, int s, const struct afswtch *afp)
+{
+	struct ifmediareq *ifmr;
+	int inst;
+
+	ifmr = ifmedia_getstate(s);
+
+	inst = atoi(val);
+	if (inst < 0 || inst > IFM_INST_MAX)
+		errx(1, "invalid media instance: %s", val);
+
+	strncpy(ifr.ifr_name, name, sizeof(ifr.ifr_name));
+	ifr.ifr_media = (ifmr->ifm_current & ~IFM_IMASK) | inst << IFM_ISHIFT;
+
+	ifmr->ifm_current = ifr.ifr_media;
+	callback_register(setifmediacallback, (void *)ifmr);
+}
+
+#ifdef notdef
+static void
+setmediamode(const char *val, int d, int s, const struct afswtch *afp)
+{
+	struct ifmediareq *ifmr;
+	int mode;
+
+	ifmr = ifmedia_getstate(s);
+
+	mode = get_media_mode(IFM_TYPE(ifmr->ifm_ulist[0]), val);
+
+	strncpy(ifr.ifr_name, name, sizeof(ifr.ifr_name));
+	ifr.ifr_media = (ifmr->ifm_current & ~IFM_MMASK) | mode;
+
+	ifmr->ifm_current = ifr.ifr_media;
+	callback_register(setifmediacallback, (void *)ifmr);
+}
+#endif
 
 /**********************************************************************
  * A good chunk of this is duplicated from sys/net/ifmedia.c
@@ -330,11 +394,31 @@ static struct ifmedia_description ifm_subtype_fddi_aliases[] =
 static struct ifmedia_description ifm_subtype_fddi_option_descriptions[] =
     IFM_SUBTYPE_FDDI_OPTION_DESCRIPTIONS;
 
+#ifdef notdef
 static struct ifmedia_description ifm_subtype_ieee80211_descriptions[] =
     IFM_SUBTYPE_IEEE80211_DESCRIPTIONS;
 
+static struct ifmedia_description ifm_subtype_ieee80211_aliases[] =
+    IFM_SUBTYPE_IEEE80211_ALIASES;
+
 static struct ifmedia_description ifm_subtype_ieee80211_option_descriptions[] =
     IFM_SUBTYPE_IEEE80211_OPTION_DESCRIPTIONS;
+
+struct ifmedia_description ifm_subtype_ieee80211_mode_descriptions[] =
+    IFM_SUBTYPE_IEEE80211_MODE_DESCRIPTIONS;
+
+struct ifmedia_description ifm_subtype_ieee80211_mode_aliases[] =
+    IFM_SUBTYPE_IEEE80211_MODE_ALIASES;
+
+static struct ifmedia_description ifm_subtype_atm_descriptions[] =
+    IFM_SUBTYPE_ATM_DESCRIPTIONS;
+
+static struct ifmedia_description ifm_subtype_atm_aliases[] =
+    IFM_SUBTYPE_ATM_ALIASES;
+
+static struct ifmedia_description ifm_subtype_atm_option_descriptions[] =
+    IFM_SUBTYPE_ATM_OPTION_DESCRIPTIONS;
+#endif
 
 static struct ifmedia_description ifm_subtype_shared_descriptions[] =
     IFM_SUBTYPE_SHARED_DESCRIPTIONS;
@@ -354,6 +438,10 @@ struct ifmedia_type_to_subtype {
 		struct ifmedia_description *desc;
 		int alias;
 	} options[3];
+	struct {
+		struct ifmedia_description *desc;
+		int alias;
+	} modes[3];
 };
 
 /* must be in the same order as IFM_TYPE_DESCRIPTIONS */
@@ -368,7 +456,10 @@ static struct ifmedia_type_to_subtype ifmedia_types_to_subtypes[] = {
 		},
 		{
 			{ &ifm_shared_option_descriptions[0], 0 },
-			{ &ifm_subtype_ethernet_option_descriptions[0], 1 },
+			{ &ifm_subtype_ethernet_option_descriptions[0], 0 },
+			{ NULL, 0 },
+		},
+		{
 			{ NULL, 0 },
 		},
 	},
@@ -382,7 +473,10 @@ static struct ifmedia_type_to_subtype ifmedia_types_to_subtypes[] = {
 		},
 		{
 			{ &ifm_shared_option_descriptions[0], 0 },
-			{ &ifm_subtype_tokenring_option_descriptions[0], 1 },
+			{ &ifm_subtype_tokenring_option_descriptions[0], 0 },
+			{ NULL, 0 },
+		},
+		{
 			{ NULL, 0 },
 		},
 	},
@@ -396,7 +490,30 @@ static struct ifmedia_type_to_subtype ifmedia_types_to_subtypes[] = {
 		},
 		{
 			{ &ifm_shared_option_descriptions[0], 0 },
-			{ &ifm_subtype_fddi_option_descriptions[0], 1 },
+			{ &ifm_subtype_fddi_option_descriptions[0], 0 },
+			{ NULL, 0 },
+		},
+		{
+			{ NULL, 0 },
+		},
+	},
+#ifdef notdef
+	{
+		{
+			{ &ifm_subtype_shared_descriptions[0], 0 },
+			{ &ifm_subtype_shared_aliases[0], 1 },
+			{ &ifm_subtype_ieee80211_descriptions[0], 0 },
+			{ &ifm_subtype_ieee80211_aliases[0], 1 },
+			{ NULL, 0 },
+		},
+		{
+			{ &ifm_shared_option_descriptions[0], 0 },
+			{ &ifm_subtype_ieee80211_option_descriptions[0], 0 },
+			{ NULL, 0 },
+		},
+		{
+			{ &ifm_subtype_ieee80211_mode_descriptions[0], 0 },
+			{ &ifm_subtype_ieee80211_mode_aliases[0], 0 },
 			{ NULL, 0 },
 		},
 	},
@@ -404,21 +521,24 @@ static struct ifmedia_type_to_subtype ifmedia_types_to_subtypes[] = {
 		{
 			{ &ifm_subtype_shared_descriptions[0], 0 },
 			{ &ifm_subtype_shared_aliases[0], 1 },
-			{ &ifm_subtype_ieee80211_descriptions[0], 0 },
+			{ &ifm_subtype_atm_descriptions[0], 0 },
+			{ &ifm_subtype_atm_aliases[0], 1 },
 			{ NULL, 0 },
 		},
 		{
 			{ &ifm_shared_option_descriptions[0], 0 },
-			{ &ifm_subtype_ieee80211_option_descriptions[0], 1 },
+			{ &ifm_subtype_atm_option_descriptions[0], 0 },
+			{ NULL, 0 },
+		},
+		{
 			{ NULL, 0 },
 		},
 	},
+#endif
 };
 
 static int
-get_media_subtype(type, val)
-	int type;
-	const char *val;
+get_media_subtype(int type, const char *val)
 {
 	struct ifmedia_description *desc;
 	struct ifmedia_type_to_subtype *ttos;
@@ -438,13 +558,36 @@ get_media_subtype(type, val)
 			return (rval);
 	}
 	errx(1, "unknown media subtype: %s", val);
-	/* NOTREACHED */
+	/*NOTREACHED*/
 }
 
+#ifdef notdef
 static int
-get_media_options(type, val)
-	int type;
-	const char *val;
+get_media_mode(int type, const char *val)
+{
+	struct ifmedia_description *desc;
+	struct ifmedia_type_to_subtype *ttos;
+	int rval, i;
+
+	/* Find the top-level interface type. */
+	for (desc = ifm_type_descriptions, ttos = ifmedia_types_to_subtypes;
+	    desc->ifmt_string != NULL; desc++, ttos++)
+		if (type == desc->ifmt_word)
+			break;
+	if (desc->ifmt_string == NULL)
+		errx(1, "unknown media mode 0x%x", type);
+
+	for (i = 0; ttos->modes[i].desc != NULL; i++) {
+		rval = lookup_media_word(ttos->modes[i].desc, val);
+		if (rval != -1)
+			return (rval);
+	}
+	return -1;
+}
+#endif
+
+static int
+get_media_options(int type, const char *val)
 {
 	struct ifmedia_description *desc;
 	struct ifmedia_type_to_subtype *ttos;
@@ -485,9 +628,7 @@ get_media_options(type, val)
 }
 
 static int
-lookup_media_word(desc, val)
-	struct ifmedia_description *desc;
-	const char *val;
+lookup_media_word(struct ifmedia_description *desc, const char *val)
 {
 
 	for (; desc->ifmt_string != NULL; desc++)
@@ -497,22 +638,87 @@ lookup_media_word(desc, val)
 	return (-1);
 }
 
+static struct ifmedia_description *get_toptype_desc(int ifmw)
+{
+	struct ifmedia_description *desc;
+
+	for (desc = ifm_type_descriptions; desc->ifmt_string != NULL; desc++)
+		if (IFM_TYPE(ifmw) == desc->ifmt_word)
+			break;
+
+	return desc;
+}
+
+static struct ifmedia_type_to_subtype *get_toptype_ttos(int ifmw)
+{
+	struct ifmedia_description *desc;
+	struct ifmedia_type_to_subtype *ttos;
+
+	for (desc = ifm_type_descriptions, ttos = ifmedia_types_to_subtypes;
+	    desc->ifmt_string != NULL; desc++, ttos++)
+		if (IFM_TYPE(ifmw) == desc->ifmt_word)
+			break;
+
+	return ttos;
+}
+
+static struct ifmedia_description *get_subtype_desc(int ifmw, 
+    struct ifmedia_type_to_subtype *ttos)
+{
+	int i;
+	struct ifmedia_description *desc;
+
+	for (i = 0; ttos->subtypes[i].desc != NULL; i++) {
+		if (ttos->subtypes[i].alias)
+			continue;
+		for (desc = ttos->subtypes[i].desc;
+		    desc->ifmt_string != NULL; desc++) {
+			if (IFM_SUBTYPE(ifmw) == desc->ifmt_word)
+				return desc;
+		}
+	}
+
+	return NULL;
+}
+
+#ifdef notdef
+static struct ifmedia_description *get_mode_desc(int ifmw, 
+    struct ifmedia_type_to_subtype *ttos)
+{
+	int i;
+	struct ifmedia_description *desc;
+
+	for (i = 0; ttos->modes[i].desc != NULL; i++) {
+		if (ttos->modes[i].alias)
+			continue;
+		for (desc = ttos->modes[i].desc;
+		    desc->ifmt_string != NULL; desc++) {
+			if (IFM_MODE(ifmw) == desc->ifmt_word)
+				return desc;
+		}
+	}
+
+	return NULL;
+}
+#endif
+
 static void
-print_media_word(ifmw)
-	int ifmw;
+print_media_word(int ifmw, int print_toptype)
 {
 	struct ifmedia_description *desc;
 	struct ifmedia_type_to_subtype *ttos;
 	int seen_option = 0, i;
 
 	/* Find the top-level interface type. */
-	for (desc = ifm_type_descriptions, ttos = ifmedia_types_to_subtypes;
-	    desc->ifmt_string != NULL; desc++, ttos++)
-		if (IFM_TYPE(ifmw) == desc->ifmt_word)
-			break;
+	desc = get_toptype_desc(ifmw);
+	ttos = get_toptype_ttos(ifmw);
 	if (desc->ifmt_string == NULL) {
 		printf("<unknown type>");
 		return;
+#ifdef notdef
+	} else if (print_toptype) {
+		printf("%s", desc->ifmt_string);
+#endif
 	}
 
 	/*
@@ -521,23 +727,26 @@ print_media_word(ifmw)
 	 */
 
 	/* Find subtype. */
-	for (i = 0; ttos->subtypes[i].desc != NULL; i++) {
-		if (ttos->subtypes[i].alias)
-			continue;
-		for (desc = ttos->subtypes[i].desc;
-		    desc->ifmt_string != NULL; desc++) {
-			if (IFM_SUBTYPE(ifmw) == desc->ifmt_word)
-				goto got_subtype;
-		}
+	desc = get_subtype_desc(ifmw, ttos);
+	if (desc == NULL) {
+		printf("<unknown subtype>");
+		return;
 	}
 
-	/* Falling to here means unknown subtype. */
-	printf("<unknown subtype>");
-	return;
-
- got_subtype:
+#ifdef notdef
+	if (print_toptype)
+		putchar(' ');
+#endif
+	
 	printf("%s", desc->ifmt_string);
 
+#ifdef notdef
+	if (print_toptype) {
+		desc = get_mode_desc(ifmw, ttos);
+		if (desc != NULL && strcasecmp("autoselect", desc->ifmt_string))
+			printf(" mode %s", desc->ifmt_string);
+	}
+#endif
 	/* Find options. */
 	for (i = 0; ttos->options[i].desc != NULL; i++) {
 		if (ttos->options[i].alias)
@@ -553,8 +762,92 @@ print_media_word(ifmw)
 		}
 	}
 	printf("%s", seen_option ? ">" : "");
+
+#ifdef notdef
+	if (print_toptype && IFM_INST(ifmw) != 0)
+		printf(" instance %d", IFM_INST(ifmw));
+#endif
+}
+
+static void
+print_media_word_ifconfig(int ifmw)
+{
+	struct ifmedia_description *desc;
+	struct ifmedia_type_to_subtype *ttos;
+	int i;
+
+	/* Find the top-level interface type. */
+	desc = get_toptype_desc(ifmw);
+	ttos = get_toptype_ttos(ifmw);
+	if (desc->ifmt_string == NULL) {
+		printf("<unknown type>");
+		return;
+	}
+
+	/*
+	 * Don't print the top-level type; it's not like we can
+	 * change it, or anything.
+	 */
+
+	/* Find subtype. */
+	desc = get_subtype_desc(ifmw, ttos);
+	if (desc == NULL) {
+		printf("<unknown subtype>");
+		return;
+	}
+
+	printf("media %s", desc->ifmt_string);
+
+#ifdef notdef
+	desc = get_mode_desc(ifmw, ttos);
+	if (desc != NULL)
+		printf(" mode %s", desc->ifmt_string);
+#endif
+	
+	/* Find options. */
+	for (i = 0; ttos->options[i].desc != NULL; i++) {
+		if (ttos->options[i].alias)
+			continue;
+		for (desc = ttos->options[i].desc;
+		    desc->ifmt_string != NULL; desc++) {
+			if (ifmw & desc->ifmt_word) {
+				printf(" mediaopt %s", desc->ifmt_string);
+			}
+		}
+	}
+
+	if (IFM_INST(ifmw) != 0)
+		printf(" instance %d", IFM_INST(ifmw));
 }
 
 /**********************************************************************
  * ...until here.
  **********************************************************************/
+
+static struct cmd media_cmds[] = {
+	DEF_CMD_ARG("media",	setmedia),
+#ifdef notdef
+	DEF_CMD_ARG("mode",	setmediamode),
+#endif
+	DEF_CMD_ARG("mediaopt",	setmediaopt),
+	DEF_CMD_ARG("-mediaopt",unsetmediaopt),
+	DEF_CMD_ARG("inst",	setmediainst),
+	DEF_CMD_ARG("instance",	setmediainst),
+};
+static struct afswtch af_media = {
+	.af_name	= "af_media",
+	.af_af		= AF_UNSPEC,
+	.af_other_status = media_status,
+};
+
+static __constructor void
+ifmedia_ctor(void)
+{
+#define	N(a)	(sizeof(a) / sizeof(a[0]))
+	int i;
+
+	for (i = 0; i < N(media_cmds);  i++)
+		cmd_register(&media_cmds[i]);
+	af_register(&af_media);
+#undef N
+}

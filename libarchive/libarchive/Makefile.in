@@ -879,7 +879,7 @@ $(srcdir)/Makefile.in:  $(srcdir)/Makefile.am  $(am__configure_deps)
 	cd $(top_srcdir) && \
 	  $(AUTOMAKE) --foreign  Makefile
 .PRECIOUS: Makefile
-Makefile:
+Makefile: $(srcdir)/Makefile.in $(top_builddir)/config.status
 	@case '$?' in \
 	  *config.status*) \
 	    echo ' $(SHELL) ./config.status'; \
@@ -5647,15 +5647,12 @@ distclean-local:
 # Building it automatically provides a sanity-check on libarchive_test_SOURCES
 # above.
 libarchive/test/list.h: Makefile
-	mkdir -p libarchive/test
 	cat $(top_srcdir)/libarchive/test/test_*.c | grep DEFINE_TEST > libarchive/test/list.h
 
 tar/test/list.h: Makefile
-	mkdir -p tar/test
 	cat $(top_srcdir)/tar/test/test_*.c | grep DEFINE_TEST > tar/test/list.h
 
 cpio/test/list.h: Makefile
-	mkdir -p cpio/test
 	cat $(top_srcdir)/cpio/test/test_*.c | grep DEFINE_TEST > cpio/test/list.h
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
 # Otherwise a system limit (for SysV at least) may be exceeded.

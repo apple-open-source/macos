@@ -34,7 +34,8 @@
 enum
 {
     kIOFWSBP2FailsOnAckBusy = (1 << 0),
-	kIOFWSBP2FailsOnBusResetsDuringIO = (1 << 1)
+	kIOFWSBP2FailsOnBusResetsDuringIO = (1 << 1),
+	kIOFWSBP2DontUsePTPacketLimit = (1 << 2)
 };
 
 /*!

@@ -1,4 +1,4 @@
-# Copyright (C) 2001-2008 by the Free Software Foundation, Inc.
+# Copyright (C) 2001-2009 by the Free Software Foundation, Inc.
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -90,27 +90,6 @@ def guess_extension(ctype, ext):
     return all and all[0]
 
 
-
-# We're using a subclass of the standard Generator because we want to suppress
-# headers in the subparts of multiparts.  We use a hack -- the ctor argument
-# skipheaders to accomplish this.  It's set to true for the outer Message
-# object, but false for all internal objects.  We recognize that
-# sub-Generators will get created passing only mangle_from_ and maxheaderlen
-# to the ctors.
-#
-# This isn't perfect because we still get stuff like the multipart boundaries,
-# but see below for how we corrupt that to our nefarious goals.
-class ScrubberGenerator(Generator):
-    def __init__(self, outfp, mangle_from_=True,
-                 maxheaderlen=78, skipheaders=True):
-        Generator.__init__(self, outfp, mangle_from_=False)
-        self.__skipheaders = skipheaders
-
-    def _write_headers(self, msg):
-        if not self.__skipheaders:
-            Generator._write_headers(self, msg)
-
-
 def safe_strftime(fmt, t):
     try:
         return time.strftime(fmt, t)
@@ -167,6 +146,9 @@ def replace_payload_by_text(msg, text, charset):
     # message by a text (scrubbing).
     del msg['content-type']
     del msg['content-transfer-encoding']
+    if isinstance(charset, unicode):
+        # email 3.0.1 (python 2.4) doesn't like unicode
+        charset = charset.encode('us-ascii')
     msg.set_payload(text, charset)
 
 
@@ -259,7 +241,7 @@ URL: %(url)s
                 # mono-space font.  Still looks hideous to me, but then I'd
                 # just as soon discard them.
                 def doreplace(s):
-                    return s.replace(' ', '&nbsp;').replace('\t', '&nbsp'*8)
+                    return s.expandtabs(8).replace(' ', '&nbsp;')
                 lines = [doreplace(s) for s in payload.split('\n')]
                 payload = '<tt>\n' + BR.join(lines) + '\n</tt>\n'
                 part.set_payload(payload)
@@ -284,6 +266,7 @@ URL: %(url)s
             finally:
                 os.umask(omask)
             subject = submsg.get('subject', _('no subject'))
+            subject = Utils.oneline(subject, lcset)
             date = submsg.get('date', _('no date'))
             who = submsg.get('from', _('unknown sender'))
             size = len(str(submsg))
@@ -417,11 +400,11 @@ URL: %(url)s
 def makedirs(dir):
     # Create all the directories to store this attachment in
     try:
-        os.makedirs(dir, 0775)
+        os.makedirs(dir, 02775)
         # Unfortunately, FreeBSD seems to be broken in that it doesn't honor
         # the mode arg of mkdir().
         def twiddle(arg, dirname, names):
-            os.chmod(dirname, 0775)
+            os.chmod(dirname, 02775)
         os.path.walk(dir, twiddle, None)
     except OSError, e:
         if e.errno <> errno.EEXIST: raise

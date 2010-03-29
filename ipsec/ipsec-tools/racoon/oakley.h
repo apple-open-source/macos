@@ -162,11 +162,21 @@ struct dhgroup {
 	vchar_t *order;
 };
 
+typedef enum cert_status {
+	CERT_STATUS_OK = 0,
+	CERT_STATUS_PREMATURE,
+	CERT_STATUS_EXPIRED,
+	CERT_STATUS_INVALID,
+} cert_status_t;
+
+#define IS_CERT_STATUS_ERROR(status) (status > CERT_STATUS_OK && status < CERT_STATUS_INVALID)
+
 /* certificate holder */
 typedef struct cert_t_tag {
 	u_int8_t type;		/* type of CERT, must be same to pl->v[0]*/
 	vchar_t cert;		/* pointer to the CERT */
 	vchar_t *pl;		/* CERT payload minus isakmp general header */
+	cert_status_t status;
 } cert_t;
 
 struct ph1handle;

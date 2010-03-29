@@ -1,0 +1,123 @@
+<manpage>
+	<docdate>May 8, 2009</docdate>
+	<doctitle>com.apple.Boot.plist</doctitle>
+	<os>Darwin</os>
+	<section>5</section>
+	<names>
+		<name>com.apple.Boot.plist<desc>Configuration plist for Mac OS X booter</desc></name>
+	</names>
+	<description>
+		<p>The Mac OS X booter (<path>boot.efi</path> on EFI-based Macintosh systems) is responsible for
+			loading the initial parts of the operating system into memory and executing them. Its default
+			behavior is to start up Mac OS X in graphical mode. However, certain behavior can be
+			configured using the <path>com.apple.Boot.plist</path> file, as well as NVRAM variables,
+			EFI boot options, and keyboard "snag keys".
+		</p>
+		<p>The <path>com.apple.Boot.plist</path> is a standard <manpage>plist<section>5</section></manpage>
+			format Core Foundation property list. Keys are generally strings like <command>Kernel Flags</command>,
+			with either string or integer values. The following key-values are currently supported:
+		</p>
+		<dl>
+			<dt><command>Kernel Flags</command></dt><dd>[string] This option specifies arguments to be passed
+				directly to the kernel to change its behavior (although some kernel options are parsed by the
+				booter as well for correctness). Common options include "debug=0x144" to enable kernel debugging,
+				"-v" to enable verbose boot, "-s" to boot to single user mode, "cpus=1" to simulate a
+				single core system, and "maxmem=1024" to cap available memory to 1024 MB RAM. All desired options
+				should be space-separated within the &lt;string&gt; tag. The default value is the empty string.</dd>
+			
+			<dt><command>MKext Cache</command></dt><dd>[string] This option specifies the mkext file
+				to be loaded, which contains kernel extensions. The path uses backslash ("\") path delimeters.
+				The default value is <path>System\Library\Caches\com.apple.kext.caches\Startup\Extensions.mkext</path>.</dd>
+			
+			<dt><command>Kernel</command></dt><dd>[string] This option specifies the kernel file to
+				be loaded. The path uses backslash ("\") path delimeters. The default
+				value is <path>mach_kernel</path>.</dd>
+			
+			<dt><command>Kernel Cache</command></dt><dd>[string] This option specifies the prelinked
+				kernel file to be loaded, which contains both the kernel and kernel extensions, linked
+				at their final load addresses. The path uses backslash ("\") path delimeters. The
+				default value is calculated programmatically using
+				<path>System\Library\Caches\com.apple.kext.caches\Startup\kernelcache_${ARCH}.${CHECKSUM}</path>
+				as the template, where ${ARCH} is the architecture of the kernel ("i386" or "x86_64") and
+				${CHECKSUM} is a 32-bit hash of characteristics of the boot volume and machine hardware.</dd>
+			
+			<dt><command>Kernel Architecture</command></dt><dd>[string] This option specifies which kernel
+				architecture to use when the kernel file is a universal binary and the hardware supports
+				more than one kernel architecture. It can be either "i386" or "x86_64" to choose the respective
+				slice of the universal binary. If the kernel is not a universal binary, this option has
+				no effect. If the hardware only supports the 32-bit kernel, this option has no effect. The default
+				value is determined programmatically based on the hardware, and whether Mac OS X Server
+				is being used.</dd>
+			
+			<dt><command>Root UUID</command></dt><dd>[string] This option is rarely used and specifies
+				to the kernel what block device should be probed as the root filesystem ("/"), and is most
+				commonly overriden by the OS installation software when installing onto AppleRAID volumes. It can be
+				either a filesystem volume UUID, as represented by <command>diskutil info</command>, or
+				a GPT partition UUID. The default is generated programmatically based on which filesystem
+				the booter itself was loaded from.</dd>
+		</dl>
+		
+		<p>Since the <path>com.apple.Boot.plist</path> file exists on the root filesystem, it is tied to that 
+			OS volume, and is no longer honored if Startup Disk or <manpage>bless<section>8</section></manpage>
+			is used to change the boot preference to another volume.
+		</p>
+		
+		<p>The <command>Kernel Flags</command> options can also be specified via <arg>--option</arg>
+			to <manpage>bless<section>8</section></manpage>, which encodes
+			the string in the EFI boot options along with the
+			OS boot volume preference. The space-separated strings
+			are merged with kernel flags specified in the
+			<path>com.apple.Boot.plist</path> and NVRAM.
+		</p>
+		
+		<p>At boot time, the booter checks to see if certain keys are being pressed, and alters behavior accordingly.
+			This is in addition to similar functionality that the firmware itself may implement before starting the
+			booter. Since pressing keys requires physical interaction, they take precendence over preferences
+			set through other means, including the <path>com.apple.Boot.plist</path> file and NVRAM.
+			The following key combinations are currently supported:
+		</p>
+		<dl>
+			<dt><command>Shift</command></dt><dd>Boot in Safe Mode. Effectively the same as passing "-x" in
+				<command>Kernel Flags</command>, and causes most caches to be ignored by the booter.</dd>
+			
+			<dt><command>Command-S</command></dt><dd>Boot in Single User Mode. Effectively the same as passing "-s" in
+				<command>Kernel Flags</command>, and causes the system to boot to an interactive shell
+				with no system services started.</dd>
+			
+			<dt><command>Command-V</command></dt><dd>Boot in Verbose Mode. Effectively the same as passing "-v" in
+				<command>Kernel Flags</command>, and causes the system to boot to verbose text logging before
+				starting the graphical user interface.</dd>
+			
+			<dt><command>3 2</command></dt><dd>Boot with the 32-bit kernel. Effectively the same as passing
+				"arch=i386" in <command>Kernel Flags</command>, and causes the system to prefer the 32-bit
+				kernel on systems that would otherwise boot the 64-bit kernel.</dd>
+			
+			<dt><command>6 4</command></dt><dd>Boot with the 64-bit kernel (if supported on this system). Effectively the same as passing
+				"arch=x86_64" in <command>Kernel Flags</command>, and causes the system to prefer the 64-bit
+				kernel on systems that would otherwise boot the 32-bit kernel. If the 64-bit kernel is not supported, the option is ignored.</dd>
+		</dl>
+
+	</description>
+	<environment>
+		<p>The Mac OS X booter can also be controlled by NVRAM variables, which are analogous
+			to environment variables. NVRAM variables are key-value pairs. The "boot-args" NVRAM variable
+			can be used to provide additional arguments to the kernel, and will be merged with
+			<command>Kernel Flags</command> in the <path>com.apple.Boot.plist</path> file and
+			EFI boot options set with <manpage>bless<section>8</section></manpage>.
+		</p>
+		
+		<p>
+			Since NVRAM variables are system-wide, they are consulted regardless of what OS volume is
+			set as the boot preference. NVRAM variables are persistent even when the boot preference
+			is changed by Startup Disk or <manpage>bless<section>8</section></manpage>.
+		</p>
+	</environment>
+	<files>
+		<file>/Library/Preferences/SystemConfiguration/com.apple.Boot.plist<desc>Location of the <path>com.apple.Boot.plist</path> file.</desc></file>
+	</files>
+	<seealso>
+		<manpage>nvram<section>8</section>, </manpage>
+		<manpage>bless<section>8</section>, </manpage>
+		<manpage>kextcache<section>8</section></manpage>
+	</seealso>
+</manpage>

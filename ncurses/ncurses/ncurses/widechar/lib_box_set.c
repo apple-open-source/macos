@@ -37,6 +37,7 @@
 **
 */
 
+#define NEED_WACS
 #include <curses.priv.h>
 
 MODULE_ID("$Id: lib_box_set.c,v 1.4 2003/12/06 18:02:13 tom Exp $")

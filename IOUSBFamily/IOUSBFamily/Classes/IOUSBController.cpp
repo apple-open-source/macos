@@ -243,7 +243,7 @@ IOUSBSyncCompletion(void *	target, void * 	parameter, IOReturn	status, UInt32	bu
         return;
     }
     
-    if(parameter != NULL) {
+    if (parameter != NULL) {
         *(UInt32 *)parameter -= bufferSizeRemaining;
     }
 	
@@ -342,8 +342,12 @@ IOUSBController::start( IOService * provider )
 	IOUSBControllerV2		*me2 = OSDynamicCast(IOUSBControllerV2, this);
 	IOUSBControllerV3		*me3 = OSDynamicCast(IOUSBControllerV3, this);
     
-    if( !super::start(provider))
+    if ( !super::start(provider))
         return false;
+	
+#if CONTROLLER_USE_KPRINTF
+	IOSleep(5000);
+#endif
 	
 	USBTrace_Start( kUSBTController, kTPControllerStart, (uintptr_t)provider, 0, 0, 0);
 
@@ -419,12 +423,15 @@ IOUSBController::start( IOService * provider )
         _provider->joinPMtree(this);
 		//        IOPMRegisterDevice(pm_vars->ourName,this);	// join the power management tree
         
-        /*
-         * Initialize the UIM
-         */
-        if (UIMInitialize(_provider) != kIOReturnSuccess)
+
+		// Initialize the UIM
+		err = UIMInitialize(_provider);
+        if (err != kIOReturnSuccess)
         {
-            USBError(1, "%s[%p]::start unable to initialize UIM", getName(), this);
+			if (err !=  kIOReturnUnsupported)
+			{
+				USBLog(1, "%s[%p]::start unable to initialize UIM", getName(), this);
+			}
             break;
         }
 		
@@ -496,10 +503,46 @@ IOUSBController::start( IOService * provider )
         return true;
 		
     } while (false);
+
+// ERROR case. Need to clean up anything that got partially initialized
 	
 	USBTrace_End( kUSBTController, kTPControllerStart, (uintptr_t)this, 0, 0, 2);
 	
-    if (_commandGate)	
+    for ( i = 0; i < (int)_currentSizeOfCommandPool; i++ )
+    {
+        IOUSBCommand *command = (IOUSBCommand *)_freeUSBCommandPool->getCommand(false);    
+        if ( command )
+            command->release();
+    }
+    
+    for ( i = 0; i < (int)_currentSizeOfIsocCommandPool; i++ )
+    {
+        IOUSBIsocCommand *command = (IOUSBIsocCommand *)_freeUSBIsocCommandPool->getCommand(false);  
+        if ( command )
+            command->release();
+    }
+	
+    if ( _freeUSBCommandPool )
+    {
+        _freeUSBCommandPool->release();
+        _freeUSBCommandPool = NULL;
+    }
+    
+    if ( _freeUSBIsocCommandPool )
+    {
+        _freeUSBIsocCommandPool->release();
+        _freeUSBIsocCommandPool = NULL;
+    }
+    
+	if ( _expansionData && _watchdogUSBTimer )
+    {
+		_watchdogUSBTimer->cancelTimeout();
+		
+		if ( _workLoop )
+			_workLoop->removeEventSource( _watchdogUSBTimer );
+    }
+	
+	if (_commandGate)	
 	{
 		if (commandGateAdded && _workLoop )
 	        _workLoop->removeEventSource( _commandGate );
@@ -513,6 +556,9 @@ IOUSBController::start( IOService * provider )
 		_workLoop->release();
 		_workLoop = NULL;
 	}
+
+	retain();									// 7303256  If we let the IOUSBController free, we crash
+	PMstop();									// 7297543 - clean up the PM stuff if it is running
 	
 	_provider->close(this);
 
@@ -684,7 +730,7 @@ IOUSBController::ControlTransaction(IOUSBCommand *command)
         // Setup Stage
 		
 		completion = command->GetUSLCompletion();
-		if(completion.action == NULL)
+		if (completion.action == NULL)
 		{
 			completion.target    = (void *)this;
 			completion.action    = (IOUSBCompletionAction) &ControlPacketHandler;
@@ -877,16 +923,16 @@ IOUSBController::ControlPacketHandler( OSObject * 	target,
         USBLog(5, "%s[%p]::ControlPacketHandler(FN: %d, EP:%d): Error: 0x%x, stage: 0x%x, todo: 0x%x", me->getName(), me, command->GetAddress(), command->GetEndpoint(), status, command->GetStage(), todo );
 	}
 	
-    if((todo & kSetupBack) != 0)
+    if ((todo & kSetupBack) != 0)
         command->SetStage(command->GetStage() | kSetupBack);
-    else if((todo & kDataBack) != 0)
+    else if ((todo & kDataBack) != 0)
     {
         // This is the data transport phase, so this is the interesting one
         command->SetStage(command->GetStage() | kDataBack);
         command->SetDataRemaining(bufferSizeRemaining);
 		in = (((request->bmRequestType >> kUSBRqDirnShift) & kUSBRqDirnMask) == kUSBIn);
     }
-    else if((todo & kStatusBack) != 0)
+    else if ((todo & kStatusBack) != 0)
     {
         command->SetStage(command->GetStage() | kStatusBack);
 		in = (((request->bmRequestType >> kUSBRqDirnShift) & kUSBRqDirnMask) != kUSBIn);
@@ -911,13 +957,13 @@ IOUSBController::ControlPacketHandler( OSObject * 	target,
 			
 			if (status == kIOUSBHighSpeedSplitError)
 			{
-				USBLog(1,"%s[%p]::ControlPacketHandler - kIOUSBHighSpeedSplitError", me->getName(), me);
+				USBLog(3,"%s[%p]::ControlPacketHandler - kIOUSBHighSpeedSplitError", me->getName(), me);
 				USBTrace( kUSBTController, kTPControllerControlPacketHandler, (uintptr_t)me, kIOUSBHighSpeedSplitError, 0, 0);
 				
 				v2Bus = OSDynamicCast(IOUSBControllerV2, me);
 				if (v2Bus)
 				{
-					USBLog(1,"%s[%p]::ControlPacketHandler - calling clear TT", me->getName(), me);
+					USBLog(6,"%s[%p]::ControlPacketHandler - calling clear TT", me->getName(), me);
 					USBTrace( kUSBTController, kTPControllerControlPacketHandler, (uintptr_t)me, kIOUSBHighSpeedSplitError, (uintptr_t)v2Bus, 1 );
 					v2Bus->ClearTT(addr, endpt, in);
 				}
@@ -1077,7 +1123,7 @@ IOUSBController::InterruptTransaction(IOUSBCommand *command)
 
     err = UIMCreateInterruptTransfer(command);
 	
-	USBTrace_End( kUSBTController, kTPInterruptTransaction, (uintptr_t)this, err, 0, 0);
+	USBTrace_End( kUSBTController, kTPInterruptTransaction, (uintptr_t)this, err, command->GetCompletionTimeout(), command->GetNoDataTimeout());
 	
     return(err);
 }
@@ -1101,7 +1147,16 @@ IOUSBController::InterruptPacketHandler(OSObject * target, void * parameter, IOR
     if ( status == kIOUSBTransactionReturned )
         status = kIOReturnAborted;
 	
-    // Write the status out to our IOUSBCommand so that the completion routine can access it
+  	if ( status == kIOReturnSuccess)
+	{
+		USBTrace( kUSBTController,  kTPInterruptPacketHandler, (uintptr_t)me, ((command->GetDirection() << 24) | (me->_busNumber << 16 ) | ( command->GetAddress() << 8) | command->GetEndpoint()), memDesc ? (uintptr_t)(memDesc->getLength() - bufferSizeRemaining) : 0, status);
+	}
+	else
+	{
+		USBTrace( kUSBTController,  kTPInterruptPacketHandler, (uintptr_t)me, ((command->GetDirection() << 24) | (me->_busNumber << 16 ) | ( command->GetAddress() << 8) | command->GetEndpoint()), 0, status);
+	}
+	
+	// Write the status out to our IOUSBCommand so that the completion routine can access it
     //
     command->SetStatus(status);
 	
@@ -1118,7 +1173,7 @@ IOUSBController::InterruptPacketHandler(OSObject * target, void * parameter, IOR
 			
 			memDesc->readBytes(0, &data, bytesToRead );
 			
-			USBTrace( kUSBTController,  kTPInterruptPacketHandler, ((me->_busNumber << 16 ) | ( command->GetAddress() << 8) | command->GetEndpoint()), (uintptr_t)(memDesc->getLength() - bufferSizeRemaining), data[0], data[1]);
+			USBTrace( kUSBTController,  kTPInterruptPacketHandlerData, ((me->_busNumber << 16 ) | ( command->GetAddress() << 8) | command->GetEndpoint()), (uintptr_t)(memDesc->getLength() - bufferSizeRemaining), data[0], data[1]);
 		}
 	}
 	
@@ -1186,7 +1241,7 @@ IOUSBController::BulkTransaction(IOUSBCommand *command)
 		
 		USBTrace( kUSBTController,  kTPBulkTransactionData, ((_busNumber << 16 ) | ( command->GetAddress() << 8) | command->GetEndpoint()), command->GetReqCount(), data[0], data[1]);
 	}
-	
+		
 	err = UIMCreateBulkTransfer(command);
 	
     if (err)
@@ -1194,7 +1249,7 @@ IOUSBController::BulkTransaction(IOUSBCommand *command)
         USBLog(3,"%s[%p]::BulkTransaction: error queueing bulk packet (0x%x)", getName(), this, err);
 	}
 	
-	USBTrace_End( kUSBTController, kTPBulkTransaction, (uintptr_t)this, err, 0, 0);
+	USBTrace_End( kUSBTController, kTPBulkTransaction, (uintptr_t)this, err, command->GetCompletionTimeout(), command->GetNoDataTimeout());
 	
 	return(err);
 }
@@ -1218,6 +1273,15 @@ IOUSBController::BulkPacketHandler(OSObject *target, void *parameter, IOReturn	s
 	if ( status == kIOUSBTransactionReturned )
         status = kIOReturnAborted;
 	
+	if ( status == kIOReturnSuccess)
+	{
+		USBTrace( kUSBTController,  kTPBulkPacketHandler, (uintptr_t)me, ((command->GetDirection() << 24) | (me->_busNumber << 16 ) | ( command->GetAddress() << 8) | command->GetEndpoint()), memDesc ? (uintptr_t)(memDesc->getLength() - bufferSizeRemaining) : 0, status);
+	}
+	else 
+	{
+		USBTrace( kUSBTController,  kTPBulkPacketHandler, (uintptr_t)me, ((command->GetDirection() << 24) | (me->_busNumber << 16 ) | ( command->GetAddress() << 8) | command->GetEndpoint()), 0, status);
+	}
+
 	if (dmaCommand && memDesc)
 	{
 		// need to clear the memory descriptor (which completes it as well) before we call the completion routine
@@ -1231,7 +1295,7 @@ IOUSBController::BulkPacketHandler(OSObject *target, void *parameter, IOReturn	s
 			
 			memDesc->readBytes(0, &data, bytesToRead );
 			
-			USBTrace( kUSBTController,  kTPBulkPacketHandler, ((me->_busNumber << 16 ) | ( command->GetAddress() << 8) | command->GetEndpoint()), (uintptr_t)(memDesc->getLength() - bufferSizeRemaining), data[0], data[1]);
+			USBTrace( kUSBTController,  kTPBulkPacketHandlerData, ((me->_busNumber << 16 ) | ( command->GetAddress() << 8) | command->GetEndpoint()), (uintptr_t)(memDesc->getLength() - bufferSizeRemaining), data[0], data[1]);
 		}
 	}
 	
@@ -1369,7 +1433,7 @@ IOUSBController::IsocTransaction(IOUSBIsocCommand *command)
 	command->SetUSLCompletion(completion);
 	if (!_activeIsochTransfers && (_isochMaxBusStall != 0))
 		requireMaxBusStall(_isochMaxBusStall);										// require a max stall of 10 microseconds on the PCI bus
-		
+	
 	_activeIsochTransfers++;
 	err = UIMCreateIsochTransfer(command);	
     if (err) 
@@ -1378,9 +1442,9 @@ IOUSBController::IsocTransaction(IOUSBIsocCommand *command)
 		_activeIsochTransfers--;
 		if (!_activeIsochTransfers && (_isochMaxBusStall != 0))
 			requireMaxBusStall(0);										// remove max stall requirement on the PCI bus
-    }
+	}
 
-	USBTrace_End( kUSBTController, kTPIsocTransaction, (uintptr_t)this, err, 0, 0);
+	USBTrace_End( kUSBTController, kTPIsocTransaction, (uintptr_t)this, err, (uintptr_t)command->GetFrameList(), 0);
 
     return err;
 }
@@ -1452,7 +1516,10 @@ IOUSBController::WatchdogTimer(OSObject *target, IOTimerEventSource *source)
 	
     if (!me || !source || me->isInactive() )
     {
-        me->_watchdogTimerActive = false;
+ 		if ( me && me->_expansionData )
+		{
+	       	me->_watchdogTimerActive = false;
+	    }
         return;
     }
 	
@@ -1542,8 +1609,11 @@ IOUSBController::DoIOTransfer(OSObject *owner, void *cmd, void *, void *, void *
                 {
 					
                     //USBLog(6,"%s[%p]::DoIOTransfer(Interrupt) calling commandSleep (%p,%p,%p)", controller->getName(), controller, &syncTarget, syncTarget.controller, syncTarget.flag);
+ 					USBTrace_Start( kUSBTController, kTPDoIOTransferIntrSync, (uintptr_t)controller, ((command->GetDirection() << 24) | (controller->_busNumber << 16 ) | ( command->GetAddress() << 8) | command->GetEndpoint()), command->GetCompletionTimeout(), command->GetNoDataTimeout());
                     err = commandGate->commandSleep(&inCommandSleep);
+
 					inCommandSleep = false;
+					USBTrace_End( kUSBTController, kTPDoIOTransferIntrSync, (uintptr_t)controller, ((command->GetDirection() << 24) | (controller->_busNumber << 16 ) | ( command->GetAddress() << 8) | command->GetEndpoint()), err, command->GetStatus());
 					if (err != THREAD_AWAKENED)
 					{
 						USBLog(3,"%s[%p]::DoIOTransfer(Interrupt) woke up: commandSleep for returned with a result of:  %d", controller->getName(), controller, err);
@@ -1564,8 +1634,11 @@ IOUSBController::DoIOTransfer(OSObject *owner, void *cmd, void *, void *, void *
                 if ( err == kIOReturnSuccess )
                 {
                     //USBLog(6,"%s[%p]::DoIOTransfer(Bulk) calling commandSleep (%p,%p,%p)", controller->getName(), controller, &syncTarget, syncTarget.controller, syncTarget.flag);
-                    err = commandGate->commandSleep(&inCommandSleep);
+					USBTrace_Start( kUSBTController, kTPDoIOTransferBulkSync, (uintptr_t)controller, ((command->GetDirection() << 24) | (controller->_busNumber << 16 ) | ( command->GetAddress() << 8) | command->GetEndpoint()), command->GetCompletionTimeout(), command->GetNoDataTimeout());
+					err = commandGate->commandSleep(&inCommandSleep);
+					
  					inCommandSleep = false;
+					USBTrace_End( kUSBTController, kTPDoIOTransferBulkSync, (uintptr_t)controller, ((command->GetDirection() << 24) | (controller->_busNumber << 16 ) | ( command->GetAddress() << 8) | command->GetEndpoint()), err, command->GetStatus());
 					if (err != THREAD_AWAKENED)
 					{
 						USBLog(3,"%s[%p]::DoIOTransfer(Bulk) woke up: commandSleep for returned with a result of:  %d", controller->getName(), controller, err);
@@ -1820,12 +1893,12 @@ IOUSBController::ProtectedDevZeroLock(OSObject *target, void* lock, void* arg2, 
 	IOCommandGate * 	commandGate = me->GetCommandGate();
 	IOReturn			retVal = kIOReturnSuccess;
   
-    USBLog(5, "%s[%p]::ProtectedAcquireDevZeroLock - about to %s device zero lock", me->getName(), me, lock ? "obtain" : "release");
+    USBLog(5, "%s[%p]::ProtectedDevZeroLock - about to %s device zero lock", me->getName(), me, lock ? "obtain" : "release");
     if (lock)
     {
 		if (!me->_devZeroLock)
 		{
-			USBLog(5, "%s[%p]::ProtectedAcquireDevZeroLock - not already locked - obtaining", me->getName(), me);
+			USBLog(5, "%s[%p]::ProtectedDevZeroLock - not already locked - obtaining", me->getName(), me);
 			USBTrace( kUSBTController, kTPDevZeroLock, (uintptr_t)me, 0, 0, 0 );
 		}
 		
@@ -1833,7 +1906,7 @@ IOUSBController::ProtectedDevZeroLock(OSObject *target, void* lock, void* arg2, 
 		{
 			AbsoluteTime	deadline;
 			
-			USBLog(5, "%s[%p]::ProtectedAcquireDevZeroLock - somebody already has it - running commandSleep", me->getName(), me);
+			USBLog(5, "%s[%p]::ProtectedDevZeroLock - somebody already has it - running commandSleep", me->getName(), me);
 			
 			clock_interval_to_deadline(DEV_ZEROLOCK_DEADLINE_IN_SECS, NSEC_PER_SEC, &deadline);
 			IOReturn kr = commandGate->commandSleep(&me->_devZeroLock, deadline, THREAD_ABORTSAFE);
@@ -1841,43 +1914,43 @@ IOUSBController::ProtectedDevZeroLock(OSObject *target, void* lock, void* arg2, 
 			switch (kr)
 			{
 				case THREAD_AWAKENED:
-					USBLog(6,"%s[%p]::ProtectedAcquireDevZeroLock commandSleep woke up normally (THREAD_AWAKENED) _devZeroLock(%s)", me->getName(), me, me->_devZeroLock ? "true" : "false");
+					USBLog(6,"%s[%p]::ProtectedDevZeroLock commandSleep woke up normally (THREAD_AWAKENED) _devZeroLock(%s)", me->getName(), me, me->_devZeroLock ? "true" : "false");
 					USBTrace( kUSBTController, kTPDevZeroLock, (uintptr_t)me, (uintptr_t)me->_devZeroLock, 0, 2 );
 					break;
 					
 				case THREAD_TIMED_OUT:
-					USBLog(3,"%s[%p]::ProtectedAcquireDevZeroLock commandSleep timeout out (THREAD_TIMED_OUT) _devZeroLock(%s)", me->getName(), me, me->_devZeroLock ? "true" : "false");
+					USBLog(3,"%s[%p]::ProtectedDevZeroLock commandSleep timeout out (THREAD_TIMED_OUT) _devZeroLock(%s)", me->getName(), me, me->_devZeroLock ? "true" : "false");
 					USBTrace( kUSBTController, kTPDevZeroLock, (uintptr_t)me, (uintptr_t)me->_devZeroLock, 0, 7 );
 					retVal = kIOReturnNotPermitted;
 					break;
 					
 				case THREAD_INTERRUPTED:
-					USBLog(3,"%s[%p]::ProtectedAcquireDevZeroLock commandSleep interrupted (THREAD_INTERRUPTED) _devZeroLock(%s)", me->getName(), me, me->_devZeroLock ? "true" : "false");
+					USBLog(3,"%s[%p]::ProtectedDevZeroLock commandSleep interrupted (THREAD_INTERRUPTED) _devZeroLock(%s)", me->getName(), me, me->_devZeroLock ? "true" : "false");
 					USBTrace( kUSBTController, kTPDevZeroLock, (uintptr_t)me, (uintptr_t)me->_devZeroLock, 0, 3 );
 					retVal = kIOReturnNotPermitted;
 					break;
 					
 				case THREAD_RESTART:
-					USBLog(3,"%s[%p]::ProtectedAcquireDevZeroLock commandSleep restarted (THREAD_RESTART) _devZeroLock(%s)", me->getName(), me, me->_devZeroLock ? "true" : "false");
+					USBLog(3,"%s[%p]::ProtectedDevZeroLock commandSleep restarted (THREAD_RESTART) _devZeroLock(%s)", me->getName(), me, me->_devZeroLock ? "true" : "false");
 					USBTrace( kUSBTController, kTPDevZeroLock, (uintptr_t)me, (uintptr_t)me->_devZeroLock, 0, 4 );
 					retVal = kIOReturnNotPermitted;
 					break;
 					
 				case kIOReturnNotPermitted:
-					USBLog(3,"%s[%p]::ProtectedAcquireDevZeroLock woke up with status (kIOReturnNotPermitted) - we do not hold the WL!", me->getName(), me);
+					USBLog(3,"%s[%p]::ProtectedDevZeroLock woke up with status (kIOReturnNotPermitted) - we do not hold the WL!", me->getName(), me);
 					USBTrace( kUSBTController, kTPDevZeroLock, (uintptr_t)me, (uintptr_t)me->_devZeroLock, 0, 5 );
 					retVal = kr;
 					break;
 					
 				default:
-					USBLog(3,"%s[%p]::ProtectedAcquireDevZeroLock woke up with unknown status %p",  me->getName(), me, (void*)kr);
+					USBLog(3,"%s[%p]::ProtectedDevZeroLock woke up with unknown status %p",  me->getName(), me, (void*)kr);
 					USBTrace( kUSBTController, kTPDevZeroLock, (uintptr_t)me, (uintptr_t)me->_devZeroLock, 0, 6 );
 					retVal = kIOReturnNotPermitted;
 			}
 		}
 		if (retVal == kIOReturnSuccess)
 		{
-			USBLog(5, "%s[%p]::ProtectedAcquireDevZeroLock - setting _devZeroLock to true", me->getName(), me);
+			USBLog(5, "%s[%p]::ProtectedDevZeroLock - setting _devZeroLock to true", me->getName(), me);
 			me->_devZeroLock = true;
 			USBTrace( kUSBTController, kTPDevZeroLock, (uintptr_t)me, 0, 0, 9 );
 		}
@@ -1886,7 +1959,7 @@ IOUSBController::ProtectedDevZeroLock(OSObject *target, void* lock, void* arg2, 
 			// Let's see if we can get the devZerol lock on a commandWake with an error
 			if (!me->_devZeroLock)
 			{
-				USBLog(5, "%s[%p]::ProtectedAcquireDevZeroLock - setting _devZeroLock to true because we woke up with an error from commandSleep()'d, but the lock was false", me->getName(), me);
+				USBLog(5, "%s[%p]::ProtectedDevZeroLock - setting _devZeroLock to true because we woke up with an error from commandSleep()'d, but the lock was false", me->getName(), me);
 				me->_devZeroLock = true;
 				USBTrace( kUSBTController, kTPDevZeroLock, (uintptr_t)me, 0, 0, 10 );
 				retVal = kIOReturnSuccess;
@@ -1895,11 +1968,11 @@ IOUSBController::ProtectedDevZeroLock(OSObject *target, void* lock, void* arg2, 
     }
     else
     {
-		USBLog(5, "%s[%p]::ProtectedAcquireDevZeroLock - releasing lock", me->getName(), me);
+		USBLog(5, "%s[%p]::ProtectedDevZeroLock - releasing lock", me->getName(), me);
 		USBTrace( kUSBTController, kTPDevZeroLock, (uintptr_t)me, 0, 0, 8 );
 		me->_devZeroLock = false;
 		commandGate->commandWakeup(&me->_devZeroLock, true);
-		USBLog(5, "%s[%p]::ProtectedAcquireDevZeroLock - wakeup done", me->getName(), me);
+		USBLog(5, "%s[%p]::ProtectedDevZeroLock - wakeup done", me->getName(), me);
     }
 	
 	return retVal;
@@ -1911,23 +1984,13 @@ IOReturn
 IOUSBController::AcquireDeviceZero()
 {
     IOReturn			err = 0;
-    Endpoint			ep;
 	IOCommandGate * 	commandGate = GetCommandGate();
-	
-    ep.number = 0;
-    ep.transferType = kUSBControl;
-    ep.maxPacketSize = 8;
 	
     USBLog(6,"%s[%p]: Trying to acquire Device Zero", getName(), this);
     commandGate->runAction(ProtectedDevZeroLock, (void*)true);
-    // IOTakeLock(_devZeroLock);
 	
     USBLog(5,"%s[%p]: Acquired Device Zero", getName(), this);
-	
-	//    err = OpenPipe(0, kUSBDeviceSpeedFull, &ep);
-	// BT we don't need to do this, it just confuses the UIM
-	// Paired with delete in ConfigureDeviceZero
-	
+		
     return(err);
 }
 
@@ -2080,7 +2143,7 @@ IOUSBController::MakeDevice(USBDeviceAddress *	address)
         return NULL;
 	
     *address = GetNewAddress();
-    if(*address == 0) 
+    if (*address == 0) 
     {
         USBLog(1, "%s[%p]::MakeDevice error getting address - releasing newDev", getName(), this);
 		USBTrace( kUSBTController, kTPControllerMakeDevice, (uintptr_t)this, 0, 0, 1);
@@ -2121,7 +2184,7 @@ IOUSBController::MakeHubDevice(USBDeviceAddress *	address)
         return NULL;
 	
     *address = GetNewAddress();
-    if(*address == 0) 
+    if (*address == 0) 
     {
         USBLog(1, "%s[%p]::MakeHubDevice error getting address - releasing newDev", getName(), this);
 		USBTrace( kUSBTController, kTPControllerMakeHubDevice, (uintptr_t)this, 0, 0, 1);
@@ -2314,7 +2377,7 @@ IOUSBController::stop( IOService * provider )
         _freeUSBIsocCommandPool = NULL;
     }
     
-	if ( _watchdogUSBTimer )
+	if ( _expansionData && _watchdogUSBTimer )
     {
 		_watchdogUSBTimer->cancelTimeout();
 		
@@ -2989,7 +3052,7 @@ IOUSBController::free()
 {
     // Release our workloop related stuff
     //
-	if ( _watchdogUSBTimer )
+	if ( _expansionData && _watchdogUSBTimer )
 	{
         _watchdogUSBTimer->release();
         _watchdogUSBTimer = NULL;
@@ -3012,8 +3075,8 @@ IOUSBController::free()
     //
     if (_expansionData)
     {
-        bzero(_expansionData, sizeof(ExpansionData));
 		IOFree(_expansionData, sizeof(ExpansionData));
+		_expansionData = NULL;
     }
 	
     super::free();

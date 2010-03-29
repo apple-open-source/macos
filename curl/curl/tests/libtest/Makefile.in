@@ -36,6 +36,8 @@ PRE_UNINSTALL = :
 POST_UNINSTALL = :
 build_triplet = @build@
 host_triplet = @host@
+DIST_COMMON = $(srcdir)/Makefile.am $(srcdir)/Makefile.in \
+	$(srcdir)/Makefile.inc
 noinst_PROGRAMS = lib500$(EXEEXT) lib501$(EXEEXT) lib502$(EXEEXT) \
 	lib503$(EXEEXT) lib504$(EXEEXT) lib505$(EXEEXT) \
 	lib506$(EXEEXT) lib507$(EXEEXT) lib508$(EXEEXT) \
@@ -52,9 +54,10 @@ noinst_PROGRAMS = lib500$(EXEEXT) lib501$(EXEEXT) lib502$(EXEEXT) \
 	lib548$(EXEEXT) lib549$(EXEEXT) lib552$(EXEEXT) \
 	lib553$(EXEEXT) lib554$(EXEEXT) lib555$(EXEEXT) \
 	lib556$(EXEEXT) lib539$(EXEEXT) lib557$(EXEEXT) \
-	lib558$(EXEEXT) lib559$(EXEEXT) lib560$(EXEEXT)
+	lib558$(EXEEXT) lib559$(EXEEXT) lib560$(EXEEXT) \
+	lib562$(EXEEXT) lib564$(EXEEXT) lib565$(EXEEXT) \
+	lib566$(EXEEXT)
 subdir = tests/libtest
-DIST_COMMON = $(srcdir)/Makefile.am $(srcdir)/Makefile.in
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
 am__aclocal_m4_deps = $(top_srcdir)/m4/curl-compilers.m4 \
 	$(top_srcdir)/m4/curl-confopts.m4 \
@@ -68,8 +71,8 @@ am__aclocal_m4_deps = $(top_srcdir)/m4/curl-compilers.m4 \
 am__configure_deps = $(am__aclocal_m4_deps) $(CONFIGURE_DEPENDENCIES) \
 	$(ACLOCAL_M4)
 mkinstalldirs = $(SHELL) $(top_srcdir)/mkinstalldirs
-CONFIG_HEADER = $(top_builddir)/lib/config.h \
-	$(top_builddir)/src/config.h \
+CONFIG_HEADER = $(top_builddir)/lib/curl_config.h \
+	$(top_builddir)/src/curl_config.h \
 	$(top_builddir)/include/curl/curlbuild.h
 CONFIG_CLEAN_FILES =
 PROGRAMS = $(noinst_PROGRAMS)
@@ -77,227 +80,244 @@ am__objects_1 = first.$(OBJEXT)
 am_lib500_OBJECTS = lib500.$(OBJEXT) $(am__objects_1)
 lib500_OBJECTS = $(am_lib500_OBJECTS)
 lib500_LDADD = $(LDADD)
-lib500_DEPENDENCIES = $(LIBDIR)/libcurl.la
+lib500_DEPENDENCIES = $(top_builddir)/lib/libcurl.la
 am_lib501_OBJECTS = lib501.$(OBJEXT) $(am__objects_1)
 lib501_OBJECTS = $(am_lib501_OBJECTS)
 lib501_LDADD = $(LDADD)
-lib501_DEPENDENCIES = $(LIBDIR)/libcurl.la
+lib501_DEPENDENCIES = $(top_builddir)/lib/libcurl.la
 am__objects_2 = testutil.$(OBJEXT)
 am_lib502_OBJECTS = lib502.$(OBJEXT) $(am__objects_1) $(am__objects_2)
 lib502_OBJECTS = $(am_lib502_OBJECTS)
 lib502_LDADD = $(LDADD)
-lib502_DEPENDENCIES = $(LIBDIR)/libcurl.la
+lib502_DEPENDENCIES = $(top_builddir)/lib/libcurl.la
 am_lib503_OBJECTS = lib503.$(OBJEXT) $(am__objects_1) $(am__objects_2)
 lib503_OBJECTS = $(am_lib503_OBJECTS)
 lib503_LDADD = $(LDADD)
-lib503_DEPENDENCIES = $(LIBDIR)/libcurl.la
+lib503_DEPENDENCIES = $(top_builddir)/lib/libcurl.la
 am_lib504_OBJECTS = lib504.$(OBJEXT) $(am__objects_1) $(am__objects_2)
 lib504_OBJECTS = $(am_lib504_OBJECTS)
 lib504_LDADD = $(LDADD)
-lib504_DEPENDENCIES = $(LIBDIR)/libcurl.la
+lib504_DEPENDENCIES = $(top_builddir)/lib/libcurl.la
 am_lib505_OBJECTS = lib505.$(OBJEXT) $(am__objects_1)
 lib505_OBJECTS = $(am_lib505_OBJECTS)
 lib505_LDADD = $(LDADD)
-lib505_DEPENDENCIES = $(LIBDIR)/libcurl.la
+lib505_DEPENDENCIES = $(top_builddir)/lib/libcurl.la
 am_lib506_OBJECTS = lib506.$(OBJEXT) $(am__objects_1)
 lib506_OBJECTS = $(am_lib506_OBJECTS)
 lib506_LDADD = $(LDADD)
-lib506_DEPENDENCIES = $(LIBDIR)/libcurl.la
+lib506_DEPENDENCIES = $(top_builddir)/lib/libcurl.la
 am_lib507_OBJECTS = lib507.$(OBJEXT) $(am__objects_1) $(am__objects_2)
 lib507_OBJECTS = $(am_lib507_OBJECTS)
 lib507_LDADD = $(LDADD)
-lib507_DEPENDENCIES = $(LIBDIR)/libcurl.la
+lib507_DEPENDENCIES = $(top_builddir)/lib/libcurl.la
 am_lib508_OBJECTS = lib508.$(OBJEXT) $(am__objects_1)
 lib508_OBJECTS = $(am_lib508_OBJECTS)
 lib508_LDADD = $(LDADD)
-lib508_DEPENDENCIES = $(LIBDIR)/libcurl.la
+lib508_DEPENDENCIES = $(top_builddir)/lib/libcurl.la
 am_lib510_OBJECTS = lib510.$(OBJEXT) $(am__objects_1)
 lib510_OBJECTS = $(am_lib510_OBJECTS)
 lib510_LDADD = $(LDADD)
-lib510_DEPENDENCIES = $(LIBDIR)/libcurl.la
+lib510_DEPENDENCIES = $(top_builddir)/lib/libcurl.la
 am_lib511_OBJECTS = lib511.$(OBJEXT) $(am__objects_1)
 lib511_OBJECTS = $(am_lib511_OBJECTS)
 lib511_LDADD = $(LDADD)
-lib511_DEPENDENCIES = $(LIBDIR)/libcurl.la
+lib511_DEPENDENCIES = $(top_builddir)/lib/libcurl.la
 am_lib512_OBJECTS = lib512.$(OBJEXT) $(am__objects_1)
 lib512_OBJECTS = $(am_lib512_OBJECTS)
 lib512_LDADD = $(LDADD)
-lib512_DEPENDENCIES = $(LIBDIR)/libcurl.la
+lib512_DEPENDENCIES = $(top_builddir)/lib/libcurl.la
 am_lib513_OBJECTS = lib513.$(OBJEXT) $(am__objects_1)
 lib513_OBJECTS = $(am_lib513_OBJECTS)
 lib513_LDADD = $(LDADD)
-lib513_DEPENDENCIES = $(LIBDIR)/libcurl.la
+lib513_DEPENDENCIES = $(top_builddir)/lib/libcurl.la
 am_lib514_OBJECTS = lib514.$(OBJEXT) $(am__objects_1)
 lib514_OBJECTS = $(am_lib514_OBJECTS)
 lib514_LDADD = $(LDADD)
-lib514_DEPENDENCIES = $(LIBDIR)/libcurl.la
+lib514_DEPENDENCIES = $(top_builddir)/lib/libcurl.la
 am_lib515_OBJECTS = lib515.$(OBJEXT) $(am__objects_1)
 lib515_OBJECTS = $(am_lib515_OBJECTS)
 lib515_LDADD = $(LDADD)
-lib515_DEPENDENCIES = $(LIBDIR)/libcurl.la
+lib515_DEPENDENCIES = $(top_builddir)/lib/libcurl.la
 am_lib516_OBJECTS = lib516.$(OBJEXT) $(am__objects_1)
 lib516_OBJECTS = $(am_lib516_OBJECTS)
 lib516_LDADD = $(LDADD)
-lib516_DEPENDENCIES = $(LIBDIR)/libcurl.la
+lib516_DEPENDENCIES = $(top_builddir)/lib/libcurl.la
 am_lib517_OBJECTS = lib517.$(OBJEXT) $(am__objects_1)
 lib517_OBJECTS = $(am_lib517_OBJECTS)
 lib517_LDADD = $(LDADD)
-lib517_DEPENDENCIES = $(LIBDIR)/libcurl.la
+lib517_DEPENDENCIES = $(top_builddir)/lib/libcurl.la
 am_lib518_OBJECTS = lib518.$(OBJEXT) $(am__objects_1)
 lib518_OBJECTS = $(am_lib518_OBJECTS)
 lib518_LDADD = $(LDADD)
-lib518_DEPENDENCIES = $(LIBDIR)/libcurl.la
+lib518_DEPENDENCIES = $(top_builddir)/lib/libcurl.la
 am_lib519_OBJECTS = lib519.$(OBJEXT) $(am__objects_1)
 lib519_OBJECTS = $(am_lib519_OBJECTS)
 lib519_LDADD = $(LDADD)
-lib519_DEPENDENCIES = $(LIBDIR)/libcurl.la
+lib519_DEPENDENCIES = $(top_builddir)/lib/libcurl.la
 am_lib520_OBJECTS = lib520.$(OBJEXT) $(am__objects_1)
 lib520_OBJECTS = $(am_lib520_OBJECTS)
 lib520_LDADD = $(LDADD)
-lib520_DEPENDENCIES = $(LIBDIR)/libcurl.la
+lib520_DEPENDENCIES = $(top_builddir)/lib/libcurl.la
 am_lib521_OBJECTS = lib521.$(OBJEXT) $(am__objects_1)
 lib521_OBJECTS = $(am_lib521_OBJECTS)
 lib521_LDADD = $(LDADD)
-lib521_DEPENDENCIES = $(LIBDIR)/libcurl.la
+lib521_DEPENDENCIES = $(top_builddir)/lib/libcurl.la
 am_lib523_OBJECTS = lib523.$(OBJEXT) $(am__objects_1)
 lib523_OBJECTS = $(am_lib523_OBJECTS)
 lib523_LDADD = $(LDADD)
-lib523_DEPENDENCIES = $(LIBDIR)/libcurl.la
+lib523_DEPENDENCIES = $(top_builddir)/lib/libcurl.la
 am_lib524_OBJECTS = lib524.$(OBJEXT) $(am__objects_1)
 lib524_OBJECTS = $(am_lib524_OBJECTS)
 lib524_LDADD = $(LDADD)
-lib524_DEPENDENCIES = $(LIBDIR)/libcurl.la
+lib524_DEPENDENCIES = $(top_builddir)/lib/libcurl.la
 am_lib525_OBJECTS = lib525.$(OBJEXT) $(am__objects_1) $(am__objects_2)
 lib525_OBJECTS = $(am_lib525_OBJECTS)
 lib525_LDADD = $(LDADD)
-lib525_DEPENDENCIES = $(LIBDIR)/libcurl.la
+lib525_DEPENDENCIES = $(top_builddir)/lib/libcurl.la
 am__objects_3 = lib526-first.$(OBJEXT)
 am__objects_4 = lib526-testutil.$(OBJEXT)
 am_lib526_OBJECTS = lib526-lib526.$(OBJEXT) $(am__objects_3) \
 	$(am__objects_4)
 lib526_OBJECTS = $(am_lib526_OBJECTS)
 lib526_LDADD = $(LDADD)
-lib526_DEPENDENCIES = $(LIBDIR)/libcurl.la
+lib526_DEPENDENCIES = $(top_builddir)/lib/libcurl.la
 am__objects_5 = lib527-first.$(OBJEXT)
 am__objects_6 = lib527-testutil.$(OBJEXT)
 am_lib527_OBJECTS = lib527-lib526.$(OBJEXT) $(am__objects_5) \
 	$(am__objects_6)
 lib527_OBJECTS = $(am_lib527_OBJECTS)
 lib527_LDADD = $(LDADD)
-lib527_DEPENDENCIES = $(LIBDIR)/libcurl.la
+lib527_DEPENDENCIES = $(top_builddir)/lib/libcurl.la
 am__objects_7 = lib529-first.$(OBJEXT)
 am__objects_8 = lib529-testutil.$(OBJEXT)
 am_lib529_OBJECTS = lib529-lib525.$(OBJEXT) $(am__objects_7) \
 	$(am__objects_8)
 lib529_OBJECTS = $(am_lib529_OBJECTS)
 lib529_LDADD = $(LDADD)
-lib529_DEPENDENCIES = $(LIBDIR)/libcurl.la
+lib529_DEPENDENCIES = $(top_builddir)/lib/libcurl.la
 am__objects_9 = lib530-first.$(OBJEXT)
 am__objects_10 = lib530-testutil.$(OBJEXT)
 am_lib530_OBJECTS = lib530-lib530.$(OBJEXT) $(am__objects_9) \
 	$(am__objects_10)
 lib530_OBJECTS = $(am_lib530_OBJECTS)
 lib530_LDADD = $(LDADD)
-lib530_DEPENDENCIES = $(LIBDIR)/libcurl.la
+lib530_DEPENDENCIES = $(top_builddir)/lib/libcurl.la
 am__objects_11 = lib532-first.$(OBJEXT)
 am__objects_12 = lib532-testutil.$(OBJEXT)
 am_lib532_OBJECTS = lib532-lib526.$(OBJEXT) $(am__objects_11) \
 	$(am__objects_12)
 lib532_OBJECTS = $(am_lib532_OBJECTS)
 lib532_LDADD = $(LDADD)
-lib532_DEPENDENCIES = $(LIBDIR)/libcurl.la
+lib532_DEPENDENCIES = $(top_builddir)/lib/libcurl.la
 am_lib533_OBJECTS = lib533.$(OBJEXT) $(am__objects_1) $(am__objects_2)
 lib533_OBJECTS = $(am_lib533_OBJECTS)
 lib533_LDADD = $(LDADD)
-lib533_DEPENDENCIES = $(LIBDIR)/libcurl.la
+lib533_DEPENDENCIES = $(top_builddir)/lib/libcurl.la
 am_lib536_OBJECTS = lib536.$(OBJEXT) $(am__objects_1) $(am__objects_2)
 lib536_OBJECTS = $(am_lib536_OBJECTS)
 lib536_LDADD = $(LDADD)
-lib536_DEPENDENCIES = $(LIBDIR)/libcurl.la
+lib536_DEPENDENCIES = $(top_builddir)/lib/libcurl.la
 am_lib537_OBJECTS = lib537.$(OBJEXT) $(am__objects_1)
 lib537_OBJECTS = $(am_lib537_OBJECTS)
 lib537_LDADD = $(LDADD)
-lib537_DEPENDENCIES = $(LIBDIR)/libcurl.la
+lib537_DEPENDENCIES = $(top_builddir)/lib/libcurl.la
 am_lib539_OBJECTS = lib539.$(OBJEXT) $(am__objects_1)
 lib539_OBJECTS = $(am_lib539_OBJECTS)
 lib539_LDADD = $(LDADD)
-lib539_DEPENDENCIES = $(LIBDIR)/libcurl.la
+lib539_DEPENDENCIES = $(top_builddir)/lib/libcurl.la
 am_lib540_OBJECTS = lib540.$(OBJEXT) $(am__objects_1)
 lib540_OBJECTS = $(am_lib540_OBJECTS)
 lib540_LDADD = $(LDADD)
-lib540_DEPENDENCIES = $(LIBDIR)/libcurl.la
+lib540_DEPENDENCIES = $(top_builddir)/lib/libcurl.la
 am_lib541_OBJECTS = lib541.$(OBJEXT) $(am__objects_1)
 lib541_OBJECTS = $(am_lib541_OBJECTS)
 lib541_LDADD = $(LDADD)
-lib541_DEPENDENCIES = $(LIBDIR)/libcurl.la
+lib541_DEPENDENCIES = $(top_builddir)/lib/libcurl.la
 am_lib542_OBJECTS = lib542.$(OBJEXT) $(am__objects_1)
 lib542_OBJECTS = $(am_lib542_OBJECTS)
 lib542_LDADD = $(LDADD)
-lib542_DEPENDENCIES = $(LIBDIR)/libcurl.la
+lib542_DEPENDENCIES = $(top_builddir)/lib/libcurl.la
 am_lib543_OBJECTS = lib543.$(OBJEXT) $(am__objects_1)
 lib543_OBJECTS = $(am_lib543_OBJECTS)
 lib543_LDADD = $(LDADD)
-lib543_DEPENDENCIES = $(LIBDIR)/libcurl.la
+lib543_DEPENDENCIES = $(top_builddir)/lib/libcurl.la
 am_lib544_OBJECTS = lib544.$(OBJEXT) $(am__objects_1)
 lib544_OBJECTS = $(am_lib544_OBJECTS)
 lib544_LDADD = $(LDADD)
-lib544_DEPENDENCIES = $(LIBDIR)/libcurl.la
+lib544_DEPENDENCIES = $(top_builddir)/lib/libcurl.la
 am__objects_13 = lib545-first.$(OBJEXT)
 am_lib545_OBJECTS = lib545-lib544.$(OBJEXT) $(am__objects_13)
 lib545_OBJECTS = $(am_lib545_OBJECTS)
 lib545_LDADD = $(LDADD)
-lib545_DEPENDENCIES = $(LIBDIR)/libcurl.la
+lib545_DEPENDENCIES = $(top_builddir)/lib/libcurl.la
 am_lib547_OBJECTS = lib547.$(OBJEXT) $(am__objects_1)
 lib547_OBJECTS = $(am_lib547_OBJECTS)
 lib547_LDADD = $(LDADD)
-lib547_DEPENDENCIES = $(LIBDIR)/libcurl.la
+lib547_DEPENDENCIES = $(top_builddir)/lib/libcurl.la
 am__objects_14 = lib548-first.$(OBJEXT)
 am_lib548_OBJECTS = lib548-lib547.$(OBJEXT) $(am__objects_14)
 lib548_OBJECTS = $(am_lib548_OBJECTS)
 lib548_LDADD = $(LDADD)
-lib548_DEPENDENCIES = $(LIBDIR)/libcurl.la
+lib548_DEPENDENCIES = $(top_builddir)/lib/libcurl.la
 am_lib549_OBJECTS = lib549.$(OBJEXT) $(am__objects_1)
 lib549_OBJECTS = $(am_lib549_OBJECTS)
 lib549_LDADD = $(LDADD)
-lib549_DEPENDENCIES = $(LIBDIR)/libcurl.la
+lib549_DEPENDENCIES = $(top_builddir)/lib/libcurl.la
 am_lib552_OBJECTS = lib552.$(OBJEXT) $(am__objects_1)
 lib552_OBJECTS = $(am_lib552_OBJECTS)
 lib552_LDADD = $(LDADD)
-lib552_DEPENDENCIES = $(LIBDIR)/libcurl.la
+lib552_DEPENDENCIES = $(top_builddir)/lib/libcurl.la
 am_lib553_OBJECTS = lib553.$(OBJEXT) $(am__objects_1)
 lib553_OBJECTS = $(am_lib553_OBJECTS)
 lib553_LDADD = $(LDADD)
-lib553_DEPENDENCIES = $(LIBDIR)/libcurl.la
+lib553_DEPENDENCIES = $(top_builddir)/lib/libcurl.la
 am_lib554_OBJECTS = lib554.$(OBJEXT) $(am__objects_1)
 lib554_OBJECTS = $(am_lib554_OBJECTS)
 lib554_LDADD = $(LDADD)
-lib554_DEPENDENCIES = $(LIBDIR)/libcurl.la
+lib554_DEPENDENCIES = $(top_builddir)/lib/libcurl.la
 am_lib555_OBJECTS = lib555.$(OBJEXT) $(am__objects_1) $(am__objects_2)
 lib555_OBJECTS = $(am_lib555_OBJECTS)
 lib555_LDADD = $(LDADD)
-lib555_DEPENDENCIES = $(LIBDIR)/libcurl.la
+lib555_DEPENDENCIES = $(top_builddir)/lib/libcurl.la
 am_lib556_OBJECTS = lib556.$(OBJEXT) $(am__objects_1)
 lib556_OBJECTS = $(am_lib556_OBJECTS)
 lib556_LDADD = $(LDADD)
-lib556_DEPENDENCIES = $(LIBDIR)/libcurl.la
+lib556_DEPENDENCIES = $(top_builddir)/lib/libcurl.la
 am_lib557_OBJECTS = lib557.$(OBJEXT) $(am__objects_1)
 lib557_OBJECTS = $(am_lib557_OBJECTS)
 lib557_LDADD = $(LDADD)
-lib557_DEPENDENCIES = $(LIBDIR)/libcurl.la
+lib557_DEPENDENCIES = $(top_builddir)/lib/libcurl.la
 am__objects_15 = lib558-first.$(OBJEXT)
 am_lib558_OBJECTS = lib558-lib558.$(OBJEXT) $(am__objects_15)
 lib558_OBJECTS = $(am_lib558_OBJECTS)
 lib558_LDADD = $(LDADD)
-lib558_DEPENDENCIES = $(LIBDIR)/libcurl.la
+lib558_DEPENDENCIES = $(top_builddir)/lib/libcurl.la
 am__objects_16 = lib559-first.$(OBJEXT)
 am_lib559_OBJECTS = lib559-lib558.$(OBJEXT) $(am__objects_16)
 lib559_OBJECTS = $(am_lib559_OBJECTS)
 lib559_LDADD = $(LDADD)
-lib559_DEPENDENCIES = $(LIBDIR)/libcurl.la
+lib559_DEPENDENCIES = $(top_builddir)/lib/libcurl.la
 am_lib560_OBJECTS = lib560.$(OBJEXT) $(am__objects_1)
 lib560_OBJECTS = $(am_lib560_OBJECTS)
 lib560_LDADD = $(LDADD)
-lib560_DEPENDENCIES = $(LIBDIR)/libcurl.la
+lib560_DEPENDENCIES = $(top_builddir)/lib/libcurl.la
+am_lib562_OBJECTS = lib562.$(OBJEXT) $(am__objects_1)
+lib562_OBJECTS = $(am_lib562_OBJECTS)
+lib562_LDADD = $(LDADD)
+lib562_DEPENDENCIES = $(top_builddir)/lib/libcurl.la
+am_lib564_OBJECTS = lib564.$(OBJEXT) $(am__objects_1) $(am__objects_2)
+lib564_OBJECTS = $(am_lib564_OBJECTS)
+lib564_LDADD = $(LDADD)
+lib564_DEPENDENCIES = $(top_builddir)/lib/libcurl.la
+am__objects_17 = lib565-first.$(OBJEXT)
+am_lib565_OBJECTS = lib565-lib510.$(OBJEXT) $(am__objects_17)
+lib565_OBJECTS = $(am_lib565_OBJECTS)
+lib565_LDADD = $(LDADD)
+lib565_DEPENDENCIES = $(top_builddir)/lib/libcurl.la
+am_lib566_OBJECTS = lib566.$(OBJEXT) $(am__objects_1)
+lib566_OBJECTS = $(am_lib566_OBJECTS)
+lib566_LDADD = $(LDADD)
+lib566_DEPENDENCIES = $(top_builddir)/lib/libcurl.la
 DEFAULT_INCLUDES = 
 depcomp = $(SHELL) $(top_srcdir)/depcomp
 am__depfiles_maybe = depfiles
@@ -325,7 +345,9 @@ SOURCES = $(lib500_SOURCES) $(lib501_SOURCES) $(lib502_SOURCES) \
 	$(lib547_SOURCES) $(lib548_SOURCES) $(lib549_SOURCES) \
 	$(lib552_SOURCES) $(lib553_SOURCES) $(lib554_SOURCES) \
 	$(lib555_SOURCES) $(lib556_SOURCES) $(lib557_SOURCES) \
-	$(lib558_SOURCES) $(lib559_SOURCES) $(lib560_SOURCES)
+	$(lib558_SOURCES) $(lib559_SOURCES) $(lib560_SOURCES) \
+	$(lib562_SOURCES) $(lib564_SOURCES) $(lib565_SOURCES) \
+	$(lib566_SOURCES)
 DIST_SOURCES = $(lib500_SOURCES) $(lib501_SOURCES) $(lib502_SOURCES) \
 	$(lib503_SOURCES) $(lib504_SOURCES) $(lib505_SOURCES) \
 	$(lib506_SOURCES) $(lib507_SOURCES) $(lib508_SOURCES) \
@@ -342,7 +364,9 @@ DIST_SOURCES = $(lib500_SOURCES) $(lib501_SOURCES) $(lib502_SOURCES) \
 	$(lib547_SOURCES) $(lib548_SOURCES) $(lib549_SOURCES) \
 	$(lib552_SOURCES) $(lib553_SOURCES) $(lib554_SOURCES) \
 	$(lib555_SOURCES) $(lib556_SOURCES) $(lib557_SOURCES) \
-	$(lib558_SOURCES) $(lib559_SOURCES) $(lib560_SOURCES)
+	$(lib558_SOURCES) $(lib559_SOURCES) $(lib560_SOURCES) \
+	$(lib562_SOURCES) $(lib564_SOURCES) $(lib565_SOURCES) \
+	$(lib566_SOURCES)
 ETAGS = etags
 CTAGS = ctags
 DISTFILES = $(DIST_COMMON) $(DIST_SOURCES) $(TEXINFOS) $(EXTRA_DIST)
@@ -363,6 +387,8 @@ CPP = @CPP@
 CPPFLAGS = @CPPFLAGS@
 CROSSCOMPILING_FALSE = @CROSSCOMPILING_FALSE@
 CROSSCOMPILING_TRUE = @CROSSCOMPILING_TRUE@
+CURLDEBUG_FALSE = @CURLDEBUG_FALSE@
+CURLDEBUG_TRUE = @CURLDEBUG_TRUE@
 CURL_CA_BUNDLE = @CURL_CA_BUNDLE@
 CURL_DISABLE_DICT = @CURL_DISABLE_DICT@
 CURL_DISABLE_FILE = @CURL_DISABLE_FILE@
@@ -429,6 +455,7 @@ PACKAGE_BUGREPORT = @PACKAGE_BUGREPORT@
 PACKAGE_NAME = @PACKAGE_NAME@
 PACKAGE_STRING = @PACKAGE_STRING@
 PACKAGE_TARNAME = @PACKAGE_TARNAME@
+PACKAGE_URL = @PACKAGE_URL@
 PACKAGE_VERSION = @PACKAGE_VERSION@
 PATH = @PATH@
 PATH_SEPARATOR = @PATH_SEPARATOR@
@@ -452,6 +479,8 @@ STRIP = @STRIP@
 SUPPORT_FEATURES = @SUPPORT_FEATURES@
 SUPPORT_PROTOCOLS = @SUPPORT_PROTOCOLS@
 TEST_SERVER_LIBS = @TEST_SERVER_LIBS@
+USE_EMBEDDED_ARES_FALSE = @USE_EMBEDDED_ARES_FALSE@
+USE_EMBEDDED_ARES_TRUE = @USE_EMBEDDED_ARES_TRUE@
 USE_GNUTLS = @USE_GNUTLS@
 USE_LIBSSH2 = @USE_LIBSSH2@
 USE_MANUAL_FALSE = @USE_MANUAL_FALSE@
@@ -516,7 +545,7 @@ target_alias = @target_alias@
 #                            | (__| |_| |  _ <| |___
 #                             \___|\___/|_| \_\_____|
 #
-# Copyright (C) 1998 - 2008, Daniel Stenberg, <daniel@haxx.se>, et al.
+# Copyright (C) 1998 - 2009, Daniel Stenberg, <daniel@haxx.se>, et al.
 #
 # This software is licensed as described in the file COPYING, which
 # you should have received as part of this distribution. The terms
@@ -529,9 +558,14 @@ target_alias = @target_alias@
 # This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
 # KIND, either express or implied.
 #
-# $Id: Makefile.am,v 1.78 2008-11-11 21:59:25 bagder Exp $
+# $Id: Makefile.am,v 1.84 2009-07-14 13:25:15 gknauf Exp $
 ###########################################################################
 AUTOMAKE_OPTIONS = foreign nostdinc
+@USE_EMBEDDED_ARES_FALSE@INCLUDES = -I$(top_builddir)/include \
+@USE_EMBEDDED_ARES_FALSE@           -I$(top_srcdir)/include   \
+@USE_EMBEDDED_ARES_FALSE@           -I$(top_builddir)/lib     \
+@USE_EMBEDDED_ARES_FALSE@           -I$(top_srcdir)/lib 
+
 
 # Specify our include paths here, and do it relative to $(top_srcdir) and
 # $(top_builddir), to ensure that these paths which belong to the library
@@ -540,25 +574,30 @@ AUTOMAKE_OPTIONS = foreign nostdinc
 #
 # $(top_builddir)/include is for libcurl's generated curl/curlbuild.h file
 # $(top_srcdir)/include is for libcurl's external include files
-# $(top_builddir)/lib is for libcurl's generated lib/config.h file
+# $(top_builddir)/lib is for libcurl's generated lib/curl_config.h file
 # $(top_srcdir)/lib is for libcurl's lib/setup.h and other "borrowed" files
-INCLUDES = -I$(top_builddir)/include \
-           -I$(top_srcdir)/include   \
-           -I$(top_builddir)/lib     \
-           -I$(top_srcdir)/lib 
+# $(top_builddir)/ares is for in-tree c-ares's generated ares_build.h file
+# $(top_srcdir)/ares is for in-tree c-ares's external include files
+@USE_EMBEDDED_ARES_TRUE@INCLUDES = -I$(top_builddir)/include \
+@USE_EMBEDDED_ARES_TRUE@           -I$(top_srcdir)/include   \
+@USE_EMBEDDED_ARES_TRUE@           -I$(top_builddir)/lib     \
+@USE_EMBEDDED_ARES_TRUE@           -I$(top_srcdir)/lib       \
+@USE_EMBEDDED_ARES_TRUE@           -I$(top_builddir)/ares    \
+@USE_EMBEDDED_ARES_TRUE@           -I$(top_srcdir)/ares
 
-LIBDIR = $(top_builddir)/lib
-EXTRA_DIST = test75.pl test307.pl test610.pl test613.pl test1013.pl test1022.pl
+EXTRA_DIST = test75.pl test307.pl test610.pl test613.pl test1013.pl	\
+test1022.pl Makefile.inc
+
+
+# Dependencies (may need to be overriden)
+LDADD = $(top_builddir)/lib/libcurl.la
+DEPENDENCIES = $(top_builddir)/lib/libcurl.la
 
 # files used only in some libcurl test programs
 TESTUTIL = testutil.c testutil.h
 
 # these files are used in every single test program below
 SUPPORTFILES = first.c test.h
-
-# Dependencies (may need to be overriden)
-LDADD = $(LIBDIR)/libcurl.la
-DEPENDENCIES = $(LIBDIR)/libcurl.la
 lib500_SOURCES = lib500.c $(SUPPORTFILES)
 lib501_SOURCES = lib501.c $(SUPPORTFILES)
 lib502_SOURCES = lib502.c $(SUPPORTFILES) $(TESTUTIL)
@@ -619,11 +658,16 @@ lib558_CFLAGS = -DLIB558
 lib559_SOURCES = lib558.c $(SUPPORTFILES)
 lib559_CFLAGS = -DLIB559
 lib560_SOURCES = lib560.c $(SUPPORTFILES)
+lib562_SOURCES = lib562.c $(SUPPORTFILES)
+lib564_SOURCES = lib564.c $(SUPPORTFILES) $(TESTUTIL)
+lib565_SOURCES = lib510.c $(SUPPORTFILES)
+lib565_CFLAGS = -DLIB565
+lib566_SOURCES = lib566.c $(SUPPORTFILES)
 all: all-am
 
 .SUFFIXES:
 .SUFFIXES: .c .lo .o .obj
-$(srcdir)/Makefile.in: @MAINTAINER_MODE_TRUE@ $(srcdir)/Makefile.am  $(am__configure_deps)
+$(srcdir)/Makefile.in: @MAINTAINER_MODE_TRUE@ $(srcdir)/Makefile.am $(srcdir)/Makefile.inc $(am__configure_deps)
 	@for dep in $?; do \
 	  case '$(am__configure_deps)' in \
 	    *$$dep*) \
@@ -812,6 +856,18 @@ lib559$(EXEEXT): $(lib559_OBJECTS) $(lib559_DEPENDENCIES)
 lib560$(EXEEXT): $(lib560_OBJECTS) $(lib560_DEPENDENCIES) 
 	@rm -f lib560$(EXEEXT)
 	$(LINK) $(lib560_LDFLAGS) $(lib560_OBJECTS) $(lib560_LDADD) $(LIBS)
+lib562$(EXEEXT): $(lib562_OBJECTS) $(lib562_DEPENDENCIES) 
+	@rm -f lib562$(EXEEXT)
+	$(LINK) $(lib562_LDFLAGS) $(lib562_OBJECTS) $(lib562_LDADD) $(LIBS)
+lib564$(EXEEXT): $(lib564_OBJECTS) $(lib564_DEPENDENCIES) 
+	@rm -f lib564$(EXEEXT)
+	$(LINK) $(lib564_LDFLAGS) $(lib564_OBJECTS) $(lib564_LDADD) $(LIBS)
+lib565$(EXEEXT): $(lib565_OBJECTS) $(lib565_DEPENDENCIES) 
+	@rm -f lib565$(EXEEXT)
+	$(LINK) $(lib565_LDFLAGS) $(lib565_OBJECTS) $(lib565_LDADD) $(LIBS)
+lib566$(EXEEXT): $(lib566_OBJECTS) $(lib566_DEPENDENCIES) 
+	@rm -f lib566$(EXEEXT)
+	$(LINK) $(lib566_LDFLAGS) $(lib566_OBJECTS) $(lib566_LDADD) $(LIBS)
 
 mostlyclean-compile:
 	-rm -f *.$(OBJEXT)
@@ -885,6 +941,11 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/lib559-first.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/lib559-lib558.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/lib560.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/lib562.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/lib564.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/lib565-first.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/lib565-lib510.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/lib566.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/testutil.Po@am__quote@
 
 .c.o:
@@ -1230,6 +1291,34 @@ lib559-first.obj: first.c
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(lib559_CFLAGS) $(CFLAGS) -c -o lib559-first.obj `if test -f 'first.c'; then $(CYGPATH_W) 'first.c'; else $(CYGPATH_W) '$(srcdir)/first.c'; fi`
 
+lib565-lib510.o: lib510.c
+@am__fastdepCC_TRUE@	if $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(lib565_CFLAGS) $(CFLAGS) -MT lib565-lib510.o -MD -MP -MF "$(DEPDIR)/lib565-lib510.Tpo" -c -o lib565-lib510.o `test -f 'lib510.c' || echo '$(srcdir)/'`lib510.c; \
+@am__fastdepCC_TRUE@	then mv -f "$(DEPDIR)/lib565-lib510.Tpo" "$(DEPDIR)/lib565-lib510.Po"; else rm -f "$(DEPDIR)/lib565-lib510.Tpo"; exit 1; fi
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='lib510.c' object='lib565-lib510.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(lib565_CFLAGS) $(CFLAGS) -c -o lib565-lib510.o `test -f 'lib510.c' || echo '$(srcdir)/'`lib510.c
+
+lib565-lib510.obj: lib510.c
+@am__fastdepCC_TRUE@	if $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(lib565_CFLAGS) $(CFLAGS) -MT lib565-lib510.obj -MD -MP -MF "$(DEPDIR)/lib565-lib510.Tpo" -c -o lib565-lib510.obj `if test -f 'lib510.c'; then $(CYGPATH_W) 'lib510.c'; else $(CYGPATH_W) '$(srcdir)/lib510.c'; fi`; \
+@am__fastdepCC_TRUE@	then mv -f "$(DEPDIR)/lib565-lib510.Tpo" "$(DEPDIR)/lib565-lib510.Po"; else rm -f "$(DEPDIR)/lib565-lib510.Tpo"; exit 1; fi
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='lib510.c' object='lib565-lib510.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(lib565_CFLAGS) $(CFLAGS) -c -o lib565-lib510.obj `if test -f 'lib510.c'; then $(CYGPATH_W) 'lib510.c'; else $(CYGPATH_W) '$(srcdir)/lib510.c'; fi`
+
+lib565-first.o: first.c
+@am__fastdepCC_TRUE@	if $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(lib565_CFLAGS) $(CFLAGS) -MT lib565-first.o -MD -MP -MF "$(DEPDIR)/lib565-first.Tpo" -c -o lib565-first.o `test -f 'first.c' || echo '$(srcdir)/'`first.c; \
+@am__fastdepCC_TRUE@	then mv -f "$(DEPDIR)/lib565-first.Tpo" "$(DEPDIR)/lib565-first.Po"; else rm -f "$(DEPDIR)/lib565-first.Tpo"; exit 1; fi
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='first.c' object='lib565-first.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(lib565_CFLAGS) $(CFLAGS) -c -o lib565-first.o `test -f 'first.c' || echo '$(srcdir)/'`first.c
+
+lib565-first.obj: first.c
+@am__fastdepCC_TRUE@	if $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(lib565_CFLAGS) $(CFLAGS) -MT lib565-first.obj -MD -MP -MF "$(DEPDIR)/lib565-first.Tpo" -c -o lib565-first.obj `if test -f 'first.c'; then $(CYGPATH_W) 'first.c'; else $(CYGPATH_W) '$(srcdir)/first.c'; fi`; \
+@am__fastdepCC_TRUE@	then mv -f "$(DEPDIR)/lib565-first.Tpo" "$(DEPDIR)/lib565-first.Po"; else rm -f "$(DEPDIR)/lib565-first.Tpo"; exit 1; fi
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='first.c' object='lib565-first.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(lib565_CFLAGS) $(CFLAGS) -c -o lib565-first.obj `if test -f 'first.c'; then $(CYGPATH_W) 'first.c'; else $(CYGPATH_W) '$(srcdir)/first.c'; fi`
+
 mostlyclean-libtool:
 	-rm -f *.lo
 
@@ -1406,6 +1495,8 @@ uninstall-am: uninstall-info-am
 	pdf pdf-am ps ps-am tags uninstall uninstall-am \
 	uninstall-info-am
 
+
+# Makefile.inc provides the source defines (TESTUTIL, SUPPORTFILES, noinst_PROGRAMS, lib*_SOURCES, and lib*_CFLAGS)
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
 # Otherwise a system limit (for SysV at least) may be exceeded.
 .NOEXPORT:

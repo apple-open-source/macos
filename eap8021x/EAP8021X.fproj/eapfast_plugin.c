@@ -1829,12 +1829,16 @@ eapfast_compute_master_secret(SSLContextRef ctx, const void * arg,
 }
 
 STATIC OSStatus
-eapfast_start(EAPClientPluginDataRef plugin,
-	      const void * auid, uint16_t auid_length)
+eapfast_start(EAPClientPluginDataRef plugin, 
+	      const void * in_data_ptr, int in_data_length)
 {
+    const void *	auid;
+    uint16_t 		auid_length;
     EAPFASTPluginDataRef context = (EAPFASTPluginDataRef)plugin->private;
     SSLContextRef	ssl_context = NULL;
     OSStatus		status = noErr;
+
+    auid = GetAuthorityID(in_data_ptr, in_data_length, &auid_length);
 
     context->last_eap_type_index = 0;
     if (context->ssl_context != NULL) {
@@ -3220,18 +3224,13 @@ eapfast_request(EAPClientPluginDataRef plugin, SSLSessionState ssl_state,
 
     type = kRequestTypeData;
     if ((eaptls_in->flags & kEAPTLSPacketFlagsStart) != 0) {
-	const void *	 	auid;
-	uint16_t 		auid_length;
-
 	type = kRequestTypeStart;
-	auid = GetAuthorityID(in_data_ptr, in_data_length, &auid_length);
-	status = eapfast_start(plugin, auid, auid_length);
-	if (status != noErr) {
-	    context->last_ssl_error = status;
-	    context->plugin_state = kEAPClientStateFailure;
-	    goto ignore;
+	/* only reset our state if this is not a re-transmitted Start packet */
+	if (ssl_state != kSSLHandshake
+	    || write_buf->data == NULL
+	    || in_pkt->identifier != context->previous_identifier) {
+	    ssl_state = kSSLIdle;
 	}
-	ssl_state = kSSLIdle;
     }
     else if (in_length == sizeof(*eaptls_in)) {
 	type = kRequestTypeAck;
@@ -3268,6 +3267,12 @@ eapfast_request(EAPClientPluginDataRef plugin, SSLSessionState ssl_state,
 	    /* ignore it: XXX should this be an error? */
 	    syslog(LOG_NOTICE, 
 		   "eapfast_request: ignoring non EAP-FAST start frame");
+	    goto ignore;
+	}
+	status = eapfast_start(plugin, in_data_ptr, in_data_length);
+	if (status != noErr) {
+	    context->last_ssl_error = status;
+	    context->plugin_state = kEAPClientStateFailure;
 	    goto ignore;
 	}
 	status = SSLHandshake(context->ssl_context);

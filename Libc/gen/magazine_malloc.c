@@ -1061,6 +1061,14 @@ mag_get_thread_index(szone_t *szone)
 	return CPU_NUMBER() & (TINY_MAX_MAGAZINES - 1);
 }
 
+#elif defined(__arm__)
+
+static INLINE mag_index_t
+mag_get_thread_index(szone_t *szone)
+{
+    return 0;
+}
+
 #else
 #warning deriving magazine index from pthread_self() [want processor number]
 

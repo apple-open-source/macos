@@ -51,7 +51,8 @@ check_PROGRAMS = 10-at-a-time$(EXEEXT) anyauthput$(EXEEXT) \
 	multi-single$(EXEEXT) persistant$(EXEEXT) \
 	post-callback$(EXEEXT) postit2$(EXEEXT) sepheaders$(EXEEXT) \
 	simple$(EXEEXT) simplepost$(EXEEXT) simplessl$(EXEEXT) \
-	sendrecv$(EXEEXT) httpcustomheader$(EXEEXT) certinfo$(EXEEXT)
+	sendrecv$(EXEEXT) httpcustomheader$(EXEEXT) certinfo$(EXEEXT) \
+	chkspeed$(EXEEXT) ftpgetinfo$(EXEEXT)
 subdir = docs/examples
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
 am__aclocal_m4_deps = $(top_srcdir)/m4/curl-compilers.m4 \
@@ -66,8 +67,8 @@ am__aclocal_m4_deps = $(top_srcdir)/m4/curl-compilers.m4 \
 am__configure_deps = $(am__aclocal_m4_deps) $(CONFIGURE_DEPENDENCIES) \
 	$(ACLOCAL_M4)
 mkinstalldirs = $(SHELL) $(top_srcdir)/mkinstalldirs
-CONFIG_HEADER = $(top_builddir)/lib/config.h \
-	$(top_builddir)/src/config.h \
+CONFIG_HEADER = $(top_builddir)/lib/curl_config.h \
+	$(top_builddir)/src/curl_config.h \
 	$(top_builddir)/include/curl/curlbuild.h
 CONFIG_CLEAN_FILES =
 10_at_a_time_SOURCES = 10-at-a-time.c
@@ -82,6 +83,10 @@ certinfo_SOURCES = certinfo.c
 certinfo_OBJECTS = certinfo.$(OBJEXT)
 certinfo_LDADD = $(LDADD)
 certinfo_DEPENDENCIES = $(LIBDIR)/libcurl.la
+chkspeed_SOURCES = chkspeed.c
+chkspeed_OBJECTS = chkspeed.$(OBJEXT)
+chkspeed_LDADD = $(LDADD)
+chkspeed_DEPENDENCIES = $(LIBDIR)/libcurl.la
 cookie_interface_SOURCES = cookie_interface.c
 cookie_interface_OBJECTS = cookie_interface.$(OBJEXT)
 cookie_interface_LDADD = $(LDADD)
@@ -102,6 +107,10 @@ ftpget_SOURCES = ftpget.c
 ftpget_OBJECTS = ftpget.$(OBJEXT)
 ftpget_LDADD = $(LDADD)
 ftpget_DEPENDENCIES = $(LIBDIR)/libcurl.la
+ftpgetinfo_SOURCES = ftpgetinfo.c
+ftpgetinfo_OBJECTS = ftpgetinfo.$(OBJEXT)
+ftpgetinfo_LDADD = $(LDADD)
+ftpgetinfo_DEPENDENCIES = $(LIBDIR)/libcurl.la
 ftpgetresp_SOURCES = ftpgetresp.c
 ftpgetresp_OBJECTS = ftpgetresp.$(OBJEXT)
 ftpgetresp_LDADD = $(LDADD)
@@ -197,17 +206,17 @@ LTCOMPILE = $(LIBTOOL) --tag=CC --mode=compile $(CC) $(DEFS) \
 CCLD = $(CC)
 LINK = $(LIBTOOL) --tag=CC --mode=link $(CCLD) $(AM_CFLAGS) $(CFLAGS) \
 	$(AM_LDFLAGS) $(LDFLAGS) -o $@
-SOURCES = 10-at-a-time.c anyauthput.c certinfo.c cookie_interface.c \
-	debug.c fileupload.c fopen.c ftpget.c ftpgetresp.c ftpupload.c \
-	getinfo.c getinmemory.c http-post.c httpcustomheader.c \
-	httpput.c https.c multi-app.c multi-debugcallback.c \
-	multi-double.c multi-post.c multi-single.c persistant.c \
-	post-callback.c postit2.c sendrecv.c sepheaders.c simple.c \
-	simplepost.c simplessl.c
-DIST_SOURCES = 10-at-a-time.c anyauthput.c certinfo.c \
+SOURCES = 10-at-a-time.c anyauthput.c certinfo.c chkspeed.c \
 	cookie_interface.c debug.c fileupload.c fopen.c ftpget.c \
-	ftpgetresp.c ftpupload.c getinfo.c getinmemory.c http-post.c \
-	httpcustomheader.c httpput.c https.c multi-app.c \
+	ftpgetinfo.c ftpgetresp.c ftpupload.c getinfo.c getinmemory.c \
+	http-post.c httpcustomheader.c httpput.c https.c multi-app.c \
+	multi-debugcallback.c multi-double.c multi-post.c \
+	multi-single.c persistant.c post-callback.c postit2.c \
+	sendrecv.c sepheaders.c simple.c simplepost.c simplessl.c
+DIST_SOURCES = 10-at-a-time.c anyauthput.c certinfo.c chkspeed.c \
+	cookie_interface.c debug.c fileupload.c fopen.c ftpget.c \
+	ftpgetinfo.c ftpgetresp.c ftpupload.c getinfo.c getinmemory.c \
+	http-post.c httpcustomheader.c httpput.c https.c multi-app.c \
 	multi-debugcallback.c multi-double.c multi-post.c \
 	multi-single.c persistant.c post-callback.c postit2.c \
 	sendrecv.c sepheaders.c simple.c simplepost.c simplessl.c
@@ -231,6 +240,8 @@ CPP = @CPP@
 CPPFLAGS = -DCURL_NO_OLDIES $(STATICCPPFLAGS)
 CROSSCOMPILING_FALSE = @CROSSCOMPILING_FALSE@
 CROSSCOMPILING_TRUE = @CROSSCOMPILING_TRUE@
+CURLDEBUG_FALSE = @CURLDEBUG_FALSE@
+CURLDEBUG_TRUE = @CURLDEBUG_TRUE@
 CURL_CA_BUNDLE = @CURL_CA_BUNDLE@
 CURL_DISABLE_DICT = @CURL_DISABLE_DICT@
 CURL_DISABLE_FILE = @CURL_DISABLE_FILE@
@@ -297,6 +308,7 @@ PACKAGE_BUGREPORT = @PACKAGE_BUGREPORT@
 PACKAGE_NAME = @PACKAGE_NAME@
 PACKAGE_STRING = @PACKAGE_STRING@
 PACKAGE_TARNAME = @PACKAGE_TARNAME@
+PACKAGE_URL = @PACKAGE_URL@
 PACKAGE_VERSION = @PACKAGE_VERSION@
 PATH = @PATH@
 PATH_SEPARATOR = @PATH_SEPARATOR@
@@ -320,6 +332,8 @@ STRIP = @STRIP@
 SUPPORT_FEATURES = @SUPPORT_FEATURES@
 SUPPORT_PROTOCOLS = @SUPPORT_PROTOCOLS@
 TEST_SERVER_LIBS = @TEST_SERVER_LIBS@
+USE_EMBEDDED_ARES_FALSE = @USE_EMBEDDED_ARES_FALSE@
+USE_EMBEDDED_ARES_TRUE = @USE_EMBEDDED_ARES_TRUE@
 USE_GNUTLS = @USE_GNUTLS@
 USE_LIBSSH2 = @USE_LIBSSH2@
 USE_MANUAL_FALSE = @USE_MANUAL_FALSE@
@@ -455,6 +469,9 @@ anyauthput$(EXEEXT): $(anyauthput_OBJECTS) $(anyauthput_DEPENDENCIES)
 certinfo$(EXEEXT): $(certinfo_OBJECTS) $(certinfo_DEPENDENCIES) 
 	@rm -f certinfo$(EXEEXT)
 	$(LINK) $(certinfo_LDFLAGS) $(certinfo_OBJECTS) $(certinfo_LDADD) $(LIBS)
+chkspeed$(EXEEXT): $(chkspeed_OBJECTS) $(chkspeed_DEPENDENCIES) 
+	@rm -f chkspeed$(EXEEXT)
+	$(LINK) $(chkspeed_LDFLAGS) $(chkspeed_OBJECTS) $(chkspeed_LDADD) $(LIBS)
 cookie_interface$(EXEEXT): $(cookie_interface_OBJECTS) $(cookie_interface_DEPENDENCIES) 
 	@rm -f cookie_interface$(EXEEXT)
 	$(LINK) $(cookie_interface_LDFLAGS) $(cookie_interface_OBJECTS) $(cookie_interface_LDADD) $(LIBS)
@@ -470,6 +487,9 @@ fopen$(EXEEXT): $(fopen_OBJECTS) $(fopen_DEPENDENCIES)
 ftpget$(EXEEXT): $(ftpget_OBJECTS) $(ftpget_DEPENDENCIES) 
 	@rm -f ftpget$(EXEEXT)
 	$(LINK) $(ftpget_LDFLAGS) $(ftpget_OBJECTS) $(ftpget_LDADD) $(LIBS)
+ftpgetinfo$(EXEEXT): $(ftpgetinfo_OBJECTS) $(ftpgetinfo_DEPENDENCIES) 
+	@rm -f ftpgetinfo$(EXEEXT)
+	$(LINK) $(ftpgetinfo_LDFLAGS) $(ftpgetinfo_OBJECTS) $(ftpgetinfo_LDADD) $(LIBS)
 ftpgetresp$(EXEEXT): $(ftpgetresp_OBJECTS) $(ftpgetresp_DEPENDENCIES) 
 	@rm -f ftpgetresp$(EXEEXT)
 	$(LINK) $(ftpgetresp_LDFLAGS) $(ftpgetresp_OBJECTS) $(ftpgetresp_LDADD) $(LIBS)
@@ -543,11 +563,13 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/10-at-a-time.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/anyauthput.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/certinfo.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/chkspeed.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/cookie_interface.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/debug.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/fileupload.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/fopen.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/ftpget.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/ftpgetinfo.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/ftpgetresp.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/ftpupload.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/getinfo.Po@am__quote@

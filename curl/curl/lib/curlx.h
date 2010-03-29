@@ -20,7 +20,7 @@
  * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
  * KIND, either express or implied.
  *
- * $Id: curlx.h,v 1.6 2008-10-16 08:23:48 bagder Exp $
+ * $Id: curlx.h,v 1.7 2009-07-09 21:47:24 bagder Exp $
  ***************************************************************************/
 
 /*
@@ -52,6 +52,9 @@
   curlx_tvdiff()
   curlx_tvdiff_secs()
 */
+
+#include "nonblock.h"
+/* "nonblock.h" provides curlx_nonblock() */
 
 /* Now setup curlx_ * names for the functions that are to become curlx_ and
    be removed from a future libcurl official API:

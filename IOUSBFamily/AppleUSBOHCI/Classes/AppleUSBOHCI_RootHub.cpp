@@ -328,7 +328,7 @@ AppleUSBOHCI::SetRootHubPortFeature(UInt16 wValue, UInt16 wIndex)
     {
         case kUSBHubPortSuspendFeature :
             // to be consistent with OS 9, the bit we check below needs to be the port NUMBER
-	    if( (_errataBits & kErrataLucentSuspendResume) && ((_disablePortsBitmap & (1 << wIndex)) != 0))
+	    if ( (_errataBits & kErrataLucentSuspendResume) && ((_disablePortsBitmap & (1 << wIndex)) != 0))
 	    {
 			USBLog(3,"AppleUSBOHCI[%p]::SetRootHubPortFeature - Ignoring suspend feature", this);
 			err = kIOUSBPipeStalled;
@@ -615,7 +615,7 @@ AppleUSBOHCI::OHCIRootHubPower(bool on)
 {
 
     USBLog(2,"AppleUSBOHCI[%p]::OHCIRootHubPower (%s)", this, on ? "true" : "false");
-    if(on)
+    if (on)
     {
 		// when writing, LPSC is the SetGlobalPower bit
 		_pOHCIRegisters->hcRhStatus = HostToUSBLong(kOHCIHcRhStatus_LPSC);			// turn on global power
@@ -804,7 +804,7 @@ AppleUSBOHCI::OHCIRootHubPortEnable(UInt16	port, bool	on)
 {
     UInt32		value = 0;
 
-    if(on)
+    if (on)
         value |= kOHCIHcRhPortStatus_PES;					// enable port
     else
         value |= kOHCIHcRhPortStatus_CCS;					// disable port
@@ -835,7 +835,7 @@ AppleUSBOHCI::OHCIRootHubPortSuspend(UInt16 port, bool	on)
 {
     UInt32		value = 0;
 
-    if(on)
+    if (on)
         value |= kOHCIHcRhPortStatus_PSS;									// suspend port
     else
         value |= kOHCIHcRhPortStatus_POCI;									// resume port
@@ -871,7 +871,7 @@ AppleUSBOHCI::OHCIRootHubPortPower(UInt16	port, bool	on)
 
     USBLog(5,"AppleUSBOHCI[%p]::OHCIRootHubPortPower(%s) for port %d", this, on ? "on" : "off", port);
     
-    if(on)
+    if (on)
         value |= kOHCIHcRhPortStatus_PPS;							// enable port power 
     else
         value |= kOHCIHcRhPortStatus_LSDA;							// disable port power
@@ -916,7 +916,7 @@ AppleUSBOHCI::SimulateEDAbort (short endpointNumber, short direction)
     int			i;
     if (endpointNumber == 1)
     {
-		if(direction != kUSBIn)
+		if (direction != kUSBIn)
 		{
 			USBLog(3, "AppleUSBOHCI[%p]::SimulateEDAbort - Root hub wrong direction Int pipe %d", this, direction);
 			return kIOReturnInternalError;

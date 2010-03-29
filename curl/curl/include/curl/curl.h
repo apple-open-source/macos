@@ -20,7 +20,7 @@
  * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
  * KIND, either express or implied.
  *
- * $Id: curl.h,v 1.379 2009-03-02 23:05:31 bagder Exp $
+ * $Id: curl.h,v 1.396 2009-10-16 13:30:31 yangtse Exp $
  ***************************************************************************/
 
 /*
@@ -29,6 +29,14 @@
  *
  * curl-library mailing list subscription and unsubscription web interface:
  *   http://cool.haxx.se/mailman/listinfo/curl-library/
+ */
+
+/*
+ * Leading 'curl' path on the 'curlbuild.h' include statement is
+ * required to properly allow building outside of the source tree,
+ * due to the fact that in this case 'curlbuild.h' is generated in
+ * a subdirectory of the build tree while 'curl.h actually remains
+ * in a subdirectory of the source tree.
  */
 
 #include "curlver.h"         /* libcurl version defines   */
@@ -48,13 +56,8 @@
 #include <limits.h>
 
 /* The include stuff here below is mainly for time_t! */
-#ifdef vms
-# include <types.h>
-# include <time.h>
-#else
-# include <sys/types.h>
-# include <time.h>
-#endif /* defined (vms) */
+#include <sys/types.h>
+#include <time.h>
 
 #if defined(WIN32) && !defined(_WIN32_WCE) && !defined(__GNUC__) && \
   !defined(__CYGWIN__) || defined(__MINGW32__)
@@ -70,14 +73,15 @@
    libc5-based Linux systems. Only include it on system that are known to
    require it! */
 #if defined(_AIX) || defined(__NOVELL_LIBC__) || defined(__NetBSD__) || \
-    defined(__minix) || defined(__SYMBIAN32__) || defined(__INTEGRITY)
+    defined(__minix) || defined(__SYMBIAN32__) || defined(__INTEGRITY) || \
+    defined(ANDROID)
 #include <sys/select.h>
 #endif
 
 #ifndef _WIN32_WCE
 #include <sys/socket.h>
 #endif
-#if !defined(WIN32) && !defined(__WATCOMC__)
+#if !defined(WIN32) && !defined(__WATCOMC__) && !defined(__VXWORKS__)
 #include <sys/time.h>
 #endif
 #include <sys/types.h>
@@ -178,6 +182,15 @@ typedef int (*curl_progress_callback)(void *clientp,
      time for those who feel adventurous. */
 #define CURL_MAX_WRITE_SIZE 16384
 #endif
+
+#ifndef CURL_MAX_HTTP_HEADER
+/* The only reason to have a max limit for this is to avoid the risk of a bad
+   server feeding libcurl with a never-ending header that will cause reallocs
+   infinitely */
+#define CURL_MAX_HTTP_HEADER (100*1024)
+#endif
+
+
 /* This is a magic return code for the write callback that, when returned,
    will signal libcurl to pause receiving on the current transfer. */
 #define CURL_WRITEFUNC_PAUSE 0x10000001
@@ -186,15 +199,21 @@ typedef size_t (*curl_write_callback)(char *buffer,
                                       size_t nitems,
                                       void *outstream);
 
+/* These are the return codes for the seek callbacks */
+#define CURL_SEEKFUNC_OK       0
+#define CURL_SEEKFUNC_FAIL     1 /* fail the entire transfer */
+#define CURL_SEEKFUNC_CANTSEEK 2 /* tell libcurl seeking can't be done, so
+                                    libcurl might try other means instead */
+typedef int (*curl_seek_callback)(void *instream,
+                                  curl_off_t offset,
+                                  int origin); /* 'whence' */
+
 /* This is a return code for the read callback that, when returned, will
    signal libcurl to immediately abort the current transfer. */
 #define CURL_READFUNC_ABORT 0x10000000
 /* This is a return code for the read callback that, when returned, will
    signal libcurl to pause sending data on the current transfer. */
 #define CURL_READFUNC_PAUSE 0x10000001
-typedef int (*curl_seek_callback)(void *instream,
-                                  curl_off_t offset,
-                                  int origin); /* 'whence' */
 
 typedef size_t (*curl_read_callback)(char *buffer,
                                       size_t size,
@@ -490,6 +509,45 @@ typedef enum {
 #define CURLSSH_AUTH_DEFAULT CURLSSH_AUTH_ANY
 
 #define CURL_ERROR_SIZE 256
+
+struct curl_khkey {
+  const char *key; /* points to a zero-terminated string encoded with base64
+                      if len is zero, otherwise to the "raw" data */
+  size_t len;
+  enum type {
+    CURLKHTYPE_UNKNOWN,
+    CURLKHTYPE_RSA1,
+    CURLKHTYPE_RSA,
+    CURLKHTYPE_DSS
+  } keytype;
+};
+
+/* this is the set of return values expected from the curl_sshkeycallback
+   callback */
+enum curl_khstat {
+  CURLKHSTAT_FINE_ADD_TO_FILE,
+  CURLKHSTAT_FINE,
+  CURLKHSTAT_REJECT, /* reject the connection, return an error */
+  CURLKHSTAT_DEFER,  /* do not accept it, but we can't answer right now so
+                        this causes a CURLE_DEFER error but otherwise the
+                        connection will be left intact etc */
+  CURLKHSTAT_LAST    /* not for use, only a marker for last-in-list */
+};
+
+/* this is the set of status codes pass in to the callback */
+enum curl_khmatch {
+  CURLKHMATCH_OK,       /* match */
+  CURLKHMATCH_MISMATCH, /* host found, key mismatch! */
+  CURLKHMATCH_MISSING,  /* no matching host/key found */
+  CURLKHMATCH_LAST      /* not for use, only a marker for last-in-list */
+};
+
+typedef int
+  (*curl_sshkeycallback) (CURL *easy,     /* easy handle */
+                          const struct curl_khkey *knownkey, /* known */
+                          const struct curl_khkey *foundkey, /* found */
+                          enum curl_khmatch, /* libcurl's view on the keys */
+                          void *clientp); /* custom pointer passed from app */
 
 /* parameter for the CURLOPT_USE_SSL option */
 typedef enum {
@@ -1195,7 +1253,7 @@ typedef enum {
   CINIT(TFTP_BLKSIZE, LONG, 178),
 
   /* Socks Service */
-  CINIT(SOCKS5_GSSAPI_SERVICE, LONG, 179),
+  CINIT(SOCKS5_GSSAPI_SERVICE, OBJECTPOINT, 179),
 
   /* Socks Service */
   CINIT(SOCKS5_GSSAPI_NEC, LONG, 180),
@@ -1211,6 +1269,16 @@ typedef enum {
      to be set in both bitmasks to be allowed to get redirected to. Defaults
      to all protocols except FILE and SCP. */
   CINIT(REDIR_PROTOCOLS, LONG, 182),
+
+  /* set the SSH knownhost file name to use */
+  CINIT(SSH_KNOWNHOSTS, OBJECTPOINT, 183),
+
+  /* set the SSH host key callback, must point to a curl_sshkeycallback
+     function */
+  CINIT(SSH_KEYFUNCTION, FUNCTIONPOINT, 184),
+
+  /* set the SSH host key callback custom pointer */
+  CINIT(SSH_KEYDATA, OBJECTPOINT, 185),
 
   CURLOPT_LASTENTRY /* the last unused */
 } CURLoption;
@@ -1510,7 +1578,9 @@ CURL_EXTERN void curl_free(void *p);
  * DESCRIPTION
  *
  * curl_global_init() should be invoked exactly once for each application that
- * uses libcurl
+ * uses libcurl and before any call of other libcurl functions.
+ *
+ * This function is not thread-safe!
  */
 CURL_EXTERN CURLcode curl_global_init(long flags);
 
@@ -1782,8 +1852,8 @@ typedef struct {
 #define CURL_VERSION_LARGEFILE (1<<9)  /* supports files bigger than 2GB */
 #define CURL_VERSION_IDN       (1<<10) /* International Domain Names support */
 #define CURL_VERSION_SSPI      (1<<11) /* SSPI is supported */
-#define CURL_VERSION_CONV      (1<<12) /* character conversions are
-                                          supported */
+#define CURL_VERSION_CONV      (1<<12) /* character conversions supported */
+#define CURL_VERSION_CURLDEBUG (1<<13) /* debug memory tracking supported */
 
 /*
  * NAME curl_version_info()

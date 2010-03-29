@@ -1297,10 +1297,11 @@ IOReturn IOFireWireSBP2ORB::setCommandBuffers( IOMemoryDescriptor * memoryDescri
 	UInt32		maxPageClipSize = kFWSBP2MaxPageClusterSize;
 	UInt32		maxPackLog;
 	bool clipping;
+	UInt32 targetFlags = fLogin->fTarget->getTargetFlags();	
 	
 	maxPackLog = calculateTransferSizeLog( &clipping );
 
-	if( clipping )
+	if( !(targetFlags & kIOFWSBP2DontUsePTPacketLimit) && clipping )
 	{
 		switch( maxPackLog )
 		{

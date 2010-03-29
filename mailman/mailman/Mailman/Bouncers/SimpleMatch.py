@@ -1,4 +1,4 @@
-# Copyright (C) 1998-2008 by the Free Software Foundation, Inc.
+# Copyright (C) 1998-2009 by the Free Software Foundation, Inc.
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -166,6 +166,18 @@ PATTERNS = [
     (_c('- no such user here'),
      _c('There is no user'),
      _c('^(?P<addr>[^\s@]+@[^\s@]+)\s')),
+    # fastdnsservers.com
+    (_c('The following recipient.*could not be reached'),
+     _c('bogus stop pattern'),
+     _c('^(?P<addr>[^\s@]+@[^\s@]+)\s*$')),
+    # lttf.com
+    (_c('Could not deliver message to'),
+     _c('^\s*--'),
+     _c('^Failed Recipient:\s*(?P<addr>[^\s@]+@[^\s@]+)\s*$')),
+    # uci.edu
+    (_c('--------Message not delivered'),
+     _c('--------Error Detail'),
+     _c('^\s*(?P<addr>[^\s@]+@[^\s@]+)\s*$')),
     # Next one goes here...
     ]
 
@@ -187,7 +199,7 @@ def process(msg, patterns=None):
     # we process the message multiple times anyway.
     for scre, ecre, acre in patterns:
         state = 0
-        for line in email.Iterators.body_line_iterator(msg):
+        for line in email.Iterators.body_line_iterator(msg, decode=True):
             if state == 0:
                 if scre.search(line):
                     state = 1

@@ -1,10 +1,92 @@
 Mailman - The GNU Mailing List Management System
-Copyright (C) 1998-2008 by the Free Software Foundation, Inc.
+Copyright (C) 1998-2009 by the Free Software Foundation, Inc.
 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA
 
 Here is a history of user visible changes to Mailman.
 
-2.1.12rc1 (12-Jan-2009)
+2.1.13 (22-Dec-2009)
+
+  i18n
+
+    - Updated Dutch message catalog from Jan Veuger.
+
+    - Added Asturian translation from Marcos Costales and the Asturian
+      Language Team.
+
+  Bug Fixes and other patches
+
+    - Added "white-space: pre-wrap" style for <pre> tag in archives.
+      Bug #266467.
+
+    - Added vette logging for rejected and discarded (un)subscribe requests.
+
+    - Fixed a bug in admindb.py that could erroneously discard an unsubscribe
+      request as a duplicate.
+
+    - Decoded RFC 2047 encoded message subjects for a few reports.
+      Bug #266428.
+
+    - Fixed the French, Spanish and Hebrew translations which improperly
+      translated the 'coding:' line in bin/config_list output.
+
+    - Fixed the auto-responder to treat messages to -confirm, -join, -leave,
+      -subscribe and -unsubscribe as requests rather than posts.  Bug #427962.
+
+    - Configure/make no longer builds Japanese and Korean codecs in
+      pythonlib if Python already has them.
+
+    - Inadvertently setting a null site or list password allowed access
+      to a list's web admin interface without authentication.  Fixed by
+      not accepting null passwords.
+
+    - Changed VERP_CONFIRM_REGEXP  in Defaults.py to work if the replying
+      MUA folds the To: header and in cases where the list name includes '+'.
+
+    - Fixed some paths in contrib/check_perms_grsecurity.py. Bug #411192.
+
+    - Replies to commands sent to list-request now come From: list-owner
+      instead of list-bounces.
+
+    - Mailman no longer folds long sub-part headers in multipart messages.
+      In addition, Mailman no longer escapes From_ lines in the body of
+      messages sent to regular list members, although MTA's may do it anyway.
+      This is to avoid breaking signatures per Bug #265967.
+
+    - XSS protection in the web interface went too far in escaping HTML
+      entities.  Fixed.
+
+    - Removed or anonymized additional headers in posts to anonymous lists.
+
+    - Fixed a bug that could cause incorrect threading of replies to archived
+      messages that arrive with timestamps in the same second.
+
+    - Scrubbed HTML attachments containing tab characters would get the tabs
+      replaced by a string of '&nbsp' without a semicolon.  Fixed.
+
+    - Caught a TypeError in content filtering, collapse alternatives that
+      occurred with a malformed message if a multipart/alternative part
+      wasn't multi-part.  Reported in comments to bug #266230.
+
+    - Fixed a few things in bin/update:
+      - Changed some old messages for more current meaning.
+      - Fixed qfiles update to not lose metadata from 2.1.5+ format entries.
+      - Fixed 2.0.x template migration to not die if the templates/ tree
+        contains subdirectories from a version control system.
+
+    - Fixed a bug that would show a list on the admin and listinfo overview
+      pages if its web_page_url host contained the current host as a
+      substring.  Bug #342162.
+
+    - Fixed a bug in Utils.canonstr() that would throw a UnicodeDecodeError
+      if the string contained an HTML entity > 255 and also characters in the
+      128-255 range.  Bug #341594.
+
+    - Added recognition for more bounces.
+
+    - Updated contrib/mmdsr to report preserved messages and to use mktemp to
+      create temp files.
+
+2.1.12 (23-Feb-2009)
 
   Bug fixes and other patches
 
@@ -81,6 +163,29 @@ Here is a history of user visible changes to Mailman.
 
     - Changed scripts/driver to return a 405 status for non GET, POST, HEAD
       methods. SF patch #1578756.
+
+    - Fixed a bug in admindb.py in the implementation of replacing "No Reason
+      Given" with the default rejection reason.  Bug #325016.
+
+    - Changed Gui/Topics.py to validate regexps in VERBOSE mode.  Bug #327008.
+
+    - Worked around a potential problem in HyperArch.py with unicode character
+      set arguments.  Bug #328353.
+
+    - Recognize a couple more bounces.
+
+    - Fixed a bug introduced in 2.1.11 which would attempt to store bounce info
+      for a member just deleted if bounce_you_are_disabled_warnings is zero.
+
+  i18n
+
+    - Updated Dutch, Catalan and Polish translations.
+
+  Miscellaneous
+
+    - Added Lindsay Haisley's courier_to_mailman.py to the contrib directory.
+
+    - Added John Dennis' (RedHat) FHS patch to the contrib directory.
 
 2.1.11 (30-Jun-2008)
 

@@ -1,6 +1,6 @@
 --- docs/curl.1.orig	2006-10-25 13:40:14.000000000 -0700
 +++ docs/curl.1	2006-11-06 17:23:33.000000000 -0800
-@@ -766,8 +766,6 @@
+@@ -777,8 +777,6 @@
  Makes curl scan the \fI.netrc\fP (\fI_netrc\fP on Windows) file in the user's
  home directory for login name and password. This is typically used for FTP on
  UNIX. If used with HTTP, curl will enable user authentication. See
@@ -9,7 +9,7 @@
  .BR ftp(1)
  for details on the file format. Curl will not complain if that file
  doesn't have the right permissions (it should not be either world- or
-@@ -1657,6 +1655,4 @@
+@@ -1683,6 +1681,4 @@
  .SH FTP
  ftp://ftp.sunet.se/pub/www/utilities/curl/
  .SH "SEE ALSO"

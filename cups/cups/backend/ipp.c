@@ -3,7 +3,7 @@
  *
  *   IPP backend for the Common UNIX Printing System (CUPS).
  *
- *   Copyright 2007-2009 by Apple Inc.
+ *   Copyright 2007-2010 by Apple Inc.
  *   Copyright 1997-2007 by Easy Software Products, all rights reserved.
  *
  *   These coded instructions, statements, and computer programs are the
@@ -434,7 +434,7 @@ main(int  argc,				/* I - Number of command-line args */
 
     _cupsLangPuts(stderr, _("INFO: Copying print data...\n"));
 
-    tbytes = backendRunLoop(-1, fd, snmp_fd, &(addrlist->addr), 0,
+    tbytes = backendRunLoop(-1, fd, snmp_fd, &(addrlist->addr), 0, 0,
                             backendNetworkSideCB);
 
     if (snmp_fd >= 0)
@@ -737,6 +737,15 @@ main(int  argc,				/* I - Number of command-line args */
           ippDelete(supported);
 
 	return (CUPS_BACKEND_STOP);
+      }
+      else if (ipp_status == IPP_NOT_AUTHORIZED || ipp_status == IPP_FORBIDDEN)
+      {
+	if (!strncmp(httpGetField(http, HTTP_FIELD_WWW_AUTHENTICATE),
+		     "Negotiate", 9))
+	  auth_info_required = "negotiate";
+
+	fprintf(stderr, "ATTR: auth-info-required=%s\n", auth_info_required);
+	return (CUPS_BACKEND_AUTH_REQUIRED);
       }
       else
       {
@@ -1353,7 +1362,10 @@ main(int  argc,				/* I - Number of command-line args */
   else if (ipp_status > IPP_OK_CONFLICT)
     return (CUPS_BACKEND_FAILED);
   else
+  {
+    _cupsLangPuts(stderr, _("INFO: Ready to print.\n"));
     return (CUPS_BACKEND_OK);
+  }
 }
 
 
@@ -1831,8 +1843,11 @@ run_pictwps_filter(char       **argv,	/* I - Command-line arguments */
       * Change to an unpriviledged user...
       */
 
-      setgid(fileinfo.st_gid);
-      setuid(fileinfo.st_uid);
+      if (setgid(fileinfo.st_gid))
+        return (errno);
+
+      if (setuid(fileinfo.st_uid))
+        return (errno);
     }
 
     execlp("pictwpstops", printer, argv[1], argv[2], argv[3], argv[4], argv[5],

@@ -31,26 +31,121 @@
  *
  * so there!
  *
- * $Id: ifconfig.h,v 1.3 2004/07/20 05:29:46 lindak Exp $
+ * $FreeBSD: src/sbin/ifconfig/ifconfig.h,v 1.21.2.1.2.1 2008/11/25 02:59:29 kensmith Exp $
  */
 
-extern struct ifreq ifr;
+#define	__constructor	__attribute__((constructor))
 
-extern char name[32];	/* name of interface */
-extern int allmedia;
 struct afswtch;
+struct cmd;
 
-extern void setmedia(const char *, int, int, const struct afswtch *rafp);
-extern void setmediaopt(const char *, int, int, const struct afswtch *rafp);
-extern void unsetmediaopt(const char *, int, int, const struct afswtch *rafp);
-extern void media_status(int s, struct rt_addrinfo *);
+typedef	void c_func(const char *cmd, int arg, int s, const struct afswtch *afp);
+typedef	void c_func2(const char *arg1, const char *arg2, int s, const struct afswtch *afp);
 
-extern void setvlantag(const char *, int, int, const struct afswtch *rafp);
-extern void setvlandev(const char *, int, int, const struct afswtch *rafp);
-extern void unsetvlandev(const char *, int, int, const struct afswtch *rafp);
-extern void vlan_status(int s, struct rt_addrinfo *);
+struct cmd {
+	const char *c_name;
+	int	c_parameter;
+#define	NEXTARG		0xffffff	/* has following arg */
+#define	NEXTARG2	0xfffffe	/* has 2 following args */
+#define	OPTARG		0xfffffd	/* has optional following arg */
+	union {
+		c_func	*c_func;
+		c_func2	*c_func2;
+	} c_u;
+	int	c_iscloneop;
+	struct cmd *c_next;
+};
+void	cmd_register(struct cmd *);
 
-extern void setbonddev(const char *, int, int, const struct afswtch * rafp);
-extern void unsetbonddev(const char *, int, int, const struct afswtch * rafp);
-extern void setbondmode(const char *, int, int, const struct afswtch * rafp);
-extern void bond_status(int s, struct rt_addrinfo *);
+typedef	void callback_func(int s, void *);
+void	callback_register(callback_func *, void *);
+
+/*
+ * Macros for declaring command functions and initializing entries.
+ */
+#define	DECL_CMD_FUNC(name, cmd, arg) \
+	void name(const char *cmd, int arg, int s, const struct afswtch *afp)
+#define	DECL_CMD_FUNC2(name, arg1, arg2) \
+	void name(const char *arg1, const char *arg2, int s, const struct afswtch *afp)
+
+#define	DEF_CMD(name, param, func)	{ name, param, { .c_func = func } }
+#define	DEF_CMD_ARG(name, func)		{ name, NEXTARG, { .c_func = func } }
+#define	DEF_CMD_OPTARG(name, func)	{ name, OPTARG, { .c_func = func } }
+#define	DEF_CMD_ARG2(name, func)	{ name, NEXTARG2, { .c_func2 = func } }
+#define	DEF_CLONE_CMD(name, param, func) { name, param, { .c_func = func }, 1 }
+#define	DEF_CLONE_CMD_ARG(name, func)	{ name, NEXTARG, { .c_func = func }, 1 }
+
+struct ifaddrs;
+struct addrinfo;
+
+enum {
+	RIDADDR,
+	ADDR,
+	MASK,
+	DSTADDR,
+};
+
+struct afswtch {
+	const char	*af_name;	/* as given on cmd line, e.g. "inet" */
+	short		af_af;		/* AF_* */
+	/*
+	 * Status is handled one of two ways; if there is an
+	 * address associated with the interface then the
+	 * associated address family af_status method is invoked
+	 * with the appropriate addressin info.  Otherwise, if
+	 * all possible info is to be displayed and af_other_status
+	 * is defined then it is invoked after all address status
+	 * is presented.
+	 */
+	void		(*af_status)(int, const struct ifaddrs *);
+	void		(*af_other_status)(int);
+					/* parse address method */
+	void		(*af_getaddr)(const char *, int);
+					/* parse prefix method (IPv6) */
+	void		(*af_getprefix)(const char *, int);
+	void		(*af_postproc)(int s, const struct afswtch *);
+	u_long		af_difaddr;	/* set dst if address ioctl */
+	u_long		af_aifaddr;	/* set if address ioctl */
+	void		*af_ridreq;	/* */
+	void		*af_addreq;	/* */
+	struct afswtch	*af_next;
+
+	/* XXX doesn't fit model */
+	void		(*af_status_tunnel)(int);
+	void		(*af_settunnel)(int s, struct addrinfo *srcres,
+				struct addrinfo *dstres);
+};
+void	af_register(struct afswtch *);
+
+struct option {
+	const char *opt;
+	const char *opt_usage;
+	void	(*cb)(const char *arg);
+	struct option *next;
+};
+void	opt_register(struct option *);
+
+extern	struct ifreq ifr;
+extern	char name[IFNAMSIZ];	/* name of interface */
+extern	int allmedia;
+extern	int supmedia;
+extern	int printkeys;
+extern	int newaddr;
+extern	int verbose;
+extern	int all;
+
+void	setifcap(const char *, int value, int s, const struct afswtch *);
+
+void	Perror(const char *cmd);
+void	printb(const char *s, unsigned value, const char *bits);
+
+void	ifmaybeload(const char *name);
+
+typedef void clone_callback_func(int, struct ifreq *);
+void	clone_setcallback(clone_callback_func *);
+
+/*
+ * XXX expose this so modules that neeed to know of any pending
+ * operations on ifmedia can avoid cmd line ordering confusion.
+ */
+struct ifmediareq *ifmedia_getstate(int s);

@@ -2,7 +2,7 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  *
- * Copyright (c) 1998-2003 Apple Computer, Inc.  All Rights Reserved.
+ * Copyright © 1998-20010 Apple Inc.  All rights reserved.
  *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
@@ -95,121 +95,7 @@ Boolean getNumValue(CFNumberRef aNumber, CFNumberType type, void * valueOut)
 }
 
 + (NSMutableArray *)loadedExtensions {
-	CFMutableArrayRef	bundleIDs = NULL;          // must release
-    CFArrayRef			loadedKextInfo = NULL;     // must release
-    const NXArchInfo *	runningKernelArch;  // do not free
-	NSMutableArray *	returnArray = [[NSMutableArray alloc] init];
-    CFIndex				count, i;
-	
-	if (!createCFMutableArray(&bundleIDs, &kCFTypeArrayCallBacks)) {
-        goto finish;
-	}
-	
-	runningKernelArch = OSKextGetRunningKernelArchitecture();
-    if (!runningKernelArch) {
-		NSLog(@"USB Prober: couldn't get running kernel architecture.\n");
-        goto finish;
-    }
-	
-    loadedKextInfo = OSKextCreateLoadedKextInfo(bundleIDs);
-	
-    if (!loadedKextInfo) {
-  		NSLog(@"USB Prober: couldn't get list of loaded kexts from kernel.\n");
-        goto finish;
-    }
-	
-    count = CFArrayGetCount(loadedKextInfo);
-    for (i = 0; i < count; i++) {
-        CFDictionaryRef kextInfo = (CFDictionaryRef)CFArrayGetValueAtIndex(loadedKextInfo, i);
-		
-      //  printKextInfo(kextInfo, &toolArgs);
-
-		CFNumberRef       loadAddress            = NULL;  // do not release
-		CFNumberRef       loadSize               = NULL;  // do not release
-		CFNumberRef       wiredSize              = NULL;  // do not release
-		CFStringRef       bundleID               = NULL;  // do not release
-		CFStringRef       bundleVersion          = NULL;  // do not release
-		
-		uint64_t          loadAddressValue       = (uint64_t)-1;
-		uint32_t          loadSizeValue          = (uint32_t)-1;
-		uint32_t          wiredSizeValue         = (uint32_t)-1;
-		char            * bundleIDCString        = NULL;  // must free
-		char            * bundleVersionCString   = NULL;  // must free
-		
-		
-		loadAddress = (CFNumberRef)CFDictionaryGetValue(kextInfo,
-														CFSTR(kOSBundleLoadAddressKey));
-		loadSize = (CFNumberRef)CFDictionaryGetValue(kextInfo,
-													 CFSTR(kOSBundleLoadSizeKey));
-		wiredSize = (CFNumberRef)CFDictionaryGetValue(kextInfo,
-													  CFSTR(kOSBundleWiredSizeKey));
-		bundleID = (CFStringRef)CFDictionaryGetValue(kextInfo,
-													 kCFBundleIdentifierKey);
-		bundleVersion = (CFStringRef)CFDictionaryGetValue(kextInfo,
-														  kCFBundleVersionKey);
-		if (!getNumValue(loadAddress, kCFNumberSInt64Type, &loadAddressValue)) {
-			loadAddressValue = (uint64_t)-1;
-		}
-		if (!getNumValue(loadSize, kCFNumberSInt32Type, &loadSizeValue)) {
-			loadSizeValue = (uint32_t)-1;
-		}
-		if (!getNumValue(wiredSize, kCFNumberSInt32Type, &wiredSizeValue)) {
-			wiredSizeValue = (uint32_t)-1;
-		}
-		
-		bundleIDCString = createUTF8CStringForCFString(bundleID);
-		bundleVersionCString = createUTF8CStringForCFString(bundleVersion);
-		
-		
-		NSMutableDictionary *dict = [[NSMutableDictionary alloc] init];
-        [dict setObject:[NSString stringWithFormat:@"%s", bundleIDCString] forKey:@"Name"];
-        [dict setObject:[NSString stringWithFormat:@"%s", bundleVersionCString] forKey:@"Version"];
-        if (loadSizeValue != 0) {
-            if (loadSizeValue > 1024) {
-                [dict setObject:[NSString stringWithFormat:@"%U KB",loadSizeValue/1024] forKey:@"Size"];
-            } else {
-                [dict setObject:[NSString stringWithFormat:@"%U Bytes",loadSizeValue] forKey:@"Size"];
-            }
-        } else {
-            [dict setObject:@"n/a" forKey:@"Size"];
-        }
-        if (wiredSizeValue != 0) {
-            if ((wiredSizeValue) > 1024) {
-                [dict setObject:[NSString stringWithFormat:@"%U KB", (wiredSizeValue)/1024] forKey:@"Wired"];
-            } else {
-                [dict setObject:[NSString stringWithFormat:@"%U bytes", wiredSizeValue] forKey:@"Wired"];
-            }
-        } else {
-            [dict setObject:@"n/a" forKey:@"Wired"];
-        }
-        [dict setObject:[NSString stringWithFormat:@"%-18p",loadAddressValue] forKey:@"Address"];
-        
-		if (runningKernelArch->cputype & CPU_ARCH_ABI64) {
-			if (loadAddressValue == (uint64_t)-1) {
-				[dict setObject:[NSString stringWithFormat:@"%%-18s", kStringInvalidLong] forKey:@"Address"];
-			} else {
-				[dict setObject:[NSString stringWithFormat:@"%#-18llx",(uint64_t)loadAddressValue] forKey:@"Address"];
-			}
-		} else {
-			if (loadAddressValue == (uint64_t)-1) {
-				[dict setObject:[NSString stringWithFormat:@"%%-10s",kStringInvalidLong] forKey:@"Address"];
-				fprintf(stdout, " %-10s", kStringInvalidLong);
-			} else {
-				[dict setObject:[NSString stringWithFormat:@"%#-10x",(uint32_t)loadAddressValue] forKey:@"Address"];
-			}
-		}
-		
-		[returnArray addObject:dict];
-        [dict release];
-		SAFE_FREE(bundleIDCString);
-		SAFE_FREE(bundleVersionCString);
-    }
-	
-finish:
-	SAFE_RELEASE(bundleIDs);
-	SAFE_RELEASE(loadedKextInfo);
-	
-    return [returnArray autorelease];
+	return NULL;
 }
 
 + (NSMutableArray *)loadedExtensionsContainingString:(NSString *)string {

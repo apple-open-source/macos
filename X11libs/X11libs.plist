@@ -132,7 +132,7 @@
 	</dict>
 	<dict>
 		<key>OpenSourceImportDate</key>
-		<string>2009-02-25</string>
+		<string>2009-12-04</string>
 		<key>OpenSourceLicense</key>
 		<string>BSD with credit clause</string>
 		<key>OpenSourceLicenseFile</key>
@@ -140,11 +140,11 @@
 		<key>OpenSourceProject</key>
 		<string>libpng</string>
 		<key>OpenSourceSHA1</key>
-		<string>aad4faf21a1fc5853a55a2ff51351707bde3f6ac</string>
+		<string>e859ce73c5344ce10576d03cab3b660459b30c13</string>
 		<key>OpenSourceURL</key>
-		<string>http://downloads.sourceforge.net/libpng/libpng-1.2.35.tar.bz2</string>
+		<string>http://downloads.sourceforge.net/libpng/libpng-1.2.41.tar.bz2</string>
 		<key>OpenSourceVersion</key>
-		<string>1.2.35</string>
+		<string>1.2.41</string>
 		<key>OpenSourceWebsiteURL</key>
 		<string>http://www.libpng.org</string>
 	</dict>
@@ -636,7 +636,7 @@
 		<key>OpenSourceProject</key>
 		<string>libXTrap</string>
 		<key>OpenSourceSHA1</key>
-		<string>309a5384135b72e75d670bfea05e9a636110fd38</strin>
+		<string>309a5384135b72e75d670bfea05e9a636110fd38</string>
 		<key>OpenSourceURL</key>
 		<string>ftp://ftp.x.org/pub/X11R7.0/src/update/libs/libXTrap-X11R7.0-1.0.0.tar.bz2</string>
 		<key>OpenSourceVersion</key>

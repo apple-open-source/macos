@@ -613,9 +613,6 @@ int smb_smb_ssnsetup(struct smb_vc *vcp, vfs_context_t context)
 		goto ssn_exit;
 	}
 
-	error = smb_rq_alloc(VCTOCP(vcp), SMB_COM_SESSION_SETUP_ANDX, context, &rqp);
-	if (error)
-		goto ssn_exit;
 	/*
 	 * Domain name must be upper-case, as that's what's used
 	 * when computing LMv2 and NTLMv2 responses - and, for NTLMv2,
@@ -686,6 +683,9 @@ int smb_smb_ssnsetup(struct smb_vc *vcp, vfs_context_t context)
 			smb_calcmackey(vcp, unipp, uniplen);			
 		}
 	}
+	error = smb_rq_alloc(VCTOCP(vcp), SMB_COM_SESSION_SETUP_ANDX, context, &rqp);
+	if (error)
+		goto ssn_exit;
 	
 	smb_rq_wstart(rqp);
 	mbp = &rqp->sr_rq;
@@ -765,14 +765,6 @@ int smb_smb_ssnsetup(struct smb_vc *vcp, vfs_context_t context)
 		error = 0;
 	} while (0);
 bad:
-	if (unipp) {
-		free(unipp, M_SMBTEMP);
-		unipp = NULL;		
-	}
-	if (tmpbuf) {
-		free(tmpbuf, M_SMBTEMP);
-		tmpbuf = NULL;
-	}
 	/*
 	 * We are in user level security, got log in as guest, but we are not using guest access. We need to log off
 	 * and return an error.
@@ -795,6 +787,14 @@ bad:
 	smb_rq_done(rqp);
 
 ssn_exit:
+	if (unipp) {
+		free(unipp, M_SMBTEMP);
+		unipp = NULL;		
+	}
+	if (tmpbuf) {
+		free(tmpbuf, M_SMBTEMP);
+		tmpbuf = NULL;
+	}
 	
 	if (((vcp->vc_flags & SMBV_ENCRYPT_PASSWORD) != SMBV_ENCRYPT_PASSWORD) &&
 		(UNIX_CAPS(vcp) & SMB_CAP_UNICODE)) {

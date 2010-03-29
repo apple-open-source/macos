@@ -16,8 +16,9 @@ include $(MAKEFILEPATH)/pb_makefiles/platform.make
 include $(MAKEFILEPATH)/pb_makefiles/commands-$(OS).make
 
 PROJECT_NAME	  = MySQL
-MYSQL_VERSION	  = 5.0.82
+MYSQL_VERSION	  = 5.0.88
 MYSQL_BASE_DIR	  = mysql-$(MYSQL_VERSION)
+MYSQL_TAR_FILE	  = $(MYSQL_BASE_DIR)a.tar.gz
 BUILD_DIR         = /usr
 MYSQL_BUILD_DIR   = build
 MYSQL_SRC_DIR     = $(MYSQL_BUILD_DIR)/src
@@ -85,7 +86,7 @@ CUR_ARCH_STAGING   = $(STAGING_BASE)/$(cur_arch)
 #
 
 FILES_TO_INSTALL		= \
-$(MYSQL_BASE_DIR).tar.gz \
+$(MYSQL_TAR_FILE) \
 Makefile \
 MySQL.plist \
 MySQL.txt \
@@ -313,7 +314,7 @@ mysql: $(OBJROOT)
 		$(SILENT) $(ECHO) "#"; \
 		$(SILENT) $(ECHO) "# `date +%Y/%m/%d\ %H:%M:%S` [MySQL] * expanding sources for arch=$(cur_arch)"; \
 		$(SILENT) $(ECHO) "#"; \
-		$(SILENT) $(CD) $(SRC_BASE); $(TAR) -xzf $(SRCROOT)/$(MYSQL_BASE_DIR).tar.gz; \
+		$(SILENT) $(CD) $(SRC_BASE); $(TAR) -xzf $(SRCROOT)/$(MYSQL_TAR_FILE); \
 		$(MV) $(MYSQL_BASE_DIR) $(cur_arch); \
 	)
 
@@ -333,6 +334,8 @@ CONFIG_STD_OPTS	= \
 		--with-low-memory \
 		--enable-thread-safe-client \
 		--enable-local-infile \
+		--enable-community-features \
+		--enable-profiling \
 		--mandir=/usr/share/man \
 		--localstatedir=/var/mysql  \
 		--sysconfdir=/etc \

@@ -118,7 +118,7 @@ CFStringRef SecTrustSettingsCertHashStrFromData(
  * (which is itself immutable via this module). 
  * 
  * The settingsIn argument is an external representation of a TrustSettings
- * record, obtianed from this function or from 
+ * record, obtained from this function or from 
  * SecTrustSettingsCreateExternalRepresentation().
  * If settingsIn is NULL, a new (empty) TrustSettings will be created. 
  * 

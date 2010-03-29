@@ -7,10 +7,10 @@
 case "$1" in
 
 --cflags)
-	echo ""
+	echo "-I @includedir@"
 	;;
 
 --libs)
-	echo "-lpcap @DEPLIBS@"
+	echo "-L @libdir@ -lpcap @DEPLIBS@"
 	;;
 esac

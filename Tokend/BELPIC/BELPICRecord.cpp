@@ -78,6 +78,19 @@ Tokend::Attribute *BELPICCertificateRecord::getDataAttribute(
 	belpicToken.readBinary(certificate, certificateLength);
 	data.Data = certificate;
 	data.Length = certificateLength;
+	
+	/* Zetes: the cert files on cards older then V1.0 have padding bytes
+	 * at the end (to allow updates that might be longer then the current
+	 * cert). This works fine for certificate selection (keychain) but
+	 * gives problems during an SSL handshake. So we first remove those
+	 * padding bytes by adapting the data.Length. */
+	if (certificateLength > 500 && certificate[0] == 0x30 && certificate[1] == 0x82)
+	{
+		size_t realCertLength = 256 * certificate[2] + certificate[3] + 4;
+		if (realCertLength > 500 && realCertLength < certificateLength)
+			data.Length = realCertLength;
+	} 
+	
 	belpicToken.cacheObject(0, mDescription, data);
 
 	return new Tokend::Attribute(data.Data, data.Length);
@@ -227,18 +240,23 @@ void BELPICKeyRecord::getAcl(const char *tag, uint32 &count,
 			mAclEntries.allocator()),
 			AclAuthorizationSet(CSSM_ACL_AUTHORIZATION_DB_READ, 0));
         // Setup the remainder of the acl based on the key type.
+
+		//PIN1 is hardcoded for now
+		// Apparently, PINS other than '1' are not yet supported by TokenD.
+		char tmptag[20];
+		snprintf(tmptag, sizeof(tmptag), "PIN%d", 1);
 		if (*mKeyId == 0x82)
 		{
 			mAclEntries.add(CssmClient::AclFactory::PinSubject(
 				mAclEntries.allocator(), 1),
-				AclAuthorizationSet(CSSM_ACL_AUTHORIZATION_SIGN, 0));
+				AclAuthorizationSet(CSSM_ACL_AUTHORIZATION_SIGN, 0), tmptag);
 		}
 		else if (*mKeyId == 0x83)
 		{
 			CssmData prompt;
 			mAclEntries.add(CssmClient::AclFactory::PromptPWSubject(
 				mAclEntries.allocator(), prompt),
-				AclAuthorizationSet(CSSM_ACL_AUTHORIZATION_SIGN, 0));
+				AclAuthorizationSet(CSSM_ACL_AUTHORIZATION_SIGN, 0), tmptag);
 		}
 	}
 	count = mAclEntries.size();

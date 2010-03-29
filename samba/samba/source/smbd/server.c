@@ -440,8 +440,12 @@ static BOOL open_sockets_smbd(enum smb_server_mode server_mode, const char *smb_
 		num = sys_select(maxfd+1,&lfds,NULL,NULL,
 			idle_timeout.tv_sec ? &idle_timeout : NULL);
 
-		smbd_vproc_start();
-		
+		{
+		    int errsav = errno;
+		    smbd_vproc_start();
+		    errno = errsav;
+		}
+
 		if (num == -1 && errno == EINTR) {
 			if (got_sig_term) {
 				exit_server_cleanly(NULL);

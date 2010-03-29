@@ -27,6 +27,7 @@ enum IOHIDEventServiceUserClientCommandCodes {
     kIOHIDEventServiceUserClientOpen,
     kIOHIDEventServiceUserClientClose,
     kIOHIDEventServiceUserClientCopyEvent,
+    kIOHIDEventServiceUserClientSetElementValue,
     kIOHIDEventServiceUserClientNumCommands
 };
 
@@ -68,6 +69,11 @@ private:
                                 void *                          reference, 
                                 IOExternalMethodArguments *     arguments);
 
+    static IOReturn _setElementValue(
+                                IOHIDEventServiceUserClient *   target, 
+                                void *                          reference, 
+                                IOExternalMethodArguments *     arguments);
+
 protected:
     // IOUserClient methods
     virtual IOReturn clientClose( void );
@@ -102,6 +108,7 @@ public:
     virtual IOReturn open(IOOptionBits options);
     virtual IOReturn close();
     virtual IOHIDEvent * copyEvent(IOHIDEventType type, IOHIDEvent * matching, IOOptionBits options = 0);
+    virtual void setElementValue(UInt32 usagePage, UInt32 usage, UInt32 value);
 };
 
 #endif /* KERNEL */

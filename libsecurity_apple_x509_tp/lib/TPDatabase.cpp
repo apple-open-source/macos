@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002 Apple Computer, Inc. All Rights Reserved.
+ * Copyright (c) 2002-2009 Apple Inc. All Rights Reserved.
  * 
  * The contents of this file constitute Original Code as defined in and are
  * subject to the Apple Public Source License Version 1.2 (the 'License').
@@ -24,8 +24,9 @@
 
 #include <Security/cssmtype.h>
 #include <Security/cssmapi.h> 
-#include <security_cdsa_utilities/Schema.h>				/* private API */
-#include <Security/SecCertificatePriv.h>	/* private SecInferLabelFromX509Name() */
+#include <security_cdsa_utilities/Schema.h>		/* private API */
+#include <security_keychain/TrustKeychains.h>	/* private SecTrustKeychainsGetMutex() */
+#include <Security/SecCertificatePriv.h>		/* private SecInferLabelFromX509Name() */
 #include <Security/oidscert.h>
 #include "TPDatabase.h"
 #include "tpdebugging.h"
@@ -38,7 +39,7 @@
 
 /*
  * Given a DL/DB, look up cert by subject name. Subsequent
- * certs can be found using the returned result handle. 
+ * certs can be found using the returned result handle.
  */
 static CSSM_DB_UNIQUE_RECORD_PTR tpCertLookup(
 	CSSM_DL_DB_HANDLE	dlDb,
@@ -76,6 +77,7 @@ static CSSM_DB_UNIQUE_RECORD_PTR tpCertLookup(
 		NULL,				// don't fetch attributes
 		cert,
 		&record);
+
 	return record;
 }
 
@@ -97,6 +99,8 @@ TPCertInfo *tpDbFindIssuerCert(
 	const char 				*verifyTime,		// may be NULL
 	bool					&partialIssuerKey)	// RETURNED
 {
+	StLock<Mutex> _(SecTrustKeychainsGetMutex());
+
 	uint32						dbDex;
 	CSSM_HANDLE					resultHand;
 	CSSM_DATA					cert;	
@@ -382,6 +386,8 @@ TPCrlInfo *tpDbFindIssuerCrl(
 	const CSSM_DATA		&issuer,
 	TPCertInfo			&forCert)
 {
+	StLock<Mutex> _(SecTrustKeychainsGetMutex());
+
 	uint32						dbDex;
 	CSSM_HANDLE					resultHand;
 	CSSM_DATA					crl;	

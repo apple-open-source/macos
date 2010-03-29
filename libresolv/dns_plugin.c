@@ -442,7 +442,7 @@ dns_reply_to_hostent(dns_reply_t *r, int af, const char *addr, dns_build_hostent
 }
 
 static si_item_t *
-_internal_host_byname(si_mod_t *si, const char *name, int af, uint32_t *err, int which)
+_internal_host_byname(si_mod_t *si, const char *name, int af, const char *ignored, uint32_t *err, int which)
 {
 	uint32_t type;
 	dns_reply_t *r;
@@ -520,19 +520,19 @@ _internal_host_byname(si_mod_t *si, const char *name, int af, uint32_t *err, int
 }
 
 si_item_t *
-dns_host_byname(si_mod_t *si, const char *name, int af, uint32_t *err)
+dns_host_byname(si_mod_t *si, const char *name, int af, const char *ignored, uint32_t *err)
 {
-	return _internal_host_byname(si, name, af, err, MODULE_DNS);
+	return _internal_host_byname(si, name, af, NULL, err, MODULE_DNS);
 }
 
 si_item_t *
-mdns_host_byname(si_mod_t *si, const char *name, int af, uint32_t *err)
+mdns_host_byname(si_mod_t *si, const char *name, int af, const char *ignored, uint32_t *err)
 {
-	return _internal_host_byname(si, name, af, err, MODULE_MDNS);
+	return _internal_host_byname(si, name, af, NULL, err, MODULE_MDNS);
 }
 
 static si_item_t *
-_internal_host_byaddr(si_mod_t *si, const void *addr, int af, uint32_t *err, int which)
+_internal_host_byaddr(si_mod_t *si, const void *addr, int af, const char *ignored, uint32_t *err, int which)
 {
 	uint32_t type;
 	dns_reply_t *r;
@@ -629,22 +629,22 @@ _internal_host_byaddr(si_mod_t *si, const void *addr, int af, uint32_t *err, int
 }
 
 si_item_t *
-dns_host_byaddr(si_mod_t *si, const void *addr, int af, uint32_t *err)
+dns_host_byaddr(si_mod_t *si, const void *addr, int af, const char *ignored, uint32_t *err)
 {
-	return _internal_host_byaddr(si, addr, af, err, MODULE_DNS);
+	return _internal_host_byaddr(si, addr, af, NULL, err, MODULE_DNS);
 }
 
 si_item_t *
-mdns_host_byaddr(si_mod_t *si, const void *addr, int af, uint32_t *err)
+mdns_host_byaddr(si_mod_t *si, const void *addr, int af, const char *ignored, uint32_t *err)
 {
-	return _internal_host_byaddr(si, addr, af, err, MODULE_MDNS);
+	return _internal_host_byaddr(si, addr, af, NULL, err, MODULE_MDNS);
 }
 
 /*
  * We support dns_async_start / cancel / handle_reply using dns_item_call
  */
 static si_item_t *
-_internal_item_call(si_mod_t *si, int call, const char *name, const char *ignored, uint32_t class, uint32_t type, uint32_t *err, int which)
+_internal_item_call(si_mod_t *si, int call, const char *name, const char *ignored1, const char *ignored2, uint32_t class, uint32_t type, uint32_t *err, int which)
 {
 	dns_handle_t dns;
 	char buf[DNS_MAX_RECEIVE_SIZE];
@@ -699,15 +699,15 @@ _internal_item_call(si_mod_t *si, int call, const char *name, const char *ignore
 }
 
 si_item_t *
-dns_item_call(si_mod_t *si, int call, const char *name, const char *ignored, uint32_t class, uint32_t type, uint32_t *err)
+dns_item_call(si_mod_t *si, int call, const char *name, const char *ignored1, const char *ignored2, uint32_t class, uint32_t type, uint32_t *err)
 {
-	return _internal_item_call(si, call, name, ignored, class, type, err, MODULE_DNS);
+	return _internal_item_call(si, call, name, ignored1, ignored2, class, type, err, MODULE_DNS);
 }
 
 si_item_t *
-mdns_item_call(si_mod_t *si, int call, const char *name, const char *ignored, uint32_t class, uint32_t type, uint32_t *err)
+mdns_item_call(si_mod_t *si, int call, const char *name, const char *ignored1, const char *ignored2, uint32_t class, uint32_t type, uint32_t *err)
 {
-	return _internal_item_call(si, call, name, ignored, class, type, err, MODULE_MDNS);
+	return _internal_item_call(si, call, name, ignored1, ignored2, class, type, err, MODULE_MDNS);
 }
 
 int
@@ -788,4 +788,3 @@ mdns_init(si_mod_t *si)
 
 	return 0;
 }
-

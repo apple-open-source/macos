@@ -447,7 +447,8 @@ main(int  argc,				/* I - Number of command-line arguments (6 or 7) */
 
     _cupsLangPuts(stderr, _("INFO: Copying print data...\n"));
 
-    backendRunLoop(-1, fd, snmp_fd, &(addrlist->addr), 0, backendNetworkSideCB);
+    backendRunLoop(-1, fd, snmp_fd, &(addrlist->addr), 0, 0, 
+		   backendNetworkSideCB);
 
     if (snmp_fd >= 0)
       _cupsSNMPClose(snmp_fd);
@@ -797,7 +798,6 @@ lpd_queue(const char *hostname,		/* I - Host to connect to */
 
       error = errno;
       close(fd);
-      fd = -1;
 
       if (addr->next)
         continue;

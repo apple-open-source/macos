@@ -1,0 +1,4 @@
+Package: hfs
+Maintainer: Darwin Developers <darwin-development@public.lists.apple.com>
+Description: HFS/HFS+ commands
+Build-Depends: build-base, diskdev-cmds, extentools, perl, corefoundation, xnu, carbonheaders, project-makefiles

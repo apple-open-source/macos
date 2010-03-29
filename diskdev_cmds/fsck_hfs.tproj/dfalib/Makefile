@@ -10,7 +10,7 @@ CFILES = hfs_endian.c BlockCache.c\
          BTreeNodeOps.c BTreeScanner.c BTreeTreeOps.c\
          CatalogCheck.c HardLinkCheck.c dirhardlink.c \
          SBTree.c SControl.c SVerify1.c SVerify2.c\
-         SRepair.c SRebuildCatalogBTree.c\
+         SRepair.c SRebuildBTree.c\
          SUtils.c SKeyCompare.c SDevice.c SExtents.c SAllocate.c\
          SCatalog.c SStubs.c VolumeBitmapCheck.c
          

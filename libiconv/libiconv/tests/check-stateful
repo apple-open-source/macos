@@ -9,8 +9,8 @@ set -e
 charsetf=`echo "$charset" | sed -e 's,:,-,g'`
 
 ../src/iconv_no_i18n -f "$charset" -t UTF-8 < "${srcdir}"/"$charsetf"-snippet > tmp-snippet
-cmp "${srcdir}"/"$charsetf"-snippet.UTF-8 tmp-snippet
+cmp "${srcdir}"/"$charsetf"-snippet.UTF-8 tmp-snippet && echo '[PASS]' $charset 1 || echo '[FAIL]' $charset 1
 ../src/iconv_no_i18n -f UTF-8 -t "$charset" < "${srcdir}"/"$charsetf"-snippet.UTF-8 > tmp-snippet
-cmp "${srcdir}"/"$charsetf"-snippet tmp-snippet
+cmp "${srcdir}"/"$charsetf"-snippet tmp-snippet && echo '[PASS]' $charset 2 || echo '[FAIL]' $charset 2
 rm -f tmp-snippet
 exit 0

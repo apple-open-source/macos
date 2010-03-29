@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003-2007 Apple Inc. All rights reserved.
+ * Copyright (c) 2003-2009 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -120,7 +120,7 @@ typedef struct
 	int sock;
 } notify_state_t;
 
-notify_state_t *_notify_lib_notify_state_new(uint32_t flags);
+notify_state_t *_notify_lib_notify_state_new(uint32_t flags, uint32_t table_size);
 void _notify_lib_notify_state_free(notify_state_t *ns);
 
 uint32_t _notify_lib_post(notify_state_t *ns, const char *name, uint32_t uid, uint32_t gid);

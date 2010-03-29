@@ -57,3 +57,7 @@ loadplugin Mail::SpamAssassin::Plugin::VBounce
 #
 loadplugin Mail::SpamAssassin::Plugin::ImageInfo
 
+# TextCat - language guesser
+#
+loadplugin Mail::SpamAssassin::Plugin::TextCat
+

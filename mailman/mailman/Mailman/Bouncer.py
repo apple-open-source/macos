@@ -1,4 +1,4 @@
-# Copyright (C) 1998-2008 by the Free Software Foundation, Inc.
+# Copyright (C) 1998-2009 by the Free Software Foundation, Inc.
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -163,8 +163,10 @@ class Bouncer:
         # We've set/changed bounce info above.  We now need to tell the
         # MemberAdaptor to set/update it.  We do it here in case the
         # MemberAdaptor stores bounce info externally to the list object to
-        # be sure updated information is stored.
-        self.setBounceInfo(member, info)
+        # be sure updated information is stored, but we have to be sure the
+        # member wasn't removed.
+        if self.isMember(member):
+            self.setBounceInfo(member, info)
 
     def disableBouncingMember(self, member, info, msg):
         # Initialize their confirmation cookie.  If we do it when we get the

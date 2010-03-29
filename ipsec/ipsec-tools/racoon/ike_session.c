@@ -1207,6 +1207,8 @@ ike_session_update_traffic_idle_status (ike_session_t *session,
             session->i_sent_data_sc_idle = 1;
         }
     }
+	if (!idle)
+		session->last_time_data_sc_detected = time(NULL);                                                                               
 
 	ike_session_monitor_idle(session);
 }
@@ -1465,4 +1467,58 @@ ike_session_get_sainfo_r (struct ph2handle *iph2)
 		}
 	}
 	return -1;
+}
+
+int
+ike_session_drop_rekey (ike_session_t *session)
+{
+	if (session) {
+		// drop if btmm session is idle) {
+		if (session->is_btmm_ipsec &&
+			session->last_time_data_sc_detected &&
+			session->traffic_monitor.interv_mon &&
+			session->traffic_monitor.interv_idle) {
+			time_t now = time(NULL);
+
+			if ((now - session->last_time_data_sc_detected) > (session->traffic_monitor.interv_mon << 1)) {
+				plog(LLV_DEBUG2, LOCATION, NULL, "session is idle: drop rekey.\n");
+				return 1;
+			}
+		}
+	}
+	return 0;
+}
+
+void
+ike_session_ph2_retransmits (struct ph2handle *iph2)
+{
+	int num_retransmits;
+
+	if (!iph2->is_dying &&
+		iph2->is_rekey &&
+		iph2->ph1 &&
+		iph2->ph1->sce_rekey && !iph2->ph1->sce_rekey->dead &&
+		iph2->parent_session &&
+		!iph2->parent_session->is_cisco_ipsec && /* not for Cisco */
+		iph2->parent_session->is_client) {
+		num_retransmits = iph2->ph1->rmconf->retry_counter - iph2->retry_counter;
+		if (num_retransmits == 3) {
+			/*
+			 * phase2 negotiation is stalling on retransmits, inspite of a valid ph1.
+			 * one of the following is possible:
+			 * - (0) severe packet loss.
+			 * - (1) the peer is dead.
+			 * - (2) the peer is out of sync hence dropping this phase2 rekey (and perhaps responding with insecure 
+			 *       invalid-cookie notifications... but those are untrusted and so we can't rekey phase1 off that)
+			 *		(2.1) the peer rebooted (or process restarted) and is now alive.
+			 *     (2.2) the peer has deleted phase1 without notifying us (or the notification got dropped somehow).
+			 *     (2.3) the peer has a policy/bug stopping this phase2 rekey
+			 *
+			 * in all these cases, one sure way to know is to trigger a phase1 rekey early.
+			 */
+			plog(LLV_DEBUG2, LOCATION, NULL, "many phase2 retransmits: try phase1 rekey and this phase2 to quit earlier.\n");
+			isakmp_ph1rekeyexpire(iph2->ph1, TRUE);
+			iph2->retry_counter = 0;
+		}
+	}
 }

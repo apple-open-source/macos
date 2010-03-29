@@ -12,17 +12,17 @@ int main( int argc, char * argv[] )
 
     while(1)
     {
-	color.red = 1.0;
-	color.green = 0.0;
-	color.blue = 0.0;
-	CGSPaletteSetColorAtIndex(palette, color, 0);
-	CGSSetDisplayPalette(CGSMainDisplayID(), palette);
+        color.red = 1.0;
+        color.green = 0.0;
+        color.blue = 0.0;
+        CGSPaletteSetColorAtIndex(palette, color, 0);
+        CGSSetDisplayPalette(CGSMainDisplayID(), palette);
     
-	color.red = 0.0;
-	color.green = 1.0;
-	color.blue = 0.0;
-	CGSPaletteSetColorAtIndex(palette, color, 0);
-	CGSSetDisplayPalette(CGSMainDisplayID(), palette);
+        color.red = 0.0;
+        color.green = 1.0;
+        color.blue = 0.0;
+        CGSPaletteSetColorAtIndex(palette, color, 0);
+        CGSSetDisplayPalette(CGSMainDisplayID(), palette);
     }
     exit(0);
 }

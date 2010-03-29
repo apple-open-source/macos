@@ -31,6 +31,7 @@
 
 #include <IOKit/hid/IOHIDDevice.h>
 
+class IOHIDResourceDeviceUserClient;
 
 /*! @class IOHIDUserDevice : public IOHIDDevice
     @abstract 
@@ -40,8 +41,9 @@ class IOHIDUserDevice : public IOHIDDevice
     OSDeclareDefaultStructors(IOHIDUserDevice);
 
 private:
-    OSDictionary *          _properties;
-
+    OSDictionary *                  _properties;
+    IOHIDResourceDeviceUserClient * _provider;
+    
 protected:
 /*! @function free
     @abstract Free the IOHIDDevice object.

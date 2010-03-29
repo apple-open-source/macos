@@ -8,7 +8,7 @@ SubProjects = ac.tproj accton.tproj arch.tproj bootlog.tproj		\
 	latency.tproj login.tproj makekey.tproj mkfile.tproj		\
 	newgrp.tproj nologin.tproj nvram.tproj pagesize.tproj		\
 	passwd.tproj pwd_mkdb.tproj reboot.tproj sa.tproj sadc.tproj	\
-	sar.tproj sc_usage.tproj sync.tproj sysctl.tproj update.tproj	\
+	sar.tproj sc_usage.tproj sync.tproj sysctl.tproj		\
 	vipw.tproj vifs.tproj vm_stat.tproj zdump.tproj zic.tproj	\
 	zprint.tproj
 

@@ -2,8 +2,8 @@
 
   socket.c -
 
-  $Author: nobu $
-  $Date: 2008-04-15 12:35:55 +0900 (Tue, 15 Apr 2008) $
+  $Author: shyouhei $
+  $Date: 2009-01-27 15:18:04 +0900 (Tue, 27 Jan 2009) $
   created at: Thu Mar 31 12:21:29 JST 1994
 
   Copyright (C) 1993-2001 Yukihiro Matsumoto
@@ -840,7 +840,7 @@ host_str(host, hbuf, len)
 	return NULL;
     }
     else if (rb_obj_is_kind_of(host, rb_cInteger)) {
-	long i = NUM2LONG(host);
+	unsigned long i = NUM2ULONG(host);
 
 	make_inetaddr(htonl(i), hbuf, len);
 	return hbuf;
@@ -893,10 +893,10 @@ port_str(port, pbuf, len)
 }
 
 #ifndef NI_MAXHOST
-# define 1025
+# define NI_MAXHOST 1025
 #endif
 #ifndef NI_MAXSERV
-# define 32
+# define NI_MAXSERV 32
 #endif
 
 static struct addrinfo*

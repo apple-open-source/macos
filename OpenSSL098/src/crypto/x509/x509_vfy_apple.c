@@ -34,7 +34,8 @@
 /*
  * Please see comment in x509_vfy_apple.h
  */
-int X509_verify_cert(X509_STORE_CTX *ctx)
+int
+X509_verify_cert(X509_STORE_CTX *ctx)
 {
 	TEAResult		ret = kTEAResultCertNotTrusted;
 	TEACertificateChainRef	inputChain = NULL;
@@ -51,8 +52,11 @@ int X509_verify_cert(X509_STORE_CTX *ctx)
 
 	/* Try OpenSSL, if we get a local certificate issue verify against trusted roots */
 	ret = X509_verify_cert_orig(ctx);
-	if (ret != 1 && (ctx->error & X509_V_ERR_UNABLE_TO_GET_ISSUER_CERT_LOCALLY)) {
-
+	
+	/* Verify TEA is enabled and should be used. */
+	if (0 != X509_TEA_is_enabled() &&
+		ret != 1 && (ctx->error & X509_V_ERR_UNABLE_TO_GET_ISSUER_CERT_LOCALLY)) {
+		
 		/* Verify that the certificate chain exists, otherwise make it. */
 		if (ctx->chain == NULL && (ctx->chain = sk_X509_new_null()) == NULL) {
 			TEALogDebug("Could not create the certificate chain");
@@ -154,4 +158,27 @@ int X509_verify_cert(X509_STORE_CTX *ctx)
 
 bail:
 	return ret;
+}
+
+#pragma mark Trust Evaluation Agent
+
+/* -1: not set
+ *  0: set to false
+ *  1: set to true
+ */
+static tea_enabled = -1;
+
+void
+X509_TEA_set_state(int change)
+{
+	tea_enabled = (change) ? 1 : 0;
+}
+
+int
+X509_TEA_is_enabled()
+{
+	if (tea_enabled < 0)
+		tea_enabled = (NULL == getenv(X509_TEA_ENV_DISABLE));
+		
+	return tea_enabled != 0;
 }

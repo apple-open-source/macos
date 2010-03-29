@@ -5,7 +5,7 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * $Id: lib560.c,v 1.2 2008-11-12 22:26:06 danf Exp $
+ * $Id: lib560.c,v 1.3 2009-10-10 12:29:32 yangtse Exp $
  *
  */
 #include "test.h"
@@ -24,6 +24,7 @@ int test(char *URL)
 {
   CURL *http_handle;
   CURLM *multi_handle;
+  CURLMcode code;
 
   int still_running; /* keep number of running handles */
 
@@ -48,8 +49,9 @@ int test(char *URL)
   curl_multi_add_handle(multi_handle, http_handle);
 
   /* we start some action by calling perform right away */
-  while(CURLM_CALL_MULTI_PERFORM ==
-        curl_multi_perform(multi_handle, &still_running));
+  do {
+    code = curl_multi_perform(multi_handle, &still_running);
+  } while(code == CURLM_CALL_MULTI_PERFORM);
 
   while(still_running) {
     struct timeval timeout;
@@ -84,8 +86,9 @@ int test(char *URL)
     case 0:
     default:
       /* timeout or readable/writable sockets */
-      while(CURLM_CALL_MULTI_PERFORM ==
-            curl_multi_perform(multi_handle, &still_running));
+      do {
+        code = curl_multi_perform(multi_handle, &still_running);
+      } while(code == CURLM_CALL_MULTI_PERFORM);
       break;
     }
   }

@@ -266,6 +266,8 @@ private:
 		IONetworkStats  lastDriverStats;
 		struct ifnet_stat_increment_param inputDeltas;
 		IOLock			*detachLock;
+                char                          *remote_NMI_pattern;
+                unsigned int                   remote_NMI_len;
     };
 
     ExpansionData *         _reserved;
@@ -609,6 +611,12 @@ public:
 	bool setExtendedFlags(UInt32 flags, UInt32 clear = 0);
 
     virtual IOReturn message( UInt32 type, IOService * provider, void * argument );
+
+/*! @function debuggerRegistered
+    @abstract Tells the IONetworkInterface that this interface will be used
+    by the debugger.
+*/
+    void debuggerRegistered(void);
 
 protected:
 

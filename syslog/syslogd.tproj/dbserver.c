@@ -460,7 +460,6 @@ database_server()
 			if ((now.tv_sec > send_time.tv_sec) || ((now.tv_sec == send_time.tv_sec) && (now.tv_usec > send_time.tv_usec)))
 			{
 				notify_post(ASL_DB_NOTIFICATION);
-				notify_post(SELF_DB_NOTIFICATION);
 				send_time.tv_sec = 0;
 				send_time.tv_usec = 0;
 				snooze = 0;

@@ -444,7 +444,7 @@ IOUSBDeviceClass::CacheConfigDescriptor()
 		configSize = sizeof(configHdr);
 		
 		DEBUGPRINT("+IOUSBDeviceClass[%p]::CacheConfigDescriptor asking for header for config = %d\n", this, i);
-
+		
         kr = IOConnectCallMethod(fConnection, kUSBDeviceUserClientGetConfigDescriptor, in, 1, 0, 0, 0, 0, (void *) &configHdr, &configSize); 
 		if (kr)
 		{
@@ -460,7 +460,7 @@ IOUSBDeviceClass::CacheConfigDescriptor()
 		DEBUGPRINT("+IOUSBDeviceClass[%p]::CacheConfigDescriptor asking for config %d, size:  %ld, pointer: %p\n", this, i, configSize, configPtr);
 		
 		kr = IOConnectCallMethod(fConnection, kUSBDeviceUserClientGetConfigDescriptor, in, 1, 0, 0, 0, 0, configPtr, &configSize); 
-       if (kr)
+		if (kr)
 		{
 			DEBUGPRINT("+IOUSBDeviceClass[%p]::CacheConfigDescriptor kUSBDeviceUserClientGetConfigDescriptor asking for full config %d returned 0x%x\n", this, i, kr);
 			break;
@@ -1140,6 +1140,8 @@ IOUSBDeviceClass::DeviceRequest(IOUSBDevRequestTO *req)
 {
     IOReturn 		ret = kIOReturnSuccess;
     uint64_t		input[9];
+    uint64_t		output[1];	// For the count on an overrun
+	uint32_t		outputCnt = 1;
     size_t			len;
 	
     ATTACHEDCHECK();
@@ -1172,16 +1174,24 @@ IOUSBDeviceClass::DeviceRequest(IOUSBDevRequestTO *req)
 	{
 	case kUSBOut:
 		ret = IOConnectCallMethod( fConnection, kUSBDeviceUserClientDeviceRequestOut, input, 9, req->pData, len, 0, 0, 0, 0);
-		if(kIOReturnSuccess == ret)
+		if (kIOReturnSuccess == ret)
 			req->wLenDone = req->wLength;
 		else
 			req->wLenDone = 0;
 		break;
 		
 	case kUSBIn:
-		ret = IOConnectCallMethod( fConnection, kUSBDeviceUserClientDeviceRequestIn, input, 9, 0, 0, 0, 0, req->pData, &len);
-		if(kIOReturnSuccess == ret)
+		output[0] = 0;
+		ret = IOConnectCallMethod( fConnection, kUSBDeviceUserClientDeviceRequestIn, input, 9, 0, 0, output, &outputCnt, req->pData, &len);
+		if (kIOReturnSuccess == ret)
+		{
 			req->wLenDone = len;
+		}
+		if (output[0] != 0)	// We had an overrun
+		{
+			DEBUGPRINT("IOUSBDeviceClass::DeviceRequest returning kIOReturnOverrun" );
+			ret = kIOReturnOverrun;
+		}
 		break;
 	}
 
@@ -1206,6 +1216,8 @@ IOUSBDeviceClass::DeviceRequestAsync(IOUSBDevRequestTO *req, IOAsyncCallback1 ca
 	size_t				len;
     IOReturn			ret = kIOReturnUnsupported;
     uint64_t			input[9];
+    uint64_t		output[1];	// Not used for async, but sync expects it, so async must too.
+	uint32_t		outputCnt = 1;
 	
     if (!fAsyncPort)
 	{
@@ -1247,7 +1259,7 @@ IOUSBDeviceClass::DeviceRequestAsync(IOUSBDevRequestTO *req, IOAsyncCallback1 ca
           break;
             
         case kUSBIn:
-			ret = IOConnectCallAsyncScalarMethod( fConnection, kUSBDeviceUserClientDeviceRequestIn, IONotificationPortGetMachPort(fAsyncPort), asyncRef, kIOAsyncCalloutCount, input, 9, 0, 0);
+			ret = IOConnectCallAsyncScalarMethod( fConnection, kUSBDeviceUserClientDeviceRequestIn, IONotificationPortGetMachPort(fAsyncPort), asyncRef, kIOAsyncCalloutCount, input, 9, output, &outputCnt);
             break;
     }
 	
@@ -1318,7 +1330,7 @@ IOUSBDeviceClass::GetBusFrameNumber(UInt64 *frame, AbsoluteTime *atTime)
 	
 	len = sizeof(IOUSBGetFrameStruct);
     ret = IOConnectCallStructMethod(fConnection, kUSBDeviceUserClientGetFrameNumber, 0, 0, &frameInfo, &len);
-    if(kIOReturnSuccess == ret) 
+    if (kIOReturnSuccess == ret) 
     {
 #if !TARGET_OS_EMBEDDED
 #endif
@@ -1354,7 +1366,7 @@ IOUSBDeviceClass::GetBusMicroFrameNumber(UInt64 *microFrame, AbsoluteTime *atTim
 
 	len = sizeof(IOUSBGetFrameStruct);
 	ret = IOConnectCallStructMethod(fConnection, kUSBDeviceUserClientGetMicroFrameNumber, 0, 0, &frameInfo, &len);
-    if(kIOReturnSuccess == ret)
+    if (kIOReturnSuccess == ret)
     {
 #if !TARGET_OS_EMBEDDED
 #endif
@@ -1391,7 +1403,7 @@ IOUSBDeviceClass::GetBusFrameNumberWithTime(UInt64 *frame, AbsoluteTime *atTime)
 	
 	len = sizeof(IOUSBGetFrameStruct);
 	ret = IOConnectCallStructMethod(fConnection, kUSBDeviceUserClientGetFrameNumberWithTime, 0, 0, (void *) &frameInfo, &len);
-    if(kIOReturnSuccess == ret) 
+    if (kIOReturnSuccess == ret) 
     {
 #if !TARGET_OS_EMBEDDED
 #endif

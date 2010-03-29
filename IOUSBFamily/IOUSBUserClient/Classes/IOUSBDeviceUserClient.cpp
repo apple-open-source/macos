@@ -1,5 +1,5 @@
 /*
- * Copyright © 1998-2009 Apple Inc.  All rights reserved.
+ * Copyright © 1998-2010 Apple Inc.  All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -155,7 +155,7 @@ IOUSBDeviceUserClientV2::sMethods[kIOUSBLibDeviceUserClientNumCommands] = {
     {	//    kUSBDeviceUserClientDeviceRequestIn (InLine and OOL, Sync and Async)
 		(IOExternalMethodAction) &IOUSBDeviceUserClientV2::_DeviceRequestIn,
 		9, 0,
-		0, 0xffffffff
+		1, 0xffffffff
     },
     {	//    kUSBDeviceUserClientCreateInterfaceIterator
 		(IOExternalMethodAction) &IOUSBDeviceUserClientV2::_CreateInterfaceIterator,
@@ -276,9 +276,10 @@ IOUSBDeviceUserClientV2::ReqComplete(void *obj, void *param, IOReturn res, UInt3
 	
 	USBLog(7,"+IOUSBDeviceUserClientV2::ReqComplete");
 	USBTrace( kUSBTDeviceUserClient,  kTPDeviceUCReqComplete, (uintptr_t)me, res, remaining, pb->fMax );
-	if(res == kIOReturnSuccess) 
+	if ((res == kIOReturnSuccess) || (res == kIOReturnOverrun) )
     {
-        args[0] = (io_user_reference_t)(pb->fMax - remaining);
+		// Return the len done anyway, its in the buffer
+		args[0] = (io_user_reference_t)(pb->fMax - remaining);
     }
     else 
     {
@@ -582,6 +583,21 @@ IOReturn IOUSBDeviceUserClientV2::_DeviceRequestIn(IOUSBDeviceUserClientV2 * tar
 									   arguments->structureOutput,					// bufferPtr
 									   &(arguments->structureOutputSize));			// buffer size
 	}
+	
+	// If asked, and if we got an overrun, send a flag back and squash overrun status.
+	if (arguments->scalarOutputCount > 0)
+	{
+		if (ret == kIOReturnOverrun)
+		{
+			USBLog(3, "+IOUSBDeviceUserClientV2[%p]::_DeviceRequestIn kIOReturnOverrun",  target);
+			arguments->scalarOutput[0] = 1;
+			ret = kIOReturnSuccess;
+		}
+		else 
+		{
+			arguments->scalarOutput[0] = 0;
+		}
+	}
 
 	return ret;
 }  
@@ -701,7 +717,7 @@ IOUSBDeviceUserClientV2::DeviceRequestIn(UInt8 bmRequestType,  UInt8 bRequest, U
 			
 			ret = fOwner->DeviceRequest(&req, noDataTimeout, completionTimeout);
 			
-			if (ret == kIOReturnSuccess) 
+			if ( (ret == kIOReturnSuccess) || (ret == kIOReturnOverrun) )		
 			{
 				*size = req.wLenDone;
 			}
@@ -764,7 +780,7 @@ IOUSBDeviceUserClientV2::DeviceRequestIn(UInt8 bmRequestType,  UInt8 bRequest, U
 			
 			ret = fOwner->DeviceRequest(&req, noDataTimeout, completionTimeout);
 			
-			if (ret == kIOReturnSuccess) 
+			if ( (ret == kIOReturnSuccess) || (ret == kIOReturnOverrun) )		
 			{
 				*pOutSize = req.wLenDone;
 			}
@@ -1157,7 +1173,7 @@ IOUSBDeviceUserClientV2::GetConfigDescriptor(UInt8 configIndex, IOUSBConfigurati
 		{
 			USBLog(7,"+IOUSBDeviceUserClientV2[%p]::GetConfigDescriptor  got descriptor %p, length: %d",  this, cached, USBToHostWord(cached->wTotalLength));
 			length = USBToHostWord(cached->wTotalLength);
-			if(length < *size)
+			if (length < *size)
 				*size = length;
 			bcopy(cached, desc, *size);
 			ret = kIOReturnSuccess;
@@ -1203,7 +1219,7 @@ IOUSBDeviceUserClientV2::GetConfigDescriptor(UInt8 configIndex, IOMemoryDescript
 		{
 			USBLog(7,"+IOUSBDeviceUserClientV2[%p]::GetConfigDescriptor > 4K  got descriptor %p, length: %d",  this, cached, USBToHostWord(cached->wTotalLength));
 			length = USBToHostWord(cached->wTotalLength);
-			if(length < *size)
+			if (length < *size)
 			{
 				*size = length;
 			}
@@ -1688,7 +1704,7 @@ IOUSBDeviceUserClientV2::CreateInterfaceIterator(IOUSBFindInterfaceRequest *reqI
     {
 		iter = fOwner->CreateInterfaceIterator(reqIn);
 		
-		if(iter) 
+		if (iter) 
 		{
 			USBLog(8, "IOUSBDeviceUserClientV2[%p]::CreateInterfaceIterator   CreateInterfaceIterator returned %p", this, iter);
 			ret = exportObjectToClient(fTask, iter, &iterOut);
@@ -1724,7 +1740,7 @@ IOUSBDeviceUserClientV2::clientClose( void )
 {
 	IOReturn	ret = kIOReturnSuccess;
 	
-    USBLog(6, "+IOUSBDeviceUserClientV2[%p]::clientClose()",  this);
+    USBLog(6, "+IOUSBDeviceUserClientV2[%p]::clientClose(), isInactive = %d",  this, isInactive());
 
 	if ( !fGate )
 	{
@@ -1735,7 +1751,7 @@ IOUSBDeviceUserClientV2::clientClose( void )
 		ret = fGate->runAction(ClientCloseGated);
 	}
 
-    USBLog(6, "-IOUSBDeviceUserClientV2[%p]::clientClose()",  this);
+    USBLog(6, "-IOUSBDeviceUserClientV2[%p]::clientClose 0x%x",  this, ret);
     return ret;		// DONT call super::clientClose, which just returns notSupported
 }
 
@@ -1790,8 +1806,6 @@ IOUSBDeviceUserClientV2::stop(IOService * provider)
 void 
 IOUSBDeviceUserClientV2::free()
 {
-    USBLog(7,"IOUSBDeviceUserClientV2::free");
-
     if (fGate)
     {
 		fGate->release();

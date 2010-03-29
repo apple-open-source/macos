@@ -242,7 +242,7 @@ class HyperDatabase(pipermail.Database):
         omask = os.umask(0)
         try:
             try:
-                os.mkdir(arcdir, 0770)
+                os.mkdir(arcdir, 02770)
             except OSError, e:
                 if e.errno <> errno.EEXIST: raise
         finally:

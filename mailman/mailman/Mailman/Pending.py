@@ -1,4 +1,4 @@
-# Copyright (C) 1998-2008 by the Free Software Foundation, Inc.
+# Copyright (C) 1998-2009 by the Free Software Foundation, Inc.
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -12,7 +12,8 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
-# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
+# USA.
 
 """Track pending actions which require confirmation."""
 
@@ -23,6 +24,7 @@ import random
 import cPickle
 
 from Mailman import mm_cfg
+from Mailman import UserDesc
 from Mailman.Utils import sha_new
 
 # Types of pending records
@@ -174,9 +176,15 @@ def _update(olddb):
         # know that the only things that were kept in the old format were
         # subscription requests.  Also, the old request format didn't have the
         # subscription language.  Best we can do here is use the server
-        # default.
-        db[cookie] = (SUBSCRIPTION,) + data[:-1] + \
-                     (mm_cfg.DEFAULT_SERVER_LANGUAGE,)
+        # default.  We also need a fullname because confirmation processing
+        # references all those UserDesc attributes.
+        ud = UserDesc.UserDesc(address=data[0],
+                               fullname='',
+                               password=data[1],
+                               digest=data[2],
+                               lang=mm_cfg.DEFAULT_SERVER_LANGUAGE,
+                               )
+        db[cookie] = (SUBSCRIPTION, ud)
         # The old database format kept the timestamp as the time the request
         # was made.  The new format keeps it as the time the request should be
         # evicted.

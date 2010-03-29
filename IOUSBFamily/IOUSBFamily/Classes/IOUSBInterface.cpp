@@ -93,7 +93,7 @@ IOUSBInterface::start(IOService *provider)
 	
     IOUSBDevice * device = OSDynamicCast(IOUSBDevice, provider);
 	
-    if(!device)
+    if (!device)
 		return false;
 	
     if ( !super::start(provider))
@@ -102,7 +102,7 @@ IOUSBInterface::start(IOService *provider)
     _device = device;
     _GATE = IOCommandGate::commandGate(this);
 	
-    if(!_GATE)
+    if (!_GATE)
     {
         USBError(1, "%s[%p]::start - unable to create command gate", getName(), this);
         goto ErrorExit;
@@ -203,7 +203,7 @@ IOUSBInterface::handleOpen( IOService *forClient, IOOptionBits options, void *ar
 	
 	
     USBLog(6, "+%s[%p]::handleOpen (device %s)", getName(), this, _device->getName());
-    if(!super::handleOpen(forClient, options, arg))
+    if (!super::handleOpen(forClient, options, arg))
     {
         USBLog(2,"%s[%p]::handleOpen failing because super::handleOpen failed (someone already has it open)", getName(), this);
 		return false;
@@ -278,7 +278,7 @@ IOUSBInterface::handleClose(IOService *	forClient, IOOptionBits	options )
     USBLog(6,"+IOUSBInterface[%p]::handleClose", this);
 	
     for( i=0; i < kUSBMaxPipes; i++) 
-        if( (pipe = _pipeList[i])) 
+        if ( (pipe = _pipeList[i])) 
 		pipe->Abort(); 
     
     super::handleClose(forClient, options);
@@ -318,7 +318,7 @@ IOUSBInterface::message( UInt32 type, IOService * provider,  void * argument )
 		for ( i = 0; i < kUSBMaxPipes; i++)
 		{
 			pipe = _pipeList[i];
-			if( pipe ) 
+			if ( pipe ) 
 			{
 				pipe->Reset(); 
 			}
@@ -467,7 +467,6 @@ IOUSBInterface::free()
         _expansionData = NULL;
     }
     
-    USBLog(5,"%s[%p]::free", getName(), this);
     super::free();
 }
 
@@ -556,7 +555,7 @@ bool
 IOUSBInterface::init(const IOUSBConfigurationDescriptor *cfdesc,
                      const IOUSBInterfaceDescriptor *ifdesc)
 {
-    if(!ifdesc || !cfdesc)
+    if (!ifdesc || !cfdesc)
         return false;
 
 	// this is the call to the IOService init() method, which we are NOT overriding at this time
@@ -616,7 +615,7 @@ IOUSBInterface::SetProperties(void)
     setProperty(kUSBConfigurationValue, (unsigned long long)_configDesc->bConfigurationValue, (sizeof(_configDesc->bConfigurationValue) * 8));
     
     OSNumber 	*offset = OSNumber::withNumber(_bInterfaceNumber, 8);
-    if(offset) 
+    if (offset) 
     {
         UInt16	interfaceNumber;
         char	location[32];
@@ -627,13 +626,13 @@ IOUSBInterface::SetProperties(void)
         setLocation(location);
     }
 	
-    if(_iInterface) 
+    if (_iInterface) 
     {
         IOReturn err;
         char name[256];
         
         err = _device->GetStringDescriptor(_iInterface, name, sizeof(name));
-        if(err == kIOReturnSuccess)
+        if (err == kIOReturnSuccess)
         {
             if ( name[0] != 0 )
 			{
@@ -732,7 +731,7 @@ IOUSBInterface::ClosePipes(void)
 
     for( unsigned int i=0; i < kUSBMaxPipes; i++) 
     {
-        if( (pipe = _pipeList[i])) 
+        if ( (pipe = _pipeList[i])) 
         {
             pipe->Abort(); 
             pipe->ClosePipe();
@@ -759,7 +758,7 @@ IOUSBInterface::CreatePipes(void)
     while ((pos = FindNextAssociatedDescriptor(pos, kUSBEndpointDesc))) 
     {
         // Don't open twice!
-        if(_pipeList[i] == NULL)
+        if (_pipeList[i] == NULL)
 		{
 			ep = (const IOUSBEndpointDescriptor *)pos;
 			// 4266888 - check to make sure that the ep number is non-zero so we don't screw up the control ep
@@ -771,7 +770,7 @@ IOUSBInterface::CreatePipes(void)
 			}
 		}
         
-        if(_pipeList[i] == NULL) 
+        if (_pipeList[i] == NULL) 
         {
             makePipeFailed = true;
         }
@@ -841,11 +840,11 @@ IOUSBInterface::FindNextPipe(IOUSBPipe *current,
     if (request == 0)
         return NULL;
 
-    if(current != 0) 
+    if (current != 0) 
     {
         for(i=0;i < numEndpoints; i++) 
         {
-            if(_pipeList[i] == current) 
+            if (_pipeList[i] == current) 
             {
 		i++; // Skip the one we just did
                 break;
@@ -857,7 +856,7 @@ IOUSBInterface::FindNextPipe(IOUSBPipe *current,
 
     for ( ;i < numEndpoints; i++) {
         pipe = _pipeList[i];
-        if(!pipe)
+        if (!pipe)
             continue;
 			
         endpoint = pipe->GetEndpoint();
@@ -890,7 +889,7 @@ IOUSBInterface::FindNextAssociatedDescriptor(const void *current, UInt8 type)
 {
     const IOUSBDescriptorHeader *next;
 
-    if(current == NULL)
+    if (current == NULL)
         current = _interfaceDesc;
 
     next = (const IOUSBDescriptorHeader *)current;

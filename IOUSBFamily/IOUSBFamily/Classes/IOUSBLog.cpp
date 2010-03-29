@@ -96,11 +96,11 @@ void	KernelDebugSetOutputType( KernelDebuggingOutputType inType )
 {	
 	gKernelDebugOutputType = inType;
 	
-	if( inType & kKernelDebugOutputKextLoggerType )
+	if ( inType & kKernelDebugOutputKextLoggerType )
 	{
 		// KernelDebugFindKernelLogger();
 		
-		if( !gKernelLogger )
+		if ( !gKernelLogger )
 		{
 			// Failed to find the logger!
 			
@@ -122,7 +122,7 @@ void	KernelDebugLogInternal( UInt32 inLevel,  UInt32 inTag, char const *inFormat
     UInt64		elapsedTime;
     uint32_t		secs, milliSecs;
     
-    if( inLevel > gKernelDebugLevel )
+    if ( inLevel > gKernelDebugLevel )
     {
         // The level is not high enough to be displayed, we're skipping this item.
         return;
@@ -131,7 +131,7 @@ void	KernelDebugLogInternal( UInt32 inLevel,  UInt32 inTag, char const *inFormat
     {
         // Print to the console.
 
-        if( gKernelDebugOutputType & kKernelDebugOutputIOLogType )
+        if ( gKernelDebugOutputType & kKernelDebugOutputIOLogType )
         {		
             va_list		ap;
             extern void 	conslog_putc(char);
@@ -162,7 +162,7 @@ void	KernelDebugLogInternal( UInt32 inLevel,  UInt32 inTag, char const *inFormat
 
         // Write to the kernel logger if available.
         
-        if( (gKernelDebugOutputType & kKernelDebugOutputKextLoggerType) && gKernelLogger )
+        if ( (gKernelDebugOutputType & kKernelDebugOutputKextLoggerType) && gKernelLogger )
         {
             va_list		ap;
                     
@@ -180,7 +180,7 @@ void	KernelDebugLogInternal( UInt32 inLevel,  UInt32 inTag, char const *inFormat
 
 void 	KernelDebugLogDataInternal( UInt32 inLevel,  UInt32 inTag, void *buffer, UInt32 byteCount, bool preBuffer)
 {
-	if(preBuffer)
+	if (preBuffer)
 		KernelDebugLogInternal(inLevel, inTag, "%s", armor(buffer, byteCount));
 	else
 		KernelDebugLogInternal(inLevel, inTag, "%s\n", armor(buffer, byteCount));
@@ -204,7 +204,7 @@ IOReturn KernelDebugFindKernelLogger()
 	// Get matching dictionary.
 	
 	matchingDictionary = IOService::serviceMatching( kLogKextName );
-	if( !matchingDictionary )
+	if ( !matchingDictionary )
 	{
 		error = kIOReturnError;
 		IOLog( DEBUG_NAME "[FindKernelLogger] Couldn't create a matching dictionary.\n" );
@@ -214,7 +214,7 @@ IOReturn KernelDebugFindKernelLogger()
 	// Get an iterator for the 'KLog'.
 	
 	iterator = IOService::getMatchingServices( matchingDictionary );
-	if( !iterator )
+	if ( !iterator )
 	{
 		error = kIOReturnError;
 		IOLog( DEBUG_NAME "[FindKernelLogger] No %s found.\n", kLogKextName );
@@ -225,14 +225,14 @@ IOReturn KernelDebugFindKernelLogger()
 	// won't iterate.
 	
 	gKernelLogger = (com_apple_iokit_KLog*) iterator->getNextObject();
-	if( gKernelLogger )
+	if ( gKernelLogger )
 	{
 		IOLog( DEBUG_NAME "[FindKernelLogger] Found a logger at %p.\n", gKernelLogger );
 	}
 	
 exit:
 	
-	if( error == kIOReturnSuccess )
+	if ( error == kIOReturnSuccess )
 	{
 		IOLog( DEBUG_NAME "[FindKernelLogger] Found a logger instance.\n" );
 	}
@@ -242,8 +242,8 @@ exit:
 		IOLog( DEBUG_NAME "[FindKernelLogger] Could not find a logger instance. Error = %X.\n", error );
 	}
 	
-	if( matchingDictionary ) matchingDictionary->release();
-	if( iterator ) iterator->release();
+	if ( matchingDictionary ) matchingDictionary->release();
+	if ( iterator ) iterator->release();
 		
 	return( error );
 }

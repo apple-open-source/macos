@@ -1413,7 +1413,8 @@ pk_recvupdate(mhp)
 #endif
 
 	/* count up */
-	iph2->ph1->ph2cnt++;
+	if (iph2->ph1)
+		iph2->ph1->ph2cnt++;
 
 	/* turn off schedule */
 	if (iph2->scr)
@@ -1831,7 +1832,8 @@ pk_recvexpire(mhp)
 	/* INITIATOR, begin phase 2 exchange only if there's no other established ph2. */
 	/* allocate buffer for status management of pfkey message */
 	if (iph2->side == INITIATOR &&
-		!ike_session_has_other_established_ph2(iph2->parent_session, iph2)) {
+		!ike_session_has_other_established_ph2(iph2->parent_session, iph2) &&
+		!ike_session_drop_rekey(iph2->parent_session)) {
 
 		initph2(iph2);
 

@@ -29,13 +29,13 @@
 #include "IOPEFLoader.h"
 #include "IOPEFInternals.h"
 
-#define LOG	if(0)	IOLog
-#define INFO	if(0)	IOLog
+#define LOG     if(0)   IOLog
+#define INFO    if(0)   IOLog
 
 struct SectionVars
 {
     LogicalAddress          address;
-    ByteCount		    allocSize;
+    ByteCount               allocSize;
     ByteCount               unpackedLength;
     Boolean                 isPacked;
 };
@@ -49,7 +49,7 @@ struct InstanceVars
     ItemCount               numSections;
     SectionVars         *   sections;
     IONDRVUndefinedSymbolHandler undefinedHandler;
-    void *		    undefHandlerSelf;
+    void *                  undefHandlerSelf;
 };
 typedef struct InstanceVars InstanceVars;
 
@@ -60,10 +60,10 @@ static OSStatus SatisfyImports( InstanceVars * inst );
 static OSStatus Instantiate( InstanceVars * inst );
 
 
-#define PCFM_BlockCopy(src,dst,len) 	memcpy(dst,src,len)
-#define PCFM_BlockClear(dst,len)    	memset(dst,0,len)
-#define PCFM_MakeExecutable(addr,len)	flush_dcache((vm_offset_t)addr, len, 0);	\
-					invalidate_icache((vm_offset_t)addr, len, 0)
+#define PCFM_BlockCopy(src,dst,len)     memcpy(dst,src,len)
+#define PCFM_BlockClear(dst,len)        memset(dst,0,len)
+#define PCFM_MakeExecutable(addr,len)   flush_dcache((vm_offset_t)addr, len, 0);        \
+                                        invalidate_icache((vm_offset_t)addr, len, 0)
 
 extern OSStatus    CallTVector(
         void * p1, void * p2, void * p3, void * p4, void * p5, void * p6,
@@ -126,7 +126,7 @@ PCodeReleaseMem( LogicalAddress address )
 
 OSStatus
 PCodeOpen( LogicalAddress container, ByteCount containerSize, 
-	    PCodeInstance * instance, UInt32 * createDate )
+            PCodeInstance * instance, UInt32 * createDate )
 {
     OSStatus            err;
     InstanceVars     *  inst;
@@ -139,7 +139,7 @@ PCodeOpen( LogicalAddress container, ByteCount containerSize,
     err = PEF_OpenContainer( container, container, containerSize, 0 /*options*/,
                              PCodeAllocateMem, PCodeReleaseMem,
                              &inst->cRef, &inst->cProcs,
-			     createDate );
+                             createDate );
     if (err)
         LOG( "PEF_OpenContainer = %ld\n", err );
 
@@ -150,11 +150,11 @@ OSStatus
 PCodeInstantiate( PCodeInstance instance,
                   IONDRVUndefinedSymbolHandler handler, void * self )
 {
-    OSStatus         	   err;
-    InstanceVars     	*  inst = instance;
+    OSStatus               err;
+    InstanceVars        *  inst = instance;
     CFContLogicalLocation  initLocation;
-    LogicalAddress	   tv;
-    CFragInitBlock	   initInfo;
+    LogicalAddress         tv;
+    CFragInitBlock         initInfo;
 
     inst->undefinedHandler = handler;
     inst->undefHandlerSelf = self;
@@ -187,7 +187,7 @@ PCodeClose( PCodeInstance instance )
     OSStatus            err;
     InstanceVars     *  inst = instance;
     SectionVars      *  section;
-    ItemCount		i;
+    ItemCount           i;
 
     if (!inst)
         return (noErr);
@@ -216,7 +216,7 @@ PCodeFindExport( PCodeInstance instance, const char * symbolName, LogicalAddress
     CFContExportedSymbolInfo        symInfo;
     CFContHashedName                hashName;
     OSStatus                        err;
-    InstanceVars     		*   inst = instance;
+    InstanceVars                *   inst = instance;
 
     hashName.nameHash = CFContHashName( (UInt8 *) symbolName, strlen( symbolName) );
     hashName.nameText = (UInt8 *) symbolName;
@@ -241,7 +241,7 @@ PCodeFindExport( PCodeInstance instance, const char * symbolName, LogicalAddress
 OSStatus
 PCodeFindMain( PCodeInstance instance, LogicalAddress * mainAddress )
 {
-    InstanceVars     		*   inst = instance;
+    InstanceVars                *   inst = instance;
     CFContLogicalLocation           mainLocation;
     OSStatus                        err;
 
@@ -462,9 +462,9 @@ Instantiate( InstanceVars * inst )
 
 struct StubFunction
 {
-    LogicalAddress	pc;
-    LogicalAddress	toc;
-    char		name[64];
+    LogicalAddress      pc;
+    LogicalAddress      toc;
+    char                name[64];
 };
 typedef struct StubFunction StubFunction;
 
@@ -496,7 +496,7 @@ SatisfyImports( InstanceVars * inst )
     struct CFLibInfo            *   curLib;
     FunctionEntry               *   funcs;
     const IOTVector             *   symAddr;
-    StubFunction		*   stub;
+    StubFunction                *   stub;
 
     cRef = inst->cRef;
     err = PEF_GetImportCounts( cRef, &numLibs, &numSyms );

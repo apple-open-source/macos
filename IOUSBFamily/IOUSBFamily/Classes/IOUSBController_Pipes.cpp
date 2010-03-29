@@ -488,7 +488,7 @@ IOUSBController::Write(IOMemoryDescriptor *buffer, USBDeviceAddress address, End
 {
     USBLog(7, "%s[%p]::Write #2", getName(), this);
     // Validate that we have a buffer so that we can call getLength on it
-    if(!buffer)
+    if (!buffer)
     {
         USBLog(5, "%s[%p]::Write #2 - No buffer!.  Returning kIOReturnBadArgument(0x%x)", getName(), this, kIOReturnBadArgument);
 	return kIOReturnBadArgument;
@@ -512,7 +512,7 @@ IOUSBController::Write(IOMemoryDescriptor *buffer, USBDeviceAddress address, End
     USBLog(7, "%s[%p]::Write - reqCount = %qd", getName(), this, (uint64_t)reqCount);
     
     // Validate its a outty pipe and that we have a buffer
-    if((endpoint->direction != kUSBOut) || !buffer || (buffer->getLength() < reqCount))
+    if ((endpoint->direction != kUSBOut) || !buffer || (buffer->getLength() < reqCount))
     {
         USBLog(5, "%s[%p]::Write - direction is not kUSBOut (%d), No Buffer, or buffer length < reqCount (%qd < %qd). Returning kIOReturnBadArgument(0x%x)", getName(), this, endpoint->direction,  (uint64_t)buffer->getLength(), (uint64_t)reqCount, kIOReturnBadArgument);
 		return kIOReturnBadArgument;

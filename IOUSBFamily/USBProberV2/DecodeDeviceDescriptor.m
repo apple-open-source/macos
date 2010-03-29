@@ -83,7 +83,7 @@
     // If our subclass name is different than our class name, then add the sub class to the description
     // following a "/"
     //
-    if( ! [[deviceClass subclassName] isEqualToString:@""] &&
+    if ( ! [[deviceClass subclassName] isEqualToString:@""] &&
         ! [[deviceClass subclassName] isEqualToString:[deviceClass className]] ) {
         tempString1 = [NSString stringWithFormat:@"%@/%@", [deviceClass className], [deviceClass subclassName]]; 
     } else {

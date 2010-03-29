@@ -20,6 +20,10 @@ include $(MAKEFILEPATH)/CoreOS/ReleaseControl/BSDCommon.make
 
 Embedded=$(shell tconf --test TARGET_OS_EMBEDDED)
 
+ifneq ($(SDKROOT),)
+Extra_MIG_Flags = -arch $(firstword $(RC_ARCHS))
+endif
+
 after_install:
 ifeq "$(Embedded)" "YES"
 	/usr/libexec/PlistBuddy -x \

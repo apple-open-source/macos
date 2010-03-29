@@ -32,12 +32,13 @@
 .Ar special ...
 .Nm fsck_hfs
 .Op Fl n | y | r
-.Op Fl dfgxl
+.Op Fl dfgxlE
 .Op Fl D Ar flags
 .Op Fl b Ar size
 .Op Fl B Ar path
 .Op Fl m Ar mode
 .Op Fl c Ar size
+.Op Fl R Ar flags
 .Ar special ...
 .Sh DESCRIPTION
 .Pp
@@ -177,11 +178,35 @@ volume was clean or dirty.
 Always attempt to repair any damage that is found.
 .It Fl n
 Never attempt to repair any damage that is found.
+.It Fl E
+Cause
+.Nm
+to exit (with a value of 47) if it encounters any
+major errors.  A ``major error'' is considered one which
+would impact using the volume in normal usage; an inconsistency
+which would not impact such use is considered ``minor'' for this
+option.  Only valid with the
+.Fl n
+option.
+.It Fl R Ar flags
+Rebuilds the requested btree.  The following flags are supported:
+.Bl -hang -offset indent -compact
+.It a
+Attribute btree
+.It c
+Catalog btree
+.It e
+Extents overflow btree
+.El
+Rebuilding a btree will only
+work if there is enough free space on the file system for the new btree
+file, and if
+.Nm
+is able to traverse each of the nodes in the requested btree successfully.
+Rebuilding btrees is not supported on HFS Standard volumes.
 .It Fl r
-Rebuild the catalog file on the specified file system.
-This option currently will only work if there is enough contiguous space on the
-specified file system for a new catalog file and if there is no damage 
-to the leaf nodes in the existing catalog file.
+Rebuild the catalog btree.  This is synonymous with
+.Fl Rc .
 .El
 .Pp
 Because of inconsistencies between the block device and the buffer cache,

@@ -396,6 +396,13 @@ SSLProcessClientHello(SSLBuffer message, SSLContext *ctx)
     	sslErrorLog("SSLProcessClientHello: msg len error 1\n");
         return errSSLProtocol;
     }
+	if (ctx->state > SSL_HdskStateServerUninit) {
+		/* Disable renegotiation to work around CVE-2009-3555. */
+		/* FIXME eventual fix is to support proposed TLS renegotiation extensions. */
+    	sslErrorLog("SSLProcessClientHello: renegotiation not allowed\n");
+		return errSSLNegotiation;
+	}
+	
     charPtr = message.data;
 	eom = charPtr + message.length;
     ctx->clientReqProtocol = (SSLProtocolVersion)SSLDecodeInt(charPtr, 2);

@@ -1,0 +1,2522 @@
+AMAVIS-MIB DEFINITIONS ::= BEGIN
+
+IMPORTS
+    MODULE-IDENTITY, OBJECT-TYPE, NOTIFICATION-TYPE,
+    Counter32, Counter64, Gauge32,
+    Integer32, Unsigned32, TimeTicks,
+    enterprises, mib-2                       FROM SNMPv2-SMI
+
+    TEXTUAL-CONVENTION, DisplayString, TruthValue,
+    TimeInterval, TimeStamp                  FROM SNMPv2-TC
+
+    MODULE-COMPLIANCE, OBJECT-GROUP, NOTIFICATION-GROUP
+                                             FROM SNMPv2-CONF;
+
+amavis MODULE-IDENTITY
+    LAST-UPDATED "200906010000Z"
+    ORGANIZATION "Institut Jozef Stefan"
+    CONTACT-INFO
+	"Mark Martinec
+	 Institut Jozef Stefan
+	 Jamova 39
+	 SI-1000 Ljubljana
+	 Slovenia
+
+	 Mark.Martinec@ijs.si"
+    DESCRIPTION
+	"The MIB module describing amavisd-new statistics counters and gauges."
+
+    REVISION "200906010000Z"
+    DESCRIPTION
+	"The original version of this MIB."
+    ::= { enterprises 15312 2 1 }
+
+-- 1.3.6.1.4.1.15312        enterprises . Jozef Stefan Institute
+-- 1.3.6.1.4.1.15312.2      amavisd-new
+-- 1.3.6.1.4.1.15312.2.1    amavisd-new SNMP
+-- 1.3.6.1.4.1.15312.2.1.1  amavisd-new SNMP Statistics
+-- 1.3.6.1.4.1.15312.2.1.2  amavisd-new Process status
+-- 1.3.6.1.4.1.15312.2.2    amavisd-new LDAP Elements
+
+
+amavisStats OBJECT IDENTIFIER ::= { amavis 1 }
+amavisProc  OBJECT IDENTIFIER ::= { amavis 2 }
+amavisMta   OBJECT IDENTIFIER ::= { amavis 3 }
+
+-- ===================
+-- amavisStats section
+-- ===================
+
+sysDescr OBJECT-TYPE
+    SYNTAX	DisplayString
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "A textual string containing information about the running amavisd
+       program."
+    ::= { amavisStats 1 1 }
+
+sysObjectID OBJECT-TYPE
+    SYNTAX	OBJECT IDENTIFIER
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "The vendor's authoritative identification of the network management
+       subsystem contained in the entity.  This value provides an easy and
+       unambiguous means for determining `what kind of box' is being managed."
+    ::= { amavisStats 1 2 }
+
+sysUpTime OBJECT-TYPE
+    SYNTAX	TimeTicks
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "The time (in hundredths of a second) since the amavisd program
+       was last (re)started. Useful to distinguish counter wraparounds
+       from program restarts."
+    ::= { amavisStats 1 3 }
+
+sysContact OBJECT-TYPE
+    SYNTAX	DisplayString
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "The textual identification of the contact person for this amavisd
+       instance, together with information on how to contact this person.
+       Corresponds to a configuration variable $snmp_contact ."
+    ::= { amavisStats 1 4 }
+
+sysName OBJECT-TYPE
+    SYNTAX	DisplayString
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "A fully qualified name of the host (or a domain name of a virtual
+       instance). Corresponds to a configuration variable $myhostname ."
+    ::= { amavisStats 1 5 }
+
+sysLocation OBJECT-TYPE
+    SYNTAX	DisplayString
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "The physical location of this host or amavisd instance.
+       Corresponds to a configuration variable $snmp_location ."
+    ::= { amavisStats 1 6 }
+
+sysServices OBJECT-TYPE
+    SYNTAX	Integer32
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "A value which indicates the set of services that this
+       entity may potentially offer. Always 64 (=applications)."
+    ::= { amavisStats 1 7 }
+
+-- orig local
+--   0   0  InMsgsOpenRelay
+--   0   1  InMsgsInbound
+--   0   x  (non-originating: inbound or open relay)
+--   1   0  InMsgsOutbound
+--   1   1  InMsgsInternal
+--   1   x  InMsgsOriginating (outbound or internal)
+--   x   0  (departing: outbound or open relay)
+--   x   1  (local: inbound or internal)
+--   x   x  InMsgs
+
+-- orig=x local=x
+inMsgs OBJECT-TYPE
+    SYNTAX	Counter32
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of mail messages received by amavisd since its start,
+       regardless of their origin or destination."
+    ::= { amavisStats 2 1 }
+
+-- orig=0 local=1
+inMsgsInbound OBJECT-TYPE
+    SYNTAX	Counter32
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of mail messages received by amavisd arriving from outside
+       ('originating' flag is off) and having at least one recipient local.
+       On a properly configured system (not an open relay), all recipients
+       of a non-originating message should be local."
+    ::= { amavisStats 2 2 }
+
+-- orig=1 local=0
+inMsgsOutbound OBJECT-TYPE
+    SYNTAX	Counter32
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of mail messages received by amavisd arriving from inside
+       ('originating' flag is on) and having at least one recipient nonlocal."
+    ::= { amavisStats 2 3 }
+
+-- orig=1 local=1
+inMsgsInternal OBJECT-TYPE
+    SYNTAX	Counter32
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of mail messages received by amavisd arriving from inside
+       ('originating' flag is on) and having at least one recipient local."
+    ::= { amavisStats 2 4 }
+
+-- orig=1 local=x
+inMsgsOriginating OBJECT-TYPE
+    SYNTAX	Counter32
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of mail messages received by amavisd arriving from inside
+       ('originating' flag is on). An originating message with multiple
+       recipients when some of them are local and some nonlocal is counted
+       as both internal and outbound. When there are no such messages with
+       mixed recipients, the following relation holds:
+         inMsgsOriginating = inMsgsInternal + inMsgsOutbound ."
+    ::= { amavisStats 2 5 }
+
+-- orig=0 local=0
+inMsgsOpenRelay OBJECT-TYPE
+    SYNTAX	Counter32
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of mail messages received by amavisd arriving from outside
+       ('originating' flag is off) and having at least one recipient nonlocal.
+       On a properly configured system this count should be zero at all times.
+       If the count is nonzero, check settings @local_domains_maps, @mynetworks
+       and setting of an 'originating' flag in policy banks."
+    ::= { amavisStats 2 6 }
+
+inMsgsStatusAccepted OBJECT-TYPE
+    SYNTAX	Counter32
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of mail messages received by amavisd and accepted with
+       a success status code (D_PASS, 2xx), but their forwarding remained
+       the responsibility of a MTA (null delivery_method, typical for
+       a milter setup)."
+    ::= { amavisStats 2 7 }
+
+inMsgsStatusRelayed OBJECT-TYPE
+    SYNTAX	Counter32
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of mail messages received by amavisd and accepted with
+       a success status code (D_PASS, 2xx), and forwarded by amavisd."
+    ::= { amavisStats 2 8 }
+
+inMsgsStatusDiscarded OBJECT-TYPE
+    SYNTAX	Counter32
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of mail messages received but discarded by amavisd with a
+       success status code (2xx), not forwarded, and no delivery status
+       notification was sent. Effectively a mail message was lost. It is
+       a result of a D_DISCARD setting for all recipients of a message.
+       Note that quarantining uses independent settings, so a message
+       may or may not have been quarantined."
+    ::= { amavisStats 2 9 }
+
+inMsgsStatusNoBounce OBJECT-TYPE
+    SYNTAX	Counter32
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of mail messages received but discarded by amavisd with a
+       success status code (2xx), not forwarded, and no delivery status
+       notification was sent. Effectively a mail message was lost. It is
+       a result of a D_BOUNCE setting for all recipients of a message
+       but sending a DSN was suppressed (e.g. high spam score, infected).
+       In other words, D_BOUNCE was converted into a D_DISCARD for this
+       message. Note that quarantining uses independent settings, so a
+       message may or may not have been quarantined."
+    ::= { amavisStats 2 10 }
+
+inMsgsStatusBounced OBJECT-TYPE
+    SYNTAX	Counter32
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of mail messages received by amavisd with a success status
+       code (2xx), but not forwarded, and a delivery status notification
+       was sent to a sender of a message informing him of a reason for
+       blocking a message. It is a result of a D_BOUNCE setting for all
+       recipients of a message. Note that quarantining uses independent
+       settings, so a message may or may not have been quarantined."
+    ::= { amavisStats 2 11 }
+
+inMsgsStatusRejected OBJECT-TYPE
+    SYNTAX	Counter32
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of mail messages rejected by amavisd with a reject status
+       code (5xx), not forwarded by amavisd, and no delivery status
+       notification was sent. A duty of notifying the sender of a reject
+       is delegated back to the sending MTA. Note that quarantining uses
+       independent settings, so a message may or may not have been
+       quarantined."
+    ::= { amavisStats 2 12 }
+
+inMsgsStatusTempFailed OBJECT-TYPE
+    SYNTAX	Counter32
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of mail messages whose reception resulted in a temporary
+       failure status code (4xx) being send by amavisd back to MTA.
+       A message was not forwarded by amavisd, and no delivery status
+       notification was sent. A message stayed in a MTA queue for future
+       attempts at delivery."
+    ::= { amavisStats 2 13 }
+
+inMsgsSize OBJECT-TYPE
+    SYNTAX	Counter64
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of octets in all mail messages received by amavisd.
+       Size is calculated according to a definition in RFC 1870."
+    ::= { amavisStats 3 1 }
+
+inMsgsSizeInbound OBJECT-TYPE
+    SYNTAX	Counter64
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of octets in all mail messages received by amavisd
+       arriving from outside and having at least one recipient local."
+    ::= { amavisStats 3 2 }
+
+inMsgsSizeOutbound OBJECT-TYPE
+    SYNTAX	Counter64
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of octets in all mail messages received by amavisd
+       arriving from inside and having at least one recipient nonlocal."
+    ::= { amavisStats 3 3 }
+
+inMsgsSizeInternal OBJECT-TYPE
+    SYNTAX	Counter64
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of octets in all mail messages received by amavisd
+       arriving from inside and having at least one recipient local."
+    ::= { amavisStats 3 4 }
+
+inMsgsSizeOriginating OBJECT-TYPE
+    SYNTAX	Counter64
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of octets in all mail messages received by amavisd
+       arriving from inside."
+    ::= { amavisStats 3 5 }
+
+inMsgsSizeOpenRelay OBJECT-TYPE
+    SYNTAX	Counter64
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of octets in all mail messages received by amavisd
+       arriving from outside and having at least one nonlocal recipient.
+       Should be zero."
+    ::= { amavisStats 3 6 }
+
+inMsgsRecips OBJECT-TYPE
+    SYNTAX	Counter32
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of recipients in all mail messages received by amavisd."
+    ::= { amavisStats 4 1 }
+
+inMsgsRecipsInbound OBJECT-TYPE
+    SYNTAX	Counter32
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of local recipients in all mail messages received by amavisd
+       arriving from outside."
+    ::= { amavisStats 4 2 }
+
+inMsgsRecipsOutbound OBJECT-TYPE
+    SYNTAX	Counter32
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of nonlocal recipients in all mail messages received by amavisd
+       arriving from inside."
+    ::= { amavisStats 4 3 }
+
+inMsgsRecipsInternal OBJECT-TYPE
+    SYNTAX	Counter32
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of local recipients in all mail messages received by amavisd
+       arriving from inside."
+    ::= { amavisStats 4 4 }
+
+inMsgsRecipsOriginating OBJECT-TYPE
+    SYNTAX	Counter32
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of recipients in all mail messages received by amavisd
+       arriving from inside (= inMsgsRecipsInternal + inMsgsRecipsOutbound)."
+    ::= { amavisStats 4 5 }
+
+inMsgsRecipsOpenRelay OBJECT-TYPE
+    SYNTAX	Counter32
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of nonlocal recipients in all mail messages received by amavisd
+       arriving from outside. Should be zero."
+    ::= { amavisStats 4 6 }
+
+inMsgsRecipsLocal OBJECT-TYPE
+    SYNTAX	Counter32
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of local recipients in all mail messages received by amavisd
+       (= inMsgsRecipsInternal + inMsgsRecipsInbound)."
+    ::= { amavisStats 4 7 }
+
+inMsgsBounce OBJECT-TYPE
+    SYNTAX	Counter32
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of bounce mail messages received by amavisd, which include
+       delivery status notifications, disposition notifications, feedback
+       reports (ARF), auto replies, and some mailing list notifications."
+    ::= { amavisStats 5 1 }
+
+inMsgsBounceNullRPath OBJECT-TYPE
+    SYNTAX	Counter32
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of mail messages received by amavisd having a null
+       envelope sender address (i.e. a null return path).
+       Typically these are delivery status notifications."
+    ::= { amavisStats 5 2 }
+
+inMsgsBounceKilled OBJECT-TYPE
+    SYNTAX	Counter32
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of bounce messages received by amavisd and blocked by a
+       bounce killer feature in amavisd, These are bounce messages which
+       carry a message header section of an original message to which
+       they are referring, but it can be demonstrated that the original
+       message did not originate from our site."
+    ::= { amavisStats 5 3 }
+
+inMsgsBounceUnverifiable OBJECT-TYPE
+    SYNTAX	Counter32
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of bounce messages received by amavisd and NOT blocked by a
+       bounce killer feature because it was not possible to determine that
+       an original message originated from our site, either because the
+       bounce message did not include a header section of an original mail,
+       or was in some nonstandard form and unparsable."
+    ::= { amavisStats 5 4 }
+
+inMsgsBounceRescuedByDomain OBJECT-TYPE
+    SYNTAX	Counter32
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of bounce messages received by amavisd and NOT blocked by a
+       bounce killer feature because a header section of an original mail as
+       included in a bounce message indicated that it is likely the message
+       originated from our site, so this was most likely a legitimate
+       bounce message and not a backscatter message."
+    ::= { amavisStats 5 5 }
+
+inMsgsBounceRescuedByOriginating OBJECT-TYPE
+    SYNTAX	Counter32
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of bounce messages received by amavisd and NOT blocked by a
+       bounce killer feature because the bounce message was received from
+       an internal network or from an authenticated mail submitter."
+    ::= { amavisStats 5 6 }
+
+inMsgsBounceRescuedByPenPals OBJECT-TYPE
+    SYNTAX	Counter32
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of bounce messages received by amavisd and NOT blocked by
+       a bounce killer feature because the bounce message referred
+       to a Message-ID or has a sender/recipient pair matching previous
+       correspondence as shown by evidence in a local SQL logging database."
+    ::= { amavisStats 5 7 }
+
+outMsgs OBJECT-TYPE
+    SYNTAX	Counter32
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of mail messages transmitted by amavisd. This includes passed
+       (relayed) mail messages, notifications, and quarantined messages."
+    ::= { amavisStats 6 1 }
+
+outMsgsRelay OBJECT-TYPE
+    SYNTAX	Counter32
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of mail messages relayed (forwarded, passed) by amavisd."
+    ::= { amavisStats 6 2 }
+
+outMsgsSubmit OBJECT-TYPE
+    SYNTAX	Counter32
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of mail messages originated by amavisd. This includes
+       quarantined messages, delivery status notifications, notifications
+       to administrator or recipient, as well as other notifications
+       potentially generated by custom hooks, such as feedback reports
+       (ARF) or auto-replies."
+    ::= { amavisStats 6 3 }
+
+outMsgsSubmitQuar OBJECT-TYPE
+    SYNTAX	Counter32
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of mail messages sent to a quarantine."
+    ::= { amavisStats 6 4 }
+
+outMsgsSubmitDsn OBJECT-TYPE
+    SYNTAX	Counter32
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of delivery status notification messages sent to the
+       envelope sender e-mail address."
+    ::= { amavisStats 6 5 }
+
+outMsgsSubmitNotif OBJECT-TYPE
+    SYNTAX	Counter32
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of notification messages sent to administrator or to a recipient
+       or to some other configured e-mail address (but not to a mail sender)."
+    ::= { amavisStats 6 6 }
+
+outMsgsSubmitAV OBJECT-TYPE
+    SYNTAX	Counter32
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of messages (probes) sent to an external virus scanners,
+       typically SMTP-based."
+    ::= { amavisStats 6 7 }
+
+outMsgsSubmitArf OBJECT-TYPE
+    SYNTAX	Counter32
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of abuse reports or feedback notification messages originated
+       by amavisd. Currently these are sent by some custom hook code."
+    ::= { amavisStats 6 8 }
+
+outMsgsProtoLocal OBJECT-TYPE
+    SYNTAX	Counter32
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of mail messages written by amavisd to a local file system.
+       Typically these are quarantine messages when using a local file-based
+       quarantine."
+    ::= { amavisStats 6 9 }
+
+outMsgsProtoLocalRelay OBJECT-TYPE
+    SYNTAX	Counter32
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of mail messages written by amavisd to a local file system
+       relayed by amavisd. This number should be zero in usual setups."
+    ::= { amavisStats 6 10 }
+
+outMsgsProtoLocalSubmit OBJECT-TYPE
+    SYNTAX	Counter32
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of mail messages written by amavisd to a local file system
+       and generated by amavisd, such as notifications. This number should
+       be zero in usual setups."
+    ::= { amavisStats 6 11 }
+
+outMsgsProtoSMTP OBJECT-TYPE
+    SYNTAX	Counter32
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of mail messages transmitted by amavisd to a MTA using a
+       SMTP protocol. This includes relayed mail messages as well as
+       messages generated by amavisd, such as notifications."
+    ::= { amavisStats 6 12 }
+
+outMsgsProtoSMTPRelay OBJECT-TYPE
+    SYNTAX	Counter32
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of relayed (fordarded, passed) mail messages transmitted by
+       amavisd to a MTA using a SMTP protocol."
+    ::= { amavisStats 6 13 }
+
+outMsgsProtoSMTPSubmit OBJECT-TYPE
+    SYNTAX	Counter32
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of mail messages transmitted by amavisd to a MTA using a
+       SMTP protocol and generated by amavisd, such as notifications."
+    ::= { amavisStats 6 14 }
+
+outMsgsProtoLMTP OBJECT-TYPE
+    SYNTAX	Counter32
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of mail messages transmitted by amavisd to a MTA using a
+       LMTP protocol. This includes relayed mail messages as well as
+       messages generated by amavisd, such as notifications."
+    ::= { amavisStats 6 15 }
+
+outMsgsProtoLMTPRelay OBJECT-TYPE
+    SYNTAX	Counter32
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of relayed (forwarded, passed) mail messages transmitted by
+       amavisd to a MTA using a LMTP protocol."
+    ::= { amavisStats 6 16 }
+
+outMsgsProtoLMTPSubmit OBJECT-TYPE
+    SYNTAX	Counter32
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of mail messages transmitted by amavisd to a MTA using a
+       LMTP protocol and generated by amavisd, such as notifications."
+    ::= { amavisStats 6 17 }
+
+outMsgsProtoBSMTP OBJECT-TYPE
+    SYNTAX	Counter32
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of mail messages transmitted by amavisd to a MTA using a
+       BSMTP protocol. This includes relayed mail messages as well as
+       messages generated by amavisd, such as notifications."
+    ::= { amavisStats 6 18 }
+
+outMsgsProtoBSMTPRelay OBJECT-TYPE
+    SYNTAX	Counter32
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of relayed (forwarded, passed) mail messages transmitted by
+       amavisd to a MTA using a BSMTP protocol."
+    ::= { amavisStats 6 19 }
+
+outMsgsProtoBSMTPSubmit OBJECT-TYPE
+    SYNTAX	Counter32
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of mail messages transmitted by amavisd to a MTA using a
+       BSMTP protocol and generated by amavisd, such as notifications."
+    ::= { amavisStats 6 20 }
+
+outMsgsProtoPipe OBJECT-TYPE
+    SYNTAX	Counter32
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of mail messages transmitted by amavisd to a MTA using a
+       pipe to an external program. This includes relayed mail messages
+       as well as messages generated by amavisd, such as notifications."
+    ::= { amavisStats 6 21 }
+
+outMsgsProtoPipeRelay OBJECT-TYPE
+    SYNTAX	Counter32
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of relayed (forwarded, passed) mail messages transmitted by
+       amavisd to a MTA using a pipe to an external program."
+    ::= { amavisStats 6 22 }
+
+outMsgsProtoPipeSubmit OBJECT-TYPE
+    SYNTAX	Counter32
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of mail messages transmitted by amavisd to a MTA using a
+       pipe to an external program and generated by amavisd, such as
+       notifications."
+    ::= { amavisStats 6 23 }
+
+outMsgsProtoSQL OBJECT-TYPE
+    SYNTAX	Counter32
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of mail messages stored by amavisd to an SQL database.
+       This includes relayed mail messages as well as messages generated
+       by amavisd such as notifications, but typically corresponds to
+       quarantined messages only."
+    ::= { amavisStats 6 24 }
+
+outMsgsProtoSQLRelay OBJECT-TYPE
+    SYNTAX	Counter32
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of relayed mail messages stored by amavisd to an SQL database.
+       Typically the number is always zero in common setups."
+    ::= { amavisStats 6 25 }
+
+outMsgsProtoSQLSubmit OBJECT-TYPE
+    SYNTAX	Counter32
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of mail messages stored by amavisd to an SQL database
+       and generated by amavisd, such as notifications. Typically the
+       number is always zero in common setups."
+    ::= { amavisStats 6 26 }
+
+outMsgsDelivers OBJECT-TYPE
+    SYNTAX	Counter32
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of mail messages successfully transmitted through any
+       delivery method, such as SMTP, pipe, local file system."
+    ::= { amavisStats 6 27 }
+
+outMsgsAttemptFails OBJECT-TYPE
+    SYNTAX	Counter32
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of temporarily unsuccessful delivery attempts through any
+       delivery method, such as SMTP, pipe, local file system."
+    ::= { amavisStats 6 28 }
+
+outMsgsRejects OBJECT-TYPE
+    SYNTAX	Counter32
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of delivery attempts rejected by a receiving agent or media,
+       using any delivery method, such as SMTP, pipe, local file system."
+    ::= { amavisStats 6 29 }
+
+outMsgsSize OBJECT-TYPE
+    SYNTAX	Counter64
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of octets in messages transmitted by amavisd through any
+       delivery method, including relayed (forwarded, passed) and quarantined
+       messages, as well as notifications and delivery status reports
+       originated by amavisd. The number may not be exact, as it currently
+       does not reflect modifications by amavisd such as added or edited
+       header fields."
+    ::= { amavisStats 7 1 }
+
+outMsgsSizeRelay OBJECT-TYPE
+    SYNTAX	Counter32
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of octets in messages relayed (passed) by amavisd through
+       any delivery method. The number may not be exact, as it currently
+       does not reflect modifications by amavisd such as added or edited
+       header fields."
+    ::= { amavisStats 7 2 }
+
+outMsgsSizeSubmit OBJECT-TYPE
+    SYNTAX	Counter32
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of octets in messages originated by amavisd and sent through
+       any delivery method. These include quarantined messages, as well as
+       notifications and delivery status reports originated by amavisd.
+       The number may not be exact, as it currently does not reflect
+       modifications by amavisd such as added or edited header fields."
+    ::= { amavisStats 7 3 }
+
+outMsgsSizeSubmitQuar OBJECT-TYPE
+    SYNTAX	Counter32
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of octets in messages sent to a quarantine through any
+       delivery method."
+    ::= { amavisStats 7 4 }
+
+outMsgsSizeSubmitDsn OBJECT-TYPE
+    SYNTAX	Counter32
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of octets in delivery status notifications originated
+       by amavisd."
+    ::= { amavisStats 7 5 }
+
+outMsgsSizeSubmitNotif OBJECT-TYPE
+    SYNTAX	Counter32
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of octets in notification messages originated by amavisd and
+       sent to administrator or to a recipient (but not to a mail sender)."
+    ::= { amavisStats 7 6 }
+
+outMsgsSizeSubmitAV OBJECT-TYPE
+    SYNTAX	Counter32
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of octets in messages sent an external virus scanner for
+       testing. These currently only accounts for SMTP-based virus scanners."
+    ::= { amavisStats 7 7 }
+
+outMsgsSizeSubmitArf OBJECT-TYPE
+    SYNTAX	Counter32
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of octets in abuse reports or feedback notification messages
+       originated by amavisd. Currently these are sent by some custom hooks."
+    ::= { amavisStats 7 8 }
+
+outMsgsSizeProtoLocal OBJECT-TYPE
+    SYNTAX	Counter32
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of octets in messages stored by amavisd to a local file system,
+       typically corresponding to quarantined messages. The number may not be
+       exact, as it currently does not reflect message modifications by
+       amavisd."
+    ::= { amavisStats 7 9 }
+
+outMsgsSizeProtoLocalRelay OBJECT-TYPE
+    SYNTAX	Counter32
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of mail messages written by amavisd to a local file system
+       relayed by amavisd. This number should be zero in usual setups."
+    ::= { amavisStats 7 10 }
+
+outMsgsSizeProtoLocalSubmit OBJECT-TYPE
+    SYNTAX	Counter32
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of mail messages written by amavisd to a local file system
+       and generated by amavisd, typically corresponding to quarantined
+       messages."
+    ::= { amavisStats 7 11 }
+
+outMsgsSizeProtoSMTP OBJECT-TYPE
+    SYNTAX	Counter32
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of octets in messages transmitted by amavisd to a MTA using
+       SMTP protocol. This includes relayed (passed) messages, as well as
+       notifications generated by amavisd and messages quarantined to an
+       e-mail address when using this method. The number may not be exact,
+       as it currently does not reflect message modifications by amavisd."
+    ::= { amavisStats 7 12 }
+
+outMsgsSizeProtoSMTPRelay OBJECT-TYPE
+    SYNTAX	Counter32
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of relayed (fordarded, passed) mail messages transmitted by
+       amavisd to a MTA using a SMTP protocol."
+    ::= { amavisStats 7 13 }
+
+outMsgsSizeProtoSMTPSubmit OBJECT-TYPE
+    SYNTAX	Counter32
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of mail messages transmitted by amavisd to a MTA using a
+       SMTP protocol and generated by amavisd, such as notifications."
+    ::= { amavisStats 7 14 }
+
+outMsgsSizeProtoLMTP OBJECT-TYPE
+    SYNTAX	Counter32
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of octets in messages transmitted by amavisd to a MTA using
+       LMTP protocol. This includes relayed (passed) messages, as well as
+       notifications generated by amavisd and messages quarantined to an
+       e-mail address when using this method. The number may not be exact,
+       as it currently does not reflect message modifications by amavisd."
+    ::= { amavisStats 7 15 }
+
+outMsgsSizeProtoLMTPRelay OBJECT-TYPE
+    SYNTAX	Counter32
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of octets in relayed (forwarded, passed) mail messages
+       transmitted by amavisd to a MTA using a LMTP protocol."
+    ::= { amavisStats 7 16 }
+
+outMsgsSizeProtoLMTPSubmit OBJECT-TYPE
+    SYNTAX	Counter32
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of octets in mail messages transmitted by amavisd to a MTA
+       using a LMTP protocol and generated by amavisd, such as notifications."
+    ::= { amavisStats 7 17 }
+
+outMsgsSizeProtoBSMTP OBJECT-TYPE
+    SYNTAX	Counter32
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of octets in messages transmitted by amavisd to a MTA using
+       BSMTP protocol. This includes relayed (passed) messages, as well as
+       notifications generated by amavisd and messages quarantined through
+       BSMTP. The number may not be exact, as it currently does not account
+       for message modifications by amavisd."
+    ::= { amavisStats 7 18 }
+
+outMsgsSizeProtoBSMTPRelay OBJECT-TYPE
+    SYNTAX	Counter32
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of octets in relayed (forwarded, passed) mail messages
+       transmitted by amavisd to a MTA using a BSMTP protocol."
+    ::= { amavisStats 7 19 }
+
+outMsgsSizeProtoBSMTPSubmit OBJECT-TYPE
+    SYNTAX	Counter32
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of octets in mail messages transmitted by amavisd to a MTA
+       using a BSMTP protocol and generated by amavisd, such as quarantined
+       messages and notifications."
+    ::= { amavisStats 7 20 }
+
+outMsgsSizeProtoPipe OBJECT-TYPE
+    SYNTAX	Counter32
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of octets in messages transmitted by amavisd through a pipe
+       to an external program. This includes relayed (passed) messages,
+       as well as notifications generated by amavisd and messages quarantined
+       through a pipe. The number may not be exact, as it currently does not
+       reflect message modifications by amavisd."
+    ::= { amavisStats 7 21 }
+
+outMsgsSizeProtoPipeRelay OBJECT-TYPE
+    SYNTAX	Counter32
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of octets in relayed (forwarded, passed) mail messages
+       transmitted by amavisd to a MTA using a pipe to an external program."
+    ::= { amavisStats 7 22 }
+
+outMsgsSizeProtoPipeSubmit OBJECT-TYPE
+    SYNTAX	Counter32
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of octets in mail messages transmitted by amavisd to a MTA
+       using a pipe to an external program and generated by amavisd,
+       such as quarantined messages and notifications."
+    ::= { amavisStats 7 23 }
+
+outMsgsSizeProtoSQL OBJECT-TYPE
+    SYNTAX	Counter32
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of octets in messages stored to an SQL database by amavisd.
+       This includes relayed (passed) messages, as well as notifications
+       generated by amavisd and quarantined message, but typically corresponds
+       to quarantined messages only. The number may not be exact, as it
+       currently does not reflect message modifications by amavisd."
+    ::= { amavisStats 7 24 }
+
+outMsgsSizeProtoSQLRelay OBJECT-TYPE
+    SYNTAX	Counter32
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of octets in relayed mail messages stored by amavisd to an
+       SQL database. Typically the number is always zero in common setups."
+    ::= { amavisStats 7 25 }
+
+outMsgsSizeProtoSQLSubmit OBJECT-TYPE
+    SYNTAX	Counter32
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of octets in mail messages stored by amavisd to an SQL
+       database and generated by amavisd, such as quarantined messages and
+       notifications."
+    ::= { amavisStats 7 26 }
+
+quarMsgs OBJECT-TYPE
+    SYNTAX	Counter32
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of quarantined message."
+    ::= { amavisStats 8 1 }
+
+quarArchMsgs OBJECT-TYPE
+    SYNTAX	Counter32
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of messages quarantined to an archival quarantine."
+    ::= { amavisStats 8 2 }
+
+quarCleanMsgs OBJECT-TYPE
+    SYNTAX	Counter32
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of clean-contents messages quarantined."
+    ::= { amavisStats 8 3 }
+
+quarMtaFailedMsgs OBJECT-TYPE
+    SYNTAX	Counter32
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of clean-contents messages quarantined because of a failure
+       to feed a message back to a MTA. Should be zero at all times,
+       quarantining is not supposed to be enabled for MTA failures."
+    ::= { amavisStats 8 4 }
+
+quarOversizedMsgs OBJECT-TYPE
+    SYNTAX	Counter32
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of clean-contents messages quarantined because their size
+       exceeded a configurable limit and quarantining is enabled for
+       oversized messages."
+    ::= { amavisStats 8 5 }
+
+quarBadHdrMsgs OBJECT-TYPE
+    SYNTAX	Counter32
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of messages quarantined because they have a bad header section
+       and quarantining is enabled for such messages."
+    ::= { amavisStats 8 6 }
+
+quarSpammyMsgs OBJECT-TYPE
+    SYNTAX	Counter32
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of spammy messages quarantined (above tag2 level)
+       and quarantining is enabled for such messages."
+    ::= { amavisStats 8 7 }
+
+quarSpamMsgs OBJECT-TYPE
+    SYNTAX	Counter32
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of spam messages quarantined (above kill level)
+       and quarantining is enabled for such messages."
+    ::= { amavisStats 8 8 }
+
+quarUncheckedMsgs OBJECT-TYPE
+    SYNTAX	Counter32
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of messages quarantined because they could not be checked
+       for infection (e.g. corrupted or encrypted contents, mail bombs)
+       and quarantining is enabled for such messages."
+    ::= { amavisStats 8 9 }
+
+quarBannedMsgs OBJECT-TYPE
+    SYNTAX	Counter32
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of messages with banned contents quarantined."
+    ::= { amavisStats 8 10 }
+
+quarVirusMsgs OBJECT-TYPE
+    SYNTAX	Counter32
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of infected messages quarantined."
+    ::= { amavisStats 8 11 }
+
+quarAttemptTempFails OBJECT-TYPE
+    SYNTAX	Counter32
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of times quarantining was unsuccessful due to a temporary
+       error reported by a delivery mechanism."
+    ::= { amavisStats 8 12 }
+
+quarAttemptFails OBJECT-TYPE
+    SYNTAX	Counter32
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of times quarantining was unsuccessful due to a permanent
+       error reported by a delivery mechanism."
+    ::= { amavisStats 8 13 }
+
+quarMsgsSize OBJECT-TYPE
+    SYNTAX	Counter64
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of octets in quarantined message."
+    ::= { amavisStats 9 1 }
+
+quarArchMsgsSize OBJECT-TYPE
+    SYNTAX	Counter64
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of octets in messages quarantined to an archival quarantine."
+    ::= { amavisStats 9 2 }
+
+quarCleanMsgsSize OBJECT-TYPE
+    SYNTAX	Counter64
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of octets in quarantine clean-contents messages."
+    ::= { amavisStats 9 3 }
+
+quarMtaFailedMsgsSize OBJECT-TYPE
+    SYNTAX	Counter64
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of octets in clean-contents messages quarantined because of
+       a failure to feed a message back to a MTA."
+    ::= { amavisStats 9 4 }
+
+quarOversizedMsgsSize OBJECT-TYPE
+    SYNTAX	Counter64
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of octets in clean-contents messages quarantined because
+       their size exceeded a configurable limit."
+    ::= { amavisStats 9 5 }
+
+quarBadHdrMsgsSize OBJECT-TYPE
+    SYNTAX	Counter64
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of octets in messages quarantined because they had a
+       bad header section."
+    ::= { amavisStats 9 6 }
+
+quarSpammyMsgsSize OBJECT-TYPE
+    SYNTAX	Counter64
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of octets in quarantined spammy messages (above tag2 level)."
+    ::= { amavisStats 9 7 }
+
+quarSpamMsgsSize OBJECT-TYPE
+    SYNTAX	Counter64
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of octets in quarantined spam messages (above kill level)."
+    ::= { amavisStats 9 8 }
+
+quarUncheckedMsgsSize OBJECT-TYPE
+    SYNTAX	Counter64
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of octets in messages quarantined because they could not
+       be checked for infection (e.g. corrupted or encrypted contents,
+       mail bombs)."
+    ::= { amavisStats 9 9 }
+
+quarBannedMsgsSize OBJECT-TYPE
+    SYNTAX	Counter64
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of octets in quarantined messages with banned contents."
+    ::= { amavisStats 9 10 }
+
+quarVirusMsgsSize OBJECT-TYPE
+    SYNTAX	Counter64
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of octets in quarantined infected messages."
+    ::= { amavisStats 9 11 }
+
+contentCleanMsgs OBJECT-TYPE
+    SYNTAX	Counter32
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of clean contents mail messages received by amavisd."
+    ::= { amavisStats 10 1 1 }
+
+contentCleanMsgsInbound OBJECT-TYPE
+    SYNTAX	Counter32
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of incoming clean contents messages received by amavisd."
+    ::= { amavisStats 10 1 2 }
+
+contentCleanMsgsOutbound OBJECT-TYPE
+    SYNTAX	Counter32
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of outgoing clean contents messages received by amavisd."
+    ::= { amavisStats 10 1 3 }
+
+contentCleanMsgsInternal OBJECT-TYPE
+    SYNTAX	Counter32
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of internal-to-internal clean contents messages received
+       by amavisd."
+    ::= { amavisStats 10 1 4 }
+
+contentCleanMsgsOriginating OBJECT-TYPE
+    SYNTAX	Counter32
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of originating clean contents messages received by amavisd."
+    ::= { amavisStats 10 1 5 }
+
+contentCleanMsgsOpenRelay OBJECT-TYPE
+    SYNTAX	Counter32
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of clean contents messages received by amavisd from outside
+       and having nonlocal recipients. Should be zero."
+    ::= { amavisStats 10 1 6 }
+
+contentMtaFailedMsgs OBJECT-TYPE
+    SYNTAX	Counter32
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of clean contents mail messages received by amavisd
+       which could not be delivered back to MTA, resulting in a temporary
+       failure on the receiving side."
+    ::= { amavisStats 10 2 1 }
+
+contentMtaFailedMsgsInbound OBJECT-TYPE
+    SYNTAX	Counter32
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of clean contents incoming mail messages received by amavisd
+       which could not be delivered back to MTA, resulting in a temporary
+       failure on the receiving side."
+    ::= { amavisStats 10 2 2 }
+
+contentMtaFailedMsgsOutbound OBJECT-TYPE
+    SYNTAX	Counter32
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of clean contents outgoing mail messages received by amavisd
+       which could not be delivered back to MTA, resulting in a temporary
+       failure on the receiving side."
+    ::= { amavisStats 10 2 3 }
+
+contentMtaFailedMsgsInternal OBJECT-TYPE
+    SYNTAX	Counter32
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of clean contents internal-to-internal mail messages received
+       by amavisd which could not be delivered back to MTA, resulting in a
+       temporary failure on the receiving side."
+    ::= { amavisStats 10 2 4 }
+
+contentMtaFailedMsgsOriginating OBJECT-TYPE
+    SYNTAX	Counter32
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of clean contents originating mail messages received by amavisd
+       which could not be delivered back to MTA, resulting in a temporary
+       failure on the receiving side."
+    ::= { amavisStats 10 2 5 }
+
+contentMtaFailedMsgsOpenRelay OBJECT-TYPE
+    SYNTAX	Counter32
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of clean contents mail messages received from outside with
+       nonlocal recipients, which could not be delivered back to MTA, resulting
+       in a temporary failure on the receiving side. Should be zero."
+    ::= { amavisStats 10 2 6 }
+
+contentOversizedMsgs OBJECT-TYPE
+    SYNTAX	Counter32
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of clean contents mail messages received by amavisd
+       which exceeded a configured size limit."
+    ::= { amavisStats 10 3 1 }
+
+contentOversizedMsgsInbound OBJECT-TYPE
+    SYNTAX	Counter32
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of clean contents incoming mail messages received by amavisd
+       which exceeded a configured size limit."
+    ::= { amavisStats 10 3 2 }
+
+contentOversizedMsgsOutbound OBJECT-TYPE
+    SYNTAX	Counter32
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of clean contents outgoing mail messages received by amavisd
+       which exceeded a configured size limit."
+    ::= { amavisStats 10 3 3 }
+
+contentOversizedMsgsInternal OBJECT-TYPE
+    SYNTAX	Counter32
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of clean contents internal-to-internal mail messages received
+       by amavisd which exceeded a configured size limit."
+    ::= { amavisStats 10 3 4 }
+
+contentOversizedMsgsOriginating OBJECT-TYPE
+    SYNTAX	Counter32
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of clean contents originating mail messages received by amavisd
+       which exceeded a configured size limit."
+    ::= { amavisStats 10 3 5 }
+
+contentOversizedMsgsOpenRelay OBJECT-TYPE
+    SYNTAX	Counter32
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of clean contents mail messages received from outside
+       with nonlocal recipients, which exceeded a configured size limit.
+       Should be zero."
+    ::= { amavisStats 10 3 6 }
+
+contentBadHdrMsgs OBJECT-TYPE
+    SYNTAX	Counter32
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of mail messages with a bad header section received by amavisd."
+    ::= { amavisStats 10 4 1 }
+
+contentBadHdrMsgsInbound OBJECT-TYPE
+    SYNTAX	Counter32
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of incoming mail messages with a bad header section received
+       by amavisd."
+    ::= { amavisStats 10 4 2 }
+
+contentBadHdrMsgsOutbound OBJECT-TYPE
+    SYNTAX	Counter32
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of outgoing mail messages with a bad header section received
+       by amavisd."
+    ::= { amavisStats 10 4 3 }
+
+contentBadHdrMsgsInternal OBJECT-TYPE
+    SYNTAX	Counter32
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of internal-to-internal mail messages with a bad header section
+       received by amavisd."
+    ::= { amavisStats 10 4 4 }
+
+contentBadHdrMsgsOriginating OBJECT-TYPE
+    SYNTAX	Counter32
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of originating mail messages with a bad header section received
+       by amavisd."
+    ::= { amavisStats 10 4 5 }
+
+contentBadHdrMsgsOpenRelay OBJECT-TYPE
+    SYNTAX	Counter32
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of mail messages with a bad header section received from outside
+       with nonlocal recipients. Should be zero."
+    ::= { amavisStats 10 4 6 }
+
+contentSpammyMsgs OBJECT-TYPE
+    SYNTAX	Counter32
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of spammy (tag2) mail messages received by amavisd."
+    ::= { amavisStats 10 5 1 }
+
+contentSpammyMsgsInbound OBJECT-TYPE
+    SYNTAX	Counter32
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of incoming spammy (tag2) mail messages received by amavisd."
+    ::= { amavisStats 10 5 2 }
+
+contentSpammyMsgsOutbound OBJECT-TYPE
+    SYNTAX	Counter32
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of outgoing spammy (tag2) mail messages received by amavisd."
+    ::= { amavisStats 10 5 3 }
+
+contentSpammyMsgsInternal OBJECT-TYPE
+    SYNTAX	Counter32
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of internal-to-internal spammy (tag2) mail messages received
+       by amavisd."
+    ::= { amavisStats 10 5 4 }
+
+contentSpammyMsgsOriginating OBJECT-TYPE
+    SYNTAX	Counter32
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of originating spammy (tag2) mail messages received by amavisd."
+    ::= { amavisStats 10 5 5 }
+
+contentSpammyMsgsOpenRelay OBJECT-TYPE
+    SYNTAX	Counter32
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of spammy (tag2) mail messages received from outside with
+       nonlocal recipients. Should be zero."
+    ::= { amavisStats 10 5 6 }
+
+contentSpamMsgs OBJECT-TYPE
+    SYNTAX	Counter32
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of spam (kill level) mail messages received by amavisd."
+    ::= { amavisStats 10 6 1 }
+
+contentSpamMsgsInbound OBJECT-TYPE
+    SYNTAX	Counter32
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of incoming spam (kill level) mail messages received by amavisd."
+    ::= { amavisStats 10 6 2 }
+
+contentSpamMsgsOutbound OBJECT-TYPE
+    SYNTAX	Counter32
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of outgoing spam (kill level) mail messages received by amavisd."
+    ::= { amavisStats 10 6 3 }
+
+contentSpamMsgsInternal OBJECT-TYPE
+    SYNTAX	Counter32
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of internal-to-internal spam (kill level) mail messages
+       received by amavisd."
+    ::= { amavisStats 10 6 4 }
+
+contentSpamMsgsOriginating OBJECT-TYPE
+    SYNTAX	Counter32
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of originating spam (kill level) mail messages received
+       by amavisd."
+    ::= { amavisStats 10 6 5 }
+
+contentSpamMsgsOpenRelay OBJECT-TYPE
+    SYNTAX	Counter32
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of spam (kill level) mail messages received from outside
+       with nonlocal recipients. Should be zero."
+    ::= { amavisStats 10 6 6 }
+
+contentUncheckedMsgs OBJECT-TYPE
+    SYNTAX	Counter32
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of mail messages received by amavisd which could not be
+       checked for infection (mail bombs)."
+    ::= { amavisStats 10 7 1 }
+
+contentUncheckedMsgsInbound OBJECT-TYPE
+    SYNTAX	Counter32
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of incoming mail messages received by amavisd which could
+       not be checked for infection (mail bombs)."
+    ::= { amavisStats 10 7 2 }
+
+contentUncheckedMsgsOutbound OBJECT-TYPE
+    SYNTAX	Counter32
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of outgoing mail messages received by amavisd which could
+       not be checked for infection (mail bombs)."
+    ::= { amavisStats 10 7 3 }
+
+contentUncheckedMsgsInternal OBJECT-TYPE
+    SYNTAX	Counter32
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of internal-to-internal mail messages received by amavisd
+       which could not be checked for infection (mail bombs)."
+    ::= { amavisStats 10 7 4 }
+
+contentUncheckedMsgsOriginating OBJECT-TYPE
+    SYNTAX	Counter32
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of originating mail messages received by amavisd which could
+       not be checked for infection (mail bombs)."
+    ::= { amavisStats 10 7 5 }
+
+contentUncheckedMsgsOpenRelay OBJECT-TYPE
+    SYNTAX	Counter32
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of mail messages received from outside with nonlocal recipients
+       which could not be checked for infection (mail bombs)."
+    ::= { amavisStats 10 7 6 }
+
+contentBannedMsgs OBJECT-TYPE
+    SYNTAX	Counter32
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of banned-contents mail messages received by amavisd."
+    ::= { amavisStats 10 8 1 }
+
+contentBannedMsgsInbound OBJECT-TYPE
+    SYNTAX	Counter32
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of incoming banned-contents mail messages received by amavisd."
+    ::= { amavisStats 10 8 2 }
+
+contentBannedMsgsOutbound OBJECT-TYPE
+    SYNTAX	Counter32
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of outgoing banned-contents mail messages received by amavisd."
+    ::= { amavisStats 10 8 3 }
+
+contentBannedMsgsInternal OBJECT-TYPE
+    SYNTAX	Counter32
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of internal-to-internal banned-contents mail messages
+       received by amavisd."
+    ::= { amavisStats 10 8 4 }
+
+contentBannedMsgsOriginating OBJECT-TYPE
+    SYNTAX	Counter32
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of originating banned-contents mail messages received by
+       amavisd."
+    ::= { amavisStats 10 8 5 }
+
+contentBannedMsgsOpenRelay OBJECT-TYPE
+    SYNTAX	Counter32
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of banned-contents mail messages received from outside with
+       nonlocal recipients. Should be zero."
+    ::= { amavisStats 10 8 6 }
+
+contentVirusMsgs OBJECT-TYPE
+    SYNTAX	Counter32
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of infected mail messages received by amavisd."
+    ::= { amavisStats 10 9 1 }
+
+contentVirusMsgsInbound OBJECT-TYPE
+    SYNTAX	Counter32
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of incoming infected mail messages received by amavisd."
+    ::= { amavisStats 10 9 2 }
+
+contentVirusMsgsOutbound OBJECT-TYPE
+    SYNTAX	Counter32
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of outgoing infected mail messages received by amavisd."
+    ::= { amavisStats 10 9 3 }
+
+contentVirusMsgsInternal OBJECT-TYPE
+    SYNTAX	Counter32
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of internal-to-internal infected mail messages received
+       by amavisd."
+    ::= { amavisStats 10 9 4 }
+
+contentVirusMsgsOriginating OBJECT-TYPE
+    SYNTAX	Counter32
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of originating infected mail messages received by amavisd."
+    ::= { amavisStats 10 9 5 }
+
+contentVirusMsgsOpenRelay OBJECT-TYPE
+    SYNTAX	Counter32
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of infected mail messages received from outside with
+       nonlocal recipients. Should be zero."
+    ::= { amavisStats 10 9 6 }
+
+cacheAttempts OBJECT-TYPE
+    SYNTAX	Counter32
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of times a database of cached previous scanning results
+       was consulted."
+    ::= { amavisStats 11 1 }
+
+cacheMisses OBJECT-TYPE
+    SYNTAX	Counter32
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of times a database of cached previous scanning results
+       was consulted but did not find a message with the same body hash."
+    ::= { amavisStats 11 2 }
+
+cacheHits OBJECT-TYPE
+    SYNTAX	Counter32
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of times a database of cached previous scanning results
+       was consulted and found previous scanning results for a message
+       with the same body hash."
+    ::= { amavisStats 11 3 }
+
+cacheHitsVirusCheck OBJECT-TYPE
+    SYNTAX	Counter32
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of times a database of cached previous scanning results was
+       consulted and found previous (positive or negative) virus scanning
+       results for a message with the same body hash."
+    ::= { amavisStats 11 4 }
+
+cacheHitsVirusMsgs OBJECT-TYPE
+    SYNTAX	Counter32
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of times a database of cached previous scanning results was
+       consulted and found previous positive virus scanning results for a
+       message with the same body hash."
+    ::= { amavisStats 11 5 }
+
+outConnNew OBJECT-TYPE
+    SYNTAX	Counter32
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of new (SMTP or LMTP) TCP session establishments to a MTA."
+    ::= { amavisStats 11 6 }
+
+outConnQuit OBJECT-TYPE
+    SYNTAX	Counter32
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of (SMTP or LMTP) TCP sessions to a MTA closed down by
+       sending a QUIT command."
+    ::= { amavisStats 11 7 }
+
+outConnTransact OBJECT-TYPE
+    SYNTAX	Counter32
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of transactions to a MTA. The SMTP or LMTP protocol allows
+       transferring more than one mail message during the same session.
+       Each MAIL FROM command begins a new SMTP or LMTP transaction."
+    ::= { amavisStats 11 8 }
+
+outConnReuseFail OBJECT-TYPE
+    SYNTAX	Counter32
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Amavisd tries to reuse open SMTP or LMTP sessions to a MTA to send
+       additional mail messages without having to tear down and re-establish
+       a session. Before attempting to reuse an open session which hasn't
+       been used for some time, amavisd sends a NOOP command to test if
+       the session is still alive or was torn down at the receiving end.
+       The outConnReuseFail corresponds to unsuccessful NOOP attempts,
+       which indicate that a new session must be opened."
+    ::= { amavisStats 11 9 }
+
+outConnReuseRecent OBJECT-TYPE
+    SYNTAX	Counter32
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Amavisd tries to reuse open SMTP or LMTP sessions to a MTA to send
+       additional mail messages without having to tear down and re-establish
+       a session. The outConnReuseRecent corresponds to the number of
+       times an already open and recently used session could be reused."
+    ::= { amavisStats 11 10 }
+
+outConnReuseRefreshed OBJECT-TYPE
+    SYNTAX	Counter32
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Amavisd tries to reuse open SMTP or LMTP sessions to a MTA to send
+       additional mail messages without having to tear down and re-establish
+       a session. Before attempting to reuse an open session which hasn't
+       been used for some time, amavisd sends a NOOP command to test if
+       the session is still alive or was torn down at the receiving end.
+       The outConnReuseRefreshed corresponds to successful NOOP attempts,
+       which indicate that an existing session can be re-used."
+    ::= { amavisStats 11 11 }
+
+opsDec OBJECT-TYPE
+    SYNTAX	Counter32
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of invocations of decoders while parsing mail messages."
+    ::= { amavisStats 12 1 }
+
+opsSpamCheck OBJECT-TYPE
+    SYNTAX	Counter32
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of invocations of a spam checker."
+    ::= { amavisStats 12 2 }
+
+opsVirusCheck OBJECT-TYPE
+    SYNTAX	Counter32
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of invocations of a virus checker."
+    ::= { amavisStats 12 3 }
+
+penPalsAttempts OBJECT-TYPE
+    SYNTAX	Counter32
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of SQL queries on a logging database with a goal of finding
+       a previous message corresponding to a message now being processed."
+    ::= { amavisStats 13 1 }
+
+penPalsAttemptsRid OBJECT-TYPE
+    SYNTAX	Counter32
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of SQL queries on a logging database with a goal of finding a
+       previous message with a reversed pair of a given sender and recipient
+       address, corresponding to a message now being processed."
+    ::= { amavisStats 13 2 }
+
+penPalsAttemptsMid OBJECT-TYPE
+    SYNTAX	Counter32
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of SQL queries on a logging database with a goal of finding
+       a previous message with a given MessageID and a sender address,
+       corresponding to a message now being processed."
+    ::= { amavisStats 13 3 }
+
+penPalsMisses OBJECT-TYPE
+    SYNTAX	Counter32
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of SQL queries on a logging database which did not produce
+       any records."
+    ::= { amavisStats 13 4 }
+
+penPalsHits OBJECT-TYPE
+    SYNTAX	Counter32
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of SQL queries on a logging database which did find a matching
+       previous message."
+    ::= { amavisStats 13 5 }
+
+penPalsHitsRid OBJECT-TYPE
+    SYNTAX	Counter32
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of SQL queries on a logging database which did find a matching
+       previous message with a reversed pair of a given sender and recipient
+       address corresponding to a message now being processed."
+    ::= { amavisStats 13 6 }
+
+penPalsHitsMid OBJECT-TYPE
+    SYNTAX	Counter32
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of SQL queries on a logging database which did find a matching
+       previous message with a given MessageID and a sender address
+       corresponding to a message now being processed."
+    ::= { amavisStats 13 7 }
+
+penPalsHitsMidRid OBJECT-TYPE
+    SYNTAX	Counter32
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of SQL queries on a logging database which did find a matching
+       previous message with a given MessageID, as well as having a reversed
+       pair of a given sender and recipient address, corresponding to a
+       message now being processed."
+    ::= { amavisStats 13 8 }
+
+penPalsSavedFromTag2 OBJECT-TYPE
+    SYNTAX	Counter32
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of mail messages that would have reached or exceeded tag2 level
+       (CC_SPAMMY) had it not been for the negative score points contributed
+       by a PenPals lookup."
+    ::= { amavisStats 13 9 }
+
+penPalsSavedFromTag3 OBJECT-TYPE
+    SYNTAX	Counter32
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of mail messages that would have reached or exceeded tag3 level
+       (CC_SPAMMY,1) had it not been for the negative score points contributed
+       by a PenPals lookup."
+    ::= { amavisStats 13 10 }
+
+penPalsSavedFromKill OBJECT-TYPE
+    SYNTAX	Counter32
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of mail messages that would have reached or exceeded kill level
+       (CC_SPAM) had it not been for the negative score points contributed
+       by a PenPals lookup."
+    ::= { amavisStats 13 11 }
+
+sqlAddrSenderAttempts OBJECT-TYPE
+    SYNTAX	Counter32
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of SQL queries on a logging database performed in order to find
+       a record with a sender's e-mail address, creating one if missing."
+    ::= { amavisStats 14 1 }
+
+sqlAddrSenderMisses OBJECT-TYPE
+    SYNTAX	Counter32
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of SQL operations on a logging database performed in order to
+       create a record with a sender's address which previously did not exist
+       in a database."
+    ::= { amavisStats 14 2 }
+
+sqlAddrSenderHits OBJECT-TYPE
+    SYNTAX	Counter32
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of SQL queries on a logging database performed, successfully
+       finding an existing a record with a sender's address."
+    ::= { amavisStats 14 3 }
+
+sqlAddrRecipAttempts OBJECT-TYPE
+    SYNTAX	Counter32
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of SQL queries on a logging database performed in order to find
+       a record with a recipient's e-mail address, creating one if missing."
+    ::= { amavisStats 14 4 }
+
+sqlAddrRecipMisses OBJECT-TYPE
+    SYNTAX	Counter32
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of SQL operations on a logging database performed in order to
+       create a record with a recipient's address which previously did not
+       exist in a database."
+    ::= { amavisStats 14 5 }
+
+sqlAddrRecipHits OBJECT-TYPE
+    SYNTAX	Counter32
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of SQL queries on a logging database performed, successfully
+       finding an existing a record with a recipient's address."
+    ::= { amavisStats 14 6 }
+
+logEntries OBJECT-TYPE
+    SYNTAX	Counter64
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of all messages logged. Note that a long log message may
+       be wrapped into more than one line. Contrast with 'logLines'."
+    ::= { amavisStats 15 1 }
+
+logEntriesEmerg OBJECT-TYPE
+    SYNTAX	Counter64
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of all messages logged at an Emergency log level.
+       Currently not used by amavisd."
+    ::= { amavisStats 15 2 }
+
+logEntriesAlert OBJECT-TYPE
+    SYNTAX	Counter64
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of all messages logged at an Alert log level or more severe.
+       Currently not used by amavisd."
+    ::= { amavisStats 15 3 }
+
+logEntriesCrit OBJECT-TYPE
+    SYNTAX	Counter64
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of all messages logged at a Critical log level or more severe.
+       Corresponds to log level -3."
+    ::= { amavisStats 15 4 }
+
+logEntriesErr OBJECT-TYPE
+    SYNTAX	Counter64
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of all messages logged at an Error log level or more severe.
+       Corresponds to log level -2."
+    ::= { amavisStats 15 5 }
+
+logEntriesWarning OBJECT-TYPE
+    SYNTAX	Counter64
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of all messages logged at a Warning log level or more severe.
+       Corresponds to log level -1."
+    ::= { amavisStats 15 6 }
+
+logEntriesNotice OBJECT-TYPE
+    SYNTAX	Counter64
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of all messages logged at a Notice log level or more severe.
+       Corresponds to log level 0."
+    ::= { amavisStats 15 7 }
+
+logEntriesInfo OBJECT-TYPE
+    SYNTAX	Counter64
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of all messages logged at an Informational log level or
+       more severe. Corresponds to log level 1."
+    ::= { amavisStats 15 8 }
+
+logEntriesDebug OBJECT-TYPE
+    SYNTAX	Counter64
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of all messages logged at a Debug log level or more severe,
+       which effectively accounts for all log entries, same as 'logEntries'."
+    ::= { amavisStats 15 9 }
+
+logEntriesLevel0 OBJECT-TYPE
+    SYNTAX	Counter64
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of all messages logged at a log level 0 or more severe."
+    ::= { amavisStats 15 10 }
+
+logEntriesLevel1 OBJECT-TYPE
+    SYNTAX	Counter64
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of all messages logged at a log level 1."
+    ::= { amavisStats 15 11 }
+
+logEntriesLevel2 OBJECT-TYPE
+    SYNTAX	Counter64
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of all messages logged at a log level 2."
+    ::= { amavisStats 15 12 }
+
+logEntriesLevel3 OBJECT-TYPE
+    SYNTAX	Counter64
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of all messages logged at a log level 3."
+    ::= { amavisStats 15 13 }
+
+logEntriesLevel4 OBJECT-TYPE
+    SYNTAX	Counter64
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of all messages logged at a log level 4."
+    ::= { amavisStats 15 14 }
+
+logEntriesLevel5 OBJECT-TYPE
+    SYNTAX	Counter64
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of all messages logged at a log level 5 or less severe."
+    ::= { amavisStats 15 15 }
+
+logLines OBJECT-TYPE
+    SYNTAX	Counter64
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of log lines written. Contrast with 'logEntries'."
+    ::= { amavisStats 15 16 }
+
+logRetries OBJECT-TYPE
+    SYNTAX	Counter64
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Number of times a syslog routine needed to retry its attempt at
+       writing a log line. Purely informational and depending on platform.
+       Does NOT indicate a log message loss, but may indicate a level of
+       contention on a syslog service."
+    ::= { amavisStats 15 17 }
+
+timeElapsedTotal OBJECT-TYPE
+    SYNTAX	TimeInterval
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Time elapsed while processing mail messages, in units of 0.01 s."
+    ::= { amavisStats 16 1 }
+
+timeElapsedReceiving OBJECT-TYPE
+    SYNTAX	TimeInterval
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Time elapsed while receiving mail messages, in units of 0.01 s."
+    ::= { amavisStats 16 2 }
+
+timeElapsedSending OBJECT-TYPE
+    SYNTAX	TimeInterval
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Time elapsed while transmitting mail messages, in units of 0.01 s."
+    ::= { amavisStats 16 3 }
+
+timeElapsedDecoding OBJECT-TYPE
+    SYNTAX	TimeInterval
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Time elapsed while decoding mail messages, in units of 0.01 s."
+    ::= { amavisStats 16 4 }
+
+timeElapsedPenPals OBJECT-TYPE
+    SYNTAX	TimeInterval
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Time elapsed on SQL logging and querying operations,
+       in units of 0.01 s."
+    ::= { amavisStats 16 5 }
+
+timeElapsedVirusCheck OBJECT-TYPE
+    SYNTAX	TimeInterval
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Time elapsed while checking mail messages for viruses,
+       in units of 0.01 s."
+    ::= { amavisStats 16 6 }
+
+timeElapsedSpamCheck OBJECT-TYPE
+    SYNTAX	TimeInterval
+    MAX-ACCESS	read-only
+    STATUS	current
+    DESCRIPTION
+      "Time elapsed while checking mail messages for spam,
+       in units of 0.01 s."
+    ::= { amavisStats 16 7 }
+
+
+-- ==================
+-- amavisProc section
+-- ==================
+
+procGone OBJECT-TYPE
+    SYNTAX	Counter32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+      "Number of registered amavisd child processes that were
+       abnormally terminated (crashed or killed) since the last
+       start of amavisd-snmp-subagent."
+    ::= { amavisProc 1 1 }
+
+procAll OBJECT-TYPE
+    SYNTAX      Gauge32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+      "Number of currently registered amavisd child processes."
+    ::= { amavisProc 1 2 }
+
+procIdle OBJECT-TYPE
+    SYNTAX      Gauge32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+      "Number of currently registered but idle amavisd child processes."
+    ::= { amavisProc 1 3 }
+
+procBusy OBJECT-TYPE
+    SYNTAX      Gauge32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+      "Number of currently registered and busy amavisd child processes."
+    ::= { amavisProc 1 4 }
+
+procBusyTransfer OBJECT-TYPE
+    SYNTAX      Gauge32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+      "Number of currently registered and busy amavisd child processes
+       transferring data from or to a MTA."
+    ::= { amavisProc 1 5 }
+
+procBusyDecode OBJECT-TYPE
+    SYNTAX      Gauge32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+      "Number of currently registered and busy amavisd child processes
+       decoding a mail message."
+    ::= { amavisProc 1 6 }
+
+procBusyVirus OBJECT-TYPE
+    SYNTAX      Gauge32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+      "Number of currently registered and busy amavisd child processes
+       running antivirus scanners."
+    ::= { amavisProc 1 7 }
+
+procBusySpam OBJECT-TYPE
+    SYNTAX      Gauge32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+      "Number of currently registered and busy amavisd child processes
+       checking a mail message for spam."
+    ::= { amavisProc 1 8 }
+
+procBusyOther OBJECT-TYPE
+    SYNTAX      Gauge32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+      "Number of currently registered and busy amavisd child processes
+       doing some other activity."
+    ::= { amavisProc 1 9 }
+
+procBusy0 OBJECT-TYPE
+    SYNTAX      Gauge32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+      "Number of currently registered and busy amavisd child processes,
+       same as procBusy."
+    ::= { amavisProc 2 1 }
+
+procBusy01s OBJECT-TYPE
+    SYNTAX      Gauge32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+      "Number of currently registered and busy amavisd child processes
+       that started processing the current task 0.1 or more seconds ago."
+    ::= { amavisProc 2 2 }
+
+procBusy02s OBJECT-TYPE
+    SYNTAX      Gauge32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+      "Number of currently registered and busy amavisd child processes
+       that started processing the current task 0.2 or more seconds ago."
+    ::= { amavisProc 2 3 }
+
+procBusy05s OBJECT-TYPE
+    SYNTAX      Gauge32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+      "Number of currently registered and busy amavisd child processes
+       that started processing the current task 0.5 or more seconds ago."
+    ::= { amavisProc 2 4 }
+
+procBusy1s OBJECT-TYPE
+    SYNTAX      Gauge32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+      "Number of currently registered and busy amavisd child processes
+       that started processing the current task 1 or more seconds ago."
+    ::= { amavisProc 2 5 }
+
+procBusy2s OBJECT-TYPE
+    SYNTAX      Gauge32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+      "Number of currently registered and busy amavisd child processes
+       that started processing the current task 2 or more seconds ago."
+    ::= { amavisProc 2 6 }
+
+procBusy4s OBJECT-TYPE
+    SYNTAX      Gauge32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+      "Number of currently registered and busy amavisd child processes
+       that started processing the current task 4 or more seconds ago."
+    ::= { amavisProc 2 7 }
+
+procBusy8s OBJECT-TYPE
+    SYNTAX      Gauge32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+      "Number of currently registered and busy amavisd child processes
+       that started processing the current task 8 or more seconds ago."
+    ::= { amavisProc 2 8 }
+
+procBusy15s OBJECT-TYPE
+    SYNTAX      Gauge32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+      "Number of currently registered and busy amavisd child processes
+       that started processing the current task 15 or more seconds ago."
+    ::= { amavisProc 2 9 }
+
+procBusy30s OBJECT-TYPE
+    SYNTAX      Gauge32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+      "Number of currently registered and busy amavisd child processes
+       that started processing the current task 30 or more seconds ago."
+    ::= { amavisProc 2 10 }
+
+procBusy1m OBJECT-TYPE
+    SYNTAX      Gauge32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+      "Number of currently registered and busy amavisd child processes
+       that started processing the current task 1 or more minutes ago."
+    ::= { amavisProc 2 11 }
+
+procBusy2m OBJECT-TYPE
+    SYNTAX      Gauge32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+      "Number of currently registered and busy amavisd child processes
+       that started processing the current task 2 or more minutes ago."
+    ::= { amavisProc 2 12 }
+
+procBusy4m OBJECT-TYPE
+    SYNTAX      Gauge32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+      "Number of currently registered and busy amavisd child processes
+       that started processing the current task 4 or more minutes ago."
+    ::= { amavisProc 2 13 }
+
+procBusy8m OBJECT-TYPE
+    SYNTAX      Gauge32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+      "Number of currently registered and busy amavisd child processes
+       that started processing the current task 8 or more minutes ago."
+    ::= { amavisProc 2 14 }
+
+procBusy15m OBJECT-TYPE
+    SYNTAX      Gauge32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+      "Number of currently registered and busy amavisd child processes
+       that started processing the current task 15 or more minutes ago."
+    ::= { amavisProc 2 15 }
+
+procBusy30m OBJECT-TYPE
+    SYNTAX      Gauge32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+      "Number of currently registered and busy amavisd child processes
+       that started processing the current task 30 or more minutes ago."
+    ::= { amavisProc 2 16 }
+
+procBusy1h OBJECT-TYPE
+    SYNTAX      Gauge32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+      "Number of currently registered and busy amavisd child processes
+       that started processing the current task 1 or more hours ago."
+    ::= { amavisProc 2 17 }
+
+procBusy2h OBJECT-TYPE
+    SYNTAX      Gauge32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+      "Number of currently registered and busy amavisd child processes
+       that started processing the current task 2 or more hours ago."
+    ::= { amavisProc 2 18 }
+
+procBusy4h OBJECT-TYPE
+    SYNTAX      Gauge32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+      "Number of currently registered and busy amavisd child processes
+       that started processing the current task 4 or more hours ago."
+    ::= { amavisProc 2 19 }
+
+procBusy8h OBJECT-TYPE
+    SYNTAX      Gauge32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+      "Number of currently registered and busy amavisd child processes
+       that started processing the current task 8 or more hours ago."
+    ::= { amavisProc 2 20 }
+
+procBusy15h OBJECT-TYPE
+    SYNTAX      Gauge32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+      "Number of currently registered and busy amavisd child processes
+       that started processing the current task 15 or more hours ago."
+    ::= { amavisProc 2 21 }
+
+procBusy30h OBJECT-TYPE
+    SYNTAX      Gauge32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+      "Number of currently registered and busy amavisd child processes
+       that started processing the current task 30 or more hours ago."
+    ::= { amavisProc 2 22 }
+
+
+-- =================
+-- amavisMta section
+-- =================
+
+mtaQueueEntriesMaildrop OBJECT-TYPE
+    SYNTAX      Gauge32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+      "Number of files under a MTA directory $queue_directory/maildrop."
+    ::= { amavisMta 1 1 }
+
+mtaQueueEntriesIncoming OBJECT-TYPE
+    SYNTAX      Gauge32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+      "Number of files under a MTA directory $queue_directory/incoming"
+    ::= { amavisMta 1 2 }
+
+mtaQueueEntriesActive OBJECT-TYPE
+    SYNTAX      Gauge32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+      "Number of files under a MTA directory $queue_directory/active"
+    ::= { amavisMta 1 3 }
+
+mtaQueueEntriesDeferred OBJECT-TYPE
+    SYNTAX      Gauge32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+      "Number of files under a MTA directory $queue_directory/deferred"
+    ::= { amavisMta 1 4 }
+
+END

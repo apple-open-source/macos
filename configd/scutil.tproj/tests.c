@@ -378,14 +378,24 @@ do_watchReachability(int argc, char **argv)
 		exit(1);
 	}
 
-	if (!SCNetworkReachabilityScheduleWithRunLoop(target_async, CFRunLoopGetCurrent(), kCFRunLoopDefaultMode)) {
-		printf("SCNetworkReachabilityScheduleWithRunLoop() failed: %s\n", SCErrorString(SCError()));
-		exit(1);
+#if	!TARGET_OS_IPHONE
+	if (doDispatch) {
+		if (!SCNetworkReachabilitySetDispatchQueue(target_async, dispatch_get_current_queue())) {
+			printf("SCNetworkReachabilitySetDispatchQueue() failed: %s\n", SCErrorString(SCError()));
+			exit(1);
+		}
+	} else
+#endif	// !TARGET_OS_IPHONE
+	{
+		if (!SCNetworkReachabilityScheduleWithRunLoop(target_async, CFRunLoopGetCurrent(), kCFRunLoopDefaultMode)) {
+			printf("SCNetworkReachabilityScheduleWithRunLoop() failed: %s\n", SCErrorString(SCError()));
+			exit(1);
+		}
 	}
 
 	// Note: now that we are scheduled on a run loop we can call SCNetworkReachabilityGetFlags()
 	//       to get the current status.  For "names", a DNS lookup has already been initiated.
-	SCPrint(TRUE, stdout, CFSTR(" 2: on runloop\n"));
+	SCPrint(TRUE, stdout, CFSTR(" 2: on %s\n"), doDispatch ? "dispatch queue" : "runloop");
 	SCPrint(TRUE, stdout, CFSTR("   %@\n"), target_async);
 	_printReachability(target_async);
 	SCPrint(TRUE, stdout, CFSTR("\n"));

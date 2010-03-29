@@ -309,7 +309,7 @@ Int32 main ( Int32 argc, Char** argv )
    UInt32      buffHi, buffLo, blockCRC;
    Char*       p;
 
-   strcpy ( progName, argv[0] );
+   strlcpy ( progName, argv[0], BZ_MAX_FILENAME );
    inFileName[0] = outFileName[0] = 0;
 
    fprintf ( stderr, 
@@ -346,7 +346,7 @@ Int32 main ( Int32 argc, Char** argv )
       exit(1);
    }
 
-   strcpy ( inFileName, argv[1] );
+   strlcpy ( inFileName, argv[1], BZ_MAX_FILENAME );
 
    inFile = fopen ( inFileName, "rb" );
    if (inFile == NULL) {
@@ -468,7 +468,7 @@ Int32 main ( Int32 argc, Char** argv )
          Int32 ofs, k;
          for (k = 0; k < BZ_MAX_FILENAME; k++) 
             outFileName[k] = 0;
-         strcpy (outFileName, inFileName);
+         strlcpy (outFileName, inFileName, sizeof outFileName);
          split = strrchr (outFileName, BZ_SPLIT_SYM);
          if (split == NULL) {
             split = outFileName;
@@ -479,9 +479,11 @@ Int32 main ( Int32 argc, Char** argv )
          ofs  = split - outFileName;
          sprintf (split, "rec%5d", wrBlock+1);
          for (p = split; *p != 0; p++) if (*p == ' ') *p = '0';
-         strcat (outFileName, inFileName + ofs);
+         strlcat (outFileName, inFileName + ofs, sizeof outFileName);
 
-         if ( !endsInBz2(outFileName)) strcat ( outFileName, ".bz2" );
+         if ( !endsInBz2(outFileName)) {
+            strlcat ( outFileName, ".bz2", sizeof outFileName );
+	 }
 
          fprintf ( stderr, "   writing block %d to `%s' ...\n",
                            wrBlock+1, outFileName );

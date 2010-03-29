@@ -11,12 +11,12 @@ static void spit(char * filename)
 {
     CFStringRef string;
     CFURLRef   url;
-    char			path[256];
+    char                        path[256];
 
     snprintf(path, sizeof(path), "%s.png", filename);
 
     string = CFStringCreateWithCString( kCFAllocatorDefault, path,
-					kCFStringEncodingMacRoman );
+                                        kCFStringEncodingMacRoman );
 
     url = CFURLCreateWithFileSystemPath( kCFAllocatorDefault, string, kCFURLPOSIXPathStyle, FALSE);
 
@@ -78,14 +78,14 @@ static void spit(char * filename)
     bits = (uint8_t *) bitmapData;
     for (y = 0; y < pixelsHigh; y++)
     {
-	for (x = 0; x < pixelsWide; x++)
-	{
-	    data = *bits++;
-	    assert (data <= 0xbf);
+        for (x = 0; x < pixelsWide; x++)
+        {
+            data = *bits++;
+            assert (data <= 0xbf);
 
-	    printf("0x%02x, ", data);
-	}
-	printf("\n");
+            printf("0x%02x, ", data);
+        }
+        printf("\n");
     }
 #endif
     printf("\n\nunsigned char %s[%d * %d] = {\n", filename, pixelsWide, pixelsHigh);
@@ -93,18 +93,18 @@ static void spit(char * filename)
     bits = (uint8_t *) bitmapData;
     for (y = 0; y < pixelsHigh; y++)
     {
-	for (x = 0; x < pixelsWide; x++)
-	{
-	    unsigned char data;
-	    data = *bits++;
-	    assert (data <= 0xbf);
+        for (x = 0; x < pixelsWide; x++)
+        {
+            unsigned char data;
+            data = *bits++;
+            assert (data <= 0xbf);
 
-	    data = (0x100 * data - (0xbf / 2)) / 0xbf;
+            data = (0x100 * data - (0xbf / 2)) / 0xbf;
 
-	    if (!x) printf("    ");
-	    printf("0x%02x, ", data);
-	}
-	printf("\n");
+            if (!x) printf("    ");
+            printf("0x%02x, ", data);
+        }
+        printf("\n");
     }
     printf("};\n");
 
@@ -114,7 +114,7 @@ int main(int argc, char * argv[])
 {
     int i;
     for (i = 1; i < argc; i++)
-	spit(argv[i]);
+        spit(argv[i]);
 }
 
 

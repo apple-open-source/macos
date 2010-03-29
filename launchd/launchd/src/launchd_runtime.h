@@ -108,6 +108,8 @@ extern bool g_use_gmalloc;
 extern bool g_log_per_user_shutdown;
 extern bool g_log_strict_usage;
 extern bool g_embedded_shutdown_log;
+extern bool g_runtime_busy_time;
+extern size_t runtime_busy_cnt;
 extern int32_t g_sync_frequency;
 extern pid_t g_wsp;
 
@@ -118,6 +120,8 @@ void runtime_add_ref(void);
 void runtime_del_ref(void);
 void runtime_add_weak_ref(void);
 void runtime_del_weak_ref(void);
+void runtime_install_timer(void);
+void runtime_remove_timer(void);
 
 void launchd_runtime_init(void);
 void launchd_runtime_init2(void);

@@ -1,4 +1,4 @@
-$! $Id: build_vms.com,v 1.7 2007-04-25 03:00:10 yangtse Exp $
+$! $Id: build_vms.com,v 1.9 2009-10-27 16:56:20 yangtse Exp $
 $! BUILD_VMS.COM 
 $!
 $! I've taken the original build_vms.com, supplied by Nico Baggus, if
@@ -30,11 +30,11 @@ $!
 $!  2-DEC-2003, MSK, the "original" version.
 $!                   It works for me.  Your mileage may vary.
 $! 13-JAN-2004, MSK, moved this procedure to the [.packages.vms] directory
-$!                   and updated it to do hardware dependant builds.
+$!                   and updated it to do hardware dependent builds.
 $! 29-JAN-2004, MSK, moved logical defines into defines.com
 $!  6-FEB-2004, MSK, put in various SSL support bits
 $!  9-MAR-2004, MSK, the config-vms.h* files are now copied to the lib and
-$!                   src directories as config.h.
+$!                   src directories as curl_config.h.
 $! 15-MAR-2004, MSK, All of the curlmsg*.* files have also been moved to 
 $!                   this build directory.  They will be copied to the src 
 $!                   directory before build.  The .msg file will be compiled 

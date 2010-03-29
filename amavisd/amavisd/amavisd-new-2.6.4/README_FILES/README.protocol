@@ -1,0 +1,390 @@
+AMAVIS POLICY DELEGATION PROTOCOL (AM.PDP)
+==========================================
+  Author: Mark Martinec <Mark.Martinec@ijs.si>
+  Created: 2003-11-10, last modified 2004-09-09, 2005-03-18, 2005-06-22,
+    2006-08-18 (added attributes: version_server, insheader and quarantine),
+    2007-05-17 (allow attribute value: request=requeue)
+    2008-06-21 (new attribute partition_tag=xx on release requests)
+
+NOTE: at the end of this document there is a description
+(by Stephane Lentz) of the currently used protocol.
+
+
+Amavis policy delegation protocol is intended to replace the old amavis
+client protocol as spoken between amavisd-new helper programs (amavis.c
+or amavis-milter.c) and the amavisd daemon. The server side is
+implemented by amavisd-new daemon. A sample AM.PDP client in Perl is
+helper-prog/samavis.pl, and a rewrite by Petr Rehor of the helper
+program amavis-milter.c to use the new AM.PDP protocol is available
+as a separate project, see:
+  http://sourceforge.net/projects/amavisd-milter/
+
+
+The new amavisd client/server protocol is based on the
+'Postfix policy delegation protocol', described in the Postfix
+document file README_FILES/SMTPD_POLICY_README, which can be used to
+delegate policy decisions to an external server that runs outside Postfix.
+It is conceptually similar to sendmail/milter mechanism, but based
+on a documented text protocol which is easier to test and debug,
+instead of using an undocumented binary protocol such as sendmail/milter.
+
+There are a few departures from the original Postfix policy delegation
+protocol:
+
+- Postfix policy delegation protocol terminates lines with LF,
+  AM.PDP protocol terminates lines with CR LF;
+  ( This was changed to facilitate debugging via telnet, and to make it
+    more similar to related protocols, e.g. SMTP, HTTP, FTP, ... )
+
+- Postfix policy delegation protocol restricts the reply to one field only,
+  AM.PDP allows arbitrary number of fields passed from server back to client;
+  ( This allows additional functionality like modifying or removing
+    recipient addresses, adding or editing mail header fields, etc. )
+
+- Postfix policy delegation protocol expects the same attribute name
+  to be used only once; AM.PDP allows repeated appearances of the attribute,
+  which makes passing of lists easier (such as multiple recipient addresses);
+
+- attribute value may consist of more than one field. Fields are delimited
+  by exactly one non-encoded space. Spaces within a field must be encoded
+  like any other restricted character (see below).
+
+The protocol may be spoken over a Unix STREAM socket, or over a
+inet tcp socket.
+
+The client request is a sequence of name=value attributes, each terminated
+by CR LF. The sequence is terminated by an empty line (only CR LF).
+The server reply has the same structure. After client receives server
+response sequence terminated by an empty line, it may close the session,
+or issue another request on the same session. During normal operation
+the server should not close the socket until it has been closed by the client.
+Only under special circumstances is the server allowed to close the session,
+e.g. in response to a timeout or fatal error condition.
+
+The order of attributes does not matter (except for the 'request'
+attribute which must appear the first in the client request).
+The policy client as well as the policy server should ignore
+any attributes that it does not care about.
+
+An attribute name must not contain non-encoded characters: "=", "%",
+space, null, CR or LF. An attribute value must not contain
+non-encoded characters: "%", space, null, CR, or LF.
+
+All restricted characters must be hex-encoded to a sequence of three
+characters: a percent sign, followed by two hex digits, e.g. %2A.
+Hexadecimal digits 0..9,a..f or 0..9,A..F are allowed.
+
+Any other character MAY be encoded as well. Although not mandated,
+it is prudent to encode all non-printable characters.
+
+The line length is not limited by this protocol. Both the server and the
+client must be prepared to handle arbitrary line lengths without breaking
+the protocol or rising security issues. Both are allowed to internally
+truncate unreasonably long lines to a sensible length, and issue a warning.
+
+Neither the client nor the server must make any assumptions that certain
+characters will not be used in the attribute name or values. E.g. a presence
+of encoded null or newline other special character in the attribute name
+or value must be safely and appropriately handled. If such a character
+does not comply with the expected syntax, the case should be handled
+to the best of client or server understanding and capability,
+e.g. character ignored, attribute ignored, and/or a warning logged.
+
+The following example Perl expression may be used for encoding/decoding:
+
+  to decode attribute name and attribute values:
+    s/%([0-9a-fA-F]{2})/pack("C",hex($1))/eg
+
+  to encode attribute name:
+    s/[^0-9a-zA-Z_-]/sprintf("%%%02x",ord($&))/eg;
+
+  to encode attribute values (each space-separated field individually):
+    s/[^\041-\044\046-\176]/sprintf("%%%02x",ord($&))/eg;
+
+
+Attributes in the client request are:
+-------------------------------------
+
+request=AM.PDP
+  is a required first attribute, its value must be AM.PDP
+
+sender=<foo@example.com>
+  specifies the envelope sender address (reverse-path).
+  The attribute should appear exactly once. The attribute value syntax
+  is specified in rfc2821 as 'Reverse-path' (i.e. smtp-quoted form,
+  enclosed in <>);  a null reverse path is specified as <>.
+
+recipient=<user1@example.net>
+  specifies the envelope recipient address. The attribute appears once
+  for each recipient address, the order or addresses must be preserved
+  and might be significant for some setups or functions.
+  The attribute value syntax is specified in rfc2821 as 'Forward-path'.
+
+tempdir=/var/amavis/amavis-milter-MWZmu9Di
+  Specifies a temporary work directory to be used for mail unpacking,
+  typically also containing the original mail file - see attribute
+  'mail_file' below. This attribute should be present exactly once.
+  The server is allowed to use the specified directory to create
+  additional temporary files if it chooses so.
+
+tempdir_removed_by=client
+  Specifies the client will be responsible for removing the temporary
+  directory. The server must not remove the file email.txt nor the directory,
+  but it may remove temporary files and subdirectories it has created.
+
+tempdir_removed_by=server
+  Specifies the server is responsible to remove the temporary directory
+  if/when it deems appropriate. This is a default in the absence of this
+  attribute (for compatibility with traditional amavis clients).
+
+mail_file=/var/amavis/amavis-milter-MWZmu9Di/email.txt
+  Specifies a file name (full file path) of a file containing the original
+  mail with header and body. This attribute should be present at most once.
+  In its absence the file name defaults to <tempdir>/email.txt.
+
+delivery_care_of=client
+  Specifies that server should NOT actively forward the mail to recipients,
+  but should only report its opinion in its reply, and let the client
+  act on it. This is a default in the absence of this attribute.
+
+delivery_care_of=server
+  Specifies that server is responsible to actively forward the mail
+  to recipients if it deems the message appropriate for forwarding.
+  This attribute value indicates that the client has no capability
+  or intention to forward mail by itself.
+
+queue_id=qid
+  optional informational attribute: MTA queue id;
+
+protocol_name=ESMTP
+  optional informational attribute: the name of the protocol used by the
+  original SMTP client to deliver the mail to the client (or to its
+  associated MTA). Common values are ESMTP, SMTP, LMTP.
+
+helo_name=b.example.com
+  optional informational attribute: the value of the HELO or EHLO or LHLO
+  command specified to our MTA by the original SMTP client;
+
+client_address=10.2.3.4
+  optional informational attribute: the IP address of the original SMTP
+  client;
+
+client_name=mail.example.com
+  optional informational attribute: the DNS name of the original SMTP client
+  as obtained by DNS reverse mapping of the original SMTP client;
+
+policy_bank=TLS,ORIGINATING,MYNETS
+  value is a comma-separated list of policy bank names. Names of
+  nonexistent banks are silently ignored, so are leading and trailing spaces
+  and TABs around each name. The order of policy bank loading generally
+  follows the order in which information about a message were obtained:
+    - interface or socket -based policy banks (when MTA connects to amavisd);
+    - MYNETS (when client's IP address becomes known);
+    - the list as specified in the policy_bank attribute of AM.PDP;
+    - MYUSERS (when sender e-mail address becomes known);
+
+Attributes in the server response are:
+--------------------------------------
+
+The current set of attributes maps almost exactly to the capabilities
+of libmilter, which should facilitate initial implementation.
+See sendmail libmilter documentation as well.
+
+version_server=2
+  Since amavisd-new-2.4.3 the 'version_server=2' is inserted, older
+  versions did not provide this attribute (assumed version was 1).
+  With version 2 the following changes to the protocol were made:
+  - version_server=2 is provided by the server as the first attribute;
+  - delheader and chgheader now stand in a response before insheader
+    and addheader, assuming that milter MTA will execute these in
+    the same order;
+  - new attribute insheader, see below;
+  - new attribute quarantine, see below.
+
+delrcpt=<user1@example.net>
+  The specified recipient should be removed from the list of
+  recipients of this mail. The specified address must exactly match
+  the recipient addresses as specified in the client request,
+  i.e. a smtp-quoted form enclosed in <> should be specified;
+
+addrcpt=<user1@example.net>
+  The specified recipient should be added to the list of recipients
+  of this mail. Paired with 'delrcpt' the pair indicates an existing
+  recipient address to be replaced by a modified address, e.g. to
+  add an address extension.
+
+delheader=index hdr_head
+  Specifies an existing mail header field should be removed.
+  Index is a decimal integer indicating which of the header fields
+  with the same head should be affected, count starts with 1.
+  'hdr_head' does not include a colon!
+
+chgheader=index hdr_head hdr_body
+  Specifies an existing mail header field should have its body replaced by
+  a new hdr_body. Index is a decimal integer indicating which of the header
+  fields with the same head should be affected, count starts with 1.
+  'hdr_head' does not include a colon!
+
+insheader=index hdr_head hdr_body
+  Similar to addheader, but specifies a mail header field to be inserted to
+  the mail header at a given position, index 0 implies top of the header.
+  Amavisd-new passes a value of $prepend_header_fields_hdridx as the index
+  argument, which is configurable and defaults to 1 for compatibility with
+  dkim-milter and dk-milter signing milters. Alternative useful value is 0,
+  which may be used in absence of other milters inserting their header fields
+  at index 1. Header fields to be prepended are listed in reverse order,
+  the last one listed in AM.PDP is to appear at the top of a resulting mail
+  header. Inserting a header field at an arbitrary position is a later
+  addition to sendmail milter protocol
+  (introduced with sendmail 8.13.0 2004-06-20)
+
+addheader=hdr_head hdr_body
+  Specifies a mail header field to be appended to the mail header.
+  Note the use of exactly two value fields, separated by exactly one space.
+  As described above, spaces in each field must be hex-encoded.
+  'hdr_head' does not include the colon!
+
+replacebody=new_body
+  Not implemented - for future consideration.
+
+quarantine=reason
+  place message on hold or to a quarantine maintained by MTA, and supply
+  a reason text (e.g. client may call smfi_quarantine milter routine;
+  btw, smfi_quarantine was introduced with sendmail 8.13);
+  For future use - it is currently (2.4.3 or earlier) never used.
+
+return_value=val
+  where val can be any of: continue, accept, reject, discard, tempfail
+  This attribute should be present exactly once, and indicates to the
+  client what should be done with the mail and how the original SMTP
+  session should be treated.
+
+setreply=rcode xcode message
+  SMTP response code and text suggested by server to the client
+  to be used in response to the original SMTP client;
+  There are exactly three value fields, separated by a single space.
+
+exit_code=n
+  Similar in semantics to return_value attribute, but uses
+  sysexits.h -based exit values for the purpose. Useful with old
+  amavis clients, but should be ignored by new clients,
+  which should base its decision on return_value instead.
+
+
+
+An example
+==========
+
+Indentation and text in parenthesis in the following example
+is not part of the actual session.
+
+
+$ telnet 127.0.0.1 9998
+  Trying 127.0.0.1...
+  Connected to localhost.example.com.
+  Escape character is '^]'.
+
+(client->server request)
+  request=AM.PDP
+  sender=me@example.com
+  recipient=user1@example.net
+  recipient=user2@example.net
+  protocol_name=ESMTP
+  client_address=10.2.3.4
+  tempdir=/var/amavis/amavis-milter-MWZmu9Di
+
+(server->client response)
+  setreply=250 2.5.0 Ok,%20id=MWZmu9Di,%20continue%20delivery
+  return_value=continue
+  exit_code=0
+
+(or:)
+  setreply=250 2.7.1 Ok,%20discarded,%20UBE,%20id=mYOljdn2
+  return_value=discard
+  exit_code=99
+
+(or:)
+  setreply=550 5.7.1 Message%20content%20rejected,%20UBE,%20id=S7uS4qvA
+  return_value=reject
+  exit_code=69
+
+(or:)
+  setreply=451 4.5.0 Error%20in%20processing,%20id=...
+  return_value=tempfail
+  exit_code=75
+
+
+
+===============================================================================
+Releasing a message from a quarantine:
+
+request=release     (or request=requeue, available since 2.5.1)
+mail_id=xxxxxxxxxxxx
+secret_id=xxxxxxxxxxxx         (authorizes a release)
+partition_tag=xx               (optional, but recommended if info is available)
+quar_type=x                    F/Z/B/Q/M (file/zipfile/bsmtp/sql/mailbox)
+mail_file=...       (optional: overrides automatics; $QUARANTINEDIR prepended)
+requested_by=<releaser@example.com> (optional: lands in Resent-From:)
+sender=<foo@example.com>            (optional: replaces envelope sender)
+recipient=<bar1@example.net>        (optional: replaces envelope recips)
+recipient=<bar2@example.net>
+recipient=...
+
+In reply, for each recipient a SMTP status response is returned
+(similar to LMTP)
+
+quar_type defaults to Q if spam_quarantine_method is sql:, otherwise to F.
+
+===============================================================================
+AMAVIS SIMPLE CLIENT/SERVER PROTOCOL (traditional)
+  description by Stephane Lentz
+  2003-11-06
+
+amavisd is the daemon part of AMAVIS in charge of scanning SMTP messages.
+It receives messages from other applications (clients) using either
+SMTP or a simple protocol which is detailed in this document.
+The protocol being used depends on the MTA and architecture chosen.
+The "simple protocol" is most often used with sendmail in a MILTER
+set-up (the client program in such a case is amavis-client).
+
+AMAVISD receives messages from clients through a UNIX socket :
+The UNIX socket used is by default /var/amavis/amavisd.sock .
+It is defined :
+- at the amavisd server level in amavisd.conf as $unix_socketname
+- at the client level when using MILTER (amavis-milter available in
+helper-progs) as a configure option :  --with-sockname swith
+
+The protocol used between the client and server is simple (basic & limited).
+There is no possibility for the server to ask the client to remove/add/change
+headers. The server can only say if the message was detected as CLEAN, as
+UNSAFE and to be rejected/discarded) or not analysed successfully due to
+some errors.
+
+PROTOCOL IN DETAILS :
+
+The client connects to the AMAVISD server's socket.
+IF successful then for each incoming message :
+- the client computes and create a new temporary directory ($tempdir)
+  to store the new incoming message.
+- the incoming message is stored as $tempdir/email.txt
+- the client sends the directory name to the SERVER
+- the server sends \1 to the client if the directory is ok
+- the client sends the envelope sender recipient address
+- the server sends \1 to the client if ok
+- the client sends the envelope recipient addresses one by one to the server:
+    the client trims the address if it is longer than the
+      maximum length possible
+    the client sends this address to the server
+    the server sends \1 to the client if ok
+- the client sends some request to analyze the message to the SERVER.
+    The character used is  EOT (end of transmission) :\3
+- the server processes the mail stored in the directory ($tempdir/email.txt)
+- the server sends a STATUS number to the CLIENT. This number returned is
+  either :
+    EX_OK (2)           : message CLEAN
+    EX_UNAVAILABLE (69) : message UNSAFE to be rejected at the SMTP LEVEL
+                          (550 reject)
+    99                  : message UNSAFE to be silently (250 code) discarded
+                          at the SMTP LEVEL
+    EX_TEMPFAIL (75)    : message not processed successfully (error in
+                          communication, or server error, ...)

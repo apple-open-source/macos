@@ -31,6 +31,7 @@
 #include "TrustSettingsSchema.h"
 #include "SecTrustSettings.h"
 #include "TrustSettingsUtils.h"
+#include "TrustKeychains.h"
 #include "SecCertificatePriv.h"
 #include "SecPolicyPriv.h"
 #include "Certificate.h"
@@ -746,7 +747,7 @@ void TrustSettings::findCerts(
 		NULL, NULL, kSecTrustSettingsKeyUseAny,
 		certArray);
 }
-	
+
 void TrustSettings::findQualifiedCerts(
 	StorageManager::KeychainList	&keychains,
 	/* 
@@ -761,6 +762,8 @@ void TrustSettings::findQualifiedCerts(
 	SecTrustSettingsKeyUsage		keyUsage,			/* optional */
 	CFMutableArrayRef				certArray)			/* certs appended here */
 {
+	StLock<Mutex> _(SecTrustKeychainsGetMutex());
+
 	/* 
 	 * a set, hopefully with a good hash function for CFData, to keep track of what's
 	 * been added to the outgoing array. 

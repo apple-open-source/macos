@@ -304,6 +304,11 @@ public:
 
     virtual IOReturn message( UInt32 type, IOService * provider, void * arg );
 
+/*! @function signalDebugger
+    @abstract Signal the kernel to enter the debugger when safe.
+*/
+    static void signalDebugger(void);
+
     // Virtual function padding
     OSMetaClassDeclareReservedUnused( IOKernelDebugger,  0);
     OSMetaClassDeclareReservedUnused( IOKernelDebugger,  1);

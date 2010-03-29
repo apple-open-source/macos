@@ -33,15 +33,15 @@ class IODisplayWrangler : public IOService
     OSDeclareDefaultStructors( IODisplayWrangler );
 
 private:
-    bool	fOpen;
-    IOLock *	fMatchingLock;
-    OSSet *	fFramebuffers;
-    OSSet *	fDisplays;
+    bool        fOpen;
+    IOLock *    fMatchingLock;
+    OSSet *     fFramebuffers;
+    OSSet *     fDisplays;
 
     // from control panel: number of idle minutes before dimming
-    UInt32	fMinutesToDim;
+    UInt32      fMinutesToDim;
     // false: use minutesToDim unless in emergency situation
-    bool	fDimCaptured;
+    bool        fDimCaptured;
 
     // ignore activity until time
     AbsoluteTime fIdleUntil;
@@ -102,11 +102,11 @@ private:
     virtual bool displayConnectHandler( void * ref, IODisplayConnect * connect);
 
     virtual IODisplayConnect * getDisplayConnect(
-		IOFramebuffer * fb, IOIndex connect );
+                IOFramebuffer * fb, IOIndex connect );
 
     virtual IOReturn getConnectFlagsForDisplayMode(
-		IODisplayConnect * connect,
-		IODisplayModeID mode, UInt32 * flags );
+                IODisplayConnect * connect,
+                IODisplayModeID mode, UInt32 * flags );
 
 public:
     
@@ -115,11 +115,13 @@ public:
 
     static bool makeDisplayConnects( IOFramebuffer * fb );
     static void destroyDisplayConnects( IOFramebuffer * fb );
+    static void connectChange( IOFramebuffer * fb );
+
     virtual OSObject * copyProperty( const char * aKey) const;
 
     static IOReturn getFlagsForDisplayMode(
-		IOFramebuffer * fb,
-		IODisplayModeID mode, UInt32 * flags );
+                IOFramebuffer * fb,
+                IODisplayModeID mode, UInt32 * flags );
    
     // Adaptive Dimming methods
     virtual UInt32 calculate_idle_timer_period(int powerState);

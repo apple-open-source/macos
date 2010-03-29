@@ -13,3 +13,4 @@ include $(MAKEFILEPATH)/CoreOS/ReleaseControl/BSDCommon.make
 
 after_install:
 	codesign -s- $(DSTROOT)/usr/sbin/aslmanager
+	plutil -convert binary1 $(DSTROOT)/System/Library/LaunchDaemons/com.apple.aslmanager.plist

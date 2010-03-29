@@ -11,3 +11,7 @@ USERDEFS = asl_ipc.defs
 Extra_CC_Flags = -Wall -D__MigTypeCheck=1 -I.
 
 include $(MAKEFILEPATH)/CoreOS/ReleaseControl/BSDCommon.make
+
+ifneq ($(SDKROOT),)
+Extra_MIG_Flags = -arch $(firstword $(RC_ARCHS))
+endif

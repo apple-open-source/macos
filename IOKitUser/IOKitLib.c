@@ -603,8 +603,10 @@ IONotificationPortDestroy(
     if( notify->source)
         CFRelease( notify->source);
 
+#if !TARGET_OS_EMBEDDED
     if (notify->dispatchQueue)
         dispatch_release(notify->dispatchQueue);
+#endif /* !TARGET_OS_EMBEDDED */
 
     mach_port_destroy( mach_task_self(), notify->wakePort);
     mach_port_deallocate(mach_task_self(), notify->masterPort);

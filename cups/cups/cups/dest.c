@@ -33,7 +33,6 @@
  *                           server.
  *   appleCopyLocations()  - Copy the location history array.
  *   appleCopyNetwork()    - Get the network ID for the current location.
- *   appleGetDefault()     - Get the default printer for this location.
  *   appleGetPaperSize()   - Get the default paper size.
  *   appleGetPrinter()     - Get a printer from the history array.
  *   appleSetDefault()     - Set the default printer for this location.
@@ -139,11 +138,16 @@ cupsAddDest(const char  *name,		/* I  - Destination name */
 
   if (!cupsGetDest(name, instance, num_dests, *dests))
   {
-    if (instance &&
-        (parent = cupsGetDest(name, NULL, num_dests, *dests)) == NULL)
+    if (instance && !cupsGetDest(name, NULL, num_dests, *dests))
       return (num_dests);
 
     dest = cups_add_dest(name, instance, &num_dests, dests);
+
+   /*
+    * Find the base dest again now the array has been realloc'd.
+    */
+
+    parent = cupsGetDest(name, NULL, num_dests, *dests);
 
     if (instance && parent && parent->num_options > 0)
     {
@@ -549,7 +553,7 @@ cupsGetNamedDest(http_t     *http,	/* I - Connection to server or @code CUPS_HTT
 
   if (!cups_get_sdests(http, op, name, 0, &dest))
   {
-    if (op == CUPS_GET_DEFAULT)
+    if (op == CUPS_GET_DEFAULT || name)
       return (NULL);
 
    /*
@@ -1287,6 +1291,9 @@ appleUseLastPrinter(void)
 {
   CFPropertyListRef	uselast;	/* Use last printer preference value */
 
+
+  if (getenv("CUPS_DISABLE_APPLE_DEFAULT"))
+    return (0);
 
   if ((uselast = CFPreferencesCopyAppValue(kUseLastPrinterAsCurrentPrinterKey,
                                            kPMPrintingPreferences)) != NULL)

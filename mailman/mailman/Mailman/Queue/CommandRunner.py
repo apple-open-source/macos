@@ -1,4 +1,4 @@
-# Copyright (C) 1998-2007 by the Free Software Foundation, Inc.
+# Copyright (C) 1998-2009 by the Free Software Foundation, Inc.
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -190,7 +190,7 @@ To obtain instructions, send a message containing just the word "help".
             return
         msg = Message.UserNotification(
             recip,
-            self.mlist.GetBouncesEmail(),
+            self.mlist.GetOwnerEmail(),
             _('The results of your email commands'),
             lang=self.msgdata['lang'])
         msg.set_type('multipart/mixed')

@@ -11,9 +11,9 @@ cc -Os -o /tmp/gaussblur gaussblur.c -framework ApplicationServices -framework I
 #include <mach/mach_time.h>
 
 
-#define DEBG(idx, fmt, args...)		\
-do { 					\
-    printf(fmt, ## args);		\
+#define DEBG(idx, fmt, args...)         \
+do {                                    \
+    printf(fmt, ## args);               \
 } while( false )
 #define bcopy_nc bcopy
 
@@ -22,10 +22,10 @@ do { 					\
 
 int main(int argc, char * argv[])
 {
-    CGError		err;
-    int			i, j;
-    CGDisplayCount	max;
-    CGDirectDisplayID	displayIDs[8];
+    CGError             err;
+    int                 i, j;
+    CGDisplayCount      max;
+    CGDirectDisplayID   displayIDs[8];
     double scale = 0.0;
     uint64_t start, end;
 

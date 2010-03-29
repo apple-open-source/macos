@@ -59,6 +59,8 @@ struct clarg actargs[klast];
 
 /* options descriptor */
 static struct option longopts[] = {
+{ "alternateos",    required_argument,      0,              kalternateos},
+{ "alternateOS",    required_argument,      0,              kalternateos},
 { "bootinfo",       optional_argument,      0,              kbootinfo},
 { "bootefi",		optional_argument,      0,              kbootefi},
 { "bootBlockFile",  required_argument,      0,              kbootblockfile },
@@ -97,6 +99,7 @@ static struct option longopts[] = {
 { "setOF",          no_argument,            0,              ksetboot }, // legacy option name
 { "shortform",      no_argument,            0,              kshortform },
 { "startupfile",    required_argument,      0,              kstartupfile },
+{ "unbless",        required_argument,      0,              kunbless },
 { "use9",           no_argument,            0,              kuse9 },
 { "verbose",        no_argument,            0,              kverbose },
 { "version",        no_argument,            0,              kversion },
@@ -152,6 +155,9 @@ int main (int argc, char * argv[])
             case kpayload:
                 actargs[ch].present = 1;
                 break;
+            case ksave9:
+                // ignore, this is now always saved as alternateos
+                break;
             case '?':
             case ':':
                 usage_short();
@@ -195,7 +201,7 @@ int main (int argc, char * argv[])
     argc -= optind;
     argc += optind;
     
-    /* There are 4 public modes of execution: info, device, folder, netboot
+    /* There are 5 public modes of execution: info, device, folder, netboot, unbless
      * There is 1 private mode: firmware
      * These are all one-way function jumps.
      */
@@ -215,6 +221,10 @@ int main (int argc, char * argv[])
 	
 	if(actargs[knetboot].present) {
 		return modeNetboot(&context, actargs);
+	}
+	
+	if (actargs[kunbless].present) {
+		return modeUnbless(&context, actargs);
 	}
 	
     /* default */

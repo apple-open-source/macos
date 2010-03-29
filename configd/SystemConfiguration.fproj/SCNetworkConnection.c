@@ -1108,41 +1108,35 @@ __SCNetworkConnectionScheduleWithRunLoop(SCNetworkConnectionRef	connection,
 
 #if	!TARGET_OS_IPHONE
 	if (queue != NULL) {
-		dispatch_queue_attr_t	attr;
-		mach_port_t		mp;
-		long			res;
+		mach_port_t	mp;
 
 		connectionPrivate->dispatchQueue = queue;
 		dispatch_retain(connectionPrivate->dispatchQueue);
 
-		attr = dispatch_queue_attr_create();
-		res = dispatch_queue_attr_set_finalizer(attr,
-							^(dispatch_queue_t dq) {
-								SCNetworkConnectionRef	connection;
-
-								connection = (SCNetworkConnectionRef)dispatch_get_context(dq);
-								CFRelease(connection);
-							});
-		if (res != 0) {
-			SCLog(TRUE, LOG_ERR, CFSTR("SCNetworkConnection dispatch_queue_attr_set_finalizer() failed"));
-			dispatch_release(attr);
-			goto fail;
-		}
-		connectionPrivate->callbackQueue = dispatch_queue_create("com.apple.SCNetworkConnection.notifications", attr);
-		dispatch_release(attr);
+		connectionPrivate->callbackQueue = dispatch_queue_create("com.apple.SCNetworkConnection.notifications", NULL);
 		if (connectionPrivate->callbackQueue == NULL){
 			SCLog(TRUE, LOG_ERR, CFSTR("SCNetworkConnection dispatch_queue_create() failed"));
 			goto fail;
 		}
 		CFRetain(connection);	// Note: will be released when the dispatch queue is released
 		dispatch_set_context(connectionPrivate->callbackQueue, connectionPrivate);
+		dispatch_set_finalizer_f(connectionPrivate->callbackQueue, (dispatch_function_t)CFRelease);
 
 		mp = CFMachPortGetPort(connectionPrivate->notify_port);
-		connectionPrivate->callbackSource = dispatch_source_mig_create(mp, sizeof(mach_msg_header_t), NULL, connectionPrivate->callbackQueue, SCNetworkConnectionNotifyMIGCallback);
+		connectionPrivate->callbackSource = dispatch_source_create(DISPATCH_SOURCE_TYPE_MACH_RECV,
+									   mp,
+									   0,
+									   connectionPrivate->callbackQueue);
 		if (connectionPrivate->callbackSource == NULL) {
-			SCLog(TRUE, LOG_ERR, CFSTR("SCNetworkConnection dispatch_source_mig_create() failed"));
+			SCLog(TRUE, LOG_ERR, CFSTR("SCNetworkConnection dispatch_source_create() failed"));
 			goto fail;
 		}
+		dispatch_source_set_event_handler(connectionPrivate->callbackSource, ^{
+			dispatch_mig_server(connectionPrivate->callbackSource,
+					    sizeof(mach_msg_header_t),
+					    SCNetworkConnectionNotifyMIGCallback);
+		});
+		dispatch_resume(connectionPrivate->callbackSource);
 	} else
 #endif	// !TARGET_OS_IPHONE
 	{
@@ -1163,7 +1157,7 @@ __SCNetworkConnectionScheduleWithRunLoop(SCNetworkConnectionRef	connection,
     fail :
 
 	if (connectionPrivate->callbackSource != NULL) {
-		dispatch_cancel(connectionPrivate->callbackSource);
+		dispatch_source_cancel(connectionPrivate->callbackSource);
 		dispatch_release(connectionPrivate->callbackSource);
 		connectionPrivate->callbackSource = NULL;
 	}
@@ -1219,7 +1213,11 @@ __SCNetworkConnectionUnscheduleFromRunLoop(SCNetworkConnectionRef	connection,
 
 #if	!TARGET_OS_IPHONE
 	if (runLoop == NULL) {
-		dispatch_cancel(connectionPrivate->callbackSource);
+		dispatch_source_cancel(connectionPrivate->callbackSource);
+		if (connectionPrivate->callbackQueue != dispatch_get_current_queue()) {
+			// ensure the cancellation has completed
+			dispatch_sync(connectionPrivate->callbackQueue, ^{});
+		}
 		dispatch_release(connectionPrivate->callbackSource);
 		connectionPrivate->callbackSource = NULL;
 		dispatch_release(connectionPrivate->callbackQueue);

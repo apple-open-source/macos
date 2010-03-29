@@ -1,0 +1,295 @@
+/*
+$Id: screen.css 11 2005-12-27 17:00:04Z patrick $
+*/
+
+body {
+  font-family: Verdana,Helvetica,sans-serif;
+  font-size: 100.01%;
+  color: #000000;
+  background-color: #FFFFFF;
+  margin:0;
+  padding:0.5em;
+}
+
+a:link {
+  color: blue;
+  text-decoration: underline;
+}
+
+a:active {
+  color: red;
+  text-decoration: underline;
+}
+
+a:visited {
+  color: darkblue;
+  text-decoration: underline;
+}
+
+a:hover {
+  color: red;
+  text-decoration: underline;
+}
+
+div.author,
+div.chapter {
+  font-size:0.8em;
+  }
+
+table {
+  font-size:1em;
+  }
+
+.title {
+  font-size:1em;
+  }
+
+h2, h3, h4, h5 {
+  margin:2em 0em 0em 0em;
+  }
+
+pre {
+  font-size:1.1em;
+  }
+
+.programlisting {
+  font-family: "Courier New", monotype;
+  padding:0.5em;
+  border-left:1px dashed #000000;
+  background-color:#EBEBEB;
+  }
+
+.screen {
+  font-family: "Courier New", monotype;
+  padding:0.5em;
+  background-color:#F0F8FF;
+  }
+
+.important {
+  -moz-border-radius:15;
+  border:2px solid #FFFF00;
+  padding:0.5em;
+  }
+
+.note,
+.tip {
+  -moz-border-radius:15;
+  border:2px solid #949494;
+  padding:0.5em;
+  }
+
+code {
+  font-size:1.2em;
+  }
+
+em.parameter {
+  font-family: "Courier New", monotype;
+  font-style:normal;
+  }
+
+ol li p {
+  margin:0;
+  }
+
+ul li p {
+  margin:0;
+  }
+
+p {
+  line-height:1.3em;
+  }
+
+
+dd p {
+  margin:0em 0em 0.5em 0em;
+  padding:0em 0em 0em 0em;
+  }
+
+dt {
+  margin:1em 0em 0em 0em;
+  padding:0em 0em 0em 0em;
+  }
+
+
+div.toc a {
+text-decoration:none;
+}
+
+div.toc {
+  margin:2em 0em 2em 0em;
+  }
+
+div.toc dt {
+  margin:0.2em 0em 0em 0em;
+  padding:0em 0em 0em 0em;
+  }
+
+div.calloutlist a {
+  color:#000000;
+  text-decoration:none;
+  }
+
+div.revhistory table,
+div.revhistory table td,
+div.revhistory table th {
+  border:none;  
+  }
+
+  
+/*
+h1 {
+  font-size: 0.7em;
+  margin: 0em 0em 0em 0em;
+}
+
+h2 {
+  font-size: 0.7em;
+  margin: 0.5em 0em 0em 0em;
+}
+
+h3 {
+  font-size: 0.7em;
+  margin: 0.5em 0em 0em 0em;
+}
+
+h4 {
+  font-size: 0.7em;
+  margin: 0em 0em 0em 0em;
+}
+
+h5 {
+  font-size: 0.7em;
+  margin: 0em 0em 0em 0em;
+}
+
+p  {
+  font-size: 0.7em;
+  margin: 0em 0em 0.5em 0em;
+}
+
+ol {
+  font-size: 0.7em;
+  }
+
+tt {
+  font-family: monotype;
+  font-weight: bold;
+  font-size:100%;
+}
+
+em {
+  font-size:120%;
+}
+
+
+code {
+  
+}
+
+p code {
+  font-size:0.7em;
+}
+
+pre {
+  font-size:0.7em;
+}
+
+hr {
+  display:none;
+}
+
+.authorgroup {
+  margin:1em 0em;
+}
+
+.revhistory table {
+  border: none;
+  padding: 0px 0px 0px 0px;
+  margin: 1em 0em 1em 0em;
+}
+
+.revhistory th {
+  border: none;
+  padding: 0px 0px 0px 0px;
+}
+
+.revhistory td {
+  border: none;
+  padding: 0px 0px 0px 0px;
+}
+
+.note {
+  border: 1px solid #CCCC99;
+  background-color: #F5F5E7;
+  padding: 0.5em 0.5em 0.5em 0.5em;
+  margin: 1em 0em 1em 0em;
+}
+
+.note table {
+    font-size:0.7em;
+}
+
+.caution {
+  border: 1px solid #F6EA00;
+  background-color: #FFFFC9;
+  padding: 0.5em 0.5em 0.5em 0.5em;
+  margin: 1em 0em 1em 0em;
+}
+
+.tipp {
+  background-color: #F5F5DC;
+}
+
+.important {
+  font-family: "Courier New";
+  border: 1px solid #F95E00;
+  background-color: #F9CDB3;
+  padding: 0.5em 0.5em 0.5em 0.5em;
+  margin: 2em 0em 2em 0em;
+}
+
+.screen {
+  font-size:0.9em;
+  font-family: monospace;
+  border: 1px solid #999999;
+  background-color: #EBEBEB;
+  padding: 0.5em 0.5em 0.5em 0.5em;
+  margin: 1.5em 0em;
+}
+
+.programlisting {
+  font-size:1em;
+  font-family: monospace;
+  border: 1px solid #B2DBFF;
+  background-color: #F0F8FF;
+  padding: 0.5em 0.5em 0.5em 0.5em;
+  margin: 1.5em 0em;
+}
+
+.important .programlisting {
+  font-family: "Courier New";
+  font-size: 0.7em;
+  border: 1px solid #B2DBFF;
+  background-color: #F0F8FF;
+  padding: 0.5em 0.5em 0.5em 0.5em;
+  margin: 2em 0em 2em 0em;
+}
+
+.important .screen {
+  font-family: "Courier New";
+  font-size: 0.7em;
+  border: 1px solid #999999;
+  background-color: #EBEBEB;
+  padding: 0.5em 0.5em 0.5em 0.5em;
+  margin: 2em 0em 2em 0em;
+}
+
+.informalexample {
+  font-family: "Courier New";
+  font-size: 0.7em;
+  border: 1px solid #B2DBFF;
+  background-color: #F0F8FF;
+  padding: 0.5em 0.5em 0.5em 0.5em;
+  margin: 2em 0em 2em 0em;
+}
+*/

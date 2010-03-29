@@ -18,7 +18,7 @@
  * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
  * KIND, either express or implied.
  *
- * $Id: getinfo.c,v 1.67 2009-02-23 18:45:00 bagder Exp $
+ * $Id: getinfo.c,v 1.68 2009-04-21 11:46:16 yangtse Exp $
  ***************************************************************************/
 
 #include "setup.h"
@@ -32,7 +32,7 @@
 #include <string.h>
 #include <stdarg.h>
 #include <stdlib.h>
-#include "memory.h"
+#include "curl_memory.h"
 #include "sslgen.h"
 #include "connect.h" /* Curl_getconnectinfo() */
 #include "progress.h"

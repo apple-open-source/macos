@@ -312,7 +312,7 @@
         <key>OpenSourceVersion</key>
         <string>4.1.1</string>
         <key>OpenSourceWebsiteURL</key>
-        <string>http://redcloth.org/</string>
+        <string>http://redcloth.org</string>
         <key>OpenSourceSHA1</key>
         <string>ba3ec6473005f0905bf98d2a41230e1cdae971ec</string>
         <key>OpenSourceImportDate</key>
@@ -514,13 +514,13 @@
         <key>OpenSourceProject</key>
         <string>actionmailer</string>
         <key>OpenSourceVersion</key>
-        <string>2.2.2</string>
+        <string>2.3.5</string>
         <key>OpenSourceWebsiteURL</key>
         <string>http://www.rubyonrails.org</string>
         <key>OpenSourceSHA1</key>
-        <string>a7f3d228cdc763886fd1fe8b5637c56795df3fd0</string>
+        <string>fc0302d56425b0133cdc67c9ccddd03a53260ee6</string>
         <key>OpenSourceImportDate</key>
-        <string>2008-12-01</string>
+        <string>2009-12-11</string>
         <key>OpenSourceLicenseFile</key>
         <string>actionmailer.txt</string>
         <key>OpenSourceModifications</key>
@@ -531,13 +531,13 @@
         <key>OpenSourceProject</key>
         <string>actionpack</string>
         <key>OpenSourceVersion</key>
-        <string>2.2.2</string>
+        <string>2.3.5</string>
         <key>OpenSourceWebsiteURL</key>
         <string>http://www.rubyonrails.org</string>
         <key>OpenSourceSHA1</key>
-        <string>02b9aec25f90e6237487aa981d993760ce4a3869</string>
+        <string>6c46dbcbde1840202ebd2bcfa690d53047e47c9e</string>
         <key>OpenSourceImportDate</key>
-        <string>2008-12-01</string>
+        <string>2009-12-11</string>
         <key>OpenSourceLicenseFile</key>
         <string>actionpack.txt</string>
         <key>OpenSourceModifications</key>
@@ -548,13 +548,13 @@
         <key>OpenSourceProject</key>
         <string>activerecord</string>
         <key>OpenSourceVersion</key>
-        <string>2.2.2</string>
+        <string>2.3.5</string>
         <key>OpenSourceWebsiteURL</key>
         <string>http://www.rubyonrails.org</string>
         <key>OpenSourceSHA1</key>
-        <string>d0874b767d91a644502ece68e36e8b3ba657625b</string>
+        <string>f411a1ad8aeef78a464b00663eecdc22e0e4266c</string>
         <key>OpenSourceImportDate</key>
-        <string>2008-12-01</string>
+        <string>2009-12-11</string>
         <key>OpenSourceLicenseFile</key>
         <string>activerecord.txt</string>
         <key>OpenSourceModifications</key>
@@ -565,13 +565,13 @@
         <key>OpenSourceProject</key>
         <string>activeresource</string>
         <key>OpenSourceVersion</key>
-        <string>2.2.2</string>
+        <string>2.3.5</string>
         <key>OpenSourceWebsiteURL</key>
         <string>http://www.rubyonrails.org</string>
         <key>OpenSourceSHA1</key>
-        <string>03f83fe6227d812465931b6724a113b52548d558</string>
+        <string>2b4bb421e0857f73d8e9aa2bdd164d6c11bebc00</string>
         <key>OpenSourceImportDate</key>
-        <string>2008-12-01</string>
+        <string>2009-12-11</string>
         <key>OpenSourceLicenseFile</key>
         <string>activeresource.txt</string>
         <key>OpenSourceModifications</key>
@@ -582,13 +582,13 @@
         <key>OpenSourceProject</key>
         <string>activesupport</string>
         <key>OpenSourceVersion</key>
-        <string>2.2.2</string>
+        <string>2.3.5</string>
         <key>OpenSourceWebsiteURL</key>
         <string>http://www.rubyonrails.org</string>
         <key>OpenSourceSHA1</key>
-        <string>4fc82b0c7f8f38879c593a722cdd788f876a1868</string>
+        <string>fb2673b4d093f1586cc1c8fbbaa7e822b185e6d1</string>
         <key>OpenSourceImportDate</key>
-        <string>2008-12-01</string>
+        <string>2009-12-11</string>
         <key>OpenSourceLicenseFile</key>
         <string>activesupport.txt</string>
         <key>OpenSourceModifications</key>
@@ -597,15 +597,32 @@
     </dict>
     <dict>
         <key>OpenSourceProject</key>
+        <string>rack</string>
+        <key>OpenSourceVersion</key>
+        <string>1.0.1</string>
+        <key>OpenSourceWebsiteURL</key>
+        <string>http://rack.rubyforge.org</string>
+        <key>OpenSourceSHA1</key>
+        <string>49ae682c029daa5007e7fe7f47096c8788743c8e</string>
+        <key>OpenSourceImportDate</key>
+        <string>2009-12-11</string>
+        <key>OpenSourceLicenseFile</key>
+        <string>rack.txt</string>
+        <key>OpenSourceModifications</key>
+        <array>
+        </array>
+    </dict>
+    <dict>
+        <key>OpenSourceProject</key>
         <string>rails</string>
         <key>OpenSourceVersion</key>
-        <string>2.2.2</string>
+        <string>2.3.5</string>
         <key>OpenSourceWebsiteURL</key>
         <string>http://www.rubyonrails.org</string>
         <key>OpenSourceSHA1</key>
-        <string>f2c91f1a2397673e3c47d0c792268a2834b9bf66</string>
+        <string>e341aba6d1be9ec89ffe924a960e2c56c073954c</string>
         <key>OpenSourceImportDate</key>
-        <string>2008-12-01</string>
+        <string>2009-12-11</string>
         <key>OpenSourceLicenseFile</key>
         <string>rails.txt</string>
         <key>OpenSourceModifications</key>

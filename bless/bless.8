@@ -64,13 +64,16 @@
 .Op Fl -plist
 .Op Fl -quiet | -verbose
 .Op Fl -version
+.Pp
+.Nm bless
+.Fl -unbless Ar directory
 .Sh DESCRIPTION
 .Nm bless
 is used to modify the volume bootability characteristics of filesystems, as well
 as select the active boot volume.
 .Nm bless
-has 5 modes of execution: Folder Mode, Mount Mode, Device Mode, NetBoot Mode,
-and Info Mode.
+has 6 modes of execution: Folder Mode, Mount Mode, Device Mode, NetBoot Mode,
+Info Mode, and Unbless Mode.
 .Pp
 Folder Mode allows you to select a directory on a mounted
 volume to act as the
@@ -80,8 +83,9 @@ for boot code. EFI-based systems also support a
 .Do blessed Dc
 system file, which is the primary mechanism of specifying the booter for
 a volume for those systems. In Folder Mode, if you are operating on an HFS+
-volume, the HFS+ Volume Header is updated to reflect these files/directories
-given.
+volume, the HFS+ Volume Header is updated to reflect the files/directories
+given, which persists even if the volume is moved to another system or NVRAM
+is cleared.
 .Pp 
 Mount Mode does not make permament modifications to the filesystem, but rather
 set the system firmware to boot from the
@@ -106,6 +110,9 @@ Info Mode will print
 out the currently\-blessed directory of a volume, or if no mountpoint is
 specified, the active boot volume that the firmware is set to boot from.
 .Pp
+Unbless Mode complements Folder Mode, and clears the persistent blessed
+folder and file information on HFS+ volumes.
+.Pp
 Additionally,
 .Fl -help
 can be used to display the command-line usage summary.
@@ -128,7 +135,7 @@ flag. By default, Mac OS X will be the default OS if both
 .Fl -folder
 and
 .Fl -folder9
-are provided.
+are provided. This option is obsolete.
 .It Fl -file Ar file
 Set this file to be the Mac OS X/Darwin blessed boot file, containing a booter
 for EFI-based systems. If this option is not provided, a default boot file
@@ -165,18 +172,19 @@ Set the boot blocks on the volume using the contents of
 Used if no
 .Fl -folder9
 flag was given, but if the pre\-existing Mac OS 9 blessed system folder
-should be preserved.
+should be preserved. This option is obsolete.
 .It Fl -saveX
 Used if no
 .Fl -folder
 flag was given, but if the pre\-existing Mac OS X/Darwin blessed directory
-should be preserved.
+should be preserved. This option is obsolete.
 .It Fl -use9
 Used if both
 .Fl -folder
 and
 .Fl -folder9
 were given, but Mac OS 9 should be the default for the volume.
+This option is obsolete.
 .It Fl -label Ar name
 Render a text label used in the firmware-based OS picker
 .It Fl -labelfile Ar file
@@ -207,7 +215,7 @@ modified, which can be done with
 .Xr fdisk 8
 \&. This is only supported
 on EFI-based systems.
-.It Fl legacydrivehint Ar device
+.It Fl -legacydrivehint Ar device
 Instruct the firmware to treat the specified whole disk as the primary,
 master IDE drive. This is only supported
 on EFI-based systems.
@@ -243,11 +251,11 @@ Same as for Folder Mode.
 Same as for Folder Mode.
 .It Fl -shortform
 Same as for Folder Mode.
-.It Fl -options
-Same as for Folder Mode.
 .It Fl -legacy
 Same as for Folder Mode.
 .It Fl -legacydrivehint Ar device
+Same as for Folder Mode.
+.It Fl -options
 Same as for Folder Mode.
 .It Fl -quiet
 Do not print any output
@@ -351,6 +359,14 @@ Do not print any output
 Print verbose output
 .It Fl -version
 Print bless version and exit immediately
+.El
+.Ss  UNBLESS MODE
+Unbless Mode has the following options:
+.Bl -tag -width "xxopenfolderxdirectoryx" -compact
+.It Fl -unbless Ar directory
+Use the HFS+ volume mounted at
+.Ar directory
+and unset any persistent blessed files/directories in the HFS+ Volume Header.
 .El
 .Sh FILES
 .Bl -tag -width /usr/standalone/ppc/bootx.bootinfo -compact

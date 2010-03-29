@@ -102,7 +102,7 @@ void IOHIDEventQueue::free()
 
 Boolean IOHIDEventQueue::enqueue( void * data, UInt32 dataSize )
 {
-    IOReturn ret = true;
+    Boolean ret = true;
     
     if ( _lock )
         IOLockLock(_lock);

@@ -28,7 +28,7 @@
 #include <sys/types.h>
 #include "table.h"
 
-#define DEFAULT_SIZE 8191
+#define DEFAULT_SIZE 256
 
 typedef struct table_node_s
 {
@@ -69,7 +69,7 @@ _nc_table_new(uint32_t n)
 	if (n == 0) n = DEFAULT_SIZE;
 
 	t->bucket_count = n;
-	t->bucket = (table_node_t **)calloc(t->bucket_count, sizeof(sizeof(table_node_t *)));
+	t->bucket = (table_node_t **)calloc(t->bucket_count, sizeof(table_node_t *));
 	if (t->bucket == NULL)
 	{
 		free(t);

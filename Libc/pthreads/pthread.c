@@ -222,7 +222,7 @@ _________________________________________
 __private_extern__
 void _pthread_start(pthread_t self, mach_port_t kport, void *(*fun)(void *), void * funarg, size_t stacksize, unsigned int flags);
 
-__private_extern__ 
+__private_extern__
 void _pthread_wqthread(pthread_t self, mach_port_t kport, void * stackaddr, pthread_workitem_t item, int reuse);
 
 #define PTHREAD_START_CUSTOM	0x01000000
@@ -836,9 +836,9 @@ _pthread_start(pthread_t self, mach_port_t kport, void *(*fun)(void *), void * f
 	if ((pflags & PTHREAD_START_CUSTOM) == 0) {
 		stackaddr = (char *)self;
 		_pthread_struct_init(self, attrs, stackaddr,  stacksize, 1, 1);
-		#if defined(__i386__) || defined(__x86_64__)
+#if defined(__i386__) || defined(__x86_64__) || defined(__arm__)
 		_pthread_set_self(self);
-		#endif
+#endif
 		LOCK(_pthread_list_lock);
 		if (pflags & PTHREAD_START_SETSCHED) {
 			self->policy = ((pflags >> PTHREAD_START_POLICY_BITSHIFT) & PTHREAD_START_POLICY_MASK);
@@ -850,9 +850,9 @@ _pthread_start(pthread_t self, mach_port_t kport, void *(*fun)(void *), void * f
 			self->detached |= PTHREAD_CREATE_DETACHED;
 		}
 	}  else { 
-		#if defined(__i386__) || defined(__x86_64__)
+#if defined(__i386__) || defined(__x86_64__) || defined(__arm__)
 		_pthread_set_self(self);
-		#endif
+#endif
 		LOCK(_pthread_list_lock);
 	}
 	self->kernel_thread = kport;
@@ -2090,9 +2090,6 @@ pthread_init(void)
 		__oldstyle = 1;
 	}
 #endif
-#if defined(__arm__)
-	__oldstyle = 1;
-#endif
 
 #if defined(_OBJC_PAGE_BASE_ADDRESS)
 {
@@ -2110,7 +2107,7 @@ pthread_init(void)
 
 	mig_init(1);		/* enable multi-threaded mig interfaces */
 	if (__oldstyle == 0) {
-#if defined(__i386__) || defined(__x86_64__)
+#if defined(__i386__) || defined(__x86_64__) || defined(__arm__)
 		__bsdthread_register(thread_start, start_wqthread, round_page(sizeof(struct _pthread)), _pthread_start, &workq_targetconc[0], (__uint64_t)(&thread->tsd[__PTK_LIBDISPATCH_KEY0]) - (__uint64_t)thread);
 #else
 		__bsdthread_register(_pthread_start, _pthread_wqthread, round_page(sizeof(struct _pthread)), NULL, &workq_targetconc[0], (__uint64_t)&thread->tsd[__PTK_LIBDISPATCH_KEY0] - (__uint64_t)thread);
@@ -2493,7 +2490,7 @@ pthread_workqueue_atfork_parent(void)
 void
 pthread_workqueue_atfork_child(void)
 {
-#if defined(__i386__) || defined(__x86_64__)
+#if defined(__i386__) || defined(__x86_64__) || defined(__arm__)
 	/* 
 	 * NOTE:  workq additions here  
 	 * are for i386,x86_64 only as
@@ -2517,7 +2514,7 @@ _pthread_work_internal_init(void)
 	pthread_workqueue_t wq;
 
 	if (kernel_workq_setup == 0) {
-#if defined(__i386__) || defined(__x86_64__)
+#if defined(__i386__) || defined(__x86_64__) || defined(__arm__)
 		__bsdthread_register(thread_start, start_wqthread, round_page(sizeof(struct _pthread)),NULL,NULL, NULL);
 #else
 		__bsdthread_register(_pthread_start, _pthread_wqthread, round_page(sizeof(struct _pthread)),NULL,NULL, NULL);
@@ -2913,7 +2910,7 @@ _pthread_wqthread(pthread_t self, mach_port_t kport, void * stackaddr, pthread_w
 		/* These are not joinable threads */
 		self->detached &= ~PTHREAD_CREATE_JOINABLE;
 		self->detached |= PTHREAD_CREATE_DETACHED;
-#if defined(__i386__) || defined(__x86_64__)
+#if defined(__i386__) || defined(__x86_64__) || defined(__arm__) 
 		_pthread_set_self(self);
 #endif
 #if WQ_TRACE
@@ -3094,10 +3091,6 @@ pthread_workqueue_create_np(pthread_workqueue_t * workqp, const pthread_workqueu
 	pthread_workqueue_t wq;
 	pthread_workqueue_head_t headp;
 
-#if defined(__arm__)
-	/* not supported under arm */
-	return(ENOTSUP);
-#endif
 #if defined(__ppc__)
 	IF_ROSETTA() {
 		return(ENOTSUP);

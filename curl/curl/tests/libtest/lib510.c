@@ -5,7 +5,7 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * $Id: lib510.c,v 1.7 2008-09-20 04:26:57 yangtse Exp $
+ * $Id: lib510.c,v 1.9 2009-10-30 22:24:48 bagder Exp $
  */
 
 #include "test.h"
@@ -49,7 +49,6 @@ int test(char *URL)
   CURL *curl;
   CURLcode res=CURLE_OK;
   struct curl_slist *slist = NULL;
-
   struct WriteThis pooh;
   pooh.counter = 0;
 
@@ -78,6 +77,11 @@ int test(char *URL)
   /* Now specify we want to POST data */
   curl_easy_setopt(curl, CURLOPT_POST, 1L);
 
+#ifdef CURL_DOES_CONVERSIONS
+  /* Convert the POST data to ASCII */
+  curl_easy_setopt(curl, CURLOPT_TRANSFERTEXT, 1L);
+#endif
+
   /* we want to use our own read function */
   curl_easy_setopt(curl, CURLOPT_READFUNCTION, read_callback);
 
@@ -92,6 +96,11 @@ int test(char *URL)
 
   /* enforce chunked transfer by setting the header */
   curl_easy_setopt(curl, CURLOPT_HTTPHEADER, slist);
+
+#ifdef LIB565
+  curl_easy_setopt(curl, CURLOPT_HTTPAUTH, CURLAUTH_DIGEST);
+  curl_easy_setopt(curl, CURLOPT_USERPWD, "foo:bar");
+#endif
 
   /* Perform the request, res will get the return code */
   res = curl_easy_perform(curl);

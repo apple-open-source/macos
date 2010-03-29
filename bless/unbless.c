@@ -78,7 +78,7 @@ int unbless(char *mountpoint) {
 		
     ret = BLIsMountHFS(NULL, mountpoint, &isHFS);
     if(ret)
-      errx(1, "Could not determing filesystem of %s", mountpoint);
+      errx(1, "Could not determine filesystem of %s", mountpoint);
 
     if(!isHFS)
       errx(1, "%s is not HFS+", mountpoint);

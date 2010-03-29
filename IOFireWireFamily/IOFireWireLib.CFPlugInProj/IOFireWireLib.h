@@ -59,6 +59,9 @@ IODestroyPlugInInterface(). Do not call Release() on it.
 */
 /*
 	$Log: IOFireWireLib.h,v $
+	Revision 1.77  2009/10/29 22:28:28  calderon
+	<rdar://7308574> IOFireWireLib.h and IOFireWireLibIsoch.h headerdoc markup patch
+	
 	Revision 1.76  2008/12/12 04:43:57  collin
 	user space compare swap command fixes
 	
@@ -728,9 +731,7 @@ typedef void	(*IOFWAsyncStreamListenerSkippedPacketHandler)(
 // IOFireWireDeviceInterface
 // ============================================================
 
-typedef struct IOFireWireDeviceInterface_t
-{
-/*!	@class IOFireWireDeviceInterface
+/*!	@class
 	@abstract IOFireWireDeviceInterface is your primary gateway to the functionality contained in
 		IOFireWireLib.
 	@discussion	
@@ -764,13 +765,15 @@ typedef struct IOFireWireDeviceInterface_t
 	</ul>
 
 */
-/* headerdoc parse workaround	
-class IOFireWireDeviceInterface: public IUnknown {
-public:
-*/
+typedef struct IOFireWireDeviceInterface_t
+{
 	IUNKNOWN_C_GUTS ;
 
-	UInt32 version, revision ; // version/revision
+	/*! Interface version */
+	UInt32 version;
+
+	/*! Interface revision */
+ 	UInt32 revision; // version/revision
 	
 		// --- maintenance methods -------------
     /*!
@@ -806,7 +809,7 @@ public:
 			to the device when already opened. The service which has already opened
 			the device must be able to provide an IOFireWireSessionRef.
         @param self The device interface to use
-		@param IOFireWireSessionRef The sessionRef returned from the client who has
+		@param sessionRef The sessionRef returned from the client who has
 			the device open
         @result An IOReturn error code
     */
@@ -935,7 +938,7 @@ public:
 			can be obtained by calling GetDevice(). For 64-bit absolute addressing, pass 0. Other values are
 			unsupported.
 		@param addr Command target address
-		@param value A pointer to where to data should be stored
+		@param val A pointer to where to data should be stored
 		@param failOnReset Pass true if the command should only be executed during the FireWire bus generation
 			specified in generation. Pass false to ignore the generation parameter. The generation can be
 			obtained by calling GetBusGeneration()
@@ -1144,7 +1147,7 @@ public:
 		@discussion Obsolete -- Please use GetBusGeneration() and GetLocalNodeIDWithGeneration() in
 			interface v4.
 		@param self The device interface to use.
-		@param outNodeID A pointer to a UInt16 to hold the local device node ID
+		@param outLocalNodeID A pointer to a UInt16 to hold the local device node ID
 		@result An IOReturn error code.	*/	
 	IOReturn (*GetLocalNodeID)( IOFireWireLibDeviceRef  self, UInt16*  outLocalNodeID) ;
 
@@ -1245,6 +1248,8 @@ public:
 	IOFireWireLibPhysicalAddressSpaceRef (*CreatePhysicalAddressSpace)( IOFireWireLibDeviceRef  self, UInt32  inSize, void*  inBackingStore, UInt32  inFlags, REFIID  iid) ;
 		
 		// --- debugging -------------------------------
+
+	/*! Description forthcoming */
 	IOReturn (*FireBugMsg)( IOFireWireLibDeviceRef  self, const char*  msg) ;
 
 	//
@@ -1332,7 +1337,7 @@ public:
 			isochronous channel object is an abstract entity used to represent a
 			FireWire isochronous channel. 
 		@param self The device interface to use.
-		@param doIRM Controls whether the channel automatically performs IRM operations. 
+		@param doIrm Controls whether the channel automatically performs IRM operations. 
 			Pass true if the channel should allocate its channel and bandwidth with
 			the IRM. Pass false to ignore the IRM.
 		@param packetSize Size of payload in bytes of packets being sent or received with this channel,
@@ -1381,6 +1386,10 @@ public:
 
 	// --- debugging -------------------------------
 	// do not use this function
+	/*! @function
+	    @description
+		Do not use this function.
+	 */
 	CFTypeRef			(*GetDebugProperty)(
 								IOFireWireLibDeviceRef	self,
 								void*					interface,
@@ -1518,7 +1527,7 @@ public:
 			When access is complete, Close() and then IOServiceRequestProbe() should be called to restore 
 			normal operation. Calling IOServiceRequestProbe() makes it appear that the device has been "re-plugged."
         @param self The device interface to use.
-		@param reserved Reserved for future use. Set to NULL.
+		@param inFlags Reserved for future use. Set to NULL.  Description forthcoming?
 	*/
 	IOReturn			(*Seize)(
 								IOFireWireLibDeviceRef 	self,
@@ -1667,19 +1676,24 @@ public:
 	// v5
 	//
 
+	/*! Description forthcoming */
 	IOReturn (*GetIRMNodeID)( IOFireWireLibDeviceRef self, UInt32 checkGeneration, UInt16* outIRMNodeID ) ;
 	
 	//
 	// v6
 	//
 	
+	/*! Description forthcoming */
 	IOReturn (*ClipMaxRec2K)( IOFireWireLibDeviceRef self, Boolean clipMaxRec ) ;
+
+	/*! Description forthcoming */
 	IOFireWireLibNuDCLPoolRef				(*CreateNuDCLPool)( IOFireWireLibDeviceRef self, UInt32 capacity, REFIID iid ) ;
 
 	//
 	// v7
 	//
 	
+	/*! Description forthcoming */
 	IOFireWireSessionRef		(*GetSessionRef)( IOFireWireLibDeviceRef self ) ;
 	
 	//
@@ -1722,7 +1736,7 @@ public:
 		@abstract Create a vector command object.
 		@param self The device interface to use.
 		@param callback Command completion callback. Setting the callback value to nil defaults to synchronous execution.
-		@param refcon Reference constant for 3rd party use.
+		@param inRefCon Reference constant for 3rd party use.
 		@result An IOFireWireLibVectorCommandRef interface*/
 		IOFireWireLibVectorCommandRef (*CreateVectorCommand)( IOFireWireLibDeviceRef self, IOFireWireLibCommandCallback callback, void* inRefCon, REFIID iid) ;
 
@@ -1932,6 +1946,7 @@ public:
 // ============================================================
 
 // creation flags
+/*! FireWire address space creation flags */
 typedef enum
 {
 	kFWAddressSpaceNoFlags			= 0,
@@ -1945,19 +1960,20 @@ typedef enum
 } FWAddressSpaceFlags ;
 
 #ifndef KERNEL
-typedef struct IOFireWirePseudoAddressSpaceInterface_t
-{
-/*!	@class IOFireWirePseudoAddressSpace (IOFireWireLib)
+/*!	@class
 	@discussion Represents and provides management functions for a pseudo address 
 		space (software-backed) in the local machine.
 
 		Pseudo address space objects can be created using IOFireWireDeviceInterface.*/
-/* headerdoc parse workaround	
-class IOFireWirePseudoAddressSpaceInterface: public IUnknown {
-public:
-*/
+typedef struct IOFireWirePseudoAddressSpaceInterface_t
+{
 	IUNKNOWN_C_GUTS ;
-	UInt32 version, revision ;
+
+	/*! Interface version */
+	UInt32 version;
+
+	/*! Interface revision */
+	UInt32 revision;
 
 	/*!	@function SetWriteHandler
 		@abstract Set the callback that should be called to handle write accesses to
@@ -2043,6 +2059,9 @@ public:
 // ============================================================
 // IOFireWireLibIRMAllocationInterface
 // ============================================================
+/*!	@class
+		Description forthcoming 
+ */
 typedef struct IOFireWireLibIRMAllocationInterface_t
 {
 	IUNKNOWN_C_GUTS ;
@@ -2114,21 +2133,22 @@ typedef struct IOFireWireLibIRMAllocationInterface_t
 //
 // ============================================================
 
-typedef struct IOFireWireLocalUnitDirectoryInterface_t
-{
-/*!	@class IOFireWireLocalUnitDirectoryInterface (IOFireWireLib)
+/*!	@class
 	@discussion Allows creation and management of unit directories in the config
 		ROM of the local machine. After the unit directory has been built, 
 		Publish() should be called to cause it to appear in the config ROM.
 		Unpublish() has the reverse effect as Publish().
 
 		This interface can be created using IOFireWireDeviceInterface::CreateLocalUnitDirectory. */
-/* headerdoc parse workaround	
-class IOFireWireLocalUnitDirectoryInterface: public IUnknown {
-public:
-*/
+typedef struct IOFireWireLocalUnitDirectoryInterface_t
+{
 	IUNKNOWN_C_GUTS ;
-	UInt32 version, revision ;
+
+	/*! Interface version */
+	UInt32 version;
+
+	/*! Interface revision */
+	UInt32 revision ;
 
 	// --- adding to ROM -------------------
 	/*!	@function AddEntry_Ptr
@@ -2157,7 +2177,7 @@ public:
 			address in initial unit space of the local config ROM.
 		@param self The local unit directory interface to use.
 		@param key The config ROM key for the data to be added.
-		@param inBuffer A pointer to a FireWire address.
+		@param value A pointer to a FireWire address.
 		@param inDesc Reserved; set to NULL.  */
 	IOReturn			(*AddEntry_FWAddress)(IOFireWireLibLocalUnitDirectoryRef self, int key, const FWAddress* value, CFStringRef inDesc) ;
 
@@ -2185,19 +2205,20 @@ public:
 //
 // ============================================================
 
-typedef struct IOFireWirePhysicalAddressSpaceInterface_t
-{
-/*!	@class IOFireWirePhysicalAddressSpaceInterface
+/*!	@class
 	@abstract IOFireWireLib physical address space object. ( interface name: IOFireWirePhysicalAddressSpaceInterface )
 	@discussion Represents and provides management functions for a physical address 
 		space (hardware-backed) in the local machine.<br>
 		Physical address space objects can be created using IOFireWireDeviceInterface.*/
-/* headerdoc parse workaround	
-class IOFireWirePhysicalAddressSpace: public IUnknown {
-public:
-*/
+typedef struct IOFireWirePhysicalAddressSpaceInterface_t
+{
 	IUNKNOWN_C_GUTS ;
-	UInt32 version, revision ;
+
+	/*! Interface version. */
+	UInt32 version;
+
+	/*! Interface revision. */
+	UInt32 revision ;
 	/*!	@function GetPhysicalSegments
 		@abstract Returns the list of physical memory ranges this address space occupies
 			on the local machine.
@@ -2208,7 +2229,7 @@ public:
 		@param outSegments A pointer to an array to hold the function results. Upon
 			completion, this will contain the lengths of the physical segments this
 			address space occupies on the local machine
-		@param outAddress A pointer to an array to hold the function results. Upon
+		@param outAddresses A pointer to an array to hold the function results. Upon
 			completion, this will contain the addresses of the physical segments this
 			address space occupies on the local machine. If NULL, ioSegmentCount
 			will contain the number of physical segments in the address space.*/
@@ -2279,6 +2300,11 @@ public:
 // Flags to be set on IOFireWireLib command objects
 // Passed to SetFlags()
 //
+/*! @enum IOFireWireLib Command Flags
+    @abstract Flags for IOFireWireLib command objects
+    @discussion
+	Pass these flags to the object's SetFlags callback.
+ */
 enum
 {
 	kFWCommandNoFlags						= 0,
@@ -2290,12 +2316,22 @@ enum
 	kFWCommandInterfaceForceBlockRequest	= (1 << 5)
 } ;
 
+/*! @enum IOFireWireLib failOnReset Flags
+    @abstract Flags for IOFireWireLib commands
+    @discussion
+	Pass these flags in the failOnReset of various commands.
+ */
 enum
 {
 	kFWDontFailOnReset = false,
 	kFWFailOnReset = true
 } ;
 
+/*! @enum IOFireWireLib Additional Command Flags
+    @abstract Flags for IOFireWireLib commands
+    @discussion
+	Pass these flags to the object's SetFlags callback.
+ */
 enum {
 	kFireWireCommandUseCopy				= (1 << 16),
 	kFireWireCommandAbsolute			= (1 << 17)
@@ -2307,36 +2343,805 @@ enum {
 // Macro used to insert generic superclass function definitions into all subclass of
 // IOFireWireCommand. Comments for functions contained in this macro follow below:
 //
+/*! @parseOnly */
 #define IOFIREWIRELIBCOMMAND_C_GUTS \
+	/*!	@function GetStatus \
+		@abstract Return command completion status. \
+		@discussion Availability: (for interfaces obtained with ID) \
+		<table border="0" rules="all"> \
+			<tr> \
+				<td width="20%"></td> \
+				<td><code>kIOFireWireReadCommandInterfaceID</code></td> \
+				<td>YES</td> \
+			</tr> \
+			<tr> \
+				<td width="20%"></td> \
+				<td><code>kIOFireWireReadCommandInterfaceID_v2</code></td> \
+				<td>YES</td> \
+			</tr> \
+			<tr> \
+				<td width="20%"></td> \
+				<td><code>kIOFireWireWriteCommandInterfaceID</code></td> \
+				<td>YES</td> \
+			</tr> \
+			<tr> \
+				<td width="20%"></td> \
+				<td><code>kIOFireWireWriteCommandInterfaceID_v2</code></td> \
+				<td>YES</td> \
+			</tr> \
+			<tr> \
+				<td width="20%"></td> \
+				<td><code>kIOFireWireReadQuadletCommandInterfaceID</code></td> \
+				<td>YES</td> \
+			</tr> \
+			<tr> \
+				<td width="20%"></td> \
+				<td><code>kIOFireWireWriteQuadletCommandInterfaceID</code></td> \
+				<td>YES</td> \
+			</tr> \
+			<tr> \
+				<td width="20%"></td> \
+				<td><code>kIOFireWireCompareSwapCommandInterfaceID</code></td> \
+				<td>YES</td> \
+			</tr> \
+			<tr> \
+				<td width="20%"></td> \
+				<td><code>kIOFireWireAsyncStreamCommandInterfaceID</code></td> \
+				<td>YES</td> \
+			</tr> \
+		</table> \
+					 \
+		@param self The command object interface of interest \
+		@result An IOReturn error code indicating the completion error (if any) returned the last \
+			time this command object was executed	*/ \
 	IOReturn			(*GetStatus)(IOFireWireLibCommandRef	self) ;	\
+	/*!	@function GetTransferredBytes \
+		@abstract Return number of bytes transferred by this command object when it last completed \
+			execution. \
+		@discussion Availability: (for interfaces obtained with ID) \
+		<table border="0" rules="all"> \
+			<tr> \
+				<td width="20%"></td> \
+				<td><code>kIOFireWireReadCommandInterfaceID</code></td> \
+				<td>YES</td> \
+			</tr> \
+			<tr> \
+				<td width="20%"></td> \
+				<td><code>kIOFireWireReadCommandInterfaceID_v2</code></td> \
+				<td>YES</td> \
+			</tr> \
+			<tr> \
+				<td width="20%"></td> \
+				<td><code>kIOFireWireWriteCommandInterfaceID</code></td> \
+				<td>YES</td> \
+			</tr> \
+			<tr> \
+				<td width="20%"></td> \
+				<td><code>kIOFireWireWriteCommandInterfaceID_v2</code></td> \
+				<td>YES</td> \
+			</tr> \
+			<tr> \
+				<td width="20%"></td> \
+				<td><code>kIOFireWireReadQuadletCommandInterfaceID</code></td> \
+				<td>YES</td> \
+			</tr> \
+			<tr> \
+				<td width="20%"></td> \
+				<td><code>kIOFireWireWriteQuadletCommandInterfaceID</code></td> \
+				<td>YES</td> \
+			</tr> \
+			<tr> \
+				<td width="20%"></td> \
+				<td><code>kIOFireWireCompareSwapCommandInterfaceID</code></td> \
+				<td>YES</td> \
+			</tr> \
+			<tr> \
+				<td width="20%"></td> \
+				<td><code>kIOFireWireAsyncStreamCommandInterfaceID</code></td> \
+				<td>YES</td> \
+			</tr> \
+		</table> \
+		@param self The command object interface of interest \
+		@result A UInt32 containing the bytes transferred value	*/ \
 	UInt32				(*GetTransferredBytes)(IOFireWireLibCommandRef self) ; \
+	/*!	@function GetTargetAddress \
+		@abstract Get command target address. \
+		@discussion Availability: (for interfaces obtained with ID) \
+		<table border="0" rules="all"> \
+			<tr> \
+				<td width="20%"></td> \
+				<td><code>kIOFireWireReadCommandInterfaceID</code></td> \
+				<td>YES</td> \
+			</tr> \
+			<tr> \
+				<td width="20%"></td> \
+				<td><code>kIOFireWireReadCommandInterfaceID_v2</code></td> \
+				<td>YES</td> \
+			</tr> \
+			<tr> \
+				<td width="20%"></td> \
+				<td><code>kIOFireWireWriteCommandInterfaceID</code></td> \
+				<td>YES</td> \
+			</tr> \
+			<tr> \
+				<td width="20%"></td> \
+				<td><code>kIOFireWireWriteCommandInterfaceID_v2</code></td> \
+				<td>YES</td> \
+			</tr> \
+			<tr> \
+				<td width="20%"></td> \
+				<td><code>kIOFireWireReadQuadletCommandInterfaceID</code></td> \
+				<td>YES</td> \
+			</tr> \
+			<tr> \
+				<td width="20%"></td> \
+				<td><code>kIOFireWireWriteQuadletCommandInterfaceID</code></td> \
+				<td>YES</td> \
+			</tr> \
+			<tr> \
+				<td width="20%"></td> \
+				<td><code>kIOFireWireCompareSwapCommandInterfaceID</code></td> \
+				<td>YES</td> \
+			</tr> \
+			<tr> \
+				<td width="20%"></td> \
+				<td><code>kIOFireWireAsyncStreamCommandInterfaceID</code></td> \
+				<td>NO</td> \
+			</tr> \
+		</table> \
+		@param self The command object interface of interest \
+		@param outAddr A pointer to an FWAddress to contain the function result. */ \
 	void				(*GetTargetAddress)(IOFireWireLibCommandRef self, FWAddress* outAddr) ; \
+	/*!	@function SetTarget \
+		@abstract Set command target address \
+		@discussion Availability: (for interfaces obtained with ID) \
+		<table border="0" rules="all"> \
+			<tr> \
+				<td width="20%"></td> \
+				<td><code>kIOFireWireReadCommandInterfaceID</code></td> \
+				<td>YES</td> \
+			</tr> \
+			<tr> \
+				<td width="20%"></td> \
+				<td><code>kIOFireWireReadCommandInterfaceID_v2</code></td> \
+				<td>YES</td> \
+			</tr> \
+			<tr> \
+				<td width="20%"></td> \
+				<td><code>kIOFireWireWriteCommandInterfaceID</code></td> \
+				<td>YES</td> \
+			</tr> \
+			<tr> \
+				<td width="20%"></td> \
+				<td><code>kIOFireWireWriteCommandInterfaceID_v2</code></td> \
+				<td>YES</td> \
+			</tr> \
+			<tr> \
+				<td width="20%"></td> \
+				<td><code>kIOFireWireReadQuadletCommandInterfaceID</code></td> \
+				<td>YES</td> \
+			</tr> \
+			<tr> \
+				<td width="20%"></td> \
+				<td><code>kIOFireWireWriteQuadletCommandInterfaceID</code></td> \
+				<td>YES</td> \
+			</tr> \
+			<tr> \
+				<td width="20%"></td> \
+				<td><code>kIOFireWireCompareSwapCommandInterfaceID</code></td> \
+				<td>YES</td> \
+			</tr> \
+			<tr> \
+				<td width="20%"></td> \
+				<td><code>kIOFireWireAsyncStreamCommandInterfaceID</code></td> \
+				<td>NO</td> \
+			</tr> \
+		</table> \
+		@param self The command object interface of interest \
+		@param addr A pointer to an FWAddress. */ \
 	void				(*SetTarget)(IOFireWireLibCommandRef self, const FWAddress* addr) ;	\
+	/*!	@function SetGeneration \
+		@abstract Set FireWire bus generation for which the command object shall be valid. \
+			If the failOnReset attribute has been set, the command will only be considered for \
+			execution during the bus generation specified by this function. \
+		@discussion Availability: (for interfaces obtained with ID) \
+		<table border="0" rules="all"> \
+			<tr> \
+				<td width="20%"></td> \
+				<td><code>kIOFireWireReadCommandInterfaceID</code></td> \
+				<td>YES</td> \
+			</tr> \
+			<tr> \
+				<td width="20%"></td> \
+				<td><code>kIOFireWireReadCommandInterfaceID_v2</code></td> \
+				<td>YES</td> \
+			</tr> \
+			<tr> \
+				<td width="20%"></td> \
+				<td><code>kIOFireWireWriteCommandInterfaceID</code></td> \
+				<td>YES</td> \
+			</tr> \
+			<tr> \
+				<td width="20%"></td> \
+				<td><code>kIOFireWireWriteCommandInterfaceID_v2</code></td> \
+				<td>YES</td> \
+			</tr> \
+			<tr> \
+				<td width="20%"></td> \
+				<td><code>kIOFireWireReadQuadletCommandInterfaceID</code></td> \
+				<td>YES</td> \
+			</tr> \
+			<tr> \
+				<td width="20%"></td> \
+				<td><code>kIOFireWireWriteQuadletCommandInterfaceID</code></td> \
+				<td>YES</td> \
+			</tr> \
+			<tr> \
+				<td width="20%"></td> \
+				<td><code>kIOFireWireCompareSwapCommandInterfaceID</code></td> \
+				<td>YES</td> \
+			</tr> \
+			<tr> \
+				<td width="20%"></td> \
+				<td><code>kIOFireWireAsyncStreamCommandInterfaceID</code></td> \
+				<td>YES</td> \
+			</tr> \
+		</table> \
+		@param self The command object interface of interest \
+		@param generation A bus generation. The current bus generation can be obtained \
+			from IOFireWireDeviceInterface::GetBusGeneration().	*/ \
 	void				(*SetGeneration)(IOFireWireLibCommandRef self, UInt32 generation) ;	\
+	/*!	@function SetCallback \
+		@abstract Set the completion handler to be called once the command completes \
+			asynchronous execution . \
+		@discussion Availability: (for interfaces obtained with ID) \
+		<table border="0" rules="all"> \
+			<tr> \
+				<td width="20%"></td> \
+				<td><code>kIOFireWireReadCommandInterfaceID</code></td> \
+				<td>YES</td> \
+			</tr> \
+			<tr> \
+				<td width="20%"></td> \
+				<td><code>kIOFireWireReadCommandInterfaceID_v2</code></td> \
+				<td>YES</td> \
+			</tr> \
+			<tr> \
+				<td width="20%"></td> \
+				<td><code>kIOFireWireWriteCommandInterfaceID</code></td> \
+				<td>YES</td> \
+			</tr> \
+			<tr> \
+				<td width="20%"></td> \
+				<td><code>kIOFireWireWriteCommandInterfaceID_v2</code></td> \
+				<td>YES</td> \
+			</tr> \
+			<tr> \
+				<td width="20%"></td> \
+				<td><code>kIOFireWireReadQuadletCommandInterfaceID</code></td> \
+				<td>YES</td> \
+			</tr> \
+			<tr> \
+				<td width="20%"></td> \
+				<td><code>kIOFireWireWriteQuadletCommandInterfaceID</code></td> \
+				<td>YES</td> \
+			</tr> \
+			<tr> \
+				<td width="20%"></td> \
+				<td><code>kIOFireWireCompareSwapCommandInterfaceID</code></td> \
+				<td>YES</td> \
+			</tr> \
+			<tr> \
+				<td width="20%"></td> \
+				<td><code>kIOFireWireAsyncStreamCommandInterfaceID</code></td> \
+				<td>YES</td> \
+			</tr> \
+		</table> \
+		@param self The command object interface of interest \
+		@param inCallback A callback handler. Passing nil forces the command object to  \
+			execute synchronously. */ \
 	void				(*SetCallback)(IOFireWireLibCommandRef self, IOFireWireLibCommandCallback inCallback) ;	\
+	/*!	@function SetRefCon \
+		@abstract Set the user refCon value. This is the user defined value that will be passed \
+			in the refCon argument to the completion function. \
+		@discussion Availability: (for interfaces obtained with ID) \
+		<table border="0" rules="all"> \
+			<tr> \
+				<td width="20%"></td> \
+				<td><code>kIOFireWireReadCommandInterfaceID</code></td> \
+				<td>YES</td> \
+			</tr> \
+			<tr> \
+				<td width="20%"></td> \
+				<td><code>kIOFireWireReadCommandInterfaceID_v2</code></td> \
+				<td>YES</td> \
+			</tr> \
+			<tr> \
+				<td width="20%"></td> \
+				<td><code>kIOFireWireWriteCommandInterfaceID</code></td> \
+				<td>YES</td> \
+			</tr> \
+			<tr> \
+				<td width="20%"></td> \
+				<td><code>kIOFireWireWriteCommandInterfaceID_v2</code></td> \
+				<td>YES</td> \
+			</tr> \
+			<tr> \
+				<td width="20%"></td> \
+				<td><code>kIOFireWireReadQuadletCommandInterfaceID</code></td> \
+				<td>YES</td> \
+			</tr> \
+			<tr> \
+				<td width="20%"></td> \
+				<td><code>kIOFireWireWriteQuadletCommandInterfaceID</code></td> \
+				<td>YES</td> \
+			</tr> \
+			<tr> \
+				<td width="20%"></td> \
+				<td><code>kIOFireWireCompareSwapCommandInterfaceID</code></td> \
+				<td>YES</td> \
+			</tr> \
+			<tr> \
+				<td width="20%"></td> \
+				<td><code>kIOFireWireAsyncStreamCommandInterfaceID</code></td> \
+				<td>YES</td> \
+			</tr> \
+		</table> */ \
 	void				(*SetRefCon)(IOFireWireLibCommandRef self, void* refCon) ;	\
+	/*!	@function IsExecuting \
+		@abstract Is this command object currently executing? \
+		@discussion Availability: (for interfaces obtained with ID) \
+		<table border="0" rules="all"> \
+			<tr> \
+				<td width="20%"></td> \
+				<td><code>kIOFireWireReadCommandInterfaceID</code></td> \
+				<td>YES</td> \
+			</tr> \
+			<tr> \
+				<td width="20%"></td> \
+				<td><code>kIOFireWireReadCommandInterfaceID_v2</code></td> \
+				<td>YES</td> \
+			</tr> \
+			<tr> \
+				<td width="20%"></td> \
+				<td><code>kIOFireWireWriteCommandInterfaceID</code></td> \
+				<td>YES</td> \
+			</tr> \
+			<tr> \
+				<td width="20%"></td> \
+				<td><code>kIOFireWireWriteCommandInterfaceID_v2</code></td> \
+				<td>YES</td> \
+			</tr> \
+			<tr> \
+				<td width="20%"></td> \
+				<td><code>kIOFireWireReadQuadletCommandInterfaceID</code></td> \
+				<td>YES</td> \
+			</tr> \
+			<tr> \
+				<td width="20%"></td> \
+				<td><code>kIOFireWireWriteQuadletCommandInterfaceID</code></td> \
+				<td>YES</td> \
+			</tr> \
+			<tr> \
+				<td width="20%"></td> \
+				<td><code>kIOFireWireCompareSwapCommandInterfaceID</code></td> \
+				<td>YES</td> \
+			</tr> \
+			<tr> \
+				<td width="20%"></td> \
+				<td><code>kIOFireWireAsyncStreamCommandInterfaceID</code></td> \
+				<td>YES</td> \
+			</tr> \
+		</table> \
+		@param self The command object interface of interest \
+		@result Returns true if the command object is executing.	*/ \
 	const Boolean		(*IsExecuting)(IOFireWireLibCommandRef self) ;	\
+	/*! Description forthcoming */ \
 	IOReturn			(*Submit)(IOFireWireLibCommandRef self) ;	\
+	/*!	@function Submit \
+		@abstract Submit this command object to FireWire for execution. \
+		@discussion Availability: (for interfaces obtained with ID) \
+		<table border="0" rules="all"> \
+			<tr> \
+				<td width="20%"></td> \
+				<td><code>kIOFireWireReadCommandInterfaceID</code></td> \
+				<td>YES</td> \
+			</tr> \
+			<tr> \
+				<td width="20%"></td> \
+				<td><code>kIOFireWireReadCommandInterfaceID_v2</code></td> \
+				<td>YES</td> \
+			</tr> \
+			<tr> \
+				<td width="20%"></td> \
+				<td><code>kIOFireWireWriteCommandInterfaceID</code></td> \
+				<td>YES</td> \
+			</tr> \
+			<tr> \
+				<td width="20%"></td> \
+				<td><code>kIOFireWireWriteCommandInterfaceID_v2</code></td> \
+				<td>YES</td> \
+			</tr> \
+			<tr> \
+				<td width="20%"></td> \
+				<td><code>kIOFireWireReadQuadletCommandInterfaceID</code></td> \
+				<td>YES</td> \
+			</tr> \
+			<tr> \
+				<td width="20%"></td> \
+				<td><code>kIOFireWireWriteQuadletCommandInterfaceID</code></td> \
+				<td>YES</td> \
+			</tr> \
+			<tr> \
+				<td width="20%"></td> \
+				<td><code>kIOFireWireCompareSwapCommandInterfaceID</code></td> \
+				<td>YES</td> \
+			</tr> \
+			<tr> \
+				<td width="20%"></td> \
+				<td><code>kIOFireWireAsyncStreamCommandInterfaceID</code></td> \
+				<td>YES</td> \
+			</tr> \
+		</table> \
+		@param self The command object interface of interest \
+		@result An IOReturn result code indicating whether or not the command was successfully \
+			submitted */ \
+	/*!	@function SubmitWithRefconAndCallback \
+		@abstract Set the command refCon value and callback handler, and submit the command \
+			to FireWire for execution. \
+		@discussion Availability: (for interfaces obtained with ID) \
+		<table border="0" rules="all"> \
+			<tr> \
+				<td width="20%"></td> \
+				<td><code>kIOFireWireReadCommandInterfaceID</code></td> \
+				<td>YES</td> \
+			</tr> \
+			<tr> \
+				<td width="20%"></td> \
+				<td><code>kIOFireWireReadCommandInterfaceID_v2</code></td> \
+				<td>YES</td> \
+			</tr> \
+			<tr> \
+				<td width="20%"></td> \
+				<td><code>kIOFireWireWriteCommandInterfaceID</code></td> \
+				<td>YES</td> \
+			</tr> \
+			<tr> \
+				<td width="20%"></td> \
+				<td><code>kIOFireWireWriteCommandInterfaceID_v2</code></td> \
+				<td>YES</td> \
+			</tr> \
+			<tr> \
+				<td width="20%"></td> \
+				<td><code>kIOFireWireReadQuadletCommandInterfaceID</code></td> \
+				<td>YES</td> \
+			</tr> \
+			<tr> \
+				<td width="20%"></td> \
+				<td><code>kIOFireWireWriteQuadletCommandInterfaceID</code></td> \
+				<td>YES</td> \
+			</tr> \
+			<tr> \
+				<td width="20%"></td> \
+				<td><code>kIOFireWireCompareSwapCommandInterfaceID</code></td> \
+				<td>YES</td> \
+			</tr> \
+			<tr> \
+				<td width="20%"></td> \
+				<td><code>kIOFireWireAsyncStreamCommandInterfaceID</code></td> \
+				<td>YES</td> \
+			</tr> \
+		</table> \
+		@param self The command object interface of interest \
+		@result An IOReturn result code indicating whether or not the command was successfully \
+			submitted	*/ \
 	IOReturn			(*SubmitWithRefconAndCallback)(IOFireWireLibCommandRef self, void* refCon, IOFireWireLibCommandCallback inCallback) ;\
+	/*!	@function Cancel \
+		@abstract Cancel command execution \
+		@discussion Availability: (for interfaces obtained with ID) \
+		<table border="0" rules="all"> \
+			<tr> \
+				<td width="20%"></td> \
+				<td><code>kIOFireWireReadCommandInterfaceID</code></td> \
+				<td>YES</td> \
+			</tr> \
+			<tr> \
+				<td width="20%"></td> \
+				<td><code>kIOFireWireReadCommandInterfaceID_v2</code></td> \
+				<td>YES</td> \
+			</tr> \
+			<tr> \
+				<td width="20%"></td> \
+				<td><code>kIOFireWireWriteCommandInterfaceID</code></td> \
+				<td>YES</td> \
+			</tr> \
+			<tr> \
+				<td width="20%"></td> \
+				<td><code>kIOFireWireWriteCommandInterfaceID_v2</code></td> \
+				<td>YES</td> \
+			</tr> \
+			<tr> \
+				<td width="20%"></td> \
+				<td><code>kIOFireWireReadQuadletCommandInterfaceID</code></td> \
+				<td>YES</td> \
+			</tr> \
+			<tr> \
+				<td width="20%"></td> \
+				<td><code>kIOFireWireWriteQuadletCommandInterfaceID</code></td> \
+				<td>YES</td> \
+			</tr> \
+			<tr> \
+				<td width="20%"></td> \
+				<td><code>kIOFireWireCompareSwapCommandInterfaceID</code></td> \
+				<td>YES</td> \
+			</tr> \
+			<tr> \
+				<td width="20%"></td> \
+				<td><code>kIOFireWireAsyncStreamCommandInterfaceID</code></td> \
+				<td>YES</td> \
+			</tr> \
+		</table> \
+		@param self The command object interface of interest \
+		@result An IOReturn result code	*/ \
 	IOReturn			(*Cancel)(IOFireWireLibCommandRef self, IOReturn reason)
 
+/*! @parseOnly */
 #define IOFIREWIRELIBCOMMAND_C_GUTS_v2	\
+	/*!	@function SetBuffer \
+		@abstract Set the buffer where read data should be stored. \
+		@discussion Availability: (for interfaces obtained with ID) \
+		<table border="0" rules="all"> \
+			<tr> \
+				<td width="20%"></td> \
+				<td><code>kIOFireWireReadCommandInterfaceID</code></td> \
+				<td>NO</td> \
+			</tr> \
+			<tr> \
+				<td width="20%"></td> \
+				<td><code>kIOFireWireReadCommandInterfaceID_v2</code></td> \
+				<td>YES</td> \
+			</tr> \
+			<tr> \
+				<td width="20%"></td> \
+				<td><code>kIOFireWireWriteCommandInterfaceID</code></td> \
+				<td>NO</td> \
+			</tr> \
+			<tr> \
+				<td width="20%"></td> \
+				<td><code>kIOFireWireWriteCommandInterfaceID_v2</code></td> \
+				<td>YES</td> \
+			</tr> \
+			<tr> \
+				<td width="20%"></td> \
+				<td><code>kIOFireWireReadQuadletCommandInterfaceID</code></td> \
+				<td>NO</td> \
+			</tr> \
+			<tr> \
+				<td width="20%"></td> \
+				<td><code>kIOFireWireWriteQuadletCommandInterfaceID</code></td> \
+				<td>NO</td> \
+			</tr> \
+			<tr> \
+				<td width="20%"></td> \
+				<td><code>kIOFireWireCompareSwapCommandInterfaceID</code></td> \
+				<td>NO</td> \
+			</tr> \
+			<tr> \
+				<td width="20%"></td> \
+				<td><code>kIOFireWireAsyncStreamCommandInterfaceID</code></td> \
+				<td>YES</td> \
+			</tr> \
+		</table> \
+		@param self The command object interface of interest \
+		@param size Size in bytes of the receive buffer. \
+		@param buf A pointer to the receive buffer. */ \
 	void 				(*SetBuffer)(IOFireWireLibCommandRef self, UInt32 size, void* buf) ;	\
+	/*!	@function GetBuffer \
+		@abstract Set the command refCon value and callback handler, and submit the command \
+			to FireWire for execution. \
+		@discussion Availability: (for interfaces obtained with ID) \
+		<table border="0" rules="all"> \
+			<tr> \
+				<td width="20%"></td> \
+				<td><code>kIOFireWireReadCommandInterfaceID</code></td> \
+				<td>NO</td> \
+			</tr> \
+			<tr> \
+				<td width="20%"></td> \
+				<td><code>kIOFireWireReadCommandInterfaceID_v2</code></td> \
+				<td>YES</td> \
+			</tr> \
+			<tr> \
+				<td width="20%"></td> \
+				<td><code>kIOFireWireWriteCommandInterfaceID</code></td> \
+				<td>NO</td> \
+			</tr> \
+			<tr> \
+				<td width="20%"></td> \
+				<td><code>kIOFireWireWriteCommandInterfaceID_v2</code></td> \
+				<td>YES</td> \
+			</tr> \
+			<tr> \
+				<td width="20%"></td> \
+				<td><code>kIOFireWireReadQuadletCommandInterfaceID</code></td> \
+				<td>NO</td> \
+			</tr> \
+			<tr> \
+				<td width="20%"></td> \
+				<td><code>kIOFireWireWriteQuadletCommandInterfaceID</code></td> \
+				<td>NO</td> \
+			</tr> \
+			<tr> \
+				<td width="20%"></td> \
+				<td><code>kIOFireWireCompareSwapCommandInterfaceID</code></td> \
+				<td>NO</td> \
+			</tr> \
+			<tr> \
+				<td width="20%"></td> \
+				<td><code>kIOFireWireAsyncStreamCommandInterfaceID</code></td> \
+				<td>YES</td> \
+			</tr> \
+		</table> \
+		@param self The command object interface of interest */ \
 	void 				(*GetBuffer)(IOFireWireLibCommandRef self, UInt32* outSize, void** outBuf) ;	\
+	/*!	@function SetMaxPacket \
+		@abstract Set the maximum size in bytes of packets transferred by this command. \
+		@discussion Availability: (for interfaces obtained with ID) \
+		<table border="0" rules="all"> \
+			<tr> \
+				<td width="20%"></td> \
+				<td><code>kIOFireWireReadCommandInterfaceID</code></td> \
+				<td>NO</td> \
+			</tr> \
+			<tr> \
+				<td width="20%"></td> \
+				<td><code>kIOFireWireReadCommandInterfaceID_v2</code></td> \
+				<td>YES</td> \
+			</tr> \
+			<tr> \
+				<td width="20%"></td> \
+				<td><code>kIOFireWireWriteCommandInterfaceID</code></td> \
+				<td>NO</td> \
+			</tr> \
+			<tr> \
+				<td width="20%"></td> \
+				<td><code>kIOFireWireWriteCommandInterfaceID_v2</code></td> \
+				<td>YES</td> \
+			</tr> \
+			<tr> \
+				<td width="20%"></td> \
+				<td><code>kIOFireWireReadQuadletCommandInterfaceID</code></td> \
+				<td>NO</td> \
+			</tr> \
+			<tr> \
+				<td width="20%"></td> \
+				<td><code>kIOFireWireWriteQuadletCommandInterfaceID</code></td> \
+				<td>NO</td> \
+			</tr> \
+			<tr> \
+				<td width="20%"></td> \
+				<td><code>kIOFireWireCompareSwapCommandInterfaceID</code></td> \
+				<td>NO</td> \
+			</tr> \
+			<tr> \
+				<td width="20%"></td> \
+				<td><code>kIOFireWireAsyncStreamCommandInterfaceID</code></td> \
+				<td>YES</td> \
+			</tr> \
+		</table> \
+		@param self The command object interface of interest \
+		@param maxPacketSize Size in bytes of largest packet that should be transferred \
+			by this command. \
+		@result An IOReturn result code indicating whether or not the command was successfully \
+			submitted	*/ \
 	IOReturn			(*SetMaxPacket)(IOFireWireLibCommandRef self, IOByteCount maxPacketSize) ;	\
+	/*!	@function SetFlags \
+		@abstract Set flags governing this command's execution. \
+		@discussion Availability: (for interfaces obtained with ID) \
+		<table border="0" rules="all"> \
+			<tr> \
+				<td width="20%"></td> \
+				<td><code>kIOFireWireReadCommandInterfaceID</code></td> \
+				<td>NO</td> \
+			</tr> \
+			<tr> \
+				<td width="20%"></td> \
+				<td><code>kIOFireWireReadCommandInterfaceID_v2</code></td> \
+				<td>YES</td> \
+			</tr> \
+			<tr> \
+				<td width="20%"></td> \
+				<td><code>kIOFireWireWriteCommandInterfaceID</code></td> \
+				<td>NO</td> \
+			</tr> \
+			<tr> \
+				<td width="20%"></td> \
+				<td><code>kIOFireWireWriteCommandInterfaceID_v2</code></td> \
+				<td>YES</td> \
+			</tr> \
+			<tr> \
+				<td width="20%"></td> \
+				<td><code>kIOFireWireReadQuadletCommandInterfaceID</code></td> \
+				<td>NO</td> \
+			</tr> \
+			<tr> \
+				<td width="20%"></td> \
+				<td><code>kIOFireWireWriteQuadletCommandInterfaceID</code></td> \
+				<td>NO</td> \
+			</tr> \
+			<tr> \
+				<td width="20%"></td> \
+				<td><code>kIOFireWireCompareSwapCommandInterfaceID</code></td> \
+				<td>NO</td> \
+			</tr> \
+			<tr> \
+				<td width="20%"></td> \
+				<td><code>kIOFireWireAsyncStreamCommandInterfaceID</code></td> \
+				<td>YES</td> \
+			</tr> \
+		</table> \
+		@param self The command object interface of interest \
+		@param inFlags A UInt32 with bits set corresponding to the flags that should be set \
+			for this command object. The following values may be used:<br> \
+			<ul> \
+				<li>kFWCommandNoFlags -- all flags off</li> \
+				<li>kFWCommandInterfaceForceNoCopy -- data sent by this command should always be \
+					received/sent directly from the buffer set with SetBuffer(). Whatever data \
+					is in the buffer when the command is submitted will be used.</li> \
+				<li>kFWCommandInterfaceForceCopyAlways -- data will always be copied out of the \
+					command object data buffer when SetBuffer() is called, up to a maximum \
+					allowed size (kFWUserCommandSubmitWithCopyMaxBufferBytes). This can result \
+					in faster data transfer. Changes made to the data buffer contents after \
+					calling SetBuffer() will be ignored; SetBuffer() should be called whenever  \
+					the data buffer contents change.</li> \
+				<li>kFWCommandInterfaceSyncExecute -- Setting this flag causes the command object \
+					to execute synchronously. The calling context will block until the command \
+					object has completed execution or an error occurs. Using synchronous execution \
+					can avoid kernel transitions associated with asynchronous completion and often \
+					remove the need for a state machine.</li> \
+				<li>kFWCommandInterfaceForceBlockRequest -- Setting this flag causes read and write \
+					transactions to use block request packets even if the payload is 4 bytes. If this \
+					flag is not set 4 byte transactions will occur using quadlet transactions.</li> \
+			</ul>*/ \
 	void				(*SetFlags)(IOFireWireLibCommandRef self, UInt32 inFlags)
 
+/*! @parseOnly */
 #define IOFIREWIRELIBCOMMAND_C_GUTS_v3 \
+	/*!	@function SetTimeoutDuration \
+		@abstract Sets the duration of the timeout for this command. \
+		@param self A reference to the command \
+		@param duration A timeout value in microseconds \
+		@result void	*/ \
 	void				(*SetTimeoutDuration)(IOFireWireLibCommandRef self, UInt32 duration ); \
+	/*!	@function SetMaxRetryCount \
+		@abstract Sets the maximum number of retries for this command. \
+		@param self A reference to the command \
+		@param count The number of retires \
+		@result void	*/ \
 	void				(*SetMaxRetryCount)(IOFireWireLibCommandRef self, UInt32 count ); \
+	/*!	@function GetAckCode \
+		@abstract Gets the most recently received ack code for this transaction.  \
+		@param self A reference to the command \
+		@result The FireWire ack code. */ \
 	UInt32				(*GetAckCode)( IOFireWireLibCommandRef self ); \
+	/*!	@function GetResponseCode \
+		@abstract Gets the most recently received response code for this transaction.  \
+		@param self A reference to the command \
+		@result The FireWire response code. */ \
 	UInt32				(*GetResponseCode)( IOFireWireLibCommandRef self ); \
+	/*!	@function SetMaxPacketSpeed \
+		@abstract Gets the most recently received ack code for this transaction.  \
+		@param self A reference to the command \
+		@param speed the desired maximum packet speed \
+		@result void */ \
 	void				(*SetMaxPacketSpeed)( IOFireWireLibCommandRef self, IOFWSpeed speed ); \
+	/*!	@function GetRefCon \
+		@abstract Gets the refcon associated with this command \
+		@param self A reference to the command \
+		@result void */ \
 	void *				(*GetRefCon)( IOFireWireLibCommandRef self )
 	
-typedef struct IOFireWireCommandInterface_t
-{
-/*!	@class IOFireWireCommandInterface
+/*!	@class
 	@abstract IOFireWireLib command object.
 	@discussion Represents an object that is configured and submitted to issue synchronous
 		and asynchronous bus commands. This is a superclass containing all command object
@@ -2349,884 +3154,31 @@ typedef struct IOFireWireCommandInterface_t
 		control this behavior.
 
 */
-/* headerdoc parse workaround	
-class IOFireWireCommandInterface: public IUnknown {
-public:
-*/
+typedef struct IOFireWireCommandInterface_t
+{
 	
 	IUNKNOWN_C_GUTS ;
-	UInt32 version, revision ;
-	
-	/*!	@function GetStatus
-		@abstract Return command completion status.
-		@discussion Availability: (for interfaces obtained with ID)
-		<table border="0" rules="all">
-			<tr>
-				<td width="20%"></td>
-				<td><code>kIOFireWireReadCommandInterfaceID</code></td>
-				<td>YES</td>
-			</tr>
-			<tr>
-				<td width="20%"></td>
-				<td><code>kIOFireWireReadCommandInterfaceID_v2</code></td>
-				<td>YES</td>
-			</tr>
-			<tr>
-				<td width="20%"></td>
-				<td><code>kIOFireWireWriteCommandInterfaceID</code></td>
-				<td>YES</td>
-			</tr>
-			<tr>
-				<td width="20%"></td>
-				<td><code>kIOFireWireWriteCommandInterfaceID_v2</code></td>
-				<td>YES</td>
-			</tr>
-			<tr>
-				<td width="20%"></td>
-				<td><code>kIOFireWireReadQuadletCommandInterfaceID</code></td>
-				<td>YES</td>
-			</tr>
-			<tr>
-				<td width="20%"></td>
-				<td><code>kIOFireWireWriteQuadletCommandInterfaceID</code></td>
-				<td>YES</td>
-			</tr>
-			<tr>
-				<td width="20%"></td>
-				<td><code>kIOFireWireCompareSwapCommandInterfaceID</code></td>
-				<td>YES</td>
-			</tr>
-			<tr>
-				<td width="20%"></td>
-				<td><code>kIOFireWireAsyncStreamCommandInterfaceID</code></td>
-				<td>YES</td>
-			</tr>
-		</table>
-					
-		@param self The command object interface of interest
-		@result An IOReturn error code indicating the completion error (if any) returned the last
-			time this command object was executed	*/
-		/*
-		IOReturn (*GetStatus)(IOFireWireLibCommandRef	self) ;
-		*/
 
-	/*!	@function GetTransferredBytes
-		@abstract Return number of bytes transferred by this command object when it last completed
-			execution.
-		@discussion Availability: (for interfaces obtained with ID)
-		<table border="0" rules="all">
-			<tr>
-				<td width="20%"></td>
-				<td><code>kIOFireWireReadCommandInterfaceID</code></td>
-				<td>YES</td>
-			</tr>
-			<tr>
-				<td width="20%"></td>
-				<td><code>kIOFireWireReadCommandInterfaceID_v2</code></td>
-				<td>YES</td>
-			</tr>
-			<tr>
-				<td width="20%"></td>
-				<td><code>kIOFireWireWriteCommandInterfaceID</code></td>
-				<td>YES</td>
-			</tr>
-			<tr>
-				<td width="20%"></td>
-				<td><code>kIOFireWireWriteCommandInterfaceID_v2</code></td>
-				<td>YES</td>
-			</tr>
-			<tr>
-				<td width="20%"></td>
-				<td><code>kIOFireWireReadQuadletCommandInterfaceID</code></td>
-				<td>YES</td>
-			</tr>
-			<tr>
-				<td width="20%"></td>
-				<td><code>kIOFireWireWriteQuadletCommandInterfaceID</code></td>
-				<td>YES</td>
-			</tr>
-			<tr>
-				<td width="20%"></td>
-				<td><code>kIOFireWireCompareSwapCommandInterfaceID</code></td>
-				<td>YES</td>
-			</tr>
-			<tr>
-				<td width="20%"></td>
-				<td><code>kIOFireWireAsyncStreamCommandInterfaceID</code></td>
-				<td>YES</td>
-			</tr>
-		</table>
-		@param self The command object interface of interest
-		@result A UInt32 containing the bytes transferred value	*/
-		/*
-		UInt32				(*GetTransferredBytes)(IOFireWireLibCommandRef self) ;
-		*/
-		
-	/*!	@function GetTargetAddress
-		@abstract Get command target address.
-		@discussion Availability: (for interfaces obtained with ID)
-		<table border="0" rules="all">
-			<tr>
-				<td width="20%"></td>
-				<td><code>kIOFireWireReadCommandInterfaceID</code></td>
-				<td>YES</td>
-			</tr>
-			<tr>
-				<td width="20%"></td>
-				<td><code>kIOFireWireReadCommandInterfaceID_v2</code></td>
-				<td>YES</td>
-			</tr>
-			<tr>
-				<td width="20%"></td>
-				<td><code>kIOFireWireWriteCommandInterfaceID</code></td>
-				<td>YES</td>
-			</tr>
-			<tr>
-				<td width="20%"></td>
-				<td><code>kIOFireWireWriteCommandInterfaceID_v2</code></td>
-				<td>YES</td>
-			</tr>
-			<tr>
-				<td width="20%"></td>
-				<td><code>kIOFireWireReadQuadletCommandInterfaceID</code></td>
-				<td>YES</td>
-			</tr>
-			<tr>
-				<td width="20%"></td>
-				<td><code>kIOFireWireWriteQuadletCommandInterfaceID</code></td>
-				<td>YES</td>
-			</tr>
-			<tr>
-				<td width="20%"></td>
-				<td><code>kIOFireWireCompareSwapCommandInterfaceID</code></td>
-				<td>YES</td>
-			</tr>
-			<tr>
-				<td width="20%"></td>
-				<td><code>kIOFireWireAsyncStreamCommandInterfaceID</code></td>
-				<td>NO</td>
-			</tr>
-		</table>
-		@param self The command object interface of interest
-		@param outAddr A pointer to an FWAddress to contain the function result. */
-		/*
-		void				(*GetTargetAddress)(IOFireWireLibCommandRef self, FWAddress* outAddr) ;
-		*/
-	
-	/*!	@function SetTarget
-		@abstract Set command target address
-		@discussion Availability: (for interfaces obtained with ID)
-		<table border="0" rules="all">
-			<tr>
-				<td width="20%"></td>
-				<td><code>kIOFireWireReadCommandInterfaceID</code></td>
-				<td>YES</td>
-			</tr>
-			<tr>
-				<td width="20%"></td>
-				<td><code>kIOFireWireReadCommandInterfaceID_v2</code></td>
-				<td>YES</td>
-			</tr>
-			<tr>
-				<td width="20%"></td>
-				<td><code>kIOFireWireWriteCommandInterfaceID</code></td>
-				<td>YES</td>
-			</tr>
-			<tr>
-				<td width="20%"></td>
-				<td><code>kIOFireWireWriteCommandInterfaceID_v2</code></td>
-				<td>YES</td>
-			</tr>
-			<tr>
-				<td width="20%"></td>
-				<td><code>kIOFireWireReadQuadletCommandInterfaceID</code></td>
-				<td>YES</td>
-			</tr>
-			<tr>
-				<td width="20%"></td>
-				<td><code>kIOFireWireWriteQuadletCommandInterfaceID</code></td>
-				<td>YES</td>
-			</tr>
-			<tr>
-				<td width="20%"></td>
-				<td><code>kIOFireWireCompareSwapCommandInterfaceID</code></td>
-				<td>YES</td>
-			</tr>
-			<tr>
-				<td width="20%"></td>
-				<td><code>kIOFireWireAsyncStreamCommandInterfaceID</code></td>
-				<td>NO</td>
-			</tr>
-		</table>
-		@param self The command object interface of interest
-		@param addr A pointer to an FWAddress. */
-		/*
-		void				(*SetTarget)(IOFireWireLibCommandRef self, const FWAddress* addr) ;
-		*/
+	/*! Interface version */
+	UInt32 version;
 
-	/*!	@function SetGeneration
-		@abstract Set FireWire bus generation for which the command object shall be valid.
-			If the failOnReset attribute has been set, the command will only be considered for
-			execution during the bus generation specified by this function.
-		@discussion Availability: (for interfaces obtained with ID)
-		<table border="0" rules="all">
-			<tr>
-				<td width="20%"></td>
-				<td><code>kIOFireWireReadCommandInterfaceID</code></td>
-				<td>YES</td>
-			</tr>
-			<tr>
-				<td width="20%"></td>
-				<td><code>kIOFireWireReadCommandInterfaceID_v2</code></td>
-				<td>YES</td>
-			</tr>
-			<tr>
-				<td width="20%"></td>
-				<td><code>kIOFireWireWriteCommandInterfaceID</code></td>
-				<td>YES</td>
-			</tr>
-			<tr>
-				<td width="20%"></td>
-				<td><code>kIOFireWireWriteCommandInterfaceID_v2</code></td>
-				<td>YES</td>
-			</tr>
-			<tr>
-				<td width="20%"></td>
-				<td><code>kIOFireWireReadQuadletCommandInterfaceID</code></td>
-				<td>YES</td>
-			</tr>
-			<tr>
-				<td width="20%"></td>
-				<td><code>kIOFireWireWriteQuadletCommandInterfaceID</code></td>
-				<td>YES</td>
-			</tr>
-			<tr>
-				<td width="20%"></td>
-				<td><code>kIOFireWireCompareSwapCommandInterfaceID</code></td>
-				<td>YES</td>
-			</tr>
-			<tr>
-				<td width="20%"></td>
-				<td><code>kIOFireWireAsyncStreamCommandInterfaceID</code></td>
-				<td>YES</td>
-			</tr>
-		</table>
-		@param self The command object interface of interest
-		@param generation A bus generation. The current bus generation can be obtained
-			from IOFireWireDeviceInterface::GetBusGeneration().	*/
-		/*
-		void				(*SetGeneration)(IOFireWireLibCommandRef self, UInt32 generation) ;
-		*/
-		
-	/*!	@function SetCallback
-		@abstract Set the completion handler to be called once the command completes
-			asynchronous execution .
-		@discussion Availability: (for interfaces obtained with ID)
-		<table border="0" rules="all">
-			<tr>
-				<td width="20%"></td>
-				<td><code>kIOFireWireReadCommandInterfaceID</code></td>
-				<td>YES</td>
-			</tr>
-			<tr>
-				<td width="20%"></td>
-				<td><code>kIOFireWireReadCommandInterfaceID_v2</code></td>
-				<td>YES</td>
-			</tr>
-			<tr>
-				<td width="20%"></td>
-				<td><code>kIOFireWireWriteCommandInterfaceID</code></td>
-				<td>YES</td>
-			</tr>
-			<tr>
-				<td width="20%"></td>
-				<td><code>kIOFireWireWriteCommandInterfaceID_v2</code></td>
-				<td>YES</td>
-			</tr>
-			<tr>
-				<td width="20%"></td>
-				<td><code>kIOFireWireReadQuadletCommandInterfaceID</code></td>
-				<td>YES</td>
-			</tr>
-			<tr>
-				<td width="20%"></td>
-				<td><code>kIOFireWireWriteQuadletCommandInterfaceID</code></td>
-				<td>YES</td>
-			</tr>
-			<tr>
-				<td width="20%"></td>
-				<td><code>kIOFireWireCompareSwapCommandInterfaceID</code></td>
-				<td>YES</td>
-			</tr>
-			<tr>
-				<td width="20%"></td>
-				<td><code>kIOFireWireAsyncStreamCommandInterfaceID</code></td>
-				<td>YES</td>
-			</tr>
-		</table>
-		@param self The command object interface of interest
-		@param inCallback A callback handler. Passing nil forces the command object to 
-			execute synchronously. */
-		/*
-		void				(*SetCallback)(IOFireWireLibCommandRef self, IOFireWireLibCommandCallback inCallback) ;
-		*/
-		
-	/*!	@function SetRefCon
-		@abstract Set the user refCon value. This is the user defined value that will be passed
-			in the refCon argument to the completion function.
-		@discussion Availability: (for interfaces obtained with ID)
-		<table border="0" rules="all">
-			<tr>
-				<td width="20%"></td>
-				<td><code>kIOFireWireReadCommandInterfaceID</code></td>
-				<td>YES</td>
-			</tr>
-			<tr>
-				<td width="20%"></td>
-				<td><code>kIOFireWireReadCommandInterfaceID_v2</code></td>
-				<td>YES</td>
-			</tr>
-			<tr>
-				<td width="20%"></td>
-				<td><code>kIOFireWireWriteCommandInterfaceID</code></td>
-				<td>YES</td>
-			</tr>
-			<tr>
-				<td width="20%"></td>
-				<td><code>kIOFireWireWriteCommandInterfaceID_v2</code></td>
-				<td>YES</td>
-			</tr>
-			<tr>
-				<td width="20%"></td>
-				<td><code>kIOFireWireReadQuadletCommandInterfaceID</code></td>
-				<td>YES</td>
-			</tr>
-			<tr>
-				<td width="20%"></td>
-				<td><code>kIOFireWireWriteQuadletCommandInterfaceID</code></td>
-				<td>YES</td>
-			</tr>
-			<tr>
-				<td width="20%"></td>
-				<td><code>kIOFireWireCompareSwapCommandInterfaceID</code></td>
-				<td>YES</td>
-			</tr>
-			<tr>
-				<td width="20%"></td>
-				<td><code>kIOFireWireAsyncStreamCommandInterfaceID</code></td>
-				<td>YES</td>
-			</tr>
-		</table> */
-		/*
-		void				(*SetRefCon)(IOFireWireLibCommandRef self, void* refCon) ;
-		*/
-		
-	/*!	@function IsExecuting
-		@abstract Is this command object currently executing?
-		@discussion Availability: (for interfaces obtained with ID)
-		<table border="0" rules="all">
-			<tr>
-				<td width="20%"></td>
-				<td><code>kIOFireWireReadCommandInterfaceID</code></td>
-				<td>YES</td>
-			</tr>
-			<tr>
-				<td width="20%"></td>
-				<td><code>kIOFireWireReadCommandInterfaceID_v2</code></td>
-				<td>YES</td>
-			</tr>
-			<tr>
-				<td width="20%"></td>
-				<td><code>kIOFireWireWriteCommandInterfaceID</code></td>
-				<td>YES</td>
-			</tr>
-			<tr>
-				<td width="20%"></td>
-				<td><code>kIOFireWireWriteCommandInterfaceID_v2</code></td>
-				<td>YES</td>
-			</tr>
-			<tr>
-				<td width="20%"></td>
-				<td><code>kIOFireWireReadQuadletCommandInterfaceID</code></td>
-				<td>YES</td>
-			</tr>
-			<tr>
-				<td width="20%"></td>
-				<td><code>kIOFireWireWriteQuadletCommandInterfaceID</code></td>
-				<td>YES</td>
-			</tr>
-			<tr>
-				<td width="20%"></td>
-				<td><code>kIOFireWireCompareSwapCommandInterfaceID</code></td>
-				<td>YES</td>
-			</tr>
-			<tr>
-				<td width="20%"></td>
-				<td><code>kIOFireWireAsyncStreamCommandInterfaceID</code></td>
-				<td>YES</td>
-			</tr>
-		</table>
-		@param self The command object interface of interest
-		@result Returns true if the command object is executing.	*/
-		/*
-		const Boolean		(*IsExecuting)(IOFireWireLibCommandRef self) ;
-		*/
-		
-	/*!	@function Submit
-		@abstract Submit this command object to FireWire for execution.
-		@discussion Availability: (for interfaces obtained with ID)
-		<table border="0" rules="all">
-			<tr>
-				<td width="20%"></td>
-				<td><code>kIOFireWireReadCommandInterfaceID</code></td>
-				<td>YES</td>
-			</tr>
-			<tr>
-				<td width="20%"></td>
-				<td><code>kIOFireWireReadCommandInterfaceID_v2</code></td>
-				<td>YES</td>
-			</tr>
-			<tr>
-				<td width="20%"></td>
-				<td><code>kIOFireWireWriteCommandInterfaceID</code></td>
-				<td>YES</td>
-			</tr>
-			<tr>
-				<td width="20%"></td>
-				<td><code>kIOFireWireWriteCommandInterfaceID_v2</code></td>
-				<td>YES</td>
-			</tr>
-			<tr>
-				<td width="20%"></td>
-				<td><code>kIOFireWireReadQuadletCommandInterfaceID</code></td>
-				<td>YES</td>
-			</tr>
-			<tr>
-				<td width="20%"></td>
-				<td><code>kIOFireWireWriteQuadletCommandInterfaceID</code></td>
-				<td>YES</td>
-			</tr>
-			<tr>
-				<td width="20%"></td>
-				<td><code>kIOFireWireCompareSwapCommandInterfaceID</code></td>
-				<td>YES</td>
-			</tr>
-			<tr>
-				<td width="20%"></td>
-				<td><code>kIOFireWireAsyncStreamCommandInterfaceID</code></td>
-				<td>YES</td>
-			</tr>
-		</table>
-		@param self The command object interface of interest
-		@result An IOReturn result code indicating whether or not the command was successfully
-			submitted */
-		/*
-		IOReturn			(*Submit)(IOFireWireLibCommandRef self) ;
-		*/
-		
-	/*!	@function SubmitWithRefconAndCallback
-		@abstract Set the command refCon value and callback handler, and submit the command
-			to FireWire for execution.
-		@discussion Availability: (for interfaces obtained with ID)
-		<table border="0" rules="all">
-			<tr>
-				<td width="20%"></td>
-				<td><code>kIOFireWireReadCommandInterfaceID</code></td>
-				<td>YES</td>
-			</tr>
-			<tr>
-				<td width="20%"></td>
-				<td><code>kIOFireWireReadCommandInterfaceID_v2</code></td>
-				<td>YES</td>
-			</tr>
-			<tr>
-				<td width="20%"></td>
-				<td><code>kIOFireWireWriteCommandInterfaceID</code></td>
-				<td>YES</td>
-			</tr>
-			<tr>
-				<td width="20%"></td>
-				<td><code>kIOFireWireWriteCommandInterfaceID_v2</code></td>
-				<td>YES</td>
-			</tr>
-			<tr>
-				<td width="20%"></td>
-				<td><code>kIOFireWireReadQuadletCommandInterfaceID</code></td>
-				<td>YES</td>
-			</tr>
-			<tr>
-				<td width="20%"></td>
-				<td><code>kIOFireWireWriteQuadletCommandInterfaceID</code></td>
-				<td>YES</td>
-			</tr>
-			<tr>
-				<td width="20%"></td>
-				<td><code>kIOFireWireCompareSwapCommandInterfaceID</code></td>
-				<td>YES</td>
-			</tr>
-			<tr>
-				<td width="20%"></td>
-				<td><code>kIOFireWireAsyncStreamCommandInterfaceID</code></td>
-				<td>YES</td>
-			</tr>
-		</table>
-		@param self The command object interface of interest
-		@result An IOReturn result code indicating whether or not the command was successfully
-			submitted	*/
-		/*
-		IOReturn			(*SubmitWithRefconAndCallback)(IOFireWireLibCommandRef self, void* refCon, IOFireWireLibCommandCallback inCallback) ;
-		*/
-		
-	/*!	@function Cancel
-		@abstract Cancel command execution
-		@discussion Availability: (for interfaces obtained with ID)
-		<table border="0" rules="all">
-			<tr>
-				<td width="20%"></td>
-				<td><code>kIOFireWireReadCommandInterfaceID</code></td>
-				<td>YES</td>
-			</tr>
-			<tr>
-				<td width="20%"></td>
-				<td><code>kIOFireWireReadCommandInterfaceID_v2</code></td>
-				<td>YES</td>
-			</tr>
-			<tr>
-				<td width="20%"></td>
-				<td><code>kIOFireWireWriteCommandInterfaceID</code></td>
-				<td>YES</td>
-			</tr>
-			<tr>
-				<td width="20%"></td>
-				<td><code>kIOFireWireWriteCommandInterfaceID_v2</code></td>
-				<td>YES</td>
-			</tr>
-			<tr>
-				<td width="20%"></td>
-				<td><code>kIOFireWireReadQuadletCommandInterfaceID</code></td>
-				<td>YES</td>
-			</tr>
-			<tr>
-				<td width="20%"></td>
-				<td><code>kIOFireWireWriteQuadletCommandInterfaceID</code></td>
-				<td>YES</td>
-			</tr>
-			<tr>
-				<td width="20%"></td>
-				<td><code>kIOFireWireCompareSwapCommandInterfaceID</code></td>
-				<td>YES</td>
-			</tr>
-			<tr>
-				<td width="20%"></td>
-				<td><code>kIOFireWireAsyncStreamCommandInterfaceID</code></td>
-				<td>YES</td>
-			</tr>
-		</table>
-		@param self The command object interface of interest
-		@result An IOReturn result code	*/
-		/*
-		IOReturn			(*Cancel)(IOFireWireLibCommandRef self, IOReturn reason) ;
-		*/
-		
+	/*! Interface revision */
+	UInt32 revision;
+	
+	/* IMPORTANT: Do not add HeaderDoc markup to the following symbols; they
+	   contain HeaderDoc markup, and that would be bad.
+	 */
+
 	IOFIREWIRELIBCOMMAND_C_GUTS ;
 
 	// version 2 interfaces: (appear in IOFireWireReadCommandInterface_v2 and IOFireWireWriteCommandInterface_v2)
-	/*!	@function SetBuffer
-		@abstract Set the buffer where read data should be stored.
-		@discussion Availability: (for interfaces obtained with ID)
-		<table border="0" rules="all">
-			<tr>
-				<td width="20%"></td>
-				<td><code>kIOFireWireReadCommandInterfaceID</code></td>
-				<td>NO</td>
-			</tr>
-			<tr>
-				<td width="20%"></td>
-				<td><code>kIOFireWireReadCommandInterfaceID_v2</code></td>
-				<td>YES</td>
-			</tr>
-			<tr>
-				<td width="20%"></td>
-				<td><code>kIOFireWireWriteCommandInterfaceID</code></td>
-				<td>NO</td>
-			</tr>
-			<tr>
-				<td width="20%"></td>
-				<td><code>kIOFireWireWriteCommandInterfaceID_v2</code></td>
-				<td>YES</td>
-			</tr>
-			<tr>
-				<td width="20%"></td>
-				<td><code>kIOFireWireReadQuadletCommandInterfaceID</code></td>
-				<td>NO</td>
-			</tr>
-			<tr>
-				<td width="20%"></td>
-				<td><code>kIOFireWireWriteQuadletCommandInterfaceID</code></td>
-				<td>NO</td>
-			</tr>
-			<tr>
-				<td width="20%"></td>
-				<td><code>kIOFireWireCompareSwapCommandInterfaceID</code></td>
-				<td>NO</td>
-			</tr>
-			<tr>
-				<td width="20%"></td>
-				<td><code>kIOFireWireAsyncStreamCommandInterfaceID</code></td>
-				<td>YES</td>
-			</tr>
-		</table>
-		@param self The command object interface of interest
-		@param size Size in bytes of the receive buffer.
-		@param buf A pointer to the receive buffer. */
-		/*
-		void 				(*SetBuffer)(IOFireWireLibCommandRef self, UInt32 size, void* buf) ;
-		*/
-		
-	/*!	@function GetBuffer
-		@abstract Set the command refCon value and callback handler, and submit the command
-			to FireWire for execution.
-		@discussion Availability: (for interfaces obtained with ID)
-		<table border="0" rules="all">
-			<tr>
-				<td width="20%"></td>
-				<td><code>kIOFireWireReadCommandInterfaceID</code></td>
-				<td>NO</td>
-			</tr>
-			<tr>
-				<td width="20%"></td>
-				<td><code>kIOFireWireReadCommandInterfaceID_v2</code></td>
-				<td>YES</td>
-			</tr>
-			<tr>
-				<td width="20%"></td>
-				<td><code>kIOFireWireWriteCommandInterfaceID</code></td>
-				<td>NO</td>
-			</tr>
-			<tr>
-				<td width="20%"></td>
-				<td><code>kIOFireWireWriteCommandInterfaceID_v2</code></td>
-				<td>YES</td>
-			</tr>
-			<tr>
-				<td width="20%"></td>
-				<td><code>kIOFireWireReadQuadletCommandInterfaceID</code></td>
-				<td>NO</td>
-			</tr>
-			<tr>
-				<td width="20%"></td>
-				<td><code>kIOFireWireWriteQuadletCommandInterfaceID</code></td>
-				<td>NO</td>
-			</tr>
-			<tr>
-				<td width="20%"></td>
-				<td><code>kIOFireWireCompareSwapCommandInterfaceID</code></td>
-				<td>NO</td>
-			</tr>
-			<tr>
-				<td width="20%"></td>
-				<td><code>kIOFireWireAsyncStreamCommandInterfaceID</code></td>
-				<td>YES</td>
-			</tr>
-		</table>
-		@param self The command object interface of interest */
-		/*
-		void 				(*GetBuffer)(IOFireWireLibCommandRef self, UInt32* outSize, void** outBuf) ;
-		*/
-		
-	/*!	@function SetMaxPacket
-		@abstract Set the maximum size in bytes of packets transferred by this command.
-		@discussion Availability: (for interfaces obtained with ID)
-		<table border="0" rules="all">
-			<tr>
-				<td width="20%"></td>
-				<td><code>kIOFireWireReadCommandInterfaceID</code></td>
-				<td>NO</td>
-			</tr>
-			<tr>
-				<td width="20%"></td>
-				<td><code>kIOFireWireReadCommandInterfaceID_v2</code></td>
-				<td>YES</td>
-			</tr>
-			<tr>
-				<td width="20%"></td>
-				<td><code>kIOFireWireWriteCommandInterfaceID</code></td>
-				<td>NO</td>
-			</tr>
-			<tr>
-				<td width="20%"></td>
-				<td><code>kIOFireWireWriteCommandInterfaceID_v2</code></td>
-				<td>YES</td>
-			</tr>
-			<tr>
-				<td width="20%"></td>
-				<td><code>kIOFireWireReadQuadletCommandInterfaceID</code></td>
-				<td>NO</td>
-			</tr>
-			<tr>
-				<td width="20%"></td>
-				<td><code>kIOFireWireWriteQuadletCommandInterfaceID</code></td>
-				<td>NO</td>
-			</tr>
-			<tr>
-				<td width="20%"></td>
-				<td><code>kIOFireWireCompareSwapCommandInterfaceID</code></td>
-				<td>NO</td>
-			</tr>
-			<tr>
-				<td width="20%"></td>
-				<td><code>kIOFireWireAsyncStreamCommandInterfaceID</code></td>
-				<td>YES</td>
-			</tr>
-		</table>
-		@param self The command object interface of interest
-		@param maxPacketSize Size in bytes of largest packet that should be transferred
-			by this command.
-		@result An IOReturn result code indicating whether or not the command was successfully
-			submitted	*/
-		/*
-		IOReturn			(*SetMaxPacket)(IOFireWireLibCommandRef self, IOByteCount maxPacketSize) ;
-		*/
-		
-	/*!	@function SetFlags
-		@abstract Set flags governing this command's execution.
-		@discussion Availability: (for interfaces obtained with ID)
-		<table border="0" rules="all">
-			<tr>
-				<td width="20%"></td>
-				<td><code>kIOFireWireReadCommandInterfaceID</code></td>
-				<td>NO</td>
-			</tr>
-			<tr>
-				<td width="20%"></td>
-				<td><code>kIOFireWireReadCommandInterfaceID_v2</code></td>
-				<td>YES</td>
-			</tr>
-			<tr>
-				<td width="20%"></td>
-				<td><code>kIOFireWireWriteCommandInterfaceID</code></td>
-				<td>NO</td>
-			</tr>
-			<tr>
-				<td width="20%"></td>
-				<td><code>kIOFireWireWriteCommandInterfaceID_v2</code></td>
-				<td>YES</td>
-			</tr>
-			<tr>
-				<td width="20%"></td>
-				<td><code>kIOFireWireReadQuadletCommandInterfaceID</code></td>
-				<td>NO</td>
-			</tr>
-			<tr>
-				<td width="20%"></td>
-				<td><code>kIOFireWireWriteQuadletCommandInterfaceID</code></td>
-				<td>NO</td>
-			</tr>
-			<tr>
-				<td width="20%"></td>
-				<td><code>kIOFireWireCompareSwapCommandInterfaceID</code></td>
-				<td>NO</td>
-			</tr>
-			<tr>
-				<td width="20%"></td>
-				<td><code>kIOFireWireAsyncStreamCommandInterfaceID</code></td>
-				<td>YES</td>
-			</tr>
-		</table>
-		@param self The command object interface of interest
-		@param inFlags A UInt32 with bits set corresponding to the flags that should be set
-			for this command object. The following values may be used:<br>
-			<ul>
-				<li>kFWCommandNoFlags -- all flags off</li>
-				<li>kFWCommandInterfaceForceNoCopy -- data sent by this command should always be
-					received/sent directly from the buffer set with SetBuffer(). Whatever data
-					is in the buffer when the command is submitted will be used.</li>
-				<li>kFWCommandInterfaceForceCopyAlways -- data will always be copied out of the
-					command object data buffer when SetBuffer() is called, up to a maximum
-					allowed size (kFWUserCommandSubmitWithCopyMaxBufferBytes). This can result
-					in faster data transfer. Changes made to the data buffer contents after
-					calling SetBuffer() will be ignored; SetBuffer() should be called whenever 
-					the data buffer contents change.</li>
-				<li>kFWCommandInterfaceSyncExecute -- Setting this flag causes the command object
-					to execute synchronously. The calling context will block until the command
-					object has completed execution or an error occurs. Using synchronous execution
-					can avoid kernel transitions associated with asynchronous completion and often
-					remove the need for a state machine.</li>
-				<li>kFWCommandInterfaceForceBlockRequest -- Setting this flag causes read and write
-					transactions to use block request packets even if the payload is 4 bytes. If this
-					flag is not set 4 byte transactions will occur using quadlet transactions.</li>
-			</ul>*/
-		/*
-		void				(*SetFlags)(IOFireWireLibCommandRef self, UInt32 inFlags) ;
-		*/
 	IOFIREWIRELIBCOMMAND_C_GUTS_v2 ;
 	
-	/*!	@function SetTimeoutDuration
-		@abstract Sets the duration of the timeout for this command.
-		@param self A reference to the command
-		@param duration A timeout value in microseconds
-		@result void	*/
-		
-	/*
-		void				(*SetTimeoutDuration)(IOFireWireLibCommandRef self, UInt32 duration );
-	*/
-
-	/*!	@function SetMaxRetryCount
-		@abstract Sets the maximum number of retries for this command.
-		@param self A reference to the command
-		@param count The number of retires
-		@result void	*/
-			
-	/*
-		void				(*SetMaxRetryCount)(IOFireWireLibCommandRef self, UInt32 count ); \
-	*/
-	
-	/*!	@function GetAckCode
-		@abstract Gets the most recently received ack code for this transaction. 
-		@param self A reference to the command
-		@result The FireWire ack code. */
-		
-	/*
-		UInt32				(*GetAckCode)( IOFireWireLibCommandRef self ); \
-	*/
-	
-	
-	/*!	@function GetResponseCode
-		@abstract Gets the most recently received response code for this transaction. 
-		@param self A reference to the command
-		@result The FireWire response code. */
-		
-	/*	
-		UInt32				(*GetResponseCode)( IOFireWireLibCommandRef self ); \
-	*/
-	
-	
-	/*!	@function SetMaxPacketSpeed
-		@abstract Gets the most recently received ack code for this transaction. 
-		@param self A reference to the command
-		@param IOFWSpeed the desired maximum packet speed
-		@result void */
-		
-	/*	
-		void				(*SetMaxPacketSpeed)( IIOFireWireLibCommandRef self, OFWSpeed speed );
-	*/
-
-	/*!	@function GetRefCon
-		@abstract Gets the refcon associated with this command
-		@param self A reference to the command
-		@result void */
-		
-	/*	
-		void				(*GetRefCon)( IOFireWireLibCommandRef self );
-	*/
-		
 	IOFIREWIRELIBCOMMAND_C_GUTS_v3 ;
 
 } IOFireWireCommandInterface ;
 
-typedef struct IOFireWireReadCommandInterface_t
-{
-/*!	@class IOFireWireReadCommandInterface
+/*!	@class
 	@abstract IOFireWireLib block read command object.
 	@discussion Represents an object that is configured and submitted to issue synchronous
 		and asynchronous block read commands.
@@ -3234,13 +3186,16 @@ typedef struct IOFireWireReadCommandInterface_t
 	This interface contains all methods of IOFireWireCommandInterface.
 	This interface will contain all v2 methods of IOFireWireCommandInterface
 		when instantiated as v2 or newer. */
-/* headerdoc parse workaround	
-class IOFireWireReadCommandInterface: public IOFireWireCommandInterface {
-public:
-*/
+typedef struct IOFireWireReadCommandInterface_t
+{
 
 	IUNKNOWN_C_GUTS ;
-	UInt32 version, revision ;
+
+	/*! Interface version. */
+	UInt32 version;
+
+	/*! Interface revision. */
+	UInt32 revision;
 	
 	IOFIREWIRELIBCOMMAND_C_GUTS ;
 
@@ -3251,9 +3206,7 @@ public:
 	IOFIREWIRELIBCOMMAND_C_GUTS_v3 ;
 } IOFireWireReadCommandInterface ;
 
-typedef struct IOFireWireWriteCommandInterface_t
-{
-/*!	@class IOFireWireWriteCommandInterface
+/*!	@class
 	@abstract IOFireWireLib block read command object.
 	@discussion Represents an object that is configured and submitted to issue synchronous
 		and asynchronous block read commands.
@@ -3261,13 +3214,16 @@ typedef struct IOFireWireWriteCommandInterface_t
 		This interface contains all methods of IOFireWireCommandInterface.
 		This interface will contain all v2 methods of IOFireWireCommandInterface
 			when instantiated as v2 or newer. */
-/* headerdoc parse workaround	
-class IOFireWireWriteCommandInterface: public IOFireWireCommandInterface {
-public:
-*/
+typedef struct IOFireWireWriteCommandInterface_t
+{
 	
 	IUNKNOWN_C_GUTS ;
-	UInt32 version, revision ;
+
+	/*! Interface version. */
+	UInt32 version;
+
+	/*! Interface revision. */
+	UInt32 revision;
 	
 	IOFIREWIRELIBCOMMAND_C_GUTS ;
 
@@ -3280,17 +3236,18 @@ public:
 } IOFireWireWriteCommandInterface ;
 
 
+/*!	@class
+	Description forthcoming 
+*/
 typedef struct IOFireWireCompareSwapCommandInterface_t
 {
-/*!	@class IOFireWireCompareSwapCommandInterface
-*/
-
-/* headerdoc parse workaround	
-class IOFireWireReadQuadletCommandInterface: public IOFireWireCommandInterface {
-public:
-*/
 	IUNKNOWN_C_GUTS ;
-	UInt32 version, revision ;
+
+	/*! Interface version. */
+	UInt32 version;
+
+	/*! Interface revision. */
+	UInt32 revision;
 	
 	IOFIREWIRELIBCOMMAND_C_GUTS ;
 
@@ -3351,17 +3308,19 @@ public:
 	
 } IOFireWireCompareSwapCommandInterface ;
 
+/*!	@class
+	Description forthcoming 
+*/
 typedef struct IOFireWireCompareSwapCommandInterface_v3_t
 {
-/*!	@class IOFireWireCompareSwapCommandInterface_v3
-*/
 
-/* headerdoc parse workaround	
-class IOFireWireCompareSwapCommandInterface_v3: public IOFireWireCommandInterface {
-public:
-*/
-	IUNKNOWN_C_GUTS;
-	UInt32 version, revision;
+	IUNKNOWN_C_GUTS ;
+
+	/*! Interface version. */
+	UInt32 version;
+
+	/*! Interface version. */
+	UInt32 revision;
 	
 	IOFIREWIRELIBCOMMAND_C_GUTS;
 
@@ -3419,17 +3378,18 @@ public:
 	
 } IOFireWireCompareSwapCommandInterface_v3 ;
 
+/*!	@class
+	Description forthcoming 
+*/
 typedef struct IOFireWirePHYCommandInterface_t
 {
-/*!	@class IOFireWirePHYCommandInterface
-*/
+	IUNKNOWN_C_GUTS ;
 
-/* headerdoc parse workaround	
-class IOFireWirePHYCommandInterface: public IOFireWireCommandInterface {
-public:
-*/
-	IUNKNOWN_C_GUTS;
-	UInt32 version, revision;
+	/*! Interface version. */
+	UInt32 version;
+
+	/*! Interface revision. */
+	UInt32 revision;
 	
 	IOFIREWIRELIBCOMMAND_C_GUTS;
 
@@ -3447,17 +3407,18 @@ public:
 		
 } IOFireWirePHYCommandInterface;
 
+/*!	@class
+	Description forthcoming 
+*/
 typedef struct IOFireWireAsyncStreamCommandInterface_t
 {
-/*!	@class IOFireWireAsyncStreamCommandInterface
-*/
+	IUNKNOWN_C_GUTS ;
 
-/* headerdoc parse workaround	
-class IOFireWireAsyncStreamCommandInterface: public IOFireWireCommandInterface {
-public:
-*/
-	IUNKNOWN_C_GUTS;
-	UInt32 version, revision;
+	/*! Interface version. */
+	UInt32 version;
+
+	/*! Interface revision. */
+	UInt32 revision;
 	
 	IOFIREWIRELIBCOMMAND_C_GUTS;
 
@@ -3488,18 +3449,19 @@ public:
 		
 } IOFireWireAsyncStreamCommandInterface;
 
-typedef struct IOFireWireReadQuadletCommandInterface_t
-{
-/*!	@class IOFireWireReadQuadletCommandInterface
+/*!	@class
 	@abstract IOFireWireReadQuadletCommandInterface -- IOFireWireLib quadlet read command object.
 	@discussion Obsolete; do not use. Use IOFireWireReadCommandInterface v2 or newer
 		and its function SetMaxPacket() */
-/* headerdoc parse workaround	
-class IOFireWireReadQuadletCommandInterface: public IOFireWireCommandInterface {
-public:
-*/
+typedef struct IOFireWireReadQuadletCommandInterface_t
+{
 	IUNKNOWN_C_GUTS ;
-	UInt32 version, revision ;
+
+	/*! Interface version. */
+	UInt32 version;
+
+	/*! Interface revision. */
+	UInt32 revision;
 	
 	IOFIREWIRELIBCOMMAND_C_GUTS ;
 
@@ -3511,21 +3473,23 @@ public:
 	void (*SetQuads)(IOFireWireLibReadQuadletCommandRef self, UInt32 inQuads[], UInt32 inNumQuads) ;
 } IOFireWireReadQuadletCommandInterface ;
 
-typedef struct IOFireWireWriteQuadletCommandInterface_t
-{
-/*!	@class IOFireWireWriteQuadletCommandInterface
+/*!	@class
 	@abstract IOFireWireLib quadlet read command object.
 	@discussion Obsolete; do not use. Use IOFireWireWriteCommandInterface v2 or newer
 		and its function SetMaxPacket() */
-/* headerdoc parse workaround	
-class IOFireWireWriteQuadletCommandInterface: public IOFireWireCommandInterface {
-public:
-*/
+typedef struct IOFireWireWriteQuadletCommandInterface_t
+{
 	IUNKNOWN_C_GUTS ;
-	UInt32 version, revision ;
+
+	/*! Interface version. */
+	UInt32 version;
+
+	/*! Interface revision. */
+	UInt32 revision;
 	
 	IOFIREWIRELIBCOMMAND_C_GUTS ;
 
+	/*! IOFireWireLibWriteQuadletCommandRef */
 	void (*SetQuads)(IOFireWireLibWriteQuadletCommandRef self, UInt32 inQuads[], UInt32 inNumQuads) ;
 	
 } IOFireWireWriteQuadletCommandInterface ;
@@ -3537,21 +3501,22 @@ public:
 // ============================================================
 
 
-typedef struct IOFireWireConfigDirectoryInterface_t
-{
-/*!	@class IOFireWireConfigDirectoryInterface
+/*!	@class
 	@abstract IOFireWireLib device config ROM browsing interface
 	@discussion Represents an interface to the config ROM of a remote device. You can use the
 		methods of this interface to browser the ROM and obtain key values. You can also
 		create additional IOFireWireConfigDirectoryInterface's to represent subdirectories
 		within the ROM.*/
-/* headerdoc parse workaround	
-class IOFireWireConfigDirectoryInterface: public IUnknown {
-public:
-*/
+typedef struct IOFireWireConfigDirectoryInterface_t
+{
 
 	IUNKNOWN_C_GUTS ;
-	UInt32 version, revision ;
+
+	/*! Interface version. */
+	UInt32 version;
+
+	/*! Interface revision. */
+	UInt32 revision ;
 	
 	/*!	@function Update
 		@abstract Causes the ROM data to be updated through the specified byte offset. This
@@ -3560,27 +3525,47 @@ public:
 		@param inOffset Offset in bytes indicating length of ROM to be updated.
 		@result An IOReturn result code	*/
 	IOReturn (*Update)							( IOFireWireLibConfigDirectoryRef self, UInt32 inOffset) ;
+
+    /*! Description forthcoming */
     IOReturn (*GetKeyType)						( IOFireWireLibConfigDirectoryRef self, int inKey, IOConfigKeyType* outType);
+    /*! Description forthcoming */
     IOReturn (*GetKeyValue_UInt32)				( IOFireWireLibConfigDirectoryRef self, int inKey, UInt32* outValue, CFStringRef* outText);
+    /*! Description forthcoming */
     IOReturn (*GetKeyValue_Data)				( IOFireWireLibConfigDirectoryRef self, int inKey, CFDataRef* outValue, CFStringRef* outText);
+    /*! Description forthcoming */
     IOReturn (*GetKeyValue_ConfigDirectory)		( IOFireWireLibConfigDirectoryRef self, int inKey, IOFireWireLibConfigDirectoryRef* outValue, REFIID iid, CFStringRef* outText);
+    /*! Description forthcoming */
     IOReturn (*GetKeyOffset_FWAddress)			( IOFireWireLibConfigDirectoryRef self, int inKey, FWAddress* outValue, CFStringRef* text);
+    /*! Description forthcoming */
     IOReturn (*GetIndexType)					( IOFireWireLibConfigDirectoryRef self, int inIndex, IOConfigKeyType* 	type);
+    /*! Description forthcoming */
     IOReturn (*GetIndexKey)						( IOFireWireLibConfigDirectoryRef self, int inIndex, int * key);
+    /*! Description forthcoming */
     IOReturn (*GetIndexValue_UInt32)			( IOFireWireLibConfigDirectoryRef self, int inIndex, UInt32 * value);
+    /*! Description forthcoming */
     IOReturn (*GetIndexValue_Data)				( IOFireWireLibConfigDirectoryRef self, int inIndex, CFDataRef * value);
+    /*! Description forthcoming */
     IOReturn (*GetIndexValue_String)			( IOFireWireLibConfigDirectoryRef self, int inIndex, CFStringRef* outValue);
+    /*! Description forthcoming */
     IOReturn (*GetIndexValue_ConfigDirectory)	( IOFireWireLibConfigDirectoryRef self, int inIndex, IOFireWireLibConfigDirectoryRef* outValue, REFIID iid);
+    /*! Description forthcoming */
     IOReturn (*GetIndexOffset_FWAddress)		( IOFireWireLibConfigDirectoryRef self, int inIndex, FWAddress* outValue);
+    /*! Description forthcoming */
     IOReturn (*GetIndexOffset_UInt32)			( IOFireWireLibConfigDirectoryRef self, int inIndex, UInt32* outValue);
+    /*! Description forthcoming */
     IOReturn (*GetIndexEntry)					( IOFireWireLibConfigDirectoryRef self, int inIndex, UInt32* outValue);
+    /*! Description forthcoming */
     IOReturn (*GetSubdirectories)				( IOFireWireLibConfigDirectoryRef self, io_iterator_t* outIterator);
+    /*! Description forthcoming */
     IOReturn (*GetKeySubdirectories)			( IOFireWireLibConfigDirectoryRef self, int inKey, io_iterator_t* outIterator);
+    /*! Description forthcoming */
 	IOReturn (*GetType)							( IOFireWireLibConfigDirectoryRef self, int* outType) ;
+    /*! Description forthcoming */
 	IOReturn (*GetNumEntries)					( IOFireWireLibConfigDirectoryRef self, int* outNumEntries) ;
 
 } IOFireWireConfigDirectoryInterface ;
 
+/*! Description forthcoming */
 CF_INLINE IOVirtualRange
 IOVirtualRangeMake( IOVirtualAddress address, IOByteCount length )
 {
@@ -3597,22 +3582,23 @@ IOVirtualRangeMake( IOVirtualAddress address, IOByteCount length )
 // ============================================================
 
 
-typedef struct IOFireWireLibVectorCommandInterface_t
-{
-/*!	@class IOFireWireVectorCommandInterface
+/*!	@class
 	@abstract IOFireWireLib command object for grouping commands execution.
 	@discussion Read and Write commands can be attached in order to the vector command. When 
 		the vector command is submitted all the commands are sent to the kernel for execution.
 		When all the commands in a vector command are complete the vector command's completion is called.
 		The advantage over submitting and completeing each command simultaneously is that only one kernel transition
 		will be used for submission and one for completion, regardless of the number of commands in the vector.*/
-/* headerdoc parse workaround	
-class IOFireWireVectorCommandInterface: public IUnknown {
-public:
-*/
+typedef struct IOFireWireLibVectorCommandInterface_t
+{
 
 	IUNKNOWN_C_GUTS ;
-	UInt32 version, revision ;
+
+	/*! Interface version. */
+	UInt32 version;
+
+	/*! Interface revision. */
+	UInt32 revision;
 	
 	/*!	@function Submit
 		@abstract Submit this command object to FireWire for execution.
@@ -3661,7 +3647,7 @@ public:
 		
 	void *						(*GetRefCon)(IOFireWireLibVectorCommandRef self);
 
-	/*!	@function SetRefCon
+	/*!	@function SetFlags
 		@abstract Set flags governing this command's execution.
 		@param self A reference to the vector command object
 		@param inFlags A UInt32 with bits set corresponding to the flags that should be set
@@ -3748,8 +3734,7 @@ public:
 			this index will be moved to their previous sequential index.
 		@discussion Returns kIOReturnBadArgument if the index is out of bounds.
 		@param self A reference to the vector command object
-		@param command The command in question
-		@param outIndex Will be set to the index of the specified command.
+		@param index Will be set to the index of the specified command.
 	*/
 		
 	void					(*RemoveCommandAtIndex)(IOFireWireLibVectorCommandRef self, UInt32 index);
@@ -3776,17 +3761,18 @@ public:
 // IOFireWireLibPHYPacketListenerInterface Interface
 // ============================================================
 
-typedef struct IOFireWireLibPHYPacketListenerInterface_t
-{
-/*!	@class IOFireWireLibPHYPacketListenerInterface (IOFireWireLib)
+/*!	@class
 	@discussion Represents and provides management functions for a phy packet listener object.
 */
-/* headerdoc parse workaround	
-class IOFireWireLibPHYPacketListenerInterface: public IUnknown {
-public:
-*/
+typedef struct IOFireWireLibPHYPacketListenerInterface_t
+{
 	IUNKNOWN_C_GUTS ;
-	UInt16 version, revision ;
+
+	/*! Interface version. */
+	UInt16 version;
+
+	/*! Interface revision. */
+	UInt16 revision;
 
 	/*!	@function SetListenerCallback
 		@abstract Set the callback that should be called to handle incoming phy packets

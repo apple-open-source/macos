@@ -391,7 +391,7 @@ darwin*)	LIBS="-lobjc $LIBS"
 		    #endif
 		    ],
 		    [
-		    test "x$target_cpu" = xppc && ac_cv_header_ucontext_h=no
+		    test "x$target_cpu" = xpowerpc && ac_cv_header_ucontext_h=no
 		    ],
 		    [
 		    AC_DEFINE(BROKEN_SETREUID, 1)
@@ -501,6 +501,7 @@ esac
 AC_CHECK_LIB(crypt, crypt)
 AC_CHECK_LIB(dl, dlopen)	# Dynamic linking for SunOS/Solaris and SYSV
 AC_CHECK_LIB(dld, shl_load)	# Dynamic linking for HP-UX
+AC_CHECK_LIB(rt, clock_gettime)	# GNU/Linux
 
 case "$target_cpu" in
 alpha*)		case "$target_os"::"$GCC" in
@@ -563,7 +564,7 @@ AC_CHECK_FUNCS(ftello)
 # http://sources.redhat.com/ml/libc-hacker/2005-08/msg00008.html
 # Debian GNU/Linux Etch's libc6.1 2.3.6.ds1-13etch5 has this problem.
 # Debian GNU/Linux Lenny's libc6.1 2.7-10 has no problem.
-AC_CACHE_CHECK(for broken erfc of glibc-2.3.6 on IA64, rb_broken_glibc_ia64_erfc,
+AC_CACHE_CHECK(for broken erfc of glibc-2.3.6 on IA64, rb_cv_broken_glibc_ia64_erfc,
   [AC_TRY_RUN([
 #include <math.h>
 int
@@ -573,10 +574,10 @@ main()
    return 0;
 }
 ],
-	rb_broken_glibc_ia64_erfc=no,
-	rb_broken_glibc_ia64_erfc=yes,
-	rb_broken_glibc_ia64_erfc=no)])
-case $rb_broken_glibc_ia64_erfc in
+	rb_cv_broken_glibc_ia64_erfc=no,
+	rb_cv_broken_glibc_ia64_erfc=yes,
+	rb_cv_broken_glibc_ia64_erfc=no)])
+case $rb_cv_broken_glibc_ia64_erfc in
   yes) ac_cv_func_erf=no;;
 esac
 

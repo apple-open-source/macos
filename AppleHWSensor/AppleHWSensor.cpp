@@ -586,6 +586,8 @@ void IOHWSensor::setPollingPeriodNS(OSNumber *val)
 void IOHWSensor::setTimeout()
 {
 	AbsoluteTime interval, end;
+	
+	if (!fCalloutEntry) return;		// We've been stop()ped so nothing to do
 
 	AbsoluteTime_to_scalar( &interval ) = 0;
 	AbsoluteTime_to_scalar( &end ) = 0;

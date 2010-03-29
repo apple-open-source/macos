@@ -48,7 +48,7 @@ int main(int argc, const char *argv[])
 		}
     }
 	
-	if( ( [args count] > 2 ) && (!busProbe && !showHelp) )
+	if ( ( [args count] > 2 ) && (!busProbe && !showHelp) )
 	{
 		showHelp = true;
 	}

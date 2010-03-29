@@ -331,7 +331,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOATAFamily;
-				MODULE_VERSION = 2.0.0;
+				MODULE_VERSION = 2.5.1;
 				OTHER_REZFLAGS = "";
 				PER_ARCH_CFLAGS_ppc = "-mno-string";
 				PRODUCT_NAME = IOATAFamily;

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2009 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2010 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -242,8 +242,8 @@ enum
 /*!
 * @enum IOAudioStreamDirection
  * @abstract Represents the direction of an IOAudioStream
- * @constant kAudioOutput Output buffer
- * @constant kAudioInput Input buffer
+ * @constant kIOAudioStreamDirectionOutput Output buffer
+ * @constant kIOAudioStreamDirectionInput Input buffer
  */
 
 typedef enum _IOAudioStreamDirection {
@@ -464,7 +464,9 @@ enum {
 	kIOAudioDeviceTransportTypeOther				= 'othr',
 	kIOAudioDeviceTransportTypeBluetooth			= 'blue',
 	kIOAudioDeviceTransportTypeVirtual				= 'virt',
-	kIOAudioDeviceTransportTypeDisplayPort			= 'dprt'
+	kIOAudioDeviceTransportTypeDisplayPort			= 'dprt',
+	kIOAudioDeviceTransportTypeHdmi					= 'hdmi'
+
 };
 
 // types that go nowhere
@@ -561,6 +563,7 @@ enum {
 };
 
 //	Channel spatial position types
+
 
 #define	kIOAudioChannelLabel_Discrete_field_ba		16
 enum {

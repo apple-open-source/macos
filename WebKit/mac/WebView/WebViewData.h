@@ -100,6 +100,7 @@ extern int pluginDatabaseClientCount;
     BOOL hoverFeedbackSuspended;
     BOOL usesPageCache;
     BOOL catchesDelegateExceptions;
+    BOOL cssAnimationsSuspended;
 
     NSColor *backgroundColor;
 
@@ -138,7 +139,7 @@ extern int pluginDatabaseClientCount;
     // Number of WebHTMLViews using accelerated compositing. Used to implement _isUsingAcceleratedCompositing.
     int acceleratedFramesCount;
     // Run loop observer used to implement the compositing equivalent of -viewWillDraw
-    CFRunLoopObserverRef viewUpdateRunLoopObserver;
+    CFRunLoopObserverRef layerSyncRunLoopObserver;
 #endif
 
     NSPasteboard *insertionPasteboard;

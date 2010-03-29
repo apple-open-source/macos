@@ -427,8 +427,6 @@ void AppleIntelPIIXPATA::free( void )
 		_workLoop->release();
 	}
 	
-    // What about _workloop, _cmdGate, and _timer in the superclass?
-
     super::free();
 }
 
@@ -1318,12 +1316,19 @@ IOReturn AppleIntelPIIXPATA::createChannelCommands( void )
     IOByteCount	bytesRemaining	= _currentCommand->getByteCount() ;
     IOByteCount	xfrPosition		= _currentCommand->getPosition() ;
     UInt64		transferSize	= xfrPosition; 
-
+	
+	// Clients should not be sending larger than 1MB transactions, since that's all
+	// we have PRD table entries for...
+	if ( bytesRemaining > kMaxATAXfer )
+	{
+		return kIOReturnBadArgument;
+	}
+	
     // There's a unique problem with pci-style controllers, in that each
     // dma transaction is not allowed to cross a 64K boundary. This leaves
     // us with the yucky task of picking apart any descriptor segments that
     // cross such a boundary ourselves.  
-
+	
 //    while ( _DMACursor->getPhysicalSegments(
 //                           /* descriptor */ descriptor,
 //                           /* position   */ xfrPosition,

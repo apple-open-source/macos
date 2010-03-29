@@ -54,6 +54,7 @@ AEP_Patches   += DVG-3874266+4862555_data_pig_fix.patch
 AEP_Patches   += DVG-5770109_CVE-2007-5135_off_by_on_in_SSL_get_shared_ciphers.patch
 AEP_Patches   += PR-6427442_no_O3.patch
 AEP_Patches   += PR-6505782_CVE-2008-5077.patch
+AEP_Patches   += KCM-7386533_CVE-2009-3555.patch
 
 ifeq ($(suffix $(AEP_Filename)),.bz2)
 AEP_ExtractOption = j

@@ -52,7 +52,7 @@ p.roffit {
 <p class="level0">You should not free the memory returned by this function unless it is explicitly mentioned below. <a name="AVAILABLE"></a><h2 class="nroffsh">AVAILABLE INFORMATION</h2>
 <p class="level0">The following information can be extracted: 
 <p class="level0"><a name="CURLINFOEFFECTIVEURL"></a><span class="nroffip">CURLINFO_EFFECTIVE_URL</span> 
-<p class="level1">Pass a pointer to a 'char *' to receive the last used effective URL. 
+<p class="level1">Pass a pointer to a char pointer to receive the last used effective URL. 
 <p class="level0"><a name="CURLINFORESPONSECODE"></a><span class="nroffip">CURLINFO_RESPONSE_CODE</span> 
 <p class="level1">Pass a pointer to a long to receive the last received HTTP or FTP code. This option was known as CURLINFO_HTTP_CODE in libcurl 7.10.7 and earlier. This will be zero if no server response code has been received. Note that a proxy's CONNECT response should be read with <a class="emphasis" href="#CURLINFOHTTPCONNECTCODE">CURLINFO_HTTP_CONNECTCODE</a> and not this. 
 <p class="level0"><a name="CURLINFOHTTPCONNECTCODE"></a><span class="nroffip">CURLINFO_HTTP_CONNECTCODE</span> 
@@ -98,15 +98,15 @@ p.roffit {
 <p class="level0"><a name="CURLINFOCONTENTLENGTHUPLOAD"></a><span class="nroffip">CURLINFO_CONTENT_LENGTH_UPLOAD</span> 
 <p class="level1">Pass a pointer to a double to receive the specified size of the upload.  Since 7.19.4, this returns -1 if the size isn't known. 
 <p class="level0"><a name="CURLINFOCONTENTTYPE"></a><span class="nroffip">CURLINFO_CONTENT_TYPE</span> 
-<p class="level1">Pass a pointer to a 'char *' to receive the content-type of the downloaded object. This is the value read from the Content-Type: field. If you get NULL, it means that the server didn't send a valid Content-Type header or that the protocol used doesn't support this. 
+<p class="level1">Pass a pointer to a char pointer to receive the content-type of the downloaded object. This is the value read from the Content-Type: field. If you get NULL, it means that the server didn't send a valid Content-Type header or that the protocol used doesn't support this. 
 <p class="level0"><a name="CURLINFOPRIVATE"></a><span class="nroffip">CURLINFO_PRIVATE</span> 
-<p class="level1">Pass a pointer to a 'char *' to receive the pointer to the private data associated with the curl handle (set with the CURLOPT_PRIVATE option to <a class="emphasis" href="./curl_easy_setopt.html">curl_easy_setopt(3)</a>). Please note that for internal reasons, the value is returned as a 'char *', although effectively being a 'void *'. (Added in 7.10.3) 
+<p class="level1">Pass a pointer to a char pointer to receive the pointer to the private data associated with the curl handle (set with the CURLOPT_PRIVATE option to <a class="emphasis" href="./curl_easy_setopt.html">curl_easy_setopt(3)</a>). Please note that for internal reasons, the value is returned as a char pointer, although effectively being a 'void *'. (Added in 7.10.3) 
 <p class="level0"><a name="CURLINFOHTTPAUTHAVAIL"></a><span class="nroffip">CURLINFO_HTTPAUTH_AVAIL</span> 
 <p class="level1">Pass a pointer to a long to receive a bitmask indicating the authentication method(s) available. The meaning of the bits is explained in the CURLOPT_HTTPAUTH option for <a class="emphasis" href="./curl_easy_setopt.html">curl_easy_setopt(3)</a>.  (Added in 7.10.8) 
 <p class="level0"><a name="CURLINFOPROXYAUTHAVAIL"></a><span class="nroffip">CURLINFO_PROXYAUTH_AVAIL</span> 
 <p class="level1">Pass a pointer to a long to receive a bitmask indicating the authentication method(s) available for your proxy authentication.  (Added in 7.10.8) 
 <p class="level0"><a name="CURLINFOOSERRNO"></a><span class="nroffip">CURLINFO_OS_ERRNO</span> 
-<p class="level1">Pass a pointer to a long to receive the errno variable from a connect failure. (Added in 7.12.2) 
+<p class="level1">Pass a pointer to a long to receive the errno variable from a connect failure. Note that the value is only set on failure, it is not reset upon a successfull operation.  (Added in 7.12.2) 
 <p class="level0"><a name="CURLINFONUMCONNECTS"></a><span class="nroffip">CURLINFO_NUM_CONNECTS</span> 
 <p class="level1">Pass a pointer to a long to receive how many new connections libcurl had to create to achieve the previous transfer (only the successful connects are counted).  Combined with <a class="emphasis" href="#CURLINFOREDIRECTCOUNT">CURLINFO_REDIRECT_COUNT</a> you are able to know how many times libcurl successfully reused existing connection(s) or not.  See the Connection Options of <a class="emphasis" href="./curl_easy_setopt.html">curl_easy_setopt(3)</a> to see how libcurl tries to make persistent connections to save time.  (Added in 7.12.3) 
 <p class="level0"><a name="CURLINFOPRIMARYIP"></a><span class="nroffip">CURLINFO_PRIMARY_IP</span> 
@@ -116,7 +116,7 @@ p.roffit {
 <p class="level0"><a name="CURLINFOLASTSOCKET"></a><span class="nroffip">CURLINFO_LASTSOCKET</span> 
 <p class="level1">Pass a pointer to a long to receive the last socket used by this curl session. If the socket is no longer valid, -1 is returned. When you finish working with the socket, you must call curl_easy_cleanup() as usual and let libcurl close the socket and cleanup other resources associated with the handle. This is typically used in combination with <span Class="emphasis">CURLOPT_CONNECT_ONLY</span>. (Added in 7.15.2) 
 <p class="level0"><a name="CURLINFOFTPENTRYPATH"></a><span class="nroffip">CURLINFO_FTP_ENTRY_PATH</span> 
-<p class="level1">Pass a pointer to a 'char *' to receive a pointer to a string holding the path of the entry path. That is the initial path libcurl ended up in when logging on to the remote FTP server. This stores a NULL as pointer if something is wrong. (Added in 7.15.4) 
+<p class="level1">Pass a pointer to a char pointer to receive a pointer to a string holding the path of the entry path. That is the initial path libcurl ended up in when logging on to the remote FTP server. This stores a NULL as pointer if something is wrong. (Added in 7.15.4) 
 <p class="level0"><a name="CURLINFOCERTINFO"></a><span class="nroffip">CURLINFO_CERTINFO</span> 
 <p class="level1">Pass a pointer to a 'struct curl_certinfo *' and you'll get it set to point to struct that holds a number of linked lists with info about the certificate chain, assuming you had CURLOPT_CERTINFO enabled when the previous request was done. The struct reports how many certs it found and then you can extract info for each of those certs by following the linked lists. The info chain is provided in a series of data in the format "name:content" where the content is for the specific named data. See also the certinfo.c example. NOTE: this option is only available in libcurl built with OpenSSL support. (Added in 7.19.1) 
 <p class="level0"><a name="CURLINFOCONDITIONUNMET"></a><span class="nroffip">CURLINFO_CONDITION_UNMET</span> 

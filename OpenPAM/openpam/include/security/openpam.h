@@ -45,6 +45,8 @@
 
 #include <security/openpam_attr.h>
 
+#include <Availability.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -217,11 +219,12 @@ int openpam_nullconv(int _n,
 
 /*
  * Misc conversation function
+ * This function is deprecated.  Please use openpam_ttyconv instead.
  */
 int misc_conv(int num_msg,
 	const struct pam_message **msgm,
 	struct pam_response **response,
-	void *appdata_ptr);
+	void *appdata_ptr) __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_2,__MAC_10_6,__IPHONE_NA,__IPHONE_NA);
 
 
 /*

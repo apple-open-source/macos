@@ -1,0 +1,19 @@
+X-MimeOLE: Produced By Microsoft Exchange V6.5
+Content-class: urn:content-classes:message
+MIME-Version: 1.0
+Content-Type: text/plain;
+	charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Subject: Mail Delivery Problem
+Date: Fri, 17 Jul 2009 16:05:21 -0700
+Message-ID: <200907171908.7d834a6104831b4@omr-d25.mx.aol.com>
+X-MS-Has-Attach: 
+X-MS-TNEF-Correlator: 
+From: "Mail Delivery Subsystem" <MAILER-DAEMON@AOL.com>
+To: <xxx-bounces@lists.xxx.com>
+
+
+Your mail to the following recipients could not be delivered because =
+they are not accepting mail from xxx@lists.xxx.com:
+	screenname
+

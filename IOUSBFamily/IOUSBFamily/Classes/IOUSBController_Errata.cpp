@@ -2,7 +2,7 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1998-2003 Apple Computer, Inc.  All Rights Reserved.
+ * Copyright © 1998-20010 Apple Inc.  All rights reserved.
  * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
@@ -23,7 +23,7 @@
  */
 
 #include <IOKit/system.h>
-
+#include <IOKit/IOPlatformExpert.h>
 
 #include <IOKit/usb/IOUSBController.h>
 #include <IOKit/usb/IOUSBLog.h>
@@ -97,16 +97,26 @@ static ErrataListEntry  errataList[] = {
 	{0x8086, 0x3a38, 0x00, 0xff, kErrataICH6PowerSequencing | kErrataUHCISupportsOvercurrent | kErrataNeedsOvercurrentDebounce | kErrataSupportsPortResumeEnable | kErrataUHCISupportsResumeDetectOnConnect },   // ICH10 UHCI #5
 	{0x8086, 0x3a39, 0x00, 0xff, kErrataICH6PowerSequencing | kErrataUHCISupportsOvercurrent | kErrataNeedsOvercurrentDebounce | kErrataSupportsPortResumeEnable | kErrataUHCISupportsResumeDetectOnConnect },   // ICH10 UHCI #6
 	{0x8086, 0x3a3a, 0x00, 0xff, kErrataICH6PowerSequencing | kErrataNeedsOvercurrentDebounce },			// ICH10 EHCI #1
-	{0x8086, 0x3a3c, 0x00, 0xff, kErrataICH6PowerSequencing | kErrataNeedsOvercurrentDebounce }				// ICH10 EHCI #2
-
+	{0x8086, 0x3a3c, 0x00, 0xff, kErrataICH6PowerSequencing | kErrataNeedsOvercurrentDebounce },			// ICH10 EHCI #2
+	
+	{0x8086, 0x3b36, 0x00, 0xff, kErrataDontUseCompanionController },   // PCH UHCI #1
+	{0x8086, 0x3b37, 0x00, 0xff, kErrataDontUseCompanionController },   // PCH UHCI #2
+	{0x8086, 0x3b38, 0x00, 0xff, kErrataDontUseCompanionController },   // PCH UHCI #3
+	{0x8086, 0x3b39, 0x00, 0xff, kErrataDontUseCompanionController },   // PCH UHCI #4
+	{0x8086, 0x3b3b, 0x00, 0xff, kErrataDontUseCompanionController },   // PCH UHCI #5
+	{0x8086, 0x3b3e, 0x00, 0xff, kErrataDontUseCompanionController },   // PCH UHCI #6
+	{0x8086, 0x3b3f, 0x00, 0xff, kErrataDontUseCompanionController },   // PCH UHCI #7
+	{0x8086, 0x3b34, 0x00, 0xff, kErrataDontUseCompanionController },	// PCH EHCI #1
+	{0x8086, 0x3b3c, 0x00, 0xff, kErrataDontUseCompanionController }	// PCH EHCI #2
+	
 };
 
 #define errataListLength (sizeof(errataList)/sizeof(ErrataListEntry))
 
 UInt32 IOUSBController::GetErrataBits(UInt16 vendorID, UInt16 deviceID, UInt16 revisionID)
 {
-    ErrataListEntry	*entryPtr;
-    UInt32		i, errata = 0;
+    ErrataListEntry		*entryPtr;
+    UInt32				i, errata = 0;
     
     for(i = 0, entryPtr = errataList; i < errataListLength; i++, entryPtr++)
     {
@@ -119,8 +129,10 @@ UInt32 IOUSBController::GetErrataBits(UInt16 vendorID, UInt16 deviceID, UInt16 r
             errata |= entryPtr->errata;
         }
     }
+	
 	//USBError(1, "Errata bits for controller 0x%x/0x%x(rev 0x%x) are 0x%x", vendorID, deviceID, revisionID, errata);
-    return(errata);
+
+    return errata;
 }       
 
 

@@ -3,7 +3,7 @@
   array.c -
 
   $Author: shyouhei $
-  $Date: 2008-07-01 15:14:29 +0900 (Tue, 01 Jul 2008) $
+  $Date: 2009-02-05 08:55:33 +0900 (Thu, 05 Feb 2009) $
   created at: Fri Aug  6 09:46:12 JST 1993
 
   Copyright (C) 1993-2003 Yukihiro Matsumoto
@@ -1405,7 +1405,7 @@ rb_ary_join(ary, sep)
 	  case T_STRING:
 	    break;
 	  case T_ARRAY:
-	    if (rb_inspecting_p(tmp)) {
+	    if (tmp == ary || rb_inspecting_p(tmp)) {
 		tmp = rb_str_new2("[...]");
 	    }
 	    else {

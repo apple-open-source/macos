@@ -155,7 +155,7 @@ void	com_apple_iokit_KLog::closeChild(com_apple_iokit_KLogClient *ptr)
     UInt8 i, idx;
     idx = 0;
 
-    if(mClientCount == 0)
+    if (mClientCount == 0)
     {
         IOLog( DEBUG_NAME "No clients available to close");
         return;
@@ -170,7 +170,7 @@ void	com_apple_iokit_KLog::closeChild(com_apple_iokit_KLogClient *ptr)
         
     for(i=0;i<mClientCount;i++)
     {        
-        if(mClientPtr[i] == ptr)
+        if (mClientPtr[i] == ptr)
         {
             mClientCount--;
             mClientPtr[i] = NULL;
@@ -196,7 +196,7 @@ IOReturn 	com_apple_iokit_KLog::newUserClient( task_t owningTask, void * securit
     IOReturn ioReturn = kIOReturnSuccess;
     com_apple_iokit_KLogClient *client = NULL;
 
-    if(mClientCount > MAXUSERS)
+    if (mClientCount > MAXUSERS)
     {
         IOLog( DEBUG_NAME "client already created, not deleted\n");
         return(kIOReturnError);
@@ -282,7 +282,7 @@ SInt8	com_apple_iokit_KLog::vLog( KLogLevel level, KLogTag tag, const char *form
 	UInt8		i;
 	UInt32		returnValue = 0;
 	struct timeval 			timeVal;
-    if(!format)
+    if (!format)
     {
         return 0;
     }
@@ -291,7 +291,7 @@ SInt8	com_apple_iokit_KLog::vLog( KLogLevel level, KLogTag tag, const char *form
 	IOLockLock(mLogLock);
 	
 	//if no clients....
-	if(mClientCount == 0)
+	if (mClientCount == 0)
 	{
 		returnValue = 0;
 		goto exit;
@@ -327,12 +327,12 @@ SInt8	com_apple_iokit_KLog::vLog( KLogLevel level, KLogTag tag, const char *form
 
     //Send buffered string to client and client Queue
     // if no errors have occured
-    if(!mErrFlag)
+    if (!mErrFlag)
     {   
         //Send out to the children
         for(i=0 ; i<=mClientCount ; i++)
         {
-            if(mClientPtr[i] != NULL)
+            if (mClientPtr[i] != NULL)
             {                            
                 mClientPtr[i]->AddEntry((void*)mMsgBuffer, (returnValue + DATAOFFSET + 1));
             }

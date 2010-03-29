@@ -117,6 +117,63 @@ else
 fi
 AC_MSG_RESULT($needemailpkg)
 
+# Check Japanese codecs.
+AC_MSG_CHECKING(Japanese codecs)
+changequote(,)
+cat > conftest.py <<EOF
+try:
+    unicode('OK', 'iso-2022-jp')
+except LookupError:
+    res = "not ok"
+else:
+    res = "ok"
+fp = open("conftest.out", "w")
+fp.write("%s\n" % res)
+fp.close()
+EOF
+changequote([, ])
+$PYTHON conftest.py
+needjacodecs=`cat conftest.out`
+rm -f conftest.out conftest.py
+
+# Does Python have Japanese codecs or do we need the pre-packaged version?
+AC_SUBST(JACODECSPKG)
+if test "$needjacodecs" = "ok"
+then
+    JACODECSPKG=""
+else
+    JACODECSPKG=JapaneseCodecs-1.4.11
+fi
+AC_MSG_RESULT($needjacodecs)
+
+# Check Korean codecs.
+AC_MSG_CHECKING(Korean codecs)
+changequote(,)
+cat > conftest.py <<EOF
+try:
+    unicode('OK', 'euc-kr')
+except LookupError:
+    res = "not ok"
+else:
+    res = "ok"
+fp = open("conftest.out", "w")
+fp.write("%s\n" % res)
+fp.close()
+EOF
+changequote([, ])
+$PYTHON conftest.py
+needkocodecs=`cat conftest.out`
+rm -f conftest.out conftest.py
+
+# Does Python have Korean codecs or do we need the pre-packaged version?
+AC_SUBST(KOCODECSPKG)
+if test "$needkocodecs" = "ok"
+then
+    KOCODECSPKG=""
+else
+    KOCODECSPKG=KoreanCodecs-2.0.5
+fi
+AC_MSG_RESULT($needkocodecs)
 
 # Make sure distutils is available.  Some Linux Python packages split
 # distutils into the "-devel" package, so they need both.
@@ -394,9 +451,11 @@ else:
     if mailmangid <> gid:
         problems.append("Directory must be owned by group " +
                         groupname + ": " + prefix)
+    if (mode & S_ISGID) <> S_ISGID:
+        problems.append("Set-gid bit must be set for directory: " + prefix)
     perms = S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH
     if (mode & perms) <> perms:
-        problems.append("Permissions should be at least 0775: " + prefix)
+        problems.append("Permissions should be at least 02775: " + prefix)
 if not problems:
     msg = "okay\n"
 else:

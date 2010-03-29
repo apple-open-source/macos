@@ -635,7 +635,7 @@ isakmp_info_recv_d(iph1, delete, msgid, encrypted)
                 del_ph1->parent_session &&
                 del_ph1->parent_session->is_client &&
                 del_ph1->parent_session->established) {
-                isakmp_ph1rekeyexpire(del_ph1);
+                isakmp_ph1rekeyexpire(del_ph1, FALSE);
             }
             
 			EVT_PUSH(del_ph1->local, del_ph1->remote,
@@ -658,7 +658,11 @@ isakmp_info_recv_d(iph1, delete, msgid, encrypted)
 						address = ((struct sockaddr_in *)(iph1->remote))->sin_addr.s_addr;
 					else
 						address = 0;
-					vpncontrol_notify_ike_failed(VPNCTL_NTYPE_PH1_DELETE, FROM_REMOTE, address, 0, NULL);
+					if (iph1->cert && IS_CERT_STATUS_ERROR(iph1->cert->status)) {
+						vpncontrol_notify_ike_failed(VPNCTL_NTYPE_PH1_DELETE_CERT_ERROR + iph1->cert->status, FROM_REMOTE, address, 0, NULL);
+					} else {
+						vpncontrol_notify_ike_failed(VPNCTL_NTYPE_PH1_DELETE, FROM_REMOTE, address, 0, NULL);
+					}
 				}
 #endif
 			isakmp_ph1expire(del_ph1);

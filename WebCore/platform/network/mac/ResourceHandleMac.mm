@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004, 2006 Apple Inc. All rights reserved.
+ * Copyright (C) 2004, 2006-2009 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -62,10 +62,6 @@ using namespace WebCore;
 
 @interface NSURLConnection (NSURLConnectionTigerPrivate)
 - (NSData *)_bufferedData;
-@end
-
-@interface NSURLResponse (Details)
-- (void)_setMIMEType:(NSString *)type;
 @end
 
 @interface NSURLRequest (Details)
@@ -567,6 +563,24 @@ void ResourceHandle::receivedCancellation(const AuthenticationChallenge& challen
     
     LOG(Network, "Handle %p delegate connection:%p willSendRequest:%@ redirectResponse:%p", m_handle, connection, [newRequest description], redirectResponse);
 
+    if (redirectResponse && [redirectResponse isKindOfClass:[NSHTTPURLResponse class]] && [(NSHTTPURLResponse *)redirectResponse statusCode] == 307) {
+        String originalMethod = m_handle->request().httpMethod();
+        if (!equalIgnoringCase(originalMethod, String([newRequest HTTPMethod]))) {
+            NSMutableURLRequest *mutableRequest = [newRequest mutableCopy];
+            [mutableRequest setHTTPMethod:originalMethod];
+    
+            FormData* body = m_handle->request().httpBody();
+            if (!equalIgnoringCase(originalMethod, "GET") && body && !body->isEmpty())
+                WebCore::setHTTPBody(mutableRequest, body);
+
+            String originalContentType = m_handle->request().httpContentType();
+            if (!originalContentType.isEmpty())
+                [mutableRequest setValue:originalContentType forHTTPHeaderField:@"Content-Type"];
+
+            newRequest = [mutableRequest autorelease];
+        }
+    }
+
     CallbackGuard guard;
     ResourceRequest request = newRequest;
     m_handle->willSendRequest(request, redirectResponse);
@@ -626,13 +640,13 @@ void ResourceHandle::receivedCancellation(const AuthenticationChallenge& challen
 {
     UNUSED_PARAM(connection);
 
-    LOG(Network, "Handle %p delegate connection:%p didReceiveResponse:%p (HTTP status %d, MIMEType '%s', reported MIMEType '%s')", m_handle, connection, r, [r respondsToSelector:@selector(statusCode)] ? [(id)r statusCode] : 0, [[r MIMEType] UTF8String], [[r _webcore_reportedMIMEType] UTF8String]);
+    LOG(Network, "Handle %p delegate connection:%p didReceiveResponse:%p (HTTP status %d, reported MIMEType '%s')", m_handle, connection, r, [r respondsToSelector:@selector(statusCode)] ? [(id)r statusCode] : 0, [[r MIMEType] UTF8String]);
 
     if (!m_handle || !m_handle->client())
         return;
     CallbackGuard guard;
 
-    swizzleMIMETypeMethodIfNecessary();
+    [r adjustMIMETypeIfNecessary];
 
     if ([m_handle->request().nsURLRequest() _propertyForKey:@"ForceHTMLMIMEType"])
         [r _setMIMEType:@"text/html"];

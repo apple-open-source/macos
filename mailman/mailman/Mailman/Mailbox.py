@@ -1,4 +1,4 @@
-# Copyright (C) 1998-2003 by the Free Software Foundation, Inc.
+# Copyright (C) 1998-2009 by the Free Software Foundation, Inc.
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -22,10 +22,10 @@ import mailbox
 
 import email
 from email.Parser import Parser
-from email.Generator import Generator
 from email.Errors import MessageParseError
 
 from Mailman import mm_cfg
+from Mailman.Message import Generator
 from Mailman.Message import Message
 
 try:

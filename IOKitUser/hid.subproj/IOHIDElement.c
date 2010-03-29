@@ -77,6 +77,7 @@ static const CFRuntimeClass __IOHIDElementClass = {
     __IOHIDElementEqual,    // equal
     __IOHIDElementHash,     // hash
     NULL,                   // copyFormattingDesc
+    NULL,
     NULL
 };
 

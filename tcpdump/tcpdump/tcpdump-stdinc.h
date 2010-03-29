@@ -143,6 +143,7 @@ typedef char* caddr_t;
   #define FOPEN_WRITE_BIN  FOPEN_WRITE_TXT
 #endif
 
+#if !defined(__APPLE__)
 #if defined(__GNUC__) && defined(__i386__) && !defined(__ntohl)
   #undef ntohl
   #undef ntohs
@@ -173,6 +174,7 @@ typedef char* caddr_t;
     return (x);
   }
 #endif
+#endif /* __APPLE__ */
 
 #ifndef INET_ADDRSTRLEN
 #define INET_ADDRSTRLEN 16

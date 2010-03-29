@@ -26,7 +26,7 @@
 
 #include <IOKit/graphics/IOAccelSurfaceConnect.h>
 
-#define IOACCEL_SURFACE_CONTROL_REV	8
+#define IOACCEL_SURFACE_CONTROL_REV     8
 
 typedef struct IOAccelConnectStruct *IOAccelConnect;
 
@@ -44,11 +44,11 @@ IOReturn IOAccelDestroySurface( IOAccelConnect connect );
 /* Change the visible region of the accelerated surface */
 IOReturn IOAccelSetSurfaceFramebufferShapeWithBacking( IOAccelConnect connect, IOAccelDeviceRegion *rgn,
                                             eIOAccelSurfaceShapeBits options, UInt32 framebufferIndex,
-					    IOVirtualAddress backing, UInt32 rowbytes );
+                                            IOVirtualAddress backing, UInt32 rowbytes );
 
 IOReturn IOAccelSetSurfaceFramebufferShapeWithBackingAndLength( IOAccelConnect connect, IOAccelDeviceRegion *rgn,
                                             eIOAccelSurfaceShapeBits options, UInt32 framebufferIndex,
-					    IOVirtualAddress backing, UInt32 rowbytes, UInt32 backingLength );
+                                            IOVirtualAddress backing, UInt32 rowbytes, UInt32 backingLength );
 
 IOReturn IOAccelSetSurfaceFramebufferShape( IOAccelConnect connect, IOAccelDeviceRegion *rgn,
                                             eIOAccelSurfaceShapeBits options, UInt32 framebufferIndex );
@@ -59,10 +59,10 @@ IOReturn IOAccelWaitForSurface( IOAccelConnect connect );
 /* Get the back buffer of the surface.  Supplies client virtual address. */
 
 IOReturn IOAccelWriteLockSurfaceWithOptions( IOAccelConnect connect, IOOptionBits options,
-					     IOAccelSurfaceInformation * info, UInt32 infoSize );
+                                             IOAccelSurfaceInformation * info, UInt32 infoSize );
 IOReturn IOAccelWriteUnlockSurfaceWithOptions( IOAccelConnect connect, IOOptionBits options );
 IOReturn IOAccelReadLockSurfaceWithOptions( IOAccelConnect connect, IOOptionBits options,
-					    IOAccelSurfaceInformation * info, UInt32 infoSize );
+                                            IOAccelSurfaceInformation * info, UInt32 infoSize );
 IOReturn IOAccelReadUnlockSurfaceWithOptions( IOAccelConnect connect, IOOptionBits options );
 
 IOReturn IOAccelQueryLockSurface( IOAccelConnect connect );

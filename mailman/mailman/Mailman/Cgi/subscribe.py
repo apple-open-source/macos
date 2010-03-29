@@ -1,4 +1,4 @@
-# Copyright (C) 1998-2003 by the Free Software Foundation, Inc.
+# Copyright (C) 1998-2009 by the Free Software Foundation, Inc.
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -12,7 +12,8 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
-# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
+# USA.
 
 """Process subscription or roster requests from listinfo form."""
 
@@ -204,8 +205,8 @@ your subscription.""")
         if privacy_results:
             results = privacy_results
         else:
-            # We need to interpolate into x
-            x = _(x)
+            # We need to interpolate into x.__str__()
+            x = _(str(x))
             results = _("""\
 Your subscription request was deferred because %(x)s.  Your request has been
 forwarded to the list moderator.  You will receive email informing you of the

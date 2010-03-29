@@ -5,7 +5,7 @@
  *                | (__| |_| |  _ <| |___
  *                 \___|\___/|_| \_\_____|
  *
- * Copyright (C) 1998 - 2008, Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) 1998 - 2009, Daniel Stenberg, <daniel@haxx.se>, et al.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
@@ -18,7 +18,7 @@
  * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
  * KIND, either express or implied.
  *
- * $Id: ldap.c,v 1.95 2008-12-19 21:14:52 bagder Exp $
+ * $Id: ldap.c,v 1.101 2009-11-02 20:04:18 yangtse Exp $
  ***************************************************************************/
 
 #include "setup.h"
@@ -30,9 +30,6 @@
 #include <stdarg.h>
 #include <stdlib.h>
 #include <ctype.h>
-#ifdef NEED_MALLOC_H
-#include <malloc.h>
-#endif
 #include <errno.h>
 
 #ifdef CURL_LDAP_HYBRID         /* If W$ definitions are needed. */
@@ -46,7 +43,7 @@
 #ifdef CURL_LDAP_WIN            /* Use W$ LDAP implementation. */
 # include <winldap.h>
 # ifndef LDAP_VENDOR_NAME
-#  error Your Platform SDK is NOT sufficient for LDAP support! Update your Platform SDK, or disable LDAP LDAP support!
+#  error Your Platform SDK is NOT sufficient for LDAP support! Update your Platform SDK, or disable LDAP support!
 # else
 #  include <winber.h>
 # endif
@@ -69,11 +66,12 @@
 #include <curl/curl.h>
 #include "sendf.h"
 #include "escape.h"
+#include "progress.h"
 #include "transfer.h"
 #include "strequal.h"
 #include "strtok.h"
 #include "curl_ldap.h"
-#include "memory.h"
+#include "curl_memory.h"
 #include "curl_base64.h"
 #include "rawstr.h"
 
@@ -182,6 +180,7 @@ static CURLcode Curl_ldap(struct connectdata *conn, bool *done)
   int ldap_ssl = 0;
   char *val_b64;
   size_t val_b64_sz;
+  curl_off_t dlsize=0;
 #ifdef LDAP_OPT_NETWORK_TIMEOUT
   struct timeval ldap_timeout = {10,0}; /* 10 sec connection/search timeout */
 #endif
@@ -393,6 +392,8 @@ static CURLcode Curl_ldap(struct connectdata *conn, bool *done)
     Curl_client_write(conn, CLIENTWRITE_BODY, (char *)dn, 0);
     Curl_client_write(conn, CLIENTWRITE_BODY, (char *)"\n", 1);
 
+    dlsize += strlen(dn)+5;
+
     for (attribute = ldap_first_attribute(server, entryIterator, &ber);
          attribute;
          attribute = ldap_next_attribute(server, entryIterator, ber))
@@ -406,30 +407,38 @@ static CURLcode Curl_ldap(struct connectdata *conn, bool *done)
           Curl_client_write(conn, CLIENTWRITE_BODY, (char *)"\t", 1);
           Curl_client_write(conn, CLIENTWRITE_BODY, (char *) attribute, 0);
           Curl_client_write(conn, CLIENTWRITE_BODY, (char *)": ", 2);
+          dlsize += strlen(attribute)+3;
+
           if((strlen(attribute) > 7) &&
               (strcmp(";binary",
                       (char *)attribute +
                       (strlen((char *)attribute) - 7)) == 0)) {
             /* Binary attribute, encode to base64. */
-            val_b64_sz = Curl_base64_encode(conn->data,
+            val_b64_sz = Curl_base64_encode(data,
                                             vals[i]->bv_val,
                                             vals[i]->bv_len,
                                             &val_b64);
             if(val_b64_sz > 0) {
               Curl_client_write(conn, CLIENTWRITE_BODY, val_b64, val_b64_sz);
               free(val_b64);
+              dlsize += val_b64_sz;
             }
-          } else
+          }
+          else {
             Curl_client_write(conn, CLIENTWRITE_BODY, vals[i]->bv_val,
                               vals[i]->bv_len);
+            dlsize += vals[i]->bv_len;
+          }
           Curl_client_write(conn, CLIENTWRITE_BODY, (char *)"\n", 0);
+          dlsize++;
         }
 
         /* Free memory used to store values */
         ldap_value_free_len(vals);
       }
       Curl_client_write(conn, CLIENTWRITE_BODY, (char *)"\n", 1);
-
+      dlsize++;
+      Curl_pgrsSetDownloadCounter(data, dlsize);
       ldap_memfree(attribute);
     }
     ldap_memfree(dn);
@@ -570,7 +579,7 @@ static bool unescape_elements (void *data, LDAPURLDesc *ludp)
  *   ldap://<hostname>:<port>/?<attributes>?<scope>?<filter>
  * yields ludp->lud_dn = "".
  *
- * Ref. http://developer.netscape.com/docs/manuals/dirsdk/csdk30/url.htm#2831915
+ * Defined in RFC4516 section 2.
  */
 static int _ldap_url_parse2 (const struct connectdata *conn, LDAPURLDesc *ludp)
 {

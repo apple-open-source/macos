@@ -1,3 +1,209 @@
+2009-10-30  Mark Rowe  <mrowe@apple.com>
+
+        Merge r50354.
+
+    2009-10-29  Jon Honeycutt  <jhoneycutt@apple.com>
+
+        MSAA: Accessibility of headings is not correct
+
+        https://bugs.webkit.org/show_bug.cgi?id=30937
+
+        Reviewed by Alice Liu.
+
+        * AccessibleBase.cpp:
+        (AccessibleBase::get_accDescription):
+        Call the object's descriptionForMSAA(). Moved the comment to the
+        WebCore file.
+        (AccessibleBase::get_accRole):
+        If the object has a string role, return that. Otherwise, return the
+        integer role.
+
+        * AccessibleBase.h:
+        Removed description(), as this was moved to WebCore.
+
+2009-10-30  Mark Rowe  <mrowe@apple.com>
+
+        Merge r50353.
+
+    2009-10-29  Jon Honeycutt  <jhoneycutt@apple.com>
+
+        MSAA: Accessibility of links is wrong
+
+        https://bugs.webkit.org/show_bug.cgi?id=30928
+
+        Reviewed by Darin Adler.
+
+        * AccessibleBase.cpp:
+        (AccessibleBase::get_accState):
+        Check whether the element is linked, instead of whether the node is an
+        anchor, so the child "linkable" elements of anchor elements will also
+        be "linked".
+        (AccessibleBase::name):
+        Return the name for MSAA.
+        (AccessibleBase::value):
+        Return the string value for MSAA.
+
+2009-10-23  Mark Rowe  <mrowe@apple.com>
+
+        Merge r50019.
+
+    Build fix.  Include config.h before including other files.
+
+        * AccessibleImage.cpp:
+
+2009-10-23  Mark Rowe  <mrowe@apple.com>
+
+        Merge r50004.
+
+    2009-10-23  Jon Honeycutt  <jhoneycutt@apple.com>
+
+        MSAA: Name for image elements should use alt attribute text
+
+        https://bugs.webkit.org/show_bug.cgi?id=30727
+        <rdar://problem/7328291>
+
+        Reviewed by Alice Liu.
+
+        * AccessibleBase.cpp:
+        (AccessibleBase::createInstance):
+        If the AccessibilityObject is an image, return an AccessibleImage.
+
+        * AccessibleImage.cpp: Added.
+        (AccessibleImage::AccessibleImage):
+        Call the base constructor.
+        (AccessibleImage::name):
+        If the object is not an AccessibilityRenderObject, return the base's
+        name(). Look first for an ARIA "labeled-by" attribute, then look for an
+        alternate text attribute. Fall back to the base's name().
+
+        * AccessibleImage.h: Added.
+        (AccessibleImage::~AccessibleImage):
+
+        * WebKit.vcproj/WebKit.vcproj:
+        Add AccessibleImage to the project.
+
+2009-10-13  Mark Rowe  <mrowe@apple.com>
+
+        Merge r48770.
+
+    2009-09-25  Darin Adler  <darin@apple.com>
+
+        Reviewed by Steve Falkenburg.
+
+        Speed up access to history items by caching date computation.
+
+        * History/WebHistory.mm:
+        (getDayBoundaries): Refactored from timeIntervalForBeginningOfDay.
+        Returns the beginning of the day that the passed time is within and
+        the beginning of the next day.
+        (beginningOfDay): Added. Uses getDayBoundaries so it can be fast for
+        multiple dates within the same day, which is the common case.
+        (dateKey): Added. Calls beginningOfDay and converts to an integer.
+        (WebHistory::findKey): Changed to call dateKey instead of
+        timeIntervalForBeginningOfDay.
+
+2009-10-13  Mark Rowe  <mrowe@apple.com>
+
+        Merge r48324.
+
+    2009-09-11  Steve Falkenburg  <sfalken@apple.com>
+
+        Reviewed by Dan Bernstein.
+
+        Properly propagate preference from WebPreferences to WebCore::Settings.
+        https://bugs.webkit.org/show_bug.cgi?id=29192
+
+        * WebView.cpp:
+        (WebView::initWithFrame): Apply setting when creating a new WebView.
+        (WebView::notifyPreferencesChanged): Apply setting when preferences change.
+
+2009-10-13  Mark Rowe  <mrowe@apple.com>
+
+        Merge r48308.
+
+    2009-09-11  Steve Falkenburg  <sfalken@apple.com>
+
+        Reviewed by Darin Adler.
+
+        Allow WebKit clients to opt out of high resolution timers on Windows.
+        https://bugs.webkit.org/show_bug.cgi?id=29192
+
+        * Interfaces/IWebPreferencesPrivate.idl: Added getter/setter.
+        Put this just after last 4.0.3 method for future merging.
+        * Interfaces/WebKit.idl: Touched to force a rebuild.
+        * WebPreferenceKeysPrivate.h: Added prefs key for high res timers.
+        * WebPreferences.cpp:
+        (WebPreferences::initializeDefaultSettings): Initialize high res timers to enabled.
+        (WebPreferences::setShouldUseHighResolutionTimers): Added.
+        (WebPreferences::shouldUseHighResolutionTimers): Added.
+        * WebPreferences.h: Added getter/setter.
+
+2009-10-13  Mark Rowe  <mrowe@apple.com>
+
+        Merge r49026.
+
+    2009-10-02  Steve Falkenburg  <sfalken@apple.com>
+
+        Reviewed by Mark Rowe.
+
+        <https://bugs.webkit.org/show_bug.cgi?id=29989>
+        Safari version number shouldn't be exposed in WebKit code
+
+        For a WebKit version of 532.3.4:
+        Product version is: 5.32.3.4 (was 4.0.3.0)
+        File version is: 5.32.3.4 (was 4.532.3.4)
+
+        * WebKit.vcproj/WebKit.rc:
+
+2009-10-12  Mark Rowe  <mrowe@apple.com>
+
+        Merge r48946.
+
+    2009-09-30  Sam Weinig  <sam@webkit.org>
+
+        Reviewed by Dan Bernstein.
+
+        Fix for <rdar://problem/7259706>
+        Need WebKit API or SPI on Mac and Windows to test whether it's safe to load a page in a new tab/window
+
+        * Interfaces/IWebFramePrivate.idl:
+        * WebFrame.cpp:
+        (WebFrame::allowsFollowingLink):
+        * WebFrame.h:
+
+2009-08-17  Steve Falkenburg  <sfalken@apple.com>
+
+        Merge r47311.
+
+    2009-08-13  Jon Honeycutt  <jhoneycutt@apple.com>
+
+        Part of <rdar://problem/6218721> No MSAA focus events fired for Webkit
+        nightly (20866)
+
+        https://bugs.webkit.org/show_bug.cgi?id=20866
+
+        Reviewed by Oliver Hunt.
+
+        * AccessibleBase.cpp:
+        (AccessibleBase::getAccessibilityObjectForChild):
+        If the child ID is negative, negate it and treat it as an AXID.
+
+2009-08-05  Mark Rowe  <mrowe@apple.com>
+
+        Merge r46638.
+
+    2009-07-31  Anders Carlsson  <andersca@apple.com>
+
+        Reviewed by Dan Bernstein.
+
+        -Fix <rdar://problem/7104097>
+
+        Make EmbeddedWidget::create return a PassRefPtr so it will have the correct ref count.
+        
+        * WebCoreSupport/EmbeddedWidget.cpp:
+        (EmbeddedWidget::create):
+        * WebCoreSupport/EmbeddedWidget.h:
+
 2009-07-15  Steve Falkenburg  <sfalken@apple.com>
 
         Merge r45892.

@@ -59,7 +59,7 @@ available options.
 <p>
 The default is to install all of Mailman to
 <span class="file">/usr/local/mailman</span><a name="tex2html2"
-  href="#foot706"><sup>2</sup></a>.  You can change this base installation directory (referred to here
+  href="#foot719"><sup>2</sup></a>.  You can change this base installation directory (referred to here
 as <var>$prefix</var>) by specifying the directory with the
 <b class="programopt">--prefix</b> <b class="program">configure</b> option.  If you're upgrading from
 a previous version of Mailman, you may want to use the <b class="programopt">--prefix</b>
@@ -78,7 +78,7 @@ Mailman in a location that allows setgid programs.
 Make sure the installation directory is set to group <code>mailman</code> (or
 whatever you're going to specify with <b class="programopt">--with-groupname</b>) and has
 the setgid bit set<a name="tex2html3"
-  href="#foot707"><sup>3</sup></a>.  You probably also want to guarantee that this
+  href="#foot720"><sup>3</sup></a>.  You probably also want to guarantee that this
 directory is readable and executable by everyone.  For example, these shell
 commands will accomplish this:
 
@@ -90,19 +90,28 @@ commands will accomplish this:
 </pre></div>
 
 <p>
+<div class="warning"><b class="label">Warning:</b>
+
+The installation directory, <var>$prefix</var>, cannot be the same directory
+that the source tarball has been unpacked to and in which you run
+<b class="program">configure</b>, but it can, if you wish, be a subdirectory, e.g.,
+<var>$prefix/src</var>.
+</div>
+
+<p>
 You are now ready to configure and install the Mailman software.
 
 <p>
 <br><hr><h4>Footnotes</h4>
 <dl>
-<dt><a name="foot706">.../usr/local/mailman</a><A
+<dt><a name="foot719">.../usr/local/mailman</a><A
  href="create-install-dir.html#tex2html2"><sup>2</sup></a></dt>
 <dd>This is the default for Mailman 2.1.
 Earlier versions of Mailman installed everything under <span class="file">/home/mailman</span> by
 default.
 
 </dd>
-<dt><a name="foot707">... set</a><A
+<dt><a name="foot720">... set</a><A
  href="create-install-dir.html#tex2html3"><sup>3</sup></a></dt>
 <dd>BSD users should see the <a href="bsd-issues.html#bsd-issues">15.2</a> section
 for additional information.
@@ -141,7 +150,7 @@ for additional information.
 </div>
 </div>
 <hr />
-<span class="release-info">Release 2.1, documentation updated on January 11, 2009.</span>
+<span class="release-info">Release 2.1, documentation updated on December 14, 2009.</span>
 </div>
 <!--End of Navigation Panel-->
 

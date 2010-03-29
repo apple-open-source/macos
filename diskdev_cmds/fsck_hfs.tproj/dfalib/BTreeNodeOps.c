@@ -125,6 +125,7 @@ OSStatus	GetNode		(BTreeControlBlockPtr	 btreePtr,
 	if( nodeNum >= btreePtr->totalNodes )
 	{
 		Panic("\pGetNode:nodeNum >= totalNodes");
+		if (debug) fprintf(stderr, "%s(%d):  nodeNum %u > totalNodes %u\n", __FUNCTION__, __LINE__, nodeNum, btreePtr->totalNodes);
 		err = fsBTInvalidNodeErr;
 		goto ErrorExit;
 	}
@@ -340,6 +341,7 @@ OSStatus	UpdateNode	(BTreeControlBlockPtr	 btreePtr,
 	if (nodePtr->buffer != nil)			//ее why call UpdateNode if nil ?!?
 	{
 	//	LogStartTime(kTraceReleaseNode);
+
 		err = hfs_swap_BTNode(nodePtr, btreePtr->fcbPtr, kSwapBTNodeHostToBig);
 		if (err != noErr)
 		{

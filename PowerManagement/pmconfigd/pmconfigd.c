@@ -329,7 +329,6 @@ void *pm_run_thread(void *arg)
 }
 
 
-
 static void BatteryMatch(
     void *refcon, 
     io_iterator_t b_iter) 

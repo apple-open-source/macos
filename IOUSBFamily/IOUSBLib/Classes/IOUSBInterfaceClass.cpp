@@ -954,7 +954,7 @@ IOUSBInterfaceClass::GetBusMicroFrameNumber(UInt64 *microFrame, AbsoluteTime *at
 	
 	len = sizeof(IOUSBGetFrameStruct);
     ret = IOConnectCallStructMethod(fConnection, kUSBInterfaceUserClientGetMicroFrameNumber, 0, 0, &frameInfo, &len);
-    if(kIOReturnSuccess == ret)
+    if (kIOReturnSuccess == ret)
     {
 #if !TARGET_OS_EMBEDDED
 #endif
@@ -988,7 +988,7 @@ IOUSBInterfaceClass::GetBusFrameNumber(UInt64 *frame, AbsoluteTime *atTime)
 	len = sizeof(IOUSBGetFrameStruct);
     ret = IOConnectCallStructMethod(fConnection, kUSBInterfaceUserClientGetFrameNumber, 0, 0, &frameInfo, &len);
 
-    if(kIOReturnSuccess == ret) 
+    if (kIOReturnSuccess == ret) 
     {
 #if !TARGET_OS_EMBEDDED
 #endif
@@ -1024,7 +1024,7 @@ IOUSBInterfaceClass::GetBusFrameNumberWithTime(UInt64 *frame, AbsoluteTime *atTi
 	
 	len = sizeof(IOUSBGetFrameStruct);
     ret = IOConnectCallStructMethod(fConnection, kUSBInterfaceUserClientGetFrameNumberWithTime, 0, 0, (void *) &frameInfo, &len);
-    if(kIOReturnSuccess == ret) 
+    if (kIOReturnSuccess == ret) 
     {
 #if !TARGET_OS_EMBEDDED
 #endif
@@ -1170,6 +1170,8 @@ IOUSBInterfaceClass::ControlRequest(UInt8 pipeRef, IOUSBDevRequestTO *req)
 {
     IOReturn 		ret = kIOReturnSuccess;
     uint64_t		input[9];
+    uint64_t		output[1];
+	uint32_t		outputCnt = 1;
     size_t			len;
     
 	DEBUGPRINT("IOUSBInterfaceClass::ControlRequest\n");
@@ -1204,19 +1206,25 @@ IOUSBInterfaceClass::ControlRequest(UInt8 pipeRef, IOUSBDevRequestTO *req)
 	{
 		case kUSBOut:
 			ret = IOConnectCallMethod( fConnection, kUSBInterfaceUserClientControlRequestOut, input, 9, req->pData, len, 0, 0, 0, 0);
-			if(kIOReturnSuccess == ret)
+			if (kIOReturnSuccess == ret)
 				req->wLenDone = req->wLength;
 			else
 				req->wLenDone = 0;
 			break;
 			
 		case kUSBIn:
-			ret = IOConnectCallMethod( fConnection, kUSBInterfaceUserClientControlRequestIn, input, 9, 0, 0, 0, 0, req->pData, &len);
-			if(kIOReturnSuccess == ret)
+			output[0] = 0;
+			ret = IOConnectCallMethod( fConnection, kUSBInterfaceUserClientControlRequestIn, input, 9, 0, 0, output, &outputCnt, req->pData, &len);
+			if (kIOReturnSuccess == ret)
 				req->wLenDone = len;
 			else
 				req->wLenDone = 0;
-		break;
+			if (output[0] != 0)	// We had an overrun
+			{
+				DEBUGPRINT("IOUSBDeviceClass::DeviceRequest returning kIOReturnOverrun" );
+				ret = kIOReturnOverrun;
+			}
+			break;
 	}
 
     if (ret == MACH_SEND_INVALID_DEST)
@@ -1239,6 +1247,8 @@ IOUSBInterfaceClass::ControlRequestAsync(UInt8 pipeRef, IOUSBDevRequestTO *req, 
 	size_t				len;
     IOReturn			ret = kIOReturnSuccess;
     uint64_t			input[9];
+    uint64_t		output[1];	// Not used for async, but sync expects it, so async must too.
+	uint32_t		outputCnt = 1;
 	
 	DEBUGPRINT("IOUSBInterfaceClass::DeviceRequestAsync(pipe: %d): \n\tbmRequestType = 0x%2.2x\n\tbRequest = 0x%2.2x\n\twValue = 0x%4.4x\n\twIndex = 0x%4.4x\n\twLength = 0x%4.4x\n\tpData = %p\n\tnoDataTimeout = %" PRIu32 "\n\tcompletionTimeout = %" PRIu32 "\n",
 	pipeRef,
@@ -1280,7 +1290,7 @@ IOUSBInterfaceClass::ControlRequestAsync(UInt8 pipeRef, IOUSBDevRequestTO *req, 
 		break;
 		
 	case kUSBIn:
-		ret = IOConnectCallAsyncScalarMethod( fConnection, kUSBInterfaceUserClientControlRequestIn, IONotificationPortGetMachPort(fAsyncPort), asyncRef, kIOAsyncCalloutCount, input, 9, 0, 0);
+		ret = IOConnectCallAsyncScalarMethod( fConnection, kUSBInterfaceUserClientControlRequestIn, IONotificationPortGetMachPort(fAsyncPort), asyncRef, kIOAsyncCalloutCount, input, 9, output, &outputCnt);
 		break;
     }
 	
@@ -1738,7 +1748,7 @@ IOUSBInterfaceClass::WriteIsochPipeAsync(UInt8 pipeRef, void *buf, UInt64 frameS
     asyncRef[kIOAsyncCalloutFuncIndex] = (uint64_t) callback;
     asyncRef[kIOAsyncCalloutRefconIndex] = (uint64_t) refCon;
 		
-	ret = IOConnectCallAsyncScalarMethod( fConnection, kUSBInterfaceUserClientReadIsochPipe, IONotificationPortGetMachPort(fAsyncPort), asyncRef, kIOAsyncCalloutCount, 
+	ret = IOConnectCallAsyncScalarMethod( fConnection, kUSBInterfaceUserClientWriteIsochPipe, IONotificationPortGetMachPort(fAsyncPort), asyncRef, kIOAsyncCalloutCount, 
 								   input, 6, 0, 0);
     if (ret == MACH_SEND_INVALID_DEST)
     {
@@ -1961,6 +1971,12 @@ IOUSBInterfaceClass::LowLatencyCreateBuffer( void ** buffer, IOByteCount bufferS
 
     DEBUGPRINT("IOUSBLib::LowLatencyCreateBuffer size: %d, type, %d\n", (int)bufferSize, (int)bufferType);
     
+	if ( bufferSize == 0 )
+	{
+        DEBUGPRINT("IOUSBLib::LowLatencyCreateBuffer:  Requested size was 0!  Returning kIOReturnBadArgument\n",sizeof(LowLatencyUserBufferInfoV3));
+        result = kIOReturnBadArgument;
+        goto ErrorExit;
+	}
     // Allocate our buffer Data and zero it
     //
     bufferInfo = ( LowLatencyUserBufferInfoV3 *) malloc( sizeof(LowLatencyUserBufferInfoV3) );
@@ -2498,7 +2514,7 @@ IOUSBInterfaceClass::FindNextDescriptor(const void * startDescriptor, UInt8 desc
             return NULL;
         }
 		
-        if( ( (UInt64)descriptorHeader - (UInt64)curConfDesc) >= curConfLength)
+        if ( ( (UInt64)descriptorHeader - (UInt64)curConfDesc) >= curConfLength)
         {
 			// If the next descriptor is outside the current configuration, then there is no "Next" descriptor
             return NULL;

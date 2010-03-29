@@ -7,7 +7,7 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) 1998 - 2008, Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) 1998 - 2009, Daniel Stenberg, <daniel@haxx.se>, et al.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
@@ -20,7 +20,7 @@
  * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
  * KIND, either express or implied.
  *
- * $Id: curl_addrinfo.h,v 1.3 2008-11-06 17:19:57 yangtse Exp $
+ * $Id: curl_addrinfo.h,v 1.4 2009-05-02 02:37:34 yangtse Exp $
  ***************************************************************************/
 
 #include "setup.h"
@@ -57,7 +57,7 @@ struct Curl_addrinfo {
   int                   ai_family;
   int                   ai_socktype;
   int                   ai_protocol;
-  socklen_t             ai_addrlen;   /* Follow rfc3493 struct addrinfo */
+  curl_socklen_t        ai_addrlen;   /* Follow rfc3493 struct addrinfo */
   char                 *ai_canonname;
   struct sockaddr      *ai_addr;
   struct Curl_addrinfo *ai_next;

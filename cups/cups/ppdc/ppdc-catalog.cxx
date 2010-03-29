@@ -1,5 +1,5 @@
 //
-// "$Id: ppdc-catalog.cxx 1380 2009-04-08 03:20:50Z msweet $"
+// "$Id: ppdc-catalog.cxx 1793 2009-12-16 01:45:27Z msweet $"
 //
 //   Shared message catalog class for the CUPS PPD Compiler.
 //
@@ -167,6 +167,9 @@ ppdcCatalog::find_message(
 {
   ppdcMessage	*m;			// Current message
 
+
+  if (!*id)
+    return (id);
 
   for (m = (ppdcMessage *)messages->first();
        m;
@@ -890,5 +893,5 @@ put_utf16(cups_file_t *fp,		// I - File to write to
 
 
 //
-// End of "$Id: ppdc-catalog.cxx 1380 2009-04-08 03:20:50Z msweet $".
+// End of "$Id: ppdc-catalog.cxx 1793 2009-12-16 01:45:27Z msweet $".
 //

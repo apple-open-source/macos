@@ -89,7 +89,7 @@ extern int isakmp_ph2resend __P((struct ph2handle *));
 extern void isakmp_ph1expire_stub __P((void *));
 extern void isakmp_ph1expire __P((struct ph1handle *));
 extern void isakmp_ph1rekeyexpire_stub __P((void *));
-extern void isakmp_ph1rekeyexpire __P((struct ph1handle *));
+extern void isakmp_ph1rekeyexpire __P((struct ph1handle *, int));
 extern int  isakmp_ph1rekeyretry __P((struct ph1handle *));
 extern void isakmp_ph1delete_stub __P((void *));
 extern void isakmp_ph1delete __P((struct ph1handle *));

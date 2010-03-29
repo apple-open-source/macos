@@ -245,7 +245,6 @@ enum {
 typedef struct _CachedMouseEventStruct {
     OSObject *                  service;
     UInt64                      eventDeadline;
-    UInt64                      lastUpdate;
     SInt32                      lastButtons;
     SInt32                      accumX;
     SInt32                      accumY;
@@ -258,7 +257,7 @@ typedef struct _CachedMouseEventStruct {
     UInt8                       lastPressure;
 } CachedMouseEventStruct;
 
-static SInt32 GetCachedMouseButtonStates(OSArray *events, UInt64 nowNano, UInt64 timeout)
+static SInt32 GetCachedMouseButtonStates(OSArray *events)
 {
     CachedMouseEventStruct *    mouseEvent  = 0;
     OSData *                    data        = 0;
@@ -275,7 +274,6 @@ static SInt32 GetCachedMouseButtonStates(OSArray *events, UInt64 nowNano, UInt64
             if ( (data = (OSData *)events->getObject(i)) &&
                  (mouseEvent = (CachedMouseEventStruct *)data->getBytesNoCopy()))
             {
-                if ((nowNano - mouseEvent->lastUpdate) < timeout)
                     buttonState |= mouseEvent->lastButtons;
             }
         }
@@ -539,7 +537,6 @@ bool IOHIDSystem::init(OSDictionary * properties)
   AbsoluteTime_to_scalar(&lastEventTime) = 0;
   AbsoluteTime_to_scalar(&lastUndimEvent) = 0;
   AbsoluteTime_to_scalar(&stateChangeDeadline) = 0;
-    mouseButtonTimeout = 2000000000ULL; // 2 second default timeout
 
   ioHIDevices      = OSArray::withCapacity(2);
   cachedButtonStates = OSArray::withCapacity(3);
@@ -601,15 +598,6 @@ bool IOHIDSystem::start(IOService * provider)
         maxWaitCursorFrame   = EV_MAXCURSOR;
         createParameters();
         
-      OSNumber *mouseTimeout = OSDynamicCast(OSNumber, getProperty(kIOHIDSystemMouseButtonTimeout));
-      if (mouseTimeout) {
-          mouseButtonTimeout = mouseTimeout->unsigned64BitValue();
-      }
-      else {
-          mouseTimeout = OSNumber::withNumber(mouseButtonTimeout, sizeof(mouseButtonTimeout) * 8);
-          setProperty(kIOHIDSystemMouseButtonTimeout, mouseTimeout);
-      }
-
         /*
          * Start up the work loop
          */
@@ -828,7 +816,6 @@ bool IOHIDSystem::handleTerminateNotification(
         if ((cachedMouseEvent = GetCachedMouseEventForService(self->cachedButtonStates, service)) &&
             (cachedMouseEvent->proximityData.proximity.enterProximity))
         {
-            absolutetime_to_nanoseconds(ts, &cachedMouseEvent->lastUpdate);
             cachedMouseEvent->proximityData.proximity.enterProximity = false;
             cachedMouseEvent->state |= kCachedMousePointingTabletEventPendFlag;
             self->proximityEvent(&(cachedMouseEvent->proximityData), ts, service);
@@ -2415,7 +2402,6 @@ void IOHIDSystem::relativePointerEventGated(int buttons, int dx, int dy, Absolut
             // display wake upon chatty mice.
             UInt64 ts_nano;
             absolutetime_to_nanoseconds(ts, &ts_nano);
-            cachedMouseEvent->lastUpdate = ts_nano;
 
             if ((cachedMouseEvent->lastButtons == buttons) && (displayState == 0)) {
                 if (ts_nano > cachedMouseEvent->eventDeadline) {
@@ -2515,16 +2501,11 @@ void IOHIDSystem::relativePointerEventGated(int buttons, int dx, int dy, Absolut
 				if( haveVBL ) {
 					static UInt64 resonableVBL = 0;
 					if (!resonableVBL) {
-						nanoseconds_to_absolutetime(20000000, (AbsoluteTime*)(&resonableVBL));
+						nanoseconds_to_absolutetime(40000000, (AbsoluteTime*)(&resonableVBL));
 					}
 					
 					// rdar://5565815 Capping VBL interval
 					if (AbsoluteTime_to_scalar(&vblDeltaTime) > resonableVBL) {
-						static int count = 0;
-						if (!(count % 100))
-							IOLog("IOHIDSystem::relativePointerEventGated: VBL too high (%lld), capping to %lld\n",
-									AbsoluteTime_to_scalar(&vblDeltaTime), resonableVBL);
-						count++;
 						AbsoluteTime_to_scalar(&vblDeltaTime) = resonableVBL;
 					}
 
@@ -2692,7 +2673,6 @@ void IOHIDSystem::absolutePointerEventGated(
         cachedMouseEvent->state        |= kCachedMousePointingEventDispFlag;
         cachedMouseEvent->proximity     = proximity;
         cachedMouseEvent->lastPressure  = ScalePressure(pressure);
-        absolutetime_to_nanoseconds(ts, &cachedMouseEvent->lastUpdate);
 
         if ( !(cachedMouseEvent->state & kCachedMouseTabletEventDispFlag) )
         {
@@ -2972,7 +2952,6 @@ void IOHIDSystem::tabletEventGated(NXEventData *tabletData,
             
         cachedMouseEvent->state     |= kCachedMouseTabletEventDispFlag;
         cachedMouseEvent->subType   = NX_SUBTYPE_TABLET_POINT;
-        absolutetime_to_nanoseconds(ts, &cachedMouseEvent->lastUpdate);
         bcopy( tabletData, &(cachedMouseEvent->tabletData), sizeof(NXEventData));
         
         // Don't dispatch an event if they can be embedded in pointing events
@@ -3042,7 +3021,6 @@ void IOHIDSystem::proximityEventGated(NXEventData *proximityData,
     {
         cachedMouseEvent->state     |= kCachedMouseTabletEventDispFlag;
         cachedMouseEvent->subType   = NX_SUBTYPE_TABLET_PROXIMITY;
-        absolutetime_to_nanoseconds(ts, &cachedMouseEvent->lastUpdate);
         bcopy( proximityData, &(cachedMouseEvent->proximityData), sizeof(NXEventData));
     }
 
@@ -3721,21 +3699,18 @@ void IOHIDSystem::_setButtonState(int buttons,
     // This will prevent awkward behavior when two pointing devices are used
     // at the same time.
     CachedMouseEventStruct *cachedMouseEvent = NULL;
-    UInt64 ts_nano;
-    absolutetime_to_nanoseconds(ts, &ts_nano);
     
     if ( cachedButtonStates ) {
         cachedMouseEvent = GetCachedMouseEventForService(cachedButtonStates, sender);
         
         if (cachedMouseEvent) {
             cachedMouseEvent->lastButtons = buttons;
-            cachedMouseEvent->lastUpdate = ts_nano;
         }
         
         if (evg->buttons == buttons)
             return;
             
-        buttons = GetCachedMouseButtonStates(cachedButtonStates, ts_nano, mouseButtonTimeout);
+        buttons = GetCachedMouseButtonStates(cachedButtonStates);
     }
     // *** END HACK ***
     
@@ -4385,9 +4360,8 @@ IOReturn IOHIDSystem::extPostEventGated(void *p1,void *p2, void *p3)
                     CONVERT_HW_TO_WV_BUTTONS(event->data.compound.misc.L[1], buttonState);
             }
             cachedMouseEvent->lastButtons = buttonState;
-            absolutetime_to_nanoseconds(ts, &cachedMouseEvent->lastUpdate);
 
-            evg->buttons = GetCachedMouseButtonStates(cachedButtonStates, cachedMouseEvent->lastUpdate, mouseButtonTimeout);
+            evg->buttons = GetCachedMouseButtonStates(cachedButtonStates);
         }
     }
 
@@ -4948,11 +4922,6 @@ IOReturn IOHIDSystem::setParamPropertiesPreGated( OSDictionary * dict, OSIterato
         gUseKeyswitch = number->unsigned32BitValue();
     }
 		
-    if( (number = OSDynamicCast( OSNumber, dict->getObject(kIOHIDSystemMouseButtonTimeout))))
-    {
-        mouseButtonTimeout = number->unsigned64BitValue();
-    }
-    
     if( (number = OSDynamicCast( OSNumber, dict->getObject(kIOHIDClickTimeKey))))
     {
         UInt64	nano = number->unsigned64BitValue();

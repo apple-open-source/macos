@@ -22,9 +22,9 @@
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
 
 MAJOR_VERSION = 531;
-MINOR_VERSION = 5;
-TINY_VERSION = 0;
-FULL_VERSION = $(MAJOR_VERSION).$(MINOR_VERSION);
+MINOR_VERSION = 21;
+TINY_VERSION = 9;
+FULL_VERSION = $(MAJOR_VERSION).$(MINOR_VERSION).$(TINY_VERSION);
 
 // The bundle version and short version string are set based on the current build configuration, see below.
 BUNDLE_VERSION = $(BUNDLE_VERSION_$(CONFIGURATION));
@@ -42,7 +42,7 @@ BUNDLE_VERSION_Production = $(SYSTEM_VERSION_PREFIX)$(FULL_VERSION);
 BUNDLE_VERSION_ = $(BUNDLE_VERSION_Production);
 
 // The production build always uses the major version with a system version prefix
-SHORT_VERSION_STRING_Production = $(SYSTEM_VERSION_PREFIX)$(MAJOR_VERSION);
+SHORT_VERSION_STRING_Production = $(SYSTEM_VERSION_PREFIX)$(MAJOR_VERSION).$(MINOR_VERSION);
 SHORT_VERSION_STRING_ = $(SHORT_VERSION_STRING_Production);
 
 // Local builds are the full version with a plus suffix.

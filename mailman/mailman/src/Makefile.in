@@ -42,7 +42,7 @@ MAILMAN_USER=	@MAILMAN_USER@
 
 # Customizable but not set by configure
 OPT=		@OPT@
-CFLAGS=		@CFLAGS@ $(BI_RC_CFLAGS) $(OPT) $(DEFS) $(LIBS)
+CFLAGS=		@CFLAGS@ $(OPT) $(DEFS) $(LIBS)
 CGIDIR= 	$(exec_prefix)/cgi-bin
 CGIEXT=		@CGIEXT@
 MAILDIR=	$(exec_prefix)/mail

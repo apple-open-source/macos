@@ -1,0 +1,22 @@
+Mensax de confirmación pa l'anulación de la soscripción
+a la llista de distribución %(listname)s
+
+Recibióse una solicitú request%(remote)s pa quitar la so direición de
+corréu-e "%(email)s" de la llista de distribución %(listaddr)s.
+Pa confirmar que quier esborrase d'esta llista de distribución, namái
+tien que retrucar a esti mensax, calteniendo intauta la testera del
+asuntu (Subject). O visite esta páxina web:
+
+    %(confirmurl)s
+
+O incluya la llinia siguiente -- y namái la llinia siguiente -- nún
+mensax empobináu a  %(requestaddr)s:
+
+    confirm %(cookie)s
+
+Retrucar esti mensax, tendría de funcionar cola mayoría de los programes
+de corréu-e, porque davezu dexen d'una forma válida la
+llinia del Asuntu (el testu adicional Re: nel asuntu ye correutu)
+
+Si nun quies esborrate d'esta llista de distribución, namái tienes
+qu'inorar esti mensax. Si camientes que daquién quier esborrate de la llista malintencionadamente o si tienes cualesquier otra custión, mándales al alministrador de la llista a la direición %(listadmin)s.

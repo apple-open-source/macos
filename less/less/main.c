@@ -83,7 +83,6 @@ main(argc, argv)
 {
 	IFILE ifile;
 	char *s;
-	extern char *__progname;
 
 	if (COMPAT_MODE("bin/more", "unix2003")) {
 		unix2003_compat = 1;

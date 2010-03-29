@@ -69,7 +69,7 @@
 	#define	USBTRACE_VERSION "100.4.0"
 #endif
 
-#define log(a,b,c,d,x,...)			if ( PrintHeader(a,b,c,d) ) { if(x){fprintf(stdout,x, ##__VA_ARGS__);} fprintf(stdout, "\n"); }
+#define log(a,b,c,d,x,...)			if ( PrintHeader(a,b,c,d) ) { if (x){fprintf(stdout,x, ##__VA_ARGS__);} fprintf(stdout, "\n"); }
 #define logs(a,b,c,x...)			log(a,b,c,0,x...)
 #define	vlog(x...)					if ( gVerbose ) { fprintf(stdout,x); }
 #define	elog(x...)					fprintf(stderr, x)
@@ -147,6 +147,7 @@ static void ParseArguments ( int argc, const char * argv[] );
 static void PrintUsage ( void );
 
 static void CollectTrace ( void );
+static void CollectWithAlloc( void );
 static void ProcessTracepoint( kd_buf tracepoint );
 
 static void CollectTraceController( kd_buf tracepoint );		
@@ -176,6 +177,10 @@ static void CollectTraceHubPolicyMaker	( kd_buf tracepoint ); //35,
 static void CollectTraceCompositeDriver ( kd_buf tracepoint ); //36,
 // Actions
 static void CollectTraceOutstandingIO ( kd_buf tracepoint ); //42,
+
+// Other drivers
+static void CollectTraceAudioDriver ( kd_buf tracepoint ); //50,
+
 static void CollectTraceUnknown ( kd_buf tracepoint );
 
 static void CollectCodeFile ( void );

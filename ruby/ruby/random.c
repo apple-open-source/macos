@@ -2,8 +2,8 @@
 
   random.c -
 
-  $Author: knu $
-  $Date: 2008-04-14 19:52:17 +0900 (Mon, 14 Apr 2008) $
+  $Author: shyouhei $
+  $Date: 2009-01-17 12:18:21 +0900 (Sat, 17 Jan 2009) $
   created at: Fri Dec 24 16:39:21 JST 1993
 
   Copyright (C) 1993-2003 Yukihiro Matsumoto
@@ -189,7 +189,6 @@ rb_genrand_real(void)
 #include <fcntl.h>
 #endif
 
-static int first = 1;
 static VALUE saved_seed = INT2FIX(0);
 
 static VALUE
@@ -245,7 +244,6 @@ rand_init(vseed)
             len--;
         init_by_array(buf, len);
     }
-    first = 0;
     old = saved_seed;
     saved_seed = seed;
     free(buf);
@@ -445,9 +443,6 @@ rb_f_rand(argc, argv, obj)
     long val, max;
 
     rb_scan_args(argc, argv, "01", &vmax);
-    if (first) {
-	rand_init(random_seed());
-    }
     switch (TYPE(vmax)) {
       case T_FLOAT:
 	if (RFLOAT(vmax)->value <= LONG_MAX && RFLOAT(vmax)->value >= LONG_MIN) {
@@ -498,6 +493,7 @@ rb_f_rand(argc, argv, obj)
 void
 Init_Random()
 {
+    rand_init(random_seed());
     rb_define_global_function("srand", rb_f_srand, -1);
     rb_define_global_function("rand", rb_f_rand, -1);
     rb_global_variable(&saved_seed);

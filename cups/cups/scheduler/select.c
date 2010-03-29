@@ -136,7 +136,7 @@
  * 
  *     4. kqueue() - O(n)
  *         b. cupsdStartSelect() creates kqueue file descriptor
- *            using kqyeue() function and allocates a global event
+ *            using kqueue() function and allocates a global event
  *            buffer.
  *         c. cupsdAdd/RemoveSelect() uses EV_SET and kevent() to
  *            register the changes. The event user data field is a
@@ -144,7 +144,7 @@
  *         d. cupsdDoSelect() uses kevent() to poll for events and
  *            loops through the events, using the user data field to
  *            find the callback record.
- *         e. cupsdStopSelect() closes the kqyeye() file descriptor
+ *         e. cupsdStopSelect() closes the kqueue() file descriptor
  *            and frees all of the memory used by the event buffer.
  * 
  *     5. /dev/poll - O(n log n) - NOT YET IMPLEMENTED
@@ -454,7 +454,7 @@ cupsdDoSelect(long timeout)		/* I - Timeout in seconds */
     if (fdptr->read_cb && event->filter == EVFILT_READ)
       (*(fdptr->read_cb))(fdptr->data);
 
-    if (fdptr->write_cb && event->filter == EVFILT_WRITE)
+    if (fdptr->use > 1 && fdptr->write_cb && event->filter == EVFILT_WRITE)
       (*(fdptr->write_cb))(fdptr->data);
 
     release_fd(fdptr);
@@ -499,7 +499,8 @@ cupsdDoSelect(long timeout)		/* I - Timeout in seconds */
 	if (fdptr->read_cb && (event->events & (EPOLLIN | EPOLLERR | EPOLLHUP)))
 	  (*(fdptr->read_cb))(fdptr->data);
 
-	if (fdptr->write_cb && (event->events & (EPOLLOUT | EPOLLERR | EPOLLHUP)))
+	if (fdptr->use > 1 && fdptr->write_cb &&
+	    (event->events & (EPOLLOUT | EPOLLERR | EPOLLHUP)))
 	  (*(fdptr->write_cb))(fdptr->data);
 
 	release_fd(fdptr);
@@ -590,7 +591,8 @@ cupsdDoSelect(long timeout)		/* I - Timeout in seconds */
       if (fdptr->read_cb && (pfd->revents & (POLLIN | POLLERR | POLLHUP)))
         (*(fdptr->read_cb))(fdptr->data);
 
-      if (fdptr->write_cb && (pfd->revents & (POLLOUT | POLLERR | POLLHUP)))
+      if (fdptr->use > 1 && fdptr->write_cb &&
+          (pfd->revents & (POLLOUT | POLLERR | POLLHUP)))
         (*(fdptr->write_cb))(fdptr->data);
 
       release_fd(fdptr);
@@ -645,7 +647,8 @@ cupsdDoSelect(long timeout)		/* I - Timeout in seconds */
       if (fdptr->read_cb && FD_ISSET(fdptr->fd, &cupsd_current_input))
         (*(fdptr->read_cb))(fdptr->data);
 
-      if (fdptr->write_cb && FD_ISSET(fdptr->fd, &cupsd_current_output))
+      if (fdptr->use > 1 && fdptr->write_cb &&
+          FD_ISSET(fdptr->fd, &cupsd_current_output))
         (*(fdptr->write_cb))(fdptr->data);
 
       release_fd(fdptr);

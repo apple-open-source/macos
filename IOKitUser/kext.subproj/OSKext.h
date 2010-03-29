@@ -2978,6 +2978,12 @@ OSKextCreateKextsFromMkextData(CFAllocatorRef allocator,
  *           If <code>true</code>, problems with the kexts that prevent
  *           inclusion of a kext in the prelinked kernel are logged via
  *           @link OSKextLogDiagnostics OSKextLogDiagnostics@/link.
+ * @param    includeAllPersonalities
+ *           If <code>true</code>, all kext personalities will be included in
+ *           the prelinked kernel, regardless of whether they're required.
+ * @param    includeLinkState
+ *           If <code>true</code>, the link state necessary for runtime loading
+ *           and linking of kexts is included in the prelinked kernel.
  * @param    symbolsOut
  *           If non-<code>NULL</code> debug symbols for <code>kernelImage</code>
  *           and all kexts included in the result are returned by reference.
@@ -2996,6 +3002,8 @@ OSKextCreatePrelinkedKernel(
     Boolean           needAllFlag,
     Boolean           skipAuthenticationFlag,
     Boolean           printDiagnosticsFlag,
+    Boolean           includeAllPersonalities,
+    Boolean           includeLinkState,
     CFDictionaryRef * symbolsOut)
                 AVAILABLE_MAC_OS_X_VERSION_10_6_AND_LATER;
 

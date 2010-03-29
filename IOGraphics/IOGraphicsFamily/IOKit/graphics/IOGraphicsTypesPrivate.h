@@ -26,145 +26,157 @@
 #include <IOKit/graphics/IOGraphicsTypes.h>
 
 enum {
+    // This is the ID given to a programmable timing used at boot time
+    kIODisplayModeIDInvalid   = (IODisplayModeID) 0xFFFFFFFF,
+    kIODisplayModeIDCurrent   = (IODisplayModeID) 0x00000000,
+    kIODisplayModeIDAliasBase = (IODisplayModeID) 0x40000000
+};
+
+
+enum {
     // options for IOServiceRequestProbe()
-    kIOFBForceReadEDID			= 0x00000100,
-    kIOFBAVProbe			= 0x00000200,
-    kIOFBSetTransform			= 0x00000400,
-    kIOFBTransformShift			= 16,
-    kIOFBScalerUnderscan		= 0x01000000,
+    kIOFBForceReadEDID                  = 0x00000100,
+    kIOFBAVProbe                        = 0x00000200,
+    kIOFBSetTransform                   = 0x00000400,
+    kIOFBTransformShift                 = 16,
+    kIOFBScalerUnderscan                = 0x01000000,
 };
 
 enum {
     // transforms
-    kIOFBRotateFlags		        = 0x0000000f,
+    kIOFBRotateFlags                    = 0x0000000f,
 
-    kIOFBSwapAxes			= 0x00000001,
-    kIOFBInvertX			= 0x00000002,
-    kIOFBInvertY			= 0x00000004,
+    kIOFBSwapAxes                       = 0x00000001,
+    kIOFBInvertX                        = 0x00000002,
+    kIOFBInvertY                        = 0x00000004,
 
-    kIOFBRotate0			= 0x00000000,
-    kIOFBRotate90			= kIOFBSwapAxes | kIOFBInvertX,
-    kIOFBRotate180			= kIOFBInvertX  | kIOFBInvertY,
-    kIOFBRotate270			= kIOFBSwapAxes | kIOFBInvertY
+    kIOFBRotate0                        = 0x00000000,
+    kIOFBRotate90                       = kIOFBSwapAxes | kIOFBInvertX,
+    kIOFBRotate180                      = kIOFBInvertX  | kIOFBInvertY,
+    kIOFBRotate270                      = kIOFBSwapAxes | kIOFBInvertY
 };
 
 // private IOPixelInformation.flags
 enum {
-    kFramebufferAGPFastWriteAccess	= 0x00100000,
-    kFramebufferDeepMode		= 0x00200000
+    kFramebufferAGPFastWriteAccess      = 0x00100000,
+    kFramebufferDeepMode                = 0x00200000
 };
 
 enum {
-    kIOFBHWCursorSupported		= 0x00000001,
-    kIOFBCursorPans			= 0x00010000
+    kIOFBHWCursorSupported              = 0x00000001,
+    kIOFBCursorPans                     = 0x00010000
 };
 
 enum {
     // Controller attributes
-    kIOFBSpeedAttribute			= ' dgs',
+    kIOFBSpeedAttribute                 = ' dgs',
+    kIOFBWSStartAttribute               = 'wsup',
+    kIOFBProcessConnectChangeAttribute  = 'wsch',
+    kIOFBEndConnectChangeAttribute      = 'wsed',
+
+    kIOFBMatchedConnectChangeAttribute  = 'wsmc',
 
     // Connection attributes
-    kConnectionInTVMode			= 'tvmd',
-    kConnectionWSSB			= 'wssb',
+    kConnectionInTVMode                 = 'tvmd',
+    kConnectionWSSB                     = 'wssb',
 
-    kConnectionRawBacklight		= 'bklt',
-    kConnectionBacklightSave		= 'bksv'
+    kConnectionRawBacklight             = 'bklt',
+    kConnectionBacklightSave            = 'bksv',
+
+    kConnectionVendorTag                = 'vtag'
 };
 
 enum {
     // kConnectionInTVMode values
-    kConnectionNonTVMode		= 0,
-    kConnectionNTSCMode			= 1,
-    kConnectionPALMode			= 2
+    kConnectionNonTVMode                = 0,
+    kConnectionNTSCMode                 = 1,
+    kConnectionPALMode                  = 2
 };
 
 // values for kIOCapturedAttribute
 enum {
-    kIOCaptureDisableDisplayChange	= 0x00000001,
-    kIOCaptureDisableDisplayDimming	= 0x00000002
+    kIOCaptureDisableDisplayChange      = 0x00000001,
+    kIOCaptureDisableDisplayDimming     = 0x00000002
 };
 
 /*! @enum FramebufferConstants
     @constant kIOFBVRAMMemory The memory type for IOConnectMapMemory() to get the VRAM memory. Use a memory type equal to the IOPixelAperture index to get a particular pixel aperture.
 */
 enum {
-    kIOFBVRAMMemory		= 110
+    kIOFBVRAMMemory             = 110
 };
 
-#define kIOFBGammaHeaderSizeKey		"IOFBGammaHeaderSize"
+#define kIOFBGammaHeaderSizeKey         "IOFBGammaHeaderSize"
 
 #define kIONDRVFramebufferGenerationKey "IONDRVFramebufferGeneration"
 
-#define kIOFramebufferOpenGLIndexKey 	"IOFramebufferOpenGLIndex"
+#define kIOFramebufferOpenGLIndexKey    "IOFramebufferOpenGLIndex"
 
-#define kIOFBCurrentPixelClockKey 	"IOFBCurrentPixelClock"
-#define kIOFBCurrentPixelCountKey 	"IOFBCurrentPixelCount"
+#define kIOFBCurrentPixelClockKey       "IOFBCurrentPixelClock"
+#define kIOFBCurrentPixelCountKey       "IOFBCurrentPixelCount"
 
-#define kIOFBTransformKey 		"IOFBTransform"
-#define kIOFBRotatePrefsKey 		"framebuffer-rotation"
-#define kIOFBCapturedKey 		"IOFBCaptured"
+#define kIOFBTransformKey               "IOFBTransform"
+#define kIOFBRotatePrefsKey             "framebuffer-rotation"
+#define kIOFBStartupTimingPrefsKey      "startup-timing"
 
-#define kIOFBMirrorDisplayModeSafeKey	"IOFBMirrorDisplayModeSafe"
+#define kIOFBCapturedKey                "IOFBCaptured"
 
-#define kIOFBConnectInterruptDelayKey 	"connect-interrupt-delay"
+#define kIOFBMirrorDisplayModeSafeKey   "IOFBMirrorDisplayModeSafe"
 
-#define kIOGraphicsPrefsKey 		"IOGraphicsPrefs"
-#define kIODisplayPrefKeyKey 		"IODisplayPrefsKey"
-#define kIOGraphicsPrefsParametersKey  "IOGraphicsPrefsParameters"
+#define kIOFBConnectInterruptDelayKey   "connect-interrupt-delay"
 
-#define kIODisplayFastBootEDIDKey 	"nv-edid"
+#define kIOGraphicsPrefsKey             "IOGraphicsPrefs"
+#define kIODisplayPrefKeyKey            "IODisplayPrefsKey"
+#define kIOGraphicsPrefsParametersKey   "IOGraphicsPrefsParameters"
+#define kIOGraphicsIgnoreParametersKey  "IOGraphicsIgnoreParameters"
 
-#define kIOFBBuiltInKey			"built-in"
+#define kIODisplayFastBootEDIDKey       "nv-edid"
 
-#define kIOMultimediaConnectionIDKey		"IOMultimediaConnectionID"
-#define kIOMultimediaConnectionIDDefault	"hdmi-1"
-#define kIOMultimediaConnectionPropertiesKey	"IOMultimediaConnectionProperties"
-#define kIOCEAEDIDVersionKey			"IOCEAEDIDVersion"
-#define kIOCEADataBlocksKey			"IOCEADataBlocks"
+#define kIOFBBuiltInKey                 "built-in"
 
-#define detailedTimingModeID		__reservedA[0]
+#define kIOMultimediaConnectionIDKey            "IOMultimediaConnectionID"
+#define kIOMultimediaConnectionIDDefault        "hdmi-1"
+#define kIOMultimediaConnectionPropertiesKey    "IOMultimediaConnectionProperties"
+#define kIOCEAEDIDVersionKey                    "IOCEAEDIDVersion"
+#define kIOCEADataBlocksKey                     "IOCEADataBlocks"
+
+#define detailedTimingModeID            __reservedA[0]
 
 #ifndef kIORequestIdleKey
-#define kIORequestIdleKey		"IORequestIdle"
+#define kIORequestIdleKey               "IORequestIdle"
 #endif
 
 enum {
-    kIOAccelSpecificID		= 0x00000002
+    kIOAccelSpecificID          = 0x00000002
 };
 
 #ifndef kIOFBLowPowerAggressiveness
-#define kIOFBLowPowerAggressiveness	iokit_family_err(sub_iokit_graphics, 1)
+#define kIOFBLowPowerAggressiveness     iokit_family_err(sub_iokit_graphics, 1)
 #endif
 
 #ifndef kIOFBCaptureAggressiveness
-#define kIOFBCaptureAggressiveness	iokit_family_err(sub_iokit_graphics, 2)
+#define kIOFBCaptureAggressiveness      iokit_family_err(sub_iokit_graphics, 2)
 #endif
 
 #ifndef kIODisplayDimAggressiveness
-#define kIODisplayDimAggressiveness	iokit_family_err(sub_iokit_graphics, 3)
+#define kIODisplayDimAggressiveness     iokit_family_err(sub_iokit_graphics, 3)
 #endif
 
-#define kIODisplayAttributesKey		"IODisplayAttributes"
+#define kIOFBMessageConnectChange       iokit_family_err(sub_iokit_graphics, 100)
+#define kIOFBMessageEndConnectChange    iokit_family_err(sub_iokit_graphics, 105)
 
-#define kIODisplaySupportsUnderscanKey	"IODisplaySupportsUnderscan"
-#define kIODisplaySupportsBasicAudioKey	"IODisplaySupportsBasicAudio"
-#define kIODisplaySupportsYCbCr444Key	"IODisplaySupportsYCbCr444"
-#define kIODisplaySupportsYCbCr422Key	"IODisplaySupportsYCbCr422"
-
-enum
-{ 
-    kIODisplayColorMode = kConnectionColorMode,
-};
-
+#if 1
 enum
 {
     // kConnectionColorMode attribute
-    kIODisplayColorModeReserved = 0x00000000,
-    kIODisplayColorModeRGB      = 0x00000001,
-    kIODisplayColorModeYCbCr422 = 0x00000010,
-    kIODisplayColorModeYCbCr444 = 0x00000100,
-    kIODisplayColorModeAuto     = 0x10000000,
+    kIODisplayColorModeReserved   = 0x00000000,
+    kIODisplayColorModeRGB        = 0x00000001,
+    kIODisplayColorModeYCbCr422   = 0x00000010,
+    kIODisplayColorModeYCbCr444   = 0x00000100,
+    kIODisplayColorModeRGBLimited = 0x00001000,
+    kIODisplayColorModeAuto       = 0x10000000,
 };
+#endif
 
 enum
 {
@@ -174,7 +186,7 @@ enum
     kUpstreamProtocolHDCPStatus = 'auph',
     kUpstreamProtocolHDCPConfigStatus = 'aupp',
     kUpstreamProtocolMsgStatus  = 'aums',
-    kColorSpaceSelection	= 'cyuv'
+    kColorSpaceSelection        = 'cyuv'
 };
 
 enum
@@ -185,10 +197,9 @@ enum
     kIOFBAUDInterruptType          = 'aud '
 };
 
-#define kIOFBDPDeviceIDKey	    "dp-device-id"
-#define kIOFBDPDeviceTypeKey	    "device-type"
+#define kIOFBDPDeviceIDKey          "dp-device-id"
+#define kIOFBDPDeviceTypeKey        "device-type"
 #define kIOFBDPDeviceTypeDongleKey  "branch-device"
-#define kIOFBDPConfigDataKey	    "dpcd-registers"
 
 enum
 {

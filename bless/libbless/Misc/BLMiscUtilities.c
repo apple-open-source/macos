@@ -42,7 +42,7 @@
 
 char * blostype2string(uint32_t type, char buf[5])
 {
-    bzero(buf, sizeof(buf));
+    bzero(buf, 5);
     if(type == 0) return buf;
 
     sprintf(buf, "%c%c%c%c",

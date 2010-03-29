@@ -41,7 +41,7 @@ enum {
 
 // IOI2CRequest.commFlags
 enum {
-    kIOI2CUseSubAddressCommFlag	    = 0x00000002
+    kIOI2CUseSubAddressCommFlag     = 0x00000002
 };
 
 /*!
@@ -79,66 +79,66 @@ enum {
 #pragma pack(push, 4)
 struct IOI2CRequest
 {
-    IOOptionBits		sendTransactionType;
-    IOOptionBits		replyTransactionType;
-    uint32_t			sendAddress;
-    uint32_t			replyAddress;
-    uint8_t			sendSubAddress;
-    uint8_t			replySubAddress;
-    uint8_t			__reservedA[2];
+    IOOptionBits                sendTransactionType;
+    IOOptionBits                replyTransactionType;
+    uint32_t                    sendAddress;
+    uint32_t                    replyAddress;
+    uint8_t                     sendSubAddress;
+    uint8_t                     replySubAddress;
+    uint8_t                     __reservedA[2];
 
-    uint64_t			minReplyDelay;
+    uint64_t                    minReplyDelay;
 
-    IOReturn			result;
-    IOOptionBits		commFlags;
-
-#if defined(__LP64__)
-    uint32_t			__padA;
-#else
-    vm_address_t		sendBuffer;
-#endif
-    uint32_t			sendBytes;
-
-    uint32_t			__reservedB[2];
+    IOReturn                    result;
+    IOOptionBits                commFlags;
 
 #if defined(__LP64__)
-    uint32_t			__padB;
+    uint32_t                    __padA;
 #else
-    vm_address_t		replyBuffer;
+    vm_address_t                sendBuffer;
 #endif
-    uint32_t			replyBytes;
+    uint32_t                    sendBytes;
 
-    IOI2CRequestCompletion	completion;
+    uint32_t                    __reservedB[2];
+
+#if defined(__LP64__)
+    uint32_t                    __padB;
+#else
+    vm_address_t                replyBuffer;
+#endif
+    uint32_t                    replyBytes;
+
+    IOI2CRequestCompletion      completion;
 #if !defined(__LP64__)
-    uint32_t			__padC[5];
+    uint32_t                    __padC[5];
 #else
-    vm_address_t		sendBuffer;
-    vm_address_t		replyBuffer;
+    vm_address_t                sendBuffer;
+    vm_address_t                replyBuffer;
 #endif
 
-    uint32_t			__reservedC[10];
+    uint32_t                    __reservedC[10];
 #ifdef __ppc__
-    uint32_t			__reservedD;
+    uint32_t                    __reservedD;
 #endif
 };
 #pragma pack(pop)
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
-#define kIOI2CInterfaceClassName	"IOI2CInterface"
+#define kIOI2CInterfaceClassName        "IOI2CInterface"
 
-#define kIOI2CInterfaceIDKey		"IOI2CInterfaceID"
-#define kIOI2CBusTypeKey		"IOI2CBusType"
-#define kIOI2CTransactionTypesKey	"IOI2CTransactionTypes"
-#define kIOI2CSupportedCommFlagsKey	"IOI2CSupportedCommFlags"
+#define kIOI2CInterfaceIDKey            "IOI2CInterfaceID"
+#define kIOI2CBusTypeKey                "IOI2CBusType"
+#define kIOI2CTransactionTypesKey       "IOI2CTransactionTypes"
+#define kIOI2CSupportedCommFlagsKey     "IOI2CSupportedCommFlags"
 
-#define kIOFBI2CInterfaceInfoKey	"IOFBI2CInterfaceInfo"
-#define kIOFBI2CInterfaceIDsKey		"IOFBI2CInterfaceIDs"
+#define kIOFBI2CInterfaceInfoKey        "IOFBI2CInterfaceInfo"
+#define kIOFBI2CInterfaceIDsKey         "IOFBI2CInterfaceIDs"
 
 // kIOI2CBusTypeKey values
 enum {
-    kIOI2CBusTypeI2C		= 1,
-    kIOI2CBusTypeDisplayPort	= 2
+    kIOI2CBusTypeI2C            = 1,
+    kIOI2CBusTypeDisplayPort    = 2
 };
 
 /*!
@@ -155,13 +155,13 @@ enum {
 
 struct IOI2CBusTiming
 {
-    AbsoluteTime		bitTimeout;
-    AbsoluteTime		byteTimeout;
-    AbsoluteTime		acknowledgeTimeout;
-    AbsoluteTime		startTimeout;
-    AbsoluteTime		holdTime;
-    AbsoluteTime		riseFallTime;
-    UInt32			__reservedA[8];
+    AbsoluteTime                bitTimeout;
+    AbsoluteTime                byteTimeout;
+    AbsoluteTime                acknowledgeTimeout;
+    AbsoluteTime                startTimeout;
+    AbsoluteTime                holdTime;
+    AbsoluteTime                riseFallTime;
+    UInt32                      __reservedA[8];
 };
 typedef struct IOI2CBusTiming IOI2CBusTiming;
 
@@ -171,7 +171,7 @@ typedef struct IOI2CBusTiming IOI2CBusTiming;
 
 // options for IOFBCopyI2CInterfaceForBus()
 enum {
-    kIOI2CBusNumberMask 		= 0x000000ff
+    kIOI2CBusNumberMask                 = 0x000000ff
 };
 
 
@@ -193,7 +193,7 @@ IOReturn IOFBGetI2CInterfaceCount( io_service_t framebuffer, IOItemCount * count
 
 IOReturn IOFBCopyI2CInterfaceForBus( io_service_t framebuffer, IOOptionBits bus, io_service_t * interface );
 
-typedef struct IOI2CConnect * IOI2CConnectRef; 	/* struct IOI2CConnect is opaque */
+typedef struct IOI2CConnect * IOI2CConnectRef;  /* struct IOI2CConnect is opaque */
 
 IOReturn IOI2CCopyInterfaceForID( CFTypeRef identifier, io_service_t * interface );
 
@@ -241,13 +241,13 @@ class IOI2CInterface : public IOService
     OSDeclareDefaultStructors(IOI2CInterface)
     
 protected:
-    UInt64	fID;
+    UInt64      fID;
 
 public:
-    IOReturn newUserClient( task_t		owningTask,
-                            void * 		security_id,
-                            UInt32  		type,
-                            IOUserClient **	handler );
+    IOReturn newUserClient( task_t              owningTask,
+                            void *              security_id,
+                            UInt32              type,
+                            IOUserClient **     handler );
 
     bool registerI2C( UInt64 id );
 

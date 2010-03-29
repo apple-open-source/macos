@@ -19,7 +19,7 @@
 # This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
 # KIND, either express or implied.
 #
-# $Id: ftpserver.pl,v 1.98 2008-12-08 20:20:51 bagder Exp $
+# $Id: ftpserver.pl,v 1.100 2009-05-05 08:46:31 yangtse Exp $
 ###########################################################################
 
 # This is the FTP server designed for the curl test suite.
@@ -114,7 +114,7 @@ do {
     }
     elsif($ARGV[0] eq "--addr") {
         $listenaddr = $ARGV[1];
-	$listenaddr =~ s/^\[(.*)\]$/\1/;
+        $listenaddr =~ s/^\[(.*)\]$/\1/;
         shift @ARGV;
     }
 } while(shift @ARGV);
@@ -363,8 +363,8 @@ sub MDTM_command {
     my $testno = $_[0];
     my $testpart = "";
     if ($testno > 10000) {
-    	$testpart = $testno % 10000;
-    	$testno = int($testno / 10000);
+        $testpart = $testno % 10000;
+        $testno = int($testno / 10000);
     }
 
     loadtest("$srcdir/data/test$testno");
@@ -390,8 +390,8 @@ sub SIZE_command {
     my $testno = $_[0];
     my $testpart = "";
     if ($testno > 10000) {
-    	$testpart = $testno % 10000;
-    	$testno = int($testno / 10000);
+        $testpart = $testno % 10000;
+        $testno = int($testno / 10000);
     }
 
     loadtest("$srcdir/data/test$testno");
@@ -452,8 +452,8 @@ sub RETR_command {
     $testno =~ s/^([^0-9]*)//;
     my $testpart = "";
     if ($testno > 10000) {
-    	$testpart = $testno % 10000;
-    	$testno = int($testno / 10000);
+        $testpart = $testno % 10000;
+        $testno = int($testno / 10000);
     }
 
     loadtest("$srcdir/data/test$testno");
@@ -631,22 +631,22 @@ sub PASV_command {
     eval {
         local $SIG{ALRM} = sub { die "alarm\n" };
 
-	# assume swift operations unless explicitly slow
-	alarm ($controldelay?20:10);
+        # assume swift operations unless explicitly slow
+        alarm ($controldelay?20:10);
 
         # Wait for 'CNCT'
-	my $input;
+        my $input;
 
         while(sysread(DREAD, $input, 5)) {
 
-	    if($input !~ /^CNCT/) {
-		# we wait for a connected client
-		logmsg "Odd, we got $input from client\n";
-		next;
-	    }
-	    logmsg "====> Client DATA connect\n";
-	    last;
-	}
+            if($input !~ /^CNCT/) {
+                # we wait for a connected client
+                logmsg "Odd, we got $input from client\n";
+                next;
+            }
+            logmsg "====> Client DATA connect\n";
+            last;
+        }
         alarm 0;
     };
     if ($@) {

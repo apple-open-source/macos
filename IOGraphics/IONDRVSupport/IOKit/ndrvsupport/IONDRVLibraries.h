@@ -14,33 +14,33 @@ extern "C" {
 
 /* NameRegistry error codes */
 enum {
-    nrLockedErr				= -2536,
-    nrNotEnoughMemoryErr		= -2537,
-    nrInvalidNodeErr			= -2538,
-    nrNotFoundErr			= -2539,
-    nrNotCreatedErr			= -2540,
-    nrNameErr				= -2541,
-    nrNotSlotDeviceErr			= -2542,
-    nrDataTruncatedErr			= -2543,
-    nrPowerErr				= -2544,
-    nrPowerSwitchAbortErr		= -2545,
-    nrTypeMismatchErr			= -2546,
-    nrNotModifiedErr			= -2547,
-    nrOverrunErr			= -2548,
-    nrResultCodeBase			= -2549,
-    nrPathNotFound			= -2550,    /* a path component lookup failed */
-    nrPathBufferTooSmall		= -2551,    /* buffer for path is too small */
-    nrInvalidEntryIterationOp		= -2552,    /* invalid entry iteration operation */
-    nrPropertyAlreadyExists		= -2553,    /* property already exists */
-    nrIterationDone			= -2554,    /* iteration operation is done */
-    nrExitedIteratorScope		= -2555,    /* outer scope of iterator was exited */
-    nrTransactionAborted		= -2556,        /* transaction was aborted */
+    nrLockedErr                         = -2536,
+    nrNotEnoughMemoryErr                = -2537,
+    nrInvalidNodeErr                    = -2538,
+    nrNotFoundErr                       = -2539,
+    nrNotCreatedErr                     = -2540,
+    nrNameErr                           = -2541,
+    nrNotSlotDeviceErr                  = -2542,
+    nrDataTruncatedErr                  = -2543,
+    nrPowerErr                          = -2544,
+    nrPowerSwitchAbortErr               = -2545,
+    nrTypeMismatchErr                   = -2546,
+    nrNotModifiedErr                    = -2547,
+    nrOverrunErr                        = -2548,
+    nrResultCodeBase                    = -2549,
+    nrPathNotFound                      = -2550,    /* a path component lookup failed */
+    nrPathBufferTooSmall                = -2551,    /* buffer for path is too small */
+    nrInvalidEntryIterationOp           = -2552,    /* invalid entry iteration operation */
+    nrPropertyAlreadyExists             = -2553,    /* property already exists */
+    nrIterationDone                     = -2554,    /* iteration operation is done */
+    nrExitedIteratorScope               = -2555,    /* outer scope of iterator was exited */
+    nrTransactionAborted                = -2556,        /* transaction was aborted */
 
-    gestaltUndefSelectorErr		= -5551 /*undefined selector was passed to Gestalt*/
+    gestaltUndefSelectorErr             = -5551 /*undefined selector was passed to Gestalt*/
 };
 
 enum {
-    kNVRAMProperty        		= 0x00000020,            // matches NR
+    kNVRAMProperty                      = 0x00000020,            // matches NR
 };
 
 
@@ -54,7 +54,7 @@ IOReturn _IONDRVLibrariesInitialize( IOService * provider );
 IOReturn _IONDRVLibrariesFinalize( IOService * provider );
 
 #ifndef kAAPLRegEntryIDKey
-#define kAAPLRegEntryIDKey	"AAPL,RegEntryID"
+#define kAAPLRegEntryIDKey      "AAPL,RegEntryID"
 #endif
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
@@ -303,25 +303,25 @@ OSStatus RegistryEntryIterateCreate( RegEntryIter * cookie);
 OSStatus RegistryEntryIterateDispose( RegEntryIter * cookie);
 
 OSStatus RegistryEntryIterateSet( RegEntryIter * cookie,
-				    const RegEntryID * startEntryID);
+                                    const RegEntryID * startEntryID);
 
-OSStatus RegistryEntryIterate( RegEntryIter *	cookie,
-			RegEntryIterationOp	relationship,
-			RegEntryID * 	foundEntry,
-			Boolean *	done);
+OSStatus RegistryEntryIterate( RegEntryIter *   cookie,
+                        RegEntryIterationOp     relationship,
+                        RegEntryID *    foundEntry,
+                        Boolean *       done);
 
-OSStatus RegistryCStrEntryToName( const RegEntryID *	entryID,
-			    RegEntryID *		parentEntry,
-			    RegCStrEntryName *		nameComponent,
-			    Boolean *			done );
+OSStatus RegistryCStrEntryToName( const RegEntryID *    entryID,
+                            RegEntryID *                parentEntry,
+                            RegCStrEntryName *          nameComponent,
+                            Boolean *                   done );
 
-OSStatus RegistryCStrEntryLookup(  const RegEntryID *	parentEntry,
-			    const RegCStrPathName *	path,
-			    RegEntryID *		newEntry);
+OSStatus RegistryCStrEntryLookup(  const RegEntryID *   parentEntry,
+                            const RegCStrPathName *     path,
+                            RegEntryID *                newEntry);
 
-OSStatus RegistryCStrEntryCreate(  const RegEntryID *	parentEntry,
-			    const RegCStrPathName *  	name,
-			    RegEntryID *		newEntry);
+OSStatus RegistryCStrEntryCreate(  const RegEntryID *   parentEntry,
+                            const RegCStrPathName *     name,
+                            RegEntryID *                newEntry);
 
 OSStatus RegistryEntryDelete(const RegEntryID * entryID);
 
@@ -449,7 +449,7 @@ LogicalAddress PoolAllocateResident(ByteCount byteSize, Boolean clear);
 
 OSStatus PoolDeallocate( LogicalAddress address );
 
-UInt32	CurrentExecutionLevel(void);
+UInt32  CurrentExecutionLevel(void);
 
 UnsignedWide UpTime( void );
 
@@ -541,11 +541,11 @@ typedef UInt32 *                        UInt32Ptr;
 
 typedef struct IOHardwareCursorDescriptor HardwareCursorDescriptorRec;
 typedef HardwareCursorDescriptorRec *     HardwareCursorDescriptorPtr;
-typedef struct IOHardwareCursorInfo	  HardwareCursorInfoRec;
+typedef struct IOHardwareCursorInfo       HardwareCursorInfoRec;
 typedef HardwareCursorInfoRec *           HardwareCursorInfoPtr;
 
 typedef ResType                         InterruptServiceType;
-typedef struct _VSLService *		InterruptServiceIDType;
+typedef struct _VSLService *            InterruptServiceIDType;
 typedef InterruptServiceIDType *        InterruptServiceIDPtr;
 
 enum {
@@ -568,9 +568,9 @@ VSLGestalt( VSLGestaltType selector, UInt32 * response );
 
 OSStatus 
 VSLSetDisplayConfiguration(RegEntryID * entryID,
-					RegPropertyName *  propertyName,
-					RegPropertyValue	configData,
-					RegPropertyValueSize configDataSize);
+                                        RegPropertyName *  propertyName,
+                                        RegPropertyValue        configData,
+                                        RegPropertyValueSize configDataSize);
 OSErr
 VSLNewInterruptService(
   RegEntryID *            serviceDevice,
@@ -650,16 +650,16 @@ enum {
   kSourceWasDisabled            = false
 };
 
-typedef InterruptMemberNumber	(*InterruptHandler) (InterruptSetMember ISTmember, void *refCon, UInt32 theIntCount);
-typedef void			(*InterruptEnabler) (InterruptSetMember ISTmember, void *refCon);
-typedef InterruptSourceState	(*InterruptDisabler)(InterruptSetMember ISTmember, void *refCon);
+typedef InterruptMemberNumber   (*InterruptHandler) (InterruptSetMember ISTmember, void *refCon, UInt32 theIntCount);
+typedef void                    (*InterruptEnabler) (InterruptSetMember ISTmember, void *refCon);
+typedef InterruptSourceState    (*InterruptDisabler)(InterruptSetMember ISTmember, void *refCon);
 
 enum {
   kReturnToParentWhenComplete   = 0x00000001,
   kReturnToParentWhenNotComplete = 0x00000002
 };
 
-typedef OptionBits	InterruptSetOptions;
+typedef OptionBits      InterruptSetOptions;
 
 
 OSStatus GetInterruptFunctions(

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2009 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2010 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -363,6 +363,18 @@ void IOAudioControl::stop(IOService *provider)
         valueChangeHandler.intHandler = NULL;
     }
     
+	// <rdar://7233118>, <rdar://7029696> Remove the event source here as performing heavy workloop operation in free() could lead
+	// to deadlock since the context which free() is called is not known. stop() is called on the workloop, so it is safe to remove 
+	// the event source here.
+    if (commandGate) {
+        if (workLoop) {
+            workLoop->removeEventSource(commandGate);
+        }
+        
+        commandGate->release();
+        commandGate = NULL;
+    }
+
     super::stop(provider);
 
     isStarted = false;
@@ -398,6 +410,29 @@ void IOAudioControl::setWorkLoop(IOWorkLoop *wl)
 IOCommandGate *IOAudioControl::getCommandGate()
 {
     return commandGate;
+}
+
+// <rdar://7529580>
+IOReturn IOAudioControl::_setValueAction(OSObject *target, void *arg0, void *arg1, void *arg2, void *arg3)
+{
+    IOReturn result = kIOReturnBadArgument;
+    
+    if (target) {
+        IOAudioControl *audioControl = OSDynamicCast(IOAudioControl, target);
+        if (audioControl) {
+            IOCommandGate *cg;
+            
+            cg = audioControl->getCommandGate();
+            
+            if (cg) {
+                result = cg->runAction(setValueAction, arg0, arg1, arg2, arg3);
+            } else {
+                result = kIOReturnError;
+            }
+        }
+    }
+    
+    return result;
 }
 
 IOReturn IOAudioControl::setValueAction(OSObject *owner, void *arg1, void *arg2, void *arg3, void *arg4)
@@ -735,33 +770,33 @@ IOReturn IOAudioControl::newUserClient(task_t task, void *securityID, UInt32 typ
     
     audioDebugIOLog(3, "IOAudioControl[%p]::newUserClient()", this);
 
-    result = createUserClient(task, securityID, type, &client);
-    
-    if ((result == kIOReturnSuccess) && (client != NULL)) {
-        if (!client->attach(this)) {
-            client->release();
-            result = kIOReturnError;
-        } else if (!client->start(this) || !userClients) {
-            client->detach(this);
-            client->release();
-            result = kIOReturnError;
-        } else {
-            IOCommandGate *cg;
-            
-            cg = getCommandGate();
-            
-            if (cg) {
-                result = cg->runAction(addUserClientAction, client);
-    
-                if (result == kIOReturnSuccess) {
-                    *handler = client;
-                }
-            } else {
-                result = kIOReturnError;
-            }
-        }
+    if (!isInactive()) {	// <rdar://7324947>
+		result = createUserClient(task, securityID, type, &client);
+		
+		if ((result == kIOReturnSuccess) && (client != NULL)) {
+			if (!client->attach(this)) {
+				client->release();
+				result = kIOReturnError;
+			} else if (!client->start(this) || !userClients) {
+				client->detach(this);
+				client->release();
+				result = kIOReturnError;
+			} else {
+				if (workLoop) {		// <rdar://7324947>
+					result = workLoop->runAction(_addUserClientAction, this, client);	// <rdar://7324947>, <rdar://7529580>
+		
+					if (result == kIOReturnSuccess) {
+						*handler = client;
+					}
+				} else {
+					result = kIOReturnError;
+				}
+			}
+		}
+    } else {	// <rdar://7324947>
+        result = kIOReturnNoDevice;
     }
-
+	
     return result;
 #endif
 }
@@ -770,40 +805,40 @@ IOReturn IOAudioControl::newUserClient(task_t task, void *securityID, UInt32 typ
 {
     IOReturn result = kIOReturnSuccess;
     IOAudioControlUserClient *client = NULL;
-    
-	if (kIOReturnSuccess == newUserClient(task, securityID, type, handler)) {
-		return kIOReturnSuccess;
-	}	
 	
     audioDebugIOLog(3, "IOAudioControl[%p]::newUserClient()", this);
-
-    result = createUserClient(task, securityID, type, &client, properties);
-    
-    if ((result == kIOReturnSuccess) && (client != NULL)) {
-        if (!client->attach(this)) {
-            client->release();
-            result = kIOReturnError;
-        } else if (!client->start(this) || !userClients) {
-            client->detach(this);
-            client->release();
-            result = kIOReturnError;
-        } else {
-            IOCommandGate *cg;
-            
-            cg = getCommandGate();
-            
-            if (cg) {
-                result = cg->runAction(addUserClientAction, client);
-    
-                if (result == kIOReturnSuccess) {
-                    *handler = client;
-                }
-            } else {
-                result = kIOReturnError;
-            }
-        }
+	
+    if (!isInactive()) {	// <rdar://7324947>
+		if (kIOReturnSuccess == newUserClient(task, securityID, type, handler)) {
+			return kIOReturnSuccess;
+		}	
+		
+		result = createUserClient(task, securityID, type, &client, properties);
+		
+		if ((result == kIOReturnSuccess) && (client != NULL)) {
+			if (!client->attach(this)) {
+				client->release();
+				result = kIOReturnError;
+			} else if (!client->start(this) || !userClients) {
+				client->detach(this);
+				client->release();
+				result = kIOReturnError;
+			} else {
+				if (workLoop) {	// <rdar://7324947>
+					result = workLoop->runAction(_addUserClientAction, this, client);	// <rdar://7324947>, <rdar://7529580>
+		
+					if (result == kIOReturnSuccess) {
+						*handler = client;
+					}
+				} else {
+					result = kIOReturnError;
+				}
+			}
+		}
+    } else {	// <rdar://7324947>
+        result = kIOReturnNoDevice;
     }
-
+	
     return result;
 }
 
@@ -812,14 +847,33 @@ void IOAudioControl::clientClosed(IOAudioControlUserClient *client)
     audioDebugIOLog(3, "IOAudioControl[%p]::clientClosed(%p)", this, client);
 
     if (client) {
-        IOCommandGate *cg;
-        
-        cg = getCommandGate();
-
-        if (cg) {
-            cg->runAction(removeUserClientAction, client);
+		if (workLoop) {														// <rdar://7529580>
+			workLoop->runAction(_removeUserClientAction, this, client);		// <rdar://7529580>
 		}
     }
+}
+
+// <rdar://7529580>
+IOReturn IOAudioControl::_addUserClientAction(OSObject *target, void *arg0, void *arg1, void *arg2, void *arg3)
+{
+    IOReturn result = kIOReturnBadArgument;
+    
+    if (target) {
+        IOAudioControl *audioControl = OSDynamicCast(IOAudioControl, target);
+        if (audioControl) {
+            IOCommandGate *cg;
+            
+            cg = audioControl->getCommandGate();
+            
+            if (cg) {
+                result = cg->runAction(addUserClientAction, arg0, arg1, arg2, arg3);
+            } else {
+                result = kIOReturnError;
+            }
+        }
+    }
+    
+    return result;
 }
 
 IOReturn IOAudioControl::addUserClientAction(OSObject *owner, void *arg1, void *arg2, void *arg3, void *arg4)
@@ -833,6 +887,29 @@ IOReturn IOAudioControl::addUserClientAction(OSObject *owner, void *arg1, void *
         }
     }
 
+    return result;
+}
+
+// <rdar://7529580>
+IOReturn IOAudioControl::_removeUserClientAction(OSObject *target, void *arg0, void *arg1, void *arg2, void *arg3)
+{
+    IOReturn result = kIOReturnBadArgument;
+    
+    if (target) {
+        IOAudioControl *audioControl = OSDynamicCast(IOAudioControl, target);
+        if (audioControl) {
+            IOCommandGate *cg;
+            
+            cg = audioControl->getCommandGate();
+            
+            if (cg) {
+                result = cg->runAction(removeUserClientAction, arg0, arg1, arg2, arg3);
+            } else {
+                result = kIOReturnError;
+            }
+        }
+    }
+    
     return result;
 }
 
@@ -932,15 +1009,11 @@ IOReturn IOAudioControl::setProperties(OSObject *properties)
         OSNumber *number = OSDynamicCast(OSNumber, props->getObject(kIOAudioControlValueKey));
         
         if (number) {
-            IOCommandGate *cg;
-            
-            cg = getCommandGate();
-            
-            if (cg) {
-                result = cg->runAction(setValueAction, (void *)number);
+        	if (workLoop) {																// <rdar://7529580>
+				result = workLoop->runAction(_setValueAction, this, (void *)number);	// <rdar://7529580>
             } else {
                 result = kIOReturnError;
-            }
+            }			
         }
     } else {
         result = kIOReturnBadArgument;

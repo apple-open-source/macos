@@ -752,7 +752,7 @@ IOUSBRootHubDevice::GetDeviceInformation(UInt32 *info)
 	// Need to determine if this is a built-in or external root hub
 	propertyObject = _controller->copyProperty("Card Type");
     theString = OSDynamicCast(OSString, propertyObject);
-	if( theString)
+	if ( theString)
         isBuiltIn = theString->isEqualTo("Built-in");
     
  	SAFE_RELEASE_NULL(propertyObject);

@@ -147,7 +147,7 @@ dns_async_start(mach_port_t *p, const char *name, uint16_t dnsclass, uint16_t dn
 	c = dnsclass;
 	t = dnstype;
 
-	*p = si_async_call(dns, call, name, NULL, c, t, 0, 0, (void *)_dns_callback, (void *)my_ctx);
+	*p = si_async_call(dns, call, name, NULL, NULL, c, t, 0, 0, (void *)_dns_callback, (void *)my_ctx);
 	if (*p == MACH_PORT_NULL)
 	{
 		free(my_ctx);

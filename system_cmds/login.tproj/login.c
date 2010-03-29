@@ -56,6 +56,8 @@ __FBSDID("$FreeBSD: src/usr.bin/login/login.c,v 1.106 2007/07/04 00:00:40 scf Ex
 
 #ifndef __APPLE__
 #include <sys/copyright.h>
+#endif
+#ifdef __APPLE__
 #include <TargetConditionals.h>
 #endif
 #include <sys/param.h>
@@ -494,20 +496,22 @@ main(int argc, char *argv[])
 			rval = 0;
 #endif /* !USE_PAM */
 #endif /* __APPLE__ */
-		} else {
+		} else if( pwd ) {
 			fflag = 0;
 			(void)setpriority(PRIO_PROCESS, 0, -4);
 #ifdef USE_PAM
 			rval = auth_pam();
 #else
 		{
-			char* salt = pwd ? pwd->pw_passwd : "xx";
+			char* salt = pwd->pw_passwd;
 			char* p = getpass(passwd_prompt);
-			rval = strcmp(crypt(p, salt), pwd->pw_passwd);
+			rval = strcmp(crypt(p, salt), salt);
 			memset(p, 0, strlen(p));
 		}
 #endif
 			(void)setpriority(PRIO_PROCESS, 0, 0);
+		} else {
+			rval = -1;
 		}
 
 #ifdef __APPLE__
@@ -658,12 +662,6 @@ main(int argc, char *argv[])
 		syslog(LOG_NOTICE, "strdup(): %m");
 		bail(SLEEP_EXIT, 1);
 	}
-	if (*shell == '\0')   /* Not overridden */
-		shell = pwd->pw_shell;
-	if ((shell = strdup(shell)) == NULL) {
-		syslog(LOG_NOTICE, "strdup(): %m");
-		bail(SLEEP_EXIT, 1);
-	}
 
 #if defined(__APPLE__) && TARGET_OS_EMBEDDED
 	/* on embedded, allow a shell to live in /var/debug_mount/bin/sh */
@@ -674,6 +672,13 @@ main(int argc, char *argv[])
         	}
         }
 #endif
+
+	if (*shell == '\0')   /* Not overridden */
+		shell = pwd->pw_shell;
+	if ((shell = strdup(shell)) == NULL) {
+		syslog(LOG_NOTICE, "strdup(): %m");
+		bail(SLEEP_EXIT, 1);
+	}
 
 #ifdef __APPLE__
 	dolastlog(quietlog);
@@ -867,6 +872,7 @@ main(int argc, char *argv[])
 	(void)setgid(pwd->pw_gid);
 	if (initgroups(username, pwd->pw_gid) == -1)
 		syslog(LOG_ERR, "login: initgroups() failed");
+	pwd = getpwnam(username); // 7258548
 	(void) setuid(rootlogin ? 0 : pwd->pw_uid);		
 #else /* !__APPLE__ */
 	if (setusercontext(lc, pwd, pwd->pw_uid,

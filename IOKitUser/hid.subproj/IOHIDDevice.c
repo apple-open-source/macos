@@ -1295,7 +1295,7 @@ IOReturn IOHIDDeviceSetReportWithCallback(
                                 void *                          context)
 {
     IOHIDDeviceCallbackInfo * reportInfo = 
-            (IOHIDDeviceCallbackInfo *)malloc(sizeof(IOHIDDeviceCallbackInfo));
+        (IOHIDDeviceCallbackInfo *)malloc(sizeof(IOHIDDeviceCallbackInfo));
     
     if ( !reportInfo )
         return kIOReturnNoMemory;

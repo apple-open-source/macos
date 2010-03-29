@@ -52,14 +52,14 @@ bool IOI2CInterface::registerI2C( UInt64 id )
     return (result);
 }
 
-IOReturn IOI2CInterface::newUserClient( task_t		owningTask,
-                                        void * 		security_id,
-                                        UInt32  	type,
-                                        IOUserClient **	handler )
+IOReturn IOI2CInterface::newUserClient( task_t          owningTask,
+                                        void *          security_id,
+                                        UInt32          type,
+                                        IOUserClient ** handler )
 
 {
-    IOReturn		err = kIOReturnSuccess;
-    IOUserClient *	newConnect = 0;
+    IOReturn            err = kIOReturnSuccess;
+    IOUserClient *      newConnect = 0;
 
     if (type)
         return (kIOReturnBadArgument);
@@ -152,8 +152,8 @@ IOReturn IOI2CInterfaceUserClient::setProperties( OSObject * properties )
 
 IOReturn IOI2CInterfaceUserClient::extAcquireBus( void )
 {
-    IOReturn		ret = kIOReturnNotReady;
-    IOI2CInterface *	provider;
+    IOReturn            ret = kIOReturnNotReady;
+    IOI2CInterface *    provider;
 
     if ((provider = (IOI2CInterface *) copyParentEntry(gIOServicePlane)))
     {
@@ -166,8 +166,8 @@ IOReturn IOI2CInterfaceUserClient::extAcquireBus( void )
 
 IOReturn IOI2CInterfaceUserClient::extReleaseBus( void )
 {
-    IOReturn		ret = kIOReturnNotReady;
-    IOI2CInterface *	provider;
+    IOReturn            ret = kIOReturnNotReady;
+    IOI2CInterface *    provider;
 
     if ((provider = (IOI2CInterface *) copyParentEntry(gIOServicePlane)))
     {
@@ -183,11 +183,11 @@ IOReturn IOI2CInterfaceUserClient::extIO(
     void * inStruct, void * outStruct,
     IOByteCount inSize, IOByteCount * outSize )
 {
-    IOReturn		err = kIOReturnNotReady;
-    IOI2CInterface *	provider;
-    IOI2CBuffer *	buffer;
+    IOReturn            err = kIOReturnNotReady;
+    IOI2CInterface *    provider;
+    IOI2CBuffer *       buffer;
 
-    IOI2CRequest *		  request;
+    IOI2CRequest *                request;
     IOI2CRequest_10_5_0 * requestV1 = NULL;
     IOI2CRequest          requestV2;
 
@@ -196,26 +196,26 @@ IOReturn IOI2CInterfaceUserClient::extIO(
     if (*outSize < inSize)
         return (kIOReturnNoSpace);
 
-	buffer = (IOI2CBuffer *) inStruct;
-	request = &buffer->request;
+        buffer = (IOI2CBuffer *) inStruct;
+        request = &buffer->request;
 
-	if (!request->sendTransactionType && !request->replyTransactionType)
-	{
-		requestV1 = (typeof (requestV1)) &buffer->request;
-		bzero(&requestV2, sizeof(requestV2));
-		request = &requestV2;
+        if (!request->sendTransactionType && !request->replyTransactionType)
+        {
+                requestV1 = (typeof (requestV1)) &buffer->request;
+                bzero(&requestV2, sizeof(requestV2));
+                request = &requestV2;
 
-		request->sendTransactionType  = requestV1->sendTransactionType;
-		request->replyTransactionType = requestV1->replyTransactionType;
-		request->sendAddress          = requestV1->sendAddress;
-		request->replyAddress         = requestV1->replyAddress;
-		request->sendBytes            = requestV1->sendBytes;
-		request->replyBytes           = requestV1->replyBytes;
-		request->sendSubAddress       = requestV1->sendSubAddress;
-		request->replySubAddress      = requestV1->replySubAddress;
-		request->commFlags            = requestV1->commFlags;
-		request->minReplyDelay        = requestV1->minReplyDelay;
-	}
+                request->sendTransactionType  = requestV1->sendTransactionType;
+                request->replyTransactionType = requestV1->replyTransactionType;
+                request->sendAddress          = requestV1->sendAddress;
+                request->replyAddress         = requestV1->replyAddress;
+                request->sendBytes            = requestV1->sendBytes;
+                request->replyBytes           = requestV1->replyBytes;
+                request->sendSubAddress       = requestV1->sendSubAddress;
+                request->replySubAddress      = requestV1->replySubAddress;
+                request->commFlags            = requestV1->commFlags;
+                request->minReplyDelay        = requestV1->minReplyDelay;
+        }
 
     if ((provider = (IOI2CInterface *) copyParentEntry(gIOServicePlane)))
         do
@@ -249,8 +249,8 @@ IOReturn IOI2CInterfaceUserClient::extIO(
 
             err = provider->startIO( request );
 
-			if (requestV1)
-				requestV1->result = request->result;
+                        if (requestV1)
+                                requestV1->result = request->result;
         }
         while (false);
 

@@ -50,7 +50,7 @@ MODULE_ID("$Id: lib_trace.c,v 1.71 2008/08/23 18:04:29 tom Exp $")
 
 NCURSES_EXPORT_VAR(unsigned) _nc_tracing = 0; /* always define this */
 
-#ifdef TRACE
+#if defined(TRACE)
 
 #if USE_REENTRANT
 NCURSES_EXPORT(const char *)

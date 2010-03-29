@@ -736,12 +736,14 @@ int CheckVolumeBitMap(SGlobPtr g, Boolean repair)
 			bcopy(buffer, vbmBlockP + (bit & bitsWithinFileBlkMask)/8, kBytesPerSegment);
 			relOpt = kForceWriteBlock;
 		} else {
+			int underalloc = 0;
+			int indx;
 #if _VBC_DEBUG_
 			int i, j;
 			UInt32 *disk_buffer;
 			UInt32 dummy, block_num;
 
-			/plog("  disk buffer + %d\n", (bit & bitsWithinFileBlkMask)/8);
+			plog("  disk buffer + %d\n", (bit & bitsWithinFileBlkMask)/8);
 			plog("start block number for segment = %qu\n", bit);
 			plog("segment %qd\n", bit / kBitsPerSegment);
 
@@ -781,7 +783,26 @@ int CheckVolumeBitMap(SGlobPtr g, Boolean repair)
 				}
 			}
 #endif
-			fsckPrint(g->context, E_VBMDamaged);
+			/*
+			 * We have at least one difference.  If we have over-allocated (that is, the
+			 * volume bitmap says a block is allocated, but our counts say it isn't), then
+			 * this is a lessor error.  If we've under-allocated (that is, the volume bitmap
+			 * says a block is available, but our counts say it is in use), then this is a
+			 * bigger problem -- it can lead to overlapping extents.
+			 *
+			 * Once we determine we have under-allocated, we can just stop and print out
+			 * the message.
+			 */
+			for (indx = 0; indx < kBytesPerSegment; indx++) {
+				uint8_t *bufp, *diskp;
+				bufp = buffer;
+				diskp = vbmBlockP + (bit & bitsWithinFileBlkMask)/8;
+				if (bufp[indx] & ~diskp[indx]) {
+					underalloc++;
+					break;
+				}
+			}
+			fsckPrint(g->context, underalloc ? E_VBMDamaged : E_VBMDamagedOverAlloc);
 			g->VIStat = g->VIStat | S_VBM;
 			break; /* stop checking after first miss */
 		}

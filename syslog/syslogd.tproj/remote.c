@@ -524,7 +524,7 @@ session(void *x)
 					continue;
 				}
 
-				status = notify_register_file_descriptor(SELF_DB_NOTIFICATION, &wfd, 0, &wtoken);
+				status = notify_register_file_descriptor(ASL_DB_NOTIFICATION, &wfd, 0, &wtoken);
 				if (status != 0)
 				{
 					snprintf(str, sizeof(str) - 1, "notify_register_file_descriptor failed: %d\n", status);

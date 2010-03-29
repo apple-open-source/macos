@@ -96,6 +96,7 @@ struct ike_session {
     int                                  i_sent_data_sc_dpd:1;
     int                                  i_sent_data_sc_idle:1;
     int					 is_client:1;
+    time_t                               last_time_data_sc_detected;
     u_int32_t                            natt_flags;
 	char                                *term_reason;
 
@@ -152,5 +153,7 @@ extern int                ike_session_is_client_ph1_rekey __P((struct ph1handle 
 extern void               ike_session_start_xauth_timer __P((struct ph1handle *));
 extern void               ike_session_stop_xauth_timer __P((struct ph1handle *));
 extern int                ike_session_get_sainfo_r __P((struct ph2handle *));
+extern int                ike_session_drop_rekey __P((ike_session_t *));
+extern void               ike_session_ph2_retransmits __P((struct ph2handle *));
 
 #endif /* _IKE_SESSION_H */

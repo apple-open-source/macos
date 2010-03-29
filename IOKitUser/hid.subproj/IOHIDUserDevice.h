@@ -27,10 +27,14 @@
 
 #include <CoreFoundation/CoreFoundation.h>
 #include <IOKit/IOKitLib.h>
+#include <IOKit/hid/IOHIDKeys.h>
 
 __BEGIN_DECLS
 
 typedef struct __IOHIDUserDevice * IOHIDUserDeviceRef;
+
+
+typedef IOReturn (*IOHIDUserDeviceReportCallback)(void * refcon, IOHIDReportType type, uint32_t reportID, uint8_t * report, CFIndex reportLength);
 
 /*!
 	@function   IOHIDUserDeviceGetTypeID
@@ -49,20 +53,59 @@ CFTypeID IOHIDUserDeviceGetTypeID(void);
     @result     Returns a new IOHIDUserDeviceRef.
 */
 CF_EXPORT
-IOHIDUserDeviceRef IOHIDUserDeviceCreate(
-                                CFAllocatorRef                  allocator, 
-                                CFDictionaryRef                 properties);
+IOHIDUserDeviceRef IOHIDUserDeviceCreate(CFAllocatorRef allocator, CFDictionaryRef properties);
 
+/*!
+	@function   IOHIDUserDeviceScheduleWithRunLoop
+	@abstract   Schedules the IOHIDUserDevice with a run loop
+    @discussion This is necessary to receive asynchronous events from the kernel
+    @param      device Reference to IOHIDUserDevice 
+    @param      runLoop Run loop to be scheduled with
+    @param      runLoopMode Run loop mode to be scheduled with
+*/
+CF_EXPORT
+void IOHIDUserDeviceScheduleWithRunLoop(IOHIDUserDeviceRef device, CFRunLoopRef runLoop, CFStringRef runLoopMode);
+
+/*!
+	@function   IOHIDUserDeviceUnscheduleFromRunLoop
+	@abstract   Unschedules the IOHIDUserDevice from a run loop
+    @param      device Reference to IOHIDUserDevice 
+    @param      runLoop Run loop to be scheduled with
+    @param      runLoopMode Run loop mode to be scheduled with
+*/
+CF_EXPORT
+void IOHIDUserDeviceUnscheduleFromRunLoop(IOHIDUserDeviceRef device, CFRunLoopRef runLoop, CFStringRef runLoopMode);
+
+/*!
+	@function   IOHIDUserDeviceRegisterGetReportCallback
+	@abstract   Register a callback to receive get report requests
+    @param      device Reference to IOHIDUserDevice 
+    @param      callback Callback to be used
+    @param      refcon pointer to a reference object of your choosing
+*/
+CF_EXPORT
+void IOHIDUserDeviceRegisterGetReportCallback(IOHIDUserDeviceRef device, IOHIDUserDeviceReportCallback callback, void * refcon);
+
+/*!
+	@function   IOHIDUserDeviceRegisterSetReportCallback
+	@abstract   Register a callback to receive set report requests
+    @param      device Reference to IOHIDUserDevice 
+    @param      callback Callback to be used
+    @param      refcon pointer to a reference object of your choosing
+*/
+CF_EXPORT
+void IOHIDUserDeviceRegisterSetReportCallback(IOHIDUserDeviceRef device, IOHIDUserDeviceReportCallback callback, void * refcon);
 
 /*!
 	@function   IOHIDUserDeviceHandleReport
 	@abstract   Dispatch a report to the IOHIDUserDevice.
+    @param      device Reference to IOHIDUserDevice 
+    @param      report Buffer containing formated report being issued to HID stack
+    @param      reportLength Report buffer length
+    @result     Returns kIOReturnSuccess when report is handled successfully.
 */
 CF_EXPORT
-IOReturn IOHIDUserDeviceHandleReport(
-                                IOHIDUserDeviceRef              device, 
-                                uint8_t *                       report, 
-                                CFIndex                         reportLength);
+IOReturn IOHIDUserDeviceHandleReport(IOHIDUserDeviceRef device, uint8_t * report, CFIndex reportLength);
 
 __END_DECLS
 

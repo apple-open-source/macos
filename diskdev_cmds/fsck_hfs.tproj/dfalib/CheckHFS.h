@@ -31,6 +31,7 @@ enum {
 	kAlwaysCheck = 2,	/* always check */
 	kPartialCheck = 3,	/* used with kForceRepairs in order to set up environment */
 	kForceCheck = 4,
+	kMajorCheck = 5,	/* Check for major vs. minor errors */
 
 	kNeverRepair = 0,	/* never repair */
 	kMinorRepairs = 1,	/* only do minor repairs (fsck preen) */
@@ -61,10 +62,15 @@ enum {
 	Max_RCode		= 13	/* maximum result code */
 };
 
+/* Option bits to indicate which type of btree to rebuild */
+#define REBUILD_CATALOG		0x1
+#define REBUILD_EXTENTS		0x2
+#define REBUILD_ATTRIBUTE	0x4
+
 extern int gGUIControl;
 
 extern int CheckHFS(	const char *rdevnode, int fsReadRef, int fsWriteRef, 
 						int checkLevel, int repairLevel, 
 						fsck_ctx_t fsckContext,
 						int lostAndFoundMode, int canWrite,
-						int *modified, int liveMode );
+						int *modified, int liveMode, int rebuildOptions );

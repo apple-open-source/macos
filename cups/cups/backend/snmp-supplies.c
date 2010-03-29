@@ -1,5 +1,5 @@
 /*
- * "$Id: snmp-supplies.c 1627 2009-08-07 21:38:19Z msweet $"
+ * "$Id: snmp-supplies.c 1793 2009-12-16 01:45:27Z msweet $"
  *
  *   SNMP supplies functions for the Common UNIX Printing System (CUPS).
  *
@@ -232,6 +232,8 @@ backendSNMPSupplies(
     if (packet.object_value.string.num_bytes == 2)
       new_state = (packet.object_value.string.bytes[0] << 8) |
 		  packet.object_value.string.bytes[1];
+    else if (packet.object_value.string.num_bytes == 1)
+      new_state = (packet.object_value.string.bytes[0] << 8);
     else
       new_state = 0;
 
@@ -883,5 +885,5 @@ utf16_to_utf8(
 
 
 /*
- * End of "$Id: snmp-supplies.c 1627 2009-08-07 21:38:19Z msweet $".
+ * End of "$Id: snmp-supplies.c 1793 2009-12-16 01:45:27Z msweet $".
  */

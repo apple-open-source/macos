@@ -24,7 +24,7 @@ BIGFILES=-D_FILE_OFFSET_BITS=64
 CFLAGS=-Wall -Winline -O2 -g $(BIGFILES)
 
 # Where you want it installed when you do 'make install'
-PREFIX=/usr
+PREFIX=/usr/local
 
 
 OBJS= blocksort.o  \
@@ -35,7 +35,7 @@ OBJS= blocksort.o  \
       decompress.o \
       bzlib.o
 
-all: libbz2.a libbz2.dylib bzip2 bzip2recover test
+all: libbz2.a bzip2 bzip2recover test
 
 bzip2: libbz2.a bzip2.o
 	$(CC) $(CFLAGS) $(LDFLAGS) -o bzip2 bzip2.o -L. -lbz2
@@ -52,23 +52,15 @@ libbz2.a: $(OBJS)
 		$(RANLIB) libbz2.a ; \
 	fi
 
-libbz2.dylib: $(OBJS)
-	rm -f libbz2.$(BZIP2_VERSION).dylib libbz2.1.0.dylib
-	$(CC) $(LDFLAGS) -dynamiclib -o libbz2.$(BZIP2_VERSION).dylib $(OBJS) \
-		-install_name $(PREFIX)/lib/libbz2.1.0.dylib \
-		-compatibility_version 1.0 -current_version $(BZIP2_VERSION)
-	ln -s libbz2.$(BZIP2_VERSION).dylib libbz2.1.0.dylib
-	ln -s libbz2.$(BZIP2_VERSION).dylib libbz2.dylib
-
 check: test
 test: bzip2
 	@cat words1
-	DYLD_LIBRARY_PATH=. ./bzip2 -1  < sample1.ref > sample1.rb2
-	DYLD_LIBRARY_PATH=. ./bzip2 -2  < sample2.ref > sample2.rb2
-	DYLD_LIBRARY_PATH=. ./bzip2 -3  < sample3.ref > sample3.rb2
-	DYLD_LIBRARY_PATH=. ./bzip2 -d  < sample1.bz2 > sample1.tst
-	DYLD_LIBRARY_PATH=. ./bzip2 -d  < sample2.bz2 > sample2.tst
-	DYLD_LIBRARY_PATH=. ./bzip2 -ds < sample3.bz2 > sample3.tst
+	./bzip2 -1  < sample1.ref > sample1.rb2
+	./bzip2 -2  < sample2.ref > sample2.rb2
+	./bzip2 -3  < sample3.ref > sample3.rb2
+	./bzip2 -d  < sample1.bz2 > sample1.tst
+	./bzip2 -d  < sample2.bz2 > sample2.tst
+	./bzip2 -ds < sample3.bz2 > sample3.tst
 	cmp sample1.bz2 sample1.rb2 
 	cmp sample2.bz2 sample2.rb2
 	cmp sample3.bz2 sample3.rb2
@@ -80,7 +72,6 @@ test: bzip2
 install: bzip2 bzip2recover
 	if ( test ! -d $(PREFIX)/bin ) ; then mkdir -p $(PREFIX)/bin ; fi
 	if ( test ! -d $(PREFIX)/lib ) ; then mkdir -p $(PREFIX)/lib ; fi
-	if ( test ! -d $(PREFIX)/local/lib ) ; then mkdir -p $(PREFIX)/local/lib ; fi
 	if ( test ! -d $(PREFIX)/man ) ; then mkdir -p $(PREFIX)/man ; fi
 	if ( test ! -d $(PREFIX)/man/man1 ) ; then mkdir -p $(PREFIX)/man/man1 ; fi
 	if ( test ! -d $(PREFIX)/include ) ; then mkdir -p $(PREFIX)/include ; fi
@@ -96,21 +87,17 @@ install: bzip2 bzip2recover
 	chmod a+r $(PREFIX)/man/man1/bzip2.1
 	cp -f bzlib.h $(PREFIX)/include
 	chmod a+r $(PREFIX)/include/bzlib.h
-	cp -f libbz2.a $(PREFIX)/local/lib
-	chmod a+r $(PREFIX)/local/lib/libbz2.a
-	cp -f libbz2.$(BZIP2_VERSION).dylib $(PREFIX)/lib
-	ln -s libbz2.$(BZIP2_VERSION).dylib $(PREFIX)/lib/libbz2.1.0.dylib
-	ln -s libbz2.$(BZIP2_VERSION).dylib $(PREFIX)/lib/libbz2.dylib
-	chmod a+r $(PREFIX)/lib/libbz2.$(BZIP2_VERSION).dylib
+	cp -f libbz2.a $(PREFIX)/lib
+	chmod a+r $(PREFIX)/lib/libbz2.a
 	cp -f bzgrep $(PREFIX)/bin/bzgrep
-	ln -s -f bzgrep $(PREFIX)/bin/bzegrep
-	ln -s -f bzgrep $(PREFIX)/bin/bzfgrep
+	ln -s -f $(PREFIX)/bin/bzgrep $(PREFIX)/bin/bzegrep
+	ln -s -f $(PREFIX)/bin/bzgrep $(PREFIX)/bin/bzfgrep
 	chmod a+x $(PREFIX)/bin/bzgrep
 	cp -f bzmore $(PREFIX)/bin/bzmore
-	ln -s -f bzmore $(PREFIX)/bin/bzless
+	ln -s -f $(PREFIX)/bin/bzmore $(PREFIX)/bin/bzless
 	chmod a+x $(PREFIX)/bin/bzmore
 	cp -f bzdiff $(PREFIX)/bin/bzdiff
-	ln -s -f bzdiff $(PREFIX)/bin/bzcmp
+	ln -s -f $(PREFIX)/bin/bzdiff $(PREFIX)/bin/bzcmp
 	chmod a+x $(PREFIX)/bin/bzdiff
 	cp -f bzgrep.1 bzmore.1 bzdiff.1 $(PREFIX)/man/man1
 	chmod a+r $(PREFIX)/man/man1/bzgrep.1
@@ -122,7 +109,7 @@ install: bzip2 bzip2recover
 	echo ".so man1/bzdiff.1" > $(PREFIX)/man/man1/bzcmp.1
 
 clean: 
-	rm -f *.o libbz2.a libbz2.*dylib bzip2 bzip2recover \
+	rm -f *.o libbz2.a bzip2 bzip2recover \
 	sample1.rb2 sample2.rb2 sample3.rb2 \
 	sample1.tst sample2.tst sample3.tst
 
@@ -142,9 +129,9 @@ decompress.o: decompress.c
 bzlib.o: bzlib.c
 	$(CC) $(CFLAGS) -c bzlib.c
 bzip2.o: bzip2.c
-	$(CC) $(CFLAGS) -mdynamic-no-pic -c bzip2.c
+	$(CC) $(CFLAGS) -c bzip2.c
 bzip2recover.o: bzip2recover.c
-	$(CC) $(CFLAGS) -mdynamic-no-pic -c bzip2recover.c
+	$(CC) $(CFLAGS) -c bzip2recover.c
 
 
 distclean: clean

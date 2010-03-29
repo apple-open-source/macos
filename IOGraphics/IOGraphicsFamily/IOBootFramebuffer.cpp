@@ -25,7 +25,7 @@
 
 #include "IOBootFramebuffer.h"
 
-enum { kTheDisplayMode	= 10 };
+enum { kTheDisplayMode  = 10 };
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
@@ -36,12 +36,12 @@ OSDefineMetaClassAndStructors(IOBootFramebuffer, IOFramebuffer)
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
-IOService * IOBootFramebuffer::probe(	IOService * 	provider,
-                                      SInt32 *	score )
+IOService * IOBootFramebuffer::probe(   IOService *     provider,
+                                      SInt32 *  score )
 {
-    PE_Video		bootDisplay;
-    IOService *		ret = 0;
-    IOReturn		err;
+    PE_Video            bootDisplay;
+    IOService *         ret = 0;
+    IOReturn            err;
 
     do
     {
@@ -55,8 +55,8 @@ IOService * IOBootFramebuffer::probe(	IOService * 	provider,
         if (false == super::probe(provider, score))
             continue;
 
-        *score 		= 0;
-        ret = this;			// Success
+        *score          = 0;
+        ret = this;                     // Success
     }
     while (false);
 
@@ -66,8 +66,8 @@ IOService * IOBootFramebuffer::probe(	IOService * 	provider,
 
 const char * IOBootFramebuffer::getPixelFormats( void )
 {
-    const char *	ret;
-    PE_Video		bootDisplay;
+    const char *        ret;
+    PE_Video            bootDisplay;
 
     getPlatform()->getConsoleInfo( &bootDisplay);
 
@@ -106,16 +106,16 @@ IOReturn IOBootFramebuffer::getInformationForDisplayMode(
     IODisplayModeID /* displayMode */,
     IODisplayModeInformation * info )
 {
-    PE_Video 	bootDisplay;
+    PE_Video    bootDisplay;
 
     getPlatform()->getConsoleInfo( &bootDisplay);
 
     bzero( info, sizeof( *info));
 
-    info->maxDepthIndex	= 0;
-    info->nominalWidth	= bootDisplay.v_width;
-    info->nominalHeight	= bootDisplay.v_height;
-    info->refreshRate	= 75 << 16;
+    info->maxDepthIndex = 0;
+    info->nominalWidth  = bootDisplay.v_width;
+    info->nominalHeight = bootDisplay.v_height;
+    info->refreshRate   = 75 << 16;
 
     return (kIOReturnSuccess);
 }
@@ -130,7 +130,7 @@ IOReturn IOBootFramebuffer::getPixelInformation(
     IODisplayModeID displayMode, IOIndex depth,
     IOPixelAperture aperture, IOPixelInformation * info )
 {
-    PE_Video	bootDisplay;
+    PE_Video    bootDisplay;
 
     if (aperture || depth || (displayMode != kTheDisplayMode))
         return (kIOReturnUnsupportedMode);
@@ -139,43 +139,43 @@ IOReturn IOBootFramebuffer::getPixelInformation(
 
     bzero( info, sizeof( *info));
 
-    info->activeWidth		= bootDisplay.v_width;
-    info->activeHeight		= bootDisplay.v_height;
+    info->activeWidth           = bootDisplay.v_width;
+    info->activeHeight          = bootDisplay.v_height;
     info->bytesPerRow           = bootDisplay.v_rowBytes & 0x7fff;
-    info->bytesPerPlane		= 0;
+    info->bytesPerPlane         = 0;
 
     switch (bootDisplay.v_depth)
     {
         case 8:
         default:
             strlcpy(info->pixelFormat, IO8BitIndexedPixels, sizeof(info->pixelFormat));
-            info->pixelType 		= kIOCLUTPixels;
-            info->componentMasks[0]	= 0xff;
-            info->bitsPerPixel 		= 8;
-            info->componentCount 	= 1;
-            info->bitsPerComponent	= 8;
+            info->pixelType             = kIOCLUTPixels;
+            info->componentMasks[0]     = 0xff;
+            info->bitsPerPixel          = 8;
+            info->componentCount        = 1;
+            info->bitsPerComponent      = 8;
             break;
         case 15:
         case 16:
             strlcpy(info->pixelFormat, IO16BitDirectPixels, sizeof(info->pixelFormat));
-            info->pixelType 	= kIORGBDirectPixels;
+            info->pixelType     = kIORGBDirectPixels;
             info->componentMasks[0] = 0x7c00;
             info->componentMasks[1] = 0x03e0;
             info->componentMasks[2] = 0x001f;
-            info->bitsPerPixel 	= 16;
-            info->componentCount 	= 3;
-            info->bitsPerComponent	= 5;
+            info->bitsPerPixel  = 16;
+            info->componentCount        = 3;
+            info->bitsPerComponent      = 5;
             break;
         case 24:
         case 32:
             strlcpy(info->pixelFormat, IO32BitDirectPixels, sizeof(info->pixelFormat));
-            info->pixelType 	= kIORGBDirectPixels;
+            info->pixelType     = kIORGBDirectPixels;
             info->componentMasks[0] = 0x00ff0000;
             info->componentMasks[1] = 0x0000ff00;
             info->componentMasks[2] = 0x000000ff;
-            info->bitsPerPixel 	= 32;
-            info->componentCount 	= 3;
-            info->bitsPerComponent	= 8;
+            info->bitsPerPixel  = 32;
+            info->componentCount        = 3;
+            info->bitsPerComponent      = 8;
             break;
     }
 
@@ -195,10 +195,10 @@ IOReturn IOBootFramebuffer::getCurrentDisplayMode(
 
 IODeviceMemory * IOBootFramebuffer::getApertureRange( IOPixelAperture aper )
 {
-    IOReturn			err;
-    IOPixelInformation		info;
-    IOByteCount			bytes;
-    PE_Video			bootDisplay;
+    IOReturn                    err;
+    IOPixelInformation          info;
+    IOByteCount                 bytes;
+    PE_Video                    bootDisplay;
 
     getPlatform()->getConsoleInfo( &bootDisplay);
 

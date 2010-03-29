@@ -80,7 +80,7 @@ ALL_SRCFILES = $(CFILES) $(MFILES) $(CXXFILES)
 
 ## MIG ##
 
-MIGFLAGS=$(Extra_MIG_Flags)
+MIGFLAGS=$(CFLAGS) $(Extra_MIG_Flags)
 ifneq ($(USERDEFS),)
 CFILES += $(foreach FILE, $(USERDEFS:.defs=_user.c), $(OBJROOT)/$(Project)/$(notdir $(FILE)))
 endif

@@ -1,3 +1,1644 @@
+2009-10-30  Jon Honeycutt  <jhoneycutt@apple.com>
+
+        Fix the build.
+
+        * accessibility/AccessibilityRenderObject.cpp:
+        (WebCore::AccessibilityRenderObject::positionalDescriptionForMSAA):
+
+2009-10-30  Mark Rowe  <mrowe@apple.com>
+
+        Merge r50354.
+
+    2009-10-29  Jon Honeycutt  <jhoneycutt@apple.com>
+
+        MSAA: Accessibility of headings is not correct
+
+        https://bugs.webkit.org/show_bug.cgi?id=30937
+
+        Reviewed by Alice Liu.
+
+        * accessibility/AccessibilityObject.h:
+        (WebCore::AccessibilityObject::stringRoleForMSAA):
+        (WebCore::AccessibilityObject::descriptionForMSAA):
+
+        * accessibility/AccessibilityRenderObject.cpp:
+        (WebCore::shouldReturnTagNameAsRoleForMSAA):
+        If the element's tag name is one of h1, h2, h3, h4, h5, h6, return
+        true.
+        (WebCore::AccessibilityRenderObject::stringRoleForMSAA):
+        If the element should return its tag name as the role, return the tag
+        name.
+        (WebCore::AccessibilityRenderObject::positionalDescriptionForMSAA):
+        If the object is a heading, return the string "L" followed by the
+        heading level.
+        (WebCore::AccessibilityRenderObject::descriptionForMSAA):
+        If the object has a positional description, return it. Otherwise, get
+        the accessibility description, and prefix it with "Description" so that
+        MSAA clients know that it's not a positional description.
+
+        * accessibility/AccessibilityRenderObject.h:
+
+2009-10-30  Mark Rowe  <mrowe@apple.com>
+
+        Merge r50353.
+
+    2009-10-29  Jon Honeycutt  <jhoneycutt@apple.com>
+
+        MSAA: Accessibility of links is wrong
+
+        https://bugs.webkit.org/show_bug.cgi?id=30928
+
+        Reviewed by Darin Adler.
+
+        * accessibility/AccessibilityImageMapLink.cpp:
+        (WebCore::AccessibilityImageMapLink::stringValueForMSAA):
+        Return the URL.
+        (WebCore::AccessibilityImageMapLink::nameForMSAA):
+        Return the alt text.
+
+        * accessibility/AccessibilityImageMapLink.h:
+        (WebCore::AccessibilityImageMapLink::isLinked):
+        Return true.
+
+        * accessibility/AccessibilityObject.h:
+        (WebCore::AccessibilityObject::isLinked):
+        (WebCore::AccessibilityObject::stringValueForMSAA):
+        (WebCore::AccessibilityObject::nameForMSAA):
+
+        * accessibility/AccessibilityRenderObject.cpp:
+        (WebCore::isLinkable):
+        Return true if the element is considered "linkable" with respect to
+        accessibility.
+        (WebCore::AccessibilityRenderObject::stringValueForMSAA):
+        If the element is linkable, check whether it has a parent anchor
+        element. If so, return the anchor element's href.
+        (WebCore::AccessibilityRenderObject::isLinked):
+        Return true if the element is linkable and if it's parent anchor tag's
+        href is non-empty.
+        (WebCore::AccessibilityRenderObject::nameForMSAA):
+        For text nodes, return the text.
+
+        * accessibility/AccessibilityRenderObject.h:
+
+2009-10-27  Mark Rowe  <mrowe@apple.com>
+
+        Merge r50165.
+
+    2009-10-27  Enrica Casucci  <enrica@apple.com>
+
+        Reviewed by Adele Peterson.
+
+        REGRESSION (Safari 4.0.3-ToT): After pressing Shift-PageDown, pressing Shift-Up 
+        extends the top of the selection upwards (but should shrink the selection instead)
+        <rdar://problem/7269075>
+        https://bugs.webkit.org/show_bug.cgi?id=29981
+
+        * editing/SelectionController.cpp:
+        (WebCore::SelectionController::modify): Added setting m_lastChangeWasHorizontalExtension.
+
+2009-10-23  Mark Rowe  <mrowe@apple.com>
+
+        Merge r47534.
+
+    2009-08-19  Simon Fraser  <simon.fraser@apple.com>
+
+        Reviewed by Darin Adler.
+
+        Images flash as you hover them on http://www.atebits.com/scribbles/
+        <rdar://problem/7143958>
+        
+        Tag images with the device colorspace with the colorspace of the main display, rather than
+        GenericRGB, so that composited images color-match those rendered via Core Graphics.
+        
+        Covered by LayoutTests/compositing/color-matching/image-color-matching.html
+
+        * platform/graphics/mac/GraphicsLayerCA.mm:
+        (WebCore::GraphicsLayerCA::setContentsToImage):
+
+2009-10-16  Mark Rowe  <mrowe@apple.com>
+
+        Merge r48971.
+
+    2009-09-30  Timothy Hatcher  <timothy@apple.com>
+
+        Fix list box scrolling by correctly overriding the scroll()
+        function on RenderBox.
+
+        <rdar://problem/7255440> REGRESSION (r48683): Mousewheel scrolling
+        of listboxes is broken (29756)
+
+        Reviewed by Dan Bernstein.
+
+        * rendering/RenderListBox.cpp:
+        (WebCore::RenderListBox::scroll):
+        * rendering/RenderListBox.h:
+        * rendering/RenderTextControlSingleLine.cpp:
+        (WebCore::RenderTextControlSingleLine::scroll):
+        * rendering/RenderTextControlSingleLine.h:
+
+2009-10-16  Mark Rowe  <mrowe@apple.com>
+
+        Merge r48683.
+
+    2009-09-22  Timothy Hatcher  <timothy@apple.com>
+
+        Prevent scrolling multiple elements during latched wheel events.
+
+        Reviewed by Anders Carlsson.
+
+        * page/EventHandler.cpp:
+        (WebCore::scrollAndAcceptEvent):
+        (WebCore::EventHandler::clear):
+        (WebCore::EventHandler::handleWheelEvent):
+        * page/EventHandler.h:
+        * rendering/RenderBox.cpp:
+        (WebCore::RenderBox::scroll):
+        * rendering/RenderBox.h:
+
+2009-10-14  Mark Rowe  <mrowe@apple.com>
+
+        Merge r48531.
+
+    2009-09-18  Anders Carlsson  <andersca@apple.com>
+
+        Fix windows build.
+        
+        * platform/win/PopupMenuWin.cpp:
+
+2009-10-14  Mark Rowe  <mrowe@apple.com>
+
+        Merge r48529.
+
+    2009-09-18  Anders Carlsson  <andersca@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        https://bugs.webkit.org/show_bug.cgi?id=29332
+        <rdar://problem/7231652> 
+        REGRESSION (r48446): While a <select> popup menu is open, the
+        rest of the WebView doesn't respond to mouse move events.
+
+        * platform/win/PopupMenuWin.cpp:
+        (WebCore::translatePoint):
+        New helper function that translates a point between HWND coordinates.
+        
+        (WebCore::PopupMenu::show):
+        Protect the PopupMenu if someone removes the <select> in response to a mouse
+        event. Handle WM_HOST_WINDOW_MOUSEMOVE events.
+        
+        (WebCore::PopupMenu::wndProc):
+        in the WM_MOUSEMOVE handler, if the mouse is not over the popup, post a 
+        WM_HOST_WINDOW_MOUSEMOVE event so that the host window (the WebView) gets the
+        mouse move event.
+
+2009-10-14  Mark Rowe  <mrowe@apple.com>
+
+        Merge r48446.
+
+    2009-09-16  Anders Carlsson  <andersca@apple.com>
+
+        Reviewed by Adam Roben.
+
+        <rdar://problem/7155710>
+        HTML selects on windows cause containing window to become inactive when opened
+        
+        Redo the way we handle events when a popup menu is shown, based on
+        http://blogs.msdn.com/oldnewthing/archive/2004/08/20/217684.aspx
+        
+        Since a non-active window can't capture the mouse, we use the owning window 
+        (the WebView) as the capture window. We then run a recursive message pump that 
+        forwards all mouse and keyboard events to the popup menu.
+        
+        * platform/PopupMenu.h:
+        * platform/win/PopupMenuWin.cpp:
+        (WebCore::PopupMenu::PopupMenu):
+        (WebCore::PopupMenu::show):
+        (WebCore::PopupMenu::hide):
+        (WebCore::PopupMenu::wndProc):
+
+2009-10-14  Mark Rowe  <mrowe@apple.com>
+
+        Merge r48396.
+
+    2009-09-15  Anders Carlsson  <andersca@apple.com>
+
+        Reviewed by Adam Roben.
+
+        Pass the PopupMenu pointer to CreateWindowEx and then get it from the LPCREATESTRUCT in
+        the WM_CREATE handler. This way we don't have to first create an zero size window and then size it.
+        
+        * platform/win/PopupMenuWin.cpp:
+        (WebCore::PopupMenu::show):
+        (WebCore::PopupMenu::PopupMenuWndProc):
+
+2009-10-14  Mark Rowe  <mrowe@apple.com>
+
+        Merge r48375.
+
+    2009-09-14  Anders Carlsson  <andersca@apple.com>
+
+        Reviewed by Jon Honeycutt.
+
+        More PopupMenu cleanup.
+        
+        * platform/PopupMenu.h:
+        * platform/win/PopupMenuWin.cpp:
+        (WebCore::PopupMenu::show):
+        Call registerClass.
+        
+        (WebCore::PopupMenu::registerClass):
+        Make this a private static member function so it can refer to PopupMenuWndProc.
+        
+        (WebCore::PopupMenu::PopupMenuWndProc):
+        Try to get the PopupMenu and call its wndProc member function.
+        
+        (WebCore::PopupMenu::wndProc):
+        Make this a member function.
+
+2009-10-14  Mark Rowe  <mrowe@apple.com>
+
+        Merge r48370.
+
+    2009-09-14  Anders Carlsson  <andersca@apple.com>
+
+        Reviewed by Adam Roben.
+
+        https://bugs.webkit.org/show_bug.cgi?id=29138
+        Simplify popup menu handling.
+
+        * platform/PopupMenuClient.h:
+        Rename hidePopup to popupDidHide.
+        
+        * platform/chromium/PopupMenuChromium.cpp:
+        (WebCore::PopupListBox::handleKeyEvent):        
+        (WebCore::PopupListBox::abandon):
+        (WebCore::PopupListBox::acceptIndex):
+        Call popupDidHide instead of hidePopup.
+        
+        * platform/gtk/PopupMenuGtk.cpp:
+        (WebCore::PopupMenu::menuUnmapped):
+        Ditto.
+        
+        * platform/mac/PopupMenuMac.mm:
+        (WebCore::PopupMenu::show):
+        Ditto.
+        
+        * platform/win/PopupMenuWin.cpp:
+        (WebCore::PopupMenu::hide):
+        Call popupDidHide.
+        
+        (WebCore::PopupWndProc):
+        Call PopupMenu::hide.
+        
+        * platform/wx/PopupMenuWx.cpp:
+        (WebCore::PopupMenu::OnMenuItemSelected):
+        Call popupDidHide.
+        
+        * rendering/RenderMenuList.cpp:
+        (WebCore::RenderMenuList::hidePopup):
+        (WebCore::RenderMenuList::popupDidHide):
+        * rendering/RenderMenuList.h:
+        Set the "popup is visible" flag in popupDidHide.
+        
+        * rendering/RenderTextControlSingleLine.cpp:
+        (WebCore::RenderTextControlSingleLine::hidePopup):
+        (WebCore::RenderTextControlSingleLine::popupDidHide):
+        * rendering/RenderTextControlSingleLine.h:
+        Ditto.
+
+2009-10-13  Mark Rowe  <mrowe@apple.com>
+
+        Merge r48308.
+
+    2009-09-11  Steve Falkenburg  <sfalken@apple.com>
+
+        Reviewed by Darin Adler.
+
+        Allow WebKit clients to opt out of high resolution timers on Windows.
+        https://bugs.webkit.org/show_bug.cgi?id=29192
+
+        * page/Settings.cpp:
+        (WebCore::Settings::setShouldUseHighResolutionTimers): Added.
+        * page/Settings.h: Added getter/setter for shouldUseHighResolutionTimers.
+        (WebCore::Settings::shouldUseHighResolutionTimers): Added.
+        * platform/win/SharedTimerWin.cpp:
+        (WebCore::setSharedTimerFireTime): Don't run high resolution timer code if it is disabled.
+
+2009-10-13  Mark Rowe  <mrowe@apple.com>
+
+        Merge r46645.
+
+    2009-07-31  Simon Fraser  <simon.fraser@apple.com>
+
+        Reviewed by Anders Carlsson.
+        
+        Accelerated animations stutter on pages with lots of animations and 3d transforms
+        https://bugs.webkit.org/show_bug.cgi?id=27884
+        
+        This patch changes the strategy for synchronizing painting view the view,
+        and compositing layer updates. Previously the strategy was to disable screen
+        updates between the time we updated the layer tree, and painted the view. That
+        left screen updates disabled for too long (hundreds of milliseconds) in some
+        cases, causing animation stutter.
+        
+        The new strategy is to batch up changes to the CA layer tree, and commit them
+        all at once just before painting happens (referred to as a "sync" in the code).
+        GraphicsLayerCA now keeps a bitmask of changed properties, and then migrates
+        the values stored in GraphicsLayer into the CA layer tree at commit time.
+        
+        Compositing layers are then synced in FrameView::paintContents(). However, not
+        all style/layout changes will result in painting; to deal with style changes that
+        touch only compositing properties, we set up a runloop observer that takes care
+        of comitting layer changes when no painting happens.
+
+        * WebCore.base.exp: Export FrameView::syncCompositingStateRecursive()
+
+        * loader/EmptyClients.h: scheduleViewUpdate() renamed to syncCompositingStateRecursive()
+        * page/ChromeClient.h: scheduleViewUpdate() renamed to syncCompositingStateRecursive()
+
+        * page/FrameView.h:
+        * page/FrameView.cpp:
+        (WebCore::FrameView::syncCompositingStateRecursive): syncCompositingState() on the
+        view and all subviews. Like layoutIfNeededRecursive(). If layout is pending, does not
+        sync and returns false, since we only want to sync when layout is done.
+        
+        (WebCore::FrameView::paintContents): syncCompositingState() before painting.
+
+        * page/animation/KeyframeAnimation.cpp:
+        (WebCore::KeyframeAnimation::endAnimation):
+        Call animationPaused() to notify the graphics layers about animation pausing.
+        
+        * platform/graphics/FloatPoint3D.h:
+        (WebCore::operator==):
+        (WebCore::operator!=): 
+        Add missing comparison operators.
+        
+        * platform/graphics/GraphicsLayer.cpp:
+        (WebCore::GraphicsLayer::setOpacity):
+        (WebCore::GraphicsLayer::setBackgroundColor): Simple setters no longer care about animation info.
+        
+        (WebCore::GraphicsLayer::paintGraphicsLayerContents): Null-check client.
+        
+        * platform/graphics/GraphicsLayer.h:
+        (WebCore::AnimationValue:):
+        (WebCore::TransformAnimationValue:):
+        (WebCore::KeyframeValueList:):
+        (WebCore::KeyframeValueList::insert):
+        Cleaned up versions of FloatValue and TransformValue, used to store information
+        about keyframes values.
+
+        (WebCore::GraphicsLayer::contentsRect):
+        (WebCore::GraphicsLayer::setContentsRect):
+        ContentsRect is now a simple setter.
+        
+        (WebCore::GraphicsLayer::addAnimation):
+        (WebCore::GraphicsLayer::removeAnimationsForProperty):
+        (WebCore::GraphicsLayer::removeAnimationsForKeyframes):
+        (WebCore::GraphicsLayer::pauseAnimation):
+        Simplified animation api.
+        
+        (WebCore::GraphicsLayer::setGeometryOrientation):
+        (WebCore::GraphicsLayer::geometryOrientation):
+        setGeometryOrientation is now just a normal member variable.
+        
+        (WebCore::GraphicsLayer::contentsOrientation): add a getter.
+        (WebCore::GraphicsLayer::syncCompositingState): Entry into the layer sync code.
+        
+        * platform/graphics/GraphicsLayerClient.h: scheduleViewUpdate() renamed to syncCompositingStateRecursive)
+
+        * platform/graphics/mac/GraphicsLayerCA.h:
+        * platform/graphics/mac/GraphicsLayerCA.mm:
+        Lots of cleanup and refactoring. Main points:
+        - Layer changes are all batched, and only committed to the CA layer on syncCompositingState().
+        - Bitmask is used to store which properties have changed. More efficient than before.
+        - Simpler animation interface; simple setters are no longer confounded with animations.
+        - Refactored code that creates CA animations, and stores which animations are running.
+
+        * platform/graphics/transforms/TransformOperations.h:
+        (WebCore::TransformOperations::size):
+        (WebCore::TransformOperations::at): Useful accessors for size and indexed access.
+        
+        * rendering/RenderLayerBacking.h:
+        * rendering/RenderLayerBacking.cpp:
+        Renamed 'contentsLayer' to 'foregroundLayer' to avoid confusion with GraphicsLayer's
+        contentsLayer.
+        Adapt to GraphicsLayer's simpler animation API.
+        Pass animation pausing through to the graphics layers.
+        contentsBox() is no longer a callback via GraphicsLayerClient.
+        
+        * rendering/RenderLayerCompositor.h:
+        * rendering/RenderLayerCompositor.cpp:
+        (WebCore::RenderLayerCompositor::setCompositingLayersNeedRebuild):
+        (WebCore::RenderLayerCompositor::scheduleSync):
+        (WebCore::RenderLayerCompositor::rebuildCompositingLayerTree):
+        scheduleViewUpdate() is no longer required. Instead, we plumb through "compositingLayerSync"
+        notifications, which travel up to WebKit and set up a runloop observer.
+        
+2009-10-13  Mark Rowe  <mrowe@apple.com>
+
+        Merge r49111.
+
+    2009-10-02  Chris Marrin  <cmarrin@apple.com>
+
+        Reviewed by Adele Peterson.
+
+        Add functionality to pause/throttle CSS transitions/animations in a WebView
+        https://bugs.webkit.org/show_bug.cgi?id=29942
+
+        Exporting call from AnimationController
+
+        * WebCore.base.exp:
+
+2009-10-13  Mark Rowe  <mrowe@apple.com>
+
+        Merge r47534.
+
+    2009-08-19  Simon Fraser  <simon.fraser@apple.com>
+
+        Reviewed by Darin Adler.
+
+        Images flash as you hover them on http://www.atebits.com/scribbles/
+        <rdar://problem/7143958>
+        
+        Tag images with the device colorspace with the colorspace of the main display, rather than
+        GenericRGB, so that composited images color-match those rendered via Core Graphics.
+        
+        Covered by LayoutTests/compositing/color-matching/image-color-matching.html
+
+        * platform/graphics/mac/GraphicsLayerCA.mm:
+        (WebCore::GraphicsLayerCA::setContentsToImage):
+
+2009-10-13  Mark Rowe  <mrowe@apple.com>
+
+        Merge r48492.
+
+    2009-09-17  Anders Carlsson  <andersca@apple.com>
+
+        Reviewed by Oliver Hunt.
+
+        <rdar://problem/7007541> 
+        CrashTracer: 4800+ crashes in Safari at com.apple.WebKit • WTF::HashTableIterator...
+        
+        Make RuntimeObjectImp more robust against m_instance being a null (which can happen if an OOP plug-in
+        crashes while we're calling into it).
+        
+        * bridge/runtime_object.cpp:
+        (JSC::RuntimeObjectImp::RuntimeObjectImp):
+        (JSC::RuntimeObjectImp::~RuntimeObjectImp):
+        (JSC::RuntimeObjectImp::invalidate):
+        (JSC::RuntimeObjectImp::fallbackObjectGetter):
+        (JSC::RuntimeObjectImp::fieldGetter):
+        (JSC::RuntimeObjectImp::methodGetter):
+        (JSC::RuntimeObjectImp::getOwnPropertySlot):
+        (JSC::RuntimeObjectImp::getOwnPropertyDescriptor):
+        (JSC::RuntimeObjectImp::put):
+        (JSC::RuntimeObjectImp::defaultValue):
+        (JSC::RuntimeObjectImp::getCallData):
+        (JSC::RuntimeObjectImp::getConstructData):
+        (JSC::RuntimeObjectImp::getPropertyNames):
+        * bridge/runtime_object.h:
+        (JSC::RuntimeObjectImp::getInternalInstance):
+
+2009-10-13  Mark Rowe  <mrowe@apple.com>
+
+        Merge r49026.
+
+    2009-10-02  Steve Falkenburg  <sfalken@apple.com>
+
+        Reviewed by Mark Rowe.
+
+        <https://bugs.webkit.org/show_bug.cgi?id=29989>
+        Safari version number shouldn't be exposed in WebKit code
+
+        For a WebKit version of 532.3.4:
+        Product version is: 5.32.3.4 (was 4.0.3.0)
+        File version is: 5.32.3.4 (was 4.532.3.4)
+
+        * WebCore.vcproj/QTMovieWin.rc:
+
+2009-10-13  Mark Rowe  <mrowe@apple.com>
+
+        Merge r47494.
+
+    2009-08-18  Alexey Proskuryakov  <ap@webkit.org>
+
+        Reviewed by Maciej Stachowiak.
+
+        https://bugs.webkit.org/show_bug.cgi?id=28446
+        Custom request headers shouldn't be sent with cross-origin preflight request
+
+        Tests: http/tests/xmlhttprequest/access-control-preflight-headers-async.html
+               http/tests/xmlhttprequest/access-control-preflight-headers-sync.html
+
+        * loader/DocumentThreadableLoader.cpp:
+        (WebCore::DocumentThreadableLoader::makeCrossOriginAccessRequestWithPreflight):
+        Don't copy headers to OPTIONS request. The spec is vague about this, but the intention was
+        that they shouldn't be sent, and Firefox doesn't send them.
+
+2009-10-12  Mark Rowe  <mrowe@apple.com>
+
+        Merge r49218.
+
+    2009-10-06  Sam Weinig  <sam@webkit.org>
+
+        Reviewed by Brady Eidson.
+
+        Fix for <rdar://problem/7271202>
+        Dispatch resource load delegate functions for the media element.
+        Since we don't get the required callbacks from the media engine,
+        just fake the parameters to the delegate functions as best as possible.
+
+        * html/HTMLMediaElement.cpp:
+        (WebCore::HTMLMediaElement::loadResource):
+        (WebCore::HTMLMediaElement::isSafeToLoadURL):
+        * loader/FrameLoader.cpp:
+        (WebCore::FrameLoader::willLoadMediaElementURL):
+        * loader/FrameLoader.h:
+
+2009-10-12  Mark Rowe  <mrowe@apple.com>
+
+        Merge r47883.
+
+    2009-08-29  Adele Peterson  <adele@apple.com>
+
+        Reviewed by Dan Bernstein.
+
+        Fix for https://bugs.webkit.org/show_bug.cgi?id=28829
+        Crash in AccessibilityRenderObject::activeDescendant when trying to set aria-activedescendant to something without a renderer
+
+        Test: accessibility/aria-activedescendant-crash.html
+
+        * accessibility/AccessibilityRenderObject.cpp: (WebCore::AccessibilityRenderObject::activeDescendant): Nil check.
+
+2009-10-12  Mark Rowe  <mrowe@apple.com>
+
+        Merge r48787.
+
+    2009-09-25  Dan Bernstein  <mitz@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        REGRESSION (r48775) FontList.plist written by TOT WebKit causes Safari 4
+        to crash on launch
+        https://bugs.webkit.org/show_bug.cgi?id=29759
+
+        * platform/graphics/win/FontDatabase.cpp:
+        (WebCore::writeFontDatabaseToPlist): Reverted to saving the CG font DB
+        property list at the root of FontList.plist, but with an additional
+        key for the last value of the Fonts registry key.
+        (WebCore::populateFontDatabase): Pass the FontList.plist in its entirety
+        to populatFontDatabaseFromPlist.
+
+2009-10-12  Mark Rowe  <mrowe@apple.com>
+
+        Merge r48775.
+
+    2009-09-25  Dan Bernstein  <mitz@apple.com>
+
+        Reviewed by Jon Honeycutt.
+
+        WebCore part of
+        <rdar://problem/7211635> 2 byte characters are displayed as garbaged
+        <rdar://problem/7212626> garbled/gibberish text (off-by-one)
+
+        When the Windows Fonts directory contains more than one font file for a
+        given font name, which of the fonts gets assigned to the name in the
+        Core Graphics font database was determined arbitrarily and did not
+        always match the font GDI used for the same font name. The mismatch
+        caused character-to-glyph mapping to use one font and glyph rendering to
+        use another.
+
+        The fix is to update the Core Graphics font database from the registry
+        entries (that reflect the name-to-font mapping that GDI uses) after
+        populating it with the result of scanning the Fonts directory. As a
+        consequence, the directory needs to be scanned at startup every time the
+        registry key changes, so the last value of the registry key is kept
+        in the property list on disk so that it could be compared to the current
+        value on startup.
+
+        * platform/graphics/win/FontDatabase.cpp:
+        (WebCore::populateFontDatabaseFromPlist): Now takes a property list as
+        a parameter and avoids round-tripping through XML by calling
+        wkAddFontsFromPlist() instead of wkAddFontsFromPlistRepresentation().
+        (WebCore::fontFilenamesFromRegistryKey):
+        (WebCore::cgFontDBKey):
+        (WebCore::writeFontDatabaseToPlist): Now takes the CG font DB property
+        list and a property list with the font filenames from the registry and
+        writes a dictionary with those property lists as values.
+        (WebCore::fontFilenamesFromRegistry): Added. Returns an array with the
+        values in the HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Fonts
+        registry key.
+        (WebCore::populateFontDatabase): Changed to read the contents of the
+        Fonts registry key and compare it with the last-saved value from the
+        property list, and to call wkAddFontsFromRegistry() after populating the
+        CG font DB from the file system. Uses wkCreateFontsPlist() instead of
+        wkCreateFontsPlistRepresentation() to avoid round-tripping through XML.
+
+2009-10-12  Mark Rowe  <mrowe@apple.com>
+
+        Merge r48572.
+
+    2009-09-20  Adam Barth  <abarth@webkit.org>
+
+        Reviewed by Maciej Stachowiak.
+
+        Crash when clicking link in unload handler
+        https://bugs.webkit.org/show_bug.cgi?id=29525
+
+        Test that the first navigation always wins when the page tries to start
+        a new navigation in an unload handler.
+
+        Tests: fast/loader/unload-form-about-blank.html
+               fast/loader/unload-form-post-about-blank.html
+               fast/loader/unload-form-post.html
+               fast/loader/unload-form.html
+               fast/loader/unload-hyperlink.html
+               fast/loader/unload-javascript-url.html
+               fast/loader/unload-reload.html
+               fast/loader/unload-window-location.html
+
+        * loader/FrameLoader.cpp:
+        (WebCore::FrameLoader::loadURL):
+        (WebCore::FrameLoader::loadWithDocumentLoader):
+
+2009-10-12  Mark Rowe  <mrowe@apple.com>
+
+        Merge r47801.
+
+    2009-08-26  Eric Carlson  <eric.carlson@apple.com>
+
+        Reviewed by Simon Fraser.
+
+        HTMLMediaElement sometimes loses events
+        https://bugs.webkit.org/show_bug.cgi?id=28762
+        <rdar://problem/7172437>
+
+        A media element triggers the resource selection algorithm if 
+        play() is called when the networkState attribute is NETWORK_EMPTY, but
+        it also immediately queues 'play' and either 'waiting' or 'playing' events.
+        One of the steps in preparing to load is to flush pending events, so those 
+        events were lost if the load timer fired quickly enough. Fixed by deleting
+        pending events before scheduling the load timer.
+
+        Test: media/audio-play-event.html
+
+        * html/HTMLMediaElement.cpp:
+        (WebCore::HTMLMediaElement::scheduleLoad):
+            Do nothing if the load timer is already scheduled. Call prepareForLoad so queue of 
+            pending events is flushed immediately.
+        (WebCore::HTMLMediaElement::scheduleNextSourceChild):
+            New, start the load timer without flushing pending events.
+        (WebCore::HTMLMediaElement::load):
+            Call prepareForLoad();
+        (WebCore::HTMLMediaElement::prepareForLoad):
+            New, load setup code moved from loadInternal.
+        (WebCore::HTMLMediaElement::loadInternal):
+            Moved some setup code to prepareForLoad so it can be invoked immediately before
+            arming the load timer.
+        (WebCore::HTMLMediaElement::setNetworkState):
+            Call scheduleNextSourceChild instead of scheduleLoad as the later now clears
+            pending events.
+        * html/HTMLMediaElement.h:
+            Declare scheduleNextSourceChild.
+
+2009-10-12  Mark Rowe  <mrowe@apple.com>
+
+        Merge r47771.
+
+    2009-08-25  Eric Carlson  <eric.carlson@apple.com>
+
+        Reviewed by Simon Fraser.
+
+        Setting the volume of a media element has no effect if called too early
+        https://bugs.webkit.org/show_bug.cgi?id=28731
+
+        * manual-tests/audio-volume.html: 
+            Added.
+
+        * platform/graphics/mac/MediaPlayerPrivateQTKit.mm:
+        (WebCore::MediaPlayerPrivate::setVolume):
+        (WebCore::MediaPlayerPrivate::setRate):
+            Don't bail if metadata hasn't been loaded, it is fine to set rate and/or
+            volume as soon as the movie has been created.
+
+2009-10-12  Mark Rowe  <mrowe@apple.com>
+
+        Merge r48848.
+
+    2009-09-28  Dan Bernstein  <mitz@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        <rdar://problem/7157288> Crash in RenderStyle::computedLineHeight()
+        when Times New Roman is not installed
+
+        * platform/graphics/win/FontCacheWin.cpp:
+        (WebCore::FontCache::getLastResortFallbackFont): If Times New Roman is
+        not available, use the Windows default GUI font.
+
+2009-10-12  Mark Rowe  <mrowe@apple.com>
+
+        Merge r48547.
+
+    2009-09-18  Simon Fraser  <simon.fraser@apple.com>
+
+        Fix stylistic issue raised in code review for previous commit.
+
+        * rendering/RenderLayerBacking.cpp:
+        (WebCore::hasNonZeroTransformOrigin):
+
+2009-10-12  Mark Rowe  <mrowe@apple.com>
+
+        Merge r48546.
+
+    2009-09-18  Simon Fraser  <simon.fraser@apple.com>
+
+        Reviewed by Dan Bernstein.
+
+        Element is misplaced during opacity transition with certain configuration of transform-origin and clipping
+        https://bugs.webkit.org/show_bug.cgi?id=29495
+        
+        If an element has zero size, but has a transform origin with absolute values,
+        then the transform origin would not be applied because it is implemented via
+        anchorPoint, which is expressed as a fraction of the layer size.
+        
+        Work around this by artificially inflating the size of the backing store when we need to.
+
+        Test: compositing/geometry/transfrom-origin-on-zero-size-layer.html
+
+        * rendering/RenderLayerBacking.h:
+        * rendering/RenderLayerBacking.cpp:
+        (WebCore::RenderLayerBacking::RenderLayerBacking):
+        Init m_artificiallyInflatedBounds to false.
+        
+        (WebCore::hasNonZeroTransformOrigin):
+        Utility function that describes whether the transform-origin contains non-percentage
+        x or y offsets.
+        
+        (WebCore::RenderLayerBacking::updateCompositedBounds):
+        New wrapper method around setCompositedBounds() that applies the size inflation
+        when necessary, setting the m_artificiallyInflatedBounds as appropriate.
+        
+        (WebCore::RenderLayerBacking::updateAfterLayout): Call updateCompositedBounds().
+        (WebCore::RenderLayerBacking::updateGraphicsLayerGeometry): Ditto
+        
+        * rendering/RenderLayerCompositor.cpp:
+        (WebCore::RenderLayerCompositor::rebuildCompositingLayerTree): Ditto
+        (WebCore::RenderLayerCompositor::updateCompositingDescendantGeometry): Ditto
+
+2009-10-12  Mark Rowe  <mrowe@apple.com>
+
+        Merge r47900.
+
+    Merge r48743.
+
+    2009-09-24  Dan Bernstein  <mitz@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        Fix <rdar://problem/7162000> Crash while trying to
+        calculate the horizontal position of image
+
+        Test: fast/inline-block/relative-positioned-rtl-crash.html
+
+        * rendering/RenderBox.cpp:
+        (WebCore::RenderBox::calcAbsoluteHorizontalReplaced): Corrected an
+        isInline() test to isRenderInline(). This is similar to r41259.
+
+2009-10-12  Mark Rowe  <mrowe@apple.com>
+
+        Merge r46136.
+
+    2009-07-20  Dan Bernstein  <mitz@apple.com>
+
+        Reviewed by Anders Carlsson.
+
+        When loading a custom view into a frame, the old document is still
+        around
+        <rdar://problem/5145841>
+
+        Safari fires onload before PDF is loaded into the browser
+        <rdar://problem/6618869>
+
+        Test: fast/loader/non-html-load-event.html
+
+        * GNUmakefile.am: Added PlaceholderDocument.{cpp,h}
+        * WebCore.gypi: Ditto.
+        * WebCore.pro: Ditto.
+        * WebCore.vcproj/WebCore.vcproj: Ditto.
+        * WebCore.xcodeproj/project.pbxproj: Ditto.
+        * WebCoreSources.bkl: Ditto.
+        * dom/Document.h:
+        (WebCore::Document::setStyleSelector): Added this protected accessor for
+            PlaceholderDocument to use.
+        * dom/Element.cpp:
+        (WebCore::Element::clientWidth): Check whether the document has a
+            renderer.
+        (WebCore::Element::clientHeight): Ditto.
+        * loader/FrameLoader.cpp:
+        (WebCore::FrameLoader::begin): Create a PlaceholderDocument for frames
+            that do not use an HTML view. Do not nullify the content size in
+            that case.
+        (WebCore::FrameLoader::transitionToCommitted): For frames that do not
+            use an HTML view, call receivedFirstData(), which sets up the
+            frame with a new PlaceHolderDocument.
+        * loader/PlaceholderDocument.cpp: Added.
+        (WebCore::PlaceholderDocument::attach): Sets up the style selector but
+            does not create a RenderView.
+        * loader/PlaceholderDocument.h: Added.
+        (WebCore::PlaceholderDocument::create):
+        (WebCore::PlaceholderDocument::PlaceholderDocument):
+
+2009-10-12  Mark Rowe  <mrowe@apple.com>
+
+        Merge r47509.
+
+    2009-08-19  Brady Eidson <beidson@apple.com>
+
+        Reviewed by Kevin Decker.
+
+        <rdar://problem/7042555> Loading certain pages on Tiger will start a spurious download
+        
+        Get rid of method swizzling entirely. This created problems when lower level
+        Foundation code would call into our own swizzled method.
+        
+        * platform/network/mac/ResourceHandleMac.mm: 
+        (-[WebCoreResourceHandleAsDelegate connection:didReceiveResponse:]): 
+        * platform/network/mac/WebCoreURLResponse.h:
+        * platform/network/mac/WebCoreURLResponse.mm:
+        (-[NSURLResponse adjustMIMETypeIfNecessary]):
+
+2009-10-12  Mark Rowe  <mrowe@apple.com>
+
+        Merge r48647.
+
+    2009-09-22  Beth Dakin  <bdakin@apple.com>
+
+        Reviewed by Dave Hyatt.
+
+        Fix for <rdar://problem/6925121> SAP: Wrong width calculation in 
+        table with fixed layout
+        -and corresponding-
+        https://bugs.webkit.org/show_bug.cgi?id=29501
+
+        New Tests:
+        * fast/table/fixed-table-with-percent-inside-percent-table.html: Added.
+        * fast/table/fixed-table-with-percent-width-inside-auto-table.html: Added.
+        * fast/table/fixed-table-with-percent-width-inside-div.html: Added.
+        * fast/table/fixed-table-with-percent-width-inside-extra-large-div.html: Added.
+        * fast/table/fixed-table-with-percent-width-inside-fixed-width-table.html: Added.
+        * fast/table/fixed-table-with-small-percent-width.html: Added.
+
+        This new quirk is very similar to an existing one that was 
+        implemented in revision 4316.
+        * rendering/FixedTableLayout.cpp:
+        (WebCore::FixedTableLayout::calcPrefWidths):
+
+2009-10-12  Mark Rowe  <mrowe@apple.com>
+
+        Merge r46521.
+
+    2009-07-28  Jon Honeycutt  <jhoneycutt@apple.com>
+
+        Speculative fix for <rdar://problem/7005077> WER: Crash in
+        WebCore::PluginStream::destroyStream+279 (1310510882)
+
+        Reviewed by Oliver Hunt.
+
+        * plugins/PluginStream.cpp:
+        (WebCore::PluginStream::destroyStream):
+        Move the "protector" RefPtr out of the block that dispatches
+        Reviewed by Dan Bernstein.
+
+        Fix positioning error when a compositing, absolutely-positioned element has an ancestor with opacity.
+        https://bugs.webkit.org/show_bug.cgi?id=28754
+        
+        For absolutely-positioned layers, convertToLayerCoords() jumps to the positioned
+        ancestor, since the layer x and y are relative to that ancestor. However, this could
+        skip over the ancestorLayer, thus giving the wrong result.
+        
+        Fix by duplicating the enclosingPositionedAncestor() logic in convertToLayerCoords(),
+        and checking for ancestorLayer along the way. If found, compute offset of both to
+        the enclosingPositionedAncestor() and subtract.
+        
+        This also fixes a positioning bug with abs. positioned elements in reflections,
+        so there is a new reflection test with a pixel result.
+
+        Tests: compositing/geometry/abs-position-inside-opacity.html
+               fast/reflections/abs-position-in-reflection.html
+
+        * rendering/RenderLayer.cpp:
+        (WebCore::isPositionedContainer):
+        (WebCore::RenderLayer::enclosingPositionedAncestor):
+        (WebCore::RenderLayer::enclosingTransformedAncestor):
+        (WebCore::RenderLayer::convertToLayerCoords):
+
+2009-08-28  Simon Fraser  <simon.fraser@apple.com>
+
+        notifications and into the function level; if NPN_DestroyStream were
+        called from NPP_NewStream as the comment warns, we would be deleted at
+        the end of the block.
+
+2009-10-12  Mark Rowe  <mrowe@apple.com>
+
+        Merge r48957.
+
+    2009-09-30  Maciej Stachowiak  <mjs@apple.com>
+
+        Build fix, not reviewed.
+
+        More Windows build fixes for https://bugs.webkit.org/show_bug.cgi?id=29943
+
+        * platform/network/cf/ResourceHandleCFNet.cpp:
+        (WebCore::willSendRequest):
+
+2009-10-12  Mark Rowe  <mrowe@apple.com>
+
+        Merge r48956.
+
+    2009-09-30  Maciej Stachowiak  <mjs@apple.com>
+
+        Build fix, not reviewed.
+
+        Fix windows build for fix for https://bugs.webkit.org/show_bug.cgi?id=29943
+
+        * platform/network/cf/ResourceHandleCFNet.cpp:
+        (WebCore::willSendRequest):
+
+2009-10-12  Mark Rowe  <mrowe@apple.com>
+
+        Merge r48953.
+
+    2009-09-30  Maciej Stachowiak  <mjs@apple.com>
+
+        Reviewed by Brady Eidson.
+
+        307 redirects should pass along http body and Content-Type header
+        https://bugs.webkit.org/show_bug.cgi?id=29943
+
+        Follow-up fix for:
+        <rdar://problem/3802660> SAP: 307 (Temporary Redirect) responses should use POST, not GET
+        
+        Test: http/tests/loading/resources/redirect-methods-result.php
+
+        * platform/network/cf/ResourceHandleCFNet.cpp:
+        (WebCore::willSendRequest): Pass along http body and Content-Type header.
+        * platform/network/mac/ResourceHandleMac.mm:
+        (-[WebCoreResourceHandleAsDelegate connection:willSendRequest:redirectResponse:]): ditto
+
+2009-10-12  Mark Rowe  <mrowe@apple.com>
+
+        Merge r46548.
+
+    2009-07-29  Brady Eidson  <beidson@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        https://bugs.webkit.org/show_bug.cgi?id=27791
+        307 redirects of POSTs should use POST, not GET
+
+        Test: http/tests/loading/redirect-methods.html
+
+        * platform/network/cf/ResourceHandleCFNet.cpp:
+        (WebCore::willSendRequest):
+
+        * platform/network/mac/ResourceHandleMac.mm:
+        (-[WebCoreResourceHandleAsDelegate connection:willSendRequest:redirectResponse:]):
+
+2009-10-12  Mark Rowe  <mrowe@apple.com>
+
+        Merge r48369.
+
+    2009-09-14  Anders Carlsson  <andersca@apple.com>
+
+        Reviewed by David Hyatt.
+
+        - Fix <rdar://problem/7182275>.
+
+        Make sure that the newly created scrollbar's style is up to date.
+        
+        * platform/win/PopupMenuWin.cpp:
+        (WebCore::PopupMenu::~PopupMenu):
+        Call setParent so that the scrollbar's parts are torn down correctly.
+        
+        (WebCore::PopupMenu::show):
+        Call styleChanged.
+
+2009-10-12  Mark Rowe  <mrowe@apple.com>
+
+        Merge r46058.
+
+    2009-07-17  Alexey Proskuryakov  <ap@webkit.org>
+
+        Reviewed by David Levin.
+
+        https://bugs.webkit.org/show_bug.cgi?id=27384
+        Random crashes in appcache/update-cache.html test
+
+        * loader/appcache/ApplicationCacheGroup.cpp:
+        (WebCore::ApplicationCacheGroup::didReceiveResponse): Reorder code to avoid using a handle
+        after canceling it.
+
+2009-10-12  Mark Rowe  <mrowe@apple.com>
+
+        Merge r45945.
+
+    2009-07-15  Darin Adler  <darin@apple.com>
+
+        Reviewed by John Sullivan.
+
+        After double-clicking a word, using Shift-arrow to select behaves unpredictably
+        https://bugs.webkit.org/show_bug.cgi?id=27177
+        rdar://problem/7034324
+
+        Test: editing/selection/extend-selection-after-double-click.html
+
+        The bug was due to the m_lastChangeWasHorizontalExtension flag, which was not
+        being cleared in many cases where it should have been.
+
+        * editing/SelectionController.cpp:
+        (WebCore::SelectionController::setSelection): Set m_lastChangeWasHorizontalExtension
+        to false. This catches all sorts of cases that don't flow through the modify function.
+        Before, the flag would reflect the last call to the modify function, which was not
+        necessarily the last selection change.
+        (WebCore::SelectionController::willBeModified): Rearrange function for clarity.
+        Remove code that sets m_lastChangeWasHorizontalExtension; that is now handled elsewhere. 
+        (WebCore::SelectionController::modify): Call setLastChangeWasHorizontalExtension after
+        setSelection when setting up a trial selection controller, since setSelection now
+        clears that flag. Also changed both trial selection controller cases to set the flag,
+        although it's not strictly necessary in both cases. Added code to set
+        m_lastChangeWasHorizontalExtension when extending the selection, which used to be
+        handled in willBeModified. Now we need to do it after the selection change.
+
+2009-10-12  Mark Rowe  <mrowe@apple.com>
+
+        Merge r48725.
+
+    2009-09-24  Brady Eidson  <beidson@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        Merge changes from Mozilla's FTP directory parser.
+        <rdar://problem/7227620> and https://bugs.webkit.org/show_bug.cgi?id=29294
+
+        FTP layout tests not possible at this time.
+        https://bugs.webkit.org/show_bug.cgi?id=29719 tracks making them possible.
+
+        * loader/FTPDirectoryParser.cpp:
+        (WebCore::ParsingFailed):
+        (WebCore::parseOneFTPLine):
+
+2009-10-08  Mark Rowe  <mrowe@apple.com>
+
+        Merge r48521.
+
+    2009-09-18  Dan Bernstein  <mitz@apple.com>
+
+        Reviewed by Darin Adler.
+
+        Fix <rdar://problem/7050773> REGRESSION (r40098) Crash at
+        WebCore::RenderBlock::layoutBlock()
+        https://bugs.webkit.org/show_bug.cgi?id=29498
+
+        Test: accessibility/nested-layout-crash.html
+
+        * accessibility/AccessibilityRenderObject.cpp:
+        (WebCore::AccessibilityRenderObject::updateBackingStore): Changed to
+            call Document::updateLayoutIgnorePendingStylesheets() instead of
+            calling RenderObject::layoutIfNeeded(). The latter requires that
+            there be no pending style recalc, which allows methods that call
+            Document::updateLayout() to be called during layout without risking
+            re-entry into layout.
+        * accessibility/mac/AccessibilityObjectWrapper.mm:
+        (-[AccessibilityObjectWrapper accessibilityActionNames]): Null-check
+            m_object after calling updateBackingStore(), since style recalc may
+            destroy the renderer, which destroys the accessibility object and
+            detaches it from the wrapper.
+        (-[AccessibilityObjectWrapper accessibilityAttributeNames]): Ditto.
+        (-[AccessibilityObjectWrapper accessibilityAttributeValue:]): Ditto.
+        (-[AccessibilityObjectWrapper accessibilityFocusedUIElement]): Ditto.
+        (-[AccessibilityObjectWrapper accessibilityHitTest:]): Ditto.
+        (-[AccessibilityObjectWrapper accessibilityIsAttributeSettable:]):
+            Ditto.
+        (-[AccessibilityObjectWrapper accessibilityIsIgnored]): Ditto.
+        (-[AccessibilityObjectWrapper accessibilityParameterizedAttributeNames]):
+             Ditto.
+        (-[AccessibilityObjectWrapper accessibilityPerformPressAction]): Ditto.
+        (-[AccessibilityObjectWrapper accessibilityPerformIncrementAction]):
+            Ditto.
+        (-[AccessibilityObjectWrapper accessibilityPerformDecrementAction]):
+            Ditto.
+        (-[AccessibilityObjectWrapper accessibilityPerformAction:]): Ditto.
+        (-[AccessibilityObjectWrapper accessibilitySetValue:forAttribute:]):
+            Ditto.
+        (-[AccessibilityObjectWrapper accessibilityAttributeValue:forParameter:]):
+            Ditto.
+        (-[AccessibilityObjectWrapper accessibilityIndexOfChild:]): Ditto.
+        (-[AccessibilityObjectWrapper accessibilityArrayAttributeCount:]):
+            Ditto.
+        (-[AccessibilityObjectWrapper accessibilityArrayAttributeValues:index:maxCount:]):
+            Ditto.
+
+2009-10-08  Mark Rowe  <mrowe@apple.com>
+
+        Merge r48960.
+
+    2009-09-30  Oliver Hunt  <oliver@apple.com>
+
+        Reviewed by Maciej Stachowiak.
+
+        reproducible freeze and crash on closing form popup at bosch-home.nl
+        https://bugs.webkit.org/show_bug.cgi?id=28948
+
+        showModalDialog calls getDirect on what is actually a window shell,
+        so ends up not getting a value (since no value can ever be placed
+        directly on the shell), which leads to incorrect behaviour.
+
+        We use a manual test rather than automatic as it was not
+        possible to get a modal run loop to work inside DRT.
+
+        * bindings/js/JSDOMWindowCustom.cpp:
+        (WebCore::JSDOMWindow::showModalDialog):
+        * manual-tests/showModalDialog-returnValue.html: manual testcase.
+
+2009-10-08  Mark Rowe  <mrowe@apple.com>
+
+        Merge r46604.
+
+    2009-07-30  Chris Fleizach  <cfleizach@apple.com>
+
+        Reviewed by Darin Adler.
+
+        Bug 27854 - crash at WebCore::AXObjectCache::notificationPostTimerFired
+        https://bugs.webkit.org/show_bug.cgi?id=27854
+
+        AccessibilityObjects need to be retained while waiting to fire their notifications, otherwise
+        they can disappear and then lead to crashes.
+       
+        * accessibility/AXObjectCache.cpp:
+        (WebCore::AXObjectCache::notificationPostTimerFired):
+        (WebCore::AXObjectCache::postNotification):
+        * accessibility/AXObjectCache.h:
+
+2009-10-08  Mark Rowe  <mrowe@apple.com>
+
+        Merge r48443.
+
+    2009-09-16  Dan Bernstein  <mitz@apple.com>
+
+        Reviewed by Ada Chan.
+
+        Speculative fix for
+        <rdar://problem/6937089> Crashes at RenderWidget::destroy()
+
+        * rendering/RenderWidget.cpp:
+        (WebCore::RenderWidget::destroy): Avoid calling renderArena() if node()
+        is null. Add two assertions that can help determine how this crash
+        happens (in particular, whether node() becomes null during destroy() or
+        it is null before destroy() is called).
+
+2009-10-08  Mark Rowe  <mrowe@apple.com>
+
+        Merge r48359.
+
+    2009-09-12  Mark Rowe  <mrowe@apple.com>
+
+        Reviewed by Dan Bernstein.
+
+        Fix <rdar://problem/6954546> Crashes in WebCore::RenderPart::setWidget below FrameLoader::loadPlugin.
+
+        The calls to FrameLoader::requestObject within RenderPartObject::updateWidget can result in a plug-in
+        being initialized.  This can run cause arbitrary JavaScript to run and may result in the RenderPartObject
+        being detached from the render tree and destroyed, causing a crash like <rdar://problem/6954546>.
+
+        No test is possible until <rdar://problem/7090444> is fixed.
+
+        * rendering/RenderPartObject.cpp:
+        (WebCore::RenderPartObject::updateWidget): Ensure that we stay alive for the duration of plug-in initialization.
+
+2009-10-08  Mark Rowe  <mrowe@apple.com>
+
+        Merge r48358.
+
+    2009-09-12  Mark Rowe  <mrowe@apple.com>
+
+        Reviewed by Dan Bernstein.
+
+        Add RenderWidgetProtector to simplify protecting a RenderWidget from destruction for the
+        duration of a function.  Deploy it within RenderWidget.
+
+        * rendering/RenderWidget.cpp:
+        (WebCore::RenderWidget::setWidgetGeometry):
+        (WebCore::RenderWidget::updateWidgetPosition): Use a RefPtr rather than explicitly
+        ref'ing and deref'ing the node.
+        * rendering/RenderWidget.h:
+        * rendering/RenderWidgetProtector.h:
+        (WebCore::RenderWidgetProtector::RenderWidgetProtector):
+        (WebCore::RenderWidgetProtector::~RenderWidgetProtector):
+
+2009-10-08  Mark Rowe  <mrowe@apple.com>
+
+        Merge r46598.
+
+    === End merge of nitro-extreme branch 2009-07-30 ===
+
+2009-05-11  Geoffrey Garen  <ggaren@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        Make WebCore compile with the new JS number representation.
+
+        * ForwardingHeaders/runtime/JSAPIValueWrapper.h: Added.
+        * ForwardingHeaders/runtime/JSNumberCell.h: Removed.
+        * bindings/js/ScriptEventListener.cpp:
+        * bindings/scripts/CodeGeneratorJS.pm:
+        * bridge/c/c_instance.cpp:
+
+=== Start merge of nitro-extreme branch 2009-07-30 ===
+
+2009-09-14  Mark Rowe  <mrowe@apple.com>
+
+        Merge r48367.
+
+    2009-09-11  Jon Honeycutt  <jhoneycutt@apple.com>
+
+        <rdar://problem/7197644> WebKit should broadcast an MSAA event when
+        jumping to a named anchor
+
+        https://bugs.webkit.org/show_bug.cgi?id=28899
+
+        Reviewed by Adam Roben.
+
+        * accessibility/AXObjectCache.h:
+        (WebCore::AXObjectCache::):
+        Added declaration for handleScrolledToAnchor(). Added a new entry to
+        the enum of accessibility notifications.
+
+        * accessibility/AccessibilityObject.cpp:
+        (WebCore::AccessibilityObject::firstAccessibleObjectFromNode):
+        Code moved from AccessibilityRenderObject::internalLinkElement() and
+        refactored slightly; walks the tree until it finds a Node (with a
+        renderer) whose accessibility is not ignored.
+
+        * accessibility/AccessibilityObject.h:
+        Added a declaration for firstAccessibleObjectFromNode().
+
+        * accessibility/AccessibilityRenderObject.cpp:
+        (WebCore::AccessibilityRenderObject::internalLinkElement):
+        Code moved to AccessibilityObject::firstAccessibleObjectFromNode().
+
+        * accessibility/chromium/AXObjectCacheChromium.cpp:
+        (WebCore::AXObjectCache::handleScrolledToAnchor):
+        Stubbed.
+
+        * accessibility/gtk/AXObjectCacheAtk.cpp:
+        (WebCore::AXObjectCache::handleScrolledToAnchor):
+        Stubbed.
+
+        * accessibility/mac/AXObjectCacheMac.mm:
+        (WebCore::AXObjectCache::postPlatformNotification):
+        Add a default case that returns early for notifications that Mac
+        doesn't handle.
+        (WebCore::AXObjectCache::handleScrolledToAnchor):
+        Stubbed.
+
+        * accessibility/win/AXObjectCacheWin.cpp:
+        (WebCore::AXObjectCache::handleScrolledToAnchor):
+        Post an AXScrolledToAnchor notification for the first accessible from
+        the anchor Node.
+        (WebCore::AXObjectCache::postPlatformNotification):
+        If the notification is AXFocusedUIElementChanged, fire an
+        EVENT_OBJECT_FOCUS. If the notification is AXScrolledToAnchor, fire
+        EVENT_SYSTEM_SCROLLINGSTART, matching Firefox.
+        (WebCore::AXObjectCache::handleFocusedUIElementChanged):
+        Code moved to postPlatformNotification().
+
+        * page/FrameView.cpp:
+        (WebCore::FrameView::scrollToAnchor):
+        Call AXObjectCache::handleScrolledToAnchor().
+
+2009-09-04  Mark Rowe  <mrowe@apple.com>
+
+        Merge r48085.
+
+    2009-09-04  Anders Carlsson  <andersca@apple.com>
+
+        Reviewed by Adele Peterson.
+
+        <rdar://problem/7201063>
+        
+        Detach any custom scrollbars before detaching the document.
+        
+        * page/Frame.cpp:
+        (WebCore::Frame::setView):
+
+2009-09-04  Mark Rowe  <mrowe@apple.com>
+
+        Merge r48070.
+
+    2009-09-04  Anders Carlsson  <andersca@apple.com>
+
+        Reviewed by David Hyatt and Adele Peterson.
+
+        (Based on a patch from Adele).
+        
+        Fix <rdar://problem/7185875>.
+        
+        * page/Frame.cpp:
+        (WebCore::Frame::setView):
+        Detach any custom scroll bars from the old view.
+        
+        * page/FrameView.cpp:
+        (WebCore::FrameView::detachCustomScrollbars):
+        Simplify the check (and make it work when body is null) by just checking that the scroll bar owner is
+        not a RenderPart object.
+
+        * rendering/RenderObject.cpp:
+        (WebCore::RenderObject::destroy):
+        ASSERT that frame() is not null here and also add a null check so that release builds won't crash.
+
+2009-09-04  Anders Carlsson  <andersca@apple.com>
+
+        Reviewed by Adele Petersen.
+
+        - Fix <rdar://problem/7192902>
+
+        Never throw away the first frame in an animation.
+
+        * platform/graphics/BitmapImage.cpp:
+        (WebCore::BitmapImage::destroyDecodedData):
+
+2009-09-04  Mark Rowe  <mrowe@apple.com>
+
+        Merge r48062.
+
+    2009-09-04  Anders Carlsson  <andersca@apple.com>
+
+        Reviewed by Darin Adler and Steve Falkenburg.
+
+        Fix <rdar://problem/7192902>.
+
+        Add the necessary plumbing for having QTMovieWin use WebCore timers.
+        
+        * platform/graphics/win/MediaPlayerPrivateQuickTimeWin.cpp:
+        (WebCore::TaskTimer::initialize):
+        Create the timer and call QTMovieWin::setTaskTimerFuncs.
+        
+        (WebCore::TaskTimer::setTaskTimerDelay):
+        Start the timer.
+        
+        (WebCore::TaskTimer::stopTaskTimer):
+        Stop the timer.
+        
+        (WebCore::TaskTimer::fired):
+        Call QTMovieWin::taskTimerFired().
+        
+        (WebCore::MediaPlayerPrivate::load):
+        Initialize the Task timer.
+        
+        * platform/graphics/win/QTMovieWin.cpp:
+        (updateTaskTimer):
+        Call the global stopTaskTimer function and setTaskTimerDelay.
+        
+        (QTMovieWin::taskTimerFired):
+        Make this a member function.
+        
+        (QTMovieWin::setTaskTimerFuncs):
+        Set the global function pointers.
+        
+        (QTMovieWin::initializeQuickTime):
+        (DllMain):
+        No need to use the QT shared timer.
+        * platform/graphics/win/QTMovieWin.h:
+
+2009-08-22  Mark Rowe  <mrowe@apple.com>
+
+        Merge r47679.
+
+    2009-08-22  Adele Peterson  <adele@apple.com>
+
+        Reviewed by Anders Carlsson.
+
+        Fix for <rdar://problem/7161656> Crash in RenderObject::destroy when using custom scrollbars
+
+        Custom scrollbars normally get detached when a document gets detached.  In this case, a crash was happening when the document had gone into the page cache 
+        and then was getting destroyed without proper scrollbar teardown.  This change makes custom scrollbars get detached when the document enters the cache.
+
+        I couldn't figure out a way to reliably cause this to happen in DRT, since the reproducible case relies on the cache being purged at a particular time.
+
+        * history/CachedFrame.cpp: (WebCore::CachedFrame::CachedFrame): Detach custom scrollbars when the CachedFrame is created.  
+          They'll get reattached when the document comes out of the page cache.
+        * page/FrameView.cpp: (WebCore::FrameView::~FrameView): Added some asserts to catch this problem earlier in debug builds.
+
+2009-08-22  Mark Rowe  <mrowe@apple.com>
+
+        Merge r47663.
+
+    2009-08-21  Adele Peterson  <adele@apple.com>
+
+        Reviewed by Mark Rowe.
+
+        <rdar://problem/7162322> Custom style sheet ignored if UAC is enabled 
+
+        * platform/win/SharedBufferWin.cpp: (WebCore::SharedBuffer::createWithContentsOfFile): 
+        No need to open the file with write access.  Only read access is needed.
+
+2009-08-20  Mark Rowe  <mrowe@apple.com>
+
+        Merge r47606.
+
+    2009-08-20  Anders Carlsson  <andersca@apple.com>
+
+        Reviewed by Dan Bernstein.
+
+        <rdar://problem/7159016> Popup menus don't disappear when you click outside the window.
+        
+        Revert r47535 which introduced this.
+        
+        * platform/win/PopupMenuWin.cpp:
+        (WebCore::PopupMenu::show):
+        (WebCore::PopupWndProc):
+
+2009-08-19  Mark Rowe  <mrowe@apple.com>
+
+        Merge r47535.
+
+    2009-08-19  Anders Carlsson  <andersca@apple.com>
+
+        Reviewed by Darin Adler.
+
+        - Fix <rdar://problem/7155710>
+        HTML selects on windows cause containing window to become inactive when opened.
+
+        * platform/win/PopupMenuWin.cpp:
+        (WebCore::PopupMenu::show):
+        Pass SWP_NOACTIVATE to SetWindowPos, remove AW_ACTIVATE from AnimateWindow and pass
+        SW_SHOWNOACTIVATE to ShowWindow.
+        
+        (WebCore::PopupWndProc):
+        Prevent mouse activation from activating the window.
+
+2009-08-19  Mark Rowe  <mrowe@apple.com>
+
+        Merge r47531.
+
+    2009-08-19  Anders Carlsson  <andersca@apple.com>
+
+        Reviewed by David Hyatt and Dan Bernstein.
+
+        - Fix <rdar://problem/7152589> Stylable scrollbar corners aren't working.
+
+        * page/FrameView.cpp:
+        (WebCore::FrameView::FrameView):
+        Initialize m_scrollCorner.
+
+        (WebCore::FrameView::~FrameView):
+        Assert that m_scrollCorner is null.
+
+        (WebCore::FrameView::detachCustomScrollbars):
+        Destroy m_scrollCorner.
+
+        (WebCore::FrameView::invalidateScrollCorner):
+        Invalidate the scroll corner.
+        
+        (WebCore::FrameView::updateScrollCorner):
+        Create/destroy the scroll corner.
+        
+        (WebCore::FrameView::paintScrollCorner):
+        Paint the scroll corner.
+        
+        * page/FrameView.h:
+        (WebCore::FrameView::isFrameViewScrollCorner):
+        Return whether a RenderScrollbarPart is the frame view scroll corner.
+        
+        * platform/ScrollView.cpp:
+        (WebCore::ScrollView::updateScrollbars):
+        Go ahead and update the scroll corner.
+        
+        (WebCore::ScrollView::setScrollbarsSuppressed):
+        Pass the scroll corner rect to invalidateRect.
+        
+        (WebCore::ScrollView::scrollCornerRect):
+        Return the scroll corner rect.
+        
+        * platform/ScrollView.h:
+        * rendering/RenderScrollbarPart.cpp:
+        (WebCore::RenderScrollbarPart::imageChanged):
+        If this scrollbar part is the frame view scroll corner, invalidate it.
+
+2009-08-18  Mark Rowe  <mrowe@apple.com>
+
+        Merge r47482.
+
+    2009-08-18  Anders Carlsson  <andersca@apple.com>
+
+        Reviewed by Adele Peterson, David Hyatt and Dan Bernstein.
+
+        - Fix <rdar://problem/7152727>
+
+        If a page has custom scroll bars, they will not update correctly when the window is activated/deactivated.
+        
+        * page/FrameView.cpp:
+        (WebCore::FrameView::hasCustomScrollbars):
+        Check if the frame view or any of its subviews have custom scroll bars.
+        
+        (WebCore::FrameView::updateControlTints):
+        Go ahead and update control tints if the frame view has custom scroll bars.
+        
+        * page/FrameView.h:
+
+2009-08-18  Steve Falkenburg  <sfalken@apple.com>
+
+        Merge r47438.
+
+    2009-08-18  Anders Carlsson  <andersca@apple.com>
+
+        Reviewed by John Sullivan and David Hyatt.
+
+        Fix <rdar://problem/7147996>
+
+        * platform/ScrollView.cpp:
+        (WebCore::ScrollView::setHasHorizontalScrollbar):
+        (WebCore::ScrollView::setHasVerticalScrollbar):
+        Update the style of the scroll bars.
+        
+        * rendering/RenderScrollbar.cpp:
+        (WebCore::RenderScrollbar::RenderScrollbar):
+        Calculate the size of the scrollbar and set it as the frame size.
+
+2009-08-17  Steve Falkenburg  <sfalken@apple.com>
+
+        Merge r47311.
+
+    2009-08-13  Jon Honeycutt  <jhoneycutt@apple.com>
+
+        Part of <rdar://problem/6218721> No MSAA focus events fired for Webkit
+        nightly (20866)
+
+        https://bugs.webkit.org/show_bug.cgi?id=20866
+
+        Reviewed by Oliver Hunt.
+
+        * accessibility/AXObjectCache.cpp:
+        (WebCore::AXObjectCache::AXObjectCache):
+        Changed to take a pointer to its owner document. This is used by
+        AXObjectCache::handleFocusedUIElementChanged().
+        (WebCore::AXObjectCache::focusedUIElementForPage):
+        Code moved from AccessibilityRenderObject::focusedUIElement(). Modified
+        to be a static function and to take a pointer to a Page.
+        (WebCore::AXObjectCache::platformGenerateAXID):
+        Moved the code to generate the next AXID from getAXID() to here. Added
+        a #if to make this non-WIN only, because Windows has its own
+        implementation.
+        (WebCore::AXObjectCache::getAXID):
+        Ensure that we generate a positive AXID, ranging from 1 to LONG_MAX.
+
+        * accessibility/AXObjectCache.h:
+        Add a declaration for Document and Page. Removed the declaration of
+        AccessibilityObject, because we include the header. Reordered the
+        declaration of Node alphabetically. Moved the typedef for AXID to
+        AccessibilityObject. Removed some trailing whitespace. Added a member
+        variable to hold a pointer to the owner Document.
+        (WebCore::AXObjectCache::AXObjectCache):
+        Changed to take a pointer to its owner Document.
+        (WebCore::AXObjectCache::focusedUIElementForPage):
+        Added; code moved from AccessiblityRenderObject::focusedUIElement().
+        Returns the focused element with respect to accessibility.
+        (WebCore::AXObjectCache::platformGenerateAXID):
+        Declare a function to generate an AXID.
+        (WebCore::AXObjectCache::objectFromAXID):
+        Return the AccessibilityObject with the given AXID.
+
+        * accessibility/AccessibilityObject.h:
+        Moved the typedef for AXID from AXObjectCache to here. Made the m_id
+        member use the typedef.
+        (WebCore::AccessibilityObject::axObjectID):
+        Changed the return type to use the typedef.
+        (WebCore::AccessibilityObject::setAXObjectID):
+        Changed the argument type to use the typedef.
+
+        * accessibility/AccessibilityRenderObject.cpp:
+        Removed some unneeded #includes.
+        (WebCore::AccessibilityRenderObject::focusedUIElement):
+        Moved the code to AXObjectCache::focusedUIElementForPage(), which we now
+        call.
+
+        * accessibility/win/AXObjectCacheWin.cpp:
+        (WebCore::AXObjectCache::platformGenerateAXID):
+        Ensure that we generate an AXID that is in the range 1 to LONG_MAX.
+        (WebCore::AXObjectCache::handleFocusedUIElementChanged):
+        If the Document has no Page, return. If the Page has not focused
+        element (respecting accessibility), return. Assert that the
+        accessibility of the focused element is not ignored, and that the
+        object's AXID will be negative and fit into a LONG when negated.
+        Broadcast a focus event for the object.
+
+        * dom/Document.cpp:
+        (WebCore::Document::axObjectCache):
+        Pass this when creating the AXObjectCache.
+        (WebCore::Document::setFocusedNode):
+        Call AXObjectCache::handleFocusedUIElementChanged() on Windows.
+
 2009-07-27  Mark Rowe  <mrowe@apple.com>
 
         Merge r46449.

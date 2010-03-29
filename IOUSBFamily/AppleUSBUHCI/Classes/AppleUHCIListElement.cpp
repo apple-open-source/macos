@@ -26,6 +26,7 @@
 #include <IOKit/usb/IOUSBLog.h>
 
 #include "AppleUHCIListElement.h"
+#include "USBTracepoints.h"
 
 #undef super
 #define super IOUSBControllerListElement
@@ -370,6 +371,12 @@ AppleUHCIIsochTransferDescriptor::UpdateFrameList(AbsoluteTime timeStamp)
 			pLLFrames[_frameIndex].frActCount = frActualCount;
 			pLLFrames[_frameIndex].frTimeStamp = timeStamp;
 			pLLFrames[_frameIndex].frStatus = frStatus;
+
+#ifdef __LP64__
+			USBTrace( kUSBTUHCIInterrupts, kTPUHCIUpdateFrameList , (uintptr_t)((_pEndpoint->direction << 24) | ( _pEndpoint->functionAddress << 8) | _pEndpoint->endpointNumber), (uintptr_t)&pLLFrames[_frameIndex], (uintptr_t)frActualCount, (uintptr_t)timeStamp );
+#else
+			USBTrace( kUSBTUHCIInterrupts, kTPUHCIUpdateFrameList , (uintptr_t)((_pEndpoint->direction << 24) | ( _pEndpoint->functionAddress << 8) | _pEndpoint->endpointNumber), (uintptr_t)&pLLFrames[_frameIndex], (uintptr_t)(timeStamp.hi), (uintptr_t)timeStamp.lo );
+#endif
 		}
     }
     else
@@ -387,13 +394,13 @@ AppleUHCIIsochTransferDescriptor::UpdateFrameList(AbsoluteTime timeStamp)
 		}
     }
 	
-    if(frStatus != kIOReturnSuccess)
+    if (frStatus != kIOReturnSuccess)
     {
-		if(frStatus != kIOReturnUnderrun)
+		if (frStatus != kIOReturnUnderrun)
 		{
 			_pEndpoint->accumulatedStatus = frStatus;
 		}
-		else if(_pEndpoint->accumulatedStatus == kIOReturnSuccess)
+		else if (_pEndpoint->accumulatedStatus == kIOReturnSuccess)
 		{
 			_pEndpoint->accumulatedStatus = kIOReturnUnderrun;
 		}

@@ -94,7 +94,7 @@ static const char *messages[7][2] = {
     { "No Blessed System Folder", "Blessed System Folder is " },    /* 0 */
     { "No Blessed System File", "Blessed System File is " },
     { "Open-folder linked list empty", "1st dir in open-folder list is " },
-    { "No OS 9 + X blessed 9 folder", "OS 9 blessed folder is " },  /* 3 */
+    { "No alternate OS blessed file/folder", "Alternate OS blessed file/folder is " },  /* 3 */
     { "Unused field unset", "Thought-to-be-unused field points to " },
     { "No OS 9 + X blessed X folder", "OS X blessed folder is " },  /* 5 */
     { "64-bit VSDB volume id not present", "64-bit VSDB volume id: " }

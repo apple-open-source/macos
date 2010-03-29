@@ -124,22 +124,18 @@ void RenderLayerCompositor::cacheAcceleratedCompositingEnabledFlag()
 
 void RenderLayerCompositor::setCompositingLayersNeedRebuild(bool needRebuild)
 {
-    if (inCompositingMode()) {
-        if (!m_compositingLayersNeedRebuild && needRebuild)
-            scheduleViewUpdate();
-
+    if (inCompositingMode())
         m_compositingLayersNeedRebuild = needRebuild;
-    }
 }
 
-void RenderLayerCompositor::scheduleViewUpdate()
+void RenderLayerCompositor::scheduleSync()
 {
     Frame* frame = m_renderView->frameView()->frame();
     Page* page = frame ? frame->page() : 0;
     if (!page)
         return;
 
-    page->chrome()->client()->scheduleViewUpdate();
+    page->chrome()->client()->scheduleCompositingLayerSync();
 }
 
 void RenderLayerCompositor::updateCompositingLayers(RenderLayer* updateRoot)
@@ -589,8 +585,7 @@ void RenderLayerCompositor::rebuildCompositingLayerTree(RenderLayer* layer, stru
     if (layerBacking) {
         // The compositing state of all our children has been updated already, so now
         // we can compute and cache the composited bounds for this layer.
-        layerBacking->setCompositedBounds(calculateCompositedBounds(layer, layer));
-
+        layerBacking->updateCompositedBounds();
         layerBacking->updateGraphicsLayerConfiguration();
         layerBacking->updateGraphicsLayerGeometry();
 
@@ -631,12 +626,12 @@ void RenderLayerCompositor::rebuildCompositingLayerTree(RenderLayer* layer, stru
             }
         }
 
-        if (updateHierarchy && layerBacking && layerBacking->contentsLayer()) {
+        if (updateHierarchy && layerBacking && layerBacking->foregroundLayer()) {
             // we only have a contents layer if we have an m_layer
-            layerBacking->contentsLayer()->removeFromParent();
+            layerBacking->foregroundLayer()->removeFromParent();
 
             GraphicsLayer* hostingLayer = layerBacking->clippingLayer() ? layerBacking->clippingLayer() : layerBacking->graphicsLayer();
-            hostingLayer->addChild(layerBacking->contentsLayer());
+            hostingLayer->addChild(layerBacking->foregroundLayer());
         }
     }
 
@@ -670,7 +665,7 @@ void RenderLayerCompositor::updateCompositingDescendantGeometry(RenderLayer* com
 {
     if (layer != compositingAncestor) {
         if (RenderLayerBacking* layerBacking = layer->backing()) {
-            layerBacking->setCompositedBounds(calculateCompositedBounds(layer, layer));
+            layerBacking->updateCompositedBounds();
             layerBacking->updateGraphicsLayerGeometry();
             if (updateDepth == RenderLayerBacking::CompositingChildren)
                 return;

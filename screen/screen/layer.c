@@ -460,6 +460,9 @@ int x, y;
 void
 LClearLine(l, y, xs, xe, bce, ol)
 struct layer *l;
+#ifdef __APPLE__
+int y;
+#endif
 int xs, xe, bce;
 struct mline *ol;
 {

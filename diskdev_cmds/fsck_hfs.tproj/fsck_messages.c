@@ -28,6 +28,7 @@
 #include <stdarg.h>
 #include <string.h>
 #include <assert.h>
+#include <Block.h>
 
 #include "fsck_messages.h"
 #include "fsck_keys.h"
@@ -62,6 +63,8 @@ struct context {
 	void (*writer)(fsck_ctx_t, const char*);	// Print out the string
 	char guiControl;
 	char xmlControl;
+	fsckBlock_t preMessage;
+	fsckBlock_t postMessage;
 };
 
 /*
@@ -268,6 +271,68 @@ fsckCreate(void)
 	fsckSetWriter(rv, &stdprint);
 
 	return (fsck_ctx_t)rv;
+}
+
+/*
+ * fsckSetBlock()
+ * Sets the block to be called for the specific phase -- currently, only
+ * before or after a message is to be printed/logged.  The block is copied
+ * for later use.
+ */
+void
+fsckSetBlock(fsck_ctx_t c, fsck_block_phase_t phase, fsckBlock_t bp)
+{
+	struct context *ctx = c;
+	if (c != NULL) {
+		switch (phase) {
+		case fsckPhaseBeforeMessage:
+			if (ctx->preMessage) {
+				Block_release(ctx->preMessage);
+				ctx->preMessage = NULL;
+			}
+			if (bp)
+				ctx->preMessage = (fsckBlock_t)Block_copy(bp);
+			break;
+		case fsckPhaseAfterMessage:
+			if (ctx->postMessage) {
+				Block_release(ctx->postMessage);
+				ctx->postMessage = NULL;
+			}
+			if (bp)
+				ctx->postMessage = (fsckBlock_t)Block_copy(bp);
+			break;
+		case fsckPhaseNone:
+			/* Just here for compiler warnings */
+			break;
+		}
+		
+	}
+	return;
+}
+
+/*
+ * fsckGetBlock()
+ * Return the pointer to the block for the specified phase.  The block pointer
+ * is not copied.
+ */
+fsckBlock_t
+fsckGetBlock(fsck_ctx_t c, fsck_block_phase_t phase)
+{
+	struct context *ctx = c;
+	fsckBlock_t retval = NULL;
+	if (c != NULL) {
+		switch (phase) {
+		case fsckPhaseBeforeMessage:
+			retval = ctx->preMessage;
+			break;
+		case fsckPhaseAfterMessage:
+			retval = ctx->postMessage;
+			break;
+		case fsckPhaseNone:
+			break;
+		}
+	}
+	return retval;
 }
 
 /*
@@ -516,6 +581,13 @@ fsckDestroy(fsck_ctx_t c)
 	if (ctx->flags & cfFromFD) {
 		fclose(ctx->fp);
 	}
+	if (ctx->preMessage) {
+		Block_release(ctx->preMessage);
+	}
+	if (ctx->postMessage) {
+		Block_release(ctx->postMessage);
+	}
+
 	free(ctx);
 	return;
 }
@@ -873,10 +945,40 @@ fsckPrint(fsck_ctx_t c, int m, ...)
 			break;
 	}
 
+	if (ctx->preMessage) {
+		va_list vaBlock;
+		fsck_block_status_t rv;
+
+		va_copy(vaBlock, ap);
+		rv = (ctx->preMessage)(c, m, vaBlock);
+		if (rv == fsckBlockAbort) {
+			retval = -1;
+			goto done;
+		}
+		if (rv == fsckBlockIgnore) {
+			retval = 0;
+			goto done;
+		}
+	}
 	if (ctx->writer) {
 		retval = (*func)(ctx, msg, ap);
 	} else {
 		retval = 0;    // NULL fp means don't output anything
+	}
+	if (ctx->postMessage) {
+		va_list vaBlock;
+		fsck_block_status_t rv;
+
+		va_copy(vaBlock, ap);
+		rv = (ctx->postMessage)(c, m, vaBlock);
+		if (rv == fsckBlockAbort) {
+			retval = -1;
+			goto done;
+		}
+		if (rv == fsckBlockIgnore) {
+			retval = 0;
+			goto done;
+		}
 	}
 	
 #if 0
@@ -892,6 +994,7 @@ fsckPrint(fsck_ctx_t c, int m, ...)
 		}
 	}
 #endif
+done:
 	return retval;
 }
 

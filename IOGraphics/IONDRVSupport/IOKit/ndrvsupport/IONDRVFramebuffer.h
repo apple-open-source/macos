@@ -38,7 +38,7 @@
 #include <IOKit/ndrvsupport/IOMacOSVideo.h>
 #include <IOKit/ndrvsupport/IONDRVSupport.h>
 
-#define kIONDRVDisableKey	"AAPL,disable-ndrv"
+#define kIONDRVDisableKey       "AAPL,disable-ndrv"
 
 class IONDRVFramebuffer : public IOFramebuffer
 {
@@ -56,51 +56,51 @@ protected:
 
 protected:
 
-    IOService *			nub;
-    class IONDRV *		ndrv;
+    IOService *                 nub;
+    class IONDRV *              ndrv;
 
     // current configuration
-    IODisplayModeID		currentDisplayMode;
-    IOIndex			currentDepth;
-    IOIndex			currentPage;
-    UInt8			__reservedE;
+    IODisplayModeID             currentDisplayMode;
+    IOIndex                     currentDepth;
+    IOIndex                     currentPage;
+    UInt8                       __reservedE;
 
-    IOPhysicalAddress		physicalFramebuffer;
-    IODeviceMemory	*	vramRange;
+    IOPhysicalAddress           physicalFramebuffer;
+    IODeviceMemory      *       vramRange;
 
-    UInt8			gammaWidth;
-    UInt8			__reservedD;
-    UInt8			lastGrayMode;
-    VDClutBehavior		lastClutSetting;
-    UInt8			__reservedC;
+    UInt8                       gammaWidth;
+    UInt8                       __reservedD;
+    UInt8                       lastGrayMode;
+    VDClutBehavior              lastClutSetting;
+    UInt8                       __reservedC;
 
-    bool			consoleDevice;
-    UInt32			powerState;
-    UInt32			ndrvState;
-    SInt32			ndrvEnter;
-    OSArray *			detailedTimings;
-    UInt32			detailedTimingsSeed;
-    UInt32 *			detailedTimingsCurrent;
+    bool                        consoleDevice;
+    UInt32                      powerState;
+    UInt32                      ndrvState;
+    SInt32                      ndrvEnter;
+    OSArray *                   detailedTimings;
+    UInt32                      detailedTimingsSeed;
+    UInt32 *                    detailedTimingsCurrent;
 
-    IODeviceMemory *		vramMemory;
+    IODeviceMemory *            vramMemory;
 
-    VDResolutionInfoRec		cachedVDResolution;
+    VDResolutionInfoRec         cachedVDResolution;
 
-    struct _VSLService *	vslServices;
+    struct _VSLService *        vslServices;
 
-    UInt32			accessFlags;
-    unsigned int		shouldDoI2CPower:1;
-    unsigned int		online:1;
-    unsigned int		avJackState:1;
-    unsigned int		grayMode:1;
-    unsigned int		platformSleep:1;
-    unsigned int		forceReadEDID:1;
-    unsigned int		supportsProbe:1;
-    unsigned int		__reservedB:25;
+    UInt32                      accessFlags;
+    unsigned int                shouldDoI2CPower:1;
+    unsigned int                online:1;
+    unsigned int                avJackState:1;
+    unsigned int                grayMode:1;
+    unsigned int                platformSleep:1;
+    unsigned int                forceReadEDID:1;
+    unsigned int                supportsProbe:1;
+    unsigned int                __reservedB:25;
 
-    IOService *			device;
+    IOService *                 device;
 
-    UInt32			__reservedA[29];
+    UInt32                      __reservedA[29];
 
 private:
     struct IONDRVFramebufferPrivate * __private;
@@ -158,8 +158,8 @@ private:
     virtual IOReturn getResInfoForArbMode( IODisplayModeID modeID,
                                     IODisplayModeInformation * theInfo );
     IOReturn getResInfoForDetailed( IODisplayModeID modeID,
-				    VDDetailedTimingRec * detailed,
-				    IODisplayModeInformation * info );
+                                    VDDetailedTimingRec * detailed,
+                                    IODisplayModeInformation * info );
     IOIndex mapDepthIndex( IODisplayModeID modeID, IOIndex depth, bool fromDepthMode );
     virtual IOReturn validateDisplayMode(
             IODisplayModeID mode, IOOptionBits flags,
@@ -197,8 +197,8 @@ public:
 
 public:
 
-    virtual IOService * probe(	IOService * 	provider,
-				SInt32 *	score );
+    virtual IOService * probe(  IOService *     provider,
+                                SInt32 *        score );
 
     virtual bool start( IOService * provider );
 
@@ -239,8 +239,8 @@ public:
                     IOIndex depth );
 
     virtual IOReturn getPixelInformation(
-	IODisplayModeID displayMode, IOIndex depth,
-	IOPixelAperture aperture, IOPixelInformation * pixelInfo );
+        IODisplayModeID displayMode, IOIndex depth,
+        IOPixelAperture aperture, IOPixelInformation * pixelInfo );
 
     // Framebuffer info
 
@@ -254,7 +254,7 @@ public:
 
     // For pages
     virtual IOReturn setApertureEnable( IOPixelAperture aperture,
-		    IOOptionBits enable );
+                    IOOptionBits enable );
 
     virtual IOReturn setStartupDisplayMode( IODisplayModeID displayMode,
                             IOIndex depth );
@@ -319,8 +319,8 @@ public:
     //// Interrupts
 
     virtual IOReturn registerForInterruptType( IOSelect interruptType,
-            	        IOFBInterruptProc proc, OSObject * target, void * ref,
-			void ** interruptRef );
+                        IOFBInterruptProc proc, OSObject * target, void * ref,
+                        void ** interruptRef );
     virtual IOReturn unregisterInterrupt( void * interruptRef );
     virtual IOReturn setInterruptState( void * interruptRef, UInt32 state );
 

@@ -18,7 +18,7 @@ CFLAGS=-Os $(RC_CFLAGS)
 #
 
 PROJECT_NAME=amavisd
-PROJECT_VERS=2.5.1
+PROJECT_VERS=2.6.4
 PROJECT_PATH=amavisd-new-
 
 ETC_DIR=/private/etc

@@ -1,0 +1,78 @@
+#!/usr/bin/perl
+use strict qw(vars);
+use Digest::SHA1;
+
+open(G, "find gems -name \*.gem|") || die;
+open(R, "<RubyOnRails.plist") || die;
+
+my %gems;
+while(<G>) {
+	chomp;
+	die "?" unless m{/([^/]*)\.gem};
+	$gems{$1} = $_;
+}
+close(G) || die;
+
+my($proj, $ver, $sha1);
+
+sub sha_file {
+	my($f) = @_;
+
+	open(SHA, "<$f") || die "can't open $f";
+	my $d = Digest::SHA1->new;
+	$d->addfile(*SHA);
+	close(SHA);
+
+	return $d->hexdigest;
+}
+
+sub process {
+	my($p, $v, $s) = @_;
+
+	#print "$p $v $s\n";
+	my $k = "$p-$v";
+	if ($gems{$k}) {
+		my $sf = sha_file($gems{$k});
+		if ($sf ne $s) {
+			warn "Wrong digest for $k ($sf != $s)";
+		}
+		delete($gems{$k});
+	} else {
+		warn "No $k found (or >1 plist entry)"
+	}
+}
+
+while(<R>) {
+	chomp;
+	if (m{<key>(.*)</key>}) {
+		my $k = $1;
+		my $v;
+		my $_ = <R>;
+		if (m{<array>}) {
+			next;
+		}
+		if (m{<string>(.*)</string>}) {
+			$v = $1;
+		} else {
+			die "Unexpected value for $k: $_";
+		}
+
+		if ($k eq "OpenSourceProject") {
+			&process($proj, $ver, $sha1) if (defined($proj));
+			$proj = $v;
+			undef $ver;
+			undef $sha1;
+		} elsif ($k eq "OpenSourceSHA1") {
+			warn "extra def for sha1" if (defined($sha1));
+			$sha1 = $v;
+		} elsif ($k eq "OpenSourceVersion") {
+			warn "extra def for OpenSourceVersion" if (defined($ver));
+			$ver = $v;
+		}
+	}
+}
+
+&process($proj, $ver, $sha1) if (defined($proj));
+foreach my $k (keys(%gems)) {
+	warn "No plist entry for $k\n";
+}

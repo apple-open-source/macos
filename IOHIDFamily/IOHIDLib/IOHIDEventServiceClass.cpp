@@ -77,7 +77,8 @@ IOHIDServiceInterface2 IOHIDEventServiceClass::sIOHIDServiceInterface2 =
     &IOHIDEventServiceClass::_setEventCallback,
     &IOHIDEventServiceClass::_scheduleWithRunLoop,
     &IOHIDEventServiceClass::_unscheduleFromRunLoop,
-    &IOHIDEventServiceClass::_copyEvent
+    &IOHIDEventServiceClass::_copyEvent,
+    &IOHIDEventServiceClass::_setElementValue
 };
 
 //===========================================================================
@@ -221,6 +222,11 @@ boolean_t IOHIDEventServiceClass::_setProperty(void * self, CFStringRef key, CFT
 IOHIDEventRef IOHIDEventServiceClass::_copyEvent(void *self, IOHIDEventType type, IOHIDEventRef matching, IOOptionBits options)
 {
     return getThis(self)->copyEvent(type, matching, options);
+}
+
+void IOHIDEventServiceClass::_setElementValue(void *self, uint32_t usagePage, uint32_t usage, uint32_t value)
+{
+    return getThis(self)->setElementValue(usagePage, usage, value);
 }
 
 void IOHIDEventServiceClass::_setEventCallback(void * self, IOHIDServiceEventCallback callback, void * target, void * refcon)
@@ -418,6 +424,7 @@ IOReturn IOHIDEventServiceClass::start(CFDictionaryRef propertyTable, io_service
         GET_AND_SET_PROPERTY(serviceProps, CFSTR(kIOHIDLocationIDKey), _serviceProperties, CFSTR(kIOHIDServiceLocationIDKey));
         GET_AND_SET_PROPERTY(serviceProps, CFSTR(kIOHIDPrimaryUsagePageKey), _serviceProperties, CFSTR(kIOHIDServicePrimaryUsagePageKey));
         GET_AND_SET_PROPERTY(serviceProps, CFSTR(kIOHIDPrimaryUsageKey), _serviceProperties, CFSTR(kIOHIDServicePrimaryUsageKey));
+        GET_AND_SET_PROPERTY(serviceProps, CFSTR(kIOHIDDeviceUsagePairsKey), _serviceProperties, CFSTR(kIOHIDServiceDeviceUsagePairsKey));
 // This should be considered a dymanic property
 //        GET_AND_SET_PROPERTY(serviceProps, CFSTR(kIOHIDReportIntervalKey), _serviceProperties, CFSTR(kIOHIDServiceReportIntervalKey));
 
@@ -722,6 +729,17 @@ IOHIDEventRef IOHIDEventServiceClass::copyEvent(IOHIDEventType eventType, IOHIDE
     
     return event;
 }
+
+//---------------------------------------------------------------------------
+// IOHIDEventServiceClass::setElementValue
+//---------------------------------------------------------------------------
+void IOHIDEventServiceClass::setElementValue(uint32_t usagePage, uint32_t usage, uint32_t value)
+{
+    uint64_t input[3] = {usagePage, usage, value};
+
+    IOConnectCallMethod(_connect, kIOHIDEventServiceUserClientSetElementValue, input, 3, NULL, 0, NULL, NULL, NULL, NULL); 
+}
+
 
 //---------------------------------------------------------------------------
 // IOHIDEventServiceClass::setEventCallback

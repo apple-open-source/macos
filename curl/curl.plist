@@ -5,15 +5,15 @@
 	<key>OpenSourceProject</key>
 	<string>curl</string>
 	<key>OpenSourceVersion</key>
-	<string>7.19.4</string>
+	<string>7.19.7</string>
 	<key>OpenSourceWebsiteURL</key>
 	<string>http://curl.haxx.se/</string>
 	<key>OpenSourceURL</key>
-	<string>http://curl.haxx.se/download/curl-7.19.4.tar.bz2</string>
+	<string>http://curl.haxx.se/download/curl-7.19.7.tar.bz2</string>
 	<key>OpenSourceSHA1</key>
-	<string>6b8cb206990cd68d8653cea16a47bd0febd5c50d</string>
+	<string>c306ebf0f65fb90df3c9c9a12fb04fb77cc29e2c</string>
 	<key>OpenSourceImportDate</key>
-	<string>2009-03-02</string>
+	<string>2009-12-02</string>
 	<key>OpenSourceModifications</key>
 	<array>
 		<string>Modified configure script to allow universal building.</string>

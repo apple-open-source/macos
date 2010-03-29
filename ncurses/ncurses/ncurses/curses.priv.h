@@ -256,7 +256,7 @@ color_t;
 #define NCURSES_INTERNALS 1
 #define NCURSES_OPAQUE 0
 
-#include <curses.h>	/* we'll use -Ipath directive to get the right one! */
+#include "curses.h"	/* we'll use -Ipath directive to get the right one!  -- but which is the right one? */
 #include <term.h>
 #include <term_entry.h>
 #include <nc_tparm.h>
@@ -930,7 +930,7 @@ extern NCURSES_EXPORT_VAR(SCREEN *) _nc_screen_chain;
 extern NCURSES_EXPORT_VAR(SIG_ATOMIC_T) _nc_have_sigwinch;
 
 	WINDOWLIST {
-	WINDOW	win;		/* first, so WINDOW_EXT() works */
+WINDOW	win;		/* first, so WINDOW_EXT() works */
 	WINDOWLIST *next;
 	SCREEN *screen;		/* screen containing the window */
 #ifdef _XOPEN_SOURCE_EXTENDED
@@ -1182,7 +1182,9 @@ extern NCURSES_EXPORT_VAR(SIG_ATOMIC_T) _nc_have_sigwinch;
 		line->firstchar = start; \
 	line->lastchar = end
 
+#ifndef SIZEOF
 #define SIZEOF(v) (sizeof(v)/sizeof(v[0]))
+#endif
 
 #define FreeIfNeeded(p)  if ((p) != 0) free(p)
 
@@ -1452,8 +1454,7 @@ extern NCURSES_EXPORT(void) _nc_expanded (void);
 
 /* charable.c */
 #if USE_WIDEC_SUPPORT
-extern NCURSES_EXPORT(bool) _nc_is_charable(wchar_t);
-extern NCURSES_EXPORT(int) _nc_to_char(wint_t);
+#include <wchar.h>
 extern NCURSES_EXPORT(wint_t) _nc_to_widechar(int);
 #endif
 

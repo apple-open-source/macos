@@ -4,13 +4,11 @@
 0755	root	wheel	Library/Application Support
 1777	root	admin	Library/Caches
 0775	root	admin	Library/Documentation
-0755	root	wheel	Library/Extensions
 0755	root	wheel	Library/Filesystems
 0775	root	admin	Library/Frameworks
 0755	root	wheel	Library/LaunchAgents
 0755	root	wheel	Library/LaunchDaemons
 0755	root	admin	Library/Internet Plug-Ins
-0755	root	wheel	Library/PreferencePanes
 0775	root	admin	Library/Printers
 0755	root	wheel	Library/StartupItems
 0775	root	admin	Library/Updates

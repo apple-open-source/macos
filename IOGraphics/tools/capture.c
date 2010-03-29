@@ -10,7 +10,7 @@
 #include <stdio.h>
 #include <unistd.h>
 
-#define	MAX_DISPLAYS	16
+#define MAX_DISPLAYS    16
 
 int main( int argc, char * argv[] )
 {
@@ -23,18 +23,18 @@ int main( int argc, char * argv[] )
 
     for (idx = 0; idx < ndid; idx++)
     {
-	err = CGDisplayCaptureWithOptions(dispids[idx], kCGCaptureNoFill);
-	printf("CGDisplayCapture(%x) %d\n", dispids[idx], err);
-	CGDisplayHideCursor(dispids[idx]);
+        err = CGDisplayCaptureWithOptions(dispids[idx], kCGCaptureNoFill);
+        printf("CGDisplayCapture(%x) %d\n", dispids[idx], err);
+        CGDisplayHideCursor(dispids[idx]);
     }
 
     c = getchar();
 
     for (idx = 0; idx < ndid; idx++)
     {
-	err = CGDisplayRelease(dispids[idx]);
-	printf("CGDisplayRelease(%x) %d\n", dispids[idx], err);
-	CGDisplayShowCursor(dispids[idx]);
+        err = CGDisplayRelease(dispids[idx]);
+        printf("CGDisplayRelease(%x) %d\n", dispids[idx], err);
+        CGDisplayShowCursor(dispids[idx]);
     }
 
     return (0);

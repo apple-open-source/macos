@@ -1,0 +1,41 @@
+--- p0f-query.h~	Mon Aug 21 16:11:27 2006
++++ p0f-query.h	Mon Mar 10 18:12:33 2008
+@@ -69,5 +69,5 @@
+   _u16 mflags;			/* Masquerade flags (D_*) */
+   _s32 uptime;			/* Uptime in hours (-1 = unknown) */
+-};
++} __attribute__ ((packed));
+ 
+ 
+@@ -86,5 +86,5 @@
+   _u32 cmisses;			/* Total number of cache query misses */
+   _u32 uptime;			/* Process uptime in seconds */
+-};
++} __attribute__ ((packed));
+ 
+ /* --------------------------------------- */
+--- p0f-query.c~	Wed Sep  6 14:24:41 2006
++++ p0f-query.c	Mon Mar 10 18:19:46 2008
+@@ -75,5 +75,5 @@
+   cur->ports = (sport << 16) + dport;
+ 
+-  memset(sc,0,sizeof(sc));
++  memset(sc,0,sizeof(*sc));
+   if (genre) {
+     strncpy(sc->genre,genre,19);
+--- p0f.c~	Sun Mar  9 23:43:26 2008
++++ p0f.c	Mon Mar 10 19:32:36 2008
+@@ -1133,5 +1133,5 @@
+    if (use_cache || find_masq)
+      p0f_addcache(src,dst,sp,dp,p->os,p->desc,(p->no_detail || fuzzy_now) ? 
+-                  -1 : (p->ttl - ttl),p->no_detail ? 0 : lookup_link(mss,0),
++                  -1 : (p->ttl - ttl),p->no_detail ? 0 : lookup_link(mss,1),
+                   tos_desc, orig_df ^ df, nat, !p->userland, mss, p-sig,
+                   tstamp ? tstamp / 360000 : -1);
+@@ -1232,5 +1232,5 @@
+ 
+     if (use_cache)
+-      p0f_addcache(src,dst,sp,dp,0,0,-1,lookup_link(mss,0),tos_desc,
++      p0f_addcache(src,dst,sp,dp,0,0,-1,lookup_link(mss,1),tos_desc,
+                    0,nat,0 /* not real, we're not sure */ ,mss,(_u32)-1,
+                    tstamp ? tstamp / 360000 : -1);

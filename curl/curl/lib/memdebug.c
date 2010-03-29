@@ -5,7 +5,7 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) 1998 - 2008, Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) 1998 - 2009, Daniel Stenberg, <daniel@haxx.se>, et al.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
@@ -18,7 +18,7 @@
  * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
  * KIND, either express or implied.
  *
- * $Id: memdebug.c,v 1.60 2008-10-23 08:05:40 danf Exp $
+ * $Id: memdebug.c,v 1.65 2009-10-29 04:02:21 yangtse Exp $
  ***************************************************************************/
 
 #include "setup.h"
@@ -42,7 +42,7 @@
 #endif
 
 #define MEMDEBUG_NODEFINES /* don't redefine the standard functions */
-#include "memory.h"
+#include "curl_memory.h"
 #include "memdebug.h"
 
 struct memdebug {
@@ -133,7 +133,7 @@ void *curl_domalloc(size_t wantedsize, int line, const char *source)
   /* alloc at least 64 bytes */
   size = sizeof(struct memdebug)+wantedsize;
 
-  mem=(struct memdebug *)(Curl_cmalloc)(size);
+  mem = (Curl_cmalloc)(size);
   if(mem) {
     /* fill memory with junk */
     memset(mem->mem, 0xA5, wantedsize);
@@ -159,7 +159,7 @@ void *curl_docalloc(size_t wanted_elements, size_t wanted_size,
   user_size = wanted_size * wanted_elements;
   size = sizeof(struct memdebug) + user_size;
 
-  mem = (struct memdebug *)(Curl_cmalloc)(size);
+  mem = (Curl_cmalloc)(size);
   if(mem) {
     /* fill memory with zeroes */
     memset(mem->mem, 0, user_size);
@@ -210,7 +210,7 @@ void *curl_dorealloc(void *ptr, size_t wantedsize,
   if(ptr)
     mem = (struct memdebug *)((char *)ptr - offsetof(struct memdebug, mem));
 
-  mem=(struct memdebug *)(Curl_crealloc)(mem, size);
+  mem = (Curl_crealloc)(mem, size);
   if(logfile)
     fprintf(logfile, "MEM %s:%d realloc(%p, %zu) = %p\n",
             source, line, ptr, wantedsize, mem?mem->mem:NULL);
@@ -255,7 +255,7 @@ int curl_accept(int s, void *saddr, void *saddrlen,
                 int line, const char *source)
 {
   struct sockaddr *addr = (struct sockaddr *)saddr;
-  socklen_t *addrlen = (socklen_t *)saddrlen;
+  curl_socklen_t *addrlen = (curl_socklen_t *)saddrlen;
   int sockfd=accept(s, addr, addrlen);
   if(logfile)
     fprintf(logfile, "FD %s:%d accept() = %d\n",
@@ -263,13 +263,19 @@ int curl_accept(int s, void *saddr, void *saddrlen,
   return sockfd;
 }
 
+/* separate function to allow libcurl to mark a "faked" close */
+void curl_mark_sclose(int sockfd, int line, const char *source)
+{
+  if(logfile)
+    fprintf(logfile, "FD %s:%d sclose(%d)\n",
+            source, line, sockfd);
+}
+
 /* this is our own defined way to close sockets on *ALL* platforms */
 int curl_sclose(int sockfd, int line, const char *source)
 {
   int res=sclose(sockfd);
-  if(logfile)
-    fprintf(logfile, "FD %s:%d sclose(%d)\n",
-            source, line, sockfd);
+  curl_mark_sclose(sockfd, line, source);
   return res;
 }
 

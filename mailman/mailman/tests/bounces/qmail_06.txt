@@ -1,0 +1,32 @@
+X-MimeOLE: Produced By Microsoft Exchange V6.5
+Content-class: urn:content-classes:message
+MIME-Version: 1.0
+Content-Type: text/plain;
+	charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Subject: failure notice
+Date: Fri, 13 Feb 2009 09:22:22 -0800
+Message-ID: <200902131732.n1DHWlOA007588@mail.turners.com>
+X-MS-Has-Attach: 
+X-MS-TNEF-Correlator: 
+From: <MAILER-DAEMON@mta6-1.us4.outblaze.com>
+To: <fishads-bounces@lists.xxx.com>
+
+Hi. The MTA program at mta6-1.us4.outblaze.com was unable to deliver =
+your message to the following addresses.
+This is a permanent error.
+
+<ntl@xxx.com>:
+Error 01373: User's Disk Quota Exceeded.
+Sorry, your intended recipient has too much mail stored
+in his mailbox.
+Your message totalled  23 Kbytes.
+However a small (< 1Kb) message will be delivered should
+you wish to inform your recipient you tried to email.
+
+
+--- Below this line is a copy of the message.
+
+
+
+[message content removed - MS]

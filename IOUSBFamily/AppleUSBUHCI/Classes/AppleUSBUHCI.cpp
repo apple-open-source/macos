@@ -71,10 +71,6 @@ AppleUSBUHCI::init(OSDictionary * propTable)
     if (!super::init(propTable))  
 		return false;
 	
-    //USBLog(3, "Debug level before: %d", (int)KernelDebugGetLevel());
-    //KernelDebugSetLevel(5);
-    //USBLog(3, "AppleUSBUHCI[%p]::init", this);
-	
     USBLog(7, "AppleUSBUHCI::init: %s", _deviceName);
     
     _wdhLock = IOSimpleLockAlloc();
@@ -352,7 +348,7 @@ AppleUSBUHCI::UIMInitialize(IOService * provider)
     if (!_uimInitialized) 
 	{
         _device = OSDynamicCast(IOPCIDevice, provider);
-        if(_device == NULL) 
+        if (_device == NULL) 
 		{
             return kIOReturnBadArgument;
         }
@@ -396,6 +392,17 @@ AppleUSBUHCI::UIMInitialize(IOService * provider)
         
         // Do not use standardized errata bits yet
         _errataBits = GetErrataBits(_vendorID, _deviceID, _revisionID);
+		
+		if (_errataBits & kErrataDontUseCompanionController)
+		{
+			IOLockFree(_frameLock);
+			_frameLock = NULL;
+			
+			USBLog(3, "AppleUSBUHCI[%p]::UIMInitialize - companion controllers disallowed. Not initializing", this);
+            return kIOReturnUnsupported;
+		}
+		
+		
   		setProperty("Errata", _errataBits, 32);
       
 		USBLog(7, "AppleUSBUHCI[%p]::UIMInitialize - there are %d interrupt sources", this, _numInterruptSources);
@@ -973,12 +980,12 @@ AppleUSBUHCI::ProcessCompletedTransactions(void)
     int 			i;
 		
     err = scavengeIsochTransactions();
-    if(err != kIOReturnSuccess)
+    if (err != kIOReturnSuccess)
     {
 		USBLog(3, "AppleUSBUHCI[%p]::ProcessCompletedTransactions err isoch list %x", this, err);
     }
     err = scavengeQueueHeads(_intrQH[kUHCI_NINTR_QHS - 1]);
-    if(err != kIOReturnSuccess)
+    if (err != kIOReturnSuccess)
     {
 		USBLog(3, "AppleUSBUHCI[%p]::ProcessCompletedTransactions -  err queue heads %x", this, err);
     }
@@ -1081,7 +1088,7 @@ AppleUSBUHCI::scavengeAnIsochTD(AppleUHCIIsochTransferDescriptor *pTD)
     pEP = pTD->_pEndpoint;
 	currentTime = mach_absolute_time();
 
-    if(pEP == NULL)
+    if (pEP == NULL)
     {
 		USBError(1, "AppleUSBUHCI[%p]::scavengeAnIsochTD - could not find endpoint associated with iTD (%p)", this, pTD->_pEndpoint);
     }
@@ -1150,7 +1157,7 @@ AppleUSBUHCI::scavengeQueueHeads(IOUSBControllerListElement *pLE)
 		pQH = OSDynamicCast(AppleUHCIQueueHead, pLE);
 		tdCount = 0;
 		
-		if(pQH && (pQH->type != kQHTypeDummy) && (!pQH->stalled))
+		if (pQH && (pQH->type != kQHTypeDummy) && (!pQH->stalled))
 		{
 			bool	foundInactive = false;
 			
@@ -1178,9 +1185,9 @@ AppleUSBUHCI::scavengeQueueHeads(IOUSBControllerListElement *pLE)
 				// This end point has transactions
 				ctrlStatus = USBToHostLong(qTD->GetSharedLogical()->ctrlStatus);
 				actLength = UHCI_TD_GET_ACTLEN(ctrlStatus);
-				if(!TDisHalted && !shortTransfer)
+				if (!TDisHalted && !shortTransfer)
 				{
-					if((ctrlStatus & kUHCI_TD_ACTIVE) != 0)
+					if ((ctrlStatus & kUHCI_TD_ACTIVE) != 0)
 					{	// Command is still alive, go to next queue
 						if (foundInactive)
 						{
@@ -1257,7 +1264,7 @@ AppleUSBUHCI::scavengeQueueHeads(IOUSBControllerListElement *pLE)
 					// We have the complete command
 					USBLog(7, "AppleUSBUHCI[%p]::scavengeQueueHeads - TD (%p) is last of transaction", this, qTD);
 					qTD->print(7);
-					if(doneQueue == NULL)
+					if (doneQueue == NULL)
 					{
 						doneQueue = qHead;
 					}
@@ -1278,7 +1285,7 @@ AppleUSBUHCI::scavengeQueueHeads(IOUSBControllerListElement *pLE)
 					// however, before we do that, we might need to adjust active bits or D bits in the rest of the queue
 					// if halted, we need to make them all inactive
 					// is short, we might need to flip all of the DBits
-					if(!TDisHalted && shortTransfer)
+					if (!TDisHalted && shortTransfer)
 					{
 						// we don't need to flip toggle bits on control queues, since each phase is a separate "transaction"
 						// and each phase controls its own toggle state
@@ -1336,14 +1343,14 @@ AppleUSBUHCI::scavengeQueueHeads(IOUSBControllerListElement *pLE)
 		pLE = pLE->_logicalNext;
     }
 
-    if(doneQueue != NULL)
+    if (doneQueue != NULL)
     {
 		// 2007-08-08 - JRH - stop calling EnsureUsability just because of a completeion. Let the driver do it as needed
 		// USBLog(5, "AppleUSBUHCI[%p]::scavengeQueueHeads - calling EnsureUsability", this);
 		// EnsureUsability();
 		UHCIUIMDoDoneQueueProcessing(doneQueue, kIOReturnSuccess, NULL);
     }
-    if(leCount > 1000)
+    if (leCount > 1000)
     {
 		USBLog(1, "AppleUSBUHCI[%p]::scavengeQueueHeads looks like bad ed queue (%d)", this, (int)leCount);
 		USBTrace( kUSBTUHCI,  kTPUHCIScavengeQueueHeads, (uintptr_t)this, leCount, 0, 0);
@@ -1366,7 +1373,7 @@ AppleUSBUHCI::UHCIUIMDoDoneQueueProcessing(AppleUHCITransferDescriptor *pHCDoneT
     while (pHCDoneTD != NULL)
     {
         IOReturn	errStatus;
-        if(pHCDoneTD == stopAt)
+        if (pHCDoneTD == stopAt)
         {
             // Don't process this one or any further
             USBLog(7, "AppleUSBUHCI[%p]::UHCIUIMDoDoneQueueProcessing stop at %p", this, pHCDoneTD);
@@ -1416,7 +1423,7 @@ AppleUSBUHCI::UHCIUIMDoDoneQueueProcessing(AppleUHCITransferDescriptor *pHCDoneT
 			else
 			{
 				IOUSBCompletion completion = pHCDoneTD->command->GetUSLCompletion();
-				if(completion.action)
+				if (completion.action)
 				{
 					// remove flag before completing
 					pHCDoneTD->callbackOnTD = false;

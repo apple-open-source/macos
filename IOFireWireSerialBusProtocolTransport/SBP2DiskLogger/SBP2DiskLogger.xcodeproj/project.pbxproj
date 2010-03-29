@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		4758258C1048574500E6E81D /* libutil.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 4758258B1048574500E6E81D /* libutil.dylib */; };
 		521EBA4E0BF6867B00EB2EC1 /* SBP2DiskLogger.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 521EBA4D0BF6867B00EB2EC1 /* SBP2DiskLogger.cpp */; };
 /* End PBXBuildFile section */
 
@@ -23,6 +24,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		4758258B1048574500E6E81D /* libutil.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libutil.dylib; path = /usr/lib/libutil.dylib; sourceTree = "<absolute>"; };
 		521EBA4D0BF6867B00EB2EC1 /* SBP2DiskLogger.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = SBP2DiskLogger.cpp; sourceTree = "<group>"; };
 		8DD76F6C0486A84900D96B5E /* SBP2DiskLogger */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = SBP2DiskLogger; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
@@ -32,6 +34,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				4758258C1048574500E6E81D /* libutil.dylib in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -41,6 +44,7 @@
 		08FB7794FE84155DC02AAC07 /* SAMLogger */ = {
 			isa = PBXGroup;
 			children = (
+				4758258B1048574500E6E81D /* libutil.dylib */,
 				08FB7795FE84155DC02AAC07 /* Source */,
 				1AB674ADFE9D54B511CA2CBB /* Products */,
 			);
@@ -145,6 +149,7 @@
 				ARCHS = (
 					ppc,
 					i386,
+					x86_64,
 				);
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				GCC_MODEL_TUNING = G5;
@@ -164,22 +169,26 @@
 		1DEB923608733DC60010E9CD /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ARCHS = "$(ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1)";
+				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
 				GCC_WARN_ABOUT_RETURN_TYPE = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				PREBINDING = NO;
 				SDKROOT = "";
-				VALID_ARCHS = "ppc7400 ppc970 i386 ppc";
+				VALID_ARCHS = "x86_64 ppc7400 ppc970 i386 ppc";
 			};
 			name = Debug;
 		};
 		1DEB923708733DC60010E9CD /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ARCHS = "$(ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1)";
+				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
 				GCC_WARN_ABOUT_RETURN_TYPE = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				PREBINDING = NO;
 				SDKROOT = "";
-				VALID_ARCHS = "ppc7400 ppc970 i386 ppc";
+				VALID_ARCHS = "x86_64 ppc7400 ppc970 i386 ppc";
 			};
 			name = Release;
 		};

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2006 Apple Computer, Inc. All rights reserved.
+ * Copyright © 1998-20010 Apple Inc.  All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -49,7 +49,7 @@
 
 // Allow clients to define their own debug level.
 
-#if( !defined( DEBUG_LEVEL ) )
+#if ( !defined( DEBUG_LEVEL ) )
 	#define	DEBUG_LEVEL			DEBUG_LEVEL_PRODUCTION
 #endif
 
@@ -64,11 +64,9 @@ enum
     kUSBControllerUserClientSetDebuggingType,
     kUSBControllerUserClientGetDebuggingLevel,
     kUSBControllerUserClientGetDebuggingType,
-    kUSBControllerUserClientSetTestMode,
-    kUSBControllerUserClientReadRegister,
-    kUSBControllerUserClientWriteRegister,
     kNumUSBControllerMethods
 };
+
 
 // Info Debug Output Types.
 
@@ -115,7 +113,7 @@ void 			KernelDebugLogDataInternal( UInt32 inLevel,  UInt32 inTag, void *buffer,
 // Handy macros.
 
 #define REQUIRE_NO_ERR_PRINTF( VALUE, LABEL, ARGS... )							\
-	if( VALUE != kIOReturnSuccess )									\
+	if ( VALUE != kIOReturnSuccess )									\
 	{												\
 		KernelDebugLogInternal( kDebugInfoLevel, 'BluD', ## ARGS );				\
 		goto LABEL;										\
@@ -124,7 +122,7 @@ void 			KernelDebugLogDataInternal( UInt32 inLevel,  UInt32 inTag, void *buffer,
 #define REQUIRE_PRINTF( TEST, LABEL, ARGS... )								\
 	do												\
 	{												\
-		if( !( TEST ) )										\
+		if ( !( TEST ) )										\
 		{											\
 			KernelDebugLogInternal( kDebugInfoLevel, 'BluD',  ## ARGS );			\
 			goto LABEL;									\

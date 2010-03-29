@@ -663,8 +663,11 @@ VERP_CONFIRM_FORMAT = '%(addr)s+%(cookie)s'
 # From: local_part@host
 # into
 # To: "local_part" <local_part@host>
-# when replying, so we skip everything up to '<' if any.
-VERP_CONFIRM_REGEXP = r'^(.*<)?(?P<addr>[^+]+?)\+(?P<cookie>[^@]+)@.*$'
+# or even
+# To: "local_part@host" <local_part@host>
+# and may even fold the header when replying, so we skip everything up to '<'
+# if any and include ($s) so dot will match the newline in a folded header.
+VERP_CONFIRM_REGEXP = r'(?s)^(.*<)?(?P<addr>.+)\+(?P<cookie>[^@+]+)@.*$'
 
 # Set this to Yes to enable VERP-like (more user friendly) confirmations
 VERP_CONFIRMATIONS = No
@@ -1374,6 +1377,7 @@ def add_language(code, description, charset, direction='ltr'):
     LC_DESCRIPTIONS[code] = (description, charset, direction)
 
 add_language('ar',    _('Arabic'),              'utf-8',       'rtl')
+add_language('ast',   _('Asturian'),            'iso-8859-1',  'ltr')
 add_language('ca',    _('Catalan'),             'utf-8',       'ltr')
 add_language('cs',    _('Czech'),               'iso-8859-2',  'ltr')
 add_language('da',    _('Danish'),              'iso-8859-1',  'ltr')

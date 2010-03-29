@@ -17,7 +17,7 @@ CFLAGS=-O0 $(RC_CFLAGS)
 #
 
 PROJECT_NAME=clamav
-OS_VER=0.95.2
+OS_VER=0.95.3
 CLAMAV_TAR_GZ=clamav-$(OS_VER).tar.gz
 CLAMAV_DIFF_5876278=clamav-$(OS_VER)-5876278.diff
 
@@ -35,6 +35,7 @@ BINARY_DIR=clamav.Bin
 CONFIG_DIR=clamav.Conf
 OS_SRC_DIR=clamav.OpenSourceInfo
 LD_SRC_DIR=clamav.LaunchDaemons
+UPDATE_DIR=clamav.Update
 
 USR=/usr
 USR_BIN=/usr/bin
@@ -90,6 +91,9 @@ default:: make_clamav
 
 install :: make_clamav_install
 
+clean :
+	$(SILENT) ($(CD) "$(SRCROOT)/$(UPDATE_DIR)" && /usr/bin/xcodebuild clean)
+
 installhdrs :
 	$(SILENT) $(ECHO) "No headers to install"
 
@@ -108,6 +112,8 @@ make_clamav :
 	fi
 	$(SILENT) ($(CD) "$(SRCROOT)$(CLAMAV_BUILD_DIR)" && ./configure $(CLAMAV_CONFIG))
 	$(SILENT) ($(CD) "$(SRCROOT)$(CLAMAV_BUILD_DIR)" && make CFLAGS="$(CFLAGS)")
+	$(SILENT) ($(CD) "$(SRCROOT)/$(UPDATE_DIR)" && /usr/bin/xcodebuild)
+	$(SILENT) ($(CD) "$(SRCROOT)/$(UPDATE_DIR)" && /usr/bin/xcodebuild clean)
 
 make_clamav_install :
 	# Unstuff archive
@@ -119,6 +125,9 @@ make_clamav_install :
 		$(SILENT) ($(CD) "$(SRCROOT)$(CLAMAV_BUILD_DIR)" && $(PATCH) -p1 < "$(SRCROOT)/$(BINARY_DIR)/$(CLAMAV_DIFF_5876278)") ; \
 	fi
 
+	$(SILENT) ($(CD) "$(SRCROOT)/$(UPDATE_DIR)" && /usr/bin/xcodebuild install DSTROOT="$(DSTROOT)")
+	$(SILENT) ($(CD) "$(SRCROOT)/$(UPDATE_DIR)" && /usr/bin/xcodebuild clean)
+	#$(SILENT) ($(RM) -rf "$(SRCROOT)/$(UPDATE_DIR)/build")
 
 	# Configure and make Clam AV
 	$(SILENT) ($(CD) "$(SRCROOT)$(CLAMAV_BUILD_DIR)" && ./configure $(CLAMAV_CONFIG))

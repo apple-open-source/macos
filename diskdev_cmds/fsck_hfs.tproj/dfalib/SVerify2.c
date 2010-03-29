@@ -297,6 +297,11 @@ BTCheck(SGlobPtr GPtr, short refNum, CheckLeafRecordProcPtr checkLeafRecord)
 	if ( header->rootNode >= calculatedBTCB->totalNodes ||
 		 (header->treeDepth != 0 && header->rootNode == kHeaderNodeNum) )
 	{
+		if (debug)
+			plog("Header root node %u, calculated total nodes %u, tree depth %u, header node num %u\n",
+				header->rootNode, calculatedBTCB->totalNodes,
+				header->treeDepth, kHeaderNodeNum);
+
 		RcdError( GPtr, E_BTRoot );
 		goto RebuildBTreeExit;
 	}
@@ -452,6 +457,8 @@ BTCheck(SGlobPtr GPtr, short refNum, CheckLeafRecordProcPtr checkLeafRecord)
 				GetRecordByIndex( (BTreeControlBlock *)calculatedBTCB, nodeDescP, 0, &keyPtr, &dataPtr, &recSize );
 				if ( CompareKeys( (BTreeControlBlockPtr)calculatedBTCB, (BTreeKey *)parKey, keyPtr ) != 0 )
 				{
+					if (debug)
+						plog("Index key doesn't match first node key\n");
 					RcdError( GPtr, E_IKey );
 					goto RebuildBTreeExit;
 				}
@@ -684,12 +691,16 @@ int BTMapChk( SGlobPtr GPtr, short fileRefNum )
 			if ( nodeDescP->kind != kBTMapNode )
 			{
 				RcdError( GPtr, E_BadMapN );
+				if (debug)
+					plog("Expected map node, got type %d\n", nodeDescP->kind);
 				result = E_BadMapN;
 				goto exit;
 			}	
 			if ( nodeDescP->numRecords != Num_MRecs )
 			{
 				RcdError( GPtr, E_BadMapN );
+				if (debug)
+					plog("Expected %d records in node, found %d\n", Num_MRecs, nodeDescP->numRecords);
 				result = E_BadMapN;
 				goto exit;
 			}	

@@ -686,7 +686,7 @@ msdosfs_read(ap)
 				buf_markaged(bp);
 			on = uio_offset(uio) & pmp->pm_crbomask;
 			diff = pmp->pm_bpcluster - on;
-			n = diff > uio_resid(uio) ? uio_resid(uio) : diff;
+			n = diff > (uint32_t)uio_resid(uio) ? (uint32_t)uio_resid(uio) : diff;
 			diff = dep->de_FileSize - uio_offset(uio);
 			if (diff < n)
 				n = diff;

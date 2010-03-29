@@ -1,0 +1,262 @@
+Setting up amavisd-new to run in a chroot jail
+==============================================
+2003-03, Mark Martinec
+Last updated: 2005-08-11
+
+Preparing system services to run under chroot is not for
+inexperienced Unix administrators!
+
+This is not an automated script, but rather a checklist, guidelines
+and ideas to help set up an environment in which amavisd-new and
+its external utilities can run in a Unix chroot cage (jail) to reduce
+the possible security threats and protect the rest of the system.
+
+Details vary greatly from one Unix system to another. The following
+examples are based on FreeBSD and Linux, but should be useful for
+other Unix systems. Some of the paths are likely to be different.
+
+The following is based on setting a SMTP-based amavisd-new (e.g. to be
+use with Postfix or dual-MTA setup). It was tried out with all external
+decoding programs, with SpamAssassin and with the following virus scanners:
+Clam Antivirus clamscan and clamd, Sophos sweep, SAVI-Perl and Sophie.
+
+If you have Postfix, check its chroot setup script for further hints:
+postfix-xxx/examples/chroot-setup/<YOUR-OS> and BASIC_CONFIGURATION_README.
+
+
+exit   # This is NOT an automatic script!!!
+       # Don't execute commands without knowing what they will do!!!
+
+
+# !!! ESSENTIAL !!!, DO NOT FORGET to cd to your new chroot home directory
+# before running commands below, as most of them use relative paths!
+#
+umask 0022
+mkdir /var/amavis
+cd /var/amavis
+
+
+# make directory structure within the current directory (/var/amavis)
+mkdir -p etc dev var/run var/virusmails
+mkdir -p usr/bin usr/lib usr/libexec usr/share usr/share/zoneinfo
+mkdir -p usr/share/misc usr/share/spamassassin etc/mail/spamassassin
+mkdir -p usr/local/lib/perl5/site_perl
+
+# optional, depending on template in $*_quarantine_method :
+mkdir var/virusmails/spam var/virusmails/virus var/virusmails/banned var/virusmails/badh var/virusmails/archive
+chown vscan:vscan var/virusmails/spam var/virusmails/virus var/virusmails/banned var/virusmails/badh var/virusmails/archive
+
+# make devices - adjust MAJOR/MINOR as appropriate ( see ls -l /dev/* )
+mknod dev/null    c  2 2   # FreeBSD
+mknod dev/null    c  1 3   # Linux?
+
+mknod dev/random  c  1 8   # Linux?
+mknod dev/urandom c  1 9   # Linux?
+mknod dev/urandom c 45 2   # OpenBSD ?
+mknod dev/random  c  2 3   # FreeBSD ?
+mknod dev/random  c  244 0 # FreeBSD5.4
+ln -s random dev/urandom   # FreeBSD
+
+# some external programs may need these:
+mknod dev/zero    c 2 12   # FreeBSD,  OpenBSD
+mknod dev/stdin   c 22 0   # FreeBSD?, OpenBSD
+mknod dev/stdout  c 22 1   # FreeBSD?, OpenBSD
+mknod dev/stderr  c 22 2   # FreeBSD?, OpenBSD
+
+# NOTE: the file system where dev/null and other device files will reside
+#       must NOT be mounted with "nodev" option (/etc/fstab) !
+
+
+# make a symbolic link so that chrooted processes can refer to the
+# home directory as /var/amavis (same as not-chrooted), and do not have
+# to handle it differently (i.e. referring to it as  / )
+ln -s / var/amavis
+# actually, the following is more general:  d=`pwd`; ln -s / $d$d
+
+
+# copy required binaries to /var/amavis/usr/bin
+for j in \
+  /usr/bin/file /usr/bin/ar /bin/pax /usr/bin/gzip /usr/bin/bzip2 \
+  /usr/local/bin/nomarch /usr/local/bin/arc \
+  /usr/local/bin/unrar /usr/local/bin/rar \
+  /usr/local/bin/arj /usr/local/bin/unarj \
+  /usr/local/bin/zoo /usr/local/bin/lha /usr/local/bin/tnef \
+  /usr/local/bin/lzop /usr/local/bin/freeze \
+  /usr/local/bin/rpm2cpio /usr/local/bin/ripole /usr/local/bin/cabextract \
+  /usr/local/bin/clamscan /usr/local/bin/sweep /usr/local/sbin/sophie
+  /usr/local/bin/dccproc /usr/local/bin/pyzor
+do cp -p $j usr/bin/; done
+
+# copy needed /etc files to /var/amavis/etc
+for j in \
+  /etc/protocols /etc/services /etc/netconfig /etc/hosts \
+  /etc/group /etc/passwd /etc/resolv.conf /etc/localtime \
+  /etc/nsswitch.conf /etc/svc.conf /etc/host.conf
+do cp -p $j etc/; done
+
+# SECURITY NOTE:
+#   It is likely that the /etc/passwd file is not even needed in the jail.
+#   Whether it is needed or not depends on external programs used for virus
+#   and spam checks. Even when the /etc/passwd file in jail is needed, it
+#   need not provide most regular system usernames and should not provide
+#   their valid passwords; a heavily stripped down or faked version of the
+#   file in the jail suffices for most purposes; also, there is hardly
+#   any need for UID 0 usernames (e.g. root) in the chrooted /etc/passwd
+#   file and such usernames are to be avoided.
+
+# copy time zones data /usr/share/zoneinfo (or perhaps /usr/lib/zoneinfo)
+cp -pR /usr/share/zoneinfo usr/share/  # FreeBSD
+
+# copy shared libraries to /var/amavis/lib
+#   (check:  ldd /var/amavis/usr/bin/*  to see which ones are needed)
+
+ln -s usr/lib .
+ln -s usr/libexec .
+
+#FreeBSD:
+for j in \
+  /usr/lib/libc.so* /usr/lib/libc_r.so* /usr/lib/libm.so* \
+  /usr/lib/libpthread.so.1 /usr/lib/libstdc++.so* \
+  /usr/lib/libz.so* /usr/lib/libz2.so* \
+  /usr/lib/libmagic.so* /usr/local/lib/libsavi.so* \
+  /usr/local/lib/libclamav.so.1 /usr/local/lib/libgmp.so.6
+do cp -p $j usr/lib/; done
+cp -p /usr/libexec/ld-elf.so.1 usr/libexec/
+
+#Linux:
+for j in \
+  /lib/libc.so.6 /lib/libm.so.6 /lib/ld-linux.so.2 \
+  /lib/libpthread.so.0 /lib/libresolv-2.3.2.so /lib/libnss_*.so* \
+  /lib/libgcc_s.so.1 /usr/lib/libstdc++.so.5 \
+  /usr/lib/libz.so.1 /usr/lib/libbz2.so.1 /lib/libdb*.so* \
+  /usr/local/lib/libsavi.so.3 /usr/local/lib/libclamav.so.1
+do cp -p $j lib/; done
+
+# UTF8 data files needed by Perl Unicode support:
+cp -pR /usr/local/lib/perl5/5.8.7/unicore usr/local/lib/perl5/site_perl/
+#
+# on OpenBSD 3.8 that would be something like:
+#   cp -pR /usr/libdata/perl5/unicore/ usr/libdata/perl5/
+
+
+# needed by SpamAssassin:
+
+cp -p  /etc/mail/spamassassin/{init.pre,v310.pre,*.cf} etc/mail/spamassassin/
+cp -pR /usr/local/share/spamassassin usr/share/  # FreeBSD
+cp -pR /usr/share/spamassassin       usr/share/  # Linux
+
+# Razor2 (if called from SpamAssassin):
+echo 'debuglevel = 0' >>/etc/razor-agent.conf
+cp /etc/razor-agent.conf etc/
+
+# magic files needed by file(1). Different versions and installations expect
+# magic files in different locations. Use the most recent version of file(1)
+# and check its documentation. Some usual locations are:
+cp -p /usr/local/share/file/*  usr/local/share/file/
+cp -p /usr/share/misc/magic*   usr/share/misc/
+cp -p /usr/share/magic         usr/share/
+
+# needed by AV scanners (ClamAV)
+mkdir -p usr/local/share/clamav var/db/clamav
+cp -pR /usr/local/share/clamav usr/local/share/  # is it in /usr/local/share ?
+cp -pR /var/db/clamav var/db/                    # or is it in /var/db/ ?
+cp /usr/local/bin/freshclam /usr/local/sbin/clamd usr/bin/
+cp /usr/local/etc/clamd.conf etc/
+# Start clamd and freshclam:
+#   chroot -u vscan /var/amavis /usr/sbin/clamd
+#   chroot -u vscan /var/amavis /usr/bin/freshclam -d \
+#     -c 4 --log-verbose --datadir=/usr/local/share/clam \
+#     -l /var/log/clam-update.log
+
+# needed by AV scanners (Sophos)
+mkdir -p usr/local/sav
+cp -pR /usr/local/sav usr/local/
+
+mkdir -p home var/db/amavis scratch/tmp-am scratch/tmp-sys
+# Subdirectory 'scratch' may reside on a volatile file system (tmpfs)
+
+# set protection and ownership
+chown -R root:wheel usr/ dev/ etc/ var/ scratch/
+chown    root:wheel .
+chown -R vscan:vscan home scratch/tmp-am var/db/amavis var/virusmails
+chown -R clamav:clamav var/db/clamav
+chmod 751 . scratch
+chmod 1777 scratch/tmp-sys
+ln -s ../scratch/tmp-sys var/tmp
+ln -s scratch/tmp-sys tmp
+ln -s scratch/tmp-am  tmp-am
+ln -s var/db/amavis db   # for compatibility with traditional location
+chmod 666 dev/null
+chmod 644 dev/*random
+
+# /etc/passwd: set home directory of user vscan to /var/amavis/home !!!
+
+
+# Daemonized virus scanners (e.g. Sophie, ClamD) may be
+# started in the same chroot jail, or not.  E.g.
+#   chroot /var/amavis /usr/bin/sophie -D
+#
+# If you want, you may now remove /usr/local/sav and make a link instead,
+# to avoid having two copies of Sophos database:
+#   ln -s /var/amavis/usr/local/sav /usr/local/sav
+# consider:
+#   ln -s /var/amavis/var/run/sophie      /var/run/     # Sophie socket
+#   ln -s /var/amavis/var/run/sophie.pid  /var/run/
+
+# Programs may be tested individually to see if they are happy
+# in the chroot jail:
+#
+perl -Te 'use POSIX; $ENV{PATH}="/usr/bin";
+         $uid=getpwnam("vscan")   or die "E1:$!";
+         chroot "/var/amavis"     or die "E2:$!"; chdir "/";
+         POSIX::setuid($uid)      or die "E3:$!";
+         open(STDIN,"</dev/null") or die "E4:$!";
+         exec qw(file /etc/amavisd.conf) or die "E5:$!"'; echo $?
+# or...
+#    ... exec qw(file /usr/bin/gzip)   or die "E5:$!"'; echo $?
+#    ... exec qw(gzip -d 0.lis.gz)     or die "E5:$!"'; echo $?
+#    ... system "gzip 0.lis >0.lis.gz"; printf("E5: %d, %d=0x%x\n",$!,$?,$?)'
+#    ... open(STDOUT,">0.lis.gz") or die "E5:$!";
+#          exec qw(gzip -c 0.lis) or die "E6:$!"'; echo $
+#    ... exec qw(clamscan /etc/resolv.conf) or die "E5:$!"'; echo $?
+
+Edit /var/amavis/etc/amavisd.conf, setting:
+  $MYHOME = '/var/amavis';
+  $ENV{TMPDIR} = $TEMPBASE = "$MYHOME/tmp-am";
+  $daemon_chroot_dir = $MYHOME;
+  $helpers_home = "$MYHOME/home";  # prefer $MYHOME clean and owned by root?
+  $db_home   = "$MYHOME/var/db/amavis";
+  $pid_file  = "$helpers_home/amavisd.pid";
+  $lock_file = "$helpers_home/amavisd.lock";
+  $QUARANTINEDIR = "$MYHOME/var/virusmails";
+
+Logging should preferably be directed to syslog. Configure syslogd to
+provide a socket in the amavis jail (option -l on FreeBSD, option -a
+on OpenBSD and Linux). Under FreeBSD place something like:
+  syslogd_flags="-l /var/amavis/var/run/log -ss"
+into /etc/rc.conf .
+
+Because the program starts outside the chroot jail and brings-in all Perl
+modules first, there is fortunately no need to make a copy of Perl modules
+inside the jail.
+
+If Perl complains about missing modules, add them to the list
+in file amavisd:
+
+    fetch_modules('REQUIRED BASIC MODULES', qw(
+	Exporter POSIX Fcntl Socket Errno Time::HiRes
+	IO::File IO::Socket IO::Wrap IO::Stringy
+    ...
+
+With earlier version of Perl you might need to add autoloaded modules
+to the list, such as:
+        auto::POSIX::setgid auto::POSIX::setuid
+
+
+NOTE:
+  OpenBSD chroot specifics are described in the document
+  http://www.flakshack.com/anti-spam, by Scott Vintinner.
+
+NOTE:
+  See note about Net::Server at:
+  http://www.ijs.si/software/amavisd/#faq-net-server

@@ -60,7 +60,6 @@ int modeFolder(BLContextPtr context, struct clarg actargs[klast]) {
     int isHFS, shouldBless;
 	
     uint32_t folderXid = 0;                   // The directory ID specified by folderXpath
-    uint32_t folder9id = 0;                   // The directory ID specified by folder9path
     
 	CFDataRef bootXdata = NULL;
 	CFDataRef bootEFIdata = NULL;
@@ -85,7 +84,6 @@ int modeFolder(BLContextPtr context, struct clarg actargs[klast]) {
 		}
 		
 		// if -mount was specified, it implies we want to preserve what exists
-		actargs[ksave9].present = 1;
 		actargs[ksaveX].present = 1;
 		
     } else if(actargs[kfolder].present || actargs[kfolder9].present) {
@@ -111,6 +109,17 @@ int modeFolder(BLContextPtr context, struct clarg actargs[klast]) {
 			blesscontextprintf(context, kBLLogLevelVerbose, "Common mount point of '%s' is %s\n",
 							   actargs[kopenfolder].argument, actargs[kmount].argument );
 		}
+    } else if(actargs[kalternateos].present) {
+		// didn't give a -folder or -mount
+		ret = BLGetCommonMountPoint(context, actargs[kalternateos].argument, actargs[kalternateos].argument, actargs[kmount].argument);
+		if(ret) {
+			blesscontextprintf(context, kBLLogLevelError, "Can't determine mount point of '%s'\n",
+							   actargs[kalternateos].argument);
+			return 1;
+		} else {
+			blesscontextprintf(context, kBLLogLevelVerbose, "Common mount point of '%s' is %s\n",
+							   actargs[kalternateos].argument, actargs[kmount].argument );
+		}
     } else {
 		blesscontextprintf(context, kBLLogLevelError, "No volume specified\n" );
 		return 1;
@@ -123,7 +132,7 @@ int modeFolder(BLContextPtr context, struct clarg actargs[klast]) {
 	 * or something
 	 */
 	if( actargs[kfolder].present || actargs[kfolder9].present
-		|| actargs[kopenfolder].present) {
+		|| actargs[kopenfolder].present || actargs[kalternateos].present) {
 		shouldBless = 1;
 	} else {
 		shouldBless = 0;
@@ -258,6 +267,7 @@ int modeFolder(BLContextPtr context, struct clarg actargs[klast]) {
 		int useX = 1;
 		uint32_t openfolder = 0;
 		uint32_t bootfile = 0;
+		uint32_t alternateosid = 0; /* aliased with folder9 */
         
 		ret = BLGetVolumeFinderInfo(context, actargs[kmount].argument, oldwords);
 		if(ret) {
@@ -267,14 +277,9 @@ int modeFolder(BLContextPtr context, struct clarg actargs[klast]) {
 		
 		if(!actargs[kfolder].present && !actargs[kfolder9].present) {
 			// if no blessed folder, preserve what's there already
-			actargs[ksave9].present = 1;
 			actargs[ksaveX].present = 1;
 		}
 		
-		if(actargs[ksave9].present) {
-			folder9id = oldwords[3];
-			blesscontextprintf(context, kBLLogLevelVerbose,  "Saved folder 9\n" );
-		}
 		if(actargs[ksaveX].present) {
 			folderXid = oldwords[5];
 			blesscontextprintf(context, kBLLogLevelVerbose,  "Saved folder X\n" );
@@ -282,6 +287,7 @@ int modeFolder(BLContextPtr context, struct clarg actargs[klast]) {
 		
 		/* always save boot file */
 		bootfile = oldwords[1];
+		alternateosid = oldwords[3];
 		
 		/* bless! bless */
 		
@@ -297,12 +303,12 @@ int modeFolder(BLContextPtr context, struct clarg actargs[klast]) {
 		}
 		
 		if(actargs[kfolder9].present) {
-			ret = BLGetFileID(context, actargs[kfolder9].argument, &folder9id);
+			ret = BLGetFileID(context, actargs[kfolder9].argument, &alternateosid);
 			if(ret) {
 				blesscontextprintf(context, kBLLogLevelError,  "Error while getting directory ID of %s\n", actargs[kfolder9].argument );
 			} else {
 				blesscontextprintf(context, kBLLogLevelVerbose,  "Got directory ID of %u for %s\n",
-								   folder9id, actargs[kfolder9].argument );
+								   alternateosid, actargs[kfolder9].argument );
 			}
 		}
 
@@ -348,6 +354,49 @@ int modeFolder(BLContextPtr context, struct clarg actargs[klast]) {
             }
             
         }
+
+		if(actargs[kalternateos].present) {
+			ret = BLGetFileID(context, actargs[kalternateos].argument, &alternateosid);
+			if(ret) {
+				blesscontextprintf(context, kBLLogLevelError,  "Error while getting file ID of %s. Ignoring...\n", actargs[kalternateos].argument );
+				alternateosid = 0;
+			} else {
+				struct stat checkForFile;
+				
+				ret = lstat(actargs[kalternateos].argument, &checkForFile);
+				if(ret || (!S_ISREG(checkForFile.st_mode) && !S_ISDIR(checkForFile.st_mode))) {
+					blesscontextprintf(context, kBLLogLevelError,  "%s cannot be accessed, or is not a regular file or directory. Ignoring...\n", actargs[kalternateos].argument );				
+					alternateosid = 0;
+				} else {
+					blesscontextprintf(context, kBLLogLevelVerbose,  "Got file/directory ID of %u for %s\n",
+									   alternateosid, actargs[kalternateos].argument );
+				}
+			}			
+			
+		} else {
+            // no file/directory given. we should try to verify the existing ID
+            if(alternateosid) {
+                ret = BLLookupFileIDOnMount(context, actargs[kmount].argument, alternateosid, actargs[kalternateos].argument);
+                if(ret) {
+                    blesscontextprintf(context, kBLLogLevelVerbose,  "Invalid EFI alternate OS file/dir ID %u. Zeroing...\n",
+                                       alternateosid );                    
+                    alternateosid = 0;
+                } else {
+					struct stat checkForFile;
+					
+					ret = lstat(actargs[kalternateos].argument, &checkForFile);
+					if(ret || (!S_ISREG(checkForFile.st_mode) && !S_ISDIR(checkForFile.st_mode))) {
+						blesscontextprintf(context, kBLLogLevelError,  "%s cannot be accessed, or is not a regular file. Ignoring...\n", actargs[kalternateos].argument );				
+						alternateosid = 0;
+					} else {						
+						blesscontextprintf(context, kBLLogLevelVerbose,
+										   "Preserving EFI alternate OS file/dir ID %u for %s\n",
+										   alternateosid, actargs[kalternateos].argument );                    
+					}
+                }
+            }
+            
+        }
 		
 		if(actargs[kopenfolder].present) {
 			char openmount[kMaxArgLength];
@@ -383,7 +432,7 @@ int modeFolder(BLContextPtr context, struct clarg actargs[klast]) {
 		/* Set Finder info words 3 & 5 + 2 + 1*/
 		oldwords[1] = bootfile;
 		oldwords[2] = openfolder;
-		oldwords[3] = folder9id;
+		oldwords[3] = alternateosid;
 		oldwords[5] = folderXid;
 		
         // reserved1 returns the f_fssubtype attribute. Right now, 0 == HFS+,
@@ -408,7 +457,7 @@ int modeFolder(BLContextPtr context, struct clarg actargs[klast]) {
         } else {
             if(!folderXid || !useX) {
                 /* The 9 folder is what we really want */
-                oldwords[0] = folder9id;
+                oldwords[0] = alternateosid;
             } else {
                 /* X */
                 oldwords[0] = folderXid;

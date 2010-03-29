@@ -1,0 +1,270 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 44;
+	objects = {
+
+/* Begin PBXAggregateTarget section */
+		BA4288CE0FB87AE400D7F339 /* man page */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = BA4288D40FB87B3000D7F339 /* Build configuration list for PBXAggregateTarget "man page" */;
+			buildPhases = (
+				BA4288CD0FB87AE400D7F339 /* ShellScript */,
+				BA4289070FB87DEB00D7F339 /* CopyFiles */,
+			);
+			dependencies = (
+			);
+			name = "man page";
+			productName = "man page";
+		};
+		C604AAAF0FB48C3E00A70743 /* AppleTV */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = C604AABC0FB48C7700A70743 /* Build configuration list for PBXAggregateTarget "AppleTV" */;
+			buildPhases = (
+				C604AAAE0FB48C3E00A70743 /* CopyFiles */,
+				C64AFF1510161CCB006C2629 /* ShellScript */,
+			);
+			dependencies = (
+			);
+			name = AppleTV;
+			productName = AppleTV;
+		};
+		C604AAB40FB48C6100A70743 /* MacOSX */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = C604AABB0FB48C7700A70743 /* Build configuration list for PBXAggregateTarget "MacOSX" */;
+			buildPhases = (
+				C604AAB30FB48C6100A70743 /* CopyFiles */,
+			);
+			dependencies = (
+				BA4289090FB87DFA00D7F339 /* PBXTargetDependency */,
+			);
+			name = MacOSX;
+			productName = MacOSX;
+		};
+/* End PBXAggregateTarget section */
+
+/* Begin PBXBuildFile section */
+		BA4289010FB87DD100D7F339 /* com.apple.Boot.plist.5 in CopyFiles */ = {isa = PBXBuildFile; fileRef = BA4288F40FB87C8500D7F339 /* com.apple.Boot.plist.5 */; };
+		C604AABD0FB48C8800A70743 /* com.apple.Boot.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = C604AAAB0FB48C2200A70743 /* com.apple.Boot.plist */; };
+		C604AABE0FB48CA300A70743 /* BootLogo.png in CopyFiles */ = {isa = PBXBuildFile; fileRef = C604AAA20FB48C0800A70743 /* BootLogo.png */; };
+		C604AABF0FB48CA300A70743 /* com.apple.Boot.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = C604AAA30FB48C0800A70743 /* com.apple.Boot.plist */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		BA4289080FB87DFA00D7F339 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 68F8E3ED0AF66BC2007A5339 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = BA4288CE0FB87AE400D7F339;
+			remoteInfo = "man page";
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		BA4289070FB87DEB00D7F339 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /usr/share/man/man5;
+			dstSubfolderSpec = 0;
+			files = (
+				BA4289010FB87DD100D7F339 /* com.apple.Boot.plist.5 in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		C604AAAE0FB48C3E00A70743 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /System/Library/CoreServices/AppleTV;
+			dstSubfolderSpec = 0;
+			files = (
+				C604AABE0FB48CA300A70743 /* BootLogo.png in CopyFiles */,
+				C604AABF0FB48CA300A70743 /* com.apple.Boot.plist in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		C604AAB30FB48C6100A70743 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /Library/Preferences/SystemConfiguration;
+			dstSubfolderSpec = 0;
+			files = (
+				C604AABD0FB48C8800A70743 /* com.apple.Boot.plist in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
+/* Begin PBXFileReference section */
+		BA4288C80FB87AC100D7F339 /* com.apple.Boot.plist.mxml */ = {isa = PBXFileReference; explicitFileType = text.xml; fileEncoding = 4; path = com.apple.Boot.plist.mxml; sourceTree = "<group>"; };
+		BA4288F40FB87C8500D7F339 /* com.apple.Boot.plist.5 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = com.apple.Boot.plist.5; sourceTree = BUILT_PRODUCTS_DIR; };
+		C604AAA20FB48C0800A70743 /* BootLogo.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = BootLogo.png; sourceTree = "<group>"; };
+		C604AAA30FB48C0800A70743 /* com.apple.Boot.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = com.apple.Boot.plist; sourceTree = "<group>"; };
+		C604AAAB0FB48C2200A70743 /* com.apple.Boot.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = com.apple.Boot.plist; sourceTree = "<group>"; };
+		C64AFF1D10161E8D006C2629 /* VolumeIcon.icns */ = {isa = PBXFileReference; lastKnownFileType = image.icns; path = VolumeIcon.icns; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXGroup section */
+		68F8E3EB0AF66BC2007A5339 = {
+			isa = PBXGroup;
+			children = (
+				BA4288C80FB87AC100D7F339 /* com.apple.Boot.plist.mxml */,
+				C604AAAA0FB48C2200A70743 /* MacOSX */,
+				C604AAA10FB48C0800A70743 /* AppleTV */,
+				BA4288F10FB87C6000D7F339 /* Generated Files */,
+			);
+			sourceTree = "<group>";
+		};
+		BA4288F10FB87C6000D7F339 /* Generated Files */ = {
+			isa = PBXGroup;
+			children = (
+				BA4288F40FB87C8500D7F339 /* com.apple.Boot.plist.5 */,
+			);
+			name = "Generated Files";
+			path = AppleTV;
+			sourceTree = "<group>";
+		};
+		C604AAA10FB48C0800A70743 /* AppleTV */ = {
+			isa = PBXGroup;
+			children = (
+				C604AAA20FB48C0800A70743 /* BootLogo.png */,
+				C64AFF1D10161E8D006C2629 /* VolumeIcon.icns */,
+				C604AAA30FB48C0800A70743 /* com.apple.Boot.plist */,
+			);
+			path = AppleTV;
+			sourceTree = "<group>";
+		};
+		C604AAAA0FB48C2200A70743 /* MacOSX */ = {
+			isa = PBXGroup;
+			children = (
+				C604AAAB0FB48C2200A70743 /* com.apple.Boot.plist */,
+			);
+			path = MacOSX;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXProject section */
+		68F8E3ED0AF66BC2007A5339 /* Project object */ = {
+			isa = PBXProject;
+			buildConfigurationList = 68F8E3EE0AF66BC2007A5339 /* Build configuration list for PBXProject "system_config" */;
+			compatibilityVersion = "Xcode 3.0";
+			hasScannedForEncodings = 0;
+			mainGroup = 68F8E3EB0AF66BC2007A5339;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				C604AAB40FB48C6100A70743 /* MacOSX */,
+				C604AAAF0FB48C3E00A70743 /* AppleTV */,
+				BA4288CE0FB87AE400D7F339 /* man page */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		BA4288CD0FB87AE400D7F339 /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+				"$(SRCROOT)/com.apple.Boot.plist.mxml",
+			);
+			outputPaths = (
+				"$(BUILT_PRODUCTS_DIR)/com.apple.Boot.plist.5",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "set -e\nset -x\n\nxml2man -f \"${SCRIPT_INPUT_FILE_0}\" \"${SCRIPT_OUTPUT_FILE_0}\"\n\nexit 0";
+		};
+		C64AFF1510161CCB006C2629 /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "set -x\nset -e\n\nDESTDIR=\"${DSTROOT}/System/Library/CoreServices/AppleTV\"\n\nmkdir -p \"${DESTDIR}\"\n/usr/local/bin/setOFLabel \"AppleTV\" \"${DESTDIR}\"\nif [ -f \"${DESTDIR}/Volume Name Icon\" ]; then\n\tditto --norsrc \"${DESTDIR}/Volume Name Icon\" \"${DESTDIR}/.disk_label\"\n\tchflags nohidden \"${DESTDIR}/.disk_label\"\n\trm -f \"${DESTDIR}/Volume Name Icon\"\n\trm -f \"${DESTDIR}/._Volume Name Icon\"\nfi\nprintf \"AppleTV\" > \"${DESTDIR}/.disk_label.contentDetails\"\ncp \"${SRCROOT}/AppleTV/VolumeIcon.icns\" \"${DESTDIR}/.VolumeIcon.icns\"\n";
+		};
+/* End PBXShellScriptBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		BA4289090FB87DFA00D7F339 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = BA4288CE0FB87AE400D7F339 /* man page */;
+			targetProxy = BA4289080FB87DFA00D7F339 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		68F8E3F00AF66BC2007A5339 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+			};
+			name = Release;
+		};
+		BA4288CF0FB87AE500D7F339 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = "man page";
+			};
+			name = Release;
+		};
+		C604AAB00FB48C3E00A70743 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = AppleTV;
+			};
+			name = Release;
+		};
+		C604AAB50FB48C6100A70743 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = MacOSX;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		68F8E3EE0AF66BC2007A5339 /* Build configuration list for PBXProject "system_config" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				68F8E3F00AF66BC2007A5339 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		BA4288D40FB87B3000D7F339 /* Build configuration list for PBXAggregateTarget "man page" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				BA4288CF0FB87AE500D7F339 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		C604AABB0FB48C7700A70743 /* Build configuration list for PBXAggregateTarget "MacOSX" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C604AAB50FB48C6100A70743 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		C604AABC0FB48C7700A70743 /* Build configuration list for PBXAggregateTarget "AppleTV" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C604AAB00FB48C3E00A70743 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 68F8E3ED0AF66BC2007A5339 /* Project object */;
+}

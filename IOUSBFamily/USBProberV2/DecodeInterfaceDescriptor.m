@@ -73,7 +73,7 @@
     // If our subclass name is different than our class name, then add the sub class to the description
     // following a "/"
     //
-    if( ! [[interfaceClass subclassName] isEqualToString:@""] &&
+    if ( ! [[interfaceClass subclassName] isEqualToString:@""] &&
         ! [[interfaceClass subclassName] isEqualToString:[interfaceClass className]] )
     {
         tempString2 = [NSString stringWithFormat:@"%@/%@",tempString1,[interfaceClass subclassName]];
@@ -126,7 +126,7 @@
     // If our subclass name is different than our class name, then add the sub class to the description
     // following a "/"
     //
-    if( ! [[interfaceAssocClass subclassName] isEqualToString:@""] &&
+    if ( ! [[interfaceAssocClass subclassName] isEqualToString:@""] &&
         ! [[interfaceAssocClass subclassName] isEqualToString:[interfaceAssocClass className]] )
     {
         tempString2 = [NSString stringWithFormat:@"%@/%@",tempString1,[interfaceAssocClass subclassName]];

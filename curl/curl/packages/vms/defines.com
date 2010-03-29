@@ -1,4 +1,4 @@
-$! $Id: defines.com,v 1.4 2005/02/11 20:17:21 curlvms Exp $
+$! $Id: defines.com,v 1.6 2009-05-19 12:12:22 yangtse Exp $
 $! DEFINES.COM
 $! Define where to look for the curl include directory, where to put the 
 $! exes and objects, and the openssl stuff.  If you have hp's SSL product 

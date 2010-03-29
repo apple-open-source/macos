@@ -1,0 +1,21 @@
+Esto ye un recordatoriu que s'unvia mensualmente sobro les
+soscriciones a llistes de distribución que tienes en
+%(hostname)s. Inclúi información que puede usase pa 
+camudar les tos opciones de soscripción asina como pa dase
+de baxa o esborrase d'una llista.
+
+Puedes visitar les URLs pa camudar la configuración de les
+soscriciones, date de baxa o desactivar la receición de
+los mensaxes (por exemplu durante les vacaciones).
+
+Arriendes de les URLs, puedes usar el corréu electrónicu pa
+facer talos cambeos. Si necesites más información unvia un
+mensax a la direición de solicitúes ('-request') de la llista
+(por exemplu, %(exreq)s) cola pallabra
+'help' nel asuntu (subject) o nel cuerpu del mensax y 
+recibirás un mensax con instrucciones.
+
+Si tienes dalguna entruga, problema, comentariu, etc, únvialu,
+por favor, a la direición %(owner)s. Gracies.
+
+Contrase&ntilde;es correspondientes a la direición %(useraddr)s:

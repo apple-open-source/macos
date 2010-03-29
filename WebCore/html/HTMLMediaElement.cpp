@@ -269,6 +269,15 @@ void HTMLMediaElement::recalcStyle(StyleChange change)
 
 void HTMLMediaElement::scheduleLoad()
 {
+    if (m_loadTimer.isActive())
+        return;
+    prepareForLoad();
+    m_loadTimer.startOneShot(0);
+}
+
+void HTMLMediaElement::scheduleNextSourceChild()
+{
+    // Schedule the timer to try the next <source> element WITHOUT resetting state ala prepareForLoad.
     m_loadTimer.startOneShot(0);
 }
 
@@ -408,17 +417,15 @@ void HTMLMediaElement::load(ExceptionCode& ec)
 {
     if (m_restrictions & RequireUserGestureForLoadRestriction && !processingUserGesture())
         ec = INVALID_STATE_ERR;
-    else
+    else {
+        prepareForLoad();
         loadInternal();
+    }
 }
 
-void HTMLMediaElement::loadInternal()
+void HTMLMediaElement::prepareForLoad()
 {
-    // 1 - If the load() method for this element is already being invoked, then abort these steps.
-    if (m_processingLoad)
-        return;
-    m_processingLoad = true;
-    
+    // Perform the cleanup required for the resource load algorithm to run.
     stopPeriodicTimers();
     m_loadTimer.stop();
     m_sentStalledEvent = false;
@@ -430,6 +437,16 @@ void HTMLMediaElement::loadInternal()
     // 3 - If there are any tasks from the media element's media element event task source in 
     // one of the task queues, then remove those tasks.
     cancelPendingEventsAndCallbacks();
+}
+
+void HTMLMediaElement::loadInternal()
+{
+    // 1 - If the load() method for this element is already being invoked, then abort these steps.
+    if (m_processingLoad)
+        return;
+    m_processingLoad = true;
+    
+    // Steps 2 and 3 were done in prepareForLoad()
     
     // 4 - If the media element's networkState is set to NETWORK_LOADING or NETWORK_IDLE, set the 
     // error attribute to a new MediaError object whose code attribute is set to MEDIA_ERR_ABORTED, 
@@ -530,9 +547,20 @@ void HTMLMediaElement::loadNextSourceChild()
     loadResource(mediaURL, contentType);
 }
 
-void HTMLMediaElement::loadResource(const KURL& url, ContentType& contentType)
+void HTMLMediaElement::loadResource(const KURL& initialURL, ContentType& contentType)
 {
-    ASSERT(isSafeToLoadURL(url, Complain));
+    ASSERT(isSafeToLoadURL(initialURL, Complain));
+
+    Frame* frame = document()->frame();
+    if (!frame)
+        return;
+    FrameLoader* loader = frame->loader();
+    if (!loader)
+        return;
+
+    KURL url(initialURL);
+    if (!loader->willLoadMediaElementURL(url))
+        return;
 
     // The resource fetch algorithm 
     m_networkState = NETWORK_LOADING;
@@ -564,7 +592,7 @@ bool HTMLMediaElement::isSafeToLoadURL(const KURL& url, InvalidSourceAction acti
     Frame* frame = document()->frame();
     FrameLoader* loader = frame ? frame->loader() : 0;
 
-    // don't allow remote to local urls
+    // don't allow remote to local urls, and check with the frame loader client.
     if (!loader || !loader->canLoad(url, String(), document())) {
         if (actionIfInvalid == Complain)
             FrameLoader::reportLocalLoadFailed(frame, url.string());
@@ -672,7 +700,7 @@ void HTMLMediaElement::setNetworkState(MediaPlayer::NetworkState state)
         if (m_readyState < HAVE_METADATA && m_loadState == LoadingFromSourceElement) {
             m_currentSourceNode->scheduleErrorEvent();
             if (havePotentialSourceChild())
-                scheduleLoad();
+                scheduleNextSourceChild();
             return;
         }
 

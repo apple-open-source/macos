@@ -20,7 +20,7 @@
  * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
  * KIND, either express or implied.
  *
- * $Id: sslgen.h,v 1.17 2008-11-11 22:19:27 bagder Exp $
+ * $Id: sslgen.h,v 1.18 2009-05-04 21:57:14 bagder Exp $
  ***************************************************************************/
 
 bool Curl_ssl_config_matches(struct ssl_config_data* data,
@@ -71,6 +71,8 @@ int Curl_ssl_getsessionid(struct connectdata *conn,
 CURLcode Curl_ssl_addsessionid(struct connectdata *conn,
                                void *ssl_sessionid,
                                size_t idsize);
+/* delete a session from the cache */
+void Curl_ssl_delsessionid(struct connectdata *conn, void *ssl_sessionid);
 
 #define SSL_SHUTDOWN_TIMEOUT 10000 /* ms */
 

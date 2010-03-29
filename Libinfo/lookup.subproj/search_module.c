@@ -369,7 +369,7 @@ search_alias_all(si_mod_t *si)
 }
 
 __private_extern__ si_item_t *
-search_host_byname(si_mod_t *si, const char *name, int af, uint32_t *err)
+search_host_byname(si_mod_t *si, const char *name, int af, const char *interface, uint32_t *err)
 {
 	int i, cat;
 	search_si_private_t *pp;
@@ -398,7 +398,7 @@ search_host_byname(si_mod_t *si, const char *name, int af, uint32_t *err)
 
 	while (NULL != (src = search_get_module(pp, cat, &i)))
 	{
-		item = si_host_byname(src, name, af, err);
+		item = si_host_byname(src, name, af, interface, err);
 		if (item != NULL)
 		{
 			si_cache_add_item(search_cat_cache(pp, cat), src, item);
@@ -411,7 +411,7 @@ search_host_byname(si_mod_t *si, const char *name, int af, uint32_t *err)
 }
 
 __private_extern__ si_item_t *
-search_host_byaddr(si_mod_t *si, const void *addr, int af, uint32_t *err)
+search_host_byaddr(si_mod_t *si, const void *addr, int af, const char *interface, uint32_t *err)
 {
 	int i, cat;
 	search_si_private_t *pp;
@@ -440,7 +440,7 @@ search_host_byaddr(si_mod_t *si, const void *addr, int af, uint32_t *err)
 
 	while (NULL != (src = search_get_module(pp, cat, &i)))
 	{
-		item = si_host_byaddr(src, addr, af, err);
+		item = si_host_byaddr(src, addr, af, interface, err);
 		if (item != NULL)
 		{
 			si_cache_add_item(search_cat_cache(pp, cat), src, item);
@@ -637,7 +637,7 @@ search_mac_all(si_mod_t *si)
 }
 
 __private_extern__ si_list_t *
-search_srv_byname(si_mod_t *si, const char* qname, uint32_t *err)
+search_srv_byname(si_mod_t *si, const char* qname, const char *interface, uint32_t *err)
 {
 	int i, cat;
 	si_list_t *list = NULL;
@@ -658,7 +658,7 @@ search_srv_byname(si_mod_t *si, const char* qname, uint32_t *err)
 
 		if (src->sim_srv_byname != NULL)
 		{
-			list = src->sim_srv_byname(src, qname, err);
+			list = src->sim_srv_byname(src, qname, interface, err);
 			if (list != NULL) return list;
 		}
 	}
@@ -692,7 +692,7 @@ search_wants_addrinfo(si_mod_t *si)
 }
 
 __private_extern__ si_list_t *
-search_addrinfo(si_mod_t *si, const void *node, const void *serv, uint32_t family, uint32_t socktype, uint32_t protocol, uint32_t flags, uint32_t *err)
+search_addrinfo(si_mod_t *si, const void *node, const void *serv, uint32_t family, uint32_t socktype, uint32_t protocol, uint32_t flags, const char *interface, uint32_t *err)
 {
 	int i, cat;
 	search_si_private_t *pp;
@@ -715,7 +715,7 @@ search_addrinfo(si_mod_t *si, const void *node, const void *serv, uint32_t famil
 
 		if (src->sim_addrinfo != NULL)
 		{
-			list = src->sim_addrinfo(src, node, serv, family, socktype, protocol, flags, err);
+			list = src->sim_addrinfo(src, node, serv, family, socktype, protocol, flags, interface, err);
 			if (list != NULL) return list;
 		}
 	}
@@ -725,7 +725,7 @@ search_addrinfo(si_mod_t *si, const void *node, const void *serv, uint32_t famil
 }
 
 __private_extern__ si_item_t *
-search_nameinfo(si_mod_t *si, const struct sockaddr *sa, int flags, uint32_t *err)
+search_nameinfo(si_mod_t *si, const struct sockaddr *sa, int flags, const char *interface, uint32_t *err)
 {
 	int i, cat;
 	search_si_private_t *pp;
@@ -744,7 +744,7 @@ search_nameinfo(si_mod_t *si, const struct sockaddr *sa, int flags, uint32_t *er
 
 	while (NULL != (src = search_get_module(pp, cat, &i)))
 	{
-		item = si_nameinfo(src, sa, flags, err);
+		item = si_nameinfo(src, sa, flags, interface, err);
 		if (item != NULL)
 		{
 			si_cache_add_item(search_cat_cache(pp, cat), src, item);

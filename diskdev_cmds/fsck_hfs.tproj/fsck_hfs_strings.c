@@ -130,7 +130,7 @@ hfs_errors[] = {
     { E_FreeBlocks,             "Invalid volume free block count",                              fsckMsgError,   fsckLevel1,   0, },
     { E_MDBDamaged,             "Master Directory Block needs minor repair",                    fsckMsgError,   fsckLevel1,   0, },
     { E_VolumeHeaderDamaged,    "Volume header needs minor repair",                             fsckMsgError,   fsckLevel1,   0, },
-    { E_VBMDamaged,             "Volume bitmap needs minor repair",                             fsckMsgError,   fsckLevel1,   0, },
+    { E_VBMDamaged,             "Volume bitmap needs minor repair for under-allocation",        fsckMsgError,   fsckLevel1,   0, },
     { E_InvalidNodeSize,        "Invalid B-tree node size",                                     fsckMsgError,   fsckLevel1,   0, },
     { E_LeafCnt,                "Invalid leaf record count",                                    fsckMsgError,   fsckLevel1,   0, },
     { E_BadValue,               "(It should be %s instead of %s)",                              fsckMsgDamageInfo,fsckLevel1, 2, (const int[]){ fsckTypeString, fsckTypeString } },
@@ -183,7 +183,7 @@ hfs_errors[] = {
     { E_FileHardLinkChain,      "Incorrect number of file hard links",                          fsckMsgError,   fsckLevel1,   0, },
     { E_FileHardLinkFinderInfo, "Invalid finder info for file hard link (id = %u)",             fsckMsgError,   fsckLevel1,   1, (const int[]){ fsckTypeInt, } },
 
-    /* 600 - 608 */
+    /* 600 - 609 */
     { E_InvalidLinkChainFirst,  "Invalid first link in hard link chain (id = %u)",              fsckMsgError,   fsckLevel1,   1, (const int[]){ fsckTypeInt, } },
     { E_FileLinkBadFlags,       "Incorrect flags for file hard link (id = %u)",                 fsckMsgError,   fsckLevel1,   1, (const int[]){ fsckTypeInt, } },
     { E_DirLinkBadFlags,        "Incorrect flags for directory hard link (id = %u)",            fsckMsgError,   fsckLevel1,   1, (const int[]){ fsckTypeInt, } },
@@ -193,6 +193,7 @@ hfs_errors[] = {
     { E_OrphanDirInode,         "Orphaned directory inode (id = %u)",                           fsckMsgError,   fsckLevel1,   1, (const int[]){ fsckTypeInt, } },
     { E_OvlExtID,               "Overlapped extent allocation (id = %d)",                       fsckMsgError,   fsckLevel1,   1, (const int[]){ fsckTypeInt, } },
     { E_UnusedNodeNotZeroed,    "Unused node is not erased (node = %u)",                        fsckMsgError,   fsckLevel1,   1, (const int[]){ fsckTypeInt, } },
+    { E_VBMDamagedOverAlloc,    "Volume bitmap needs minor repair for orphaned blocks",        fsckMsgError,   fsckLevel1,   0, },
 
     /* And all-zeroes to indicate the end */
     { 0, },

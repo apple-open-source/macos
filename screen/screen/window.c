@@ -25,7 +25,9 @@
 #include <sys/stat.h>
 #include <signal.h>
 #include <fcntl.h>
+#ifdef __APPLE__
 #include <unistd.h>
+#endif __APPLE__
 #ifndef sun
 # include <sys/ioctl.h>
 #endif
@@ -1388,6 +1390,7 @@ char **args, *ttyn;
   return pid;
 }
 
+#ifdef __APPLE__
 #ifdef RUN_LOGIN
 /*
  * All of the logic to maintain utmpx is now built into /usr/bin/login, so
@@ -1419,6 +1422,7 @@ run_login(const char *path, char *const argv[], char *const envp[])
 #define execve run_login
 
 #endif /* RUN_LOGIN */
+#endif /* __APPLE__ */
 
 void
 execvpe(prog, args, env)

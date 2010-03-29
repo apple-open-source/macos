@@ -5,7 +5,7 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * $Id: lib506.c,v 1.22 2008-09-20 04:26:57 yangtse Exp $
+ * $Id: lib506.c,v 1.23 2009-05-08 02:14:50 yangtse Exp $
  */
 
 #include "test.h"
@@ -132,7 +132,7 @@ static void *fire(void *ptr)
 /* build request url */
 static char *suburl(const char *base, int i)
 {
-  return curl_maprintf("%s000%c", base, 48+i);
+  return curl_maprintf("%s%.4d", base, i);
 }
 
 

@@ -49,21 +49,21 @@ extern void  kern_os_free(void * addr);
 extern int   get_preemption_level(void);
 #endif
 
-#define LOG		if(1) IOLog
-#define LOGNAMEREG	0
+#define LOG             if(1) IOLog
+#define LOGNAMEREG      0
 
-#define CHECK_INTERRUPT(s)					\
-if( ml_at_interrupt_context()) {				\
-    /* IOLog("interrupt:%s(%s)\n", __FUNCTION__, s); */		\
-    return( nrLockedErr );					\
+#define CHECK_INTERRUPT(s)                                      \
+if( ml_at_interrupt_context()) {                                \
+    /* IOLog("interrupt:%s(%s)\n", __FUNCTION__, s); */         \
+    return( nrLockedErr );                                      \
 }
 
 extern "C" IOReturn _IONDRVLibrariesMappingInitialize( IOService * provider );
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
-//#define EXP(s)	_e ## s
-#define EXP(s)	s
+//#define EXP(s)        _e ## s
+#define EXP(s)  s
 
 UInt32 EXP(EndianSwap32Bit)( UInt32 data )
 {
@@ -77,29 +77,29 @@ UInt16 EXP(EndianSwap16Bit)( UInt16 data )
 
 OSErr EXP(ExpMgrConfigReadLong)( RegEntryID * entryID, LogicalAddress offset, UInt32 * value )
 {
-    IORegistryEntry *	regEntry;
-    IOPCIDevice *	ioDevice;
-    UInt32		adj;
+    IORegistryEntry *   regEntry;
+    IOPCIDevice *       ioDevice;
+    UInt32              adj;
 
     REG_ENTRY_TO_OBJ( entryID, regEntry)
 
     ioDevice = OSDynamicCast( IOPCIDevice, regEntry );
     if (!ioDevice)
-	ioDevice = OSDynamicCast( IOPCIDevice, regEntry->getParentEntry( gIODTPlane) );
+        ioDevice = OSDynamicCast( IOPCIDevice, regEntry->getParentEntry( gIODTPlane) );
     if (!ioDevice)
-	return (nrNotSlotDeviceErr);
+        return (nrNotSlotDeviceErr);
 
     adj = ioDevice->configRead32( (uintptr_t) offset );
 #if 0
-    IOMemoryMap *	map = 0;
+    IOMemoryMap *       map = 0;
     if ((offset >= kIOPCIConfigBaseAddress2)
-	    && (offset <= kIOPCIConfigBaseAddress5))
+            && (offset <= kIOPCIConfigBaseAddress5))
     {
-	if ((map = ioDevice->mapDeviceMemoryWithRegister(offset, kIOMapReference)))
-	{
-	    adj = (adj & 3) | (map->getVirtualAddress());
-	    map->release();
-	}
+        if ((map = ioDevice->mapDeviceMemoryWithRegister(offset, kIOMapReference)))
+        {
+            adj = (adj & 3) | (map->getVirtualAddress());
+            map->release();
+        }
     }
 #endif
     *value = adj;
@@ -119,16 +119,16 @@ OSErr EXP(ExpMgrConfigWriteLong)( RegEntryID * entryID, LogicalAddress offset, U
 
 OSErr EXP(ExpMgrConfigReadWord)( RegEntryID * entryID, LogicalAddress offset, UInt16 * value )
 {
-    IORegistryEntry *	regEntry;
-    IOPCIDevice *	ioDevice;
+    IORegistryEntry *   regEntry;
+    IOPCIDevice *       ioDevice;
 
     REG_ENTRY_TO_OBJ( entryID, regEntry)
 
     ioDevice = OSDynamicCast( IOPCIDevice, regEntry );
     if (!ioDevice)
-	ioDevice = OSDynamicCast( IOPCIDevice, regEntry->getParentEntry( gIODTPlane) );
+        ioDevice = OSDynamicCast( IOPCIDevice, regEntry->getParentEntry( gIODTPlane) );
     if (!ioDevice)
-	return (nrNotSlotDeviceErr);
+        return (nrNotSlotDeviceErr);
 
     *value = ioDevice->configRead16( (uintptr_t) offset );
 
@@ -146,16 +146,16 @@ OSErr EXP(ExpMgrConfigWriteWord)( RegEntryID * entryID, LogicalAddress offset, U
 
 OSErr EXP(ExpMgrConfigReadByte)( RegEntryID * entryID, LogicalAddress offset, UInt8 * value )
 {
-    IORegistryEntry *	regEntry;
-    IOPCIDevice *	ioDevice;
+    IORegistryEntry *   regEntry;
+    IOPCIDevice *       ioDevice;
 
     REG_ENTRY_TO_OBJ( entryID, regEntry)
 
     ioDevice = OSDynamicCast( IOPCIDevice, regEntry );
     if (!ioDevice)
-	ioDevice = OSDynamicCast( IOPCIDevice, regEntry->getParentEntry( gIODTPlane) );
+        ioDevice = OSDynamicCast( IOPCIDevice, regEntry->getParentEntry( gIODTPlane) );
     if (!ioDevice)
-	return (nrNotSlotDeviceErr);
+        return (nrNotSlotDeviceErr);
 
     *value = ioDevice->configRead8( (uintptr_t) offset );
 
@@ -261,22 +261,22 @@ OSStatus EXP(RegistryEntryDelete)
     */
 Boolean EXP(RegistryEntryIDCompare)( const RegEntryID * entryID1, const RegEntryID * entryID2 )
 {
-    IORegistryEntry *	regEntry1;
-    IORegistryEntry *	regEntry2;
+    IORegistryEntry *   regEntry1;
+    IORegistryEntry *   regEntry2;
 
     if (entryID1)
     {
-	REG_ENTRY_TO_OBJ_RET( entryID1, regEntry1, false)
+        REG_ENTRY_TO_OBJ_RET( entryID1, regEntry1, false)
     }
     else
-	regEntry1 = 0;
+        regEntry1 = 0;
 
     if (entryID2)
     {
-	REG_ENTRY_TO_OBJ_RET( entryID2, regEntry2, false)
+        REG_ENTRY_TO_OBJ_RET( entryID2, regEntry2, false)
     }
     else
-	regEntry2 = 0;
+        regEntry2 = 0;
 
     return (regEntry1 == regEntry2);
 }
@@ -285,20 +285,20 @@ OSStatus EXP(RegistryPropertyGetSize)( const RegEntryID * entryID,
                                        const RegPropertyName * propertyName,
                                        RegPropertyValueSize * propertySize )
 {
-    OSStatus		err = noErr;
-    OSData *		prop;
+    OSStatus            err = noErr;
+    OSData *            prop;
 
     CHECK_INTERRUPT(propertyName)
     REG_ENTRY_TO_PT( entryID, regEntry)
 
     if (!strcmp(kPropertyAAPLAddress, propertyName))
-	_IONDRVLibrariesMappingInitialize((IOService *) regEntry);
+        _IONDRVLibrariesMappingInitialize((IOService *) regEntry);
 
     prop = OSDynamicCast( OSData, regEntry->getProperty( propertyName));
     if (prop)
-	*propertySize = prop->getLength();
+        *propertySize = prop->getLength();
     else
-	err = nrNotFoundErr;
+        err = nrNotFoundErr;
 
 #if LOGNAMEREG
     LOG("RegistryPropertyGetSize: %s : %d\n", propertyName, err);
@@ -310,30 +310,30 @@ OSStatus EXP(RegistryPropertyGet)(const RegEntryID * entryID,
                                     const RegPropertyName * propertyName, void *propertyValue,
                                     RegPropertyValueSize * propertySize)
 {
-    OSStatus		err = noErr;
-    OSData *		prop;
-    UInt32		len;
+    OSStatus            err = noErr;
+    OSData *            prop;
+    UInt32              len;
 
     CHECK_INTERRUPT(propertyName)
     REG_ENTRY_TO_PT( entryID, regEntry)
 
     if (!strcmp(kPropertyAAPLAddress, propertyName))
-	_IONDRVLibrariesMappingInitialize((IOService *) regEntry);
+        _IONDRVLibrariesMappingInitialize((IOService *) regEntry);
 
     prop = OSDynamicCast( OSData, regEntry->getProperty( propertyName));
     if (prop)
     {
-	len = *propertySize;
-	*propertySize = prop->getLength();
-	len = (len > prop->getLength()) ? prop->getLength() : len;
-	bcopy( prop->getBytesNoCopy(), propertyValue, len);
+        len = *propertySize;
+        *propertySize = prop->getLength();
+        len = (len > prop->getLength()) ? prop->getLength() : len;
+        bcopy( prop->getBytesNoCopy(), propertyValue, len);
 #if LOGNAMEREG
-	LOG("value: %08x ", *propertyValue);
+        LOG("value: %08x ", *propertyValue);
 #endif
 
     }
     else
-	err = nrNotFoundErr;
+        err = nrNotFoundErr;
 
 #if LOGNAMEREG
     LOG("RegistryPropertyGet: %s : %d\n", propertyName, err);
@@ -342,10 +342,10 @@ OSStatus EXP(RegistryPropertyGet)(const RegEntryID * entryID,
 }
 
 OSStatus EXP(RegistryPropertyCreate)( const RegEntryID * entryID, const RegPropertyName * propertyName,
-				      const void * propertyValue, RegPropertyValueSize propertySize )
+                                      const void * propertyValue, RegPropertyValueSize propertySize )
 {
-    OSStatus		err = noErr;
-    OSData *		prop;
+    OSStatus            err = noErr;
+    OSData *            prop;
 
     CHECK_INTERRUPT(propertyName)
     REG_ENTRY_TO_PT( entryID, regEntry)
@@ -354,11 +354,11 @@ OSStatus EXP(RegistryPropertyCreate)( const RegEntryID * entryID, const RegPrope
 
     if (prop)
     {
-	regEntry->setProperty( propertyName, prop);
-	prop->release();
+        regEntry->setProperty( propertyName, prop);
+        prop->release();
     }
     else
-	err = nrNotCreatedErr;
+        err = nrNotCreatedErr;
 
 #if LOGNAMEREG
     LOG("RegistryPropertyCreate: %s : %d\n", propertyName, err);
@@ -368,17 +368,17 @@ OSStatus EXP(RegistryPropertyCreate)( const RegEntryID * entryID, const RegPrope
 
 OSStatus EXP(RegistryPropertyDelete)( const RegEntryID * entryID, const RegPropertyName * propertyName )
 {
-    OSStatus		err = noErr;
-    OSObject *		old;
+    OSStatus            err = noErr;
+    OSObject *          old;
 
     CHECK_INTERRUPT(propertyName)
     REG_ENTRY_TO_PT( entryID, regEntry)
 
     old = regEntry->getProperty(propertyName);
     if (old)
-	regEntry->removeProperty(propertyName);
+        regEntry->removeProperty(propertyName);
     else
-	err = nrNotFoundErr;
+        err = nrNotFoundErr;
 
 #if LOGNAMEREG
     LOG("RegistryPropertyDelete: %s : %d\n", propertyName, err);
@@ -387,22 +387,22 @@ OSStatus EXP(RegistryPropertyDelete)( const RegEntryID * entryID, const RegPrope
 }
 
 void IONDRVSetNVRAMPropertyName( IORegistryEntry * regEntry,
-				    const OSSymbol * sym )
+                                    const OSSymbol * sym )
 {
     regEntry->setProperty( "IONVRAMProperty", /*(OSObject *)*/ sym );
 }
 
 static IOReturn IONDRVSetNVRAMPropertyValue( IORegistryEntry * regEntry,
-	const OSSymbol * name, OSData * value )
+        const OSSymbol * name, OSData * value )
 {
-    IOReturn			err;
-    IODTPlatformExpert *	platform;
+    IOReturn                    err;
+    IODTPlatformExpert *        platform;
 
     if ((platform = OSDynamicCast(IODTPlatformExpert,
                                   IOService::getPlatform())))
-	err = platform->writeNVRAMProperty( regEntry, name, value );
+        err = platform->writeNVRAMProperty( regEntry, name, value );
     else
-	err = kIOReturnUnsupported;
+        err = kIOReturnUnsupported;
 
     return (err);
 }
@@ -411,32 +411,32 @@ OSStatus EXP(RegistryPropertySet)( const RegEntryID * entryID,
                                     const RegPropertyName * propertyName, 
                                     const void * propertyValue, RegPropertyValueSize propertySize )
 {
-    OSStatus			err = noErr;
-    OSData *			prop;
-    const OSSymbol *		sym;
+    OSStatus                    err = noErr;
+    OSData *                    prop;
+    const OSSymbol *            sym;
 
     CHECK_INTERRUPT(propertyName)
     REG_ENTRY_TO_PT( entryID, regEntry)
 
     sym = OSSymbol::withCString( propertyName );
     if (!sym)
-	return (kIOReturnNoMemory);
+        return (kIOReturnNoMemory);
 
     prop = OSDynamicCast( OSData, regEntry->getProperty( sym ));
     if (0 == prop)
-	err = nrNotFoundErr;
+        err = nrNotFoundErr;
 
     else if ((prop = OSData::withBytes(propertyValue, propertySize)))
     {
-	regEntry->setProperty( sym, prop);
+        regEntry->setProperty( sym, prop);
 
-	if ((sym == (const OSSymbol *)
-		regEntry->getProperty("IONVRAMProperty")))
-	    err = IONDRVSetNVRAMPropertyValue( regEntry, sym, prop );
-	prop->release();
+        if ((sym == (const OSSymbol *)
+                regEntry->getProperty("IONVRAMProperty")))
+            err = IONDRVSetNVRAMPropertyValue( regEntry, sym, prop );
+        prop->release();
     }
     else
-	err = nrNotCreatedErr;
+        err = nrNotCreatedErr;
 
     sym->release();
 
@@ -448,94 +448,94 @@ OSStatus EXP(RegistryPropertySet)( const RegEntryID * entryID,
 
 OSStatus EXP(RegistryPropertyGetMod)(const RegEntryID * entryID,
                                      const RegPropertyName * propertyName, 
-				     RegPropertyModifiers * mod)
+                                     RegPropertyModifiers * mod)
 {
-    const OSSymbol *	sym;
+    const OSSymbol *    sym;
 
     CHECK_INTERRUPT(propertyName)
     REG_ENTRY_TO_PT( entryID, regEntry)
 
     if ((sym = OSDynamicCast(OSSymbol,
-				regEntry->getProperty("IONVRAMProperty")))
-	    && (0 == strcmp(propertyName, sym->getCStringNoCopy())))
+                                regEntry->getProperty("IONVRAMProperty")))
+            && (0 == strcmp(propertyName, sym->getCStringNoCopy())))
 
-	*mod = kNVRAMProperty;
+        *mod = kNVRAMProperty;
     else
-	*mod = 0;
+        *mod = 0;
 
     return (noErr);
 }
 
 OSStatus EXP(RegistryPropertySetMod)(const RegEntryID * entryID,
                                     const RegPropertyName * propertyName,
-				    RegPropertyModifiers mod )
+                                    RegPropertyModifiers mod )
 {
-    OSStatus		err = noErr;
-    OSData *		data;
-    const OSSymbol *	sym;
+    OSStatus            err = noErr;
+    OSData *            data;
+    const OSSymbol *    sym;
 
     CHECK_INTERRUPT(propertyName)
     REG_ENTRY_TO_PT( entryID, regEntry)
 
     if ((mod & kNVRAMProperty)
-	    && (sym = OSSymbol::withCString(propertyName)))
+            && (sym = OSSymbol::withCString(propertyName)))
     {
-	if ((data = OSDynamicCast(OSData, regEntry->getProperty(sym))))
-	{
-	    err = IONDRVSetNVRAMPropertyValue( regEntry, sym, data );
-	    if (kIOReturnSuccess == err)
-		IONDRVSetNVRAMPropertyName( regEntry, sym );
-	}
-	sym->release();
+        if ((data = OSDynamicCast(OSData, regEntry->getProperty(sym))))
+        {
+            err = IONDRVSetNVRAMPropertyValue( regEntry, sym, data );
+            if (kIOReturnSuccess == err)
+                IONDRVSetNVRAMPropertyName( regEntry, sym );
+        }
+        sym->release();
     }
 
     return (err);
 }
 
 OSStatus EXP(VSLSetDisplayConfiguration)(RegEntryID * entryID,
-					RegPropertyName *  propertyName,
-					RegPropertyValue	configData,
-					RegPropertyValueSize configDataSize)
+                                        RegPropertyName *  propertyName,
+                                        RegPropertyValue        configData,
+                                        RegPropertyValueSize configDataSize)
 {
-    IOReturn		err = nrNotCreatedErr;
-    IORegistryEntry *	options;
-    const OSSymbol *	sym = 0;
-    OSData *		data = 0;
-    enum {		kMaxDisplayConfigDataSize = 64 };
+    IOReturn            err = nrNotCreatedErr;
+    IORegistryEntry *   options;
+    const OSSymbol *    sym = 0;
+    OSData *            data = 0;
+    enum {              kMaxDisplayConfigDataSize = 64 };
 
     if ((configDataSize > kMaxDisplayConfigDataSize)
-	    || (strlen(propertyName) > kRegMaximumPropertyNameLength))
-	return (nrNotCreatedErr);
+            || (strlen(propertyName) > kRegMaximumPropertyNameLength))
+        return (nrNotCreatedErr);
 
     do
     {
-	options = IORegistryEntry::fromPath( "/options", gIODTPlane);
-	if (!options)
-	    continue;
-	data = OSData::withBytes( configData, configDataSize );
-	if (!data)
-	    continue;
-	sym = OSSymbol::withCString( propertyName );
-	if (!sym)
-	    continue;
-	if (!options->setProperty(sym, data))
-	    continue;
-	err = kIOReturnSuccess;
+        options = IORegistryEntry::fromPath( "/options", gIODTPlane);
+        if (!options)
+            continue;
+        data = OSData::withBytes( configData, configDataSize );
+        if (!data)
+            continue;
+        sym = OSSymbol::withCString( propertyName );
+        if (!sym)
+            continue;
+        if (!options->setProperty(sym, data))
+            continue;
+        err = kIOReturnSuccess;
     }
     while (false);
 
     if (options)
-	options->release();
+        options->release();
     if (data)
-	data->release();
+        data->release();
     if (sym)
-	sym->release();
+        sym->release();
 
     return (err);
 }
 
 OSStatus EXP(RegistryPropertyIterateCreate)( const RegEntryID * entryID,
-	OSIterator ** cookie)
+        OSIterator ** cookie)
 {
     CHECK_INTERRUPT("")
     REG_ENTRY_TO_PT( entryID, regEntry)
@@ -546,34 +546,34 @@ OSStatus EXP(RegistryPropertyIterateCreate)( const RegEntryID * entryID,
     OSDictionary * dict = regEntry->dictionaryWithProperties();
     *cookie = OSCollectionIterator::withCollection(dict);
     if (dict)
-	dict->release();
+        dict->release();
 
     if (*cookie)
-	return (noErr);
+        return (noErr);
     else
-	return (nrNotEnoughMemoryErr);
+        return (nrNotEnoughMemoryErr);
 }
 
 OSStatus EXP(RegistryPropertyIterateDispose)( OSIterator ** cookie)
 {
     if (*cookie)
     {
-	(*cookie)->release();
-	*cookie = NULL;
-	return (noErr);
+        (*cookie)->release();
+        *cookie = NULL;
+        return (noErr);
     }
     else
-	return (nrIterationDone);
+        return (nrIterationDone);
 }
 
 OSStatus EXP(RegistryPropertyIterate)( OSIterator ** cookie,
-				    char * name, Boolean * done )
+                                    char * name, Boolean * done )
 {
-    const OSSymbol *	key;
+    const OSSymbol *    key;
 
     key = (const OSSymbol *) (*cookie)->getNextObject();
     if (key)
-	strncpy( name, key->getCStringNoCopy(), kRegMaximumPropertyNameLength);
+        strncpy( name, key->getCStringNoCopy(), kRegMaximumPropertyNameLength);
 
     // Seems to be differences in handling "done".
     // ATI assumes done = true when getting the last property.
@@ -584,9 +584,9 @@ OSStatus EXP(RegistryPropertyIterate)( OSIterator ** cookie,
     *done = (key == 0);
 
     if (0 != key)
-	return (noErr);
+        return (noErr);
     else
-	return (nrIterationDone);
+        return (nrIterationDone);
 }
 
 OSStatus
@@ -594,9 +594,9 @@ EXP(RegistryEntryIterateCreate)( IORegistryIterator ** cookie)
 {
     *cookie = IORegistryIterator::iterateOver( gIODTPlane );
     if (*cookie)
-	return (noErr);
+        return (noErr);
     else
-	return (nrNotEnoughMemoryErr);
+        return (nrNotEnoughMemoryErr);
 }
 
 OSStatus
@@ -604,37 +604,37 @@ EXP(RegistryEntryIterateDispose)( IORegistryIterator ** cookie)
 {
     if (*cookie)
     {
-	(*cookie)->release();
-	*cookie = NULL;
-	return (noErr);
+        (*cookie)->release();
+        *cookie = NULL;
+        return (noErr);
     }
     else
-	return (nrIterationDone);
+        return (nrIterationDone);
 }
 
 OSStatus EXP(RegistryEntryIterateSet)( IORegistryIterator ** cookie,
-				    const RegEntryID *startEntryID)
+                                    const RegEntryID *startEntryID)
 {
-    IORegistryEntry *	regEntry;
+    IORegistryEntry *   regEntry;
 
     REG_ENTRY_TO_OBJ( startEntryID, regEntry)
 
     if (*cookie)
-	(*cookie)->release();
+        (*cookie)->release();
     *cookie = IORegistryIterator::iterateOver( regEntry, gIODTPlane );
     if (*cookie)
-	return (noErr);
+        return (noErr);
     else
-	return (nrNotEnoughMemoryErr);
+        return (nrNotEnoughMemoryErr);
 }
 
 OSStatus
-EXP(RegistryEntryIterate)( IORegistryIterator **	cookie,
-			UInt32		/* relationship */,
-			RegEntryID * 	foundEntry,
-			Boolean *	done)
+EXP(RegistryEntryIterate)( IORegistryIterator **        cookie,
+                        UInt32          /* relationship */,
+                        RegEntryID *    foundEntry,
+                        Boolean *       done)
 {
-    IORegistryEntry *	regEntry;
+    IORegistryEntry *   regEntry;
 
     // TODO: check requested type of iteration
     regEntry = (*cookie)->getNextObjectRecursive();
@@ -644,22 +644,22 @@ EXP(RegistryEntryIterate)( IORegistryIterator **	cookie,
 
 #if LOGNAMEREG
     if (regEntry)
-	LOG("RegistryEntryIterate: %s\n", regEntry->getName( gIODTPlane ));
+        LOG("RegistryEntryIterate: %s\n", regEntry->getName( gIODTPlane ));
 #endif
 
     if (regEntry)
-	return (noErr);
+        return (noErr);
     else
-	return (nrNotFoundErr);
+        return (nrNotFoundErr);
 }
 
 OSStatus
-EXP(RegistryCStrEntryToName)( const RegEntryID *	entryID,
-			    RegEntryID *		parentEntry,
-			    char *			nameComponent,
-			    Boolean *			done )
+EXP(RegistryCStrEntryToName)( const RegEntryID *        entryID,
+                            RegEntryID *                parentEntry,
+                            char *                      nameComponent,
+                            Boolean *                   done )
 {
-    IORegistryEntry *	regEntry;
+    IORegistryEntry *   regEntry;
 
     REG_ENTRY_TO_OBJ( entryID, regEntry)
 
@@ -669,75 +669,75 @@ EXP(RegistryCStrEntryToName)( const RegEntryID *	entryID,
     regEntry = regEntry->getParentEntry( gIODTPlane );
     if (regEntry)
     {
-	MAKE_REG_ENTRY( parentEntry, regEntry);
-	*done = false;
+        MAKE_REG_ENTRY( parentEntry, regEntry);
+        *done = false;
     }
     else
-	*done = true;
+        *done = true;
 
     return (noErr);
 }
 
 OSStatus
-EXP(RegistryCStrEntryLookup)( const RegEntryID *	parentEntry,
-			      const RegCStrPathName *	path,
-			      RegEntryID *		newEntry)
+EXP(RegistryCStrEntryLookup)( const RegEntryID *        parentEntry,
+                              const RegCStrPathName *   path,
+                              RegEntryID *              newEntry)
 {
-    IOReturn		err;
-    IORegistryEntry *	regEntry = 0;
-    char *		buf;
-    char *		cvtPath;
-    char		c;
-#define kDTRoot		"Devices:device-tree:"
-#define kMacIORoot	"Devices:device-tree:pci:mac-io:"
+    IOReturn            err;
+    IORegistryEntry *   regEntry = 0;
+    char *              buf;
+    char *              cvtPath;
+    char                c;
+#define kDTRoot         "Devices:device-tree:"
+#define kMacIORoot      "Devices:device-tree:pci:mac-io:"
 
     if (parentEntry)
     {
-	REG_ENTRY_TO_OBJ( parentEntry, regEntry)
+        REG_ENTRY_TO_OBJ( parentEntry, regEntry)
     }
     else
-	regEntry = 0;
+        regEntry = 0;
 
     buf = IONew( char, 512 );
     if (!buf)
-	return (nrNotEnoughMemoryErr);
+        return (nrNotEnoughMemoryErr);
 
     cvtPath = buf;
     if (':' == path[0])
-	path++;
+        path++;
     else if (0 == strncmp(path, kMacIORoot, strlen(kMacIORoot)))
     {
-	path += strlen( kMacIORoot ) - 7;
-	regEntry = 0;
+        path += strlen( kMacIORoot ) - 7;
+        regEntry = 0;
     }
     else if (0 == strncmp(path, kDTRoot, strlen(kDTRoot)))
     {
-	path += strlen( kDTRoot ) - 1;
-	regEntry = 0;
+        path += strlen( kDTRoot ) - 1;
+        regEntry = 0;
     }
 
     do
     {
-	c = *(path++);
-	if (':' == c)
-	    c = '/';
-	*(cvtPath++) = c;
+        c = *(path++);
+        if (':' == c)
+            c = '/';
+        *(cvtPath++) = c;
     }
     while (c != 0);
 
     if (regEntry)
-	regEntry = regEntry->childFromPath( buf, gIODTPlane );
+        regEntry = regEntry->childFromPath( buf, gIODTPlane );
     else
-	regEntry = IORegistryEntry::fromPath( buf, gIODTPlane );
+        regEntry = IORegistryEntry::fromPath( buf, gIODTPlane );
 
     if (regEntry)
     {
-	MAKE_REG_ENTRY( newEntry, regEntry);
-	regEntry->release();
-	err = noErr;
+        MAKE_REG_ENTRY( newEntry, regEntry);
+        regEntry->release();
+        err = noErr;
     }
     else
-	err = nrNotFoundErr;
+        err = nrNotFoundErr;
 
     IODelete( buf, char, 512 );
 
@@ -746,12 +746,12 @@ EXP(RegistryCStrEntryLookup)( const RegEntryID *	parentEntry,
 
 
 OSStatus
-EXP(RegistryCStrEntryCreate)( const RegEntryID *	parentEntry,
-			      const RegCStrPathName *	name,
-			      RegEntryID *		newEntry)
+EXP(RegistryCStrEntryCreate)( const RegEntryID *        parentEntry,
+                              const RegCStrPathName *   name,
+                              RegEntryID *              newEntry)
 {
-    IORegistryEntry *	newDev;
-    IORegistryEntry *	parent;
+    IORegistryEntry *   newDev;
+    IORegistryEntry *   parent;
 
     REG_ENTRY_TO_OBJ( parentEntry, parent)
 
@@ -759,22 +759,22 @@ EXP(RegistryCStrEntryCreate)( const RegEntryID *	parentEntry,
 
     newDev = new IORegistryEntry;
     if (newDev && (false == newDev->init()))
-	newDev = 0;
+        newDev = 0;
 
     if (newDev)
     {
-	newDev->attachToParent( parent, gIODTPlane );
-	if (':' == name[0])
-	    name++;
-	newDev->setName( name );
+        newDev->attachToParent( parent, gIODTPlane );
+        if (':' == name[0])
+            name++;
+        newDev->setName( name );
     }
 
     MAKE_REG_ENTRY( newEntry, newDev);
 
     if (newDev)
-	return (noErr);
+        return (noErr);
     else
-	return (nrNotCreatedErr);
+        return (nrNotCreatedErr);
 }
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
@@ -783,24 +783,24 @@ extern "C"
 {
     // platform expert
     extern vm_offset_t
-	PEResidentAddress( vm_offset_t address, vm_size_t length );
+        PEResidentAddress( vm_offset_t address, vm_size_t length );
 };
 
 enum {
-    kProcessorCacheModeDefault		= 0,
-    kProcessorCacheModeInhibited 	= 1,
-    kProcessorCacheModeWriteThrough 	= 2,
-    kProcessorCacheModeCopyBack		= 3
+    kProcessorCacheModeDefault          = 0,
+    kProcessorCacheModeInhibited        = 1,
+    kProcessorCacheModeWriteThrough     = 2,
+    kProcessorCacheModeCopyBack         = 3
 };
 
 OSStatus EXP(SetProcessorCacheMode)( UInt32 /* space */, void * /* addr */,
-				    UInt32 /* len */, UInt32 /* mode */ )
+                                    UInt32 /* len */, UInt32 /* mode */ )
 {
 #if 0
-    struct phys_entry*	pp;
-    vm_offset_t 	spa;
-    vm_offset_t 	epa;
-    int			wimg;
+    struct phys_entry*  pp;
+    vm_offset_t         spa;
+    vm_offset_t         epa;
+    int                 wimg;
 
     // This doesn't change any existing kernel mapping eg. BAT changes etc.
     // but this is enough to change user level mappings for DPS etc.
@@ -809,32 +809,32 @@ OSStatus EXP(SetProcessorCacheMode)( UInt32 /* space */, void * /* addr */,
     spa = kvtophys( (vm_offset_t)addr);
     if (spa == 0)
     {
-	spa = PEResidentAddress( (vm_offset_t)addr, len);
-	if (spa == 0)
-	    return (kIOReturnVMError);
+        spa = PEResidentAddress( (vm_offset_t)addr, len);
+        if (spa == 0)
+            return (kIOReturnVMError);
     }
     epa = (len + spa + 0xfff) & 0xfffff000;
     spa &=  0xfffff000;
 
     switch (mode)
     {
-	case kProcessorCacheModeWriteThrough:
-	    wimg = PTE_WIMG_WT_CACHED_COHERENT_GUARDED;
-	    break;
-	case kProcessorCacheModeCopyBack:
-	    wimg = PTE_WIMG_CB_CACHED_COHERENT_GUARDED;
-	    break;
-	default:
-	    wimg = PTE_WIMG_UNCACHED_COHERENT_GUARDED;
-	    break;
+        case kProcessorCacheModeWriteThrough:
+            wimg = PTE_WIMG_WT_CACHED_COHERENT_GUARDED;
+            break;
+        case kProcessorCacheModeCopyBack:
+            wimg = PTE_WIMG_CB_CACHED_COHERENT_GUARDED;
+            break;
+        default:
+            wimg = PTE_WIMG_UNCACHED_COHERENT_GUARDED;
+            break;
     }
 
     while (spa < epa)
     {
-	pp = pmap_find_physentry(spa);
-	if (pp != PHYS_NULL)
-	    pp->pte1.bits.wimg = wimg;
-	spa += PAGE_SIZE;
+        pp = pmap_find_physentry(spa);
+        if (pp != PHYS_NULL)
+            pp->pte1.bits.wimg = wimg;
+        spa += PAGE_SIZE;
     }
 #endif
     OSSynchronizeIO();
@@ -960,8 +960,8 @@ char * EXP(CStrNCat)(
 
 char * EXP(PStrCopy)( char *to, const char *from )
 {
-    UInt32	len;
-    char   *	copy;
+    UInt32      len;
+    char   *    copy;
 
     copy = to;
     len = *(from++);
@@ -972,7 +972,7 @@ char * EXP(PStrCopy)( char *to, const char *from )
 
 void EXP(PStrToCStr)( char *to, const char *from )
 {
-    UInt32	len;
+    UInt32      len;
 
     len = *(from++);
     bcopy( from, to, len);
@@ -981,7 +981,7 @@ void EXP(PStrToCStr)( char *to, const char *from )
 
 void EXP(CStrToPStr)( char *to, const char *from )
 {
-    UInt32	len;
+    UInt32      len;
 
     len = strlen(from);
     *to = len;
@@ -996,11 +996,11 @@ LogicalAddress EXP(PoolAllocateResident)(ByteCount byteSize, Boolean clear)
 
     if (mem)
     {
-	mem[0] = 'mllc';
-	mem++;
+        mem[0] = 'mllc';
+        mem++;
     }
     if (clear && mem)
-	memset( (void *) mem, 0, byteSize);
+        memset( (void *) mem, 0, byteSize);
 
     return ((LogicalAddress) mem);
 }
@@ -1010,43 +1010,43 @@ OSStatus EXP(PoolDeallocate)( LogicalAddress address )
     UInt32 * mem = (UInt32 *) address;
 
     if (!mem)
-	return (nrNotEnoughMemoryErr);
+        return (nrNotEnoughMemoryErr);
 
     mem--;
     if (mem[0] != 'mllc')
     {
-//	IOLog("PoolDeallocate invalid address %08lx\n", mem + 1);
-//	panic("PoolDeallocate invalid address");
-	return (nrInvalidNodeErr);
+//      IOLog("PoolDeallocate invalid address %08lx\n", mem + 1);
+//      panic("PoolDeallocate invalid address");
+        return (nrInvalidNodeErr);
     }
     kern_os_free( (void *) mem );
     return (noErr);
 }
 
-UInt32	EXP(CurrentExecutionLevel)(void)
+UInt32  EXP(CurrentExecutionLevel)(void)
 {
     if (ml_at_interrupt_context())
-	return (6);		// == kTaskLevel, HWInt == 6
+        return (6);             // == kTaskLevel, HWInt == 6
     else
-	return (0);		// == kTaskLevel, HWInt == 6
+        return (0);             // == kTaskLevel, HWInt == 6
 }
 
 // don't expect any callers of this
 OSErr EXP(IOCommandIsComplete)( IOCommandID commandID, OSErr result)
 {
     LOG("IOCommandIsComplete\n");
-    return (result);		// !!??!!
+    return (result);            // !!??!!
 }
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
 #include <kern/clock.h>
 
-#define UnsignedWideToUInt64(x)		(*(UInt64 *)(x))
-#define UInt64ToUnsignedWide(x)		(*(UnsignedWide *)(x))
+#define UnsignedWideToUInt64(x)         (*(UInt64 *)(x))
+#define UInt64ToUnsignedWide(x)         (*(UnsignedWide *)(x))
 
-#define UnsignedWideToAbsoluteTime(x)	(*(AbsoluteTime *)(x))
-#define AbsoluteTimeToUnsignedWide(x)	(*(UnsignedWide *)(x))
+#define UnsignedWideToAbsoluteTime(x)   (*(AbsoluteTime *)(x))
+#define AbsoluteTimeToUnsignedWide(x)   (*(UnsignedWide *)(x))
 
 UnsignedWide EXP(UpTime)( void )
 {
@@ -1078,12 +1078,12 @@ UnsignedWide EXP(SubAbsoluteFromAbsolute)(UnsignedWide left, UnsignedWide right)
 
     if (CMP_ABSOLUTETIME(&result, &right) < 0)
     {
-	AbsoluteTime_to_scalar( &result ) = 0;
+        AbsoluteTime_to_scalar( &result ) = 0;
     }
     else
     {
-	result = left;
-	SUB_ABSOLUTETIME( &result, &right);
+        result = left;
+        SUB_ABSOLUTETIME( &result, &right);
     }
 
     return (result);
@@ -1096,13 +1096,13 @@ UnsignedWide    EXP(DurationToAbsolute)( Duration theDuration)
 
     if (theDuration > 0)
     {
-	clock_interval_to_absolutetime_interval( theDuration, kMillisecondScale,
-		&result );
+        clock_interval_to_absolutetime_interval( theDuration, kMillisecondScale,
+                &result );
     }
     else
     {
-	clock_interval_to_absolutetime_interval( (-theDuration), kMicrosecondScale,
-		&result );
+        clock_interval_to_absolutetime_interval( (-theDuration), kMicrosecondScale,
+                &result );
     }
 
     return (AbsoluteTimeToUnsignedWide(&result));
@@ -1116,7 +1116,7 @@ UnsignedWide EXP(AddDurationToAbsolute)( Duration duration, UnsignedWide absolut
 UnsignedWide    EXP(NanosecondsToAbsolute) ( UnsignedWide theNanoseconds)
 {
     AbsoluteTime result;
-    UInt64	 nano = UnsignedWideToUInt64(&theNanoseconds);
+    UInt64       nano = UnsignedWideToUInt64(&theNanoseconds);
 
     nanoseconds_to_absolutetime( nano, &result);
 
@@ -1126,7 +1126,7 @@ UnsignedWide    EXP(NanosecondsToAbsolute) ( UnsignedWide theNanoseconds)
 UnsignedWide    EXP(AbsoluteToNanoseconds)( UnsignedWide absolute )
 {
     UnsignedWide result;
-    UInt64	nano;
+    UInt64      nano;
 
     absolutetime_to_nanoseconds( UnsignedWideToAbsoluteTime(&absolute), &nano);
     result = UInt64ToUnsignedWide( &nano );
@@ -1136,12 +1136,12 @@ UnsignedWide    EXP(AbsoluteToNanoseconds)( UnsignedWide absolute )
 
 Duration    EXP(AbsoluteDeltaToDuration)( UnsignedWide left, UnsignedWide right )
 {
-    Duration		dur;
-    AbsoluteTime	result;
-    UInt64		nano;
+    Duration            dur;
+    AbsoluteTime        result;
+    UInt64              nano;
 
     if (CMP_ABSOLUTETIME(&left, &right) < 0)
-	return (0);
+        return (0);
 
     result = UnsignedWideToAbsoluteTime(&left);
     SUB_ABSOLUTETIME( &result, &right);
@@ -1149,16 +1149,16 @@ Duration    EXP(AbsoluteDeltaToDuration)( UnsignedWide left, UnsignedWide right 
 
     if (nano >= ((1ULL << 31) * 1000ULL))
     {
-	// +ve milliseconds
-	if (nano >= ((1ULL << 31) * 1000ULL * 1000ULL))
-	    dur = 0x7fffffff;
-	else
-	    dur = nano / 1000000ULL;
+        // +ve milliseconds
+        if (nano >= ((1ULL << 31) * 1000ULL * 1000ULL))
+            dur = 0x7fffffff;
+        else
+            dur = nano / 1000000ULL;
     }
     else
     {
-	// -ve microseconds
-	dur = -(nano / 1000ULL);
+        // -ve microseconds
+        dur = -(nano / 1000ULL);
     }
 
     return (dur);
@@ -1166,23 +1166,23 @@ Duration    EXP(AbsoluteDeltaToDuration)( UnsignedWide left, UnsignedWide right 
 
 Duration    EXP(AbsoluteToDuration)( UnsignedWide result )
 {
-    Duration		dur;
-    UInt64		nano;
+    Duration            dur;
+    UInt64              nano;
 
     absolutetime_to_nanoseconds( UnsignedWideToAbsoluteTime(&result), &nano);
 
     if (nano >= ((1ULL << 31) * 1000ULL))
     {
-	// +ve milliseconds
-	if (nano >= ((1ULL << 31) * 1000ULL * 1000ULL))
-	    dur = 0x7fffffff;
-	else
-	    dur = nano / 1000000ULL;
+        // +ve milliseconds
+        if (nano >= ((1ULL << 31) * 1000ULL * 1000ULL))
+            dur = 0x7fffffff;
+        else
+            dur = nano / 1000000ULL;
     }
     else
     {
-	// -ve microseconds
-	dur = -(nano / 1000ULL);
+        // -ve microseconds
+        dur = -(nano / 1000ULL);
     }
 
     return (dur);
@@ -1190,7 +1190,7 @@ Duration    EXP(AbsoluteToDuration)( UnsignedWide result )
 
 OSStatus    EXP(DelayForHardware)( UnsignedWide time )
 {
-    AbsoluteTime	deadline;
+    AbsoluteTime        deadline;
 
     clock_absolutetime_interval_to_deadline( 
             UnsignedWideToAbsoluteTime(&time), &deadline );
@@ -1217,13 +1217,13 @@ OSStatus    EXP(DelayFor)( Duration theDuration )
     // There is some 64-bit math there so we'd better reproduce
     // the overhead of that calculation.
 
-#define DELAY_FOR_TICK_NANO		16666666
-#define DELAY_FOR_TICK_MILLI		17
-#define NANO32_MILLI			4295
+#define DELAY_FOR_TICK_NANO             16666666
+#define DELAY_FOR_TICK_MILLI            17
+#define NANO32_MILLI                    4295
 
-    UnsignedWide	nano;
-    UnsignedWide	abs;
-    unsigned int	ms;
+    UnsignedWide        nano;
+    UnsignedWide        abs;
+    unsigned int        ms;
 
     abs = EXP(DurationToAbsolute)( theDuration);
     nano = EXP(AbsoluteToNanoseconds)( abs);
@@ -1236,24 +1236,24 @@ OSStatus    EXP(DelayFor)( Duration theDuration )
 #else
     // Accurate, but incompatible, version
 
-#define SLEEP_THRESHOLD		5000
+#define SLEEP_THRESHOLD         5000
 
     if (theDuration < 0)
     {
-	// us duration
-	theDuration -= theDuration;
-	if (theDuration > SLEEP_THRESHOLD)
-	    IOSleep( (theDuration + 999) / 1000);
-	else
-	    IODelay( theDuration);
+        // us duration
+        theDuration -= theDuration;
+        if (theDuration > SLEEP_THRESHOLD)
+            IOSleep( (theDuration + 999) / 1000);
+        else
+            IODelay( theDuration);
     }
     else
     {
-	// ms duration
-	if (theDuration > (SLEEP_THRESHOLD / 1000))
-	    IOSleep( theDuration );                     	// ms
-	else
-	    IODelay( theDuration * 1000);			// us
+        // ms duration
+        if (theDuration > (SLEEP_THRESHOLD / 1000))
+            IOSleep( theDuration );                             // ms
+        else
+            IODelay( theDuration * 1000);                       // us
     }
 #endif
 
@@ -1274,42 +1274,38 @@ void EXP(SysDebugStr)( const char * from )
 
     if (!parsed)
     {
-	int	debugFlags;
+        int     debugFlags;
 
-	kprt = PE_parse_boot_argn("debug", &debugFlags, sizeof(debugFlags)) && (DB_KPRT & debugFlags);
-	parsed = TRUE;
+        kprt = PE_parse_boot_argn("debug", &debugFlags, sizeof(debugFlags)) && (DB_KPRT & debugFlags);
+        parsed = TRUE;
     }
 
     if (kprt)
-	kprintf( format, from + 1);
+        kprintf( format, from + 1);
     else
-	printf( format, from + 1);
+        printf( format, from + 1);
 }
 
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
-
-
-extern IOOptionBits gIOFBLastClamshellState;
-extern bool	    gIOFBDesktopModeAllowed;
 
 OSStatus EXP(VSLGestalt)( VSLGestaltType selector, UInt32 * response )
 {
     IOReturn ret;
 
     if (!response)
-	return (paramErr);
+        return (paramErr);
 
     *response = 0;
 
     switch (selector)
     {
-	case kVSLClamshellStateGestaltType:
-	    ret = IOGetHardwareClamshellState(response);
-	    break;
-	default:
-	    ret = gestaltUndefSelectorErr;
-	    break;
+        case kVSLClamshellStateGestaltType:
+            ret = IOGetHardwareClamshellState(response);
+            break;
+        default:
+            ret = gestaltUndefSelectorErr;
+            break;
     }
 
     return (ret);
@@ -1343,59 +1339,59 @@ EXP(VSLPrepareCursorForHardwareCursor)(
   IOHardwareCursorInfo *        hwCursorInfo)
 {
     return(IONDRVFramebuffer::VSLPrepareCursorForHardwareCursor(cursorRef, 
-				hardwareDescriptor, hwCursorInfo));
+                                hardwareDescriptor, hwCursorInfo));
 }
 
 OSStatus _eCallOSTrapUniversalProc( UInt32 /* theProc */,
-				    UInt32 procInfo, UInt32 trap, UInt8 * pb )
+                                    UInt32 procInfo, UInt32 trap, UInt8 * pb )
 {
     OSStatus    err = -40;
 #ifdef __ppc__
-#define	readExtSwitches	0xDC
+#define readExtSwitches 0xDC
     struct PMgrOpParamBlock
     {
-	SInt16	pmCommand;
-	SInt16	pmLength;
-	UInt8 *	pmSBuffer;
-	UInt8 *	pmRBuffer;
-	UInt8	pmData[4];
+        SInt16  pmCommand;
+        SInt16  pmLength;
+        UInt8 * pmSBuffer;
+        UInt8 * pmRBuffer;
+        UInt8   pmData[4];
     };
 
     if ((procInfo == 0x133822)
-	    && (trap == 0xa085))
+            && (trap == 0xa085))
     {
-	PMgrOpParamBlock * pmOp = (PMgrOpParamBlock *) pb;
+        PMgrOpParamBlock * pmOp = (PMgrOpParamBlock *) pb;
 
-	if ((readExtSwitches == pmOp->pmCommand) && pmOp->pmRBuffer)
-	{
-	    IOReturn ret;
-	    IOOptionBits result;
-	    ret = IOGetHardwareClamshellState(&result);
-	    if (kIOReturnSuccess == ret)
-		*pmOp->pmRBuffer = (result & 1);
-	    else
-	    {
-		OSNumber * num = OSDynamicCast(OSNumber,
-						IOService::getPlatform()->getProperty("AppleExtSwitchBootState"));
-		if (num)
-		    *pmOp->pmRBuffer = (num->unsigned32BitValue() & 1);
-		else
-		    *pmOp->pmRBuffer = 0;
-	    }
-	    err = noErr;
-	}
+        if ((readExtSwitches == pmOp->pmCommand) && pmOp->pmRBuffer)
+        {
+            IOReturn ret;
+            IOOptionBits result;
+            ret = IOGetHardwareClamshellState(&result);
+            if (kIOReturnSuccess == ret)
+                *pmOp->pmRBuffer = (result & 1);
+            else
+            {
+                OSNumber * num = OSDynamicCast(OSNumber,
+                                                IOService::getPlatform()->getProperty("AppleExtSwitchBootState"));
+                if (num)
+                    *pmOp->pmRBuffer = (num->unsigned32BitValue() & 1);
+                else
+                    *pmOp->pmRBuffer = 0;
+            }
+            err = noErr;
+        }
     }
     else if ((procInfo == 0x133822)
-		&& (trap == 0xa092))
+                && (trap == 0xa092))
     {
-	UInt8 addr, reg, data;
+        UInt8 addr, reg, data;
 
-	addr = pb[ 2 ];
-	reg = pb[ 3 ];
-	pb = *( (UInt8 **) ((UInt32) pb + 8));
-	data = pb[ 1 ];
-	(*PE_write_IIC)( addr, reg, data );
-	err = noErr;
+        addr = pb[ 2 ];
+        reg = pb[ 3 ];
+        pb = *( (UInt8 **) ((UInt32) pb + 8));
+        data = pb[ 1 ];
+        (*PE_write_IIC)( addr, reg, data );
+        err = noErr;
      }
 #endif
     return (err);
@@ -1413,7 +1409,7 @@ const UInt32 * _eGetKeys( void )
 UInt32 _eGetIndADB( void * adbInfo, UInt32 /* index */)
 {
     bzero( adbInfo, 10);
-    return (0);		// orig address
+    return (0);         // orig address
 }
 
 char * _eLMGetPowerMgrVars( void )
@@ -1422,9 +1418,9 @@ char * _eLMGetPowerMgrVars( void )
 
     if (powerMgrVars == NULL)
     {
-	powerMgrVars = (char *) IOMalloc( 0x3c0);
-	if (powerMgrVars)
-	    bzero( powerMgrVars, 0x3c0);
+        powerMgrVars = (char *) IOMalloc( 0x3c0);
+        if (powerMgrVars)
+            bzero( powerMgrVars, 0x3c0);
     }
     return (powerMgrVars);
 }
@@ -1444,11 +1440,11 @@ OSStatus _eFail( void )
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
 static void IONDRVInterruptAction( OSObject * target, void * refCon,
-				    IOService * provider, int index )
+                                    IOService * provider, int index )
 {
-    IONDRVInterruptSet *	set;
-    IONDRVInterruptSource *	source;
-    SInt32			result;
+    IONDRVInterruptSet *        set;
+    IONDRVInterruptSource *     source;
+    SInt32                      result;
 
     set = (IONDRVInterruptSet *) target;
     index -= set->providerInterruptSource;
@@ -1456,30 +1452,30 @@ static void IONDRVInterruptAction( OSObject * target, void * refCon,
 
     do
     {
-	assert( (UInt32) index <= set->count);
-	if ((UInt32) index > set->count)
-		break;
+        assert( (UInt32) index <= set->count);
+        if ((UInt32) index > set->count)
+                break;
 
-	source = set->sources + index;
-	result = CallTVector( set, (void *) index, source->refCon, 0, 0, 0,
-				    source->handler );
+        source = set->sources + index;
+        result = CallTVector( set, (void *) index, source->refCon, 0, 0, 0,
+                                    source->handler );
 
-	switch (result)
-	{
-	    case kIONDRVIsrIsNotComplete:
-		index++;
-	    case kIONDRVIsrIsComplete:
-		break;
+        switch (result)
+        {
+            case kIONDRVIsrIsNotComplete:
+                index++;
+            case kIONDRVIsrIsComplete:
+                break;
 
-	    case kIONDRVMemberNumberParent:
-		assert( false );
-		break;
+            case kIONDRVMemberNumberParent:
+                assert( false );
+                break;
 
-	    default:
-		index = result;
-		set = set->child;
-		break;
-	}
+            default:
+                index = result;
+                set = set->child;
+                break;
+        }
     }
     while (result != kIONDRVIsrIsComplete);
 }
@@ -1489,7 +1485,7 @@ static void IONDRVInterruptAction( OSObject * target, void * refCon,
 enum { kIONDRVPCIInterruptSource = 0 };
 
 static SInt32 IONDRVStdInterruptHandler( IONDRVInterruptSetMember setMember,
-	void *refCon, UInt32 theIntCount )
+        void *refCon, UInt32 theIntCount )
 {
     //    assert( false );
 
@@ -1497,11 +1493,11 @@ static SInt32 IONDRVStdInterruptHandler( IONDRVInterruptSetMember setMember,
 }
 
 static bool IONDRVStdInterruptDisabler( IONDRVInterruptSetMember setMember,
-					void *refCon )
+                                        void *refCon )
 {
-    IONDRVInterruptSet *	set;
-    IONDRVInterruptSource *	source;
-    bool			was;
+    IONDRVInterruptSet *        set;
+    IONDRVInterruptSource *     source;
+    bool                        was;
 
     set = (IONDRVInterruptSet *) setMember.setID;
     assert( OSDynamicCast( IONDRVInterruptSet, set ));
@@ -1514,16 +1510,16 @@ static bool IONDRVStdInterruptDisabler( IONDRVInterruptSetMember setMember,
     assert( set->provider );
 
     if (setMember.member == (kIONDRVISTChipInterruptSource + 1))
-	set->provider->disableInterrupt( set->providerInterruptSource );
+        set->provider->disableInterrupt( set->providerInterruptSource );
 
     return (was);
 }
 
 static void IONDRVStdInterruptEnabler( IONDRVInterruptSetMember setMember,
-					void *refCon )
+                                        void *refCon )
 {
-    IONDRVInterruptSet *	set;
-    IONDRVInterruptSource *	source;
+    IONDRVInterruptSet *        set;
+    IONDRVInterruptSource *     source;
 
     set = (IONDRVInterruptSet *) setMember.setID;
     assert( OSDynamicCast( IONDRVInterruptSet, set ));
@@ -1536,33 +1532,33 @@ static void IONDRVStdInterruptEnabler( IONDRVInterruptSetMember setMember,
 
     if (!source->registered)
     {
-	source->registered = true;
-	if (setMember.member == (kIONDRVISTChipInterruptSource + 1))
-	{
-	    set->providerInterruptSource = 0;
+        source->registered = true;
+        if (setMember.member == (kIONDRVISTChipInterruptSource + 1))
+        {
+            set->providerInterruptSource = 0;
 
-	    if (!set->provider->getProperty(kAAPLDisableMSIKey)
-	     && OSDynamicCast(IOPCIDevice, set->provider))
-	    {
-		int interruptType;
-		for (int index = 0; 
-			kIOReturnSuccess == set->provider->getInterruptType(index, &interruptType);
-			index++)
-		{
-		    if (kIOInterruptTypePCIMessaged & interruptType)
-		    {
-			set->providerInterruptSource = index;
-			break;
-		    }
-		}
-	    }
-	    set->provider->registerInterrupt( set->providerInterruptSource, set,
-						    &IONDRVInterruptAction, (void *) 0x53 );
-	}
+            if (!set->provider->getProperty(kAAPLDisableMSIKey)
+             && OSDynamicCast(IOPCIDevice, set->provider))
+            {
+                int interruptType;
+                for (int index = 0; 
+                        kIOReturnSuccess == set->provider->getInterruptType(index, &interruptType);
+                        index++)
+                {
+                    if (kIOInterruptTypePCIMessaged & interruptType)
+                    {
+                        set->providerInterruptSource = index;
+                        break;
+                    }
+                }
+            }
+            set->provider->registerInterrupt( set->providerInterruptSource, set,
+                                                    &IONDRVInterruptAction, (void *) 0x53 );
+        }
     }
 
     if (setMember.member == (kIONDRVISTChipInterruptSource + 1))
-	set->provider->enableInterrupt(set->providerInterruptSource);
+        set->provider->enableInterrupt(set->providerInterruptSource);
 }
 
 static IOTVector tvIONDRVStdInterruptHandler  = { (void *) IONDRVStdInterruptHandler,  0 };
@@ -1577,25 +1573,25 @@ _eGetInterruptFunctions(
   InterruptSetID          set,
   InterruptMemberNumber   member,
   void **                 refCon,
-  IOTVector **		  handler,
+  IOTVector **            handler,
   IOTVector **            enabler,
   IOTVector **            disabler )
 {
-    IONDRVInterruptSource *	source;
-    OSStatus			err = noErr;
+    IONDRVInterruptSource *     source;
+    OSStatus                    err = noErr;
 
     assert( OSDynamicCast( IONDRVInterruptSet, set ));
     assert( member <= set->count );
     source = set->sources + member;
 
     if (refCon)
-	*refCon   = source->refCon;
+        *refCon   = source->refCon;
     if (handler)
-	*handler  = source->handler;
+        *handler  = source->handler;
     if (enabler)
-	*enabler  = source->enabler;
+        *enabler  = source->enabler;
     if (disabler)
-	*disabler = source->disabler;
+        *disabler = source->disabler;
 
     return (err);
 }
@@ -1609,50 +1605,50 @@ GetInterruptFunctions(
   InterruptEnabler *      enableFunction,
   InterruptDisabler *     disableFunction)
 {
-    IONDRVInterruptSource *	source;
-    OSStatus			err = noErr;
+    IONDRVInterruptSource *     source;
+    OSStatus                    err = noErr;
 
     assert( OSDynamicCast( IONDRVInterruptSet, set ));
     assert( member <= set->count );
     source = set->sources + member;
 
     if (refCon)
-	*refCon   = source->refCon;
+        *refCon   = source->refCon;
     if (handlerFunction)
-	*handlerFunction = (InterruptHandler)  source->handler->pc;
+        *handlerFunction = (InterruptHandler)  source->handler->pc;
     if (enableFunction)
-	*enableFunction  = (InterruptEnabler)  source->enabler->pc;
+        *enableFunction  = (InterruptEnabler)  source->enabler->pc;
     if (disableFunction)
-	*disableFunction = (InterruptDisabler) source->disabler->pc;
+        *disableFunction = (InterruptDisabler) source->disabler->pc;
 
     return (err);
 }
 
 IOReturn
-IONDRVInstallInterruptFunctions(void *		setID,
-				UInt32 		member,
-				void *		refCon,
-				IOTVector *	handler,
-				IOTVector *	enabler,
-				IOTVector *	disabler )
+IONDRVInstallInterruptFunctions(void *          setID,
+                                UInt32          member,
+                                void *          refCon,
+                                IOTVector *     handler,
+                                IOTVector *     enabler,
+                                IOTVector *     disabler )
 {
-    IONDRVInterruptSet *	set;
-    IONDRVInterruptSource *	source;
-    OSStatus			err = noErr;
+    IONDRVInterruptSet *        set;
+    IONDRVInterruptSource *     source;
+    OSStatus                    err = noErr;
 
     set = (IONDRVInterruptSet *) setID;
     assert( OSDynamicCast( IONDRVInterruptSet, set ));
     if (member > set->count)
-	return (paramErr);
+        return (paramErr);
     source = set->sources + member;
 
     source->refCon = refCon;
     if (handler)
-	source->handler  = handler;
+        source->handler  = handler;
     if (enabler)
-	source->enabler  = enabler;
+        source->enabler  = enabler;
     if (disabler)
-	source->disabler = disabler;
+        source->disabler = disabler;
 
     return (err);
 }
@@ -1667,7 +1663,7 @@ _eInstallInterruptFunctions(
   IOTVector *             disabler )
 {
     return (IONDRVInstallInterruptFunctions(setID, member, refCon,
-					    handler, enabler, disabler));
+                                            handler, enabler, disabler));
 }
 
 OSStatus
@@ -1679,29 +1675,29 @@ InstallInterruptFunctions(
   InterruptEnabler        enableFunction,
   InterruptDisabler       disableFunction)
 {
-    IONDRVInterruptSource *	source;
-    OSStatus			err = noErr;
+    IONDRVInterruptSource *     source;
+    OSStatus                    err = noErr;
 
     assert( OSDynamicCast( IONDRVInterruptSet, set ));
     if ((UInt32)member > set->count)
-	return (paramErr);
+        return (paramErr);
     source = set->sources + member;
 
     source->refCon = refCon;
     if (handlerFunction)
     {
-	source->handlerStore.pc = (void *) handlerFunction;
-	source->handler = &source->handlerStore;
+        source->handlerStore.pc = (void *) handlerFunction;
+        source->handler = &source->handlerStore;
     }
     if (enableFunction)
     {
-	source->enablerStore.pc = (void *) enableFunction;
-	source->enabler = &source->enablerStore;
+        source->enablerStore.pc = (void *) enableFunction;
+        source->enabler = &source->enablerStore;
     }
     if (disableFunction)
     {
-	source->disablerStore.pc = (void *) disableFunction;
-	source->disabler = &source->disablerStore;
+        source->disablerStore.pc = (void *) disableFunction;
+        source->disabler = &source->disablerStore;
     }
 
     return (err);
@@ -1715,9 +1711,9 @@ EXP(CreateInterruptSet)(
   InterruptSetID *        setID,
   InterruptSetOptions     options)
 {
-    IONDRVInterruptSet *	newSet;
-    IONDRVInterruptSource *	source;
-    OSStatus			err = noErr;
+    IONDRVInterruptSet *        newSet;
+    IONDRVInterruptSource *     source;
+    OSStatus                    err = noErr;
 
     assert( OSDynamicCast( IONDRVInterruptSet, set ));
     assert( parentMember <= set->count );
@@ -1728,13 +1724,13 @@ EXP(CreateInterruptSet)(
 
     if (newSet)
     {
-	for (UInt32 i = 1; i <= (UInt32) setSize; i++)
-	{
-	    source = newSet->sources + i;
-	    source->handler 	= &tvIONDRVStdInterruptHandler;
-	    source->enabler 	= &tvIONDRVStdInterruptEnabler;
-	    source->disabler 	= &tvIONDRVStdInterruptDisabler;
-	}
+        for (UInt32 i = 1; i <= (UInt32) setSize; i++)
+        {
+            source = newSet->sources + i;
+            source->handler     = &tvIONDRVStdInterruptHandler;
+            source->enabler     = &tvIONDRVStdInterruptEnabler;
+            source->disabler    = &tvIONDRVStdInterruptDisabler;
+        }
     }
     set->child = newSet;
     *setID = (InterruptSetID) newSet;
@@ -1745,7 +1741,7 @@ EXP(CreateInterruptSet)(
 OSStatus
 EXP(DeleteInterruptSet)( InterruptSetID set )
 {
-    OSStatus			err = noErr;
+    OSStatus                    err = noErr;
 
     assert( OSDynamicCast( IONDRVInterruptSet, set ));
 
@@ -1760,162 +1756,162 @@ EXP(DeleteInterruptSet)( InterruptSetID set )
 
 static FunctionEntry PCILibFuncs[] =
     {
-	MAKEFUNC( "ExpMgrConfigReadLong", EXP(ExpMgrConfigReadLong)),
-	MAKEFUNC( "ExpMgrConfigReadWord", EXP(ExpMgrConfigReadWord)),
-	MAKEFUNC( "ExpMgrConfigReadByte", EXP(ExpMgrConfigReadByte)),
-	MAKEFUNC( "ExpMgrConfigWriteLong", EXP(ExpMgrConfigWriteLong)),
-	MAKEFUNC( "ExpMgrConfigWriteWord", EXP(ExpMgrConfigWriteWord)),
-	MAKEFUNC( "ExpMgrConfigWriteByte", EXP(ExpMgrConfigWriteByte)),
+        MAKEFUNC( "ExpMgrConfigReadLong", EXP(ExpMgrConfigReadLong)),
+        MAKEFUNC( "ExpMgrConfigReadWord", EXP(ExpMgrConfigReadWord)),
+        MAKEFUNC( "ExpMgrConfigReadByte", EXP(ExpMgrConfigReadByte)),
+        MAKEFUNC( "ExpMgrConfigWriteLong", EXP(ExpMgrConfigWriteLong)),
+        MAKEFUNC( "ExpMgrConfigWriteWord", EXP(ExpMgrConfigWriteWord)),
+        MAKEFUNC( "ExpMgrConfigWriteByte", EXP(ExpMgrConfigWriteByte)),
 
-	MAKEFUNC( "ExpMgrIOReadLong", EXP(ExpMgrIOReadLong)),
-	MAKEFUNC( "ExpMgrIOReadWord", EXP(ExpMgrIOReadWord)),
-	MAKEFUNC( "ExpMgrIOReadByte", EXP(ExpMgrIOReadByte)),
-	MAKEFUNC( "ExpMgrIOWriteLong", EXP(ExpMgrIOWriteLong)),
-	MAKEFUNC( "ExpMgrIOWriteWord", EXP(ExpMgrIOWriteWord)),
-	MAKEFUNC( "ExpMgrIOWriteByte", EXP(ExpMgrIOWriteByte)),
+        MAKEFUNC( "ExpMgrIOReadLong", EXP(ExpMgrIOReadLong)),
+        MAKEFUNC( "ExpMgrIOReadWord", EXP(ExpMgrIOReadWord)),
+        MAKEFUNC( "ExpMgrIOReadByte", EXP(ExpMgrIOReadByte)),
+        MAKEFUNC( "ExpMgrIOWriteLong", EXP(ExpMgrIOWriteLong)),
+        MAKEFUNC( "ExpMgrIOWriteWord", EXP(ExpMgrIOWriteWord)),
+        MAKEFUNC( "ExpMgrIOWriteByte", EXP(ExpMgrIOWriteByte)),
 
-	MAKEFUNC( "EndianSwap16Bit", EXP(EndianSwap16Bit)),
-	MAKEFUNC( "EndianSwap32Bit", EXP(EndianSwap32Bit))
+        MAKEFUNC( "EndianSwap16Bit", EXP(EndianSwap16Bit)),
+        MAKEFUNC( "EndianSwap32Bit", EXP(EndianSwap32Bit))
     };
 
 static FunctionEntry VideoServicesLibFuncs[] =
     {
-	MAKEFUNC( "VSLPrepareCursorForHardwareCursor",
-		    EXP(VSLPrepareCursorForHardwareCursor)),
-	MAKEFUNC( "VSLNewInterruptService", EXP(VSLNewInterruptService)),
-	MAKEFUNC( "VSLDisposeInterruptService", EXP(VSLDisposeInterruptService)),
-	MAKEFUNC( "VSLDoInterruptService", EXP(VSLDoInterruptService)),
-	MAKEFUNC( "VSLSetDisplayConfiguration", EXP(VSLSetDisplayConfiguration)),
-	MAKEFUNC( "VSLGestalt", EXP(VSLGestalt))
+        MAKEFUNC( "VSLPrepareCursorForHardwareCursor",
+                    EXP(VSLPrepareCursorForHardwareCursor)),
+        MAKEFUNC( "VSLNewInterruptService", EXP(VSLNewInterruptService)),
+        MAKEFUNC( "VSLDisposeInterruptService", EXP(VSLDisposeInterruptService)),
+        MAKEFUNC( "VSLDoInterruptService", EXP(VSLDoInterruptService)),
+        MAKEFUNC( "VSLSetDisplayConfiguration", EXP(VSLSetDisplayConfiguration)),
+        MAKEFUNC( "VSLGestalt", EXP(VSLGestalt))
     };
 
 static FunctionEntry NameRegistryLibFuncs[] =
     {
-	MAKEFUNC( "RegistryEntryIDCopy", EXP(RegistryEntryIDCopy)),
-	MAKEFUNC( "RegistryEntryIDInit", EXP(RegistryEntryIDInit)),
-	MAKEFUNC( "RegistryEntryIDDispose", EXP(RegistryEntryIDDispose)),
-	MAKEFUNC( "RegistryEntryIDCompare", EXP(RegistryEntryIDCompare)),
-	MAKEFUNC( "RegistryPropertyGetSize", EXP(RegistryPropertyGetSize)),
-	MAKEFUNC( "RegistryPropertyGet", EXP(RegistryPropertyGet)),
-	MAKEFUNC( "RegistryPropertyGetMod", EXP(RegistryPropertyGetMod)),
-	MAKEFUNC( "RegistryPropertySetMod", EXP(RegistryPropertySetMod)),
+        MAKEFUNC( "RegistryEntryIDCopy", EXP(RegistryEntryIDCopy)),
+        MAKEFUNC( "RegistryEntryIDInit", EXP(RegistryEntryIDInit)),
+        MAKEFUNC( "RegistryEntryIDDispose", EXP(RegistryEntryIDDispose)),
+        MAKEFUNC( "RegistryEntryIDCompare", EXP(RegistryEntryIDCompare)),
+        MAKEFUNC( "RegistryPropertyGetSize", EXP(RegistryPropertyGetSize)),
+        MAKEFUNC( "RegistryPropertyGet", EXP(RegistryPropertyGet)),
+        MAKEFUNC( "RegistryPropertyGetMod", EXP(RegistryPropertyGetMod)),
+        MAKEFUNC( "RegistryPropertySetMod", EXP(RegistryPropertySetMod)),
 
-	MAKEFUNC( "RegistryPropertyIterateCreate", EXP(RegistryPropertyIterateCreate)),
-	MAKEFUNC( "RegistryPropertyIterateDispose", EXP(RegistryPropertyIterateDispose)),
-	MAKEFUNC( "RegistryPropertyIterate", EXP(RegistryPropertyIterate)),
+        MAKEFUNC( "RegistryPropertyIterateCreate", EXP(RegistryPropertyIterateCreate)),
+        MAKEFUNC( "RegistryPropertyIterateDispose", EXP(RegistryPropertyIterateDispose)),
+        MAKEFUNC( "RegistryPropertyIterate", EXP(RegistryPropertyIterate)),
 
-	MAKEFUNC( "RegistryEntryIterateCreate", EXP(RegistryEntryIterateCreate)),
-	MAKEFUNC( "RegistryEntryIterateDispose", EXP(RegistryEntryIterateDispose)),
-	MAKEFUNC( "RegistryEntryIterate", EXP(RegistryEntryIterate)),
-	MAKEFUNC( "RegistryEntryIterateSet", EXP(RegistryEntryIterateSet)),
-	MAKEFUNC( "RegistryCStrEntryToName", EXP(RegistryCStrEntryToName)),
-	MAKEFUNC( "RegistryCStrEntryLookup", EXP(RegistryCStrEntryLookup)),
+        MAKEFUNC( "RegistryEntryIterateCreate", EXP(RegistryEntryIterateCreate)),
+        MAKEFUNC( "RegistryEntryIterateDispose", EXP(RegistryEntryIterateDispose)),
+        MAKEFUNC( "RegistryEntryIterate", EXP(RegistryEntryIterate)),
+        MAKEFUNC( "RegistryEntryIterateSet", EXP(RegistryEntryIterateSet)),
+        MAKEFUNC( "RegistryCStrEntryToName", EXP(RegistryCStrEntryToName)),
+        MAKEFUNC( "RegistryCStrEntryLookup", EXP(RegistryCStrEntryLookup)),
 
-	MAKEFUNC( "RegistryCStrEntryCreate", EXP(RegistryCStrEntryCreate)),
-	MAKEFUNC( "RegistryEntryDelete", EXP(RegistryEntryDelete)),
+        MAKEFUNC( "RegistryCStrEntryCreate", EXP(RegistryCStrEntryCreate)),
+        MAKEFUNC( "RegistryEntryDelete", EXP(RegistryEntryDelete)),
 
-	MAKEFUNC( "RegistryPropertyCreate", EXP(RegistryPropertyCreate)),
-	MAKEFUNC( "RegistryPropertyDelete", EXP(RegistryPropertyDelete)),
-	MAKEFUNC( "RegistryPropertySet", EXP(RegistryPropertySet))
+        MAKEFUNC( "RegistryPropertyCreate", EXP(RegistryPropertyCreate)),
+        MAKEFUNC( "RegistryPropertyDelete", EXP(RegistryPropertyDelete)),
+        MAKEFUNC( "RegistryPropertySet", EXP(RegistryPropertySet))
     };
 
 
 static FunctionEntry DriverServicesLibFuncs[] =
     {
-	MAKEFUNC( "SynchronizeIO", EXP(SynchronizeIO)),
-	MAKEFUNC( "SetProcessorCacheMode", EXP(SetProcessorCacheMode)),
-	MAKEFUNC( "BlockCopy", EXP(BlockCopy)),
-	MAKEFUNC( "BlockMove", EXP(BlockMove)),
-	MAKEFUNC( "BlockMoveData", EXP(BlockMoveData)),
+        MAKEFUNC( "SynchronizeIO", EXP(SynchronizeIO)),
+        MAKEFUNC( "SetProcessorCacheMode", EXP(SetProcessorCacheMode)),
+        MAKEFUNC( "BlockCopy", EXP(BlockCopy)),
+        MAKEFUNC( "BlockMove", EXP(BlockMove)),
+        MAKEFUNC( "BlockMoveData", EXP(BlockMoveData)),
 
-	MAKEFUNC( "BlockMoveDataUncached", EXP(BlockMoveDataUncached)),
-	MAKEFUNC( "BlockMoveUncached", EXP(BlockMoveUncached)),
+        MAKEFUNC( "BlockMoveDataUncached", EXP(BlockMoveDataUncached)),
+        MAKEFUNC( "BlockMoveUncached", EXP(BlockMoveUncached)),
 
-	MAKEFUNC( "BlockZero", EXP(BlockZero)),
-	MAKEFUNC( "BlockZeroUncached", EXP(BlockZeroUncached)),
+        MAKEFUNC( "BlockZero", EXP(BlockZero)),
+        MAKEFUNC( "BlockZeroUncached", EXP(BlockZeroUncached)),
 
-	MAKEFUNC( "CStrCopy", EXP(CStrCopy)),
-	MAKEFUNC( "CStrCmp", EXP(CStrCmp)),
-	MAKEFUNC( "CStrLen", EXP(CStrLen)),
-	MAKEFUNC( "CStrCat", EXP(CStrCat)),
-	MAKEFUNC( "CStrNCopy", EXP(CStrNCopy)),
-	MAKEFUNC( "CStrNCmp", EXP(CStrNCmp)),
-	MAKEFUNC( "CStrNCat", EXP(CStrNCat)),
-	MAKEFUNC( "PStrCopy", EXP(PStrCopy)),
-	MAKEFUNC( "PStrToCStr", EXP(PStrToCStr)),
-	MAKEFUNC( "CStrToPStr", EXP(CStrToPStr)),
+        MAKEFUNC( "CStrCopy", EXP(CStrCopy)),
+        MAKEFUNC( "CStrCmp", EXP(CStrCmp)),
+        MAKEFUNC( "CStrLen", EXP(CStrLen)),
+        MAKEFUNC( "CStrCat", EXP(CStrCat)),
+        MAKEFUNC( "CStrNCopy", EXP(CStrNCopy)),
+        MAKEFUNC( "CStrNCmp", EXP(CStrNCmp)),
+        MAKEFUNC( "CStrNCat", EXP(CStrNCat)),
+        MAKEFUNC( "PStrCopy", EXP(PStrCopy)),
+        MAKEFUNC( "PStrToCStr", EXP(PStrToCStr)),
+        MAKEFUNC( "CStrToPStr", EXP(CStrToPStr)),
 
-	MAKEFUNC( "PoolAllocateResident", EXP(PoolAllocateResident)),
-	MAKEFUNC( "MemAllocatePhysicallyContiguous", EXP(PoolAllocateResident)),
-	MAKEFUNC( "PoolDeallocate", EXP(PoolDeallocate)),
+        MAKEFUNC( "PoolAllocateResident", EXP(PoolAllocateResident)),
+        MAKEFUNC( "MemAllocatePhysicallyContiguous", EXP(PoolAllocateResident)),
+        MAKEFUNC( "PoolDeallocate", EXP(PoolDeallocate)),
 
-	MAKEFUNC( "UpTime", EXP(UpTime)),
-	MAKEFUNC( "AbsoluteDeltaToDuration", EXP(AbsoluteDeltaToDuration)),
-	MAKEFUNC( "AbsoluteToDuration", EXP(AbsoluteToDuration)),
-	MAKEFUNC( "AddAbsoluteToAbsolute", EXP(AddAbsoluteToAbsolute)),
-	MAKEFUNC( "SubAbsoluteFromAbsolute", EXP(SubAbsoluteFromAbsolute)),
-	MAKEFUNC( "AddDurationToAbsolute", EXP(AddDurationToAbsolute)),
-	MAKEFUNC( "NanosecondsToAbsolute", EXP(NanosecondsToAbsolute)),
-	MAKEFUNC( "AbsoluteToNanoseconds", EXP(AbsoluteToNanoseconds)),
-	MAKEFUNC( "DurationToAbsolute", EXP(DurationToAbsolute)),
-	MAKEFUNC( "DelayForHardware", EXP(DelayForHardware)),
-	MAKEFUNC( "DelayFor", EXP(DelayFor)),
-	MAKEFUNC( "DelayUntil", EXP(DelayUntil)),
+        MAKEFUNC( "UpTime", EXP(UpTime)),
+        MAKEFUNC( "AbsoluteDeltaToDuration", EXP(AbsoluteDeltaToDuration)),
+        MAKEFUNC( "AbsoluteToDuration", EXP(AbsoluteToDuration)),
+        MAKEFUNC( "AddAbsoluteToAbsolute", EXP(AddAbsoluteToAbsolute)),
+        MAKEFUNC( "SubAbsoluteFromAbsolute", EXP(SubAbsoluteFromAbsolute)),
+        MAKEFUNC( "AddDurationToAbsolute", EXP(AddDurationToAbsolute)),
+        MAKEFUNC( "NanosecondsToAbsolute", EXP(NanosecondsToAbsolute)),
+        MAKEFUNC( "AbsoluteToNanoseconds", EXP(AbsoluteToNanoseconds)),
+        MAKEFUNC( "DurationToAbsolute", EXP(DurationToAbsolute)),
+        MAKEFUNC( "DelayForHardware", EXP(DelayForHardware)),
+        MAKEFUNC( "DelayFor", EXP(DelayFor)),
+        MAKEFUNC( "DelayUntil", EXP(DelayUntil)),
 
-	MAKEFUNC( "CurrentExecutionLevel", EXP(CurrentExecutionLevel)),
-	MAKEFUNC( "IOCommandIsComplete", EXP(IOCommandIsComplete)),
+        MAKEFUNC( "CurrentExecutionLevel", EXP(CurrentExecutionLevel)),
+        MAKEFUNC( "IOCommandIsComplete", EXP(IOCommandIsComplete)),
 
-	MAKEFUNC( "SysDebugStr", EXP(SysDebugStr)),
-	MAKEFUNC( "SysDebug", EXP(SysDebug)),
+        MAKEFUNC( "SysDebugStr", EXP(SysDebugStr)),
+        MAKEFUNC( "SysDebug", EXP(SysDebug)),
 
-	MAKEFUNC( "CompareAndSwap", EXP(CompareAndSwap)),
+        MAKEFUNC( "CompareAndSwap", EXP(CompareAndSwap)),
 
-	MAKEFUNC( "CreateInterruptSet", EXP(CreateInterruptSet)),
-	MAKEFUNC( "DeleteInterruptSet", EXP(DeleteInterruptSet)),
-	MAKEFUNC( "GetInterruptFunctions", _eGetInterruptFunctions),
-	MAKEFUNC( "InstallInterruptFunctions", _eInstallInterruptFunctions)
+        MAKEFUNC( "CreateInterruptSet", EXP(CreateInterruptSet)),
+        MAKEFUNC( "DeleteInterruptSet", EXP(DeleteInterruptSet)),
+        MAKEFUNC( "GetInterruptFunctions", _eGetInterruptFunctions),
+        MAKEFUNC( "InstallInterruptFunctions", _eInstallInterruptFunctions)
     };
 
 // These are all out of spec
 
 static FunctionEntry InterfaceLibFuncs[] =
     {
-	// Apple control : XPRam and EgretDispatch
-	MAKEFUNC( "CallUniversalProc", _eFail),
-	MAKEFUNC( "CallOSTrapUniversalProc", _eCallOSTrapUniversalProc),
-	MAKEFUNC( "BlockZero", EXP(BlockZero)),
-	MAKEFUNC( "BlockZeroUncached", EXP(BlockZeroUncached)),
+        // Apple control : XPRam and EgretDispatch
+        MAKEFUNC( "CallUniversalProc", _eFail),
+        MAKEFUNC( "CallOSTrapUniversalProc", _eCallOSTrapUniversalProc),
+        MAKEFUNC( "BlockZero", EXP(BlockZero)),
+        MAKEFUNC( "BlockZeroUncached", EXP(BlockZeroUncached)),
 
-	// Apple chips65550
-	//    MAKEFUNC( "NewRoutineDescriptor", _eCallOSTrapUniversalProc),
-	//    MAKEFUNC( "DisposeRoutineDescriptor", _eNoErr),
-	//    MAKEFUNC( "InsTime", _eInsTime),
-	//    MAKEFUNC( "PrimeTime", _ePrimeTime),
+        // Apple chips65550
+        //    MAKEFUNC( "NewRoutineDescriptor", _eCallOSTrapUniversalProc),
+        //    MAKEFUNC( "DisposeRoutineDescriptor", _eNoErr),
+        //    MAKEFUNC( "InsTime", _eInsTime),
+        //    MAKEFUNC( "PrimeTime", _ePrimeTime),
 
-	// Radius PrecisionColor 16
-	MAKEFUNC( "CountADBs", _eNoErr),
-	MAKEFUNC( "GetIndADB", _eGetIndADB),
-	MAKEFUNC( "GetKeys", _eGetKeys)
+        // Radius PrecisionColor 16
+        MAKEFUNC( "CountADBs", _eNoErr),
+        MAKEFUNC( "GetIndADB", _eGetIndADB),
+        MAKEFUNC( "GetKeys", _eGetKeys)
     };
 
 static FunctionEntry PrivateInterfaceLibFuncs[] =
     {
-	// Apple chips65550
-	MAKEFUNC( "LMGetPowerMgrVars", _eLMGetPowerMgrVars )
+        // Apple chips65550
+        MAKEFUNC( "LMGetPowerMgrVars", _eLMGetPowerMgrVars )
     };
 
-#define NUMLIBRARIES	6
+#define NUMLIBRARIES    6
 const ItemCount IONumNDRVLibraries = NUMLIBRARIES;
 LibraryEntry IONDRVLibraries[ NUMLIBRARIES ] =
     {
-	{ "PCILib", sizeof(PCILibFuncs) / sizeof(FunctionEntry), PCILibFuncs },
-	{ "VideoServicesLib", sizeof(VideoServicesLibFuncs) / sizeof(FunctionEntry), VideoServicesLibFuncs },
-	{ "NameRegistryLib", sizeof(NameRegistryLibFuncs) / sizeof(FunctionEntry), NameRegistryLibFuncs },
-	{ "DriverServicesLib", sizeof(DriverServicesLibFuncs) / sizeof(FunctionEntry), DriverServicesLibFuncs },
+        { "PCILib", sizeof(PCILibFuncs) / sizeof(FunctionEntry), PCILibFuncs },
+        { "VideoServicesLib", sizeof(VideoServicesLibFuncs) / sizeof(FunctionEntry), VideoServicesLibFuncs },
+        { "NameRegistryLib", sizeof(NameRegistryLibFuncs) / sizeof(FunctionEntry), NameRegistryLibFuncs },
+        { "DriverServicesLib", sizeof(DriverServicesLibFuncs) / sizeof(FunctionEntry), DriverServicesLibFuncs },
 
-	// out of spec stuff
-	{ "InterfaceLib", sizeof(InterfaceLibFuncs) / sizeof(FunctionEntry), InterfaceLibFuncs },
-	{ "PrivateInterfaceLib", sizeof(PrivateInterfaceLibFuncs) / sizeof(FunctionEntry), PrivateInterfaceLibFuncs }
+        // out of spec stuff
+        { "InterfaceLib", sizeof(InterfaceLibFuncs) / sizeof(FunctionEntry), InterfaceLibFuncs },
+        { "PrivateInterfaceLib", sizeof(PrivateInterfaceLibFuncs) / sizeof(FunctionEntry), PrivateInterfaceLibFuncs }
     };
 } /* extern "C" */
 
@@ -1939,9 +1935,9 @@ IONDRVInterruptSet * IONDRVInterruptSet::with(IOService * provider,
 
     if (set)
     {
-        set->provider	= provider;
-        set->options	= options;
-        set->count	= count;
+        set->provider   = provider;
+        set->options    = options;
+        set->count      = count;
 
         count++;
         set->sources = IONew( IONDRVInterruptSource, count );
@@ -1958,17 +1954,17 @@ void IONDRVInterruptSet::free()
 
     for (UInt32 i = 0; i <= count; i++)
     {
-	source = sources + i; 
-	if (source->registered)
-	{
-	    source->registered = false;
-	    provider->unregisterInterrupt(providerInterruptSource);
-	}
-	if (source->enabled)
-	{
-	    source->registered = false;
-	    provider->disableInterrupt(providerInterruptSource);
-	}
+        source = sources + i; 
+        if (source->registered)
+        {
+            source->registered = false;
+            provider->unregisterInterrupt(providerInterruptSource);
+        }
+        if (source->enabled)
+        {
+            source->registered = false;
+            provider->disableInterrupt(providerInterruptSource);
+        }
     }
 
     if (sources)
@@ -2056,47 +2052,47 @@ extern "C" IOReturn _IONDRVLibrariesMappingInitialize( IOService * provider )
     data = 0;
 
     if (provider->getProperty(kPropertyAAPLAddress))
-	return (kIOReturnSuccess);
+        return (kIOReturnSuccess);
 
     numMaps = provider->getDeviceMemoryCount();
     for (i = 0; i < numMaps; i++)
     {
-	IODeviceMemory * mem;
-	IOMemoryMap *    map;
-	IOVirtualAddress virtAddress;
+        IODeviceMemory * mem;
+        IOMemoryMap *    map;
+        IOVirtualAddress virtAddress;
 
-	mem = provider->getDeviceMemoryWithIndex(i);
-	if (!mem)
-	    continue;
+        mem = provider->getDeviceMemoryWithIndex(i);
+        if (!mem)
+            continue;
         if (!maps)
-	    maps = OSArray::withCapacity(numMaps);
+            maps = OSArray::withCapacity(numMaps);
         if (!maps)
             continue;
 
-	map = mem->map();
-	if (!map)
-	{
-//	    IOLog("%s: map[%ld] failed\n", provider->getName(), i);
-	    maps->setObject(kOSBooleanFalse);		// placeholder
-	    continue;
-	}
+        map = mem->map();
+        if (!map)
+        {
+//          IOLog("%s: map[%ld] failed\n", provider->getName(), i);
+            maps->setObject(kOSBooleanFalse);           // placeholder
+            continue;
+        }
 
-	maps->setObject(map);
-	map->release();
+        maps->setObject(map);
+        map->release();
 
-	virtAddress = map->getVirtualAddress();
-	mem->setMapping(kernel_task, virtAddress, kIOMapInhibitCache);
+        virtAddress = map->getVirtualAddress();
+        mem->setMapping(kernel_task, virtAddress, kIOMapInhibitCache);
         if (!data)
             data = OSData::withCapacity( numMaps * sizeof( IOVirtualAddress));
         if (!data)
             continue;
-	data->appendBytes( &virtAddress, sizeof( IOVirtualAddress));
+        data->appendBytes( &virtAddress, sizeof( IOVirtualAddress));
     }
 
     // NDRV aperture vectors
     if (maps)
     {
-	provider->setProperty( "AAPL,maps", maps );
+        provider->setProperty( "AAPL,maps", maps );
         maps->release();
     }
     if (data)
@@ -2109,11 +2105,11 @@ extern "C" IOReturn _IONDRVLibrariesMappingInitialize( IOService * provider )
 
 extern "C" IOReturn _IONDRVLibrariesInitialize( IOService * provider )
 {
-    IODTPlatformExpert *	platform;
-    const OSSymbol *		sym;
-    OSData *			data;
-    OSArray *			intSpec;
-    unsigned int		i;
+    IODTPlatformExpert *        platform;
+    const OSSymbol *            sym;
+    OSData *                    data;
+    OSArray *                   intSpec;
+    unsigned int                i;
 
 #if NDRVLIBTEST
     IONDRVLibrariesTest( provider );
@@ -2124,7 +2120,7 @@ extern "C" IOReturn _IONDRVLibrariesInitialize( IOService * provider )
     if ((platform = OSDynamicCast(IODTPlatformExpert,
                                   IOService::getPlatform())))
     {
-        //	IOService::waitForService( IOService::resourceMatching( "IONVRAM" ));
+        //      IOService::waitForService( IOService::resourceMatching( "IONVRAM" ));
 
         if (kIOReturnSuccess == platform->readNVRAMProperty(provider,
                 &sym, &data))
@@ -2142,39 +2138,39 @@ extern "C" IOReturn _IONDRVLibrariesInitialize( IOService * provider )
             && (0 == provider->getProperty(gIODTAAPLInterruptsKey)))
     {
         // make AAPL,interrupts property if not present (NW)
-	data = (OSData *) intSpec->getObject(kIONDRVPCIInterruptSource);
-	if (data)
+        data = (OSData *) intSpec->getObject(kIONDRVPCIInterruptSource);
+        if (data)
             provider->setProperty( gIODTAAPLInterruptsKey, data );
     }
 
     // make NDRV interrupts
 
-    IONDRVInterruptSetMember 	setMember;
-    IONDRVInterruptSet *	set;
-    IONDRVInterruptSource *	source;
+    IONDRVInterruptSetMember    setMember;
+    IONDRVInterruptSet *        set;
+    IONDRVInterruptSource *     source;
 
     set = IONDRVInterruptSet::with( provider, 0,
                                         kIONDRVISTPropertyMemberCount );
     if (set)
     {
-	data = OSData::withCapacity( kIONDRVISTPropertyMemberCount
-				    * sizeof(IONDRVInterruptSetMember));
-	if (data)
-	{
-	    for (i = 1; i <= kIONDRVISTPropertyMemberCount; i++)
-	    {
-		source = set->sources + i;
-		source->handler 	= &tvIONDRVStdInterruptHandler;
-		source->enabler 	= &tvIONDRVStdInterruptEnabler;
-		source->disabler 	= &tvIONDRVStdInterruptDisabler;
+        data = OSData::withCapacity( kIONDRVISTPropertyMemberCount
+                                    * sizeof(IONDRVInterruptSetMember));
+        if (data)
+        {
+            for (i = 1; i <= kIONDRVISTPropertyMemberCount; i++)
+            {
+                source = set->sources + i;
+                source->handler         = &tvIONDRVStdInterruptHandler;
+                source->enabler         = &tvIONDRVStdInterruptEnabler;
+                source->disabler        = &tvIONDRVStdInterruptDisabler;
     
-		setMember.setID 	= (void *) set;
-		setMember.member	= i;
-		data->appendBytes( &setMember, sizeof( setMember));
-	    }
-	    provider->setProperty( kIONDRVISTPropertyName, data );
-	    data->release();
-	}
+                setMember.setID         = (void *) set;
+                setMember.member        = i;
+                data->appendBytes( &setMember, sizeof( setMember));
+            }
+            provider->setProperty( kIONDRVISTPropertyName, data );
+            data->release();
+        }
         provider->setProperty( "AAPL,ndrv-interrupt-set", set );
         set->release();
     }
@@ -2191,8 +2187,8 @@ extern "C" IOReturn _IONDRVLibrariesInitialize( IOService * provider )
 #if !__ppc__
 
 OSStatus    CallTVector( 
-	    void * p1, void * p2, void * p3, void * p4, void * p5, void * p6,
-	    struct IOTVector * entry )
+            void * p1, void * p2, void * p3, void * p4, void * p5, void * p6,
+            struct IOTVector * entry )
 {
     typedef OSStatus (*Proc)(void * p1, void * p2, void * p3, void * p4, void * p5, void * p6);
 
@@ -2201,6 +2197,6 @@ OSStatus    CallTVector(
     return( (*proc)(p1, p2, p3, p4, p5, p6) );
 }
 
-#endif	/* !__ppc__ */
+#endif  /* !__ppc__ */
 
 

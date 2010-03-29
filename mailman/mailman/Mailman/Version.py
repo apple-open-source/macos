@@ -1,4 +1,4 @@
-# Copyright (C) 1998-2006 by the Free Software Foundation, Inc.
+# Copyright (C) 1998-2009 by the Free Software Foundation, Inc.
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -16,7 +16,7 @@
 # USA.
 
 # Mailman version
-VERSION = '2.1.12rc1'
+VERSION = '2.1.13'
 
 # And as a hex number in the manner of PY_VERSION_HEX
 ALPHA = 0xa
@@ -28,10 +28,10 @@ FINAL = 0xf
 
 MAJOR_REV = 2
 MINOR_REV = 1
-MICRO_REV = 12
-REL_LEVEL = GAMMA
+MICRO_REV = 13
+REL_LEVEL = FINAL
 # at most 15 beta releases!
-REL_SERIAL = 1
+REL_SERIAL = 0
 
 HEX_VERSION = ((MAJOR_REV << 24) | (MINOR_REV << 16) | (MICRO_REV << 8) |
                (REL_LEVEL << 4)  | (REL_SERIAL << 0))

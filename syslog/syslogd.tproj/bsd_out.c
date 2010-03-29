@@ -101,7 +101,7 @@ _do_reset(void)
 	{
 		bsd_out_network_reset();
 	}
-	
+
 	reset = RESET_NONE;
 
 	pthread_mutex_unlock(&reset_lock);
@@ -438,7 +438,7 @@ bsd_log_string(const char *msg)
 static int
 _syslog_send_repeat_msg(struct config_rule *r)
 {
-	char vt[32], *p, *msg;
+	char vt[32], *msg;
 	time_t tick;
 	int len, status;
 
@@ -447,14 +447,13 @@ _syslog_send_repeat_msg(struct config_rule *r)
 	if (r->last_count == 0) return 0;
 
 	tick = time(NULL);
-	p = ctime(&tick);
-	if (p == NULL) return -1;
 
-	memcpy(vt, p+4, 15);
-	vt[15] = '\0';
+	memset(vt, 0, sizeof(vt));
+	ctime_r(&tick, vt);
+	vt[19] = '\0';
 
 	msg = NULL;
-	asprintf(&msg, "%s: --- last message repeated %u time%s ---\n", vt, r->last_count, (r->last_count == 1) ? "" : "s");
+	asprintf(&msg, "%s: --- last message repeated %u time%s ---\n", vt + 4, r->last_count, (r->last_count == 1) ? "" : "s");
 	if (msg == NULL) return -1;
 
 	len = strlen(msg);
@@ -489,7 +488,7 @@ _syslog_send_repeat_msg(struct config_rule *r)
 static int
 _syslog_send(asl_msg_t *msg, struct config_rule *r, char **out, char **fwd, time_t now)
 {
-	char vt[16], *so, *sf, *p, *outmsg;
+	char vt[16], tstr[32], *so, *sf, *outmsg;
 	const char *vtime, *vhost, *vident, *vpid, *vmsg, *vlevel, *vfacility, *vrefproc, *vrefpid;
 	size_t outlen, n;
 	time_t tick;
@@ -522,8 +521,9 @@ _syslog_send(asl_msg_t *msg, struct config_rule *r, char **out, char **fwd, time
 			if (tick == 0) tick = now;
 		}
 
-		p = ctime(&tick);
-		memcpy(vt, p+4, 15);
+		memset(tstr, 0, sizeof(tstr));
+		ctime_r(&tick, tstr);
+		memcpy(vt, tstr+4, 15);
 		vt[15] = '\0';
 
 		vhost = asl_get(msg, ASL_KEY_HOST);
@@ -963,15 +963,15 @@ int
 bsd_out_network_reset(void)
 {
 	struct config_rule *r;
-	
+
 	for (r = bsd_out_rule.tqh_first; r != NULL; r = r->entries.tqe_next)
-	{		
+	{
 		if (r->type == DST_TYPE_SOCK) 
 		{
 			close(r->fd);
 			r->fd = -1;
 		}
 	}
-	
+
 	return 0;
 }

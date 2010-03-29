@@ -2,8 +2,8 @@
 
   hash.c -
 
-  $Author: knu $
-  $Date: 2008-06-09 03:25:01 +0900 (Mon, 09 Jun 2008) $
+  $Author: shyouhei $
+  $Date: 2009-02-24 02:40:05 +0900 (Tue, 24 Feb 2009) $
   created at: Mon Nov 22 18:51:18 JST 1993
 
   Copyright (C) 1993-2003 Yukihiro Matsumoto
@@ -357,10 +357,16 @@ rb_hash_s_create(argc, argv, klass)
 	    hash = hash_alloc(klass);
 	    for (i = 0; i < RARRAY_LEN(tmp); ++i) {
 		VALUE v = rb_check_array_type(RARRAY_PTR(tmp)[i]);
-		
+		VALUE key, val = Qnil;
+
 		if (NIL_P(v)) continue;
-		if (RARRAY_LEN(v) < 1 || 2 < RARRAY_LEN(v)) continue;
-		rb_hash_aset(hash, RARRAY_PTR(v)[0], RARRAY_PTR(v)[1]);
+		switch (RARRAY_LEN(v)) {
+		  case 2:
+		    val = RARRAY_PTR(v)[1];
+		  case 1:
+		    key = RARRAY_PTR(v)[0];
+		    rb_hash_aset(hash, key, val);
+		}
 	    }
 	    return hash;
 	}

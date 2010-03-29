@@ -105,6 +105,7 @@ namespace JSC {
         CodeLocationNearCall callReturnLocation;
         CodeLocationDataLabelPtr hotPathBegin;
         CodeLocationNearCall hotPathOther;
+        CodeBlock* ownerCodeBlock;
         CodeBlock* callee;
         unsigned position;
         
@@ -115,12 +116,14 @@ namespace JSC {
     struct MethodCallLinkInfo {
         MethodCallLinkInfo()
             : cachedStructure(0)
+            , cachedPrototypeStructure(0)
         {
         }
 
         CodeLocationCall callReturnLocation;
         CodeLocationDataLabelPtr structureLabel;
         Structure* cachedStructure;
+        Structure* cachedPrototypeStructure;
     };
 
     struct FunctionRegisterInfo {
@@ -231,7 +234,7 @@ namespace JSC {
         void mark();
         void refStructures(Instruction* vPC) const;
         void derefStructures(Instruction* vPC) const;
-#if ENABLE(JIT)
+#if ENABLE(JIT_OPTIMIZE_CALL)
         void unlinkCallers();
 #endif
 
@@ -317,6 +320,7 @@ namespace JSC {
 #endif
 
 #if ENABLE(JIT)
+        JITCode& getJITCode() { return ownerNode()->generatedJITCode(); }
         void setJITCode(JITCode);
         ExecutablePool* executablePool() { return ownerNode()->getExecutablePool(); }
 #endif

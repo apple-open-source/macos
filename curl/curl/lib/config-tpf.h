@@ -559,9 +559,6 @@
 /* if you have the zlib.h header file */
 /* #undef HAVE_ZLIB_H */
 
-/* If you lack a fine basename() prototype */
-/* #undef NEED_BASENAME_PROTO */
-
 /* need REENTRANT defined */
 /* #undef NEED_REENTRANT */
 
@@ -600,6 +597,9 @@
 
 /* Define to the type of arg 5 for `select'. */
 #define SELECT_TYPE_ARG5 (struct timeval *)
+
+/* The size of an `off_t', as computed by sizeof. */
+#define SIZEOF_OFF_T 8
 
 /* The size of a `size_t', as computed by sizeof. */
 #define SIZEOF_SIZE_T 8
@@ -664,9 +664,6 @@
 
 /* Define to `unsigned' if <sys/types.h> does not define. */
 /* #undef size_t */
-
-/* Type to use in place of socklen_t when system does not provide it. */
-/* #undef socklen_t */
 
 /* the signed version of size_t */
 /* #undef ssize_t */

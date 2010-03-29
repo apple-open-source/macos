@@ -191,7 +191,8 @@ typedef struct dnspacket_s
 	struct sockaddr *dns_server;
 } si_dnspacket_t;
 
-typedef struct si_srv_s {
+typedef struct si_srv_s
+{
 	uint16_t priority;
 	uint16_t weight;
 	uint16_t port;
@@ -227,8 +228,8 @@ typedef struct si_mod_s
 	si_item_t *(*sim_alias_byname)(struct si_mod_s *si, const char *name);
 	si_list_t *(*sim_alias_all)(struct si_mod_s *si);
 
-	si_item_t *(*sim_host_byname)(struct si_mod_s *si, const char *name, int af, uint32_t *err);
-	si_item_t *(*sim_host_byaddr)(struct si_mod_s *si, const void *addr, int af, uint32_t *err);
+	si_item_t *(*sim_host_byname)(struct si_mod_s *si, const char *name, int af, const char *interface, uint32_t *err);
+	si_item_t *(*sim_host_byaddr)(struct si_mod_s *si, const void *addr, int af, const char *interface, uint32_t *err);
 	si_list_t *(*sim_host_all)(struct si_mod_s *si);
 
 	si_item_t *(*sim_network_byname)(struct si_mod_s *si, const char *name);
@@ -255,17 +256,17 @@ typedef struct si_mod_s
 	si_item_t *(*sim_mac_bymac)(struct si_mod_s *si, const char *mac);
 	si_list_t *(*sim_mac_all)(struct si_mod_s *si);
 
-	si_list_t *(*sim_addrinfo)(struct si_mod_s *si, const void *node, const void *serv, uint32_t family, uint32_t socktype, uint32_t protocol, uint32_t flags, uint32_t *err);
+	si_list_t *(*sim_addrinfo)(struct si_mod_s *si, const void *node, const void *serv, uint32_t family, uint32_t socktype, uint32_t protocol, uint32_t flags, const char *interface, uint32_t *err);
 	int (*sim_wants_addrinfo)(struct si_mod_s *si);
 
-	si_item_t *(*sim_nameinfo)(struct si_mod_s *si, const struct sockaddr *sa, int flags, uint32_t *err);
+	si_item_t *(*sim_nameinfo)(struct si_mod_s *si, const struct sockaddr *sa, int flags, const char *interface, uint32_t *err);
 
-	si_list_t *(*sim_srv_byname)(struct si_mod_s *si, const char *qname, uint32_t *err);
+	si_list_t *(*sim_srv_byname)(struct si_mod_s *si, const char *qname, const char *interface, uint32_t *err);
 
-	si_item_t *(*sim_item_call)(struct si_mod_s *si, int call, const char *str1, const char *str2, uint32_t num1, uint32_t num2, uint32_t *err);
-	si_list_t *(*sim_list_call)(struct si_mod_s *si, int call, const char *str1, const char *str2, uint32_t num1, uint32_t num2, uint32_t num3, uint32_t num4, uint32_t *err);
+	si_item_t *(*sim_item_call)(struct si_mod_s *si, int call, const char *str1, const char *str2, const char *str3, uint32_t num1, uint32_t num2, uint32_t *err);
+	si_list_t *(*sim_list_call)(struct si_mod_s *si, int call, const char *str1, const char *str2, const char *str3, uint32_t num1, uint32_t num2, uint32_t num3, uint32_t num4, uint32_t *err);
 
-	mach_port_t (*sim_async_call)(struct si_mod_s *si, int call, const char *str1, const char *str2, uint32_t num1, uint32_t num2, uint32_t num3, uint32_t num4, void *callback, void *context);
+	mach_port_t (*sim_async_call)(struct si_mod_s *si, int call, const char *str1, const char *str2, const char *str3, uint32_t num1, uint32_t num2, uint32_t num3, uint32_t num4, void *callback, void *context);
 	void (*sim_async_cancel)(mach_port_t p);
 	void (*sim_async_handle_reply)(mach_msg_header_t *msg);
 } si_mod_t;
@@ -298,8 +299,8 @@ __private_extern__ si_list_t *si_netgroup_byname(struct si_mod_s *si, const char
 __private_extern__ si_item_t *si_alias_byname(struct si_mod_s *si, const char *name);
 __private_extern__ si_list_t *si_alias_all(struct si_mod_s *si);
 
-__private_extern__ si_item_t *si_host_byname(si_mod_t *si, const char *name, int af, uint32_t *err);
-__private_extern__ si_item_t *si_host_byaddr(si_mod_t *si, const void *addr, int af, uint32_t *err);
+__private_extern__ si_item_t *si_host_byname(si_mod_t *si, const char *name, int af, const char *interface, uint32_t *err);
+__private_extern__ si_item_t *si_host_byaddr(si_mod_t *si, const void *addr, int af, const char *interface, uint32_t *err);
 __private_extern__ si_list_t *si_host_all(si_mod_t *si);
 
 __private_extern__ si_item_t *si_mac_byname(struct si_mod_s *si, const char *name);
@@ -327,17 +328,17 @@ __private_extern__ si_item_t *si_fs_byfile(si_mod_t *si, const char *file);
 __private_extern__ si_list_t *si_fs_all(si_mod_t *si);
 
 __private_extern__ int si_wants_addrinfo(si_mod_t *s);
-__private_extern__ si_list_t *si_addrinfo(si_mod_t *si, const char *node, const char *serv, uint32_t family, uint32_t socktype, uint32_t protocol, uint32_t flags, uint32_t *err);
+__private_extern__ si_list_t *si_addrinfo(si_mod_t *si, const char *node, const char *serv, uint32_t family, uint32_t socktype, uint32_t protocol, uint32_t flags, const char *interface, uint32_t *err);
 
-__private_extern__ si_item_t *si_nameinfo(si_mod_t *si, const struct sockaddr *sa, int flags, uint32_t *err);
-__private_extern__ si_item_t *si_ipnode_byname(si_mod_t *si, const char *name, int family, int flags, uint32_t *err);
+__private_extern__ si_item_t *si_nameinfo(si_mod_t *si, const struct sockaddr *sa, int flags, const char *interface, uint32_t *err);
+__private_extern__ si_item_t *si_ipnode_byname(si_mod_t *si, const char *name, int family, int flags, const char *interface, uint32_t *err);
 
-__private_extern__ si_list_t *si_srv_byname(si_mod_t *si, const char *qname, uint32_t *err);
+__private_extern__ si_list_t *si_srv_byname(si_mod_t *si, const char *qname, const char *interface, uint32_t *err);
 
-__private_extern__ si_item_t *si_item_call(si_mod_t *si, int call, const char *str1, const char *str2, uint32_t num1, uint32_t num2, uint32_t *err);
-__private_extern__ si_list_t *si_list_call(si_mod_t *si, int call, const char *str1, const char *str2, uint32_t num1, uint32_t num2, uint32_t num3, uint32_t num4, uint32_t *err);
+__private_extern__ si_item_t *si_item_call(si_mod_t *si, int call, const char *str1, const char *str2, const char *str3, uint32_t num1, uint32_t num2, uint32_t *err);
+__private_extern__ si_list_t *si_list_call(si_mod_t *si, int call, const char *str1, const char *str2, const char *str3, uint32_t num1, uint32_t num2, uint32_t num3, uint32_t num4, uint32_t *err);
 
-extern mach_port_t si_async_call(si_mod_t *si, int call, const char *str1, const char *str2, uint32_t num1, uint32_t num2, uint32_t num3, uint32_t num4, void *callback, void *context);
+extern mach_port_t si_async_call(si_mod_t *si, int call, const char *str1, const char *str2, const char *str3, uint32_t num1, uint32_t num2, uint32_t num3, uint32_t num4, void *callback, void *context);
 extern void si_async_cancel(mach_port_t p);
 extern void si_async_handle_reply(mach_msg_header_t *msg);
 

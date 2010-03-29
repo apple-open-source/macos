@@ -107,14 +107,38 @@ enum
 #define	kEHCIStructureAllocationPhysicalMask	0x00000000FFFFF000ULL			// for use with inTaskWithPhysicalMask (below 4GB and 4K aligned)
 
 enum{
-	kEHCIMaxPoll 			= 256,
-	kEHCIMaxPeriodicBandwidth 	= 54000
+	kEHCIMaxPollingInterval		= 32,					// the maximum polling rate (in ms)
+	kEHCIuFramesPerFrame		= 8,					// 8 uFrames per frame
 	};
+
 enum{
 	kEHCIPeriodicListEntries 	= 1024,
 	kEHCIPeriodicFrameListsize 	= 4096
 	};
 
+// bandwidth numbers (for various packets exclusive of the data content)
+enum {
+	kEHCIHSTokenSameDirectionOverhead = 19,			// 4 byte sync, 3 byte token, 1 byte EOP, 11 byte ipg
+	kEHCIHSTokenChangeDirectionOverhead = 9,		// 4 byte sync, 3 byte token, 1 byte EOP, 1 byte bus turn
+	kEHCIHSDataSameDirectionOverhead = 19,			// 4 byte sync, 1 byte PID, 2 byte CRC, 1 byte EOP, 11 byte ipg
+	kEHCIHSDataChangeDirectionOverhead = 9,			// 4 byte sync, 1 byte PID, 2 byte CRC, 1 byte EOP, 1 byte bus turn
+	kEHCIHSHandshakeOverhead = 7,					// 4 byte sync, 1 byte PID, 1 byte EOP, 1 byte bus turn
+	kEHCIHSSplitSameDirectionOverhead = 39,			// 4 byte sync, 4 byte split token, 1 byte EOP, 11 byte ipg, 4 byte sync, 3 byte FS token, 1 byte EOP, 11 byte ipg
+	kEHCIHSSplitChangeDirectionOverhead = 29,		// 4 byte sync, 4 byte split token, 1 byte EOP, 11 byte ipg, 4 byte sync, 3 byte FS token, 1 byte EOP, 1 byte ipg
+	kEHCIHSMaxPeriodicBytesPeruFrame = 6000,		// 80% of 7500 bytes in a microframe
+	
+	// for use by split transactions
+	kEHCIFSSplitInterruptOverhead = 13,
+	kEHCILSSplitInterruptOverhead = ((14 * 8) + 5),
+	kEHCIFSSplitIsochOverhead = 9,
+	kEHCISplitTTThinkTime = 1,						// think time of a HS hub TT (may be adjusted)
+	kEHCIFSSOFBytesUsed = 6,						// Bytes in a SOF packet on the FS bus
+	kEHCIFSHubAdjustBytes = 30,						// Number of bytes to give away for the hub's use at the beginning of the frame (0-60)
+	kEHCIFSMinStartTime = (kEHCIFSSOFBytesUsed + kEHCIFSHubAdjustBytes),
+	kEHCIFSMaxFrameBytes = 1157,					// (90% of 1500) * 6 / 7 for bit stuffing
+	kEHCIFSLargeIsochPacket = 579,					// this is a "large" Isoch packet, which means it will take more than half the total frame. it is treated "special"
+	kEHCIFSBytesPeruFrame = 188,					// max FS bytes per microframe
+};
 
 // This belongs in USB.h
 enum {

@@ -4,10 +4,11 @@
 #
 .PATH: ${.CURDIR}/arm/string
 
-MDSRCS +=	\
-	bcopy.s \
-	bzero.s \
-	ffs.s \
+MDSRCS +=	 \
+	bcopy.s  \
+	bzero.s  \
+	ffs.s    \
+	memcmp.s \
 	strcmp.s \
 	strlen.s
 
@@ -15,4 +16,4 @@ MDSRCS +=	\
 MDSRCS += memset_pattern.s
 .endif
 
-SUPPRESSSRCS += memcpy.c memmove.c memset.c strlen.c
+SUPPRESSSRCS += bcmp.c memcpy.c memmove.c memset.c strlen.c

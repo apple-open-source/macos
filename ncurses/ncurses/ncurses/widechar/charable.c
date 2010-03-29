@@ -31,6 +31,7 @@
 */
 
 #include <curses.priv.h>
+#include <wchar.h>
 
 MODULE_ID("$Id: charable.c,v 1.5 2008/07/05 20:51:41 tom Exp $")
 

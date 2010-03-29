@@ -25,6 +25,8 @@
 		07C786800EB7DE5F00A71A8D /* FWTracepoints.h in Headers */ = {isa = PBXBuildFile; fileRef = 07C7867F0EB7DE5F00A71A8D /* FWTracepoints.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		07C786810EB7DE5F00A71A8D /* FWTracepoints.h in Headers */ = {isa = PBXBuildFile; fileRef = 07C7867F0EB7DE5F00A71A8D /* FWTracepoints.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		142545110EE48263000D7715 /* FWTracepoints.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 07C7867F0EB7DE5F00A71A8D /* FWTracepoints.h */; };
+		14B47FC2107D65B500E72A3A /* IOFWRingBufferQ.h in Headers */ = {isa = PBXBuildFile; fileRef = 14B47FC1107D65B500E72A3A /* IOFWRingBufferQ.h */; };
+		14B47FC4107D65C000E72A3A /* IOFWRingBufferQ.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 14B47FC3107D65C000E72A3A /* IOFWRingBufferQ.cpp */; };
 		30439B320BA22C7900A7FCB3 /* IOFWUserVectorCommand.h in Headers */ = {isa = PBXBuildFile; fileRef = 30439B300BA22C7900A7FCB3 /* IOFWUserVectorCommand.h */; };
 		30439BF80BA2533D00A7FCB3 /* IOFWUserVectorCommand.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 30439B310BA22C7900A7FCB3 /* IOFWUserVectorCommand.cpp */; };
 		304FC2E50BCC596B00BA08A6 /* IOFireWireLibPHYPacketListener.h in Headers */ = {isa = PBXBuildFile; fileRef = 304FC2E30BCC596B00BA08A6 /* IOFireWireLibPHYPacketListener.h */; };
@@ -305,6 +307,8 @@
 		080C09530017B84F7F000001 /* IOFWUserPhysicalAddressSpace.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = IOFWUserPhysicalAddressSpace.h; path = IOFireWireFamily.kmodproj/IOFWUserPhysicalAddressSpace.h; sourceTree = "<group>"; };
 		080C09540017B84F7F000001 /* IOFWUserPhysicalAddressSpace.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = IOFWUserPhysicalAddressSpace.cpp; path = IOFireWireFamily.kmodproj/IOFWUserPhysicalAddressSpace.cpp; sourceTree = "<group>"; };
 		141300880F619D3F00138D6D /* Info-IOFireWireFamily-FireLog.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = "Info-IOFireWireFamily-FireLog.plist"; sourceTree = "<group>"; };
+		14B47FC1107D65B500E72A3A /* IOFWRingBufferQ.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = IOFWRingBufferQ.h; path = IOFireWireFamily.kmodproj/IOFWRingBufferQ.h; sourceTree = "<group>"; };
+		14B47FC3107D65C000E72A3A /* IOFWRingBufferQ.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = IOFWRingBufferQ.cpp; path = IOFireWireFamily.kmodproj/IOFWRingBufferQ.cpp; sourceTree = "<group>"; };
 		30439B300BA22C7900A7FCB3 /* IOFWUserVectorCommand.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = IOFWUserVectorCommand.h; path = IOFireWireFamily.kmodproj/IOFWUserVectorCommand.h; sourceTree = "<group>"; };
 		30439B310BA22C7900A7FCB3 /* IOFWUserVectorCommand.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = IOFWUserVectorCommand.cpp; path = IOFireWireFamily.kmodproj/IOFWUserVectorCommand.cpp; sourceTree = "<group>"; };
 		304FC2E30BCC596B00BA08A6 /* IOFireWireLibPHYPacketListener.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = IOFireWireLibPHYPacketListener.h; path = IOFireWireLib.CFPlugInProj/IOFireWireLibPHYPacketListener.h; sourceTree = "<group>"; };
@@ -690,6 +694,7 @@
 				4DF89E75033ABAB200CE20D6 /* IOFWUtils.h */,
 				0212CDA6FFE5A54911CE206C /* IOFireWireController.h */,
 				308FA9D40DD916C900F7F717 /* IOFireWireMultiIsochReceive.h */,
+				14B47FC1107D65B500E72A3A /* IOFWRingBufferQ.h */,
 			);
 			name = public;
 			sourceTree = "<group>";
@@ -701,6 +706,7 @@
 				F5C0DDFC03EA461501A0D805 /* IOFWCmdQ.cpp */,
 				F5C0DE0403EA493601A0D805 /* IOFWPendingQ.cpp */,
 				F5C0DE0003EA491F01A0D805 /* IOFWTimeoutQ.cpp */,
+				14B47FC3107D65C000E72A3A /* IOFWRingBufferQ.cpp */,
 			);
 			name = Queues;
 			sourceTree = "<group>";
@@ -830,6 +836,7 @@
 				305ED1860ACC4AA800D13AD8 /* IOFWAsyncStreamReceiver.h in Headers */,
 				3076DFA20B029BAC0032F02E /* IOFWUserAsyncStreamListener.h in Headers */,
 				30D316140BDDA76800A61BFC /* IOFWUserPHYPacketListener.h in Headers */,
+				14B47FC2107D65B500E72A3A /* IOFWRingBufferQ.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1060,6 +1067,7 @@
 				3088F83C0BC6FAC200D3AD8A /* IOFWPHYPacketListener.cpp in Sources */,
 				30D316160BDDA77E00A61BFC /* IOFWUserPHYPacketListener.cpp in Sources */,
 				308FA9D90DD916DF00F7F717 /* IOFireWireMultiIsochReceive.cpp in Sources */,
+				14B47FC4107D65C000E72A3A /* IOFWRingBufferQ.cpp in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1332,7 +1340,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOFireWireFamily;
-				MODULE_VERSION = 4.1.7;
+				MODULE_VERSION = 4.2.6;
 				OTHER_CFLAGS = (
 					"-DIOFIREWIREDEBUG=1",
 					"-DIOFIREWIREUSERCLIENTDEBUG=1",
@@ -1386,7 +1394,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOFireWireFamily;
-				MODULE_VERSION = 4.1.7;
+				MODULE_VERSION = 4.2.6;
 				OTHER_CFLAGS = (
 					"-DIOFIREWIREDEBUG=0",
 					"-DIOFIREWIREUSERCLIENTDEBUG=0",
@@ -1441,7 +1449,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOFireWireFamily;
-				MODULE_VERSION = 4.1.7;
+				MODULE_VERSION = 4.2.6;
 				OTHER_CFLAGS = (
 					"-DIOFIREWIREDEBUG=1",
 					"-DIOFIREWIREUSERCLIENTDEBUG=1",
@@ -1493,7 +1501,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOFireWireFamily;
-				MODULE_VERSION = 4.1.7;
+				MODULE_VERSION = 4.2.6;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";

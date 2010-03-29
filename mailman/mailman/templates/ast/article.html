@@ -1,0 +1,50 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2//EN">
+<HTML>
+ <HEAD>
+   <TITLE> %(title)s
+   </TITLE>
+   <link rel="Index" href="index.html">
+   <link rel="made" href="mailto:%(email_url)s?Subject=%(subject_url)s&amp;In-Reply-To=%(in_reply_to_url)s">
+   <META NAME="robots" CONTENT="index,nofollow">
+   %(encoding)s
+   %(prev)s
+   %(next)s
+ </HEAD>
+ <BODY BGCOLOR="#ffffff">
+   <h1>%(subject_html)s </h1>
+    <b>%(author_html)s</b> 
+    <a href="mailto:%(email_url)s?Subject=%(subject_url)s&amp;In-Reply-To=%(in_reply_to_url)s" 
+		title="%(subject_html)s">%(email_html)s
+       </a><br>
+    <i>%(datestr_html)s</i>
+    <p><ul>
+        %(prev_wsubj)s
+        %(next_wsubj)s
+         <li> <b>Mensaxes axeitaos por:</b> 
+              <a href="date.html#%(sequence)s">[ data ]</a>
+              <a href="thread.html#%(sequence)s">[ filu ]</a>
+              <a href="subject.html#%(sequence)s">[ asuntu ]</a>
+              <a href="author.html#%(sequence)s">[ autor ]</a>
+         </li>
+       </ul>
+    <hr>  
+<!--beginarticle-->
+%(body)s
+<!--endarticle-->
+    <hr>
+    <p><ul>
+        <!--threads-->
+	%(prev_wsubj)s
+	%(next_wsubj)s
+         <li> <b>Mensaxes axeitaos por:</b> 
+              <a href="date.html#%(sequence)s">[ data ]</a>
+              <a href="thread.html#%(sequence)s">[ filu ]</a>
+              <a href="subject.html#%(sequence)s">[ asuntu ]</a>
+              <a href="author.html#%(sequence)s">[ autor ]</a>
+         </li>
+       </ul>
+
+<hr>
+<a href="%(listurl)s">M&aacute;s informaci&oacute;n sobro la llista de distribuci&oacute;n %(listname)s </a><br>
+
+</body></html>

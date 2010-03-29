@@ -1,8 +1,8 @@
 #
 #   sync.rb - 2 phase lock with counter
 #   	$Release Version: 1.0$
-#   	$Revision: 11708 $
-#   	$Date: 2007-02-13 08:01:19 +0900 (Tue, 13 Feb 2007) $
+#   	$Revision: 22457 $
+#   	$Date: 2009-02-20 01:41:12 +0900 (Fri, 20 Feb 2009) $
 #   	by Keiju ISHITSUKA(keiju@ishitsuka.com)
 #
 # --
@@ -54,6 +54,7 @@ module Sync_m
   # exceptions
   class Err < StandardError
     def Err.Fail(*opt)
+      Thread.critical = false
       fail self, sprintf(self::Message, *opt)
     end
     
@@ -129,10 +130,10 @@ module Sync_m
   
   # locking methods.
   def sync_try_lock(mode = EX)
-    return unlock if sync_mode == UN
+    return unlock if mode == UN
     
     Thread.critical = true
-    ret = sync_try_lock_sub(sync_mode)
+    ret = sync_try_lock_sub(mode)
     Thread.critical = false
     ret
   end

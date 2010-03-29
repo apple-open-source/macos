@@ -109,9 +109,9 @@ struct _extended96 {
     short                           exp[2];
     short                           man[4];
 };
-typedef struct wide				*WidePtr;
+typedef struct wide                             *WidePtr;
 
-typedef struct UnsignedWide		*UnsignedWidePtr;
+typedef struct UnsignedWide             *UnsignedWidePtr;
 
 
 /*
@@ -212,21 +212,21 @@ typedef unsigned char Str31[32];
 
 /*
 From:
-	File:		DriverFamilyMatching.i <18>
-	Copyright:	� 1995-1996 by Apple Computer, Inc., all rights reserved.
+        File:           DriverFamilyMatching.i <18>
+        Copyright:      � 1995-1996 by Apple Computer, Inc., all rights reserved.
 */
 
 //##############################################
 // Well known properties in the Name Registry
 //##############################################
 
-#define kPropertyName					"name"
-#define kPropertyCompatible				"compatible"
-#define	kPropertyDriverPtr				"driver-ptr"
-#define kPropertyDriverDesc				"driver-description"
-#define kPropertyReg					"reg"
-#define kPropertyAAPLAddress				"AAPL,address"
-#define kPropertyMatching				"matching"
+#define kPropertyName                                   "name"
+#define kPropertyCompatible                             "compatible"
+#define kPropertyDriverPtr                              "driver-ptr"
+#define kPropertyDriverDesc                             "driver-description"
+#define kPropertyReg                                    "reg"
+#define kPropertyAAPLAddress                            "AAPL,address"
+#define kPropertyMatching                               "matching"
 
 
 //#########################################################
@@ -234,112 +234,112 @@ From:
 //#########################################################
 /* Driver Typing Information Used to Match Drivers With Devices */
 struct DriverType {
-	Str31							nameInfoStr;				/* Driver Name/Info String*/
-	NumVersion						version;					/* Driver Version Number*/
+        Str31                                                   nameInfoStr;                            /* Driver Name/Info String*/
+        NumVersion                                              version;                                        /* Driver Version Number*/
 };
-typedef struct DriverType			DriverType;
-typedef DriverType *				DriverTypePtr;
+typedef struct DriverType                       DriverType;
+typedef DriverType *                            DriverTypePtr;
 
 /* OS Runtime Information Used to Setup and Maintain a Driver's Runtime Environment */
 typedef OptionBits RuntimeOptions;
 
 
 enum {
-	kDriverIsLoadedUponDiscovery = 0x00000001,					/* auto-load driver when discovered*/
-	kDriverIsOpenedUponLoad		=  0x00000002,					/* auto-open driver when loaded*/
-	kDriverIsUnderExpertControl	=  0x00000004,					/* I/O expert handles loads/opens*/
-	kDriverIsConcurrent			=  0x00000008,					/* supports concurrent requests*/
-	kDriverQueuesIOPB			=  0x00000010,					/* device manager doesn't queue IOPB*/
-	kDriverIsLoadedAtBoot		=  0x00000020,					/* Driver is loaded at the boot time */
-	kDriverIsForVirtualDevice	=  0x00000040,					/* Driver is for a virtual Device */ 
-	kDriverSupportDMSuspendAndResume = 0x00000080				/* Driver supports Device Manager Suspend and Resume command */
+        kDriverIsLoadedUponDiscovery = 0x00000001,                                      /* auto-load driver when discovered*/
+        kDriverIsOpenedUponLoad         =  0x00000002,                                  /* auto-open driver when loaded*/
+        kDriverIsUnderExpertControl     =  0x00000004,                                  /* I/O expert handles loads/opens*/
+        kDriverIsConcurrent                     =  0x00000008,                                  /* supports concurrent requests*/
+        kDriverQueuesIOPB                       =  0x00000010,                                  /* device manager doesn't queue IOPB*/
+        kDriverIsLoadedAtBoot           =  0x00000020,                                  /* Driver is loaded at the boot time */
+        kDriverIsForVirtualDevice       =  0x00000040,                                  /* Driver is for a virtual Device */ 
+        kDriverSupportDMSuspendAndResume = 0x00000080                           /* Driver supports Device Manager Suspend and Resume command */
 };
 
 struct DriverOSRuntime {
-	RuntimeOptions					driverRuntime;				/* Options for OS Runtime*/
-	Str31							driverName;					/* Driver's name to the OS*/
-	UInt32							driverDescReserved[8];		/* Reserved area*/
+        RuntimeOptions                                  driverRuntime;                          /* Options for OS Runtime*/
+        Str31                                                   driverName;                                     /* Driver's name to the OS*/
+        UInt32                                                  driverDescReserved[8];          /* Reserved area*/
 };
-typedef struct DriverOSRuntime		DriverOSRuntime;
-typedef DriverOSRuntime *			DriverOSRuntimePtr;
+typedef struct DriverOSRuntime          DriverOSRuntime;
+typedef DriverOSRuntime *                       DriverOSRuntimePtr;
 
 /* OS Service Information Used To Declare What APIs a Driver Supports */
 typedef UInt32 ServiceCount;
 
 struct DriverServiceInfo {
-	OSType							serviceCategory;			/* Service Category Name*/
-	OSType							serviceType;				/* Type within Category*/
-	NumVersion						serviceVersion;				/* Version of service*/
+        OSType                                                  serviceCategory;                        /* Service Category Name*/
+        OSType                                                  serviceType;                            /* Type within Category*/
+        NumVersion                                              serviceVersion;                         /* Version of service*/
 };
-typedef struct DriverServiceInfo	DriverServiceInfo;
-typedef DriverServiceInfo *			DriverServiceInfoPtr;
+typedef struct DriverServiceInfo        DriverServiceInfo;
+typedef DriverServiceInfo *                     DriverServiceInfoPtr;
 
 struct DriverOSService {
-	ServiceCount					nServices;					/* Number of Services Supported*/
-	DriverServiceInfo				service[1];					/* The List of Services (at least one)*/
+        ServiceCount                                    nServices;                                      /* Number of Services Supported*/
+        DriverServiceInfo                               service[1];                                     /* The List of Services (at least one)*/
 };
-typedef struct DriverOSService		DriverOSService;
-typedef DriverOSService *			DriverOSServicePtr;
+typedef struct DriverOSService          DriverOSService;
+typedef DriverOSService *                       DriverOSServicePtr;
 
 /* Categories */
 
 enum {
-	kServiceCategoryDisplay			= 'disp',						/* Display Manager*/
-	kServiceCategoryOpenTransport 	= 'otan',						/* Open Transport*/
-	kServiceCategoryBlockStorage	= 'blok',						/* Block Storage*/
-	kServiceCategoryNdrvDriver		= 'ndrv',						/* Generic Native Driver*/
-	kServiceCategoryScsiSIM			= 'scsi',						/* SCSI */
-	kServiceCategoryFileManager		= 'file',						/* File Manager */
-	kServiceCategoryIDE				= 'ide-',						/* ide */
-	kServiceCategoryADB				= 'adb-',						/* adb */
-	kServiceCategoryPCI				= 'pci-',						/* pci bus */
-																	/* Nu Bus */
-	kServiceCategoryDFM				= 'dfm-',						/* DFM */
-	kServiceCategoryMotherBoard		= 'mrbd',						/* mother Board */
-	kServiceCategoryKeyboard		= 'kybd',						/* Keyboard */
-	kServiceCategoryPointing		= 'poit',						/* Pointing */
-	kServiceCategoryRTC				= 'rtc-',						/* RTC */
-	kServiceCategoryNVRAM			= 'nram',						/* NVRAM */
-	kServiceCategorySound			= 'sond',						/* Sound (1/3/96 MCS) */
-	kServiceCategoryPowerMgt		= 'pgmt',						/* Power Management */
-	kServiceCategoryGeneric			= 'genr'						/* Generic Service Category to receive general Events */
+        kServiceCategoryDisplay                 = 'disp',                                               /* Display Manager*/
+        kServiceCategoryOpenTransport   = 'otan',                                               /* Open Transport*/
+        kServiceCategoryBlockStorage    = 'blok',                                               /* Block Storage*/
+        kServiceCategoryNdrvDriver              = 'ndrv',                                               /* Generic Native Driver*/
+        kServiceCategoryScsiSIM                 = 'scsi',                                               /* SCSI */
+        kServiceCategoryFileManager             = 'file',                                               /* File Manager */
+        kServiceCategoryIDE                             = 'ide-',                                               /* ide */
+        kServiceCategoryADB                             = 'adb-',                                               /* adb */
+        kServiceCategoryPCI                             = 'pci-',                                               /* pci bus */
+                                                                                                                                        /* Nu Bus */
+        kServiceCategoryDFM                             = 'dfm-',                                               /* DFM */
+        kServiceCategoryMotherBoard             = 'mrbd',                                               /* mother Board */
+        kServiceCategoryKeyboard                = 'kybd',                                               /* Keyboard */
+        kServiceCategoryPointing                = 'poit',                                               /* Pointing */
+        kServiceCategoryRTC                             = 'rtc-',                                               /* RTC */
+        kServiceCategoryNVRAM                   = 'nram',                                               /* NVRAM */
+        kServiceCategorySound                   = 'sond',                                               /* Sound (1/3/96 MCS) */
+        kServiceCategoryPowerMgt                = 'pgmt',                                               /* Power Management */
+        kServiceCategoryGeneric                 = 'genr'                                                /* Generic Service Category to receive general Events */
 };
 
 /* Ndrv ServiceCategory Types */
 enum {
-	kNdrvTypeIsGeneric			= 'genr',						/* generic*/
-	kNdrvTypeIsVideo			= 'vido',						/* video*/
-	kNdrvTypeIsBlockStorage		= 'blok',						/* block storage*/
-	kNdrvTypeIsNetworking		= 'netw',						/* networking*/
-	kNdrvTypeIsSerial			= 'serl',						/* serial*/
-	kNdrvTypeIsParallel			= 'parl',						/* parallel */
-	kNdrvTypeIsSound			= 'sond',						/* sound*/
-	kNdrvTypeIsBusBridge		= 'brdg'
+        kNdrvTypeIsGeneric                      = 'genr',                                               /* generic*/
+        kNdrvTypeIsVideo                        = 'vido',                                               /* video*/
+        kNdrvTypeIsBlockStorage         = 'blok',                                               /* block storage*/
+        kNdrvTypeIsNetworking           = 'netw',                                               /* networking*/
+        kNdrvTypeIsSerial                       = 'serl',                                               /* serial*/
+        kNdrvTypeIsParallel                     = 'parl',                                               /* parallel */
+        kNdrvTypeIsSound                        = 'sond',                                               /* sound*/
+        kNdrvTypeIsBusBridge            = 'brdg'
 };
 
 typedef UInt32 DriverDescVersion;
 
-/*	The Driver Description */
+/*      The Driver Description */
 enum {
-	kInitialDriverDescriptor	= 0,
-	kVersionOneDriverDescriptor	= 1
+        kInitialDriverDescriptor        = 0,
+        kVersionOneDriverDescriptor     = 1
 };
 
 enum {
-	kTheDescriptionSignature	= 'mtej',
-	kDriverDescriptionSignature	= 'pdes'						
+        kTheDescriptionSignature        = 'mtej',
+        kDriverDescriptionSignature     = 'pdes'                                                
 };
 
 
 struct DriverDescription {
-	OSType							driverDescSignature;		/* Signature field of this structure*/
-	DriverDescVersion				driverDescVersion;			/* Version of this data structure*/
-	DriverType						driverType;					/* Type of Driver*/
-	DriverOSRuntime					driverOSRuntimeInfo;		/* OS Runtime Requirements of Driver*/
-	DriverOSService					driverServices;				/* Apple Service API Membership*/
+        OSType                                                  driverDescSignature;            /* Signature field of this structure*/
+        DriverDescVersion                               driverDescVersion;                      /* Version of this data structure*/
+        DriverType                                              driverType;                                     /* Type of Driver*/
+        DriverOSRuntime                                 driverOSRuntimeInfo;            /* OS Runtime Requirements of Driver*/
+        DriverOSService                                 driverServices;                         /* Apple Service API Membership*/
 };
-typedef struct DriverDescription	DriverDescription;
-typedef DriverDescription *			DriverDescriptionPtr;
+typedef struct DriverDescription        DriverDescription;
+typedef DriverDescription *                     DriverDescriptionPtr;
 
 
 #ifndef __LP64__
@@ -401,10 +401,10 @@ typedef RegEntryID *                    RegEntryIDPtr;
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
 struct IONDRVControlParameters {
-    UInt8	__reservedA[0x1a];
-    UInt16	code;
-    void *	params;
-    UInt8	__reservedB[0x12];
+    UInt8       __reservedA[0x1a];
+    UInt16      code;
+    void *      params;
+    UInt8       __reservedB[0x12];
 };
 
 enum {
@@ -415,10 +415,10 @@ enum {
     kIONDRVControlCommand             = 128 + 4,
     kIONDRVStatusCommand              = 128 + 5,
     kIONDRVKillIOCommand              = 128 + 6,
-    kIONDRVInitializeCommand          = 128 + 7,		/* init driver and device*/
-    kIONDRVFinalizeCommand            = 128 + 8,		/* shutdown driver and device*/
-    kIONDRVReplaceCommand             = 128 + 9,		/* replace an old driver*/
-    kIONDRVSupersededCommand          = 128 + 10		/* prepare to be replaced by a new driver*/
+    kIONDRVInitializeCommand          = 128 + 7,                /* init driver and device*/
+    kIONDRVFinalizeCommand            = 128 + 8,                /* shutdown driver and device*/
+    kIONDRVReplaceCommand             = 128 + 9,                /* replace an old driver*/
+    kIONDRVSupersededCommand          = 128 + 10                /* prepare to be replaced by a new driver*/
 };
 enum {
     kIONDRVSynchronousIOCommandKind   = 0x00000001,

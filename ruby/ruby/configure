@@ -10293,7 +10293,7 @@ eval "echo \"\$as_me:$LINENO: $ac_try_echo\"") >&5
 	 test ! -s conftest.err
        }; then
 
-		    test "x$target_cpu" = xppc && ac_cv_header_ucontext_h=no
+		    test "x$target_cpu" = xpowerpc && ac_cv_header_ucontext_h=no
 
 else
   echo "$as_me: failed program was:" >&5
@@ -10772,6 +10772,77 @@ _ACEOF
 
 fi
 	# Dynamic linking for HP-UX
+
+{ echo "$as_me:$LINENO: checking for clock_gettime in -lrt" >&5
+echo $ECHO_N "checking for clock_gettime in -lrt... $ECHO_C" >&6; }
+if test "${ac_cv_lib_rt_clock_gettime+set}" = set; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+else
+  ac_check_lib_save_LIBS=$LIBS
+LIBS="-lrt  $LIBS"
+cat >conftest.$ac_ext <<_ACEOF
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+
+/* Override any GCC internal prototype to avoid an error.
+   Use char because int might match the return type of a GCC
+   builtin and then its argument prototype would still apply.  */
+#ifdef __cplusplus
+extern "C"
+#endif
+char clock_gettime ();
+int
+main ()
+{
+return clock_gettime ();
+  ;
+  return 0;
+}
+_ACEOF
+rm -f conftest.$ac_objext conftest$ac_exeext
+if { (ac_try="$ac_link"
+case "(($ac_try" in
+  *\"* | *\`* | *\\*) ac_try_echo=\$ac_try;;
+  *) ac_try_echo=$ac_try;;
+esac
+eval "echo \"\$as_me:$LINENO: $ac_try_echo\"") >&5
+  (eval "$ac_link") 2>conftest.er1
+  ac_status=$?
+  grep -v '^ *+' conftest.er1 >conftest.err
+  rm -f conftest.er1
+  cat conftest.err >&5
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } && {
+	 test -z "$ac_c_werror_flag" ||
+	 test ! -s conftest.err
+       } && test -s conftest$ac_exeext &&
+       $as_test_x conftest$ac_exeext; then
+  ac_cv_lib_rt_clock_gettime=yes
+else
+  echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+	ac_cv_lib_rt_clock_gettime=no
+fi
+
+rm -f core conftest.err conftest.$ac_objext conftest_ipa8_conftest.oo \
+      conftest$ac_exeext conftest.$ac_ext
+LIBS=$ac_check_lib_save_LIBS
+fi
+{ echo "$as_me:$LINENO: result: $ac_cv_lib_rt_clock_gettime" >&5
+echo "${ECHO_T}$ac_cv_lib_rt_clock_gettime" >&6; }
+if test $ac_cv_lib_rt_clock_gettime = yes; then
+  cat >>confdefs.h <<_ACEOF
+#define HAVE_LIBRT 1
+_ACEOF
+
+  LIBS="-lrt $LIBS"
+
+fi
+	# GNU/Linux
 
 case "$target_cpu" in
 alpha*)		case "$target_os"::"$GCC" in
@@ -13222,11 +13293,11 @@ done
 # Debian GNU/Linux Lenny's libc6.1 2.7-10 has no problem.
 { echo "$as_me:$LINENO: checking for broken erfc of glibc-2.3.6 on IA64" >&5
 echo $ECHO_N "checking for broken erfc of glibc-2.3.6 on IA64... $ECHO_C" >&6; }
-if test "${rb_broken_glibc_ia64_erfc+set}" = set; then
+if test "${rb_cv_broken_glibc_ia64_erfc+set}" = set; then
   echo $ECHO_N "(cached) $ECHO_C" >&6
 else
   if test "$cross_compiling" = yes; then
-  rb_broken_glibc_ia64_erfc=no
+  rb_cv_broken_glibc_ia64_erfc=no
 else
   cat >conftest.$ac_ext <<_ACEOF
 /* confdefs.h.  */
@@ -13264,23 +13335,23 @@ eval "echo \"\$as_me:$LINENO: $ac_try_echo\"") >&5
   ac_status=$?
   echo "$as_me:$LINENO: \$? = $ac_status" >&5
   (exit $ac_status); }; }; then
-  rb_broken_glibc_ia64_erfc=no
+  rb_cv_broken_glibc_ia64_erfc=no
 else
   echo "$as_me: program exited with status $ac_status" >&5
 echo "$as_me: failed program was:" >&5
 sed 's/^/| /' conftest.$ac_ext >&5
 
 ( exit $ac_status )
-rb_broken_glibc_ia64_erfc=yes
+rb_cv_broken_glibc_ia64_erfc=yes
 fi
 rm -f core *.core core.conftest.* gmon.out bb.out conftest$ac_exeext conftest.$ac_objext conftest.$ac_ext
 fi
 
 
 fi
-{ echo "$as_me:$LINENO: result: $rb_broken_glibc_ia64_erfc" >&5
-echo "${ECHO_T}$rb_broken_glibc_ia64_erfc" >&6; }
-case $rb_broken_glibc_ia64_erfc in
+{ echo "$as_me:$LINENO: result: $rb_cv_broken_glibc_ia64_erfc" >&5
+echo "${ECHO_T}$rb_cv_broken_glibc_ia64_erfc" >&6; }
+case $rb_cv_broken_glibc_ia64_erfc in
   yes) ac_cv_func_erf=no;;
 esac
 

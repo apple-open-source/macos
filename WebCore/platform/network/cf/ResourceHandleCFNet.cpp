@@ -34,6 +34,7 @@
 #include "CookieStorageWin.h"
 #include "CString.h"
 #include "DocLoader.h"
+#include "FormDataStreamCFNet.h"
 #include "Frame.h"
 #include "FrameLoader.h"
 #include "Logging.h"
@@ -116,7 +117,32 @@ CFURLRequestRef willSendRequest(CFURLConnectionRef conn, CFURLRequestRef cfReque
 
     LOG(Network, "CFNet - willSendRequest(conn=%p, handle=%p) (%s)", conn, handle, handle->request().url().string().utf8().data());
 
-    ResourceRequest request(cfRequest);
+    ResourceRequest request;
+    if (cfRedirectResponse) {
+        CFHTTPMessageRef httpMessage = CFURLResponseGetHTTPResponse(cfRedirectResponse);
+        if (httpMessage && CFHTTPMessageGetResponseStatusCode(httpMessage) == 307) {
+            RetainPtr<CFStringRef> originalMethod(AdoptCF, handle->request().httpMethod().createCFString());
+            RetainPtr<CFStringRef> newMethod(AdoptCF, CFURLRequestCopyHTTPRequestMethod(cfRequest));
+            if (CFStringCompareWithOptions(originalMethod.get(), newMethod.get(), CFRangeMake(0, CFStringGetLength(originalMethod.get())), kCFCompareCaseInsensitive)) {
+                RetainPtr<CFMutableURLRequestRef> mutableRequest(AdoptCF, CFURLRequestCreateMutableCopy(0, cfRequest));
+                CFURLRequestSetHTTPRequestMethod(mutableRequest.get(), originalMethod.get());
+
+                FormData* body = handle->request().httpBody();
+                if (!equalIgnoringCase(handle->request().httpMethod(), "GET") && body && !body->isEmpty())
+                    WebCore::setHTTPBody(mutableRequest.get(), body);
+
+                String originalContentType = handle->request().httpContentType();
+                RetainPtr<CFStringRef> originalContentTypeCF(AdoptCF, originalContentType.createCFString());
+                if (!originalContentType.isEmpty())
+                    CFURLRequestSetHTTPHeaderFieldValue(mutableRequest.get(), CFSTR("Content-Type"), originalContentTypeCF.get());
+
+                request = mutableRequest.get();
+            }
+        }
+    }
+    if (request.isNull())
+        request = cfRequest;
+    
     handle->willSendRequest(request, cfRedirectResponse);
 
     cfRequest = request.cfURLRequest();

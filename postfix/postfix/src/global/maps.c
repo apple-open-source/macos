@@ -102,7 +102,9 @@
 #include <split_at.h>
 #ifdef __APPLE_OS_X_SERVER__
 #include <pwd.h>
-#endif
+#include <aod.h>
+#include <mail_params.h>
+#endif /* __APPLE_OS_X_SERVER__ */
 
 /* Global library. */
 
@@ -195,12 +197,22 @@ const char *maps_find(MAPS *maps, const char *name, int flags)
 	} else if (strncmp(maps->title, "virtual_alias_maps", 18) == 0 ) {
 		/* if virtual_alias_maps, we want to look in the directory
 			for a possible match as well */
-		struct passwd *pwd;
-		if ((pwd = getpwnam(name)) != 0) {
-			if (msg_verbose)
-			msg_info("%s: %s: %s: %s = %s", myname, maps->title,
-				 *map_name, name, pwd->pw_name);
-			return (pwd->pw_name);
+		if ( var_use_getpwnam_ext ) {
+			const char *pw_nam;
+			if ((pw_nam = ads_getpwnam(name)) != NULL) {
+				if (msg_verbose)
+					msg_info("%s: %s: %s: %s = %s", myname, maps->title,
+						"ads_getpwnam", name, pw_nam);
+				return (pw_nam);
+			}
+		} else {
+			struct passwd *pwd;
+			if ((pwd = getpwnam(name)) != 0) {
+				if (msg_verbose)
+					msg_info("%s: %s: %s: %s = %s", myname, maps->title,
+						"getpwnam", name, pwd->pw_name);
+				return (pwd->pw_name);
+			}
 		}
 #endif
 	} else if (dict_errno != 0) {

@@ -12,7 +12,7 @@ GNU Mailman - Installation Manual
    barry (at) list dot org
 
    Release 2.1
-   January 11, 2009
+   December 14, 2009
 
                                  Front Matter
 
@@ -102,6 +102,11 @@ GNU Mailman - Installation Manual
     % cd $prefix
     % chgrp mailman .
     % chmod a+rx,g+ws .
+
+   Warning: The installation directory, $prefix, cannot be the same
+   directory that the source tarball has been unpacked to and in which
+   you run configure, but it can, if you wish, be a subdirectory, e.g.,
+   $prefix/src.
 
    You are now ready to configure and install the Mailman software.
 
@@ -1138,6 +1143,23 @@ fi
     % su - mailman
     % crontab crontab.in
 
+   Warning: If you accepted the defaults for the --with-username option
+   and for the name of the site list, and one of the cron jobs ever
+   encounters an error, the cron daemon will mail the error output to the
+   'mailman' user and it will most likely be delivered to the 'mailman'
+   site list and possibly not be accepted. For this reason it is a good
+   idea to insert
+
+    MAILTO=user@example.com
+
+   or
+
+    MAILTO=mailman-owner
+
+   at the beginning of crontab.in before installing it to cause this
+   output to be mailed to a real user or to the owner of the site list or
+   to configure the site list (see section 8) to accept this mail.
+
                          10 Start the Mailman qrunner
 
    Mailman depends on a process called the ``qrunner'' to delivery all
@@ -1503,7 +1525,7 @@ tar xvf MailmanStartup.tar
 
                             About this document ...
 
-   GNU Mailman - Installation Manual, January 11, 2009, Release 2.1
+   GNU Mailman - Installation Manual, December 14, 2009, Release 2.1
 
    This document was generated using the LaTeX2HTML translator.
 
@@ -1558,4 +1580,4 @@ tar xvf MailmanStartup.tar
    Previous Page Up one Level Next Page GNU Mailman - Installation Manual
      _________________________________________________________________
 
-   Release 2.1, documentation updated on January 11, 2009.
+   Release 2.1, documentation updated on December 14, 2009.

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2009 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2010 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -577,6 +577,18 @@ void IOAudioEngine::stop(IOService *provider)
     detachAudioStreams();
     removeAllDefaultAudioControls();
 
+	// <rdar://7233118>, <rdar://7029696> Remove the event source here as performing heavy workloop operation in free() could lead
+	// to deadlock since the context which free() is called is not known. stop() is called on the workloop, so it is safe to remove 
+	// the event source here.
+    if (commandGate) {
+        if (workLoop) {
+            workLoop->removeEventSource(commandGate);
+        }
+        
+        commandGate->release();
+        commandGate = NULL;
+    }
+
     super::stop(provider);
 }
 
@@ -815,9 +827,9 @@ IOReturn IOAudioEngine::newUserClient(task_t task, void *securityID, UInt32 type
                 client->release();
                 result = kIOReturnError;
             } else {
-                assert(commandGate);
+                assert(workLoop);	// <rdar://7324947>
     
-                result = commandGate->runAction(addUserClientAction, client);
+                result = workLoop->runAction(_addUserClientAction, this, client);	// <rdar://7324947>, <rdar://7529580>
                 
                 if (result == kIOReturnSuccess) {
                     *handler = client;
@@ -857,9 +869,9 @@ IOReturn IOAudioEngine::newUserClient(task_t task, void *securityID, UInt32 type
                 client->release();
                 result = kIOReturnError;
             } else {
-                assert(commandGate);
+                assert(workLoop);	// <rdar://7324947>
     
-                result = commandGate->runAction(addUserClientAction, client);
+                result = workLoop->runAction(_addUserClientAction, this, client);	// <rdar://7324947>, <rdar://7529580>
                 
                 if (result == kIOReturnSuccess) {
                     *handler = client;
@@ -880,10 +892,33 @@ void IOAudioEngine::clientClosed(IOAudioEngineUserClient *client)
     audioDebugIOLog(3, "IOAudioEngine[%p]::clientClosed(%p)", this, client);
 
     if (client) {
-        assert(commandGate);
+        assert(workLoop);												// <rdar://7529580>
 
-        commandGate->runAction(removeUserClientAction, client);
+        workLoop->runAction(_removeUserClientAction, this, client);		//	<rdar://7529580>
     }
+}
+
+// <rdar://7529580>
+IOReturn IOAudioEngine::_addUserClientAction(OSObject *target, void *arg0, void *arg1, void *arg2, void *arg3)
+{
+    IOReturn result = kIOReturnBadArgument;
+    
+    if (target) {
+        IOAudioEngine *audioEngine = OSDynamicCast(IOAudioEngine, target);
+        if (audioEngine) {
+            IOCommandGate *cg;
+            
+            cg = audioEngine->getCommandGate();
+            
+            if (cg) {
+                result = cg->runAction(addUserClientAction, arg0, arg1, arg2, arg3);
+            } else {
+                result = kIOReturnError;
+            }
+        }
+    }
+    
+    return result;
 }
 
 IOReturn IOAudioEngine::addUserClientAction(OSObject *owner, void *arg1, void *arg2, void *arg3, void *arg4)
@@ -896,6 +931,29 @@ IOReturn IOAudioEngine::addUserClientAction(OSObject *owner, void *arg1, void *a
         IOAudioEngine *audioEngine = OSDynamicCast(IOAudioEngine, owner);
         if (audioEngine) {
             result = audioEngine->addUserClient((IOAudioEngineUserClient *)arg1);
+        }
+    }
+    
+    return result;
+}
+
+// <rdar://7529580>
+IOReturn IOAudioEngine::_removeUserClientAction(OSObject *target, void *arg0, void *arg1, void *arg2, void *arg3)
+{
+    IOReturn result = kIOReturnBadArgument;
+    
+    if (target) {
+        IOAudioEngine *audioEngine = OSDynamicCast(IOAudioEngine, target);
+        if (audioEngine) {
+            IOCommandGate *cg;
+            
+            cg = audioEngine->getCommandGate();
+            
+            if (cg) {
+                result = cg->runAction(removeUserClientAction, arg0, arg1, arg2, arg3);
+            } else {
+                result = kIOReturnError;
+            }
         }
     }
     

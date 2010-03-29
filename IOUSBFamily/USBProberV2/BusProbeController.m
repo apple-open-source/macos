@@ -64,7 +64,7 @@
     [BusProbeOutputOV setTarget:BusProbeOutputOV];
     [BusProbeOutputOV setDoubleAction:@selector(itemDoubleClicked)];
     
-    [self expandOutlineViewItems];
+ //   [self expandOutlineViewItems];
 }
 
 - (IBAction)Refresh:(id)sender
@@ -131,7 +131,7 @@
 {
 	NSMutableString *finalString = [[NSMutableString alloc] init];
 		
-	if( [args count] == 2 && !showHelp )
+	if ( [args count] == 2 && !showHelp )
 	{
 		[self generateStringFromDevices:finalString];
 	}
@@ -193,7 +193,7 @@
 			}
 		}
 		
-		if( !unKnownFilter && !showHelp && busProbe)
+		if ( !unKnownFilter && !showHelp && busProbe)
 		{
 			[self applyFilter :filterDevice :finalString];
 		}
@@ -249,7 +249,7 @@
 
 - (void)busProberInformationDidChange:(BusProber *)aProber {
     [BusProbeOutputOV reloadData];
-    [self expandOutlineViewItems];
+//    [self expandOutlineViewItems];
 }
 
 - (void)expandOutlineViewItems {

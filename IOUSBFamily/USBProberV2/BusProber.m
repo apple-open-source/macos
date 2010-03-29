@@ -211,12 +211,14 @@ static void DeviceRemoved(void *refCon, io_iterator_t iterator)
     UInt8                   speed = 0;
     USBDeviceAddress        address = 0;
     IOUSBDeviceDescriptor   dev;
-    int                     len;
-    IOReturn                error = kIOReturnSuccess;
+    int                     len = 0;
+    IOReturn                error = kIOReturnSuccess, actErr = kIOReturnSuccess;
 	BOOL					needToSuspend = FALSE;
-
+	
     thisDevice = [[BusProbeDevice alloc] init];
     
+	bzero(&dev, sizeof(dev));
+	
     [_devicesArray addObject:thisDevice];
     
     // Get the locationID for this device
@@ -236,51 +238,63 @@ static void DeviceRemoved(void *refCon, io_iterator_t iterator)
     
     // Set the name of the device (this is what will be shown in the UI)
     [thisDevice setDeviceName:
-        [NSString stringWithFormat:@"%s Speed device @ %d (0x%08lX): .............................................",
-            (speed == kUSBDeviceSpeedHigh ? "High" : (speed == kUSBDeviceSpeedLow ? "Low" : "Full")), 
-            address, 
-            locationID]];    
-
+	 [NSString stringWithFormat:@"%s Speed device @ %d (0x%08lX): .............................................",
+	  (speed == kUSBDeviceSpeedHigh ? "High" : (speed == kUSBDeviceSpeedLow ? "Low" : "Full")), 
+	  address, 
+	  locationID]];    
+	
 	// Get the Port Information
-	if ( GetPortInformation(deviceIntf, &portInfo) == 0) {
+	error = GetPortInformation(deviceIntf, &portInfo);
+	if (error == kIOReturnSuccess) {
 		[thisDevice setPortInfo:portInfo];
-
+		
 		[self PrintPortInfo:portInfo forDevice:thisDevice];
 	}
-	else
-        NSLog(@"USB Prober: GetUSBDeviceInformation() for device @%8x failed", [thisDevice locationID]);
-	
-	// If the device is suspended, then unsuspend it first
-	if ( portInfo & (1<<kUSBInformationDeviceIsSuspendedBit) )
-	{
-		if ([[NSUserDefaults standardUserDefaults] boolForKey:@"BusProbeSuspended"] == YES)
-		{
-		needToSuspend = TRUE;
-
-  		error = SuspendDevice(deviceIntf,false);
+	else {
+		char					buf[256];
+		
+		sprintf((char *)buf, "%s (0x%x)", USBErrorToString(error), error );
+		[thisDevice addProperty:"Port Information:" withValue:buf  atDepth:ROOT_LEVEL];
+		//[thisDevice addProperty:"Port Information:" withValue:(char *)[NSString stringWithFormat:@"Error %s", USBErrorToString(error)]  atDepth:ROOT_LEVEL];
+		NSLog(@"USB Prober: GetUSBDeviceInformation() for device @%8x failed with %s", [thisDevice locationID], USBErrorToString(error));
+		error = kIOReturnSuccess;
 	}
 	
-		else
-		{
+	// If the device is suspended, then unsuspend it first
+	if ( portInfo & (1<<kUSBInformationDeviceIsSuspendedBit) ) {
+		if ([[NSUserDefaults standardUserDefaults] boolForKey:@"BusProbeSuspended"] == YES) {
+			// Set this flag so we re-suspend the device later on
+			needToSuspend = TRUE;
+			
+			error = SuspendDevice(deviceIntf,false);
+		}
+		else {
 			error = kIOReturnNotResponding;
 		}
 	}
 	
-	if (error == kIOReturnSuccess)
-	error = GetDescriptor(deviceIntf, kUSBDeviceDesc, 0, &dev, sizeof(dev));
+	// If we are not suspended, talk to our device and get the Device Desriptor
+	if (error == kIOReturnSuccess) {
+		error = GetDescriptor(deviceIntf, kUSBDeviceDesc, 0, &dev, sizeof(dev), &actErr);
+	}
 	
-	if ( error == kIOReturnSuccess )
-	{
+	// OK, go get the descriptors and run with it
+	
+	if ( error == kIOReturnSuccess ) {
         int iconfig;
         [DecodeDeviceDescriptor decodeBytes:&dev forDevice:thisDevice deviceInterface:deviceIntf wasSuspended:needToSuspend];
+		if (actErr != kIOReturnSuccess) {
+			[thisDevice setDeviceDescription: [NSString stringWithFormat:@"%@ - Gave an error getting descriptor - %s (0x%x)", usbName, USBErrorToString(actErr), actErr]];
+		}
 		
+		// Go decode the Config Desriptor
         for (iconfig = 0; iconfig < dev.bNumConfigurations; ++iconfig) {
             IOUSBConfigurationDescHeader cfgHeader;
             IOUSBConfigurationDescriptor config;
 			
             // Get the Configuration descriptor.  We first get just the header and later we get the full
             // descriptor
-            error = GetDescriptor(deviceIntf, kUSBConfDesc, iconfig, &cfgHeader, sizeof(cfgHeader));
+            error = GetDescriptor(deviceIntf, kUSBConfDesc, iconfig, &cfgHeader, sizeof(cfgHeader), nil);
             if (error != kIOReturnSuccess) {
                 // Set a flag to the decodeBytes descriptor indicating that we didn't get the header
                 //
@@ -291,13 +305,12 @@ static void DeviceRemoved(void *refCon, io_iterator_t iterator)
                 // Try to get the descriptor again, using the sizeof(IOUSBConfigurationDescriptor) 
                 //
                 bzero(&config,sizeof(config)-1);
-                error = GetDescriptor(deviceIntf, kUSBConfDesc, iconfig, &config, sizeof(config)-1);
+                error = GetDescriptor(deviceIntf, kUSBConfDesc, iconfig, &config, sizeof(config)-1, nil);
                 if (error != kIOReturnSuccess) {
                     cfgHeader.bDescriptorType = sizeof(config)-1;
                     cfgHeader.wTotalLength = 0;
                 }
-                else
-                {
+                else {
                     cfgHeader.bLength = config.bLength;
                     cfgHeader.bDescriptorType = config.bDescriptorType;
                     cfgHeader.wTotalLength = config.wTotalLength;
@@ -305,81 +318,75 @@ static void DeviceRemoved(void *refCon, io_iterator_t iterator)
             }
             [DecodeConfigurationDescriptor decodeBytes:(IOUSBConfigurationDescHeader *)&cfgHeader forDevice:thisDevice deviceInterface:deviceIntf configNumber:iconfig isOtherSpeedDesc:NO];
         }
+		
+		// If the device is a hub, then dump the Hub descriptor
+		//
+		if ( dev.bDeviceClass == kUSBHubClass ) {
+			IOUSBHubDescriptor	cfg;
+			
+			len = GetClassDescriptor(deviceIntf, kUSBHUBDesc, 0, &cfg, sizeof(cfg));
+			if (len > 0) {
+				[DescriptorDecoder decodeBytes:(Byte *)&cfg forDevice:thisDevice deviceInterface:deviceIntf userInfo:NULL isOtherSpeedDesc:false];
+			}
+		}
+		
+		// Check to see if the device has the "Device Qualifier" descriptor
+		//
+		if ( dev.bcdUSB >= 0x0200 && speed == kUSBDeviceSpeedHigh) {
+			IOUSBDeviceQualifierDescriptor	desc;
+			
+			error = GetDescriptor(deviceIntf, kUSBDeviceQualifierDesc, 0, &desc, sizeof(desc), nil);
+			
+			if (error == kIOReturnSuccess) {
+				[DescriptorDecoder decodeBytes:(Byte *)&desc forDevice:thisDevice deviceInterface:deviceIntf userInfo:NULL isOtherSpeedDesc:false];
+				
+				// Since we have a Device Qualifier Descriptor, we can get a "Other Speed Configuration Descriptor"
+				// (It's the same as a regular configuration descriptor)
+				//
+				int iconfig;
+				
+				for (iconfig = 0; iconfig < desc.bNumConfigurations; ++iconfig) {
+					IOUSBConfigurationDescHeader cfgHeader;
+					IOUSBConfigurationDescriptor config;
+					
+					// Get the Configuration descriptor.  We first get just the header and later we get the full
+					// descriptor
+					error = GetDescriptor(deviceIntf, kUSBOtherSpeedConfDesc, iconfig, &cfgHeader, sizeof(cfgHeader), nil);
+					if (error != kIOReturnSuccess) {
+						// Set a flag to the decodeBytes descriptor indicating that we didn't get the header
+						//
+						cfgHeader.bDescriptorType = sizeof(cfgHeader);
+						cfgHeader.wTotalLength = 0;
+						[DecodeConfigurationDescriptor decodeBytes:(IOUSBConfigurationDescHeader *)&cfgHeader forDevice:thisDevice deviceInterface:deviceIntf configNumber:iconfig isOtherSpeedDesc:YES];
+						
+						// Try to get the descriptor again, using the sizeof(IOUSBConfigurationDescriptor) 
+						//
+						bzero(&config,sizeof(config)-1);
+						error = GetDescriptor(deviceIntf, kUSBOtherSpeedConfDesc, iconfig, &config, sizeof(config)-1, nil);
+						if (error != kIOReturnSuccess) {
+							cfgHeader.bDescriptorType = sizeof(config)-1;
+							cfgHeader.wTotalLength = 0;
+						}
+						else {
+							cfgHeader.bLength = config.bLength;
+							cfgHeader.bDescriptorType = config.bDescriptorType;
+							cfgHeader.wTotalLength = config.wTotalLength;
+						}
+					}
+					[DecodeConfigurationDescriptor decodeBytes:(IOUSBConfigurationDescHeader *)&cfgHeader forDevice:thisDevice deviceInterface:deviceIntf configNumber:iconfig isOtherSpeedDesc:YES];
+				}
+			}
+		}
     }
-	else 
-	{
-		if ( portInfo & (1<<kUSBInformationDeviceIsSuspendedBit) )
-		{
+	else {
+		if ( portInfo & (1<<kUSBInformationDeviceIsSuspendedBit) ) {
 			[thisDevice setDeviceDescription: [NSString stringWithFormat:@"%@ (Device is suspended)", usbName]];
+		}
+		else {
+			// This description will be shown in the UI, to the right of the device's name
+			[thisDevice setDeviceDescription: [NSString stringWithFormat:@"%@ (did not respond to inquiry - %s (0x%x))", usbName, USBErrorToString(error), error]];
+		}
 	}
-		else
-		{
-		// This description will be shown in the UI, to the right of the device's name
-		[thisDevice setDeviceDescription: [NSString stringWithFormat:@"%@ (did not respond to inquiry - %s (0x%x))", usbName, USBErrorToString(error), error]];
-	}
-	}
-	
-	
-    // If the device is a hub, then dump the Hub descriptor
-    //
-    if ( dev.bDeviceClass == kUSBHubClass )
-    {
-        IOUSBHubDescriptor	cfg;
-        
-        len = GetClassDescriptor(deviceIntf, kUSBHUBDesc, 0, &cfg, sizeof(cfg));
-        if (len > 0) {
-            [DescriptorDecoder decodeBytes:(Byte *)&cfg forDevice:thisDevice deviceInterface:deviceIntf userInfo:NULL isOtherSpeedDesc:false];
-        }
-    }
-    
-    // Check to see if the device has the "Device Qualifier" descriptor
-    //
-    if ( dev.bcdUSB >= 0x0200 ) {
-        IOUSBDeviceQualifierDescriptor	desc;
-
-        error = GetDescriptor(deviceIntf, kUSBDeviceQualifierDesc, 0, &desc, sizeof(desc));
-        if (error == kIOReturnSuccess) {
-            [DescriptorDecoder decodeBytes:(Byte *)&desc forDevice:thisDevice deviceInterface:deviceIntf userInfo:NULL isOtherSpeedDesc:false];
-            
-            // Since we have a Device Qualifier Descriptor, we can get a "Other Speed Configuration Descriptor"
-            // (It's the same as a regular configuration descriptor)
-            //
-            int iconfig;
-            
-            for (iconfig = 0; iconfig < desc.bNumConfigurations; ++iconfig)
-            {
-                IOUSBConfigurationDescHeader cfgHeader;
-                IOUSBConfigurationDescriptor config;
-                
-                // Get the Configuration descriptor.  We first get just the header and later we get the full
-                // descriptor
-                error = GetDescriptor(deviceIntf, kUSBOtherSpeedConfDesc, iconfig, &cfgHeader, sizeof(cfgHeader));
-                if (error != kIOReturnSuccess) {
-                    // Set a flag to the decodeBytes descriptor indicating that we didn't get the header
-                    //
-                    cfgHeader.bDescriptorType = sizeof(cfgHeader);
-                    cfgHeader.wTotalLength = 0;
-                    [DecodeConfigurationDescriptor decodeBytes:(IOUSBConfigurationDescHeader *)&cfgHeader forDevice:thisDevice deviceInterface:deviceIntf configNumber:iconfig isOtherSpeedDesc:YES];
-                    
-                    // Try to get the descriptor again, using the sizeof(IOUSBConfigurationDescriptor) 
-                    //
-                    bzero(&config,sizeof(config)-1);
-                    error = GetDescriptor(deviceIntf, kUSBOtherSpeedConfDesc, iconfig, &config, sizeof(config)-1);
-                    if (error != kIOReturnSuccess) {
-                        cfgHeader.bDescriptorType = sizeof(config)-1;
-                        cfgHeader.wTotalLength = 0;
-                    }
-                    else
-                    {
-                        cfgHeader.bLength = config.bLength;
-                        cfgHeader.bDescriptorType = config.bDescriptorType;
-                        cfgHeader.wTotalLength = config.wTotalLength;
-                    }
-                }
-                [DecodeConfigurationDescriptor decodeBytes:(IOUSBConfigurationDescHeader *)&cfgHeader forDevice:thisDevice deviceInterface:deviceIntf configNumber:iconfig isOtherSpeedDesc:YES];
-            }
-        }
-    }
     
 	if ( needToSuspend )
 		SuspendDevice(deviceIntf,true);
@@ -396,7 +403,7 @@ static void DeviceRemoved(void *refCon, io_iterator_t iterator)
 	if (portInfo & (1<<kUSBInformationRootHubisBuiltIn))
 		sprintf((char *)buf, "%s", "Built-in " );
 	else
-		sprintf((char *)buf, "%s", "Expansion slot " );
+		sprintf((char *)buf, "%s", "Remote or Expansion slot " );
 
 	if (portInfo & (1<<kUSBInformationDeviceIsRootHub))
 	{
@@ -438,6 +445,9 @@ static void DeviceRemoved(void *refCon, io_iterator_t iterator)
 	
 	if (portInfo & (1<<kUSBInformationDevicePortIsInTestModeBit))
 		[thisDevice addProperty:"" withValue:"Test Mode" atDepth:ROOT_LEVEL+1];
+	
+	if (portInfo & (1<<kUSBInformationDeviceIsRemote))
+		[thisDevice addProperty:"" withValue:"Remote" atDepth:ROOT_LEVEL+1];
 	
 }
 

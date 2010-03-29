@@ -129,7 +129,7 @@ typedef void (^notify_handler_t)(int token);
  * @result Returns status.
  */
 uint32_t notify_register_dispatch(const char *name, int *out_token, dispatch_queue_t queue, notify_handler_t handler)
-__OSX_AVAILABLE_STARTING(__MAC_10_6,__IPHONE_N_A);
+__OSX_AVAILABLE_STARTING(__MAC_10_6,__IPHONE_3_2);
 #endif /* __BLOCKS__ */
 
 /*!

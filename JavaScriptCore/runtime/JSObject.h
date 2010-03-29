@@ -33,6 +33,7 @@
 #include "ScopeChain.h"
 #include "Structure.h"
 #include "JSGlobalData.h"
+#include <wtf/StdLibExtras.h>
 
 namespace JSC {
 
@@ -195,7 +196,7 @@ namespace JSC {
         void allocatePropertyStorageInline(size_t oldSize, size_t newSize);
         bool isUsingInlineStorage() const { return m_structure->isUsingInlineStorage(); }
 
-        static const size_t inlineStorageCapacity = 3;
+        static const size_t inlineStorageCapacity = sizeof(EncodedJSValue) == 2 * sizeof(void*) ? 4 : 3;
         static const size_t nonInlineBaseStorageCapacity = 16;
 
         static PassRefPtr<Structure> createStructure(JSValue prototype)
@@ -226,17 +227,15 @@ namespace JSC {
         const HashEntry* findPropertyHashEntry(ExecState*, const Identifier& propertyName) const;
         Structure* createInheritorID();
 
-        RefPtr<Structure> m_inheritorID;
-
         union {
             PropertyStorage m_externalStorage;
             EncodedJSValue m_inlineStorage[inlineStorageCapacity];
         };
+
+        RefPtr<Structure> m_inheritorID;
     };
-
-    JSObject* asObject(JSValue);
-
-    JSObject* constructEmptyObject(ExecState*);
+    
+JSObject* constructEmptyObject(ExecState*);
 
 inline JSObject* asObject(JSValue value)
 {
@@ -251,6 +250,9 @@ inline JSObject::JSObject(PassRefPtr<Structure> structure)
     ASSERT(m_structure->propertyStorageCapacity() == inlineStorageCapacity);
     ASSERT(m_structure->isEmpty());
     ASSERT(prototype().isNull() || Heap::heap(this) == Heap::heap(prototype()));
+#if USE(JSVALUE64) || USE(JSVALUE32_64)
+    ASSERT(OBJECT_OFFSETOF(JSObject, m_inlineStorage) % sizeof(double) == 0);
+#endif
 }
 
 inline JSObject::~JSObject()
@@ -452,7 +454,18 @@ inline void JSObject::putDirectInternal(const Identifier& propertyName, JSValue 
         return;
     }
 
+    // If we have a specific function, we may have got to this point if there is
+    // already a transition with the correct property name and attributes, but
+    // specialized to a different function.  In this case we just want to give up
+    // and despecialize the transition.
+    // In this case we clear the value of specificFunction which will result
+    // in us adding a non-specific transition, and any subsequent lookup in
+    // Structure::addPropertyTransitionToExistingStructure will just use that.
+    if (specificFunction && m_structure->hasTransition(propertyName, attributes))
+        specificFunction = 0;
+
     RefPtr<Structure> structure = Structure::addPropertyTransition(m_structure, propertyName, attributes, specificFunction, offset);
+
     if (currentCapacity != structure->propertyStorageCapacity())
         allocatePropertyStorage(currentCapacity, structure->propertyStorageCapacity());
 
@@ -542,7 +555,7 @@ inline JSValue JSValue::get(ExecState* exec, const Identifier& propertyName) con
 inline JSValue JSValue::get(ExecState* exec, const Identifier& propertyName, PropertySlot& slot) const
 {
     if (UNLIKELY(!isCell())) {
-        JSObject* prototype = JSImmediate::prototype(asValue(), exec);
+        JSObject* prototype = synthesizePrototype(exec);
         if (propertyName == exec->propertyNames().underscoreProto)
             return prototype;
         if (!prototype->getPropertySlot(exec, propertyName, slot))
@@ -570,7 +583,7 @@ inline JSValue JSValue::get(ExecState* exec, unsigned propertyName) const
 inline JSValue JSValue::get(ExecState* exec, unsigned propertyName, PropertySlot& slot) const
 {
     if (UNLIKELY(!isCell())) {
-        JSObject* prototype = JSImmediate::prototype(asValue(), exec);
+        JSObject* prototype = synthesizePrototype(exec);
         if (!prototype->getPropertySlot(exec, propertyName, slot))
             return jsUndefined();
         return slot.getValue(exec, propertyName);
@@ -590,7 +603,7 @@ inline JSValue JSValue::get(ExecState* exec, unsigned propertyName, PropertySlot
 inline void JSValue::put(ExecState* exec, const Identifier& propertyName, JSValue value, PutPropertySlot& slot)
 {
     if (UNLIKELY(!isCell())) {
-        JSImmediate::toObject(asValue(), exec)->put(exec, propertyName, value, slot);
+        synthesizeObject(exec)->put(exec, propertyName, value, slot);
         return;
     }
     asCell()->put(exec, propertyName, value, slot);
@@ -599,7 +612,7 @@ inline void JSValue::put(ExecState* exec, const Identifier& propertyName, JSValu
 inline void JSValue::put(ExecState* exec, unsigned propertyName, JSValue value)
 {
     if (UNLIKELY(!isCell())) {
-        JSImmediate::toObject(asValue(), exec)->put(exec, propertyName, value);
+        synthesizeObject(exec)->put(exec, propertyName, value);
         return;
     }
     asCell()->put(exec, propertyName, value);

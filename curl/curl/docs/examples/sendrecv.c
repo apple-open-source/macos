@@ -7,7 +7,7 @@
  *
  * An example of curl_easy_send() and curl_easy_recv() usage.
  *
- * $Id: sendrecv.c,v 1.2 2008-08-14 18:41:37 danf Exp $
+ * $Id: sendrecv.c,v 1.3 2009-11-02 21:20:45 bagder Exp $
  */
 
 #include <stdio.h>
@@ -72,7 +72,7 @@ int main(void)
 
     if(CURLE_OK != res)
     {
-      printf("Error: %s\n", strerror(res));
+      printf("Error: %s\n", curl_easy_strerror(res));
       return 1;
     }
 
@@ -90,7 +90,7 @@ int main(void)
 
     if(CURLE_OK != res)
     {
-      printf("Error: %s\n", strerror(res));
+      printf("Error: %s\n", curl_easy_strerror(res));
       return 1;
     }
     puts("Reading response.");

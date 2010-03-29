@@ -2,8 +2,8 @@
 
   pack.c -
 
-  $Author: knu $
-  $Date: 2008-06-06 19:39:57 +0900 (Fri, 06 Jun 2008) $
+  $Author: shyouhei $
+  $Date: 2009-02-19 18:02:43 +0900 (Thu, 19 Feb 2009) $
   created at: Thu Feb 10 15:17:05 JST 1994
 
   Copyright (C) 1993-2003 Yukihiro Matsumoto
@@ -494,7 +494,9 @@ pack_pack(ary, fmt)
 	    }
 	}
 	if (*p == '*') {	/* set data length */
-	    len = strchr("@Xxu", type) ? 0 : items;
+	    len = strchr("@Xxu", type) ? 0
+                : strchr("PMm", type) ? 1
+                : items;
 	    p++;
 	}
 	else if (ISDIGIT(*p)) {
@@ -610,7 +612,7 @@ pack_pack(ary, fmt)
 		    long i, j = 0;
 
 		    if (len > plen) {
-			j = (len - plen + 1)/2;
+			j = (len + 1) / 2 - (plen + 1) / 2;
 			len = plen;
 		    }
 		    for (i=0; i++ < len; ptr++) {
@@ -641,7 +643,7 @@ pack_pack(ary, fmt)
 		    long i, j = 0;
 
 		    if (len > plen) {
-			j = (len - plen + 1)/2;
+			j = (len + 1) / 2 - (plen + 1) / 2;
 			len = plen;
 		    }
 		    for (i=0; i++ < len; ptr++) {
@@ -1001,6 +1003,7 @@ pack_pack(ary, fmt)
     if (associates) {
 	rb_str_associate(res, associates);
     }
+    OBJ_INFECT(res, fmt);
     return res;
 }
 

@@ -58,6 +58,7 @@ protected:
 		UInt8						_speed;
 		IOUSBInterface	*			_interface;
 		bool						_crossEndianCompatible;
+		UInt32						_locationID;
     };
     ExpansionData * _expansionData;
     
@@ -369,7 +370,10 @@ public:
                           IOUSBCompletionWithTimeStamp *	completion = 0,
                           IOByteCount *				bytesRead = 0);
 	
-    OSMetaClassDeclareReservedUnused(IOUSBPipe,  12);
+    OSMetaClassDeclareReservedUsed(IOUSBPipe,  12);
+	virtual bool InitToEndpoint(const IOUSBEndpointDescriptor *endpoint, UInt8 speed,
+								USBDeviceAddress address, IOUSBController * controller, IOUSBDevice * device, IOUSBInterface * interface);
+
     OSMetaClassDeclareReservedUnused(IOUSBPipe,  13);
     OSMetaClassDeclareReservedUnused(IOUSBPipe,  14);
     OSMetaClassDeclareReservedUnused(IOUSBPipe,  15);

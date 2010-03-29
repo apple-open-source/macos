@@ -1547,12 +1547,9 @@ add_job(cupsd_client_t  *con,		/* I - Client connection */
                   priority);
   }
 
-  if ((attr = ippFindAttribute(con->request, "job-name",
-                               IPP_TAG_NAME)) != NULL)
-    title = attr->values[0].string.text;
-  else
+  if (!ippFindAttribute(con->request, "job-name", IPP_TAG_NAME))
     ippAddString(con->request, IPP_TAG_JOB, IPP_TAG_NAME, "job-name", NULL,
-                 title = "Untitled");
+                 "Untitled");
 
   if ((job = cupsdAddJob(priority, printer->name)) == NULL)
   {
@@ -1706,8 +1703,6 @@ add_job(cupsd_client_t  *con,		/* I - Client connection */
                               "job-media-sheets-completed", 0);
   ippAddString(job->attrs, IPP_TAG_JOB, IPP_TAG_URI, "job-printer-uri", NULL,
                printer->uri);
-  ippAddString(job->attrs, IPP_TAG_JOB, IPP_TAG_NAME, "job-name", NULL,
-               title);
 
   if ((attr = ippFindAttribute(job->attrs, "job-k-octets",
                                IPP_TAG_INTEGER)) != NULL)
@@ -3199,7 +3194,7 @@ apple_register_profiles(
       num_profiles ++;
     }
 
-  
+
  /*
   * If we have profiles, add them...
   */
@@ -3245,7 +3240,7 @@ apple_register_profiles(
 	snprintf(q_keyword, sizeof(q_keyword), "Default%s", attr->value);
 	q2_attr = ppdFindAttr(ppd, q_keyword, NULL);
       }
-      else 
+      else
 	q2_attr = ppdFindAttr(ppd, "DefaultMediaType", NULL);
 
       if (q2_attr && q2_attr->value && q2_attr->value[0])
@@ -3259,7 +3254,7 @@ apple_register_profiles(
 	snprintf(q_keyword, sizeof(q_keyword), "Default%s", attr->value);
 	q3_attr = ppdFindAttr(ppd, q_keyword, NULL);
       }
-      else 
+      else
 	q3_attr = ppdFindAttr(ppd, "DefaultResolution", NULL);
 
       if (q3_attr && q3_attr->value && q3_attr->value[0])
@@ -3428,7 +3423,7 @@ apple_register_profiles(
     attr = ppdFindAttr(ppd, "DefaultColorSpace", NULL);
 
     num_profiles = (attr && ppd->colorspace == PPD_CS_GRAY) ? 1 : 2;
-      
+
     if ((profiles = calloc(num_profiles, sizeof(CMDeviceProfileArray))) == NULL)
     {
       cupsdLogMessage(CUPSD_LOG_ERROR,
@@ -4426,7 +4421,7 @@ check_quotas(cupsd_client_t  *con,	/* I - Client connection */
     if (q->page_count == -4) /* special case: unlimited user */
     {
       cupsdLogMessage(CUPSD_LOG_INFO,
-                      "User \"%s\" request approved for printer %s (%s): " 
+                      "User \"%s\" request approved for printer %s (%s): "
 		      "unlimited quota.",
 		      username, p->name, p->info);
       q->page_count = 0; /* allow user to print */
@@ -6746,6 +6741,7 @@ get_job_attrs(cupsd_client_t  *con,	/* I - Client connection */
   ipp_attribute_t *attr;		/* Current attribute */
   int		jobid;			/* Job ID */
   cupsd_job_t	*job;			/* Current job */
+  cupsd_printer_t *printer;		/* Current printer */
   char		scheme[HTTP_MAX_URI],	/* Method portion of URI */
 		username[HTTP_MAX_URI],	/* Username portion of URI */
 		host[HTTP_MAX_URI],	/* Host portion of URI */
@@ -6820,7 +6816,19 @@ get_job_attrs(cupsd_client_t  *con,	/* I - Client connection */
   * Check policy...
   */
 
-  if ((status = cupsdCheckPolicy(DefaultPolicyPtr, con, NULL)) != HTTP_OK)
+  if ((printer = job->printer) == NULL)
+    printer = cupsdFindDest(job->dest);
+
+  if (printer)
+  {
+    if ((status = cupsdCheckPolicy(printer->op_policy_ptr, con,
+                                   NULL)) != HTTP_OK)
+    {
+      send_http_error(con, status, printer);
+      return;
+    }
+  }
+  else if ((status = cupsdCheckPolicy(DefaultPolicyPtr, con, NULL)) != HTTP_OK)
   {
     send_http_error(con, status, NULL);
     return;
@@ -6996,7 +7004,18 @@ get_jobs(cupsd_client_t  *con,		/* I - Client connection */
   else
     username[0] = '\0';
 
-  ra = create_requested_array(con->request);
+  if ((ra = create_requested_array(con->request)) == NULL &&
+      !ippFindAttribute(con->request, "requested-attributes", IPP_TAG_KEYWORD))
+  {
+   /*
+    * IPP conformance - Get-Jobs has a default requested-attributes value of
+    * "job-id" and "job-uri".
+    */
+
+    ra = cupsArrayNew((cups_array_func_t)strcmp, NULL);
+    cupsArrayAdd(ra, "job-id");
+    cupsArrayAdd(ra, "job-uri");
+  }
 
  /*
   * OK, build a list of jobs for this printer...
@@ -9617,7 +9636,7 @@ save_auth_info(
   * Write a random number of newlines to the end of the file...
   */
 
-  for (i = (rand() % 1024); i >= 0; i --)
+  for (i = (CUPS_RAND() % 1024); i >= 0; i --)
     cupsFilePutChar(fp, '\n');
 
  /*

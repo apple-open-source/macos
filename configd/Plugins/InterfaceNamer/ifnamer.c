@@ -58,11 +58,14 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <sys/ioctl.h>
+#include <sys/socket.h>
 #include <sys/sockio.h>
 #include <sys/stat.h>
 #include <sys/param.h>
 #include <mach/mach.h>
 #include <net/ethernet.h>
+#include <net/if.h>
 #include <net/if_types.h>
 
 #include <CoreFoundation/CoreFoundation.h>
@@ -73,18 +76,17 @@
 #include <SystemConfiguration/SCValidation.h>
 
 #include <IOKit/IOKitLib.h>
+#include <IOKit/IOKitLibPrivate.h>
 #include <IOKit/IOBSD.h>
 #include <IOKit/IOMessage.h>
 #include <IOKit/network/IONetworkController.h>
 #include <IOKit/network/IONetworkInterface.h>
-
-#ifndef	kIOBuiltin
-#define	kIOBuiltin			"IOBuiltin"
-#endif
+#include <IOKit/usb/USB.h>
 
 #define kIONetworkStackUserCommand	"IONetworkStackUserCommand"
 #define kRegisterInterface		1
 
+#define	kSCNetworkInterfaceInfo		"SCNetworkInterfaceInfo"
 #define	kSCNetworkInterfaceType		"SCNetworkInterfaceType"
 #define	kSCNetworkInterfaceActive	"Active"
 
@@ -537,6 +539,12 @@ createInterfaceDict(SCNetworkInterfaceRef interface)
 				       &kCFTypeDictionaryKeyCallBacks,
 				       &kCFTypeDictionaryValueCallBacks);
 
+    val = _SCNetworkInterfaceCopyInterfaceInfo(interface);
+    if (val != NULL) {
+	CFDictionarySetValue(new_if, CFSTR(kSCNetworkInterfaceInfo), val);
+	CFRelease(val);
+    }
+
     val = _SCNetworkInterfaceGetIOPath(interface);
     if (val != NULL) {
 	CFDictionarySetValue(new_if, CFSTR(kIOPathMatchKey), val);
@@ -652,42 +660,252 @@ lookupInterfaceByUnit(CFArrayRef db_list, SCNetworkInterfaceRef interface, CFInd
     return (NULL);
 }
 
+typedef struct {
+    CFDictionaryRef	    match_info;
+    CFStringRef		    match_type;
+    CFBooleanRef	    match_builtin;
+    CFMutableArrayRef	    matches;
+} matchContext, *matchContextRef;
+
 static CFDictionaryRef
-lookupAirPortInterface(CFArrayRef db_list, CFIndex * where)
+thinInterfaceInfo(CFDictionaryRef info)
 {
-    CFIndex 	i;
-    CFIndex	n;
+    CFNumberRef	num;
+    int		vid;
 
-    if (db_list == NULL) {
-	return (NULL);
+    if (CFDictionaryGetValueIfPresent(info, CFSTR(kUSBVendorID), (const void **)&num)
+	&& isA_CFNumber(num)
+	&& CFNumberGetValue(num, kCFNumberIntType, &vid)
+	&& (vid == kIOUSBVendorIDAppleComputer)) {
+	CFMutableDictionaryRef  thin;
+
+	// if this is an Apple USB device than we trust that
+	// the non-localized name will be correct.
+	thin = CFDictionaryCreateMutableCopy(NULL, 0, info);
+	CFDictionaryRemoveValue(thin, CFSTR(kUSBProductString));
+	CFDictionaryRemoveValue(thin, CFSTR(kUSBVendorID));
+	CFDictionaryRemoveValue(thin, CFSTR(kUSBProductID));
+	return thin;
     }
-    n = CFArrayGetCount(db_list);
-    for (i = 0; i < n; i++) {
-	CFDictionaryRef	dict;
-	CFStringRef	if_type;
 
-	dict = CFArrayGetValueAtIndex(db_list, i);
-	if_type = CFDictionaryGetValue(dict, CFSTR(kSCNetworkInterfaceType));
-	if (if_type != NULL) {
-	    if (CFEqual(if_type, kSCNetworkInterfaceTypeIEEE80211)) {
-		if (where)
-		    *where = i;
-		return (dict);
-	    }
-	} else {
-	    CFStringRef	path;
+    return CFRetain(info);
+}
 
-	    path = CFDictionaryGetValue(dict, CFSTR(kIOPathMatchKey));
-	    if ((CFStringFind(path, CFSTR("IO80211Interface")  , 0).location != kCFNotFound) ||
-		(CFStringFind(path, CFSTR("AirPort")           , 0).location != kCFNotFound) ||
-		(CFStringFind(path, CFSTR("AppleWireless80211"), 0).location != kCFNotFound)) {
-		if (where)
-		    *where = i;
-		return (dict);
-	    }
+static Boolean
+matchInterfaceInfo(CFDictionaryRef known_info, CFDictionaryRef match_info)
+{
+    Boolean match;
+
+    match = _SC_CFEqual(known_info, match_info);
+    if (!match &&
+	isA_CFDictionary(known_info) &&
+	isA_CFDictionary(match_info)) {
+
+	// if not an exact match, try thinning
+	known_info = thinInterfaceInfo(known_info);
+	match_info = thinInterfaceInfo(match_info);
+	match = _SC_CFEqual(known_info, match_info);
+	CFRelease(known_info);
+	CFRelease(match_info);
+    }
+
+    return match;
+}
+
+static void
+matchKnown(const void *value, void *context)
+{
+    CFDictionaryRef	known_dict	= (CFDictionaryRef)value;
+    matchContextRef	match_context	= (matchContextRef)context;
+
+    // match interface type
+    {
+	CFStringRef	known_type;
+
+	known_type = CFDictionaryGetValue(known_dict, CFSTR(kSCNetworkInterfaceType));
+	if (!_SC_CFEqual(known_type, match_context->match_type)) {
+	    return;
 	}
     }
-    return (NULL);
+
+    // match SCNetworkInterfaceInfo
+    {
+	CFDictionaryRef	known_info;
+
+	known_info = CFDictionaryGetValue(known_dict, CFSTR(kSCNetworkInterfaceInfo));
+	if (!matchInterfaceInfo(known_info, match_context->match_info)) {
+	    return;
+	}
+    }
+
+    // if requested, match [non-]builtin
+    if (match_context->match_builtin != NULL) {
+	CFBooleanRef	known_builtin;
+
+	known_builtin = CFDictionaryGetValue(known_dict, CFSTR(kIOBuiltin));
+	if (!isA_CFBoolean(known_builtin)) {
+	    known_builtin = kCFBooleanFalse;
+	}
+	if (!_SC_CFEqual(known_builtin, match_context->match_builtin)) {
+	    return;
+	}
+    }
+
+    // if we have a match
+    if (match_context->matches == NULL) {
+	match_context->matches = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
+    }
+    CFArrayAppendValue(match_context->matches, known_dict);
+
+    return;
+}
+
+static void
+matchUnnamed(const void *value, void *context)
+{
+    SCNetworkInterfaceRef   known_if	    = (SCNetworkInterfaceRef)value;
+    matchContextRef	    match_context   = (matchContextRef)context;
+
+    if (match_context->matches == NULL) {
+	return;
+    }
+
+    // match interface type
+    {
+	CFStringRef	known_type;
+
+	known_type = SCNetworkInterfaceGetInterfaceType(known_if);
+	if (!_SC_CFEqual(known_type, match_context->match_type)) {
+	    return;
+	}
+    }
+
+    // match SCNetworkInterfaceInfo
+    {
+	CFDictionaryRef	known_info;
+	Boolean		match;
+
+	known_info = _SCNetworkInterfaceCopyInterfaceInfo(known_if);
+	match = matchInterfaceInfo(known_info, match_context->match_info);
+	if (known_info != NULL) CFRelease(known_info);
+	if (!match) {
+	    return;
+	}
+    }
+
+    // if requested, match [non-]builtin
+    if (match_context->match_builtin != NULL) {
+	CFBooleanRef	known_builtin;
+
+	known_builtin = _SCNetworkInterfaceIsBuiltin(known_if) ? kCFBooleanTrue
+							       : kCFBooleanFalse;
+	if (!_SC_CFEqual(known_builtin, match_context->match_builtin)) {
+	    return;
+	}
+    }
+
+    // if we have a match
+    CFRelease(match_context->matches);
+    match_context->matches = NULL;
+
+    return;
+}
+
+/*
+ * lookupMatchingInterface
+ *
+ * Looks at the interfaces that have already been [or need to be] named with
+ * the goal of allowing a system using a single network interface/adaptor of
+ * a given type (vendor, model, ...) to not care about the specific adaptor
+ * that is used (i.e. swapping dongle's is OK).  Once a system has had more
+ * than one interface/adaptor connected at the same time than we assume that
+ * the network configuration is being setup for multi-homing that should be
+ * maintained.
+ *
+ * If no matches are found or if more than one match is found, return NULL.
+ * If a single match is found, return the match.
+ */
+static CFDictionaryRef
+lookupMatchingInterface(SCNetworkInterfaceRef	interface,
+			CFArrayRef		db_list,	// already named
+			CFArrayRef		if_list,	// to be named
+			CFIndex			if_list_index,
+			CFBooleanRef		builtin)
+{
+    CFStringRef	    if_type;
+    CFDictionaryRef match	    = NULL;
+    matchContext    match_context;
+
+    if_type = SCNetworkInterfaceGetInterfaceType(interface);
+    if (if_type == NULL) {
+	return NULL;
+    }
+
+    match_context.match_type	= if_type;
+    match_context.match_info	= _SCNetworkInterfaceCopyInterfaceInfo(interface);
+    match_context.match_builtin	= builtin;
+    match_context.matches	= NULL;
+
+    // check for matches to already named interfaces
+    // ... and appends each match that we find to match_context.matches
+    if (db_list != NULL) {
+	CFArrayApplyFunction(db_list,
+			     CFRangeMake(0, CFArrayGetCount(db_list)),
+			     matchKnown,
+			     &match_context);
+    }
+
+    // check for matches to to be named interfaces
+    // ... and CFReleases match_context.matches if we find another network
+    //     interface of the same type that also needs to be named
+    if (if_list != NULL) {
+	CFIndex	   if_list_count;
+
+	if_list_count = CFArrayGetCount(if_list);
+	if (if_list_index < if_list_count) {
+	    CFArrayApplyFunction(if_list,
+				 CFRangeMake(if_list_index, if_list_count - if_list_index),
+				 matchUnnamed,
+				 &match_context);
+	}
+    }
+
+    // check if we have a single match
+    if (match_context.matches != NULL) {
+	if (CFArrayGetCount(match_context.matches) == 1) {
+	    match = CFArrayGetValueAtIndex(match_context.matches, 0);
+	}
+	CFRelease(match_context.matches);
+    }
+
+    if (match != NULL) {
+	Boolean		active	= TRUE;
+	CFStringRef	name;
+
+	name = CFDictionaryGetValue(match, CFSTR(kIOBSDNameKey));
+	if (isA_CFString(name)) {
+	    int		sock;
+
+	    sock = socket(AF_INET, SOCK_DGRAM, 0);
+	    if (sock != -1) {
+		struct ifreq	ifr;
+
+		(void)_SC_cfstring_to_cstring(name, ifr.ifr_name, sizeof(ifr.ifr_name), kCFStringEncodingASCII);
+		if (ioctl(sock, SIOCGIFFLAGS, &ifr) == -1) {
+		    // if interface name not currently in-use
+		    active = FALSE;
+		}
+		close(sock);
+	    }
+	}
+
+	if (active) {
+	    match = NULL;
+	}
+    }
+
+    if (match_context.match_info != NULL) CFRelease(match_context.match_info);
+    return match;
 }
 
 static void
@@ -947,6 +1165,7 @@ nameInterfaces(CFMutableArrayRef if_list)
 	    }
 	} else {
 	    CFDictionaryRef 	dbdict;
+	    boolean_t		is_builtin;
 	    kern_return_t	kr;
 
 	    dbdict = lookupInterfaceByAddress(S_dblist, interface, NULL);
@@ -957,21 +1176,29 @@ nameInterfaces(CFMutableArrayRef if_list)
 		SCLog(S_debug, LOG_INFO,
 		      CFSTR(MY_PLUGIN_NAME ": Interface assigned unit %@ (from database)"),
 		      unit);
-	    } else {
-		CFStringRef	if_type;
+	    }
 
-		if_type = SCNetworkInterfaceGetInterfaceType(interface);
-		if ((if_type != NULL) &&
-		    CFEqual(if_type, kSCNetworkInterfaceTypeIEEE80211)) {
-		    dbdict = lookupAirPortInterface(S_dblist, NULL);
-		    if (dbdict != NULL) {
-			unit = CFDictionaryGetValue(dbdict, CFSTR(kIOInterfaceUnit));
-			CFRetain(unit);
+	    if ((dbdict == NULL) && !isQuiet()) {
+		// if new interface, wait until quiet before naming
+		addTimestamp(S_state, path);
+		continue;
+	    }
 
-			SCLog(S_debug, LOG_INFO,
-			      CFSTR(MY_PLUGIN_NAME ": Interface assigned unit %@ (updating database)"),
-			      unit);
-		    }
+	    is_builtin = _SCNetworkInterfaceIsBuiltin(interface);
+
+	    if (dbdict == NULL) {
+		dbdict = lookupMatchingInterface(interface,
+						 S_dblist,
+						 if_list,
+						 i + 1,
+						 is_builtin ? kCFBooleanTrue : kCFBooleanFalse);
+		if (dbdict != NULL) {
+		    unit = CFDictionaryGetValue(dbdict, CFSTR(kIOInterfaceUnit));
+		    CFRetain(unit);
+
+		    SCLog(S_debug, LOG_INFO,
+			  CFSTR(MY_PLUGIN_NAME ": Interface assigned unit %@ (updating database)"),
+			  unit);
 		}
 	    }
 
@@ -986,17 +1213,8 @@ nameInterfaces(CFMutableArrayRef if_list)
 	    }
 
 	    if (dbdict == NULL) {
-		boolean_t	is_builtin;
 		int 		next_unit	= 0;
 
-		if (!isQuiet()) {
-		    // if new interface, wait until quiet before naming
-		    addTimestamp(S_state, path);
-		    continue;
-		}
-
-		is_builtin = _SCNetworkInterfaceIsBuiltin(interface);
-		next_unit = 0;
 		if (is_builtin) {
 		    // built-in interface, use the reserved slots
 		    next_unit = builtinCount(if_list, i, type);
@@ -1025,8 +1243,12 @@ nameInterfaces(CFMutableArrayRef if_list)
 	    kr = registerInterface(S_connect, path, unit);
 	    if (kr != KERN_SUCCESS) {
 		SCLog(TRUE, LOG_ERR,
-		      CFSTR(MY_PLUGIN_NAME ": failed to name the interface, kr=0x%x"),
-		      kr);
+		      CFSTR(MY_PLUGIN_NAME ": failed to name the interface, kr=0x%x\n"
+			    MY_PLUGIN_NAME ":   path = %@\n"
+			    MY_PLUGIN_NAME ":   unit = %@"),
+		      kr,
+		      path,
+		      unit);
 		if (S_debug) {
 		    displayInterface(interface);
 		}
@@ -1053,6 +1275,17 @@ nameInterfaces(CFMutableArrayRef if_list)
 		    CFArraySetValueAtIndex(if_list, i, new_interface);
 		    CFRelease(new_interface);
 		    interface = new_interface;	// if_list holds the reference
+
+		    if (is_builtin && (S_prev_active_list != NULL)) {
+			CFIndex	where;
+
+			// update the list of [built-in] interfaces that were previously named
+			if (lookupInterfaceByUnit(S_prev_active_list, interface, &where) != NULL) {
+			    SCLog(S_debug, LOG_INFO,
+				  CFSTR(MY_PLUGIN_NAME ":   and updated database (new address)"));
+			    CFArrayRemoveValueAtIndex(S_prev_active_list, where);
+			}
+		    }
 		}
 	    }
 
@@ -1109,9 +1342,11 @@ updateInterfaces()
 		CFIndex	n;
 
 		n = CFArrayGetCount(S_prev_active_list);
-		SCLog(TRUE, LOG_INFO,
-		      CFSTR(MY_PLUGIN_NAME ": Interface%s not [yet] active"),
-		      (n > 0) ? "s" : "");
+		if (n > 0) {
+		    SCLog(TRUE, LOG_INFO,
+			  CFSTR(MY_PLUGIN_NAME ": Interface%s not [yet] active"),
+			  (n > 1) ? "s" : "");
+		}
 		for (i = 0; i < n; i++) {
 		    CFDictionaryRef	if_dict;
 		    CFStringRef		name;

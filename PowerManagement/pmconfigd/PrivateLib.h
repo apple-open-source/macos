@@ -36,7 +36,11 @@
 #include <SystemConfiguration/SCPreferences.h>
 #include <SystemConfiguration/SCDynamicStoreCopySpecificPrivate.h>
 #include <SystemConfiguration/SCDPlugin.h>
+#if TARGET_OS_EMBEDDED
+#define __MACH_PORT_DEBUG(cond, str, port) do {} while(0)
+#else
 #include <SystemConfiguration/SCPrivate.h>
+#endif
 
 #include <IOKit/pwr_mgt/IOPM.h>
 #include <IOKit/pwr_mgt/IOPMPrivate.h>

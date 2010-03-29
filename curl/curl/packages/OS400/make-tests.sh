@@ -2,7 +2,7 @@
 #
 #       tests compilation script for the OS/400.
 #
-# $Id: make-tests.sh,v 1.1 2007-08-23 14:30:24 patrickm Exp $
+# $Id: make-tests.sh,v 1.2 2009-08-11 14:07:08 patrickm Exp $
 
 
 SCRIPTDIR=`dirname "${0}"`
@@ -17,7 +17,7 @@ cd "${TOPDIR}/tests"
 
 cd libtest
 
-#       Get definitions from the Makefile.am file.
+#       Get definitions from the Makefile.inc file.
 #       The `sed' statement works as follows:
 #       _ Join \nl-separated lines.
 #       _ Retain only lines that begins with "identifier =".
@@ -35,7 +35,7 @@ eval "`sed -e ': begin'                                                 \
         -e 's/[ 	]*=[ 	]*/=/'                                  \
         -e 's/=\\(.*[^ 	]\\)[ 	]*$/=\\"\\1\\"/'                        \
         -e 's/\\$(\\([^)]*\\))/${\\1}/g'                                \
-        < Makefile.am`"
+        < Makefile.inc`"
 
 #       Compile all programs.
 #       The list is found in variable "noinst_PROGRAMS"

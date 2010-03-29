@@ -99,6 +99,9 @@ public:
     // content rendered via the normal painting path.
     void setNeedsOneShotDrawingSynchronization();
 #endif
+    // Only used with accelerated compositing, but outside the #ifdef to make linkage easier.
+    // Returns true if the sync was completed.
+    bool syncCompositingStateRecursive();
 
     void didMoveOnscreen();
     void willMoveOffscreen();
@@ -187,6 +190,9 @@ public:
     virtual IntPoint convertFromRenderer(const RenderObject*, const IntPoint&) const;
     virtual IntPoint convertToRenderer(const RenderObject*, const IntPoint&) const;
 
+    bool isFrameViewScrollCorner(RenderScrollbarPart* scrollCorner) const { return m_scrollCorner == scrollCorner; }
+    void invalidateScrollCorner();
+
 private:
     FrameView(Frame*);
 
@@ -234,6 +240,11 @@ private:
     bool updateWidgets();
     void scrollToAnchor();
     
+    bool hasCustomScrollbars() const;
+
+    virtual void updateScrollCorner();
+    virtual void paintScrollCorner(GraphicsContext*, const IntRect& cornerRect);
+
     static double sCurrentPaintTimeStamp; // used for detecting decoded resource thrash in the cache
 
     IntSize m_size;
@@ -303,6 +314,9 @@ private:
     bool m_firstVisuallyNonEmptyLayoutCallbackPending;
 
     RefPtr<Node> m_maintainScrollPositionAnchor;
+
+    // Renderer to hold our custom scroll corner.
+    RenderScrollbarPart* m_scrollCorner;
 };
 
 } // namespace WebCore

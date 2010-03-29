@@ -1,0 +1,14 @@
+I've attached a utility to interface the Courier MTA with mailman for possible
+inclusion in the contrib section of the Mailman distribution. This is rather
+similar to qmail-to-mailman.py with a few changes to the code to accommodate
+differences between the the two MTAs and a number of changes to the
+instructions in the comments. This script has worked flawlessly for me for
+over 5 years, so it's been well tested.
+
+Note, of course, that a line will need to be added to configure.in (and
+configure, implicitly, via autoconf) to copy the file and replace tokens used
+in the attached script with actual paths.
+
+Courier is actively supported and development on it is ongoing, whereas qmail
+is unsupported and largely depreciated for use in new mail server
+installations.

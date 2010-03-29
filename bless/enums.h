@@ -37,6 +37,7 @@
 
 enum {
     kdummy = 0,
+    kalternateos,
     kbootinfo,
 	kbootefi,
     kbootblockfile,
@@ -71,6 +72,7 @@ enum {
     ksetboot,
     kshortform,
     kstartupfile,
+    kunbless,
     kuse9,
     kverbose,
     kversion,

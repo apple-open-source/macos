@@ -1,0 +1,34 @@
+Bienaportáu a la llista de distribución %(real_name)s@%(host_name)s
+%(welcome)s
+
+Pa mandar un mensax a esta llista, unvíelu a:
+
+   %(emailaddr)s
+
+Puedes obtener información xeneral sobro la llista en:
+
+   %(listinfo_url)s
+
+Si dalguna vegada quies anular  la  soscripción o camudar les  opciones
+de la mesma (p.ex.: camudar a mou resumíu o non, camudar la clave,
+etc.), consulta la páxina de la to soscripción en:
+
+  %(optionsurl)s
+%(umbrella)s
+Tamién puedes facer estos cambeos per aciu de corréu-e,
+unviando un mensax a:
+
+  %(real_name)s-request@%(host_name)s
+
+indicando la pallabra "help" nel asuntu (nun pongas les comines) o nel
+cuerpu del mensax. Devolverásete un mensax con instrucciones.
+
+Tienes que saber la to clave pa poder camudar les tos opciones (incluyíu'l cambéu de la propia clave) o p'anular la soscripción. La clave ye:
+
+  %(password)s
+
+Davezu, Mailman remembrará mensualmente les claves  que tenga nes
+llistes de distribución de %(host_name)s, magar que si lo prefieres, puede inhabilitar esti comportamientu.  El recordatoriu tamién incluyirá
+instrucciones sobro cómo anular la soscripción o cómo camudar los
+parámetros de soscripción. Na páxina d'opciones hai un botón que-y
+unviará un mensax de corréu-e cola so clave.

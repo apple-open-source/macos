@@ -232,7 +232,7 @@ def admin_overview(msg=''):
         mlist = MailList.MailList(name, lock=0)
         if mlist.advertised:
             if mm_cfg.VIRTUAL_HOST_OVERVIEW and \
-                   mlist.web_page_url.find(hostname) == -1:
+                   mlist.web_page_url.find('/%s/' % hostname) == -1:
                 # List is for different identity of this host - skip it.
                 continue
             else:

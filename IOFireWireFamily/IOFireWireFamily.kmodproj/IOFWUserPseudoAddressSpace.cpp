@@ -29,6 +29,13 @@
  */
 /*
 	$Log: IOFWUserPseudoAddressSpace.cpp,v $
+	Revision 1.24  2009/10/16 23:59:06  calderon
+	<rdar://problem/7046489> 10A402 AsyncTester results in Error-Server verified Incorrect number of bytes
+	<rdar://problem/7111060> PanicTracer: 3 panics at IOFireWireFamily : IOFWUserPseudoAddressSpace::doPacket
+	
+	And some help for:
+	<rdar://problem/7116134> PanicTracer: 3 panics at com.apple.iokit.IOFireWireFamily
+	
 	Revision 1.23  2008/09/12 23:44:05  calderon
 	<rdar://5971979/> PseudoAddressSpace skips/mangles packets
 	<rdar://5708169/> FireWire synchronous commands' headerdoc missing callback info
@@ -127,6 +134,7 @@
 #import "IOFireWireUserClient.h"
 #import "IOFireWireLib.h"
 #import "IOFWUserPseudoAddressSpace.h"
+#import "IOFWRingBufferQ.h"
 
 // system
 #import <IOKit/assert.h>
@@ -331,12 +339,12 @@ IOFWUserPseudoAddressSpace::serialize(OSSerialize *s) const
 void
 IOFWUserPseudoAddressSpace::free()
 {
-	if ( fPacketQueuePrepared )
-		fPacketQueueBuffer->complete() ;
-
-	if ( fPacketQueueBuffer )
-		fPacketQueueBuffer->release() ;
-
+	if ( fPacketQueue )
+	{
+		fPacketQueue->release();
+		fPacketQueue = NULL;
+	}
+	
 	if ( fBackingStorePrepared )
 		fDesc->complete() ;
 
@@ -372,7 +380,6 @@ IOFWUserPseudoAddressSpace::deactivate()
 	
 	IOLockLock(fLock) ;
 	
-	fBufferAvailable = 0 ;	// zzz do we need locking here to protect our data?
 	fLastReadHeader = NULL ;	
 	
 	IOFWPacketHeader*	firstHeader = fLastWrittenHeader ;
@@ -419,30 +426,22 @@ IOFWUserPseudoAddressSpace::completeInit( IOFireWireUserClient* userclient, Addr
 		status = false ;
 	}
 
-	// make memory descriptor around queue
+	// make packet queue
 	if ( status )
 	{
 		if ( params->queueBuffer )
-		{
-			fPacketQueueBuffer = IOMemoryDescriptor::withAddressRange( params->queueBuffer,
-																	params->queueSize,
-																	kIODirectionOutIn,
-																	fUserClient->getOwningTask() ) ;
-			if ( !fPacketQueueBuffer )
+		{			
+			fPacketQueue = IOFWRingBufferQ::withAddressRange( params->queueBuffer, params->queueSize, kIODirectionOutIn, fUserClient->getOwningTask() ) ;
+			
+			if ( !fPacketQueue )
 			{
-				DebugLog("%s %u: couldn't make fPacketQueueBuffer memory descriptor\n", __FILE__, __LINE__) ;
+				DebugLog("%s %u: couldn't make fPacketQueue memory descriptor\n", __FILE__, __LINE__) ;
 				status = false ;
 			}
-			
-			if ( status )
+			else
 			{
-				status =  ( kIOReturnSuccess == fPacketQueueBuffer->prepare() ) ;
-		
 				fPacketQueuePrepared = status ;
 			}
-
-			if ( status )
-				fBufferAvailable = fPacketQueueBuffer->getLength() ;
 		}
 	}
 	
@@ -451,7 +450,7 @@ IOFWUserPseudoAddressSpace::completeInit( IOFireWireUserClient* userclient, Addr
 		// init the easy vars
 		fLastReadHeader 			= new IOFWPacketHeader ;
 		fLastWrittenHeader			= fLastReadHeader ;
-		fBufferStartOffset			= fBufferAvailable;	//set to end at first to avoid first pkt stall
+		bzero(fLastWrittenHeader, sizeof(fLastWrittenHeader));
 		
 		// get a lock for the packet queue
 		fLock = IOLockAlloc() ;
@@ -601,151 +600,106 @@ IOFWUserPseudoAddressSpace::doPacket(
 	UInt32*							oldVal)	// oldVal only used in lock case
 {
 	IOByteCount		destOffset	= 0 ;
-	bool			wontFit		= false ;
+	bool			skip		= false ;
 	UInt32			response	= kFWResponseComplete ;
 
 	IOLockLock(fLock) ;
 	
-	// fBufferAvailable		total space available in backingstore
-	// spaceAtEnd			space available after end last header
-	// len					length of packet (without header)
-	// destOffset			
-	// currentHeader
+	// Process:
+	// 1. Is there enough space in queue for packet payload?
+	// 2. No? Create/reuse skip packet header, init, and notify
+	// 3. Create/reuse packet header
+	// 4. Init packet header
+	// 5. Write packet payload to queue
+	// 6. Send notification of next packet ???
+	// ...
+	// 7. When client complete, mark header free and send notification for next packet ???
 	
-	IOFWPacketHeader*	currentHeader = fLastWrittenHeader ;
+	DebugLog("doPacket\n");
 
-	if ( tag == IOFWPacketHeader::kIncomingPacket || tag == IOFWPacketHeader::kLockPacket )
-	{
-		destOffset = IOFWPacketHeaderGetOffset(currentHeader) + IOFWPacketHeaderGetSize(currentHeader);
-		
-		IOByteCount spaceAtEnd;
-		if ( destOffset > fBufferStartOffset )
-			spaceAtEnd = fPacketQueueBuffer->getLength() - destOffset;
-		else	// ==
-			spaceAtEnd = fBufferStartOffset - destOffset;
-				
-		//io_user_reference_t  lastOff = IOFWPacketHeaderGetOffset(currentHeader);
-		//io_user_reference_t  lastSize = IOFWPacketHeaderGetSize(currentHeader);
-		
-		//FireLog("dP fBufAvail:%lu spaceAtEnd:%lu fBufferStartOffset:%llu QBufLen:%lu lastOff:%llu lastSize:%llu LastCmdID:0x%llx %s\n", fBufferAvailable, spaceAtEnd, fBufferStartOffset, fPacketQueueBuffer->getLength(), lastOff, lastSize, currentHeader->IncomingPacket.commandID, (spaceAtEnd > fBufferAvailable) ? "FlipFlop" : "");
-			
-		if ( destOffset > fPacketQueueBuffer->getLength() )
-		{
-			//FireLog("Queue offset is wrong! Cannot write packet.\n");
-			wontFit = true;
-		}
-		else
-		{
-			if ( fBufferAvailable < len ) // if packet will not fit anywhere in buffer
-			{
-				wontFit = true ;
-				//FireLog("\tdP packet will not fit anywhere\n");
-			}
-			else
-			{
-				if (len <= spaceAtEnd)	// if packet will fit at end of buffer
-				{
-					// will fit - destOffset set
-				}
-				else
-				{
-					if ( (len + spaceAtEnd) <= fBufferAvailable ) // if packet may fit at front of buffer
-					{
-						//FireLog("\tdP packet may fit at front of buffer\n");
-						if ( destOffset > fBufferStartOffset )
-							destOffset = 0 ;
-						else
-							wontFit = true;
-					}
-					else	// packet will not fit
-					{	
-						wontFit = true ;
-					}
-				}
-			}
-		}
-		
-		//FireLog("\tdP len:%lu destOff:%lu wontFit:%s\n", len, destOffset, wontFit ? "T" : "F" );
-		//FireLog("\tdP '%s'\n", (char *)buf);
+	if ( !fPacketQueue ) DebugLog("\tdP fPacketQueue is invalid!\n");
+	
+	if ( tag == IOFWPacketHeader::kIncomingPacket || tag == IOFWPacketHeader::kLockPacket ) {
+		skip = !(fPacketQueue->isSpaceAvailable(len, &destOffset));
 	}
 	
-	if (wontFit)
+	DebugLog("\tdP Packet will %s fit. Length: %lu Available: %lu Payload: 0x%lx\n", skip ? "NOT" : " ", len, fPacketQueue->spaceAvailable(), *((UInt32 *)buf));
+	
+	IOFWPacketHeader * currentHeader = fLastWrittenHeader;
+	
+	IOFireWireNub * owner = NULL;
+	IOFireWireController * controller = NULL;
+	if ( fUserClient )
 	{
-		// create a skipped packet header if last one wasn't a skipped pkt,
-		// otherwise, bump count and reuse header
-		
-		if (IsSkippedPacketHeader(currentHeader))
-			++(currentHeader->SkippedPacket.skippedPacketCount) ;
-		else
-		{
-			if (!IsFreePacketHeader(currentHeader))
-			{
-				if ( !IsFreePacketHeader(currentHeader->CommonHeader.next) )
-				{
-					IOFWPacketHeader*	newHeader = new IOFWPacketHeader ;
-					newHeader->CommonHeader.next = currentHeader->CommonHeader.next ;
-					currentHeader->CommonHeader.next = newHeader ;
-				}
-
-				currentHeader = currentHeader->CommonHeader.next ;
-
-			}
-
-			InitSkippedPacketHeader(
-					currentHeader,
-					currentHeader->CommonHeader.next,
-					destOffset,
-					& fSkippedPacketAsyncNotificationRef ) ;
-			
-			fLastWrittenHeader = currentHeader ;
-		}
-
-		// if we can't handle the packet, and the hardware hasn't already responded,
-		// send kFWResponseConflictError
-		if ( ! fUserClient->getOwner()->getController()->isCompleteRequest( reqrefcon ) )
-			response = kFWResponseConflictError ;
+		owner = fUserClient->getOwner();
+		if ( owner )
+			controller = owner->getController();
+	}
+	
+	if ( !controller )
+	{
+		// userclient is terminating?
+		response = kFWResponseAddressError;
 	}
 	else
 	{
-		if (!IsFreePacketHeader(currentHeader))
+		if ( skip )
 		{
-			if ( !IsFreePacketHeader(currentHeader->CommonHeader.next) )
+			// create a skipped packet header if last one wasn't a skipped pkt,
+			// otherwise, bump count and reuse header
+			
+			if (IsSkippedPacketHeader(fLastWrittenHeader))
+				++(fLastWrittenHeader->SkippedPacket.skippedPacketCount) ;
+			else
 			{
-				IOFWPacketHeader*	newHeader		= new IOFWPacketHeader ;
-				newHeader->CommonHeader.next		= currentHeader->CommonHeader.next ;
-				currentHeader->CommonHeader.next	= newHeader ;
-			}
+				if (!IsFreePacketHeader(fLastWrittenHeader))
+				{
+					if ( !IsFreePacketHeader(fLastWrittenHeader->CommonHeader.next) )
+					{
+						IOFWPacketHeader*	newHeader = new IOFWPacketHeader ;
+						newHeader->CommonHeader.next = fLastWrittenHeader->CommonHeader.next ;
+						fLastWrittenHeader->CommonHeader.next = newHeader ;
+					}
 
-		}
+					currentHeader = fLastWrittenHeader->CommonHeader.next ;
 
-		currentHeader = currentHeader->CommonHeader.next ;
+				}
 
-		switch(tag)
-		{
-			case IOFWPacketHeader::kIncomingPacket:
-				// save info in header
-				InitIncomingPacketHeader(
+				InitSkippedPacketHeader(
 						currentHeader,
 						currentHeader->CommonHeader.next,
-						len,
 						destOffset,
-						& fPacketAsyncNotificationRef,
-						nodeID,
-						speed,
-						addr) ;
-
-				// zzz this write should probably be eliminated when kFWAddressSpaceAutoCopyOnWrite is set..
-				fPacketQueueBuffer->writeBytes(destOffset, buf, len) ;
-		
-				fBufferAvailable -= len ;
-				///FireLog("\tdP Decrement fBufferAvailable: %lu fBufferStartOffset: %llu\n", fBufferAvailable, fBufferStartOffset);
-					
-				break ;
+						& fSkippedPacketAsyncNotificationRef ) ;
 				
-			case IOFWPacketHeader::kLockPacket:
+				fLastWrittenHeader = currentHeader ;
+			}
+
+			// if we can't handle the packet, and the hardware hasn't already responded,
+			// send kFWResponseConflictError
+			if ( ! controller->isCompleteRequest( reqrefcon ) )
+				response = kFWResponseConflictError ;
+		}
+		else
+		{
+			if (!IsFreePacketHeader(fLastWrittenHeader))
+			{
+				if ( !IsFreePacketHeader(fLastWrittenHeader->CommonHeader.next) )
 				{
+					IOFWPacketHeader*	newHeader		= new IOFWPacketHeader ;
+					newHeader->CommonHeader.next		= fLastWrittenHeader->CommonHeader.next ;
+					fLastWrittenHeader->CommonHeader.next	= newHeader ;
+				}
+
+			}
+
+			currentHeader = fLastWrittenHeader->CommonHeader.next ;
+			bool enqueued = false;
+
+			switch(tag)
+			{
+				case IOFWPacketHeader::kIncomingPacket:
 					// save info in header
-					InitLockPacketHeader(
+					InitIncomingPacketHeader(
 							currentHeader,
 							currentHeader->CommonHeader.next,
 							len,
@@ -753,45 +707,69 @@ IOFWUserPseudoAddressSpace::doPacket(
 							& fPacketAsyncNotificationRef,
 							nodeID,
 							speed,
-							addr,
-							fUserClient->getOwner()->getController()->getGeneration(),
-							reqrefcon ) ;
-	
+							addr) ;
+
+					// zzz this write should probably be eliminated when kFWAddressSpaceAutoCopyOnWrite is set..
+					enqueued = fPacketQueue->enqueueBytes((void *)buf, len);
+					
+					DebugLog("\tdP Write: Copy cmd ID: 0x%llx %s\n", currentHeader->IncomingPacket.commandID, enqueued ? "succeeded" : "failed");
+					
+					break ;
+					
+				case IOFWPacketHeader::kLockPacket:
+					
+					// save info in header
+					InitLockPacketHeader(
+								currentHeader,
+								currentHeader->CommonHeader.next,
+								len,
+								destOffset,
+								& fPacketAsyncNotificationRef,
+								nodeID,
+								speed,
+								addr,
+								controller->getGeneration(),
+								reqrefcon ) ;
+		
 					// copy data to queue
-					fPacketQueueBuffer->writeBytes(destOffset, buf, len) ;	
-					fBufferAvailable -= len ;
+					enqueued = fPacketQueue->enqueueBytes((void *)buf, len);
 					response = kFWResponsePending ;
-				}
-				break ;
+					
+					DebugLog("\tdP Lock: Copy cmd ID: 0x%llx %s\n", currentHeader->IncomingPacket.commandID, enqueued ? "succeeded" : "failed");
+					
+					break ;
 
-			case IOFWPacketHeader::kReadPacket:
-				InitReadPacketHeader(
-						currentHeader,
-						currentHeader->CommonHeader.next,
-						len,
-						addr.addressLo - fAddress.addressLo,
-						& fReadAsyncNotificationRef,
-						reqrefcon,
-						nodeID,
-						speed,
-						addr,
-						fUserClient->getOwner()->getController()->getGeneration() ) ;
+				case IOFWPacketHeader::kReadPacket:
+					
+					InitReadPacketHeader(
+										 currentHeader,
+										 currentHeader->CommonHeader.next,
+										 len,
+										 IOFWPacketHeaderGetOffset(fLastWrittenHeader),
+										 & fReadAsyncNotificationRef,
+										 reqrefcon,
+										 nodeID,
+										 speed,
+										 addr,
+										 controller->getGeneration() ) ;
+					
+					response = kFWResponsePending ;
+					
+					DebugLog("\tdP Read: Proces cmd ID: 0x%llx\n", currentHeader->IncomingPacket.commandID);
+				
+					break ;
+				
+				default:
+					ErrorLog("%s %u: internal error: doPacket called with improper type\n", __FILE__, __LINE__) ;
+					break ;
+			}
 
-				response = kFWResponsePending ;
-			
-				break ;
-			
-			default:
-				IOLog("%s %u: internal error: doPacket called with improper type\n", __FILE__, __LINE__) ;
-				break ;
+			fLastWrittenHeader = currentHeader ;
 		}
-
-
-		fLastWrittenHeader = currentHeader ;
-	}
 	
-	if( currentHeader->CommonHeader.type != IOFWPacketHeader::kFree )
-		sendPacketNotification(currentHeader) ;
+		if( currentHeader->CommonHeader.type != IOFWPacketHeader::kFree )
+			sendPacketNotification(currentHeader) ;
+	}
 
 	IOLockUnlock(fLock) ;
 
@@ -866,43 +844,33 @@ IOFWUserPseudoAddressSpace::clientCommandIsComplete(
 		IOFWPacketHeader::QueueTag	type 		= oldHeader->CommonHeader.type ;
 		fLastReadHeader = fLastReadHeader->CommonHeader.next ;
 		
-		//FireLog("Cplt cmdID 0x%llx\n", oldHeader->IncomingPacket.commandID);
-		//io_user_reference_t  lastOff = IOFWPacketHeaderGetOffset(oldHeader);
-		//io_user_reference_t  lastSize = IOFWPacketHeaderGetSize(oldHeader);
-		//FireLog("\tCplt lastOff:%llu lastSize:%llu\n", lastOff, lastSize);
+		DebugLog("Cplt cmdID: 0x%llx\n", oldHeader->IncomingPacket.commandID);
 		
 		switch(type)
 		{
 			case IOFWPacketHeader::kLockPacket:
-				{
-					fUserClient->getOwner()->getController()->asyncLockResponse( oldHeader->IncomingPacket.generation,
-																				oldHeader->IncomingPacket.nodeID, 
-																				oldHeader->IncomingPacket.speed,
-																				fDesc,//fBackingStore
-																				oldHeader->IncomingPacket.addrLo - fAddress.addressLo,
-																				oldHeader->IncomingPacket.packetSize >> 1,
-																				(void*)oldHeader->IncomingPacket.reqrefcon ) ;
-				}
+			{
+				DebugLog("\tCplt lock\n");
+				fUserClient->getOwner()->getController()->asyncLockResponse( oldHeader->IncomingPacket.generation,
+																			oldHeader->IncomingPacket.nodeID, 
+																			oldHeader->IncomingPacket.speed,
+																			fDesc,//fBackingStore
+																			oldHeader->IncomingPacket.addrLo - fAddress.addressLo,
+																			oldHeader->IncomingPacket.packetSize >> 1,
+																			(void*)oldHeader->IncomingPacket.reqrefcon ) ;
+			}
+			// fall through
 				
-				// fall through
 			case IOFWPacketHeader::kIncomingPacket:
-				{
-					fBufferAvailable += oldHeader->IncomingPacket.packetSize ;
-					///FireLog("\tCplt increment fBufferAvailable: %lu fBufferStartOffset: %llu\n", fBufferAvailable, fBufferStartOffset);
-					
-					// set start to next packet's offset, if there is one
-					// if there's no "next" header, it will point to itself.
-					//io_user_reference_t oldSize = IOFWPacketHeaderGetSize(oldHeader);
-					//io_user_reference_t oldOffset = IOFWPacketHeaderGetOffset(oldHeader);
-					fBufferStartOffset = IOFWPacketHeaderGetOffset(oldHeader);
-					
-					//io_user_reference_t wrongSize = IOFWPacketHeaderGetSize(oldHeader->CommonHeader.next);
-					///FireLog("\tCplt fBufferAvailable: %lu wrongSize: %llu fBufferStartOffset: %llu oldSize: %llu oldOff: %llu\n", fBufferAvailable, wrongSize, fBufferStartOffset, oldSize, oldOffset);
-				}
+			{
+				DebugLog("\tCplt write\n");
+				fPacketQueue->dequeueBytes(oldHeader->IncomingPacket.packetSize);
 				break ;
+			}
 				
 			case IOFWPacketHeader::kReadPacket:
-                {
+			{
+				DebugLog("\tCplt read\n");
                     fUserClient->getOwner()->getController()->asyncReadResponse( oldHeader->ReadPacket.generation,
                                                                                 oldHeader->ReadPacket.nodeID, 
                                                                                 oldHeader->ReadPacket.speed,
@@ -910,12 +878,12 @@ IOFWUserPseudoAddressSpace::clientCommandIsComplete(
                                                                                 oldHeader->ReadPacket.addrLo - fAddress.addressLo,
                                                                                 oldHeader->ReadPacket.packetSize,
                                                                                 (void*)oldHeader->ReadPacket.reqrefcon ) ;
-				}
-                break ;
+				break;
+			}
 				
 			default:
 				// nothing...
-				///FireLog("\tCplt type %u\n", type); 
+				DebugLog("\tCplt type %u\n", type); 
 				break ;
 		}
 		
@@ -925,7 +893,7 @@ IOFWUserPseudoAddressSpace::clientCommandIsComplete(
 		// send *next* packet notification
 		if ( fLastReadHeader->CommonHeader.type != IOFWPacketHeader::kFree )
 		{
-			///FireLog("\tCplt sending next packet notification\n");
+			DebugLog("\tCplt sending next packet notification\n");
 			sendPacketNotification(fLastReadHeader) ;
 		}
 	}
@@ -943,8 +911,8 @@ IOFWUserPseudoAddressSpace::sendPacketNotification(
 		{
 			IOByteCount len = IOFWPacketHeaderGetSize(inPacketHeader) ;
 			void * bytes = IOMalloc( len );
-		
-			fPacketQueueBuffer->readBytes( IOFWPacketHeaderGetOffset( inPacketHeader ), bytes, len );
+			
+			fPacketQueue->readBytes( IOFWPacketHeaderGetOffset( inPacketHeader ), bytes, len );
 			
 			fDesc->writeBytes(	inPacketHeader->IncomingPacket.addrLo - fAddress.addressLo, 
 								bytes,
@@ -955,27 +923,22 @@ IOFWUserPseudoAddressSpace::sendPacketNotification(
 		
 		if (inPacketHeader->CommonHeader.whichAsyncRef[0])
 		{
-			#if 0
-			FireLog("sPN cmdID 0x%llx\n", inPacketHeader->IncomingPacket.commandID);
+			DebugLog("sPN cmdID 0x%llx\n", inPacketHeader->IncomingPacket.commandID);
+			#if 0	// debug logging
 			io_user_reference_t hdrSize = IOFWPacketHeaderGetSize(inPacketHeader);
 			io_user_reference_t hdrOffset = IOFWPacketHeaderGetOffset(inPacketHeader);
 			FireLog("\tsPN hdr: %p off %llu size %llu %s\n", inPacketHeader, hdrOffset, hdrSize, inPacketHeader->CommonHeader.type == IOFWPacketHeader::kSkippedPacket ? "SkippedPkt" : "");
 			
+			IOByteCount len = IOFWPacketHeaderGetSize(inPacketHeader) ;
+			void * bytes = IOMalloc( len );
+			
+			if ( inPacketHeader->CommonHeader.type == IOFWPacketHeader::kIncomingPacket || inPacketHeader->CommonHeader.type == IOFWPacketHeader::kLockPacket )
 			{
-				// zzz io_user_reference_t cast to IOByteCount
-				IOByteCount len = IOFWPacketHeaderGetSize(inPacketHeader) ;
-				FireLog("\tsPN len: %lu\n", len);
-				void * bytes = IOMalloc( len );
-				
-				if ( inPacketHeader->CommonHeader.type == IOFWPacketHeader::kIncomingPacket || inPacketHeader->CommonHeader.type == IOFWPacketHeader::kLockPacket )
-				{
-					// zzz io_user_reference_t cast to IOByteCount
-					fPacketQueueBuffer->readBytes( IOFWPacketHeaderGetOffset( inPacketHeader ), bytes, len );
-					FireLog("\tsPN %p:%lu '%s'\n", bytes, len, (char *)bytes);
-				}
-				
-				IOFree( bytes, len );
+				fPacketQueue->readBytes( IOFWPacketHeaderGetOffset( inPacketHeader ), bytes, len );
+				FireLog("\tsPN %lu 0x%x\n", len, *((UInt32 *)bytes));
 			}
+			
+			IOFree( bytes, len );
 			#endif
 			
 			IOFireWireUserClient::sendAsyncResult64(*(inPacketHeader->CommonHeader.whichAsyncRef),

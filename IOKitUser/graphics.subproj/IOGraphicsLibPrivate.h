@@ -33,15 +33,15 @@ extern "C" {
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
-#define kIOFBModeResolutionNameKey	"name"
-#define kIOFBModeRefreshNameKey		"refresh"
+#define kIOFBModeResolutionNameKey      "name"
+#define kIOFBModeRefreshNameKey         "refresh"
 
 extern CFDictionaryRef
 IOFBCreateModeInfoDictionary(
-	io_service_t 			framebuffer,
-	IOOptionBits			options,
-	IODisplayModeID 		displayMode,
-	IODisplayModeInformation *	info);
+        io_service_t                    framebuffer,
+        IOOptionBits                    options,
+        IODisplayModeID                 displayMode,
+        IODisplayModeInformation *      info);
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 

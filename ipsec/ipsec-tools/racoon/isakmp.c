@@ -2317,6 +2317,8 @@ isakmp_ph2resend(iph2)
 				isakmp_pindex(&iph2->ph1->index, iph2->msgid));
 		EVT_PUSH(iph2->src, iph2->dst, EVTT_PEER_NO_RESPONSE, NULL);
 		return -1;
+	} else {
+		ike_session_ph2_retransmits(iph2);
 	}
 
 	if (isakmp_send(iph2->ph1, iph2->sendbuf) < 0){
@@ -2412,12 +2414,13 @@ isakmp_ph1rekeyexpire_stub(p)
 void *p;
 {
 	
-	isakmp_ph1rekeyexpire((struct ph1handle *)p);
+	isakmp_ph1rekeyexpire((struct ph1handle *)p, FALSE);
 }
 
 void
-isakmp_ph1rekeyexpire(iph1)
+isakmp_ph1rekeyexpire(iph1, ignore_sess_drop_policy)
 struct ph1handle *iph1;
+int               ignore_sess_drop_policy;
 {
 	char              *src, *dst;
 	struct remoteconf *rmconf;
@@ -2442,6 +2445,10 @@ struct ph1handle *iph1;
 		 isakmp_pindex(&iph1->index, 0));
 	racoon_free(src);
 	racoon_free(dst);
+
+	if (!ignore_sess_drop_policy && ike_session_drop_rekey(iph1->parent_session)) {
+		return;
+	}
 
 	// exit if there is another ph1 that is established (with a pending rekey timer)
 	if (ike_session_has_other_established_ph1(iph1->parent_session, iph1)) {

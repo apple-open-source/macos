@@ -33,43 +33,43 @@
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
 #ifndef kAAPLRegEntryIDKey
-#define kAAPLRegEntryIDKey	"AAPL,RegEntryID"
+#define kAAPLRegEntryIDKey      "AAPL,RegEntryID"
 #endif
 
 #ifndef kAAPLDisableMSIKey
-#define kAAPLDisableMSIKey	"AAPL,DisableMSI"
+#define kAAPLDisableMSIKey      "AAPL,DisableMSI"
 #endif
 
-#define MAKE_REG_ENTRY(regEntryID,obj) 				\
-	(regEntryID)->opaque[ 0 ] = (void *) obj;			\
-	(regEntryID)->opaque[ 1 ] = (void *) ~(uintptr_t)obj;		\
-	(regEntryID)->opaque[ 2 ] = (void *) 0x53696d65;		\
-	(regEntryID)->opaque[ 3 ] = (void *) 0x52756c7a;
+#define MAKE_REG_ENTRY(regEntryID,obj)                          \
+        (regEntryID)->opaque[ 0 ] = (void *) obj;                       \
+        (regEntryID)->opaque[ 1 ] = (void *) ~(uintptr_t)obj;           \
+        (regEntryID)->opaque[ 2 ] = (void *) 0x53696d65;                \
+        (regEntryID)->opaque[ 3 ] = (void *) 0x52756c7a;
 
-#define REG_ENTRY_TO_OBJ(regEntryID,obj) 				\
-	if( (uintptr_t)((obj = ((IORegistryEntry **)regEntryID)[ 0 ])) 	\
-	 != ~((uintptr_t *)regEntryID)[ 1 ] )				\
-	    return( -2538);
+#define REG_ENTRY_TO_OBJ(regEntryID,obj)                                \
+        if( (uintptr_t)((obj = ((IORegistryEntry **)regEntryID)[ 0 ]))  \
+         != ~((uintptr_t *)regEntryID)[ 1 ] )                           \
+            return( -2538);
 
-#define REG_ENTRY_TO_OBJ_RET(regEntryID,obj,ret) 			\
-	if( (uintptr_t)((obj = ((IORegistryEntry **)regEntryID)[ 0 ])) 	\
-	 != ~((uintptr_t *)regEntryID)[ 1 ] )				\
-	    return( ret);
+#define REG_ENTRY_TO_OBJ_RET(regEntryID,obj,ret)                        \
+        if( (uintptr_t)((obj = ((IORegistryEntry **)regEntryID)[ 0 ]))  \
+         != ~((uintptr_t *)regEntryID)[ 1 ] )                           \
+            return( ret);
 
-#define REG_ENTRY_TO_PT(regEntryID,obj) 				\
-	IORegistryEntry * obj;						\
-	if( (uintptr_t)((obj = ((IORegistryEntry **)regEntryID)[ 0 ])) 	\
-	 != ~((uintptr_t *)regEntryID)[ 1 ] )				\
-	    return( -2538);
+#define REG_ENTRY_TO_PT(regEntryID,obj)                                 \
+        IORegistryEntry * obj;                                          \
+        if( (uintptr_t)((obj = ((IORegistryEntry **)regEntryID)[ 0 ]))  \
+         != ~((uintptr_t *)regEntryID)[ 1 ] )                           \
+            return( -2538);
 
-#define REG_ENTRY_TO_SERVICE(regEntryID,type,obj) 			\
-	IORegistryEntry * regEntry;					\
-	type		* obj;						\
-	if( (uintptr_t)((regEntry = ((IORegistryEntry **)regEntryID)[ 0 ])) \
-	 != ~((uintptr_t *)regEntryID)[ 1 ] )				\
-	    return( -2538);						\
-	if( 0 == (obj = OSDynamicCast( type, regEntry))) 		\
-	    return( -2542);
+#define REG_ENTRY_TO_SERVICE(regEntryID,type,obj)                       \
+        IORegistryEntry * regEntry;                                     \
+        type            * obj;                                          \
+        if( (uintptr_t)((regEntry = ((IORegistryEntry **)regEntryID)[ 0 ])) \
+         != ~((uintptr_t *)regEntryID)[ 1 ] )                           \
+            return( -2538);                                             \
+        if( 0 == (obj = OSDynamicCast( type, regEntry)))                \
+            return( -2542);
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
@@ -79,12 +79,12 @@ class IONDRV : public OSObject
 
 public:
     virtual IOReturn getSymbol( const char * symbolName,
-				IOLogicalAddress * address ) = 0;
+                                IOLogicalAddress * address ) = 0;
 
     virtual const char * driverName( void ) = 0;
 
     virtual IOReturn doDriverIO( UInt32 commandID, void * contents,
-				 UInt32 commandCode, UInt32 commandKind ) = 0;
+                                 UInt32 commandCode, UInt32 commandKind ) = 0;
 };
 
 #if __ppc__
@@ -100,12 +100,12 @@ class IOPEFNDRV : public IONDRV
     OSDeclareDefaultStructors(IOPEFNDRV)
 
 private:
-    void * 			fPEFInst;
-    struct IOTVector *		fDoDriverIO;
-    struct DriverDescription *	fDriverDesc;
-    char			fName[64];
+    void *                      fPEFInst;
+    struct IOTVector *          fDoDriverIO;
+    struct DriverDescription *  fDriverDesc;
+    char                        fName[64];
 #if CREATE_PEF_KMOD
-    kmod_t			fKModID;
+    kmod_t                      fKModID;
 #endif
 
 public:
@@ -113,7 +113,7 @@ public:
     static IOPEFNDRV * instantiate( IORegistryEntry * regEntry,
                                  IOLogicalAddress container,
                                  IOByteCount containerSize,
-				 bool checkDate,
+                                 bool checkDate,
                                  IONDRVUndefinedSymbolHandler handler,
                                  void * self );
 
@@ -123,26 +123,26 @@ public:
     virtual void free( void );
 
     virtual IOReturn getSymbol( const char * symbolName,
-				IOLogicalAddress * address );
+                                IOLogicalAddress * address );
 
     virtual const char * driverName( void );
 
     virtual IOReturn doDriverIO( UInt32 commandID, void * contents,
-				 UInt32 commandCode, UInt32 commandKind );
+                                 UInt32 commandCode, UInt32 commandKind );
 };
 
 #endif /* __ppc__ */
 
 struct IONDRVInterruptSource {
-    void *	refCon;
-    IOTVector	handlerStore;
-    IOTVector	enablerStore;
-    IOTVector	disablerStore;
-    IOTVector *	handler;
-    IOTVector *	enabler;
-    IOTVector *	disabler;
-    bool	registered;
-    bool	enabled;
+    void *      refCon;
+    IOTVector   handlerStore;
+    IOTVector   enablerStore;
+    IOTVector   disablerStore;
+    IOTVector * handler;
+    IOTVector * enabler;
+    IOTVector * disabler;
+    bool        registered;
+    bool        enabled;
 };
 
 class IONDRVInterruptSet : public OSObject {
@@ -150,12 +150,12 @@ class IONDRVInterruptSet : public OSObject {
     OSDeclareDefaultStructors(IONDRVInterruptSet)
 
 public:
-    IOService *			provider;
-    IOOptionBits		options;
-    UInt32			count;
-    SInt32			providerInterruptSource;
-    IONDRVInterruptSource *	sources;
-    IONDRVInterruptSet *	child;
+    IOService *                 provider;
+    IOOptionBits                options;
+    UInt32                      count;
+    SInt32                      providerInterruptSource;
+    IONDRVInterruptSource *     sources;
+    IONDRVInterruptSet *        child;
 
     static IONDRVInterruptSet * with(IOService * provider,
                                     IOOptionBits options, SInt32 count);
@@ -164,8 +164,8 @@ public:
 
 extern "C" OSStatus
 CallTVector( 
-	    void * p1, void * p2, void * p3, void * p4, void * p5, void * p6,
-	    struct IOTVector * entry );
+            void * p1, void * p2, void * p3, void * p4, void * p5, void * p6,
+            struct IOTVector * entry );
 
 #endif /* __IONDRV__ */
 

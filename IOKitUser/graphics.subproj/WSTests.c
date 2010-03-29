@@ -38,7 +38,7 @@ cc Tests.c -o tests -lIOKit -Wno-four-char-constants -fno-rtti -fno-exceptions -
 /*
  */
 
-#define OLDCONNECT	0
+#define OLDCONNECT      0
 #define TRAP 1
 
 #include <mach/clock_types.h>
@@ -49,18 +49,18 @@ cc Tests.c -o tests -lIOKit -Wno-four-char-constants -fno-rtti -fno-exceptions -
 
 #include <IOKit/graphics/IOGraphicsEngine.h>
 
-EvGlobals * 	evg;
+EvGlobals *     evg;
 StdFBShmem_t *  fbshmem;
-mach_port_t	masterPort;
-unsigned int	clock_freq;
+mach_port_t     masterPort;
+unsigned int    clock_freq;
 
 /*
  */
 
 inline UInt64 CFReadTSR() {
     union {
-	UInt64 time64;
-	UInt32 word[2];
+        UInt64 time64;
+        UInt32 word[2];
     } now;
 
     /* Read from PowerPC 64-bit time base register. The increment */
@@ -68,9 +68,9 @@ inline UInt64 CFReadTSR() {
     /* 1/4th the bus clock cycle on 603/604/750 processors. */
     UInt32 t3;
     do {
-	__asm__ volatile("mftbu %0" : "=r" (now.word[0]));
-	__asm__ volatile("mftb %0" : "=r" (now.word[1]));
-	__asm__ volatile("mftbu %0" : "=r" (t3));
+        __asm__ volatile("mftbu %0" : "=r" (now.word[0]));
+        __asm__ volatile("mftb %0" : "=r" (now.word[1]));
+        __asm__ volatile("mftbu %0" : "=r" (t3));
     } while (now.word[0] != t3);
 
     return now.time64;
@@ -78,9 +78,9 @@ inline UInt64 CFReadTSR() {
 
 void getClockFrequency( void )
 {
-    kern_return_t	kr;
-    unsigned int	size;
-    io_registry_entry_t	root;
+    kern_return_t       kr;
+    unsigned int        size;
+    io_registry_entry_t root;
 
     assert( (
     root = IORegistryEntryFromPath( masterPort, "IODeviceTree:/" )
@@ -106,120 +106,120 @@ void printElapsed( UInt64 start, UInt64 end )
 
 void AccelTests( int reset, int count )
 {
-	io_iterator_t	iter;
-	io_service_t 	fb;
-	io_name_t	name;
-	kern_return_t	kr;
-	void *		blitterRef;
-	int		quality, i;
-	int		color, x, y;
-	thread_port_t	tself;
-        volatile UInt64	start, end;
-	int		waited, busy;
-	boolean_t	didit;
+        io_iterator_t   iter;
+        io_service_t    fb;
+        io_name_t       name;
+        kern_return_t   kr;
+        void *          blitterRef;
+        int             quality, i;
+        int             color, x, y;
+        thread_port_t   tself;
+        volatile UInt64 start, end;
+        int             waited, busy;
+        boolean_t       didit;
 
 UInt32 * vars;
 IOGraphicsEngineContext * shmem;
 
-	if( reset) {
-	}
-	if( !count)
-		count = 10000;
+        if( reset) {
+        }
+        if( !count)
+                count = 10000;
 
-	assert( KERN_SUCCESS == (
-	kr = IOServiceGetMatchingServices( masterPort,
-			 IOServiceMatching( IOFRAMEBUFFER_CONFORMSTO ), &iter)
-	));
+        assert( KERN_SUCCESS == (
+        kr = IOServiceGetMatchingServices( masterPort,
+                         IOServiceMatching( IOFRAMEBUFFER_CONFORMSTO ), &iter)
+        ));
 
-	assert(
-	fb = IOIteratorNext( iter )
-	);
+        assert(
+        fb = IOIteratorNext( iter )
+        );
 
-	assert( KERN_SUCCESS == (
-	kr = IORegistryEntryGetName( fb, name )
-	));
+        assert( KERN_SUCCESS == (
+        kr = IORegistryEntryGetName( fb, name )
+        ));
 
-	assert( KERN_SUCCESS == (
-	kr = IOPSAllocateBlitEngine( fb, &blitterRef, &quality )
-	));
+        assert( KERN_SUCCESS == (
+        kr = IOPSAllocateBlitEngine( fb, &blitterRef, &quality )
+        ));
 
 #if 0
 vars = (UInt32 *) blitter;
 shmem = (IOGraphicsEngineContext *) vars[ 3 ];
 srandom( shmem->reserved[0] );
 
-	tself = random();
-	x = tself % 600;
-	tself = random();
-	y = tself % 500;
+        tself = random();
+        x = tself % 600;
+        tself = random();
+        y = tself % 500;
         shmem->reserved[0] = tself;
 
-	waited = busy = 0;
+        waited = busy = 0;
 
         start = CFReadTSR();
-	for( i = 0; i < count; i++ ) {
-//	    IOPSBlitFill( blitter, x, y, 200, 200, color );
-	    IOPSBlitInvert( blitter, x, y, 100, 1 );
-	}
-	IOPSBlitIdle( blitter );
+        for( i = 0; i < count; i++ ) {
+//          IOPSBlitFill( blitter, x, y, 200, 200, color );
+            IOPSBlitInvert( blitter, x, y, 100, 1 );
+        }
+        IOPSBlitIdle( blitter );
 
         end = CFReadTSR();
 
 //        thread_switch( 0, SWITCH_OPTION_WAIT, 2 * 1000 );
 
-	printf("%s: Count: %d, ", name, count );
-	printElapsed( start, end );
+        printf("%s: Count: %d, ", name, count );
+        printElapsed( start, end );
 #endif
 
     if( 1 ) {
 
-	void *	burstRef;
-	int	count;
-	int 	i,j = 0, lines;
-	UInt64 	start,end;
-	int 	w = 1280;
-	int 	h = 100;
-	int	bytesPerPixel = 2;
-	int	slice = 1;
-	int 	NUMBLITS = 300;
-	void * 	fill1;
-	void * 	fill2;
+        void *  burstRef;
+        int     count;
+        int     i,j = 0, lines;
+        UInt64  start,end;
+        int     w = 1280;
+        int     h = 100;
+        int     bytesPerPixel = 2;
+        int     slice = 1;
+        int     NUMBLITS = 300;
+        void *  fill1;
+        void *  fill2;
 
-	count = ((slice * h * bytesPerPixel) + 31) / 32;
-	fill1 = (void *)0x3c0001e0;
-	fill2 = (void *)0x3c0001e0;
+        count = ((slice * h * bytesPerPixel) + 31) / 32;
+        fill1 = (void *)0x3c0001e0;
+        fill2 = (void *)0x3c0001e0;
 
-	start = CFReadTSR();
+        start = CFReadTSR();
 
-	for( i=0; i < NUMBLITS; i++) {
-	    for( j=0; j < w; j += slice) {
-		assert( KERN_SUCCESS == (
-    		    kr = IOFBSetupFIFOBurst( blitterRef, j, 200, slice, h, 0,
-						&burstRef )
-		));
-		lines = count;
-		while( lines--)
-		    IOFBBurstWrite32( fill1, fill2, fill1, fill2,
-			  	  	fill1, fill2, fill1, fill2 );
-	   }
-	}
+        for( i=0; i < NUMBLITS; i++) {
+            for( j=0; j < w; j += slice) {
+                assert( KERN_SUCCESS == (
+                    kr = IOFBSetupFIFOBurst( blitterRef, j, 200, slice, h, 0,
+                                                &burstRef )
+                ));
+                lines = count;
+                while( lines--)
+                    IOFBBurstWrite32( fill1, fill2, fill1, fill2,
+                                        fill1, fill2, fill1, fill2 );
+           }
+        }
 
-	end = CFReadTSR();
+        end = CFReadTSR();
 
-	{
-	double bytes = w * h * 2 * NUMBLITS;
-	double secs = (end - start);
+        {
+        double bytes = w * h * 2 * NUMBLITS;
+        double secs = (end - start);
 
-	secs /= 24932500;
+        secs /= 24932500;
 
-	printf("%d x %d * %d = %qd ticks\n", w, h, NUMBLITS, end - start);
-	printf("%f bytes %f secs, %f Mbytes per sec\n", bytes, secs,
-			bytes / secs / 1024 / 1024);
-	}
+        printf("%d x %d * %d = %qd ticks\n", w, h, NUMBLITS, end - start);
+        printf("%f bytes %f secs, %f Mbytes per sec\n", bytes, secs,
+                        bytes / secs / 1024 / 1024);
+        }
     }
 
-	IOObjectRelease( iter );
-	IOObjectRelease( fb );
+        IOObjectRelease( iter );
+        IOObjectRelease( fb );
 }
 
 
@@ -233,10 +233,10 @@ void SetCursor( StdFBShmem_t * fbshmem)
             0xFFC0FFE0,0xFE00EF00,0xCF008780,0x07800380,
             0x00080001,
         };
-        UInt32 * 	dataPtr;
-        UInt32   	data, mask;
+        UInt32 *        dataPtr;
+        UInt32          data, mask;
         volatile UInt8 *  dataOut;
-	int	 	i;
+        int             i;
 
         dataPtr = cursor;
         dataOut = fbshmem->cursor.bw8.image[0];
@@ -255,131 +255,131 @@ void SetCursor( StdFBShmem_t * fbshmem)
         fbshmem->hotSpot[0].x = data >> 16;
         fbshmem->hotSpot[0].y = data & 0xffff;
 
-	fbshmem->cursorShow = 1;
+        fbshmem->cursorShow = 1;
 }
 
 
 
 void SetupFBandHID( void )
 {
-	register kern_return_t	kr;
-	mach_port_t		ev, fb, enumer, iter;
-	io_name_t		name;
-	vm_address_t		shmem, vram;
-	vm_size_t		shmemSize;
-	int			i,j;
-	IODisplayModeID		displayMode;
-        IOIndex			displayDepth;
-	IOFramebufferInformation fbInfo;
-	IOPixelEncoding		format;
+        register kern_return_t  kr;
+        mach_port_t             ev, fb, enumer, iter;
+        io_name_t               name;
+        vm_address_t            shmem, vram;
+        vm_size_t               shmemSize;
+        int                     i,j;
+        IODisplayModeID         displayMode;
+        IOIndex                 displayDepth;
+        IOFramebufferInformation fbInfo;
+        IOPixelEncoding         format;
 
 #if OLDCONNECT
 
-	assert( KERN_SUCCESS == (
-	kr = IORegistryCreateEnumerator( masterPort,
-			 &enumer)
-	));
+        assert( KERN_SUCCESS == (
+        kr = IORegistryCreateEnumerator( masterPort,
+                         &enumer)
+        ));
 
-	assert( KERN_SUCCESS == (
-	kr = IORegistryEnumeratorNextConforming( enumer,
-			 (char *) IOFRAMEBUFFER_CONFORMSTO, TRUE)
-	));
+        assert( KERN_SUCCESS == (
+        kr = IORegistryEnumeratorNextConforming( enumer,
+                         (char *) IOFRAMEBUFFER_CONFORMSTO, TRUE)
+        ));
 
-	assert( KERN_SUCCESS == (
-	kr = IOOpenConnection( enumer,
-			mach_task_self(),
-			kIOFBServerConnectType,
-			&fb)
-	));
+        assert( KERN_SUCCESS == (
+        kr = IOOpenConnection( enumer,
+                        mach_task_self(),
+                        kIOFBServerConnectType,
+                        &fb)
+        ));
 
 #else
-	assert( KERN_SUCCESS == (
-	kr = IOServiceGetMatchingServices( masterPort,
-			 IOServiceMatching( IOFRAMEBUFFER_CONFORMSTO ), &iter)
-	));
+        assert( KERN_SUCCESS == (
+        kr = IOServiceGetMatchingServices( masterPort,
+                         IOServiceMatching( IOFRAMEBUFFER_CONFORMSTO ), &iter)
+        ));
 
-	assert(
-	enumer = IOIteratorNext( iter )
-	);
+        assert(
+        enumer = IOIteratorNext( iter )
+        );
 
-	assert( KERN_SUCCESS == (
-	kr = IORegistryEntryGetName( enumer, name )
-	));
+        assert( KERN_SUCCESS == (
+        kr = IORegistryEntryGetName( enumer, name )
+        ));
 
-	printf("Opening %s\n", name);
+        printf("Opening %s\n", name);
 
-	assert( KERN_SUCCESS == (
+        assert( KERN_SUCCESS == (
             kr = IOServiceOpen( enumer,
-			mach_task_self(),
-			kIOFBServerConnectType,
-			&fb)
+                        mach_task_self(),
+                        kIOFBServerConnectType,
+                        &fb)
 
-	));
+        ));
 
-	IOObjectRelease( enumer );
-	enumer = 0;
-	assert( KERN_SUCCESS == (
-	kr = IOConnectGetService( fb, &enumer )
-	));
+        IOObjectRelease( enumer );
+        enumer = 0;
+        assert( KERN_SUCCESS == (
+        kr = IOConnectGetService( fb, &enumer )
+        ));
 
-	assert( KERN_SUCCESS == (
-	kr = IORegistryEntryGetName( enumer, name )
-	));
+        assert( KERN_SUCCESS == (
+        kr = IORegistryEntryGetName( enumer, name )
+        ));
 
-	printf("Opened %s\n", name);
+        printf("Opened %s\n", name);
 
-	IOObjectRelease( iter );
-	IOObjectRelease( enumer );
+        IOObjectRelease( iter );
+        IOObjectRelease( enumer );
 #endif
 
-	assert( KERN_SUCCESS == (
-	kr = IOFBCreateSharedCursor( fb,
-			kIOFBCurrentShmemVersion, 32, 32)
-	));
+        assert( KERN_SUCCESS == (
+        kr = IOFBCreateSharedCursor( fb,
+                        kIOFBCurrentShmemVersion, 32, 32)
+        ));
 //exit(0);
 
-	assert( KERN_SUCCESS == (
-	kr = IOFBGetFramebufferInformationForAperture( fb, 0, &fbInfo)
-	));
+        assert( KERN_SUCCESS == (
+        kr = IOFBGetFramebufferInformationForAperture( fb, 0, &fbInfo)
+        ));
 
-	assert( KERN_SUCCESS == (
-	kr = IOFBGetCurrentDisplayModeAndDepth( fb,
-			&displayMode, &displayDepth)
-	));
+        assert( KERN_SUCCESS == (
+        kr = IOFBGetCurrentDisplayModeAndDepth( fb,
+                        &displayMode, &displayDepth)
+        ));
 
-	assert( KERN_SUCCESS == (
-	kr = IOFBGetPixelFormat( fb, displayMode, displayDepth,
-		kIOFBSystemAperture, &format)
-	));
+        assert( KERN_SUCCESS == (
+        kr = IOFBGetPixelFormat( fb, displayMode, displayDepth,
+                kIOFBSystemAperture, &format)
+        ));
 
-	assert( KERN_SUCCESS == (
-	kr = IOMapMemory( fb, kIOFBCursorMemory, mach_task_self(),
-			&shmem, &shmemSize, TRUE)
-	));
+        assert( KERN_SUCCESS == (
+        kr = IOMapMemory( fb, kIOFBCursorMemory, mach_task_self(),
+                        &shmem, &shmemSize, TRUE)
+        ));
 
-	fbshmem = (StdFBShmem_t *)shmem;
+        fbshmem = (StdFBShmem_t *)shmem;
 
-//	assert( sizeof( StdFBShmem_t) == fbshmem->structSize );
-	SetCursor( fbshmem);
+//      assert( sizeof( StdFBShmem_t) == fbshmem->structSize );
+        SetCursor( fbshmem);
 
-	assert( KERN_SUCCESS == (
-	kr = IOConnectMapMemory( fb, kIOFBSystemAperture, mach_task_self(),
-		&vram, &shmemSize, kIOMapDefaultCache | kIOMapAnywhere)
-	));
+        assert( KERN_SUCCESS == (
+        kr = IOConnectMapMemory( fb, kIOFBSystemAperture, mach_task_self(),
+                &vram, &shmemSize, kIOMapDefaultCache | kIOMapAnywhere)
+        ));
 
-	assert( KERN_SUCCESS == (
-	kr = IOConnectMapMemory( fb, kIOFBSystemAperture, mach_task_self(),
-		&vram, &shmemSize, kIOMapCopybackCache | kIOMapAnywhere)
-	));
+        assert( KERN_SUCCESS == (
+        kr = IOConnectMapMemory( fb, kIOFBSystemAperture, mach_task_self(),
+                &vram, &shmemSize, kIOMapCopybackCache | kIOMapAnywhere)
+        ));
 
-	if( 0 ) {
+        if( 0 ) {
             printf("%ld x %ld", fbInfo.activeWidth, fbInfo.activeHeight);
             printf(", \"%s\"", format);
             printf(", mode %ld-%ld", displayMode, displayDepth);
             printf(", fbshmem mapped @ %x", fbshmem);
             printf(", vram mapped @ %x", vram);
             printf(", hidshmem mapped @ %x\n", kr, evg );
-	}
+        }
 
         if( 1 ) {
             unsigned char * bits = (unsigned char *) vram;
@@ -393,7 +393,7 @@ void SetupFBandHID( void )
             }
         }
 
-	if( 0 ) {
+        if( 0 ) {
             unsigned char data[ 768 ];
             for( i=0; i<256; i++) {
                 data[ i ] = 255 - i;
@@ -403,138 +403,138 @@ void SetupFBandHID( void )
             assert( KERN_SUCCESS == (
             kr = IOFBSetGamma( fb, 3, 256, 8, data )
             ));
-	}
+        }
 
-if(0)	{
-	vm_address_t 			vs = vram;
-	vm_size_t			vl;
-	vm_region_basic_info_data_t	vminfo;
-	mach_msg_type_number_t		len = VM_REGION_BASIC_INFO_COUNT;
-	mach_port_t			obj;
+if(0)   {
+        vm_address_t                    vs = vram;
+        vm_size_t                       vl;
+        vm_region_basic_info_data_t     vminfo;
+        mach_msg_type_number_t          len = VM_REGION_BASIC_INFO_COUNT;
+        mach_port_t                     obj;
 
-	kr = vm_region( mach_task_self(),
-		&vs, &vl,
-		VM_REGION_BASIC_INFO,
-		(vm_region_info_t) &vminfo,
-		&len,
-		&obj );
+        kr = vm_region( mach_task_self(),
+                &vs, &vl,
+                VM_REGION_BASIC_INFO,
+                (vm_region_info_t) &vminfo,
+                &len,
+                &obj );
 
-	printf("vm_region = %lx, start: %08x, len: %08x\n", kr, vs, vl );
-	}
+        printf("vm_region = %lx, start: %08x, len: %08x\n", kr, vs, vl );
+        }
 
 #if OLDCONNECT
-	assert( KERN_SUCCESS == (
-	kr = IORegistryEnumeratorReset( enumer)
-	));
+        assert( KERN_SUCCESS == (
+        kr = IORegistryEnumeratorReset( enumer)
+        ));
 
-	assert( KERN_SUCCESS == (
-	kr = IORegistryEnumeratorNextConforming( enumer,
-			 (char *) kIOHIDSystemClass, TRUE)
-	));
+        assert( KERN_SUCCESS == (
+        kr = IORegistryEnumeratorNextConforming( enumer,
+                         (char *) kIOHIDSystemClass, TRUE)
+        ));
 
-	assert( KERN_SUCCESS == (
-	kr = IOOpenConnection( enumer,
-			mach_task_self(),
-			kIOFBServerConnectType,
-			&ev)
-	));
+        assert( KERN_SUCCESS == (
+        kr = IOOpenConnection( enumer,
+                        mach_task_self(),
+                        kIOFBServerConnectType,
+                        &ev)
+        ));
 #else
-	assert( KERN_SUCCESS == (
-	kr = IOServiceGetMatchingServices( masterPort,
-			 IOServiceMatching( kIOHIDSystemClass ), &iter)
-	));
+        assert( KERN_SUCCESS == (
+        kr = IOServiceGetMatchingServices( masterPort,
+                         IOServiceMatching( kIOHIDSystemClass ), &iter)
+        ));
 
-	assert(
-	enumer = IOIteratorNext( iter )
-	);
+        assert(
+        enumer = IOIteratorNext( iter )
+        );
 
-	assert( KERN_SUCCESS == (
-	kr = IORegistryEntryGetName( enumer, name )
-	));
+        assert( KERN_SUCCESS == (
+        kr = IORegistryEntryGetName( enumer, name )
+        ));
 
-	printf("Opening %s\n", name);
+        printf("Opening %s\n", name);
 
-	assert( KERN_SUCCESS == (
+        assert( KERN_SUCCESS == (
         kr = IOServiceOpen( enumer,
-			mach_task_self(),
-			kIOHIDServerConnectType,
-			&ev)
-	));
+                        mach_task_self(),
+                        kIOHIDServerConnectType,
+                        &ev)
+        ));
 
-	IOObjectRelease( iter );
+        IOObjectRelease( iter );
 #endif
 
-	assert( KERN_SUCCESS == (
-	kr = IOHIDCreateSharedMemory( ev, kIOHIDCurrentShmemVersion)
-	));
+        assert( KERN_SUCCESS == (
+        kr = IOHIDCreateSharedMemory( ev, kIOHIDCurrentShmemVersion)
+        ));
 
-	assert( KERN_SUCCESS == (
-	kr = IOHIDSetEventsEnable( ev, TRUE)
-	));
+        assert( KERN_SUCCESS == (
+        kr = IOHIDSetEventsEnable( ev, TRUE)
+        ));
 
-	assert( KERN_SUCCESS == (
-	kr = IORegisterClient( ev, fb)
-	));
+        assert( KERN_SUCCESS == (
+        kr = IORegisterClient( ev, fb)
+        ));
 
-	assert( KERN_SUCCESS == (
-	kr = IOHIDSetCursorEnable( ev, TRUE)
-	));
+        assert( KERN_SUCCESS == (
+        kr = IOHIDSetCursorEnable( ev, TRUE)
+        ));
 
-	assert( KERN_SUCCESS == (
-	kr = IOMapMemory( ev, kIOHIDGlobalMemory, mach_task_self(),
-			&shmem, &shmemSize, TRUE)
-	));
+        assert( KERN_SUCCESS == (
+        kr = IOMapMemory( ev, kIOHIDGlobalMemory, mach_task_self(),
+                        &shmem, &shmemSize, TRUE)
+        ));
 
-	evg = (EvGlobals *)
-		(shmem + ((EvOffsets *)shmem)->evGlobalsOffset);
+        evg = (EvGlobals *)
+                (shmem + ((EvOffsets *)shmem)->evGlobalsOffset);
 
-	assert( sizeof( EvGlobals) == evg->structSize );
+        assert( sizeof( EvGlobals) == evg->structSize );
 
 //        printf("=%d, IOSetNotificationPort\n", kr);
 //        kr = IOSetNotificationPort( ev, kIOHIDEventNotification,
-//		bootstrap_event_port);
+//              bootstrap_event_port);
 
-	assert( KERN_SUCCESS == (
-	kr = IORegistryDisposeEnumerator( enumer)
-	));
+        assert( KERN_SUCCESS == (
+        kr = IORegistryDisposeEnumerator( enumer)
+        ));
 
-	if( 1 ) {
+        if( 1 ) {
             printf("%ld x %ld", fbInfo.activeWidth, fbInfo.activeHeight);
             printf(", \"%s\"", format);
             printf(", mode %ld-%ld", displayMode, displayDepth);
             printf(", fbshmem mapped @ %x", fbshmem);
             printf(", vram mapped @ %x", vram);
             printf(", hidshmem mapped @ %x\n", kr, evg );
-	}
+        }
 }
 
 void dumpIter( io_iterator_t iter )
 {
-    kern_return_t	kr;
-    io_object_t		obj;
-    io_name_t		name;
-    io_string_t		path;
+    kern_return_t       kr;
+    io_object_t         obj;
+    io_name_t           name;
+    io_string_t         path;
 
     while( (obj = IOIteratorNext( iter))) {
         assert( KERN_SUCCESS == (
         kr = IORegistryEntryGetName( obj, name )
         ));
-	printf("name:%s(%d)\n", name, obj);
+        printf("name:%s(%d)\n", name, obj);
         kr = IORegistryEntryGetPath( obj, "IOService", path );
-	if( KERN_SUCCESS == kr)
-	    // if the object is detached, getPath is expected to fail
+        if( KERN_SUCCESS == kr)
+            // if the object is detached, getPath is expected to fail
             printf("path:%s\n", path);
-//	IOObjectRelease( obj );
+//      IOObjectRelease( obj );
     }
 }
 
 void regTest( void )
 {
-    UInt64		start, end;
-    kern_return_t	kr;
-    io_registry_entry_t	entry, root;
-    io_iterator_t	iter;
-    io_name_t		name;
+    UInt64              start, end;
+    kern_return_t       kr;
+    io_registry_entry_t entry, root;
+    io_iterator_t       iter;
+    io_name_t           name;
 
     assert( (
     root = IORegistryEntryFromPath( masterPort, kIODeviceTreePlane ":/" )
@@ -550,8 +550,8 @@ void regTest( void )
         assert( KERN_SUCCESS == (
         kr = IORegistryEntryGetName( entry, name )
         ));
-	printf("%s, ", name);
-	IOObjectRelease( entry );
+        printf("%s, ", name);
+        IOObjectRelease( entry );
     } while( (entry = IOIteratorNext( iter)));
     printf("\n");
 
@@ -587,34 +587,34 @@ int ofPathTest(char * arg)
 int
 main(int argc, char **argv)
 {
-	kern_return_t		kr;
-	boolean_t		reset = 0;
-	int			count = 0;
+        kern_return_t           kr;
+        boolean_t               reset = 0;
+        int                     count = 0;
 
-	/*
-	 * Get master device port
-	 */
-	assert( KERN_SUCCESS == (
-	kr = IOMasterPort(   bootstrap_port,
-			     &masterPort)
-	));
+        /*
+         * Get master device port
+         */
+        assert( KERN_SUCCESS == (
+        kr = IOMasterPort(   bootstrap_port,
+                             &masterPort)
+        ));
 
-//	getClockFrequency();
-//	regTest();
-//	ofPathTest( argv[1] );
+//      getClockFrequency();
+//      regTest();
+//      ofPathTest( argv[1] );
 
-	if( argc > 1) {
+        if( argc > 1) {
             reset = (0 == strcmp("reset", argv[1]));
-	    if( !reset)
-		count = strtol( argv[1], 0, 10 );
-	}
+            if( !reset)
+                count = strtol( argv[1], 0, 10 );
+        }
 
-  	AccelTests( reset, count );
+        AccelTests( reset, count );
 
-//	SetupFBandHID();
+//      SetupFBandHID();
 
-//	printf("Done, sleeping...\n"); thread_switch( 0, SWITCH_OPTION_WAIT, 10 * 1000 );
-	printf("Exit\n");
+//      printf("Done, sleeping...\n"); thread_switch( 0, SWITCH_OPTION_WAIT, 10 * 1000 );
+        printf("Exit\n");
 
 }
 

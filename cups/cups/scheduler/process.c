@@ -488,8 +488,11 @@ cupsdStartProcess(
       * Reset group membership to just the main one we belong to.
       */
 
-      setgid(Group);
-      setgroups(1, &Group);
+      if (setgid(Group) && !RunUser)
+        exit(errno);
+
+      if (setgroups(1, &Group) && !RunUser)
+        exit(errno);
     }
 
    /*
@@ -505,6 +508,7 @@ cupsdStartProcess(
 #ifdef HAVE_SIGSET
     sigset(SIGTERM, SIG_DFL);
     sigset(SIGCHLD, SIG_DFL);
+    sigset(SIGPIPE, SIG_DFL);
 #elif defined(HAVE_SIGACTION)
     memset(&action, 0, sizeof(action));
 
@@ -513,9 +517,11 @@ cupsdStartProcess(
 
     sigaction(SIGTERM, &action, NULL);
     sigaction(SIGCHLD, &action, NULL);
+    sigaction(SIGPIPE, &action, NULL);
 #else
     signal(SIGTERM, SIG_DFL);
     signal(SIGCHLD, SIG_DFL);
+    signal(SIGPIPE, SIG_DFL);
 #endif /* HAVE_SIGSET */
 
     cupsdReleaseSignals();

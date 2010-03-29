@@ -1,19 +1,5 @@
-diff -Naur php-5.3.0/configure php/configure
---- php-5.3.0/configure	2009-06-10 11:23:33.000000000 -0700
-+++ php/configure	2009-06-16 17:10:25.000000000 -0700
-@@ -3528,10 +3528,6 @@
-         CPPFLAGS="$CPPFLAGS -no-cpp-precomp"
-       fi
-     fi
--    cat >> confdefs.h <<\EOF
--#define BIND_8_COMPAT 1
--EOF
--
-     php_multiple_shlib_versions_ok=yes
-     ;;
-   *beos*)
-diff -Naur php-5.3.0/ext/standard/dns.c php/ext/standard/dns.c
---- php-5.3.0RC3/ext/standard/dns.c	2009-05-20 05:44:19.000000000 -0700
+diff -Naur php-5.3.1RC2/ext/standard/dns.c php/ext/standard/dns.c
+--- php-5.3.1RC2/ext/standard/dns.c	2009-05-20 05:44:19.000000000 -0700
 +++ php/ext/standard/dns.c	2009-06-16 17:10:25.000000000 -0700
 @@ -43,6 +43,9 @@
  #undef STATUS

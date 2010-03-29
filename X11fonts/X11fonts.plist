@@ -8,7 +8,7 @@
 		<key>OpenSourceLicense</key>
 		<string>MIT</string>
 		<key>OpenSourceProject</key>
-		<string>-encodings</string>
+		<string>encodings</string>
 		<key>OpenSourceSHA1</key>
 		<string>02fb48ea1d48675db07c3b13acc5f8124cbd8818</string>
 		<key>OpenSourceURL</key>
@@ -408,8 +408,7 @@
 		<key>OpenSourceLicense</key>
 		<string>MIT</string>
 		<key>OpenSourceProject</key>
-		<string>font-
-</string>
+		<string>font-micro-misc</string>
 		<key>OpenSourceSHA1</key>
 		<string>07d9c802836f58f191586594de1aa7b2a90f0ed7</string>
 		<key>OpenSourceURL</key>
@@ -425,8 +424,7 @@
 		<key>OpenSourceLicense</key>
 		<string>MIT</string>
 		<key>OpenSourceProject</key>
-		<string>font-
-</string>
+		<string>font-misc-cyrillic</string>
 		<key>OpenSourceSHA1</key>
 		<string>246c9c9e424dc4bf28fea1cb3fa72e2c59a1deb4</string>
 		<key>OpenSourceURL</key>

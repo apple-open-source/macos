@@ -357,6 +357,12 @@ show_dlts_and_exit(pcap_t *pd)
 #define B_FLAG_USAGE
 #endif /* defined(HAVE_PCAP_CREATE) || defined(WIN32) */
 
+#ifdef __APPLE__
+#define G_FLAG		"g"
+#else
+#define G_FLAG
+#endif
+
 #ifdef HAVE_PCAP_CREATE
 #define I_FLAG		"I"
 #else /* HAVE_PCAP_CREATE */
@@ -535,7 +541,7 @@ main(int argc, char **argv)
 
 	opterr = 0;
 	while (
-	    (op = getopt(argc, argv, "aA" B_FLAG "c:C:d" D_FLAG "eE:fF:gG:i:" I_FLAG "KlLm:M:nNOpqr:Rs:StT:u" U_FLAG "vw:W:xXy:Yz:Z:")) != -1)
+	    (op = getopt(argc, argv, "aA" B_FLAG "c:C:d" D_FLAG "eE:fF:" G_FLAG "G:i:" I_FLAG "KlLm:M:nNOpqr:Rs:StT:u" U_FLAG "vw:W:xXy:Yz:Z:")) != -1)
 		switch (op) {
 
 		case 'a':
@@ -609,9 +615,11 @@ main(int argc, char **argv)
 			infile = optarg;
 			break;
 
+#ifdef __APPLE__
 		case 'g':
 			gflag++;
 			break;
+#endif
 
 		case 'G':
 			Gflag = atoi(optarg);
@@ -1676,7 +1684,7 @@ usage(void)
 #endif /* WIN32 */
 #endif /* HAVE_PCAP_LIB_VERSION */
 	(void)fprintf(stderr,
-"Usage: %s [-aAd" D_FLAG "ef" I_FLAG "KlLnNOpqRStu" U_FLAG "vxX]" B_FLAG_USAGE " [ -c count ]\n", program_name);
+"Usage: %s [-aAd" D_FLAG "ef" G_FLAG I_FLAG "KlLnNOpqRStu" U_FLAG "vxX]" B_FLAG_USAGE " [ -c count ]\n", program_name);
 	(void)fprintf(stderr,
 "\t\t[ -C file_size ] [ -E algo:secret ] [ -F file ] [ -G seconds ]\n");
 	(void)fprintf(stderr,

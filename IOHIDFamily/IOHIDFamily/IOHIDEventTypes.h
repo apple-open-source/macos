@@ -54,6 +54,7 @@
     @constant kIOHIDEventTypeMouse
     @constant kIOHIDEventTypeProgress
     @constant kIOHIDEventTypeSwipe
+ 	@constant kIOHIDEventTypeGyro
 */
 enum {
     kIOHIDEventTypeNULL,
@@ -75,7 +76,8 @@ enum {
     kIOHIDEventTypeSwipe,
     kIOHIDEventTypeMouse,
     kIOHIDEventTypeProgress,
-    kIOHIDEventTypeCount
+    kIOHIDEventTypeCount,
+	kIOHIDEventTypeGyro
 };
 typedef uint32_t IOHIDEventType;
 
@@ -135,6 +137,20 @@ enum {
 };
 
 /*!
+ @typedef IOHIDMotionType
+ @abstract Type of Motion event triggered.
+ @discussion
+ @constant kIOHIDMotionStart
+ @constant kIOHIDMotionEnd
+ */
+enum {
+    kIOHIDMotionStart   = 0,
+    kIOHIDMotionEnd     = 1,
+};
+typedef uint32_t IOHIDMotionType;
+
+
+/*!
 	@typedef IOHIDAccelerometerType
 	@abstract Type of accelerometer event triggered.
     @discussion
@@ -146,12 +162,14 @@ enum {
     kIOHIDAccelerometerTypeShake    = 1
 };
 typedef uint32_t IOHIDAccelerometerType;
+typedef IOHIDMotionType IOHIDAccelerometerSubType;
 
 enum {
     kIOHIDEventFieldAccelerometerX = IOHIDEventFieldBase(kIOHIDEventTypeAccelerometer),
     kIOHIDEventFieldAccelerometerY,
     kIOHIDEventFieldAccelerometerZ,
-    kIOHIDEventFieldAccelerometerType
+    kIOHIDEventFieldAccelerometerType,
+	kIOHIDEventFieldAccelerometerSubType
 };
 
 enum {
@@ -164,10 +182,35 @@ enum {
     kIOHIDEventFieldMousePressure
 };
 
+/*!
+ @typedef IOHIDGyroType
+ @abstract Type of Gyro event triggered.
+ @discussion
+ @constant kIOHIDGyroTypeNormal
+ @constant kIOHIDGyroTypeShake
+ */
+enum {
+    kIOHIDGyroTypeNormal   = 0,
+    kIOHIDGyroTypeShake    = 1,
+	kIOHIDGyroTypeMotion   = 2
+};
+typedef uint32_t IOHIDGyroType;
+typedef IOHIDMotionType IOHIDGyroSubType ;
+
+enum {
+    kIOHIDEventFieldGyroX = IOHIDEventFieldBase(kIOHIDEventTypeGyro),
+    kIOHIDEventFieldGyroY,
+    kIOHIDEventFieldGyroZ, 
+	kIOHIDEventFieldGyroType,
+	kIOHIDEventFieldGyroSubType
+};
+
 enum {
     kIOHIDEventFieldAmbientLightSensorLevel = IOHIDEventFieldBase(kIOHIDEventTypeAmbientLightSensor),
     kIOHIDEventFieldAmbientLightSensorRawChannel0,
     kIOHIDEventFieldAmbientLightSensorRawChannel1,
+    kIOHIDEventFieldAmbientLightSensorRawChannel2,
+    kIOHIDEventFieldAmbientLightSensorRawChannel3,
     kIOHIDEventFieldAmbientLightDisplayBrightnessChanged
 };
 
@@ -176,7 +219,8 @@ enum {
 };
 
 enum {
-    kIOHIDEventFieldProximityDetectionMask = IOHIDEventFieldBase(kIOHIDEventTypeProximity)
+    kIOHIDEventFieldProximityDetectionMask = IOHIDEventFieldBase(kIOHIDEventTypeProximity),
+	kIOHIDEventFieldProximityLevel
 };
 
 

@@ -1636,6 +1636,7 @@ static errno_t ntfs_upcase_load(ntfs_volume *vol)
 		ntfs_page_unmap(ni, upl, pl, FALSE);
 	}
 	lck_rw_unlock_shared(&ni->lock);
+	(void)vnode_recycle(ni->vn);
 	(void)vnode_put(ni->vn);
 	vol->upcase_len = data_size >> NTFSCHAR_SIZE_SHIFT;
 	ntfs_debug("Read %lld bytes from $UpCase (expected %lu bytes).",
@@ -1676,6 +1677,7 @@ err:
 	}
 	if (ni) {
 		lck_rw_unlock_shared(&ni->lock);
+		(void)vnode_recycle(ni->vn);
 		(void)vnode_put(ni->vn);
 	}
 	lck_mtx_lock(&ntfs_lock);
@@ -1751,6 +1753,7 @@ static errno_t ntfs_attrdef_load(ntfs_volume *vol)
 		ntfs_page_unmap(ni, upl, pl, FALSE);
 	}
 	lck_rw_unlock_shared(&ni->lock);
+	(void)vnode_recycle(ni->vn);
 	(void)vnode_put(ni->vn);
 	vol->attrdef_size = data_size;
 	ntfs_debug("Done.  Read %lld bytes from $AttrDef.",
@@ -1763,6 +1766,7 @@ err:
 	}
 	if (ni) {
 		lck_rw_unlock_shared(&ni->lock);
+		(void)vnode_recycle(ni->vn);
 		(void)vnode_put(ni->vn);
 	}
 	ntfs_error(vol->mp, "Failed to initialize attribute definitions "
@@ -3323,38 +3327,6 @@ static void ntfs_statfs(ntfs_volume *vol, struct vfsstatfs *sfs)
 }
 
 /**
- * ntfs_unmount_callback_test_busy - callback for vnode iterate in ntfs_unmount
- * @vn:		vnode the callback is invoked with (has iocount reference)
- * @err:	pointer to an integer in which to return any errors
- *
- * This callback is called from vnode_iterate() which is called from
- * ntfs_unmount() for all in-core, non-dead, non-suspend vnodes belonging to
- * the mounted volume that still have an ntfs inode attached.
- *
- * We determine if the vnode @vn is held busy by any users that are external to
- * the ntfs driver and if so return EBUSY through the error pointer @err and
- * abort the iteration.  Otherwise we simply continue the iteration.
- */
-static int ntfs_unmount_callback_test_busy(struct vnode *vn, void *err)
-{
-	ntfs_inode *ni = NTFS_I(vn);
-
-	ntfs_debug("Entering for mft_no 0x%llx.",
-				(unsigned long long)ni->mft_no);
-	if (S_ISDIR(ni->mode) || !vnode_isinuse(vn, ni->nr_refs)) {
-		ntfs_debug("Done (not busy).");
-		return VNODE_RETURNED;
-	}
-	ntfs_debug("Found busy vnode (mft_no 0x%llx, type 0x%x, name_len "
-			"0x%x, nr_refs 0x%x), aborting.",
-			(unsigned long long)ni->mft_no,
-			(unsigned)le32_to_cpu(ni->type), ni->name_len,
-			(signed)ni->nr_refs);
-	*(int*)err = EBUSY;
-	return VNODE_RETURNED_DONE;
-}
-
-/**
  * ntfs_unmount_callback_recycle - callback for vnode iterate in ntfs_unmount()
  * @vn:		vnode the callback is invoked with (has iocount reference)
  * @data:	for us always NULL and ignored
@@ -3373,38 +3345,6 @@ static int ntfs_unmount_callback_recycle(vnode_t vn, void *data __unused)
 	(void)vnode_recycle(vn);
 	ntfs_debug("Done.");
 	return VNODE_RETURNED;
-}
-
-/**
- * ntfs_unmount_callback_final - callback for vnode iterate in ntfs_unmount()
- * @vn:		vnode the callback is invoked with (has iocount reference)
- * @err:	pointer to an integer in which to return any errors
- *
- * This callback is called from vnode_iterate() which is called from
- * ntfs_unmount() for all in-core, non-dead, non-suspend vnodes belonging to
- * the mounted volume that still have an ntfs inode attached.
- *
- * We determine if the vnode @vn is held busy by any users that are external to
- * the ntfs driver and if so return EBUSY through the error pointer @err and
- * abort the iteration.  Otherwise we simply continue the iteration.
- */
-static int ntfs_unmount_callback_final(vnode_t vn, void *err)
-{
-	ntfs_inode *ni = NTFS_I(vn);
-
-	ntfs_debug("Entering for mft_no 0x%llx.",
-				(unsigned long long)ni->mft_no);
-	if (!vnode_isinuse(vn, ni->nr_refs)) {
-		ntfs_debug("Done (not busy).");
-		return VNODE_RETURNED;
-	}
-	ntfs_debug("Found busy vnode (mft_no 0x%llx, type 0x%x, name_len "
-			"0x%x, nr_refs 0x%x), aborting.",
-			(unsigned long long)ni->mft_no,
-			(unsigned)le32_to_cpu(ni->type), ni->name_len,
-			(signed)ni->nr_refs);
-	*(int*)err = EBUSY;
-	return VNODE_RETURNED_DONE;
 }
 
 /**
@@ -3463,59 +3403,24 @@ static int ntfs_unmount(mount_t mp, int mnt_flags,
 		force = TRUE;
 	}
 	/*
-	 * If this is not a forced unmount, we need to check if we have any
-	 * busy vnodes and abort if so.
-	 *
-	 * We cannot use vflush() since that will fall over our system vnodes
-	 * that are attached to the volume as well as over any base vnodes
-	 * whose attribute vnodes are holding references on them.
-	 *
-	 * So we use vnode_iterate() instead and since that always returns
-	 * zero, we return the busy state via the arguments to our callback.
+	 * Try to reclaim all non-root and non-system vnodes.  For a non-forced
+	 * unmount, this will fail if there are any open files.
 	 */
-	if (!force) {
-		(void)vnode_iterate(mp, 0, ntfs_unmount_callback_test_busy,
-				    &err);
-		if (err) {
-			ntfs_debug("Failed (EBUSY).");
-			goto done;
-		}
+	err = vflush(mp, NULLVP, vflags|SKIPROOT|SKIPSYSTEM);
+	if (err) {
+		printf("ntfs_unmount: error %d from vflush\n", err);
+		goto done;
 	}
 	/*
-	 * We now know that we either have no externally busy vnodes (other
-	 * than directory vnodes) or that we are being forcibly unmounted.
-	 *
-	 * Thus, we need to iterate over all our vnodes and cause all of them
-	 * to be recycled.  Only our system vnodes will remain since we hold a
-	 * reference on them, but they will be marked for termination, so will
-	 * be reclaimed as soon as we drop our reference(s) below.
-	 *
-	 * We cannot use vflush() since that uses vnode_umount_preflight() to
-	 * determine if any vnodes are busy (our system vnodes are and any base
-	 * vnodes held by attribute vnodes) and if we use the FORCECLOSE flag
-	 * to vflush(), which escapes the preflight check, we then run into
-	 * trouble because vflush() forcibly reclaims our system vnodes.
-	 *
-	 * Thus we iterate over all the vnodes ourselves using vnode_iterate()
-	 * and mark each for termination using our callback.
+	 * Once we get here, the only vnodes left are our system vnodes, which
+	 * we will detach and vnode_put below.  At this point, the system
+	 * directories may still have index attributes with references on the
+	 * directory vnodes.  And we might have other system vnodes still
+	 * hanging around, with no references.  So we will explicitly try to
+	 * recycle all remaining vnodes so that they will all be reclaimed as
+	 * soon as their last references are dropped.
 	 */
 	(void)vnode_iterate(mp, 0, ntfs_unmount_callback_recycle, NULL);
-	/*
-	 * Unless this is a forced unmount, there should now be no vnodes at
-	 * all present other than the system vnodes and even they are marked
-	 * for termination but held busy by us.
-	 *
-	 * Iterate over all our vnodes again, to ensure there really are no
-	 * vnodes (including directories this time) held busy by anyone other
-	 * than the ntfs driver itself and if so abort the unmount.
-	 */
-	if (!force) {
-		(void)vnode_iterate(mp, 0, ntfs_unmount_callback_final, &err);
-		if (err) {
-			ntfs_debug("Failed (EBUSY).");
-			goto done;
-		}
-	}
 	/*
 	 * If a read-write mount and no volume errors have been detected, mark
 	 * the volume clean.

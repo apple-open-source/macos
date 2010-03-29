@@ -13,15 +13,15 @@ cc -g -o /tmp/rotate probe.c -framework ApplicationServices -framework IOKit -Wa
 
 int main(int argc, char * argv[])
 {
-    io_service_t 	service;
-    CGError		err;
-    int			i;
-    CGDisplayCount	max;
-    CGDirectDisplayID	displayIDs[8];
-    uint32_t		mask;
-    IOOptionBits 	options;
+    io_service_t        service;
+    CGError             err;
+    int                 i;
+    CGDisplayCount      max;
+    CGDirectDisplayID   displayIDs[8];
+    uint32_t            mask;
+    IOOptionBits        options;
     CFNumberRef         num;
-    SInt32 		value;
+    SInt32              value;
 
     err = CGGetOnlineDisplayList(8, displayIDs, &max);
     if(err != kCGErrorSuccess)
@@ -30,9 +30,9 @@ int main(int argc, char * argv[])
         max = 8;
 
     if( argc < 2)
-	options = kIOFBUserRequestProbe;
+        options = kIOFBUserRequestProbe;
     else
-	options = strtol( argv[1], 0, 0 );
+        options = strtol( argv[1], 0, 0 );
 
     if (strstr(argv[0], "rotate"))
     {
@@ -55,21 +55,21 @@ int main(int argc, char * argv[])
     }
 
     if( argc < 3)
-	mask = 0xffffffff;
+        mask = 0xffffffff;
     else
-	mask = strtol( argv[2], 0, 0 );
+        mask = strtol( argv[2], 0, 0 );
 
     for(i = 0; i < max; i++ )
     {
-	if (!(mask & (1 << i)))
-	    continue;
+        if (!(mask & (1 << i)))
+            continue;
 
         service = CGDisplayIOServicePort(displayIDs[i]);
 
 
-	num = (CFNumberRef) IORegistryEntryCreateCFProperty( service, 
-								CFSTR(kIOFBTransformKey),
-								kCFAllocatorDefault, kNilOptions);
+        num = (CFNumberRef) IORegistryEntryCreateCFProperty( service, 
+                                                                CFSTR(kIOFBTransformKey),
+                                                                kCFAllocatorDefault, kNilOptions);
         if (num)
           CFNumberGetValue( num, kCFNumberSInt32Type, (SInt32 *) &value );
         else
@@ -100,9 +100,9 @@ int main(int argc, char * argv[])
         }
 
 
-	num = (CFNumberRef) IORegistryEntryCreateCFProperty( service, 
-								CFSTR(kIOFBProbeOptionsKey),
-								kCFAllocatorDefault, kNilOptions);
+        num = (CFNumberRef) IORegistryEntryCreateCFProperty( service, 
+                                                                CFSTR(kIOFBProbeOptionsKey),
+                                                                kCFAllocatorDefault, kNilOptions);
         if (num)
           CFNumberGetValue( num, kCFNumberSInt32Type, (SInt32 *) &value );
         else

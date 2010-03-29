@@ -66,6 +66,7 @@ private:
 		UInt32					_canRequestExtraPower;			// If 0, this hub does not support requesting extra power from its parent, non-zero:  how much power we need to request in order to give out _extraPowerForPorts
 		UInt32					_extraPowerForPorts;			// Of the power requested from our parent, how much can we parcel out -- the rest is consumed by voltage drop thru the cable
 		UInt32					_extraPowerAllocated;			// Amount of power that we actually got from our parent
+		bool					_requestFromParent;				// True if we are to request the extra power from our parent, without modifying the request.  Used for RMHs
 	};
     ExpansionData			*_expansionData;
 	

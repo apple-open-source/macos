@@ -36,7 +36,7 @@
 #include <progs.priv.h>
 
 #include "dump_entry.h"
-#include "termsort.c"		/* this C file is generated */
+#include "termsort.c.h"		/* this C file is generated */
 #include <parametrized.h>	/* so is this */
 
 MODULE_ID("$Id: dump_entry.c,v 1.88 2008/08/04 12:36:12 tom Exp $")

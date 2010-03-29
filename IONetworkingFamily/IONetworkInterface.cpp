@@ -40,6 +40,11 @@ extern "C" {
 #include <net/if_dl.h>
 #include <net/kpi_interface.h>
 #include <sys/kern_event.h>
+
+#define _IP_VHL
+
+#include <netinet/ip.h>
+#include <netinet/ip_icmp.h>
 }
 
 #include <IOKit/assert.h>
@@ -92,8 +97,13 @@ OSMetaClassDefineReservedUnused( IONetworkInterface, 15);
 #define _driverStats			_reserved->driverStats
 #define _lastDriverStats		_reserved->lastDriverStats
 #define _detachLock				_reserved->detachLock
+#define _remote_NMI_pattern                     _reserved->remote_NMI_pattern
+#define _remote_NMI_len                         _reserved->remote_NMI_len
 
 #define kIONetworkControllerProperties  "IONetworkControllerProperties"
+#define kRemoteNMI                      "remote_nmi"
+
+#define REMOTE_NMI_PATTERN_LEN          32
 
 void IONetworkInterface::_syncToBackingIfnet()
 {
@@ -274,6 +284,11 @@ void IONetworkInterface::free()
 		
 		if( _detachLock )
 			IOLockFree( _detachLock);
+
+                if (_remote_NMI_pattern) {
+                    IOFree(_remote_NMI_pattern, _remote_NMI_len);
+               }
+
         IODelete( _reserved, ExpansionData, 1 );
         _reserved = 0;
     }
@@ -684,6 +699,35 @@ UInt32 IONetworkInterface::clearInputQueue()
     return count;
 }
 
+inline static const char *get_icmp_data(const char *pkt, int datalen)
+{
+    struct ip   *ip;
+    struct icmp *icmp;
+    int hlen, icmplen;
+
+    /* only work for IPv4 packets */
+    ip = (struct ip *) pkt;
+    if (IP_VHL_V(ip->ip_vhl) != IPVERSION) 
+        goto error;
+
+    if (ip->ip_p != IPPROTO_ICMP)
+        goto error;
+
+    hlen = IP_VHL_HL(ip->ip_vhl) << 2;
+    icmplen = sizeof(*icmp) + sizeof(struct timeval);
+    if (ip->ip_len < (icmplen + datalen))
+        goto error;
+
+    icmp = (struct icmp *) (pkt + hlen);
+    if (icmp->icmp_type != ICMP_ECHO)
+        goto error;
+
+    return pkt + icmplen;
+
+error:
+    return NULL;
+}
+
 
 UInt32 IONetworkInterface::inputPacket(mbuf_t pkt,
                                        UInt32        length,
@@ -719,10 +763,19 @@ UInt32 IONetworkInterface::inputPacket(mbuf_t pkt,
 
 	mbuf_pkthdr_setrcvif(pkt, _backingIfnet);
     
+    // check for special debugger packet 
+    if (_remote_NMI_len) {
+       const char *data = get_icmp_data((char *) mbuf_data(pkt) + hdrlen, _remote_NMI_len);
+
+       if (data && (memcmp(data, _remote_NMI_pattern, _remote_NMI_len) == 0)) {
+           IOKernelDebugger::signalDebugger();
+       }
+    }
+
+
     // Increment input byte count. (accumulate until DLIL_INPUT is called)
 	_inputDeltas.bytes_in += mbuf_pkthdr_len(pkt);
 	
-
     // Feed BPF tap.
 	if(_inputFilterFunc)
 		feedPacketInputTap(pkt);
@@ -1912,3 +1965,32 @@ ifnet_t IONetworkInterface::getIfnet() const
 }
 
 
+void IONetworkInterface::debuggerRegistered(void)
+{
+    char buffer[REMOTE_NMI_PATTERN_LEN + 2];
+    unsigned int i;
+        
+    if (_remote_NMI_len)
+        return;
+
+    memset(buffer, 0, sizeof(buffer));
+    if (!PE_parse_boot_argn(kRemoteNMI, buffer, sizeof(buffer)))
+        return;
+
+    for (i = 0; i < (REMOTE_NMI_PATTERN_LEN >> 1); i++) {
+        unsigned int val;
+            
+        if (sscanf(buffer + (i << 1), "%02X", &val) != 1)
+            break;
+
+        buffer[i] = val;
+    }
+
+    _remote_NMI_pattern = (char *) IOMalloc(sizeof(char) * i + 1);
+    if (!_remote_NMI_pattern) 
+        return;
+
+    _remote_NMI_pattern[i] = '\0';
+    memcpy(_remote_NMI_pattern, buffer, i);
+    _remote_NMI_len = i;
+}

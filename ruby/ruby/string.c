@@ -3,7 +3,7 @@
   string.c -
 
   $Author: shyouhei $
-  $Date: 2008-07-17 21:33:59 +0900 (Thu, 17 Jul 2008) $
+  $Date: 2009-02-17 11:59:26 +0900 (Tue, 17 Feb 2009) $
   created at: Mon Aug  9 17:12:58 JST 1993
 
   Copyright (C) 1993-2003 Yukihiro Matsumoto
@@ -313,6 +313,7 @@ rb_obj_as_string(obj)
     return str;
 }
 
+static VALUE rb_str_s_alloc _((VALUE));
 static VALUE rb_str_replace _((VALUE, VALUE));
 
 VALUE
@@ -470,6 +471,8 @@ rb_str_format_m(str, arg)
     return rb_str_format(1, &arg, str);
 }
 
+static const char null_str[] = "";
+
 static int
 str_independent(str)
     VALUE str;
@@ -480,6 +483,7 @@ str_independent(str)
     if (OBJ_FROZEN(str)) rb_error_frozen("string");
     if (!OBJ_TAINTED(str) && rb_safe_level() >= 4)
 	rb_raise(rb_eSecurityError, "Insecure: can't modify string");
+    if (RSTRING(str)->ptr == null_str) return 0;
     if (!FL_TEST(str, ELTS_SHARED)) return 1;
     return 0;
 }
@@ -538,8 +542,20 @@ rb_str_associated(str)
     return Qfalse;
 }
 
-static const char null_str[] = "";
-#define null_str ((char *)null_str)
+#define make_null_str(s) do { \
+	FL_SET(s, ELTS_SHARED); \
+	RSTRING(s)->ptr = (char *)null_str; \
+	RSTRING(s)->aux.shared = 0; \
+    } while (0)
+
+static VALUE
+rb_str_s_alloc(klass)
+    VALUE klass;
+{
+    VALUE str = str_alloc(klass);
+    make_null_str(str);
+    return str;
+}
 
 VALUE
 rb_string_value(ptr)
@@ -551,8 +567,7 @@ rb_string_value(ptr)
 	*ptr = s;
     }
     if (!RSTRING(s)->ptr) {
-	FL_SET(s, ELTS_SHARED);
-	RSTRING(s)->ptr = null_str;
+	make_null_str(s);
     }
     return s;
 }
@@ -583,8 +598,7 @@ rb_check_string_type(str)
 {
     str = rb_check_convert_type(str, T_STRING, "String", "to_str");
     if (!NIL_P(str) && !RSTRING(str)->ptr) {
-	FL_SET(str, ELTS_SHARED);
-	RSTRING(str)->ptr = null_str;
+	make_null_str(str);
     }
     return str;
 }
@@ -2308,9 +2322,18 @@ rb_str_replace(str, str2)
 	RSTRING(str)->aux.shared = RSTRING(str2)->aux.shared;
     }
     else {
-	rb_str_modify(str);
-	rb_str_resize(str, RSTRING(str2)->len);
-	memcpy(RSTRING(str)->ptr, RSTRING(str2)->ptr, RSTRING(str2)->len);
+	if (str_independent(str)) {
+	    rb_str_resize(str, RSTRING(str2)->len);
+	    memcpy(RSTRING(str)->ptr, RSTRING(str2)->ptr, RSTRING(str2)->len);
+	    if (!RSTRING(str)->ptr) {
+		make_null_str(str);
+	    }
+	}
+	else {
+	    RSTRING(str)->ptr = RSTRING(str2)->ptr;
+	    RSTRING(str)->len = RSTRING(str2)->len;
+	    str_make_independent(str);
+	}
 	if (FL_TEST(str2, STR_ASSOC)) {
 	    FL_SET(str, STR_ASSOC);
 	    RSTRING(str)->aux.shared = RSTRING(str2)->aux.shared;
@@ -4908,7 +4931,7 @@ Init_String()
     rb_cString  = rb_define_class("String", rb_cObject);
     rb_include_module(rb_cString, rb_mComparable);
     rb_include_module(rb_cString, rb_mEnumerable);
-    rb_define_alloc_func(rb_cString, str_alloc);
+    rb_define_alloc_func(rb_cString, rb_str_s_alloc);
     rb_define_method(rb_cString, "initialize", rb_str_init, -1);
     rb_define_method(rb_cString, "initialize_copy", rb_str_replace, 1);
     rb_define_method(rb_cString, "<=>", rb_str_cmp_m, 1);

@@ -1,0 +1,6 @@
+This is ncurses, post-configue and post-Apple specific patches.
+
+Look in ncurses/config.log to determine exactly what options were used.
+For example as of this writing this is the set of flags we use:
+
+/var/tmp/ncurses.roots/ncurses/ncurses/configure --prefix=/usr --disable-dependency-tracking --disable-mixed-case --with-shared --without-normal --without-debug --enable-termcap --enable-widec --with-abi-version=5.4 --without-cxx-binding --without-cxx --mandir=/usr/share/man

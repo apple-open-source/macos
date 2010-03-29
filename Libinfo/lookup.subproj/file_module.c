@@ -1524,7 +1524,7 @@ file_grouplist(si_mod_t *si, const char *name)
 }
 
 __private_extern__ si_item_t *
-file_host_byname(si_mod_t *si, const char *name, int af, uint32_t *err)
+file_host_byname(si_mod_t *si, const char *name, int af, const char *ignored, uint32_t *err)
 {
 	si_item_t *item;
 
@@ -1537,7 +1537,7 @@ file_host_byname(si_mod_t *si, const char *name, int af, uint32_t *err)
 }
 
 __private_extern__ si_item_t *
-file_host_byaddr(si_mod_t *si, const void *addr, int af, uint32_t *err)
+file_host_byaddr(si_mod_t *si, const void *addr, int af, const char *ignored, uint32_t *err)
 {
 	si_item_t *item;
 

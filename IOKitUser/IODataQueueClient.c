@@ -128,7 +128,7 @@ IODataQueueDequeue(IODataQueueMemory *dataQueue, void *data, uint32_t *dataSize)
             }
 
             // RY: Update the data size here.  This will
-            // insure that dataSize is always updated.
+            // ensure that dataSize is always updated.
             if (dataSize) {
                 *dataSize = entrySize;
             }

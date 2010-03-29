@@ -249,12 +249,23 @@ _watcher(void *arg)
 		return NULL;
 	}
 
-	notifyRls = SCDynamicStoreCreateRunLoopSource(NULL, store, 0);
-	if (!notifyRls) {
-		SCPrint(TRUE, stdout, CFSTR("  %s\n"), SCErrorString(SCError()));
-		return NULL;
+#if	!TARGET_OS_IPHONE
+	if (doDispatch) {
+		if (!SCDynamicStoreSetDispatchQueue(store, dispatch_get_current_queue())) {
+			SCPrint(TRUE, stdout, CFSTR("  %s\n"), SCErrorString(SCError()));
+			return NULL;
+		}
+		notifyRls = (CFRunLoopSourceRef)kCFNull;
+	} else
+#endif	// !TARGET_OS_IPHONE
+	{
+		notifyRls = SCDynamicStoreCreateRunLoopSource(NULL, store, 0);
+		if (!notifyRls) {
+			SCPrint(TRUE, stdout, CFSTR("  %s\n"), SCErrorString(SCError()));
+			return NULL;
+		}
+		CFRunLoopAddSource(notifyRl, notifyRls, kCFRunLoopDefaultMode);
 	}
-	CFRunLoopAddSource(notifyRl, notifyRls, kCFRunLoopDefaultMode);
 
 	CFRunLoopRun();
 	return NULL;
@@ -479,8 +490,18 @@ void
 do_notify_cancel(int argc, char **argv)
 {
 	if (notifyRls) {
-		CFRunLoopSourceInvalidate(notifyRls);
-		CFRelease(notifyRls);
+#if	!TARGET_OS_IPHONE
+		if (doDispatch) {
+			if (!SCDynamicStoreSetDispatchQueue(store, NULL)) {
+				SCPrint(TRUE, stdout, CFSTR("  %s\n"), SCErrorString(SCError()));
+				return;
+			}
+		} else
+#endif	// !TARGET_OS_IPHONE
+		{
+			CFRunLoopSourceInvalidate(notifyRls);
+			CFRelease(notifyRls);
+		}
 		notifyRls = NULL;
 	}
 

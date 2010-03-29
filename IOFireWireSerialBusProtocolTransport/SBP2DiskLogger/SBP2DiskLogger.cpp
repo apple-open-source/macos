@@ -23,7 +23,7 @@
  */
 
 /*
-g++ -W -Wall -I/System/Library/Frameworks/System.framework/PrivateHeaders -I/System/Library/Frameworks/Kernel.framework/PrivateHeaders -DPRIVATE -D__APPLE_PRIVATE -O -arch ppc -arch i386 -o SBP2DiskLogger SBP2DiskLogger.cpp
+g++ -W -Wall -I/System/Library/Frameworks/System.framework/PrivateHeaders -I/System/Library/Frameworks/Kernel.framework/PrivateHeaders -DPRIVATE -D__APPLE_PRIVATE -O -arch ppc -arch i386 -arch x86_64 -o SBP2DiskLogger SBP2DiskLogger.cpp
 */
 
 
@@ -40,6 +40,7 @@ g++ -W -Wall -I/System/Library/Frameworks/System.framework/PrivateHeaders -I/Sys
 #include <stdint.h>
 #include <string.h>
 #include <unistd.h>
+#include <libutil.h>
 
 #include <mach/clock_types.h>
 #include <mach/mach_time.h>
@@ -207,6 +208,12 @@ main ( int argc, const char * argv[] )
 		exit ( 1 );
 		
 	}
+	
+	if ( reexec_to_match_kernel() )
+	{
+		fprintf( stderr, "Could not re-execute to match kernel architecture. (Error %d)\n", errno );
+		exit( 1 );
+    }		
 	
 	// Get program arguments.
 	ParseArguments ( argc, argv );
@@ -793,7 +800,7 @@ CollectTrace ( void )
 						{
 							
 							printf ( "%-8.8s FireWire SCSI Response[0x%08X]: serviceResponse = %d, taskStatus = %d, senseKey = 0x%02X, ASC = 0x%02X, ASCQ = 0x%02X\n",
-									 &( ctime ( &currentTime )[11] ), gTraceBuffer[index].arg2, (gTraceBuffer[index].arg3 >> 8) & 0xFF, gTraceBuffer[index].arg3 & 0xFF, entry->senseKey, entry->ASC, entry->ASCQ );
+									 &( ctime ( &currentTime )[11] ), ( unsigned int ) gTraceBuffer[index].arg2, ( int ) (gTraceBuffer[index].arg3 >> 8) & 0xFF, ( int ) gTraceBuffer[index].arg3 & 0xFF, entry->senseKey, entry->ASC, entry->ASCQ );
 							
 							TAILQ_REMOVE ( &gListHead, entry, chain );
 							free ( entry );
@@ -824,7 +831,7 @@ CollectTrace ( void )
 				if ( gTraceBuffer[index].arg4 == 0 )
 				{
 					
-					printf ( "[GUID %qd]: FireWire SBP2 Device appeared, obj = 0x%08X\n", GUID, gTraceBuffer[index].arg1 );
+					printf ( "[GUID %qd]: FireWire SBP2 Device appeared, obj = 0x%08X\n", GUID, ( unsigned int ) gTraceBuffer[index].arg1 );
 					
 					device = ( FireWireDevice * ) malloc ( sizeof ( FireWireDevice ) );
 					if ( device != NULL )
@@ -842,7 +849,7 @@ CollectTrace ( void )
 				else
 				{
 					
-					printf ( "[GUID %qd]: FireWire SBP2 Device removed, obj = 0x%08X\n", GUID, gTraceBuffer[index].arg1 );
+					printf ( "[GUID %qd]: FireWire SBP2 Device removed, obj = 0x%08X\n", GUID, ( unsigned int ) gTraceBuffer[index].arg1 );
 					
 					if ( !TAILQ_EMPTY ( &gDeviceListHead ) )
 					{
@@ -869,7 +876,7 @@ CollectTrace ( void )
 			{
 				
 				printf ( "%-8.8s ", &( ctime ( &currentTime )[11] ) );
-				printf ( "FireWire Login Request, obj = 0x%08X, state = %d, count = %d\n", gTraceBuffer[index].arg1, gTraceBuffer[index].arg2, gTraceBuffer[index].arg3 );
+				printf ( "FireWire Login Request, obj = 0x%08X, state = %d, count = %d\n", ( unsigned int ) gTraceBuffer[index].arg1, ( int ) gTraceBuffer[index].arg2, ( int ) gTraceBuffer[index].arg3 );
 				
 			}
 			break;
@@ -882,11 +889,11 @@ CollectTrace ( void )
                 // We only have a valid SBP2 login params block who's values we can display if the login completed successfully. 
                 if ( gTraceBuffer[index].arg2 == 0 )
                 {
-                    printf ( "FireWire Login Completion, obj = 0x%08X, status = 0x%08X, details = 0x%02X, sbpStatus = 0x%02X\n", gTraceBuffer[index].arg1, gTraceBuffer[index].arg2, gTraceBuffer[index].arg3, gTraceBuffer[index].arg4 );
+                    printf ( "FireWire Login Completion, obj = 0x%08X, status = 0x%08X, details = 0x%02X, sbpStatus = 0x%02X\n", ( unsigned int ) gTraceBuffer[index].arg1, ( unsigned int ) gTraceBuffer[index].arg2, ( unsigned int ) gTraceBuffer[index].arg3, ( unsigned int ) gTraceBuffer[index].arg4 );
 				}
                 else
                 {
-                    printf ( "FireWire Login Completion, obj = 0x%08X, status = 0x%08X\n", gTraceBuffer[index].arg1, gTraceBuffer[index].arg2 );
+                    printf ( "FireWire Login Completion, obj = 0x%08X, status = 0x%08X\n", ( unsigned int ) gTraceBuffer[index].arg1, ( unsigned int ) gTraceBuffer[index].arg2 );
                 }
                 
 			}
@@ -896,7 +903,7 @@ CollectTrace ( void )
 			{
 				
 				printf ( "%-8.8s ", &( ctime ( &currentTime )[11] ) );
-				printf ( "FireWire Login Lost, obj = 0x%08X, state = 0x%08X\n", gTraceBuffer[index].arg1, gTraceBuffer[index].arg2 );
+				printf ( "FireWire Login Lost, obj = 0x%08X, state = 0x%08X\n", ( unsigned int ) gTraceBuffer[index].arg1, ( unsigned int ) gTraceBuffer[index].arg2 );
 				
 			}
 			break;
@@ -905,7 +912,7 @@ CollectTrace ( void )
 			{
 				
 				printf ( "%-8.8s ", &( ctime ( &currentTime )[11] ) );
-				printf ( "FireWire Login Resumed, obj = 0x%08X\n", gTraceBuffer[index].arg1 );
+				printf ( "FireWire Login Resumed, obj = 0x%08X\n", ( unsigned int ) gTraceBuffer[index].arg1 );
 				
 			}
 			break;
@@ -914,7 +921,7 @@ CollectTrace ( void )
 			{
 				
 				printf ( "%-8.8s ", &( ctime ( &currentTime )[11] ) );
-				printf ( "FireWire Submit ORB, obj = 0x%08X, ORB = 0x%08X\n", gTraceBuffer[index].arg1, gTraceBuffer[index].arg2 );
+				printf ( "FireWire Submit ORB, obj = 0x%08X, ORB = 0x%08X\n", ( unsigned int ) gTraceBuffer[index].arg1, ( unsigned int ) gTraceBuffer[index].arg2 );
 				
 			}
 			break;
@@ -923,7 +930,7 @@ CollectTrace ( void )
 			{
 				
 				printf ( "%-8.8s ", &( ctime ( &currentTime )[11] ) );
-				printf ( "FireWire Status Notify, obj = 0x%08X, ORB = 0x%08X, notificationEvent = 0x%08X\n", gTraceBuffer[index].arg1, gTraceBuffer[index].arg2, gTraceBuffer[index].arg3 );
+				printf ( "FireWire Status Notify, obj = 0x%08X, ORB = 0x%08X, notificationEvent = 0x%08X\n", ( unsigned int ) gTraceBuffer[index].arg1, ( unsigned int ) gTraceBuffer[index].arg2, ( unsigned int ) gTraceBuffer[index].arg3 );
 				
 			}
 			break;
@@ -932,7 +939,7 @@ CollectTrace ( void )
 			{
 				
 				printf ( "%-8.8s ", &( ctime ( &currentTime )[11] ) );
-				printf ( "FireWire Reset Fetch Agent, obj = 0x%08X, ORB = 0x%08X\n", gTraceBuffer[index].arg1, gTraceBuffer[index].arg2 );
+				printf ( "FireWire Reset Fetch Agent, obj = 0x%08X, ORB = 0x%08X\n", ( unsigned int ) gTraceBuffer[index].arg1, ( unsigned int ) gTraceBuffer[index].arg2 );
 				
 			}
 			break;
@@ -941,7 +948,7 @@ CollectTrace ( void )
 			{
 				
 				printf ( "%-8.8s ", &( ctime ( &currentTime )[11] ) );
-				printf ( "FireWire Fetch Agent Reset Complete, obj = 0x%08X, ORB = 0x%08X\n", gTraceBuffer[index].arg1, gTraceBuffer[index].arg2 );
+				printf ( "FireWire Fetch Agent Reset Complete, obj = 0x%08X, ORB = 0x%08X\n", ( unsigned int ) gTraceBuffer[index].arg1, ( unsigned int ) gTraceBuffer[index].arg2 );
 				
 			}
 			break;
@@ -950,7 +957,7 @@ CollectTrace ( void )
 			{
 				
 				printf ( "%-8.8s ", &( ctime ( &currentTime )[11] ) );
-				printf ( "FireWire Logical Unit Reset, obj = 0x%08X, ORB = 0x%08X\n", gTraceBuffer[index].arg1, gTraceBuffer[index].arg2 );
+				printf ( "FireWire Logical Unit Reset, obj = 0x%08X, ORB = 0x%08X\n", ( unsigned int ) gTraceBuffer[index].arg1, ( unsigned int ) gTraceBuffer[index].arg2 );
 				
 			}
 			break;
@@ -959,7 +966,7 @@ CollectTrace ( void )
 			{
 				
 				printf ( "%-8.8s ", &( ctime ( &currentTime )[11] ) );
-				printf ( "FireWire Logical Unit Reset Complete, obj = 0x%08X, ORB = 0x%08X, status = 0x%08X\n", gTraceBuffer[index].arg1, gTraceBuffer[index].arg2, gTraceBuffer[index].arg3 );
+				printf ( "FireWire Logical Unit Reset Complete, obj = 0x%08X, ORB = 0x%08X, status = 0x%08X\n", ( unsigned int ) gTraceBuffer[index].arg1, ( unsigned int ) gTraceBuffer[index].arg2, ( unsigned int ) gTraceBuffer[index].arg3 );
 				
 			}
 			break;

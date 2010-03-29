@@ -1,0 +1,31 @@
+X-MimeOLE: Produced By Microsoft Exchange V6.5
+Content-class: urn:content-classes:message
+MIME-Version: 1.0
+Content-Type: text/plain;
+	charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Subject: Undeliverable: [News] Possible State-Wide Lead Ammo Ban
+Date: Fri, 13 Feb 2009 17:07:17 -0800
+Message-ID: <A6B3019F-262A-4C49-9ACF-E05543110CA6@mailcluster.fastdnsservers.com>
+X-MS-Has-Attach: 
+X-MS-TNEF-Correlator: 
+From: <mailer-daemon@mailcluster.fastdnsservers.com>
+To: <news-bounces@lists.xxx.com>
+
+Your message did not reach some or all of the intended recipients.
+
+   Sent: Fri, 13 Feb 2009 16:57:55 -0800
+   Subject: [News] Possible State-Wide Lead Ammo Ban
+
+The following recipient(s) could not be reached:
+
+roland@xxx.com
+   Error Type: SMTP
+   Remote server (216.122.20.147) issued an error.
+   hMailServer sent: RCPT TO:<roland@xxx.com>
+   Remote server replied: 550 5.1.1 <roland@xxx.com>... User unknown
+
+
+
+hMailServer
+

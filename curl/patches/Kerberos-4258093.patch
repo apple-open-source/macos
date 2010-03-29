@@ -1,6 +1,6 @@
 --- configure.orig	2008-08-29 16:14:03.000000000 -0700
 +++ configure	2008-08-29 16:14:34.000000000 -0700
-@@ -22841,7 +22841,7 @@
+@@ -18537,7 +18537,7 @@
    if test -z "$GSSAPI_INCS"; then
       if test -f "$GSSAPI_ROOT/bin/krb5-config"; then
          GSSAPI_INCS=`$GSSAPI_ROOT/bin/krb5-config --cflags gssapi`
@@ -9,7 +9,7 @@
       elif test "$GSSAPI_ROOT" != "yes"; then
          GSSAPI_INCS="-I$GSSAPI_ROOT/include"
          GSSAPI_LIBS="-lgssapi"
-@@ -23380,24 +23380,6 @@
+@@ -18651,24 +18651,6 @@
  
    curl_gss_msg="enabled (MIT/Heimdal)"
  

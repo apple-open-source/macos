@@ -293,7 +293,7 @@ AppleUSBEHCI::GetRootHubPortStatus(IOUSBHubPortStatus *status, UInt16 port)
 	
     //adjust port number for array use
     port--;
-	if(port >= kMaxPorts)
+	if (port >= kMaxPorts)
     {
         USBLog(3, "AppleUSBEHCI[%p]::GetRootHubPortStatus Too many ports specified(%d > %d)",  this, port, kMaxPorts);
 		return kIOReturnBadArgument;
@@ -305,29 +305,29 @@ AppleUSBEHCI::GetRootHubPortStatus(IOUSBHubPortStatus *status, UInt16 port)
     
     // translate EHCI's random flag order into same order as hub report (and OHCI reg)
     statusFlags = 0;
-    if( (portSC & kEHCIPortSC_Connect) != 0)
+    if ( (portSC & kEHCIPortSC_Connect) != 0)
     {
 	    statusFlags |= kHubPortConnection;
     }
-    if( (portSC & kEHCIPortSC_Enabled) != 0)
+    if ( (portSC & kEHCIPortSC_Enabled) != 0)
     {
 	    statusFlags |= kHubPortEnabled;
     }
-    if(((portSC & kEHCIPortSC_Suspend) != 0))
+    if (((portSC & kEHCIPortSC_Suspend) != 0))
     {
 		// only show the suspend status if we are not in the process of resuming. In that case, we will
 		// have the status going clear during that 20ms time period, and the change will be set when it is done.
 	    statusFlags |= kHubPortSuspend;
     }
-    if( (portSC & kEHCIPortSC_OverCurrent) != 0)
+    if ( (portSC & kEHCIPortSC_OverCurrent) != 0)
     {
 	    statusFlags |= kHubPortOverCurrent;
     }
-    if( (portSC & kEHCIPortSC_Reset) != 0)
+    if ( (portSC & kEHCIPortSC_Reset) != 0)
     {
 	    statusFlags |= kHubPortBeingReset;
     }
-    if( (portSC & kEHCIPortSC_Power) != 0)
+    if ( (portSC & kEHCIPortSC_Power) != 0)
     {
 	    statusFlags |= kHubPortPower;
     }
@@ -397,7 +397,7 @@ AppleUSBEHCI::GetRootHubPortStatus(IOUSBHubPortStatus *status, UInt16 port)
 		
 		portSC2 = USBToHostLong (_pEHCIRegisters->PortSC[port]);
 		
-		if( (portSC2 & kEHCIPortSC_OverCurrent) == 0)
+		if ( (portSC2 & kEHCIPortSC_OverCurrent) == 0)
 		{
 			USBLog(3,"AppleUSBEHCI[%p]::GetRootHubPortStatus Overcurrent on port (%d) has gone away, clearing the change",  this, port + 1);
 			// This indicates that the overcurrent is not there anymore, so clear the bit from the change flags
@@ -586,7 +586,7 @@ IOReturn
 AppleUSBEHCI::EHCIRootHubResetResetChange(UInt16 port)
 {
     port--;
-    if(port >= kMaxPorts)
+    if (port >= kMaxPorts)
     {
         USBLog(3, "AppleUSBEHCI[%p]::EHCIRootHubResetResetChange Too many ports specified(%d > %d)",  this, port, kMaxPorts);
 		return kIOReturnBadArgument;
@@ -602,7 +602,7 @@ IOReturn
 AppleUSBEHCI::EHCIRootHubResetSuspendChange(UInt16 port)
 {
     port--;
-    if(port >= kMaxPorts)
+    if (port >= kMaxPorts)
     {
         USBLog(3, "AppleUSBEHCI[%p]::EHCIRootHubResetSuspendChange Too many ports specified(%d > %d)",  this, port, kMaxPorts);
         return kIOReturnBadArgument;
@@ -693,9 +693,11 @@ AppleUSBEHCI::EHCIRootHubResetPort (UInt16 port)
 	
     USBLog(5, "AppleUSBEHCI[%p]::EHCIRootHubResetPort begin port %d",  this, (int)port);
 	
+	_UIMDiagnostics.resets++;	// I was checking to see if we're gathering statistics, but its less work just to note this.
+	
     value = getPortSCForWriting(_pEHCIRegisters, port);
     
-    if( (value & (kEHCIPortSC_Connect | kEHCIPortSC_Power)) != (kEHCIPortSC_Connect | kEHCIPortSC_Power) )
+    if ( (value & (kEHCIPortSC_Connect | kEHCIPortSC_Power)) != (kEHCIPortSC_Connect | kEHCIPortSC_Power) )
     {
 		// Can only enter the resetting state if the device is connected and the power is on.
 		// Having probelms with reset happening to powered off device, reset change is on 
@@ -707,30 +709,38 @@ AppleUSBEHCI::EHCIRootHubResetPort (UInt16 port)
 		return kIOReturnNotResponding;	
     }
 	
-    if( ((value & kEHCIPortSC_LineSt) >> kEHCIPortSC_LineStPhase) == kEHCILine_Low)
+    if ( ((value & kEHCIPortSC_LineSt) >> kEHCIPortSC_LineStPhase) == kEHCILine_Low)
     {
-		value |= kEHCIPortSC_Owner;
-		value &= ~kEHCIPortSC_WKDSCNNT_E;			// we need to clear this bit for some EHCI controllers
-		
-		USBLog(5, "AppleUSBEHCI[%p]::EHCIRootHubResetPort: LS device detected (portSC = %p) - writing value (%p) to release the device",  this, (void*)portSC, (void*)value);
-		USBTrace( kUSBTEnumeration,  kTPEnumerationLowSpeedDevice, (uintptr_t)this, portSC, 0, 0);
-		_pEHCIRegisters->PortSC[port-1] = HostToUSBLong(value);
-		IOSync();
-		IOSleep(1);
-		if (_errataBits & kErrataNECIncompleteWrite)
+		if (!(_errataBits & kErrataDontUseCompanionController))
 		{
-			newValue = USBToHostLong(_pEHCIRegisters->PortSC[port-1]);
-			count = 0;
-			while (!(newValue & kEHCIPortSC_Owner) && (count++ < 10))
+
+			value |= kEHCIPortSC_Owner;
+			value &= ~kEHCIPortSC_WKDSCNNT_E;			// we need to clear this bit for some EHCI controllers
+			
+			USBLog(5, "AppleUSBEHCI[%p]::EHCIRootHubResetPort: LS device detected (portSC = %p) - writing value (%p) to release the device",  this, (void*)portSC, (void*)value);
+			USBTrace( kUSBTEnumeration,  kTPEnumerationLowSpeedDevice, (uintptr_t)this, portSC, 0, 0);
+			_pEHCIRegisters->PortSC[port-1] = HostToUSBLong(value);
+			IOSync();
+			IOSleep(1);
+			if (_errataBits & kErrataNECIncompleteWrite)
 			{
-				USBError(1, "EHCI driver - PortSC_Owner (LS device) bit not sticking. Retrying");
-				_pEHCIRegisters->PortSC[port-1] = HostToUSBLong(value);
-				IOSync();
-				IOSleep(1);
 				newValue = USBToHostLong(_pEHCIRegisters->PortSC[port-1]);
+				count = 0;
+				while (!(newValue & kEHCIPortSC_Owner) && (count++ < 10))
+				{
+					USBError(1, "EHCI driver - PortSC_Owner (LS device) bit not sticking. Retrying");
+					_pEHCIRegisters->PortSC[port-1] = HostToUSBLong(value);
+					IOSync();
+					IOSleep(1);
+					newValue = USBToHostLong(_pEHCIRegisters->PortSC[port-1]);
+				}
 			}
+			// Pretend the port doesn't exist.
 		}
-        // Pretend the port doesn't exist.
+		else
+		{
+			USBLog(1, "EHCI: Low speed device detected with no companion controller (bad hardware?)");
+		}
 		return kIOUSBDeviceNotHighSpeed;
     }
 	
@@ -797,12 +807,12 @@ AppleUSBEHCI::EHCIRootHubResetPort (UInt16 port)
 		portSC = USBToHostLong(_pEHCIRegisters->PortSC[port-1]);
     }
 	
-    if( ((portSC & kEHCIPortSC_Reset) != 0) || (count >= 2000) )
+    if ( ((portSC & kEHCIPortSC_Reset) != 0) || (count >= 2000) )
     {
 		USBLog(4, "AppleUSBEHCI[%p]::EHCIRootHubResetPort-  port slow to come out of reset %d",  this, (int)count);
     }
 	
-    if( (portSC & (kEHCIPortSC_Connect | kEHCIPortSC_Power)) != (kEHCIPortSC_Connect | kEHCIPortSC_Power) )
+    if ( (portSC & (kEHCIPortSC_Connect | kEHCIPortSC_Power)) != (kEHCIPortSC_Connect | kEHCIPortSC_Power) )
     {
 		// Have been disconnected or powered off, pretend reset never happened.
 		
@@ -814,30 +824,37 @@ AppleUSBEHCI::EHCIRootHubResetPort (UInt16 port)
     USBLog(5, "AppleUSBEHCI[%p]::EHCIRootHubResetPort - Setting port (%d) reset change bit to 0x%x.",  this, (uint32_t)port, (uint32_t)value);
     _rhChangeBits[port-1] |= kHubPortBeingReset;
 	
-    if( (portSC & kEHCIPortSC_Enabled) == 0)
+    if ( (portSC & kEHCIPortSC_Enabled) == 0)
     {
 		// USBLog(2, "AppleUSBEHCI[%p]::EHCIRootHubResetPort-  full speed device (no enable) releasing device %x",  this, portSC);
-		value = getPortSCForWriting(_pEHCIRegisters, port);
-		value |= kEHCIPortSC_Owner;
-		value &= ~kEHCIPortSC_WKDSCNNT_E;			// we need to clear this bit for some EHCI controllers
-		
-		USBLog(5, "AppleUSBEHCI[%p]::EHCIRootHubResetPort (port %d): FS device detected (portSC = 0x%x) - writing value (0x%x) to release the device",  this, (uint32_t)port, (uint32_t)portSC, (uint32_t)value);
-		USBTrace( kUSBTEnumeration,  kTPEnumerationFullSpeedDevice, (uintptr_t)this, portSC, 0, 0);
-		_pEHCIRegisters->PortSC[port-1] = HostToUSBLong(value);
-		IOSync();
-		IOSleep(1);
-		if (_errataBits & kErrataNECIncompleteWrite)
+		if (!(_errataBits & kErrataDontUseCompanionController))
 		{
-			newValue = USBToHostLong(_pEHCIRegisters->PortSC[port-1]);
-			count = 0;
-			while (!(newValue & kEHCIPortSC_Owner) && (count++ < 10))
+			value = getPortSCForWriting(_pEHCIRegisters, port);
+			value |= kEHCIPortSC_Owner;
+			value &= ~kEHCIPortSC_WKDSCNNT_E;			// we need to clear this bit for some EHCI controllers
+			
+			USBLog(5, "AppleUSBEHCI[%p]::EHCIRootHubResetPort (port %d): FS device detected (portSC = 0x%x) - writing value (0x%x) to release the device",  this, (uint32_t)port, (uint32_t)portSC, (uint32_t)value);
+			USBTrace( kUSBTEnumeration,  kTPEnumerationFullSpeedDevice, (uintptr_t)this, portSC, 0, 0);
+			_pEHCIRegisters->PortSC[port-1] = HostToUSBLong(value);
+			IOSync();
+			IOSleep(1);
+			if (_errataBits & kErrataNECIncompleteWrite)
 			{
-				USBError(1, "EHCI driver - PortSC_Owner (FS device) bit not sticking. Retrying");
-				_pEHCIRegisters->PortSC[port-1] = HostToUSBLong(value);
-				IOSync();
-				IOSleep(1);
 				newValue = USBToHostLong(_pEHCIRegisters->PortSC[port-1]);
+				count = 0;
+				while (!(newValue & kEHCIPortSC_Owner) && (count++ < 10))
+				{
+					USBError(1, "EHCI driver - PortSC_Owner (FS device) bit not sticking. Retrying");
+					_pEHCIRegisters->PortSC[port-1] = HostToUSBLong(value);
+					IOSync();
+					IOSleep(1);
+					newValue = USBToHostLong(_pEHCIRegisters->PortSC[port-1]);
+				}
 			}
+		}
+		else
+		{
+			USBLog(1, "EHCI: Full speed device detected with no companion controller - probably a hub which failed to Chirp");
 		}
         // Pretend the port doesn't exist.
 		return kIOUSBDeviceNotHighSpeed;
@@ -847,7 +864,7 @@ AppleUSBEHCI::EHCIRootHubResetPort (UInt16 port)
 		waitForSOF(_pEHCIRegisters);
 		IOSleep(1);
 		portSC = USBToHostLong(_pEHCIRegisters->PortSC[port-1]);
-		if( (portSC & kEHCIPortSC_Enabled) == 0)
+		if ( (portSC & kEHCIPortSC_Enabled) == 0)
 		{
 			USBLog(3, "AppleUSBEHCI[%p]::EHCIRootHubResetPort *********** Port disabled after 1 frame******* 0x%x",  this, (uint32_t)portSC);
 		}
@@ -909,15 +926,15 @@ AppleUSBEHCI::EHCIRootHubPortSuspend(UInt16 port, bool suspend)
     
     USBLog(5,"AppleUSBEHCI[%p]::EHCIRootHubPortSuspend port: %d, %s",  this, port, suspend ? "SUSPEND" : "RESUME");
 	
-	if (_rhPortBeingResumed[port])
+	if (_rhPortBeingResumed[port-1])
 	{
 		if (!suspend)
 		{
-			USBLog(3, "AppleUSBEHCI[%p]::EHCIRootHubPortSuspend - resume on port (%d) already being resumed - gracefully ignoring", this, (int)port+1);
+			USBLog(3, "AppleUSBEHCI[%p]::EHCIRootHubPortSuspend - resume on port (%d) already being resumed - gracefully ignoring", this, (int)port);
 			return kIOReturnSuccess;
 		}
-		USBLog(1, "AppleUSBEHCI[%p]::EHCIRootHubPortSuspend - trying to suspend port (%d) which is being resumed - UNEXPECTED", this, (int)port+1);
-		USBTrace( kUSBTEHCI,  kTPEHCIRootHubPortSuspend, (uintptr_t)this, (int)port+1, suspend, 1 );
+		USBLog(1, "AppleUSBEHCI[%p]::EHCIRootHubPortSuspend - trying to suspend port (%d) which is being resumed - UNEXPECTED", this, (int)port);
+		USBTrace( kUSBTEHCI,  kTPEHCIRootHubPortSuspend, (uintptr_t)this, (int)port, suspend, 1 );
 	}
 
     value = getPortSCForWriting(_pEHCIRegisters, port);
@@ -977,7 +994,7 @@ AppleUSBEHCI::EHCIRootHubPortPower(UInt16 port, bool on)
 	
     value = getPortSCForWriting(_pEHCIRegisters, port);
     
-    if(on)
+    if (on)
     {
 		// we need to power on EHCI in two steps. The connect/disconnect bits latch to 0 if Port Power is off
 		// and they don't seem to be able to be set simultaneously. So first set the PP, then connect and disconnect
@@ -1148,7 +1165,7 @@ AppleUSBEHCI::SimulateEDAbort (short endpointNumber, short direction)
     int i;
     if (endpointNumber == 1)
     {
-		if(direction != kUSBIn)
+		if (direction != kUSBIn)
 		{
 			USBLog(3, "AppleUSBEHCI[%p]::SimulateEDAbort - Root hub wrong direction Int pipe %d",  this, direction);
 			return kIOReturnInternalError;

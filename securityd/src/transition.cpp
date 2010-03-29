@@ -287,6 +287,16 @@ kern_return_t ucsp_server_verifyPrivileged(UCSP_ARGS)
 	return KERN_SUCCESS;
 }
 
+kern_return_t ucsp_server_verifyPrivileged2(UCSP_ARGS, mach_port_t *originPort)
+{
+	BEGIN_IPCN
+	SECURITYD_REQUEST_ENTRY((char*)"verifyPrivileged2", NULL, NULL);
+	// send the port back to the sender to check for a MitM (6986198)
+	*originPort = servicePort;
+	END_IPCN(CSSM)
+	return KERN_SUCCESS;
+}
+
 //
 // Common database operations
 //

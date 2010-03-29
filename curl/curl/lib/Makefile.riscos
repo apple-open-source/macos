@@ -13,7 +13,9 @@ objs =	o.base64 o.connect o.cookie o.dict \
 	o.security o.select o.sendf o.speedcheck o.ssluse \
 	o.strequal o.strtok o.telnet o.timeval \
 	o.transfer o.url o.version o.strtoofft o.sslgen o.gtls \
-	o.rawstr o.curl_addrinfo
+	o.rawstr o.curl_addrinfo o.slist o.nonblock o.curl_rand \
+	o.curl_memrchr
+
 
 # Compile options:
 linkopts	= -o libcurl
@@ -35,6 +37,12 @@ o.cookie:	c.cookie
 
 o.curl_addrinfo:	c.curl_addrinfo
 		gcc $(compileropts) -c -o curl_addrinfo.o c.curl_addrinfo
+
+o.curl_memrchr:	c.curl_memrchr
+		gcc $(compileropts) -c -o curl_memrchr.o c.curl_memrchr
+
+o.curl_rand:	c.curl_rand
+		gcc $(compileropts) -c -o curl_rand.o c.curl_rand
 
 o.dict:	c.dict
 		gcc $(compileropts) -c -o dict.o c.dict
@@ -120,6 +128,9 @@ o.select:	c.select
 o.sendf:	c.sendf
 		gcc $(compileropts) -c -o sendf.o c.sendf
 
+o.slist:	c.slist
+		gcc $(compileropts) -c -o slist.o c.slist
+
 o.speedcheck:	c.speedcheck
 		gcc $(compileropts) -c -o speedcheck.o c.speedcheck
 
@@ -131,6 +142,9 @@ o.sslgen:	c.sslgen
 
 o.ssluse:	c.ssluse
 		gcc $(compileropts) -c -o ssluse.o c.ssluse
+
+o.nonblock:	c.nonblock
+		gcc $(compileropts) -c -o nonblock.o c.nonblock
 
 o.rawstr:	c.rawstr
 		gcc $(compileropts) -c -o rawstr.o c.rawstr

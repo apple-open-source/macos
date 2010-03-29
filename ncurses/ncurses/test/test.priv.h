@@ -439,7 +439,9 @@ extern int optind;
 
 #define UChar(c)    ((unsigned char)(c))
 
+#ifndef SIZEOF
 #define SIZEOF(table)	(sizeof(table)/sizeof(table[0]))
+#endif
 
 #if defined(NCURSES_VERSION) && HAVE_NC_ALLOC_H
 #include <nc_alloc.h>

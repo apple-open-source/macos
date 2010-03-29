@@ -432,7 +432,7 @@ int recv_files(int f_in, struct file_list *flist, char *local_name)
 		if (!(iflags & ITEM_TRANSFER)) {
 			maybe_log_item(file, iflags, itemizing, xname);
 #ifdef HAVE_COPYFILE
-			if (do_xfers && (extended_attributes && (file->flags & FLAG_CLEAR_METADATA))) {
+			if (extended_attributes && (file->flags & FLAG_CLEAR_METADATA)) {
 				if (0 == copyfile("/dev/null", fname, 0,
 						  COPYFILE_XATTR | COPYFILE_ACL | (preserve_links ? COPYFILE_NOFOLLOW : 0))) {
 					file->flags &= ~FLAG_CLEAR_METADATA;

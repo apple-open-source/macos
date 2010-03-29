@@ -36,6 +36,46 @@ __BEGIN_DECLS
 
 
 #define kIOHIDAccelerometerShakeKey             "Shake"
+#define kIOHIDGyroShakeKey						"Shake"
+
+#define kIOHIDOrientationKey					"Orientation"
+
+/*!
+ @typedef IOHIDOrientationType
+ @abstract Orientation of event triggered.
+ @discussion
+ @constant kIOHIDOrientationTypeUndefined
+ @constant kIOHIDOrientationTypeNorth
+ @constant kIOHIDOrientationTypeSouth
+ @constant kIOHIDOrientationTypeEast
+ @constant kIOHIDOrientationTypeWest
+ */
+enum {
+    kIOHIDOrientationTypeUndefined	= 0,
+    kIOHIDOrientationTypeNorth		= 1,
+    kIOHIDOrientationTypeSouth		= 2,
+	kIOHIDOrientationTypeEast		= 3,
+	kIOHIDOrientationTypeWest		= 4
+};
+typedef uint32_t IOHIDOrientationType;
+
+#define kIOHIDPlacementKey						"Placement"
+/*!
+ @typedef IOHIDPlacementType
+ @abstract Placement of event triggered.
+ @discussion
+ @constant kIOHIDPlacementTypeUndefined
+ @constant kIOHIDPlacementTypeTop
+ @constant kIOHIDPlacementTypeBottom
+ */
+enum {
+    kIOHIDPlacementTypeUndefined	= 0,
+    kIOHIDPlacementTypeTop			= 1,
+    kIOHIDPlacementTypeBottom		= 2
+};
+typedef uint32_t IOHIDPlacementType;
+
+
 
 __END_DECLS
 

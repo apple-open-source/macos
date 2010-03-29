@@ -1,0 +1,3 @@
+%(member)s soscribióse satisfactoriamente a %(listname)s.
+
+

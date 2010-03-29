@@ -702,9 +702,7 @@ SCDynamicStoreSetDispatchQueue(SCDynamicStoreRef store, dispatch_queue_t queue)
 	}
 
 	if (queue != NULL) {
-		dispatch_queue_attr_t	attr;
-		mach_port_t		mp;
-		long			res;
+		mach_port_t	mp;
 
 		if ((storePrivate->dispatchQueue != NULL) || (storePrivate->rls != NULL)) {
 			_SCErrorSet(kSCStatusInvalidArgument);
@@ -728,25 +726,10 @@ SCDynamicStoreSetDispatchQueue(SCDynamicStoreRef store, dispatch_queue_t queue)
 		dispatch_retain(storePrivate->dispatchQueue);
 
 		/*
-		 * create a queue for the mig source, we'll use this queue's context
-		 * to carry the store pointer for the callback code.
+		 * create a dispatch queue for the mach notifications source, we'll use
+		 * this queue's context to carry the store pointer for the callback code.
 		 */
-		attr = dispatch_queue_attr_create();
-		res = dispatch_queue_attr_set_finalizer(attr,
-							^(dispatch_queue_t dq) {
-								SCDynamicStoreRef	store;
-
-								store = (SCDynamicStoreRef)dispatch_get_context(dq);
-								CFRelease(store);
-							});
-		if (res != 0) {
-			SCLog(TRUE, LOG_ERR, CFSTR("SCDynamicStore dispatch_queue_attr_set_finalizer() failed"));
-			dispatch_release(attr);
-			_SCErrorSet(kSCStatusFailed);
-			goto cleanup;
-		}
-		storePrivate->callbackQueue = dispatch_queue_create("com.apple.SCDynamicStore.notifications", attr);
-		dispatch_release(attr);
+		storePrivate->callbackQueue = dispatch_queue_create("com.apple.SCDynamicStore.notifications", NULL);
 		if (storePrivate->callbackQueue == NULL){
 			SCLog(TRUE, LOG_ERR, CFSTR("SCDynamicStore dispatch_queue_create() failed"));
 			_SCErrorSet(kSCStatusFailed);
@@ -754,16 +737,27 @@ SCDynamicStoreSetDispatchQueue(SCDynamicStoreRef store, dispatch_queue_t queue)
 		}
 		CFRetain(store);	// Note: will be released when the dispatch queue is released
 		dispatch_set_context(storePrivate->callbackQueue, (void *)store);
+		dispatch_set_finalizer_f(storePrivate->callbackQueue, (dispatch_function_t)CFRelease);
 
-		dispatch_suspend(storePrivate->callbackQueue);
+		/*
+		 * create a dispatch source for the mach notifications
+		 */
 		mp = CFMachPortGetPort(storePrivate->callbackPort);
-		storePrivate->callbackSource = dispatch_source_mig_create(mp, sizeof(mach_msg_header_t), NULL, storePrivate->callbackQueue, SCDynamicStoreNotifyMIGCallback);
+		storePrivate->callbackSource = dispatch_source_create(DISPATCH_SOURCE_TYPE_MACH_RECV,
+								      mp,
+								      0,
+								      storePrivate->callbackQueue);
 		if (storePrivate->callbackSource == NULL) {
-			SCLog(TRUE, LOG_ERR, CFSTR("SCDynamicStore dispatch_source_mig_create() failed"));
+			SCLog(TRUE, LOG_ERR, CFSTR("SCDynamicStore dispatch_source_create() failed"));
 			_SCErrorSet(kSCStatusFailed);
 			goto cleanup;
 		}
-		dispatch_resume(storePrivate->callbackQueue);
+		dispatch_source_set_event_handler(storePrivate->callbackSource, ^{
+			dispatch_mig_server(storePrivate->callbackSource,
+					    sizeof(mach_msg_header_t),
+					    SCDynamicStoreNotifyMIGCallback);
+		});
+		dispatch_resume(storePrivate->callbackSource);
 
 		ok = TRUE;
 		goto done;
@@ -779,7 +773,11 @@ SCDynamicStoreSetDispatchQueue(SCDynamicStoreRef store, dispatch_queue_t queue)
     cleanup :
 
 	if (storePrivate->callbackSource != NULL) {
-		dispatch_cancel(storePrivate->callbackSource);
+		dispatch_source_cancel(storePrivate->callbackSource);
+		if (storePrivate->callbackQueue != dispatch_get_current_queue()) {
+			// ensure the cancellation has completed
+			dispatch_sync(storePrivate->callbackQueue, ^{});
+		}
 		dispatch_release(storePrivate->callbackSource);
 		storePrivate->callbackSource = NULL;
 	}

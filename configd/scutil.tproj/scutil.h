@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2005 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2005, 2009 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -51,6 +51,7 @@ typedef struct {
 
 extern AuthorizationRef		authorization;
 extern InputRef			currentInput;
+extern Boolean			doDispatch;
 extern int			nesting;
 extern CFRunLoopRef		notifyRl;
 extern CFRunLoopSourceRef	notifyRls;

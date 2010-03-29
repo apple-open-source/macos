@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2009 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2010 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -834,7 +834,9 @@ protected:
     
     virtual IOReturn createUserClient(task_t task, void *securityID, UInt32 type, IOAudioEngineUserClient **newUserClient);
 
+	static IOReturn _addUserClientAction(OSObject *target, void *arg0, void *arg1, void *arg2, void *arg3);		// <rdar://7529580>
     static IOReturn addUserClientAction(OSObject *owner, void *arg1, void *arg2, void *arg3, void *arg4);
+	static IOReturn _removeUserClientAction(OSObject *target, void *arg0, void *arg1, void *arg2, void *arg3);	// <rdar://7529580>
     static IOReturn removeUserClientAction(OSObject *owner, void *arg1, void *arg2, void *arg3, void *arg4);
     static IOReturn detachUserClientsAction(OSObject *owner, void *arg1, void *arg2, void *arg3, void *arg4);
     

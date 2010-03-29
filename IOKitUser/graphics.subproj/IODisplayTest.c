@@ -38,17 +38,17 @@ void KeyArrayCallback(const void *key, const void *value, void *context)
 
 int main(int argc, char * argv[])
 {
-    io_service_t 	service;
-    CFDictionaryRef	dict;
-    CFDictionaryRef	names;
-    CFArrayRef		langKeys;
-    CFArrayRef		orderLangKeys;
-    CFNumberRef		num;
-    CGSError		err;
-    SInt32		numValue;
-    int			i;
-    CGSDisplayNumber	max;
-    CGSDisplayID	displayIDs[8];
+    io_service_t        service;
+    CFDictionaryRef     dict;
+    CFDictionaryRef     names;
+    CFArrayRef          langKeys;
+    CFArrayRef          orderLangKeys;
+    CFNumberRef         num;
+    CGSError            err;
+    SInt32              numValue;
+    int                 i;
+    CGSDisplayNumber    max;
+    CGSDisplayID        displayIDs[8];
     CGSInitialize();
 
     err = CGSGetDisplayList(8, displayIDs, &max);
@@ -84,9 +84,9 @@ int main(int argc, char * argv[])
             orderLangKeys = CFBundleCopyPreferredLocalizationsFromArray(langKeys);
             CFRelease(langKeys);
             if(orderLangKeys && CFArrayGetCount(orderLangKeys)) {
-                char		cName[256];
-                CFStringRef	langKey;
-                CFStringRef	localName;
+                char            cName[256];
+                CFStringRef     langKey;
+                CFStringRef     localName;
 
                 langKey = CFArrayGetValueAtIndex(orderLangKeys, 0);
                 localName = CFDictionaryGetValue(names, langKey);
@@ -109,9 +109,9 @@ int main(int argc, char * argv[])
                                         kIODisplayControlInterfaceID, &interface );
         }
         {
-            CFMutableDictionaryRef	dict;
-            CFNumberRef			num;
-            SInt32 			value;
+            CFMutableDictionaryRef      dict;
+            CFNumberRef                 num;
+            SInt32                      value;
 
             dict = CFDictionaryCreateMutable( kCFAllocatorDefault, 0,
                                                 &kCFTypeDictionaryKeyCallBacks,

@@ -3099,6 +3099,9 @@ void IOFireWireController::updateDevice(IOFWNodeScan *scan )
 				IOLog("Update Device Creating new device 0x%p\n", newDevice);
 			#endif
 			
+			// In response to <rdar://7116134>. Logging here to see if we can find a reproducible case of this panic.
+			ErrorLogCond( !newDevice, "IOFireWireController@%p::updateDevice Error creating device nub! (%p, %p)\n", this, fFWIM, newDevice );
+			
 			// we must stay busy until we've called registerService on the device
 			// and all of its units
 			

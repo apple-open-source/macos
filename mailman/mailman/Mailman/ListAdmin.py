@@ -1,4 +1,4 @@
-# Copyright (C) 1998-2008 by the Free Software Foundation, Inc.
+# Copyright (C) 1998-2009 by the Free Software Foundation, Inc.
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -202,7 +202,7 @@ class ListAdmin:
                     cPickle.dump(msg, fp, 1)
                 else:
                     g = Generator(fp)
-                    g(msg, 1)
+                    g.flatten(msg, 1)
                 fp.flush()
                 os.fsync(fp.fileno())
             finally:
@@ -251,7 +251,7 @@ class ListAdmin:
             outfp = open(outpath, 'w')
             try:
                 g = Generator(outfp)
-                g(msg, 1)
+                g.flatten(msg, 1)
             finally:
                 outfp.close()
         # Now handle updates to the database
@@ -292,9 +292,11 @@ class ListAdmin:
         elif value == mm_cfg.REJECT:
             # Rejected
             rejection = 'Refused'
+            lang = self.getMemberLanguage(sender)
+            subject = Utils.oneline(subject, Utils.GetCharSet(lang))
             self.__refuse(_('Posting of your message titled "%(subject)s"'),
                           sender, comment or _('[No reason given]'),
-                          lang=self.getMemberLanguage(sender))
+                          lang=lang)
         else:
             assert value == mm_cfg.DISCARD
             # Discarded
@@ -408,11 +410,14 @@ class ListAdmin:
         if value == mm_cfg.DEFER:
             return DEFER
         elif value == mm_cfg.DISCARD:
-            pass
+            syslog('vette', '%s: discarded subscription request from %s',
+                   self.internal_name(), addr)
         elif value == mm_cfg.REJECT:
             self.__refuse(_('Subscription request'), addr,
                           comment or _('[No reason given]'),
                           lang=lang)
+            syslog('vette', """%s: rejected subscription request from %s
+\tReason: %s""", self.internal_name(), addr, comment or '[No reason given]')
         else:
             # subscribe
             assert value == mm_cfg.SUBSCRIBE
@@ -460,9 +465,12 @@ class ListAdmin:
         if value == mm_cfg.DEFER:
             return DEFER
         elif value == mm_cfg.DISCARD:
-            pass
+            syslog('vette', '%s: discarded unsubscription request from %s',
+                   self.internal_name(), addr)
         elif value == mm_cfg.REJECT:
             self.__refuse(_('Unsubscription request'), addr, comment)
+            syslog('vette', """%s: rejected unsubscription request from %s
+\tReason: %s""", self.internal_name(), addr, comment or '[No reason given]')
         else:
             assert value == mm_cfg.UNSUBSCRIBE
             try:

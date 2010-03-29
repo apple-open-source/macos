@@ -594,7 +594,7 @@ AppleUSBOHCI::FilterInterrupt(int index)
                             // Successful isoch transmit sets the size field to requested count,
 							// successful receive sets size to actual packet size received
 							//
-							if((kIOReturnSuccess == tdStatus) && (pITD->pType == kOHCIIsochronousOutLowLatencyType))
+							if ((kIOReturnSuccess == tdStatus) && (pITD->pType == kOHCIIsochronousOutLowLatencyType))
 								frActCount = pFrames[pITD->frameNum + i].frReqCount;
 							else
 								frActCount = offset & kOHCIITDPSW_Size;
@@ -615,6 +615,11 @@ AppleUSBOHCI::FilterInterrupt(int index)
 						{
 							pFrames[pITD->frameNum + i].frActCount = frActCount;
 							pFrames[pITD->frameNum + i].frStatus = frStatus;
+#ifdef __LP64__
+							USBTrace( kUSBTOHCIInterrupts, kTPOHCIUpdateFrameList , 0, (uintptr_t)&pFrames[pITD->frameNum + i], (uintptr_t)frActCount, (uintptr_t)timeStamp );
+#else
+							USBTrace( kUSBTOHCIInterrupts, kTPOHCIUpdateFrameList , 0, (uintptr_t)&pFrames[pITD->frameNum + i], (uintptr_t)(pFrames[pITD->frameNum + i].frTimeStamp.hi), (uintptr_t)pFrames[pITD->frameNum + i].frTimeStamp.lo );
+#endif
 						}
 						
 					}

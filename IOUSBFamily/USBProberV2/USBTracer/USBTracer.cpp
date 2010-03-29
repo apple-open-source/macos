@@ -65,7 +65,8 @@ boolean_t			gBasicFormatting			= FALSE;
 uint64_t			gStartingAbsTime			= 0;
 uint64_t			gLastTimeStamp				= -1;
 boolean_t			gPrintNoSep					= FALSE;
-uint32_t			gSavedUSBDebugMask	= 0;
+uint32_t			gSavedUSBDebugMask			= 0;
+boolean_t			gDump						= FALSE;
 
 static void PrintBufferSettings ( void )
 {
@@ -107,6 +108,13 @@ main ( int argc, const char * argv[] )
 
 	// Get program arguments.
 	ParseArguments ( argc, argv );
+	
+	// Collect trace into auto-allocated buffer
+	if ( gDump )
+	{
+		CollectWithAlloc();
+		exit(0);
+	}
 	
 	// Set up signal handlers.
 	RegisterSignalHandlers ( );	
@@ -265,6 +273,9 @@ PrintUsage ( void )
 	elog ( "\t--nosep, -S\n");
 	elog ( "\t\t Use non-separating format between method and log.\n");
 	
+	elog ( "\t--dump, -D\n");
+	elog ( "\t\t Read and print the trace buffer using an auto-allocated collection buffer, then exit.\n");
+	
 	elog ( "\t--verbose, -v\n");
 	elog ( "\t\t Verbose mode.\n");
 	
@@ -313,6 +324,7 @@ ParseArguments ( int argc, const char * argv[] )
 		{ "value2",			required_argument,	0, '2' },
 		{ "basic",			no_argument,		0, 'B' },
 		{ "nosep",			no_argument,		0, 'S' },
+		{ "dump",			no_argument,		0, 'D' },
 		
 		{ "verbose",		no_argument,		0, 'v' },
 		{ "version",		no_argument,		0, 'V' },
@@ -325,7 +337,7 @@ ParseArguments ( int argc, const char * argv[] )
 		return;
 	}
 	
-    while ( ( c = getopt_long ( argc, ( char * const * ) argv , "b:ad::ctsgmufiTLw::r:CHI:1:2:BSvVh?", long_options, NULL  ) ) != -1 )
+    while ( ( c = getopt_long ( argc, ( char * const * ) argv , "b:ad::ctsgmufiTLw::r:CHI:1:2:BSDvVh?", long_options, NULL  ) ) != -1 )
 	{
 		switch ( c )
 		{
@@ -481,6 +493,11 @@ ParseArguments ( int argc, const char * argv[] )
 			case 'S':
 				gPrintNoSep = TRUE;
 				vlog( "Will NOT seperate log from method during formatting.\n");
+				break;
+				
+			case 'D':
+				gDump = TRUE;
+				vlog( "Will dump trace buffer and exit.\n");
 				break;
 				
 			case 'v':
@@ -887,6 +904,67 @@ CollectTrace ( void )
 }	
 
 //———————————————————————————————————————————————————————————————————————————
+//	CollectWithAlloc
+//———————————————————————————————————————————————————————————————————————————
+
+static void
+CollectWithAlloc( void )
+{
+	char *			buffer;
+	kd_buf *		kd;
+	int				reenable = 0;
+	int				mib[6];
+	size_t 			needed;
+	int 			index;
+	kbufinfo_t		bufinfo = {0, 0, 0, 0};
+	
+	// Get kernel buffer information
+	GetTraceBufferInfo(&bufinfo);
+	
+	if (bufinfo.nolog != 1)
+	{
+		reenable = 1;
+		EnableTraceBuffer(0);  // disable logging
+	}
+	
+	buffer = (char *)(malloc(bufinfo.nkdbufs * sizeof(kd_buf)));
+	if ( buffer == (char *) 0 )
+		Quit("can't allocate memory for tracing info\n");
+	
+	needed = bufinfo.nkdbufs * sizeof(kd_buf);
+	mib[0] = CTL_KERN;
+	mib[1] = KERN_KDEBUG;
+	mib[2] = KERN_KDREADTR;		
+	mib[3] = 0;
+	mib[4] = 0;
+	mib[5] = 0;
+	
+	int error = sysctl(mib, 3, buffer, &needed, NULL, 0);
+	if ( error < 0)
+	{
+		vlog ("CollectWithAlloc error %d\n", error );
+		Quit("trace facility failure, KERN_KDREADTR\n");
+	}
+	
+	if (reenable == 1)
+	{
+		EnableTraceBuffer(1);  // re-enable kernel logging
+	}
+	
+	if (!needed)
+		Quit("trace facility failure, KERN_KDREADTR (no data) \n");
+	
+	kd = (kd_buf *) buffer;
+	
+	for ( index = 0; index < needed; index++ )
+	{
+		ProcessTracepoint( kd[index] );
+	}
+	
+	fflush ( 0 );
+}
+
+//———————————————————————————————————————————————————————————————————————————
 //	ProcessTracepoint
 //———————————————————————————————————————————————————————————————————————————
 
@@ -991,6 +1069,10 @@ ProcessTracepoint( kd_buf tracepoint )
 				CollectTraceOutstandingIO	(tracepoint); 
 				break;
 
+			case USB_AUDIO_DRIVER_TRACE(0):
+				CollectTraceAudioDriver	(tracepoint); 
+				break;
+				
 			default:   
 				CollectTraceUnknown( tracepoint );
 				break;
@@ -1047,7 +1129,7 @@ CollectTraceController( kd_buf tracepoint )
 			} 
 			else if ( qualifier == DBG_FUNC_END ) 
 			{
-				if( arg4 == 1 )
+				if ( arg4 == 1 )
 				{
 					log(info, "Controller", "end", parg1, NULL );
 				}
@@ -1071,7 +1153,7 @@ CollectTraceController( kd_buf tracepoint )
 			} 
 			else 
 			{
-				if( arg4 == 1 )
+				if ( arg4 == 1 )
 				{
 					log(info, "Controller", "PacketHandler", parg1, "calling clear TT status = 0x%x controllerv2 = 0x%x", (uint32_t)arg2, (uint32_t)arg3 );
 				}
@@ -1091,7 +1173,7 @@ CollectTraceController( kd_buf tracepoint )
 			} 
 			else 
 			{
-				if( arg4 == 1 )
+				if ( arg4 == 1 )
 				{
 					log(info, "Controller", "MakeDevice", parg1, "error getting address - releasing newDev");
 				}
@@ -1111,7 +1193,7 @@ CollectTraceController( kd_buf tracepoint )
 			} 
 			else 
 			{
-				if( arg4 == 1 )
+				if ( arg4 == 1 )
 				{
 					log(info, "Controller", "MakeHubDevice", parg1, "error getting address - releasing newDev");
 				}
@@ -1131,7 +1213,7 @@ CollectTraceController( kd_buf tracepoint )
 			} 
 			else 
 			{
-				if( arg4 == 1 )
+				if ( arg4 == 1 )
 				{
 					log(info, "Controller", "CreateRHDevice", parg1, "unable to get root hub descriptor");
 				}
@@ -1159,7 +1241,7 @@ CollectTraceController( kd_buf tracepoint )
 			} 
 			else 
 			{
-				if( arg4 == 1 )
+				if ( arg4 == 1 )
 				{
 					log(info, "Controller", "DisjointCompletion", parg1, "no dmaCommand");
 				}
@@ -1179,7 +1261,7 @@ CollectTraceController( kd_buf tracepoint )
 			} 
 			else 
 			{
-				if( arg4 == 1 )
+				if ( arg4 == 1 )
 				{
 					log(info, "Controller", "Check For DD", parg1, "- no dmaCommand status 0x%x", arg2 );
 				}
@@ -1219,7 +1301,7 @@ CollectTraceController( kd_buf tracepoint )
 			} 
 			else 
 			{
-				if( arg4 == 1 )
+				if ( arg4 == 1 )
 				{
 					log(info, "Controller", "ClearTTHandler", parg1, "DMA Command Memory Descriptor (0x%x) does not match Request MemoryDescriptor (0x%x)", arg2, arg3 );
 				}
@@ -1251,7 +1333,7 @@ CollectTraceController( kd_buf tracepoint )
 			} 
 			else 
 			{
-				if( arg4 == 1 )
+				if ( arg4 == 1 )
 				{
 					log(info, "Controller", "ClearTT", parg1, "high speed device, returning");
 				}
@@ -1318,7 +1400,7 @@ CollectTraceController( kd_buf tracepoint )
 			} 
 			else 
 			{
-				if( arg4 == 1 )
+				if ( arg4 == 1 )
 				{
 					log(info, "Controller", "Return Isoc Done Q", 0, "kIOReturnBufferUnderrunErr (PCI issue perhaps)  Bus: %x, Address: %d, Endpoint: %d", arg1, arg2, arg3 );
 				}
@@ -1352,7 +1434,7 @@ CollectTraceController( kd_buf tracepoint )
 			} 
 			else 
 			{
-				if( arg4 == 1 )
+				if ( arg4 == 1 )
 				{
 					log(info, "Controller", "SetPowerState", 0, "whatDevice %p != this", (void *)parg1 );
 				}
@@ -1376,7 +1458,7 @@ CollectTraceController( kd_buf tracepoint )
 			} 
 			else 
 			{
-				if( arg4 == 1 )
+				if ( arg4 == 1 )
 				{
 					log(info, "Controller", "CheckPowerModeBeforeGatedCall", parg1, "myPowerState %d onThread is true while !_controllerAvailable status 0x%x", arg2, arg3 );
 				}
@@ -1421,32 +1503,32 @@ CollectTraceController( kd_buf tracepoint )
 			break;
 		
 		case USB_CONTROLLER_TRACE( kTPControllerRootHubTimer ):
-			if( arg4 == 4 )
+			if ( arg4 == 4 )
 			{
 				if (gPrintRHTimerFired)
 					log(info, "Controller", "RootHubTimerFired", parg1, "PolicyMaker[%p] powerState[%d]", (void*) parg2, arg3 );
 			}
-			else if( arg4 == 5 )
+			else if ( arg4 == 5 )
 			{
 				log(info, "Controller", "CheckForRootHubChanges", parg1, "stopping timer and calling complete");
 			}
-			else if( arg4 == 2 )
+			else if ( arg4 == 2 )
 			{
 				log(info, "Controller", "RootHubStopTimer", parg1, NULL);
 			}
-			else if( arg4 == 3 )
+			else if ( arg4 == 3 )
 			{
 				log(info, "Controller", "RootHubAbortInterruptRead", parg1, NULL);
 			}
-			else if( arg4 == 1 )
+			else if ( arg4 == 1 )
 			{
 				log(info, "Controller", "RootHubStartTimer32", parg1, "Polling Rate: %d", arg2);
 			}
-			else if( arg4 == 6 )
+			else if ( arg4 == 6 )
 			{
 				log(info, "Controller", "RootHubStartTimer32", parg1, "invalid polling rate of %d", arg2 );
 			}
-			else if( arg4 == 7 )
+			else if ( arg4 == 7 )
 			{
 				log(info, "Controller", "RootHubAbortInterruptRead", parg1, "No timer!!!");
 			}
@@ -1454,19 +1536,19 @@ CollectTraceController( kd_buf tracepoint )
 			break;
 		
 		case USB_CONTROLLER_TRACE( kTPControllerV3Start ):
-			if( arg4 == 1 )
+			if ( arg4 == 1 )
 			{
 				log(info, "Controller", "V3Start", parg1, "CheckForEHCIController returned status 0x%x", arg2 );
 			}
-			else if( arg4 == 2 )
+			else if ( arg4 == 2 )
 			{
 				log(info, "Controller", "V3Start", parg1, "couldn't allocate timer event source - status 0x%x", arg2 );
 			}
-			else if( arg4 == 3 )
+			else if ( arg4 == 3 )
 			{
 				log(info, "Controller", "V3Start", parg1, "couldn't add timer event source - status 0x%x", arg2 );
 			}
-			else if( arg4 == 4 )
+			else if ( arg4 == 4 )
 				log(info, "Controller", "V3Start", parg1, "InitForPM returned status 0x%x", arg2 );
 			break;
 		
@@ -1479,88 +1561,88 @@ CollectTraceController( kd_buf tracepoint )
 			break;
 
 		case USB_CONTROLLER_TRACE( kTPIsocIOLL ):
-			if( arg4 == 1 )
+			if ( arg4 == 1 )
 			{
 				log(info, "Controller", "IsocIOLL", parg1, "no IODMACommand in the IOUSBCommand status 0x%x", arg2 );
 			}
-			else if( arg4 == 2 )
+			else if ( arg4 == 2 )
 			{
 				log(info, "Controller", "IsocIOLL", parg1, "status 0x%x", arg2 );
 			}
-			else if( arg4 == 3 )
+			else if ( arg4 == 3 )
 			{
 				log(info, "Controller", "IsocIOLL", parg1, "No completion. Returning status 0x%x", arg2 );
 			}
-			else if( arg4 == 4 )
+			else if ( arg4 == 4 )
 			{
 				log(info, "Controller", "IsocIOLL", parg1, "Could not get _commandGate.  Returning status 0x%x", arg2 );
 			}
-			else if( arg4 == 5 )
+			else if ( arg4 == 5 )
 			{
 				log(info, "Controller", "IsocIOLL", parg1, "Could not get a IOUSBIsocCommand status 0x%x", arg2 );
 			}
-			else if( arg4 == 6 )
+			else if ( arg4 == 6 )
 				log(info, "Controller", "IsocIOLL", parg1, "Direction is not kUSBOut or kUSBIn (%d).  Returning status 0x%x", arg2, arg3 );
 			break;
 		
 		case USB_CONTROLLER_TRACE( kTPIsocIO ):
-			if( arg4 == 1 )
+			if ( arg4 == 1 )
 			{
 				log(info, "Controller", "Isoc IO", parg1, "no IODMACommand in the IOUSBCommand status 0x%x", arg2 );
 			}
-			else if( arg4 == 2 )
+			else if ( arg4 == 2 )
 				log(info, "Controller", "Isoc IO", parg1, "dmaCommand->setMemoryDescriptor failed with status 0x%x", arg2 );
 			break;
 			
 		case USB_CONTROLLER_TRACE( kTPControllerRead ):
-			if( arg4 == 1 )
+			if ( arg4 == 1 )
 			{
 				log(info, "Controller", "Read", parg1, "Could not get _commandGate.  Returning status 0x%x", arg2 );
 			}
-			else if( arg4 == 2 )
+			else if ( arg4 == 2 )
 			{
 				log(info, "Controller", "Read", parg1, "no DMA COMMAND status 0x%x", arg2 );
 			}
-			else if( arg4 == 3 )
+			else if ( arg4 == 3 )
 			{
 				log(info, "Controller", "Read", parg1, "dmaCommand (0x%x) already contains memory descriptor (0x%x) - clearing", arg2, arg3 );
 			}
-			else if( arg4 == 4 )
+			else if ( arg4 == 4 )
 			{
 				log(info, "Controller", "Read", parg1, "error 0x%x preparing memory descriptor (0x%x)", arg2, arg3 );
 			}
-			else if( arg4 == 5 )
+			else if ( arg4 == 5 )
 				log(info, "Controller", "Read", parg1, "error 0x%x attempting to set the memory descriptor to the dmaCommand", arg2 );
 			break;
 
 
 		case USB_CONTROLLER_TRACE( kTPControllerWrite ):
- 			if( arg4 == 1 )
+ 			if ( arg4 == 1 )
 			{
 				log(info, "Controller", "Write", parg1, "no DMA COMMAND status 0x%x", arg2 );
 			}
-			else if( arg4 == 2 )
+			else if ( arg4 == 2 )
 			{
 				log(info, "Controller", "Write", parg1, "dmaCommand (0x%x) already contains memory descriptor (0x%x) - clearing", arg2, arg3 );
 			}
-			else if( arg4 == 3 )
+			else if ( arg4 == 3 )
 			{
 				log(info, "Controller", "Write", parg1, "error 0x%x preparing buffer (0x%x)", arg2, arg3 );
 			}
-			else if( arg4 == 4 )
+			else if ( arg4 == 4 )
 				log(info, "Controller", "Write", parg1, "error 0x%x attempting to set the memory descriptor to the dmaCommand", arg2 );
 			break;
 		
 		case USB_CONTROLLER_TRACE( kTPCompletionCall ):
- 			if( arg4 == 1 )
+ 			if ( arg4 == 1 )
 			{
 				log(info, "Controller", "IsocCompletion", parg1, "completion: %p, status:  0x%x", (void *)parg2, arg3 );
 			}
-			else if( arg4 == 2 )
+			else if ( arg4 == 2 )
 			{
 				log(info, "Controller", "Complete", parg1, "completion: %p, status:  0x%x", (void *)parg2, arg3 );
 			}
-			else if( arg4 == 3 )
+			else if ( arg4 == 3 )
 			{
 				log(info, "Controller", "CompleteTS", parg1, "completion: %p, status:  0x%x", (void *)parg2, arg3 );
 			}
@@ -1586,9 +1668,9 @@ CollectTraceController( kd_buf tracepoint )
 			else 
 			{
 #ifdef __LP64__
-				log(info, "Controller", "ControlTxction", 0, "Bus: 0x%x, Address: %d, Endpoint: %d, length: %d, data out: 0x%16.016qx 0x%16.016qx", ((arg1 >> 16) & 0xFF), ((arg1 >> 8) & 0xFF), ((arg1 >> 0) & 0xFF), arg2, OSSwapInt64(arg3), OSSwapInt64(arg4) );
+				log(info, "Controller", "ControlTxction", 0, "Bus: 0x%x, Address: %d, Endpoint: %d, (out) length: %d, data: 0x%16.016qx 0x%16.016qx", ((arg1 >> 16) & 0xFF), ((arg1 >> 8) & 0xFF), ((arg1 >> 0) & 0xFF), arg2, OSSwapInt64(arg3), OSSwapInt64(arg4) );
 #else
-				log(info, "Controller", "ControlTxction", 0, "Bus: 0x%x, Address: %d, Endpoint: %d  length: %d, data out: 0x%8.08x 0x%8.08x", ((arg1 >> 16) & 0xFF), ((arg1 >> 8) & 0xFF), ((arg1 >> 0) & 0xFF), arg2, OSSwapInt32(arg3), OSSwapInt32(arg4) );
+				log(info, "Controller", "ControlTxction", 0, "Bus: 0x%x, Address: %d, Endpoint: %d  (out) length: %d, data: 0x%8.08x 0x%8.08x", ((arg1 >> 16) & 0xFF), ((arg1 >> 8) & 0xFF), ((arg1 >> 0) & 0xFF), arg2, OSSwapInt32(arg3), OSSwapInt32(arg4) );
 #endif
 			}
 				break;
@@ -1603,14 +1685,14 @@ CollectTraceController( kd_buf tracepoint )
 			} 
 			else if ( qualifier == DBG_FUNC_END ) 
 			{
-				log(info, "Controller", "Interrupt End", parg1, "error 0x%x", arg2 );
+				log(info, "Controller", "Interrupt End", parg1, "error 0x%x, (completion timeout: %d, noData timeout: %d)", arg2, arg3, arg4 );
 			} 
 			else 
 			{
 #ifdef __LP64__
-				log(info, "Controller", "Interrupt", 0, "Bus: 0x%x, Address: %d, Endpoint: %d, length: %d, data out: 0x%16.016qx 0x%16.016qx", ((arg1 >> 16) & 0xFF), ((arg1 >> 8) & 0xFF), ((arg1 >> 0) & 0xFF), arg2, OSSwapInt64(arg3), OSSwapInt64(arg4) );
+				log(info, "Controller", "Interrupt Start Data", 0, "Bus: 0x%x, Address: %d, Endpoint: %d, (out)  length: %d, data: 0x%16.016qx 0x%16.016qx", ((arg1 >> 16) & 0xFF), ((arg1 >> 8) & 0xFF), ((arg1 >> 0) & 0xFF), arg2, OSSwapInt64(arg3), OSSwapInt64(arg4) );
 #else
-				log(info, "Controller", "Interrupt", 0, "Bus: 0x%x, Address: %d, Endpoint: %d  length: %d, data out: 0x%8.08x 0x%8.08x", ((arg1 >> 16) & 0xFF), ((arg1 >> 8) & 0xFF), ((arg1 >> 0) & 0xFF), arg2, OSSwapInt32(arg3), OSSwapInt32(arg4) );
+				log(info, "Controller", "Interrupt Start Data", 0, "Bus: 0x%x, Address: %d, Endpoint: %d  (out)  length: %d, data: 0x%8.08x 0x%8.08x", ((arg1 >> 16) & 0xFF), ((arg1 >> 8) & 0xFF), ((arg1 >> 0) & 0xFF), arg2, OSSwapInt32(arg3), OSSwapInt32(arg4) );
 #endif
 			}
 
@@ -1627,7 +1709,7 @@ CollectTraceController( kd_buf tracepoint )
 			} 
 			else if ( qualifier == DBG_FUNC_END ) 
 			{
-				log(info, "Controller", "Bulk End", parg1, "error 0x%x", arg2 );
+				log(info, "Controller", "Bulk End", parg1, "error 0x%x, (completion timeout: %d, noData timeout: %d)", arg2, arg3, arg4 );
 			} 
 			break;
 			
@@ -1641,87 +1723,129 @@ CollectTraceController( kd_buf tracepoint )
 			} 
 			else if ( qualifier == DBG_FUNC_END ) 
 			{
-				log(info, "Controller", "Isoc End", parg1, "error 0x%x", arg2 );
+				log(info, "Controller", "Isoc End", parg1, "error 0x%x   frameListPtr: 0x%x", arg2, arg3);
 			} 
 			break;
 			
-		case USB_CONTROLLER_TRACE( kTPInterruptPacketHandler ):
+		case USB_CONTROLLER_TRACE( kTPInterruptPacketHandlerData ):
 #ifdef __LP64__
-			log(info, "Controller", "Interrupt Comp", 0, "Bus: 0x%x, Address: %d, Endpoint: %d, length: %d, data in: 0x%16.016qx 0x%16.016qx", ((arg1 >> 16) & 0xFF), ((arg1 >> 8) & 0xFF), ((arg1 >> 0) & 0xFF), arg2, OSSwapInt64(arg3), OSSwapInt64(arg4) );
+			log(info, "Controller", "Interrupt Complete Data", 0, "Bus: 0x%x, Address: %d, Endpoint: %d, (in)  length: %d, data: 0x%16.016qx 0x%16.016qx", ((arg1 >> 16) & 0xFF), ((arg1 >> 8) & 0xFF), ((arg1 >> 0) & 0xFF), arg2, OSSwapInt64(arg3), OSSwapInt64(arg4) );
 #else
-			log(info, "Controller", "Interrupt Comp", 0, "Bus: 0x%x, Address: %d, Endpoint: %d  length: %d, data in: 0x%8.08x 0x%8.08x", ((arg1 >> 16) & 0xFF), ((arg1 >> 8) & 0xFF), ((arg1 >> 0) & 0xFF), arg2, OSSwapInt32(arg3), OSSwapInt32(arg4) );
+			log(info, "Controller", "Interrupt Complete Data", 0, "Bus: 0x%x, Address: %d, Endpoint: %d  (in)  length: %d, data: 0x%8.08x 0x%8.08x", ((arg1 >> 16) & 0xFF), ((arg1 >> 8) & 0xFF), ((arg1 >> 0) & 0xFF), arg2, OSSwapInt32(arg3), OSSwapInt32(arg4) );
 #endif
 			break;
 			
-		case USB_CONTROLLER_TRACE( kTPBulkPacketHandler ):
+		case USB_CONTROLLER_TRACE( kTPBulkPacketHandlerData ):
 #ifdef __LP64__
-			log(info, "Controller", "Bulk Completion", 0, "Bus: 0x%x, Address: %d, Endpoint: %d, length: %d, data in: 0x%16.016qx 0x%16.016qx", ((arg1 >> 16) & 0xFF), ((arg1 >> 8) & 0xFF), ((arg1 >> 0) & 0xFF), arg2, OSSwapInt64(arg3), OSSwapInt64(arg4) );
+			log(info, "Controller", "Bulk Complete Data", 0, "Bus: 0x%x, Address: %d, Endpoint: %d, (in)  length: %d, data: 0x%16.016qx 0x%16.016qx", ((arg1 >> 16) & 0xFF), ((arg1 >> 8) & 0xFF), ((arg1 >> 0) & 0xFF), arg2, OSSwapInt64(arg3), OSSwapInt64(arg4) );
 #else
-			log(info, "Controller", "Bulk Completion", 0, "Bus: 0x%x, Address: %d, Endpoint: %d  length: %d, data in: 0x%8.08x 0x%8.08x", ((arg1 >> 16) & 0xFF), ((arg1 >> 8) & 0xFF), ((arg1 >> 0) & 0xFF), arg2, OSSwapInt32(arg3), OSSwapInt32(arg4) );
+			log(info, "Controller", "Bulk Complete Data", 0, "Bus: 0x%x, Address: %d, Endpoint: %d  (in)  length: %d, data: 0x%8.08x 0x%8.08x", ((arg1 >> 16) & 0xFF), ((arg1 >> 8) & 0xFF), ((arg1 >> 0) & 0xFF), arg2, OSSwapInt32(arg3), OSSwapInt32(arg4) );
 #endif
 			break;
 			
 		case USB_CONTROLLER_TRACE( kTPBulkTransactionData ):
 #ifdef __LP64__
-			log(info, "Controller", "Bulk", 0, "Bus: 0x%x, Address: %d, Endpoint: %d, length: %d, data out: 0x%16.016qx 0x%16.016qx", ((arg1 >> 16) & 0xFF), ((arg1 >> 8) & 0xFF), ((arg1 >> 0) & 0xFF), arg2, OSSwapInt64(arg3), OSSwapInt64(arg4) );
+			log(info, "Controller", "Bulk Start Data", 0, "Bus: 0x%x, Address: %d, Endpoint: %d, (out)  length: %d, data: 0x%16.016qx 0x%16.016qx", ((arg1 >> 16) & 0xFF), ((arg1 >> 8) & 0xFF), ((arg1 >> 0) & 0xFF), arg2, OSSwapInt64(arg3), OSSwapInt64(arg4) );
 #else
-			log(info, "Controller", "Bulk", 0, "Bus: 0x%x, Address: %d, Endpoint: %d  length: %d, data out: 0x%8.08x 0x%8.08x", ((arg1 >> 16) & 0xFF), ((arg1 >> 8) & 0xFF), ((arg1 >> 0) & 0xFF), arg2, OSSwapInt32(arg3), OSSwapInt32(arg4) );
+			log(info, "Controller", "Bulk Start Data", 0, "Bus: 0x%x, Address: %d, Endpoint: %d  (out)  length: %d, data: 0x%8.08x 0x%8.08x", ((arg1 >> 16) & 0xFF), ((arg1 >> 8) & 0xFF), ((arg1 >> 0) & 0xFF), arg2, OSSwapInt32(arg3), OSSwapInt32(arg4) );
 #endif
 			break;
 			
 		case USB_CONTROLLER_TRACE( kTPControlPacketHandlerData ):
 #ifdef __LP64__
-			log(info, "Controller", "Packet Handler", 0, "Bus: 0x%x, Address: %d, Endpoint: %d, length: %d, data out: 0x%16.016qx 0x%16.016qx", ((arg1 >> 16) & 0xFF), ((arg1 >> 8) & 0xFF), ((arg1 >> 0) & 0xFF), arg2, OSSwapInt64(arg3), OSSwapInt64(arg4) );
+			log(info, "Controller", "Packet Handler", 0, "Bus: 0x%x, Address: %d, Endpoint: %d, (out)  length: %d, data: 0x%16.016qx 0x%16.016qx", ((arg1 >> 16) & 0xFF), ((arg1 >> 8) & 0xFF), ((arg1 >> 0) & 0xFF), arg2, OSSwapInt64(arg3), OSSwapInt64(arg4) );
 #else
-			log(info, "Controller", "Packet Handler", 0, "Bus: 0x%x, Address: %d, Endpoint: %d  length: %d, data out: 0x%8.08x 0x%8.08x", ((arg1 >> 16) & 0xFF), ((arg1 >> 8) & 0xFF), ((arg1 >> 0) & 0xFF), arg2, OSSwapInt32(arg3), OSSwapInt32(arg4) );
+			log(info, "Controller", "Packet Handler", 0, "Bus: 0x%x, Address: %d, Endpoint: %d  (out)  length: %d, data: 0x%8.08x 0x%8.08x", ((arg1 >> 16) & 0xFF), ((arg1 >> 8) & 0xFF), ((arg1 >> 0) & 0xFF), arg2, OSSwapInt32(arg3), OSSwapInt32(arg4) );
 #endif
 			break;
 			
 		case USB_CONTROLLER_TRACE( kTPDevZeroLock ):
 			if (arg4 == 0)
 			{
-				log(info, "Controller", "ProtectedAcquireDevZeroLock", parg1, "_devZeroLock available without commandSleep");
+				log(info, "Controller", "ProtectedDevZeroLock", parg1, "_devZeroLock available without commandSleep");
 			}
 			else if ( arg4 == 1 )
 			{
-				log(info, "Controller", "ProtectedAcquireDevZeroLock", parg1, "_devZeroLock held by someone else - calling commandSleep to wait for lock");
+				log(info, "Controller", "ProtectedDevZeroLock", parg1, "_devZeroLock held by someone else - calling commandSleep to wait for lock");
 			}
 			else if ( arg4 == 2 )
 			{
-				log(info, "Controller", "ProtectedAcquireDevZeroLock", parg1, "commandSleep woke up normally (THREAD_AWAKENED) _devZeroLock(%s)", arg2 ? "true" : "false");
+				log(info, "Controller", "ProtectedDevZeroLock", parg1, "commandSleep woke up normally (THREAD_AWAKENED) _devZeroLock(%s)", arg2 ? "true" : "false");
 			}
 			else if ( arg4 == 3 )
 			{
-				log(info, "Controller", "ProtectedAcquireDevZeroLock", parg1, "commandSleep interrupted (THREAD_INTERRUPTED) _devZeroLock(%s)", arg2 ? "true" : "false");
+				log(info, "Controller", "ProtectedDevZeroLock", parg1, "commandSleep interrupted (THREAD_INTERRUPTED) _devZeroLock(%s)", arg2 ? "true" : "false");
 			}
 			else if ( arg4 == 4 )
 			{
-				log(info, "Controller", "ProtectedAcquireDevZeroLock", parg1, "commandSleep restarted (THREAD_RESTART) _devZeroLock(%s)", arg2 ? "true" : "false");
+				log(info, "Controller", "ProtectedDevZeroLock", parg1, "commandSleep restarted (THREAD_RESTART) _devZeroLock(%s)", arg2 ? "true" : "false");
 			}
 			else if ( arg4 == 5 )
 			{
-				log(info, "Controller", "ProtectedAcquireDevZeroLock", parg1, "woke up with status (kIOReturnNotPermitted) - we do not hold the WL!");
+				log(info, "Controller", "ProtectedDevZeroLock", parg1, "woke up with status (kIOReturnNotPermitted) - we do not hold the WL!");
 			}
 			else if ( arg4 == 6 )
 			{
-				log(info, "Controller", "ProtectedAcquireDevZeroLock", parg1, "woke up with unknown status 0x%x", arg2);
+				log(info, "Controller", "ProtectedDevZeroLock", parg1, "woke up with unknown status 0x%x", arg2);
 			}
 			else if ( arg4 == 7 )
 			{
-				log(info, "Controller", "ProtectedAcquireDevZeroLock", parg1, "commandSleep timeout out (THREAD_TIMED_OUT) _devZeroLock(%s)", arg2 ? "true" : "false");
+				log(info, "Controller", "ProtectedDevZeroLock", parg1, "commandSleep timeout out (THREAD_TIMED_OUT) _devZeroLock(%s)", arg2 ? "true" : "false");
 			}
 			else if ( arg4 == 8 )
 			{
-				log(info, "Controller", "ProtectedAcquireDevZeroLock", parg1, "setting _devZeroLock to false and calling commandWakeup");
+				log(info, "Controller", "ProtectedDevZeroLock", parg1, "setting _devZeroLock to false and calling commandWakeup");
 			}
 			else if ( arg4 == 9 )
 			{
-				log(info, "Controller", "ProtectedAcquireDevZeroLock", parg1, "setting _devZeroLock to true");
+				log(info, "Controller", "ProtectedDevZeroLock", parg1, "setting _devZeroLock to true");
 			}
 			else if ( arg4 == 10 )
 			{
-				log(info, "Controller", "ProtectedAcquireDevZeroLock", parg1, "setting _devZeroLock to true because we woke up with an error from commandSleep()'d, but the lock was false");
+				log(info, "Controller", "ProtectedDevZeroLock", parg1, "setting _devZeroLock to true because we woke up with an error from commandSleep()'d, but the lock was false");
 			}
+			break;
+			
+		case USB_CONTROLLER_TRACE( kTPDoIOTransferBulkSync ):
+			if ( qualifier == DBG_FUNC_START ) 
+			{
+				log(info, "Controller", "Bulk Sync Start", parg1, "Bus: 0x%x, Address: %d, Endpoint: %d, (%s) comp timeout: %d, noData timeout: %d  about to commandSleep()", 
+					((arg2 >> 16) & 0xFF), ((arg2 >> 8) & 0xFF), ((arg2 >> 0) & 0xFF), ((arg2 >> 24) & 0xFF) == kUSBIn ? "in" : "out", arg3, arg4
+					);
+			} 
+			else if ( qualifier == DBG_FUNC_END ) 
+			{
+				log(info, "Controller", "Bulk Sync End", parg1, "Bus: 0x%x, Address: %d, Endpoint: %d, (%s)  commandWake: 0x%x, status: 0x%x", 
+					((arg2 >> 16) & 0xFF), ((arg2 >> 8) & 0xFF), ((arg2 >> 0) & 0xFF), ((arg2 >> 24) & 0xFF) == kUSBIn ? "in" : "out", arg3, arg4
+					);
+			} 
+			break;
+		case USB_CONTROLLER_TRACE( kTPDoIOTransferIntrSync ):
+			if ( qualifier == DBG_FUNC_START ) 
+			{
+				log(info, "Controller", "Intr Sync Start", parg1, "Bus: 0x%x, Address: %d, Endpoint: %d, (%s) comp timeout: %d, noData timeout: %d  about to commandSleep()", 
+					((arg2 >> 16) & 0xFF), ((arg2 >> 8) & 0xFF), ((arg2 >> 0) & 0xFF), ((arg2 >> 24) & 0xFF) == kUSBIn ? "in" : "out", arg3, arg4
+					);
+			}
+			else if ( qualifier == DBG_FUNC_END ) 
+			{
+				log(info, "Controller", "Intr Sync End", parg1, "Bus: 0x%x, Address: %d, Endpoint: %d, (%s)  commandWake: 0x%x, status: 0x%x", 
+					((arg2 >> 16) & 0xFF), ((arg2 >> 8) & 0xFF), ((arg2 >> 0) & 0xFF), ((arg2 >> 24) & 0xFF) == kUSBIn ? "in" : "out", arg3, arg4
+					);
+			}
+
+		case USB_CONTROLLER_TRACE( kTPBulkPacketHandler ):
+			log(info, "Controller", "Bulk Complete", parg1, "Bus: 0x%x, Address: %d, Endpoint: %d, (%s)  actual: %d, status: 0x%x", 
+				((arg2 >> 16) & 0xFF), ((arg2 >> 8) & 0xFF), ((arg2 >> 0) & 0xFF), ((arg2 >> 24) & 0xFF) == kUSBIn ? "in" : "out", 
+				arg3, arg4
+				);
+			break;
+			
+		case USB_CONTROLLER_TRACE( kTPInterruptPacketHandler ):
+			log(info, "Controller", "Interrupt Complete", parg1, "Bus: 0x%x, Address: %d, Endpoint: %d, (%s)  actual: %d, status: 0x%x", 
+				((arg2 >> 16) & 0xFF), ((arg2 >> 8) & 0xFF), ((arg2 >> 0) & 0xFF), ((arg2 >> 24) & 0xFF) == kUSBIn ? "in" : "out", 
+				arg3, arg4
+				);
 			break;
 			
 		default:
@@ -1872,35 +1996,35 @@ CollectTraceDevice ( kd_buf tracepoint )
 			break;
 		
 		case USB_DEVICE_TRACE( kTPDeviceGetFullConfigurationDescriptor ):
-			if( arg4 == 1 )
+			if ( arg4 == 1 )
 			{
 				log(info, "Device", "GetFullConfig Desc", parg1, "VID 0x%x PID 0x%x", arg2, arg3 );
 			}
-			else if( arg4 == 2 )
+			else if ( arg4 == 2 )
 			{
 				log(info, "Device", "GetFullConfig Desc", parg1, "error 0x%x getting first %d bytes of config descriptor", arg2, arg3 );
 			}
-			else if( arg4 == 3 )
+			else if ( arg4 == 3 )
 			{
 				log(info, "Device", "GetFullConfig Desc", parg1, "unable to get memory buffer (capacity requested: %d)", arg2 );
 			}
-			else if( arg4 == 4 )
+			else if ( arg4 == 4 )
 			{
 				log(info, "Device", "GetFullConfig Desc", parg1, "error 0x%x getting full %d bytes of config descriptor", arg2, arg3 );
 			}
-			else if( arg4 == 5 )
+			else if ( arg4 == 5 )
 			{
 				log(info, "Device", "GetFullConfig Desc", parg1, "(index %d) - called on workloop thread, returning NULL", arg2 );
 			}
-			else if( arg4 == 6 )
+			else if ( arg4 == 6 )
 			{
 				log(info, "Device", "GetFullConfig Desc", parg1, "(index %d) - found cached configDescriptor %p", arg2, (void *)parg3 );
 			}
-			else if( arg4 == 7 )
+			else if ( arg4 == 7 )
 			{
 				log(info, "Device", "GetFullConfig Desc", parg1, "(index %d) - TakeGetConfigLock returned error 0x%x", arg2, arg3 );
 			}
-			else if( arg4 == 8 )
+			else if ( arg4 == 8 )
 			{
 				log(info, "Device", "GetFullConfig Desc", parg1, "(index %d) - returning configDescriptor %p", arg2, (void*)parg3 );
 			}
@@ -2121,7 +2245,7 @@ CollectTraceDeviceUserClient ( kd_buf tracepoint )
 	switch ( type )
 	{
 		case USB_DEVICE_UC_TRACE( kTPDeviceUCChangeOutstandingIO ):
-			if( arg4 == 1 )
+			if ( arg4 == 1 )
 			{
 				log(info, "DeviceUserClient", "ChangeOutstandingIO", parg1, "invalid target direction %d status 0x%x", arg2, arg3 );
 			}
@@ -2136,11 +2260,11 @@ CollectTraceDeviceUserClient ( kd_buf tracepoint )
 			break;
 		
 		case USB_DEVICE_UC_TRACE( kTPDeviceUCDeviceRequestIn ):
-			if( arg4 == kIOReturnBadArgument )
+			if ( arg4 == kIOReturnBadArgument )
 			{
 				log(info, "DeviceUserClient", "RequestIn", arg4, "had a NULL completion bmRequestType 0x%x bRequest 0x%x wValue 0x%x ", arg1, arg2, arg3 );
 			}
-			else if( arg4 == kIOReturnNoMemory )
+			else if ( arg4 == kIOReturnNoMemory )
 			{
 				log(info, "DeviceUserClient", "RequestIn", parg1, "IOMemoryDescriptor::withAddressRange returned NULL invalid target buffer 0x%x size %d", arg2, arg3 );
 			}
@@ -2148,11 +2272,11 @@ CollectTraceDeviceUserClient ( kd_buf tracepoint )
 		
 
 		case USB_DEVICE_UC_TRACE( kTPDeviceUCDeviceRequestOut ):
-			if( arg4 == kIOReturnBadArgument )
+			if ( arg4 == kIOReturnBadArgument )
 			{
 				log(info, "DeviceUserClient", "RequestOut", arg4, "had a NULL completion bmRequestType 0x%x bRequest 0x%x wValue 0x%x ", arg1, arg2, arg3 );
 			}
-			else if( arg4 == kIOReturnNoMemory )
+			else if ( arg4 == kIOReturnNoMemory )
 			{
 				log(info, "DeviceUserClient", "RequestOut", arg4, "0x%x IOMemoryDescriptor::withAddressRange returned NULL invalid target buffer 0x%x size %d", arg1, arg2, arg3 );
 			}
@@ -2566,6 +2690,63 @@ CollectTraceHub ( kd_buf tracepoint )
 			}
 			break;
 			
+		case USB_HUB_TRACE( kTPHubCheckForDeadDevice ):
+			if ( arg4 == 0 )
+			{
+				log(info, "Hub", "CheckForDeadHub", parg1, "we are inActive(), so ignoring");
+			}
+			else if ( arg4 == 1)
+			{			   
+				log(info, "Hub", "CheckForDeadHub", parg1, "hubIsDead is true, returning");
+			}
+			else if ( arg4 == 2)
+			{			   
+				log(info, "Hub", "CheckForDeadHub", parg1, "_retryCount: %d, _deviceHasBeenDisconnected = %d", arg2, arg3);
+			}
+			else if ( arg4 == 3)
+			{			   
+				log(info, "Hub", "CheckForDeadHub", parg1, "GetDeviceInformation returned error 0x%x, _retryCount: %d", arg2, arg3);
+			}
+			else if ( arg4 == 4)
+			{			   
+				log(info, "Hub", "CheckForDeadHub", parg1, "GetDeviceInformation returned error and our retryCount is 0, so assume device has been unplugged");
+			}
+			else if ( arg4 == 5)
+			{			   
+				log(info, "Hub", "CheckForDeadHub", parg1, "GetDeviceInformation returned error and our retryCount is not 0");
+			}
+			else if ( arg4 == 6)
+			{			   
+				log(info, "Hub", "CheckForDeadHub", parg1, "GetDeviceInformation returned info: 0x%x, retryCount: %d", arg2, arg3);
+			}
+			else if ( arg4 == 7)
+			{			   
+				log(info, "Hub", "CheckForDeadHub", parg1, "Still connected but retry count (%d) not reached, clearing stall and retrying", arg2);
+			}
+			else if ( arg4 == 8)
+			{			   
+				log(info, "Hub", "CheckForDeadHub", parg1, "device(%p) has been unplugged", (void *) arg2);
+			}
+			else if ( arg4 == 9)
+			{			   
+				log(info, "Hub", "CheckForDeadHub", parg1, "no hubInterface (%p), device(%p), or pipe", (void*)arg2, (void*)arg3);
+			}
+			else if ( arg4 == 10)
+			{			   
+				log(info, "Hub", "CheckForDeadHub", parg1, "already active, returning");
+			}
+			else if ( arg4 == 11)
+			{			   
+				log(info, "Hub", "CheckForDeadHub", parg1, "_hubDeadCheckLock was not set.  Unexpected");
+			}
+			else if ( arg4 == 12)
+			{			   
+				log(info, "Hub", "CheckForDeadHub", parg1, "Still connected and retry count reached, calling ResetMyPort()");
+			}
+			else if ( arg4 == 13)
+			{			   
+				log(info, "Hub", "CheckForDeadHub", parg1, "device is still connected (and enabled) _retryCount: %d", arg2);
+			}
 		default:
 			CollectTraceUnknown( tracepoint );
 			break;	
@@ -2608,7 +2789,62 @@ CollectTraceHubPort ( kd_buf tracepoint )
 	switch ( type )
 	{
 		case USB_HUB_PORT_TRACE( kTPHubPortStop ):
-			log(info, "HubPort", "Stop", parg1, "Error 0x%x from ClearPortFeature", arg2 );
+			if ( arg4 == 0 )
+			{
+				log(info, "HubPort", "Stop", parg1, "Error 0x%x from ClearPortFeature(0x%x)", arg2, arg3 );
+			}
+			else if ( arg4 == 1 )
+			{
+				log(info, "HubPort", "Stop", parg1, "Port %d of Hub at 0x%x ", arg2, arg3 );
+			}
+			else if ( arg4 == 2 )
+			{
+				log(info, "HubPort", "Stop", parg1, "Port %d of Hub at 0x%x  no workloop", arg2, arg3 );
+			}
+			else if ( arg4 == 3 )
+			{
+				log(info, "HubPort", "Stop", parg1, "Port %d of Hub at 0x%x  got the WL but there is no gate", arg2, arg3 );
+			}
+			else if ( arg4 == 4 )
+			{
+				log(info, "HubPort", "Stop", parg1, "Port %d of Hub at 0x%x  on the main thread. DANGER AHEAD", arg2, arg3 );
+			}
+			else if ( arg4 == 5 )
+			{
+				log(info, "HubPort", "Stop", 0, "Port %d of Hub at 0x%x  sleeping for 100ms while retries (%d)", arg1, arg2, arg3 );
+			}
+			else if ( arg4 == 6 )
+			{
+				log(info, "HubPort", "Stop", 0, "Port %d of Hub at 0x%x  commandSleep(&_statusChangedThreadActive) returned 0x%x", arg2, arg3, arg1 );
+			}
+			else if ( arg4 == 7 )
+			{
+				log(info, "HubPort", "Stop", 0, "Port %d of Hub at 0x%x  commandSleep(&_initThreadActive) returned 0x%x", arg2, arg3, arg1 );
+			}
+			else if ( arg4 == 8 )
+			{
+				log(info, "HubPort", "Stop", 0, "Port %d of Hub at 0x%x  commandSleep(&_addDeviceThreadActive) returned 0x%x", arg2, arg3, arg1 );
+			}
+			else if ( arg4 == 9 )
+			{
+				log(info, "HubPort", "Stop", 0, "Port %d of Hub at 0x%x  commandSleep(&_enablePowerAfterOvercurrentThreadActive) returned 0x%x", arg2, arg3, arg1 );
+			}
+			else if ( arg4 == 10 )
+			{
+				log(info, "HubPort", "Stop", 0, "Port %d of Hub at 0x%x  woke up from commandSleep (%d/%d/%d/%d)", arg1, arg2, arg3>>3, arg3>>2, arg3>>1, arg3&1 );
+			}
+			else if ( arg4 == 11 )
+			{
+				log(info, "HubPort", "Stop", parg1, "Port %d of Hub at 0x%x  not quiesced.  Just returning!", arg2, arg3 );
+			}
+			else if ( arg4 == 12 )
+			{
+				log(info, "HubPort", "Stop", parg1, "Port %d of Hub at 0x%x  had devZero, releasing", arg2, arg3 );
+			}
+			else if ( arg4 == 13 )
+			{
+				log(info, "HubPort", "Stop", 0, "Port %d of Hub at 0x%x  trying comandSleep (%d/%d/%d/%d)", arg1, arg2, arg3>>3, arg3>>2, arg3>>1, arg3&1 );
+			}
 			break;
 		
 		case USB_HUB_PORT_TRACE( kTPHubPortAddDevice ):
@@ -2618,7 +2854,7 @@ CollectTraceHubPort ( kd_buf tracepoint )
 			}
 			else if ( arg4 == 2 )
 			{
-				log(info, "HubPort", "AddDevice", 0, "port %d of Hub at 0x%x locationID 0x%x ", arg1, arg2, arg3 );
+				log(info, "HubPort", "AddDevice", 0, "Port %d of Hub at 0x%x locationID 0x%x ", arg1, arg2, arg3 );
 			}
 			else if ( arg4 == 3 )
 			{
@@ -2645,14 +2881,14 @@ CollectTraceHubPort ( kd_buf tracepoint )
 		case USB_HUB_PORT_TRACE( kTPHubPortAddDeviceResetChangeHandler ):
 			if ( arg4 == 1 )
 			{
-				log(info, "HubPort", "Dev Reset ChangeHlr", parg1, "port %d of hub @ 0x%x,  we have a hub, but this would be the 6th hub in the bus, which is illegal.  Erroring out", arg2, arg3 );
+				log(info, "HubPort", "Dev Reset ChangeHlr", parg1, "Port %d of Hub at 0x%x,  we have a hub, but this would be the 6th hub in the bus, which is illegal.  Erroring out", arg2, arg3 );
 			}
 			else if ( arg4 == 2 )
 			{
 				log(info, "HubPort", "Dev Reset ChangeHlr", parg1, "we could not get the kIOUSBPlane 0x%x !!  Problems ahead", arg2 );
 			}
 			else
-				log(info, "HubPort", "Dev Reset ChangeHlr", 0, "port %d of hub @ 0x%x, unable to set device 0x%x to address %d - disabling port", arg1, arg2, arg3, arg4 );
+				log(info, "HubPort", "Dev Reset ChangeHlr", 0, "Port %d of Hub at 0x%x, unable to set device 0x%x to address %d - disabling port", arg1, arg2, arg3, arg4 );
 			break;
 
 		case USB_HUB_PORT_TRACE( kTPHubPortHandleResetPortHandler ):
@@ -2661,16 +2897,22 @@ CollectTraceHubPort ( kd_buf tracepoint )
 				log(info, "HubPort", "HandleResetPortHandler", parg1, "port %d, unable (error = 0x%x) to disable port", arg2 , arg3);
 			}
 			else
-				log(info, "HubPort", "HandleResetPortHandler", parg1, "port %d of hub @ 0x%x, unable to set address %d - disabling port", arg2, arg3, arg4 );
+				log(info, "HubPort", "HandleResetPortHandler", parg1, "Port %d of Hub at 0x%x, unable to set address %d - disabling port", arg2, arg3, arg4 );
 			break;
 			
 		case USB_HUB_PORT_TRACE( kTPHubPortDefaultOverCrntChangeHandler ):
 			if ( arg4 == 1 )
 			{
-				log(info, "HubPort", "DefaultOverCrntChangeHandler", parg1, "OverCurrent condition in Port %d", arg2 );
+				log(info, "HubPort", "DefaultOverCrntChangeHandler", parg1, "OverCurrent condition in Port %d of hub @ 0x%x", arg2, arg3 );
 			}
-			else
-				log(info, "HubPort", "DefaultOverCrntChangeHandler", parg1, "No OverCurrent condition. Ignoring. Port %d", arg2 );
+			if ( arg4 == 2 )
+			{
+				log(info, "HubPort", "DefaultOverCrntChangeHandler", parg1, "No OverCurrent condition. Ignoring. Port %d of hub @ 0x%x", arg2, arg3 );
+			}
+			if ( arg4 == 3 )
+			{
+				log(info, "HubPort", "DefaultOverCrntChangeHandler", parg1, "cannot call out to EnablePowerAfterOvercurrentThread for Port %d of hub @ 0x%x", arg2, arg3 );
+			}
 			break;
 
 		case USB_HUB_PORT_TRACE( kTPHubPortDefaultConnectionChangeHandler ):
@@ -2684,14 +2926,14 @@ CollectTraceHubPort ( kd_buf tracepoint )
 		case USB_HUB_PORT_TRACE( kTPHubPortDetachDevice ):
 			if ( arg4 == 1 )
 			{
-				log(info, "HubPort", "DetachDevice", parg1, "port %d of hub @ 0x%x being detached", arg2, arg3 );
+				log(info, "HubPort", "DetachDevice", parg1, "Port %d of Hub at 0x%x being detached", arg2, arg3 );
 			}
 			else if ( arg4 == kIOReturnNoDevice )
 			{
-				log(info, "HubPort", "DetachDevice", parg1, "port %d of hub @ 0x%x - device has gone away status 0x%x", arg2, arg3, arg4 );
+				log(info, "HubPort", "DetachDevice", parg1, "Port %d of Hub at 0x%x - device has gone away status 0x%x", arg2, arg3, arg4 );
 			}
 			else
-				log(info, "HubPort", "DetachDevice", parg1, "port %d of hub @ 0x%x), attachRetry limit reached. delaying for %d milliseconds", arg2, arg3, arg4 );
+				log(info, "HubPort", "DetachDevice", parg1, "Port %d of Hub at 0x%x), attachRetry limit reached. delaying for %d milliseconds", arg2, arg3, arg4 );
 			break;
 
 		case USB_HUB_PORT_TRACE( kTPHubPortGetDevZeroDescriptorWithRetries ):
@@ -2777,6 +3019,29 @@ CollectTraceHubPort ( kd_buf tracepoint )
 				log(info, "HubPort", "WakeSuspendCommand", parg1, "cannot call commandGate->wakeup because there is no gate");
 			break;
 			
+		case USB_HUB_PORT_TRACE( kTPHubPortEnablePowerAfterOvercurrent ):
+			if (arg4 == 0)
+			{
+				log(info, "HubPort", "EnablePowerAfterOvercurrent", 0, "Port %d of Hub @ 0x%x, status: 0x%x, change: 0x%x", arg1, arg2, arg3>>16, arg3 & 0xFFFF);
+			}
+			else if (arg4 == 1)
+			{
+				log(info, "HubPort", "EnablePowerAfterOvercurrent", 0, "Enabling Power for Port %d of Hub @ 0x%x, _portPMState = %d", arg2, arg1, arg3);
+			}
+			else if (arg4 == 2)
+			{
+				log(info, "HubPort", "EnablePowerAfterOvercurrent", 0, "Error: 0x%x Port %d of Hub @ 0x%x", arg3, arg2, arg1);
+			}
+			else if (arg4 == 3)
+			{
+				log(info, "HubPort", "EnablePowerAfterOvercurrent", arg1, "Port %d of Hub @ 0x%x", arg2, arg3);
+			}
+			else if (arg4 == 4)
+			{
+				log(info, "HubPort", "EnablePowerAfterOvercurrent", arg1, "Port %d of Hub @ 0x%x, calling commandWake()", arg2, arg3);
+			}
+			break;
+			
 		default:
 			CollectTraceUnknown( tracepoint );
 			break;	
@@ -2852,7 +3117,7 @@ CollectTraceHSHubUserClient ( kd_buf tracepoint )
 			break;
 
 		case USB_HUB_UC_TRACE( kTPHSHubUCSetIndicatorForPort ):
-			if( arg3 == kIOReturnBadArgument )
+			if ( arg3 == kIOReturnBadArgument )
 			{
 				log(info, "HSHubUC", "SetIndicatorForPort", parg1, "fOwner 0x%x is not open returning status 0x%x ", arg2, arg3 );
 			}
@@ -2861,7 +3126,7 @@ CollectTraceHSHubUserClient ( kd_buf tracepoint )
 			break;
 
 		case USB_HUB_UC_TRACE( kTPHSHubUCGetPortIndicatorControl ):
-			if( arg3 == kIOReturnBadArgument )
+			if ( arg3 == kIOReturnBadArgument )
 			{
 				log(info, "HSHubUC", "SetIndicatorForPort", parg1, "fOwner 0x%x is not open returning status 0x%x", arg2, arg3 );
 			}
@@ -2870,7 +3135,7 @@ CollectTraceHSHubUserClient ( kd_buf tracepoint )
 			break;
 
 		case USB_HUB_UC_TRACE( kTPHSHubUCSetIndicatorsToAutomatic ):
-			if( arg3 == kIOReturnBadArgument )
+			if ( arg3 == kIOReturnBadArgument )
 			{
 				log(info, "HSHubUC", "SetIndicators Auto", parg1, "fOwner 0x%x is not open returning status 0x%x", arg2, arg3 );
 			}else
@@ -2882,7 +3147,7 @@ CollectTraceHSHubUserClient ( kd_buf tracepoint )
 			break;
 
 		case USB_HUB_UC_TRACE( kTPHSHubUCGetPortPower ):
-			if( arg3 == kIOReturnBadArgument )
+			if ( arg3 == kIOReturnBadArgument )
 			{
 				log(info, "HSHubUC", "Get Port Power", parg1, "fOwner 0x%x is not open returning status 0x%x", arg2, arg3 );
 			}
@@ -2891,7 +3156,7 @@ CollectTraceHSHubUserClient ( kd_buf tracepoint )
 			break;
 
 		case USB_HUB_UC_TRACE( kTPHSHubUCSetPortPower ):
-			if( arg3 == kIOReturnBadArgument )
+			if ( arg3 == kIOReturnBadArgument )
 			{
 				log(info, "HSHubUC", "Set Port Power", parg1, "fOwner 0x%x is not open returning status 0x%x", arg2, arg3 );
 			}
@@ -2899,6 +3164,15 @@ CollectTraceHSHubUserClient ( kd_buf tracepoint )
 				log(info, "HSHubUC", "Set Port Power", 0, "fOwner 0x%x port %d on %d ", arg1, arg2, arg3 );
 			break;
 		
+		case USB_HUB_UC_TRACE( kTPHSHubUCDisablePwrMgmt ):
+			if ( arg2 == kIOReturnBadArgument )
+			{
+				log(info, "HSHubUC", "DisablePowerMgmt", parg1, "fOwner 0x%x is not open returning status 0x%x", arg2, arg3 );
+			}
+			else
+				log(info, "HSHubUC", "DisablePowerMgmt", 0, "fOwner 0x%x disable %d ", arg1, arg2 );
+			break;
+			
 		default:
 			CollectTraceUnknown( tracepoint );
 			break;	
@@ -2951,43 +3225,43 @@ CollectTraceHID	( kd_buf tracepoint )
 			}
 			else
 			{
-				if( arg4 == 1 )
+				if ( arg4 == 1 )
 				{
 					log(info, "HID", "Start", parg1, "super::start returned false!");
 				}
-				else if( arg4 == 2 )
+				else if ( arg4 == 2 )
 				{					
 					log(info, "HID", "Start", parg1, "could not get a command gate");
 				}
-				else if( arg4 == 3 )
+				else if ( arg4 == 3 )
 				{					
 					log(info, "HID", "Start", parg1, "unable to find my workloop");
 				}
-				else if( arg4 == 4 )
+				else if ( arg4 == 4 )
 				{					
 					log(info, "HID", "Start", parg1, "unable to add gate to work loop");
 				}
-				else if( arg4 == 5 )
+				else if ( arg4 == 5 )
 				{					
 					log(info, "HID", "Start", parg1, "unable to get interrupt pipe");
 				}
-				else if( arg4 == 6 )
+				else if ( arg4 == 6 )
 				{					
 					log(info, "HID", "Start", parg1, "unable to get create buffer");
 				}
-				else if( arg4 == 7 )
+				else if ( arg4 == 7 )
 				{					
 					log(info, "HID", "Start", parg1, "could not allocate all thread functions");
 				}
-				else if( arg4 == 8 )
+				else if ( arg4 == 8 )
 				{					
 					log(info, "HID", "Start", parg1, "error in StartFinalProcessing");
 				}
-				else if( arg4 == 9 )
+				else if ( arg4 == 9 )
 				{					
 					log(info, "HID", "Start", parg1, "location @ 0x%x aborting startup", arg2 );
 				}
-				else if( arg4 == 10 )
+				else if ( arg4 == 10 )
 				{					
 					log(info, "HID", "Start", parg1, "error 0x%x from InitializeUSBHIDPowerManagement", arg2 );
 				}
@@ -3022,15 +3296,15 @@ CollectTraceHID	( kd_buf tracepoint )
 			}
 			else
 			{
-				if( arg4 == 1 )
+				if ( arg4 == 1 )
 				{
 					log(info, "HID", "SetPower State", parg1, "whatDevice != this");
 				}
-				else if( arg4 == 2 )
+				else if ( arg4 == 2 )
 				{
 					log(info, "HID", "SetPower State", parg1, "bad ordinal %d ", arg2 );
 				}
-				else if( arg4 == 3 )
+				else if ( arg4 == 3 )
 				{					
 					log(info, "HID", "SetPower State", parg1, "unknown ordinal %d ", arg2 );
 				}
@@ -3080,15 +3354,15 @@ CollectTraceHID	( kd_buf tracepoint )
 			}
 			else
 			{
-				if( arg4 == 1 )
+				if ( arg4 == 1 )
 				{
 				   	log(info, "HID", "handlestart", parg1, "unable to open provider. returning false");
 				}
-				else if( arg4 == 2 )
+				else if ( arg4 == 2 )
 				{				   	
 					log(info, "HID", "handlestart", parg1, "Cannot get our provider's USB device.  This is bad");
 				}
-				else if( arg4 == 3 )
+				else if ( arg4 == 3 )
 				{
 				   	log(info, "HID", "handlestart", parg1, "Our provider is not an IOUSBInterface!!");
 				}
@@ -3104,26 +3378,26 @@ CollectTraceHID	( kd_buf tracepoint )
 			break;
 
 		case USB_HID_TRACE( kTPHIDSuspendPort ):
-			if( arg4 == 1 )
+			if ( arg4 == 1 )
 			{			   	
 				log(info, "HID", "SuspendPort", parg1, "could not create _SUSPENDPORT_TIMER error 0x%x", arg2 );
 			}
-			else if( arg4 == 2 )
+			else if ( arg4 == 2 )
 			{			   	
 				log(info, "HID", "SuspendPort", parg1, "addEventSource returned status 0x%x", arg2  );
 			}
-			else if( arg4 == 3 )
+			else if ( arg4 == 3 )
 			{			   	
 				log(info, "HID", "SuspendPort", parg1, "Our provider is not an IOUSBInterface!! error 0x%x", arg2 );
 			}
 			break;
 
 		case USB_HID_TRACE( kTPHIDClaimPendingRead ):
-			if( arg4 == 1 )
+			if ( arg4 == 1 )
 			{			   
 				log(info, "HID", "SuspendPort", parg1, "me -> NULL invalid target", arg2, arg3 );
 			}
-			else if( arg4 == 2 )
+			else if ( arg4 == 2 )
 			{			   	
 				log(info, "HID", "SuspendPort", parg1, "NULL retVal!!", arg2, arg3  );
 			}
@@ -3131,7 +3405,7 @@ CollectTraceHID	( kd_buf tracepoint )
 			
 
 		case USB_HID_TRACE( kTPHIDChangeOutstandingIO ):
-			if( arg4 == 1 )
+			if ( arg4 == 1 )
 			{
 				log(info, "HID", "ChangeOutstandingIO", parg1, "invalid target status 0x%x direction %d", arg2, arg3 );
 			}
@@ -3148,29 +3422,37 @@ CollectTraceHID	( kd_buf tracepoint )
 			{
 				log(info, "HID", "Interrupt Read", parg1, "error 0x%x, bufferSizeRemaining: %d", arg2, arg3);
 			}
-			if( arg4 == 1 )
+			if ( arg4 == 1 )
 			{			   	
 				log(info, "HID", "RearmInterruptRead", parg1, "no _buffer or _interruptPipe");
 			}
-			else if( arg4 == 2 )
+			else if ( arg4 == 2 )
 			{
 				log(info, "HID", "RearmInterruptRead", parg1, "no action method");
 			}
-			else if( arg4 == 3 )
+			else if ( arg4 == 3 )
 			{
 			   	log(info, "HID", "RearmInterruptRead", parg1, "unable to check for pending");
 			}
-			else if( arg4 == 4 )
+			else if ( arg4 == 4 )
 			{			   	
 				log(info, "HID", "RearmInterruptRead", parg1, "immediate error 0x%x queueing read, clearing stall and trying again(%d)", arg2, arg3 );
 			}
-			else if( arg4 == 5 )
+			else if ( arg4 == 5 )
 			{			   	
 				log(info, "HID", "RearmInterruptRead", parg1, "returning error 0x%x", arg2 );
 			}
-			else if( arg4 == 6 )
+			else if ( arg4 == 6 )
 			{			   
-				log(info, "HID", "RearmInterruptRead", parg1, "error 0x%x from registerPowerDriver", arg2 );
+				log(info, "HID", "RearmInterruptRead", parg1, "isInactive" );
+			}
+			else if ( arg4 == 7 )
+			{			   
+				log(info, "HID", "RearmInterruptRead", parg1, "error (kIOReturnNotResponding) while _POWERSTATECHANGING(%s) or (_MYPOWERSTATE < kUSBHIDPowerStateOn)(%d) - no posting read", arg2 ? "true" : "false", arg3 );
+			}
+			else if ( arg4 == 8 )
+			{			   
+				log(info, "HID", "RearmInterruptRead", parg1, "error (kIOReturnNotResponding) while _POWERSTATECHANGING(%s) or (_MYPOWERSTATE < kUSBHIDPowerStateOn)(%d) - no posting read", arg2 ? "true" : "false", arg3 );
 			}
 			break;
 
@@ -3182,9 +3464,114 @@ CollectTraceHID	( kd_buf tracepoint )
 			break;
 			
 		case USB_HID_TRACE( kTPHIDInterruptRead ):
-			log(info, "HID", "InterruptRead", parg1, "error: 0x%x, bytes read: %d (of %d)", arg2, arg3, arg4 );
+			if ( arg4 == 0 )
+			{
+				log(info, "HID", "InterruptRead", parg1, "bytes read: %d (of %d)", arg2, arg3);
+			}
+			else if ( arg4 == 1)
+			{			   
+				log(info, "HID", "InterruptRead", parg1, "error: 0x%x, _deviceHasBeenDisconnected = %d", arg2, arg3);
+			}
+			else if ( arg4 == 3)
+			{			   
+				log(info, "HID", "InterruptRead", parg1, "_HANDLE_REPORT_THREAD was already queued");
+			}
+			else if ( arg4 == 4)
+			{			   
+				log(info, "HID", "InterruptRead", parg1, "no data in buffer, just re-queueing");
+			}
+			else if ( arg4 == 5)
+			{			   
+				log(info, "HID", "InterruptRead", parg1, "Not calling handleReport thread because we already have a report queued");
+			}
+			else if ( arg4 == 6)
+			{			   
+				log(info, "HID", "InterruptRead", parg1, "kIOReturnNotResponding or kIOUSBHighSpeedSplitError error but port is suspended");
+			}
+			else if ( arg4 == 7)
+			{			   
+				log(info, "HID", "InterruptRead", parg1, "Checking to see if HID device is still connected");
+			}
+			else if ( arg4 == 8)
+			{			   
+				log(info, "HID", "InterruptRead", parg1, "_deviceDeadCheckThread was already queued");
+			}
+			else if ( arg4 == 9)
+			{			   
+				log(info, "HID", "InterruptRead", parg1, "error kIOReturnAborted. Try again");
+			}
+			else if ( arg4 == 10)
+			{			   
+				log(info, "HID", "InterruptRead", parg1, "error kIOReturnAborted. Expected.  Not rearming interrupt");
+			}
+			else if ( arg4 == 11)
+			{			   
+				log(info, "HID", "InterruptRead", parg1, "other error, clearing up stalls and retrying");
+			}
+			else if ( arg4 == 12)
+			{			   
+				log(info, "HID", "InterruptRead", parg1, "Unknown error (0x%x) reading interrupt pipe", arg2);
+			}
 			break;
 			
+		case USB_HID_TRACE( kTPHIDInitializeUSBHIDPowerManagement ):
+			log(info, "HID", "InitializeUSBHIDPowerManagement", parg1, "error 0x%x from registerPowerDriver", arg2 );
+			break;
+			
+		case USB_HID_TRACE( kTPHIDCheckForDeadDevice ):
+			if ( arg4 == 1 )
+			{
+				log(info, "HID", "CheckForDeadDevice", parg1, "_retryCount: %d, _deviceHasBeenDisconnected = %d, already active, returning", arg2, arg3);
+			}
+			else if ( arg4 == 2)
+			{			   
+				log(info, "HID", "CheckForDeadDevice", parg1, "_retryCount: %d, _deviceHasBeenDisconnected = %d", arg2, arg3);
+			}
+			else if ( arg4 == 3)
+			{			   
+				log(info, "HID", "CheckForDeadDevice", parg1, "GetDeviceInformation returned error 0x%x, _retryCount: %d", arg2, arg3);
+			}
+			else if ( arg4 == 4)
+			{			   
+				log(info, "HID", "CheckForDeadDevice", parg1, "GetDeviceInformation returned error and our retryCount is 0, so assume device has been unplugged");
+			}
+			else if ( arg4 == 5)
+			{			   
+				log(info, "HID", "CheckForDeadDevice", parg1, "GetDeviceInformation returned info: 0x%x, retryCount: %d", arg2, arg3);
+			}
+			else if ( arg4 == 6)
+			{			   
+				log(info, "HID", "CheckForDeadDevice", parg1, "device is still connected (and enabled) _retryCount: %d", arg2);
+			}
+			else if ( arg4 == 7)
+			{			   
+				log(info, "HID", "CheckForDeadDevice", parg1, "about to call ResetDevice()");
+			}
+			else if ( arg4 == 8)
+			{			   
+				log(info, "HID", "CheckForDeadDevice", parg1, "device %p has been unplugged", (void *)parg2);
+			}
+			else if ( arg4 == 9)
+			{			   
+				log(info, "HID", "CheckForDeadDevice", parg1, "_device or _interface were NULL");
+			}
+			else if ( arg4 == 10)
+			{			   
+				log(info, "HID", "CheckForDeadDevice", parg1, "our _DEAD_DEVICE_CHECK_LOCK was not set.  Unexpected");
+			}
+			else if ( arg4 == 11)
+			{			   
+				log(info, "HID", "CheckForDeadDevice", parg1, "Still connected but retry count (%d) not reached", arg2);
+			}
+			else if ( arg4 == 12)
+			{			   
+				log(info, "HID", "CheckForDeadDevice", parg1, "we are inActive(), so ignoring");
+			}
+			else if ( arg4 == 13)
+			{			   
+				log(info, "HID", "CheckForDeadDevice", parg1, "GetDeviceInformation returned an error, but our retryCount is not 0 (%d)", arg2);
+			}
+			break;
 		default:
 			CollectTraceUnknown( tracepoint );
 			break;	
@@ -3282,11 +3669,11 @@ CollectTracePipe ( kd_buf tracepoint )
 			}
 			else
 			{
-				if( arg4 == 1 )
+				if ( arg4 == 1 )
 				{		        	
 					log(info, "Pipe", "Control Req MemDesc", parg1, "completion has NULL action - returning 0x%x ", arg2 );
 				}
-				else if( arg4 == 2 )
+				else if ( arg4 == 2 )
 				{		        	
 					log(info, "Pipe", "Control Req MemDesc", parg1, "completion has NULL action - returning 0x%x ", arg2 );
 				}
@@ -3600,23 +3987,23 @@ CollectTraceEnumeration	( kd_buf tracepoint )
 			break;
 			
 		case USB_ENUMERATION_TRACE( kTPEnumerationCallAddDevice ):
-			log(info, "Enumeration", "DefaultConnectionChangeHandler", parg1, "Port %d of hub at 0x%8.08x", arg2, arg3 );
+			log(info, "Enumeration", "DefaultConnectionChangeHandler", parg1, "Port %d of Hub at 0x%8.08x", arg2, arg3 );
 			break;
 			
 		case USB_ENUMERATION_TRACE( kTPEnumerationAddDevice ):
-			log(info, "Enumeration", "AddDevice", parg1, "Port %d of hub at 0x%8.08x", arg2, arg3 );
+			log(info, "Enumeration", "AddDevice", parg1, "Port %d of Hub at 0x%8.08x", arg2, arg3 );
 			break;
 			
 		case USB_ENUMERATION_TRACE( kTPEnumerationResetPort ):
-			log(info, "Enumeration", "AddDevice", parg1, "resetting port %d of hub at 0x%8.08x", arg2, arg3 );
+			log(info, "Enumeration", "AddDevice", parg1, "resetting Port %d of Hub at 0x%8.08x", arg2, arg3 );
 			break;
 			
 		case USB_ENUMERATION_TRACE( kTPEnumerationAddDeviceResetChangeHandler ):
-			log(info, "Enumeration", "AddDeviceResetChangeHandler", parg1, "Port %d of hub at 0x%8.08x with error 0x%x", arg2, arg3, arg4 );
+			log(info, "Enumeration", "AddDeviceResetChangeHandler", parg1, "Port %d of Hub at 0x%8.08x with error 0x%x", arg2, arg3, arg4 );
 			break;
 			
 		case USB_ENUMERATION_TRACE( kTPEnumerationRegisterService ):
-			log(info, "Enumeration", "AddDeviceResetChangeHandler", parg1, "Calling registerService for port %d of hub at 0x%8.08x", arg2, arg3 );
+			log(info, "Enumeration", "AddDeviceResetChangeHandler", parg1, "Calling registerService for Port %d of Hub at 0x%8.08x", arg2, arg3 );
 			break;
 			
 		case USB_ENUMERATION_TRACE( kTPEnumerationLowSpeedDevice ):
@@ -4086,6 +4473,17 @@ CollectTraceUHCIInterrupts ( kd_buf tracepoint )
 			}
 			break;
 
+		case USB_UHCI_INTERRUPTS_TRACE( kTPUHCIUpdateFrameList ):
+#ifdef __LP64__
+			log(info, "UHCI", "UpdateFrameList", 0, "Address: %d, Endpoint: %d, (%s), frameListPtr: 0x%qx, frActCount: 0x%x, timeStamp: 0x%qx", 
+				((arg1 >> 8) & 0xFF), ((arg1 >> 0) & 0xFF), ((arg1 >> 24) & 0xFF) == kUSBIn ? "in" : "out",
+				(uint64_t)arg2, arg3, (uint64_t)arg4 );
+#else
+			log(info, "UHCI", "UpdateFrameList", 0, "Address: %d, Endpoint: %d, (%s), frameListPtr: 0x%x, timeStamp: 0x%x 0x%x", 
+				((arg1 >> 8) & 0xFF), ((arg1 >> 0) & 0xFF), ((arg1 >> 24) & 0xFF) == kUSBIn ? "in" : "out",
+				arg2, arg3, arg4 );
+#endif
+			break;
 		default:
 			CollectTraceUnknown( tracepoint );
 			break;	
@@ -4498,16 +4896,7 @@ CollectTraceEHCI ( kd_buf tracepoint )
 		case USB_EHCI_TRACE( kTPEHCICreateBulkTransfer ):
 			log(info, "EHCI", "UIMCreateBulkTransfer", parg1, "allocateTDs returned error", arg2 );
 			break;
-
-		case USB_EHCI_TRACE( kTPEHCIValidatePollingRate ):
-			if ( arg4 == 1 )
-			{
-				log(info, "EHCI", "validatePollingRate", parg1, "illegal HS polling rate (%d), cooking like F", arg3 );
-			}
-			else if (arg4 == 2)
-				log(info, "EHCI", "validatePollingRate", parg1, "(illegal)new cooked polling rate (%d)", arg3 );
-			break;
-
+			
 		case USB_EHCI_TRACE( kTPEHCICreateInterruptEndpoint ):
 			log(info, "EHCI", "UIMCreateInterruptEndpoint", parg1, "functionAddress %d endpointNumber %d  rawPollingRate (%d)", arg2, arg3, arg4 );
 			break;
@@ -4772,7 +5161,7 @@ CollectTraceEHCIHubInfo	( kd_buf tracepoint )
 			}
 			else
 			{
-				if( parg1 == kUSBIn && arg4 == kIOReturnNoBandwidth )
+				if ( parg1 == kUSBIn && arg4 == kIOReturnNoBandwidth )
 				{				
 					log(info, "EHCIHubInfo", "AllocateIsochBandwidth", parg1, "not enough bandwidth for IN transaction remainder %d, maxPacketSize %d ", arg2, arg3 );
 				}
@@ -4881,8 +5270,20 @@ CollectTraceEHCIInterrupts	( kd_buf tracepoint )
 			} 
 			else
 			{
-				log(info, "EHCI", "Primary Interrupt", parg1, "enabledInterrupts 0x%8.08x activeInterrupts 0x%8.08x", arg2, arg3 );
+				log(info, "EHCI", "Primary Interrupt", parg1, "enabledInterrupts 0x%8.08x activeInterrupts 0x%8.08x, Frame: %d, microframe: %d", arg2, arg3, (arg4 >> 3), (arg4 && 0x7) );
 			}
+			break;
+			
+		case USB_EHCI_INTERRUPTS_TRACE( kTPEHCIUpdateFrameList ):
+#ifdef __LP64__
+			log(info, "UHCI", "UpdateFrameList", 0, "Address: %d, Endpoint: %d, (%s), frameListPtr: 0x%qx, frActCount: 0x%x, timeStamp: 0x%qx", 
+				((arg1 >> 8) & 0xFF), ((arg1 >> 0) & 0xFF), ((arg1 >> 24) & 0xFF) == kUSBIn ? "in" : "out",
+				(uint64_t)arg2, arg3, (uint64_t)arg4 );
+#else
+			log(info, "EHCI", "UpdateFrameList", 0, "Address: %d, Endpoint: %d, (%s), frameListPtr: 0x%x, timeStamp: 0x%x 0x%x ( %qd )", 
+				((arg1 >> 8) & 0xFF), ((arg1 >> 0) & 0xFF), ((arg1 >> 24) & 0xFF) == kUSBIn ? "in" : "out",
+				arg2, arg3, arg4, (uint64_t) arg4 );
+#endif
 			break;
 			
 		default:
@@ -5065,6 +5466,79 @@ CollectTraceOutstandingIO ( kd_buf tracepoint )
 }
 	
 
+#pragma mark Other Driver Tracepoints
+static void 
+CollectTraceAudioDriver ( kd_buf tracepoint ) 
+{
+	uint32_t 			debugID;
+	uint32_t 			type;
+	int					qualifier;
+	uintptr_t			parg1, parg2, parg3, parg4;
+	uint32_t			arg1, arg2, arg3, arg4;
+	time_t 				currentTime;
+	
+	debugID = tracepoint.debugid;
+	type = debugID & ~(DBG_FUNC_START | DBG_FUNC_END);
+	qualifier = debugID & 0x3;
+	
+	parg1 = tracepoint.arg1;
+	parg2 = tracepoint.arg2;
+	parg3 = tracepoint.arg3;
+	parg4 = tracepoint.arg4;
+	
+	arg1 = (uint32_t)parg1;
+	arg2 = (uint32_t)parg2;
+	arg3 = (uint32_t)parg3;
+	arg4 = (uint32_t)parg4;
+	
+	trace_info info;
+	info.timestamp = kdbg_get_timestamp(&tracepoint);
+	info.thread = tracepoint.arg5;
+	info.debugid = tracepoint.debugid;
+	info.cpuid = kdbg_get_cpu(&tracepoint);
+	
+	currentTime = time ( NULL );
+	
+	switch ( type )
+	{
+		case USB_AUDIO_DRIVER_TRACE( kTPAudioDriverRead ):
+			log( info, "AUAudio", "PrepareFrameList", parg1, "frameListPtr: 0x%x, frame start: %d, first frame: %d", arg2, arg3, arg4);
+			break;
+		case USB_AUDIO_DRIVER_TRACE( kTPAudioDriverCoalesceInputSamples ):
+			log( info, "AUAudio", "CoalesceInputSamples", 0, "frameListPtr: 0x%x, numBytesToCoalesce: %d, mCurrentFrameList: 0x%x, pFrames[0].frStatus: 0x%x", arg1, arg2, arg3, arg4);
+			break;
+		case USB_AUDIO_DRIVER_TRACE( kTPAudioDriverCoalesceError ):
+			log( info, "AUAudio", "CoalesceInputSamples", parg1, "Error:  frameListPtr: 0x%x, frActCount: %d, frStatus:0x%x", arg2, arg3, arg4);
+			break;
+			
+		case USB_AUDIO_DRIVER_TRACE( kTPAudioDriverCoalesce ):
+			static	uint32_t auaTime = 0;
+#ifdef __LP64__
+			log( info, "AUAudio", "CoalesceInputSamples", 0, "Read:  frameListPtr: 0x%x, frActCount: %d, frStatus:0x%x, frTimeStamp: 0x%qx", arg1, arg2, arg3, (uint64_t)arg4);
+#else
+			log( info, "AUAudio", "CoalesceInputSamples", 0, "Read:  frameListPtr: 0x%x, frActCount: %d, frStatus:0x%x, frTimeStamp.lo: 0x%x ( %qd ) delta: %d", arg1, arg2, arg3, arg4, (uint64_t)arg4, arg4-auaTime);
+#endif
+			auaTime = arg4;
+			
+			break;
+			
+		case USB_AUDIO_DRIVER_TRACE( kTPAudioDriverReadHandler ):
+			log( info, "AUAudio", "ReadHandler", 0, "frameListPtr: 0x%x, currentUSBFrame: %d, mCurrentFrameList: 0x%x, result: 0x%x", arg1, arg2, arg3, arg4);
+			break;
+			
+		case USB_AUDIO_DRIVER_TRACE( kTPAudioDriverCoalesceError2 ):
+			log( info, "AUAudio", "CoalesceInputSamples", parg1, "Error:  Requested %d, Remaining: %d on framelist 0x%x", arg2, arg3, arg4);
+			break;
+			
+		case USB_AUDIO_DRIVER_TRACE( kTPAudioDriverConvertInputSamples ):
+			log( info, "AUAudio", "convertInputSamples", parg1, "firstSampleFrame: %d, numSampleFrames: %d", arg2, arg3);
+			break;
+			
+		default:
+			CollectTraceUnknown( tracepoint );
+			break;	
+	} // End of switch
+}
 
 #pragma mark Raw File Support
 
@@ -5468,7 +5942,8 @@ ConvertTimestamp ( uint64_t timestamp, char * timestring )
 		secs = (milli / 1000);
 		mins = secs / 60;
 		
-		snprintf(timestring+index, 11, "%02llu:%03llu:%03llu", secs-(mins*60), milli-(secs*1000), micro-(milli*1000) );
+		//snprintf(timestring+index, 11, "%02llu:%03llu:%03llu", secs-(mins*60), milli-(secs*1000), micro-(milli*1000) );
+		snprintf(timestring+index, 11, "%02llu%03llu.%03llu", secs-(mins*60), milli-(secs*1000), micro-(milli*1000) );
 		index += 10;
 	}
 	

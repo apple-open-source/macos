@@ -44,6 +44,7 @@ extern Cache_t	fscache;
 #define DIRTYEXIT  3		/* Filesystem Dirty, no checks */
 #define FIXEDROOTEXIT  4	/* Writeable Root Filesystem was fixed */
 #define	EEXIT	8		/* Standard error exit. */
+#define	MAJOREXIT	47	/* We had major errors when doing a early-exit verify */
 
 
 char	       *blockcheck __P((char *name));

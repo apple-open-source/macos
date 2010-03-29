@@ -20,7 +20,7 @@
  * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
  * KIND, either express or implied.
  *
- * $Id: urldata.h,v 1.409 2009-03-02 23:05:31 bagder Exp $
+ * $Id: urldata.h,v 1.420 2009-10-29 03:48:00 yangtse Exp $
  ***************************************************************************/
 
 /* This file is for lib internal stuff */
@@ -93,6 +93,7 @@
 
 #ifdef USE_NSS
 #include <nspr.h>
+#include <pk11pub.h>
 #endif
 
 #ifdef USE_QSOSSL
@@ -114,7 +115,11 @@
 #endif
 
 #ifdef USE_ARES
-#include <ares.h>
+#  if defined(CURL_STATICLIB) && !defined(CARES_STATICLIB) && \
+     (defined(WIN32) || defined(_WIN32) || defined(__SYMBIAN32__))
+#    define CARES_STATICLIB
+#  endif
+#  include <ares.h>
 #endif
 
 #include <curl/curl.h>
@@ -210,6 +215,11 @@ struct ssl_connect_data {
 #ifdef USE_NSS
   PRFileDesc *handle;
   char *client_nickname;
+  struct SessionHandle *data;
+#ifdef HAVE_PK11_CREATEGENERICOBJECT
+  PK11GenericObject *key;
+  PK11GenericObject *cacert[2];
+#endif
 #endif /* USE_NSS */
 #ifdef USE_QSOSSL
   SSLHandle *handle;
@@ -356,6 +366,8 @@ typedef enum {
   FTP_PROT,
   FTP_CCC,
   FTP_PWD,
+  FTP_SYST,
+  FTP_NAMEFMT,
   FTP_QUOTE, /* waiting for a response to a command sent in a quote list */
   FTP_RETR_PREQUOTE,
   FTP_STOR_PREQUOTE,
@@ -452,6 +464,7 @@ struct ftp_conn {
   struct timeval response; /* set to Curl_tvnow() when a command has been sent
                               off, used to time-out response reading */
   ftpstate state; /* always use ftp.c:state() to change state! */
+  char * server_os;     /* The target server operating system. */
 };
 
 /****************************************************************************
@@ -462,6 +475,7 @@ typedef enum {
   SSH_STOP = 0,       /* do nothing state, stops the state machine */
 
   SSH_S_STARTUP,      /* Session startup, First state in SSH-CONNECT */
+  SSH_HOSTKEY,        /* verify hostkey */
   SSH_AUTHLIST,
   SSH_AUTH_PKEY_INIT,
   SSH_AUTH_PKEY,
@@ -519,7 +533,7 @@ typedef enum {
    Everything that is strictly related to a connection is banned from this
    struct. */
 struct SSHPROTO {
-  char *path;                   /* the path we operate on */
+  char *path;                  /* the path we operate on */
 };
 
 /* ssh_conn is used for struct connection-oriented data in the connectdata
@@ -558,8 +572,13 @@ struct ssh_conn {
   LIBSSH2_CHANNEL *ssh_channel; /* Secure Shell channel handle */
   LIBSSH2_SFTP *sftp_session;   /* SFTP handle */
   LIBSSH2_SFTP_HANDLE *sftp_handle;
-  int waitfor;                  /* current READ/WRITE bits to wait for */
   int orig_waitfor;             /* default READ/WRITE bits wait for */
+
+  /* note that HAVE_LIBSSH2_KNOWNHOST_API is a define set in the libssh2.h
+     header */
+#ifdef HAVE_LIBSSH2_KNOWNHOST_API
+  LIBSSH2_KNOWNHOSTS *kh;
+#endif
 #endif /* USE_LIBSSH2 */
 };
 
@@ -620,6 +639,7 @@ struct ConnectBits {
                          EPRT doesn't work we disable it for the forthcoming
                          requests */
   bool netrc;         /* name+password provided by netrc */
+  bool userpwd_in_url; /* name+password found in url */
 
   bool done;          /* set to FALSE when Curl_do() is called and set to TRUE
                          when Curl_done() is called, to prevent Curl_done() to
@@ -647,17 +667,17 @@ struct hostname {
  */
 
 #define KEEP_NONE  0
-#define KEEP_READ  (1<<0)     /* there is or may be data to read */
-#define KEEP_WRITE (1<<1)     /* there is or may be data to write */
-#define KEEP_READ_HOLD (1<<2) /* when set, no reading should be done but there
+#define KEEP_RECV  (1<<0)     /* there is or may be data to read */
+#define KEEP_SEND (1<<1)     /* there is or may be data to write */
+#define KEEP_RECV_HOLD (1<<2) /* when set, no reading should be done but there
                                  might still be data to read */
-#define KEEP_WRITE_HOLD (1<<3) /* when set, no writing should be done but there
+#define KEEP_SEND_HOLD (1<<3) /* when set, no writing should be done but there
                                   might still be data to write */
-#define KEEP_READ_PAUSE (1<<4) /* reading is paused */
-#define KEEP_WRITE_PAUSE (1<<5) /* writing is paused */
+#define KEEP_RECV_PAUSE (1<<4) /* reading is paused */
+#define KEEP_SEND_PAUSE (1<<5) /* writing is paused */
 
-#define KEEP_READBITS (KEEP_READ | KEEP_READ_HOLD | KEEP_READ_PAUSE)
-#define KEEP_WRITEBITS (KEEP_WRITE | KEEP_WRITE_HOLD | KEEP_WRITE_PAUSE)
+#define KEEP_RECVBITS (KEEP_RECV | KEEP_RECV_HOLD | KEEP_RECV_PAUSE)
+#define KEEP_SENDBITS (KEEP_SEND | KEEP_SEND_HOLD | KEEP_SEND_PAUSE)
 
 
 #ifdef HAVE_LIBZ
@@ -1014,6 +1034,8 @@ struct connectdata {
                                    their responses on this pipeline */
   struct curl_llist *pend_pipe; /* List of pending handles on
                                    this pipeline */
+  struct curl_llist *done_pipe; /* Handles that are finished, but
+				   still reference this connectdata */
 #define MAX_PIPELINE_LENGTH 5
 
   char* master_buffer; /* The master buffer allocated on-demand;
@@ -1056,6 +1078,8 @@ struct connectdata {
   } proto;
 
   int cselect_bits; /* bitmask of socket events */
+  int waitfor;      /* current READ/WRITE bits to wait for */
+
 #if defined(HAVE_GSSAPI) || defined(USE_WINDOWS_SSPI)
   int socks5_gssapi_enctype;
 #endif
@@ -1359,15 +1383,12 @@ enum dupstring {
   STRING_SET_RANGE,       /* range, if used */
   STRING_SET_REFERER,     /* custom string for the HTTP referer field */
   STRING_SET_URL,         /* what original URL to work on */
-  STRING_SSH_PRIVATE_KEY, /* path to the private key file for auth */
-  STRING_SSH_PUBLIC_KEY,  /* path to the public key file for auth */
   STRING_SSL_CAPATH,      /* CA directory name (doesn't work on windows) */
   STRING_SSL_CAFILE,      /* certificate file to verify peer against */
   STRING_SSL_CIPHER_LIST, /* list of ciphers to use */
   STRING_SSL_EGDSOCKET,   /* path to file containing the EGD daemon socket */
   STRING_SSL_RANDOM_FILE, /* path to file containing "random" data */
   STRING_USERAGENT,       /* User-Agent string */
-  STRING_SSH_HOST_PUBLIC_KEY_MD5, /* md5 of host public key in ascii hex */
   STRING_SSL_CRLFILE,     /* crl file to check certificate */
   STRING_SSL_ISSUERCERT,  /* issuer cert file to check certificate */
   STRING_USERNAME,        /* <username>, if used */
@@ -1376,6 +1397,12 @@ enum dupstring {
   STRING_PROXYPASSWORD,   /* Proxy <password>, if used */
   STRING_NOPROXY,         /* List of hosts which should not use the proxy, if
                              used */
+#ifdef USE_LIBSSH2
+  STRING_SSH_PRIVATE_KEY, /* path to the private key file for auth */
+  STRING_SSH_PUBLIC_KEY,  /* path to the public key file for auth */
+  STRING_SSH_HOST_PUBLIC_KEY_MD5, /* md5 of host public key in ascii hex */
+  STRING_SSH_KNOWNHOSTS,  /* file name of knownhosts file */
+#endif
 #if defined(HAVE_GSSAPI) || defined(USE_WINDOWS_SSPI)
   STRING_SOCKS5_GSSAPI_SERVICE,  /* GSSAPI service name */
 #endif
@@ -1488,6 +1515,9 @@ struct UserDefined {
   int ftp_create_missing_dirs; /* 1 - create directories that don't exist
                                   2 - the same but also allow MKD to fail once
                                */
+
+  curl_sshkeycallback ssh_keyfunc; /* key matching callback */
+  void *ssh_keyfunc_userp;         /* custom pointer to callback */
 
 /* Here follows boolean settings that define how to behave during
    this session. They are STATIC, set by libcurl users or at least initially

@@ -28,7 +28,6 @@
 #include "IOHIDUsageTables.h"
 #include "IOHIDKeyboard.h"
 #include "IOLLEvent.h"
-#include "IOHIDSystem.h"
 
 #define kFnFunctionUsageMapKey      "FnFunctionUsageMap"
 #define	kFnKeyboardUsageMapKey      "FnKeyboardUsageMap"
@@ -120,8 +119,12 @@ void AppleEmbeddedKeyboard::dispatchKeyboardEvent(
     }
 
     super::dispatchKeyboardEvent(timeStamp, usagePage, usage, value, options);
-    
+
+#if !TARGET_OS_EMBEDDED
     _fnKeyDownVirtual = _keyboardNub ? (_keyboardNub->eventFlags() & NX_SECONDARYFNMASK) : _fnKeyDownPhysical;
+#else
+	_fnKeyDownVirtual = _fnKeyDownPhysical;
+#endif
 }
 
 
@@ -165,13 +168,15 @@ bool AppleEmbeddedKeyboard::filterSecondaryFnFunctionUsage(
         return false;
     // end rdar://7045478 }
     
+#if !TARGET_OS_EMBEDDED
     if ((*usagePage == kHIDPage_KeyboardOrKeypad) && (*usage == kHIDUsage_KeyboardF5)) {
-        UInt32 flags = IOHIDSystem::instance() ? IOHIDSystem::instance()->eventFlags() : 0;
+        UInt32 flags = _keyboardNub ? _keyboardNub->eventFlags() : 0;
         if (flags & (NX_COMMANDMASK | NX_DEVICELCMDKEYMASK | NX_DEVICERCMDKEYMASK)) {
             // <rdar://problem/6305898> Enhancement: Make Cmd+Fn+Key == Cmd+Key
             return false;
         }
     }
+#endif
     
     if (down)
         _secondaryKeys[*usage].swapping |= kSecondaryKeyFnFunction;

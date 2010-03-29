@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
 	<key>OpenSourceImportDate</key>
-	<string>2009-01-08</string>
+	<string>2009-11-10</string>
 	<key>OpenSourceLicense</key>
 	<string>Apache-style</string>
 	<key>OpenSourceLicenseFile</key>
@@ -21,15 +21,16 @@
 		<string>Load versioned libraries and engines</string>
 		<string>Fix pkcs12 crash</string>
 		<string>CVE-2008-5077</string>
+		<string>CVE-2009-3555</string>
 	</array>
 	<key>OpenSourceProject</key>
 	<string>OpenSSL</string>
 	<key>OpenSourceSHA1</key>
-	<string>f70f7127a26e951e8a0d854c0c9e6b4c24df78e4</string>
+	<string>d3fb6ec89532ab40646b65af179bb1770f7ca28f</string>
 	<key>OpenSourceURL</key>
-	<string>http://www.openssl.org/source/openssl-0.9.8j.tar.gz</string>
+	<string>http://www.openssl.org/source/openssl-0.9.8l.tar.gz</string>
 	<key>OpenSourceVersion</key>
-	<string>0.9.8j</string>
+	<string>0.9.8l</string>
 	<key>OpenSourceWebsiteURL</key>
 	<string>http://:wwww.openssl.org/</string>
 </dict>

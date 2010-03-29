@@ -26,7 +26,7 @@
 
 enum
 {
-    kDVIPowerSwitchPowerOffDelay  = 200		/* ms before power off */
+    kDVIPowerSwitchPowerOffDelay  = 200         /* ms before power off */
 };
 
 enum
@@ -36,7 +36,7 @@ enum
     kIONoncoherentTMDSFlag = 0x00040000
 };
 
-#define kIONDRVDisplayConnectFlagsKey	"display-connect-flags"
+#define kIONDRVDisplayConnectFlagsKey   "display-connect-flags"
 
 enum { kIONDRVAVJackProbeDelayMS = 1000 };
 
@@ -49,9 +49,9 @@ enum {
 
 struct VDSleepWakeInfo
 {
-    UInt8	csMode;
-    UInt8	fill;
-    UInt32	csData;
+    UInt8       csMode;
+    UInt8       fill;
+    UInt32      csData;
 };
 typedef struct VDSleepWakeInfo VDSleepWakeInfo;
 

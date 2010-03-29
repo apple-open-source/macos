@@ -28,10 +28,13 @@
 #include <libkern/c++/OSData.h>
 #include <IOKit/IOService.h>
 #include <IOKit/IOFilterInterruptEventSource.h>
+#include <IOKit/IOPlatformExpert.h>
+#include <IOKit/platform/ApplePlatformExpert.h>
 #include <IOKit/IOBufferMemoryDescriptor.h>
 #include <IOKit/IODMACommand.h>
 #include <IOKit/pci/IOPCIBridge.h>
 #include <IOKit/pci/IOPCIDevice.h>
+#include <IOKit/acpi/IOACPIPlatformDevice.h>
 
 #include <IOKit/usb/IOUSBControllerV3.h>
 #include <IOKit/usb/IOUSBControllerListElement.h>
@@ -55,6 +58,11 @@
 #else
 #define IOSync() __asm__ __volatile__ ( "mfence" : : : "memory" )
 #endif
+
+#ifndef MIN
+	#define	MIN(a,b) (((a)<(b))?(a):(b))
+#endif 
+
 
 class IONaturalMemoryCursor;
 class AppleEHCIedMemoryBlock;
@@ -88,6 +96,9 @@ struct EHCIGeneralTransferDescriptor
     void*									logicalBuffer;			// used for UnlockMemory
 	UInt32									lastFrame;				// the lower 32 bits the last time we checked this TD
     UInt32									lastRemaining;			//the "remaining" count the last time we checked
+    UInt32									tdSize;					//the total bytes to be transferred by this TD. For statistics only
+    UInt32									flagsAtError;			// the flags word the last time this stopped with an error
+    UInt32									errCount;				// software error count for restarting transactions.
 	
 };
 
@@ -115,13 +126,6 @@ enum
 };
 
 
-enum
-{
-	kUSBEHCIFSPeriodicOverhead = 10,				// # bytes of overhead on the FS bus for a periodic packet
-	kUSBEHCIMaxMicroframePeriodic = 180,			// max bytes available on a microframe (this is th value used for allocation)
-	kUSBEHCIMaxSSOUTsection = 188					// this is the amount that will be sent by the HC in each SS OUT chunk
-};
-
 enum{
 	kMaxPorts = 15
 };
@@ -140,12 +144,55 @@ enum {
 	kAppleEHCIExtraPowerVersion = 0x100
 };
 
+//================================================================================================
+//
+//   AppleUSBEHCI_IOLockClass
+//
+//	 Used for locking access to shared resources between all EHCI controllers
+//
+//================================================================================================
+//
+class AppleUSBEHCI_IOLockClass
+{
+public:
+	AppleUSBEHCI_IOLockClass(void);								// Constructor
+	virtual ~AppleUSBEHCI_IOLockClass(void);					// Destructor
+	
+	IOLock *lock;
+};
+
 class AppleUSBEHCI : public IOUSBControllerV3
 {
+    friend class AppleUSBEHCIDiagnostics;
+	
     OSDeclareDefaultStructors(AppleUSBEHCI)
+
+	// Structure used for statistics for UIMs.
+	typedef struct  
+	{
+		UInt64			lastNanosec;
+		UInt64			totalBytes;
+		UInt64			prevBytes;
+		UInt32			acessCount;
+		UInt32			totalErrors;
+		UInt32			prevErrors;
+		UInt32			timeouts;
+		UInt32			prevTimeouts;
+		UInt32			resets;
+		UInt32			prevResets;
+		UInt32			recoveredErrors;
+		UInt32			prevRecoveredErrors;
+		UInt32			errors2Strikes;
+		UInt32			prevErrors2Strikes;
+		UInt32			errors3Strikes;
+		UInt32			prevErrors3Strikes;
+	} UIMDiagnostics;
+	
+	
 private:
  	UInt32							ExpressCardPort( IOService * provider );
-   
+	IOACPIPlatformDevice *			CopyACPIDevice( IORegistryEntry * device );
+	bool							HasExpressCardUSB( IORegistryEntry * acpiDevice, UInt32 * portnum );
 	
     void							showRegisters(UInt32 level, const char *s);
     void							printTD(EHCIGeneralTransferDescriptorPtr pTD, int level);
@@ -154,8 +201,6 @@ private:
     void							AddIsocFramesToSchedule(AppleEHCIIsochEndpoint*);
     IOReturn						AbortIsochEP(AppleEHCIIsochEndpoint*);
     IOReturn						DeleteIsochEP(AppleEHCIIsochEndpoint*);
-	UInt8							LastScheduledSSMicroFrame(AppleEHCIIsochEndpoint* pEP);
-	UInt8							FirstScheduledSSMicroFrame(AppleEHCIIsochEndpoint* pEP);
 	
 	static AppleEHCIExtraPower		_extraPower;						// this is static as currently it is share by all machines
     
@@ -178,10 +223,16 @@ protected:
     AppleEHCISplitIsochTransferDescriptor	*_pLastFreeSITD;					// last of availabble Trasfer Descriptors
     AppleEHCIQueueHead						*_pLastFreeQH;						// last of available Endpoint Descriptors
 	IOBufferMemoryDescriptor				*_periodicListBuffer;				// IOBMD for the periodic list
-    USBPhysicalAddress32						*_periodicList;						// Physical interrrupt heads
+    USBPhysicalAddress32					*_periodicList;						// Physical interrrupt heads
     IOUSBControllerListElement				**_logicalPeriodicList;				// logical interrupt heads
-    UInt16									_periodicBandwidth[kEHCIMaxPoll];	// bandwidth remaining per frame
+	AppleEHCIQueueHead						*_dummyIntQH[kEHCIMaxPollingInterval];	// dummy interrupt queue heads
+	
+	// bandwidth allocation - we keep track of bytes of periodic bandwidth used in each
+	// microframe of a 32 ms scheduling window (which repeats 32 times in the overall schedule)
+    UInt16									_periodicBandwidthUsed[kEHCIMaxPollingInterval][kEHCIuFramesPerFrame];	// bandwidth remaining per frame
+	UInt16									_controllerThinkTime;				// amount of "think time" needed as the controller goes from one QH to the next
     AppleUSBEHCIHubInfo						*_hsHubs;							// high speed hubs
+	
     IOFilterInterruptEventSource *			_filterInterruptSource;
     UInt32									_filterInterruptCount;
 	UInt8									_istKeepAwayFrames;					// the isochronous schedule threshold keepaway
@@ -206,7 +257,6 @@ protected:
 	bool									_inAbortIsochEP;
 	UInt8									_asynchScheduleUnsynchCount;
 	UInt8									_periodicScheduleUnsynchCount;
-    UInt32									_isochBandwidthAvail;					// amount of available bandwidth for Isochronous transfers
     UInt32									_periodicEDsInSchedule;					// interrupt endpoints
     volatile UInt64							_frameNumber;							// the current frame number (high bits only)
     UInt16									_rootHubFuncAddress;					// Function Address for the root hub
@@ -254,6 +304,15 @@ protected:
 	// disabled queue heads from hubs which have gone to sleep
 	AppleEHCIQueueHead *					_disabledQHList;
 	
+	// UIM diagnostics stuff
+	OSObject *								_diagnostics;
+
+	UIMDiagnostics							_UIMDiagnostics;
+	
+	
+	
+	
+	
 	// methods
     
     static void 				InterruptHandler(OSObject *owner, IOInterruptEventSource * source, int count);
@@ -284,6 +343,10 @@ protected:
 	void linkInterruptEndpoint(AppleEHCIQueueHead *pEHCIEndpointDescriptor);
 	void linkAsyncEndpoint(AppleEHCIQueueHead *CBED);
 	void returnTransactions(AppleEHCIQueueHead *pED, EHCIGeneralTransferDescriptor *untilThisOne, IOReturn error, bool clearToggle);
+	
+	IOUSBControllerListElement *GetPeriodicListLogicalEntry(int offset);
+	USBPhysicalAddress32 GetPeriodicListPhysicalEntry(int offset);
+	void SetPeriodicListEntry(int offset, IOUSBControllerListElement *pListElem);
 	
     AppleEHCIQueueHead *AddEmptyCBEndPoint(UInt8 					functionAddress,
 										   UInt8					endpointNumber,
@@ -334,7 +397,6 @@ protected:
     void HaltAsyncEndpoint(AppleEHCIQueueHead *pED, AppleEHCIQueueHead *pEDBack);
     void HaltInterruptEndpoint(AppleEHCIQueueHead *pED);
     void waitForSOF(EHCIRegistersPtr pEHCIRegisters);
-    UInt16 validatePollingRate(short rawPollingRate,  short speed, int *offset, UInt16 *bytesAvailable);
 	
     IOReturn			EnterTestMode(void);
     IOReturn			PlacePortInMode(UInt32 port, UInt32 mode);
@@ -358,9 +420,21 @@ protected:
 	
     UInt32				findBufferRemaining(AppleEHCIQueueHead *pED);
 	void				UIMCheckForTimeouts(void);
-#if 0
-	void printED(AppleEHCIQueueHead * pED);
-#endif
+	
+	IOReturn			AllocateInterruptBandwidth(AppleEHCIQueueHead	*pED, AppleUSBEHCITTInfo *pTT);
+	IOReturn			ReturnInterruptBandwidth(AppleEHCIQueueHead	*pED);
+	
+	IOReturn			AllocateIsochBandwidth(AppleEHCIIsochEndpoint	*pEP, AppleUSBEHCITTInfo *pTT);
+	IOReturn			ReturnIsochBandwidth(AppleEHCIIsochEndpoint	*pEP);
+	
+	IOReturn			AllocateHSPeriodicSplitBandwidth(AppleUSBEHCISplitPeriodicEndpoint *pSPE);
+	IOReturn			ReturnHSPeriodicSplitBandwidth(AppleUSBEHCISplitPeriodicEndpoint *pSPE);
+	
+	IOReturn			AdjustSPEs(AppleUSBEHCISplitPeriodicEndpoint *pSPEChanged, bool added);
+
+	IOReturn			ReservePeriodicBandwidth(int frame, int uFrame, UInt16 bandwidth);
+	IOReturn			ReleasePeriodicBandwidth(int frame, int uFrame, UInt16 bandwidth);
+	IOReturn			ShowPeriodicBandwidthUsed(int level, const char *fromStr);
 	
 public:
 	virtual bool		init(OSDictionary * propTable);

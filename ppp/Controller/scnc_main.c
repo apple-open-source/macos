@@ -51,6 +51,7 @@ includes
 #include <mach/mach_time.h>
 #include <notify.h>
 #include <sys/sysctl.h>
+#include <pthread.h>
 
 #include "scnc_mach_server.h"
 #include "scnc_main.h"
@@ -136,6 +137,10 @@ int					gNotifyOnDemandToken = -1;
 
 int					gSCNCVerbose = 0;
 int					gSCNCDebug = 0;
+CFRunLoopRef		gControllerRunloop = NULL;
+CFRunLoopRef		gPluginRunloop = NULL;
+CFRunLoopSourceRef	gTerminalrls = NULL;
+
 #ifdef TARGET_EMBEDDED_OS
 int					gNattKeepAliveInterval = -1;
 #endif
@@ -149,33 +154,71 @@ static vproc_transaction_t gController_vt = NULL;		/* opaque handle used to trac
 static u_int32_t           gWaitForPrimaryService = 0;
 
 /* -----------------------------------------------------------------------------
+ terminate_all()
+ ----------------------------------------------------------------------------- */
+void terminate_all()
+{
+	/* receive signal from  main thread, stop connection */
+    struct service 		*serv;
+	
+	CFRunLoopSourceInvalidate(gTerminalrls);
+	CFRelease(gTerminalrls);
+    TAILQ_FOREACH(serv, &service_head, next) {
+		scnc_stop(serv, 0, SIGTERM);
+    }
+	
+	allow_stop();    	
+}
+
+/* -----------------------------------------------------------------------------
+ pppcntl_run_thread()
+ ----------------------------------------------------------------------------- */
+void *pppcntl_run_thread(void *arg)
+{
+	
+	if (ppp_mach_start_server())
+		pthread_exit( (void*) EXIT_FAILURE);
+    if (ppp_socket_start_server())
+		pthread_exit( (void*) EXIT_FAILURE);
+    if (client_init_all())
+		pthread_exit( (void*) EXIT_FAILURE);
+	
+	init_things();
+	CFRunLoopRun();
+	return NULL;
+}
+
+/* -----------------------------------------------------------------------------
 load plugin entry point, called by configd
 ----------------------------------------------------------------------------- */
 void load(CFBundleRef bundle, Boolean debug)
 {
+	pthread_attr_t	tattr;
+	pthread_t	pppcntl_thread;
+	CFRunLoopSourceContext	rlContext = { 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, terminate_all};
+
     gBundleRef = bundle;
-
-    if (ppp_socket_start_server())
-        return;
-	if (ppp_mach_start_server())
-		return;
-    if (client_init_all())
-        return;
-
 	gSCNCVerbose = _sc_verbose | debug;
 	gSCNCDebug = debug;
+	
+	gPluginRunloop = CFRunLoopGetCurrent();
+	
+	gTerminalrls = CFRunLoopSourceCreate(NULL, 0, &rlContext);
+	if (!gTerminalrls){
+		SCLog(TRUE, LOG_ERR, CFSTR("SCNC Controller: cannot create signal gTerminalrls in load"));
+		return;
+	}
+	pthread_attr_init(&tattr);
+	pthread_attr_setdetachstate(&tattr, PTHREAD_CREATE_DETACHED);
+    if (pthread_create(&pppcntl_thread, &tattr, pppcntl_run_thread, NULL)) {
+		CFRelease(gTerminalrls);
+		gTerminalrls = NULL;
+		return;
+	}
 
+	pthread_attr_destroy(&tattr);
+	
     CFRetain(bundle);
-}
-
-/* -----------------------------------------------------------------------------
-prime plugin entry point, called by configd
------------------------------------------------------------------------------ */
-void prime()
-{
-
-    if (init_things())
-        return;
 }
 
 /* -----------------------------------------------------------------------------
@@ -183,7 +226,6 @@ stop plugin entry point, called by configd
 ----------------------------------------------------------------------------- */
 void stop(CFRunLoopSourceRef stopRls)
 {
-    struct service 		*serv;
 	
 	cleanup_plugin_store();
 	
@@ -191,12 +233,12 @@ void stop(CFRunLoopSourceRef stopRls)
         // should not happen
         return;
 	
-    TAILQ_FOREACH(serv, &service_head, next) {
-		scnc_stop(serv, 0, SIGTERM);
-    }
-	
 	gStopRls = stopRls;
-	allow_stop();    	
+	if (gTerminalrls)
+		CFRunLoopSourceSignal(gTerminalrls);
+	if (gControllerRunloop)
+		CFRunLoopWakeUp(gControllerRunloop);
+
 }
 
 /* -----------------------------------------------------------------------------
@@ -221,6 +263,8 @@ int allow_stop()
 			
         // we are done
         CFRunLoopSourceSignal(gStopRls);
+		if ( gPluginRunloop )
+			CFRunLoopWakeUp(gPluginRunloop);
         return 1;
     }
 	return 0;

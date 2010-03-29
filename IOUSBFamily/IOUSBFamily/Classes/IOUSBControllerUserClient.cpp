@@ -30,6 +30,7 @@
 
 #include <IOKit/usb/IOUSBController.h>
 #include <IOKit/usb/IOUSBControllerV2.h>
+#include <IOKit/usb/IOUSBControllerV3.h>
 #include <IOKit/usb/IOUSBLog.h>
 
 #include "IOUSBControllerUserClient.h"
@@ -112,29 +113,6 @@ IOUSBControllerUserClient::sMethods[kNumUSBControllerMethods] =
         kIOUCScalarIScalarO,					// flags
         0,							// # of params in
         1							// # of params out
-    },
-    {	// kUSBControllerUserClientSetTestMode
-        (IOService*)kMethodObjectThis,				// object
-        ( IOMethod )&IOUSBControllerUserClient::SetTestMode,	// func
-        kIOUCScalarIScalarO,					// flags
-        2,							// # of params in
-        0							// # of params out
-    }
-    ,
-    {	// kUSBControllerUserClientReadRegister
-        (IOService*)kMethodObjectThis,				// object
-        ( IOMethod )&IOUSBControllerUserClient::ReadRegister,	// func
-        kIOUCScalarIScalarO,					// flags
-        2,							// # of params in
-        1							// # of params out
-    }
-    ,
-    {	// kUSBControllerUserClientWriteRegister
-        (IOService*)kMethodObjectThis,				// object
-        ( IOMethod )&IOUSBControllerUserClient::WriteRegister,	// func
-        kIOUCScalarIScalarO,					// flags
-        3,							// # of params in
-        0							// # of params out
     }
 };
 
@@ -183,10 +161,21 @@ IOUSBControllerUserClient::initWithTask(task_t owningTask, void *security_id, UI
 	if (!owningTask)
         return false;
 
-    fTask = owningTask;
+	IOReturn ret = clientHasPrivilege(security_id, kIOClientPrivilegeAdministrator);
+	USBLog(6,"IOUSBControllerUserClient[%p]::initWithTask  clientHasPrivilege returned 0x%x (%s)", this, ret, stringFromReturn(ret));
+	if ( ret == kIOReturnSuccess )
+	{
+		fIsTaskPrileged = true;
+	}
+	else 
+	{
+		fIsTaskPrileged = false;
+	}
+
+	fTask = owningTask;
     fOwner = NULL;
     fGate = NULL;
-    fDead = false;
+    fDead = false; 
 
     SetExternalMethodVectors();
 
@@ -203,7 +192,7 @@ IOUSBControllerUserClient::start( IOService * provider )
     if (!fOwner)
         return false;
 
-    if(!super::start(provider))
+    if (!super::start(provider))
         return false;
 
     fMemMap = fOwner->getProvider()->mapDeviceMemoryWithIndex(0);
@@ -305,76 +294,7 @@ IOUSBControllerUserClient::GetDebuggingType(KernelDebuggingOutputType * inType)
 }
 
 
-IOReturn
-IOUSBControllerUserClient::SetTestMode(UInt32 mode, UInt32 port)
-{
-    // this method only available for v2 controllers
-    IOUSBControllerV2	*v2 = OSDynamicCast(IOUSBControllerV2, fOwner);
 
-    if (!v2)
-        return kIOReturnNotAttached;
-
-    return v2->SetTestMode(mode, port);
-}
-
-
-IOReturn
-IOUSBControllerUserClient::ReadRegister(UInt32 offset, UInt32 size, void *value)
-{
-    UInt8	bVal;
-    UInt16	wVal;
-    UInt32	lVal;
-
-    USBLog(1, "+IOUSBControllerUserClient::ReadRegister Offset(0x%x), Size (%d)", (int)offset, (int)size);
-	USBTrace( kUSBTControllerUserClient,  kTPControllerUCReadRegister, (uintptr_t)this, (uintptr_t)fOwner, (int)offset, (int)size );
-	
-    if (!fOwner)
-        return kIOReturnNotAttached;
-
-    if (!fMemMap)
-        return kIOReturnNoResources;
-
-    switch (size)
-    {
-        case 8:
-            bVal = *((UInt8 *)fMemMap->getVirtualAddress() + offset);
-            *(UInt8*)value = bVal;
-            USBLog(4, "IOUSBControllerUserClient::ReadRegister - got byte value 0x%x", bVal);
-            break;
-
-        case 16:
-            wVal = OSReadLittleInt16((void*)(fMemMap->getVirtualAddress()), offset);
-            *(UInt16*)value = wVal;
-            USBLog(4, "IOUSBControllerUserClient::ReadRegister - got word value 0x%x", wVal);
-            break;
-
-        case 32:
-            lVal = OSReadLittleInt32((void*)(fMemMap->getVirtualAddress()), offset);
-            *(UInt32*)value = lVal;
-            USBLog(4, "IOUSBControllerUserClient::ReadRegister - got (uint32_t) value 0x%x", (uint32_t)lVal);
-            break;
-
-        default:
-            USBLog(1, "IOUSBControllerUserClient::ReadRegister - invalid size");
-			USBTrace( kUSBTControllerUserClient,  kTPControllerUCReadRegister, (uintptr_t)this, (uintptr_t)fOwner, kIOReturnBadArgument, 0 );
-            return kIOReturnBadArgument;
-    }
-    return kIOReturnSuccess;
-}
-
-
-IOReturn
-IOUSBControllerUserClient::WriteRegister(UInt32 offset, UInt32 size, UInt32 value)
-{
-    USBLog(1, "+IOUSBControllerUserClient::WriteRegister Offset(0x%x), Size (%d) Value (0x%x)", (int)offset, (int)size, (int)value);
-	USBTrace( kUSBTControllerUserClient,  kTPControllerUCWriteRegister, (uintptr_t)this, (uintptr_t)fOwner, (int)offset, (int)size );
-	USBTrace( kUSBTControllerUserClient,  kTPControllerUCWriteRegister, 1, (int)value, 0, 0 );
-
-    if (!fOwner)
-        return kIOReturnNotAttached;
-
-    return kIOReturnSuccess;
-}
 
 void
 IOUSBControllerUserClient::stop( IOService * provider )
@@ -394,7 +314,7 @@ IOUSBControllerUserClient::clientClose( void )
     /*
      * Kill ourselves off if the client closes or the client dies.
      */
-    if( !isInactive())
+    if ( !isInactive())
         terminate();
 
     return( kIOReturnSuccess );

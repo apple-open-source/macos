@@ -63,6 +63,9 @@ endif
 	$(_v) chmod 0644 "$(Destination)/passwd" ; chown root:wheel "$(Destination)/passwd"
 	$(_v) $(INSTALL_FILE) -m 0644 -c networks	 "$(Destination)/networks"
 	$(_v) $(INSTALL_FILE) -m 0644 -c paths		 "$(Destination)/paths"
+ifeq "$(Product)" "iPhone"
+	$(_v) cat paths.iPhone >> "$(Destination)/paths"
+endif
 	$(_v) $(INSTALL_FILE) -m 0644 -c protocols	 "$(Destination)/protocols"
 	$(_v) $(INSTALL_FILE) -m 0644 -c rpc		 "$(Destination)/rpc"
 	$(_v) $(INSTALL_FILE) -m 0644 -c services	 "$(Destination)/services"

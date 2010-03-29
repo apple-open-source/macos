@@ -61,7 +61,7 @@ IOUSBNub::USBCompareProperty( OSDictionary   * matching, const char     * key )
 
     value = matching->getObject( key );
 	
-    if( value)
+    if ( value)
 	{
 		myProperty = copyProperty(key);
 		if (myProperty)
@@ -87,7 +87,7 @@ IOUSBNub::IsWildCardMatch( OSDictionary   * matching, const char     * key )
     
     theString = OSDynamicCast(OSString, matching->getObject( key ));
     
-    if( theString)
+    if ( theString)
         matches = theString->isEqualTo("*");
     else
         matches = false;

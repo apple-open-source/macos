@@ -1,5 +1,5 @@
 /*
-cc -g -o /tmp/setdparam setdparam.c -framework ApplicationServices -framework IOKit -Wall
+cc -g -o /tmp/setdparam setdparam.c -framework ApplicationServices -framework IOKit -Wall -arch i386
 */
 
 #include <CoreFoundation/CoreFoundation.h>
@@ -11,13 +11,14 @@ cc -g -o /tmp/setdparam setdparam.c -framework ApplicationServices -framework IO
 
 int main(int argc, char * argv[])
 {
-    io_service_t 	service;
-    CGError		err;
-    int			i;
-    CGDisplayCount	max;
-    CGDirectDisplayID	displayIDs[8];
-    CFStringRef		key;
-    float 		value;
+    io_service_t        service;
+    CGError             err;
+    int                 i;
+    CGDisplayCount      max;
+    CGDirectDisplayID   displayIDs[8];
+    CFStringRef         key;
+    float               value;
+    SInt32              ivalue, imin, imax;
 
     err = CGGetOnlineDisplayList(8, displayIDs, &max);
     if(err != kCGErrorSuccess)
@@ -26,31 +27,44 @@ int main(int argc, char * argv[])
         max = 8;
 
     if( argc < 2)
-	key = CFSTR(kIODisplayBrightnessKey);
+        key = CFSTR(kIODisplayBrightnessKey);
     else
-	key = CFStringCreateWithCString( kCFAllocatorDefault, argv[1],
-					kCFStringEncodingMacRoman );
+        key = CFStringCreateWithCString( kCFAllocatorDefault, argv[1],
+                                        kCFStringEncodingMacRoman );
 
 
-    for(i = 0; i < max; i++ ) {
-
+    for(i = 0; i < max; i++ )
+    {
         service = CGDisplayIOServicePort(displayIDs[i]);
 
+        err = IODisplayGetIntegerRangeParameter(service, kNilOptions, key,
+                                                &ivalue, &imin, &imax);
+        if( kIOReturnSuccess != err)
+            continue;
+
         err = IODisplayGetFloatParameter(service, kNilOptions, key, &value);
-        printf("Display %x: IODisplayGetFloatParameter(%d), %f\n", displayIDs[i], err, value);
+        printf("Display %x: %f == 0x%x / [0x%x - 0x%x]\n", 
+                    displayIDs[i], value, (int) ivalue, (int) imin, (int) imax);
         if( kIOReturnSuccess != err)
             continue;
 
-	if (argc < 3)
+        if (argc < 3)
             continue;
 
-	sscanf( argv[argc - 1], "%f", &value );
-        err = IODisplaySetFloatParameter(service, kNilOptions, key, value);
-        printf("IODisplaySetFloatParameter(%d, %f)\n", err, value);
-        if( kIOReturnSuccess != err)
-            continue;
+        if (strchr(argv[argc - 1], '.'))
+        {
+            sscanf( argv[argc - 1], "%f", &value );
+            err = IODisplaySetFloatParameter(service, kNilOptions, key, value);
+            printf("IODisplaySetFloatParameter(0x%x, %f)\n", err, value);
+        }
+        else
+        {
+            ivalue = strtol(argv[argc - 1], 0, 0);
+            err = IODisplaySetIntegerParameter(service, kNilOptions, key, ivalue);
+            printf("IODisplaySetIntegerParameter(0x%x, 0x%x)\n", err, (int) ivalue);
+        }
     }
-    
+   
     exit(0);
     return(0);
 }

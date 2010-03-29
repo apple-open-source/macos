@@ -18,7 +18,7 @@
  * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
  * KIND, either express or implied.
  *
- * $Id: easy.c,v 1.133 2009-01-29 20:32:31 yangtse Exp $
+ * $Id: easy.c,v 1.145 2009-10-27 16:38:42 yangtse Exp $
  ***************************************************************************/
 
 #include "setup.h"
@@ -77,13 +77,15 @@
 #include "hostip.h"
 #include "share.h"
 #include "strdup.h"
-#include "memory.h"
+#include "curl_memory.h"
 #include "progress.h"
 #include "easyif.h"
 #include "select.h"
 #include "sendf.h" /* for failf function prototype */
 #include "http_ntlm.h"
 #include "connect.h" /* for Curl_getconnectinfo */
+#include "slist.h"
+#include "curl_rand.h"
 
 #define _MPRINTF_REPLACE /* use our functions only */
 #include <curl/mprintf.h>
@@ -204,7 +206,7 @@ static long          init_flags;
 #define system_strdup strdup
 #endif
 
-#if defined(_MSC_VER) && defined(_DLL)
+#if defined(_MSC_VER) && defined(_DLL) && !defined(__POCC__)
 #  pragma warning(disable:4232) /* MSVC extension, dllimport identity */
 #endif
 
@@ -230,7 +232,7 @@ curl_strdup_callback Curl_cstrdup;
 curl_calloc_callback Curl_ccalloc;
 #endif
 
-#if defined(_MSC_VER) && defined(_DLL)
+#if defined(_MSC_VER) && defined(_DLL) && !defined(__POCC__)
 #  pragma warning(default:4232) /* MSVC extension, dllimport identity */
 #endif
 
@@ -279,7 +281,18 @@ CURLcode curl_global_init(long flags)
   idna_init();
 #endif
 
+#ifdef CARES_HAVE_ARES_LIBRARY_INIT
+  if(ares_library_init(ARES_LIB_INIT_ALL)) {
+    DEBUGF(fprintf(stderr, "Error: ares_library_init failed\n"));
+    return CURLE_FAILED_INIT;
+  }
+#endif
+
   init_flags  = flags;
+
+  /* Preset pseudo-random number sequence. */
+
+  Curl_srand();
 
   return CURLE_OK;
 }
@@ -331,6 +344,10 @@ void curl_global_cleanup(void)
 
   if(init_flags & CURL_GLOBAL_SSL)
     Curl_ssl_cleanup();
+
+#ifdef CARES_HAVE_ARES_LIBRARY_CLEANUP
+  ares_library_cleanup();
+#endif
 
   if(init_flags & CURL_GLOBAL_WIN32)
     win32_cleanup();
@@ -532,7 +549,7 @@ CURLcode curl_easy_perform(CURL *curl)
 
   if(!data->state.connc) {
     /* oops, no connection cache, make one up */
-    data->state.connc = Curl_mk_connc(CONNCACHE_PRIVATE, -1);
+    data->state.connc = Curl_mk_connc(CONNCACHE_PRIVATE, -1L);
     if(!data->state.connc)
       return CURLE_OUT_OF_MEMORY;
   }
@@ -648,6 +665,16 @@ CURL *curl_easy_duphandle(CURL *incurl)
 
     /* duplicate all values in 'change' */
 
+#if !defined(CURL_DISABLE_HTTP) && !defined(CURL_DISABLE_COOKIES)
+    if(data->change.cookielist) {
+      outcurl->change.cookielist =
+        Curl_slist_duplicate(data->change.cookielist);
+
+      if (!outcurl->change.cookielist)
+        break;
+    }
+#endif   /* CURL_DISABLE_HTTP */
+
     if(data->change.url) {
       outcurl->change.url = strdup(data->change.url);
       if(!outcurl->change.url)
@@ -692,6 +719,10 @@ CURL *curl_easy_duphandle(CURL *incurl)
         Curl_rm_connc(outcurl->state.connc);
       if(outcurl->state.headerbuff)
         free(outcurl->state.headerbuff);
+#if !defined(CURL_DISABLE_HTTP) && !defined(CURL_DISABLE_COOKIES)
+      if(outcurl->change.cookielist)
+        curl_slist_free_all(outcurl->change.cookielist);
+#endif
       if(outcurl->change.url)
         free(outcurl->change.url);
       if(outcurl->change.referer)
@@ -751,17 +782,17 @@ CURLcode curl_easy_pause(CURL *curl, int action)
   CURLcode result = CURLE_OK;
 
   /* first switch off both pause bits */
-  int newstate = k->keepon &~ (KEEP_READ_PAUSE| KEEP_WRITE_PAUSE);
+  int newstate = k->keepon &~ (KEEP_RECV_PAUSE| KEEP_SEND_PAUSE);
 
   /* set the new desired pause bits */
-  newstate |= ((action & CURLPAUSE_RECV)?KEEP_READ_PAUSE:0) |
-    ((action & CURLPAUSE_SEND)?KEEP_WRITE_PAUSE:0);
+  newstate |= ((action & CURLPAUSE_RECV)?KEEP_RECV_PAUSE:0) |
+    ((action & CURLPAUSE_SEND)?KEEP_SEND_PAUSE:0);
 
   /* put it back in the keepon */
   k->keepon = newstate;
 
-  if(!(newstate & KEEP_READ_PAUSE) && data->state.tempwrite) {
-    /* we have a buffer for writing that we now seem to be able to deliver since
+  if(!(newstate & KEEP_RECV_PAUSE) && data->state.tempwrite) {
+    /* we have a buffer for sending that we now seem to be able to deliver since
        the receive pausing is lifted! */
 
     /* get the pointer, type and length in local copies since the function may
@@ -1080,8 +1111,8 @@ CURLcode curl_easy_recv(CURL *curl, void *buffer, size_t buflen, size_t *n)
   if(ret1 == -1)
     return CURLE_AGAIN;
 
-  if(n1 == -1)
-    return CURLE_RECV_ERROR;
+  if(ret1 != CURLE_OK)
+    return (CURLcode)ret1;
 
   *n = (size_t)n1;
 

@@ -42,13 +42,14 @@ class IOUSBControllerUserClient : public IOUserClient
 private:
 
     IOUSBController *			fOwner;
-    task_t				fTask;
-    const IOExternalMethod *		fMethods;
-    IOCommandGate *			fGate;
-    IOMemoryMap *			fMemMap;
-    UInt32				fNumMethods;
-    mach_port_t 			fWakePort;
-    bool				fDead;
+    task_t						fTask;
+    const IOExternalMethod *	fMethods;
+    IOCommandGate *				fGate;
+    IOMemoryMap *				fMemMap;
+    UInt32						fNumMethods;
+    mach_port_t					fWakePort;
+    bool						fDead;
+	bool						fIsTaskPrileged;
 
     static const IOExternalMethod	sMethods[kNumUSBControllerMethods];
     static const IOItemCount 		sMethodCount;
@@ -56,22 +57,21 @@ private:
     struct ExpansionData { /* */ };
     ExpansionData * 			fExpansionData;
 
-    virtual void 			SetExternalMethodVectors(void);
+    virtual void				SetExternalMethodVectors(void);
 
 public:
 
         //	IOService overrides
         //
-        virtual IOReturn  			open(bool seize);
+        virtual IOReturn  		open(bool seize);
     virtual IOReturn  			close(void);
-    virtual bool 			start( IOService * provider );
-    virtual void 			stop( IOService * provider );
+    virtual bool				start( IOService * provider );
+    virtual void				stop( IOService * provider );
 
     //	IOUserClient overrides
     //
-    virtual bool 			initWithTask( task_t owningTask, void * securityID,
-                                  UInt32 type,  OSDictionary * properties );
-    virtual IOExternalMethod * 		getTargetAndMethodForIndex(IOService **target, UInt32 index);
+    virtual bool				initWithTask( task_t owningTask, void * securityID, UInt32 type,  OSDictionary * properties );
+    virtual IOExternalMethod *	getTargetAndMethodForIndex(IOService **target, UInt32 index);
     virtual IOReturn 			clientClose( void );
 
 
@@ -82,9 +82,6 @@ public:
     virtual IOReturn			SetDebuggingType(KernelDebuggingOutputType inType);
     virtual IOReturn			GetDebuggingLevel(KernelDebugLevel * inLevel);
     virtual IOReturn			GetDebuggingType(KernelDebuggingOutputType * inType);
-    virtual IOReturn			SetTestMode(UInt32 mode, UInt32 port);
-    virtual IOReturn			ReadRegister(UInt32 offset, UInt32 size, void *value);
-    virtual IOReturn			WriteRegister(UInt32 offset, UInt32 size, UInt32 value);
 };
 
 

@@ -5,7 +5,7 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) 1998 - 2008, Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) 1998 - 2009, Daniel Stenberg, <daniel@haxx.se>, et al.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
@@ -18,7 +18,7 @@
  * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
  * KIND, either express or implied.
  *
- * $Id: sws.c,v 1.130 2008-11-25 23:23:47 danf Exp $
+ * $Id: sws.c,v 1.136 2009-09-17 14:02:50 yangtse Exp $
  ***************************************************************************/
 
 /* sws.c: simple (silly?) web server
@@ -41,8 +41,7 @@
 #ifdef HAVE_NETINET_IN_H
 #include <netinet/in.h>
 #endif
-#ifdef _XOPEN_SOURCE_EXTENDED
-/* This define is "almost" required to build on HPUX 11 */
+#ifdef HAVE_ARPA_INET_H
 #include <arpa/inet.h>
 #endif
 #ifdef HAVE_NETDB_H
@@ -184,16 +183,15 @@ static const char *doc404 = "HTTP/1.1 404 Not Found\r\n"
     "The requested URL was not found on this server.\n"
     "<P><HR><ADDRESS>" SWSVERSION "</ADDRESS>\n" "</BODY></HTML>\n";
 
-#ifdef SIGPIPE
+#ifndef WIN32
+#  if defined(SIGPIPE) && defined(HAVE_SIGNAL)
 static volatile int sigpipe;  /* Why? It's not used */
-#endif
-
-#ifdef SIGPIPE
 static void sigpipe_handler(int sig)
 {
   (void)sig; /* prevent warning */
   sigpipe = 1;
 }
+#  endif
 #endif
 
 static int ProcessRequest(struct httprequest *req)
@@ -586,7 +584,7 @@ static int get_request(curl_socket_t sock, struct httprequest *req)
   /*** end of httprequest init ***/
 
   while (req->offset < REQBUFSIZ-1) {
-    if(pipereq_length) {
+    if(pipereq_length && pipereq) {
       memmove(reqbuf, pipereq, pipereq_length);
       got = pipereq_length;
       pipereq_length = 0;
@@ -615,7 +613,7 @@ static int get_request(curl_socket_t sock, struct httprequest *req)
 
     logmsg("Read %zd bytes", got);
 
-    req->offset += got;
+    req->offset += (int)got;
     reqbuf[req->offset] = '\0';
 
     if(ProcessRequest(req)) {

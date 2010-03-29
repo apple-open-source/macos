@@ -653,3 +653,7 @@ mailbox_size_limit = 0
 # List of ciphers or cipher types to exclude from the SMTP server cipher
 # list at all TLS security levels.
 smtpd_tls_exclude_ciphers = SSLv2, aNULL, ADH, eNULL
+
+# Protect SSL/TLS encryption keys
+tls_random_source = dev:/dev/urandom
+

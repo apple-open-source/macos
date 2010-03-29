@@ -33,9 +33,9 @@
 #include <CoreFoundation/CoreFoundation.h>
 
 
-extern int crypto_cssm_check_x509cert(vchar_t *cert, CFStringRef hostname);
+extern int crypto_cssm_check_x509cert(vchar_t *cert, CFStringRef hostname, cert_status_t certStatus);
 extern vchar_t* crypto_cssm_getsign(CFDataRef persistentCertRef, vchar_t* hash);
-extern vchar_t* crypto_cssm_get_x509cert(CFDataRef persistentCertRef);
+extern vchar_t* crypto_cssm_get_x509cert(CFDataRef persistentCertRef, cert_status_t *certStatus);
 
 
 #endif /* __CRYPTO_CSSM_H__ */

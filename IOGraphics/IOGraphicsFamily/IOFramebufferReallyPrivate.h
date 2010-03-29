@@ -27,12 +27,12 @@ class _IOFramebufferNotifier : public IONotifier
     OSDeclareDefaultStructors(_IOFramebufferNotifier)
 
 public:
-    OSSet *				whence;
+    OSSet *                             whence;
 
-    IOFramebufferNotificationHandler	handler;
-    OSObject *				self;
-    void *				ref;
-    bool				fEnable;
+    IOFramebufferNotificationHandler    handler;
+    OSObject *                          self;
+    void *                              ref;
+    bool                                fEnable;
 
     virtual void remove();
     virtual bool disable();

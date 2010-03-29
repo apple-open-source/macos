@@ -38,17 +38,20 @@
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
+enum {
+    kIODisplayWranglerNumPowerStates = kIODisplayNumPowerStates + 1,
+    kIODisplayWranglerMaxPowerState = kIODisplayWranglerNumPowerStates - 1,
+};
+
+
 #define kIODisplayWrangler_AnnoyancePenalties "AnnoyancePenalties"
 #define kIODisplayWrangler_AnnoyanceCaps "AnnoyanceCaps"
 #define kIODisplayWrangler_IdleTimeoutMin "IdleTimeoutMin"
 #define kIODisplayWrangler_IdleTimeoutMax "IdleTimeoutMax"
 
-static int gDEBUG = 0;
 static int gCOMPRESS_TIME = 0;
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
-
-// tiddly nub
 
 #undef super
 #define super IOService
@@ -57,7 +60,7 @@ OSDefineMetaClassAndStructors(IODisplayConnect, IOService)
 
 bool IODisplayConnect::initWithConnection( IOIndex _connection )
 {
-    char	name[ 12 ];
+    char        name[ 12 ];
 
     if (!super::init())
         return (false);
@@ -111,7 +114,7 @@ void IODisplayConnect::joinPMtree ( IOService * driver )
 #define super IOService
 OSDefineMetaClassAndStructors(IODisplayWrangler, IOService);
 
-IODisplayWrangler *	gIODisplayWrangler;
+IODisplayWrangler *     gIODisplayWrangler;
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
@@ -179,14 +182,14 @@ bool IODisplayWrangler::serverStart(void)
     mach_timespec_t timeout = { 120, 0 };
 
     if (!gIODisplayWrangler)
-	waitForService(serviceMatching("IODisplayWrangler"), &timeout);
+        waitForService(serviceMatching("IODisplayWrangler"), &timeout);
 
     if (gIODisplayWrangler)
     {
-	gIODisplayWrangler->fOpen = true;
-	if (gIODisplayWrangler->fMinutesToDim)
-	    gIODisplayWrangler->setIdleTimerPeriod(gIODisplayWrangler->fMinutesToDim*60 / 2);
-	gIODisplayWrangler->activityTickle(0, 0);
+        gIODisplayWrangler->fOpen = true;
+        if (gIODisplayWrangler->fMinutesToDim)
+            gIODisplayWrangler->setIdleTimerPeriod(gIODisplayWrangler->fMinutesToDim*60 / 2);
+        gIODisplayWrangler->activityTickle(0, 0);
     }
 
     return (gIODisplayWrangler != 0);
@@ -196,7 +199,7 @@ bool IODisplayWrangler::start( IOService * provider )
 {
     AbsoluteTime        current_time;
     UInt64              current_time_ns;
-    OSObject *	notify;
+    OSObject *  notify;
 
     if (!super::start(provider))
         return (false);
@@ -209,7 +212,7 @@ bool IODisplayWrangler::start( IOService * provider )
     fFramebuffers = OSSet::withCapacity( 1 );
     fDisplays = OSSet::withCapacity( 1 );
 
-	AbsoluteTime_to_scalar(&current_time) = mach_absolute_time();
+        AbsoluteTime_to_scalar(&current_time) = mach_absolute_time();
     absolutetime_to_nanoseconds(current_time, &current_time_ns);
     fLastWakeTime_secs = current_time_ns / NSEC_PER_SEC;
     fLastDimTime_secs = 0;
@@ -224,19 +227,19 @@ bool IODisplayWrangler::start( IOService * provider )
     fAnnoyancePenaltiesArrayLength = staticAnnoyancePenaltiesArrayLength;
     fAnnoyancePenaltiesArray = staticAnnoyancePenaltiesArray;
 
-	fIdleTimeoutMin = 30; // 30 seconds
-	fIdleTimeoutMax = 600; // 10 minutes
+        fIdleTimeoutMin = 30; // 30 seconds
+        fIdleTimeoutMax = 600; // 10 minutes
 
     assert( fMatchingLock && fFramebuffers && fDisplays );
 
     notify = addMatchingNotification( gIOPublishNotification,
-				      serviceMatching("IODisplay"), _displayHandler,
-				      this, fDisplays );
+                                      serviceMatching("IODisplay"), _displayHandler,
+                                      this, fDisplays );
     assert( notify );
 
     notify = addMatchingNotification( gIOPublishNotification,
-				      serviceMatching("IODisplayConnect"), _displayConnectHandler,
-				      this, 0, 50000 );
+                                      serviceMatching("IODisplayConnect"), _displayConnectHandler,
+                                      this, 0, 50000 );
     assert( notify );
 
     gIODisplayWrangler = this;
@@ -281,10 +284,10 @@ bool IODisplayWrangler::displayHandler( OSSet * set,
 bool IODisplayWrangler::displayConnectHandler( void * /* ref */,
         IODisplayConnect * connect )
 {
-    SInt32		score = 50000;
-    OSIterator *	iter;
-    IODisplay *		display;
-    bool		found = false;
+    SInt32              score = 50000;
+    OSIterator *        iter;
+    IODisplay *         display;
+    bool                found = false;
 
     assert( OSDynamicCast( IODisplayConnect, connect ));
 
@@ -319,8 +322,8 @@ bool IODisplayWrangler::displayConnectHandler( void * /* ref */,
 
 bool IODisplayWrangler::makeDisplayConnects( IOFramebuffer * fb )
 {
-    IODisplayConnect *	connect;
-    IOItemCount		i;
+    IODisplayConnect *  connect;
+    IOItemCount         i;
 
     for (i = 0; i < 1 /*fb->getConnectionCount()*/; i++)
     {
@@ -341,10 +344,10 @@ bool IODisplayWrangler::makeDisplayConnects( IOFramebuffer * fb )
 
 void IODisplayWrangler::destroyDisplayConnects( IOFramebuffer * fb )
 {
-    OSIterator *	iter;
-    OSObject *		next;
-    IODisplayConnect *	connect;
-    IODisplay *		display;
+    OSIterator *        iter;
+    OSObject *          next;
+    IODisplayConnect *  connect;
+    IODisplay *         display;
 
     fb->removeProperty(kIOFBBuiltInKey);
 
@@ -370,11 +373,16 @@ void IODisplayWrangler::destroyDisplayConnects( IOFramebuffer * fb )
     }
 }
 
+void IODisplayWrangler::connectChange( IOFramebuffer * fb )
+{
+    gIODisplayWrangler->activityTickle(0,0);
+}
+
 IODisplayConnect * IODisplayWrangler::getDisplayConnect(
     IOFramebuffer * fb, IOIndex connect )
 {
-    OSIterator	*	iter;
-    OSObject	*	next;
+    OSIterator  *       iter;
+    OSObject    *       next;
     IODisplayConnect *  connection = 0;
 
     iter = fb->getClientIterator();
@@ -400,8 +408,8 @@ IOReturn IODisplayWrangler::getConnectFlagsForDisplayMode(
     IODisplayConnect * connect,
     IODisplayModeID mode, UInt32 * flags )
 {
-    IOReturn		err = kIOReturnUnsupported;
-    IODisplay * 	display;
+    IOReturn            err = kIOReturnUnsupported;
+    IODisplay *         display;
 
     display = OSDynamicCast( IODisplay, connect->getClient());
     if (display)
@@ -419,7 +427,7 @@ IOReturn IODisplayWrangler::getFlagsForDisplayMode(
     IOFramebuffer * fb,
     IODisplayModeID mode, UInt32 * flags )
 {
-    IODisplayConnect * 		connect;
+    IODisplayConnect *          connect;
 
     // should look at all connections
     connect = gIODisplayWrangler->getDisplayConnect( fb, 0 );
@@ -432,17 +440,12 @@ IOReturn IODisplayWrangler::getFlagsForDisplayMode(
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
-enum {
-    kIODisplayWranglerNumPowerStates = kIODisplayNumPowerStates + 1,
-    kIODisplayWranglerMaxPowerState = kIODisplayWranglerNumPowerStates - 1,
-};
-
 static IOPMPowerState ourPowerStates[kIODisplayWranglerNumPowerStates] = {
             // version,
             //   capabilityFlags, outputPowerCharacter, inputPowerRequirement,
-            { 1, 0,               			 0, 0,           0,0,0,0,0,0,0,0 },
-            { 1, 0,                			 0, IOPMPowerOn, 0,0,0,0,0,0,0,0 },
-            { 1, 0,               			 0, IOPMPowerOn, 0,0,0,0,0,0,0,0 },
+            { 1, 0,                                      0, 0,           0,0,0,0,0,0,0,0 },
+            { 1, 0,                                      0, IOPMPowerOn, 0,0,0,0,0,0,0,0 },
+            { 1, 0,                                      0, IOPMPowerOn, 0,0,0,0,0,0,0,0 },
             { 1, IOPMDeviceUsable | kIOPMPreventIdleSleep, 0, IOPMPowerOn, 0,0,0,0,0,0,0,0 },
             { 1, IOPMDeviceUsable | kIOPMPreventIdleSleep, 0, IOPMPowerOn, 0,0,0,0,0,0,0,0 }
             // staticPower, unbudgetedPower, powerToAttain, timeToAttain, settleUpTime,
@@ -532,24 +535,24 @@ IOReturn IODisplayWrangler::setAggressiveness( unsigned long type, unsigned long
 
       case kIOFBCaptureAggressiveness:
 
-	if (fDimCaptured && !newLevel)
-	    activityTickle(0,0);
+        if (fDimCaptured && !newLevel)
+            activityTickle(0,0);
 
-	fDimCaptured = (0 != newLevel);
+        fDimCaptured = (0 != newLevel);
 
-	/* fall thru */
+        /* fall thru */
 
       case kPMMinutesToDim:
         // minutes to dim received
-	if (kPMMinutesToDim == type)
-	{
-	    // Display will always dim at least 5 seconds before
-	    // display sleep kicks in.
-	    fIdleTimeoutMax = fMinutesToDim * 60 - 5;        
-	    fMinutesToDim = newLevel;
-	}
+        if (kPMMinutesToDim == type)
+        {
+            // Display will always dim at least 5 seconds before
+            // display sleep kicks in.
+            fIdleTimeoutMax = fMinutesToDim * 60 - 5;        
+            fMinutesToDim = newLevel;
+        }
 
-	newLevel = fDimCaptured ? 0 : fMinutesToDim;
+        newLevel = fDimCaptured ? 0 : fMinutesToDim;
         if (newLevel == 0)
         {
             // pm turned off while idle?
@@ -564,10 +567,10 @@ IOReturn IODisplayWrangler::setAggressiveness( unsigned long type, unsigned long
         // Set new timeout        
         setIdleTimerPeriod( newLevel*60 / 2);
 
-	break;
+        break;
 
       default:
-	break;
+        break;
     }
     super::setAggressiveness(type, newLevel);
     return (IOPMNoErr);
@@ -590,12 +593,13 @@ IOReturn IODisplayWrangler::setPowerState( unsigned long powerStateOrdinal, IOSe
         changePowerStateToPriv(0);
         return (IOPMNoErr);
     }
+    DEBG1("W", " setPowerState(%ld), sys %d\n", powerStateOrdinal, gIOGraphicsSystemPower);
     if (!gIOGraphicsSystemPower)
-	return (IOPMNoErr);
+        return (IOPMNoErr);
     else if (powerStateOrdinal < getPowerState())
     {
-	// HI is idle, drop power
-	idleDisplays();
+        // HI is idle, drop power
+        idleDisplays();
     }
     else if (powerStateOrdinal == kIODisplayWranglerMaxPowerState)
     {
@@ -613,8 +617,8 @@ IOReturn IODisplayWrangler::setPowerState( unsigned long powerStateOrdinal, IOSe
 
 void IODisplayWrangler::makeDisplaysUsable ( void )
 {
-    OSIterator *	iter;
-    IODisplay *	display;
+    OSIterator *        iter;
+    IODisplay * display;
 
     IOTakeLock( fMatchingLock );
 
@@ -638,8 +642,8 @@ void IODisplayWrangler::makeDisplaysUsable ( void )
 
 void IODisplayWrangler::idleDisplays ( void )
 {
-    OSIterator *	iter;
-    IODisplay *	display;
+    OSIterator *        iter;
+    IODisplay * display;
     UInt64              current_time_ns;
     UInt64              current_time_secs;
 
@@ -647,7 +651,7 @@ void IODisplayWrangler::idleDisplays ( void )
     {
         // Log time of initial dimming
         AbsoluteTime current_time_absolute;
-		AbsoluteTime_to_scalar(&current_time_absolute) = mach_absolute_time();
+                AbsoluteTime_to_scalar(&current_time_absolute) = mach_absolute_time();
         absolutetime_to_nanoseconds(current_time_absolute, &current_time_ns);
         current_time_secs = current_time_ns / NSEC_PER_SEC;
         fLastDimTime_secs = current_time_secs;
@@ -700,8 +704,8 @@ SInt32 IODisplayWrangler::nextIdleTimeout(
 
     if (!lastActivity_secs)
     {
-	enum { kWindowServerStartTime = 24 * 60 * 60 };
-	return (kWindowServerStartTime);
+        enum { kWindowServerStartTime = 24 * 60 * 60 };
+        return (kWindowServerStartTime);
     }
 
     switch( getPowerState() ) {
@@ -786,7 +790,7 @@ UInt32 IODisplayWrangler::calculate_idle_timer_period(int powerState)
     // after transitioning state 3->2.
     if ( 4 == powerState )
     {
-		if ( gCOMPRESS_TIME )
+                if ( gCOMPRESS_TIME )
         {
             idle_timer_period = fMinutesToDim * 60 / 12;
         }
@@ -798,12 +802,12 @@ UInt32 IODisplayWrangler::calculate_idle_timer_period(int powerState)
         // Clip it into the range fIdleTimeoutMin seconds thru fIdleTimeoutMax
         if ( idle_timer_period < fIdleTimeoutMin )
         {
-        	idle_timer_period = fIdleTimeoutMin;
+                idle_timer_period = fIdleTimeoutMin;
         }
         else
         if ( idle_timer_period > fIdleTimeoutMax )
         {
-        	idle_timer_period = fIdleTimeoutMax;
+                idle_timer_period = fIdleTimeoutMax;
         }
     }
     else
@@ -828,14 +832,14 @@ bool IODisplayWrangler::activityTickle( unsigned long x, unsigned long y )
     AbsoluteTime current_time_absolute;
 
     if (!fOpen)
-	return (true);
+        return (true);
 
-	AbsoluteTime_to_scalar(&current_time_absolute) = mach_absolute_time();
+        AbsoluteTime_to_scalar(&current_time_absolute) = mach_absolute_time();
     if (AbsoluteTime_to_scalar(&fIdleUntil))
     {
-	if (CMP_ABSOLUTETIME(&current_time_absolute, &fIdleUntil) < 0)
-	    return (true);
-	AbsoluteTime_to_scalar(&fIdleUntil) = 0;
+        if (CMP_ABSOLUTETIME(&current_time_absolute, &fIdleUntil) < 0)
+            return (true);
+        AbsoluteTime_to_scalar(&fIdleUntil) = 0;
     }
 
     if (super::activityTickle(kIOPMSuperclassPolicy1,
@@ -902,9 +906,9 @@ UInt64 IODisplayWrangler::calculate_latest_veto_till_time( UInt64 current_time_s
 
     while ( j < fAnnoyanceCapsArrayLength )
     {
-        while (		( i < fAnnoyanceEventArrayLength )
-                &&	( 0 != getNthAnnoyance( i )->wake_time_secs ) 
-                &&	( (current_time_secs - getNthAnnoyance(i)->wake_time_secs) 
+        while (         ( i < fAnnoyanceEventArrayLength )
+                &&      ( 0 != getNthAnnoyance( i )->wake_time_secs ) 
+                &&      ( (current_time_secs - getNthAnnoyance(i)->wake_time_secs) 
                     < (UInt64)fAnnoyanceCapsArray[ j ].cutoff_time_secs )
               )
         {
@@ -999,7 +1003,7 @@ IOReturn IODisplayWrangler::setProperties( OSObject * properties )
     OSNumber *     num;
     uint32_t       idleFor = 0;
     enum { kIODisplayRequestDefaultIdleFor = 1000,
-	    kIODisplayRequestMaxIdleFor    = 15000 };
+            kIODisplayRequestMaxIdleFor    = 15000 };
 
     if (!(dict = OSDynamicCast(OSDictionary, properties)))
         return (kIOReturnBadArgument);
@@ -1013,40 +1017,32 @@ IOReturn IODisplayWrangler::setProperties( OSObject * properties )
     obj = dict->getObject(kIORequestIdleKey);
     if (kOSBooleanTrue == obj)
     {
-	idleFor = kIODisplayRequestDefaultIdleFor;
+        idleFor = kIODisplayRequestDefaultIdleFor;
+    }
+    else if (kOSBooleanFalse == obj)
+    {
+        AbsoluteTime_to_scalar(&fIdleUntil) = 0;
+        activityTickle(0, 0);
     }
     else if ((num = OSDynamicCast(OSNumber, obj)))
     {
-	idleFor = num->unsigned32BitValue();
-	if (idleFor > kIODisplayRequestMaxIdleFor)
-	    idleFor = kIODisplayRequestMaxIdleFor;
+        idleFor = num->unsigned32BitValue();
+        if (idleFor > kIODisplayRequestMaxIdleFor)
+            idleFor = kIODisplayRequestMaxIdleFor;
     }
 
     if (idleFor)
     {
-	clock_interval_to_deadline(idleFor, kMillisecondScale, &fIdleUntil);
+        clock_interval_to_deadline(idleFor, kMillisecondScale, &fIdleUntil);
 
-	if (getPowerState() > 3)
-	    changePowerStateToPriv(3);
-	if (getPowerState() > 1)
-	    changePowerStateToPriv(1);
-	return (kIOReturnSuccess);
+        if (getPowerState() > 3)
+            changePowerStateToPriv(3);
+        if (getPowerState() > 1)
+            changePowerStateToPriv(1);
+        return (kIOReturnSuccess);
     }
 
     OSObject * value;
-
-    value = dict->getObject( "DEBUG" );
-    if ( value )
-    { // DEBUG
-        OSNumber * number;
-        number = OSDynamicCast( OSNumber, value );
-        if ( number )
-        {
-            gDEBUG = number->unsigned32BitValue();
-    
-            this->setProperty( "DEBUG", number );
-        }
-    } // DEBUG
 
     value = dict->getObject( "COMPRESS_TIME" );
     if ( value )

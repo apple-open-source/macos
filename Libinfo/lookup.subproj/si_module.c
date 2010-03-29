@@ -47,6 +47,7 @@ typedef struct si_async_workunit_s
 	uint32_t call;
 	char *str1;
 	char *str2;
+	char *str3;
 	uint32_t num1;
 	uint32_t num2;
 	uint32_t num3;
@@ -592,19 +593,19 @@ si_alias_all(si_mod_t *si)
 }
 
 __private_extern__ si_item_t *
-si_host_byname(si_mod_t *si, const char *name, int af, uint32_t *err)
+si_host_byname(si_mod_t *si, const char *name, int af, const char *interface, uint32_t *err)
 {
 	if (si == NULL) return NULL;
 	if (si->sim_host_byname == NULL) return NULL;
-	return si->sim_host_byname(si, name, af, err);
+	return si->sim_host_byname(si, name, af, interface, err);
 }
 
 __private_extern__ si_item_t *
-si_host_byaddr(si_mod_t *si, const void *addr, int af, uint32_t *err)
+si_host_byaddr(si_mod_t *si, const void *addr, int af, const char *interface, uint32_t *err)
 {
 	if (si == NULL) return NULL;
 	if (si->sim_host_byaddr == NULL) return NULL;
-	return si->sim_host_byaddr(si, addr, af, err);
+	return si->sim_host_byaddr(si, addr, af, interface, err);
 }
 
 __private_extern__ si_list_t *
@@ -760,7 +761,7 @@ si_fs_all(si_mod_t *si)
 }
 
 __private_extern__ si_item_t *
-si_item_call(struct si_mod_s *si, int call, const char *str1, const char *str2, uint32_t num1, uint32_t num2, uint32_t *err)
+si_item_call(struct si_mod_s *si, int call, const char *str1, const char *str2, const char *str3, uint32_t num1, uint32_t num2, uint32_t *err)
 {
 	if (si == NULL) return NULL;
 
@@ -772,8 +773,8 @@ si_item_call(struct si_mod_s *si, int call, const char *str1, const char *str2, 
 		case SI_CALL_GROUP_BYGID: return si_group_bygid(si, (gid_t)num1);
 		case SI_CALL_GROUPLIST: return si_grouplist(si, str1);
 		case SI_CALL_ALIAS_BYNAME: return si_alias_byname(si, str1);
-		case SI_CALL_HOST_BYNAME: return si_host_byname(si, str1, num1, err);
-		case SI_CALL_HOST_BYADDR: return si_host_byaddr(si, (void *)str1, num1, err);
+		case SI_CALL_HOST_BYNAME: return si_host_byname(si, str1, num1, str3, err);
+		case SI_CALL_HOST_BYADDR: return si_host_byaddr(si, (void *)str1, num1, str3, err);
 		case SI_CALL_NETWORK_BYNAME: return si_network_byname(si, str1);
 		case SI_CALL_NETWORK_BYADDR: return si_network_byaddr(si, num1);
 		case SI_CALL_SERVICE_BYNAME: return si_service_byname(si, str1, str2);
@@ -784,8 +785,8 @@ si_item_call(struct si_mod_s *si, int call, const char *str1, const char *str2, 
 		case SI_CALL_RPC_BYNUMBER: return si_rpc_bynumber(si, num1);
 		case SI_CALL_FS_BYSPEC: return si_fs_byspec(si, str1);
 		case SI_CALL_FS_BYFILE: return si_fs_byfile(si, str1);
-		case SI_CALL_NAMEINFO: return si_nameinfo(si, (const struct sockaddr *)str1, num1, err);
-		case SI_CALL_IPNODE_BYNAME: return si_ipnode_byname(si, (const char *)str1, num1, num2, err);
+		case SI_CALL_NAMEINFO: return si_nameinfo(si, (const struct sockaddr *)str1, num1, str3, err);
+		case SI_CALL_IPNODE_BYNAME: return si_ipnode_byname(si, (const char *)str1, num1, num2, str3, err);
 		case SI_CALL_MAC_BYNAME: return si_mac_byname(si, (const char *)str1);
 		case SI_CALL_MAC_BYMAC: return si_mac_bymac(si, (const char *)str1);
 
@@ -794,7 +795,7 @@ si_item_call(struct si_mod_s *si, int call, const char *str1, const char *str2, 
 		case SI_CALL_DNS_SEARCH:
 		{
 			if (si->sim_item_call == NULL) return NULL;
-			return si->sim_item_call(si, call, str1, str2, num1, num2, err);
+			return si->sim_item_call(si, call, str1, str2, str3, num1, num2, err);
 		}
 
 		default: return NULL;
@@ -804,7 +805,7 @@ si_item_call(struct si_mod_s *si, int call, const char *str1, const char *str2, 
 }
 
 __private_extern__ si_list_t *
-si_list_call(struct si_mod_s *si, int call, const char *str1, const char *str2, uint32_t num1, uint32_t num2, uint32_t num3, uint32_t num4, uint32_t *err)
+si_list_call(struct si_mod_s *si, int call, const char *str1, const char *str2, const char *str3, uint32_t num1, uint32_t num2, uint32_t num3, uint32_t num4, uint32_t *err)
 {
 	if (si == NULL) return NULL;
 
@@ -820,7 +821,7 @@ si_list_call(struct si_mod_s *si, int call, const char *str1, const char *str2, 
 		case SI_CALL_RPC_ALL: return si_rpc_all(si);
 		case SI_CALL_FS_ALL: return si_fs_all(si);
 		case SI_CALL_MAC_ALL: return si_mac_all(si);
-		case SI_CALL_ADDRINFO: return si_addrinfo(si, str1, str2, num1, num2, num3, num4, err);
+		case SI_CALL_ADDRINFO: return si_addrinfo(si, str1, str2, num1, num2, num3, num4, str3, err);
 		default: return NULL;
 	}
 
@@ -867,16 +868,17 @@ si_async_worklist_find_unit(mach_port_t p)
 }
 
 static si_async_workunit_t *
-si_async_workunit_create(si_mod_t *si, int call, const char *str1, const char *str2, uint32_t num1, uint32_t num2, uint32_t num3, uint32_t num4, void *callback, void *context)
+si_async_workunit_create(si_mod_t *si, int call, const char *str1, const char *str2, const char *str3, uint32_t num1, uint32_t num2, uint32_t num3, uint32_t num4, void *callback, void *context)
 {
 	si_async_workunit_t *r;
 	kern_return_t status;
 	mach_port_t reply, send;
 	mach_msg_type_name_t type;
-	char *s1, *s2;
+	char *s1, *s2, *s3;
 
 	s1 = NULL;
 	s2 = NULL;
+	s3 = NULL;
 
 	if (si_call_str1_is_buffer(call))
 	{
@@ -903,11 +905,23 @@ si_async_workunit_create(si_mod_t *si, int call, const char *str1, const char *s
 		}
 	}
 
+	if (str3 != NULL)
+	{
+		s3 = strdup(str3);
+		if (s3 == NULL)
+		{
+			if (s1 != NULL) free(s1);
+			if (s2 != NULL) free(s2);
+			return NULL;
+		}
+	}
+
 	r = (si_async_workunit_t *)calloc(1, sizeof(si_async_workunit_t));
 	if (r == NULL)
 	{
 		if (s1 != NULL) free(s1);
 		if (s2 != NULL) free(s2);
+		if (s3 != NULL) free(s3);
 		return NULL;
 	}
 
@@ -922,6 +936,7 @@ si_async_workunit_create(si_mod_t *si, int call, const char *str1, const char *s
 		if (reply != MACH_PORT_NULL) mach_port_mod_refs(mach_task_self(), reply, MACH_PORT_RIGHT_RECEIVE, -1);
 		if (s1 != NULL) free(s1);
 		if (s2 != NULL) free(s2);
+		if (s3 != NULL) free(s3);
 		free(r);
 		return NULL;
 	}
@@ -930,6 +945,7 @@ si_async_workunit_create(si_mod_t *si, int call, const char *str1, const char *s
 	r->call = call;
 	r->str1 = s1;
 	r->str2 = s2;
+	r->str3 = s3;
 	r->num1 = num1;
 	r->num2 = num2;
 	r->num3 = num3;
@@ -962,6 +978,7 @@ si_async_workunit_release(si_async_workunit_t *r)
 
 	if (r->str1 != NULL) free(r->str1);
 	if (r->str2 != NULL) free(r->str2);
+	if (r->str3 != NULL) free(r->str3);
 
 	free(r);
 }
@@ -976,8 +993,8 @@ si_async_launchpad(void *x)
 	if (x == NULL) pthread_exit(NULL);
 	r = (si_async_workunit_t *)x;
 
-	if (r->flags & WORKUNIT_RETURNS_LIST) r->reslist = si_list_call(r->si, r->call, r->str1, r->str2, r->num1, r->num2, r->num3, r->num4, &(r->err));
-	else r->resitem = si_item_call(r->si, r->call, r->str1, r->str2, r->num1, r->num2, &(r->err));
+	if (r->flags & WORKUNIT_RETURNS_LIST) r->reslist = si_list_call(r->si, r->call, r->str1, r->str2, r->str3, r->num1, r->num2, r->num3, r->num4, &(r->err));
+	else r->resitem = si_item_call(r->si, r->call, r->str1, r->str2, r->str3, r->num1, r->num2, &(r->err));
 
 	memset(&msg, 0, sizeof(mach_msg_empty_send_t));
 
@@ -1005,7 +1022,7 @@ si_async_launchpad(void *x)
 }
 
 mach_port_t
-si_async_call(struct si_mod_s *si, int call, const char *str1, const char *str2, uint32_t num1, uint32_t num2, uint32_t num3, uint32_t num4, void *callback, void *context)
+si_async_call(struct si_mod_s *si, int call, const char *str1, const char *str2, const char *str3, uint32_t num1, uint32_t num2, uint32_t num3, uint32_t num4, void *callback, void *context)
 {
 	si_async_workunit_t *req;
 	pthread_attr_t attr;
@@ -1017,10 +1034,10 @@ si_async_call(struct si_mod_s *si, int call, const char *str1, const char *str2,
 	/* if module does async on it's own, hand off the call */
 	if (si->sim_async_call != NULL)
 	{
-		return si->sim_async_call(si, call, str1, str2, num1, num2, num3, num4, callback, context);
+		return si->sim_async_call(si, call, str1, str2, str3, num1, num2, num3, num4, callback, context);
 	}
 
-	req = si_async_workunit_create(si, call, str1, str2, num1, num2, num3, num4, callback, context);
+	req = si_async_workunit_create(si, call, str1, str2, str3, num1, num2, num3, num4, callback, context);
 	if (req == NULL) return MACH_PORT_NULL;
 
 	/* start a new thread to do the work */

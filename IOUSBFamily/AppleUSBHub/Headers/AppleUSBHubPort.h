@@ -2,7 +2,7 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1998-2007 Apple Inc.  All Rights Reserved.
+ * Copyright © 1998-2010 Apple Inc.  All Rights Reserved.
  * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
@@ -106,8 +106,12 @@ protected:
     UInt8							_connectionChangedState;
     bool							_initThreadActive;
     bool							_inCommandSleep;
+	bool							_delayOnStatusChange;
+	bool							_addDeviceThreadActive;
+	bool							_enablePowerAfterOvercurrentThreadActive;
     UInt32							_attachRetry;
 	bool							_attachMessageDisplayed;
+	bool							_attachRetryFailed;
 	bool							_overCurrentNoticeDisplayed;
 	AbsoluteTime					_overCurrentNoticeTimeStamp;
 	UInt32							_portResumeRecoveryTime;									// # of ms that we have to allow after a RESUME before we can talk to a device.  Generally it's 10ms, but some devices need more
@@ -118,6 +122,8 @@ private:
 		
     thread_call_t					_initThread;
     thread_call_t					_portStatusChangedHandlerThread;
+    thread_call_t					_addDeviceThread;
+    thread_call_t					_enablePowerAfterOvercurrentThread;
     IOUSBHubPortStatus				_portStatus;
     USBHubPortEnumState				_state;
     IOLock *						_runLock;											// Lock to synchronize accesses to our ProcessStatus thread
@@ -131,10 +137,14 @@ private:
 	bool							_lowerPowerStateOnResume;
 	bool							_usingExtraPortPower;
 	bool							_ignoreDisconnectOnWakeup;
-	
-    
+	bool							_printConnectIOLog;
+	bool							_suspendChangeAlreadyLogged;						// to prevent double logging
+ 	SInt32							_debounceCount;
+   
     static void						PortInitEntry(OSObject *target);					// this will run on its own thread
     static void						PortStatusChangedHandlerEntry(OSObject *target);	// this will run on its own thread
+    static void						AddDeviceEntry(OSObject *target);					// this will run on its own thread
+    static void						EnablePowerAfterOvercurrentEntry(OSObject *target);	// this will run on its own thread
 
     IOReturn						DetachDevice();
     IOReturn						GetDevZeroDescriptorWithRetries();
@@ -155,7 +165,7 @@ public:
 	virtual void					free(void);
 
 protected:
-    IOReturn						AddDevice(void);
+    void							AddDevice(void);									// this runs on a separate thread
     void							RemoveDevice(void);
     IOReturn						ResetPort();
     IOReturn						ClearTT(bool multiTTs, UInt32 options);
@@ -177,9 +187,9 @@ protected:
     IOReturn						ReEnumeratePort(UInt32 options);
 	bool							IsCaptiveOverride(UInt16 vendorID, UInt16 prodID);
 	bool							ShouldApplyDisconnectWorkaround();
-	
+	IOReturn						LaunchAddDeviceThread();
     void							DisplayOverCurrentNotice(bool individual);
-
+	void							EnablePowerAfterOvercurrent();
 	
 	// Accessors
     AppleUSBHub *					GetHub()					{ return _hub; }

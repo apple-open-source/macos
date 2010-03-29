@@ -16,7 +16,7 @@
  * @APPLE_APACHE_LICENSE_HEADER_END@
  */
 
-static const char *const __rcs_file_version__ = "$Revision: 23932 $";
+static const char *const __rcs_file_version__ = "$Revision: 24003 $";
 
 #include "config.h"
 #include "launchd_core_logic.h"
@@ -91,8 +91,12 @@ static const char *const __rcs_file_version__ = "$Revision: 23932 $";
 #else
 /* To make my life easier. */
 typedef struct jetsam_priority_entry {
-    pid_t pid;
-    uint32_t flags;
+	pid_t pid;
+	uint32_t flags;
+	int32_t hiwat_pages;
+	int32_t hiwat_reserved1;
+	int32_t hiwat_reserved2;
+	int32_t hiwat_reserved3;
 } jetsam_priority_entry_t;
 
 enum {
@@ -133,7 +137,6 @@ enum {
 #define LAUNCHD_DEFAULT_EXIT_TIMEOUT	20
 #define LAUNCHD_SIGKILL_TIMER			5
 #define LAUNCHD_CLEAN_KILL_TIMER		1
-#define LAUNCHD_JETSAM_PRIORITY_UNSET	0xdead1eebabell
 
 #define SHUTDOWN_LOG_DIR "/var/log/shutdown"
 
@@ -275,6 +278,8 @@ static void limititem_setup(launch_data_t obj, const char *key, void *context);
 #if HAVE_SANDBOX
 static void seatbelt_setup_flags(launch_data_t obj, const char *key, void *context);
 #endif
+
+static void jetsam_property_setup(launch_data_t obj, const char *key, job_t j);
 
 typedef enum {
 	NETWORK_UP = 1,
@@ -465,8 +470,9 @@ struct job_s {
 	int log_redirect_fd;
 	int nice;
 	int stdout_err_fd;
-	long long jetsam_priority;
-	long long main_thread_priority;
+	int32_t jetsam_priority;
+	int32_t jetsam_memlimit;
+	int32_t main_thread_priority;
 	uint32_t timeout;
 	uint32_t exit_timeout;
 	uint64_t sent_signal_time;
@@ -541,7 +547,8 @@ struct job_s {
 			clean_exit_timer_expired	:1, /* The job was clean, received SIGKILL and failed to exit after LAUNCHD_CLEAN_KILL_TIMER seconds. */
 			embedded_special_privileges	:1, /* The job runs as a non-root user on embedded but has select privileges of the root user. */
 			did_exec					:1, /* The job exec(2)ed successfully. */
-			migratory					:1; /* The (anonymous) job called vprocmgr_switch_to_session(). */
+			holds_ref					:1, /* The (anonymous) job called vprocmgr_switch_to_session(). */
+			jetsam_properties			:1; /* The job has Jetsam limits in place. */
 	mode_t mask;
 	pid_t tracing_pid;
 	mach_port_t audit_session;
@@ -637,11 +644,6 @@ static void take_sample(job_t j);
 
 void eliminate_double_reboot(void);
 
-/* For Jetsam. */
-static void jetsam_priority_from_job(job_t j, bool front, jetsam_priority_entry_t *jp);
-static int job_cmp(const job_t *lhs, const job_t *rhs);
-int launchd_set_jetsam_priorities(launch_data_t priorities);
-
 /* file local globals */
 static size_t total_children;
 static size_t total_anon_children;
@@ -666,6 +668,7 @@ jobmgr_t root_jobmgr;
 bool g_shutdown_debugging = false;
 bool g_verbose_boot = false;
 bool g_embedded_privileged_action = false;
+bool g_runtime_busy_time = false;
 
 void
 job_ignore(job_t j)
@@ -1199,7 +1202,7 @@ job_remove(job_t j)
 		/* Not a big deal if this fails. It means that the timer's already been freed. */
 		kevent_mod((uintptr_t)&j->exit_timeout, EVFILT_TIMER, EV_DELETE, 0, 0, NULL);
 	}
-	if( j->jetsam_priority != LAUNCHD_JETSAM_PRIORITY_UNSET ) {
+	if( j->jetsam_properties ) {
 		LIST_REMOVE(j, jetsam_sle);
 		j->mgr->jetsam_jobs_cnt--;
 	}
@@ -1415,27 +1418,20 @@ job_new_anonymous(jobmgr_t jm, pid_t anonpid)
 				kp_euid, kp_uid, kp_svuid, kp_egid, kp_gid, kp_svgid, anonpid, kp.kp_proc.p_comm);
 	}
 
-	switch (kp.kp_eproc.e_ppid) {
-	case 0:
-		/* the kernel */
-		break;
-	case 1:
-		if (!pid1_magic) {
-			/* we cannot possibly find a parent job_t that is useful in this function */
-			break;
-		}
-		/* fall through */
-	default:
-		jp = jobmgr_find_by_pid(jm, kp.kp_eproc.e_ppid, true);
-		jobmgr_assumes(jm, jp != NULL);
-		break;
+	/* "Fix" for a problem that shouldn't even exist.
+	 * See rdar://problem/7264615 for the symptom and rdar://problem/5020256
+	 * as to why this can happen.
+	 */
+	if( !jobmgr_assumes(jm, kp.kp_eproc.e_ppid != anonpid) ) {
+		jobmgr_log(jm, LOG_WARNING, "Process has become its own parent through ptrace(3). It should find a different way to do whatever it's doing. Setting PPID to 0: %s", kp.kp_proc.p_comm);
+		errno = EINVAL;
+		return NULL;
 	}
 
 	if (jp && !jp->anonymous && unlikely(!(kp.kp_proc.p_flag & P_EXEC))) {
 		job_log(jp, LOG_DEBUG, "Called *fork(). Please switch to posix_spawn*(), pthreads or launchd. Child PID %u",
 				kp.kp_proc.p_pid);
 	}
-
 
 	/* A total hack: Normally, job_new() returns an error during shutdown, but anonymous jobs are special. */
 	if (unlikely(shutdown_state = jm->shutting_down)) {
@@ -1467,6 +1463,28 @@ job_new_anonymous(jobmgr_t jm, pid_t anonpid)
 
 	if (unlikely(shutdown_state)) {
 		jm->shutting_down = true;
+	}
+
+	/* This is down here to mitigate the effects of rdar://problem/7264615, in which a process
+	 * attaches to its own parent. We need to make sure that the anonymous job has been added
+	 * to the process list so that, if it's used ptrace(3) to cause a cycle in the process
+	 * tree (thereby making it not a tree anymore), we'll find the tracing parent PID of the
+	 * parent process, which is the child, when we go looking for it in jobmgr_find_by_pid().
+	 */
+	switch (kp.kp_eproc.e_ppid) {
+		case 0:
+			/* the kernel */
+			break;
+		case 1:
+			if (!pid1_magic) {
+				/* we cannot possibly find a parent job_t that is useful in this function */
+				break;
+			}
+			/* fall through */
+		default:
+			jp = jobmgr_find_by_pid(jm, kp.kp_eproc.e_ppid, true);
+			jobmgr_assumes(jm, jp != NULL);
+			break;
 	}
 
 	return jr;
@@ -1531,7 +1549,8 @@ job_new(jobmgr_t jm, const char *label, const char *prog, const char *const *arg
 	j->currently_ignored = true;
 	j->ondemand = true;
 	j->checkedin = true;
-	j->jetsam_priority = LAUNCHD_JETSAM_PRIORITY_UNSET;
+	j->jetsam_priority = -1;
+	j->jetsam_memlimit = -1;
 	uuid_clear(j->expected_audit_uuid);
 	
 	if (prog) {
@@ -1897,12 +1916,14 @@ job_import_integer(job_t j, const char *key, long long value)
 	case 'j':
 	case 'J':
 		if( strcasecmp(key, LAUNCH_JOBKEY_JETSAMPRIORITY) == 0 ) {
-			job_log(j, LOG_DEBUG, "Importing job with priority: %lld", value);
-			j->jetsam_priority = (typeof(j->jetsam_priority))value;
-			LIST_INSERT_HEAD(&j->mgr->jetsam_jobs, j, jetsam_sle);
-			j->mgr->jetsam_jobs_cnt++;
+			job_log(j, LOG_WARNING | LOG_CONSOLE, "Please change the JetsamPriority key to be in a dictionary named JetsamProperties.");
+			
+			launch_data_t pri = launch_data_new_integer(value);
+			if( job_assumes(j, pri != NULL) ) {
+				jetsam_property_setup(pri, LAUNCH_JOBKEY_JETSAMPRIORITY, j);
+				launch_data_free(pri);
+			}
 		}
-		break;
 	case 'n':
 	case 'N':
 		if (strcasecmp(key, LAUNCH_JOBKEY_NICE) == 0) {
@@ -2051,6 +2072,11 @@ job_import_dictionary(job_t j, const char *key, launch_data_t value)
 			}
 		}
 		break;
+	case 'j':
+	case 'J':
+		if( strcasecmp(key, LAUNCH_JOBKEY_JETSAMPROPERTIES) == 0 ) {
+			launch_data_dict_iterate(value, (void (*)(launch_data_t, const char *, void *))jetsam_property_setup, j);
+		}
 	case 'e':
 	case 'E':
 		if (strcasecmp(key, LAUNCH_JOBKEY_ENVIRONMENTVARIABLES) == 0) {
@@ -2767,7 +2793,7 @@ job_reap(job_t j)
 	
 	if (j->anonymous) {
 		total_anon_children--;
-		if( j->migratory ) {
+		if( j->holds_ref ) {
 			runtime_del_ref();
 		}
 	} else {
@@ -3239,7 +3265,15 @@ job_callback_proc(job_t j, struct kevent *kev)
 					 *
 					 * Otherwise, we wait for the death of the parent tracer and then reap, just as we
 					 * would if a job died while we were sampling it at shutdown.
+					 *
+					 * Note that we foolishly assume that in the process *tree* a node cannot be its
+					 * own parent. Apparently, that is not correct. If this is the case, we forsake
+					 * the process to its own devices. Let it reap itself.
 					 */
+					if( !job_assumes(j, kp.kp_eproc.e_ppid != (pid_t)kev->ident) ) {
+						job_log(j, LOG_WARNING, "Job is its own parent and has (somehow) exited. Leaving it to waste away.");
+						return;
+					}
 					if( job_assumes(j, kevent_mod(kp.kp_eproc.e_ppid, EVFILT_PROC, EV_ADD, NOTE_EXIT, 0, j) != -1) ) {
 						j->tracing_pid = kp.kp_eproc.e_ppid;
 						j->reap_after_trace = true;
@@ -3447,6 +3481,7 @@ jobmgr_callback(void *obj, struct kevent *kev)
 	case EVFILT_SIGNAL:
 		switch (kev->ident) {
 		case SIGTERM:			
+			jobmgr_log(jm, LOG_DEBUG, "Got SIGTERM. Shutting down.");
 			return launchd_shutdown();
 		case SIGUSR1:
 			return calendarinterval_callback();
@@ -3489,6 +3524,11 @@ jobmgr_callback(void *obj, struct kevent *kev)
 			jobmgr_still_alive_with_check(jm);
 		} else if( kev->ident == (uintptr_t)&jm->reboot_flags ) {
 			jobmgr_do_garbage_collection(jm);
+		} else if( kev->ident == (uintptr_t)&g_runtime_busy_time ) {
+			jobmgr_log(jm, LOG_DEBUG, "Idle exit timer fired. Shutting down.");
+			if( jobmgr_assumes(jm, runtime_busy_cnt == 0) ) {
+				return launchd_shutdown();
+			}
 		}
 		break;
 	case EVFILT_VNODE:
@@ -4181,7 +4221,7 @@ job_setup_attributes(job_t j)
 	}
 
 #if !TARGET_OS_EMBEDDED	
-	if( j->jetsam_priority != LAUNCHD_JETSAM_PRIORITY_UNSET ) {
+	if( j->jetsam_properties ) {
 		job_assumes(j, proc_setpcontrol(PROC_SETPC_TERMINATE) == 0);
 	}
 #endif
@@ -5563,8 +5603,8 @@ jobmgr_do_garbage_collection(jobmgr_t jm)
 			if( phase == JOBMGR_PHASE_HOPEFULLY_EXITS_FIRST && !ji->hopefully_exits_first ) {
 				continue;
 			} else if( phase == JOBMGR_PHASE_NORMAL ) {
-				if( ji->migratory ) {
-					/* If we're shutting down, release the hold migratory jobs
+				if( ji->holds_ref ) {
+					/* If we're shutting down, release the hold holds_ref jobs
 					 * have on us.
 					 */
 					job_remove(ji);			
@@ -7315,6 +7355,12 @@ job_mig_reboot2(job_t j, uint64_t flags)
 			return 1;
 		}
 
+		if( !job_assumes(j, pid_to_log != kp.kp_eproc.e_ppid) ) {
+			job_log(j, LOG_WARNING, "Job which is its own parent started reboot.");
+			snprintf(who_started_the_reboot, sizeof(who_started_the_reboot), "%s[%u]->%s[%u]->%s[%u]->...", kp.kp_proc.p_comm, pid_to_log, kp.kp_proc.p_comm, pid_to_log, kp.kp_proc.p_comm, pid_to_log);
+			break;
+		}
+
 		who_offset = strlen(who_started_the_reboot);
 		snprintf(who_started_the_reboot + who_offset, sizeof(who_started_the_reboot) - who_offset,
 				" %s[%u]%s", kp.kp_proc.p_comm, pid_to_log, kp.kp_eproc.e_ppid ? " ->" : "");
@@ -8140,6 +8186,11 @@ job_mig_move_subset(job_t j, mach_port_t target_subset, name_t session_type, mac
 		
 		j->mgr = jmr;
 		job_set_global_on_demand(j, true);
+		
+		if( !j->holds_ref ) {
+			j->holds_ref = true;
+			runtime_add_ref();
+		}
 	}
 	
 	for (l2l_i = 0; l2l_i < l2l_port_cnt; l2l_i++) {
@@ -8308,16 +8359,19 @@ job_mig_switch_to_session(job_t j, mach_port_t requestor_port, name_t session_na
 	}
 	
 	j->mgr = target_jm;
-	j->migratory = true;
-	*new_bsport = target_jm->jm_port;
 	
-	/* Anonymous jobs which move around are particularly interesting to us, so we want to
-	 * stick around while they're still around.
-	 * For example, login calls into the PAM launchd module, which moves the process into
-	 * the StandardIO session by default. So we'll hold a reference on that job to prevent
-	 * ourselves from going away.
-	 */
-	runtime_add_ref();
+	if( !j->holds_ref ) {
+		/* Anonymous jobs which move around are particularly interesting to us, so we want to
+		 * stick around while they're still around.
+		 * For example, login calls into the PAM launchd module, which moves the process into
+		 * the StandardIO session by default. So we'll hold a reference on that job to prevent
+		 * ourselves from going away.
+		 */
+		j->holds_ref = true;
+		runtime_add_ref();
+	}
+	
+	*new_bsport = target_jm->jm_port;
 	
 	return KERN_SUCCESS;
 }
@@ -8497,6 +8551,14 @@ job_mig_subset(job_t j, mach_port_t requestorport, mach_port_t *subsetportp)
 	*subsetportp = jmr->jm_port;
 	jmr->properties |= BOOTSTRAP_PROPERTY_EXPLICITSUBSET;
 	
+	/* A job could create multiple subsets, so only add a reference the first time
+	 * it does so we don't have to keep a count.
+	 */
+	if( j->anonymous && !j->holds_ref ) {
+		j->holds_ref = true;
+		runtime_add_ref();
+	}
+	
 	job_log(j, LOG_DEBUG, "Job created a subset named \"%s\"", jmr->name);
 	return BOOTSTRAP_SUCCESS;
 }
@@ -8598,7 +8660,7 @@ job_mig_wait(job_t j, mach_port_t srp, integer_t *waitstatus)
 		job_handle_mpm_wait(NULL, MACH_PORT_NULL, NULL);
 	}
 	struct ldcred *ldc = runtime_get_caller_creds();
-	job_t calling_j = job_mig_intran2(j->mgr, MACH_PORT_NULL, ldc->pid);
+	job_t calling_j = jobmgr_find_by_pid(j->mgr, ldc->pid, true);
 	
 	return job_mig_wait2(calling_j, j, srp, waitstatus, true);
 #endif
@@ -8617,7 +8679,17 @@ job_mig_wait2(job_t j, job_t target_j, mach_port_t srp, integer_t *status, boole
 		return BOOTSTRAP_NO_MEMORY;
 	}
 	
-	if( target_j->p == 0 ) {
+	/* See rdar://problem/7084138 for why we do the second part of this check.
+	 * Basically, since Finder, Dock and SystemUIServer are now real launchd
+	 * jobs, they don't get removed after exiting, like legacy LaunchServices
+	 * jobs do. So there's a race. coreservicesd came in asking for the exit
+	 * status after we'd relaunched Finder, so Finder's PID isn't 0.
+	 *
+	 * So we check to make sure the target job isn't a LaunchServices job and
+	 * that the request is coming through the legacy path (mpm_wait()). If so,
+	 * we return the last exit status, regardless of the current PID value.
+	 */
+	if( target_j->p == 0 || (!target_j->legacy_LS_job && legacy) ) {
 		*status = target_j->last_exit_status;
 		return BOOTSTRAP_SUCCESS;
 	}
@@ -8913,26 +8985,33 @@ simulate_pid1_crash(void)
 	}
 }
 
-static void
-jetsam_priority_from_job(job_t j, bool front, jetsam_priority_entry_t *jp)
+void
+jetsam_property_setup(launch_data_t obj, const char *key, job_t j)
 {
-	jp->pid = j->p;
-	jp->flags |= front ? kJetsamFlagsFrontmost : 0;
-}
-
-static int
-job_cmp(const job_t *lhs, const job_t *rhs)
-{
-	job_t _lhs = *lhs;
-	job_t _rhs = *rhs;
-	/* Sort in descending order. (Priority correlates to the soonishness with which you will be killed.) */
-	if( _lhs->jetsam_priority > _rhs->jetsam_priority ) {
-		return -1;
-	} else if( _lhs->jetsam_priority < _rhs->jetsam_priority ) {
-		return 1;
+	job_log(j, LOG_DEBUG, "Setting Jetsam properties for job...");
+	if( strcasecmp(key, LAUNCH_JOBKEY_JETSAMPRIORITY) == 0 && launch_data_get_type(obj) == LAUNCH_DATA_INTEGER ) {
+		j->jetsam_priority = (typeof(j->jetsam_priority))launch_data_get_integer(obj);
+		job_log(j, LOG_DEBUG, "Priority: %d", j->jetsam_priority);
+	} else if( strcasecmp(key, LAUNCH_JOBKEY_JETSAMMEMORYLIMIT) == 0 && launch_data_get_type(obj) == LAUNCH_DATA_INTEGER ) {
+		j->jetsam_memlimit = (typeof(j->jetsam_memlimit))launch_data_get_integer(obj);
+		job_log(j, LOG_DEBUG, "Memory limit: %d", j->jetsam_memlimit);
+	} else if( strcasecmp(key, LAUNCH_KEY_JETSAMFRONTMOST) == 0 ) {
+		/* Ignore. We only recognize this key so we don't complain when we get SpringBoard's request. 
+		 * You can't set this in a plist.
+		 */
+	} else if( strcasecmp(key, LAUNCH_KEY_JETSAMLABEL) == 0 ) {
+		/* Ignore. This key is present in SpringBoard's request dictionary, so we don't want to
+		 * complain about it.
+		 */
+	} else {
+		job_log(j, LOG_ERR, "Unknown Jetsam key: %s", key);
 	}
 	
-	return 0;
+	if( unlikely(!j->jetsam_properties) ) {
+		j->jetsam_properties = true;
+		LIST_INSERT_HEAD(&j->mgr->jetsam_jobs, j, jetsam_sle);
+		j->mgr->jetsam_jobs_cnt++;
+	}
 }
 
 int
@@ -8941,7 +9020,7 @@ launchd_set_jetsam_priorities(launch_data_t priorities)
 	if( !launchd_assumes(launch_data_get_type(priorities) == LAUNCH_DATA_ARRAY) ) {
 		return EINVAL;
 	}
-	
+
 	jobmgr_t jm = NULL;
 #if !TARGET_OS_EMBEDDED
 	/* For testing. */
@@ -8978,58 +9057,66 @@ launchd_set_jetsam_priorities(launch_data_t priorities)
 		if( !launchd_assumes(ji != NULL) ) {
 			continue;
 		}
-		
-		launch_data_t pri;
-		long long _pri = 0;
-		if( !launchd_assumes(pri = launch_data_dict_lookup(ldi, LAUNCH_KEY_JETSAMPRIORITY)) ) {
-			continue;
-		}
-		_pri = launch_data_get_integer(pri);
-		
-		if( ji->jetsam_priority == LAUNCHD_JETSAM_PRIORITY_UNSET ) {
-			LIST_INSERT_HEAD(&ji->mgr->jetsam_jobs, ji, jetsam_sle);
-			ji->mgr->jetsam_jobs_cnt++;
-		}
-		ji->jetsam_priority = _pri;
-		
+
+		launch_data_dict_iterate(ldi, (void (*)(launch_data_t, const char *, void *))jetsam_property_setup, ji);
+
 		launch_data_t frontmost = NULL;
-		if( !(frontmost = launch_data_dict_lookup(ldi, LAUNCH_KEY_JETSAMFRONTMOST)) ) {
-			ji->jetsam_frontmost = false;
-			continue;
+		if( (frontmost = launch_data_dict_lookup(ldi, LAUNCH_KEY_JETSAMFRONTMOST)) && launch_data_get_type(frontmost) == LAUNCH_DATA_BOOL ) {
+			ji->jetsam_frontmost = launch_data_get_bool(frontmost);
 		}
-		ji->jetsam_frontmost = launch_data_get_bool(frontmost);
 	}
 	
 	i = 0;
 	job_t *jobs = (job_t *)calloc(jm->jetsam_jobs_cnt, sizeof(job_t));
-	LIST_FOREACH( ji, &jm->jetsam_jobs, jetsam_sle ) {
-		if( ji->p ) {
-			jobs[i] = ji;
-			i++;
+	if( launchd_assumes(jobs != NULL) ) {
+		LIST_FOREACH( ji, &jm->jetsam_jobs, jetsam_sle ) {
+			if( ji->p ) {
+				jobs[i] = ji;
+				i++;
+			}
 		}
 	}
+	
 	size_t totalpris = i;
 	
 	int result = EINVAL;
-	if( launchd_assumes(totalpris > 0) ) {
-		qsort((void *)jobs, totalpris, sizeof(job_t), (int (*)(const void *, const void *))job_cmp);
+	
+	/* It is conceivable that there could be no Jetsam jobs running. */
+	if( totalpris > 0 ) {
+		/* Yay blocks! */
+		qsort_b((void *)jobs, totalpris, sizeof(job_t), ^ int (const void *lhs, const void *rhs) {
+			job_t _lhs = *(job_t *)lhs;
+			job_t _rhs = *(job_t *)rhs;
+			/* Sort in descending order. (Priority correlates to the soonishness with which you will be killed.) */
+			if( _lhs->jetsam_priority > _rhs->jetsam_priority ) {
+				return -1;
+			} else if( _lhs->jetsam_priority < _rhs->jetsam_priority ) {
+				return 1;
+			}
+			
+			return 0;
+		});
 		
 		jetsam_priority_entry_t *jpris = (jetsam_priority_entry_t *)calloc(totalpris, sizeof(jetsam_priority_entry_t));
 		if( !launchd_assumes(jpris != NULL) ) {
 			result = ENOMEM;
 		} else {
 			for( i = 0; i < totalpris; i++ ) {
-				jetsam_priority_from_job(jobs[i], jobs[i]->jetsam_frontmost, &jpris[i]);
+				jpris[i].pid = jobs[i]->p; /* Subject to time-of-use vs. time-of-check, obviously. */
+				jpris[i].flags |= jobs[i]->jetsam_frontmost ? kJetsamFlagsFrontmost : 0;
+				jpris[i].hiwat_pages = jobs[i]->jetsam_memlimit;
 			}
 			
-			int _result = 0;
-			launchd_assumes((_result = sysctlbyname("kern.memorystatus_priority_list", NULL, NULL, &jpris[0], totalpris * sizeof(jetsam_priority_entry_t))) != -1);
-			result = _result != 0 ? errno : 0;
+			launchd_assumes((result = sysctlbyname("kern.memorystatus_priority_list", NULL, NULL, &jpris[0], totalpris * sizeof(jetsam_priority_entry_t))) != -1);
+			result = result != 0 ? errno : 0;
 			
 			free(jpris);
 		}
 	}
-	free(jobs);
+	
+	if( jobs ) {
+		free(jobs);
+	}
 	
 	return result;
 }

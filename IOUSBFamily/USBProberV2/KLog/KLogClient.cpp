@@ -82,7 +82,7 @@ bool 	com_apple_iokit_KLogClient::init()
     ActiveFlag	= false;
     ClientLock	= IOLockAlloc();
 
-    if(super::init() == false)
+    if (super::init() == false)
     {
         IOLog( DEBUG_NAME "super::init failed\n");
         Q_Err++;
@@ -91,7 +91,7 @@ bool 	com_apple_iokit_KLogClient::init()
 
     //Get mem for new queue of calcuated size 
     myLogQueue = new IODataQueue;      
-    if(myLogQueue == 0)
+    if (myLogQueue == 0)
     {
         IOLog( DEBUG_NAME "[ERR]  Failed to allocate memory for buffer\n");
         Q_Err++;
@@ -99,7 +99,7 @@ bool 	com_apple_iokit_KLogClient::init()
     }
 
     res = myLogQueue->initWithEntries(MAXENTRIES, sizeof(char)*BUFSIZE);
-    if(res == false)
+    if (res == false)
     {
         IOLog( DEBUG_NAME "[ERR] Could not initWithEntries\n");
         Q_Err++;
@@ -161,7 +161,7 @@ IOExternalMethod * com_apple_iokit_KLogClient::getTargetAndMethodForIndex(IOServ
 {
     IOExternalMethod * methodPtr = NULL;
 	
-    if( index <= (UInt32) sMethodCount ) 
+    if ( index <= (UInt32) sMethodCount ) 
     {
         if ( sMethods[index].object == kMethodObjectUserClient )
 		{
@@ -197,12 +197,12 @@ void *	com_apple_iokit_KLogClient::QueueMSG(	void * inPtr,
 
     result = ( void * ) kIOReturnUnsupported;
 
-    if((uintptr_t)inPtr == Q_ON)
+    if ((uintptr_t)inPtr == Q_ON)
     {
 		ActiveFlag = true;
 		result = kIOReturnSuccess;
     }
-    else if((uintptr_t)inPtr == Q_OFF)
+    else if ((uintptr_t)inPtr == Q_OFF)
     {
 		ActiveFlag = false;
 		result = kIOReturnSuccess;
@@ -289,17 +289,17 @@ void	com_apple_iokit_KLogClient::AddEntry(void *entry, UInt32 sizeOfentry)
         return;
     }
     
-    if(ActiveFlag == false)
+    if (ActiveFlag == false)
 	{
 		return;
     };
     
-    if((Q_Err == 0) && ((int)sizeOfentry > 0))
+    if ((Q_Err == 0) && ((int)sizeOfentry > 0))
     {
         res = myLogQueue->enqueue(entry, sizeOfentry);
-		if(res == false)
+		if (res == false)
 		{
-			if(State == 1)
+			if (State == 1)
 			{
 				IOLog( DEBUG_NAME "ATTN: Could not enqueue, buffer probably full, stalling....\n");
 				State = 0;
@@ -328,7 +328,7 @@ bool	com_apple_iokit_KLogClient::set_Q_Size(UInt32 capacity)
 {
     bool res;
 
-    if(capacity == 0)
+    if (capacity == 0)
     {
 		return true;
     }
@@ -338,7 +338,7 @@ bool	com_apple_iokit_KLogClient::set_Q_Size(UInt32 capacity)
 
     //Get mem for new queue of calcuated size 
     myLogQueue = new IODataQueue;      
-    if(myLogQueue == 0)
+    if (myLogQueue == 0)
     {
         IOLog( DEBUG_NAME "[ERR]  Failed to allocate memory for buffer\n");
         Q_Err++;
@@ -346,7 +346,7 @@ bool	com_apple_iokit_KLogClient::set_Q_Size(UInt32 capacity)
     }
 
     res = myLogQueue->initWithCapacity(capacity);
-    if(res == false)
+    if (res == false)
     {
         IOLog( DEBUG_NAME "[ERR] Could not initWithEntries\n");
         Q_Err++;

@@ -3056,10 +3056,6 @@ static int smbfs_create(struct vnop_create_args *ap, char *target, size_t target
 	if (error)
 		goto bad;
 
-	/* We created it, so set the uid and gid here */
-	VTOSMB(vp)->n_uid = smp->sm_args.uid;
-	VTOSMB(vp)->n_gid = smp->sm_args.gid;
-
 	/* 
 	 * We just create the file, so we have no finder info and the resource fork
 	 * should be empty. So set our cache timers to reflect this information
@@ -3244,6 +3240,7 @@ static int smbfs_rmdir(vnode_t dvp, vnode_t vp, struct componentname *cnp, vfs_c
 	struct smbnode *dnp = VTOSMB(dvp);
 	struct smbnode *np = VTOSMB(vp);
 	int error;
+	u_int16_t		fid;
 
 	/* XXX other OSX fs test fs nodes here, not vnodes. Why? */
 	if (dvp == vp) {
@@ -3257,6 +3254,18 @@ static int smbfs_rmdir(vnode_t dvp, vnode_t vp, struct componentname *cnp, vfs_c
 	    goto bad;
 	smbfs_attr_touchdir(smp->sm_share, dnp);
 	smb_vhashrem(np);
+	/* 
+	 * We may still have a change notify on this node, close it so
+	 * the item will get delete on the server. Mark it not to be 
+	 * reopened first, then save off the fid, clear the node fid
+	 * now close the file descriptor.
+	 */
+	np->d_needReopen = FALSE;
+	fid = np->d_fid;
+	np->d_fid = 0;
+	if (fid) {
+		(void)smbfs_smb_tmpclose(np, fid, context);
+	}
 	
 	/* Remove any negative cache entries. */
 	if (dnp->n_flag & NNEGNCENTRIES) {
@@ -3266,8 +3275,10 @@ static int smbfs_rmdir(vnode_t dvp, vnode_t vp, struct componentname *cnp, vfs_c
 	
 bad:
 	/* if success, blow away statfs cache */
-	if (!error)
+	if (!error) {
 		smp->sm_statfstime = 0;
+		(void) vnode_recycle(vp);
+	}
 	return (error);
 }
 
@@ -3445,18 +3456,17 @@ static int smbfs_vnop_rename(struct vnop_rename_args *ap)
 	 * The problem we have here is some servers will not return the correct
 	 * case of the file name in the lookup. This can cause to have two vnodes
 	 * that point to the same item. Very bad but nothing we can do about that
-	 * in smb. So if the target exist, the server is unix ( Windows always return
-	 * the correct case, the parents are the same and the name is the same except
-	 * for case, then don't delete the target.
+	 * in smb. So if the target exist, the parents are the same and the name is 
+	 * the same except for case, then don't delete the target.
 	 *
 	 * Note with smb 2 we have real inode numbers to help us here, plus with smb2
 	 * we can force the server to handle this issue.
 	 */
-	if (tvp && (UNIX_SERVER(SSTOVC(ssp))) && (fdvp == tdvp) && 
-				(fnp->n_nmlen == VTOSMB(tvp)->n_nmlen) && 
-				(strncasecmp((char *)fnp->n_name, (char *)VTOSMB(tvp)->n_name, fnp->n_nmlen) == 0)) {
+	if (tvp && (fdvp == tdvp) &&  (fnp->n_nmlen == VTOSMB(tvp)->n_nmlen) && 
+		(strncasecmp((char *)fnp->n_name, (char *)VTOSMB(tvp)->n_name, fnp->n_nmlen) == 0)) {
 		SMBWARNING("Not removing target, same file. %s ==> %s\n", fnp->n_name, VTOSMB(tvp)->n_name);
 		smb_vhashrem(VTOSMB(tvp)); /* Remove it from our hash so it can't be found */
+		(void) vnode_recycle(tvp);
 		tvp = NULL;
 	}
 

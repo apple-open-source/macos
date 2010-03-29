@@ -3,7 +3,7 @@
   eval.c -
 
   $Author: shyouhei $
-  $Date: 2008-08-04 12:24:26 +0900 (Mon, 04 Aug 2008) $
+  $Date: 2009-06-08 10:59:39 +0900 (Mon, 08 Jun 2009) $
   created at: Thu Jun 10 14:22:17 JST 1993
 
   Copyright (C) 1993-2003 Yukihiro Matsumoto
@@ -72,7 +72,18 @@ char *strrchr _((const char*,const char));
 #include <unistd.h>
 #endif
 
-#ifdef __BEOS__
+#include <time.h>
+
+#if defined(HAVE_FCNTL_H) || defined(_WIN32)
+#include <fcntl.h>
+#elif defined(HAVE_SYS_FCNTL_H)
+#include <sys/fcntl.h>
+#endif
+#ifdef __CYGWIN__
+#include <io.h>
+#endif
+
+#if defined(__BEOS__) && !defined(BONE)
 #include <net/socket.h>
 #endif
 
@@ -218,25 +229,6 @@ int _setjmp(), _longjmp();
 #ifdef ENABLE_DTRACE
 #include "dtrace.h"
 #endif
-
-
-typedef struct threadswitch_hook {
-    rb_threadswitch_hook_func_t func;
-    struct threadswitch_hook *next;
-} rb_threadswitch_hook_t;
-
-static rb_threadswitch_hook_t *threadswitch_hooks;
-
-#define EXEC_THREADSWITCH_HOOK(event, thread) \
-    do { \
-	rb_threadswitch_hook_t *hook = threadswitch_hooks; \
-	\
-	while (hook) { \
-	    (*hook->func)(event, thread); \
-            hook = hook->next; \
-	} \
-    } while (0)
-
 
 VALUE rb_cProc;
 VALUE rb_cBinding;
@@ -1086,7 +1078,7 @@ static VALUE ruby_wrapper;	/* security wrapper */
 
 NODE *ruby_cref = 0;
 NODE *ruby_top_cref;
-#define PUSH_CREF(c) ruby_cref = NEW_NODE(NODE_CREF,(c),0,ruby_cref)
+#define PUSH_CREF(c) ruby_cref = NEW_CREF(c,ruby_cref)
 #define POP_CREF() ruby_cref = ruby_cref->nd_next
 
 #define PUSH_SCOPE() do {		\
@@ -3935,11 +3927,13 @@ rb_eval(self, n)
 	      case NODE_DREGX:
 		result = rb_reg_new(RSTRING(str)->ptr, RSTRING(str)->len,
 				    node->nd_cflag);
+		RB_GC_GUARD(str); /* ensure str is not GC'd in rb_reg_new */
 		break;
 	      case NODE_DREGX_ONCE:	/* regexp expand once */
 		result = rb_reg_new(RSTRING(str)->ptr, RSTRING(str)->len,
 				    node->nd_cflag);
 		nd_set_type(node, NODE_LIT);
+		RB_GC_GUARD(str); /* ensure str is not GC'd in rb_reg_new */
 		node->nd_lit = result;
 		break;
 	      case NODE_LIT:
@@ -5113,7 +5107,7 @@ rb_yield_0(val, self, klass, flags, avalue)
 	    switch (node->nd_state) {
 	      case YIELD_FUNC_LAMBDA:
 		if (!avalue) {
-		    val = rb_ary_new3(1, val);
+		    val = (val == Qundef) ? rb_ary_new2(0) : rb_ary_new3(1, val);
 		}
 		break;
 	      case YIELD_FUNC_AVALUE:
@@ -7220,16 +7214,16 @@ static const char *const loadable_ext[] = {
     0
 };
 
-static int rb_feature_p _((const char *, const char *, int));
+static int rb_feature_p _((const char **, const char *, int));
 static int search_required _((VALUE, VALUE *, VALUE *));
 
 static int
-rb_feature_p(feature, ext, rb)
-    const char *feature, *ext;
+rb_feature_p(ftptr, ext, rb)
+    const char **ftptr, *ext;
     int rb;
 {
     VALUE v;
-    const char *f, *e;
+    const char *f, *e, *feature = *ftptr;
     long i, len, elen;
 
     if (ext) {
@@ -7247,18 +7241,21 @@ rb_feature_p(feature, ext, rb)
 	    continue;
 	if (!*(e = f + len)) {
 	    if (ext) continue;
+	    *ftptr = 0;
 	    return 'u';
 	}
 	if (*e != '.') continue;
 	if ((!rb || !ext) && (IS_SOEXT(e) || IS_DLEXT(e))) {
+	    *ftptr = 0;
 	    return 's';
 	}
 	if ((rb || !ext) && (strcmp(e, ".rb") == 0)) {
+	    *ftptr = 0;
 	    return 'r';
 	}
     }
     if (loading_tbl) {
-	if (st_lookup(loading_tbl, (st_data_t)feature, 0)) {
+	if (st_lookup(loading_tbl, (st_data_t)feature, (st_data_t *)ftptr)) {
 	    if (!ext) return 'u';
 	    return strcmp(ext, ".rb") ? 's' : 'r';
 	}
@@ -7270,7 +7267,7 @@ rb_feature_p(feature, ext, rb)
 	    MEMCPY(buf, feature, char, len);
 	    for (i = 0; (e = loadable_ext[i]) != 0; i++) {
 		strncpy(buf + len, e, DLEXT_MAXLEN + 1);
-		if (st_lookup(loading_tbl, (st_data_t)buf, 0)) {
+		if (st_lookup(loading_tbl, (st_data_t)buf, (st_data_t *)ftptr)) {
 		    return i ? 's' : 'r';
 		}
 	    }
@@ -7278,6 +7275,7 @@ rb_feature_p(feature, ext, rb)
     }
     return 0;
 }
+#define rb_feature_p(feature, ext, rb) rb_feature_p(&feature, ext, rb)
 
 int
 rb_provided(feature)
@@ -7334,8 +7332,9 @@ load_lock(ftptr)
 	return (char *)ftptr;
     }
     do {
-	if ((rb_thread_t)th == curr_thread) return 0;
-	CHECK_INTS;
+	rb_thread_t owner = (rb_thread_t)th;
+	if (owner == curr_thread) return 0;
+	rb_thread_join(owner->thread, -1.0);
     } while (st_lookup(loading_tbl, (st_data_t)ftptr, &th));
     return 0;
 }
@@ -7386,7 +7385,7 @@ search_required(fname, featurep, path)
     VALUE fname, *featurep, *path;
 {
     VALUE tmp;
-    char *ext, *ftptr;
+    const char *ext, *ftptr;
     int type;
 
     *featurep = fname;
@@ -7394,12 +7393,18 @@ search_required(fname, featurep, path)
     ext = strrchr(ftptr = RSTRING_PTR(fname), '.');
     if (ext && !strchr(ext, '/')) {
 	if (strcmp(".rb", ext) == 0) {
-	    if (rb_feature_p(ftptr, ext, Qtrue)) return 'r';
+	    if (rb_feature_p(ftptr, ext, Qtrue)) {
+		if (ftptr) *path = rb_str_new2(ftptr);
+		return 'r';
+	    }
 	    if ((*path = rb_find_file(fname)) != 0) return 'r';
 	    return 0;
 	}
 	else if (IS_SOEXT(ext)) {
-	    if (rb_feature_p(ftptr, ext, Qfalse)) return 's';
+	    if (rb_feature_p(ftptr, ext, Qfalse)) {
+		if (ftptr) *path = rb_str_new2(ftptr);
+		return 's';
+	    }
 	    tmp = rb_str_new(RSTRING_PTR(fname), ext-RSTRING_PTR(fname));
 	    *featurep = tmp;
 #ifdef DLEXT2
@@ -7418,7 +7423,10 @@ search_required(fname, featurep, path)
 #endif
 	}
 	else if (IS_DLEXT(ext)) {
-	    if (rb_feature_p(ftptr, ext, Qfalse)) return 's';
+	    if (rb_feature_p(ftptr, ext, Qfalse)) {
+		if (ftptr) *path = rb_str_new2(ftptr);
+		return 's';
+	    }
 	    if ((*path = rb_find_file(fname)) != 0) return 's';
 	}
     }
@@ -7427,13 +7435,16 @@ search_required(fname, featurep, path)
     *featurep = tmp;
     switch (type) {
       case 0:
-	ftptr = RSTRING_PTR(tmp);
-	return rb_feature_p(ftptr, 0, Qfalse);
+	type = rb_feature_p(ftptr, 0, Qfalse);
+	if (type && ftptr) *path = rb_str_new2(ftptr);
+	return type;
 
       default:
 	ext = strrchr(ftptr = RSTRING(tmp)->ptr, '.');
-	if (rb_feature_p(ftptr, ext, !--type)) break;
-	*path = rb_find_file(tmp);
+	if (!rb_feature_p(ftptr, ext, !--type))
+	    *path = rb_find_file(tmp);
+	else if (ftptr)
+	    *path = rb_str_new2(ftptr);
     }
     return type ? 's' : 'r';
 }
@@ -7794,7 +7805,7 @@ rb_mod_modfunc(argc, argv, module)
 		body = search_method(rb_cObject, id, &m);
 	    }
 	    if (body == 0 || body->nd_body == 0) {
-		rb_bug("undefined method `%s'; can't happen", rb_id2name(id));
+		print_undef(module, id);
 	    }
 	    if (nd_type(body->nd_body) != NODE_ZSUPER) {
 		break;		/* normal case: need not to follow 'super' link */
@@ -10462,6 +10473,13 @@ static double
 timeofday()
 {
     struct timeval tv;
+#ifdef CLOCK_MONOTONIC
+    struct timespec tp;
+
+    if (clock_gettime(CLOCK_MONOTONIC, &tp) == 0) {
+	return (double)tp.tv_sec + (double)tp.tv_nsec * 1e-9;
+    }
+#endif
     gettimeofday(&tv, NULL);
     return (double)tv.tv_sec + (double)tv.tv_usec * 1e-6;
 }
@@ -10584,18 +10602,23 @@ rb_gc_abort_threads()
     } END_FOREACH_FROM(main_thread, th);
 }
 
-static void
-thread_free(th)
+static inline void
+stack_free(th)
     rb_thread_t th;
 {
-    EXEC_THREADSWITCH_HOOK(RUBY_THREADSWITCH_FREE,th->thread);
-
     if (th->stk_ptr) free(th->stk_ptr);
     th->stk_ptr = 0;
 #ifdef __ia64
     if (th->bstr_ptr) free(th->bstr_ptr);
     th->bstr_ptr = 0;
 #endif
+}
+
+static void
+thread_free(th)
+    rb_thread_t th;
+{
+    stack_free(th);
     if (th->locals) st_free_table(th->locals);
     if (th->status != THREAD_KILLED) {
 	if (th->prev) th->prev->next = th->next;
@@ -10640,10 +10663,8 @@ rb_thread_save_context(th)
     rb_thread_t th;
 {
     VALUE *pos;
-    int len;
+    size_t len;
     static VALUE tval;
-    
-    EXEC_THREADSWITCH_HOOK(RUBY_THREADSWITCH_SAVE,th->thread);
 
     len = ruby_stack_length(&pos);
     th->stk_len = 0;
@@ -10699,9 +10720,8 @@ rb_thread_save_context(th)
     th->safe = ruby_safe_level;
 
     th->node = ruby_current_node;
-    if (ruby_sandbox_save != NULL)
-    {
-      ruby_sandbox_save(th);
+    if (ruby_sandbox_save != NULL) {
+	ruby_sandbox_save(th);
     }
 }
 
@@ -10749,20 +10769,19 @@ rb_thread_switch(n)
     (rb_thread_switch(ruby_setjmp(rb_thread_save_context(th), (th)->context)))
 
 NORETURN(static void rb_thread_restore_context _((rb_thread_t,int)));
-NORETURN(NOINLINE(static void rb_thread_restore_context_0(rb_thread_t,int,void*)));
-NORETURN(NOINLINE(static void stack_extend(rb_thread_t, int, VALUE *)));
+NORETURN(NOINLINE(static void rb_thread_restore_context_0(rb_thread_t,int)));
+NORETURN(NOINLINE(static void stack_extend(rb_thread_t, int)));
 
 static void
-rb_thread_restore_context_0(rb_thread_t th, int exit, void *vp)
+rb_thread_restore_context_0(rb_thread_t th, int exit)
 {
     static rb_thread_t tmp;
     static int ex;
     static VALUE tval;
 
     rb_trap_immediate = 0;	/* inhibit interrupts from here */
-    if (ruby_sandbox_restore != NULL)
-    {
-      ruby_sandbox_restore(th);
+    if (ruby_sandbox_restore != NULL) {
+	ruby_sandbox_restore(th);
     }
     ruby_frame = th->frame;
     ruby_scope = th->scope;
@@ -10810,9 +10829,9 @@ static volatile int C(f), C(g), C(h), C(i), C(j);
 static volatile int C(k), C(l), C(m), C(n), C(o);
 static volatile int C(p), C(q), C(r), C(s), C(t);
 int rb_dummy_false = 0;
-NORETURN(NOINLINE(static void register_stack_extend(rb_thread_t, int, void *, VALUE *)));
+NORETURN(NOINLINE(static void register_stack_extend(rb_thread_t, int, VALUE *)));
 static void
-register_stack_extend(rb_thread_t th, int exit, void *vp, VALUE *curr_bsp)
+register_stack_extend(rb_thread_t th, int exit, VALUE *curr_bsp)
 {
     if (rb_dummy_false) {
         /* use registers as much as possible */
@@ -10826,54 +10845,63 @@ register_stack_extend(rb_thread_t th, int exit, void *vp, VALUE *curr_bsp)
         E(p) = E(q) = E(r) = E(s) = E(t) = 0;
     }
     if (curr_bsp < th->bstr_pos+th->bstr_len) {
-        register_stack_extend(th, exit, &exit, (VALUE*)rb_ia64_bsp());
+        register_stack_extend(th, exit, (VALUE*)rb_ia64_bsp());
     }
-    rb_thread_restore_context_0(th, exit, &exit);
+    stack_extend(th, exit);
 }
 #undef C
 #undef E
 #endif
 
-# if defined(_MSC_VER) && _MSC_VER >= 1300
-__declspec(noinline) static void stack_extend(rb_thread_t, int, VALUE*);
-# endif
 static void
-stack_extend(rb_thread_t th, int exit, VALUE *addr_in_prev_frame)
+stack_extend(rb_thread_t th, int exit)
 {
 #define STACK_PAD_SIZE 1024
-    VALUE space[STACK_PAD_SIZE];
+    volatile VALUE space[STACK_PAD_SIZE], *sp = space;
 
-    EXEC_THREADSWITCH_HOOK(RUBY_THREADSWITCH_RESTORE,th->thread);
-
-#if STACK_GROW_DIRECTION < 0
-    if (addr_in_prev_frame > th->stk_pos) stack_extend(th, exit, &space[0]);
-#elif STACK_GROW_DIRECTION > 0
-    if (addr_in_prev_frame < th->stk_pos + th->stk_len) stack_extend(th, exit, &space[STACK_PAD_SIZE-1]);
-#else
-    if (addr_in_prev_frame < rb_gc_stack_start) {
+#if !STACK_GROW_DIRECTION
+    if (space < rb_gc_stack_start) {
         /* Stack grows downward */
-        if (addr_in_prev_frame > th->stk_pos) stack_extend(th, exit, &space[0]);
+#endif
+#if STACK_GROW_DIRECTION <= 0
+	if (space > th->stk_pos) {
+# ifdef HAVE_ALLOCA
+	    sp = ALLOCA_N(VALUE, &space[0] - th->stk_pos);
+# else
+	    stack_extend(th, exit);
+# endif
+	}
+#endif
+#if !STACK_GROW_DIRECTION
     }
     else {
         /* Stack grows upward */
-        if (addr_in_prev_frame < th->stk_pos + th->stk_len) stack_extend(th, exit, &space[STACK_PAD_SIZE-1]);
+#endif
+#if STACK_GROW_DIRECTION >= 0
+	if (&space[STACK_PAD_SIZE] < th->stk_pos + th->stk_len) {
+# ifdef HAVE_ALLOCA
+	    sp = ALLOCA_N(VALUE, th->stk_pos + th->stk_len - &space[STACK_PAD_SIZE]);
+# else
+	    stack_extend(th, exit);
+# endif
+	}
+#endif
+#if !STACK_GROW_DIRECTION
     }
 #endif
-#ifdef __ia64
-    register_stack_extend(th, exit, space, (VALUE*)rb_ia64_bsp());
-#else
-    rb_thread_restore_context_0(th, exit, space);
-#endif
+    rb_thread_restore_context_0(th, exit);
 }
+#ifdef __ia64
+#define stack_extend(th, exit) register_stack_extend(th, exit, (VALUE*)rb_ia64_bsp())
+#endif
 
 static void
 rb_thread_restore_context(th, exit)
     rb_thread_t th;
     int exit;
 {
-    VALUE v;
     if (!th->stk_ptr) rb_bug("unsaved context");
-    stack_extend(th, exit, &v);
+    stack_extend(th, exit);
 }
 
 static void
@@ -10892,8 +10920,7 @@ rb_thread_die(th)
 {
     th->thgroup = 0;
     th->status = THREAD_KILLED;
-    if (th->stk_ptr) free(th->stk_ptr);
-    th->stk_ptr = 0;
+    stack_free(th);
 }
 
 static void
@@ -10959,41 +10986,6 @@ rb_thread_deadlock()
 	rb_exc_raise(e);
     }
     rb_thread_main_jump(e, RESTORE_RAISE);
-}
-
-void *
-rb_add_threadswitch_hook(func)
-    rb_threadswitch_hook_func_t func;
-{
-    rb_threadswitch_hook_t *hook;
-    rb_thread_t th;
-
-    hook = ALLOC(rb_threadswitch_hook_t);
-    hook->func = func;
-    hook->next = threadswitch_hooks;
-    threadswitch_hooks = hook;
-
-    FOREACH_THREAD(th) {
-    	(*func)(RUBY_THREADSWITCH_INIT, th->thread);
-    } END_FOREACH(th);
-
-    return hook;
-}
-
-void
-rb_remove_threadswitch_hook(handle)
-    void *handle;
-{
-    rb_threadswitch_hook_t **hook_p, *hook;
-	
-    for (hook_p = &threadswitch_hooks; *hook_p; hook_p = &hook->next) {
-	hook = *hook_p;
-	if (hook == (rb_threadswitch_hook_t*)handle) {
-	    *hook_p = hook->next;
-	    xfree(hook);
-	    return;
-	}
-    }
 }
 
 static void
@@ -11071,6 +11063,7 @@ rb_thread_schedule()
     rb_thread_t next;		/* OK */
     rb_thread_t th;
     rb_thread_t curr;
+    rb_thread_t th_found = 0;
     int found = 0;
 
     fd_set readfds;
@@ -11088,6 +11081,7 @@ rb_thread_schedule()
     }
 #endif
     rb_thread_pending = 0;
+    rb_gc_finalize_deferred();
     if (curr_thread == curr_thread->next
 	&& curr_thread->status == THREAD_RUNNABLE)
 	return;
@@ -11181,20 +11175,64 @@ rb_thread_schedule()
 #ifdef ERESTART
 	    if (e == ERESTART) goto again;
 #endif
-	    FOREACH_THREAD_FROM(curr, th) {
-		if (th->wait_for & WAIT_SELECT) {
-		    int v = 0;
+            if (e == EBADF) {
+                int badfd = -1;
+                int fd;
+                int dummy;
+                for (fd = 0; fd <= max; fd++) {
+                    if ((FD_ISSET(fd, &readfds) ||
+                         FD_ISSET(fd, &writefds) ||
+                         FD_ISSET(fd, &exceptfds)) &&
+#ifndef _WIN32
+                        fcntl(fd, F_GETFD, &dummy) == -1 &&
+#else
+			rb_w32_get_osfhandle(fd) == -1 &&
+#endif
+                        errno == EBADF) {
+                        badfd = fd;
+                        break;
+                    }
+                }
+                if (badfd != -1) {
+                    FOREACH_THREAD_FROM(curr, th) {
+                        if (th->wait_for & WAIT_FD) {
+                            if (th->fd == badfd) {
+                                found = 1;
+                                th->status = THREAD_RUNNABLE;
+                                th->fd = 0;
+                                break;
+                            }
+                        }
+                        if (th->wait_for & WAIT_SELECT) {
+                            if (FD_ISSET(badfd, &th->readfds) ||
+                                FD_ISSET(badfd, &th->writefds) ||
+                                FD_ISSET(badfd, &th->exceptfds)) {
+                                found = 1;
+                                th->status = THREAD_RUNNABLE;
+                                th->select_value = -EBADF;
+                                break;
+                            }
+                        }
+                    }
+                    END_FOREACH_FROM(curr, th);
+                }
+            }
+            else {
+                FOREACH_THREAD_FROM(curr, th) {
+                    if (th->wait_for & WAIT_SELECT) {
+                        int v = 0;
 
-		    v |= find_bad_fds(&readfds, &th->readfds, th->fd);
-		    v |= find_bad_fds(&writefds, &th->writefds, th->fd);
-		    v |= find_bad_fds(&exceptfds, &th->exceptfds, th->fd);
-		    if (v) {
-			th->select_value = n;
-			n = max;
-		    }
-		}
-	    }
-	    END_FOREACH_FROM(curr, th);
+                        v |= find_bad_fds(&readfds, &th->readfds, th->fd);
+                        v |= find_bad_fds(&writefds, &th->writefds, th->fd);
+                        v |= find_bad_fds(&exceptfds, &th->exceptfds, th->fd);
+                        if (v) {
+                            th->select_value = n;
+                            n = max;
+                        }
+                    }
+                }
+                END_FOREACH_FROM(curr, th);
+            }
 	}
  	if (select_timeout && n == 0) {
  	    if (now < 0.0) now = timeofday();
@@ -11215,28 +11253,22 @@ rb_thread_schedule()
 	if (n > 0) {
 	    now = -1.0;
 	    /* Some descriptors are ready.
-	       Make the corresponding threads runnable. */
+             * Choose a thread which may run next.
+             * Don't change the status of threads which don't run next.
+             */
 	    FOREACH_THREAD_FROM(curr, th) {
 		if ((th->wait_for&WAIT_FD) && FD_ISSET(th->fd, &readfds)) {
-		    /* Wake up only one thread per fd. */
-		    FD_CLR(th->fd, &readfds);
-		    th->status = THREAD_RUNNABLE;
-		    th->fd = 0;
-		    th->wait_for = 0;
+                    th_found = th;
 		    found = 1;
+                    break;
 		}
 		if ((th->wait_for&WAIT_SELECT) &&
 		    (match_fds(&readfds, &th->readfds, max) ||
 		     match_fds(&writefds, &th->writefds, max) ||
 		     match_fds(&exceptfds, &th->exceptfds, max))) {
-		    /* Wake up only one thread per fd. */
-		    th->status = THREAD_RUNNABLE;
-		    th->wait_for = 0;
-		    n = intersect_fds(&readfds, &th->readfds, max) +
-			intersect_fds(&writefds, &th->writefds, max) +
-			intersect_fds(&exceptfds, &th->exceptfds, max);
-		    th->select_value = n;
-		    found = 1;
+                    th_found = th;
+                    found = 1;
+                    break;
 		}
 	    }
 	    END_FOREACH_FROM(curr, th);
@@ -11252,9 +11284,23 @@ rb_thread_schedule()
 	    next = th;
 	    break;
 	}
-	if (th->status == THREAD_RUNNABLE && th->stk_ptr) {
-	    if (!next || next->priority < th->priority)
-	       next = th;
+	if ((th->status == THREAD_RUNNABLE || th == th_found) && th->stk_ptr) {
+	    if (!next || next->priority < th->priority) {
+                if (th == th_found) {
+                    th_found->status = THREAD_RUNNABLE;
+                    th_found->wait_for = 0;
+                    if (th->wait_for&WAIT_FD) {
+                        th_found->fd = 0;
+                    }
+                    else { /* th->wait_for&WAIT_SELECT */
+                        n = intersect_fds(&readfds, &th_found->readfds, max) +
+                            intersect_fds(&writefds, &th_found->writefds, max) +
+                            intersect_fds(&exceptfds, &th_found->exceptfds, max);
+                        th_found->select_value = n;
+                    }
+                }
+	        next = th;
+            }
 	}
     }
     END_FOREACH_FROM(curr, th);
@@ -11497,13 +11543,18 @@ rb_thread_select(max, read, write, except, timeout)
     if (read) *read = curr_thread->readfds;
     if (write) *write = curr_thread->writefds;
     if (except) *except = curr_thread->exceptfds;
+    if (curr_thread->select_value < 0) {
+        errno = -curr_thread->select_value;
+        return -1;
+    }
     return curr_thread->select_value;
 }
 
-static int rb_thread_join _((rb_thread_t, double));
+static int rb_thread_join0 _((rb_thread_t, double));
+int rb_thread_join _((VALUE, double));
 
 static int
-rb_thread_join(th, limit)
+rb_thread_join0(th, limit)
     rb_thread_t th;
     double limit;
 {
@@ -11543,6 +11594,15 @@ rb_thread_join(th, limit)
     }
 
     return Qtrue;
+}
+
+int
+rb_thread_join(thread, limit)
+    VALUE thread;
+    double limit;
+{
+    if (limit < 0) limit = DELAY_INFTY;
+    return rb_thread_join0(rb_thread_check(thread), limit);
 }
 
 
@@ -11594,11 +11654,10 @@ rb_thread_join_m(argc, argv, thread)
 {
     VALUE limit;
     double delay = DELAY_INFTY;
-    rb_thread_t th = rb_thread_check(thread);
 
     rb_scan_args(argc, argv, "01", &limit);
     if (!NIL_P(limit)) delay = rb_num2dbl(limit);
-    if (!rb_thread_join(th, delay))
+    if (!rb_thread_join0(rb_thread_check(thread), delay))
 	return Qnil;
     return thread;
 }
@@ -12207,9 +12266,9 @@ rb_thread_group(thread)
     th->locals = 0;\
     th->thread = 0;\
     if (curr_thread == 0) {\
-      th->sandbox = Qnil;\
+	th->sandbox = Qnil;\
     } else {\
-      th->sandbox = curr_thread->sandbox;\
+	th->sandbox = curr_thread->sandbox;\
     }\
 } while (0)
 
@@ -12222,8 +12281,6 @@ rb_thread_alloc(klass)
 
     THREAD_ALLOC(th);
     th->thread = Data_Wrap_Struct(klass, thread_mark, thread_free, th);
-
-    EXEC_THREADSWITCH_HOOK(RUBY_THREADSWITCH_INIT,th->thread);
 
     for (vars = th->dyna_vars; vars; vars = vars->next) {
 	if (FL_TEST(vars, DVAR_DONT_RECYCLE)) break;
@@ -12590,7 +12647,7 @@ rb_thread_value(thread)
 {
     rb_thread_t th = rb_thread_check(thread);
 
-    while (!rb_thread_join(th, DELAY_INFTY));
+    while (!rb_thread_join0(th, DELAY_INFTY));
 
     return th->result;
 }
@@ -13112,6 +13169,38 @@ rb_thread_atfork()
 }
 
 
+static void
+cc_purge(cc)
+    rb_thread_t cc;
+{
+    /* free continuation's stack if it has just died */
+    if (NIL_P(cc->thread)) return;
+    if (rb_thread_check(cc->thread)->status == THREAD_KILLED) {
+	cc->thread = Qnil;
+	rb_thread_die(cc);  /* can't possibly activate this stack */
+    }
+}
+
+static void
+cc_mark(cc)
+    rb_thread_t cc;
+{
+    /* mark this continuation's stack only if its parent thread is still alive */
+    cc_purge(cc);
+    thread_mark(cc);
+}
+
+static rb_thread_t
+rb_cont_check(data)
+    VALUE data;
+{
+    if (TYPE(data) != T_DATA || RDATA(data)->dmark != (RUBY_DATA_FUNC)cc_mark) {
+	rb_raise(rb_eTypeError, "wrong argument type %s (expected Continuation)",
+		 rb_obj_classname(data));
+    }
+    return (rb_thread_t)RDATA(data)->data;
+}
+
 /*
  *  Document-class: Continuation
  *
@@ -13186,14 +13275,16 @@ rb_callcc(self)
     struct RVarmap *vars;
 
     THREAD_ALLOC(th);
-    cont = Data_Wrap_Struct(rb_cCont, thread_mark, thread_free, th);
+    /* must finish th initialization before any possible gc.
+     * brent@mbari.org */
+    th->thread = curr_thread->thread;
+    th->thgroup = cont_protect;
+    cont = Data_Wrap_Struct(rb_cCont, cc_mark, thread_free, th);
 
     scope_dup(ruby_scope);
     for (tag=prot_tag; tag; tag=tag->prev) {
 	scope_dup(tag->scope);
     }
-    th->thread = curr_thread->thread;
-    th->thgroup = cont_protect;
 
     for (vars = ruby_dyna_vars; vars; vars = vars->next) {
 	if (FL_TEST(vars, DVAR_DONT_RECYCLE)) break;
@@ -13230,7 +13321,7 @@ rb_cont_call(argc, argv, cont)
     VALUE *argv;
     VALUE cont;
 {
-    rb_thread_t th = rb_thread_check(cont);
+    rb_thread_t th = rb_cont_check(cont);
 
     if (th->thread != curr_thread->thread) {
 	rb_raise(rb_eRuntimeError, "continuation called across threads");
@@ -13406,10 +13497,6 @@ thgroup_add(group, thread)
 
     rb_secure(4);
     th = rb_thread_check(thread);
-    if (!th->next || !th->prev) {
-	rb_raise(rb_eTypeError, "wrong argument type %s (expected Thread)",
-		 rb_obj_classname(thread));
-    }
 
     if (OBJ_FROZEN(group)) {
       rb_raise(rb_eThreadError, "can't move to the frozen thread group");

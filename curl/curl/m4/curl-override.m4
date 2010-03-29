@@ -1,9 +1,9 @@
 #***************************************************************************
-# $Id: curl-override.m4,v 1.2 2008-11-18 19:29:31 yangtse Exp $
+# $Id: curl-override.m4,v 1.3 2009-10-19 04:11:54 yangtse Exp $
 #***************************************************************************
 
 # File version for 'aclocal' use. Keep it a single number.
-# serial 2
+# serial 3
 
 dnl CURL_OVERRIDE_AUTOCONF
 dnl -------------------------------------------------
@@ -92,12 +92,11 @@ dnl used across different Autoconf versions and to
 dnl allow us to use this macro early enough in the
 dnl configure script.
 
-m4_define([_AS_PATH_SEPARATOR_PREPARE],
+m4_defun([_AS_PATH_SEPARATOR_PREPARE],
 [CURL_CHECK_PATH_SEPARATOR
 m4_define([$0],[])])
 
-m4_define([_LT_AC_LIBTOOL_SYS_PATH_SEPARATOR],
+m4_defun([_LT_AC_LIBTOOL_SYS_PATH_SEPARATOR],
 [CURL_CHECK_PATH_SEPARATOR
 m4_define([$0],[])])
-
 

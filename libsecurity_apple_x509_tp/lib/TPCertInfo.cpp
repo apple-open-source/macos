@@ -17,7 +17,7 @@
 
 
 /*
- * TPCertInfo.h - TP's private certificate info classes
+ * TPCertInfo.cpp - TP's private certificate info classes
  *
  * Written 10/23/2000 by Doug Mitchell.
  */
@@ -1563,13 +1563,17 @@ post_trust_setting:
 		if((issuerCert == NULL) && (dbList != NULL)) {
 			/* Issuer not in incoming cert group or gathered certs. Search DBList. */
 			bool partial = false;
-			issuerCert = tpDbFindIssuerCert(mAlloc,
-				clHand,
-				cspHand,
-				thisSubject,
-				dbList,
-				verifyTime,
-				partial);
+			try {
+				issuerCert = tpDbFindIssuerCert(mAlloc,
+					clHand,
+					cspHand,
+					thisSubject,
+					dbList,
+					verifyTime,
+					partial);
+			}
+			catch (...) {}
+
 			if(issuerCert) {
 				/* unconditionally done with possible expiredIssuer */
 				#ifndef	NDEBUG
@@ -1892,7 +1896,11 @@ post_anchor:
 	}
 	
 	/* If we get here, enable fetching issuer from network: <rdar://6113890> */
-	actionFlags |= CSSM_TP_ACTION_FETCH_CERT_FROM_NET;
+	/* ... unless DB list is empty *and* anchors are empty: <rdar://7419584> */
+	if(!( (!dbList || (dbList->NumHandles == 0)) &&
+		 (!anchorCerts || (numAnchorCerts == 0))) ) {
+		actionFlags |= CSSM_TP_ACTION_FETCH_CERT_FROM_NET;
+	}
 	
 	/* 
 	 * If we haven't verified to a root, and net fetch of certs is enabled,

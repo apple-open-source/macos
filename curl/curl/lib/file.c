@@ -18,7 +18,7 @@
  * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
  * KIND, either express or implied.
  *
- * $Id: file.c,v 1.119 2009-02-03 22:28:41 bagder Exp $
+ * $Id: file.c,v 1.121 2009-06-04 19:11:11 yangtse Exp $
  ***************************************************************************/
 
 #include "setup.h"
@@ -82,7 +82,7 @@
 #include "getinfo.h"
 #include "transfer.h"
 #include "url.h"
-#include "memory.h"
+#include "curl_memory.h"
 #include "parsedate.h" /* for the week day and month names */
 
 #define _MPRINTF_REPLACE /* use our functions only */
@@ -93,6 +93,12 @@
 
 #if defined(WIN32) || defined(MSDOS) || defined(__EMX__) || defined(__SYMBIAN32__)
 #define DOS_FILESYSTEM 1
+#endif
+
+#ifdef OPEN_NEEDS_ARG3
+#  define open_readonly(p,f) open((p),(f),(0))
+#else
+#  define open_readonly(p,f) open((p),(f))
 #endif
 
 /*
@@ -251,10 +257,10 @@ static CURLcode file_connect(struct connectdata *conn, bool *done)
     if(actual_path[i] == '/')
       actual_path[i] = '\\';
 
-  fd = open(actual_path, O_RDONLY | O_BINARY);  /* no CR/LF translation! */
+  fd = open_readonly(actual_path, O_RDONLY|O_BINARY); /* no CR/LF translation */
   file->path = actual_path;
 #else
-  fd = open(real_path, O_RDONLY);
+  fd = open_readonly(real_path, O_RDONLY);
   file->path = real_path;
 #endif
   file->freepath = real_path; /* free this when done */

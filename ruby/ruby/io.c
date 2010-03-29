@@ -2,8 +2,8 @@
 
   io.c -
 
-  $Author: knu $
-  $Date: 2008-06-09 03:20:37 +0900 (Mon, 09 Jun 2008) $
+  $Author: shyouhei $
+  $Date: 2009-03-09 09:55:01 +0900 (Mon, 09 Mar 2009) $
   created at: Fri Oct 15 18:08:59 JST 1993
 
   Copyright (C) 1993-2003 Yukihiro Matsumoto
@@ -1283,6 +1283,8 @@ io_getpartial(int argc, VALUE *argv, VALUE io, int nonblock)
                 goto again;
             rb_sys_fail(fptr->path);
         }
+        if (fptr->f) /* update pos in FILE structure [ruby-core:21561] */
+            fflush(fptr->f);
     }
     rb_str_resize(str, n);
 

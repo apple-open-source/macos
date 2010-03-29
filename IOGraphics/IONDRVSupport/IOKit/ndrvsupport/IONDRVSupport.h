@@ -33,50 +33,50 @@
 extern "C" {
 #endif
 
-#define kIONDRVIgnoreKey	"AAPL,iokit-ignore-ndrv"
-#define kIONDRVForXKey		"AAPL,iokit-ndrv"
+#define kIONDRVIgnoreKey        "AAPL,iokit-ignore-ndrv"
+#define kIONDRVForXKey          "AAPL,iokit-ndrv"
 
 struct IOTVector {
-    void *	pc;
-    UInt32	toc;
+    void *      pc;
+    UInt32      toc;
 };
 typedef struct IOTVector IOTVector;
 
 struct IONDRVInterruptSetMember {
-	void * 		setID;
-	UInt32	 	member;
+        void *          setID;
+        UInt32          member;
 };
 typedef struct IONDRVInterruptSetMember IONDRVInterruptSetMember;
 
-typedef SInt32	(*IONDRVInterruptHandler)( IONDRVInterruptSetMember setMember, void *refCon, UInt32 theIntCount);
+typedef SInt32  (*IONDRVInterruptHandler)( IONDRVInterruptSetMember setMember, void *refCon, UInt32 theIntCount);
 typedef void    (*IONDRVInterruptEnabler)( IONDRVInterruptSetMember setMember, void *refCon);
 typedef Boolean (*IONDRVInterruptDisabler)( IONDRVInterruptSetMember setMember, void *refCon);
 
 enum {
-    kIONDRVFirstMemberNumber			= 1,
-    kIONDRVIsrIsComplete			= 0,
-    kIONDRVIsrIsNotComplete			= -1,
-    kIONDRVMemberNumberParent			= -2
+    kIONDRVFirstMemberNumber                    = 1,
+    kIONDRVIsrIsComplete                        = 0,
+    kIONDRVIsrIsNotComplete                     = -1,
+    kIONDRVMemberNumberParent                   = -2
 };
 
 enum {
-    kIONDRVReturnToParentWhenComplete		= 0x00000001,
-    kIONDRVReturnToParentWhenNotComplete	= 0x00000002
+    kIONDRVReturnToParentWhenComplete           = 0x00000001,
+    kIONDRVReturnToParentWhenNotComplete        = 0x00000002
 };
 
 enum {
-    kIONDRVISTChipInterruptSource		= 0,
-    kIONDRVISTOutputDMAInterruptSource 		= 1,
-    kIONDRVISTInputDMAInterruptSource		= 2,
-    kIONDRVISTPropertyMemberCount		= 3
+    kIONDRVISTChipInterruptSource               = 0,
+    kIONDRVISTOutputDMAInterruptSource          = 1,
+    kIONDRVISTInputDMAInterruptSource           = 2,
+    kIONDRVISTPropertyMemberCount               = 3
 };
 
-#define kIONDRVISTPropertyName	"driver-ist" 
+#define kIONDRVISTPropertyName  "driver-ist" 
 
 IOReturn
-IONDRVInstallInterruptFunctions(void *	setID,
-                                UInt32	member,
-                                void *	refCon,
+IONDRVInstallInterruptFunctions(void *  setID,
+                                UInt32  member,
+                                void *  refCon,
                                 IOTVector * handler,
                                 IOTVector * enabler,
                                 IOTVector * disabler );

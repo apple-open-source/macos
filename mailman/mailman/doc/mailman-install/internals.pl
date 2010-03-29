@@ -26,6 +26,10 @@ $key = q/troubleshooting/;
 $ref_files{$key} = "$dir".q|node46.html|; 
 $noresave{$key} = "$nosave";
 
+$key = q/site-list/;
+$ref_files{$key} = "$dir".q|node40.html|; 
+$noresave{$key} = "$nosave";
+
 $key = q/customizing/;
 $ref_files{$key} = "$dir".q|node39.html|; 
 $noresave{$key} = "$nosave";

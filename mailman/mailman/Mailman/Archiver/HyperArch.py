@@ -1,4 +1,4 @@
-# Copyright (C) 1998-2008 by the Free Software Foundation, Inc.
+# Copyright (C) 1998-2009 by the Free Software Foundation, Inc.
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -302,6 +302,9 @@ class Article(pipermail.Article):
         self.decoded = {}
         cset = Utils.GetCharSet(mlist.preferred_language)
         cset_out = Charset(cset).output_charset or cset
+        if isinstance(cset_out, unicode):
+            # email 3.0.1 (python 2.4) doesn't like unicode
+            cset_out = cset_out.encode('us-ascii')
         charset = message.get_content_charset(cset_out)
         if charset:
             charset = charset.lower().strip()
@@ -623,7 +626,7 @@ class HyperArchive(pipermail.T):
     __super_add_article = pipermail.T.add_article
 
     # some defaults
-    DIRMODE = 0775
+    DIRMODE = 02775
     FILEMODE = 0660
 
     VERBOSE = 0

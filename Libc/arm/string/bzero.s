@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2006 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2006, 2009 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -20,6 +20,15 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
+ 
+#if defined __thumb2__ && defined __ARM_NEON__
+
+// Use our tuned NEON implementation when it is available.  Otherwise fall back
+// on more generic ARM code.
+
+#include "NEON/bzero.s"
+
+#else // defined __thumb2__ && defined __ARM_NEON__
 
 #include <mach/machine/asm.h>
 #include <architecture/arm/asm_help.h>
@@ -160,3 +169,5 @@ L_unaligned:
 	b		L_lessthan64aligned
 
 X_LEAF(___bzero, _bzero)
+
+#endif // defined __thumb2__ && defined __ARM_NEON__

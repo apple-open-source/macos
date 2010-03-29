@@ -59,7 +59,8 @@ AEP_ExtractDir = $(AEP_ProjVers)
 AEP_Patches    = config_f.h.diff \
 		 init.login.patch init.README.patch init.logout.patch \
 		 init.aliases.patch init.rc.patch init.completions.patch init.tcsh.defaults.patch \
-		 init.environment.patch sh.proc.c.patch sh.lex.c.patch host.defs.patch sh.func.c.patch
+		 init.environment.patch sh.proc.c.patch sh.lex.c.patch host.defs.patch sh.func.c.patch \
+		 tc.sig.h.patch
 
 
 ifeq ($(suffix $(AEP_Filename)),.bz2)

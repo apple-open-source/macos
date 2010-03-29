@@ -1,0 +1,27 @@
+Tú, o daquién que se fai pasar por tí, pidió que se-y remembre
+la clave cola que tas soscritu a la llista de distribución 
+%(fqdn_lname)s. Necesitará esta clave pa poder camudar cualesquier
+opción de soscripción a la llista (por exemplu, si quies entrega
+regular o diferida en digest) asina como p'anular la soscripción (nun
+necesites depender de naide pa dase de baxa).
+
+La direición cola que tas soscritu a la llista ye: %(user)s
+
+La clave pa %(listname)s ye: %(password)s
+
+Pa facer cambeos na to soscripción, visita la páxina web
+d'opciones:
+
+    %(options_url)s
+
+Tamién puedes facer estos cambeos por corréu-e, unviando
+un mensax a:
+
+    %(requestaddr)s
+
+col testu "help" nel asuntu (subject) o nel cuerpu del mensax.
+El mensax automáticu que se t'unviará tien información más detallao.
+
+Si tienes dalguna entruga o dalgún comentariu, por favor, únvialu al
+alministrador de la llista de distribución %(listname)s a la
+direición %(owneraddr)s

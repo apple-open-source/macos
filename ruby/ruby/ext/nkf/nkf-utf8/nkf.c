@@ -39,15 +39,15 @@
 **        E-Mail: furukawa@tcp-ip.or.jp
 **    まで御連絡をお願いします。
 ***********************************************************************/
-/* $Id: nkf.c 11779 2007-02-19 08:29:08Z matz $ */
+/* $Id: nkf.c 22067 2009-02-05 00:39:09Z shyouhei $ */
 #define NKF_VERSION "2.0.8"
-#define NKF_RELEASE_DATE "2007-01-28"
+#define NKF_RELEASE_DATE "2008-11-08"
 #include "config.h"
 #include "utf8tbl.h"
 
 #define COPY_RIGHT \
     "Copyright (C) 1987, FUJITSU LTD. (I.Ichikawa),2000 S. Kono, COW\n" \
-    "Copyright (C) 2002-2006 Kono, Furukawa, Naruse, mastodon"
+    "Copyright (C) 2002-2008 Kono, Furukawa, Naruse, mastodon"
 
 
 /*
@@ -3025,12 +3025,12 @@ h_conv(FILE *f, nkf_char c2, nkf_char c1)
             code_status(c1);
         }
         while (p->name){
-            if (p->score < result->score){
+            if (p->status_func && p->score < result->score){
                 result = p;
             }
             ++p;
         }
-        set_iconv(FALSE, result->iconv_func);
+        set_iconv(TRUE, result->iconv_func);
     }
 
 

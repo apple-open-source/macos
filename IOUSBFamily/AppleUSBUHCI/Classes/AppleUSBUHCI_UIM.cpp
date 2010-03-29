@@ -450,7 +450,13 @@ AppleUSBUHCI::UIMCreateInterruptTransfer(IOUSBCommand* command)
         return kIOUSBPipeStalled;
     }
         
-    mp = command->GetBuffer();
+	if ( pQH->maxPacketSize == 0 )
+	{
+		USBLog(2, "AppleUSBUHCI[%p]::UIMCreateInterruptTransfer - maxPacketSize is 0, returning kIOUSBNotEnoughBandwidth", this);
+		return kIOReturnNoBandwidth;
+	}
+
+	mp = command->GetBuffer();
     len = command->GetReqCount();
     
 #define INTERRUPT_TRANSFERS_ONE_PACKET 0
@@ -902,7 +908,7 @@ AppleUSBUHCI::UIMCreateIsochTransfer(short					functionNumber,
 	}
 	
     pEP = FindIsochronousEndpoint(functionNumber, endpointNumber, direction, NULL);
-    if(pEP == NULL)
+    if (pEP == NULL)
     {
         USBLog(1, "AppleUSBUHCI[%p]::UIMCreateIsochTransfer - Endpoint not found", this);
         return kIOUSBEndpointNotFound;        
@@ -949,7 +955,7 @@ AppleUSBUHCI::UIMCreateIsochTransfer(short						functionNumber,
 	
     pEP = FindIsochronousEndpoint(functionNumber, endpointNumber, direction, NULL);
 	
-    if(pEP == NULL)
+    if (pEP == NULL)
     {
         USBLog(1, "AppleUSBUHCI[%p]::UIMCreateIsochTransfer - Endpoint not found", this);
         return kIOUSBEndpointNotFound;        
@@ -984,7 +990,7 @@ AppleUSBUHCI::UIMCreateIsochTransfer(IOUSBIsocCommand * command)
 	
     pEP = FindIsochronousEndpoint(command->GetAddress(), command->GetEndpoint(), command->GetDirection(), NULL);
 	
-    if(pEP == NULL)
+    if (pEP == NULL)
     {
         USBLog(1, "AppleUSBUHCI[%p]::UIMCreateIsochTransfer - Endpoint not found", this);
 		USBTrace( kUSBTUHCIUIM,  kTPUHCIUIMCreateIsochTransfer, (uintptr_t)this, command->GetAddress(), command->GetEndpoint(), 5 );
@@ -1053,7 +1059,7 @@ AppleUSBUHCI::HandleEndpointAbort(short functionAddress, short endpointNumber, s
     }
 	
 	// we don't need to handle any TDs if the queue is empty, so check for that..
-    if(pQH->firstTD != pQH->lastTD)			// There are transactions on this queue
+    if (pQH->firstTD != pQH->lastTD)			// There are transactions on this queue
     {
 		UInt32		nextToggle = 0;
 		
@@ -1185,7 +1191,7 @@ AppleUSBUHCI::UIMDeleteEndpoint(short functionNumber, short	endpointNumber, shor
 		USBTrace( kUSBTUHCIUIM,  kTPUHCIUIMDeleteEndpoint, (uintptr_t)this, err, 0, 0);
 	}
 	
-    if(pQH->firstTD != pQH->lastTD)			// There are transactions on this queue
+    if (pQH->firstTD != pQH->lastTD)			// There are transactions on this queue
     {
         USBLog(5, "AppleUSBUHCI[%p]::UIMDeleteEndpoint: removing TDs", this);
         UHCIUIMDoDoneQueueProcessing(pQH->firstTD, kIOUSBTransactionReturned, pQH->lastTD);
@@ -1417,7 +1423,7 @@ AppleUSBUHCI::UIMCheckForTimeouts(void)
 			pQH->print(1);
 		}
 		
-		if(pTDPhys != pTD->GetPhysicalAddrWithType())
+		if (pTDPhys != pTD->GetPhysicalAddrWithType())
 		{
 			USBLog(6, "AppleUSBUHCI[%p]::UIMCheckForTimeouts - pED (%p) - mismatched logical and physical - TD (%p) will be scavenged later", this, pQH, pTD);
 			pQH->print(7);
@@ -1531,7 +1537,7 @@ AppleUSBUHCI::ReturnOneTransaction(AppleUHCITransferDescriptor		*pTD,
 
 		pTD = OSDynamicCast(AppleUHCITransferDescriptor, pTD->_logicalNext);
     }
-    if(pTD == NULL)
+    if (pTD == NULL)
     {
 		// This works, sort of, NULL for an end transction means remove them all.
 		// But there will be no callback
@@ -1642,9 +1648,9 @@ AppleUSBUHCI::AllocTDChain(AppleUHCIQueueHead* pQH, IOUSBCommand *command, IOMem
 	/* *********** then the controller will pick up and cache ************** */
 	/* *********** crap for the TD.                           ************** */
 	
-    if(controlTransaction)
+    if (controlTransaction)
     {
-		if(direction != kUSBNone)
+		if (direction != kUSBNone)
 		{												// Setup phase uses Data 0, data phase & status phase use Data1 
             myToggle = kUHCI_TD_D;						// use Data1 
 		}
@@ -1804,7 +1810,7 @@ AppleUSBUHCI::AllocTDChain(AppleUHCIQueueHead* pQH, IOUSBCommand *command, IOMem
 				else
 				{
 					pTD->SetPhysicalLink(pTDnew->GetPhysicalAddrWithType());
-					pTD->_logicalNext = pTDnew;																	// if(trace)printTD(pTD);
+					pTD->_logicalNext = pTDnew;																	// if (trace)printTD(pTD);
 					pTD->GetSharedLogical()->ctrlStatus = HostToUSBLong(ctrlStatus);
 					pTD = pTDnew;
 					USBLog(7, "AppleUSBUHCI[%p]::AllocTDChain - got another TD - going to fill it up too (%d, %d)", this, (uint32_t)transferOffset, (uint32_t)bufferSize);
@@ -1916,12 +1922,12 @@ AppleUSBUHCI::AddIsochFramesToSchedule(IOUSBControllerIsochEndpoint* pEP)
     UInt16									nextSlot, firstOutSlot;
 	uint64_t								currentTime;
 	
-    if(pEP->toDoList == NULL)
+    if (pEP->toDoList == NULL)
     {
 		USBLog(7, "AppleUSBUHCI[%p]::AddIsochFramesToSchedule - no frames to add fn:%d EP:%d", this, pEP->functionAddress, pEP->endpointNumber);
 		return;
     }
-    if(pEP->aborting)
+    if (pEP->aborting)
     {
 		USBLog(1, "AppleUSBUHCI[%p]::AddIsochFramesToSchedule - EP (%p) is aborting - not adding", this, pEP);
 		USBTrace( kUSBTUHCIUIM,  kTPUHCIUIMAddIsochFramesToSchedule, (uintptr_t)this, pEP->functionAddress, pEP->endpointNumber, 1);
@@ -1974,7 +1980,7 @@ AppleUSBUHCI::AddIsochFramesToSchedule(IOUSBControllerIsochEndpoint* pEP)
 		}
 	    
         //USBLog(7, "AppleUSBUHCI[%p]::AddIsochFramesToSchedule - pTD = %p", this, pTD);
-		if(pEP->toDoList == NULL)
+		if (pEP->toDoList == NULL)
 		{	
 			// Run out of transactions to move.  Call this on a separate thread so that we return to the caller right away
             // 
@@ -2009,7 +2015,7 @@ AppleUSBUHCI::AddIsochFramesToSchedule(IOUSBControllerIsochEndpoint* pEP)
 			//USBLog(2, "AppleUSBUHCI[%p]::AddIsochFramesToSchedule - caught up pEP->inSlot (0x%x) _outSlot (0x%x)", this, pEP->inSlot, _outSlot);
 			break;
 		}
-		if( nextSlot == _outSlot) 								// weve caught up with our tail
+		if ( nextSlot == _outSlot) 								// weve caught up with our tail
 		{
 			//USBLog(2, "AppleUSBUHCI[%p]::AddIsochFramesToSchedule - caught up nextSlot (0x%x) _outSlot (0x%x)", this, nextSlot, _outSlot);
 			break;
@@ -2018,9 +2024,9 @@ AppleUSBUHCI::AddIsochFramesToSchedule(IOUSBControllerIsochEndpoint* pEP)
 		pTD = GetTDfromToDoList(pEP);
 		//USBLog(7, "AppleUSBUHCI[%p]::AddIsochFramesToSchedule - checking TD(%p) FN(0x%Lx) against currFrame (0x%Lx)", this, pTD, pTD->_frameNumber, currFrame);
 		
-		if(currFrame == pTD->_frameNumber)
+		if (currFrame == pTD->_frameNumber)
 		{			
-			if(_outSlot > kUHCI_NVFRAMES)
+			if (_outSlot > kUHCI_NVFRAMES)
 			{
 				_outSlot = firstOutSlot;
 			}
@@ -2121,7 +2127,7 @@ AppleUSBUHCI::AbortIsochEP(IOUSBControllerIsochEndpoint* pEP)
             {
                 nextThing = thing->_logicalNext;
                 pTD = OSDynamicCast(IOUSBControllerIsochListElement, thing);
-                if(pTD)
+                if (pTD)
                 {
                     if (pTD->_pEndpoint == pEP)
                     {

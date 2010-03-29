@@ -1,4 +1,53 @@
 ﻿                                                         -*- coding: utf-8 -*-
+Changes with Apache 2.2.14
+
+  *) SECURITY: CVE-2009-2699 (cve.mitre.org)
+     Fixed in APR 1.3.9.  Faulty error handling in the Solaris pollset support
+     (Event Port backend) which could trigger hangs in the prefork and event
+     MPMs on that platform.  PR 47645.  [Jeff Trawick]
+
+  *) SECURITY: CVE-2009-3095 (cve.mitre.org)
+     mod_proxy_ftp: sanity check authn credentials.
+     [Stefan Fritsch <sf fritsch.de>, Joe Orton]
+
+  *) SECURITY: CVE-2009-3094 (cve.mitre.org)
+     mod_proxy_ftp: NULL pointer dereference on error paths.
+     [Stefan Fritsch <sf fritsch.de>, Joe Orton]
+
+  *) mod_proxy_scgi: Backport from trunk. [André Malo]
+
+  *) mod_ldap: Don't try to resolve file-based user ids to a DN when AuthLDAPURL
+     has been defined at a very high level.  PR 45946.  [Eric Covener]
+
+  *) htcacheclean: 19 ways to fail, 1 error message. Fixed. [Graham Leggett]
+
+  *) mod_ldap: Bring the LDAPCacheEntries and LDAPOpCacheEntries
+     usage() in synch with the manual and the implementation (0 and -1
+     both disable the cache). [Eric Covener]
+
+  *) mod_ssl: The error message when SSLCertificateFile is missing should
+     at least give the name or position of the problematic virtual host
+     definition. [Stefan Fritsch sf sfritsch.de]
+
+  *) htdbm: Fix possible buffer overflow if dbm database has very
+     long values.  PR 30586 [Dan Poirier]
+
+  *) Add support for HTTP PUT to ab. [Jeff Barnes <jbarnesweb yahoo.com>]
+
+  *) mod_ssl: Fix SSL_*_DN_UID variables to use the 'userID' attribute
+     type.  PR 45107.  [Michael Ströder <michael stroeder.com>,
+     Peter Sylvester <peter.sylvester edelweb.fr>]
+
+  *) mod_cache: Add CacheIgnoreURLSessionIdentifiers directive to ignore
+     defined session identifiers encoded in the URL when caching.
+     [Ruediger Pluem]
+
+  *) mod_mem_cache: fix seg fault under load due to pool concurrency problem
+     PR: 47672 [Dan Poirier <poirier pobox.com>]
+
+  *) mod_autoindex: Correctly create an empty cell if the description
+     for a file is missing. PR 47682 [Peter Poeml <poeml suse.de>]
+
 Changes with Apache 2.2.13
 
   *) SECURITY: CVE-2009-2412 (cve.mitre.org)

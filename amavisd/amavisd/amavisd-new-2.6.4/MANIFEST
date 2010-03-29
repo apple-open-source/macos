@@ -1,0 +1,55 @@
+MANIFEST         this file
+LICENSE          GPL license text
+
+AAAREADME.first  start reading here...
+RELEASE_NOTES    ...followed by reading/browsing this file
+
+INSTALL          installation instructions
+README_FILES/    MTA-specific instructions and other documentation
+README_FILES/amavisd-new-docs.html  a more detailed documentation on selected
+                 topics (a work in progress), the most recent version is at:
+                   http://www.ijs.si/software/amavisd/amavisd-new-docs.html
+
+amavisd          the amavisd-new daemon (should go into /usr/local/sbin/)
+amavisd.conf     its configuration file (should go into /etc/)
+amavisd.conf-default  lists all configuration variables with their defaults
+amavisd.conf-sample   traditional-style commented amavisd.conf with examples
+amavisd-custom.conf   example custom hooks, to be invoked from amavisd.conf
+
+amavisd-agent    a demo program to access and display SNMP-like counters
+                 being updated and made available as a Berkeley DB by amavisd
+
+amavisd-nanny    a program to show the status and keep an eye on the health
+                 of child processes in amavisd-new (experimental)
+
+amavisd-release  a program to request releasing a message from a quarantine
+
+p0f-analyzer.pl  a program to interface amavisd with a p0f utility
+
+amavisd-snmp-subagent  a SNMP AgentX program, exporting the amavisd
+                 statistical counters and gauges database as well as a
+                 process health database to a snmpd daemon supporting
+                 AgentX protocol (RFC 2741), such a NET-SNMP;
+
+AMAVIS-MIB.txt   The MIB module (SNMP Management information base)
+                 describing amavisd-new statistics and health information.
+                 Useful to a SNMP client program such as snmpwalk or Cacti;
+
+JpegTester.pm    a Perl module needed if 'check-jpeg' AV checker entry
+                 is enabled; to be placed in Perl include paths if needed;
+
+helper-progs/    contains amavis.c and amavis-milter.c helpers (sendmail only)
+test-messages/   contains sample/test mail messages
+TODO             missing features, wish list, ...
+
+
+CONTRIBUTED WORK:
+
+LDAP.schema      amavisd-new LDAP schema for LDAP lookups
+LDAP.ldif        amavisd-new LDAP schema for LDAP lookups (in ldif format)
+
+amavisd-new-courier.patch  adds support for the Courier MTA
+amavisd-new-qmqpqq.patch   adds support for the qmail MTA
+
+amavisd_init.sh  sample init shell script
+amavisd-new.spec rpm spec file

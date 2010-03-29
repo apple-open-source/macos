@@ -1,69 +1,40 @@
 = RubyGems
 
-(See Releases for release-specific information)
+* http://rubygems.rubyforge.org/
+* http://rubyforge.org/projects/rubygems
+* http://rubygems.org/
 
-== Installation
+== DESCRIPTION
 
-Get it from RubyForge (http://rubygems.rubyforge.org) and run (as root, if appropriate and necessary)
+RubyGems is a package management framework for Ruby.
 
-  ruby setup.rb
+This gem is an update for the RubyGems software. You must have an
+installation of RubyGems before this update can be applied.
+
+See Gem for information on RubyGems (or `ri Gem`)
+
+To upgrade to the latest RubyGems, run:
+
+  $ gem install --system  # you might need to be an administrator or root
+
+NOTE:  RubyGems 1.1 and 1.2 have problems upgrading when there is no
+rubygems-update installed.  You will need to use the following instructions
+if you see "Nothing to update".
+
+If you have an older version of RubyGems installed, then you can still
+do it in two steps:
+
+  $ gem install rubygems-update  # again, might need to be admin/root
+  $ update_rubygems              # ... here too
+
+If you don't have any RubyGems install, there is still the pre-gem approach to
+getting software, doing it manually:
+
+1. Download from: http://rubyforge.org/frs/?group_id=126
+2. Unpack into a directory and cd there
+3. Install with: ruby setup.rb  # you may need admin/root privilege
 
 For more details and other options, see:
 
   ruby setup.rb --help
 
-* {User Guide/Installation}[http://docs.rubygems.org/read/chapter/3]
-
-== For User Documentation, see
-
-* {RubyGems User Guide}[http://docs.rubygems.org/read/book/1]
-* {Frequently Asked Questions}[http://docs.rubygems.org/read/book/3]
-
-== For developer docs see
-
-* {Creating Gems}[http://docs.rubygems.org/read/chapter/5]
-* {GEM Specification}[http://docs.rubygems.org/read/chapter/20]
-
-== The home page of the RubyGems Documentation
-
-* {RubyGems Home}[http://rubygems.rubyforge.org]
-
-== Additional directories
-
-[./bin/...]       binary commands (gem, gem_server, etc)
-[./lib/...]       the RubyGems library
-[./pkgs/...]  default RubyGems packages (currently only 'sources')
-[./test/...]      unit and functional tests
-
-== Credits
-
-RubyGems was originally developed at RubyConf 2003 by:
-
-* Rich Kilmer -- rich(at)infoether.com
-* Chad Fowler -- chad(at)chadfowler.com
-* David Black -- dblack(at)wobblini.net
-* Paul Brannan -- paul(at)atdesk.com
-* Jim Weirch -- {jim(at)weirichhouse.org}[mailto:jim@weirichhouse.org]
-
-== Contributors since then
-
-* Gavin Sinclair -- gsinclair(at)soyabean.com.au
-* George Marrows-- george.marrows(at)ntlworld.com
-* Dick Davies -- rasputnik(at)hellooperator.net
-* Mauricio Fernandez -- batsman.geo(at)yahoo.com
-* Simon Strandgaard -- neoneye(at)adslhome.dk
-* Dave Glasser -- glasser(at)mit.edu
-* Paul Duncan -- pabs(at)pablotron.org
-* Ville Aine -- vaine(at)cs.helsinki.fi
-* Ryan Davis -- 
-* Eric Hodel -- drbrain(at)segment7.net
-
-(If your name is missing, PLEASE let us know!)
-
-== Feedback
-
-Please provide us feedback at http://rubyforge.org/projects/rubygems
-
-Thanks!
-
--The RubyGems Team

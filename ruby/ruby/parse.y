@@ -2,8 +2,8 @@
 
   parse.y -
 
-  $Author: knu $
-  $Date: 2008-06-06 19:39:57 +0900 (Fri, 06 Jun 2008) $
+  $Author: shyouhei $
+  $Date: 2009-03-09 08:55:21 +0900 (Mon, 09 Mar 2009) $
   created at: Fri May 28 18:02:42 JST 1993
 
   Copyright (C) 1993-2003 Yukihiro Matsumoto
@@ -124,6 +124,8 @@ static int compile_for_eval = 0;
 static ID cur_mid = 0;
 static int command_start = Qtrue;
 
+static NODE *deferred_nodes;
+
 static NODE *cond();
 static NODE *logop();
 static int cond_negative();
@@ -180,6 +182,8 @@ static NODE *dyna_init();
 
 static void top_local_init();
 static void top_local_setup();
+
+static void fixup_nodes();
 
 #define RE_OPTION_ONCE 0x80
 
@@ -394,6 +398,7 @@ bodystmt	: compstmt
 compstmt	: stmts opt_terms
 		    {
 			void_stmts($1);
+			fixup_nodes(&deferred_nodes);
 		        $$ = $1;
 		    }
 		;
@@ -1080,26 +1085,20 @@ arg		: lhs '=' arg
 		    {
 			value_expr($1);
 			value_expr($3);
+			$$ = NEW_DOT2($1, $3);
 			if (nd_type($1) == NODE_LIT && FIXNUM_P($1->nd_lit) &&
 			    nd_type($3) == NODE_LIT && FIXNUM_P($3->nd_lit)) {
-			    $1->nd_lit = rb_range_new($1->nd_lit, $3->nd_lit, Qfalse);
-			    $$ = $1;
-			}
-			else {
-			    $$ = NEW_DOT2($1, $3);
+			    deferred_nodes = list_append(deferred_nodes, $$);
 			}
 		    }
 		| arg tDOT3 arg
 		    {
 			value_expr($1);
 			value_expr($3);
+			$$ = NEW_DOT3($1, $3);
 			if (nd_type($1) == NODE_LIT && FIXNUM_P($1->nd_lit) &&
 			    nd_type($3) == NODE_LIT && FIXNUM_P($3->nd_lit)) {
-			    $1->nd_lit = rb_range_new($1->nd_lit, $3->nd_lit, Qtrue);
-			    $$ = $1;
-			}
-			else {
-			    $$ = NEW_DOT3($1, $3);
+			    deferred_nodes = list_append(deferred_nodes, $$);
 			}
 		    }
 		| arg '+' arg
@@ -2689,6 +2688,7 @@ yycompile(f, line)
     lex_strterm = 0;
     ruby_current_node = 0;
     ruby_sourcefile = rb_source_filename(f);
+    deferred_nodes = 0;
     n = yyparse();
     ruby_debug_lines = 0;
     compile_for_eval = 0;
@@ -2700,6 +2700,7 @@ yycompile(f, line)
     in_single = 0;
     in_def = 0;
     cur_mid = 0;
+    deferred_nodes = 0;
 
     vp = ruby_dyna_vars;
     ruby_dyna_vars = vars;
@@ -3433,6 +3434,7 @@ arg_ambiguous()
 }
 
 #define IS_ARG() (lex_state == EXPR_ARG || lex_state == EXPR_CMDARG)
+#define IS_BEG() (lex_state == EXPR_BEG || lex_state == EXPR_MID || lex_state == EXPR_CLASS)
 
 static int
 yylex()
@@ -3518,7 +3520,7 @@ yylex()
 		rb_warning("`*' interpreted as argument prefix");
 		c = tSTAR;
 	    }
-	    else if (lex_state == EXPR_BEG || lex_state == EXPR_MID) {
+	    else if (IS_BEG()) {
 		c = tSTAR;
 	    }
 	    else {
@@ -3747,7 +3749,7 @@ yylex()
 	    rb_warning("`&' interpreted as argument prefix");
 	    c = tAMPER;
 	}
-	else if (lex_state == EXPR_BEG || lex_state == EXPR_MID) {
+	else if (IS_BEG()) {
 	    c = tAMPER;
 	}
 	else {
@@ -3801,7 +3803,7 @@ yylex()
 	    lex_state = EXPR_BEG;
 	    return tOP_ASGN;
 	}
-	if (lex_state == EXPR_BEG || lex_state == EXPR_MID ||
+	if (IS_BEG() ||
 	    (IS_ARG() && space_seen && !ISSPACE(c))) {
 	    if (IS_ARG()) arg_ambiguous();
 	    lex_state = EXPR_BEG;
@@ -3831,7 +3833,7 @@ yylex()
 	    lex_state = EXPR_BEG;
 	    return tOP_ASGN;
 	}
-	if (lex_state == EXPR_BEG || lex_state == EXPR_MID ||
+	if (IS_BEG() ||
 	    (IS_ARG() && space_seen && !ISSPACE(c))) {
 	    if (IS_ARG()) arg_ambiguous();
 	    lex_state = EXPR_BEG;
@@ -3969,7 +3971,8 @@ yylex()
 			    nondigit = c;
 			    continue;
 			}
-			if (c < '0' || c > '7') break;
+			if (c < '0' || c > '9') break;
+			if (c > '7') goto invalid_octal;
 			nondigit = 0;
 			tokadd(c);
 		    } while ((c = nextc()) != -1);
@@ -3986,6 +3989,7 @@ yylex()
 		    }
 		}
 		if (c > '7' && c <= '9') {
+		  invalid_octal:
 		    yyerror("Illegal octal digit");
 		}
 		else if (c == '.' || c == 'e' || c == 'E') {
@@ -4090,8 +4094,7 @@ yylex()
       case ':':
 	c = nextc();
 	if (c == ':') {
-	    if (lex_state == EXPR_BEG ||  lex_state == EXPR_MID ||
-		lex_state == EXPR_CLASS || (IS_ARG() && space_seen)) {
+	    if (IS_BEG() || (IS_ARG() && space_seen)) {
 		lex_state = EXPR_BEG;
 		return tCOLON3;
 	    }
@@ -4118,7 +4121,7 @@ yylex()
 	return tSYMBEG;
 
       case '/':
-	if (lex_state == EXPR_BEG || lex_state == EXPR_MID) {
+	if (IS_BEG()) {
 	    lex_strterm = NEW_STRTERM(str_regexp, '/', 0);
 	    return tREGEXP_BEG;
 	}
@@ -4180,7 +4183,7 @@ yylex()
 
       case '(':
 	command_start = Qtrue;
-	if (lex_state == EXPR_BEG || lex_state == EXPR_MID) {
+	if (IS_BEG()) {
 	    c = tLPAREN;
 	}
 	else if (space_seen) {
@@ -4210,7 +4213,7 @@ yylex()
 	    pushback(c);
 	    return '[';
 	}
-	else if (lex_state == EXPR_BEG || lex_state == EXPR_MID) {
+	else if (IS_BEG()) {
 	    c = tLBRACK;
 	}
 	else if (IS_ARG() && space_seen) {
@@ -4244,7 +4247,7 @@ yylex()
 	return '\\';
 
       case '%':
-	if (lex_state == EXPR_BEG || lex_state == EXPR_MID) {
+	if (IS_BEG()) {
 	    int term;
 	    int paren;
 
@@ -4558,6 +4561,7 @@ yylex()
 		lex_state == EXPR_MID ||
 		lex_state == EXPR_DOT ||
 		lex_state == EXPR_ARG ||
+		lex_state == EXPR_CLASS ||
 		lex_state == EXPR_CMDARG) {
 		if (cmd_state) {
 		    lex_state = EXPR_CMDARG;
@@ -5374,6 +5378,36 @@ warning_unless_e_option(node, str)
     if (!e_option_supplied()) parser_warning(node, str);
 }
 
+static void
+fixup_nodes(rootnode)
+    NODE **rootnode;
+{
+    NODE *node, *next, *head;
+
+    for (node = *rootnode; node; node = next) {
+	enum node_type type;
+	VALUE val;
+
+	next = node->nd_next;
+	head = node->nd_head;
+	rb_gc_force_recycle((VALUE)node);
+	*rootnode = next;
+	switch (type = nd_type(head)) {
+	  case NODE_DOT2:
+	  case NODE_DOT3:
+	    val = rb_range_new(head->nd_beg->nd_lit, head->nd_end->nd_lit,
+			       type == NODE_DOT3 ? Qtrue : Qfalse);
+	    rb_gc_force_recycle((VALUE)head->nd_beg);
+	    rb_gc_force_recycle((VALUE)head->nd_end);
+	    nd_set_type(head, NODE_LIT);
+	    head->nd_lit = val;
+	    break;
+	  default:
+	    break;
+	}
+    }
+}
+
 static NODE *cond0();
 
 static NODE*
@@ -5382,21 +5416,19 @@ range_op(node)
 {
     enum node_type type;
 
-    if (!e_option_supplied()) return node;
     if (node == 0) return 0;
 
-    value_expr(node);
-    node = cond0(node);
     type = nd_type(node);
     if (type == NODE_NEWLINE) {
 	node = node->nd_next;
 	type = nd_type(node);
     }
+    value_expr(node);
     if (type == NODE_LIT && FIXNUM_P(node->nd_lit)) {
 	warn_unless_e_option(node, "integer literal in conditional range");
 	return call_op(node,tEQ,1,NEW_GVAR(rb_intern("$.")));
     }
-    return node;
+    return cond0(node);
 }
 
 static int
@@ -5917,6 +5949,7 @@ rb_gc_mark_parser()
     rb_gc_mark(lex_lastline);
     rb_gc_mark(lex_input);
     rb_gc_mark((VALUE)lex_strterm);
+    rb_gc_mark((VALUE)deferred_nodes);
 }
 
 void

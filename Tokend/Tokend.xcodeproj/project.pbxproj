@@ -1073,7 +1073,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUILD_VARIANTS = debug;
-				CURRENT_PROJECT_VERSION = 36720;
+				CURRENT_PROJECT_VERSION = 37563;
 				FRAMEWORK_SEARCH_PATHS = (
 					/usr/local/SecurityPieces/Frameworks,
 					"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
@@ -1122,7 +1122,7 @@
 					nopic,
 				);
 				COPY_PHASE_STRIP = YES;
-				CURRENT_PROJECT_VERSION = 36720;
+				CURRENT_PROJECT_VERSION = 37563;
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
 					/usr/local/SecurityPieces/Frameworks,
@@ -1200,7 +1200,7 @@
 				ALWAYS_SEARCH_USER_PATHS = YES;
 				BUILD_VARIANTS = debug;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 36720;
+				CURRENT_PROJECT_VERSION = 37563;
 				FRAMEWORK_SEARCH_PATHS = (
 					/usr/local/SecurityPieces/Frameworks,
 					"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
@@ -1265,7 +1265,7 @@
 					normal,
 					debug,
 				);
-				CURRENT_PROJECT_VERSION = 36720;
+				CURRENT_PROJECT_VERSION = 37563;
 				FRAMEWORK_SEARCH_PATHS = (
 					/usr/local/SecurityPieces/Frameworks,
 					"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
@@ -1308,7 +1308,7 @@
 			buildSettings = {
 				BUILD_VARIANTS = debug;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 36720;
+				CURRENT_PROJECT_VERSION = 37563;
 				FRAMEWORK_SEARCH_PATHS = (
 					/usr/local/SecurityPieces/Frameworks,
 					"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
@@ -1373,7 +1373,7 @@
 					normal,
 					debug,
 				);
-				CURRENT_PROJECT_VERSION = 36720;
+				CURRENT_PROJECT_VERSION = 37563;
 				FRAMEWORK_SEARCH_PATHS = (
 					/usr/local/SecurityPieces/Frameworks,
 					"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
@@ -1416,7 +1416,7 @@
 			buildSettings = {
 				BUILD_VARIANTS = debug;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 36720;
+				CURRENT_PROJECT_VERSION = 37563;
 				FRAMEWORK_SEARCH_PATHS = (
 					/usr/local/SecurityPieces/Frameworks,
 					"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
@@ -1481,7 +1481,7 @@
 					normal,
 					debug,
 				);
-				CURRENT_PROJECT_VERSION = 36720;
+				CURRENT_PROJECT_VERSION = 37563;
 				FRAMEWORK_SEARCH_PATHS = (
 					/usr/local/SecurityPieces/Frameworks,
 					"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
@@ -1524,7 +1524,7 @@
 			buildSettings = {
 				BUILD_VARIANTS = debug;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 36720;
+				CURRENT_PROJECT_VERSION = 37563;
 				FRAMEWORK_SEARCH_PATHS = (
 					/usr/local/SecurityPieces/Frameworks,
 					"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
@@ -1589,7 +1589,7 @@
 					normal,
 					debug,
 				);
-				CURRENT_PROJECT_VERSION = 36720;
+				CURRENT_PROJECT_VERSION = 37563;
 				FRAMEWORK_SEARCH_PATHS = (
 					/usr/local/SecurityPieces/Frameworks,
 					"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",

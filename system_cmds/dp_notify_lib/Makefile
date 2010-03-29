@@ -10,6 +10,10 @@ Extra_LD_Flags = -static
 
 include $(MAKEFILEPATH)/CoreOS/ReleaseControl/BSDCommon.make
 
+ifneq ($(SDKROOT),)
+Extra_MIG_Flags = -arch $(firstword $(RC_ARCHS))
+endif
+
 after_install: 
 	$(INSTALL_DIRECTORY) $(DSTROOT)/usr/local/include/mach
 	$(INSTALL_FILE) $(OBJROOT)/$(Project)/backing_store_alerts_server.h \

@@ -1,5 +1,5 @@
---- mu-conference_0.8/src/conference_room.c	2009-01-10 14:23:20.000000000 -0800
-+++ mu-conference_0.8_apple/src/conference_room.c	2009-03-27 13:31:37.000000000 -0700
+--- conference_room.c	2009-01-10 14:23:20.000000000 -0800
++++ conference_room.c.new	2009-11-04 15:52:07.000000000 -0800
 @@ -1477,7 +1477,7 @@
    /* Room Defaults */
    room->public = master->public;
@@ -9,3 +9,12 @@
    room->persistent = persist;
    room->moderated = 0;
    room->defaulttype = 0;
+@@ -1485,7 +1485,7 @@
+   room->invitation = 0;
+   room->invites = 0;
+   room->legacy = 0;
+-  room->visible = 0;
++  room->visible = 1;
+   room->logfile = NULL;
+   room->logformat = LOG_TEXT;
+   room->description = j_strdup(room->name);

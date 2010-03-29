@@ -72,6 +72,10 @@ extern struct mig_subsystem	_pppcontroller_subsystem;
 extern boolean_t		pppcontroller_server(mach_msg_header_t *, 
 						       mach_msg_header_t *);
 
+extern CFRunLoopRef			gControllerRunloop;
+extern CFRunLoopSourceRef	gPluginRunloop;
+extern CFRunLoopSourceRef	gTerminalrls;
+
 
 static uid_t S_uid = -1;
 static gid_t S_gid = -1;
@@ -861,9 +865,12 @@ ppp_mach_start_server()
 		gServer_cfport = NULL;
 		return -1;
 	}
-	
-	CFRunLoopAddSource(CFRunLoopGetCurrent(), rls, kCFRunLoopDefaultMode);
+
+	gControllerRunloop = CFRunLoopGetCurrent();
+	CFRunLoopAddSource(gControllerRunloop, rls, kCFRunLoopDefaultMode);
+	CFRunLoopAddSource(gControllerRunloop, gTerminalrls, kCFRunLoopDefaultMode);	
     CFRelease(rls);
+	
 	return 0;
 	
 }

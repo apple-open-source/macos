@@ -31,9 +31,7 @@
  */
 
 #include <sys/param.h>
-#define KERNEL_PRIVATE
 #include <sys/ioctl.h>
-#undef KERNEL_PRIVATE
 #include <sys/socket.h>
 #include <sys/sockio.h>
 
@@ -56,75 +54,112 @@
 
 #include "ifconfig.h"
 
-static int			__tag = 0;
-static int			__have_tag = 0;
+#ifndef lint
+static const char rcsid[] =
+  "$FreeBSD: src/sbin/ifconfig/ifvlan.c,v 1.12.2.1.2.1 2008/11/25 02:59:29 kensmith Exp $";
+#endif
 
-void
-vlan_status(int s, struct rt_addrinfo *info __unused)
+#define	NOTAG	((u_short) -1)
+
+static 	struct vlanreq params = {
+	.vlr_tag	= NOTAG,
+};
+
+static int
+getvlan(int s, struct ifreq *ifr, struct vlanreq *vreq)
+{
+	bzero((char *)vreq, sizeof(*vreq));
+	ifr->ifr_data = (caddr_t)vreq;
+
+	return ioctl(s, SIOCGETVLAN, (caddr_t)ifr);
+}
+
+static void
+vlan_status(int s)
 {
 	struct vlanreq		vreq;
 
-	bzero((char *)&vreq, sizeof(struct vlanreq));
-	ifr.ifr_data = (caddr_t)&vreq;
-
-	if (ioctl(s, SIOCGETVLAN, (caddr_t)&ifr) == -1)
-		return;
-
-	printf("\tvlan: %d parent interface: %s\n",
-	    vreq.vlr_tag, vreq.vlr_parent[0] == '\0' ?
-	    "<none>" : vreq.vlr_parent);
-
-	return;
+	if (getvlan(s, &ifr, &vreq) != -1)
+		printf("\tvlan: %d parent interface: %s\n",
+		    vreq.vlr_tag, vreq.vlr_parent[0] == '\0' ?
+		    "<none>" : vreq.vlr_parent);
 }
 
-void
-setvlantag(const char *val, int d, int s, const struct afswtch	*afp)
+static void
+vlan_create(int s, struct ifreq *ifr)
 {
-	u_int16_t		tag;
-	struct vlanreq		vreq;
-
-	__tag = tag = atoi(val);
-	__have_tag = 1;
-
-	bzero((char *)&vreq, sizeof(struct vlanreq));
-	ifr.ifr_data = (caddr_t)&vreq;
-
-	if (ioctl(s, SIOCGETVLAN, (caddr_t)&ifr) == -1)
-		err(1, "SIOCGETVLAN");
-
-	vreq.vlr_tag = tag;
-
-	if (ioctl(s, SIOCSETVLAN, (caddr_t)&ifr) == -1)
-		err(1, "SIOCSETVLAN");
-
-	return;
+	if (params.vlr_tag != NOTAG || params.vlr_parent[0] != '\0') {
+		/*
+		 * One or both parameters were specified, make sure both.
+		 */
+		if (params.vlr_tag == NOTAG)
+			errx(1, "must specify a tag for vlan create");
+		if (params.vlr_parent[0] == '\0')
+			errx(1, "must specify a parent device for vlan create");
+		ifr->ifr_data = (caddr_t) &params;
+	}
+#if SIOCIFCREATE2
+	if (ioctl(s, SIOCIFCREATE2, ifr) < 0)
+		err(1, "SIOCIFCREATE2");
+#else
+	if (ioctl(s, SIOCIFCREATE, ifr) < 0)
+		err(1, "SIOCIFCREATE");
+#endif
 }
 
-void
-setvlandev(const char *val, int d, int s, const struct afswtch	*afp)
+static void
+vlan_cb(int s, void *arg)
 {
-	struct vlanreq		vreq;
-
-	if (!__have_tag)
-		errx(1, "must specify both vlan tag and device");
-
-	bzero((char *)&vreq, sizeof(struct vlanreq));
-	ifr.ifr_data = (caddr_t)&vreq;
-
-	if (ioctl(s, SIOCGETVLAN, (caddr_t)&ifr) == -1)
-		err(1, "SIOCGETVLAN");
-
-	strncpy(vreq.vlr_parent, val, sizeof(vreq.vlr_parent));
-	vreq.vlr_tag = __tag;
-
-	if (ioctl(s, SIOCSETVLAN, (caddr_t)&ifr) == -1)
-		err(1, "SIOCSETVLAN");
-
-	return;
+	if ((params.vlr_tag != NOTAG) ^ (params.vlr_parent[0] != '\0'))
+		errx(1, "both vlan and vlandev must be specified");
 }
 
-void
-unsetvlandev(const char *val, int d, int s, const struct afswtch *afp)
+static void
+vlan_set(int s, struct ifreq *ifr)
+{
+	if (params.vlr_tag != NOTAG && params.vlr_parent[0] != '\0') {
+		ifr->ifr_data = (caddr_t) &params;
+		if (ioctl(s, SIOCSETVLAN, (caddr_t)ifr) == -1)
+			err(1, "SIOCSETVLAN");
+	}
+}
+
+static
+DECL_CMD_FUNC(setvlantag, val, d)
+{
+	struct vlanreq vreq;
+	u_long ul;
+	char *endp;
+
+	ul = strtoul(val, &endp, 0);
+	if (*endp != '\0')
+		errx(1, "invalid value for vlan");
+	params.vlr_tag = ul;
+	/* check if the value can be represented in vlr_tag */
+	if (params.vlr_tag != ul)
+		errx(1, "value for vlan out of range");
+
+	if (getvlan(s, &ifr, &vreq) != -1)
+		vlan_set(s, &ifr);
+	else
+		clone_setcallback(vlan_create);
+}
+
+static
+DECL_CMD_FUNC(setvlandev, val, d)
+{
+	struct vlanreq vreq;
+
+	strlcpy(params.vlr_parent, val, sizeof(params.vlr_parent));
+
+	if (getvlan(s, &ifr, &vreq) != -1)
+		vlan_set(s, &ifr);
+	else
+		clone_setcallback(vlan_create);
+}
+
+static
+DECL_CMD_FUNC(unsetvlandev, val, d)
 {
 	struct vlanreq		vreq;
 
@@ -139,6 +174,35 @@ unsetvlandev(const char *val, int d, int s, const struct afswtch *afp)
 
 	if (ioctl(s, SIOCSETVLAN, (caddr_t)&ifr) == -1)
 		err(1, "SIOCSETVLAN");
+}
 
-	return;
+static struct cmd vlan_cmds[] = {
+	DEF_CLONE_CMD_ARG("vlan",			setvlantag),
+	DEF_CLONE_CMD_ARG("vlandev",			setvlandev),
+	/* XXX For compatibility.  Should become DEF_CMD() some day. */
+	DEF_CMD_OPTARG("-vlandev",			unsetvlandev),
+#ifdef notdef
+	DEF_CMD("vlanmtu",	IFCAP_VLAN_MTU,		setifcap),
+	DEF_CMD("-vlanmtu",	-IFCAP_VLAN_MTU,	setifcap),
+	DEF_CMD("vlanhwtag",	IFCAP_VLAN_HWTAGGING,	setifcap),
+	DEF_CMD("-vlanhwtag",	-IFCAP_VLAN_HWTAGGING,	setifcap),
+#endif
+};
+static struct afswtch af_vlan = {
+	.af_name	= "af_vlan",
+	.af_af		= AF_UNSPEC,
+	.af_other_status = vlan_status,
+};
+
+static __constructor void
+vlan_ctor(void)
+{
+#define	N(a)	(sizeof(a) / sizeof(a[0]))
+	int i;
+
+	for (i = 0; i < N(vlan_cmds);  i++)
+		cmd_register(&vlan_cmds[i]);
+	af_register(&af_vlan);
+	callback_register(vlan_cb, NULL);
+#undef N
 }

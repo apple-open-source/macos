@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2008 Apple Inc. All rights reserved.
+ * Copyright (c) 2008-2009 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -23,7 +23,7 @@
  */
 
 /*
-g++ -W -Wall -I/System/Library/Frameworks/System.framework/PrivateHeaders -I/System/Library/Frameworks/Kernel.framework/PrivateHeaders -DPRIVATE -D__APPLE_PRIVATE -O -arch ppc -arch i386 -o UMCLogger UMCLogger.cpp
+g++ -W -Wall -I/System/Library/Frameworks/System.framework/PrivateHeaders -I/System/Library/Frameworks/Kernel.framework/PrivateHeaders -lutil -DPRIVATE -D__APPLE_PRIVATE -O -arch ppc -arch i386 -arch x86_64 -o UMCLogger UMCLogger.cpp
 */
 
 
@@ -40,6 +40,7 @@ g++ -W -Wall -I/System/Library/Frameworks/System.framework/PrivateHeaders -I/Sys
 #include <stdint.h>
 #include <string.h>
 #include <unistd.h>
+#include <libutil.h>
 
 #include <mach/clock_types.h>
 #include <mach/mach_time.h>
@@ -64,6 +65,16 @@ g++ -W -Wall -I/System/Library/Frameworks/System.framework/PrivateHeaders -I/Sys
 #include <IOKit/usb/USB.h>
 
 #define DEBUG 			0
+
+//-----------------------------------------------------------------------------
+//	Structures
+//-----------------------------------------------------------------------------
+
+typedef struct ReturnCodeSpec
+{
+	unsigned int	returnCode;
+	const char *	string;
+} ReturnCodeSpec;
 
 
 //-----------------------------------------------------------------------------
@@ -95,7 +106,6 @@ enum
 	kUSBDeviceResetWhileTerminating_2Code	= ( UMC_TRACE ( kUSBDeviceResetWhileTerminating ) | DBG_FUNC_END ),
 	kUSBDeviceResetAfterDisconnectCode		= UMC_TRACE ( kUSBDeviceResetAfterDisconnect ),
 	kUSBDeviceResetReturnedCode				= UMC_TRACE ( kUSBDeviceResetReturned ),
-	kAbortCurrentSCSITaskCode				= UMC_TRACE ( kAbortCurrentSCSITask ),
 	
 	// CBI Specific							0x052D0400 - 0x052D07FF
 	kCBIProtocolDeviceDetectedCode			= UMC_TRACE ( kCBIProtocolDeviceDetected ),
@@ -145,6 +155,7 @@ static const char * kBulkOnlyStateNames[] = {	" ",
 //-----------------------------------------------------------------------------
 
 int					gBiasSeconds				= 0;
+int					gNumCPUs					= 1;
 double				gDivisor					= 0.0;		/* Trace divisor converts to microseconds */
 kd_buf *			gTraceBuffer				= NULL;
 boolean_t			gTraceEnabled				= FALSE;
@@ -198,14 +209,8 @@ PrintUsage ( void );
 static void
 LoadUSBMassStorageExtension ( void );
 
-static boolean_t 
-StringFromReturnCode ( unsigned returnCode, char * outString );
-
-static boolean_t
-StringFromIOReturn ( unsigned ioreturnCode, char * outString );
-
-static boolean_t
-StringFromUSBReturn ( unsigned ioReturnCode, char * outString );
+static const char * 
+StringFromReturnCode ( unsigned int returnCode );
 
 
 //-----------------------------------------------------------------------------
@@ -220,6 +225,14 @@ main ( int argc, const char * argv[] )
 	int				error;
 	
 	gProgramName = argv[0];
+	
+	if ( reexec_to_match_kernel ( ) != 0 )
+	{
+		
+		fprintf ( stderr, "Could not re-execute to match kernel architecture, errno = %d\n", errno );
+		exit ( 1 );
+		
+	}
 	
 	if ( geteuid ( ) != 0 )
 	{
@@ -251,7 +264,7 @@ main ( int argc, const char * argv[] )
 	if ( error != 0 )
 	{
 		
-		LoadUSBMassStorageExtension();
+		LoadUSBMassStorageExtension ( );
 		
 		error = sysctlbyname ( USBMASS_SYSCTL, NULL, NULL, &args, sizeof ( args ) );
 		if ( error != 0 )
@@ -260,7 +273,7 @@ main ( int argc, const char * argv[] )
 		}
 		
 	}
-
+	
 #if DEBUG
 	printf ( "gSavedTraceMask = 0x%08X\n", gSavedTraceMask );
 	printf ( "gPrintfMask = 0x%08X\n", gPrintfMask );
@@ -408,12 +421,24 @@ static void
 AllocateTraceBuffer ( void )
 {
 	
-	gTraceBuffer = ( kd_buf * ) malloc ( kTraceBufferSampleSize * sizeof ( kd_buf ) );
+	size_t	len;
+	int		mib[3];
+	
+	// grab the number of cpus
+	mib[0] = CTL_HW;
+	mib[1] = HW_NCPU;
+	mib[2] = 0;
+	
+	len = sizeof ( gNumCPUs );
+	
+	sysctl ( mib, 2, &gNumCPUs, &len, NULL, 0 );
+	
+	gTraceBuffer = ( kd_buf * ) malloc ( gNumCPUs * kTraceBufferSampleSize * sizeof ( kd_buf ) );
 	if ( gTraceBuffer == NULL )
 	{
 		Quit ( "Can't allocate memory for tracing info\n" );
 	}
-	
+			
 }
 
 
@@ -663,11 +688,10 @@ CollectTrace ( void )
 		int64_t 			usecs;
 		int 				secs;
 		time_t 				currentTime;
-		char				errorString_1[64];
-		
+		const char *		errorString;
 		
 		debugID = gTraceBuffer[index].debugid;
-		type	= debugID & ~(DBG_FUNC_START | DBG_FUNC_END);
+		type	= debugID & ~( DBG_FUNC_START | DBG_FUNC_END );
 		
 		now = gTraceBuffer[index].timestamp & KDBG_TIMESTAMP_MASK;
 		
@@ -695,105 +719,100 @@ CollectTrace ( void )
 			
 			case kAbortedTaskCode:
 			{
-				printf ( "[%p] Task %p Aborted!!!\n", gTraceBuffer[index].arg1, gTraceBuffer[index].arg2 );
+				printf ( "[%p] Task %p Aborted!!!\n", ( void * ) gTraceBuffer[index].arg1, ( void * ) gTraceBuffer[index].arg2 );
 			}
 			break;
 			
 			case kCompleteSCSICommandCode:
 			{
 				
-				if ( StringFromReturnCode ( gTraceBuffer[index].arg3, errorString_1 ) )
-				{
-					printf ( "[%p] Task %p Completed with status = %s (0x%x)\n", gTraceBuffer[index].arg1, gTraceBuffer[index].arg2, errorString_1, gTraceBuffer[index].arg3  );				
-				}
-				else
-				{
-					printf ( "[%p] Task %p Completed with status = %x\n", gTraceBuffer[index].arg1, gTraceBuffer[index].arg2, gTraceBuffer[index].arg3  );
-				}
-				
-				printf ( "[%p] -------------------------------------------------\n", gTraceBuffer[index].arg1 );
+				errorString = StringFromReturnCode ( gTraceBuffer[index].arg3 );
+				printf ( "[%p] Task %p Completed with status = %s (0x%x)\n", ( void * ) gTraceBuffer[index].arg1, ( void * ) gTraceBuffer[index].arg2, errorString, (int) gTraceBuffer[index].arg3  );				
+				printf ( "[%p] -------------------------------------------------\n", ( void * ) gTraceBuffer[index].arg1 );
 				
 			}
 			break;
 			
 			case kLUNConfigurationCompleteCode:
 			{
-				printf ( "[%p] MaxLUN = %u\n", gTraceBuffer[index].arg1, gTraceBuffer[index].arg2 );
+				printf ( "[%p] MaxLUN = %u\n", ( void * ) gTraceBuffer[index].arg1, ( unsigned int ) gTraceBuffer[index].arg2 );
 			}
 			break;
 			
 			case kNewCommandWhileTerminatingCode:
 			{
-				printf ( "[%p] Task = %p received while terminating!!!\n", gTraceBuffer[index].arg1, gTraceBuffer[index].arg2 );
+				printf ( "[%p] Task = %p received while terminating!!!\n", ( void * ) gTraceBuffer[index].arg1, ( void * ) gTraceBuffer[index].arg2 );
 			}
 			break;
 			
 			case kIOUMCStorageCharacDictFoundCode:
 			{
-				printf ( "[%p] This device has a USB Characteristics Dictionary\n", gTraceBuffer[index].arg1 );
+				printf ( "[%p] This device has a USB Characteristics Dictionary\n", ( void * ) gTraceBuffer[index].arg1 );
 			}
 			break;
 			
 			case kNoProtocolForDeviceCode:
 			{
-				printf ( "[%p] !!! NO USB TRANSPORT PROTOCOL FOR THIS DEVICE !!!\n", gTraceBuffer[index].arg1 );
+				printf ( "[%p] !!! NO USB TRANSPORT PROTOCOL FOR THIS DEVICE !!!\n", ( void * ) gTraceBuffer[index].arg1 );
 			}
 			break;
 			
 			case kIOUSBMassStorageClassStartCode:
 			{
-				printf ( "[%p] Starting up!\n", gTraceBuffer[index].arg1 );
+				printf ( "[%p] Starting up!\n", ( void * ) gTraceBuffer[index].arg1 );
 			}
 			break;
 			
 			case kIOUSBMassStorageClassStopCode:
 			{
-				printf ( "[%p] Stopping!\n", gTraceBuffer[index].arg1 );
+				printf ( "[%p] Stopping!\n", ( void * ) gTraceBuffer[index].arg1 );
 			}
 			break;
 			
 			case kAtUSBAddressCode:
 			{
-				printf ( "[%p] @ USB Address: %u\n", gTraceBuffer[index].arg1, gTraceBuffer[index].arg2 );
+				printf ( "[%p] @ USB Address: %u\n", ( void * ) gTraceBuffer[index].arg1, ( unsigned int ) gTraceBuffer[index].arg2 );
 			}
 			break;
 			
 			case kMessagedCalledCode:
 			{
-				printf ( "[%p] Message : %x recieved\n", gTraceBuffer[index].arg1, gTraceBuffer[index].arg2 );
+				printf ( "[%p] Message : %x received\n", ( void * ) gTraceBuffer[index].arg1, ( unsigned int ) gTraceBuffer[index].arg2 );
 			}
 			break;
 			
 			case kWillTerminateCalledCode:
 			{
 				printf ( "[%p] willTerminate called, CurrentInterface=%p, isInactive=%u\n", 
-					gTraceBuffer[index].arg1, gTraceBuffer[index].arg2, gTraceBuffer[index].arg3);
+					( void * ) gTraceBuffer[index].arg1, ( void * ) gTraceBuffer[index].arg2, ( unsigned int ) gTraceBuffer[index].arg3);
 			}
 			break;
 			
 			case kDidTerminateCalledCode:
 			{
 				printf ( "[%p] didTerminate called, CurrentInterface=%p, isInactive=%u, fResetInProgress=%u\n", 
-					gTraceBuffer[index].arg1, gTraceBuffer[index].arg2, gTraceBuffer[index].arg3, gTraceBuffer[index].arg4);
+					( void * ) gTraceBuffer[index].arg1, ( void * ) gTraceBuffer[index].arg2, ( unsigned int ) gTraceBuffer[index].arg3, ( unsigned int ) gTraceBuffer[index].arg4);
 			}
 			break;
 			
 			case kCDBLog1Code:
 			{
 
-				UInt8 * cdbData;
-				unsigned i;
+				UInt8 *			cdbData;
+				unsigned int	i;
 				
-				printf ( "[%p] Request %p\n", gTraceBuffer[index].arg1, gTraceBuffer[index].arg2 );
-				printf ( "[%p] ", gTraceBuffer[index].arg1 );
+				printf ( "[%p] Request %p\n", ( void * ) gTraceBuffer[index].arg1, ( void * ) gTraceBuffer[index].arg2 );
+				printf ( "[%p] ", ( void * ) gTraceBuffer[index].arg1 );
 				
 				cdbData = ( UInt8 * ) &gTraceBuffer[index].arg3;
 				
-				for ( i = 0; i < 4; i++ ) printf ( "%x : ", cdbData[i] );
+				for ( i = 0; i < 4; i++ )
+					printf ( "%x : ", cdbData[i] );
 				
 				cdbData = ( UInt8 * ) &gTraceBuffer[index].arg4;
 				
-				for ( i = 0; i < 4; i++ ) printf ( "%x : ", cdbData[i] );
+				for ( i = 0; i < 4; i++ )
+					printf ( "%x : ", cdbData[i] );
 
 			}
 			break;		
@@ -801,91 +820,83 @@ CollectTrace ( void )
 			case kCDBLog2Code:
 			{
 
-				UInt8 * cdbData;
-				unsigned i;
+				UInt8 *			cdbData;
+				unsigned int 	i;
 				
 				cdbData = ( UInt8 * ) &gTraceBuffer[index].arg3;
 				
-				for ( i = 0; i < 4; i++ ) printf ( "%x : ", cdbData[i] );
+				for ( i = 0; i < 4; i++ )
+					printf ( "%x : ", cdbData[i] );
 				
 				cdbData = ( UInt8 * ) &gTraceBuffer[index].arg4;
 				
-				for ( i = 0; i < 3; i++ ) printf ( "%x : ", cdbData[i] );
-			
+				for ( i = 0; i < 3; i++ )
+					printf ( "%x : ", cdbData[i] );
+				
 				printf ( "%x\n", cdbData[i] );
-
+				
 			}
 			break;	
 			
 			case kClearEndPointStallCode:
 			{
-			
-				if ( StringFromReturnCode ( gTraceBuffer[index].arg2, errorString_1 ) )
-				{
-					printf ( "[%p] ClearFeatureEndpointStall status=%s (0x%x), endpoint=%u\n", 
-						gTraceBuffer[index].arg1, errorString_1, gTraceBuffer[index].arg2, gTraceBuffer[index].arg3 );
-				}
-				else
-				{
-					printf ( "[%p] ClearFeatureEndpointStall status=%x, endpoint=%u\n", 
-						gTraceBuffer[index].arg1, gTraceBuffer[index].arg2, gTraceBuffer[index].arg3 );
-				}
+				
+				errorString = StringFromReturnCode ( gTraceBuffer[index].arg2 );
+				printf ( "[%p] ClearFeatureEndpointStall status=%s (0x%x), endpoint=%u\n", 
+						( void * ) gTraceBuffer[index].arg1, errorString, ( unsigned int ) gTraceBuffer[index].arg2, ( unsigned int ) gTraceBuffer[index].arg3 );
 				
 			}
 			break;
 			
 			case kGetEndPointStatusCode:
 			{
-			
-				if ( StringFromReturnCode ( gTraceBuffer[index].arg2, errorString_1 ) )
-				{
-					printf ( "[%p] ClearFeatureEndpointStall status=%s (%x), endpoint=%u\n", 
-						gTraceBuffer[index].arg1, errorString_1, gTraceBuffer[index].arg2, gTraceBuffer[index].arg3 );		
-				}
-				else
-				{
-					printf ( "[%p] ClearFeatureEndpointStall status=%x, endpoint=%u\n", 
-						gTraceBuffer[index].arg1, gTraceBuffer[index].arg2, gTraceBuffer[index].arg3 );
-				}
+				
+				errorString = StringFromReturnCode ( gTraceBuffer[index].arg2 );
+				printf ( "[%p] ClearFeatureEndpointStall status=%s (0x%x), endpoint=%u\n", 
+						( void * ) gTraceBuffer[index].arg1, errorString, ( unsigned int ) gTraceBuffer[index].arg2, ( unsigned int ) gTraceBuffer[index].arg3 );		
 				
 			}
 			break;
 			
 			case kHandlePowerOnUSBResetCode:
 			{
-				printf ( "[%p] USB Device Reset on WAKE from SLEEP\n", gTraceBuffer[index].arg1 );
+				
+				printf ( "[%p] USB Device Reset on WAKE from SLEEP\n", ( void * ) gTraceBuffer[index].arg1 );
+				
 			}
 			break;
 			
 			case kUSBDeviceResetWhileTerminatingCode:
 			{
+				
 				printf ( "%p Termination started before device reset could be initiated! fTerminating=%u, isInactive=%u\n", 
-                            gTraceBuffer[index].arg1, gTraceBuffer[index].arg2, gTraceBuffer[index].arg3 );
+                            ( void * ) gTraceBuffer[index].arg1, ( unsigned int ) gTraceBuffer[index].arg2, ( unsigned int ) gTraceBuffer[index].arg3 );
+				
 			}
 			break;
 			
 			case kUSBDeviceResetWhileTerminating_2Code:
 			{
+				
 				printf ( "[%p] Termination occurred while we were reseting the device! fTerminating=%u, isInactive=%u\n", 
-                            gTraceBuffer[index].arg1, gTraceBuffer[index].arg2, gTraceBuffer[index].arg3 );
+                            ( void * ) gTraceBuffer[index].arg1, ( unsigned int ) gTraceBuffer[index].arg2, ( unsigned int ) gTraceBuffer[index].arg3 );
+				
 			}
 			break;
 			
 			case kUSBDeviceResetAfterDisconnectCode:
 			{
-				printf ( "[%p] Device reset was attempted after the device had been disconnected\n", gTraceBuffer[index].arg1 );
+				
+				printf ( "[%p] Device reset was attempted after the device had been disconnected\n", ( void * ) gTraceBuffer[index].arg1 );
+				
 			}
 			break;
 			
 			case kUSBDeviceResetReturnedCode:
 			{
-				printf ( "[%p] DeviceReset returned: %u\n", gTraceBuffer[index].arg1, gTraceBuffer[index].arg2 );
-			}
-			break;
-			
-			case kAbortCurrentSCSITaskCode:
-			{
-				printf ( "[%p] sAbortCurrentSCSITask device attached: %u\n", gTraceBuffer[index].arg1, gTraceBuffer[index].arg2 );
+				
+				printf ( "[%p] DeviceReset returned: 0x%08x\n", ( void * ) gTraceBuffer[index].arg1, ( unsigned int ) gTraceBuffer[index].arg2 );
+				
 			}
 			break;
 			
@@ -895,7 +906,9 @@ CollectTrace ( void )
 			
 			case kCBIProtocolDeviceDetectedCode:
 			{
-				printf ( "[%p] CBI transport protocol device\n", gTraceBuffer[index].arg1 );
+				
+				printf ( "[%p] CBI transport protocol device\n", ( void * ) gTraceBuffer[index].arg1 );
+				
 			}
 			break;
 			
@@ -904,8 +917,10 @@ CollectTrace ( void )
 			
 				if ( gHideBusyRejectedCommands == FALSE )
 				{
+					
 					printf ( "[%p] CBI - Unable to accept task %p, still working on previous command\n", 
-								gTraceBuffer[index].arg1, gTraceBuffer[index].arg2 );
+								( void * ) gTraceBuffer[index].arg1, ( void * ) gTraceBuffer[index].arg2 );
+					
 				}
 				
 			}
@@ -913,18 +928,10 @@ CollectTrace ( void )
 			
 			case kCBISendSCSICommandReturnedCode:
 			{
-			
-				if ( StringFromReturnCode ( gTraceBuffer[index].arg3, errorString_1 ) )
-				{
-					printf ( "[%p] CBI - SCSI Task %p was sent with status %s (0x%x)\n", 
-							gTraceBuffer[index].arg1, gTraceBuffer[index].arg2, errorString_1, 
-							gTraceBuffer[index].arg3 );
-				}
-				else
-				{
-					printf ( "[%p] CBI - SCSI Task %p was sent with status %x\n", 
-							gTraceBuffer[index].arg1, gTraceBuffer[index].arg2, gTraceBuffer[index].arg3 );
-				}
+				
+				errorString = StringFromReturnCode ( gTraceBuffer[index].arg3 );
+				printf ( "[%p] CBI - SCSI Task %p was sent with status %s (0x%x)\n", 
+							( void * ) gTraceBuffer[index].arg1, ( void * ) gTraceBuffer[index].arg2, errorString, ( unsigned int ) gTraceBuffer[index].arg3 );
 				
 			}
 			break;
@@ -935,19 +942,21 @@ CollectTrace ( void )
 			
 			case kBODeviceDetectedCode:
 			{
-				printf ( "[%p] BULK-ONLY transport protocol device\n", gTraceBuffer[index].arg1 );
+				
+				printf ( "[%p] BULK-ONLY transport protocol device\n", ( void * ) gTraceBuffer[index].arg1 );
+				
 			}
 			break;
 			
 			case kBOCommandAlreadyInProgressCode:
 			{
-			
+				
 				if ( gHideBusyRejectedCommands == FALSE )
 				{
-
+					
 					printf ( "[%p] B0 Unable to accept task %p, still working on previous request\n", 
-								gTraceBuffer[index].arg1, gTraceBuffer[index].arg2 );
-                                
+								( void * ) gTraceBuffer[index].arg1, ( void * ) gTraceBuffer[index].arg2 );
+					
 				}
 				
 			}
@@ -956,103 +965,80 @@ CollectTrace ( void )
 			case kBOSendSCSICommandReturnedCode:
 			{
 				
-				if ( StringFromIOReturn ( gTraceBuffer[index].arg3, errorString_1 ) )
-				{
-					printf ( "[%p] BO - SCSI Task %p was sent with status %s (0x%x)\n", 
-								gTraceBuffer[index].arg1, gTraceBuffer[index].arg2, errorString_1, gTraceBuffer[index].arg3 );				
-				}
-				else
-				{
-					printf ( "[%p] BO - SCSI Task %p was sent with status %x\n", 
-								gTraceBuffer[index].arg1, gTraceBuffer[index].arg2, gTraceBuffer[index].arg3 );
-				}
+				errorString = StringFromReturnCode ( gTraceBuffer[index].arg3 );
+				printf ( "[%p] BO - SCSI Task %p was sent with status %s (0x%x)\n", 
+								( void * ) gTraceBuffer[index].arg1, ( void * ) gTraceBuffer[index].arg2, errorString, ( unsigned int ) gTraceBuffer[index].arg3 );				
 				
 			}
 			break;
 			
 			case kBOPreferredMaxLUNCode:
 			{
+				
 				printf ( "[%p] BO - Preferred MaxLUN: %d\n", 
-							gTraceBuffer[index].arg1, gTraceBuffer[index].arg2 );
+							( void * ) gTraceBuffer[index].arg1, (int) gTraceBuffer[index].arg2 );
+				
 			}
 			break;
 			
 			case kBOGetMaxLUNReturnedCode:
 			{
-			
-				if ( StringFromReturnCode ( gTraceBuffer[index].arg2, errorString_1 ) )
-				{
-					printf ( "[%p] BO - GetMaxLUN returned: %s (0x%x), triedReset=%u, MaxLun: %d\n", 
-								gTraceBuffer[index].arg1, errorString_1, gTraceBuffer[index].arg2, gTraceBuffer[index].arg4, gTraceBuffer[index].arg3 );
-				}
-				else
-				{
-					printf ( "[%p] BO - GetMaxLUN returned: %x, triedReset=%u, MaxLun: %d\n", 
-							gTraceBuffer[index].arg1, gTraceBuffer[index].arg2, gTraceBuffer[index].arg4, gTraceBuffer[index].arg3 );
-				}
+				
+				errorString = StringFromReturnCode ( gTraceBuffer[index].arg2 );
+				printf ( "[%p] BO - GetMaxLUN returned: %s (0x%x), triedReset=%u, MaxLun: %d\n", 
+								( void * ) gTraceBuffer[index].arg1, errorString, ( unsigned int ) gTraceBuffer[index].arg2, ( unsigned int ) gTraceBuffer[index].arg4, ( unsigned int ) gTraceBuffer[index].arg3 );
 				
 			}
 			break;
 			
 			case kBOCBWDescriptionCode:
 			{
+				
 				printf ( "[%p] BO - Request %p, LUN: %u, CBW Tag: %u (0x%x)\n", 
-							gTraceBuffer[index].arg1, gTraceBuffer[index].arg2, gTraceBuffer[index].arg3, gTraceBuffer[index].arg4, gTraceBuffer[index].arg4 );
+							( void * ) gTraceBuffer[index].arg1, ( void * ) gTraceBuffer[index].arg2, ( unsigned int ) gTraceBuffer[index].arg3, ( unsigned int ) gTraceBuffer[index].arg4, ( unsigned int ) gTraceBuffer[index].arg4 );
+				
 			}
 			break;
 			
 			case kBOCBWBulkOutWriteResultCode:
 			{
-			
-				if ( StringFromReturnCode ( gTraceBuffer[index].arg2, errorString_1 ) )
-				{
-					printf ( "[%p] BO - Request %p, LUN: %u, Bulk-Out Write Status: %s (0x%x)\n", 
-								gTraceBuffer[index].arg1, gTraceBuffer[index].arg4, gTraceBuffer[index].arg3, errorString_1, gTraceBuffer[index].arg2 );
-				}
-				else
-				{
-					printf ( "[%p] BO - Request %p, LUN: %u, Bulk-Out Write Status: %x\n", 
-								gTraceBuffer[index].arg1, gTraceBuffer[index].arg4, gTraceBuffer[index].arg3, gTraceBuffer[index].arg2 );
-				}
+				
+				errorString = StringFromReturnCode ( gTraceBuffer[index].arg2 );
+				printf ( "[%p] BO - Request %p, LUN: %u, Bulk-Out Write Status: %s (0x%x)\n", 
+							( void * ) gTraceBuffer[index].arg1, ( void * ) gTraceBuffer[index].arg4, ( unsigned int ) gTraceBuffer[index].arg3, errorString, ( unsigned int ) gTraceBuffer[index].arg2 );
 				
 			}
 			break;
 		
 			case kBODoubleCompleteionCode:
 			{
-				printf ( "[%p] BO - DOUBLE Comletion\n", gTraceBuffer[index].arg1 );
-				printf ( "[%p] BO - DOUBLE Comletion\n", gTraceBuffer[index].arg1 );
+				
+				printf ( "[%p] BO - DOUBLE Completion\n", ( void * ) gTraceBuffer[index].arg1 );
+				
 			}
 			break;
 			
 			case kBOCompletionDuringTerminationCode:
 			{
-				printf ( "[%p] BO - Completion during termination\n", gTraceBuffer[index].arg1 );
+				
+				printf ( "[%p] BO - Completion during termination\n", ( void * ) gTraceBuffer[index].arg1 );
+				
 			}
 			break;
 			
 			case kBOCompletionCode:
 			{
-			
-				if ( StringFromReturnCode ( gTraceBuffer[index].arg2, errorString_1 ) )
-				{
-					printf ( "[%p] BO - Completion, State: %s, Status: %s (0x%x), for Request: %p\n", 
-								gTraceBuffer[index].arg1, kBulkOnlyStateNames [ gTraceBuffer[index].arg3 ], 
-								errorString_1, gTraceBuffer[index].arg2, gTraceBuffer[index].arg4 );
-				}
-				else
-				{
-					printf ( "[%p] BO - Completion, State: %s, Status: %x, for Request: %p\n", 
-								gTraceBuffer[index].arg1, kBulkOnlyStateNames [ gTraceBuffer[index].arg3 ], 
-								gTraceBuffer[index].arg2, gTraceBuffer[index].arg4 );
-				}
+				
+				errorString = StringFromReturnCode ( gTraceBuffer[index].arg2 );
+				printf ( "[%p] BO - Completion, State: %s, Status: %s (0x%x), for Request: %p\n", 
+								( void * ) gTraceBuffer[index].arg1, kBulkOnlyStateNames [ (int) gTraceBuffer[index].arg3 ], 
+								errorString, ( unsigned int ) gTraceBuffer[index].arg2, ( void * ) gTraceBuffer[index].arg4 );
 				
 			}
 			break;
 			
 			default:
 			{
-				continue;
 			}
 			break;
 			
@@ -1128,10 +1114,10 @@ LoadUSBMassStorageExtension ( void )
 {
 
 	posix_spawn_file_actions_t	fileActions;
-	char * const	argv[]	= { "/sbin/kextload", "/System/Library/Extensions/IOUSBMassStorageClass.kext", NULL };
-	char * const	env[]	= { NULL };
-	pid_t			child	= 0;
-	union wait 		status;
+	char * const				argv[]	= { ( char * ) "/sbin/kextload", ( char * ) "/System/Library/Extensions/IOUSBMassStorageClass.kext", NULL };
+	char * const				env[]	= { NULL };
+	pid_t						child	= 0;
+	union wait 					status;
 	
 	posix_spawn_file_actions_init ( &fileActions );
 	posix_spawn_file_actions_addclose ( &fileActions, STDOUT_FILENO );
@@ -1153,646 +1139,117 @@ LoadUSBMassStorageExtension ( void )
 //	StringFromReturnCode
 //-----------------------------------------------------------------------------
 
-static boolean_t 
-StringFromReturnCode ( unsigned returnCode, char * outString )
+static const char * 
+StringFromReturnCode ( unsigned int returnCode )
 {
-
-	boolean_t returnValue = FALSE;
 	
+	const char *	string = "UNKNOWN";
+	unsigned int	i;
 	
-	returnValue = StringFromIOReturn ( returnCode, outString );
-	if ( returnValue ) goto Exit;
-	
-	returnValue = StringFromUSBReturn ( returnCode, outString );
-	if ( returnValue ) goto Exit;
-	
-	
-Exit:
-
-	return returnValue;
-	
-}
-
-//-----------------------------------------------------------------------------
-//	StringFromIOReturn
-//-----------------------------------------------------------------------------
-
-static boolean_t
-StringFromIOReturn ( unsigned ioReturnCode, char * outString )
-{
-
-	boolean_t returnValue = FALSE;
-	
-	switch ( ioReturnCode )
+	static ReturnCodeSpec	sReturnCodeSpecs[] =
 	{
+		
+		//	USB Return codes
+		{ kIOUSBUnknownPipeErr,								"kIOUSBUnknownPipeErr" },
+		{ kIOUSBTooManyPipesErr,							"kIOUSBTooManyPipesErr" },
+		{ kIOUSBNoAsyncPortErr,								"kIOUSBNoAsyncPortErr" },
+		{ kIOUSBNotEnoughPipesErr,							"kIOUSBNotEnoughPipesErr" },
+		{ kIOUSBNotEnoughPowerErr,							"kIOUSBNotEnoughPowerErr" },
+		{ kIOUSBEndpointNotFound,							"kIOUSBEndpointNotFound" },
+		{ kIOUSBConfigNotFound,								"kIOUSBConfigNotFound" },
+		{ kIOUSBTransactionTimeout,							"kIOUSBTransactionTimeout" },
+		{ kIOUSBTransactionReturned,						"kIOUSBTransactionReturned" },
+		{ kIOUSBPipeStalled,								"kIOUSBPipeStalled" },
+		{ kIOUSBInterfaceNotFound,							"kIOUSBInterfaceNotFound" },
+		{ kIOUSBLowLatencyBufferNotPreviouslyAllocated,		"kIOUSBLowLatencyBufferNotPreviouslyAllocated" },
+		{ kIOUSBLowLatencyFrameListNotPreviouslyAllocated,	"kIOUSBLowLatencyFrameListNotPreviouslyAllocated" },
+		{ kIOUSBHighSpeedSplitError,						"kIOUSBHighSpeedSplitError" },
+		{ kIOUSBSyncRequestOnWLThread,						"kIOUSBSyncRequestOnWLThread" },
+		{ kIOUSBDeviceNotHighSpeed,							"kIOUSBDeviceNotHighSpeed" },
+		{ kIOUSBLinkErr,									"kIOUSBLinkErr" },
+		{ kIOUSBNotSent2Err,								"kIOUSBNotSent2Err" },
+		{ kIOUSBNotSent1Err,								"kIOUSBNotSent1Err" },
+		{ kIOUSBBufferUnderrunErr,							"kIOUSBBufferUnderrunErr" },
+		{ kIOUSBBufferOverrunErr,							"kIOUSBBufferOverrunErr" },
+		{ kIOUSBReserved2Err,								"kIOUSBReserved2Err" },
+		{ kIOUSBReserved1Err,								"kIOUSBReserved1Err" },
+		{ kIOUSBWrongPIDErr,								"kIOUSBWrongPIDErr" },
+		{ kIOUSBPIDCheckErr,								"kIOUSBPIDCheckErr" },
+		{ kIOUSBDataToggleErr,								"kIOUSBDataToggleErr" },
+		{ kIOUSBBitstufErr,									"kIOUSBBitstufErr" },
+		{ kIOUSBCRCErr,										"kIOUSBCRCErr" },
+		
+		//	IOReturn codes
+		{ kIOReturnSuccess,									"kIOReturnSuccess" },
+		{ kIOReturnError,									"kIOReturnError" },
+		{ kIOReturnNoMemory,								"kIOReturnNoMemory" },
+		{ kIOReturnNoResources,								"kIOReturnNoResources" },
+		{ kIOReturnIPCError,								"kIOReturnIPCError" },
+		{ kIOReturnNoDevice,								"kIOReturnNoDevice" },
+		{ kIOReturnNotPrivileged,							"kIOReturnNotPrivileged" },
+		{ kIOReturnBadArgument,								"kIOReturnBadArgument" },
+		{ kIOReturnLockedRead,								"kIOReturnLockedRead" },
+		{ kIOReturnLockedWrite,								"kIOReturnLockedWrite" },
+		{ kIOReturnExclusiveAccess,							"kIOReturnExclusiveAccess" },
+		{ kIOReturnBadMessageID,							"kIOReturnBadMessageID" },
+		{ kIOReturnUnsupported,								"kIOReturnUnsupported" },
+		{ kIOReturnVMError,									"kIOReturnVMError" },
+		{ kIOReturnInternalError,							"kIOReturnInternalError" },
+		{ kIOReturnIOError,									"kIOReturnIOError" },
+		{ kIOReturnCannotLock,								"kIOReturnCannotLock" },
+		{ kIOReturnNotOpen,									"kIOReturnNotOpen" },
+		{ kIOReturnNotReadable,								"kIOReturnNotReadable" },
+		{ kIOReturnNotWritable,								"kIOReturnNotWritable" },
+		{ kIOReturnNotAligned,								"kIOReturnNotAligned" },
+		{ kIOReturnBadMedia,								"kIOReturnBadMedia" },
+		{ kIOReturnStillOpen,								"kIOReturnStillOpen" },
+		{ kIOReturnRLDError,								"kIOReturnRLDError" },
+		{ kIOReturnDMAError,								"kIOReturnDMAError" },
+		{ kIOReturnBusy,									"kIOReturnBusy" },
+		{ kIOReturnTimeout,									"kIOReturnTimeout" },
+		{ kIOReturnOffline,									"kIOReturnOffline" },
+		{ kIOReturnNotReady,								"kIOReturnNotReady" },
+		{ kIOReturnNotAttached,								"kIOReturnNotAttached" },
+		{ kIOReturnNoChannels,								"kIOReturnNoChannels" },
+		{ kIOReturnNoSpace,									"kIOReturnNoSpace" },
+		{ kIOReturnPortExists,								"kIOReturnPortExists" },
+		{ kIOReturnCannotWire,								"kIOReturnCannotWire" },
+		{ kIOReturnNoInterrupt,								"kIOReturnNoInterrupt" },
+		{ kIOReturnNoFrames,								"kIOReturnNoFrames" },
+		{ kIOReturnMessageTooLarge,							"kIOReturnMessageTooLarge" },
+		{ kIOReturnNotPermitted,							"kIOReturnNotPermitted" },
+		{ kIOReturnNoPower,									"kIOReturnNoPower" },
+		{ kIOReturnNoMedia,									"kIOReturnNoMedia" },
+		{ kIOReturnUnformattedMedia,						"kIOReturnUnformattedMedia" },
+		{ kIOReturnUnsupportedMode,							"kIOReturnUnsupportedMode" },
+		{ kIOReturnUnderrun,								"kIOReturnUnderrun" },
+		{ kIOReturnOverrun,									"kIOReturnOverrun" },
+		{ kIOReturnDeviceError,								"kIOReturnDeviceError" },
+		{ kIOReturnNoCompletion,							"kIOReturnNoCompletion" },
+		{ kIOReturnAborted,									"kIOReturnAborted" },
+		{ kIOReturnNoBandwidth,								"kIOReturnNoBandwidth" },
+		{ kIOReturnNotResponding,							"kIOReturnNotResponding" },
+		{ kIOReturnIsoTooOld,								"kIOReturnIsoTooOld" },
+		{ kIOReturnIsoTooNew,								"kIOReturnIsoTooNew" },
+		{ kIOReturnNotFound,								"kIOReturnNotFound" },
+		{ kIOReturnInvalid,									"kIOReturnInvalid" }
+	};
 	
-		// #define kIOReturnSuccess         KERN_SUCCESS            // OK
-		case kIOReturnSuccess:
-		{	
-			strncpy ( outString, "kIOReturnSuccess", sizeof ( "kIOReturnSuccess" ) );
-		}
-		break;
+	for ( i = 0; i < ( sizeof ( sReturnCodeSpecs ) / sizeof ( sReturnCodeSpecs[0] ) ); i++ )
+	{
 		
-		// #define kIOReturnError           iokit_common_err(0x2bc) // general error 
-		case kIOReturnError:
-		{	
-			strncpy ( outString, "kIOReturnError", sizeof ( "kIOReturnError" ) );
-		}
-		break;
-		
-		// #define kIOReturnNoMemory        iokit_common_err(0x2bd) // can't allocate memory 
-		case kIOReturnNoMemory:
-		{	
-			strncpy ( outString, "kIOReturnNoMemory", sizeof ( "kIOReturnNoMemory" ) );
-		}
-		break;
-		
-		// #define kIOReturnNoResources     iokit_common_err(0x2be) // resource shortage 
-		case kIOReturnNoResources:
-		{	
-			strncpy ( outString, "kIOReturnNoResources", sizeof ( "kIOReturnNoResources" ) );
-		}
-		break;
-		
-		// #define kIOReturnIPCError        iokit_common_err(0x2bf) // error during IPC 
-		case kIOReturnIPCError:
-		{	
-			strncpy ( outString, "kIOReturnIPCError", sizeof ( "kIOReturnIPCError" ) );
-		}
-		break;
-		
-		// #define kIOReturnNoDevice        iokit_common_err(0x2c0) // no such device 
-		case kIOReturnNoDevice:
-		{	
-			strncpy ( outString, "kIOReturnNoDevice", sizeof ( "kIOReturnNoDevice" ) );
-		}
-		break;
-		
-		// #define kIOReturnNotPrivileged   iokit_common_err(0x2c1) // privilege violation 
-		case kIOReturnNotPrivileged:
-		{	
-			strncpy ( outString, "kIOReturnNotPrivileged", sizeof ( "kIOReturnNotPrivileged" ) );
-		}
-		break;
-		
-		// #define kIOReturnBadArgument     iokit_common_err(0x2c2) // invalid argument 
-		case kIOReturnBadArgument:
-		{	
-			strncpy ( outString, "kIOReturnBadArgument", sizeof ( "kIOReturnBadArgument" ) );
-		}
-		break;
-
-		// #define kIOReturnLockedRead      iokit_common_err(0x2c3) // device read locked 
-		case kIOReturnLockedRead:
-		{	
-			strncpy ( outString, "kIOReturnLockedRead", sizeof ( "kIOReturnLockedRead" ) );
-		}
-		break;
-		
-		// #define kIOReturnLockedWrite     iokit_common_err(0x2c4) // device write locked 
-		case kIOReturnLockedWrite:
-		{	
-			strncpy ( outString, "kIOReturnLockedWrite", sizeof ( "kIOReturnLockedWrite" ) );
-		}
-		break;
-		
-		// #define kIOReturnExclusiveAccess iokit_common_err(0x2c5) // exclusive access and device already open 
-		case kIOReturnExclusiveAccess:
-		{	
-			strncpy ( outString, "kIOReturnExclusiveAccess", sizeof ( "kIOReturnExclusiveAccess" ) );
-		}
-		break;
-
-		// #define kIOReturnBadMessageID    iokit_common_err(0x2c6) // sent/received messages had different msg_id
-		case kIOReturnBadMessageID:
-		{	
-			strncpy ( outString, "kIOReturnExclusiveAccess", sizeof ( "kIOReturnExclusiveAccess" ) );
-		}
-		break;
-		
-		// #define kIOReturnUnsupported     iokit_common_err(0x2c7) // unsupported function 
-		case kIOReturnUnsupported:
-		{	
-			strncpy ( outString, "kIOReturnUnsupported", sizeof ( "kIOReturnUnsupported" ) );
-		}
-		break;
-		
-		// #define kIOReturnVMError         iokit_common_err(0x2c8) // misc. VM failure 
-		case kIOReturnVMError:
-		{	
-			strncpy ( outString, "kIOReturnVMError", sizeof ( "kIOReturnVMError" ) );\
-		}
-		break;
-
-		// #define kIOReturnInternalError   iokit_common_err(0x2c9) // internal error 
-		case kIOReturnInternalError:
-		{	
-			strncpy ( outString, "kIOReturnInternalError", sizeof ( "kIOReturnInternalError" ) );
-		}
-		break;
-
-		// #define kIOReturnIOError         iokit_common_err(0x2ca) // General I/O error 
-		case kIOReturnIOError:
-		{	
-			strncpy ( outString, "kIOReturnIOError", sizeof ( "kIOReturnIOError" ) );
-		}
-		break;
-		
-		// #define kIOReturnCannotLock      iokit_common_err(0x2cc) // can't acquire lock
-		case kIOReturnCannotLock:
-		{	
-			strncpy ( outString, "kIOReturnCannotLock", sizeof ( "kIOReturnCannotLock" ) );
-		}
-		break;
-		
-		// #define kIOReturnNotOpen         iokit_common_err(0x2cd) // device not open 
-		case kIOReturnNotOpen:
-		{	
-			strncpy ( outString, "kIOReturnNotOpen", sizeof ( "kIOReturnNotOpen" ) );
-		}
-		break;
-		
-		// #define kIOReturnNotReadable     iokit_common_err(0x2ce) // read not supported 
-		case kIOReturnNotReadable:
-		{	
-			strncpy ( outString, "kIOReturnNotReadable", sizeof ( "kIOReturnNotReadable" ) );
-		}
-		break;
-		
-		// #define kIOReturnNotWritable     iokit_common_err(0x2cf) // write not supported 
-		case kIOReturnNotWritable:
-		{	
-			strncpy ( outString, "kIOReturnNotWritable", sizeof ( "kIOReturnNotWritable" ) );
-		}
-		break;
-		
-		// #define kIOReturnNotAligned      iokit_common_err(0x2d0) // alignment error 
-		case kIOReturnNotAligned:
-		{	
-			strncpy ( outString, "kIOReturnNotAligned", sizeof ( "kIOReturnNotAligned" ) );
-		}
-		break;
-		
-		// #define kIOReturnBadMedia        iokit_common_err(0x2d1) // Media Error 
-		case kIOReturnBadMedia:
-		{	
-			strncpy ( outString, "kIOReturnBadMedia", sizeof ( "kIOReturnBadMedia" ) );
-		}
-		break;
-		
-		// #define kIOReturnStillOpen       iokit_common_err(0x2d2) // device(s) still open 
-		case kIOReturnStillOpen:
-		{	
-			strncpy ( outString, "kIOReturnStillOpen", sizeof ( "kIOReturnStillOpen" ) );
-		}
-		break;
-		
-		// #define kIOReturnRLDError        iokit_common_err(0x2d3) // rld failure 
-		case kIOReturnRLDError:
-		{	
-			strncpy ( outString, "kIOReturnRLDError", sizeof ( "kIOReturnRLDError" ) );
-		}
-		break;
-		
-		// #define kIOReturnDMAError        iokit_common_err(0x2d4) // DMA failure 
-		case kIOReturnDMAError:
-		{	
-			strncpy ( outString, "kIOReturnDMAError", sizeof ( "kIOReturnDMAError" ) );
-		}
-		break;
-		
-		// #define kIOReturnBusy            iokit_common_err(0x2d5) // Device Busy 
-		case kIOReturnBusy:
-		{	
-			strncpy ( outString, "kIOReturnBusy", sizeof ( "kIOReturnBusy" ) );
-		}
-		break;
-		
-		// #define kIOReturnTimeout         iokit_common_err(0x2d6) // I/O Timeout 
-		case kIOReturnTimeout:
-		{	
-			strncpy ( outString, "kIOReturnBusy", sizeof ( "kIOReturnBusy" ) );
-		}
-		break;
-		
-		// #define kIOReturnOffline         iokit_common_err(0x2d7) // device offline 
-		case kIOReturnOffline:
-		{	
-			strncpy ( outString, "kIOReturnOffline", sizeof ( "kIOReturnOffline" ) );
-		}
-		break;
-		
-		// #define kIOReturnNotReady        iokit_common_err(0x2d8) // not ready 
-		case kIOReturnNotReady:
-		{	
-			strncpy ( outString, "kIOReturnNotReady", sizeof ( "kIOReturnNotReady" ) );
-		}
-		break;
-		
-		// #define kIOReturnNotAttached     iokit_common_err(0x2d9) // device not attached 
-		case kIOReturnNotAttached:
-		{	
-			strncpy ( outString, "kIOReturnNotAttached", sizeof ( "kIOReturnNotAttached" ) );
-		}
-		break;
-		
-		// #define kIOReturnNoChannels      iokit_common_err(0x2da) // no DMA channels left
-		case kIOReturnNoChannels:
-		{	
-			strncpy ( outString, "kIOReturnNoChannels", sizeof ( "kIOReturnNoChannels" ) );
-		}
-		break;
-		
-		// #define kIOReturnNoSpace         iokit_common_err(0x2db) // no space for data 
-		case kIOReturnNoSpace:
-		{	
-			strncpy ( outString, "kIOReturnNoSpace", sizeof ( "kIOReturnNoSpace" ) );
-		}
-		break;
-		
-		// #define kIOReturn???Error      iokit_common_err(0x2dc) // ??? 
-		// #define kIOReturnPortExists      iokit_common_err(0x2dd) // port already exists
-		case kIOReturnPortExists:
-		{	
-			strncpy ( outString, "kIOReturnPortExists", sizeof ( "kIOReturnPortExists" ) );
-		}
-		break;
-		
-		// #define kIOReturnCannotWire      iokit_common_err(0x2de) // can't wire down physical memory
-		case kIOReturnCannotWire:
-		{	
-			strncpy ( outString, "kIOReturnCannotWire", sizeof ( "kIOReturnCannotWire" ) );
-		}
-		break;
-		
-		// #define kIOReturnNoInterrupt     iokit_common_err(0x2df) // no interrupt attached
-		case kIOReturnNoInterrupt:
-		{	
-			strncpy ( outString, "kIOReturnNoInterrupt", sizeof ( "kIOReturnNoInterrupt" ) );
-		}
-		break;
-		
-		// #define kIOReturnNoFrames        iokit_common_err(0x2e0) // no DMA frames enqueued
-		case kIOReturnNoFrames:
-		{	
-			strncpy ( outString, "kIOReturnNoFrames", sizeof ( "kIOReturnNoFrames" ) );
-		}
-		break;
-		
-		// #define kIOReturnMessageTooLarge iokit_common_err(0x2e1) // oversized msg received on interrupt port
-		case kIOReturnMessageTooLarge:
-		{	
-			strncpy ( outString, "kIOReturnMessageTooLarge", sizeof ( "kIOReturnMessageTooLarge" ) );
-		}
-		break;
-		
-		// #define kIOReturnNotPermitted    iokit_common_err(0x2e2) // not permitted
-		case kIOReturnNotPermitted:
-		{	
-			strncpy ( outString, "kIOReturnNotPermitted", sizeof ( "kIOReturnNotPermitted" ) );
-		}
-		break;
-		
-		// #define kIOReturnNoPower         iokit_common_err(0x2e3) // no power to device
-		case kIOReturnNoPower:
-		{	
-			strncpy ( outString, "kIOReturnNoPower", sizeof ( "kIOReturnNoPower" ) );
-		}
-		break;
-		
-		// #define kIOReturnNoMedia         iokit_common_err(0x2e4) // media not present
-		case kIOReturnNoMedia:
-		{	
-			strncpy ( outString, "kIOReturnNoMedia", sizeof ( "kIOReturnNoMedia" ) );
-		}
-		break;
-		
-		// #define kIOReturnUnformattedMedia iokit_common_err(0x2e5)// media not formatted
-		case kIOReturnUnformattedMedia:
-		{	
-			strncpy ( outString, "kIOReturnUnformattedMedia", sizeof ( "kIOReturnUnformattedMedia" ) );
-		}
-		break;
-		
-		// #define kIOReturnUnsupportedMode iokit_common_err(0x2e6) // no such mode
-		case kIOReturnUnsupportedMode:
-		{	
-			strncpy ( outString, "kIOReturnUnsupportedMode", sizeof ( "kIOReturnUnsupportedMode" ) );
-		}
-		break;
-		
-		// #define kIOReturnUnderrun        iokit_common_err(0x2e7) // data underrun
-		case kIOReturnUnderrun:
-		{	
-			strncpy ( outString, "kIOReturnUnderrun", sizeof ( "kIOReturnUnderrun" ) );
-		}
-		break;
-		
-		// #define kIOReturnOverrun         iokit_common_err(0x2e8) // data overrun
-		case kIOReturnOverrun:
-		{	
-			strncpy ( outString, "kIOReturnOverrun", sizeof ( "kIOReturnOverrun" ) );
-		}
-		break;
-		
-		// #define kIOReturnDeviceError	 iokit_common_err(0x2e9) // the device is not working properly!
-		case kIOReturnDeviceError:
-		{	
-			strncpy ( outString, "kIOReturnDeviceError", sizeof ( "kIOReturnDeviceError" ) );
-		}
-		break;
-	
-		// #define kIOReturnAborted	 iokit_common_err(0x2eb) // operation aborted
-		case kIOReturnAborted:
-		{	
-			strncpy ( outString, "kIOReturnAborted", sizeof ( "kIOReturnAborted" ) );
-		}
-		break;
-		
-		// #define kIOReturnNoBandwidth	 iokit_common_err(0x2ec) // bus bandwidth would be exceeded
-		case kIOReturnNoBandwidth:
-		{	
-			strncpy ( outString, "kIOReturnNoBandwidth", sizeof ( "kIOReturnNoBandwidth" ) );
-		}
-		break;
-		
-		// #define kIOReturnNotResponding	 iokit_common_err(0x2ed) // device not responding
-		case kIOReturnNotResponding:
-		{	
-			strncpy ( outString, "kIOReturnNoBandwidth", sizeof ( "kIOReturnNoBandwidth" ) );
-		}
-		break;
-		
-		// #define kIOReturnIsoTooOld	 iokit_common_err(0x2ee) // isochronous I/O request for distant past!
-		case kIOReturnIsoTooOld:
-		{	
-			strncpy ( outString, "kIOReturnIsoTooOld", sizeof ( "kIOReturnIsoTooOld" ) );
-		}
-		break;
-		
-		// #define kIOReturnIsoTooNew	 iokit_common_err(0x2ef) // isochronous I/O request for distant future
-		case kIOReturnIsoTooNew:
-		{	
-			strncpy ( outString, "kIOReturnIsoTooNew", sizeof ( "kIOReturnIsoTooNew" ) );
-		}
-		break;
-		
-		// #define kIOReturnNotFound        iokit_common_err(0x2f0) // data was not found
-		case kIOReturnNotFound:
-		{	
-			strncpy ( outString, "kIOReturnNotFound", sizeof ( "kIOReturnNotFound" ) );
-		}
-		break;
-		
-		// #define kIOReturnInvalid         iokit_common_err(0x1)   // should never be seen
-		case kIOReturnInvalid:
-		{	
-			strncpy ( outString, "kIOReturnInvalid", sizeof ( "kIOReturnInvalid" ) );
-		}
-		break;
-	
-		default:
+		if ( returnCode == sReturnCodeSpecs[i].returnCode )
 		{
-			strncpy ( outString, "NO STRING", sizeof ( "NO STRING" ) );
+			
+			string = sReturnCodeSpecs[i].string;
+			break;
+			
 		}
-		break;
-	
+		
 	}
 	
-	returnValue = TRUE;
+	return string;
 	
-	
-ErrorExit:
-
-	return returnValue;
-
-}
-
-
-//-----------------------------------------------------------------------------
-//	StringFromUSBReturn
-//-----------------------------------------------------------------------------
-
-static boolean_t
-StringFromUSBReturn ( unsigned ioReturnCode, char * outString )
-{
-
-	boolean_t returnValue = FALSE;
-	
-	switch ( ioReturnCode )
-	{
-	
-		// #define kIOUSBUnknownPipeErr        iokit_usb_err(0x61)			// 0xe0004061  Pipe ref not recognized
-		case kIOUSBUnknownPipeErr:
-		{	
-			strncpy ( outString, "kIOUSBUnknownPipeErr", sizeof ( "kIOUSBUnknownPipeErr" ) );
-		}
-		break;
-		
-		// #define kIOUSBTooManyPipesErr       iokit_usb_err(0x60)			// 0xe0004060  Too many pipes
-		case kIOUSBTooManyPipesErr:
-		{	
-			strncpy ( outString, "kIOUSBTooManyPipesErr", sizeof ( "kIOUSBTooManyPipesErr" ) );
-		}
-		break;
-		
-		// #define kIOUSBNoAsyncPortErr        iokit_usb_err(0x5f)			// 0xe000405f  no async port
-		case kIOUSBNoAsyncPortErr:
-		{	
-			strncpy ( outString, "kIOUSBNoAsyncPortErr", sizeof ( "kIOUSBNoAsyncPortErr" ) );
-		}
-		break;
-		
-		// #define kIOUSBNotEnoughPipesErr     iokit_usb_err(0x5e)			// 0xe000405e  not enough pipes in interface
-		case kIOUSBNotEnoughPipesErr:
-		{	
-			strncpy ( outString, "kIOUSBNotEnoughPipesErr", sizeof ( "kIOUSBNotEnoughPipesErr" ) );
-		}
-		break;
-		
-		// #define kIOUSBNotEnoughPowerErr     iokit_usb_err(0x5d)			// 0xe000405d  not enough power for selected configuration
-		case kIOUSBNotEnoughPowerErr:
-		{	
-			strncpy ( outString, "kIOUSBNotEnoughPowerErr", sizeof ( "kIOUSBNotEnoughPowerErr" ) );
-		}
-		break;
-		
-		// #define kIOUSBEndpointNotFound      iokit_usb_err(0x57)			// 0xe0004057  Endpoint Not found
-		case kIOUSBEndpointNotFound:
-		{	
-			strncpy ( outString, "kIOUSBEndpointNotFound", sizeof ( "kIOUSBEndpointNotFound" ) );
-		}
-		break;
-		
-		// #define kIOUSBConfigNotFound        iokit_usb_err(0x56)			// 0xe0004056  Configuration Not found
-		case kIOUSBConfigNotFound:
-		{	
-			strncpy ( outString, "kIOUSBConfigNotFound", sizeof ( "kIOUSBConfigNotFound" ) );
-		}
-		break;
-		
-		// #define kIOUSBTransactionTimeout    iokit_usb_err(0x51)			// 0xe0004051  Transaction timed out
-		case kIOUSBTransactionTimeout:
-		{	
-			strncpy ( outString, "kIOUSBTransactionTimeout", sizeof ( "kIOUSBTransactionTimeout" ) );
-		}
-		break;
-		
-		// #define kIOUSBTransactionReturned   iokit_usb_err(0x50)			// 0xe0004050  The transaction has been returned to the caller
-		case kIOUSBTransactionReturned:
-		{	
-			strncpy ( outString, "kIOUSBTransactionReturned", sizeof ( "kIOUSBTransactionReturned" ) );
-		}
-		break;
-		
-		// #define kIOUSBPipeStalled           iokit_usb_err(0x4f)			// 0xe000404f  Pipe has stalled, error needs to be cleared
-		case kIOUSBPipeStalled:
-		{	
-			strncpy ( outString, "kIOUSBPipeStalled", sizeof ( "kIOUSBPipeStalled" ) );
-		}
-		break;
-		
-		// #define kIOUSBInterfaceNotFound     iokit_usb_err(0x4e)			// 0xe000404e  Interface ref not recognized
-		case kIOUSBInterfaceNotFound:
-		{	
-			strncpy ( outString, "kIOUSBInterfaceNotFound", sizeof ( "kIOUSBInterfaceNotFound" ) );
-		}
-		break;
-		
-		// #define kIOUSBLowLatencyBufferNotPreviouslyAllocated        iokit_usb_err(0x4d)			// 0xe000404d  Attempted to use user land low latency isoc calls w/out calling PrepareBuffer (on the data buffer) first 
-		case kIOUSBLowLatencyBufferNotPreviouslyAllocated:
-		{	
-			strncpy ( outString, "kIOUSBLowLatencyBufferNotPreviouslyAllocated", sizeof ( "kIOUSBLowLatencyBufferNotPreviouslyAllocated" ) );
-		}
-		break;
-
-		// #define kIOUSBLowLatencyFrameListNotPreviouslyAllocated     iokit_usb_err(0x4c)			// 0xe000404c  Attempted to use user land low latency isoc calls w/out calling PrepareBuffer (on the frame list) first
-		case kIOUSBLowLatencyFrameListNotPreviouslyAllocated:
-		{	
-			strncpy ( outString, "kIOUSBLowLatencyFrameListNotPreviouslyAllocated", sizeof ( "kIOUSBLowLatencyFrameListNotPreviouslyAllocated" ) );
-		}
-		break;
-		
-		// #define kIOUSBHighSpeedSplitError     iokit_usb_err(0x4b)		// 0xe000404b Error to hub on high speed bus trying to do split transaction
-		case kIOUSBHighSpeedSplitError:
-		{	
-			strncpy ( outString, "kIOUSBHighSpeedSplitError", sizeof ( "kIOUSBHighSpeedSplitError" ) );
-		}
-		break;
-
-		// #define kIOUSBSyncRequestOnWLThread	iokit_usb_err(0x4a)			// 0xe000404a  A synchronous USB request was made on the workloop thread (from a callback?).  Only async requests are permitted in that case
-		case kIOUSBSyncRequestOnWLThread:
-		{	
-			strncpy ( outString, "kIOUSBSyncRequestOnWLThread", sizeof ( "kIOUSBSyncRequestOnWLThread" ) );
-		}
-		break;
-
-		// #define kIOUSBDeviceNotHighSpeed	iokit_usb_err(0x49)			// 0xe0004049  The device is not a high speed device, so the EHCI driver returns an error
-		case kIOUSBDeviceNotHighSpeed:
-		{	
-			strncpy ( outString, "kIOUSBDeviceNotHighSpeed", sizeof ( "kIOUSBDeviceNotHighSpeed" ) );
-		}
-		break;
-
-		// #define kIOUSBLinkErr           iokit_usb_err(0x10)		// 0xe0004010
-		case kIOUSBLinkErr:
-		{	
-			strncpy ( outString, "kIOUSBLinkErr", sizeof ( "kIOUSBLinkErr" ) );
-		}
-		break;
-		
-		// #define kIOUSBNotSent2Err       iokit_usb_err(0x0f)		// 0xe000400f Transaction not sent
-		case kIOUSBNotSent2Err:
-		{	
-			strncpy ( outString, "kIOUSBNotSent2Err", sizeof ( "kIOUSBNotSent2Err" ) );
-		}
-		break;
-		
-		// #define kIOUSBNotSent1Err       iokit_usb_err(0x0e)		// 0xe000400e Transaction not sent
-		case kIOUSBNotSent1Err:
-		{	
-			strncpy ( outString, "kIOUSBNotSent1Err", sizeof ( "kIOUSBNotSent1Err" ) );
-		}
-		break;
-		
-		// #define kIOUSBBufferUnderrunErr iokit_usb_err(0x0d)		// 0xe000400d Buffer Underrun (Host hardware failure on data out, PCI busy?)
-		case kIOUSBBufferUnderrunErr:
-		{	
-			strncpy ( outString, "kIOUSBBufferUnderrunErr", sizeof ( "kIOUSBBufferUnderrunErr" ) );
-		}
-		break;
-
-		// #define kIOUSBBufferOverrunErr  iokit_usb_err(0x0c)		// 0xe000400c Buffer Overrun (Host hardware failure on data out, PCI busy?)
-		case kIOUSBBufferOverrunErr:
-		{	
-			strncpy ( outString, "kIOUSBBufferOverrunErr", sizeof ( "kIOUSBBufferOverrunErr" ) );
-		}
-		break;
-		
-		// #define kIOUSBReserved2Err      iokit_usb_err(0x0b)		// 0xe000400b Reserved
-		case kIOUSBReserved2Err:
-		{	
-			strncpy ( outString, "kIOUSBReserved2Err", sizeof ( "kIOUSBReserved2Err" ) );
-		}
-		break;
-		
-		// #define kIOUSBReserved1Err      iokit_usb_err(0x0a)		// 0xe000400a Reserved
-		case kIOUSBReserved1Err:
-		{	
-			strncpy ( outString, "kIOUSBReserved1Err", sizeof ( "kIOUSBReserved1Err" ) );
-		}
-		break;
-		
-		// #define kIOUSBWrongPIDErr       iokit_usb_err(0x07)		// 0xe0004007 Pipe stall, Bad or wrong PID
-		case kIOUSBWrongPIDErr:
-		{	
-			strncpy ( outString, "kIOUSBWrongPIDErr", sizeof ( "kIOUSBWrongPIDErr" ) );
-		}
-		break;
-		
-		// #define kIOUSBPIDCheckErr       iokit_usb_err(0x06)		// 0xe0004006 Pipe stall, PID CRC error
-		case kIOUSBPIDCheckErr:
-		{	
-			strncpy ( outString, "kIOUSBPIDCheckErr", sizeof ( "kIOUSBPIDCheckErr" ) );
-		}
-		break;
-		
-		// #define kIOUSBDataToggleErr     iokit_usb_err(0x03)		// 0xe0004003 Pipe stall, Bad data toggle
-		case kIOUSBDataToggleErr:
-		{	
-			strncpy ( outString, "kIOUSBDataToggleErr", sizeof ( "kIOUSBDataToggleErr" ) );
-		}
-		break;
-		
-		// #define kIOUSBBitstufErr        iokit_usb_err(0x02)		// 0xe0004002 Pipe stall, bitstuffing
-		case kIOUSBBitstufErr:
-		{	
-			strncpy ( outString, "kIOUSBBitstufErr", sizeof ( "kIOUSBBitstufErr" ) );
-		}
-		break;
-		
-		// #define kIOUSBCRCErr            iokit_usb_err(0x01)		// 0xe0004001 Pipe stall, bad CRC
-		case kIOUSBCRCErr:
-		{	
-			strncpy ( outString, "kIOUSBCRCErr", sizeof ( "kIOUSBCRCErr" ) );
-		}
-		break;
-	
-		default:
-		{
-			strncpy ( outString, "NO STRING", sizeof ( "NO STRING" ) );
-		}
-		break;
-	
-	}
-	
-	returnValue = TRUE;
-	
-	
-ErrorExit:
-
-	return returnValue;
-
 }
 
 //-----------------------------------------------------------------------------

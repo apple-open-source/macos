@@ -1,0 +1,15 @@
+El mensax unv&iacute;u a la llista '%(listname)s' y que trata sobro:
+
+    %(subject)s
+
+Retuv&oacute;se n'espera de que'l llendador de la llista lu revise
+y aprebe.
+
+Foi reten&iacute;u por:
+
+    %(reason)s
+
+O se mandará'l mensax a la lista o se te mandar&aacute; una notificación
+cola decisión del moderador. Si quies encaboxar esti unv&iacute;u, puedes facelo a traviés de la siguiente URL:
+
+    %(confirmurl)s

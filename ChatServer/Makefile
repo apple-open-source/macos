@@ -175,7 +175,7 @@ $(LIBIDN_NAME)/config.status: libidn/untar
 		$(SILENT) $(ECHO) "#"; \
 		$(SILENT) $(ECHO) "# `date +%Y/%m/%d\ %H:%M:%S` ChatServer: [libidn]: ...configuring; arch=$$i"; \
 		$(SILENT) $(ECHO) "#"; \
-		$(SILENT) $(CD) $(OBJROOT)/$(LIBIDN_SRC_DIR)/$$i; ./configure --prefix=$(BUILD_DIR) --build=$(BUILD_ARCH)-apple-darwin --host=$$i-apple-darwin CFLAGS="$(CFLAGS) -arch $$i"; \
+		$(SILENT) $(CD) $(OBJROOT)/$(LIBIDN_SRC_DIR)/$$i; env VALGRIND="/usr/bin/false" ./configure --prefix=$(BUILD_DIR) --build=$(BUILD_ARCH)-apple-darwin --host=$$i-apple-darwin CFLAGS="$(CFLAGS) -arch $$i"; \
 	done
 
 $(LIBIDN_NAME)/lib/.libs/libidn.dylib:
@@ -759,6 +759,7 @@ muc/muc:
 		$(SILENT) $(CD) $(OBJROOT)/$(MUC_SRC_DIR)/$$i/$(MUC_NAME)/src/jcomp; $(CP) jcr_main_stream_error.c jcr_main_stream_error.c.bak; $(PATCH) -u jcr_main_stream_error.c $(SRCROOT)/$(PATCH_DIR_PRECONF)/mu-conference/src/jcomp/jcr_main_stream_error.c.patch; \
 		$(SILENT) $(CD) $(OBJROOT)/$(MUC_SRC_DIR)/$$i/$(MUC_NAME)/src/jcomp; $(CP) jcr_shutdown.c jcr_shutdown.c.bak; $(PATCH) -u jcr_shutdown.c $(SRCROOT)/$(PATCH_DIR_PRECONF)/mu-conference/src/jcomp/jcr_shutdown.c.patch; \
 		$(SILENT) $(CD) $(OBJROOT)/$(MUC_SRC_DIR)/$$i/$(MUC_NAME)/src/jcomp; $(CP) jcr_elements.c jcr_elements.c.bak; $(PATCH) -u jcr_elements.c $(SRCROOT)/$(PATCH_DIR_PRECONF)/mu-conference/src/jcomp/jcr_elements.c.patch; \
+		$(SILENT) $(CD) $(OBJROOT)/$(MUC_SRC_DIR)/$$i/$(MUC_NAME)/src; $(CP) conference.c conference.c.bak; $(PATCH) -u conference.c $(SRCROOT)/$(PATCH_DIR_PRECONF)/mu-conference/src/conference.c.patch; \
 		$(SILENT) $(ECHO) "#"; \
 		$(SILENT) $(ECHO) "# `date +%Y/%m/%d\ %H:%M:%S` ChatServer: [mu-conference]: ...building; arch=$$i"; \
 		$(SILENT) $(ECHO) "#"; \
@@ -1264,6 +1265,8 @@ jabberd2/makeinstall:
 	$(SILENT) $(MKDIRS) $(OBJROOT)/$(JABBERD2_INSTALL_DIR)/$(JABBER_VAR_DIR)/modules/jabberd2
 # Copy symlinks for jabberd2 modules
 	$(SILENT) $(DITTO) $(OBJROOT)/$(JABBERD2_INSTALL_DIR)/$(firstword $(JABBERD2_ARCHS))/$(MODULES_DIR) $(OBJROOT)/$(JABBERD2_INSTALL_DIR)/$(JABBER_VAR_DIR)/modules/jabberd2
+# .la files shouldn't be necessary for dynamic shared objects
+	$(SILENT) $(RM) $(OBJROOT)/$(JABBERD2_INSTALL_DIR)/$(JABBER_VAR_DIR)/modules/jabberd2/*.la
 #  This is not working, but it would be nice to make the list of shared libs dynamic based on what jabberd2 builds.
 #	JABBERD2_LIB_FILES_TO_LIPO = $(shell $(FIND) $(OBJROOT)/$(JABBERD2_INSTALL_DIR)/$(firstword $(JABBERD2_ARCHS))/$(MODULES_DIR) -name "*.so" -type f|awk -F "/" '{print $NF}')
 	for i in $(JABBERD2_LIB_FILES_TO_LIPO); do \

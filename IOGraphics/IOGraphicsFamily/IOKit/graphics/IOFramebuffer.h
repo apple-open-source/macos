@@ -54,89 +54,89 @@ typedef void (*CursorRemoveProc)(
 typedef void * IOFBCursorRef;
 
 struct IOFBCursorControlCallouts {
-    IOReturn	(*setCursorImage) (void * self, void * ref,
+    IOReturn    (*setCursorImage) (void * self, void * ref,
                                     IOHardwareCursorDescriptor * description, IOFBCursorRef cursorImage);
-    IOReturn	(*setCursorState) (void * self, void * ref,
+    IOReturn    (*setCursorState) (void * self, void * ref,
                                     SInt32 x, SInt32 y, bool visible);
-    UInt32	reserved[30];
+    UInt32      reserved[30];
 };
 typedef struct IOFBCursorControlCallouts IOFBCursorControlCallouts;
 
 struct IOFBCursorControlAttribute {
-    void *				self;
-    void *				ref;
-    const IOFBCursorControlCallouts *	callouts;
-    UInt32				reserved[29];
+    void *                              self;
+    void *                              ref;
+    const IOFBCursorControlCallouts *   callouts;
+    UInt32                              reserved[29];
 };
 typedef struct IOFBCursorControlAttribute IOFBCursorControlAttribute;
 
 // clock & data values
 enum {
-    kIODDCLow				= 0,
-    kIODDCHigh				= 1,
-    kIODDCTristate			= 2
+    kIODDCLow                           = 0,
+    kIODDCHigh                          = 1,
+    kIODDCTristate                      = 2
 };
 // ddcBlockType constants
 enum {
     // EDID block type.
-    kIODDCBlockTypeEDID			= 0
+    kIODDCBlockTypeEDID                 = 0
 };
 
 // ddcFlags constants
 enum {
     // Force a new read of the EDID.
-    kIODDCForceRead			= 0x00000001
+    kIODDCForceRead                     = 0x00000001
 };
 
 enum {
-    kDisabledInterruptState		= 0,
-    kEnabledInterruptState		= 1
+    kDisabledInterruptState             = 0,
+    kEnabledInterruptState              = 1
 };
 
 typedef void (*IOFBInterruptProc)( OSObject * target, void * ref );
 
 
 typedef IOReturn (*IOFramebufferNotificationHandler)
-	(OSObject * self, void * ref,
-	IOFramebuffer * framebuffer, IOIndex event,
-	void * info);
+        (OSObject * self, void * ref,
+        IOFramebuffer * framebuffer, IOIndex event,
+        void * info);
 
 // IOFramebufferNotificationHandler events
 enum {
-    kIOFBNotifyDisplayModeWillChange	= 1,
-    kIOFBNotifyDisplayModeDidChange	= 2,
+    kIOFBNotifyDisplayModeWillChange    = 1,
+    kIOFBNotifyDisplayModeDidChange     = 2,
 
-    kIOFBNotifyWillSleep	= 3,
-    kIOFBNotifyDidWake		= 4,
+    kIOFBNotifyWillSleep        = 3,
+    kIOFBNotifyDidWake          = 4,
 
-    kIOFBNotifyDidPowerOff	= 5,
-    kIOFBNotifyWillPowerOn	= 6,
+    kIOFBNotifyDidPowerOff      = 5,
+    kIOFBNotifyWillPowerOn      = 6,
 
-    kIOFBNotifyDidSleep		= kIOFBNotifyDidPowerOff,
-    kIOFBNotifyWillWake		= kIOFBNotifyWillPowerOn,
+    kIOFBNotifyDidSleep         = kIOFBNotifyDidPowerOff,
+    kIOFBNotifyWillWake         = kIOFBNotifyWillPowerOn,
 
-    kIOFBNotifyWillPowerOff	= 7,
-    kIOFBNotifyDidPowerOn	= 8,
+    kIOFBNotifyWillPowerOff     = 7,
+    kIOFBNotifyDidPowerOn       = 8,
 
-    kIOFBNotifyWillChangeSpeed	= 9,
-    kIOFBNotifyDidChangeSpeed	= 10,
+    kIOFBNotifyWillChangeSpeed  = 9,
+    kIOFBNotifyDidChangeSpeed   = 10,
 
-    kIOFBNotifyClamshellChange	= 20,
+    kIOFBNotifyClamshellChange  = 20,
 
-    kIOFBNotifyCaptureChange	= 30,
+    kIOFBNotifyCaptureChange    = 30,
 
-    kIOFBNotifyOnlineChange	= 40,
+    kIOFBNotifyOnlineChange     = 40,
 
     kIOFBNotifyDisplayDimsChange = 50
 };
 
 enum {
-    kFBDisplayUsablePowerState		= 0x80000000,
-    kFBDisplayPowerStateMask		= 0x0000ffff
+    kFBDisplayUsablePowerState          = 0x80000000,
+    kFBDisplayPowerStateMask            = 0x0000ffff
 };
 
-#define kIOFBDependentIDKey	"IOFBDependentID"
-#define kIOFBDependentIndexKey	"IOFBDependentIndex"
+#define kIOFBDependentIDKey     "IOFBDependentID"
+#define kIOFBDependentIndexKey  "IOFBDependentIndex"
 
 struct StdFBShmem_t;
 class IOFramebufferUserClient;
@@ -154,7 +154,7 @@ class IOFramebuffer : public IOGraphicsDevice
 {
     friend class IOFramebufferUserClient;
     friend class IOFramebufferSharedUserClient;
-    friend class IOGraphicsEngineClient;
+    friend class IODisplay;
 
     OSDeclareDefaultStructors(IOFramebuffer)
 
@@ -171,85 +171,86 @@ protected:
 private:
 
 protected:
-    StdFBShmem_t *			priv;
-    int					shmemClientVersion;
-    IOBufferMemoryDescriptor *		sharedCursor;
+    StdFBShmem_t *                      priv;
+    int                                 shmemClientVersion;
+    IOBufferMemoryDescriptor *          sharedCursor;
 
     union {
         struct {
             /* Mapping tables used in cursor drawing to 5-5-5 displays. */
-            unsigned char *	_bm34To35SampleTable;
-            unsigned char *	_bm35To34SampleTable;
+            unsigned char *     _bm34To35SampleTable;
+            unsigned char *     _bm35To34SampleTable;
             /* Mapping tables used in cursor drawing to 8-bit RGB displays. */
-            unsigned int *	_bm256To38SampleTable;
-            unsigned char *	_bm38To256SampleTable;
-        } 				t;
-        UInt8 *				tables[ 4 ];
-    } 					colorConvert;
+            unsigned int *      _bm256To38SampleTable;
+            unsigned char *     _bm38To256SampleTable;
+        }                               t;
+        UInt8 *                         tables[ 4 ];
+    }                                   colorConvert;
     
     /* cursor blitting vars */
-    CursorBlitProc			cursorBlitProc;
-    CursorRemoveProc			cursorRemoveProc;
+    CursorBlitProc                      cursorBlitProc;
+    CursorRemoveProc                    cursorRemoveProc;
 
-    IOGSize				maxCursorSize;
-    void * 				_IOFramebuffer_reservedE[8];
-    volatile unsigned char *		cursorSave;
-    unsigned int			white;
+    IOGSize                             maxCursorSize;
+    void *                              _IOFramebuffer_reservedE[7];
+    const char *                        thisName;
+    volatile unsigned char *            cursorSave;
+    unsigned int                        white;
 
-    IOGPoint				nextCursorLoc;
-    int					nextCursorFrame;
-    SInt32				connectChange;
-    semaphore_t				vblSemaphore;
+    IOGPoint                            nextCursorLoc;
+    int                                 nextCursorFrame;
+    SInt32                              connectChange;
+    semaphore_t                         vblSemaphore;
 
     /* memory ranges */
-    volatile unsigned char * 		frameBuffer;
-    unsigned int			totalWidth;
-    unsigned int			rowBytes;
-    unsigned int			bytesPerPixel;
+    volatile unsigned char *            frameBuffer;
+    unsigned int                        totalWidth;
+    unsigned int                        rowBytes;
+    unsigned int                        bytesPerPixel;
 
-    IOMemoryMap *			vramMap;
-    IOByteCount				vramMapOffset;
-    OSArray *				userAccessRanges;
-    unsigned int			suspended:1;
-    unsigned int			captured:1;
-    unsigned int			sleepConnectCheck:1;
+    IOMemoryMap *                       vramMap;
+    IOByteCount                         vramMapOffset;
+    OSArray *                           userAccessRanges;
+    unsigned int                        suspended:1;
+    unsigned int                        captured:1;
+    unsigned int                        sleepConnectCheck:1;
     unsigned int                        messaged:1;
-    unsigned int                       _IOFramebuffer_reservedC:28;
-    IOFramebuffer * 			nextDependent;
-    OSSet *				fbNotifications;
+    unsigned int                        _IOFramebuffer_reservedC:28;
+    IOFramebuffer *                     nextDependent;
+    OSSet *                             fbNotifications;
 
-    class IOFramebufferUserClient *	  serverConnect;
+    class IOFramebufferUserClient *       serverConnect;
     class IOFramebufferSharedUserClient * sharedConnect;
 
-    unsigned int			opened:1;
-    unsigned int			dead:1;
-    unsigned int			configPending:1;
-    unsigned int			serverNotified:1;
-    unsigned int			serverState:1;
-    unsigned int			serverPendingAck:1;
-    unsigned int			isUsable:1;
-    unsigned int			mirrored:1;
-    unsigned int 			pendingPowerState:4;
-    unsigned int			pendingPowerChange:1;
-    unsigned int			pagingState:1;
-    unsigned int			mirrorPrimary:1;
-    unsigned int			mirrorSWCursor:1;
+    unsigned int                        opened:1;
+    unsigned int                        dead:1;
+    unsigned int                        configPending:1;
+    unsigned int                        serverNotified:1;
+    unsigned int                        serverState:1;
+    unsigned int                        serverPendingAck:1;
+    unsigned int                        isUsable:1;
+    unsigned int                        mirrored:1;
+    unsigned int                        pendingPowerState:4;
+    unsigned int                        pendingPowerChange:1;
+    unsigned int                        pagingState:1;
+    unsigned int                        mirrorPrimary:1;
+    unsigned int                        mirrorSWCursor:1;
 
-    bool				clutValid;
-    bool				currentMono;
-    bool				needCursorService;
-    bool				haveVBLService;
-    bool				haveHWCursor;
-    bool				hwCursorLoaded;
+    bool                                clutValid;
+    bool                                currentMono;
+    bool                                needCursorService;
+    bool                                haveVBLService;
+    bool                                haveHWCursor;
+    bool                                hwCursorLoaded;
 
-    void *				serverMsg;
-    IOInterruptEventSource *		deferredEvents;
+    void *                              serverMsg;
+    IOInterruptEventSource *            deferredEvents;
 
     /* Reserved for future expansion. */
-    int 				_IOFramebuffer_reserved[5];
+    int                                 _IOFramebuffer_reserved[5];
 
 private:
-    struct IOFramebufferPrivate *	__private;
+    struct IOFramebufferPrivate *       __private;
 
 public:
 /*! @function doI2CRequest
@@ -306,6 +307,10 @@ public:
     virtual void stop( IOService * provider );
     virtual void free();
     virtual IOWorkLoop * getWorkLoop() const;
+
+    IOWorkLoop * getGraphicsSystemWorkLoop() const;
+    IOWorkLoop * getControllerWorkLoop() const;
+
     virtual IOReturn requestProbe( IOOptionBits options );
 
     virtual IOReturn powerStateWillChangeTo ( IOPMPowerFlags, unsigned long, IOService* );
@@ -313,14 +318,14 @@ public:
     virtual IOReturn setPowerState( unsigned long powerStateOrdinal, IOService * device);
     virtual IOReturn setAggressiveness( unsigned long type, unsigned long newLevel );
     virtual IOReturn getAggressiveness( unsigned long type, unsigned long * currentLevel );
-    virtual IOReturn newUserClient( task_t		owningTask,
-                                    void * 		security_id,
-                                    UInt32  		type,
-                                    IOUserClient **	handler );
+    virtual IOReturn newUserClient( task_t              owningTask,
+                                    void *              security_id,
+                                    UInt32              type,
+                                    IOUserClient **     handler );
     virtual IOReturn callPlatformFunction( const OSSymbol * functionName,
-				    bool waitForFunction,
-				    void *p1, void *p2,
-				    void *p3, void *p4 );
+                                    bool waitForFunction,
+                                    void *p1, void *p2,
+                                    void *p3, void *p4 );
 
     virtual void hideCursor( void );
     virtual void showCursor( IOGPoint * cursorLoc, int frame );
@@ -342,7 +347,7 @@ public:
 
     virtual bool serializeInfo( OSSerialize * s );
     virtual bool setNumber( OSDictionary * dict, const char * key,
-				UInt32 number );
+                                UInt32 number );
 
     IONotifier * addFramebufferNotification(
             IOFramebufferNotificationHandler handler,
@@ -455,8 +460,8 @@ public:
 */
 
     virtual IOReturn getPixelInformation(
-	IODisplayModeID displayMode, IOIndex depth,
-	IOPixelAperture aperture, IOPixelInformation * pixelInfo ) = 0;
+        IODisplayModeID displayMode, IOIndex depth,
+        IOPixelAperture aperture, IOPixelInformation * pixelInfo ) = 0;
 
 /*! @function getCurrentDisplayMode
     @abstract Return the framebuffers current display mode and depth.
@@ -489,7 +494,7 @@ public:
 */
 
     virtual IOReturn setApertureEnable( IOPixelAperture aperture,
-		    IOOptionBits enable );
+                    IOOptionBits enable );
 
 /*! @function setStartupDisplayMode
     @abstract Set the framebuffers display mode and depth to be used during boot and at startup.
@@ -576,7 +581,7 @@ public:
 */
 
     virtual IOReturn getTimingInfoForDisplayMode(
-		IODisplayModeID displayMode, IOTimingInformation * info );
+                IODisplayModeID displayMode, IOTimingInformation * info );
 
 /*! @function validateDetailedTiming
     @abstract Reports whether a detailed timing is able to be programmed with the device.
@@ -642,7 +647,7 @@ public:
 */
 
     virtual bool convertCursorImage( void * cursorImage,
-		IOHardwareCursorDescriptor * description,
+                IOHardwareCursorDescriptor * description,
                 IOHardwareCursorInfo * cursor );
 
 /*! @function setCursorImage
@@ -780,8 +785,8 @@ public:
 */
 
     virtual IOReturn registerForInterruptType( IOSelect interruptType,
-            	    IOFBInterruptProc proc, OSObject * target, void * ref,
-		    void ** interruptRef );
+                    IOFBInterruptProc proc, OSObject * target, void * ref,
+                    void ** interruptRef );
 
 /*! @function unregisterInterrupt
     @abstract Remove a callback previously installed by registerForInterruptType().
@@ -803,6 +808,18 @@ public:
 
     virtual IOReturn getNotificationSemaphore( IOSelect interruptType,
                                                semaphore_t * semaphore );
+
+/*  non WL clients apis
+*/
+    IOReturn setAttributeExt( IOSelect attribute, uintptr_t value );
+    
+    IOReturn getAttributeExt( IOSelect attribute, uintptr_t * value );
+    
+    IOReturn setAttributeForConnectionExt( IOIndex connectIndex,
+               IOSelect attribute, uintptr_t value );
+    
+    IOReturn getAttributeForConnectionExt( IOIndex connectIndex,
+            IOSelect attribute, uintptr_t * value );
 };
 
 #endif /* ! _IOKIT_IOFRAMEBUFFER_H */

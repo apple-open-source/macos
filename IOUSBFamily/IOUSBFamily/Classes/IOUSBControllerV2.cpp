@@ -107,7 +107,7 @@ bool
 IOUSBControllerV2::start( IOService * provider )
 {
     
-    if( !super::start(provider))
+    if ( !super::start(provider))
         return (false);
 
 	// allocate a thread_call structure - code shared by EHCI and UHCI
@@ -127,13 +127,20 @@ void
 IOUSBControllerV2::free()
 {
 	
-    if (_returnIsochDoneQueueThread)
+    if (_v2ExpansionData && _returnIsochDoneQueueThread)
     {
         thread_call_cancel(_returnIsochDoneQueueThread);
         thread_call_free(_returnIsochDoneQueueThread);
     }
 	
-	// should I do an IOFree on the expansion data?
+	//  This needs to be the LAST thing we do, as it disposes of our "fake" member
+    //  variables.
+    //
+    if (_v2ExpansionData)
+    {
+		IOFree(_v2ExpansionData, sizeof(V2ExpansionData));
+		_v2ExpansionData = NULL;
+    }
 	
     super::free();
 }
@@ -165,9 +172,9 @@ IOUSBControllerV2::clearTTHandler(OSObject *target, void *parameter, IOReturn st
     back = command->GetStage() & 0xf0;
     todo = sent ^ back;						// thats xor
 	
-    if((todo & kSetupBack) != 0)
+    if ((todo & kSetupBack) != 0)
     {
-		USBLog(2,"clearTTHandler: Setup comming back to us, check and forget");
+		USBLog(5,"clearTTHandler: Setup comming back to us, check and forget");
         command->SetStage(command->GetStage() | kSetupBack);
     }
     else
@@ -181,7 +188,7 @@ IOUSBControllerV2::clearTTHandler(OSObject *target, void *parameter, IOReturn st
 			{
 				if (dmaCommand->getMemoryDescriptor() != memDesc)
 				{
-					USBLog(1, "clearTTHandler: DMA Command Memory Descriptor (%p) does not match Request MemoryDescriptor (%p)", dmaCommand->getMemoryDescriptor(), memDesc);
+					USBLog(5, "clearTTHandler: DMA Command Memory Descriptor (%p) does not match Request MemoryDescriptor (%p)", dmaCommand->getMemoryDescriptor(), memDesc);
 					USBTrace( kUSBTController, kTPControllerClearTTHandler, (uintptr_t)me, (uintptr_t)dmaCommand->getMemoryDescriptor(), (uintptr_t)memDesc, 1 );
 				}
 				USBLog(7, "clearTTHandler: clearing memory descriptor (%p) from dmaCommand (%p)", dmaCommand->getMemoryDescriptor(), dmaCommand);
@@ -189,13 +196,13 @@ IOUSBControllerV2::clearTTHandler(OSObject *target, void *parameter, IOReturn st
 			}
 			else
 			{
-				USBLog(1, "clearTTHandler - dmaCommand (%p) already cleared", dmaCommand);
+				USBLog(2, "clearTTHandler - dmaCommand (%p) already cleared", dmaCommand);
 				USBTrace( kUSBTController, kTPControllerClearTTHandler, (uintptr_t)me, (uintptr_t)dmaCommand, 0, 2 );
 			}
 		}
 		if (memDesc)
 		{
-			USBLog(1, "clearTTHandler - completing and freeing memory descriptor (%p)", memDesc);
+			USBLog(6, "clearTTHandler - completing and freeing memory descriptor (%p)", memDesc);
 			USBTrace( kUSBTController, kTPControllerClearTTHandler, (uintptr_t)me, (uintptr_t)memDesc, 0, 3 );
 			memDesc->complete();
 			memDesc->release();
@@ -210,7 +217,7 @@ IOUSBControllerV2::clearTTHandler(OSObject *target, void *parameter, IOReturn st
     }
     if ((status != kIOReturnSuccess) && (status != kIOUSBTransactionReturned))
     {
-		USBLog(1, "%s[%p]::clearTTHandler - error response from hub, clearing hub endpoint stall", me->getName(), me);
+		USBLog((status == kIOReturnNotResponding ? 5 : 1), "%s[%p]::clearTTHandler - error response from hub (0x%x), clearing hub endpoint stall", me->getName(), me, status);
 		USBTrace( kUSBTController, kTPControllerClearTTHandler, (uintptr_t)me, status, 0, 5 );
 		
 		me->UIMClearEndpointStall(hubAddr, 0, kUSBAnyDirn);
@@ -238,7 +245,7 @@ IOUSBControllerV2::ClearTT(USBDeviceAddress fnAddress, UInt8 endpt, Boolean IN)
 	USBTrace_Start( kUSBTController, kTPControllerClearTT, (uintptr_t)this, fnAddress, endpt, IN );
 	
     hubAddress = _highSpeedHub[fnAddress];	// Address of its controlling hub.
-    if(hubAddress == 0)	// Its not a high speed device, it doesn't need a clearTT
+    if (hubAddress == 0)	// Its not a high speed device, it doesn't need a clearTT
     {
 		USBLog(1,"-%s[%p]::ClearTT high speed device, returning", getName(), this);
 		USBTrace( kUSBTController, kTPControllerClearTT, (uintptr_t)this, 0, 0, 1 );
@@ -297,7 +304,7 @@ IOUSBControllerV2::ClearTT(USBDeviceAddress fnAddress, UInt8 endpt, Boolean IN)
     USBLog(5, "%s[%p]::ClearTT - got IOUSBDevRequest (%p)", getName(), this, clearRequest);
 	
     wValue = (endpt & 0xf) | ( (fnAddress & 0x7f) << 4);
-    if(IN)
+    if (IN)
     {
 		wValue  |= (1 << 15);
     }
@@ -322,7 +329,7 @@ IOUSBControllerV2::ClearTT(USBDeviceAddress fnAddress, UInt8 endpt, Boolean IN)
     clearRequest->bmRequestType = 0x23;
     clearRequest->bRequest = 8;
     clearRequest->wValue = HostToUSBWord(wValue);
-    if(_v2ExpansionData->_multiTT[hubAddress])
+    if (_v2ExpansionData->_multiTT[hubAddress])
     {  // MultiTT hub needs port address here
 		clearRequest->wIndex = HostToUSBWord(_highSpeedPort[fnAddress]);
     }
@@ -512,9 +519,9 @@ IOUSBControllerV2::CreateDevice(	IOUSBDevice 		*newDevice,
 {
     USBLog(5,"%s[%p]::CreateDevice, new method called with hub:%d, port:%d", getName(), this, hub, port);
     
-    if(speed != kUSBDeviceSpeedHigh)
+    if (speed != kUSBDeviceSpeedHigh)
     {
-        if(_highSpeedHub[hub] == 0)	// this is the first non high speed device in this chain
+        if (_highSpeedHub[hub] == 0)	// this is the first non high speed device in this chain
         {
             _highSpeedHub[deviceAddress] = hub;
             _highSpeedPort[deviceAddress] = port;
@@ -543,9 +550,9 @@ IOUSBControllerV2::ConfigureDeviceZero(UInt8 maxPacketSize, UInt8 speed, USBDevi
 {
     USBLog(5,"%s[%p]::ConfigureDeviceZero, new method called with hub:%d, port:%d", getName(), this, hub, port);
 	
-    if(speed != kUSBDeviceSpeedHigh)
+    if (speed != kUSBDeviceSpeedHigh)
     {
-        if(_highSpeedHub[hub] == 0)	// this is the first non high speed device in this chain
+        if (_highSpeedHub[hub] == 0)	// this is the first non high speed device in this chain
         {
             _highSpeedHub[0] = hub;
             _highSpeedPort[0] = port;
@@ -933,7 +940,7 @@ IOUSBControllerV2::PutTDonToDoList(IOUSBControllerIsochEndpoint* pED, IOUSBContr
 {
     USBLog(7, "AppleUSBEHCI[%p]::PutTDonToDoList - pED (%p) pTD (%p) frameNumber(%Lx)", this, pED, pTD, pTD->_frameNumber);
     // Link TD into todo list
-    if(pED->toDoList == NULL)
+    if (pED->toDoList == NULL)
     {
 		// as the head of a new list
 		pED->toDoList = pTD;
@@ -1002,7 +1009,7 @@ IOUSBControllerV2::PutTDonDoneQueue(IOUSBControllerIsochEndpoint* pED, IOUSBCont
 		}
     }
     
-    if(pED->doneQueue == NULL)
+    if (pED->doneQueue == NULL)
     {
 		// as the head of a new list
 		pED->doneQueue = pTD;
@@ -1051,6 +1058,25 @@ IOUSBControllerV2::GetTDfromDoneQueue(IOUSBControllerIsochEndpoint* pED)
 
 
 
+// this is a static method that is inside the command gate (called through runAction)
+IOReturn		
+IOUSBControllerV2::GatedGetTDfromDoneQueue(OSObject *target, void *arg0, void *arg1, void*, void*)
+{
+	IOUSBControllerV2				*me = (IOUSBControllerV2 *)target;
+	IOUSBControllerIsochEndpoint	*pED = (IOUSBControllerIsochEndpoint*)arg0;
+	IOUSBControllerIsochListElement *pTD;
+	
+	if (!me || !pED)
+		return kIOReturnInternalError;
+	
+	pTD = me->GetTDfromDoneQueue(pED);
+	*(IOUSBControllerIsochListElement**)arg1 = pTD;
+	
+	return kIOReturnSuccess;
+}
+
+
+
 OSMetaClassDefineReservedUsed(IOUSBControllerV2,  17);
 void
 IOUSBControllerV2::PutTDonDeferredQueue(IOUSBControllerIsochEndpoint* pED, IOUSBControllerIsochListElement *pTD)
@@ -1058,7 +1084,7 @@ IOUSBControllerV2::PutTDonDeferredQueue(IOUSBControllerIsochEndpoint* pED, IOUSB
 	// Do not call USBLog here, as this can be called from AddIsocFramesToSchedule, which holds off preemption
 	// USBLog(7, "AppleUSBEHCI[%p]::PutTDonDeferredQueue(%p, %p)", this, pED, pTD);
 	
-    if(pED->deferredQueue == NULL)
+    if (pED->deferredQueue == NULL)
     {
 		// as the head of a new list
 		pED->deferredQueue = pTD;
@@ -1117,12 +1143,15 @@ OSMetaClassDefineReservedUsed(IOUSBControllerV2,  19);
 void 
 IOUSBControllerV2::ReturnIsochDoneQueue(IOUSBControllerIsochEndpoint* pEP)
 {
-    IOUSBControllerIsochListElement		*pTD = GetTDfromDoneQueue(pEP);
+    IOUSBControllerIsochListElement		*pTD = NULL;
     IOUSBIsocFrame						*pFrames = NULL;
 	IOUSBIsocCompletionAction			pHandler;
 	uint32_t							busFunctEP;
 	
     USBLog(7, "IOUSBControllerV2[%p]::ReturnIsocDoneQueue (%p)", this, pEP);
+	
+	_commandGate->runAction(GatedGetTDfromDoneQueue, pEP, &pTD);
+	
 	USBTrace_Start( kUSBTController, kTPControllerReturnIsochDoneQueue, (uintptr_t)this, (uintptr_t)pEP, (uintptr_t)pTD, 0 );
 	
     if (pTD)
@@ -1136,7 +1165,7 @@ IOUSBControllerV2::ReturnIsochDoneQueue(IOUSBControllerIsochEndpoint* pEP)
     while(pTD)
     {
 		USBLog(7, "IOUSBControllerV2[%p]::ReturnIsocDoneQueue: TD %p", this, pTD); 
-		if( pTD->_completion.action != NULL)
+		if ( pTD->_completion.action != NULL)
 		{
 			busFunctEP = ((_busNumber << 16 ) | ( pEP->functionAddress << 8) | (pEP->endpointNumber) );
 			pHandler = pTD->_completion.action;
@@ -1185,14 +1214,16 @@ IOUSBControllerV2::ReturnIsochDoneQueue(IOUSBControllerIsochEndpoint* pEP)
 				pEP->accumulatedStatus = kIOReturnSuccess;
 			}
 			pTD->Deallocate(this);
-			pTD = GetTDfromDoneQueue(pEP);
+			pTD = NULL;
+			_commandGate->runAction(GatedGetTDfromDoneQueue, pEP, &pTD);
 			if (pTD)
 				pFrames = pTD->_pFrames;
 		}
 		else
 		{
 			pTD->Deallocate(this);
-			pTD = GetTDfromDoneQueue(pEP);
+			pTD = NULL;
+			_commandGate->runAction(GatedGetTDfromDoneQueue, pEP, &pTD);
 		}
     }
 	

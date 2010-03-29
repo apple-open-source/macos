@@ -34,6 +34,7 @@ from Mailman import Errors
 from Mailman import Message
 from Mailman import i18n
 from Mailman.Handlers.Moderate import ModeratedMemberPost
+from Mailman.ListAdmin import HELDMSG
 from Mailman.ListAdmin import readMessage
 from Mailman.Cgi import Auth
 from Mailman.htmlformat import *
@@ -339,7 +340,7 @@ def show_pending_unsubs(mlist, form):
     # Alphabetical order by email address
     byaddrs = {}
     for id in pendingunsubs:
-        addr = mlist.GetRecord(id)[1]
+        addr = mlist.GetRecord(id)
         byaddrs.setdefault(addr, []).append(id)
     addrs = byaddrs.keys()
     addrs.sort()
@@ -769,8 +770,12 @@ def process_form(mlist, doc, cgidata):
         forwardaddrkey = 'forward-addr-%d' % request_id
         bankey = 'ban-%d' % request_id
         # Defaults
-        msgdata = mlist.GetRecord(request_id)[5]
-        comment = msgdata.get('rejection_notice', _('[No explanation given]'))
+        if mlist.GetRecordType(request_id) == HELDMSG:
+            msgdata = mlist.GetRecord(request_id)[5]
+            comment = msgdata.get('rejection_notice',
+                                  _('[No explanation given]'))
+        else:
+            comment = _('[No explanation given]')
         preserve = 0
         forward = 0
         forwardaddr = ''

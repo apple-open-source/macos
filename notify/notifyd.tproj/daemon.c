@@ -893,7 +893,7 @@ main(int argc, char *argv[])
 	}
 
 	/* Create state table early */
-	ns = _notify_lib_notify_state_new(0);
+	ns = _notify_lib_notify_state_new(0, 1024);
 
 	if (debug == 0) log_message(ASL_LEVEL_DEBUG, "notifyd started\n");
 

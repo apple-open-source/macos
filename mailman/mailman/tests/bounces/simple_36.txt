@@ -1,0 +1,61 @@
+X-MimeOLE: Produced By Microsoft Exchange V6.5
+Content-class: urn:content-classes:message
+MIME-Version: 1.0
+Content-Type: text/plain;
+	charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Subject: Delivery Failure
+Date: Thu, 19 Feb 2009 16:19:28 -0800
+Message-ID: <633706571685360000@mx10.lttf.com>
+X-MS-Has-Attach: 
+X-MS-TNEF-Correlator: 
+From: <"System Administrator"@xxx.com>
+To: <huntads-bounces@xxx.com>
+
+
+Could not deliver message to the following recipient(s):
+
+Failed Recipient: garyt@xxx.com
+Reason: Remote host said: 550 unknown user <garyt@xxx.com>
+
+   -- The header and top 20 lines of the message follows --
+
+Received: from xxx.com [72.166.138.3] by mx10.lttf.com with =
+SMTP;
+   Thu, 19 Feb 2009 16:19:20 -0800
+Received: from localhost.xxx.com (unknown [127.0.0.1])
+	by xxx.com (Postfix) with ESMTP id A2E78240229
+	for <garyt@xxx.com>; Thu, 19 Feb 2009 16:19:22 -0800 =
+(PST)
+MIME-Version: 1.0
+Content-Type: text/plain; charset=3D"us-ascii"
+Content-Transfer-Encoding: 7bit
+From: huntads-request@xxx.com
+To: garyt@xxx.com
+Subject: confirm 05a7bc89604da1745a562d4bed327490f5022bb2
+Message-ID: <mailman.45.1235089120.2581.huntads@xxx.com>
+Date: Thu, 19 Feb 2009 16:18:40 -0800
+Precedence: bulk
+X-BeenThere: huntads@xxx.com
+X-Mailman-Version: 2.1.12rc2
+List-Id: Turners Huntads <huntads.xxx.com>
+X-List-Administrivia: yes
+Sender: huntads-bounces@xxx.com
+Errors-To: huntads-bounces@xxx.com
+
+Your membership in the mailing list Huntads has been disabled due to
+excessive bounces The last bounce received from you was dated
+19-Feb-2009.  You will not get any more messages from this list until
+you re-enable your membership.  You will receive 2 more reminders like
+this before your membership in the list is deleted.
+
+To re-enable your membership, you can simply respond to this message
+(leaving the Subject: line intact).
+
+If you have any questions or problems, you can contact the list owner
+at
+
+    huntads-owner@xxx.com
+
+
+

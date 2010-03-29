@@ -30,11 +30,11 @@ cc -o /tmp/iogt graphics.subproj/IOGraphicsTest.c -framework CoreGraphics -Wall 
 
 int main( int argc, char * argv[] )
 {
-    io_service_t 	service;
-    CFDictionaryRef	dict;
-    CFMutableArrayRef	array;
-    CGSError		err;
-    int			i, j;
+    io_service_t        service;
+    CFDictionaryRef     dict;
+    CFMutableArrayRef   array;
+    CGSError            err;
+    int                 i, j;
 
     CGSInitialize();
 
@@ -61,7 +61,7 @@ int main( int argc, char * argv[] )
 
             CFArrayAppendValue(array, dict);
             CFRelease(dict);
-			CFIndex count = CFArrayGetCount(array);
+                        CFIndex count = CFArrayGetCount(array);
             for( j = 0; j < count; j++) {
                 printf("%d matches(%ld)\n", j,
                     IODisplayMatchDictionaries( dict,

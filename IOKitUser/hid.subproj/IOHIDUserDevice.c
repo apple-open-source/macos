@@ -22,6 +22,7 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+#include <AssertMacros.h>
 #include <pthread.h>
 #include <CoreFoundation/CFRuntime.h>
 #include <CoreFoundation/CFBase.h>
@@ -30,6 +31,7 @@
 #include <IOKit/IOCFSerialize.h>
 #include <IOKit/hid/IOHIDKeys.h>
 #include <IOKit/hid/IOHIDResourceUserClient.h>
+#include <IOKit/IODataQueueClient.h>
 #include "IOHIDUserDevice.h"
 
 static IOHIDUserDeviceRef   __IOHIDUserDeviceCreate(
@@ -37,6 +39,7 @@ static IOHIDUserDeviceRef   __IOHIDUserDeviceCreate(
                                     CFAllocatorContext *    context __unused);
 static void                 __IOHIDUserDeviceRelease( CFTypeRef object );
 static void                 __IOHIDUserDeviceRegister(void);
+static void                 __IOHIDUserDeviceQueueCallback(CFMachPortRef port, void *msg, CFIndex size, void *info);
 
 typedef struct __IOHIDUserDevice
 {
@@ -45,6 +48,20 @@ typedef struct __IOHIDUserDevice
     io_service_t                    service;
     io_connect_t                    connect;
     CFDictionaryRef                 properties;
+    
+    CFRunLoopRef                    runLoop;
+    CFStringRef                     runLoopMode;
+    
+    struct {
+        CFMachPortRef               port;
+        CFRunLoopSourceRef          source;
+        IODataQueueMemory *         data;
+    } queue;
+    
+    struct {
+        IOHIDUserDeviceReportCallback   callback;
+        void *                          refcon;
+    } setReport, getReport;
 
 } __IOHIDUserDevice, *__IOHIDUserDeviceRef;
 
@@ -57,6 +74,7 @@ static const CFRuntimeClass __IOHIDUserDeviceClass = {
     NULL,                       // equal
     NULL,                       // hash
     NULL,                       // copyFormattingDesc
+    NULL,
     NULL
 };
 
@@ -104,6 +122,30 @@ void __IOHIDUserDeviceRelease( CFTypeRef object )
 {
     IOHIDUserDeviceRef device = (IOHIDUserDeviceRef)object;
     
+    if ( device->queue.data )
+    {
+#if !__LP64__
+        vm_address_t        mappedMem = (vm_address_t)device->queue.data;
+#else
+        mach_vm_address_t   mappedMem = (mach_vm_address_t)device->queue.data;
+#endif
+        IOConnectUnmapMemory (  device->connect, 
+                                0, 
+                                mach_task_self(), 
+                                mappedMem);
+        device->queue.data = NULL;
+    }
+    
+    if ( device->queue.source ) {
+        CFRelease(device->queue.source);
+        device->queue.source = NULL;
+    }
+
+    if ( device->queue.port ) {
+        CFRelease(device->queue.port);
+        device->queue.port = NULL;
+    }
+    
     if ( device->properties ) {
         CFRelease(device->properties);
         device->properties = NULL;
@@ -143,40 +185,169 @@ IOHIDUserDeviceRef IOHIDUserDeviceCreate(
     CFDataRef           data;
     kern_return_t       kr;
     
-    do {
-        if ( !properties )
-            break;
-            
-        device = __IOHIDUserDeviceCreate(allocator, NULL);
-        if ( !device )
-            break;
-
-        device->service = IOServiceGetMatchingService(__masterPort, IOServiceMatching( "IOHIDResource" ));
-        if ( device->service == MACH_PORT_NULL )
-            return NULL;
-            
-        kr = IOServiceOpen(device->service, mach_task_self(), kIOHIDResourceUserClientTypeDevice, &device->connect);
-        if ( kr != KERN_SUCCESS )
-            break;
-            
-        data = IOCFSerialize(properties, 0);
-        if ( !data )
-            break;
-            
-        kr = IOConnectCallStructMethod(device->connect, kIOHIDResourceDeviceUserClientMethodCreate, CFDataGetBytePtr(data), CFDataGetLength(data), NULL, NULL);
-        CFRelease(data);
-
-        if ( kr != KERN_SUCCESS )
-            break;
+    require(properties, error);
         
-        return device;
-    } while ( FALSE );
+    device = __IOHIDUserDeviceCreate(allocator, NULL);
+    require(device, error);
+
+    device->service = IOServiceGetMatchingService(__masterPort, IOServiceMatching( "IOHIDResource" ));
+    require(device->service, error);
+        
+    kr = IOServiceOpen(device->service, mach_task_self(), kIOHIDResourceUserClientTypeDevice, &device->connect);
+    require_noerr(kr, error);
+        
+    data = IOCFSerialize(properties, 0);
+    require(data, error);
+        
+    kr = IOConnectCallStructMethod(device->connect, kIOHIDResourceDeviceUserClientMethodCreate, CFDataGetBytePtr(data), CFDataGetLength(data), NULL, NULL);
+    CFRelease(data);
+
+    require_noerr(kr, error);
     
+    return device;
+
+error:    
     if ( device )
         CFRelease(device);
 
-    return device;
+    return NULL;
 }
+
+//------------------------------------------------------------------------------
+// IOHIDUserDeviceScheduleWithRunLoop
+//------------------------------------------------------------------------------
+void IOHIDUserDeviceScheduleWithRunLoop(IOHIDUserDeviceRef device, CFRunLoopRef runLoop, CFStringRef runLoopMode)
+{
+    if ( !device->queue.data ) {
+        IOReturn ret;
+#if !__LP64__
+        vm_address_t        address = 0;
+        vm_size_t           size    = 0;
+#else
+        mach_vm_address_t   address = 0;
+        mach_vm_size_t      size    = 0;
+#endif
+        ret = IOConnectMapMemory (	device->connect, 
+                                    0, 
+                                    mach_task_self(), 
+                                    &address, 
+                                    &size, 
+                                    kIOMapAnywhere	);
+        if (ret != kIOReturnSuccess) 
+            return;
+        
+        device->queue.data = (IODataQueueMemory *) address;
+    }
+
+    if ( !device->queue.port ) {
+        mach_port_t port = IODataQueueAllocateNotificationPort();
+        
+        if ( port != MACH_PORT_NULL ) {
+            CFMachPortContext context = {0, device, NULL, NULL, NULL};
+            
+            device->queue.port = CFMachPortCreateWithPort(kCFAllocatorDefault, port, __IOHIDUserDeviceQueueCallback, &context, FALSE);
+        }
+    }
+    
+    if ( !device->queue.source ) {
+        
+        if ( device->queue.port ) {
+            device->queue.source = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, device->queue.port, 0);
+        }
+    }
+
+    CFRunLoopAddSource(runLoop, device->queue.source, runLoopMode);
+    IOConnectSetNotificationPort(device->connect, 0, CFMachPortGetPort(device->queue.port), (uintptr_t)NULL);
+}
+
+//------------------------------------------------------------------------------
+// IOHIDUserDeviceUnscheduleFromRunLoop
+//------------------------------------------------------------------------------
+void IOHIDUserDeviceUnscheduleFromRunLoop(IOHIDUserDeviceRef device, CFRunLoopRef runLoop, CFStringRef runLoopMode)
+{
+    if ( !device->queue.port )
+        return;
+        
+    IOConnectSetNotificationPort(device->connect, 0, MACH_PORT_NULL, (uintptr_t)NULL);
+    CFRunLoopRemoveSource(runLoop, device->queue.source, runLoopMode);
+}
+
+//------------------------------------------------------------------------------
+// IOHIDUserDeviceRegisterGetReportCallback
+//------------------------------------------------------------------------------
+void IOHIDUserDeviceRegisterGetReportCallback(IOHIDUserDeviceRef device, IOHIDUserDeviceReportCallback callback, void * refcon)
+{
+    device->getReport.callback  = callback;
+    device->getReport.refcon    = refcon;
+}
+
+//------------------------------------------------------------------------------
+// IOHIDUserDeviceRegisterSetReportCallback
+//------------------------------------------------------------------------------
+void IOHIDUserDeviceRegisterSetReportCallback(IOHIDUserDeviceRef device, IOHIDUserDeviceReportCallback callback, void * refcon)
+{
+    device->setReport.callback  = callback;
+    device->setReport.refcon    = refcon;
+}
+
+#ifndef min
+#define min(a, b) \
+    ((a < b) ? a:b)
+#endif
+//------------------------------------------------------------------------------
+// __IOHIDUserDeviceQueueCallback
+//------------------------------------------------------------------------------
+void __IOHIDUserDeviceQueueCallback(CFMachPortRef port __unused, void *msg __unused, CFIndex size __unused, void *info)
+{
+    IOHIDUserDeviceRef device = (IOHIDUserDeviceRef)info;
+    
+    if ( !device->queue.data )
+        return;
+
+    // check entry size
+    IODataQueueEntry *  nextEntry;
+    uint32_t            dataSize;
+
+    // if queue empty, then stop
+    while ((nextEntry = IODataQueuePeek(device->queue.data))) {
+    
+        IOHIDResourceDataQueueHeader *  header                                                  = (IOHIDResourceDataQueueHeader*)&(nextEntry->data);
+        uint64_t                        response[kIOHIDResourceUserClientResponseIndexCount]    = {kIOReturnUnsupported,header->token};
+        uint8_t *                       responseReport  = NULL;
+        uint32_t                        responseLength  = 0;
+                 
+        // set report
+        if ( header->direction == kIOHIDResourceReportDirectionOut ) {
+            CFIndex     reportLength    = min(header->length, (nextEntry->size - sizeof(IOHIDResourceDataQueueHeader)));
+            uint8_t *   report          = ((uint8_t*)header)+sizeof(IOHIDResourceDataQueueHeader);
+            
+            if ( device->setReport.callback )
+                response[kIOHIDResourceUserClientResponseIndexResult] = (*device->setReport.callback)(device->setReport.refcon, header->type, header->reportID, report, reportLength);
+                
+        } 
+        else if ( header->direction == kIOHIDResourceReportDirectionIn ) {
+            // RY: malloc our own data that we'll send back to the kernel.
+            // I thought about mapping the mem dec from the caller in kernel,  
+            // but given the typical usage, it is so not worth it
+            responseReport = (uint8_t *)malloc(header->length);
+            responseLength = header->length;
+
+            if ( device->setReport.callback )
+                response[kIOHIDResourceUserClientResponseIndexResult] = (*device->getReport.callback)(device->getReport.refcon, header->type, header->reportID, responseReport, responseLength);
+        }
+
+        // post the response
+        IOConnectCallMethod(device->connect, kIOHIDResourceDeviceUserClientMethodPostReportResponse, response, sizeof(response)/sizeof(uint64_t), responseReport, responseLength, NULL, NULL, NULL, NULL);
+
+        if ( responseReport )
+            free(responseReport);
+    
+        // dequeue the item
+        dataSize = 0;
+        IODataQueueDequeue(device->queue.data, NULL, &dataSize);
+    }
+}
+
 
 //------------------------------------------------------------------------------
 // IOHIDUserDeviceHandleReport

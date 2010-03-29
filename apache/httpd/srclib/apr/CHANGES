@@ -1,4 +1,26 @@
                                                      -*- coding: utf-8 -*-
+Changes for APR 1.3.9
+
+  *) Posix semaphores can now be named and used as named semaphores.
+     [Jim Jagielski]
+
+  *) Better handling of APR_OFF_T_FMT for Darwin 10 depending on -arch
+     setting of compiler. [Jim Jagielski]
+
+  *) Add comments describing the thread-safety properties of apr_pool_t.
+     [Neil Conway nrc cs.berkeley.edu]
+
+  *) Pass default environment to testsock, testshm and testproc children, so
+     that tests run when APR is compiled with Intel C Compiler.
+     [Bojan Smojver]
+
+  *) Fix error handling in the Solaris pollset support (Event Port backend).
+     PR 47645.  [Jeff Trawick]
+
+  *) Add the remainder of this fix from trunk:
+     Fix Solaris poll failure.  PR 43000
+     [Henry Jen <henryjen ztune.net>]
+
 Changes for APR 1.3.8
 
   *) SECURITY: CVE-2009-2412 (cve.mitre.org)

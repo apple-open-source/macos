@@ -77,7 +77,8 @@ typedef struct
 	mach_port_t mp;
 #ifdef __BLOCKS__
 	int token_id;
-	dispatch_source_t src;
+	dispatch_queue_t queue;
+	notify_handler_t block;
 #endif /* __BLOCKS__ */
 } token_table_node_t;
 
@@ -424,12 +425,10 @@ token_table_delete(uint32_t tid, token_table_node_t *t)
 	notify_release_mach_port(t->mp);
 
 #ifdef __BLOCKS__
-	if (t->src)
-	{
-		dispatch_cancel(t->src);
-		dispatch_release(t->src);
-		t->src = NULL;
-	}
+	if (t->queue != NULL) dispatch_release(t->queue);
+	t->queue = NULL;
+	if (t->block != NULL) Block_release(t->block);
+	t->block = NULL;
 #endif /* __BLOCKS__ */
 
 	_nc_table_delete_n(token_table, tid);
@@ -452,7 +451,7 @@ _notify_lib_self_state()
 		return self_state;
 	}
 
-	self_state = _notify_lib_notify_state_new(NOTIFY_STATE_USE_LOCKS);
+	self_state = _notify_lib_notify_state_new(NOTIFY_STATE_USE_LOCKS, 0);
 	pthread_mutex_unlock(&self_state_lock);
 
 	return self_state;
@@ -632,79 +631,83 @@ notify_release_name(const char *name)
 }
 
 #ifdef __BLOCKS__
-static boolean_t
-_notify_handle_mach_msg(mach_msg_header_t *msg, mach_msg_header_t *reply)
+static void
+_notify_dispatch_helper(void *x)
+{
+	token_table_node_t *t = (token_table_node_t *)x;
+
+	if ((t != NULL) && (t->queue != NULL) && (t->block != NULL))
+	{
+		t->block(t->token_id);
+	}
+}
+
+static void
+_notify_dispatch_handle(mach_port_t port)
 {
 	token_table_node_t *t;
 	int token;
+	mach_msg_empty_rcv_t msg;
+	kern_return_t status;
 
-	mig_reply_setup(msg, reply);
-	((mig_reply_error_t*)reply)->RetCode = MIG_NO_REPLY;
+	if (port == MACH_PORT_NULL) return;
 
-	token = (int)msg->msgh_id;
+	memset(&msg, 0, sizeof(msg));
 
-	t = token_table_find(token);
-	if ((t != NULL) && (t->src != NULL))
+	status = mach_msg(&msg.header, MACH_RCV_MSG, 0, sizeof(msg), port, 0, MACH_PORT_NULL);
+	if (status != KERN_SUCCESS) return;
+
+	token = msg.header.msgh_id;
+
+	pthread_mutex_lock(&token_lock);
+
+	/*
+	 * This is the internal token table find.
+	 * We use it here so we can lock around this whole section.
+	 */
+	t = (token_table_node_t *)_nc_table_find_n(token_table, token);
+	if ((t != NULL) && (t->queue != NULL) && (t->block != NULL))
 	{
-		dispatch_source_trigger(t->src, 1);
+		dispatch_async_f(t->queue, t, _notify_dispatch_helper);
 	}
 
-	return TRUE;
+	pthread_mutex_unlock(&token_lock);
 }
 
 uint32_t
 notify_register_dispatch(const char *name, int *out_token, dispatch_queue_t queue, notify_handler_t handler)
 {
 	static mach_port_t port = MACH_PORT_NULL;
-	static pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
+	static int flag = 0;
+	static dispatch_once_t init;
 	static dispatch_source_t source;
 	uint32_t status;
-	int token;
 	token_table_node_t *t;
 
-	status = NOTIFY_STATUS_FAILED;
-
+	if (queue == NULL) return NOTIFY_STATUS_FAILED;
 	if (handler == NULL) return NOTIFY_STATUS_FAILED;
-	if (port == MACH_PORT_NULL)
-	{
-		pthread_mutex_lock(&lock);
-		if (port == MACH_PORT_NULL)
-		{
-			/* one-time initialization of a dispatch source to re-use for subsequent registrations */
-			status = notify_register_mach_port(name, &port, 0, out_token);
-			if (status == NOTIFY_STATUS_OK)
-			{
-				source = dispatch_source_mig_create(port, sizeof(mach_msg_empty_rcv_t), NULL, dispatch_get_concurrent_queue(DISPATCH_QUEUE_PRIORITY_HIGH), _notify_handle_mach_msg);
-			}
-			else
-			{
-				port = MACH_PORT_NULL;
-			}
-		}
-		pthread_mutex_unlock(&lock);
-	}
 
-	if ((port != MACH_PORT_NULL) && (status != NOTIFY_STATUS_OK))
-	{
-		status = notify_register_mach_port(name, &port, NOTIFY_REUSE, out_token);
-	}
+	status = notify_register_mach_port(name, &port, flag, out_token);
+	if (status != NOTIFY_STATUS_OK) return status;
+	if (port == MACH_PORT_NULL) return NOTIFY_STATUS_FAILED;
+
+	flag = NOTIFY_REUSE;
+
+	dispatch_once(&init, ^{
+		source = dispatch_source_create(DISPATCH_SOURCE_TYPE_MACH_RECV, port, 0, dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_HIGH, 0));
+		dispatch_source_set_event_handler(source, ^{ _notify_dispatch_handle(port); });
+		dispatch_resume(source);
+	});
 
 	if (status == NOTIFY_STATUS_OK)
 	{
-		token = *out_token;
-		t = token_table_find(token);
+		t = token_table_find(*out_token);
 		if (t == NULL) return NOTIFY_STATUS_FAILED;
 
-		t->src = NULL;
-		t->token_id = token;
-
-		t->src = dispatch_source_data_create(DISPATCH_SOURCE_DATA_ADD, NULL, queue, ^(dispatch_source_t ds) { if (!dispatch_testcancel(ds)) { handler(token); }});
-
-		if (t->src == NULL)
-		{
-			token_table_delete(token, t);
-			return NOTIFY_STATUS_FAILED;
-		}
+		t->token_id = *out_token;
+		t->queue = queue;
+		dispatch_retain(t->queue);
+		t->block = Block_copy(handler);
 	}
 
 	return status;

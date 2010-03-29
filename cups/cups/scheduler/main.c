@@ -134,7 +134,7 @@ main(int  argc,				/* I - Number of command-line args */
 			senddoc_time,	/* Send-Document time */
 			expire_time,	/* Subscription expire time */
 			report_time,	/* Malloc/client/job report time */
-			event_time;	/* Last time an event notification was done */
+			event_time;	/* Last event notification time */
   long			timeout;	/* Timeout for cupsdDoSelect() */
   struct rlimit		limit;		/* Runtime limit */
 #if defined(HAVE_SIGACTION) && !defined(HAVE_SIGSET)
@@ -270,19 +270,22 @@ main(int  argc,				/* I - Number of command-line args */
 	      break;
 
           case 'p' : /* Stop immediately for profiling */
-              puts("Warning: -p (startup profiling) is for internal testing use only!");
+              fputs("cupsd: -p (startup profiling) is for internal testing "
+                    "use only!\n", stderr);
 	      stop_scheduler = 1;
 	      fg             = 1;
 	      break;
 
           case 'P' : /* Disable security profiles */
-              puts("Warning: -P (disable security profiles) is for internal testing use only!");
+              fputs("cupsd: -P (disable security profiles) is for internal "
+                    "testing use only!\n", stderr);
 	      UseProfiles = 0;
 	      break;
 
 #ifdef __APPLE__
           case 'S' : /* Disable system management functions */
-              puts("Warning: -S (disable system management) for internal testing use only!");
+              fputs("cupsd: -S (disable system management) for internal "
+                    "testing use only!\n", stderr);
 	      use_sysman = 0;
 	      break;
 #endif /* __APPLE__ */
@@ -379,7 +382,7 @@ main(int  argc,				/* I - Number of command-line args */
     * parent's file descriptors to be blocking.  This is a workaround for a
     * limitation of userland libpthread on OpenBSD.
     */
-   
+
     _thread_sys_closefrom(0);
 #endif /* __OpenBSD__ */
 
@@ -763,7 +766,8 @@ main(int  argc,				/* I - Number of command-line args */
 	if (Launchd)
 	{
 	 /*
-	  * If we were started by launchd get the listen sockets file descriptors...
+	  * If we were started by launchd, get the listen socket file
+	  * descriptors...
 	  */
 
 	  launchd_checkin();
@@ -807,8 +811,8 @@ main(int  argc,				/* I - Number of command-line args */
 
     if (timeout == 86400 && Launchd && LaunchdTimeout && !NumPolled &&
         !cupsArrayCount(ActiveJobs) &&
-	(!Browsing || 
-	 (!BrowseRemoteProtocols && 
+	(!Browsing ||
+	 (!BrowseRemoteProtocols &&
 	  (!NumBrowsers || !BrowseLocalProtocols ||
 	   cupsArrayCount(Printers) == 0))))
     {
@@ -1036,6 +1040,7 @@ main(int  argc,				/* I - Number of command-line args */
     if ((current_time - senddoc_time) >= 10)
     {
       cupsdCheckJobs();
+      cupsdCleanJobs();
       senddoc_time = current_time;
     }
 
@@ -1194,8 +1199,8 @@ main(int  argc,				/* I - Number of command-line args */
 #endif /* HAVE_GSSAPI */
 
 #if defined(__APPLE__) && defined(HAVE_DLFCN_H)
- /* 
-  * Unload Print Service quota enforcement library (X Server only) 
+ /*
+  * Unload Print Service quota enforcement library (X Server only)
   */
 
   PSQUpdateQuotaProc = NULL;
@@ -1552,21 +1557,21 @@ launchd_checkin(void)
 
 	if (lis)
 	{
-	  cupsdLogMessage(CUPSD_LOG_DEBUG, 
+	  cupsdLogMessage(CUPSD_LOG_DEBUG,
 		  "launchd_checkin: Matched existing listener %s with fd %d...",
 		  httpAddrString(&(lis->address), s, sizeof(s)), fd);
 	}
 	else
 	{
-	  cupsdLogMessage(CUPSD_LOG_DEBUG, 
+	  cupsdLogMessage(CUPSD_LOG_DEBUG,
 		  "launchd_checkin: Adding new listener %s with fd %d...",
 		  httpAddrString(&addr, s, sizeof(s)), fd);
 
 	  if ((lis = calloc(1, sizeof(cupsd_listener_t))) == NULL)
 	  {
 	    cupsdLogMessage(CUPSD_LOG_ERROR,
-			    "launchd_checkin: Unable to allocate listener - %s.",
-			    strerror(errno));
+			    "launchd_checkin: Unable to allocate listener - "
+			    "%s.", strerror(errno));
 	    exit(EXIT_FAILURE);
 	  }
 
@@ -1612,17 +1617,18 @@ launchd_checkout(void)
 
  /*
   * Create or remove the launchd KeepAlive file based on whether
-  * there are active jobs, polling, browsing for remote printers or 
+  * there are active jobs, polling, browsing for remote printers or
   * shared printers to advertise...
   */
 
-  if ((cupsArrayCount(ActiveJobs) || NumPolled || 
-       (Browsing && 
+  if ((cupsArrayCount(ActiveJobs) || NumPolled ||
+       (Browsing &&
 	(BrowseRemoteProtocols ||
         (BrowseLocalProtocols && NumBrowsers && cupsArrayCount(Printers))))))
   {
     cupsdLogMessage(CUPSD_LOG_DEBUG,
-                    "Creating launchd keepalive file \"" CUPS_KEEPALIVE "\"...");
+                    "Creating launchd keepalive file \"" CUPS_KEEPALIVE
+                    "\"...");
 
     if ((fd = open(CUPS_KEEPALIVE, O_RDONLY | O_CREAT | O_EXCL, S_IRUSR)) >= 0)
       close(fd);
@@ -1630,7 +1636,8 @@ launchd_checkout(void)
   else
   {
     cupsdLogMessage(CUPSD_LOG_DEBUG,
-                    "Removing launchd keepalive file \"" CUPS_KEEPALIVE "\"...");
+                    "Removing launchd keepalive file \"" CUPS_KEEPALIVE
+                    "\"...");
 
     unlink(CUPS_KEEPALIVE);
   }
@@ -1766,7 +1773,7 @@ process_children(void)
 		job->printer_message = ippAddString(job->attrs, IPP_TAG_JOB,
 		                                    IPP_TAG_TEXT,
 						    "job-printer-state-message",
-						    NULL, "");
+						    NULL, NULL);
 	    }
 
 	    if (job->printer_message)
@@ -1780,7 +1787,7 @@ process_children(void)
 	* filters are done, and if so move to the next file.
 	*/
 
-	if (job->current_file < job->num_files)
+	if (job->current_file < job->num_files && job->printer)
 	{
 	  for (i = 0; job->filters[i] < 0; i ++);
 
@@ -1793,7 +1800,7 @@ process_children(void)
 	    cupsdContinueJob(job);
 	  }
 	}
-	else if (job->state_value == IPP_JOB_CANCELED)
+	else if (job->state_value >= IPP_JOB_CANCELED)
 	{
 	 /*
 	  * Remove the job from the active list if there are no processes still

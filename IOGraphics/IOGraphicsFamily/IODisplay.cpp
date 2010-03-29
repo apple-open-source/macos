@@ -81,61 +81,61 @@ OSDefineMetaClassAndAbstractStructorsWithInit( IODisplay, IOService, IODisplay::
 
 struct EDID
 {
-    UInt8	header[8];
-    UInt8	vendorProduct[4];
-    UInt8	serialNumber[4];
-    UInt8	weekOfManufacture;
-    UInt8	yearOfManufacture;
-    UInt8	version;
-    UInt8	revision;
-    UInt8	displayParams[5];
-    UInt8	colorCharacteristics[10];
-    UInt8	establishedTimings[3];
-    UInt16	standardTimings[8];
-    UInt8	detailedTimings[72];
-    UInt8	extension;
-    UInt8	checksum;
+    UInt8       header[8];
+    UInt8       vendorProduct[4];
+    UInt8       serialNumber[4];
+    UInt8       weekOfManufacture;
+    UInt8       yearOfManufacture;
+    UInt8       version;
+    UInt8       revision;
+    UInt8       displayParams[5];
+    UInt8       colorCharacteristics[10];
+    UInt8       establishedTimings[3];
+    UInt16      standardTimings[8];
+    UInt8       detailedTimings[72];
+    UInt8       extension;
+    UInt8       checksum;
 };
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
 void IODisplay::initialize( void )
 {
-    gIODisplayParametersKey	= OSSymbol::withCStringNoCopy(
+    gIODisplayParametersKey     = OSSymbol::withCStringNoCopy(
                                   kIODisplayParametersKey );
-    gIODisplayGUIDKey		= OSSymbol::withCStringNoCopy(
-					kIODisplayGUIDKey );
-    gIODisplayValueKey		= OSSymbol::withCStringNoCopy(
-					kIODisplayValueKey );
-    gIODisplayMinValueKey	= OSSymbol::withCStringNoCopy(
-					kIODisplayMinValueKey );
-    gIODisplayMaxValueKey	= OSSymbol::withCStringNoCopy(
-					kIODisplayMaxValueKey );
-    gIODisplayContrastKey	= OSSymbol::withCStringNoCopy(
-					kIODisplayContrastKey );
-    gIODisplayBrightnessKey	= OSSymbol::withCStringNoCopy(
-					kIODisplayBrightnessKey );
+    gIODisplayGUIDKey           = OSSymbol::withCStringNoCopy(
+                                        kIODisplayGUIDKey );
+    gIODisplayValueKey          = OSSymbol::withCStringNoCopy(
+                                        kIODisplayValueKey );
+    gIODisplayMinValueKey       = OSSymbol::withCStringNoCopy(
+                                        kIODisplayMinValueKey );
+    gIODisplayMaxValueKey       = OSSymbol::withCStringNoCopy(
+                                        kIODisplayMaxValueKey );
+    gIODisplayContrastKey       = OSSymbol::withCStringNoCopy(
+                                        kIODisplayContrastKey );
+    gIODisplayBrightnessKey     = OSSymbol::withCStringNoCopy(
+                                        kIODisplayBrightnessKey );
     gIODisplayHorizontalPositionKey = OSSymbol::withCStringNoCopy(
                                           kIODisplayHorizontalPositionKey );
     gIODisplayHorizontalSizeKey = OSSymbol::withCStringNoCopy(
-					kIODisplayHorizontalSizeKey );
+                                        kIODisplayHorizontalSizeKey );
     gIODisplayVerticalPositionKey = OSSymbol::withCStringNoCopy(
                                         kIODisplayVerticalPositionKey );
-    gIODisplayVerticalSizeKey	= OSSymbol::withCStringNoCopy(
-					kIODisplayVerticalSizeKey );
-    gIODisplayTrapezoidKey	= OSSymbol::withCStringNoCopy(
-					kIODisplayTrapezoidKey );
-    gIODisplayPincushionKey	= OSSymbol::withCStringNoCopy(
-					kIODisplayPincushionKey );
-    gIODisplayParallelogramKey	= OSSymbol::withCStringNoCopy(
-					kIODisplayParallelogramKey );
-    gIODisplayRotationKey	= OSSymbol::withCStringNoCopy(
-					kIODisplayRotationKey );
+    gIODisplayVerticalSizeKey   = OSSymbol::withCStringNoCopy(
+                                        kIODisplayVerticalSizeKey );
+    gIODisplayTrapezoidKey      = OSSymbol::withCStringNoCopy(
+                                        kIODisplayTrapezoidKey );
+    gIODisplayPincushionKey     = OSSymbol::withCStringNoCopy(
+                                        kIODisplayPincushionKey );
+    gIODisplayParallelogramKey  = OSSymbol::withCStringNoCopy(
+                                        kIODisplayParallelogramKey );
+    gIODisplayRotationKey       = OSSymbol::withCStringNoCopy(
+                                        kIODisplayRotationKey );
 
-    gIODisplayOverscanKey	= OSSymbol::withCStringNoCopy(
-					kIODisplayOverscanKey );
-    gIODisplayVideoBestKey	= OSSymbol::withCStringNoCopy(
-					kIODisplayVideoBestKey );
+    gIODisplayOverscanKey       = OSSymbol::withCStringNoCopy(
+                                        kIODisplayOverscanKey );
+    gIODisplayVideoBestKey      = OSSymbol::withCStringNoCopy(
+                                        kIODisplayVideoBestKey );
 
     gIODisplayParametersCommitKey = OSSymbol::withCStringNoCopy(
                                         kIODisplayParametersCommitKey );
@@ -147,22 +147,22 @@ void IODisplay::initialize( void )
     gIODisplayParametersTheatreModeKey = OSSymbol::withCStringNoCopy(
                                             kIODisplayTheatreModeKey);
     gIODisplayParametersTheatreModeWindowKey = OSSymbol::withCStringNoCopy(
-					    kIODisplayTheatreModeWindowKey);
+                                            kIODisplayTheatreModeWindowKey);
 
     IORegistryEntry * entry;
     if ((entry = getServiceRoot())
      && (0 != entry->getProperty("has-safe-sleep")))
     {
-	gIODisplayFastBootPlatform = OSDynamicCast(IODTPlatformExpert, IOService::getPlatform());
-	gIODisplayFastBootEDIDKey  = OSSymbol::withCStringNoCopy( kIODisplayFastBootEDIDKey );
-	gIODisplayZeroData         = OSData::withCapacity(0);
+        gIODisplayFastBootPlatform = OSDynamicCast(IODTPlatformExpert, IOService::getPlatform());
+        gIODisplayFastBootEDIDKey  = OSSymbol::withCStringNoCopy( kIODisplayFastBootEDIDKey );
+        gIODisplayZeroData         = OSData::withCapacity(0);
     }
 }
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
-IOService * IODisplay::probe(	IOService * 	provider,
-                              SInt32 *	score )
+IOService * IODisplay::probe(   IOService *     provider,
+                              SInt32 *  score )
 {
     fConnection = OSDynamicCast(IODisplayConnect, provider);
 
@@ -186,27 +186,27 @@ void IODisplayUpdateNVRAM( IOService * entry, OSData * property )
 {
     if (true && gIODisplayFastBootPlatform)
     {
-	while (entry && !entry->inPlane(gIODTPlane))
-	{
-	    entry = entry->getProvider();
-	}
-	if (entry)
-	{
-	    gIODisplayFastBootPlatform->writeNVRAMProperty(entry, gIODisplayFastBootEDIDKey, 
-							    property);
-	}
+        while (entry && !entry->inPlane(gIODTPlane))
+        {
+            entry = entry->getProvider();
+        }
+        if (entry)
+        {
+            gIODisplayFastBootPlatform->writeNVRAMProperty(entry, gIODisplayFastBootEDIDKey, 
+                                                            property);
+        }
     }
 }
 
 bool IODisplay::start( IOService * provider )
 {
-    IOFramebuffer *	framebuffer;
+    IOFramebuffer *     framebuffer;
     IOService *         client;
-    uintptr_t		connectFlags;
-    OSData *		edidData;
-    EDID *		edid;
-    UInt32		vendor = 0;
-    UInt32		product = 0;
+    uintptr_t           connectFlags;
+    OSData *            edidData;
+    EDID *              edid;
+    UInt32              vendor = 0;
+    UInt32              product = 0;
 
     if (!super::start(provider))
         return (false);
@@ -234,7 +234,7 @@ bool IODisplay::start( IOService * provider )
         do
         {
             edid = (EDID *) edidData->getBytesNoCopy();
-            DEBG(0, " EDID v%d.%d\n", edid->version, edid->revision );
+            DEBG(framebuffer->thisName, " EDID v%d.%d\n", edid->version, edid->revision );
 
             if (edid->version != 1)
                 continue;
@@ -243,7 +243,8 @@ bool IODisplay::start( IOService * provider )
             // product
             product = (edid->vendorProduct[3] << 8) | edid->vendorProduct[2];
 
-            DEBG(0, " vendor/product 0x%02lx/0x%02lx\n", vendor, product );
+            DEBG(framebuffer->thisName, " vendor/product 0x%02x/0x%02x\n", 
+                    (uint32_t) vendor, (uint32_t) product );
         }
         while (false);
     }
@@ -252,8 +253,8 @@ bool IODisplay::start( IOService * provider )
 
     do
     {
-        UInt32	sense, extSense;
-        UInt32	senseType, displayType;
+        UInt32  sense, extSense;
+        UInt32  senseType, displayType;
 
         if (kIOReturnSuccess != fConnection->getAttributeForConnection(
                     kConnectionSupportsAppleSense, NULL))
@@ -299,57 +300,57 @@ bool IODisplay::start( IOService * provider )
 
     if (prefsKey)
     {
-	bool ok = false;
-	OSObject * obj;
-	OSData * data;
-	if ((obj = copyProperty("AAPL,display-alias", gIOServicePlane)))
-	{
-	    ok = (data = OSDynamicCast(OSData, obj));
-	    if (ok)
-		pathLen = snprintf(prefsKey, kMaxKeyLen, "Alias:%d/%s",
-				((uint32_t *) data->getBytesNoCopy())[0], getName());
-	    obj->release();
-	}
-	if (!ok)
-	    ok = getPath(prefsKey, &pathLen, gIOServicePlane);
-	if (ok)
-	{
-	    snprintf(prefsKey + pathLen, kMaxKeyLen - pathLen, "-%x-%x", (int) vendor, (int) product);
-	    const OSSymbol * sym = OSSymbol::withCString(prefsKey);
-	    if (sym)
-	    {
-		setProperty(kIODisplayPrefKeyKey, (OSObject *) sym);
-		sym->release();
-	    }
-	}
+        bool ok = false;
+        OSObject * obj;
+        OSData * data;
+        if ((obj = copyProperty("AAPL,display-alias", gIOServicePlane)))
+        {
+            ok = (data = OSDynamicCast(OSData, obj));
+            if (ok)
+                pathLen = snprintf(prefsKey, kMaxKeyLen, "Alias:%d/%s",
+                                ((uint32_t *) data->getBytesNoCopy())[0], getName());
+            obj->release();
+        }
+        if (!ok)
+            ok = getPath(prefsKey, &pathLen, gIOServicePlane);
+        if (ok)
+        {
+            snprintf(prefsKey + pathLen, kMaxKeyLen - pathLen, "-%x-%x", (int) vendor, (int) product);
+            const OSSymbol * sym = OSSymbol::withCString(prefsKey);
+            if (sym)
+            {
+                setProperty(kIODisplayPrefKeyKey, (OSObject *) sym);
+                sym->release();
+            }
+        }
         IODelete(prefsKey, char, kMaxKeyLen);
     }
 
     OSNumber * num;
     if ((num = OSDynamicCast(OSNumber, framebuffer->getProperty(kIOFBTransformKey))))
     {
-	if ((kIOScaleSwapAxes | kIOFBSwapAxes) & num->unsigned32BitValue())
-	    setName("AppleDisplay-Portrait");
+        if ((kIOScaleSwapAxes | kIOFBSwapAxes) & num->unsigned32BitValue())
+            setName("AppleDisplay-Portrait");
     }
 
     // display parameter hooks
 
-    IOService *			look = this;
+    IOService *                 look = this;
     IODisplayParameterHandler * parameterHandler = 0;
 
     while (look && !fParameterHandler)
     {
-	client = look->copyClientWithCategory(gIODisplayParametersKey);
+        client = look->copyClientWithCategory(gIODisplayParametersKey);
         parameterHandler = OSDynamicCast(IODisplayParameterHandler, client);
 
         if (parameterHandler && parameterHandler->setDisplay(this))
-	    addParameterHandler(parameterHandler);
+            addParameterHandler(parameterHandler);
 
-	if (client)
-	    client->release();
+        if (client)
+            client->release();
 
-	if (fParameterHandler)
-	    break;
+        if (fParameterHandler)
+            break;
         if (OSDynamicCast(IOPlatformDevice, look))
             look = OSDynamicCast( IOService, look->getParentEntry( gIODTPlane ));
         else
@@ -358,38 +359,38 @@ bool IODisplay::start( IOService * provider )
 
     if (!fParameterHandler && OSDynamicCast(IOBacklightDisplay, this))
     {
-	OSDictionary * matching = nameMatching("backlight");
-	OSIterator *   iter = NULL;
-	if (matching)
-	{
-	    iter = getMatchingServices(matching);
-	    matching->release();
-	}
+        OSDictionary * matching = nameMatching("backlight");
+        OSIterator *   iter = NULL;
+        if (matching)
+        {
+            iter = getMatchingServices(matching);
+            matching->release();
+        }
 
-	if (iter)
-	{
-	    parameterHandler = NULL;
-	    client = NULL;
-	    look = OSDynamicCast(IOService, iter->getNextObject());
-	    if (look)
-		client = look->copyClientWithCategory(gIODisplayParametersKey);
-	    parameterHandler = OSDynamicCast(IODisplayParameterHandler, client);
-	    if (parameterHandler)
-	    {
-		if (parameterHandler->setDisplay(this))
-		    addParameterHandler(parameterHandler);
-	    }
-	    if (client)
-		client->release();
-	    iter->release();
-	}
+        if (iter)
+        {
+            parameterHandler = NULL;
+            client = NULL;
+            look = OSDynamicCast(IOService, iter->getNextObject());
+            if (look)
+                client = look->copyClientWithCategory(gIODisplayParametersKey);
+            parameterHandler = OSDynamicCast(IODisplayParameterHandler, client);
+            if (parameterHandler)
+            {
+                if (parameterHandler->setDisplay(this))
+                    addParameterHandler(parameterHandler);
+            }
+            if (client)
+                client->release();
+            iter->release();
+        }
     }
 
     if ((parameterHandler = OSDynamicCast(IODisplayParameterHandler,
-					    framebuffer->getProperty(gIODisplayParametersKey))))
+                                            framebuffer->getProperty(gIODisplayParametersKey))))
     {
         if (parameterHandler->setDisplay(this))
-	    addParameterHandler(parameterHandler);
+            addParameterHandler(parameterHandler);
     }
 
     doUpdate();
@@ -403,6 +404,8 @@ bool IODisplay::start( IOService * provider )
     fDisplayPMVars->maxState = kIODisplayMaxPowerState;
 
     initPowerManagement( provider );
+
+    IOFramebuffer::displayOnline((NULL != OSDynamicCast(IOBacklightDisplay, this)), +1);
 
     fNotifier = framebuffer->addFramebufferNotification(
                     &IODisplay::_framebufferEvent, this, NULL );
@@ -418,14 +421,14 @@ bool IODisplay::addParameterHandler( IODisplayParameterHandler * parameterHandle
 
     if (!fParameterHandler)
     {
-	parameterHandler->retain();
-	fParameterHandler = parameterHandler;
-	return (true);
+        parameterHandler->retain();
+        fParameterHandler = parameterHandler;
+        return (true);
     }
 
     array = OSArray::withCapacity(2);
     if (!array)
-	return (false);
+        return (false);
 
     array->setObject(fParameterHandler);
     fParameterHandler->release();
@@ -441,26 +444,28 @@ bool IODisplay::removeParameterHandler( IODisplayParameterHandler * parameterHan
 
     if (parameterHandler == fParameterHandler)
     {
-	fParameterHandler->release();
-	fParameterHandler = 0;
-	return (true);
+        fParameterHandler->release();
+        fParameterHandler = 0;
+        return (true);
     }
 
     array = OSDynamicCast(OSArray, fParameterHandler);
     if (array)
     {
-	unsigned int idx = array->getNextIndexOfObject(parameterHandler, 0);
-	if (idx != (unsigned int)-1)
-	{
-	    array->removeObject(idx);
-	    return (true);
-	}
+        unsigned int idx = array->getNextIndexOfObject(parameterHandler, 0);
+        if (idx != (unsigned int)-1)
+        {
+            array->removeObject(idx);
+            return (true);
+        }
     }
     return (false);
 }
 
 void IODisplay::stop( IOService * provider )
 {
+    IOFramebuffer::displayOnline((NULL != OSDynamicCast(IOBacklightDisplay, this)), -1);
+
     IODisplayUpdateNVRAM(this, 0);
 
     if ( initialized )
@@ -476,22 +481,22 @@ void IODisplay::free()
 {
     if (fParameterHandler)
     {
-	fParameterHandler->release();
-	fParameterHandler = 0;
+        fParameterHandler->release();
+        fParameterHandler = 0;
     }
     super::free();
 }
 
 IOReturn IODisplay::readFramebufferEDID( void )
 {
-    IOReturn		err;
-    IOFramebuffer *	framebuffer;
-    OSData *		data;
-    IOByteCount		length;
-    EDID 		readEDID;
-    UInt8		edidBlock[128];
-    UInt32		index;
-    UInt32		numExts;
+    IOReturn            err;
+    IOFramebuffer *     framebuffer;
+    OSData *            data;
+    IOByteCount         length;
+    EDID                readEDID;
+    UInt8               edidBlock[128];
+    UInt32              index;
+    UInt32              numExts;
 
     assert( fConnection );
     framebuffer = fConnection->getFramebuffer();
@@ -545,8 +550,8 @@ IOReturn IODisplay::readFramebufferEDID( void )
 IOReturn IODisplay::getConnectFlagsForDisplayMode(
     IODisplayModeID mode, UInt32 * flags )
 {
-    IOReturn		err;
-    IOFramebuffer *	framebuffer;
+    IOReturn            err;
+    IOFramebuffer *     framebuffer;
 
     assert( fConnection );
     framebuffer = fConnection->getFramebuffer();
@@ -570,7 +575,7 @@ IOReturn IODisplay::getConnectFlagsForDisplayMode(
 OSDictionary * IODisplay::getIntegerRange( OSDictionary * params,
         const OSSymbol * sym, SInt32 * value, SInt32 * min, SInt32 * max )
 {
-    OSNumber *		num;
+    OSNumber *          num;
 
     params = OSDynamicCast( OSDictionary, params->getObject( sym ));
 
@@ -620,31 +625,37 @@ bool IODisplay::setForKey( OSDictionary * params, const OSSymbol * sym,
         adjValue = value;
 
     if ((ok = doIntegerSet(params, sym, adjValue)))
-	updateNumber(params, gIODisplayValueKey, value);
+        updateNumber(params, gIODisplayValueKey, value);
 
     return (ok);
 }
 
 IOReturn IODisplay::setProperties( OSObject * properties )
 {
-    IOReturn			err = kIOReturnSuccess;
-    OSDictionary *		dict;
-    OSDictionary *		dict2;
-    OSSymbol *			sym;
+    IOReturn                    err = kIOReturnSuccess;
+    OSDictionary *              dict;
+    OSDictionary *              dict2;
+    OSSymbol *                  sym;
     IODisplayParameterHandler * parameterHandler;
-    OSArray *			array;
-    OSDictionary *		displayParams;
-    OSDictionary *		params;
-    OSNumber *			valueNum;
-    OSObject *			valueObj;
-    OSDictionary *		valueDict;
-    OSIterator *		iter;
-    SInt32			min, max, value;
-    bool			doCommit = false;
-    bool			allOK = true;
-    bool			ok;
+    OSArray *                   array;
+    OSDictionary *              displayParams;
+    OSDictionary *              params;
+    OSNumber *                  valueNum;
+    OSObject *                  valueObj;
+    OSDictionary *              valueDict;
+    OSIterator *                iter;
+    SInt32                      min, max, value;
+    bool                        doCommit = false;
+    bool                        allOK = true;
+    bool                        ok;
 
-    IOFramebuffer::fbLock();
+    IOFramebuffer *             framebuffer = NULL;
+    if (fConnection)
+        framebuffer = fConnection->getFramebuffer();
+    if (!framebuffer)
+        return (kIOReturnNotReady);
+
+    framebuffer->fbLock();
 
     parameterHandler = OSDynamicCast(IODisplayParameterHandler, fParameterHandler);
     if (parameterHandler)
@@ -655,21 +666,21 @@ IOReturn IODisplay::setProperties( OSObject * properties )
     }
     else if ((array = OSDynamicCast(OSArray, fParameterHandler)))
     {
-	for (unsigned int i = 0;
-	    (parameterHandler = OSDynamicCast(IODisplayParameterHandler, array->getObject(i)));
-	    i++)
-	{
-	    err = parameterHandler->setProperties( properties );
-	    if (kIOReturnUnsupported == err)
-		err = kIOReturnSuccess;
-	}
+        for (unsigned int i = 0;
+            (parameterHandler = OSDynamicCast(IODisplayParameterHandler, array->getObject(i)));
+            i++)
+        {
+            err = parameterHandler->setProperties( properties );
+            if (kIOReturnUnsupported == err)
+                err = kIOReturnSuccess;
+        }
     }
 
     dict = OSDynamicCast(OSDictionary, properties);
     if (!dict || !(displayParams = OSDynamicCast(OSDictionary, copyProperty(gIODisplayParametersKey))))
     {
-	IOFramebuffer::fbUnlock();
-	return (kIOReturnUnsupported);
+        framebuffer->fbUnlock();
+        return (kIOReturnUnsupported);
     }
 
     dict2 = OSDynamicCast(OSDictionary, dict->getObject(gIODisplayParametersKey));
@@ -682,7 +693,7 @@ IOReturn IODisplay::setProperties( OSObject * properties )
                                 displayParams->getObject(gIODisplayParametersDefaultKey));
         doIntegerSet( params, gIODisplayParametersDefaultKey, 0 );
         doUpdate();
-	setProperties( displayParams );
+        setProperties( displayParams );
     }
 
     iter = OSCollectionIterator::withCollection( dict );
@@ -712,9 +723,9 @@ IOReturn IODisplay::setProperties( OSObject * properties )
 
             if (sym == gIODisplayParametersCommitKey)
             {
-		if (properties != displayParams)
-		    doCommit = true;
-		ok = true;
+                if (properties != displayParams)
+                    doCommit = true;
+                ok = true;
                 continue;
             }
             if (sym == gIODisplayParametersDefaultKey)
@@ -759,9 +770,9 @@ IOReturn IODisplay::setProperties( OSObject * properties )
                       gIODisplayParametersCommitKey, 0 );
 
     doIntegerSet( OSDynamicCast( OSDictionary, displayParams->getObject(gIODisplayParametersFlushKey)),
-		  gIODisplayParametersFlushKey, 0 );
+                  gIODisplayParametersFlushKey, 0 );
 
-    IOFramebuffer::fbUnlock();
+    framebuffer->fbUnlock();
 
     displayParams->release();
 
@@ -774,15 +785,15 @@ bool IODisplay::updateNumber( OSDictionary * params, const OSSymbol * key,
     OSNumber * num;
 
     if ((num = (OSNumber *) params->getObject( key )))
-	num->setValue(value);
+        num->setValue(value);
     else
     {
-	num = OSNumber::withNumber( value, 32 );
-	if (num)
-	{
-	    params->setObject( key, num );
-	    num->release();
-	}
+        num = OSNumber::withNumber( value, 32 );
+        if (num)
+        {
+            params->setObject( key, num );
+            num->release();
+        }
     }
     return (num != 0);
 }
@@ -790,17 +801,17 @@ bool IODisplay::updateNumber( OSDictionary * params, const OSSymbol * key,
 bool IODisplay::addParameter( OSDictionary * params, const OSSymbol * paramName,
                               SInt32 min, SInt32 max )
 {
-    OSDictionary *	paramDict;
-    bool 		ok = true;
+    OSDictionary *      paramDict;
+    bool                ok = true;
 
     paramDict = (OSDictionary *) params->getObject(paramName);
     if (!paramDict)
     {
-	paramDict = OSDictionary::withCapacity(3);
-	if (!paramDict)
-	    return (false);
-	params->setObject(paramName, paramDict);
-	paramDict->release();
+        paramDict = OSDictionary::withCapacity(3);
+        if (!paramDict)
+            return (false);
+        params->setObject(paramName, paramDict);
+        paramDict->release();
     }
 
     paramDict->setCapacityIncrement(1);
@@ -808,7 +819,7 @@ bool IODisplay::addParameter( OSDictionary * params, const OSSymbol * paramName,
     updateNumber(paramDict, gIODisplayMinValueKey, min);
     updateNumber(paramDict, gIODisplayMaxValueKey, max);
     if (!paramDict->getObject(gIODisplayValueKey))
-	updateNumber(paramDict, gIODisplayValueKey, min);
+        updateNumber(paramDict, gIODisplayValueKey, min);
 
     return (ok);
 }
@@ -816,8 +827,8 @@ bool IODisplay::addParameter( OSDictionary * params, const OSSymbol * paramName,
 bool IODisplay::setParameter( OSDictionary * params, const OSSymbol * paramName,
                               SInt32 value )
 {
-    OSDictionary *	paramDict;
-    bool 		ok = true;
+    OSDictionary *      paramDict;
+    bool                ok = true;
 
     paramDict = (OSDictionary *) params->getObject(paramName);
     if (!paramDict)
@@ -839,7 +850,7 @@ bool IODisplay::setParameter( OSDictionary * params, const OSSymbol * paramName,
 IOReturn IODisplay::_framebufferEvent( OSObject * _self, void * ref,
                                        IOFramebuffer * framebuffer, IOIndex event, void * info )
 {
-    IODisplay *	self = (IODisplay *) _self;
+    IODisplay * self = (IODisplay *) _self;
 
     return (self->framebufferEvent(framebuffer , event, info));
 }
@@ -847,19 +858,19 @@ IOReturn IODisplay::_framebufferEvent( OSObject * _self, void * ref,
 IOReturn IODisplay::framebufferEvent( IOFramebuffer * framebuffer,
                                       IOIndex event, void * info )
 {
-    IOReturn	   err;
+    IOReturn       err;
     OSDictionary * displayParams;
 
     switch (event)
     {
         case kIOFBNotifyDisplayModeDidChange:
 
-	    displayParams = OSDynamicCast(OSDictionary, copyProperty(gIODisplayParametersKey));
+            displayParams = OSDynamicCast(OSDictionary, copyProperty(gIODisplayParametersKey));
             if (doUpdate() && displayParams)
-		setProperties(displayParams);
-	    if (displayParams)
-		displayParams->release();
-	    /* fall thru */
+                setProperties(displayParams);
+            if (displayParams)
+                displayParams->release();
+            /* fall thru */
 
         default:
             err = kIOReturnSuccess;
@@ -873,22 +884,22 @@ bool IODisplay::doIntegerSet( OSDictionary * params,
                               const OSSymbol * paramName, UInt32 value )
 {
     IODisplayParameterHandler * parameterHandler;
-    OSArray *			array;
-    bool			ok = false;
+    OSArray *                   array;
+    bool                        ok = false;
 
     parameterHandler = OSDynamicCast(IODisplayParameterHandler, fParameterHandler);
 
     if (parameterHandler)
-	ok = parameterHandler->doIntegerSet(params, paramName, value);
+        ok = parameterHandler->doIntegerSet(params, paramName, value);
 
     else if ((array = OSDynamicCast(OSArray, fParameterHandler)))
     {
-	for (unsigned int i = 0;
-	    !ok && (parameterHandler = OSDynamicCast(IODisplayParameterHandler, array->getObject(i)));
-	    i++)
-	{
-	    ok = parameterHandler->doIntegerSet(params, paramName, value);
-	}
+        for (unsigned int i = 0;
+            !ok && (parameterHandler = OSDynamicCast(IODisplayParameterHandler, array->getObject(i)));
+            i++)
+        {
+            ok = parameterHandler->doIntegerSet(params, paramName, value);
+        }
     }
 
     return (ok);
@@ -897,22 +908,22 @@ bool IODisplay::doIntegerSet( OSDictionary * params,
 bool IODisplay::doDataSet( const OSSymbol * paramName, OSData * value )
 {
     IODisplayParameterHandler * parameterHandler;
-    OSArray *			array;
-    bool			ok = false;
+    OSArray *                   array;
+    bool                        ok = false;
 
     parameterHandler = OSDynamicCast(IODisplayParameterHandler, fParameterHandler);
 
     if (parameterHandler)
-	ok = parameterHandler->doDataSet(paramName, value);
+        ok = parameterHandler->doDataSet(paramName, value);
 
     else if ((array = OSDynamicCast(OSArray, fParameterHandler)))
     {
-	for (unsigned int i = 0;
-	    !ok && (parameterHandler = OSDynamicCast(IODisplayParameterHandler, array->getObject(i)));
-	    i++)
-	{
-	    ok = parameterHandler->doDataSet(paramName, value);
-	}
+        for (unsigned int i = 0;
+            !ok && (parameterHandler = OSDynamicCast(IODisplayParameterHandler, array->getObject(i)));
+            i++)
+        {
+            ok = parameterHandler->doDataSet(paramName, value);
+        }
     }
 
     return (ok);
@@ -921,22 +932,22 @@ bool IODisplay::doDataSet( const OSSymbol * paramName, OSData * value )
 bool IODisplay::doUpdate( void )
 {
     IODisplayParameterHandler * parameterHandler;
-    OSArray *			array;
-    bool			ok = true;
+    OSArray *                   array;
+    bool                        ok = true;
 
     parameterHandler = OSDynamicCast(IODisplayParameterHandler, fParameterHandler);
 
     if (parameterHandler)
-	ok = parameterHandler->doUpdate();
+        ok = parameterHandler->doUpdate();
 
     else if ((array = OSDynamicCast(OSArray, fParameterHandler)))
     {
-	for (unsigned int i = 0;
-	    (parameterHandler = OSDynamicCast(IODisplayParameterHandler, array->getObject(i)));
-	    i++)
-	{
-	    ok &= parameterHandler->doUpdate();
-	}
+        for (unsigned int i = 0;
+            (parameterHandler = OSDynamicCast(IODisplayParameterHandler, array->getObject(i)));
+            i++)
+        {
+            ok &= parameterHandler->doUpdate();
+        }
     }
 
     return (ok);

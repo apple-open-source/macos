@@ -3,7 +3,7 @@
   file.c -
 
   $Author: shyouhei $
-  $Date: 2008-07-10 18:47:31 +0900 (Thu, 10 Jul 2008) $
+  $Date: 2009-06-03 21:17:29 +0900 (Wed, 03 Jun 2009) $
   created at: Mon Nov 15 12:24:34 JST 1993
 
   Copyright (C) 1993-2003 Yukihiro Matsumoto
@@ -66,6 +66,10 @@ char *strrchr _((const char*,const char));
 
 #ifdef HAVE_SYS_MKDEV_H
 #include <sys/mkdev.h>
+#endif
+
+#if defined(HAVE_FCNTL_H)
+#include <fcntl.h>
 #endif
 
 #if !defined HAVE_LSTAT && !defined lstat
@@ -288,7 +292,6 @@ rb_stat_dev_minor(self)
 #endif
 }
 
-
 /*
  *  call-seq:
  *     stat.ino   => fixnum
@@ -353,7 +356,6 @@ rb_stat_nlink(self)
     return UINT2NUM(get_stat(self)->st_nlink);
 }
 
-
 /*
  *  call-seq:
  *     stat.uid    => fixnum
@@ -387,7 +389,6 @@ rb_stat_gid(self)
 {
     return UINT2NUM(get_stat(self)->st_gid);
 }
-
 
 /*
  *  call-seq:
@@ -517,7 +518,6 @@ rb_stat_blocks(self)
     return Qnil;
 #endif
 }
-
 
 /*
  *  call-seq:
@@ -784,7 +784,6 @@ rb_file_s_lstat(klass, fname)
 #endif
 }
 
-
 /*
  *  call-seq:
  *     file.lstat   =>  stat
@@ -913,7 +912,6 @@ eaccess(path, mode)
  *  class. (Note that this is not done by inclusion: the interpreter cheats).
  *     
  */
-
 
 /*
  * call-seq:
@@ -1103,7 +1101,6 @@ test_c(obj, fname)
     return Qfalse;
 }
 
-
 /*
  * call-seq:
  *    File.exist?(file_name)    =>  true or false
@@ -1155,7 +1152,6 @@ test_R(obj, fname)
     if (access(StringValueCStr(fname), R_OK) < 0) return Qfalse;
     return Qtrue;
 }
-
 
 /*
  * call-seq:
@@ -1933,7 +1929,6 @@ lchown_internal(path, argp)
     if (lchown(path, args->owner, args->group) < 0)
 	rb_sys_fail(path);
 }
-
 
 /*
  *  call-seq:
@@ -3044,7 +3039,7 @@ rb_file_s_extname(klass, fname)
 		p = last;
 		break;
 	    }
-	    if (*last == '.') e = dot;
+	    if (*last == '.' || dot > last) e = dot;
 	    continue;
 #else
 	    e = p;	  /* get the last dot of the last component */
@@ -3630,7 +3625,6 @@ rb_f_test(argc, argv)
 }
 
 
-
 /*
  *  Document-class: File::Stat
  *
@@ -3948,8 +3942,6 @@ rb_stat_r(obj)
     return Qtrue;
 }
 
-
-
 /*
  *  call-seq:
  *     stat.readable_real? -> true or false
@@ -4098,7 +4090,6 @@ rb_stat_x(obj)
  *  the process.
  */
 
-
 static VALUE
 rb_stat_X(obj)
     VALUE obj;
@@ -4161,7 +4152,6 @@ rb_stat_z(obj)
     if (get_stat(obj)->st_size == 0) return Qtrue;
     return Qfalse;
 }
-
 
 /*
  *  call-seq:
@@ -4379,13 +4369,19 @@ static int
 file_load_ok(file)
     const char *file;
 {
-    FILE *f;
-
-    if (!file) return 0;
-    f = fopen(file, "r");
-    if (f == NULL) return 0;
-    fclose(f);
-    return 1;
+    int ret = 1;
+    int fd = open(file, O_RDONLY);
+    if (fd == -1) return 0;
+#if !defined DOSISH
+    {
+	struct stat st;
+	if (fstat(fd, &st) || !S_ISREG(st.st_mode)) {
+	    ret = 0;
+	}
+    }
+#endif
+    (void)close(fd);
+    return ret;
 }
 
 extern VALUE rb_load_path;

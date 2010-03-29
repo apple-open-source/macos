@@ -2546,6 +2546,9 @@ void myPMConnectionHandler(
     IOPMConnectionMessageToken          token, 
     IOPMSystemPowerStateCapabilities    capabilities)
 {
+#if TARGET_OS_EMBEDDED
+    return;
+#else
     char                        stateDescriptionStr[100];
     IOReturn                    ret;
 
@@ -2559,10 +2562,14 @@ void myPMConnectionHandler(
     {
         printf("\t-> PM Connection acknowledgement error 0x%08x\n", ret);    
     }
+#endif /* TARGET_OS_EMBEDDED */
 }
 
 static void install_listen_PM_connection(void)
 {
+#if TARGET_OS_EMBEDDED
+    return;
+#else
     IOPMConnection      myConnection;
     IOReturn            ret;
 
@@ -2598,6 +2605,7 @@ static void install_listen_PM_connection(void)
         printf("IOPMConnection ScheduleWithRunloop: Error 0x%08x\n", ret);
         return;
     }
+#endif /* TARGET_OS_EMBEDDED */
 }
 
 static void install_listen_IORegisterForSystemPower(void)

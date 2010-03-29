@@ -95,7 +95,14 @@
 #define FORCE_SYSTEM_MALLOC 1
 #endif
 
-#define TCMALLOC_TRACK_DECOMMITED_SPANS (HAVE(VIRTUALALLOC) || HAVE(MADV_FREE_REUSE))
+
+// Use a background thread to periodically scavenge memory to release back to the system
+// https://bugs.webkit.org/show_bug.cgi?id=27900: don't turn this on for Tiger until we have figured out why it caused a crash.
+#if defined(BUILDING_ON_TIGER)
+#define USE_BACKGROUND_THREAD_TO_SCAVENGE_MEMORY 0
+#else
+#define USE_BACKGROUND_THREAD_TO_SCAVENGE_MEMORY 1
+#endif
 
 #ifndef NDEBUG
 namespace WTF {
@@ -1043,11 +1050,7 @@ struct Span {
 #endif
 };
 
-#if TCMALLOC_TRACK_DECOMMITED_SPANS
 #define ASSERT_SPAN_COMMITTED(span) ASSERT(!span->decommitted)
-#else
-#define ASSERT_SPAN_COMMITTED(span)
-#endif
 
 #ifdef SPAN_HISTORY
 void Event(Span* span, char op, int v = 0) {
@@ -1193,6 +1196,32 @@ template <> class MapSelector<32> {
 // contiguous runs of pages (called a "span").
 // -------------------------------------------------------------------------
 
+#if USE_BACKGROUND_THREAD_TO_SCAVENGE_MEMORY
+// The central page heap collects spans of memory that have been deleted but are still committed until they are released
+// back to the system.  We use a background thread to periodically scan the list of free spans and release some back to the
+// system.  Every 5 seconds, the background thread wakes up and does the following:
+// - Check if we needed to commit memory in the last 5 seconds.  If so, skip this scavenge because it's a sign that we are short
+// of free committed pages and so we should not release them back to the system yet.
+// - Otherwise, go through the list of free spans (from largest to smallest) and release up to a fraction of the free committed pages
+// back to the system.
+// - If the number of free committed pages reaches kMinimumFreeCommittedPageCount, we can stop the scavenging and block the
+// scavenging thread until the number of free committed pages goes above kMinimumFreeCommittedPageCount.
+
+// Background thread wakes up every 5 seconds to scavenge as long as there is memory available to return to the system.
+static const int kScavengeTimerDelayInSeconds = 5;
+
+// Number of free committed pages that we want to keep around.
+static const size_t kMinimumFreeCommittedPageCount = 512;
+
+// During a scavenge, we'll release up to a fraction of the free committed pages.
+#if PLATFORM(WIN)
+// We are slightly less aggressive in releasing memory on Windows due to performance reasons.
+static const int kMaxScavengeAmountFactor = 3;
+#else
+static const int kMaxScavengeAmountFactor = 2;
+#endif
+#endif
+
 class TCMalloc_PageHeap {
  public:
   void init();
@@ -1292,6 +1321,14 @@ class TCMalloc_PageHeap {
   // Bytes allocated from system
   uint64_t system_bytes_;
 
+#if USE_BACKGROUND_THREAD_TO_SCAVENGE_MEMORY
+  // Number of pages kept in free lists that are still committed.
+  Length free_committed_pages_;
+
+  // Number of pages that we committed in the last scavenge wait interval.
+  Length pages_committed_since_last_scavenge_;
+#endif
+
   bool GrowHeap(Length n);
 
   // REQUIRES   span->length >= n
@@ -1314,9 +1351,11 @@ class TCMalloc_PageHeap {
   // span of exactly the specified length.  Else, returns NULL.
   Span* AllocLarge(Length n);
 
+#if !USE_BACKGROUND_THREAD_TO_SCAVENGE_MEMORY
   // Incrementally release some memory to the system.
   // IncrementalScavenge(n) is called whenever n pages are freed.
   void IncrementalScavenge(Length n);
+#endif
 
   // Number of pages to deallocate before doing more scavenging
   int64_t scavenge_counter_;
@@ -1327,6 +1366,24 @@ class TCMalloc_PageHeap {
 #if defined(WTF_CHANGES) && PLATFORM(DARWIN)
   friend class FastMallocZone;
 #endif
+
+#if USE_BACKGROUND_THREAD_TO_SCAVENGE_MEMORY
+  static NO_RETURN void* runScavengerThread(void*);
+
+  NO_RETURN void scavengerThread();
+
+  void scavenge();
+
+  inline bool shouldContinueScavenging() const;
+
+  pthread_mutex_t m_scavengeMutex;
+
+  pthread_cond_t m_scavengeCondition;
+
+  // Keeps track of whether the background thread is actively scavenging memory every kScavengeTimerDelayInSeconds, or
+  // it's blocked waiting for more pages to be deleted.
+  bool m_scavengeThreadActive;
+#endif  // USE_BACKGROUND_THREAD_TO_SCAVENGE_MEMORY
 };
 
 void TCMalloc_PageHeap::init()
@@ -1335,6 +1392,12 @@ void TCMalloc_PageHeap::init()
   pagemap_cache_ = PageMapCache(0);
   free_pages_ = 0;
   system_bytes_ = 0;
+
+#if USE_BACKGROUND_THREAD_TO_SCAVENGE_MEMORY
+  free_committed_pages_ = 0;
+  pages_committed_since_last_scavenge_ = 0;
+#endif  // USE_BACKGROUND_THREAD_TO_SCAVENGE_MEMORY
+
   scavenge_counter_ = 0;
   // Start scavenging at kMaxPages list
   scavenge_index_ = kMaxPages-1;
@@ -1345,7 +1408,67 @@ void TCMalloc_PageHeap::init()
     DLL_Init(&free_[i].normal);
     DLL_Init(&free_[i].returned);
   }
+
+#if USE_BACKGROUND_THREAD_TO_SCAVENGE_MEMORY
+  pthread_mutex_init(&m_scavengeMutex, 0);
+  pthread_cond_init(&m_scavengeCondition, 0);
+  m_scavengeThreadActive = true;
+  pthread_t thread;
+  pthread_create(&thread, 0, runScavengerThread, this);
+#endif  // USE_BACKGROUND_THREAD_TO_SCAVENGE_MEMORY
 }
+
+#if USE_BACKGROUND_THREAD_TO_SCAVENGE_MEMORY
+void* TCMalloc_PageHeap::runScavengerThread(void* context)
+{
+  static_cast<TCMalloc_PageHeap*>(context)->scavengerThread();
+#if COMPILER(MSVC)
+  // Without this, Visual Studio will complain that this method does not return a value.
+  return 0;
+#endif
+}
+
+void TCMalloc_PageHeap::scavenge() 
+{
+    // If we have to commit memory in the last 5 seconds, it means we don't have enough free committed pages
+    // for the amount of allocations that we do.  So hold off on releasing memory back to the system.
+    if (pages_committed_since_last_scavenge_ > 0) {
+        pages_committed_since_last_scavenge_ = 0;
+        return;
+    }
+    Length pagesDecommitted = 0;
+    for (int i = kMaxPages; i >= 0; i--) {
+        SpanList* slist = (static_cast<size_t>(i) == kMaxPages) ? &large_ : &free_[i];
+        if (!DLL_IsEmpty(&slist->normal)) {
+            // Release the last span on the normal portion of this list
+            Span* s = slist->normal.prev; 
+            // Only decommit up to a fraction of the free committed pages if pages_allocated_since_last_scavenge_ > 0.
+            if ((pagesDecommitted + s->length) * kMaxScavengeAmountFactor > free_committed_pages_)
+                continue;
+            DLL_Remove(s);
+            TCMalloc_SystemRelease(reinterpret_cast<void*>(s->start << kPageShift),
+                                   static_cast<size_t>(s->length << kPageShift));
+            if (!s->decommitted) {
+                pagesDecommitted += s->length;
+                s->decommitted = true;
+            }
+            DLL_Prepend(&slist->returned, s);
+            // We can stop scavenging if the number of free committed pages left is less than or equal to the minimum number we want to keep around.
+            if (free_committed_pages_ <= kMinimumFreeCommittedPageCount + pagesDecommitted)
+                break;
+        }
+    }
+    pages_committed_since_last_scavenge_ = 0;
+    ASSERT(free_committed_pages_ >= pagesDecommitted);
+    free_committed_pages_ -= pagesDecommitted;
+}
+
+inline bool TCMalloc_PageHeap::shouldContinueScavenging() const 
+{
+    return free_committed_pages_ > kMinimumFreeCommittedPageCount; 
+}
+
+#endif  // USE_BACKGROUND_THREAD_TO_SCAVENGE_MEMORY
 
 inline Span* TCMalloc_PageHeap::New(Length n) {
   ASSERT(Check());
@@ -1369,12 +1492,21 @@ inline Span* TCMalloc_PageHeap::New(Length n) {
 
     Span* result = ll->next;
     Carve(result, n, released);
-#if TCMALLOC_TRACK_DECOMMITED_SPANS
     if (result->decommitted) {
         TCMalloc_SystemCommit(reinterpret_cast<void*>(result->start << kPageShift), static_cast<size_t>(n << kPageShift));
         result->decommitted = false;
-    }
+#if USE_BACKGROUND_THREAD_TO_SCAVENGE_MEMORY
+        pages_committed_since_last_scavenge_ += n;
 #endif
+    }
+#if USE_BACKGROUND_THREAD_TO_SCAVENGE_MEMORY
+    else {
+        // The newly allocated memory is from a span that's in the normal span list (already committed).  Update the
+        // free committed pages count.
+        ASSERT(free_committed_pages_ >= n);
+        free_committed_pages_ -= n;
+    }
+#endif  // USE_BACKGROUND_THREAD_TO_SCAVENGE_MEMORY
     ASSERT(Check());
     free_pages_ -= n;
     return result;
@@ -1431,12 +1563,21 @@ Span* TCMalloc_PageHeap::AllocLarge(Length n) {
 
   if (best != NULL) {
     Carve(best, n, from_released);
-#if TCMALLOC_TRACK_DECOMMITED_SPANS
     if (best->decommitted) {
         TCMalloc_SystemCommit(reinterpret_cast<void*>(best->start << kPageShift), static_cast<size_t>(n << kPageShift));
         best->decommitted = false;
-    }
+#if USE_BACKGROUND_THREAD_TO_SCAVENGE_MEMORY
+        pages_committed_since_last_scavenge_ += n;
 #endif
+    }
+#if USE_BACKGROUND_THREAD_TO_SCAVENGE_MEMORY
+    else {
+        // The newly allocated memory is from a span that's in the normal span list (already committed).  Update the
+        // free committed pages count.
+        ASSERT(free_committed_pages_ >= n);
+        free_committed_pages_ -= n;
+    }
+#endif  // USE_BACKGROUND_THREAD_TO_SCAVENGE_MEMORY
     ASSERT(Check());
     free_pages_ -= n;
     return best;
@@ -1461,14 +1602,10 @@ Span* TCMalloc_PageHeap::Split(Span* span, Length n) {
   return leftover;
 }
 
-#if !TCMALLOC_TRACK_DECOMMITED_SPANS
-static ALWAYS_INLINE void propagateDecommittedState(Span*, Span*) { }
-#else
 static ALWAYS_INLINE void propagateDecommittedState(Span* destination, Span* source)
 {
     destination->decommitted = source->decommitted;
 }
-#endif
 
 inline void TCMalloc_PageHeap::Carve(Span* span, Length n, bool released) {
   ASSERT(n > 0);
@@ -1495,9 +1632,6 @@ inline void TCMalloc_PageHeap::Carve(Span* span, Length n, bool released) {
   }
 }
 
-#if !TCMALLOC_TRACK_DECOMMITED_SPANS
-static ALWAYS_INLINE void mergeDecommittedStates(Span*, Span*) { }
-#else
 static ALWAYS_INLINE void mergeDecommittedStates(Span* destination, Span* other)
 {
     if (destination->decommitted && !other->decommitted) {
@@ -1509,7 +1643,6 @@ static ALWAYS_INLINE void mergeDecommittedStates(Span* destination, Span* other)
         destination->decommitted = true;
     }
 }
-#endif
 
 inline void TCMalloc_PageHeap::Delete(Span* span) {
   ASSERT(Check());
@@ -1526,6 +1659,10 @@ inline void TCMalloc_PageHeap::Delete(Span* span) {
   // necessary.  We do not bother resetting the stale pagemap
   // entries for the pieces we are merging together because we only
   // care about the pagemap entries for the boundaries.
+#if USE_BACKGROUND_THREAD_TO_SCAVENGE_MEMORY
+  // Track the total size of the neighboring free spans that are committed.
+  Length neighboringCommittedSpansLength = 0;
+#endif
   const PageID p = span->start;
   const Length n = span->length;
   Span* prev = GetDescriptor(p-1);
@@ -1533,6 +1670,10 @@ inline void TCMalloc_PageHeap::Delete(Span* span) {
     // Merge preceding span into this span
     ASSERT(prev->start + prev->length == p);
     const Length len = prev->length;
+#if USE_BACKGROUND_THREAD_TO_SCAVENGE_MEMORY
+    if (!prev->decommitted)
+        neighboringCommittedSpansLength += len;
+#endif
     mergeDecommittedStates(span, prev);
     DLL_Remove(prev);
     DeleteSpan(prev);
@@ -1546,6 +1687,10 @@ inline void TCMalloc_PageHeap::Delete(Span* span) {
     // Merge next span into this span
     ASSERT(next->start == p+n);
     const Length len = next->length;
+#if USE_BACKGROUND_THREAD_TO_SCAVENGE_MEMORY
+    if (!next->decommitted)
+        neighboringCommittedSpansLength += len;
+#endif
     mergeDecommittedStates(span, next);
     DLL_Remove(next);
     DeleteSpan(next);
@@ -1556,15 +1701,12 @@ inline void TCMalloc_PageHeap::Delete(Span* span) {
 
   Event(span, 'D', span->length);
   span->free = 1;
-#if TCMALLOC_TRACK_DECOMMITED_SPANS
   if (span->decommitted) {
     if (span->length < kMaxPages)
       DLL_Prepend(&free_[span->length].returned, span);
     else
       DLL_Prepend(&large_.returned, span);
-  } else
-#endif
-  {
+  } else {
     if (span->length < kMaxPages)
       DLL_Prepend(&free_[span->length].normal, span);
     else
@@ -1572,10 +1714,27 @@ inline void TCMalloc_PageHeap::Delete(Span* span) {
   }
   free_pages_ += n;
 
+#if USE_BACKGROUND_THREAD_TO_SCAVENGE_MEMORY
+  if (span->decommitted) {
+      // If the merged span is decommitted, that means we decommitted any neighboring spans that were
+      // committed.  Update the free committed pages count.
+      free_committed_pages_ -= neighboringCommittedSpansLength;
+  } else {
+      // If the merged span remains committed, add the deleted span's size to the free committed pages count.
+      free_committed_pages_ += n;
+  }
+
+  // Make sure the scavenge thread becomes active if we have enough freed pages to release some back to the system.
+  if (!m_scavengeThreadActive && shouldContinueScavenging())
+      pthread_cond_signal(&m_scavengeCondition);
+#else
   IncrementalScavenge(n);
+#endif
+
   ASSERT(Check());
 }
 
+#if !USE_BACKGROUND_THREAD_TO_SCAVENGE_MEMORY
 void TCMalloc_PageHeap::IncrementalScavenge(Length n) {
   // Fast path; not yet time to release memory
   scavenge_counter_ -= n;
@@ -1596,9 +1755,7 @@ void TCMalloc_PageHeap::IncrementalScavenge(Length n) {
       DLL_Remove(s);
       TCMalloc_SystemRelease(reinterpret_cast<void*>(s->start << kPageShift),
                              static_cast<size_t>(s->length << kPageShift));
-#if TCMALLOC_TRACK_DECOMMITED_SPANS
       s->decommitted = true;
-#endif
       DLL_Prepend(&slist->returned, s);
 
       scavenge_counter_ = std::max<size_t>(64UL, std::min<size_t>(kDefaultReleaseDelay, kDefaultReleaseDelay - (free_pages_ / kDefaultReleaseDelay)));
@@ -1615,6 +1772,7 @@ void TCMalloc_PageHeap::IncrementalScavenge(Length n) {
   // Nothing to scavenge, delay for a while
   scavenge_counter_ = kDefaultReleaseDelay;
 }
+#endif
 
 void TCMalloc_PageHeap::RegisterSizeClass(Span* span, size_t sc) {
   // Associate span object with all interior pages as well
@@ -1725,6 +1883,10 @@ bool TCMalloc_PageHeap::GrowHeap(Length n) {
     if (ptr == NULL) return false;
   }
   ask = actual_size >> kPageShift;
+
+#if USE_BACKGROUND_THREAD_TO_SCAVENGE_MEMORY
+  pages_committed_since_last_scavenge_ += ask;
+#endif
 
   uint64_t old_system_bytes = system_bytes_;
   system_bytes_ += (ask << kPageShift);
@@ -2105,6 +2267,38 @@ static inline TCMalloc_PageHeap* getPageHeap()
 }
 
 #define pageheap getPageHeap()
+
+#if USE_BACKGROUND_THREAD_TO_SCAVENGE_MEMORY
+#if PLATFORM(WIN)
+static void sleep(unsigned seconds)
+{
+    ::Sleep(seconds * 1000);
+}
+#endif
+
+void TCMalloc_PageHeap::scavengerThread()
+{
+#if HAVE(PTHREAD_SETNAME_NP)
+  pthread_setname_np("JavaScriptCore: FastMalloc scavenger");
+#endif
+
+  while (1) {
+      if (!shouldContinueScavenging()) {
+          pthread_mutex_lock(&m_scavengeMutex);
+          m_scavengeThreadActive = false;
+          // Block until there are enough freed pages to release back to the system.
+          pthread_cond_wait(&m_scavengeCondition, &m_scavengeMutex);
+          m_scavengeThreadActive = true;
+          pthread_mutex_unlock(&m_scavengeMutex);
+      }
+      sleep(kScavengeTimerDelayInSeconds);
+      {
+          SpinLockHolder h(&pageheap_lock);
+          pageheap->scavenge();
+      }
+  }
+}
+#endif
 
 // If TLS is available, we also store a copy
 // of the per-thread object in a __thread variable

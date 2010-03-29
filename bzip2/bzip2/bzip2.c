@@ -1148,11 +1148,12 @@ Bool hasSuffix ( Char* s, const Char* suffix )
 static 
 Bool mapSuffix ( Char* name, 
                  const Char* oldSuffix, 
-                 const Char* newSuffix )
+                 const Char* newSuffix,
+	         size_t name_len )
 {
    if (!hasSuffix(name,oldSuffix)) return False;
    name[strlen(name)-strlen(oldSuffix)] = 0;
-   strcat ( name, newSuffix );
+   strlcat ( name, newSuffix, name_len );
    return True;
 }
 
@@ -1179,7 +1180,7 @@ void compress ( Char *name )
       case SM_F2F: 
          copyFileName ( inName, name );
          copyFileName ( outName, name );
-         strcat ( outName, ".bz2" ); 
+         strlcat ( outName, ".bz2", sizeof outName ); 
          break;
       case SM_F2O: 
          copyFileName ( inName, name );
@@ -1364,10 +1365,10 @@ void uncompress ( Char *name )
          copyFileName ( inName, name );
          copyFileName ( outName, name );
          for (i = 0; i < BZ_N_SUFFIX_PAIRS; i++)
-            if (mapSuffix(outName,zSuffix[i],unzSuffix[i]))
+            if (mapSuffix(outName,zSuffix[i],unzSuffix[i], sizeof outName))
                goto zzz; 
          cantGuess = True;
-         strcat ( outName, ".out" );
+         strlcat ( outName, ".out", sizeof outName );
          break;
       case SM_F2O: 
          copyFileName ( inName, name );
@@ -1759,8 +1760,9 @@ Cell *snocString ( Cell *root, Char *name )
 {
    if (root == NULL) {
       Cell *tmp = mkCell();
-      tmp->name = (Char*) myMalloc ( 5 + strlen(name) );
-      strcpy ( tmp->name, name );
+      size_t len = strlen(name) + 5;
+      tmp->name = (Char*) myMalloc ( len );
+      strlcpy ( tmp->name, name, len );
       return tmp;
    } else {
       Cell *tmp = root;

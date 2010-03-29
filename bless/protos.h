@@ -39,6 +39,7 @@ int modeDevice(BLContextPtr context, struct clarg actargs[klast]);
 int modeFolder(BLContextPtr context, struct clarg actargs[klast]);
 int modeFirmware(BLContextPtr context, struct clarg actargs[klast]);
 int modeNetboot(BLContextPtr context, struct clarg actargs[klast]);
+int modeUnbless(BLContextPtr context, struct clarg actargs[klast]);
 
 int blesslog(void *context, int loglevel, const char *string);
 int blesscontextprintf(BLContextPtr context, int loglevel, char const *fmt, ...) __printflike(3, 4);

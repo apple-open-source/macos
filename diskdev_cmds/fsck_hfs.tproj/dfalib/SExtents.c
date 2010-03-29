@@ -919,7 +919,7 @@ OSErr ExtendFileC (
 					++foundIndex;							// 	No, so use the next one.
 				if (foundIndex == numExtentsPerRecord) {
 					//	This record is full.  Need to create a new one.
-					if (fcb->fcbFileID == kHFSExtentsFileID) {
+					if (fcb->fcbFileID == kHFSExtentsFileID || (flags & kEFNoExtOvflwMask)) {
 						(void) BlockDeallocate(vcb, actualStartBlock, actualNumBlocks);
 						err = fxOvFlErr;		// Oops.  Can't extend extents file past first record.
 						break;
@@ -1609,8 +1609,8 @@ static OSErr MapFileBlockFromFCB(
 	
 	if (vcb->vcbSignature == kHFSSigWord) {
 		const HFSExtentDescriptor *extent;
-		UInt16	blockCount;
-		UInt16	currentFABN;
+		UInt32	blockCount;
+		UInt32	currentFABN;
 		
 		extent = fcb->fcbExtents16;
 		currentFABN = 0;

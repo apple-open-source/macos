@@ -703,7 +703,7 @@ void AppleSMBIOS::processSMBIOSStructureType1(
     const SMBSystemInformation * sys,
     SMBPackedStrings * strings )
 {
-	UInt8 length;
+	UInt8 serialNumberLength;
 	
     if (sys->header.length < 8)
         return;
@@ -712,21 +712,28 @@ void AppleSMBIOS::processSMBIOSStructureType1(
     strings->setDataProperty(fRoot, "product-name",  sys->productName);
     strings->setDataProperty(fRoot, "version",       sys->version);
 
-    const char *serialNumberString = strings->stringAtIndex(sys->serialNumber, &length);
-	// The serial-number property in the IORegistry is a 43-byte data object.
-	// Bytes 0 through 2 are the last three bytes of the serial number string.
-	// Bytes 11 through 20, inclusive, are the serial number string itself.
-	// All other bytes are '\0'.
-	OSData * data = OSData::withCapacity(43);
-	if (data)
-	{
-		data->appendBytes(serialNumberString + (length - 3), 3);
-		data->appendBytes(NULL, 10);
-		data->appendBytes(serialNumberString, length);
-		data->appendBytes(NULL, 43 - length - 10 - 3);
-		fRoot->setProperty("serial-number", data);
-		data->release();
-	}
+    const char *serialNumberString = strings->stringAtIndex(
+        sys->serialNumber, &serialNumberLength);
+
+    if ((11 == serialNumberLength) || (12 == serialNumberLength))
+    {
+        // Map a 11 or 12 digit serial number read from SMBIOS to a
+        // 43-byte "serial-number" data object.
+
+        OSData * data = OSData::withCapacity(43);
+        if (data)
+        {
+            int clen;
+
+            clen = serialNumberLength - 8;   
+            data->appendBytes(serialNumberString + 8, clen);
+            data->appendBytes('\0', 13 - clen);
+            data->appendBytes(serialNumberString, serialNumberLength);
+            data->appendBytes('\0', 43 - 13 - serialNumberLength);
+            fRoot->setProperty("serial-number", data);
+            data->release();
+        }
+    }
 
 	strings->setStringProperty(fRoot, kIOPlatformSerialNumberKey, sys->serialNumber);
 }

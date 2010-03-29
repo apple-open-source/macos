@@ -121,7 +121,7 @@ AppleUSBOHCI::CreateGeneralTransfer(AppleOHCIEndpointDescriptorPtr queue, IOUSBC
 			while (transferOffset < bufferSize)
 			{
 				offset = transferOffset;
-				if(_errataBits & kErrataOnlySinglePageTransfers)
+				if (_errataBits & kErrataOnlySinglePageTransfers)
 					pageCount = 1;
 				else
 					pageCount = 2;
@@ -756,14 +756,22 @@ AppleUSBOHCI::UIMCreateInterruptTransfer(IOUSBCommand* command)
     pEDQueue = FindInterruptEndpoint(command->GetAddress(), command->GetEndpoint(), direction, &temp);
     if (pEDQueue != NULL)
     {
-	if (command->GetBufferRounding())
-	    myBufferRounding = kOHCIGTDControl_R;
-        myToggle = 0;	/* Take data toggle from Endpoint Descriptor */
-
-        myDirection = (UInt32) direction << kOHCIDirectionOffset;
-
-	status = CreateGeneralTransfer(pEDQueue, command, buffer, command->GetReqCount(), myBufferRounding | myDirection | myToggle, kOHCIInterruptInType, 0);
-
+		UInt32 edFlags = USBToHostLong(pEDQueue->pShared->flags);
+		if ( ((edFlags & kOHCIEDControl_MPS) >> kOHCIEDControl_MPSPhase) == 0 )
+		{
+			USBLog(2, "AppleUSBOHCI[%p]::UIMCreateInterruptTransfer - maxPacketSize is 0, returning kIOUSBNotEnoughBandwidth", this);
+			status = kIOReturnNoBandwidth;
+		}
+		else 
+		{
+			if (command->GetBufferRounding())
+				myBufferRounding = kOHCIGTDControl_R;
+			myToggle = 0;	/* Take data toggle from Endpoint Descriptor */
+			
+			myDirection = (UInt32) direction << kOHCIDirectionOffset;
+			
+			status = CreateGeneralTransfer(pEDQueue, command, buffer, command->GetReqCount(), myBufferRounding | myDirection | myToggle, kOHCIInterruptInType, 0);
+		}
     }
     else
     {
@@ -1302,7 +1310,7 @@ AppleUSBOHCI::FindEndpoint (
 
         *controlMask = kOHCIHcControl_BLE;
         //zzzz Opti Bug
-        if(_OptiOn)
+        if (_OptiOn)
             *controlMask = kOHCIHcControl_CLE;
         return (pED);
     }
@@ -1346,7 +1354,7 @@ AppleUSBOHCI::FindIsochronousEndpoint(
     {
         if ((USBToHostLong(pEDQueue->pShared->flags) & kUniqueNumMask) == unique)
         {
-            if(pEDBack)
+            if (pEDBack)
                 *pEDBack = pEDQueueBack;
             return (pEDQueue);
         }
@@ -1416,15 +1424,15 @@ bool AppleUSBOHCI::DetermineInterruptOffset(
         USBError(1,"AppleUSBOHCI[%p]::DetermineInterruptOffset pollingRate of 0 -- that's illegal!", this);
         return(false);
     }
-    else if(pollingRate < 2)
+    else if (pollingRate < 2)
         *offset = 62;
-    else if(pollingRate < 4)
+    else if (pollingRate < 4)
         *offset = (num%2) + 60;
-    else if(pollingRate < 8)
+    else if (pollingRate < 8)
         *offset = (num%4) + 56;
-    else if(pollingRate < 16)
+    else if (pollingRate < 16)
         *offset = (num%8) + 48;
-    else if(pollingRate < 32)
+    else if (pollingRate < 32)
         *offset = (num%16) + 32;
     else
         *offset = (num%32) + 0;
@@ -2116,7 +2124,7 @@ AppleUSBOHCI::UIMCreateIsochTransfer(IOUSBIsocCommand *command)
 			
             USBLog(8,"curFrameInRequest: %d, curFrameInTD: %d, pageOffset: 0x%x, numSegs: %d, seg[0].location: 0x%x, seg[0].length: %d", (uint32_t)curFrameInRequest, (uint32_t)curFrameInTD, (uint32_t)pageOffset, (uint32_t)numSegs, (uint32_t)segments32[0].fIOVMAddr, (uint32_t)segments32[0].fLength);
 			
-            if(numSegs == 2)
+            if (numSegs == 2)
             {
 				USBLog(7, "AppleUSBOHCI[%p]::UIMCreateIsochTransfer - adding segment 1 length (%d) to transferOffset", this, (int)segments32[1].fLength);
                 transferOffset += segments32[1].fLength;

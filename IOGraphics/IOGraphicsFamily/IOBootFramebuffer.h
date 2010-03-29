@@ -24,7 +24,7 @@
 #ifndef _IOKIT_IOBOOTFRAMEBUFFER_H
 #define _IOKIT_IOBOOTFRAMEBUFFER_H
 
-#include	<IOKit/graphics/IOFramebuffer.h>
+#include        <IOKit/graphics/IOFramebuffer.h>
 #include <IOKit/IOPlatformExpert.h>
 
 
@@ -34,8 +34,8 @@ class IOBootFramebuffer : public IOFramebuffer
 
 public:
 
-    virtual IOService * probe(	IOService * 	provider,
-				SInt32 *	score );
+    virtual IOService * probe(  IOService *     provider,
+                                SInt32 *        score );
 
 //    virtual bool start( IOService * provider );
 
@@ -52,8 +52,8 @@ public:
                     IOIndex depth );
 
     virtual IOReturn getPixelInformation(
-	IODisplayModeID displayMode, IOIndex depth,
-	IOPixelAperture aperture, IOPixelInformation * pixelInfo );
+        IODisplayModeID displayMode, IOIndex depth,
+        IOPixelAperture aperture, IOPixelInformation * pixelInfo );
 
     virtual IOReturn getCurrentDisplayMode( IODisplayModeID * displayMode,
                             IOIndex * depth );

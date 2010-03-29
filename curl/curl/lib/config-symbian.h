@@ -634,9 +634,6 @@
 /* Define to 1 if you are building a native Windows target. */
 /* #undef NATIVE_WINDOWS */
 
-/* If you lack a fine basename() prototype */
-/* #undef NEED_BASENAME_PROTO */
-
 /* Define to 1 if you need the lber.h header file even with ldap.h */
 /* #undef NEED_LBER_H */
 
@@ -745,12 +742,6 @@
 /* if NSS is enabled */
 /* #undef USE_NSS */
 
-/* if OpenSSL is in use */
-/*#define USE_OPENSSL 1*/
-
-/* if SSL is enabled */
-/*#define USE_SSLEAY 1*/
-
 /* to enable SSPI support */
 /* #undef USE_WINDOWS_SSPI */
 
@@ -794,9 +785,6 @@
 /* Define to `unsigned int' if <sys/types.h> does not define. */
 /* #undef size_t */
 
-/* Type to use in place of socklen_t when system does not provide it. */
-/* #undef socklen_t */
-
 /* the signed version of size_t */
 /* #undef ssize_t */
 
@@ -817,7 +805,7 @@
 #endif
 
 /* Enable appropriate definitions only when OpenSSL support is enabled */
-#ifdef USE_SSL
-#define USE_OPENSSL 1
-#define USE_SSLEAY 1
+#ifdef USE_SSLEAY
+/* if OpenSSL is in use */
+#define USE_OPENSSL
 #endif

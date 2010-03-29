@@ -1,0 +1,11 @@
+--- tc.sig.h~	2007-07-05 07:13:06.000000000 -0700
++++ tc.sig.h	2009-10-13 15:32:10.000000000 -0700
+@@ -43,7 +43,7 @@
+ # include <sys/signal.h>
+ #endif /* SYSVREL > 0 */
+ 
+-#if defined(__APPLE__) || defined(SUNOS4) || defined(DGUX) || defined(hp800) || (SYSVREL > 3 && defined(VFORK))
++#if defined(SUNOS4) || defined(DGUX) || defined(hp800) || (SYSVREL > 3 && defined(VFORK))
+ # define SAVESIGVEC
+ #endif /* SUNOS4 || DGUX || hp800 || SVR4 & VFORK */
+ 

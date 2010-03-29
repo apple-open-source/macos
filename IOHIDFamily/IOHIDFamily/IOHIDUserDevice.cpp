@@ -22,6 +22,7 @@
  */
 
 #include "IOHIDUserDevice.h"
+#include "IOHIDResourceUserClient.h"
 #include "IOHIDKeys.h"
 #include <IOKit/IOLib.h>
 
@@ -32,9 +33,9 @@ OSDefineMetaClassAndStructors(IOHIDUserDevice, IOHIDDevice)
 #pragma mark -
 #pragma mark Methods
 
-//====================================================================================================
+//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 // IOHIDUserDevice::withProperties
-//====================================================================================================
+//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 IOHIDUserDevice * IOHIDUserDevice::withProperties(OSDictionary * properties)
 {
 	IOHIDUserDevice * device = new IOHIDUserDevice;
@@ -56,9 +57,9 @@ IOHIDUserDevice * IOHIDUserDevice::withProperties(OSDictionary * properties)
 	return NULL;
 }
 
-//====================================================================================================
+//----------------------------------------------------------------------------------------------------
 // IOHIDUserDevice::initWithProperties
-//====================================================================================================
+//----------------------------------------------------------------------------------------------------
 bool IOHIDUserDevice::initWithProperties(OSDictionary * properties)
 {
     if ( !properties )
@@ -75,37 +76,41 @@ bool IOHIDUserDevice::initWithProperties(OSDictionary * properties)
     return TRUE;
 }
 
-//====================================================================================================
+//----------------------------------------------------------------------------------------------------
 // IOHIDUserDevice::free
-//====================================================================================================
+//----------------------------------------------------------------------------------------------------
 void IOHIDUserDevice::free()
 {
     if ( _properties )
         _properties->release();
 }
 
-//====================================================================================================
+//----------------------------------------------------------------------------------------------------
 // IOHIDUserDevice::handleStart
-//====================================================================================================
+//----------------------------------------------------------------------------------------------------
 bool IOHIDUserDevice::handleStart( IOService * provider )
 {
 	if (!super::handleStart(provider))
 		return false;
 	
+    _provider = OSDynamicCast(IOHIDResourceDeviceUserClient, provider);
+    if ( !_provider )
+        return false;
+        
 	return true;
 }
 
-//====================================================================================================
+//----------------------------------------------------------------------------------------------------
 // IOHIDUserDevice::handleStop
-//====================================================================================================
+//----------------------------------------------------------------------------------------------------
 void IOHIDUserDevice::handleStop(  IOService * provider )
 {
 	super::handleStop(provider);
 }
 
-//====================================================================================================
+//----------------------------------------------------------------------------------------------------
 // IOHIDUserDevice::newTransportString
-//====================================================================================================
+//----------------------------------------------------------------------------------------------------
 OSString *IOHIDUserDevice::newTransportString() const
 {
     OSString * string = OSDynamicCast(OSString, _properties->getObject(kIOHIDTransportKey));
@@ -118,9 +123,9 @@ OSString *IOHIDUserDevice::newTransportString() const
     return string;
 }
 
-//====================================================================================================
+//----------------------------------------------------------------------------------------------------
 // IOHIDUserDevice::newManufacturerString
-//====================================================================================================
+//----------------------------------------------------------------------------------------------------
 OSString *IOHIDUserDevice::newManufacturerString() const
 {
     OSString * string = OSDynamicCast(OSString, _properties->getObject(kIOHIDManufacturerKey));
@@ -133,9 +138,9 @@ OSString *IOHIDUserDevice::newManufacturerString() const
     return string;
 }
 
-//====================================================================================================
+//----------------------------------------------------------------------------------------------------
 // IOHIDUserDevice::newProductString
-//====================================================================================================
+//----------------------------------------------------------------------------------------------------
 OSString *IOHIDUserDevice::newProductString() const
 {
     OSString * string = OSDynamicCast(OSString, _properties->getObject(kIOHIDProductKey));
@@ -148,9 +153,9 @@ OSString *IOHIDUserDevice::newProductString() const
     return string;
 }
 
-//====================================================================================================
+//----------------------------------------------------------------------------------------------------
 // IOHIDUserDevice::newVendorIDNumber
-//====================================================================================================
+//----------------------------------------------------------------------------------------------------
 OSNumber *IOHIDUserDevice::newVendorIDNumber() const
 {
     OSNumber * number = OSDynamicCast(OSNumber, _properties->getObject(kIOHIDVendorIDKey));
@@ -163,9 +168,9 @@ OSNumber *IOHIDUserDevice::newVendorIDNumber() const
     return number;
 }
 
-//====================================================================================================
+//----------------------------------------------------------------------------------------------------
 // IOHIDUserDevice::newProductIDNumber
-//====================================================================================================
+//----------------------------------------------------------------------------------------------------
 OSNumber *IOHIDUserDevice::newProductIDNumber() const
 {
     OSNumber * number = OSDynamicCast(OSNumber, _properties->getObject(kIOHIDProductIDKey));
@@ -178,9 +183,9 @@ OSNumber *IOHIDUserDevice::newProductIDNumber() const
     return number;
 }
 
-//====================================================================================================
+//----------------------------------------------------------------------------------------------------
 // IOHIDUserDevice::newVersionNumber
-//====================================================================================================
+//----------------------------------------------------------------------------------------------------
 OSNumber *IOHIDUserDevice::newVersionNumber() const
 {
     OSNumber * number = OSDynamicCast(OSNumber, _properties->getObject(kIOHIDVersionNumberKey));
@@ -193,9 +198,9 @@ OSNumber *IOHIDUserDevice::newVersionNumber() const
     return number;
 }
 
-//====================================================================================================
+//----------------------------------------------------------------------------------------------------
 // IOHIDUserDevice::newSerialNumberString
-//====================================================================================================
+//----------------------------------------------------------------------------------------------------
 OSString *IOHIDUserDevice::newSerialNumberString() const
 {
     OSString * string = OSDynamicCast(OSString, _properties->getObject(kIOHIDSerialNumberKey));
@@ -208,9 +213,9 @@ OSString *IOHIDUserDevice::newSerialNumberString() const
     return string;
 }
 
-//====================================================================================================
+//----------------------------------------------------------------------------------------------------
 // IOHIDUserDevice::newVendorIDSourceNumber
-//====================================================================================================
+//----------------------------------------------------------------------------------------------------
 OSNumber *IOHIDUserDevice::newVendorIDSourceNumber() const
 {
     OSNumber * number = OSDynamicCast(OSNumber, _properties->getObject(kIOHIDVendorIDSourceKey));
@@ -223,9 +228,9 @@ OSNumber *IOHIDUserDevice::newVendorIDSourceNumber() const
     return number;
 }
 
-//====================================================================================================
+//----------------------------------------------------------------------------------------------------
 // IOHIDUserDevice::newCountryCodeNumber
-//====================================================================================================
+//----------------------------------------------------------------------------------------------------
 OSNumber *IOHIDUserDevice::newCountryCodeNumber() const
 {
     OSNumber * number = OSDynamicCast(OSNumber, _properties->getObject(kIOHIDCountryCodeKey));
@@ -238,9 +243,9 @@ OSNumber *IOHIDUserDevice::newCountryCodeNumber() const
     return number;
 }
 
-//====================================================================================================
+//----------------------------------------------------------------------------------------------------
 // IOHIDUserDevice::newReportDescriptor
-//====================================================================================================
+//----------------------------------------------------------------------------------------------------
 IOReturn IOHIDUserDevice::newReportDescriptor(IOMemoryDescriptor ** descriptor ) const
 {
     OSData *                    data;
@@ -255,25 +260,25 @@ IOReturn IOHIDUserDevice::newReportDescriptor(IOMemoryDescriptor ** descriptor )
 }
 
 
-//====================================================================================================
+//----------------------------------------------------------------------------------------------------
 // IOHIDUserDevice::getReport
-//====================================================================================================
+//----------------------------------------------------------------------------------------------------
 IOReturn IOHIDUserDevice::getReport(IOMemoryDescriptor	*report,
 									IOHIDReportType		reportType,
 									IOOptionBits		options )
 {
-	return super::getReport(report, reportType, options);
+    return _provider->getReport(report, reportType, options);
 }
 
 
-//====================================================================================================
+//----------------------------------------------------------------------------------------------------
 // IOHIDUserDevice::setReport
-//====================================================================================================
+//----------------------------------------------------------------------------------------------------
 IOReturn IOHIDUserDevice::setReport(IOMemoryDescriptor	*report,
 									IOHIDReportType		reportType,
 									IOOptionBits		options)
 {
-	return super::setReport(report, reportType, options);
+    return _provider->setReport(report, reportType, options);
 }
 
 

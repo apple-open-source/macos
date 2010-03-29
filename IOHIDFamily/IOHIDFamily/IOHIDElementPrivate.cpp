@@ -1089,10 +1089,12 @@ bool IOHIDElementPrivate::processReport(
 
     do {
         // Ignore report that does not match our report ID.
-
         if ( _reportID != reportID )
             break;
             
+        if ( (_reportStartBit + (_reportBits * _reportCount)) > reportBits )
+            break;
+
         if ( ( _usagePage == kHIDPage_KeyboardOrKeypad )
              && ( getUsage() >= kHIDUsage_KeyboardLeftControl )
              && ( getUsage() <= kHIDUsage_KeyboardRightGUI )
@@ -1146,7 +1148,7 @@ bool IOHIDElementPrivate::processReport(
             {
                 if ( shouldProcess || (queue->getOptions() & kIOHIDQueueOptionsTypeEnqueueAll))
                     queue->enqueue( (void *) _elementValue, _elementValue->totalSize );
-            }
+                }
         } while ( 0 );
 
         _elementValue->generation++;
@@ -1544,7 +1546,7 @@ void IOHIDElementPrivate::setArrayElementValue(UInt32 index, UInt32 value)
     
     if (!element) 
         return;
-        
+
     // Bump the generation count.  An odd value tells us
     // that the information is incomplete and should not
     // be trusted.  An even value tells us that the value

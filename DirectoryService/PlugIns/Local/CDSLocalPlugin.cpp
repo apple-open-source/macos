@@ -3166,6 +3166,9 @@ tDirStatus CDSLocalPlugin::SetRecordName( sSetRecordName* inData )
 		if ( recordType == NULL )
 			throw( ePlugInDataError );
 		
+		if ( node->AccessAllowed(nodeDict, recordType, CFSTR(kDSNAttrRecordName), eDSAccessModeDelete) == false ) 
+			throw( eDSPermissionError );
+		
 		CFMutableDictionaryRef mutableRecordAttrsValues = (CFMutableDictionaryRef)CFDictionaryGetValue( openRecordDict,
 			CFSTR( kOpenRecordDictAttrsValues ) );
 		if ( mutableRecordAttrsValues == NULL )

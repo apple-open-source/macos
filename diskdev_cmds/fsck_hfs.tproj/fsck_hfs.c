@@ -28,6 +28,7 @@
 #include <sys/ioctl.h>
 #include <sys/disk.h>
 #include <sys/sysctl.h>
+#include <setjmp.h>
 
 #include <hfs/hfs_mount.h>
 
@@ -40,6 +41,8 @@
 #include <ctype.h>
 
 #include "fsck_hfs.h"
+#include "fsck_hfs_msgnums.h"
+
 #include "fsck_debug.h"
 #include "dfalib/CheckHFS.h"
 
@@ -66,8 +69,10 @@ char	debug;			/* output debugging info */
 char	hotroot;		/* checking root device */
 char 	guiControl; 	/* this app should output info for gui control */
 char	xmlControl;	/* Output XML (plist) messages -- implies guiControl as well */
-char	rebuildCatalogBtree;  /* rebuild catalog btree file */
+char	rebuildBTree;  	/* Rebuild requested btree files */
+int	rebuildOptions;	/* Options to indicate which btree should be rebuilt */
 char	modeSetting;	/* set the mode when creating "lost+found" directory */
+char	errorOnExit = 0;	/* Exit on first error */
 int		upgrading;		/* upgrading format */
 int		lostAndFoundMode = 0; /* octal mode used when creating "lost+found" directory */
 uint64_t reqCacheSize;;	/* Cache size requested by the caller (may be specified by the user via -c) */
@@ -111,7 +116,7 @@ main(argc, argv)
 	else
 		progname = *argv;
 
-	while ((ch = getopt(argc, argv, "b:B:c:D:dfglm:npqruyx")) != EOF) {
+	while ((ch = getopt(argc, argv, "b:B:c:D:Edfglm:npqruyx")) != EOF) {
 		switch (ch) {
 		case 'b':
 			gBlockSize = atoi(optarg);
@@ -157,6 +162,10 @@ main(argc, argv)
 			}
 			break;
 
+		case 'E':
+			/* Exit on first error, after logging it */
+			errorOnExit = 1;
+			break;
 		case 'f':
 			force++;
 			break;
@@ -201,8 +210,42 @@ main(argc, argv)
 			break;
 
 		case 'r':
-			rebuildCatalogBtree++;  // this will force a rebuild of catalog file
+			// rebuild catalog btree
+			rebuildBTree++; 	
+			rebuildOptions |= REBUILD_CATALOG;
 			break;
+
+		case 'R':
+			if (optarg) {
+				char *cp = optarg;
+				while (*cp) {
+					switch (*cp) {
+						case 'a':	
+							// rebuild attribute btree
+							rebuildBTree++; 	
+							rebuildOptions |= REBUILD_ATTRIBUTE;
+							break;
+
+						case 'c':
+							// rebuild catalog btree
+							rebuildBTree++; 	
+							rebuildOptions |= REBUILD_CATALOG;
+							break;
+
+						case 'e':
+							// rebuild extents overflow btree
+							rebuildBTree++; 	
+							rebuildOptions |= REBUILD_EXTENTS;
+							break;
+
+						default:	
+							fprintf(stderr, "%s: unknown btree rebuild code `%c' (%#x)\n", progname, *cp, *cp);
+							exit(2);
+					}
+					cp++;
+				}
+				break;
+			}
 
 		case 'y':
 			yflag++;
@@ -256,13 +299,12 @@ static int
 checkfilesys(char * filesys)
 {
 	int flags;
-	int result;
+	int result = 0;
 	int chkLev, repLev, logLev;
 	int canWrite;
 	char *unraw, *mntonname;
 	struct statfs64 *fsinfo;
 	fsck_ctx_t context = NULL;
-
 	flags = 0;
 	cdevname = filesys;
 	canWrite = 0;
@@ -377,9 +419,9 @@ checkfilesys(char * filesys)
 	if (nflag)
 		repLev = kNeverRepair;
 		
-	if ( rebuildCatalogBtree ) {
+	if ( rebuildBTree ) {
 		chkLev = kPartialCheck;
-		repLev = kForceRepairs;  // this will force rebuild of catalog B-Tree file
+		repLev = kForceRepairs;  // this will force rebuild of B-Tree file
 	}
 		
 	fsckSetVerbosity(context, logLev);
@@ -387,7 +429,6 @@ checkfilesys(char * filesys)
 	fsckSetOutput(context, NULL);
 	/* Make sure that all fsckPrint go to the log file */
 	fsckSetWriter(context, &logstring);
-
 	if (guiControl) {
 		if (xmlControl)
 			fsckSetOutputStyle(context, fsckOutputXML);
@@ -397,12 +438,16 @@ checkfilesys(char * filesys)
 		fsckSetOutputStyle(context, fsckOutputTraditional);
 	}
 
+	if (errorOnExit && nflag) {
+		chkLev = kMajorCheck;
+	}
+
 	/*
 	 * go check HFS volume...
 	 */
 	result = CheckHFS( filesys, fsreadfd, fswritefd, chkLev, repLev, context,
-						lostAndFoundMode, canWrite, &fsmodified,
-						lflag );
+			   lostAndFoundMode, canWrite, &fsmodified,
+			   lflag, rebuildOptions );
 	if (!hotroot) {
 		ckfini(1);
 		if (quick) {
@@ -460,7 +505,8 @@ checkfilesys(char * filesys)
 		goto ExitThisRoutine;
 	}
 
-	result = (result == 0) ? 0 : EEXIT;
+	if (result != 0 && result != MAJOREXIT)
+		result = EEXIT;
 	
 ExitThisRoutine:
 	if (lflag) {
@@ -670,10 +716,11 @@ ExitThisRoutine:
 static void
 usage()
 {
-	(void) fplog(stderr, "usage: %s [-b [size] B [path] c [size] dfl m [mode] npqruy] special-device\n", progname);
+	(void) fplog(stderr, "usage: %s [-b [size] B [path] c [size] Edfl m [mode] npqruy] special-device\n", progname);
 	(void) fplog(stderr, "  b size = size of physical blocks (in bytes) for -B option\n");
 	(void) fplog(stderr, "  B path = file containing physical block numbers to map to paths\n");
 	(void) fplog(stderr, "  c size = cache size (ex. 512m, 1g)\n");
+	(void) fplog(stderr, "  E = exit on first major error\n");
 	(void) fplog(stderr, "  d = output debugging info\n");
 	(void) fplog(stderr, "  f = force fsck even if clean (preen only) \n");
 	(void) fplog(stderr, "  l = live fsck (lock down and test-only)\n");

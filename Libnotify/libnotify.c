@@ -47,7 +47,7 @@
 int __notify_78945668_info__ = 0;
 
 notify_state_t *
-_notify_lib_notify_state_new(uint32_t flags)
+_notify_lib_notify_state_new(uint32_t flags, uint32_t table_size)
 {
 	notify_state_t *ns;
 
@@ -62,8 +62,8 @@ _notify_lib_notify_state_new(uint32_t flags)
 		pthread_mutex_init(ns->lock, NULL);
 	}
 
-	ns->name_table = _nc_table_new(8192);
-	ns->client_table = _nc_table_new(8192);
+	ns->name_table = _nc_table_new(table_size);
+	ns->client_table = _nc_table_new(table_size);
 
 	ns->sock = -1;
 

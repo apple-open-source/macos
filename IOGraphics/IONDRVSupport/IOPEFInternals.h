@@ -700,7 +700,7 @@ extern OSStatus PEF_OpenContainer       ( LogicalAddress            mappedAddres
                                           CFContReleaseMem          Release,
                                           CFContHandlerRef *        containerRef_o,
                                           CFContHandlerProcs * *    handlerProcs_o,
-					  UInt32 *		    createDate );
+                                          UInt32 *                  createDate );
 
 extern OSStatus PEF_CloseContainer      ( CFContHandlerRef          containerRef,
                                           CFContCloseOptions        options );
@@ -789,17 +789,17 @@ extern OSStatus PEF_RelocateImportsOnly     ( CFContHandlerRef      containerRef
                                               ItemCount             libraryIndex );
 
 struct CFragInitBlock {
-	void *		contextID;
-	void *		closureID;
-	void *		connectionID;
-	SInt32		where;			// locator rec
-	LogicalAddress	address;
-	ByteCount	length;
-	Boolean		inPlace;
-	UInt8		resvA;
-	UInt16		resvB;
-	char *		libName;
-	UInt32		resvC;
+        void *          contextID;
+        void *          closureID;
+        void *          connectionID;
+        SInt32          where;                  // locator rec
+        LogicalAddress  address;
+        ByteCount       length;
+        Boolean         inPlace;
+        UInt8           resvA;
+        UInt16          resvB;
+        char *          libName;
+        UInt32          resvC;
 };
 typedef struct CFragInitBlock CFragInitBlock;
 

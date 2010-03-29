@@ -9,25 +9,25 @@ cc idtest.c -o /tmp/idtest -Wall -framework IOKit -framework CoreFoundation
 
 int main(int argc, char **argv)
 {
-    io_registry_entry_t	   service;
-    io_connect_t	   connect;
-    SInt32		   id1, id2, id3;
+    io_registry_entry_t    service;
+    io_connect_t           connect;
+    SInt32                 id1, id2, id3;
     kern_return_t          status;
 
     service = IORegistryEntryFromPath(kIOMasterPortDefault, 
-				    kIOServicePlane ":/IOResources/IODisplayWrangler");
+                                    kIOServicePlane ":/IOResources/IODisplayWrangler");
     assert(service);
     if (service) 
     {
         status = IOServiceOpen(service, mach_task_self(), 0, &connect);
-	IOObjectRelease(service);
-	assert(kIOReturnSuccess == status);
+        IOObjectRelease(service);
+        assert(kIOReturnSuccess == status);
 
     }
 
     enum { kAlloc, kFree };
 enum {
-    kIOAccelSpecificID		= 0x00000001
+    kIOAccelSpecificID          = 0x00000001
 };
 
 
@@ -54,7 +54,7 @@ enum {
     assert(kIOReturnSuccess == status);
     printf("free ID: %d\n", id2);
 
-    exit(0);	
+    exit(0);    
 }
 
 

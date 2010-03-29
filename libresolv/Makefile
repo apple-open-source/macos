@@ -30,20 +30,20 @@ endif
 
 include $(MAKEFILEPATH)/CoreOS/ReleaseControl/BSDCommon.make
 
-build:: dns.so
-
 PLUGIN_LD_Flags = -L$(SYMROOT) -lresolv.9
 PLUGIN_CC_Flags = -bundle
 
 PLUGIN_DEST = $(DSTROOT)/$(DESTDIR)usr/lib/info
 
+build:: dns.so
+
 dns.so: dns_plugin.c
-	cc -c $(CFLAGS) dns_plugin.c
-	cc $(PLUGIN_CC_Flags) $(LDFLAGS) $(PLUGIN_LD_Flags) -o $(SYMROOT)/dns.so dns_plugin.o
-	dsymutil --out=$(SYMROOT)/dns.so.dSYM $(SYMROOT)/dns.so || exit 0
+	$(CC) -c $(CFLAGS) dns_plugin.c
+	$(CC) $(PLUGIN_CC_Flags) $(LDFLAGS) $(PLUGIN_LD_Flags) -o $(SYMROOT)/dns.so dns_plugin.o
+	$(DSYMUTIL) --out=$(SYMROOT)/dns.so.dSYM $(SYMROOT)/dns.so || exit 0
 	$(INSTALL_DIRECTORY) $(PLUGIN_DEST)
 	$(INSTALL_LIBRARY) $(SYMROOT)/dns.so $(PLUGIN_DEST)
-	strip -S $(PLUGIN_DEST)/dns.so
+	$(STRIP) -S $(PLUGIN_DEST)/dns.so
 
 after_install:
 	$(INSTALL_DIRECTORY) $(DSTROOT)/usr/include/arpa

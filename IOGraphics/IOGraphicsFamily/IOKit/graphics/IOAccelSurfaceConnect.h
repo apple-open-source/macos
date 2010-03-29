@@ -29,18 +29,18 @@
 /*
 ** Surface visible region in device coordinates.
 **
-** num_rects:	The number of rectangles in the rect array.  If num_rects
-**		is zero the bounds rectangle is used for the visible rectangle.
-**		If num_rects is zero the surface must be completely contained
-**		by the device.
+** num_rects:   The number of rectangles in the rect array.  If num_rects
+**              is zero the bounds rectangle is used for the visible rectangle.
+**              If num_rects is zero the surface must be completely contained
+**              by the device.
 **
-** bounds:	The unclipped surface rectangle in device coords.  Extends
-**		beyond the device bounds if the surface is not totally on
-**		the device.
+** bounds:      The unclipped surface rectangle in device coords.  Extends
+**              beyond the device bounds if the surface is not totally on
+**              the device.
 **
-** rect[]:	An array of visible rectangles in device coords.  If num_rects
-**		is non-zero only the region described by these rectangles is
-**		copied to the frame buffer during a flush operation.
+** rect[]:      An array of visible rectangles in device coords.  If num_rects
+**              is non-zero only the region described by these rectangles is
+**              copied to the frame buffer during a flush operation.
 */
 typedef struct
 {
@@ -61,7 +61,7 @@ typedef struct
 ** kIOAccelNumSurfaceMemoryTypes.
 */
 enum eIOAccelSurfaceMemoryTypes {
-	kIOAccelNumSurfaceMemoryTypes
+        kIOAccelNumSurfaceMemoryTypes
 };
 
 
@@ -70,31 +70,31 @@ enum eIOAccelSurfaceMemoryTypes {
 ** kIOAccelNumSurfaceMethods.
 */
 enum eIOAccelSurfaceMethods {
-	kIOAccelSurfaceReadLockOptions,
-	kIOAccelSurfaceReadUnlockOptions,
-	kIOAccelSurfaceGetState,
-	kIOAccelSurfaceWriteLockOptions,
-	kIOAccelSurfaceWriteUnlockOptions,
-	kIOAccelSurfaceRead,
-	kIOAccelSurfaceSetShapeBacking,
+        kIOAccelSurfaceReadLockOptions,
+        kIOAccelSurfaceReadUnlockOptions,
+        kIOAccelSurfaceGetState,
+        kIOAccelSurfaceWriteLockOptions,
+        kIOAccelSurfaceWriteUnlockOptions,
+        kIOAccelSurfaceRead,
+        kIOAccelSurfaceSetShapeBacking,
 
-	kIOAccelSurfaceSetIDMode,
-	kIOAccelSurfaceSetScale,
+        kIOAccelSurfaceSetIDMode,
+        kIOAccelSurfaceSetScale,
 
-	kIOAccelSurfaceSetShape,
-	kIOAccelSurfaceFlush,
+        kIOAccelSurfaceSetShape,
+        kIOAccelSurfaceFlush,
 
-	kIOAccelSurfaceQueryLock,
+        kIOAccelSurfaceQueryLock,
 
-	kIOAccelSurfaceReadLock,
-	kIOAccelSurfaceReadUnlock,
-	kIOAccelSurfaceWriteLock,
-	kIOAccelSurfaceWriteUnlock,
+        kIOAccelSurfaceReadLock,
+        kIOAccelSurfaceReadUnlock,
+        kIOAccelSurfaceWriteLock,
+        kIOAccelSurfaceWriteUnlock,
 
         kIOAccelSurfaceControl,
-	kIOAccelSurfaceSetShapeBackingAndLength,
+        kIOAccelSurfaceSetShapeBackingAndLength,
 
-	kIOAccelNumSurfaceMethods
+        kIOAccelNumSurfaceMethods
 };
 
 
@@ -103,28 +103,28 @@ enum eIOAccelSurfaceMethods {
 ** The color depth field can take any value of the _CGSDepth enumeration.
 */
 typedef enum {
-	kIOAccelSurfaceModeColorDepth1555  = 0x00000003,  
-	kIOAccelSurfaceModeColorDepth8888  = 0x00000004,  
-//	kIOAccelSurfaceModeColorDepthRGB565 = 0x00000005,  
-	kIOAccelSurfaceModeColorDepthYUV   = 0x00000006,
-	kIOAccelSurfaceModeColorDepthYUV9  = 0x00000007,
-	kIOAccelSurfaceModeColorDepthYUV12 = 0x00000008,
-	kIOAccelSurfaceModeColorDepthYUV2  = 0x00000009,
-	kIOAccelSurfaceModeColorDepthBGRA32 = 0x0000000A,
+        kIOAccelSurfaceModeColorDepth1555  = 0x00000003,  
+        kIOAccelSurfaceModeColorDepth8888  = 0x00000004,  
+//      kIOAccelSurfaceModeColorDepthRGB565 = 0x00000005,  
+        kIOAccelSurfaceModeColorDepthYUV   = 0x00000006,
+        kIOAccelSurfaceModeColorDepthYUV9  = 0x00000007,
+        kIOAccelSurfaceModeColorDepthYUV12 = 0x00000008,
+        kIOAccelSurfaceModeColorDepthYUV2  = 0x00000009,
+        kIOAccelSurfaceModeColorDepthBGRA32 = 0x0000000A,
 
-//	kIOAccelSurfaceModeColorDepthRGBA64       = 0x0000000B,
-//	kIOAccelSurfaceModeColorDepthRGBAFloat64  = 0x0000000C,
-//	kIOAccelSurfaceModeColorDepthRGBAFloat128 = 0x0000000D,
-	
-//	kIOAccelSurfaceModeColorDepthYUV420  = 0x0000000E,
-	kIOAccelSurfaceModeColorDepth2101010 = 0x0000000F,
-	
-	kIOAccelSurfaceModeColorDepthBits  = 0x0000000F,
+//      kIOAccelSurfaceModeColorDepthRGBA64       = 0x0000000B,
+//      kIOAccelSurfaceModeColorDepthRGBAFloat64  = 0x0000000C,
+//      kIOAccelSurfaceModeColorDepthRGBAFloat128 = 0x0000000D,
+        
+//      kIOAccelSurfaceModeColorDepthYUV420  = 0x0000000E,
+        kIOAccelSurfaceModeColorDepth2101010 = 0x0000000F,
+        
+        kIOAccelSurfaceModeColorDepthBits  = 0x0000000F,
 
-	kIOAccelSurfaceModeStereoBit       = 0x00000010,
-	kIOAccelSurfaceModeWindowedBit     = 0x00000020,
+        kIOAccelSurfaceModeStereoBit       = 0x00000010,
+        kIOAccelSurfaceModeWindowedBit     = 0x00000020,
 
-        kIOAccelSurfaceModeBeamSync	   = 0x00008000
+        kIOAccelSurfaceModeBeamSync        = 0x00008000
 } eIOAccelSurfaceModeBits;
 
 
@@ -138,9 +138,9 @@ typedef enum {
         kIOAccelSurfaceShapeIdentityScaleBit = 0x00000004,
         kIOAccelSurfaceShapeFrameSyncBit     = 0x00000008,
         kIOAccelSurfaceShapeBeamSyncBit      = 0x00000010,
-	kIOAccelSurfaceShapeStaleBackingBit  = 0x00000020,
-	kIOAccelSurfaceShapeAssemblyBit      = 0x00000040,
-	kIOAccelSurfaceShapeWaitEnabledBit   = 0x00000080,
+        kIOAccelSurfaceShapeStaleBackingBit  = 0x00000020,
+        kIOAccelSurfaceShapeAssemblyBit      = 0x00000040,
+        kIOAccelSurfaceShapeWaitEnabledBit   = 0x00000080,
 
         /* wrong name, use kIOAccelSurfaceShapeNonBlockingBit */
         kIOAccelSurfaceShapeBlockingBit      = kIOAccelSurfaceShapeNonBlockingBit
@@ -150,21 +150,21 @@ typedef enum {
 ** Return bits for the kIOAccelSurfaceGetState method.
 */
 typedef enum {
-	kIOAccelSurfaceStateNone    = 0x00000000,
-	kIOAccelSurfaceStateIdleBit = 0x00000001
+        kIOAccelSurfaceStateNone    = 0x00000000,
+        kIOAccelSurfaceStateIdleBit = 0x00000001
 } eIOAccelSurfaceStateBits;
 
 /*
 ** Option bits for the kIOAccelSurfaceSetScale method.
 */
 typedef enum {
-	kIOAccelSurfaceBeamSyncSwaps = 0x00000001,
-	kIOAccelSurfaceFixedSource   = 0x00000002,
+        kIOAccelSurfaceBeamSyncSwaps = 0x00000001,
+        kIOAccelSurfaceFixedSource   = 0x00000002,
 
-	kIOAccelSurfaceFiltering     = 0x000000f0,
-	kIOAccelSurfaceFilterDefault = 0x00000000,
-	kIOAccelSurfaceFilterNone    = 0x00000010,
-	kIOAccelSurfaceFilterLinear  = 0x00000020
+        kIOAccelSurfaceFiltering     = 0x000000f0,
+        kIOAccelSurfaceFilterDefault = 0x00000000,
+        kIOAccelSurfaceFilterNone    = 0x00000010,
+        kIOAccelSurfaceFilterLinear  = 0x00000020
 
 } eIOAccelSurfaceScaleBits;
 

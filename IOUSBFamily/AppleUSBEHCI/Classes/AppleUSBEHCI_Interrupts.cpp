@@ -92,7 +92,7 @@ AppleUSBEHCI::PollInterrupts(IOUSBCompletionAction safeAction)
 		
 		USBTrace( kUSBTEHCIInterrupts, kTPEHCIInterruptsPollInterrupts , (uintptr_t)this, 0, 0, 5 );
 
-        USBLog(6,"AppleUSBEHCI[%p]::PollInterrupts -  Port Change Interrupt on bus %d - ensuring usability", this, (uint32_t)_busNumber );
+        USBLog(6,"AppleUSBEHCI[%p]::PollInterrupts -  Port Change Interrupt on bus 0x%x - ensuring usability", this, (uint32_t)_busNumber );
 		EnsureUsability();
 
 		if (_myPowerState == kUSBPowerStateOn)
@@ -146,7 +146,7 @@ AppleUSBEHCI::InterruptHandler(OSObject *owner, IOInterruptEventSource * /*sourc
         return;
 	}
 	
-    if(!emitted)
+    if (!emitted)
     {
         emitted = true;
         // USBLog("EHCIUIM -- InterruptHandler Unimplimented not finishPending\n");
@@ -210,7 +210,7 @@ AppleUSBEHCI::FilterInterrupt(int index)
 
     if (activeInterrupts != 0)
     {
-		USBTrace( kUSBTEHCIInterrupts, kTPEHCIInterruptsPrimaryInterruptFilter , (uintptr_t)this, enabledInterrupts, activeInterrupts, 0 );
+		USBTrace( kUSBTEHCIInterrupts, kTPEHCIInterruptsPrimaryInterruptFilter, (uintptr_t)this, enabledInterrupts, activeInterrupts, (_frameNumber << 3) + USBToHostLong(_pEHCIRegisters->FRIndex) );
 
 		// One of our 6 interrupts fired.  Process the ones which need to be processed at primary int time
         //
@@ -319,7 +319,7 @@ AppleUSBEHCI::FilterInterrupt(int index)
 					bool									needToRescavenge = false;
 					
 					nextSlot = (testSlot+1) & (kEHCIPeriodicListEntries-1);
-					thing = _logicalPeriodicList[testSlot];
+					thing = GetPeriodicListLogicalEntry(testSlot);
 					prevThing = NULL;
 					while(thing != NULL)
 					{
@@ -347,8 +347,7 @@ AppleUSBEHCI::FilterInterrupt(int index)
 						// need to unlink this TD
 						if (!prevThing)
 						{
-							_logicalPeriodicList[testSlot] = nextThing;
-							_periodicList[testSlot] = HostToUSBLong(thing->GetPhysicalLink());
+							SetPeriodicListEntry(testSlot, nextThing);
 						}
 						else
 						{

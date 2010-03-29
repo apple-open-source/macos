@@ -102,6 +102,7 @@
 #include <CoreFoundation/CoreFoundation.h>
 #endif
 #include "remoteconf.h"
+#include "vpn_control.h"
 
 #ifdef HAVE_GSSAPI
 #include "gssapi.h"
@@ -1520,7 +1521,7 @@ oakley_validate_auth(iph1)
 					} else
 						hostname = CFStringCreateWithBytes(NULL, (u_int8_t *)id_spec->id->v, id_spec->id->l, kCFStringEncodingUTF8, FALSE);
 				}
-				error = crypto_cssm_check_x509cert(&iph1->cert_p->cert, hostname);
+				error = crypto_cssm_check_x509cert(&iph1->cert_p->cert, hostname, iph1->cert_p->status);
 				if (hostname)
 					CFRelease(hostname);
 			}
@@ -1528,7 +1529,7 @@ oakley_validate_auth(iph1)
 #else /* TARGET_OS_EMBEDDED */
 #ifdef __APPLE__
 				if (iph1->rmconf->cert_verification == VERIFICATION_MODULE_SEC_FRAMEWORK)
-					error = crypto_cssm_check_x509cert(&iph1->cert_p->cert, NULL);
+					error = crypto_cssm_check_x509cert(&iph1->cert_p->cert, NULL, iph1->cert_p->status);
 				else 
 #endif /* __APPLE__ */
 				{
@@ -1728,11 +1729,27 @@ int
 oakley_getmycert(iph1)
 	struct ph1handle *iph1;
 {
+	int	err;
+	u_int32_t address;
+	
 	switch (iph1->rmconf->certtype) {
 		case ISAKMP_CERT_X509SIGN:
 			if (iph1->cert)
 				return 0;
-			return get_cert_fromlocal(iph1, 1);
+/* only do the local cert test on the phone */
+		{
+			if ( !(err = get_cert_fromlocal(iph1, 1))){
+				if ( iph1->cert->status == CERT_STATUS_EXPIRED || iph1->cert->status == CERT_STATUS_PREMATURE){
+					if (iph1->remote->sa_family == AF_INET)
+						address = ((struct sockaddr_in *)(iph1->remote))->sin_addr.s_addr;
+					else
+						address = 0;
+					vpncontrol_notify_ike_failed(VPNCTL_NTYPE_PH1_DELETE_CERT_ERROR + iph1->cert->status, FROM_LOCAL, address, 0, NULL);
+					return -1;
+				}
+			}
+		}
+			return err;
 
 		case ISAKMP_CERT_PLAINRSA:
 			if (iph1->rsa)
@@ -1764,6 +1781,7 @@ get_cert_fromlocal(iph1, my)
 	cert_t **certpl;
 	char *certfile;
 	int error = -1;
+	cert_status_t status = CERT_STATUS_OK;
 
 	if (my) {
 		certfile = iph1->rmconf->mycertfile;
@@ -1790,7 +1808,8 @@ get_cert_fromlocal(iph1, my)
 			
 			if (iph1->rmconf->keychainCertRef == NULL || base64toCFData(iph1->rmconf->keychainCertRef, &dataRef))
 				goto end;
-			cert = crypto_cssm_get_x509cert(dataRef);
+			cert = crypto_cssm_get_x509cert(dataRef, &status);
+			plog(LLV_DEBUG, LOCATION, NULL, "done with chking cert status %d\n",status);
 			CFRelease(dataRef);
 			break;
 		} // else fall thru
@@ -1838,6 +1857,7 @@ get_cert_fromlocal(iph1, my)
 	memcpy((*certpl)->pl->v + 1, cert->v, cert->l);
 	(*certpl)->pl->v[0] = iph1->rmconf->certtype;
 	(*certpl)->type = iph1->rmconf->certtype;
+	(*certpl)->status = status;    
 	(*certpl)->cert.v = (*certpl)->pl->v + 1;
 	(*certpl)->cert.l = (*certpl)->pl->l - 1;
 

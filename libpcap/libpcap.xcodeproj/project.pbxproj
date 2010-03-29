@@ -1,0 +1,429 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 45;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		FC293B26103695150055686E /* pcap.h in Headers */ = {isa = PBXBuildFile; fileRef = FCDE3680103681F900CC3DD8 /* pcap.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		FC293B301036978A0055686E /* pcap.h in Headers */ = {isa = PBXBuildFile; fileRef = FCDE368C1036822200CC3DD8 /* pcap.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		FCDE3597103676CF00CC3DD8 /* bpf_dump.c in Sources */ = {isa = PBXBuildFile; fileRef = FCDE3589103676CF00CC3DD8 /* bpf_dump.c */; };
+		FCDE3598103676CF00CC3DD8 /* bpf_filter.c in Sources */ = {isa = PBXBuildFile; fileRef = FCDE358A103676CF00CC3DD8 /* bpf_filter.c */; };
+		FCDE3599103676CF00CC3DD8 /* bpf_image.c in Sources */ = {isa = PBXBuildFile; fileRef = FCDE358B103676CF00CC3DD8 /* bpf_image.c */; };
+		FCDE359A103676CF00CC3DD8 /* etherent.c in Sources */ = {isa = PBXBuildFile; fileRef = FCDE358C103676CF00CC3DD8 /* etherent.c */; };
+		FCDE359B103676CF00CC3DD8 /* fad-getad.c in Sources */ = {isa = PBXBuildFile; fileRef = FCDE358D103676CF00CC3DD8 /* fad-getad.c */; };
+		FCDE359C103676CF00CC3DD8 /* gencode.c in Sources */ = {isa = PBXBuildFile; fileRef = FCDE358E103676CF00CC3DD8 /* gencode.c */; };
+		FCDE359D103676CF00CC3DD8 /* grammar.y in Sources */ = {isa = PBXBuildFile; fileRef = FCDE358F103676CF00CC3DD8 /* grammar.y */; };
+		FCDE359E103676CF00CC3DD8 /* inet.c in Sources */ = {isa = PBXBuildFile; fileRef = FCDE3590103676CF00CC3DD8 /* inet.c */; };
+		FCDE359F103676CF00CC3DD8 /* nametoaddr.c in Sources */ = {isa = PBXBuildFile; fileRef = FCDE3591103676CF00CC3DD8 /* nametoaddr.c */; };
+		FCDE35A0103676CF00CC3DD8 /* optimize.c in Sources */ = {isa = PBXBuildFile; fileRef = FCDE3592103676CF00CC3DD8 /* optimize.c */; };
+		FCDE35A1103676CF00CC3DD8 /* pcap-bpf.c in Sources */ = {isa = PBXBuildFile; fileRef = FCDE3593103676CF00CC3DD8 /* pcap-bpf.c */; };
+		FCDE35A2103676CF00CC3DD8 /* pcap.c in Sources */ = {isa = PBXBuildFile; fileRef = FCDE3594103676CF00CC3DD8 /* pcap.c */; };
+		FCDE35A3103676CF00CC3DD8 /* savefile.c in Sources */ = {isa = PBXBuildFile; fileRef = FCDE3595103676CF00CC3DD8 /* savefile.c */; };
+		FCDE35A4103676CF00CC3DD8 /* scanner.l in Sources */ = {isa = PBXBuildFile; fileRef = FCDE3596103676CF00CC3DD8 /* scanner.l */; };
+		FCDE364D103680B800CC3DD8 /* version.c in Sources */ = {isa = PBXBuildFile; fileRef = FCDE364B103680B800CC3DD8 /* version.c */; };
+		FCDE364E103680B800CC3DD8 /* version.h in Headers */ = {isa = PBXBuildFile; fileRef = FCDE364C103680B800CC3DD8 /* version.h */; settings = {ATTRIBUTES = (); }; };
+		FCDE3683103681F900CC3DD8 /* bpf.h in Headers */ = {isa = PBXBuildFile; fileRef = FCDE367E103681F900CC3DD8 /* bpf.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		FCDE3684103681F900CC3DD8 /* namedb.h in Headers */ = {isa = PBXBuildFile; fileRef = FCDE367F103681F900CC3DD8 /* namedb.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		FCDE3686103681F900CC3DD8 /* sll.h in Headers */ = {isa = PBXBuildFile; fileRef = FCDE3681103681F900CC3DD8 /* sll.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		FCDE3687103681F900CC3DD8 /* usb.h in Headers */ = {isa = PBXBuildFile; fileRef = FCDE3682103681F900CC3DD8 /* usb.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		FCDE368D1036822200CC3DD8 /* pcap-bpf.h in Headers */ = {isa = PBXBuildFile; fileRef = FCDE368A1036822200CC3DD8 /* pcap-bpf.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		FCDE368E1036822200CC3DD8 /* pcap-namedb.h in Headers */ = {isa = PBXBuildFile; fileRef = FCDE368B1036822200CC3DD8 /* pcap-namedb.h */; settings = {ATTRIBUTES = (Public, ); }; };
+/* End PBXBuildFile section */
+
+/* Begin PBXBuildRule section */
+		FCDE360410367D9100CC3DD8 /* PBXBuildRule */ = {
+			isa = PBXBuildRule;
+			compilerSpec = com.apple.compilers.proxy.script;
+			fileType = sourcecode.yacc;
+			isEditable = 1;
+			outputFiles = (
+				"$(DERIVED_FILES_DIR)/$(CURRENT_ARCH)/tokdefs.h",
+				"$(DERIVED_FILES_DIR)/$(CURRENT_ARCH)/$(INPUT_FILE_BASE).c",
+			);
+			script = "xcrun bison --yacc --name-prefix=pcap_ -d \"$INPUT_FILE_PATH\" --output-file=\"$DERIVED_FILES_DIR/$CURRENT_ARCH/$INPUT_FILE_BASE.c\" --defines=\"$DERIVED_FILES_DIR/$CURRENT_ARCH/tokdefs.h\"";
+		};
+		FCDE361910367FAA00CC3DD8 /* PBXBuildRule */ = {
+			isa = PBXBuildRule;
+			compilerSpec = com.apple.compilers.proxy.script;
+			fileType = sourcecode.lex;
+			isEditable = 1;
+			outputFiles = (
+				"$(DERIVED_FILES_DIR)/$(CURRENT_ARCH)/$(INPUT_FILE_BASE).c",
+			);
+			script = "xcrun flex -Ppcap_ -o\"$DERIVED_FILES_DIR/$CURRENT_ARCH/$INPUT_FILE_BASE.c\" \"$INPUT_FILE_PATH\"";
+		};
+/* End PBXBuildRule section */
+
+/* Begin PBXFileReference section */
+		D2AAC0630554660B00DB518D /* libpcap.A.dylib */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; includeInIndex = 0; path = libpcap.A.dylib; sourceTree = BUILT_PRODUCTS_DIR; };
+		FCDE3589103676CF00CC3DD8 /* bpf_dump.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = bpf_dump.c; path = libpcap/bpf_dump.c; sourceTree = "<group>"; };
+		FCDE358A103676CF00CC3DD8 /* bpf_filter.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = bpf_filter.c; path = libpcap/bpf_filter.c; sourceTree = "<group>"; };
+		FCDE358B103676CF00CC3DD8 /* bpf_image.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = bpf_image.c; path = libpcap/bpf_image.c; sourceTree = "<group>"; };
+		FCDE358C103676CF00CC3DD8 /* etherent.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = etherent.c; path = libpcap/etherent.c; sourceTree = "<group>"; };
+		FCDE358D103676CF00CC3DD8 /* fad-getad.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = "fad-getad.c"; path = "libpcap/fad-getad.c"; sourceTree = "<group>"; };
+		FCDE358E103676CF00CC3DD8 /* gencode.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = gencode.c; path = libpcap/gencode.c; sourceTree = "<group>"; };
+		FCDE358F103676CF00CC3DD8 /* grammar.y */ = {isa = PBXFileReference; explicitFileType = sourcecode.yacc; fileEncoding = 4; name = grammar.y; path = libpcap/grammar.y; sourceTree = "<group>"; };
+		FCDE3590103676CF00CC3DD8 /* inet.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = inet.c; path = libpcap/inet.c; sourceTree = "<group>"; };
+		FCDE3591103676CF00CC3DD8 /* nametoaddr.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = nametoaddr.c; path = libpcap/nametoaddr.c; sourceTree = "<group>"; };
+		FCDE3592103676CF00CC3DD8 /* optimize.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = optimize.c; path = libpcap/optimize.c; sourceTree = "<group>"; };
+		FCDE3593103676CF00CC3DD8 /* pcap-bpf.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = "pcap-bpf.c"; path = "libpcap/pcap-bpf.c"; sourceTree = "<group>"; };
+		FCDE3594103676CF00CC3DD8 /* pcap.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = pcap.c; path = libpcap/pcap.c; sourceTree = "<group>"; };
+		FCDE3595103676CF00CC3DD8 /* savefile.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = savefile.c; path = libpcap/savefile.c; sourceTree = "<group>"; };
+		FCDE3596103676CF00CC3DD8 /* scanner.l */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.lex; name = scanner.l; path = libpcap/scanner.l; sourceTree = "<group>"; };
+		FCDE364B103680B800CC3DD8 /* version.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = version.c; path = libpcap/version.c; sourceTree = "<group>"; };
+		FCDE364C103680B800CC3DD8 /* version.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = version.h; path = libpcap/version.h; sourceTree = "<group>"; };
+		FCDE367E103681F900CC3DD8 /* bpf.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = bpf.h; path = libpcap/pcap/bpf.h; sourceTree = "<group>"; };
+		FCDE367F103681F900CC3DD8 /* namedb.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = namedb.h; path = libpcap/pcap/namedb.h; sourceTree = "<group>"; };
+		FCDE3680103681F900CC3DD8 /* pcap.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = pcap.h; path = libpcap/pcap/pcap.h; sourceTree = "<group>"; };
+		FCDE3681103681F900CC3DD8 /* sll.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = sll.h; path = libpcap/pcap/sll.h; sourceTree = "<group>"; };
+		FCDE3682103681F900CC3DD8 /* usb.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = usb.h; path = libpcap/pcap/usb.h; sourceTree = "<group>"; };
+		FCDE368A1036822200CC3DD8 /* pcap-bpf.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = "pcap-bpf.h"; path = "libpcap/pcap-bpf.h"; sourceTree = "<group>"; };
+		FCDE368B1036822200CC3DD8 /* pcap-namedb.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = "pcap-namedb.h"; path = "libpcap/pcap-namedb.h"; sourceTree = "<group>"; };
+		FCDE368C1036822200CC3DD8 /* pcap.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = pcap.h; path = libpcap/pcap.h; sourceTree = "<group>"; };
+		FCDE369B103682D400CC3DD8 /* pcap_activate.3pcap */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = pcap_activate.3pcap; path = libpcap/pcap_activate.3pcap; sourceTree = "<group>"; };
+		FCDE369C103682D400CC3DD8 /* pcap_breakloop.3pcap */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = pcap_breakloop.3pcap; path = libpcap/pcap_breakloop.3pcap; sourceTree = "<group>"; };
+		FCDE369D103682D400CC3DD8 /* pcap_can_set_rfmon.3pcap */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = pcap_can_set_rfmon.3pcap; path = libpcap/pcap_can_set_rfmon.3pcap; sourceTree = "<group>"; };
+		FCDE369E103682D400CC3DD8 /* pcap_close.3pcap */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = pcap_close.3pcap; path = libpcap/pcap_close.3pcap; sourceTree = "<group>"; };
+		FCDE369F103682D400CC3DD8 /* pcap_compile.3pcap.in */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = pcap_compile.3pcap.in; path = libpcap/pcap_compile.3pcap.in; sourceTree = "<group>"; };
+		FCDE36A0103682D400CC3DD8 /* pcap_create.3pcap */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = pcap_create.3pcap; path = libpcap/pcap_create.3pcap; sourceTree = "<group>"; };
+		FCDE36A1103682D400CC3DD8 /* pcap_datalink_name_to_val.3pcap */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = pcap_datalink_name_to_val.3pcap; path = libpcap/pcap_datalink_name_to_val.3pcap; sourceTree = "<group>"; };
+		FCDE36A2103682D400CC3DD8 /* pcap_datalink_val_to_name.3pcap */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = pcap_datalink_val_to_name.3pcap; path = libpcap/pcap_datalink_val_to_name.3pcap; sourceTree = "<group>"; };
+		FCDE36A3103682D400CC3DD8 /* pcap_datalink.3pcap.in */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = pcap_datalink.3pcap.in; path = libpcap/pcap_datalink.3pcap.in; sourceTree = "<group>"; };
+		FCDE36A4103682D400CC3DD8 /* pcap_dump_close.3pcap */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = pcap_dump_close.3pcap; path = libpcap/pcap_dump_close.3pcap; sourceTree = "<group>"; };
+		FCDE36A5103682D400CC3DD8 /* pcap_dump_file.3pcap */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = pcap_dump_file.3pcap; path = libpcap/pcap_dump_file.3pcap; sourceTree = "<group>"; };
+		FCDE36A6103682D400CC3DD8 /* pcap_dump_flush.3pcap */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = pcap_dump_flush.3pcap; path = libpcap/pcap_dump_flush.3pcap; sourceTree = "<group>"; };
+		FCDE36A7103682D400CC3DD8 /* pcap_dump_ftell.3pcap */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = pcap_dump_ftell.3pcap; path = libpcap/pcap_dump_ftell.3pcap; sourceTree = "<group>"; };
+		FCDE36A8103682D400CC3DD8 /* pcap_dump_open.3pcap.in */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = pcap_dump_open.3pcap.in; path = libpcap/pcap_dump_open.3pcap.in; sourceTree = "<group>"; };
+		FCDE36A9103682D400CC3DD8 /* pcap_dump.3pcap */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = pcap_dump.3pcap; path = libpcap/pcap_dump.3pcap; sourceTree = "<group>"; };
+		FCDE36AA103682D400CC3DD8 /* pcap_file.3pcap */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = pcap_file.3pcap; path = libpcap/pcap_file.3pcap; sourceTree = "<group>"; };
+		FCDE36AB103682D400CC3DD8 /* pcap_fileno.3pcap */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = pcap_fileno.3pcap; path = libpcap/pcap_fileno.3pcap; sourceTree = "<group>"; };
+		FCDE36AC103682D400CC3DD8 /* pcap_findalldevs.3pcap */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = pcap_findalldevs.3pcap; path = libpcap/pcap_findalldevs.3pcap; sourceTree = "<group>"; };
+		FCDE36AD103682D400CC3DD8 /* pcap_free_datalinks.3pcap */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = pcap_free_datalinks.3pcap; path = libpcap/pcap_free_datalinks.3pcap; sourceTree = "<group>"; };
+		FCDE36AE103682D400CC3DD8 /* pcap_freealldevs.3pcap */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = pcap_freealldevs.3pcap; path = libpcap/pcap_freealldevs.3pcap; sourceTree = "<group>"; };
+		FCDE36AF103682D400CC3DD8 /* pcap_freecode.3pcap */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = pcap_freecode.3pcap; path = libpcap/pcap_freecode.3pcap; sourceTree = "<group>"; };
+		FCDE36B0103682D400CC3DD8 /* pcap_get_selectable_fd.3pcap */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = pcap_get_selectable_fd.3pcap; path = libpcap/pcap_get_selectable_fd.3pcap; sourceTree = "<group>"; };
+		FCDE36B1103682D400CC3DD8 /* pcap_geterr.3pcap */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = pcap_geterr.3pcap; path = libpcap/pcap_geterr.3pcap; sourceTree = "<group>"; };
+		FCDE36B2103682D400CC3DD8 /* pcap_inject.3pcap */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = pcap_inject.3pcap; path = libpcap/pcap_inject.3pcap; sourceTree = "<group>"; };
+		FCDE36B3103682D400CC3DD8 /* pcap_is_swapped.3pcap */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = pcap_is_swapped.3pcap; path = libpcap/pcap_is_swapped.3pcap; sourceTree = "<group>"; };
+		FCDE36B4103682D400CC3DD8 /* pcap_lib_version.3pcap */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = pcap_lib_version.3pcap; path = libpcap/pcap_lib_version.3pcap; sourceTree = "<group>"; };
+		FCDE36B5103682D400CC3DD8 /* pcap_list_datalinks.3pcap.in */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = pcap_list_datalinks.3pcap.in; path = libpcap/pcap_list_datalinks.3pcap.in; sourceTree = "<group>"; };
+		FCDE36B6103682D400CC3DD8 /* pcap_lookupdev.3pcap */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = pcap_lookupdev.3pcap; path = libpcap/pcap_lookupdev.3pcap; sourceTree = "<group>"; };
+		FCDE36B7103682D400CC3DD8 /* pcap_lookupnet.3pcap */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = pcap_lookupnet.3pcap; path = libpcap/pcap_lookupnet.3pcap; sourceTree = "<group>"; };
+		FCDE36B8103682D400CC3DD8 /* pcap_loop.3pcap */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = pcap_loop.3pcap; path = libpcap/pcap_loop.3pcap; sourceTree = "<group>"; };
+		FCDE36B9103682D400CC3DD8 /* pcap_major_version.3pcap */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = pcap_major_version.3pcap; path = libpcap/pcap_major_version.3pcap; sourceTree = "<group>"; };
+		FCDE36BA103682D400CC3DD8 /* pcap_next_ex.3pcap */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = pcap_next_ex.3pcap; path = libpcap/pcap_next_ex.3pcap; sourceTree = "<group>"; };
+		FCDE36BB103682D400CC3DD8 /* pcap_offline_filter.3pcap */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = pcap_offline_filter.3pcap; path = libpcap/pcap_offline_filter.3pcap; sourceTree = "<group>"; };
+		FCDE36BC103682D400CC3DD8 /* pcap_open_dead.3pcap.in */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = pcap_open_dead.3pcap.in; path = libpcap/pcap_open_dead.3pcap.in; sourceTree = "<group>"; };
+		FCDE36BD103682D400CC3DD8 /* pcap_open_live.3pcap */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = pcap_open_live.3pcap; path = libpcap/pcap_open_live.3pcap; sourceTree = "<group>"; };
+		FCDE36BE103682D400CC3DD8 /* pcap_open_offline.3pcap.in */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = pcap_open_offline.3pcap.in; path = libpcap/pcap_open_offline.3pcap.in; sourceTree = "<group>"; };
+		FCDE36BF103682D400CC3DD8 /* pcap_set_buffer_size.3pcap */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = pcap_set_buffer_size.3pcap; path = libpcap/pcap_set_buffer_size.3pcap; sourceTree = "<group>"; };
+		FCDE36C0103682D400CC3DD8 /* pcap_set_datalink.3pcap */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = pcap_set_datalink.3pcap; path = libpcap/pcap_set_datalink.3pcap; sourceTree = "<group>"; };
+		FCDE36C1103682D400CC3DD8 /* pcap_set_promisc.3pcap */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = pcap_set_promisc.3pcap; path = libpcap/pcap_set_promisc.3pcap; sourceTree = "<group>"; };
+		FCDE36C2103682D400CC3DD8 /* pcap_set_rfmon.3pcap */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = pcap_set_rfmon.3pcap; path = libpcap/pcap_set_rfmon.3pcap; sourceTree = "<group>"; };
+		FCDE36C3103682D400CC3DD8 /* pcap_set_snaplen.3pcap */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = pcap_set_snaplen.3pcap; path = libpcap/pcap_set_snaplen.3pcap; sourceTree = "<group>"; };
+		FCDE36C4103682D400CC3DD8 /* pcap_set_timeout.3pcap */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = pcap_set_timeout.3pcap; path = libpcap/pcap_set_timeout.3pcap; sourceTree = "<group>"; };
+		FCDE36C5103682D400CC3DD8 /* pcap_setdirection.3pcap */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = pcap_setdirection.3pcap; path = libpcap/pcap_setdirection.3pcap; sourceTree = "<group>"; };
+		FCDE36C6103682D400CC3DD8 /* pcap_setfilter.3pcap */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = pcap_setfilter.3pcap; path = libpcap/pcap_setfilter.3pcap; sourceTree = "<group>"; };
+		FCDE36C7103682D400CC3DD8 /* pcap_setnonblock.3pcap */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = pcap_setnonblock.3pcap; path = libpcap/pcap_setnonblock.3pcap; sourceTree = "<group>"; };
+		FCDE36C8103682D400CC3DD8 /* pcap_snapshot.3pcap */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = pcap_snapshot.3pcap; path = libpcap/pcap_snapshot.3pcap; sourceTree = "<group>"; };
+		FCDE36C9103682D400CC3DD8 /* pcap_stats.3pcap */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = pcap_stats.3pcap; path = libpcap/pcap_stats.3pcap; sourceTree = "<group>"; };
+		FCDE36CA103682D400CC3DD8 /* pcap_statustostr.3pcap */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = pcap_statustostr.3pcap; path = libpcap/pcap_statustostr.3pcap; sourceTree = "<group>"; };
+		FCDE36CB103682D400CC3DD8 /* pcap_strerror.3pcap */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = pcap_strerror.3pcap; path = libpcap/pcap_strerror.3pcap; sourceTree = "<group>"; };
+		FCDE36CC103682D400CC3DD8 /* pcap-config.1 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.man; name = "pcap-config.1"; path = "libpcap/pcap-config.1"; sourceTree = "<group>"; };
+		FCDE36CD103682D400CC3DD8 /* pcap.3pcap.in */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = pcap.3pcap.in; path = libpcap/pcap.3pcap.in; sourceTree = "<group>"; };
+		FCDE37061036836500CC3DD8 /* pcap-savefile.manfile.in */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = "pcap-savefile.manfile.in"; path = "libpcap/pcap-savefile.manfile.in"; sourceTree = "<group>"; };
+		FCDE37091036837700CC3DD8 /* pcap-filter.manmisc.in */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = "pcap-filter.manmisc.in"; path = "libpcap/pcap-filter.manmisc.in"; sourceTree = "<group>"; };
+		FCDE370C1036838C00CC3DD8 /* pcap-linktype.manmisc.in */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = "pcap-linktype.manmisc.in"; path = "libpcap/pcap-linktype.manmisc.in"; sourceTree = "<group>"; };
+		FCDE370F103683C100CC3DD8 /* pcap-config.in */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; name = "pcap-config.in"; path = "libpcap/pcap-config.in"; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		D289988505E68E00004EDB86 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		08FB7794FE84155DC02AAC07 /* libpcap */ = {
+			isa = PBXGroup;
+			children = (
+				FCDE36951036824D00CC3DD8 /* Headers */,
+				08FB7795FE84155DC02AAC07 /* Source */,
+				FCDE36981036827700CC3DD8 /* Documentation */,
+				1AB674ADFE9D54B511CA2CBB /* Products */,
+			);
+			name = libpcap;
+			sourceTree = "<group>";
+		};
+		08FB7795FE84155DC02AAC07 /* Source */ = {
+			isa = PBXGroup;
+			children = (
+				FCDE3589103676CF00CC3DD8 /* bpf_dump.c */,
+				FCDE358A103676CF00CC3DD8 /* bpf_filter.c */,
+				FCDE358B103676CF00CC3DD8 /* bpf_image.c */,
+				FCDE358C103676CF00CC3DD8 /* etherent.c */,
+				FCDE358D103676CF00CC3DD8 /* fad-getad.c */,
+				FCDE358E103676CF00CC3DD8 /* gencode.c */,
+				FCDE358F103676CF00CC3DD8 /* grammar.y */,
+				FCDE3590103676CF00CC3DD8 /* inet.c */,
+				FCDE3591103676CF00CC3DD8 /* nametoaddr.c */,
+				FCDE3592103676CF00CC3DD8 /* optimize.c */,
+				FCDE3593103676CF00CC3DD8 /* pcap-bpf.c */,
+				FCDE3594103676CF00CC3DD8 /* pcap.c */,
+				FCDE3595103676CF00CC3DD8 /* savefile.c */,
+				FCDE3596103676CF00CC3DD8 /* scanner.l */,
+				FCDE364B103680B800CC3DD8 /* version.c */,
+				FCDE370F103683C100CC3DD8 /* pcap-config.in */,
+			);
+			name = Source;
+			sourceTree = "<group>";
+		};
+		1AB674ADFE9D54B511CA2CBB /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				D2AAC0630554660B00DB518D /* libpcap.A.dylib */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		FCDE36951036824D00CC3DD8 /* Headers */ = {
+			isa = PBXGroup;
+			children = (
+				FCDE368C1036822200CC3DD8 /* pcap.h */,
+				FCDE368A1036822200CC3DD8 /* pcap-bpf.h */,
+				FCDE368B1036822200CC3DD8 /* pcap-namedb.h */,
+				FCDE367E103681F900CC3DD8 /* bpf.h */,
+				FCDE367F103681F900CC3DD8 /* namedb.h */,
+				FCDE3680103681F900CC3DD8 /* pcap.h */,
+				FCDE3681103681F900CC3DD8 /* sll.h */,
+				FCDE3682103681F900CC3DD8 /* usb.h */,
+				FCDE364C103680B800CC3DD8 /* version.h */,
+			);
+			name = Headers;
+			sourceTree = "<group>";
+		};
+		FCDE36981036827700CC3DD8 /* Documentation */ = {
+			isa = PBXGroup;
+			children = (
+				FCDE36CC103682D400CC3DD8 /* pcap-config.1 */,
+				FCDE370C1036838C00CC3DD8 /* pcap-linktype.manmisc.in */,
+				FCDE37091036837700CC3DD8 /* pcap-filter.manmisc.in */,
+				FCDE37061036836500CC3DD8 /* pcap-savefile.manfile.in */,
+				FCDE36CD103682D400CC3DD8 /* pcap.3pcap.in */,
+				FCDE369B103682D400CC3DD8 /* pcap_activate.3pcap */,
+				FCDE369C103682D400CC3DD8 /* pcap_breakloop.3pcap */,
+				FCDE369D103682D400CC3DD8 /* pcap_can_set_rfmon.3pcap */,
+				FCDE369E103682D400CC3DD8 /* pcap_close.3pcap */,
+				FCDE369F103682D400CC3DD8 /* pcap_compile.3pcap.in */,
+				FCDE36A0103682D400CC3DD8 /* pcap_create.3pcap */,
+				FCDE36A1103682D400CC3DD8 /* pcap_datalink_name_to_val.3pcap */,
+				FCDE36A2103682D400CC3DD8 /* pcap_datalink_val_to_name.3pcap */,
+				FCDE36A3103682D400CC3DD8 /* pcap_datalink.3pcap.in */,
+				FCDE36A4103682D400CC3DD8 /* pcap_dump_close.3pcap */,
+				FCDE36A5103682D400CC3DD8 /* pcap_dump_file.3pcap */,
+				FCDE36A6103682D400CC3DD8 /* pcap_dump_flush.3pcap */,
+				FCDE36A7103682D400CC3DD8 /* pcap_dump_ftell.3pcap */,
+				FCDE36A8103682D400CC3DD8 /* pcap_dump_open.3pcap.in */,
+				FCDE36A9103682D400CC3DD8 /* pcap_dump.3pcap */,
+				FCDE36AA103682D400CC3DD8 /* pcap_file.3pcap */,
+				FCDE36AB103682D400CC3DD8 /* pcap_fileno.3pcap */,
+				FCDE36AC103682D400CC3DD8 /* pcap_findalldevs.3pcap */,
+				FCDE36AD103682D400CC3DD8 /* pcap_free_datalinks.3pcap */,
+				FCDE36AE103682D400CC3DD8 /* pcap_freealldevs.3pcap */,
+				FCDE36AF103682D400CC3DD8 /* pcap_freecode.3pcap */,
+				FCDE36B0103682D400CC3DD8 /* pcap_get_selectable_fd.3pcap */,
+				FCDE36B1103682D400CC3DD8 /* pcap_geterr.3pcap */,
+				FCDE36B2103682D400CC3DD8 /* pcap_inject.3pcap */,
+				FCDE36B3103682D400CC3DD8 /* pcap_is_swapped.3pcap */,
+				FCDE36B4103682D400CC3DD8 /* pcap_lib_version.3pcap */,
+				FCDE36B5103682D400CC3DD8 /* pcap_list_datalinks.3pcap.in */,
+				FCDE36B6103682D400CC3DD8 /* pcap_lookupdev.3pcap */,
+				FCDE36B7103682D400CC3DD8 /* pcap_lookupnet.3pcap */,
+				FCDE36B8103682D400CC3DD8 /* pcap_loop.3pcap */,
+				FCDE36B9103682D400CC3DD8 /* pcap_major_version.3pcap */,
+				FCDE36BA103682D400CC3DD8 /* pcap_next_ex.3pcap */,
+				FCDE36BB103682D400CC3DD8 /* pcap_offline_filter.3pcap */,
+				FCDE36BC103682D400CC3DD8 /* pcap_open_dead.3pcap.in */,
+				FCDE36BD103682D400CC3DD8 /* pcap_open_live.3pcap */,
+				FCDE36BE103682D400CC3DD8 /* pcap_open_offline.3pcap.in */,
+				FCDE36BF103682D400CC3DD8 /* pcap_set_buffer_size.3pcap */,
+				FCDE36C0103682D400CC3DD8 /* pcap_set_datalink.3pcap */,
+				FCDE36C1103682D400CC3DD8 /* pcap_set_promisc.3pcap */,
+				FCDE36C2103682D400CC3DD8 /* pcap_set_rfmon.3pcap */,
+				FCDE36C3103682D400CC3DD8 /* pcap_set_snaplen.3pcap */,
+				FCDE36C4103682D400CC3DD8 /* pcap_set_timeout.3pcap */,
+				FCDE36C5103682D400CC3DD8 /* pcap_setdirection.3pcap */,
+				FCDE36C6103682D400CC3DD8 /* pcap_setfilter.3pcap */,
+				FCDE36C7103682D400CC3DD8 /* pcap_setnonblock.3pcap */,
+				FCDE36C8103682D400CC3DD8 /* pcap_snapshot.3pcap */,
+				FCDE36C9103682D400CC3DD8 /* pcap_stats.3pcap */,
+				FCDE36CA103682D400CC3DD8 /* pcap_statustostr.3pcap */,
+				FCDE36CB103682D400CC3DD8 /* pcap_strerror.3pcap */,
+			);
+			name = Documentation;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXHeadersBuildPhase section */
+		D2AAC0600554660B00DB518D /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				FC293B301036978A0055686E /* pcap.h in Headers */,
+				FCDE368D1036822200CC3DD8 /* pcap-bpf.h in Headers */,
+				FCDE368E1036822200CC3DD8 /* pcap-namedb.h in Headers */,
+				FCDE3683103681F900CC3DD8 /* bpf.h in Headers */,
+				FCDE3684103681F900CC3DD8 /* namedb.h in Headers */,
+				FC293B26103695150055686E /* pcap.h in Headers */,
+				FCDE3686103681F900CC3DD8 /* sll.h in Headers */,
+				FCDE3687103681F900CC3DD8 /* usb.h in Headers */,
+				FCDE364E103680B800CC3DD8 /* version.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXHeadersBuildPhase section */
+
+/* Begin PBXNativeTarget section */
+		D2AAC0620554660B00DB518D /* libpcap */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 1DEB914A08733D8E0010E9CD /* Build configuration list for PBXNativeTarget "libpcap" */;
+			buildPhases = (
+				D2AAC0600554660B00DB518D /* Headers */,
+				D2AAC0610554660B00DB518D /* Sources */,
+				D289988505E68E00004EDB86 /* Frameworks */,
+				FCDE37291036849300CC3DD8 /* ShellScript */,
+			);
+			buildRules = (
+				FCDE361910367FAA00CC3DD8 /* PBXBuildRule */,
+				FCDE360410367D9100CC3DD8 /* PBXBuildRule */,
+			);
+			dependencies = (
+			);
+			name = libpcap;
+			productName = libpcap;
+			productReference = D2AAC0630554660B00DB518D /* libpcap.A.dylib */;
+			productType = "com.apple.product-type.library.dynamic";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		08FB7793FE84155DC02AAC07 /* Project object */ = {
+			isa = PBXProject;
+			buildConfigurationList = 1DEB914E08733D8E0010E9CD /* Build configuration list for PBXProject "libpcap" */;
+			compatibilityVersion = "Xcode 3.1";
+			hasScannedForEncodings = 1;
+			mainGroup = 08FB7794FE84155DC02AAC07 /* libpcap */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				D2AAC0620554660B00DB518D /* libpcap */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		FCDE37291036849300CC3DD8 /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 8;
+			files = (
+			);
+			inputPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+			shellPath = /bin/sh;
+			shellScript = "# exit immediately on failure\nset -e\n\nMANDIR=/usr/share/man\n\nln -sf libpcap.A.dylib \"$DSTROOT\"/usr/lib/libpcap.dylib\n\ninstall -d -o root -g wheel -m 0755 \"$DSTROOT\"/usr/bin\ninstall -c -o root -g wheel -m 0755 \"$PROJECT_DIR\"/libpcap/pcap-config \"$DSTROOT\"/usr/bin/pcap-config\n\ninstall -d -o root -g wheel -m 0755 \"$DSTROOT\"/\"$MANDIR\"/man1\ninstall -d -o root -g wheel -m 0755 \"$DSTROOT\"/\"$MANDIR\"/man3\ninstall -d -o root -g wheel -m 0755 \"$DSTROOT\"/\"$MANDIR\"/man5\ninstall -d -o root -g wheel -m 0755 \"$DSTROOT\"/\"$MANDIR\"/man7\n\ninstall -c -o root -g wheel -m 0644 \"$PROJECT_DIR\"/libpcap/pcap-config.1 \"$DSTROOT\"/\"$MANDIR\"/man1\n\ninstall -c -o root -g wheel -m 0644 \"$PROJECT_DIR\"/libpcap/*.3pcap \"$DSTROOT\"/\"$MANDIR\"/man3\n\n# Some man pages require special processing:\n# @MAN_MISC_INFO@ -> 7\n# .manmisc.in -> .7\n# @MAN_FILE_FORMATS@ -> 5\n# .manfile.in -> .5\n\nfunction FixManPages() {\n    OLD_DIR=\"$1\"\n    OLD_SUFFIX=\"$2\"\n    NEW_DIR=\"$3\"\n    NEW_SUFFIX=\"$4\"\n    for INPUT_FILE_PATH in \"$OLD_DIR\"/*\"$OLD_SUFFIX\" ; do\n        INPUT_FILE_BASE=`basename \"$INPUT_FILE_PATH\" \"$OLD_SUFFIX\"`\n        OUTPUT_FILE_PATH=\"$NEW_DIR/$INPUT_FILE_BASE$NEW_SUFFIX\"\n        cat \"$INPUT_FILE_PATH\" | sed -e 's,@MAN_MISC_INFO@,7,g' | sed -e 's,@MAN_FILE_FORMATS,5,g' > \"$OUTPUT_FILE_PATH\"\n        chmod 0644 \"$OUTPUT_FILE_PATH\"\n        chown root:wheel \"$OUTPUT_FILE_PATH\"\n    done\n}\n\nFixManPages \"$PROJECT_DIR\"/libpcap .3pcap.in \"$DSTROOT\"/\"$MANDIR\"/man3 .3pcap\nFixManPages \"$PROJECT_DIR\"/libpcap .manfile.in \"$DSTROOT\"/\"$MANDIR\"/man5 .5\nFixManPages \"$PROJECT_DIR\"/libpcap .manmisc.in \"$DSTROOT\"/\"$MANDIR\"/man7 .7\n\n# Some man pages are links\nfunction ManPageLink() {\n    TARGET=\"$1\"\n    LINK=\"$2\"\n    OUTPUT_FILE_PATH=\"$DSTROOT/\"$MANDIR\"/man3/$LINK\"\n    echo \".so man3/$TARGET\" > \"$OUTPUT_FILE_PATH\"\n    chmod 0644 \"$OUTPUT_FILE_PATH\"\n    chown root:wheel \"$OUTPUT_FILE_PATH\"\n}\n\nManPageLink pcap_datalink_val_to_name.3pcap pcap_datalink_val_to_description.3pcap\nManPageLink pcap_loop.3pcap pcap_dispatch.3pcap\nManPageLink pcap_dump_open.3pcap pcap_dump_fopen.3pcap\nManPageLink pcap_open_offline.3pcap pcap_fopen_offline.3pcap\nManPageLink pcap_setnonblock.3pcap pcap_getnonblock.3pcap\nManPageLink pcap_major_version.3pcap pcap_minor_version.3pcap\nManPageLink pcap_next_ex.3pcap pcap_next.3pcap\nManPageLink pcap_geterr.3pcap pcap_perror.3pcap\nManPageLink pcap_inject.3pcap pcap_sendpacket.3pcap\n\n# Install open source information\ninstall -d -o root -g wheel -m 0755 \"$DSTROOT\"/usr/local/OpenSourceVersions\ninstall -c -o root -g wheel -m 0444 \"$PROJECT_DIR\"/libpcap.plist \"$DSTROOT\"/usr/local/OpenSourceVersions\ninstall -d -o root -g wheel -m 0755 \"$DSTROOT\"/usr/local/OpenSourceLicenses\ninstall -c -o root -g wheel -m 0444 \"$PROJECT_DIR\"/libpcap/LICENSE \"$DSTROOT\"/usr/local/OpenSourceLicenses/libpcap.txt\n";
+		};
+/* End PBXShellScriptBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		D2AAC0610554660B00DB518D /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				FCDE3597103676CF00CC3DD8 /* bpf_dump.c in Sources */,
+				FCDE3598103676CF00CC3DD8 /* bpf_filter.c in Sources */,
+				FCDE3599103676CF00CC3DD8 /* bpf_image.c in Sources */,
+				FCDE359A103676CF00CC3DD8 /* etherent.c in Sources */,
+				FCDE359B103676CF00CC3DD8 /* fad-getad.c in Sources */,
+				FCDE359C103676CF00CC3DD8 /* gencode.c in Sources */,
+				FCDE359D103676CF00CC3DD8 /* grammar.y in Sources */,
+				FCDE359E103676CF00CC3DD8 /* inet.c in Sources */,
+				FCDE359F103676CF00CC3DD8 /* nametoaddr.c in Sources */,
+				FCDE35A0103676CF00CC3DD8 /* optimize.c in Sources */,
+				FCDE35A1103676CF00CC3DD8 /* pcap-bpf.c in Sources */,
+				FCDE35A2103676CF00CC3DD8 /* pcap.c in Sources */,
+				FCDE35A3103676CF00CC3DD8 /* savefile.c in Sources */,
+				FCDE35A4103676CF00CC3DD8 /* scanner.l in Sources */,
+				FCDE364D103680B800CC3DD8 /* version.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		1DEB914C08733D8E0010E9CD /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				INSTALL_PATH = /usr/lib;
+				OTHER_LDFLAGS = "-all_load";
+				PRIVATE_HEADERS_FOLDER_PATH = /usr/include/pcap;
+				PRODUCT_NAME = libpcap.A;
+			};
+			name = Release;
+		};
+		1DEB915008733D8E0010E9CD /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_IDENTITY = "-";
+				CURRENT_PROJECT_VERSION = "$(RC_ProjectSourceVersion)";
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					HAVE_CONFIG_H,
+					"_U_=\"__attribute__((unused))\"",
+					"yylval=pcap_lval",
+				);
+				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				HEADER_SEARCH_PATHS = libpcap;
+				PREBINDING = NO;
+				PRIVATE_HEADERS_FOLDER_PATH = /usr/local/include;
+				PUBLIC_HEADERS_FOLDER_PATH = /usr/include;
+				VERSIONING_SYSTEM = "apple-generic";
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		1DEB914A08733D8E0010E9CD /* Build configuration list for PBXNativeTarget "libpcap" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				1DEB914C08733D8E0010E9CD /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		1DEB914E08733D8E0010E9CD /* Build configuration list for PBXProject "libpcap" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				1DEB915008733D8E0010E9CD /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 08FB7793FE84155DC02AAC07 /* Project object */;
+}

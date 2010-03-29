@@ -290,6 +290,9 @@ struct vpnctl_cmd_start_dpd {
 #define VPNCTL_NTYPE_PEER_DEAD					50001	/* detected by DPD */
 #define VPNCTL_NTYPE_PH1_DELETE					50002	/* received a delete payload leaving no PH1 SA for the remote address */
 #define VPNCTL_NTYPE_IDLE_TIMEOUT				50003
+#define VPNCTL_NTYPE_PH1_DELETE_CERT_ERROR                      VPNCTL_NTYPE_IDLE_TIMEOUT /* used for offsetting cert errors */
+#define VPNCTL_NTYPE_PH1_DELETE_CERT_PREMATURE                  50004   /* received a delete payload & there was a cert verification error leaving no PH1 SA for the remote address */
+#define VPNCTL_NTYPE_PH1_DELETE_CERT_EXPIRED                    50005   /* received a delete payload & there was a cert verification error leaving no PH1 SA for the remote address */
 #define VPNCTL_NTYPE_INTERNAL_ERROR				-1
 
 

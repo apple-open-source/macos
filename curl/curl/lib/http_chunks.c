@@ -5,7 +5,7 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) 1998 - 2008, Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) 1998 - 2009, Daniel Stenberg, <daniel@haxx.se>, et al.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
@@ -18,7 +18,7 @@
  * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
  * KIND, either express or implied.
  *
- * $Id: http_chunks.c,v 1.47 2008-10-24 01:27:00 yangtse Exp $
+ * $Id: http_chunks.c,v 1.49 2009-06-10 21:26:11 bagder Exp $
  ***************************************************************************/
 #include "setup.h"
 
@@ -35,7 +35,7 @@
 
 #include "content_encoding.h"
 #include "http.h"
-#include "memory.h"
+#include "curl_memory.h"
 #include "easyif.h" /* for Curl_convert_to_network prototype */
 
 #define _MPRINTF_REPLACE /* use our functions only */
@@ -345,7 +345,6 @@ CHUNKcode Curl_httpchunk_read(struct connectdata *conn,
         conn->trailer[conn->trlPos]=0;
         if(conn->trlPos==2) {
           ch->state = CHUNK_STOP;
-          datap++;
           length--;
 
           /*
@@ -400,7 +399,6 @@ CHUNKcode Curl_httpchunk_read(struct connectdata *conn,
 
     case CHUNK_STOP:
       if(*datap == 0x0a) {
-        datap++;
         length--;
 
         /* Record the length of any data left in the end of the buffer

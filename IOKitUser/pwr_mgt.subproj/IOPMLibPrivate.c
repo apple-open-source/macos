@@ -1184,8 +1184,12 @@ IOReturn IOPMConnectionAcknowledgeEvent(
     IOPMConnection connect, 
     IOPMConnectionMessageToken token)
 {
+#if TARGET_OS_EMBEDDED
+    return kIOReturnUnsupported;
+#else
     return IOPMConnectionAcknowledgeEventWithOptions(
                            connect, token, NULL);
+#endif /* TARGET_OS_EMBEDDED */
 }
 
 
@@ -1197,6 +1201,9 @@ IOReturn IOPMConnectionAcknowledgeEventWithOptions(
     IOPMConnectionMessageToken token, 
     CFDictionaryRef options)
 {
+#if TARGET_OS_EMBEDDED
+    return kIOReturnUnsupported;
+#else
     __IOPMConnection    *connection = (__IOPMConnection *)myConnection;
 
     IOReturn            return_code = kIOReturnError;
@@ -1247,6 +1254,7 @@ exit:
     if (serializedData) CFRelease(serializedData);
 
     return return_code;
+#endif /* TARGET_OS_EMBEDDED */
 }
 
 /*****************************************************************************/

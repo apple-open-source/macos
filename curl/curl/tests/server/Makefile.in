@@ -36,10 +36,11 @@ PRE_UNINSTALL = :
 POST_UNINSTALL = :
 build_triplet = @build@
 host_triplet = @host@
+DIST_COMMON = $(srcdir)/Makefile.am $(srcdir)/Makefile.in \
+	$(srcdir)/Makefile.inc
 noinst_PROGRAMS = sws$(EXEEXT) getpart$(EXEEXT) sockfilt$(EXEEXT) \
 	resolve$(EXEEXT) tftpd$(EXEEXT)
 subdir = tests/server
-DIST_COMMON = $(srcdir)/Makefile.am $(srcdir)/Makefile.in
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
 am__aclocal_m4_deps = $(top_srcdir)/m4/curl-compilers.m4 \
 	$(top_srcdir)/m4/curl-confopts.m4 \
@@ -53,8 +54,8 @@ am__aclocal_m4_deps = $(top_srcdir)/m4/curl-compilers.m4 \
 am__configure_deps = $(am__aclocal_m4_deps) $(CONFIGURE_DEPENDENCIES) \
 	$(ACLOCAL_M4)
 mkinstalldirs = $(SHELL) $(top_srcdir)/mkinstalldirs
-CONFIG_HEADER = $(top_builddir)/lib/config.h \
-	$(top_builddir)/src/config.h \
+CONFIG_HEADER = $(top_builddir)/lib/curl_config.h \
+	$(top_builddir)/src/curl_config.h \
 	$(top_builddir)/include/curl/curlbuild.h
 CONFIG_CLEAN_FILES =
 PROGRAMS = $(noinst_PROGRAMS)
@@ -111,6 +112,8 @@ CPP = @CPP@
 CPPFLAGS = @CPPFLAGS@
 CROSSCOMPILING_FALSE = @CROSSCOMPILING_FALSE@
 CROSSCOMPILING_TRUE = @CROSSCOMPILING_TRUE@
+CURLDEBUG_FALSE = @CURLDEBUG_FALSE@
+CURLDEBUG_TRUE = @CURLDEBUG_TRUE@
 CURL_CA_BUNDLE = @CURL_CA_BUNDLE@
 CURL_DISABLE_DICT = @CURL_DISABLE_DICT@
 CURL_DISABLE_FILE = @CURL_DISABLE_FILE@
@@ -177,6 +180,7 @@ PACKAGE_BUGREPORT = @PACKAGE_BUGREPORT@
 PACKAGE_NAME = @PACKAGE_NAME@
 PACKAGE_STRING = @PACKAGE_STRING@
 PACKAGE_TARNAME = @PACKAGE_TARNAME@
+PACKAGE_URL = @PACKAGE_URL@
 PACKAGE_VERSION = @PACKAGE_VERSION@
 PATH = @PATH@
 PATH_SEPARATOR = @PATH_SEPARATOR@
@@ -200,6 +204,8 @@ STRIP = @STRIP@
 SUPPORT_FEATURES = @SUPPORT_FEATURES@
 SUPPORT_PROTOCOLS = @SUPPORT_PROTOCOLS@
 TEST_SERVER_LIBS = @TEST_SERVER_LIBS@
+USE_EMBEDDED_ARES_FALSE = @USE_EMBEDDED_ARES_FALSE@
+USE_EMBEDDED_ARES_TRUE = @USE_EMBEDDED_ARES_TRUE@
 USE_GNUTLS = @USE_GNUTLS@
 USE_LIBSSH2 = @USE_LIBSSH2@
 USE_MANUAL_FALSE = @USE_MANUAL_FALSE@
@@ -264,7 +270,7 @@ target_alias = @target_alias@
 #                            | (__| |_| |  _ <| |___
 #                             \___|\___/|_| \_\_____|
 #
-# Copyright (C) 1998 - 2008, Daniel Stenberg, <daniel@haxx.se>, et al.
+# Copyright (C) 1998 - 2009, Daniel Stenberg, <daniel@haxx.se>, et al.
 #
 # This software is licensed as described in the file COPYING, which
 # you should have received as part of this distribution. The terms
@@ -277,9 +283,14 @@ target_alias = @target_alias@
 # This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
 # KIND, either express or implied.
 #
-# $Id: Makefile.am,v 1.23 2008-08-07 00:29:09 yangtse Exp $
+# $Id: Makefile.am,v 1.28 2009-07-14 13:25:15 gknauf Exp $
 ###########################################################################
 AUTOMAKE_OPTIONS = foreign nostdinc
+@USE_EMBEDDED_ARES_FALSE@INCLUDES = -I$(top_builddir)/include \
+@USE_EMBEDDED_ARES_FALSE@           -I$(top_srcdir)/include   \
+@USE_EMBEDDED_ARES_FALSE@           -I$(top_builddir)/lib     \
+@USE_EMBEDDED_ARES_FALSE@           -I$(top_srcdir)/lib
+
 
 # Specify our include paths here, and do it relative to $(top_srcdir) and
 # $(top_builddir), to ensure that these paths which belong to the library
@@ -288,12 +299,16 @@ AUTOMAKE_OPTIONS = foreign nostdinc
 #
 # $(top_builddir)/include is for libcurl's generated curl/curlbuild.h file
 # $(top_srcdir)/include is for libcurl's external include files
-# $(top_builddir)/lib is for libcurl's generated lib/config.h file
+# $(top_builddir)/lib is for libcurl's generated lib/curl_config.h file
 # $(top_srcdir)/lib is for libcurl's lib/setup.h and other "borrowed" files
-INCLUDES = -I$(top_builddir)/include \
-           -I$(top_srcdir)/include   \
-           -I$(top_builddir)/lib     \
-           -I$(top_srcdir)/lib 
+# $(top_builddir)/ares is for in-tree c-ares's generated ares_build.h file
+# $(top_srcdir)/ares is for in-tree c-ares's external include files
+@USE_EMBEDDED_ARES_TRUE@INCLUDES = -I$(top_builddir)/include \
+@USE_EMBEDDED_ARES_TRUE@           -I$(top_srcdir)/include   \
+@USE_EMBEDDED_ARES_TRUE@           -I$(top_builddir)/lib     \
+@USE_EMBEDDED_ARES_TRUE@           -I$(top_srcdir)/lib       \
+@USE_EMBEDDED_ARES_TRUE@           -I$(top_builddir)/ares    \
+@USE_EMBEDDED_ARES_TRUE@           -I$(top_srcdir)/ares
 
 useful = getpart.c getpart.h $(top_srcdir)/lib/strequal.c	\
  $(top_srcdir)/lib/base64.c $(top_srcdir)/lib/mprintf.c		\
@@ -312,12 +327,14 @@ getpart_SOURCES = testpart.c $(useful)
 getpart_LDADD = @TEST_SERVER_LIBS@
 tftpd_SOURCES = tftpd.c util.c util.h $(useful) tftp.h
 tftpd_LDADD = @TEST_SERVER_LIBS@
-extra_DIST = base64.pl
+
+# Makefile.inc provides the source defines (noinst_PROGRAMS, useful, *_SOURCES, and *_LDADD)
+extra_DIST = base64.pl Makefile.inc
 all: all-am
 
 .SUFFIXES:
 .SUFFIXES: .c .lo .o .obj
-$(srcdir)/Makefile.in: @MAINTAINER_MODE_TRUE@ $(srcdir)/Makefile.am  $(am__configure_deps)
+$(srcdir)/Makefile.in: @MAINTAINER_MODE_TRUE@ $(srcdir)/Makefile.am $(srcdir)/Makefile.inc $(am__configure_deps)
 	@for dep in $?; do \
 	  case '$(am__configure_deps)' in \
 	    *$$dep*) \

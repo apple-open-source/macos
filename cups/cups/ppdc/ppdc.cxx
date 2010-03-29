@@ -1,9 +1,9 @@
 //
-// "$Id: ppdc.cxx 1558 2009-06-10 19:21:50Z msweet $"
+// "$Id: ppdc.cxx 1821 2010-01-14 23:05:18Z msweet $"
 //
 //   PPD file compiler main entry for the CUPS PPD Compiler.
 //
-//   Copyright 2007-2008 by Apple Inc.
+//   Copyright 2007-2010 by Apple Inc.
 //   Copyright 2002-2007 by Easy Software Products.
 //
 //   These coded instructions, statements, and computer programs are the
@@ -52,6 +52,8 @@ main(int  argc,				// I - Number of command-line arguments
   char			*opt,		// Current option
 			*value,		// Value in option
 			*outname,	// Output filename
+			make_model[1024],
+					// Make and model
 			pcfilename[1024],
 					// Lowercase pcfilename
 			filename[1024];	// PPD filename
@@ -311,7 +313,21 @@ main(int  argc,				// I - Number of command-line arguments
       {
 	// Write the PPD file for this driver...
 	if (use_model_name)
-	  outname = d->model_name->value;
+	{
+	  if (!strncasecmp(d->model_name->value, d->manufacturer->value,
+	                   strlen(d->manufacturer->value)))
+	  {
+	    // Model name already starts with the manufacturer...
+            outname = d->model_name->value;
+	  }
+	  else
+	  {
+	    // Add manufacturer to the front of the model name...
+	    snprintf(make_model, sizeof(make_model), "%s %s",
+	             d->manufacturer->value, d->model_name->value);
+	    outname = make_model;
+	  }
+	}
 	else if (d->file_name)
 	  outname = d->file_name->value;
 	else
@@ -431,5 +447,5 @@ usage(void)
 
 
 //
-// End of "$Id: ppdc.cxx 1558 2009-06-10 19:21:50Z msweet $".
+// End of "$Id: ppdc.cxx 1821 2010-01-14 23:05:18Z msweet $".
 //

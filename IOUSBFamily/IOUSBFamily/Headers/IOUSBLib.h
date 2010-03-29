@@ -1437,7 +1437,7 @@ typedef struct IOUSBDeviceStruct320 {
 	 @discussion The device does not have to be open to use this function.
 	 @availability This function is only available with IOUSBDeviceInterface320 and above.
 	 @param      self Pointer to the IOUSBDeviceInterface.
-	 @param requestedPower 	The desired amount of power that the client wishes to reserve
+	 @param      info Pointer to a buffer that returns a bit field of information on the device (see the USBDeviceInformationBits in USB.h).
 	 @result     Returns kIOReturnSuccess if successful, kIOReturnNoDevice if there is no connection to an IOService, or kIOReturnUnsupported is the bus doesn't support this function.
 	 */
     IOReturn (*GetUSBDeviceInformation)(void *self, UInt32 *info);
@@ -2299,21 +2299,24 @@ typedef struct IOUSBInterfaceStruct190 {
     
     /*!
     @function SetPipePolicy
-    @abstract   Changes the size of the reserved bandwidth for an isochronous pipe.
-    @discussion The pipe may be made smaller or larger (up to the maxPacketSize specified in the endpoint descriptor).
+    @abstract   Changes the amount of bandwidth of an isochronous pipe or interrupt pipe, or the polling interval of an interrupt pipe.
+    @discussion A pipe may be made smaller or larger (up to the maxPacketSize specified in the endpoint descriptor).
                 When an interface is first opened, all pipes are created with their descriptor-supplied maxPacketSize.
-                For isochronous pipes, if there is not enough bandwidth on the bus to allocate to the pipe, the pipe
+                For isochronous or interrupt pipes, if there is not enough bandwidth on the bus to allocate to the pipe, the pipe
                 is created with a reserved bandwidth of zero. Any attempts to transfer data on a pipe with zero 
                 bandwidth will result in a kIOReturnNoBandwidth error. The pipe must first be given some bandwidth 
-                using this call.
+                using this call.  This can also be used to return bandwidth for an isochronous or an interrupt pipe.  If the driver
+				knows that the device will not be sending the maxPacketSize data, it can use this call to return that unused bandwidth to the
+				system.  If an interrupt pipe wants to change the polling interval, it can do so with this call.
                 
                 The interface must be open for the pipe to exist.
     @availability This function is only available with IOUSBInterfaceInterface190 and above.
     @param      self Pointer to the IOUSBInterfaceInterface.
     @param      pipeRef Index for the desired pipe (1 - GetNumEndpoints).
-    @param      maxPacketSize The desired size for the isochronous pipe. Valid values are 0 through the maxPacketSize 
-                defined in the endpoint descriptor.
-    @param      maxInterval Currently ignored.
+    @param      maxPacketSize The desired size for the isochronous or interrupt pipe. Valid values are 0 through the maxPacketSize 
+                defined in the endpoint descriptor.   
+	@param      maxInterval:  the desired polling interval in milliseconds, up to a maximum of 128 ms.  The
+				system can only poll devices powers of 2 (1, 2, 4, 8, 16, 32, 64, or 128 ms).  A value of 0 is illegal.
     @result     Returns kIOReturnSuccess if successful, kIOReturnNoDevice if there is no connection to an IOService, or
                 kIOReturnNotOpen if the interface is not open for exclusive access.  May also return kIOReturnNoBandwidth 
                 if there is not enough bandwidth available on the bus, or kIOReturnBadArgument if the desired 
@@ -2324,8 +2327,9 @@ typedef struct IOUSBInterfaceStruct190 {
     
     /*!
     @function GetBandwidthAvailable
-    @abstract   Returns the amount of bandwidth available (in bytes per 1ms frame) on the bus for allocation to 
-                isochronous pipes.
+    @abstract   Returns the amount of bandwidth available on the bus for allocation to 
+                isochronous pipes.  If the device is a high speed device, it will be the number of bytes per microframe (125 µsecs). If it is a full
+				speed device, it will be the number of bytes per frame (1ms)
     @discussion This function is useful for determining the correct AltInterface setting as well as for using 
                 SetPipePolicy.
                 

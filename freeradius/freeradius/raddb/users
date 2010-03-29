@@ -47,6 +47,12 @@
 #	http://www.freeradius.org/rfc/attributes.html
 #
 
+# Disallow EAP-TLS.  Users with a certificate signed by one of the
+# trusted CAs could be granted access without supplying a user name or
+# password if EAP-TLS is on and the client machine is configured to
+# use it.  Use EAP-TTLS (the default) or EAP-PEAP instead.
+DEFAULT        EAP-Type == EAP-TLS, Auth-Type := Reject
+
 #
 # Deny access for a specific user.  Note that this entry MUST
 # be before any other 'Auth-Type' attribute which results in the user

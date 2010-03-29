@@ -70,8 +70,8 @@ class State:
 
 STATE = State()
 
-DIRPERMS = S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH
-QFILEPERMS = S_IRWXU | S_IRWXG
+DIRPERMS = S_ISGID | S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH
+QFILEPERMS = S_ISGID | S_IRWXU | S_IRWXG
 PYFILEPERMS = S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH
 ARTICLEFILEPERMS = S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP
 PRIVATEPERMS = QFILEPERMS
@@ -194,7 +194,7 @@ def checkall():
             continue
         if (mode & DIRPERMS) <> DIRPERMS:
             STATE.ERRORS += 1
-            print _('directory must be at least 0775: %(d)s'),
+            print _('directory must be at least 02775: %(d)s'),
             if STATE.FIX:
                 print _('(fixing)')
                 os.chmod(d, mode | DIRPERMS)

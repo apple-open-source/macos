@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2009 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2010 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -192,6 +192,7 @@ class IOAudioEngineUserClient : public IOUserClient
 		virtual IOReturn clientClose();
 		virtual IOReturn clientDied();
 		
+		static IOReturn _closeClientAction(OSObject *target, void *arg0, void *arg1, void *arg2, void *arg3);	// <rdar://7529580>
 		static IOReturn closeClientAction(OSObject *owner, void *arg1, void *arg2, void *arg3, void *arg4);
 		virtual IOReturn closeClient();
 		
@@ -201,6 +202,7 @@ class IOAudioEngineUserClient : public IOUserClient
 		virtual IOExternalTrap *getExternalTrapForIndex(UInt32 index);
 		virtual IOReturn registerNotificationPort(mach_port_t port, UInt32 type, UInt32 refCon);
 		
+		static IOReturn _registerNotificationAction(OSObject *target, void *arg0, void *arg1, void *arg2, void *arg3);	// <rdar://7529580>
 		static IOReturn registerNotificationAction(OSObject *owner, void *arg1, void *arg2, void *arg3, void *arg4);
 		virtual IOReturn registerNotification(mach_port_t port, UInt32 refCon);
 	
@@ -231,12 +233,15 @@ class IOAudioEngineUserClient : public IOUserClient
 		virtual IOReturn registerBuffer(IOAudioStream *audioStream, void* sourceBuffer, UInt32 bufSizeInBytes, UInt32 bufferSetID);
 		virtual IOReturn unregisterBuffer( void * sourceBuffer, UInt32 bufferSetID);
 		
+		static IOReturn _registerBufferAction(OSObject *target, void *arg0, void *arg1, void *arg2, void *arg3);	// <rdar://7529580>
 		static IOReturn registerBufferAction(OSObject *owner, void *arg1, void *arg2, void *arg3, void *arg4);
+		static IOReturn _unregisterBufferAction(OSObject *target, void *arg0, void *arg1, void *arg2, void *arg3);	// <rdar://7529580>
 		static IOReturn unregisterBufferAction(OSObject *owner, void *arg1, void *arg2, void *arg3, void *arg4);
 		
 		virtual IOReturn registerClientBuffer(IOAudioStream *audioStream, void * sourceBuffer, UInt32 bufSizeInBytes, UInt32 bufferSetID);
 		virtual IOReturn unregisterClientBuffer(void * sourceBuffer, UInt32 bufferSetID);
 		
+		static IOReturn _getNearestStartTimeAction(OSObject *target, void *arg0, void *arg1, void *arg2, void *arg3);	// <rdar://7529580>
 		static IOReturn getNearestStartTimeAction(OSObject *owner, void *arg1, void *arg2, void *arg3, void *arg4);
 		
 		virtual IOAudioClientBufferSet *findBufferSet(UInt32 bufferSetID);
@@ -247,7 +252,9 @@ class IOAudioEngineUserClient : public IOUserClient
 		virtual IOReturn clientStart();
 		virtual IOReturn clientStop();
 		
+		static IOReturn _startClientAction(OSObject *target, void *arg0, void *arg1, void *arg2, void *arg3);	// <rdar://7529580>
 		static IOReturn startClientAction(OSObject *owner, void *arg1, void *arg2, void *arg3, void *arg4);
+		static IOReturn _stopClientAction(OSObject *target, void *arg0, void *arg1, void *arg2, void *arg3);	// <rdar://7529580>
 		static IOReturn stopClientAction(OSObject *owner, void *arg1, void *arg2, void *arg3, void *arg4);
 		
 		virtual IOReturn startClient();

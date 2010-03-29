@@ -22,7 +22,7 @@
 # This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
 # KIND, either express or implied.
 #
-# $Id: maketgz,v 1.33 2009-02-23 09:36:08 bagder Exp $
+# $Id: maketgz,v 1.34 2009-07-14 13:25:14 gknauf Exp $
 ###########################################################################
 
 version=$1
@@ -92,8 +92,8 @@ findprog()
   return 0
 }
 
-echo "maketgz: cp lib/config.h.in src/config.h.in"
-cp lib/config.h.in src/config.h.in
+echo "maketgz: cp lib/curl_config.h.in src/curl_config.h.in"
+cp lib/curl_config.h.in src/curl_config.h.in
 
 ############################################################################
 #

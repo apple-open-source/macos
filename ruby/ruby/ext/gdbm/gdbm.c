@@ -3,7 +3,7 @@
   gdbm.c -
 
   $Author: shyouhei $
-  $Date: 2007-02-13 08:01:19 +0900 (Tue, 13 Feb 2007) $
+  $Date: 2009-02-18 22:08:13 +0900 (Wed, 18 Feb 2009) $
   modified at: Mon Jan 24 15:59:52 JST 1994
 
   Documentation by Peter Adolphs < futzilogik at users dot sourceforge dot net >
@@ -303,14 +303,10 @@ rb_gdbm_fetch(dbm, key)
     if (val.dptr == 0)
         return Qnil;
 
-    str = rb_obj_alloc(rb_cString);
-    RSTRING(str)->len = val.dsize;
-    RSTRING(str)->aux.capa = val.dsize;
-    RSTRING(str)->ptr = REALLOC_N(val.dptr,char,val.dsize+1);
-    RSTRING(str)->ptr[val.dsize] = '\0';
-
+    str = rb_str_new(val.dptr, val.dsize);
+    free(val.dptr);
     OBJ_TAINT(str);
-    return (VALUE)str;
+    return str;
 }
 
 static VALUE
@@ -349,12 +345,8 @@ rb_gdbm_firstkey(dbm)
     if (key.dptr == 0)
         return Qnil;
 
-    str = rb_obj_alloc(rb_cString);
-    RSTRING(str)->len = key.dsize;
-    RSTRING(str)->aux.capa = key.dsize;
-    RSTRING(str)->ptr = REALLOC_N(key.dptr,char,key.dsize+1);
-    RSTRING(str)->ptr[RSTRING(str)->len] = '\0';
-
+    str = rb_str_new(key.dptr, key.dsize);
+    free(key.dptr);
     OBJ_TAINT(str);
     return str;
 }
@@ -373,12 +365,8 @@ rb_gdbm_nextkey(dbm, keystr)
     if (key2.dptr == 0)
         return Qnil;
 
-    str = rb_obj_alloc(rb_cString);
-    RSTRING(str)->len = key2.dsize;
-    RSTRING(str)->aux.capa = key2.dsize;
-    RSTRING(str)->ptr = REALLOC_N(key2.dptr,char,key2.dsize+1);
-    RSTRING(str)->ptr[RSTRING(str)->len] = '\0';
-
+    str = rb_str_new(key2.dptr, key2.dsize);
+    free(key2.dptr);
     OBJ_TAINT(str);
     return str;
 }

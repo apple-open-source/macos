@@ -48,12 +48,12 @@ enum {
     kHexOutputStyle = 1
 };
 
-int GetPortInformation( IOUSBDeviceRef deviceIntf, uint32_t * portInfo );
+IOReturn GetPortInformation( IOUSBDeviceRef deviceIntf, uint32_t * portInfo );
 int GetDeviceLocationID( IOUSBDeviceRef deviceIntf, UInt32 * locationID );
 int GetDeviceSpeed( IOUSBDeviceRef deviceIntf, UInt8 * speed );
 int GetDeviceAddress( IOUSBDeviceRef deviceIntf, USBDeviceAddress * address );
 int SuspendDevice( IOUSBDeviceRef deviceIntf, BOOL suspend );
-IOReturn GetDescriptor(IOUSBDeviceRef deviceIntf, UInt8 descType, UInt8 descIndex, void *buf, UInt16 len);
+IOReturn GetDescriptor(IOUSBDeviceRef deviceIntf, UInt8 descType, UInt8 descIndex, void *buf, UInt16 len, IOReturn *actError);
 int GetStringDescriptor(IOUSBDeviceRef deviceIntf, UInt8 descIndex, void *buf, UInt16 len, UInt16 lang);
 int GetClassDescriptor(IOUSBDeviceRef deviceIntf, UInt8 descType, UInt8 descIndex, void *buf, UInt16 len);
 int GetDescriptorFromInterface(IOUSBDeviceRef deviceIntf, UInt8 descType, UInt8 descIndex, UInt16 wIndex, void *buf, UInt16 len);

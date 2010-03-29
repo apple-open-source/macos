@@ -64,6 +64,7 @@ static const CFRuntimeClass __IOHIDQueueClass = {
     NULL,                   // equal
     NULL,                   // hash
     NULL,                   // copyFormattingDesc
+    NULL,
     NULL
 };
 
@@ -315,7 +316,7 @@ void IOHIDQueueScheduleWithRunLoop(
 
     queue->asyncRunLoop     = runLoop;
     queue->asyncRunLoopMode = runLoopMode;
-        
+
     if (CFGetTypeID(queue->asyncEventSource) == CFRunLoopSourceGetTypeID())
         CFRunLoopAddSource( queue->asyncRunLoop, 
                             (CFRunLoopSourceRef)queue->asyncEventSource, 

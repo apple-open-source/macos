@@ -1,0 +1,414 @@
+USING SQL FOR LOOKUPS, LOG/REPORTING AND QUARANTINE
+===================================================
+
+This text only describes SQL specifics for a PostgreSQL database
+and provides a schema. In most respects it applies to a SQLite database.
+
+For general aspects of lookups, please see README.lookups.
+For general SQL notes and further examples please see README.sql.
+For MySQL-specific notes and schema please see README.sql-mysql.
+
+Upgrade note: field quarantine.mail_text should be of data type 'bytea'
+and not 'text' as suggested in earlier documentation; this is to prevent
+it from being unjustifiably associated with a character set, and to be
+able to store any byte value; to convert existing field from type 'text'
+to type 'bytea' the following clause may be used:
+  ALTER TABLE quarantine ALTER mail_text TYPE bytea
+    USING decode(replace(mail_text,'\\','\\\\'),'escape');
+
+Starting with amavisd-new-2.6.0 the fields users.email, mailaddr.email,
+and maddr.email should preferably be declared as byte strings (bytea) with
+no associated character set (which is what these fields are, according to
+RFC 2821) instead of CHAR or VARCHAR. The following clauses convert pre-2.6.0
+tables into the now preferred and more universal form:
+  ALTER TABLE users    ALTER email TYPE bytea USING decode(email,'escape');
+  ALTER TABLE mailaddr ALTER email TYPE bytea USING decode(email,'escape');
+  ALTER TABLE maddr    ALTER email TYPE bytea USING decode(email,'escape');
+If a data type 'bytea' is chosen for these three fields, the setting
+$sql_allow_8bit_address MUST be set to true to let the amavisd program
+use the appropriate data type in SQL commands:
+  $sql_allow_8bit_address = 1; # maddr.email: VARCHAR (0), VARBINARY/BYTEA (1)
+otherwise PostgreSQL will complain with:
+  'types bytea and character varying cannot be matched'
+when amavisd tries to execute SQL commands.
+
+# optionally (for a future version):
+# ALTER TABLE msgrcpt ADD content char(1);
+# ALTER TABLE msgrcpt ADD sql_policy_id integer;
+
+
+Version of Perl module DBD::Pg 1.48 or higher should be used;
+
+Short installation notes for PostgreSQL 8.2 are available at:
+  http://www.postgresql.org/docs/8.2/interactive/install-short.html
+
+In short: run: 'initdb -D ...' as user postgres, then edit pg_hba.conf
+providing restricted access to database, create users and create databases.
+
+Something like the following may be placed into pg_hba.conf :
+
+# TYPE  DATABASE    USER        CIDR-ADDRESS          METHOD
+#
+# amavis lookups:
+local   mail_prefs  vscan                             md5
+host    mail_prefs  vscan       127.0.0.1/32          md5
+host    mail_prefs  vscan       ::1/128               md5
+#
+# amavis logging and pen pals:
+local   mail_log    vscan                             md5
+host    mail_log    vscan       127.0.0.1/32          md5
+host    mail_log    vscan       ::1/128               md5
+#
+# spamassassin Bayes and AWL databases:
+local   mail_bayes  vscan                             md5
+host    mail_bayes  vscan       127.0.0.1/32          md5
+host    mail_bayes  vscan       ::1/128               md5
+local   mail_awl    vscan                             md5
+host    mail_awl    vscan       127.0.0.1/32          md5
+host    mail_awl    vscan       ::1/128               md5
+
+
+Create a SQL username (role) for use by amavisd, e.g. vscan:
+  $ createuser -U pgsql -S -D -R -P -e vscan
+
+Create databases for amavisd:
+  $ createdb -U pgsql mail_prefs
+  $ createdb -U pgsql mail_log
+
+and optionally databases for SpamAssassin:
+  $ createdb -U pgsql mail_bayes
+  $ createdb -U pgsql mail_awl
+
+The provided schema can be cut/pasted or fed directly into the client program
+to create a database. The '--' introduces comments according to SQL specs.
+
+Populate databases using the schema below:
+  $ psql -U vscan mail_prefs <...
+  $ psql -U vscan mail_log   <...
+(for SA database schema see its documentation: sql/README*)
+
+
+Something like the following can be placed into amavisd.conf
+(supplying correct passwords):
+
+  @lookup_sql_dsn =
+   ([ 'DBI:Pg:database=mail_prefs', 'vscan', 'LK40.gtklkKK' ]);
+
+  @storage_sql_dsn =
+   ([ 'DBI:Pg:database=mail_log',   'vscan', 'LK40.gtklkKK' ]);
+
+Equivalent settings for AWL and Bayes databases belong to a
+SA configuration file local.cf, according to SpamAssassin documentation.
+Amavisd and SA need not use the same usernames or passwords, nor do they
+need to reside on the same SQL server.
+
+
+SQLite notes:
+  - use INTEGER PRIMARY KEY AUTOINCREMENT instead of SERIAL;
+  - SQLite is well suited for lookups database, but is not appropriate
+    for @storage_sql_dsn due to coarse lock granularity;
+
+
+-- local users
+CREATE TABLE users (
+  id         serial  PRIMARY KEY,  -- unique id
+  priority   integer NOT NULL DEFAULT '7',  -- sort field, 0 is low prior.
+  policy_id  integer NOT NULL DEFAULT '1' CHECK (policy_id >= 0),
+                                           -- JOINs with policy.id
+  email      bytea   NOT NULL UNIQUE, -- email address, non-rfc2822-quoted
+  fullname   varchar(255) DEFAULT NULL,    -- not used by amavisd-new
+  local      char(1)      -- Y/N  (optional field, see note further down)
+);
+
+-- any e-mail address (non- rfc2822-quoted), external or local,
+-- used as senders in wblist
+CREATE TABLE mailaddr (
+  id         serial  PRIMARY KEY,
+  priority   integer NOT NULL DEFAULT '7',  -- 0 is low priority
+  email      bytea   NOT NULL UNIQUE
+);
+
+-- per-recipient whitelist and/or blacklist,
+-- puts sender and recipient in relation wb  (white or blacklisted sender)
+CREATE TABLE wblist (
+  rid        integer NOT NULL CHECK (rid >= 0),  -- recipient: users.id
+  sid        integer NOT NULL CHECK (sid >= 0),  -- sender: mailaddr.id
+  wb         varchar(10) NOT NULL,  -- W or Y / B or N / space=neutral / score
+  PRIMARY KEY (rid,sid)
+);
+
+CREATE TABLE policy (
+  id  serial PRIMARY KEY,           -- 'id' this is the _only_ required field
+  policy_name      varchar(32),     -- not used by amavisd-new, a comment
+
+  virus_lover          char(1) default NULL,     -- Y/N
+  spam_lover           char(1) default NULL,     -- Y/N
+  banned_files_lover   char(1) default NULL,     -- Y/N
+  bad_header_lover     char(1) default NULL,     -- Y/N
+
+  bypass_virus_checks  char(1) default NULL,     -- Y/N
+  bypass_spam_checks   char(1) default NULL,     -- Y/N
+  bypass_banned_checks char(1) default NULL,     -- Y/N
+  bypass_header_checks char(1) default NULL,     -- Y/N
+
+  spam_modifies_subj   char(1) default NULL,     -- Y/N
+
+  virus_quarantine_to      varchar(64) default NULL,
+  spam_quarantine_to       varchar(64) default NULL,
+  banned_quarantine_to     varchar(64) default NULL,
+  bad_header_quarantine_to varchar(64) default NULL,
+  clean_quarantine_to      varchar(64) default NULL,
+  other_quarantine_to      varchar(64) default NULL,
+
+  spam_tag_level  real default NULL, -- higher score inserts spam info headers
+  spam_tag2_level real default NULL, -- inserts 'declared spam' header fields
+  spam_kill_level real default NULL, -- higher score triggers evasive actions
+                                     -- e.g. reject/drop, quarantine, ...
+                                     -- (subject to final_spam_destiny setting)
+  spam_dsn_cutoff_level        real default NULL,
+  spam_quarantine_cutoff_level real default NULL,
+
+  addr_extension_virus      varchar(64) default NULL,
+  addr_extension_spam       varchar(64) default NULL,
+  addr_extension_banned     varchar(64) default NULL,
+  addr_extension_bad_header varchar(64) default NULL,
+
+  warnvirusrecip      char(1)     default NULL, -- Y/N
+  warnbannedrecip     char(1)     default NULL, -- Y/N
+  warnbadhrecip       char(1)     default NULL, -- Y/N
+  newvirus_admin      varchar(64) default NULL,
+  virus_admin         varchar(64) default NULL,
+  banned_admin        varchar(64) default NULL,
+  bad_header_admin    varchar(64) default NULL,
+  spam_admin          varchar(64) default NULL,
+  spam_subject_tag    varchar(64) default NULL,
+  spam_subject_tag2   varchar(64) default NULL,
+  message_size_limit  integer     default NULL, -- max size in bytes, 0 disable
+  banned_rulenames    varchar(64) default NULL  -- comma-separated list of ...
+        -- names mapped through %banned_rules to actual banned_filename tables
+);
+
+
+-- R/W part of the dataset (optional)
+--   May reside in the same or in a separate database as lookups database;
+--   REQUIRES SUPPORT FOR TRANSACTIONS; specified in @storage_sql_dsn
+--
+--  Please create additional indexes on keys when needed, or drop suggested
+--  ones as appropriate to optimize queries needed by a management application.
+--  See your database documentation for further optimization hints.
+
+-- provide unique id for each e-mail address, avoids storing copies
+CREATE TABLE maddr (
+  partition_tag integer   DEFAULT 0,   -- see $sql_partition_tag
+  id         serial       PRIMARY KEY,
+  email      bytea        NOT NULL,    -- full e-mail address
+  domain     varchar(255) NOT NULL,    -- only domain part of the email address
+                                       -- with subdomain fields in reverse
+  CONSTRAINT part_email UNIQUE (partition_tag,email)
+);
+
+-- information pertaining to each processed message as a whole;
+-- NOTE: records with NULL msgs.content should be ignored by utilities,
+--   as such records correspond to messages just being processes, or were lost
+CREATE TABLE msgs (
+  partition_tag integer    DEFAULT 0,   -- see $sql_partition_tag
+  mail_id    varchar(12)   NOT NULL PRIMARY KEY,  -- long-term unique mail id
+  secret_id  varchar(12)   DEFAULT '',  -- authorizes release of mail_id
+  am_id      varchar(20)   NOT NULL,    -- id used in the log
+  time_num   integer NOT NULL CHECK (time_num >= 0),
+                                        -- rx_time: seconds since Unix epoch
+  time_iso timestamp WITH TIME ZONE NOT NULL,-- rx_time: ISO8601 UTC ascii time
+  sid        integer NOT NULL CHECK (sid >= 0), -- sender: maddr.id
+  policy     varchar(255)  DEFAULT '',  -- policy bank path (like macro %p)
+  client_addr varchar(255) DEFAULT '',  -- SMTP client IP address (IPv4 or v6)
+  size       integer NOT NULL CHECK (size >= 0), -- message size in bytes
+  content    char(1),                   -- content type: V/B/S/s/M/H/O/C:
+    -- virus/banned/spam(kill)/spammy(tag2)/bad-mime/bad-header/oversized/clean
+    -- is NULL on partially processed mail
+    -- use binary instead of char for case sensitivity ('S' != 's')
+  quar_type  char(1),                   -- quarantined as: ' '/F/Z/B/Q/M/L
+                                        --  none/file/zipfile/bsmtp/sql/
+                                        --  /mailbox(smtp)/mailbox(lmtp)
+  quar_loc   varchar(255)  DEFAULT '',  -- quarantine location (e.g. file)
+  dsn_sent   char(1),                   -- was DSN sent? Y/N/q (q=quenched)
+  spam_level real,                      -- SA spam level (no boosts)
+  message_id varchar(255)  DEFAULT '',  -- mail Message-ID header field
+  from_addr  varchar(255)  DEFAULT '',  -- mail From header field,    UTF8
+  subject    varchar(255)  DEFAULT '',  -- mail Subject header field, UTF8
+  host       varchar(255)  NOT NULL,    -- hostname where amavisd is running
+  FOREIGN KEY (sid) REFERENCES maddr(id) ON DELETE RESTRICT
+);
+CREATE INDEX msgs_idx_sid      ON msgs (sid);
+CREATE INDEX msgs_idx_mess_id  ON msgs (message_id); -- useful with pen pals
+CREATE INDEX msgs_idx_time_iso ON msgs (time_iso);
+CREATE INDEX msgs_idx_time_num ON msgs (time_num);   -- optional
+
+-- per-recipient information related to each processed message;
+-- NOTE: records in msgrcpt without corresponding msgs.mail_id record are
+--  orphaned and should be ignored and eventually deleted by external utilities
+CREATE TABLE msgrcpt (
+  partition_tag integer    DEFAULT 0,    -- see $sql_partition_tag
+  mail_id    varchar(12)   NOT NULL,     -- (must allow duplicates)
+  rid        integer NOT NULL CHECK (rid >= 0),
+                                    -- recipient: maddr.id (duplicates allowed)
+  ds         char(1)       NOT NULL,     -- delivery status: P/R/B/D/T
+                                         -- pass/reject/bounce/discard/tempfail
+  rs         char(1)       NOT NULL,     -- release status: initialized to ' '
+  bl         char(1)       DEFAULT ' ',  -- sender blacklisted by this recip
+  wl         char(1)       DEFAULT ' ',  -- sender whitelisted by this recip
+  bspam_level real,                      -- spam level + per-recip boost
+  smtp_resp  varchar(255)  DEFAULT '',   -- SMTP response given to MTA
+  FOREIGN KEY (rid)     REFERENCES maddr(id)     ON DELETE RESTRICT,
+  FOREIGN KEY (mail_id) REFERENCES msgs(mail_id) ON DELETE CASCADE
+);
+CREATE INDEX msgrcpt_idx_mail_id  ON msgrcpt (mail_id);
+CREATE INDEX msgrcpt_idx_rid      ON msgrcpt (rid);
+
+-- mail quarantine in SQL, enabled by $*_quarantine_method='sql:'
+-- NOTE: records in quarantine without corresponding msgs.mail_id record are
+--  orphaned and should be ignored and eventually deleted by external utilities
+CREATE TABLE quarantine (
+  partition_tag integer  DEFAULT 0,      -- see $sql_partition_tag
+  mail_id    varchar(12) NOT NULL,       -- long-term unique mail id
+  chunk_ind  integer NOT NULL CHECK (chunk_ind >= 0), -- chunk number, 1..
+  mail_text  bytea   NOT NULL,           -- store mail as chunks of octects
+  PRIMARY KEY (mail_id,chunk_ind),
+  FOREIGN KEY (mail_id) REFERENCES msgs(mail_id) ON DELETE CASCADE
+);
+
+-- field msgrcpt.rs is primarily intended for use by quarantine management
+-- software; the value assigned by amavisd is a space;
+-- a short _preliminary_ list of possible values:
+--   'V' => viewed (marked as read)
+--   'R' => released (delivered) to this recipient
+--   'p' => pending (a status given to messages when the admin received the
+--                   request but not yet released; targeted to banned parts)
+--   'D' => marked for deletion; a cleanup script may delete it
+
+
+Some examples of a query:
+
+-- mail from last two minutes:
+SELECT
+  now()-time_iso AS age, SUBSTRING(policy,1,2) as pb,
+  content AS c, dsn_sent as dsn, ds, bspam_level AS level, size,
+  SUBSTRING(sender.email,1,18) AS s,
+  SUBSTRING(recip.email,1,18)  AS r,
+  SUBSTRING(msgs.subject,1,10) AS subj
+  FROM msgs LEFT JOIN msgrcpt         ON msgs.mail_id=msgrcpt.mail_id
+            LEFT JOIN maddr AS sender ON msgs.sid=sender.id
+            LEFT JOIN maddr AS recip  ON msgrcpt.rid=recip.id
+  WHERE content IS NOT NULL AND now() - time_iso < INTERVAL '2 minutes'
+  ORDER BY msgs.time_num DESC;
+
+-- clean messages ordered by count, grouped by domain:
+SELECT count(*) as cnt, avg(bspam_level), sender.domain
+  FROM msgs
+  LEFT JOIN msgrcpt ON msgs.mail_id=msgrcpt.mail_id
+  LEFT JOIN maddr AS sender ON msgs.sid=sender.id
+  LEFT JOIN maddr AS recip ON msgrcpt.rid=recip.id
+  WHERE content='C'
+  GROUP BY sender.domain ORDER BY cnt DESC LIMIT 50;
+
+-- top spamy domains with >10 messages, sorted by spam average,
+-- grouped by domain:
+SELECT count(*) as cnt, avg(bspam_level) as spam_avg, sender.domain
+  FROM msgs
+  LEFT JOIN msgrcpt ON msgs.mail_id=msgrcpt.mail_id
+  LEFT JOIN maddr AS sender ON msgs.sid=sender.id
+  LEFT JOIN maddr AS recip ON msgrcpt.rid=recip.id
+  WHERE bspam_level IS NOT NULL
+  GROUP BY sender.domain HAVING count(*) > 10
+  ORDER BY spam_avg DESC LIMIT 50;
+
+-- sender domains with >100 messages, sorted on sender.domain:
+SELECT count(*) as cnt, avg(bspam_level) as spam_avg, sender.domain
+  FROM msgs
+  LEFT JOIN msgrcpt ON msgs.mail_id=msgrcpt.mail_id
+  LEFT JOIN maddr AS sender ON msgs.sid=sender.id
+  LEFT JOIN maddr AS recip ON msgrcpt.rid=recip.id
+  GROUP BY sender.domain HAVING count(*) > 100
+  ORDER BY sender.domain DESC LIMIT 100;
+
+
+
+
+Upgrading from pre 2.4.0 amavisd-new SQL schema to the 2.4.0 schema
+requires adding column 'quar_loc' to table msgs.
+Creating a FOREIGN KEY ... ON DELETE CASCADE constraint may (or may not)
+facilitate deletion of expired records.
+
+The following clauses should be executed for upgrading pre-2.4.0 amavisd-new
+SQL schema to the 2.4.0 schema:
+
+-- mandatory change:
+  ALTER TABLE msgs ADD quar_loc varchar(255) DEFAULT '';
+
+-- optional, avoids need to purge tables msgrcpt and quarantine explicitly:
+  ALTER TABLE quarantine
+    ADD FOREIGN KEY (mail_id) REFERENCES msgs(mail_id) ON DELETE CASCADE;
+  ALTER TABLE msgrcpt
+    ADD FOREIGN KEY (mail_id) REFERENCES msgs(mail_id) ON DELETE CASCADE;
+
+-- the following two ALTERs are not essential; if data type of maddr.id is
+-- incompatible with msgs.sid and msgs.rid (e.g. BIGINT vs. INT) and MySQL
+-- complains, don't bother to apply the constraint:
+  ALTER TABLE msgs
+    ADD FOREIGN KEY (sid) REFERENCES maddr(id) ON DELETE RESTRICT;
+  ALTER TABLE msgrcpt
+    ADD FOREIGN KEY (rid) REFERENCES maddr(id) ON DELETE RESTRICT;
+
+
+
+BRIEF EXAMPLE of a log/report/quarantine database housekeeping
+==============================================================
+
+DELETE FROM msgs WHERE time_iso < now() - INTERVAL '3 weeks';
+DELETE FROM msgs WHERE time_iso < now() - INTERVAL '1 h' AND content IS NULL;
+
+DELETE FROM maddr
+  WHERE NOT EXISTS (SELECT 1 FROM msgs    WHERE sid=id)
+    AND NOT EXISTS (SELECT 1 FROM msgrcpt WHERE rid=id);
+
+On more recent testings, the following 'DELETE FROM maddr' seems
+to be faster from the one above by a factor of 1.5 to 2, and is
+functionally equivalent:
+
+DELETE FROM maddr WHERE id IN (
+  SELECT id FROM maddr LEFT JOIN (
+    SELECT sid AS id, 1 AS f FROM msgs UNION ALL
+    SELECT rid AS id, 1 AS f FROM msgrcpt
+  ) AS u USING(id) WHERE u.f IS NULL);
+
+Check also a thread 'Faster purging of SQL logging database'
+(2007-06) on the amavis-user mailing list, archived at:
+  http://marc.info/?t=118190428300003
+
+-- optionally certain content types may be given shorter lifetime:
+DELETE FROM msgs WHERE time_iso < now() - INTERVAL '1 week'
+  AND (content='V' OR (content='S' AND spam_level > 20));
+
+
+-- TODO, experimental, may be disregarded:
+--
+-- when a FOREIGN KEY ... ON DELETE CASCADE is not used, tables msgrcpt
+-- and quarantine need to be purged explicitly, e.g.:
+--
+-- ALTER TABLE quarantine DROP CONSTRAINT quarantine_mail_id_fkey;
+-- ALTER TABLE msgrcpt    DROP CONSTRAINT msgrcpt_mail_id_fkey;
+--
+-- DELETE FROM msgrcpt WHERE mail_id IN
+--   (SELECT mail_id FROM msgrcpt LEFT JOIN msgs USING(mail_id)
+--    WHERE msgs.mail_id IS NULL);
+--
+-- DELETE FROM quarantine WHERE mail_id IN
+--   (SELECT mail_id FROM quarantine LEFT JOIN msgs USING(mail_id)
+--    WHERE msgs.mail_id IS NULL);
+--
+-- alternatively, purging each table by partition_tag may be
+-- the fastest method of purging old records, e.g.:
+--
+-- DELETE FROM msgs       WHERE partition_tag >= 13 AND partition_tag <= 23;
+-- DELETE FROM msgrcpt    WHERE partition_tag >= 13 AND partition_tag <= 23;
+-- DELETE FROM quarantine WHERE partition_tag >= 13 AND partition_tag <= 23;
+-- DELETE FROM maddr      WHERE partition_tag >= 13 AND partition_tag <= 23;

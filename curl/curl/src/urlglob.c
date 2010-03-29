@@ -5,7 +5,7 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) 1998 - 2008, Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) 1998 - 2009, Daniel Stenberg, <daniel@haxx.se>, et al.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
@@ -18,7 +18,7 @@
  * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
  * KIND, either express or implied.
  *
- * $Id: urlglob.c,v 1.53 2008-10-14 09:12:44 bagder Exp $
+ * $Id: urlglob.c,v 1.54 2009-06-05 16:14:50 yangtse Exp $
  ***************************************************************************/
 
 /* client-local setup.h */
@@ -34,6 +34,7 @@
 #include <curl/mprintf.h>
 
 #include "urlglob.h"
+#include "os-specific.h"
 
 #if defined(CURLDEBUG) && defined(CURLTOOLDEBUG)
 #include "memdebug.h"

@@ -1,5 +1,5 @@
 /*
-* "$Id: usb-darwin.c 8619 2009-05-12 17:41:32Z mike $"
+* "$Id: usb-darwin.c 8806 2009-08-31 18:45:38Z mike $"
 *
 * Copyright 2005-2009 Apple Inc. All rights reserved.
 *
@@ -292,9 +292,8 @@ static void status_timer_cb(CFRunLoopTimerRef timer, void *info);
 #if defined(__i386__) || defined(__x86_64__)
 static pid_t	child_pid;		/* Child PID */
 static void run_legacy_backend(int argc, char *argv[], int fd);	/* Starts child backend process running as a ppc executable */
-#endif /* __i386__ || __x86_64__ */
-static int	job_canceled = 0;	/* Was the job canceled? */
 static void sigterm_handler(int sig);	/* SIGTERM handler */
+#endif /* __i386__ || __x86_64__ */
 
 #ifdef PARSE_PS_ERRORS
 static const char *next_line (const char *buffer);
@@ -374,12 +373,12 @@ print_device(const char *uri,		/* I - Device URI */
 
   if (!g.make || !g.model)
   {
-    _cupsLangPuts(stderr, _("ERROR: Fatal USB error!\n"));
+    _cupsLangPuts(stderr, _("ERROR: Fatal USB error\n"));
 
     if (!g.make)
-      fputs("DEBUG: USB make string is NULL!\n", stderr);
+      fputs("DEBUG: USB make string is NULL\n", stderr);
     if (!g.model)
-      fputs("DEBUG: USB model string is NULL!\n", stderr);
+      fputs("DEBUG: USB model string is NULL\n", stderr);
 
     return (CUPS_BACKEND_STOP);
   }
@@ -432,7 +431,7 @@ print_device(const char *uri,		/* I - Device URI */
         strlcpy(print_buffer, "USB class driver", sizeof(print_buffer));
 
       fputs("STATE: +apple-missing-usbclassdriver-error\n", stderr);
-      _cupsLangPuts(stderr, _("ERROR: Fatal USB error!\n"));
+      _cupsLangPuts(stderr, _("ERROR: Fatal USB error\n"));
       fprintf(stderr, "DEBUG: Could not load %s\n", print_buffer);
 
       if (driverBundlePath)
@@ -461,9 +460,9 @@ print_device(const char *uri,		/* I - Device URI */
   fputs("STATE: -connecting-to-device\n", stderr);
 
   /*
-   * Now that we are "connected" to the port, catch SIGTERM so that we
+   * Now that we are "connected" to the port, ignore SIGTERM so that we
    * can finish out any page data the driver sends (e.g. to eject the
-   * current page...  Only catch SIGTERM if we are printing data from
+   * current page...  Only ignore SIGTERM if we are printing data from
    * stdin (otherwise you can't cancel raw jobs...)
    */
 
@@ -475,7 +474,7 @@ print_device(const char *uri,		/* I - Device URI */
     memset(&action, 0, sizeof(action));
 
     sigemptyset(&action.sa_mask);
-    action.sa_handler = sigterm_handler;
+    action.sa_handler = SIG_IGN;
     sigaction(SIGTERM, &action, NULL);
   }
 
@@ -497,8 +496,9 @@ print_device(const char *uri,		/* I - Device URI */
 
     if (pthread_create(&sidechannel_thread_id, NULL, sidechannel_thread, NULL))
     {
-      _cupsLangPuts(stderr, _("ERROR: Fatal USB error!\n"));
-      fputs("DEBUG: Couldn't create side-channel thread!\n", stderr);
+      _cupsLangPuts(stderr, _("ERROR: Fatal USB error\n"));
+      fputs("DEBUG: Couldn't create side-channel thread\n", stderr);
+      registry_close();
       return (CUPS_BACKEND_STOP);
     }
   }
@@ -515,8 +515,9 @@ print_device(const char *uri,		/* I - Device URI */
 
   if (pthread_create(&read_thread_id, NULL, read_thread, NULL))
   {
-    _cupsLangPuts(stderr, _("ERROR: Fatal USB error!\n"));
-    fputs("DEBUG: Couldn't create read thread!\n", stderr);
+    _cupsLangPuts(stderr, _("ERROR: Fatal USB error\n"));
+    fputs("DEBUG: Couldn't create read thread\n", stderr);
+    registry_close();
     return (CUPS_BACKEND_STOP);
   }
 
@@ -594,14 +595,16 @@ print_device(const char *uri,		/* I - Device URI */
 	if (errno == EINTR && total_bytes == 0)
 	{
 	  fputs("DEBUG: Received an interrupt before any bytes were "
-	        "written, aborting!\n", stderr);
+	        "written, aborting\n", stderr);
+          registry_close();
           return (CUPS_BACKEND_OK);
 	}
 	else if (errno != EAGAIN && errno != EINTR)
 	{
-	  _cupsLangPuts(stderr, _("ERROR: Unable to read print data!\n"));
+	  _cupsLangPuts(stderr, _("ERROR: Unable to read print data\n"));
 	  perror("DEBUG: select");
-	  return (CUPS_BACKEND_FAILED);
+	  registry_close();
+          return (CUPS_BACKEND_FAILED);
 	}
       }
 
@@ -641,8 +644,9 @@ print_device(const char *uri,		/* I - Device URI */
 
 	  if (errno != EAGAIN && errno != EINTR)
 	  {
-	    _cupsLangPuts(stderr, _("ERROR: Unable to read print data!\n"));
+	    _cupsLangPuts(stderr, _("ERROR: Unable to read print data\n"));
 	    perror("DEBUG: read");
+	    registry_close();
 	    return (CUPS_BACKEND_FAILED);
 	  }
 
@@ -675,7 +679,7 @@ print_device(const char *uri,		/* I - Device URI */
 
 	if (iostatus == kIOUSBTransactionTimeout)
 	{
-	  fputs("DEBUG: Got USB transaction timeout during write!\n", stderr);
+	  fputs("DEBUG: Got USB transaction timeout during write\n", stderr);
 	  iostatus = 0;
 	}
 
@@ -685,7 +689,7 @@ print_device(const char *uri,		/* I - Device URI */
 
 	else if (iostatus == kIOUSBPipeStalled)
 	{
-	  fputs("DEBUG: Got USB pipe stalled during write!\n", stderr);
+	  fputs("DEBUG: Got USB pipe stalled during write\n", stderr);
 
 	  bytes    = g.print_bytes;
 	  iostatus = (*g.classdriver)->WritePipe(g.classdriver, (UInt8*)print_ptr, &bytes, 0);
@@ -698,7 +702,7 @@ print_device(const char *uri,		/* I - Device URI */
 
 	else if (iostatus == kIOReturnAborted)
 	{
-	  fputs("DEBUG: Got return aborted during write!\n", stderr);
+	  fputs("DEBUG: Got USB return aborted during write\n", stderr);
 
 	  IOReturn err = (*g.classdriver)->Abort(g.classdriver);
 	  fprintf(stderr, "DEBUG: USB class driver Abort returned %x\n", err);
@@ -717,7 +721,7 @@ print_device(const char *uri,		/* I - Device URI */
 	  * Write error - bail if we don't see an error we can retry...
 	  */
 
-	  _cupsLangPuts(stderr, _("ERROR: Unable to send print data!\n"));
+	  _cupsLangPuts(stderr, _("ERROR: Unable to send print data\n"));
 	  fprintf(stderr, "DEBUG: USB class driver WritePipe returned %x\n",
 	          iostatus);
 
@@ -725,7 +729,7 @@ print_device(const char *uri,		/* I - Device URI */
 	  fprintf(stderr, "DEBUG: USB class driver Abort returned %x\n",
 	          err);
 
-	  status = job_canceled ? CUPS_BACKEND_FAILED : CUPS_BACKEND_STOP;
+	  status = CUPS_BACKEND_FAILED;
 	  break;
 	}
 	else if (bytes > 0)
@@ -898,11 +902,11 @@ static void *read_thread(void *reference)
 #endif
     }
     else if (readstatus == kIOUSBTransactionTimeout)
-      fputs("DEBUG: Got USB transaction timeout during write!\n", stderr);
+      fputs("DEBUG: Got USB transaction timeout during read\n", stderr);
     else if (readstatus == kIOUSBPipeStalled)
-      fputs("DEBUG: Got USB pipe stalled during read!\n", stderr);
+      fputs("DEBUG: Got USB pipe stalled during read\n", stderr);
     else if (readstatus == kIOReturnAborted)
-      fputs("DEBUG: Got return aborted during read!\n", stderr);
+      fputs("DEBUG: Got USB return aborted during read\n", stderr);
 
    /*
     * Make sure this loop executes no more than once every 250 miliseconds...
@@ -944,7 +948,12 @@ sidechannel_thread(void *reference)
     datalen = sizeof(data);
 
     if (cupsSideChannelRead(&command, &status, data, &datalen, 1.0))
-      continue;
+    {
+      if (status == CUPS_SC_STATUS_TIMEOUT)
+	continue;
+      else
+	break;
+    }
 
     switch (command)
     {
@@ -1902,6 +1911,7 @@ static void run_legacy_backend(int argc,
     * Setup a SIGTERM handler then block it before forking...
     */
 
+    int			err;		/* posix_spawn result */
     struct sigaction	action;		/* POSIX signal action */
     sigset_t		newmask,	/* New signal mask */
 			oldmask;	/* Old signal mask */
@@ -1950,7 +1960,7 @@ static void run_legacy_backend(int argc,
 #  else
 	perror("DEBUG: Unable to set binary preference to ppc");
 #  endif /* __x86_64__ */
-	_cupsLangPrintf(stderr, _("Unable to use legacy USB class driver!\n"));
+	_cupsLangPrintf(stderr, _("Unable to use legacy USB class driver\n"));
 	exit(CUPS_BACKEND_STOP);
       }
     }
@@ -1968,11 +1978,12 @@ static void run_legacy_backend(int argc,
 
     my_argv[i] = NULL;
 
-    if (posix_spawn(&child_pid, usbpath, NULL, &attrs, my_argv, environ))
+    if ((err = posix_spawn(&child_pid, usbpath, NULL, &attrs, my_argv,
+                           environ)) != 0)
     {
       fprintf(stderr, "DEBUG: Unable to exec %s: %s\n", usbpath,
-              strerror(errno));
-      _cupsLangPrintf(stderr, _("Unable to use legacy USB class driver!\n"));
+              strerror(err));
+      _cupsLangPrintf(stderr, _("Unable to use legacy USB class driver\n"));
       exit(CUPS_BACKEND_STOP);
     }
 
@@ -1998,14 +2009,14 @@ static void run_legacy_backend(int argc,
     if (WIFSIGNALED(childstatus))
     {
       exitstatus = CUPS_BACKEND_STOP;
-      fprintf(stderr, "DEBUG: usb(legacy) backend %d crashed on signal %d!\n",
+      fprintf(stderr, "DEBUG: usb(legacy) backend %d crashed on signal %d\n",
               child_pid, WTERMSIG(childstatus));
     }
     else
     {
       if ((exitstatus = WEXITSTATUS(childstatus)) != 0)
 	fprintf(stderr,
-	        "DEBUG: usb(legacy) backend %d stopped with status %d!\n",
+	        "DEBUG: usb(legacy) backend %d stopped with status %d\n",
 		child_pid, exitstatus);
       else
 	fprintf(stderr, "DEBUG: usb(legacy) backend %d exited with no errors\n",
@@ -2020,8 +2031,6 @@ static void run_legacy_backend(int argc,
 
   exit(exitstatus);
 }
-#endif /* __i386__ || __x86_64__ */
-
 
 /*
  * 'sigterm_handler()' - SIGTERM handler.
@@ -2030,7 +2039,8 @@ static void run_legacy_backend(int argc,
 static void
 sigterm_handler(int sig)		/* I - Signal */
 {
-#if defined(__i386__) || defined(__x86_64__)
+  /* If we started a child process pass the signal on to it...
+   */
   if (child_pid)
   {
    /*
@@ -2048,18 +2058,13 @@ sigterm_handler(int sig)		/* I - Signal */
       exit(0);
     else
     {
-      fprintf(stderr, "DEBUG: Child crashed on signal %d!\n", status);
+      fprintf(stderr, "DEBUG: Child crashed on signal %d\n", status);
       exit(CUPS_BACKEND_STOP);
     }
   }
-#endif /* __i386__ || __x86_64__ */
-
- /*
-  * Otherwise just flag that the job has been canceled...
-  */
-
-  job_canceled = 1;
 }
+
+#endif /* __i386__ || __x86_64__ */
 
 
 #ifdef PARSE_PS_ERRORS
@@ -2226,5 +2231,5 @@ static void get_device_id(cups_sc_status_t *status,
 
 
 /*
- * End of "$Id: usb-darwin.c 8619 2009-05-12 17:41:32Z mike $".
+ * End of "$Id: usb-darwin.c 8806 2009-08-31 18:45:38Z mike $".
  */

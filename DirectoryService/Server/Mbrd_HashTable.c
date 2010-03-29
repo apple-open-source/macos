@@ -75,6 +75,8 @@ static int rbt_compare_name_nodes( const struct rb_node *n1, const struct rb_nod
 	const char *name1 = RBNODE_TO_USERGROUP(n1)->fName;
 	const char *name2 = RBNODE_TO_USERGROUP(n2)->fName;
 	
+	assert(name1);
+	assert(name2);
 	return strcmp( name1, name2 );
 }
 
@@ -83,6 +85,8 @@ static int rbt_compare_name_key( const struct rb_node *n, const void *v )
 	const char *name1 = RBNODE_TO_USERGROUP(n)->fName;
 	const char *name2 = (const char *) v;
 	
+	assert(name1);
+	assert(name2);
 	return strcmp( name1, name2 );
 }
 
@@ -256,7 +260,10 @@ static bool __HashTable_Add( HashTable* hash, UserGroup* item, bool replaceExist
 			if ( key == NULL ) {
 				goto bail;
 			}
+		} else if (hash->fHashType == eNameHash) {
+			key = ((void **)key)[0];
 		}
+
 		
 		bool bBuiltin = __IsBuiltinGroup( item );
 		struct rb_node *node = rb_tree_find_node( &hash->fRBtree, key );
@@ -600,7 +607,15 @@ void HashTable_Remove( HashTable* hash, UserGroup* item )
 	
 	dispatch_sync( hash->fQueue,
 				   ^(void) {
-					   struct rb_node *node = rb_tree_find_node( &hash->fRBtree, USERGROUP_TO_KEY(item, hash->fKeyOffset) );
+					   void *key = USERGROUP_TO_KEY(item, hash->fKeyOffset);
+					   if (hash->fHashType == eNameHash) {
+						   key = ((void **)key)[0];
+					   } else {
+						   assert(hash->fHashType != eKerberosHash);
+						   assert(hash->fHashType != eX509DNHash);
+					   }
+
+					   struct rb_node *node = rb_tree_find_node( &hash->fRBtree, key );
 					   if ( node != NULL ) {
 						   UserGroup *tempItem = RBNODE_TO_USERGROUP( node );
 						

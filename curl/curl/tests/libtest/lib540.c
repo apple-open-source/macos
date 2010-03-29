@@ -5,7 +5,7 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * $Id: lib540.c,v 1.7 2008-09-20 04:26:57 yangtse Exp $
+ * $Id: lib540.c,v 1.8 2009-10-10 12:29:32 yangtse Exp $
  *
  * This is the 'proxyauth.c' test app posted by Shmulik Regev on the libcurl
  * mailing list on 10 Jul 2007, converted to a test case.
@@ -44,6 +44,7 @@ static int loop(CURLM *cm, const char* url, const char* userpwd,
                 struct curl_slist *headers)
 {
   CURLMsg *msg;
+  CURLMcode code;
   long L;
   int M, Q, U = -1;
   fd_set R, W, E;
@@ -52,7 +53,10 @@ static int loop(CURLM *cm, const char* url, const char* userpwd,
   init(cm, url, userpwd, headers);
 
   while (U) {
-    while (CURLM_CALL_MULTI_PERFORM == curl_multi_perform(cm, &U));
+
+    do {
+      code = curl_multi_perform(cm, &U);
+    } while (code == CURLM_CALL_MULTI_PERFORM);
 
     if (U) {
       FD_ZERO(&R);

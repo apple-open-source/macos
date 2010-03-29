@@ -1512,7 +1512,7 @@ ds_alias_all(si_mod_t *si)
 }
 
 __private_extern__ si_item_t *
-ds_host_byname(si_mod_t *si, const char *name, int af, uint32_t *err)
+ds_host_byname(si_mod_t *si, const char *name, int af, const char *ignored, uint32_t *err)
 {
 	static int proc = -1;
 	kvbuf_t *request;
@@ -1564,7 +1564,7 @@ ds_host_byname(si_mod_t *si, const char *name, int af, uint32_t *err)
 }
 
 __private_extern__ si_item_t *
-ds_host_byaddr(si_mod_t *si, const void *addr, int af, uint32_t *err)
+ds_host_byaddr(si_mod_t *si, const void *addr, int af, const char *ignored, uint32_t *err)
 {
 	static int proc = -1;
 	kvbuf_t *request;
@@ -1915,7 +1915,7 @@ ds_mac_bymac(si_mod_t *si, const char *mac)
 }
 
 static si_list_t *
-ds_addrinfo(si_mod_t *si, const void *node, const void *serv, uint32_t family, uint32_t socktype, uint32_t proto, uint32_t flags, uint32_t *err)
+ds_addrinfo(si_mod_t *si, const void *node, const void *serv, uint32_t family, uint32_t socktype, uint32_t proto, uint32_t flags, const char *ignored, uint32_t *err)
 {
 	static int proc = -1;
 	si_list_t *list, *out;
@@ -1972,7 +1972,7 @@ ds_addrinfo(si_mod_t *si, const void *node, const void *serv, uint32_t family, u
 	/* look up canonical name of numeric host */
 	if ((numerichost == 1) && (flags & AI_CANONNAME) && (node != NULL))
 	{
-		item = si_host_byaddr(si, node, family, NULL);
+		item = si_host_byaddr(si, node, family, NULL, NULL);
 		if (item != NULL)
 		{
 			h = (struct hostent *)((uintptr_t)item + sizeof(si_item_t));

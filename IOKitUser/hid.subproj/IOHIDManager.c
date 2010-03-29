@@ -74,6 +74,7 @@ typedef struct __IOHIDManager
     CFMutableSetRef                 devices;
     CFMutableSetRef                 iterators;
     CFMutableDictionaryRef          properties;
+    CFMutableDictionaryRef          deviceInputBuffers;
 
     IONotificationPortRef           notifyPort;
     CFRunLoopRef                    runLoop;
@@ -110,6 +111,7 @@ static const CFRuntimeClass __IOHIDManagerClass = {
     NULL,                   // equal
     NULL,                   // hash
     NULL,                   // copyFormattingDesc
+    NULL,
     NULL
 };
 
@@ -170,6 +172,11 @@ void __IOHIDManagerRelease( CFTypeRef object )
     if ( manager->devices ) {
         CFRelease(manager->devices);
         manager->devices = NULL;
+    }
+    
+    if ( manager->deviceInputBuffers ) {
+        CFRelease(manager->deviceInputBuffers);
+        manager->deviceInputBuffers = NULL;
     }
 
     if ( manager->iterators ) {
@@ -298,6 +305,11 @@ void __IOHIDManagerDeviceAdded(     void *                      refcon,
                 CFSetAddValue(manager->devices, device);
                 
             CFRelease(device);
+            
+            DeviceApplierArgs args;
+
+            args.manager = manager;
+            args.options = 0;
 
             IOHIDDeviceRegisterRemovalCallback(
                                             device,
@@ -306,37 +318,29 @@ void __IOHIDManagerDeviceAdded(     void *                      refcon,
                                             
             retVal = kIOReturnSuccess;
             
-            if ( manager->isOpen ) {
-                retVal = IOHIDDeviceOpen(   device,
-                                            manager->options);
-                                            
-                if ( manager->initRetVals )
-                    CFDictionarySetValue(   manager->initRetVals, 
-                                            device, 
-                                            (void *)retVal);
-            }
+            if ( manager->isOpen )
+                args.options |= kDeviceApplierOpen;
+ 
+            if ( manager->inputMatchingMultiple )
+                args.options |= kDeviceApplierSetInputMatching;
             
             if ( manager->inputCallback )
-                IOHIDDeviceRegisterInputValueCallback(
-                                            device,
-                                            manager->inputCallback,
-                                            manager->inputContext);
-                                            
+                args.options |= kDeviceApplierSetInputCallback;
+
+            if ( manager->reportCallback )
+                args.options |= kDeviceApplierSetInputReportCallback;
+                                                       
             if ( manager->runLoop ) {
-                IOHIDDeviceScheduleWithRunLoop(
-                                            device,
-                                            manager->runLoop,
-                                            manager->runLoopMode);
-                   
+                args.options |= kDeviceApplierScheduleRunLoop;
+
                 // If this this is called using the iterator returned in 
                 // IOServiceAddMatchingNotification, pend performing the
                 // callback on the runLoop
                 if ( !initial && manager->matchCallback )
-                    (*manager->matchCallback)(  manager->matchContext, 
-                                                retVal,
-                                                manager,
-                                                device);
+                    args.options |= kDeviceApplierInitEnumCallback;
             }
+            
+            __IOHIDManagerDeviceApplier((const void *)device, &args);
 
         }
         
@@ -378,6 +382,9 @@ void __IOHIDManagerDeviceRemoved(   void *                      context,
 {
     IOHIDManagerRef manager = (IOHIDManagerRef)context;
     
+    if ( manager->deviceInputBuffers )
+        CFDictionaryRemoveValue(manager->deviceInputBuffers, sender);
+        
     CFSetRemoveValue(manager->devices, sender);
     
     if ( manager->removalCallback )
@@ -430,9 +437,12 @@ void __IOHIDManagerDeviceApplier(
     IOHIDDeviceRef      device  = (IOHIDDeviceRef)value;
     IOReturn            retVal  = kIOReturnSuccess;
     
-    if ( args->options & kDeviceApplierOpen )
+    if ( args->options & kDeviceApplierOpen ) {
         retVal = IOHIDDeviceOpen(           device,
                                             args->manager->options);
+        if ( args->manager->initRetVals )
+            CFDictionarySetValue(args->manager->initRetVals, device, (void*)retVal);
+    }
 
     if ( args->options & kDeviceApplierClose )
         retVal = IOHIDDeviceClose(          device,
@@ -461,13 +471,36 @@ void __IOHIDManagerDeviceApplier(
                                             args->manager->inputCallback,
                                             args->manager->inputContext);
 
-    if ( args->options & kDeviceApplierSetInputReportCallback )
+    if ( args->options & kDeviceApplierSetInputReportCallback ) {
+        CFMutableDataRef dataRef = NULL;
+        if ( !args->manager->deviceInputBuffers ) {
+            args->manager->deviceInputBuffers = CFDictionaryCreateMutable(kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+        }
+
+        dataRef = (CFMutableDataRef)CFDictionaryGetValue(args->manager->deviceInputBuffers, device);
+        if ( !dataRef ) {
+            CFNumberRef number = IOHIDDeviceGetProperty(device, CFSTR(kIOHIDMaxInputReportSizeKey));
+            CFIndex     length = 64;
+            
+            if ( number ) {
+                CFNumberGetValue(number, kCFNumberCFIndexType, &length);
+            }
+            
+            dataRef = CFDataCreateMutable(kCFAllocatorDefault, length);
+            if ( dataRef ) {
+                CFDataSetLength(dataRef, length);
+                CFDictionarySetValue(args->manager->deviceInputBuffers, device, dataRef);
+                CFRelease(dataRef);
+            }
+        }
+    
         IOHIDDeviceRegisterInputReportCallback(  
                                             device,
-                                            NULL,
-                                            0,
+                                            (uint8_t *)CFDataGetMutableBytePtr(dataRef),
+                                            CFDataGetLength(dataRef),
                                             args->manager->reportCallback,
                                             args->manager->reportContext);
+    }
     
     if ( args->options & kDeviceApplierScheduleRunLoop )
         IOHIDDeviceScheduleWithRunLoop(     device,
@@ -654,6 +687,9 @@ void IOHIDManagerSetDeviceMatchingMultiple(
         
     if ( manager->iterators )
         CFSetRemoveAllValues(manager->iterators);
+
+    if ( manager->deviceInputBuffers )
+        CFDictionaryRemoveAllValues(manager->deviceInputBuffers);
     
     if ( multiple ) {
         count = CFArrayGetCount(multiple);

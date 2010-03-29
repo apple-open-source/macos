@@ -180,8 +180,9 @@ enum {
         E_OvlExtID              =  607, /* Overlapped extent allocation (id) */
         
         E_UnusedNodeNotZeroed	=  608, /* An unused B-tree node is not full of zeroes */
+	E_VBMDamagedOverAlloc	=  609,	/* Volume bitmap has has orphaned block allocation */
 
-        E_LastError             =  608
+        E_LastError             =  609
 };
 
 #endif

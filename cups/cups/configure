@@ -1985,7 +1985,7 @@ esac
 ac_config_headers="$ac_config_headers config.h"
 
 
-CUPS_VERSION="1.4.2"
+CUPS_VERSION="1.4.3"
 CUPS_REVISION=""
 #if test -z "$CUPS_REVISION" -a -d .svn; then
 #	CUPS_REVISION="-r`svnversion . | awk -F: '{print $NF}' | sed -e '1,$s/[[a-zA-Z]]*//g'`"
@@ -6663,7 +6663,7 @@ fi
 
 
 
-for ac_func in random mrand48 lrand48
+for ac_func in random lrand48 arc4random
 do
 as_ac_var=`echo "ac_cv_func_$ac_func" | $as_tr_sh`
 { echo "$as_me:$LINENO: checking for $ac_func" >&5
@@ -8005,6 +8005,8 @@ _ACEOF
 
 			CFLAGS="$CFLAGS `$PKGCONFIG --cflags dbus-1` -DDBUS_API_SUBJECT_TO_CHANGE"
 			CUPSDLIBS="$CUPSDLIBS `$PKGCONFIG --libs dbus-1`"
+			DBUS_NOTIFIER="dbus"
+			DBUS_NOTIFIERLIBS="`$PKGCONFIG --libs dbus-1`"
 			{ echo "$as_me:$LINENO: checking for dbus_message_iter_init_append in -ldbus-1" >&5
 echo $ECHO_N "checking for dbus_message_iter_init_append in -ldbus-1... $ECHO_C" >&6; }
 if test "${ac_cv_lib_dbus_1_dbus_message_iter_init_append+set}" = set; then
@@ -19521,6 +19523,12 @@ echo "${ECHO_T}no password file" >&6; }
 fi
 
 
+if test "x$CUPS_USER" = "xroot" -o "x$CUPS_USER" = "x0"; then
+	{ { echo "$as_me:$LINENO: error: The default user for CUPS cannot be root!" >&5
+echo "$as_me: error: The default user for CUPS cannot be root!" >&2;}
+   { (exit 1); exit 1; }; }
+fi
+
 
 # Check whether --with-cups_group was given.
 if test "${with_cups_group+set}" = set; then
@@ -19560,6 +19568,12 @@ echo "${ECHO_T}no group file" >&6; }
 	fi
 fi
 
+
+if test "x$CUPS_GROUP" = "xroot" -o "x$CUPS_GROUP" = "xwheel" -o "x$CUPS_GROUP" = "x0"; then
+	{ { echo "$as_me:$LINENO: error: The default group for CUPS cannot be root!" >&5
+echo "$as_me: error: The default group for CUPS cannot be root!" >&2;}
+   { (exit 1); exit 1; }; }
+fi
 
 
 # Check whether --with-system_groups was given.
@@ -19601,8 +19615,15 @@ echo "${ECHO_T}no group file" >&6; }
 fi
 
 
-
 CUPS_PRIMARY_SYSTEM_GROUP="`echo $CUPS_SYSTEM_GROUPS | awk '{print $1}'`"
+
+for group in $CUPS_SYSTEM_GROUPS; do
+	if test "x$CUPS_GROUP" = "x$group"; then
+		{ { echo "$as_me:$LINENO: error: The default system groups cannot contain the default CUPS group!" >&5
+echo "$as_me: error: The default system groups cannot contain the default CUPS group!" >&2;}
+   { (exit 1); exit 1; }; }
+	fi
+done
 
 
 

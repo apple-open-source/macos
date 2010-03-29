@@ -168,6 +168,15 @@ _SCNetworkInterfaceCreateWithIONetworkInterfaceObject	(io_object_t			if_obj)		__
 #define	kSCNetworkInterfaceConfigurationActionValueConfigure	CFSTR("Configure")
 
 /*!
+	@function _SCNetworkInterfaceCopyInterfaceInfo
+	@discussion Returns interface details
+	@param interface The network interface.
+	@result A dictionary with details about the network interface.
+ */
+CFDictionaryRef
+_SCNetworkInterfaceCopyInterfaceInfo			(SCNetworkInterfaceRef		interface)	__OSX_AVAILABLE_STARTING(__MAC_10_6,__IPHONE_3_0);
+
+/*!
 	@function _SCNetworkInterfaceGetConfigurationAction
 	@discussion Returns a user-notification / auto-configuration action for the interface.
 	@param interface The network interface.

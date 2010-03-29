@@ -109,11 +109,6 @@ IOReturn IOUSBMassStorageClass::SendSCSICommandForBulkOnlyProtocol (
    	STATUS_LOG ( ( 6, "%s[%p]: SendSCSICommandForBulkOnlyProtocol send CBW", getName(), this ) );
 	status = BulkOnlySendCBWPacket ( theBulkOnlyRB, kBulkOnlyCommandSent );
    	STATUS_LOG ( ( 5, "%s[%p]: SendSCSICommandForBulkOnlyProtocol send CBW returned %x", getName(), this, status ) );
-    
-   	if ( status != kIOReturnSuccess )
-   	{
-   		ReleaseBulkOnlyRequestBlock ( theBulkOnlyRB );
-   	}
    	
 	return status;
 	
@@ -134,16 +129,29 @@ IOUSBMassStorageClass::BulkDeviceResetDevice (
 						UInt32						nextExecutionState )
 {
 
-	IOReturn			status;
+	IOReturn			status = kIOReturnDeviceError;
 
 	if ( fTerminating == true )
 	{
+		
  		// We have an invalid interface, the device has probably been removed.
  		// Nothing else to do except to report an error.
- 		return kIOReturnDeviceError;
+		goto Exit;
 		
 	}
-
+	
+	//	If bulk device reset is not an option, or if the previous command had also failed with a reset,
+	//	then escalate to USB device reset.
+	if ( ( fUseUSBResetNotBOReset == true ) || ( fConsecutiveResetCount > 0 ) )
+	{
+		
+		STATUS_LOG ( ( 4, "%s[%p]: BulkDeviceResetDevice Escalating to DeviceReset", getName(), this, status ) );
+		ResetDeviceNow ( false );
+		status = kIOReturnSuccess;
+		goto Exit;
+		
+	}
+	
 	// Clear out the structure for the request
 	bzero ( &fUSBDeviceRequest, sizeof ( IOUSBDevRequest ) );
 
@@ -160,6 +168,9 @@ IOUSBMassStorageClass::BulkDeviceResetDevice (
 
 	// Send the command over the control endpoint
 	status = GetInterfaceReference()->DeviceRequest ( &fUSBDeviceRequest, &boRequestBlock->boCompletion );
+	
+Exit:
+	
    	STATUS_LOG ( ( 4, "%s[%p]: BulkDeviceResetDevice returned %x", getName(), this, status ) );
     
 	return status;
@@ -208,6 +219,7 @@ IOUSBMassStorageClass::BulkOnlySendCBWPacket (
 
 	IOReturn 			status = kIOReturnError;
 
+	
     // Set our Bulk-Only phase descriptor.
 	require ( ( fBulkOnlyCBWMemoryDescriptor != NULL ), Exit );
 	boRequestBlock->boPhaseDesc = fBulkOnlyCBWMemoryDescriptor;
@@ -247,12 +259,10 @@ IOUSBMassStorageClass::BulkOnlySendCBWPacket (
 	// Set the next state to be executed
 	boRequestBlock->currentState = nextExecutionState;
 
-	// Send the CBW to the device	
-	if ( GetBulkOutPipe() == NULL )
-	{
-   		STATUS_LOG ( ( 4, "%s[%p]: BulkOnlySendCBWPacket Bulk Out is NULL", getName(), this ) );
-	}
+	// Make sure our bulk out pipe is still valid before we try to use it.
+	require ( ( fBulkOutPipe != NULL ), Exit );
 	
+	// Send the CBW to the device	
    	STATUS_LOG ( ( 6, "%s[%p]: BulkOnlySendCBWPacket sent", getName(), this ) );
 	status = GetBulkOutPipe()->Write(	boRequestBlock->boPhaseDesc,
 										GetTimeoutDuration( boRequestBlock->request ),  // Use the client's timeout for both
@@ -268,7 +278,7 @@ IOUSBMassStorageClass::BulkOnlySendCBWPacket (
 		STATUS_LOG ( ( 5, "%s[%p]: BulkOnlySendCBWPacket could not be queued, returned", getName(), this ) );
 		
 		// The host is reporting a pipe stall. We'll need to address this if we ever wish to attempt a retry.
-		// We're relying on higher elements of the storage stack to iniate the retry. 
+		// We're relying on higher elements of the storage stack to initiate the retry. 
 		boRequestBlock->currentState = kBulkOnlyCheckCBWBulkStall;
 		status = GetStatusEndpointStatus ( GetBulkOutPipe(), &boRequestBlock->boGetStatusBuffer, &boRequestBlock->boCompletion );
 				
@@ -374,13 +384,12 @@ IOUSBMassStorageClass::BulkOnlyExecuteCommandCompletion (
 		                UInt32					bufferSizeRemaining)
 {
 
-	UNUSED ( bufferSizeRemaining );
-	
 	IOReturn 		status = kIOReturnError;
 	bool			commandInProgress = false;
+	bool			abortCommand = false;
 
 
-	STATUS_LOG(( 4, "%s[%p]: BulkOnlyExecuteCommandCompletion Entered with boRequestBlock=%p resultingStatus=0x%x", getName(), this, boRequestBlock, resultingStatus ));
+	STATUS_LOG ( ( 4, "%s[%p]: BulkOnlyExecuteCommandCompletion Entered with boRequestBlock=%p currentState=%d resultingStatus=0x%x", getName(), this, boRequestBlock, boRequestBlock->currentState, resultingStatus ) );
 
 	if ( ( boRequestBlock->request == NULL ) || ( fBulkOnlyCommandStructInUse == false ) )
 	{ 
@@ -397,14 +406,11 @@ IOUSBMassStorageClass::BulkOnlyExecuteCommandCompletion (
 		// Our interface has been closed, probably because of an
 		// unplug, return an error for the command since it can no 
 		// longer be executed.
-		SCSITaskIdentifier	request = boRequestBlock->request;
 		
-		STATUS_LOG ( ( 4, "%s[%p]: Interface object is NULL, returned %x", getName(), this, resultingStatus ) );
+		STATUS_LOG ( ( 4, "%s[%p]: Completion during termination", getName(), this ) );
 		RecordUSBTimeStamp ( UMC_TRACE ( kBOCompletionDuringTermination ), ( uintptr_t ) this, NULL, NULL, NULL );
 		
-		ReleaseBulkOnlyRequestBlock ( boRequestBlock );
-		CompleteSCSICommand ( request, status );
-		return;
+		goto Exit;
 	}		
 
 	
@@ -430,12 +436,12 @@ IOUSBMassStorageClass::BulkOnlyExecuteCommandCompletion (
 		case kBulkOnlyCommandSent:
 		{
 		
-   			STATUS_LOG ( ( 5, "%s[%p]: kBulkOnlyCommandSent returned %x", getName(), this, resultingStatus ) );
+   			STATUS_LOG ( ( 5, "%s[%p]: kBulkOnlyCommandSent returned %x cbwTag=0x%08x", getName(), this, resultingStatus, boRequestBlock->boCBW.cbwTag ) );
 			
 			if ( resultingStatus == kIOUSBPipeStalled )
 			{
 			
-				// The device is so far gone that we couldn't even retry the CSW. Reset time.
+				// The fUseUSBResetNotBOReset flag also implies that the device can't be set right with a Clear Pipe Stall. Reset time.
 				if ( fUseUSBResetNotBOReset )
 				{
 				
@@ -449,7 +455,7 @@ IOUSBMassStorageClass::BulkOnlyExecuteCommandCompletion (
 				{
 				
 					// The host is reporting a pipe stall. We'll need to address this if we ever wish to attempt a retry.
-					// We're relying on higher elements of the storage stack to iniate the retry. 
+					// We're relying on higher elements of the storage stack to initate the retry. 
 					boRequestBlock->currentState = kBulkOnlyCheckCBWBulkStall;
 					status = GetStatusEndpointStatus( GetBulkOutPipe(), &boRequestBlock->boGetStatusBuffer, &boRequestBlock->boCompletion );
 
@@ -511,7 +517,7 @@ IOUSBMassStorageClass::BulkOnlyExecuteCommandCompletion (
 		case kBulkOnlyCheckCBWBulkStall:
 		{
    			
-			STATUS_LOG ( ( 5, "%s[%p]: IOUSBMassStorageClass::BulkOnlyExecuteCommandCompletion - kBulkOnlyCheckCBWBulkStall returned %x", getName(), this, resultingStatus ) );
+			STATUS_LOG ( ( 5, "%s[%p]: IOUSBMassStorageClass::BulkOnlyExecuteCommandCompletion - kBulkOnlyCheckCBWBulkStall returned %x stalled=0x%x", getName(), this, resultingStatus, boRequestBlock->boGetStatusBuffer[0] ) );
 
 			// Check to see if the endpoint was stalled
 			if ( ( boRequestBlock->boGetStatusBuffer[0] & 1 ) == 1 )
@@ -531,13 +537,17 @@ IOUSBMassStorageClass::BulkOnlyExecuteCommandCompletion (
 			else
 			{
 			
-				STATUS_LOG ( ( 5, "%s[%p]: IOUSBMassStorageClass::BulkOnlyExecuteCommandCompletion - will abort bulk out pipe", getName(), this ) );
-				// Since the pipe was not stalled, but the host thought it was we should clear the host side of the pipe.
-				GetBulkOutPipe()->Abort();
-				
-				// As we failed to successfully transmit the BO CBW we return an error up the stack so the command will be retried.
+				STATUS_LOG ( ( 5, "%s[%p]: IOUSBMassStorageClass::BulkOnlyExecuteCommandCompletion - will reset", getName(), this ) );
+
 				SetRealizedDataTransferCount ( boRequestBlock->request, 0 );
-				status = kIOReturnError;
+
+				// Since the pipe was not stalled, but the host thought it was we should reset the device.
+				status = BulkDeviceResetDevice( boRequestBlock, kBulkOnlyResetCompleted );
+				
+				if ( status == kIOReturnSuccess )
+				{	
+					commandInProgress = true;
+				}
 				
 			}
 			
@@ -567,11 +577,13 @@ IOUSBMassStorageClass::BulkOnlyExecuteCommandCompletion (
 			
 			if ( ( resultingStatus == kIOUSBPipeStalled ) || ( resultingStatus == kIOReturnSuccess ) )
 			{
+				UInt64 realizedDataTransferCount = GetRequestedDataTransferCount ( boRequestBlock->request ) - bufferSizeRemaining;
+				
 				// Save the number of bytes tranferred in the request
 				// Use the amount returned by USB to determine the amount of data transferred instead of
 				// the data residue field in the CSW since some devices will report the wrong value.
-				SetRealizedDataTransferCount ( boRequestBlock->request, 
-					GetRequestedDataTransferCount ( boRequestBlock->request ) - bufferSizeRemaining);
+				SetRealizedDataTransferCount ( boRequestBlock->request, realizedDataTransferCount );
+				STATUS_LOG ( ( 5, "%s[%p]: bufferSizeRemaining=0x%x realizedDataTransferCount=0x%x", getName(), this, bufferSizeRemaining, realizedDataTransferCount ) );
             
             }
                     
@@ -606,7 +618,6 @@ IOUSBMassStorageClass::BulkOnlyExecuteCommandCompletion (
 				// In either case, this transfer is complete, clean up and return an error to the client.
 				
 				if ( ( resultingStatus == kIOReturnDeviceError )
-						|| ( resultingStatus == kIOReturnNotResponding )
 						|| ( resultingStatus == kIOUSBHighSpeedSplitError ) )
                 {
                 	// Was there a device error? The device could have been removed or lost power.
@@ -623,19 +634,7 @@ IOUSBMassStorageClass::BulkOnlyExecuteCommandCompletion (
 				{
 				
 					// The device is so far gone that we couldn't even retry the CSW. Reset time.
-                    if ( fUseUSBResetNotBOReset )
-                    {
-                    
-                        // By passing this to Finish device recovery we ensure that the driver is still active,
-                        // and that the device is still connected to the Mac.
-                        ResetDeviceNow ( false );
-                        status = kIOReturnSuccess;
-                        
-                    }
-                    else
-                    {
-                        status = BulkDeviceResetDevice( boRequestBlock, kBulkOnlyResetCompleted );
-                    }
+					status = BulkDeviceResetDevice( boRequestBlock, kBulkOnlyResetCompleted );
 					
 					if( status == kIOReturnSuccess )
 					{
@@ -661,6 +660,7 @@ IOUSBMassStorageClass::BulkOnlyExecuteCommandCompletion (
                     }
                     
                     boRequestBlock->currentState = kBulkOnlyCheckBulkStall;
+					STATUS_LOG ( ( 5, "%s[%p]: Checking status for endpoint %d", getName(), this, fPotentiallyStalledPipe ? fPotentiallyStalledPipe->GetEndpointNumber() : -1 ) );
                     status = GetStatusEndpointStatus ( fPotentiallyStalledPipe, &boRequestBlock->boGetStatusBuffer, &boRequestBlock->boCompletion );
 
                     if ( status == kIOReturnSuccess )
@@ -677,7 +677,7 @@ IOUSBMassStorageClass::BulkOnlyExecuteCommandCompletion (
 		case kBulkOnlyCheckBulkStall:
 		case kBulkOnlyCheckBulkStallPostCSW:
 		{
-   			STATUS_LOG ( ( 5, "%s[%p]: kBulkOnlyCheckBulkStall returned %x", getName(), this, resultingStatus ) );
+   			STATUS_LOG ( ( 5, "%s[%p]: kBulkOnlyCheckBulkStall returned %x stalled %x for endpoint %d", getName(), this, resultingStatus, boRequestBlock->boGetStatusBuffer[0], fPotentiallyStalledPipe ? fPotentiallyStalledPipe->GetEndpointNumber() : -1 ) );
 
 			// Check to see if the endpoint was stalled
 			if ( ( boRequestBlock->boGetStatusBuffer[0] & 1 ) == 1 )
@@ -696,7 +696,6 @@ IOUSBMassStorageClass::BulkOnlyExecuteCommandCompletion (
 				if ( status == kIOReturnSuccess )
 				{	
 				
-					fPotentiallyStalledPipe = NULL;
 					commandInProgress = true;
 					
 				}
@@ -704,27 +703,9 @@ IOUSBMassStorageClass::BulkOnlyExecuteCommandCompletion (
 			}
 			else
 			{
-				// If the endpoint was not stalled, attempt to get the CSW
-				if ( fPotentiallyStalledPipe != NULL )
-				{
-					// Since the pipe was not stalled, but the host thought it was we should clear the host side of the pipe.
-					fPotentiallyStalledPipe->Abort();
-				}
 				
-				// Did we think we were stalled following the data or status phase?
-				// We don't want to try to get the CSW again more than once.
-				if ( boRequestBlock->currentState == kBulkOnlyCheckBulkStall )
-				{
-					// If the endpoint was not stalled, attempt to get the CSW	
-					status = BulkOnlyReceiveCSWPacket ( boRequestBlock, kBulkOnlyStatusReceived );
-					
-				}
-				else
-				{
-					// If the endpoint was not stalled, attempt to get the CSW	
-					status = BulkOnlyReceiveCSWPacket ( boRequestBlock, kBulkOnlyStatusReceived2ndTime );
-					
-				}
+				// If the endpoint was not stalled, resort to reset.
+				status = BulkDeviceResetDevice( boRequestBlock, kBulkOnlyResetCompleted );
 				
 				if ( status == kIOReturnSuccess )
 				{
@@ -743,7 +724,7 @@ IOUSBMassStorageClass::BulkOnlyExecuteCommandCompletion (
 			// Try to get the CSW.  If the pipe was not successfully cleared, this will also
 			// set off a device reset sequence.
 			
-			// If we arlready tried to get the CSW once, only try to get it once again.
+			// If we already tried to get the CSW once, only try to get it once again.
 			
 			if ( boRequestBlock->currentState == kBulkOnlyClearBulkStall )
 			{
@@ -764,7 +745,7 @@ IOUSBMassStorageClass::BulkOnlyExecuteCommandCompletion (
 		
 		case kBulkOnlyStatusReceived:
 		{
-   			STATUS_LOG ( ( 5, "%s[%p]: kBulkOnlyStatusReceived returned %x", getName(), this, resultingStatus ) );
+   			STATUS_LOG ( ( 5, "%s[%p]: kBulkOnlyStatusReceived returned %x cswTag=0x%08x", getName(), this, resultingStatus, boRequestBlock->boCSW.cswTag ) );
 			
 			// Bulk transfer is done, get the Command Status Wrapper from the device
 			if ( resultingStatus == kIOUSBPipeStalled)
@@ -791,20 +772,7 @@ IOUSBMassStorageClass::BulkOnlyExecuteCommandCompletion (
 				{
                 
                     // The device is so far gone that we couldn't even retry the CSW. Reset time.
-			
-                    if ( fUseUSBResetNotBOReset )
-                    {
-                    
-                        // By passing this to Finish device recovery we ensure that the driver is still active,
-                        // and that the device is still connected to the Mac.
-                        ResetDeviceNow ( false );
-                        status = kIOReturnSuccess;
-                        
-                    }
-                    else
-                    {
-                        status = BulkDeviceResetDevice( boRequestBlock, kBulkOnlyResetCompleted );
-                    }
+					status = BulkDeviceResetDevice( boRequestBlock, kBulkOnlyResetCompleted );
                 
                 }
 				
@@ -832,7 +800,7 @@ IOUSBMassStorageClass::BulkOnlyExecuteCommandCompletion (
 					case kCSWCommandFailedError:
 					{
 						// The device reported an error for the command.
-						STATUS_LOG(( 4, "%s[%p]: kBulkOnlyStatusReceived kCSWCommandFailedError", getName(), this ));
+						STATUS_LOG ( ( 4, "%s[%p]: kBulkOnlyStatusReceived kCSWCommandFailedError", getName(), this ) );
 						status = kIOReturnError;
 						
 					}
@@ -842,21 +810,9 @@ IOUSBMassStorageClass::BulkOnlyExecuteCommandCompletion (
 					{
 						// The device reported a phase error on the command, perform the 
 						// bulk reset on the device.
-						STATUS_LOG(( 4, "%s[%p]: kBulkOnlyStatusReceived kCSWPhaseError", getName(), this ));
+						STATUS_LOG ( ( 4, "%s[%p]: kBulkOnlyStatusReceived kCSWPhaseError", getName(), this ) );
                         
-                        if ( fUseUSBResetNotBOReset )
-                        {
-                            
-                            // By passing this to Finish device recovery we ensure that the driver is still active,
-                            // and that the device is still connected to the Mac.
-                            ResetDeviceNow ( false );
-                            status = kIOReturnSuccess;
-                            
-                        }
-                        else
-                        {
-                            status = BulkDeviceResetDevice( boRequestBlock, kBulkOnlyResetCompleted );
-                        }
+						status = BulkDeviceResetDevice( boRequestBlock, kBulkOnlyResetCompleted );
                         
                         if( status == kIOReturnSuccess )
                         {
@@ -869,7 +825,7 @@ IOUSBMassStorageClass::BulkOnlyExecuteCommandCompletion (
 					default:
 					{
 					
-						STATUS_LOG(( 4, "%s[%p]: kBulkOnlyStatusReceived default", getName(), this ));
+						STATUS_LOG ( ( 4, "%s[%p]: kBulkOnlyStatusReceived default", getName(), this ) );
 						// We received an unkown status, report an error to the client.
 						status = kIOReturnError;
 						
@@ -880,7 +836,7 @@ IOUSBMassStorageClass::BulkOnlyExecuteCommandCompletion (
 			else
 			{
 			
-				STATUS_LOG(( 5, "%s[%p]: kBulkOnlyStatusReceived tag mismatch", getName(), this ));
+				STATUS_LOG ( ( 5, "%s[%p]: kBulkOnlyStatusReceived tag mismatch", getName(), this ) );
 				// The only way to get to this point is if the command completes successfully,
 				// but the CBW and CSW tags do not match.  Report an error to the client.
 				status = kIOReturnError;
@@ -891,25 +847,13 @@ IOUSBMassStorageClass::BulkOnlyExecuteCommandCompletion (
 		
 		case kBulkOnlyStatusReceived2ndTime:
 		{
-   			STATUS_LOG(( 5, "%s[%p]: kBulkOnlyStatusReceived2ndTime returned %x", getName(), this, resultingStatus ));
+   			STATUS_LOG ( ( 5, "%s[%p]: kBulkOnlyStatusReceived2ndTime returned %x", getName(), this, resultingStatus ) );
 
 			// Second try for the CSW is done, if an error occurred, reset device.
 			if ( resultingStatus != kIOReturnSuccess)
 			{
 			
-                if ( fUseUSBResetNotBOReset )
-                {
-                
-                    // By passing this to Finish device recovery we ensure that the driver is still active,
-                    // and that the device is still connected to the Mac.
-                    ResetDeviceNow ( false );
-                    status = kIOReturnSuccess;
-                    
-                }
-                else
-                {
-                    status = BulkDeviceResetDevice( boRequestBlock, kBulkOnlyResetCompleted );
-                }
+				status = BulkDeviceResetDevice( boRequestBlock, kBulkOnlyResetCompleted );
                 
 			}
 			else
@@ -978,9 +922,12 @@ IOUSBMassStorageClass::BulkOnlyExecuteCommandCompletion (
 		{
 		
    			STATUS_LOG ( ( 5, "%s[%p]: kBulkOnlyClearBulkOutCompleted returned %x", getName(), this, resultingStatus ) );
-
+			
+			//	This is the final cleanup step after a Bulk Device Reset sequence. We are hopefully functional again,
+			//	and thus ready to fail the current I/O. We will do so using AbortCurrentSCSITask()
+			//	so that the reset will be tabulated in case if the next I/O still fails and we need to escalate.
 			SetRealizedDataTransferCount ( boRequestBlock->request, 0 );
-			status = kIOReturnError;
+			abortCommand = true;
 			
 		}
 		break;
@@ -1001,12 +948,23 @@ Exit:
 	
 	if ( commandInProgress == false )
 	{	
-	
-		SCSITaskIdentifier	request = boRequestBlock->request;
 		
-		ReleaseBulkOnlyRequestBlock ( boRequestBlock );
-		CompleteSCSICommand ( request, status );
+		if ( abortCommand == true )
+		{
+			
+			AbortCurrentSCSITask ( );
+			
+		}
+		else
+		{
+	
+			SCSITaskIdentifier	request = boRequestBlock->request;
+			
+			ReleaseBulkOnlyRequestBlock ( boRequestBlock );
+			CompleteSCSICommand ( request, status );
+			
+		}
 		
 	}
-	STATUS_LOG(( 5, "%s[%p]: BulkOnlyExecuteCommandCompletion Returning", getName(), this ));
+	STATUS_LOG ( ( 5, "%s[%p]: BulkOnlyExecuteCommandCompletion Returning with currentState=%d", getName(), this, boRequestBlock->currentState ) );
 }

@@ -242,19 +242,22 @@ wake_all(List *list)
     return Qnil;
 }
 
+extern int rb_thread_join _((VALUE thread, double limit));
+#define DELAY_INFTY 1E30
+
 static VALUE
-wait_list_inner(List *list)
+wait_list_inner(VALUE arg)
 {
-    push_list(list, rb_thread_current());
+    push_list((List *)arg, rb_thread_current());
     rb_thread_stop();
     return Qnil;
 }
 
 static VALUE
-wait_list_cleanup(List *list)
+wait_list_cleanup(VALUE arg)
 {
     /* cleanup in case of spurious wakeups */
-    remove_one(list, rb_thread_current());
+    remove_one((List *)arg, rb_thread_current());
     return Qnil;
 }
 
@@ -390,6 +393,25 @@ rb_mutex_try_lock(VALUE self)
     return Qtrue;
 }
 
+static VALUE
+wait_mutex(VALUE arg)
+{
+    Mutex *mutex = (Mutex *)arg;
+    VALUE current = rb_thread_current();
+
+    push_list(&mutex->waiting, current);
+    do {
+	rb_thread_critical = 0;
+	rb_thread_join(mutex->owner, DELAY_INFTY);
+	rb_thread_critical = 1;
+	if (!MUTEX_LOCKED_P(mutex)) {
+	    mutex->owner = current;
+	    break;
+	}
+    } while (mutex->owner != current);
+    return Qnil;
+}
+
 /*
  * Document-method: lock
  * call-seq: lock
@@ -410,18 +432,17 @@ lock_mutex(Mutex *mutex)
 	mutex->owner = current;
     }
     else {
-	do {
-	    wait_list(&mutex->waiting);
-	    rb_thread_critical = 1;
-	    if (!MUTEX_LOCKED_P(mutex)) {
-		mutex->owner = current;
-		break;
-	    }
-	} while (mutex->owner != current);
+	rb_ensure(wait_mutex, (VALUE)mutex, wait_list_cleanup, (VALUE)&mutex->waiting);
     }
 
     rb_thread_critical = 0;
     return Qnil;
+}
+
+static VALUE
+lock_mutex_call(VALUE mutex)
+{
+    return lock_mutex((Mutex *)mutex);
 }
 
 static VALUE
@@ -474,6 +495,12 @@ unlock_mutex(Mutex *mutex)
     run_thread(waking);
 
     return Qtrue;
+}
+
+static VALUE
+unlock_mutex_call(VALUE mutex)
+{
+    return unlock_mutex((Mutex *)mutex);
 }
 
 static VALUE
@@ -629,8 +656,17 @@ rb_condvar_alloc(VALUE klass)
  *
  */
 
+static void condvar_wakeup(Mutex *mutex);
+
 static void
 wait_condvar(ConditionVariable *condvar, Mutex *mutex)
+{
+    condvar_wakeup(mutex);
+    rb_ensure(wait_list, (VALUE)&condvar->waiting, lock_mutex_call, (VALUE)mutex);
+}
+
+static void
+condvar_wakeup(Mutex *mutex)
 {
     VALUE waking;
 
@@ -643,7 +679,6 @@ wait_condvar(ConditionVariable *condvar, Mutex *mutex)
     if (RTEST(waking)) {
 	wake_thread(waking);
     }
-    rb_ensure(wait_list, (VALUE)&condvar->waiting, lock_mutex, (VALUE)mutex);
 }
 
 static VALUE
@@ -723,6 +758,13 @@ signal_condvar(ConditionVariable *condvar)
     if (RTEST(waking)) {
         run_thread(waking);
     }
+}
+
+static VALUE
+signal_condvar_call(VALUE condvar)
+{
+    signal_condvar((ConditionVariable *)condvar);
+    return Qundef;
 }
 
 static VALUE
@@ -949,6 +991,16 @@ rb_queue_num_waiting(VALUE self)
     return result;
 }
 
+static void
+wait_queue(ConditionVariable *condvar, Mutex *mutex)
+{
+    condvar_wakeup(mutex);
+    wait_list(&condvar->waiting);
+    lock_mutex(mutex);
+}
+
+static VALUE queue_pop_inner(VALUE arg);
+
 /*
  * Document-method: pop
  * call_seq: pop(non_block=false)
@@ -964,7 +1016,6 @@ rb_queue_pop(int argc, VALUE *argv, VALUE self)
 {
     Queue *queue;
     int should_block;
-    VALUE result;
     Data_Get_Struct(self, Queue, queue);
 
     if (argc == 0) {
@@ -982,15 +1033,21 @@ rb_queue_pop(int argc, VALUE *argv, VALUE self)
     }
 
     while (!queue->values.entries) {
-        wait_condvar(&queue->value_available, &queue->mutex);
+        wait_queue(&queue->value_available, &queue->mutex);
     }
 
-    result = shift_list(&queue->values);
+    return rb_ensure(queue_pop_inner, (VALUE)queue,
+		     unlock_mutex_call, (VALUE)&queue->mutex);
+}
+
+static VALUE
+queue_pop_inner(VALUE arg)
+{
+    Queue *queue = (Queue *)arg;
+    VALUE result = shift_list(&queue->values);
     if (queue->capacity && queue->values.size < queue->capacity) {
         signal_condvar(&queue->space_available);
     }
-    unlock_mutex(&queue->mutex);
-
     return result;
 }
 
@@ -1010,11 +1067,11 @@ rb_queue_push(VALUE self, VALUE value)
 
     lock_mutex(&queue->mutex);
     while (queue->capacity && queue->values.size >= queue->capacity) {
-        wait_condvar(&queue->space_available, &queue->mutex);
+        wait_queue(&queue->space_available, &queue->mutex);
     }
     push_list(&queue->values, value);
-    signal_condvar(&queue->value_available);
-    unlock_mutex(&queue->mutex);
+    rb_ensure(signal_condvar_call, (VALUE)&queue->value_available,
+	      unlock_mutex_call, (VALUE)&queue->mutex);
 
     return self;
 }

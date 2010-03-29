@@ -5466,7 +5466,11 @@ char *data;	/* dummy */
       *buf = 0;
       return;
     }
-  act.nr = (int)(intptr_t)data;
+#ifdef __APPLE__
+	act.nr = (int)(intptr_t)data;
+#else
+  act.nr = (int)data;
+#endif
   act.args = noargs;
   act.argl = 0;
   DoAction(&act, -1);

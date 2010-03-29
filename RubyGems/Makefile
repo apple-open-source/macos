@@ -34,7 +34,7 @@ build::
 
 # Automatic Extract & Patch
 AEP_Project    = $(Project)
-AEP_Version    = 1.3.1
+AEP_Version    = 1.3.5
 AEP_ProjVers   = $(AEP_Project)-$(AEP_Version)
 AEP_Filename   = $(AEP_ProjVers).tgz
 AEP_ExtractDir = $(AEP_ProjVers)

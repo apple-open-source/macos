@@ -37,8 +37,8 @@ enum { kIOI2CInlineBufferBytes = 1024 };
 
 struct IOI2CBuffer
 {
-    IOI2CRequest	request;
-    UInt8		inlineBuffer[ kIOI2CInlineBufferBytes ];
+    IOI2CRequest        request;
+    UInt8               inlineBuffer[ kIOI2CInlineBufferBytes ];
 };
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
@@ -49,26 +49,26 @@ struct IOI2CBuffer
 
 struct IOI2CRequest_10_5_0
 {
-    UInt64		__reservedA;
-    IOReturn		result;
-    uint32_t		completion;
-    IOOptionBits	commFlags;
-    uint64_t		minReplyDelay;
-    uint8_t		sendAddress;
-    uint8_t		sendSubAddress;
-    uint8_t		__reservedB[2];
-    IOOptionBits	sendTransactionType;
-    uint32_t		sendBuffer;
-    uint32_t         	sendBytes;
-    uint8_t		replyAddress;
-    uint8_t		replySubAddress;
-    uint8_t		__reservedC[2];
-    IOOptionBits	replyTransactionType;
-    uint32_t		replyBuffer;
-    uint32_t		replyBytes;
-    uint32_t		__reservedD[16];
+    UInt64              __reservedA;
+    IOReturn            result;
+    uint32_t            completion;
+    IOOptionBits        commFlags;
+    uint64_t            minReplyDelay;
+    uint8_t             sendAddress;
+    uint8_t             sendSubAddress;
+    uint8_t             __reservedB[2];
+    IOOptionBits        sendTransactionType;
+    uint32_t            sendBuffer;
+    uint32_t            sendBytes;
+    uint8_t             replyAddress;
+    uint8_t             replySubAddress;
+    uint8_t             __reservedC[2];
+    IOOptionBits        replyTransactionType;
+    uint32_t            replyBuffer;
+    uint32_t            replyBytes;
+    uint32_t            __reservedD[16];
 #ifdef __ppc__
-    uint32_t		__reservedE;
+    uint32_t            __reservedE;
 #endif
 };
 
@@ -81,7 +81,7 @@ class IOI2CInterfaceUserClient : public IOUserClient
     OSDeclareDefaultStructors(IOI2CInterfaceUserClient)
 
 protected:
-    task_t	fTask;
+    task_t      fTask;
 
 public:
     // IOUserClient methods

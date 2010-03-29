@@ -87,6 +87,8 @@ class VisibleSelection;
 class String;
 class Widget;
 
+typedef unsigned AXID;
+
 enum AccessibilityRole {
     UnknownRole = 1,
     ButtonRole,
@@ -240,6 +242,7 @@ public:
     virtual bool isPressed() const { return false; };
     virtual bool isReadOnly() const { return false; };
     virtual bool isVisited() const { return false; };
+    virtual bool isLinked() const { return false; }
 
     virtual bool canSetFocusAttribute() const { return false; };
     virtual bool canSetTextRangeAttributes() const { return false; };
@@ -259,7 +262,7 @@ public:
     virtual int layoutCount() const;
     static bool isARIAControl(AccessibilityRole);
     static bool isARIAInput(AccessibilityRole);
-    unsigned axObjectID() const;
+    AXID axObjectID() const;
     
     virtual AccessibilityObject* doAccessibilityHitTest(const IntPoint&) const;
     virtual AccessibilityObject* focusedUIElement() const;
@@ -277,6 +280,8 @@ public:
     virtual AccessibilityRole ariaRoleAttribute() const;
     virtual bool isPresentationalChildOfAriaRole() const;
     virtual bool ariaRoleHasPresentationalChildren() const;
+
+    static AccessibilityObject* firstAccessibleObjectFromNode(const Node*);
 
     virtual AccessibilityRole roleValue() const;
     virtual AXObjectCache* axObjectCache() const;
@@ -314,7 +319,7 @@ public:
     virtual FrameView* documentFrameView() const;
     virtual String language() const;
     
-    void setAXObjectID(unsigned);
+    void setAXObjectID(AXID);
     virtual void setFocused(bool);
     virtual void setSelectedText(const String&);
     virtual void setSelectedTextRange(const PlainTextRange&);
@@ -386,6 +391,11 @@ public:
 
     unsigned doAXLineForIndex(unsigned);
 
+    virtual String stringValueForMSAA() const { return String(); }
+    virtual String stringRoleForMSAA() const { return String(); }
+    virtual String nameForMSAA() const { return String(); }
+    virtual String descriptionForMSAA() const { return String(); }
+
 #if HAVE(ACCESSIBILITY)
 #if PLATFORM(GTK)
     AccessibilityObjectWrapper* wrapper() const;
@@ -411,7 +421,7 @@ public:
     virtual void updateBackingStore();
     
 protected:
-    unsigned m_id;
+    AXID m_id;
     AccessibilityChildrenVector m_children;
     mutable bool m_haveChildren;
     

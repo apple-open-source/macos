@@ -329,3 +329,8 @@ routine authenticateDbsForSync(UCSP_PORTS; in ipcDbHandleArray: Data;
 // Allows the client to verify that the server really is root.
 //
 routine verifyPrivileged(UCSP_PORTS);
+
+//
+// The original verifyPrivileged is subject to a Mach service in the middle attack (6986198).
+//
+routine verifyPrivileged2(UCSP_PORTS; out originPort: mach_port_make_send_t);

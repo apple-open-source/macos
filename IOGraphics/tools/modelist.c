@@ -25,27 +25,27 @@
 
 struct IOFBModeList
 {
-    CFBundleRef			bundle;
-    io_service_t		framebuffer;
+    CFBundleRef                 bundle;
+    io_service_t                framebuffer;
 
-    CFMutableDictionaryRef	kernelInfo;
-    CFMutableDictionaryRef	modes;
-    CFMutableArrayRef		modesArray;
-    CFMutableDictionaryRef	overrides;
+    CFMutableDictionaryRef      kernelInfo;
+    CFMutableDictionaryRef      modes;
+    CFMutableArrayRef           modesArray;
+    CFMutableDictionaryRef      overrides;
 
-    Boolean			suppressRefresh;
-    Boolean			detailedRefresh;
+    Boolean                     suppressRefresh;
+    Boolean                     detailedRefresh;
 
-    IOItemCount			safemodeCount;
-    IOItemCount			builtinCount;
-    IOItemCount			televisionCount;
-    IOItemCount			simulscanCount;
-    IOItemCount			maxRefreshDigits;
+    IOItemCount                 safemodeCount;
+    IOItemCount                 builtinCount;
+    IOItemCount                 televisionCount;
+    IOItemCount                 simulscanCount;
+    IOItemCount                 maxRefreshDigits;
 
-    CFMutableArrayRef		refreshNames;
+    CFMutableArrayRef           refreshNames;
 
-    Boolean			refreshList;
-    uint32_t			significantFlags;
+    Boolean                     refreshList;
+    uint32_t                    significantFlags;
 };
 typedef struct IOFBModeList * IOFBModeListRef;
 
@@ -54,13 +54,13 @@ typedef struct IOFBModeList * IOFBModeListRef;
 struct ModeInfo
 {
     IODisplayModeInformation *  info;
-    UInt32			index;
-    UInt32			cgIndex;
-    SInt32			numRefresh;
-    SInt32			numSafe;
-    SInt32			numPreset;
-    UInt32			digits;
-    Boolean			notReco;
+    UInt32                      index;
+    UInt32                      cgIndex;
+    SInt32                      numRefresh;
+    SInt32                      numSafe;
+    SInt32                      numPreset;
+    UInt32                      digits;
+    Boolean                     notReco;
 };
 typedef struct ModeInfo ModeInfo;
 
@@ -72,15 +72,15 @@ enum
 
 static int
 CompareModes(IOFBModeListRef modeListRef,
-	    IODisplayModeInformation * left, IODisplayModeInformation * right,
-	    IOOptionBits compare)
+            IODisplayModeInformation * left, IODisplayModeInformation * right,
+            IOOptionBits compare)
 {
     UInt32 leftFlags, rightFlags, differFlags;
 
     if (!left)
-	return (1);
+        return (1);
     else if (!right)
-	return (-1);
+        return (-1);
     
     leftFlags = left->flags;
     rightFlags = right->flags;
@@ -88,59 +88,59 @@ CompareModes(IOFBModeListRef modeListRef,
 
     if (modeListRef->simulscanCount && (kDisplayModeSimulscanFlag & differFlags))
     {
-	if (kDisplayModeSimulscanFlag & leftFlags)
-	    return (1);
-	else
-	    return (-1);
+        if (kDisplayModeSimulscanFlag & leftFlags)
+            return (1);
+        else
+            return (-1);
     }
     if (modeListRef->builtinCount && (kDisplayModeBuiltInFlag & differFlags))
     {
-	if (kDisplayModeBuiltInFlag & leftFlags)
-	    return (1);
-	else
-	    return (-1);
+        if (kDisplayModeBuiltInFlag & leftFlags)
+            return (1);
+        else
+            return (-1);
     }
 
     if (kDisplayModeTelevisionFlag & leftFlags & rightFlags)
     {
-	// both TV, order ntsc first
-	if ((left->refreshRate < 55*65536) && (right->refreshRate > 55*65536))
-	    return (1);
-	else if ((left->refreshRate > 55*65536) && (right->refreshRate < 55*65536))
-	    return (-1);
+        // both TV, order ntsc first
+        if ((left->refreshRate < 55*65536) && (right->refreshRate > 55*65536))
+            return (1);
+        else if ((left->refreshRate > 55*65536) && (right->refreshRate < 55*65536))
+            return (-1);
     }
 
     if (left->nominalWidth > right->nominalWidth)
-	return (1);
+        return (1);
     else if (left->nominalWidth != right->nominalWidth)
-	return (-1);
+        return (-1);
     if (left->nominalHeight > right->nominalHeight)
-	return (1);
+        return (1);
     else if (left->nominalHeight != right->nominalHeight)
-	return (-1);
+        return (-1);
 
     if (kDisplayModeStretchedFlag & differFlags)
     {
-	if (kDisplayModeStretchedFlag & leftFlags)
-	    return (1);
-	else
-	    return (-1);
+        if (kDisplayModeStretchedFlag & leftFlags)
+            return (1);
+        else
+            return (-1);
     }
 
     if (kDisplayModeInterlacedFlag & differFlags)
     {
-	if (kDisplayModeInterlacedFlag & leftFlags)
-	    return (1);
-	else
-	    return (-1);
+        if (kDisplayModeInterlacedFlag & leftFlags)
+            return (1);
+        else
+            return (-1);
     }
 
     if (compare & kCompareRefresh)
     {
-	if (left->refreshRate > right->refreshRate)
-	    return (1);
-	else if (left->refreshRate != right->refreshRate)
-	    return (-1);
+        if (left->refreshRate > right->refreshRate)
+            return (1);
+        else if (left->refreshRate != right->refreshRate)
+            return (-1);
     }
 
     return (0);
@@ -159,41 +159,41 @@ qsort_cmp(void * ref, const void * _left, const void * _right)
 
 
 
-#define k256ColorString			"256 Colors" 
-#define kThousandsString		"Thousands" 
-#define kMillionsString			"Millions"
-#define kTrillionsString		"Trillions"
+#define k256ColorString                 "256 Colors" 
+#define kThousandsString                "Thousands" 
+#define kMillionsString                 "Millions"
+#define kTrillionsString                "Trillions"
 
-#define kPALString			"PAL"
-#define kNTSCString			"NTSC"
+#define kPALString                      "PAL"
+#define kNTSCString                     "NTSC"
 
-#define kNoRefreshRateString		"n/a"
+#define kNoRefreshRateString            "n/a"
 
-#define kStretchedString		"stretched"
-#define kSimulscanString		"simulscan"
-#define kInterlacedString		"interlaced"
-#define kExternalString			"external"
+#define kStretchedString                "stretched"
+#define kSimulscanString                "simulscan"
+#define kInterlacedString               "interlaced"
+#define kExternalString                 "external"
 
-#define kRefreshString			"%%.%ldf Hertz"
-#define kTVRefreshString		"%%.%ldf Hertz (%%@)"
+#define kRefreshString                  "%%.%ldf Hertz"
+#define kTVRefreshString                "%%.%ldf Hertz (%%@)"
 
-#define	kHxVString			"%d x %d"
-#define kHxVpString			"%d x %dp"
-#define kHxViString			"%d x %di"
+#define kHxVString                      "%d x %d"
+#define kHxVpString                     "%d x %dp"
+#define kHxViString                     "%d x %di"
 
-#define kNoHertz0FlagString		"%@"
-#define kNoHertz1FlagString		"%@ (%@)"
-#define kNoHertz2FlagString		"%@ (%@, %@)"
-#define kNoHertz3FlagString		"%@ (%@, %@, %@)"
-#define kNoHertz4FlagString		"%@ (%@, %@, %@, %@)"
-#define kNoHertz5FlagString		"%@ (%@, %@, %@, %@, %@)"
+#define kNoHertz0FlagString             "%@"
+#define kNoHertz1FlagString             "%@ (%@)"
+#define kNoHertz2FlagString             "%@ (%@, %@)"
+#define kNoHertz3FlagString             "%@ (%@, %@, %@)"
+#define kNoHertz4FlagString             "%@ (%@, %@, %@, %@)"
+#define kNoHertz5FlagString             "%@ (%@, %@, %@, %@, %@)"
 
-#define kHertz0FlagString		"%%@, %%.%ldf Hz"
-#define kHertz1FlagString		"%%@, %%.%ldf Hz (%%@)"
-#define kHertz2FlagString		"%%@, %%.%ldf Hz (%%@, %%@)"
-#define kHertz3FlagString		"%%@, %%.%ldf Hz (%%@, %%@, %%@)"
-#define kHertz4FlagString		"%%@, %%.%ldf Hz (%%@, %%@, %%@, %%@)"
-#define kHertz5FlagString		"%%@, %%.%ldf Hz (%%@, %%@, %%@, %%@, %%@)"
+#define kHertz0FlagString               "%%@, %%.%ldf Hz"
+#define kHertz1FlagString               "%%@, %%.%ldf Hz (%%@)"
+#define kHertz2FlagString               "%%@, %%.%ldf Hz (%%@, %%@)"
+#define kHertz3FlagString               "%%@, %%.%ldf Hz (%%@, %%@, %%@)"
+#define kHertz4FlagString               "%%@, %%.%ldf Hz (%%@, %%@, %%@, %%@)"
+#define kHertz5FlagString               "%%@, %%.%ldf Hz (%%@, %%@, %%@, %%@, %%@)"
                 
 CFStringRef
 TimingName(IOFBModeListRef modeListRef, IODisplayModeInformation * info, CFIndex * refRateIndex)
@@ -251,7 +251,7 @@ TimingName(IOFBModeListRef modeListRef, IODisplayModeInformation * info, CFIndex
         count = CFArrayGetCount(modeListRef->refreshNames);
         for (k = 0;
             (k < count) && !CFEqual(refStr, CFArrayGetValueAtIndex(modeListRef->refreshNames, k));
-                k++)	{}
+                k++)    {}
     
         if (k == count)
             CFArrayAppendValue(modeListRef->refreshNames, refStr);
@@ -277,7 +277,7 @@ TimingName(IOFBModeListRef modeListRef, IODisplayModeInformation * info, CFIndex
         flagStrs[flagCount++] = externalStr;
 
     if (kDisplayModeInterlacedFlag ==
-	    (flags & (kDisplayModeInterlacedFlag | kDisplayModeTelevisionFlag)))
+            (flags & (kDisplayModeInterlacedFlag | kDisplayModeTelevisionFlag)))
         flagStrs[flagCount++] = interlacedStr;
 
     
@@ -360,30 +360,30 @@ TimingName(IOFBModeListRef modeListRef, IODisplayModeInformation * info, CFIndex
 kern_return_t
 ModeList(IOFBModeListRef modeListRef, Boolean reco)
 {
-    CFMutableDictionaryRef	dict;
-    CFMutableArrayRef		array;
-    CFDataRef			data;
-    SInt32			i, j, k;
-    CFIndex			modeCount, newCount, cgIndex = 0;
+    CFMutableDictionaryRef      dict;
+    CFMutableArrayRef           array;
+    CFDataRef                   data;
+    SInt32                      i, j, k;
+    CFIndex                     modeCount, newCount, cgIndex = 0;
     IODisplayModeInformation *  info;
-    ModeInfo *			modeArray;
+    ModeInfo *                  modeArray;
 
     do
     {
-	dict = CFDictionaryCreateMutable( kCFAllocatorDefault, (CFIndex) 0,
-						(CFDictionaryKeyCallBacks *) 0,
-						&kCFTypeDictionaryValueCallBacks );
-	modeListRef->modes = dict;
+        dict = CFDictionaryCreateMutable( kCFAllocatorDefault, (CFIndex) 0,
+                                                (CFDictionaryKeyCallBacks *) 0,
+                                                &kCFTypeDictionaryValueCallBacks );
+        modeListRef->modes = dict;
     
-	dict = (CFMutableDictionaryRef) IORegistryEntryCreateCFProperty(
-					    modeListRef->framebuffer, 
-					    CFSTR(kIOFBConfigKey),
-					    kCFAllocatorDefault, kNilOptions);
-	if (!dict)
-	    break;
-	array = (CFMutableArrayRef) CFDictionaryGetValue(dict, CFSTR(kIOFBModesKey));
-	if (!array)
-	    break;
+        dict = (CFMutableDictionaryRef) IORegistryEntryCreateCFProperty(
+                                            modeListRef->framebuffer, 
+                                            CFSTR(kIOFBConfigKey),
+                                            kCFAllocatorDefault, kNilOptions);
+        if (!dict)
+            break;
+        array = (CFMutableArrayRef) CFDictionaryGetValue(dict, CFSTR(kIOFBModesKey));
+        if (!array)
+            break;
 
         // pick up existing config
         modeListRef->kernelInfo = dict;
@@ -392,74 +392,74 @@ ModeList(IOFBModeListRef modeListRef, Boolean reco)
 
         modeListRef->suppressRefresh = (0 != CFDictionaryGetValue(dict, CFSTR("IOFB0Hz")));
 
-	modeListRef->detailedRefresh = (0 != CFDictionaryGetValue(dict, CFSTR("IOFBmHz")));
+        modeListRef->detailedRefresh = (0 != CFDictionaryGetValue(dict, CFSTR("IOFBmHz")));
 
         modeCount  = CFArrayGetCount( modeListRef->modesArray );
-	newCount = modeCount;
+        newCount = modeCount;
 
-	modeArray = calloc(modeCount, sizeof(ModeInfo));
+        modeArray = calloc(modeCount, sizeof(ModeInfo));
 
         for( i = 0; i < modeCount; i++ )
-	{
+        {
             const void * key;
-            CFNumberRef	 num;
+            CFNumberRef  num;
 
             dict = (CFMutableDictionaryRef) CFArrayGetValueAtIndex( modeListRef->modesArray, i );
             num = CFDictionaryGetValue( dict, CFSTR(kIOFBModeIDKey) );
             CFNumberGetValue( num, kCFNumberSInt32Type, (SInt32 *) &key );
             CFDictionarySetValue( modeListRef->modes, key, dict );
 
-	    if (!dict)
-		break;
-	    data = CFDictionaryGetValue(dict, CFSTR(kIOFBModeDMKey));
-	    if (!data)
-		break;
+            if (!dict)
+                break;
+            data = CFDictionaryGetValue(dict, CFSTR(kIOFBModeDMKey));
+            if (!data)
+                break;
 
-	    info = (IODisplayModeInformation *) CFDataGetBytePtr(data);
+            info = (IODisplayModeInformation *) CFDataGetBytePtr(data);
 
-//	    if (info->flags & kDisplayModeNeverShowFlag)
-//		continue;
+//          if (info->flags & kDisplayModeNeverShowFlag)
+//              continue;
 
-	    modeArray[i].index = i;
-	    modeArray[i].info  = info;
-	    modeArray[i].cgIndex = cgIndex;
-	    cgIndex += info->maxDepthIndex + 1;
+            modeArray[i].index = i;
+            modeArray[i].info  = info;
+            modeArray[i].cgIndex = cgIndex;
+            cgIndex += info->maxDepthIndex + 1;
 
 #if 0
-	    printf("%ld: %ld x %ld  @ %f Hz\n", modeArray[i].cgIndex, 
-		    info->nominalWidth, info->nominalHeight, 
-		    info->refreshRate / 65536.0);
+            printf("%ld: %ld x %ld  @ %f Hz\n", modeArray[i].cgIndex, 
+                    info->nominalWidth, info->nominalHeight, 
+                    info->refreshRate / 65536.0);
 #endif
 
-	    if (info->flags & kDisplayModeSafeFlag)
-		modeListRef->safemodeCount++;
+            if (info->flags & kDisplayModeSafeFlag)
+                modeListRef->safemodeCount++;
 
-//		if (info->flags & kDisplayModeAlwaysShowFlag)
-//		if (info->flags & kDisplayModeDefaultFlag)
+//              if (info->flags & kDisplayModeAlwaysShowFlag)
+//              if (info->flags & kDisplayModeDefaultFlag)
 
-	    if (info->flags & kDisplayModeSimulscanFlag)
-		modeListRef->simulscanCount++;
-	    if (info->flags & kDisplayModeBuiltInFlag)
-		modeListRef->builtinCount++;
-	    if (info->flags & kDisplayModeTelevisionFlag)
-		modeListRef->televisionCount++;
+            if (info->flags & kDisplayModeSimulscanFlag)
+                modeListRef->simulscanCount++;
+            if (info->flags & kDisplayModeBuiltInFlag)
+                modeListRef->builtinCount++;
+            if (info->flags & kDisplayModeTelevisionFlag)
+                modeListRef->televisionCount++;
         }
 
 
-	qsort_r(modeArray, modeCount, sizeof(modeArray[0]), modeListRef, &qsort_cmp);
+        qsort_r(modeArray, modeCount, sizeof(modeArray[0]), modeListRef, &qsort_cmp);
 
 
-#define discard()	{ modeArray[i].notReco = true; continue; }
+#define discard()       { modeArray[i].notReco = true; continue; }
 
 
-	// group refresh rates
+        // group refresh rates
 
-	{
-	    UInt32 lastSame;
+        {
+            UInt32 lastSame;
 
-	    lastSame = 0;
-	    for (i = 0; i < modeCount; i++)
-	    {
+            lastSame = 0;
+            for (i = 0; i < modeCount; i++)
+            {
                 if (i != lastSame)
                 {
                     if (0 == CompareModes(modeListRef, modeArray[lastSame].info, modeArray[i].info, 0))
@@ -477,50 +477,50 @@ ModeList(IOFBModeListRef modeListRef, Boolean reco)
 
                 if (!(modeArray[i].info->flags & kDisplayModeNotPresetFlag))
                     modeArray[lastSame].numPreset++;
-	    }
-	}
+            }
+        }
 
 
-	if (reco)
-	{
-	    // prune with safety / not preset
+        if (reco)
+        {
+            // prune with safety / not preset
 
-	    for( i = 0; i < modeCount; i++ )
-	    {
-		info = modeArray[i].info;
-		do 
-		{
-//		    if (modeListRef->safemodeCount
-//		     && !(info->flags & (kDisplayModeSafeFlag | kDisplayModeTelevisionFlag)))
-//			discard();
+            for( i = 0; i < modeCount; i++ )
+            {
+                info = modeArray[i].info;
+                do 
+                {
+//                  if (modeListRef->safemodeCount
+//                   && !(info->flags & (kDisplayModeSafeFlag | kDisplayModeTelevisionFlag)))
+//                      discard();
 
-//		    if (info->flags & kDisplayModeNotPresetFlag)
-//			discard();
-		}
-		while (false);
-	    }
-	}
+//                  if (info->flags & kDisplayModeNotPresetFlag)
+//                      discard();
+                }
+                while (false);
+            }
+        }
 
-	// prune refresh rates
-	if (reco)
-	{
-	    for( i = 0; i < modeCount; i += modeArray[i].numRefresh + 1 )
-	    {
-		info = modeArray[i].info;
-		do 
-		{
-		    if (info->flags & kDisplayModeTelevisionFlag)
-			continue;
+        // prune refresh rates
+        if (reco)
+        {
+            for( i = 0; i < modeCount; i += modeArray[i].numRefresh + 1 )
+            {
+                info = modeArray[i].info;
+                do 
+                {
+                    if (info->flags & kDisplayModeTelevisionFlag)
+                        continue;
 
-//		    if (modeListRef->safemodeCount)
-		    {
-			// keep only highest
-			Boolean haveHighestReco = false;
-			for (j = i + modeArray[i].numRefresh; j >= i; j--)
-			{
-			    if (haveHighestReco)
-				modeArray[j].notReco = true;
-			    else {
+//                  if (modeListRef->safemodeCount)
+                    {
+                        // keep only highest
+                        Boolean haveHighestReco = false;
+                        for (j = i + modeArray[i].numRefresh; j >= i; j--)
+                        {
+                            if (haveHighestReco)
+                                modeArray[j].notReco = true;
+                            else {
 
                                 if ((!modeArray[i].numPreset)
                                 || (!(modeArray[j].info->flags & kDisplayModeNotPresetFlag)))
@@ -532,59 +532,59 @@ ModeList(IOFBModeListRef modeListRef, Boolean reco)
                                     haveHighestReco = !modeArray[j].notReco
                                                     && (modeArray[j].info->refreshRate < target);
                                 }
-				if (!haveHighestReco)
-				    modeArray[j].notReco = true;
-			    }
-			}
-			continue;
-		    }
-		}
-		while (false);
-	    }
-	}
-	// <reco/>
+                                if (!haveHighestReco)
+                                    modeArray[j].notReco = true;
+                            }
+                        }
+                        continue;
+                    }
+                }
+                while (false);
+            }
+        }
+        // <reco/>
 
-	// unique refresh rates
+        // unique refresh rates
 
-	for( i = 0; i < modeCount; i += modeArray[i].numRefresh + 1 )
-	{
-	    float ref1, ref2, mult;
+        for( i = 0; i < modeCount; i += modeArray[i].numRefresh + 1 )
+        {
+            float ref1, ref2, mult;
 
-	    modeArray[i].digits = 0; //modeListRef->maxRefreshDigits;
-	    mult = 1.0;
+            modeArray[i].digits = 0; //modeListRef->maxRefreshDigits;
+            mult = 1.0;
 
-	    for (j = i; j < (i + modeArray[i].numRefresh + 1); j++)
-	    {
-		if (modeArray[j].notReco)
-		    continue;
-		ref1 = modeArray[j].info->refreshRate / 65536.0;
-		for (k = i; k < (i + modeArray[i].numRefresh + 1); k++)
-		{
-		    if (k == j)
-			continue;
-		    if (modeArray[k].notReco)
-			continue;
-		    ref2 = modeArray[k].info->refreshRate / 65536.0;
-		    while (modeArray[i].digits < 5)
-		    {
+            for (j = i; j < (i + modeArray[i].numRefresh + 1); j++)
+            {
+                if (modeArray[j].notReco)
+                    continue;
+                ref1 = modeArray[j].info->refreshRate / 65536.0;
+                for (k = i; k < (i + modeArray[i].numRefresh + 1); k++)
+                {
+                    if (k == j)
+                        continue;
+                    if (modeArray[k].notReco)
+                        continue;
+                    ref2 = modeArray[k].info->refreshRate / 65536.0;
+                    while (modeArray[i].digits < 5)
+                    {
 //if (modeArray[i].digits)
 //    printf("-----> %f, %f, %f, %f\n", ref1, ref2, roundf(ref1 * mult), roundf(ref2 * mult));
-			if (roundf(ref1 * mult) != roundf(ref2 * mult))
-			    break;
-			modeArray[i].digits++;
-			mult *= 10.0;
-		    }
-		}
-	    }
+                        if (roundf(ref1 * mult) != roundf(ref2 * mult))
+                            break;
+                        modeArray[i].digits++;
+                        mult *= 10.0;
+                    }
+                }
+            }
 
-	    if (modeArray[i].digits > modeListRef->maxRefreshDigits)
-		modeListRef->maxRefreshDigits = modeArray[i].digits;
-	}
-	// <unique/>
+            if (modeArray[i].digits > modeListRef->maxRefreshDigits)
+                modeListRef->maxRefreshDigits = modeArray[i].digits;
+        }
+        // <unique/>
 
-	printf("\nOut:\n");
-	
-	modeListRef->refreshNames = CFArrayCreateMutable( kCFAllocatorDefault, 0,
+        printf("\nOut:\n");
+        
+        modeListRef->refreshNames = CFArrayCreateMutable( kCFAllocatorDefault, 0,
                                              &kCFTypeArrayCallBacks );
 
         modeListRef->refreshList = false;
@@ -601,7 +601,7 @@ ModeList(IOFBModeListRef modeListRef, Boolean reco)
             {
                 CFStringRef name;
                 CFIndex     idx;
-                CFIndex	mask = 0;
+                CFIndex mask = 0;
     
                 info = modeArray[i].info;
     
@@ -657,7 +657,7 @@ ModeList(IOFBModeListRef modeListRef, Boolean reco)
     }
     while (false);
 
-//	CFShow(modeListRef->modesArray);
+//      CFShow(modeListRef->modesArray);
     return( kIOReturnSuccess );
 }
 
@@ -666,12 +666,12 @@ ModeList(IOFBModeListRef modeListRef, Boolean reco)
 int main( int argc, char * argv[] )
 {
     kern_return_t kr;
-    io_string_t	  path;
+    io_string_t   path;
         CFURLRef url;
     CFIndex       i;
-    CGError		err;
-    CGDisplayCount	max;
-    CGDirectDisplayID	displayIDs[8];
+    CGError             err;
+    CGDisplayCount      max;
+    CGDirectDisplayID   displayIDs[8];
 
     err = CGGetOnlineDisplayList(8, displayIDs, &max);
     if(err != kCGErrorSuccess)
@@ -683,8 +683,8 @@ int main( int argc, char * argv[] )
 
     for(i = 0; i < max; i++ )
     {
-	struct IOFBModeList _xxx = { 0 };
-	IOFBModeListRef modeListRef = &_xxx;
+        struct IOFBModeList _xxx = { 0 };
+        IOFBModeListRef modeListRef = &_xxx;
         modeListRef->framebuffer = CGDisplayIOServicePort(displayIDs[i]);
 
     
@@ -701,7 +701,7 @@ if (!modeListRef->bundle) exit(1);
         assert( KERN_SUCCESS == kr );
         printf("\nDisplay %p: %s\n", displayIDs[i], path);
 
-	ModeList(modeListRef, true || true);
+        ModeList(modeListRef, true || true);
     }
 
     exit(0);

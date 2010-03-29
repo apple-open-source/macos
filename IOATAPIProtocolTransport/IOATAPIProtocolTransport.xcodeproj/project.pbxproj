@@ -16,6 +16,23 @@
 		5253CEB80D5AABB20041AE31 /* IOATAPIProtocolTransport.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 06B48B24FFC1B5E711CE15BF /* IOATAPIProtocolTransport.h */; };
 /* End PBXBuildFile section */
 
+/* Begin PBXContainerItemProxy section */
+		E6816C8C1092355500F524E7 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = E6816C881092355500F524E7 /* ATAPILogger.xcodeproj */;
+			proxyType = 2;
+			remoteGlobalIDString = 8DD76F6C0486A84900D96B5E;
+			remoteInfo = ATAPILogger;
+		};
+		E6816C8E1092356200F524E7 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = E6816C881092355500F524E7 /* ATAPILogger.xcodeproj */;
+			proxyType = 1;
+			remoteGlobalIDString = 8DD76F620486A84900D96B5E;
+			remoteInfo = ATAPILogger;
+		};
+/* End PBXContainerItemProxy section */
+
 /* Begin PBXCopyFilesBuildPhase section */
 		47628D3E0D5B9660004D8B8E /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
@@ -42,12 +59,13 @@
 
 /* Begin PBXFileReference section */
 		02961F13000BD80011CE15C0 /* Kernel.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Kernel.framework; path = /System/Library/Frameworks/Kernel.framework; sourceTree = "<absolute>"; };
-		06B48B22FFC1B5E711CE15BF /* IOATAPIProtocolTransport.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = IOATAPIProtocolTransport.cpp; sourceTree = SOURCE_ROOT; };
-		06B48B24FFC1B5E711CE15BF /* IOATAPIProtocolTransport.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = IOATAPIProtocolTransport.h; sourceTree = SOURCE_ROOT; };
+		06B48B22FFC1B5E711CE15BF /* IOATAPIProtocolTransport.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = IOATAPIProtocolTransport.cpp; sourceTree = "<group>"; };
+		06B48B24FFC1B5E711CE15BF /* IOATAPIProtocolTransport.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = IOATAPIProtocolTransport.h; sourceTree = "<group>"; };
 		47628D400D5B96D5004D8B8E /* IOATAPIProtocolTransportTimeStamps.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = IOATAPIProtocolTransportTimeStamps.h; sourceTree = "<group>"; };
 		47628E090D6626B4004D8B8E /* IOATAPIProtocolTransportDebugging.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = IOATAPIProtocolTransportDebugging.h; sourceTree = "<group>"; };
 		5253CEB30D5AAB640041AE31 /* Info-IOATAPIProtocolTransport.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "Info-IOATAPIProtocolTransport.plist"; sourceTree = "<group>"; };
 		5253CEB40D5AAB640041AE31 /* IOATAPIProtocolTransport.kext */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = IOATAPIProtocolTransport.kext; sourceTree = BUILT_PRODUCTS_DIR; };
+		E6816C881092355500F524E7 /* ATAPILogger.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; name = ATAPILogger.xcodeproj; path = ATAPILogger/ATAPILogger.xcodeproj; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -64,10 +82,8 @@
 		06B48B19FFC1B5E711CE15BF /* IOATAPIProtocolTransport */ = {
 			isa = PBXGroup;
 			children = (
-				47628E090D6626B4004D8B8E /* IOATAPIProtocolTransportDebugging.h */,
-				47628D400D5B96D5004D8B8E /* IOATAPIProtocolTransportTimeStamps.h */,
-				06B48B24FFC1B5E711CE15BF /* IOATAPIProtocolTransport.h */,
-				06B48B22FFC1B5E711CE15BF /* IOATAPIProtocolTransport.cpp */,
+				E6816C5F1092347600F524E7 /* Source */,
+				E6816C7E1092351F00F524E7 /* Tools */,
 				06B48B2BFFC1B5E711CE15BF /* Products */,
 				02961F13000BD80011CE15C0 /* Kernel.framework */,
 				5253CEB30D5AAB640041AE31 /* Info-IOATAPIProtocolTransport.plist */,
@@ -79,6 +95,33 @@
 			isa = PBXGroup;
 			children = (
 				5253CEB40D5AAB640041AE31 /* IOATAPIProtocolTransport.kext */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		E6816C5F1092347600F524E7 /* Source */ = {
+			isa = PBXGroup;
+			children = (
+				47628E090D6626B4004D8B8E /* IOATAPIProtocolTransportDebugging.h */,
+				47628D400D5B96D5004D8B8E /* IOATAPIProtocolTransportTimeStamps.h */,
+				06B48B24FFC1B5E711CE15BF /* IOATAPIProtocolTransport.h */,
+				06B48B22FFC1B5E711CE15BF /* IOATAPIProtocolTransport.cpp */,
+			);
+			name = Source;
+			sourceTree = "<group>";
+		};
+		E6816C7E1092351F00F524E7 /* Tools */ = {
+			isa = PBXGroup;
+			children = (
+				E6816C881092355500F524E7 /* ATAPILogger.xcodeproj */,
+			);
+			name = Tools;
+			sourceTree = "<group>";
+		};
+		E6816C891092355500F524E7 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				E6816C8D1092355500F524E7 /* ATAPILogger */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -114,6 +157,7 @@
 			buildRules = (
 			);
 			dependencies = (
+				E6816C8F1092356200F524E7 /* PBXTargetDependency */,
 			);
 			name = IOATAPIProtocolTransport;
 			productInstallPath = "$(SYSTEM_LIBRARY_DIR)/Extensions/IOATAFamily.kext/Contents/PlugIns";
@@ -132,12 +176,28 @@
 			mainGroup = 06B48B19FFC1B5E711CE15BF /* IOATAPIProtocolTransport */;
 			productRefGroup = 06B48B2BFFC1B5E711CE15BF /* Products */;
 			projectDirPath = "";
+			projectReferences = (
+				{
+					ProductGroup = E6816C891092355500F524E7 /* Products */;
+					ProjectRef = E6816C881092355500F524E7 /* ATAPILogger.xcodeproj */;
+				},
+			);
 			projectRoot = "";
 			targets = (
 				5253CEA70D5AAB640041AE31 /* IOATAPIProtocolTransport */,
 			);
 		};
 /* End PBXProject section */
+
+/* Begin PBXReferenceProxy section */
+		E6816C8D1092355500F524E7 /* ATAPILogger */ = {
+			isa = PBXReferenceProxy;
+			fileType = "compiled.mach-o.executable";
+			path = ATAPILogger;
+			remoteRef = E6816C8C1092355500F524E7 /* PBXContainerItemProxy */;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+/* End PBXReferenceProxy section */
 
 /* Begin PBXResourcesBuildPhase section */
 		5253CEAA0D5AAB640041AE31 /* Resources */ = {
@@ -169,6 +229,14 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		E6816C8F1092356200F524E7 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			name = ATAPILogger;
+			targetProxy = E6816C8E1092356200F524E7 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		5253CE970D5AAB030041AE31 /* Development */ = {
@@ -206,7 +274,7 @@
 				KERNEL_MODULE = YES;
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOATAPIProtocolTransport;
-				MODULE_VERSION = 2.5.0;
+				MODULE_VERSION = 2.5.1;
 				OTHER_CFLAGS = "-Wno-format";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -234,7 +302,7 @@
 				KERNEL_MODULE = YES;
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOATAPIProtocolTransport;
-				MODULE_VERSION = 2.5.0;
+				MODULE_VERSION = 2.5.1;
 				OTHER_CFLAGS = "-Wno-format";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -260,7 +328,7 @@
 				KERNEL_MODULE = YES;
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOATAPIProtocolTransport;
-				MODULE_VERSION = 2.5.0;
+				MODULE_VERSION = 2.5.1;
 				OTHER_CFLAGS = "-Wno-format";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";

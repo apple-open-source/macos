@@ -26,19 +26,30 @@
 #define _IOKIT_HID_APPLEEMBEDDEDHIDEVENTSERVICE_H
 
 #include <IOKit/hidevent/IOHIDEventService.h>
+#include <IOKit/hid/AppleEmbeddedHIDKeys.h>
 
 class AppleEmbeddedHIDEventService: public IOHIDEventService
 {
     OSDeclareAbstractStructors( AppleEmbeddedHIDEventService )
+	
+public:
+	virtual bool			handleStart(IOService * provider);
+
 
 protected:
-    virtual void            dispatchAccelerometerEvent(AbsoluteTime timestamp, IOFixed x, IOFixed y, IOFixed z, IOHIDAccelerometerType type = 0, IOOptionBits options=0);
-    
-    virtual void            dispatchProximityEvent(AbsoluteTime timestamp, IOFixed level, IOOptionBits options=0);
-    
-    virtual void            dispatchAmbientLightSensorEvent(AbsoluteTime timestamp, UInt32 level, UInt32 channel0 = 0, UInt32 channel1 = 0, IOOptionBits options=0);
+    virtual void            dispatchAccelerometerEvent(AbsoluteTime timestamp, IOFixed x, IOFixed y, IOFixed z, IOHIDAccelerometerType type = 0, IOHIDAccelerometerSubType subType = 0, IOOptionBits options=0);
+	
+    virtual void            dispatchGyroEvent(AbsoluteTime timestamp, IOFixed x, IOFixed y, IOFixed z, IOHIDGyroType type = 0, IOHIDGyroSubType subType = 0, IOOptionBits options=0);
+        
+    virtual void            dispatchProximityEvent(AbsoluteTime timestamp, IOHIDProximityDetectionMask mask, UInt32 level = 0, IOOptionBits options=0);
+
+    virtual void            dispatchAmbientLightSensorEvent(AbsoluteTime timestamp, UInt32 level, UInt32 channel0 = 0, UInt32 channel1 = 0, UInt32 channel2 = 0, UInt32 channel3 = 0, IOOptionBits options=0);
 
     virtual void            dispatchTemperatureEvent(AbsoluteTime timestamp, IOFixed temperature, IOOptionBits options=0);
+	
+	virtual IOHIDOrientationType	getOrientation();
+	
+	virtual IOHIDPlacementType		getPlacement();
 };
 
 #endif /* _IOKIT_HID_APPLEEMBEDDEDHIDEVENTSERVICE_H */

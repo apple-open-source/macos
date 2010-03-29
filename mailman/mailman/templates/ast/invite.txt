@@ -1,0 +1,19 @@
+La to direición de corréu-e "%(email)s" ta invitada a xunise a la
+llista de distribución %(listname)s de %(hostname)s pol alministrador.
+Puedes aceutar la invitación retrucando a esti mensax calteniendo
+l'asuntu intautu.
+
+Tamién puedes visitar la páxina web:
+
+    %(confirmurl)s
+
+O puedes incluyir la llinia siguiente -- y namái la llinia siguiente -- nún mensax empobináu a %(requestaddr)s:
+
+    confirm %(cookie)s
+
+Decátate que la opción de retrucar tendría de funcionar na
+mayoría de los programes de corréu.
+
+Si quies declinar la invitación, sirvi con inorar esti mensax. Si
+tienes dalguna entruga que facer, por favor, únviala a
+%(listowner)s.

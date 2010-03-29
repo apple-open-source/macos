@@ -73,6 +73,7 @@
 
 __private_extern__ AuthorizationRef	authorization	= NULL;
 __private_extern__ InputRef		currentInput	= NULL;
+__private_extern__ Boolean		doDispatch	= FALSE;
 __private_extern__ int			nesting		= 0;
 __private_extern__ CFRunLoopRef		notifyRl	= NULL;
 __private_extern__ CFRunLoopSourceRef	notifyRls	= NULL;
@@ -84,11 +85,13 @@ __private_extern__ CFMutableArrayRef	watchedPatterns	= NULL;
 
 static const struct option longopts[] = {
 //	{ "debug",		no_argument,		NULL,	'd'	},
+//	{ "dispatch",		no_argument,		NULL,	'D'	},
 //	{ "verbose",		no_argument,		NULL,	'v'	},
 //	{ "SPI",		no_argument,		NULL,	'p'	},
 //	{ "check-reachability",	required_argument,	NULL,	'r'	},
 //	{ "timeout",		required_argument,	NULL,	't'	},
 //	{ "wait-key",		required_argument,	NULL,	'w'	},
+//	{ "watch-reachability",	no_argument,		NULL,	'W'	},
 	{ "dns",		no_argument,		NULL,	0	},
 	{ "get",		required_argument,	NULL,	0	},
 	{ "help",		no_argument,		NULL,	'?'	},
@@ -312,11 +315,14 @@ main(int argc, char * const argv[])
 
 	/* process any arguments */
 
-	while ((opt = getopt_long(argc, argv, "dvprt:w:W", longopts, &opti)) != -1)
+	while ((opt = getopt_long(argc, argv, "dDvprt:w:W", longopts, &opti)) != -1)
 		switch(opt) {
 		case 'd':
 			_sc_debug = TRUE;
 			_sc_log   = FALSE;	/* enable framework logging */
+			break;
+		case 'D':
+			doDispatch = TRUE;
 			break;
 		case 'v':
 			_sc_verbose = TRUE;

@@ -32,43 +32,14 @@
 #include <Security/SecCertificate.h>
 #include "SecBridge.h"
 #include "TrustAdditions.h"
+#include "TrustKeychains.h"
 
+
+using namespace Security;
 using namespace KeychainCore;
 
-
-//
-// For now, we use a global TrustStore
-//
-ModuleNexus<TrustStore> Trust::gStore;
-        
-/*
- * Singleton maintaining open references to standard system keychains,
- * to avoid having them be opened anew every time SecTrust is used. 
- */
-class TrustKeychains 
-{
-public:
-	TrustKeychains();
-	~TrustKeychains()	{}
-	CSSM_DL_DB_HANDLE	rootStoreHandle()	{ return mRootStore->database()->handle(); }
-	CSSM_DL_DB_HANDLE	systemKcHandle()	{ return mSystem->database()->handle(); }
-	Keychain			rootStore()			{ return mRootStore; }
-	Keychain			systemKc()			{ return mSystem; }
-private:
-	Keychain	mRootStore;
-	Keychain	mSystem;
-};
-
-TrustKeychains::TrustKeychains()
-	: mRootStore(globals().storageManager.make(SYSTEM_ROOT_STORE_PATH, false)),
-	  mSystem(globals().storageManager.make(ADMIN_CERT_STORE_PATH, false))
-{
-}
-
-static ModuleNexus<TrustKeychains> trustKeychains;
-
 //      
-// Translate CFDataRef to CssmData. The output shares the input's buffer.//
+// Translate CFDataRef to CssmData. The output shares the input's buffer.
 //
 static inline CssmData cfData(CFDataRef data)
 {
@@ -85,6 +56,51 @@ convert(const SecPointer<Certificate> &certificate)
 	return *certificate;
 }
 
+//
+// For now, we use a global TrustStore
+//
+ModuleNexus<TrustStore> Trust::gStore;
+
+#pragma mark -- TrustKeychains --
+
+//
+// TrustKeychains maintains a global reference to standard system keychains,
+// to avoid having them be opened anew for each Trust instance. 
+//
+class TrustKeychains 
+{
+public:
+	TrustKeychains();
+	~TrustKeychains()	{}
+	CSSM_DL_DB_HANDLE	rootStoreHandle()	{ return mRootStore->database()->handle(); }
+	CSSM_DL_DB_HANDLE	systemKcHandle()	{ return mSystem->database()->handle(); }
+	Keychain			rootStore()			{ return mRootStore; }
+	Keychain			systemKc()			{ return mSystem; }
+private:
+	Keychain			mRootStore;
+	Keychain			mSystem;
+};
+
+//
+// Singleton maintaining open references to standard system keychains,
+// to avoid having them be opened anew every time SecTrust is used. 
+//
+
+static ModuleNexus<TrustKeychains> trustKeychains;
+static ModuleNexus<RecursiveMutex> trustKeychainsMutex;
+
+TrustKeychains::TrustKeychains() :
+	mRootStore(globals().storageManager.make(SYSTEM_ROOT_STORE_PATH, false)),
+	mSystem(globals().storageManager.make(ADMIN_CERT_STORE_PATH, false))
+{
+}
+
+RecursiveMutex& SecTrustKeychainsGetMutex()
+{
+	return trustKeychainsMutex();
+}
+
+#pragma mark -- Trust --
 //
 // Construct a Trust object with suitable defaults.
 // Use setters for additional arguments before calling evaluate().
@@ -219,6 +235,11 @@ void Trust::evaluate()
 		secdebug("evTrust", "Trust::evaluate() forcing OCSP revocation checking");
 		allPolicies = forceOCSPRevocationPolicy(numPrefAdded, context.allocator);
 	}
+	else if (mAnchors && (CFArrayGetCount(mAnchors)==0) && (mSearchLibs.size()==0)) {
+		// caller explicitly provided empty anchors and no keychain list;
+		// override global revocation check setting for this evaluation
+		allPolicies = NULL; // use only mPolicies
+	}
 	else if(!(revocationPolicySpecified(mPolicies))) {
 		/* 
 		 * None specified in mPolicies; see if any specified via SPI.
@@ -258,34 +279,54 @@ void Trust::evaluate()
     
 	// dlDbList (keychain list)
 	vector<CSSM_DL_DB_HANDLE> dlDbList;
-	for (StorageManager::KeychainList::const_iterator it = mSearchLibs.begin();
-			it != mSearchLibs.end(); it++)
 	{
-		try
+		StLock<Mutex> _(SecTrustKeychainsGetMutex());
+		for (StorageManager::KeychainList::const_iterator it = mSearchLibs.begin();
+				it != mSearchLibs.end(); it++)
 		{
-			dlDbList.push_back((*it)->database()->handle());
+			try
+			{
+				// For the purpose of looking up intermediate certificates to establish trust,
+				// do not include the network-based LDAP or DotMac pseudo-keychains. (The only
+				// time the network should be consulted for certificates is if there is an AIA
+				// extension with a specific URL, which will be handled by the TP code.)
+				CSSM_DL_DB_HANDLE dldbHandle = (*it)->database()->handle();
+				if (dldbHandle.DLHandle) {
+					CSSM_GUID guid = {};
+					CSSM_RETURN crtn = CSSM_GetModuleGUIDFromHandle(dldbHandle.DLHandle, &guid);
+					if (crtn == CSSM_OK) {
+						if ((memcmp(&guid, &gGuidAppleLDAPDL, sizeof(CSSM_GUID))==0) ||
+							(memcmp(&guid, &gGuidAppleDotMacDL, sizeof(CSSM_GUID))==0)) {
+							continue; // don't add to dlDbList							
+						}
+					}
+				}
+				// This DB is OK to search for intermediate certificates.
+				dlDbList.push_back(dldbHandle);
+			}
+			catch (...)
+			{
+			}
 		}
-		catch (...)
-		{
+		if(mUsingTrustSettings) {
+			/* Append system anchors for use with Trust Settings */
+			try {
+				dlDbList.push_back(trustKeychains().rootStoreHandle());
+				actionDataP->ActionFlags |= CSSM_TP_ACTION_TRUST_SETTINGS;
+			}
+			catch (...) {
+				// no root store or system keychain; don't use trust settings but continue
+				mUsingTrustSettings = false;
+			}
+			try {
+				dlDbList.push_back(trustKeychains().systemKcHandle());		
+			}
+			catch(...) {
+				/* Oh well, at least we got the root store DB */
+			}
 		}
+		context.setDlDbList(dlDbList.size(), &dlDbList[0]);
 	}
-	if(mUsingTrustSettings) {
-		/* Append system anchors for use with Trust Settings */
-		try {
-			dlDbList.push_back(trustKeychains().rootStoreHandle());
-			actionDataP->ActionFlags |= CSSM_TP_ACTION_TRUST_SETTINGS;
-		} catch (...) {
-			// no root store or system keychain; don't use trust settings but continue
-			mUsingTrustSettings = false;
-		}
-		try {
-			dlDbList.push_back(trustKeychains().systemKcHandle());		
-		}
-		catch(...) {
-			/* Oh well, at least we got the root store DB */
-		}
-	}
-	context.setDlDbList(dlDbList.size(), &dlDbList[0]);
 
     // verification time
     char timeString[15];
@@ -305,6 +346,7 @@ void Trust::evaluate()
         mTpReturn = noErr;
     } catch (CommonError &err) {
         mTpReturn = err.osStatus();
+        secdebug("trusteval", "certGroupVerify exception: %d", (int)mTpReturn);
     }
     mResult = diagnoseOutcome();
 

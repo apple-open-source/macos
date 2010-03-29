@@ -73,6 +73,11 @@ enum {
 #define kOptNameAllLoaded               "all-loaded"
 #define kOptNameSymbols                 "symbols"
 
+/* Embedded prelinked-kernel-generation flags.
+ */
+#define kOptNameAllPersonalities        "all-personalities"
+#define kOptNameOmitLinkState           "omit-link-state"
+
 /* Misc. cache update flags.
  */
 #define kOptNameSystemCaches            "system-caches"
@@ -130,6 +135,8 @@ enum {
 #define kLongOptSystemCaches              (-8)
 #define kLongOptSystemPrelinkedKernel     (-9)
 #define kLongOptVolumeRoot               (-10)
+#define kLongOptAllPersonalities         (-11)
+#define kLongOptOmitLinkState            (-12)
 
 #define kOptChars                ":a:b:c:efFhkK:lLm:nNqrsStu:U:vz"
 /* Some options are now obsolete:
@@ -173,6 +180,9 @@ struct option sOptInfo[] = {
     { kOptNameAllLoaded,             no_argument,        NULL,     kOptAllLoaded },
     { kOptNameSymbols,               required_argument,  &longopt, kLongOptSymbols },
 
+    { kOptNameAllPersonalities,      no_argument,        &longopt, kLongOptAllPersonalities },
+    { kOptNameOmitLinkState,         no_argument,        &longopt, kLongOptOmitLinkState },
+
     { kOptNameUpdate,                required_argument,  NULL,     kOptUpdate },
     { kOptNameForce,                 no_argument,        NULL,     kOptForce },
 
@@ -213,6 +223,8 @@ typedef struct {
     Boolean   needLoadedKextInfo;           // -r option
     Boolean   prelinkedKernelErrorRequired;
     Boolean   generatePrelinkedSymbols;     // -symbols option
+    Boolean   includeAllPersonalities;      // --all-personalities option
+    Boolean   omitLinkState;                // --omit-link-state option
     CFURLRef  compressedPrelinkedKernelURL; // -uncompress option
 
     CFURLRef  updateVolumeURL;  // -u/-U options

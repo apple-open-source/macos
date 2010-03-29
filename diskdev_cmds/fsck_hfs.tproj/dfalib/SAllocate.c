@@ -1083,7 +1083,6 @@ Fig. 6 Dirty bit is found, return actual number of contiguous blocks found
 		                                                      *actualNumBlocks == 16
 _________________________________________________________________________________________
 */
-
 static OSErr BlockFindContiguous(
 	SVCB		*vcb,
 	UInt32			startingBlock,
@@ -1343,4 +1342,220 @@ Exit:
 	return err;
 }
 
+/*
+ * Find the smallest extent in the array.
+ */
+static int
+FindMinExt(HFSPlusExtentDescriptor *exts)
+{
+	int minIndx = -1;
+	UInt32 min = (UInt32)-1;
+	int i;
 
+	for (i = 0; i < kHFSPlusExtentDensity; i++) {
+		if (exts[i].blockCount < min) {
+			min = exts[i].blockCount;
+			minIndx = i;
+		}
+	}
+	return minIndx;
+}
+
+/*
+ * Truncate any excess extents.  There should be only one,
+ * but we'll go through them all to make sure.
+ */
+static void
+PruneExtents(HFSPlusExtentDescriptor *exts, UInt32 needed)
+{
+	int i;
+	UInt32 total = 0;
+	UInt32 excess = 0;
+
+	for (i = 0; i < kHFSPlusExtentDensity; i++) {
+		if (excess) {
+			exts[i].startBlock = exts[i].blockCount = 0;
+			continue;
+		}
+		total += exts[i].blockCount;
+		if (total > needed) {
+			exts[i].blockCount -= total - needed;
+			excess = 1;
+		}
+	}
+	return;
+}
+
+/*
+ * A much more specialized function:  simply find the 8 largest extents
+ * to hold the needed size.  It will either find enough blocks to
+ * fit the needed size, or it will fail.
+ */
+OSErr
+BlockFindAll(
+	SFCB	*fcb,
+	UInt32	needed)
+{
+	OSErr			err;
+	SVCB		*vcb;
+	register UInt32	bitMask;			//	mask of bit within word for currentBlock
+	register UInt32	tempWord;			//	bitmap word currently being examined
+	HFSPlusExtentDescriptor *exts = fcb->fcbExtents32;
+	int	minIndx;
+	UInt32	total = 0;
+	
+	UInt32			firstFreeBlock;
+	UInt32			freeBlocks = 0;
+	UInt32			currentBlock;
+	UInt32			endingBlock;
+	UInt32			wordsLeft;			//	words remaining in bitmap block
+	UInt32			*buffer = NULL;
+	UInt32			contigSize = 1;
+	register UInt32	*currentWord;
+	struct BlockDescriptor bd = { 0 };
+	
+	vcb = fcb->fcbVolume;
+
+	if (vcb->vcbFreeBlocks < needed) {
+		// Nothing to do
+		if (debug)
+			plog("%s:  %u blocks free, but need %u; ignoring for now\n", __FUNCTION__, vcb->vcbFreeBlocks, needed);
+	}
+
+	memset(exts, 0, sizeof(fcb->fcbExtents32));	// Zero out the extents.
+	minIndx = 0;
+	if (vcb->vcbBlockSize < fcb->fcbBlockSize) {
+		contigSize = fcb->fcbBlockSize / vcb->vcbBlockSize;	// Number of volume blocks in a btree block
+	}
+
+	currentBlock = 0;
+	endingBlock = vcb->vcbTotalBlocks;
+
+	freeBlocks = 0;
+
+	err = ReadBitmapBlock(vcb, currentBlock, &bd);
+	if ( err != noErr ) goto done;
+	buffer = (UInt32 *) bd.buffer;
+	//
+	//	Init buffer, currentWord, wordsLeft, and bitMask
+	//
+	{
+		UInt32 wordIndexInBlock;
+
+		wordIndexInBlock = ( currentBlock & kBitsWithinBlockMask ) / kBitsPerWord;
+		currentWord		= buffer + wordIndexInBlock;
+				
+		wordsLeft		= kWordsPerBlock - wordIndexInBlock - 1;
+		tempWord		= SWAP_BE32(*currentWord);
+		bitMask			= kHighBitInWordMask >> ( currentBlock & kBitsWithinWordMask );
+	}
+	
+	/*
+	 * This macro is used to cycle through the allocation bitmap.
+	 * We examine one bit in a word at a time; when we're done with that word,
+	 * we go to the next word in the block; when we're done with that block,
+	 * we get the next one.  Until we're out of blocks.
+	 */
+#define	nextblock() do { \
+		currentBlock++; \
+		if (currentBlock == endingBlock) goto done; \
+		bitMask >>= 1; \
+		if (bitMask == 0) { \
+			bitMask = kHighBitInWordMask; \
+			if (wordsLeft != 0) { \
+				++currentWord; \
+				--wordsLeft; \
+			} else { \
+				err = ReleaseBitmapBlock(vcb, kReleaseBlock, &bd); \
+				if (err != noErr) goto done; \
+				bd.buffer = NULL; \
+				err = ReadBitmapBlock(vcb, currentBlock, &bd); \
+				if (err != noErr) goto done; \
+				buffer = (UInt32*)bd.buffer; \
+				currentWord = buffer + ((currentBlock & kBitsWithinBlockMask) / kBitsPerWord); \
+				wordsLeft = kWordsPerBlock - 1; \
+			} \
+			tempWord = SWAP_BE32(*currentWord); \
+		} \
+	} while (0)
+
+loop:
+
+	/*
+	 * We have two while loops here.  The first one, at the top, looks for
+	 * used blocks.  We ignore those.  The second while loop then looks
+	 * for empty blocks, and keeps track of the length of the run.  It creates
+	 * an extent from these, and puts them into the exts array.  We use
+	 * the funciton FindMinExt() to find the smallest one in the array, and
+	 * we only replace it if the new extent is larger.  (When first starting,
+	 * all of the extents will be 0 bytes long.)
+	 *
+	 * We stop when we've run out of blocks (the nextblock macro will jump
+	 * to done at that point), or when we've got enough total blocks to
+	 * fit our needs.
+	 */
+	freeBlocks = 0;
+	while ((tempWord & bitMask) != 0) {
+		nextblock();
+	}
+	firstFreeBlock = currentBlock;
+	while ((tempWord & bitMask) == 0) {
+		++freeBlocks;
+		if (freeBlocks >= needed)
+			break;
+		nextblock();
+	}
+
+	/*
+	 * We need to ensure that nodes are not split across
+	 * volume blocks -- journaling will cause an error
+	 * if this happens.
+	 */
+	freeBlocks -= freeBlocks % contigSize;
+
+	if (freeBlocks > exts[minIndx].blockCount) {
+		total -= exts[minIndx].blockCount;
+		exts[minIndx].blockCount = freeBlocks;
+		exts[minIndx].startBlock = firstFreeBlock;
+		total += freeBlocks;
+		minIndx = FindMinExt(exts);
+	}
+		
+	if (total >= needed) {
+		goto done;
+	}
+
+	goto loop;
+
+done:
+	if (bd.buffer) {
+		(void)ReleaseBitmapBlock(vcb, kReleaseBlock, &bd);
+	}
+	if (err == noErr) {
+
+		if (total < needed) {
+			if (debug)
+				plog("%s:  found %u blocks but needed %u\n", __FUNCTION__, total, needed);
+			err = dskFulErr;
+		} else {
+			/*
+			 * If we've got enough blocks, we need to prune any extra.
+			 * PruneExtents() will decrement the extents in the array to
+			 * ensure we have only as much as we need.  After that, we
+			 * mark them as allocated, and return.
+			 */
+			int i;
+			if (total > needed) {
+				PruneExtents(exts, needed);
+			}
+			for (i = 0; i < kHFSPlusExtentDensity; i++) {
+				if (exts[i].blockCount) {
+					BlockMarkAllocated(vcb, exts[i].startBlock, exts[i].blockCount);
+					vcb->vcbFreeBlocks -= exts[i].blockCount;
+				}
+			}
+			MarkVCBDirty(vcb);
+		}
+	}
+	return err;
+}

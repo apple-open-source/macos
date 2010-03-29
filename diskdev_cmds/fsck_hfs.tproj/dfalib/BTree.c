@@ -32,6 +32,7 @@
 	Copyright:	© 1992-1999 by Apple Computer, Inc., all rights reserved.
 */
 
+extern char debug;
 
 #include "BTree.h"
 #include "BTreePrivate.h"
@@ -510,8 +511,10 @@ OSStatus	BTOpenPath			(SFCB					*filePtr,
 	 * Under Mac OS, b-tree nodes can be non-contiguous on disk when the
 	 * allocation block size is smaller than the b-tree node size.
 	 */
-	if ( !NodesAreContiguous(filePtr, btreePtr->nodeSize) )
+	if ( !NodesAreContiguous(filePtr, btreePtr->nodeSize) ) {
+		if (debug) fplog(stderr, "Nodes are not contiguous -- this is fatal\n");
 		return fsBTInvalidNodeErr;
+	}
 #endif
 
 	//////////////////////////////// Success ////////////////////////////////////
@@ -939,6 +942,7 @@ OSStatus	BTIterateRecord		(SFCB						*filePtr,
 			err = ReleaseNode (btreePtr, &node);
 			M_ExitOnError (err);
 
+			if (debug) fprintf(stderr, "%s(%d): returning fsBTInvalidNodeErr\n", __FUNCTION__, __LINE__);
 			err = fsBTInvalidNodeErr;
 			goto ErrorExit;
 		}

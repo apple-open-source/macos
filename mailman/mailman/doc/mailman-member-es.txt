@@ -13,7 +13,7 @@ GNU Mailman Manual del Suscriptor de Listas
    terri(en)zone12.com
 
    Release 2.1
-   11 de enero 2009
+   14 de diciembre 2009
 
                                    Prefacio
 
@@ -1485,8 +1485,8 @@ solicitado (spam)?
 
                             Sobre este documento...
 
-   GNU Mailman Manual del Suscriptor de Listas, 11 de enero 2009, Release
-   2.1
+   GNU Mailman Manual del Suscriptor de Listas, 14 de diciembre 2009,
+   Release 2.1
 
    This document was generated using the LaTeX2HTML translator.
 
@@ -1504,4 +1504,4 @@ solicitado (spam)?
                       Manual del Suscriptor de Listas
      _________________________________________________________________
 
-   Release 2.1, documentation updated on 11 de enero 2009.
+   Release 2.1, documentation updated on 14 de diciembre 2009.

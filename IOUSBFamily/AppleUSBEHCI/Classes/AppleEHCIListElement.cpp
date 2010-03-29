@@ -25,6 +25,7 @@
 #include <IOKit/usb/IOUSBLog.h>
 
 #include "AppleEHCIListElement.h"
+#include "USBTracepoints.h"
 
 // Convert USBLog to use kprintf debugging
 // The switch is in the header file, but the work is done here because the header is included by the companion controllers
@@ -83,16 +84,38 @@ AppleEHCIQueueHead::GetPhysicalAddrWithType(void)
     return _sharedPhysical | (kEHCITyp_QH << kEHCIEDNextED_TypPhase);
 }
 
+
+
+UInt8
+AppleEHCIQueueHead::NormalizedPollingRate(void)
+{
+	UInt8 retVal;
+	
+	if (_speed == kUSBDeviceSpeedHigh)
+	{
+		retVal =  (_pollingRate / kEHCIuFramesPerFrame);				// convert from uFrames to Frames
+		if (!retVal)
+			retVal = 1;													// this is for when the _pollingRate is 1, 2, or 4 uFrames
+	}
+	else 
+		retVal =  _pollingRate;
+	
+	return retVal;
+}
+
+
+
 void
 AppleEHCIQueueHead::print(int level)
 {
     EHCIQueueHeadSharedPtr shared = GetSharedLogical();
 	UInt32					flags = USBToHostLong(shared->flags);
+	UInt32					splitFlags = USBToHostLong(shared->splitFlags);
 	
     super::print(level);
     USBLog(level, "AppleEHCIQueueHead::print - shared.nextQH[%p]", (void*)USBToHostLong(shared->nextQH));
     USBLog(level, "AppleEHCIQueueHead::print - shared.flags[%p] (ADDR[%d] EP[%d] %s)", (void*)flags, (int)(flags & kEHCIEDFlags_FA), (int)((flags & kEHCIEDFlags_EN) >> kEHCIEDFlags_ENPhase), (flags & kEHCIEDFlags_H) ? "HEAD" : " ");
-    USBLog(level, "AppleEHCIQueueHead::print - shared.splitFlags[%p]", (void*)USBToHostLong(shared->splitFlags));
+    USBLog(level, "AppleEHCIQueueHead::print - shared.splitFlags[%p](Hub[%d] Port[%d] C-mask[0x%02x] S-mask[0x%02x])", (void*)splitFlags, (int)(splitFlags  & kEHCIEDSplitFlags_HubAddr) >> kEHCIEDSplitFlags_HubAddrPhase, (int)(splitFlags  & kEHCIEDSplitFlags_Port) >> kEHCIEDSplitFlags_PortPhase, (int)(splitFlags  & kEHCIEDSplitFlags_CMask) >> kEHCIEDSplitFlags_CMaskPhase, (int)(splitFlags  & kEHCIEDSplitFlags_SMask) >> kEHCIEDSplitFlags_SMaskPhase);
     USBLog(level, "AppleEHCIQueueHead::print - shared.CurrqTDPtr[%p]", (void*)USBToHostLong(shared->CurrqTDPtr));
     USBLog(level, "AppleEHCIQueueHead::print - shared.NextqTDPtr[%p]", (void*)USBToHostLong(shared->NextqTDPtr));
     USBLog(level, "AppleEHCIQueueHead::print - shared.AltqTDPtr[%p]", (void*)USBToHostLong(shared->AltqTDPtr));
@@ -107,10 +130,19 @@ AppleEHCIQueueHead::print(int level)
     USBLog(level, "AppleEHCIQueueHead::print - shared.extBuffPtr[2][%p]", (void*)USBToHostLong(shared->extBuffPtr[2]));
     USBLog(level, "AppleEHCIQueueHead::print - shared.extBuffPtr[3][%p]", (void*)USBToHostLong(shared->extBuffPtr[3]));
     USBLog(level, "AppleEHCIQueueHead::print - shared.extBuffPtr[4][%p]", (void*)USBToHostLong(shared->extBuffPtr[4]));
-	USBLog(level, "AppleEHCIQueueHead::print - _qTD[%p]", (void*)_qTD);
-	USBLog(level, "AppleEHCIQueueHead::print - _TailTD[%p]", (void*)_TailTD);
+	USBLog(level, "AppleEHCIQueueHead::print - _qTD[%p]", _qTD);
+	USBLog(level, "AppleEHCIQueueHead::print - _TailTD[%p]", _TailTD);
+	USBLog(level, "AppleEHCIQueueHead::print - _pSPE[%p]", _pSPE);
 	USBLog(level, "AppleEHCIQueueHead::print - _maxPacketSize[%p]", (void*)_maxPacketSize);
+	USBLog(level, "AppleEHCIQueueHead::print - _functionNumber[%p]", (void*)_functionNumber);
+	USBLog(level, "AppleEHCIQueueHead::print - _endpointNumber[%p]", (void*)_endpointNumber);
 	USBLog(level, "AppleEHCIQueueHead::print - _direction[%p]", (void*)_direction);
+	USBLog(level, "AppleEHCIQueueHead::print - _responseToStall[%p]", (void*)_responseToStall);
+	USBLog(level, "AppleEHCIQueueHead::print - _queueType[%p]", (void*)_queueType);
+	USBLog(level, "AppleEHCIQueueHead::print - _speed[%p] (%s)", (void*)_speed, _speed == kUSBDeviceSpeedLow ? "LS" : _speed == kUSBDeviceSpeedHigh ? "HS" : "FS");
+	USBLog(level, "AppleEHCIQueueHead::print - _bInterval[%p]", (void*)_bInterval);
+	USBLog(level, "AppleEHCIQueueHead::print - _startFrame[%p]", (void*)_startFrame);
+	USBLog(level, "AppleEHCIQueueHead::print - _pollingRate[%p]", (void*)_pollingRate);
 	USBLog(level, "----------------------------------------------------");
 }
 
@@ -174,15 +206,15 @@ AppleEHCIIsochTransferDescriptor::mungeEHCIStatus(UInt32 status, UInt16 *transfe
 	29 Babble Detected.                 - Recevied data overrun
 	28 Transaction Error (XactErr).	    - Everything else. Use not responding.
 	
-	if(active) kIOUSBNotSent1Err
-	else if(DBE) if(out)kIOUSBBufferUnderrunErr else kIOUSBBufferOverrunErr
-	else if(babble) kIOReturnOverrun
-	else if(Xacterr) kIOReturnNotResponding
-	else if(in) if(length < maxpacketsize) kIOReturnUnderrun
+	if (active) kIOUSBNotSent1Err
+	else if (DBE) if (out)kIOUSBBufferUnderrunErr else kIOUSBBufferOverrunErr
+	else if (babble) kIOReturnOverrun
+	else if (Xacterr) kIOReturnNotResponding
+	else if (in) if (length < maxpacketsize) kIOReturnUnderrun
 	else
 	kIOReturnSuccess
 	*/
-	if((status & (kEHCI_ITDStatus_Active | kEHCI_ITDStatus_BuffErr | kEHCI_ITDStatus_Babble)) == 0)
+	if ((status & (kEHCI_ITDStatus_Active | kEHCI_ITDStatus_BuffErr | kEHCI_ITDStatus_Babble)) == 0)
 	{
 		if (((status & kEHCI_ITDStatus_XactErr) == 0) || (direction == kUSBIn))
 		{
@@ -194,7 +226,7 @@ AppleEHCIIsochTransferDescriptor::mungeEHCIStatus(UInt32 status, UInt16 *transfe
 			// the first 1024 bytes was transferred correctly, so we need to count that as an Underrun instead
 			// of the XActErr. So this works around a bug in that Cypress chip set. (3915817)
 			*transferLen = (status & kEHCI_ITDTr_Len) >> kEHCI_ITDTr_LenPhase;
-			if( (direction == kUSBIn) && (maxPacketSize != *transferLen) )
+			if ( (direction == kUSBIn) && (maxPacketSize != *transferLen) )
 			{
 				return(kIOReturnUnderrun);
 			}
@@ -203,13 +235,13 @@ AppleEHCIIsochTransferDescriptor::mungeEHCIStatus(UInt32 status, UInt16 *transfe
 	}
 	*transferLen = 0;
 	
-	if( (status & kEHCI_ITDStatus_Active) != 0)
+	if ( (status & kEHCI_ITDStatus_Active) != 0)
 	{
 		return(kIOUSBNotSent1Err);
 	}
-	else if( (status & kEHCI_ITDStatus_BuffErr) != 0)
+	else if ( (status & kEHCI_ITDStatus_BuffErr) != 0)
 	{
-		if(direction == kUSBOut)
+		if (direction == kUSBOut)
 		{
 			return(kIOUSBBufferUnderrunErr);
 		}
@@ -218,11 +250,11 @@ AppleEHCIIsochTransferDescriptor::mungeEHCIStatus(UInt32 status, UInt16 *transfe
 			return(kIOUSBBufferOverrunErr);
 		}
 	}
-	else if( (status & kEHCI_ITDStatus_Babble) != 0)
+	else if ( (status & kEHCI_ITDStatus_Babble) != 0)
 	{
 		return(kIOReturnOverrun);
 	}
-	else // if( (status & kEHCI_ITDStatus_XactErr) != 0)
+	else // if ( (status & kEHCI_ITDStatus_XactErr) != 0)
 	{
 		return(kIOReturnNotResponding);
 	}
@@ -264,13 +296,13 @@ AppleEHCIIsochTransferDescriptor::UpdateFrameList(AbsoluteTime timeStamp)
 			pActCount = &(pFrames[_frameIndex + j].frActCount);
 	    frStatus = mungeEHCIStatus(statusWord, pActCount,  _pEndpoint->maxPacketSize,  _pEndpoint->direction);
 
-	    if(frStatus != kIOReturnSuccess)
+	    if (frStatus != kIOReturnSuccess)
 	    {
-		    if(frStatus != kIOReturnUnderrun)
+		    if (frStatus != kIOReturnUnderrun)
 		    {
 			    ret = frStatus;
 		    }
-		    else if(ret == kIOReturnSuccess)
+		    else if (ret == kIOReturnSuccess)
 		    {
 			    ret = kIOReturnUnderrun;
 		    }
@@ -478,6 +510,12 @@ AppleEHCISplitIsochTransferDescriptor::UpdateFrameList(AbsoluteTime timeStamp)
 			pLLFrames[_frameIndex].frActCount = frActualCount;
 			pLLFrames[_frameIndex].frTimeStamp = timeStamp;
 			pLLFrames[_frameIndex].frStatus = frStatus;
+			
+#ifdef __LP64__
+			USBTrace( kUSBTUHCIInterrupts, kTPUHCIUpdateFrameList , (uintptr_t)((_pEndpoint->direction << 24) | ( _pEndpoint->functionAddress << 8) | _pEndpoint->endpointNumber), (uintptr_t)&pLLFrames[_frameIndex], (uintptr_t)frActualCount, (uintptr_t)timeStamp );
+#else
+			USBTrace( kUSBTEHCIInterrupts, kTPEHCIUpdateFrameList , (uintptr_t)((_pEndpoint->direction << 24) | ( _pEndpoint->functionAddress << 8) | _pEndpoint->endpointNumber), (uintptr_t)&pLLFrames[_frameIndex], (uintptr_t)(timeStamp.hi), (uintptr_t)timeStamp.lo );
+#endif
 		}
     }
     else
@@ -495,13 +533,13 @@ AppleEHCISplitIsochTransferDescriptor::UpdateFrameList(AbsoluteTime timeStamp)
 		}
     }
 	
-    if(frStatus != kIOReturnSuccess)
+    if (frStatus != kIOReturnSuccess)
     {
-		if(frStatus != kIOReturnUnderrun)
+		if (frStatus != kIOReturnUnderrun)
 		{
 			_pEndpoint->accumulatedStatus = frStatus;
 		}
-		else if(_pEndpoint->accumulatedStatus == kIOReturnSuccess)
+		else if (_pEndpoint->accumulatedStatus == kIOReturnSuccess)
 		{
 			_pEndpoint->accumulatedStatus = kIOReturnUnderrun;
 		}
@@ -552,13 +590,26 @@ AppleEHCIIsochEndpoint::init()
 	ret = super::init();
 	if (ret)
 	{
-		hiPtr = NULL;
+		ttiPtr = NULL;
 		oneMPS = 0;
 		highSpeedHub = highSpeedPort = 0;
-		for (i=0;i<8;i++)
-			bandwidthUsed[i]=0;
-		startSplitFlags = completeSplitFlags = 0;
 		useBackPtr = false;
+		pSPE = NULL;
 	}
 	return ret;
+}
+
+
+
+void
+AppleEHCIIsochEndpoint::print(int level)
+{
+	USBLog(level, "AppleEHCIIsochEndpoint[%p]::print - pSPE(%p)", this, pSPE);
+	USBLog(level, "AppleEHCIIsochEndpoint[%p]::print - ttiPtr(%p)", this, ttiPtr);
+	USBLog(level, "AppleEHCIIsochEndpoint[%p]::print - oneMPS(%d)", this, (int)oneMPS);
+	USBLog(level, "AppleEHCIIsochEndpoint[%p]::print - highSpeedHub(%d)", this, (int)highSpeedHub);
+	USBLog(level, "AppleEHCIIsochEndpoint[%p]::print - highSpeedPort(%d)", this, highSpeedPort);
+	USBLog(level, "AppleEHCIIsochEndpoint[%p]::print - useBackPtr(%s)", this, useBackPtr ? "true" : "false");
+	USBLog(level, "AppleEHCIIsochEndpoint[%p]::print - _speed(%d)", this, (int)_speed);
+	USBLog(level, "AppleEHCIIsochEndpoint[%p]::print - _startFrame(%d)", this, (int)_startFrame);
 }

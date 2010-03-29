@@ -5,7 +5,7 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * $Id: lib553.c,v 1.5 2008-10-01 17:34:25 danf Exp $
+ * $Id: lib553.c,v 1.6 2009-05-08 02:14:50 yangtse Exp $
  *
  * This test case and code is based on the bug recipe Joe Malicki provided for
  * bug report #1871269, fixed on Jan 14 2008 before the 7.18.0 release.
@@ -70,6 +70,10 @@ int test(char *URL)
     curl_easy_setopt(curl, CURLOPT_URL, URL);
     curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headerlist);
     curl_easy_setopt(curl, CURLOPT_POST, 1L);
+#ifdef CURL_DOES_CONVERSIONS
+    /* Convert the POST data to ASCII */
+    curl_easy_setopt(curl, CURLOPT_TRANSFERTEXT, 1L);
+#endif
     curl_easy_setopt(curl, CURLOPT_POSTFIELDSIZE, (long)POSTLEN);
     curl_easy_setopt(curl, CURLOPT_VERBOSE, 1L);
     curl_easy_setopt(curl, CURLOPT_HEADER, 1L);

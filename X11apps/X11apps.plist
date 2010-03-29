@@ -580,17 +580,17 @@
 	</dict>
 	<dict>
 		<key>OpenSourceImportDate</key>
-		<string>2008-05-24</string>
+		<string>2009-09-23</string>
 		<key>OpenSourceLicense</key>
 		<string>MIT</string>
 		<key>OpenSourceProject</key>
 		<string>xfs</string>
 		<key>OpenSourceSHA1</key>
-		<string>7c7fbae9bee6977aa92d419c93ea8d2dba3b43af8</string>
+		<string>1392d1c751ca8211d8e990edc325b2ff801eaaac</string>
 		<key>OpenSourceURL</key>
-		<string>http://xorg.freedesktop.org/archive/individual/app/xfs-1.0.8.tar.bz2</string>
+		<string>http://xorg.freedesktop.org/archive/individual/app/xfs-1.1.0.tar.bz2</string>
 		<key>OpenSourceVersion</key>
-		<string>1.0.8</string>
+		<string>1.1.0</string>
 		<key>OpenSourceWebsiteURL</key>
 		<string>http://www.x.org</string>
 	</dict>
@@ -1124,17 +1124,17 @@
 	</dict>
 	<dict>
 		<key>OpenSourceImportDate</key>
-		<string>2009-04-09</string>
+		<string>2009-11-18</string>
 		<key>OpenSourceLicense</key>
 		<string>MIT</string>
 		<key>OpenSourceProject</key>
 		<string>xterm</string>
 		<key>OpenSourceSHA1</key>
-		<string>2d21f9ac13df846053b43d9fcf6ae70eaa63715a</string>
+		<string>379f5f677b7399f9bd1a6a0aefe0208486775cdc</string>
 		<key>OpenSourceURL</key>
-		<string>ftp://invisible-island.net/xterm/xterm-243.tgz</string>
+		<string>ftp://invisible-island.net/xterm/xterm-251.tgz</string>
 		<key>OpenSourceVersion</key>
-		<string>243</string>
+		<string>251</string>
 		<key>OpenSourceWebsiteURL</key>
 		<string>http://invisible-island.net/xterm</string>
 	</dict>

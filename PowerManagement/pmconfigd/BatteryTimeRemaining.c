@@ -107,7 +107,7 @@ enum {
 // Battery health calculation constants
 #define kSmartBattReserve_mAh    200.0
 
-#define kMaxBattMinutes     600
+#define kMaxBattMinutes     1200
 
 // static global variables for tracking battery state
 static CFAbsoluteTime   _estimatesInvalidUntil = 0.0;

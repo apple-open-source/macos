@@ -282,16 +282,21 @@ IOATAController::free()
 		
 	}
 	
-	if ( _doubleBufferDesc )
+	if ( reserved )
 	{
 		
-		_doubleBufferDesc->complete();
-		_doubleBufferDesc->release();
-		_doubleBuffer.bufferSize = 0;
-		_doubleBuffer.logicalBuffer = 0;
-		_doubleBuffer.physicalBuffer = 0;	
-		_doubleBufferDesc = NULL;
-		
+		if ( _doubleBufferDesc )
+		{
+			
+			_doubleBufferDesc->complete();
+			_doubleBufferDesc->release();
+			_doubleBuffer.bufferSize = 0;
+			_doubleBuffer.logicalBuffer = 0;
+			_doubleBuffer.physicalBuffer = 0;	
+			_doubleBufferDesc = NULL;
+			
+		}
+
 	}
 	
 	if ( reserved )

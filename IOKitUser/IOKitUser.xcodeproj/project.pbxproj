@@ -51,6 +51,16 @@
 		0521152A09D20B4A00E51ACA /* macho_util.c in Sources */ = {isa = PBXBuildFile; fileRef = 0521152909D20B4A00E51ACA /* macho_util.c */; };
 		0531B8CC09F4403800094163 /* bootfiles.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 0531B8CB09F4403800094163 /* bootfiles.h */; };
 		0CCB80F00C717EF200F51424 /* AppleRAIDUserLib.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 0CCB80EF0C717DE300F51424 /* AppleRAIDUserLib.h */; };
+		1025C8330F5DF5280055FAEA /* macho_util.c in Sources */ = {isa = PBXBuildFile; fileRef = 0521152909D20B4A00E51ACA /* macho_util.c */; };
+		1025C8470F5DF79F0055FAEA /* fat_util.c in Sources */ = {isa = PBXBuildFile; fileRef = 052114F809D2095A00E51ACA /* fat_util.c */; };
+		1025C8570F5E0B610055FAEA /* OSKext.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 24F5FE570DD1256800AE3585 /* OSKext.h */; };
+		10830CD40F5DDF3700937E9E /* OSKext.c in Sources */ = {isa = PBXBuildFile; fileRef = 24F5FE560DD1256800AE3585 /* OSKext.c */; };
+		10830CD50F5DDF3700937E9E /* OSKextVersion.c in Sources */ = {isa = PBXBuildFile; fileRef = 24F5FE580DD1256800AE3585 /* OSKextVersion.c */; };
+		108A34990F5CD26400E76DC4 /* IOPMPrivate.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 108A34980F5CD25700E76DC4 /* IOPMPrivate.h */; };
+		108A34AA0F5CD5FD00E76DC4 /* libkxld.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 6F51E41D0DAC16B800EDDC3D /* libkxld.dylib */; };
+		10EE1E320FB2858D007C4385 /* OSKext.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 24F5FE570DD1256800AE3585 /* OSKext.h */; };
+		10EE1E330FB2858D007C4385 /* OSKextPrivate.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 24B98E040DDD4DD800E04D36 /* OSKextPrivate.h */; };
+		10EE1E340FB2858D007C4385 /* misc_util.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 24F5FE5F0DD1257400AE3585 /* misc_util.h */; };
 		24B98E050DDD4DD800E04D36 /* OSKextPrivate.h in Copy Kext Files */ = {isa = PBXBuildFile; fileRef = 24B98E040DDD4DD800E04D36 /* OSKextPrivate.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		24F5FE590DD1256800AE3585 /* OSKext.c in Sources */ = {isa = PBXBuildFile; fileRef = 24F5FE560DD1256800AE3585 /* OSKext.c */; };
 		24F5FE5B0DD1256800AE3585 /* OSKextVersion.c in Sources */ = {isa = PBXBuildFile; fileRef = 24F5FE580DD1256800AE3585 /* OSKextVersion.c */; };
@@ -316,8 +326,6 @@
 		8472D4F40CFA100A003111DE /* IONetworkLib.c in Sources */ = {isa = PBXBuildFile; fileRef = E1AF606C07B40A71007EADEA /* IONetworkLib.c */; settings = {ATTRIBUTES = (); }; };
 		8472D4F90CFA100A003111DE /* IOEventStatusAPI.c in Sources */ = {isa = PBXBuildFile; fileRef = E1AF609307B40A71007EADEA /* IOEventStatusAPI.c */; settings = {ATTRIBUTES = (); }; };
 		8472D4FA0CFA100A003111DE /* IOHIDLib.c in Sources */ = {isa = PBXBuildFile; fileRef = E1AF609507B40A71007EADEA /* IOHIDLib.c */; settings = {ATTRIBUTES = (); }; };
-		8472D5050CFA100A003111DE /* KextManager.c in Sources */ = {isa = PBXBuildFile; fileRef = E1AF60D007B40A71007EADEA /* KextManager.c */; settings = {ATTRIBUTES = (); }; };
-		8472D5070CFA100A003111DE /* kextmanager_mig.defs in Sources */ = {isa = PBXBuildFile; fileRef = E1AF60D807B40A71007EADEA /* kextmanager_mig.defs */; settings = {ATTRIBUTES = (Client, ); }; };
 		8472D5080CFA100A003111DE /* IOPowerSources.c in Sources */ = {isa = PBXBuildFile; fileRef = 3E72094807B4487D00CD795A /* IOPowerSources.c */; };
 		8472D5090CFA100A003111DE /* IOPowerSourcesPrivate.c in Sources */ = {isa = PBXBuildFile; fileRef = 3E72094A07B4488B00CD795A /* IOPowerSourcesPrivate.c */; };
 		8472D50A0CFA100A003111DE /* IOPMLibPrivate.c in Sources */ = {isa = PBXBuildFile; fileRef = BABB8C3707DF311D005D5A3C /* IOPMLibPrivate.c */; };
@@ -333,7 +341,6 @@
 		8472D5140CFA100A003111DE /* IOHIDTransaction.c in Sources */ = {isa = PBXBuildFile; fileRef = 844A55E40A54A92E00FAE0BC /* IOHIDTransaction.c */; };
 		8472D5150CFA100A003111DE /* IOHIDEvent.c in Sources */ = {isa = PBXBuildFile; fileRef = 843C1FED0C0790410009057F /* IOHIDEvent.c */; };
 		8472D5160CFA100A003111DE /* IOHIDEventSystem.c in Sources */ = {isa = PBXBuildFile; fileRef = 847A124A0C07C3A400F3CCDB /* IOHIDEventSystem.c */; };
-		8472D5170CFA100A003111DE /* IOHIDEventSystem.defs in Sources */ = {isa = PBXBuildFile; fileRef = 847A124B0C07C3A400F3CCDB /* IOHIDEventSystem.defs */; settings = {ATTRIBUTES = (Client, Server, ); }; };
 		8472D5180CFA100A003111DE /* IOHIDEventSystemClient.c in Sources */ = {isa = PBXBuildFile; fileRef = 847A124D0C07C3A400F3CCDB /* IOHIDEventSystemClient.c */; };
 		8472D5190CFA100A003111DE /* IOHIDNotification.c in Sources */ = {isa = PBXBuildFile; fileRef = 847A12510C07C3A400F3CCDB /* IOHIDNotification.c */; };
 		8472D51A0CFA100A003111DE /* IOHIDService.c in Sources */ = {isa = PBXBuildFile; fileRef = 847A12530C07C3A400F3CCDB /* IOHIDService.c */; };
@@ -350,7 +357,6 @@
 		8472D57B0CFA1888003111DE /* IOUSBDeviceData.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 8472D46D0CFA0E38003111DE /* IOUSBDeviceData.h */; };
 		8473A6B60D06351300DD8515 /* IOHIDEventSystemPrivate.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 847A12500C07C3A400F3CCDB /* IOHIDEventSystemPrivate.h */; };
 		847A125C0C07C3A400F3CCDB /* IOHIDEventSystem.c in Sources */ = {isa = PBXBuildFile; fileRef = 847A124A0C07C3A400F3CCDB /* IOHIDEventSystem.c */; };
-		847A125D0C07C3A400F3CCDB /* IOHIDEventSystem.defs in Sources */ = {isa = PBXBuildFile; fileRef = 847A124B0C07C3A400F3CCDB /* IOHIDEventSystem.defs */; settings = {ATTRIBUTES = (Client, Server, ); }; };
 		847A125E0C07C3A400F3CCDB /* IOHIDEventSystem.h in Headers */ = {isa = PBXBuildFile; fileRef = 847A124C0C07C3A400F3CCDB /* IOHIDEventSystem.h */; };
 		847A125F0C07C3A400F3CCDB /* IOHIDEventSystemClient.c in Sources */ = {isa = PBXBuildFile; fileRef = 847A124D0C07C3A400F3CCDB /* IOHIDEventSystemClient.c */; };
 		847A12600C07C3A400F3CCDB /* IOHIDEventSystemClient.h in Headers */ = {isa = PBXBuildFile; fileRef = 847A124E0C07C3A400F3CCDB /* IOHIDEventSystemClient.h */; };
@@ -370,7 +376,11 @@
 		847A12700C07C44D00F3CCDB /* IOHIDService.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 847A12540C07C3A400F3CCDB /* IOHIDService.h */; };
 		847A12710C07C44D00F3CCDB /* IOHIDSession.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 847A12560C07C3A400F3CCDB /* IOHIDSession.h */; };
 		847A12720C07C44D00F3CCDB /* IOHIDTypes.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 847A12570C07C3A400F3CCDB /* IOHIDTypes.h */; };
+		8494352E104F76D100C3497B /* IOMIGMachPort.c in Sources */ = {isa = PBXBuildFile; fileRef = 8421FC470F321A0A00F49609 /* IOMIGMachPort.c */; };
+		8494352F104F76D100C3497B /* IOMIGMachPort.h in Headers */ = {isa = PBXBuildFile; fileRef = 8421FC450F3219EF00F49609 /* IOMIGMachPort.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		849648FB0E885E4600B26A1C /* IOHIDResourceUserClient.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 849648FA0E885E3900B26A1C /* IOHIDResourceUserClient.h */; };
+		84BC0AFA104D842500AB4EF5 /* IOHIDEventSystemMIG.defs in Sources */ = {isa = PBXBuildFile; fileRef = 84BC0AF9104D842500AB4EF5 /* IOHIDEventSystemMIG.defs */; settings = {ATTRIBUTES = (Client, Server, ); }; };
+		84BC0AFB104D842500AB4EF5 /* IOHIDEventSystemMIG.defs in Sources */ = {isa = PBXBuildFile; fileRef = 84BC0AF9104D842500AB4EF5 /* IOHIDEventSystemMIG.defs */; settings = {ATTRIBUTES = (Client, Server, ); }; };
 		84DE65B309B6952200AD798E /* IOHIDValue.h in Headers */ = {isa = PBXBuildFile; fileRef = 84DE65B209B6952200AD798E /* IOHIDValue.h */; };
 		84DE65B509B6952900AD798E /* IOHIDElement.h in Headers */ = {isa = PBXBuildFile; fileRef = 84DE65B409B6952900AD798E /* IOHIDElement.h */; };
 		84DE65B809B6953000AD798E /* IOHIDValue.c in Sources */ = {isa = PBXBuildFile; fileRef = 84DE65B609B6953000AD798E /* IOHIDValue.c */; };
@@ -382,8 +392,6 @@
 		84E02A180E8784A400850EED /* IOHIDUserDevice.c in Sources */ = {isa = PBXBuildFile; fileRef = 84E02A160E8784A400850EED /* IOHIDUserDevice.c */; };
 		84E02A190E8784A400850EED /* IOHIDUserDevice.h in Headers */ = {isa = PBXBuildFile; fileRef = 84E02A170E8784A400850EED /* IOHIDUserDevice.h */; };
 		84E02A470E87876F00850EED /* IOHIDUserDevice.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 84E02A170E8784A400850EED /* IOHIDUserDevice.h */; };
-		84E4E5930CEE7A9600EBA99F /* IOHIDDisplay.c in Sources */ = {isa = PBXBuildFile; fileRef = 847A12460C07C3A300F3CCDB /* IOHIDDisplay.c */; };
-		84E4E5940CEE7A9600EBA99F /* IOHIDDisplay.h in Headers */ = {isa = PBXBuildFile; fileRef = 847A12470C07C3A300F3CCDB /* IOHIDDisplay.h */; };
 		84EC17940EF719FF00885282 /* IOUserEthernetController.h in Headers */ = {isa = PBXBuildFile; fileRef = 84EC17930EF719FF00885282 /* IOUserEthernetController.h */; };
 		84EC17960EF71A0700885282 /* IOUserEthernetController.c in Sources */ = {isa = PBXBuildFile; fileRef = 84EC17950EF71A0700885282 /* IOUserEthernetController.c */; };
 		84EC17970EF71A1B00885282 /* IOUserEthernetController.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 84EC17930EF719FF00885282 /* IOUserEthernetController.h */; };
@@ -475,6 +483,16 @@
 				0CCB80F00C717EF200F51424 /* AppleRAIDUserLib.h in CopyFiles */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
+		};
+		10830CE00F5DDF8200937E9E /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /usr/local/include/IOKit/kext;
+			dstSubfolderSpec = 0;
+			files = (
+				1025C8570F5E0B610055FAEA /* OSKext.h in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
 		};
 		7238534F087F1F7000B36ABB /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
@@ -771,6 +789,7 @@
 			dstPath = include/IOKit/pwr_mgt;
 			dstSubfolderSpec = 16;
 			files = (
+				108A34990F5CD26400E76DC4 /* IOPMPrivate.h in CopyFiles */,
 				8420538C0CFE58BF00C2EF0D /* IOPM.h in CopyFiles */,
 				8420538D0CFE58BF00C2EF0D /* IOPMDeprecated.h in CopyFiles */,
 				8420538E0CFE58BF00C2EF0D /* IOPMLibDefs.h in CopyFiles */,
@@ -929,7 +948,7 @@
 		};
 		8472D49C0CFA100A003111DE /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 2147483647;
+			buildActionMask = 12;
 			dstPath = "Versions/$(FRAMEWORK_VERSION)/PrivateHeaders/hid";
 			dstSubfolderSpec = 1;
 			files = (
@@ -939,7 +958,7 @@
 		};
 		8472D49E0CFA100A003111DE /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 2147483647;
+			buildActionMask = 12;
 			dstPath = "Versions/$(FRAMEWORK_VERSION)/Headers/kext";
 			dstSubfolderSpec = 1;
 			files = (
@@ -949,10 +968,13 @@
 		};
 		8472D4A00CFA100A003111DE /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 2147483647;
+			buildActionMask = 12;
 			dstPath = "Versions/$(FRAMEWORK_VERSION)/PrivateHeaders/kext";
 			dstSubfolderSpec = 1;
 			files = (
+				10EE1E320FB2858D007C4385 /* OSKext.h in CopyFiles */,
+				10EE1E330FB2858D007C4385 /* OSKextPrivate.h in CopyFiles */,
+				10EE1E340FB2858D007C4385 /* misc_util.h in CopyFiles */,
 				8472D4A20CFA100A003111DE /* fat_util.h in CopyFiles */,
 				8472D4A60CFA100A003111DE /* KextManagerPriv.h in CopyFiles */,
 				8472D4A70CFA100A003111DE /* kextmanager_types.h in CopyFiles */,
@@ -963,7 +985,7 @@
 		};
 		8472D4AA0CFA100A003111DE /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 2147483647;
+			buildActionMask = 12;
 			dstPath = "Versions/$(FRAMEWORK_VERSION)/Headers/network";
 			dstSubfolderSpec = 1;
 			files = (
@@ -974,7 +996,7 @@
 		};
 		8472D4AC0CFA100A003111DE /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 2147483647;
+			buildActionMask = 12;
 			dstPath = "Versions/$(FRAMEWORK_VERSION)/Headers/ps";
 			dstSubfolderSpec = 1;
 			files = (
@@ -985,7 +1007,7 @@
 		};
 		8472D4AF0CFA100A003111DE /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 2147483647;
+			buildActionMask = 12;
 			dstPath = "Versions/$(FRAMEWORK_VERSION)/PrivateHeaders/ps";
 			dstSubfolderSpec = 1;
 			files = (
@@ -995,7 +1017,7 @@
 		};
 		8472D4B10CFA100A003111DE /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 2147483647;
+			buildActionMask = 12;
 			dstPath = "Versions/$(FRAMEWORK_VERSION)/Headers/pwr_mgt";
 			dstSubfolderSpec = 1;
 			files = (
@@ -1006,7 +1028,7 @@
 		};
 		8472D4B40CFA100A003111DE /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 2147483647;
+			buildActionMask = 12;
 			dstPath = "Versions/$(FRAMEWORK_VERSION)/PrivateHeaders/pwr_mgt";
 			dstSubfolderSpec = 1;
 			files = (
@@ -1030,7 +1052,7 @@
 		};
 		8472D5760CFA1839003111DE /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 2147483647;
+			buildActionMask = 12;
 			dstPath = "Versions/$(FRAMEWORK_VERSION)/PrivateHeaders/usb_device";
 			dstSubfolderSpec = 1;
 			files = (
@@ -1050,6 +1072,8 @@
 		0531B8CB09F4403800094163 /* bootfiles.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = bootfiles.h; sourceTree = "<group>"; };
 		05EFAE970ABF698800EA1880 /* English */ = {isa = PBXFileReference; fileEncoding = 10; lastKnownFileType = text.plist.strings; name = English; path = English.lproj/IODescription.strings; sourceTree = "<group>"; };
 		0CCB80EF0C717DE300F51424 /* AppleRAIDUserLib.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = AppleRAIDUserLib.h; path = /System/Library/Frameworks/IOKit.framework/Versions/A/PrivateHeaders/storage/RAID/AppleRAIDUserLib.h; sourceTree = "<absolute>"; };
+		10830CCA0F5DDD9A00937E9E /* libkext.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libkext.a; sourceTree = BUILT_PRODUCTS_DIR; };
+		108A34980F5CD25700E76DC4 /* IOPMPrivate.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = IOPMPrivate.h; path = System/Library/Frameworks/IOKit.framework/Versions/A/PrivateHeaders/pwr_mgt/IOPMPrivate.h; sourceTree = SDKROOT; };
 		24B98E040DDD4DD800E04D36 /* OSKextPrivate.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = OSKextPrivate.h; sourceTree = "<group>"; };
 		24F5FE560DD1256800AE3585 /* OSKext.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = OSKext.c; sourceTree = "<group>"; };
 		24F5FE570DD1256800AE3585 /* OSKext.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = OSKext.h; sourceTree = "<group>"; };
@@ -1193,7 +1217,6 @@
 		847A12480C07C3A400F3CCDB /* IOHIDEventQueue.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = IOHIDEventQueue.c; sourceTree = "<group>"; };
 		847A12490C07C3A400F3CCDB /* IOHIDEventQueue.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IOHIDEventQueue.h; sourceTree = "<group>"; };
 		847A124A0C07C3A400F3CCDB /* IOHIDEventSystem.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = IOHIDEventSystem.c; sourceTree = "<group>"; };
-		847A124B0C07C3A400F3CCDB /* IOHIDEventSystem.defs */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.mig; path = IOHIDEventSystem.defs; sourceTree = "<group>"; };
 		847A124C0C07C3A400F3CCDB /* IOHIDEventSystem.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IOHIDEventSystem.h; sourceTree = "<group>"; };
 		847A124D0C07C3A400F3CCDB /* IOHIDEventSystemClient.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = IOHIDEventSystemClient.c; sourceTree = "<group>"; };
 		847A124E0C07C3A400F3CCDB /* IOHIDEventSystemClient.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IOHIDEventSystemClient.h; sourceTree = "<group>"; };
@@ -1207,6 +1230,7 @@
 		847A12560C07C3A400F3CCDB /* IOHIDSession.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IOHIDSession.h; sourceTree = "<group>"; };
 		847A12570C07C3A400F3CCDB /* IOHIDTypes.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IOHIDTypes.h; sourceTree = "<group>"; };
 		849648FA0E885E3900B26A1C /* IOHIDResourceUserClient.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = IOHIDResourceUserClient.h; path = System/Library/Frameworks/IOKit.framework/Versions/A/PrivateHeaders/hid/IOHIDResourceUserClient.h; sourceTree = SDKROOT; };
+		84BC0AF9104D842500AB4EF5 /* IOHIDEventSystemMIG.defs */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.mig; path = IOHIDEventSystemMIG.defs; sourceTree = "<group>"; };
 		84DE65B209B6952200AD798E /* IOHIDValue.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IOHIDValue.h; sourceTree = "<group>"; };
 		84DE65B409B6952900AD798E /* IOHIDElement.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IOHIDElement.h; sourceTree = "<group>"; };
 		84DE65B609B6953000AD798E /* IOHIDValue.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = IOHIDValue.c; sourceTree = "<group>"; };
@@ -1289,6 +1313,13 @@
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
+		10830CC80F5DDD9A00937E9E /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		2DCEADB008DB8CEF00B0CBEA /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -1303,6 +1334,7 @@
 				8472D5260CFA100A003111DE /* CoreFoundation.framework in Frameworks */,
 				8472D5270CFA100A003111DE /* libz.dylib in Frameworks */,
 				8472D5290CFA100A003111DE /* libDeviceMIG.a in Frameworks */,
+				108A34AA0F5CD5FD00E76DC4 /* libkxld.dylib in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1440,6 +1472,7 @@
 		842053060CFE525D00C2EF0D /* xnu IOKit Headers */ = {
 			isa = PBXGroup;
 			children = (
+				108A34980F5CD25700E76DC4 /* IOPMPrivate.h */,
 				8420534F0CFE541900C2EF0D /* IOBSD.h */,
 				842053500CFE541900C2EF0D /* IODataQueueShared.h */,
 				842053520CFE547A00C2EF0D /* IOKitKeys.h */,
@@ -1518,27 +1551,18 @@
 		844A55DA0A54A8F100FAE0BC /* PrivateHeaders */ = {
 			isa = PBXGroup;
 			children = (
-				843C1FED0C0790410009057F /* IOHIDEvent.c */,
 				843C1FEE0C0790410009057F /* IOHIDEvent.h */,
 				843C1FFB0C0792FA0009057F /* IOHIDServiceKeys.h */,
 				843C1FF80C0792DB0009057F /* IOHIDServicePlugIn.h */,
 				844A55DB0A54A8FA00FAE0BC /* IOHIDLibPrivate.h */,
-				847A12460C07C3A300F3CCDB /* IOHIDDisplay.c */,
 				847A12470C07C3A300F3CCDB /* IOHIDDisplay.h */,
-				847A12480C07C3A400F3CCDB /* IOHIDEventQueue.c */,
 				847A12490C07C3A400F3CCDB /* IOHIDEventQueue.h */,
-				847A124A0C07C3A400F3CCDB /* IOHIDEventSystem.c */,
-				847A124B0C07C3A400F3CCDB /* IOHIDEventSystem.defs */,
 				847A124C0C07C3A400F3CCDB /* IOHIDEventSystem.h */,
-				847A124D0C07C3A400F3CCDB /* IOHIDEventSystemClient.c */,
 				847A124E0C07C3A400F3CCDB /* IOHIDEventSystemClient.h */,
 				847A124F0C07C3A400F3CCDB /* IOHIDEventSystemKeys.h */,
 				847A12500C07C3A400F3CCDB /* IOHIDEventSystemPrivate.h */,
-				847A12510C07C3A400F3CCDB /* IOHIDNotification.c */,
 				847A12520C07C3A400F3CCDB /* IOHIDNotification.h */,
-				847A12530C07C3A400F3CCDB /* IOHIDService.c */,
 				847A12540C07C3A400F3CCDB /* IOHIDService.h */,
-				847A12550C07C3A400F3CCDB /* IOHIDSession.c */,
 				847A12560C07C3A400F3CCDB /* IOHIDSession.h */,
 				847A12570C07C3A400F3CCDB /* IOHIDTypes.h */,
 				84E02A170E8784A400850EED /* IOHIDUserDevice.h */,
@@ -1546,7 +1570,7 @@
 			name = PrivateHeaders;
 			sourceTree = "<group>";
 		};
-		8472D46B0CFA0E38003111DE /* usb_device.subproj */ = {
+		8472D46B0CFA0E38003111DE /* usb_device */ = {
 			isa = PBXGroup;
 			children = (
 				DA3CE2A20D46AF6B009749E9 /* IOUSBDeviceControllerLib.c */,
@@ -1555,6 +1579,7 @@
 				8472D46D0CFA0E38003111DE /* IOUSBDeviceData.h */,
 				8472D46C0CFA0E38003111DE /* IOUSBDeviceData.c */,
 			);
+			name = usb_device;
 			path = usb_device.subproj;
 			sourceTree = "<group>";
 		};
@@ -1588,7 +1613,7 @@
 				E1AF60E107B40A71007EADEA /* ps */,
 				E1AF604807B40A71007EADEA /* pwr_mgt */,
 				E1AF605F07B40A71007EADEA /* usb */,
-				8472D46B0CFA0E38003111DE /* usb_device.subproj */,
+				8472D46B0CFA0E38003111DE /* usb_device */,
 				E1AF600307B40A70007EADEA /* Headers */,
 				E1AF601807B40A70007EADEA /* Other Sources */,
 				3E4B57BB07B4564600F76970 /* Mig .def files */,
@@ -1607,6 +1632,7 @@
 				E1AF600107B40A70007EADEA /* IOKit.framework */,
 				2DCEADB208DB8CEF00B0CBEA /* libDeviceMIG.a */,
 				8472D5340CFA100A003111DE /* IOKit.framework */,
+				10830CCA0F5DDD9A00937E9E /* libkext.a */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -1962,6 +1988,15 @@
 		E1AF60DB07B40A71007EADEA /* Other Sources */ = {
 			isa = PBXGroup;
 			children = (
+				84BC0AF9104D842500AB4EF5 /* IOHIDEventSystemMIG.defs */,
+				843C1FED0C0790410009057F /* IOHIDEvent.c */,
+				847A12460C07C3A300F3CCDB /* IOHIDDisplay.c */,
+				847A12480C07C3A400F3CCDB /* IOHIDEventQueue.c */,
+				847A124A0C07C3A400F3CCDB /* IOHIDEventSystem.c */,
+				847A124D0C07C3A400F3CCDB /* IOHIDEventSystemClient.c */,
+				847A12510C07C3A400F3CCDB /* IOHIDNotification.c */,
+				847A12530C07C3A400F3CCDB /* IOHIDService.c */,
+				847A12550C07C3A400F3CCDB /* IOHIDSession.c */,
 				84E02A160E8784A400850EED /* IOHIDUserDevice.c */,
 				844A55DD0A54A91400FAE0BC /* IOHIDDevice.c */,
 				84DE65B709B6953000AD798E /* IOHIDElement.c */,
@@ -2051,7 +2086,7 @@
 				847A12680C07C3A400F3CCDB /* IOHIDSession.h in Headers */,
 				847A12690C07C3A400F3CCDB /* IOHIDTypes.h in Headers */,
 				8445AAC50C31A941007BF6A8 /* IOHIDEventQueue.h in Headers */,
-				84E4E5940CEE7A9600EBA99F /* IOHIDDisplay.h in Headers */,
+				8494352F104F76D100C3497B /* IOMIGMachPort.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -2106,6 +2141,23 @@
 /* End PBXHeadersBuildPhase section */
 
 /* Begin PBXNativeTarget section */
+		10830CC90F5DDD9A00937E9E /* libkext */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 10830CD30F5DDDD700937E9E /* Build configuration list for PBXNativeTarget "libkext" */;
+			buildPhases = (
+				10830CE00F5DDF8200937E9E /* CopyFiles */,
+				10830CC70F5DDD9A00937E9E /* Sources */,
+				10830CC80F5DDD9A00937E9E /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = libkext;
+			productName = libkext;
+			productReference = 10830CCA0F5DDD9A00937E9E /* libkext.a */;
+			productType = "com.apple.product-type.library.static";
+		};
 		2DCEADB108DB8CEF00B0CBEA /* DeviceMIG */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 2DCEADB408DB8D6300B0CBEA /* Build configuration list for PBXNativeTarget "DeviceMIG" */;
@@ -2128,6 +2180,7 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = 8472D52D0CFA100A003111DE /* Build configuration list for PBXNativeTarget "IOKit-Embedded" */;
 			buildPhases = (
+				10BB67E30F5CC10700D026A8 /* Create Symlinks for Embedded Product */,
 				8472D47C0CFA100A003111DE /* CopyFiles */,
 				8472D4830CFA100A003111DE /* CopyFiles */,
 				8472D4860CFA100A003111DE /* CopyFiles */,
@@ -2144,7 +2197,6 @@
 				8472D4B90CFA100A003111DE /* Copy Files */,
 				8472D4BB0CFA100A003111DE /* Headers */,
 				8472D4E10CFA100A003111DE /* Sources */,
-				8472D5200CFA100A003111DE /* ShellScript */,
 				8472D5210CFA100A003111DE /* Resources */,
 				8472D5250CFA100A003111DE /* Frameworks */,
 				8472D52A0CFA100A003111DE /* Rez */,
@@ -2216,6 +2268,7 @@
 			targets = (
 				E1AF600007B40A70007EADEA /* IOKit */,
 				8472D4770CFA100A003111DE /* IOKit-Embedded */,
+				10830CC90F5DDD9A00937E9E /* libkext */,
 				2DCEADB108DB8CEF00B0CBEA /* DeviceMIG */,
 				7238541C087F2E4500B36ABB /* ShadowExternalHeaders */,
 				8420530A0CFE52CB00C2EF0D /* ShadowExternalHeaders-Embedded */,
@@ -2276,6 +2329,20 @@
 			shellPath = /bin/sh;
 			shellScript = "# 345678901234567890123456789012345678901234567890123456789012345678901234567890\n\n# only way I could figure out how to get the generated header describing the\n# routines compiled into the framemwork to be installed in PrivateHeaders/kext\n\necho \"Can the generated kextmanager_mig.h be in a Copy Files build phase?\"\nset -x\n\n# HACK to get around current MIG problems; get the first arch we're building with\nfor try_arch in ${RC_ARCHS} ; do\n    break\ndone\n\necho \"Checking ${try_arch} for derived MIG header\"\n\nif [ -e \"${DERIVED_FILE_DIR}/${try_arch}/kextmanager_mig.h\" ] ; then\n    cp \"${DERIVED_FILE_DIR}/${try_arch}/kextmanager_mig.h\" \"${SCRIPT_OUTPUT_FILE_0}\"\nelif [ -e \"${DERIVED_FILE_DIR}/kextmanager_mig.h\" ] ; then\n    cp \"${DERIVED_FILE_DIR}/kextmanager_mig.h\" \"${SCRIPT_OUTPUT_FILE_0}\"\nelse\n    echo \"Can't find derived MIG header\"\n    exit 1\nfi\n\n\n# see definitions for SCRIPT_INPUT_FILE_0 & SCRIPT_OUTPUT_FILE_0\n# there also appears to be a DERIVED_SOURCES_DIR but DERIVED_FILE_DIR is documented\n# (looking at all of the setenv calls at the start of the build is very informative)\n";
 		};
+		10BB67E30F5CC10700D026A8 /* Create Symlinks for Embedded Product */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+			);
+			name = "Create Symlinks for Embedded Product";
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "# When building for Aspen, we still build IOKit.framework as a deep framework, so we need to create the necessary symlinks by hand.\nif [ \"${PLATFORM_NAME}\" = \"iphoneos\" -a \\( \"${CONFIGURATION}\" = \"Development-Embedded\" -o \"${CONFIGURATION}\" = \"Deployment-Embedded\" \\) ]\nthen\n\techo \"cd \\\"${TARGET_BUILD_DIR}/${FULL_PRODUCT_NAME}\\\"\"\n\tcd \"${TARGET_BUILD_DIR}/${FULL_PRODUCT_NAME}\"\n\tfor filename in Headers PrivateHeaders Resources \"${EXECUTABLE_NAME}\"\n\tdo\n\t\techo \"/bin/ln -sF \\\"Versions/${FRAMEWORK_VERSION}/${filename}\\\" \\\"${filename}\\\"\"\n\t\t/bin/ln -sF \"Versions/${FRAMEWORK_VERSION}/${filename}\" \"${filename}\"\n\tdone\nfi\nexit 0\n";
+		};
 		2D76BD2308DD0F83009A41B5 /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 8;
@@ -2312,20 +2379,6 @@
 			shellPath = "/bin/bash DeviceMIG.sh";
 			shellScript = "";
 		};
-		8472D5200CFA100A003111DE /* ShellScript */ = {
-			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputPaths = (
-			);
-			outputPaths = (
-				"$(TARGET_BUILD_DIR)/$(PRIVATE_HEADERS_FOLDER_PATH)/kext/kextmanager_mig.h",
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "# 345678901234567890123456789012345678901234567890123456789012345678901234567890\n\n# only way I could figure out how to get the generated header describing the\n# routines compiled into the framemwork to be installed in PrivateHeaders/kext\n\necho \"Can the generated kextmanager_mig.h be in a Copy Files build phase?\"\nset -x\n\n# HACK to get around current MIG problems; get the first arch we're building with\nfor try_arch in ${RC_ARCHS} ; do\n    break\ndone\n\necho \"Checking ${try_arch} for derived MIG header\"\n\nif [ -e \"${DERIVED_FILE_DIR}/${try_arch}/kextmanager_mig.h\" ] ; then\n    cp \"${DERIVED_FILE_DIR}/${try_arch}/kextmanager_mig.h\" \"${SCRIPT_OUTPUT_FILE_0}\"\nelif [ -e \"${DERIVED_FILE_DIR}/kextmanager_mig.h\" ] ; then\n    cp \"${DERIVED_FILE_DIR}/kextmanager_mig.h\" \"${SCRIPT_OUTPUT_FILE_0}\"\nelse\n    echo \"Can't find derived MIG header\"\n    exit 1\nfi\n\n\n# see definitions for SCRIPT_INPUT_FILE_0 & SCRIPT_OUTPUT_FILE_0\n# there also appears to be a DERIVED_SOURCES_DIR but DERIVED_FILE_DIR is documented\n# (looking at all of the setenv calls at the start of the build is very informative)\n";
-		};
 		8472D52B0CFA100A003111DE /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 8;
@@ -2345,6 +2398,17 @@
 /* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		10830CC70F5DDD9A00937E9E /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				10830CD40F5DDF3700937E9E /* OSKext.c in Sources */,
+				10830CD50F5DDF3700937E9E /* OSKextVersion.c in Sources */,
+				1025C8330F5DF5280055FAEA /* macho_util.c in Sources */,
+				1025C8470F5DF79F0055FAEA /* fat_util.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		2DCEADAF08DB8CEF00B0CBEA /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -2380,8 +2444,6 @@
 				24F5FE670DD125B500AE3585 /* OSKextVersion.c in Sources */,
 				24F5FE680DD125B500AE3585 /* misc_util.c in Sources */,
 				24F5FE690DD125B500AE3585 /* printPList_new.c in Sources */,
-				8472D5050CFA100A003111DE /* KextManager.c in Sources */,
-				8472D5070CFA100A003111DE /* kextmanager_mig.defs in Sources */,
 				8472D5080CFA100A003111DE /* IOPowerSources.c in Sources */,
 				8472D5090CFA100A003111DE /* IOPowerSourcesPrivate.c in Sources */,
 				8472D50A0CFA100A003111DE /* IOPMLibPrivate.c in Sources */,
@@ -2397,7 +2459,6 @@
 				8472D5140CFA100A003111DE /* IOHIDTransaction.c in Sources */,
 				8472D5150CFA100A003111DE /* IOHIDEvent.c in Sources */,
 				8472D5160CFA100A003111DE /* IOHIDEventSystem.c in Sources */,
-				8472D5170CFA100A003111DE /* IOHIDEventSystem.defs in Sources */,
 				8472D5180CFA100A003111DE /* IOHIDEventSystemClient.c in Sources */,
 				8472D5190CFA100A003111DE /* IOHIDNotification.c in Sources */,
 				8472D51A0CFA100A003111DE /* IOHIDService.c in Sources */,
@@ -2410,6 +2471,7 @@
 				84E02A180E8784A400850EED /* IOHIDUserDevice.c in Sources */,
 				84EC17960EF71A0700885282 /* IOUserEthernetController.c in Sources */,
 				8421FC480F321A0A00F49609 /* IOMIGMachPort.c in Sources */,
+				84BC0AFA104D842500AB4EF5 /* IOHIDEventSystemMIG.defs in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -2458,18 +2520,18 @@
 				844A55E60A54A92E00FAE0BC /* IOHIDTransaction.c in Sources */,
 				843C1FEF0C0790410009057F /* IOHIDEvent.c in Sources */,
 				847A125C0C07C3A400F3CCDB /* IOHIDEventSystem.c in Sources */,
-				847A125D0C07C3A400F3CCDB /* IOHIDEventSystem.defs in Sources */,
 				847A125F0C07C3A400F3CCDB /* IOHIDEventSystemClient.c in Sources */,
 				847A12630C07C3A400F3CCDB /* IOHIDNotification.c in Sources */,
 				847A12650C07C3A400F3CCDB /* IOHIDService.c in Sources */,
 				847A12670C07C3A400F3CCDB /* IOHIDSession.c in Sources */,
 				8445AAC60C31A942007BF6A8 /* IOHIDEventQueue.c in Sources */,
 				729061E50CDFC6490046821C /* IOPMPowerNotifications.c in Sources */,
-				84E4E5930CEE7A9600EBA99F /* IOHIDDisplay.c in Sources */,
 				24F5FE590DD1256800AE3585 /* OSKext.c in Sources */,
 				24F5FE5B0DD1256800AE3585 /* OSKextVersion.c in Sources */,
 				24F5FE600DD1257400AE3585 /* misc_util.c in Sources */,
 				24F5FE640DD1258A00AE3585 /* printPList_new.c in Sources */,
+				84BC0AFB104D842500AB4EF5 /* IOHIDEventSystemMIG.defs in Sources */,
+				8494352E104F76D100C3497B /* IOMIGMachPort.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -2518,11 +2580,63 @@
 /* End PBXVariantGroup section */
 
 /* Begin XCBuildConfiguration section */
+		10830CCB0F5DDD9F00937E9E /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				INSTALL_PATH = /usr/local/lib;
+				PRODUCT_NAME = kext;
+			};
+			name = Development;
+		};
+		10830CCC0F5DDD9F00937E9E /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				INSTALL_PATH = /usr/local/lib;
+				PRODUCT_NAME = kext;
+			};
+			name = Deployment;
+		};
+		10830CCD0F5DDD9F00937E9E /* StageNo64 */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				INSTALL_PATH = /usr/local/lib;
+				PRODUCT_NAME = kext;
+			};
+			name = StageNo64;
+		};
+		10830CCE0F5DDD9F00937E9E /* Stage64 */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				INSTALL_PATH = /usr/local/lib;
+				PRODUCT_NAME = kext;
+			};
+			name = Stage64;
+		};
+		10830CCF0F5DDD9F00937E9E /* Deployment-Embedded */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				INSTALL_PATH = /usr/local/lib;
+				PRODUCT_NAME = kext;
+			};
+			name = "Deployment-Embedded";
+		};
+		10830CD00F5DDD9F00937E9E /* Development-Embedded */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				INSTALL_PATH = /usr/local/lib;
+				PRODUCT_NAME = kext;
+			};
+			name = "Development-Embedded";
+		};
 		2D2A541208EB47E900A41F15 /* Stage64 */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				COPY_PHASE_STRIP = YES;
-				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
 				GCC_MODEL_TUNING = G5;
 				GCC_TREAT_WARNINGS_AS_ERRORS = NO;
 				LIBRARY_STYLE = STATIC;
@@ -2615,8 +2729,6 @@
 		2D76BCCF08DCE95D009A41B5 /* StageNo64 */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				COPY_PHASE_STRIP = YES;
-				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
 				GCC_MODEL_TUNING = G5;
 				GCC_TREAT_WARNINGS_AS_ERRORS = NO;
 				LIBRARY_STYLE = STATIC;
@@ -2707,8 +2819,6 @@
 		2DCEADB508DB8D6300B0CBEA /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				COPY_PHASE_STRIP = NO;
-				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_MODEL_TUNING = G5;
 				GCC_TREAT_WARNINGS_AS_ERRORS = NO;
 				LIBRARY_STYLE = STATIC;
@@ -2720,8 +2830,6 @@
 		2DCEADB608DB8D6300B0CBEA /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				COPY_PHASE_STRIP = YES;
-				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
 				GCC_MODEL_TUNING = G5;
 				GCC_TREAT_WARNINGS_AS_ERRORS = NO;
 				LIBRARY_STYLE = STATIC;
@@ -2800,7 +2908,7 @@
 		2DF1E08708DB6A940096BDB6 /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				COPY_PHASE_STRIP = YES;
+				COPY_PHASE_STRIP = NO;
 				DYLIB_COMPATIBILITY_VERSION = 1.0.0;
 				DYLIB_CURRENT_VERSION = 275.0.0;
 				INFOPLIST_FILE = CustomInfo.plist;
@@ -2995,7 +3103,6 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_IDENTITY = "-";
-				COPY_PHASE_STRIP = NO;
 				DYLIB_COMPATIBILITY_VERSION = 1.0.0;
 				DYLIB_CURRENT_VERSION = 275.0.0;
 				GCC_OPTIMIZATION_LEVEL = 0;
@@ -3025,7 +3132,6 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_IDENTITY = "-";
-				COPY_PHASE_STRIP = YES;
 				DYLIB_COMPATIBILITY_VERSION = 1.0.0;
 				DYLIB_CURRENT_VERSION = 275.0.0;
 				INFOPLIST_FILE = CustomInfo.plist;
@@ -3054,7 +3160,6 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_IDENTITY = "-";
-				COPY_PHASE_STRIP = YES;
 				DYLIB_COMPATIBILITY_VERSION = 1.0.0;
 				DYLIB_CURRENT_VERSION = 275.0.0;
 				INFOPLIST_FILE = CustomInfo.plist;
@@ -3083,7 +3188,6 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_IDENTITY = "-";
-				COPY_PHASE_STRIP = YES;
 				DYLIB_COMPATIBILITY_VERSION = 1.0.0;
 				DYLIB_CURRENT_VERSION = 275.0.0;
 				GCC_OPTIMIZATION_LEVEL = s;
@@ -3115,7 +3219,6 @@
 			buildSettings = {
 				CODE_SIGN_IDENTITY = "-";
 				CONTENTS_FOLDER_PATH = IOKit.framework/Versions/A;
-				COPY_PHASE_STRIP = YES;
 				DYLIB_COMPATIBILITY_VERSION = 1.0.0;
 				DYLIB_CURRENT_VERSION = 275.0.0;
 				FRAMEWORK_SEARCH_PATHS = (
@@ -3125,6 +3228,7 @@
 				GCC_OPTIMIZATION_LEVEL = s;
 				INFOPLIST_FILE = CustomInfo.plist;
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Frameworks";
+				LIBRARY_SEARCH_PATHS = /usr/lib/system;
 				OTHER_CFLAGS = (
 					"$(OTHER_CFLAGS)",
 					"-DAPPLE",
@@ -3149,14 +3253,13 @@
 			buildSettings = {
 				CODE_SIGN_IDENTITY = "-";
 				CONTENTS_FOLDER_PATH = IOKit.framework/Versions/A;
-				COPY_PHASE_STRIP = NO;
 				DYLIB_COMPATIBILITY_VERSION = 1.0.0;
 				DYLIB_CURRENT_VERSION = 275.0.0;
 				FRAMEWORK_SEARCH_PATHS = "$(SDKROOT)/System/Library/PrivateFrameworks";
-				GCC_DEBUGGING_SYMBOLS = full;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				INFOPLIST_FILE = CustomInfo.plist;
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Frameworks";
+				LIBRARY_SEARCH_PATHS = /usr/lib/system;
 				OTHER_CFLAGS = (
 					"$(OTHER_CFLAGS)",
 					"-DAPPLE",
@@ -3188,7 +3291,6 @@
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				FRAMEWORK_SEARCH_PATHS = "$(SDKROOT)/System/Library/PrivateFrameworks";
 				GCC_C_LANGUAGE_STANDARD = gnu99;
-				GCC_OPTIMIZATION_LEVEL = 0;
 				GCC_TREAT_WARNINGS_AS_ERRORS = NO;
 				GCC_WARN_ABOUT_DEPRECATED_FUNCTIONS = NO;
 				HEADER_SEARCH_PATHS = (
@@ -3243,8 +3345,6 @@
 		84E4E5670CECC34E00EBA99F /* Deployment-Embedded */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				COPY_PHASE_STRIP = YES;
-				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
 				GCC_MODEL_TUNING = G5;
 				GCC_TREAT_WARNINGS_AS_ERRORS = NO;
 				LIBRARY_STYLE = STATIC;
@@ -3340,8 +3440,6 @@
 		84E4E56B0CECC38700EBA99F /* Development-Embedded */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				COPY_PHASE_STRIP = YES;
-				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
 				GCC_MODEL_TUNING = G5;
 				GCC_TREAT_WARNINGS_AS_ERRORS = NO;
 				LIBRARY_STYLE = STATIC;
@@ -3370,6 +3468,19 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		10830CD30F5DDDD700937E9E /* Build configuration list for PBXNativeTarget "libkext" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				10830CCB0F5DDD9F00937E9E /* Development */,
+				10830CCC0F5DDD9F00937E9E /* Deployment */,
+				10830CCD0F5DDD9F00937E9E /* StageNo64 */,
+				10830CCE0F5DDD9F00937E9E /* Stage64 */,
+				10830CCF0F5DDD9F00937E9E /* Deployment-Embedded */,
+				10830CD00F5DDD9F00937E9E /* Development-Embedded */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Stage64;
+		};
 		2DCEADB408DB8D6300B0CBEA /* Build configuration list for PBXNativeTarget "DeviceMIG" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (

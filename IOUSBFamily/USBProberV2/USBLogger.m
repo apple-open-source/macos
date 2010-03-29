@@ -97,7 +97,7 @@
     
     char *className = "IOUSBController";
     kr = IOServiceGetMatchingServices(_gMasterPort, IOServiceMatching(className ), &iter);
-    if(kr != KERN_SUCCESS)
+    if (kr != KERN_SUCCESS)
     {
         [_listener usbLoggerTextAvailable:[NSString stringWithFormat:@"USB Prober: [ERR] IOServiceGetMatchingServices for USB Controller returned %x\n", kr] forLevel:0];
         return kr;
@@ -105,7 +105,7 @@
     while ((service = IOIteratorNext(iter)) != IO_OBJECT_NULL)
     {
         kr = IOServiceOpen(service, mach_task_self(), 0, &_gControllerUserClientPort);
-        if(kr != KERN_SUCCESS)
+        if (kr != KERN_SUCCESS)
         {
             [_listener usbLoggerTextAvailable:[NSString stringWithFormat:@"USB Prober: [ERR] Could not IOServiceOpen on USB Controller client %x\n", kr] forLevel:0];
             IOObjectRelease(iter);
@@ -132,7 +132,7 @@
     }
         
     
-    if(kr != KERN_SUCCESS)
+    if (kr != KERN_SUCCESS)
     {
         NSLog(@"USB Prober: [ERR] Could not enable/disable logger (%x)\n", kr);
         return kr;
@@ -140,7 +140,7 @@
     
     if ( setLevel )
         kr = [self callUSBControllerUserClient:_gControllerUserClientPort methodIndex:kUSBControllerUserClientSetDebuggingLevel  inParam:level];
-    if(kr != KERN_SUCCESS)
+    if (kr != KERN_SUCCESS)
     {
         NSLog(@"USB Prober: [ERR] Could not set debugging level (%x)\n", kr);
         return kr;
@@ -148,7 +148,7 @@
     
     if ( setType )
         kr = [self callUSBControllerUserClient:_gControllerUserClientPort methodIndex:kUSBControllerUserClientSetDebuggingType  inParam:type];
-    if(kr != KERN_SUCCESS)
+    if (kr != KERN_SUCCESS)
     {
         NSLog(@"USB Prober: [ERR] Could not set debugging type (%x)\n", kr);
         return kr;
@@ -208,7 +208,7 @@
     }
     
     kr = IOServiceGetMatchingServices( _gMasterPort, IOServiceMatching(className ), &iter);
-    if(kr != KERN_SUCCESS)
+    if (kr != KERN_SUCCESS)
     {
         [_listener usbLoggerTextAvailable:[NSString stringWithFormat:@"USB Prober: [ERR] IOMasterPort returned %x\n", kr] forLevel:0];
         [pool release];
@@ -217,7 +217,7 @@
     while ((service = IOIteratorNext(iter)) != IO_OBJECT_NULL)
     {
         kr = IOServiceOpen(service, mach_task_self(), 0, &_gKLogUserClientPort);
-        if(kr != KERN_SUCCESS)
+        if (kr != KERN_SUCCESS)
         {
             [_listener usbLoggerTextAvailable:[NSString stringWithFormat:@"USB Prober: [ERR] Could not open object %d\n", kr] forLevel:0];
             IOObjectRelease(iter);
@@ -230,14 +230,14 @@
     IOObjectRelease(iter);
     //mach port for IODataQueue
     _gQPort = IODataQueueAllocateNotificationPort();
-    if(_gQPort == MACH_PORT_NULL)
+    if (_gQPort == MACH_PORT_NULL)
     {
         [_listener usbLoggerTextAvailable:[NSString stringWithFormat:@"LogUser: [ERR] Could not allocate DataQueue notification port\n"] forLevel:0];
         [pool release];
         return;
     }
     kr = IOConnectSetNotificationPort(_gKLogUserClientPort, 0, _gQPort, 0);
-    if(kr != KERN_SUCCESS)
+    if (kr != KERN_SUCCESS)
     {
         [_listener usbLoggerTextAvailable:[NSString stringWithFormat:@"LogUser: [ERR] Could not set notification port (%x)\n",kr] forLevel:0];
         [pool release];
@@ -250,7 +250,7 @@
 	kr = IOConnectMapMemory(_gKLogUserClientPort, 0, mach_task_self(), (mach_vm_address_t *)&_gMyQueue, (mach_vm_size_t *)&bufSize, kIOMapAnywhere);
 #endif
 	
-    if(kr != KERN_SUCCESS)
+    if (kr != KERN_SUCCESS)
     {
         [_listener usbLoggerTextAvailable:[NSString stringWithFormat:@"LogUser: [ERR] Could not connect memory map\n"] forLevel:0];
         [pool release];
@@ -258,7 +258,7 @@
     }
     //Tell the logger UserClient to activate its data queue
     kr = [self callUSBControllerUserClient:_gKLogUserClientPort methodIndex:0  inParam:Q_ON];
-    if(kr != KERN_SUCCESS)
+    if (kr != KERN_SUCCESS)
     {
         [_listener usbLoggerTextAvailable:[NSString stringWithFormat:@"LogUser: [ERR] Could not open data queue\n"] forLevel:0];
         [pool release];
@@ -271,10 +271,10 @@
         //reset size of expected buffer
         memSize = sizeof(msgBuffer);
         //if no data available in queue, wait on port...
-        if(!IODataQueueDataAvailable(_gMyQueue))
+        if (!IODataQueueDataAvailable(_gMyQueue))
         {
             res = IODataQueueWaitForAvailableData(_gMyQueue, _gQPort);
-            if(res != KERN_SUCCESS)
+            if (res != KERN_SUCCESS)
             {
                 [_listener usbLoggerTextAvailable:[NSString stringWithFormat:@"ERR: [IODataQueueWaitForAvailableData] res\n"] forLevel:0];
                 continue;
@@ -282,7 +282,7 @@
         }
         //once dequeued check result for errors
         res = IODataQueueDequeue(_gMyQueue, (void*)QBuffer, (uint32_t * )&memSize);
-        if(res != KERN_SUCCESS)
+        if (res != KERN_SUCCESS)
         {
             continue;
         }

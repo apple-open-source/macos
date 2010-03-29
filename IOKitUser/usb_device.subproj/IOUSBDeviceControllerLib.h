@@ -201,7 +201,15 @@ void IOUSBDeviceDescriptionSetClass(IOUSBDeviceDescriptionRef ref, UInt8 bClass)
 AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
 
 CF_EXPORT
+void IOUSBDeviceDescriptionSetSubClass(IOUSBDeviceDescriptionRef devDesc, UInt8 bSubClass)
+AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
+
+CF_EXPORT
 uint8_t IOUSBDeviceDescriptionGetSubClass(IOUSBDeviceDescriptionRef ref)
+AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
+
+CF_EXPORT
+void IOUSBDeviceDescriptionSetProtocol(IOUSBDeviceDescriptionRef devDesc, UInt8 protocol)
 AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
 
 CF_EXPORT

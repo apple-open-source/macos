@@ -18,7 +18,7 @@
 # This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
 # KIND, either express or implied.
 #
-# $Id: Makefile.dist,v 1.48 2009-01-13 23:29:56 bagder Exp $
+# $Id: Makefile.dist,v 1.49 2009-10-06 14:14:13 yangtse Exp $
 ###########################################################################
 
 VC=vc6
@@ -130,9 +130,9 @@ vc:
 
 vc-x64:
 	cd lib
-	MACHINE=x64 nmake /f Makefile.$(VC) cfg=release
+	nmake /f Makefile.$(VC) MACHINE=x64 cfg=release
 	cd ..\src
-	MACHINE=x64 nmake /f Makefile.$(VC)
+	nmake /f Makefile.$(VC) MACHINE=x64 cfg=release
 
 vc-zlib:
 	cd lib
@@ -151,6 +151,12 @@ vc-ssl-zlib:
 	nmake /f Makefile.$(VC) cfg=release-ssl-zlib
 	cd ..\src
 	nmake /f Makefile.$(VC) cfg=release-ssl-zlib
+
+vc-x64-ssl-zlib:
+	cd lib
+	nmake /f Makefile.$(VC) MACHINE=x64 cfg=release-ssl-zlib
+	cd ..\src
+	nmake /f Makefile.$(VC) MACHINE=x64 cfg=release-ssl-zlib
 
 vc-ssl-dll:
 	cd lib

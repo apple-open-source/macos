@@ -139,6 +139,11 @@ typedef struct {
 	Boolean			modemIsV92;
 	CFNumberRef		type;
 	CFNumberRef		unit;
+	struct {
+		CFStringRef	name;
+		CFNumberRef	vid;
+		CFNumberRef	pid;
+	} usb;
 
 	// misc
 	int			sort_order;		// sort order for this interface

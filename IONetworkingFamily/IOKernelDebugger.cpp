@@ -297,6 +297,7 @@ UInt32               gIODebuggerTxBytes   = 0;
 UInt32               gIODebuggerRxBytes   = 0;
 SInt32               gIODebuggerSemaphore = 0;
 UInt32               gIODebuggerFlag      = 0;
+UInt8                gIODebuggerSignalled = 0;
 
 // Global debugger flags.
 //
@@ -318,12 +319,16 @@ static void handleActivationChange( IOKernelDebugger * debugger,
 bool IOKernelDebugger::interfacePublished( void * target, void *param, IOService * service )
 {
 	IOService *debugger = (IOService *)target;
+        IONetworkInterface *interface = OSDynamicCast(IONetworkInterface, service);
+
 	//IOLog("new (or changes on) interface detected\n");
 	//only reregister ourselves if the interface has the same controller (provider) as we do.
 	if(debugger && service && debugger->getProvider() == service->getProvider())
 	{
 		//IOLog("it's on our controller- reregister\n");
 		debugger->registerService();
+                if (interface)
+                    interface->debuggerRegistered();
 	}
 	return true;
 }
@@ -394,13 +399,34 @@ IODebuggerLockState IOKernelDebugger::lock( IOService * object )
     return (IODebuggerLockState) 0;
 }
 
+inline static void invokeDebugger(void)
+{
+    if ( gIODebuggerSemaphore ) 
+            return;
+
+    if (OSTestAndClear(0, &gIODebuggerSignalled) == false) {
+        Debugger("remote NMI");
+    }
+}
+
 //---------------------------------------------------------------------------
 // Release the debugger lock if the kIODebuggerLockTaken flag is set.
 
 void IOKernelDebugger::unlock( IODebuggerLockState state )
 {
-    if ( state & kIODebuggerLockTaken )
+    if ( state & kIODebuggerLockTaken ) {
         OSDecrementAtomic( &gIODebuggerSemaphore );
+
+        invokeDebugger();
+    }
+}
+
+//---------------------------------------------------------------------------
+// drop into the Debugger when safe
+void IOKernelDebugger::signalDebugger(void)
+{
+    OSTestAndSet(0, &gIODebuggerSignalled);
+    invokeDebugger();
 }
 
 //---------------------------------------------------------------------------
@@ -547,6 +573,9 @@ void IOKernelDebugger::registerHandler( IOService *          target,
 		clients->release();
 		kdp_set_interface(interface); 
 		
+                if (interface)
+                    interface->debuggerRegistered();
+
         // Register dispatch function, these in turn will call the
         // handlers when the debugger is active.
         // 

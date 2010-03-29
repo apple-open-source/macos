@@ -18,7 +18,7 @@
  * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
  * KIND, either express or implied.
  *
- * $Id: connect.c,v 1.213 2009-02-28 01:35:53 yangtse Exp $
+ * $Id: connect.c,v 1.223 2009-10-01 07:59:45 bagder Exp $
  ***************************************************************************/
 
 #include "setup.h"
@@ -81,7 +81,7 @@
 #include "if2ip.h"
 #include "strerror.h"
 #include "connect.h"
-#include "memory.h"
+#include "curl_memory.h"
 #include "select.h"
 #include "url.h" /* for Curl_safefree() */
 #include "multiif.h"
@@ -177,59 +177,6 @@ long Curl_timeleft(struct connectdata *conn,
   return timeout_ms;
 }
 
-
-/*
- * Curl_nonblock() set the given socket to either blocking or non-blocking
- * mode based on the 'nonblock' boolean argument. This function is highly
- * portable.
- */
-int Curl_nonblock(curl_socket_t sockfd,    /* operate on this */
-                  int nonblock   /* TRUE or FALSE */)
-{
-#if defined(USE_BLOCKING_SOCKETS)
-
-  return 0; /* returns success */
-
-#elif defined(HAVE_FCNTL_O_NONBLOCK)
-
-  /* most recent unix versions */
-  int flags;
-  flags = fcntl(sockfd, F_GETFL, 0);
-  if(FALSE != nonblock)
-    return fcntl(sockfd, F_SETFL, flags | O_NONBLOCK);
-  else
-    return fcntl(sockfd, F_SETFL, flags & (~O_NONBLOCK));
-
-#elif defined(HAVE_IOCTL_FIONBIO)
-
-  /* older unix versions */
-  int flags;
-  flags = nonblock;
-  return ioctl(sockfd, FIONBIO, &flags);
-
-#elif defined(HAVE_IOCTLSOCKET_FIONBIO)
-
-  /* Windows */
-  unsigned long flags;
-  flags = nonblock;
-  return ioctlsocket(sockfd, FIONBIO, &flags);
-
-#elif defined(HAVE_IOCTLSOCKET_CAMEL_FIONBIO)
-
-  /* Amiga */
-  return IoctlSocket(sockfd, FIONBIO, (long)nonblock);
-
-#elif defined(HAVE_SETSOCKOPT_SO_NONBLOCK)
-
-  /* BeOS */
-  long b = nonblock ? 1 : 0;
-  return setsockopt(sockfd, SOL_SOCKET, SO_NONBLOCK, &b, sizeof(b));
-
-#else
-#  error "no non-blocking method was found/used/set"
-#endif
-}
-
 /*
  * waitconnect() waits for a TCP connect on the given socket for the specified
  * number if milliseconds. It returns:
@@ -281,7 +228,7 @@ static CURLcode bindlocal(struct connectdata *conn,
 
   struct Curl_sockaddr_storage sa;
   struct sockaddr *sock = (struct sockaddr *)&sa;  /* bind to this address */
-  socklen_t sizeof_sa = 0; /* size of the data sock points to */
+  curl_socklen_t sizeof_sa = 0; /* size of the data sock points to */
   struct sockaddr_in *si4 = (struct sockaddr_in *)&sa;
 #ifdef ENABLE_IPV6
   struct sockaddr_in6 *si6 = (struct sockaddr_in6 *)&sa;
@@ -330,7 +277,7 @@ static CURLcode bindlocal(struct connectdata *conn,
        * hostname or ip address.
        */
       if(setsockopt(sockfd, SOL_SOCKET, SO_BINDTODEVICE,
-                    dev, strlen(dev)+1) != 0) {
+                    dev, (curl_socklen_t)strlen(dev)+1) != 0) {
         error = SOCKERRNO;
         infof(data, "SO_BINDTODEVICE %s failed with errno %d: %s;"
               " will do regular bind\n",
@@ -427,7 +374,7 @@ static CURLcode bindlocal(struct connectdata *conn,
     if( bind(sockfd, sock, sizeof_sa) >= 0) {
     /* we succeeded to bind */
       struct Curl_sockaddr_storage add;
-      socklen_t size = sizeof(add);
+      curl_socklen_t size = sizeof(add);
       memset(&add, 0, sizeof(struct Curl_sockaddr_storage));
       if(getsockname(sockfd, (struct sockaddr *) &add, &size) < 0) {
         data->state.os_errno = error = SOCKERRNO;
@@ -470,7 +417,7 @@ static bool verifyconnect(curl_socket_t sockfd, int *error)
   bool rc = TRUE;
 #ifdef SO_ERROR
   int err = 0;
-  socklen_t errSize = sizeof(err);
+  curl_socklen_t errSize = sizeof(err);
 
 #ifdef WIN32
   /*
@@ -555,7 +502,7 @@ static bool trynextip(struct connectdata *conn,
       /* store the new socket descriptor */
       conn->sock[sockindex] = sockfd;
       conn->ip_addr = ai;
-      break;
+      return FALSE;
     }
     ai = ai->ai_next;
   }
@@ -657,7 +604,7 @@ static void tcpnodelay(struct connectdata *conn,
 {
 #ifdef TCP_NODELAY
   struct SessionHandle *data= conn->data;
-  socklen_t onoff = (socklen_t) data->set.tcp_nodelay;
+  curl_socklen_t onoff = (curl_socklen_t) data->set.tcp_nodelay;
   int proto = IPPROTO_TCP;
 
 #if 0
@@ -703,6 +650,31 @@ static void nosigpipe(struct connectdata *conn,
 #else
 #define nosigpipe(x,y)
 #endif
+
+#ifdef WIN32
+/* When you run a program that uses the Windows Sockets API, you may
+   experience slow performance when you copy data to a TCP server.
+
+   http://support.microsoft.com/kb/823764
+
+   Work-around: Make the Socket Send Buffer Size Larger Than the Program Send
+   Buffer Size
+
+*/
+void Curl_sndbufset(curl_socket_t sockfd)
+{
+  int val = CURL_MAX_WRITE_SIZE + 32;
+  int curval = 0;
+  int curlen = sizeof(curval);
+
+  if (getsockopt(sockfd, SOL_SOCKET, SO_SNDBUF, (char *)&curval, &curlen) == 0)
+    if (curval > val)
+      return;
+
+  setsockopt(sockfd, SOL_SOCKET, SO_SNDBUF, (const char *)&val, sizeof(val));
+}
+#endif
+
 
 /* singleipconnect() connects to the given IP only, and it may return without
    having connected if used from the multi interface. */
@@ -807,6 +779,8 @@ singleipconnect(struct connectdata *conn,
 
   nosigpipe(conn, sockfd);
 
+  Curl_sndbufset(sockfd);
+
   if(data->set.fsockopt) {
     /* activate callback for setting socket options */
     error = data->set.fsockopt(data->set.sockopt_client,
@@ -826,7 +800,7 @@ singleipconnect(struct connectdata *conn,
   }
 
   /* set socket non-blocking */
-  Curl_nonblock(sockfd, TRUE);
+  curlx_nonblock(sockfd, TRUE);
 
   /* Connect TCP sockets, bind UDP */
   if(conn->socktype == SOCK_STREAM)

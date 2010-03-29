@@ -18,7 +18,7 @@
  * @APPLE_APACHE_LICENSE_HEADER_END@
  */
 
-static const char *const __rcs_file_version__ = "$Revision: 23929 $";
+static const char *const __rcs_file_version__ = "$Revision: 24003 $";
 
 #include "config.h"
 #include "launchd_runtime.h"
@@ -100,9 +100,7 @@ static size_t mig_cb_table_sz;
 static timeout_callback runtime_idle_callback;
 static mach_msg_timeout_t runtime_idle_timeout;
 static struct ldcred ldc;
-static size_t runtime_busy_cnt;
 static size_t runtime_standby_cnt;
-
 
 static STAILQ_HEAD(, logmsg_s) logmsg_queue = STAILQ_HEAD_INITIALIZER(logmsg_queue);
 static size_t logmsg_queue_sz;
@@ -141,6 +139,7 @@ bool g_log_pid1_shutdown = false;
 #endif
 bool g_log_strict_usage = false;
 pid_t g_wsp = 0;
+size_t runtime_busy_cnt;
 
 mach_port_t
 runtime_get_kernel_port(void)
@@ -538,11 +537,11 @@ mportset_callback(void)
 #if 0
 			if (launchd_assumes(kev.udata != NULL)) {
 #endif
-				log_kevent_struct(LOG_DEBUG, &kev, i);
+				log_kevent_struct(LOG_DEBUG, &kev, 0);
 				(*((kq_callback *)kev.udata))(kev.udata, &kev);
 #if 0
 			} else {
-				log_kevent_struct(LOG_ERR, &kev, i);
+				log_kevent_struct(LOG_ERR, &kev, 0);
 			}
 #endif
 			/* the callback may have tainted our ability to continue this for loop */
@@ -590,7 +589,7 @@ x_handle_kqueue(mach_port_t junk __attribute__((unused)), integer_t fd)
 	if (launchd_assumes((bulk_kev_cnt = kevent(fd, NULL, 0, kev, BULK_KEV_MAX, &ts)) != -1)) {
 	#if 0	
 		for (i = 0; i < bulk_kev_cnt; i++) {
-			log_kevent_struct(LOG_DEBUG, kev, i);
+			log_kevent_struct(LOG_DEBUG, &kev[0], i);
 		}
 	#endif
 		for (i = 0; i < bulk_kev_cnt; i++) {
@@ -611,7 +610,7 @@ x_handle_kqueue(mach_port_t junk __attribute__((unused)), integer_t fd)
 					runtime_ktrace0(RTKT_LAUNCHD_BSD_KEVENT|DBG_FUNC_END);
 				} else {
 					runtime_syslog(LOG_ERR, "The following kevent had invalid context data.");
-					log_kevent_struct(LOG_EMERG, kevi, i);
+					log_kevent_struct(LOG_EMERG, &kev[0], i);
 				}
 			#else
 				runtime_ktrace(RTKT_LAUNCHD_BSD_KEVENT|DBG_FUNC_START, kevi->ident, kevi->filter, kevi->fflags);
@@ -863,7 +862,7 @@ kevent_mod(uintptr_t ident, short filter, u_short flags, u_int fflags, intptr_t 
 		for( i = bulk_kev_i + 1; i < bulk_kev_cnt; i++ ) {
 			if( bulk_kev[i].filter == filter && bulk_kev[i].ident == ident ) {
 				runtime_syslog(LOG_DEBUG, "Pruning the following kevent:");
-				log_kevent_struct(LOG_DEBUG, &bulk_kev[i], i);
+				log_kevent_struct(LOG_DEBUG, &bulk_kev[0], i);
 				bulk_kev[i].filter = (short)0;
 			}
 		}
@@ -1579,7 +1578,9 @@ runtime_add_ref(void)
 		_vproc_transaction_begin();
 	#endif
 	}
+	
 	runtime_busy_cnt++;
+	runtime_remove_timer();
 }
 
 void
@@ -1595,7 +1596,9 @@ runtime_del_ref(void)
 		_vproc_transaction_end();
 	#endif
 	}
+	
 	runtime_busy_cnt--;
+	runtime_install_timer();
 }
 
 void
@@ -1618,6 +1621,22 @@ runtime_del_weak_ref(void)
 	#endif
 	}
 	runtime_standby_cnt--;
+}
+
+void
+runtime_install_timer(void)
+{
+	if( !pid1_magic && runtime_busy_cnt == 0 ) {
+		launchd_assumes(kevent_mod((uintptr_t)&g_runtime_busy_time, EVFILT_TIMER, EV_ADD, NOTE_SECONDS, 30, root_jobmgr) != -1);
+	}
+}
+
+void
+runtime_remove_timer(void)
+{
+	if( !pid1_magic && runtime_busy_cnt > 0 ) {
+		launchd_assumes(kevent_mod((uintptr_t)&g_runtime_busy_time, EVFILT_TIMER, EV_DELETE, 0, 0, NULL) != -1);
+	}
 }
 
 kern_return_t

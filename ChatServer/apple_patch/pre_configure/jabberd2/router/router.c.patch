@@ -1,5 +1,5 @@
 --- /tmp/jabberd-2.1.24.1/router/router.c	2008-04-27 02:57:33.000000000 -0700
-+++ ./jabberd2/router/router.c	2009-01-28 12:24:08.000000000 -0800
++++ ./jabberd2/router/router.c	2009-09-30 16:38:49.000000000 -0700
 @@ -20,6 +20,11 @@
  
  #include "router.h"
@@ -12,7 +12,7 @@
  /** info for broadcasts */
  typedef struct broadcast_st {
      router_t      r;
-@@ -424,6 +429,45 @@ static void _router_process_route(compon
+@@ -424,6 +429,42 @@ static void _router_process_route(compon
          /* push it out */
          log_debug(ZONE, "writing route for '%s' to %s, port %d", to->domain, target->ip, target->port);
  
@@ -28,12 +28,9 @@
 +            jid_t jid_route_to = NULL;
 +
 +            if ((NAD_ENAME_L(nad, 1) == 7 && strncmp("message", NAD_ENAME(nad, 1), 7) == 0) &&		// has a "message" element 
-+                ((attr_route_from = nad_find_attr(nad, 0, -1, "from", NULL)) >= 0) &&				
-+                ((nad_find_attr(nad, 1, -1, "type", "chat") >= 0) ||                                // has type='chat' attribute
-+                    ((comp->r->log_group_chats) &&                                            // logging is enabled for group chats
-+                        // ignore messages sent from mu-conference, if a filter is defined:
-+                        ((strncmp(NAD_AVAL(nad, attr_route_from), comp->r->filter_muc_messages_from, strlen(comp->r->filter_muc_messages_from)) != 0) &&
-+                        (nad_find_attr(nad, 1, -1, "type", "groupchat") >= 0)))) &&           // has type='groupchat' attribute
++                ((attr_route_from = nad_find_attr(nad, 0, -1, "from", NULL)) >= 0) &&
++                // ignore messages sent from mu-conference, if a filter is defined:
++                (strncmp(NAD_AVAL(nad, attr_route_from), comp->r->filter_muc_messages_from, strlen(comp->r->filter_muc_messages_from)) != 0) &&
 +                ((attr_route_to = nad_find_attr(nad, 0, -1, "to", NULL)) >= 0) &&					
 +                ((strncmp(NAD_AVAL(nad, attr_route_to), "c2s", 3)) != 0) &&							// ignore messages to "c2s" or we'd have dups
 +                ((jid_route_from = jid_new(comp->r->pc, NAD_AVAL(nad, attr_route_from), NAD_AVAL_L(nad, attr_route_from))) != NULL) &&	// has valid JID source in route
@@ -58,7 +55,7 @@
          _router_comp_write(target, nad);
  
          return;
-@@ -948,3 +992,192 @@ int router_mio_callback(mio_t m, mio_act
+@@ -948,3 +989,192 @@ int router_mio_callback(mio_t m, mio_act
      return 0;
  }
  

@@ -270,7 +270,6 @@ enum {
 };
 typedef OptionBits  ReleaseBlockOptions;
 
-
 struct BlockDescriptor{
 	void		*buffer;
 	void		*blockHeader;

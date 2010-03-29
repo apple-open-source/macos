@@ -1,8 +1,8 @@
 ; RUN: llvm-as < %s | llc -march=x86 -mattr=+mmx -o %t -f
-; RUN: not grep movq  %t
+; RUN: grep movq  %t
 
-; Check that widening doesn't introduce a mmx register in this case when
-; a simple load/store would suffice.
+; Due to splatting the last element for widening <rdar://problem/7098635>,
+; we would introduce a movq since a simple load/store would not suffice.
 
 define void @foo(<2 x i16>* %A, <2 x i16>* %B) {
 entry:

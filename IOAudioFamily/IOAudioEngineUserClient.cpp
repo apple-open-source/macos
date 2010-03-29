@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2009 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2010 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -544,9 +544,34 @@ IOAudioClientBufferExtendedInfo64 *IOAudioEngineUserClient::findExtendedInfo64(U
 }
 IOReturn IOAudioEngineUserClient::getNearestStartTime(IOAudioStream *audioStream, IOAudioTimeStamp *ioTimeStamp, UInt32 isInput)
 {
-    assert(commandGate);
+	IOReturn ret = kIOReturnError;
+	
+	// <rdar://7363756>, <rdar://7529580>
+	if ( workLoop )
+	{
+		ret = workLoop->runAction(_getNearestStartTimeAction, this, (void *)audioStream, (void *)ioTimeStamp, (void *)isInput);	// <rdar://7529580>
+	}
+
+	return ret;
+}
+
+// <rdar://7529580>
+IOReturn IOAudioEngineUserClient::_getNearestStartTimeAction(OSObject *target, void *arg0, void *arg1, void *arg2, void *arg3)
+{
+    IOReturn result = kIOReturnBadArgument;
     
-    return commandGate->runAction(getNearestStartTimeAction, (void *)audioStream, (void *)ioTimeStamp, (void *)isInput);
+    if (target) {
+        IOAudioEngineUserClient *userClient = OSDynamicCast(IOAudioEngineUserClient, target);
+        if (userClient) {
+			if (userClient->commandGate) {
+                result = userClient->commandGate->runAction(getNearestStartTimeAction, arg0, arg1, arg2, arg3);
+            } else {
+                result = kIOReturnError;
+            }
+        }
+    }
+    
+    return result;
 }
 
 IOReturn IOAudioEngineUserClient::getNearestStartTimeAction(OSObject *owner, void *arg1, void *arg2, void *arg3, void *arg4)
@@ -819,14 +844,29 @@ void IOAudioEngineUserClient::stop(IOService *provider)
 {
     audioDebugIOLog(3, "IOAudioEngineUserClient[%p]::stop(%p)", this, provider);
 
-    assert(commandGate);
-    
-    commandGate->runAction(stopClientAction);
+
+	// <rdar://7363756>
+	if ( commandGate )
+	{
+		commandGate->runAction(stopClientAction);
+	}
     
     // We should be both inactive and offline at this point, 
     // so it is safe to free the client buffer set list without holding the lock
     
     freeClientBufferSetList();
+
+	// <rdar://7233118>, <rdar://7029696> Remove the event source here as performing heavy workloop operation in free() could lead
+	// to deadlock since the context which free() is called is not known. stop() is called on the workloop, so it is safe to remove 
+	// the event source here.
+    if (commandGate) {
+        if (workLoop) {
+            workLoop->removeEventSource(commandGate);
+        }
+        
+        commandGate->release();
+        commandGate = NULL;
+    }
 
     super::stop(provider);
 }
@@ -837,10 +877,9 @@ IOReturn IOAudioEngineUserClient::clientClose()
     
     audioDebugIOLog(3, "IOAudioEngineUserClient[%p]::clientClose()", this);
 
-    if (audioEngine && !isInactive()) {
-        assert(commandGate);
-            
-        result = commandGate->runAction(closeClientAction);
+	// <rdar://7363756>
+    if (audioEngine && workLoop && !isInactive()) {					// <rdar://7529580>
+        result = workLoop->runAction(_closeClientAction, this);		// <rdar://7529580>
     }
     
     return result;
@@ -851,6 +890,25 @@ IOReturn IOAudioEngineUserClient::clientDied()
     audioDebugIOLog(3, "IOAudioEngineUserClient[%p]::clientDied()", this);
 
     return clientClose();
+}
+
+// <rdar://7529580>
+IOReturn IOAudioEngineUserClient::_closeClientAction(OSObject *target, void *arg0, void *arg1, void *arg2, void *arg3)
+{
+    IOReturn result = kIOReturnBadArgument;
+    
+    if (target) {
+        IOAudioEngineUserClient *userClient = OSDynamicCast(IOAudioEngineUserClient, target);
+        if (userClient) {
+			if (userClient->commandGate) {
+                result = userClient->commandGate->runAction(closeClientAction, arg0, arg1, arg2, arg3);
+            } else {
+                result = kIOReturnError;
+            }
+        }
+    }
+    
+    return result;
 }
 
 IOReturn IOAudioEngineUserClient::closeClientAction(OSObject *owner, void *arg1, void *arg2, void *arg3, void *arg4)
@@ -979,9 +1037,15 @@ IOReturn IOAudioEngineUserClient::registerNotificationPort(mach_port_t port, UIn
 
     switch (type) {
         case kIOAudioEngineAllNotifications:
-            assert(commandGate);
-            
-            result = commandGate->runAction(registerNotificationAction, (void *)port, (void *)refCon);
+			// <rdar://7363756>, <rdar://7529580>
+			if ( workLoop )
+			{
+				result = workLoop->runAction(_registerNotificationAction, this, (void *)port, (void *)refCon);	// <rdar://7529580>
+			}
+			else
+			{
+				result = kIOReturnError;
+			}
             
             break;
         default:
@@ -991,6 +1055,25 @@ IOReturn IOAudioEngineUserClient::registerNotificationPort(mach_port_t port, UIn
     }
     // Create a single message, but keep a dict or something of all of the IOAudioStreams registered for
     // refCon is IOAudioStream *
+    
+    return result;
+}
+
+// <rdar://7529580>
+IOReturn IOAudioEngineUserClient::_registerNotificationAction(OSObject *target, void *arg0, void *arg1, void *arg2, void *arg3)
+{
+    IOReturn result = kIOReturnBadArgument;
+    
+    if (target) {
+        IOAudioEngineUserClient *userClient = OSDynamicCast(IOAudioEngineUserClient, target);
+        if (userClient) {
+            if (userClient->commandGate) {
+                result = userClient->commandGate->runAction(registerNotificationAction, arg0, arg1, arg2, arg3);
+            } else {
+                result = kIOReturnError;
+            }
+        }
+    }
     
     return result;
 }
@@ -1091,8 +1174,6 @@ IOReturn IOAudioEngineUserClient::externalMethod ( uint32_t selector, IOExternal
 // 32 bit version <rdar://problems/5321701>
 IOReturn IOAudioEngineUserClient::registerBuffer(IOAudioStream *audioStream, void * sourceBuffer, UInt32 bufSizeInBytes, UInt32 bufferSetID)
 {
-    assert(commandGate);
-
     audioDebugIOLog(3, "IOAudioEngineUserClient::registerBuffer Deprecated 0x%llx %p 0x%lx 0x%lx", (unsigned long long ) audioStream, sourceBuffer, bufSizeInBytes, bufferSetID); 
 
     return kIOReturnUnsupported;
@@ -1101,10 +1182,17 @@ IOReturn IOAudioEngineUserClient::registerBuffer(IOAudioStream *audioStream, voi
 // 64 bit version <rdar://problems/5321701>
 IOReturn IOAudioEngineUserClient::registerBuffer64(IOAudioStream *audioStream, mach_vm_address_t sourceBuffer, UInt32 bufSizeInBytes, UInt32 bufferSetID)
 {
-    assert(commandGate);
+	IOReturn ret = kIOReturnError;
+	
 	audioDebugIOLog(3, "IOAudioEngineUserClient::registerBuffer64 0x%llx 0x%llx 0x%lx 0x%lx", (unsigned long long ) audioStream, sourceBuffer, bufSizeInBytes, bufferSetID); 
 	
-    return commandGate->runAction(registerBufferAction, audioStream, &sourceBuffer, (void *)bufSizeInBytes, (void *)bufferSetID);
+	// <rdar://7363756>, <rdar://7529580>
+	if ( workLoop )
+	{
+		ret = workLoop->runAction(_registerBufferAction, this, audioStream, &sourceBuffer, (void *)bufSizeInBytes, (void *)bufferSetID);	// <rdar://7529580>
+	}
+	
+	return ret;
 }
 
 // 32 bit version <rdar://problems/5321701>
@@ -1117,9 +1205,34 @@ IOReturn IOAudioEngineUserClient::unregisterBuffer( void * sourceBuffer, UInt32 
 // 64 bit version <rdar://problems/5321701>
 IOReturn IOAudioEngineUserClient::unregisterBuffer64( mach_vm_address_t  sourceBuffer, UInt32 bufferSetID)
 {
-    assert(commandGate);
+	IOReturn ret = kIOReturnError;
     
-    return commandGate->runAction(unregisterBufferAction, ( void * ) & sourceBuffer, (void *)bufferSetID);
+	// <rdar://7363756>, <rdar://7529580>
+	if ( workLoop )
+	{
+		ret = workLoop->runAction(_unregisterBufferAction, this, ( void * ) & sourceBuffer, (void *)bufferSetID);	// <rdar://7529580>
+	}
+	
+	return ret;
+}
+
+// <rdar://7529580>
+IOReturn IOAudioEngineUserClient::_registerBufferAction(OSObject *target, void *arg0, void *arg1, void *arg2, void *arg3)
+{
+    IOReturn result = kIOReturnBadArgument;
+    
+    if (target) {
+        IOAudioEngineUserClient *userClient = OSDynamicCast(IOAudioEngineUserClient, target);
+        if (userClient) {
+            if (userClient->commandGate) {
+                result = userClient->commandGate->runAction(registerBufferAction, arg0, arg1, arg2, arg3);
+            } else {
+                result = kIOReturnError;
+            }
+        }
+    }
+    
+    return result;
 }
 
 IOReturn IOAudioEngineUserClient::registerBufferAction(OSObject *owner, void *arg1, void *arg2, void *arg3, void *arg4)
@@ -1142,6 +1255,25 @@ IOReturn IOAudioEngineUserClient::registerBufferAction(OSObject *owner, void *ar
 #endif
 			
 			result = userClient->safeRegisterClientBuffer64( audioStreamIndex, ( mach_vm_address_t * ) arg2, bufSizeInBytes, bufferSetID);
+        }
+    }
+    
+    return result;
+}
+
+// <rdar://7529580>
+IOReturn IOAudioEngineUserClient::_unregisterBufferAction(OSObject *target, void *arg0, void *arg1, void *arg2, void *arg3)
+{
+    IOReturn result = kIOReturnBadArgument;
+    
+    if (target) {
+        IOAudioEngineUserClient *userClient = OSDynamicCast(IOAudioEngineUserClient, target);
+        if (userClient) {
+            if (userClient->commandGate) {
+                result = userClient->commandGate->runAction(unregisterBufferAction, arg0, arg1, arg2, arg3);
+            } else {
+                result = kIOReturnError;
+            }
         }
     }
     
@@ -2008,16 +2140,47 @@ IOReturn IOAudioEngineUserClient::getConnectionID(UInt32 *connectionID)
 
 IOReturn IOAudioEngineUserClient::clientStart()
 {
-    assert(commandGate);
+	IOReturn ret = kIOReturnError;
 
-    return commandGate->runAction(startClientAction);
+	// <rdar://7363756>, <rdar://7529580>
+	if ( workLoop )
+	{
+		ret = workLoop->runAction(_startClientAction, this);	// <rdar://7529580>
+	}
+
+	return ret;
 }
 
 IOReturn IOAudioEngineUserClient::clientStop()
 {
-    assert(commandGate);
+	IOReturn ret = kIOReturnError;
     
-    return commandGate->runAction(stopClientAction);
+	// <rdar://7363756>, <rdar://7529580>
+	if ( workLoop )
+	{
+		ret = workLoop->runAction(_stopClientAction, this);		// <rdar://7529580>
+	}
+
+	return ret;
+}
+
+// <rdar://7529580>
+IOReturn IOAudioEngineUserClient::_startClientAction(OSObject *target, void *arg0, void *arg1, void *arg2, void *arg3)
+{
+    IOReturn result = kIOReturnBadArgument;
+    
+    if (target) {
+        IOAudioEngineUserClient *userClient = OSDynamicCast(IOAudioEngineUserClient, target);
+        if (userClient) {
+            if (userClient->commandGate) {
+                result = userClient->commandGate->runAction(startClientAction, arg0, arg1, arg2, arg3);
+            } else {
+                result = kIOReturnError;
+            }
+        }
+    }
+    
+    return result;
 }
 
 IOReturn IOAudioEngineUserClient::startClientAction(OSObject *owner, void *arg1, void *arg2, void *arg3, void *arg4)
@@ -2028,6 +2191,25 @@ IOReturn IOAudioEngineUserClient::startClientAction(OSObject *owner, void *arg1,
         IOAudioEngineUserClient *userClient = OSDynamicCast(IOAudioEngineUserClient, owner);
         if (userClient) {
             result = userClient->startClient();
+        }
+    }
+    
+    return result;
+}
+
+// <rdar://7529580>
+IOReturn IOAudioEngineUserClient::_stopClientAction(OSObject *target, void *arg0, void *arg1, void *arg2, void *arg3)
+{
+    IOReturn result = kIOReturnBadArgument;
+    
+    if (target) {
+        IOAudioEngineUserClient *userClient = OSDynamicCast(IOAudioEngineUserClient, target);
+        if (userClient) {
+            if (userClient->commandGate) {
+                result = userClient->commandGate->runAction(stopClientAction, arg0, arg1, arg2, arg3);
+            } else {
+                result = kIOReturnError;
+            }
         }
     }
     

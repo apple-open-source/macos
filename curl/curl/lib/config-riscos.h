@@ -1,4 +1,4 @@
-/* config.h.in.  Generated automatically from configure.in by autoheader.  */
+/* curl_config.h.in.  Generated automatically from configure.in by autoheader.  */
 /* Name of this package! */
 #undef PACKAGE
 
@@ -43,9 +43,6 @@
 
 /* Define this to 'int' if ssize_t is not an available typedefed type */
 #undef ssize_t
-
-/* Type to use in place of socklen_t when system does not provide it. */
-#undef socklen_t
 
 /* Define this as a suitable file to read random data from */
 #undef RANDOM_FILE

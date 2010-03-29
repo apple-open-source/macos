@@ -28,12 +28,12 @@
 
 // ===========================================================================================
 
-#define PEF_Assert(a)			if( !(a)) kprintf("PEF_Assert:")
-#define PEF_BlockMove(src,dst,len)	memcpy(dst,src,len)
-#define PEF_BlockClear(dst,len)		memset(dst,0,len)
-#define PEF_CompareBytes(a,b,c)		(0 == bcmp(a,b,c))
+#define PEF_Assert(a)                   if( !(a)) kprintf("PEF_Assert:")
+#define PEF_BlockMove(src,dst,len)      memcpy(dst,src,len)
+#define PEF_BlockClear(dst,len)         memset(dst,0,len)
+#define PEF_CompareBytes(a,b,c)         (0 == bcmp(a,b,c))
 
-#define EnableCFMDebugging	0
+#define EnableCFMDebugging      0
 
 // ===========================================================================================
 
@@ -189,7 +189,7 @@ OSStatus    PEF_OpenContainer   ( LogicalAddress            mappedAddress,
                                   CFContReleaseMem          Release,
                                   CFContHandlerRef *        containerRef,
                                   CFContHandlerProcsPtr *   handlerProcs,
-				  UInt32 *		    createDate )
+                                  UInt32 *                  createDate )
 {
 #pragma unused ( containerLength )
     #pragma unused ( runningProcessID )
@@ -229,7 +229,7 @@ OSStatus    PEF_OpenContainer   ( LogicalAddress            mappedAddress,
         goto FragmentFormatError;
 
     if (createDate)
-	*createDate = fileHeader->dateTimeStamp;
+        *createDate = fileHeader->dateTimeStamp;
 
     // -----------------------------------------------
     // Allocate and initialize the private info block.

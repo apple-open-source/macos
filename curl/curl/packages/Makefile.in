@@ -50,8 +50,8 @@ am__aclocal_m4_deps = $(top_srcdir)/m4/curl-compilers.m4 \
 am__configure_deps = $(am__aclocal_m4_deps) $(CONFIGURE_DEPENDENCIES) \
 	$(ACLOCAL_M4)
 mkinstalldirs = $(SHELL) $(top_srcdir)/mkinstalldirs
-CONFIG_HEADER = $(top_builddir)/lib/config.h \
-	$(top_builddir)/src/config.h \
+CONFIG_HEADER = $(top_builddir)/lib/curl_config.h \
+	$(top_builddir)/src/curl_config.h \
 	$(top_builddir)/include/curl/curlbuild.h
 CONFIG_CLEAN_FILES =
 SOURCES =
@@ -83,6 +83,8 @@ CPP = @CPP@
 CPPFLAGS = @CPPFLAGS@
 CROSSCOMPILING_FALSE = @CROSSCOMPILING_FALSE@
 CROSSCOMPILING_TRUE = @CROSSCOMPILING_TRUE@
+CURLDEBUG_FALSE = @CURLDEBUG_FALSE@
+CURLDEBUG_TRUE = @CURLDEBUG_TRUE@
 CURL_CA_BUNDLE = @CURL_CA_BUNDLE@
 CURL_DISABLE_DICT = @CURL_DISABLE_DICT@
 CURL_DISABLE_FILE = @CURL_DISABLE_FILE@
@@ -149,6 +151,7 @@ PACKAGE_BUGREPORT = @PACKAGE_BUGREPORT@
 PACKAGE_NAME = @PACKAGE_NAME@
 PACKAGE_STRING = @PACKAGE_STRING@
 PACKAGE_TARNAME = @PACKAGE_TARNAME@
+PACKAGE_URL = @PACKAGE_URL@
 PACKAGE_VERSION = @PACKAGE_VERSION@
 PATH = @PATH@
 PATH_SEPARATOR = @PATH_SEPARATOR@
@@ -172,6 +175,8 @@ STRIP = @STRIP@
 SUPPORT_FEATURES = @SUPPORT_FEATURES@
 SUPPORT_PROTOCOLS = @SUPPORT_PROTOCOLS@
 TEST_SERVER_LIBS = @TEST_SERVER_LIBS@
+USE_EMBEDDED_ARES_FALSE = @USE_EMBEDDED_ARES_FALSE@
+USE_EMBEDDED_ARES_TRUE = @USE_EMBEDDED_ARES_TRUE@
 USE_GNUTLS = @USE_GNUTLS@
 USE_LIBSSH2 = @USE_LIBSSH2@
 USE_MANUAL_FALSE = @USE_MANUAL_FALSE@
@@ -228,15 +233,36 @@ sharedstatedir = @sharedstatedir@
 subdirs = @subdirs@
 sysconfdir = @sysconfdir@
 target_alias = @target_alias@
-SUBDIRS = Win32 Linux Solaris EPM DOS AIX vms
-EXTRA_DIST = README NetWare/get_ver.awk OS400/ccsidcurl.c OS400/ccsidcurl.h   \
-OS400/curl.inc.in OS400/initscript.sh OS400/makefile.sh OS400/make-include.sh \
-OS400/make-lib.sh OS400/make-src.sh OS400/make-tests.sh OS400/os400sys.c      \
-OS400/os400sys.h OS400/README.OS400 \
-Symbian/bwins/libcurlu.def Symbian/eabi/libcurlu.def Symbian/group/bld.inf \
-Symbian/group/curl.iby Symbian/group/curl.mmp Symbian/group/libcurl.iby    \
-Symbian/group/libcurl.mmp Symbian/group/curl.pkg Symbian/group/libcurl.pkg \
-Symbian/readme.txt
+SUBDIRS = Win32 Linux Solaris EPM AIX vms
+EXTRA_DIST = README 			\
+	DOS/README 			\
+	DOS/common.dj 			\
+	NetWare/get_ver.awk 		\
+	OS400/README.OS400 		\
+	OS400/ccsidcurl.c 		\
+	OS400/ccsidcurl.h 		\
+	OS400/curl.inc.in 		\
+	OS400/initscript.sh 		\
+	OS400/make-include.sh 		\
+	OS400/make-lib.sh 		\
+	OS400/make-src.sh 		\
+	OS400/make-tests.sh 		\
+	OS400/makefile.sh 		\
+	OS400/os400sys.c 		\
+	OS400/os400sys.h 		\
+	Symbian/bwins/libcurlu.def 	\
+	Symbian/eabi/libcurlu.def 	\
+	Symbian/group/bld.inf 		\
+	Symbian/group/curl.iby 		\
+	Symbian/group/curl.mmp 		\
+	Symbian/group/curl.pkg 		\
+	Symbian/group/libcurl.iby 	\
+	Symbian/group/libcurl.mmp 	\
+	Symbian/group/libcurl.pkg 	\
+	Symbian/readme.txt 		\
+	TPF/curl.mak 			\
+	TPF/maketpf.env_curl 		\
+	TPF/maketpf.env_curllib 
 
 all: all-recursive
 
@@ -250,9 +276,9 @@ $(srcdir)/Makefile.in: @MAINTAINER_MODE_TRUE@ $(srcdir)/Makefile.am  $(am__confi
 	      exit 1;; \
 	  esac; \
 	done; \
-	echo ' cd $(top_srcdir) && $(AUTOMAKE) --foreign  packages/Makefile'; \
+	echo ' cd $(top_srcdir) && $(AUTOMAKE) --gnu  packages/Makefile'; \
 	cd $(top_srcdir) && \
-	  $(AUTOMAKE) --foreign  packages/Makefile
+	  $(AUTOMAKE) --gnu  packages/Makefile
 .PRECIOUS: Makefile
 Makefile: $(srcdir)/Makefile.in $(top_builddir)/config.status
 	@case '$?' in \
@@ -414,7 +440,7 @@ distclean-tags:
 	-rm -f TAGS ID GTAGS GRTAGS GSYMS GPATH tags
 
 distdir: $(DISTFILES)
-	$(mkdir_p) $(distdir)/NetWare $(distdir)/OS400 $(distdir)/Symbian $(distdir)/Symbian/bwins $(distdir)/Symbian/eabi $(distdir)/Symbian/group
+	$(mkdir_p) $(distdir)/DOS $(distdir)/NetWare $(distdir)/OS400 $(distdir)/Symbian $(distdir)/Symbian/bwins $(distdir)/Symbian/eabi $(distdir)/Symbian/group $(distdir)/TPF
 	@srcdirstrip=`echo "$(srcdir)" | sed 's|.|.|g'`; \
 	topsrcdirstrip=`echo "$(top_srcdir)" | sed 's|.|.|g'`; \
 	list='$(DISTFILES)'; for file in $$list; do \

@@ -137,6 +137,9 @@ class SecurityManager:
         #
         # Return the authcontext from the argument sequence that matches the
         # response, or UnAuthorized.
+        if not response:
+            # Don't authenticate null passwords
+            return mm_cfg.UnAuthorized
         for ac in authcontexts:
             if ac == mm_cfg.AuthCreator:
                 ok = Utils.check_global_password(response, siteadmin=0)

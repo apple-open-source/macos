@@ -150,18 +150,42 @@ static int MRepair( SGlobPtr GPtr )
 	OSErr			err;
 	SVCB			*calculatedVCB	= GPtr->calculatedVCB;
 	Boolean			isHFSPlus;
+	Boolean			didRebuild = false;
 
 	isHFSPlus = VolumeObjectIsHFSPlus( );
 
+	if ( GPtr->EBTStat & S_RebuildBTree )
+	{
+		fsckPrint(GPtr->context, hfsRebuildExtentBTree);
+		err = RebuildBTree( GPtr, kHFSExtentsFileID );
+		if (err)
+			return (err);
+		didRebuild = true;
+	}
+
 	if ( GPtr->CBTStat & S_RebuildBTree )
 	{
-		/* we currently only support rebuilding the catalog B-Tree file.  */
 		/* once we do the rebuild we will force another verify since the */
 		/* first verify was aborted when we determined a rebuild was necessary */
-		err = RebuildCatalogBTree( GPtr );
-		return( err );
+		fsckPrint(GPtr->context, hfsRebuildCatalogBTree);
+		err = RebuildBTree( GPtr, kHFSCatalogFileID );
+		if (err)
+			return (err);
+		didRebuild = true;
 	}
  
+	if ( GPtr->ABTStat & S_RebuildBTree )
+	{
+		fsckPrint(GPtr->context, hfsRebuildAttrBTree);
+		err = RebuildBTree( GPtr, kHFSAttributesFileID );
+		if (err)
+			return (err);
+		didRebuild = true;
+	}
+
+	if (didRebuild)
+		return noErr;	// Need to restart the verification
+
  	/*
  	 * If there were unused nodes in the B-trees which were non-zero-filled,
  	 * then zero fill them.
@@ -4134,16 +4158,16 @@ static OSErr MoveExtent(SGlobPtr GPtr, ExtentInfo *extentInfo)
 	} else { /* kDataFork or kRsrcFork */
 		if (extentInfo->fileID < kHFSFirstUserCatalogNodeID) {
 			/* Ignore these fileIDs in repair.  Bad block file blocks should 
-			 * never be moved.  kHFSRepairCatalogFileID and kHFSBogusExtentFileID 
-			 * are temporary runtime files.  We need to return error to the 
-			 * caller to deallocate disk blocks preallocated during preflight
+			 * never be moved.  kHFSRepairCatalogFileID and kHFSBogusExtentFileID
+			 * are temporary runtime files.  We need to return error to the  caller
+			 * to deallocate disk blocks preallocated during preflight
 			 * to move the overlapping extents.  Any other extent that overlaps
 			 * with these extents might have moved successfully, thus repairing
 			 * the problem.
 			 */
 			if ((extentInfo->fileID == kHFSBadBlockFileID) ||
-				(extentInfo->fileID == kHFSRepairCatalogFileID) ||
-				(extentInfo->fileID == kHFSBogusExtentFileID)) {
+				(extentInfo->fileID == kHFSBogusExtentFileID) ||
+				(extentInfo->fileID == kHFSRepairCatalogFileID)) {
 				err = paramErr;
 				goto out;
 			}

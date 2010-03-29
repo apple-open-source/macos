@@ -791,11 +791,6 @@
 		4D3DCB4208E084D300C78A0B /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = (
-					ppc,
-					i386,
-					x86_64,
-				);
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_WARN_CHECK_SWITCH_STATEMENTS = YES;
 				INFOPLIST_FILE = "Info-msdosfs_kext.plist";
@@ -805,12 +800,11 @@
 				MODULE_NAME = com.apple.filesystems.msdosfs;
 				MODULE_START = msdosfs_module_start;
 				MODULE_STOP = msdosfs_module_stop;
-				MODULE_VERSION = 1.6;
+				MODULE_VERSION = 1.6.1;
 				PER_ARCH_CFLAGS_x86_64 = "-mkernel";
 				PRODUCT_NAME = msdosfs;
 				PRODUCT_TYPE_COMPILER_CFLAGS_x86_64 = "-mkernel";
 				PRODUCT_TYPE_COMPILER_CPLUSPLUSFLAGS_x86_64 = "-fapple-kext -mkernel";
-				VALID_ARCHS = "ppc i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wall",
 					"-Wno-format-y2k",
@@ -823,9 +817,7 @@
 					"-Wwrite-strings",
 					"-Wswitch",
 					"-Wshadow",
-					"-Wcast-align",
 					"-Wchar-subscripts",
-					"-Winline",
 					"-Wnested-externs",
 					"-Wredundant-decls",
 				);
@@ -836,11 +828,6 @@
 		4D3DCB4308E084D300C78A0B /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = (
-					ppc,
-					i386,
-					x86_64,
-				);
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_WARN_CHECK_SWITCH_STATEMENTS = YES;
 				INFOPLIST_FILE = "Info-msdosfs_kext.plist";
@@ -850,9 +837,8 @@
 				MODULE_NAME = com.apple.filesystems.msdosfs;
 				MODULE_START = msdosfs_module_start;
 				MODULE_STOP = msdosfs_module_stop;
-				MODULE_VERSION = 1.6;
+				MODULE_VERSION = 1.6.1;
 				PRODUCT_NAME = msdosfs;
-				VALID_ARCHS = "ppc i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wall",
 					"-Wno-format-y2k",
@@ -865,9 +851,7 @@
 					"-Wwrite-strings",
 					"-Wswitch",
 					"-Wshadow",
-					"-Wcast-align",
 					"-Wchar-subscripts",
-					"-Winline",
 					"-Wnested-externs",
 					"-Wredundant-decls",
 				);
@@ -1055,11 +1039,6 @@
 		4DD699550D6A5A24007E8D14 /* CodeCoverage */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = (
-					ppc,
-					i386,
-					x86_64,
-				);
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_WARN_CHECK_SWITCH_STATEMENTS = YES;
 				INFOPLIST_FILE = "Info-msdosfs_kext.plist";
@@ -1069,12 +1048,11 @@
 				MODULE_NAME = com.apple.filesystems.msdosfs;
 				MODULE_START = msdosfs_module_start;
 				MODULE_STOP = msdosfs_module_stop;
-				MODULE_VERSION = 1.6;
+				MODULE_VERSION = 1.6.1;
 				PER_ARCH_CFLAGS_x86_64 = "-mkernel";
 				PRODUCT_NAME = msdosfs;
 				PRODUCT_TYPE_COMPILER_CFLAGS_x86_64 = "-mkernel";
 				PRODUCT_TYPE_COMPILER_CPLUSPLUSFLAGS_x86_64 = "-fapple-kext -mkernel";
-				VALID_ARCHS = "ppc i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wall",
 					"-Wno-format-y2k",
@@ -1087,9 +1065,7 @@
 					"-Wwrite-strings",
 					"-Wswitch",
 					"-Wshadow",
-					"-Wcast-align",
 					"-Wchar-subscripts",
-					"-Winline",
 					"-Wnested-externs",
 					"-Wredundant-decls",
 				);

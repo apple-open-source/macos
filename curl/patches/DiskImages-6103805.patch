@@ -1,6 +1,6 @@
 --- lib/transfer.c.orig	2009-03-02 15:18:02.000000000 -0800
 +++ lib/transfer.c	2009-03-02 15:18:16.000000000 -0800
-@@ -848,6 +848,7 @@
+@@ -910,6 +910,7 @@
          k->header = FALSE; /* no more header to parse! */
  
          if((k->size == -1) && !k->chunk && !conn->bits.close &&

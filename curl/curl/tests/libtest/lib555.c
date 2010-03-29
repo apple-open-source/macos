@@ -5,7 +5,7 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * $Id: lib555.c,v 1.4 2008-09-20 04:26:57 yangtse Exp $
+ * $Id: lib555.c,v 1.5 2009-05-08 02:14:50 yangtse Exp $
  *
  * This test case is supposed to be identical to 547 except that this uses the
  * multi interface and 547 is easy interface.
@@ -93,6 +93,10 @@ int test(char *URL)
   curl_easy_setopt(curl, CURLOPT_POSTFIELDSIZE, strlen(UPLOADTHIS));
 
   curl_easy_setopt(curl, CURLOPT_POST, 1L);
+#ifdef CURL_DOES_CONVERSIONS
+  /* Convert the POST data to ASCII. */
+  curl_easy_setopt(curl, CURLOPT_TRANSFERTEXT, 1L);
+#endif
   curl_easy_setopt(curl, CURLOPT_PROXY, libtest_arg2);
   curl_easy_setopt(curl, CURLOPT_PROXYUSERPWD, libtest_arg3);
   curl_easy_setopt(curl, CURLOPT_PROXYAUTH,
@@ -124,6 +128,9 @@ int test(char *URL)
       mp_timedout = TRUE;
       break;
     }
+#ifdef TPF
+    sleep(1); /* avoid ctl-10 dump */
+#endif
     if (running <= 0) {
       fprintf(stderr, "nothing left running.\n");
       break;

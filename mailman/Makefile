@@ -3,7 +3,7 @@
 #
 
 PROJECT=mailman
-VERSION=2.1.12rc1
+VERSION=2.1.13
 
 SHELL := /bin/sh
 
@@ -30,6 +30,7 @@ COMMON_DIR=/System/Library/ServerSetup/CommonExtras
 DOC_DIR=/Library/Documentation/Services/mailman
 OPEN_SRC_INFO_DIR=/Mailman.OpenSourceInfo
 SETUP_SRC_DIR=/Mailman.Setup
+PATCH_DIR=/Mailman.Patch
 
 README_FILES=FAQ NEWS README README-I18N.en README.CONTRIB README.NETSCAPE README.USERAGENT
 
@@ -52,7 +53,7 @@ include $(MAKEFILEPATH)/pb_makefiles/commands-$(OS).make
 
 default:: build_mm
 
-install :: configure_mm build_mm install-strip install-extras install-startup install-readmes install-group clean_src
+install :: patch_mm configure_mm build_mm install-strip install-extras install-startup install-readmes install-group clean_src
 
 clean : clean_src
 
@@ -68,6 +69,10 @@ clean_src :
 	$(SILENT) if [ -e "$(SRCROOT)/$(PROJECT_NAME)/Makefile" ]; then\
 		$(SILENT) ($(CD) "$(SRCROOT)/$(PROJECT_NAME)" && make distclean)\
 	fi
+
+patch_mm :
+	$(SILENT) ($(CD) "$(SRCROOT)/$(PROJECT_NAME)" && \
+		/usr/bin/patch -p1 < "$(SRCROOT)/$(PATCH_DIR)/apple-mods.diff")
 
 configure_mm : 
 	$(SILENT) $(ECHO) "--- Configuring $(PROJECT_NAME): Version: $(VERSION)"
@@ -156,18 +161,18 @@ install-group :
 	$(SILENT) $(CD) "$(DSTROOT)/usr/share/mailman/messages" && /bin/ls | xargs chmod 0775
 	$(SILENT) chmod 0775 "$(DSTROOT)/private/var/mailman"
 	$(SILENT) chmod 0775 "$(DSTROOT)/usr/share/mailman"
-	$(SILENT) chmod 0775 "$(DSTROOT)/usr/share/mailman/pythonlib/japanese"
-	$(SILENT) chmod 0775 "$(DSTROOT)/usr/share/mailman/pythonlib/korean"
-	$(SILENT) chmod 0775 "$(DSTROOT)/usr/share/mailman/pythonlib/lib"
-	$(SILENT) chmod 0775 "$(DSTROOT)/usr/share/mailman/pythonlib/japanese/aliases"
-	$(SILENT) chmod 0775 "$(DSTROOT)/usr/share/mailman/pythonlib/japanese/c"
-	$(SILENT) chmod 0775 "$(DSTROOT)/usr/share/mailman/pythonlib/japanese/mappings"
-	$(SILENT) chmod 0775 "$(DSTROOT)/usr/share/mailman/pythonlib/japanese/python"
-	$(SILENT) chmod 0775 "$(DSTROOT)/usr/share/mailman/pythonlib/korean/c"
-	$(SILENT) chmod 0775 "$(DSTROOT)/usr/share/mailman/pythonlib/korean/mappings"
-	$(SILENT) chmod 0775 "$(DSTROOT)/usr/share/mailman/pythonlib/korean/python"
-	$(SILENT) chmod 0775 "$(DSTROOT)/usr/share/mailman/pythonlib/lib/python2.6"
-	$(SILENT) chmod 0775 "$(DSTROOT)/usr/share/mailman/pythonlib/lib/python2.6/site-packages"
+	#$(SILENT) chmod 0775 "$(DSTROOT)/usr/share/mailman/pythonlib/japanese"
+	#$(SILENT) chmod 0775 "$(DSTROOT)/usr/share/mailman/pythonlib/korean"
+	#$(SILENT) chmod 0775 "$(DSTROOT)/usr/share/mailman/pythonlib/lib"
+	#$(SILENT) chmod 0775 "$(DSTROOT)/usr/share/mailman/pythonlib/japanese/aliases"
+	#$(SILENT) chmod 0775 "$(DSTROOT)/usr/share/mailman/pythonlib/japanese/c"
+	#$(SILENT) chmod 0775 "$(DSTROOT)/usr/share/mailman/pythonlib/japanese/mappings"
+	#$(SILENT) chmod 0775 "$(DSTROOT)/usr/share/mailman/pythonlib/japanese/python"
+	#$(SILENT) chmod 0775 "$(DSTROOT)/usr/share/mailman/pythonlib/korean/c"
+	#$(SILENT) chmod 0775 "$(DSTROOT)/usr/share/mailman/pythonlib/korean/mappings"
+	#$(SILENT) chmod 0775 "$(DSTROOT)/usr/share/mailman/pythonlib/korean/python"
+	#$(SILENT) chmod 0775 "$(DSTROOT)/usr/share/mailman/pythonlib/lib/python2.6"
+	#$(SILENT) chmod 0775 "$(DSTROOT)/usr/share/mailman/pythonlib/lib/python2.6/site-packages"
 	$(SILENT) chmod 02755 "$(DSTROOT)/usr/share/mailman/cgi-bin/admin"
 	$(SILENT) chmod 02755 "$(DSTROOT)/usr/share/mailman/cgi-bin/admindb"
 	$(SILENT) chmod 02755 "$(DSTROOT)/usr/share/mailman/cgi-bin/confirm"
@@ -185,8 +190,8 @@ install-group :
 	$(SILENT) chmod 0755 "$(DSTROOT)/usr/share/mailman/messages/he/LC_MESSAGES"
 	$(SILENT) chmod 0755 "$(DSTROOT)/usr/share/mailman/messages/sk/LC_MESSAGES"
 	$(SILENT) chmod 0755 "$(DSTROOT)/usr/share/mailman/templates/"*
-	$(SILENT) chmod 0755 "$(DSTROOT)/usr/share/mailman/pythonlib/lib/python2.6"
-	$(SILENT) chmod 0755 "$(DSTROOT)/usr/share/mailman/pythonlib/lib/python2.6/site-packages"
+	#$(SILENT) chmod 0755 "$(DSTROOT)/usr/share/mailman/pythonlib/lib/python2.6"
+	#$(SILENT) chmod 0755 "$(DSTROOT)/usr/share/mailman/pythonlib/lib/python2.6/site-packages"
 	$(SILENT) $(ECHO) "---- Setting file permissions complete."
 	
 .PHONY: clean installhdrs installsrc build install 

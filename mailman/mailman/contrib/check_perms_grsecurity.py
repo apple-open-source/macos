@@ -1,6 +1,6 @@
 #! @PYTHON@
 #
-# Copyright (C) 1998-2007 by the Free Software Foundation, Inc.
+# Copyright (C) 1998-2009 by the Free Software Foundation, Inc.
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -82,12 +82,12 @@ def main(argv):
     for dir in dirstochownroot:
         dirpath = paths.prefix + '/' + dir
         os.chown(dirpath, 0, gid)
-        os.chmod(dirpath, 0755)
+        os.chmod(dirpath, 02755)
         print dirpath
 
     print
 
-    file = paths.prefix + '/data/last_mailman_version'
+    file = mm_cfg.VAR_PREFIX + '/data/last_mailman_version'
     print "Making" + file + "owned by mailman (not root)"
     uid = pwd.getpwnam(MAILMAN_USER)[2]
     gid = grp.getgrnam(MAILMAN_GROUP)[2]
@@ -133,8 +133,8 @@ class CheckFixUid:
     print file
 
     print "\nEnsuring that all config.db/pck files are owned by Mailman"
-    cdbs = glob.glob(paths.prefix + '/lists/*/config.db*')
-    cpcks = glob.glob(paths.prefix + '/lists/*/config.pck*')
+    cdbs = glob.glob(mm_cfg.VAR_PREFIX + '/lists/*/config.db*')
+    cpcks = glob.glob(mm_cfg.VAR_PREFIX + '/lists/*/config.pck*')
 
     for file in cdbs + cpcks:
         stat = os.stat(file)

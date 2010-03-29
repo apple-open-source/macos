@@ -25,6 +25,7 @@
 // TrustAdditions.cpp
 //
 #include "TrustAdditions.h"
+#include "TrustKeychains.h"
 #include "SecBridge.h"
 #include <security_keychain/SecCFTypes.h>
 #include <security_keychain/Globals.h>
@@ -301,15 +302,19 @@ static CFStringRef organizationNameForCertificate(SecCertificateRef certificate)
     return organizationName;
 }
 
+static ModuleNexus<Mutex> gPotentialEVChainWithCertificatesMutex;
+
 // returns a CFArrayRef of SecCertificateRef instances; caller must release the returned array
 //
 CFArrayRef potentialEVChainWithCertificates(CFArrayRef certificates)
 {
+	StLock<Mutex> _(gPotentialEVChainWithCertificatesMutex());
+
     // Given a partial certificate chain (which may or may not include the root,
     // and does not have a guaranteed order except the first item is the leaf),
-    // examine intermediate certificates to see if they are cross-certified
-    // (i.e. have the same public key as a trusted root); if so, replace the
-    // intermediate with the trusted root in the returned certificate array.
+    // examine intermediate certificates to see if they are cross-certified (i.e.
+    // have the same subject and public key as a trusted root); if so, remove the
+    // intermediate from the returned certificate array.
     
 	CFIndex chainIndex, chainLen = (certificates) ? CFArrayGetCount(certificates) : 0;
     if (chainLen < 2) {
@@ -327,8 +332,10 @@ CFArrayRef potentialEVChainWithCertificates(CFArrayRef certificates)
             // if this is not the leaf, then look for a possible replacement root to end the chain
             replacementCert = _rootCertificateWithSubjectOfCertificate(aCert);
         }
-		CFArrayAppendValue(certArray, (replacementCert) ? replacementCert : aCert);
-		SafeCFRelease(&replacementCert);
+        if (!replacementCert) {
+            CFArrayAppendValue(certArray, aCert);
+        }
+        SafeCFRelease(&replacementCert);
     }
     return certArray;
 }
@@ -341,6 +348,8 @@ static SecCertificateRef _rootCertificateWithSubjectOfCertificate(SecCertificate
 {
     if (!certificate)
         return NULL;
+
+	StLock<Mutex> _(SecTrustKeychainsGetMutex());
 
     // get data+length for the provided certificate
     CSSM_CL_HANDLE clHandle = 0;
@@ -399,9 +408,11 @@ static SecCertificateRef _rootCertificateWithSubjectOfCertificate(SecCertificate
             if (!status) {
                 // set up attribute vector (each attribute consists of {tag, length, pointer})
                 // we want to match on the public key hash and the normalized subject name
+                // as well as ensure that the issuer matches the subject
                 SecKeychainAttribute attrs[] = {
                     { kSecPublicKeyHashItemAttr, digest.Length, (void *)digest.Data },
-                    { kSecSubjectItemAttr, subjectDataPtr->Length, (void *)subjectDataPtr->Data }
+                    { kSecSubjectItemAttr, subjectDataPtr->Length, (void *)subjectDataPtr->Data },
+                    { kSecIssuerItemAttr, subjectDataPtr->Length, (void *)subjectDataPtr->Data }
                 };
                 const SecKeychainAttributeList attributes = { sizeof(attrs) / sizeof(attrs[0]), attrs };
                 SecKeychainSearchRef searchRef = NULL;
@@ -444,6 +455,8 @@ static SecCertificateRef _rootCertificateWithSubjectOfCertificate(SecCertificate
 //
 CFArrayRef _allowedRootCertificatesForOidString(CFStringRef oidString)
 {
+	StLock<Mutex> _(SecTrustKeychainsGetMutex());
+
     if (!oidString)
         return NULL;
 	CFDictionaryRef evOidDict = _evCAOidDict();

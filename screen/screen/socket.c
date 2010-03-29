@@ -1112,7 +1112,10 @@ struct msg *m;
   char *p;
   int pid;
   int noshowwin;
+
+#ifndef __APPLE__
   struct win *wi;
+#endif
 
   ASSERT(display);
   pid = D_userpid;

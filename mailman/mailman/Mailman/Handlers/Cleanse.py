@@ -1,4 +1,4 @@
-# Copyright (C) 1998-2006 by the Free Software Foundation, Inc.
+# Copyright (C) 1998-2009 by the Free Software Foundation, Inc.
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -17,8 +17,11 @@
 
 """Cleanse certain headers from all messages."""
 
+import re
+
 from email.Utils import formataddr
 
+from Mailman.Utils import unique_message_id
 from Mailman.Logging.Syslog import syslog
 from Mailman.Handlers.CookHeaders import uheader
 
@@ -39,11 +42,21 @@ def process(mlist, msg, msgdata):
         del msg['from']
         del msg['reply-to']
         del msg['sender']
+        del msg['return-path']
         # Hotmail sets this one
         del msg['x-originating-email']
+        # And these can reveal the sender too
+        del msg['received']
+        # And so can the message-id so replace it.
+        del msg['message-id']
+        msg['Message-ID'] = unique_message_id(mlist)
         i18ndesc = str(uheader(mlist, mlist.description, 'From'))
         msg['From'] = formataddr((i18ndesc, mlist.GetListEmail()))
         msg['Reply-To'] = mlist.GetListEmail()
+        uf = msg.get_unixfrom()
+        if uf:
+            uf = re.sub(r'\S*@\S*', mlist.GetListEmail(), uf)
+            msg.set_unixfrom(uf)
     # Some headers can be used to fish for membership
     del msg['return-receipt-to']
     del msg['disposition-notification-to']

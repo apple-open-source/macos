@@ -527,40 +527,40 @@
 /* Define if struct impreq was found */
 #undef HAVE_STRUCT_IPMREQ
 
-/* Define to 1 if `st_atimensec' is member of `struct stat'. */
+/* Define to 1 if `struct stat' is a member of `st_atimensec'. */
 #undef HAVE_STRUCT_STAT_ST_ATIMENSEC
 
-/* Define to 1 if `st_atime_n' is member of `struct stat'. */
+/* Define to 1 if `struct stat' is a member of `st_atime_n'. */
 #undef HAVE_STRUCT_STAT_ST_ATIME_N
 
-/* Define to 1 if `st_atim.tv_nsec' is member of `struct stat'. */
+/* Define to 1 if `struct stat' is a member of `st_atim.tv_nsec'. */
 #undef HAVE_STRUCT_STAT_ST_ATIM_TV_NSEC
 
-/* Define to 1 if `st_blocks' is member of `struct stat'. */
+/* Define to 1 if `struct stat' is a member of `st_blocks'. */
 #undef HAVE_STRUCT_STAT_ST_BLOCKS
 
-/* Define to 1 if `st_ctimensec' is member of `struct stat'. */
+/* Define to 1 if `struct stat' is a member of `st_ctimensec'. */
 #undef HAVE_STRUCT_STAT_ST_CTIMENSEC
 
-/* Define to 1 if `st_ctime_n' is member of `struct stat'. */
+/* Define to 1 if `struct stat' is a member of `st_ctime_n'. */
 #undef HAVE_STRUCT_STAT_ST_CTIME_N
 
-/* Define to 1 if `st_ctim.tv_nsec' is member of `struct stat'. */
+/* Define to 1 if `struct stat' is a member of `st_ctim.tv_nsec'. */
 #undef HAVE_STRUCT_STAT_ST_CTIM_TV_NSEC
 
-/* Define to 1 if `st_mtimensec' is member of `struct stat'. */
+/* Define to 1 if `struct stat' is a member of `st_mtimensec'. */
 #undef HAVE_STRUCT_STAT_ST_MTIMENSEC
 
-/* Define to 1 if `st_mtime_n' is member of `struct stat'. */
+/* Define to 1 if `struct stat' is a member of `st_mtime_n'. */
 #undef HAVE_STRUCT_STAT_ST_MTIME_N
 
-/* Define to 1 if `st_mtim.tv_nsec' is member of `struct stat'. */
+/* Define to 1 if `struct stat' is a member of `st_mtim.tv_nsec'. */
 #undef HAVE_STRUCT_STAT_ST_MTIM_TV_NSEC
 
-/* Define to 1 if `tm_gmtoff' is member of `struct tm'. */
+/* Define to 1 if `struct tm' is a member of `tm_gmtoff'. */
 #undef HAVE_STRUCT_TM_TM_GMTOFF
 
-/* Define to 1 if `__tm_gmtoff' is member of `struct tm'. */
+/* Define to 1 if `struct tm' is a member of `__tm_gmtoff'. */
 #undef HAVE_STRUCT_TM___TM_GMTOFF
 
 /* Define to 1 if you have the <sysapi.h> header file. */
@@ -724,6 +724,9 @@
 
 /* Define to the one symbol short name of this package. */
 #undef PACKAGE_TARNAME
+
+/* Define to the home page for this package. */
+#undef PACKAGE_URL
 
 /* Define to the version of this package. */
 #undef PACKAGE_VERSION

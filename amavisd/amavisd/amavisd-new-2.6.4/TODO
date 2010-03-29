@@ -1,0 +1,95 @@
+SMTP, LMTP, mail address handling
+- split_localpart(): check 'owner-special' handling, e.g. foo-request-spam@
+- separate the application from SMTP protocol handling
+- fallback relays, MX backups?
+- one_response_for_all: report (propagate) all MTA SMTP responses if different
+
+MAIL MODIFICATIONS, EXPAND, NOTIFICATIONS:
+- make possible to use proper MIME content structure in notifications;
+- optionally attach (chopped?) mail body to DSN?
+- use modified headers (and body?) as provided by SA ?
+- macro expander: do not replace formal arguments %<n> which are within
+  quoted replacement text (in the regexp macro as well);
+- use macro expander instead of simple string replacements
+  in Subject template edits;
+- provide per-recipient 'header_edits' property so that custom hooks
+  will be able to add per-recipient headers; suggested by Jacob Leaver;
+- per-virus notifications, e.g. include URL or instructions in DSN
+  (could make use of associative arrays in EXPAND if available);
+- don't send notifications if notifications text turns out to be empty,
+  making it possible for a macro expansion during customization
+  to turn off DSN (Florian Effenberger);
+- choose the admin sender address and From header in DSN
+  based on recipient address/domain (how to handle multiple recipient mail?);
+
+VIRUS AND OTHER MALWARE SCANNING:
+- some virus scanners need option '--mbox' when given full mail file,
+  but not on already decoded parts (Michael Boelen);
+- some scanners need proper file name extension to be able to recognize
+  and decode a file correctly;
+- viruses_that_recips_dont_care_about;
+- optimize-away banned checks when bypassing banned checks is requested
+  and $banned_namepath_re is used;
+- keep consulting a blacklist even if spam checking is bypassed;
+
+MAIL DECODING/DE-ARCHIVING:
+- unwrap pgp/gpg armoring, especially on signed-only messages;
+- file(1) is unable to differentiate or recognize various types
+  of pgp/gpg mail (signed/encrypted/armored/signature/key);
+- per-recipient bypass_decoding;
+- yEnc encoding www.yenc.org (NNTP); Appledouble encoding, Macintosh StuffIt;
+- store_mgr: stop_expensive_decoding_at=n ?
+- seek some solution to prevent decoder from attempting to create files
+  outside of its designated directory;
+- provide separate failure modes of expected (I/O, system) and unexpected
+  errors when decoding;
+
+INTERNALS, CODING, ...
+- amavis-milter.c: be able to approve locally originating DSN without
+  calling amavisd to avoid deadlock (or the need to force '-odd');
+- use timers in a manner providing some resiliency to clock jumps;
+- use multi-timers Perl module? make timer independent of its use by SA;
+
+QUARANTINE
+- provide per-recipient headers such as X-Spam* scores in the quarantined msg;
+- do the quarantining later in the flow (after forwarding) to be able
+  to do the correct intersect between per-recipient quarantine_to
+  and per-recipient kill level and other blockings;
+- disable quarantine (and virus admin notifications) based on virus name;
+- automatically turn off quarantinining when mail is to be delivered;
+- update msgrcpt.rs field after a quarantine release;
+- support quarantining by MTA (milter, HOLD);
+- invoke sa-learn when releasing false positives from quarantine;
+
+GENERAL, NEW FEATURES
+- provide a LDAP and SQL proxy (or make use of the Postfix proxy_read_maps)
+  to reduce the number of sessions to LDAP and SQL server;
+- "reverse AM.PDP" - lookups on external information sources or provide
+  information to external plugins;
+- should bypass* implicitly turn on *lovers?
+- do not notify recipient when they will receive mail anyway (D_PASS,*_lovers)
+- notify when placing on HOLD at MTA ?
+- configurable action on HOLD ?
+- timeout -> HOLD ?
+- notify at double bounce? (treat/describe as DISCARD)
+- store information about detected virus names to SQL when logging to SQL
+- AM.PDP should be able to split mail by discarding a request and explicitly
+  re-sending it
+- README.sql-pg: change SQL datatype VARCHAR into VARBINARY for data fields
+  mail_id, secret_id and quar_loc, and CHAR into BINARY for msgs.content and
+  msgs.quar_type to preserve case sensitivity on string comparison operators
+  (same change have already been done in README.sql-mysql, but the data type
+  in amavisd calls have not yet been changed);
+
+DOCUMENTATION
+- documentation, documentation, documentation;
+- malformed mail project and the like: tests, write FAQ;
+- cleaner web page;
+
+SOME OF THE MORE SELF-CONTAINED PROJECTS
+- Net::Server IPv6 support;
+- write a Perl module for interfacing with libarchive
+  (http://people.freebsd.org/~kientzle/libarchive/), which is an
+  ambitious (currently primarily FreeBSD) programming library that can
+  create and read several streaming archive formats, including most
+  popular tar variants and the POSIX cpio format.

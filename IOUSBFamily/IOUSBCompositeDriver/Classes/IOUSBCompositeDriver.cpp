@@ -91,7 +91,7 @@ IOUSBCompositeDriver::start(IOService * provider)
 {
     bool 	configured = false;
     
-    if( !super::start(provider))
+    if ( !super::start(provider))
         return (false);
     
     // Save a copy of our USB Device
@@ -282,7 +282,7 @@ IOUSBCompositeDriver::ConfigureDevice()
             
             // Get the MaxPower for this configuration.  If we have enough power for it AND it's greater than our previous power
             // then use this config
-            if( (fDevice->GetBusPowerAvailable() >= cdTemp->MaxPower) && ( ((SInt16)cdTemp->MaxPower) > maxPower) )
+            if ( (fDevice->GetBusPowerAvailable() >= cdTemp->MaxPower) && ( ((SInt16)cdTemp->MaxPower) > maxPower) )
             {
                 USBLog(5,"%s[%p](%s) ConfigureDevice Config %d with MaxPower %d", getName(), this, fDevice->getName(), i, cdTemp->MaxPower );
                 cd = cdTemp;

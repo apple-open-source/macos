@@ -112,6 +112,9 @@ _duplocale(locale_t loc)
 		loc = &__global_locale;
 	else if (loc == &__c_locale) {
 		*new = __c_locale;
+		new->__refcount = 1;
+		new->__free_extra = (__free_extra_t)_releaselocale;
+		new->__lock = LOCK_INITIALIZER;
 		return new;
 	}
 	XL_LOCK(loc);
@@ -446,10 +449,13 @@ uselocale(locale_t loc)
 			errno = EINVAL;
 			return NULL;
 		}
-		if (loc == &__global_locale)	/* should never happen */
-			loc = LC_GLOBAL_LOCALE;
+		if (loc == LC_GLOBAL_LOCALE ||
+		    loc == &__global_locale)	/* should never happen */
+			loc = NULL;
+		XL_RETAIN(loc);
 		orig = pthread_getspecific(__locale_key);
-		pthread_setspecific(__locale_key, loc == LC_GLOBAL_LOCALE ? NULL : loc);
+		pthread_setspecific(__locale_key, loc);
+		XL_RELEASE(orig);
 	}
 	return (orig ? orig : LC_GLOBAL_LOCALE);
 }

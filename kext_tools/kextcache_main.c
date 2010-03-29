@@ -712,6 +712,14 @@ ExitStatus readArgs(
                         setNeededLoadedKextInfo(toolArgs);
                         break;
 
+                    case kLongOptAllPersonalities:
+                        toolArgs->includeAllPersonalities = true;
+                        break;
+
+                    case kLongOptOmitLinkState:
+                        toolArgs->omitLinkState = true;
+                        break;
+
                     default:
                        /* getopt_long_only() prints an error message for us. */
                         goto finish;
@@ -2607,6 +2615,7 @@ ExitStatus createPrelinkedKernel(
     prelinkedKernel = OSKextCreatePrelinkedKernel(kernelImage, kextArray,
         toolArgs->volumeRootURL, toolArgs->prelinkedKernelErrorRequired,
         toolArgs->skipAuthentication, toolArgs->printTestResults,
+        toolArgs->includeAllPersonalities, !toolArgs->omitLinkState,
         prelinkedSymbolsOut);
     if (!prelinkedKernel) {
         OSKextLog(/* kext */ NULL,

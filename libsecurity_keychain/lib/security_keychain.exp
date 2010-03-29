@@ -388,6 +388,7 @@ _SecTrustGetTPHandle
 _SecTrustGetTypeID
 _SecTrustGetUserTrust
 _SecTrustGetVerifyTime
+_SecTrustKeychainsGetMutex
 _SecTrustSetAnchorCertificates
 _SecTrustSetAnchorCertificatesOnly
 _SecTrustSetKeychains

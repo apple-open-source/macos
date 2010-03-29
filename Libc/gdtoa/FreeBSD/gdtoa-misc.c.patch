@@ -1,5 +1,5 @@
---- gdtoa-misc.c.orig	2008-11-05 15:59:34.000000000 -0800
-+++ gdtoa-misc.c	2008-11-05 16:05:28.000000000 -0800
+--- gdtoa-misc.c.orig	2010-01-07 22:03:21.000000000 -0800
++++ gdtoa-misc.c	2010-01-07 22:25:33.000000000 -0800
 @@ -29,9 +29,20 @@ THIS SOFTWARE.
  /* Please send bug reports to David M. Gay (dmg at acm dot org,
   * with " at " changed at "@" and " dot " changed to ".").	*/
@@ -48,7 +48,7 @@
   Bigint *
  Balloc
  #ifdef KR_headers
-@@ -53,8 +84,25 @@ Balloc
+@@ -53,9 +84,26 @@ Balloc
  #ifndef Omit_Private_Memory
  	unsigned int len;
  #endif
@@ -70,10 +70,21 @@
 +		}
 +#else /* !GDTOA_TSD */
  	ACQUIRE_DTOA_LOCK(0);
+-	if ( (rv = freelist[k]) !=0) {
 +#endif /* GDTOA_TSD */
- 	if ( (rv = freelist[k]) !=0) {
++	if (k <= Kmax && (rv = freelist[k]) !=0) {
  		freelist[k] = rv->next;
  		}
+ 	else {
+@@ -65,7 +113,7 @@ Balloc
+ #else
+ 		len = (sizeof(Bigint) + (x-1)*sizeof(ULong) + sizeof(double) - 1)
+ 			/sizeof(double);
+-		if (pmem_next - private_mem + len <= PRIVATE_mem) {
++		if (k <= Kmax && pmem_next - private_mem + len <= PRIVATE_mem) {
+ 			rv = (Bigint*)pmem_next;
+ 			pmem_next += len;
+ 			}
 @@ -75,7 +123,9 @@ Balloc
  		rv->k = k;
  		rv->maxwds = x;
@@ -84,20 +95,28 @@
  	rv->sign = rv->wds = 0;
  	return rv;
  	}
-@@ -89,10 +139,16 @@ Bfree
+@@ -89,10 +139,20 @@ Bfree
  #endif
  {
  	if (v) {
+-		ACQUIRE_DTOA_LOCK(0);
+-		v->next = freelist[v->k];
+-		freelist[v->k] = v;
+-		FREE_DTOA_LOCK(0);
++		if (v->k > Kmax)
++			free((void*)v);
++		else {
 +#ifdef GDTOA_TSD
-+		Bigint **freelist = (Bigint **)pthread_getspecific(gdtoa_tsd_key);
++			Bigint **freelist = (Bigint **)pthread_getspecific(gdtoa_tsd_key);
 +#else /* !GDTOA_TSD */
- 		ACQUIRE_DTOA_LOCK(0);
++			ACQUIRE_DTOA_LOCK(0);
 +#endif /* GDTOA_TSD */
- 		v->next = freelist[v->k];
- 		freelist[v->k] = v;
++			v->next = freelist[v->k];
++			freelist[v->k] = v;
 +#ifndef GDTOA_TSD
- 		FREE_DTOA_LOCK(0);
++			FREE_DTOA_LOCK(0);
 +#endif /* GDTOA_TSD */
++			}
  		}
  	}
  

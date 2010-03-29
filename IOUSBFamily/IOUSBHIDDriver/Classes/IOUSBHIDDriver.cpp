@@ -1,5 +1,5 @@
 /*
- * Copyright © 1998-2009 Apple Inc.  All rights reserved.
+ * Copyright © 1998-2010 Apple Inc.  All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -84,6 +84,7 @@ __attribute__((format(printf, 1, 2)));
 #define	_POWERSTATECHANGING						_usbHIDExpansionData->_powerStateChanging
 #define	_MYPOWERSTATE							_usbHIDExpansionData->_myPowerState
 #define	_PENDINGREAD							_usbHIDExpansionData->_pendingRead
+#define _DEAD_DEVICE_CHECK_LOCK					_usbHIDExpansionData->_deviceDeadCheckLock
 
 #define ABORTEXPECTED                       _deviceIsDead
 
@@ -969,7 +970,7 @@ IOUSBHIDDriver::handleStart(IOService * provider)
 
     // Open our provider so that nobody else an gain access to it
     //
-    if( !provider->open(this))
+    if ( !provider->open(this))
     {
         USBLog(1, "IOUSBHIDDriver(%s)[%p]::handleStart - unable to open provider. returning false", getName(), this);
 		USBTrace( kUSBTHID,  kTPHIDhandleStart, (uintptr_t)this, 0, 0, 1 );
@@ -1501,11 +1502,11 @@ IOUSBHIDDriver::InterruptReadHandler(IOReturn status, UInt32 bufferSizeRemaining
 	{
 		vm_size_t	capacity = (_buffer ? _buffer->getCapacity() : 0);
 		
-		USBTrace( kUSBTHID,  kTPHIDInterruptRead, (uintptr_t)this, (uintptr_t)status, capacity - bufferSizeRemaining, capacity);
+		USBTrace( kUSBTHID,  kTPHIDInterruptRead, (uintptr_t)this, capacity - bufferSizeRemaining, capacity, 0);
 	}
 	else
 	{
-		USBTrace( kUSBTHID,  kTPHIDInterruptRead, (uintptr_t)this, (uintptr_t)status, 0, 0);
+		USBTrace( kUSBTHID,  kTPHIDInterruptRead, (uintptr_t)this, (uintptr_t)status, _deviceHasBeenDisconnected, 1);
 	}
 	
 	// Initialize so that we don't queue a clearFeatureEndpointHalt
@@ -1535,6 +1536,7 @@ IOUSBHIDDriver::InterruptReadHandler(IOReturn status, UInt32 bufferSizeRemaining
             // Reset the retry count, since we had a successful read
             //
             _retryCount = kHIDDriverRetryCount;
+			_deviceHasBeenDisconnected = FALSE;
 			
 			// If we got a "short" transfer, adjust the length of the buffer so we don't send stale data to the HID family.
 			// We will reset the length before rearming the read
@@ -1558,6 +1560,7 @@ IOUSBHIDDriver::InterruptReadHandler(IOReturn status, UInt32 bufferSizeRemaining
 					if ( thread_call_enter1(_HANDLE_REPORT_THREAD, (thread_call_param_t) &_INTERRUPT_TIMESTAMP) == TRUE)
 					{
 						USBLog(3, "IOUSBHIDDriver(%s)[%p]::InterruptReadHandler  _HANDLE_REPORT_THREAD was already queued!", getName(), this);
+						USBTrace( kUSBTHID,  kTPHIDInterruptRead, (uintptr_t)this, 0, 0, 3);
 						DecrementOutstandingIO();
 						_QUEUED_REPORTS--;
 					}
@@ -1565,11 +1568,13 @@ IOUSBHIDDriver::InterruptReadHandler(IOReturn status, UInt32 bufferSizeRemaining
 				else
 				{
 					queueAnother = true;
+					USBTrace( kUSBTHID,  kTPHIDInterruptRead, (uintptr_t)this, 0, 0, 4);
 				}
 			}
 			else
 			{
 				USBLog(2, "IOUSBHIDDriver(%s)[%p]::InterruptReadHandler  Not calling handleReport thread because we already have a report queued", getName(), this);
+				USBTrace( kUSBTHID,  kTPHIDInterruptRead, (uintptr_t)this, 0, 0, 5);
 			}
             break;
 			
@@ -1585,6 +1590,7 @@ IOUSBHIDDriver::InterruptReadHandler(IOReturn status, UInt32 bufferSizeRemaining
 			{
 				// If the port is suspended, then we can expect this.  Just ignore the error.
 	            USBLog(4, "IOUSBHIDDriver(%s)[%p]::InterruptReadHandler kIOReturnNotResponding error but port is suspended", getName(), this);
+				USBTrace( kUSBTHID,  kTPHIDInterruptRead, (uintptr_t)this, 0, 0, 6);
 				
 				// If the port is suspended, we don't need to re-arm the interrupt, but we still need to clear the stall.  
 				_interruptPipe->ClearStall();				
@@ -1594,6 +1600,7 @@ IOUSBHIDDriver::InterruptReadHandler(IOReturn status, UInt32 bufferSizeRemaining
 				if ( !_deviceHasBeenDisconnected && !isInactive() && _interruptPipe)
 				{
 					USBLog(3, "IOUSBHIDDriver(%s)[%p]::InterruptReadHandler Checking to see if HID device is still connected", getName(), this);
+					USBTrace( kUSBTHID,  kTPHIDInterruptRead, (uintptr_t)this, 0, 0, 7);
 	
 					// If thread_call_enter() returns TRUE, then a call is already
 					// pending, and we need to drop our outstandingIO count.
@@ -1602,6 +1609,7 @@ IOUSBHIDDriver::InterruptReadHandler(IOReturn status, UInt32 bufferSizeRemaining
 					{
 						USBLog(3, "IOUSBHIDDriver(%s)[%p]::InterruptReadHandler  _deviceDeadCheckThread was already queued!", getName(), this);
 						DecrementOutstandingIO();
+						USBTrace( kUSBTHID,  kTPHIDInterruptRead, (uintptr_t)this, 0, 0, 8);
 					}
 					
 					// Before requeueing, we need to clear the stall
@@ -1618,11 +1626,13 @@ IOUSBHIDDriver::InterruptReadHandler(IOReturn status, UInt32 bufferSizeRemaining
             if (!isInactive() && !ABORTEXPECTED && _interruptPipe)
             {
                 USBLog(3, "IOUSBHIDDriver(%s)[%p]::InterruptReadHandler error kIOReturnAborted. Try again.", getName(), this);
+				USBTrace( kUSBTHID,  kTPHIDInterruptRead, (uintptr_t)this, 0, 0, 9);
 				queueAnother = true;
             }
 			else if ( ABORTEXPECTED )
 			{
                 USBLog(5, "IOUSBHIDDriver(%s)[%p]::InterruptReadHandler error kIOReturnAborted. Expected.  Not rearming interrupt", getName(), this);
+				USBTrace( kUSBTHID,  kTPHIDInterruptRead, (uintptr_t)this, 0, 0, 10);
 			}
 			
 			USBTrace( kUSBTHID,  kTPHIDInterruptReadError, (uintptr_t)this, ABORTEXPECTED, queueAnother, status);
@@ -1648,6 +1658,7 @@ IOUSBHIDDriver::InterruptReadHandler(IOReturn status, UInt32 bufferSizeRemaining
             // 01-18-02 JRH If we are inactive, then ignore this
             if (!isInactive() && _interruptPipe)
             {
+				USBTrace( kUSBTHID,  kTPHIDInterruptRead, (uintptr_t)this, 0, 0, 11);
                 // First, clear the halted bit in the controller
                 //
                 _interruptPipe->ClearStall();
@@ -1662,6 +1673,7 @@ IOUSBHIDDriver::InterruptReadHandler(IOReturn status, UInt32 bufferSizeRemaining
 				{
 					USBLog(3, "IOUSBHIDDriver(%s)[%p]::InterruptReadHandler  _clearFeatureEndpointHaltThread was already queued!", getName(), this);
 					DecrementOutstandingIO();
+					USBTrace( kUSBTHID,  kTPHIDInterruptRead, (uintptr_t)this, 0, 0, 12);
 				}
             }
 			break;
@@ -1670,6 +1682,8 @@ IOUSBHIDDriver::InterruptReadHandler(IOReturn status, UInt32 bufferSizeRemaining
             // We should handle other errors more intelligently, but
             // for now just return and assume the error is recoverable.
             USBLog(3, "IOUSBHIDDriver(%s)[%p]::InterruptReadHandler Unknown error (0x%x) reading interrupt pipe", getName(), this, status);
+			USBTrace( kUSBTHID,  kTPHIDInterruptRead, (uintptr_t)this, status, 0, 12);
+
 			if ( !isInactive() && _interruptPipe )
                 _interruptPipe->ClearStall();
 			queueAnother = true;													// no callout to go to - rearm it now
@@ -1717,15 +1731,25 @@ void
 IOUSBHIDDriver::CheckForDeadDevice()
 {
     IOReturn			err = kIOReturnSuccess;
+	bool				gotLock;
 
-    if ( _deviceDeadThreadActive )
-    {
-        USBLog(3, "IOUSBHIDDriver(%s)[%p]::CheckForDeadDevice already active, returning", getName(), this);
-        return;
-    }
-    
-    _deviceDeadThreadActive = TRUE;
+	if (isInactive())
+	{
+		USBLog(4, "IOUSBHIDDriver(%s)[%p]::CheckForDeadDevice - called while inActive - ignoring", getName(), this);
+		USBTrace( kUSBTHID,  kTPHIDCheckForDeadDevice, (uintptr_t)this, 0, 0, 12);
+		return;
+	}
 
+ 	gotLock = OSCompareAndSwap(0, 1, &_DEAD_DEVICE_CHECK_LOCK);
+	if ( !gotLock )
+	{
+        USBLog(5, "IOUSBHIDDriver(%s)[%p]::CheckForDeadDevice  already active, returning", getName(), this );
+		USBTrace( kUSBTHID,  kTPHIDCheckForDeadDevice, (uintptr_t)this, _retryCount, _deviceHasBeenDisconnected, 1);
+		return;
+	}
+
+	USBTrace( kUSBTHID,  kTPHIDCheckForDeadDevice, (uintptr_t)this, _retryCount, _deviceHasBeenDisconnected, 2);
+	
     // Are we still connected?
     //
     if ( _interface && _device )
@@ -1735,38 +1759,80 @@ IOUSBHIDDriver::CheckForDeadDevice()
 		_device->retain();
 		err = _device->GetDeviceInformation(&info);
 		_device->release();
+		
 		USBLog(6, "IOUSBHIDDriver(%s)[%p]::CheckForDeadDevice  GetDeviceInformation returned error 0x%x, info: 0x%x, retryCount: %d", getName(), this, err, (uint32_t)info, (uint32_t)_retryCount);
- 
-        if ( (kIOReturnSuccess == err) && (info & kUSBInformationDeviceIsConnectedMask) )
-        {
-            // Looks like the device is still plugged in.  Have we reached our retry count limit?
-            //
-            if ( --_retryCount == 0 )
-            {
-                ABORTEXPECTED = TRUE;
-                USBLog(3, "IOUSBHIDDriver(%s)[%p]: Detected an kIONotResponding error but still connected.  Resetting port", getName(), this);
-                
-                if (_interruptPipe)
-                {
-                    _interruptPipe->Abort();
-                }
-                
-                // OK, let 'er rip.  Let's do the reset thing
-                //
-                _device->ResetDevice();
-                    
-            }
-        }
-        else
-        {
-            // Device is not connected -- our device has gone away.
-            //
-            _deviceHasBeenDisconnected = TRUE;
 
-            USBLog(5, "IOUSBHIDDriver(%s)[%p]: CheckForDeadDevice: device %s has been unplugged", getName(), this, _device->getName() );
-        }
+		// if we get an error from GetDeviceInformation, do NOT treat it like the device has been disconnected.  Just lower our retry count AND if we have reached 0, then assume it has been disconnected
+		if ( err != kIOReturnSuccess )
+		{
+			USBTrace( kUSBTHID,  kTPHIDCheckForDeadDevice, (uintptr_t)this, err, _retryCount, 3);
+			if (_retryCount != 0)
+				_retryCount--;
+			
+			if (_retryCount == 0 )
+            {
+	            _deviceHasBeenDisconnected = TRUE;
+				
+				USBLog(5, "IOUSBHIDDriver(%s)[%p]: CheckForDeadDevice:  GetDeviceInformation and our retryCount is 0, so assume device has been unplugged", getName(), this);
+				USBTrace( kUSBTHID,  kTPHIDCheckForDeadDevice, (uintptr_t)this, 0, 0, 4);
+			}
+			else 
+			{
+				USBLog(5, "IOUSBHIDDriver(%s)[%p]: CheckForDeadDevice:  GetDeviceInformation returned an error, but our retryCount is not 0", getName(), this);
+				USBTrace( kUSBTHID,  kTPHIDCheckForDeadDevice, (uintptr_t)this, _retryCount, 0, 13);
+			}
+		}
+		else
+		{
+			USBTrace( kUSBTHID,  kTPHIDCheckForDeadDevice, (uintptr_t)this, info, _retryCount, 5);
+			// GetDeviceInformation did not error out, so see if our device is still attached (connected AND enabled)
+			if ((info & kUSBInformationDeviceIsConnectedMask) && (info & kUSBInformationDeviceIsEnabledMask))
+			{
+				USBTrace( kUSBTHID,  kTPHIDCheckForDeadDevice, (uintptr_t)this, _retryCount, 0, 6);
+				// Looks like the device is still plugged in.  Have we reached our retry count limit?
+				//
+				if (_retryCount != 0)
+					_retryCount--;
+				
+				if (_retryCount == 0 )
+				{
+					ABORTEXPECTED = TRUE;
+					USBLog(1, "IOUSBHIDDriver(%s)[%p]: Detected an kIONotResponding error but still connected.  Resetting port", getName(), this);
+					
+					if (_interruptPipe)
+					{
+						_interruptPipe->Abort();
+					}
+					
+					USBTrace( kUSBTHID,  kTPHIDCheckForDeadDevice, (uintptr_t)this, 0, 0, 7);
+					// OK, let 'er rip.  Let's do the reset thing
+					//
+					_device->ResetDevice();
+				}
+				else 
+				{
+					USBLog(5, "IOUSBHIDDriver(%s)[%p]: Still connected but retry count (%d) not reached", getName(), this, (uint32_t)_retryCount);
+					USBTrace( kUSBTHID,  kTPHIDCheckForDeadDevice, (uintptr_t)this, _retryCount, 0, 11);
+				}
+			}
+			else
+			{
+				// Device is not connected -- our device has gone away.
+				//
+				_deviceHasBeenDisconnected = TRUE;
+				
+				USBLog(5, "IOUSBHIDDriver(%s)[%p]: CheckForDeadDevice: device %s has been unplugged", getName(), this, _device->getName());
+				USBTrace( kUSBTHID,  kTPHIDCheckForDeadDevice, (uintptr_t)this, (uintptr_t)_device, 0, 8);
+			}
+		}
     }
-    _deviceDeadThreadActive = FALSE;
+	else 
+	{
+		USBTrace( kUSBTHID,  kTPHIDCheckForDeadDevice, (uintptr_t)this, 0, 0, 9);
+	}
+
+	// Release our lock
+	_DEAD_DEVICE_CHECK_LOCK = 0;
 }
 
 
@@ -2726,6 +2792,14 @@ IOUSBHIDDriver::RearmInterruptRead()
 		return err;
 	}
 	
+	if (isInactive())
+	{
+		USBLog(5, "IOUSBHIDDriver(%s)[%p]::RearmInterruptRead - isInactive() - returning kIOReturnNotResponding", getName(), this);
+		USBTrace( kUSBTHID,  kTPHIDRearmInterruptRead, (uintptr_t)this, 0, 0, 6 );
+		return kIOReturnNotResponding;
+	}
+	
+	
     // Queue up another one before we leave.
     //
     if (!_gate || _gate->runAction(ClaimPendingRead, (void*)&gotPend))
@@ -2747,14 +2821,23 @@ IOUSBHIDDriver::RearmInterruptRead()
 	USBLog(7, "IOUSBHIDDriver(%s)[%p]::RearmInterruptRead - _completion.action(%p)", getName(), this, _completion.action);
     IncrementOutstandingIO();
 	
-	while ( (err != kIOReturnSuccess) && ( retries++ < 30 ) && (_buffer != NULL) && (_interruptPipe != NULL))
+	while ( (err != kIOReturnSuccess) && (err != kIOReturnNoBandwidth) && ( retries++ < 30 ) && (_buffer != NULL) && (_interruptPipe != NULL))
 	{
+		if (isInactive())
+		{
+			USBLog(5, "IOUSBHIDDriver(%s)[%p]::RearmInterruptRead - isInactive() - returning kIOReturnNotResponding", getName(), this);
+			USBTrace( kUSBTHID,  kTPHIDRearmInterruptRead, (uintptr_t)this, 0, 0, 6 );
+			err = kIOReturnNotResponding;
+			break;
+		}
+		
 		if (_COMPLETION_WITH_TIMESTAMP.action)
 		{
 			err = _interruptPipe->Read(_buffer, 0, 0, _buffer->getLength(), &_COMPLETION_WITH_TIMESTAMP);
 			if ((err == kIOReturnNotResponding) && (_POWERSTATECHANGING || (_MYPOWERSTATE < kUSBHIDPowerStateOn)))
 			{
 				USBLog(3, "IOUSBHIDDriver(%s)[%p]::RearmInterruptRead - err(kIOReturnNotResponding) while _POWERSTATECHANGING(%s) or (_MYPOWERSTATE < kUSBHIDPowerStateOn)(%d) - no posting read", getName(), this, _POWERSTATECHANGING ? "true" : "false", (int)_MYPOWERSTATE);
+				USBTrace( kUSBTHID,  kTPHIDRearmInterruptRead, (uintptr_t)this, _POWERSTATECHANGING, _MYPOWERSTATE, 7 );
 				break;			// out of the while loop
 			}
 		}
@@ -2773,22 +2856,43 @@ IOUSBHIDDriver::RearmInterruptRead()
 			if ((err == kIOReturnNotResponding) && (_POWERSTATECHANGING || (_MYPOWERSTATE < kUSBHIDPowerStateOn)))
 			{
 				USBLog(3, "IOUSBHIDDriver(%s)[%p]::RearmInterruptRead - err(kIOReturnNotResponding) while _POWERSTATECHANGING(%s) or (_MYPOWERSTATE < kUSBHIDPowerStateOn)(%d) - no posting read", getName(), this, _POWERSTATECHANGING ? "true" : "false", (int)_MYPOWERSTATE);
+				USBTrace( kUSBTHID,  kTPHIDRearmInterruptRead, (uintptr_t)this, _POWERSTATECHANGING, _MYPOWERSTATE, 8 );
 				break;			// out of the while loop
 			}
 		}
 
 		// If we get an error, let's clear the pipe and try again
-		if ( (err != kIOReturnSuccess) && (_interruptPipe != NULL))
+		if ( (err != kIOReturnSuccess) && (err != kIOReturnNoBandwidth) && (_interruptPipe != NULL))
 		{
 			USBLog(1, "IOUSBHIDDriver(%s)[%p]::RearmInterruptRead  immediate error 0x%x queueing read, clearing stall and trying again(%d)", getName(), this, err, (uint32_t)retries);
 			USBTrace( kUSBTHID,  kTPHIDRearmInterruptRead, (uintptr_t)this, err, (uint32_t)retries, 4 );
 			_interruptPipe->ClearPipeStall(false);			
+			
+			IOSleep(10);				// wait 10 ms before trying again
+			
 		}
+		
     }
 	
 	if ( err )
 	{
-		USBLog(1, "IOUSBHIDDriver(%s)[%p]::RearmInterruptRead  returning error 0x%x, not issuing any reads to device", getName(), this, err);
+		if (isInactive())
+		{
+			USBLog(5, "IOUSBHIDDriver(%s)[%p]::RearmInterruptRead  returning error 0x%x, not issuing any reads to device", getName(), this, err);
+			USBTrace( kUSBTHID,  kTPHIDRearmInterruptRead, (uintptr_t)this, err, 0, 6 );
+		}
+		else
+		{
+			if ( err != kIOReturnNoBandwidth )
+			{
+				USBError(1, "IOUSBHIDDriver(%s)[%p]::RearmInterruptRead  returning error 0x%x, not issuing any reads to device", getName(), this, err);
+			}
+			else
+			{
+				USBLog(3, "IOUSBHIDDriver(%s)[%p]::RearmInterruptRead  returning error 0x%x, not issuing any reads to device", getName(), this, err);
+			}
+		}
+
 		_PENDINGREAD = false;
 		DecrementOutstandingIO();
 	}

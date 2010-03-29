@@ -5,6 +5,7 @@ Mailman/Archiver/pipermail.py
 Mailman/Archiver/__init__.py
 Mailman/Autoresponder.py
 Mailman/Bouncer.py
+Mailman/Bouncers/AOL.py
 Mailman/Bouncers/BouncerAPI.py
 Mailman/Bouncers/Caiwireless.py
 Mailman/Bouncers/Compuserve.py

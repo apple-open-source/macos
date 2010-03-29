@@ -54,7 +54,9 @@ enum
     kHIDUsage_AppleVendor_AmbientLightSensor    = 0x0004, /* Application Collection */
     kHIDUsage_AppleVendor_TemperatureSensor     = 0x0005, /* Application Collection */
     kHIDUsage_AppleVendor_Keyboard              = 0x0006, /* Application Collection */
-    kHIDUsage_AppleVendor_Headset               = 0x0007  /* Application Collection */
+    kHIDUsage_AppleVendor_Headset               = 0x0007, /* Application Collection */
+    kHIDUsage_AppleVendor_ProximitySensor	    = 0x0008, /* Application Collection */
+	kHIDUsage_AppleVendor_Gyro				= 0x0009  /* Application Collection */
 };
 
 

@@ -5,7 +5,7 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) 1998 - 2007, Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) 1998 - 2009, Daniel Stenberg, <daniel@haxx.se>, et al.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
@@ -18,7 +18,7 @@
  * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
  * KIND, either express or implied.
  *
- * $Id: amigaos.c,v 1.8 2009-02-27 08:53:10 bagder Exp $
+ * $Id: amigaos.c,v 1.9 2009-10-27 16:38:42 yangtse Exp $
  ***************************************************************************/
 
 #ifdef __AMIGA__ /* Any AmigaOS flavour */
@@ -70,6 +70,12 @@ BOOL amiga_init()
 
 #ifdef __libnix__
 ADD2EXIT(amiga_cleanup,-50);
+#endif
+
+#else /* __AMIGA__ */
+
+#ifdef __POCC__
+#  pragma warn(disable:2024)  /* Disable warning #2024: Empty input file */
 #endif
 
 #endif /* __AMIGA__ */

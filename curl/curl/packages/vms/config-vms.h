@@ -1,3 +1,8 @@
+#ifndef HEADER_CONFIG_VMS_H
+#define HEADER_CONFIG_VMS_H
+
+/* $Id: config-vms.h,v 1.27 2009-06-11 11:57:46 yangtse Exp $ */
+/*                                                                         */
 /* MSK, 02/05/04, Hand edited for trail build on Alpha V7.3, DEC C 6.5-003 */
 /* MSK, 03/09/04, Seems to work for all platforms I've built on so far.    */
 /*      Added HAVE_SYS_IOCTL_H define                                      */
@@ -24,9 +29,6 @@
 
 /* Define if you can safely include both <sys/time.h> and <time.h>.  */
 #define TIME_WITH_SYS_TIME 1
-
-/* Type to use in place of socklen_t when system does not provide it.  */
-#define socklen_t size_t
 
 /* The number of bytes in a long double.  */
 #define SIZEOF_LONG_DOUBLE 8
@@ -256,6 +258,9 @@
 /* Define if you have the <memory.h> header file. */
 #define HAVE_MEMORY_H   1
 
+/* Define to 1 if you need the memory.h header file even with stdlib.h */
+#define NEED_MEMORY_H 1
+
 /* Define if you have the `sigsetjmp' function. */
 #define HAVE_SIGSETJMP 1
 
@@ -284,7 +289,7 @@
 #define GETNAMEINFO_TYPE_ARG1 struct sockaddr *
 
 /* Define to the type of arg 2 for getnameinfo. */
-#define GETNAMEINFO_TYPE_ARG2 socklen_t
+#define GETNAMEINFO_TYPE_ARG2 FIXME
 
 /* Define to the type of args 4 and 6 for getnameinfo. */
 #define GETNAMEINFO_TYPE_ARG46 size_t
@@ -361,3 +366,4 @@
 /* Define to hide dollar sign from compilers in strict ansi mode. */
 #define decc_translate_vms(__s) decc$translate_vms(__s)
 
+#endif /* HEADER_CONFIG_VMS_H */

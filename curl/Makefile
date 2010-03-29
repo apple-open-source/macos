@@ -4,7 +4,7 @@
 
 # Project info
 Project           = curl
-ProjectVersion    = 7.19.4
+ProjectVersion    = 7.19.7
 UserType          = Developer
 ToolType          = Commands
 GnuAfterInstall   = install-fixup install-plist compat-symlink strip-binaries
@@ -18,7 +18,9 @@ Patches = configure.diff \
           LDAP-5648196.patch \
           configure-5709172.patch \
           Kerberos-4258093.patch \
-          DiskImages-6103805.patch
+          DiskImages-6103805.patch \
+          curl-config.in.diff \
+          tests__runtests.pl.diff
 
 Extra_Configure_Flags = --with-gssapi --enable-hidden-symbols --disable-static
 
@@ -38,10 +40,9 @@ ConfigStamp2 = $(ConfigStamp)2
 configure:: $(ConfigStamp2)
 
 $(ConfigStamp2): $(ConfigStamp)
-	ed - $(OBJROOT)/lib/config.h < $(SRCROOT)/patches/config.h.ed
-	ed - $(OBJROOT)/src/config.h < $(SRCROOT)/patches/config.h.ed
+	ed - $(OBJROOT)/lib/curl_config.h < $(SRCROOT)/patches/config.h.ed
+	ed - $(OBJROOT)/src/curl_config.h < $(SRCROOT)/patches/config.h.ed
 	ed - $(OBJROOT)/include/curl/curlbuild.h < $(SRCROOT)/patches/curlbuild.h.ed
-	ed - $(OBJROOT)/curl-config < $(SRCROOT)/patches/curl-config.ed
 	touch $(ConfigStamp2)
 
 ProjVers = $(Project)-$(ProjectVersion)

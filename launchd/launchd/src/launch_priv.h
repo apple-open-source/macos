@@ -49,17 +49,20 @@ __BEGIN_DECLS
 #define LAUNCH_KEY_BATCHQUERY							"BatchQuery"
 #define LAUNCHD_DO_APPLE_INTERNAL_LOGGING				"__DoAppleInternalLogging__"
 
-#define LAUNCH_KEY_JETSAMLABEL							"JetsamLabel"
-#define LAUNCH_KEY_JETSAMFRONTMOST						"JetsamFrontmost"
-#define LAUNCH_KEY_JETSAMPRIORITY						"JetsamPriority"
-
 #define LAUNCH_JOBKEY_TRANSACTIONCOUNT					"TransactionCount"
 #define LAUNCH_JOBKEY_QUARANTINEDATA					"QuarantineData"
 #define LAUNCH_JOBKEY_SANDBOXPROFILE					"SandboxProfile"
 #define LAUNCH_JOBKEY_SANDBOXFLAGS						"SandboxFlags"
 #define LAUNCH_JOBKEY_SANDBOX_NAMED						"Named"
+#define LAUNCH_JOBKEY_JETSAMPROPERTIES					"JetsamProperties"
 #define LAUNCH_JOBKEY_JETSAMPRIORITY					"JetsamPriority"
+#define LAUNCH_JOBKEY_JETSAMMEMORYLIMIT					"JetsamMemoryLimit"
 #define LAUNCH_JOBKEY_SECURITYSESSIONUUID				"SecuritySessionUUID"
+
+#define LAUNCH_KEY_JETSAMLABEL							"JetsamLabel"
+#define LAUNCH_KEY_JETSAMFRONTMOST						"JetsamFrontmost"
+#define LAUNCH_KEY_JETSAMPRIORITY						LAUNCH_JOBKEY_JETSAMPRIORITY
+#define LAUNCH_KEY_JETSAMMEMORYLIMIT					LAUNCH_JOBKEY_JETSAMMEMORYLIMIT
 
 #define LAUNCH_JOBKEY_EMBEDDEDPRIVILEGEDISPENSATION		"EmbeddedPrivilegeDispensation"
 #define LAUNCH_JOBKEY_EMBEDDEDMAINTHREADPRIORITY		"EmbeddedMainThreadPriority"

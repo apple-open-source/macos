@@ -63,16 +63,18 @@ p.roffit {
 <p class="level0">When a single transfer is completed, the easy handle is still left added to the multi stack. You need to first remove the easy handle with <a class="emphasis" href="./curl_multi_remove_handle.html">curl_multi_remove_handle(3)</a> and then close it with <a class="emphasis" href="./curl_easy_cleanup.html">curl_easy_cleanup(3)</a>, or possibly set new options to it and add it again with <a class="emphasis" href="./curl_multi_add_handle.html">curl_multi_add_handle(3)</a> to start another transfer. 
 <p class="level0">When all transfers in the multi stack are done, cleanup the multi handle with <a class="emphasis" href="./curl_multi_cleanup.html">curl_multi_cleanup(3)</a>. Be careful and please note that you <span Class="bold">MUST</span> invoke separate <a class="emphasis" href="./curl_easy_cleanup.html">curl_easy_cleanup(3)</a> calls on every single easy handle to clean them up properly. 
 <p class="level0">If you want to re-use an easy handle that was added to the multi handle for transfer, you must first remove it from the multi stack and then re-add it again (possibly after having altered some options at your own choice). <a name="MULTISOCKET"></a><h2 class="nroffsh">MULTI_SOCKET</h2>
-<p class="level0">Since 7.16.0, the <a class="emphasis" href="./curl_multi_socket.html">curl_multi_socket(3)</a> function offers a way for applications to not only avoid being forced to use select(), but it also offers a much more high-performance API that will make a significant difference for applications using large numbers of simultaneous connections. 
-<p class="level0"><a class="emphasis" href="./curl_multi_socket.html">curl_multi_socket(3)</a> (and <a class="emphasis" href="./curl_multi_socket_all.html">curl_multi_socket_all(3)</a>) is then used instead of <a class="emphasis" href="./curl_multi_perform.html">curl_multi_perform(3)</a>. <a name="BLOCKING"></a><h2 class="nroffsh">BLOCKING</h2>
+<p class="level0">Since 7.16.0, the <a class="emphasis" href="./curl_multi_socket_action.html">curl_multi_socket_action(3)</a> function offers a way for applications to not only avoid being forced to use select(), but it also offers a much more high-performance API that will make a significant difference for applications using large numbers of simultaneous connections. 
+<p class="level0"><a class="emphasis" href="./curl_multi_socket_action.html">curl_multi_socket_action(3)</a> is then used instead of <a class="emphasis" href="./curl_multi_perform.html">curl_multi_perform(3)</a>. <a name="BLOCKING"></a><h2 class="nroffsh">BLOCKING</h2>
 <p class="level0">A few areas in the code are still using blocking code, even when used from the multi interface. While we certainly want and intend for these to get fixed in the future, you should be aware of the following current restrictions: 
 <p class="level0"><pre>
 <p class="level0">&nbsp;- Name resolves on non-windows unless c-ares is used
  &nbsp;- GnuTLS SSL connections
  &nbsp;- Active FTP connections
  &nbsp;- HTTP proxy CONNECT operations
+ &nbsp;- SOCKS proxy handshakes
  &nbsp;- TFTP transfers
  &nbsp;- file:// transfers
+ &nbsp;- TELNET transfers
  </pre>
 
 <p class="level0"><p class="roffit">

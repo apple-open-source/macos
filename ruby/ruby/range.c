@@ -2,8 +2,8 @@
 
   range.c -
 
-  $Author: knu $
-  $Date: 2008-05-28 17:52:57 +0900 (Wed, 28 May 2008) $
+  $Author: shyouhei $
+  $Date: 2009-02-22 21:43:42 +0900 (Sun, 22 Feb 2009) $
   created at: Thu Aug 19 17:46:47 JST 1993
 
   Copyright (C) 1993-2003 Yukihiro Matsumoto
@@ -273,6 +273,8 @@ step_i(i, arg)
     return Qnil;
 }
 
+extern int ruby_float_step _((VALUE from, VALUE to, VALUE step, int excl));
+
 /*
  *  call-seq:
  *     rng.step(n=1) {| obj | block }    => rng
@@ -342,6 +344,9 @@ range_step(argc, argv, range)
 	    i += unit;
 	}
 
+    }
+    else if (ruby_float_step(b, e, step, EXCL(range))) {
+	/* done */
     }
     else if (rb_obj_is_kind_of(b, rb_cNumeric) ||
 	     !NIL_P(rb_check_to_integer(b, "to_int")) ||

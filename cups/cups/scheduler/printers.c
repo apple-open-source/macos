@@ -1,5 +1,5 @@
 /*
- * "$Id: printers.c 7968 2008-09-19 23:03:01Z mike $"
+ * "$Id: printers.c 8921 2009-12-14 22:08:53Z mike $"
  *
  *   Printer routines for the Common UNIX Printing System (CUPS).
  *
@@ -649,7 +649,10 @@ cupsdDeleteAllPrinters(void)
   for (p = (cupsd_printer_t *)cupsArrayFirst(Printers);
        p;
        p = (cupsd_printer_t *)cupsArrayNext(Printers))
+  {
+    p->op_policy_ptr = DefaultPolicyPtr;
     cupsdDeletePrinter(p, 0);
+  }
 }
 
 
@@ -3755,7 +3758,7 @@ add_printer_formats(cupsd_printer_t *p)	/* I - Printer */
 	 filter;
 	 filter = (mime_filter_t *)cupsArrayNext(MimeDatabase->filters))
     {
-      if (filter->dst == p->filetype && filter->filter && 
+      if (filter->dst == p->filetype && filter->filter &&
 	  strstr(filter->filter, "PrintJobMgr"))
 	break;
     }
@@ -4850,5 +4853,5 @@ write_xml_string(cups_file_t *fp,	/* I - File to write to */
 
 
 /*
- * End of "$Id: printers.c 7968 2008-09-19 23:03:01Z mike $".
+ * End of "$Id: printers.c 8921 2009-12-14 22:08:53Z mike $".
  */

@@ -1,0 +1,37 @@
+Aida de la llista de distribución %(listname)s:
+
+Esta ye l'aida coles órdenes que pueden unviase per corréu-e
+na versión %(version)s del xestor de llistes 'Mailman'.
+Descríbense darréu, les órdenes que pueden unviase pa 
+obtener información y remanar la to soscripción nes llistes 
+xestionaes por 'Mailman'. Les órdenes pueden unviase nel asuntu
+(subject) o nel cuerpu del mensax.
+
+Decátate que munches de les siguientes coses pueden facese tamién
+a traviés de la WEB en:
+
+    %(listinfo_url)s
+
+En particular, puedes usar esti sitiu WEB pa facer que se t'unvíe
+la to clave a la to direición de corréu-e.
+
+Les órdenes específiques a les llistes (subscribe, who, etc) tienen 
+d'unviase a la direición *-request pa la llista concreta. Por exemplu,
+pa la llista 'mailman' usaríase mailman-request@...
+
+Na descripción de les órdenes úsense les siguientes pautes:
+Les pallabres conseñaes ente ángulos '<>' son elementos IMPRESCINDIBLES,
+mentantu que les pallabres conseñaes ente corchetes '[]' son elementos
+OPCIONALES. Nun incluyas los ángulos o los corchetes cuando uses les 
+órdenes.
+
+Órdenes válides:
+
+    %(commands)s
+
+Les órdenes tienen d'unviase a %(requestaddr)s
+
+Les entrugues y comentarios pal responsable de la llista tienen 
+d'unviase a 
+
+    %(adminaddr)s

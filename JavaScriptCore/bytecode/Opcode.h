@@ -67,7 +67,7 @@ namespace JSC {
         macro(op_negate, 3) \
         macro(op_add, 5) \
         macro(op_mul, 5) \
-        macro(op_div, 4) \
+        macro(op_div, 5) \
         macro(op_mod, 4) \
         macro(op_sub, 5) \
         \
@@ -98,7 +98,6 @@ namespace JSC {
         macro(op_put_global_var, 4) \
         macro(op_resolve_base, 3) \
         macro(op_resolve_with_base, 4) \
-        macro(op_resolve_func, 4) \
         macro(op_get_by_id, 8) \
         macro(op_get_by_id_self, 8) \
         macro(op_get_by_id_self_list, 8) \
@@ -181,7 +180,7 @@ namespace JSC {
 
     #define OPCODE_ID_LENGTHS(id, length) const int id##_length = length;
          FOR_EACH_OPCODE_ID(OPCODE_ID_LENGTHS);
-    #undef OPCODE_ID_SIZES
+    #undef OPCODE_ID_LENGTHS
     
     #define OPCODE_LENGTH(opcode) opcode##_length
 
