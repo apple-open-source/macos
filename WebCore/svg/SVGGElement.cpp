@@ -2,8 +2,6 @@
     Copyright (C) 2004, 2005, 2007, 2008 Nikolas Zimmermann <zimmermann@kde.org>
                   2004, 2005, 2006 Rob Buis <buis@kde.org>
 
-    This file is part of the KDE project
-
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Library General Public
     License as published by the Free Software Foundation; either
@@ -25,6 +23,7 @@
 #if ENABLE(SVG)
 #include "SVGGElement.h"
 
+#include "RenderSVGHiddenContainer.h"
 #include "RenderSVGTransformableContainer.h"
 
 namespace WebCore {
@@ -57,26 +56,39 @@ void SVGGElement::svgAttributeChanged(const QualifiedName& attrName)
 {
     SVGStyledTransformableElement::svgAttributeChanged(attrName);
 
-    if (!renderer())
+    RenderObject* renderer = this->renderer();
+    if (!renderer)
         return;
 
-    if (SVGTests::isKnownAttribute(attrName) || 
-        SVGLangSpace::isKnownAttribute(attrName) ||
-        SVGExternalResourcesRequired::isKnownAttribute(attrName) ||
-        SVGStyledTransformableElement::isKnownAttribute(attrName))
-        renderer()->setNeedsLayout(true);
+    if (SVGStyledTransformableElement::isKnownAttribute(attrName)) {
+        renderer->setNeedsTransformUpdate();
+        renderer->setNeedsLayout(true);
+        return;
+    }
+
+    if (SVGTests::isKnownAttribute(attrName)
+        || SVGLangSpace::isKnownAttribute(attrName)
+        || SVGExternalResourcesRequired::isKnownAttribute(attrName))
+        renderer->setNeedsLayout(true);
 }
 
-void SVGGElement::childrenChanged(bool changedByParser, Node* beforeChange, Node* afterChange, int childCountDelta)
+void SVGGElement::synchronizeProperty(const QualifiedName& attrName)
 {
-    SVGStyledTransformableElement::childrenChanged(changedByParser, beforeChange, afterChange, childCountDelta);
+    SVGStyledTransformableElement::synchronizeProperty(attrName);
 
-    if (renderer())
-        renderer()->setNeedsLayout(true);
+    if (attrName == anyQName() || SVGExternalResourcesRequired::isKnownAttribute(attrName))
+        synchronizeExternalResourcesRequired();
 }
 
-RenderObject* SVGGElement::createRenderer(RenderArena* arena, RenderStyle*)
+RenderObject* SVGGElement::createRenderer(RenderArena* arena, RenderStyle* style)
 {
+    // SVG 1.1 testsuite explicitely uses constructs like <g display="none"><linearGradient>
+    // We still have to create renderers for the <g> & <linearGradient> element, though the
+    // subtree may be hidden - we only want the resource renderers to exist so they can be
+    // referenced from somewhere else.
+    if (style->display() == NONE)
+        return new (arena) RenderSVGHiddenContainer(this);
+
     return new (arena) RenderSVGTransformableContainer(this);
 }
 

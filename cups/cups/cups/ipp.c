@@ -1,10 +1,9 @@
 /*
  * "$Id: ipp.c 7847 2008-08-19 04:22:14Z mike $"
  *
- *   Internet Printing Protocol support functions for the Common UNIX
- *   Printing System (CUPS).
+ *   Internet Printing Protocol functions for CUPS.
  *
- *   Copyright 2007-2009 by Apple Inc.
+ *   Copyright 2007-2010 by Apple Inc.
  *   Copyright 1997-2007 by Easy Software Products, all rights reserved.
  *
  *   These coded instructions, statements, and computer programs are the
@@ -186,6 +185,8 @@ ippAddCollection(ipp_t      *ipp,	/* I - IPP message */
   attr->value_tag            = IPP_TAG_BEGIN_COLLECTION;
   attr->values[0].collection = value;
 
+  value->use ++;
+
   return (attr);
 }
 
@@ -224,10 +225,15 @@ ippAddCollections(
   attr->value_tag = IPP_TAG_BEGIN_COLLECTION;
 
   if (values != NULL)
+  {
     for (i = 0, value = attr->values;
 	 i < num_values;
 	 i ++, value ++)
+    {
       value->collection = (ipp_t *)values[i];
+      value->collection->use ++;
+    }
+  }
 
   return (attr);
 }
@@ -425,7 +431,8 @@ ippAddString(ipp_t      *ipp,		/* I - IPP message */
     value = "en";
 
  /*
-  * Convert language values to lowercase and change _ to - as needed...
+  * Convert language and charset values to lowercase and change _ to - as
+  * needed...
   */
 
   if ((type == IPP_TAG_LANGUAGE || type == IPP_TAG_CHARSET) && value)
@@ -473,6 +480,8 @@ ippAddStrings(
   int			i;		/* Looping var */
   ipp_attribute_t	*attr;		/* New attribute */
   ipp_value_t		*value;		/* Current value */
+  char			buffer[1024],	/* Language/charset value buffer */
+			*bufptr;	/* Pointer into buffer */
 
 
   DEBUG_printf(("ippAddStrings(ipp=%p, group=%02x(%s), type=%02x(%s), "
@@ -506,16 +515,36 @@ ippAddStrings(
 
     if (values != NULL)
     {
-     /*
-      * Force language to be English for the POSIX locale...
-      */
+      if ((int)type & IPP_TAG_COPY)
+        value->string.text = (char *)values[i];
+      else if (type == IPP_TAG_LANGUAGE && !strcasecmp(values[i], "C"))
+      {
+       /*
+	* Force language to be English for the POSIX locale...
+	*/
 
-      if (type == IPP_TAG_LANGUAGE && !strcasecmp(values[i], "C"))
 	value->string.text = ((int)type & IPP_TAG_COPY) ? "en" :
                                       _cupsStrAlloc("en");
+      }
+      else if (type == IPP_TAG_LANGUAGE || type == IPP_TAG_CHARSET)
+      {
+       /*
+	* Convert language values to lowercase and change _ to - as needed...
+	*/
+
+	strlcpy(buffer, values[i], sizeof(buffer));
+
+	for (bufptr = buffer; *bufptr; bufptr ++)
+	  if (*bufptr == '_')
+	    *bufptr = '-';
+	  else
+	    *bufptr = tolower(*bufptr & 255);
+
+	value->string.text = _cupsStrAlloc(buffer);
+      }
       else
-	value->string.text = ((int)type & IPP_TAG_COPY) ? (char *)values[i] :
-                                      _cupsStrAlloc(values[i]);
+	value->string.text = _cupsStrAlloc(values[i]);
+
     }
   }
 
@@ -776,6 +805,10 @@ ippDelete(ipp_t *ipp)			/* I - IPP message */
   if (!ipp)
     return;
 
+  ipp->use --;
+  if (ipp->use > 0)
+    return;
+
   for (attr = ipp->attrs; attr != NULL; attr = next)
   {
     next = attr->next;
@@ -950,6 +983,7 @@ ippNew(void)
 
     temp->request.any.version[0] = 1;
     temp->request.any.version[1] = 1;
+    temp->use                    = 1;
   }
 
   DEBUG_printf(("1ippNew: Returning %p", temp));
@@ -1871,6 +1905,12 @@ ippWriteIO(void       *dst,		/* I - Destination */
 	  *bufptr++ = ipp->request.any.request_id >> 8;
 	  *bufptr++ = ipp->request.any.request_id;
 
+	  DEBUG_printf(("2ippWriteIO: version=%d.%d", buffer[0], buffer[1]));
+	  DEBUG_printf(("2ippWriteIO: op_status=%04x",
+			ipp->request.any.op_status));
+	  DEBUG_printf(("2ippWriteIO: request_id=%d",
+			ipp->request.any.request_id));
+
           if ((*cb)(dst, buffer, (int)(bufptr - buffer)) < 0)
 	  {
 	    DEBUG_puts("1ippWriteIO: Could not write IPP header...");
@@ -1888,11 +1928,7 @@ ippWriteIO(void       *dst,		/* I - Destination */
 	ipp->current = ipp->attrs;
 	ipp->curtag  = IPP_TAG_ZERO;
 
-        DEBUG_printf(("2ippWriteIO: version=%d.%d", buffer[0], buffer[1]));
-	DEBUG_printf(("2ippWriteIO: op_status=%04x",
-	              ipp->request.any.op_status));
-	DEBUG_printf(("2ippWriteIO: request_id=%d",
-	              ipp->request.any.request_id));
+	DEBUG_printf(("1ippWriteIO: ipp->current=%p", ipp->current));
 
        /*
         * If blocking is disabled, stop here...
@@ -1913,23 +1949,30 @@ ippWriteIO(void       *dst,		/* I - Destination */
 
 	  ipp->current = ipp->current->next;
 
-          if (ipp->curtag != attr->group_tag && parent == NULL)
+          if (!parent)
 	  {
-	   /*
-	    * Send a group tag byte...
-	    */
+	    if (ipp->curtag != attr->group_tag)
+	    {
+	     /*
+	      * Send a group tag byte...
+	      */
 
-	    ipp->curtag = attr->group_tag;
+	      ipp->curtag = attr->group_tag;
 
-            if (attr->group_tag == IPP_TAG_ZERO)
+	      if (attr->group_tag == IPP_TAG_ZERO)
+		continue;
+
+	      DEBUG_printf(("2ippWriteIO: wrote group tag=%x(%s)",
+			    attr->group_tag, ippTagString(attr->group_tag)));
+	      *bufptr++ = attr->group_tag;
+	    }
+	    else if (attr->group_tag == IPP_TAG_ZERO)
 	      continue;
-
-            DEBUG_printf(("2ippWriteIO: wrote group tag=%x(%s)",
-	                  attr->group_tag, ippTagString(attr->group_tag)));
-	    *bufptr++ = attr->group_tag;
 	  }
-	  else if (attr->group_tag == IPP_TAG_ZERO)
-	    continue;
+
+	  DEBUG_printf(("1ippWriteIO: %s (%s%s)", attr->name,
+	                attr->num_values > 1 ? "1setOf " : "",
+			ippTagString(attr->value_tag)));
 
          /*
 	  * Write the attribute tag and name.  The current implementation
@@ -2602,15 +2645,18 @@ ippWriteIO(void       *dst,		/* I - Destination */
 	  * Write the data out...
 	  */
 
-          if ((*cb)(dst, buffer, (int)(bufptr - buffer)) < 0)
+	  if (bufptr > buffer)
 	  {
-	    DEBUG_puts("1ippWriteIO: Could not write IPP attribute...");
-	    ipp_buffer_release(buffer);
-	    return (IPP_ERROR);
-	  }
+	    if ((*cb)(dst, buffer, (int)(bufptr - buffer)) < 0)
+	    {
+	      DEBUG_puts("1ippWriteIO: Could not write IPP attribute...");
+	      ipp_buffer_release(buffer);
+	      return (IPP_ERROR);
+	    }
 
-          DEBUG_printf(("2ippWriteIO: wrote %d bytes",
-	                (int)(bufptr - buffer)));
+	    DEBUG_printf(("2ippWriteIO: wrote %d bytes",
+			  (int)(bufptr - buffer)));
+	  }
 
 	 /*
           * If blocking is disabled, stop here...
@@ -2979,7 +3025,7 @@ ipp_read_http(http_t      *http,	/* I - Client connection */
   int		tbytes,			/* Total bytes read */
 		bytes;			/* Bytes read this pass */
   char		len[32];		/* Length string */
-  
+
 
   DEBUG_printf(("7ipp_read_http(http=%p, buffer=%p, length=%d)",
                 http, buffer, (int)length));

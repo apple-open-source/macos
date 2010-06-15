@@ -49,10 +49,12 @@
 #define WebKitJavaScriptEnabledPreferenceKey "WebKitJavaScriptEnabled"
 #define WebKitWebSecurityEnabledPreferenceKey "WebKitWebSecurityEnabled"
 #define WebKitAllowUniversalAccessFromFileURLsPreferenceKey "WebKitAllowUniversalAccessFromFileURLs"
+#define WebKitAllowFileAccessFromFileURLsPreferenceKey "WebKitAllowFileAccessFromFileURLs"
 #define WebKitJavaScriptCanOpenWindowsAutomaticallyPreferenceKey "WebKitJavaScriptCanOpenWindowsAutomatically"
 #define WebKitPluginsEnabledPreferenceKey "WebKitPluginsEnabled"
 #define WebKitDatabasesEnabledPreferenceKey "WebKitDatabasesEnabled"
 #define WebKitLocalStorageEnabledPreferenceKey "WebKitLocalStorageEnabled"
+#define WebKitExperimentalNotificationsEnabledPreferenceKey "WebKitExperimentalNotificationsEnabled"
 #define WebKitAllowAnimatedImagesPreferenceKey "WebKitAllowAnimatedImagesPreferenceKey"
 #define WebKitAllowAnimatedImageLoopingPreferenceKey "WebKitAllowAnimatedImageLoopingPreferenceKey"
 #define WebKitDisplayImagesKey "WebKitDisplayImagesKey"
@@ -123,6 +125,20 @@
 
 #define WebKitZoomsTextOnlyPreferenceKey "WebKitZoomsTextOnly"
 
+#define WebKitJavaScriptCanAccessClipboardPreferenceKey "WebKitJavaScriptCanAccessClipboard"
+
 #define WebKitXSSAuditorEnabledPreferenceKey "WebKitXSSAuditorEnabled"
 
 #define WebKitUseHighResolutionTimersPreferenceKey "WebKitUseHighResolutionTimers"
+
+#define WebKitPluginAllowedRunTimePreferenceKey "WebKitPluginAllowedRunTime"
+
+#define WebKitFrameFlatteningEnabledPreferenceKey "WebKitFrameFlatteningEnabled"
+
+#define WebKitAcceleratedCompositingEnabledPreferenceKey "WebKitAcceleratedCompositingEnabled"
+
+#define WebKitShowDebugBordersPreferenceKey "WebKitShowDebugBorders"
+
+#define WebKitShowRepaintCounterPreferenceKey "WebKitShowRepaintCounter"
+
+#define WebKitCustomDragCursorsEnabledPreferenceKey "WebKitCustomDragCursorsEnabled"

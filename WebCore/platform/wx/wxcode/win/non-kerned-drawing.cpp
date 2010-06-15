@@ -79,13 +79,24 @@ void drawTextWithSpacing(GraphicsContext* graphicsContext, const SimpleFontData*
 
     // get the native HDC handle to draw using native APIs
     HDC hdc = 0;
+    float y = point.y() - font->ascent();
+    float x = point.x();
+
 #if USE(WXGC)
+    // when going from GdiPlus -> Gdi, any GdiPlus transformations are lost
+    // so we need to alter the coordinates to reflect their transformed point.
+    double xtrans = 0;
+    double ytrans = 0;
+    
     wxGraphicsContext* gc = dc->GetGraphicsContext();
+    gc->GetTransform().TransformPoint(&xtrans, &ytrans);
     Gdiplus::Graphics* g;
     if (gc) {
         g = (Gdiplus::Graphics*)gc->GetNativeContext();
         hdc = g->GetHDC();
     }
+    x += (int)xtrans;
+    y += (int)ytrans;    
 #else
     hdc = static_cast<HDC>(dc->GetHDC());
 #endif
@@ -94,9 +105,6 @@ void drawTextWithSpacing(GraphicsContext* graphicsContext, const SimpleFontData*
     // from the glyph buffer
     const GlyphBufferGlyph*   glyphs   = glyphBuffer.glyphs(from);
     const GlyphBufferAdvance* advances = glyphBuffer.advances(from);
-
-    float y = point.y() - font->ascent();
-    float x = point.x();
 
     int* spacing = new int[numGlyphs - from];
     for (unsigned i = 0; i < numGlyphs; ++i)
@@ -114,7 +122,7 @@ void drawTextWithSpacing(GraphicsContext* graphicsContext, const SimpleFontData*
 
     // draw text with optional character widths array
     wxString string = wxString((wxChar*)(&glyphs[from]), numGlyphs);
-    ::ExtTextOut(hdc, x, y, 0, NULL, string.c_str(), string.length(), spacing);
+    ::ExtTextOut(hdc, x, y,  ETO_GLYPH_INDEX, 0, reinterpret_cast<const WCHAR*>(glyphs), numGlyphs, spacing);
 
     ::SetBkMode(hdc, TRANSPARENT);
 

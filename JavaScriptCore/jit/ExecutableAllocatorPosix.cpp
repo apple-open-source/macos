@@ -27,7 +27,7 @@
 
 #include "ExecutableAllocator.h"
 
-#if ENABLE(ASSEMBLER)
+#if ENABLE(ASSEMBLER) && OS(UNIX) && !OS(SYMBIAN)
 
 #include <sys/mman.h>
 #include <unistd.h>
@@ -35,7 +35,7 @@
 
 namespace JSC {
 
-#if !(PLATFORM(MAC) && PLATFORM(X86_64))
+#if !(OS(DARWIN) && CPU(X86_64))
 
 void ExecutableAllocator::intializePageSize()
 {
@@ -44,7 +44,10 @@ void ExecutableAllocator::intializePageSize()
 
 ExecutablePool::Allocation ExecutablePool::systemAlloc(size_t n)
 {
-    ExecutablePool::Allocation alloc = { reinterpret_cast<char*>(mmap(NULL, n, INITIAL_PROTECTION_FLAGS, MAP_PRIVATE | MAP_ANON, VM_TAG_FOR_EXECUTABLEALLOCATOR_MEMORY, 0)), n };
+    void* allocation = mmap(NULL, n, INITIAL_PROTECTION_FLAGS, MAP_PRIVATE | MAP_ANON, VM_TAG_FOR_EXECUTABLEALLOCATOR_MEMORY, 0);
+    if (allocation == MAP_FAILED)
+        CRASH();
+    ExecutablePool::Allocation alloc = { reinterpret_cast<char*>(allocation), n };
     return alloc;
 }
 
@@ -54,7 +57,7 @@ void ExecutablePool::systemRelease(const ExecutablePool::Allocation& alloc)
     ASSERT_UNUSED(result, !result);
 }
 
-#endif // !(PLATFORM(MAC) && PLATFORM(X86_64))
+#endif // !(OS(DARWIN) && CPU(X86_64))
 
 #if ENABLE(ASSEMBLER_WX_EXCLUSIVE)
 void ExecutableAllocator::reprotectRegion(void* start, size_t size, ProtectionSeting setting)
@@ -74,6 +77,21 @@ void ExecutableAllocator::reprotectRegion(void* start, size_t size, ProtectionSe
     size &= ~(pageSize - 1);
 
     mprotect(pageStart, size, (setting == Writable) ? PROTECTION_FLAGS_RW : PROTECTION_FLAGS_RX);
+}
+#endif
+
+#if CPU(ARM_TRADITIONAL) && OS(LINUX) && COMPILER(RVCT)
+__asm void ExecutableAllocator::cacheFlush(void* code, size_t size)
+{
+    ARM
+    push {r7}
+    add r1, r1, r0
+    mov r7, #0xf0000
+    add r7, r7, #0x2
+    mov r2, #0x0
+    svc #0x0
+    pop {r7}
+    bx lr
 }
 #endif
 

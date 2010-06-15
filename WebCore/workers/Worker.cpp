@@ -40,8 +40,8 @@
 #include "ExceptionCode.h"
 #include "Frame.h"
 #include "FrameLoader.h"
+#include "InspectorController.h"
 #include "MessageEvent.h"
-#include "SecurityOrigin.h"
 #include "TextEncoding.h"
 #include "WorkerContextProxy.h"
 #include "WorkerScriptLoader.h"
@@ -51,23 +51,20 @@
 namespace WebCore {
 
 Worker::Worker(const String& url, ScriptExecutionContext* context, ExceptionCode& ec)
-    : ActiveDOMObject(context, this)
+    : AbstractWorker(context)
     , m_contextProxy(WorkerContextProxy::create(this))
 {
-    m_scriptURL = context->completeURL(url);
-    if (url.isEmpty() || !m_scriptURL.isValid()) {
-        ec = SYNTAX_ERR;
+    KURL scriptURL = resolveURL(url, ec);
+    if (ec)
         return;
-    }
 
-    if (!context->securityOrigin()->canAccess(SecurityOrigin::create(m_scriptURL).get())) {
-        ec = SECURITY_ERR;
-        return;
-    }
-
-    m_scriptLoader = new WorkerScriptLoader();
-    m_scriptLoader->loadAsynchronously(scriptExecutionContext(), m_scriptURL, DenyCrossOriginRedirect, this);
+    m_scriptLoader = new WorkerScriptLoader(ResourceRequestBase::TargetIsWorker);
+    m_scriptLoader->loadAsynchronously(scriptExecutionContext(), scriptURL, DenyCrossOriginRequests, this);
     setPendingActivity(this);  // The worker context does not exist while loading, so we must ensure that the worker object is not collected, as well as its event listeners.
+#if ENABLE(INSPECTOR)
+    if (InspectorController* inspector = scriptExecutionContext()->inspectorController())
+        inspector->didCreateWorker(asID(), scriptURL.string(), false);
+#endif
 }
 
 Worker::~Worker()
@@ -77,18 +74,27 @@ Worker::~Worker()
     m_contextProxy->workerObjectDestroyed();
 }
 
-void Worker::postMessage(const String& message, ExceptionCode& ec)
+// FIXME: remove this when we update the ObjC bindings (bug #28774).
+void Worker::postMessage(PassRefPtr<SerializedScriptValue> message, MessagePort* port, ExceptionCode& ec)
 {
-    postMessage(message, 0, ec);
+    MessagePortArray ports;
+    if (port)
+        ports.append(port);
+    postMessage(message, &ports, ec);
 }
 
-void Worker::postMessage(const String& message, MessagePort* messagePort, ExceptionCode& ec)
+void Worker::postMessage(PassRefPtr<SerializedScriptValue> message, ExceptionCode& ec)
+{
+    postMessage(message, static_cast<MessagePortArray*>(0), ec);
+}
+
+void Worker::postMessage(PassRefPtr<SerializedScriptValue> message, const MessagePortArray* ports, ExceptionCode& ec)
 {
     // Disentangle the port in preparation for sending it to the remote context.
-    OwnPtr<MessagePortChannel> channel = messagePort ? messagePort->disentangle(ec) : 0;
+    OwnPtr<MessagePortChannelArray> channels = MessagePort::disentanglePorts(ports, ec);
     if (ec)
         return;
-    m_contextProxy->postMessageToWorkerContext(message, channel.release());
+    m_contextProxy->postMessageToWorkerContext(message, channels.release());
 }
 
 void Worker::terminate()
@@ -115,93 +121,17 @@ bool Worker::hasPendingActivity() const
 void Worker::notifyFinished()
 {
     if (m_scriptLoader->failed())
-        dispatchErrorEvent();
-    else
-        m_contextProxy->startWorkerContext(m_scriptURL, scriptExecutionContext()->userAgent(m_scriptURL), m_scriptLoader->script());
-
+        dispatchEvent(Event::create(eventNames().errorEvent, false, true));
+    else {
+        m_contextProxy->startWorkerContext(m_scriptLoader->url(), scriptExecutionContext()->userAgent(m_scriptLoader->url()), m_scriptLoader->script());
+#if ENABLE(INSPECTOR)
+        if (InspectorController* inspector = scriptExecutionContext()->inspectorController())
+            inspector->scriptImported(m_scriptLoader->identifier(), m_scriptLoader->script());
+#endif
+    }
     m_scriptLoader = 0;
 
     unsetPendingActivity(this);
-}
-
-void Worker::dispatchErrorEvent()
-{
-    RefPtr<Event> evt = Event::create(eventNames().errorEvent, false, true);
-    if (m_onErrorListener) {
-        evt->setTarget(this);
-        evt->setCurrentTarget(this);
-        m_onErrorListener->handleEvent(evt.get(), true);
-    }
-
-    ExceptionCode ec = 0;
-    dispatchEvent(evt.release(), ec);
-    ASSERT(!ec);
-}
-
-void Worker::addEventListener(const AtomicString& eventType, PassRefPtr<EventListener> eventListener, bool)
-{
-    EventListenersMap::iterator iter = m_eventListeners.find(eventType);
-    if (iter == m_eventListeners.end()) {
-        ListenerVector listeners;
-        listeners.append(eventListener);
-        m_eventListeners.add(eventType, listeners);
-    } else {
-        ListenerVector& listeners = iter->second;
-        for (ListenerVector::iterator listenerIter = listeners.begin(); listenerIter != listeners.end(); ++listenerIter) {
-            if (*listenerIter == eventListener)
-                return;
-        }
-        
-        listeners.append(eventListener);
-        m_eventListeners.add(eventType, listeners);
-    }    
-}
-
-void Worker::removeEventListener(const AtomicString& eventType, EventListener* eventListener, bool)
-{
-    EventListenersMap::iterator iter = m_eventListeners.find(eventType);
-    if (iter == m_eventListeners.end())
-        return;
-    
-    ListenerVector& listeners = iter->second;
-    for (ListenerVector::const_iterator listenerIter = listeners.begin(); listenerIter != listeners.end(); ++listenerIter) {
-        if (*listenerIter == eventListener) {
-            listeners.remove(listenerIter - listeners.begin());
-            return;
-        }
-    }
-}
-
-bool Worker::dispatchEvent(PassRefPtr<Event> event, ExceptionCode& ec)
-{
-    if (!event || event->type().isEmpty()) {
-        ec = EventException::UNSPECIFIED_EVENT_TYPE_ERR;
-        return true;
-    }
-
-    ListenerVector listenersCopy = m_eventListeners.get(event->type());
-    for (ListenerVector::const_iterator listenerIter = listenersCopy.begin(); listenerIter != listenersCopy.end(); ++listenerIter) {
-        event->setTarget(this);
-        event->setCurrentTarget(this);
-        listenerIter->get()->handleEvent(event.get(), false);
-    }
-
-    return !event->defaultPrevented();
-}
-
-void Worker::dispatchMessage(const String& message, PassRefPtr<MessagePort> port)
-{
-    RefPtr<Event> evt = MessageEvent::create(message, "", "", 0, port);
-
-    if (m_onMessageListener.get()) {
-        evt->setTarget(this);
-        evt->setCurrentTarget(this);
-        m_onMessageListener->handleEvent(evt.get(), false);
-    }
-
-    ExceptionCode ec = 0;
-    dispatchEvent(evt.release(), ec);
-    ASSERT(!ec);
 }
 
 } // namespace WebCore

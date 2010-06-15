@@ -23,7 +23,6 @@
 #define CSSStyleSelector_h
 
 #include "CSSFontSelector.h"
-#include "KeyframeList.h"
 #include "LinkHash.h"
 #include "MediaQueryExp.h"
 #include "RenderStyle.h"
@@ -36,6 +35,7 @@
 namespace WebCore {
 
 class CSSMutableStyleDeclaration;
+class CSSPageRule;
 class CSSPrimitiveValue;
 class CSSProperty;
 class CSSFontFace;
@@ -56,6 +56,7 @@ class Element;
 class Frame;
 class FrameView;
 class KURL;
+class KeyframeList;
 class MediaQueryEvaluator;
 class Node;
 class Settings;
@@ -65,7 +66,7 @@ class StyleSheetList;
 class StyledElement;
 class WebKitCSSKeyframesRule;
 
-class MediaQueryResult {
+class MediaQueryResult : public Noncopyable {
 public:
     MediaQueryResult(const MediaQueryExp& expr, bool result)
         : m_expression(expr)
@@ -78,17 +79,21 @@ public:
 };
 
     // This class selects a RenderStyle for a given element based on a collection of stylesheets.
-    class CSSStyleSelector : Noncopyable {
+    class CSSStyleSelector : public Noncopyable {
     public:
-        CSSStyleSelector(Document*, const String& userStyleSheet, StyleSheetList*, CSSStyleSheet*, bool strictParsing, bool matchAuthorAndUserStyles);
+        CSSStyleSelector(Document*, StyleSheetList* authorSheets, CSSStyleSheet* mappedElementSheet,
+                         CSSStyleSheet* pageUserSheet, const Vector<RefPtr<CSSStyleSheet> >* pageGroupUserSheets,
+                         bool strictParsing, bool matchAuthorAndUserStyles);
         ~CSSStyleSelector();
 
-        void initElementAndPseudoState(Element*);
         void initForStyleResolve(Element*, RenderStyle* parentStyle = 0, PseudoId = NOPSEUDO);
-        PassRefPtr<RenderStyle> styleForElement(Element*, RenderStyle* parentStyle = 0, bool allowSharing = true, bool resolveForRootDefault = false);
+        PassRefPtr<RenderStyle> styleForElement(Element* e, RenderStyle* parentStyle = 0, bool allowSharing = true, bool resolveForRootDefault = false, bool matchVisitedPseudoClass = false);
+        
         void keyframeStylesForAnimation(Element*, const RenderStyle*, KeyframeList& list);
 
-        PassRefPtr<RenderStyle> pseudoStyleForElement(PseudoId, Element*, RenderStyle* parentStyle = 0);
+        PassRefPtr<RenderStyle> pseudoStyleForElement(PseudoId pseudo, Element* e, RenderStyle* parentStyle = 0, bool matchVisitedPseudoClass = false);
+
+        static PassRefPtr<RenderStyle> styleForDocument(Document*);
 
 #if ENABLE(DATAGRID)
         // Datagrid style computation (uses unique pseudo elements and structures)
@@ -97,6 +102,7 @@ public:
 #endif
 
     private:
+        void initElement(Element*);
         RenderStyle* locateSharedStyle();
         Node* locateCousinList(Element* parent, unsigned depth = 1);
         bool canShareStyleWithElement(Node*);
@@ -106,12 +112,12 @@ public:
     public:
         // These methods will give back the set of rules that matched for a given element (or a pseudo-element).
         PassRefPtr<CSSRuleList> styleRulesForElement(Element*, bool authorOnly);
-        PassRefPtr<CSSRuleList> pseudoStyleRulesForElement(Element*, const String& pseudoStyle, bool authorOnly);
+        PassRefPtr<CSSRuleList> pseudoStyleRulesForElement(Element*, PseudoId, bool authorOnly);
 
         // Given a CSS keyword in the range (xx-small to -webkit-xxx-large), this function will return
         // the correct font size scaled relative to the user's default (medium).
-        float fontSizeForKeyword(int keyword, bool quirksMode, bool monospace) const;
-
+        static float fontSizeForKeyword(Document*, int keyword, bool monospace);
+        
     private:
         // When the CSS keyword "larger" is used, this function will attempt to match within the keyword
         // table, and failing that, will simply multiply by 1.2.
@@ -127,7 +133,7 @@ public:
         void applyPropertyToStyle(int id, CSSValue*, RenderStyle*);
 
     private:
-        float getComputedSizeFromSpecifiedSize(bool isAbsoluteSize, float specifiedSize);
+        static float getComputedSizeFromSpecifiedSize(Document*, RenderStyle*, bool isAbsoluteSize, float specifiedSize, bool useSVGZoomRules);
 
     public:
         Color getColorFromPrimitiveValue(CSSPrimitiveValue*);
@@ -151,8 +157,9 @@ public:
         void resolveVariablesForDeclaration(CSSMutableStyleDeclaration* decl, CSSMutableStyleDeclaration* newDecl, HashSet<String>& usedBlockVariables);
 
         void addKeyframeStyle(PassRefPtr<WebKitCSSKeyframesRule> rule);
+        void addPageStyle(PassRefPtr<CSSPageRule>);
 
-        static bool createTransformOperations(CSSValue* inValue, RenderStyle* inStyle, TransformOperations& outOperations);
+        static bool createTransformOperations(CSSValue* inValue, RenderStyle* inStyle, RenderStyle* rootStyle, TransformOperations& outOperations);
 
     private:
         enum SelectorMatch { SelectorMatches, SelectorFailsLocally, SelectorFailsCompletely };
@@ -171,11 +178,11 @@ public:
         void matchRulesForList(CSSRuleDataList*, int& firstRuleIndex, int& lastRuleIndex);
         void sortMatchedRules(unsigned start, unsigned end);
 
-        void applyDeclarations(bool firstPass, bool important, int startIndex, int endIndex);
+        template <bool firstPass>
+        void applyDeclarations(bool important, int startIndex, int endIndex);
         
         CSSRuleSet* m_authorStyle;
         CSSRuleSet* m_userStyle;
-        RefPtr<CSSStyleSheet> m_userSheet;
 
         bool m_hasUAAppearance;
         BorderData m_borderData;
@@ -193,11 +200,12 @@ public:
             SelectorChecker(Document*, bool strictParsing);
 
             bool checkSelector(CSSSelector*, Element*) const;
-            SelectorMatch checkSelector(CSSSelector*, Element*, HashSet<AtomicStringImpl*>* selectorAttrs, PseudoId& dynamicPseudo, bool isAncestor, bool isSubSelector, RenderStyle* = 0, RenderStyle* elementParentStyle = 0) const;
-            bool checkOneSelector(CSSSelector*, Element*, HashSet<AtomicStringImpl*>* selectorAttrs, PseudoId& dynamicPseudo, bool isAncestor, bool isSubSelector, RenderStyle*, RenderStyle* elementParentStyle) const;
-            PseudoState checkPseudoState(Element*, bool checkVisited = true) const;
+            SelectorMatch checkSelector(CSSSelector*, Element*, HashSet<AtomicStringImpl*>* selectorAttrs, PseudoId& dynamicPseudo, bool isSubSelector, bool encounteredLink, RenderStyle* = 0, RenderStyle* elementParentStyle = 0) const;
+            bool checkOneSelector(CSSSelector*, Element*, HashSet<AtomicStringImpl*>* selectorAttrs, PseudoId& dynamicPseudo, bool isSubSelector, RenderStyle*, RenderStyle* elementParentStyle) const;
             bool checkScrollbarPseudoClass(CSSSelector*, PseudoId& dynamicPseudo) const;
 
+            EInsideLink determineLinkState(Element* element) const;
+            EInsideLink determineLinkStateSlowCase(Element* element) const;
             void allVisitedStateChanged();
             void visitedStateChanged(LinkHash visitedHash);
 
@@ -206,6 +214,7 @@ public:
             bool m_collectRulesOnly;
             PseudoId m_pseudoStyle;
             bool m_documentIsHTML;
+            mutable bool m_matchVisitedPseudoClass;
             mutable HashSet<LinkHash, LinkHashHash> m_linksCheckedForVisitedState;
         };
 
@@ -223,7 +232,8 @@ public:
         void mapFillComposite(FillLayer*, CSSValue*);
         void mapFillOrigin(FillLayer*, CSSValue*);
         void mapFillImage(FillLayer*, CSSValue*);
-        void mapFillRepeat(FillLayer*, CSSValue*);
+        void mapFillRepeatX(FillLayer*, CSSValue*);
+        void mapFillRepeatY(FillLayer*, CSSValue*);
         void mapFillSize(FillLayer*, CSSValue*);
         void mapFillXPosition(FillLayer*, CSSValue*);
         void mapFillYPosition(FillLayer*, CSSValue*);
@@ -231,8 +241,10 @@ public:
         void mapAnimationDelay(Animation*, CSSValue*);
         void mapAnimationDirection(Animation*, CSSValue*);
         void mapAnimationDuration(Animation*, CSSValue*);
+        void mapAnimationFillMode(Animation*, CSSValue*);
         void mapAnimationIterationCount(Animation*, CSSValue*);
         void mapAnimationName(Animation*, CSSValue*);
+        void mapAnimationPlayState(Animation*, CSSValue*);
         void mapAnimationProperty(Animation*, CSSValue*);
         void mapAnimationTimingFunction(Animation*, CSSValue*);
 
@@ -266,13 +278,15 @@ public:
 
         RefPtr<RenderStyle> m_style;
         RenderStyle* m_parentStyle;
+        RenderStyle* m_rootElementStyle;
         Element* m_element;
         StyledElement* m_styledElement;
+        EInsideLink m_elementLinkState;
         Node* m_parentNode;
         CSSValue* m_lineHeightValue;
         bool m_fontDirty;
         bool m_matchAuthorAndUserStyles;
-
+        
         RefPtr<CSSFontSelector> m_fontSelector;
         HashSet<AtomicStringImpl*> m_selectorAttrs;
         Vector<CSSMutableStyleDeclaration*> m_additionalAttributeStyleDecls;
@@ -282,7 +296,7 @@ public:
         HashMap<CSSMutableStyleDeclaration*, RefPtr<CSSMutableStyleDeclaration> > m_resolvedVariablesDeclarations;
     };
 
-    class CSSRuleData {
+    class CSSRuleData : public Noncopyable {
     public:
         CSSRuleData(unsigned pos, CSSStyleRule* r, CSSSelector* sel, CSSRuleData* prev = 0)
             : m_position(pos)
@@ -294,7 +308,9 @@ public:
                 prev->m_next = this;
         }
 
-        ~CSSRuleData() { delete m_next; }
+        ~CSSRuleData() 
+        { 
+        }
 
         unsigned position() { return m_position; }
         CSSStyleRule* rule() { return m_rule; }
@@ -308,7 +324,7 @@ public:
         CSSRuleData* m_next;
     };
 
-    class CSSRuleDataList {
+    class CSSRuleDataList : public Noncopyable {
     public:
         CSSRuleDataList(unsigned pos, CSSStyleRule* rule, CSSSelector* sel)
             : m_first(new CSSRuleData(pos, rule, sel))
@@ -316,7 +332,17 @@ public:
         {
         }
 
-        ~CSSRuleDataList() { delete m_first; }
+        ~CSSRuleDataList() 
+        { 
+            CSSRuleData* ptr;
+            CSSRuleData* next;
+            ptr = m_first;
+            while (ptr) {
+                next = ptr->next();
+                delete ptr;
+                ptr = next;
+            }
+        }
 
         CSSRuleData* first() { return m_first; }
         CSSRuleData* last() { return m_last; }
@@ -327,7 +353,7 @@ public:
         CSSRuleData* m_first;
         CSSRuleData* m_last;
     };
-    
+
 } // namespace WebCore
 
 #endif // CSSStyleSelector_h

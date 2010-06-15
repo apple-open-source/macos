@@ -26,81 +26,29 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-Object.type = function(obj, win)
+Object.proxyType = function(objectProxy)
 {
-    if (obj === null)
+    if (objectProxy === null)
         return "null";
 
-    var type = typeof obj;
+    var type = typeof objectProxy;
     if (type !== "object" && type !== "function")
         return type;
 
-    win = win || window;
-
-    if (obj instanceof win.Node)
-        return "node";
-    if (obj instanceof win.String)
-        return "string";
-    if (obj instanceof win.Array)
-        return "array";
-    if (obj instanceof win.Boolean)
-        return "boolean";
-    if (obj instanceof win.Number)
-        return "number";
-    if (obj instanceof win.Date)
-        return "date";
-    if (obj instanceof win.RegExp)
-        return "regexp";
-    if (obj instanceof win.Error)
-        return "error";
-    return type;
+    return objectProxy.type;
 }
 
-Object.hasProperties = function(obj)
-{
-    if (typeof obj === "undefined" || typeof obj === "null")
-        return false;
-    for (var name in obj)
-        return true;
-    return false;
-}
-
-Object.describe = function(obj, abbreviated)
-{
-    var type1 = Object.type(obj);
-    var type2 = Object.prototype.toString.call(obj).replace(/^\[object (.*)\]$/i, "$1");
-
-    switch (type1) {
-    case "object":
-    case "node":
-        return type2;
-    case "array":
-        return "[" + obj.toString() + "]";
-    case "string":
-        if (obj.length > 100)
-            return "\"" + obj.substring(0, 100) + "\u2026\"";
-        return "\"" + obj + "\"";
-    case "function":
-        var objectText = String(obj);
-        if (!/^function /.test(objectText))
-            objectText = (type2 == "object") ? type1 : type2;
-        else if (abbreviated)
-            objectText = /.*/.exec(obj)[0].replace(/ +$/g, "");
-        return objectText;
-    case "regexp":
-        return String(obj).replace(/([\\\/])/g, "\\$1").replace(/\\(\/[gim]*)$/, "$1").substring(1);
-    default:
-        return String(obj);
-    }
-}
-
-Object.sortedProperties = function(obj)
+Object.properties = function(obj)
 {
     var properties = [];
     for (var prop in obj)
         properties.push(prop);
-    properties.sort();
     return properties;
+}
+
+Object.sortedProperties = function(obj, sortFunc)
+{
+    return Object.properties(obj).sort(sortFunc);
 }
 
 Function.prototype.bind = function(thisObject)
@@ -143,7 +91,7 @@ Node.prototype.rangeOfWord = function(offset, stopCharacters, stayWithinNode, di
             if (startNode)
                 break;
 
-            node = node.traversePreviousNode(false, stayWithinNode);
+            node = node.traversePreviousNode(stayWithinNode);
         }
 
         if (!startNode) {
@@ -178,7 +126,7 @@ Node.prototype.rangeOfWord = function(offset, stopCharacters, stayWithinNode, di
             if (endNode)
                 break;
 
-            node = node.traverseNextNode(false, stayWithinNode);
+            node = node.traverseNextNode(stayWithinNode);
         }
 
         if (!endNode) {
@@ -197,15 +145,44 @@ Node.prototype.rangeOfWord = function(offset, stopCharacters, stayWithinNode, di
     return result;
 }
 
+Node.prototype.traverseNextTextNode = function(stayWithin)
+{
+    var node = this.traverseNextNode(stayWithin);
+    if (!node)
+        return;
+
+    while (node && node.nodeType !== Node.TEXT_NODE)
+        node = node.traverseNextNode(stayWithin);
+
+    return node;
+}
+
+Node.prototype.rangeBoundaryForOffset = function(offset)
+{
+    var node = this.traverseNextTextNode(this);
+    while (node && offset > node.nodeValue.length) {
+        offset -= node.nodeValue.length;
+        node = node.traverseNextTextNode(this);
+    }
+    if (!node)
+        return { container: this, offset: 0 };
+    return { container: node, offset: offset };
+}
+
 Element.prototype.removeStyleClass = function(className) 
 {
-    // Test for the simple case before using a RegExp.
+    // Test for the simple case first.
     if (this.className === className) {
         this.className = "";
         return;
     }
 
-    this.removeMatchingStyleClasses(className.escapeForRegExp());
+    var index = this.className.indexOf(className);
+    if (index === -1)
+        return;
+
+    var newClassName = " " + this.className + " ";
+    this.className = newClassName.replace(" " + className + " ", " ");
 }
 
 Element.prototype.removeMatchingStyleClasses = function(classNameRegex)
@@ -225,16 +202,37 @@ Element.prototype.hasStyleClass = function(className)
 {
     if (!className)
         return false;
-    // Test for the simple case before using a RegExp.
+    // Test for the simple case
     if (this.className === className)
         return true;
-    var regex = new RegExp("(^|\\s)" + className.escapeForRegExp() + "($|\\s)");
-    return regex.test(this.className);
+
+    var index = this.className.indexOf(className);
+    if (index === -1)
+        return false;
+    var toTest = " " + this.className + " ";
+    return toTest.indexOf(" " + className + " ", index) !== -1;
+}
+
+Element.prototype.positionAt = function(x, y)
+{
+    this.style.left = x + "px";
+    this.style.top = y + "px";
+}
+
+Element.prototype.pruneEmptyTextNodes = function()
+{
+    var sibling = this.firstChild;
+    while (sibling) {
+        var nextSibling = sibling.nextSibling;
+        if (sibling.nodeType === this.TEXT_NODE && sibling.nodeValue === "")
+            this.removeChild(sibling);
+        sibling = nextSibling;
+    }
 }
 
 Node.prototype.enclosingNodeOrSelfWithNodeNameInArray = function(nameArray)
 {
-    for (var node = this; node && !objectsAreSame(node, this.ownerDocument); node = node.parentNode)
+    for (var node = this; node && node !== this.ownerDocument; node = node.parentNode)
         for (var i = 0; i < nameArray.length; ++i)
             if (node.nodeName.toLowerCase() === nameArray[i].toLowerCase())
                 return node;
@@ -248,7 +246,7 @@ Node.prototype.enclosingNodeOrSelfWithNodeName = function(nodeName)
 
 Node.prototype.enclosingNodeOrSelfWithClass = function(className)
 {
-    for (var node = this; node && !objectsAreSame(node, this.ownerDocument); node = node.parentNode)
+    for (var node = this; node && node !== this.ownerDocument; node = node.parentNode)
         if (node.nodeType === Node.ELEMENT_NODE && node.hasStyleClass(className))
             return node;
     return null;
@@ -268,8 +266,7 @@ Element.prototype.query = function(query)
 
 Element.prototype.removeChildren = function()
 {
-    while (this.firstChild) 
-        this.removeChild(this.firstChild);        
+    this.innerHTML = "";
 }
 
 Element.prototype.isInsertionCaretInside = function()
@@ -285,7 +282,7 @@ Element.prototype.__defineGetter__("totalOffsetLeft", function()
 {
     var total = 0;
     for (var element = this; element; element = element.offsetParent)
-        total += element.offsetLeft;
+        total += element.offsetLeft + (this !== element ? element.clientLeft : 0);
     return total;
 });
 
@@ -293,22 +290,35 @@ Element.prototype.__defineGetter__("totalOffsetTop", function()
 {
     var total = 0;
     for (var element = this; element; element = element.offsetParent)
-        total += element.offsetTop;
+        total += element.offsetTop + (this !== element ? element.clientTop : 0);
     return total;
 });
 
-Element.prototype.firstChildSkippingWhitespace = firstChildSkippingWhitespace;
-Element.prototype.lastChildSkippingWhitespace = lastChildSkippingWhitespace;
+Element.prototype.offsetRelativeToWindow = function(targetWindow)
+{
+    var elementOffset = {x: 0, y: 0};
+    var curElement = this;
+    var curWindow = this.ownerDocument.defaultView;
+    while (curWindow && curElement) {
+        elementOffset.x += curElement.totalOffsetLeft;
+        elementOffset.y += curElement.totalOffsetTop;
+        if (curWindow === targetWindow)
+            break;
+
+        curElement = curWindow.frameElement;
+        curWindow = curWindow.parent;
+    }
+
+    return elementOffset;
+}
 
 Node.prototype.isWhitespace = isNodeWhitespace;
-Node.prototype.nodeTypeName = nodeTypeName;
 Node.prototype.displayName = nodeDisplayName;
-Node.prototype.contentPreview = nodeContentPreview;
-Node.prototype.isAncestor = isAncestorNode;
+Node.prototype.isAncestor = function(node)
+{
+    return isAncestorNode(this, node);
+};
 Node.prototype.isDescendant = isDescendantNode;
-Node.prototype.firstCommonAncestor = firstCommonNodeAncestor;
-Node.prototype.nextSiblingSkippingWhitespace = nextSiblingSkippingWhitespace;
-Node.prototype.previousSiblingSkippingWhitespace = previousSiblingSkippingWhitespace;
 Node.prototype.traverseNextNode = traverseNextNode;
 Node.prototype.traversePreviousNode = traversePreviousNode;
 Node.prototype.onlyTextChild = onlyTextChild;
@@ -358,134 +368,12 @@ String.prototype.collapseWhitespace = function()
     return this.replace(/[\s\xA0]+/g, " ");
 }
 
-String.prototype.trimLeadingWhitespace = function()
-{
-    return this.replace(/^[\s\xA0]+/g, "");
-}
-
-String.prototype.trimTrailingWhitespace = function()
-{
-    return this.replace(/[\s\xA0]+$/g, "");
-}
-
-String.prototype.trimWhitespace = function()
-{
-    return this.replace(/^[\s\xA0]+|[\s\xA0]+$/g, "");
-}
-
 String.prototype.trimURL = function(baseURLDomain)
 {
-    var result = this.replace(new RegExp("^http[s]?:\/\/", "i"), "");
+    var result = this.replace(/^(https|http|file):\/\//i, "");
     if (baseURLDomain)
         result = result.replace(new RegExp("^" + baseURLDomain.escapeForRegExp(), "i"), "");
     return result;
-}
-
-function getStyleTextWithShorthands(style)
-{
-    var cssText = "";
-    var foundProperties = {};
-    for (var i = 0; i < style.length; ++i) {
-        var individualProperty = style[i];
-        var shorthandProperty = style.getPropertyShorthand(individualProperty);
-        var propertyName = (shorthandProperty || individualProperty);
-
-        if (propertyName in foundProperties)
-            continue;
-
-        if (shorthandProperty) {
-            var value = getShorthandValue(style, shorthandProperty);
-            var priority = getShorthandPriority(style, shorthandProperty);
-        } else {
-            var value = style.getPropertyValue(individualProperty);
-            var priority = style.getPropertyPriority(individualProperty);
-        }
-
-        foundProperties[propertyName] = true;
-
-        cssText += propertyName + ": " + value;
-        if (priority)
-            cssText += " !" + priority;
-        cssText += "; ";
-    }
-
-    return cssText;
-}
-
-function getShorthandValue(style, shorthandProperty)
-{
-    var value = style.getPropertyValue(shorthandProperty);
-    if (!value) {
-        // Some shorthands (like border) return a null value, so compute a shorthand value.
-        // FIXME: remove this when http://bugs.webkit.org/show_bug.cgi?id=15823 is fixed.
-
-        var foundProperties = {};
-        for (var i = 0; i < style.length; ++i) {
-            var individualProperty = style[i];
-            if (individualProperty in foundProperties || style.getPropertyShorthand(individualProperty) !== shorthandProperty)
-                continue;
-
-            var individualValue = style.getPropertyValue(individualProperty);
-            if (style.isPropertyImplicit(individualProperty) || individualValue === "initial")
-                continue;
-
-            foundProperties[individualProperty] = true;
-
-            if (!value)
-                value = "";
-            else if (value.length)
-                value += " ";
-            value += individualValue;
-        }
-    }
-    return value;
-}
-
-function getShorthandPriority(style, shorthandProperty)
-{
-    var priority = style.getPropertyPriority(shorthandProperty);
-    if (!priority) {
-        for (var i = 0; i < style.length; ++i) {
-            var individualProperty = style[i];
-            if (style.getPropertyShorthand(individualProperty) !== shorthandProperty)
-                continue;
-            priority = style.getPropertyPriority(individualProperty);
-            break;
-        }
-    }
-    return priority;
-}
-
-function getLonghandProperties(style, shorthandProperty)
-{
-    var properties = [];
-    var foundProperties = {};
-
-    for (var i = 0; i < style.length; ++i) {
-        var individualProperty = style[i];
-        if (individualProperty in foundProperties || style.getPropertyShorthand(individualProperty) !== shorthandProperty)
-            continue;
-        foundProperties[individualProperty] = true;
-        properties.push(individualProperty);
-    }
-
-    return properties;
-}
-
-function getUniqueStyleProperties(style)
-{
-    var properties = [];
-    var foundProperties = {};
-
-    for (var i = 0; i < style.length; ++i) {
-        var property = style[i];
-        if (property in foundProperties)
-            continue;
-        foundProperties[property] = true;
-        properties.push(property);
-    }
-
-    return properties;
 }
 
 function isNodeWhitespace()
@@ -495,29 +383,6 @@ function isNodeWhitespace()
     if (!this.nodeValue.length)
         return true;
     return this.nodeValue.match(/^[\s\xA0]+$/);
-}
-
-function nodeTypeName()
-{
-    if (!this)
-        return "(unknown)";
-
-    switch (this.nodeType) {
-        case Node.ELEMENT_NODE: return "Element";
-        case Node.ATTRIBUTE_NODE: return "Attribute";
-        case Node.TEXT_NODE: return "Text";
-        case Node.CDATA_SECTION_NODE: return "Character Data";
-        case Node.ENTITY_REFERENCE_NODE: return "Entity Reference";
-        case Node.ENTITY_NODE: return "Entity";
-        case Node.PROCESSING_INSTRUCTION_NODE: return "Processing Instruction";
-        case Node.COMMENT_NODE: return "Comment";
-        case Node.DOCUMENT_NODE: return "Document";
-        case Node.DOCUMENT_TYPE_NODE: return "Document Type";
-        case Node.DOCUMENT_FRAGMENT_NODE: return "Document Fragment";
-        case Node.NOTATION_NODE: return "Notation";
-    }
-
-    return "(unknown)";
 }
 
 function nodeDisplayName()
@@ -594,283 +459,119 @@ function nodeDisplayName()
     return this.nodeName.toLowerCase().collapseWhitespace();
 }
 
-function nodeContentPreview()
+function isAncestorNode(ancestor, node)
 {
-    if (!this || !this.hasChildNodes || !this.hasChildNodes())
-        return "";
-
-    var limit = 0;
-    var preview = "";
-
-    // always skip whitespace here
-    var currentNode = traverseNextNode.call(this, true, this);
-    while (currentNode) {
-        if (currentNode.nodeType === Node.TEXT_NODE)
-            preview += currentNode.nodeValue.escapeHTML();
-        else
-            preview += nodeDisplayName.call(currentNode).escapeHTML();
-
-        currentNode = traverseNextNode.call(currentNode, true, this);
-
-        if (++limit > 4) {
-            preview += "&#x2026;"; // ellipsis
-            break;
-        }
-    }
-
-    return preview.collapseWhitespace();
-}
-
-function objectsAreSame(a, b)
-{
-    // FIXME: Make this more generic so is works with any wrapped object, not just nodes.
-    // This function is used to compare nodes that might be JSInspectedObjectWrappers, since
-    // JavaScript equality is not true for JSInspectedObjectWrappers of the same node wrapped
-    // with different global ExecStates, we use isSameNode to compare them.
-    if (a === b)
-        return true;
-    if (!a || !b)
-        return false;
-    if (a.isSameNode && b.isSameNode)
-        return a.isSameNode(b);
-    return false;
-}
-
-function isAncestorNode(ancestor)
-{
-    if (!this || !ancestor)
+    if (!node || !ancestor)
         return false;
 
-    var currentNode = ancestor.parentNode;
+    var currentNode = node.parentNode;
     while (currentNode) {
-        if (objectsAreSame(this, currentNode))
+        if (ancestor === currentNode)
             return true;
         currentNode = currentNode.parentNode;
     }
-
     return false;
 }
 
 function isDescendantNode(descendant)
 {
-    return isAncestorNode.call(descendant, this);
+    return isAncestorNode(descendant, this);
 }
 
-function firstCommonNodeAncestor(node)
-{
-    if (!this || !node)
-        return;
-
-    var node1 = this.parentNode;
-    var node2 = node.parentNode;
-
-    if ((!node1 || !node2) || !objectsAreSame(node1, node2))
-        return null;
-
-    while (node1 && node2) {
-        if (!node1.parentNode || !node2.parentNode)
-            break;
-        if (!objectsAreSame(node1, node2))
-            break;
-
-        node1 = node1.parentNode;
-        node2 = node2.parentNode;
-    }
-
-    return node1;
-}
-
-function nextSiblingSkippingWhitespace()
+function traverseNextNode(stayWithin)
 {
     if (!this)
         return;
-    var node = this.nextSibling;
-    while (node && node.nodeType === Node.TEXT_NODE && isNodeWhitespace.call(node))
-        node = node.nextSibling;
-    return node;
-}
 
-function previousSiblingSkippingWhitespace()
-{
-    if (!this)
-        return;
-    var node = this.previousSibling;
-    while (node && node.nodeType === Node.TEXT_NODE && isNodeWhitespace.call(node))
-        node = node.previousSibling;
-    return node;
-}
-
-function firstChildSkippingWhitespace()
-{
-    if (!this)
-        return;
     var node = this.firstChild;
-    while (node && node.nodeType === Node.TEXT_NODE && isNodeWhitespace.call(node))
-        node = nextSiblingSkippingWhitespace.call(node);
-    return node;
-}
-
-function lastChildSkippingWhitespace()
-{
-    if (!this)
-        return;
-    var node = this.lastChild;
-    while (node && node.nodeType === Node.TEXT_NODE && isNodeWhitespace.call(node))
-        node = previousSiblingSkippingWhitespace.call(node);
-    return node;
-}
-
-function traverseNextNode(skipWhitespace, stayWithin)
-{
-    if (!this)
-        return;
-
-    var node = skipWhitespace ? firstChildSkippingWhitespace.call(this) : this.firstChild;
     if (node)
         return node;
 
-    if (stayWithin && objectsAreSame(this, stayWithin))
+    if (stayWithin && this === stayWithin)
         return null;
 
-    node = skipWhitespace ? nextSiblingSkippingWhitespace.call(this) : this.nextSibling;
+    node = this.nextSibling;
     if (node)
         return node;
 
     node = this;
-    while (node && !(skipWhitespace ? nextSiblingSkippingWhitespace.call(node) : node.nextSibling) && (!stayWithin || !node.parentNode || !objectsAreSame(node.parentNode, stayWithin)))
+    while (node && !node.nextSibling && (!stayWithin || !node.parentNode || node.parentNode !== stayWithin))
         node = node.parentNode;
     if (!node)
         return null;
 
-    return skipWhitespace ? nextSiblingSkippingWhitespace.call(node) : node.nextSibling;
+    return node.nextSibling;
 }
 
-function traversePreviousNode(skipWhitespace, stayWithin)
+function traversePreviousNode(stayWithin)
 {
     if (!this)
         return;
-    if (stayWithin && objectsAreSame(this, stayWithin))
+    if (stayWithin && this === stayWithin)
         return null;
-    var node = skipWhitespace ? previousSiblingSkippingWhitespace.call(this) : this.previousSibling;
-    while (node && (skipWhitespace ? lastChildSkippingWhitespace.call(node) : node.lastChild) )
-        node = skipWhitespace ? lastChildSkippingWhitespace.call(node) : node.lastChild;
+    var node = this.previousSibling;
+    while (node && node.lastChild)
+        node = node.lastChild;
     if (node)
         return node;
     return this.parentNode;
 }
 
-function onlyTextChild(ignoreWhitespace)
+function onlyTextChild()
 {
     if (!this)
         return null;
 
-    var firstChild = ignoreWhitespace ? firstChildSkippingWhitespace.call(this) : this.firstChild;
+    var firstChild = this.firstChild;
     if (!firstChild || firstChild.nodeType !== Node.TEXT_NODE)
         return null;
 
-    var sibling = ignoreWhitespace ? nextSiblingSkippingWhitespace.call(firstChild) : firstChild.nextSibling;
+    var sibling = firstChild.nextSibling;
     return sibling ? null : firstChild;
 }
 
-function nodeTitleInfo(hasChildren, linkify)
+function appropriateSelectorForNode(node, justSelector)
 {
-    var info = {title: "", hasChildren: hasChildren};
+    if (!node)
+        return "";
 
-    switch (this.nodeType) {
-        case Node.DOCUMENT_NODE:
-            info.title = "Document";
-            break;
+    var lowerCaseName = node.localName || node.nodeName.toLowerCase();
 
-        case Node.ELEMENT_NODE:
-            info.title = "<span class=\"webkit-html-tag\">&lt;" + this.nodeName.toLowerCase().escapeHTML();
-
-            if (this.hasAttributes()) {
-                for (var i = 0; i < this.attributes.length; ++i) {
-                    var attr = this.attributes[i];
-                    info.title += " <span class=\"webkit-html-attribute\"><span class=\"webkit-html-attribute-name\">" + attr.name.escapeHTML() + "</span>=&#8203;\"";
-
-                    var value = attr.value;
-                    if (linkify && (attr.name === "src" || attr.name === "href")) {
-                        var value = value.replace(/([\/;:\)\]\}])/g, "$1\u200B");
-                        info.title += linkify(attr.value, value, "webkit-html-attribute-value", this.nodeName.toLowerCase() == "a");
-                    } else {
-                        var value = value.escapeHTML();
-                        value = value.replace(/([\/;:\)\]\}])/g, "$1&#8203;");
-                        info.title += "<span class=\"webkit-html-attribute-value\">" + value + "</span>";
-                    }
-                    info.title += "\"</span>";
-                }
-            }
-            info.title += "&gt;</span>&#8203;";
-
-            // If this element only has a single child that is a text node,
-            // just show that text and the closing tag inline rather than
-            // create a subtree for them
-
-            var textChild = onlyTextChild.call(this, Preferences.ignoreWhitespace);
-            var showInlineText = textChild && textChild.textContent.length < Preferences.maxInlineTextChildLength;
-
-            if (showInlineText) {
-                info.title += "<span class=\"webkit-html-text-node\">" + textChild.nodeValue.escapeHTML() + "</span>&#8203;<span class=\"webkit-html-tag\">&lt;/" + this.nodeName.toLowerCase().escapeHTML() + "&gt;</span>";
-                info.hasChildren = false;
-            }
-            break;
-
-        case Node.TEXT_NODE:
-            if (isNodeWhitespace.call(this))
-                info.title = "(whitespace)";
-            else
-                info.title = "\"<span class=\"webkit-html-text-node\">" + this.nodeValue.escapeHTML() + "</span>\"";
-            break
-
-        case Node.COMMENT_NODE:
-            info.title = "<span class=\"webkit-html-comment\">&lt;!--" + this.nodeValue.escapeHTML() + "--&gt;</span>";
-            break;
-
-        case Node.DOCUMENT_TYPE_NODE:
-            info.title = "<span class=\"webkit-html-doctype\">&lt;!DOCTYPE " + this.nodeName;
-            if (this.publicId) {
-                info.title += " PUBLIC \"" + this.publicId + "\"";
-                if (this.systemId)
-                    info.title += " \"" + this.systemId + "\"";
-            } else if (this.systemId)
-                info.title += " SYSTEM \"" + this.systemId + "\"";
-            if (this.internalSubset)
-                info.title += " [" + this.internalSubset + "]";
-            info.title += "&gt;</span>";
-            break;
-        default:
-            info.title = this.nodeName.toLowerCase().collapseWhitespace().escapeHTML();
+    var id = node.getAttribute("id");
+    if (id) {
+        var selector = "#" + id;
+        return (justSelector ? selector : lowerCaseName + selector);
     }
 
-    return info;
+    var className = node.getAttribute("class");
+    if (className) {
+        var selector = "." + className.replace(/\s+/, ".");
+        return (justSelector ? selector : lowerCaseName + selector);
+    }
+
+    if (lowerCaseName === "input" && node.getAttribute("type"))
+        return lowerCaseName + "[type=\"" + node.getAttribute("type") + "\"]";
+
+    return lowerCaseName;
 }
 
-function getDocumentForNode(node) {
+function getDocumentForNode(node)
+{
     return node.nodeType == Node.DOCUMENT_NODE ? node : node.ownerDocument;
 }
 
-function parentNodeOrFrameElement(node) {
-    var parent = node.parentNode;
-    if (parent)
-        return parent;
-
-    return getDocumentForNode(node).defaultView.frameElement;
-}
-
-function isAncestorIncludingParentFrames(a, b) {
-    if (objectsAreSame(a, b))
-        return false;
-    for (var node = b; node; node = getDocumentForNode(node).defaultView.frameElement)
-        if (objectsAreSame(a, node) || isAncestorNode.call(a, node))
-            return true;
-    return false;
+function parentNode(node)
+{
+    return node.parentNode;
 }
 
 Number.secondsToString = function(seconds, formatterFunction, higherResolution)
 {
     if (!formatterFunction)
         formatterFunction = String.sprintf;
+
+    if (seconds === 0)
+        return "0";
 
     var ms = seconds * 1000;
     if (higherResolution && ms < 1000)
@@ -893,20 +594,27 @@ Number.secondsToString = function(seconds, formatterFunction, higherResolution)
     return formatterFunction("%.1f days", days);
 }
 
-Number.bytesToString = function(bytes, formatterFunction)
+Number.bytesToString = function(bytes, formatterFunction, higherResolution)
 {
     if (!formatterFunction)
         formatterFunction = String.sprintf;
+    if (typeof higherResolution === "undefined")
+        higherResolution = true;
 
     if (bytes < 1024)
         return formatterFunction("%.0fB", bytes);
 
     var kilobytes = bytes / 1024;
-    if (kilobytes < 1024)
+    if (higherResolution && kilobytes < 1024)
         return formatterFunction("%.2fKB", kilobytes);
+    else if (kilobytes < 1024)
+        return formatterFunction("%.0fKB", kilobytes);
 
     var megabytes = kilobytes / 1024;
-    return formatterFunction("%.3fMB", megabytes);
+    if (higherResolution)
+        return formatterFunction("%.3fMB", megabytes);
+    else
+        return formatterFunction("%.0fMB", megabytes);
 }
 
 Number.constrain = function(num, min, max)
@@ -938,6 +646,14 @@ Array.prototype.remove = function(value, onlyFirst)
         if (this[i] === value)
             this.splice(i, 1);
     }
+}
+
+Array.prototype.keySet = function()
+{
+    var keys = {};
+    for (var i = 0; i < this.length; ++i)
+        keys[this[i]] = true;
+    return keys;
 }
 
 function insertionIndexForObjectInListSortedByFunction(anObject, aList, aFunction)
@@ -1045,12 +761,16 @@ String.tokenizeFormatString = function(format)
 String.standardFormatters = {
     d: function(substitution)
     {
+        if (typeof substitution == "object" && Object.proxyType(substitution) === "number")
+            substitution = substitution.description;
         substitution = parseInt(substitution);
         return !isNaN(substitution) ? substitution : 0;
     },
 
     f: function(substitution, token)
     {
+        if (typeof substitution == "object" && Object.proxyType(substitution) === "number")
+            substitution = substitution.description;
         substitution = parseFloat(substitution);
         if (substitution && token.precision > -1)
             substitution = substitution.toFixed(token.precision);
@@ -1059,6 +779,8 @@ String.standardFormatters = {
 
     s: function(substitution)
     {
+        if (typeof substitution == "object" && Object.proxyType(substitution) !== "null")
+            substitution = substitution.description;
         return substitution;
     },
 };
@@ -1133,4 +855,66 @@ String.format = function(format, substitutions, formatters, initialValue, append
     }
 
     return { formattedResult: result, unusedSubstitutions: unusedSubstitutions };
+}
+
+function isEnterKey(event) {
+    // Check if in IME.
+    return event.keyCode !== 229 && event.keyIdentifier === "Enter";
+}
+
+
+function highlightSearchResult(element, offset, length)
+{
+    var lineText = element.textContent;
+    var endOffset = offset + length;
+    var highlightNode = document.createElement("span");
+    highlightNode.className = "webkit-search-result";
+    highlightNode.textContent = lineText.substring(offset, endOffset);
+
+    var boundary = element.rangeBoundaryForOffset(offset);
+    var textNode = boundary.container;
+    var text = textNode.textContent;
+
+    if (boundary.offset + length < text.length) {
+        // Selection belong to a single split mode.
+        textNode.textContent = text.substring(boundary.offset + length);
+        textNode.parentElement.insertBefore(highlightNode, textNode);
+        var prefixNode = document.createTextNode(text.substring(0, boundary.offset));
+        textNode.parentElement.insertBefore(prefixNode, highlightNode);
+        return highlightNode;
+    }
+
+    var parentElement = textNode.parentElement;
+    var anchorElement = textNode.nextSibling;
+
+    length -= text.length - boundary.offset;
+    textNode.textContent = text.substring(0, boundary.offset);
+    textNode = textNode.traverseNextTextNode(element);
+
+    while (textNode) {
+        var text = textNode.textContent;
+        if (length < text.length) {
+            textNode.textContent = text.substring(length);
+            break;
+        }
+
+        length -= text.length;
+        textNode.textContent = "";
+        textNode = textNode.traverseNextTextNode(element);
+    }
+
+    parentElement.insertBefore(highlightNode, anchorElement);
+    return highlightNode;
+}
+
+function createSearchRegex(query)
+{
+    var regex = "";
+    for (var i = 0; i < query.length; ++i) {
+        var char = query.charAt(i);
+        if (char === "]")
+            char = "\\]";
+        regex += "[" + char + "]";
+    }
+    return new RegExp(regex, "i");
 }

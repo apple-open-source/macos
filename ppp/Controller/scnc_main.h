@@ -155,7 +155,7 @@ struct ipsec_service {
 	CFArrayRef				resolvedAddress;	/* CFArray[CFData] */
 	int						resolvedAddressError;
 	int						next_address; // next address to use in the array
-
+	CFAbsoluteTime			display_reenroll_alert_time;
 };
 
 struct service {

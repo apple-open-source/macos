@@ -27,6 +27,7 @@
 #include "config.h"
 #include "DOMTimer.h"
 
+#include "InspectorTimelineAgent.h"
 #include "ScheduledAction.h"
 #include "ScriptExecutionContext.h"
 #include <wtf/HashSet.h>
@@ -42,11 +43,9 @@ double DOMTimer::s_minTimerInterval = 0.010; // 10 milliseconds
 
 static int timerNestingLevel = 0;
 
-DOMTimer::DOMTimer(ScriptExecutionContext* context, ScheduledAction* action, int timeout, bool singleShot)
-    : ActiveDOMObject(context, this)
+DOMTimer::DOMTimer(ScriptExecutionContext* context, PassOwnPtr<ScheduledAction> action, int timeout, bool singleShot)
+    : SuspendableTimer(context)
     , m_action(action)
-    , m_nextFireInterval(0)
-    , m_repeatInterval(0)
 {
     static int lastUsedTimeoutId = 0;
     ++lastUsedTimeoutId;
@@ -54,7 +53,7 @@ DOMTimer::DOMTimer(ScriptExecutionContext* context, ScheduledAction* action, int
     if (lastUsedTimeoutId <= 0)
         lastUsedTimeoutId = 1;
     m_timeoutId = lastUsedTimeoutId;
-    
+
     m_nestingLevel = timerNestingLevel + 1;
 
     scriptExecutionContext()->addTimeout(m_timeoutId, this);
@@ -74,17 +73,22 @@ DOMTimer::DOMTimer(ScriptExecutionContext* context, ScheduledAction* action, int
 
 DOMTimer::~DOMTimer()
 {
-    if (scriptExecutionContext()) {
+    if (scriptExecutionContext())
         scriptExecutionContext()->removeTimeout(m_timeoutId);
-    }
 }
-    
-int DOMTimer::install(ScriptExecutionContext* context, ScheduledAction* action, int timeout, bool singleShot)
+
+int DOMTimer::install(ScriptExecutionContext* context, PassOwnPtr<ScheduledAction> action, int timeout, bool singleShot)
 {
     // DOMTimer constructor links the new timer into a list of ActiveDOMObjects held by the 'context'.
     // The timer is deleted when context is deleted (DOMTimer::contextDestroyed) or explicitly via DOMTimer::removeById(),
     // or if it is a one-time timer and it has fired (DOMTimer::fired).
     DOMTimer* timer = new DOMTimer(context, action, timeout, singleShot);
+
+#if ENABLE(INSPECTOR)
+    if (InspectorTimelineAgent* timelineAgent = InspectorTimelineAgent::retrieve(context))
+        timelineAgent->didInstallTimer(timer->m_timeoutId, timeout, singleShot);
+#endif    
+
     return timer->m_timeoutId;
 }
 
@@ -95,6 +99,12 @@ void DOMTimer::removeById(ScriptExecutionContext* context, int timeoutId)
     // respectively
     if (timeoutId <= 0)
         return;
+
+#if ENABLE(INSPECTOR)
+    if (InspectorTimelineAgent* timelineAgent = InspectorTimelineAgent::retrieve(context))
+        timelineAgent->didRemoveTimer(timeoutId);
+#endif
+
     delete context->findTimeout(timeoutId);
 }
 
@@ -103,6 +113,11 @@ void DOMTimer::fired()
     ScriptExecutionContext* context = scriptExecutionContext();
     timerNestingLevel = m_nestingLevel;
 
+#if ENABLE(INSPECTOR)
+    if (InspectorTimelineAgent* timelineAgent = InspectorTimelineAgent::retrieve(context))
+        timelineAgent->willFireTimer(m_timeoutId);
+#endif
+
     // Simple case for non-one-shot timers.
     if (isActive()) {
         if (repeatInterval() && repeatInterval() < s_minTimerInterval) {
@@ -110,9 +125,13 @@ void DOMTimer::fired()
             if (m_nestingLevel >= maxTimerNestingLevel)
                 augmentRepeatInterval(s_minTimerInterval - repeatInterval());
         }
-        
+
         // No access to member variables after this point, it can delete the timer.
         m_action->execute(context);
+#if ENABLE(INSPECTOR)
+        if (InspectorTimelineAgent* timelineAgent = InspectorTimelineAgent::retrieve(context))
+            timelineAgent->didFireTimer();
+#endif
         return;
     }
 
@@ -121,51 +140,29 @@ void DOMTimer::fired()
 
     // No access to member variables after this point.
     delete this;
-    
+
     action->execute(context);
+#if ENABLE(INSPECTOR)
+    if (InspectorTimelineAgent* timelineAgent = InspectorTimelineAgent::retrieve(context))
+        timelineAgent->didFireTimer();
+#endif
     delete action;
     timerNestingLevel = 0;
 }
 
-bool DOMTimer::hasPendingActivity() const
-{
-    return isActive();
-}
-
 void DOMTimer::contextDestroyed()
 {
-    ActiveDOMObject::contextDestroyed();
+    SuspendableTimer::contextDestroyed();
     delete this;
 }
 
 void DOMTimer::stop()
 {
-    TimerBase::stop();
+    SuspendableTimer::stop();
     // Need to release JS objects potentially protected by ScheduledAction
     // because they can form circular references back to the ScriptExecutionContext
     // which will cause a memory leak.
     m_action.clear();
-}
-
-void DOMTimer::suspend() 
-{ 
-    ASSERT(m_nextFireInterval == 0 && m_repeatInterval == 0); 
-    m_nextFireInterval = nextFireInterval();
-    m_repeatInterval = repeatInterval();
-    TimerBase::stop();
-} 
- 
-void DOMTimer::resume() 
-{ 
-    start(m_nextFireInterval, m_repeatInterval);
-    m_nextFireInterval = 0;
-    m_repeatInterval = 0;
-} 
- 
- 
-bool DOMTimer::canSuspend() const 
-{ 
-    return true;
 }
 
 } // namespace WebCore

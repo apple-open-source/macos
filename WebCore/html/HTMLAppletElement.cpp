@@ -2,7 +2,7 @@
  * Copyright (C) 1999 Lars Knoll (knoll@kde.org)
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
  *           (C) 2000 Stefan Schimanski (1Stein@gmx.de)
- * Copyright (C) 2004, 2005, 2006, 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2004, 2005, 2006, 2008, 2009 Apple Inc. All rights reserved.
  * Copyright (C) 2008 Nokia Corporation and/or its subsidiary(-ies)
  *
  * This library is free software; you can redistribute it and/or
@@ -24,27 +24,26 @@
 #include "config.h"
 #include "HTMLAppletElement.h"
 
-#include "Frame.h"
 #include "HTMLDocument.h"
 #include "HTMLNames.h"
 #include "MappedAttribute.h"
 #include "RenderApplet.h"
-#include "RenderInline.h"
+#include "SecurityOrigin.h"
 #include "Settings.h"
-#include "ScriptController.h"
 
 namespace WebCore {
 
 using namespace HTMLNames;
 
-HTMLAppletElement::HTMLAppletElement(const QualifiedName& tagName, Document* doc)
-    : HTMLPlugInElement(tagName, doc)
+inline HTMLAppletElement::HTMLAppletElement(const QualifiedName& tagName, Document* document)
+    : HTMLPlugInElement(tagName, document)
 {
     ASSERT(hasTagName(appletTag));
 }
 
-HTMLAppletElement::~HTMLAppletElement()
+PassRefPtr<HTMLAppletElement> HTMLAppletElement::create(const QualifiedName& tagName, Document* document)
 {
+    return adoptRef(new HTMLAppletElement(tagName, document));
 }
 
 void HTMLAppletElement::parseMappedAttribute(MappedAttribute* attr)
@@ -64,7 +63,7 @@ void HTMLAppletElement::parseMappedAttribute(MappedAttribute* attr)
             document->addNamedItem(newName);
         }
         m_name = newName;
-    } else if (attr->name() == idAttr) {
+    } else if (attr->name() == idAttributeName()) {
         const AtomicString& newId = attr->value();
         if (inDocument() && document()->isHTMLDocument()) {
             HTMLDocument* document = static_cast<HTMLDocument*>(this->document());
@@ -110,9 +109,7 @@ bool HTMLAppletElement::rendererIsNeeded(RenderStyle* style)
 
 RenderObject* HTMLAppletElement::createRenderer(RenderArena*, RenderStyle* style)
 {
-    Settings* settings = document()->settings();
-
-    if (settings && settings->isJavaEnabled()) {
+    if (canEmbedJava()) {
         HashMap<String, String> args;
 
         args.set("code", getAttribute(codeAttr));
@@ -121,7 +118,7 @@ RenderObject* HTMLAppletElement::createRenderer(RenderArena*, RenderStyle* style
         if (!codeBase.isNull())
             args.set("codeBase", codeBase);
 
-        const AtomicString& name = getAttribute(document()->isHTMLDocument() ? nameAttr : idAttr);
+        const AtomicString& name = getAttribute(document()->isHTMLDocument() ? nameAttr : idAttributeName());
         if (!name.isNull())
             args.set("name", name);
         const AtomicString& archive = getAttribute(archiveAttr);
@@ -144,15 +141,23 @@ RenderObject* HTMLAppletElement::createRenderer(RenderArena*, RenderStyle* style
 
 RenderWidget* HTMLAppletElement::renderWidgetForJSBindings() const
 {
-    Settings* settings = document()->settings();
-    if (!settings || !settings->isJavaEnabled())
+    if (!canEmbedJava())
         return 0;
 
-    RenderApplet* applet = static_cast<RenderApplet*>(renderer());
+    RenderApplet* applet = toRenderApplet(renderer());
     if (applet)
         applet->createWidgetIfNecessary();
 
     return applet;
+}
+
+bool HTMLAppletElement::canEmbedJava() const
+{
+    if (document()->securityOrigin()->isSandboxed(SandboxPlugins))
+        return false;
+
+    Settings* settings = document()->settings();
+    return settings && settings->isJavaEnabled();
 }
 
 void HTMLAppletElement::finishParsingChildren()
@@ -163,46 +168,6 @@ void HTMLAppletElement::finishParsingChildren()
         renderer()->setNeedsLayout(true); // This will cause it to create its widget & the Java applet
 }
 
-String HTMLAppletElement::alt() const
-{
-    return getAttribute(altAttr);
-}
-
-void HTMLAppletElement::setAlt(const String &value)
-{
-    setAttribute(altAttr, value);
-}
-
-String HTMLAppletElement::archive() const
-{
-    return getAttribute(archiveAttr);
-}
-
-void HTMLAppletElement::setArchive(const String &value)
-{
-    setAttribute(archiveAttr, value);
-}
-
-String HTMLAppletElement::code() const
-{
-    return getAttribute(codeAttr);
-}
-
-void HTMLAppletElement::setCode(const String &value)
-{
-    setAttribute(codeAttr, value);
-}
-
-String HTMLAppletElement::codeBase() const
-{
-    return getAttribute(codebaseAttr);
-}
-
-void HTMLAppletElement::setCodeBase(const String &value)
-{
-    setAttribute(codebaseAttr, value);
-}
-
 String HTMLAppletElement::hspace() const
 {
     return getAttribute(hspaceAttr);
@@ -211,16 +176,6 @@ String HTMLAppletElement::hspace() const
 void HTMLAppletElement::setHspace(const String &value)
 {
     setAttribute(hspaceAttr, value);
-}
-
-String HTMLAppletElement::object() const
-{
-    return getAttribute(objectAttr);
-}
-
-void HTMLAppletElement::setObject(const String &value)
-{
-    setAttribute(objectAttr, value);
 }
 
 String HTMLAppletElement::vspace() const

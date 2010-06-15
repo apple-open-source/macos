@@ -2,8 +2,7 @@
     Copyright (C) 2004, 2005 Nikolas Zimmermann <wildfox@kde.org>
                   2004, 2005, 2006, 2007 Rob Buis <buis@kde.org>
     Copyright (C) 2006 Apple Computer, Inc.
-
-    This file is part of the KDE project
+    Copyright (C) 2009 Cameron McCormack <cam@mcc.id.au>
 
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Library General Public
@@ -29,71 +28,64 @@
 #include "CSSStyleSheet.h"
 #include "Document.h"
 #include "ExceptionCode.h"
-#include "HTMLNames.h"
 #include "MappedAttribute.h"
-#include "XMLNames.h"
+#include "SVGNames.h"
 #include <wtf/StdLibExtras.h>
 
 namespace WebCore {
 
-using namespace HTMLNames;
+using namespace SVGNames;
 
 SVGStyleElement::SVGStyleElement(const QualifiedName& tagName, Document* doc, bool createdByParser)
      : SVGElement(tagName, doc)
+     , SVGLangSpace()
      , m_createdByParser(createdByParser)
 {
-}
-
-const AtomicString& SVGStyleElement::xmlspace() const
-{
-    return getAttribute(XMLNames::spaceAttr);
-}
-
-void SVGStyleElement::setXmlspace(const AtomicString&, ExceptionCode& ec)
-{
-    ec = NO_MODIFICATION_ALLOWED_ERR;
 }
 
 const AtomicString& SVGStyleElement::type() const
 {
     DEFINE_STATIC_LOCAL(const AtomicString, defaultValue, ("text/css"));
-    const AtomicString& n = getAttribute(typeAttr);
+    const AtomicString& n = getAttribute(SVGNames::typeAttr);
     return n.isNull() ? defaultValue : n;
 }
 
-void SVGStyleElement::setType(const AtomicString&, ExceptionCode& ec)
+void SVGStyleElement::setType(const AtomicString& type, ExceptionCode& ec)
 {
-    ec = NO_MODIFICATION_ALLOWED_ERR;
+    setAttribute(SVGNames::typeAttr, type, ec);
 }
 
 const AtomicString& SVGStyleElement::media() const
 {
     DEFINE_STATIC_LOCAL(const AtomicString, defaultValue, ("all"));
-    const AtomicString& n = getAttribute(mediaAttr);
+    const AtomicString& n = getAttribute(SVGNames::mediaAttr);
     return n.isNull() ? defaultValue : n;
 }
 
-void SVGStyleElement::setMedia(const AtomicString&, ExceptionCode& ec)
+void SVGStyleElement::setMedia(const AtomicString& media, ExceptionCode& ec)
 {
-    ec = NO_MODIFICATION_ALLOWED_ERR;
+    setAttribute(SVGNames::mediaAttr, media, ec);
 }
 
 String SVGStyleElement::title() const
 {
-    return getAttribute(titleAttr);
+    return getAttribute(SVGNames::titleAttr);
 }
 
-void SVGStyleElement::setTitle(const AtomicString&, ExceptionCode& ec)
+void SVGStyleElement::setTitle(const AtomicString& title, ExceptionCode& ec)
 {
-    ec = NO_MODIFICATION_ALLOWED_ERR;
+    setAttribute(SVGNames::titleAttr, title, ec);
 }
 
 void SVGStyleElement::parseMappedAttribute(MappedAttribute* attr)
 {
-    if (attr->name() == titleAttr && m_sheet)
+    if (attr->name() == SVGNames::titleAttr && m_sheet)
         m_sheet->setTitle(attr->value());
-    else
+    else {
+        if (SVGLangSpace::parseMappedAttribute(attr))
+            return;
         SVGElement::parseMappedAttribute(attr);
+    }
 }
 
 void SVGStyleElement::finishParsingChildren()

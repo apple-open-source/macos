@@ -1,3 +1,4 @@
 
 TEMPLATE = subdirs
-SUBDIRS = qwebframe qwebpage qwebelement qwebhistoryinterface qwebview qwebhistory
+SUBDIRS = qwebframe qwebpage qwebelement qgraphicswebview qwebhistoryinterface qwebview qwebhistory qwebinspector hybridPixmap
+SUBDIRS += benchmarks/painting benchmarks/loading

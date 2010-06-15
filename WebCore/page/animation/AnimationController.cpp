@@ -36,6 +36,8 @@
 #include "EventNames.h"
 #include "Frame.h"
 #include "RenderView.h"
+#include "WebKitAnimationEvent.h"
+#include "WebKitTransitionEvent.h"
 #include <wtf/CurrentTime.h>
 #include <wtf/UnusedParam.h>
 
@@ -53,7 +55,7 @@ AnimationControllerPrivate::AnimationControllerPrivate(Frame* frame)
     , m_lastStyleAvailableWaiter(0)
     , m_responseWaiters(0)
     , m_lastResponseWaiter(0)
-    , m_waitingForAResponse(false)
+    , m_waitingForResponse(false)
 {
 }
 
@@ -98,7 +100,7 @@ void AnimationControllerPrivate::updateAnimationTimer(bool callSetChanged/* = fa
                 if (callSetChanged) {
                     Node* node = it->first->node();
                     ASSERT(!node || (node->document() && !node->document()->inPageCache()));
-                    node->setNeedsStyleRecalc(AnimationStyleChange);
+                    node->setNeedsStyleRecalc(SyntheticStyleChange);
                     calledSetChanged = true;
                 }
                 else
@@ -132,13 +134,23 @@ void AnimationControllerPrivate::updateAnimationTimer(bool callSetChanged/* = fa
 
 void AnimationControllerPrivate::updateStyleIfNeededDispatcherFired(Timer<AnimationControllerPrivate>*)
 {
+    fireEventsAndUpdateStyle();
+}
+
+void AnimationControllerPrivate::fireEventsAndUpdateStyle()
+{
+    // Protect the frame from getting destroyed in the event handler
+    RefPtr<Frame> protector = m_frame;
+
+    bool updateStyle = !m_eventsToDispatch.isEmpty() || !m_nodeChangesToDispatch.isEmpty();
+    
     // fire all the events
     Vector<EventToDispatch>::const_iterator eventsToDispatchEnd = m_eventsToDispatch.end();
     for (Vector<EventToDispatch>::const_iterator it = m_eventsToDispatch.begin(); it != eventsToDispatchEnd; ++it) {
         if (it->eventType == eventNames().webkitTransitionEndEvent)
-            it->element->dispatchWebKitTransitionEvent(it->eventType,it->name, it->elapsedTime);
+            it->element->dispatchEvent(WebKitTransitionEvent::create(it->eventType, it->name, it->elapsedTime));
         else
-            it->element->dispatchWebKitAnimationEvent(it->eventType,it->name, it->elapsedTime);
+            it->element->dispatchEvent(WebKitAnimationEvent::create(it->eventType, it->name, it->elapsedTime));
     }
     
     m_eventsToDispatch.clear();
@@ -146,11 +158,11 @@ void AnimationControllerPrivate::updateStyleIfNeededDispatcherFired(Timer<Animat
     // call setChanged on all the elements
     Vector<RefPtr<Node> >::const_iterator nodeChangesToDispatchEnd = m_nodeChangesToDispatch.end();
     for (Vector<RefPtr<Node> >::const_iterator it = m_nodeChangesToDispatch.begin(); it != nodeChangesToDispatchEnd; ++it)
-        (*it)->setNeedsStyleRecalc(AnimationStyleChange);
+        (*it)->setNeedsStyleRecalc(SyntheticStyleChange);
     
     m_nodeChangesToDispatch.clear();
     
-    if (m_frame)
+    if (updateStyle && m_frame)
         m_frame->document()->updateStyleIfNeeded();
 }
 
@@ -191,6 +203,10 @@ void AnimationControllerPrivate::animationTimerFired(Timer<AnimationControllerPr
     // When the timer fires, all we do is call setChanged on all DOM nodes with running animations and then do an immediate
     // updateStyleIfNeeded.  It will then call back to us with new information.
     updateAnimationTimer(true);
+
+    // Fire events right away, to avoid a flash of unanimated style after an animation completes, and before
+    // the 'end' event fires.
+    fireEventsAndUpdateStyle();
 }
 
 bool AnimationControllerPrivate::isAnimatingPropertyOnRenderer(RenderObject* renderer, CSSPropertyID property, bool isRunningNow) const
@@ -244,7 +260,7 @@ bool AnimationControllerPrivate::pauseAnimationAtTime(RenderObject* renderer, co
         return false;
 
     if (compAnim->pauseAnimationAtTime(name, t)) {
-        renderer->node()->setNeedsStyleRecalc(AnimationStyleChange);
+        renderer->node()->setNeedsStyleRecalc(SyntheticStyleChange);
         startUpdateStyleIfNeededDispatcher();
         return true;
     }
@@ -262,7 +278,7 @@ bool AnimationControllerPrivate::pauseTransitionAtTime(RenderObject* renderer, c
         return false;
 
     if (compAnim->pauseTransitionAtTime(cssPropertyID(property), t)) {
-        renderer->node()->setNeedsStyleRecalc(AnimationStyleChange);
+        renderer->node()->setNeedsStyleRecalc(SyntheticStyleChange);
         startUpdateStyleIfNeededDispatcher();
         return true;
     }
@@ -275,6 +291,19 @@ double AnimationControllerPrivate::beginAnimationUpdateTime()
     if (m_beginAnimationUpdateTime == cBeginAnimationUpdateTimeNotSet)
         m_beginAnimationUpdateTime = currentTime();
     return m_beginAnimationUpdateTime;
+}
+
+void AnimationControllerPrivate::endAnimationUpdate()
+{
+    styleAvailable();
+    if (!m_waitingForResponse)
+        startTimeResponse(beginAnimationUpdateTime());
+}
+
+void AnimationControllerPrivate::receivedStartTimeResponse(double time)
+{
+    m_waitingForResponse = false;
+    startTimeResponse(time);
 }
 
 PassRefPtr<RenderStyle> AnimationControllerPrivate::getAnimatedStyleForRenderer(RenderObject* renderer)
@@ -376,7 +405,7 @@ void AnimationControllerPrivate::addToStartTimeResponseWaitList(AnimationBase* a
     ASSERT(!animation->next());
     
     if (willGetResponse)
-        m_waitingForAResponse = true;
+        m_waitingForResponse = true;
     
     if (m_responseWaiters)
         m_lastResponseWaiter->setNext(animation);
@@ -406,13 +435,13 @@ void AnimationControllerPrivate::removeFromStartTimeResponseWaitList(AnimationBa
     }
 }
 
-void AnimationControllerPrivate::startTimeResponse(double t)
+void AnimationControllerPrivate::startTimeResponse(double time)
 {
     // Go through list of waiters and send them on their way
     for (AnimationBase* animation = m_responseWaiters; animation; ) {
         AnimationBase* nextAnimation = animation->next();
         animation->setNext(0);
-        animation->onAnimationStartResponse(t);
+        animation->onAnimationStartResponse(time);
         animation = nextAnimation;
     }
     
@@ -438,7 +467,7 @@ void AnimationController::cancelAnimations(RenderObject* renderer)
     if (m_data->clear(renderer)) {
         Node* node = renderer->node();
         ASSERT(!node || (node->document() && !node->document()->inPageCache()));
-        node->setNeedsStyleRecalc(AnimationStyleChange);
+        node->setNeedsStyleRecalc(SyntheticStyleChange);
     }
 }
 
@@ -469,7 +498,7 @@ PassRefPtr<RenderStyle> AnimationController::updateAnimations(RenderObject* rend
     m_data->updateAnimationTimer();
 
     if (blendedStyle != newStyle) {
-        // If the animations/transitions change opacity or transform, we neeed to update
+        // If the animations/transitions change opacity or transform, we need to update
         // the style to impose the stacking rules. Note that this is also
         // done in CSSStyleSelector::adjustRenderStyle().
         if (blendedStyle->hasAutoZIndex() && (blendedStyle->opacity() < 1.0f || blendedStyle->hasTransform()))

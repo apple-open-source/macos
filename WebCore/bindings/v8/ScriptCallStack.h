@@ -35,7 +35,6 @@
 #include "ScriptState.h"
 #include "ScriptValue.h"
 #include <wtf/Noncopyable.h>
-#include <wtf/OwnPtr.h>
 
 namespace v8 {
     class Arguments;
@@ -43,21 +42,48 @@ namespace v8 {
 
 namespace WebCore {
 
-    class ScriptCallStack : public Noncopyable {
-    public:
-        ScriptCallStack(const v8::Arguments&, unsigned skipArgumentCount = 0);
-        ~ScriptCallStack();
+class ScriptCallStack : public Noncopyable {
+public:
+    static ScriptCallStack* create(const v8::Arguments&, unsigned skipArgumentCount = 0);
+    ~ScriptCallStack();
 
-        const ScriptCallFrame& at(unsigned) const;
-        // FIXME: implement retrieving and storing call stack trace
-        unsigned size() const { return 1; }
+    static bool callLocation(String* sourceName, int* sourceLineNumber, String* functionName);
 
-        ScriptState* state() const { return m_scriptState.get(); }
+    const ScriptCallFrame& at(unsigned) const;
+    // FIXME: implement retrieving and storing call stack trace
+    unsigned size() const { return 1; }
 
-    private:
-        OwnPtr<ScriptState> m_scriptState;
-        ScriptCallFrame m_lastCaller;
-    };
+    ScriptState* state() const { return m_scriptState; }
+    ScriptState* globalState() const { return m_scriptState; }
+
+private:
+    ScriptCallStack(const v8::Arguments& arguments, unsigned skipArgumentCount, String sourceName, int sourceLineNumber, String funcName);
+
+    // Function for retrieving the source name, line number and function name for the top
+    // JavaScript stack frame.
+    //
+    // It will return true if the caller information was successfully retrieved and written
+    // into the function parameters, otherwise the function will return false. It may
+    // fail due to a stack overflow in the underlying JavaScript implementation, handling
+    // of such exception is up to the caller.
+    static bool topStackFrame(String& sourceName, int& lineNumber, String& functionName);
+
+    static void createUtilityContext();
+
+     // Returns a local handle of the utility context.
+    static v8::Local<v8::Context> utilityContext()
+    {
+      if (s_utilityContext.IsEmpty())
+          createUtilityContext();
+      return v8::Local<v8::Context>::New(s_utilityContext);
+    }
+
+    ScriptCallFrame m_lastCaller;
+    ScriptState* m_scriptState;
+
+    // Utility context holding JavaScript functions used internally.
+    static v8::Persistent<v8::Context> s_utilityContext;
+};
 
 } // namespace WebCore
 

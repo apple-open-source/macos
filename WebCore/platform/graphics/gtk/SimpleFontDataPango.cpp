@@ -49,9 +49,9 @@ void SimpleFontData::platformInit()
     cairo_font_extents_t font_extents;
     cairo_text_extents_t text_extents;
     cairo_scaled_font_extents(m_platformData.m_scaledFont, &font_extents);
-    m_ascent = static_cast<int>(font_extents.ascent);
-    m_descent = static_cast<int>(font_extents.descent);
-    m_lineSpacing = static_cast<int>(font_extents.height);
+    m_ascent = static_cast<int>(lroundf(font_extents.ascent));
+    m_descent = static_cast<int>(lroundf(font_extents.descent));
+    m_lineSpacing = static_cast<int>(lroundf(font_extents.height));
     // There seems to be some rounding error in cairo (or in how we
     // use cairo) with some fonts, like DejaVu Sans Mono, which makes
     // cairo report a height smaller than ascent + descent, which is
@@ -62,7 +62,7 @@ void SimpleFontData::platformInit()
     cairo_scaled_font_text_extents(m_platformData.m_scaledFont, "x", &text_extents);
     m_xHeight = text_extents.height;
     cairo_scaled_font_text_extents(m_platformData.m_scaledFont, " ", &text_extents);
-    m_spaceWidth =  static_cast<int>(text_extents.x_advance);
+    m_spaceWidth =  static_cast<float>(text_extents.x_advance);
     m_lineGap = m_lineSpacing - m_ascent - m_descent;
     m_syntheticBoldOffset = m_platformData.syntheticBold() ? 1.0f : 0.f;
 }
@@ -84,9 +84,9 @@ SimpleFontData* SimpleFontData::smallCapsFontData(const FontDescription& fontDes
 {
     if (!m_smallCapsFontData) {
         FontDescription desc = FontDescription(fontDescription);
-        desc.setSpecifiedSize(0.70f*fontDescription.computedSize());
-        const FontPlatformData* pdata = new FontPlatformData(desc, desc.family().family());
-        m_smallCapsFontData = new SimpleFontData(*pdata);
+        desc.setSpecifiedSize(0.70f * fontDescription.computedSize());
+        FontPlatformData platformData(desc, desc.family().family());
+        m_smallCapsFontData = new SimpleFontData(platformData);
     }
     return m_smallCapsFontData;
 }
@@ -119,6 +119,11 @@ void SimpleFontData::determinePitch()
     m_treatAsFixedPitch = m_platformData.isFixedPitch();
 }
 
+FloatRect SimpleFontData::platformBoundsForGlyph(Glyph) const
+{
+    return FloatRect();
+}
+
 float SimpleFontData::platformWidthForGlyph(Glyph glyph) const
 {
     ASSERT(m_platformData.m_scaledFont);
@@ -127,16 +132,11 @@ float SimpleFontData::platformWidthForGlyph(Glyph glyph) const
     cairo_text_extents_t extents;
     cairo_scaled_font_glyph_extents(m_platformData.m_scaledFont, &cglyph, 1, &extents);
 
-    float w = (float)m_spaceWidth;
+    float width = (float)m_spaceWidth;
     if (cairo_scaled_font_status(m_platformData.m_scaledFont) == CAIRO_STATUS_SUCCESS && extents.x_advance != 0)
-        w = (float)extents.x_advance;
-    return w;
-}
+        width = (float)extents.x_advance;
 
-void SimpleFontData::setFont(cairo_t* cr) const
-{
-    ASSERT(cr);
-    m_platformData.setFont(cr);
+    return width;    
 }
 
 }

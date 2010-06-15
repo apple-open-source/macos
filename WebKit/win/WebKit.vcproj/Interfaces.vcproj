@@ -19,12 +19,12 @@
 			Name="Debug|Win32"
 			OutputDirectory="$(WebKitOutputDir)\include\WebKit"
 			ConfigurationType="4"
-			InheritedPropertySheets="$(WebKitLibrariesDir)\tools\vsprops\common.vsprops;$(WebKitLibrariesDir)\tools\vsprops\debug.vsprops"
+			InheritedPropertySheets="$(WebKitLibrariesDir)\tools\vsprops\FeatureDefines.vsprops;$(WebKitLibrariesDir)\tools\vsprops\common.vsprops;$(WebKitLibrariesDir)\tools\vsprops\debug.vsprops"
 			CharacterSet="1"
 			>
 			<Tool
 				Name="VCPreBuildEventTool"
-				CommandLine="set PATH=%SystemDrive%\cygwin\bin;%PATH%&#x0D;&#x0A;if exist &quot;$(WebKitOutputDir)\buildfailed&quot; grep XX$(ProjectName)XX &quot;$(WebKitOutputDir)\buildfailed&quot;&#x0D;&#x0A;if errorlevel 1 exit 1&#x0D;&#x0A;echo XX$(ProjectName)XX &gt; &quot;$(WebKitOutputDir)\buildfailed&quot;&#x0D;&#x0A;&#x0D;&#x0A;mkdir 2&gt;NUL &quot;$(WebKitOutputDir)\obj\WebKit\$(ProjectName)&quot;&#x0D;&#x0A;bash &quot;$(WebKitLibrariesDir)\tools\scripts\auto-version.sh&quot; &quot;$(IntDir)&quot;&#x0D;&#x0A;"
+				CommandLine="%SystemDrive%\cygwin\bin\which.exe bash&#x0D;&#x0A;if errorlevel 1 set PATH=%SystemDrive%\cygwin\bin;%PATH%&#x0D;&#x0A;cmd /c&#x0D;&#x0A;if exist &quot;$(WebKitOutputDir)\buildfailed&quot; grep XX$(ProjectName)XX &quot;$(WebKitOutputDir)\buildfailed&quot;&#x0D;&#x0A;if errorlevel 1 exit 1&#x0D;&#x0A;echo XX$(ProjectName)XX &gt; &quot;$(WebKitOutputDir)\buildfailed&quot;&#x0D;&#x0A;&#x0D;&#x0A;mkdir 2&gt;NUL &quot;$(WebKitOutputDir)\obj\WebKit\$(ProjectName)&quot;&#x0D;&#x0A;bash &quot;$(WebKitLibrariesDir)\tools\scripts\auto-version.sh&quot; &quot;$(IntDir)&quot;&#x0D;&#x0A;"
 			/>
 			<Tool
 				Name="VCCustomBuildTool"
@@ -79,20 +79,20 @@
 			/>
 			<Tool
 				Name="VCPostBuildEventTool"
-				CommandLine="set PATH=%SystemDrive%\cygwin\bin;%PATH%&#x0D;&#x0A;&#x0D;&#x0A;perl FixMIDLHeaders.pl &quot;$(WebkitOutputDir)/include/webkit/&quot;&#x0D;&#x0A;&#x0D;&#x0A;if exist &quot;$(WebKitOutputDir)\buildfailed&quot; del &quot;$(WebKitOutputDir)\buildfailed&quot;&#x0D;&#x0A;"
+				CommandLine="%SystemDrive%\cygwin\bin\which.exe bash&#x0D;&#x0A;if errorlevel 1 set PATH=%SystemDrive%\cygwin\bin;%PATH%&#x0D;&#x0A;cmd /c&#x0D;&#x0A;&#x0D;&#x0A;perl FixMIDLHeaders.pl &quot;$(WebkitOutputDir)/include/webkit/&quot;&#x0D;&#x0A;&#x0D;&#x0A;if exist &quot;$(WebKitOutputDir)\buildfailed&quot; del &quot;$(WebKitOutputDir)\buildfailed&quot;&#x0D;&#x0A;"
 			/>
 		</Configuration>
 		<Configuration
 			Name="Release|Win32"
 			OutputDirectory="$(WebKitOutputDir)\include\WebKit"
 			ConfigurationType="4"
-			InheritedPropertySheets="$(WebKitLibrariesDir)\tools\vsprops\common.vsprops;$(WebKitLibrariesDir)\tools\vsprops\release.vsprops"
+			InheritedPropertySheets="$(WebKitLibrariesDir)\tools\vsprops\FeatureDefines.vsprops;$(WebKitLibrariesDir)\tools\vsprops\common.vsprops;$(WebKitLibrariesDir)\tools\vsprops\release.vsprops"
 			CharacterSet="1"
 			WholeProgramOptimization="1"
 			>
 			<Tool
 				Name="VCPreBuildEventTool"
-				CommandLine="set PATH=%SystemDrive%\cygwin\bin;%PATH%&#x0D;&#x0A;if exist &quot;$(WebKitOutputDir)\buildfailed&quot; grep XX$(ProjectName)XX &quot;$(WebKitOutputDir)\buildfailed&quot;&#x0D;&#x0A;if errorlevel 1 exit 1&#x0D;&#x0A;echo XX$(ProjectName)XX &gt; &quot;$(WebKitOutputDir)\buildfailed&quot;&#x0D;&#x0A;&#x0D;&#x0A;mkdir 2&gt;NUL &quot;$(WebKitOutputDir)\obj\WebKit\$(ProjectName)&quot;&#x0D;&#x0A;bash &quot;$(WebKitLibrariesDir)\tools\scripts\auto-version.sh&quot; &quot;$(IntDir)&quot;&#x0D;&#x0A;"
+				CommandLine="%SystemDrive%\cygwin\bin\which.exe bash&#x0D;&#x0A;if errorlevel 1 set PATH=%SystemDrive%\cygwin\bin;%PATH%&#x0D;&#x0A;cmd /c&#x0D;&#x0A;if exist &quot;$(WebKitOutputDir)\buildfailed&quot; grep XX$(ProjectName)XX &quot;$(WebKitOutputDir)\buildfailed&quot;&#x0D;&#x0A;if errorlevel 1 exit 1&#x0D;&#x0A;echo XX$(ProjectName)XX &gt; &quot;$(WebKitOutputDir)\buildfailed&quot;&#x0D;&#x0A;&#x0D;&#x0A;mkdir 2&gt;NUL &quot;$(WebKitOutputDir)\obj\WebKit\$(ProjectName)&quot;&#x0D;&#x0A;bash &quot;$(WebKitLibrariesDir)\tools\scripts\auto-version.sh&quot; &quot;$(IntDir)&quot;&#x0D;&#x0A;"
 			/>
 			<Tool
 				Name="VCCustomBuildTool"
@@ -144,13 +144,33 @@
 			/>
 			<Tool
 				Name="VCPostBuildEventTool"
-				CommandLine="set PATH=%SystemDrive%\cygwin\bin;%PATH%&#x0D;&#x0A;&#x0D;&#x0A;perl FixMIDLHeaders.pl &quot;$(WebkitOutputDir)/include/webkit/&quot;&#x0D;&#x0A;&#x0D;&#x0A;if exist &quot;$(WebKitOutputDir)\buildfailed&quot; del &quot;$(WebKitOutputDir)\buildfailed&quot;&#x0D;&#x0A;"
+				CommandLine="%SystemDrive%\cygwin\bin\which.exe bash&#x0D;&#x0A;if errorlevel 1 set PATH=%SystemDrive%\cygwin\bin;%PATH%&#x0D;&#x0A;cmd /c&#x0D;&#x0A;&#x0D;&#x0A;perl FixMIDLHeaders.pl &quot;$(WebkitOutputDir)/include/webkit/&quot;&#x0D;&#x0A;&#x0D;&#x0A;if exist &quot;$(WebKitOutputDir)\buildfailed&quot; del &quot;$(WebKitOutputDir)\buildfailed&quot;&#x0D;&#x0A;"
 			/>
 		</Configuration>
 	</Configurations>
 	<References>
 	</References>
 	<Files>
+		<File
+			RelativePath="..\Interfaces\AccessibleComparable.idl"
+			>
+			<FileConfiguration
+				Name="Debug|Win32"
+				ExcludedFromBuild="true"
+				>
+				<Tool
+					Name="VCMIDLTool"
+				/>
+			</FileConfiguration>
+			<FileConfiguration
+				Name="Release|Win32"
+				ExcludedFromBuild="true"
+				>
+				<Tool
+					Name="VCMIDLTool"
+				/>
+			</FileConfiguration>
+		</File>
 		<File
 			RelativePath="..\Interfaces\DOMCore.idl"
 			>
@@ -492,6 +512,18 @@
 			</FileConfiguration>
 		</File>
 		<File
+			RelativePath="..\Interfaces\IWebDesktopNotificationsDelegate.idl"
+			>
+			<FileConfiguration
+				Name="Debug|Win32"
+				ExcludedFromBuild="true"
+				>
+				<Tool
+					Name="VCMIDLTool"
+				/>
+			</FileConfiguration>
+		</File>
+		<File
 			RelativePath="..\Interfaces\IWebDocument.idl"
 			>
 			<FileConfiguration
@@ -692,6 +724,26 @@
 			</FileConfiguration>
 		</File>
 		<File
+			RelativePath="..\Interfaces\IWebFrameLoadDelegatePrivate2.idl"
+			>
+			<FileConfiguration
+				Name="Debug|Win32"
+				ExcludedFromBuild="true"
+				>
+				<Tool
+					Name="VCMIDLTool"
+				/>
+			</FileConfiguration>
+			<FileConfiguration
+				Name="Release|Win32"
+				ExcludedFromBuild="true"
+				>
+				<Tool
+					Name="VCMIDLTool"
+				/>
+			</FileConfiguration>
+		</File>
+		<File
 			RelativePath="..\Interfaces\IWebFramePrivate.idl"
 			>
 			<FileConfiguration
@@ -732,7 +784,87 @@
 			</FileConfiguration>
 		</File>
 		<File
+			RelativePath="..\Interfaces\IWebGeolocationPolicyListener.idl"
+			>
+			<FileConfiguration
+				Name="Debug|Win32"
+				ExcludedFromBuild="true"
+				>
+				<Tool
+					Name="VCMIDLTool"
+				/>
+			</FileConfiguration>
+			<FileConfiguration
+				Name="Release|Win32"
+				ExcludedFromBuild="true"
+				>
+				<Tool
+					Name="VCMIDLTool"
+				/>
+			</FileConfiguration>
+		</File>
+		<File
+			RelativePath="..\Interfaces\IWebGeolocationPosition.idl"
+			>
+			<FileConfiguration
+				Name="Debug|Win32"
+				ExcludedFromBuild="true"
+				>
+				<Tool
+					Name="VCMIDLTool"
+				/>
+			</FileConfiguration>
+			<FileConfiguration
+				Name="Release|Win32"
+				ExcludedFromBuild="true"
+				>
+				<Tool
+					Name="VCMIDLTool"
+				/>
+			</FileConfiguration>
+		</File>
+		<File
+			RelativePath="..\Interfaces\IWebGeolocationProvider.idl"
+			>
+			<FileConfiguration
+				Name="Debug|Win32"
+				ExcludedFromBuild="true"
+				>
+				<Tool
+					Name="VCMIDLTool"
+				/>
+			</FileConfiguration>
+			<FileConfiguration
+				Name="Release|Win32"
+				ExcludedFromBuild="true"
+				>
+				<Tool
+					Name="VCMIDLTool"
+				/>
+			</FileConfiguration>
+		</File>
+		<File
 			RelativePath="..\Interfaces\IWebHistory.idl"
+			>
+			<FileConfiguration
+				Name="Debug|Win32"
+				ExcludedFromBuild="true"
+				>
+				<Tool
+					Name="VCMIDLTool"
+				/>
+			</FileConfiguration>
+			<FileConfiguration
+				Name="Release|Win32"
+				ExcludedFromBuild="true"
+				>
+				<Tool
+					Name="VCMIDLTool"
+				/>
+			</FileConfiguration>
+		</File>
+		<File
+			RelativePath="..\Interfaces\IWebHistoryDelegate.idl"
 			>
 			<FileConfiguration
 				Name="Debug|Win32"
@@ -912,6 +1044,26 @@
 			</FileConfiguration>
 		</File>
 		<File
+			RelativePath="..\Interfaces\IWebInspectorPrivate.idl"
+			>
+			<FileConfiguration
+				Name="Debug|Win32"
+				ExcludedFromBuild="true"
+				>
+				<Tool
+					Name="VCMIDLTool"
+				/>
+			</FileConfiguration>
+			<FileConfiguration
+				Name="Release|Win32"
+				ExcludedFromBuild="true"
+				>
+				<Tool
+					Name="VCMIDLTool"
+				/>
+			</FileConfiguration>
+		</File>
+		<File
 			RelativePath="..\Interfaces\IWebJavaScriptCollector.idl"
 			>
 			<FileConfiguration
@@ -992,6 +1144,26 @@
 			</FileConfiguration>
 		</File>
 		<File
+			RelativePath="..\Interfaces\IWebNavigationData.idl"
+			>
+			<FileConfiguration
+				Name="Debug|Win32"
+				ExcludedFromBuild="true"
+				>
+				<Tool
+					Name="VCMIDLTool"
+				/>
+			</FileConfiguration>
+			<FileConfiguration
+				Name="Release|Win32"
+				ExcludedFromBuild="true"
+				>
+				<Tool
+					Name="VCMIDLTool"
+				/>
+			</FileConfiguration>
+		</File>
+		<File
 			RelativePath="..\Interfaces\IWebNotification.idl"
 			>
 			<FileConfiguration
@@ -1052,7 +1224,47 @@
 			</FileConfiguration>
 		</File>
 		<File
+			RelativePath="..\Interfaces\IWebPluginHalterDelegate.idl"
+			>
+			<FileConfiguration
+				Name="Debug|Win32"
+				ExcludedFromBuild="true"
+				>
+				<Tool
+					Name="VCMIDLTool"
+				/>
+			</FileConfiguration>
+			<FileConfiguration
+				Name="Release|Win32"
+				ExcludedFromBuild="true"
+				>
+				<Tool
+					Name="VCMIDLTool"
+				/>
+			</FileConfiguration>
+		</File>
+		<File
 			RelativePath="..\Interfaces\IWebPolicyDelegate.idl"
+			>
+			<FileConfiguration
+				Name="Debug|Win32"
+				ExcludedFromBuild="true"
+				>
+				<Tool
+					Name="VCMIDLTool"
+				/>
+			</FileConfiguration>
+			<FileConfiguration
+				Name="Release|Win32"
+				ExcludedFromBuild="true"
+				>
+				<Tool
+					Name="VCMIDLTool"
+				/>
+			</FileConfiguration>
+		</File>
+		<File
+			RelativePath="..\Interfaces\IWebPolicyDelegatePrivate.idl"
 			>
 			<FileConfiguration
 				Name="Debug|Win32"
@@ -1173,6 +1385,26 @@
 		</File>
 		<File
 			RelativePath="..\Interfaces\IWebScriptObject.idl"
+			>
+			<FileConfiguration
+				Name="Debug|Win32"
+				ExcludedFromBuild="true"
+				>
+				<Tool
+					Name="VCMIDLTool"
+				/>
+			</FileConfiguration>
+			<FileConfiguration
+				Name="Release|Win32"
+				ExcludedFromBuild="true"
+				>
+				<Tool
+					Name="VCMIDLTool"
+				/>
+			</FileConfiguration>
+		</File>
+		<File
+			RelativePath="..\Interfaces\IWebScriptWorld.idl"
 			>
 			<FileConfiguration
 				Name="Debug|Win32"
@@ -1432,6 +1664,26 @@
 			</FileConfiguration>
 		</File>
 		<File
+			RelativePath="..\Interfaces\IWebUserContentURLPattern.idl"
+			>
+			<FileConfiguration
+				Name="Debug|Win32"
+				ExcludedFromBuild="true"
+				>
+				<Tool
+					Name="VCMIDLTool"
+				/>
+			</FileConfiguration>
+			<FileConfiguration
+				Name="Release|Win32"
+				ExcludedFromBuild="true"
+				>
+				<Tool
+					Name="VCMIDLTool"
+				/>
+			</FileConfiguration>
+		</File>
+		<File
 			RelativePath="..\Interfaces\IWebView.idl"
 			>
 			<FileConfiguration
@@ -1453,6 +1705,46 @@
 		</File>
 		<File
 			RelativePath="..\Interfaces\IWebViewPrivate.idl"
+			>
+			<FileConfiguration
+				Name="Debug|Win32"
+				ExcludedFromBuild="true"
+				>
+				<Tool
+					Name="VCMIDLTool"
+				/>
+			</FileConfiguration>
+			<FileConfiguration
+				Name="Release|Win32"
+				ExcludedFromBuild="true"
+				>
+				<Tool
+					Name="VCMIDLTool"
+				/>
+			</FileConfiguration>
+		</File>
+		<File
+			RelativePath="..\Interfaces\IWebWorkersPrivate.idl"
+			>
+			<FileConfiguration
+				Name="Debug|Win32"
+				ExcludedFromBuild="true"
+				>
+				<Tool
+					Name="VCMIDLTool"
+				/>
+			</FileConfiguration>
+			<FileConfiguration
+				Name="Release|Win32"
+				ExcludedFromBuild="true"
+				>
+				<Tool
+					Name="VCMIDLTool"
+				/>
+			</FileConfiguration>
+		</File>
+		<File
+			RelativePath="..\Interfaces\JavaScriptCoreAPITypes.idl"
 			>
 			<FileConfiguration
 				Name="Debug|Win32"

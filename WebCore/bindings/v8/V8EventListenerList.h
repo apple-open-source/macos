@@ -31,67 +31,74 @@
 #ifndef V8EventListenerList_h
 #define V8EventListenerList_h
 
+#include "V8CustomEventListener.h"
+#include "V8HiddenPropertyName.h"
+
 #include <v8.h>
-#include <wtf/Vector.h>
-#include <wtf/HashMap.h>
+#include <wtf/PassRefPtr.h>
 
 namespace WebCore {
-    class V8EventListener;
-    class V8EventListenerListIterator;
+    class Frame;
 
-    // This is a container for V8EventListener objects that uses the identity hash of the v8::Object to
-    // speed up lookups
+    // This is a container for V8EventListener objects that uses hidden properties of v8::Object to speed up lookups.
     class V8EventListenerList {
     public:
-        // Because v8::Object identity hashes are not guaranteed to be unique, we unfortunately can't just map
-        // an int to V8EventListener. Instead we define a HashMap of int to Vector of V8EventListener
-        // called a ListenerMultiMap.
-        typedef Vector<V8EventListener*>* Values;
-        struct ValuesTraits : HashTraits<Values> {
-            static const bool needsDestruction = true;
-        };
-        typedef HashMap<int, Values, DefaultHash<int>::Hash, HashTraits<int>, ValuesTraits> ListenerMultiMap;
+        static PassRefPtr<V8EventListener> findWrapper(v8::Local<v8::Value> value, bool isAttribute)
+        {
+            ASSERT(v8::Context::InContext());
+            if (!value->IsObject())
+                return 0;
 
-        V8EventListenerList();
-        ~V8EventListenerList();
+            v8::Handle<v8::String> wrapperProperty = getHiddenProperty(isAttribute);
+            return doFindWrapper(v8::Local<v8::Object>::Cast(value), wrapperProperty);
+        }
 
-        friend class V8EventListenerListIterator;
-        typedef V8EventListenerListIterator iterator;        
+        template<typename WrapperType>
+        static PassRefPtr<V8EventListener> findOrCreateWrapper(v8::Local<v8::Value>, bool isAttribute);
 
-        iterator begin();
-        iterator end();
-
-        void add(V8EventListener*);
-        void remove(V8EventListener*);
-        V8EventListener* find(v8::Local<v8::Object>, bool isAttribute);
-        void clear();
-        size_t size() { return m_table.size(); }
+        static void clearWrapper(v8::Handle<v8::Object> listenerObject, bool isAttribute)
+        {
+            v8::Handle<v8::String> wrapperProperty = getHiddenProperty(isAttribute);
+            listenerObject->DeleteHiddenValue(wrapperProperty);
+        }
 
     private:
-        ListenerMultiMap m_table;
+        static V8EventListener* doFindWrapper(v8::Local<v8::Object> object, v8::Handle<v8::String> wrapperProperty)
+        {
+            ASSERT(v8::Context::InContext());
+            v8::HandleScope scope;
+            v8::Local<v8::Value> listener = object->GetHiddenValue(wrapperProperty);
+            if (listener.IsEmpty())
+                return 0;
+            return static_cast<V8EventListener*>(v8::External::Unwrap(listener));
+        }
 
-        // we also keep a reverse mapping of V8EventListener to v8::Object identity hash,
-        // in order to speed up removal by V8EventListener
-        HashMap<V8EventListener*, int> m_reverseTable;
+        static inline v8::Handle<v8::String> getHiddenProperty(bool isAttribute)
+        {
+            return isAttribute ? V8HiddenPropertyName::attributeListener() : V8HiddenPropertyName::listener();
+        }
     };
 
-    class V8EventListenerListIterator {
-    public:
-        ~V8EventListenerListIterator();
-        void operator++();
-        bool operator==(const V8EventListenerListIterator&);
-        bool operator!=(const V8EventListenerListIterator&);
-        V8EventListener* operator*();
-    private:
-        friend class V8EventListenerList;
-        explicit V8EventListenerListIterator(V8EventListenerList*);
-        V8EventListenerListIterator(V8EventListenerList*, bool shouldSeekToEnd);
-        void seekToEnd();
+    template<typename WrapperType>
+    PassRefPtr<V8EventListener> V8EventListenerList::findOrCreateWrapper(v8::Local<v8::Value> value, bool isAttribute)
+    {
+        ASSERT(v8::Context::InContext());
+        if (!value->IsObject())
+            return 0;
 
-        V8EventListenerList* m_list;
-        V8EventListenerList::ListenerMultiMap::iterator m_iter;
-        size_t m_vectorIndex;
-    };
+        v8::Local<v8::Object> object = v8::Local<v8::Object>::Cast(value);
+        v8::Handle<v8::String> wrapperProperty = getHiddenProperty(isAttribute);
+
+        V8EventListener* wrapper = doFindWrapper(object, wrapperProperty);
+        if (wrapper)
+            return wrapper;
+
+        PassRefPtr<V8EventListener> wrapperPtr = WrapperType::create(object, isAttribute, WorldContextHandle(UseCurrentWorld));
+        if (wrapperPtr)
+            object->SetHiddenValue(wrapperProperty, v8::External::Wrap(wrapperPtr.get()));
+
+        return wrapperPtr;
+    }
 
 } // namespace WebCore
 

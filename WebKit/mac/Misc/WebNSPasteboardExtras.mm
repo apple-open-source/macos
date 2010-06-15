@@ -37,14 +37,15 @@
 #import "WebURLsWithTitles.h"
 #import "WebViewPrivate.h"
 #import <WebCore/Element.h>
+#import <WebCore/Image.h>
 #import <WebCore/MIMETypeRegistry.h>
 #import <WebCore/RenderImage.h>
 #import <WebKit/DOMExtensions.h>
 #import <WebKit/DOMPrivate.h>
-#import <wtf/Assertions.h>
-#import <wtf/StdLibExtras.h>
-#import <wtf/RetainPtr.h>
 #import <WebKitSystemInterface.h>
+#import <wtf/Assertions.h>
+#import <wtf/RetainPtr.h>
+#import <wtf/StdLibExtras.h>
 
 @interface NSFilePromiseDragSource : NSObject
 - initWithSource:(id)draggingSource;
@@ -219,7 +220,7 @@ static CachedImage* imageFromElement(DOMElement *domElement)
         return 0;
     
     RenderObject* renderer = element->renderer();
-    RenderImage* imageRenderer = static_cast<RenderImage*>(renderer);
+    RenderImage* imageRenderer = toRenderImage(renderer);
     if (!imageRenderer->cachedImage() || imageRenderer->cachedImage()->errorOccurred()) 
         return 0;        
     return imageRenderer->cachedImage();
@@ -268,7 +269,7 @@ static CachedImage* imageFromElement(DOMElement *domElement)
     NSString *extension = @"";
     if (RenderObject* renderer = core(element)->renderer()) {
         if (renderer->isImage()) {
-            if (CachedImage* image = static_cast<RenderImage*>(renderer)->cachedImage()) {
+            if (CachedImage* image = toRenderImage(renderer)->cachedImage()) {
                 extension = image->image()->filenameExtension();
                 if (![extension length])
                     return 0;

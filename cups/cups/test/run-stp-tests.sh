@@ -5,7 +5,7 @@
 #   Perform the complete set of IPP compliance tests specified in the
 #   CUPS Software Test Plan.
 #
-#   Copyright 2007-2009 by Apple Inc.
+#   Copyright 2007-2010 by Apple Inc.
 #   Copyright 1997-2007 by Easy Software Products, all rights reserved.
 #
 #   These coded instructions, statements, and computer programs are the
@@ -612,6 +612,18 @@ echo "Test Summary"
 echo ""
 echo "<H2>Summary</H2>" >>$strfile
 
+# Job control files
+count=`ls -1 /tmp/cups-$user/spool | wc -l`
+count=`expr $count - 1`
+if test $count != 0; then
+	echo "FAIL: $count job control files were not purged."
+	echo "<P>FAIL: $count job control files were not purged.</P>" >>$strfile
+	fail=`expr $fail + 1`
+else
+	echo "PASS: All job control files purged."
+	echo "<P>PASS: All job control files purged.</P>" >>$strfile
+fi
+
 # Pages printed on Test1 (within 1 page for timing-dependent cancel issues)
 count=`grep '^Test1 ' /tmp/cups-$user/log/page_log | awk 'BEGIN{count=0}{count=count+$7}END{print count}'`
 expected=`expr $pjobs \* 2 + 34`
@@ -803,7 +815,7 @@ echo "</PRE>" >>$strfile
 
 echo "<H2>error_log</H2>" >>$strfile
 echo "<PRE>" >>$strfile
-grep -v '^[dD]' /tmp/cups-$user/log/error_log | sed -e '1,$s/&/&amp;/g' -e '1,$s/</&lt;/g' >>$strfile
+grep -v '^d' /tmp/cups-$user/log/error_log | sed -e '1,$s/&/&amp;/g' -e '1,$s/</&lt;/g' >>$strfile
 echo "</PRE>" >>$strfile
 
 echo "<H2>page_log</H2>" >>$strfile

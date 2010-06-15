@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008 Apple Inc. All Rights Reserved.
+ * Copyright (C) 2008, 2009 Apple Inc. All Rights Reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -40,70 +40,27 @@ using namespace JSC;
 
 namespace WebCore {
 
-JSDOMGlobalObject::JSDOMGlobalObjectData::JSDOMGlobalObjectData()
-    : evt(0)
-{
-}
+const ClassInfo JSDOMGlobalObject::s_info = { "DOMGlobalObject", 0, 0, 0 };
 
-JSDOMGlobalObject::JSDOMGlobalObject(PassRefPtr<Structure> structure, JSDOMGlobalObject::JSDOMGlobalObjectData* data, JSObject* thisValue)
+JSDOMGlobalObject::JSDOMGlobalObject(NonNullPassRefPtr<Structure> structure, JSDOMGlobalObject::JSDOMGlobalObjectData* data, JSObject* thisValue)
     : JSGlobalObject(structure, data, thisValue)
 {
 }
 
-JSDOMGlobalObject::~JSDOMGlobalObject()
+void JSDOMGlobalObject::markChildren(MarkStack& markStack)
 {
-    JSListenersMap::iterator it = d()->jsEventListeners.begin();
-    JSListenersMap::iterator end = d()->jsEventListeners.end();
-    for (; it != end; ++it)
-        it->second->clearGlobalObject();
-}
-
-void JSDOMGlobalObject::mark()
-{
-    Base::mark();
+    Base::markChildren(markStack);
 
     JSDOMStructureMap::iterator end = structures().end();
     for (JSDOMStructureMap::iterator it = structures().begin(); it != end; ++it)
-        it->second->mark();
+        markStack.append(it->second->storedPrototype());
 
     JSDOMConstructorMap::iterator end2 = constructors().end();
-    for (JSDOMConstructorMap::iterator it2 = constructors().begin(); it2 != end2; ++it2) {
-        if (!it2->second->marked())
-            it2->second->mark();
-    }
-}
+    for (JSDOMConstructorMap::iterator it2 = constructors().begin(); it2 != end2; ++it2)
+        markStack.append(it2->second);
 
-JSEventListener* JSDOMGlobalObject::findJSEventListener(JSValue val)
-{
-    if (!val.isObject())
-        return 0;
-
-    return d()->jsEventListeners.get(asObject(val));
-}
-
-PassRefPtr<JSEventListener> JSDOMGlobalObject::findOrCreateJSEventListener(JSValue val)
-{
-    if (JSEventListener* listener = findJSEventListener(val))
-        return listener;
-
-    if (!val.isObject())
-        return 0;
-
-    // The JSEventListener constructor adds it to our jsEventListeners map.
-    return JSEventListener::create(asObject(val), this, false).get();
-}
-
-PassRefPtr<JSEventListener> JSDOMGlobalObject::createJSAttributeEventListener(JSValue val)
-{
-    if (!val.isObject())
-        return 0;
-
-    return JSEventListener::create(asObject(val), this, true).get();
-}
-
-JSDOMGlobalObject::JSListenersMap& JSDOMGlobalObject::jsEventListeners()
-{
-    return d()->jsEventListeners;
+    if (d()->m_injectedScript)
+        markStack.append(d()->m_injectedScript);
 }
 
 void JSDOMGlobalObject::setCurrentEvent(Event* evt)
@@ -116,10 +73,49 @@ Event* JSDOMGlobalObject::currentEvent() const
     return d()->evt;
 }
 
-JSDOMGlobalObject* toJSDOMGlobalObject(ScriptExecutionContext* scriptExecutionContext)
+void JSDOMGlobalObject::setInjectedScript(JSObject* injectedScript)
+{
+    d()->m_injectedScript = injectedScript;
+}
+
+JSObject* JSDOMGlobalObject::injectedScript() const
+{
+    return d()->m_injectedScript;
+}
+
+void JSDOMGlobalObject::destroyJSDOMGlobalObjectData(void* jsDOMGlobalObjectData)
+{
+    delete static_cast<JSDOMGlobalObjectData*>(jsDOMGlobalObjectData);
+}
+
+JSDOMGlobalObject* toJSDOMGlobalObject(Document* document, JSC::ExecState* exec)
+{
+    return toJSDOMWindow(document->frame(), currentWorld(exec));
+}
+
+JSDOMGlobalObject* toJSDOMGlobalObject(ScriptExecutionContext* scriptExecutionContext, JSC::ExecState* exec)
 {
     if (scriptExecutionContext->isDocument())
-        return toJSDOMWindow(static_cast<Document*>(scriptExecutionContext)->frame());
+        return toJSDOMGlobalObject(static_cast<Document*>(scriptExecutionContext), exec);
+
+#if ENABLE(WORKERS)
+    if (scriptExecutionContext->isWorkerContext())
+        return static_cast<WorkerContext*>(scriptExecutionContext)->script()->workerContextWrapper();
+#endif
+
+    ASSERT_NOT_REACHED();
+    return 0;
+}
+
+JSDOMGlobalObject* toJSDOMGlobalObject(Document* document, DOMWrapperWorld* world)
+{
+    return toJSDOMWindow(document->frame(), world);
+}
+
+JSDOMGlobalObject* toJSDOMGlobalObject(ScriptExecutionContext* scriptExecutionContext, DOMWrapperWorld* world)
+{
+    if (scriptExecutionContext->isDocument())
+        return toJSDOMGlobalObject(static_cast<Document*>(scriptExecutionContext), world);
 
 #if ENABLE(WORKERS)
     if (scriptExecutionContext->isWorkerContext())

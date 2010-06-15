@@ -306,6 +306,7 @@ IOUSBController::Read(IOMemoryDescriptor *buffer, USBDeviceAddress address, Endp
 	IODMACommand *		dmaCommand = NULL;
     IOUSBCompletion 	nullCompletion;
     int					i;
+	bool				isSyncTransfer = false;
 
     USBLog(7, "%s[%p]::Read - reqCount = %qd", getName(), this, (uint64_t)reqCount);
 
@@ -364,106 +365,91 @@ IOUSBController::Read(IOMemoryDescriptor *buffer, USBDeviceAddress address, Endp
 		{
 			USBLog(1, "%s[%p]::Read - no DMA COMMAND", getName(), this);
 			USBTrace( kUSBTController, kTPControllerRead, (uintptr_t)this, kIOReturnNoResources, 0, 2 );
-            return kIOReturnNoResources;
+            err = kIOReturnNoResources;
 		}
-		memDesc = (IOMemoryDescriptor*)dmaCommand->getMemoryDescriptor();
-		if (memDesc)
+		else
 		{
-			USBLog(1, "%s[%p]::Read - dmaCommand (%p) already contains memory descriptor (%p) - clearing", getName(), this, dmaCommand, memDesc);
-			USBTrace( kUSBTController, kTPControllerRead, (uintptr_t)this, (uintptr_t)dmaCommand, (uintptr_t)memDesc, 3 );
-			dmaCommand->clearMemoryDescriptor();
-			// memDesc->complete();		// should i do this?
-		}
-		// buffer->retain();			// should i do this?
-		// err = buffer->prepare();		// should i do this?
-		if (0) // if (err)
-		{
-			USBLog(1, "%s[%p]::Read - err (%p) preparing memory descriptor (%p)", getName(), this, (void*)err, buffer);
-			USBTrace( kUSBTController, kTPControllerRead, (uintptr_t)this, err, (uintptr_t)buffer, 4 );
-            return err;
-		}
-		USBLog(7, "%s[%p]::Read - setting memory descriptor (%p) into dmaCommand (%p)", getName(), this, buffer, dmaCommand);
-		err = dmaCommand->setMemoryDescriptor(buffer);
-		if (err)
-		{
-			USBLog(1, "%s[%p]::Read - err(%p) attempting to set the memory descriptor to the dmaCommand", getName(), this, (void*)err);
-			USBTrace( kUSBTController, kTPControllerRead, (uintptr_t)this, err, 0, 5 );
-			// buffer->complete();		// should i do this?
-			return err;
-		}
-	}
 
-	// Set up a flag indicating that we have a synchronous request in this command
-	//
-    if ( completion->action == &IOUSBSyncCompletion )
-		command->SetIsSyncTransfer(true);
-	else
-		command->SetIsSyncTransfer(false);
-	
-    command->SetUseTimeStamp(false);
-    command->SetSelector(READ);
-    command->SetRequest(0);            	// Not a device request
-    command->SetAddress(address);
-    command->SetEndpoint(endpoint->number);
-    command->SetDirection(kUSBIn);
-    command->SetType(endpoint->transferType);
-    command->SetBuffer(buffer);
-    command->SetReqCount(reqCount);
-    command->SetClientCompletion(*completion);
-    command->SetNoDataTimeout(noDataTimeout);
-    command->SetCompletionTimeout(completionTimeout);
-	command->SetMultiTransferTransaction(false);
-	command->SetFinalTransferInTransaction(false);
-    for (i=0; i < 10; i++)
-		command->SetUIMScratch(i, 0);
-	
-    nullCompletion.target = (void *) NULL;
-    nullCompletion.action = (IOUSBCompletionAction) NULL;
-    nullCompletion.parameter = (void *) NULL;
-    command->SetDisjointCompletion(nullCompletion);
-    
-    err = CheckForDisjointDescriptor(command, endpoint->maxPacketSize);
-    if (kIOReturnSuccess == err)
-	{
-		bool	isSyncTransfer = command->GetIsSyncTransfer();
-
-		err = _commandGate->runAction(DoIOTransfer, command);
-		
-		// If we have a sync request, then we always return the command after the DoIOTransfer.  If it's an async request, we only return it if 
-		// we get an immediate error
-		//
-		if ( isSyncTransfer || (kIOReturnSuccess != err) )
-		{
-			IODMACommand		*dmaCommand = command->GetDMACommand();
-			IOMemoryDescriptor	*memDesc = dmaCommand ? (IOMemoryDescriptor	*)dmaCommand->getMemoryDescriptor() : NULL;
-			
-			nullCompletion = command->GetDisjointCompletion();
-			if (nullCompletion.action)
-			{
-				USBLog(2, "%s[%p]::Read - SYNC xfer or immediate error with Disjoint Completion", getName(), this);
-			}
+			memDesc = (IOMemoryDescriptor*)dmaCommand->getMemoryDescriptor();
 			if (memDesc)
 			{
-				USBLog(7, "%s[%p]::Read - sync xfer or err return - clearing memory descriptor (%p) from dmaCommand (%p)", getName(), this, memDesc, dmaCommand);
+				USBLog(1, "%s[%p]::Read - dmaCommand (%p) already contains memory descriptor (%p) - clearing", getName(), this, dmaCommand, memDesc);
+				USBTrace( kUSBTController, kTPControllerRead, (uintptr_t)this, (uintptr_t)dmaCommand, (uintptr_t)memDesc, 3 );
 				dmaCommand->clearMemoryDescriptor();
-				// memDesc->complete();					should i do this?
-				// memDesc->release();					should i do this?
 			}
-			_freeUSBCommandPool->returnCommand(command);
+			USBLog(7, "%s[%p]::Read - setting memory descriptor (%p) into dmaCommand (%p)", getName(), this, buffer, dmaCommand);
+			err = dmaCommand->setMemoryDescriptor(buffer);
+			if (err)
+			{
+				USBLog(1, "%s[%p]::Read - err(%p) attempting to set the memory descriptor to the dmaCommand", getName(), this, (void*)err);
+				USBTrace( kUSBTController, kTPControllerRead, (uintptr_t)this, err, 0, 5 );
+			}
 		}
 	}
-	else
+
+	if (!err)
 	{
-		IODMACommand		*dmaCommand = command->GetDMACommand();
-		IOMemoryDescriptor	*memDesc = dmaCommand ? (IOMemoryDescriptor	*)dmaCommand->getMemoryDescriptor() : NULL;
-		// CheckForDisjoint returned an error, so free up the comand
+		// Set up a flag indicating that we have a synchronous request in this command
 		//
+		if ( completion->action == &IOUSBSyncCompletion )
+			command->SetIsSyncTransfer(true);
+		else
+			command->SetIsSyncTransfer(false);
+		
+		command->SetUseTimeStamp(false);
+		command->SetSelector(READ);
+		command->SetRequest(0);            	// Not a device request
+		command->SetAddress(address);
+		command->SetEndpoint(endpoint->number);
+		command->SetDirection(kUSBIn);
+		command->SetType(endpoint->transferType);
+		command->SetBuffer(buffer);
+		command->SetReqCount(reqCount);
+		command->SetClientCompletion(*completion);
+		command->SetNoDataTimeout(noDataTimeout);
+		command->SetCompletionTimeout(completionTimeout);
+		command->SetMultiTransferTransaction(false);
+		command->SetFinalTransferInTransaction(false);
+		for (i=0; i < 10; i++)
+			command->SetUIMScratch(i, 0);
+		
+		nullCompletion.target = (void *) NULL;
+		nullCompletion.action = (IOUSBCompletionAction) NULL;
+		nullCompletion.parameter = (void *) NULL;
+		command->SetDisjointCompletion(nullCompletion);
+		
+		err = CheckForDisjointDescriptor(command, endpoint->maxPacketSize);
+		if (!err)
+		{
+			isSyncTransfer = command->GetIsSyncTransfer();
+			
+			err = _commandGate->runAction(DoIOTransfer, command);
+			
+		}
+	}
+
+	// 7455477: handle and and all errors which may have occured above
+	// If we have a sync request, then we always return the command after the DoIOTransfer.  If it's an async request, we only return it if 
+	// we get an immediate error
+	//
+	if ( isSyncTransfer || (kIOReturnSuccess != err) )
+	{
+		IOMemoryDescriptor	*memDesc = dmaCommand ? (IOMemoryDescriptor	*)dmaCommand->getMemoryDescriptor() : NULL;
+		
+		if (!isSyncTransfer)
+		{
+			USBLog(1, "%s[%p]::Read - General error (%p) - cleaning up - command(%p) dmaCommand(%p)", getName(), this, (void*)err, command, dmaCommand);
+		}
+		
 		if (memDesc)
 		{
-			USBLog(7, "%s[%p]::Read - CheckForDisjoint error (%p) - clearing memory descriptor (%p) from dmaCommand (%p)", getName(), this, (void*)err, memDesc, dmaCommand);
+			USBLog(7, "%s[%p]::Read - sync xfer or err return - clearing memory descriptor (%p) from dmaCommand (%p)", getName(), this, memDesc, dmaCommand);
 			dmaCommand->clearMemoryDescriptor();
-			// memDesc->complete();					should i do this?
-			// memDesc->release();					should i do this?
+		}
+		nullCompletion = command->GetDisjointCompletion();
+		if (nullCompletion.action)
+		{
+			USBLog(2, "%s[%p]::Read - SYNC xfer or immediate error with Disjoint Completion", getName(), this);
 		}
 		_freeUSBCommandPool->returnCommand(command);
 	}
@@ -508,7 +494,8 @@ IOUSBController::Write(IOMemoryDescriptor *buffer, USBDeviceAddress address, End
 	IODMACommand *			dmaCommand = NULL;
     IOUSBCompletion			nullCompletion;
     int						i;
-
+	bool					isSyncTransfer = false;
+	
     USBLog(7, "%s[%p]::Write - reqCount = %qd", getName(), this, (uint64_t)reqCount);
     
     // Validate its a outty pipe and that we have a buffer
@@ -548,6 +535,7 @@ IOUSBController::Write(IOMemoryDescriptor *buffer, USBDeviceAddress address, End
         }
     }
 
+	// 7455477: from this point forward, we have the command object, and we need to be careful to put it back if there is an error..
 	if (reqCount)
 	{
 		IOMemoryDescriptor	*memDesc;
@@ -558,107 +546,91 @@ IOUSBController::Write(IOMemoryDescriptor *buffer, USBDeviceAddress address, End
 		{
 			USBLog(1, "%s[%p]::Write - no DMA COMMAND", getName(), this);
 			USBTrace( kUSBTController, kTPControllerWrite, (uintptr_t)this, kIOReturnNoResources, 0, 1 );
-            return kIOReturnNoResources;
+            err = kIOReturnNoResources;
 		}
-		memDesc = (IOMemoryDescriptor *)dmaCommand->getMemoryDescriptor();
-		if (memDesc)
+		else
 		{
-			USBLog(1, "%s[%p]::Write - dmaCommand (%p) already contains memory descriptor (%p) - clearing", getName(), this, dmaCommand, memDesc);
-			USBTrace( kUSBTController, kTPControllerWrite, (uintptr_t)this, (uintptr_t)dmaCommand, (uintptr_t)memDesc, 2 );
-			dmaCommand->clearMemoryDescriptor();
-			// memDesc->complete();					should i do this?
-			// memDesc->release();					should i do this?
-		}
-		// buffer->retain();			// should i do this?
-		// err = buffer->prepare();		// should i do this?
-		if (0) // if (err)
-		{
-			USBLog(1, "%s[%p]::Write - err (%p) preparing buffer (%p)", getName(), this, (void*)err, buffer);
-			USBTrace( kUSBTController, kTPControllerWrite, (uintptr_t)this, err, (uintptr_t)buffer, 3 );			
-            return err;
-		}
-		USBLog(7, "%s[%p]::Write - setting memory descriptor (%p) into dmaCommand (%p)", getName(), this, buffer, dmaCommand);
-		err = dmaCommand->setMemoryDescriptor(buffer);
-		if (err)
-		{
-			USBTrace( kUSBTController, kTPControllerWrite, (uintptr_t)this, err, 0, 4 );
-			USBLog(1, "%s[%p]::Write - err(%p) attempting to set the memory descriptor to the dmaCommand", getName(), this, (void*)err);
-			// buffer->complete();		// should i do this?
-			return err;
-		}
-	}
-	
-	// Set up a flag indicating that we have a synchronous request in this command
-	//
-    if ( completion->action == &IOUSBSyncCompletion )
-		command->SetIsSyncTransfer(true);
-	else
-		command->SetIsSyncTransfer(false);
-	
-    command->SetUseTimeStamp(false);
-    command->SetSelector(WRITE);
-    command->SetRequest(0);            // Not a device request
-    command->SetAddress(address);
-    command->SetEndpoint(endpoint->number);
-    command->SetDirection(kUSBOut);
-    command->SetType(endpoint->transferType);
-    command->SetBuffer(buffer);
-    command->SetReqCount(reqCount);
-    command->SetClientCompletion(*completion);
-    command->SetNoDataTimeout(noDataTimeout); 
-    command->SetCompletionTimeout(completionTimeout);
-	command->SetMultiTransferTransaction(false);
-	command->SetFinalTransferInTransaction(false);
-    for (i=0; i < 10; i++)
-		command->SetUIMScratch(i, 0);
-
-    nullCompletion.target = (void *) NULL;
-    nullCompletion.action = (IOUSBCompletionAction) NULL;
-    nullCompletion.parameter = (void *) NULL;
-    command->SetDisjointCompletion(nullCompletion);
-
-    err = CheckForDisjointDescriptor(command, endpoint->maxPacketSize);
-    if (kIOReturnSuccess == err)
-	{
-		bool	isSyncTransfer = command->GetIsSyncTransfer();
-		
-		err = _commandGate->runAction(DoIOTransfer, command);
-		
-		// If we have a sync request, then we always return the command after the DoIOTransfer.  If it's an async request, we only return it if 
-		// we get an immediate error
-		//
-		if ( isSyncTransfer || (kIOReturnSuccess != err) )
-		{
-			IODMACommand		*dmaCommand = command->GetDMACommand();
-			IOMemoryDescriptor	*memDesc = dmaCommand ? (IOMemoryDescriptor	*)dmaCommand->getMemoryDescriptor() : NULL;
-
-			nullCompletion = command->GetDisjointCompletion();
-			if (nullCompletion.action)
-			{
-				USBLog(2, "%s[%p]::Write - SYNC xfer or immediate error with Disjoint Completion", getName(), this);
-			}
+			memDesc = (IOMemoryDescriptor *)dmaCommand->getMemoryDescriptor();
 			if (memDesc)
 			{
-				USBLog(7, "%s[%p]::Write - sync xfer or err return - clearing memory descriptor (%p) from dmaCommand (%p)", getName(), this, memDesc, dmaCommand);
+				USBLog(1, "%s[%p]::Write - dmaCommand (%p) already contains memory descriptor (%p) - clearing", getName(), this, dmaCommand, memDesc);
+				USBTrace( kUSBTController, kTPControllerWrite, (uintptr_t)this, (uintptr_t)dmaCommand, (uintptr_t)memDesc, 2 );
 				dmaCommand->clearMemoryDescriptor();
-				// memDesc->complete();					should i do this?
-				// memDesc->release();					should i do this?
 			}
-			_freeUSBCommandPool->returnCommand(command);
+			USBLog(7, "%s[%p]::Write - setting memory descriptor (%p) into dmaCommand (%p)", getName(), this, buffer, dmaCommand);
+			err = dmaCommand->setMemoryDescriptor(buffer);
+			if (err)
+			{
+				USBTrace( kUSBTController, kTPControllerWrite, (uintptr_t)this, err, 0, 4 );
+				USBLog(1, "%s[%p]::Write - err(%p) attempting to set the memory descriptor to the dmaCommand", getName(), this, (void*)err);
+			}
+		}
+
+	}
+	
+	if (!err)
+	{
+		// Set up a flag indicating that we have a synchronous request in this command
+		//
+		if ( completion->action == &IOUSBSyncCompletion )
+			command->SetIsSyncTransfer(true);
+		else
+			command->SetIsSyncTransfer(false);
+		
+		command->SetUseTimeStamp(false);
+		command->SetSelector(WRITE);
+		command->SetRequest(0);            // Not a device request
+		command->SetAddress(address);
+		command->SetEndpoint(endpoint->number);
+		command->SetDirection(kUSBOut);
+		command->SetType(endpoint->transferType);
+		command->SetBuffer(buffer);
+		command->SetReqCount(reqCount);
+		command->SetClientCompletion(*completion);
+		command->SetNoDataTimeout(noDataTimeout); 
+		command->SetCompletionTimeout(completionTimeout);
+		command->SetMultiTransferTransaction(false);
+		command->SetFinalTransferInTransaction(false);
+		for (i=0; i < 10; i++)
+			command->SetUIMScratch(i, 0);
+
+		nullCompletion.target = (void *) NULL;
+		nullCompletion.action = (IOUSBCompletionAction) NULL;
+		nullCompletion.parameter = (void *) NULL;
+		command->SetDisjointCompletion(nullCompletion);
+
+		err = CheckForDisjointDescriptor(command, endpoint->maxPacketSize);
+		if (!err)
+		{
+			isSyncTransfer = command->GetIsSyncTransfer();
+			
+			err = _commandGate->runAction(DoIOTransfer, command);
+			
 		}
 	}
-	else
+	
+	// 7455477: handle and and all errors which may have occured above
+	// If we have a sync request, then we always return the command after the DoIOTransfer.  If it's an async request, we only return it if 
+	// we get an immediate error
+	//
+	if ( isSyncTransfer || (kIOReturnSuccess != err) )
 	{
-		IODMACommand		*dmaCommand = command->GetDMACommand();
 		IOMemoryDescriptor	*memDesc = dmaCommand ? (IOMemoryDescriptor	*)dmaCommand->getMemoryDescriptor() : NULL;
-		// CheckForDisjoint returned an error, so free up the comand
-		//
+
+		if (!isSyncTransfer)
+		{
+			USBLog(1, "%s[%p]::Write - General error (%p) - cleaning up - command(%p) dmaCommand(%p)", getName(), this, (void*)err, command, dmaCommand);
+		}
+
 		if (memDesc)
 		{
-			USBLog(7, "%s[%p]::Write - CheckForDisjoint error (%p) - clearing memory descriptor (%p) from dmaCommand (%p)", getName(), this, (void*)err, memDesc, dmaCommand);
+			USBLog(7, "%s[%p]::Write - General error (%p) - clearing memory descriptor (%p) from dmaCommand (%p)", getName(), this, (void*)err, memDesc, dmaCommand);
 			dmaCommand->clearMemoryDescriptor();
-			// memDesc->complete();					should i do this?
-			// memDesc->release();					should i do this?
+		}
+		nullCompletion = command->GetDisjointCompletion();
+		if (nullCompletion.action)
+		{
+			USBLog(2, "%s[%p]::Write - SYNC xfer or immediate error with Disjoint Completion", getName(), this);
 		}
 		_freeUSBCommandPool->returnCommand(command);
 	}

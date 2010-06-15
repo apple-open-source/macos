@@ -66,7 +66,7 @@ static bool isDeletableElement(const Node* node)
     if (!node || !node->isHTMLElement() || !node->inDocument() || !node->isContentEditable())
         return false;
 
-    // In general we want to only draw the UI arround object of a certain area, but we still keep the min width/height to
+    // In general we want to only draw the UI around object of a certain area, but we still keep the min width/height to
     // make sure we don't end up with very thin or very short elements getting the UI.
     const int minimumArea = 2500;
     const int minimumWidth = 48;
@@ -133,7 +133,7 @@ static bool isDeletableElement(const Node* node)
         if (!parentStyle)
             return false;
 
-        if (style->hasBackground() && (!parentStyle->hasBackground() || style->backgroundColor() != parentStyle->backgroundColor()))
+        if (renderer->hasBackground() && (!parentRenderer->hasBackground() || style->visitedDependentColor(CSSPropertyBackgroundColor) != parentStyle->visitedDependentColor(CSSPropertyBackgroundColor)))
             return true;
     }
 
@@ -187,7 +187,7 @@ void DeleteButtonController::respondToChangedSelection(const VisibleSelection& o
 void DeleteButtonController::createDeletionUI()
 {
     RefPtr<HTMLDivElement> container = new HTMLDivElement(divTag, m_target->document());
-    container->setId(containerElementIdentifier);
+    container->setAttribute(container->idAttributeName(), containerElementIdentifier);
 
     CSSMutableStyleDeclaration* style = container->getInlineStyleDecl();
     style->setProperty(CSSPropertyWebkitUserDrag, CSSValueNone);
@@ -202,7 +202,7 @@ void DeleteButtonController::createDeletionUI()
     style->setProperty(CSSPropertyLeft, "0");
 
     RefPtr<HTMLDivElement> outline = new HTMLDivElement(divTag, m_target->document());
-    outline->setId(outlineElementIdentifier);
+    outline->setAttribute(outline->idAttributeName(), outlineElementIdentifier);
 
     const int borderWidth = 4;
     const int borderRadius = 6;
@@ -225,7 +225,7 @@ void DeleteButtonController::createDeletionUI()
         return;
 
     RefPtr<DeleteButton> button = new DeleteButton(m_target->document());
-    button->setId(buttonElementIdentifier);
+    button->setAttribute(button->idAttributeName(), buttonElementIdentifier);
 
     const int buttonWidth = 30;
     const int buttonHeight = 30;
@@ -350,7 +350,7 @@ void DeleteButtonController::deleteTarget()
     // Because the deletion UI only appears when the selection is entirely
     // within the target, we unconditionally update the selection to be
     // a caret where the target had been.
-    Position pos = positionBeforeNode(element.get());
+    Position pos = positionInParentBeforeNode(element.get());
     applyCommand(RemoveNodeCommand::create(element.release()));
     m_frame->selection()->setSelection(VisiblePosition(pos));
 }

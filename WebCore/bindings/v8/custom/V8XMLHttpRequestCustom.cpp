@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008, 2009 Google Inc. All rights reserved.
+ * Copyright (C) 2008, 2009, 2010 Google Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -29,283 +29,30 @@
  */
 
 #include "config.h"
-#include "XMLHttpRequest.h"
+#include "V8XMLHttpRequest.h"
 
 #include "Frame.h"
 #include "V8Binding.h"
+#include "V8Blob.h"
+#include "V8DOMFormData.h"
 #include "V8Document.h"
-#include "V8CustomBinding.h"
 #include "V8HTMLDocument.h"
-#include "V8ObjectEventListener.h"
 #include "V8Proxy.h"
 #include "V8Utilities.h"
 #include "WorkerContext.h"
 #include "WorkerContextExecutionProxy.h"
+#include "XMLHttpRequest.h"
 
 namespace WebCore {
 
-PassRefPtr<EventListener> getEventListener(XMLHttpRequest* xmlHttpRequest, v8::Local<v8::Value> value, bool findOnly)
+v8::Handle<v8::Value> V8XMLHttpRequest::responseTextAccessorGetter(v8::Local<v8::String> name, const v8::AccessorInfo& info)
 {
-#if ENABLE(WORKERS)
-    WorkerContextExecutionProxy* workerContextProxy = WorkerContextExecutionProxy::retrieve();
-    if (workerContextProxy)
-        return workerContextProxy->findOrCreateObjectEventListener(value, false, findOnly);
-#endif
-
-    V8Proxy* proxy = V8Proxy::retrieve(xmlHttpRequest->scriptExecutionContext());
-    if (proxy)
-        return findOnly ? proxy->findObjectEventListener(value, false) : proxy->findOrCreateObjectEventListener(value, false);
-
-    return PassRefPtr<EventListener>();
-}
-
-ACCESSOR_GETTER(XMLHttpRequestOnabort)
-{
-    INC_STATS("DOM.XMLHttpRequest.onabort._get");
-    XMLHttpRequest* xmlHttpRequest = V8DOMWrapper::convertToNativeObject<XMLHttpRequest>(V8ClassIndex::XMLHTTPREQUEST, info.Holder());
-    if (xmlHttpRequest->onabort()) {
-        V8ObjectEventListener* listener = static_cast<V8ObjectEventListener*>(xmlHttpRequest->onabort());
-        v8::Local<v8::Object> v8Listener = listener->getListenerObject();
-        return v8Listener;
-    }
-    return v8::Null();
-}
-
-ACCESSOR_SETTER(XMLHttpRequestOnabort)
-{
-    INC_STATS("DOM.XMLHttpRequest.onabort._set");
-    XMLHttpRequest* xmlHttpRequest = V8DOMWrapper::convertToNativeObject<XMLHttpRequest>(V8ClassIndex::XMLHTTPREQUEST, info.Holder());
-    if (value->IsNull()) {
-        if (xmlHttpRequest->onabort()) {
-            V8ObjectEventListener* listener = static_cast<V8ObjectEventListener*>(xmlHttpRequest->onabort());
-            v8::Local<v8::Object> v8Listener = listener->getListenerObject();
-            removeHiddenDependency(info.Holder(), v8Listener, V8Custom::kXMLHttpRequestCacheIndex);
-        }
-
-        // Clear the listener.
-        xmlHttpRequest->setOnabort(0);
-    } else {
-        RefPtr<EventListener> listener = getEventListener(xmlHttpRequest, value, false);
-        if (listener) {
-            xmlHttpRequest->setOnabort(listener);
-            createHiddenDependency(info.Holder(), value, V8Custom::kXMLHttpRequestCacheIndex);
-        }
-    }
-}
-
-ACCESSOR_GETTER(XMLHttpRequestOnerror)
-{
-    INC_STATS("DOM.XMLHttpRequest.onerror._get");
-    XMLHttpRequest* xmlHttpRequest = V8DOMWrapper::convertToNativeObject<XMLHttpRequest>(V8ClassIndex::XMLHTTPREQUEST, info.Holder());
-    if (xmlHttpRequest->onerror()) {
-        RefPtr<V8ObjectEventListener> listener = static_cast<V8ObjectEventListener*>(xmlHttpRequest->onerror());
-        v8::Local<v8::Object> v8Listener = listener->getListenerObject();
-        return v8Listener;
-    }
-    return v8::Null();
-}
-
-ACCESSOR_SETTER(XMLHttpRequestOnerror)
-{
-    INC_STATS("DOM.XMLHttpRequest.onerror._set");
-    XMLHttpRequest* xmlHttpRequest = V8DOMWrapper::convertToNativeObject<XMLHttpRequest>(V8ClassIndex::XMLHTTPREQUEST, info.Holder());
-    if (value->IsNull()) {
-        if (xmlHttpRequest->onerror()) {
-            V8ObjectEventListener* listener = static_cast<V8ObjectEventListener*>(xmlHttpRequest->onerror());
-            v8::Local<v8::Object> v8Listener = listener->getListenerObject();
-            removeHiddenDependency(info.Holder(), v8Listener, V8Custom::kXMLHttpRequestCacheIndex);
-        }
-
-        // Clear the listener.
-        xmlHttpRequest->setOnerror(0);
-    } else {
-        RefPtr<EventListener> listener = getEventListener(xmlHttpRequest, value, false);
-        if (listener) {
-            xmlHttpRequest->setOnerror(listener);
-            createHiddenDependency(info.Holder(), value, V8Custom::kXMLHttpRequestCacheIndex);
-        }
-    }
-}
-
-ACCESSOR_GETTER(XMLHttpRequestOnload)
-{
-    INC_STATS("DOM.XMLHttpRequest.onload._get");
-    XMLHttpRequest* xmlHttpRequest = V8DOMWrapper::convertToNativeObject<XMLHttpRequest>(V8ClassIndex::XMLHTTPREQUEST, info.Holder());
-    if (xmlHttpRequest->onload()) {
-        V8ObjectEventListener* listener = static_cast<V8ObjectEventListener*>(xmlHttpRequest->onload());
-        v8::Local<v8::Object> v8Listener = listener->getListenerObject();
-        return v8Listener;
-    }
-    return v8::Null();
-}
-
-ACCESSOR_SETTER(XMLHttpRequestOnload)
-{
-    INC_STATS("DOM.XMLHttpRequest.onload._set");
-    XMLHttpRequest* xmlHttpRequest = V8DOMWrapper::convertToNativeObject<XMLHttpRequest>(V8ClassIndex::XMLHTTPREQUEST, info.Holder());
-    if (value->IsNull()) {
-        if (xmlHttpRequest->onload()) {
-            V8ObjectEventListener* listener = static_cast<V8ObjectEventListener*>(xmlHttpRequest->onload());
-            v8::Local<v8::Object> v8Listener = listener->getListenerObject();
-            removeHiddenDependency(info.Holder(), v8Listener, V8Custom::kXMLHttpRequestCacheIndex);
-        }
-
-        xmlHttpRequest->setOnload(0);
-
-    } else {
-        RefPtr<EventListener> listener = getEventListener(xmlHttpRequest, value, false);
-        if (listener) {
-            xmlHttpRequest->setOnload(listener.get());
-            createHiddenDependency(info.Holder(), value, V8Custom::kXMLHttpRequestCacheIndex);
-        }
-    }
-}
-
-ACCESSOR_GETTER(XMLHttpRequestOnloadstart)
-{
-    INC_STATS("DOM.XMLHttpRequest.onloadstart._get");
-    XMLHttpRequest* xmlHttpRequest = V8DOMWrapper::convertToNativeObject<XMLHttpRequest>(V8ClassIndex::XMLHTTPREQUEST, info.Holder());
-    if (xmlHttpRequest->onloadstart()) {
-        V8ObjectEventListener* listener = static_cast<V8ObjectEventListener*>(xmlHttpRequest->onloadstart());
-        v8::Local<v8::Object> v8Listener = listener->getListenerObject();
-        return v8Listener;
-    }
-    return v8::Null();
-}
-
-ACCESSOR_SETTER(XMLHttpRequestOnloadstart)
-{
-    INC_STATS("DOM.XMLHttpRequest.onloadstart._set");
-    XMLHttpRequest* xmlHttpRequest = V8DOMWrapper::convertToNativeObject<XMLHttpRequest>(V8ClassIndex::XMLHTTPREQUEST, info.Holder());
-    if (value->IsNull()) {
-        if (xmlHttpRequest->onloadstart()) {
-            V8ObjectEventListener* listener = static_cast<V8ObjectEventListener*>(xmlHttpRequest->onloadstart());
-            v8::Local<v8::Object> v8Listener = listener->getListenerObject();
-            removeHiddenDependency(info.Holder(), v8Listener, V8Custom::kXMLHttpRequestCacheIndex);
-        }
-
-        // Clear the listener.
-        xmlHttpRequest->setOnloadstart(0);
-    } else {
-        RefPtr<EventListener> listener = getEventListener(xmlHttpRequest, value, false);
-        if (listener) {
-            xmlHttpRequest->setOnloadstart(listener);
-            createHiddenDependency(info.Holder(), value, V8Custom::kXMLHttpRequestCacheIndex);
-        }
-    }
-}
-
-ACCESSOR_GETTER(XMLHttpRequestOnprogress)
-{
-    INC_STATS("DOM.XMLHttpRequest.onprogress._get");
-    XMLHttpRequest* xmlHttpRequest = V8DOMWrapper::convertToNativeObject<XMLHttpRequest>(V8ClassIndex::XMLHTTPREQUEST, info.Holder());
-    if (xmlHttpRequest->onprogress()) {
-        V8ObjectEventListener* listener = static_cast<V8ObjectEventListener*>(xmlHttpRequest->onprogress());
-        v8::Local<v8::Object> v8Listener = listener->getListenerObject();
-        return v8Listener;
-    }
-    return v8::Null();
-}
-
-ACCESSOR_SETTER(XMLHttpRequestOnprogress)
-{
-    INC_STATS("DOM.XMLHttpRequest.onprogress._set");
-    XMLHttpRequest* xmlHttpRequest = V8DOMWrapper::convertToNativeObject<XMLHttpRequest>(V8ClassIndex::XMLHTTPREQUEST, info.Holder());
-    if (value->IsNull()) {
-        if (xmlHttpRequest->onprogress()) {
-            V8ObjectEventListener* listener = static_cast<V8ObjectEventListener*>(xmlHttpRequest->onprogress());
-            v8::Local<v8::Object> v8Listener = listener->getListenerObject();
-            removeHiddenDependency(info.Holder(), v8Listener, V8Custom::kXMLHttpRequestCacheIndex);
-        }
-
-        // Clear the listener.
-        xmlHttpRequest->setOnprogress(0);
-    } else {
-        RefPtr<EventListener> listener = getEventListener(xmlHttpRequest, value, false);
-        if (listener) {
-            xmlHttpRequest->setOnprogress(listener);
-            createHiddenDependency(info.Holder(), value, V8Custom::kXMLHttpRequestCacheIndex);
-        }
-    }
-}
-
-ACCESSOR_GETTER(XMLHttpRequestOnreadystatechange)
-{
-    INC_STATS("DOM.XMLHttpRequest.onreadystatechange._get");
-    XMLHttpRequest* xmlHttpRequest = V8DOMWrapper::convertToNativeObject<XMLHttpRequest>(V8ClassIndex::XMLHTTPREQUEST, info.Holder());
-    if (xmlHttpRequest->onreadystatechange()) {
-        V8ObjectEventListener* listener = static_cast<V8ObjectEventListener*>(xmlHttpRequest->onreadystatechange());
-        v8::Local<v8::Object> v8Listener = listener->getListenerObject();
-        return v8Listener;
-    }
-    return v8::Null();
-}
-
-ACCESSOR_SETTER(XMLHttpRequestOnreadystatechange)
-{
-    INC_STATS("DOM.XMLHttpRequest.onreadystatechange._set");
-    XMLHttpRequest* xmlHttpRequest = V8DOMWrapper::convertToNativeObject<XMLHttpRequest>(V8ClassIndex::XMLHTTPREQUEST, info.Holder());
-    if (value->IsNull()) {
-        if (xmlHttpRequest->onreadystatechange()) {
-            V8ObjectEventListener* listener = static_cast<V8ObjectEventListener*>(xmlHttpRequest->onreadystatechange());
-            v8::Local<v8::Object> v8Listener = listener->getListenerObject();
-            removeHiddenDependency(info.Holder(), v8Listener, V8Custom::kXMLHttpRequestCacheIndex);
-        }
-
-        // Clear the listener.
-        xmlHttpRequest->setOnreadystatechange(0);
-    } else {
-        RefPtr<EventListener> listener = getEventListener(xmlHttpRequest, value, false);
-        if (listener) {
-            xmlHttpRequest->setOnreadystatechange(listener.get());
-            createHiddenDependency(info.Holder(), value, V8Custom::kXMLHttpRequestCacheIndex);
-        }
-    }
-}
-
-ACCESSOR_GETTER(XMLHttpRequestResponseText)
-{
-    // FIXME: This is only needed because webkit set this getter as custom.
-    // So we need a custom method to avoid forking the IDL file.
     INC_STATS("DOM.XMLHttpRequest.responsetext._get");
-    XMLHttpRequest* xmlHttpRequest = V8DOMWrapper::convertToNativeObject<XMLHttpRequest>(V8ClassIndex::XMLHTTPREQUEST, info.Holder());
-    return v8StringOrNull(xmlHttpRequest->responseText());
+    XMLHttpRequest* xmlHttpRequest = V8XMLHttpRequest::toNative(info.Holder());
+    return xmlHttpRequest->responseText().v8StringOrNull();
 }
 
-CALLBACK_FUNC_DECL(XMLHttpRequestAddEventListener)
-{
-    INC_STATS("DOM.XMLHttpRequest.addEventListener()");
-    XMLHttpRequest* xmlHttpRequest = V8DOMWrapper::convertToNativeObject<XMLHttpRequest>(V8ClassIndex::XMLHTTPREQUEST, args.Holder());
-
-    RefPtr<EventListener> listener = getEventListener(xmlHttpRequest, args[1], false);
-    if (listener) {
-        String type = toWebCoreString(args[0]);
-        bool useCapture = args[2]->BooleanValue();
-        xmlHttpRequest->addEventListener(type, listener, useCapture);
-
-        createHiddenDependency(args.Holder(), args[1], V8Custom::kXMLHttpRequestCacheIndex);
-    }
-    return v8::Undefined();
-}
-
-CALLBACK_FUNC_DECL(XMLHttpRequestRemoveEventListener)
-{
-    INC_STATS("DOM.XMLHttpRequest.removeEventListener()");
-    XMLHttpRequest* xmlHttpRequest = V8DOMWrapper::convertToNativeObject<XMLHttpRequest>(V8ClassIndex::XMLHTTPREQUEST, args.Holder());
-
-    RefPtr<EventListener> listener = getEventListener(xmlHttpRequest, args[1], true);
-    if (listener) {
-        String type = toWebCoreString(args[0]);
-        bool useCapture = args[2]->BooleanValue();
-        xmlHttpRequest->removeEventListener(type, listener.get(), useCapture);
-
-        removeHiddenDependency(args.Holder(), args[1], V8Custom::kXMLHttpRequestCacheIndex);
-    }
-
-    return v8::Undefined();
-}
-
-CALLBACK_FUNC_DECL(XMLHttpRequestOpen)
+v8::Handle<v8::Value> V8XMLHttpRequest::openCallback(const v8::Arguments& args)
 {
     INC_STATS("DOM.XMLHttpRequest.open()");
     // Four cases:
@@ -317,43 +64,33 @@ CALLBACK_FUNC_DECL(XMLHttpRequestOpen)
     if (args.Length() < 2)
         return throwError("Not enough arguments", V8Proxy::SyntaxError);
 
-    XMLHttpRequest* xmlHttpRequest = V8DOMWrapper::convertToNativeObject<XMLHttpRequest>(V8ClassIndex::XMLHTTPREQUEST, args.Holder());
+    XMLHttpRequest* xmlHttpRequest = V8XMLHttpRequest::toNative(args.Holder());
 
     String method = toWebCoreString(args[0]);
     String urlstring = toWebCoreString(args[1]);
-    ScriptExecutionContext* context = 0;
-#if ENABLE(WORKERS)
-    WorkerContextExecutionProxy* workerContextProxy = WorkerContextExecutionProxy::retrieve();
-    if (workerContextProxy) {
-        context = workerContextProxy->workerContext();
-        ASSERT(context);
-    }
-#endif
-
-    if (!context) {
-        V8Proxy* proxy = V8Proxy::retrieve();
-        if (!proxy)
-            return v8::Undefined();
-        context = proxy->frame()->document();
-        ASSERT(context);
-    }
+    ScriptExecutionContext* context = getScriptExecutionContext();
+    if (!context)
+        return v8::Undefined();
 
     KURL url = context->completeURL(urlstring);
 
-    bool async = (args.Length() < 3) ? true : args[2]->BooleanValue();
-
     ExceptionCode ec = 0;
-    String user, passwd;
-    if (args.Length() >= 4 && !args[3]->IsUndefined()) {
-        user = toWebCoreStringWithNullCheck(args[3]);
 
-        if (args.Length() >= 5 && !args[4]->IsUndefined()) {
-            passwd = toWebCoreStringWithNullCheck(args[4]);
-            xmlHttpRequest->open(method, url, async, user, passwd, ec);
+    if (args.Length() >= 3) {
+        bool async = args[2]->BooleanValue();
+
+        if (args.Length() >= 4 && !args[3]->IsUndefined()) {
+            String user = toWebCoreStringWithNullCheck(args[3]);
+            
+            if (args.Length() >= 5 && !args[4]->IsUndefined()) {
+                String passwd = toWebCoreStringWithNullCheck(args[4]);
+                xmlHttpRequest->open(method, url, async, user, passwd, ec);
+            } else
+                xmlHttpRequest->open(method, url, async, user, ec);
         } else
-            xmlHttpRequest->open(method, url, async, user, ec);
+            xmlHttpRequest->open(method, url, async, ec);
     } else
-        xmlHttpRequest->open(method, url, async, ec);
+        xmlHttpRequest->open(method, url, ec);
 
     if (ec)
         return throwError(ec);
@@ -361,28 +98,39 @@ CALLBACK_FUNC_DECL(XMLHttpRequestOpen)
     return v8::Undefined();
 }
 
-static bool IsDocumentType(v8::Handle<v8::Value> value)
+static bool isDocumentType(v8::Handle<v8::Value> value)
 {
     // FIXME: add other document types.
     return V8Document::HasInstance(value) || V8HTMLDocument::HasInstance(value);
 }
 
-CALLBACK_FUNC_DECL(XMLHttpRequestSend)
+v8::Handle<v8::Value> V8XMLHttpRequest::sendCallback(const v8::Arguments& args)
 {
     INC_STATS("DOM.XMLHttpRequest.send()");
-    XMLHttpRequest* xmlHttpRequest = V8DOMWrapper::convertToNativeObject<XMLHttpRequest>(V8ClassIndex::XMLHTTPREQUEST, args.Holder());
+    XMLHttpRequest* xmlHttpRequest = V8XMLHttpRequest::toNative(args.Holder());
 
     ExceptionCode ec = 0;
     if (args.Length() < 1)
         xmlHttpRequest->send(ec);
     else {
         v8::Handle<v8::Value> arg = args[0];
-        // FIXME: upstream handles "File" objects too.
-        if (IsDocumentType(arg)) {
+        if (isUndefinedOrNull(arg))
+            xmlHttpRequest->send(ec);
+        else if (isDocumentType(arg)) {
             v8::Handle<v8::Object> object = v8::Handle<v8::Object>::Cast(arg);
-            Document* document = V8DOMWrapper::convertDOMWrapperToNode<Document>(object);
+            Document* document = V8Document::toNative(object);
             ASSERT(document);
             xmlHttpRequest->send(document, ec);
+        } else if (V8Blob::HasInstance(arg)) {
+            v8::Handle<v8::Object> object = v8::Handle<v8::Object>::Cast(arg);
+            Blob* blob = V8Blob::toNative(object);
+            ASSERT(blob);
+            xmlHttpRequest->send(blob, ec);
+        } else if (V8DOMFormData::HasInstance(arg)) {
+            v8::Handle<v8::Object> object = v8::Handle<v8::Object>::Cast(arg);
+            DOMFormData* domFormData = V8DOMFormData::toNative(object);
+            ASSERT(domFormData);
+            xmlHttpRequest->send(domFormData, ec);
         } else
             xmlHttpRequest->send(toWebCoreStringWithNullCheck(arg), ec);
     }
@@ -393,12 +141,13 @@ CALLBACK_FUNC_DECL(XMLHttpRequestSend)
     return v8::Undefined();
 }
 
-CALLBACK_FUNC_DECL(XMLHttpRequestSetRequestHeader) {
+v8::Handle<v8::Value> V8XMLHttpRequest::setRequestHeaderCallback(const v8::Arguments& args)
+{
     INC_STATS("DOM.XMLHttpRequest.setRequestHeader()");
     if (args.Length() < 2)
         return throwError("Not enough arguments", V8Proxy::SyntaxError);
 
-    XMLHttpRequest* xmlHttpRequest = V8DOMWrapper::convertToNativeObject<XMLHttpRequest>(V8ClassIndex::XMLHTTPREQUEST, args.Holder());
+    XMLHttpRequest* xmlHttpRequest = V8XMLHttpRequest::toNative(args.Holder());
     ExceptionCode ec = 0;
     String header = toWebCoreString(args[0]);
     String value = toWebCoreString(args[1]);
@@ -408,13 +157,13 @@ CALLBACK_FUNC_DECL(XMLHttpRequestSetRequestHeader) {
     return v8::Undefined();
 }
 
-CALLBACK_FUNC_DECL(XMLHttpRequestGetResponseHeader)
+v8::Handle<v8::Value> V8XMLHttpRequest::getResponseHeaderCallback(const v8::Arguments& args)
 {
     INC_STATS("DOM.XMLHttpRequest.getResponseHeader()");
     if (args.Length() < 1)
         return throwError("Not enough arguments", V8Proxy::SyntaxError);
 
-    XMLHttpRequest* xmlHttpRequest = V8DOMWrapper::convertToNativeObject<XMLHttpRequest>(V8ClassIndex::XMLHTTPREQUEST, args.Holder());
+    XMLHttpRequest* xmlHttpRequest = V8XMLHttpRequest::toNative(args.Holder());
     ExceptionCode ec = 0;
     String header = toWebCoreString(args[0]);
     String result = xmlHttpRequest->getResponseHeader(header, ec);
@@ -423,21 +172,15 @@ CALLBACK_FUNC_DECL(XMLHttpRequestGetResponseHeader)
     return v8StringOrNull(result);
 }
 
-CALLBACK_FUNC_DECL(XMLHttpRequestOverrideMimeType)
+v8::Handle<v8::Value> V8XMLHttpRequest::overrideMimeTypeCallback(const v8::Arguments& args)
 {
     INC_STATS("DOM.XMLHttpRequest.overrideMimeType()");
     if (args.Length() < 1)
         return throwError("Not enough arguments", V8Proxy::SyntaxError);
 
-    XMLHttpRequest* xmlHttpRequest = V8DOMWrapper::convertToNativeObject<XMLHttpRequest>(V8ClassIndex::XMLHTTPREQUEST, args.Holder());
+    XMLHttpRequest* xmlHttpRequest = V8XMLHttpRequest::toNative(args.Holder());
     String value = toWebCoreString(args[0]);
     xmlHttpRequest->overrideMimeType(value);
-    return v8::Undefined();
-}
-
-CALLBACK_FUNC_DECL(XMLHttpRequestDispatchEvent)
-{
-    INC_STATS("DOM.XMLHttpRequest.dispatchEvent()");
     return v8::Undefined();
 }
 

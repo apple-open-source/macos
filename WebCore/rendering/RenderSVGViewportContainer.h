@@ -2,6 +2,7 @@
     Copyright (C) 2004, 2005, 2007 Nikolas Zimmermann <zimmermann@kde.org>
                   2004, 2005, 2007 Rob Buis <buis@kde.org>
                   2009 Google, Inc.
+    Copyright (C) 2009 Apple Inc. All rights reserved.
 
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Library General Public
@@ -23,7 +24,6 @@
 #define RenderSVGViewportContainer_h
 
 #if ENABLE(SVG)
-
 #include "RenderSVGContainer.h"
 
 namespace WebCore {
@@ -33,35 +33,33 @@ namespace WebCore {
 class RenderSVGViewportContainer : public RenderSVGContainer {
 public:
     RenderSVGViewportContainer(SVGStyledElement*);
-    ~RenderSVGViewportContainer();
 
+private:
     virtual bool isSVGContainer() const { return true; }
     virtual const char* renderName() const { return "RenderSVGViewportContainer"; }
 
-    virtual void paint(PaintInfo&, int parentX, int parentY);
+    AffineTransform viewportTransform() const;
+    virtual const AffineTransform& localToParentTransform() const;
 
-    virtual TransformationMatrix localToParentTransform() const;
-
-    // FIXME: This override should be removed once callers of RenderBox::absoluteTransform() can be removed.
-    virtual TransformationMatrix absoluteTransform() const;
-
-    FloatRect viewport() const;
-
-    // FIXME: This is only public for SVGResourceMarker::draw, likely the callsite should be changed.
-    TransformationMatrix viewportTransform() const;
-
-private:
     virtual void calcViewport();
 
     virtual void applyViewportClip(PaintInfo&);
     virtual bool pointIsInsideViewportClip(const FloatPoint& pointInParent);
 
     FloatRect m_viewport;
+    mutable AffineTransform m_localToParentTransform;
 };
   
+inline RenderSVGViewportContainer* toRenderSVGViewportContainer(RenderObject* object)
+{
+    ASSERT(!object || !strcmp(object->renderName(), "RenderSVGViewportContainer"));
+    return static_cast<RenderSVGViewportContainer*>(object);
+}
+
+// This will catch anyone doing an unnecessary cast.
+void toRenderSVGViewportContainer(const RenderSVGViewportContainer*);
+
 } // namespace WebCore
 
 #endif // ENABLE(SVG)
 #endif // RenderSVGViewportContainer_h
-
-// vim:ts=4:noet

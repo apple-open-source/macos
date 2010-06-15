@@ -93,6 +93,8 @@ process_tgs_req(krb5_data *pkt, const krb5_fulladdr *from,
     retval = decode_krb5_tgs_req(pkt, &request);
     if (retval)
 	return retval;
+    if (request->msg_type != KRB5_TGS_REQ)
+        return KRB5_BADMSGTYPE;
 
     ktypes2str(ktypestr, sizeof(ktypestr),
 	       request->nktypes, request->ktype);
@@ -336,6 +338,7 @@ tgt_again:
 	   to the caller */
 	ticket_reply = *(header_ticket);
 	enc_tkt_reply = *(header_ticket->enc_part2);
+        enc_tkt_reply.authorization_data = NULL;
 	clear(enc_tkt_reply.flags, TKT_FLG_INVALID);
     }
 
@@ -346,6 +349,7 @@ tgt_again:
 	   to the caller */
 	ticket_reply = *(header_ticket);
 	enc_tkt_reply = *(header_ticket->enc_part2);
+        enc_tkt_reply.authorization_data = NULL;
 
 	old_life = enc_tkt_reply.times.endtime - enc_tkt_reply.times.starttime;
 

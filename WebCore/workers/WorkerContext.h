@@ -30,10 +30,14 @@
 #if ENABLE(WORKERS)
 
 #include "AtomicStringHash.h"
+#include "Database.h"
+#include "DatabaseCallback.h"
 #include "EventListener.h"
+#include "EventNames.h"
 #include "EventTarget.h"
 #include "ScriptExecutionContext.h"
 #include "WorkerScriptController.h"
+#include <wtf/Assertions.h>
 #include <wtf/OwnPtr.h>
 #include <wtf/PassRefPtr.h>
 #include <wtf/RefCounted.h>
@@ -41,6 +45,8 @@
 
 namespace WebCore {
 
+    class Database;
+    class NotificationCenter;
     class ScheduledAction;
     class WorkerLocation;
     class WorkerNavigator;
@@ -48,18 +54,14 @@ namespace WebCore {
 
     class WorkerContext : public RefCounted<WorkerContext>, public ScriptExecutionContext, public EventTarget {
     public:
-        static PassRefPtr<WorkerContext> create(const KURL& url, const String& userAgent, WorkerThread* thread)
-        {
-            return adoptRef(new WorkerContext(url, userAgent, thread));
-        }
-
         virtual ~WorkerContext();
 
         virtual bool isWorkerContext() const { return true; }
 
-        virtual WorkerContext* toWorkerContext() { return this; }
-
         virtual ScriptExecutionContext* scriptExecutionContext() const;
+
+        virtual bool isSharedWorkerContext() const { return false; }
+        virtual bool isDedicatedWorkerContext() const { return false; }
 
         const KURL& url() const { return m_url; }
         KURL completeURL(const String&) const;
@@ -67,33 +69,24 @@ namespace WebCore {
         virtual String userAgent(const KURL&) const;
 
         WorkerScriptController* script() { return m_script.get(); }
-        void clearScript() { return m_script.clear(); }
+        void clearScript() { m_script.clear(); }
 
-        WorkerThread* thread() { return m_thread; }
+        WorkerThread* thread() const { return m_thread; }
 
         bool hasPendingActivity() const;
 
-        virtual void reportException(const String& errorMessage, int lineNumber, const String& sourceURL);
-        virtual void addMessage(MessageDestination, MessageSource, MessageLevel, const String& message, unsigned lineNumber, const String& sourceURL);
-        virtual void resourceRetrievedByXMLHttpRequest(unsigned long identifier, const ScriptString& sourceString);
-        virtual void scriptImported(unsigned long identifier, const String& sourceString);
-
-        virtual void postTask(PassRefPtr<Task>); // Executes the task on context's thread asynchronously.
+        virtual void postTask(PassOwnPtr<Task>); // Executes the task on context's thread asynchronously.
 
         // WorkerGlobalScope
         WorkerContext* self() { return this; }
         WorkerLocation* location() const;
         void close();
 
-        // WorkerUtils
-        void importScripts(const Vector<String>& urls, const String& callerURL, int callerLine, ExceptionCode&);
-        WorkerNavigator* navigator() const;
+        DEFINE_ATTRIBUTE_EVENT_LISTENER(error);
 
-        // DedicatedWorkerGlobalScope
-        void postMessage(const String&, ExceptionCode&);
-        void postMessage(const String&, MessagePort*, ExceptionCode&);
-        void setOnmessage(PassRefPtr<EventListener> eventListener) { m_onmessageListener = eventListener; }
-        EventListener* onmessage() const { return m_onmessageListener.get(); }
+        // WorkerUtils
+        virtual void importScripts(const Vector<String>& urls, ExceptionCode&);
+        WorkerNavigator* navigator() const;
 
         // Timers
         int setTimeout(ScheduledAction*, int timeout);
@@ -101,18 +94,27 @@ namespace WebCore {
         int setInterval(ScheduledAction*, int timeout);
         void clearInterval(int timeoutId);
 
-        // EventTarget
-        virtual void addEventListener(const AtomicString& eventType, PassRefPtr<EventListener>, bool useCapture);
-        virtual void removeEventListener(const AtomicString& eventType, EventListener*, bool useCapture);
-        virtual bool dispatchEvent(PassRefPtr<Event>, ExceptionCode&);
+        // ScriptExecutionContext
+        virtual void reportException(const String& errorMessage, int lineNumber, const String& sourceURL);
+        virtual void addMessage(MessageSource, MessageType, MessageLevel, const String& message, unsigned lineNumber, const String& sourceURL);
 
-        typedef Vector<RefPtr<EventListener> > ListenerVector;
-        typedef HashMap<AtomicString, ListenerVector> EventListenersMap;
-        EventListenersMap& eventListeners() { return m_eventListeners; }
+#if ENABLE(NOTIFICATIONS)
+        NotificationCenter* webkitNotifications() const;
+#endif
 
-        void dispatchMessage(const String&, PassRefPtr<MessagePort>);
+#if ENABLE(DATABASE)
+        // HTML 5 client-side database
+        PassRefPtr<Database> openDatabase(const String& name, const String& version, const String& displayName, unsigned long estimatedSize, PassRefPtr<DatabaseCallback> creationCallback, ExceptionCode&);
+        // Not implemented yet.
+        virtual bool isDatabaseReadOnly() const { return false; }
+        // Not implemented yet.
+        virtual void databaseExceededQuota(const String&) { }
+#endif
+        virtual bool isContextThread() const;
+        virtual bool isJSExecutionTerminated() const;
 
-        // These methods are used for GC marking. See JSWorkerContext::mark() in
+
+        // These methods are used for GC marking. See JSWorkerContext::markChildren(MarkStack&) in
         // JSWorkerContextCustom.cpp.
         WorkerNavigator* optionalNavigator() const { return m_navigator.get(); }
         WorkerLocation* optionalLocation() const { return m_location.get(); }
@@ -120,13 +122,19 @@ namespace WebCore {
         using RefCounted<WorkerContext>::ref;
         using RefCounted<WorkerContext>::deref;
 
-    private:
+        bool isClosing() { return m_closing; }
+
+    protected:
         WorkerContext(const KURL&, const String&, WorkerThread*);
 
+    private:
         virtual void refScriptExecutionContext() { ref(); }
         virtual void derefScriptExecutionContext() { deref(); }
+
         virtual void refEventTarget() { ref(); }
         virtual void derefEventTarget() { deref(); }
+        virtual EventTargetData* eventTargetData();
+        virtual EventTargetData* ensureEventTargetData();
 
         virtual const KURL& virtualURL() const;
         virtual KURL virtualCompleteURL(const String&) const;
@@ -140,10 +148,12 @@ namespace WebCore {
         OwnPtr<WorkerScriptController> m_script;
         WorkerThread* m_thread;
 
-        RefPtr<EventListener> m_onmessageListener;
-        EventListenersMap m_eventListeners;
-
+#if ENABLE_NOTIFICATIONS
+        mutable RefPtr<NotificationCenter> m_notifications;
+#endif
         bool m_closing;
+        bool m_reportingException;
+        EventTargetData m_eventTargetData;
     };
 
 } // namespace WebCore

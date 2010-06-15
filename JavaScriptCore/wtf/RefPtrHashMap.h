@@ -42,7 +42,7 @@ namespace WTF {
     };
 
     template<typename T, typename MappedArg, typename HashArg, typename KeyTraitsArg, typename MappedTraitsArg>
-    class HashMap<RefPtr<T>, MappedArg, HashArg, KeyTraitsArg, MappedTraitsArg> {
+    class HashMap<RefPtr<T>, MappedArg, HashArg, KeyTraitsArg, MappedTraitsArg> : public FastAllocBase {
     private:
         typedef KeyTraitsArg KeyTraits;
         typedef MappedTraitsArg MappedTraits;
@@ -285,7 +285,7 @@ namespace WTF {
     {
         if (it.m_impl == m_impl.end())
             return;
-        m_impl.checkTableConsistency();
+        m_impl.internalCheckTableConsistency();
         m_impl.removeWithoutEntryConsistencyCheck(it.m_impl);
     }
 

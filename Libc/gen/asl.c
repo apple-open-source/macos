@@ -46,6 +46,7 @@
 #include <sys/types.h>
 #include <servers/bootstrap.h>
 #include <pthread.h>
+#include "asl_core.h"
 #include <asl_ipc.h>
 
 #define streq(A, B) (strcmp(A, B) == 0)
@@ -221,23 +222,10 @@ _asl_notify_close()
 	pthread_mutex_unlock(&_asl_global.lock);
 }
 
-aslclient
-asl_open(const char *ident, const char *facility, uint32_t opts)
+static void
+_asl_get_global_server_port()
 {
-	char *name, *x;
-	asl_client_t *asl;
 	kern_return_t kstatus;
-
-	asl = (asl_client_t *)calloc(1, sizeof(asl_client_t));
-	if (asl == NULL)
-	{
-		errno = ENOMEM;
-		return NULL;
-	}
-
-	asl->options = opts;
-
-	asl->sock = -1;
 
 	pthread_mutex_lock(&(_asl_global.port_lock));
 
@@ -255,6 +243,41 @@ asl_open(const char *ident, const char *facility, uint32_t opts)
 	}
 
 	pthread_mutex_unlock(&(_asl_global.port_lock));
+}
+
+static void
+_asl_release_global_server_port()
+{
+	pthread_mutex_lock(&(_asl_global.port_lock));
+
+	if (_asl_global.port_count > 0) _asl_global.port_count--;
+	if (_asl_global.port_count == 0)
+	{
+		mach_port_deallocate(mach_task_self(), _asl_global.server_port);
+		_asl_global.server_port = MACH_PORT_NULL;
+	}
+
+	pthread_mutex_unlock(&(_asl_global.port_lock));
+}
+
+aslclient
+asl_open(const char *ident, const char *facility, uint32_t opts)
+{
+	char *name, *x;
+	asl_client_t *asl;
+
+	asl = (asl_client_t *)calloc(1, sizeof(asl_client_t));
+	if (asl == NULL)
+	{
+		errno = ENOMEM;
+		return NULL;
+	}
+
+	asl->options = opts;
+
+	asl->sock = -1;
+
+	_asl_get_global_server_port();
 
 	asl->pid = getpid();
 	asl->uid = getuid();
@@ -3382,8 +3405,14 @@ asl_unset(aslmsg a, const char *key)
  * returns: a set of messages that can be iterated over using aslresp_next(),
  * and the values can be retrieved using aslresp_get.
  */
-aslresponse
-asl_search(aslclient ac, aslmsg a)
+
+/*
+ * This routine searches the ASL datastore on disk (/var/log/asl).
+ * It is called my asl_search if syslogd is not running or if syslogd
+ * indicates that an in-memory store is not being used.
+ */
+static aslresponse
+_asl_search_store(aslclient ac, aslmsg a)
 {
 	asl_search_result_t query, *out;
 	asl_msg_t *q, *qlist[1];
@@ -3412,7 +3441,7 @@ asl_search(aslclient ac, aslmsg a)
 	out = NULL;
 	last_id = 0;
 
-	qlist[0] = a;
+	qlist[0] = (asl_msg_t *)a;
 	memset(&query, 0, sizeof(asl_search_result_t));
 	query.count = 1;
 	query.msg = qlist;
@@ -3420,6 +3449,185 @@ asl_search(aslclient ac, aslmsg a)
 	status = asl_store_match(store, &query, &out, &last_id, start_id, 0, 1);
 	asl_store_close(store);
 
+	return out;
+}
+
+static uint32_t
+_asl_search_concat_results(asl_search_result_t *batch, asl_search_result_t **out)
+{
+	uint32_t i, j;
+
+	if (out == NULL) return ASL_STATUS_FAILED;
+
+	/* nothing to do if batch is NULL or contains no messages */
+	if (batch == NULL) return 0;
+	if (batch->count == 0)
+	{
+		aslresponse_free(batch);
+		return 0;
+	}
+
+	if (*out == NULL) *out = (asl_search_result_t *)calloc(1, sizeof(asl_search_result_t));
+	if (*out == NULL)
+	{
+		aslresponse_free(batch);
+		return ASL_STATUS_FAILED;
+	}
+
+	if ((*out)->count == 0)
+	{
+		(*out)->msg = (asl_msg_t **)calloc(batch->count, sizeof(asl_msg_t *));
+	}
+	else
+	{
+		(*out)->msg = (asl_msg_t **)reallocf((*out)->msg, ((*out)->count + batch->count) * sizeof(asl_msg_t *));
+	}
+
+	if ((*out)->msg == NULL)
+	{
+		aslresponse_free(batch);
+		free(*out);
+		*out = NULL;
+		return ASL_STATUS_FAILED;
+	}
+
+	for (i = 0, j = (*out)->count; i < batch->count; i++, j++) (*out)->msg[j] = batch->msg[i];
+
+	(*out)->count += batch->count;
+	free(batch->msg);
+	free(batch);
+	return ASL_STATUS_OK;
+}
+
+static aslresponse
+_asl_search_memory(aslclient ac, aslmsg a)
+{
+	asl_search_result_t *batch, *out;
+	char *qstr, *str, *res;
+	uint32_t i, len, reslen, status;
+	uint64_t cmax, qmin;
+	kern_return_t kstatus;
+	security_token_t sec;
+	caddr_t vmstr;
+
+	if (a == NULL) return 0;
+
+	_asl_get_global_server_port();
+	if (_asl_global.server_port == MACH_PORT_NULL) return NULL;
+
+	len = 0;
+	qstr = asl_msg_to_string((asl_msg_t *)a, &len);
+
+	str = NULL;
+	if (qstr == NULL)
+	{
+		asprintf(&str, "0\n");
+		len = 3;
+	}
+	else
+	{
+		asprintf(&str, "1\n%s\n", qstr);
+		len += 4;
+		free(qstr);
+	}
+
+	if (str == NULL)
+	{
+		_asl_release_global_server_port();
+		return NULL;
+	}
+
+	/*
+	 * Fetch a batch of results each time through the loop.
+	 * Fetching small batches rebuces the load on syslogd.
+	 */
+	out = NULL;
+	qmin = 0;
+	cmax = 0;
+
+	forever
+	{
+		res = NULL;
+		reslen = 0;
+		sec.val[0] = -1;
+		sec.val[1] = -1;
+		status = ASL_STATUS_OK;
+
+		kstatus = vm_allocate(mach_task_self(), (vm_address_t *)&vmstr, len, TRUE);
+		if (kstatus != KERN_SUCCESS)
+		{
+			_asl_release_global_server_port();
+			return NULL;
+		}
+
+		memmove(vmstr, str, len);
+
+		status = 0;
+		kstatus = _asl_server_query(_asl_global.server_port, vmstr, len, qmin, FETCH_BATCH, 0, (caddr_t *)&res, &reslen, &cmax, (int *)&status, &sec);
+		if (kstatus != KERN_SUCCESS) break;
+		if (res == NULL) break;
+
+		batch = asl_list_from_string(res);
+		vm_deallocate(mach_task_self(), (vm_address_t)res, reslen);
+
+		status = _asl_search_concat_results(batch, &out);
+		if (status != ASL_STATUS_OK) break;
+		if (i < FETCH_BATCH) break;
+
+		if (cmax > qmin) qmin = cmax + 1;
+	}
+
+	free(str);
+
+	_asl_release_global_server_port();
+	return out;
+}
+
+int
+asl_store_location()
+{
+	kern_return_t kstatus;
+	char *res;
+	uint32_t reslen, status;
+	uint64_t cmax;
+	security_token_t sec;
+
+	_asl_get_global_server_port();
+	if (_asl_global.server_port == MACH_PORT_NULL) return ASL_STORE_LOCATION_FILE;
+
+	res = NULL;
+	reslen = 0;
+	cmax = 0;
+	sec.val[0] = -1;
+	sec.val[1] = -1;
+	status = ASL_STATUS_OK;
+
+	kstatus = _asl_server_query(_asl_global.server_port, NULL, 0, 0, -1, 0, (caddr_t *)&res, &reslen, &cmax, (int *)&status, &sec);
+	_asl_release_global_server_port();
+
+	/* res should never be returned, but just to be certain we don't leak VM ... */
+	if (res != NULL) vm_deallocate(mach_task_self(), (vm_address_t)res, reslen);
+
+	if (kstatus != KERN_SUCCESS) return ASL_STORE_LOCATION_FILE;
+
+	if (status == ASL_STATUS_OK) return ASL_STORE_LOCATION_MEMORY;
+	return ASL_STORE_LOCATION_FILE;
+}
+
+aslresponse
+asl_search(aslclient ac, aslmsg a)
+{
+	int where;
+	asl_search_result_t *out;
+
+	/* prevents fetching and destroying the send right twice if nobody has already lookup up the port */
+	_asl_get_global_server_port();
+
+	where = asl_store_location();
+	if (where == ASL_STORE_LOCATION_FILE) out = _asl_search_store(ac, a);
+	else out = _asl_search_memory(ac, a);
+
+	_asl_release_global_server_port();
 	return out;
 }
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2005, 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2005, 2008, 2009 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -75,7 +75,7 @@ JSValue UserObjectImp::callAsFunction(ExecState *exec, JSObject *thisObj, const 
 
         JSUserObject* jsResult;
         { // scope
-            JSLock::DropAllLocks dropLocks(exec);
+            JSGlueAPICallback apiCallback(exec);
 
             // getCallData should have guarded against a NULL fJSUserObject.
             assert(fJSUserObject);
@@ -94,7 +94,7 @@ JSValue UserObjectImp::callAsFunction(ExecState *exec, JSObject *thisObj, const 
 }
 
 
-void UserObjectImp::getPropertyNames(ExecState *exec, PropertyNameArray& propertyNames)
+void UserObjectImp::getOwnPropertyNames(ExecState *exec, PropertyNameArray& propertyNames, EnumerationMode mode)
 {
     JSUserObject* ptr = GetJSUserObject();
     if (ptr) {
@@ -109,12 +109,12 @@ void UserObjectImp::getPropertyNames(ExecState *exec, PropertyNameArray& propert
             CFRelease(cfPropertyNames);
         }
     }
-    JSObject::getPropertyNames(exec, propertyNames);
+    JSObject::getOwnPropertyNames(exec, propertyNames, mode);
 }
 
-JSValue UserObjectImp::userObjectGetter(ExecState*, const Identifier& propertyName, const PropertySlot& slot)
+JSValue UserObjectImp::userObjectGetter(ExecState*, JSValue slotBase, const Identifier& propertyName)
 {
-    UserObjectImp *thisObj = static_cast<UserObjectImp *>(asObject(slot.slotBase()));
+    UserObjectImp *thisObj = static_cast<UserObjectImp *>(asObject(slotBase));
     // getOwnPropertySlot should have guarded against a null fJSUserObject.
     assert(thisObj->fJSUserObject);
     
@@ -409,9 +409,9 @@ UString UserObjectImp::toString(ExecState *exec) const
     return result;
 }
 
-void UserObjectImp::mark()
+void UserObjectImp::markChildren(MarkStack& markStack)
 {
-    JSObject::mark();
+    JSObject::markChildren(markStack);
     if (fJSUserObject)
         fJSUserObject->Mark();
 }

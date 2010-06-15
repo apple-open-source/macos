@@ -31,7 +31,10 @@
 #import "NetscapePluginInstanceProxy.h"
 #import "WebLocalizableStrings.h"
 #import "WebKitSystemInterface.h"
+#import "WebHostedNetscapePluginView.h"
 #import "WebNetscapePluginPackage.h"
+#import "WebPreferencesPrivate.h"
+#import "WebView.h"
 #import <mach/mach_port.h>
 #import <servers/bootstrap.h>
 #import <spawn.h>
@@ -66,7 +69,7 @@ NetscapePluginHostManager::~NetscapePluginHostManager()
 {
 }
 
-NetscapePluginHostProxy* NetscapePluginHostManager::hostForPackage(WebNetscapePluginPackage *package)
+NetscapePluginHostProxy* NetscapePluginHostManager::hostForPackage(WebNetscapePluginPackage *package, bool useProxiedOpenPanel)
 {
     pair<PluginHostMap::iterator, bool> result = m_pluginHosts.add(package, 0);
     
@@ -82,7 +85,7 @@ NetscapePluginHostProxy* NetscapePluginHostManager::hostForPackage(WebNetscapePl
     
     mach_port_t pluginHostPort;
     ProcessSerialNumber pluginHostPSN;
-    if (!spawnPluginHost(package, clientPort, pluginHostPort, pluginHostPSN)) {
+    if (!spawnPluginHost(package, clientPort, pluginHostPort, pluginHostPSN, useProxiedOpenPanel)) {
         mach_port_destroy(mach_task_self(), clientPort);
         m_pluginHosts.remove(result.first);
         return 0;
@@ -100,7 +103,7 @@ NetscapePluginHostProxy* NetscapePluginHostManager::hostForPackage(WebNetscapePl
     return hostProxy;
 }
 
-bool NetscapePluginHostManager::spawnPluginHost(WebNetscapePluginPackage *package, mach_port_t clientPort, mach_port_t& pluginHostPort, ProcessSerialNumber& pluginHostPSN)
+bool NetscapePluginHostManager::spawnPluginHost(WebNetscapePluginPackage *package, mach_port_t clientPort, mach_port_t& pluginHostPort, ProcessSerialNumber& pluginHostPSN, bool useProxiedOpenPanel)
 {
     if (m_pluginVendorPort == MACH_PORT_NULL) {
         if (!initializeVendorPort())
@@ -120,6 +123,7 @@ bool NetscapePluginHostManager::spawnPluginHost(WebNetscapePluginPackage *packag
                                       pluginHostAppExecutablePath, @"pluginHostPath",
                                       [NSNumber numberWithInt:[package pluginHostArchitecture]], @"cpuType",
                                       localization.get(), @"localization",
+                                      [NSNumber numberWithBool:useProxiedOpenPanel], @"useProxiedOpenPanel",
                                       nil];
 
     NSData *data = [NSPropertyListSerialization dataFromPropertyList:launchProperties format:NSPropertyListBinaryFormat_v1_0 errorDescription:0];
@@ -211,9 +215,10 @@ void NetscapePluginHostManager::pluginHostDied(NetscapePluginHostProxy* pluginHo
     }
 }
 
-PassRefPtr<NetscapePluginInstanceProxy> NetscapePluginHostManager::instantiatePlugin(WebNetscapePluginPackage *pluginPackage, WebHostedNetscapePluginView *pluginView, NSString *mimeType, NSArray *attributeKeys, NSArray *attributeValues, NSString *userAgent, NSURL *sourceURL, bool fullFrame)
+PassRefPtr<NetscapePluginInstanceProxy> NetscapePluginHostManager::instantiatePlugin(WebNetscapePluginPackage *pluginPackage, WebHostedNetscapePluginView *pluginView, NSString *mimeType, NSArray *attributeKeys, NSArray *attributeValues, NSString *userAgent, NSURL *sourceURL, bool fullFrame, bool isPrivateBrowsingEnabled, bool isAcceleratedCompositingEnabled)
 {
-    NetscapePluginHostProxy* hostProxy = hostForPackage(pluginPackage);
+    WebPreferences *preferences = [[pluginView webView] preferences];
+    NetscapePluginHostProxy* hostProxy = hostForPackage(pluginPackage, [preferences usesProxiedOpenPanel]);
     if (!hostProxy)
         return 0;
 
@@ -235,7 +240,9 @@ PassRefPtr<NetscapePluginInstanceProxy> NetscapePluginHostManager::instantiatePl
         [properties.get() setObject:[sourceURL absoluteString] forKey:@"sourceURL"];
     
     [properties.get() setObject:[NSNumber numberWithBool:fullFrame] forKey:@"fullFrame"];
-    
+    [properties.get() setObject:[NSNumber numberWithBool:isPrivateBrowsingEnabled] forKey:@"privateBrowsingEnabled"];
+    [properties.get() setObject:[NSNumber numberWithBool:isAcceleratedCompositingEnabled] forKey:@"acceleratedCompositingEnabled"];
+
     NSData *data = [NSPropertyListSerialization dataFromPropertyList:properties.get() format:NSPropertyListBinaryFormat_v1_0 errorDescription:nil];
     ASSERT(data);
     
@@ -250,7 +257,7 @@ PassRefPtr<NetscapePluginInstanceProxy> NetscapePluginHostManager::instantiatePl
         pluginHostDied(hostProxy);
 
         // Try to spawn it again.
-        hostProxy = hostForPackage(pluginPackage);
+        hostProxy = hostForPackage(pluginPackage, [preferences usesProxiedOpenPanel]);
         
         // Create a new instance.
         instance = NetscapePluginInstanceProxy::create(hostProxy, pluginView, fullFrame);
@@ -265,7 +272,7 @@ PassRefPtr<NetscapePluginInstanceProxy> NetscapePluginHostManager::instantiatePl
     }
     
     instance->setRenderContextID(reply->m_renderContextID);
-    instance->setUseSoftwareRenderer(reply->m_useSoftwareRenderer);
+    instance->setRendererType(reply->m_rendererType);
 
     return instance.release();
 }

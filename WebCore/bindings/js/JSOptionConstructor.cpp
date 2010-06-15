@@ -25,6 +25,7 @@
 #include "JSHTMLOptionElement.h"
 #include "ScriptExecutionContext.h"
 #include "Text.h"
+#include <runtime/Error.h>
 
 using namespace JSC;
 
@@ -35,48 +36,37 @@ ASSERT_CLASS_FITS_IN_CELL(JSOptionConstructor);
 const ClassInfo JSOptionConstructor::s_info = { "OptionConstructor", 0, 0, 0 };
 
 JSOptionConstructor::JSOptionConstructor(ExecState* exec, JSDOMGlobalObject* globalObject)
-    : DOMObject(JSOptionConstructor::createStructure(exec->lexicalGlobalObject()->objectPrototype()))
-    , m_globalObject(globalObject)
+    : DOMConstructorWithDocument(JSOptionConstructor::createStructure(globalObject->objectPrototype()), globalObject)
 {
-    ASSERT(globalObject->scriptExecutionContext());
-    ASSERT(globalObject->scriptExecutionContext()->isDocument());
-
-    putDirect(exec->propertyNames().prototype, JSHTMLOptionElementPrototype::self(exec, exec->lexicalGlobalObject()), None);
+    putDirect(exec->propertyNames().prototype, JSHTMLOptionElementPrototype::self(exec, globalObject), None);
     putDirect(exec->propertyNames().length, jsNumber(exec, 4), ReadOnly|DontDelete|DontEnum);
-}
-
-Document* JSOptionConstructor::document() const
-{
-    return static_cast<Document*>(m_globalObject->scriptExecutionContext());
 }
 
 static JSObject* constructHTMLOptionElement(ExecState* exec, JSObject* constructor, const ArgList& args)
 {
-    Document* document = static_cast<JSOptionConstructor*>(constructor)->document();
+    JSOptionConstructor* jsConstructor = static_cast<JSOptionConstructor*>(constructor);
+    Document* document = jsConstructor->document();
     if (!document)
         return throwError(exec, ReferenceError, "Option constructor associated document is unavailable");
 
-    RefPtr<HTMLOptionElement> element = static_pointer_cast<HTMLOptionElement>(document->createElement(HTMLNames::optionTag, false));
+    String data;
+    if (!args.at(0).isUndefined())
+        data = ustringToString(args.at(0).toString(exec));
+
+    String value;
+    if (!args.at(1).isUndefined())
+        value = ustringToString(args.at(1).toString(exec));
+    bool defaultSelected = args.at(2).toBoolean(exec);
+    bool selected = args.at(3).toBoolean(exec);
 
     ExceptionCode ec = 0;
-    RefPtr<Text> text = document->createTextNode("");
-    if (!args.at(0).isUndefined())
-        text->setData(args.at(0).toString(exec), ec);
-    if (ec == 0)
-        element->appendChild(text.release(), ec);
-    if (ec == 0 && !args.at(1).isUndefined())
-        element->setValue(args.at(1).toString(exec));
-    if (ec == 0)
-        element->setDefaultSelected(args.at(2).toBoolean(exec));
-    if (ec == 0)
-        element->setSelected(args.at(3).toBoolean(exec));
-
+    RefPtr<HTMLOptionElement> element = HTMLOptionElement::createForJSConstructor(document, data, value, defaultSelected, selected, ec);
     if (ec) {
         setDOMException(exec, ec);
         return 0;
     }
 
-    return asObject(toJS(exec, element.release()));
+    return asObject(toJS(exec, jsConstructor->globalObject(), element.release()));
 }
 
 ConstructType JSOptionConstructor::getConstructData(ConstructData& constructData)
@@ -85,11 +75,5 @@ ConstructType JSOptionConstructor::getConstructData(ConstructData& constructData
     return ConstructTypeHost;
 }
 
-void JSOptionConstructor::mark()
-{
-    DOMObject::mark();
-    if (!m_globalObject->marked())
-        m_globalObject->mark();
-}
 
 } // namespace WebCore

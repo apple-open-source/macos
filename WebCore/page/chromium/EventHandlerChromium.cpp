@@ -46,7 +46,7 @@
 
 namespace WebCore {
 
-#if PLATFORM(DARWIN)
+#if OS(DARWIN)
 const double EventHandler::TextDragDelay = 0.15;
 #else
 const double EventHandler::TextDragDelay = 0.0;
@@ -105,8 +105,7 @@ bool EventHandler::passWidgetMouseDownEventToWidget(const MouseEventWithHitTestR
     // Figure out which view to send the event to.
     if (!event.targetNode() || !event.targetNode()->renderer() || !event.targetNode()->renderer()->isWidget())
         return false;
-
-    return passMouseDownEventToWidget(static_cast<RenderWidget*>(event.targetNode()->renderer())->widget());
+    return passMouseDownEventToWidget(toRenderWidget(event.targetNode()->renderer())->widget());
 }
 
 bool EventHandler::passMouseDownEventToWidget(Widget* widget)
@@ -148,11 +147,21 @@ bool EventHandler::passWidgetMouseDownEventToWidget(RenderWidget* renderWidget)
 
 unsigned EventHandler::accessKeyModifiers()
 {
-#if PLATFORM(DARWIN)
+#if OS(DARWIN)
     return PlatformKeyboardEvent::CtrlKey | PlatformKeyboardEvent::AltKey;
 #else
     return PlatformKeyboardEvent::AltKey;
 #endif
 }
+
+#if OS(LINUX)
+// GTK+ must scroll horizontally if the mouse pointer is on top of the
+// horizontal scrollbar while scrolling with the wheel.
+// This code comes from gtk/EventHandlerGtk.cpp.
+bool EventHandler::shouldTurnVerticalTicksIntoHorizontal(const HitTestResult& result) const
+{
+    return result.scrollbar() && result.scrollbar()->orientation() == HorizontalScrollbar;
+}
+#endif
 
 } // namespace WebCore

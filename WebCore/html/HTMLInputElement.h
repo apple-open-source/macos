@@ -30,15 +30,18 @@
 
 namespace WebCore {
 
+class DateComponents;
 class FileList;
+class HTMLDataListElement;
 class HTMLImageLoader;
+class HTMLOptionElement;
 class KURL;
 class VisibleSelection;
 
-class HTMLInputElement : public HTMLFormControlElementWithState, public InputElement {
+class HTMLInputElement : public HTMLTextFormControlElement, public InputElement {
 public:
     enum InputType {
-        TEXT,
+        TEXT = 0, // TEXT must be 0.
         PASSWORD,
         ISINDEX,
         CHECKBOX,
@@ -54,9 +57,18 @@ public:
         EMAIL,
         NUMBER,
         TELEPHONE,
-        URL
+        URL,
+        COLOR,
+        DATE,
+        DATETIME,
+        DATETIMELOCAL,
+        MONTH,
+        TIME,
+        WEEK,
+        // If you add new types or change the order of enum values, update numberOfTypes below.
     };
-    
+    static const int numberOfTypes = WEEK + 1;
+
     enum AutoCompleteSetting {
         Uninitialized,
         On,
@@ -72,8 +84,6 @@ public:
     virtual bool isKeyboardFocusable(KeyboardEvent*) const;
     virtual bool isMouseFocusable() const;
     virtual bool isEnumeratable() const { return inputType() != IMAGE; }
-    virtual void dispatchFocusEvent();
-    virtual void dispatchBlurEvent();
     virtual void updateFocusAppearance(bool restorePreviousSelection);
     virtual void aboutToUnload();
     virtual bool shouldUseInputMethod() const;
@@ -90,23 +100,63 @@ public:
 
     virtual bool isTextFormControl() const { return isTextField(); }
 
+    virtual bool valueMissing() const;
+    virtual bool patternMismatch() const;
+    virtual bool tooLong() const;
+    // For ValidityState
+    bool rangeUnderflow() const;
+    bool rangeOverflow() const;
+    // Returns the minimum value for type=date, number, or range.  Don't call this for other types.
+    double minimum() const;
+    // Returns the maximum value for type=date, number, or range.  Don't call this for other types.
+    // This always returns a value which is >= minimum().
+    double maximum() const;
+    // Sets the "allowed value step" defined in the HTML spec to the specified double pointer.
+    // Returns false if there is no "allowed value step."
+    bool getAllowedValueStep(double*) const;
+    // For ValidityState.
+    bool stepMismatch() const;
+    // Implementations of HTMLInputElement::stepUp() and stepDown().
+    void stepUp(int, ExceptionCode&);
+    void stepDown(int, ExceptionCode&);
+    void stepUp(ExceptionCode& ec) { stepUp(1, ec); }
+    void stepDown(ExceptionCode& ec) { stepDown(1, ec); }
+    // stepUp()/stepDown() for user-interaction.
+    void stepUpFromRenderer(int);
+
     bool isTextButton() const { return m_type == SUBMIT || m_type == RESET || m_type == BUTTON; }
     virtual bool isRadioButton() const { return m_type == RADIO; }
-    virtual bool isTextField() const { return m_type == TEXT || m_type == PASSWORD || m_type == SEARCH || m_type == ISINDEX || m_type == EMAIL || m_type == NUMBER || m_type == TELEPHONE || m_type == URL; }
+    virtual bool isTextField() const;
     virtual bool isSearchField() const { return m_type == SEARCH; }
     virtual bool isInputTypeHidden() const { return m_type == HIDDEN; }
     virtual bool isPasswordField() const { return m_type == PASSWORD; }
+    virtual bool hasSpinButton() const { return m_type == NUMBER || m_type == DATE || m_type == DATETIME || m_type == DATETIMELOCAL || m_type == MONTH || m_type == TIME || m_type == WEEK; }
+    virtual bool canTriggerImplicitSubmission() const { return isTextField(); }
 
     bool checked() const { return m_checked; }
     void setChecked(bool, bool sendChangeEvent = false);
+
+    // 'indeterminate' is a state independent of the checked state that causes the control to draw in a way that hides the actual state.
+    bool allowsIndeterminate() const { return inputType() == CHECKBOX || inputType() == RADIO; }
     bool indeterminate() const { return m_indeterminate; }
     void setIndeterminate(bool);
+
     virtual int size() const;
     virtual const AtomicString& formControlType() const;
     void setType(const String&);
 
+    virtual const String& suggestedValue() const;
+    void setSuggestedValue(const String&);
+
     virtual String value() const;
-    virtual void setValue(const String&);
+    virtual void setValue(const String&, bool sendChangeEvent = false);
+    virtual void setValueForUser(const String&);
+
+    double valueAsDate() const;
+    void setValueAsDate(double, ExceptionCode&);
+
+    double valueAsNumber() const;
+    void setValueAsNumber(double, ExceptionCode&);
 
     virtual String placeholder() const;
     virtual void setPlaceholder(const String&);
@@ -124,12 +174,7 @@ public:
     virtual bool canStartSelection() const;
     
     bool canHaveSelection() const;
-    int selectionStart() const;
-    int selectionEnd() const;
-    void setSelectionStart(int);
-    void setSelectionEnd(int);
-    virtual void select();
-    void setSelectionRange(int start, int end);
+    virtual void select() { HTMLTextFormControlElement::select(); }
 
     virtual void accessKeyAction(bool sendToAnyElement);
 
@@ -158,7 +203,6 @@ public:
 
     virtual void* preDispatchEventHandler(Event*);
     virtual void postDispatchEventHandler(Event*, void* dataFromPreDispatch);
-    virtual void defaultEventHandler(Event*);
 
     String altText() const;
     
@@ -191,8 +235,13 @@ public:
     KURL src() const;
     void setSrc(const String&);
 
+#if ENABLE(DATALIST)
+    HTMLElement* list() const;
+    HTMLOptionElement* selectedOption() const;
+#endif
+
     int maxLength() const;
-    void setMaxLength(int);
+    void setMaxLength(int, ExceptionCode&);
 
     bool multiple() const;
     void setMultiple(bool);
@@ -209,26 +258,26 @@ public:
     void addSearchResult();
     void onSearch();
 
-    VisibleSelection selection() const;
-
-    virtual String constrainValue(const String& proposedValue) const;
+    virtual String sanitizeValue(const String&) const;
 
     virtual void documentDidBecomeActive();
 
     virtual void addSubresourceAttributeURLs(ListHashSet<KURL>&) const;
     
-    virtual bool willValidate() const;
+    // Parses the specified string as the InputType, and returns true if it is successfully parsed.
+    // An instance pointed by the DateComponents* parameter will have parsed values and be
+    // modified even if the parsing fails.  The DateComponents* parameter may be 0.
+    static bool parseToDateComponents(InputType, const String&, DateComponents*);
 
-    virtual bool placeholderShouldBeVisible() const;
+#if ENABLE(WCSS)
+    void setWapInputFormat(String& mask);
+    virtual InputElementData data() const { return m_data; }
+#endif
     
 protected:
     virtual void willMoveToNewOwnerDocument();
     virtual void didMoveToNewOwnerDocument();
-
-    void updatePlaceholderVisibility()
-    {
-        InputElement::updatePlaceholderVisibility(m_data, this, this, true);
-    }
+    virtual void defaultEventHandler(Event*);
 
 private:
     bool storesValueSeparateFromAttribute() const;
@@ -236,6 +285,45 @@ private:
     bool needsActivationCallback();
     void registerForActivationCallbackIfNeeded();
     void unregisterForActivationCallbackIfNeeded();
+
+    virtual bool supportsPlaceholder() const { return isTextField(); }
+    virtual bool isEmptyValue() const { return value().isEmpty(); }
+    virtual void handleFocusEvent();
+    virtual void handleBlurEvent();
+    virtual int cachedSelectionStart() const { return m_data.cachedSelectionStart(); }
+    virtual int cachedSelectionEnd() const { return m_data.cachedSelectionEnd(); }
+
+    virtual bool isOptionalFormControl() const { return !isRequiredFormControl(); }
+    virtual bool isRequiredFormControl() const;
+    virtual bool recalcWillValidate() const;
+
+    void updateCheckedRadioButtons();
+    
+    PassRefPtr<HTMLFormElement> createTemporaryFormForIsIndex();
+    // Helper for getAllowedValueStep();
+    bool getStepParameters(double* defaultStep, double* stepScaleFactor) const;
+    // Helper for stepUp()/stepDown().  Adds step value * count to the current value.
+    void applyStep(double count, ExceptionCode&);
+    // Helper for applyStepForNumberOrRange().
+    double stepBase() const;
+
+    // Parses the specified string for the current type, and return
+    // the double value for the parsing result if the parsing
+    // succeeds; Returns defaultValue otherwise. This function can
+    // return NaN or Infinity only if defaultValue is NaN or Infinity.
+    double parseToDouble(const String&, double defaultValue) const;
+    // Create a string representation of the specified double value for the
+    // current input type. If NaN or Infinity is specified, this returns an
+    // emtpy string. This should not be called for types without valueAsNumber.
+    String serialize(double) const;
+    // Create a string representation of the specified double value for the
+    // current input type. The type must be one of DATE, DATETIME,
+    // DATETIMELOCAL, MONTH, TIME, and WEEK.
+    String serializeForDateTimeTypes(double) const;
+
+#if ENABLE(DATALIST)
+    HTMLDataListElement* dataList() const;
+#endif
 
     InputElementData m_data;
     int m_xPos;
@@ -253,6 +341,9 @@ private:
     unsigned m_autocomplete : 2; // AutoCompleteSetting
     bool m_autofilled : 1;
     bool m_inited : 1;
+#if ENABLE(DATALIST)
+    bool m_hasNonEmptyList : 1;
+#endif
 };
 
 } //namespace

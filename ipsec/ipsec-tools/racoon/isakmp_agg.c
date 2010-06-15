@@ -631,6 +631,7 @@ agg_i2recv(iph1, msg)
 
 		if (iph1->natt_flags & NAT_DETECTED)
 			natt_float_ports (iph1);
+		ike_session_update_natt_version(iph1);
 	}
 #endif
 
@@ -1106,10 +1107,12 @@ agg_r1recv(iph1, msg)
 	}
 
 #ifdef ENABLE_NATT
-	if (NATT_AVAILABLE(iph1))
+	if (NATT_AVAILABLE(iph1)) {
 		plog(LLV_INFO, LOCATION, iph1->remote,
 		     "Selected NAT-T version: %s\n",
 		     vid_string_by_id(iph1->natt_options->version));
+		ike_session_update_natt_version(iph1);
+	}
 #endif
 
 	/* check SA payload and set approval SA for use */

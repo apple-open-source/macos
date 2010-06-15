@@ -712,21 +712,24 @@ void AppleSMBIOS::processSMBIOSStructureType1(
     strings->setDataProperty(fRoot, "product-name",  sys->productName);
     strings->setDataProperty(fRoot, "version",       sys->version);
 
+    // Platform driver took care of this.
+    if (fRoot->getProperty(kIOPlatformSerialNumberKey))
+        return;
+
     const char *serialNumberString = strings->stringAtIndex(
         sys->serialNumber, &serialNumberLength);
 
-    if ((11 == serialNumberLength) || (12 == serialNumberLength))
+    if ((serialNumberLength >= 3) && (serialNumberLength < 30))
     {
-        // Map a 11 or 12 digit serial number read from SMBIOS to a
-        // 43-byte "serial-number" data object.
+        // Map 11 or 12 digit serial number string read from SMBIOS to a
+        // 43-byte "serial-number" data object. Must also handle systems
+        // without a valid serial number string, e.g. "System Serial#".
 
         OSData * data = OSData::withCapacity(43);
         if (data)
         {
-            int clen;
-
-            clen = serialNumberLength - 8;   
-            data->appendBytes(serialNumberString + 8, clen);
+            int clen = (12 == serialNumberLength) ? 4 : 3;
+            data->appendBytes(serialNumberString + (serialNumberLength - clen), clen);
             data->appendBytes('\0', 13 - clen);
             data->appendBytes(serialNumberString, serialNumberLength);
             data->appendBytes('\0', 43 - 13 - serialNumberLength);
@@ -737,7 +740,6 @@ void AppleSMBIOS::processSMBIOSStructureType1(
 
 	strings->setStringProperty(fRoot, kIOPlatformSerialNumberKey, sys->serialNumber);
 }
-
 
 //---------------------------------------------------------------------------
 
@@ -764,7 +766,6 @@ void AppleSMBIOS::processSMBIOSStructureType2(
 			strings->setStringProperty(fRoot, "processor-memory-board-serial-number", baseBoard->serialNumber);
 	}
 }
-
 
 //---------------------------------------------------------------------------
 

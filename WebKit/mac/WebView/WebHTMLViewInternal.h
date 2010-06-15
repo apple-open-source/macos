@@ -30,6 +30,9 @@
 
 #import "WebHTMLViewPrivate.h"
 
+#if USE(ACCELERATED_COMPOSITING)
+@class CALayer;
+#endif
 @class WebFrame;
 
 namespace WebCore {
@@ -63,6 +66,10 @@ namespace WebCore {
 #if USE(ACCELERATED_COMPOSITING)
 - (void)attachRootLayer:(CALayer*)layer;
 - (void)detachRootLayer;
+#endif
+
+#if USE(ACCELERATED_COMPOSITING) && defined(BUILDING_ON_LEOPARD)
+- (void)_updateLayerHostingViewPosition;
 #endif
 
 @end

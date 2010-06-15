@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2005, 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2005, 2008, 2009 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -44,7 +44,7 @@ public:
 
     virtual CallType getCallData(CallData&);
 
-    virtual void getPropertyNames(ExecState*, PropertyNameArray&);
+    virtual void getOwnPropertyNames(ExecState*, PropertyNameArray&, EnumerationMode mode = ExcludeDontEnumProperties);
 
     virtual JSValue callAsFunction(ExecState *exec, JSObject *thisObj, const ArgList &args);
     virtual bool getOwnPropertySlot(ExecState *, const Identifier&, PropertySlot&);
@@ -55,17 +55,17 @@ public:
     virtual double toNumber(ExecState *exec) const;
     virtual UString toString(ExecState *exec) const;
 
-    virtual void mark();
+    virtual void markChildren(MarkStack&);
 
     JSUserObject *GetJSUserObject() const;
 
     static PassRefPtr<Structure> createStructure(JSValue prototype)
     {
-        return Structure::create(prototype, TypeInfo(ObjectType));
+        return Structure::create(prototype, TypeInfo(ObjectType, OverridesGetOwnPropertySlot | OverridesMarkChildren | OverridesGetPropertyNames), AnonymousSlotCount);
     }
 
 private:
-    static JSValue userObjectGetter(ExecState*, const Identifier& propertyName, const PropertySlot&);
+    static JSValue userObjectGetter(ExecState*, JSValue, const Identifier& propertyName);
 
     JSUserObject* fJSUserObject;
 };

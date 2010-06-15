@@ -41,12 +41,12 @@ namespace WebCore {
 
         // FIXME: StillImages are underreporting decoded sizes and will be unable
         // to prune because these functions are not implemented yet.
-        virtual void destroyDecodedData(bool destroyAll = true) { }
+        virtual void destroyDecodedData(bool destroyAll = true) { Q_UNUSED(destroyAll); }
         virtual unsigned decodedSize() const { return 0; }
 
         virtual IntSize size() const;
         virtual NativeImagePtr nativeImageForCurrentFrame();
-        virtual void draw(GraphicsContext*, const FloatRect& dstRect, const FloatRect& srcRect, CompositeOperator);
+        virtual void draw(GraphicsContext*, const FloatRect& dstRect, const FloatRect& srcRect, ColorSpace styleColorSpace, CompositeOperator);
 
     private:
         StillImage(const QPixmap& pixmap);

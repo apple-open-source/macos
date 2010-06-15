@@ -47,7 +47,7 @@ namespace WebCore {
     class Range;
     class SelectionController;
     
-    class DragController {
+    class DragController : public Noncopyable {
     public:
         DragController(Page*, DragClient*);
         ~DragController();
@@ -67,17 +67,15 @@ namespace WebCore {
         DragOperation sourceDragOperation() const { return m_sourceDragOperation; }
         void setDraggingImageURL(const KURL& url) { m_draggingImageURL = url; }
         const KURL& draggingImageURL() const { return m_draggingImageURL; }
-        void setDragInitiator(Document* initiator) { m_dragInitiator = initiator; m_didInitiateDrag = true; }
-        Document* dragInitiator() const { return m_dragInitiator; }
         void setDragOffset(const IntPoint& offset) { m_dragOffset = offset; }
         const IntPoint& dragOffset() const { return m_dragOffset; }
         DragSourceAction dragSourceAction() const { return m_dragSourceAction; }
 
-        Document* documentUnderMouse() const { return m_documentUnderMouse; }
+        Document* documentUnderMouse() const { return m_documentUnderMouse.get(); }
         DragDestinationAction dragDestinationAction() const { return m_dragDestinationAction; }
         DragSourceAction delegateDragSourceAction(const IntPoint& pagePoint);
         
-        bool mayStartDragAtEventLocation(const Frame*, const IntPoint& framePos);
+        bool mayStartDragAtEventLocation(const Frame*, const IntPoint& framePos, Node*);
         void dragEnded();
         
         void placeDragCaret(const IntPoint&);
@@ -114,8 +112,8 @@ namespace WebCore {
         Page* m_page;
         DragClient* m_client;
         
-        Document* m_documentUnderMouse; // The document the mouse was last dragged over.
-        Document* m_dragInitiator; // The Document (if any) that initiated the drag.
+        RefPtr<Document> m_documentUnderMouse; // The document the mouse was last dragged over.
+        RefPtr<Document> m_dragInitiator; // The Document (if any) that initiated the drag.
         
         DragDestinationAction m_dragDestinationAction;
         DragSourceAction m_dragSourceAction;

@@ -28,40 +28,49 @@
 #include "Document.h"
 #include "ExceptionCode.h"
 #include "Node.h"
+#include "Page.h"
+#include "SecurityOrigin.h"
+#include "Settings.h"
 #include "TextEncoding.h"
 #include <wtf/Deque.h>
 
 namespace WebCore {
 
-CSSStyleSheet::CSSStyleSheet(CSSStyleSheet* parentSheet, const String& href, const String& charset)
-    : StyleSheet(parentSheet, href)
+CSSStyleSheet::CSSStyleSheet(CSSStyleSheet* parentSheet, const String& href, const KURL& baseURL, const String& charset)
+    : StyleSheet(parentSheet, href, baseURL)
     , m_doc(parentSheet ? parentSheet->doc() : 0)
     , m_namespaces(0)
     , m_charset(charset)
     , m_loadCompleted(false)
     , m_strictParsing(!parentSheet || parentSheet->useStrictParsing())
+    , m_isUserStyleSheet(parentSheet ? parentSheet->isUserStyleSheet() : false)
+    , m_hasSyntacticallyValidCSSHeader(true)
 {
 }
 
-CSSStyleSheet::CSSStyleSheet(Node *parentNode, const String& href, const String& charset)
-    : StyleSheet(parentNode, href)
+CSSStyleSheet::CSSStyleSheet(Node* parentNode, const String& href, const KURL& baseURL, const String& charset)
+    : StyleSheet(parentNode, href, baseURL)
     , m_doc(parentNode->document())
     , m_namespaces(0)
     , m_charset(charset)
     , m_loadCompleted(false)
     , m_strictParsing(false)
+    , m_isUserStyleSheet(false)
+    , m_hasSyntacticallyValidCSSHeader(true)
 {
 }
 
-CSSStyleSheet::CSSStyleSheet(CSSRule *ownerRule, const String& href, const String& charset)
-    : StyleSheet(ownerRule, href)
+CSSStyleSheet::CSSStyleSheet(CSSRule* ownerRule, const String& href, const KURL& baseURL, const String& charset)
+    : StyleSheet(ownerRule, href, baseURL)
     , m_namespaces(0)
     , m_charset(charset)
     , m_loadCompleted(false)
     , m_strictParsing(!ownerRule || ownerRule->useStrictParsing())
+    , m_hasSyntacticallyValidCSSHeader(true)
 {
     CSSStyleSheet* parentSheet = ownerRule ? ownerRule->parentStyleSheet() : 0;
     m_doc = parentSheet ? parentSheet->doc() : 0;
+    m_isUserStyleSheet = parentSheet ? parentSheet->isUserStyleSheet() : false;
 }
 
 CSSStyleSheet::~CSSStyleSheet()
@@ -89,9 +98,24 @@ unsigned CSSStyleSheet::insertRule(const String& rule, unsigned index, Exception
         return 0;
     }
 
-    // ###
-    // HIERARCHY_REQUEST_ERR: Raised if the rule cannot be inserted at the specified index e.g. if an
-    //@import rule is inserted after a standard rule set or other at-rule.
+    // Throw a HIERARCHY_REQUEST_ERR exception if the rule cannot be inserted at the specified index.  The best
+    // example of this is an @import rule inserted after regular rules.
+    if (index > 0) {
+        if (r->isImportRule()) {
+            // Check all the rules that come before this one to make sure they are only @charset and @import rules.
+            for (unsigned i = 0; i < index; ++i) {
+                if (!item(i)->isCharsetRule() && !item(i)->isImportRule()) {
+                    ec = HIERARCHY_REQUEST_ERR;
+                    return 0;
+                }
+            }
+        } else if (r->isCharsetRule()) {
+            // The @charset rule has to come first and there can be only one.
+            ec = HIERARCHY_REQUEST_ERR;
+            return 0;
+        }
+    }
+
     insert(index, r.release());
     
     styleSheetChanged();
@@ -115,6 +139,23 @@ int CSSStyleSheet::addRule(const String& selector, const String& style, Exceptio
 
 PassRefPtr<CSSRuleList> CSSStyleSheet::cssRules(bool omitCharsetRules)
 {
+    if (doc() && !doc()->securityOrigin()->canRequest(baseURL())) {
+
+        // The Safari welcome page runs afoul of the same-origin restriction on access to stylesheet rules
+        // that was added to address <https://bugs.webkit.org/show_bug.cgi?id=20527>. The following site-
+        // specific quirk relaxes this restriction for the particular cross-origin access that occurs on
+        // the Safari welcome page (<rdar://problem/7847573>).
+
+        Settings* settings = doc()->settings();
+        if (!settings || !settings->needsSiteSpecificQuirks())
+            return 0;
+
+        if (!equalIgnoringCase(baseURL().string(), "http://images.apple.com/safari/welcome/styles/safari.css"))
+            return 0;
+
+        if (!doc()->url().string().contains("apple.com/safari/welcome/", false))
+            return 0;
+    }
     return CSSRuleList::create(this, omitCharsetRules);
 }
 
@@ -132,7 +173,7 @@ void CSSStyleSheet::deleteRule(unsigned index, ExceptionCode& ec)
 
 void CSSStyleSheet::addNamespace(CSSParser* p, const AtomicString& prefix, const AtomicString& uri)
 {
-    if (uri.isEmpty())
+    if (uri.isNull())
         return;
 
     m_namespaces = new CSSNamespace(prefix, uri, m_namespaces);
@@ -145,11 +186,11 @@ void CSSStyleSheet::addNamespace(CSSParser* p, const AtomicString& prefix, const
 
 const AtomicString& CSSStyleSheet::determineNamespace(const AtomicString& prefix)
 {
-    if (prefix.isEmpty())
+    if (prefix.isNull())
         return nullAtom; // No namespace. If an element/attribute has a namespace, we won't match it.
-    else if (prefix == starAtom)
+    if (prefix == starAtom)
         return starAtom; // We'll match any namespace.
-    else if (m_namespaces) {
+    if (m_namespaces) {
         CSSNamespace* ns = m_namespaces->namespaceForPrefix(prefix);
         if (ns)
             return ns->uri();
@@ -224,10 +265,12 @@ void CSSStyleSheet::addSubresourceStyleURLs(ListHashSet<KURL>& urls)
         CSSStyleSheet* styleSheet = styleSheetQueue.first();
         styleSheetQueue.removeFirst();
 
-        RefPtr<CSSRuleList> ruleList = styleSheet->cssRules();
-
-        for (unsigned i = 0; i < ruleList->length(); ++i) {
-            CSSRule* rule = ruleList->item(i);
+        for (unsigned i = 0; i < styleSheet->length(); ++i) {
+            StyleBase* styleBase = styleSheet->item(i);
+            if (!styleBase->isRule())
+                continue;
+            
+            CSSRule* rule = static_cast<CSSRule*>(styleBase);
             if (rule->isImportRule()) {
                 if (CSSStyleSheet* ruleStyleSheet = static_cast<CSSImportRule*>(rule)->styleSheet())
                     styleSheetQueue.append(ruleStyleSheet);

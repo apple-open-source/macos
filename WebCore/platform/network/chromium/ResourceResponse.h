@@ -27,9 +27,9 @@
 #ifndef ResourceResponse_h
 #define ResourceResponse_h
 
-#include "CString.h"
 #include "NotImplemented.h"
 #include "ResourceResponseBase.h"
+#include <wtf/text/CString.h>
 
 namespace WebCore {
 
@@ -38,6 +38,8 @@ namespace WebCore {
         ResourceResponse()
             : m_isContentFiltered(false)
             , m_appCacheID(0)
+            , m_wasFetchedViaSPDY(false)
+            , m_isMultipartPayload(false)
         {
         }
 
@@ -45,6 +47,8 @@ namespace WebCore {
             : ResourceResponseBase(url, mimeType, expectedLength, textEncodingName, filename)
             , m_isContentFiltered(false)
             , m_appCacheID(0)
+            , m_wasFetchedViaSPDY(false)
+            , m_isMultipartPayload(false)
         {
         }
 
@@ -60,10 +64,28 @@ namespace WebCore {
             m_isContentFiltered = isContentFiltered;
         }
 
-        long long getAppCacheID() const { return m_appCacheID; }
+        long long appCacheID() const { return m_appCacheID; }
         void setAppCacheID(long long id)
         {
             m_appCacheID = id;
+        }
+
+        const KURL& appCacheManifestURL() const { return m_appCacheManifestURL; }
+        void setAppCacheManifestURL(const KURL& url)
+        {
+            m_appCacheManifestURL = url;
+        }
+
+        bool wasFetchedViaSPDY() const { return m_wasFetchedViaSPDY; }
+        void setWasFetchedViaSPDY(bool value)
+        {
+            m_wasFetchedViaSPDY = value;
+        }
+
+        bool isMultipartPayload() const { return m_isMultipartPayload; }
+        void setIsMultipartPayload(bool value)
+        {
+            m_isMultipartPayload = value;
         }
 
     private:
@@ -86,6 +108,15 @@ namespace WebCore {
         // The id of the appcache this response was retrieved from, or zero if
         // the response was not retrieved from an appcache.
         long long m_appCacheID;
+
+        // The manifest url of the appcache this response was retrieved from, if any.
+        // Note: only valid for main resource responses.
+        KURL m_appCacheManifestURL;
+
+        bool m_wasFetchedViaSPDY;
+
+        // Set to true if this is part of a multipart response.
+        bool m_isMultipartPayload;
     };
 
 } // namespace WebCore

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006, 2007 Apple Inc. All rights reserved.
+ * Copyright (C) 2006, 2007, 2009 Apple Inc. All rights reserved.
  * Copyright (C) 2006 Samuel Weinig <sam.weinig@gmail.com>
  *
  * This library is free software; you can redistribute it and/or
@@ -22,12 +22,10 @@ module css {
 
     // Introduced in DOM Level 2:
     interface [
-        GenerateConstructor,
+        CustomMarkFunction,
         DelegatingPutFunction,
         HasNameGetter,
-        HasIndexGetter,
-        InterfaceUUID=9989b2c3-a2b6-449b-abf9-c60d2260b1d7,
-        ImplementationUUID=985c50c7-9f19-436a-9e45-c0aa02996d0e
+        HasIndexGetter
     ] CSSStyleDeclaration {
                  attribute [ConvertNullStringTo=Null, ConvertNullToNullString] DOMString        cssText
                      setter raises(DOMException);
@@ -43,7 +41,7 @@ module css {
             raises(DOMException);
 
         readonly attribute unsigned long    length;
-        [ConvertNullStringTo=Null] DOMString          item(in unsigned long index);
+        DOMString          item(in unsigned long index);
         readonly attribute CSSRule          parentRule;
 
         // Extensions

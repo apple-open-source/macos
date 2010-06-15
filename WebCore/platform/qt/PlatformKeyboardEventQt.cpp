@@ -28,8 +28,8 @@
 #include "config.h"
 #include "PlatformKeyboardEvent.h"
 
-#include "KeyboardCodes.h"
 #include "NotImplemented.h"
+#include "WindowsKeyboardCodes.h"
 
 #include <ctype.h>
 
@@ -52,10 +52,8 @@ static String keyIdentifierForQtKeyCode(int keyCode)
         case Qt::Key_Return:
         case Qt::Key_Enter:
             return "Enter";
-#if QT_VERSION >= 0x040200
         case Qt::Key_Execute:
             return "Execute";
-#endif
         case Qt::Key_F1:
             return "F1";
         case Qt::Key_F2:
@@ -129,6 +127,8 @@ static String keyIdentifierForQtKeyCode(int keyCode)
             // Standard says that DEL becomes U+007F.
         case Qt::Key_Delete:
             return "U+007F";
+        case Qt::Key_Backspace:
+            return "U+0008";
         case Qt::Key_Tab:
             return "U+0009";
         case Qt::Key_Backtab:
@@ -138,42 +138,64 @@ static String keyIdentifierForQtKeyCode(int keyCode)
     }
 }
 
-static int windowsKeyCodeForKeyEvent(unsigned int keycode)
+static int windowsKeyCodeForKeyEvent(unsigned int keycode, bool isKeypad = false)
 {
-    switch (keycode) {
-        /* FIXME: Need to supply a bool in this func, to determine wheter the event comes from the keypad
+    // Determine wheter the event comes from the keypad
+    if (isKeypad) {
+        switch (keycode) {
         case Qt::Key_0:
-            return VK_NUMPAD0;// (60) Numeric keypad 0 key
+            return VK_NUMPAD0;  // (60) Numeric keypad 0 key
         case Qt::Key_1:
-            return VK_NUMPAD1;// (61) Numeric keypad 1 key
+            return VK_NUMPAD1;  // (61) Numeric keypad 1 key
         case Qt::Key_2:
             return  VK_NUMPAD2; // (62) Numeric keypad 2 key
         case Qt::Key_3:
-            return VK_NUMPAD3; // (63) Numeric keypad 3 key
+            return VK_NUMPAD3;  // (63) Numeric keypad 3 key
         case Qt::Key_4:
-            return VK_NUMPAD4; // (64) Numeric keypad 4 key
+            return VK_NUMPAD4;  // (64) Numeric keypad 4 key
         case Qt::Key_5:
-            return VK_NUMPAD5; //(65) Numeric keypad 5 key
+            return VK_NUMPAD5;  // (65) Numeric keypad 5 key
         case Qt::Key_6:
-            return VK_NUMPAD6; // (66) Numeric keypad 6 key
+            return VK_NUMPAD6;  // (66) Numeric keypad 6 key
         case Qt::Key_7:
-            return VK_NUMPAD7; // (67) Numeric keypad 7 key
+            return VK_NUMPAD7;  // (67) Numeric keypad 7 key
         case Qt::Key_8:
-            return VK_NUMPAD8; // (68) Numeric keypad 8 key
+            return VK_NUMPAD8;  // (68) Numeric keypad 8 key
         case Qt::Key_9:
-            return VK_NUMPAD9; // (69) Numeric keypad 9 key
+            return VK_NUMPAD9;  // (69) Numeric keypad 9 key
         case Qt::Key_Asterisk:
             return VK_MULTIPLY; // (6A) Multiply key
         case Qt::Key_Plus:
-            return VK_ADD; // (6B) Add key
+            return VK_ADD;      // (6B) Add key
         case Qt::Key_Minus:
             return VK_SUBTRACT; // (6D) Subtract key
         case Qt::Key_Period:
-            return VK_DECIMAL; // (6E) Decimal key
+            return VK_DECIMAL;  // (6E) Decimal key
         case Qt::Key_Slash:
-            return VK_DIVIDE; // (6F) Divide key
+            return VK_DIVIDE;   // (6F) Divide key
+        case Qt::Key_PageUp:
+            return VK_PRIOR; // (21) PAGE UP key
+        case Qt::Key_PageDown:
+            return VK_NEXT; // (22) PAGE DOWN key
+        case Qt::Key_End:
+            return VK_END; // (23) END key
+        case Qt::Key_Home:
+            return VK_HOME; // (24) HOME key
+        case Qt::Key_Left:
+            return VK_LEFT; // (25) LEFT ARROW key
+        case Qt::Key_Up:
+            return VK_UP; // (26) UP ARROW key
+        case Qt::Key_Right:
+            return VK_RIGHT; // (27) RIGHT ARROW key
+        case Qt::Key_Down:
+            return VK_DOWN; // (28) DOWN ARROW key
+        default:
+            return 0;
+        }
 
-        */
+    } else
+
+    switch (keycode) {
         case Qt::Key_Backspace:
             return VK_BACK; // (08) BACKSPACE key
         case Qt::Key_Backtab:
@@ -211,7 +233,7 @@ static int windowsKeyCodeForKeyEvent(unsigned int keycode)
         case Qt::Key_F9:
             return VK_F9;
         case Qt::Key_F10:
-            return VK_F11;
+            return VK_F10;
         case Qt::Key_F11:
             return VK_F11;
         case Qt::Key_F12:
@@ -284,10 +306,8 @@ static int windowsKeyCodeForKeyEvent(unsigned int keycode)
             return VK_SELECT; // (29) SELECT key
         case Qt::Key_Print:
             return VK_PRINT; // (2A) PRINT key
-#if QT_VERSION >= 0x040200
         case Qt::Key_Execute:
             return VK_EXECUTE;// (2B) EXECUTE key
-#endif
             //dunno on this
             //case Qt::Key_PrintScreen:
             //      return VK_SNAPSHOT; // (2C) PRINT SCREEN key
@@ -493,10 +513,10 @@ PlatformKeyboardEvent::PlatformKeyboardEvent(QKeyEvent* event)
     m_autoRepeat = event->isAutoRepeat();
     m_ctrlKey = (state & Qt::ControlModifier) != 0;
     m_altKey = (state & Qt::AltModifier) != 0;
-    m_metaKey = (state & Qt::MetaModifier) != 0;    
-    m_windowsVirtualKeyCode = windowsKeyCodeForKeyEvent(event->key());
-    m_nativeVirtualKeyCode = event->nativeVirtualKey();
+    m_metaKey = (state & Qt::MetaModifier) != 0;
     m_isKeypad = (state & Qt::KeypadModifier) != 0;
+    m_windowsVirtualKeyCode = windowsKeyCodeForKeyEvent(event->key(), m_isKeypad);
+    m_nativeVirtualKeyCode = event->nativeVirtualKey();
     m_shiftKey = (state & Qt::ShiftModifier) != 0 || event->key() == Qt::Key_Backtab; // Simulate Shift+Tab with Key_Backtab
     m_qtEvent = event;
 }
@@ -529,6 +549,15 @@ bool PlatformKeyboardEvent::currentCapsLockState()
 {
     notImplemented();
     return false;
+}
+
+void PlatformKeyboardEvent::getCurrentModifierState(bool& shiftKey, bool& ctrlKey, bool& altKey, bool& metaKey)
+{
+    notImplemented();
+    shiftKey = false;
+    ctrlKey = false;
+    altKey = false;
+    metaKey = false;
 }
 
 }

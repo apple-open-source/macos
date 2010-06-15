@@ -1245,7 +1245,8 @@ char routeflags[] =
 "\1UP\2GATEWAY\3HOST\4REJECT\5DYNAMIC\6MODIFIED\7DONE\010DELCLONE"
 "\011CLONING\012XRESOLVE\013LLINFO\014STATIC\015BLACKHOLE\016b016"
 "\017PROTO2\020PROTO1\021PRCLONING\022WASCLONED\023PROTO3\024b024"
-"\025PINNED\026LOCAL\027BROADCAST\030MULTICAST\031IFSCOPE";
+"\025PINNED\026LOCAL\027BROADCAST\030MULTICAST\031IFSCOPE\032CONDEMNED"
+"\033IFREF";
 char ifnetflags[] =
 "\1UP\2BROADCAST\3DEBUG\4LOOPBACK\5PTP\6b6\7RUNNING\010NOARP"
 "\011PPROMISC\012ALLMULTI\013OACTIVE\014SIMPLEX\015LINK0\016LINK1"
@@ -1298,6 +1299,8 @@ print_rtmsg(rtm, msglen)
 			(long)rtm->rtm_pid, rtm->rtm_seq, rtm->rtm_errno);
 		if (rtm->rtm_flags & RTF_IFSCOPE)
 			(void) printf("ifscope %d, ", rtm->rtm_index);
+		if (rtm->rtm_flags & RTF_IFREF)
+			(void) printf("ifref, ");
 		(void) printf("flags:");
 		bprintf(stdout, rtm->rtm_flags, routeflags);
 		pmsg_common(rtm);

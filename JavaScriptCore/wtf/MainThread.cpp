@@ -29,29 +29,52 @@
 #include "config.h"
 #include "MainThread.h"
 
-#include "StdLibExtras.h"
 #include "CurrentTime.h"
 #include "Deque.h"
+#include "StdLibExtras.h"
 #include "Threading.h"
+
+#if PLATFORM(CHROMIUM)
+#error Chromium uses a different main thread implementation
+#endif
 
 namespace WTF {
 
 struct FunctionWithContext {
     MainThreadFunction* function;
     void* context;
+    ThreadCondition* syncFlag;
 
-    FunctionWithContext(MainThreadFunction* function = 0, void* context = 0)
+    FunctionWithContext(MainThreadFunction* function = 0, void* context = 0, ThreadCondition* syncFlag = 0)
         : function(function)
         , context(context)
+        , syncFlag(syncFlag)
     { 
     }
+    bool operator == (const FunctionWithContext& o)
+    {
+        return function == o.function
+            && context == o.context
+            && syncFlag == o.syncFlag;
+    }
 };
+
+class FunctionWithContextFinder {
+public:
+    FunctionWithContextFinder(const FunctionWithContext& m) : m(m) {}
+    bool operator() (FunctionWithContext& o) { return o == m; }
+    FunctionWithContext m;
+};
+
 
 typedef Deque<FunctionWithContext> FunctionQueue;
 
 static bool callbacksPaused; // This global variable is only accessed from main thread.
+#if !PLATFORM(MAC) && !PLATFORM(QT)
+static ThreadIdentifier mainThreadIdentifier;
+#endif
 
-Mutex& mainThreadFunctionQueueMutex()
+static Mutex& mainThreadFunctionQueueMutex()
 {
     DEFINE_STATIC_LOCAL(Mutex, staticMutex, ());
     return staticMutex;
@@ -63,11 +86,50 @@ static FunctionQueue& functionQueue()
     return staticFunctionQueue;
 }
 
+
+#if !PLATFORM(MAC)
+
 void initializeMainThread()
+{
+    static bool initializedMainThread;
+    if (initializedMainThread)
+        return;
+    initializedMainThread = true;
+
+#if !PLATFORM(QT)
+    mainThreadIdentifier = currentThread();
+#endif
+
+    mainThreadFunctionQueueMutex();
+    initializeMainThreadPlatform();
+}
+
+#else
+
+static pthread_once_t initializeMainThreadKeyOnce = PTHREAD_ONCE_INIT;
+
+static void initializeMainThreadOnce()
 {
     mainThreadFunctionQueueMutex();
     initializeMainThreadPlatform();
 }
+
+void initializeMainThread()
+{
+    pthread_once(&initializeMainThreadKeyOnce, initializeMainThreadOnce);
+}
+
+static void initializeMainThreadToProcessMainThreadOnce()
+{
+    mainThreadFunctionQueueMutex();
+    initializeMainThreadToProcessMainThreadPlatform();
+}
+
+void initializeMainThreadToProcessMainThread()
+{
+    pthread_once(&initializeMainThreadKeyOnce, initializeMainThreadToProcessMainThreadOnce);
+}
+#endif
 
 // 0.1 sec delays in UI is approximate threshold when they become noticeable. Have a limit that's half of that.
 static const double maxRunLoopSuspensionTime = 0.05;
@@ -92,6 +154,8 @@ void dispatchFunctionsFromMainThread()
         }
 
         invocation.function(invocation.context);
+        if (invocation.syncFlag)
+            invocation.syncFlag->signal();
 
         // If we are running accumulated functions for too long so UI may become unresponsive, we need to
         // yield so the user input can be processed. Otherwise user may not be able to even close the window.
@@ -117,6 +181,42 @@ void callOnMainThread(MainThreadFunction* function, void* context)
         scheduleDispatchFunctionsOnMainThread();
 }
 
+void callOnMainThreadAndWait(MainThreadFunction* function, void* context)
+{
+    ASSERT(function);
+
+    if (isMainThread()) {
+        function(context);
+        return;
+    }
+
+    ThreadCondition syncFlag;
+    Mutex& functionQueueMutex = mainThreadFunctionQueueMutex();
+    MutexLocker locker(functionQueueMutex);
+    functionQueue().append(FunctionWithContext(function, context, &syncFlag));
+    if (functionQueue().size() == 1)
+        scheduleDispatchFunctionsOnMainThread();
+    syncFlag.wait(functionQueueMutex);
+}
+
+void cancelCallOnMainThread(MainThreadFunction* function, void* context)
+{
+    ASSERT(function);
+
+    MutexLocker locker(mainThreadFunctionQueueMutex());
+
+    FunctionWithContextFinder pred(FunctionWithContext(function, context));
+
+    while (true) {
+        // We must redefine 'i' each pass, because the itererator's operator= 
+        // requires 'this' to be valid, and remove() invalidates all iterators
+        FunctionQueue::iterator i(functionQueue().findIf(pred));
+        if (i == functionQueue().end())
+            break;
+        functionQueue().remove(i);
+    }
+}
+
 void setMainThreadCallbacksPaused(bool paused)
 {
     ASSERT(isMainThread());
@@ -129,5 +229,12 @@ void setMainThreadCallbacksPaused(bool paused)
     if (!callbacksPaused)
         scheduleDispatchFunctionsOnMainThread();
 }
+
+#if !PLATFORM(MAC) && !PLATFORM(QT)
+bool isMainThread()
+{
+    return currentThread() == mainThreadIdentifier;
+}
+#endif
 
 } // namespace WTF

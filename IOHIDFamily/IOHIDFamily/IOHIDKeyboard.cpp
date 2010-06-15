@@ -391,7 +391,6 @@ IOHIDKeyboard::deviceType ( void )
             break;
     }
 
-
     return id;
 
 }

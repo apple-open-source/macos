@@ -58,7 +58,7 @@ libLTLIBRARIES_INSTALL = $(INSTALL)
 LTLIBRARIES = $(lib_LTLIBRARIES)
 libmagic_la_DEPENDENCIES = $(LTLIBOBJS)
 am_libmagic_la_OBJECTS = magic.lo apprentice.lo softmagic.lo \
-	ascmagic.lo encoding.lo compress.lo is_tar.lo readelf.lo readmacho.lo \
+	ascmagic.lo encoding.lo compress.lo is_tar.lo readelf.lo \
 	print.lo fsmagic.lo funcs.lo apptype.lo cdf.lo cdf_time.lo \
 	readcdf.lo
 libmagic_la_OBJECTS = $(am_libmagic_la_OBJECTS)
@@ -74,7 +74,7 @@ DEFAULT_INCLUDES = -I. -I$(top_builddir)@am__isrc@
 depcomp = $(SHELL) $(top_srcdir)/depcomp
 am__depfiles_maybe = depfiles
 COMPILE = $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) \
-	$(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -mdynamic-no-pic
+	$(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS)
 LTCOMPILE = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) \
 	--mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) \
 	$(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS)
@@ -206,7 +206,7 @@ include_HEADERS = magic.h
 AM_CPPFLAGS = -DMAGIC='"$(MAGIC)"'
 AM_CFLAGS = @WARNINGS@
 libmagic_la_SOURCES = magic.c apprentice.c softmagic.c ascmagic.c \
-	encoding.c compress.c is_tar.c readelf.c readmacho.c print.c fsmagic.c \
+	encoding.c compress.c is_tar.c readelf.c print.c fsmagic.c \
 	funcs.c file.h names.h patchlevel.h readelf.h tar.h apptype.c \
 	file_opts.h elfclass.h mygetopt.h cdf.c cdf_time.c readcdf.c cdf.h
 
@@ -334,7 +334,6 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/print.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/readcdf.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/readelf.Plo@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/readmacho.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/softmagic.Plo@am__quote@
 
 .c.o:

@@ -33,6 +33,8 @@
 
 #include "PlatformString.h"
 
+#include "SerializedScriptValue.h"
+
 #include <wtf/OwnPtr.h>
 #include <wtf/PassOwnPtr.h>
 #include <wtf/PassRefPtr.h>
@@ -42,20 +44,25 @@
 namespace WebCore {
 
     class MessagePort;
+    class MessagePortChannel;
     class PlatformMessagePortChannel;
     class ScriptExecutionContext;
+    class SerializedScriptValue;
     class String;
+
+    // The overwhelmingly common case is sending a single port, so handle that efficiently with an inline buffer of size 1.
+    typedef Vector<OwnPtr<MessagePortChannel>, 1> MessagePortChannelArray;
 
     // MessagePortChannel is a platform-independent interface to the remote side of a message channel.
     // It acts as a wrapper around the platform-dependent PlatformMessagePortChannel implementation which ensures that the platform-dependent close() method is invoked before destruction.
-    class MessagePortChannel : Noncopyable {
+    class MessagePortChannel : public Noncopyable {
     public:
         static void createChannel(PassRefPtr<MessagePort>, PassRefPtr<MessagePort>);
 
         // Creates a new wrapper for the passed channel.
         static PassOwnPtr<MessagePortChannel> create(PassRefPtr<PlatformMessagePortChannel>);
 
-        // Entangles the channel with a port (called when a port has been cloned, after the clone has been marshalled to its new owning thread and is ready to receive messages).
+        // Entangles the channel with a port (called when a port has been cloned, after the clone has been marshaled to its new owning thread and is ready to receive messages).
         // Returns false if the entanglement failed because the port was closed.
         bool entangleIfOpen(MessagePort*);
 
@@ -71,17 +78,17 @@ namespace WebCore {
         // Returns true if the proxy currently contains messages for this port.
         bool hasPendingActivity();
 
-        class EventData {
+        class EventData : public Noncopyable {
         public:
-            static PassOwnPtr<EventData> create(const String&, PassOwnPtr<MessagePortChannel>);
+            static PassOwnPtr<EventData> create(PassRefPtr<SerializedScriptValue>, PassOwnPtr<MessagePortChannelArray>);
 
-            const String& message() { return m_message; }
-            PassOwnPtr<MessagePortChannel> channel() { return m_channel.release(); }
+            SerializedScriptValue* message() { return m_message.get(); }
+            PassOwnPtr<MessagePortChannelArray> channels() { return m_channels.release(); }
 
         private:
-            EventData(const String& message, PassOwnPtr<MessagePortChannel>);
-            String m_message;
-            OwnPtr<MessagePortChannel> m_channel;
+            EventData(PassRefPtr<SerializedScriptValue> message, PassOwnPtr<MessagePortChannelArray>);
+            RefPtr<SerializedScriptValue> m_message;
+            OwnPtr<MessagePortChannelArray> m_channels;
         };
 
         // Sends a message and optional cloned port to the remote port.
@@ -94,6 +101,8 @@ namespace WebCore {
         MessagePort* locallyEntangledPort(const ScriptExecutionContext*);
 
         ~MessagePortChannel();
+
+        PlatformMessagePortChannel* channel() const { return m_channel.get(); }
 
     private:
         MessagePortChannel(PassRefPtr<PlatformMessagePortChannel>);

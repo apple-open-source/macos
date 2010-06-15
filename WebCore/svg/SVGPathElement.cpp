@@ -2,8 +2,6 @@
     Copyright (C) 2004, 2005, 2006, 2008 Nikolas Zimmermann <zimmermann@kde.org>
                   2004, 2005, 2006, 2007 Rob Buis <buis@kde.org>
 
-    This file is part of the KDE project
-
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Library General Public
     License as published by the Free Software Foundation; either
@@ -49,7 +47,6 @@ SVGPathElement::SVGPathElement(const QualifiedName& tagName, Document* doc)
     , SVGTests()
     , SVGLangSpace()
     , SVGExternalResourcesRequired()
-    , m_pathLength(this, SVGNames::pathLengthAttr, 0.0f)
 {
 }
 
@@ -70,9 +67,9 @@ FloatPoint SVGPathElement::getPointAtLength(float length)
     return toPathData().pointAtLength(length, ok);
 }
 
-unsigned long SVGPathElement::getPathSegAtLength(float length)
+unsigned long SVGPathElement::getPathSegAtLength(float length, ExceptionCode& ec)
 {
-    return pathSegList()->getPathSegAtLength(length);
+    return pathSegList()->getPathSegAtLength(length, ec);
 }
 
 PassRefPtr<SVGPathSegClosePath> SVGPathElement::createSVGPathSegClosePath()
@@ -196,15 +193,43 @@ void SVGPathElement::svgAttributeChanged(const QualifiedName& attrName)
 {
     SVGStyledTransformableElement::svgAttributeChanged(attrName);
 
-    if (!renderer())
+    RenderPath* renderer = static_cast<RenderPath*>(this->renderer());
+    if (!renderer)
         return;
 
-    if (attrName == SVGNames::dAttr || attrName == SVGNames::pathLengthAttr ||
-        SVGTests::isKnownAttribute(attrName) ||
-        SVGLangSpace::isKnownAttribute(attrName) ||
-        SVGExternalResourcesRequired::isKnownAttribute(attrName) ||
-        SVGStyledTransformableElement::isKnownAttribute(attrName))
-        renderer()->setNeedsLayout(true);
+    if (attrName == SVGNames::dAttr) {
+        renderer->setNeedsPathUpdate();
+        renderer->setNeedsLayout(true);
+        return;
+    }
+
+    if (SVGStyledTransformableElement::isKnownAttribute(attrName)) {
+        renderer->setNeedsTransformUpdate();
+        renderer->setNeedsLayout(true);
+        return;
+    }
+
+    if (attrName == SVGNames::pathLengthAttr
+        || SVGTests::isKnownAttribute(attrName)
+        || SVGLangSpace::isKnownAttribute(attrName)
+        || SVGExternalResourcesRequired::isKnownAttribute(attrName))
+        renderer->setNeedsLayout(true);
+}
+
+void SVGPathElement::synchronizeProperty(const QualifiedName& attrName)
+{
+    SVGStyledTransformableElement::synchronizeProperty(attrName);
+
+    if (attrName == anyQName()) {
+        synchronizePathLength();
+        synchronizeExternalResourcesRequired();
+        return;
+    }
+
+    if (attrName == SVGNames::pathLengthAttr)
+        synchronizePathLength();
+    else if (SVGExternalResourcesRequired::isKnownAttribute(attrName))
+        synchronizeExternalResourcesRequired();
 }
 
 SVGPathSegList* SVGPathElement::pathSegList() const

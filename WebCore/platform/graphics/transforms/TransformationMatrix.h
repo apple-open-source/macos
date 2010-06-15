@@ -26,14 +26,18 @@
 #ifndef TransformationMatrix_h
 #define TransformationMatrix_h
 
+#include "AffineTransform.h"
 #include "FloatPoint.h"
 #include "IntPoint.h"
 #include <string.h> //for memcpy
+#include <wtf/FastAllocBase.h>
 
 #if PLATFORM(CG)
 #include <CoreGraphics/CGAffineTransform.h>
 #elif PLATFORM(CAIRO)
 #include <cairo.h>
+#elif PLATFORM(OPENVG)
+#include "VGUtils.h"
 #elif PLATFORM(QT)
 #include <QTransform>
 #elif PLATFORM(SKIA)
@@ -42,14 +46,23 @@
 #include <wx/graphics.h>
 #endif
 
+#if PLATFORM(WIN) || (PLATFORM(QT) && OS(WINDOWS)) || (PLATFORM(WX) && OS(WINDOWS))
+#if COMPILER(MINGW) && !COMPILER(MINGW64)
+typedef struct _XFORM XFORM;
+#else
+typedef struct tagXFORM XFORM;
+#endif
+#endif
+
 namespace WebCore {
 
+class AffineTransform;
 class IntRect;
 class FloatPoint3D;
 class FloatRect;
 class FloatQuad;
 
-class TransformationMatrix {
+class TransformationMatrix : public FastAllocBase {
 public:
     typedef double Matrix4[4][4];
 
@@ -225,6 +238,9 @@ public:
     TransformationMatrix& applyPerspective(double p);
     bool hasPerspective() const { return m_matrix[2][3] != 0.0f; }
 
+    // returns a transformation that maps a rect to a rect
+    static TransformationMatrix rectToRect(const FloatRect&, const FloatRect&);
+
     bool isInvertible() const;
 
     // This method returns the identity matrix if it is not invertible.
@@ -253,6 +269,8 @@ public:
 
     // Throw away the non-affine parts of the matrix (lossy!)
     void makeAffine();
+
+    AffineTransform toAffineTransform() const;
 
     bool operator==(const TransformationMatrix& m2) const
     {
@@ -284,7 +302,7 @@ public:
     }
     
     // result = *this * t (i.e., a multRight)
-    TransformationMatrix operator*(const TransformationMatrix& t)
+    TransformationMatrix operator*(const TransformationMatrix& t) const
     {
         TransformationMatrix result = t;
         result.multLeft(*this);
@@ -295,6 +313,8 @@ public:
     operator CGAffineTransform() const;
 #elif PLATFORM(CAIRO)
     operator cairo_matrix_t() const;
+#elif PLATFORM(OPENVG)
+    operator VGMatrix() const;
 #elif PLATFORM(QT)
     operator QTransform() const;
 #elif PLATFORM(SKIA)
@@ -303,31 +323,31 @@ public:
     operator wxGraphicsMatrix() const;
 #endif
 
-#if PLATFORM(WIN)
+#if PLATFORM(WIN) || (PLATFORM(QT) && OS(WINDOWS)) || (PLATFORM(WX) && OS(WINDOWS))
     operator XFORM() const;
 #endif
+
+    bool isIdentityOrTranslation() const
+    {
+        return m_matrix[0][0] == 1 && m_matrix[0][1] == 0 && m_matrix[0][2] == 0 && m_matrix[0][3] == 0
+            && m_matrix[1][0] == 0 && m_matrix[1][1] == 1 && m_matrix[1][2] == 0 && m_matrix[1][3] == 0
+            && m_matrix[2][0] == 0 && m_matrix[2][1] == 0 && m_matrix[2][2] == 1 && m_matrix[2][3] == 0
+            && m_matrix[3][3] == 1;
+    }
 
 private:
     // multiply passed 2D point by matrix (assume z=0)
     void multVecMatrix(double x, double y, double& dstX, double& dstY) const;
-    
+
     // multiply passed 3D point by matrix
     void multVecMatrix(double x, double y, double z, double& dstX, double& dstY, double& dstZ) const;
-    
+
     void setMatrix(const Matrix4 m)
     {
         if (m && m != m_matrix)
             memcpy(m_matrix, m, sizeof(Matrix4));
     }
-    
-    bool isIdentityOrTranslation() const
-    {
-        return m_matrix[0][0] == 1 && m_matrix[0][1] == 0 && m_matrix[0][2] == 0 && m_matrix[0][3] == 0 &&
-               m_matrix[1][0] == 0 && m_matrix[1][1] == 1 && m_matrix[1][2] == 0 && m_matrix[1][3] == 0 &&
-               m_matrix[2][0] == 0 && m_matrix[2][1] == 0 && m_matrix[2][2] == 1 && m_matrix[2][3] == 0 &&
-               m_matrix[3][3] == 1;
-    }
-    
+
     Matrix4 m_matrix;
 };
 

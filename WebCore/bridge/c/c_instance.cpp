@@ -29,15 +29,17 @@
 
 #include "c_instance.h"
 
+#include "CRuntimeObject.h"
+#include "IdentifierRep.h"
 #include "c_class.h"
 #include "c_runtime.h"
 #include "c_utility.h"
-#include "IdentifierRep.h"
 #include "npruntime_impl.h"
+#include "runtime_method.h"
 #include "runtime_root.h"
+#include <interpreter/CallFrame.h>
 #include <runtime/ArgList.h>
 #include <runtime/Error.h>
-#include <interpreter/CallFrame.h>
 #include <runtime/JSLock.h>
 #include <runtime/JSNumberCell.h>
 #include <runtime/PropertyNameArray.h>
@@ -70,7 +72,7 @@ void CInstance::moveGlobalExceptionToExecState(ExecState* exec)
         return;
 
     {
-        JSLock lock(false);
+        JSLock lock(SilenceAssertionsOnly);
         throwError(exec, GeneralError, globalExceptionString());
     }
 
@@ -89,6 +91,11 @@ CInstance::~CInstance()
     _NPN_ReleaseObject(_object);
 }
 
+RuntimeObject* CInstance::newRuntimeObject(ExecState* exec)
+{
+    return new (exec) CRuntimeObject(exec, this);
+}
+
 Class *CInstance::getClass() const
 {
     if (!_class)
@@ -101,8 +108,33 @@ bool CInstance::supportsInvokeDefaultMethod() const
     return _object->_class->invokeDefault;
 }
 
-JSValue CInstance::invokeMethod(ExecState* exec, const MethodList& methodList, const ArgList& args)
+class CRuntimeMethod : public RuntimeMethod {
+public:
+    CRuntimeMethod(ExecState* exec, const Identifier& name, Bindings::MethodList& list)
+        : RuntimeMethod(exec, name, list)
+    {
+    }
+
+    virtual const ClassInfo* classInfo() const { return &s_info; }
+
+    static const ClassInfo s_info;
+};
+
+const ClassInfo CRuntimeMethod::s_info = { "CRuntimeMethod", &RuntimeMethod::s_info, 0, 0 };
+
+JSValue CInstance::getMethod(ExecState* exec, const Identifier& propertyName)
 {
+    MethodList methodList = getClass()->methodsNamed(propertyName, this);
+    return new (exec) CRuntimeMethod(exec, propertyName, methodList);
+}
+
+JSValue CInstance::invokeMethod(ExecState* exec, RuntimeMethod* runtimeMethod, const ArgList& args)
+{
+    if (!asObject(runtimeMethod)->inherits(&CRuntimeMethod::s_info))
+        return throwError(exec, TypeError, "Attempt to invoke non-plug-in method on plug-in object.");
+
+    const MethodList& methodList = *runtimeMethod->methods();
+
     // Overloading methods are not allowed by NPObjects.  Should only be one
     // name match for a particular method.
     ASSERT(methodList.size() == 1);
@@ -121,20 +153,24 @@ JSValue CInstance::invokeMethod(ExecState* exec, const MethodList& methodList, c
         convertValueToNPVariant(exec, args.at(i), &cArgs[i]);
 
     // Invoke the 'C' method.
+    bool retval = true;
     NPVariant resultVariant;
     VOID_TO_NPVARIANT(resultVariant);
 
     {
-        JSLock::DropAllLocks dropAllLocks(false);
+        JSLock::DropAllLocks dropAllLocks(SilenceAssertionsOnly);
         ASSERT(globalExceptionString().isNull());
-        _object->_class->invoke(_object, ident, cArgs.data(), count, &resultVariant);
+        retval = _object->_class->invoke(_object, ident, cArgs.data(), count, &resultVariant);
         moveGlobalExceptionToExecState(exec);
     }
+    
+    if (!retval)
+        throwError(exec, GeneralError, "Error calling method on NPObject!");
 
     for (i = 0; i < count; i++)
         _NPN_ReleaseVariantValue(&cArgs[i]);
 
-    JSValue resultValue = convertNPVariantToValue(exec, &resultVariant, _rootObject.get());
+    JSValue resultValue = convertNPVariantToValue(exec, &resultVariant, m_rootObject.get());
     _NPN_ReleaseVariantValue(&resultVariant);
     return resultValue;
 }
@@ -153,19 +189,23 @@ JSValue CInstance::invokeDefaultMethod(ExecState* exec, const ArgList& args)
         convertValueToNPVariant(exec, args.at(i), &cArgs[i]);
 
     // Invoke the 'C' method.
+    bool retval = true;
     NPVariant resultVariant;
     VOID_TO_NPVARIANT(resultVariant);
     {
-        JSLock::DropAllLocks dropAllLocks(false);
+        JSLock::DropAllLocks dropAllLocks(SilenceAssertionsOnly);
         ASSERT(globalExceptionString().isNull());
-        _object->_class->invokeDefault(_object, cArgs.data(), count, &resultVariant);
+        retval = _object->_class->invokeDefault(_object, cArgs.data(), count, &resultVariant);
         moveGlobalExceptionToExecState(exec);
     }
+    
+    if (!retval)
+        throwError(exec, GeneralError, "Error calling method on NPObject!");
 
     for (i = 0; i < count; i++)
         _NPN_ReleaseVariantValue(&cArgs[i]);
 
-    JSValue resultValue = convertNPVariantToValue(exec, &resultVariant, _rootObject.get());
+    JSValue resultValue = convertNPVariantToValue(exec, &resultVariant, m_rootObject.get());
     _NPN_ReleaseVariantValue(&resultVariant);
     return resultValue;
 }
@@ -188,19 +228,23 @@ JSValue CInstance::invokeConstruct(ExecState* exec, const ArgList& args)
         convertValueToNPVariant(exec, args.at(i), &cArgs[i]);
 
     // Invoke the 'C' method.
+    bool retval = true;
     NPVariant resultVariant;
     VOID_TO_NPVARIANT(resultVariant);
     {
-        JSLock::DropAllLocks dropAllLocks(false);
+        JSLock::DropAllLocks dropAllLocks(SilenceAssertionsOnly);
         ASSERT(globalExceptionString().isNull());
-        _object->_class->construct(_object, cArgs.data(), count, &resultVariant);
+        retval = _object->_class->construct(_object, cArgs.data(), count, &resultVariant);
         moveGlobalExceptionToExecState(exec);
     }
+    
+    if (!retval)
+        throwError(exec, GeneralError, "Error calling method on NPObject!");
 
     for (i = 0; i < count; i++)
         _NPN_ReleaseVariantValue(&cArgs[i]);
 
-    JSValue resultValue = convertNPVariantToValue(exec, &resultVariant, _rootObject.get());
+    JSValue resultValue = convertNPVariantToValue(exec, &resultVariant, m_rootObject.get());
     _NPN_ReleaseVariantValue(&resultVariant);
     return resultValue;
 }
@@ -247,7 +291,7 @@ void CInstance::getPropertyNames(ExecState* exec, PropertyNameArray& nameArray)
     NPIdentifier* identifiers;
 
     {
-        JSLock::DropAllLocks dropAllLocks(false);
+        JSLock::DropAllLocks dropAllLocks(SilenceAssertionsOnly);
         ASSERT(globalExceptionString().isNull());
         bool ok = _object->_class->enumerate(_object, &identifiers, &count);
         moveGlobalExceptionToExecState(exec);
@@ -259,7 +303,7 @@ void CInstance::getPropertyNames(ExecState* exec, PropertyNameArray& nameArray)
         IdentifierRep* identifier = static_cast<IdentifierRep*>(identifiers[i]);
 
         if (identifier->isString())
-            nameArray.add(identifierFromNPIdentifier(identifier->string()));
+            nameArray.add(identifierFromNPIdentifier(exec, identifier->string()));
         else
             nameArray.add(Identifier::from(exec, identifier->number()));
     }

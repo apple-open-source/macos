@@ -28,11 +28,17 @@
 #include "config.h"
 #include "ChromeClientWx.h"
 #include "Console.h"
+#if ENABLE(DATABASE)
+#include "DatabaseTracker.h"
+#endif
 #include "FileChooser.h"
 #include "FloatRect.h"
+#include "Frame.h"
 #include "FrameLoadRequest.h"
+#include "Icon.h"
 #include "NotImplemented.h"
 #include "PlatformString.h"
+#include "WindowFeatures.h"
 
 #include <stdio.h>
 
@@ -48,6 +54,21 @@
 #include "WebViewPrivate.h"
 
 namespace WebCore {
+
+wxWebKitWindowFeatures wkFeaturesforWindowFeatures(const WindowFeatures& features)
+{
+    wxWebKitWindowFeatures wkFeatures;
+    wkFeatures.menuBarVisible = features.menuBarVisible;
+    wkFeatures.statusBarVisible = features.statusBarVisible;
+    wkFeatures.toolBarVisible = features.toolBarVisible;
+    wkFeatures.locationBarVisible = features.locationBarVisible;
+    wkFeatures.scrollbarsVisible = features.scrollbarsVisible;
+    wkFeatures.resizable = features.resizable;
+    wkFeatures.fullscreen = features.fullscreen;
+    wkFeatures.dialog = features.dialog;
+    
+    return wkFeatures;
+}
 
 ChromeClientWx::ChromeClientWx(wxWebView* webView)
 {
@@ -107,23 +128,25 @@ void ChromeClientWx::takeFocus(FocusDirection)
     notImplemented();
 }
 
-
-Page* ChromeClientWx::createWindow(Frame*, const FrameLoadRequest& request, const WindowFeatures&)
+void ChromeClientWx::focusedNodeChanged(Node*)
 {
+}
 
-    // FIXME: Create a EVT_WEBKIT_NEW_WINDOW event, and only run this code
-    // when that event is not handled.
-    
+Page* ChromeClientWx::createWindow(Frame*, const FrameLoadRequest& request, const WindowFeatures& features)
+{
     Page* myPage = 0;
-    wxWebBrowserShell* newFrame = new wxWebBrowserShell(wxTheApp->GetAppName());
+    wxWebViewNewWindowEvent wkEvent(m_webView);
+    wkEvent.SetURL(request.resourceRequest().url().string());
     
-    if (newFrame->webview) {
-        newFrame->webview->LoadURL(request.resourceRequest().url().string());
-        newFrame->Show(true);
-
-        WebViewPrivate* impl = newFrame->webview->m_impl;
-        if (impl)
-            myPage = impl->page;
+    wxWebKitWindowFeatures wkFeatures = wkFeaturesforWindowFeatures(features);
+    wkEvent.SetWindowFeatures(wkFeatures);
+    
+    if (m_webView->GetEventHandler()->ProcessEvent(wkEvent)) {
+        if (wxWebView* webView = wkEvent.GetWebView()) {
+            WebViewPrivate* impl = webView->m_impl;
+            if (impl)
+                myPage = impl->page;
+        }
     }
     
     return myPage;
@@ -201,6 +224,7 @@ void ChromeClientWx::setResizable(bool)
 }
 
 void ChromeClientWx::addMessageToConsole(MessageSource source,
+                                          MessageType type,
                                           MessageLevel level,
                                           const String& message,
                                           unsigned int lineNumber,
@@ -211,6 +235,7 @@ void ChromeClientWx::addMessageToConsole(MessageSource source,
         wkEvent.SetMessage(message);
         wkEvent.SetLineNumber(lineNumber);
         wkEvent.SetSourceID(sourceID);
+        wkEvent.SetLevel(static_cast<wxWebViewConsoleMessageLevel>(level));
         m_webView->GetEventHandler()->ProcessEvent(wkEvent);
     }
 }
@@ -312,14 +337,24 @@ IntRect ChromeClientWx::windowResizerRect() const
     return IntRect();
 }
 
-void ChromeClientWx::repaint(const IntRect& rect, bool contentChanged, bool immediate, bool repaintContentOnly)
+void ChromeClientWx::invalidateWindow(const IntRect& rect, bool immediate)
+{
+    if (immediate)
+        m_webView->Update();
+}
+
+void ChromeClientWx::invalidateContentsForSlowScroll(const IntRect& rect, bool immediate)
+{
+    invalidateContentsAndWindow(rect, immediate);
+}
+
+void ChromeClientWx::invalidateContentsAndWindow(const IntRect& rect, bool immediate)
 {
     if (!m_webView)
         return;
-    
-    if (contentChanged)
-        m_webView->RefreshRect(rect);
-    
+
+    m_webView->RefreshRect(rect);
+
     if (immediate) {
         m_webView->Update();
     }
@@ -337,9 +372,9 @@ IntPoint ChromeClientWx::screenToWindow(const IntPoint& point) const
     return point;
 }
 
-PlatformWidget ChromeClientWx::platformWindow() const
+PlatformPageClient ChromeClientWx::platformPageClient() const
 {
-    return 0;
+    return m_webView;
 }
 
 void ChromeClientWx::contentsSizeChanged(Frame*, const IntSize&) const
@@ -364,7 +399,7 @@ void ChromeClientWx::mouseDidMoveOverElement(const HitTestResult&, unsigned modi
     notImplemented();
 }
 
-void ChromeClientWx::setToolTip(const String& tip)
+void ChromeClientWx::setToolTip(const String& tip, TextDirection)
 {
     wxToolTip* tooltip = m_webView->GetToolTip();
     if (!tooltip || tooltip->GetTip() != wxString(tip))
@@ -379,18 +414,37 @@ void ChromeClientWx::print(Frame*)
 #if ENABLE(DATABASE)
 void ChromeClientWx::exceededDatabaseQuota(Frame*, const String&)
 {
+    unsigned long long quota = 5 * 1024 * 1024;
+
+    if (wxWebFrame* webFrame = m_webView->GetMainFrame())
+        if (Frame* frame = webFrame->GetFrame())
+            if (Document* document = frame->document())
+                if (!DatabaseTracker::tracker().hasEntryForOrigin(document->securityOrigin()))
+                    DatabaseTracker::tracker().setQuota(document->securityOrigin(), quota);
+}
+#endif
+
+#if ENABLE(OFFLINE_WEB_APPLICATIONS)
+void ChromeClientWx::reachedMaxAppCacheSize(int64_t spaceNeeded)
+{
     notImplemented();
 }
 #endif
 
 void ChromeClientWx::scroll(const IntSize&, const IntRect&, const IntRect&)
 {
+    m_webView->Refresh();
     notImplemented();
 }
 
 void ChromeClientWx::runOpenPanel(Frame*, PassRefPtr<FileChooser>)
 {
     notImplemented();
+}
+
+void ChromeClientWx::chooseIconForFiles(const Vector<String>& filenames, FileChooser* chooser)
+{
+    chooser->iconLoaded(Icon::createIconForFiles(filenames));
 }
 
 bool ChromeClientWx::setCursor(PlatformCursorHandle)

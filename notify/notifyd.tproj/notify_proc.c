@@ -54,20 +54,20 @@ cancel_session(task_name_t tname)
 	name_info_t *n;
 	void *tt;
 	list_t *l, *x;
-	
+
 	a = NULL;
 	x = NULL;
 	p = NULL;
 	if (ns == NULL) return;
 
 	/* Release all clients for this session */
-	
+
 	tt = _nc_table_traverse_start(ns->name_table);
 	while (tt != NULL)
 	{
 		n = _nc_table_traverse(ns->name_table, tt);
 		if (n == NULL) break;
-		
+
 		for (l = n->client_list; l != NULL; l = _nc_list_next(l))
 		{
 			c = _nc_list_data(l);
@@ -78,13 +78,13 @@ cancel_session(task_name_t tname)
 
 				a->client_id = c->client_id;
 				a->info = c->info;
-				
+
 				x = _nc_list_prepend(x, _nc_list_new(a));
 			}
 		}
 	}
 	_nc_table_traverse_end(ns->name_table, tt);
-	
+
 	for (l = x; l != NULL; l = _nc_list_next(l))
 	{
 		c = _nc_list_data(l);
@@ -96,7 +96,7 @@ cancel_session(task_name_t tname)
 				service_close((svc_info_t *)c->info->private, NULL);
 				c->info->private = NULL;
 			}
-			
+
 			n = c->info->name_info;
 			if ((n != NULL) && (n->refcount == 1))
 			{
@@ -113,9 +113,9 @@ cancel_session(task_name_t tname)
 		_notify_lib_cancel(ns, c->client_id);
 		free(c);
 	}
-	
+
 	_nc_list_release_list(x);
-	
+
 	/* Release the tname */
 	mach_port_destroy(mach_task_self(), tname);
 }
@@ -195,14 +195,14 @@ kern_return_t __notify_server_register_plain
 		*status = NOTIFY_STATUS_INVALID_NAME;
 		return KERN_SUCCESS;
 	}
-	
+
 	if (ns == NULL)
 	{
 		vm_deallocate(mach_task_self(), (vm_address_t)name, nameCnt);
 		*status = NOTIFY_STATUS_FAILED;
 		return KERN_SUCCESS;
 	}
-	
+
 	if (name[nameCnt] != '\0')
 	{
 		vm_deallocate(mach_task_self(), (vm_address_t)name, nameCnt);
@@ -272,21 +272,21 @@ kern_return_t __notify_server_register_check
 		*status = NOTIFY_STATUS_INVALID_NAME;
 		return KERN_SUCCESS;
 	}
-	
+
 	if (ns == NULL)
 	{
 		vm_deallocate(mach_task_self(), (vm_address_t)name, nameCnt);
 		*status = NOTIFY_STATUS_FAILED;
 		return KERN_SUCCESS;
 	}
-	
+
 	if (name[nameCnt] != '\0')
 	{
 		vm_deallocate(mach_task_self(), (vm_address_t)name, nameCnt);
 		*status = NOTIFY_STATUS_INVALID_NAME;
 		return KERN_SUCCESS;
 	}
-	
+
 	log_message(ASL_LEVEL_DEBUG, "__notify_server_register_check %s\n", name);
 
 	if (shm_enabled == 0)
@@ -338,7 +338,7 @@ kern_return_t __notify_server_register_check
 	gid = (gid_t)-1;
 	pid = (pid_t)-1;
 	audit_token_to_au32(token, NULL, &uid, &gid, NULL, NULL, &pid, NULL, NULL);
-	
+
 	tname = TASK_NAME_NULL;
 	kstatus = task_name_for_pid(mach_task_self(), pid, &tname);
 	if (kstatus != KERN_SUCCESS)
@@ -347,7 +347,7 @@ kern_return_t __notify_server_register_check
 		*status = NOTIFY_STATUS_FAILED;
 		return KERN_SUCCESS;
 	}
-	
+
 	*size = nslots * sizeof(uint32_t);
 	*slot = x;
 	*status = _notify_lib_register_plain(ns, name, tname, x, uid, gid, (uint32_t *)client_id);
@@ -391,21 +391,21 @@ kern_return_t __notify_server_register_signal
 		*status = NOTIFY_STATUS_INVALID_NAME;
 		return KERN_SUCCESS;
 	}
-	
+
 	if (ns == NULL)
 	{
 		vm_deallocate(mach_task_self(), (vm_address_t)name, nameCnt);
 		*status = NOTIFY_STATUS_FAILED;
 		return KERN_SUCCESS;
 	}
-	
+
 	if (name[nameCnt] != '\0')
 	{
 		vm_deallocate(mach_task_self(), (vm_address_t)name, nameCnt);
 		*status = NOTIFY_STATUS_INVALID_NAME;
 		return KERN_SUCCESS;
 	}
-		
+
 	log_message(ASL_LEVEL_DEBUG, "__notify_server_register_signal %s\n", name);
 
 	uid = (uid_t)-1;
@@ -421,7 +421,7 @@ kern_return_t __notify_server_register_signal
 		*status = NOTIFY_STATUS_FAILED;
 		return KERN_SUCCESS;
 	}
-	
+
 	*status = _notify_lib_register_signal(ns, name, tname, pid, sig, uid, gid, (uint32_t *)client_id);
 	vm_deallocate(mach_task_self(), (vm_address_t)name, nameCnt);
 	if (*status != NOTIFY_STATUS_OK)
@@ -466,7 +466,7 @@ kern_return_t __notify_server_register_file_descriptor
 		*status = NOTIFY_STATUS_INVALID_NAME;
 		return KERN_SUCCESS;
 	}
-	
+
 	if (path == NULL)
 	{
 		vm_deallocate(mach_task_self(), (vm_address_t)name, nameCnt);
@@ -481,7 +481,7 @@ kern_return_t __notify_server_register_file_descriptor
 		*status = NOTIFY_STATUS_FAILED;
 		return KERN_SUCCESS;
 	}
-	
+
 	if (name[nameCnt] != '\0')
 	{
 		vm_deallocate(mach_task_self(), (vm_address_t)name, nameCnt);
@@ -489,7 +489,7 @@ kern_return_t __notify_server_register_file_descriptor
 		*status = NOTIFY_STATUS_INVALID_NAME;
 		return KERN_SUCCESS;
 	}
-	
+
 	if (path[pathCnt] != '\0')
 	{
 		vm_deallocate(mach_task_self(), (vm_address_t)name, nameCnt);
@@ -504,7 +504,7 @@ kern_return_t __notify_server_register_file_descriptor
 	gid = (gid_t)-1;
 	pid = (gid_t)-1;
 	audit_token_to_au32(token, NULL, &uid, &gid, NULL, NULL, &pid, NULL, NULL);
-	
+
 	tname = TASK_NAME_NULL;
 	kstatus = task_name_for_pid(mach_task_self(), pid, &tname);
 	if (kstatus != KERN_SUCCESS)
@@ -514,7 +514,7 @@ kern_return_t __notify_server_register_file_descriptor
 		*status = NOTIFY_STATUS_FAILED;
 		return KERN_SUCCESS;
 	}
-	
+
 	*status = _notify_lib_register_file_descriptor(ns, name, tname, path, ntoken, uid, gid, (uint32_t *)client_id);
 	vm_deallocate(mach_task_self(), (vm_address_t)name, nameCnt);
 	vm_deallocate(mach_task_self(), (vm_address_t)path, pathCnt);
@@ -556,28 +556,28 @@ kern_return_t __notify_server_register_mach_port
 		*status = NOTIFY_STATUS_INVALID_NAME;
 		return KERN_SUCCESS;
 	}
-	
+
 	if (ns == NULL)
 	{
 		vm_deallocate(mach_task_self(), (vm_address_t)name, nameCnt);
 		*status = NOTIFY_STATUS_FAILED;
 		return KERN_SUCCESS;
 	}
-	
+
 	if (name[nameCnt] != '\0')
 	{
 		vm_deallocate(mach_task_self(), (vm_address_t)name, nameCnt);
 		*status = NOTIFY_STATUS_INVALID_NAME;
 		return KERN_SUCCESS;
 	}
-	
+
 	log_message(ASL_LEVEL_DEBUG, "__notify_server_register_mach_port %s\n", name);
 
 	uid = (uid_t)-1;
 	gid = (gid_t)-1;
 	pid = (gid_t)-1;
 	audit_token_to_au32(token, NULL, &uid, &gid, NULL, NULL, &pid, NULL, NULL);
-	
+
 	tname = TASK_NAME_NULL;
 	kstatus = task_name_for_pid(mach_task_self(), pid, &tname);
 	if (kstatus != KERN_SUCCESS)
@@ -586,7 +586,7 @@ kern_return_t __notify_server_register_mach_port
 		*status = NOTIFY_STATUS_FAILED;
 		return KERN_SUCCESS;
 	}
-	
+
 	*status = _notify_lib_register_mach_port(ns, name, tname, port, ntoken, uid, gid, (uint32_t *)client_id);
 	vm_deallocate(mach_task_self(), (vm_address_t)name, nameCnt);
 	if (*status != NOTIFY_STATUS_OK)
@@ -655,7 +655,7 @@ kern_return_t __notify_server_cancel
 	}
 
 	service_close((svc_info_t *)c->info->private, NULL);
-	
+
 	c->info->private = NULL;
 
 	n = c->info->name_info;
@@ -673,6 +673,210 @@ kern_return_t __notify_server_cancel
 	}
 
 	_notify_lib_cancel(ns, client_id);
+
+	return KERN_SUCCESS;
+}
+
+kern_return_t __notify_server_suspend
+(
+	mach_port_t server,
+	int client_id,
+	int *status,
+	audit_token_t token
+)
+{
+	uid_t uid;
+	pid_t pid;
+	task_name_t tname;
+	kern_return_t kstatus;
+	client_t *c;
+	name_info_t *n;
+
+	if (ns == NULL)
+	{
+		*status = NOTIFY_STATUS_FAILED;
+		return KERN_SUCCESS;
+	}
+
+	log_message(ASL_LEVEL_DEBUG, "__notify_server_suspend %u\n", client_id);
+
+	uid = (uid_t)-1;
+	pid = (gid_t)-1;
+	audit_token_to_au32(token, NULL, &uid, NULL, NULL, NULL, &pid, NULL, NULL);
+
+	tname = TASK_NAME_NULL;
+	kstatus = task_name_for_pid(mach_task_self(), pid, &tname);
+	if (kstatus != KERN_SUCCESS)
+	{
+		*status = NOTIFY_STATUS_FAILED;
+		return KERN_SUCCESS;
+	}
+
+	*status = NOTIFY_STATUS_OK;
+
+	c = _nc_table_find_n(ns->client_table, client_id);
+	if (c == NULL) return KERN_SUCCESS;
+	if (c->info == NULL)
+	{
+		*status = NOTIFY_STATUS_FAILED;
+		return KERN_SUCCESS;
+	}
+
+	if ((uid != 0) && (c->info->session != tname))
+	{
+		*status = NOTIFY_STATUS_NOT_AUTHORIZED;
+		return KERN_SUCCESS;
+	}
+
+	n = c->info->name_info;
+	if (n == NULL) return KERN_SUCCESS;
+
+	_notify_lib_suspend(ns, client_id);
+
+	return KERN_SUCCESS;
+}
+
+kern_return_t __notify_server_resume
+(
+	mach_port_t server,
+	int client_id,
+	int *status,
+	audit_token_t token
+)
+{
+	uid_t uid;
+	pid_t pid;
+	task_name_t tname;
+	kern_return_t kstatus;
+	client_t *c;
+	name_info_t *n;
+
+	if (ns == NULL)
+	{
+		*status = NOTIFY_STATUS_FAILED;
+		return KERN_SUCCESS;
+	}
+
+	log_message(ASL_LEVEL_DEBUG, "__notify_server_resume %u\n", client_id);
+
+	uid = (uid_t)-1;
+	pid = (gid_t)-1;
+	audit_token_to_au32(token, NULL, &uid, NULL, NULL, NULL, &pid, NULL, NULL);
+
+	tname = TASK_NAME_NULL;
+	kstatus = task_name_for_pid(mach_task_self(), pid, &tname);
+	if (kstatus != KERN_SUCCESS)
+	{
+		*status = NOTIFY_STATUS_FAILED;
+		return KERN_SUCCESS;
+	}
+
+	*status = NOTIFY_STATUS_OK;
+
+	c = _nc_table_find_n(ns->client_table, client_id);
+	if (c == NULL) return KERN_SUCCESS;
+	if (c->info == NULL)
+	{
+		*status = NOTIFY_STATUS_FAILED;
+		return KERN_SUCCESS;
+	}
+
+	if ((uid != 0) && (c->info->session != tname))
+	{
+		*status = NOTIFY_STATUS_NOT_AUTHORIZED;
+		return KERN_SUCCESS;
+	}
+
+	n = c->info->name_info;
+	if (n == NULL) return KERN_SUCCESS;
+
+	_notify_lib_resume(ns, client_id);
+
+	return KERN_SUCCESS;
+}
+
+kern_return_t __notify_server_suspend_pid
+(
+	mach_port_t server,
+	int pid,
+	int *status,
+	audit_token_t token
+)
+{
+	uid_t uid;
+	task_name_t tname;
+	kern_return_t kstatus;
+
+	if (ns == NULL)
+	{
+		*status = NOTIFY_STATUS_FAILED;
+		return KERN_SUCCESS;
+	}
+
+	log_message(ASL_LEVEL_DEBUG, "__notify_server_suspend_pid %u\n", pid);
+
+	uid = (uid_t)-1;
+	audit_token_to_au32(token, NULL, &uid, NULL, NULL, NULL, NULL, NULL, NULL);
+	if (uid != 0)
+	{
+		*status = NOTIFY_STATUS_NOT_AUTHORIZED;
+		return KERN_SUCCESS;
+	}
+
+	tname = TASK_NAME_NULL;
+	kstatus = task_name_for_pid(mach_task_self(), pid, &tname);
+	if (kstatus != KERN_SUCCESS)
+	{
+		*status = NOTIFY_STATUS_FAILED;
+		return KERN_SUCCESS;
+	}
+
+	*status = NOTIFY_STATUS_OK;
+
+	_notify_lib_suspend_session(ns, tname);
+
+	return KERN_SUCCESS;
+}
+
+kern_return_t __notify_server_resume_pid
+(
+	mach_port_t server,
+	int pid,
+	int *status,
+	audit_token_t token
+)
+{
+	uid_t uid;
+	task_name_t tname;
+	kern_return_t kstatus;
+
+	if (ns == NULL)
+	{
+		*status = NOTIFY_STATUS_FAILED;
+		return KERN_SUCCESS;
+	}
+
+	log_message(ASL_LEVEL_DEBUG, "__notify_server_resume_pid %u\n", pid);
+
+	uid = (uid_t)-1;
+	audit_token_to_au32(token, NULL, &uid, NULL, NULL, NULL, NULL, NULL, NULL);
+	if (uid != 0)
+	{
+		*status = NOTIFY_STATUS_NOT_AUTHORIZED;
+		return KERN_SUCCESS;
+	}
+
+	tname = TASK_NAME_NULL;
+	kstatus = task_name_for_pid(mach_task_self(), pid, &tname);
+	if (kstatus != KERN_SUCCESS)
+	{
+		*status = NOTIFY_STATUS_FAILED;
+		return KERN_SUCCESS;
+	}
+
+	*status = NOTIFY_STATUS_OK;
+
+	_notify_lib_resume_session(ns, tname);
 
 	return KERN_SUCCESS;
 }
@@ -702,7 +906,7 @@ kern_return_t __notify_server_get_state
 )
 {
 	log_message(ASL_LEVEL_DEBUG, "__notify_server_get_state %u\n", client_id);
-	
+
 	*status = _notify_lib_get_state(ns, client_id, state);
 	return KERN_SUCCESS;
 }
@@ -720,11 +924,11 @@ kern_return_t __notify_server_set_state
 	gid_t gid;
 
 	log_message(ASL_LEVEL_DEBUG, "__notify_server_set_state %u\n", client_id);
-	
+
 	uid = (uid_t)-1;
 	gid = (gid_t)-1;
 	audit_token_to_au32(token, NULL, &uid, &gid, NULL, NULL, NULL, NULL, NULL);
-	
+
 	*status = _notify_lib_set_state(ns, client_id, state, uid, gid);
 	return KERN_SUCCESS;
 }
@@ -739,7 +943,7 @@ kern_return_t __notify_server_get_val
  )
 {
 	log_message(ASL_LEVEL_DEBUG, "__notify_server_get_val %u\n", client_id);
-	
+
 	*status = _notify_lib_get_val(ns, client_id, val);
 	return KERN_SUCCESS;
 }
@@ -763,7 +967,7 @@ kern_return_t __notify_server_set_val
 	uid = (uid_t)-1;
 	gid = (gid_t)-1;
 	audit_token_to_au32(token, NULL, &uid, &gid, NULL, NULL, NULL, NULL, NULL);
-	
+
 	*status = _notify_lib_set_val(ns, client_id, val, uid, gid);
 	if (*status == NOTIFY_STATUS_OK)
 	{
@@ -800,26 +1004,26 @@ kern_return_t __notify_server_set_owner
 		*status = NOTIFY_STATUS_INVALID_NAME;
 		return KERN_SUCCESS;
 	}
-	
+
 	if (ns == NULL)
 	{
 		vm_deallocate(mach_task_self(), (vm_address_t)name, nameCnt);
 		*status = NOTIFY_STATUS_FAILED;
 		return KERN_SUCCESS;
 	}
-	
+
 	if (name[nameCnt] != '\0')
 	{
 		vm_deallocate(mach_task_self(), (vm_address_t)name, nameCnt);
 		*status = NOTIFY_STATUS_INVALID_NAME;
 		return KERN_SUCCESS;
 	}
-	
+
 	log_message(ASL_LEVEL_DEBUG, "__notify_server_set_owner %s %u %u\n", name, uid, gid);
 
 	auid = (uid_t)-1;
 	audit_token_to_au32(token, NULL, &auid, NULL, NULL, NULL, NULL, NULL, NULL);
-	
+
 	/* only root may set owner for names */
 	if (auid != 0)
 	{ 
@@ -849,21 +1053,21 @@ kern_return_t __notify_server_get_owner
 		*status = NOTIFY_STATUS_INVALID_NAME;
 		return KERN_SUCCESS;
 	}
-	
+
 	if (ns == NULL)
 	{
 		vm_deallocate(mach_task_self(), (vm_address_t)name, nameCnt);
 		*status = NOTIFY_STATUS_FAILED;
 		return KERN_SUCCESS;
 	}
-	
+
 	if (name[nameCnt] != '\0')
 	{
 		vm_deallocate(mach_task_self(), (vm_address_t)name, nameCnt);
 		*status = NOTIFY_STATUS_INVALID_NAME;
 		return KERN_SUCCESS;
 	}
-	
+
 	log_message(ASL_LEVEL_DEBUG, "__notify_server_get_owner %s\n", name);
 
 	*status = _notify_lib_get_owner(ns, name, (uint32_t *)uid, (uint32_t *)gid);
@@ -890,21 +1094,21 @@ kern_return_t __notify_server_set_access
 		*status = NOTIFY_STATUS_INVALID_NAME;
 		return KERN_SUCCESS;
 	}
-	
+
 	if (ns == NULL)
 	{
 		vm_deallocate(mach_task_self(), (vm_address_t)name, nameCnt);
 		*status = NOTIFY_STATUS_FAILED;
 		return KERN_SUCCESS;
 	}
-	
+
 	if (name[nameCnt] != '\0')
 	{
 		vm_deallocate(mach_task_self(), (vm_address_t)name, nameCnt);
 		*status = NOTIFY_STATUS_INVALID_NAME;
 		return KERN_SUCCESS;
 	}
-	
+
 	log_message(ASL_LEVEL_DEBUG, "__notify_server_set_access %s 0x%03x\n", name, mode);
 
 	_notify_lib_get_owner(ns, name, &u, &g);
@@ -912,7 +1116,7 @@ kern_return_t __notify_server_set_access
 	uid = (uid_t)-1;
 	gid = (gid_t)-1;
 	audit_token_to_au32(token, NULL, &uid, &gid, NULL, NULL, NULL, NULL, NULL);
-	
+
 	/* only root and owner may set access for names */
 	if ((uid != 0) && (uid != u))
 	{ 
@@ -942,21 +1146,21 @@ kern_return_t __notify_server_get_access
 		*status = NOTIFY_STATUS_INVALID_NAME;
 		return KERN_SUCCESS;
 	}
-	
+
 	if (ns == NULL)
 	{
 		vm_deallocate(mach_task_self(), (vm_address_t)name, nameCnt);
 		*status = NOTIFY_STATUS_FAILED;
 		return KERN_SUCCESS;
 	}
-	
+
 	if (name[nameCnt] != '\0')
 	{
 		vm_deallocate(mach_task_self(), (vm_address_t)name, nameCnt);
 		*status = NOTIFY_STATUS_INVALID_NAME;
 		return KERN_SUCCESS;
 	}
-	
+
 	log_message(ASL_LEVEL_DEBUG, "__notify_server_get_access %s\n", name);
 
 	*status = _notify_lib_get_access(ns, name, (uint32_t *)mode);
@@ -982,21 +1186,21 @@ kern_return_t __notify_server_release_name
 		*status = NOTIFY_STATUS_INVALID_NAME;
 		return KERN_SUCCESS;
 	}
-	
+
 	if (ns == NULL)
 	{
 		vm_deallocate(mach_task_self(), (vm_address_t)name, nameCnt);
 		*status = NOTIFY_STATUS_FAILED;
 		return KERN_SUCCESS;
 	}
-	
+
 	if (name[nameCnt] != '\0')
 	{
 		vm_deallocate(mach_task_self(), (vm_address_t)name, nameCnt);
 		*status = NOTIFY_STATUS_INVALID_NAME;
 		return KERN_SUCCESS;
 	}
-	
+
 	log_message(ASL_LEVEL_DEBUG, "__notify_server_release_name %s\n", name);
 
 	_notify_lib_get_owner(ns, name, &u, &g);
@@ -1004,7 +1208,7 @@ kern_return_t __notify_server_release_name
 	uid = (uid_t)-1;
 	gid = (gid_t)-1;
 	audit_token_to_au32(token, NULL, &uid, &gid, NULL, NULL, NULL, NULL, NULL);
-	
+
 	/* only root and owner may release names */
 	if ((uid != 0) && (uid != u))
 	{ 
@@ -1039,21 +1243,21 @@ kern_return_t __notify_server_monitor_file
 		*status = NOTIFY_STATUS_INVALID_NAME;
 		return KERN_SUCCESS;
 	}
-	
+
 	if (ns == NULL)
 	{
 		vm_deallocate(mach_task_self(), (vm_address_t)path, pathCnt);
 		*status = NOTIFY_STATUS_FAILED;
 		return KERN_SUCCESS;
 	}
-	
+
 	if (path[pathCnt] != '\0')
 	{
 		vm_deallocate(mach_task_self(), (vm_address_t)path, pathCnt);
 		*status = NOTIFY_STATUS_INVALID_NAME;
 		return KERN_SUCCESS;
 	}
-	
+
 	log_message(ASL_LEVEL_DEBUG, "__notify_server_monitor_file %d %s %d\n", client_id, path, flags);
 
 	c = _nc_table_find_n(ns->client_table, client_id);
@@ -1075,7 +1279,7 @@ kern_return_t __notify_server_monitor_file
 	uid = (uid_t)-1;
 	gid = (gid_t)-1;
 	audit_token_to_au32(token, NULL, &uid, &gid, NULL, NULL, NULL, NULL, NULL);
-	
+
 	*status = service_open_file(client_id, n->name, path, flags, uid, gid);
 	vm_deallocate(mach_task_self(), (vm_address_t)path, pathCnt);
 	return KERN_SUCCESS;

@@ -29,6 +29,7 @@
 
 #include "CachedImage.h"
 #include "Element.h"
+#include "FileList.h"
 #include "Frame.h"
 #include "Range.h"
 
@@ -71,6 +72,11 @@ HashSet<String> ClipboardAndroid::types() const
     return HashSet<String>();
 }
 
+PassRefPtr<FileList> ClipboardAndroid::files() const
+{
+    return 0;
+}
+
 void ClipboardAndroid::setDragImage(CachedImage*, const IntPoint&)
 {
 }
@@ -95,6 +101,10 @@ void ClipboardAndroid::writeURL(const KURL&, const String&, Frame*)
 void ClipboardAndroid::writeRange(Range* selectedRange, Frame*)
 {
     ASSERT(selectedRange);
+}
+
+void ClipboardAndroid::writePlainText(const String&)
+{
 }
 
 bool ClipboardAndroid::hasData()

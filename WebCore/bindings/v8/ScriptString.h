@@ -32,34 +32,41 @@
 #define ScriptString_h
 
 #include "PlatformString.h"
+#include "ScriptStringImpl.h"
+#include "V8Binding.h"
 
 namespace WebCore {
 
 class ScriptString {
 public:
-    ScriptString() {}
-    ScriptString(const String& s) : m_str(s) {}
-    ScriptString(const char* s) : m_str(s) {}
+    ScriptString() : m_impl(0) {}
+    ScriptString(const String& s) : m_impl(ScriptStringImpl::create(s)) {}
+    ScriptString(const char* s) : m_impl(ScriptStringImpl::create(s)) {}
 
-    operator String() const { return m_str; }
+    operator String() const { return m_impl->toString(); }
 
-    bool isNull() const { return m_str.isNull(); }
-    size_t size() const { return m_str.length(); }
+    bool isNull() const { return !m_impl.get() || m_impl->isNull(); }
+    size_t size() const { return m_impl->size(); }
 
     ScriptString& operator=(const char* s)
     {
-        m_str = s;
+        m_impl = ScriptStringImpl::create(s);
         return *this;
     }
 
     ScriptString& operator+=(const String& s)
     {
-        m_str += s;
+        m_impl->append(s);
         return *this;
     }
 
+    v8::Handle<v8::Value> v8StringOrNull() const
+    {
+        return isNull() ? v8::Handle<v8::Value>(v8::Null()) : v8::Handle<v8::Value>(m_impl->v8StringHandle());
+    }
+
 private:
-    String m_str;
+    RefPtr<ScriptStringImpl> m_impl;
 };
 
 } // namespace WebCore

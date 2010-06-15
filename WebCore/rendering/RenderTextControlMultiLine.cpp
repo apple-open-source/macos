@@ -22,15 +22,17 @@
 #include "config.h"
 #include "RenderTextControlMultiLine.h"
 
+#include "Event.h"
 #include "EventNames.h"
 #include "Frame.h"
-#include "HitTestResult.h"
+#include "HTMLNames.h"
 #include "HTMLTextAreaElement.h"
+#include "HitTestResult.h"
 
 namespace WebCore {
 
-RenderTextControlMultiLine::RenderTextControlMultiLine(Node* node)
-    : RenderTextControl(node)
+RenderTextControlMultiLine::RenderTextControlMultiLine(Node* node, bool placeholderVisible)
+    : RenderTextControl(node, placeholderVisible)
 {
 }
 
@@ -43,16 +45,17 @@ RenderTextControlMultiLine::~RenderTextControlMultiLine()
 void RenderTextControlMultiLine::subtreeHasChanged()
 {
     RenderTextControl::subtreeHasChanged();
-    static_cast<Element*>(node())->setFormControlValueMatchesRenderer(false);
+    HTMLTextAreaElement* textArea = static_cast<HTMLTextAreaElement*>(node());
+    textArea->setFormControlValueMatchesRenderer(false);
+    textArea->setNeedsValidityCheck();
 
     if (!node()->focused())
         return;
 
-    // Fire the "input" DOM event
-    node()->dispatchEvent(eventNames().inputEvent, true, false);
+    node()->dispatchEvent(Event::create(eventNames().inputEvent, true, false));
 
     if (Frame* frame = document()->frame())
-        frame->textDidChangeInTextArea(static_cast<Element*>(node()));
+        frame->textDidChangeInTextArea(textArea);
 }
 
 bool RenderTextControlMultiLine::nodeAtPoint(const HitTestRequest& request, HitTestResult& result, int x, int y, int tx, int ty, HitTestAction hitTestAction)
@@ -60,7 +63,10 @@ bool RenderTextControlMultiLine::nodeAtPoint(const HitTestRequest& request, HitT
     if (!RenderTextControl::nodeAtPoint(request, result, x, y, tx, ty, hitTestAction))
         return false;
 
-    if (result.innerNode() == node() || result.innerNode() == innerTextElement())
+    bool resultIsTextValueOrPlaceholder
+        = (!m_placeholderVisible && result.innerNode() == innerTextElement())
+        || (m_placeholderVisible && result.innerNode()->isDescendantOf(innerTextElement()));
+    if (result.innerNode() == node() || resultIsTextValueOrPlaceholder)
         hitInnerTextElement(result, x, y, tx, ty);
 
     return true;
@@ -69,6 +75,17 @@ bool RenderTextControlMultiLine::nodeAtPoint(const HitTestRequest& request, HitT
 void RenderTextControlMultiLine::forwardEvent(Event* event)
 {
     RenderTextControl::forwardEvent(event);
+}
+
+float RenderTextControlMultiLine::getAvgCharWidth(AtomicString family)
+{
+    // Since Lucida Grande is the default font, we want this to match the width
+    // of Courier New, the default font for textareas in IE, Firefox and Safari Win.
+    // 1229 is the avgCharWidth value in the OS/2 table for Courier New.
+    if (family == AtomicString("Lucida Grande"))
+        return scaleEmToUnits(1229);
+
+    return RenderTextControl::getAvgCharWidth(family);
 }
 
 int RenderTextControlMultiLine::preferredContentWidth(float charWidth) const
@@ -92,7 +109,11 @@ void RenderTextControlMultiLine::updateFromElement()
     createSubtreeIfNeeded(0);
     RenderTextControl::updateFromElement();
 
-    setInnerTextValue(static_cast<HTMLTextAreaElement*>(node())->value());
+    HTMLTextAreaElement* textArea = static_cast<HTMLTextAreaElement*>(node());
+    if (m_placeholderVisible)
+        setInnerTextValue(textArea->getAttribute(HTMLNames::placeholderAttr));
+    else
+        setInnerTextValue(textArea->value());
 }
 
 void RenderTextControlMultiLine::cacheSelection(int start, int end)
@@ -102,30 +123,25 @@ void RenderTextControlMultiLine::cacheSelection(int start, int end)
 
 PassRefPtr<RenderStyle> RenderTextControlMultiLine::createInnerTextStyle(const RenderStyle* startStyle) const
 {
-    RefPtr<RenderStyle> textBlockStyle = RenderStyle::create();
-    textBlockStyle->inheritFrom(startStyle);
-
-    adjustInnerTextStyle(startStyle, textBlockStyle.get());
-
-    // FIXME: This code should just map wrap into CSS in the DOM code.
-    // Then here we should set the textBlockStyle appropriately based off this
-    // object's style()->whiteSpace() and style->wordWrap().
-    // Set word wrap property based on wrap attribute.
-    if (static_cast<HTMLTextAreaElement*>(node())->shouldWrapText()) {
-        textBlockStyle->setWhiteSpace(PRE_WRAP);
-        textBlockStyle->setWordWrap(BreakWordWrap);
-    } else {
-        textBlockStyle->setWhiteSpace(PRE);
-        textBlockStyle->setWordWrap(NormalWordWrap);
+    RefPtr<RenderStyle> textBlockStyle;
+    if (m_placeholderVisible) {
+        if (RenderStyle* pseudoStyle = getCachedPseudoStyle(INPUT_PLACEHOLDER))
+            textBlockStyle = RenderStyle::clone(pseudoStyle);
+    }
+    if (!textBlockStyle) {
+        textBlockStyle = RenderStyle::create();
+        textBlockStyle->inheritFrom(startStyle);
     }
 
+    adjustInnerTextStyle(startStyle, textBlockStyle.get());
     textBlockStyle->setDisplay(BLOCK);
 
-    // We're adding three extra pixels of padding to line textareas up with text fields.  
-    textBlockStyle->setPaddingLeft(Length(3, Fixed));  
-    textBlockStyle->setPaddingRight(Length(3, Fixed));
-
     return textBlockStyle.release();
+}
+
+RenderStyle* RenderTextControlMultiLine::textBaseStyle() const
+{
+    return style();
 }
 
 }

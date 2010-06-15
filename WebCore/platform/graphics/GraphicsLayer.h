@@ -33,11 +33,15 @@
 #include "FloatPoint.h"
 #include "FloatPoint3D.h"
 #include "FloatSize.h"
+#if ENABLE(3D_CANVAS)
+#include "GraphicsContext3D.h"
+#endif
 #include "GraphicsLayerClient.h"
 #include "IntRect.h"
 #include "TransformationMatrix.h"
 #include "TransformOperations.h"
 #include <wtf/OwnPtr.h>
+#include <wtf/PassOwnPtr.h>
 
 #if PLATFORM(MAC)
 #ifdef __OBJC__
@@ -49,10 +53,34 @@ typedef CALayer* NativeLayer;
 typedef void* PlatformLayer;
 typedef void* NativeLayer;
 #endif
+#elif PLATFORM(WIN)
+namespace WebCore {
+class WKCACFLayer;
+typedef WKCACFLayer PlatformLayer;
+typedef void* NativeLayer;
+}
+#elif PLATFORM(QT)
+QT_BEGIN_NAMESPACE
+class QGraphicsItem;
+QT_END_NAMESPACE
+typedef QGraphicsItem PlatformLayer;
+typedef QGraphicsItem* NativeLayer;
+#elif PLATFORM(CHROMIUM)
+namespace WebCore {
+class LayerChromium;
+typedef LayerChromium PlatformLayer;
+typedef void* NativeLayer;
+}
 #else
 typedef void* PlatformLayer;
 typedef void* NativeLayer;
 #endif
+
+enum LayerTreeAsTextBehaviorFlags {
+    LayerTreeAsTextBehaviorNormal = 0,
+    LayerTreeAsTextDebug = 1 << 0, // Dump extra debugging info like layer addresses.
+};
+typedef unsigned LayerTreeAsTextBehavior;
 
 namespace WebCore {
 
@@ -60,7 +88,7 @@ class FloatPoint3D;
 class GraphicsContext;
 class Image;
 class TextStream;
-class TimingFunction;
+struct TimingFunction;
 
 // Base class for animation values (also used for transitions). Here to
 // represent values for properties being animated via the GraphicsLayer,
@@ -152,7 +180,7 @@ protected:
 class GraphicsLayer {
 public:
 
-    static GraphicsLayer* createGraphicsLayer(GraphicsLayerClient*);
+    static PassOwnPtr<GraphicsLayer> create(GraphicsLayerClient*);
     
     virtual ~GraphicsLayer();
 
@@ -168,7 +196,12 @@ public:
     GraphicsLayer* parent() const { return m_parent; };
     void setParent(GraphicsLayer* layer) { m_parent = layer; } // Internal use only.
     
+    // Returns true if the layer has the given layer as an ancestor (excluding self).
+    bool hasAncestor(GraphicsLayer*) const;
+    
     const Vector<GraphicsLayer*>& children() const { return m_children; }
+    // Returns true if the child list changed.
+    virtual bool setChildren(const Vector<GraphicsLayer*>&);
 
     // Add child layers. If the child is already parented, it will be removed from its old parent.
     virtual void addChild(GraphicsLayer*);
@@ -179,6 +212,19 @@ public:
 
     void removeAllChildren();
     virtual void removeFromParent();
+
+    GraphicsLayer* maskLayer() const { return m_maskLayer; }
+    virtual void setMaskLayer(GraphicsLayer* layer) { m_maskLayer = layer; }
+    
+    // The given layer will replicate this layer and its children; the replica renders behind this layer.
+    virtual void setReplicatedByLayer(GraphicsLayer*);
+    // Whether this layer is being replicated by another layer.
+    bool isReplicated() const { return m_replicaLayer; }
+    // The layer that replicates this layer (if any).
+    GraphicsLayer* replicaLayer() const { return m_replicaLayer; }
+
+    const FloatPoint& replicatedLayerPosition() const { return m_replicatedLayerPosition; }
+    void setReplicatedLayerPosition(const FloatPoint& p) { m_replicatedLayerPosition = p; }
 
     // Offset is origin of the renderer minus origin of the graphics layer (so either zero or negative).
     IntSize offsetFromRenderer() const { return m_offsetFromRenderer; }
@@ -229,8 +275,8 @@ public:
     virtual void setOpacity(float opacity) { m_opacity = opacity; }
 
     // Some GraphicsLayers paint only the foreground or the background content
-    GraphicsLayerPaintingPhase drawingPhase() const { return m_paintingPhase; }
-    void setDrawingPhase(GraphicsLayerPaintingPhase phase) { m_paintingPhase = phase; }
+    GraphicsLayerPaintingPhase paintingPhase() const { return m_paintingPhase; }
+    void setPaintingPhase(GraphicsLayerPaintingPhase phase) { m_paintingPhase = phase; }
 
     virtual void setNeedsDisplay() = 0;
     // mark the given rect (in layer coords) as needing dispay. Never goes deep.
@@ -242,30 +288,34 @@ public:
     
     // Return true if the animation is handled by the compositing system. If this returns
     // false, the animation will be run by AnimationController.
-    virtual bool addAnimation(const KeyframeValueList&, const IntSize& /*boxSize*/, const Animation*, const String& /*keyframesName*/, double /*beginTime*/) { return false; }
+    virtual bool addAnimation(const KeyframeValueList&, const IntSize& /*boxSize*/, const Animation*, const String& /*keyframesName*/, double /*timeOffset*/) { return false; }
     virtual void removeAnimationsForProperty(AnimatedPropertyID) { }
     virtual void removeAnimationsForKeyframes(const String& /* keyframesName */) { }
-    virtual void pauseAnimation(const String& /* keyframesName */) { }
+    virtual void pauseAnimation(const String& /* keyframesName */, double /*timeOffset*/) { }
     
-    virtual void suspendAnimations();
+    virtual void suspendAnimations(double time);
     virtual void resumeAnimations();
     
     // Layer contents
     virtual void setContentsToImage(Image*) { }
-    virtual void setContentsToVideo(PlatformLayer*) { }
+    virtual void setContentsToMedia(PlatformLayer*) { } // video or plug-in
     virtual void setContentsBackgroundColor(const Color&) { }
     
+#if ENABLE(3D_CANVAS)
+    virtual void setContentsToGraphicsContext3D(const GraphicsContext3D*) { }
+    virtual void setGraphicsContext3DNeedsDisplay() { }
+#endif
     // Callback from the underlying graphics system to draw layer contents.
     void paintGraphicsLayerContents(GraphicsContext&, const IntRect& clip);
+    // Callback from the underlying graphics system when the layer has been displayed
+    virtual void didDisplay(PlatformLayer*) { }
     
     virtual PlatformLayer* platformLayer() const { return 0; }
     
-    void dumpLayer(TextStream&, int indent = 0) const;
+    void dumpLayer(TextStream&, int indent = 0, LayerTreeAsTextBehavior = LayerTreeAsTextBehaviorNormal) const;
 
-#ifndef NDEBUG
     int repaintCount() const { return m_repaintCount; }
     int incrementRepaintCount() { return ++m_repaintCount; }
-#endif
 
     // Report whether the underlying compositing system uses a top-down
     // or a bottom-up coordinate system.
@@ -280,9 +330,8 @@ public:
     virtual void setContentsOrientation(CompositingCoordinatesOrientation orientation) { m_contentsOrientation = orientation; }
     CompositingCoordinatesOrientation contentsOrientation() const { return m_contentsOrientation; }
 
-#ifndef NDEBUG
-    static bool showDebugBorders();
-    static bool showRepaintCounter();
+    bool showDebugBorders() { return m_client ? m_client->showDebugBorders() : false; }
+    bool showRepaintCounter() { return m_client ? m_client->showRepaintCounter() : false; }
     
     void updateDebugIndicators();
     
@@ -291,11 +340,17 @@ public:
     // z-position is the z-equivalent of position(). It's only used for debugging purposes.
     virtual float zPosition() const { return m_zPosition; }
     virtual void setZPosition(float);
-#endif
+
+    virtual void distributeOpacity(float);
+    virtual float accumulatedOpacity() const;
 
     // Some compositing systems may do internal batching to synchronize compositing updates
     // with updates drawn into the window. This is a signal to flush any internal batched state.
     virtual void syncCompositingState() { }
+    
+    // Return a string with a human readable form of the layer tree, If debug is true 
+    // pointers for the layers and timing data will be included in the returned string.
+    String layerTreeAsText(LayerTreeAsTextBehavior = LayerTreeAsTextBehaviorNormal) const;
 
 protected:
 
@@ -305,10 +360,14 @@ protected:
     static void fetchTransformOperationList(const KeyframeValueList&, TransformOperationList&, bool& isValid, bool& hasBigRotation);
 
     virtual void setOpacityInternal(float) { }
+    
+    // The layer being replicated.
+    GraphicsLayer* replicatedLayer() const { return m_replicatedLayer; }
+    virtual void setReplicatedLayer(GraphicsLayer* layer) { m_replicatedLayer = layer; }
 
     GraphicsLayer(GraphicsLayerClient*);
 
-    void dumpProperties(TextStream&, int indent) const;
+    void dumpProperties(TextStream&, int indent, LayerTreeAsTextBehavior) const;
 
     GraphicsLayerClient* m_client;
     String m_name;
@@ -325,9 +384,7 @@ protected:
 
     Color m_backgroundColor;
     float m_opacity;
-#ifndef NDEBUG
     float m_zPosition;
-#endif
 
     bool m_backgroundColorSet : 1;
     bool m_contentsOpaque : 1;
@@ -344,15 +401,25 @@ protected:
     Vector<GraphicsLayer*> m_children;
     GraphicsLayer* m_parent;
 
+    GraphicsLayer* m_maskLayer; // Reference to mask layer. We don't own this.
+
+    GraphicsLayer* m_replicaLayer; // A layer that replicates this layer. We only allow one, for now.
+                                   // The replica is not parented; this is the primary reference to it.
+    GraphicsLayer* m_replicatedLayer; // For a replica layer, a reference to the original layer.
+    FloatPoint m_replicatedLayerPosition; // For a replica layer, the position of the replica.
+
     IntRect m_contentsRect;
 
-#ifndef NDEBUG
     int m_repaintCount;
-#endif
 };
 
 
 } // namespace WebCore
+
+#ifndef NDEBUG
+// Outside the WebCore namespace for ease of invocation from gdb.
+void showGraphicsLayerTree(const WebCore::GraphicsLayer* layer);
+#endif
 
 #endif // USE(ACCELERATED_COMPOSITING)
 

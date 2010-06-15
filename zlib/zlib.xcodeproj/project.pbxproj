@@ -7,6 +7,8 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		2CFBE0021098F41E002A3E08 /* adler32vec.s in Sources */ = {isa = PBXBuildFile; fileRef = 2CFBE0001098F41E002A3E08 /* adler32vec.s */; };
+		2CFBE0031098F41E002A3E08 /* inffast.s in Sources */ = {isa = PBXBuildFile; fileRef = 2CFBE0011098F41E002A3E08 /* inffast.s */; };
 		4C98E19D107D595E0031599B /* gzio.c in Sources */ = {isa = PBXBuildFile; fileRef = 4C98E19C107D595E0031599B /* gzio.c */; };
 		4CE5F21D107AB6D200DCB1EB /* adler32.c in Sources */ = {isa = PBXBuildFile; fileRef = 4CE5F208107AB6D200DCB1EB /* adler32.c */; };
 		4CE5F21E107AB6D200DCB1EB /* compress.c in Sources */ = {isa = PBXBuildFile; fileRef = 4CE5F209107AB6D200DCB1EB /* compress.c */; };
@@ -32,6 +34,8 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		2CFBE0001098F41E002A3E08 /* adler32vec.s */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.asm; name = adler32vec.s; path = zlib/arm/adler32vec.s; sourceTree = "<group>"; };
+		2CFBE0011098F41E002A3E08 /* inffast.s */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.asm; name = inffast.s; path = zlib/arm/inffast.s; sourceTree = "<group>"; };
 		4C98E19C107D595E0031599B /* gzio.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = gzio.c; path = zlib/gzio.c; sourceTree = "<group>"; };
 		4CE5F208107AB6D200DCB1EB /* adler32.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = adler32.c; path = zlib/adler32.c; sourceTree = "<group>"; };
 		4CE5F209107AB6D200DCB1EB /* compress.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = compress.c; path = zlib/compress.c; sourceTree = "<group>"; };
@@ -80,6 +84,8 @@
 		08FB7795FE84155DC02AAC07 /* Source */ = {
 			isa = PBXGroup;
 			children = (
+				2CFBE0001098F41E002A3E08 /* adler32vec.s */,
+				2CFBE0011098F41E002A3E08 /* inffast.s */,
 				4C98E19C107D595E0031599B /* gzio.c */,
 				4CE5F208107AB6D200DCB1EB /* adler32.c */,
 				4CE5F209107AB6D200DCB1EB /* compress.c */,
@@ -205,6 +211,8 @@
 				4CE5F22D107AB6D200DCB1EB /* uncompr.c in Sources */,
 				4CE5F230107AB6D200DCB1EB /* zutil.c in Sources */,
 				4C98E19D107D595E0031599B /* gzio.c in Sources */,
+				2CFBE0021098F41E002A3E08 /* adler32vec.s in Sources */,
+				2CFBE0031098F41E002A3E08 /* inffast.s in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

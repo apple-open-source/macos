@@ -31,78 +31,37 @@
 #ifndef V8Proxy_h
 #define V8Proxy_h
 
-#include "ChromiumBridge.h"
-#include "Node.h"
-#include "NodeFilter.h"
-#include "PlatformString.h" // for WebCore::String
+#include "PlatformBridge.h"
 #include "ScriptSourceCode.h" // for WebCore::ScriptSourceCode
 #include "SecurityOrigin.h" // for WebCore::SecurityOrigin
-#include "V8CustomBinding.h"
-#include "V8DOMMap.h"
+#include "SharedPersistent.h"
+#include "V8AbstractEventListener.h"
+#include "V8DOMWindowShell.h"
 #include "V8DOMWrapper.h"
-#include "V8EventListenerList.h"
 #include "V8GCController.h"
-#include "V8Index.h"
 #include "V8Utilities.h"
+#include "WrapperTypeInfo.h"
 #include <v8.h>
-#include <wtf/Assertions.h>
 #include <wtf/PassRefPtr.h> // so generated bindings don't have to
 #include <wtf/Vector.h>
 
-#include <iterator>
-#include <list>
-
-#ifdef ENABLE_DOM_STATS_COUNTERS
-#define INC_STATS(name) ChromiumBridge::incrementStatsCounter(name)
+#if defined(ENABLE_DOM_STATS_COUNTERS) && PLATFORM(CHROMIUM)
+#define INC_STATS(name) PlatformBridge::incrementStatsCounter(name)
 #else
 #define INC_STATS(name)
 #endif
 
 namespace WebCore {
 
-    class CSSRule;
-    class CSSRuleList;
-    class CSSStyleDeclaration;
-    class CSSValue;
-    class CSSValueList;
-    class ClientRectList;
-    class DOMImplementation;
     class DOMWindow;
-    class Document;
-    class Element;
-    class Event;
-    class EventListener;
-    class EventTarget;
     class Frame;
-    class HTMLCollection;
-    class HTMLDocument;
-    class HTMLElement;
-    class HTMLOptionsCollection;
-    class MediaList;
-    class MimeType;
-    class MimeTypeArray;
-    class NamedNodeMap;
-    class Navigator;
     class Node;
-    class NodeFilter;
-    class NodeList;
-    class Plugin;
-    class PluginArray;
     class SVGElement;
-#if ENABLE(SVG)
-    class SVGElementInstance;
-#endif
-    class Screen;
     class ScriptExecutionContext;
-#if ENABLE(DOM_STORAGE)
-    class Storage;
-    class StorageEvent;
-#endif
     class String;
-    class StyleSheet;
-    class StyleSheetList;
     class V8EventListener;
-    class V8ObjectEventListener;
+    class V8IsolatedContext;
+    class WorldContextHandle;
 
     // FIXME: use standard logging facilities in WebCore.
     void logInfo(Frame*, const String& message, const String& url);
@@ -118,13 +77,23 @@ namespace WebCore {
         const char* const name;
         v8::AccessorGetter getter;
         v8::AccessorSetter setter;
-        V8ClassIndex::V8WrapperType data;
+        WrapperTypeInfo* data;
         v8::AccessControl settings;
         v8::PropertyAttribute attribute;
         bool onProto;
     };
 
     void batchConfigureAttributes(v8::Handle<v8::ObjectTemplate>, v8::Handle<v8::ObjectTemplate>, const BatchedAttribute*, size_t attributeCount);
+
+    inline void configureAttribute(v8::Handle<v8::ObjectTemplate> instance, v8::Handle<v8::ObjectTemplate> proto, const BatchedAttribute& attribute)
+    {
+        (attribute.onProto ? proto : instance)->SetAccessor(v8::String::New(attribute.name),
+            attribute.getter,
+            attribute.setter,
+            v8::External::Wrap(attribute.data),
+            attribute.settings,
+            attribute.attribute);
+    }
 
     // BatchedConstant translates into calls to Set() for setting up an object's
     // constants. It sets the constant on both the FunctionTemplate and the
@@ -136,16 +105,30 @@ namespace WebCore {
 
     void batchConfigureConstants(v8::Handle<v8::FunctionTemplate>, v8::Handle<v8::ObjectTemplate>, const BatchedConstant*, size_t constantCount);
 
+    struct BatchedCallback {
+        const char* const name;
+        v8::InvocationCallback callback;
+    };
+
+    void batchConfigureCallbacks(v8::Handle<v8::ObjectTemplate>, 
+                                 v8::Handle<v8::Signature>,
+                                 v8::PropertyAttribute,
+                                 const BatchedCallback*, 
+                                 size_t callbackCount);
+
     const int kMaxRecursionDepth = 20;
 
-    // Information about an extension that is registered for use with V8. If scheme
-    // is non-empty, it contains the URL scheme the extension should be used with.
-    // Otherwise, the extension is used with all schemes.
+    // Information about an extension that is registered for use with V8. If
+    // scheme is non-empty, it contains the URL scheme the extension should be
+    // used with. If group is non-zero, the extension will only be loaded into
+    // script contexts that belong to that group. Otherwise, the extension is
+    // used with all schemes and contexts.
     struct V8ExtensionInfo {
         String scheme;
+        int group;
         v8::Extension* extension;
     };
-    typedef std::list<V8ExtensionInfo> V8ExtensionList;
+    typedef WTF::Vector<V8ExtensionInfo> V8Extensions;
 
     class V8Proxy {
     public:
@@ -158,27 +141,20 @@ namespace WebCore {
             GeneralError
         };
 
-        explicit V8Proxy(Frame* frame) : m_frame(frame), m_domNodeMap(getDOMNodeMap()), m_inlineCode(false), m_timerCallback(false), m_recursion(0) { }
+        // When to report errors.
+        enum DelayReporting {
+            ReportLater,
+            ReportNow
+        };
+
+        explicit V8Proxy(Frame*);
 
         ~V8Proxy();
 
         Frame* frame() { return m_frame; }
 
-        // Clear page-specific data, but keep the global object identify.
         void clearForNavigation();
-
-        // Clear page-specific data before shutting down the proxy object.
         void clearForClose();
-
-        // Update document object of the frame.
-        void updateDocument();
-
-        // Update the security origin of a document
-        // (e.g., after setting docoument.domain).
-        void updateSecurityOrigin();
-
-        // Destroy the global object.
-        void destroyGlobal();
 
         // FIXME: Need comment. User Gesture related.
         bool inlineCode() const { return m_inlineCode; }
@@ -187,28 +163,42 @@ namespace WebCore {
         bool timerCallback() const { return m_timerCallback; }
         void setTimerCallback(bool value) { m_timerCallback = value; }
 
-        // Has the context for this proxy been initialized?
-        bool isContextInitialized();
-
         // Disconnects the proxy from its owner frame,
         // and clears all timeouts on the DOM window.
         void disconnectFrame();
 
-        bool isEnabled();
-
-        // Find/Create/Remove event listener wrappers.
-        PassRefPtr<V8EventListener> findV8EventListener(v8::Local<v8::Value> listener, bool isHtml);
-        PassRefPtr<V8EventListener> findOrCreateV8EventListener(v8::Local<v8::Value> listener, bool isHtml);
-
-        PassRefPtr<V8EventListener> findObjectEventListener(v8::Local<v8::Value> listener, bool isHtml);
-        PassRefPtr<V8EventListener> findOrCreateObjectEventListener(v8::Local<v8::Value> listener, bool isHtml);
-
-        void removeV8EventListener(V8EventListener*);
-        void removeObjectEventListener(V8ObjectEventListener*);
-
 #if ENABLE(SVG)
         static void setSVGContext(void*, SVGElement*);
         static SVGElement* svgContext(void*);
+
+        // These helper functions are required in case we are given a PassRefPtr
+        // to a (possibly) newly created object and must prevent its reference
+        // count from dropping to zero as would happen in code like
+        //
+        //   V8Proxy::setSVGContext(imp->getNewlyCreatedObject().get(), context);
+        //   foo(imp->getNewlyCreatedObject().get());
+        //
+        // In the above two lines each time getNewlyCreatedObject() is called it
+        // creates a new object because we don't ref() it. (So our attemts to
+        // associate a context with it fail.) Such code should be rewritten to
+        //
+        //   foo(V8Proxy::withSVGContext(imp->getNewlyCreatedObject(), context).get());
+        //
+        // where PassRefPtr::~PassRefPtr() is invoked only after foo() is
+        // called.
+        template <typename T>
+        static PassRefPtr<T> withSVGContext(PassRefPtr<T> object, SVGElement* context)
+        {
+            setSVGContext(object.get(), context);
+            return object;
+        }
+
+        template <typename T>
+        static T* withSVGContext(T* object, SVGElement* context)
+        {
+            setSVGContext(object, context);
+            return object;
+        }
 #endif
 
         void setEventHandlerLineNumber(int lineNumber) { m_handlerLineNumber = lineNumber; }
@@ -218,12 +208,7 @@ namespace WebCore {
         // global scope, its own prototypes for intrinsic JavaScript objects (String,
         // Array, and so-on), and its own wrappers for all DOM nodes and DOM
         // constructors.
-        void evaluateInNewWorld(const Vector<ScriptSourceCode>& sources);
-
-        // Evaluate JavaScript in a new context. The script gets its own global scope
-        // and its own prototypes for intrinsic JavaScript objects (String, Array,
-        // and so-on). It shares the wrappers for all DOM nodes and DOM constructors.
-        void evaluateInNewContext(const Vector<ScriptSourceCode>&);
+        void evaluateInIsolatedWorld(int worldId, const Vector<ScriptSourceCode>& sources, int extensionGroup);
 
         // Evaluate a script file in the current execution environment.
         // The caller must hold an execution context.
@@ -236,19 +221,12 @@ namespace WebCore {
         // Call the function with the given receiver and arguments.
         v8::Local<v8::Value> callFunction(v8::Handle<v8::Function>, v8::Handle<v8::Object>, int argc, v8::Handle<v8::Value> argv[]);
 
+        // Call the function with the given receiver and arguments.
+        static v8::Local<v8::Value> callFunctionWithoutFrame(v8::Handle<v8::Function>, v8::Handle<v8::Object>, int argc, v8::Handle<v8::Value> argv[]);
+
         // Call the function as constructor with the given arguments.
         v8::Local<v8::Value> newInstance(v8::Handle<v8::Function>, int argc, v8::Handle<v8::Value> argv[]);
 
-        // Returns the dom constructor function for the given node type.
-        v8::Local<v8::Function> getConstructor(V8ClassIndex::V8WrapperType);
-
-        // To create JS Wrapper objects, we create a cache of a 'boiler plate'
-        // object, and then simply Clone that object each time we need a new one.
-        // This is faster than going through the full object creation process.
-        v8::Local<v8::Object> createWrapperFromCache(V8ClassIndex::V8WrapperType);
-
-        // Returns the window object of the currently executing context.
-        static DOMWindow* retrieveWindow();
         // Returns the window object associated with a context.
         static DOMWindow* retrieveWindow(v8::Handle<v8::Context>);
         // Returns V8Proxy object of the currently executing context.
@@ -258,9 +236,6 @@ namespace WebCore {
         // Returns V8Proxy object associated with a script execution context.
         static V8Proxy* retrieve(ScriptExecutionContext*);
 
-        // Returns the frame object of the window object associated
-        // with the currently executing context.
-        static Frame* retrieveFrame();
         // Returns the frame object of the window object associated with
         // a context.
         static Frame* retrieveFrame(v8::Handle<v8::Context>);
@@ -301,18 +276,12 @@ namespace WebCore {
         // Returns V8 Context of a frame. If none exists, creates
         // a new context. It is potentially slow and consumes memory.
         static v8::Local<v8::Context> context(Frame*);
+        static v8::Local<v8::Context> mainWorldContext(Frame*);
         static v8::Local<v8::Context> currentContext();
 
         // If the current context causes out of memory, JavaScript setting
         // is disabled and it returns true.
         static bool handleOutOfMemory();
-
-        // Check if the active execution context can access the target frame.
-        static bool canAccessFrame(Frame*, bool reportError);
-
-        // Check if it is safe to access the given node from the
-        // current security context.
-        static bool checkNodeSecurity(Node*);
 
         static v8::Handle<v8::Value> checkNewLegal(const v8::Arguments&);
 
@@ -325,63 +294,51 @@ namespace WebCore {
         // Schedule an error object to be thrown.
         static v8::Handle<v8::Value> throwError(ErrorType, const char* message);
 
-        // Create an instance of a function descriptor and set to the global object
-        // as a named property. Used by v8_test_shell.
-        static void bindJsObjectToWindow(Frame*, const char* name, int type, v8::Handle<v8::FunctionTemplate>, void*);
+        template <typename T>
+        static v8::Handle<v8::Value> constructDOMObject(const v8::Arguments&, WrapperTypeInfo*);
 
-        template <int tag, typename T>
-        static v8::Handle<v8::Value> constructDOMObject(const v8::Arguments&);
+        template <typename T>
+        static v8::Handle<v8::Value> constructDOMObjectWithScriptExecutionContext(const v8::Arguments&, WrapperTypeInfo*);
 
         // Process any pending JavaScript console messages.
         static void processConsoleMessages();
 
-        // Function for retrieving the line number and source name for the top
-        // JavaScript stack frame.
-        static int sourceLineNumber();
-        static String sourceName();
+        v8::Local<v8::Context> context();
+        v8::Local<v8::Context> mainWorldContext();
 
-        // Returns a local handle of the context.
-        v8::Local<v8::Context> context()
-        {
-            return v8::Local<v8::Context>::New(m_context);
-        }
+        // FIXME: This should eventually take DOMWrapperWorld argument!
+        V8DOMWindowShell* windowShell() const { return m_windowShell.get(); }
 
         bool setContextDebugId(int id);
         static int contextDebugId(v8::Handle<v8::Context>);
 
-        // Registers an extension to be available on webpages with a particular scheme
-        // If the scheme argument is empty, the extension is available on all pages.
-        // Will only affect v8 contexts initialized after this call. Takes ownership
-        // of the v8::Extension object passed.
+        // Registers a v8 extension to be available on webpages. The two forms
+        // offer various restrictions on what types of contexts the extension is
+        // loaded into. If a scheme is provided, only pages whose URL has the given
+        // scheme will match. If extensionGroup is provided, the extension will
+        // only be loaded into scripts run via evaluateInNewWorld with the
+        // matching group.  Will only affect v8 contexts initialized after this
+        // call. Takes ownership of the v8::Extension object passed.
         static void registerExtension(v8::Extension*, const String& schemeRestriction);
+        static void registerExtension(v8::Extension*, int extensionGroup);
 
-        // FIXME: Separate these concerns from V8Proxy?
-        v8::Persistent<v8::Context> createNewContext(v8::Handle<v8::Object> global);
-        bool installDOMWindow(v8::Handle<v8::Context> context, DOMWindow* window);
+        static void registerExtensionWithV8(v8::Extension*);
+        static bool registeredExtensionWithV8(v8::Extension*);
 
-        void initContextIfNeeded();
-        DOMWrapperMap<Node>& domNodeMap() { return m_domNodeMap; }
-        void updateDocumentWrapper(v8::Handle<v8::Value> wrapper);
+        static const V8Extensions& extensions() { return m_extensions; }
+
+        // Report an unsafe attempt to access the given frame on the console.
+        static void reportUnsafeAccessTo(Frame* target, DelayReporting delay);
 
     private:
-        static const char* kContextDebugDataType;
-        static const char* kContextDebugDataValue;
+        // If m_recursionCount is 0, let LocalStorage know so we can release
+        // the storage mutex.
+        void releaseStorageMutex();
 
-        void disconnectEventListeners();
-        void setSecurityToken();
-        void clearDocumentWrapper();
+        void resetIsolatedWorlds();
 
-        // The JavaScript wrapper for the document object is cached on the global
-        // object for fast access. UpdateDocumentWrapperCache sets the wrapper
-        // for the current document on the global object. ClearDocumentWrapperCache
-        // deletes the document wrapper from the global object.
-        void updateDocumentWrapperCache();
-        void clearDocumentWrapperCache();
-
-        // Dispose global handles of m_contexts and friends.
-        void disposeContextHandles();
-
-        static bool canAccessPrivate(DOMWindow*);
+        // Returns false when we're out of memory in V8.
+        bool setInjectedScriptContextDebugId(v8::Handle<v8::Context> targetContext);
 
         static const char* rangeExceptionName(int exceptionCode);
         static const char* eventExceptionName(int exceptionCode);
@@ -396,43 +353,12 @@ namespace WebCore {
         static const char* svgExceptionName(int exceptionCode);
 #endif
 
-        static void createUtilityContext();
-
-        // Returns a local handle of the utility context.
-        static v8::Local<v8::Context> utilityContext()
-        {
-            if (m_utilityContext.IsEmpty())
-                createUtilityContext();
-            return v8::Local<v8::Context>::New(m_utilityContext);
-        }
-
         Frame* m_frame;
 
-        v8::Persistent<v8::Context> m_context;
-        // For each possible type of wrapper, we keep a boilerplate object.
-        // The boilerplate is used to create additional wrappers of the same type.
-        // We keep a single persistent handle to an array of the activated
-        // boilerplates.
-        v8::Persistent<v8::Array> m_wrapperBoilerplates;
-        v8::Persistent<v8::Value> m_objectPrototype;
-
-        v8::Persistent<v8::Object> m_global;
-        v8::Persistent<v8::Value> m_document;
-
-        DOMWrapperMap<Node>& m_domNodeMap;
-
-        // Utility context holding JavaScript functions used internally.
-        static v8::Persistent<v8::Context> m_utilityContext;
+        // For the moment, we have one of these.  Soon we will have one per DOMWrapperWorld.
+        RefPtr<V8DOMWindowShell> m_windowShell;
 
         int m_handlerLineNumber;
-
-        // A list of event listeners created for this frame,
-        // the list gets cleared when removing all timeouts.
-        V8EventListenerList m_eventListeners;
-
-        // A list of event listeners create for XMLHttpRequest object for this frame,
-        // the list gets cleared when removing all timeouts.
-        V8EventListenerList m_xhrListeners;
 
         // True for <a href="javascript:foo()"> and false for <script>foo()</script>.
         // Only valid during execution.
@@ -447,12 +373,25 @@ namespace WebCore {
         // excessive recursion in the binding layer.
         int m_recursion;
 
-        // List of extensions registered with the context.
-        static V8ExtensionList m_extensions;
+        // All of the extensions registered with the context.
+        static V8Extensions m_extensions;
+
+        // The isolated worlds we are tracking for this frame. We hold them alive
+        // here so that they can be used again by future calls to
+        // evaluateInIsolatedWorld().
+        //
+        // Note: although the pointer is raw, the instance is kept alive by a strong
+        // reference to the v8 context it contains, which is not made weak until we
+        // call world->destroy().
+        //
+        // FIXME: We want to eventually be holding window shells instead of the
+        //        IsolatedContext directly.
+        typedef HashMap<int, V8IsolatedContext*> IsolatedWorldMap;
+        IsolatedWorldMap m_isolatedWorlds;
     };
 
-    template <int tag, typename T>
-    v8::Handle<v8::Value> V8Proxy::constructDOMObject(const v8::Arguments& args)
+    template <typename T>
+    v8::Handle<v8::Value> V8Proxy::constructDOMObject(const v8::Arguments& args, WrapperTypeInfo* type)
     {
         if (!args.IsConstructCall())
             return throwError(V8Proxy::TypeError, "DOM object constructor cannot be called as a function.");
@@ -460,12 +399,33 @@ namespace WebCore {
         // Note: it's OK to let this RefPtr go out of scope because we also call
         // SetDOMWrapper(), which effectively holds a reference to obj.
         RefPtr<T> obj = T::create();
-        V8DOMWrapper::setDOMWrapper(args.Holder(), tag, obj.get());
+        V8DOMWrapper::setDOMWrapper(args.Holder(), type, obj.get());
         obj->ref();
         V8DOMWrapper::setJSWrapperForDOMObject(obj.get(), v8::Persistent<v8::Object>::New(args.Holder()));
         return args.Holder();
     }
 
+    template <typename T>
+    v8::Handle<v8::Value> V8Proxy::constructDOMObjectWithScriptExecutionContext(const v8::Arguments& args, WrapperTypeInfo* type)
+    {
+        if (!args.IsConstructCall())
+            return throwError(V8Proxy::TypeError, "");
+
+        ScriptExecutionContext* context = getScriptExecutionContext();
+        if (!context)
+            return throwError(V8Proxy::ReferenceError, "");
+
+        // Note: it's OK to let this RefPtr go out of scope because we also call
+        // SetDOMWrapper(), which effectively holds a reference to obj.
+        RefPtr<T> obj = T::create(context);
+        V8DOMWrapper::setDOMWrapper(args.Holder(), type, obj.get());
+        obj->ref();
+        V8DOMWrapper::setJSWrapperForDOMObject(obj.get(), v8::Persistent<v8::Object>::New(args.Holder()));
+        return args.Holder();
+    }
+
+
+    v8::Local<v8::Context> toV8Context(ScriptExecutionContext*, const WorldContextHandle& worldContext);
 
     // Used by an interceptor callback that it hasn't found anything to
     // intercept.
@@ -480,19 +440,22 @@ namespace WebCore {
     }
     inline v8::Handle<v8::Primitive> throwError(const char* message, V8Proxy::ErrorType type = V8Proxy::TypeError)
     {
-        V8Proxy::throwError(type, message);
+        if (!v8::V8::IsExecutionTerminating())
+            V8Proxy::throwError(type, message);
         return v8::Undefined();
     }
 
     inline v8::Handle<v8::Primitive> throwError(ExceptionCode ec)
     {
-        V8Proxy::setDOMException(ec);
+        if (!v8::V8::IsExecutionTerminating())
+            V8Proxy::setDOMException(ec);
         return v8::Undefined();
     }
 
     inline v8::Handle<v8::Primitive> throwError(v8::Local<v8::Value> exception)
     {
-        v8::ThrowException(exception);
+        if (!v8::V8::IsExecutionTerminating())
+            v8::ThrowException(exception);
         return v8::Undefined();
     }
 

@@ -24,6 +24,7 @@
 #include "HTMLScriptElement.h"
 
 #include "Document.h"
+#include "Event.h"
 #include "EventNames.h"
 #include "HTMLNames.h"
 #include "MappedAttribute.h"
@@ -70,6 +71,8 @@ void HTMLScriptElement::parseMappedAttribute(MappedAttribute* attr)
         handleSourceAttribute(m_data, attr->value());
     else if (attrName == onloadAttr)
         setAttributeEventListener(eventNames().loadEvent, createAttributeEventListener(this, attr));
+    else if (attrName == onbeforeloadAttr)
+        setAttributeEventListener(eventNames().beforeloadEvent, createAttributeEventListener(this, attr));
     else
         HTMLElement::parseMappedAttribute(attr);
 }
@@ -216,18 +219,23 @@ String HTMLScriptElement::forAttributeValue() const
 {
     return getAttribute(forAttr).string();
 }
- 
+
+String HTMLScriptElement::eventAttributeValue() const
+{
+    return getAttribute(eventAttr).string();
+}
+
 void HTMLScriptElement::dispatchLoadEvent()
 {
     ASSERT(!m_data.haveFiredLoadEvent());
     m_data.setHaveFiredLoadEvent(true);
 
-    dispatchEvent(eventNames().loadEvent, false, false);
+    dispatchEvent(Event::create(eventNames().loadEvent, false, false));
 }
 
 void HTMLScriptElement::dispatchErrorEvent()
 {
-    dispatchEvent(eventNames().errorEvent, true, false);
+    dispatchEvent(Event::create(eventNames().errorEvent, true, false));
 }
 
 }

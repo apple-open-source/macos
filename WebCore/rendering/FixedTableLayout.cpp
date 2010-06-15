@@ -1,6 +1,4 @@
 /*
- * This file is part of the HTML rendering engine for KDE.
- *
  * Copyright (C) 2002 Lars Knoll (knoll@kde.org)
  *           (C) 2002 Dirk Mueller (mueller@kde.org)
  * Copyright (C) 2003, 2006 Apple Computer, Inc.
@@ -93,7 +91,7 @@ int FixedTableLayout::calcWidthArray(int)
     Length grpWidth;
     while (child) {
         if (child->isTableCol()) {
-            RenderTableCol* col = static_cast<RenderTableCol*>(child);
+            RenderTableCol* col = toRenderTableCol(child);
             if (col->firstChild())
                 grpWidth = col->style()->width();
             else {
@@ -128,7 +126,7 @@ int FixedTableLayout::calcWidthArray(int)
                     currentEffectiveColumn++;
                 }
             }
-            static_cast<RenderTableCol*>(child)->calcPrefWidths();
+            toRenderTableCol(child)->calcPrefWidths();
         } else
             break;
 
@@ -156,7 +154,7 @@ int FixedTableLayout::calcWidthArray(int)
         child = firstRow->firstChild();
         while (child) {
             if (child->isTableCell()) {
-                RenderTableCell* cell = static_cast<RenderTableCell*>(child);
+                RenderTableCell* cell = toRenderTableCell(child);
                 if (cell->prefWidthsDirty())
                     cell->calcPrefWidths();
 
@@ -168,8 +166,7 @@ int FixedTableLayout::calcWidthArray(int)
                 
                 int usedSpan = 0;
                 int i = 0;
-                while (usedSpan < span) {
-                    ASSERT(cCol + i < nEffCols);
+                while (usedSpan < span && cCol + i < nEffCols) {
                     int eSpan = m_table->spanOfEffCol(cCol + i);
                     // Only set if no col element has already set it.
                     if (m_width[cCol + i].isAuto() && w.type() != Auto) {

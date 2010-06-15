@@ -1,9 +1,9 @@
 #
 # "$Id: Makefile 7875 2008-08-27 22:53:31Z mike $"
 #
-#   Scheduler Makefile for the Common UNIX Printing System (CUPS).
+#   Scheduler Makefile for CUPS.
 #
-#   Copyright 2007-2009 by Apple Inc.
+#   Copyright 2007-2010 by Apple Inc.
 #   Copyright 1997-2007 by Easy Software Products, all rights reserved.
 #
 #   These coded instructions, statements, and computer programs are the
@@ -73,14 +73,17 @@ UNITTARGETS =	\
 		testspeed \
 		testsub
 
-TARGETS	=	\
-		$(LIBTARGETS) \
+DAEMONS =	\
 		cupsd \
 		cupsfilter \
 		cups-deviced \
 		cups-driverd \
 		cups-lpd \
-		cups-polld \
+		cups-polld
+
+TARGETS	=	\
+		$(LIBTARGETS) \
+		$(DAEMONS)
 
 
 #
@@ -186,7 +189,7 @@ install-exec:
 	$(INSTALL_BIN) cups-polld $(SERVERBIN)/daemon
 	if test "x$(SYMROOT)" != "x"; then \
 		$(INSTALL_DIR) $(SYMROOT); \
-		for file in $(TARGETS); do \
+		for file in $(DAEMONS); do \
 			cp $$file $(SYMROOT); \
 		done \
 	fi

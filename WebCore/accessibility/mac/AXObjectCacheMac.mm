@@ -35,6 +35,10 @@
 
 #import <wtf/PassRefPtr.h>
 
+#ifndef NSAccessibilityLiveRegionChangedNotification
+#define NSAccessibilityLiveRegionChangedNotification @"AXLiveRegionChanged"
+#endif
+
 // The simple Cocoa calls in this file don't throw exceptions.
 
 namespace WebCore {
@@ -51,15 +55,55 @@ void AXObjectCache::attachWrapper(AccessibilityObject* obj)
     obj->setWrapper([[AccessibilityObjectWrapper alloc] initWithAccessibilityObject:obj]);
 }
 
-void AXObjectCache::postPlatformNotification(AccessibilityObject* obj, const String& message)
+void AXObjectCache::postPlatformNotification(AccessibilityObject* obj, AXNotification notification)
 {
     if (!obj)
         return;
     
-    NSAccessibilityPostNotification(obj->wrapper(), message);
+    // Some notifications are unique to Safari and do not have NSAccessibility equivalents.
+    String macNotification;
+    switch (notification) {
+        case AXActiveDescendantChanged:
+            // An active descendant change for trees means a selected rows change.
+            if (obj->isTree())
+                macNotification = NSAccessibilitySelectedRowsChangedNotification;
+            else
+                macNotification = NSAccessibilityFocusedUIElementChangedNotification;                
+            break;
+        case AXFocusedUIElementChanged:
+            macNotification = NSAccessibilityFocusedUIElementChangedNotification;
+            break;
+        case AXLayoutComplete:
+            macNotification = "AXLayoutComplete";
+            break;
+        case AXLoadComplete:
+            macNotification = "AXLoadComplete";
+            break;
+        case AXSelectedChildrenChanged:
+            macNotification = NSAccessibilitySelectedChildrenChangedNotification;
+            break;
+        case AXSelectedTextChanged:
+            macNotification = NSAccessibilitySelectedTextChangedNotification;
+            break;
+        case AXValueChanged:
+            macNotification = NSAccessibilityValueChangedNotification;
+            break;
+        case AXLiveRegionChanged:
+            macNotification = NSAccessibilityLiveRegionChangedNotification;
+            break;
+        // Does not exist on Mac.
+        case AXCheckedStateChanged:
+        default:
+            return;
+    }
+    
+    NSAccessibilityPostNotification(obj->wrapper(), macNotification);
+    
+    // Used by DRT to know when notifications are posted.
+    [obj->wrapper() accessibilityPostedNotification:macNotification];
 }
 
-void AXObjectCache::handleFocusedUIElementChanged()
+void AXObjectCache::handleFocusedUIElementChanged(RenderObject*, RenderObject*)
 {
     [[WebCoreViewFactory sharedFactory] accessibilityHandleFocusChanged];
 }

@@ -64,10 +64,9 @@ void JIT::compileOpCallSetupArgs(Instruction* instruction)
     int argCount = instruction[3].u.operand;
     int registerOffset = instruction[4].u.operand;
 
-    emitPutJITStubArg(regT0, 1);
-    emitPutJITStubArg(regT1, 2);
-    emitPutJITStubArgConstant(registerOffset, 3);
-    emitPutJITStubArgConstant(argCount, 5);
+    emitPutJITStubArg(regT1, regT0, 0);
+    emitPutJITStubArgConstant(registerOffset, 1);
+    emitPutJITStubArgConstant(argCount, 2);
 }
           
 void JIT::compileOpConstructSetupArgs(Instruction* instruction)
@@ -77,20 +76,18 @@ void JIT::compileOpConstructSetupArgs(Instruction* instruction)
     int proto = instruction[5].u.operand;
     int thisRegister = instruction[6].u.operand;
 
-    emitPutJITStubArg(regT0, 1);
-    emitPutJITStubArg(regT1, 2);
-    emitPutJITStubArgConstant(registerOffset, 3);
-    emitPutJITStubArgConstant(argCount, 5);
-    emitPutJITStubArgFromVirtualRegister(proto, 7, regT2, regT3);
-    emitPutJITStubArgConstant(thisRegister, 9);
+    emitPutJITStubArg(regT1, regT0, 0);
+    emitPutJITStubArgConstant(registerOffset, 1);
+    emitPutJITStubArgConstant(argCount, 2);
+    emitPutJITStubArgFromVirtualRegister(proto, 3, regT2, regT3);
+    emitPutJITStubArgConstant(thisRegister, 4);
 }
 
 void JIT::compileOpCallVarargsSetupArgs(Instruction*)
 {
-    emitPutJITStubArg(regT0, 1);
-    emitPutJITStubArg(regT1, 2);
-    emitPutJITStubArg(regT3, 3); // registerOffset
-    emitPutJITStubArg(regT2, 5); // argCount
+    emitPutJITStubArg(regT1, regT0, 0);
+    emitPutJITStubArg(regT3, 1); // registerOffset
+    emitPutJITStubArg(regT2, 2); // argCount
 }
 
 void JIT::compileOpCallVarargs(Instruction* instruction)
@@ -162,7 +159,7 @@ void JIT::emit_op_construct_verify(Instruction* currentInstruction)
     emitLoad(dst, regT1, regT0);
     addSlowCase(branch32(NotEqual, regT1, Imm32(JSValue::CellTag)));
     loadPtr(Address(regT0, OBJECT_OFFSETOF(JSCell, m_structure)), regT2);
-    addSlowCase(branch32(NotEqual, Address(regT2, OBJECT_OFFSETOF(Structure, m_typeInfo) + OBJECT_OFFSETOF(TypeInfo, m_type)), Imm32(ObjectType)));
+    addSlowCase(branch8(NotEqual, Address(regT2, OBJECT_OFFSETOF(Structure, m_typeInfo) + OBJECT_OFFSETOF(TypeInfo, m_type)), Imm32(ObjectType)));
 }
 
 void JIT::emitSlow_op_construct_verify(Instruction* currentInstruction, Vector<SlowCaseEntry>::iterator& iter)
@@ -239,19 +236,17 @@ void JIT::compileOpCall(OpcodeID opcodeID, Instruction* instruction, unsigned)
     int argCount = instruction[3].u.operand;
     int registerOffset = instruction[4].u.operand;
 
-    Jump wasEval1;
-    Jump wasEval2;
+    Jump wasEval;
     if (opcodeID == op_call_eval) {
         JITStubCall stubCall(this, cti_op_call_eval);
         stubCall.addArgument(callee);
         stubCall.addArgument(JIT::Imm32(registerOffset));
         stubCall.addArgument(JIT::Imm32(argCount));
         stubCall.call();
-        wasEval1 = branchTest32(NonZero, regT0);
-        wasEval2 = branch32(NotEqual, regT1, Imm32(JSValue::CellTag));
+        wasEval = branch32(NotEqual, regT1, Imm32(JSValue::EmptyValueTag));
     }
 
-    emitLoad(callee, regT1, regT2);
+    emitLoad(callee, regT1, regT0);
 
     if (opcodeID == op_call)
         compileOpCallSetupArgs(instruction);
@@ -259,12 +254,12 @@ void JIT::compileOpCall(OpcodeID opcodeID, Instruction* instruction, unsigned)
         compileOpConstructSetupArgs(instruction);
 
     emitJumpSlowCaseIfNotJSCell(callee, regT1);
-    addSlowCase(branchPtr(NotEqual, Address(regT2), ImmPtr(m_globalData->jsFunctionVPtr)));
+    addSlowCase(branchPtr(NotEqual, Address(regT0), ImmPtr(m_globalData->jsFunctionVPtr)));
 
     // First, in the case of a construct, allocate the new object.
     if (opcodeID == op_construct) {
         JITStubCall(this, cti_op_construct_JSConstruct).call(registerOffset - RegisterFile::CallFrameHeaderSize - argCount);
-        emitLoad(callee, regT1, regT2);
+        emitLoad(callee, regT1, regT0);
     }
 
     // Speculatively roll the callframe, assuming argCount will match the arity.
@@ -274,12 +269,10 @@ void JIT::compileOpCall(OpcodeID opcodeID, Instruction* instruction, unsigned)
 
     emitNakedCall(m_globalData->jitStubs.ctiVirtualCall());
 
-    if (opcodeID == op_call_eval) {
-        wasEval1.link(this);
-        wasEval2.link(this);
-    }
+    if (opcodeID == op_call_eval)
+        wasEval.link(this);
 
-    emitStore(dst, regT1, regT0);;
+    emitStore(dst, regT1, regT0);
 
     sampleCodeBlock(m_codeBlock);
 }
@@ -309,22 +302,26 @@ void JIT::compileOpCall(OpcodeID opcodeID, Instruction* instruction, unsigned ca
     int argCount = instruction[3].u.operand;
     int registerOffset = instruction[4].u.operand;
 
-    Jump wasEval1;
-    Jump wasEval2;
+    Jump wasEval;
     if (opcodeID == op_call_eval) {
         JITStubCall stubCall(this, cti_op_call_eval);
         stubCall.addArgument(callee);
         stubCall.addArgument(JIT::Imm32(registerOffset));
         stubCall.addArgument(JIT::Imm32(argCount));
         stubCall.call();
-        wasEval1 = branchTest32(NonZero, regT0);
-        wasEval2 = branch32(NotEqual, regT1, Imm32(JSValue::CellTag));
+        wasEval = branch32(NotEqual, regT1, Imm32(JSValue::EmptyValueTag));
     }
 
     emitLoad(callee, regT1, regT0);
 
     DataLabelPtr addressOfLinkedFunctionCheck;
+
+    BEGIN_UNINTERRUPTED_SEQUENCE(sequenceOpCall);
+
     Jump jumpToSlow = branchPtrWithPatch(NotEqual, regT0, addressOfLinkedFunctionCheck, ImmPtr(0));
+
+    END_UNINTERRUPTED_SEQUENCE(sequenceOpCall);
+
     addSlowCase(jumpToSlow);
     ASSERT(differenceBetween(addressOfLinkedFunctionCheck, jumpToSlow) == patchOffsetOpCallCompareToJump);
     m_callStructureStubCompilationInfo[callLinkInfoIndex].hotPathBegin = addressOfLinkedFunctionCheck;
@@ -362,10 +359,8 @@ void JIT::compileOpCall(OpcodeID opcodeID, Instruction* instruction, unsigned ca
     // Call to the callee
     m_callStructureStubCompilationInfo[callLinkInfoIndex].hotPathOther = emitNakedCall();
     
-    if (opcodeID == op_call_eval) {
-        wasEval1.link(this);
-        wasEval2.link(this);
-    }
+    if (opcodeID == op_call_eval)
+        wasEval.link(this);
 
     // Put the return value in dst. In the interpreter, op_ret does this.
     emitStore(dst, regT1, regT0);
@@ -405,7 +400,7 @@ void JIT::compileOpCallSlowCase(Instruction* instruction, Vector<SlowCaseEntry>:
     addPtr(Imm32(registerOffset * static_cast<int>(sizeof(Register))), callFrameRegister);
     move(Imm32(argCount), regT1);
 
-    m_callStructureStubCompilationInfo[callLinkInfoIndex].callReturnLocation = emitNakedCall(m_globalData->jitStubs.ctiVirtualCallPreLink());
+    m_callStructureStubCompilationInfo[callLinkInfoIndex].callReturnLocation = emitNakedCall(m_globalData->jitStubs.ctiVirtualCallLink());
 
     // Put the return value in dst.
     emitStore(dst, regT1, regT0);;
@@ -439,10 +434,10 @@ void JIT::compileOpCallInitializeCallFrame()
 {
     store32(regT1, Address(callFrameRegister, RegisterFile::ArgumentCount * static_cast<int>(sizeof(Register))));
 
-    loadPtr(Address(regT2, OBJECT_OFFSETOF(JSFunction, m_data) + OBJECT_OFFSETOF(ScopeChain, m_node)), regT1); // newScopeChain
+    loadPtr(Address(regT0, OBJECT_OFFSETOF(JSFunction, m_data) + OBJECT_OFFSETOF(ScopeChain, m_node)), regT1); // newScopeChain
 
     storePtr(ImmPtr(JSValue::encode(JSValue())), Address(callFrameRegister, RegisterFile::OptionalCalleeArguments * static_cast<int>(sizeof(Register))));
-    storePtr(regT2, Address(callFrameRegister, RegisterFile::Callee * static_cast<int>(sizeof(Register))));
+    storePtr(regT0, Address(callFrameRegister, RegisterFile::Callee * static_cast<int>(sizeof(Register))));
     storePtr(regT1, Address(callFrameRegister, RegisterFile::ScopeChain * static_cast<int>(sizeof(Register))));
 }
 
@@ -452,9 +447,9 @@ void JIT::compileOpCallSetupArgs(Instruction* instruction)
     int registerOffset = instruction[4].u.operand;
 
     // ecx holds func
-    emitPutJITStubArg(regT2, 1);
-    emitPutJITStubArgConstant(argCount, 3);
-    emitPutJITStubArgConstant(registerOffset, 2);
+    emitPutJITStubArg(regT0, 0);
+    emitPutJITStubArgConstant(argCount, 2);
+    emitPutJITStubArgConstant(registerOffset, 1);
 }
           
 void JIT::compileOpCallVarargsSetupArgs(Instruction* instruction)
@@ -462,10 +457,10 @@ void JIT::compileOpCallVarargsSetupArgs(Instruction* instruction)
     int registerOffset = instruction[4].u.operand;
     
     // ecx holds func
+    emitPutJITStubArg(regT0, 0);
+    emitPutJITStubArg(regT1, 2);
+    addPtr(Imm32(registerOffset), regT1, regT2);
     emitPutJITStubArg(regT2, 1);
-    emitPutJITStubArg(regT1, 3);
-    addPtr(Imm32(registerOffset), regT1, regT0);
-    emitPutJITStubArg(regT0, 2);
 }
 
 void JIT::compileOpConstructSetupArgs(Instruction* instruction)
@@ -476,11 +471,11 @@ void JIT::compileOpConstructSetupArgs(Instruction* instruction)
     int thisRegister = instruction[6].u.operand;
 
     // ecx holds func
-    emitPutJITStubArg(regT2, 1);
-    emitPutJITStubArgConstant(registerOffset, 2);
-    emitPutJITStubArgConstant(argCount, 3);
-    emitPutJITStubArgFromVirtualRegister(proto, 4, regT0);
-    emitPutJITStubArgConstant(thisRegister, 5);
+    emitPutJITStubArg(regT0, 0);
+    emitPutJITStubArgConstant(registerOffset, 1);
+    emitPutJITStubArgConstant(argCount, 2);
+    emitPutJITStubArgFromVirtualRegister(proto, 3, regT2);
+    emitPutJITStubArgConstant(thisRegister, 4);
 }
 
 void JIT::compileOpCallVarargs(Instruction* instruction)
@@ -490,20 +485,20 @@ void JIT::compileOpCallVarargs(Instruction* instruction)
     int argCountRegister = instruction[3].u.operand;
 
     emitGetVirtualRegister(argCountRegister, regT1);
-    emitGetVirtualRegister(callee, regT2);
+    emitGetVirtualRegister(callee, regT0);
     compileOpCallVarargsSetupArgs(instruction);
 
     // Check for JSFunctions.
-    emitJumpSlowCaseIfNotJSCell(regT2);
-    addSlowCase(branchPtr(NotEqual, Address(regT2), ImmPtr(m_globalData->jsFunctionVPtr)));
-    
+    emitJumpSlowCaseIfNotJSCell(regT0);
+    addSlowCase(branchPtr(NotEqual, Address(regT0), ImmPtr(m_globalData->jsFunctionVPtr)));
+
     // Speculatively roll the callframe, assuming argCount will match the arity.
-    mul32(Imm32(sizeof(Register)), regT0, regT0);
+    mul32(Imm32(sizeof(Register)), regT2, regT2);
     intptr_t offset = (intptr_t)sizeof(Register) * (intptr_t)RegisterFile::CallerFrame;
-    addPtr(Imm32((int32_t)offset), regT0, regT3);
+    addPtr(Imm32((int32_t)offset), regT2, regT3);
     addPtr(callFrameRegister, regT3);
     storePtr(callFrameRegister, regT3);
-    addPtr(regT0, callFrameRegister);
+    addPtr(regT2, callFrameRegister);
     emitNakedCall(m_globalData->jitStubs.ctiVirtualCall());
 
     // Put the return value in dst. In the interpreter, op_ret does this.
@@ -539,14 +534,14 @@ void JIT::compileOpCall(OpcodeID opcodeID, Instruction* instruction, unsigned)
     Jump wasEval;
     if (opcodeID == op_call_eval) {
         JITStubCall stubCall(this, cti_op_call_eval);
-        stubCall.addArgument(callee, regT2);
+        stubCall.addArgument(callee, regT0);
         stubCall.addArgument(JIT::Imm32(registerOffset));
         stubCall.addArgument(JIT::Imm32(argCount));
         stubCall.call();
         wasEval = branchPtr(NotEqual, regT0, ImmPtr(JSValue::encode(JSValue())));
     }
 
-    emitGetVirtualRegister(callee, regT2);
+    emitGetVirtualRegister(callee, regT0);
     // The arguments have been set up on the hot path for op_call_eval
     if (opcodeID == op_call)
         compileOpCallSetupArgs(instruction);
@@ -554,13 +549,13 @@ void JIT::compileOpCall(OpcodeID opcodeID, Instruction* instruction, unsigned)
         compileOpConstructSetupArgs(instruction);
 
     // Check for JSFunctions.
-    emitJumpSlowCaseIfNotJSCell(regT2);
-    addSlowCase(branchPtr(NotEqual, Address(regT2), ImmPtr(m_globalData->jsFunctionVPtr)));
+    emitJumpSlowCaseIfNotJSCell(regT0);
+    addSlowCase(branchPtr(NotEqual, Address(regT0), ImmPtr(m_globalData->jsFunctionVPtr)));
 
     // First, in the case of a construct, allocate the new object.
     if (opcodeID == op_construct) {
         JITStubCall(this, cti_op_construct_JSConstruct).call(registerOffset - RegisterFile::CallFrameHeaderSize - argCount);
-        emitGetVirtualRegister(callee, regT2);
+        emitGetVirtualRegister(callee, regT0);
     }
 
     // Speculatively roll the callframe, assuming argCount will match the arity.
@@ -606,7 +601,7 @@ void JIT::compileOpCall(OpcodeID opcodeID, Instruction* instruction, unsigned ca
     Jump wasEval;
     if (opcodeID == op_call_eval) {
         JITStubCall stubCall(this, cti_op_call_eval);
-        stubCall.addArgument(callee, regT2);
+        stubCall.addArgument(callee, regT0);
         stubCall.addArgument(JIT::Imm32(registerOffset));
         stubCall.addArgument(JIT::Imm32(argCount));
         stubCall.call();
@@ -615,11 +610,17 @@ void JIT::compileOpCall(OpcodeID opcodeID, Instruction* instruction, unsigned ca
 
     // This plants a check for a cached JSFunction value, so we can plant a fast link to the callee.
     // This deliberately leaves the callee in ecx, used when setting up the stack frame below
-    emitGetVirtualRegister(callee, regT2);
+    emitGetVirtualRegister(callee, regT0);
     DataLabelPtr addressOfLinkedFunctionCheck;
-    Jump jumpToSlow = branchPtrWithPatch(NotEqual, regT2, addressOfLinkedFunctionCheck, ImmPtr(JSValue::encode(JSValue())));
+
+    BEGIN_UNINTERRUPTED_SEQUENCE(sequenceOpCall);
+
+    Jump jumpToSlow = branchPtrWithPatch(NotEqual, regT0, addressOfLinkedFunctionCheck, ImmPtr(JSValue::encode(JSValue())));
+
+    END_UNINTERRUPTED_SEQUENCE(sequenceOpCall);
+
     addSlowCase(jumpToSlow);
-    ASSERT(differenceBetween(addressOfLinkedFunctionCheck, jumpToSlow) == patchOffsetOpCallCompareToJump);
+    ASSERT_JIT_OFFSET(differenceBetween(addressOfLinkedFunctionCheck, jumpToSlow), patchOffsetOpCallCompareToJump);
     m_callStructureStubCompilationInfo[callLinkInfoIndex].hotPathBegin = addressOfLinkedFunctionCheck;
 
     // The following is the fast case, only used whan a callee can be linked.
@@ -629,18 +630,18 @@ void JIT::compileOpCall(OpcodeID opcodeID, Instruction* instruction, unsigned ca
         int proto = instruction[5].u.operand;
         int thisRegister = instruction[6].u.operand;
 
-        emitPutJITStubArg(regT2, 1);
-        emitPutJITStubArgFromVirtualRegister(proto, 4, regT0);
+        emitPutJITStubArg(regT0, 0);
+        emitPutJITStubArgFromVirtualRegister(proto, 3, regT2);
         JITStubCall stubCall(this, cti_op_construct_JSConstruct);
         stubCall.call(thisRegister);
-        emitGetVirtualRegister(callee, regT2);
+        emitGetVirtualRegister(callee, regT0);
     }
 
     // Fast version of stack frame initialization, directly relative to edi.
     // Note that this omits to set up RegisterFile::CodeBlock, which is set in the callee
     storePtr(ImmPtr(JSValue::encode(JSValue())), Address(callFrameRegister, (registerOffset + RegisterFile::OptionalCalleeArguments) * static_cast<int>(sizeof(Register))));
-    storePtr(regT2, Address(callFrameRegister, (registerOffset + RegisterFile::Callee) * static_cast<int>(sizeof(Register))));
-    loadPtr(Address(regT2, OBJECT_OFFSETOF(JSFunction, m_data) + OBJECT_OFFSETOF(ScopeChain, m_node)), regT1); // newScopeChain
+    storePtr(regT0, Address(callFrameRegister, (registerOffset + RegisterFile::Callee) * static_cast<int>(sizeof(Register))));
+    loadPtr(Address(regT0, OBJECT_OFFSETOF(JSFunction, m_data) + OBJECT_OFFSETOF(ScopeChain, m_node)), regT1); // newScopeChain
     store32(Imm32(argCount), Address(callFrameRegister, (registerOffset + RegisterFile::ArgumentCount) * static_cast<int>(sizeof(Register))));
     storePtr(callFrameRegister, Address(callFrameRegister, (registerOffset + RegisterFile::CallerFrame) * static_cast<int>(sizeof(Register))));
     storePtr(regT1, Address(callFrameRegister, (registerOffset + RegisterFile::ScopeChain) * static_cast<int>(sizeof(Register))));
@@ -674,13 +675,13 @@ void JIT::compileOpCallSlowCase(Instruction* instruction, Vector<SlowCaseEntry>:
         compileOpConstructSetupArgs(instruction);
 
     // Fast check for JS function.
-    Jump callLinkFailNotObject = emitJumpIfNotJSCell(regT2);
-    Jump callLinkFailNotJSFunction = branchPtr(NotEqual, Address(regT2), ImmPtr(m_globalData->jsFunctionVPtr));
+    Jump callLinkFailNotObject = emitJumpIfNotJSCell(regT0);
+    Jump callLinkFailNotJSFunction = branchPtr(NotEqual, Address(regT0), ImmPtr(m_globalData->jsFunctionVPtr));
 
     // First, in the case of a construct, allocate the new object.
     if (opcodeID == op_construct) {
         JITStubCall(this, cti_op_construct_JSConstruct).call(registerOffset - RegisterFile::CallFrameHeaderSize - argCount);
-        emitGetVirtualRegister(callee, regT2);
+        emitGetVirtualRegister(callee, regT0);
     }
 
     // Speculatively roll the callframe, assuming argCount will match the arity.
@@ -688,7 +689,9 @@ void JIT::compileOpCallSlowCase(Instruction* instruction, Vector<SlowCaseEntry>:
     addPtr(Imm32(registerOffset * static_cast<int>(sizeof(Register))), callFrameRegister);
     move(Imm32(argCount), regT1);
 
-    m_callStructureStubCompilationInfo[callLinkInfoIndex].callReturnLocation = emitNakedCall(m_globalData->jitStubs.ctiVirtualCallPreLink());
+    move(regT0, regT2);
+
+    m_callStructureStubCompilationInfo[callLinkInfoIndex].callReturnLocation = emitNakedCall(m_globalData->jitStubs.ctiVirtualCallLink());
 
     // Put the return value in dst.
     emitPutVirtualRegister(dst);

@@ -27,11 +27,11 @@
 #include "config.h"
 #include "PluginPackage.h"
 
-#include "CString.h"
 #include "MIMETypeRegistry.h"
 #include "npruntime_impl.h"
 #include "PluginDatabase.h"
 #include "PluginDebug.h"
+#include <wtf/text/CString.h>
 
 namespace WebCore {
 
@@ -44,28 +44,28 @@ bool PluginPackage::fetchInfo()
     typedef char *(*NPP_GetMIMEDescriptionProcPtr)();
     NPP_GetMIMEDescriptionProcPtr gm =
         (NPP_GetMIMEDescriptionProcPtr)m_module->resolve("NP_GetMIMEDescription");
-    if (!gm || !gv) {
+    if (!gm || !gv)
         return false;
-    }
+
     char *buf = 0;
-    NPError err = gv(0, NPPVpluginNameString, (void *)&buf);
-    if (err != NPERR_NO_ERROR) {
+    NPError err = gv(0, NPPVpluginNameString, (void*) &buf);
+    if (err != NPERR_NO_ERROR)
         return false;
-    }
+
     m_name = buf;
-    err = gv(0, NPPVpluginDescriptionString, (void *)&buf);
-    if (err != NPERR_NO_ERROR) {
+    err = gv(0, NPPVpluginDescriptionString, (void*) &buf);
+    if (err != NPERR_NO_ERROR)
         return false;
-    }
+
     m_description = buf;
     determineModuleVersionFromDescription();
 
     String s = gm();
     Vector<String> types;
     s.split(UChar(';'), false, types);
-    for (int i = 0; i < types.size(); ++i) {
+    for (unsigned i = 0; i < types.size(); ++i) {
         Vector<String> mime;
-        types[i].split(UChar(':'), true, mime); 
+        types[i].split(UChar(':'), true, mime);
         if (mime.size() > 0) {
             Vector<String> exts;
             if (mime.size() > 1)
@@ -78,6 +78,16 @@ bool PluginPackage::fetchInfo()
     }
 
     return true;
+}
+
+static NPError staticPluginQuirkRequiresGtkToolKit_NPN_GetValue(NPP instance, NPNVariable variable, void* value)
+{
+    if (variable == NPNVToolkit) {
+        *static_cast<uint32_t*>(value) = 2;
+        return NPERR_NO_ERROR;
+    }
+
+    return NPN_GetValue(instance, variable, value);
 }
 
 bool PluginPackage::load()
@@ -111,6 +121,12 @@ bool PluginPackage::load()
 
     initializeBrowserFuncs();
 
+    if (m_path.contains("npwrapper.")) {
+        // nspluginwrapper relies on the toolkit value to know if glib is available
+        // It does so in NP_Initialize with a null instance, therefore it is done this way:
+        m_browserFuncs.getvalue = staticPluginQuirkRequiresGtkToolKit_NPN_GetValue;
+    }
+
 #if defined(XP_UNIX)
     npErr = NP_Initialize(&m_browserFuncs, &m_pluginFuncs);
 #else
@@ -127,4 +143,8 @@ abort:
     return false;
 }
 
+uint16_t PluginPackage::NPVersion() const
+{
+    return NP_VERSION_MINOR;
+}
 }

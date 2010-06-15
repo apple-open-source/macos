@@ -2222,12 +2222,14 @@ cupsdSetJobState(
   if (!cupsdLoadJob(job))
     return;
 
- /*
-  * Don't do anything if the state is unchanged...
-  */
+  /*
+   * Don't do anything if the state is unchanged and we aren't purging the
+   * job...
+   */
 
-  if (newstate == (oldstate = job->state_value))
-    return;
+   oldstate = job->state_value;
+   if (newstate == oldstate && action != CUPSD_JOB_PURGE)
+     return;
 
  /*
   * Stop any processes that are working on the current job...
@@ -2434,6 +2436,15 @@ cupsdSetJobState(
 	  job->dirty = 1;
 	  cupsdMarkDirty(CUPSD_DIRTY_JOBS);
 	}
+	else if (!job->printer)
+	{
+	 /*
+	  * Delete the job immediately if not actively printing...
+	  */
+
+	  cupsdDeleteJob(job, CUPSD_JOB_PURGE);
+	  job = NULL;
+	}
 	break;
   }
 
@@ -2441,7 +2452,7 @@ cupsdSetJobState(
   * Finalize the job immediately if we forced things...
   */
 
-  if (action >= CUPSD_JOB_FORCE && job->printer)
+  if (action >= CUPSD_JOB_FORCE && job && job->printer)
     finalize_job(job, 0);
 
  /*
@@ -4307,16 +4318,16 @@ update_job(cupsd_job_t *job)		/* I - Job to check */
       break;
   }
 
-  if (event & CUPSD_EVENT_PRINTER_STATE)
+  if (event & CUPSD_EVENT_JOB_PROGRESS)
+    cupsdAddEvent(CUPSD_EVENT_JOB_PROGRESS, job->printer, job,
+                  "%s", job->printer->state_message);
+  else if (event & CUPSD_EVENT_PRINTER_STATE)
     cupsdAddEvent(CUPSD_EVENT_PRINTER_STATE, job->printer, NULL,
 		  (job->printer->type & CUPS_PRINTER_CLASS) ?
 		      "Class \"%s\" state changed." :
 		      "Printer \"%s\" state changed.",
 		  job->printer->name);
 
-  if (event & CUPSD_EVENT_JOB_PROGRESS)
-    cupsdAddEvent(CUPSD_EVENT_JOB_PROGRESS, job->printer, job,
-                  "%s", job->printer->state_message);
 
   if (ptr == NULL && !job->status_buffer->bufused)
   {

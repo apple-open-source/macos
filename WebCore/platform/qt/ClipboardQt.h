@@ -49,12 +49,12 @@ namespace WebCore {
             return adoptRef(new ClipboardQt(policy, forDragging));
         }
         virtual ~ClipboardQt();
-    
+
         void clearData(const String& type);
         void clearAllData();
         String getData(const String& type, bool& success) const;
         bool setData(const String& type, const String& data);
-    
+
         // extensions beyond IE's API
         virtual HashSet<String> types() const;
         virtual PassRefPtr<FileList> files() const;
@@ -66,12 +66,13 @@ namespace WebCore {
         virtual void declareAndWriteDragImage(Element*, const KURL&, const String& title, Frame*);
         virtual void writeURL(const KURL&, const String&, Frame*);
         virtual void writeRange(Range*, Frame*);
+        virtual void writePlainText(const String&);
 
         virtual bool hasData();
-        
+
         QMimeData* clipboardData() const { return m_writableData; }
         void invalidateWritableData() { m_writableData = 0; }
-        
+
     private:
         ClipboardQt(ClipboardAccessPolicy, const QMimeData* readableClipboard);
 
@@ -79,10 +80,10 @@ namespace WebCore {
         ClipboardQt(ClipboardAccessPolicy, bool forDragging);
 
         void setDragImage(CachedImage*, Node*, const IntPoint& loc);
-        
+
         const QMimeData* m_readableData;
         QMimeData* m_writableData;
     };
-} 
+}
 
 #endif // ClipboardQt_h

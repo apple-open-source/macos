@@ -25,57 +25,51 @@
 
 #include "HTMLAnchorElement.h"
 #include "IntSize.h"
+#include <wtf/OwnArrayPtr.h>
 
 namespace WebCore {
 
 class HitTestResult;
+class HTMLImageElement;
 class Path;
 
 class HTMLAreaElement : public HTMLAnchorElement {
 public:
-    HTMLAreaElement(const QualifiedName&, Document*);
-    ~HTMLAreaElement();
-
-    virtual HTMLTagStatus endTagRequirement() const { return TagStatusForbidden; }
-    virtual int tagPriority() const { return 0; }
-
-    virtual void parseMappedAttribute(MappedAttribute*);
+    static PassRefPtr<HTMLAreaElement> create(const QualifiedName&, Document*);
 
     bool isDefault() const { return m_shape == Default; }
 
     bool mapMouseEvent(int x, int y, const IntSize&, HitTestResult&);
 
-    virtual IntRect getRect(RenderObject*) const;
-
-    const AtomicString& accessKey() const;
-    void setAccessKey(const AtomicString&);
-
-    const AtomicString& alt() const;
-    void setAlt(const AtomicString&);
-
-    const AtomicString& coords() const;
-    void setCoords(const AtomicString&);
-
+    IntRect getRect(RenderObject*) const;
+    Path getPath(RenderObject*) const;
+    
+    // Convenience method to get the parent map's image.
+    HTMLImageElement* imageElement() const;
+    
     KURL href() const;
-    void setHref(const AtomicString&);
 
     bool noHref() const;
     void setNoHref(bool);
 
-    const AtomicString& shape() const;
-    void setShape(const AtomicString&);
-
-    virtual bool isFocusable() const;
-
-    virtual String target() const;
-    void setTarget(const AtomicString&);
-
 private:
+    HTMLAreaElement(const QualifiedName&, Document*);
+
+    virtual HTMLTagStatus endTagRequirement() const { return TagStatusForbidden; }
+    virtual int tagPriority() const { return 0; }
+    virtual void parseMappedAttribute(MappedAttribute*);
+    virtual bool supportsFocus() const;
+    virtual String target() const;
+    virtual bool isKeyboardFocusable(KeyboardEvent*) const;
+    virtual bool isFocusable() const;
+    virtual void updateFocusAppearance(bool /*restorePreviousSelection*/);
+    virtual void dispatchBlurEvent();
+    
     enum Shape { Default, Poly, Rect, Circle, Unknown };
     Path getRegion(const IntSize&) const;
 
     OwnPtr<Path> m_region;
-    Length* m_coords;
+    OwnArrayPtr<Length> m_coords;
     int m_coordsLen;
     IntSize m_lastSize;
     Shape m_shape;

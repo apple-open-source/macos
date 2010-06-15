@@ -31,8 +31,9 @@
 #include "StringImpl.h"
 #include "ThreadTimers.h"
 #include <wtf/UnusedParam.h>
+#include <wtf/WTFThreadData.h>
 
-#if USE(ICU_UNICODE) || USE(GLIB_ICU_UNICODE_HYBRID)
+#if USE(ICU_UNICODE)
 #include "TextCodecICU.h"
 #endif
 
@@ -48,62 +49,54 @@ using namespace WTF;
 
 namespace WebCore {
 
-ThreadGlobalData& threadGlobalData()
-{
-    // FIXME: Workers are not necessarily the only feature that make per-thread global data necessary.
-    // We need to check for e.g. database objects manipulating strings on secondary threads.
 #if ENABLE(WORKERS)
-    // ThreadGlobalData is used on main thread before it could possibly be used on secondary ones, so there is no need for synchronization here.
-    static ThreadSpecific<ThreadGlobalData>* threadGlobalData = new ThreadSpecific<ThreadGlobalData>;
-    return **threadGlobalData;
+ThreadSpecific<ThreadGlobalData>* ThreadGlobalData::staticData;
 #else
-    static ThreadGlobalData* staticData;
-    if (!staticData) {
-        staticData = static_cast<ThreadGlobalData*>(fastMalloc(sizeof(ThreadGlobalData)));
-        // ThreadGlobalData constructor indirectly uses staticData, so we need to set up the memory before invoking it.
-        new (staticData) ThreadGlobalData;
-    }
-    return *staticData;
+ThreadGlobalData* ThreadGlobalData::staticData;
 #endif
-}
 
 ThreadGlobalData::ThreadGlobalData()
-    : m_emptyString(new StringImpl)
-    , m_atomicStringTable(new HashSet<StringImpl*>)
-    , m_eventNames(new EventNames)
+    : m_eventNames(new EventNames)
     , m_threadTimers(new ThreadTimers)
 #ifndef NDEBUG
     , m_isMainThread(isMainThread())
 #endif
-#if USE(ICU_UNICODE) || USE(GLIB_ICU_UNICODE_HYBRID)
+#if USE(ICU_UNICODE)
     , m_cachedConverterICU(new ICUConverterWrapper)
 #endif
 #if PLATFORM(MAC)
     , m_cachedConverterTEC(new TECConverterWrapper)
 #endif
 {
+    // This constructor will have been called on the main thread before being called on
+    // any other thread, and is only called once per thread - this makes this a convenient
+    // point to call methods that internally perform a one-time initialization that is not
+    // threadsafe.
+    wtfThreadData();
+    StringImpl::empty();
 }
 
 ThreadGlobalData::~ThreadGlobalData()
 {
+    destroy();
+}
+
+void ThreadGlobalData::destroy()
+{
 #if PLATFORM(MAC)
     delete m_cachedConverterTEC;
+    m_cachedConverterTEC = 0;
 #endif
-#if USE(ICU_UNICODE) || USE(GLIB_ICU_UNICODE_HYBRID)
+
+#if USE(ICU_UNICODE)
     delete m_cachedConverterICU;
+    m_cachedConverterICU = 0;
 #endif
 
     delete m_eventNames;
-    delete m_atomicStringTable;
+    m_eventNames = 0;
     delete m_threadTimers;
-
-    // Using member variable m_isMainThread instead of calling WTF::isMainThread() directly
-    // to avoid issues described in https://bugs.webkit.org/show_bug.cgi?id=25973.
-    // In short, some pthread-based platforms and ports can not use WTF::CurrentThread() and WTF::isMainThread()
-    // in destructors of thread-specific data.
-    ASSERT(m_isMainThread || m_emptyString->hasOneRef()); // We intentionally don't clean up static data on application quit, so there will be many strings remaining on the main thread.
-
-    delete m_emptyString;
+    m_threadTimers = 0;
 }
 
 } // namespace WebCore

@@ -1,6 +1,4 @@
 /**
- * This file is part of the html renderer for KDE.
- *
  * Copyright (C) 2005 Apple Computer, Inc.
  *
  * This library is free software; you can redistribute it and/or
@@ -52,7 +50,8 @@ void RenderButton::addChild(RenderObject* newChild, RenderObject* beforeChild)
     if (!m_inner) {
         // Create an anonymous block.
         ASSERT(!firstChild());
-        m_inner = createAnonymousBlock();
+        bool isFlexibleBox = style()->display() == BOX || style()->display() == INLINE_BOX;
+        m_inner = createAnonymousBlock(isFlexibleBox);
         setupInnerStyle(m_inner->style());
         RenderFlexibleBox::addChild(m_inner);
     }
@@ -108,6 +107,7 @@ void RenderButton::setupInnerStyle(RenderStyle* innerStyle)
     // RenderBlock::createAnonymousBlock creates a new RenderStyle, so this is
     // safe to modify.
     innerStyle->setBoxFlex(1.0f);
+    innerStyle->setBoxOrient(style()->boxOrient());
 
     innerStyle->setPaddingTop(Length(theme()->buttonInternalPaddingTop(), Fixed));
     innerStyle->setPaddingRight(Length(theme()->buttonInternalPaddingRight(), Fixed));
@@ -162,6 +162,11 @@ void RenderButton::setText(const String& str)
             addChild(m_buttonText);
         }
     }
+}
+
+String RenderButton::text() const
+{
+    return m_buttonText ? m_buttonText->text() : 0;
 }
 
 void RenderButton::updateBeforeAfterContent(PseudoId type)

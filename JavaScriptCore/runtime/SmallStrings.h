@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008 Apple Inc. All Rights Reserved.
+ * Copyright (C) 2008, 2009 Apple Inc. All Rights Reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -33,10 +33,10 @@ namespace JSC {
 
     class JSGlobalData;
     class JSString;
-
+    class MarkStack;
     class SmallStringsStorage;
 
-    class SmallStrings : Noncopyable {
+    class SmallStrings : public Noncopyable {
     public:
         SmallStrings();
         ~SmallStrings();
@@ -56,10 +56,13 @@ namespace JSC {
 
         UString::Rep* singleCharacterStringRep(unsigned char character);
 
-        void mark();
+        void markChildren(MarkStack&);
+        void clear();
 
         unsigned count() const;
-
+#if ENABLE(JIT)
+        JSString** singleCharacterStrings() { return m_singleCharacterStrings; }
+#endif
     private:
         void createEmptyString(JSGlobalData*);
         void createSingleCharacterString(JSGlobalData*, unsigned char);

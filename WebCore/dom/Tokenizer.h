@@ -1,6 +1,4 @@
 /*
- * This file is part of the DOM implementation for KDE.
- *
  * Copyright (C) 2000 Peter Kelly (pmk@post.com)
  * Copyright (C) 2005, 2006 Apple Computer, Inc.
  * Copyright (C) 2007 Samuel Weinig (sam@webkit.org)
@@ -27,10 +25,11 @@
 
 namespace WebCore {
 
+    class HTMLTokenizer;
     class SegmentedString;
     class XSSAuditor;
 
-    class Tokenizer {
+    class Tokenizer : public Noncopyable {
     public:
         virtual ~Tokenizer() { }
 
@@ -59,6 +58,7 @@ namespace WebCore {
         virtual void executeScriptsWaitingForStylesheets() {}
 
         virtual bool isHTMLTokenizer() const { return false; }
+        virtual HTMLTokenizer* asHTMLTokenizer() { return 0; }
         
         XSSAuditor* xssAuditor() const { return m_XSSAuditor; }
         void setXSSAuditor(XSSAuditor* auditor) { m_XSSAuditor = auditor; }

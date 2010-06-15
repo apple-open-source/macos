@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007 Apple Inc.  All rights reserved.
+ * Copyright (C) 2007, 2009, 2010 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -33,52 +33,59 @@
 namespace WebCore {
     
 class HTMLMediaElement;
-#if USE(ACCELERATED_COMPOSITING)
-class GraphicsLayer;
-#endif
+class HTMLVideoElement;
 
 class RenderVideo : public RenderMedia {
 public:
-    RenderVideo(HTMLMediaElement*);
+    RenderVideo(HTMLVideoElement*);
     virtual ~RenderVideo();
+
+    void videoSizeChanged();
+    IntRect videoBox() const;
+
+    static IntSize defaultSize();
+
+#if USE(ACCELERATED_COMPOSITING)
+    bool supportsAcceleratedRendering() const;
+    void acceleratedRenderingStateChanged();
+#endif
+
+private:
+    virtual void updateFromElement();
+    inline HTMLVideoElement* videoElement() const;
+
+    virtual void intrinsicSizeChanged();
+    virtual void imageChanged(WrappedImagePtr, const IntRect*);
 
     virtual const char* renderName() const { return "RenderVideo"; }
 
     virtual bool requiresLayer() const { return true; }
     virtual bool isVideo() const { return true; }
 
-    virtual void paintReplaced(PaintInfo& paintInfo, int tx, int ty);
+    virtual void paintReplaced(PaintInfo&, int tx, int ty);
 
     virtual void layout();
 
     virtual int calcReplacedWidth(bool includeMaxWidth = true) const;
     virtual int calcReplacedHeight() const;
-
-    virtual void calcPrefWidths();
+    virtual int minimumReplacedHeight() const;
     
-    void videoSizeChanged();
-    IntRect videoBox() const;
-    
-    void updateFromElement();
-
-#if USE(ACCELERATED_COMPOSITING)
-    bool supportsAcceleratedRendering() const;
-    virtual void acceleratedRenderingStateChanged();
-    GraphicsLayer* videoGraphicsLayer() const;
-#endif
-
-protected:
-    virtual void intrinsicSizeChanged() { videoSizeChanged(); }
-
-private:
     int calcAspectRatioWidth() const;
     int calcAspectRatioHeight() const;
 
-    bool isWidthSpecified() const;
-    bool isHeightSpecified() const;
-    
     void updatePlayer();
+
+    IntSize m_cachedImageSize;
 };
+
+inline RenderVideo* toRenderVideo(RenderObject* object)
+{
+    ASSERT(!object || object->isVideo());
+    return static_cast<RenderVideo*>(object);
+}
+
+// This will catch anyone doing an unnecessary cast.
+void toRenderVideo(const RenderVideo*);
 
 } // namespace WebCore
 

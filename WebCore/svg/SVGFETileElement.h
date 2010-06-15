@@ -2,8 +2,6 @@
     Copyright (C) 2004, 2005, 2007 Nikolas Zimmermann <zimmermann@kde.org>
                   2004, 2005 Rob Buis <buis@kde.org>
 
-    This file is part of the KDE project
-
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Library General Public
     License as published by the Free Software Foundation; either
@@ -29,17 +27,18 @@
 
 namespace WebCore {
 
-    class SVGFETileElement : public SVGFilterPrimitiveStandardAttributes {
-    public:
-        SVGFETileElement(const QualifiedName&, Document*);
-        virtual ~SVGFETileElement();
+class SVGFETileElement : public SVGFilterPrimitiveStandardAttributes {
+public:
+    SVGFETileElement(const QualifiedName&, Document*);
+    virtual ~SVGFETileElement();
 
-        virtual void parseMappedAttribute(MappedAttribute*);
-        virtual bool build(SVGResourceFilter*);
+    virtual void parseMappedAttribute(MappedAttribute*);
+    virtual void synchronizeProperty(const QualifiedName&);
+    virtual PassRefPtr<FilterEffect> build(SVGFilterBuilder*);
 
-    private:
-        ANIMATED_PROPERTY_DECLARATIONS(SVGFETileElement, SVGNames::feTileTagString, SVGNames::inAttrString, String, In1, in1)
-    };
+private:
+    DECLARE_ANIMATED_PROPERTY(SVGFETileElement, SVGNames::inAttr, String, In1, in1)
+};
 
 } // namespace WebCore
 

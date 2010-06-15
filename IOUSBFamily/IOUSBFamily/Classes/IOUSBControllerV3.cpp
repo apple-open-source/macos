@@ -1178,13 +1178,21 @@ IOUSBControllerV3::CheckForRootHubChanges(void)
 				wBitmap = HostToUSBWord(_rootHubStatusChangedBitmap);
 				pBytes = (UInt8*)&wBitmap;
 			}
-			USBTrace( kUSBTController, kTPControllerRootHubTimer, (uintptr_t)this, 0, 0, 5 );
-			USBLog(6, "IOUSBControllerV3(%s)[%p]::CheckForRootHubChanges - stopping timer and calling complete", getName(), this);
-			RootHubStopTimer();
-			_rootHubTransactionWasAborted = false;
-			
-			xaction.buf->writeBytes(0, pBytes, bytesToMove);
-			Complete(xaction.completion, kIOReturnSuccess, xaction.bufLen - bytesToMove);
+			if (xaction.completion.action && xaction.buf)
+			{
+				USBTrace( kUSBTController, kTPControllerRootHubTimer, (uintptr_t)this, 0, 0, 5 );
+				USBLog(6, "IOUSBControllerV3(%s)[%p]::CheckForRootHubChanges - stopping timer and calling complete", getName(), this);
+				RootHubStopTimer();
+				_rootHubTransactionWasAborted = false;
+				
+				xaction.buf->writeBytes(0, pBytes, bytesToMove);
+				Complete(xaction.completion, kIOReturnSuccess, xaction.bufLen - bytesToMove);
+			}
+			else
+			{
+				USBError(1, "IOUSBControllerV3(%s)[%p]::CheckForRootHubChanges - NULL action(%p) or buf(%p)", getName(), this, xaction.completion.action, xaction.buf);
+			}
+
 		}
 		else
 		{

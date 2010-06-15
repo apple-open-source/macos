@@ -50,6 +50,10 @@ CFAutoPort::CFAutoPort(mach_port_t p)
 CFAutoPort::~CFAutoPort()
 {
 	disable();
+	
+	// invalidate everything
+	CFMachPortInvalidate(mPort);
+	CFRunLoopSourceInvalidate(mSource);
 }
 
 
@@ -70,7 +74,9 @@ void CFAutoPort::enable()
 				// using take here because "assignment" causes an extra retain, which will make the
 				// CF objects leak when this data structure goes away.
 				mPort.take(machPort);
-				mSource.take(CFMachPortCreateRunLoopSource(NULL, mPort, 10));
+				
+				CFRunLoopSourceRef sr = CFMachPortCreateRunLoopSource(NULL, mPort, 10);
+				mSource.take(sr);
 			}
 			if (!mPort || !mSource)
 				CFError::throwMe();		// CF won't tell us why...

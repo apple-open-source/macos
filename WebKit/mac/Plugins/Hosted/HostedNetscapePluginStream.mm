@@ -39,6 +39,7 @@
 #import <WebCore/DocumentLoader.h>
 #import <WebCore/Frame.h>
 #import <WebCore/FrameLoader.h>
+#import <WebCore/SecurityOrigin.h>
 #import <WebCore/WebCoreURLResponse.h>
 #import <wtf/RefCountedLeakCounter.h>
 
@@ -58,7 +59,7 @@ HostedNetscapePluginStream::HostedNetscapePluginStream(NetscapePluginInstancePro
     , m_requestURL([request URL])
     , m_frameLoader(0)
 {
-    if (core([instance->pluginView() webFrame])->loader()->shouldHideReferrer([request URL], core([instance->pluginView() webFrame])->loader()->outgoingReferrer()))
+    if (SecurityOrigin::shouldHideReferrer([request URL], core([instance->pluginView() webFrame])->loader()->outgoingReferrer()))
         [m_request.get() _web_setHTTPReferrer:nil];
 
 #ifndef NDEBUG
@@ -182,7 +183,7 @@ void HostedNetscapePluginStream::didReceiveResponse(NetscapePlugInStreamLoader*,
     startStream([r URL], expectedContentLength, WKGetNSURLResponseLastModifiedDate(r), [r MIMEType], theHeaders);
 }
 
-static NPReason reasonForError(NSError *error)
+NPReason HostedNetscapePluginStream::reasonForError(NSError *error)
 {
     if (!error)
         return NPRES_DONE;
@@ -238,17 +239,17 @@ void HostedNetscapePluginStream::cancelLoad(NSError *error)
         ASSERT(!m_loader);
         
         DocumentLoader* documentLoader = m_frameLoader->activeDocumentLoader();
-        ASSERT(documentLoader);
-        
-        if (documentLoader->isLoadingMainResource())
+        if (documentLoader && documentLoader->isLoadingMainResource())
             documentLoader->cancelMainResourceLoad(error);
         return;
     }
-    
-    if (!m_loader->isDone())
+
+    if (!m_loader->isDone()) {
+        // Cancelling the load will disconnect the stream so there's no need to do it explicitly.
         m_loader->cancel(error);
-    m_instance->disconnectStream(this);
-}        
+    } else
+        m_instance->disconnectStream(this);
+}
 
 NSError *HostedNetscapePluginStream::pluginCancelledConnectionError() const
 {

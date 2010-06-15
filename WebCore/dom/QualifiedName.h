@@ -22,7 +22,7 @@
 #define QualifiedName_h
 
 #include "AtomicString.h"
-#include <wtf/HashFunctions.h>
+#include <wtf/HashTraits.h>
 
 namespace WebCore {
 
@@ -32,7 +32,7 @@ struct QualifiedNameComponents {
     StringImpl* m_namespace;
 };
 
-class QualifiedName {
+class QualifiedName : public FastAllocBase {
 public:
     class QualifiedNameImpl : public RefCounted<QualifiedNameImpl> {
     public:
@@ -41,9 +41,10 @@ public:
             return adoptRef(new QualifiedNameImpl(prefix, localName, namespaceURI));
         }
 
-        AtomicString m_prefix;
-        AtomicString m_localName;
-        AtomicString m_namespace;
+        const AtomicString m_prefix;
+        const AtomicString m_localName;
+        const AtomicString m_namespace;
+        mutable AtomicString m_localNameUpper;
 
     private:
         QualifiedNameImpl(const AtomicString& prefix, const AtomicString& localName, const AtomicString& namespaceURI)
@@ -56,6 +57,9 @@ public:
     };
 
     QualifiedName(const AtomicString& prefix, const AtomicString& localName, const AtomicString& namespaceURI);
+    QualifiedName(const AtomicString& prefix, const char* localName, const AtomicString& namespaceURI);
+    QualifiedName(WTF::HashTableDeletedValueType) : m_impl(hashTableDeletedValue()) { }
+    bool isHashTableDeletedValue() const { return m_impl == hashTableDeletedValue(); }
     ~QualifiedName() { deref(); }
 #ifdef QNAME_DEFAULT_CONSTRUCTOR
     QualifiedName() : m_impl(0) { }
@@ -76,6 +80,9 @@ public:
     const AtomicString& localName() const { return m_impl->m_localName; }
     const AtomicString& namespaceURI() const { return m_impl->m_namespace; }
 
+    // Uppercased localName, cached for efficiency
+    const AtomicString& localNameUpper() const;
+
     String toString() const;
 
     QualifiedNameImpl* impl() const { return m_impl; }
@@ -84,8 +91,11 @@ public:
     static void init();
     
 private:
+    void init(const AtomicString& prefix, const AtomicString& localName, const AtomicString& namespaceURI);
     void ref() const { m_impl->ref(); }
     void deref();
+
+    static QualifiedNameImpl* hashTableDeletedValue() { return RefPtr<QualifiedNameImpl>::hashTableDeletedValue(); }
     
     QualifiedNameImpl* m_impl;
 };
@@ -161,8 +171,8 @@ namespace WTF {
     template<> struct HashTraits<WebCore::QualifiedName> : GenericHashTraits<WebCore::QualifiedName> {
         static const bool emptyValueIsZero = false;
         static WebCore::QualifiedName emptyValue() { return WebCore::QualifiedName(WebCore::nullAtom, WebCore::nullAtom, WebCore::nullAtom); }
-        static void constructDeletedValue(WebCore::QualifiedName& slot) { new (&slot) WebCore::QualifiedName(WebCore::nullAtom, WebCore::AtomicString(HashTableDeletedValue), WebCore::nullAtom); }
-        static bool isDeletedValue(const WebCore::QualifiedName& slot) { return slot.localName().isHashTableDeletedValue(); }
+        static void constructDeletedValue(WebCore::QualifiedName& slot) { new (&slot) WebCore::QualifiedName(WTF::HashTableDeletedValue); }
+        static bool isDeletedValue(const WebCore::QualifiedName& slot) { return slot.isHashTableDeletedValue(); }
     };
 }
 

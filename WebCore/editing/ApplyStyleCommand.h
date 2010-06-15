@@ -34,6 +34,11 @@ class CSSPrimitiveValue;
 class HTMLElement;
 class StyleChange;
 
+enum ShouldIncludeTypingStyle {
+    IncludeTypingStyle,
+    IgnoreTypingStyle
+};
+
 class ApplyStyleCommand : public CompositeEditCommand {
 public:
     enum EPropertyLevel { PropertyDefault, ForceBlockProperties };
@@ -50,6 +55,8 @@ public:
     {
         return adoptRef(new ApplyStyleCommand(element, removeOnly, action));
     }
+    
+    static PassRefPtr<CSSMutableStyleDeclaration> editingStyleAtPosition(Position pos, ShouldIncludeTypingStyle shouldIncludeTypingStyle = IgnoreTypingStyle);
 
 private:
     ApplyStyleCommand(Document*, CSSStyleDeclaration*, EditAction, EPropertyLevel);
@@ -62,6 +69,7 @@ private:
     CSSMutableStyleDeclaration* style() const { return m_style.get(); }
 
     // style-removal helpers
+    bool shouldRemoveTextDecorationTag(CSSStyleDeclaration* styleToApply, int textDecorationAddedByTag) const;
     bool implicitlyStyledElementShouldBeRemovedWhenApplyingStyle(HTMLElement*, CSSMutableStyleDeclaration*);
     void replaceWithSpanOrRemoveIfWithoutAttributes(HTMLElement*&);
     void removeHTMLFontStyle(CSSMutableStyleDeclaration*, HTMLElement*);
@@ -73,7 +81,7 @@ private:
     PassRefPtr<CSSMutableStyleDeclaration> extractTextDecorationStyle(Node*);
     PassRefPtr<CSSMutableStyleDeclaration> extractAndNegateTextDecorationStyle(Node*);
     void applyTextDecorationStyle(Node*, CSSMutableStyleDeclaration *style);
-    void pushDownTextDecorationStyleAroundNode(Node*, bool force);
+    void pushDownTextDecorationStyleAroundNode(Node*, bool forceNegate);
     void pushDownTextDecorationStyleAtBoundaries(const Position& start, const Position& end);
     
     // style-application helpers
@@ -114,6 +122,10 @@ private:
 
 bool isStyleSpan(const Node*);
 PassRefPtr<HTMLElement> createStyleSpanElement(Document*);
+RefPtr<CSSMutableStyleDeclaration> getPropertiesNotInComputedStyle(CSSStyleDeclaration* style, CSSComputedStyleDeclaration* computedStyle);
+
+void prepareEditingStyleToApplyAt(CSSMutableStyleDeclaration*, Position);
+void removeStylesAddedByNode(CSSMutableStyleDeclaration*, Node*);
 
 } // namespace WebCore
 

@@ -32,15 +32,16 @@
 #include "Interpreter.h"
 
 namespace JSC {
-    class CachedCall : Noncopyable {
+    class CachedCall : public Noncopyable {
     public:
         CachedCall(CallFrame* callFrame, JSFunction* function, int argCount, JSValue* exception)
             : m_valid(false)
             , m_interpreter(callFrame->interpreter())
             , m_exception(exception)
-            , m_globalObjectScope(callFrame, callFrame->globalData().dynamicGlobalObject ? callFrame->globalData().dynamicGlobalObject : function->scope().node()->globalObject())
+            , m_globalObjectScope(callFrame, function->scope().globalObject())
         {
-            m_closure = m_interpreter->prepareForRepeatCall(function->body(), callFrame, function, argCount, function->scope().node(), exception);
+            ASSERT(!function->isHostFunction());
+            m_closure = m_interpreter->prepareForRepeatCall(function->jsExecutable(), callFrame, function, argCount, function->scope().node(), exception);
             m_valid = !*exception;
         }
         
@@ -51,7 +52,14 @@ namespace JSC {
         }
         void setThis(JSValue v) { m_closure.setArgument(0, v); }
         void setArgument(int n, JSValue v) { m_closure.setArgument(n + 1, v); }
-        CallFrame* newCallFrame() { return m_closure.newCallFrame; }
+
+        CallFrame* newCallFrame(ExecState* exec)
+        {
+            CallFrame* callFrame = m_closure.newCallFrame;
+            callFrame->setScopeChain(exec->scopeChain());
+            return callFrame;
+        }
+
         ~CachedCall()
         {
             if (m_valid)

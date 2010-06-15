@@ -39,9 +39,11 @@ typedef CFArrayRef (*CFURLRequestCopyContentDispositionEncodingFallbackArrayFunc
 
 static HMODULE findCFNetworkModule()
 {
-    if (HMODULE module = GetModuleHandleA("CFNetwork"))
-        return module;
+#ifndef DEBUG_ALL
+    return GetModuleHandleA("CFNetwork");
+#else
     return GetModuleHandleA("CFNetwork_debug");
+#endif
 }
 
 static CFURLRequestSetContentDispositionEncodingFallbackArrayFunction findCFURLRequestSetContentDispositionEncodingFallbackArrayFunction()
@@ -76,11 +78,18 @@ CFURLRequestRef ResourceRequest::cfURLRequest() const
     return m_cfRequest.get();
 }
 
-static inline void addHeadersFromHashMap(CFMutableURLRequestRef request, const HTTPHeaderMap& requestHeaders) 
+static inline void setHeaderFields(CFMutableURLRequestRef request, const HTTPHeaderMap& requestHeaders) 
 {
-    if (!requestHeaders.size())
-        return;
-        
+    // Remove existing headers first, as some of them may no longer be present in the map.
+    RetainPtr<CFDictionaryRef> oldHeaderFields(AdoptCF, CFURLRequestCopyAllHTTPHeaderFields(request));
+    CFIndex oldHeaderFieldCount = CFDictionaryGetCount(oldHeaderFields.get());
+    if (oldHeaderFieldCount) {
+        Vector<CFStringRef> oldHeaderFieldNames(oldHeaderFieldCount);
+        CFDictionaryGetKeysAndValues(oldHeaderFields.get(), reinterpret_cast<const void**>(&oldHeaderFieldNames[0]), 0);
+        for (CFIndex i = 0; i < oldHeaderFieldCount; ++i)
+            CFURLRequestSetHTTPHeaderFieldValue(request, oldHeaderFieldNames[i], 0);
+    }
+
     HTTPHeaderMap::const_iterator end = requestHeaders.end();
     for (HTTPHeaderMap::const_iterator it = requestHeaders.begin(); it != end; ++it) {
         CFStringRef key = it->first.createCFString();
@@ -110,9 +119,9 @@ void ResourceRequest::doUpdatePlatformRequest()
     RetainPtr<CFStringRef> requestMethod(AdoptCF, httpMethod().createCFString());
     CFURLRequestSetHTTPRequestMethod(cfRequest, requestMethod.get());
 
-    addHeadersFromHashMap(cfRequest, httpHeaderFields());
+    setHeaderFields(cfRequest, httpHeaderFields());
     WebCore::setHTTPBody(cfRequest, httpBody());
-    CFURLRequestSetShouldHandleHTTPCookies(cfRequest, allowHTTPCookies());
+    CFURLRequestSetShouldHandleHTTPCookies(cfRequest, allowCookies());
 
     unsigned fallbackCount = m_responseContentDispositionEncodingFallbackArray.size();
     RetainPtr<CFMutableArrayRef> encodingFallbacks(AdoptCF, CFArrayCreateMutable(kCFAllocatorDefault, fallbackCount, 0));
@@ -146,8 +155,9 @@ void ResourceRequest::doUpdateResourceRequest()
         m_httpMethod = method;
         CFRelease(method);
     }
-    m_allowHTTPCookies = CFURLRequestShouldHandleHTTPCookies(m_cfRequest.get());
+    m_allowCookies = CFURLRequestShouldHandleHTTPCookies(m_cfRequest.get());
 
+    m_httpHeaderFields.clear();
     if (CFDictionaryRef headers = CFURLRequestCopyAllHTTPHeaderFields(m_cfRequest.get())) {
         CFIndex headerCount = CFDictionaryGetCount(headers);
         Vector<const void*, 128> keys(headerCount);

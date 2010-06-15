@@ -1,8 +1,7 @@
 /*
-    Copyright (C) 2004, 2005 Nikolas Zimmermann <wildfox@kde.org>
+    Copyright (C) 2004, 2005 Nikolas Zimmermann <zimmermann@kde.org>
                   2004, 2005, 2007 Rob Buis <buis@kde.org>
-
-    This file is part of the KDE project
+    Copyright (C) Research In Motion Limited 2010. All rights reserved.
 
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Library General Public
@@ -24,41 +23,44 @@
 #define SVGLocatable_h
 
 #if ENABLE(SVG)
-
+#include "AffineTransform.h"
 #include "ExceptionCode.h"
 
 namespace WebCore {
 
-    class TransformationMatrix;
-    class FloatRect;
-    class SVGElement;
+class FloatRect;
+class SVGElement;
 
-    class SVGLocatable {
-    public:
-        SVGLocatable();
-        virtual ~SVGLocatable();
+class SVGLocatable {
+public:
+    SVGLocatable();
+    virtual ~SVGLocatable();
 
-        // 'SVGLocatable' functions
-        virtual SVGElement* nearestViewportElement() const = 0;
-        virtual SVGElement* farthestViewportElement() const = 0;
+    // 'SVGLocatable' functions
+    virtual SVGElement* nearestViewportElement() const = 0;
+    virtual SVGElement* farthestViewportElement() const = 0;
 
-        virtual FloatRect getBBox() const = 0;
-        virtual TransformationMatrix getCTM() const = 0;
-        virtual TransformationMatrix getScreenCTM() const = 0;
-        TransformationMatrix getTransformToElement(SVGElement*, ExceptionCode&) const;
+    virtual FloatRect getBBox() const = 0;
+    virtual AffineTransform getCTM() const = 0;
+    virtual AffineTransform getScreenCTM() const = 0;
+    AffineTransform getTransformToElement(SVGElement*, ExceptionCode&) const;
 
-        static SVGElement* nearestViewportElement(const SVGElement*);
-        static SVGElement* farthestViewportElement(const SVGElement*);
+    static SVGElement* nearestViewportElement(const SVGElement*);
+    static SVGElement* farthestViewportElement(const SVGElement*);
 
-    protected:
-        static FloatRect getBBox(const SVGElement*);
-        static TransformationMatrix getCTM(const SVGElement*);
-        static TransformationMatrix getScreenCTM(const SVGElement*);
+    enum CTMScope {
+        NearestViewportScope, // Used for getCTM()
+        ScreenScope // Used for getScreenCTM()
     };
+
+protected:
+    virtual AffineTransform localCoordinateSpaceTransform(SVGLocatable::CTMScope) const { return AffineTransform(); }
+
+    static FloatRect getBBox(const SVGElement*);
+    static AffineTransform computeCTM(const SVGElement*, CTMScope);
+};
 
 } // namespace WebCore
 
 #endif // ENABLE(SVG)
 #endif // SVGLocatable_h
-
-// vim:ts=4:noet

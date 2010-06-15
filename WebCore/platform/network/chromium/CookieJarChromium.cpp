@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2008, Google Inc. All rights reserved.
+ * Copyright (c) 2010, Google Inc. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -31,6 +31,7 @@
 #include "config.h"
 #include "CookieJar.h"
 
+#include "Cookie.h"
 #include "ChromiumBridge.h"
 #include "Document.h"
 
@@ -38,18 +39,32 @@ namespace WebCore {
 
 void setCookies(Document* document, const KURL& url, const String& value)
 {
-    ChromiumBridge::setCookies(url, document->firstPartyForCookies(), value);
+    ChromiumBridge::setCookies(document, url, value);
 }
 
 String cookies(const Document* document, const KURL& url)
 {
-    return ChromiumBridge::cookies(url, document->firstPartyForCookies());
+    return ChromiumBridge::cookies(document, url);
 }
 
-bool cookiesEnabled(const Document*)
+String cookieRequestHeaderFieldValue(const Document* document, const KURL& url)
 {
-    // FIXME: For now just assume cookies are always on.
-    return true;
+    return ChromiumBridge::cookieRequestHeaderFieldValue(document, url);
+}
+
+bool cookiesEnabled(const Document* document)
+{
+    return ChromiumBridge::cookiesEnabled(document);
+}
+
+bool getRawCookies(const Document* document, const KURL& url, Vector<Cookie>& rawCookies)
+{
+    return ChromiumBridge::rawCookies(document, url, rawCookies);
+}
+
+void deleteCookie(const Document* document, const KURL& url, const String& cookieName)
+{
+    return ChromiumBridge::deleteCookie(document, url, cookieName);
 }
 
 } // namespace WebCore

@@ -21,7 +21,7 @@ if test $# = 0; then
 	version="1.4svn"
 	revision="-r$rev"
 	fileversion="1.4svn-r$rev"
-	fileurl="ftp://ftp.easysw.com/pub/cups/test/cups-$fileversion-source.tar."
+	fileurl="http://ftp.easysw.com/pub/cups/test/cups-$fileversion-source.tar."
 	url="."
 else
 	echo Creating tag for release...
@@ -29,7 +29,7 @@ else
 	version=$1
 	revision=""
 	fileversion=$1
-	fileurl="ftp://ftp.easysw.com/pub/cups/$version/cups-$fileversion-source.tar."
+	fileurl="http://ftp.easysw.com/pub/cups/$version/cups-$fileversion-source.tar."
 	url="https://svn.easysw.com/public/cups/tags/release-$version"
 
 	svn copy https://svn.easysw.com/public/cups/branches/branch-1.4 "$url" \

@@ -843,7 +843,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUILD_VARIANTS = debug;
-				CURRENT_PROJECT_VERSION = 36984;
+				CURRENT_PROJECT_VERSION = 38535;
 				EXECUTABLE_PREFIX = "";
 				EXECUTABLE_SUFFIX = "";
 				GCC_DYNAMIC_NO_PIC = NO;
@@ -889,7 +889,7 @@
 					debug,
 					nopic,
 				);
-				CURRENT_PROJECT_VERSION = 36984;
+				CURRENT_PROJECT_VERSION = 38535;
 				EXECUTABLE_PREFIX = "";
 				EXECUTABLE_SUFFIX = "";
 				GCC_DEBUGGING_SYMBOLS = default;
@@ -930,7 +930,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUILD_VARIANTS = normal;
-				CURRENT_PROJECT_VERSION = 36984;
+				CURRENT_PROJECT_VERSION = 38535;
 				EXECUTABLE_PREFIX = "";
 				EXECUTABLE_SUFFIX = "";
 				HEADER_SEARCH_PATHS = "\"$(BUILT_PRODUCTS_DIR)/derived_src\"";
@@ -973,7 +973,7 @@
 					debug,
 					nopic,
 				);
-				CURRENT_PROJECT_VERSION = 36984;
+				CURRENT_PROJECT_VERSION = 38535;
 				EXECUTABLE_PREFIX = "";
 				EXECUTABLE_SUFFIX = "";
 				HEADER_SEARCH_PATHS = "\"$(BUILT_PRODUCTS_DIR)/derived_src\"";

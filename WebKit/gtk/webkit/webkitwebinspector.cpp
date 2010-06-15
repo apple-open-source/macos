@@ -1,6 +1,7 @@
 /*
  * Copyright (C) 2008 Gustavo Noronha Silva
  * Copyright (C) 2008, 2009 Holger Hans Peter Freyther
+ * Copyright (C) 2009 Collabora Ltd.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -19,11 +20,18 @@
  */
 
 #include "config.h"
-
-#include <glib/gi18n-lib.h>
 #include "webkitwebinspector.h"
-#include "webkitmarshal.h"
+
+#include "FocusController.h"
+#include "Frame.h"
+#include <glib/gi18n-lib.h>
+#include "HitTestRequest.h"
+#include "HitTestResult.h"
 #include "InspectorClientGtk.h"
+#include "IntPoint.h"
+#include "Page.h"
+#include "RenderView.h"
+#include "webkitmarshal.h"
 #include "webkitprivate.h"
 
 /**
@@ -56,6 +64,7 @@
  */
 
 using namespace WebKit;
+using namespace WebCore;
 
 enum {
     INSPECT_WEB_VIEW,
@@ -74,7 +83,8 @@ enum {
 
     PROP_WEB_VIEW,
     PROP_INSPECTED_URI,
-    PROP_JAVASCRIPT_PROFILING_ENABLED
+    PROP_JAVASCRIPT_PROFILING_ENABLED,
+    PROP_TIMELINE_PROFILING_ENABLED    
 };
 
 G_DEFINE_TYPE(WebKitWebInspector, webkit_web_inspector, G_TYPE_OBJECT)
@@ -115,7 +125,7 @@ static void webkit_web_inspector_class_init(WebKitWebInspectorClass* klass)
     /**
      * WebKitWebInspector::inspect-web-view:
      * @web_inspector: the object on which the signal is emitted
-     * @web_view: the #WebKitWeb which will be inspected
+     * @web_view: the #WebKitWebView which will be inspected
      * @return: a newly allocated #WebKitWebView or %NULL
      *
      * Emitted when the user activates the 'inspect' context menu item
@@ -291,6 +301,22 @@ static void webkit_web_inspector_class_init(WebKitWebInspectorClass* klass)
                                         FALSE,
                                         WEBKIT_PARAM_READWRITE));
 
+    /**
+    * WebKitWebInspector:timeline-profiling-enabled
+    *
+    * This is enabling Timeline profiling in the Inspector.
+    *
+    * Since: 1.1.17
+    */
+    g_object_class_install_property(gobject_class,
+                                    PROP_TIMELINE_PROFILING_ENABLED,
+                                    g_param_spec_boolean(
+                                        "timeline-profiling-enabled",
+                                        _("Enable Timeline profiling"),
+                                        _("Profile the WebCore instrumentation."),
+                                        FALSE,
+                                        WEBKIT_PARAM_READWRITE));
+
     g_type_class_add_private(klass, sizeof(WebKitWebInspectorPrivate));
 }
 
@@ -320,12 +346,25 @@ static void webkit_web_inspector_set_property(GObject* object, guint prop_id, co
 
     switch(prop_id) {
     case PROP_JAVASCRIPT_PROFILING_ENABLED: {
+#if ENABLE(JAVASCRIPT_DEBUGGER)
         bool enabled = g_value_get_boolean(value);
         WebCore::InspectorController* controller = priv->page->inspectorController();
         if (enabled)
             controller->enableProfiler();
         else
             controller->disableProfiler();
+#else
+        g_message("PROP_JAVASCRIPT_PROFILING_ENABLED is not work because of the javascript debugger is disabled\n");
+#endif
+        break;
+    }
+    case PROP_TIMELINE_PROFILING_ENABLED: {
+        bool enabled = g_value_get_boolean(value);
+        WebCore::InspectorController* controller = priv->page->inspectorController();
+        if (enabled)
+            controller->startTimelineProfiler();
+        else
+            controller->stopTimelineProfiler();
         break;
     }
     default:
@@ -347,7 +386,14 @@ static void webkit_web_inspector_get_property(GObject* object, guint prop_id, GV
         g_value_set_string(value, priv->inspected_uri);
         break;
     case PROP_JAVASCRIPT_PROFILING_ENABLED:
+#if ENABLE(JAVASCRIPT_DEBUGGER)
         g_value_set_boolean(value, priv->page->inspectorController()->profilerEnabled());
+#else
+        g_message("PROP_JAVASCRIPT_PROFILING_ENABLED is not work because of the javascript debugger is disabled\n");
+#endif
+        break;
+    case PROP_TIMELINE_PROFILING_ENABLED:
+        g_value_set_boolean(value, priv->page->inspectorController()->timelineAgent() != 0);
         break;
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
@@ -425,4 +471,90 @@ webkit_web_inspector_set_inspector_client(WebKitWebInspector* web_inspector, Web
     WebKitWebInspectorPrivate* priv = web_inspector->priv;
 
     priv->page = page;
+}
+
+/**
+ * webkit_web_inspector_show:
+ * @web_inspector: the #WebKitWebInspector that will be shown
+ *
+ * Causes the Web Inspector to be shown.
+ *
+ * Since: 1.1.17
+ */
+void webkit_web_inspector_show(WebKitWebInspector* webInspector)
+{
+    g_return_if_fail(WEBKIT_IS_WEB_INSPECTOR(webInspector));
+
+    WebKitWebInspectorPrivate* priv = webInspector->priv;
+
+    Frame* frame = priv->page->focusController()->focusedOrMainFrame();
+    FrameView* view = frame->view();
+
+    if (!view)
+        return;
+
+    priv->page->inspectorController()->show();
+}
+
+/**
+ * webkit_web_inspector_inspect_coordinates:
+ * @web_inspector: the #WebKitWebInspector that will do the inspection
+ * @x: the X coordinate of the node to be inspected
+ * @y: the Y coordinate of the node to be inspected
+ *
+ * Causes the Web Inspector to inspect the node that is located at the
+ * given coordinates of the widget. The coordinates should be relative
+ * to the #WebKitWebView widget, not to the scrollable content, and
+ * may be obtained from a #GdkEvent directly.
+ *
+ * This means @x, and @y being zero doesn't guarantee you will hit the
+ * left-most top corner of the content, since the contents may have
+ * been scrolled.
+ *
+ * Since: 1.1.17
+ */
+void webkit_web_inspector_inspect_coordinates(WebKitWebInspector* webInspector, gdouble x, gdouble y)
+{
+    g_return_if_fail(WEBKIT_IS_WEB_INSPECTOR(webInspector));
+    g_return_if_fail(x >= 0 && y >= 0);
+
+    WebKitWebInspectorPrivate* priv = webInspector->priv;
+
+    Frame* frame = priv->page->focusController()->focusedOrMainFrame();
+    FrameView* view = frame->view();
+
+    if (!view)
+        return;
+
+    HitTestRequest request(HitTestRequest::ReadOnly | HitTestRequest::Active);
+    IntPoint documentPoint = view->windowToContents(IntPoint(static_cast<int>(x), static_cast<int>(y)));
+    HitTestResult result(documentPoint);
+
+    frame->contentRenderer()->layer()->hitTest(request, result);
+    priv->page->inspectorController()->inspect(result.innerNonSharedNode());
+}
+
+/**
+ * webkit_web_inspector_close:
+ * @web_inspector: the #WebKitWebInspector that will be closed
+ *
+ * Causes the Web Inspector to be closed.
+ *
+ * Since: 1.1.17
+ */
+void webkit_web_inspector_close(WebKitWebInspector* webInspector)
+{
+    g_return_if_fail(WEBKIT_IS_WEB_INSPECTOR(webInspector));
+
+    WebKitWebInspectorPrivate* priv = webInspector->priv;
+    priv->page->inspectorController()->close();
+}
+
+void webkit_web_inspector_execute_script(WebKitWebInspector* webInspector, long callId, const gchar* script)
+{
+    g_return_if_fail(WEBKIT_IS_WEB_INSPECTOR(webInspector));
+    g_return_if_fail(script);
+
+    WebKitWebInspectorPrivate* priv = webInspector->priv;
+    priv->page->inspectorController()->evaluateForTestInFrontend(callId, script);
 }

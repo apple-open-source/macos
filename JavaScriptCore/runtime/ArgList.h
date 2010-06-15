@@ -1,6 +1,6 @@
 /*
  *  Copyright (C) 1999-2001 Harri Porten (porten@kde.org)
- *  Copyright (C) 2003, 2007, 2008, 2009 Apple Computer, Inc.
+ *  Copyright (C) 2003, 2007, 2008, 2009 Apple Inc. All rights reserved.
  *
  *  This library is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU Library General Public
@@ -23,14 +23,15 @@
 #define ArgList_h
 
 #include "Register.h"
-
 #include <wtf/HashSet.h>
 #include <wtf/Noncopyable.h>
 #include <wtf/Vector.h>
 
 namespace JSC {
-    
-    class MarkedArgumentBuffer : Noncopyable {
+
+    class MarkStack;
+
+    class MarkedArgumentBuffer : public Noncopyable {
     private:
         static const unsigned inlineCapacity = 8;
         typedef Vector<Register, inlineCapacity> VectorType;
@@ -103,7 +104,11 @@ namespace JSC {
         void append(JSValue v)
         {
             ASSERT(!m_isReadOnly);
-            
+
+#if ENABLE(JSC_ZOMBIES)
+            ASSERT(!v.isZombie());
+#endif
+
             if (m_isUsingInlineBuffer && m_size < inlineCapacity) {
                 m_vector.uncheckedAppend(v);
                 ++m_size;
@@ -135,7 +140,7 @@ namespace JSC {
         const_iterator begin() const { return m_buffer; }
         const_iterator end() const { return m_buffer + m_size; }
 
-        static void markLists(ListSet&);
+        static void markLists(MarkStack&, ListSet&);
 
     private:
         void slowAppend(JSValue);
@@ -186,6 +191,10 @@ namespace JSC {
             : m_args(args)
             , m_argCount(argCount)
         {
+#if ENABLE(JSC_ZOMBIES)
+            for (size_t i = 0; i < argCount; i++)
+                ASSERT(!m_args[i].isZombie());
+#endif
         }
         
         ArgList(Register* args, int argCount)

@@ -2,6 +2,7 @@
  * Copyright (C) 2006, 2007 Apple Inc.  All rights reserved.
  * Copyright (C) 2008 Collabora Ltd. All rights reserved.
  * Copyright (C) 2008 Nokia Corporation and/or its subsidiary(-ies)
+ * Copyright (C) 2009 Girish Ramakrishnan <girish@forwardbias.in>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -25,15 +26,10 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef __LP64__
-
 #include "config.h"
 #include "PluginView.h"
 
-#include <runtime/JSLock.h>
-#include <runtime/JSValue.h>
-#include "wtf/RetainPtr.h"
-
+#include "Bridge.h"
 #include "Document.h"
 #include "DocumentLoader.h"
 #include "Element.h"
@@ -45,6 +41,7 @@
 #include "Frame.h"
 #include "FrameView.h"
 #include "GraphicsContext.h"
+#include "HostWindow.h"
 #include "HTMLNames.h"
 #include "HTMLPlugInElement.h"
 #include "Image.h"
@@ -52,7 +49,6 @@
 #include "KeyboardEvent.h"
 #include "MouseEvent.h"
 #include "NotImplemented.h"
-#include "npruntime_impl.h"
 #include "Page.h"
 #include "PlatformMouseEvent.h"
 #include "PlatformKeyboardEvent.h"
@@ -60,10 +56,14 @@
 #include "PluginPackage.h"
 #include "PluginMainThreadScheduler.h"
 #include "RenderLayer.h"
-#include "runtime.h"
-#include "runtime_root.h"
 #include "ScriptController.h"
 #include "Settings.h"
+#include "npruntime_impl.h"
+#include "runtime_root.h"
+#include <runtime/JSLock.h>
+#include <runtime/JSValue.h>
+#include <wtf/RetainPtr.h>
+
 
 using JSC::ExecState;
 using JSC::Interpreter;
@@ -75,13 +75,16 @@ using JSC::UString;
 #if PLATFORM(QT)
 #include <QWidget>
 #include <QKeyEvent>
+#include <QPainter>
+#include "QWebPageClient.h"
 QT_BEGIN_NAMESPACE
-#if QT_VERSION < 0x040500
-extern Q_GUI_EXPORT WindowPtr qt_mac_window_for(const QWidget* w);
-#else
 extern Q_GUI_EXPORT OSWindowRef qt_mac_window_for(const QWidget* w);
-#endif
 QT_END_NAMESPACE
+#endif
+
+#if PLATFORM(WX)
+#include <wx/defs.h>
+#include <wx/wx.h>
 #endif
 
 using std::min;
@@ -92,13 +95,19 @@ namespace WebCore {
 
 using namespace HTMLNames;
 
+#ifndef NP_NO_CARBON
 static int modifiersForEvent(UIEventWithKeyState *event);
+#endif
 
 static inline WindowRef nativeWindowFor(PlatformWidget widget)
 {
 #if PLATFORM(QT)
     if (widget)
         return static_cast<WindowRef>(qt_mac_window_for(widget));
+#endif
+#if PLATFORM(WX)
+    if (widget)
+        return (WindowRef)widget->MacGetTopLevelWindowRef();
 #endif
     return 0;
 }
@@ -108,6 +117,10 @@ static inline CGContextRef cgHandleFor(PlatformWidget widget)
 #if PLATFORM(QT)
     if (widget)
         return (CGContextRef)widget->macCGHandle();
+#endif
+#if PLATFORM(WX)
+    if (widget)
+        return (CGContextRef)widget->MacGetCGContextRef();
 #endif
     return 0;
 }
@@ -120,175 +133,179 @@ static inline IntPoint topLevelOffsetFor(PlatformWidget widget)
         return widget->mapTo(topLevel, QPoint(0, 0)) + topLevel->geometry().topLeft() - topLevel->pos();
     }
 #endif
+#if PLATFORM(WX)
+    if (widget) {
+        PlatformWidget toplevel = wxGetTopLevelParent(widget);
+        return toplevel->ScreenToClient(widget->GetScreenPosition());
+    }
+#endif
     return IntPoint();
 }
 
 // --------------- Lifetime management -----------------
 
-void PluginView::init()
+bool PluginView::platformStart()
 {
-    if (m_haveInitialized)
-        return;
-    m_haveInitialized = true;
+    ASSERT(m_isStarted);
+    ASSERT(m_status == PluginStatusLoadedSuccessfully);
 
-    if (!m_plugin) {
-        ASSERT(m_status == PluginStatusCanNotFindPlugin);
-        return;
+    if (m_drawingModel == NPDrawingModel(-1)) {
+        // We default to QuickDraw, even though we don't support it,
+        // since that's what Safari does, and some plugins expect this
+        // behavior and never set the drawing model explicitly.
+#ifndef NP_NO_QUICKDRAW
+        m_drawingModel = NPDrawingModelQuickDraw;
+#else
+        // QuickDraw not available, so we have to default to CoreGraphics
+        m_drawingModel = NPDrawingModelCoreGraphics;
+#endif
     }
 
-    if (!m_plugin->load()) {
-        m_plugin = 0;
+    if (m_eventModel == NPEventModel(-1)) {
+        // If the plug-in did not specify an event model
+        // we default to Carbon, when it is available.
+#ifndef NP_NO_CARBON
+        m_eventModel = NPEventModelCarbon;
+#else
+        m_eventModel = NPEventModelCocoa;
+#endif
+    }
+
+    // Gracefully handle unsupported drawing or event models. We can do this
+    // now since the drawing and event model can only be set during NPP_New.
+#ifndef NP_NO_CARBON
+    NPBool eventModelSupported;
+    if (getValueStatic(NPNVariable(NPNVsupportsCarbonBool + m_eventModel), &eventModelSupported) != NPERR_NO_ERROR
+            || !eventModelSupported) {
+#endif
         m_status = PluginStatusCanNotLoadPlugin;
-        return;
+        LOG(Plugins, "Plug-in '%s' uses unsupported event model %s",
+                m_plugin->name().utf8().data(), prettyNameForEventModel(m_eventModel));
+        return false;
+#ifndef NP_NO_CARBON
     }
+#endif
 
-    if (!start()) {
+#ifndef NP_NO_QUICKDRAW
+    NPBool drawingModelSupported;
+    if (getValueStatic(NPNVariable(NPNVsupportsQuickDrawBool + m_drawingModel), &drawingModelSupported) != NPERR_NO_ERROR
+            || !drawingModelSupported) {
+#endif
         m_status = PluginStatusCanNotLoadPlugin;
-        return;
+        LOG(Plugins, "Plug-in '%s' uses unsupported drawing model %s",
+                m_plugin->name().utf8().data(), prettyNameForDrawingModel(m_drawingModel));
+        return false;
+#ifndef NP_NO_QUICKDRAW
     }
+#endif
 
-    setPlatformPluginWidget(m_parentFrame->view()->hostWindow()->platformWindow());
+#if PLATFORM(QT)
+    // Set the platformPluginWidget only in the case of QWebView so that the context menu appears in the right place.
+    // In all other cases, we use off-screen rendering
+    if (QWebPageClient* client = m_parentFrame->view()->hostWindow()->platformPageClient()) {
+        if (QWidget* widget = qobject_cast<QWidget*>(client->pluginParent()))
+            setPlatformPluginWidget(widget);
+    }
+#endif
+#if PLATFORM(WX)
+    if (wxWindow* widget = m_parentFrame->view()->hostWindow()->platformPageClient())
+        setPlatformPluginWidget(widget);
+#endif
 
-    m_npCgContext.window = 0;
-    m_npCgContext.context = 0;
-    m_npWindow.window = (void*)&m_npCgContext;
-    m_npWindow.type = NPWindowTypeWindow;
-    m_npWindow.x = 0;
-    m_npWindow.y = 0;
-    m_npWindow.width = 0;
-    m_npWindow.height = 0;
-    m_npWindow.clipRect.left = 0;
-    m_npWindow.clipRect.top = 0;
-    m_npWindow.clipRect.right = 0;
-    m_npWindow.clipRect.bottom = 0;
+    // Create a fake window relative to which all events will be sent when using offscreen rendering
+    if (!platformPluginWidget()) {
+#ifndef NP_NO_CARBON
+        // Make the default size really big. It is unclear why this is required but with a smaller size, mouse move
+        // events don't get processed. Resizing the fake window to flash's size doesn't help.
+        ::Rect windowBounds = { 0, 0, 1000, 1000 };
+        CreateNewWindow(kDocumentWindowClass, kWindowStandardDocumentAttributes, &windowBounds, &m_fakeWindow);
+        // Flash requires the window to be hilited to process mouse move events.
+        HiliteWindow(m_fakeWindow, true);
+#endif
+    }
 
     show();
-
-    m_status = PluginStatusLoadedSuccessfully;
 
     // TODO: Implement null timer throttling depending on plugin activation
     m_nullEventTimer.set(new Timer<PluginView>(this, &PluginView::nullEventTimerFired));
     m_nullEventTimer->startRepeating(0.02);
+
+    m_lastMousePos.h = m_lastMousePos.v = 0;
+
+    return true;
 }
 
-PluginView::~PluginView()
+void PluginView::platformDestroy()
 {
-    stop();
-
-    deleteAllValues(m_requests);
-
-    freeStringArray(m_paramNames, m_paramCount);
-    freeStringArray(m_paramValues, m_paramCount);
-
-    m_parentFrame->script()->cleanupScriptObjectsForPlugin(this);
-
-    if (m_plugin && !(m_plugin->quirks().contains(PluginQuirkDontUnloadPlugin)))
-        m_plugin->unload();
-
-    m_window = 0;
-}
-
-void PluginView::stop()
-{
-    if (!m_isStarted)
-        return;
-
-    HashSet<RefPtr<PluginStream> > streams = m_streams;
-    HashSet<RefPtr<PluginStream> >::iterator end = streams.end();
-    for (HashSet<RefPtr<PluginStream> >::iterator it = streams.begin(); it != end; ++it) {
-        (*it)->stop();
-        disconnectStream((*it).get());
+    if (platformPluginWidget())
+        setPlatformPluginWidget(0);
+    else {
+        CGContextRelease(m_contextRef);
+#ifndef NP_NO_CARBON
+        if (m_fakeWindow)
+            DisposeWindow(m_fakeWindow);
+#endif
     }
-
-    ASSERT(m_streams.isEmpty());
-
-    m_isStarted = false;
-
-    JSC::JSLock::DropAllLocks dropAllLocks(false);
-
-    PluginMainThreadScheduler::scheduler().unregisterPlugin(m_instance);
-
-    // Destroy the plugin
-    PluginView::setCurrentPluginView(this);
-    setCallingPlugin(true);
-    m_plugin->pluginFuncs()->destroy(m_instance, 0);
-    setCallingPlugin(false);
-    PluginView::setCurrentPluginView(0);
-
-    m_instance->pdata = 0;
 }
 
-NPError PluginView::getValueStatic(NPNVariable variable, void* value)
+// Used before the plugin view has been initialized properly, and as a
+// fallback for variables that do not require a view to resolve.
+bool PluginView::platformGetValueStatic(NPNVariable variable, void* value, NPError* result)
 {
-    LOG(Plugins, "PluginView::getValueStatic(%d)", variable);
-
     switch (variable) {
     case NPNVToolkit:
-        *static_cast<uint32*>(value) = 0;
-        return NPERR_NO_ERROR;
+        *static_cast<uint32_t*>(value) = 0;
+        *result = NPERR_NO_ERROR;
+        return true;
 
     case NPNVjavascriptEnabledBool:
         *static_cast<NPBool*>(value) = true;
-        return NPERR_NO_ERROR;
+        *result = NPERR_NO_ERROR;
+        return true;
 
-    default:
-        return NPERR_GENERIC_ERROR;
-    }
-}
+#ifndef NP_NO_CARBON
+    case NPNVsupportsCarbonBool:
+        *static_cast<NPBool*>(value) = true;
+        *result = NPERR_NO_ERROR;
+        return true;
 
-NPError PluginView::getValue(NPNVariable variable, void* value)
-{
-    LOG(Plugins, "PluginView::getValue(%d)", variable);
+#endif
+    case NPNVsupportsCocoaBool:
+        *static_cast<NPBool*>(value) = false;
+        *result = NPERR_NO_ERROR;
+        return true;
 
-    switch (variable) {
-    case NPNVWindowNPObject: {
-        if (m_isJavaScriptPaused)
-            return NPERR_GENERIC_ERROR;
-
-        NPObject* windowScriptObject = m_parentFrame->script()->windowScriptNPObject();
-
-        // Return value is expected to be retained, as described in
-        // <http://www.mozilla.org/projects/plugin/npruntime.html>
-        if (windowScriptObject)
-            _NPN_RetainObject(windowScriptObject);
-
-        void** v = (void**)value;
-        *v = windowScriptObject;
-
-        return NPERR_NO_ERROR;
-    }
-
-    case NPNVPluginElementNPObject: {
-        if (m_isJavaScriptPaused)
-            return NPERR_GENERIC_ERROR;
-
-        NPObject* pluginScriptObject = 0;
-
-        if (m_element->hasTagName(appletTag) || m_element->hasTagName(embedTag) || m_element->hasTagName(objectTag))
-            pluginScriptObject = static_cast<HTMLPlugInElement*>(m_element)->getNPObject();
-
-        // Return value is expected to be retained, as described in
-        // <http://www.mozilla.org/projects/plugin/npruntime.html>
-        if (pluginScriptObject)
-            _NPN_RetainObject(pluginScriptObject);
-
-        void** v = (void**)value;
-        *v = pluginScriptObject;
-
-        return NPERR_NO_ERROR;
-    }
-
+    // CoreGraphics is the only drawing model we support
     case NPNVsupportsCoreGraphicsBool:
         *static_cast<NPBool*>(value) = true;
-        return NPERR_NO_ERROR;
+        *result = NPERR_NO_ERROR;
+        return true;
+
+#ifndef NP_NO_QUICKDRAW
+    // QuickDraw is deprecated in 10.5 and not supported on 64-bit
+    case NPNVsupportsQuickDrawBool:
+#endif
+    case NPNVsupportsOpenGLBool:
+    case NPNVsupportsCoreAnimationBool:
+        *static_cast<NPBool*>(value) = false;
+        *result = NPERR_NO_ERROR;
+        return true;
 
     default:
-        return getValueStatic(variable, value);
+        return false;
     }
-
 }
+
+// Used only for variables that need a view to resolve
+bool PluginView::platformGetValue(NPNVariable variable, void* value, NPError* error)
+{
+    return false;
+}
+
 void PluginView::setParent(ScrollView* parent)
 {
+    LOG(Plugins, "PluginView::setParent(%p)", parent);
+
     Widget::setParent(parent);
 
     if (parent)
@@ -315,17 +332,26 @@ void PluginView::hide()
     Widget::hide();
 }
 
-void PluginView::setFocus()
+void PluginView::setFocus(bool focused)
 {
-    LOG(Plugins, "PluginView::setFocus()");
+    LOG(Plugins, "PluginView::setFocus(%d)", focused);
+    if (!focused) {
+        Widget::setFocus(focused);
+        return;
+    }
 
     if (platformPluginWidget())
+#if PLATFORM(QT)
        platformPluginWidget()->setFocus(Qt::OtherFocusReason);
+#else
+        platformPluginWidget()->SetFocus();
+#endif
    else
-       Widget::setFocus();
+       Widget::setFocus(focused);
 
     // TODO: Also handle and pass on blur events (focus lost)
 
+#ifndef NP_NO_CARBON
     EventRecord record;
     record.what = getFocusEvent;
     record.message = 0;
@@ -334,7 +360,8 @@ void PluginView::setFocus()
     record.modifiers = GetCurrentKeyModifiers();
 
     if (!dispatchNPEvent(record))
-        LOG(Events, "PluginView::setFocus(): Get-focus event not accepted");
+        LOG(Events, "PluginView::setFocus(%d): Focus event not accepted", focused);
+#endif
 }
 
 void PluginView::setParentVisible(bool visible)
@@ -355,16 +382,25 @@ void PluginView::setNPWindowIfNeeded()
     if (!m_isStarted || !parent() || !m_plugin->pluginFuncs()->setwindow)
         return;
 
-    CGContextRef newContextRef = cgHandleFor(platformPluginWidget());
-    if (!newContextRef)
-        return;
+    CGContextRef newContextRef = 0;
+    WindowRef newWindowRef = 0;
+    if (platformPluginWidget()) {
+        newContextRef = cgHandleFor(platformPluginWidget());
+        newWindowRef = nativeWindowFor(platformPluginWidget());
+        m_npWindow.type = NPWindowTypeWindow;
+    } else {
+        newContextRef = m_contextRef;
+        newWindowRef = m_fakeWindow;
+        m_npWindow.type = NPWindowTypeDrawable;
+    }
 
-    WindowRef newWindowRef = nativeWindowFor(platformPluginWidget());
-    if (!newWindowRef)
+    if (!newContextRef || !newWindowRef)
         return;
 
     m_npWindow.window = (void*)&m_npCgContext;
+#ifndef NP_NO_CARBON
     m_npCgContext.window = newWindowRef;
+#endif
     m_npCgContext.context = newContextRef;
 
     m_npWindow.x = m_windowRect.x();
@@ -373,13 +409,18 @@ void PluginView::setNPWindowIfNeeded()
     m_npWindow.height = m_windowRect.height();
 
     // TODO: (also clip against scrollbars, etc.)
-    m_npWindow.clipRect.left = 0;
-    m_npWindow.clipRect.top = 0;
-    m_npWindow.clipRect.right = m_windowRect.width();
-    m_npWindow.clipRect.bottom = m_windowRect.height();
+    m_npWindow.clipRect.left = max(0, m_windowRect.x());
+    m_npWindow.clipRect.top = max(0, m_windowRect.y());
+    m_npWindow.clipRect.right = m_windowRect.x() + m_windowRect.width();
+    m_npWindow.clipRect.bottom = m_windowRect.y() + m_windowRect.height();
+
+    LOG(Plugins, "PluginView::setNPWindowIfNeeded(): window=%p, context=%p,"
+            " window.x:%d window.y:%d window.width:%d window.height:%d window.clipRect size:%dx%d",
+            newWindowRef, newContextRef, m_npWindow.x, m_npWindow.y, m_npWindow.width, m_npWindow.height,
+            m_npWindow.clipRect.right - m_npWindow.clipRect.left, m_npWindow.clipRect.bottom - m_npWindow.clipRect.top);
 
     PluginView::setCurrentPluginView(this);
-    JSC::JSLock::DropAllLocks dropAllLocks(false);
+    JSC::JSLock::DropAllLocks dropAllLocks(JSC::SilenceAssertionsOnly);
     setCallingPlugin(true);
     m_plugin->pluginFuncs()->setwindow(m_instance, &m_npWindow);
     setCallingPlugin(false);
@@ -401,6 +442,17 @@ void PluginView::updatePluginWidget()
     IntPoint offset = topLevelOffsetFor(platformPluginWidget());
     m_windowRect.move(offset.x(), offset.y());
 
+    if (!platformPluginWidget()) {
+        if (m_windowRect.size() != oldWindowRect.size()) {
+            CGContextRelease(m_contextRef);
+#if PLATFORM(QT)
+            m_pixmap = QPixmap(m_windowRect.size());
+            m_pixmap.fill(Qt::transparent);
+            m_contextRef = m_pixmap.isNull() ? 0 : qt_mac_cg_context(&m_pixmap);
+#endif
+        }
+    }
+
     m_clipRect = windowClipRect();
     m_clipRect.move(-m_windowRect.x(), -m_windowRect.y());
 
@@ -410,7 +462,7 @@ void PluginView::updatePluginWidget()
 
 void PluginView::paint(GraphicsContext* context, const IntRect& rect)
 {
-    if (!m_isStarted) {
+    if (!m_isStarted || m_status != PluginStatusLoadedSuccessfully) {
         paintMissingPluginIcon(context, rect);
         return;
     }
@@ -420,6 +472,36 @@ void PluginView::paint(GraphicsContext* context, const IntRect& rect)
 
     setNPWindowIfNeeded();
 
+    CGContextRef cgContext = m_npCgContext.context;
+    if (!cgContext)
+        return;
+
+    CGContextSaveGState(cgContext);
+    if (platformPluginWidget()) {
+        IntPoint offset = frameRect().location();
+        CGContextTranslateCTM(cgContext, offset.x(), offset.y());
+    }
+
+    IntRect targetRect(frameRect());
+    targetRect.intersects(rect);
+
+    // clip the context so that plugin only updates the interested area.
+    CGRect r;
+    r.origin.x = targetRect.x() - frameRect().x();
+    r.origin.y = targetRect.y() - frameRect().y();
+    r.size.width = targetRect.width();
+    r.size.height = targetRect.height();
+    CGContextClipToRect(cgContext, r);
+
+    if (!platformPluginWidget() && m_isTransparent) { // clean the pixmap in transparent mode
+#if PLATFORM(QT)
+        QPainter painter(&m_pixmap);
+        painter.setCompositionMode(QPainter::CompositionMode_Clear);
+        painter.fillRect(QRectF(r.origin.x, r.origin.y, r.size.width, r.size.height), Qt::transparent);
+#endif
+    }
+
+#ifndef NP_NO_CARBON
     EventRecord event;
     event.what = updateEvt;
     event.message = (long unsigned int)m_npCgContext.window;
@@ -428,27 +510,37 @@ void PluginView::paint(GraphicsContext* context, const IntRect& rect)
     event.where.v = 0;
     event.modifiers = GetCurrentKeyModifiers();
 
-    CGContextRef cg = m_npCgContext.context;
-    CGContextSaveGState(cg);
-    IntPoint offset = frameRect().location();
-    CGContextTranslateCTM(cg, offset.x(), offset.y());
-
     if (!dispatchNPEvent(event))
         LOG(Events, "PluginView::paint(): Paint event not accepted");
+#endif
 
-    CGContextRestoreGState(cg);
+    CGContextRestoreGState(cgContext);
+
+    if (!platformPluginWidget()) {
+#if PLATFORM(QT)
+        QPainter* painter = context->platformContext();
+        painter->drawPixmap(targetRect.x(), targetRect.y(), m_pixmap, 
+                            targetRect.x() - frameRect().x(), targetRect.y() - frameRect().y(), targetRect.width(), targetRect.height());
+#endif
+    }
 }
 
 void PluginView::invalidateRect(const IntRect& rect)
 {
     if (platformPluginWidget())
+#if PLATFORM(QT)
         platformPluginWidget()->update(convertToContainingWindow(rect));
+#else
+        platformPluginWidget()->RefreshRect(convertToContainingWindow(rect));
+#endif
+    else
+        invalidateWindowlessPluginRect(rect);
 }
 
 void PluginView::invalidateRect(NPRect* rect)
 {
-    // TODO: optimize
-    invalidate();
+    IntRect r(rect->left, rect->top, rect->right - rect->left, rect->bottom - rect->top);
+    invalidateRect(r);
 }
 
 void PluginView::invalidateRegion(NPRegion region)
@@ -467,10 +559,15 @@ void PluginView::forceRedraw()
 
 void PluginView::handleMouseEvent(MouseEvent* event)
 {
+    if (!m_isStarted)
+        return;
+
+#ifndef NP_NO_CARBON
     EventRecord record;
 
     if (event->type() == eventNames().mousemoveEvent) {
         // Mouse movement is handled by null timer events
+        m_lastMousePos = mousePosForPlugin(event);
         return;
     } else if (event->type() == eventNames().mouseoverEvent) {
         record.what = adjustCursorEvent;
@@ -487,8 +584,7 @@ void PluginView::handleMouseEvent(MouseEvent* event)
     } else {
         return;
     }
-
-    record.where = globalMousePosForPlugin();
+    record.where = mousePosForPlugin(event);
     record.modifiers = modifiersForEvent(event);
 
     if (!event->buttonDown())
@@ -506,15 +602,20 @@ void PluginView::handleMouseEvent(MouseEvent* event)
     } else {
         event->setDefaultHandled();
     }
+#endif
 }
 
 void PluginView::handleKeyboardEvent(KeyboardEvent* event)
 {
+    if (!m_isStarted)
+        return;
+
     LOG(Plugins, "PluginView::handleKeyboardEvent() ----------------- ");
 
     LOG(Plugins, "PV::hKE(): KE.keyCode: 0x%02X, KE.charCode: %d",
             event->keyCode(), event->charCode());
 
+#ifndef NP_NO_CARBON
     EventRecord record;
 
     if (event->type() == eventNames().keydownEvent) {
@@ -566,15 +667,19 @@ void PluginView::handleKeyboardEvent(KeyboardEvent* event)
 
     LOG(Plugins, "PV::hKE(): record.modifiers: %d", record.modifiers);
 
+#if PLATFORM(QT)
     LOG(Plugins, "PV::hKE(): PKE.qtEvent()->nativeVirtualKey: 0x%02X, charCode: %d",
                keyCode, int(uchar(charCodes[0])));
+#endif
 
     if (!dispatchNPEvent(record))
         LOG(Events, "PluginView::handleKeyboardEvent(): Keyboard event type %d not accepted", record.what);
     else
         event->setDefaultHandled();
+#endif
 }
 
+#ifndef NP_NO_CARBON
 void PluginView::nullEventTimerFired(Timer<PluginView>*)
 {
     EventRecord record;
@@ -582,7 +687,7 @@ void PluginView::nullEventTimerFired(Timer<PluginView>*)
     record.what = nullEvent;
     record.message = 0;
     record.when = TickCount();
-    record.where = globalMousePosForPlugin();
+    record.where = m_lastMousePos;
     record.modifiers = GetCurrentKeyModifiers();
     if (!Button())
         record.modifiers |= btnState;
@@ -590,7 +695,9 @@ void PluginView::nullEventTimerFired(Timer<PluginView>*)
     if (!dispatchNPEvent(record))
         LOG(Events, "PluginView::nullEventTimerFired(): Null event not accepted");
 }
+#endif
 
+#ifndef NP_NO_CARBON
 static int modifiersForEvent(UIEventWithKeyState* event)
 {
     int modifiers = 0;
@@ -609,7 +716,9 @@ static int modifiersForEvent(UIEventWithKeyState* event)
 
      return modifiers;
 }
+#endif
 
+#ifndef NP_NO_CARBON
 static bool tigerOrBetter()
 {
     static SInt32 systemVersion = 0;
@@ -621,7 +730,9 @@ static bool tigerOrBetter()
 
     return systemVersion >= 0x1040;
 }
+#endif
 
+#ifndef NP_NO_CARBON
 Point PluginView::globalMousePosForPlugin() const
 {
     Point pos;
@@ -632,13 +743,49 @@ Point PluginView::globalMousePosForPlugin() const
     pos.h = short(pos.h * scaleFactor);
     pos.v = short(pos.v * scaleFactor);
 
+#if PLATFORM(WX)
+    // make sure the titlebar/toolbar size is included
+    WindowRef windowRef = nativeWindowFor(platformPluginWidget());
+    ::Rect content, structure;
+
+    GetWindowBounds(windowRef, kWindowStructureRgn, &structure);
+    GetWindowBounds(windowRef, kWindowContentRgn, &content);
+
+    int top = content.top  - structure.top;
+    pos.v -= top;
+#endif
+
     return pos;
 }
+#endif
 
+#ifndef NP_NO_CARBON
+Point PluginView::mousePosForPlugin(MouseEvent* event) const
+{
+    ASSERT(event);
+    if (platformPluginWidget())
+        return globalMousePosForPlugin();
+
+    if (event->button() == 2) {
+        // always pass the global position for right-click since Flash uses it to position the context menu
+        return globalMousePosForPlugin();
+    }
+
+    Point pos;
+    IntPoint postZoomPos = roundedIntPoint(m_element->renderer()->absoluteToLocal(event->absoluteLocation()));
+    pos.h = postZoomPos.x() + m_windowRect.x();
+    // The number 22 is the height of the title bar. As to why it figures in the calculation below
+    // is left as an exercise to the reader :-)
+    pos.v = postZoomPos.y() + m_windowRect.y() - 22;
+    return pos;
+}
+#endif
+
+#ifndef NP_NO_CARBON
 bool PluginView::dispatchNPEvent(NPEvent& event)
 {
     PluginView::setCurrentPluginView(this);
-    JSC::JSLock::DropAllLocks dropAllLocks(false);
+    JSC::JSLock::DropAllLocks dropAllLocks(JSC::SilenceAssertionsOnly);
     setCallingPlugin(true);
 
     bool accepted = m_plugin->pluginFuncs()->event(m_instance, &event);
@@ -647,28 +794,11 @@ bool PluginView::dispatchNPEvent(NPEvent& event)
     PluginView::setCurrentPluginView(0);
     return accepted;
 }
+#endif
 
 // ------------------- Miscellaneous  ------------------
 
-static const char* MozillaUserAgent = "Mozilla/5.0 (X11; U; Linux i686; en-US; rv:1.8.1) Gecko/20061010 Firefox/2.0";
-
-const char* PluginView::userAgent()
-{
-    if (m_plugin->quirks().contains(PluginQuirkWantsMozillaUserAgent))
-        return MozillaUserAgent;
-
-    if (m_userAgent.isNull())
-        m_userAgent = m_parentFrame->loader()->userAgent(m_url).utf8();
-
-    return m_userAgent.data();
-}
-
-const char* PluginView::userAgentStatic()
-{
-    return MozillaUserAgent;
-}
-
-NPError PluginView::handlePostReadFile(Vector<char>& buffer, uint32 len, const char* buf)
+NPError PluginView::handlePostReadFile(Vector<char>& buffer, uint32_t len, const char* buf)
 {
     String filename(buf, len);
 
@@ -693,10 +823,12 @@ NPError PluginView::handlePostReadFile(Vector<char>& buffer, uint32 len, const c
     return NPERR_NO_ERROR;
 }
 
+void PluginView::halt()
+{
+}
+
+void PluginView::restart()
+{
+}
+
 } // namespace WebCore
-
-#else
-
-#include "../PluginViewNone.cpp"
-
-#endif // !__LP64__

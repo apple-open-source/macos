@@ -1,5 +1,5 @@
 /*
-    Copyright (C) 2008 Nokia Corporation and/or its subsidiary(-ies)
+    Copyright (C) 2009 Nokia Corporation and/or its subsidiary(-ies)
 
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Library General Public
@@ -21,24 +21,47 @@
 #include "ResourceRequest.h"
 
 #include <qglobal.h>
-#if QT_VERSION >= 0x040400
 
 #include <QNetworkRequest>
 #include <QUrl>
 
 namespace WebCore {
 
-QNetworkRequest ResourceRequest::toNetworkRequest() const
+// Currently Qt allows three connections per host on symbian and six
+// for everyone else. The limit can be found in qhttpnetworkconnection.cpp.
+// To achieve the best result we want WebKit to schedule the jobs so we
+// are using the limit as found in Qt. To allow Qt to fill its queue
+// and prepare jobs we will schedule two more downloads.
+// Per TCP connection there is 1 current processed, 3 possibly pipelined
+// and 2 ready to re-fill the pipeline.
+unsigned initializeMaximumHTTPConnectionCountPerHost()
+{
+#ifdef Q_OS_SYMBIAN
+    return 3 * (1 + 3 + 2);
+#else
+    return 6 * (1 + 3 + 2);
+#endif
+}
+
+QNetworkRequest ResourceRequest::toNetworkRequest(QObject* originatingFrame) const
 {
     QNetworkRequest request;
     request.setUrl(url());
+#if QT_VERSION >= QT_VERSION_CHECK(4, 6, 0)
+    request.setOriginatingObject(originatingFrame);
+#endif
 
     const HTTPHeaderMap &headers = httpHeaderFields();
     for (HTTPHeaderMap::const_iterator it = headers.begin(), end = headers.end();
          it != end; ++it) {
         QByteArray name = QString(it->first).toAscii();
         QByteArray value = QString(it->second).toAscii();
-        request.setRawHeader(name, value);
+        // QNetworkRequest::setRawHeader() would remove the header if the value is null
+        // Make sure to set an empty header instead of null header.
+        if (!value.isNull())
+            request.setRawHeader(name, value);
+        else
+            request.setRawHeader(name, "");
     }
 
     switch (cachePolicy()) {
@@ -62,4 +85,3 @@ QNetworkRequest ResourceRequest::toNetworkRequest() const
 
 }
 
-#endif

@@ -30,8 +30,6 @@
  *   Author:  Juergen Pfeifer, 1995,1997                                    *
  ****************************************************************************/
 
-#include "curses.priv.h"
-#include "test.priv.h"
 #include "form.priv.h"
 
 MODULE_ID("$Id: frm_data.c,v 1.14 2005/11/26 15:34:01 tom Exp $")

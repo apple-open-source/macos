@@ -332,6 +332,9 @@ struct SSLContext
 	SSLClientAuthenticationType	negAuthType;
 };
 
+/** sslContext.c **/
+OSStatus SSLUpdateNegotiatedClientAuthType(SSLContextRef ctx);
+
 #ifdef __cplusplus
 }
 #endif

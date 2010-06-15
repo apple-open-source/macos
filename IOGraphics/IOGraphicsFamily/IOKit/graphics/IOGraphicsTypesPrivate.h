@@ -218,6 +218,7 @@ enum
     kDPIRQRemoteControlCommandPending = 0x01,
     kDPIRQAutomatedTestRequest        = 0x02,
     kDPIRQContentProtection           = 0x04,
+    kDPIRQMCCS                        = 0x08,
     kDPIRQSinkSpecific                = 0x40,
 };
 

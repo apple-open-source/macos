@@ -28,9 +28,10 @@
 
 namespace WebCore {
 
+class BeforeTextInsertedEvent;
 class VisibleSelection;
 
-class HTMLTextAreaElement : public HTMLFormControlElementWithState {
+class HTMLTextAreaElement : public HTMLTextFormControlElement {
 public:
     HTMLTextAreaElement(const QualifiedName&, Document*, HTMLFormElement* = 0);
 
@@ -52,21 +53,13 @@ public:
 
     virtual bool isTextFormControl() const { return true; }
 
-    int selectionStart();
-    int selectionEnd();
-
-    void setSelectionStart(int);
-    void setSelectionEnd(int);
-
-    void select();
-    void setSelectionRange(int, int);
+    virtual bool valueMissing() const { return isRequiredFormControl() && !disabled() && !readOnly() && value().isEmpty(); }
 
     virtual void childrenChanged(bool changedByParser = false, Node* beforeChange = 0, Node* afterChange = 0, int childCountDelta = 0);
     virtual void parseMappedAttribute(MappedAttribute*);
     virtual RenderObject* createRenderer(RenderArena*, RenderStyle*);
     virtual bool appendFormData(FormDataList&, bool);
     virtual void reset();
-    virtual void defaultEventHandler(Event*);
     virtual bool isMouseFocusable() const;
     virtual bool isKeyboardFocusable(KeyboardEvent*) const;
     virtual void updateFocusAppearance(bool restorePreviousSelection);
@@ -75,6 +68,10 @@ public:
     void setValue(const String&);
     String defaultValue() const;
     void setDefaultValue(const String&);
+    int textLength() const { return value().length(); }
+    int maxLength() const;
+    void setMaxLength(int, ExceptionCode&);
+    virtual bool tooLong() const;
     
     void rendererWillBeDestroyed();
     
@@ -87,14 +84,26 @@ public:
     void setRows(int);
     
     void cacheSelection(int s, int e) { m_cachedSelectionStart = s; m_cachedSelectionEnd = e; };
-    VisibleSelection selection() const;
 
     virtual bool shouldUseInputMethod() const;
 
 private:
     enum WrapMethod { NoWrap, SoftWrap, HardWrap };
 
+    void handleBeforeTextInsertedEvent(BeforeTextInsertedEvent*) const;
+    static String sanitizeUserInputValue(const String&, unsigned maxLength);
     void updateValue() const;
+    void setNonDirtyValue(const String&);
+
+    virtual bool supportsPlaceholder() const { return true; }
+    virtual bool isEmptyValue() const { return value().isEmpty(); }
+    virtual int cachedSelectionStart() const { return m_cachedSelectionStart; }
+    virtual int cachedSelectionEnd() const { return m_cachedSelectionEnd; }
+
+    virtual bool isOptionalFormControl() const { return !isRequiredFormControl(); }
+    virtual bool isRequiredFormControl() const { return required(); }
+
+    virtual void defaultEventHandler(Event*);
 
     int m_rows;
     int m_cols;
@@ -102,6 +111,7 @@ private:
     mutable String m_value;
     int m_cachedSelectionStart;
     int m_cachedSelectionEnd;
+    mutable bool m_isDirty;
 };
 
 } //namespace

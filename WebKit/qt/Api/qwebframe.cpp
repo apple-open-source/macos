@@ -20,73 +20,66 @@
 
 #include "config.h"
 #include "qwebframe.h"
-#include "qwebpage.h"
-#include "qwebpage_p.h"
-#include "qwebframe_p.h"
-#include "qwebsecurityorigin.h"
-#include "qwebsecurityorigin_p.h"
-#include "qwebelement.h"
 
+#include "Bridge.h"
+#include "CallFrame.h"
+#include "Document.h"
 #include "DocumentLoader.h"
+#include "DragData.h"
+#include "Element.h"
 #include "FocusController.h"
-#include "FrameLoaderClientQt.h"
 #include "Frame.h"
+#include "FrameLoaderClientQt.h"
 #include "FrameTree.h"
 #include "FrameView.h"
+#include "GCController.h"
+#include "GraphicsContext.h"
+#include "HTMLMetaElement.h"
+#include "HitTestResult.h"
 #include "IconDatabase.h"
 #include "InspectorController.h"
-#include "Page.h"
-#include "PutPropertySlot.h"
-#include "ResourceRequest.h"
-#include "RenderView.h"
-#include "SelectionController.h"
-#include "Scrollbar.h"
-#include "PrintContext.h"
-#include "SubstituteData.h"
-
-#include "markup.h"
-#include "htmlediting.h"
-#include "RenderTreeAsText.h"
-#include "Element.h"
-#include "Document.h"
-#include "DragData.h"
-#include "RenderView.h"
-#include "GraphicsContext.h"
-#include "PlatformMouseEvent.h"
-#include "PlatformWheelEvent.h"
-#include "GraphicsContext.h"
-#include "HitTestResult.h"
-
-#include "CallFrame.h"
 #include "JSDOMBinding.h"
-#include "JSDOMWindow.h"
+#include "JSDOMWindowBase.h"
 #include "JSLock.h"
 #include "JSObject.h"
-#include "qt_instance.h"
-#include "qt_runtime.h"
-#include "runtime.h"
-#include "runtime_object.h"
-#include "runtime_root.h"
+#include "NodeList.h"
+#include "Page.h"
+#include "PlatformMouseEvent.h"
+#include "PlatformWheelEvent.h"
+#include "PrintContext.h"
+#include "PutPropertySlot.h"
+#include "RenderTreeAsText.h"
+#include "RenderView.h"
+#include "ResourceRequest.h"
 #include "ScriptController.h"
 #include "ScriptSourceCode.h"
 #include "ScriptValue.h"
-
+#include "Scrollbar.h"
+#include "SelectionController.h"
+#include "SubstituteData.h"
+#include "SVGSMILElement.h"
+#include "TiledBackingStore.h"
+#include "htmlediting.h"
+#include "markup.h"
+#include "qt_instance.h"
+#include "qt_runtime.h"
+#include "qwebelement.h"
+#include "qwebframe_p.h"
+#include "qwebpage.h"
+#include "qwebpage_p.h"
+#include "qwebsecurityorigin.h"
+#include "qwebsecurityorigin_p.h"
+#include "runtime_object.h"
+#include "runtime_root.h"
 #include "wtf/HashMap.h"
-
+#include <QMultiMap>
 #include <qdebug.h>
 #include <qevent.h>
 #include <qfileinfo.h>
 #include <qpainter.h>
-#include <QMultiMap>
-#if QT_VERSION >= 0x040400
-#include <qnetworkrequest.h>
-#else
-#include "qwebnetworkinterface.h"
-#endif
-#include <qregion.h>
 #include <qprinter.h>
-#include "HTMLMetaElement.h"
-#include "NodeList.h"
+#include <qregion.h>
+#include <qnetworkrequest.h>
 
 using namespace WebCore;
 
@@ -95,106 +88,128 @@ QT_BEGIN_NAMESPACE
 extern Q_GUI_EXPORT int qt_defaultDpi();
 QT_END_NAMESPACE
 
-void QWEBKIT_EXPORT qt_drt_setJavaScriptProfilingEnabled(QWebFrame* qframe, bool enabled)
+static bool webframe_scrollOverflow(WebCore::Frame* frame, int dx, int dy, const QPoint& pos)
 {
-#if ENABLE(JAVASCRIPT_DEBUGGER)
-    Frame* frame = QWebFramePrivate::core(qframe);
-    InspectorController* controller = frame->page()->inspectorController();
-    if (!controller)
+    if (!frame || !frame->document() || !frame->view() || !frame->eventHandler())
+        return false;
+
+    QPoint contentsPos = frame->view()->windowToContents(pos);
+    Node* node = frame->document()->elementFromPoint(contentsPos.x(), contentsPos.y());
+    if (!node)
+        return false;
+
+    RenderObject* renderer = node->renderer();
+    if (!renderer)
+        return false;
+
+    if (renderer->isListBox())
+        return false;
+
+    RenderLayer* renderLayer = renderer->enclosingLayer();
+    if (!renderLayer)
+        return false;
+
+    bool scrolledHorizontal = false;
+    bool scrolledVertical = false;
+
+    if (dx > 0)
+        scrolledHorizontal = renderLayer->scroll(ScrollRight, ScrollByPixel, dx);
+    else if (dx < 0)
+        scrolledHorizontal = renderLayer->scroll(ScrollLeft, ScrollByPixel, qAbs(dx));
+
+    if (dy > 0)
+        scrolledVertical = renderLayer->scroll(ScrollDown, ScrollByPixel, dy);
+    else if (dy < 0)
+        scrolledVertical = renderLayer->scroll(ScrollUp, ScrollByPixel, qAbs(dy));
+
+    return (scrolledHorizontal || scrolledVertical);
+}
+
+
+/*!
+  \internal
+  Scrolls nested frames starting at this frame, \a dx pixels to the right 
+  and \a dy pixels downward. Both \a dx and \a dy may be negative. First attempts
+  to scroll elements with CSS overflow at position pos, followed by this frame. If this 
+  frame doesn't scroll, attempts to scroll the parent
+*/
+void QWEBKIT_EXPORT qtwebkit_webframe_scrollRecursively(QWebFrame* qFrame, int dx, int dy, const QPoint& pos)
+{
+    if (!qFrame)
         return;
-    if (enabled)
-        controller->enableProfiler();
-    else
-        controller->disableProfiler();
-#endif
+
+    if (webframe_scrollOverflow(QWebFramePrivate::core(qFrame), dx, dy, pos))
+        return;
+
+    bool scrollHorizontal = false;
+    bool scrollVertical = false;
+
+    do {
+        if (dx > 0)  // scroll right
+            scrollHorizontal = qFrame->scrollBarValue(Qt::Horizontal) < qFrame->scrollBarMaximum(Qt::Horizontal);
+        else if (dx < 0)  // scroll left
+            scrollHorizontal = qFrame->scrollBarValue(Qt::Horizontal) > qFrame->scrollBarMinimum(Qt::Horizontal);
+
+        if (dy > 0)  // scroll down
+            scrollVertical = qFrame->scrollBarValue(Qt::Vertical) < qFrame->scrollBarMaximum(Qt::Vertical);
+            else if (dy < 0) //scroll up
+            scrollVertical = qFrame->scrollBarValue(Qt::Vertical) > qFrame->scrollBarMinimum(Qt::Vertical);
+
+        if (scrollHorizontal || scrollVertical) {
+            qFrame->scroll(dx, dy);
+            return;
+        }
+
+        qFrame = qFrame->parentFrame();
+    } while (qFrame);
 }
 
-// Pause a given CSS animation or transition on the target node at a specific time.
-// If the animation or transition is already paused, it will update its pause time.
-// This method is only intended to be used for testing the CSS animation and transition system.
-bool QWEBKIT_EXPORT qt_drt_pauseAnimation(QWebFrame *qframe, const QString &animationName, double time, const QString &elementId)
+QWebFrameData::QWebFrameData(WebCore::Page* parentPage, WebCore::Frame* parentFrame,
+                             WebCore::HTMLFrameOwnerElement* ownerFrameElement,
+                             const WebCore::String& frameName)
+    : name(frameName)
+    , ownerElement(ownerFrameElement)
+    , page(parentPage)
+    , allowsScrolling(true)
+    , marginWidth(0)
+    , marginHeight(0)
 {
-    Frame* frame = QWebFramePrivate::core(qframe);
-    if (!frame)
-        return false;
+    frameLoaderClient = new FrameLoaderClientQt();
+    frame = Frame::create(page, ownerElement, frameLoaderClient);
 
-    AnimationController* controller = frame->animation();
-    if (!controller)
-        return false;
-
-    Document* doc = frame->document();
-    Q_ASSERT(doc);
-
-    Node* coreNode = doc->getElementById(elementId);
-    if (!coreNode || !coreNode->renderer())
-        return false;
-
-    return controller->pauseAnimationAtTime(coreNode->renderer(), animationName, time);
+    // FIXME: All of the below should probably be moved over into WebCore
+    frame->tree()->setName(name);
+    if (parentFrame)
+        parentFrame->tree()->appendChild(frame);
 }
 
-bool QWEBKIT_EXPORT qt_drt_pauseTransitionOfProperty(QWebFrame *qframe, const QString &propertyName, double time, const QString &elementId)
-{
-    Frame* frame = QWebFramePrivate::core(qframe);
-    if (!frame)
-        return false;
-
-    AnimationController* controller = frame->animation();
-    if (!controller)
-        return false;
-
-    Document* doc = frame->document();
-    Q_ASSERT(doc);
-
-    Node* coreNode = doc->getElementById(elementId);
-    if (!coreNode || !coreNode->renderer())
-        return false;
-
-    return controller->pauseTransitionAtTime(coreNode->renderer(), propertyName, time);
-}
-
-// Returns the total number of currently running animations (includes both CSS transitions and CSS animations).
-int QWEBKIT_EXPORT qt_drt_numberOfActiveAnimations(QWebFrame *qframe)
-{
-    Frame* frame = QWebFramePrivate::core(qframe);
-    if (!frame)
-        return false;
-
-    AnimationController* controller = frame->animation();
-    if (!controller)
-        return false;
-
-    return controller->numberOfActiveAnimations();
-}
-
-void QWEBKIT_EXPORT qt_drt_clearFrameName(QWebFrame* qFrame)
-{
-    Frame* frame = QWebFramePrivate::core(qFrame);
-    frame->tree()->clearName();
-}
-
-void QWebFramePrivate::init(QWebFrame *qframe, WebCore::Page *webcorePage, QWebFrameData *frameData)
+void QWebFramePrivate::init(QWebFrame *qframe, QWebFrameData *frameData)
 {
     q = qframe;
 
     allowsScrolling = frameData->allowsScrolling;
     marginWidth = frameData->marginWidth;
     marginHeight = frameData->marginHeight;
-
-    frameLoaderClient = new FrameLoaderClientQt();
-    RefPtr<Frame> newFrame = Frame::create(webcorePage, frameData->ownerElement, frameLoaderClient);
-    frame = newFrame.get();
+    frame = frameData->frame.get();
+    frameLoaderClient = frameData->frameLoaderClient;
     frameLoaderClient->setFrame(qframe, frame);
 
-    // FIXME: All of the below should probably be moved over into WebCore
-    frame->tree()->setName(frameData->name);
-    if (QWebFrame* _parentFrame = parentFrame())
-        QWebFramePrivate::core(_parentFrame)->tree()->appendChild(frame);
-
-    // balanced by adoptRef in FrameLoaderClientQt::createFrame
-    if (frameData->ownerElement)
-        frame->ref();
-
     frame->init();
+}
+
+void QWebFramePrivate::setPage(QWebPage* newPage)
+{
+    if (page == newPage)
+        return;
+
+    // The QWebFrame is created as a child of QWebPage or a parent QWebFrame.
+    // That adds it to QObject's internal children list and ensures it will be
+    // deleted when parent QWebPage is deleted. Reparent if needed.
+    if (q->parent() == qobject_cast<QObject*>(page))
+        q->setParent(newPage);
+
+    page = newPage;
+    emit q->pageChanged();
 }
 
 WebCore::Scrollbar* QWebFramePrivate::horizontalScrollBar() const
@@ -211,7 +226,42 @@ WebCore::Scrollbar* QWebFramePrivate::verticalScrollBar() const
     return frame->view()->verticalScrollbar();
 }
 
-void QWebFramePrivate::renderPrivate(QPainter *painter, const QRegion &clip, bool contents)
+#if ENABLE(TILED_BACKING_STORE)
+void QWebFramePrivate::renderFromTiledBackingStore(GraphicsContext* context, const QRegion& clip)
+{
+    ASSERT(frame->tiledBackingStore());
+
+    if (!frame->view() || !frame->contentRenderer())
+        return;
+
+    QVector<QRect> vector = clip.rects();
+    if (vector.isEmpty())
+        return;
+
+    QPainter* painter = context->platformContext();
+
+    WebCore::FrameView* view = frame->view();
+    
+    int scrollX = view->scrollX();
+    int scrollY = view->scrollY();
+    context->translate(-scrollX, -scrollY);
+
+    for (int i = 0; i < vector.size(); ++i) {
+        const QRect& clipRect = vector.at(i);
+
+        painter->save();
+        
+        QRect rect = clipRect.translated(scrollX, scrollY);
+        painter->setClipRect(rect, Qt::IntersectClip);
+
+        frame->tiledBackingStore()->paint(context, rect);
+
+        painter->restore();
+    }
+}
+#endif
+
+void QWebFramePrivate::renderRelativeCoords(GraphicsContext* context, QWebFrame::RenderLayer layer, const QRegion& clip)
 {
     if (!frame->view() || !frame->contentRenderer())
         return;
@@ -220,24 +270,59 @@ void QWebFramePrivate::renderPrivate(QPainter *painter, const QRegion &clip, boo
     if (vector.isEmpty())
         return;
 
+    QPainter* painter = context->platformContext();
+
     WebCore::FrameView* view = frame->view();
     view->layoutIfNeededRecursive();
 
-    GraphicsContext context(painter);
-
-    if (!contents)
-        view->paint(&context, vector.first());
-    else
-        view->paintContents(&context, vector.first());
-
-    for (int i = 1; i < vector.size(); ++i) {
+    for (int i = 0; i < vector.size(); ++i) {
         const QRect& clipRect = vector.at(i);
+
+        QRect intersectedRect = clipRect.intersected(view->frameRect());
+
         painter->save();
         painter->setClipRect(clipRect, Qt::IntersectClip);
-        if (!contents)
-            view->paint(&context, clipRect);
-        else
-            view->paintContents(&context, clipRect);
+
+        int x = view->x();
+        int y = view->y();
+
+        if (layer & QWebFrame::ContentsLayer) {
+            context->save();
+
+            int scrollX = view->scrollX();
+            int scrollY = view->scrollY();
+
+            QRect rect = intersectedRect;
+            context->translate(x, y);
+            rect.translate(-x, -y);
+            context->translate(-scrollX, -scrollY);
+            rect.translate(scrollX, scrollY);
+            context->clip(view->visibleContentRect());
+
+            view->paintContents(context, rect);
+
+            context->restore();
+        }
+
+        if (layer & QWebFrame::ScrollBarLayer
+            && !view->scrollbarsSuppressed()
+            && (view->horizontalScrollbar() || view->verticalScrollbar())) {
+            context->save();
+
+            QRect rect = intersectedRect;
+            context->translate(x, y);
+            rect.translate(-x, -y);
+
+            view->paintScrollbars(context, rect);
+
+            context->restore();
+        }
+
+#if ENABLE(PAN_SCROLLING)
+        if (layer & QWebFrame::PanIconLayer)
+            view->paintPanScrollIcon(context);
+#endif
+
         painter->restore();
     }
 }
@@ -246,6 +331,8 @@ void QWebFramePrivate::renderPrivate(QPainter *painter, const QRegion &clip, boo
     \class QWebFrame
     \since 4.4
     \brief The QWebFrame class represents a frame in a web page.
+
+    \inmodule QtWebKit
 
     QWebFrame represents a frame inside a web page. Each QWebPage
     object contains at least one frame, the main frame, obtained using
@@ -256,8 +343,15 @@ void QWebFramePrivate::renderPrivate(QPainter *painter, const QRegion &clip, boo
     the HTML content readily available, you can use setHtml() instead.
 
     The page() function returns a pointer to the web page object. See
-    \l{Elements of QWebView} for an explanation of how web
+    \l{QWebView}{Elements of QWebView} for an explanation of how web
     frames are related to a web page and web view.
+
+    The QWebFrame class also offers methods to retrieve both the URL currently
+    loaded by the frame (see url()) as well as the URL originally requested
+    to be loaded (see requestedUrl()). These methods make possible the retrieval
+    of the URL before and after a DNS resolution or a redirection occurs during
+    the load process. The requestedUrl() also matches to the URL added to the
+    frame history (\l{QWebHistory}) if load is successful.
 
     The title of an HTML frame can be accessed with the title() property.
     Additionally, a frame may also specify an icon, which can be accessed
@@ -281,12 +375,25 @@ void QWebFramePrivate::renderPrivate(QPainter *painter, const QRegion &clip, boo
     \sa QWebPage
 */
 
+/*!
+    \enum QWebFrame::RenderLayer
+
+    This enum describes the layers available for rendering using \l{QWebFrame::}{render()}.
+    The layers can be OR-ed together from the following list:
+
+    \value ContentsLayer The web content of the frame
+    \value ScrollBarLayer The scrollbars of the frame
+    \value PanIconLayer The icon used when panning the frame
+
+    \value AllLayers Includes all the above layers
+*/
+
 QWebFrame::QWebFrame(QWebPage *parent, QWebFrameData *frameData)
     : QObject(parent)
     , d(new QWebFramePrivate)
 {
     d->page = parent;
-    d->init(this, parent->d->page, frameData);
+    d->init(this, frameData);
 
     if (!frameData->url.isEmpty()) {
         WebCore::ResourceRequest request(frameData->url, frameData->referrer);
@@ -299,7 +406,7 @@ QWebFrame::QWebFrame(QWebFrame *parent, QWebFrameData *frameData)
     , d(new QWebFramePrivate)
 {
     d->page = parent->d->page;
-    d->init(this, parent->d->page->d->page, frameData);
+    d->init(this, frameData);
 }
 
 QWebFrame::~QWebFrame()
@@ -355,8 +462,8 @@ void QWebFrame::addToJavaScriptWindowObject(const QString &name, QObject *object
     if (!page()->settings()->testAttribute(QWebSettings::JavascriptEnabled))
         return;
 
-    JSC::JSLock lock(false);
-    JSDOMWindow* window = toJSDOMWindow(d->frame);
+    JSC::JSLock lock(JSC::SilenceAssertionsOnly);
+    JSDOMWindow* window = toJSDOMWindow(d->frame, mainThreadNormalWorld());
     JSC::Bindings::RootObject* root = d->frame->script()->bindingRootObject();
     if (!window) {
         qDebug() << "Warning: couldn't get window object";
@@ -396,7 +503,9 @@ QString QWebFrame::toPlainText() const
         d->frame->view()->layout();
 
     Element *documentElement = d->frame->document()->documentElement();
-    return documentElement->innerText();
+    if (documentElement)
+        return documentElement->innerText();
+    return QString();
 }
 
 /*!
@@ -408,7 +517,7 @@ QString QWebFrame::renderTreeDump() const
     if (d->frame->view() && d->frame->view()->layoutPending())
         d->frame->view()->layout();
 
-    return externalRepresentation(d->frame->contentRenderer());
+    return externalRepresentation(d->frame);
 }
 
 /*!
@@ -422,7 +531,7 @@ QString QWebFrame::title() const
 {
     if (d->frame->document())
         return d->frame->loader()->documentLoader()->title();
-    else return QString();
+    return QString();
 }
 
 /*!
@@ -458,10 +567,10 @@ QString QWebFrame::title() const
 */
 QMultiMap<QString, QString> QWebFrame::metaData() const
 {
-    if(!d->frame->document())
-       return QMap<QString,QString>();
+    if (!d->frame->document())
+       return QMap<QString, QString>();
 
-    QMultiMap<QString,QString> map;
+    QMultiMap<QString, QString> map;
     Document* doc = d->frame->document();
     RefPtr<NodeList> list = doc->getElementsByTagName("meta");
     unsigned len = list->length();
@@ -489,8 +598,8 @@ static inline QUrl ensureAbsoluteUrl(const QUrl &url)
 
 void QWebFrame::setUrl(const QUrl &url)
 {
-    d->frame->loader()->begin(ensureAbsoluteUrl(url));
-    d->frame->loader()->end();
+    d->frame->loader()->writer()->begin(ensureAbsoluteUrl(url));
+    d->frame->loader()->writer()->end();
     load(ensureAbsoluteUrl(url));
 }
 
@@ -500,6 +609,39 @@ QUrl QWebFrame::url() const
 }
 
 /*!
+    \since 4.6
+    \property QWebFrame::requestedUrl
+
+    The URL requested to loaded by the frame currently viewed. The URL may differ from
+    the one returned by url() if a DNS resolution or a redirection occurs.
+
+    \sa url(), setUrl()
+*/
+QUrl QWebFrame::requestedUrl() const
+{
+    // There are some possible edge cases to be handled here,
+    // apart from checking if activeDocumentLoader is valid:
+    //
+    // * Method can be called while processing an unsucessful load.
+    //   In this case, frameLoaderClient will hold the current error
+    //   (m_loadError), and we will make use of it to recover the 'failingURL'.
+    // * If the 'failingURL' holds a null'ed string though, we fallback
+    //   to 'outgoingReferrer' (it yet is safer than originalRequest).
+    FrameLoader* loader = d->frame->loader();
+    FrameLoaderClientQt* loaderClient = d->frameLoaderClient;
+
+    if (!loader->activeDocumentLoader()
+        || !loaderClient->m_loadError.isNull()) {
+        if (!loaderClient->m_loadError.failingURL().isNull())
+            return QUrl(loaderClient->m_loadError.failingURL());
+        else if (!loader->outgoingReferrer().isEmpty())
+            return QUrl(loader->outgoingReferrer());
+    }
+
+    return loader->originalRequest().url();
+}
+/*!
+    \since 4.6
     \property QWebFrame::baseUrl
     \brief the base URL of the frame, can be used to resolve relative URLs
     \since 4.6
@@ -532,6 +674,8 @@ QString QWebFrame::frameName() const
 
 /*!
   The web page that contains this frame.
+
+  \sa pageChanged()
 */
 QWebPage *QWebFrame::page() const
 {
@@ -547,50 +691,8 @@ QWebPage *QWebFrame::page() const
 */
 void QWebFrame::load(const QUrl &url)
 {
-#if QT_VERSION < 0x040400
-    load(QWebNetworkRequest(ensureAbsoluteUrl(url)));
-#else
     load(QNetworkRequest(ensureAbsoluteUrl(url)));
-#endif
 }
-
-#if QT_VERSION < 0x040400
-/*!
-  Loads a network request, \a req, into this frame.
-
-  \note The view remains the same until enough data has arrived to display the new url.
-*/
-void QWebFrame::load(const QWebNetworkRequest &req)
-{
-    if (d->parentFrame())
-        d->page->d->insideOpenCall = true;
-
-    QUrl url = ensureAbsoluteUrl(req.url());
-    QHttpRequestHeader httpHeader = req.httpHeader();
-    QByteArray postData = req.postData();
-
-    WebCore::ResourceRequest request(url);
-
-    QString method = httpHeader.method();
-    if (!method.isEmpty())
-        request.setHTTPMethod(method);
-
-    QList<QPair<QString, QString> > values = httpHeader.values();
-    for (int i = 0; i < values.size(); ++i) {
-        const QPair<QString, QString> &val = values.at(i);
-        request.addHTTPHeaderField(val.first, val.second);
-    }
-
-    if (!postData.isEmpty())
-        request.setHTTPBody(WebCore::FormData::create(postData.constData(), postData.size()));
-
-    d->frame->loader()->load(request, false);
-
-    if (d->parentFrame())
-        d->page->d->insideOpenCall = false;
-}
-
-#else
 
 /*!
   Loads a network request, \a req, into this frame, using the method specified in \a
@@ -598,7 +700,7 @@ void QWebFrame::load(const QWebNetworkRequest &req)
 
   \a body is optional and is only used for POST operations.
 
-  \note The view remains the same until enough data has arrived to display the new \a url.
+  \note The view remains the same until enough data has arrived to display the new content.
 
   \sa setUrl()
 */
@@ -626,6 +728,11 @@ void QWebFrame::load(const QNetworkRequest &req,
         case QNetworkAccessManager::PostOperation:
             request.setHTTPMethod("POST");
             break;
+#if QT_VERSION >= 0x040600
+        case QNetworkAccessManager::DeleteOperation:
+            request.setHTTPMethod("DELETE");
+            break;
+#endif
         case QNetworkAccessManager::UnknownOperation:
             // eh?
             break;
@@ -645,7 +752,6 @@ void QWebFrame::load(const QNetworkRequest &req,
     if (d->parentFrame())
         d->page->d->insideOpenCall = false;
 }
-#endif
 
 /*!
   Sets the content of this frame to \a html. \a baseUrl is optional and used to resolve relative
@@ -658,7 +764,9 @@ void QWebFrame::load(const QNetworkRequest &req,
   script can be specified through the charset attribute of the HTML script tag. It is also possible
   for the encoding to be specified by web server.
 
-  \sa toHtml()
+  \note This method will not affect session or global history for the frame.
+
+  \sa toHtml(), setContent()
 */
 void QWebFrame::setHtml(const QString &html, const QUrl &baseUrl)
 {
@@ -666,7 +774,7 @@ void QWebFrame::setHtml(const QString &html, const QUrl &baseUrl)
     WebCore::ResourceRequest request(kurl);
     const QByteArray utf8 = html.toUtf8();
     WTF::RefPtr<WebCore::SharedBuffer> data = WebCore::SharedBuffer::create(utf8.constData(), utf8.length());
-    WebCore::SubstituteData substituteData(data, WebCore::String("text/html"), WebCore::String("utf-8"), kurl);
+    WebCore::SubstituteData substituteData(data, WebCore::String("text/html"), WebCore::String("utf-8"), KURL());
     d->frame->loader()->load(request, substituteData, false);
 }
 
@@ -679,7 +787,9 @@ void QWebFrame::setHtml(const QString &html, const QUrl &baseUrl)
 
   The \a data is loaded immediately; external objects are loaded asynchronously.
 
-  \sa toHtml()
+  \note This method will not affect session or global history for the frame.
+
+  \sa toHtml(), setHtml()
 */
 void QWebFrame::setContent(const QByteArray &data, const QString &mimeType, const QUrl &baseUrl)
 {
@@ -689,10 +799,9 @@ void QWebFrame::setContent(const QByteArray &data, const QString &mimeType, cons
     QString actualMimeType = mimeType;
     if (actualMimeType.isEmpty())
         actualMimeType = QLatin1String("text/html");
-    WebCore::SubstituteData substituteData(buffer, WebCore::String(actualMimeType), WebCore::String(), kurl);
+    WebCore::SubstituteData substituteData(buffer, WebCore::String(actualMimeType), WebCore::String(), KURL());
     d->frame->loader()->load(request, substituteData, false);
 }
-
 
 /*!
   Returns the parent frame of this frame, or 0 if the frame is the web pages
@@ -750,14 +859,14 @@ void QWebFrame::setScrollBarPolicy(Qt::Orientation orientation, Qt::ScrollBarPol
     if (orientation == Qt::Horizontal) {
         d->horizontalScrollBarPolicy = policy;
         if (d->frame->view()) {
-            d->frame->view()->setHorizontalScrollbarMode((ScrollbarMode)policy);
-            d->frame->view()->updateDefaultScrollbarState();
+            d->frame->view()->setHorizontalScrollbarMode((ScrollbarMode)policy, policy != Qt::ScrollBarAsNeeded /* lock */);
+            d->frame->view()->updateCanHaveScrollbars();
         }
     } else {
         d->verticalScrollBarPolicy = policy;
         if (d->frame->view()) {
-            d->frame->view()->setVerticalScrollbarMode((ScrollbarMode)policy);
-            d->frame->view()->updateDefaultScrollbarState();
+            d->frame->view()->setVerticalScrollbarMode((ScrollbarMode)policy, policy != Qt::ScrollBarAsNeeded /* lock */);
+            d->frame->view()->updateCanHaveScrollbars();
         }
     }
 }
@@ -794,9 +903,8 @@ int QWebFrame::scrollBarValue(Qt::Orientation orientation) const
 {
     Scrollbar *sb;
     sb = (orientation == Qt::Horizontal) ? d->horizontalScrollBar() : d->verticalScrollBar();
-    if (sb) {
+    if (sb)
         return sb->value();
-    }
     return 0;
 }
 
@@ -824,6 +932,7 @@ int QWebFrame::scrollBarMaximum(Qt::Orientation orientation) const
 */
 int QWebFrame::scrollBarMinimum(Qt::Orientation orientation) const
 {
+    Q_UNUSED(orientation)
     return 0;
 }
 
@@ -846,7 +955,7 @@ QRect QWebFrame::scrollBarGeometry(Qt::Orientation orientation) const
   \since 4.5
   Scrolls the frame \a dx pixels to the right and \a dy pixels downward. Both
   \a dx and \a dy may be negative.
-  
+
   \sa QWebFrame::scrollPosition
 */
 
@@ -854,7 +963,7 @@ void QWebFrame::scroll(int dx, int dy)
 {
     if (!d->frame->view())
         return;
-    
+
     d->frame->view()->scrollBy(IntSize(dx, dy));
 }
 
@@ -867,7 +976,7 @@ void QWebFrame::scroll(int dx, int dy)
 QPoint QWebFrame::scrollPosition() const
 {
     if (!d->frame->view())
-        return QPoint(0,0);
+        return QPoint(0, 0);
 
     IntSize ofs = d->frame->view()->scrollOffset();
     return QPoint(ofs.width(), ofs.height());
@@ -882,33 +991,60 @@ void QWebFrame::setScrollPosition(const QPoint &pos)
 }
 
 /*!
-  Render the frame into \a painter clipping to \a clip.
+  \since 4.7
+  Scrolls the frame to the given \a anchor name.
+*/
+void QWebFrame::scrollToAnchor(const QString& anchor)
+{
+    FrameView *view = d->frame->view();
+    if (view)
+        view->scrollToAnchor(anchor);
+}
+
+/*!
+  \since 4.6
+  Render the \a layer of the frame using \a painter clipping to \a clip.
 
   \sa print()
 */
-void QWebFrame::render(QPainter *painter, const QRegion &clip)
+
+void QWebFrame::render(QPainter* painter, RenderLayer layer, const QRegion& clip)
 {
-    d->renderPrivate(painter, clip);
+    GraphicsContext context(painter);
+    if (context.paintingDisabled() && !context.updatingControlTints())
+        return;
+
+    if (!clip.isEmpty())
+        d->renderRelativeCoords(&context, layer, clip);
+    else if (d->frame->view())
+        d->renderRelativeCoords(&context, layer, QRegion(d->frame->view()->frameRect()));
+}
+
+/*!
+  Render the frame into \a painter clipping to \a clip.
+*/
+void QWebFrame::render(QPainter* painter, const QRegion& clip)
+{
+    GraphicsContext context(painter);
+    if (context.paintingDisabled() && !context.updatingControlTints())
+        return;
+
+    d->renderRelativeCoords(&context, AllLayers, clip);
 }
 
 /*!
   Render the frame into \a painter.
 */
-void QWebFrame::render(QPainter *painter)
+void QWebFrame::render(QPainter* painter)
 {
     if (!d->frame->view())
         return;
 
-    d->renderPrivate(painter, QRegion(d->frame->view()->frameRect()));
-}
+    GraphicsContext context(painter);
+    if (context.paintingDisabled() && !context.updatingControlTints())
+        return;
 
-/*!
-  \since 4.6
-  Render the frame's \a contents into \a painter while clipping to \a contents.
-*/
-void QWebFrame::renderContents(QPainter *painter, const QRegion &contents)
-{
-    d->renderPrivate(painter, contents, true);
+    d->renderRelativeCoords(&context, AllLayers, QRegion(d->frame->view()->frameRect()));
 }
 
 /*!
@@ -929,7 +1065,7 @@ void QWebFrame::renderContents(QPainter *painter, const QRegion &contents)
 */
 void QWebFrame::setTextSizeMultiplier(qreal factor)
 {
-    d->frame->setZoomFactor(factor, /*isTextOnly*/true);
+    d->frame->setZoomFactor(factor, ZoomTextOnly);
 }
 
 /*!
@@ -948,7 +1084,7 @@ qreal QWebFrame::textSizeMultiplier() const
 
 void QWebFrame::setZoomFactor(qreal factor)
 {
-    d->frame->setZoomFactor(factor, d->frame->isZoomFactorTextOnly());
+    d->frame->setZoomFactor(factor, d->frame->zoomMode());
 }
 
 qreal QWebFrame::zoomFactor() const
@@ -964,7 +1100,8 @@ qreal QWebFrame::zoomFactor() const
 */
 bool QWebFrame::hasFocus() const
 {
-    return QWebFramePrivate::kit(d->frame->page()->focusController()->focusedFrame()) == this;
+    WebCore::Frame* ff = d->frame->page()->focusController()->focusedFrame();
+    return ff && QWebFramePrivate::kit(ff) == this;
 }
 
 /*!
@@ -1030,12 +1167,15 @@ QWebElement QWebFrame::documentElement() const
 
 /*!
     \since 4.6
-    Returns a new collection of elements that are children of the frame's
-    document element and that match the given CSS selector \a selectorQuery.
+    Returns a new list of elements matching the given CSS selector \a selectorQuery.
+    If there are no matching elements, an empty list is returned.
+
+    \l{http://www.w3.org/TR/REC-CSS2/selector.html#q1}{Standard CSS2 selector} syntax is
+    used for the query.
 
     \sa QWebElement::findAll()
 */
-QList<QWebElement> QWebFrame::findAllElements(const QString &selectorQuery) const
+QWebElementCollection QWebFrame::findAllElements(const QString &selectorQuery) const
 {
     return documentElement().findAll(selectorQuery);
 }
@@ -1043,8 +1183,11 @@ QList<QWebElement> QWebFrame::findAllElements(const QString &selectorQuery) cons
 /*!
     \since 4.6
     Returns the first element in the frame's document that matches the
-    given CSS selector \a selectorQuery. Returns a null element if there is no
-    match.
+    given CSS selector \a selectorQuery. If there is no matching element, a
+    null element is returned.
+
+    \l{http://www.w3.org/TR/REC-CSS2/selector.html#q1}{Standard CSS2 selector} syntax is
+    used for the query.
 
     \sa QWebElement::findFirst()
 */
@@ -1102,11 +1245,11 @@ void QWebFrame::print(QPrinter *printer) const
 
     printContext.begin(pageRect.width());
 
-    printContext.computePageRects(pageRect, /*headerHeight*/0, /*footerHeight*/0, /*userScaleFactor*/1.0, pageHeight);
+    printContext.computePageRects(pageRect, /* headerHeight */ 0, /* footerHeight */ 0, /* userScaleFactor */ 1.0, pageHeight);
 
     int docCopies;
     int pageCopies;
-    if (printer->collateCopies() == true){
+    if (printer->collateCopies()) {
         docCopies = 1;
         pageCopies = printer->numCopies();
     } else {
@@ -1125,6 +1268,11 @@ void QWebFrame::print(QPrinter *printer) const
     // paranoia check
     fromPage = qMax(1, fromPage);
     toPage = qMin(printContext.pageCount(), toPage);
+    if (toPage < fromPage) {
+        // if the user entered a page range outside the actual number
+        // of printable pages, just return
+        return;
+    }
 
     if (printer->pageOrder() == QPrinter::LastPageFirst) {
         int tmp = fromPage;
@@ -1180,9 +1328,9 @@ QVariant QWebFrame::evaluateJavaScript(const QString& scriptSource)
     ScriptController *proxy = d->frame->script();
     QVariant rc;
     if (proxy) {
-        JSC::JSValue v = proxy->evaluate(ScriptSourceCode(scriptSource)).jsValue();
+        JSC::JSValue v = d->frame->script()->executeScript(ScriptSourceCode(scriptSource)).jsValue();
         int distance = 0;
-        rc = JSC::Bindings::convertValueToQVariant(proxy->globalObject()->globalExec(), v, QMetaType::Void, &distance);
+        rc = JSC::Bindings::convertValueToQVariant(proxy->globalObject(mainThreadNormalWorld())->globalExec(), v, QMetaType::Void, &distance);
     }
     return rc;
 }
@@ -1274,10 +1422,40 @@ QWebFrame* QWebFramePrivate::kit(WebCore::Frame* coreFrame)
 */
 
 /*!
+    \fn void QWebFrame::loadStarted()
+    \since 4.6
+
+    This signal is emitted when a new load of this frame is started.
+
+    \sa loadFinished()
+*/
+
+/*!
+    \fn void QWebFrame::loadFinished(bool ok)
+    \since 4.6
+
+    This signal is emitted when a load of this frame is finished.
+    \a ok will indicate whether the load was successful or any error occurred.
+
+    \sa loadStarted()
+*/
+
+/*!
+    \fn void QWebFrame::pageChanged()
+    \since 4.7
+
+    This signal is emitted when this frame has been moved to a different QWebPage.
+
+    \sa page()
+*/
+
+/*!
     \class QWebHitTestResult
     \since 4.4
     \brief The QWebHitTestResult class provides information about the web
     page content after a hit test.
+
+    \inmodule QtWebKit
 
     QWebHitTestResult is returned by QWebFrame::hitTestContent() to provide
     information about the content of the web page at the specified position.
@@ -1299,8 +1477,8 @@ QWebHitTestResultPrivate::QWebHitTestResultPrivate(const WebCore::HitTestResult 
     if (!hitTest.innerNode())
         return;
     pos = hitTest.point();
-    boundingRect = hitTest.boundingBox();
-    title = hitTest.title();
+    WebCore::TextDirection dir;
+    title = hitTest.title(dir);
     linkText = hitTest.textContent();
     linkUrl = hitTest.absoluteLinkURL();
     linkTitle = hitTest.titleDisplayString();
@@ -1308,6 +1486,7 @@ QWebHitTestResultPrivate::QWebHitTestResultPrivate(const WebCore::HitTestResult 
     imageUrl = hitTest.absoluteImageURL();
     innerNode = hitTest.innerNode();
     innerNonSharedNode = hitTest.innerNonSharedNode();
+    boundingRect = innerNonSharedNode ? innerNonSharedNode->renderer()->absoluteBoundingBoxRect(true) : IntRect();
     WebCore::Image *img = hitTest.image();
     if (img) {
         QPixmap *pix = img->nativeImageForCurrentFrame();
@@ -1555,4 +1734,3 @@ QWebFrame *QWebHitTestResult::frame() const
         return 0;
     return d->frame;
 }
-

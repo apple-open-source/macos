@@ -45,16 +45,18 @@
 #import <wtf/Assertions.h>
 #import <wtf/StdLibExtras.h>
 #import <wtf/RetainPtr.h>
+#import <wtf/UnusedParam.h>
 
 @interface NSFont (WebAppKitSecretAPI)
 - (BOOL)_isFakeFixedPitch;
 @end
 
+using namespace std;
+
 namespace WebCore {
   
 const float smallCapsFontSizeMultiplier = 0.7f;
-const float contextDPI = 72.0f;
-static inline float scaleEmToUnits(float x, unsigned unitsPerEm) { return x * (contextDPI / (contextDPI * unitsPerEm)); }
+static inline float scaleEmToUnits(float x, unsigned unitsPerEm) { return x / unitsPerEm; }
 
 static bool initFontData(SimpleFontData* fontData)
 {
@@ -147,7 +149,6 @@ void SimpleFontData::platformInit()
     m_styleGroup = 0;
 #endif
 #if USE(ATSUI)
-    m_ATSUStyleInitialized = false;
     m_ATSUMirrors = false;
     m_checkedShapesArabic = false;
     m_shapesArabic = false;
@@ -264,14 +265,71 @@ void SimpleFontData::platformInit()
     GlyphPage* glyphPageZero = GlyphPageTreeNode::getRootChild(this, 0)->page();
     NSGlyph xGlyph = glyphPageZero ? glyphPageZero->glyphDataForCharacter('x').glyph : 0;
     if (xGlyph) {
-        NSRect xBox = [m_platformData.font() boundingRectForGlyph:xGlyph];
+        CGRect xBox = platformBoundsForGlyph(xGlyph);
         // Use the maximum of either width or height because "x" is nearly square
         // and web pages that foolishly use this metric for width will be laid out
         // poorly if we return an accurate height. Classic case is Times 13 point,
         // which has an "x" that is 7x6 pixels.
-        m_xHeight = MAX(NSMaxX(xBox), NSMaxY(xBox));
-    } else
-        m_xHeight = [m_platformData.font() xHeight];
+        m_xHeight = static_cast<float>(max(CGRectGetMaxX(xBox), CGRectGetMaxY(xBox)));
+    } else {
+#ifndef BUILDING_ON_TIGER
+        m_xHeight = static_cast<float>(CGFontGetXHeight(m_platformData.cgFont())) / m_unitsPerEm;
+#else
+        m_xHeight = m_platformData.font() ? [m_platformData.font() xHeight] : 0;
+#endif
+    }
+}
+    
+static CFDataRef copyFontTableForTag(FontPlatformData platformData, FourCharCode tableName)
+{
+#ifdef BUILDING_ON_TIGER
+    ATSFontRef atsFont = FMGetATSFontRefFromFont(platformData.m_atsuFontID);
+
+    ByteCount tableSize;
+    if (ATSFontGetTable(atsFont, tableName, 0, 0, NULL, &tableSize) != noErr)
+        return 0;
+    
+    CFMutableDataRef data = CFDataCreateMutable(kCFAllocatorDefault, tableSize);
+    if (!data)
+        return 0;
+    
+    CFDataIncreaseLength(data, tableSize);
+    if (ATSFontGetTable(atsFont, tableName, 0, tableSize, CFDataGetMutableBytePtr(data), &tableSize) != noErr) {
+        CFRelease(data);
+        return 0;
+    }
+    
+    return data;
+#else
+    return CGFontCopyTableForTag(platformData.cgFont(), tableName);
+#endif
+}
+
+void SimpleFontData::platformCharWidthInit()
+{
+    m_avgCharWidth = 0;
+    m_maxCharWidth = 0;
+    
+    RetainPtr<CFDataRef> os2Table(AdoptCF, copyFontTableForTag(m_platformData, 'OS/2'));
+    if (os2Table && CFDataGetLength(os2Table.get()) >= 4) {
+        const UInt8* os2 = CFDataGetBytePtr(os2Table.get());
+        SInt16 os2AvgCharWidth = os2[2] * 256 + os2[3];
+        m_avgCharWidth = scaleEmToUnits(os2AvgCharWidth, m_unitsPerEm) * m_platformData.m_size;
+    }
+
+    RetainPtr<CFDataRef> headTable(AdoptCF, copyFontTableForTag(m_platformData, 'head'));
+    if (headTable && CFDataGetLength(headTable.get()) >= 42) {
+        const UInt8* head = CFDataGetBytePtr(headTable.get());
+        ushort uxMin = head[36] * 256 + head[37];
+        ushort uxMax = head[40] * 256 + head[41];
+        SInt16 xMin = static_cast<SInt16>(uxMin);
+        SInt16 xMax = static_cast<SInt16>(uxMax);
+        float diff = static_cast<float>(xMax - xMin);
+        m_maxCharWidth = scaleEmToUnits(diff, m_unitsPerEm) * m_platformData.m_size;
+    }
+
+    // Fallback to a cross-platform estimate, which will populate these values if they are non-positive.
+    initCharWidths();
 }
 
 void SimpleFontData::platformDestroy()
@@ -281,8 +339,9 @@ void SimpleFontData::platformDestroy()
         wkReleaseStyleGroup(m_styleGroup);
 #endif
 #if USE(ATSUI)
-    if (m_ATSUStyleInitialized)
-        ATSUDisposeStyle(m_ATSUStyle);
+    HashMap<unsigned, ATSUStyle>::iterator end = m_ATSUStyleMap.end();
+    for (HashMap<unsigned, ATSUStyle>::iterator it = m_ATSUStyleMap.begin(); it != end; ++it)
+        ATSUDisposeStyle(it->second);
 #endif
 }
 
@@ -354,82 +413,38 @@ void SimpleFontData::determinePitch()
            [name caseInsensitiveCompare:@"MonotypeCorsiva"] != NSOrderedSame;
 }
 
+FloatRect SimpleFontData::platformBoundsForGlyph(Glyph glyph) const
+{
+    FloatRect boundingBox;
+#ifndef BUILDING_ON_TIGER
+    CGRect box;
+    CGFontGetGlyphBBoxes(platformData().cgFont(), &glyph, 1, &box);
+    float pointSize = platformData().m_size;
+    CGFloat scale = pointSize / unitsPerEm();
+    boundingBox = CGRectApplyAffineTransform(box, CGAffineTransformMakeScale(scale, -scale));
+#else
+    // FIXME: Custom fonts don't have NSFonts, so this function doesn't compute correct bounds for these on Tiger.
+    if (!m_platformData.font())
+        return boundingBox;
+    boundingBox = [m_platformData.font() boundingRectForGlyph:glyph];
+#endif
+    if (m_syntheticBoldOffset)
+        boundingBox.setWidth(boundingBox.width() + m_syntheticBoldOffset);
+
+    return boundingBox;
+}
+
 float SimpleFontData::platformWidthForGlyph(Glyph glyph) const
 {
-    NSFont* font = m_platformData.font();
-    float pointSize = m_platformData.m_size;
+    NSFont* font = platformData().font();
+    float pointSize = platformData().m_size;
     CGAffineTransform m = CGAffineTransformMakeScale(pointSize, pointSize);
     CGSize advance;
-    if (!wkGetGlyphTransformedAdvances(m_platformData.cgFont(), font, &m, &glyph, &advance)) {
+    if (!wkGetGlyphTransformedAdvances(platformData().cgFont(), font, &m, &glyph, &advance)) {
         LOG_ERROR("Unable to cache glyph widths for %@ %f", [font displayName], pointSize);
         advance.width = 0;
     }
     return advance.width + m_syntheticBoldOffset;
 }
-
-#if USE(ATSUI)
-void SimpleFontData::checkShapesArabic() const
-{
-    ASSERT(!m_checkedShapesArabic);
-
-    m_checkedShapesArabic = true;
-    
-    ATSUFontID fontID = m_platformData.m_atsuFontID;
-    if (!fontID) {
-        LOG_ERROR("unable to get ATSUFontID for %@", m_platformData.font());
-        return;
-    }
-
-    // This function is called only on fonts that contain Arabic glyphs. Our
-    // heuristic is that if such a font has a glyph metamorphosis table, then
-    // it includes shaping information for Arabic.
-    FourCharCode tables[] = { 'morx', 'mort' };
-    for (unsigned i = 0; i < sizeof(tables) / sizeof(tables[0]); ++i) {
-        ByteCount tableSize;
-        OSStatus status = ATSFontGetTable(fontID, tables[i], 0, 0, 0, &tableSize);
-        if (status == noErr) {
-            m_shapesArabic = true;
-            return;
-        }
-
-        if (status != kATSInvalidFontTableAccess)
-            LOG_ERROR("ATSFontGetTable failed (%d)", status);
-    }
-}
-#endif
-
-#if USE(CORE_TEXT)
-CTFontRef SimpleFontData::getCTFont() const
-{
-    if (getNSFont())
-        return toCTFontRef(getNSFont());
-    if (!m_CTFont)
-        m_CTFont.adoptCF(CTFontCreateWithGraphicsFont(m_platformData.cgFont(), m_platformData.size(), NULL, NULL));
-    return m_CTFont.get();
-}
-
-CFDictionaryRef SimpleFontData::getCFStringAttributes() const
-{
-    if (m_CFStringAttributes)
-        return m_CFStringAttributes.get();
-
-    static const float kerningAdjustmentValue = 0;
-    static CFNumberRef kerningAdjustment = CFNumberCreate(kCFAllocatorDefault, kCFNumberFloatType, &kerningAdjustmentValue);
-
-    static const int ligaturesNotAllowedValue = 0;
-    static CFNumberRef ligaturesNotAllowed = CFNumberCreate(kCFAllocatorDefault, kCFNumberIntType, &ligaturesNotAllowedValue);
-
-    static const int ligaturesAllowedValue = 1;
-    static CFNumberRef ligaturesAllowed = CFNumberCreate(kCFAllocatorDefault, kCFNumberIntType, &ligaturesAllowedValue);
-
-    static const void* attributeKeys[] = { kCTFontAttributeName, kCTKernAttributeName, kCTLigatureAttributeName };
-    const void* attributeValues[] = { getCTFont(), kerningAdjustment, platformData().allowsLigatures() ? ligaturesAllowed : ligaturesNotAllowed };
-
-    m_CFStringAttributes.adoptCF(CFDictionaryCreate(NULL, attributeKeys, attributeValues, sizeof(attributeKeys) / sizeof(*attributeKeys), &kCFCopyStringDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks));
-
-    return m_CFStringAttributes.get();
-}
-
-#endif
 
 } // namespace WebCore

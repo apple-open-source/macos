@@ -961,8 +961,6 @@ _mdns_hostbyaddr(si_mod_t *si, const void *addr, int af, const char *interface, 
 	return out;
 }
 
-// embedded does not do parallel A/AAAA
-#if !TARGET_OS_EMBEDDED
 static si_list_t *
 _mdns_addrinfo(si_mod_t *si, const void *node, const void *serv, uint32_t family, uint32_t socktype, uint32_t proto, uint32_t flags, const char *interface, uint32_t *err)
 {
@@ -1046,7 +1044,6 @@ _mdns_addrinfo(si_mod_t *si, const void *node, const void *serv, uint32_t family
 	}
 	return out;
 }
-#endif // !TARGET_OS_EMBEDDED
 
 static si_list_t *
 _mdns_srv_byname(si_mod_t* si, const char *qname, const char *interface, uint32_t *err)
@@ -1206,9 +1203,7 @@ si_module_static_mdns(void)
 	out->sim_host_byname = _mdns_hostbyname;
 	out->sim_host_byaddr = _mdns_hostbyaddr;
 	out->sim_item_call = _mdns_item_call;
-#if !TARGET_OS_EMBEDDED
 	out->sim_addrinfo = _mdns_addrinfo;
-#endif
 	out->sim_srv_byname = _mdns_srv_byname;
 
 	int res;
@@ -1792,7 +1787,7 @@ _mdns_query_mDNSResponder(const char *name, int class, int type, const char *int
 #if TARGET_OS_EMBEDDED
 	// log a warning for queries from the main thread 
 	if (pthread_main_np()) asl_log(NULL, NULL, ASL_LEVEL_WARNING, "Warning: Libinfo call to mDNSResponder on main thread");
-#endif // #if TARGET_OS_EMBEDDED
+#endif // TARGET_OS_EMBEDDED
 
 	// Timeout Logic
 	// The kevent(2) API timeout parameter is used to enforce the total

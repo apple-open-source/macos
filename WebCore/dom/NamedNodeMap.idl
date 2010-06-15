@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2006 Samuel Weinig <sam.weinig@gmail.com>
- * Copyright (C) 2007 Apple Inc. All rights reserved.
+ * Copyright (C) 2007, 2009 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -21,16 +21,14 @@
 module core {
 
     interface [
-        GenerateConstructor,
+        CustomMarkFunction,
         HasIndexGetter,
-        HasNameGetter,
-        InterfaceUUID=08DAF7A4-4C32-4709-B72F-622721FF0FB8,
-        ImplementationUUID=A1CC9F5B-092D-4a04-96D9-D7718A8D6242
+        HasNameGetter
     ] NamedNodeMap {
 
         Node getNamedItem(in DOMString name);
 
-        Node setNamedItem(in Node node)
+        [Custom] Node setNamedItem(in Node node)
             raises(DOMException);
 
         Node removeNamedItem(in DOMString name)
@@ -48,7 +46,7 @@ module core {
             // FIXME: the implementation does take an exceptioncode parameter.
             /*raises(DOMException)*/;
 
-        Node setNamedItemNS(in Node node)
+        [Custom] Node setNamedItemNS(in Node node)
             raises(DOMException);
 
         [OldStyleObjC] Node removeNamedItemNS(in [ConvertNullToNullString] DOMString namespaceURI, 

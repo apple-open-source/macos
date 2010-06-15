@@ -37,7 +37,11 @@ namespace WebCore {
 // combined with the semantics of the String(NSString*) constructor
 ProtectionSpace::ProtectionSpace()
     : m_host("")
+    , m_port(0)
+    , m_serverType(ProtectionSpaceServerHTTP)
     , m_realm("")
+    , m_authenticationScheme(ProtectionSpaceAuthenticationSchemeDefault)
+    , m_isHashTableDeletedValue(false)
 {
 }
  
@@ -49,6 +53,7 @@ ProtectionSpace::ProtectionSpace(const String& host, int port, ProtectionSpaceSe
     , m_serverType(serverType)
     , m_realm(realm.length() ? realm : "")
     , m_authenticationScheme(authenticationScheme)
+    , m_isHashTableDeletedValue(false)
 {    
 }
     
@@ -106,7 +111,8 @@ bool operator==(const ProtectionSpace& a, const ProtectionSpace& b)
         return false;
     if (a.serverType() != b.serverType())
         return false;
-    if (a.realm() != b.realm())
+    // Ignore realm for proxies
+    if (!a.isProxy() && a.realm() != b.realm())
         return false;
     if (a.authenticationScheme() != b.authenticationScheme())
         return false;

@@ -58,6 +58,13 @@ namespace WebCore {
         ABORT_ERR = 20,
         URL_MISMATCH_ERR = 21,
         QUOTA_EXCEEDED_ERR = 22,
+
+        // Introduced in File API:
+        // http://www.w3.org/TR/file-upload/#dfn-fileerror
+#if ENABLE(FILE_READER) || ENABLE(FILE_WRITER)
+        NOT_READABLE_ERR = 24,
+        ENCODING_ERR = 26,
+#endif
     };
 
     enum ExceptionType {
@@ -77,6 +84,7 @@ namespace WebCore {
     struct ExceptionCodeDescription {
         const char* typeName; // has spaces and is suitable for use in exception description strings; maximum length is 10 characters
         const char* name; // exception name, also intended for use in exception description strings; 0 if name not known; maximum length is 27 characters
+        const char* description; // exception description, intended for use in exception strings; more readable explanation of error
         int code; // numeric value of the exception within a particular type
         ExceptionType type;
     };

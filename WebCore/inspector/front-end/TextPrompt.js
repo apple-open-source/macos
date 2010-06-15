@@ -29,10 +29,12 @@
 WebInspector.TextPrompt = function(element, completions, stopCharacters)
 {
     this.element = element;
+    this.element.addStyleClass("text-prompt");
     this.completions = completions;
     this.completionStopCharacters = stopCharacters;
     this.history = [];
     this.historyOffset = 0;
+    this.element.addEventListener("keydown", this._onKeyDown.bind(this), true);
 }
 
 WebInspector.TextPrompt.prototype = {
@@ -53,8 +55,15 @@ WebInspector.TextPrompt.prototype = {
         this.moveCaretToEndOfPrompt();
     },
 
-    handleKeyEvent: function(event)
+    _onKeyDown: function(event)
     {
+        function defaultAction()
+        {
+            this.clearAutoComplete();
+            this.autoCompleteSoon();
+        }
+
+        var handled = false;
         switch (event.keyIdentifier) {
             case "Up":
                 this._upKeyPressed(event);
@@ -66,13 +75,55 @@ WebInspector.TextPrompt.prototype = {
                 this._tabKeyPressed(event);
                 break;
             case "Right":
+            case "End":
                 if (!this.acceptAutoComplete())
                     this.autoCompleteSoon();
                 break;
-            default:
-                this.clearAutoComplete();
-                this.autoCompleteSoon();
+            case "Alt":
+            case "Meta":
+            case "Shift":
+            case "Control":
                 break;
+            case "U+0050": // Ctrl+P = Previous
+                if (WebInspector.isMac() && event.ctrlKey && !event.metaKey && !event.altKey && !event.shiftKey) {
+                    handled = true;
+                    this._moveBackInHistory();
+                    break;
+                }
+                defaultAction.call(this);
+                break;
+            case "U+004E": // Ctrl+N = Next
+                if (WebInspector.isMac() && event.ctrlKey && !event.metaKey && !event.altKey && !event.shiftKey) {
+                    handled = true;
+                    this._moveForwardInHistory();
+                    break;
+                }
+                defaultAction.call(this);
+                break;
+            case "U+0041": // Ctrl+A = Move caret to the start of prompt on non-Mac.
+                if (!WebInspector.isMac() && event.ctrlKey && !event.metaKey && !event.altKey && !event.shiftKey) {
+                    handled = true;
+                    this._moveCaretToStartOfPrompt();
+                    break;
+                }
+                defaultAction.call(this);
+                break;
+            case "U+0045": // Ctrl+E = Move caret to the end of prompt on non-Mac.
+                if (!WebInspector.isMac() && event.ctrlKey && !event.metaKey && !event.altKey && !event.shiftKey) {
+                    handled = true;
+                    this.moveCaretToEndOfPrompt();
+                    break;
+                }
+                defaultAction.call(this);
+                break;
+            default:
+                defaultAction.call(this);
+                break;
+        }
+
+        if (handled) {
+            event.preventDefault();
+            event.stopPropagation();
         }
     },
 
@@ -115,9 +166,10 @@ WebInspector.TextPrompt.prototype = {
             return;
 
         this._userEnteredRange.deleteContents();
+        this.element.pruneEmptyTextNodes();
 
         var userTextNode = document.createTextNode(this._userEnteredText);
-        this._userEnteredRange.insertNode(userTextNode);           
+        this._userEnteredRange.insertNode(userTextNode);
 
         var selectionRange = document.createRange();
         selectionRange.setStart(userTextNode, this._userEnteredText.length);
@@ -137,7 +189,7 @@ WebInspector.TextPrompt.prototype = {
             this._completeTimeout = setTimeout(this.complete.bind(this, true), 250);
     },
 
-    complete: function(auto)
+    complete: function(auto, reverse)
     {
         this.clearAutoComplete(true);
         var selection = window.getSelection();
@@ -150,47 +202,72 @@ WebInspector.TextPrompt.prototype = {
         if (auto && !this.isCaretAtEndOfPrompt())
             return;
         var wordPrefixRange = selectionRange.startContainer.rangeOfWord(selectionRange.startOffset, this.completionStopCharacters, this.element, "backward");
-        this.completions(wordPrefixRange, auto, this._completionsReady.bind(this, selection, auto, wordPrefixRange));
+        this.completions(wordPrefixRange, auto, this._completionsReady.bind(this, selection, auto, wordPrefixRange, reverse));
     },
 
-    _completionsReady: function(selection, auto, originalWordPrefixRange, completions)
+    _completionsReady: function(selection, auto, originalWordPrefixRange, reverse, completions)
     {
         if (!completions || !completions.length)
             return;
 
         var selectionRange = selection.getRangeAt(0);
-        var wordPrefixRange = selectionRange.startContainer.rangeOfWord(selectionRange.startOffset, this.completionStopCharacters, this.element, "backward");
 
         var fullWordRange = document.createRange();
-        fullWordRange.setStart(wordPrefixRange.startContainer, wordPrefixRange.startOffset);
+        fullWordRange.setStart(originalWordPrefixRange.startContainer, originalWordPrefixRange.startOffset);
         fullWordRange.setEnd(selectionRange.endContainer, selectionRange.endOffset);
 
         if (originalWordPrefixRange.toString() + selectionRange.toString() != fullWordRange.toString())
             return;
 
-        if (completions.length === 1 || selection.isCollapsed || auto) {
+        var wordPrefixLength = originalWordPrefixRange.toString().length;
+
+        if (auto)
             var completionText = completions[0];
-        } else {
-            var currentText = fullWordRange.toString();
-
-            var foundIndex = null;
-            for (var i = 0; i < completions.length; ++i) {
-                if (completions[i] === currentText)
-                    foundIndex = i;
-            }
-
-            if (foundIndex === null || (foundIndex + 1) >= completions.length)
+        else {
+            if (completions.length === 1) {
                 var completionText = completions[0];
-            else
-                var completionText = completions[foundIndex + 1];
-        }
+                wordPrefixLength = completionText.length;
+            } else {
+                var commonPrefix = completions[0];
+                for (var i = 0; i < completions.length; ++i) {
+                    var completion = completions[i];
+                    var lastIndex = Math.min(commonPrefix.length, completion.length);
+                    for (var j = wordPrefixLength; j < lastIndex; ++j) {
+                        if (commonPrefix[j] !== completion[j]) {
+                            commonPrefix = commonPrefix.substr(0, j);
+                            break;
+                        }
+                    }
+                }
+                wordPrefixLength = commonPrefix.length;
 
-        var wordPrefixLength = wordPrefixRange.toString().length;
+                if (selection.isCollapsed)
+                    var completionText = completions[1];
+                else {
+                    var currentText = fullWordRange.toString();
+
+                    var foundIndex = null;
+                    for (var i = 0; i < completions.length; ++i) {
+                        if (completions[i] === currentText)
+                            foundIndex = i;
+                    }
+
+                    var nextIndex = foundIndex + (reverse ? -1 : 1);
+                    if (foundIndex === null || nextIndex >= completions.length)
+                        var completionText = completions[0];
+                    else if (nextIndex < 0)
+                        var completionText = completions[completions.length - 1];
+                    else
+                        var completionText = completions[nextIndex];
+                }
+            }
+        }
 
         this._userEnteredRange = fullWordRange;
         this._userEnteredText = fullWordRange.toString();
 
         fullWordRange.deleteContents();
+        this.element.pruneEmptyTextNodes();
 
         var finalSelectionRange = document.createRange();
 
@@ -199,7 +276,7 @@ WebInspector.TextPrompt.prototype = {
             var suffixText = completionText.substring(wordPrefixLength);
 
             var prefixTextNode = document.createTextNode(prefixText);
-            fullWordRange.insertNode(prefixTextNode);           
+            fullWordRange.insertNode(prefixTextNode);
 
             this.autoCompleteElement = document.createElement("span");
             this.autoCompleteElement.className = "auto-complete-text";
@@ -211,7 +288,7 @@ WebInspector.TextPrompt.prototype = {
             finalSelectionRange.setEnd(prefixTextNode, wordPrefixLength);
         } else {
             var completionTextNode = document.createTextNode(completionText);
-            fullWordRange.insertNode(completionTextNode);           
+            fullWordRange.insertNode(completionTextNode);
 
             if (completions.length > 1)
                 finalSelectionRange.setStart(completionTextNode, wordPrefixLength);
@@ -252,10 +329,66 @@ WebInspector.TextPrompt.prototype = {
                 foundNextText = true;
             }
 
-            node = node.traverseNextNode(false, this.element);
+            node = node.traverseNextNode(this.element);
         }
 
         return true;
+    },
+
+    isCaretOnFirstLine: function()
+    {
+        var selection = window.getSelection();
+        var focusNode = selection.focusNode;
+        if (!focusNode || focusNode.nodeType !== Node.TEXT_NODE || focusNode.parentNode !== this.element)
+            return true;
+
+        if (focusNode.textContent.substring(0, selection.focusOffset).indexOf("\n") !== -1)
+            return false;
+        focusNode = focusNode.previousSibling;
+
+        while (focusNode) {
+            if (focusNode.nodeType !== Node.TEXT_NODE)
+                return true;
+            if (focusNode.textContent.indexOf("\n") !== -1)
+                return false;
+            focusNode = focusNode.previousSibling;
+        }
+
+        return true;
+    },
+
+    isCaretOnLastLine: function()
+    {
+        var selection = window.getSelection();
+        var focusNode = selection.focusNode;
+        if (!focusNode || focusNode.nodeType !== Node.TEXT_NODE || focusNode.parentNode !== this.element)
+            return true;
+
+        if (focusNode.textContent.substring(selection.focusOffset).indexOf("\n") !== -1)
+            return false;
+        focusNode = focusNode.nextSibling;
+
+        while (focusNode) {
+            if (focusNode.nodeType !== Node.TEXT_NODE)
+                return true;
+            if (focusNode.textContent.indexOf("\n") !== -1)
+                return false;
+            focusNode = focusNode.nextSibling;
+        }
+
+        return true;
+    },
+
+    _moveCaretToStartOfPrompt: function()
+    {
+        var selection = window.getSelection();
+        var selectionRange = document.createRange();
+
+        selectionRange.setStart(this.element, 0);
+        selectionRange.setEnd(this.element, 0);
+
+        selection.removeAllRanges();
+        selection.addRange(selectionRange);
     },
 
     moveCaretToEndOfPrompt: function()
@@ -276,44 +409,76 @@ WebInspector.TextPrompt.prototype = {
         event.preventDefault();
         event.stopPropagation();
 
-        this.complete();
+        this.complete(false, event.shiftKey);
     },
 
     _upKeyPressed: function(event)
     {
+        if (!this.isCaretOnFirstLine())
+            return;
+
         event.preventDefault();
         event.stopPropagation();
 
+        this._moveBackInHistory();
+    },
+
+    _downKeyPressed: function(event)
+    {
+        if (!this.isCaretOnLastLine())
+            return;
+
+        event.preventDefault();
+        event.stopPropagation();
+
+        this._moveForwardInHistory();
+    },
+
+    _moveBackInHistory: function()
+    {
         if (this.historyOffset == this.history.length)
             return;
 
         this.clearAutoComplete(true);
 
-        if (this.historyOffset == 0)
+        if (this.historyOffset === 0)
             this.tempSavedCommand = this.text;
 
         ++this.historyOffset;
         this.text = this.history[this.history.length - this.historyOffset];
+
+        this.element.scrollIntoViewIfNeeded();
+        var firstNewlineIndex = this.text.indexOf("\n");
+        if (firstNewlineIndex === -1)
+            this.moveCaretToEndOfPrompt();
+        else {
+            var selection = window.getSelection();
+            var selectionRange = document.createRange();
+
+            selectionRange.setStart(this.element.firstChild, firstNewlineIndex);
+            selectionRange.setEnd(this.element.firstChild, firstNewlineIndex);
+
+            selection.removeAllRanges();
+            selection.addRange(selectionRange);
+        }
     },
 
-    _downKeyPressed: function(event)
+    _moveForwardInHistory: function()
     {
-        event.preventDefault();
-        event.stopPropagation();
-
-        if (this.historyOffset == 0)
+        if (this.historyOffset === 0)
             return;
 
         this.clearAutoComplete(true);
 
         --this.historyOffset;
 
-        if (this.historyOffset == 0) {
+        if (this.historyOffset === 0) {
             this.text = this.tempSavedCommand;
             delete this.tempSavedCommand;
             return;
         }
 
         this.text = this.history[this.history.length - this.historyOffset];
+        this.element.scrollIntoViewIfNeeded();
     }
 }

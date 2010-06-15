@@ -699,30 +699,44 @@ UInt32 IONetworkInterface::clearInputQueue()
     return count;
 }
 
-inline static const char *get_icmp_data(const char *pkt, int datalen)
+inline static const char *get_icmp_data(mbuf_t *pkt, int hdrlen, int datalen)
 {
     struct ip   *ip;
     struct icmp *icmp;
     int hlen, icmplen;
+    
+    icmplen = sizeof(*icmp) + sizeof(struct timeval);
+
+    /* make sure hdrlen is sane with respect to mbuf */
+    if (mbuf_len(*pkt) < (sizeof(*ip) + hdrlen))
+	goto error;    
 
     /* only work for IPv4 packets */
-    ip = (struct ip *) pkt;
-    if (IP_VHL_V(ip->ip_vhl) != IPVERSION) 
-        goto error;
-
-    if (ip->ip_p != IPPROTO_ICMP)
+    ip = (struct ip *) ((char *) mbuf_data(*pkt) + hdrlen);
+    if (IP_VHL_V(ip->ip_vhl) != IPVERSION)
         goto error;
 
     hlen = IP_VHL_HL(ip->ip_vhl) << 2;
-    icmplen = sizeof(*icmp) + sizeof(struct timeval);
+
+    /* make sure header and data is contiguous */
+    if (mbuf_pullup(pkt, hlen + icmplen) != 0)
+	goto error;
+
+    /* refresh the pointer and hlen in case buffer was shifted */
+    ip = (struct ip *) ((char *) mbuf_data(*pkt) + hdrlen); 
+    hlen = IP_VHL_HL(ip->ip_vhl) << 2;
+
+    if (ip->ip_p != IPPROTO_ICMP)
+	goto error;
+
     if (ip->ip_len < (icmplen + datalen))
         goto error;
 
-    icmp = (struct icmp *) (pkt + hlen);
+    icmp = (struct icmp *) (((char *) mbuf_data(*pkt) + hdrlen) + hlen);
     if (icmp->icmp_type != ICMP_ECHO)
-        goto error;
+	goto error;
 
-    return pkt + icmplen;
+    return (const char *) (((char *) mbuf_data(*pkt) + hdrlen) + icmplen);
 
 error:
     return NULL;
@@ -765,11 +779,11 @@ UInt32 IONetworkInterface::inputPacket(mbuf_t pkt,
     
     // check for special debugger packet 
     if (_remote_NMI_len) {
-       const char *data = get_icmp_data((char *) mbuf_data(pkt) + hdrlen, _remote_NMI_len);
+       const char *data = get_icmp_data((mbuf_t *) &pkt, hdrlen, _remote_NMI_len);
 
        if (data && (memcmp(data, _remote_NMI_pattern, _remote_NMI_len) == 0)) {
            IOKernelDebugger::signalDebugger();
-       }
+       } 
     }
 
 

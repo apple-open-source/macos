@@ -29,7 +29,7 @@
  */
 
 #include "config.h"
-#include "WebKitCSSMatrix.h"
+#include "V8WebKitCSSMatrix.h"
 
 #include "Document.h"
 #include "DocumentFragment.h"
@@ -44,9 +44,13 @@
 
 namespace WebCore {
 
-CALLBACK_FUNC_DECL(WebKitCSSMatrixConstructor)
+v8::Handle<v8::Value> V8WebKitCSSMatrix::constructorCallback(const v8::Arguments& args)
 {
     INC_STATS("DOM.WebKitCSSMatrix.Constructor");
+
+    if (!args.IsConstructCall())
+        return throwError("DOM object constructor cannot be called as a function.");
+
     // FIXME: The logic here is almost exact duplicate of V8::constructDOMObject.
     // Consider refactoring to reduce duplication.
     String cssValue;
@@ -59,7 +63,7 @@ CALLBACK_FUNC_DECL(WebKitCSSMatrixConstructor)
         throwError(ec);
 
     // Transform the holder into a wrapper object for the matrix.
-    V8DOMWrapper::setDOMWrapper(args.Holder(), V8ClassIndex::ToInt(V8ClassIndex::WEBKITCSSMATRIX), matrix.get());
+    V8DOMWrapper::setDOMWrapper(args.Holder(), &info, matrix.get());
     return toV8(matrix.release(), args.Holder());
 }
 

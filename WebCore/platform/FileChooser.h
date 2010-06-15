@@ -35,19 +35,23 @@
 
 namespace WebCore {
 
+class FileChooser;
 class Font;
 class Icon;
 
 class FileChooserClient {
 public:
     virtual void valueChanged() = 0;
+    virtual void repaint() = 0;
     virtual bool allowsMultipleFiles() = 0;
+    virtual String acceptTypes() = 0;
+    virtual void chooseIconForFiles(FileChooser*, const Vector<String>&) = 0;
     virtual ~FileChooserClient();
 };
 
 class FileChooser : public RefCounted<FileChooser> {
 public:
-    static PassRefPtr<FileChooser> create(FileChooserClient*, const String& initialFilename);
+    static PassRefPtr<FileChooser> create(FileChooserClient*, const Vector<String>& initialFilenames);
     ~FileChooser();
 
     void disconnectClient() { m_client = 0; }
@@ -62,17 +66,21 @@ public:
 
     void chooseFile(const String& path);
     void chooseFiles(const Vector<String>& paths);
-    
+    // Called when FileChooserClient finishes to load an icon requested by iconForFiles().
+    void iconLoaded(PassRefPtr<Icon>);
+
     bool allowsMultipleFiles() const { return m_client ? m_client->allowsMultipleFiles() : false; }
+    // Acceptable MIME types.  It's an 'accept' attribute value of the corresponding INPUT element.
+    String acceptTypes() const { return m_client ? m_client->acceptTypes() : String(); }
 
 private:
-    FileChooser(FileChooserClient*, const String& initialfilename);
-    static PassRefPtr<Icon> chooseIcon(const String& filename);
-    static PassRefPtr<Icon> chooseIcon(Vector<String> filenames);
+    FileChooser(FileChooserClient*, const Vector<String>& initialFilenames);
+    void loadIcon();
 
     FileChooserClient* m_client;
     Vector<String> m_filenames;
     RefPtr<Icon> m_icon;
+    bool m_isInitializing;
 };
 
 } // namespace WebCore

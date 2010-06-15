@@ -27,6 +27,7 @@
 #include "config.h"
 
 #include "NPV8Object.h"
+#include "npruntime_impl.h"
 #include "npruntime_priv.h"
 #include "V8NPObject.h"
 
@@ -38,7 +39,7 @@
 // The static initializer here should work okay, but we want to avoid
 // static initialization in general.
 
-namespace {
+namespace npruntime {
 
 // We use StringKey here as the key-type to avoid a string copy to
 // construct the map key and for faster comparisons than strcmp.
@@ -111,7 +112,10 @@ struct StringKeyHash {
     static const bool safeToCompareToEmptyOrDeleted = true;
 };
 
-}  // namespace
+}  // namespace npruntime
+
+using npruntime::StringKey;
+using npruntime::StringKeyHash;
 
 // Implement HashTraits<StringKey>
 struct StringKeyHashTraits : WTF::GenericHashTraits<StringKey> {
@@ -148,7 +152,7 @@ static IntIdentifierMap* getIntIdentifierMap()
 
 extern "C" {
 
-NPIdentifier NPN_GetStringIdentifier(const NPUTF8* name)
+NPIdentifier _NPN_GetStringIdentifier(const NPUTF8* name)
 {
     ASSERT(name);
 
@@ -176,18 +180,18 @@ NPIdentifier NPN_GetStringIdentifier(const NPUTF8* name)
     return 0;
 }
 
-void NPN_GetStringIdentifiers(const NPUTF8** names, int32_t nameCount, NPIdentifier* identifiers)
+void _NPN_GetStringIdentifiers(const NPUTF8** names, int32_t nameCount, NPIdentifier* identifiers)
 {
     ASSERT(names);
     ASSERT(identifiers);
 
     if (names && identifiers) {
         for (int i = 0; i < nameCount; i++)
-            identifiers[i] = NPN_GetStringIdentifier(names[i]);
+            identifiers[i] = _NPN_GetStringIdentifier(names[i]);
     }
 }
 
-NPIdentifier NPN_GetIntIdentifier(int32_t intId)
+NPIdentifier _NPN_GetIntIdentifier(int32_t intId)
 {
     // Special case for -1 and 0, both cannot be used as key in HashMap.
     if (!intId || intId == -1) {
@@ -215,13 +219,13 @@ NPIdentifier NPN_GetIntIdentifier(int32_t intId)
     return (NPIdentifier)identifier;
 }
 
-bool NPN_IdentifierIsString(NPIdentifier identifier)
+bool _NPN_IdentifierIsString(NPIdentifier identifier)
 {
     PrivateIdentifier* privateIdentifier = reinterpret_cast<PrivateIdentifier*>(identifier);
     return privateIdentifier->isString;
 }
 
-NPUTF8 *NPN_UTF8FromIdentifier(NPIdentifier identifier)
+NPUTF8 *_NPN_UTF8FromIdentifier(NPIdentifier identifier)
 {
     PrivateIdentifier* privateIdentifier = reinterpret_cast<PrivateIdentifier*>(identifier);
     if (!privateIdentifier->isString || !privateIdentifier->value.string)
@@ -230,7 +234,7 @@ NPUTF8 *NPN_UTF8FromIdentifier(NPIdentifier identifier)
     return (NPUTF8*) strdup(privateIdentifier->value.string);
 }
 
-int32_t NPN_IntFromIdentifier(NPIdentifier identifier)
+int32_t _NPN_IntFromIdentifier(NPIdentifier identifier)
 {
     PrivateIdentifier* privateIdentifier = reinterpret_cast<PrivateIdentifier*>(identifier);
     if (privateIdentifier->isString)
@@ -238,12 +242,12 @@ int32_t NPN_IntFromIdentifier(NPIdentifier identifier)
     return privateIdentifier->value.number;
 }
 
-void NPN_ReleaseVariantValue(NPVariant* variant)
+void _NPN_ReleaseVariantValue(NPVariant* variant)
 {
     ASSERT(variant);
 
     if (variant->type == NPVariantType_Object) {
-        NPN_ReleaseObject(variant->value.objectValue);
+        _NPN_ReleaseObject(variant->value.objectValue);
         variant->value.objectValue = 0;
     } else if (variant->type == NPVariantType_String) {
         free((void*)variant->value.stringValue.UTF8Characters);
@@ -254,7 +258,7 @@ void NPN_ReleaseVariantValue(NPVariant* variant)
     variant->type = NPVariantType_Void;
 }
 
-NPObject *NPN_CreateObject(NPP npp, NPClass* npClass)
+NPObject *_NPN_CreateObject(NPP npp, NPClass* npClass)
 {
     ASSERT(npClass);
 
@@ -273,7 +277,7 @@ NPObject *NPN_CreateObject(NPP npp, NPClass* npClass)
     return 0;
 }
 
-NPObject* NPN_RetainObject(NPObject* npObject)
+NPObject* _NPN_RetainObject(NPObject* npObject)
 {
     ASSERT(npObject);
     ASSERT(npObject->referenceCount > 0);
@@ -285,7 +289,7 @@ NPObject* NPN_RetainObject(NPObject* npObject)
 }
 
 // _NPN_DeallocateObject actually deletes the object.  Technically,
-// callers should use NPN_ReleaseObject.  Webkit exposes this function
+// callers should use _NPN_ReleaseObject.  Webkit exposes this function
 // to kill objects which plugins may not have properly released.
 void _NPN_DeallocateObject(NPObject* npObject)
 {
@@ -308,7 +312,7 @@ void _NPN_DeallocateObject(NPObject* npObject)
     }
 }
 
-void NPN_ReleaseObject(NPObject* npObject)
+void _NPN_ReleaseObject(NPObject* npObject)
 {
     ASSERT(npObject);
     ASSERT(npObject->referenceCount >= 1);

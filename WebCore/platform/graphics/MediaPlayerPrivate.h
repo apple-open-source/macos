@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009 Apple Inc. All rights reserved.
+ * Copyright (C) 2009, 2010 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -36,21 +36,29 @@ class IntRect;
 class IntSize;
 class String;
 
-class MediaPlayerPrivateInterface {
+class MediaPlayerPrivateInterface : public Noncopyable {
 public:
     virtual ~MediaPlayerPrivateInterface() { }
 
     virtual void load(const String& url) = 0;
     virtual void cancelLoad() = 0;
     
+    virtual void prepareToPlay() { }
+    virtual PlatformMedia platformMedia() const { return NoPlatformMedia; }
+#if USE(ACCELERATED_COMPOSITING)
+    virtual PlatformLayer* platformLayer() const { return 0; }
+#endif
+
     virtual void play() = 0;
     virtual void pause() = 0;    
 
-    virtual bool supportsFullscreen() const { return false; };
+    virtual bool supportsFullscreen() const { return false; }
+    virtual bool supportsSave() const { return false; }
 
     virtual IntSize naturalSize() const = 0;
 
     virtual bool hasVideo() const = 0;
+    virtual bool hasAudio() const = 0;
 
     virtual void setVisible(bool) = 0;
 
@@ -62,8 +70,6 @@ public:
 
     virtual float startTime() const { return 0; }
 
-    virtual void setEndTime(float) = 0;
-
     virtual void setRate(float) = 0;
     virtual void setPreservesPitch(bool) { }
 
@@ -71,16 +77,18 @@ public:
 
     virtual void setVolume(float) = 0;
 
+    virtual bool supportsMuting() const { return false; }
+    virtual void setMuted(bool) { }
+
+    virtual bool hasClosedCaptions() const { return false; }    
+    virtual void setClosedCaptionsVisible(bool) { }
+
     virtual MediaPlayer::NetworkState networkState() const = 0;
     virtual MediaPlayer::ReadyState readyState() const = 0;
 
     virtual float maxTimeSeekable() const = 0;
-    virtual float maxTimeBuffered() const = 0;
+    virtual PassRefPtr<TimeRanges> buffered() const = 0;
 
-    virtual int dataRate() const = 0;
-
-    virtual bool totalBytesKnown() const { return totalBytes() > 0; }
-    virtual unsigned totalBytes() const = 0;
     virtual unsigned bytesLoaded() const = 0;
 
     virtual void setSize(const IntSize&) = 0;
@@ -89,10 +97,14 @@ public:
 
     virtual void paintCurrentFrameInContext(GraphicsContext* c, const IntRect& r) { paint(c, r); }
 
-    virtual void setAutobuffer(bool) { };
+    virtual void setPreload(MediaPlayer::Preload) { };
+
+    virtual bool hasAvailableVideoFrame() const { return readyState() >= MediaPlayer::HaveCurrentData; }
+
+    virtual bool canLoadPoster() const { return false; }
+    virtual void setPoster(const String&) { }
 
 #if ENABLE(PLUGIN_PROXY_FOR_VIDEO)
-    virtual void setPoster(const String& url) = 0;
     virtual void deliverNotification(MediaPlayerProxyNotificationType) = 0;
     virtual void setMediaPlayerProxy(WebMediaPlayerProxy*) = 0;
 #endif

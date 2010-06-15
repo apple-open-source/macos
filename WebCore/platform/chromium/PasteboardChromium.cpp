@@ -59,6 +59,7 @@ Pasteboard* Pasteboard::generalPasteboard()
 }
 
 Pasteboard::Pasteboard()
+    : m_selectionMode(false)
 {
 }
 
@@ -68,18 +69,39 @@ void Pasteboard::clear()
     // previous contents.
 }
 
+bool Pasteboard::isSelectionMode() const
+{
+    return m_selectionMode;
+}
+
+void Pasteboard::setSelectionMode(bool selectionMode)
+{
+    m_selectionMode = selectionMode;
+}
+
 void Pasteboard::writeSelection(Range* selectedRange, bool canSmartCopyOrDelete, Frame* frame)
 {
     String html = createMarkup(selectedRange, 0, AnnotateForInterchange);
     ExceptionCode ec = 0;
     KURL url = selectedRange->startContainer(ec)->document()->url();
     String plainText = frame->selectedText();
-#if PLATFORM(WIN_OS)
+#if OS(WINDOWS)
     replaceNewlinesWithWindowsStyleNewlines(plainText);
 #endif
     replaceNBSPWithSpace(plainText);
 
     ChromiumBridge::clipboardWriteSelection(html, url, plainText, canSmartCopyOrDelete);
+}
+
+void Pasteboard::writePlainText(const String& text)
+{
+#if OS(WINDOWS)
+    String plainText(text);
+    replaceNewlinesWithWindowsStyleNewlines(plainText);
+    ChromiumBridge::clipboardWritePlainText(plainText);
+#else
+    ChromiumBridge::clipboardWritePlainText(text);
+#endif
 }
 
 void Pasteboard::writeURL(const KURL& url, const String& titleStr, Frame* frame)
@@ -101,9 +123,10 @@ void Pasteboard::writeImage(Node* node, const KURL&, const String& title)
     ASSERT(node);
     ASSERT(node->renderer());
     ASSERT(node->renderer()->isImage());
-    RenderImage* renderer = static_cast<RenderImage*>(node->renderer());
-    CachedImage* cachedImage = static_cast<CachedImage*>(renderer->cachedImage());
-    ASSERT(cachedImage);
+    RenderImage* renderer = toRenderImage(node->renderer());
+    CachedImage* cachedImage = renderer->cachedImage();
+    if (!cachedImage || cachedImage->errorOccurred())
+        return;
     Image* image = cachedImage->image();
     ASSERT(image);
 
@@ -120,43 +143,40 @@ void Pasteboard::writeImage(Node* node, const KURL&, const String& title)
         Element* element = static_cast<Element*>(node);
         urlString = element->getAttribute(element->imageSourceAttributeName());
     }
-    KURL url = urlString.isEmpty() ? KURL() : node->document()->completeURL(parseURL(urlString));
+    KURL url = urlString.isEmpty() ? KURL() : node->document()->completeURL(deprecatedParseURL(urlString));
 
-    NativeImageSkia* bitmap = 0;
-#if !PLATFORM(CG)
-    bitmap = image->nativeImageForCurrentFrame();
-#endif
+    NativeImagePtr bitmap = image->nativeImageForCurrentFrame();
     ChromiumBridge::clipboardWriteImage(bitmap, url, title);
 }
 
 bool Pasteboard::canSmartReplace()
 {
-    return ChromiumBridge::clipboardIsFormatAvailable(
-        PasteboardPrivate::WebSmartPasteFormat);
+    return ChromiumBridge::clipboardIsFormatAvailable(PasteboardPrivate::WebSmartPasteFormat, m_selectionMode ? PasteboardPrivate::SelectionBuffer : PasteboardPrivate::StandardBuffer);
 }
 
 String Pasteboard::plainText(Frame* frame)
 {
-    return ChromiumBridge::clipboardReadPlainText();
+    return ChromiumBridge::clipboardReadPlainText(m_selectionMode ? PasteboardPrivate::SelectionBuffer : PasteboardPrivate::StandardBuffer);
 }
 
 PassRefPtr<DocumentFragment> Pasteboard::documentFragment(Frame* frame, PassRefPtr<Range> context, bool allowPlainText, bool& chosePlainText)
 {
     chosePlainText = false;
+    PasteboardPrivate::ClipboardBuffer buffer = m_selectionMode ? PasteboardPrivate::SelectionBuffer : PasteboardPrivate::StandardBuffer;
 
-    if (ChromiumBridge::clipboardIsFormatAvailable(PasteboardPrivate::HTMLFormat)) {
+    if (ChromiumBridge::clipboardIsFormatAvailable(PasteboardPrivate::HTMLFormat, buffer)) {
         String markup;
         KURL srcURL;
-        ChromiumBridge::clipboardReadHTML(&markup, &srcURL);
+        ChromiumBridge::clipboardReadHTML(buffer, &markup, &srcURL);
 
         RefPtr<DocumentFragment> fragment =
-            createFragmentFromMarkup(frame->document(), markup, srcURL);
+            createFragmentFromMarkup(frame->document(), markup, srcURL, FragmentScriptingNotAllowed);
         if (fragment)
             return fragment.release();
     }
 
     if (allowPlainText) {
-        String markup = ChromiumBridge::clipboardReadPlainText();
+        String markup = ChromiumBridge::clipboardReadPlainText(buffer);
         if (!markup.isEmpty()) {
             chosePlainText = true;
 

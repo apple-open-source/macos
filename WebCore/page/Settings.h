@@ -30,6 +30,7 @@
 #include "AtomicString.h"
 #include "FontRenderingMode.h"
 #include "KURL.h"
+#include "ZoomMode.h"
 
 namespace WebCore {
 
@@ -64,7 +65,7 @@ namespace WebCore {
     // if possible in the future.
     enum EditingBehavior { EditingMacBehavior, EditingWindowsBehavior };
 
-    class Settings {
+    class Settings : public Noncopyable {
     public:
         Settings(Page*);
 
@@ -98,10 +99,15 @@ namespace WebCore {
         void setDefaultFixedFontSize(int);
         int defaultFixedFontSize() const { return m_defaultFixedFontSize; }
 
+        // Unlike areImagesEnabled, this only suppresses the network load of
+        // the image URL.  A cached image will still be rendered if requested.
         void setLoadsImagesAutomatically(bool);
         bool loadsImagesAutomatically() const { return m_loadsImagesAutomatically; }
 
         void setJavaScriptEnabled(bool);
+        // Instead of calling isJavaScriptEnabled directly, please consider calling
+        // ScriptController::canExecuteScripts, which takes things like the
+        // HTML sandbox attribute into account.
         bool isJavaScriptEnabled() const { return m_isJavaScriptEnabled; }
 
         void setWebSecurityEnabled(bool);
@@ -110,20 +116,43 @@ namespace WebCore {
         void setAllowUniversalAccessFromFileURLs(bool);
         bool allowUniversalAccessFromFileURLs() const { return m_allowUniversalAccessFromFileURLs; }
 
+        void setAllowFileAccessFromFileURLs(bool);
+        bool allowFileAccessFromFileURLs() const { return m_allowFileAccessFromFileURLs; }
+
         void setJavaScriptCanOpenWindowsAutomatically(bool);
         bool javaScriptCanOpenWindowsAutomatically() const { return m_javaScriptCanOpenWindowsAutomatically; }
+
+        void setJavaScriptCanAccessClipboard(bool);
+        bool javaScriptCanAccessClipboard() const { return m_javaScriptCanAccessClipboard; }
+
+        void setSpatialNavigationEnabled(bool);
+        bool isSpatialNavigationEnabled() const { return m_isSpatialNavigationEnabled; }
 
         void setJavaEnabled(bool);
         bool isJavaEnabled() const { return m_isJavaEnabled; }
 
+        void setImagesEnabled(bool);
+        bool areImagesEnabled() const { return m_areImagesEnabled; }
+
+        void setMediaEnabled(bool);
+        bool isMediaEnabled() const { return m_isMediaEnabled; }
+
         void setPluginsEnabled(bool);
         bool arePluginsEnabled() const { return m_arePluginsEnabled; }
 
-        void setDatabasesEnabled(bool);
-        bool databasesEnabled() const { return m_databasesEnabled; }
-
         void setLocalStorageEnabled(bool);
         bool localStorageEnabled() const { return m_localStorageEnabled; }
+
+#if ENABLE(DOM_STORAGE)        
+        void setLocalStorageQuota(unsigned);
+        unsigned localStorageQuota() const { return m_localStorageQuota; }
+
+        // Allow clients concerned with memory consumption to set a quota on session storage
+        // since the memory used won't be released until the Page is destroyed.
+        // Default is noQuota.
+        void setSessionStorageQuota(unsigned);
+        unsigned sessionStorageQuota() const { return m_sessionStorageQuota; }
+#endif
 
         void setPrivateBrowsingEnabled(bool);
         bool privateBrowsingEnabled() const { return m_privateBrowsingEnabled; }
@@ -192,7 +221,10 @@ namespace WebCore {
         
         void setDeveloperExtrasEnabled(bool);
         bool developerExtrasEnabled() const { return m_developerExtrasEnabled; }
-        
+
+        void setFrameFlatteningEnabled(bool);
+        bool frameFlatteningEnabled() const { return m_frameFlatteningEnabled; }
+
         void setAuthorAndUserStylesEnabled(bool);
         bool authorAndUserStylesEnabled() const { return m_authorAndUserStylesEnabled; }
         
@@ -220,8 +252,8 @@ namespace WebCore {
         void setShouldPaintCustomScrollbars(bool);
         bool shouldPaintCustomScrollbars() const { return m_shouldPaintCustomScrollbars; }
 
-        void setZoomsTextOnly(bool);
-        bool zoomsTextOnly() const { return m_zoomsTextOnly; }
+        void setZoomMode(ZoomMode);
+        ZoomMode zoomMode() const { return m_zoomMode; }
         
         void setEnforceCSSMIMETypeInStrictMode(bool);
         bool enforceCSSMIMETypeInStrictMode() { return m_enforceCSSMIMETypeInStrictMode; }
@@ -250,10 +282,31 @@ namespace WebCore {
         void setAcceleratedCompositingEnabled(bool);
         bool acceleratedCompositingEnabled() const { return m_acceleratedCompositingEnabled; }
 
-#if PLATFORM(WIN)
+        void setShowDebugBorders(bool);
+        bool showDebugBorders() const { return m_showDebugBorders; }
+
+        void setShowRepaintCounter(bool);
+        bool showRepaintCounter() const { return m_showRepaintCounter; }
+
+        void setExperimentalNotificationsEnabled(bool);
+        bool experimentalNotificationsEnabled() const { return m_experimentalNotificationsEnabled; }
+
+#if PLATFORM(WIN) || (OS(WINDOWS) && PLATFORM(WX))
         static void setShouldUseHighResolutionTimers(bool);
         static bool shouldUseHighResolutionTimers() { return gShouldUseHighResolutionTimers; }
 #endif
+
+        void setPluginAllowedRunTime(unsigned);
+        unsigned pluginAllowedRunTime() const { return m_pluginAllowedRunTime; }
+
+        void setWebGLEnabled(bool);
+        bool webGLEnabled() const { return m_webGLEnabled; }
+
+        void setLoadDeferringEnabled(bool);
+        bool loadDeferringEnabled() const { return m_loadDeferringEnabled; }
+        
+        void setTiledBackingStoreEnabled(bool);
+        bool tiledBackingStoreEnabled() const { return m_tiledBackingStoreEnabled; }
 
     private:
         Page* m_page;
@@ -275,17 +328,27 @@ namespace WebCore {
         int m_defaultFontSize;
         int m_defaultFixedFontSize;
         size_t m_maximumDecodedImageSize;
+#if ENABLE(DOM_STORAGE)        
+        unsigned m_localStorageQuota;
+        unsigned m_sessionStorageQuota;
+#endif
+        unsigned m_pluginAllowedRunTime;
+        ZoomMode m_zoomMode;
+        bool m_isSpatialNavigationEnabled : 1;
         bool m_isJavaEnabled : 1;
         bool m_loadsImagesAutomatically : 1;
         bool m_privateBrowsingEnabled : 1;
         bool m_caretBrowsingEnabled : 1;
+        bool m_areImagesEnabled : 1;
+        bool m_isMediaEnabled : 1;
         bool m_arePluginsEnabled : 1;
-        bool m_databasesEnabled : 1;
         bool m_localStorageEnabled : 1;
         bool m_isJavaScriptEnabled : 1;
         bool m_isWebSecurityEnabled : 1;
         bool m_allowUniversalAccessFromFileURLs: 1;
+        bool m_allowFileAccessFromFileURLs: 1;
         bool m_javaScriptCanOpenWindowsAutomatically : 1;
+        bool m_javaScriptCanAccessClipboard : 1;
         bool m_shouldPrintBackgrounds : 1;
         bool m_textAreasAreResizable : 1;
 #if ENABLE(DASHBOARD_SUPPORT)
@@ -305,12 +368,12 @@ namespace WebCore {
         bool m_authorAndUserStylesEnabled : 1;
         bool m_needsSiteSpecificQuirks : 1;
         unsigned m_fontRenderingMode : 1;
+        bool m_frameFlatteningEnabled : 1;
         bool m_webArchiveDebugModeEnabled : 1;
         bool m_localFileContentSniffingEnabled : 1;
         bool m_inApplicationChromeMode : 1;
         bool m_offlineWebApplicationCacheEnabled : 1;
         bool m_shouldPaintCustomScrollbars : 1;
-        bool m_zoomsTextOnly : 1;
         bool m_enforceCSSMIMETypeInStrictMode : 1;
         bool m_usesEncodingDetector : 1;
         bool m_allowScriptsToCloseWindows : 1;
@@ -318,11 +381,17 @@ namespace WebCore {
         bool m_downloadableBinaryFontsEnabled : 1;
         bool m_xssAuditorEnabled : 1;
         bool m_acceleratedCompositingEnabled : 1;
+        bool m_showDebugBorders : 1;
+        bool m_showRepaintCounter : 1;
+        bool m_experimentalNotificationsEnabled : 1;
+        bool m_webGLEnabled : 1;
+        bool m_loadDeferringEnabled : 1;
+        bool m_tiledBackingStoreEnabled : 1;
 
 #if USE(SAFARI_THEME)
         static bool gShouldPaintNativeControls;
 #endif
-#if PLATFORM(WIN)
+#if PLATFORM(WIN) || (OS(WINDOWS) && PLATFORM(WX))
         static bool gShouldUseHighResolutionTimers;
 #endif
     };

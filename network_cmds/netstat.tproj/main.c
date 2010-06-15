@@ -275,7 +275,7 @@ int	Aflag;		/* show addresses of protocol control block */
 int	aflag;		/* show all sockets (including servers) */
 int	bflag;		/* show i/f total bytes in/out */
 int	dflag;		/* show i/f dropped packets */
-#if defined(__APPLE__) && !TARGET_OS_EMBEDDED
+#if defined(__APPLE__)
 int	gflag;		/* show group (multicast) routing or stats */
 #endif
 int	iflag;		/* show interfaces */
@@ -284,6 +284,7 @@ int	Lflag;		/* show size of listen queues */
 int	mflag;		/* show memory stats */
 int	nflag;		/* show addresses numerically */
 static int pflag;	/* show given protocol */
+int	prioflag;	/* show packet priority statistics */
 int	rflag;		/* show routing tables (or routing stats) */
 int	sflag;		/* show protocol statistics */
 int	tflag;		/* show i/f watchdog timers */
@@ -306,7 +307,7 @@ main(argc, argv)
 
 	af = AF_UNSPEC;
 
-	while ((ch = getopt(argc, argv, "Aabdf:gI:iLlmnp:rRstuWw:")) != -1)
+	while ((ch = getopt(argc, argv, "Aabdf:gI:iLlmnPp:rRstuWw:")) != -1)
 		switch(ch) {
 		case 'A':
 			Aflag = 1;
@@ -339,7 +340,7 @@ main(argc, argv)
 				errx(1, "%s: unknown address family", optarg);
 			}
 			break;
-#if defined(__APPLE__) && !TARGET_OS_EMBEDDED
+#if defined(__APPLE__)
 		case 'g':
 			gflag = 1;
 			break;
@@ -367,6 +368,9 @@ main(argc, argv)
 			break;
 		case 'n':
 			nflag = 1;
+			break;
+		case 'P':
+			prioflag = 1;
 			break;
 		case 'p':
 			if ((tp = name2protox(optarg)) == NULL) {
@@ -430,8 +434,9 @@ main(argc, argv)
 			routepr(nl[N_RTREE].n_value);
 		exit(0);
 	}
-#if defined(__APPLE__) && !TARGET_OS_EMBEDDED
+#if defined(__APPLE__)
 	if (gflag) {
+#if !TARGET_OS_EMBEDDED		
 		if (sflag) {
 			if (af == AF_INET || af == AF_UNSPEC)
 				mrt_stats();
@@ -447,6 +452,7 @@ main(argc, argv)
 				mroute6pr();
 #endif
 		}
+#endif /* !TARGET_OS_EMBEDDED */
 		ifmalist_dump();
 		exit(0);
 	}

@@ -28,6 +28,7 @@
 #include <WebCore/IntSize.h>
 #include <WebCore/LocalizedStrings.h>
 #include <WebCore/PlatformString.h>
+#include <wtf/MathExtras.h>
 #include <wtf/RetainPtr.h>
 
 using namespace WebCore;
@@ -91,15 +92,16 @@ String WebCore::AXTextFieldActionVerb() { return String(LPCTSTR_UI_STRING("activ
 String WebCore::AXCheckedCheckBoxActionVerb() { return String(LPCTSTR_UI_STRING("uncheck", "Verb stating the action that will occur when a checked checkbox is clicked, as used by accessibility")); }
 String WebCore::AXUncheckedCheckBoxActionVerb() { return String(LPCTSTR_UI_STRING("check", "Verb stating the action that will occur when an unchecked checkbox is clicked, as used by accessibility")); }
 String WebCore::AXLinkActionVerb() { return String(LPCTSTR_UI_STRING("jump", "Verb stating the action that will occur when a link is clicked, as used by accessibility")); }
+String WebCore::AXMenuListActionVerb() { return String(LPCTSTR_UI_STRING("open", "Verb stating the action that will occur when a select element is clicked, as used by accessibility")); }
+String WebCore::AXMenuListPopupActionVerb() { return String(LPCTSTR_UI_STRING_KEY("press", "press (select element)", "Verb stating the action that will occur when a select element's popup list is clicked, as used by accessibility")); }
 String WebCore::unknownFileSizeText() { return String(LPCTSTR_UI_STRING("Unknown", "Unknown filesize FTP directory listing item")); }
 String WebCore::uploadFileText() { return String(LPCTSTR_UI_STRING("Upload file", "(Windows) Form submit file upload dialog title")); }
 String WebCore::allFilesText() { return String(LPCTSTR_UI_STRING("All Files", "(Windows) Form submit file upload all files pop-up")); }
-String WebCore::mediaElementLoadingStateText() { return String(LPCTSTR_UI_STRING("Loading...", "Media controller status message when the media is loading")); }
-String WebCore::mediaElementLiveBroadcastStateText() { return String(LPCTSTR_UI_STRING("Live Broadcast", "Media controller status message when watching a live broadcast")); }
-
+String WebCore::missingPluginText() { return String(LPCTSTR_UI_STRING("Missing Plug-in", "Label text to be used when a plugin is missing")); }
+String WebCore::crashedPluginText() { return String(LPCTSTR_UI_STRING("Plug-in Failure", "Label text to be used if plugin host process has crashed")); }
 String WebCore::imageTitle(const String& filename, const IntSize& size) 
 { 
-    static RetainPtr<CFStringRef> format(AdoptCF, UI_STRING("%@ %d×%d pixels", "window title for a standalone image (uses multiplication symbol, not x)"));
+    static RetainPtr<CFStringRef> format(AdoptCF, UI_STRING("%@ %d\xC3\x97%d pixels", "window title for a standalone image (uses multiplication symbol, not x)"));
 
     RetainPtr<CFStringRef> filenameCF(AdoptCF, filename.createCFString());
     RetainPtr<CFStringRef> result(AdoptCF, CFStringCreateWithFormat(0, 0, format.get(), filenameCF.get(), size.width(), size.height()));
@@ -114,3 +116,137 @@ String multipleFileUploadText(unsigned numberOfFiles)
 
     return result.get();
 }
+
+#if ENABLE(VIDEO)
+String WebCore::mediaElementLoadingStateText() { return String(LPCTSTR_UI_STRING("Loading...", "Media controller status message when the media is loading")); }
+String WebCore::mediaElementLiveBroadcastStateText() { return String(LPCTSTR_UI_STRING("Live Broadcast", "Media controller status message when watching a live broadcast")); }
+
+String WebCore::localizedMediaControlElementString(const String& name)
+{
+    if (name == "AudioElement")
+        return String(LPCTSTR_UI_STRING("audio element controller", "accessibility role description for audio element controller"));
+    if (name == "VideoElement")
+        return String(LPCTSTR_UI_STRING("video element controller", "accessibility role description for video element controller"));
+    if (name == "MuteButton")
+        return String(LPCTSTR_UI_STRING("mute", "accessibility role description for mute button"));
+    if (name == "UnMuteButton")
+        return String(LPCTSTR_UI_STRING("unmute", "accessibility role description for turn mute off button"));
+    if (name == "PlayButton")
+        return String(LPCTSTR_UI_STRING("play", "accessibility role description for play button"));
+    if (name == "PauseButton")
+        return String(LPCTSTR_UI_STRING("pause", "accessibility role description for pause button"));
+    if (name == "Slider")
+        return String(LPCTSTR_UI_STRING("movie time", "accessibility role description for timeline slider"));
+    if (name == "SliderThumb")
+        return String(LPCTSTR_UI_STRING("timeline slider thumb", "accessibility role description for timeline thumb"));
+    if (name == "RewindButton")
+        return String(LPCTSTR_UI_STRING("back 30 seconds", "accessibility role description for seek back 30 seconds button"));
+    if (name == "ReturnToRealtimeButton")
+        return String(LPCTSTR_UI_STRING("return to realtime", "accessibility role description for return to real time button"));
+    if (name == "CurrentTimeDisplay")
+        return String(LPCTSTR_UI_STRING("elapsed time", "accessibility role description for elapsed time display"));
+    if (name == "TimeRemainingDisplay")
+        return String(LPCTSTR_UI_STRING("remaining time", "accessibility role description for time remaining display"));
+    if (name == "StatusDisplay")
+        return String(LPCTSTR_UI_STRING("status", "accessibility role description for movie status"));
+    if (name == "FullscreenButton")
+        return String(LPCTSTR_UI_STRING("fullscreen", "accessibility role description for enter fullscreen button"));
+    if (name == "SeekForwardButton")
+        return String(LPCTSTR_UI_STRING("fast forward", "accessibility role description for fast forward button"));
+    if (name == "SeekBackButton")
+        return String(LPCTSTR_UI_STRING("fast reverse", "accessibility role description for fast reverse button"));
+    if (name == "ShowClosedCaptionsButton")
+        return String(LPCTSTR_UI_STRING("show closed captions", "accessibility role description for show closed captions button"));
+    if (name == "HideClosedCaptionsButton")
+        return String(LPCTSTR_UI_STRING("hide closed captions", "accessibility role description for hide closed captions button"));
+
+    ASSERT_NOT_REACHED();
+    return String();
+}
+
+String WebCore::localizedMediaControlElementHelpText(const String& name)
+{
+    if (name == "AudioElement")
+        return String(LPCTSTR_UI_STRING("audio element playback controls and status display", "accessibility role description for audio element controller"));
+    if (name == "VideoElement")
+        return String(LPCTSTR_UI_STRING("video element playback controls and status display", "accessibility role description for video element controller"));
+    if (name == "MuteButton")
+        return String(LPCTSTR_UI_STRING("mute audio tracks", "accessibility help text for mute button"));
+    if (name == "UnMuteButton")
+        return String(LPCTSTR_UI_STRING("unmute audio tracks", "accessibility help text for un mute button"));
+    if (name == "PlayButton")
+        return String(LPCTSTR_UI_STRING("begin playback", "accessibility help text for play button"));
+    if (name == "PauseButton")
+        return String(LPCTSTR_UI_STRING("pause playback", "accessibility help text for pause button"));
+    if (name == "Slider")
+        return String(LPCTSTR_UI_STRING("movie time scrubber", "accessibility help text for timeline slider"));
+    if (name == "SliderThumb")
+        return String(LPCTSTR_UI_STRING("movie time scrubber thumb", "accessibility help text for timeline slider thumb"));
+    if (name == "RewindButton")
+        return String(LPCTSTR_UI_STRING("seek movie back 30 seconds", "accessibility help text for jump back 30 seconds button"));
+    if (name == "ReturnToRealtimeButton")
+        return String(LPCTSTR_UI_STRING("return streaming movie to real time", "accessibility help text for return streaming movie to real time button"));
+    if (name == "CurrentTimeDisplay")
+        return String(LPCTSTR_UI_STRING("current movie time in seconds", "accessibility help text for elapsed time display"));
+    if (name == "TimeRemainingDisplay")
+        return String(LPCTSTR_UI_STRING("number of seconds of movie remaining", "accessibility help text for remaining time display"));
+    if (name == "StatusDisplay")
+        return String(LPCTSTR_UI_STRING("current movie status", "accessibility help text for movie status display"));
+    if (name == "SeekBackButton")
+        return String(LPCTSTR_UI_STRING("seek quickly back", "accessibility help text for fast rewind button"));
+    if (name == "SeekForwardButton")
+        return String(LPCTSTR_UI_STRING("seek quickly forward", "accessibility help text for fast forward button"));
+    if (name == "FullscreenButton")
+        return String(LPCTSTR_UI_STRING("Play movie in fullscreen mode", "accessibility help text for enter fullscreen button"));
+    if (name == "ShowClosedCaptionsButton")
+        return String(LPCTSTR_UI_STRING("start displaying closed captions", "accessibility help text for show closed captions button"));
+    if (name == "HideClosedCaptionsButton")
+        return String(LPCTSTR_UI_STRING("stop displaying closed captions", "accessibility help text for hide closed captions button"));
+
+    ASSERT_NOT_REACHED();
+    return String();
+}
+
+String WebCore::localizedMediaTimeDescription(float time)
+{
+    if (!isfinite(time))
+        return String(LPCTSTR_UI_STRING("indefinite time", "accessibility help text for an indefinite media controller time value"));
+
+    int seconds = (int)fabsf(time);
+    int days = seconds / (60 * 60 * 24);
+    int hours = seconds / (60 * 60);
+    int minutes = (seconds / 60) % 60;
+    seconds %= 60;
+
+    if (days) {
+        static RetainPtr<CFStringRef> format(AdoptCF, UI_STRING("%1$d days %2$d hours %3$d minutes %4$d seconds", "accessibility help text for media controller time value >= 1 day"));
+        RetainPtr<CFStringRef> result(AdoptCF, CFStringCreateWithFormat(0, 0, format.get(), days, hours, minutes, seconds));
+        return result.get();
+    }
+
+    if (hours) {
+        static RetainPtr<CFStringRef> format(AdoptCF, UI_STRING("%1$d hours %2$d minutes %3$d seconds", "accessibility help text for media controller time value >= 60 minutes"));
+        RetainPtr<CFStringRef> result(AdoptCF, CFStringCreateWithFormat(0, 0, format.get(), hours, minutes, seconds));
+        return result.get();
+    }
+
+    if (minutes) {
+        static RetainPtr<CFStringRef> format(AdoptCF, UI_STRING("%1$d minutes %2$d seconds", "accessibility help text for media controller time value >= 60 seconds"));
+        RetainPtr<CFStringRef> result(AdoptCF, CFStringCreateWithFormat(0, 0, format.get(), minutes, seconds));
+        return result.get();
+    }
+
+    static RetainPtr<CFStringRef> format(AdoptCF, UI_STRING("%1$d seconds", "accessibility help text for media controller time value < 60 seconds"));
+    RetainPtr<CFStringRef> result(AdoptCF, CFStringCreateWithFormat(0, 0, format.get(), seconds));
+    return result.get();
+}
+
+#endif  // ENABLE(VIDEO)
+
+String WebCore::validationMessageValueMissingText() { return String(LPCTSTR_UI_STRING("value missing", "Validation message for required form control elements that have no value")); }
+String WebCore::validationMessageTypeMismatchText() { return String(LPCTSTR_UI_STRING("type mismatch", "Validation message for input form controls with a value not matching type")); }
+String WebCore::validationMessagePatternMismatchText() { return String(LPCTSTR_UI_STRING("pattern mismatch", "Validation message for input form controls requiring a constrained value according to pattern")); }
+String WebCore::validationMessageTooLongText() { return String(LPCTSTR_UI_STRING("too long", "Validation message for form control elements with a value longer than maximum allowed length")); }
+String WebCore::validationMessageRangeUnderflowText() { return String(LPCTSTR_UI_STRING("range underflow", "Validation message for input form controls with value lower than allowed minimum")); }
+String WebCore::validationMessageRangeOverflowText() { return String(LPCTSTR_UI_STRING("range overflow", "Validation message for input form controls with value higher than allowed maximum")); }
+String WebCore::validationMessageStepMismatchText() { return String(LPCTSTR_UI_STRING("step mismatch", "Validation message for input form controls with value not respecting the step attribute")); }

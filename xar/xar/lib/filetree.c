@@ -1042,8 +1042,20 @@ int32_t xar_prop_unserialize(xar_file_t f, xar_prop_t parent, xmlTextReaderPtr r
 				XAR_PROP(p)->value = strdup(value);
 			if( isname ) {
 				if( XAR_FILE(f)->parent ) {
+					
+					if (XAR_FILE(f)->fspath) {		/* It's possible that a XAR header may contain multiple name entries. Make sure we don't smash the old one. */
+						free(XAR_FILE(f)->fspath);
+						XAR_FILE(f)->fspath = NULL;
+					}
+					
 					asprintf((char **)&XAR_FILE(f)->fspath, "%s/%s", XAR_FILE(XAR_FILE(f)->parent)->fspath, XAR_PROP(p)->value);
 				} else {
+					
+					if (XAR_FILE(f)->fspath) {		/* It's possible that a XAR header may contain multiple name entries. Make sure we don't smash the old one. */
+						free(XAR_FILE(f)->fspath);
+						XAR_FILE(f)->fspath = NULL;
+					}
+					
 					XAR_FILE(f)->fspath = strdup(XAR_PROP(p)->value);
 				}
 			}

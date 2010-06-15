@@ -50,7 +50,6 @@
 #import <WebCore/DOMSVGColor.h>
 #import <WebCore/DOMSVGComponentTransferFunctionElement.h>
 #import <WebCore/DOMSVGCursorElement.h>
-#import <WebCore/DOMSVGDefinitionSrcElement.h>
 #import <WebCore/DOMSVGDefsElement.h>
 #import <WebCore/DOMSVGDescElement.h>
 #import <WebCore/DOMSVGDocument.h>
@@ -76,6 +75,7 @@
 #import <WebCore/DOMSVGFEImageElement.h>
 #import <WebCore/DOMSVGFEMergeElement.h>
 #import <WebCore/DOMSVGFEMergeNodeElement.h>
+#import <WebCore/DOMSVGFEMorphologyElement.h>
 #import <WebCore/DOMSVGFEOffsetElement.h>
 #import <WebCore/DOMSVGFEPointLightElement.h>
 #import <WebCore/DOMSVGFESpecularLightingElement.h>

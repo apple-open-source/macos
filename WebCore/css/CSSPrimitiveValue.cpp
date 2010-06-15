@@ -22,6 +22,7 @@
 #include "CSSPrimitiveValue.h"
 
 #include "CSSHelper.h"
+#include "CSSParser.h"
 #include "CSSPropertyNames.h"
 #include "CSSStyleSheet.h"
 #include "CSSValueKeywords.h"
@@ -30,6 +31,7 @@
 #include "ExceptionCode.h"
 #include "Node.h"
 #include "Pair.h"
+#include "RGBColor.h"
 #include "Rect.h"
 #include "RenderStyle.h"
 #include <wtf/ASCIICType.h>
@@ -115,83 +117,30 @@ PassRefPtr<CSSPrimitiveValue> CSSPrimitiveValue::create(const String& value, Uni
     return adoptRef(new CSSPrimitiveValue(value, type));
 }
 
-static const char* valueOrPropertyName(int valueOrPropertyID)
+static const AtomicString& valueOrPropertyName(int valueOrPropertyID)
 {
-    if (const char* valueName = getValueName(valueOrPropertyID))
-        return valueName;
-    return getPropertyName(static_cast<CSSPropertyID>(valueOrPropertyID));
-}
+    ASSERT_ARG(valueOrPropertyID, valueOrPropertyID >= 0);
+    ASSERT_ARG(valueOrPropertyID, valueOrPropertyID < numCSSValueKeywords || (valueOrPropertyID >= firstCSSProperty && valueOrPropertyID < firstCSSProperty + numCSSProperties));
 
-// "ident" from the CSS tokenizer, minus backslash-escape sequences
-static bool isCSSTokenizerIdentifier(const String& string)
-{
-    const UChar* p = string.characters();
-    const UChar* end = p + string.length();
+    if (valueOrPropertyID < 0)
+        return nullAtom;
 
-    // -?
-    if (p != end && p[0] == '-')
-        ++p;
-
-    // {nmstart}
-    if (p == end || !(p[0] == '_' || p[0] >= 128 || isASCIIAlpha(p[0])))
-        return false;
-    ++p;
-
-    // {nmchar}*
-    for (; p != end; ++p) {
-        if (!(p[0] == '_' || p[0] == '-' || p[0] >= 128 || isASCIIAlphanumeric(p[0])))
-            return false;
+    if (valueOrPropertyID < numCSSValueKeywords) {
+        static AtomicString* cssValueKeywordStrings[numCSSValueKeywords];
+        if (!cssValueKeywordStrings[valueOrPropertyID])
+            cssValueKeywordStrings[valueOrPropertyID] = new AtomicString(getValueName(valueOrPropertyID));
+        return *cssValueKeywordStrings[valueOrPropertyID];
     }
 
-    return true;
-}
-
-// "url" from the CSS tokenizer, minus backslash-escape sequences
-static bool isCSSTokenizerURL(const String& string)
-{
-    const UChar* p = string.characters();
-    const UChar* end = p + string.length();
-
-    for (; p != end; ++p) {
-        UChar c = p[0];
-        switch (c) {
-            case '!':
-            case '#':
-            case '$':
-            case '%':
-            case '&':
-                break;
-            default:
-                if (c < '*')
-                    return false;
-                if (c <= '~')
-                    break;
-                if (c < 128)
-                    return false;
-        }
+    if (valueOrPropertyID >= firstCSSProperty && valueOrPropertyID < firstCSSProperty + numCSSProperties) {
+        static AtomicString* cssPropertyStrings[numCSSProperties];
+        int propertyIndex = valueOrPropertyID - firstCSSProperty;
+        if (!cssPropertyStrings[propertyIndex])
+            cssPropertyStrings[propertyIndex] = new AtomicString(getPropertyName(static_cast<CSSPropertyID>(valueOrPropertyID)));
+        return *cssPropertyStrings[propertyIndex];
     }
 
-    return true;
-}
-
-// We use single quotes for now because markup.cpp uses double quotes.
-static String quoteString(const String& string)
-{
-    // FIXME: Also need to escape characters like '\n'.
-    String s = string;
-    s.replace('\\', "\\\\");
-    s.replace('\'', "\\'");
-    return "'" + s + "'";
-}
-
-static String quoteStringIfNeeded(const String& string)
-{
-    return isCSSTokenizerIdentifier(string) ? string : quoteString(string);
-}
-
-static String quoteURLIfNeeded(const String& string)
-{
-    return isCSSTokenizerURL(string) ? string : quoteString(string);
+    return nullAtom;
 }
 
 CSSPrimitiveValue::CSSPrimitiveValue()
@@ -316,11 +265,12 @@ void CSSPrimitiveValue::cleanup()
     }
 
     m_type = 0;
+    m_cachedCSSText = String();
 }
 
-int CSSPrimitiveValue::computeLengthInt(RenderStyle* style)
+int CSSPrimitiveValue::computeLengthInt(RenderStyle* style, RenderStyle* rootStyle)
 {
-    double result = computeLengthDouble(style);
+    double result = computeLengthDouble(style, rootStyle);
 
     // This conversion is imprecise, often resulting in values of, e.g., 44.99998.  We
     // need to go ahead and round if we're really close to the next integer value.
@@ -331,9 +281,9 @@ int CSSPrimitiveValue::computeLengthInt(RenderStyle* style)
     return static_cast<int>(result);
 }
 
-int CSSPrimitiveValue::computeLengthInt(RenderStyle* style, double multiplier)
+int CSSPrimitiveValue::computeLengthInt(RenderStyle* style, RenderStyle* rootStyle, double multiplier)
 {
-    double result = computeLengthDouble(style, multiplier);
+    double result = computeLengthDouble(style, rootStyle, multiplier);
 
     // This conversion is imprecise, often resulting in values of, e.g., 44.99998.  We
     // need to go ahead and round if we're really close to the next integer value.
@@ -348,9 +298,9 @@ const int intMaxForLength = 0x7ffffff; // max value for a 28-bit int
 const int intMinForLength = (-0x7ffffff - 1); // min value for a 28-bit int
 
 // Lengths expect an int that is only 28-bits, so we have to check for a different overflow.
-int CSSPrimitiveValue::computeLengthIntForLength(RenderStyle* style)
+int CSSPrimitiveValue::computeLengthIntForLength(RenderStyle* style, RenderStyle* rootStyle)
 {
-    double result = computeLengthDouble(style);
+    double result = computeLengthDouble(style, rootStyle);
 
     // This conversion is imprecise, often resulting in values of, e.g., 44.99998.  We
     // need to go ahead and round if we're really close to the next integer value.
@@ -362,9 +312,9 @@ int CSSPrimitiveValue::computeLengthIntForLength(RenderStyle* style)
 }
 
 // Lengths expect an int that is only 28-bits, so we have to check for a different overflow.
-int CSSPrimitiveValue::computeLengthIntForLength(RenderStyle* style, double multiplier)
+int CSSPrimitiveValue::computeLengthIntForLength(RenderStyle* style, RenderStyle* rootStyle, double multiplier)
 {
-    double result = computeLengthDouble(style, multiplier);
+    double result = computeLengthDouble(style, rootStyle, multiplier);
 
     // This conversion is imprecise, often resulting in values of, e.g., 44.99998.  We
     // need to go ahead and round if we're really close to the next integer value.
@@ -375,9 +325,9 @@ int CSSPrimitiveValue::computeLengthIntForLength(RenderStyle* style, double mult
     return static_cast<int>(result);
 }
 
-short CSSPrimitiveValue::computeLengthShort(RenderStyle* style)
+short CSSPrimitiveValue::computeLengthShort(RenderStyle* style, RenderStyle* rootStyle)
 {
-    double result = computeLengthDouble(style);
+    double result = computeLengthDouble(style, rootStyle);
 
     // This conversion is imprecise, often resulting in values of, e.g., 44.99998.  We
     // need to go ahead and round if we're really close to the next integer value.
@@ -388,9 +338,9 @@ short CSSPrimitiveValue::computeLengthShort(RenderStyle* style)
     return static_cast<short>(result);
 }
 
-short CSSPrimitiveValue::computeLengthShort(RenderStyle* style, double multiplier)
+short CSSPrimitiveValue::computeLengthShort(RenderStyle* style, RenderStyle* rootStyle, double multiplier)
 {
-    double result = computeLengthDouble(style, multiplier);
+    double result = computeLengthDouble(style, rootStyle, multiplier);
 
     // This conversion is imprecise, often resulting in values of, e.g., 44.99998.  We
     // need to go ahead and round if we're really close to the next integer value.
@@ -401,17 +351,17 @@ short CSSPrimitiveValue::computeLengthShort(RenderStyle* style, double multiplie
     return static_cast<short>(result);
 }
 
-float CSSPrimitiveValue::computeLengthFloat(RenderStyle* style, bool computingFontSize)
+float CSSPrimitiveValue::computeLengthFloat(RenderStyle* style, RenderStyle* rootStyle, bool computingFontSize)
 {
-    return static_cast<float>(computeLengthDouble(style, 1.0, computingFontSize));
+    return static_cast<float>(computeLengthDouble(style, rootStyle, 1.0, computingFontSize));
 }
 
-float CSSPrimitiveValue::computeLengthFloat(RenderStyle* style, double multiplier, bool computingFontSize)
+float CSSPrimitiveValue::computeLengthFloat(RenderStyle* style, RenderStyle* rootStyle, double multiplier, bool computingFontSize)
 {
-    return static_cast<float>(computeLengthDouble(style, multiplier, computingFontSize));
+    return static_cast<float>(computeLengthDouble(style, rootStyle, multiplier, computingFontSize));
 }
 
-double CSSPrimitiveValue::computeLengthDouble(RenderStyle* style, double multiplier, bool computingFontSize)
+double CSSPrimitiveValue::computeLengthDouble(RenderStyle* style, RenderStyle* rootStyle, double multiplier, bool computingFontSize)
 {
     unsigned short type = primitiveType();
 
@@ -433,6 +383,10 @@ double CSSPrimitiveValue::computeLengthDouble(RenderStyle* style, double multipl
             // our actual constructed rendering font.
             applyZoomMultiplier = false;
             factor = style->font().xHeight();
+            break;
+        case CSS_REMS:
+            applyZoomMultiplier = false;
+            factor = computingFontSize ? rootStyle->fontDescription().specifiedSize() : rootStyle->fontDescription().computedSize();
             break;
         case CSS_PX:
             break;
@@ -472,15 +426,13 @@ void CSSPrimitiveValue::setFloatValue(unsigned short unitType, double floatValue
 {
     ec = 0;
 
-    // FIXME: check if property supports this type
-    if (m_type > CSS_DIMENSION) {
-        ec = SYNTAX_ERR;
+    if (m_type < CSS_NUMBER || m_type > CSS_DIMENSION || unitType < CSS_NUMBER || unitType > CSS_DIMENSION) {
+        ec = INVALID_ACCESS_ERR;
         return;
     }
 
     cleanup();
 
-    //if(m_type > CSS_DIMENSION) throw DOMException(INVALID_ACCESS_ERR);
     m_value.num = floatValue;
     m_type = unitType;
 }
@@ -563,10 +515,8 @@ void CSSPrimitiveValue::setStringValue(unsigned short stringType, const String& 
 {
     ec = 0;
 
-    //if(m_type < CSS_STRING) throw DOMException(INVALID_ACCESS_ERR);
-    //if(m_type > CSS_ATTR) throw DOMException(INVALID_ACCESS_ERR);
-    if (m_type < CSS_STRING || m_type > CSS_ATTR) {
-        ec = SYNTAX_ERR;
+    if (m_type < CSS_STRING || m_type > CSS_ATTR || stringType < CSS_STRING || stringType > CSS_ATTR) {
+        ec = INVALID_ACCESS_ERR;
         return;
     }
 
@@ -638,7 +588,7 @@ Rect* CSSPrimitiveValue::getRectValue(ExceptionCode& ec) const
     return m_value.rect;
 }
 
-unsigned CSSPrimitiveValue::getRGBColorValue(ExceptionCode& ec) const
+PassRefPtr<RGBColor> CSSPrimitiveValue::getRGBColorValue(ExceptionCode& ec) const
 {
     ec = 0;
     if (m_type != CSS_RGBCOLOR) {
@@ -646,7 +596,8 @@ unsigned CSSPrimitiveValue::getRGBColorValue(ExceptionCode& ec) const
         return 0;
     }
 
-    return m_value.rgbcolor;
+    // FIMXE: This should not return a new object for each invocation.
+    return RGBColor::create(m_value.rgbcolor);
 }
 
 Pair* CSSPrimitiveValue::getPairValue(ExceptionCode& ec) const
@@ -682,6 +633,9 @@ String CSSPrimitiveValue::cssText() const
 {
     // FIXME: return the original value instead of a generated one (e.g. color
     // name if it was specified) - check what spec says about this
+    if (!m_cachedCSSText.isNull())
+        return m_cachedCSSText;
+
     String text;
     switch (m_type) {
         case CSS_UNKNOWN:
@@ -699,6 +653,9 @@ String CSSPrimitiveValue::cssText() const
             break;
         case CSS_EXS:
             text = String::format("%.6lgex", m_value.num);
+            break;
+        case CSS_REMS:
+            text = String::format("%.6lgrem", m_value.num);
             break;
         case CSS_PX:
             text = String::format("%.6lgpx", m_value.num);
@@ -746,10 +703,10 @@ String CSSPrimitiveValue::cssText() const
             // FIXME
             break;
         case CSS_STRING:
-            text = quoteStringIfNeeded(m_value.string);
+            text = quoteCSSStringIfNeeded(m_value.string);
             break;
         case CSS_URI:
-            text = "url(" + quoteURLIfNeeded(m_value.string) + ")";
+            text = "url(" + quoteCSSURLIfNeeded(m_value.string) + ")";
             break;
         case CSS_IDENT:
             text = valueOrPropertyName(m_value.ident);
@@ -764,7 +721,8 @@ String CSSPrimitiveValue::cssText() const
             append(result, m_value.string);
             result.uncheckedAppend(')');
 
-            return String::adopt(result);
+            text = String::adopt(result);
+            break;
         }
         case CSS_COUNTER:
             text = "counter(";
@@ -792,7 +750,8 @@ String CSSPrimitiveValue::cssText() const
             append(result, rectVal->left()->cssText());
             result.append(')');
 
-            return String::adopt(result);
+            text = String::adopt(result);
+            break;
         }
         case CSS_RGBCOLOR:
         case CSS_PARSER_HEXCOLOR: {
@@ -821,11 +780,12 @@ String CSSPrimitiveValue::cssText() const
             appendNumber(result, static_cast<unsigned char>(color.blue()));
             if (color.hasAlpha()) {
                 append(result, commaSpace);
-                append(result, String::number(static_cast<float>(color.alpha()) / 256.0f));
+                append(result, String::number(color.alpha() / 256.0f));
             }
 
             result.append(')');
-            return String::adopt(result);
+            text = String::adopt(result);
+            break;
         }
         case CSS_PAIR:
             text = m_value.pair->first()->cssText();
@@ -874,9 +834,10 @@ String CSSPrimitiveValue::cssText() const
             break;
         }
         case CSS_PARSER_IDENTIFIER:
-            text = quoteStringIfNeeded(m_value.string);
+            text = quoteCSSStringIfNeeded(m_value.string);
             break;
     }
+    m_cachedCSSText = text;
     return text;
 }
 
@@ -892,6 +853,7 @@ CSSParserValue CSSPrimitiveValue::parserValue() const
         case CSS_PERCENTAGE:
         case CSS_EMS:
         case CSS_EXS:
+        case CSS_REMS:
         case CSS_PX:
         case CSS_CM:
         case CSS_MM:
@@ -920,7 +882,7 @@ CSSParserValue CSSPrimitiveValue::parserValue() const
             break;
         case CSS_IDENT: {
             value.id = m_value.ident;
-            String name = valueOrPropertyName(m_value.ident);
+            const AtomicString& name = valueOrPropertyName(m_value.ident);
             value.string.characters = const_cast<UChar*>(name.characters());
             value.string.length = name.length();
             break;

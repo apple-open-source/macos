@@ -27,7 +27,6 @@
 #include "FTPDirectoryDocument.h"
 
 #include "CharacterNames.h"
-#include "CString.h"
 #include "HTMLNames.h"
 #include "HTMLTableElement.h"
 #include "HTMLTokenizer.h"
@@ -38,14 +37,10 @@
 #include "Settings.h"
 #include "SharedBuffer.h"
 #include "Text.h"
-#include <wtf/StdLibExtras.h>
 
-#if PLATFORM(QT)
-#include <QDateTime>
-// On Windows, use the threadsafe *_r functions provided by pthread.
-#elif PLATFORM(WIN_OS) && (USE(PTHREADS) || HAVE(PTHREAD_H))
-#include <pthread.h>
-#endif
+#include <wtf/text/CString.h>
+#include <wtf/CurrentTime.h>
+#include <wtf/StdLibExtras.h>
 
 using namespace std;
 
@@ -118,7 +113,7 @@ void FTPDirectoryTokenizer::appendEntry(const String& filename, const String& si
     rowElement->setAttribute("class", "ftpDirectoryEntryRow", ec);
    
     RefPtr<Element> element = m_doc->createElement(tdTag, false);
-    element->appendChild(new Text(m_doc, String(&noBreakSpace, 1)), ec);
+    element->appendChild(Text::create(m_doc, String(&noBreakSpace, 1)), ec);
     if (isDirectory)
         element->setAttribute("class", "ftpDirectoryIcon ftpDirectoryTypeDirectory", ec);
     else
@@ -130,12 +125,12 @@ void FTPDirectoryTokenizer::appendEntry(const String& filename, const String& si
     rowElement->appendChild(element, ec);
     
     element = m_doc->createElement(tdTag, false);
-    element->appendChild(new Text(m_doc, date), ec);
+    element->appendChild(Text::create(m_doc, date), ec);
     element->setAttribute("class", "ftpDirectoryFileDate", ec);
     rowElement->appendChild(element, ec);
     
     element = m_doc->createElement(tdTag, false);
-    element->appendChild(new Text(m_doc, size), ec);
+    element->appendChild(Text::create(m_doc, size), ec);
     element->setAttribute("class", "ftpDirectoryFileSize", ec);
     rowElement->appendChild(element, ec);
 }
@@ -152,7 +147,7 @@ PassRefPtr<Element> FTPDirectoryTokenizer::createTDForFilename(const String& fil
 
     RefPtr<Element> anchorElement = m_doc->createElement(aTag, false);
     anchorElement->setAttribute("href", fullURL, ec);
-    anchorElement->appendChild(new Text(m_doc, filename), ec);
+    anchorElement->appendChild(Text::create(m_doc, filename), ec);
     
     RefPtr<Element> tdElement = m_doc->createElement(tdTag, false);
     tdElement->appendChild(anchorElement, ec);
@@ -200,48 +195,6 @@ static bool wasLastDayOfMonth(int year, int month, int day)
     return lastDays[month] == day;
 }
 
-#if PLATFORM(QT)
-
-/*!
- Replacement for localtime_r() which is not available on MinGW.
-
- We use this on all of Qt's platforms for portability.
- */
-struct tm gmtimeQt(const QDateTime &input)
-{
-    tm result;
-
-    const QDate date(input.date());
-    result.tm_year = date.year() - 1900;
-    result.tm_mon = date.month();
-    result.tm_mday = date.day();
-    result.tm_wday = date.dayOfWeek();
-    result.tm_yday = date.dayOfYear();
-
-    const QTime time(input.time());
-    result.tm_sec = time.second();
-    result.tm_min = time.minute();
-    result.tm_hour = time.hour();
-
-    return result;
-}
-
-static struct tm *localTimeQt(const time_t *const timep, struct tm *result)
-{
-    const QDateTime dt(QDateTime::fromTime_t(*timep));
-    *result = WebCore::gmtimeQt(dt.toLocalTime());
-    return result;
-}
-
-#define localtime_r(x, y) localTimeQt(x, y)
-#elif PLATFORM(WIN_OS) && !defined(localtime_r)
-#if defined(_MSC_VER) && (_MSC_VER >= 1400) 
-#define localtime_r(x, y) localtime_s((y), (x))
-#else /* !_MSC_VER */ 
-#define localtime_r(x,y) (localtime(x)?(*(y)=*localtime(x),(y)):0)
-#endif
-#endif
-
 static String processFileDateString(const FTPTime& fileTime)
 {
     // FIXME: Need to localize this string?
@@ -267,7 +220,7 @@ static String processFileDateString(const FTPTime& fileTime)
     // If it was today or yesterday, lets just do that - but we have to compare to the current time
     struct tm now;
     time_t now_t = time(NULL);
-    localtime_r(&now_t, &now);
+    getLocalTime(&now_t, &now);
     
     // localtime does "year = current year - 1900", compensate for that for readability and comparison purposes
     now.tm_year += 1900;

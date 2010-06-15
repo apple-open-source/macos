@@ -23,10 +23,11 @@
 
 #include <wtf/Platform.h>
 
-/* This file emulates enough of stdint.h on Windows to make JavaScriptCore and WebCore compile. */
+/* This file emulates enough of stdint.h on Windows to make JavaScriptCore and WebCore
+   compile using MSVC which does not ship with the stdint.h header. */
 
-#if !PLATFORM(WIN_OS)
-#error "This stdint.h file should only be compiled under Windows"
+#if !COMPILER(MSVC)
+#error "This stdint.h file should only be compiled with MSVC"
 #endif
 
 #include <limits.h>
@@ -60,7 +61,7 @@ CASSERT(sizeof(int16_t) == 2, int16_t_is_two_bytes)
 CASSERT(sizeof(uint16_t) == 2, uint16_t_is_two_bytes)
 CASSERT(sizeof(int32_t) == 4, int32_t_is_four_bytes)
 CASSERT(sizeof(uint32_t) == 4, uint32_t_is_four_bytes)
-CASSERT(sizeof(int64_t) == 8, int64_t_is_four_bytes)
-CASSERT(sizeof(uint64_t) == 8, uint64_t_is_four_bytes)
+CASSERT(sizeof(int64_t) == 8, int64_t_is_eight_bytes)
+CASSERT(sizeof(uint64_t) == 8, uint64_t_is_eight_bytes)
 
 #endif

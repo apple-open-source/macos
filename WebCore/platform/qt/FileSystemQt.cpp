@@ -32,8 +32,8 @@
 #include "config.h"
 #include "FileSystem.h"
 
-#include "CString.h"
 #include "PlatformString.h"
+#include <wtf/text/CString.h>
 
 #include <QDateTime>
 #include <QFile>
@@ -64,7 +64,7 @@ bool getFileSize(const String& path, long long& result)
 {
     QFileInfo info(path);
     result = info.size();
-    return info.exists(); 
+    return info.exists();
 }
 
 bool getFileModificationTime(const String& path, time_t& result)
@@ -81,7 +81,7 @@ bool makeAllDirectories(const String& path)
 
 String pathByAppendingComponent(const String& path, const String& component)
 {
-    return QDir(path).filePath(component);
+    return QDir::toNativeSeparators(QDir(path).filePath(component));
 }
 
 String homeDirectoryPath()
@@ -96,7 +96,7 @@ String pathGetFileName(const String& path)
 
 String directoryName(const String& path)
 {
-    return String(QFileInfo(path).baseName());
+    return String(QFileInfo(path).absolutePath());
 }
 
 Vector<String> listDirectory(const String& path, const String& filter)
@@ -117,7 +117,9 @@ Vector<String> listDirectory(const String& path, const String& filter)
 
 CString openTemporaryFile(const char* prefix, PlatformFileHandle& handle)
 {
-    QFile *temp = new QTemporaryFile(QLatin1String(prefix));
+    QTemporaryFile* tempFile = new QTemporaryFile(QLatin1String(prefix));
+    tempFile->setAutoRemove(false);
+    QFile* temp = tempFile;
     if (temp->open(QIODevice::ReadWrite)) {
         handle = temp;
         return String(temp->fileName()).utf8();
@@ -152,11 +154,12 @@ bool unloadModule(PlatformModule module)
     return ::FreeLibrary(module);
 
 #else
+#ifndef QT_NO_LIBRARY
     if (module->unload()) {
         delete module;
         return true;
     }
-                        
+#endif
     return false;
 #endif
 }

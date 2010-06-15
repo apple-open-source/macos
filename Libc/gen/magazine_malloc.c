@@ -37,6 +37,8 @@
  -I/System/Library/Frameworks/System.framework/PrivateHeaders/ -funit-at-a-time \
  -dynamiclib -Wall -arch x86_64 -arch i386 -arch ppc */
 	
+#include <TargetConditionals.h>
+
 #include "scalable_malloc.h"
 #include "malloc_printf.h"
 #include "_simple.h"
@@ -451,7 +453,11 @@ typedef struct {
     boolean_t did_madvise_reusable;
 } large_entry_t;
 
+#if !TARGET_OS_EMBEDDED
 #define LARGE_CACHE			1
+#else
+#define LARGE_CACHE			0
+#endif
 #if !LARGE_CACHE
 #warning LARGE_CACHE turned off
 #endif
@@ -560,6 +566,10 @@ typedef struct szone_s {				// vm_allocate()'d, so page-aligned to begin with.
     int				num_tiny_magazines_mask_shift;
     magazine_t			*tiny_magazines; // array of per-processor magazines
 
+#if TARGET_OS_EMBEDDED
+    uintptr_t			last_tiny_advise;
+#endif
+
     /* Regions for small objects */
     pthread_lock_t		small_regions_lock CACHE_ALIGN;
     size_t			num_small_regions;
@@ -573,6 +583,10 @@ typedef struct szone_s {				// vm_allocate()'d, so page-aligned to begin with.
     unsigned			num_small_magazines_mask;
     int				num_small_magazines_mask_shift;
     magazine_t			*small_magazines; // array of per-processor magazines
+
+#if TARGET_OS_EMBEDDED
+    uintptr_t			last_small_advise;
+#endif
 
     /* large objects: all the rest */
     pthread_lock_t		large_szone_lock CACHE_ALIGN; // One customer at a time for large
@@ -623,7 +637,11 @@ static void		protect(void *address, size_t size, unsigned protection, unsigned d
 static void		*allocate_pages(szone_t *szone, size_t size, unsigned char align, unsigned debug_flags,
 					int vm_page_label);
 static void		deallocate_pages(szone_t *szone, void *addr, size_t size, unsigned debug_flags);
+#if TARGET_OS_EMBEDDED
+static int		madvise_free_range(szone_t *szone, region_t r, uintptr_t pgLo, uintptr_t pgHi, uintptr_t *last);
+#else
 static int		madvise_free_range(szone_t *szone, region_t r, uintptr_t pgLo, uintptr_t pgHi);
+#endif
 static kern_return_t	_szone_default_reader(task_t task, vm_address_t address, vm_size_t size, void **ptr);
 
 static INLINE		mag_index_t mag_get_thread_index(szone_t *szone) ALWAYSINLINE;
@@ -1002,7 +1020,11 @@ deallocate_pages(szone_t *szone, void *addr, size_t size, unsigned debug_flags)
 }
 
 static int
+#if TARGET_OS_EMBEDDED
+madvise_free_range(szone_t *szone, region_t r, uintptr_t pgLo, uintptr_t pgHi, uintptr_t *last)
+#else
 madvise_free_range(szone_t *szone, region_t r, uintptr_t pgLo, uintptr_t pgHi)
+#endif
 {
     if (pgHi > pgLo) {
 	size_t len = pgHi - pgLo;
@@ -1011,8 +1033,22 @@ madvise_free_range(szone_t *szone, region_t r, uintptr_t pgLo, uintptr_t pgHi)
 	if (szone->debug_flags & SCALABLE_MALLOC_DO_SCRIBBLE)
 	    memset((void *)pgLo, 0xed, len); // Scribble on MADV_FREEd memory
 #endif
+
+#if TARGET_OS_EMBEDDED
+	if (last) {
+		if (*last == pgLo)
+			return 0;
+
+		*last = pgLo;
+	}
+#endif
+
 	MAGMALLOC_MADVFREEREGION((void *)szone, (void *)r, (void *)pgLo, len); // DTrace USDT Probe
+#if TARGET_OS_EMBEDDED
+	if (-1 == madvise((void *)pgLo, len, MADV_FREE)) {
+#else
 	if (-1 == madvise((void *)pgLo, len, MADV_FREE_REUSABLE)) {
+#endif
 	    /* -1 return: VM map entry change makes this unfit for reuse. Something evil lurks. */
 #if DEBUG_MALLOC
 	    szone_error(szone, 1, "madvise_free_range madvise(..., MADV_FREE_REUSABLE) failed", (void *)pgLo, NULL);
@@ -1969,7 +2005,11 @@ tiny_free_scan_madvise_free(szone_t *szone, magazine_t *depot_ptr, region_t r) {
 	    uintptr_t pgHi = trunc_page(start + TINY_REGION_SIZE - sizeof(msize_t));
 	    
 	    if (pgLo < pgHi) {
+#if TARGET_OS_EMBEDDED
+		madvise_free_range(szone, r, pgLo, pgHi, NULL);
+#else
 		madvise_free_range(szone, r, pgLo, pgHi);
+#endif
 		did_advise = TRUE;
 	    }
 	    break;
@@ -1986,7 +2026,11 @@ tiny_free_scan_madvise_free(szone_t *szone, magazine_t *depot_ptr, region_t r) {
 	    uintptr_t pgHi = trunc_page(current + TINY_BYTES_FOR_MSIZE(msize) - sizeof(msize_t));
 	    
 	    if (pgLo < pgHi) {
+#if TARGET_OS_EMBEDDED
+		madvise_free_range(szone, r, pgLo, pgHi, NULL);
+#else
 		madvise_free_range(szone, r, pgLo, pgHi);
+#endif
 		did_advise = TRUE;
 	    }
 	}
@@ -2165,6 +2209,7 @@ tiny_get_region_from_depot(szone_t *szone, magazine_t *tiny_mag_ptr, mag_index_t
 
     MAGMALLOC_DEPOTREGION((void *)szone, (int)mag_index, (int)BYTES_USED_FOR_TINY_REGION(sparse_region)); // DTrace USDT Probe
     
+#if !TARGET_OS_EMBEDDED
     if (-1 == madvise((void *)sparse_region, TINY_REGION_PAYLOAD_BYTES, MADV_FREE_REUSE)) {
 	/* -1 return: VM map entry change makes this unfit for reuse. Something evil lurks. */
 #if DEBUG_MALLOC
@@ -2172,6 +2217,7 @@ tiny_get_region_from_depot(szone_t *szone, magazine_t *tiny_mag_ptr, mag_index_t
 #endif
 	return 0;
     }
+#endif
 
     return 1;
 }
@@ -2287,6 +2333,7 @@ tiny_free_no_lock(szone_t *szone, magazine_t *tiny_mag_ptr, mag_index_t mag_inde
     size_t bytes_used = node->bytes_used - original_size;
     node->bytes_used = bytes_used;
     
+#if !TARGET_OS_EMBEDDED // Always madvise for embedded platforms
     /* FIXME: Would Uniprocessor benefit from recirc and MADV_FREE? */
     if (szone->num_tiny_magazines == 1) { // Uniprocessor, single magazine, so no recirculation necessary
 	/* NOTHING */
@@ -2311,6 +2358,7 @@ tiny_free_no_lock(szone_t *szone, magazine_t *tiny_mag_ptr, mag_index_t mag_inde
 	    tiny_free_do_recirc_to_depot(szone, tiny_mag_ptr, mag_index);
 	    
     } else {
+#endif
 	// Freed to Depot. N.B. Lock on tiny_magazines[DEPOT_MAGAZINE_INDEX] is already held
 	uintptr_t safe_ptr = (uintptr_t)ptr + sizeof(free_list_t) + sizeof(msize_t);
 	uintptr_t round_safe = round_page(safe_ptr);
@@ -2325,21 +2373,34 @@ tiny_free_no_lock(szone_t *szone, magazine_t *tiny_mag_ptr, mag_index_t mag_inde
 		uintptr_t rnd_safe_follow = 
 		    round_page((uintptr_t)original_ptr + original_size + sizeof(free_list_t) + sizeof(msize_t));
 		
+#if TARGET_OS_EMBEDDED
+		madvise_free_range(szone, region, MAX(round_safe, trunc_safe_prev), MIN(rnd_safe_follow, trunc_extent), &szone->last_tiny_advise);
+#else
 		madvise_free_range(szone, region, MAX(round_safe, trunc_safe_prev), MIN(rnd_safe_follow, trunc_extent));
+#endif
 	    } else if (did_prepend) { // Coalesced preceding with original_ptr
 		uintptr_t trunc_safe_prev = trunc_page((uintptr_t)original_ptr - sizeof(msize_t));
 		
+#if TARGET_OS_EMBEDDED
+		madvise_free_range(szone, region, MAX(round_safe, trunc_safe_prev), trunc_extent, &szone->last_tiny_advise);
+#else
 		madvise_free_range(szone, region, MAX(round_safe, trunc_safe_prev), trunc_extent);
+#endif
 	    } else if (did_append) { // Coalesced original_ptr with following
 		uintptr_t rnd_safe_follow = 
 		    round_page((uintptr_t)original_ptr + original_size + sizeof(free_list_t) + sizeof(msize_t));
 		
+#if TARGET_OS_EMBEDDED
+		madvise_free_range(szone, region, round_safe, MIN(rnd_safe_follow, trunc_extent), &szone->last_tiny_advise);
+#else
 		madvise_free_range(szone, region, round_safe, MIN(rnd_safe_follow, trunc_extent));
+#endif
 	    } else { // Isolated free cannot exceed 496 bytes, thus round_safe == trunc_extent, and so never get here.
 		/* madvise_free_range(szone, region, round_safe, trunc_extent); */
 	    }
 	}
 	
+#if !TARGET_OS_EMBEDDED
 	if (0 < bytes_used) {
 	    /* Depot'd region is still live. Leave it in place on the Depot's recirculation list
 	       so as to avoid thrashing between the Depot's free list and a magazines's free list
@@ -2351,6 +2412,7 @@ tiny_free_no_lock(szone_t *szone, magazine_t *tiny_mag_ptr, mag_index_t mag_inde
 	    tiny_free_try_depot_unmap_no_lock(szone, depot_ptr, node); // FIXME: depot_ptr is simply tiny_mag_ptr?
 	}
     }
+#endif
 }
 
 // Allocates from the last region or a freshly allocated region
@@ -3539,7 +3601,11 @@ small_free_scan_depot_madvise_free(szone_t *szone, magazine_t *depot_ptr, region
 	    uintptr_t pgHi = trunc_page(start + SMALL_REGION_SIZE - sizeof(msize_t));
 	    
 	    if (pgLo < pgHi) {
+#if TARGET_OS_EMBEDDED
+		madvise_free_range(szone, r, pgLo, pgHi, NULL);
+#else
 		madvise_free_range(szone, r, pgLo, pgHi);
+#endif
 		did_advise = TRUE;
 	    }
 	    break;
@@ -3556,7 +3622,11 @@ small_free_scan_depot_madvise_free(szone_t *szone, magazine_t *depot_ptr, region
 	    uintptr_t pgHi = trunc_page(current + SMALL_BYTES_FOR_MSIZE(msize) - sizeof(msize_t));
 	    
 	    if (pgLo < pgHi) {
+#if TARGET_OS_EMBEDDED
+		madvise_free_range(szone, r, pgLo, pgHi, NULL);
+#else
 		madvise_free_range(szone, r, pgLo, pgHi);
+#endif
 		did_advise = TRUE;
 	    }
 	}
@@ -3735,6 +3805,7 @@ small_get_region_from_depot(szone_t *szone, magazine_t *small_mag_ptr, mag_index
 
     MAGMALLOC_DEPOTREGION((void *)szone, (int)mag_index, (int)BYTES_USED_FOR_SMALL_REGION(sparse_region)); // DTrace USDT Probe
 	
+#if !TARGET_OS_EMBEDDED
     if (-1 == madvise((void *)sparse_region, SMALL_REGION_PAYLOAD_BYTES, MADV_FREE_REUSE)) {
 	/* -1 return: VM map entry change makes this unfit for reuse. Something evil lurks. */
 #if DEBUG_MALLOC
@@ -3742,6 +3813,7 @@ small_get_region_from_depot(szone_t *szone, magazine_t *small_mag_ptr, mag_index
 #endif
 	return 0;
     }
+#endif
 
     return 1;
 }
@@ -3825,6 +3897,7 @@ small_free_no_lock(szone_t *szone, magazine_t *small_mag_ptr, mag_index_t mag_in
     size_t bytes_used = node->bytes_used - original_size;
     node->bytes_used = bytes_used;
     
+#if !TARGET_OS_EMBEDDED // Always madvise for embedded platforms
     /* FIXME: Would Uniprocessor benefit from recirc and MADV_FREE? */
     if (szone->num_small_magazines == 1) { // Uniprocessor, single magazine, so no recirculation necessary
 	/* NOTHING */
@@ -3850,6 +3923,7 @@ small_free_no_lock(szone_t *szone, magazine_t *small_mag_ptr, mag_index_t mag_in
 	    small_free_do_recirc_to_depot(szone, small_mag_ptr, mag_index);
 
     } else {
+#endif
 	// Freed to Depot. N.B. Lock on small_magazines[DEPOT_MAGAZINE_INDEX] is already held
 	uintptr_t safe_ptr = (uintptr_t)ptr + sizeof(free_list_t) + sizeof(msize_t);
 	uintptr_t round_safe = round_page(safe_ptr);
@@ -3864,20 +3938,37 @@ small_free_no_lock(szone_t *szone, magazine_t *small_mag_ptr, mag_index_t mag_in
 		uintptr_t rnd_safe_follow = 
 		    round_page((uintptr_t)original_ptr + original_size + sizeof(free_list_t) + sizeof(msize_t));
 		
+#if TARGET_OS_EMBEDDED
+		madvise_free_range(szone, region, MAX(round_safe, trunc_safe_prev), MIN(rnd_safe_follow, trunc_extent), &szone->last_small_advise);
+#else
 		madvise_free_range(szone, region, MAX(round_safe, trunc_safe_prev), MIN(rnd_safe_follow, trunc_extent));
+#endif
 	    } else if (did_prepend) { // Coalesced preceding with original_ptr
 		uintptr_t trunc_safe_prev = trunc_page((uintptr_t)original_ptr - sizeof(msize_t));
 		
+#if TARGET_OS_EMBEDDED
+		madvise_free_range(szone, region, MAX(round_safe, trunc_safe_prev), trunc_extent, &szone->last_small_advise);
+#else
 		madvise_free_range(szone, region, MAX(round_safe, trunc_safe_prev), trunc_extent);
+#endif
 	    } else if (did_append) { // Coalesced original_ptr with following
 		uintptr_t rnd_safe_follow = 
 		    round_page((uintptr_t)original_ptr + original_size + sizeof(free_list_t) + sizeof(msize_t));
 		
+#if TARGET_OS_EMBEDDED
+		madvise_free_range(szone, region, round_safe, MIN(rnd_safe_follow, trunc_extent), &szone->last_small_advise);
+#else
 		madvise_free_range(szone, region, round_safe, MIN(rnd_safe_follow, trunc_extent));
+#endif
 	    } else // Isolated free
+#if TARGET_OS_EMBEDDED
+		madvise_free_range(szone, region, round_safe, trunc_extent, &szone->last_small_advise);
+#else
 		madvise_free_range(szone, region, round_safe, trunc_extent);
+#endif
 	}
 
+#if !TARGET_OS_EMBEDDED
 	if (0 < bytes_used) {
 	    /* Depot'd region is still live. Leave it in place on the Depot's recirculation list
 	       so as to avoid thrashing between the Depot's free list and a magazines's free list
@@ -3889,6 +3980,7 @@ small_free_no_lock(szone_t *szone, magazine_t *small_mag_ptr, mag_index_t mag_in
 	    small_free_try_depot_unmap_no_lock(szone, depot_ptr, node);
 	}
     }
+#endif
 }
 
 // Allocates from the last region or a freshly allocated region
@@ -6658,6 +6750,9 @@ create_scalable_zone(size_t initial_size, unsigned debug_flags)
     
     // Reduce i by 1 to obtain a mask covering [0 .. (num_tiny_magazines - 1)]
     szone->num_tiny_magazines_mask = i - 1; // A mask used for hashing to a magazine index (and a safety aid)
+#if TARGET_OS_EMBEDDED
+    szone->last_tiny_advise = 0;
+#endif
     
     // Init the tiny_magazine locks
     LOCK_INIT(szone->tiny_regions_lock);
@@ -6692,6 +6787,9 @@ create_scalable_zone(size_t initial_size, unsigned debug_flags)
     
     // Reduce i by 1 to obtain a mask covering [0 .. (num_small_magazines - 1)]
     szone->num_small_magazines_mask = i - 1; // A mask used for hashing to a magazine index (and a safety aid)
+#if TARGET_OS_EMBEDDED
+    szone->last_small_advise = 0;
+#endif
     
     // Init the small_magazine locks
     LOCK_INIT(szone->small_regions_lock);

@@ -356,7 +356,7 @@ void LDAPDatabase::processNext(CSSM_DB_RECORD_ATTRIBUTE_DATA_PTR attributes, CSS
 {
 	UniqueIdentifier *id;
 	Tuple* t = q->GetNextTuple (id);
-	
+
 	if (t == NULL)  CSSMError::ThrowCSSMError (CSSMERR_DL_ENDOFDATA);
 	if(attributes != NULL)  CopyAttributes (r, t, attributes);
 	if (data != NULL) GetDataFromTuple (t, *data);

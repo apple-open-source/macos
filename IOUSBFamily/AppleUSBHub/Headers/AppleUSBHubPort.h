@@ -190,7 +190,7 @@ protected:
 	IOReturn						LaunchAddDeviceThread();
     void							DisplayOverCurrentNotice(bool individual);
 	void							EnablePowerAfterOvercurrent();
-	
+	bool							HasExpressCardCantWake();
 	// Accessors
     AppleUSBHub *					GetHub()					{ return _hub; }
     bool							IsCaptive()					{ return _captive; }

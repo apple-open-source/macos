@@ -202,7 +202,11 @@ enum {
     kIOHIDEventFieldGyroY,
     kIOHIDEventFieldGyroZ, 
 	kIOHIDEventFieldGyroType,
-	kIOHIDEventFieldGyroSubType
+	kIOHIDEventFieldGyroSubType,
+	kIOHIDEventFieldGyroQuaternionX,
+	kIOHIDEventFieldGyroQuaternionY,
+	kIOHIDEventFieldGyroQuaternionZ,
+	kIOHIDEventFieldGyroQuaternionW
 };
 
 enum {

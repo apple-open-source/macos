@@ -32,9 +32,14 @@
 typedef struct _GdkEventScroll GdkEventScroll;
 #endif
 
+#if PLATFORM(EFL)
+#include <Evas.h>
+#endif
+
 #if PLATFORM(QT)
 QT_BEGIN_NAMESPACE
 class QWheelEvent;
+class QGraphicsSceneWheelEvent;
 QT_END_NAMESPACE
 #endif
 
@@ -47,6 +52,10 @@ typedef long LPARAM;
 #if PLATFORM(WX)
 class wxMouseEvent;
 class wxPoint;
+#endif
+
+#if PLATFORM(HAIKU)
+class BMessage;
 #endif
 
 namespace WebCore {
@@ -63,6 +72,20 @@ namespace WebCore {
     
     class PlatformWheelEvent {
     public:
+        PlatformWheelEvent()
+            : m_deltaX(0)
+            , m_deltaY(0)
+            , m_wheelTicksX(0)
+            , m_wheelTicksY(0)
+            , m_granularity(ScrollByPixelWheelEvent)
+            , m_isAccepted(false)
+            , m_shiftKey(false)
+            , m_ctrlKey(false)
+            , m_altKey(false)
+            , m_metaKey(false)
+        {
+        }
+
         const IntPoint& pos() const { return m_position; } // PlatformWindow coordinates.
         const IntPoint& globalPos() const { return m_globalPosition; } // Screen coordinates.
 
@@ -88,8 +111,21 @@ namespace WebCore {
         void accept() { m_isAccepted = true; }
         void ignore() { m_isAccepted = false; }
 
+        void turnVerticalTicksIntoHorizontal()
+        {
+            m_deltaX = m_deltaY;
+            m_deltaY = 0;
+
+            m_wheelTicksX = m_wheelTicksY;
+            m_wheelTicksY = 0;
+        }
+
 #if PLATFORM(GTK)
         PlatformWheelEvent(GdkEventScroll*);
+#endif
+
+#if PLATFORM(EFL)
+        PlatformWheelEvent(const Evas_Event_Mouse_Wheel*);
 #endif
 
 #if PLATFORM(MAC) && defined(__OBJC__)
@@ -98,6 +134,8 @@ namespace WebCore {
 
 #if PLATFORM(QT)
         PlatformWheelEvent(QWheelEvent*);
+        PlatformWheelEvent(QGraphicsSceneWheelEvent*);
+        void applyDelta(int delta, Qt::Orientation);
 #endif
 
 #if PLATFORM(WIN)
@@ -107,6 +145,10 @@ namespace WebCore {
 
 #if PLATFORM(WX)
         PlatformWheelEvent(const wxMouseEvent&, const wxPoint&);
+#endif
+
+#if PLATFORM(HAIKU)
+        PlatformWheelEvent(BMessage*);
 #endif
 
     protected:

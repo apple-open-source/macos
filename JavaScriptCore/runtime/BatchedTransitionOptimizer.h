@@ -32,7 +32,7 @@
 
 namespace JSC {
 
-    class BatchedTransitionOptimizer : Noncopyable {
+    class BatchedTransitionOptimizer : public Noncopyable {
     public:
         BatchedTransitionOptimizer(JSObject* object)
             : m_object(object)
@@ -43,7 +43,7 @@ namespace JSC {
 
         ~BatchedTransitionOptimizer()
         {
-            m_object->setStructure(Structure::fromDictionaryTransition(m_object->structure()));
+            m_object->flattenDictionaryObject();
         }
 
     private:

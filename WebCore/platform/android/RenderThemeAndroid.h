@@ -47,7 +47,7 @@ struct ThemeData {
 
 class RenderThemeAndroid : public RenderTheme {
 public:
-    RenderThemeAndroid();
+    static PassRefPtr<RenderTheme> create();
     ~RenderThemeAndroid();
     
     virtual bool stateChanged(RenderObject*, ControlState) const;
@@ -63,7 +63,12 @@ public:
     virtual Color platformActiveSelectionForegroundColor() const;
     virtual Color platformInactiveSelectionForegroundColor() const;
     virtual Color platformTextSearchHighlightColor() const;
-    
+
+    virtual Color platformActiveListBoxSelectionBackgroundColor() const;
+    virtual Color platformInactiveListBoxSelectionBackgroundColor() const;
+    virtual Color platformActiveListBoxSelectionForegroundColor() const;
+    virtual Color platformInactiveListBoxSelectionForegroundColor() const;
+
     virtual void systemFont(int, WebCore::FontDescription&) const {}
 
     virtual int minimumMenuListSize(RenderStyle*) const { return 0; }
@@ -97,10 +102,12 @@ protected:
     virtual bool paintSearchField(RenderObject*, const RenderObject::PaintInfo&, const IntRect&);
 
 private:
+    RenderThemeAndroid();
     void addIntrinsicMargins(RenderStyle*) const;
     void close();
 
     bool supportsFocus(ControlPart);
+    friend RenderTheme* theme();
 };
 
 } // namespace WebCore

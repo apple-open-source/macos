@@ -51,6 +51,7 @@ IOUSBWorkLoop * IOUSBWorkLoop::workLoop(const char * controllerLocation)
 bool
 IOUSBWorkLoop::init (const char * controllerLocation)
 {
+#pragma unused(controllerLocation)
 	
 	return super::init( );
 	

@@ -107,13 +107,12 @@ bool ScrollView::platformCanBlitOnScroll() const
 
 IntRect ScrollView::platformVisibleContentRect(bool includeScrollbars) const
 {
-    BEGIN_BLOCK_OBJC_EXCEPTIONS; 
-    if (includeScrollbars) {
-        if (NSView* documentView = this->documentView())
-            return enclosingIntRect([documentView visibleRect]);
-    }
-    return enclosingIntRect([scrollView() documentVisibleRect]); 
-    END_BLOCK_OBJC_EXCEPTIONS; 
+    BEGIN_BLOCK_OBJC_EXCEPTIONS;
+    IntRect result = enclosingIntRect([scrollView() documentVisibleRect]);
+    if (includeScrollbars)
+        result.setSize(IntSize([scrollView() frame].size));
+    return result;
+    END_BLOCK_OBJC_EXCEPTIONS;
     return IntRect();
 }
 
@@ -163,26 +162,12 @@ bool ScrollView::platformScroll(ScrollDirection, ScrollGranularity)
 void ScrollView::platformRepaintContentRectangle(const IntRect& rect, bool now)
 {
     BEGIN_BLOCK_OBJC_EXCEPTIONS;
-
     NSView *view = documentView();
-    NSRect visibleRect = visibleContentRect();
-
-    // FIXME: I don't think this intersection is necessary any more now that
-    // selection doesn't call this method directly (but has to go through FrameView's
-    // repaintContentRectangle, which does the intersection test also).  Leaving it in
-    // for now until I'm sure.
-    // Checking for rect visibility is an important optimization for the case of
-    // Select All of a large document. AppKit does not do this check, and so ends
-    // up building a large complicated NSRegion if we don't perform the check.
-    NSRect dirtyRect = NSIntersectionRect(rect, visibleRect);
-    if (!NSIsEmptyRect(dirtyRect)) {
-        [view setNeedsDisplayInRect:dirtyRect];
-        if (now) {
-            [[view window] displayIfNeeded];
-            [[view window] flushWindowIfNeeded];
-        }
+    [view setNeedsDisplayInRect:rect];
+    if (now) {
+        [[view window] displayIfNeeded];
+        [[view window] flushWindowIfNeeded];
     }
-
     END_BLOCK_OBJC_EXCEPTIONS;
 }
 
@@ -217,4 +202,4 @@ bool ScrollView::platformIsOffscreen() const
     return ![platformWidget() window] || ![[platformWidget() window] isVisible];
 }
 
-}
+} // namespace WebCore

@@ -1,8 +1,6 @@
 /*
     Copyright (C) 2007 Rob Buis <buis@kde.org>
 
-    This file is part of the KDE project
-
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Library General Public
     License as published by the Free Software Foundation; either
@@ -35,7 +33,8 @@ namespace WebCore {
     class SVGTransformList;
 
     class SVGViewSpec : public SVGFitToViewBox,
-                        public SVGZoomAndPan {
+                        public SVGZoomAndPan,
+                        public Noncopyable {
     public:
         SVGViewSpec(const SVGSVGElement*);
         virtual ~SVGViewSpec();
@@ -53,11 +52,16 @@ namespace WebCore {
         String viewTargetString() const { return m_viewTargetString; }
         SVGElement* viewTarget() const;
 
-        virtual const SVGElement* contextElement() const;
+        SVGSVGElement* contextElement() const { return const_cast<SVGSVGElement*>(m_contextElement); }
 
     private:
-        mutable RefPtr<SVGTransformList> m_transform;
         const SVGSVGElement* m_contextElement;
+
+        // SVGFitToViewBox
+        DECLARE_ANIMATED_PROPERTY(SVGViewSpec, SVGNames::viewBoxAttr, FloatRect, ViewBox, viewBox)
+        DECLARE_ANIMATED_PROPERTY(SVGViewSpec, SVGNames::preserveAspectRatioAttr, SVGPreserveAspectRatio, PreserveAspectRatio, preserveAspectRatio)
+
+        mutable RefPtr<SVGTransformList> m_transform;
         String m_viewTargetString;
     };
 

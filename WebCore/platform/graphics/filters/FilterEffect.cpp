@@ -25,14 +25,11 @@
 namespace WebCore {
 
 FilterEffect::FilterEffect()
-    : m_xBBoxMode(false)
-    , m_yBBoxMode(false)
-    , m_widthBBoxMode(false)
-    , m_heightBBoxMode(false)
-    , m_hasX(false)
+    : m_hasX(false)
     , m_hasY(false)
     , m_hasWidth(false)
     , m_hasHeight(false)
+    , m_alphaImage(false)
 {
 }
 
@@ -59,17 +56,24 @@ FloatRect FilterEffect::calculateEffectRect(Filter* filter)
     return subRegion();
 }
 
+IntRect FilterEffect::calculateDrawingIntRect(const FloatRect& effectRect)
+{
+    IntPoint location = roundedIntPoint(FloatPoint(scaledSubRegion().x() - effectRect.x(),
+                                                   scaledSubRegion().y() - effectRect.y()));
+    return IntRect(location, resultImage()->size());
+}
+
 FloatRect FilterEffect::calculateDrawingRect(const FloatRect& srcRect)
 {
-    FloatPoint startPoint = FloatPoint(srcRect.x() - subRegion().x(), srcRect.y() - subRegion().y());
+    FloatPoint startPoint = FloatPoint(srcRect.x() - scaledSubRegion().x(), srcRect.y() - scaledSubRegion().y());
     FloatRect drawingRect = FloatRect(startPoint, srcRect.size());
     return drawingRect;
 }
 
 GraphicsContext* FilterEffect::getEffectContext()
 {
-    IntRect bufferRect = enclosingIntRect(subRegion());
-    m_effectBuffer = ImageBuffer::create(bufferRect.size(), false);
+    IntRect bufferRect = enclosingIntRect(scaledSubRegion());
+    m_effectBuffer = ImageBuffer::create(bufferRect.size(), LinearRGB);
     return m_effectBuffer->context();
 }
 

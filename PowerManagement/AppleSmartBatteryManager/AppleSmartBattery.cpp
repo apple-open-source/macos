@@ -84,9 +84,6 @@ static const uint32_t kBatteryReadAllTimeout = 10000;       // 10 seconds
 static const uint32_t microSecDelayTable[kRetryAttempts] = 
     { 10, 100, 1000, 10000, 250000 };
 
-static const unsigned int   kExpectedDesignCycleBytes = 3;
-
-
 /* The union of the errors listed in STATUS_ERROR_NEEDS_RETRY
  * and STATUS_ERROR_NON_RECOVERABLE should equal the entirety of 
  * SMBus errors listed in IOSMBusController.h

@@ -651,6 +651,7 @@ Query::Query (Relation* relation, const CSSM_QUERY *queryBase) : mSelectionPredi
 				columnID = mSelectionPredicates[i].GetAttributeID ();
 				break;
 			case CSSM_DB_ATTRIBUTE_NAME_AS_OID:
+			default:
 				CSSMError::ThrowCSSMError (CSSMERR_DL_UNSUPPORTED_QUERY);
 				break;
 			}

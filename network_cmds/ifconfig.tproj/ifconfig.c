@@ -95,6 +95,7 @@ int all;
 
 int bond_details = 0;
 int	supmedia = 0;
+int	showrtref = 0;
 int	printkeys = 0;		/* Print keying material for interfaces. */
 
 static	int ifconfig(int argc, char *const *argv, int iscreate,
@@ -161,7 +162,7 @@ main(int argc, char *argv[])
 #ifndef __APPLE__
 	strlcpy(options, "adklmnuv", sizeof(options));
 #else
-	strlcpy(options, "adlmuv", sizeof(options));
+	strlcpy(options, "adlmruv", sizeof(options));
 #endif
 	for (p = opts; p != NULL; p = p->next)
 		strlcat(options, p->opt, sizeof(options));
@@ -181,7 +182,7 @@ main(int argc, char *argv[])
 			printkeys++;
 			break;
 #endif
-			case 'l':	/* scan interface names only */
+		case 'l':	/* scan interface names only */
 			namesonly++;
 			break;
 		case 'm':	/* show media choices in status */
@@ -192,7 +193,10 @@ main(int argc, char *argv[])
 			noload++;
 			break;
 #endif
-			case 'u':	/* restrict scan to "up" interfaces */
+		case 'r':
+			showrtref++;
+			break;
+		case 'u':	/* restrict scan to "up" interfaces */
 			uponly++;
 			break;
 		case 'v':
@@ -212,8 +216,8 @@ main(int argc, char *argv[])
 	argc -= optind;
 	argv += optind;
 
-	/* -l cannot be used with -a or -m or -b */
-	if (namesonly && (all || supmedia || bond_details))
+	/* -l cannot be used with -a or -r or -m or -b */
+	if (namesonly && (all || supmedia || showrtref || bond_details))
 		usage();
 
 	/* nonsense.. */
@@ -829,6 +833,10 @@ status(const struct afswtch *afp, const struct sockaddr_dl *sdl,
 			printf(" metric %d", ifr.ifr_metric);
 	if (ioctl(s, SIOCGIFMTU, &ifr) != -1)
 		printf(" mtu %d", ifr.ifr_mtu);
+#ifdef SIOCGIFGETRTREFCNT
+	if (showrtref && ioctl(s, SIOCGIFGETRTREFCNT, &ifr) != -1)
+		printf(" rtref %d", ifr.ifr_route_refcnt);
+#endif
 	putchar('\n');
 
 #ifndef __APPLE__	

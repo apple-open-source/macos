@@ -3,7 +3,8 @@
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
  *           (C) 2000 Simon Hausmann (hausmann@kde.org)
  *           (C) 2001 Dirk Mueller (mueller@kde.org)
- * Copyright (C) 2004, 2006, 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2004, 2006, 2008, 2009 Apple Inc. All rights reserved.
+ * Copyright (C) 2009 Ericsson AB. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -29,16 +30,21 @@
 #include "HTMLDocument.h"
 #include "HTMLNames.h"
 #include "MappedAttribute.h"
-#include "RenderPartObject.h"
+#include "RenderIFrame.h"
 
 namespace WebCore {
 
 using namespace HTMLNames;
 
-HTMLIFrameElement::HTMLIFrameElement(const QualifiedName& tagName, Document* document)
+inline HTMLIFrameElement::HTMLIFrameElement(const QualifiedName& tagName, Document* document)
     : HTMLFrameElementBase(tagName, document)
 {
     ASSERT(hasTagName(iframeTag));
+}
+
+PassRefPtr<HTMLIFrameElement> HTMLIFrameElement::create(const QualifiedName& tagName, Document* document)
+{
+    return adoptRef(new HTMLIFrameElement(tagName, document));
 }
 
 bool HTMLIFrameElement::mapToEntry(const QualifiedName& attrName, MappedAttributeEntry& result) const
@@ -60,6 +66,44 @@ bool HTMLIFrameElement::mapToEntry(const QualifiedName& attrName, MappedAttribut
 
     return HTMLFrameElementBase::mapToEntry(attrName, result);
 }
+
+#if ENABLE(SANDBOX)
+static SandboxFlags parseSandboxAttribute(MappedAttribute* attribute)
+{
+    if (attribute->isNull())
+        return SandboxNone;
+
+    // Parse the unordered set of unique space-separated tokens.
+    SandboxFlags flags = SandboxAll;
+    const UChar* characters = attribute->value().characters();
+    unsigned length = attribute->value().length();
+    unsigned start = 0;
+    while (true) {
+        while (start < length && isASCIISpace(characters[start]))
+            ++start;
+        if (start >= length)
+            break;
+        unsigned end = start + 1;
+        while (end < length && !isASCIISpace(characters[end]))
+            ++end;
+
+        // Turn off the corresponding sandbox flag if it's set as "allowed".
+        String sandboxToken = String(characters + start, end - start);
+        if (equalIgnoringCase(sandboxToken, "allow-same-origin"))
+            flags &= ~SandboxOrigin;
+        else if (equalIgnoringCase(sandboxToken, "allow-forms"))
+            flags &= ~SandboxForms;
+        else if (equalIgnoringCase(sandboxToken, "allow-scripts"))
+            flags &= ~SandboxScripts;
+        else if (equalIgnoringCase(sandboxToken, "allow-top-navigation"))
+            flags &= ~SandboxTopNavigation;
+
+        start = end + 1;
+    }
+
+    return flags;
+}
+#endif
 
 void HTMLIFrameElement::parseMappedAttribute(MappedAttribute* attr)
 {
@@ -83,18 +127,23 @@ void HTMLIFrameElement::parseMappedAttribute(MappedAttribute* attr)
         if (!attr->isNull() && !attr->value().toInt())
             // Add a rule that nulls out our border width.
             addCSSLength(attr, CSSPropertyBorderWidth, "0");
-    } else
+    }
+#if ENABLE(SANDBOX)
+    else if (attr->name() == sandboxAttr)
+        setSandboxFlags(parseSandboxAttribute(attr));
+#endif
+    else
         HTMLFrameElementBase::parseMappedAttribute(attr);
 }
 
 bool HTMLIFrameElement::rendererIsNeeded(RenderStyle* style)
 {
-    return isURLAllowed(m_URL) && style->display() != NONE;
+    return isURLAllowed() && style->display() != NONE;
 }
 
 RenderObject* HTMLIFrameElement::createRenderer(RenderArena* arena, RenderStyle*)
 {
-    return new (arena) RenderPartObject(this);
+    return new (arena) RenderIFrame(this);
 }
 
 void HTMLIFrameElement::insertedIntoDocument()
@@ -113,47 +162,9 @@ void HTMLIFrameElement::removedFromDocument()
     HTMLFrameElementBase::removedFromDocument();
 }
 
-void HTMLIFrameElement::attach()
-{
-    HTMLFrameElementBase::attach();
-
-    if (RenderPartObject* renderPartObject = static_cast<RenderPartObject*>(renderer()))
-        renderPartObject->updateWidget(false);
-}
-
 bool HTMLIFrameElement::isURLAttribute(Attribute* attr) const
 {
     return attr->name() == srcAttr;
-}
-
-String HTMLIFrameElement::align() const
-{
-    return getAttribute(alignAttr);
-}
-
-void HTMLIFrameElement::setAlign(const String &value)
-{
-    setAttribute(alignAttr, value);
-}
-
-String HTMLIFrameElement::height() const
-{
-    return getAttribute(heightAttr);
-}
-
-void HTMLIFrameElement::setHeight(const String &value)
-{
-    setAttribute(heightAttr, value);
-}
-
-String HTMLIFrameElement::width() const
-{
-    return getAttribute(widthAttr);
-}
-
-void HTMLIFrameElement::setWidth(const String &value)
-{
-    setAttribute(widthAttr, value);
 }
 
 }

@@ -29,32 +29,33 @@
  */
 
 #include "config.h"
-#include "HTMLFormElement.h"
+#include "V8HTMLFormElement.h"
 
 #include "HTMLCollection.h"
+#include "HTMLFormElement.h"
 #include "V8Binding.h"
-#include "V8CustomBinding.h"
 #include "V8NamedNodesCollection.h"
+#include "V8Node.h"
+#include "V8NodeList.h"
 #include "V8Proxy.h"
 
 namespace WebCore {
 
-INDEXED_PROPERTY_GETTER(HTMLFormElement)
+v8::Handle<v8::Value> V8HTMLFormElement::indexedPropertyGetter(uint32_t index, const v8::AccessorInfo& info)
 {
     INC_STATS("DOM.HTMLFormElement.IndexedPropertyGetter");
-    HTMLFormElement* form = V8DOMWrapper::convertDOMWrapperToNode<HTMLFormElement>(info.Holder());
-    
+    HTMLFormElement* form = V8HTMLFormElement::toNative(info.Holder());
+
     RefPtr<Node> formElement = form->elements()->item(index);
     if (!formElement)
         return notHandledByInterceptor();
-    return V8DOMWrapper::convertNodeToV8Object(formElement.get());
+    return toV8(formElement.release());
 }
 
-
-NAMED_PROPERTY_GETTER(HTMLFormElement)
+v8::Handle<v8::Value> V8HTMLFormElement::namedPropertyGetter(v8::Local<v8::String> name, const v8::AccessorInfo& info)
 {
     INC_STATS("DOM.HTMLFormElement.NamedPropertyGetter");
-    HTMLFormElement* imp = V8DOMWrapper::convertDOMWrapperToNode<HTMLFormElement>(info.Holder());
+    HTMLFormElement* imp = V8HTMLFormElement::toNative(info.Holder());
     AtomicString v = v8StringToAtomicWebCoreString(name);
 
     // Call getNamedElements twice, first time check if it has a value
@@ -74,17 +75,10 @@ NAMED_PROPERTY_GETTER(HTMLFormElement)
     ASSERT(!elements.isEmpty());
 
     if (elements.size() == 1)
-        return V8DOMWrapper::convertNodeToV8Object(elements.at(0).get());
+        return toV8(elements.at(0).release());
 
     NodeList* collection = new V8NamedNodesCollection(elements);
-    return V8DOMWrapper::convertToV8Object(V8ClassIndex::NODELIST, collection);
-}
-    
-CALLBACK_FUNC_DECL(HTMLFormElementSubmit) {
-    INC_STATS("DOM.HTMLFormElement.submit()");
-    HTMLFormElement* form = V8DOMWrapper::convertDOMWrapperToNative<HTMLFormElement>(args.Holder());
-    form->submit(0, false, false);
-    return v8::Undefined();
+    return toV8(collection);
 }
 
 } // namespace WebCore

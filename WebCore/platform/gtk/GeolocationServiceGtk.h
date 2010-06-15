@@ -31,7 +31,7 @@
 namespace WebCore {
     class GeolocationServiceGtk : public GeolocationService {
     public:
-        GeolocationServiceGtk(GeolocationServiceClient*);
+        static GeolocationService* create(GeolocationServiceClient*);
         ~GeolocationServiceGtk();
 
         virtual bool startUpdating(PositionOptions*);
@@ -44,11 +44,13 @@ namespace WebCore {
         PositionError* lastError() const;
 
     private:
-        void updateLocationInformation();
+        GeolocationServiceGtk(GeolocationServiceClient*);
+
         void setError(PositionError::ErrorCode, const char* message);
         void updatePosition();
 
         static void position_changed(GeocluePosition*, GeocluePositionFields, int, double, double, double, GeoclueAccuracy*, GeolocationServiceGtk*);
+        static void getPositionCallback(GeocluePosition*, GeocluePositionFields, int, double, double, double, GeoclueAccuracy*, GError*, GeolocationServiceGtk*);
 
     private:
         RefPtr<Geoposition> m_lastPosition;

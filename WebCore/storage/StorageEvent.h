@@ -20,7 +20,7 @@
  * PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY
  * OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
 #ifndef StorageEvent_h
@@ -29,47 +29,40 @@
 #if ENABLE(DOM_STORAGE)
 
 #include "Event.h"
-#include "Storage.h"
+#include "PlatformString.h"
 
 namespace WebCore {
 
-    class DOMWindow;
+    class Storage;
 
     class StorageEvent : public Event {
     public:
-        static PassRefPtr<StorageEvent> create()
-        {
-            return adoptRef(new StorageEvent);
-        }
-        static PassRefPtr<StorageEvent> create(const AtomicString& type, const String& key, const String& oldValue, const String& newValue, const String& uri, PassRefPtr<DOMWindow> source, Storage* storageArea)
-        {
-            return adoptRef(new StorageEvent(type, key, oldValue, newValue, uri, source, storageArea));
-        }
+        static PassRefPtr<StorageEvent> create();
+        static PassRefPtr<StorageEvent> create(const AtomicString& type, const String& key, const String& oldValue, const String& newValue, const String& url, Storage* storageArea);
+        virtual ~StorageEvent();
 
         const String& key() const { return m_key; }
         const String& oldValue() const { return m_oldValue; }
         const String& newValue() const { return m_newValue; }
-        const String& uri() const { return m_uri; }
-        DOMWindow* source() const { return m_source.get(); }
+        const String& url() const { return m_url; }
         Storage* storageArea() const { return m_storageArea.get(); }
 
-        void initStorageEvent(const AtomicString& type, bool canBubble, bool cancelable, const String& key, const String& oldValue, const String& newValue, const String& uri, PassRefPtr<DOMWindow> source, Storage* storageArea);
+        void initStorageEvent(const AtomicString& type, bool canBubble, bool cancelable, const String& key, const String& oldValue, const String& newValue, const String& url, Storage* storageArea);
 
         // Needed once we support init<blank>EventNS
-        // void initStorageEventNS(in DOMString namespaceURI, in DOMString typeArg, in boolean canBubbleArg, in boolean cancelableArg, in DOMString keyArg, in DOMString oldValueArg, in DOMString newValueArg, in DOMString uriArg, in Window sourceArg,  Storage storageAreaArg);
+        // void initStorageEventNS(in DOMString namespaceURI, in DOMString typeArg, in boolean canBubbleArg, in boolean cancelableArg, in DOMString keyArg, in DOMString oldValueArg, in DOMString newValueArg, in DOMString urlArg, Storage storageAreaArg);
 
         virtual bool isStorageEvent() const { return true; }
 
-    private:    
-        StorageEvent() { }
-        StorageEvent(const AtomicString& type, const String& key, const String& oldValue, const String& newValue, const String& uri, PassRefPtr<DOMWindow> source, Storage* storageArea);
-        
+    private:
+        StorageEvent();
+        StorageEvent(const AtomicString& type, const String& key, const String& oldValue, const String& newValue, const String& url, Storage* storageArea);
+
         String m_key;
         String m_oldValue;
         String m_newValue;
-        String m_uri;
-        RefPtr<DOMWindow> m_source;
-        RefPtr<Storage> m_storageArea;        
+        String m_url;
+        RefPtr<Storage> m_storageArea;
     };
 
 } // namespace WebCore

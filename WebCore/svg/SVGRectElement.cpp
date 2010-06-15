@@ -2,8 +2,6 @@
     Copyright (C) 2004, 2005, 2006, 2008 Nikolas Zimmermann <zimmermann@kde.org>
                   2004, 2005, 2006, 2007 Rob Buis <buis@kde.org>
 
-    This file is part of the KDE project
-
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Library General Public
     License as published by the Free Software Foundation; either
@@ -37,12 +35,12 @@ SVGRectElement::SVGRectElement(const QualifiedName& tagName, Document *doc)
     , SVGTests()
     , SVGLangSpace()
     , SVGExternalResourcesRequired()
-    , m_x(this, SVGNames::xAttr, LengthModeWidth)
-    , m_y(this, SVGNames::yAttr, LengthModeHeight)
-    , m_width(this, SVGNames::widthAttr, LengthModeWidth)
-    , m_height(this, SVGNames::heightAttr, LengthModeHeight)
-    , m_rx(this, SVGNames::rxAttr, LengthModeWidth)
-    , m_ry(this, SVGNames::ryAttr, LengthModeHeight)
+    , m_x(LengthModeWidth)
+    , m_y(LengthModeHeight)
+    , m_width(LengthModeWidth)
+    , m_height(LengthModeHeight)
+    , m_rx(LengthModeWidth)
+    , m_ry(LengthModeHeight)
 {
 }
 
@@ -87,17 +85,62 @@ void SVGRectElement::svgAttributeChanged(const QualifiedName& attrName)
 {
     SVGStyledTransformableElement::svgAttributeChanged(attrName);
 
-    if (!renderer())
+    RenderPath* renderer = static_cast<RenderPath*>(this->renderer());
+    if (!renderer)
         return;
 
-    if (attrName == SVGNames::xAttr || attrName == SVGNames::yAttr ||
-        attrName == SVGNames::widthAttr || attrName == SVGNames::heightAttr ||
-        attrName == SVGNames::rxAttr || attrName == SVGNames::ryAttr ||
-        SVGTests::isKnownAttribute(attrName) ||
-        SVGLangSpace::isKnownAttribute(attrName) ||
-        SVGExternalResourcesRequired::isKnownAttribute(attrName) ||
-        SVGStyledTransformableElement::isKnownAttribute(attrName))
-        renderer()->setNeedsLayout(true);
+    if (SVGStyledTransformableElement::isKnownAttribute(attrName)) {
+        renderer->setNeedsTransformUpdate();
+        renderer->setNeedsLayout(true);
+        return;
+    }
+
+    if (attrName == SVGNames::xAttr
+        || attrName == SVGNames::yAttr
+        || attrName == SVGNames::widthAttr
+        || attrName == SVGNames::heightAttr
+        || attrName == SVGNames::rxAttr
+        || attrName == SVGNames::ryAttr) {
+        renderer->setNeedsPathUpdate();
+        renderer->setNeedsLayout(true);
+        return;
+    }
+
+    if (SVGTests::isKnownAttribute(attrName)
+        || SVGLangSpace::isKnownAttribute(attrName)
+        || SVGExternalResourcesRequired::isKnownAttribute(attrName))
+        renderer->setNeedsLayout(true);
+}
+
+void SVGRectElement::synchronizeProperty(const QualifiedName& attrName)
+{
+    SVGStyledTransformableElement::synchronizeProperty(attrName);
+
+    if (attrName == anyQName()) {
+        synchronizeX();
+        synchronizeY();
+        synchronizeWidth();
+        synchronizeHeight();
+        synchronizeRx();
+        synchronizeRy();
+        synchronizeExternalResourcesRequired();
+        return;
+    }
+
+    if (attrName == SVGNames::xAttr)
+        synchronizeX();
+    else if (attrName == SVGNames::yAttr)
+        synchronizeY();
+    else if (attrName == SVGNames::widthAttr)
+        synchronizeWidth();
+    else if (attrName == SVGNames::heightAttr)
+        synchronizeHeight();
+    else if (attrName == SVGNames::rxAttr)
+        synchronizeRx();
+    else if (attrName == SVGNames::ryAttr)
+        synchronizeRy();
+    else if (SVGExternalResourcesRequired::isKnownAttribute(attrName))
+        synchronizeExternalResourcesRequired();
 }
 
 Path SVGRectElement::toPathData() const

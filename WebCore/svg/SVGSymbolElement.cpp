@@ -1,8 +1,6 @@
 /*
-    Copyright (C) 2004, 2005 Nikolas Zimmermann <wildfox@kde.org>
+    Copyright (C) 2004, 2005 Nikolas Zimmermann <zimmermann@kde.org>
                   2004, 2005, 2006 Rob Buis <buis@kde.org>
-
-    This file is part of the KDE project
 
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Library General Public
@@ -47,14 +45,37 @@ void SVGSymbolElement::parseMappedAttribute(MappedAttribute* attr)
         return;
     if (SVGExternalResourcesRequired::parseMappedAttribute(attr))
         return;
-    if (SVGFitToViewBox::parseMappedAttribute(attr))
+    if (SVGFitToViewBox::parseMappedAttribute(document(), attr))
         return;
 
     SVGStyledElement::parseMappedAttribute(attr);
 }
 
+void SVGSymbolElement::synchronizeProperty(const QualifiedName& attrName)
+{
+    SVGStyledElement::synchronizeProperty(attrName);
+
+    if (attrName == anyQName()) {
+        synchronizePreserveAspectRatio();
+        synchronizeViewBox();
+        synchronizeExternalResourcesRequired();
+        synchronizeViewBox();
+        synchronizePreserveAspectRatio();
+        return;
+    }
+
+    if (attrName == SVGNames::preserveAspectRatioAttr)
+        synchronizePreserveAspectRatio();
+    else if (attrName == SVGNames::viewBoxAttr)
+        synchronizeViewBox();
+    else if (SVGExternalResourcesRequired::isKnownAttribute(attrName))
+        synchronizeExternalResourcesRequired();
+    else if (SVGFitToViewBox::isKnownAttribute(attrName)) {
+        synchronizeViewBox();
+        synchronizePreserveAspectRatio();
+    } 
 }
 
-// vim:ts=4:noet
-#endif // ENABLE(SVG)
+}
 
+#endif // ENABLE(SVG)

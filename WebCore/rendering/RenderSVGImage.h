@@ -1,6 +1,6 @@
 /*
     Copyright (C) 2006 Alexander Kellett <lypanov@kde.org>
-    Copyright (C) 2006 Apple Computer, Inc.
+    Copyright (C) 2006, 2009 Apple Inc. All rights reserved.
     Copyright (C) 2007 Rob Buis <buis@kde.org>
     Copyright (C) 2009 Google, Inc.
 
@@ -24,56 +24,60 @@
 #define RenderSVGImage_h
 
 #if ENABLE(SVG)
-
-#include "TransformationMatrix.h"
+#include "AffineTransform.h"
 #include "FloatRect.h"
 #include "RenderImage.h"
+#include "SVGPreserveAspectRatio.h"
 #include "SVGRenderSupport.h"
 
 namespace WebCore {
 
-    class SVGImageElement;
-    class SVGPreserveAspectRatio;
+class SVGImageElement;
 
-    class RenderSVGImage : public RenderImage, SVGRenderBase {
-    public:
-        RenderSVGImage(SVGImageElement*);
-        virtual ~RenderSVGImage();
+class RenderSVGImage : public RenderImage, protected SVGRenderBase {
+public:
+    RenderSVGImage(SVGImageElement*);
 
-        virtual const char* renderName() const { return "RenderSVGImage"; }
-        virtual bool isSVGImage() const { return true; }
+    virtual void setNeedsTransformUpdate() { m_needsTransformUpdate = true; }
 
-        virtual TransformationMatrix localToParentTransform() const { return m_localTransform; }
+private:
+    virtual const char* renderName() const { return "RenderSVGImage"; }
+    virtual bool isSVGImage() const { return true; }
 
-        virtual FloatRect objectBoundingBox() const;
-        virtual FloatRect repaintRectInLocalCoordinates() const;
+    virtual const AffineTransform& localToParentTransform() const { return m_localTransform; }
 
-        virtual IntRect clippedOverflowRectForRepaint(RenderBoxModelObject* repaintContainer);
-        virtual void computeRectForRepaint(RenderBoxModelObject* repaintContainer, IntRect&, bool fixed = false);
+    virtual FloatRect objectBoundingBox() const;
+    virtual FloatRect strokeBoundingBox() const { return m_localBounds; }
+    virtual FloatRect repaintRectInLocalCoordinates() const;
 
-        virtual void mapLocalToContainer(RenderBoxModelObject* repaintContainer, bool useTransforms, bool fixed, TransformState&) const;
+    virtual IntRect clippedOverflowRectForRepaint(RenderBoxModelObject* repaintContainer);
+    virtual void computeRectForRepaint(RenderBoxModelObject* repaintContainer, IntRect&, bool fixed = false);
 
-        virtual void absoluteRects(Vector<IntRect>&, int tx, int ty);
-        virtual void absoluteQuads(Vector<FloatQuad>&);
-        virtual void addFocusRingRects(GraphicsContext*, int tx, int ty);
+    virtual void mapLocalToContainer(RenderBoxModelObject* repaintContainer, bool useTransforms, bool fixed, TransformState&) const;
 
-        virtual void imageChanged(WrappedImagePtr, const IntRect* = 0);
-        void adjustRectsForAspectRatio(FloatRect& destRect, FloatRect& srcRect, SVGPreserveAspectRatio*);
-        
-        virtual void layout();
-        virtual void paint(PaintInfo&, int parentX, int parentY);
+    virtual void absoluteRects(Vector<IntRect>&, int tx, int ty);
+    virtual void absoluteQuads(Vector<FloatQuad>&);
+    virtual void addFocusRingRects(Vector<IntRect>&, int tx, int ty);
 
-        bool requiresLayer() const { return false; }
+    virtual void imageChanged(WrappedImagePtr, const IntRect* = 0);
+    
+    virtual void layout();
+    virtual void paint(PaintInfo&, int parentX, int parentY);
 
-        virtual bool nodeAtFloatPoint(const HitTestRequest&, HitTestResult&, const FloatPoint& pointInParent, HitTestAction);
-        virtual bool nodeAtPoint(const HitTestRequest&, HitTestResult&, int _x, int _y, int _tx, int _ty, HitTestAction);
+    virtual void destroy();
 
-    private:
-        virtual TransformationMatrix localTransform() const { return m_localTransform; }
+    virtual bool requiresLayer() const { return false; }
 
-        TransformationMatrix m_localTransform;
-        FloatRect m_localBounds;
-    };
+    virtual bool nodeAtFloatPoint(const HitTestRequest&, HitTestResult&, const FloatPoint& pointInParent, HitTestAction);
+    virtual bool nodeAtPoint(const HitTestRequest&, HitTestResult&, int x, int y, int tx, int ty, HitTestAction);
+
+    virtual AffineTransform localTransform() const { return m_localTransform; }
+
+    bool m_needsTransformUpdate : 1;
+    AffineTransform m_localTransform;
+    FloatRect m_localBounds;
+    mutable FloatRect m_cachedLocalRepaintRect;
+};
 
 } // namespace WebCore
 

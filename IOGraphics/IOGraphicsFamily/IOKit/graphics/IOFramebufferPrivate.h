@@ -264,6 +264,10 @@ public:
     bool setIntegerPreference( IODisplay * display, const OSSymbol * key, UInt32 value );
     void getTransformPrefs( IODisplay * display );
     IOReturn flushParameters(void);
+    IOReturn getAttributeForConnectionParam(IOIndex connectIndex, 
+                                            IOSelect attribute, uintptr_t * value);
+    IOReturn setAttributeForConnectionParam(IOIndex connectIndex,
+                                            IOSelect attribute, uintptr_t value);
 
 protected:
 

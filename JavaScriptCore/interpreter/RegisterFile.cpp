@@ -29,6 +29,8 @@
 #include "config.h"
 #include "RegisterFile.h"
 
+#include "JSGlobalObject.h"
+
 namespace JSC {
 
 RegisterFile::~RegisterFile()
@@ -36,9 +38,12 @@ RegisterFile::~RegisterFile()
 #if HAVE(MMAP)
     munmap(m_buffer, ((m_max - m_start) + m_maxGlobals) * sizeof(Register));
 #elif HAVE(VIRTUALALLOC)
+#if OS(WINCE)
+    VirtualFree(m_buffer, DWORD(m_commitEnd) - DWORD(m_buffer), MEM_DECOMMIT);
+#endif
     VirtualFree(m_buffer, 0, MEM_RELEASE);
 #else
-    #error "Don't know how to release virtual memory on this platform."
+    fastFree(m_buffer);
 #endif
 }
 
@@ -51,6 +56,21 @@ void RegisterFile::releaseExcessCapacity()
     m_commitEnd = m_start;
 #endif
     m_maxUsed = m_start;
+}
+
+void RegisterFile::setGlobalObject(JSGlobalObject* globalObject)
+{
+    m_globalObject = globalObject;
+}
+
+bool RegisterFile::clearGlobalObject(JSGlobalObject* globalObject)
+{
+    return m_globalObject.clear(globalObject);
+}
+
+JSGlobalObject* RegisterFile::globalObject()
+{
+    return m_globalObject.get();
 }
 
 } // namespace JSC

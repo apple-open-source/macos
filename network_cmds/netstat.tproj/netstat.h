@@ -80,6 +80,7 @@ extern int	mflag;	/* show memory stats */
 extern int	nflag;	/* show addresses numerically */
 extern int	rflag;	/* show routing tables (or routing stats) */
 extern int	sflag;	/* show protocol statistics */
+extern int	prioflag; /* show packet priority  statistics */
 extern int	tflag;	/* show i/f watchdog timers */
 extern int	Wflag;	/* wide display */
 

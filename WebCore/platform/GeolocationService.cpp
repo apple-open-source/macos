@@ -20,22 +20,40 @@
  * PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY
  * OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
 #include "config.h"
 #include "GeolocationService.h"
 
+#include "GeolocationServiceMock.h"
+#include "Geoposition.h"
+#include "PositionError.h"
+
 #include <wtf/Assertions.h>
+#include <wtf/CurrentTime.h>
 
 namespace WebCore {
 
-#if !ENABLE(GEOLOCATION)
-GeolocationService* GeolocationService::create(GeolocationServiceClient*)
+#if !ENABLE(GEOLOCATION) || ENABLE(CLIENT_BASED_GEOLOCATION)
+static GeolocationService* createGeolocationServiceNull(GeolocationServiceClient*)
 {
     return 0;
 }
+
+GeolocationService::FactoryFunction* GeolocationService::s_factoryFunction = &createGeolocationServiceNull;
 #endif
+
+GeolocationService* GeolocationService::create(GeolocationServiceClient* client)
+{
+    return (*s_factoryFunction)(client);
+}
+
+#if ENABLE(GEOLOCATION)
+void GeolocationService::useMock()
+{
+    s_factoryFunction = &GeolocationServiceMock::create;
+}
 
 GeolocationService::GeolocationService(GeolocationServiceClient* client)
     : m_geolocationServiceClient(client)
@@ -52,5 +70,7 @@ void GeolocationService::errorOccurred()
 {
     m_geolocationServiceClient->geolocationServiceErrorOccurred(this);
 }
+
+#endif
 
 } // namespace WebCore

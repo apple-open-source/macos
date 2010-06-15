@@ -2,7 +2,7 @@
  * Copyright (c) 2000-2001 Boris Popov
  * All rights reserved.
  *
- * Portions Copyright (C) 2001 - 2009 Apple Inc. All rights reserved.
+ * Portions Copyright (C) 2001 - 2010 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -1165,6 +1165,9 @@ smbfs_attr_cachelookup(vnode_t vp, struct vnode_attr *va, vfs_context_t context,
 			VATTR_WANTED(&vattr, va_guuid);
 			(void)smbfs_getsecurity(np, &vattr, context);
 			
+		} else if ((np->n_uid == KAUTH_UID_NONE) && (np->n_gid == KAUTH_GID_NONE)) {
+			/*  We don't have the info they are requesting yet, force a lookup */
+			return (ENOENT);
 		}
 		VATTR_RETURN(va, va_mode, np->n_mode);
 		VATTR_RETURN(va, va_uid, np->n_uid);

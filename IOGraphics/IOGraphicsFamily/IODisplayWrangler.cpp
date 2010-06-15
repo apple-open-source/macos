@@ -539,6 +539,7 @@ IOReturn IODisplayWrangler::setAggressiveness( unsigned long type, unsigned long
             activityTickle(0,0);
 
         fDimCaptured = (0 != newLevel);
+        setProperty("DimCaptured", fDimCaptured);
 
         /* fall thru */
 

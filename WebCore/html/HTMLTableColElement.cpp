@@ -1,6 +1,4 @@
 /**
- * This file is part of the DOM implementation for KDE.
- *
  * Copyright (C) 1997 Martin Jones (mjones@kde.org)
  *           (C) 1997 Torben Weis (weis@kde.org)
  *           (C) 1998 Waldo Bastian (bastian@kde.org)
@@ -79,12 +77,12 @@ void HTMLTableColElement::parseMappedAttribute(MappedAttribute *attr)
     if (attr->name() == spanAttr) {
         _span = !attr->isNull() ? attr->value().toInt() : 1;
         if (renderer() && renderer()->isTableCol())
-            static_cast<RenderTableCol*>(renderer())->updateFromElement();
+            renderer()->updateFromElement();
     } else if (attr->name() == widthAttr) {
         if (!attr->value().isEmpty()) {
             addCSSLength(attr, CSSPropertyWidth, attr->value());
             if (renderer() && renderer()->isTableCol()) {
-                RenderTableCol* col = static_cast<RenderTableCol*>(renderer());
+                RenderTableCol* col = toRenderTableCol(renderer());
                 int newWidth = width().toInt();
                 if (newWidth != col->width())
                     col->setNeedsLayoutAndPrefWidthsRecalc();

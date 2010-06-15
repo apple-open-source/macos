@@ -31,34 +31,84 @@
 #ifndef ScriptState_h
 #define ScriptState_h
 
+#include "DOMWrapperWorld.h"
 #include <v8.h>
+#include <wtf/Noncopyable.h>
+#include <wtf/RefCounted.h>
 
 namespace WebCore {
-    class Node;
-    class Page;
-    class Frame;
+class DOMWrapperWorld;
+class Frame;
+class Node;
+class Page;
 
-    class ScriptState {
-    public:
-        ScriptState() { }
-        ScriptState(Frame* frame);
+class ScriptState : public Noncopyable {
+public:
+    bool hadException() { return !m_exception.IsEmpty(); }
+    void setException(v8::Local<v8::Value> exception)
+    {
+        m_exception = exception;
+    }
+    v8::Local<v8::Value> exception() { return m_exception; }
 
-        bool hadException() { return !m_exception.IsEmpty(); }
-        void setException(v8::Local<v8::Value> exception)
-        {
-            m_exception = exception;
+    v8::Local<v8::Context> context() const
+    {
+        return v8::Local<v8::Context>::New(m_context);
+    }
+
+    static ScriptState* forContext(v8::Local<v8::Context>);
+    static ScriptState* current();
+
+protected:
+    ScriptState() { }
+    ~ScriptState();
+
+private:
+    friend ScriptState* mainWorldScriptState(Frame*);
+    explicit ScriptState(v8::Handle<v8::Context>);
+
+    static void weakReferenceCallback(v8::Persistent<v8::Value> object, void* parameter);
+
+    v8::Local<v8::Value> m_exception;
+    v8::Persistent<v8::Context> m_context;
+};
+
+class EmptyScriptState : public ScriptState {
+public:
+    EmptyScriptState() : ScriptState() { }
+    ~EmptyScriptState() { }
+};
+
+class ScriptStateProtectedPtr : public Noncopyable {
+public:
+    ScriptStateProtectedPtr() : m_scriptState(0) { }
+    ScriptStateProtectedPtr(ScriptState* scriptState) : m_scriptState(scriptState)
+    {
+        v8::HandleScope handleScope;
+        // Keep the context from being GC'ed. ScriptState is guaranteed to be live while the context is live.
+        m_context = v8::Persistent<v8::Context>::New(scriptState->context());
+    }
+    ~ScriptStateProtectedPtr()
+    {
+        if (!m_context.IsEmpty()) {
+            m_context.Dispose();
+            m_context.Clear();
         }
-        v8::Local<v8::Value> exception() { return m_exception; }
+    }
+    ScriptState* get() { return m_scriptState; }
+private:
+    ScriptState* m_scriptState;
+    v8::Persistent<v8::Context> m_context;
+};
 
-        Frame* frame() const { return m_frame; }
+ScriptState* mainWorldScriptState(Frame*);
 
-    private:
-        v8::Local<v8::Value> m_exception;
-        Frame* m_frame;
-    };
+ScriptState* scriptStateFromNode(DOMWrapperWorld*, Node*);
+ScriptState* scriptStateFromPage(DOMWrapperWorld*, Page*);
 
-    ScriptState* scriptStateFromNode(Node*);
-    ScriptState* scriptStateFromPage(Page*);
+inline DOMWrapperWorld* debuggerWorld() { return mainThreadNormalWorld(); }
+inline DOMWrapperWorld* pluginWorld() { return mainThreadNormalWorld(); }
+
 }
 
 #endif // ScriptState_h

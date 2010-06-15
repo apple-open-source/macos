@@ -31,81 +31,54 @@
 
 #if ENABLE(DATABASE)
 
-#include "DatabaseDetails.h"
 #include "PlatformString.h"
-#include "SQLiteDatabase.h"
 #include "StringHash.h"
+#include <wtf/HashMap.h>
 #include <wtf/HashSet.h>
+
+#if !PLATFORM(CHROMIUM)
+#include "DatabaseDetails.h"
+#include "SQLiteDatabase.h"
 #include <wtf/OwnPtr.h>
+#endif // !PLATFORM(CHROMIUM)
 
 namespace WebCore {
 
 class Database;
-class DatabaseTrackerClient;
-class Document;
-class OriginQuotaManager;
+class ScriptExecutionContext;
 class SecurityOrigin;
 
 struct SecurityOriginHash;
+
+#if !PLATFORM(CHROMIUM)
+class DatabaseTrackerClient;
+
 struct SecurityOriginTraits;
+#endif // !PLATFORM(CHROMIUM)
 
-class DatabaseTracker {
+class DatabaseTracker : public Noncopyable {
 public:
-    void setDatabaseDirectoryPath(const String&);
-    const String& databaseDirectoryPath() const;
+    static void initializeTracker(const String& databasePath);
+    static DatabaseTracker& tracker();
+    // This singleton will potentially be used from multiple worker threads and the page's context thread simultaneously.  To keep this safe, it's
+    // currently using 4 locks.  In order to avoid deadlock when taking multiple locks, you must take them in the correct order:
+    // m_databaseGuard before quotaManager if both locks are needed.
+    // no other lock is taken in the code locked on m_openDatabaseMapGuard.
+    // notificationMutex() is currently independent of the other locks.
 
-    bool canEstablishDatabase(Document*, const String& name, const String& displayName, unsigned long estimatedSize);
+    bool canEstablishDatabase(ScriptExecutionContext*, const String& name, const String& displayName, unsigned long estimatedSize);
     void setDatabaseDetails(SecurityOrigin*, const String& name, const String& displayName, unsigned long estimatedSize);
     String fullPathForDatabase(SecurityOrigin*, const String& name, bool createIfDoesNotExist = true);
 
-    void origins(Vector<RefPtr<SecurityOrigin> >& result);
-    bool databaseNamesForOrigin(SecurityOrigin*, Vector<String>& result);
-
-    DatabaseDetails detailsForNameAndOrigin(const String&, SecurityOrigin*);
-
     void addOpenDatabase(Database*);
     void removeOpenDatabase(Database*);
+    void getOpenDatabases(SecurityOrigin* origin, const String& name, HashSet<RefPtr<Database> >* databases);
 
-    unsigned long long usageForDatabase(const String&, SecurityOrigin*);
-    unsigned long long usageForOrigin(SecurityOrigin*);
-    unsigned long long quotaForOrigin(SecurityOrigin*);
-    void setQuota(SecurityOrigin*, unsigned long long);
-    
-    void deleteAllDatabases();
-    void deleteOrigin(SecurityOrigin*);
-    void deleteDatabase(SecurityOrigin*, const String& name);
-
-    void setClient(DatabaseTrackerClient*);
-    
-    // From a secondary thread, must be thread safe with its data
-    void scheduleNotifyDatabaseChanged(SecurityOrigin*, const String& name);
-    
-    OriginQuotaManager& originQuotaManager();
-    
-    static DatabaseTracker& tracker();
-
-    bool hasEntryForOrigin(SecurityOrigin*);
+    unsigned long long getMaxSizeForDatabase(const Database*);
+    void databaseChanged(Database*);
 
 private:
-    DatabaseTracker();
-
-    String trackerDatabasePath() const;
-    void openTrackerDatabase(bool createIfDoesNotExist);
-
-    String originPath(SecurityOrigin*) const;
-    
-    bool hasEntryForDatabase(SecurityOrigin*, const String& databaseIdentifier);
-    
-    bool addDatabase(SecurityOrigin*, const String& name, const String& path);
-    void populateOrigins();
-    
-    bool deleteDatabaseFile(SecurityOrigin*, const String& name);
-
-    SQLiteDatabase m_database;
-
-    typedef HashMap<RefPtr<SecurityOrigin>, unsigned long long, SecurityOriginHash> QuotaMap;
-    Mutex m_quotaMapGuard;
-    mutable OwnPtr<QuotaMap> m_quotaMap;
+    DatabaseTracker(const String& databasePath);
 
     typedef HashSet<Database*> DatabaseSet;
     typedef HashMap<String, DatabaseSet*> DatabaseNameMap;
@@ -114,20 +87,87 @@ private:
     Mutex m_openDatabaseMapGuard;
     mutable OwnPtr<DatabaseOriginMap> m_openDatabaseMap;
 
-    OwnPtr<OriginQuotaManager> m_quotaManager;
+#if !PLATFORM(CHROMIUM)
+public:
+    void setDatabaseDirectoryPath(const String&);
+    String databaseDirectoryPath() const;
+
+    void origins(Vector<RefPtr<SecurityOrigin> >& result);
+    bool databaseNamesForOrigin(SecurityOrigin*, Vector<String>& result);
+
+    DatabaseDetails detailsForNameAndOrigin(const String&, SecurityOrigin*);
+
+    unsigned long long usageForDatabase(const String&, SecurityOrigin*);
+    unsigned long long usageForOrigin(SecurityOrigin*);
+    unsigned long long quotaForOrigin(SecurityOrigin*);
+    void setQuota(SecurityOrigin*, unsigned long long);
+
+    void deleteAllDatabases();
+    bool deleteOrigin(SecurityOrigin*);
+    bool deleteDatabase(SecurityOrigin*, const String& name);
+
+    void setClient(DatabaseTrackerClient*);
+
+    // From a secondary thread, must be thread safe with its data
+    void scheduleNotifyDatabaseChanged(SecurityOrigin*, const String& name);
+
+    bool hasEntryForOrigin(SecurityOrigin*);
+
+private:
+    bool hasEntryForOriginNoLock(SecurityOrigin* origin);
+    String fullPathForDatabaseNoLock(SecurityOrigin*, const String& name, bool createIfDoesNotExist);
+    bool databaseNamesForOriginNoLock(SecurityOrigin* origin, Vector<String>& resultVector);
+    unsigned long long usageForOriginNoLock(SecurityOrigin* origin);
+    unsigned long long quotaForOriginNoLock(SecurityOrigin* origin);
+
+    String trackerDatabasePath() const;
+    void openTrackerDatabase(bool createIfDoesNotExist);
+
+    String originPath(SecurityOrigin*) const;
+
+    bool hasEntryForDatabase(SecurityOrigin*, const String& databaseIdentifier);
+
+    bool addDatabase(SecurityOrigin*, const String& name, const String& path);
+    void populateOrigins();
+
+    bool deleteDatabaseFile(SecurityOrigin*, const String& name);
+
+    // This lock protects m_database, m_quotaMap, m_proposedDatabases, m_databaseDirectoryPath, m_originsBeingDeleted, m_beingCreated, and m_beingDeleted.
+    Mutex m_databaseGuard;
+    SQLiteDatabase m_database;
+
+    typedef HashMap<RefPtr<SecurityOrigin>, unsigned long long, SecurityOriginHash> QuotaMap;
+    mutable OwnPtr<QuotaMap> m_quotaMap;
 
     String m_databaseDirectoryPath;
-    
+
     DatabaseTrackerClient* m_client;
 
-    std::pair<SecurityOrigin*, DatabaseDetails>* m_proposedDatabase;
+    typedef std::pair<RefPtr<SecurityOrigin>, DatabaseDetails> ProposedDatabase;
+    HashSet<ProposedDatabase*> m_proposedDatabases;
 
-#ifndef NDEBUG
-    ThreadIdentifier m_thread;
-#endif
+    typedef HashMap<String, long> NameCountMap;
+    typedef HashMap<RefPtr<SecurityOrigin>, NameCountMap*, SecurityOriginHash> CreateSet;
+    CreateSet m_beingCreated;
+    typedef HashSet<String> NameSet;
+    HashMap<RefPtr<SecurityOrigin>, NameSet*, SecurityOriginHash> m_beingDeleted;
+    HashSet<RefPtr<SecurityOrigin>, SecurityOriginHash> m_originsBeingDeleted;
+    bool canCreateDatabase(SecurityOrigin *origin, const String& name);
+    void recordCreatingDatabase(SecurityOrigin *origin, const String& name);
+    void doneCreatingDatabase(SecurityOrigin *origin, const String& name);
+    bool creatingDatabase(SecurityOrigin *origin, const String& name);
+    bool canDeleteDatabase(SecurityOrigin *origin, const String& name);
+    void recordDeletingDatabase(SecurityOrigin *origin, const String& name);
+    void doneDeletingDatabase(SecurityOrigin *origin, const String& name);
+    bool deletingDatabase(SecurityOrigin *origin, const String& name);
+    bool canDeleteOrigin(SecurityOrigin *origin);
+    bool deletingOrigin(SecurityOrigin *origin);
+    void recordDeletingOrigin(SecurityOrigin *origin);
+    void doneDeletingOrigin(SecurityOrigin *origin);
 
     static void scheduleForNotification();
     static void notifyDatabasesChanged(void*);
+#endif // !PLATFORM(CHROMIUM)
 };
 
 } // namespace WebCore

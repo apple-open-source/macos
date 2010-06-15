@@ -39,6 +39,7 @@
 #import "WebKitStatisticsPrivate.h"
 #import "WebNSAttributedStringExtras.h"
 #import "WebNSObjectExtras.h"
+#import "WebTypesInternal.h"
 #import "WebView.h"
 #import <Foundation/NSURLResponse.h>
 #import <WebCore/Document.h>
@@ -65,6 +66,8 @@ using namespace HTMLNames;
     WebDataSource *dataSource;
     
     BOOL hasSentResponseToPlugin;
+    BOOL includedInWebKitStatistics;
+
     id <WebPluginManualLoader> manualLoader;
     NSView *pluginView;
 }
@@ -116,16 +119,15 @@ static NSArray *concatenateArrays(NSArray *first, NSArray *second)
         return nil;
     
     _private = [[WebHTMLRepresentationPrivate alloc] init];
-    
-    ++WebHTMLRepresentationCount;
-    
+
     return self;
 }
 
 - (void)dealloc
 {
-    --WebHTMLRepresentationCount;
-    
+    if (_private && _private->includedInWebKitStatistics)
+        --WebHTMLRepresentationCount;
+
     [_private release];
 
     [super dealloc];
@@ -133,7 +135,8 @@ static NSArray *concatenateArrays(NSArray *first, NSArray *second)
 
 - (void)finalize
 {
-    --WebHTMLRepresentationCount;
+    if (_private && _private->includedInWebKitStatistics)
+        --WebHTMLRepresentationCount;
 
     [super finalize];
 }
@@ -147,6 +150,11 @@ static NSArray *concatenateArrays(NSArray *first, NSArray *second)
 - (void)setDataSource:(WebDataSource *)dataSource
 {
     _private->dataSource = dataSource;
+
+    if (!_private->includedInWebKitStatistics && [[dataSource webFrame] _isIncludedInWebKitStatistics]) {
+        _private->includedInWebKitStatistics = YES;
+        ++WebHTMLRepresentationCount;
+    }
 }
 
 - (BOOL)_isDisplayingWebArchive
@@ -294,7 +302,8 @@ static HTMLInputElement* inputElementFromDOMElement(DOMElement* element)
 {
     HTMLInputElement* inputElement = inputElementFromDOMElement(element);
     return inputElement
-        && inputElement->inputType() == HTMLInputElement::TEXT
+        && inputElement->isTextField()
+        && inputElement->inputType() != HTMLInputElement::PASSWORD
         && inputElement->autoComplete();
 }
 
@@ -337,7 +346,27 @@ static HTMLInputElement* inputElementFromDOMElement(DOMElement* element)
 
 - (NSString *)searchForLabels:(NSArray *)labels beforeElement:(DOMElement *)element
 {
-    return core([_private->dataSource webFrame])->searchForLabelsBeforeElement(labels, core(element));
+    return [self searchForLabels:labels beforeElement:element resultDistance:0 resultIsInCellAbove:0];
+}
+
+- (NSString *)searchForLabels:(NSArray *)labels beforeElement:(DOMElement *)element resultDistance:(NSUInteger*)outDistance resultIsInCellAbove:(BOOL*)outIsInCellAbove
+{
+    size_t distance;
+    bool isInCellAbove;
+    
+    NSString *result = core([_private->dataSource webFrame])->searchForLabelsBeforeElement(labels, core(element), &distance, &isInCellAbove);
+    
+    if (outDistance) {
+        if (distance == notFound)
+            *outDistance = NSNotFound;
+        else
+            *outDistance = distance;
+    }
+
+    if (outIsInCellAbove)
+        *outIsInCellAbove = isInCellAbove;
+    
+    return result;
 }
 
 - (NSString *)matchLabels:(NSArray *)labels againstElement:(DOMElement *)element

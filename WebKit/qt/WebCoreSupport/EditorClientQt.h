@@ -48,13 +48,13 @@ public:
     virtual bool shouldDeleteRange(Range*);
     virtual bool shouldShowDeleteInterface(HTMLElement*);
     virtual bool smartInsertDeleteEnabled(); 
+    virtual void toggleSmartInsertDelete();
     virtual bool isSelectTrailingWhitespaceEnabled(); 
     virtual bool isContinuousSpellCheckingEnabled();
     virtual void toggleContinuousSpellChecking();
     virtual bool isGrammarCheckingEnabled();
     virtual void toggleGrammarChecking();
     virtual int spellCheckerDocumentTag();
-    
     virtual bool selectWordBeforeMenuEvent();
     virtual bool isEditable();
 

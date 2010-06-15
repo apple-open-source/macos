@@ -48,14 +48,20 @@ namespace WebCore {
         WorkerScriptController(WorkerContext*);
         ~WorkerScriptController();
 
-        WorkerContextExecutionProxy* proxy() { return m_proxy.get(); }
+        WorkerContextExecutionProxy* proxy() { return m_executionForbidden ? 0 : m_proxy.get(); }
+        WorkerContext* workerContext() { return m_workerContext; }
 
         ScriptValue evaluate(const ScriptSourceCode&);
         ScriptValue evaluate(const ScriptSourceCode&, ScriptValue* exception);
 
         void setException(ScriptValue);
 
-        void forbidExecution();
+        enum ForbidExecutionOption { TerminateRunningScript, LetRunningScriptFinish };
+        void forbidExecution(ForbidExecutionOption);
+        bool isExecutionForbidden() const { return m_executionForbidden; }
+
+        // Returns WorkerScriptController for the currently executing context. 0 will be returned if the current executing context is not the worker context.
+        static WorkerScriptController* controllerForContext();
 
     private:
         WorkerContext* m_workerContext;

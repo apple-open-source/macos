@@ -1,7 +1,4 @@
 <!DOCTYPE RCC><RCC version="1.0">
-<qresource prefix="/webcore/css">
-    <file alias="mediaControls-extras.css">css/qt/mediaControls-extras.css</file>
-</qresource>
 <qresource prefix="/webkit/resources">
     <file alias="missingImage.png">Resources/missingImage.png</file>
     <file alias="nullPlugin.png">Resources/nullPlugin.png</file>
@@ -15,5 +12,6 @@
     <file alias="copyCursor.png">Resources/copyCursor.png</file>
     <file alias="progressCursor.png">Resources/progressCursor.png</file>
     <file alias="aliasCursor.png">Resources/aliasCursor.png</file>
+    <file alias="deleteButton.png">Resources/deleteButton.png</file>
 </qresource>
 </RCC>

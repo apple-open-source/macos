@@ -25,8 +25,10 @@
 
 namespace WebCore {
 
+class Element;
 class Frame;
 class FloatRect;
+class FloatSize;
 class GraphicsContext;
 class IntRect;
 
@@ -36,8 +38,11 @@ public:
     ~PrintContext();
 
     int pageCount() const;
+    const IntRect& pageRect(int pageNumber) const;
+    const Vector<IntRect>& pageRects() const { return m_pageRects; }
 
     void computePageRects(const FloatRect& printRect, float headerHeight, float footerHeight, float userScaleFactor, float& outPageHeight);
+    void computePageRectsWithPageSize(const FloatSize& pageSizeInPixels, bool allowHorizontalMultiPages);
 
     // TODO: eliminate width param
     void begin(float width);
@@ -47,9 +52,19 @@ public:
 
     void end();
 
+    // Used by layout tests.
+    static int pageNumberForElement(Element*, const FloatSize& pageSizeInPixels);
+    static int numberOfPages(Frame*, const FloatSize& pageSizeInPixels);
+
 protected:
     Frame* m_frame;
     Vector<IntRect> m_pageRects;
+
+private:
+    void computePageRectsWithPageSizeInternal(const FloatSize& pageSizeInPixels, bool allowHorizontalMultiPages);
+
+    // Used to prevent misuses of begin() and end() (e.g., call end without begin).
+    bool m_isPrinting;
 };
 
 }

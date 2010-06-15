@@ -31,13 +31,14 @@ module window {
         CustomDefineSetter,
         CustomDeleteProperty,
         CustomGetOwnPropertySlot,
-        CustomGetPropertyAttributes,
         CustomGetPropertyNames,
         CustomLookupGetter,
         CustomLookupSetter,
         CustomMarkFunction,
         CustomNativeConverter,
         CustomPutFunction,
+        EventTarget,
+        OmitConstructor,
         ExtendsDOMGlobalObject,
         GenerateNativeConverter,
         LegacyParent=JSDOMWindowBase
@@ -55,7 +56,7 @@ module window {
         attribute [Replaceable] Navigator clientInformation;
         attribute [DoNotCheckDomainSecurity, JSCCustom, V8CustomSetter, V8DisallowShadowing] Location location;
 
-        attribute [Replaceable, CustomGetter] Event event;
+        attribute [Replaceable, CustomGetter, V8CustomSetter] Event event;
 
         readonly attribute [Custom] Crypto crypto;
 
@@ -74,7 +75,7 @@ module window {
                                 in DOMString name,
                                 in [Optional] DOMString options);
 
-        [Custom] DOMObject showModalDialog(in DOMString url, 
+        [Custom] DOMObject showModalDialog(in DOMString url,
                                            in [Optional] DOMObject dialogArgs,
                                            in [Optional] DOMString featureArgs);
 
@@ -139,6 +140,9 @@ module window {
         // DOM Level 2 AbstractView Interface
         readonly attribute Document document;
 
+        // CSSOM View Module
+        readonly attribute StyleMedia styleMedia;
+
         // DOM Level 2 Style Interface
         CSSStyleDeclaration getComputedStyle(in Element element,
                                              in DOMString pseudoElement);
@@ -153,22 +157,43 @@ module window {
         WebKitPoint webkitConvertPointFromNodeToPage(in Node node, in WebKitPoint p);
 
 #if defined(ENABLE_OFFLINE_WEB_APPLICATIONS) && ENABLE_OFFLINE_WEB_APPLICATIONS
-        readonly attribute DOMApplicationCache applicationCache;
+        readonly attribute [EnabledAtRuntime] DOMApplicationCache applicationCache;
 #endif    
 #if defined(ENABLE_DATABASE) && ENABLE_DATABASE
-        Database openDatabase(in DOMString name, in DOMString version, in DOMString displayName, in unsigned long estimatedSize)
+        [EnabledAtRuntime, Custom] Database openDatabase(in DOMString name, in DOMString version, in DOMString displayName, in unsigned long estimatedSize, in DatabaseCallback creationCallback)
             raises(DOMException);
 #endif
 #if defined(ENABLE_DOM_STORAGE) && ENABLE_DOM_STORAGE
-        readonly attribute Storage sessionStorage;
-        readonly attribute Storage localStorage;
+        readonly attribute [EnabledAtRuntime] Storage sessionStorage
+            getter raises(DOMException);
+        readonly attribute [EnabledAtRuntime] Storage localStorage
+            getter raises(DOMException);
+#endif
+#if defined(ENABLE_NOTIFICATIONS) && ENABLE_NOTIFICATIONS
+        readonly attribute [EnabledAtRuntime] NotificationCenter webkitNotifications;
+#endif
+#if defined(ENABLE_INDEXED_DATABASE) && ENABLE_INDEXED_DATABASE
+        readonly attribute [EnabledAtRuntime] IndexedDatabaseRequest indexedDB;
+#endif
+
+#if defined(ENABLE_ORIENTATION_EVENTS) && ENABLE_ORIENTATION_EVENTS
+        // This is the interface orientation in degrees. Some examples are:
+        //  0 is straight up; -90 is when the device is rotated 90 clockwise;
+        //  90 is when rotated counter clockwise.
+        readonly attribute long orientation;
 #endif
 
                  attribute [Replaceable] Console console;
 
         // cross-document messaging
-        [DoNotCheckDomainSecurity, Custom] void postMessage(in DOMString message, in [Optional] MessagePort messagePort, in DOMString targetOrigin)
+#if defined(LANGUAGE_JAVASCRIPT) && LANGUAGE_JAVASCRIPT
+        [DoNotCheckDomainSecurity, Custom] void postMessage(in SerializedScriptValue message, in [Optional] Array messagePorts, in DOMString targetOrigin)
             raises(DOMException);
+#else
+        // There's no good way to expose an array via the ObjC bindings, so for now just allow passing in a single port.
+        [DoNotCheckDomainSecurity, Custom] void postMessage(in SerializedScriptValue message, in [Optional] MessagePort messagePort, in DOMString targetOrigin)
+            raises(DOMException);
+#endif
 
         // Timers
         [Custom] long setTimeout(in TimeoutHandler handler, in long timeout);
@@ -181,9 +206,9 @@ module window {
         void clearInterval(in long handle);
 
         // Base64
-        [Custom] DOMString atob(in DOMString string)
+        DOMString atob(in [ConvertNullToNullString] DOMString string)
             raises(DOMException);
-        [Custom] DOMString btoa(in DOMString string)
+        DOMString btoa(in [ConvertNullToNullString] DOMString string)
             raises(DOMException);
 
         // Events
@@ -208,7 +233,9 @@ module window {
         attribute EventListener onended;
         attribute EventListener onerror;
         attribute EventListener onfocus;
+        attribute EventListener onhashchange;
         attribute EventListener oninput;
+        attribute EventListener oninvalid;
         attribute EventListener onkeydown;
         attribute EventListener onkeypress;
         attribute EventListener onkeyup;
@@ -225,9 +252,12 @@ module window {
         attribute EventListener onmousewheel;
         attribute EventListener onoffline;
         attribute EventListener ononline;
+        attribute EventListener onpagehide;
+        attribute EventListener onpageshow;
         attribute EventListener onpause;
         attribute EventListener onplay;
         attribute EventListener onplaying;
+        attribute EventListener onpopstate;
         attribute EventListener onprogress;
         attribute EventListener onratechange;
         attribute EventListener onresize;
@@ -249,9 +279,6 @@ module window {
         // attribute EventListener onbeforeprint;
         // attribute EventListener onformchange;
         // attribute EventListener onforminput;
-        // attribute EventListener onhashchange;
-        // attribute EventListener oninvalid;
-        // attribute EventListener onpopstate;
         // attribute EventListener onreadystatechange;
         // attribute EventListener onredo;
         // attribute EventListener onshow;
@@ -264,6 +291,13 @@ module window {
         attribute EventListener onwebkitanimationiteration;
         attribute EventListener onwebkitanimationstart;
         attribute EventListener onwebkittransitionend;
+#if defined(ENABLE_ORIENTATION_EVENTS) && ENABLE_ORIENTATION_EVENTS
+        attribute EventListener onorientationchange;
+#endif
+        attribute [DontEnum,Conditional=TOUCH_EVENTS,EnabledAtRuntime] EventListener ontouchstart;
+        attribute [DontEnum,Conditional=TOUCH_EVENTS,EnabledAtRuntime] EventListener ontouchmove;
+        attribute [DontEnum,Conditional=TOUCH_EVENTS,EnabledAtRuntime] EventListener ontouchend;
+        attribute [DontEnum,Conditional=TOUCH_EVENTS,EnabledAtRuntime] EventListener ontouchcancel;
 
         // EventTarget interface
         [Custom] void addEventListener(in DOMString type,
@@ -304,6 +338,7 @@ module window {
         attribute CounterConstructor Counter;
         attribute CSSRuleListConstructor CSSRuleList;
         attribute RectConstructor Rect;
+        attribute RGBColorConstructor RGBColor;
         attribute StyleSheetListConstructor StyleSheetList;
 
         // FIXME: Implement the commented-out global constructors for interfaces listed in DOM Level 3 Core specification.
@@ -385,6 +420,9 @@ module window {
         attribute HTMLParagraphElementConstructor HTMLParagraphElement;
         attribute HTMLParamElementConstructor HTMLParamElement;
         attribute HTMLPreElementConstructor HTMLPreElement;
+#if defined(ENABLE_PROGRESS_TAG) && ENABLE_PROGRESS_TAG
+        attribute HTMLProgressElementConstructor HTMLProgressElement;
+#endif
         attribute HTMLQuoteElementConstructor HTMLQuoteElement;
         attribute HTMLScriptElementConstructor HTMLScriptElement;
         attribute HTMLSelectElementConstructor HTMLSelectElement;
@@ -400,18 +438,32 @@ module window {
         attribute HTMLUListElementConstructor HTMLUListElement;
 
         attribute HTMLCollectionConstructor HTMLCollection;
+        attribute HTMLAllCollectionConstructor HTMLAllCollection;
 
         attribute [CustomGetter] HTMLImageElementConstructor Image; // Usable with new operator
         attribute [CustomGetter] HTMLOptionElementConstructor Option; // Usable with new operator
 
         attribute CanvasRenderingContext2DConstructor CanvasRenderingContext2D;
+        attribute ImageDataConstructor ImageData;
+        attribute [Conditional=3D_CANVAS,EnabledAtRuntime] WebGLRenderingContextConstructor WebGLRenderingContext;
         attribute TextMetricsConstructor TextMetrics;
 
+        attribute [JSCCustomGetter,Conditional=3D_CANVAS,EnabledAtRuntime] WebGLArrayBufferConstructor WebGLArrayBuffer; // Usable with new operator
+        attribute [JSCCustomGetter,Conditional=3D_CANVAS,EnabledAtRuntime] WebGLByteArrayConstructor WebGLByteArray; // Usable with new operator
+        attribute [JSCCustomGetter,Conditional=3D_CANVAS,EnabledAtRuntime] WebGLUnsignedByteArrayConstructor WebGLUnsignedByteArray; // Usable with new operator
+        attribute [JSCCustomGetter,Conditional=3D_CANVAS,EnabledAtRuntime] WebGLShortArrayConstructor WebGLShortArray; // Usable with new operator
+        attribute [JSCCustomGetter,Conditional=3D_CANVAS,EnabledAtRuntime] WebGLUnsignedShortArrayConstructor WebGLUnsignedShortArray; // Usable with new operator
+        attribute [JSCCustomGetter,Conditional=3D_CANVAS,EnabledAtRuntime] WebGLIntArrayConstructor WebGLIntArray; // Usable with new operator
+        attribute [JSCCustomGetter,Conditional=3D_CANVAS,EnabledAtRuntime] WebGLUnsignedIntArrayConstructor WebGLUnsignedIntArray; // Usable with new operator
+        attribute [JSCCustomGetter,Conditional=3D_CANVAS,EnabledAtRuntime] WebGLFloatArrayConstructor WebGLFloatArray; // Usable with new operator
+
         attribute EventConstructor Event;
+        attribute BeforeLoadEventConstructor BeforeLoadEvent;
         attribute KeyboardEventConstructor KeyboardEvent;
         attribute MouseEventConstructor MouseEvent;
         attribute MutationEventConstructor MutationEvent;
         attribute OverflowEventConstructor OverflowEvent;
+        attribute PageTransitionEventConstructor PageTransitionEvent;
         attribute ProgressEventConstructor ProgressEvent;
         attribute TextEventConstructor TextEvent;
         attribute UIEventConstructor UIEvent;
@@ -432,10 +484,15 @@ module window {
 
         attribute FileConstructor File;
         attribute FileListConstructor FileList;
+        attribute BlobConstructor Blob;
 
         attribute NodeFilterConstructor NodeFilter;
         attribute RangeConstructor Range;
         attribute RangeExceptionConstructor RangeException;
+
+#if ENABLE_EVENTSOURCE
+        attribute [JSCCustomGetter] EventSourceConstructor EventSource; // Usable with new the operator
+#endif
 
         // Mozilla has a separate XMLDocument object for XML documents. 
         // We just use Document for this.
@@ -448,9 +505,7 @@ module window {
         attribute XMLHttpRequestUploadConstructor XMLHttpRequestUpload;
         attribute XMLHttpRequestExceptionConstructor XMLHttpRequestException;
 
-#if defined(ENABLE_XSLT) && ENABLE_XSLT
-        attribute [JSCCustomGetter] XSLTProcessorConstructor XSLTProcessor; // Usable with the new operator
-#endif
+        attribute [JSCCustomGetter,Conditional=XSLT] XSLTProcessorConstructor XSLTProcessor; // Usable with the new operator
 
 #if defined(ENABLE_CHANNEL_MESSAGING) && ENABLE_CHANNEL_MESSAGING
         attribute MessagePortConstructor MessagePort;
@@ -459,6 +514,14 @@ module window {
 
 #if defined(ENABLE_WORKERS) && ENABLE_WORKERS
         attribute [JSCCustomGetter] WorkerConstructor Worker; // Usable with the new operator
+#endif
+
+#if defined(ENABLE_SHARED_WORKERS) && ENABLE_SHARED_WORKERS
+        attribute [JSCCustomGetter, EnabledAtRuntime] SharedWorkerConstructor SharedWorker; // Usable with the new operator
+#endif
+
+#if defined(ENABLE_WEB_SOCKETS) && ENABLE_WEB_SOCKETS
+        attribute [JSCCustomGetter,EnabledAtRuntime] WebSocketConstructor WebSocket; // Usable with the new operator
 #endif
 
         attribute PluginConstructor Plugin;
@@ -475,11 +538,11 @@ module window {
         attribute StorageEventConstructor StorageEvent;
 #endif
 
-        attribute [CustomGetter,Conditional=VIDEO] HTMLAudioElementConstructor Audio; // Usable with the new operator
-        attribute [Conditional=VIDEO] HTMLAudioElementConstructor HTMLAudioElement;
-        attribute [Conditional=VIDEO] HTMLMediaElementConstructor HTMLMediaElement;
-        attribute [Conditional=VIDEO] HTMLVideoElementConstructor HTMLVideoElement;
-        attribute [Conditional=VIDEO] MediaErrorConstructor MediaError;
+        attribute [CustomGetter, Conditional=VIDEO, EnabledAtRuntime] HTMLAudioElementConstructor Audio; // Usable with the new operator
+        attribute [Conditional=VIDEO, EnabledAtRuntime] HTMLAudioElementConstructor HTMLAudioElement;
+        attribute [Conditional=VIDEO, EnabledAtRuntime] HTMLMediaElementConstructor HTMLMediaElement;
+        attribute [Conditional=VIDEO, EnabledAtRuntime] HTMLVideoElementConstructor HTMLVideoElement;
+        attribute [Conditional=VIDEO, EnabledAtRuntime] MediaErrorConstructor MediaError;
 
 #if defined(ENABLE_XPATH) && ENABLE_XPATH
         attribute XPathEvaluatorConstructor XPathEvaluator;
@@ -488,34 +551,171 @@ module window {
 #endif
 
 #if defined(ENABLE_SVG) && ENABLE_SVG
+        // Expose all implemented SVG 1.1 interfaces, excluding the SVG MI interfaces:
+        // SVGAnimatedPathData, SVGAnimatedPoints, SVGExternalResourcesRequired,
+        // SVGFilterPrimitiveStandardAttributes, SVGFitToViewBox, SVGLangSpace, SVGLocatable
+        // SVGStylable, SVGTests, SVGTransformable, SVGURIReference, SVGZoomAndPan
+        attribute SVGAElementConstructor SVGAElement;
         attribute SVGAngleConstructor SVGAngle;
+        attribute SVGAnimatedAngleConstructor SVGAnimatedAngle;
+        attribute SVGAnimatedBooleanConstructor SVGAnimatedBoolean;
+        attribute SVGAnimatedEnumerationConstructor SVGAnimatedEnumeration;
+        attribute SVGAnimatedIntegerConstructor SVGAnimatedInteger;
+        attribute SVGAnimatedLengthConstructor SVGAnimatedLength;
+        attribute SVGAnimatedLengthListConstructor SVGAnimatedLengthList;
+        attribute SVGAnimatedNumberConstructor SVGAnimatedNumber;
+        attribute SVGAnimatedNumberListConstructor SVGAnimatedNumberList;
+        attribute SVGAnimatedPreserveAspectRatioConstructor SVGAnimatedPreserveAspectRatio;
+        attribute SVGAnimatedRectConstructor SVGAnimatedRect;
+        attribute SVGAnimatedStringConstructor SVGAnimatedString;
+        attribute SVGAnimatedTransformListConstructor SVGAnimatedTransformList;
+        attribute SVGCircleElementConstructor SVGCircleElement;
+        attribute SVGClipPathElementConstructor SVGClipPathElement;
         attribute SVGColorConstructor SVGColor;
+        attribute SVGCursorElementConstructor SVGCursorElement;
 //      attribute SVGCSSRuleConstructor SVGCSSRule;
+        attribute SVGDefsElementConstructor SVGDefsElement;
+        attribute SVGDescElementConstructor SVGDescElement;
+        attribute SVGDocumentConstructor SVGDocument;
+        attribute SVGElementConstructor SVGElement;
+        attribute SVGElementInstanceConstructor SVGElementInstance;
+        attribute SVGElementInstanceListConstructor SVGElementInstanceList;
+        attribute SVGEllipseElementConstructor SVGEllipseElement;
         attribute SVGExceptionConstructor SVGException;
+        attribute SVGGElementConstructor SVGGElement;
         attribute SVGGradientElementConstructor SVGGradientElement;
+        attribute SVGImageElementConstructor SVGImageElement;
         attribute SVGLengthConstructor SVGLength;
+        attribute SVGLengthListConstructor SVGLengthList;
+        attribute SVGLinearGradientElementConstructor SVGLinearGradientElement;
+        attribute SVGLineElementConstructor SVGLineElement;
         attribute SVGMarkerElementConstructor SVGMarkerElement;
+        attribute SVGMaskElementConstructor SVGMaskElement;
+        attribute SVGMatrixConstructor SVGMatrix;
+        attribute SVGMetadataElementConstructor SVGMetadataElement;
+        attribute SVGNumberConstructor SVGNumber;
+        attribute SVGNumberListConstructor SVGNumberList;
         attribute SVGPaintConstructor SVGPaint;
+        attribute SVGPathElementConstructor SVGPathElement;
         attribute SVGPathSegConstructor SVGPathSeg;
+        attribute SVGPathSegArcAbsConstructor SVGPathSegArcAbs;
+        attribute SVGPathSegArcRelConstructor SVGPathSegArcRel;
+        attribute SVGPathSegClosePathConstructor SVGPathSegClosePath;
+        attribute SVGPathSegCurvetoCubicAbsConstructor SVGPathSegCurvetoCubicAbs;
+        attribute SVGPathSegCurvetoCubicRelConstructor SVGPathSegCurvetoCubicRel;
+        attribute SVGPathSegCurvetoCubicSmoothAbsConstructor SVGPathSegCurvetoCubicSmoothAbs;
+        attribute SVGPathSegCurvetoCubicSmoothRelConstructor SVGPathSegCurvetoCubicSmoothRel;
+        attribute SVGPathSegCurvetoQuadraticAbsConstructor SVGPathSegCurvetoQuadraticAbs;
+        attribute SVGPathSegCurvetoQuadraticRelConstructor SVGPathSegCurvetoQuadraticRel;
+        attribute SVGPathSegCurvetoQuadraticSmoothAbsConstructor SVGPathSegCurvetoQuadraticSmoothAbs;
+        attribute SVGPathSegCurvetoQuadraticSmoothRelConstructor SVGPathSegCurvetoQuadraticSmoothRel;
+        attribute SVGPathSegLinetoAbsConstructor SVGPathSegLinetoAbs;
+        attribute SVGPathSegLinetoHorizontalAbsConstructor SVGPathSegLinetoHorizontalAbs;
+        attribute SVGPathSegLinetoHorizontalRelConstructor SVGPathSegLinetoHorizontalRel;
+        attribute SVGPathSegLinetoRelConstructor SVGPathSegLinetoRel;
+        attribute SVGPathSegLinetoVerticalAbsConstructor SVGPathSegLinetoVerticalAbs;
+        attribute SVGPathSegLinetoVerticalRelConstructor SVGPathSegLinetoVerticalRel;
+        attribute SVGPathSegListConstructor SVGPathSegList;
+        attribute SVGPathSegMovetoAbsConstructor SVGPathSegMovetoAbs;
+        attribute SVGPathSegMovetoRelConstructor SVGPathSegMovetoRel;
+        attribute SVGPatternElementConstructor SVGPatternElement;
+        attribute SVGPointConstructor SVGPoint;
+        attribute SVGPointListConstructor SVGPointList;
+        attribute SVGPolygonElementConstructor SVGPolygonElement;
+        attribute SVGPolylineElementConstructor SVGPolylineElement;
         attribute SVGPreserveAspectRatioConstructor SVGPreserveAspectRatio;
+        attribute SVGRadialGradientElementConstructor SVGRadialGradientElement;
+        attribute SVGRectConstructor SVGRect;
+        attribute SVGRectElementConstructor SVGRectElement;
         attribute SVGRenderingIntentConstructor SVGRenderingIntent;
+        attribute SVGScriptElementConstructor SVGScriptElement;
+        attribute SVGStopElementConstructor SVGStopElement;
+        attribute SVGStringListConstructor SVGStringList;
+        attribute SVGStyleElementConstructor SVGStyleElement;
+        attribute SVGSVGElementConstructor SVGSVGElement;
+        attribute SVGSwitchElementConstructor SVGSwitchElement;
+        attribute SVGSymbolElementConstructor SVGSymbolElement;
         attribute SVGTextContentElementConstructor SVGTextContentElement;
+        attribute SVGTextElementConstructor SVGTextElement;
         attribute SVGTextPathElementConstructor SVGTextPathElement;
+        attribute SVGTextPositioningElementConstructor SVGTextPositioningElement;
+        attribute SVGTitleElementConstructor SVGTitleElement;
         attribute SVGTransformConstructor SVGTransform;
+        attribute SVGTransformListConstructor SVGTransformList;
+        attribute SVGTRefElementConstructor SVGTRefElement;
+        attribute SVGTSpanElementConstructor SVGTSpanElement;
         attribute SVGUnitTypesConstructor SVGUnitTypes;
-//      attribute SVGZoomAndPanConstructor SVGZoomAndPan;
+        attribute SVGUseElementConstructor SVGUseElement;
+        attribute SVGViewElementConstructor SVGViewElement;
+//      attribute SVGViewSpecConstructor SVGViewSpec;
+        attribute SVGZoomEventConstructor SVGZoomEvent;
+
+#if defined(ENABLE_SVG_ANIMATION) && ENABLE_SVG_ANIMATION
+        attribute SVGAnimateColorElementConstructor SVGAnimateColorElement;
+        attribute SVGAnimateElementConstructor SVGAnimateElement;
+//      attribute SVGAnimateMotionElementConstructor SVGAnimateMotionElement;
+        attribute SVGAnimateTransformElementConstructor SVGAnimateTransformElement;
+//      attribute SVGMPathElementConstructor SVGMPathElement;
+        attribute SVGSetElementConstructor SVGSetElement;
+#endif
+
+#if ENABLE_SVG_FONTS && ENABLE_SVG_FONTS
+//      attribute SVGAltGlyphDefElementConstructor SVGAltGlyphDefElement;
+        attribute SVGAltGlyphElementConstructor SVGAltGlyphElement;
+//      attribute SVGAltGlyphItemElementConstructor SVGAltGlyphItemElement;
+//      attribute SVGDefinitionSrcElementConstructor SVGDefinitionSrcElement;
+        attribute SVGFontElementConstructor SVGFontElement;
+        attribute SVGFontFaceElementConstructor SVGFontFaceElement;
+        attribute SVGFontFaceFormatElementConstructor SVGFontFaceFormatElement;
+        attribute SVGFontFaceNameElementConstructor SVGFontFaceNameElement;
+        attribute SVGFontFaceSrcElementConstructor SVGFontFaceSrcElement;
+        attribute SVGFontFaceUriElementConstructor SVGFontFaceUriElement;
+        attribute SVGGlyphElementConstructor SVGGlyphElement;
+//      attribute SVGGlyphRefElementConstructor SVGGlyphRefElement;
+//      attribute SVGHKernElementConstructor SVGHKernElement;
+        attribute SVGMissingGlyphElementConstructor SVGMissingGlyphElement;
+//      attribute SVGVKernElementConstructor SVGVKernElement;
+#endif
+
+#if defined(ENABLE_SVG_FOREIGN_OBJECT) && ENABLE_SVG_FOREIGN_OBJECT
+        attribute SVGForeignObjectElementConstructor SVGForeignObjectElement;
+#endif
 
 #if defined(ENABLE_FILTERS) && ENABLE_FILTERS
         attribute SVGComponentTransferFunctionElementConstructor SVGComponentTransferFunctionElement;
         attribute SVGFEBlendElementConstructor SVGFEBlendElement;
         attribute SVGFEColorMatrixElementConstructor SVGFEColorMatrixElement;
+        attribute SVGFEComponentTransferElementConstructor SVGFEComponentTransferElement;
         attribute SVGFECompositeElementConstructor SVGFECompositeElement;
 //      attribute SVGFEConvolveMatrixElementConstructor SVGFEConvolveMatrixElement;
+        attribute SVGFEDiffuseLightingElementConstructor SVGFEDiffuseLightingElement;
         attribute SVGFEDisplacementMapElementConstructor SVGFEDisplacementMapElement;
-//      attribute SVGFEMorphologyElementConstructor SVGFEMorphologyElement;
+        attribute SVGFEDistantLightElementConstructor SVGFEDistantLightElement;
+        attribute SVGFEFloodElementConstructor SVGFEFloodElement;
+        attribute SVGFEFuncAElementConstructor SVGFEFuncAElement;
+        attribute SVGFEFuncBElementConstructor SVGFEFuncBElement;
+        attribute SVGFEFuncGElementConstructor SVGFEFuncGElement;
+        attribute SVGFEFuncRElementConstructor SVGFEFuncRElement;
+        attribute SVGFEGaussianBlurElementConstructor SVGFEGaussianBlurElement;
+        attribute SVGFEImageElementConstructor SVGFEImageElement;
+        attribute SVGFEMergeElementConstructor SVGFEMergeElement;
+        attribute SVGFEMergeNodeElementConstructor SVGFEMergeNodeElement;
+        attribute SVGFEMorphologyElementConstructor SVGFEMorphologyElement;
+        attribute SVGFEOffsetElementConstructor SVGFEOffsetElement;
+        attribute SVGFEPointLightElementConstructor SVGFEPointLightElement;
+        attribute SVGFESpecularLightingElementConstructor SVGFESpecularLightingElement;
+        attribute SVGFESpotLightElementConstructor SVGFESpotLightElement;
+        attribute SVGFETileElementConstructor SVGFETileElement;
         attribute SVGFETurbulenceElementConstructor SVGFETurbulenceElement;
+        attribute SVGFilterElementConstructor SVGFilterElement;
 #endif
 #endif
+
+        attribute [Conditional=TOUCH_EVENTS] TouchEventConstructor TouchEvent;
+
+        attribute DOMFormDataConstructor FormData;
+
+        attribute [Conditional=FILE_READER|FILE_WRITER] FileErrorConstructor FileError;
 
 #endif // defined(LANGUAGE_JAVASCRIPT)
 
@@ -526,3 +726,4 @@ module window {
     };
 
 }
+

@@ -27,13 +27,13 @@
 
 namespace WebCore {
 
-class HTMLIsIndexElement : public HTMLInputElement
-{
+class HTMLIsIndexElement : public HTMLInputElement {
 public:
     HTMLIsIndexElement(const QualifiedName&, Document *doc, HTMLFormElement *f = 0);
 
     virtual HTMLTagStatus endTagRequirement() const { return TagStatusForbidden; }
     virtual int tagPriority() const { return 0; }
+    virtual bool canTriggerImplicitSubmission() const { return true; }
 
     virtual void parseMappedAttribute(MappedAttribute *attr);
 

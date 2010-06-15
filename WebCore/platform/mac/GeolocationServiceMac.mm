@@ -25,7 +25,7 @@
 
 #import "config.h"
 
-#if ENABLE(GEOLOCATION)
+#if ENABLE(GEOLOCATION) && !ENABLE(CLIENT_BASED_GEOLOCATION)
 
 #import "GeolocationServiceMac.h"
 
@@ -65,10 +65,12 @@ using namespace WebCore;
 
 namespace WebCore {
 
-GeolocationService* GeolocationService::create(GeolocationServiceClient* client)
+GeolocationService* GeolocationServiceMac::create(GeolocationServiceClient* client)
 {
     return new GeolocationServiceMac(client);
 }
+
+GeolocationService::FactoryFunction* GeolocationService::s_factoryFunction = &GeolocationServiceMac::create;
 
 GeolocationServiceMac::GeolocationServiceMac(GeolocationServiceClient* client)
     : GeolocationService(client)

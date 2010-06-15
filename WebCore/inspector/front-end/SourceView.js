@@ -28,64 +28,43 @@
 
 WebInspector.SourceView = function(resource)
 {
-    // Set the sourceFrame first since WebInspector.ResourceView will set headersVisible
-    // and our override of headersVisible needs the sourceFrame.
-    this.sourceFrame = new WebInspector.SourceFrame(null, this._addBreakpoint.bind(this));
-
     WebInspector.ResourceView.call(this, resource);
-
-    resource.addEventListener("finished", this._resourceLoadingFinished, this);
 
     this.element.addStyleClass("source");
 
+    var canEditScripts = WebInspector.panels.scripts.canEditScripts() && resource.type === WebInspector.Resource.Type.Script;
+    this.sourceFrame = new WebInspector.SourceFrame(this.contentElement, this._addBreakpoint.bind(this), this._removeBreakpoint.bind(this), canEditScripts ? this._editLine.bind(this) : null);
+    resource.addEventListener("finished", this._resourceLoadingFinished, this);
     this._frameNeedsSetup = true;
+}
 
-    this.contentElement.appendChild(this.sourceFrame.element);
-
-    var gutterElement = document.createElement("div");
-    gutterElement.className = "webkit-line-gutter-backdrop";
-    this.element.appendChild(gutterElement);
+// This is a map from resource.type to mime types
+// found in WebInspector.SourceTokenizer.Registry.
+WebInspector.SourceView.DefaultMIMETypeForResourceType = {
+    0: "text/html",
+    1: "text/css",
+    4: "text/javascript"
 }
 
 WebInspector.SourceView.prototype = {
-    set headersVisible(x)
-    {
-        if (x === this._headersVisible)
-            return;
-
-        var superSetter = WebInspector.ResourceView.prototype.__lookupSetter__("headersVisible");
-        if (superSetter)
-            superSetter.call(this, x);
-
-        this.sourceFrame.autoSizesToFitContentHeight = x;
-    },
-
     show: function(parentElement)
     {
         WebInspector.ResourceView.prototype.show.call(this, parentElement);
-        this.setupSourceFrameIfNeeded();
+        this.sourceFrame.visible = true;
+        this.resize();
     },
 
     hide: function()
     {
         WebInspector.View.prototype.hide.call(this);
+        this.sourceFrame.visible = false;
         this._currentSearchResultIndex = -1;
     },
 
     resize: function()
     {
-        if (this.sourceFrame.autoSizesToFitContentHeight)
-            this.sourceFrame.sizeToFitContentHeight();
-    },
-
-    detach: function()
-    {
-        WebInspector.ResourceView.prototype.detach.call(this);
-
-        // FIXME: We need to mark the frame for setup on detach because the frame DOM is cleared
-        // when it is removed from the document. Is this a bug?
-        this._frameNeedsSetup = true;
-        this._sourceFrameSetup = false;
+        if (this.sourceFrame)
+            this.sourceFrame.resize();
     },
 
     setupSourceFrameIfNeeded: function()
@@ -96,20 +75,29 @@ WebInspector.SourceView.prototype = {
         this.attach();
 
         delete this._frameNeedsSetup;
-        this.sourceFrame.addEventListener("content loaded", this._contentLoaded, this);
-        InspectorController.addResourceSourceToFrame(this.resource.identifier, this.sourceFrame.element);
+        WebInspector.getResourceContent(this.resource.identifier, this._contentLoaded.bind(this));
     },
-    
-    _contentLoaded: function()
-    {
-        delete this._frameNeedsSetup;
-        this.sourceFrame.removeEventListener("content loaded", this._contentLoaded, this);
 
-        if (this.resource.type === WebInspector.Resource.Type.Script) {
-            this.sourceFrame.addEventListener("syntax highlighting complete", this._syntaxHighlightingComplete, this);
-            this.sourceFrame.syntaxHighlightJavascript();
-        } else
-            this._sourceFrameSetupFinished();
+    hasContentTab: function()
+    {
+        return true;
+    },
+
+    contentTabSelected: function()
+    {
+        this.setupSourceFrameIfNeeded();
+    },
+
+    _contentLoaded: function(content)
+    {
+        var mimeType = this._canonicalMimeType(this.resource);
+        this.sourceFrame.setContent(mimeType, content, this.resource.url);
+        this._sourceFrameSetupFinished();
+    },
+
+    _canonicalMimeType: function(resource)
+    {
+        return WebInspector.SourceView.DefaultMIMETypeForResourceType[resource.type] || resource.mimeType;
     },
 
     _resourceLoadingFinished: function(event)
@@ -123,6 +111,41 @@ WebInspector.SourceView.prototype = {
 
     _addBreakpoint: function(line)
     {
+        var sourceID = this._sourceIDForLine(line);
+        if (WebInspector.panels.scripts) {
+            var breakpoint = new WebInspector.Breakpoint(this.resource.url, line, sourceID);
+            WebInspector.panels.scripts.addBreakpoint(breakpoint);
+        }
+    },
+
+    _removeBreakpoint: function(breakpoint)
+    {
+        if (WebInspector.panels.scripts)
+            WebInspector.panels.scripts.removeBreakpoint(breakpoint);
+    },
+
+    _editLine: function(line, newContent)
+    {
+        var lines = [];
+        var textModel = this.sourceFrame.textModel;
+        for (var i = 0; i < textModel.linesCount; ++i) {
+            if (i === line)
+                lines.push(newContent);
+            else
+                lines.push(textModel.line(i));
+        }
+
+        var linesCountToShift = newContent.split("\n").length - 1;
+        WebInspector.panels.scripts.editScriptSource(this._sourceIDForLine(line), lines.join("\n"), line, linesCountToShift, this._editLineComplete.bind(this));
+    },
+
+    _editLineComplete: function(newBody)
+    {
+        this.sourceFrame.updateContent(newBody);
+    },
+
+    _sourceIDForLine: function(line)
+    {
         var sourceID = null;
         var closestStartingLine = 0;
         var scripts = this.resource.scripts;
@@ -133,11 +156,7 @@ WebInspector.SourceView.prototype = {
                 sourceID = script.sourceID;
             }
         }
-
-        if (WebInspector.panels.scripts) {
-            var breakpoint = new WebInspector.Breakpoint(this.resource.url, line, sourceID);
-            WebInspector.panels.scripts.addBreakpoint(breakpoint);
-        }
+        return sourceID;
     },
 
     // The rest of the methods in this prototype need to be generic enough to work with a ScriptView.
@@ -147,6 +166,7 @@ WebInspector.SourceView.prototype = {
     {
         this._currentSearchResultIndex = -1;
         this._searchResults = [];
+        this.sourceFrame.clearMarkedRange();
         delete this._delayedFindSearchMatches;
     },
 
@@ -155,44 +175,11 @@ WebInspector.SourceView.prototype = {
         // Call searchCanceled since it will reset everything we need before doing a new search.
         this.searchCanceled();
 
-        var lineQueryRegex = /(^|\s)(?:#|line:\s*)(\d+)(\s|$)/i;
-        var lineQueryMatch = query.match(lineQueryRegex);
-        if (lineQueryMatch) {
-            var lineToSearch = parseInt(lineQueryMatch[2]);
-
-            // If there was a space before and after the line query part, replace with a space.
-            // Otherwise replace with an empty string to eat the prefix or postfix space.
-            var lineQueryReplacement = (lineQueryMatch[1] && lineQueryMatch[3] ? " " : "");
-            var filterlessQuery = query.replace(lineQueryRegex, lineQueryReplacement);
-        }
-
         this._searchFinishedCallback = finishedCallback;
 
         function findSearchMatches(query, finishedCallback)
         {
-            if (isNaN(lineToSearch)) {
-                // Search the whole document since there was no line to search.
-                this._searchResults = (InspectorController.search(this.sourceFrame.element.contentDocument, query) || []);
-            } else {
-                var sourceRow = this.sourceFrame.sourceRow(lineToSearch);
-                if (sourceRow) {
-                    if (filterlessQuery) {
-                        // There is still a query string, so search for that string in the line.
-                        this._searchResults = (InspectorController.search(sourceRow, filterlessQuery) || []);
-                    } else {
-                        // Match the whole line, since there was no remaining query string to match.
-                        var rowRange = this.sourceFrame.element.contentDocument.createRange();
-                        rowRange.selectNodeContents(sourceRow);
-                        this._searchResults = [rowRange];
-                    }
-                }
-
-                // Attempt to search for the whole query, just incase it matches a color like "#333".
-                var wholeQueryMatches = InspectorController.search(this.sourceFrame.element.contentDocument, query);
-                if (wholeQueryMatches)
-                    this._searchResults = this._searchResults.concat(wholeQueryMatches);
-            }
-
+            this._searchResults = this.sourceFrame.findSearchMatches(query);
             if (this._searchResults)
                 finishedCallback(this, this._searchResults.length);
         }
@@ -279,29 +266,17 @@ WebInspector.SourceView.prototype = {
         if (!foundRange)
             return;
 
-        var selection = this.sourceFrame.element.contentWindow.getSelection();
-        selection.removeAllRanges();
-        selection.addRange(foundRange);
-
-        if (foundRange.startContainer.scrollIntoViewIfNeeded)
-            foundRange.startContainer.scrollIntoViewIfNeeded(true);
-        else if (foundRange.startContainer.parentNode)
-            foundRange.startContainer.parentNode.scrollIntoViewIfNeeded(true);
+        this.sourceFrame.markAndRevealRange(foundRange);
     },
 
     _sourceFrameSetupFinished: function()
     {
         this._sourceFrameSetup = true;
+        this.resize();
         if (this._delayedFindSearchMatches) {
             this._delayedFindSearchMatches();
             delete this._delayedFindSearchMatches;
         }
-    },
-
-    _syntaxHighlightingComplete: function(event)
-    {
-        this._sourceFrameSetupFinished();
-        this.sourceFrame.removeEventListener("syntax highlighting complete", null, this);
     }
 }
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003, 2005 Apple Computer, Inc.  All rights reserved.
+ * Copyright (C) 2003, 2005, 2009 Apple Computer, Inc.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -39,6 +39,7 @@
 - (NSString *)fileButtonNoFileSelectedLabel;
 - (NSString *)copyImageUnknownFileLabel;
 
+#if ENABLE(CONTEXT_MENUS)
 // Context menu item titles
 - (NSString *)contextMenuItemTagOpenLinkInNewWindow;
 - (NSString *)contextMenuItemTagDownloadLinkToDisk;
@@ -97,6 +98,7 @@
 - (NSString *)contextMenuItemTagCapitalize;
 - (NSString *)contextMenuItemTagChangeBack:(NSString *)replacedString;
 - (NSString *)contextMenuItemTagInspectElement;
+#endif // ENABLE(CONTEXT_MENUS)
 
 - (NSString *)searchMenuNoRecentSearchesText;
 - (NSString *)searchMenuRecentSearchesText;
@@ -129,6 +131,7 @@
 - (NSString *)AXHeadingText;
 - (NSString *)AXDefinitionListTermText;
 - (NSString *)AXDefinitionListDefinitionText;
+- (NSString *)AXARIAContentGroupText:(NSString *)ariaType;
 
 - (NSString *)AXButtonActionVerb;
 - (NSString *)AXRadioButtonActionVerb;
@@ -136,6 +139,11 @@
 - (NSString *)AXCheckedCheckBoxActionVerb;
 - (NSString *)AXUncheckedCheckBoxActionVerb;
 - (NSString *)AXLinkActionVerb;
+- (NSString *)AXMenuListPopupActionVerb;
+- (NSString *)AXMenuListActionVerb;
+
+- (NSString *)missingPluginText;
+- (NSString *)crashedPluginText;
 
 - (NSString *)multipleFileUploadTextForNumberOfFiles:(unsigned)numberOfFiles;
 // FTP Directory Related
@@ -143,6 +151,17 @@
 
 - (NSString *)mediaElementLoadingStateText;
 - (NSString *)mediaElementLiveBroadcastStateText;
+- (NSString*)localizedMediaControlElementString:(NSString*)name;
+- (NSString*)localizedMediaControlElementHelpText:(NSString*)name;
+- (NSString*)localizedMediaTimeDescription:(float)time;
+
+- (NSString *)validationMessageValueMissingText;
+- (NSString *)validationMessageTypeMismatchText;
+- (NSString *)validationMessagePatternMismatchText;
+- (NSString *)validationMessageTooLongText;
+- (NSString *)validationMessageRangeUnderflowText;
+- (NSString *)validationMessageRangeOverflowText;
+- (NSString *)validationMessageStepMismatchText;
 
 @end
 

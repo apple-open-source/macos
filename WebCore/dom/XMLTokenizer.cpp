@@ -27,7 +27,6 @@
 #include "XMLTokenizer.h"
 
 #include "CDATASection.h"
-#include "CString.h"
 #include "CachedScript.h"
 #include "Comment.h"
 #include "DocLoader.h"
@@ -40,6 +39,7 @@
 #include "HTMLLinkElement.h"
 #include "HTMLNames.h"
 #include "HTMLStyleElement.h"
+#include "ImageLoader.h"
 #include "ProcessingInstruction.h"
 #include "ResourceError.h"
 #include "ResourceHandle.h"
@@ -50,7 +50,8 @@
 #include "ScriptSourceCode.h"
 #include "ScriptValue.h"
 #include "TextResourceDecoder.h"
-#include <wtf/Platform.h>
+#include "TreeDepthLimit.h"
+#include <wtf/text/CString.h>
 #include <wtf/StringExtras.h>
 #include <wtf/Threading.h>
 #include <wtf/Vector.h>
@@ -78,15 +79,44 @@ bool XMLTokenizer::isWMLDocument() const
 }
 #endif
 
-void XMLTokenizer::setCurrentNode(Node* n)
+void XMLTokenizer::pushCurrentNode(Node* n)
 {
-    bool nodeNeedsReference = n && n != m_doc;
-    if (nodeNeedsReference)
-        n->ref(); 
-    if (m_currentNodeIsReferenced) 
-        m_currentNode->deref(); 
+    ASSERT(n);
+    ASSERT(m_currentNode);
+    if (n != m_doc)
+        n->ref();
+    m_currentNodeStack.append(m_currentNode);
     m_currentNode = n;
-    m_currentNodeIsReferenced = nodeNeedsReference;
+    if (m_currentNodeStack.size() > maxDOMTreeDepth)
+        handleError(fatal, "Excessive node nesting.", lineNumber(), columnNumber());
+}
+
+void XMLTokenizer::popCurrentNode()
+{
+    if (!m_currentNode)
+        return;
+    ASSERT(m_currentNodeStack.size());
+
+    if (m_currentNode != m_doc)
+        m_currentNode->deref();
+
+    m_currentNode = m_currentNodeStack.last();
+    m_currentNodeStack.removeLast();
+}
+
+void XMLTokenizer::clearCurrentNodeStack()
+{
+    if (m_currentNode && m_currentNode != m_doc)
+        m_currentNode->deref();
+    m_currentNode = 0;
+
+    if (m_currentNodeStack.size()) { // Aborted parsing.
+        for (size_t i = m_currentNodeStack.size() - 1; i != 0; --i)
+            m_currentNodeStack[i]->deref();
+        if (m_currentNodeStack[0] && m_currentNodeStack[0] != m_doc)
+            m_currentNodeStack[0]->deref();
+        m_currentNodeStack.clear();
+    }
 }
 
 void XMLTokenizer::write(const SegmentedString& s, bool /*appendData*/)
@@ -105,6 +135,9 @@ void XMLTokenizer::write(const SegmentedString& s, bool /*appendData*/)
     }
     
     doWrite(s.toString());
+    
+    // After parsing, go ahead and dispatch image beforeload events.
+    ImageLoader::dispatchPendingBeforeLoadEvents();
 }
 
 void XMLTokenizer::handleError(ErrorType type, const char* m, int lineNumber, int columnNumber)
@@ -136,10 +169,10 @@ bool XMLTokenizer::enterText()
 #if !USE(QXMLSTREAM)
     ASSERT(m_bufferedText.size() == 0);
 #endif
-    RefPtr<Node> newNode = new Text(m_doc, "");
+    RefPtr<Node> newNode = Text::create(m_doc, "");
     if (!m_currentNode->addChild(newNode.get()))
         return false;
-    setCurrentNode(newNode.get());
+    pushCurrentNode(newNode.get());
     return true;
 }
 
@@ -169,16 +202,17 @@ void XMLTokenizer::exitText()
     if (m_view && m_currentNode && !m_currentNode->attached())
         m_currentNode->attach();
 
-    // FIXME: What's the right thing to do if the parent is really 0?
-    // Just leaving the current node set to the text node doesn't make much sense.
-    if (Node* par = m_currentNode->parentNode())
-        setCurrentNode(par);
+    popCurrentNode();
 }
 
 void XMLTokenizer::end()
 {
     doEnd();
-    
+
+    // doEnd() could process a script tag, thus pausing parsing.
+    if (m_parserPaused)
+        return;
+
     if (m_sawError)
         insertErrorMessageBlock();
     else {
@@ -186,7 +220,7 @@ void XMLTokenizer::end()
         m_doc->updateStyleSelector();
     }
     
-    setCurrentNode(0);
+    clearCurrentNodeStack();
     if (!m_parsingFragment)
         m_doc->finishedParsing();    
 }
@@ -296,7 +330,7 @@ void XMLTokenizer::notifyFinished(CachedResource* unusedResource)
     if (errorOccurred) 
         scriptElement->dispatchErrorEvent();
     else {
-        m_view->frame()->loader()->executeScript(sourceCode);
+        m_view->frame()->script()->executeScript(sourceCode);
         scriptElement->dispatchLoadEvent();
     }
 

@@ -61,7 +61,14 @@ namespace JSC {
         FinallyContext finallyContext;
     };
 
-    class BytecodeGenerator : public WTF::FastAllocBase {
+    struct ForInContext {
+        RefPtr<RegisterID> expectedSubscriptRegister;
+        RefPtr<RegisterID> iterRegister;
+        RefPtr<RegisterID> indexRegister;
+        RefPtr<RegisterID> propertyRegister;
+    };
+
+    class BytecodeGenerator : public FastAllocBase {
     public:
         typedef DeclarationStacks::VarStack VarStack;
         typedef DeclarationStacks::FunctionStack FunctionStack;
@@ -99,7 +106,7 @@ namespace JSC {
         //
         // NB: depth does _not_ include the local scope.  eg. a depth of 0 refers
         // to the scope containing this codeblock.
-        bool findScopedProperty(const Identifier&, int& index, size_t& depth, bool forWriting, JSObject*& globalObject);
+        bool findScopedProperty(const Identifier&, int& index, size_t& depth, bool forWriting, bool& includesDynamicScopes, JSObject*& globalObject);
 
         // Returns the register storing "this"
         RegisterID* thisRegister() { return &m_thisRegister; }
@@ -185,6 +192,19 @@ namespace JSC {
             return emitNode(0, n);
         }
 
+        void emitNodeInConditionContext(ExpressionNode* n, Label* trueTarget, Label* falseTarget, bool fallThroughMeansTrue)
+        {
+            if (!m_codeBlock->numberOfLineInfos() || m_codeBlock->lastLineInfo().lineNumber != n->lineNo()) {
+                LineInfo info = { instructions().size(), n->lineNo() };
+                m_codeBlock->addLineInfo(info);
+            }
+            if (m_emitNodeDepth >= s_maxEmitNodeDepth)
+                emitThrowExpressionTooDeepException();
+            ++m_emitNodeDepth;
+            n->emitBytecodeInConditionContext(*this, trueTarget, falseTarget, fallThroughMeansTrue);
+            --m_emitNodeDepth;
+        }
+
         void emitExpressionInfo(unsigned divot, unsigned startOffset, unsigned endOffset)
         { 
             divot -= m_codeBlock->sourceOffset();
@@ -254,7 +274,7 @@ namespace JSC {
         RegisterID* emitNewObject(RegisterID* dst);
         RegisterID* emitNewArray(RegisterID* dst, ElementNode*); // stops at first elision
 
-        RegisterID* emitNewFunction(RegisterID* dst, FuncDeclNode* func);
+        RegisterID* emitNewFunction(RegisterID* dst, FunctionBodyNode* body);
         RegisterID* emitNewFunctionExpression(RegisterID* dst, FuncExprNode* func);
         RegisterID* emitNewRegExp(RegisterID* dst, RegExp* regExp);
 
@@ -312,13 +332,13 @@ namespace JSC {
         PassRefPtr<Label> emitJumpSubroutine(RegisterID* retAddrDst, Label*);
         void emitSubroutineReturn(RegisterID* retAddrSrc);
 
-        RegisterID* emitGetPropertyNames(RegisterID* dst, RegisterID* base) { return emitUnaryOp(op_get_pnames, dst, base); }
-        RegisterID* emitNextPropertyName(RegisterID* dst, RegisterID* iter, Label* target);
+        RegisterID* emitGetPropertyNames(RegisterID* dst, RegisterID* base, RegisterID* i, RegisterID* size, Label* breakTarget);
+        RegisterID* emitNextPropertyName(RegisterID* dst, RegisterID* base, RegisterID* i, RegisterID* size, RegisterID* iter, Label* target);
 
         RegisterID* emitCatch(RegisterID*, Label* start, Label* end);
         void emitThrow(RegisterID* exc) { emitUnaryNoDstOp(op_throw, exc); }
         RegisterID* emitNewError(RegisterID* dst, ErrorType type, JSValue message);
-        void emitPushNewScope(RegisterID* dst, Identifier& property, RegisterID* value);
+        void emitPushNewScope(RegisterID* dst, const Identifier& property, RegisterID* value);
 
         RegisterID* emitPushScope(RegisterID* scope);
         void emitPopScope();
@@ -330,6 +350,17 @@ namespace JSC {
 
         void pushFinallyContext(Label* target, RegisterID* returnAddrDst);
         void popFinallyContext();
+
+        void pushOptimisedForIn(RegisterID* expectedBase, RegisterID* iter, RegisterID* index, RegisterID* propertyRegister)
+        {
+            ForInContext context = { expectedBase, iter, index, propertyRegister };
+            m_forInContextStack.append(context);
+        }
+
+        void popOptimisedForIn()
+        {
+            m_forInContextStack.removeLast();
+        }
 
         LabelScope* breakTarget(const Identifier&);
         LabelScope* continueTarget(const Identifier&);
@@ -413,11 +444,19 @@ namespace JSC {
             return m_globals[-index - 1];
         }
 
-        unsigned addConstant(FuncDeclNode*);
-        unsigned addConstant(FuncExprNode*);
         unsigned addConstant(const Identifier&);
         RegisterID* addConstantValue(JSValue);
         unsigned addRegExp(RegExp*);
+
+        PassRefPtr<FunctionExecutable> makeFunction(ExecState* exec, FunctionBodyNode* body)
+        {
+            return FunctionExecutable::create(exec, body->ident(), body->source(), body->usesArguments(), body->parameters(), body->lineNo(), body->lastLine());
+        }
+
+        PassRefPtr<FunctionExecutable> makeFunction(JSGlobalData* globalData, FunctionBodyNode* body)
+        {
+            return FunctionExecutable::create(globalData, body->ident(), body->source(), body->usesArguments(), body->parameters(), body->lineNo(), body->lastLine());
+        }
 
         Vector<Instruction>& instructions() { return m_codeBlock->instructions(); }
         SymbolTable& symbolTable() { return *m_symbolTable; }
@@ -445,12 +484,12 @@ namespace JSC {
         RegisterID m_thisRegister;
         RegisterID m_argumentsRegister;
         int m_activationRegisterIndex;
-        WTF::SegmentedVector<RegisterID, 32> m_constantPoolRegisters;
-        WTF::SegmentedVector<RegisterID, 32> m_calleeRegisters;
-        WTF::SegmentedVector<RegisterID, 32> m_parameters;
-        WTF::SegmentedVector<RegisterID, 32> m_globals;
-        WTF::SegmentedVector<Label, 32> m_labels;
-        WTF::SegmentedVector<LabelScope, 8> m_labelScopes;
+        SegmentedVector<RegisterID, 32> m_constantPoolRegisters;
+        SegmentedVector<RegisterID, 32> m_calleeRegisters;
+        SegmentedVector<RegisterID, 32> m_parameters;
+        SegmentedVector<RegisterID, 32> m_globals;
+        SegmentedVector<Label, 32> m_labels;
+        SegmentedVector<LabelScope, 8> m_labelScopes;
         RefPtr<RegisterID> m_lastVar;
         int m_finallyDepth;
         int m_dynamicScopeDepth;
@@ -459,6 +498,7 @@ namespace JSC {
 
         Vector<ControlFlowContext> m_scopeContextStack;
         Vector<SwitchInfo> m_switchContextStack;
+        Vector<ForInContext> m_forInContextStack;
 
         int m_nextGlobalIndex;
         int m_nextParameterIndex;

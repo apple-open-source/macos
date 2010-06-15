@@ -53,6 +53,7 @@
 #import <runtime/InitializeThreading.h>
 #import <wtf/Assertions.h>
 #import <wtf/StdLibExtras.h>
+#import <wtf/Threading.h>
 
 // Private keys used in the WebHistoryItem's dictionary representation.
 // see 3245793 for explanation of "lastVisitedDate"
@@ -84,7 +85,7 @@ static HistoryItemMap& historyItemWrappers()
     return historyItemWrappers;
 }
 
-void WKNotifyHistoryItemChanged()
+void WKNotifyHistoryItemChanged(HistoryItem*)
 {
     [[NSNotificationCenter defaultCenter]
         postNotificationName:WebHistoryItemChangedNotification object:nil userInfo:nil];
@@ -95,6 +96,7 @@ void WKNotifyHistoryItemChanged()
 + (void)initialize
 {
     JSC::initializeThreading();
+    WTF::initializeMainThreadToProcessMainThread();
 #ifndef BUILDING_ON_TIGER
     WebCoreObjCFinalizeOnMainThread(self);
 #endif

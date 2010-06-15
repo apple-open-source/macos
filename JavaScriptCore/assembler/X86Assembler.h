@@ -26,9 +26,7 @@
 #ifndef X86Assembler_h
 #define X86Assembler_h
 
-#include <wtf/Platform.h>
-
-#if ENABLE(ASSEMBLER) && (PLATFORM(X86) || PLATFORM(X86_64))
+#if ENABLE(ASSEMBLER) && (CPU(X86) || CPU(X86_64))
 
 #include "AssemblerBuffer.h"
 #include <stdint.h>
@@ -38,12 +36,8 @@
 namespace JSC {
 
 inline bool CAN_SIGN_EXTEND_8_32(int32_t value) { return value == (int32_t)(signed char)value; }
-#if PLATFORM(X86_64)
-inline bool CAN_SIGN_EXTEND_32_64(intptr_t value) { return value == (intptr_t)(int32_t)value; }
-inline bool CAN_SIGN_EXTEND_U32_64(intptr_t value) { return value == (intptr_t)(uint32_t)value; }
-#endif
 
-namespace X86 {
+namespace X86Registers {
     typedef enum {
         eax,
         ecx,
@@ -54,7 +48,7 @@ namespace X86 {
         esi,
         edi,
 
-#if PLATFORM(X86_64)
+#if CPU(X86_64)
         r8,
         r9,
         r10,
@@ -80,8 +74,8 @@ namespace X86 {
 
 class X86Assembler {
 public:
-    typedef X86::RegisterID RegisterID;
-    typedef X86::XMMRegisterID XMMRegisterID;
+    typedef X86Registers::RegisterID RegisterID;
+    typedef X86Registers::XMMRegisterID XMMRegisterID;
     typedef XMMRegisterID FPRegisterID;
 
     typedef enum {
@@ -122,18 +116,19 @@ private:
         OP_XOR_GvEv                     = 0x33,
         OP_CMP_EvGv                     = 0x39,
         OP_CMP_GvEv                     = 0x3B,
-#if PLATFORM(X86_64)
+#if CPU(X86_64)
         PRE_REX                         = 0x40,
 #endif
         OP_PUSH_EAX                     = 0x50,
         OP_POP_EAX                      = 0x58,
-#if PLATFORM(X86_64)
+#if CPU(X86_64)
         OP_MOVSXD_GvEv                  = 0x63,
 #endif
         PRE_OPERAND_SIZE                = 0x66,
         PRE_SSE_66                      = 0x66,
         OP_PUSH_Iz                      = 0x68,
         OP_IMUL_GvEvIz                  = 0x69,
+        OP_GROUP1_EbIb                  = 0x80,
         OP_GROUP1_EvIz                  = 0x81,
         OP_GROUP1_EvIb                  = 0x83,
         OP_TEST_EvGv                    = 0x85,
@@ -172,6 +167,7 @@ private:
         OP2_MULSD_VsdWsd    = 0x59,
         OP2_SUBSD_VsdWsd    = 0x5C,
         OP2_DIVSD_VsdWsd    = 0x5E,
+        OP2_SQRTSD_VsdWsd   = 0x51,
         OP2_XORPD_VpdWpd    = 0x57,
         OP2_MOVD_VdEd       = 0x6E,
         OP2_MOVD_EdVd       = 0x7E,
@@ -205,6 +201,7 @@ private:
         GROUP1A_OP_POP = 0,
 
         GROUP2_OP_SHL = 4,
+        GROUP2_OP_SHR = 5,
         GROUP2_OP_SAR = 7,
 
         GROUP3_OP_TEST = 0,
@@ -300,7 +297,7 @@ public:
 
     // Arithmetic operations:
 
-#if !PLATFORM(X86_64)
+#if !CPU(X86_64)
     void adcl_im(int imm, void* addr)
     {
         if (CAN_SIGN_EXTEND_8_32(imm)) {
@@ -350,7 +347,7 @@ public:
         }
     }
 
-#if PLATFORM(X86_64)
+#if CPU(X86_64)
     void addq_rr(RegisterID src, RegisterID dst)
     {
         m_formatter.oneByteOp64(OP_ADD_EvGv, src, dst);
@@ -427,7 +424,7 @@ public:
         }
     }
 
-#if PLATFORM(X86_64)
+#if CPU(X86_64)
     void andq_rr(RegisterID src, RegisterID dst)
     {
         m_formatter.oneByteOp64(OP_AND_EvGv, src, dst);
@@ -513,7 +510,7 @@ public:
         }
     }
 
-#if PLATFORM(X86_64)
+#if CPU(X86_64)
     void orq_rr(RegisterID src, RegisterID dst)
     {
         m_formatter.oneByteOp64(OP_OR_EvGv, src, dst);
@@ -579,7 +576,7 @@ public:
         }
     }
 
-#if PLATFORM(X86_64)
+#if CPU(X86_64)
     void subq_rr(RegisterID src, RegisterID dst)
     {
         m_formatter.oneByteOp64(OP_SUB_EvGv, src, dst);
@@ -645,7 +642,7 @@ public:
         }
     }
 
-#if PLATFORM(X86_64)
+#if CPU(X86_64)
     void xorq_rr(RegisterID src, RegisterID dst)
     {
         m_formatter.oneByteOp64(OP_XOR_EvGv, src, dst);
@@ -677,6 +674,21 @@ public:
     {
         m_formatter.oneByteOp(OP_GROUP2_EvCL, GROUP2_OP_SAR, dst);
     }
+    
+    void shrl_i8r(int imm, RegisterID dst)
+    {
+        if (imm == 1)
+            m_formatter.oneByteOp(OP_GROUP2_Ev1, GROUP2_OP_SHR, dst);
+        else {
+            m_formatter.oneByteOp(OP_GROUP2_EvIb, GROUP2_OP_SHR, dst);
+            m_formatter.immediate8(imm);
+        }
+    }
+    
+    void shrl_CLr(RegisterID dst)
+    {
+        m_formatter.oneByteOp(OP_GROUP2_EvCL, GROUP2_OP_SHR, dst);
+    }
 
     void shll_i8r(int imm, RegisterID dst)
     {
@@ -693,7 +705,7 @@ public:
         m_formatter.oneByteOp(OP_GROUP2_EvCL, GROUP2_OP_SHL, dst);
     }
 
-#if PLATFORM(X86_64)
+#if CPU(X86_64)
     void sarq_CLr(RegisterID dst)
     {
         m_formatter.oneByteOp64(OP_GROUP2_EvCL, GROUP2_OP_SAR, dst);
@@ -764,7 +776,7 @@ public:
         m_formatter.oneByteOp(OP_GROUP1_EvIz, GROUP1_OP_CMP, dst);
         m_formatter.immediate32(imm);
     }
-
+    
     void cmpl_im(int imm, int offset, RegisterID base)
     {
         if (CAN_SIGN_EXTEND_8_32(imm)) {
@@ -774,6 +786,18 @@ public:
             m_formatter.oneByteOp(OP_GROUP1_EvIz, GROUP1_OP_CMP, base, offset);
             m_formatter.immediate32(imm);
         }
+    }
+    
+    void cmpb_im(int imm, int offset, RegisterID base)
+    {
+        m_formatter.oneByteOp(OP_GROUP1_EbIb, GROUP1_OP_CMP, base, offset);
+        m_formatter.immediate8(imm);
+    }
+    
+    void cmpb_im(int imm, int offset, RegisterID base, RegisterID index, int scale)
+    {
+        m_formatter.oneByteOp(OP_GROUP1_EbIb, GROUP1_OP_CMP, base, index, scale, offset);
+        m_formatter.immediate8(imm);
     }
 
     void cmpl_im(int imm, int offset, RegisterID base, RegisterID index, int scale)
@@ -793,7 +817,7 @@ public:
         m_formatter.immediate32(imm);
     }
 
-#if PLATFORM(X86_64)
+#if CPU(X86_64)
     void cmpq_rr(RegisterID src, RegisterID dst)
     {
         m_formatter.oneByteOp64(OP_CMP_EvGv, src, dst);
@@ -894,6 +918,18 @@ public:
         m_formatter.oneByteOp(OP_GROUP3_EvIz, GROUP3_OP_TEST, base, offset);
         m_formatter.immediate32(imm);
     }
+    
+    void testb_im(int imm, int offset, RegisterID base)
+    {
+        m_formatter.oneByteOp(OP_GROUP3_EbIb, GROUP3_OP_TEST, base, offset);
+        m_formatter.immediate8(imm);
+    }
+    
+    void testb_im(int imm, int offset, RegisterID base, RegisterID index, int scale)
+    {
+        m_formatter.oneByteOp(OP_GROUP3_EbIb, GROUP3_OP_TEST, base, index, scale, offset);
+        m_formatter.immediate8(imm);
+    }
 
     void testl_i32m(int imm, int offset, RegisterID base, RegisterID index, int scale)
     {
@@ -901,7 +937,7 @@ public:
         m_formatter.immediate32(imm);
     }
 
-#if PLATFORM(X86_64)
+#if CPU(X86_64)
     void testq_rr(RegisterID src, RegisterID dst)
     {
         m_formatter.oneByteOp64(OP_TEST_EvGv, src, dst);
@@ -975,7 +1011,7 @@ public:
         m_formatter.oneByteOp(OP_XCHG_EvGv, src, dst);
     }
 
-#if PLATFORM(X86_64)
+#if CPU(X86_64)
     void xchgq_rr(RegisterID src, RegisterID dst)
     {
         m_formatter.oneByteOp64(OP_XCHG_EvGv, src, dst);
@@ -1005,7 +1041,7 @@ public:
     void movl_mEAX(void* addr)
     {
         m_formatter.oneByteOp(OP_MOV_EAXOv);
-#if PLATFORM(X86_64)
+#if CPU(X86_64)
         m_formatter.immediate64(reinterpret_cast<int64_t>(addr));
 #else
         m_formatter.immediate32(reinterpret_cast<int>(addr));
@@ -1042,14 +1078,14 @@ public:
     void movl_EAXm(void* addr)
     {
         m_formatter.oneByteOp(OP_MOV_OvEAX);
-#if PLATFORM(X86_64)
+#if CPU(X86_64)
         m_formatter.immediate64(reinterpret_cast<int64_t>(addr));
 #else
         m_formatter.immediate32(reinterpret_cast<int>(addr));
 #endif
     }
 
-#if PLATFORM(X86_64)
+#if CPU(X86_64)
     void movq_rr(RegisterID src, RegisterID dst)
     {
         m_formatter.oneByteOp64(OP_MOV_EvGv, src, dst);
@@ -1118,7 +1154,7 @@ public:
 #else
     void movl_rm(RegisterID src, void* addr)
     {
-        if (src == X86::eax)
+        if (src == X86Registers::eax)
             movl_EAXm(addr);
         else 
             m_formatter.oneByteOp(OP_MOV_EvGv, src, addr);
@@ -1126,7 +1162,7 @@ public:
     
     void movl_mr(void* addr, RegisterID dst)
     {
-        if (dst == X86::eax)
+        if (dst == X86Registers::eax)
             movl_mEAX(addr);
         else
             m_formatter.oneByteOp(OP_MOV_GvEv, dst, addr);
@@ -1161,7 +1197,7 @@ public:
     {
         m_formatter.oneByteOp(OP_LEA, dst, base, offset);
     }
-#if PLATFORM(X86_64)
+#if CPU(X86_64)
     void leaq_mr(int offset, RegisterID base, RegisterID dst)
     {
         m_formatter.oneByteOp64(OP_LEA, dst, base, offset);
@@ -1327,7 +1363,7 @@ public:
         m_formatter.twoByteOp(OP2_CVTSI2SD_VsdEd, (RegisterID)dst, base, offset);
     }
 
-#if !PLATFORM(X86_64)
+#if !CPU(X86_64)
     void cvtsi2sd_mr(void* address, XMMRegisterID dst)
     {
         m_formatter.prefix(PRE_SSE_F2);
@@ -1347,7 +1383,7 @@ public:
         m_formatter.twoByteOp(OP2_MOVD_EdVd, (RegisterID)src, dst);
     }
 
-#if PLATFORM(X86_64)
+#if CPU(X86_64)
     void movq_rr(XMMRegisterID src, RegisterID dst)
     {
         m_formatter.prefix(PRE_SSE_66);
@@ -1373,8 +1409,8 @@ public:
         m_formatter.twoByteOp(OP2_MOVSD_VsdWsd, (RegisterID)dst, base, offset);
     }
 
-#if !PLATFORM(X86_64)
-    void movsd_mr(void* address, XMMRegisterID dst)
+#if !CPU(X86_64)
+    void movsd_mr(const void* address, XMMRegisterID dst)
     {
         m_formatter.prefix(PRE_SSE_F2);
         m_formatter.twoByteOp(OP2_MOVSD_VsdWsd, (RegisterID)dst, address);
@@ -1440,6 +1476,12 @@ public:
     {
         m_formatter.prefix(PRE_SSE_66);
         m_formatter.twoByteOp(OP2_XORPD_VpdWpd, (RegisterID)dst, (RegisterID)src);
+    }
+
+    void sqrtsd_rr(XMMRegisterID src, XMMRegisterID dst)
+    {
+        m_formatter.prefix(PRE_SSE_F2);
+        m_formatter.twoByteOp(OP2_SQRTSD_VsdWsd, (RegisterID)dst, (RegisterID)src);
     }
 
     // Misc instructions:
@@ -1539,7 +1581,7 @@ public:
 
     static void repatchLoadPtrToLEA(void* where)
     {
-#if PLATFORM(X86_64)
+#if CPU(X86_64)
         // On x86-64 pointer memory accesses require a 64-bit operand, and as such a REX prefix.
         // Skip over the prefix byte.
         where = reinterpret_cast<char*>(where) + 1;
@@ -1683,7 +1725,7 @@ private:
             memoryModRM(reg, base, index, scale, offset);
         }
 
-#if !PLATFORM(X86_64)
+#if !CPU(X86_64)
         void oneByteOp(OneByteOpcodeID opcode, int reg, void* address)
         {
             m_buffer.ensureSpace(maxInstructionSize);
@@ -1726,8 +1768,8 @@ private:
             memoryModRM(reg, base, index, scale, offset);
         }
 
-#if !PLATFORM(X86_64)
-        void twoByteOp(TwoByteOpcodeID opcode, int reg, void* address)
+#if !CPU(X86_64)
+        void twoByteOp(TwoByteOpcodeID opcode, int reg, const void* address)
         {
             m_buffer.ensureSpace(maxInstructionSize);
             m_buffer.putByteUnchecked(OP_2BYTE_ESCAPE);
@@ -1736,7 +1778,7 @@ private:
         }
 #endif
 
-#if PLATFORM(X86_64)
+#if CPU(X86_64)
         // Quad-word-sized operands:
         //
         // Used to format 64-bit operantions, planting a REX.w prefix.
@@ -1892,23 +1934,23 @@ private:
 
         // Internals; ModRm and REX formatters.
 
-        static const RegisterID noBase = X86::ebp;
-        static const RegisterID hasSib = X86::esp;
-        static const RegisterID noIndex = X86::esp;
-#if PLATFORM(X86_64)
-        static const RegisterID noBase2 = X86::r13;
-        static const RegisterID hasSib2 = X86::r12;
+        static const RegisterID noBase = X86Registers::ebp;
+        static const RegisterID hasSib = X86Registers::esp;
+        static const RegisterID noIndex = X86Registers::esp;
+#if CPU(X86_64)
+        static const RegisterID noBase2 = X86Registers::r13;
+        static const RegisterID hasSib2 = X86Registers::r12;
 
         // Registers r8 & above require a REX prefixe.
         inline bool regRequiresRex(int reg)
         {
-            return (reg >= X86::r8);
+            return (reg >= X86Registers::r8);
         }
 
         // Byte operand register spl & above require a REX prefix (to prevent the 'H' registers be accessed).
         inline bool byteRegRequiresRex(int reg)
         {
-            return (reg >= X86::esp);
+            return (reg >= X86Registers::esp);
         }
 
         // Format a REX prefix byte.
@@ -1971,7 +2013,7 @@ private:
         void memoryModRM(int reg, RegisterID base, int offset)
         {
             // A base of esp or r12 would be interpreted as a sib, so force a sib with no index & put the base in there.
-#if PLATFORM(X86_64)
+#if CPU(X86_64)
             if ((base == hasSib) || (base == hasSib2)) {
 #else
             if (base == hasSib) {
@@ -1986,7 +2028,7 @@ private:
                     m_buffer.putIntUnchecked(offset);
                 }
             } else {
-#if PLATFORM(X86_64)
+#if CPU(X86_64)
                 if (!offset && (base != noBase) && (base != noBase2))
 #else
                 if (!offset && (base != noBase))
@@ -2005,7 +2047,7 @@ private:
         void memoryModRM_disp32(int reg, RegisterID base, int offset)
         {
             // A base of esp or r12 would be interpreted as a sib, so force a sib with no index & put the base in there.
-#if PLATFORM(X86_64)
+#if CPU(X86_64)
             if ((base == hasSib) || (base == hasSib2)) {
 #else
             if (base == hasSib) {
@@ -2022,7 +2064,7 @@ private:
         {
             ASSERT(index != noIndex);
 
-#if PLATFORM(X86_64)
+#if CPU(X86_64)
             if (!offset && (base != noBase) && (base != noBase2))
 #else
             if (!offset && (base != noBase))
@@ -2037,8 +2079,8 @@ private:
             }
         }
 
-#if !PLATFORM(X86_64)
-        void memoryModRM(int reg, void* address)
+#if !CPU(X86_64)
+        void memoryModRM(int reg, const void* address)
         {
             // noBase + ModRmMemoryNoDisp means noBase + ModRmMemoryDisp32!
             putModRm(ModRmMemoryNoDisp, reg, noBase);
@@ -2052,6 +2094,6 @@ private:
 
 } // namespace JSC
 
-#endif // ENABLE(ASSEMBLER) && PLATFORM(X86)
+#endif // ENABLE(ASSEMBLER) && CPU(X86)
 
 #endif // X86Assembler_h

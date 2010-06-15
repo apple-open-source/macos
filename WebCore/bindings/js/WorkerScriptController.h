@@ -45,7 +45,7 @@ namespace WebCore {
     class String;
     class WorkerContext;
 
-    class WorkerScriptController : Noncopyable {
+    class WorkerScriptController : public Noncopyable {
     public:
         WorkerScriptController(WorkerContext*);
         ~WorkerScriptController();
@@ -61,7 +61,12 @@ namespace WebCore {
 
         void setException(ScriptValue);
 
-        void forbidExecution();
+        enum ForbidExecutionOption { TerminateRunningScript, LetRunningScriptFinish };
+        void forbidExecution(ForbidExecutionOption);
+        bool isExecutionForbidden() const { return m_executionForbidden; }
+
+        JSC::JSGlobalData* globalData() { return m_globalData.get(); }
+
     private:
         void initScriptIfNeeded()
         {

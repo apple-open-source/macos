@@ -2,8 +2,9 @@
  * Copyright (C) 2000 Lars Knoll (knoll@kde.org)
  *           (C) 2000 Antti Koivisto (koivisto@kde.org)
  *           (C) 2000 Dirk Mueller (mueller@kde.org)
- * Copyright (C) 2003, 2005, 2006, 2007, 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2003, 2005, 2006, 2007, 2008, 2009 Apple Inc. All rights reserved.
  * Copyright (C) 2006 Graham Dennis (graham.dennis@gmail.com)
+ * Copyright (C) 2009 Torch Mobile Inc. All rights reserved. (http://www.torchmobile.com/)
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -65,15 +66,20 @@ enum StyleDifferenceContextSensitiveProperty {
 
 // Static pseudo styles. Dynamic ones are produced on the fly.
 enum PseudoId {
+    // The order must be NOP ID, public IDs, and then internal IDs.
     NOPSEUDO, FIRST_LINE, FIRST_LETTER, BEFORE, AFTER, SELECTION, FIRST_LINE_INHERITED, SCROLLBAR, FILE_UPLOAD_BUTTON, INPUT_PLACEHOLDER,
     SLIDER_THUMB, SEARCH_CANCEL_BUTTON, SEARCH_DECORATION, SEARCH_RESULTS_DECORATION, SEARCH_RESULTS_BUTTON, MEDIA_CONTROLS_PANEL,
     MEDIA_CONTROLS_PLAY_BUTTON, MEDIA_CONTROLS_MUTE_BUTTON, MEDIA_CONTROLS_TIMELINE, MEDIA_CONTROLS_TIMELINE_CONTAINER,
-    MEDIA_CONTROLS_CURRENT_TIME_DISPLAY, MEDIA_CONTROLS_TIME_REMAINING_DISPLAY, MEDIA_CONTROLS_SEEK_BACK_BUTTON, 
-    MEDIA_CONTROLS_SEEK_FORWARD_BUTTON, MEDIA_CONTROLS_FULLSCREEN_BUTTON, MEDIA_CONTROLS_REWIND_BUTTON,
-    MEDIA_CONTROLS_RETURN_TO_REALTIME_BUTTON, MEDIA_CONTROLS_STATUS_DISPLAY,
-    SCROLLBAR_THUMB, SCROLLBAR_BUTTON, SCROLLBAR_TRACK, SCROLLBAR_TRACK_PIECE, SCROLLBAR_CORNER, RESIZER,
+    MEDIA_CONTROLS_VOLUME_SLIDER, MEDIA_CONTROLS_VOLUME_SLIDER_CONTAINER, MEDIA_CONTROLS_CURRENT_TIME_DISPLAY, MEDIA_CONTROLS_TIME_REMAINING_DISPLAY, 
+    MEDIA_CONTROLS_SEEK_BACK_BUTTON, MEDIA_CONTROLS_SEEK_FORWARD_BUTTON, MEDIA_CONTROLS_FULLSCREEN_BUTTON, MEDIA_CONTROLS_REWIND_BUTTON, 
+    MEDIA_CONTROLS_RETURN_TO_REALTIME_BUTTON, MEDIA_CONTROLS_TOGGLE_CLOSED_CAPTIONS_BUTTON,
+    MEDIA_CONTROLS_STATUS_DISPLAY, SCROLLBAR_THUMB, SCROLLBAR_BUTTON, SCROLLBAR_TRACK, SCROLLBAR_TRACK_PIECE, SCROLLBAR_CORNER, RESIZER,
+    INPUT_LIST_BUTTON, INNER_SPIN_BUTTON, OUTER_SPIN_BUTTON, VISITED_LINK, PROGRESS_BAR_VALUE,
 
-    FIRST_INTERNAL_PSEUDOID = FILE_UPLOAD_BUTTON
+    AFTER_LAST_INTERNAL_PSEUDOID,
+    FIRST_PUBLIC_PSEUDOID = FIRST_LINE,
+    FIRST_INTERNAL_PSEUDOID = FILE_UPLOAD_BUTTON,
+    PUBLIC_PSEUDOID_MASK = ((1 << FIRST_INTERNAL_PSEUDOID) - 1) & ~((1 << FIRST_PUBLIC_PSEUDOID) - 1)
 };
 
 // These have been defined in the order of their precedence for border-collapsing. Do
@@ -82,8 +88,6 @@ enum EBorderStyle { BNONE, BHIDDEN, INSET, GROOVE, RIDGE, OUTSET, DOTTED, DASHED
 
 enum EBorderPrecedence { BOFF, BTABLE, BCOLGROUP, BCOL, BROWGROUP, BROW, BCELL };
 
-enum PseudoState { PseudoUnknown, PseudoNone, PseudoAnyLink, PseudoLink, PseudoVisited};
-
 enum EPosition {
     StaticPosition, RelativePosition, AbsolutePosition, FixedPosition
 };
@@ -91,7 +95,6 @@ enum EPosition {
 enum EFloat {
     FNONE = 0, FLEFT, FRIGHT
 };
-
 
 enum EMarginCollapse { MCOLLAPSE, MSEPARATE, MDISCARD };
 
@@ -110,7 +113,7 @@ enum EVerticalAlign {
     TEXT_BOTTOM, TOP, BOTTOM, BASELINE_MIDDLE, LENGTH
 };
 
-enum EClear{
+enum EClear {
     CNONE = 0, CLEFT = 1, CRIGHT = 2, CBOTH = 3
 };
 
@@ -122,17 +125,24 @@ enum EUnicodeBidi {
     UBNormal, Embed, Override
 };
 
+enum EFillAttachment {
+    ScrollBackgroundAttachment, LocalBackgroundAttachment, FixedBackgroundAttachment
+};
+
 enum EFillBox {
     BorderFillBox, PaddingFillBox, ContentFillBox, TextFillBox
 };
 
 enum EFillRepeat {
-    RepeatFill, RepeatXFill, RepeatYFill, NoRepeatFill
+    RepeatFill, NoRepeatFill, RoundFill, SpaceFill
 };
 
 enum EFillLayerType {
     BackgroundFillLayer, MaskFillLayer
 };
+
+// CSS3 Background Values
+enum EFillSizeType { Contain, Cover, SizeLength, SizeNone };
 
 // CSS3 Marquee Properties
 
@@ -194,12 +204,85 @@ enum EResize {
     RESIZE_NONE, RESIZE_BOTH, RESIZE_HORIZONTAL, RESIZE_VERTICAL
 };
 
+// The order of this enum must match the order of the list style types in CSSValueKeywords.in. 
 enum EListStyleType {
-     DISC, CIRCLE, SQUARE, LDECIMAL, DECIMAL_LEADING_ZERO,
-     LOWER_ROMAN, UPPER_ROMAN, LOWER_GREEK,
-     LOWER_ALPHA, LOWER_LATIN, UPPER_ALPHA, UPPER_LATIN,
-     HEBREW, ARMENIAN, GEORGIAN, CJK_IDEOGRAPHIC,
-     HIRAGANA, KATAKANA, HIRAGANA_IROHA, KATAKANA_IROHA, LNONE
+    Disc,
+    Circle,
+    Square,
+    DecimalListStyle,
+    DecimalLeadingZero,
+    ArabicIndic,
+    BinaryListStyle,
+    Bengali,
+    Cambodian,
+    Khmer,
+    Devanagari,
+    Gujarati,
+    Gurmukhi,
+    Kannada,
+    LowerHexadecimal,
+    Lao,
+    Malayalam,
+    Mongolian,
+    Myanmar,
+    Octal,
+    Oriya,
+    Persian,
+    Urdu,
+    Telugu,
+    Tibetan,
+    Thai,
+    UpperHexadecimal,
+    LowerRoman,
+    UpperRoman,
+    LowerGreek,
+    LowerAlpha,
+    LowerLatin,
+    UpperAlpha,
+    UpperLatin,
+    Afar,
+    EthiopicHalehameAaEt,
+    EthiopicHalehameAaEr,
+    Amharic,
+    EthiopicHalehameAmEt,
+    AmharicAbegede,
+    EthiopicAbegedeAmEt,
+    CjkEarthlyBranch,
+    CjkHeavenlyStem,
+    Ethiopic,
+    EthiopicHalehameGez,
+    EthiopicAbegede,
+    EthiopicAbegedeGez,
+    HangulConsonant,
+    Hangul,
+    LowerNorwegian,
+    Oromo,
+    EthiopicHalehameOmEt,
+    Sidama,
+    EthiopicHalehameSidEt,
+    Somali,
+    EthiopicHalehameSoEt,
+    Tigre,
+    EthiopicHalehameTig,
+    TigrinyaEr,
+    EthiopicHalehameTiEr,
+    TigrinyaErAbegede,
+    EthiopicAbegedeTiEr,
+    TigrinyaEt,
+    EthiopicHalehameTiEt,
+    TigrinyaEtAbegede,
+    EthiopicAbegedeTiEt,
+    UpperGreek,
+    UpperNorwegian,
+    Hebrew,
+    Armenian,
+    Georgian,
+    CJKIdeographic,
+    Hiragana,
+    Katakana,
+    HiraganaIroha,
+    KatakanaIroha,
+    NoneListStyle
 };
 
 enum StyleContentType {
@@ -207,6 +290,13 @@ enum StyleContentType {
 };
 
 enum EBorderFit { BorderFitBorder, BorderFitLines };
+
+enum EAnimationFillMode { AnimationFillModeNone, AnimationFillModeForwards, AnimationFillModeBackwards, AnimationFillModeBoth };
+
+enum EAnimPlayState {
+    AnimPlayStatePlaying = 0x0,
+    AnimPlayStatePaused = 0x1
+};
 
 enum ETimingFunctionType { LinearTimingFunction, CubicBezierTimingFunction };
 
@@ -289,9 +379,17 @@ enum EDisplay {
     TABLE, INLINE_TABLE, TABLE_ROW_GROUP,
     TABLE_HEADER_GROUP, TABLE_FOOTER_GROUP, TABLE_ROW,
     TABLE_COLUMN_GROUP, TABLE_COLUMN, TABLE_CELL,
-    TABLE_CAPTION, BOX, INLINE_BOX, NONE
+    TABLE_CAPTION, BOX, INLINE_BOX, 
+#if ENABLE(WCSS)
+    WAP_MARQUEE,
+#endif
+    NONE
 };
 
+enum EInsideLink {
+    NotInsideLink, InsideUnvisitedLink, InsideVisitedLink
+};
+    
 enum EPointerEvents {
     PE_NONE, PE_AUTO, PE_STROKE, PE_FILL, PE_PAINTED, PE_VISIBLE,
     PE_VISIBLE_STROKE, PE_VISIBLE_FILL, PE_VISIBLE_PAINTED, PE_ALL
@@ -304,6 +402,8 @@ enum ETransformStyle3D {
 enum EBackfaceVisibility {
     BackfaceVisibilityVisible, BackfaceVisibilityHidden
 };
+    
+enum ELineClampType { LineClampLineCount, LineClampPercentage };
 
 } // namespace WebCore
 

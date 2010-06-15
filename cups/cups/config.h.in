@@ -1,9 +1,9 @@
 /*
  * "$Id: config.h.in 7918 2008-09-08 22:03:01Z mike $"
  *
- *   Configuration file for the Common UNIX Printing System (CUPS).
+ *   Configuration file for CUPS.
  *
- *   Copyright 2007-2009 by Apple Inc.
+ *   Copyright 2007-2010 by Apple Inc.
  *   Copyright 1997-2007 by Easy Software Products.
  *
  *   These coded instructions, statements, and computer programs are the
@@ -432,7 +432,6 @@
 
 #undef HAVE_LAUNCH_H
 #undef HAVE_LAUNCHD
-#define CUPS_DEFAULT_LAUNCHD_CONF ""
 
 
 /*
@@ -483,7 +482,21 @@
 
 
 /*
- * Do we have MacOSX 10.4's mbr_XXX functions()?
+ * Do we have ApplicationServices public headers?
+ */
+
+#undef HAVE_APPLICATIONSERVICES_H
+
+
+/*
+ * Do we have the SCDynamicStoreCopyComputerName function?
+ */
+
+#undef HAVE_SCDYNAMICSTORECOPYCOMPUTERNAME
+
+
+/*
+ * Do we have MacOSX 10.4's mbr_XXX functions?
  */
 
 #undef HAVE_MEMBERSHIP_H
@@ -492,7 +505,7 @@
 
 
 /*
- * Do we have Darwin's notify_post() header and function?
+ * Do we have Darwin's notify_post header and function?
  */
 
 #undef HAVE_NOTIFY_H
@@ -624,6 +637,18 @@
  */
 
 #undef HAVE_TCPD_H
+
+
+/*
+ * Do we have statfs or statvfs and one of the corresponding headers?
+ */
+
+#undef HAVE_STATFS
+#undef HAVE_STATVFS
+#undef HAVE_SYS_MOUNT_H
+#undef HAVE_SYS_STATFS_H
+#undef HAVE_SYS_STATVFS_H
+#undef HAVE_SYS_VFS_H
 
 
 #endif /* !_CUPS_CONFIG_H_ */

@@ -1,9 +1,9 @@
 #
 # "$Id: Makefile 7871 2008-08-27 21:12:43Z mike $"
 #
-#   API library Makefile for the Common UNIX Printing System (CUPS).
+#   API library Makefile for CUPS.
 #
-#   Copyright 2007-2009 by Apple Inc.
+#   Copyright 2007-2010 by Apple Inc.
 #   Copyright 1997-2006 by Easy Software Products, all rights reserved.
 #
 #   These coded instructions, statements, and computer programs are the
@@ -56,7 +56,9 @@ LIBOBJS	=	\
 		options.o \
 		page.o \
 		ppd.o \
-		pwgmedia.o \
+		pwg-file.o \
+		pwg-media.o \
+		pwg-ppd.o \
 		request.o \
 		sidechannel.o \
 		snmp.o \
@@ -83,8 +85,8 @@ OBJS	=	\
 		testoptions.o \
 		testlang.o \
 		testppd.o \
-		testsnmp.o \
-		php_cups_wrap.o
+		testpwg.o \
+		testsnmp.o
 
 
 #
@@ -130,6 +132,7 @@ UNITTARGETS =	\
 		testlang \
 		testoptions \
 		testppd \
+		testpwg \
 		testsnmp
 
 TARGETS	=	\
@@ -376,30 +379,6 @@ libcups.a:	$(LIBOBJS)
 
 
 #
-# CUPS language bindings for various scripting languages...
-#
-# NOTE: Not currently used or functional - see the scripting/php directory
-#       for the hand-written bindings...
-#
-
-phpcups.so:	$(LIBCUPS) php_cups_wrap.o
-	echo Linking $@...
-	if test `uname` = Darwin; then \
-		DSOFLAGS="-bundle -flat_namespace -undefined suppress"; \
-	else \
-		DSOFLAGS="$(DSOFLAGS)"; \
-	fi; \
-	$(DSO) $$DSOFLAGS -o $@ php_cups_wrap.o $(LIBS) `php-config --ldflags --libs`
-
-php_cups_wrap.o:	php_cups_wrap.c
-	echo Compiling $<...
-	$(CC) $(CFLAGS) `php-config --includes` -c $<
-php_cups_wrap.c:	cups.h
-	echo Creating $< using SWIG...
-	swig -php -o $@ -module cups cups.h
-
-
-#
 # testadmin (dependency on static CUPS library is intentional)
 #
 
@@ -523,6 +502,18 @@ testppd:	testppd.o libcups.a test.ppd test2.ppd
 		$(LIBGSSAPI) $(SSLLIBS) $(DNSSDLIBS) $(COMMONLIBS) $(LIBZ)
 	echo Running PPD API tests...
 	./testppd
+
+
+#
+# testpwg (dependency on static CUPS library is intentional)
+#
+
+testpwg:	testpwg.o libcups.a test.ppd
+	echo Linking $@...
+	$(CC) $(ARCHFLAGS) $(LDFLAGS) -o $@ testpwg.o libcups.a \
+		$(LIBGSSAPI) $(SSLLIBS) $(DNSSDLIBS) $(COMMONLIBS) $(LIBZ)
+	echo Running PWG API tests...
+	./testpwg test.ppd
 
 
 #

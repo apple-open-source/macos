@@ -39,7 +39,7 @@ public:
 protected:
     virtual void            dispatchAccelerometerEvent(AbsoluteTime timestamp, IOFixed x, IOFixed y, IOFixed z, IOHIDAccelerometerType type = 0, IOHIDAccelerometerSubType subType = 0, IOOptionBits options=0);
 	
-    virtual void            dispatchGyroEvent(AbsoluteTime timestamp, IOFixed x, IOFixed y, IOFixed z, IOHIDGyroType type = 0, IOHIDGyroSubType subType = 0, IOOptionBits options=0);
+    virtual void            dispatchGyroEvent(AbsoluteTime timestamp, IOFixed x, IOFixed y, IOFixed z, IOHIDGyroType type = 0, IOHIDGyroSubType subType = 0, IOFixed qx=0, IOFixed qy=0, IOFixed qz=0, IOFixed qw=0, IOOptionBits options=0);
         
     virtual void            dispatchProximityEvent(AbsoluteTime timestamp, IOHIDProximityDetectionMask mask, UInt32 level = 0, IOOptionBits options=0);
 

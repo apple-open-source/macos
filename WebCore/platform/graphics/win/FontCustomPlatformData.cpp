@@ -48,7 +48,6 @@ SOFT_LINK(T2embed, TTDeleteEmbeddedFont, LONG, __stdcall, (HANDLE hFontReference
 
 FontCustomPlatformData::~FontCustomPlatformData()
 {
-    CGFontRelease(m_cgFont);
     if (m_fontReference) {
         if (m_name.isNull()) {
             ASSERT(T2embedLibrary());
@@ -61,7 +60,6 @@ FontCustomPlatformData::~FontCustomPlatformData()
 
 FontPlatformData FontCustomPlatformData::fontPlatformData(int size, bool bold, bool italic, FontRenderingMode renderingMode)
 {
-    ASSERT(m_cgFont);
     ASSERT(m_fontReference);
     ASSERT(T2embedLibrary());
 
@@ -87,30 +85,9 @@ FontPlatformData FontCustomPlatformData::fontPlatformData(int size, bool bold, b
     logFont.lfWeight = bold ? 700 : 400;
 
     HFONT hfont = CreateFontIndirect(&logFont);
-    wkSetFontPlatformInfo(m_cgFont, &logFont, free);
-    return FontPlatformData(hfont, m_cgFont, size, bold, italic, renderingMode == AlternateRenderingMode);
-}
 
-const void* getData(void* info)
-{
-    SharedBuffer* buffer = static_cast<SharedBuffer*>(info);
-    buffer->ref();
-    return (void*)buffer->data();
-}
-
-void releaseData(void* info, const void* data)
-{
-    static_cast<SharedBuffer*>(info)->deref();
-}
-
-size_t getBytesWithOffset(void *info, void* buffer, size_t offset, size_t count)
-{
-    SharedBuffer* sharedBuffer = static_cast<SharedBuffer*>(info);
-    size_t availBytes = count;
-    if (offset + count > sharedBuffer->size())
-        availBytes -= (offset + count) - sharedBuffer->size();
-    memcpy(buffer, sharedBuffer->data() + offset, availBytes);
-    return availBytes;
+    RetainPtr<CGFontRef> cgFont(AdoptCF, CGFontCreateWithPlatformFont(&logFont));
+    return FontPlatformData(hfont, cgFont.get(), size, bold, italic, renderingMode == AlternateRenderingMode);
 }
 
 // Streams the concatenation of a header and font data.
@@ -190,13 +167,6 @@ FontCustomPlatformData* createFontCustomPlatformData(SharedBuffer* buffer)
     ASSERT_ARG(buffer, buffer);
     ASSERT(T2embedLibrary());
 
-    // Get CG to create the font.
-    CGDataProviderDirectAccessCallbacks callbacks = { &getData, &releaseData, &getBytesWithOffset, NULL };
-    RetainPtr<CGDataProviderRef> dataProvider(AdoptCF, CGDataProviderCreateDirectAccess(buffer, buffer->size(), &callbacks));
-    CGFontRef cgFont = CGFontCreateWithDataProvider(dataProvider.get());
-    if (!cgFont)
-        return 0;
-
     // Introduce the font to GDI. AddFontMemResourceEx cannot be used, because it will pollute the process's
     // font namespace (Windows has no API for creating an HFONT from data without exposing the font to the
     // entire process first). TTLoadEmbeddedFont lets us override the font family name, so using a unique name
@@ -210,10 +180,8 @@ FontCustomPlatformData* createFontCustomPlatformData(SharedBuffer* buffer)
     size_t overlayDst;
     size_t overlaySrc;
     size_t overlayLength;
-    if (!getEOTHeader(buffer, eotHeader, overlayDst, overlaySrc, overlayLength)) {
-        CGFontRelease(cgFont);
+    if (!getEOTHeader(buffer, eotHeader, overlayDst, overlaySrc, overlayLength))
         return 0;
-    }
 
     HANDLE fontReference;
     ULONG privStatus;
@@ -225,13 +193,11 @@ FontCustomPlatformData* createFontCustomPlatformData(SharedBuffer* buffer)
         fontName = String();
     else {
         fontReference = renameAndActivateFont(buffer, fontName);
-        if (!fontReference) {
-            CGFontRelease(cgFont);
+        if (!fontReference)
             return 0;
-        }
     }
 
-    return new FontCustomPlatformData(cgFont, fontReference, fontName);
+    return new FontCustomPlatformData(fontReference, fontName);
 }
 
 }

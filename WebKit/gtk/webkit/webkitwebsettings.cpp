@@ -4,6 +4,8 @@
  * Copyright (C) 2008 Collabora Ltd.
  * Copyright (C) 2008 Holger Hans Peter Freyther
  * Copyright (C) 2009 Jan Michael Alonzo
+ * Copyright (C) 2009 Movial Creative Technologies Inc.
+ * Copyright (C) 2009 Igalia S.L.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -24,17 +26,18 @@
 #include "config.h"
 #include "webkitwebsettings.h"
 
+#include "webkitenumtypes.h"
 #include "webkitprivate.h"
 #include "webkitversion.h"
 
-#include "CString.h"
 #include "FileSystem.h"
 #include "PluginDatabase.h"
 #include "Language.h"
 #include "PlatformString.h"
+#include <wtf/text/CString.h>
 
 #include <glib/gi18n-lib.h>
-#if PLATFORM(UNIX)
+#if OS(UNIX)
 #include <sys/utsname.h>
 #endif
 
@@ -85,12 +88,26 @@ struct _WebKitWebSettingsPrivate {
     gboolean enable_private_browsing;
     gboolean enable_spell_checking;
     gchar* spell_checking_languages;
-    GSList* spell_checking_languages_list;
+    GSList* enchant_dicts;
     gboolean enable_caret_browsing;
     gboolean enable_html5_database;
     gboolean enable_html5_local_storage;
     gboolean enable_xss_auditor;
+    gboolean enable_spatial_navigation;
     gchar* user_agent;
+    gboolean javascript_can_open_windows_automatically;
+    gboolean javascript_can_access_clipboard;
+    gboolean enable_offline_web_application_cache;
+    WebKitEditingBehavior editing_behavior;
+    gboolean enable_universal_access_from_file_uris;
+    gboolean enable_file_access_from_file_uris;
+    gboolean enable_dom_paste;
+    gboolean tab_key_cycles_through_elements;
+    gboolean enable_default_context_menu;
+    gboolean enable_site_specific_quirks;
+    gboolean enable_page_cache;
+    gboolean auto_resize_window;
+    gboolean enable_java_applet;
 };
 
 #define WEBKIT_WEB_SETTINGS_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE((obj), WEBKIT_TYPE_WEB_SETTINGS, WebKitWebSettingsPrivate))
@@ -126,7 +143,21 @@ enum {
     PROP_ENABLE_HTML5_DATABASE,
     PROP_ENABLE_HTML5_LOCAL_STORAGE,
     PROP_ENABLE_XSS_AUDITOR,
-    PROP_USER_AGENT
+    PROP_ENABLE_SPATIAL_NAVIGATION,
+    PROP_USER_AGENT,
+    PROP_JAVASCRIPT_CAN_OPEN_WINDOWS_AUTOMATICALLY,
+    PROP_JAVASCRIPT_CAN_ACCESS_CLIPBOARD,
+    PROP_ENABLE_OFFLINE_WEB_APPLICATION_CACHE,
+    PROP_EDITING_BEHAVIOR,
+    PROP_ENABLE_UNIVERSAL_ACCESS_FROM_FILE_URIS,
+    PROP_ENABLE_FILE_ACCESS_FROM_FILE_URIS,
+    PROP_ENABLE_DOM_PASTE,
+    PROP_TAB_KEY_CYCLES_THROUGH_ELEMENTS,
+    PROP_ENABLE_DEFAULT_CONTEXT_MENU,
+    PROP_ENABLE_SITE_SPECIFIC_QUIRKS,
+    PROP_ENABLE_PAGE_CACHE,
+    PROP_AUTO_RESIZE_WINDOW,
+    PROP_ENABLE_JAVA_APPLET
 };
 
 // Create a default user agent string
@@ -139,7 +170,7 @@ static String webkit_get_user_agent()
 
 #if PLATFORM(X11)
     platform = g_strdup("X11");
-#elif PLATFORM(WIN_OS)
+#elif OS(WINDOWS)
     platform = g_strdup("Windows");
 #elif PLATFORM(MAC)
     platform = g_strdup("Macintosh");
@@ -150,22 +181,22 @@ static String webkit_get_user_agent()
 #endif
 
    // FIXME: platform/version detection can be shared.
-#if PLATFORM(DARWIN)
+#if OS(DARWIN)
 
-#if PLATFORM(X86)
+#if CPU(X86)
     osVersion = g_strdup("Intel Mac OS X");
 #else
     osVersion = g_strdup("PPC Mac OS X");
 #endif
 
-#elif PLATFORM(UNIX)
+#elif OS(UNIX)
     struct utsname name;
     if (uname(&name) != -1)
         osVersion = g_strdup_printf("%s %s", name.sysname, name.machine);
     else
         osVersion = g_strdup("Unknown");
 
-#elif PLATFORM(WIN_OS)
+#elif OS(WINDOWS)
     // FIXME: Compute the Windows version
     osVersion = g_strdup("Windows");
 
@@ -429,7 +460,7 @@ static void webkit_web_settings_class_init(WebKitWebSettingsClass* klass)
     *
     * This is currently experimental for WebKitGtk.
     *
-    * Since 1.1.2
+    * Since: 1.1.2
     */
     g_object_class_install_property(gobject_class,
                                     PROP_ENABLE_PRIVATE_BROWSING,
@@ -445,7 +476,7 @@ static void webkit_web_settings_class_init(WebKitWebSettingsClass* klass)
     *
     * Whether to enable spell checking while typing.
     *
-    * Since 1.1.6
+    * Since: 1.1.6
     */
     g_object_class_install_property(gobject_class,
                                     PROP_ENABLE_SPELL_CHECKING,
@@ -469,7 +500,7 @@ static void webkit_web_settings_class_init(WebKitWebSettingsClass* klass)
     * If no value is specified then the value returned by
     * gtk_get_default_language will be used.
     *
-    * Since 1.1.6
+    * Since: 1.1.6
     */
     g_object_class_install_property(gobject_class,
                                     PROP_SPELL_CHECKING_LANGUAGES,
@@ -485,7 +516,7 @@ static void webkit_web_settings_class_init(WebKitWebSettingsClass* klass)
     *
     * Whether to enable caret browsing mode.
     *
-    * Since 1.1.6
+    * Since: 1.1.6
     */
     g_object_class_install_property(gobject_class,
                                     PROP_ENABLE_CARET_BROWSING,
@@ -501,7 +532,7 @@ static void webkit_web_settings_class_init(WebKitWebSettingsClass* klass)
     * SQL database allows web pages to store structured data and be able to
     * use SQL to manipulate that data asynchronously.
     *
-    * Since 1.1.8
+    * Since: 1.1.8
     */
     g_object_class_install_property(gobject_class,
                                     PROP_ENABLE_HTML5_DATABASE,
@@ -517,7 +548,7 @@ static void webkit_web_settings_class_init(WebKitWebSettingsClass* klass)
     * Whether to enable HTML5 localStorage support. localStorage provides
     * simple synchronous storage access.
     *
-    * Since 1.1.8
+    * Since: 1.1.8
     */
     g_object_class_install_property(gobject_class,
                                     PROP_ENABLE_HTML5_LOCAL_STORAGE,
@@ -532,18 +563,34 @@ static void webkit_web_settings_class_init(WebKitWebSettingsClass* klass)
     * Whether to enable the XSS Auditor. This feature filters some kinds of
     * reflective XSS attacks on vulnerable web sites.
     *
-    * This is currently an experimental feature.
-    *
-    * Since 1.1.11
+    * Since: 1.1.11
     */
     g_object_class_install_property(gobject_class,
                                     PROP_ENABLE_XSS_AUDITOR,
                                     g_param_spec_boolean("enable-xss-auditor",
                                                          _("Enable XSS Auditor"),
                                                          _("Whether to enable teh XSS auditor"),
+                                                         TRUE,
+                                                         flags));
+    /**
+    * WebKitWebSettings:enable-spatial-navigation
+    *
+    * Whether to enable the Spatial Navigation. This feature consists in the ability
+    * to navigate between focusable elements in a Web page, such as hyperlinks and
+    * form controls, by using Left, Right, Up and Down arrow keys. For example, if
+    * an user presses the Right key, heuristics determine whether there is an element
+    * he might be trying to reach towards the right, and if there are multiple elements,
+    * which element he probably wants.
+    *
+    * Since: 1.1.23
+    */
+    g_object_class_install_property(gobject_class,
+                                    PROP_ENABLE_SPATIAL_NAVIGATION,
+                                    g_param_spec_boolean("enable-spatial-navigation",
+                                                         _("Enable Spatial Navigation"),
+                                                         _("Whether to enable Spatial Navigation"),
                                                          FALSE,
                                                          flags));
-
     /**
      * WebKitWebSettings:user-agent:
      *
@@ -563,6 +610,253 @@ static void webkit_web_settings_class_init(WebKitWebSettingsClass* klass)
                                                         webkit_get_user_agent().utf8().data(),
                                                         flags));
 
+    /**
+    * WebKitWebSettings:javascript-can-open-windows-automatically
+    *
+    * Whether JavaScript can open popup windows automatically without user
+    * intervention.
+    *
+    * Since: 1.1.11
+    */
+    g_object_class_install_property(gobject_class,
+                                    PROP_JAVASCRIPT_CAN_OPEN_WINDOWS_AUTOMATICALLY,
+                                    g_param_spec_boolean("javascript-can-open-windows-automatically",
+                                                         _("JavaScript can open windows automatically"),
+                                                         _("Whether JavaScript can open windows automatically"),
+                                                         FALSE,
+                                                         flags));
+
+    /**
+    * WebKitWebSettings:javascript-can-access-clipboard
+    *
+    * Whether JavaScript can access Clipboard.
+    *
+    * Since: 1.3.0
+    */
+    g_object_class_install_property(gobject_class,
+                                    PROP_JAVASCRIPT_CAN_ACCESS_CLIPBOARD,
+                                    g_param_spec_boolean("javascript-can-access-clipboard",
+                                                         _("JavaScript can access Clipboard"),
+                                                         _("Whether JavaScript can access Clipboard"),
+                                                         FALSE,
+                                                         flags));
+
+    /**
+    * WebKitWebSettings:enable-offline-web-application-cache
+    *
+    * Whether to enable HTML5 offline web application cache support. Offline
+    * Web Application Cache ensures web applications are available even when
+    * the user is not connected to the network.
+    *
+    * Since: 1.1.13
+    */
+    g_object_class_install_property(gobject_class,
+                                    PROP_ENABLE_OFFLINE_WEB_APPLICATION_CACHE,
+                                    g_param_spec_boolean("enable-offline-web-application-cache",
+                                                         _("Enable offline web application cache"),
+                                                         _("Whether to enable offline web application cache"),
+                                                         TRUE,
+                                                         flags));
+
+    COMPILE_ASSERT(static_cast<int>(WEBKIT_EDITING_BEHAVIOR_MAC) == static_cast<int>(WebCore::EditingMacBehavior), editing_behavior_type_mac_match);
+    COMPILE_ASSERT(static_cast<int>(WEBKIT_EDITING_BEHAVIOR_WINDOWS) == static_cast<int>(WebCore::EditingWindowsBehavior), editing_behavior_type_windows_match);
+
+    /**
+    * WebKitWebSettings:editing-behavior
+    *
+    * This setting controls various editing behaviors that differ
+    * between platforms and that have been combined in two groups,
+    * 'Mac' and 'Windows'. Some examples:
+    * 
+    *  1) Clicking below the last line of an editable area puts the
+    * caret at the end of the last line on Mac, but in the middle of
+    * the last line on Windows.
+    *
+    *  2) Pushing down the arrow key on the last line puts the caret
+    *  at the end of the last line on Mac, but does nothing on
+    *  Windows. A similar case exists on the top line.
+    *
+    * Since: 1.1.13
+    */
+    g_object_class_install_property(gobject_class,
+                                    PROP_EDITING_BEHAVIOR,
+                                    g_param_spec_enum("editing-behavior",
+                                                      _("Editing behavior"),
+                                                      _("The behavior mode to use in editing mode"),
+                                                      WEBKIT_TYPE_EDITING_BEHAVIOR,
+                                                      WEBKIT_EDITING_BEHAVIOR_MAC,
+                                                      flags));
+
+    /**
+     * WebKitWebSettings:enable-universal-access-from-file-uris
+     *
+     * Whether to allow files loaded through file:// URIs universal access to
+     * all pages.
+     *
+     * Since: 1.1.13
+     */
+    g_object_class_install_property(gobject_class,
+                                    PROP_ENABLE_UNIVERSAL_ACCESS_FROM_FILE_URIS,
+                                    g_param_spec_boolean("enable-universal-access-from-file-uris",
+                                                         _("Enable universal access from file URIs"),
+                                                         _("Whether to allow universal access from file URIs"),
+                                                         FALSE,
+                                                         flags));
+
+    /**
+     * WebKitWebSettings:enable-dom-paste
+     *
+     * Whether to enable DOM paste. If set to %TRUE, document.execCommand("Paste")
+     * will correctly execute and paste content of the clipboard.
+     *
+     * Since: 1.1.16
+     */
+    g_object_class_install_property(gobject_class,
+                                    PROP_ENABLE_DOM_PASTE,
+                                    g_param_spec_boolean("enable-dom-paste",
+                                                         _("Enable DOM paste"),
+                                                         _("Whether to enable DOM paste"),
+                                                         FALSE,
+                                                         flags));
+    /**
+    * WebKitWebSettings:tab-key-cycles-through-elements:
+    *
+    * Whether the tab key cycles through elements on the page.
+    *
+    * If @flag is %TRUE, pressing the tab key will focus the next element in
+    * the @web_view. If @flag is %FALSE, the @web_view will interpret tab
+    * key presses as normal key presses. If the selected element is editable, the
+    * tab key will cause the insertion of a tab character.
+    *
+    * Since: 1.1.17
+    */
+    g_object_class_install_property(gobject_class,
+                                    PROP_TAB_KEY_CYCLES_THROUGH_ELEMENTS,
+                                    g_param_spec_boolean("tab-key-cycles-through-elements",
+                                                         _("Tab key cycles through elements"),
+                                                         _("Whether the tab key cycles through elements on the page."),
+                                                         TRUE,
+                                                         flags));
+
+    /**
+     * WebKitWebSettings:enable-default-context-menu:
+     *
+     * Whether right-clicks should be handled automatically to create,
+     * and display the context menu. Turning this off will make
+     * WebKitGTK+ not emit the populate-popup signal. Notice that the
+     * default button press event handler may still handle right
+     * clicks for other reasons, such as in-page context menus, or
+     * right-clicks that are handled by the page itself.
+     *
+     * Since: 1.1.18
+     */
+    g_object_class_install_property(gobject_class,
+                                    PROP_ENABLE_DEFAULT_CONTEXT_MENU,
+                                    g_param_spec_boolean(
+                                    "enable-default-context-menu",
+                                    _("Enable Default Context Menu"),
+                                    _("Enables the handling of right-clicks for the creation of the default context menu"),
+                                    TRUE,
+                                    flags));
+
+    /**
+     * WebKitWebSettings::enable-site-specific-quirks
+     *
+     * Whether to turn on site-specific hacks.  Turning this on will
+     * tell WebKitGTK+ to use some site-specific workarounds for
+     * better web compatibility.  For example, older versions of
+     * MediaWiki will incorrectly send WebKit a css file with KHTML
+     * workarounds.  By turning on site-specific quirks, WebKit will
+     * special-case this and other cases to make the sites work.
+     *
+     * Since: 1.1.18
+     */
+    g_object_class_install_property(gobject_class,
+                                    PROP_ENABLE_SITE_SPECIFIC_QUIRKS,
+                                    g_param_spec_boolean(
+                                    "enable-site-specific-quirks",
+                                    _("Enable Site Specific Quirks"),
+                                    _("Enables the site-specific compatibility workarounds"),
+                                    FALSE,
+                                    flags));
+
+    /**
+    * WebKitWebSettings:enable-page-cache:
+    *
+    * Enable or disable the page cache. Disabling the page cache is
+    * generally only useful for special circumstances like low-memory
+    * scenarios or special purpose applications like static HTML
+    * viewers. This setting only controls the Page Cache, this cache
+    * is different than the disk-based or memory-based traditional
+    * resource caches, its point is to make going back and forth
+    * between pages much faster. For details about the different types
+    * of caches and their purposes see:
+    * http://webkit.org/blog/427/webkit-page-cache-i-the-basics/
+    *
+    * Since: 1.1.18
+    */
+    g_object_class_install_property(gobject_class,
+                                    PROP_ENABLE_PAGE_CACHE,
+                                    g_param_spec_boolean("enable-page-cache",
+                                                         _("Enable page cache"),
+                                                         _("Whether the page cache should be used"),
+                                                         FALSE,
+                                                         flags));
+
+    /**
+    * WebKitWebSettings:auto-resize-window:
+    *
+    * Web pages can request to modify the size and position of the
+    * window containing the #WebKitWebView through various DOM methods
+    * (resizeTo, moveTo, resizeBy, moveBy). By default WebKit will not
+    * honor this requests, but you can set this property to %TRUE if
+    * you'd like it to do so. If you wish to handle this manually, you
+    * can connect to the notify signal for the
+    * #WebKitWebWindowFeatures of your #WebKitWebView.
+    * 
+    * Since: 1.1.22
+    */
+    g_object_class_install_property(gobject_class,
+                                    PROP_AUTO_RESIZE_WINDOW,
+                                    g_param_spec_boolean("auto-resize-window",
+                                                         _("Auto Resize Window"),
+                                                         _("Automatically resize the toplevel window when a page requests it"),
+                                                         FALSE,
+                                                         flags));
+
+    /**
+     * WebKitWebSettings:enable-file-access-from-file-uris:
+     *
+     * Boolean property to control file access for file:// URIs. If this
+     * option is enabled every file:// will have its own security unique domain.
+     *
+     * Since: 1.1.22
+     */
+     g_object_class_install_property(gobject_class,
+                                     PROP_ENABLE_FILE_ACCESS_FROM_FILE_URIS,
+                                     g_param_spec_boolean("enable-file-access-from-file-uris",
+                                                          "Enable file access from file URIs",
+                                                          "Controls file access for file:// URIs.",
+                                                          FALSE,
+                                                          flags));
+
+   /**
+    * WebKitWebSettings:enable-java-applet:
+    *
+    * Enable or disable support for the Java &lt;applet&gt; tag. Keep in
+    * mind that Java content can be still shown in the page through
+    * &lt;object&gt; or &lt;embed&gt;, which are the preferred tags for this task.
+    *
+    * Since: 1.1.22
+    */
+    g_object_class_install_property(gobject_class,
+                                    PROP_ENABLE_JAVA_APPLET,
+                                    g_param_spec_boolean("enable-java-applet",
+                                                         _("Enable Java Applet"),
+                                                         _("Whether Java Applet support through <applet> should be enabled"),
+                                                         TRUE,
+                                                         flags));
+
     g_type_class_add_private(klass, sizeof(WebKitWebSettingsPrivate));
 }
 
@@ -571,16 +865,21 @@ static void webkit_web_settings_init(WebKitWebSettings* web_settings)
     web_settings->priv = WEBKIT_WEB_SETTINGS_GET_PRIVATE(web_settings);
 }
 
+static EnchantBroker* get_enchant_broker()
+{
+    static EnchantBroker* broker = 0;
+    if (!broker)
+        broker = enchant_broker_init();
+
+    return broker;
+}
+
 static void free_spell_checking_language(gpointer data, gpointer user_data)
 {
-    SpellLanguage* language = static_cast<SpellLanguage*>(data);
-    if (language->config) {
-        if (language->speller)
-            enchant_broker_free_dict(language->config, language->speller);
+    EnchantDict* dict = static_cast<EnchantDict*>(data);
+    EnchantBroker* broker = get_enchant_broker();
 
-        enchant_broker_free(language->config);
-    }
-    g_slice_free(SpellLanguage, language);
+    enchant_broker_free_dict(broker, dict);
 }
 
 static void webkit_web_settings_finalize(GObject* object)
@@ -598,8 +897,8 @@ static void webkit_web_settings_finalize(GObject* object)
     g_free(priv->user_stylesheet_uri);
     g_free(priv->spell_checking_languages);
 
-    g_slist_foreach(priv->spell_checking_languages_list, free_spell_checking_language, NULL);
-    g_slist_free(priv->spell_checking_languages_list);
+    g_slist_foreach(priv->enchant_dicts, free_spell_checking_language, 0);
+    g_slist_free(priv->enchant_dicts);
 
     g_free(priv->user_agent);
 
@@ -610,8 +909,9 @@ static void webkit_web_settings_set_property(GObject* object, guint prop_id, con
 {
     WebKitWebSettings* web_settings = WEBKIT_WEB_SETTINGS(object);
     WebKitWebSettingsPrivate* priv = web_settings->priv;
-    SpellLanguage* lang;
-    GSList* spellLanguages = NULL;
+    EnchantBroker* broker;
+    EnchantDict* dict;
+    GSList* spellDictionaries = 0;
 
     switch(prop_id) {
     case PROP_DEFAULT_ENCODING:
@@ -701,34 +1001,35 @@ static void webkit_web_settings_set_property(GObject* object, guint prop_id, con
         priv->enable_spell_checking = g_value_get_boolean(value);
         break;
     case PROP_SPELL_CHECKING_LANGUAGES:
+        g_free(priv->spell_checking_languages);
         priv->spell_checking_languages = g_strdup(g_value_get_string(value));
 
+        broker = get_enchant_broker();
         if (priv->spell_checking_languages) {
             char** langs = g_strsplit(priv->spell_checking_languages, ",", -1);
             for (int i = 0; langs[i]; i++) {
-                lang = g_slice_new0(SpellLanguage);
-                lang->config = enchant_broker_init();
-                lang->speller = enchant_broker_request_dict(lang->config, langs[i]);
-
-                spellLanguages = g_slist_append(spellLanguages, lang);
+                if (enchant_broker_dict_exists(broker, langs[i])) {
+                    dict = enchant_broker_request_dict(broker, langs[i]);
+                    spellDictionaries = g_slist_append(spellDictionaries, dict);
+                }
             }
-
             g_strfreev(langs);
         } else {
             const char* language = pango_language_to_string(gtk_get_default_language());
-
-            lang = g_slice_new0(SpellLanguage);
-            lang->config = enchant_broker_init();
-            lang->speller = enchant_broker_request_dict(lang->config, language);
-
-            spellLanguages = g_slist_append(spellLanguages, lang);
+            if (enchant_broker_dict_exists(broker, language)) {
+                dict = enchant_broker_request_dict(broker, language);
+                spellDictionaries = g_slist_append(spellDictionaries, dict);
+            }
         }
-        g_slist_foreach(priv->spell_checking_languages_list, free_spell_checking_language, NULL);
-        g_slist_free(priv->spell_checking_languages_list);
-        priv->spell_checking_languages_list = spellLanguages;
+        g_slist_foreach(priv->enchant_dicts, free_spell_checking_language, 0);
+        g_slist_free(priv->enchant_dicts);
+        priv->enchant_dicts = spellDictionaries;
         break;
     case PROP_ENABLE_XSS_AUDITOR:
         priv->enable_xss_auditor = g_value_get_boolean(value);
+        break;
+    case PROP_ENABLE_SPATIAL_NAVIGATION:
+        priv->enable_spatial_navigation = g_value_get_boolean(value);
         break;
     case PROP_USER_AGENT:
         g_free(priv->user_agent);
@@ -736,6 +1037,45 @@ static void webkit_web_settings_set_property(GObject* object, guint prop_id, con
             priv->user_agent = g_strdup(webkit_get_user_agent().utf8().data());
         else
             priv->user_agent = g_strdup(g_value_get_string(value));
+        break;
+    case PROP_JAVASCRIPT_CAN_OPEN_WINDOWS_AUTOMATICALLY:
+        priv->javascript_can_open_windows_automatically = g_value_get_boolean(value);
+        break;
+    case PROP_JAVASCRIPT_CAN_ACCESS_CLIPBOARD:
+        priv->javascript_can_access_clipboard = g_value_get_boolean(value);
+        break;
+    case PROP_ENABLE_OFFLINE_WEB_APPLICATION_CACHE:
+        priv->enable_offline_web_application_cache = g_value_get_boolean(value);
+        break;
+    case PROP_EDITING_BEHAVIOR:
+        priv->editing_behavior = static_cast<WebKitEditingBehavior>(g_value_get_enum(value));
+        break;
+    case PROP_ENABLE_UNIVERSAL_ACCESS_FROM_FILE_URIS:
+        priv->enable_universal_access_from_file_uris = g_value_get_boolean(value);
+        break;
+    case PROP_ENABLE_FILE_ACCESS_FROM_FILE_URIS:
+        priv->enable_file_access_from_file_uris = g_value_get_boolean(value);
+        break;
+    case PROP_ENABLE_DOM_PASTE:
+        priv->enable_dom_paste = g_value_get_boolean(value);
+        break;
+    case PROP_TAB_KEY_CYCLES_THROUGH_ELEMENTS:
+        priv->tab_key_cycles_through_elements = g_value_get_boolean(value);
+        break;
+    case PROP_ENABLE_DEFAULT_CONTEXT_MENU:
+        priv->enable_default_context_menu = g_value_get_boolean(value);
+        break;
+    case PROP_ENABLE_SITE_SPECIFIC_QUIRKS:
+        priv->enable_site_specific_quirks = g_value_get_boolean(value);
+        break;
+    case PROP_ENABLE_PAGE_CACHE:
+        priv->enable_page_cache = g_value_get_boolean(value);
+        break;
+    case PROP_AUTO_RESIZE_WINDOW:
+        priv->auto_resize_window = g_value_get_boolean(value);
+        break;
+    case PROP_ENABLE_JAVA_APPLET:
+        priv->enable_java_applet = g_value_get_boolean(value);
         break;
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
@@ -833,8 +1173,50 @@ static void webkit_web_settings_get_property(GObject* object, guint prop_id, GVa
     case PROP_ENABLE_XSS_AUDITOR:
         g_value_set_boolean(value, priv->enable_xss_auditor);
         break;
+    case PROP_ENABLE_SPATIAL_NAVIGATION:
+        g_value_set_boolean(value, priv->enable_spatial_navigation);
+        break;
     case PROP_USER_AGENT:
         g_value_set_string(value, priv->user_agent);
+        break;
+    case PROP_JAVASCRIPT_CAN_OPEN_WINDOWS_AUTOMATICALLY:
+        g_value_set_boolean(value, priv->javascript_can_open_windows_automatically);
+        break;
+    case PROP_JAVASCRIPT_CAN_ACCESS_CLIPBOARD:
+        g_value_set_boolean(value, priv->javascript_can_access_clipboard);
+        break;
+    case PROP_ENABLE_OFFLINE_WEB_APPLICATION_CACHE:
+        g_value_set_boolean(value, priv->enable_offline_web_application_cache);
+        break;
+    case PROP_EDITING_BEHAVIOR:
+        g_value_set_enum(value, priv->editing_behavior);
+        break;
+    case PROP_ENABLE_UNIVERSAL_ACCESS_FROM_FILE_URIS:
+        g_value_set_boolean(value, priv->enable_universal_access_from_file_uris);
+        break;
+    case PROP_ENABLE_FILE_ACCESS_FROM_FILE_URIS:
+        g_value_set_boolean(value, priv->enable_file_access_from_file_uris);
+        break;
+    case PROP_ENABLE_DOM_PASTE:
+        g_value_set_boolean(value, priv->enable_dom_paste);
+        break;
+    case PROP_TAB_KEY_CYCLES_THROUGH_ELEMENTS:
+        g_value_set_boolean(value, priv->tab_key_cycles_through_elements);
+        break;
+    case PROP_ENABLE_DEFAULT_CONTEXT_MENU:
+        g_value_set_boolean(value, priv->enable_default_context_menu);
+        break;
+    case PROP_ENABLE_SITE_SPECIFIC_QUIRKS:
+        g_value_set_boolean(value, priv->enable_site_specific_quirks);
+        break;
+    case PROP_ENABLE_PAGE_CACHE:
+        g_value_set_boolean(value, priv->enable_page_cache);
+        break;
+    case PROP_AUTO_RESIZE_WINDOW:
+        g_value_set_boolean(value, priv->auto_resize_window);
+        break;
+    case PROP_ENABLE_JAVA_APPLET:
+        g_value_set_boolean(value, priv->enable_java_applet);
         break;
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
@@ -890,12 +1272,25 @@ WebKitWebSettings* webkit_web_settings_copy(WebKitWebSettings* web_settings)
                  "enable-private-browsing", priv->enable_private_browsing,
                  "enable-spell-checking", priv->enable_spell_checking,
                  "spell-checking-languages", priv->spell_checking_languages,
-                 "spell-checking-languages-list", priv->spell_checking_languages_list,
                  "enable-caret-browsing", priv->enable_caret_browsing,
                  "enable-html5-database", priv->enable_html5_database,
                  "enable-html5-local-storage", priv->enable_html5_local_storage,
                  "enable-xss-auditor", priv->enable_xss_auditor,
+                 "enable-spatial-navigation", priv->enable_spatial_navigation,
                  "user-agent", webkit_web_settings_get_user_agent(web_settings),
+                 "javascript-can-open-windows-automatically", priv->javascript_can_open_windows_automatically,
+                 "javascript-can-access-clipboard", priv->javascript_can_access_clipboard,
+                 "enable-offline-web-application-cache", priv->enable_offline_web_application_cache,
+                 "editing-behavior", priv->editing_behavior,
+                 "enable-universal-access-from-file-uris", priv->enable_universal_access_from_file_uris,
+                 "enable-file-access-from-file-uris", priv->enable_file_access_from_file_uris,
+                 "enable-dom-paste", priv->enable_dom_paste,
+                 "tab-key-cycles-through-elements", priv->tab_key_cycles_through_elements,
+                 "enable-default-context-menu", priv->enable_default_context_menu,
+                 "enable-site-specific-quirks", priv->enable_site_specific_quirks,
+                 "enable-page-cache", priv->enable_page_cache,
+                 "auto-resize-window", priv->auto_resize_window,
+                 "enable-java-applet", priv->enable_java_applet,
                  NULL));
 
     return copy;
@@ -918,23 +1313,21 @@ void webkit_web_settings_add_extra_plugin_directory(WebKitWebView* webView, cons
 }
 
 /**
- * webkit_web_settings_get_spell_languages:
+ * webkit_web_settings_get_enchant_dicts:
  * @web_view: a #WebKitWebView
  *
- * Internal use only. Retrieves a GSList of SpellLanguages from the
+ * Internal use only. Retrieves a GSList of EnchantDicts from the
  * #WebKitWebSettings of @web_view.
  *
- * Since: 1.1.6
+ * Since: 1.1.22
  */
-GSList* webkit_web_settings_get_spell_languages(WebKitWebView *web_view)
+GSList* webkit_web_settings_get_enchant_dicts(WebKitWebView* webView)
 {
-    g_return_val_if_fail(WEBKIT_IS_WEB_VIEW(web_view), 0);
+    g_return_val_if_fail(WEBKIT_IS_WEB_VIEW(webView), 0);
 
-    WebKitWebSettings* settings = webkit_web_view_get_settings(web_view);
-    WebKitWebSettingsPrivate* priv = settings->priv;
-    GSList* list = priv->spell_checking_languages_list;
+    WebKitWebSettings* settings = webkit_web_view_get_settings(webView);
 
-    return list;
+    return settings->priv->enchant_dicts;
 }
 
 /**

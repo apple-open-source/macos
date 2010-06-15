@@ -20,7 +20,7 @@
  * PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY
  * OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
 #ifndef StorageMap_h
@@ -39,27 +39,35 @@ namespace WebCore {
 
     class StorageMap : public RefCounted<StorageMap> {
     public:
-        static PassRefPtr<StorageMap> create();
+        // Quota size mesured in bytes.
+        static PassRefPtr<StorageMap> create(unsigned quotaSize);
 
         unsigned length() const;
-        bool key(unsigned index, String& key) const;
+        String key(unsigned index);
         String getItem(const String&) const;
-        PassRefPtr<StorageMap> setItem(const String& key, const String& value, String& oldValue);
+        PassRefPtr<StorageMap> setItem(const String& key, const String& value, String& oldValue, bool& quota_exception);
         PassRefPtr<StorageMap> removeItem(const String&, String& oldValue);
 
         bool contains(const String& key) const;
 
-        void importItem(const String& key, const String& value) const;
+        void importItem(const String& key, const String& value);
+
+        unsigned quota() const { return m_quotaSize; }
+
+        static const unsigned noQuota = UINT_MAX;
 
     private:
-        StorageMap();
+        StorageMap(unsigned quota);
         PassRefPtr<StorageMap> copy();
         void invalidateIterator();
-        void setIteratorToIndex(unsigned) const;
+        void setIteratorToIndex(unsigned);
 
-        mutable HashMap<String, String> m_map;
-        mutable HashMap<String, String>::iterator m_iterator;
-        mutable unsigned m_iteratorIndex;
+        HashMap<String, String> m_map;
+        HashMap<String, String>::iterator m_iterator;
+        unsigned m_iteratorIndex;
+
+        unsigned m_quotaSize;  // Measured in bytes.
+        unsigned m_currentLength;  // Measured in UChars.
     };
 
 } // namespace WebCore

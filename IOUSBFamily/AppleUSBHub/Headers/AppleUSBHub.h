@@ -51,6 +51,13 @@ __attribute__((format(printf, 1, 2)));
 #define USBError( LEVEL, FORMAT, ARGS... )  { kprintf( FORMAT "\n", ## ARGS ) ; }
 #endif
 
+
+enum 
+{
+	kHubPortPowerOff = 0,
+	kHubPortPowerOn = 1
+};
+
 enum
 {
       kErrataCaptiveOKBit = 1,
@@ -173,6 +180,7 @@ class AppleUSBHub : public IOUSBHubPolicyMaker
     static void			TimeoutOccurred(OSObject *owner, IOTimerEventSource *sender);
 
     IOReturn			DoDeviceRequest(IOUSBDevRequest *request);
+    IOReturn			DoDeviceRequestWithRetries(IOUSBDevRequest *request, bool retrySTALLs = false);
     UInt32				GetHubErrataBits(void);
 
     void				DecrementOutstandingIO(void);

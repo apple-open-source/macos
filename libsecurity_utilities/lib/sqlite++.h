@@ -72,6 +72,8 @@ public:
 	Database(const char *path, int flags = SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE);
 	virtual ~Database();
 	
+	void close();
+	
 	// last error condition encountered
 	int errcode();
 	const char *errmsg();

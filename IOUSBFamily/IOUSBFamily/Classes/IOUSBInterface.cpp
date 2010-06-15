@@ -32,6 +32,7 @@
 #include <libkern/OSByteOrder.h>
 #include <libkern/c++/OSDictionary.h>
 #include <libkern/c++/OSData.h>
+#include <libkern/version.h>
 
 #include <IOKit/usb/IOUSBDevice.h>
 #include <IOKit/usb/IOUSBController.h>
@@ -74,6 +75,10 @@ void kprintf(const char *format, ...)
 __attribute__((format(printf, 1, 2)));
 #define USBLog( LEVEL, FORMAT, ARGS... )  if ((LEVEL) <= IOUSBINTERFACE_USE_KPRINTF) { kprintf( FORMAT "\n", ## ARGS ) ; }
 #define USBError( LEVEL, FORMAT, ARGS... )  { kprintf( FORMAT "\n", ## ARGS ) ; }
+#endif
+
+#ifndef kIOMessageDeviceSignaledWakeup
+#define kIOMessageDeviceSignaledWakeup  iokit_common_msg(0x350)
 #endif
 
 //================================================================================================
@@ -343,7 +348,16 @@ IOUSBInterface::message( UInt32 type, IOService * provider,  void * argument )
 		USBLog(5, "%s[%p]::message - received kIOUSBMessageCompositeDriverReconfigured",getName(), this);
 		messageClients( kIOUSBMessageCompositeDriverReconfigured, NULL, 0);
 		break;
-		
+
+#if VERSION_MAJOR > 10
+    case kIOMessageDeviceSignaledWakeup:
+		// Forward the message to our clients
+		//
+        USBLog(6, "%s[%p]::message - received kIOMessageDeviceSignaledWakeup", getName(), this);
+        messageClients( kIOMessageDeviceSignaledWakeup, NULL, 0 );
+        break;
+#endif
+
 	case kIOMessageServiceIsTerminated: 
 		break;
 		

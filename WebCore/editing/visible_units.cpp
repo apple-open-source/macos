@@ -31,6 +31,7 @@
 #include "HTMLNames.h"
 #include "RenderBlock.h"
 #include "RenderLayer.h"
+#include "RenderObject.h"
 #include "TextBoundaries.h"
 #include "TextBreakIterator.h"
 #include "TextIterator.h"
@@ -206,7 +207,7 @@ static VisiblePosition nextBoundary(const VisiblePosition& c, BoundarySearchFunc
 
     searchRange->selectNodeContents(boundary, ec);
     searchRange->setStart(start.node(), start.deprecatedEditingOffset(), ec);
-    TextIterator it(searchRange.get(), true);
+    TextIterator it(searchRange.get(), TextIteratorEmitsCharactersBetweenAllVisiblePositions);
     unsigned next = 0;
     bool inTextSecurityMode = start.node() && start.node()->renderer() && start.node()->renderer()->style()->textSecurity() != TSNONE;
     bool needMoreContext = false;
@@ -237,7 +238,7 @@ static VisiblePosition nextBoundary(const VisiblePosition& c, BoundarySearchFunc
         pos = it.range()->startPosition();
     } else if (next != prefixLength) {
         // Use the character iterator to translate the next value into a DOM position.
-        CharacterIterator charIt(searchRange.get(), true);
+        CharacterIterator charIt(searchRange.get(), TextIteratorEmitsCharactersBetweenAllVisiblePositions);
         charIt.advance(next - prefixLength - 1);
         pos = charIt.range()->endPosition();
         
@@ -251,6 +252,12 @@ static VisiblePosition nextBoundary(const VisiblePosition& c, BoundarySearchFunc
 
     // generate VisiblePosition, use UPSTREAM affinity if possible
     return VisiblePosition(pos, VP_UPSTREAM_IF_POSSIBLE);
+}
+
+static bool canHaveCursor(RenderObject* o)
+{
+    return (o->isText() && toRenderText(o)->linesBoundingBox().height())
+        || (o->isBox() && toRenderBox(o)->borderBoundingBox().height());
 }
 
 // ---------
@@ -569,8 +576,12 @@ VisiblePosition previousLinePosition(const VisiblePosition &visiblePosition, int
     visiblePosition.getInlineBoxAndOffset(box, ignoredCaretOffset);
     if (box) {
         root = box->root()->prevRootBox();
-        if (root)
+        // We want to skip zero height boxes.
+        // This could happen in case it is a TrailingFloatsRootInlineBox.
+        if (root && root->height())
             containingBlock = renderer->containingBlock();
+        else
+            root = 0;
     }
 
     if (!root) {
@@ -586,17 +597,20 @@ VisiblePosition previousLinePosition(const VisiblePosition &visiblePosition, int
                 break;
             Position pos(n, caretMinOffset(n));
             if (pos.isCandidate()) {
-                ASSERT(n->renderer());
-                Position maxPos(n, caretMaxOffset(n));
-                maxPos.getInlineBoxAndOffset(DOWNSTREAM, box, ignoredCaretOffset);
-                if (box) {
-                    // previous root line box found
-                    root = box->root();
-                    containingBlock = n->renderer()->containingBlock();
-                    break;
-                }
+                RenderObject* o = n->renderer();
+                ASSERT(o);
+                if (canHaveCursor(o)) {
+                    Position maxPos(n, caretMaxOffset(n));
+                    maxPos.getInlineBoxAndOffset(DOWNSTREAM, box, ignoredCaretOffset);
+                    if (box) {
+                        // previous root line box found
+                        root = box->root();
+                        containingBlock = n->renderer()->containingBlock();
+                        break;
+                    }
 
-                return VisiblePosition(pos, DOWNSTREAM);
+                    return VisiblePosition(pos, DOWNSTREAM);
+                }
             }
             n = previousLeafWithSameEditability(n);
         }
@@ -611,7 +625,7 @@ VisiblePosition previousLinePosition(const VisiblePosition &visiblePosition, int
         Node* node = renderer->node();
         if (node && editingIgnoresContent(node))
             return Position(node->parent(), node->nodeIndex());
-        return renderer->positionForPoint(IntPoint(x - absPos.x(), root->topOverflow()));
+        return renderer->positionForPoint(IntPoint(x - absPos.x(), root->lineTop()));
     }
     
     // Could not find a previous line. This means we must already be on the first line.
@@ -671,8 +685,12 @@ VisiblePosition nextLinePosition(const VisiblePosition &visiblePosition, int x)
     visiblePosition.getInlineBoxAndOffset(box, ignoredCaretOffset);
     if (box) {
         root = box->root()->nextRootBox();
-        if (root)
+        // We want to skip zero height boxes.
+        // This could happen in case it is a TrailingFloatsRootInlineBox.
+        if (root && root->height())
             containingBlock = renderer->containingBlock();
+        else
+            root = 0;
     }
 
     if (!root) {
@@ -712,7 +730,7 @@ VisiblePosition nextLinePosition(const VisiblePosition &visiblePosition, int x)
         Node* node = renderer->node();
         if (node && editingIgnoresContent(node))
             return Position(node->parent(), node->nodeIndex());
-        return renderer->positionForPoint(IntPoint(x - absPos.x(), root->topOverflow()));
+        return renderer->positionForPoint(IntPoint(x - absPos.x(), root->lineTop()));
     }    
 
     // Could not find a next line. This means we must already be on the last line.
@@ -776,12 +794,6 @@ VisiblePosition nextSentencePosition(const VisiblePosition &c)
     return c.honorEditableBoundaryAtOrBefore(next);
 }
 
-static bool renderedAsNonInlineTableOrHR(RenderObject* renderer)
-{
-    return renderer && ((renderer->isTable() && !renderer->isInline()) || renderer->isHR());
-}
-
-// FIXME: Broken for positions before/after images that aren't inline (5027702)
 VisiblePosition startOfParagraph(const VisiblePosition& c)
 {
     Position p = c.deepEquivalent();
@@ -790,7 +802,7 @@ VisiblePosition startOfParagraph(const VisiblePosition& c)
     if (!startNode)
         return VisiblePosition();
     
-    if (renderedAsNonInlineTableOrHR(startNode->renderer()) && p.atLastEditingPositionForNode())
+    if (isRenderedAsNonInlineTableImageOrHR(startNode))
         return firstDeepEditingPositionForNode(startNode);
 
     Node* startBlock = enclosingBlock(startNode);
@@ -841,7 +853,6 @@ VisiblePosition startOfParagraph(const VisiblePosition& c)
     return VisiblePosition(node, offset, DOWNSTREAM);
 }
 
-// FIXME: Broken for positions before/after images that aren't inline (5027702)
 VisiblePosition endOfParagraph(const VisiblePosition &c)
 {    
     if (c.isNull())
@@ -850,7 +861,7 @@ VisiblePosition endOfParagraph(const VisiblePosition &c)
     Position p = c.deepEquivalent();
     Node* startNode = p.node();
 
-    if (renderedAsNonInlineTableOrHR(startNode->renderer()) && p.atFirstEditingPositionForNode())
+    if (isRenderedAsNonInlineTableImageOrHR(startNode))
         return lastDeepEditingPositionForNode(startNode);
     
     Node* startBlock = enclosingBlock(startNode);
@@ -1178,9 +1189,6 @@ VisiblePosition logicalStartOfLine(const VisiblePosition& c)
 {
     VisiblePosition visPos = logicalStartPositionForLine(c);
     
-    if (visPos.isNull())
-        return c.honorEditableBoundaryAtOrAfter(visPos);
-
     return c.honorEditableBoundaryAtOrAfter(visPos);
 }
 

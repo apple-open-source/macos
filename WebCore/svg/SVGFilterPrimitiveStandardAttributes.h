@@ -2,8 +2,6 @@
     Copyright (C) 2004, 2005, 2006, 2007 Nikolas Zimmermann <zimmermann@kde.org>
                   2004, 2005, 2006 Rob Buis <buis@kde.org>
 
-    This file is part of the KDE project
-
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Library General Public
     License as published by the Free Software Foundation; either
@@ -24,40 +22,38 @@
 #define SVGFilterPrimitiveStandardAttributes_h
 
 #if ENABLE(SVG) && ENABLE(FILTERS)
+#include "FilterEffect.h"
 #include "SVGFilterBuilder.h"
-#include "SVGResourceFilter.h"
+#include "SVGNames.h"
 #include "SVGStyledElement.h"
+
+#include <wtf/PassRefPtr.h>
+#include <wtf/RefPtr.h>
 
 namespace WebCore {
 
-    extern char SVGFilterPrimitiveStandardAttributesIdentifier[];
+class SVGFilterPrimitiveStandardAttributes : public SVGStyledElement {
+public:
+    SVGFilterPrimitiveStandardAttributes(const QualifiedName&, Document*);
+    virtual ~SVGFilterPrimitiveStandardAttributes();
+    
+    virtual bool isFilterEffect() const { return true; }
 
-    class SVGResourceFilter;
+    virtual void parseMappedAttribute(MappedAttribute*);
+    virtual void synchronizeProperty(const QualifiedName&);
+    virtual PassRefPtr<FilterEffect> build(SVGFilterBuilder*) = 0;
 
-    class SVGFilterPrimitiveStandardAttributes : public SVGStyledElement {
-    public:
-        SVGFilterPrimitiveStandardAttributes(const QualifiedName&, Document*);
-        virtual ~SVGFilterPrimitiveStandardAttributes();
-        
-        virtual bool isFilterEffect() const { return true; }
+    virtual bool rendererIsNeeded(RenderStyle*) { return false; }
 
-        virtual void parseMappedAttribute(MappedAttribute*);
-        virtual bool build(SVGResourceFilter*) = 0;
+    void setStandardAttributes(bool, FilterEffect*) const;
 
-        virtual bool rendererIsNeeded(RenderStyle*) { return false; }
-
-    protected:
-        friend class SVGResourceFilter;
-        void setStandardAttributes(SVGResourceFilter*, FilterEffect*) const;
-        virtual const SVGElement* contextElement() const { return this; }
-
-    private:
-        ANIMATED_PROPERTY_DECLARATIONS(SVGFilterPrimitiveStandardAttributes, SVGFilterPrimitiveStandardAttributesIdentifier, SVGNames::xAttrString, SVGLength, X, x)
-        ANIMATED_PROPERTY_DECLARATIONS(SVGFilterPrimitiveStandardAttributes, SVGFilterPrimitiveStandardAttributesIdentifier, SVGNames::yAttrString, SVGLength, Y, y)
-        ANIMATED_PROPERTY_DECLARATIONS(SVGFilterPrimitiveStandardAttributes, SVGFilterPrimitiveStandardAttributesIdentifier, SVGNames::widthAttrString, SVGLength, Width, width)
-        ANIMATED_PROPERTY_DECLARATIONS(SVGFilterPrimitiveStandardAttributes, SVGFilterPrimitiveStandardAttributesIdentifier, SVGNames::heightAttrString, SVGLength, Height, height)
-        ANIMATED_PROPERTY_DECLARATIONS(SVGFilterPrimitiveStandardAttributes, SVGFilterPrimitiveStandardAttributesIdentifier, SVGNames::resultAttrString, String, Result, result)
-    };
+private:
+    DECLARE_ANIMATED_PROPERTY(SVGFilterPrimitiveStandardAttributes, SVGNames::xAttr, SVGLength, X, x)
+    DECLARE_ANIMATED_PROPERTY(SVGFilterPrimitiveStandardAttributes, SVGNames::yAttr, SVGLength, Y, y)
+    DECLARE_ANIMATED_PROPERTY(SVGFilterPrimitiveStandardAttributes, SVGNames::widthAttr, SVGLength, Width, width)
+    DECLARE_ANIMATED_PROPERTY(SVGFilterPrimitiveStandardAttributes, SVGNames::heightAttr, SVGLength, Height, height)
+    DECLARE_ANIMATED_PROPERTY(SVGFilterPrimitiveStandardAttributes, SVGNames::resultAttr, String, Result, result)
+};
 
 } // namespace WebCore
 

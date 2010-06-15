@@ -2,8 +2,6 @@
     Copyright (C) 2004, 2005, 2008 Nikolas Zimmermann <zimmermann@kde.org>
                   2004, 2005, 2007 Rob Buis <buis@kde.org>
 
-    This file is part of the KDE project
-
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Library General Public
     License as published by the Free Software Foundation; either
@@ -26,6 +24,7 @@
 #include "SVGScriptElement.h"
 
 #include "Document.h"
+#include "Event.h"
 #include "EventNames.h"
 #include "MappedAttribute.h"
 #include "SVGNames.h"
@@ -83,6 +82,22 @@ void SVGScriptElement::svgAttributeChanged(const QualifiedName& attrName)
             sendSVGLoadEventIfPossible();
         }
     }
+}
+
+void SVGScriptElement::synchronizeProperty(const QualifiedName& attrName)
+{
+    SVGElement::synchronizeProperty(attrName);
+
+    if (attrName == anyQName()) {
+        synchronizeExternalResourcesRequired();
+        synchronizeHref();
+        return;
+    }
+
+    if (SVGExternalResourcesRequired::isKnownAttribute(attrName))
+        synchronizeExternalResourcesRequired();
+    else if (SVGURIReference::isKnownAttribute(attrName))
+        synchronizeHref();
 }
 
 void SVGScriptElement::insertedIntoDocument()
@@ -179,6 +194,11 @@ String SVGScriptElement::forAttributeValue() const
     return String();
 }
 
+String SVGScriptElement::eventAttributeValue() const
+{
+    return String();
+}
+
 void SVGScriptElement::dispatchLoadEvent()
 {
     bool externalResourcesRequired = externalResourcesRequiredBaseValue();
@@ -209,7 +229,7 @@ void SVGScriptElement::dispatchLoadEvent()
 
 void SVGScriptElement::dispatchErrorEvent()
 {
-    dispatchEvent(eventNames().errorEvent, true, false);
+    dispatchEvent(Event::create(eventNames().errorEvent, true, false));
 }
 
 }

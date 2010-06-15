@@ -33,7 +33,6 @@
 **
 */
 
-#define USE_WIDEC_SUPPORT 1
 #include <curses.priv.h>
 
 MODULE_ID("$Id: lib_add_wch.c,v 1.6 2006/12/02 21:19:17 tom Exp $")

@@ -16,6 +16,8 @@
 #ifdef HAVE_DNSSD
 #  include <dns_sd.h>
 #endif /* HAVE_DNSSD */
+#include <cups/pwg-private.h>
+
 
 /*
  * Quota data...
@@ -95,6 +97,7 @@ typedef struct cupsd_printer_s
   cups_array_t	*filters,		/* Filters for queue */
 		*pre_filters;		/* Pre-filters for queue */
   char		*recoverable;		/* com.apple.print.recoverable-message */
+  _pwg_t	*pwg;			/* PWG<->PPD mapping data */
 
 #ifdef HAVE_DNSSD
   char		*reg_name,		/* Name used for service registration */
@@ -141,7 +144,7 @@ extern void		cupsdAddPrinterUser(cupsd_printer_t *p,
 			                    const char *username);
 extern void		cupsdCreateCommonData(void);
 extern void		cupsdDeleteAllPrinters(void);
-extern void		cupsdDeletePrinter(cupsd_printer_t *p, int update);
+extern int		cupsdDeletePrinter(cupsd_printer_t *p, int update);
 extern cupsd_printer_t	*cupsdFindDest(const char *name);
 extern cupsd_printer_t	*cupsdFindPrinter(const char *name);
 extern cupsd_quota_t	*cupsdFindQuota(cupsd_printer_t *p,

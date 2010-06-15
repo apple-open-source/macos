@@ -40,6 +40,7 @@
 #include "NPV8Object.h"
 #include "V8NPObject.h"
 #include "V8Proxy.h"
+#include "npruntime_impl.h"
 #include "npruntime_priv.h"
 
 void convertV8ObjectToNPVariant(v8::Local<v8::Value> object, NPObject* owner, NPVariant* result)
@@ -68,7 +69,7 @@ void convertV8ObjectToNPVariant(v8::Local<v8::Value> object, NPObject* owner, NP
         char* utf8_chars = strdup(*utf8);
         STRINGN_TO_NPVARIANT(utf8_chars, utf8.length(), *result);
     } else if (object->IsObject()) {
-        WebCore::DOMWindow* window = WebCore::V8Proxy::retrieveWindow();
+        WebCore::DOMWindow* window = WebCore::V8Proxy::retrieveWindow(WebCore::V8Proxy::currentContext());
         NPObject* npobject = npCreateV8ScriptObject(0, v8::Handle<v8::Object>::Cast(object), window);
         if (npobject)
             _NPN_RegisterObject(npobject, owner);
@@ -112,18 +113,18 @@ NPIdentifier getStringIdentifier(v8::Handle<v8::String> str)
 {
     const int kStackBufferSize = 100;
 
-    int bufferLength = str->Length() + 1;
+    int bufferLength = str->Utf8Length() + 1;
     if (bufferLength <= kStackBufferSize) {
         // Use local stack buffer to avoid heap allocations for small strings. Here we should only use the stack space for
         // stackBuffer when it's used, not when we use the heap.
         //
-        // WriteAscii is guaranteed to generate a null-terminated string because bufferLength is constructed to be one greater
+        // WriteUtf8 is guaranteed to generate a null-terminated string because bufferLength is constructed to be one greater
         // than the string length.
         char stackBuffer[kStackBufferSize];
-        str->WriteAscii(stackBuffer, 0, bufferLength);
-        return NPN_GetStringIdentifier(stackBuffer);
+        str->WriteUtf8(stackBuffer, bufferLength);
+        return _NPN_GetStringIdentifier(stackBuffer);
     }
 
-    v8::String::AsciiValue ascii(str);
-    return NPN_GetStringIdentifier(*ascii);
+    v8::String::Utf8Value utf8(str);
+    return _NPN_GetStringIdentifier(*utf8);
 }

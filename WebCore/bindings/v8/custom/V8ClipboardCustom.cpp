@@ -29,8 +29,9 @@
  */
 
 #include "config.h"
-#include "Clipboard.h"
+#include "V8Clipboard.h"
 
+#include "Clipboard.h"
 #include "HTMLImageElement.h"
 #include "HTMLNames.h"
 #include "IntPoint.h"
@@ -38,16 +39,15 @@
 #include "Element.h"
 
 #include "V8Binding.h"
-#include "V8CustomBinding.h"
 #include "V8Node.h"
 #include "V8Proxy.h"
 
 namespace WebCore {
 
-ACCESSOR_GETTER(ClipboardTypes)
+v8::Handle<v8::Value> V8Clipboard::typesAccessorGetter(v8::Local<v8::String> name, const v8::AccessorInfo& info)
 {
     INC_STATS("DOM.Clipboard.types()");
-    Clipboard* clipboard = V8DOMWrapper::convertToNativeObject<Clipboard>(V8ClassIndex::CLIPBOARD, info.Holder());
+    Clipboard* clipboard = V8Clipboard::toNative(info.Holder());
 
     HashSet<String> types = clipboard->types();
     if (types.isEmpty())
@@ -62,10 +62,10 @@ ACCESSOR_GETTER(ClipboardTypes)
     return result;
 }
 
-CALLBACK_FUNC_DECL(ClipboardClearData)
+v8::Handle<v8::Value> V8Clipboard::clearDataCallback(const v8::Arguments& args)
 {
     INC_STATS("DOM.Clipboard.clearData()");
-    Clipboard* clipboard = V8DOMWrapper::convertToNativeObject<Clipboard>(V8ClassIndex::CLIPBOARD, args.Holder());
+    Clipboard* clipboard = V8Clipboard::toNative(args.Holder());
 
     if (!args.Length()) {
         clipboard->clearAllData();
@@ -80,10 +80,10 @@ CALLBACK_FUNC_DECL(ClipboardClearData)
     return v8::Undefined();
 }
 
-CALLBACK_FUNC_DECL(ClipboardGetData)
+v8::Handle<v8::Value> V8Clipboard::getDataCallback(const v8::Arguments& args)
 {
     INC_STATS("DOM.Clipboard.getData()");
-    Clipboard* clipboard = V8DOMWrapper::convertToNativeObject<Clipboard>(V8ClassIndex::CLIPBOARD, args.Holder());
+    Clipboard* clipboard = V8Clipboard::toNative(args.Holder());
 
     if (args.Length() != 1)
         return throwError("getData: Invalid number of arguments", V8Proxy::SyntaxError);
@@ -96,10 +96,10 @@ CALLBACK_FUNC_DECL(ClipboardGetData)
     return v8::Undefined();
 }
 
-CALLBACK_FUNC_DECL(ClipboardSetData)
+v8::Handle<v8::Value> V8Clipboard::setDataCallback(const v8::Arguments& args)
 {
     INC_STATS("DOM.Clipboard.setData()");
-    Clipboard* clipboard = V8DOMWrapper::convertToNativeObject<Clipboard>(V8ClassIndex::CLIPBOARD, args.Holder());
+    Clipboard* clipboard = V8Clipboard::toNative(args.Holder());
 
     if (args.Length() != 2)
         return throwError("setData: Invalid number of arguments", V8Proxy::SyntaxError);
@@ -109,10 +109,10 @@ CALLBACK_FUNC_DECL(ClipboardSetData)
     return v8Boolean(clipboard->setData(type, data));
 }
 
-CALLBACK_FUNC_DECL(ClipboardSetDragImage)
+v8::Handle<v8::Value> V8Clipboard::setDragImageCallback(const v8::Arguments& args)
 {
     INC_STATS("DOM.Clipboard.setDragImage()");
-    Clipboard* clipboard = V8DOMWrapper::convertToNativeObject<Clipboard>(V8ClassIndex::CLIPBOARD, args.Holder());
+    Clipboard* clipboard = V8Clipboard::toNative(args.Holder());
 
     if (!clipboard->isForDragging())
         return v8::Undefined();
@@ -125,7 +125,7 @@ CALLBACK_FUNC_DECL(ClipboardSetDragImage)
 
     Node* node = 0;
     if (V8Node::HasInstance(args[0]))
-        node = V8DOMWrapper::convertDOMWrapperToNode<Node>(args[0]);
+        node = V8Node::toNative(v8::Handle<v8::Object>::Cast(args[0]));
 
     if (!node || !node->isElementNode())
         return throwError("setDragImageFromElement: Invalid first argument");

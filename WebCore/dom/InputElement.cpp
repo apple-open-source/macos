@@ -22,6 +22,16 @@
 #include "InputElement.h"
 
 #include "BeforeTextInsertedEvent.h"
+
+#if ENABLE(WCSS)
+#include "CSSPropertyNames.h"
+#include "CSSRule.h"
+#include "CSSRuleList.h"
+#include "CSSStyleRule.h"
+#include "CSSStyleSelector.h"
+#endif
+
+#include "Chrome.h"
 #include "ChromeClient.h"
 #include "Document.h"
 #include "Event.h"
@@ -34,7 +44,6 @@
 #include "RenderTextControlSingleLine.h"
 #include "SelectionController.h"
 #include "TextIterator.h"
-#include "TextBreakIterator.h"
 
 #if ENABLE(WML)
 #include "WMLInputElement.h"
@@ -46,25 +55,23 @@ namespace WebCore {
 using namespace HTMLNames;
 
 // FIXME: According to HTML4, the length attribute's value can be arbitrarily
-// large. However, due to http://bugs.webkit.org/show_bugs.cgi?id=14536 things
+// large. However, due to https://bugs.webkit.org/show_bug.cgi?id=14536 things
 // get rather sluggish when a text field has a larger number of characters than
 // this, even when just clicking in the text field.
 const int InputElement::s_maximumLength = 524288;
 const int InputElement::s_defaultSize = 20;
 
-void InputElement::dispatchFocusEvent(InputElementData& data, InputElement* inputElement, Element* element)
+void InputElement::dispatchFocusEvent(InputElement* inputElement, Element* element)
 {
     if (!inputElement->isTextField())
         return;
-
-    updatePlaceholderVisibility(data, inputElement, element);
 
     Document* document = element->document();
     if (inputElement->isPasswordField() && document->frame())
         document->setUseSecureKeyboardEntryWhenActive(true);
 }
 
-void InputElement::dispatchBlurEvent(InputElementData& data, InputElement* inputElement, Element* element)
+void InputElement::dispatchBlurEvent(InputElement* inputElement, Element* element)
 {
     if (!inputElement->isTextField())
         return;
@@ -74,26 +81,10 @@ void InputElement::dispatchBlurEvent(InputElementData& data, InputElement* input
     if (!frame)
         return;
 
-    updatePlaceholderVisibility(data, inputElement, element);
-
     if (inputElement->isPasswordField())
         document->setUseSecureKeyboardEntryWhenActive(false);
 
     frame->textFieldDidEndEditing(element);
-}
-
-void InputElement::updatePlaceholderVisibility(InputElementData& data, InputElement* inputElement, Element* element, bool placeholderValueChanged)
-{
-    ASSERT(inputElement->isTextField());
-    Document* document = element->document();
-
-    bool oldPlaceholderShouldBeVisible = data.placeholderShouldBeVisible();
-    data.setPlaceholderShouldBeVisible(inputElement->value().isEmpty() 
-                                       && document->focusedNode() != element
-                                       && !inputElement->placeholder().isEmpty());
-
-    if ((oldPlaceholderShouldBeVisible != data.placeholderShouldBeVisible() || placeholderValueChanged) && element->renderer())
-        static_cast<RenderTextControlSingleLine*>(element->renderer())->updatePlaceholderVisibility();
 }
 
 void InputElement::updateFocusAppearance(InputElementData& data, InputElement* inputElement, Element* element, bool restorePreviousSelection)
@@ -116,6 +107,8 @@ void InputElement::updateSelectionRange(InputElement* inputElement, Element* ele
     if (!inputElement->isTextField())
         return;
 
+    element->document()->updateLayoutIgnorePendingStylesheets();
+
     if (RenderTextControl* renderer = toRenderTextControl(element->renderer()))
         renderer->setSelectionRange(start, end);
 }
@@ -135,11 +128,8 @@ void InputElement::aboutToUnload(InputElement* inputElement, Element* element)
 
 void InputElement::setValueFromRenderer(InputElementData& data, InputElement* inputElement, Element* element, const String& value)
 {
-    // Renderer and our event handler are responsible for constraining values.
-    ASSERT(value == inputElement->constrainValue(value) || inputElement->constrainValue(value).isEmpty());
-
-    if (inputElement->isTextField())
-        updatePlaceholderVisibility(data, inputElement, element);
+    // Renderer and our event handler are responsible for sanitizing values.
+    ASSERT_UNUSED(inputElement, value == inputElement->sanitizeValue(value) || inputElement->sanitizeValue(value).isEmpty());
 
     // Workaround for bug where trailing \n is included in the result of textContent.
     // The assert macro above may also be simplified to:  value == constrainValue(value)
@@ -151,84 +141,82 @@ void InputElement::setValueFromRenderer(InputElementData& data, InputElement* in
 
     element->setFormControlValueMatchesRenderer(true);
 
-    // Fire the "input" DOM event
-    element->dispatchEvent(eventNames().inputEvent, true, false);
+    element->dispatchEvent(Event::create(eventNames().inputEvent, true, false));
     notifyFormStateChanged(element);
 }
 
-static int numCharactersInGraphemeClusters(StringImpl* s, int numGraphemeClusters)
+String InputElement::sanitizeValue(const InputElement* inputElement, const String& proposedValue)
 {
-    if (!s)
-        return 0;
-
-    TextBreakIterator* it = characterBreakIterator(s->characters(), s->length());
-    if (!it)
-        return 0;
-
-    for (int i = 0; i < numGraphemeClusters; ++i) {
-        if (textBreakNext(it) == TextBreakDone)
-            return s->length();
+#if ENABLE(WCSS)
+    InputElementData data = const_cast<InputElement*>(inputElement)->data();
+    if (!isConformToInputMask(data, proposedValue)) {
+        if (isConformToInputMask(data, data.value()))
+            return data.value();
+        return String();
     }
-
-    return textBreakCurrent(it);
+#endif
+    return InputElement::sanitizeUserInputValue(inputElement, proposedValue, s_maximumLength);
 }
 
-String InputElement::constrainValue(const InputElement* inputElement, const String& proposedValue, int maxLength)
+String InputElement::sanitizeUserInputValue(const InputElement* inputElement, const String& proposedValue, int maxLength)
 {
-    String string = proposedValue;
     if (!inputElement->isTextField())
-        return string;
+        return proposedValue;
 
+    String string = proposedValue;
     string.replace("\r\n", " ");
     string.replace('\r', ' ');
     string.replace('\n', ' ');
-    
-    StringImpl* s = string.impl();
-    int newLength = numCharactersInGraphemeClusters(s, maxLength);
-    for (int i = 0; i < newLength; ++i) {
-        const UChar& current = (*s)[i];
+
+    unsigned newLength = numCharactersInGraphemeClusters(string, maxLength);
+    for (unsigned i = 0; i < newLength; ++i) {
+        const UChar current = string[i];
         if (current < ' ' && current != '\t') {
             newLength = i;
             break;
         }
     }
-
-    if (newLength < static_cast<int>(string.length()))
-        return string.left(newLength);
-
-    return string;
+    return string.left(newLength);
 }
 
-static int numGraphemeClusters(StringImpl* s)
-{
-    if (!s)
-        return 0;
-
-    TextBreakIterator* it = characterBreakIterator(s->characters(), s->length());
-    if (!it)
-        return 0;
-
-    int num = 0;
-    while (textBreakNext(it) != TextBreakDone)
-        ++num;
-
-    return num;
-}
-
-void InputElement::handleBeforeTextInsertedEvent(InputElementData& data, InputElement* inputElement, Document* document, Event* event)
+void InputElement::handleBeforeTextInsertedEvent(InputElementData& data, InputElement* inputElement, Element* element, Event* event)
 {
     ASSERT(event->isBeforeTextInsertedEvent());
-
     // Make sure that the text to be inserted will not violate the maxLength.
-    int oldLength = numGraphemeClusters(inputElement->value().impl());
-    ASSERT(oldLength <= data.maxLength());
-    int selectionLength = numGraphemeClusters(plainText(document->frame()->selection()->selection().toNormalizedRange().get()).impl());
+
+    // We use RenderTextControlSingleLine::text() instead of InputElement::value()
+    // because they can be mismatched by sanitizeValue() in
+    // RenderTextControlSingleLine::subtreeHasChanged() in some cases.
+    unsigned oldLength = numGraphemeClusters(toRenderTextControlSingleLine(element->renderer())->text());
+
+    // selectionLength represents the selection length of this text field to be
+    // removed by this insertion.
+    // If the text field has no focus, we don't need to take account of the
+    // selection length. The selection is the source of text drag-and-drop in
+    // that case, and nothing in the text field will be removed.
+    unsigned selectionLength = element->focused() ? numGraphemeClusters(plainText(element->document()->frame()->selection()->selection().toNormalizedRange().get())) : 0;
     ASSERT(oldLength >= selectionLength);
-    int maxNewLength = data.maxLength() - (oldLength - selectionLength);
+
+    // Selected characters will be removed by the next text event.
+    unsigned baseLength = oldLength - selectionLength;
+    unsigned maxLength = static_cast<unsigned>(data.maxLength()); // maxLength() can never be negative.
+    unsigned appendableLength = maxLength > baseLength ? maxLength - baseLength : 0;
 
     // Truncate the inserted text to avoid violating the maxLength and other constraints.
     BeforeTextInsertedEvent* textEvent = static_cast<BeforeTextInsertedEvent*>(event);
-    textEvent->setText(constrainValue(inputElement, textEvent->text(), maxNewLength));
+#if ENABLE(WCSS)
+    RefPtr<Range> range = element->document()->frame()->selection()->selection().toNormalizedRange();
+    String candidateString = toRenderTextControlSingleLine(element->renderer())->text();
+    if (selectionLength)
+        candidateString.replace(range->startOffset(), range->endOffset(), textEvent->text());
+    else
+        candidateString.insert(textEvent->text(), range->startOffset());
+    if (!isConformToInputMask(inputElement->data(), candidateString)) {
+        textEvent->setText("");
+        return;
+      }
+#endif
+    textEvent->setText(sanitizeUserInputValue(inputElement, textEvent->text(), appendableLength));
 }
 
 void InputElement::parseSizeAttribute(InputElementData& data, Element* element, MappedAttribute* attribute)
@@ -257,7 +245,7 @@ void InputElement::parseMaxLengthAttribute(InputElementData& data, InputElement*
 void InputElement::updateValueIfNeeded(InputElementData& data, InputElement* inputElement)
 {
     String oldValue = data.value();
-    String newValue = inputElement->constrainValue(oldValue);
+    String newValue = sanitizeValue(inputElement, oldValue);
     if (newValue != oldValue)
         inputElement->setValue(newValue);
 }
@@ -275,11 +263,14 @@ void InputElement::notifyFormStateChanged(Element* element)
 
 // InputElementData
 InputElementData::InputElementData()
-    : m_placeholderShouldBeVisible(false)
-    , m_size(InputElement::s_defaultSize)
+    : m_size(InputElement::s_defaultSize)
     , m_maxLength(InputElement::s_maximumLength)
     , m_cachedSelectionStart(-1)
     , m_cachedSelectionEnd(-1)
+#if ENABLE(WCSS)
+    , m_inputFormatMask("*m")
+    , m_maxInputCharsAllowed(InputElement::s_maximumLength)
+#endif
 {
 }
 
@@ -300,5 +291,138 @@ InputElement* toInputElement(Element* element)
 
     return 0;
 }
+
+#if ENABLE(WCSS)
+static inline const AtomicString& formatCodes()
+{
+    DEFINE_STATIC_LOCAL(AtomicString, codes, ("AaNnXxMm"));
+    return codes;
+}
+
+static unsigned cursorPositionToMaskIndex(const String& inputFormatMask, unsigned cursorPosition)
+{
+    UChar mask;
+    int index = -1;
+    do {
+        mask = inputFormatMask[++index];
+        if (mask == '\\')
+            ++index;
+        else if (mask == '*' || (isASCIIDigit(mask) && mask != '0')) {
+            index = inputFormatMask.length() - 1;
+            break;
+        }
+    } while (cursorPosition--);
+
+    return index;
+}
+
+bool InputElement::isConformToInputMask(const InputElementData& data, const String& inputChars)
+{
+    for (unsigned i = 0; i < inputChars.length(); ++i)
+        if (!isConformToInputMask(data, inputChars[i], i))
+            return false;
+    return true;
+}
+
+bool InputElement::isConformToInputMask(const InputElementData& data, UChar inChar, unsigned cursorPosition)
+{
+    String inputFormatMask = data.inputFormatMask();
+
+    if (inputFormatMask.isEmpty() || inputFormatMask == "*M" || inputFormatMask == "*m")
+        return true;
+
+    if (cursorPosition >= data.maxInputCharsAllowed())
+        return false;
+
+    unsigned maskIndex = cursorPositionToMaskIndex(inputFormatMask, cursorPosition);
+    bool ok = true;
+    UChar mask = inputFormatMask[maskIndex];
+    // Match the inputed character with input mask
+    switch (mask) {
+    case 'A':
+        ok = !isASCIIDigit(inChar) && !isASCIILower(inChar) && isASCIIPrintable(inChar);
+        break;
+    case 'a':
+        ok = !isASCIIDigit(inChar) && !isASCIIUpper(inChar) && isASCIIPrintable(inChar);
+        break;
+    case 'N':
+        ok = isASCIIDigit(inChar);
+        break;
+    case 'n':
+        ok = !isASCIIAlpha(inChar) && isASCIIPrintable(inChar);
+        break;
+    case 'X':
+        ok = !isASCIILower(inChar) && isASCIIPrintable(inChar);
+        break;
+    case 'x':
+        ok = !isASCIIUpper(inChar) && isASCIIPrintable(inChar);
+        break;
+    case 'M':
+    case 'm':
+        ok = isASCIIPrintable(inChar);
+        break;
+    default:
+        ok = (mask == inChar);
+        break;
+    }
+
+    return ok;
+}
+
+String InputElement::validateInputMask(InputElementData& data, String& inputMask)
+{
+    inputMask.replace("\\\\", "\\");
+
+    bool isValid = true;
+    bool hasWildcard = false;
+    unsigned escapeCharCount = 0;
+    unsigned maskLength = inputMask.length();
+    UChar formatCode;
+    for (unsigned i = 0; i < maskLength; ++i) {
+        formatCode = inputMask[i];
+        if (formatCodes().find(formatCode) == -1) {
+            if (formatCode == '*' || (isASCIIDigit(formatCode) && formatCode != '0')) {
+                // Validate codes which ends with '*f' or 'nf'
+                formatCode = inputMask[++i];
+                if ((i + 1 != maskLength) || formatCodes().find(formatCode) == -1) {
+                    isValid = false;
+                    break;
+                }
+                hasWildcard = true;
+            } else if (formatCode == '\\') {
+                // skip over the next mask character
+                ++i;
+                ++escapeCharCount;
+            } else {
+                isValid = false;
+                break;
+            }
+        }
+    }
+
+    if (!isValid)
+        return String();
+    // calculate the number of characters allowed to be entered by input mask
+    unsigned allowedLength = maskLength;
+    if (escapeCharCount)
+        allowedLength -= escapeCharCount;
+
+    if (hasWildcard) {
+        formatCode = inputMask[maskLength - 2];
+        if (formatCode == '*')
+            allowedLength = data.maxInputCharsAllowed();
+        else {
+            unsigned leftLen = String(&formatCode).toInt();
+            allowedLength = leftLen + allowedLength - 2;
+        }
+    }
+
+    if (allowedLength < data.maxInputCharsAllowed())
+        data.setMaxInputCharsAllowed(allowedLength);
+
+    return inputMask;
+}
+
+#endif
 
 }

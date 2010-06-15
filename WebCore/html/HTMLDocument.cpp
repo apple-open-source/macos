@@ -55,7 +55,6 @@
 
 #include "CSSPropertyNames.h"
 #include "CSSStyleSelector.h"
-#include "CString.h"
 #include "CookieJar.h"
 #include "DocumentLoader.h"
 #include "DocumentType.h"
@@ -72,6 +71,7 @@
 #include "InspectorController.h"
 #include "KURL.h"
 #include "Page.h"
+#include <wtf/text/CString.h>
 
 #include "DocTypeStrings.cpp"
 
@@ -80,7 +80,7 @@ namespace WebCore {
 using namespace HTMLNames;
 
 HTMLDocument::HTMLDocument(Frame* frame)
-    : Document(frame, false)
+    : Document(frame, false, true)
 {
     clearXMLVersion();
     setParseMode(Compat);
@@ -109,14 +109,14 @@ String HTMLDocument::dir()
     HTMLElement* b = body();
     if (!b)
         return String();
-    return b->dir();
+    return b->getAttribute(dirAttr);
 }
 
 void HTMLDocument::setDir(const String& value)
 {
     HTMLElement* b = body();
     if (b)
-        b->setDir(value);
+        b->setAttribute(dirAttr, value);
 }
 
 String HTMLDocument::designMode() const
@@ -284,8 +284,10 @@ void HTMLDocument::releaseEvents()
 Tokenizer *HTMLDocument::createTokenizer()
 {
     bool reportErrors = false;
+#if ENABLE(INSPECTOR)
     if (Page* page = this->page())
         reportErrors = page->inspectorController()->windowVisible();
+#endif
 
     return new HTMLTokenizer(this, reportErrors);
 }
@@ -305,38 +307,21 @@ PassRefPtr<Element> HTMLDocument::createElement(const AtomicString& name, Except
         ec = INVALID_CHARACTER_ERR;
         return 0;
     }
-    AtomicString lowerName = name.string().impl()->isLower() ? name : AtomicString(name.string().lower());
-    return HTMLElementFactory::createHTMLElement(QualifiedName(nullAtom, lowerName, xhtmlNamespaceURI), this, 0, false);
+    return HTMLElementFactory::createHTMLElement(QualifiedName(nullAtom, name.lower(), xhtmlNamespaceURI), this, 0, false);
 }
 
-static void addItemToMap(HTMLDocument::NameCountMap& map, const AtomicString& name)
+static void addItemToMap(HashCountedSet<AtomicStringImpl*>& map, const AtomicString& name)
 {
     if (name.isEmpty())
         return;
- 
-    HTMLDocument::NameCountMap::iterator it = map.find(name.impl()); 
-    if (it == map.end())
-        map.set(name.impl(), 1);
-    else
-        ++(it->second);
+    map.add(name.impl());
 }
 
-static void removeItemFromMap(HTMLDocument::NameCountMap& map, const AtomicString& name)
+static void removeItemFromMap(HashCountedSet<AtomicStringImpl*>& map, const AtomicString& name)
 {
     if (name.isEmpty())
         return;
- 
-    HTMLDocument::NameCountMap::iterator it = map.find(name.impl()); 
-    if (it == map.end())
-        return;
-
-    int oldVal = it->second;
-    ASSERT(oldVal != 0);
-    int newVal = oldVal - 1;
-    if (newVal == 0)
-        map.remove(it);
-    else
-        it->second = newVal;
+    map.remove(name.impl());
 }
 
 void HTMLDocument::addNamedItem(const AtomicString& name)
@@ -344,7 +329,7 @@ void HTMLDocument::addNamedItem(const AtomicString& name)
     addItemToMap(m_namedItemCounts, name);
 }
 
-void HTMLDocument::removeNamedItem(const AtomicString &name)
+void HTMLDocument::removeNamedItem(const AtomicString& name)
 { 
     removeItemFromMap(m_namedItemCounts, name);
 }
@@ -413,8 +398,11 @@ void HTMLDocument::determineParseMode()
         }
     }
     
-    if (inCompatMode() != wasInCompatMode)
+    if (inCompatMode() != wasInCompatMode) {
+        clearPageUserSheet();
+        clearPageGroupUserSheets();
         updateStyleSelector();
+    }
 }
 
 void HTMLDocument::clear()

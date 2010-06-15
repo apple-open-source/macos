@@ -2,8 +2,6 @@
     Copyright (C) 2004, 2005, 2007 Nikolas Zimmermann <zimmermann@kde.org>
                   2004, 2005 Rob Buis <buis@kde.org>
 
-    This file is part of the KDE project
-
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Library General Public
     License as published by the Free Software Foundation; either
@@ -28,13 +26,11 @@
 #include "Attr.h"
 #include "MappedAttribute.h"
 #include "SVGRenderStyle.h"
-#include "SVGResourceFilter.h"
 
 namespace WebCore {
 
 SVGFETileElement::SVGFETileElement(const QualifiedName& tagName, Document* doc)
     : SVGFilterPrimitiveStandardAttributes(tagName, doc)
-    , m_in1(this, SVGNames::inAttr)
 {
 }
 
@@ -51,17 +47,22 @@ void SVGFETileElement::parseMappedAttribute(MappedAttribute* attr)
         SVGFilterPrimitiveStandardAttributes::parseMappedAttribute(attr);
 }
 
-bool SVGFETileElement::build(SVGResourceFilter* filterResource)
+void SVGFETileElement::synchronizeProperty(const QualifiedName& attrName)
 {
-    FilterEffect* input1 = filterResource->builder()->getEffectById(in1());
+    SVGFilterPrimitiveStandardAttributes::synchronizeProperty(attrName);
 
-    if(!input1)
-        return false;
+    if (attrName == anyQName() || attrName == SVGNames::inAttr)
+        synchronizeIn1();
+}
 
-    RefPtr<FilterEffect> effect = FETile::create(input1);
-    filterResource->addFilterEffect(this, effect.release());
-    
-    return true;
+PassRefPtr<FilterEffect> SVGFETileElement::build(SVGFilterBuilder* filterBuilder)
+{
+    FilterEffect* input1 = filterBuilder->getEffectById(in1());
+
+    if (!input1)
+        return 0;
+
+    return FETile::create(input1);
 }
 
 }

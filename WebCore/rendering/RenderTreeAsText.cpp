@@ -34,19 +34,25 @@
 #include "HTMLElement.h"
 #include "HTMLNames.h"
 #include "InlineTextBox.h"
+#include "PrintContext.h"
 #include "RenderBR.h"
+#include "RenderFileUploadControl.h"
 #include "RenderInline.h"
+#include "RenderListItem.h"
 #include "RenderListMarker.h"
+#include "RenderPart.h"
 #include "RenderTableCell.h"
 #include "RenderView.h"
 #include "RenderWidget.h"
 #include "SelectionController.h"
 #include "TextStream.h"
+#include <wtf/UnusedParam.h>
 #include <wtf/Vector.h>
 
 #if ENABLE(SVG)
 #include "RenderPath.h"
 #include "RenderSVGContainer.h"
+#include "RenderSVGGradientStop.h"
 #include "RenderSVGImage.h"
 #include "RenderSVGInlineText.h"
 #include "RenderSVGRoot.h"
@@ -54,11 +60,19 @@
 #include "SVGRenderTreeAsText.h"
 #endif
 
+#if USE(ACCELERATED_COMPOSITING)
+#include "RenderLayerBacking.h"
+#endif
+
+#if PLATFORM(QT)
+#include <QWidget>
+#endif
+
 namespace WebCore {
 
 using namespace HTMLNames;
 
-static void writeLayers(TextStream&, const RenderLayer* rootLayer, RenderLayer*, const IntRect& paintDirtyRect, int indent = 0);
+static void writeLayers(TextStream&, const RenderLayer* rootLayer, RenderLayer*, const IntRect& paintDirtyRect, int indent = 0, RenderAsTextBehavior behavior = RenderAsTextBehaviorNormal);
 
 #if !ENABLE(SVG)
 static TextStream &operator<<(TextStream& ts, const IntRect& r)
@@ -166,9 +180,12 @@ String quoteAndEscapeNonPrintables(const String& s)
     return String::adopt(result);
 }
 
-static TextStream &operator<<(TextStream& ts, const RenderObject& o)
+void RenderTreeAsText::writeRenderObject(TextStream& ts, const RenderObject& o, RenderAsTextBehavior behavior)
 {
     ts << o.renderName();
+
+    if (behavior & RenderAsTextShowAddresses)
+        ts << " " << &o;
 
     if (o.style() && o.style()->zIndex())
         ts << " zI: " << o.style()->zIndex();
@@ -204,18 +221,21 @@ static TextStream &operator<<(TextStream& ts, const RenderObject& o)
         // FIXME: Deliberately dump the "inner" box of table cells, since that is what current results reflect.  We'd like
         // to clean up the results to dump both the outer box and the intrinsic padding so that both bits of information are
         // captured by the results.
-        const RenderTableCell& cell = static_cast<const RenderTableCell&>(o);
+        const RenderTableCell& cell = *toRenderTableCell(&o);
         r = IntRect(cell.x(), cell.y() + cell.intrinsicPaddingTop(), cell.width(), cell.height() - cell.intrinsicPaddingTop() - cell.intrinsicPaddingBottom());
     } else if (o.isBox())
         r = toRenderBox(&o)->frameRect();
 
     // FIXME: Temporary in order to ensure compatibility with existing layout test results.
     if (adjustForTableCells)
-        r.move(0, -static_cast<RenderTableCell*>(o.containingBlock())->intrinsicPaddingTop());
+        r.move(0, -toRenderTableCell(o.containingBlock())->intrinsicPaddingTop());
 
     ts << " " << r;
 
     if (!(o.isText() && !o.isBR())) {
+        if (o.isFileUploadControl()) {
+            ts << " " << quoteAndEscapeNonPrintables(toRenderFileUploadControl(&o)->fileTextValue());
+        }
         if (o.parent() && (o.parent()->style()->color() != o.style()->color()))
             ts << " [color=" << o.style()->color().name() << "]";
 
@@ -239,7 +259,7 @@ static TextStream &operator<<(TextStream& ts, const RenderObject& o)
             ts << " [textStrokeWidth=" << o.style()->textStrokeWidth() << "]";
 
         if (!o.isBoxModelObject())
-            return ts;
+            return;
 
         const RenderBoxModelObject& box = *toRenderBoxModelObject(&o);
         if (box.borderTop() || box.borderRight() || box.borderBottom() || box.borderLeft()) {
@@ -307,12 +327,12 @@ static TextStream &operator<<(TextStream& ts, const RenderObject& o)
     }
 
     if (o.isTableCell()) {
-        const RenderTableCell& c = static_cast<const RenderTableCell&>(o);
+        const RenderTableCell& c = *toRenderTableCell(&o);
         ts << " [r=" << c.row() << " c=" << c.col() << " rs=" << c.rowSpan() << " cs=" << c.colSpan() << "]";
     }
 
     if (o.isListMarker()) {
-        String text = static_cast<const RenderListMarker&>(o).text();
+        String text = toRenderListMarker(&o)->text();
         if (!text.isEmpty()) {
             if (text.length() != 1)
                 text = quoteAndEscapeNonPrintables(text);
@@ -335,7 +355,23 @@ static TextStream &operator<<(TextStream& ts, const RenderObject& o)
         }
     }
 
-    return ts;
+#if PLATFORM(QT)
+    // Print attributes of embedded QWidgets. E.g. when the WebCore::Widget
+    // is invisible the QWidget should be invisible too.
+    if (o.isRenderPart()) {
+        const RenderPart* part = toRenderPart(const_cast<RenderObject*>(&o));
+        if (part->widget() && part->widget()->platformWidget()) {
+            QWidget* wid = part->widget()->platformWidget();
+
+            ts << " [QT: ";
+            ts << "geometry: {" << wid->geometry() << "} ";
+            ts << "isHidden: " << wid->isHidden() << " ";
+            ts << "isSelfVisible: " << part->widget()->isSelfVisible() << " ";
+            ts << "isParentVisible: " << part->widget()->isParentVisible() << " ";
+            ts << "mask: {" << wid->mask().boundingRect() << "} ] ";
+        }
+    }
+#endif
 }
 
 static void writeTextRun(TextStream& ts, const RenderText& o, const InlineTextBox& run)
@@ -343,7 +379,7 @@ static void writeTextRun(TextStream& ts, const RenderText& o, const InlineTextBo
     // FIXME: Table cell adjustment is temporary until results can be updated.
     int y = run.m_y;
     if (o.containingBlock()->isTableCell())
-        y -= static_cast<RenderTableCell*>(o.containingBlock())->intrinsicPaddingTop();
+        y -= toRenderTableCell(o.containingBlock())->intrinsicPaddingTop();
     ts << "text run at (" << run.m_x << "," << y << ") width " << run.m_width;
     if (run.direction() == RTL || run.m_dirOverride) {
         ts << (run.direction() == RTL ? " RTL" : " LTR");
@@ -355,37 +391,46 @@ static void writeTextRun(TextStream& ts, const RenderText& o, const InlineTextBo
         << "\n";
 }
 
-void write(TextStream& ts, const RenderObject& o, int indent)
+void write(TextStream& ts, const RenderObject& o, int indent, RenderAsTextBehavior behavior)
 {
 #if ENABLE(SVG)
     if (o.isRenderPath()) {
-        write(ts, static_cast<const RenderPath&>(o), indent);
+        write(ts, *toRenderPath(&o), indent);
+        return;
+    }
+    if (o.isSVGGradientStop()) {
+        writeSVGGradientStop(ts, *toRenderSVGGradientStop(&o), indent);
+        return;
+    }
+    if (o.isSVGResourceContainer()) {
+        writeSVGResourceContainer(ts, o, indent);
         return;
     }
     if (o.isSVGContainer()) {
-        write(ts, static_cast<const RenderSVGContainer&>(o), indent);
+        writeSVGContainer(ts, o, indent);
         return;
     }
     if (o.isSVGRoot()) {
-        write(ts, static_cast<const RenderSVGRoot&>(o), indent);
+        write(ts, *toRenderSVGRoot(&o), indent);
         return;
     }
     if (o.isSVGText()) {
         if (!o.isText())
-            write(ts, static_cast<const RenderSVGText&>(o), indent);
+            writeSVGText(ts, *toRenderBlock(&o), indent);
         else
-            write(ts, static_cast<const RenderSVGInlineText&>(o), indent);
+            writeSVGInlineText(ts, *toRenderText(&o), indent);
         return;
     }
     if (o.isSVGImage()) {
-        write(ts, static_cast<const RenderSVGImage&>(o), indent);
+        writeSVGImage(ts, *toRenderImage(&o), indent);
         return;
     }
 #endif
 
     writeIndent(ts, indent);
 
-    ts << o << "\n";
+    RenderTreeAsText::writeRenderObject(ts, o, behavior);
+    ts << "\n";
 
     if (o.isText() && !o.isBR()) {
         const RenderText& text = *toRenderText(&o);
@@ -398,11 +443,11 @@ void write(TextStream& ts, const RenderObject& o, int indent)
     for (RenderObject* child = o.firstChild(); child; child = child->nextSibling()) {
         if (child->hasLayer())
             continue;
-        write(ts, *child, indent + 1);
+        write(ts, *child, indent + 1, behavior);
     }
 
     if (o.isWidget()) {
-        Widget* widget = static_cast<const RenderWidget&>(o).widget();
+        Widget* widget = toRenderWidget(&o)->widget();
         if (widget && widget->isFrameView()) {
             FrameView* view = static_cast<FrameView*>(widget);
             RenderView* root = view->frame()->contentRenderer();
@@ -410,19 +455,30 @@ void write(TextStream& ts, const RenderObject& o, int indent)
                 view->layout();
                 RenderLayer* l = root->layer();
                 if (l)
-                    writeLayers(ts, l, l, IntRect(l->x(), l->y(), l->width(), l->height()), indent + 1);
+                    writeLayers(ts, l, l, IntRect(l->x(), l->y(), l->width(), l->height()), indent + 1, behavior);
             }
         }
     }
 }
 
+enum LayerPaintPhase {
+    LayerPaintPhaseAll = 0,
+    LayerPaintPhaseBackground = -1,
+    LayerPaintPhaseForeground = 1
+};
+
 static void write(TextStream& ts, RenderLayer& l,
                   const IntRect& layerBounds, const IntRect& backgroundClipRect, const IntRect& clipRect, const IntRect& outlineClipRect,
-                  int layerType = 0, int indent = 0)
+                  LayerPaintPhase paintPhase = LayerPaintPhaseAll, int indent = 0, RenderAsTextBehavior behavior = RenderAsTextBehaviorNormal)
 {
     writeIndent(ts, indent);
 
-    ts << "layer " << layerBounds;
+    ts << "layer ";
+    
+    if (behavior & RenderAsTextShowAddresses)
+        ts << &l << " ";
+      
+    ts << layerBounds;
 
     if (!layerBounds.isEmpty()) {
         if (!backgroundClipRect.contains(layerBounds))
@@ -444,19 +500,28 @@ static void write(TextStream& ts, RenderLayer& l,
             ts << " scrollHeight " << l.scrollHeight();
     }
 
-    if (layerType == -1)
+    if (paintPhase == LayerPaintPhaseBackground)
         ts << " layerType: background only";
-    else if (layerType == 1)
+    else if (paintPhase == LayerPaintPhaseForeground)
         ts << " layerType: foreground only";
-
+    
+#if USE(ACCELERATED_COMPOSITING)
+    if (behavior & RenderAsTextShowCompositedLayers) {
+        if (l.isComposited())
+            ts << " (composited, bounds " << l.backing()->compositedBounds() << ")";
+    }
+#else
+    UNUSED_PARAM(behavior);
+#endif
+    
     ts << "\n";
 
-    if (layerType != -1)
-        write(ts, *l.renderer(), indent + 1);
+    if (paintPhase != LayerPaintPhaseBackground)
+        write(ts, *l.renderer(), indent + 1, behavior);
 }
 
 static void writeLayers(TextStream& ts, const RenderLayer* rootLayer, RenderLayer* l,
-                        const IntRect& paintDirtyRect, int indent)
+                        const IntRect& paintDirtyRect, int indent, RenderAsTextBehavior behavior)
 {
     // Calculate the clip rects we should use.
     IntRect layerBounds, damageRect, clipRectToApply, outlineRect;
@@ -466,29 +531,46 @@ static void writeLayers(TextStream& ts, const RenderLayer* rootLayer, RenderLaye
     l->updateZOrderLists();
     l->updateNormalFlowList();
 
-    bool shouldPaint = l->intersectsDamageRect(layerBounds, damageRect, rootLayer);
+    bool shouldPaint = (behavior & RenderAsTextShowAllLayers) ? true : l->intersectsDamageRect(layerBounds, damageRect, rootLayer);
     Vector<RenderLayer*>* negList = l->negZOrderList();
-    if (shouldPaint && negList && negList->size() > 0)
-        write(ts, *l, layerBounds, damageRect, clipRectToApply, outlineRect, -1, indent);
+    bool paintsBackgroundSeparately = negList && negList->size() > 0;
+    if (shouldPaint && paintsBackgroundSeparately)
+        write(ts, *l, layerBounds, damageRect, clipRectToApply, outlineRect, LayerPaintPhaseBackground, indent, behavior);
 
     if (negList) {
+        int currIndent = indent;
+        if (behavior & RenderAsTextShowLayerNesting) {
+            writeIndent(ts, indent);
+            ts << " negative z-order list(" << negList->size() << ")\n";
+            ++currIndent;
+        }
         for (unsigned i = 0; i != negList->size(); ++i)
-            writeLayers(ts, rootLayer, negList->at(i), paintDirtyRect, indent);
+            writeLayers(ts, rootLayer, negList->at(i), paintDirtyRect, currIndent, behavior);
     }
 
     if (shouldPaint)
-        write(ts, *l, layerBounds, damageRect, clipRectToApply, outlineRect, negList && negList->size() > 0, indent);
+        write(ts, *l, layerBounds, damageRect, clipRectToApply, outlineRect, paintsBackgroundSeparately ? LayerPaintPhaseForeground : LayerPaintPhaseAll, indent, behavior);
 
-    Vector<RenderLayer*>* normalFlowList = l->normalFlowList();
-    if (normalFlowList) {
+    if (Vector<RenderLayer*>* normalFlowList = l->normalFlowList()) {
+        int currIndent = indent;
+        if (behavior & RenderAsTextShowLayerNesting) {
+            writeIndent(ts, indent);
+            ts << " normal flow list(" << normalFlowList->size() << ")\n";
+            ++currIndent;
+        }
         for (unsigned i = 0; i != normalFlowList->size(); ++i)
-            writeLayers(ts, rootLayer, normalFlowList->at(i), paintDirtyRect, indent);
+            writeLayers(ts, rootLayer, normalFlowList->at(i), paintDirtyRect, currIndent, behavior);
     }
 
-    Vector<RenderLayer*>* posList = l->posZOrderList();
-    if (posList) {
+    if (Vector<RenderLayer*>* posList = l->posZOrderList()) {
+        int currIndent = indent;
+        if (behavior & RenderAsTextShowLayerNesting) {
+            writeIndent(ts, indent);
+            ts << " positive z-order list(" << posList->size() << ")\n";
+            ++currIndent;
+        }
         for (unsigned i = 0; i != posList->size(); ++i)
-            writeLayers(ts, rootLayer, posList->at(i), paintDirtyRect, indent);
+            writeLayers(ts, rootLayer, posList->at(i), paintDirtyRect, currIndent, behavior);
     }
 }
 
@@ -534,23 +616,72 @@ static void writeSelection(TextStream& ts, const RenderObject* o)
            << "selection end:   position " << selection.end().deprecatedEditingOffset() << " of " << nodePosition(selection.end().node()) << "\n";
 }
 
-String externalRepresentation(RenderObject* o)
+String externalRepresentation(Frame* frame, RenderAsTextBehavior behavior)
 {
+    PrintContext printContext(frame);
+    if (behavior & RenderAsTextPrintingMode) {
+        if (!frame->contentRenderer())
+            return String();
+        printContext.begin(frame->contentRenderer()->width());
+    }
+
+    frame->document()->updateLayout();
+
+    RenderObject* o = frame->contentRenderer();
     if (!o)
         return String();
 
     TextStream ts;
-#if ENABLE(SVG)
-    writeRenderResources(ts, o->document());
-#endif
-    if (o->view()->frameView())
-        o->view()->frameView()->layout();
     if (o->hasLayer()) {
         RenderLayer* l = toRenderBox(o)->layer();
-        writeLayers(ts, l, l, IntRect(l->x(), l->y(), l->width(), l->height()));
+        writeLayers(ts, l, l, IntRect(l->x(), l->y(), l->width(), l->height()), 0, behavior);
         writeSelection(ts, o);
     }
     return ts.release();
+}
+
+static void writeCounterValuesFromChildren(TextStream& stream, RenderObject* parent, bool& isFirstCounter)
+{
+    for (RenderObject* child = parent->firstChild(); child; child = child->nextSibling()) {
+        if (child->isCounter()) {
+            if (!isFirstCounter)
+                stream << " ";
+            isFirstCounter = false;
+            String str(toRenderText(child)->text());
+            stream << str;
+        }
+    }
+}
+
+String counterValueForElement(Element* element)
+{
+    // Make sure the element is not freed during the layout.
+    RefPtr<Element> elementRef(element);
+    element->document()->updateLayout();
+    TextStream stream;
+    bool isFirstCounter = true;
+    // The counter renderers should be children of anonymous children
+    // (i.e., :before or :after pseudo-elements).
+    if (RenderObject* renderer = element->renderer()) {
+        for (RenderObject* child = renderer->firstChild(); child; child = child->nextSibling()) {
+            if (child->isAnonymous())
+                writeCounterValuesFromChildren(stream, child, isFirstCounter);
+        }
+    }
+    return stream.release();
+}
+
+String markerTextForListItem(Element* element)
+{
+    // Make sure the element is not freed during the layout.
+    RefPtr<Element> elementRef(element);
+    element->document()->updateLayout();
+
+    RenderObject* renderer = element->renderer();
+    if (!renderer || !renderer->isListItem())
+        return String();
+
+    return toRenderListItem(renderer)->markerText();
 }
 
 } // namespace WebCore

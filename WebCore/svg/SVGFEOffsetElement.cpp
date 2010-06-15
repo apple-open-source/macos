@@ -2,8 +2,6 @@
     Copyright (C) 2004, 2005, 2007 Nikolas Zimmermann <zimmermann@kde.org>
                   2004, 2005 Rob Buis <buis@kde.org>
 
-    This file is part of the KDE project
-
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Library General Public
     License as published by the Free Software Foundation; either
@@ -27,15 +25,11 @@
 
 #include "Attr.h"
 #include "MappedAttribute.h"
-#include "SVGResourceFilter.h"
 
 namespace WebCore {
 
 SVGFEOffsetElement::SVGFEOffsetElement(const QualifiedName& tagName, Document* doc)
     : SVGFilterPrimitiveStandardAttributes(tagName, doc)
-    , m_in1(this, SVGNames::inAttr)
-    , m_dx(this, SVGNames::dxAttr)
-    , m_dy(this, SVGNames::dyAttr)
 {
 }
 
@@ -56,17 +50,33 @@ void SVGFEOffsetElement::parseMappedAttribute(MappedAttribute* attr)
         SVGFilterPrimitiveStandardAttributes::parseMappedAttribute(attr);
 }
 
-bool SVGFEOffsetElement::build(SVGResourceFilter* filterResource)
+void SVGFEOffsetElement::synchronizeProperty(const QualifiedName& attrName)
 {
-    FilterEffect* input1 = filterResource->builder()->getEffectById(in1());
+    SVGFilterPrimitiveStandardAttributes::synchronizeProperty(attrName);
 
-    if(!input1)
-        return false;
+    if (attrName == anyQName()) {
+        synchronizeDx();
+        synchronizeDy();
+        synchronizeIn1();
+        return;
+    }
 
-    RefPtr<FilterEffect> effect = FEOffset::create(input1, dx(), dy());
-    filterResource->addFilterEffect(this, effect.release());
+    if (attrName == SVGNames::dxAttr)
+        synchronizeDx();
+    else if (attrName == SVGNames::dyAttr)
+        synchronizeDy();
+    else if (attrName == SVGNames::inAttr)
+        synchronizeIn1();
+}
 
-    return true;
+PassRefPtr<FilterEffect> SVGFEOffsetElement::build(SVGFilterBuilder* filterBuilder)
+{
+    FilterEffect* input1 = filterBuilder->getEffectById(in1());
+
+    if (!input1)
+        return 0;
+
+    return FEOffset::create(input1, dx(), dy());
 }
 
 }

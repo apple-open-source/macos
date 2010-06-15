@@ -32,8 +32,10 @@
 #include "NotImplemented.h"
 #include "ResourceHandleInternal.h"
 #include "ResourceHandleManager.h"
+#include "SharedBuffer.h"
 
 #if PLATFORM(WIN) && PLATFORM(CF)
+#include <wtf/PassRefPtr.h>
 #include <wtf/RetainPtr.h>
 #endif
 
@@ -91,7 +93,7 @@ static HashSet<String>& allowsAnyHTTPSCertificateHosts()
 
 ResourceHandleInternal::~ResourceHandleInternal()
 {
-    free(m_url);
+    fastFree(m_url);
     if (m_customHeaders)
         curl_slist_free_all(m_customHeaders);
 }
@@ -103,7 +105,13 @@ ResourceHandle::~ResourceHandle()
 
 bool ResourceHandle::start(Frame* frame)
 {
-    ASSERT(frame);
+    // The frame could be null if the ResourceHandle is not associated to any
+    // Frame, e.g. if we are downloading a file.
+    // If the frame is not null but the page is null this must be an attempted
+    // load from an onUnload handler, so let's just block it.
+    if (frame && !frame->page())
+        return false;
+
     ResourceHandleManager::sharedInstance()->add(this);
     return true;
 }
@@ -173,13 +181,11 @@ void ResourceHandle::setDefersLoading(bool defers)
     }
 #else
     d->m_defersLoading = defers;
-#ifndef NDEBUG
-    printf("Deferred loading is implemented if libcURL version is above 7.18.0");
-#endif
+    LOG_ERROR("Deferred loading is implemented if libcURL version is above 7.18.0");
 #endif
 }
 
-bool ResourceHandle::willLoadFromCache(ResourceRequest&)
+bool ResourceHandle::willLoadFromCache(ResourceRequest&, Frame*)
 {
     notImplemented();
     return false;
@@ -194,7 +200,7 @@ bool ResourceHandle::loadsBlocked()
 void ResourceHandle::loadResourceSynchronously(const ResourceRequest& request, StoredCredentials storedCredentials, ResourceError& error, ResourceResponse& response, Vector<char>& data, Frame*)
 {
     WebCoreSynchronousLoader syncLoader;
-    ResourceHandle handle(request, &syncLoader, true, false, true);
+    ResourceHandle handle(request, &syncLoader, true, false);
 
     ResourceHandleManager* manager = ResourceHandleManager::sharedInstance();
 

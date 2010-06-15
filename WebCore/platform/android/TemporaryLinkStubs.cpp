@@ -1,5 +1,5 @@
 /*
- * Copyright 2007, The Android Open Source Project
+ * Copyright 2009, The Android Open Source Project
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -28,17 +28,14 @@
 
 #define ANDROID_COMPILE_HACK
 
-#include <stdio.h>
-#include <stdlib.h>
 #include "AXObjectCache.h"
 #include "CachedPage.h"
 #include "CachedResource.h"
-#include "CookieJar.h"
+#include "Clipboard.h"
 #include "Console.h"
 #include "ContextMenu.h"
 #include "ContextMenuItem.h"
-#include "Clipboard.h"
-#include "CString.h"
+#include "CookieJar.h"
 #include "Cursor.h"
 #include "Database.h"
 #include "DocumentFragment.h"
@@ -46,11 +43,10 @@
 #include "EditCommand.h"
 #include "Editor.h"
 #include "File.h"
-#include "FileList.h"
 #include "Font.h"
 #include "Frame.h"
-#include "FrameLoader.h"
 #include "FrameLoadRequest.h"
+#include "FrameLoader.h"
 #include "FrameView.h"
 #include "GraphicsContext.h"
 #include "HTMLFrameOwnerElement.h"
@@ -60,21 +56,11 @@
 #include "IconDatabase.h"
 #include "IconLoader.h"
 #include "IntPoint.h"
-
-#if USE(JSC)
-#include "JavaScriptCallFrame.h"
-#include "JavaScriptDebugServer.h"
-#include "API/JSClassRef.h"
-#include "JavaScriptProfile.h"
-#include "jni_utility.h"
-#endif
-
 #include "KURL.h"
 #include "Language.h"
-#include "loader.h"
 #include "LocalizedStrings.h"
-#include "MainResourceLoader.h"
 #include "MIMETypeRegistry.h"
+#include "MainResourceLoader.h"
 #include "Node.h"
 #include "NotImplemented.h"
 #include "PageCache.h"
@@ -89,6 +75,17 @@
 #include "ScrollbarTheme.h"
 #include "SmartReplace.h"
 #include "Widget.h"
+#include "loader.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <wtf/text/CString.h>
+
+#if USE(JSC)
+#include "API/JSClassRef.h"
+#include "JNIUtilityPrivate.h"
+#include "JavaScriptCallFrame.h"
+#include "ScriptDebugServer.h"
+#endif
 
 using namespace WebCore;
 
@@ -171,6 +168,11 @@ Pasteboard* Pasteboard::generalPasteboard()
 }
 
 void Pasteboard::writeSelection(Range*, bool, Frame*)
+{
+    notImplemented();
+}
+
+void Pasteboard::writePlainText(const String&)
 {
     notImplemented();
 }
@@ -424,11 +426,6 @@ Vector<String> supportedKeySizes()
     return Vector<String>();
 }
 
-String signedPublicKeyAndChallengeString(unsigned int, String const&, WebCore::KURL const&)
-{
-    return String();
-}
-
 } // namespace WebCore
 
 namespace WebCore {
@@ -461,7 +458,7 @@ PassRefPtr<SharedBuffer> SharedBuffer::createWithContentsOfFile(const String&)
 #if USE(JSC)
 namespace JSC { namespace Bindings {
 bool dispatchJNICall(ExecState*, const void* targetAppletView, jobject obj, bool isStatic, JNIType returnType, 
-        jmethodID methodID, jvalue* args, jvalue& result, const char* callingURL, JSValuePtr& exceptionDescription)
+        jmethodID methodID, jvalue* args, jvalue& result, const char* callingURL, JSValue& exceptionDescription)
 {
     notImplemented();
     return false;
@@ -479,11 +476,6 @@ char* dirname(const char*)
     // new as of SVN change 38068, Nov 5, 2008
 namespace WebCore {
 void prefetchDNS(const String&)
-{
-    notImplemented();
-}
-
-void getSupportedKeySizes(Vector<String>&)
 {
     notImplemented();
 }
@@ -515,17 +507,6 @@ ScrollbarTheme* ScrollbarTheme::nativeTheme()
 }
 
 }  // namespace WebCore
-
-FileList::FileList()
-{
-    notImplemented();
-}
-
-File* FileList::item(unsigned index) const
-{
-    notImplemented();
-    return 0;
-}
 
 AXObjectCache::~AXObjectCache()
 {
@@ -560,114 +541,4 @@ OpaqueJSClassContextData::~OpaqueJSClassContextData()
     notImplemented();
 }
 
-// as we don't use inspector/*.cpp, add stub here.
-
-namespace WebCore {
-
-JSValuePtr toJS(ExecState*, Profile*)
-{
-    notImplemented();
-    return jsNull();
-}
-
-JSValuePtr JavaScriptCallFrame::evaluate(const UString& script, JSValuePtr& exception) const
-{
-    notImplemented();
-    return jsNull();
-}
-
-const ScopeChainNode* JavaScriptCallFrame::scopeChain() const
-{
-    notImplemented();
-    return 0;
-}
-
-JSObject* JavaScriptCallFrame::thisObject() const
-{
-    notImplemented();
-    return 0;
-}
-
-DebuggerCallFrame::Type JavaScriptCallFrame::type() const
-{
-    notImplemented();
-    return (DebuggerCallFrame::Type) 0;
-}
-
-JavaScriptCallFrame* JavaScriptCallFrame::caller()
-{
-    notImplemented();
-    return 0;
-}
-
-String JavaScriptCallFrame::functionName() const
-{
-    notImplemented();
-    return String();
-}
-
-}
-
-JavaScriptDebugServer::JavaScriptDebugServer() :
-    m_recompileTimer(this, 0)
-{
-    notImplemented();
-}
-
-JavaScriptDebugServer::~JavaScriptDebugServer()
-{
-    notImplemented();
-}
-
-JavaScriptDebugServer& JavaScriptDebugServer::shared()
-{
-    static JavaScriptDebugServer server;
-    notImplemented();
-    return server;
-}
-
-void JavaScriptDebugServer::atStatement(const DebuggerCallFrame&, int, int)
-{
-    notImplemented();
-}
-
-void JavaScriptDebugServer::callEvent(const DebuggerCallFrame&, int, int)
-{
-    notImplemented();
-}
-
-void JavaScriptDebugServer::didExecuteProgram(const DebuggerCallFrame&, int, int)
-{
-    notImplemented();
-}
-
-void JavaScriptDebugServer::didReachBreakpoint(const DebuggerCallFrame&, int, int)
-{
-    notImplemented();
-}
-
-void JavaScriptDebugServer::exception(const DebuggerCallFrame&, int, int)
-{
-    notImplemented();
-}
-
-void JavaScriptDebugServer::sourceParsed(ExecState*, const SourceCode&, int, const UString&)
-{
-    notImplemented();
-}
-
-void JavaScriptDebugServer::pageCreated(Page*)
-{
-    notImplemented();
-}
-
-void JavaScriptDebugServer::returnEvent(const DebuggerCallFrame&, int, int)
-{
-    notImplemented();
-}
-
-void JavaScriptDebugServer::willExecuteProgram(const DebuggerCallFrame&, int, int)
-{
-    notImplemented();
-}
 #endif

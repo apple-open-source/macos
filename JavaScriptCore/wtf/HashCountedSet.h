@@ -43,29 +43,34 @@ namespace WTF {
         int capacity() const;
         bool isEmpty() const;
         
-        // iterators iterate over pairs of values and counts
+        // Iterators iterate over pairs of values and counts.
         iterator begin();
         iterator end();
         const_iterator begin() const;
         const_iterator end() const;
         
-        iterator find(const ValueType& value);
-        const_iterator find(const ValueType& value) const;
-        bool contains(const ValueType& value) const;
-        unsigned count(const ValueType& value) const;
+        iterator find(const ValueType&);
+        const_iterator find(const ValueType&) const;
+        bool contains(const ValueType&) const;
+        unsigned count(const ValueType&) const;
 
-        // increases the count if an equal value is already present
-        // the return value is a pair of an interator to the new value's location, 
-        // and a bool that is true if an new entry was added
-        std::pair<iterator, bool> add(const ValueType &value);
+        // Increases the count if an equal value is already present
+        // the return value is a pair of an interator to the new value's 
+        // location, and a bool that is true if an new entry was added.
+        std::pair<iterator, bool> add(const ValueType&);
         
-        // reduces the count of the value, and removes it if count
-        // goes down to zero
-        void remove(const ValueType& value);
-        void remove(iterator it);
+        // Reduces the count of the value, and removes it if count
+        // goes down to zero, returns true if the value is removed.
+        bool remove(const ValueType&);
+        bool remove(iterator);
  
-       void clear();
-        
+        // Removes the value, regardless of its count.
+        void removeAll(iterator);
+        void removeAll(const ValueType&);
+
+        // Clears the whole set.
+        void clear();
+
     private:
         ImplType m_impl;
     };
@@ -145,24 +150,42 @@ namespace WTF {
     }
     
     template<typename Value, typename HashFunctions, typename Traits>
-    inline void HashCountedSet<Value, HashFunctions, Traits>::remove(const ValueType& value)
+    inline bool HashCountedSet<Value, HashFunctions, Traits>::remove(const ValueType& value)
     {
-        remove(find(value));
+        return remove(find(value));
     }
     
     template<typename Value, typename HashFunctions, typename Traits>
-    inline void HashCountedSet<Value, HashFunctions, Traits>::remove(iterator it)
+    inline bool HashCountedSet<Value, HashFunctions, Traits>::remove(iterator it)
+    {
+        if (it == end())
+            return false;
+
+        unsigned oldVal = it->second;
+        ASSERT(oldVal);
+        unsigned newVal = oldVal - 1;
+        if (newVal) {
+            it->second = newVal;
+            return false;
+        }
+
+        m_impl.remove(it);
+        return true;
+    }
+    
+    template<typename Value, typename HashFunctions, typename Traits>
+    inline void HashCountedSet<Value, HashFunctions, Traits>::removeAll(const ValueType& value)
+    {
+        removeAll(find(value));
+    }
+    
+    template<typename Value, typename HashFunctions, typename Traits>
+    inline void HashCountedSet<Value, HashFunctions, Traits>::removeAll(iterator it)
     {
         if (it == end())
             return;
 
-        unsigned oldVal = it->second;
-        ASSERT(oldVal != 0);
-        unsigned newVal = oldVal - 1;
-        if (newVal == 0)
-            m_impl.remove(it);
-        else
-            it->second = newVal;
+        m_impl.remove(it);
     }
     
     template<typename Value, typename HashFunctions, typename Traits>

@@ -182,6 +182,11 @@ static BOOL _PDFSelectionsAreEqual(PDFSelection *selectionA, PDFSelection *selec
     _ignoreScaleAndDisplayModeAndPageNotifications = NO;
 }
 
+- (PDFDocument *)PDFDocument
+{
+    return [PDFSubview document];
+}
+
 #pragma mark NSObject OVERRIDES
 
 - (void)dealloc
@@ -953,7 +958,7 @@ static BOOL _PDFSelectionsAreEqual(PDFSelection *selectionA, PDFSelection *selec
     }
 
     // Call to the frame loader because this is where our security checks are made.
-    core([dataSource webFrame])->loader()->loadFrameRequest(ResourceRequest(URL), false, false, event.get(), 0);
+    core([dataSource webFrame])->loader()->loadFrameRequest(ResourceRequest(URL), false, false, event.get(), 0, SendReferrer);
 }
 
 - (void)PDFViewOpenPDFInNativeApplication:(PDFView *)sender

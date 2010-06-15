@@ -44,23 +44,19 @@ namespace WebCore {
     // that can handle the event.
     class V8EventListener : public V8AbstractEventListener {
     public:
-        static PassRefPtr<V8EventListener> create(Frame* frame, v8::Local<v8::Object> listener, bool isAttribute)
+        static PassRefPtr<V8EventListener> create(v8::Local<v8::Object> listener, bool isAttribute, const WorldContextHandle& worldContext)
         {
-            return adoptRef(new V8EventListener(frame, listener, isAttribute));
+            return adoptRef(new V8EventListener(listener, isAttribute, worldContext));
         }
 
-        // Detach the listener from its owner frame.
-        void disconnectFrame() { m_frame = 0; }
-
     protected:
-        V8EventListener(Frame*, v8::Local<v8::Object> listener, bool isAttribute);
-        virtual ~V8EventListener();
-        v8::Local<v8::Function> getListenerFunction();
+        V8EventListener(v8::Local<v8::Object> listener, bool isAttribute, const WorldContextHandle& worldContext);
+
+        v8::Local<v8::Function> getListenerFunction(ScriptExecutionContext*);
 
     private:
-        virtual v8::Local<v8::Value> callListenerFunction(v8::Handle<v8::Value> jsEvent, Event*, bool isWindowEvent);
-        virtual bool virtualisAttribute() const { return m_isAttribute; }
-    };
+      virtual v8::Local<v8::Value> callListenerFunction(ScriptExecutionContext*, v8::Handle<v8::Value> jsEvent, Event*);
+     };
 
 } // namespace WebCore
 

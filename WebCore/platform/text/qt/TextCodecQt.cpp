@@ -27,7 +27,7 @@
 #include "config.h"
 #include "TextCodecQt.h"
 #include "PlatformString.h"
-#include "CString.h"
+#include <wtf/text/CString.h>
 #include <qset.h>
 // #include <QDebug>
 
@@ -94,7 +94,26 @@ TextCodecQt::~TextCodecQt()
 
 String TextCodecQt::decode(const char* bytes, size_t length, bool flush, bool /*stopOnError*/, bool& sawError)
 {
-    QString unicode = m_codec->toUnicode(bytes, length, &m_state);
+    // We chop input buffer to smaller buffers to avoid excessive memory consumption
+    // when the input buffer is big.  This helps reduce peak memory consumption in
+    // mobile devices where system RAM is limited.
+#if OS(SYMBIAN)
+    static const int MaxInputChunkSize = 32 * 1024;
+#else
+    static const int MaxInputChunkSize = 1024 * 1024;
+#endif
+    const char* buf = bytes;
+    const char* end = buf + length;
+    String unicode(""); // a non-null string is expected
+
+    while (buf < end) {
+        int size = end - buf;
+        size = qMin(size, MaxInputChunkSize);
+        QString decoded = m_codec->toUnicode(buf, size, &m_state);
+        unicode.append(decoded);
+        buf += size;
+    }
+
     sawError = m_state.invalidChars != 0;
 
     if (flush) {

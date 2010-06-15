@@ -31,7 +31,6 @@
 #include "SVGNames.h"
 #include "SVGParserUtilities.h"
 #include "SVGRenderStyle.h"
-#include "SVGResourceFilter.h"
 
 namespace WebCore {
 
@@ -40,11 +39,8 @@ char SVGKernelUnitLengthYIdentifier[] = "SVGKernelUnitLengthY";
 
 SVGFEDiffuseLightingElement::SVGFEDiffuseLightingElement(const QualifiedName& tagName, Document* doc)
     : SVGFilterPrimitiveStandardAttributes(tagName, doc)
-    , m_in1(this, SVGNames::inAttr)
-    , m_diffuseConstant(this, SVGNames::diffuseConstantAttr, 1.0f)
-    , m_surfaceScale(this, SVGNames::surfaceScaleAttr, 1.0f)
-    , m_kernelUnitLengthX(this, SVGNames::kernelUnitLengthAttr)
-    , m_kernelUnitLengthY(this, SVGNames::kernelUnitLengthAttr)
+    , m_diffuseConstant(1.0f)
+    , m_surfaceScale(1.0f)
 {
 }
 
@@ -71,37 +67,57 @@ void SVGFEDiffuseLightingElement::parseMappedAttribute(MappedAttribute *attr)
         SVGFilterPrimitiveStandardAttributes::parseMappedAttribute(attr);
 }
 
-bool SVGFEDiffuseLightingElement::build(SVGResourceFilter* filterResource)
+void SVGFEDiffuseLightingElement::synchronizeProperty(const QualifiedName& attrName)
 {
-    FilterEffect* input1 = filterResource->builder()->getEffectById(in1());
+    SVGFilterPrimitiveStandardAttributes::synchronizeProperty(attrName);
+
+    if (attrName == anyQName()) {
+        synchronizeIn1();
+        synchronizeSurfaceScale();
+        synchronizeDiffuseConstant();
+        synchronizeKernelUnitLengthX();
+        synchronizeKernelUnitLengthY();
+        return;
+    }
+
+    if (attrName == SVGNames::inAttr)
+        synchronizeIn1();
+    else if (attrName == SVGNames::surfaceScaleAttr)
+        synchronizeSurfaceScale();
+    else if (attrName == SVGNames::diffuseConstantAttr)
+        synchronizeDiffuseConstant();
+    else if (attrName == SVGNames::kernelUnitLengthAttr) {
+        synchronizeKernelUnitLengthX();
+        synchronizeKernelUnitLengthY();
+    }
+}
+
+PassRefPtr<FilterEffect> SVGFEDiffuseLightingElement::build(SVGFilterBuilder* filterBuilder)
+{
+    FilterEffect* input1 = filterBuilder->getEffectById(in1());
     
-    if(!input1)
-        return false;
+    if (!input1)
+        return 0;
     
     RefPtr<RenderStyle> filterStyle = styleForRenderer();
     Color color = filterStyle->svgStyle()->lightingColor();
     
-    RefPtr<FilterEffect> effect = FEDiffuseLighting::create(input1, color, surfaceScale(), diffuseConstant(), 
+    return FEDiffuseLighting::create(input1, color, surfaceScale(), diffuseConstant(), 
                                             kernelUnitLengthX(), kernelUnitLengthY(), findLights());
-    filterResource->addFilterEffect(this, effect.release());
-    
-    return true;
 }
 
-LightSource* SVGFEDiffuseLightingElement::findLights() const
+PassRefPtr<LightSource> SVGFEDiffuseLightingElement::findLights() const
 {
-    LightSource* light = 0;
     for (Node* n = firstChild(); n; n = n->nextSibling()) {
         if (n->hasTagName(SVGNames::feDistantLightTag) ||
             n->hasTagName(SVGNames::fePointLightTag) ||
             n->hasTagName(SVGNames::feSpotLightTag)) {
             SVGFELightElement* lightNode = static_cast<SVGFELightElement*>(n); 
-            light = lightNode->lightSource();
-            break;
+            return lightNode->lightSource();
         }
     }
 
-    return light;
+    return 0;
 }
 
 }

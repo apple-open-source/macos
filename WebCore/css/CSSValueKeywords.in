@@ -169,6 +169,8 @@ repeat
 repeat-x
 repeat-y
 no-repeat
+# round
+# space
 #
 # CSS_PROP__WEBKIT_BACKGROUND_COMPOSITE:
 #
@@ -223,6 +225,28 @@ circle
 square
 decimal
 decimal-leading-zero
+arabic-indic
+binary
+bengali
+cambodian
+khmer
+devanagari
+gujarati
+gurmukhi
+kannada
+lower-hexadecimal
+lao
+malayalam
+mongolian
+myanmar
+octal
+oriya
+persian
+urdu
+telugu
+tibetan
+thai
+upper-hexadecimal
 lower-roman
 upper-roman
 lower-greek
@@ -230,6 +254,40 @@ lower-alpha
 lower-latin
 upper-alpha
 upper-latin
+afar
+ethiopic-halehame-aa-et
+ethiopic-halehame-aa-er
+amharic
+ethiopic-halehame-am-et
+amharic-abegede
+ethiopic-abegede-am-et
+cjk-earthly-branch
+cjk-heavenly-stem
+ethiopic
+ethiopic-halehame-gez
+ethiopic-abegede
+ethiopic-abegede-gez
+hangul-consonant
+hangul
+lower-norwegian
+oromo
+ethiopic-halehame-om-et
+sidama
+ethiopic-halehame-sid-et
+somali
+ethiopic-halehame-so-et
+tigre
+ethiopic-halehame-tig
+tigrinya-er
+ethiopic-halehame-ti-er
+tigrinya-er-abegede
+ethiopic-abegede-ti-er
+tigrinya-et
+ethiopic-halehame-ti-et
+tigrinya-et-abegede
+ethiopic-abegede-ti-et
+upper-greek
+upper-norwegian
 hebrew
 armenian
 georgian
@@ -260,6 +318,7 @@ table-cell
 table-caption
 -webkit-box
 -webkit-inline-box
+-wap-marquee
 #none
 #
 # CSS_PROP_CURSOR:
@@ -321,10 +380,15 @@ collapse
 #
 # Unordered rest
 #
+a3
+a4
+a5
 above
 absolute
 always
 avoid
+b4
+b5
 below
 bidi-override
 blink
@@ -339,8 +403,12 @@ hide
 higher
 invert
 landscape
+ledger
+legal
+letter
 level
 line-through
+local
 loud
 lower
 -webkit-marquee
@@ -497,6 +565,8 @@ square-button
 button
 button-bevel
 default-button
+inner-spin-button
+list-button
 listbox
 listitem
 media-fullscreen-button
@@ -506,8 +576,12 @@ media-seek-back-button
 media-seek-forward-button
 media-rewind-button
 media-return-to-realtime-button
+media-toggle-closed-captions-button
 media-slider
 media-sliderthumb
+media-volume-slider-container
+media-volume-slider
+media-volume-sliderthumb
 media-controls-background
 media-current-time-display
 media-time-remaining-display
@@ -515,6 +589,9 @@ menulist
 menulist-button
 menulist-text
 menulist-textfield
+outer-spin-button
+progress-bar
+progress-bar-value
 slider-horizontal
 slider-vertical
 sliderthumb-horizontal
@@ -543,15 +620,17 @@ round
 # border-box/content-box/padding-box should be used instead.
 #
 border
+border-box
 content
+content-box
 padding
 padding-box
 
 #
-# CSS_PROP_BOX_SIZING
+# background-size
 #
-border-box
-content-box
+contain
+cover
 
 #
 # CSS_PROP__KHTML_RTL_ORDERING
@@ -568,6 +647,13 @@ lines
 # CSS_PROP__WEBKIT_ANIMATION_DIRECTION
 #
 # alternate
+
+#
+# CSS_PROP__WEBKIT_ANIMATION_FILL_MODE
+#
+# forwards
+# backwards
+# both
 
 #
 # CSS_PROP__WEBKIT_ANIMATION_ITERATION_COUNT
@@ -614,3 +700,28 @@ fill
 stroke
 #all
 #none
+
+#
+# -webkit-font-smoothing
+#
+# auto
+# none
+antialiased
+subpixel-antialiased
+
+# text-rendering
+#auto
+optimizeSpeed
+optimizeLegibility
+geometricPrecision
+
+# -webkit-color-correction
+#default
+sRGB
+
+# (-webkit-view-mode:) media feature:
+floating
+fullscreen
+maximized
+minimized
+windowed

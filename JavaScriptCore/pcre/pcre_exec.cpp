@@ -112,7 +112,7 @@ struct BracketChainNode {
     const UChar* bracketStart;
 };
 
-struct MatchFrame {
+struct MatchFrame : FastAllocBase {
     ReturnLocation returnLocation;
     struct MatchFrame* previousFrame;
     
@@ -198,7 +198,7 @@ static void pchars(const UChar* p, int length, bool isSubject, const MatchData& 
         length = md.endSubject - p;
     while (length-- > 0) {
         int c;
-        if (isprint(c = *(p++)))
+        if (isASCIIPrintable(c = *(p++)))
             printf("%c", c);
         else if (c < 256)
             printf("\\x%02x", c);
@@ -2164,14 +2164,14 @@ void Histogram::add(const JSRegExp* re, double elapsedTime)
 
 HistogramTimeLogger::HistogramTimeLogger(const JSRegExp* re)
     : m_re(re)
-    , m_startTime(getCurrentUTCTimeWithMicroseconds())
+    , m_startTime(currentTimeMS())
 {
 }
 
 HistogramTimeLogger::~HistogramTimeLogger()
 {
     static Histogram histogram;
-    histogram.add(m_re, getCurrentUTCTimeWithMicroseconds() - m_startTime);
+    histogram.add(m_re, currentTimeMS() - m_startTime);
 }
 
 #endif

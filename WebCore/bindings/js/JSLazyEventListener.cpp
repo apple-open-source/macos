@@ -23,6 +23,7 @@
 #include "Frame.h"
 #include "JSNode.h"
 #include <runtime/FunctionConstructor.h>
+#include <runtime/JSFunction.h>
 #include <runtime/JSLock.h>
 #include <wtf/RefCountedLeakCounter.h>
 
@@ -34,20 +35,20 @@ namespace WebCore {
 static WTF::RefCountedLeakCounter eventListenerCounter("JSLazyEventListener");
 #endif
 
-JSLazyEventListener::JSLazyEventListener(const String& functionName, const String& eventParameterName, const String& code, JSDOMGlobalObject* globalObject, Node* node, int lineNumber)
-    : JSEventListener(0, globalObject, true)
+JSLazyEventListener::JSLazyEventListener(const String& functionName, const String& eventParameterName, const String& code, Node* node, const String& sourceURL, int lineNumber, JSObject* wrapper, DOMWrapperWorld* isolatedWorld)
+    : JSEventListener(0, wrapper, true, isolatedWorld)
     , m_functionName(functionName)
     , m_eventParameterName(eventParameterName)
     , m_code(code)
-    , m_parsed(false)
+    , m_sourceURL(sourceURL)
     , m_lineNumber(lineNumber)
     , m_originalNode(node)
 {
     // We don't retain the original node because we assume it
     // will stay alive as long as this handler object is around
     // and we need to avoid a reference cycle. If JS transfers
-    // this handler to another node, parseCode will be called and
-    // then originalNode is no longer needed.
+    // this handler to another node, initializeJSFunction will
+    // be called and then originalNode is no longer needed.
 
     // A JSLazyEventListener can be created with a line number of zero when it is created with
     // a setAttribute call from JavaScript, so make the line number 1 in that case.
@@ -66,68 +67,70 @@ JSLazyEventListener::~JSLazyEventListener()
 #endif
 }
 
-JSObject* JSLazyEventListener::jsFunction() const
+JSObject* JSLazyEventListener::initializeJSFunction(ScriptExecutionContext* executionContext) const
 {
-    parseCode();
-    return m_jsFunction;
-}
-
-void JSLazyEventListener::parseCode() const
-{
-    if (m_parsed)
-        return;
-
-    ScriptExecutionContext* executionContext = m_globalObject->scriptExecutionContext();
     ASSERT(executionContext);
+    ASSERT(executionContext->isDocument());
     if (!executionContext)
-        return;
+        return 0;
+
+    Frame* frame = static_cast<Document*>(executionContext)->frame();
+    if (!frame)
+        return 0;
+
+    ScriptController* scriptController = frame->script();
+    if (!scriptController->canExecuteScripts(AboutToExecuteScript))
+        return 0;
+
+    JSDOMGlobalObject* globalObject = toJSDOMGlobalObject(executionContext, isolatedWorld());
+    if (!globalObject)
+        return 0;
+
     if (executionContext->isDocument()) {
-        JSDOMWindow* window = static_cast<JSDOMWindow*>(m_globalObject);
+        JSDOMWindow* window = static_cast<JSDOMWindow*>(globalObject);
         Frame* frame = window->impl()->frame();
         if (!frame)
-            return;
+            return 0;
         // FIXME: Is this check needed for non-Document contexts?
         ScriptController* script = frame->script();
-        if (!script->isEnabled() || script->isPaused())
-            return;
+        if (!script->canExecuteScripts(AboutToExecuteScript) || script->isPaused())
+            return 0;
     }
 
-    m_parsed = true;
-
-    ExecState* exec = m_globalObject->globalExec();
+    ExecState* exec = globalObject->globalExec();
 
     MarkedArgumentBuffer args;
-    UString sourceURL(executionContext->url().string());
-    args.append(jsNontrivialString(exec, m_eventParameterName));
+    args.append(jsNontrivialString(exec, stringToUString(m_eventParameterName)));
     args.append(jsString(exec, m_code));
 
-    // FIXME: Passing the document's URL to construct is not always correct, since this event listener might
-    // have been added with setAttribute from a script, and we should pass String() in that case.
-    m_jsFunction = constructFunction(exec, args, Identifier(exec, m_functionName), sourceURL, m_lineNumber); // FIXME: is globalExec ok?
-
-    JSFunction* listenerAsFunction = static_cast<JSFunction*>(m_jsFunction);
-
+    JSObject* jsFunction = constructFunction(exec, args, Identifier(exec, stringToUString(m_functionName)), stringToUString(m_sourceURL), m_lineNumber); // FIXME: is globalExec ok?
     if (exec->hadException()) {
         exec->clearException();
+        return 0;
+    }
 
-        // failed to parse, so let's just make this listener a no-op
-        m_jsFunction = 0;
-    } else if (m_originalNode) {
+    JSFunction* listenerAsFunction = static_cast<JSFunction*>(jsFunction);
+    if (m_originalNode) {
+        if (!wrapper()) {
+            // Ensure that 'node' has a JavaScript wrapper to mark the event listener we're creating.
+            JSLock lock(SilenceAssertionsOnly);
+            // FIXME: Should pass the global object associated with the node
+            setWrapper(asObject(toJS(globalObject->globalExec(), globalObject, m_originalNode)));
+        }
+
         // Add the event's home element to the scope
         // (and the document, and the form - see JSHTMLElement::eventHandlerScope)
         ScopeChain scope = listenerAsFunction->scope();
-
-        JSValue thisObj = toJS(exec, m_originalNode);
-        if (thisObj.isObject()) {
-            static_cast<JSNode*>(asObject(thisObj))->pushEventHandlerScope(exec, scope);
-            listenerAsFunction->setScope(scope);
-        }
+        static_cast<JSNode*>(wrapper())->pushEventHandlerScope(exec, scope);
+        listenerAsFunction->setScope(scope);
     }
 
     // Since we only parse once, there's no need to keep data used for parsing around anymore.
     m_functionName = String();
     m_code = String();
     m_eventParameterName = String();
+    m_sourceURL = String();
+    return jsFunction;
 }
 
 } // namespace WebCore

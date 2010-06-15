@@ -1,8 +1,6 @@
 /*
     Copyright (C) 2007 Nikolas Zimmermann <zimmermann@kde.org>
 
-    This file is part of the KDE project
-
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Library General Public
     License as published by the Free Software Foundation; either
@@ -27,8 +25,7 @@
 
 #include "SVGURIReference.h"
 
-namespace WebCore
-{
+namespace WebCore {
     enum SVGTextPathMethodType {
         SVG_TEXTPATH_METHODTYPE_UNKNOWN = 0,
         SVG_TEXTPATH_METHODTYPE_ALIGN = 1,
@@ -42,8 +39,7 @@ namespace WebCore
     };
 
     class SVGTextPathElement : public SVGTextContentElement,
-                               public SVGURIReference
-    {
+                               public SVGURIReference {
     public:
         // Forward declare these enums in the w3c naming scheme, for IDL generation
         enum {
@@ -61,18 +57,18 @@ namespace WebCore
         virtual void insertedIntoDocument();
 
         virtual void parseMappedAttribute(MappedAttribute*);
-        virtual bool rendererIsNeeded(RenderStyle* style) { return StyledElement::rendererIsNeeded(style); }
+        virtual void synchronizeProperty(const QualifiedName&);
         virtual RenderObject* createRenderer(RenderArena*, RenderStyle*);
 
         bool childShouldCreateRenderer(Node*) const;
 
-    protected:
-        virtual const SVGElement* contextElement() const { return this; }
-
     private:
-        ANIMATED_PROPERTY_DECLARATIONS(SVGTextPathElement, SVGNames::textPathTagString, SVGNames::startOffsetAttrString, SVGLength, StartOffset, startOffset)
-        ANIMATED_PROPERTY_DECLARATIONS(SVGTextPathElement, SVGNames::textPathTagString, SVGNames::methodAttrString, int, Method, method)
-        ANIMATED_PROPERTY_DECLARATIONS(SVGTextPathElement, SVGNames::textPathTagString, SVGNames::spacingAttrString, int, Spacing, spacing)
+        DECLARE_ANIMATED_PROPERTY(SVGTextPathElement, SVGNames::startOffsetAttr, SVGLength, StartOffset, startOffset)
+        DECLARE_ANIMATED_PROPERTY(SVGTextPathElement, SVGNames::methodAttr, int, Method, method)
+        DECLARE_ANIMATED_PROPERTY(SVGTextPathElement, SVGNames::spacingAttr, int, Spacing, spacing)
+    
+        // SVGURIReference
+        DECLARE_ANIMATED_PROPERTY(SVGTextPathElement, XLinkNames::hrefAttr, String, Href, href)
     };
 
 } // namespace WebCore

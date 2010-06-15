@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2008 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2010 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -1729,6 +1729,10 @@ dhcp_thread(Service_t * service_p, IFEventID_t event_id, void * event_data)
 	  if (network_changed) {
 	      /* switched networks, remove IP address to avoid IP collisions */
 	      (void)service_remove_address(service_p);
+	      service_publish_failure(service_p,
+				      ipconfig_status_media_inactive_e,
+				      NULL);
+	      linklocal_service_change(service_p, FALSE);
 	  }
 	  /* make sure to start DHCP again */
 	  dhcp_check_link(service_p, event_id);
@@ -1752,8 +1756,9 @@ dhcp_thread(Service_t * service_p, IFEventID_t event_id, void * event_data)
 	  }
 
 	  /* make sure that when we wake up, there's no IP address assigned */
-	  service_p->published.status = ipconfig_status_media_inactive_e;
 	  service_remove_address(service_p);
+	  service_publish_failure(service_p, ipconfig_status_media_inactive_e,
+				  NULL);
 	  if (woke_from_hibernation()) {
 	      /*
 	       * wake from hibernation is the same as a reboot case, so

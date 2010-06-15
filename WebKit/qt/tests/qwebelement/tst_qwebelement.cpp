@@ -19,37 +19,14 @@
 
 
 #include <QtTest/QtTest>
-
 #include <qwebpage.h>
 #include <qwidget.h>
 #include <qwebview.h>
 #include <qwebframe.h>
 #include <qwebelement.h>
+#include <util.h>
 //TESTED_CLASS=
 //TESTED_FILES=
-
-/**
- * Starts an event loop that runs until the given signal is received.
- Optionally the event loop
- * can return earlier on a timeout.
- *
- * \return \p true if the requested signal was received
- *         \p false on timeout
- */
-static bool waitForSignal(QObject* obj, const char* signal, int timeout = 0)
-{
-    QEventLoop loop;
-    QObject::connect(obj, signal, &loop, SLOT(quit()));
-    QTimer timer;
-    QSignalSpy timeoutSpy(&timer, SIGNAL(timeout()));
-    if (timeout > 0) {
-        QObject::connect(&timer, SIGNAL(timeout()), &loop, SLOT(quit()));
-        timer.setSingleShot(true);
-        timer.start(timeout);
-    }
-    loop.exec();
-    return timeoutSpy.isEmpty();
-}
 
 class tst_QWebElement : public QObject
 {
@@ -68,18 +45,20 @@ private slots:
     void simpleCollection();
     void attributes();
     void attributesNS();
+    void listAttributes();
     void classes();
     void namespaceURI();
+    void iteration();
+    void nonConstIterator();
+    void constIterator();
     void foreachManipulation();
-    void evaluateScript();
-    void callFunction();
-    void callFunctionSubmitForm();
-    void functionNames();
+    void emptyCollection();
+    void appendCollection();
+    void evaluateJavaScript();
     void documentElement();
     void frame();
     void style();
     void computedStyle();
-    void properties();
     void appendAndPrepend();
     void insertBeforeAndAfter();
     void remove();
@@ -90,6 +69,8 @@ private slots:
     void nullSelect();
     void firstChildNextSibling();
     void lastChildPreviousSibling();
+    void hasSetFocus();
+    void render();
 
 private:
     QWebView* m_view;
@@ -136,7 +117,7 @@ void tst_QWebElement::simpleCollection()
     m_mainFrame->setHtml(html);
     QWebElement body = m_mainFrame->documentElement();
 
-    QList<QWebElement> list = body.findAll("p");
+    QWebElementCollection list = body.findAll("p");
     QCOMPARE(list.count(), 2);
     QCOMPARE(list.at(0).toPlainText(), QString("first para"));
     QCOMPARE(list.at(1).toPlainText(), QString("second para"));
@@ -182,6 +163,29 @@ void tst_QWebElement::attributesNS()
     svg.setAttributeNS("http://www.w3.org/2000/svg", "svg:foobar", "true");
     QVERIFY(svg.hasAttributeNS("http://www.w3.org/2000/svg", "foobar"));
     QCOMPARE(svg.attributeNS("http://www.w3.org/2000/svg", "foobar", "defaultblah"), QString("true"));
+}
+
+void tst_QWebElement::listAttributes()
+{
+    QString content = "<html xmlns=\"http://www.w3.org/1999/xhtml\" "
+                      "xmlns:svg=\"http://www.w3.org/2000/svg\">"
+                      "<body><svg:svg foo=\"\" svg:bar=\"\">"
+                      "</svg:svg></body></html>";
+
+    m_mainFrame->setContent(content.toUtf8(), "application/xhtml+xml");
+
+    QWebElement svg = m_mainFrame->findFirstElement("svg");
+    QVERIFY(!svg.isNull());
+
+    QVERIFY(svg.attributeNames().contains("foo"));
+    QVERIFY(svg.attributeNames("http://www.w3.org/2000/svg").contains("bar"));
+
+    svg.setAttributeNS("http://www.w3.org/2000/svg", "svg:foobar", "true");
+    QVERIFY(svg.attributeNames().contains("foo"));
+    QStringList attributes = svg.attributeNames("http://www.w3.org/2000/svg");
+    QCOMPARE(attributes.size(), 2);
+    QVERIFY(attributes.contains("bar"));
+    QVERIFY(attributes.contains("foobar"));
 }
 
 void tst_QWebElement::classes()
@@ -269,6 +273,72 @@ void tst_QWebElement::namespaceURI()
 
 }
 
+void tst_QWebElement::iteration()
+{
+    QString html = "<body><p>first para</p><p>second para</p></body>";
+    m_mainFrame->setHtml(html);
+    QWebElement body = m_mainFrame->documentElement();
+
+   QWebElementCollection paras = body.findAll("p");
+    QList<QWebElement> referenceList = paras.toList();
+
+    QList<QWebElement> foreachList;
+    foreach(QWebElement p, paras) {
+       foreachList.append(p);
+    }
+    QVERIFY(foreachList.count() == 2);
+    QCOMPARE(foreachList.count(), referenceList.count());
+    QCOMPARE(foreachList.at(0), referenceList.at(0));
+    QCOMPARE(foreachList.at(1), referenceList.at(1));
+
+    QList<QWebElement> forLoopList;
+    for (int i = 0; i < paras.count(); ++i) {
+        forLoopList.append(paras.at(i));
+    }
+    QVERIFY(foreachList.count() == 2);
+    QCOMPARE(foreachList.count(), referenceList.count());
+    QCOMPARE(foreachList.at(0), referenceList.at(0));
+    QCOMPARE(foreachList.at(1), referenceList.at(1));
+
+    for (int i = 0; i < paras.count(); ++i) {
+        QCOMPARE(paras.at(i), paras[i]);
+    }
+
+    QCOMPARE(paras.at(0), paras.first());
+    QCOMPARE(paras.at(1), paras.last());
+}
+
+void tst_QWebElement::nonConstIterator()
+{
+    QString html = "<body><p>first para</p><p>second para</p></body>";
+    m_mainFrame->setHtml(html);
+    QWebElement body = m_mainFrame->documentElement();
+    QWebElementCollection paras = body.findAll("p");
+
+    QWebElementCollection::iterator it = paras.begin();
+    QCOMPARE(*it, paras.at(0));
+    ++it;
+    (*it).encloseWith("<div>");
+    QCOMPARE(*it, paras.at(1));
+    ++it;
+    QCOMPARE(it,  paras.end());
+}
+
+void tst_QWebElement::constIterator()
+{
+    QString html = "<body><p>first para</p><p>second para</p></body>";
+    m_mainFrame->setHtml(html);
+    QWebElement body = m_mainFrame->documentElement();
+    const QWebElementCollection paras = body.findAll("p");
+
+    QWebElementCollection::const_iterator it = paras.begin();
+    QCOMPARE(*it, paras.at(0));
+    ++it;
+    QCOMPARE(*it, paras.at(1));
+    ++it;
+    QCOMPARE(it,  paras.end());
+}
+
 void tst_QWebElement::foreachManipulation()
 {
     QString html = "<body><p>first para</p><p>second para</p></body>";
@@ -282,67 +352,66 @@ void tst_QWebElement::foreachManipulation()
     QCOMPARE(body.findAll("div").count(), 4);
 }
 
-void tst_QWebElement::evaluateScript()
+void tst_QWebElement::emptyCollection()
+{
+    QWebElementCollection emptyCollection;
+    QCOMPARE(emptyCollection.count(), 0);
+}
+
+void tst_QWebElement::appendCollection()
+{
+    QString html = "<body><span class='a'>aaa</span><p>first para</p><div>foo</div>"
+        "<span class='b'>bbb</span><p>second para</p><div>bar</div></body>";
+    m_mainFrame->setHtml(html);
+    QWebElement body = m_mainFrame->documentElement();
+
+    QWebElementCollection collection = body.findAll("p");
+    QCOMPARE(collection.count(), 2);
+
+    collection.append(body.findAll("div"));
+    QCOMPARE(collection.count(), 4);
+
+    collection += body.findAll("span.a");
+    QCOMPARE(collection.count(), 5);
+
+    QWebElementCollection all = collection + body.findAll("span.b");
+    QCOMPARE(all.count(), 6);
+    QCOMPARE(collection.count(), 5);
+
+     all += collection;
+    QCOMPARE(all.count(), 11);
+
+    QCOMPARE(collection.count(), 5);
+    QWebElementCollection test;
+    test.append(collection);
+    QCOMPARE(test.count(), 5);
+    test.append(QWebElementCollection());
+    QCOMPARE(test.count(), 5);
+}
+
+void tst_QWebElement::evaluateJavaScript()
 {
     QVariant result;
     m_mainFrame->setHtml("<body><p>test");
     QWebElement para = m_mainFrame->findFirstElement("p");
 
-    result = para.evaluateScript("this.tagName");
+    result = para.evaluateJavaScript("this.tagName");
     QVERIFY(result.isValid());
     QVERIFY(result.type() == QVariant::String);
     QCOMPARE(result.toString(), QLatin1String("P"));
 
-    QVERIFY(para.functions().contains("hasAttributes"));
-    result = para.evaluateScript("this.hasAttributes()");
+    result = para.evaluateJavaScript("this.hasAttributes()");
     QVERIFY(result.isValid());
     QVERIFY(result.type() == QVariant::Bool);
     QVERIFY(!result.toBool());
 
-    para.evaluateScript("this.setAttribute('align', 'left');");
+    para.evaluateJavaScript("this.setAttribute('align', 'left');");
     QCOMPARE(para.attribute("align"), QLatin1String("left"));
 
-    result = para.evaluateScript("this.hasAttributes()");
+    result = para.evaluateJavaScript("this.hasAttributes()");
     QVERIFY(result.isValid());
     QVERIFY(result.type() == QVariant::Bool);
     QVERIFY(result.toBool());
-}
-
-void tst_QWebElement::callFunction()
-{
-    m_mainFrame->setHtml("<body><p>test");
-    QWebElement body = m_mainFrame->documentElement();
-    QVERIFY(body.functions().contains("hasChildNodes"));
-    QVariant result = body.callFunction("hasChildNodes");
-    QVERIFY(result.isValid());
-    QVERIFY(result.type() == QVariant::Bool);
-    QVERIFY(result.toBool());
-
-    body.callFunction("setAttribute", QVariantList() << "foo" << "bar");
-    QCOMPARE(body.attribute("foo"), QString("bar"));
-}
-
-void tst_QWebElement::callFunctionSubmitForm()
-{
-    m_mainFrame->setHtml(QString("<html><body><form name='tstform' action='data:text/html,foo'method='get'>"
-                                 "<input type='text'><input type='submit'></form></body></html>"), QUrl());
-
-    QWebElement form = m_mainFrame->documentElement().findAll("form").at(0);
-    QVERIFY(form.functions().contains("submit"));
-    QVERIFY(!form.isNull());
-    form.callFunction("submit");
-
-    waitForSignal(m_page, SIGNAL(loadFinished(bool)));
-    QCOMPARE(m_mainFrame->url().toString(), QString("data:text/html,foo?"));
-}
-
-void tst_QWebElement::functionNames()
-{
-    m_mainFrame->setHtml("<body><p>Test");
-
-    QWebElement body = m_mainFrame->documentElement();
-
-    QVERIFY(body.functions().contains("setAttribute"));
 }
 
 void tst_QWebElement::documentElement()
@@ -398,27 +467,27 @@ void tst_QWebElement::style()
     m_mainFrame->setHtml(html);
 
     QWebElement p = m_mainFrame->documentElement().findAll("p").at(0);
-    QCOMPARE(p.styleProperty("color"), QLatin1String("blue"));
-    QVERIFY(p.styleProperty("cursor").isEmpty());
+    QCOMPARE(p.styleProperty("color", QWebElement::InlineStyle), QLatin1String("blue"));
+    QVERIFY(p.styleProperty("cursor", QWebElement::InlineStyle).isEmpty());
 
     p.setStyleProperty("color", "red");
     p.setStyleProperty("cursor", "auto");
 
-    QCOMPARE(p.styleProperty("color"), QLatin1String("red"));
-    QCOMPARE(p.styleProperty("color", QWebElement::RespectCascadingStyles), QLatin1String("yellow"));
-    QCOMPARE(p.styleProperty("cursor"), QLatin1String("auto"));
+    QCOMPARE(p.styleProperty("color", QWebElement::InlineStyle), QLatin1String("red"));
+    QCOMPARE(p.styleProperty("color", QWebElement::CascadedStyle), QLatin1String("yellow"));
+    QCOMPARE(p.styleProperty("cursor", QWebElement::InlineStyle), QLatin1String("auto"));
 
     p.setStyleProperty("color", "green !important");
-    QCOMPARE(p.styleProperty("color"), QLatin1String("green"));
-    QCOMPARE(p.styleProperty("color", QWebElement::RespectCascadingStyles), QLatin1String("green"));
+    QCOMPARE(p.styleProperty("color", QWebElement::InlineStyle), QLatin1String("green"));
+    QCOMPARE(p.styleProperty("color", QWebElement::CascadedStyle), QLatin1String("green"));
 
     p.setStyleProperty("color", "blue");
-    QCOMPARE(p.styleProperty("color"), QLatin1String("green"));
-    QCOMPARE(p.styleProperty("color", QWebElement::RespectCascadingStyles), QLatin1String("green"));
+    QCOMPARE(p.styleProperty("color", QWebElement::InlineStyle), QLatin1String("green"));
+    QCOMPARE(p.styleProperty("color", QWebElement::CascadedStyle), QLatin1String("green"));
 
-    p.setStyleProperty("color", "blue", QWebElement::ImportantStylePriority);
-    QCOMPARE(p.styleProperty("color"), QLatin1String("blue"));
-    QCOMPARE(p.styleProperty("color", QWebElement::RespectCascadingStyles), QLatin1String("blue"));
+    p.setStyleProperty("color", "blue !important");
+    QCOMPARE(p.styleProperty("color", QWebElement::InlineStyle), QLatin1String("blue"));
+    QCOMPARE(p.styleProperty("color", QWebElement::CascadedStyle), QLatin1String("blue"));
 
     QString html2 = "<head>"
         "<style type='text/css'>"
@@ -434,8 +503,8 @@ void tst_QWebElement::style()
     m_mainFrame->setHtml(html2);
     p = m_mainFrame->documentElement().findAll("p").at(0);
 
-    QCOMPARE(p.styleProperty("color"), QLatin1String("blue"));
-    QCOMPARE(p.styleProperty("color", QWebElement::RespectCascadingStyles), QLatin1String("blue"));
+    QCOMPARE(p.styleProperty("color", QWebElement::InlineStyle), QLatin1String("blue"));
+    QCOMPARE(p.styleProperty("color", QWebElement::CascadedStyle), QLatin1String("blue"));
 
     QString html3 = "<head>"
         "<style type='text/css'>"
@@ -451,8 +520,8 @@ void tst_QWebElement::style()
     m_mainFrame->setHtml(html3);
     p = m_mainFrame->documentElement().findAll("p").at(0);
 
-    QCOMPARE(p.styleProperty("color"), QLatin1String("blue"));
-    QCOMPARE(p.styleProperty("color", QWebElement::RespectCascadingStyles), QLatin1String("blue"));
+    QCOMPARE(p.styleProperty("color", QWebElement::InlineStyle), QLatin1String("blue"));
+    QCOMPARE(p.styleProperty("color", QWebElement::CascadedStyle), QLatin1String("blue"));
 
     QString html5 = "<head>"
         "<style type='text/css'>"
@@ -468,8 +537,8 @@ void tst_QWebElement::style()
     m_mainFrame->setHtml(html5);
     p = m_mainFrame->documentElement().findAll("p").at(0);
 
-    QCOMPARE(p.styleProperty("color"), QLatin1String(""));
-    QCOMPARE(p.styleProperty("color", QWebElement::RespectCascadingStyles), QLatin1String("red"));
+    QCOMPARE(p.styleProperty("color", QWebElement::InlineStyle), QLatin1String(""));
+    QCOMPARE(p.styleProperty("color", QWebElement::CascadedStyle), QLatin1String("red"));
 
     QString html6 = "<head>"
         "<link rel='stylesheet' href='qrc:/style.css' type='text/css' />"
@@ -484,13 +553,12 @@ void tst_QWebElement::style()
     "</body>";
 
     // in few seconds, the CSS should be completey loaded
-    QSignalSpy spy(m_page, SIGNAL(loadFinished(bool)));
     m_mainFrame->setHtml(html6);
-    QTest::qWait(200);
+    waitForSignal(m_page, SIGNAL(loadFinished(bool)), 200);
 
     p = m_mainFrame->documentElement().findAll("p").at(0);
-    QCOMPARE(p.styleProperty("color"), QLatin1String("blue"));
-    QCOMPARE(p.styleProperty("color", QWebElement::RespectCascadingStyles), QLatin1String("black"));
+    QCOMPARE(p.styleProperty("color", QWebElement::InlineStyle), QLatin1String("blue"));
+    QCOMPARE(p.styleProperty("color", QWebElement::CascadedStyle), QLatin1String("black"));
 
     QString html7 = "<head>"
         "<style type='text/css'>"
@@ -504,18 +572,18 @@ void tst_QWebElement::style()
 
     // in few seconds, the style should be completey loaded
     m_mainFrame->setHtml(html7);
-    QTest::qWait(200);
+    waitForSignal(m_page, SIGNAL(loadFinished(bool)), 200);
 
     p = m_mainFrame->documentElement().findAll("p").at(0);
-    QCOMPARE(p.styleProperty("color", QWebElement::RespectCascadingStyles), QLatin1String("black"));
+    QCOMPARE(p.styleProperty("color", QWebElement::CascadedStyle), QLatin1String("black"));
 
     QString html8 = "<body><p>some text</p></body>";
 
     m_mainFrame->setHtml(html8);
     p = m_mainFrame->documentElement().findAll("p").at(0);
 
-    QCOMPARE(p.styleProperty("color"), QLatin1String(""));
-    QCOMPARE(p.styleProperty("color", QWebElement::RespectCascadingStyles), QLatin1String(""));
+    QCOMPARE(p.styleProperty("color", QWebElement::InlineStyle), QLatin1String(""));
+    QCOMPARE(p.styleProperty("color", QWebElement::CascadedStyle), QLatin1String(""));
 }
 
 void tst_QWebElement::computedStyle()
@@ -524,47 +592,16 @@ void tst_QWebElement::computedStyle()
     m_mainFrame->setHtml(html);
 
     QWebElement p = m_mainFrame->documentElement().findAll("p").at(0);
-    QCOMPARE(p.computedStyleProperty("cursor"), QLatin1String("auto"));
-    QVERIFY(!p.computedStyleProperty("cursor").isEmpty());
-    QVERIFY(p.styleProperty("cursor").isEmpty());
+    QCOMPARE(p.styleProperty("cursor", QWebElement::ComputedStyle), QLatin1String("auto"));
+    QVERIFY(!p.styleProperty("cursor", QWebElement::ComputedStyle).isEmpty());
+    QVERIFY(p.styleProperty("cursor", QWebElement::InlineStyle).isEmpty());
 
     p.setStyleProperty("cursor", "text");
     p.setStyleProperty("color", "red");
 
-    QCOMPARE(p.computedStyleProperty("cursor"), QLatin1String("text"));
-    QCOMPARE(p.computedStyleProperty("color"), QLatin1String("rgb(255, 0, 0)"));
-    QCOMPARE(p.styleProperty("color"), QLatin1String("red"));
-}
-
-void tst_QWebElement::properties()
-{
-    m_mainFrame->setHtml("<body><form><input type=checkbox id=ourcheckbox checked=true>");
-
-    QWebElement checkBox = m_mainFrame->findFirstElement("#ourcheckbox");
-    QVERIFY(!checkBox.isNull());
-
-    QVERIFY(checkBox.scriptableProperties().contains("checked"));
-
-    QCOMPARE(checkBox.scriptableProperty("checked"), QVariant(true));
-    checkBox.setScriptableProperty("checked", false);
-    QCOMPARE(checkBox.scriptableProperty("checked"), QVariant(false));
-
-    QVERIFY(!checkBox.scriptableProperties().contains("non_existant"));
-    QCOMPARE(checkBox.scriptableProperty("non_existant"), QVariant());
-
-    checkBox.setScriptableProperty("non_existant", "test");
-
-    QCOMPARE(checkBox.scriptableProperty("non_existant"), QVariant("test"));
-    QVERIFY(checkBox.scriptableProperties().contains("non_existant"));
-
-    // removing scriptableProperties is currently not supported. We should look into this
-    // and consider the option of just allowing through the QtScript API only.
-#if 0
-    checkBox.setScriptableProperty("non_existant", QVariant());
-
-    QCOMPARE(checkBox.scriptableProperty("non_existant"), QVariant());
-    QVERIFY(!checkBox.scriptableProperties().contains("non_existant"));
-#endif
+    QCOMPARE(p.styleProperty("cursor", QWebElement::ComputedStyle), QLatin1String("text"));
+    QCOMPARE(p.styleProperty("color", QWebElement::ComputedStyle), QLatin1String("rgb(255, 0, 0)"));
+    QCOMPARE(p.styleProperty("color", QWebElement::InlineStyle), QLatin1String("red"));
 }
 
 void tst_QWebElement::appendAndPrepend()
@@ -700,7 +737,7 @@ void tst_QWebElement::clear()
 
     QCOMPARE(body.findAll("div").count(), 1);
     QCOMPARE(body.findAll("p").count(), 3);
-    body.findFirst("div").removeChildren();
+    body.findFirst("div").removeAllChildren();
     QCOMPARE(body.findAll("div").count(), 1);
     QCOMPARE(body.findAll("p").count(), 2);
 }
@@ -844,7 +881,7 @@ void tst_QWebElement::nullSelect()
 {
     m_mainFrame->setHtml("<body><p>Test");
 
-    QList<QWebElement> collection = m_mainFrame->findAllElements("invalid{syn(tax;;%#$f223e>>");
+    QWebElementCollection collection = m_mainFrame->findAllElements("invalid{syn(tax;;%#$f223e>>");
     QVERIFY(collection.count() == 0);
 }
 
@@ -876,6 +913,104 @@ void tst_QWebElement::lastChildPreviousSibling()
     QVERIFY(!p.isNull());
     QCOMPARE(p.tagName(), QString("P"));
     QVERIFY(p.previousSibling().isNull());
+}
+
+void tst_QWebElement::hasSetFocus()
+{
+    m_mainFrame->setHtml("<html><body>" \
+                            "<input type='text' id='input1'/>" \
+                            "<br>"\
+                            "<input type='text' id='input2'/>" \
+                            "</body></html>");
+
+    QWebElementCollection inputs = m_mainFrame->documentElement().findAll("input");
+    QWebElement input1 = inputs.at(0);
+    input1.setFocus();
+    QVERIFY(input1.hasFocus());
+
+    QWebElement input2 = inputs.at(1);
+    input2.setFocus();
+    QVERIFY(!input1.hasFocus());
+    QVERIFY(input2.hasFocus());
+}
+
+void tst_QWebElement::render()
+{
+    QString html( "<html>"
+                    "<head><style>"
+                       "body, iframe { margin: 0px; border: none; }"
+                    "</style></head>"
+                    "<body><table width='300px' height='300px' border='1'>"
+                           "<tr>"
+                               "<td>test"
+                               "</td>"
+                               "<td><img src='qrc:///image.png'>"
+                               "</td>"
+                           "</tr>"
+                          "</table>"
+                    "</body>"
+                 "</html>"
+                );
+
+    QWebPage page;
+    QSignalSpy loadSpy(&page, SIGNAL(loadFinished(bool)));
+    page.mainFrame()->setHtml(html);
+
+    waitForSignal(&page, SIGNAL(loadFinished(bool)));
+    QCOMPARE(loadSpy.count(), 1);
+
+    QSize size = page.mainFrame()->contentsSize();
+    page.setViewportSize(size);
+
+    QWebElementCollection imgs = page.mainFrame()->findAllElements("img");
+    QCOMPARE(imgs.count(), 1);
+
+    QImage resource(":/image.png");
+    QRect imageRect(0, 0, resource.width(), resource.height());
+
+    QImage testImage(resource.width(), resource.height(), QImage::Format_ARGB32);
+    QPainter painter0(&testImage);
+    painter0.fillRect(imageRect, Qt::white);
+    // render() uses pixmaps internally, and pixmaps might have bit depths
+    // other than 32, giving different pixel values due to rounding.
+    QPixmap pix = QPixmap::fromImage(resource);
+    painter0.drawPixmap(0, 0, pix);
+    painter0.end();
+
+    QImage image1(resource.width(), resource.height(), QImage::Format_ARGB32);
+    QPainter painter1(&image1);
+    painter1.fillRect(imageRect, Qt::white);
+    imgs[0].render(&painter1);
+    painter1.end();
+
+    QVERIFY(image1 == testImage);
+
+    // render image 2nd time to make sure that cached rendering works fine
+    QImage image2(resource.width(), resource.height(), QImage::Format_ARGB32);
+    QPainter painter2(&image2);
+    painter2.fillRect(imageRect, Qt::white);
+    imgs[0].render(&painter2);
+    painter2.end();
+
+    QVERIFY(image2 == testImage);
+
+    // compare table rendered through QWebElement::render to whole page table rendering
+    QRect tableRect(0, 0, 300, 300);
+    QWebElementCollection tables = page.mainFrame()->findAllElements("table");
+    QCOMPARE(tables.count(), 1);
+
+    QImage image3(300, 300, QImage::Format_ARGB32);
+    QPainter painter3(&image3);
+    painter3.fillRect(tableRect, Qt::white);
+    tables[0].render(&painter3);
+    painter3.end();
+
+    QImage image4(300, 300, QImage::Format_ARGB32);
+    QPainter painter4(&image4);
+    page.mainFrame()->render(&painter4, tableRect);
+    painter4.end();
+
+    QVERIFY(image3 == image4);
 }
 
 QTEST_MAIN(tst_QWebElement)

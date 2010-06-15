@@ -168,6 +168,9 @@
 		08FB77AEFE84172EC02AAC07 /* Classes */ = {
 			isa = PBXGroup;
 			children = (
+				F11798B20262465703CA149D /* JavaScriptGlue.cpp */,
+				F1EB7EAB02621EAF03CA149D /* JavaScriptGlue.exp */,
+				F11798B30262465703CA149D /* JavaScriptGlue.h */,
 				F11798B8026246FD03CA149D /* JSBase.cpp */,
 				F11798B9026246FD03CA149D /* JSBase.h */,
 				F11798BA026246FD03CA149D /* JSObject.cpp */,
@@ -178,9 +181,6 @@
 				F11798B7026246FD03CA149D /* JSUtils.h */,
 				F11798C80262545403CA149D /* JSValueWrapper.cpp */,
 				F11798C90262545403CA149D /* JSValueWrapper.h */,
-				F11798B20262465703CA149D /* JavaScriptGlue.cpp */,
-				F1EB7EAB02621EAF03CA149D /* JavaScriptGlue.exp */,
-				F11798B30262465703CA149D /* JavaScriptGlue.h */,
 				F11798CE0262579C03CA149D /* UserObjectImp.cpp */,
 				F11798CF0262579C03CA149D /* UserObjectImp.h */,
 			);
@@ -227,12 +227,12 @@
 			isa = PBXHeadersBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				DD66F3BB08F73ED700C75FD7 /* JavaScriptGlue.h in Headers */,
 				DD66F3BC08F73ED700C75FD7 /* JSBase.h in Headers */,
 				DD66F3BE08F73ED700C75FD7 /* JSObject.h in Headers */,
 				DD66F3BF08F73ED700C75FD7 /* JSRun.h in Headers */,
 				DD66F3BD08F73ED700C75FD7 /* JSUtils.h in Headers */,
 				DD66F3C008F73ED700C75FD7 /* JSValueWrapper.h in Headers */,
-				DD66F3BB08F73ED700C75FD7 /* JavaScriptGlue.h in Headers */,
 				DD66F3C108F73ED700C75FD7 /* UserObjectImp.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -265,9 +265,9 @@
 				DD66F3BA08F73ED700C75FD7 /* Headers */,
 				DD66F3C208F73ED700C75FD7 /* Resources */,
 				DD66F3C408F73ED700C75FD7 /* Sources */,
-				939D055E09DA033400984996 /* Check For Global Initializers */,
-				5D0D53490E9862A70029E223 /* Check For Weak VTables */,
 				DD66F3CD08F73ED700C75FD7 /* Frameworks */,
+				939D055E09DA033400984996 /* Check For Global Initializers */,
+				5D0D53490E9862A70029E223 /* Check For Weak VTables and Externals */,
 				5DA0F0C00DC2B48900EA22B4 /* Remove Headers If Needed */,
 			);
 			buildRules = (
@@ -312,19 +312,20 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXShellScriptBuildPhase section */
-		5D0D53490E9862A70029E223 /* Check For Weak VTables */ = {
+		5D0D53490E9862A70029E223 /* Check For Weak VTables and Externals */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
 			);
 			inputPaths = (
+				"$(TARGET_BUILD_DIR)/$(EXECUTABLE_PATH)",
 			);
-			name = "Check For Weak VTables";
+			name = "Check For Weak VTables and Externals";
 			outputPaths = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "if [ -f ../WebKitTools/Scripts/check-for-weak-vtables ]; then\n    ../WebKitTools/Scripts/check-for-weak-vtables || exit $?\nfi";
+			shellScript = "if [ -f ../WebKitTools/Scripts/check-for-weak-vtables-and-externals ]; then\n    ../WebKitTools/Scripts/check-for-weak-vtables-and-externals || exit $?\nfi";
 		};
 		5D2F7D0A0C6878E000B5B72B /* Update Info.plist with version information */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -340,7 +341,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "# Touch Info.plist to let Xcode know it needs to copy it into the built product\ntouch \"$SRCROOT/Info.plist\"\n";
+			shellScript = "# Touch Info.plist to let Xcode know it needs to copy it into the built product\nif [[ \"${CONFIGURATION}\" != \"Production\" ]]; then\n    touch \"$SRCROOT/Info.plist\";\nfi;\n";
 		};
 		5DA0F0C00DC2B48900EA22B4 /* Remove Headers If Needed */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -354,7 +355,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "if (( MAC_OS_X_VERSION_MAJOR > 1050 )); then\n   rm -rf \"$BUILT_PRODUCTS_DIR/$PUBLIC_HEADERS_FOLDER_PATH\"/*.h;\nfi;\n";
+			shellScript = "if (( TARGET_MAC_OS_X_VERSION_MAJOR > 1050 )); then\n   rm -rf \"$BUILT_PRODUCTS_DIR/$PUBLIC_HEADERS_FOLDER_PATH\"/*.h;\nfi;\n";
 		};
 		939D055E09DA033400984996 /* Check For Global Initializers */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -362,6 +363,7 @@
 			files = (
 			);
 			inputPaths = (
+				"$(TARGET_BUILD_DIR)/$(EXECUTABLE_PATH)",
 			);
 			name = "Check For Global Initializers";
 			outputPaths = (
@@ -385,12 +387,12 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				DD66F3C608F73ED700C75FD7 /* JavaScriptGlue.cpp in Sources */,
 				DD66F3C908F73ED700C75FD7 /* JSBase.cpp in Sources */,
 				DD66F3CA08F73ED700C75FD7 /* JSObject.cpp in Sources */,
 				DD66F3C708F73ED700C75FD7 /* JSRun.cpp in Sources */,
 				DD66F3C808F73ED700C75FD7 /* JSUtils.cpp in Sources */,
 				DD66F3CB08F73ED700C75FD7 /* JSValueWrapper.cpp in Sources */,
-				DD66F3C608F73ED700C75FD7 /* JavaScriptGlue.cpp in Sources */,
 				DD66F3CC08F73ED700C75FD7 /* UserObjectImp.cpp in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -535,10 +537,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 1C9051A10BA9F3050081E9D0 /* JavaScriptGlue.xcconfig */;
 			buildSettings = {
-				BUILD_VARIANTS = (
-					normal,
-					debug,
-				);
+				BUILD_VARIANTS = normal;
 				SECTORDER_FLAGS = (
 					"-sectorder",
 					__TEXT,

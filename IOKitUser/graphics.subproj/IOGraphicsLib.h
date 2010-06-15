@@ -419,6 +419,11 @@ IODisplayMatchDictionaries(
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
+io_service_t
+IODisplayForFramebuffer(
+        io_service_t    framebuffer,
+        IOOptionBits    options );
+
 IOReturn
 IODisplaySetParameters(
         io_service_t    service,

@@ -39,15 +39,6 @@
 
 namespace WebCore {
 
-static void updateListMarkerNumbers(RenderObject* child)
-{
-    for (RenderObject* r = child; r; r = r->nextSibling()) {
-        if (r->isListItem())
-            static_cast<RenderListItem*>(r)->updateValue();
-    }
-}
-
-
 void RenderObjectChildList::destroyLeftoverChildren()
 {
     while (firstChild()) {
@@ -92,11 +83,10 @@ RenderObject* RenderObjectChildList::removeChildNode(RenderObject* owner, Render
                 layer = owner->enclosingLayer();
             oldChild->removeLayers(layer);
         }
-        
-        // renumber ordered lists
+
         if (oldChild->isListItem())
-            updateListMarkerNumbers(oldChild->nextSibling());
-        
+            toRenderListItem(oldChild)->updateListMarkerNumbers();
+
         if (oldChild->isPositioned() && owner->childrenInline())
             owner->dirtyLinesFromChangedChild(oldChild);
     }
@@ -162,7 +152,10 @@ void RenderObjectChildList::appendChildNode(RenderObject* owner, RenderObject* n
             if (layer)
                 layer->setHasVisibleContent(true);
         }
-        
+
+        if (newChild->isListItem())
+            toRenderListItem(newChild)->updateListMarkerNumbers();
+
         if (!newChild->isFloatingOrPositioned() && owner->childrenInline())
             owner->dirtyLinesFromChangedChild(newChild);
     }
@@ -219,7 +212,9 @@ void RenderObjectChildList::insertChildNode(RenderObject* owner, RenderObject* c
                 layer->setHasVisibleContent(true);
         }
 
-        
+        if (child->isListItem())
+            toRenderListItem(child)->updateListMarkerNumbers();
+
         if (!child->isFloating() && owner->childrenInline())
             owner->dirtyLinesFromChangedChild(child);
     }
@@ -235,17 +230,42 @@ void RenderObjectChildList::insertChildNode(RenderObject* owner, RenderObject* c
 static RenderObject* beforeAfterContainer(RenderObject* container, PseudoId type)
 {
     if (type == BEFORE) {
+        // An anonymous (generated) inline run-in that has PseudoId BEFORE must come from a grandparent.
+        // Therefore we should skip these generated run-ins when checking our immediate children.
+        // If we don't find our :before child immediately, then we should check if we own a
+        // generated inline run-in in the next level of children.
         RenderObject* first = container;
         do {
-            // Skip list markers.
+            // Skip list markers and generated run-ins
             first = first->firstChild();
-            while (first && first->isListMarker())
+            while (first && (first->isListMarker() || (first->isRenderInline() && first->isRunIn() && first->isAnonymous())))
                 first = first->nextSibling();
         } while (first && first->isAnonymous() && first->style()->styleType() == NOPSEUDO);
-        if (first && first->style()->styleType() != type)
+
+        if (!first)
             return 0;
-        return first;
+
+        if (first->style()->styleType() == type)
+            return first;
+
+        // Check for a possible generated run-in, using run-in positioning rules.
+        // Skip inlines and floating / positioned blocks, and place as the first child.
+        first = container->firstChild();
+        if (!first->isRenderBlock())
+            return 0;
+        while (first && first->isFloatingOrPositioned())
+            first = first->nextSibling();
+        if (first) {
+            first = first->firstChild();
+            // We still need to skip any list markers that could exist before the run-in.
+            while (first && first->isListMarker())
+                first = first->nextSibling();
+            if (first && first->style()->styleType() == type && first->isRenderInline() && first->isRunIn() && first->isAnonymous())
+                return first;
+        }
+        return 0;
     }
+
     if (type == AFTER) {
         RenderObject* last = container;
         do {
@@ -272,24 +292,29 @@ static RenderObject* findBeforeAfterParent(RenderObject* object)
     return beforeAfterParent;
 }
 
-static void invalidateCountersInContainer(RenderObject* container)
+static void invalidateCountersInContainer(RenderObject* container, const AtomicString& identifier)
 {
     if (!container)
         return;
     container = findBeforeAfterParent(container);
     if (!container)
         return;
+    // Sometimes the counter is attached directly on the container.
+    if (container->isCounter()) {
+        toRenderCounter(container)->invalidate(identifier);
+        return;
+    }
     for (RenderObject* content = container->firstChild(); content; content = content->nextSibling()) {
         if (content->isCounter())
-            static_cast<RenderCounter*>(content)->invalidate();
+            toRenderCounter(content)->invalidate(identifier);
     }
 }
 
-void RenderObjectChildList::invalidateCounters(RenderObject* owner)
+void RenderObjectChildList::invalidateCounters(RenderObject* owner, const AtomicString& identifier)
 {
     ASSERT(!owner->documentBeingDestroyed());
-    invalidateCountersInContainer(beforeAfterContainer(owner, BEFORE));
-    invalidateCountersInContainer(beforeAfterContainer(owner, AFTER));
+    invalidateCountersInContainer(beforeAfterContainer(owner, BEFORE), identifier);
+    invalidateCountersInContainer(beforeAfterContainer(owner, AFTER), identifier);
 }
 
 void RenderObjectChildList::updateBeforeAfterContent(RenderObject* owner, PseudoId type, RenderObject* styledObject)
@@ -310,7 +335,7 @@ void RenderObjectChildList::updateBeforeAfterContent(RenderObject* owner, Pseudo
     // Whether or not we currently have generated content attached.
     bool oldContentPresent = child;
 
-    // Whether or not we now want generated content.  
+    // Whether or not we now want generated content.
     bool newContentWanted = pseudoElementStyle && pseudoElementStyle->display() != NONE;
 
     // For <q><p/></q>, if this object is the inline continuation of the <q>, we only want to generate
@@ -326,9 +351,9 @@ void RenderObjectChildList::updateBeforeAfterContent(RenderObject* owner, Pseudo
     // If we don't want generated content any longer, or if we have generated content, but it's no longer
     // identical to the new content data we want to build render objects for, then we nuke all
     // of the old generated content.
-    if (!newContentWanted || (oldContentPresent && Node::diff(child->style(), pseudoElementStyle) == Node::Detach)) {
+    if (oldContentPresent && (!newContentWanted || Node::diff(child->style(), pseudoElementStyle) == Node::Detach)) {
         // Nuke the child. 
-        if (child && child->style()->styleType() == type) {
+        if (child->style()->styleType() == type) {
             oldContentPresent = false;
             child->destroy();
             child = (type == BEFORE) ? owner->virtualChildren()->firstChild() : owner->virtualChildren()->lastChild();
@@ -370,9 +395,11 @@ void RenderObjectChildList::updateBeforeAfterContent(RenderObject* owner, Pseudo
                     RefPtr<RenderStyle> style = RenderStyle::create();
                     style->inheritFrom(pseudoElementStyle);
                     genChild->setStyle(style.release());
-                } else
-                    // Must be a first-letter container. updateFirstLetter() will take care of it.
-                    ASSERT(genChild->style()->styleType() == FIRST_LETTER);
+                } else {
+                    // RenderListItem may insert a list marker here. We do not need to care about this case.
+                    // Otherwise, genChild must be a first-letter container. updateFirstLetter() will take care of it.
+                    ASSERT(genChild->isListMarker() || genChild->style()->styleType() == FIRST_LETTER);
+                }
             }
         }
         return; // We've updated the generated content. That's all we needed to do.

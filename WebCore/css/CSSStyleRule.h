@@ -34,13 +34,13 @@ class CSSSelector;
 
 class CSSStyleRule : public CSSRule {
 public:
-    static PassRefPtr<CSSStyleRule> create(CSSStyleSheet* parent)
+    static PassRefPtr<CSSStyleRule> create(CSSStyleSheet* parent, int sourceLine)
     {
-        return adoptRef(new CSSStyleRule(parent));
+        return adoptRef(new CSSStyleRule(parent, sourceLine));
     }
     virtual ~CSSStyleRule();
 
-    String selectorText() const;
+    virtual String selectorText() const;
     void setSelectorText(const String&, ExceptionCode&);
 
     CSSMutableStyleDeclaration* style() const { return m_style.get(); }
@@ -58,9 +58,12 @@ public:
 
     virtual void addSubresourceStyleURLs(ListHashSet<KURL>& urls);
 
-private:
-    CSSStyleRule(CSSStyleSheet* parent);
+    int sourceLine() { return m_sourceLine; }
 
+protected:
+    CSSStyleRule(CSSStyleSheet* parent, int sourceLine);
+
+private:
     virtual bool isStyleRule() { return true; }
 
     // Inherited from CSSRule
@@ -68,6 +71,7 @@ private:
 
     RefPtr<CSSMutableStyleDeclaration> m_style;
     CSSSelectorList m_selectorList;
+    int m_sourceLine;
 };
 
 } // namespace WebCore

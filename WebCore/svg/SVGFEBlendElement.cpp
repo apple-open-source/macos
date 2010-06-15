@@ -2,8 +2,6 @@
     Copyright (C) 2004, 2005, 2007 Nikolas Zimmermann <zimmermann@kde.org>
                   2004, 2005, 2006 Rob Buis <buis@kde.org>
 
-    This file is part of the KDE project
-
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Library General Public
     License as published by the Free Software Foundation; either
@@ -26,15 +24,12 @@
 #include "SVGFEBlendElement.h"
 
 #include "MappedAttribute.h"
-#include "SVGResourceFilter.h"
 
 namespace WebCore {
 
 SVGFEBlendElement::SVGFEBlendElement(const QualifiedName& tagName, Document* doc)
     : SVGFilterPrimitiveStandardAttributes(tagName, doc)
-    , m_in1(this, SVGNames::inAttr)
-    , m_in2(this, SVGNames::in2Attr)
-    , m_mode(this, SVGNames::modeAttr, FEBLEND_MODE_NORMAL)
+    , m_mode(FEBLEND_MODE_NORMAL)
 {
 }
 
@@ -64,18 +59,34 @@ void SVGFEBlendElement::parseMappedAttribute(MappedAttribute* attr)
         SVGFilterPrimitiveStandardAttributes::parseMappedAttribute(attr);
 }
 
-bool SVGFEBlendElement::build(SVGResourceFilter* filterResource)
+void SVGFEBlendElement::synchronizeProperty(const QualifiedName& attrName)
 {
-    FilterEffect* input1 = filterResource->builder()->getEffectById(in1());
-    FilterEffect* input2 = filterResource->builder()->getEffectById(in2());
+    SVGFilterPrimitiveStandardAttributes::synchronizeProperty(attrName);
 
-    if(!input1 || !input2)
-        return false;
+    if (attrName == anyQName()) {
+        synchronizeMode();
+        synchronizeIn1();
+        synchronizeIn2();
+        return;
+    }
 
-    RefPtr<FilterEffect> effect = FEBlend::create(input1, input2, static_cast<BlendModeType>(mode()));
-    filterResource->addFilterEffect(this, effect.release());
+    if (attrName == SVGNames::modeAttr)
+        synchronizeMode();
+    else if (attrName == SVGNames::inAttr)
+        synchronizeIn1();
+    else if (attrName == SVGNames::in2Attr)
+        synchronizeIn2();
+}
 
-    return true;
+PassRefPtr<FilterEffect> SVGFEBlendElement::build(SVGFilterBuilder* filterBuilder)
+{
+    FilterEffect* input1 = filterBuilder->getEffectById(in1());
+    FilterEffect* input2 = filterBuilder->getEffectById(in2());
+
+    if (!input1 || !input2)
+        return 0;
+
+    return FEBlend::create(input1, input2, static_cast<BlendModeType>(mode()));
 }
 
 }

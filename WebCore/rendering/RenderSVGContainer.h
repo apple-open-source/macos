@@ -2,6 +2,7 @@
     Copyright (C) 2004, 2005, 2007 Nikolas Zimmermann <zimmermann@kde.org>
                   2004, 2005, 2007 Rob Buis <buis@kde.org>
     Copyright (C) 2009 Google, Inc.  All rights reserved.
+    Copyright (C) 2009 Apple Inc. All rights reserved.
 
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Library General Public
@@ -33,10 +34,7 @@ class SVGElement;
 class RenderSVGContainer : public RenderSVGModelObject {
 public:
     RenderSVGContainer(SVGStyledElement*);
-    ~RenderSVGContainer();
 
-    virtual RenderObjectChildList* virtualChildren() { return children(); }
-    virtual const RenderObjectChildList* virtualChildren() const { return children(); }
     const RenderObjectChildList* children() const { return &m_children; }
     RenderObjectChildList* children() { return &m_children; }
 
@@ -44,19 +42,25 @@ public:
     void setDrawsContents(bool);
     bool drawsContents() const;
 
+    virtual void paint(PaintInfo&, int parentX, int parentY);
+
+protected:
+    virtual RenderObjectChildList* virtualChildren() { return children(); }
+    virtual const RenderObjectChildList* virtualChildren() const { return children(); }
+
     virtual bool isSVGContainer() const { return true; }
     virtual const char* renderName() const { return "RenderSVGContainer"; }
 
     virtual void layout();
-    virtual void paint(PaintInfo&, int parentX, int parentY);
-    virtual void addFocusRingRects(GraphicsContext*, int tx, int ty);
+
+    virtual void addFocusRingRects(Vector<IntRect>&, int tx, int ty);
 
     virtual FloatRect objectBoundingBox() const;
+    virtual FloatRect strokeBoundingBox() const;
     virtual FloatRect repaintRectInLocalCoordinates() const;
 
     virtual bool nodeAtFloatPoint(const HitTestRequest&, HitTestResult&, const FloatPoint& pointInParent, HitTestAction);
 
-protected:
     // Allow RenderSVGTransformableContainer to hook in at the right time in layout()
     virtual void calculateLocalTransform() { }
 
@@ -65,13 +69,30 @@ protected:
     virtual void applyViewportClip(PaintInfo&) { }
     virtual bool pointIsInsideViewportClip(const FloatPoint& /*pointInParent*/) { return true; }
 
-private:
     bool selfWillPaint() const;
 
+private:
     RenderObjectChildList m_children;
     bool m_drawsContents : 1;
 };
   
+inline RenderSVGContainer* toRenderSVGContainer(RenderObject* object)
+{
+    // Note: isSVGContainer is also true for RenderSVGViewportContainer, which is not derived from this.
+    ASSERT(!object || (object->isSVGContainer() && strcmp(object->renderName(), "RenderSVGViewportContainer")));
+    return static_cast<RenderSVGContainer*>(object);
+}
+
+inline const RenderSVGContainer* toRenderSVGContainer(const RenderObject* object)
+{
+    // Note: isSVGContainer is also true for RenderSVGViewportContainer, which is not derived from this.
+    ASSERT(!object || (object->isSVGContainer() && strcmp(object->renderName(), "RenderSVGViewportContainer")));
+    return static_cast<const RenderSVGContainer*>(object);
+}
+
+// This will catch anyone doing an unnecessary cast.
+void toRenderSVGContainer(const RenderSVGContainer*);
+
 } // namespace WebCore
 
 #endif // ENABLE(SVG)

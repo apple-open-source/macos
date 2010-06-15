@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2008, 2009 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -31,6 +31,7 @@
 
 #include "JSObject.h"
 #include "JSString.h"
+#include "Operations.h"
 #include "PropertyNameArray.h"
 
 namespace JSC {
@@ -39,77 +40,69 @@ namespace JSC {
     class JSObject;
 
     class JSPropertyNameIterator : public JSCell {
-    public:
-        static JSPropertyNameIterator* create(ExecState*, JSValue);
+        friend class JIT;
 
+    public:
+        static JSPropertyNameIterator* create(ExecState*, JSObject*);
+        
+        static PassRefPtr<Structure> createStructure(JSValue prototype)
+        {
+            return Structure::create(prototype, TypeInfo(CompoundType, OverridesMarkChildren), AnonymousSlotCount);
+        }
+        
         virtual ~JSPropertyNameIterator();
 
-        virtual JSValue toPrimitive(ExecState*, PreferredPrimitiveType) const;
-        virtual bool getPrimitiveNumber(ExecState*, double&, JSValue&);
-        virtual bool toBoolean(ExecState*) const;
-        virtual double toNumber(ExecState*) const;
-        virtual UString toString(ExecState*) const;
-        virtual JSObject* toObject(ExecState*) const;
+        virtual bool isPropertyNameIterator() const { return true; }
 
-        virtual void mark();
+        virtual void markChildren(MarkStack&);
 
-        JSValue next(ExecState*);
-        void invalidate();
+        bool getOffset(size_t i, int& offset)
+        {
+            if (i >= m_numCacheableSlots)
+                return false;
+            offset = i;
+            return true;
+        }
+
+        JSValue get(ExecState*, JSObject*, size_t i);
+        size_t size() { return m_jsStringsSize; }
+
+        void setCachedStructure(Structure* structure)
+        {
+            ASSERT(!m_cachedStructure);
+            ASSERT(structure);
+            m_cachedStructure = structure;
+        }
+        Structure* cachedStructure() { return m_cachedStructure.get(); }
+
+        void setCachedPrototypeChain(NonNullPassRefPtr<StructureChain> cachedPrototypeChain) { m_cachedPrototypeChain = cachedPrototypeChain; }
+        StructureChain* cachedPrototypeChain() { return m_cachedPrototypeChain.get(); }
 
     private:
-        JSPropertyNameIterator();
-        JSPropertyNameIterator(JSObject*, PassRefPtr<PropertyNameArrayData> propertyNameArrayData);
+        JSPropertyNameIterator(ExecState*, PropertyNameArrayData* propertyNameArrayData, size_t numCacheableSlot);
 
-        JSObject* m_object;
-        RefPtr<PropertyNameArrayData> m_data;
-        PropertyNameArrayData::const_iterator m_position;
-        PropertyNameArrayData::const_iterator m_end;
+        RefPtr<Structure> m_cachedStructure;
+        RefPtr<StructureChain> m_cachedPrototypeChain;
+        uint32_t m_numCacheableSlots;
+        uint32_t m_jsStringsSize;
+        OwnArrayPtr<JSValue> m_jsStrings;
     };
 
-inline JSPropertyNameIterator::JSPropertyNameIterator()
-    : JSCell(0)
-    , m_object(0)
-    , m_position(0)
-    , m_end(0)
-{
-}
+    inline void Structure::setEnumerationCache(JSPropertyNameIterator* enumerationCache)
+    {
+        ASSERT(!isDictionary());
+        m_enumerationCache = enumerationCache;
+    }
 
-inline JSPropertyNameIterator::JSPropertyNameIterator(JSObject* object, PassRefPtr<PropertyNameArrayData> propertyNameArrayData)
-    : JSCell(0)
-    , m_object(object)
-    , m_data(propertyNameArrayData)
-    , m_position(m_data->begin())
-    , m_end(m_data->end())
-{
-}
+    inline void Structure::clearEnumerationCache(JSPropertyNameIterator* enumerationCache)
+    {
+        m_enumerationCache.clear(enumerationCache);
+    }
 
-inline JSPropertyNameIterator* JSPropertyNameIterator::create(ExecState* exec, JSValue v)
-{
-    if (v.isUndefinedOrNull())
-        return new (exec) JSPropertyNameIterator;
-
-    JSObject* o = v.toObject(exec);
-    PropertyNameArray propertyNames(exec);
-    o->getPropertyNames(exec, propertyNames);
-    return new (exec) JSPropertyNameIterator(o, propertyNames.releaseData());
-}
-
-inline JSValue JSPropertyNameIterator::next(ExecState* exec)
-{
-    if (m_position == m_end)
-        return JSValue();
-
-    if (m_data->cachedStructure() == m_object->structure() && m_data->cachedPrototypeChain() == m_object->structure()->prototypeChain(exec))
-        return jsOwnedString(exec, (*m_position++).ustring());
-
-    do {
-        if (m_object->hasProperty(exec, *m_position))
-            return jsOwnedString(exec, (*m_position++).ustring());
-        m_position++;
-    } while (m_position != m_end);
-
-    return JSValue();
-}
+    inline JSPropertyNameIterator* Structure::enumerationCache()
+    {
+        return m_enumerationCache.get();
+    }
 
 } // namespace JSC
 

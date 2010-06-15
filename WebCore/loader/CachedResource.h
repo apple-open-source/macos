@@ -24,9 +24,9 @@
 #define CachedResource_h
 
 #include "CachePolicy.h"
+#include "FrameLoaderTypes.h"
 #include "PlatformString.h"
 #include "ResourceResponse.h"
-#include "SharedBuffer.h"
 #include <wtf/HashCountedSet.h>
 #include <wtf/HashSet.h>
 #include <wtf/OwnPtr.h>
@@ -46,7 +46,7 @@ class PurgeableBuffer;
 // A resource that is held in the cache. Classes who want to use this object should derive
 // from CachedResourceClient, to get the function calls in case the requested data has arrived.
 // This class also does the actual communication with the loader to obtain the resource from the network.
-class CachedResource {
+class CachedResource : public Noncopyable {
     friend class Cache;
     friend class InspectorResource;
     
@@ -75,8 +75,8 @@ public:
     CachedResource(const String& url, Type);
     virtual ~CachedResource();
     
-    virtual void load(DocLoader* docLoader)  { load(docLoader, false, false, true); }
-    void load(DocLoader*, bool incremental, bool skipCanLoadCheck, bool sendResourceLoadCallbacks);
+    virtual void load(DocLoader* docLoader)  { load(docLoader, false, DoSecurityCheck, true); }
+    void load(DocLoader*, bool incremental, SecurityCheckPolicy, bool sendResourceLoadCallbacks);
 
     virtual void setEncoding(const String&) { }
     virtual String encoding() const { return String(); }
@@ -85,7 +85,7 @@ public:
     virtual void httpStatusCodeError() { error(); } // Images keep loading in spite of HTTP errors (for legacy compat with <img>, etc.).
 
     const String &url() const { return m_url; }
-    Type type() const { return m_type; }
+    Type type() const { return static_cast<Type>(m_type); }
 
     void addClient(CachedResourceClient*);
     void removeClient(CachedResourceClient*);
@@ -98,7 +98,7 @@ public:
         PreloadReferencedWhileLoading,
         PreloadReferencedWhileComplete
     };
-    PreloadResult preloadResult() const { return m_preloadResult; }
+    PreloadResult preloadResult() const { return static_cast<PreloadResult>(m_preloadResult); }
     void setRequestedFromNetworkingLayer() { m_requestedFromNetworkingLayer = true; }
 
     virtual void didAddClient(CachedResourceClient*) = 0;
@@ -106,14 +106,17 @@ public:
 
     unsigned count() const { return m_clients.size(); }
 
-    Status status() const { return m_status; }
+    Status status() const { return static_cast<Status>(m_status); }
+    void setStatus(Status status) { m_status = status; }
 
     unsigned size() const { return encodedSize() + decodedSize() + overheadSize(); }
     unsigned encodedSize() const { return m_encodedSize; }
     unsigned decodedSize() const { return m_decodedSize; }
     unsigned overheadSize() const;
     
-    bool isLoaded() const { return !m_loading; }
+    bool isLoaded() const { return !m_loading; } // FIXME. Method name is inaccurate. Loading might not have started yet.
+
+    bool isLoading() const { return m_loading; }
     void setLoading(bool b) { m_loading = b; }
 
     virtual bool isImage() const { return false; }
@@ -129,7 +132,7 @@ public:
     // while still being referenced. This means the object should delete itself
     // if the number of clients observing it ever drops to 0.
     // The resource can be brought back to cache after successful revalidation.
-    void setInCache(bool b) { m_inCache = b; if (b) m_isBeingRevalidated = false; }
+    void setInCache(bool inCache) { m_inCache = inCache; }
     bool inCache() const { return m_inCache; }
     
     void setInLiveDecodedResourcesList(bool b) { m_inLiveDecodedResourcesList = b; }
@@ -142,18 +145,20 @@ public:
     void setResponse(const ResourceResponse&);
     const ResourceResponse& response() const { return m_response; }
 
-    bool canDelete() const { return !hasClients() && !m_request && !m_preloadCount && !m_handleCount && !m_resourceToRevalidate && !m_isBeingRevalidated; }
+    bool canDelete() const { return !hasClients() && !m_request && !m_preloadCount && !m_handleCount && !m_resourceToRevalidate && !m_proxyResource; }
 
     bool isExpired() const;
 
     virtual bool schedule() const { return false; }
 
-    // List of acceptable MIME types seperated by ",".
+    // List of acceptable MIME types separated by ",".
     // A MIME type may contain a wildcard, e.g. "text/*".
     String accept() const { return m_accept; }
     void setAccept(const String& accept) { m_accept = accept; }
 
     bool errorOccurred() const { return m_errorOccurred; }
+    void setErrorOccurred(bool b) { m_errorOccurred = b; }
+
     bool sendResourceLoadCallbacks() const { return m_sendResourceLoadCallbacks; }
     
     virtual void destroyDecodedData() { }
@@ -199,11 +204,6 @@ protected:
     RefPtr<SharedBuffer> m_data;
     OwnPtr<PurgeableBuffer> m_purgeableData;
 
-    Type m_type;
-    Status m_status;
-
-    bool m_errorOccurred;
-
 private:
     void addClientToSet(CachedResourceClient*);
                                         
@@ -216,27 +216,32 @@ private:
     double currentAge() const;
     double freshnessLifetime() const;
 
+    double m_lastDecodedAccessTime; // Used as a "thrash guard" in the cache
+
     unsigned m_encodedSize;
     unsigned m_decodedSize;
     unsigned m_accessCount;
-    unsigned m_inLiveDecodedResourcesList;
-    double m_lastDecodedAccessTime; // Used as a "thrash guard" in the cache
-    
-    bool m_sendResourceLoadCallbacks;
-    
+    unsigned m_handleCount;
     unsigned m_preloadCount;
-    PreloadResult m_preloadResult;
-    bool m_requestedFromNetworkingLayer;
 
-protected:
-    bool m_inCache;
-    bool m_loading;
+    unsigned m_preloadResult : 2; // PreloadResult
+
+    bool m_inLiveDecodedResourcesList : 1;
+    bool m_requestedFromNetworkingLayer : 1;
+    bool m_sendResourceLoadCallbacks : 1;
+
+    bool m_errorOccurred : 1;
+    bool m_inCache : 1;
+    bool m_loading : 1;
+
+    unsigned m_type : 3; // Type
+    unsigned m_status : 3; // Status
+
 #ifndef NDEBUG
     bool m_deleted;
     unsigned m_lruIndex;
 #endif
 
-private:
     CachedResource* m_nextInAllResourcesList;
     CachedResource* m_prevInAllResourcesList;
     
@@ -245,13 +250,15 @@ private:
 
     DocLoader* m_docLoader; // only non-0 for resources that are not in the cache
     
-    unsigned m_handleCount;
     // If this field is non-null we are using the resource as a proxy for checking whether an existing resource is still up to date
     // using HTTP If-Modified-Since/If-None-Match headers. If the response is 304 all clients of this resource are moved
     // to to be clients of m_resourceToRevalidate and the resource is deleted. If not, the field is zeroed and this
     // resources becomes normal resource load.
     CachedResource* m_resourceToRevalidate;
-    bool m_isBeingRevalidated;
+
+    // If this field is non-null, the resource has a proxy for checking whether it is still up to date (see m_resourceToRevalidate).
+    CachedResource* m_proxyResource;
+
     // These handles will need to be updated to point to the m_resourceToRevalidate in case we get 304 response.
     HashSet<CachedResourceHandleBase*> m_handlesToRevalidate;
 };

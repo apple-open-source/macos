@@ -41,9 +41,7 @@ namespace WebCore {
 static const size_t sizeOfFileHeader = 14;
 
 BMPImageDecoder::BMPImageDecoder()
-    : ImageDecoder()
-    , m_allDataReceived(false)
-    , m_decodedOffset(0)
+    : m_decodedOffset(0)
 {
 }
 
@@ -53,15 +51,14 @@ void BMPImageDecoder::setData(SharedBuffer* data, bool allDataReceived)
         return;
 
     ImageDecoder::setData(data, allDataReceived);
-    m_allDataReceived = allDataReceived;
     if (m_reader)
         m_reader->setData(data);
 }
 
 bool BMPImageDecoder::isSizeAvailable()
 {
-    if (!ImageDecoder::isSizeAvailable() && !failed())
-        decodeWithCheckForDataEnded(true);
+    if (!ImageDecoder::isSizeAvailable())
+        decode(true);
 
     return ImageDecoder::isSizeAvailable();
 }
@@ -75,32 +72,30 @@ RGBA32Buffer* BMPImageDecoder::frameBufferAtIndex(size_t index)
         m_frameBufferCache.resize(1);
 
     RGBA32Buffer* buffer = &m_frameBufferCache.first();
-    if (buffer->status() != RGBA32Buffer::FrameComplete && !failed())
-        decodeWithCheckForDataEnded(false);
+    if (buffer->status() != RGBA32Buffer::FrameComplete)
+        decode(false);
     return buffer;
 }
 
-void BMPImageDecoder::decodeWithCheckForDataEnded(bool onlySize)
+void BMPImageDecoder::decode(bool onlySize)
 {
     if (failed())
         return;
 
     // If we couldn't decode the image but we've received all the data, decoding
     // has failed.
-    if (!decode(onlySize) && m_allDataReceived)
+    if (!decodeHelper(onlySize) && isAllDataReceived())
         setFailed();
 }
 
-bool BMPImageDecoder::decode(bool onlySize)
+bool BMPImageDecoder::decodeHelper(bool onlySize)
 {
     size_t imgDataOffset = 0;
-    if ((m_decodedOffset < sizeOfFileHeader)
-        && !processFileHeader(&imgDataOffset))
+    if ((m_decodedOffset < sizeOfFileHeader) && !processFileHeader(&imgDataOffset))
         return false;
 
     if (!m_reader) {
-        m_reader.set(new BMPImageReader(this, m_decodedOffset, imgDataOffset,
-                                        false));
+        m_reader.set(new BMPImageReader(this, m_decodedOffset, imgDataOffset, false));
         m_reader->setData(m_data.get());
     }
 
@@ -118,31 +113,25 @@ bool BMPImageDecoder::processFileHeader(size_t* imgDataOffset)
     ASSERT(!m_decodedOffset);
     if (m_data->size() < sizeOfFileHeader)
         return false;
-    const uint16_t fileType =
-        (m_data->data()[0] << 8) | static_cast<uint8_t>(m_data->data()[1]);
+    const uint16_t fileType = (m_data->data()[0] << 8) | static_cast<uint8_t>(m_data->data()[1]);
     *imgDataOffset = readUint32(10);
     m_decodedOffset = sizeOfFileHeader;
 
     // See if this is a bitmap filetype we understand.
     enum {
-        BMAP = 'BM',
+        BMAP = 0x424D,  // "BM"
         // The following additional OS/2 2.x header values (see
         // http://www.fileformat.info/format/os2bmp/egff.htm ) aren't widely
         // decoded, and are unlikely to be in much use.
         /*
-        ICON = 'IC',
-        POINTER = 'PT',
-        COLORICON = 'CI',
-        COLORPOINTER = 'CP',
-        BITMAPARRAY = 'BA',
+        ICON = 0x4943,  // "IC"
+        POINTER = 0x5054,  // "PT"
+        COLORICON = 0x4349,  // "CI"
+        COLORPOINTER = 0x4350,  // "CP"
+        BITMAPARRAY = 0x4241,  // "BA"
         */
     };
-    if (fileType != BMAP) {
-        setFailed();
-        return false;
-    }
-
-    return true;
+    return (fileType == BMAP) || setFailed();
 }
 
 } // namespace WebCore

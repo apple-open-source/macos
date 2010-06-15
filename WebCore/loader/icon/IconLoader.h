@@ -27,7 +27,6 @@
 #define IconLoader_h
 
 #include "SubresourceLoaderClient.h"
-#include <memory>
 #include <wtf/Forward.h>
 #include <wtf/Noncopyable.h>
 #include <wtf/RefPtr.h>
@@ -38,9 +37,9 @@ class Frame;
 class KURL;
 class SharedBuffer;
 
-class IconLoader : private SubresourceLoaderClient, Noncopyable {
+class IconLoader : private SubresourceLoaderClient, public Noncopyable {
 public:
-    static std::auto_ptr<IconLoader> create(Frame*);
+    static PassOwnPtr<IconLoader> create(Frame*);
     ~IconLoader();
     
     void startLoading();

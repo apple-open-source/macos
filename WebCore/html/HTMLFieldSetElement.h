@@ -44,11 +44,11 @@ public:
     virtual int tagPriority() const { return 3; }
     virtual bool checkDTD(const Node* newChild);
 
-    virtual bool isFocusable() const;
+    virtual bool supportsFocus() const;
     virtual RenderObject* createRenderer(RenderArena*, RenderStyle*);
     virtual const AtomicString& formControlType() const;
-
-    virtual bool willValidate() const { return false; }
+private:
+    virtual bool recalcWillValidate() const { return false; }
 };
 
 } //namespace

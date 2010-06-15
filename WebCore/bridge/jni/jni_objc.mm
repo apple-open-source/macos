@@ -25,10 +25,11 @@
 
 #include "config.h"
 
-#if ENABLE(MAC_JAVA_BRIDGE)
+#if ENABLE(JAVA_BRIDGE)
 
 #import <Foundation/Foundation.h>
-#import "jni_utility.h"
+#import "JNIUtility.h"
+#import "JNIUtilityPrivate.h"
 #import "objc_utility.h"
 #include <runtime/JSLock.h>
 
@@ -61,7 +62,7 @@ bool JSC::Bindings::dispatchJNICall(ExecState* exec, const void* targetAppletVie
         // implemented in WebCore will guarantee that only appropriate JavaScript
         // can reference the applet.
         {
-           JSLock::DropAllLocks dropAllLocks(false);
+           JSLock::DropAllLocks dropAllLocks(SilenceAssertionsOnly);
             result = [view webPlugInCallJava:obj isStatic:isStatic returnType:returnType method:methodID arguments:args callingURL:nil exceptionDescription:&_exceptionDescription];
         }
 
@@ -71,7 +72,7 @@ bool JSC::Bindings::dispatchJNICall(ExecState* exec, const void* targetAppletVie
         return true;
     }
     else if ([view respondsToSelector:@selector(webPlugInCallJava:method:returnType:arguments:)]) {
-        JSLock::DropAllLocks dropAllLocks(false);
+        JSLock::DropAllLocks dropAllLocks(SilenceAssertionsOnly);
         result = [view webPlugInCallJava:obj method:methodID returnType:returnType arguments:args];
         return true;
     }
@@ -80,4 +81,4 @@ bool JSC::Bindings::dispatchJNICall(ExecState* exec, const void* targetAppletVie
     return false;
 }
 
-#endif // ENABLE(MAC_JAVA_BRIDGE)
+#endif // ENABLE(JAVA_BRIDGE)

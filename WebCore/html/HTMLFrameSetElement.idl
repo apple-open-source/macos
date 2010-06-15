@@ -21,39 +21,38 @@
 module html {
 
     interface [
-        GenerateConstructor,
-        HasOverridingNameGetter,
-        InterfaceUUID=5038a73d-c0db-4847-acb4-4c6d31f48790,
-        ImplementationUUID=450f7bf6-fdc0-4a0f-b7e1-baea7f7e5732
+        HasOverridingNameGetter
     ] HTMLFrameSetElement : HTMLElement {
         attribute [ConvertNullToNullString] DOMString cols;
         attribute [ConvertNullToNullString] DOMString rows;
 
 #if !defined(LANGUAGE_OBJECTIVE_C) || !LANGUAGE_OBJECTIVE_C
-#if !defined(LANGUAGE_COM) || !LANGUAGE_COM
         // Event handler attributes
-        attribute [DontEnum] EventListener onbeforeunload;
-        attribute [DontEnum] EventListener onmessage;
-        attribute [DontEnum] EventListener onoffline;
-        attribute [DontEnum] EventListener ononline;
-        attribute [DontEnum] EventListener onresize;
-        attribute [DontEnum] EventListener onstorage;
-        attribute [DontEnum] EventListener onunload;
+        attribute [DontEnum, WindowEventListener] EventListener onbeforeunload;
+        attribute [DontEnum, WindowEventListener] EventListener onhashchange;
+        attribute [DontEnum, WindowEventListener] EventListener onmessage;
+        attribute [DontEnum, WindowEventListener] EventListener onoffline;
+        attribute [DontEnum, WindowEventListener] EventListener ononline;
+        attribute [DontEnum, WindowEventListener] EventListener onpopstate;
+        attribute [DontEnum, WindowEventListener] EventListener onresize;
+        attribute [DontEnum, WindowEventListener] EventListener onstorage;
+        attribute [DontEnum, WindowEventListener] EventListener onunload;
 
-        // Overrides of Element attributes.
-        // attribute [DontEnum] EventListener onblur;
-        // attribute [DontEnum] EventListener onerror;
-        // attribute [DontEnum] EventListener onfocus;
-        // attribute [DontEnum] EventListener onload;
+#if defined(ENABLE_ORIENTATION_EVENTS) && ENABLE_ORIENTATION_EVENTS
+        attribute [DontEnum] EventListener onorientationchange;
+#endif
+
+        // Overrides of Element attributes (with different implementation in bindings).
+        attribute [DontEnum, WindowEventListener] EventListener onblur;
+        attribute [DontEnum, WindowEventListener] EventListener onerror;
+        attribute [DontEnum, WindowEventListener] EventListener onfocus;
+        attribute [DontEnum, WindowEventListener] EventListener onload;
 
         // Not implemented yet.
-        // attribute [DontEnum] EventListener onafterprint;
-        // attribute [DontEnum] EventListener onbeforeprint;
-        // attribute [DontEnum] EventListener onhashchange;
-        // attribute [DontEnum] EventListener onpopstate;
-        // attribute [DontEnum] EventListener onredo;
-        // attribute [DontEnum] EventListener onundo;
-#endif
+        // attribute [DontEnum, WindowEventListener] EventListener onafterprint;
+        // attribute [DontEnum, WindowEventListener] EventListener onbeforeprint;
+        // attribute [DontEnum, WindowEventListener] EventListener onredo;
+        // attribute [DontEnum, WindowEventListener] EventListener onundo;
 #endif
     };
 

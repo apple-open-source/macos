@@ -27,6 +27,7 @@
 #include <CoreFoundation/CoreFoundation.h>
 #include <Security/Security.h>
 #include <OpenDirectory/OpenDirectory.h>
+#include <dispatch/dispatch.h>
 #include <Security/cssmapi.h>
 #include <Security/cssmapple.h>
 #include <Security/cssmerr.h>
@@ -39,6 +40,7 @@ typedef struct ODdl_results {
 	CFIndex				currentRecord;
 	CFMutableArrayRef	certificates;
 	dispatch_semaphore_t results_done;
+	dispatch_queue_t	result_modifier_queue;
 } *ODdl_results_handle;
 
 

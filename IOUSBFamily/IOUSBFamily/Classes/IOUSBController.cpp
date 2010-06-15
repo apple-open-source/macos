@@ -1373,9 +1373,9 @@ IOUSBController::DoIsocTransfer(OSObject *owner, void *cmd, void *, void *, void
             kr = commandGate->commandSleep(&inCommandSleep);
 			if (kr != THREAD_AWAKENED)
 			{
-				USBLog(3,"%s[%p]::DoIsocTransfer woke up: commandSleep returned with a result of:  %d", controller->getName(), controller, kr);
-				IOReturn ret = controller->UIMAbortEndpoint(command->GetAddress(), command->GetEndpoint(), command->GetDirection());
-				USBLog(6,"%s[%p]::DoIsocTransfer UIMAbortEndpoint returned:  0x%x", controller->getName(), controller, ret);
+				USBLog(3,"%s[%p]::DoIsocTransfer(Isoc) woke up: commandSleep returned with a result of:  %d (%s)", controller->getName(), controller, kr, kr == THREAD_INTERRUPTED ? "THREAD_INTERRUPTED" : "THREAD_XXXX");
+				IOReturn ret = commandGate->runAction(DoAbortEP, (void *)(UInt32) command->GetAddress(), (void *)(UInt32) command->GetEndpoint(), (void *)(UInt32) command->GetDirection());
+				USBLog(6,"%s[%p]::DoIsocTransfer DoAbortEP returned:  0x%x", controller->getName(), controller, ret);
 				ret = kIOReturnSuccess;
 			}
             inCommandSleep = false;
@@ -1616,9 +1616,9 @@ IOUSBController::DoIOTransfer(OSObject *owner, void *cmd, void *, void *, void *
 					USBTrace_End( kUSBTController, kTPDoIOTransferIntrSync, (uintptr_t)controller, ((command->GetDirection() << 24) | (controller->_busNumber << 16 ) | ( command->GetAddress() << 8) | command->GetEndpoint()), err, command->GetStatus());
 					if (err != THREAD_AWAKENED)
 					{
-						USBLog(3,"%s[%p]::DoIOTransfer(Interrupt) woke up: commandSleep for returned with a result of:  %d", controller->getName(), controller, err);
-						IOReturn ret = controller->UIMAbortEndpoint(command->GetAddress(), command->GetEndpoint(), command->GetDirection());
-						USBLog(7,"%s[%p]::DoIOTransfer(Interrupt) UIMAbortEndpoint returned:  0x%x", controller->getName(), controller, ret);
+						USBLog(3,"%s[%p]::DoIOTransfer(Interrupt) woke up: commandSleep returned with a result of:  %d (%s)", controller->getName(), controller, err, err == THREAD_INTERRUPTED ? "THREAD_INTERRUPTED" : "THREAD_XXXX");
+						IOReturn ret = commandGate->runAction(DoAbortEP, (void *)(UInt32) command->GetAddress(), (void *)(UInt32) command->GetEndpoint(), (void *)(UInt32) command->GetDirection());
+						USBLog(7,"%s[%p]::DoIOTransfer(Interrupt) DoAbortEP returned:  0x%x", controller->getName(), controller, ret);
 						ret = kIOReturnSuccess;
 					}
                     //USBLog(6,"%s[%p]::DoIOTransfer(Interrupt) woke up: 0x%x, 0x%x", controller->getName(), controller, command->GetStatus(), err);
@@ -1641,9 +1641,9 @@ IOUSBController::DoIOTransfer(OSObject *owner, void *cmd, void *, void *, void *
 					USBTrace_End( kUSBTController, kTPDoIOTransferBulkSync, (uintptr_t)controller, ((command->GetDirection() << 24) | (controller->_busNumber << 16 ) | ( command->GetAddress() << 8) | command->GetEndpoint()), err, command->GetStatus());
 					if (err != THREAD_AWAKENED)
 					{
-						USBLog(3,"%s[%p]::DoIOTransfer(Bulk) woke up: commandSleep for returned with a result of:  %d", controller->getName(), controller, err);
-						IOReturn ret = controller->UIMAbortEndpoint(command->GetAddress(), command->GetEndpoint(), command->GetDirection());
-						USBLog(7,"%s[%p]::DoIOTransfer(Bulk) UIMAbortEndpoint returned:  0x%x", controller->getName(), controller, ret);
+						USBLog(3,"%s[%p]::DoIOTransfer(Bulk) woke up: commandSleep returned with a result of:  %d (%s)", controller->getName(), controller, err, err == THREAD_INTERRUPTED ? "THREAD_INTERRUPTED" : "THREAD_XXXX");
+						IOReturn ret = commandGate->runAction(DoAbortEP, (void *)(UInt32) command->GetAddress(), (void *)(UInt32) command->GetEndpoint(), (void *)(UInt32) command->GetDirection());
+						USBLog(7,"%s[%p]::DoIOTransfer(Bulk) DoAbortEP returned:  0x%x", controller->getName(), controller, ret);
 						ret = kIOReturnSuccess;
 					}
                     //USBLog(6,"%s[%p]::DoIOTransfer(Bulk) woke up: 0x%x, 0x%x", controller->getName(), controller, command->GetStatus(), err);
@@ -1770,9 +1770,9 @@ IOUSBController::DoControlTransfer(OSObject *owner, void *arg0, void *arg1, void
             kr = commandGate->commandSleep(&inCommandSleep);
 			if (kr != THREAD_AWAKENED)
 			{
-				USBLog(3,"%s[%p]::DoControlTransfer woke up: commandSleep for DoControlTransfer returned with a result of:  %d (%s)", controller->getName(), controller, kr, kr == THREAD_INTERRUPTED ? "THREAD_INTERRUPTED" : "THREAD_XXXX");
-				IOReturn ret = controller->UIMAbortEndpoint(command->GetAddress(), command->GetEndpoint(), command->GetDirection());
-				USBLog(7,"%s[%p]::DoControlTransfer UIMAbortEndpoint returned:  0x%x", controller->getName(), controller, ret);
+				USBLog(3,"%s[%p]::DoControlTransfer woke up: commandSleep for returned with a result of:  %d (%s)", controller->getName(), controller, kr, kr == THREAD_INTERRUPTED ? "THREAD_INTERRUPTED" : "THREAD_XXXX");
+				IOReturn ret = commandGate->runAction(DoAbortEP, (void *)(UInt32) command->GetAddress(), (void *)(UInt32) command->GetEndpoint(), (void *)(UInt32) command->GetDirection());
+				USBLog(7,"%s[%p]::DoControlTransfer DoAbortEP returned:  0x%x", controller->getName(), controller, ret);
 				ret = kIOReturnSuccess;
 			}
             inCommandSleep = false;

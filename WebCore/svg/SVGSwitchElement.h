@@ -1,8 +1,6 @@
 /*
-    Copyright (C) 2004, 2005 Nikolas Zimmermann <wildfox@kde.org>
+    Copyright (C) 2004, 2005 Nikolas Zimmermann <zimmermann@kde.org>
                   2004, 2005, 2006 Rob Buis <buis@kde.org>
-
-    This file is part of the KDE project
 
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Library General Public
@@ -22,20 +20,18 @@
 
 #ifndef SVGSwitchElement_h
 #define SVGSwitchElement_h
-#if ENABLE(SVG)
 
+#if ENABLE(SVG)
 #include "SVGExternalResourcesRequired.h"
 #include "SVGLangSpace.h"
 #include "SVGStyledTransformableElement.h"
 #include "SVGTests.h"
 
-namespace WebCore
-{
+namespace WebCore {
     class SVGSwitchElement : public SVGStyledTransformableElement,
                              public SVGTests,
                              public SVGLangSpace,
-                             public SVGExternalResourcesRequired
-    {
+                             public SVGExternalResourcesRequired {
     public:
         SVGSwitchElement(const QualifiedName&, Document*);
         virtual ~SVGSwitchElement();
@@ -45,17 +41,14 @@ namespace WebCore
         virtual bool childShouldCreateRenderer(Node*) const;
 
         virtual RenderObject* createRenderer(RenderArena*, RenderStyle*);
-
-    protected:
-        virtual const SVGElement* contextElement() const { return this; }
+        virtual void synchronizeProperty(const QualifiedName&);
 
     private:
-        mutable bool m_insideRenderSection;
+        // SVGExternalResourcesRequired
+        DECLARE_ANIMATED_PROPERTY(SVGSwitchElement, SVGNames::externalResourcesRequiredAttr, bool, ExternalResourcesRequired, externalResourcesRequired)
     };
 
 } // namespace WebCore
 
 #endif // ENABLE(SVG)
 #endif
-
-// vim:ts=4:noet

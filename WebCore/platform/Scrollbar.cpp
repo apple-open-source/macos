@@ -26,6 +26,8 @@
 #include "config.h"
 #include "Scrollbar.h"
 
+#include "AccessibilityScrollbar.h"
+#include "AXObjectCache.h"
 #include "EventHandler.h"
 #include "Frame.h"
 #include "FrameView.h"
@@ -36,17 +38,22 @@
 
 #include <algorithm>
 
-using std::max;
-using std::min;
+using namespace std;
 
 namespace WebCore {
 
-#if !PLATFORM(GTK)
+#if !PLATFORM(GTK) && !PLATFORM(EFL)
 PassRefPtr<Scrollbar> Scrollbar::createNativeScrollbar(ScrollbarClient* client, ScrollbarOrientation orientation, ScrollbarControlSize size)
 {
     return adoptRef(new Scrollbar(client, orientation, size));
 }
 #endif
+
+int Scrollbar::maxOverlapBetweenPages()
+{
+    static int maxOverlapBetweenPages = ScrollbarTheme::nativeTheme()->maxOverlapBetweenPages();
+    return maxOverlapBetweenPages;
+}
 
 Scrollbar::Scrollbar(ScrollbarClient* client, ScrollbarOrientation orientation, ScrollbarControlSize controlSize,
                      ScrollbarTheme* theme)
@@ -117,6 +124,18 @@ void Scrollbar::setSteps(int lineStep, int pageStep, int pixelsPerStep)
 
 bool Scrollbar::scroll(ScrollDirection direction, ScrollGranularity granularity, float multiplier)
 {
+#if HAVE(ACCESSIBILITY)
+    if (AXObjectCache::accessibilityEnabled()) {
+        if (parent() && parent()->isFrameView()) {
+            Document* document = static_cast<FrameView*>(parent())->frame()->document();
+            AXObjectCache* cache = document->axObjectCache();
+            AccessibilityScrollbar* axObject = static_cast<AccessibilityScrollbar*>(cache->getOrCreate(ScrollBarRole));
+            axObject->setScrollbar(this);
+            cache->postNotification(axObject, document, AXObjectCache::AXValueChanged, true);
+        }
+    }
+#endif
+
     float step = 0;
     if ((direction == ScrollUp && m_orientation == VerticalScrollbar) || (direction == ScrollLeft && m_orientation == HorizontalScrollbar))
         step = -1;
@@ -392,9 +411,9 @@ void Scrollbar::setFrameRect(const IntRect& rect)
     // Get our window resizer rect and see if we overlap.  Adjust to avoid the overlap
     // if necessary.
     IntRect adjustedRect(rect);
-    if (parent()) {
-        bool overlapsResizer = false;
-        ScrollView* view = parent();
+    bool overlapsResizer = false;
+    ScrollView* view = parent();
+    if (view && !rect.isEmpty() && !view->windowResizerRect().isEmpty()) {
         IntRect resizerRect = view->convertFromContainingWindow(view->windowResizerRect());
         if (rect.intersects(resizerRect)) {
             if (orientation() == HorizontalScrollbar) {
@@ -411,11 +430,11 @@ void Scrollbar::setFrameRect(const IntRect& rect)
                 }
             }
         }
-
-        if (overlapsResizer != m_overlapsResizer) {
-            m_overlapsResizer = overlapsResizer;
+    }
+    if (overlapsResizer != m_overlapsResizer) {
+        m_overlapsResizer = overlapsResizer;
+        if (view)
             view->adjustScrollbarsAvoidingResizerCount(m_overlapsResizer ? 1 : -1);
-        }
     }
 
     Widget::setFrameRect(adjustedRect);

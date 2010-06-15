@@ -1710,7 +1710,7 @@ static u_int16_t dhcp_ip_id = 1;
 	PUTLONG(dstaddr, outp);		// destination address
 	checksum = cksum(data + PPP_HDRLEN, sizeof(struct ip));
 	outp -= 10;								// back to cksum
-	PUTSHORT(checksum, outp);				// header checksum
+	PUTSHORT(ntohs(checksum), outp);		// header checksum
 
 	// log the packet
 	log_dhcp(data + PPP_HDRLEN, len - PPP_HDRLEN, text);
@@ -1935,8 +1935,9 @@ acsp_ipdata_input_client(int unit, u_char *pkt, int len, u_int32_t ouraddr, u_in
 	u_char *p;
 	u_int32_t masklen, addrlen, i;
 	char str[2048];
-	acsp_route *route;
-	acsp_domain domain;
+	acsp_route  *route;
+	acsp_domain *domain_list, *domain;
+	char *str_p, *tok;
 	
 	dp = (struct dhcp_packet *)pkt;
 
@@ -1993,10 +1994,32 @@ acsp_ipdata_input_client(int unit, u_char *pkt, int len, u_int32_t ouraddr, u_in
 			case DHCP_OPTION_DOMAIN_NAME:
 				memcpy(str, p, optlen);
 				str[optlen] = 0;
-				domain.next = 0;
-				domain.server.s_addr = 0;
-				domain.name = str;
-				acsp_plugin_add_domains(&domain);
+				domain_list = NULL;
+				str_p = str;
+				// check if domain is tokenized by commas
+				tok = strsep(&str_p,",");
+				do {
+					if (!tok || *tok != '\0') {
+						// tok may be NULL the first time through here.
+						if((domain = (__typeof__(domain))malloc(sizeof(*domain))) == NULL) {
+							error("failed to allocate domain from DHCP packet\n");
+							break;
+						}
+						bzero(domain, sizeof(*domain));
+						domain->next = domain_list;
+						domain_list = domain;
+						if (!tok) {
+							domain->name = str;
+							break;
+						} else {
+							domain->name = tok;
+						}
+					}
+					tok = strsep(&str_p,",");
+				} while (tok != NULL);
+				if (domain_list) {
+					acsp_plugin_add_domains(domain_list);
+				}
 				break;
 			case DHCP_OPTION_STATIC_ROUTE:
 				i = 0;

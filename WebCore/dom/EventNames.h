@@ -32,6 +32,7 @@ namespace WebCore {
     macro(abort) \
     macro(beforecopy) \
     macro(beforecut) \
+    macro(beforeload) \
     macro(beforepaste) \
     macro(beforeunload) \
     macro(blur) \
@@ -40,10 +41,15 @@ namespace WebCore {
     macro(checking) \
     macro(click) \
     macro(close) \
+    macro(compositionend) \
+    macro(compositionstart) \
+    macro(compositionupdate) \
+    macro(connect) \
     macro(contextmenu) \
     macro(copy) \
     macro(cut) \
     macro(dblclick) \
+    macro(display) \
     macro(downloading) \
     macro(drag) \
     macro(dragend) \
@@ -54,7 +60,11 @@ namespace WebCore {
     macro(drop) \
     macro(error) \
     macro(focus) \
+    macro(focusin) \
+    macro(focusout) \
+    macro(hashchange) \
     macro(input) \
+    macro(invalid) \
     macro(keydown) \
     macro(keypress) \
     macro(keyup) \
@@ -71,8 +81,12 @@ namespace WebCore {
     macro(obsolete) \
     macro(offline) \
     macro(online) \
+    macro(open) \
     macro(overflowchanged) \
+    macro(pagehide) \
+    macro(pageshow) \
     macro(paste) \
+    macro(popstate) \
     macro(readystatechange) \
     macro(reset) \
     macro(resize) \
@@ -88,10 +102,10 @@ namespace WebCore {
     macro(zoom) \
     \
     macro(DOMActivate) \
-    macro(DOMAttrModified) \
-    macro(DOMCharacterDataModified) \
     macro(DOMFocusIn) \
     macro(DOMFocusOut) \
+    macro(DOMAttrModified) \
+    macro(DOMCharacterDataModified) \
     macro(DOMNodeInserted) \
     macro(DOMNodeInsertedIntoDocument) \
     macro(DOMNodeRemoved) \
@@ -119,6 +133,9 @@ namespace WebCore {
     macro(volumechange) \
     macro(waiting) \
     \
+    macro(webkitbeginfullscreen) \
+    macro(webkitendfullscreen) \
+    \
     macro(progress) \
     macro(stalled) \
     macro(suspend) \
@@ -129,14 +146,26 @@ namespace WebCore {
     \
     macro(webkitTransitionEnd) \
     \
+    macro(orientationchange) \
+    \
+    macro(touchstart) \
+    macro(touchmove) \
+    macro(touchend) \
+    macro(touchcancel) \
+    \
+    macro(success) \
+    \
+    macro(loadend) \
+    \
 // end of DOM_EVENT_NAMES_FOR_EACH
 
-    class EventNames {
+    class EventNames : public Noncopyable {
         int dummy; // Needed to make initialization macro work.
+        // Private to prevent accidental call to EventNames() instead of eventNames()
+        EventNames();
+        friend class ThreadGlobalData;
 
     public:
-        EventNames();
-
         #define DOM_EVENT_NAMES_DECLARE(name) AtomicString name##Event;
         DOM_EVENT_NAMES_FOR_EACH(DOM_EVENT_NAMES_DECLARE)
         #undef DOM_EVENT_NAMES_DECLARE

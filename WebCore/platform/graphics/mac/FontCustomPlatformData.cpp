@@ -24,6 +24,7 @@
 #include <ApplicationServices/ApplicationServices.h>
 #include "SharedBuffer.h"
 #include "FontPlatformData.h"
+#include "OpenTypeSanitizer.h"
 
 namespace WebCore {
 
@@ -43,14 +44,24 @@ FontCustomPlatformData* createFontCustomPlatformData(SharedBuffer* buffer)
 {
     ASSERT_ARG(buffer, buffer);
 
+#if ENABLE(OPENTYPE_SANITIZER)
+    OpenTypeSanitizer sanitizer(buffer);
+    RefPtr<SharedBuffer> transcodeBuffer = sanitizer.sanitize();
+    if (!transcodeBuffer)
+        return 0; // validation failed.
+    buffer = transcodeBuffer.get();
+#endif
+
     ATSFontContainerRef containerRef = 0;
     ATSFontRef fontRef = 0;
+
+    RetainPtr<CGFontRef> cgFontRef;
 
 #if !defined(BUILDING_ON_TIGER) && !defined(BUILDING_ON_LEOPARD)
     RetainPtr<CFDataRef> bufferData(AdoptCF, buffer->createCFData());
     RetainPtr<CGDataProviderRef> dataProvider(AdoptCF, CGDataProviderCreateWithCFData(bufferData.get()));
     
-    CGFontRef cgFontRef = CGFontCreateWithDataProvider(dataProvider.get());
+    cgFontRef.adoptCF(CGFontCreateWithDataProvider(dataProvider.get()));
     if (!cgFontRef)
         return 0;
 #else
@@ -75,13 +86,11 @@ FontCustomPlatformData* createFontCustomPlatformData(SharedBuffer* buffer)
         return 0;
     }
     
-    CGFontRef cgFontRef = CGFontCreateWithPlatformFont(&fontRef);
+    cgFontRef.adoptCF(CGFontCreateWithPlatformFont(&fontRef));
 #ifndef BUILDING_ON_TIGER
     // Workaround for <rdar://problem/5675504>.
-    if (cgFontRef && !CGFontGetNumberOfGlyphs(cgFontRef)) {
-        CFRelease(cgFontRef);
+    if (cgFontRef && !CGFontGetNumberOfGlyphs(cgFontRef.get()))
         cgFontRef = 0;
-    }
 #endif
     if (!cgFontRef) {
         ATSFontDeactivate(containerRef, NULL, kATSOptionFlagsDefault);
@@ -89,7 +98,7 @@ FontCustomPlatformData* createFontCustomPlatformData(SharedBuffer* buffer)
     }
 #endif // !defined(BUILDING_ON_TIGER) && !defined(BUILDING_ON_LEOPARD)
 
-    return new FontCustomPlatformData(containerRef, fontRef, cgFontRef);
+    return new FontCustomPlatformData(containerRef, fontRef, cgFontRef.releaseRef());
 }
 
 }

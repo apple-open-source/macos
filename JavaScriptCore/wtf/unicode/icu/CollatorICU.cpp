@@ -36,7 +36,8 @@
 #include <unicode/ucol.h>
 #include <string.h>
 
-#if PLATFORM(DARWIN)
+#if OS(DARWIN)
+#include "RetainPtr.h"
 #include <CoreFoundation/CoreFoundation.h>
 #endif
 
@@ -56,20 +57,25 @@ Collator::Collator(const char* locale)
 {
 }
 
-std::auto_ptr<Collator> Collator::userDefault()
+PassOwnPtr<Collator> Collator::userDefault()
 {
-#if PLATFORM(DARWIN) && PLATFORM(CF)
+#if OS(DARWIN) && PLATFORM(CF)
     // Mac OS X doesn't set UNIX locale to match user-selected one, so ICU default doesn't work.
-    CFStringRef collationOrder = (CFStringRef)CFPreferencesCopyValue(CFSTR("AppleCollationOrder"), kCFPreferencesAnyApplication, kCFPreferencesCurrentUser, kCFPreferencesAnyHost);
+#if !defined(BUILDING_ON_TIGER) && !defined(BUILDING_ON_LEOPARD) && !OS(IPHONE_OS)
+    RetainPtr<CFLocaleRef> currentLocale(AdoptCF, CFLocaleCopyCurrent());
+    CFStringRef collationOrder = (CFStringRef)CFLocaleGetValue(currentLocale.get(), kCFLocaleCollatorIdentifier);
+#else
+    RetainPtr<CFStringRef> collationOrderRetainer(AdoptCF, (CFStringRef)CFPreferencesCopyValue(CFSTR("AppleCollationOrder"), kCFPreferencesAnyApplication, kCFPreferencesCurrentUser, kCFPreferencesAnyHost));
+    CFStringRef collationOrder = collationOrderRetainer.get();
+#endif
     char buf[256];
     if (collationOrder) {
         CFStringGetCString(collationOrder, buf, sizeof(buf), kCFStringEncodingASCII);
-        CFRelease(collationOrder);
-        return std::auto_ptr<Collator>(new Collator(buf));
+        return new Collator(buf);
     } else
-        return std::auto_ptr<Collator>(new Collator(""));
+        return new Collator("");
 #else
-    return std::auto_ptr<Collator>(new Collator(0));
+    return new Collator(0);
 #endif
 }
 

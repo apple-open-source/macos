@@ -28,15 +28,28 @@ import "oaidl.idl";
 import "ocidl.idl";
 import "IWebFormDelegate.idl";
 import "IWebFrameLoadDelegatePrivate.idl";
+import "IWebHistoryDelegate.idl";
 import "IWebInspector.idl";
+import "IWebInspectorPrivate.idl";
 #endif
+
+// Sent when IWebView::close is called. No userInfo is associated with this notification.
+cpp_quote("#define WebViewWillCloseNotification L\"WebViewWillCloseNotification\"")
 
 interface IEnumTextMatches;
 interface IWebFormDelegate;
 interface IWebFrameLoadDelegatePrivate;
+interface IWebHistoryDelegate;
 interface IWebInspector;
+interface IWebInspectorPrivate;
+interface IWebPluginHalterDelegate;
 interface IWebURLRequest;
 interface IWebView;
+
+typedef enum {
+    WebInjectAtDocumentStart = 0,
+    WebInjectAtDocumentEnd,
+} WebUserScriptInjectionTime;
 
 [
     object,
@@ -159,4 +172,69 @@ interface IWebViewPrivate : IUnknown
     HRESULT setMemoryCacheDelegateCallsEnabled([in] BOOL enabled);
 
     HRESULT setJavaScriptURLsAreAllowed([in] BOOL areAllowed);
+
+    HRESULT setCanStartPlugins([in] BOOL canStartPlugins);
+
+    /*!
+        @method MIMETypeForExtension:
+        @abstract Returns the mime type for a certian file extension.
+        @param path The extension of the file to check.
+        @result The mime type of the specified extension.
+        + (BSTR)MIMETypeForPath:(NSString *)path;
+    */
+    HRESULT MIMETypeForExtension([in] BSTR extension, [out, retval] BSTR* mimeType);
+
+    HRESULT addUserScriptToGroup([in] BSTR groupName, [in] IWebScriptWorld*, [in] BSTR source, [in] BSTR url,
+                                 [in] unsigned whitelistCount, [in, size_is(whitelistCount)] BSTR* whitelist,
+                                 [in] unsigned blacklistCount, [in, size_is(blacklistCount)] BSTR* blacklist,
+                                 [in] WebUserScriptInjectionTime injectionTime);
+    HRESULT addUserStyleSheetToGroup([in] BSTR groupName, [in] IWebScriptWorld*, [in] BSTR source, [in] BSTR url,
+                                     [in] unsigned whitelistCount, [in, size_is(whitelistCount)] BSTR* whitelist,
+                                     [in] unsigned blacklistCount, [in, size_is(blacklistCount)] BSTR* blacklist);
+    HRESULT removeUserScriptFromGroup([in] BSTR groupName, [in] IWebScriptWorld*, [in] BSTR url);
+    HRESULT removeUserStyleSheetFromGroup([in] BSTR groupName, [in] IWebScriptWorld*, [in] BSTR url);
+    HRESULT removeUserScriptsFromGroup([in] BSTR groupName, [in] IWebScriptWorld*);
+    HRESULT removeUserStyleSheetsFromGroup([in] BSTR groupName, [in] IWebScriptWorld*);
+    HRESULT removeAllUserContentFromGroup([in] BSTR groupName);
+
+    HRESULT setPluginHalterDelegate([in] IWebPluginHalterDelegate* d);
+    HRESULT pluginHalterDelegate([retval, out] IWebPluginHalterDelegate** d);
+
+    // If rect is 0, the entire backing store will be invalidated.
+    HRESULT invalidateBackingStore([in] const RECT* rect);
+
+    // Whitelists access from an origin (sourceOrigin) to a set of one or more origins described by the parameters:
+    // - destinationProtocol: The protocol to grant access to.
+    // - destinationHost: The host to grant access to.
+    // - allowDestinationSubdomains: If host is a domain, setting this to YES will whitelist host and all its subdomains, recursively.
+    HRESULT addOriginAccessWhitelistEntry([in] BSTR sourceOrigin, [in] BSTR destinationProtocol, [in] BSTR destinationHost, [in] BOOL allowDestinationSubdomains);
+
+    // Removes a white list entry created with addOriginAccessWhitelistEntry. See above.
+    HRESULT removeOriginAccessWhitelistEntry([in] BSTR sourceOrigin, [in] BSTR destinationProtocol, [in] BSTR destinationHost, [in] BOOL allowDestinationSubdomains);
+
+    // Removes all white list entries created with addOriginAccessWhitelistEntry.
+    HRESULT resetOriginAccessWhitelists();
+
+    HRESULT setHistoryDelegate([in] IWebHistoryDelegate* historyDelegate);
+    HRESULT historyDelegate([out,retval] IWebHistoryDelegate** historyDelegate);
+    HRESULT addVisitedLinks([in] BSTR* visitedURLs, [in] unsigned visitedURLCount);
+
+    HRESULT isNodeHaltedPlugin([in] IDOMNode*, [retval, out] BOOL*);
+    HRESULT restartHaltedPluginForNode([in] IDOMNode*);
+    HRESULT hasPluginForNodeBeenHalted([in] IDOMNode*, [retval, out] BOOL*);
+
+    HRESULT setGeolocationProvider([in] IWebGeolocationProvider* locationProvider);
+    HRESULT geolocationProvider([out, retval] IWebGeolocationProvider** locationProvider);
+    HRESULT geolocationDidChangePosition([in] IWebGeolocationPosition* position);
+    HRESULT geolocationDidFailWithError([in] IWebError* error);
+
+    HRESULT setDomainRelaxationForbiddenForURLScheme([in] BOOL forbidden, [in] BSTR scheme);
+
+    HRESULT registerURLSchemeAsSecure([in] BSTR scheme);
+
+    HRESULT nextDisplayIsSynchronous();
+
+    HRESULT paintDocumentRectToContextAtPoint([in] RECT rect, [in] POINT pt, [in] OLE_HANDLE dc);
+
+    [local] HRESULT reportException([in] JSContextRef context, [in] JSValueRef exception);
 }

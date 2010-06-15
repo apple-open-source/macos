@@ -35,7 +35,7 @@ namespace WebCore {
 
 class TimerHeapElement;
 
-class TimerBase : Noncopyable {
+class TimerBase : public Noncopyable {
 public:
     TimerBase();
     virtual ~TimerBase();
@@ -100,6 +100,12 @@ private:
     TimerFiredClass* m_object;
     TimerFiredFunction m_function;
 };
+
+inline bool TimerBase::isActive() const
+{
+    ASSERT(m_thread == currentThread());
+    return m_nextFireTime;
+}
 
 }
 

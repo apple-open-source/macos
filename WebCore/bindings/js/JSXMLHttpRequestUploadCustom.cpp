@@ -41,53 +41,14 @@ using namespace JSC;
 
 namespace WebCore {
 
-void JSXMLHttpRequestUpload::mark()
+void JSXMLHttpRequestUpload::markChildren(MarkStack& markStack)
 {
-    Base::mark();
+    Base::markChildren(markStack);
 
-    if (XMLHttpRequest* xmlHttpRequest = m_impl->associatedXMLHttpRequest()) {
-        DOMObject* wrapper = getCachedDOMObjectWrapper(*Heap::heap(this)->globalData(), xmlHttpRequest);
-        if (wrapper && !wrapper->marked())
-            wrapper->mark();
-    }
+    if (XMLHttpRequest* xmlHttpRequest = m_impl->associatedXMLHttpRequest())
+        markDOMObjectWrapper(markStack, *Heap::heap(this)->globalData(), xmlHttpRequest);
 
-    markIfNotNull(m_impl->onabort());
-    markIfNotNull(m_impl->onerror());
-    markIfNotNull(m_impl->onload());
-    markIfNotNull(m_impl->onloadstart());
-    markIfNotNull(m_impl->onprogress());
-    
-    typedef XMLHttpRequestUpload::EventListenersMap EventListenersMap;
-    typedef XMLHttpRequestUpload::ListenerVector ListenerVector;
-    EventListenersMap& eventListeners = m_impl->eventListeners();
-    for (EventListenersMap::iterator mapIter = eventListeners.begin(); mapIter != eventListeners.end(); ++mapIter) {
-        for (ListenerVector::iterator vecIter = mapIter->second.begin(); vecIter != mapIter->second.end(); ++vecIter)
-            (*vecIter)->markJSFunction();
-    }
-}
-
-JSValue JSXMLHttpRequestUpload::addEventListener(ExecState* exec, const ArgList& args)
-{
-    JSDOMGlobalObject* globalObject = toJSDOMGlobalObject(impl()->scriptExecutionContext());
-    if (!globalObject)
-        return jsUndefined();
-    RefPtr<JSEventListener> listener = globalObject->findOrCreateJSEventListener(args.at(1));
-    if (!listener)
-        return jsUndefined();
-    impl()->addEventListener(args.at(0).toString(exec), listener.release(), args.at(2).toBoolean(exec));
-    return jsUndefined();
-}
-
-JSValue JSXMLHttpRequestUpload::removeEventListener(ExecState* exec, const ArgList& args)
-{
-    JSDOMGlobalObject* globalObject = toJSDOMGlobalObject(impl()->scriptExecutionContext());
-    if (!globalObject)
-        return jsUndefined();
-    JSEventListener* listener = globalObject->findJSEventListener(args.at(1));
-    if (!listener)
-        return jsUndefined();
-    impl()->removeEventListener(args.at(0).toString(exec), listener, args.at(2).toBoolean(exec));
-    return jsUndefined();
+    m_impl->markJSEventListeners(markStack);
 }
 
 } // namespace WebCore

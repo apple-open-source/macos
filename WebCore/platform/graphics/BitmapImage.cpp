@@ -76,7 +76,7 @@ void BitmapImage::destroyDecodedData(bool destroyAll)
 {
     int framesCleared = 0;
     const size_t clearBeforeFrame = destroyAll ? m_frames.size() : m_currentFrame;
-    for (size_t i = 1; i < clearBeforeFrame; ++i) {
+    for (size_t i = 0; i < clearBeforeFrame; ++i) {
         // The underlying frame isn't actually changing (we're just trying to
         // save the memory for the framebuffer data), so we don't need to clear
         // the metadata.
@@ -86,7 +86,7 @@ void BitmapImage::destroyDecodedData(bool destroyAll)
 
     destroyMetadataAndNotify(framesCleared);
 
-    m_source.clear(destroyAll, clearBeforeFrame, m_data.get(), m_allDataReceived);
+    m_source.clear(destroyAll, clearBeforeFrame, data(), m_allDataReceived);
     return;
 }
 
@@ -163,7 +163,7 @@ bool BitmapImage::dataChanged(bool allDataReceived)
     
     // Feed all the data we've seen so far to the image decoder.
     m_allDataReceived = allDataReceived;
-    m_source.setData(m_data.get(), allDataReceived);
+    m_source.setData(data(), allDataReceived);
     
     // Clear the frame count.
     m_haveFrameCount = false;
@@ -266,23 +266,10 @@ void BitmapImage::startAnimation(bool catchUpIfNecessary)
     if (m_frameTimer || !shouldAnimate() || frameCount() <= 1)
         return;
 
-    // Determine time for next frame to start.  By ignoring paint and timer lag
-    // in this calculation, we make the animation appear to run at its desired
-    // rate regardless of how fast it's being repainted.
-    const double currentDuration = frameDurationAtIndex(m_currentFrame);
+    // If we aren't already animating, set now as the animation start time.
     const double time = currentTime();
-    if (m_desiredFrameStartTime == 0) {
-        m_desiredFrameStartTime = time + currentDuration;
-    } else {
-        m_desiredFrameStartTime += currentDuration;
-
-        // When an animated image is more than five minutes out of date, the
-        // user probably doesn't care about resyncing and we could burn a lot of
-        // time looping through frames below.  Just reset the timings.
-        const double cAnimationResyncCutoff = 5 * 60;
-        if ((time - m_desiredFrameStartTime) > cAnimationResyncCutoff)
-            m_desiredFrameStartTime = time + currentDuration;
-    }
+    if (!m_desiredFrameStartTime)
+        m_desiredFrameStartTime = time;
 
     // Don't advance the animation to an incomplete frame.
     size_t nextFrame = (m_currentFrame + 1) % frameCount();
@@ -296,6 +283,19 @@ void BitmapImage::startAnimation(bool catchUpIfNecessary)
     if (!m_allDataReceived && repetitionCount(false) == cAnimationLoopOnce && m_currentFrame >= (frameCount() - 1))
         return;
 
+    // Determine time for next frame to start.  By ignoring paint and timer lag
+    // in this calculation, we make the animation appear to run at its desired
+    // rate regardless of how fast it's being repainted.
+    const double currentDuration = frameDurationAtIndex(m_currentFrame);
+    m_desiredFrameStartTime += currentDuration;
+
+    // When an animated image is more than five minutes out of date, the
+    // user probably doesn't care about resyncing and we could burn a lot of
+    // time looping through frames below.  Just reset the timings.
+    const double cAnimationResyncCutoff = 5 * 60;
+    if ((time - m_desiredFrameStartTime) > cAnimationResyncCutoff)
+        m_desiredFrameStartTime = time + currentDuration;
+
     // The image may load more slowly than it's supposed to animate, so that by
     // the time we reach the end of the first repetition, we're well behind.
     // Clamp the desired frame start time in this case, so that we don't skip
@@ -307,7 +307,7 @@ void BitmapImage::startAnimation(bool catchUpIfNecessary)
     // switch tabs (and thus stop drawing the animation, which will pause it)
     // during that initial loop, then switch back later.
     if (nextFrame == 0 && m_repetitionsComplete == 0 && m_desiredFrameStartTime < time)
-      m_desiredFrameStartTime = time;
+        m_desiredFrameStartTime = time;
 
     if (!catchUpIfNecessary || time < m_desiredFrameStartTime) {
         // Haven't yet reached time for next frame to start; delay until then.

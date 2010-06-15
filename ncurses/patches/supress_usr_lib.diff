@@ -1,0 +1,11 @@
+--- misc/ncurses-config.in	2007-03-17 13:02:19.000000000 -0700
++++ misc/ncurses-config.in	2009-01-29 11:40:10.000000000 -0800
+@@ -87,7 +87,7 @@
+ 		;;
+ 	--libs)
+ 		sed -e 's,^[ ]*,,' -e 's, [ ]*, ,g' -e 's,[ ]*$,,' <<-ENDECHO
+-			-L${exec_prefix}/lib @EXTRA_LDFLAGS@ -l${THIS} @LIBS@
++			@EXTRA_LDFLAGS@ -l${THIS} @LIBS@
+ ENDECHO
+ 		;;
+ 	# identification

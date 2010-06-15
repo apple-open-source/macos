@@ -32,6 +32,7 @@
 #include "GraphicsContextPlatformPrivateCairo.h"
 #endif
 
+#include "AffineTransform.h"
 #include "BitmapInfo.h"
 #include "TransformationMatrix.h"
 #include "NotImplemented.h"
@@ -41,8 +42,6 @@
 using namespace std;
 
 namespace WebCore {
-
-class SVGResourceImage;
 
 static void fillWithClearColor(HBITMAP bitmap)
 {
@@ -189,22 +188,13 @@ void GraphicsContextPlatformPrivate::translate(float x , float y)
     ModifyWorldTransform(m_hdc, &xform, MWT_LEFTMULTIPLY);
 }
 
-void GraphicsContextPlatformPrivate::concatCTM(const TransformationMatrix& transform)
+void GraphicsContextPlatformPrivate::concatCTM(const AffineTransform& transform)
 {
     if (!m_hdc)
         return;
 
-    XFORM xform = transform;
+    XFORM xform = transform.toTransformationMatrix();
     ModifyWorldTransform(m_hdc, &xform, MWT_LEFTMULTIPLY);
 }
-
-#if ENABLE(SVG)
-GraphicsContext* contextForImage(SVGResourceImage*)
-{
-    // FIXME: This should go in GraphicsContextCG.cpp
-    notImplemented();
-    return 0;
-}
-#endif
 
 }

@@ -25,7 +25,7 @@
 
 module svg {
 
-    interface [Conditional=SVG&FILTERS, GenerateConstructor] SVGFECompositeElement : SVGElement,
+    interface [Conditional=SVG&FILTERS] SVGFECompositeElement : SVGElement,
                                                         SVGFilterPrimitiveStandardAttributes {
         // Composite Operators
         const unsigned short SVG_FECOMPOSITE_OPERATOR_UNKNOWN    = 0;
@@ -38,7 +38,7 @@ module svg {
 
         readonly attribute SVGAnimatedString      in1;
         readonly attribute SVGAnimatedString      in2;
-        readonly attribute SVGAnimatedEnumeration _operator;
+        readonly attribute SVGAnimatedEnumeration operator;
         readonly attribute SVGAnimatedNumber      k1;
         readonly attribute SVGAnimatedNumber      k2;
         readonly attribute SVGAnimatedNumber      k3;

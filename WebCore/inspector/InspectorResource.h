@@ -51,7 +51,7 @@ namespace WebCore {
     class Frame;
     class ResourceResponse;
 
-    struct ResourceRequest;
+    class ResourceRequest;
 
     class InspectorResource : public RefCounted<InspectorResource> {
     public:
@@ -68,33 +68,43 @@ namespace WebCore {
             Other
         };
 
-        static PassRefPtr<InspectorResource> create(long long identifier, DocumentLoader* loader)
+        static PassRefPtr<InspectorResource> create(unsigned long identifier, DocumentLoader* loader, const KURL& requestURL)
         {
-            return adoptRef(new InspectorResource(identifier, loader));
+            return adoptRef(new InspectorResource(identifier, loader, requestURL));
         }
 
-        static PassRefPtr<InspectorResource> createCached(long long identifier, DocumentLoader*, const CachedResource*);
+        static PassRefPtr<InspectorResource> createCached(unsigned long identifier, DocumentLoader*, const CachedResource*);
 
         ~InspectorResource();
 
-        void createScriptObject(InspectorFrontend* frontend);
+        PassRefPtr<InspectorResource> appendRedirect(unsigned long identifier, const KURL& redirectURL);
         void updateScriptObject(InspectorFrontend* frontend);
-        void releaseScriptObject(InspectorFrontend* frontend, bool callRemoveResource);
+        void releaseScriptObject(InspectorFrontend* frontend);
 
         void updateRequest(const ResourceRequest&);
         void updateResponse(const ResourceResponse&);
 
-        void setXMLHttpResponseText(const ScriptString& data);
+        void setOverrideContent(const ScriptString& data, Type);
 
         String sourceString() const;
+        PassRefPtr<SharedBuffer> resourceData(String* textEncodingName) const;
+
         bool isSameLoader(DocumentLoader* loader) const { return loader == m_loader; }
         void markMainResource() { m_isMainResource = true; }
-        long long identifier() const { return m_identifier; }
-        String requestURL() const { return m_requestURL.string(); }
+        unsigned long identifier() const { return m_identifier; }
+        KURL requestURL() const { return m_requestURL; }
         Frame* frame() const { return m_frame.get(); }
         const String& mimeType() const { return m_mimeType; }
+        const HTTPHeaderMap& requestHeaderFields() const { return m_requestHeaderFields; }
+        const HTTPHeaderMap& responseHeaderFields() const { return m_responseHeaderFields; }
+        int responseStatusCode() const { return m_responseStatusCode; }
+        String requestMethod() const { return m_requestMethod; }
+        String requestFormData() const { return m_requestFormData; }
+
         void startTiming();
         void markResponseReceivedTime();
+        void markLoadEventTime();
+        void markDOMContentEventTime();
         void endTiming();
 
         void markFailed();
@@ -108,34 +118,41 @@ namespace WebCore {
             TypeChange = 4,
             LengthChange = 8,
             CompletionChange = 16,
-            TimingChange = 32
+            TimingChange = 32,
+            RedirectsChange = 64
         };
 
         class Changes {
         public:
             Changes() : m_change(NoChange) {}
 
-            inline bool hasChange(ChangeType change) { return (m_change & change) || !(m_change + change); }
+            inline bool hasChange(ChangeType change)
+            {
+                return m_change & change || (m_change == NoChange && change == NoChange);
+            }
             inline void set(ChangeType change)
             {
-                m_change = static_cast<ChangeType>(static_cast<unsigned>(m_change) | static_cast<unsigned>(change));            
+                m_change = static_cast<ChangeType>(static_cast<unsigned>(m_change) | static_cast<unsigned>(change));
             }
             inline void clear(ChangeType change)
             {
                 m_change = static_cast<ChangeType>(static_cast<unsigned>(m_change) & ~static_cast<unsigned>(change));
             }
 
-            inline void setAll() { m_change = static_cast<ChangeType>(63); }
+            inline void setAll() { m_change = static_cast<ChangeType>(127); }
             inline void clearAll() { m_change = NoChange; }
 
         private:
             ChangeType m_change;
         };
 
-        InspectorResource(long long identifier, DocumentLoader*);
+        InspectorResource(unsigned long identifier, DocumentLoader*, const KURL& requestURL);
         Type type() const;
 
-        long long m_identifier;
+        Type cachedResourceType() const;
+        CachedResource* cachedResource() const;
+
+        unsigned long m_identifier;
         RefPtr<DocumentLoader> m_loader;
         RefPtr<Frame> m_frame;
         KURL m_requestURL;
@@ -143,7 +160,6 @@ namespace WebCore {
         HTTPHeaderMap m_responseHeaderFields;
         String m_mimeType;
         String m_suggestedFilename;
-        bool m_scriptObjectCreated;
         long long m_expectedContentLength;
         bool m_cached;
         bool m_finished;
@@ -153,9 +169,15 @@ namespace WebCore {
         double m_startTime;
         double m_responseReceivedTime;
         double m_endTime;
-        ScriptString m_xmlHttpResponseText;
+        double m_loadEventTime;
+        double m_domContentEventTime;
+        ScriptString m_overrideContent;
+        Type m_overrideContentType;
         Changes m_changes;
         bool m_isMainResource;
+        String m_requestMethod;
+        String m_requestFormData;
+        Vector<RefPtr<InspectorResource> > m_redirects;
     };
 
 } // namespace WebCore

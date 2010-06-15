@@ -26,6 +26,7 @@
 #ifndef TransformState_h
 #define TransformState_h
 
+#include "AffineTransform.h"
 #include "FloatPoint.h"
 #include "FloatQuad.h"
 #include "IntSize.h"
@@ -37,7 +38,7 @@
 
 namespace WebCore {
 
-class TransformState : Noncopyable {
+class TransformState : public Noncopyable {
 public:
     enum TransformDirection { ApplyTransformDirection, UnapplyInverseTransformDirection };
     enum TransformAccumulation { FlattenTransform, AccumulateTransform };
@@ -59,6 +60,7 @@ public:
     }
     
     void move(int x, int y, TransformAccumulation = FlattenTransform);
+    void applyTransform(const AffineTransform& transformFromContainer, TransformAccumulation = FlattenTransform);
     void applyTransform(const TransformationMatrix& transformFromContainer, TransformAccumulation = FlattenTransform);
     void flatten();
 

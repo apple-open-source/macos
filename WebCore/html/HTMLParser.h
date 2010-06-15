@@ -29,6 +29,7 @@
 #include <wtf/OwnPtr.h>
 #include <wtf/RefPtr.h>
 #include "HTMLParserErrorCodes.h"
+#include "MappedAttributeEntry.h"
 
 namespace WebCore {
 
@@ -49,10 +50,10 @@ struct Token;
  * The parser for HTML. It receives a stream of tokens from the HTMLTokenizer, and
  * builds up the Document structure from it.
  */
-class HTMLParser : Noncopyable {
+class HTMLParser : public Noncopyable {
 public:
     HTMLParser(HTMLDocument*, bool reportErrors);
-    HTMLParser(DocumentFragment*);
+    HTMLParser(DocumentFragment*, FragmentScriptingPermission = FragmentScriptingAllowed);
     virtual ~HTMLParser();
 
     /**
@@ -111,6 +112,8 @@ private:
 
     void processCloseTag(Token*);
 
+    void limitDepth(int tagPriority);
+    bool insertNodeAfterLimitDepth(Node*, bool flat = false);
     bool insertNode(Node*, bool flat = false);
     bool handleError(Node*, bool flat, const AtomicString& localName, int tagPriority);
     
@@ -133,8 +136,7 @@ private:
 
     bool allowNestedRedundantTag(const AtomicString& tagName);
     
-    static bool isHeaderTag(const AtomicString& tagName);
-    void popNestedHeaderTag();
+    static bool isHeadingTag(const AtomicString& tagName);
 
     bool isInline(Node*) const;
     
@@ -167,6 +169,8 @@ private:
     // currently in m_blockStack. The parser enforces a cap on this value by
     // adding such new elements as siblings instead of children once it is reached.
     size_t m_blocksInStack;
+    // Depth of the tree.
+    unsigned m_treeDepth;
 
     enum ElementInScopeState { NotInScope, InScope, Unknown }; 
     ElementInScopeState m_hasPElementInScope;
@@ -186,6 +190,7 @@ private:
     bool m_reportErrors;
     bool m_handlingResidualStyleAcrossBlocks;
     int m_inStrayTableContent;
+    FragmentScriptingPermission m_scriptingPermission;
 
     OwnPtr<HTMLParserQuirks> m_parserQuirks;
 };
@@ -195,6 +200,14 @@ bool shouldCreateImplicitHead(Document*);
 #else
 inline bool shouldCreateImplicitHead(Document*) { return true; }
 #endif
+
+// Converts the specified string to a floating number.
+// If the conversion fails, the return value is false. Take care that leading or trailing unnecessary characters make failures.  This returns false for an empty string input.
+// The double* parameter may be 0.
+bool parseToDoubleForNumberType(const String&, double*);
+// Converts the specified number to a string. This is an implementation of
+// HTML5's "algorithm to convert a number to a string" for NUMBER/RANGE types.
+String serializeForNumberType(double);
 
 }
     

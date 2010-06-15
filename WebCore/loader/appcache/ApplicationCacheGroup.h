@@ -32,6 +32,7 @@
 #include <wtf/HashMap.h>
 #include <wtf/HashSet.h>
 
+#include "DOMApplicationCache.h"
 #include "KURL.h"
 #include "PlatformString.h"
 #include "ResourceHandle.h"
@@ -42,7 +43,6 @@ namespace WebCore {
 
 class ApplicationCache;
 class ApplicationCacheResource;
-class DOMApplicationCache;
 class Document;
 class DocumentLoader;
 class Frame;
@@ -52,7 +52,7 @@ enum ApplicationCacheUpdateOption {
     ApplicationCacheUpdateWithoutBrowsingContext
 };
 
-class ApplicationCacheGroup : Noncopyable, ResourceHandleClient {
+class ApplicationCacheGroup : public Noncopyable, ResourceHandleClient {
 public:
     ApplicationCacheGroup(const KURL& manifestURL, bool isCopy = false);    
     ~ApplicationCacheGroup();
@@ -91,12 +91,15 @@ public:
     bool isCopy() const { return m_isCopy; }
 
 private:
-    typedef void (DOMApplicationCache::*ListenerFunction)();
-    static void postListenerTask(ListenerFunction, const HashSet<DocumentLoader*>&);
-    static void postListenerTask(ListenerFunction, const Vector<RefPtr<DocumentLoader> >& loaders);
-    static void postListenerTask(ListenerFunction, DocumentLoader*);
+    static void postListenerTask(ApplicationCacheHost::EventID, const HashSet<DocumentLoader*>&);
+    static void postListenerTask(ApplicationCacheHost::EventID, DocumentLoader*);
+    void scheduleReachedMaxAppCacheSizeCallback();
 
     PassRefPtr<ResourceHandle> createResourceHandle(const KURL&, ApplicationCacheResource* newestCachedResource);
+
+    // For normal resource loading, WebKit client is asked about each resource individually. Since application cache does not belong to any particular document,
+    // the existing client callback cannot be used, so assume that any client that enables application cache also wants it to use credential storage.
+    virtual bool shouldUseCredentialStorage(ResourceHandle*) { return true; }
 
     virtual void didReceiveResponse(ResourceHandle*, const ResourceResponse&);
     virtual void didReceiveData(ResourceHandle*, const char*, int, int lengthReceived);
@@ -106,6 +109,7 @@ private:
     void didReceiveManifestResponse(const ResourceResponse&);
     void didReceiveManifestData(const char*, int);
     void didFinishLoadingManifest();
+    void didReachMaxAppCacheSize();
     
     void startLoadingEntry();
     void deliverDelayedMainResources();
@@ -163,12 +167,19 @@ private:
 
     // Whether this cache group is a copy that's only used for transferring the cache to another file.
     bool m_isCopy;
+
+    // This flag is set immediately after the ChromeClient::reachedMaxAppCacheSize() callback is invoked as a result of the storage layer failing to save a cache
+    // due to reaching the maximum size of the application cache database file. This flag is used by ApplicationCacheGroup::checkIfLoadIsComplete() to decide
+    // the course of action in case of this failure (i.e. call the ChromeClient callback or run the failure steps).
+    bool m_calledReachedMaxAppCacheSize;
     
     RefPtr<ResourceHandle> m_currentHandle;
     RefPtr<ApplicationCacheResource> m_currentResource;
     
     RefPtr<ApplicationCacheResource> m_manifestResource;
     RefPtr<ResourceHandle> m_manifestHandle;
+
+    friend class ChromeClientCallbackTimer;
 };
 
 } // namespace WebCore

@@ -27,7 +27,6 @@
 #include "VisibleSelection.h"
 
 #include "CharacterNames.h"
-#include "CString.h"
 #include "Document.h"
 #include "Element.h"
 #include "htmlediting.h"
@@ -37,13 +36,13 @@
 #include "Range.h"
 
 #include <wtf/Assertions.h>
+#include <wtf/text/CString.h>
 #include <stdio.h>
 
 namespace WebCore {
 
 VisibleSelection::VisibleSelection()
     : m_affinity(DOWNSTREAM)
-    , m_granularity(CharacterGranularity)
     , m_selectionType(NoSelection)
     , m_baseIsFirst(true)
 {
@@ -53,7 +52,6 @@ VisibleSelection::VisibleSelection(const Position& pos, EAffinity affinity)
     : m_base(pos)
     , m_extent(pos)
     , m_affinity(affinity)
-    , m_granularity(CharacterGranularity)
 {
     validate();
 }
@@ -62,7 +60,6 @@ VisibleSelection::VisibleSelection(const Position& base, const Position& extent,
     : m_base(base)
     , m_extent(extent)
     , m_affinity(affinity)
-    , m_granularity(CharacterGranularity)
 {
     validate();
 }
@@ -71,7 +68,6 @@ VisibleSelection::VisibleSelection(const VisiblePosition& pos)
     : m_base(pos.deepEquivalent())
     , m_extent(pos.deepEquivalent())
     , m_affinity(pos.affinity())
-    , m_granularity(CharacterGranularity)
 {
     validate();
 }
@@ -80,7 +76,6 @@ VisibleSelection::VisibleSelection(const VisiblePosition& base, const VisiblePos
     : m_base(base.deepEquivalent())
     , m_extent(extent.deepEquivalent())
     , m_affinity(base.affinity())
-    , m_granularity(CharacterGranularity)
 {
     validate();
 }
@@ -89,7 +84,6 @@ VisibleSelection::VisibleSelection(const Range* range, EAffinity affinity)
     : m_base(range->startPosition())
     , m_extent(range->endPosition())
     , m_affinity(affinity)
-    , m_granularity(CharacterGranularity)
 {
     validate();
 }
@@ -190,8 +184,7 @@ bool VisibleSelection::expandUsingGranularity(TextGranularity granularity)
     if (isNone())
         return false;
 
-    m_granularity = granularity;
-    validate();
+    validate(granularity);
     return true;
 }
 
@@ -233,11 +226,11 @@ void VisibleSelection::appendTrailingWhitespace()
     if (!searchRange)
         return;
 
-    CharacterIterator charIt(searchRange.get(), true);
+    CharacterIterator charIt(searchRange.get(), TextIteratorEmitsCharactersBetweenAllVisiblePositions);
 
     for (; charIt.length(); charIt.advance(1)) {
         UChar c = charIt.characters()[0];
-        if (!isSpaceOrNewline(c) && c != noBreakSpace)
+        if ((!isSpaceOrNewline(c) && c != noBreakSpace) || c == '\n')
             break;
         m_end = charIt.range()->endPosition();
     }
@@ -268,7 +261,7 @@ void VisibleSelection::setBaseAndExtentToDeepEquivalents()
         m_baseIsFirst = comparePositions(m_base, m_extent) <= 0;
 }
 
-void VisibleSelection::setStartAndEndFromBaseAndExtentRespectingGranularity()
+void VisibleSelection::setStartAndEndFromBaseAndExtentRespectingGranularity(TextGranularity granularity)
 {
     if (m_baseIsFirst) {
         m_start = m_base;
@@ -278,7 +271,7 @@ void VisibleSelection::setStartAndEndFromBaseAndExtentRespectingGranularity()
         m_end = m_base;
     }
 
-    switch (m_granularity) {
+    switch (granularity) {
         case CharacterGranularity:
             // Don't do any expansion.
             break;
@@ -301,7 +294,7 @@ void VisibleSelection::setStartAndEndFromBaseAndExtentRespectingGranularity()
             VisiblePosition wordEnd(endOfWord(originalEnd, side));
             VisiblePosition end(wordEnd);
             
-            if (isEndOfParagraph(originalEnd)) {
+            if (isEndOfParagraph(originalEnd) && !isEmptyTableCell(m_start.node())) {
                 // Select the paragraph break (the space from the end of a paragraph to the start of 
                 // the next one) to match TextEdit.
                 end = wordEnd.next();
@@ -408,10 +401,10 @@ void VisibleSelection::updateSelectionType()
         m_affinity = DOWNSTREAM;
 }
 
-void VisibleSelection::validate()
+void VisibleSelection::validate(TextGranularity granularity)
 {
     setBaseAndExtentToDeepEquivalents();
-    setStartAndEndFromBaseAndExtentRespectingGranularity();
+    setStartAndEndFromBaseAndExtentRespectingGranularity(granularity);
     adjustSelectionToAvoidCrossingEditingBoundaries();
     updateSelectionType();
 
@@ -441,7 +434,6 @@ void VisibleSelection::setWithoutValidation(const Position& base, const Position
     ASSERT(!extent.isNull());
     ASSERT(base != extent);
     ASSERT(m_affinity == DOWNSTREAM);
-    ASSERT(m_granularity == CharacterGranularity);
     m_base = base;
     m_extent = extent;
     m_baseIsFirst = comparePositions(base, extent) <= 0;
@@ -489,10 +481,8 @@ void VisibleSelection::adjustSelectionToAvoidCrossingEditingBoundaries()
         if (endRoot != baseRoot) {
             VisiblePosition last = lastEditablePositionBeforePositionInRoot(m_end, baseRoot);
             m_end = last.deepEquivalent();
-            if (m_end.isNull()) {
-                ASSERT_NOT_REACHED();
+            if (m_end.isNull())
                 m_end = m_start;
-            }
         }
     // The selection is based in non-editable content.
     } else {
@@ -511,7 +501,7 @@ void VisibleSelection::adjustSelectionToAvoidCrossingEditingBoundaries()
             while (p.isNotNull() && !(lowestEditableAncestor(p.node()) == baseEditableAncestor && !isEditablePosition(p))) {
                 Node* root = editableRootForPosition(p);
                 shadowAncestor = root ? root->shadowAncestorNode() : 0;
-                p = isAtomicNode(p.node()) ? positionBeforeNode(p.node()) : previousVisuallyDistinctCandidate(p);
+                p = isAtomicNode(p.node()) ? positionInParentBeforeNode(p.node()) : previousVisuallyDistinctCandidate(p);
                 if (p.isNull() && (shadowAncestor != root))
                     p = lastDeepEditingPositionForNode(shadowAncestor);
             }
@@ -540,7 +530,7 @@ void VisibleSelection::adjustSelectionToAvoidCrossingEditingBoundaries()
             while (p.isNotNull() && !(lowestEditableAncestor(p.node()) == baseEditableAncestor && !isEditablePosition(p))) {
                 Node* root = editableRootForPosition(p);
                 shadowAncestor = root ? root->shadowAncestorNode() : 0;
-                p = isAtomicNode(p.node()) ? positionAfterNode(p.node()) : nextVisuallyDistinctCandidate(p);
+                p = isAtomicNode(p.node()) ? positionInParentAfterNode(p.node()) : nextVisuallyDistinctCandidate(p);
                 if (p.isNull() && (shadowAncestor != root))
                     p = Position(shadowAncestor, 0);
             }

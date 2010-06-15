@@ -34,28 +34,29 @@
 
 #include "V8WorkerContextEventListener.h"
 
-#include "Event.h"
+#include "V8Binding.h"
+#include "V8DOMWrapper.h"
+#include "V8Event.h"
+#include "WorkerContext.h"
 #include "WorkerContextExecutionProxy.h"
 
 namespace WebCore {
 
-V8WorkerContextEventListener::V8WorkerContextEventListener(WorkerContextExecutionProxy* proxy, v8::Local<v8::Object> listener, bool isInline)
-    : V8EventListener(0, listener, isInline)
-    , m_proxy(proxy)
+static WorkerContextExecutionProxy* workerProxy(ScriptExecutionContext* context)
+{
+    ASSERT(context->isWorkerContext());
+    WorkerContext* workerContext = static_cast<WorkerContext*>(context);
+    return workerContext->script()->proxy();
+}
+
+V8WorkerContextEventListener::V8WorkerContextEventListener(v8::Local<v8::Object> listener, bool isInline, const WorldContextHandle& worldContext)
+    : V8EventListener(listener, isInline, worldContext)
 {
 }
 
-V8WorkerContextEventListener::~V8WorkerContextEventListener()
+void V8WorkerContextEventListener::handleEvent(ScriptExecutionContext* context, Event* event)
 {
-    if (m_proxy)
-        m_proxy->RemoveEventListener(this);
-    disposeListenerObject();
-}
-
-void V8WorkerContextEventListener::handleEvent(Event* event, bool isWindowEvent)
-{
-    // Is the EventListener disconnected?
-    if (disconnected())
+    if (!context)
         return;
 
     // The callback function on XMLHttpRequest can clear the event listener and destroys 'this' object. Keep a local reference to it.
@@ -64,44 +65,48 @@ void V8WorkerContextEventListener::handleEvent(Event* event, bool isWindowEvent)
 
     v8::HandleScope handleScope;
 
-    v8::Handle<v8::Context> context = m_proxy->GetContext();
-    if (context.IsEmpty())
+    WorkerContextExecutionProxy* proxy = workerProxy(context);
+    if (!proxy)
+        return;
+
+    v8::Handle<v8::Context> v8Context = proxy->context();
+    if (v8Context.IsEmpty())
         return;
 
     // Enter the V8 context in which to perform the event handling.
-    v8::Context::Scope scope(context);
+    v8::Context::Scope scope(v8Context);
 
     // Get the V8 wrapper for the event object.
-    v8::Handle<v8::Value> jsEvent = WorkerContextExecutionProxy::EventToV8Object(event);
+    v8::Handle<v8::Value> jsEvent = toV8(event);
 
-    invokeEventHandler(context, event, jsEvent, isWindowEvent);
+    invokeEventHandler(context, event, jsEvent);
 }
 
-v8::Local<v8::Value> V8WorkerContextEventListener::callListenerFunction(v8::Handle<v8::Value> jsEvent, Event* event, bool isWindowEvent)
+v8::Local<v8::Value> V8WorkerContextEventListener::callListenerFunction(ScriptExecutionContext* context, v8::Handle<v8::Value> jsEvent, Event* event)
 {
-    v8::Local<v8::Function> handlerFunction = getListenerFunction();
-    v8::Local<v8::Object> receiver = getReceiverObject(event, isWindowEvent);
+    v8::Local<v8::Function> handlerFunction = getListenerFunction(context);
+    v8::Local<v8::Object> receiver = getReceiverObject(context, event);
     if (handlerFunction.IsEmpty() || receiver.IsEmpty())
         return v8::Local<v8::Value>();
 
     v8::Handle<v8::Value> parameters[1] = { jsEvent };
     v8::Local<v8::Value> result = handlerFunction->Call(receiver, 1, parameters);
 
-    m_proxy->trackEvent(event);
+    if (WorkerContextExecutionProxy* proxy = workerProxy(context))
+        proxy->trackEvent(event);
 
     return result;
 }
 
-v8::Local<v8::Object> V8WorkerContextEventListener::getReceiverObject(Event* event, bool isWindowEvent)
+v8::Local<v8::Object> V8WorkerContextEventListener::getReceiverObject(ScriptExecutionContext* context, Event* event)
 {
-    if (!m_listener.IsEmpty() && !m_listener->IsFunction())
-        return v8::Local<v8::Object>::New(m_listener);
+    v8::Local<v8::Object> listener = getListenerObject(context);
 
-    if (isWindowEvent)
-        return v8::Context::GetCurrent()->Global();
+    if (!listener.IsEmpty() && !listener->IsFunction())
+        return listener;
 
     EventTarget* target = event->currentTarget();
-    v8::Handle<v8::Value> value = WorkerContextExecutionProxy::EventTargetToV8Object(target);
+    v8::Handle<v8::Value> value = V8DOMWrapper::convertEventTargetToV8Object(target);
     if (value.IsEmpty())
         return v8::Local<v8::Object>();
     return v8::Local<v8::Object>::New(v8::Handle<v8::Object>::Cast(value));

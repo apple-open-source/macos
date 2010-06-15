@@ -31,23 +31,26 @@
 #include "config.h"
 #include "InspectorResource.h"
 
+#if ENABLE(INSPECTOR)
+
+#include "Cache.h"
 #include "CachedResource.h"
 #include "DocLoader.h"
 #include "DocumentLoader.h"
 #include "Frame.h"
 #include "InspectorFrontend.h"
-#include "InspectorJSONObject.h"
 #include "ResourceRequest.h"
 #include "ResourceResponse.h"
 #include "TextEncoding.h"
+#include "ScriptObject.h"
 
 namespace WebCore {
 
-InspectorResource::InspectorResource(long long identifier, DocumentLoader* loader)
+InspectorResource::InspectorResource(unsigned long identifier, DocumentLoader* loader, const KURL& requestURL)
     : m_identifier(identifier)
     , m_loader(loader)
     , m_frame(loader->frame())
-    , m_scriptObjectCreated(false)
+    , m_requestURL(requestURL)
     , m_expectedContentLength(0)
     , m_cached(false)
     , m_finished(false)
@@ -57,6 +60,8 @@ InspectorResource::InspectorResource(long long identifier, DocumentLoader* loade
     , m_startTime(-1.0)
     , m_responseReceivedTime(-1.0)
     , m_endTime(-1.0)
+    , m_loadEventTime(-1.0)
+    , m_domContentEventTime(-1.0)
     , m_isMainResource(false)
 {
 }
@@ -65,13 +70,27 @@ InspectorResource::~InspectorResource()
 {
 }
 
-PassRefPtr<InspectorResource> InspectorResource::createCached(long long identifier, DocumentLoader* loader, const CachedResource* cachedResource)
+PassRefPtr<InspectorResource> InspectorResource::appendRedirect(unsigned long identifier, const KURL& redirectURL)
 {
-    PassRefPtr<InspectorResource> resource = create(identifier, loader);
+    // Last redirect is always a container of all previous ones. Pass this container here.
+    RefPtr<InspectorResource> redirect = InspectorResource::create(m_identifier, m_loader.get(), redirectURL);
+    redirect->m_redirects = m_redirects;
+    redirect->m_redirects.append(this);
+    redirect->m_changes.set(RedirectsChange);
+
+    m_identifier = identifier;
+    // Re-send request info with new id.
+    m_changes.set(RequestChange);
+    m_redirects.clear();
+    return redirect;
+}
+
+PassRefPtr<InspectorResource> InspectorResource::createCached(unsigned long identifier, DocumentLoader* loader, const CachedResource* cachedResource)
+{
+    PassRefPtr<InspectorResource> resource = create(identifier, loader, KURL(ParsedURLString, cachedResource->url()));
 
     resource->m_finished = true;
 
-    resource->m_requestURL = KURL(cachedResource->url());
     resource->updateResponse(cachedResource->response());
 
     resource->m_length = cachedResource->encodedSize();
@@ -88,7 +107,9 @@ PassRefPtr<InspectorResource> InspectorResource::createCached(long long identifi
 void InspectorResource::updateRequest(const ResourceRequest& request)
 {
     m_requestHeaderFields = request.httpHeaderFields();
-    m_requestURL = request.url();
+    m_requestMethod = request.httpMethod();
+    if (request.httpBody() && !request.httpBody()->isEmpty())
+        m_requestFormData = request.httpBody()->flattenToString();
 
     m_changes.set(RequestChange);
 }
@@ -97,6 +118,11 @@ void InspectorResource::updateResponse(const ResourceResponse& response)
 {
     m_expectedContentLength = response.expectedContentLength();
     m_mimeType = response.mimeType();
+    if (m_mimeType.isEmpty() && response.httpStatusCode() == 304) {
+        CachedResource* cachedResource = cache()->resourceForURL(response.url().string());
+        if (cachedResource)
+            m_mimeType = cachedResource->response().mimeType();
+    }
     m_responseHeaderFields = response.httpHeaderFields();
     m_responseStatusCode = response.httpStatusCode();
     m_suggestedFilename = response.suggestedFilename();
@@ -105,7 +131,7 @@ void InspectorResource::updateResponse(const ResourceResponse& response)
     m_changes.set(TypeChange);
 }
 
-static void populateHeadersObject(InspectorJSONObject* object, const HTTPHeaderMap& headers)
+static void populateHeadersObject(ScriptObject* object, const HTTPHeaderMap& headers)
 {
     HTTPHeaderMap::const_iterator end = headers.end();
     for (HTTPHeaderMap::const_iterator it = headers.begin(); it != end; ++it) {
@@ -113,47 +139,27 @@ static void populateHeadersObject(InspectorJSONObject* object, const HTTPHeaderM
     }
 }
 
-void InspectorResource::createScriptObject(InspectorFrontend* frontend)
-{
-    if (!m_scriptObjectCreated) {
-        InspectorJSONObject jsonObject = frontend->newInspectorJSONObject();
-        InspectorJSONObject requestHeaders = frontend->newInspectorJSONObject();
-        populateHeadersObject(&requestHeaders, m_requestHeaderFields);
-        jsonObject.set("requestHeaders", requestHeaders);
-        jsonObject.set("requestURL", requestURL());
-        jsonObject.set("host", m_requestURL.host());
-        jsonObject.set("path", m_requestURL.path());
-        jsonObject.set("lastPathComponent", m_requestURL.lastPathComponent());
-        jsonObject.set("isMainResource", m_isMainResource);
-        jsonObject.set("cached", m_cached);
-        if (!frontend->addResource(m_identifier, jsonObject))
-            return;
-
-        m_scriptObjectCreated = true;
-        m_changes.clear(RequestChange);
-    }
-    updateScriptObject(frontend);
-}
 
 void InspectorResource::updateScriptObject(InspectorFrontend* frontend)
 {
-    if (!m_scriptObjectCreated)
-        return;
-
     if (m_changes.hasChange(NoChange))
         return;
 
-    InspectorJSONObject jsonObject = frontend->newInspectorJSONObject();
+    ScriptObject jsonObject = frontend->newScriptObject();
     if (m_changes.hasChange(RequestChange)) {
-        jsonObject.set("url", requestURL());
-        jsonObject.set("domain", m_requestURL.host());
+        jsonObject.set("url", m_requestURL.string());
+        jsonObject.set("documentURL", m_frame->document()->url().string());
+        jsonObject.set("host", m_requestURL.host());
         jsonObject.set("path", m_requestURL.path());
         jsonObject.set("lastPathComponent", m_requestURL.lastPathComponent());
-        InspectorJSONObject requestHeaders = frontend->newInspectorJSONObject();
+        ScriptObject requestHeaders = frontend->newScriptObject();
         populateHeadersObject(&requestHeaders, m_requestHeaderFields);
         jsonObject.set("requestHeaders", requestHeaders);
         jsonObject.set("mainResource", m_isMainResource);
+        jsonObject.set("requestMethod", m_requestMethod);
+        jsonObject.set("requestFormData", m_requestFormData);
         jsonObject.set("didRequestChange", true);
+        jsonObject.set("cached", m_cached);
     }
 
     if (m_changes.hasChange(ResponseChange)) {
@@ -162,7 +168,7 @@ void InspectorResource::updateScriptObject(InspectorFrontend* frontend)
         jsonObject.set("expectedContentLength", m_expectedContentLength);
         jsonObject.set("statusCode", m_responseStatusCode);
         jsonObject.set("suggestedFilename", m_suggestedFilename);
-        InspectorJSONObject responseHeaders = frontend->newInspectorJSONObject();
+        ScriptObject responseHeaders = frontend->newScriptObject();
         populateHeadersObject(&responseHeaders, m_responseHeaderFields);
         jsonObject.set("responseHeaders", responseHeaders);
         jsonObject.set("didResponseChange", true);
@@ -172,9 +178,9 @@ void InspectorResource::updateScriptObject(InspectorFrontend* frontend)
         jsonObject.set("type", static_cast<int>(type()));
         jsonObject.set("didTypeChange", true);
     }
-    
+
     if (m_changes.hasChange(LengthChange)) {
-        jsonObject.set("contentLength", m_length);
+        jsonObject.set("resourceSize", m_length);
         jsonObject.set("didLengthChange", true);
     }
 
@@ -191,39 +197,49 @@ void InspectorResource::updateScriptObject(InspectorFrontend* frontend)
             jsonObject.set("responseReceivedTime", m_responseReceivedTime);
         if (m_endTime > 0)
             jsonObject.set("endTime", m_endTime);
+        if (m_loadEventTime > 0)
+            jsonObject.set("loadEventTime", m_loadEventTime);
+        if (m_domContentEventTime > 0)
+            jsonObject.set("domContentEventTime", m_domContentEventTime);
         jsonObject.set("didTimingChange", true);
     }
-    if (!frontend->updateResource(m_identifier, jsonObject))
-        return;
-    m_changes.clearAll();
+
+    if (m_changes.hasChange(RedirectsChange)) {
+        for (size_t i = 0; i < m_redirects.size(); ++i)
+            m_redirects[i]->updateScriptObject(frontend);
+    }
+
+    if (frontend->updateResource(m_identifier, jsonObject))
+        m_changes.clearAll();
 }
 
-void InspectorResource::releaseScriptObject(InspectorFrontend* frontend, bool callRemoveResource)
+void InspectorResource::releaseScriptObject(InspectorFrontend* frontend)
 {
-    if (!m_scriptObjectCreated)
-        return;
-
-    m_scriptObjectCreated = false;
     m_changes.setAll();
 
-    if (!callRemoveResource)
-        return;
+    for (size_t i = 0; i < m_redirects.size(); ++i)
+        m_redirects[i]->releaseScriptObject(frontend);
 
-    frontend->removeResource(m_identifier);
+    if (frontend)
+        frontend->removeResource(m_identifier);
 }
 
-InspectorResource::Type InspectorResource::type() const
+CachedResource* InspectorResource::cachedResource() const
 {
-    if (!m_xmlHttpResponseText.isNull())
-        return XHR;
+    // Try hard to find a corresponding CachedResource. During preloading, DocLoader may not have the resource in document resources set yet,
+    // but Inspector will already try to fetch data that is only available via CachedResource (and it won't update once the resource is added,
+    // because m_changes will not have the appropriate bits set).
+    const String& url = m_requestURL.string();
+    CachedResource* cachedResource = m_frame->document()->docLoader()->cachedResource(url);
+    if (!cachedResource)
+        cachedResource = cache()->resourceForURL(url);
+    return cachedResource;
+}
 
-    if (m_requestURL == m_loader->requestURL())
-        return Doc;
+InspectorResource::Type InspectorResource::cachedResourceType() const
+{
+    CachedResource* cachedResource = this->cachedResource();
 
-    if (m_loader->frameLoader() && m_requestURL == m_loader->frameLoader()->iconURL())
-        return Image;
-
-    CachedResource* cachedResource = m_frame->document()->docLoader()->cachedResource(requestURL());
     if (!cachedResource)
         return Other;
 
@@ -244,43 +260,39 @@ InspectorResource::Type InspectorResource::type() const
     }
 }
 
-void InspectorResource::setXMLHttpResponseText(const ScriptString& data)
+InspectorResource::Type InspectorResource::type() const
 {
-    m_xmlHttpResponseText = data;
+    if (!m_overrideContent.isNull())
+        return m_overrideContentType;
+
+    if (m_requestURL == m_loader->requestURL()) {
+        InspectorResource::Type resourceType = cachedResourceType();
+        if (resourceType == Other)
+            return Doc;
+
+        return resourceType;
+    }
+
+    if (m_loader->frameLoader() && m_requestURL == m_loader->frameLoader()->iconURL())
+        return Image;
+
+    return cachedResourceType();
+}
+
+void InspectorResource::setOverrideContent(const ScriptString& data, Type type)
+{
+    m_overrideContent = data;
+    m_overrideContentType = type;
     m_changes.set(TypeChange);
 }
 
 String InspectorResource::sourceString() const
 {
-    if (!m_xmlHttpResponseText.isNull())
-        return String(m_xmlHttpResponseText);
+    if (!m_overrideContent.isNull())
+        return String(m_overrideContent);
 
-    RefPtr<SharedBuffer> buffer;
     String textEncodingName;
-
-    if (m_requestURL == m_loader->requestURL()) {
-        buffer = m_loader->mainResourceData();
-        textEncodingName = m_frame->document()->inputEncoding();
-    } else {
-        CachedResource* cachedResource = m_frame->document()->docLoader()->cachedResource(requestURL());
-        if (!cachedResource)
-            return String();
-
-        if (cachedResource->isPurgeable()) {
-            // If the resource is purgeable then make it unpurgeable to get
-            // get its data. This might fail, in which case we return an
-            // empty String.
-            // FIXME: should we do something else in the case of a purged
-            // resource that informs the user why there is no data in the
-            // inspector?
-            if (!cachedResource->makePurgeable(false))
-                return String();
-        }
-
-        buffer = cachedResource->data();
-        textEncodingName = cachedResource->encoding();
-    }
-
+    RefPtr<SharedBuffer> buffer = resourceData(&textEncodingName);
     if (!buffer)
         return String();
 
@@ -288,6 +300,32 @@ String InspectorResource::sourceString() const
     if (!encoding.isValid())
         encoding = WindowsLatin1Encoding();
     return encoding.decode(buffer->data(), buffer->size());
+}
+
+PassRefPtr<SharedBuffer> InspectorResource::resourceData(String* textEncodingName) const
+{
+    if (m_requestURL == m_loader->requestURL()) {
+        *textEncodingName = m_frame->document()->inputEncoding();
+        return m_loader->mainResourceData();
+    }
+
+    CachedResource* cachedResource = this->cachedResource();
+    if (!cachedResource)
+        return 0;
+
+    if (cachedResource->isPurgeable()) {
+        // If the resource is purgeable then make it unpurgeable to get
+        // get its data. This might fail, in which case we return an
+        // empty String.
+        // FIXME: should we do something else in the case of a purged
+        // resource that informs the user why there is no data in the
+        // inspector?
+        if (!cachedResource->makePurgeable(false))
+            return 0;
+    }
+
+    *textEncodingName = cachedResource->encoding();
+    return cachedResource->data();
 }
 
 void InspectorResource::startTiming()
@@ -310,6 +348,18 @@ void InspectorResource::endTiming()
     m_changes.set(CompletionChange);
 }
 
+void InspectorResource::markDOMContentEventTime()
+{
+    m_domContentEventTime = currentTime();
+    m_changes.set(TimingChange);
+}
+
+void InspectorResource::markLoadEventTime()
+{
+    m_loadEventTime = currentTime();
+    m_changes.set(TimingChange);
+}
+
 void InspectorResource::markFailed()
 {
     m_failed = true;
@@ -320,6 +370,14 @@ void InspectorResource::addLength(int lengthReceived)
 {
     m_length += lengthReceived;
     m_changes.set(LengthChange);
+
+    // Update load time, otherwise the resource will
+    // have start time == end time and  0 load duration
+    // until its loading is completed.
+    m_endTime = currentTime();
+    m_changes.set(TimingChange);
 }
 
 } // namespace WebCore
+
+#endif // ENABLE(INSPECTOR)

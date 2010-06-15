@@ -60,6 +60,13 @@ int main(int argc, char * argv[])
 
 //    bzero( shmem, shmemSize); // make sure its read only!
 
+    printf("cursorShow %d, hw %d, cursorRect (%d, %d), (%d, %d), saveRect (%d, %d), (%d, %d)\n",
+            shmem->cursorShow, shmem->hardwareCursorActive, 
+            shmem->cursorRect.minx, shmem->cursorRect.miny, 
+            shmem->cursorRect.maxx, shmem->cursorRect.maxy,
+            shmem->saveRect.minx, shmem->saveRect.miny, 
+            shmem->saveRect.maxx, shmem->saveRect.maxy);
+    
     while (1)
     {
         uint64_t time  = (((uint64_t) shmem->vblTime.hi) << 32 | shmem->vblTime.lo);

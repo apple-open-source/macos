@@ -576,7 +576,7 @@ si_addrinfo_list_from_hostent(si_mod_t *si, uint32_t socktype, uint32_t proto, u
 /* _gai_simple
  * Simple lookup via gethostbyname2(3) mechanism.
  */
-static si_list_t *
+__private_extern__ si_list_t *
 _gai_simple(si_mod_t *si, const void *nodeptr, const void *servptr, uint32_t family, uint32_t socktype, uint32_t proto, uint32_t flags, const char *interface, uint32_t *err)
 {
 	si_item_t *h4_item = NULL, *h6_item = NULL;

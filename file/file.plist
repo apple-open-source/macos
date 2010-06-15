@@ -18,9 +18,14 @@
 	<array>
 		<string>Correct error in sun magic file (2504403).</string>
 		<string>Enhanced Mach-O support (3091495).</string>
-		<string>PPC64 support (3581143).</string>
-		<string>Various minor build fixes.</string>
+		<string>Mach-O architecture support (3581143 and others).</string>
+		<string>Various conformance fixes.</string>
 		<string>Allow the output of tabs and newlines (3755299).</string>
+		<string>Add &apos;otool&apos; reference to man page (4324767).</string>
+		<string>Disable ~/.magic behavior (6431343).</string>
+		<string>Fix crash on far-future date (7274959).</string>
+		<string>Archive (ar) format fix (4204136).</string>
+		<string>GNU catalog format fix (4695678).</string>
 	</array>
 	<key>OpenSourceLicense</key>
 	<string>BSD</string>

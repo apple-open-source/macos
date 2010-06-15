@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006, 2007, 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2006, 2007, 2008, 2010 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -43,6 +43,7 @@
 #import <WebKit/DOMCore.h>
 #import <WebKit/DOMExtensions.h>
 #import <runtime/InitializeThreading.h>
+#import <wtf/Threading.h>
 
 using namespace WebCore;
 
@@ -64,6 +65,7 @@ static void cacheValueForKey(const void *key, const void *value, void *self)
 + (void)initialize
 {
     JSC::initializeThreading();
+    WTF::initializeMainThreadToProcessMainThread();
 #ifndef BUILDING_ON_TIGER
     WebCoreObjCFinalizeOnMainThread(self);
 #endif
@@ -91,6 +93,7 @@ static void cacheValueForKey(const void *key, const void *value, void *self)
     addLookupKey(WebElementLinkLabelKey, @selector(_textContent));
     addLookupKey(WebElementLinkIsLiveKey, @selector(_isLiveLink));
     addLookupKey(WebElementIsContentEditableKey, @selector(_isContentEditable));
+    addLookupKey(WebElementIsInScrollBarKey, @selector(_isInScrollBar));
 }
 
 - (id)initWithHitTestResult:(const HitTestResult&)result
@@ -192,7 +195,8 @@ static NSString* NSStringOrNil(String coreString)
 
 - (NSString *)_spellingToolTip
 {
-    return NSStringOrNil(_result->spellingToolTip());
+    TextDirection dir;
+    return NSStringOrNil(_result->spellingToolTip(dir));
 }
 
 - (NSImage *)_image
@@ -219,7 +223,8 @@ static NSString* NSStringOrNil(String coreString)
 
 - (NSString *)_title
 {
-    return NSStringOrNil(_result->title());
+    TextDirection dir;
+    return NSStringOrNil(_result->title(dir));
 }
 
 - (NSURL *)_absoluteLinkURL
@@ -250,6 +255,11 @@ static NSString* NSStringOrNil(String coreString)
 - (NSNumber *)_isContentEditable
 {
     return [NSNumber numberWithBool:_result->isContentEditable()];
+}
+
+- (NSNumber *)_isInScrollBar
+{
+    return [NSNumber numberWithBool:_result->scrollbar() != 0];
 }
 
 @end

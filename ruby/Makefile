@@ -134,7 +134,7 @@ install-xray-template:
 
 # Automatic Extract & Patch
 AEP_Project    = $(Project)
-AEP_Version    = 1.8.7-p173
+AEP_Version    = 1.8.7-p174
 AEP_ProjVers   = $(AEP_Project)-$(AEP_Version)
 AEP_Filename   = $(AEP_ProjVers).tar.gz
 AEP_ExtractDir = $(AEP_ProjVers)
@@ -153,7 +153,8 @@ AEP_Patches    = patch-configure \
                  lib_rdoc_usage.rb.diff \
                  lib_irb_init.rb.diff \
                  dtrace.diff \
-                 rexml_bugs.diff
+                 rexml_bugs.diff \
+		 lib_webrick_httpresponse.rb.diff
 
 # Extract the source.
 install_source::

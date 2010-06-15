@@ -92,6 +92,13 @@ using namespace WebCore;
     }
 }
 
+- (void)display
+{
+    [super display];
+    if (m_layerOwner)
+        m_layerOwner->didDisplay(self);
+}
+
 - (void)drawInContext:(CGContextRef)ctx
 {
     [WebLayer drawContents:m_layerOwner ofLayer:self intoContext:ctx];

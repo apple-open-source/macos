@@ -45,9 +45,25 @@ void SVGMPathElement::parseMappedAttribute(MappedAttribute* attr)
     SVGElement::parseMappedAttribute(attr);
 }
 
+void SVGMPathElement::synchronizeProperty(const QualifiedName& attrName)
+{
+    SVGElement::synchronizeProperty(attrName);
+
+    if (attrName == anyQName()) {
+        synchronizeExternalResourcesRequired();
+        synchronizeHref();
+        return;
+    }
+
+    if (SVGExternalResourcesRequired::isKnownAttribute(attrName))
+        synchronizeExternalResourcesRequired();
+    else if (SVGURIReference::isKnownAttribute(attrName))
+        synchronizeHref();
+}
+
 SVGPathElement* SVGMPathElement::pathElement()
 {
-    Element* target = document()->getElementById(getTarget(SVGURIReference::href()));
+    Element* target = document()->getElementById(getTarget(href()));
     if (target && target->hasTagName(SVGNames::pathTag))
         return static_cast<SVGPathElement*>(target);
     return 0;

@@ -345,6 +345,10 @@ StorageManager::defaultKeychain(const Keychain &keychain)
 	StLock<Mutex>_(mMutex);
 	StLock<Mutex>__(mKeychainMapMutex);
 	
+	// Only set a keychain as the default if we own it and can read/write it,
+	// and our uid allows modifying the directory for that preference domain.
+	if (!keychainOwnerPermissionsValidForDomain(keychain->name(), mDomain))
+		MacOSError::throwMe(wrPermErr);
 	
 	DLDbIdentifier oldDefaultId;
 	DLDbIdentifier newDefaultId(keychain->dlDbIdentifier());
@@ -1759,3 +1763,82 @@ StorageManager::removeFromDomainList(SecPreferencesDomain domain,
 	}
 }
 
+bool
+StorageManager::keychainOwnerPermissionsValidForDomain(const char* path, SecPreferencesDomain domain)
+{
+	struct stat sb;
+	mode_t perms;
+	const char* sysPrefDir = "/Library/Preferences";
+	const char* errMsg = "Will not set default";
+	char* mustOwnDir = NULL;
+	struct passwd* pw = NULL;
+
+	// get my uid
+	uid_t uid = geteuid();
+	if (!uid) uid = getuid();
+
+	// our (e)uid must own the appropriate preferences or home directory
+	// for the specified preference domain whose default we will be modifying
+	switch (domain) {
+		case kSecPreferencesDomainUser:
+			mustOwnDir = getenv("HOME");
+			if (mustOwnDir == NULL) {
+				pw = getpwuid(uid);
+				if (!pw) return false;
+				mustOwnDir = pw->pw_dir;
+			}
+			break;
+		case kSecPreferencesDomainSystem:
+			mustOwnDir = (char*)sysPrefDir;
+			break;
+		case kSecPreferencesDomainCommon:
+			mustOwnDir = (char*)sysPrefDir;
+			break;
+		default:
+			return false;
+	}
+
+	if (mustOwnDir != NULL) {
+		struct stat dsb;
+		if ( (stat(mustOwnDir, &dsb) != 0) || (dsb.st_uid != uid) ) {
+			fprintf(stderr, "%s: UID=%d does not own directory %s\n", errMsg, (int)uid, mustOwnDir);
+			mustOwnDir = NULL; // will return below after calling endpwent()
+		}
+	}
+	
+	if (pw != NULL)
+		endpwent();
+	
+	if (mustOwnDir == NULL)
+		return false;
+
+	// check that file actually exists
+	if (stat(path, &sb) != 0) {
+		fprintf(stderr, "%s: file %s does not exist\n", errMsg, path);
+		return false;
+	}
+
+	// check flags
+	if (sb.st_flags & (SF_IMMUTABLE | UF_IMMUTABLE)) {
+		fprintf(stderr, "%s: file %s is immutable\n", errMsg, path);
+		return false;
+	}
+
+	// check ownership
+	if (sb.st_uid != uid) {
+		fprintf(stderr, "%s: file %s is owned by UID=%d, but we have UID=%d\n",
+			errMsg, path, (int)sb.st_uid, (int)uid);
+		return false;
+	}
+
+	// check mode
+	perms = sb.st_mode;
+	perms |= 0600; // must have owner read/write permission set
+	if (sb.st_mode != perms) {
+		fprintf(stderr, "%s: file %s does not have the expected permissions\n", errMsg, path);
+		return false;
+	}
+		
+	// user owns file and can read/write it
+	return true;
+}

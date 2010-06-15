@@ -26,7 +26,7 @@
 #include "config.h"
 #include "Font.h"
 
-#include "TransformationMatrix.h"
+#include "AffineTransform.h"
 #include "FloatConversion.h"
 #include "GlyphBuffer.h"
 #include "GraphicsContext.h"
@@ -225,7 +225,7 @@ static void drawGDIGlyphs(GraphicsContext* graphicsContext, const SimpleFontData
     } else {
         XFORM xform;
         GetWorldTransform(hdc, &xform);
-        TransformationMatrix hdcTransform(xform.eM11, xform.eM21, xform.eM12, xform.eM22, xform.eDx, xform.eDy);
+        AffineTransform hdcTransform(xform.eM11, xform.eM21, xform.eM12, xform.eM22, xform.eDx, xform.eDy);
         CGAffineTransform initialGlyphTransform = hdcTransform.isInvertible() ? hdcTransform.inverse() : CGAffineTransformIdentity;
         if (font->platformData().syntheticOblique())
             initialGlyphTransform = CGAffineTransformConcat(initialGlyphTransform, CGAffineTransformMake(1, 0, tanf(syntheticObliqueAngle * piFloat / 180.0f), 1, 0, 0));
@@ -297,11 +297,33 @@ void Font::drawGlyphs(GraphicsContext* graphicsContext, const SimpleFontData* fo
     CGContextRef cgContext = graphicsContext->platformContext();
     bool shouldUseFontSmoothing = WebCoreShouldUseFontSmoothing();
 
-    if (font->platformData().useGDI()) {
-        if (!shouldUseFontSmoothing || (graphicsContext->textDrawingMode() & cTextStroke)) {
-            drawGDIGlyphs(graphicsContext, font, glyphBuffer, from, numGlyphs, point);
-            return;
-        }
+    switch(fontDescription().fontSmoothing()) {
+    case Antialiased: {
+        graphicsContext->setShouldAntialias(true);
+        shouldUseFontSmoothing = false;
+        break;
+    }
+    case SubpixelAntialiased: {
+        graphicsContext->setShouldAntialias(true);
+        shouldUseFontSmoothing = true;
+        break;
+    }
+    case NoSmoothing: {
+        graphicsContext->setShouldAntialias(false);
+        shouldUseFontSmoothing = false;
+        break;
+    }
+    case AutoSmoothing: {
+        // For the AutoSmooth case, don't do anything! Keep the default settings.
+        break; 
+    }
+    default: 
+        ASSERT_NOT_REACHED();
+    }
+
+    if (font->platformData().useGDI() && !shouldUseFontSmoothing) {
+        drawGDIGlyphs(graphicsContext, font, glyphBuffer, from, numGlyphs, point);
+        return;
     }
 
     uint32_t oldFontSmoothingStyle = wkSetFontSmoothingStyle(cgContext, shouldUseFontSmoothing);
@@ -338,14 +360,14 @@ void Font::drawGlyphs(GraphicsContext* graphicsContext, const SimpleFontData* fo
         graphicsContext->clearShadow();
         Color fillColor = graphicsContext->fillColor();
         Color shadowFillColor(shadowColor.red(), shadowColor.green(), shadowColor.blue(), shadowColor.alpha() * fillColor.alpha() / 255);
-        graphicsContext->setFillColor(shadowFillColor);
+        graphicsContext->setFillColor(shadowFillColor, DeviceColorSpace);
         CGContextSetTextPosition(cgContext, point.x() + translation.width() + shadowSize.width(), point.y() + translation.height() + shadowSize.height());
         CGContextShowGlyphsWithAdvances(cgContext, glyphBuffer.glyphs(from), glyphBuffer.advances(from), numGlyphs);
         if (font->syntheticBoldOffset()) {
             CGContextSetTextPosition(cgContext, point.x() + translation.width() + shadowSize.width() + font->syntheticBoldOffset(), point.y() + translation.height() + shadowSize.height());
             CGContextShowGlyphsWithAdvances(cgContext, glyphBuffer.glyphs(from), glyphBuffer.advances(from), numGlyphs);
         }
-        graphicsContext->setFillColor(fillColor);
+        graphicsContext->setFillColor(fillColor, DeviceColorSpace);
     }
 
     CGContextSetTextPosition(cgContext, point.x() + translation.width(), point.y() + translation.height());
@@ -356,7 +378,7 @@ void Font::drawGlyphs(GraphicsContext* graphicsContext, const SimpleFontData* fo
     }
 
     if (hasSimpleShadow)
-        graphicsContext->setShadow(shadowSize, shadowBlur, shadowColor);
+        graphicsContext->setShadow(shadowSize, shadowBlur, shadowColor, DeviceColorSpace);
 
     wkRestoreFontSmoothingStyle(cgContext, oldFontSmoothingStyle);
 }

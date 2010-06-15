@@ -82,7 +82,7 @@ String Location::host() const
     // Note: this is the IE spec. The NS spec swaps the two, it says
     // "The hostname property is the concatenation of the host and port properties, separated by a colon."
     const KURL& url = this->url();
-    return url.port() ? url.host() + ":" + String::number((static_cast<int>(url.port()))) : url.host();
+    return url.port() ? url.host() + ":" + String::number(url.port()) : url.host();
 }
 
 String Location::hostname() const
@@ -99,7 +99,7 @@ String Location::port() const
         return String();
 
     const KURL& url = this->url();
-    return url.port() ? String::number(static_cast<int>(url.port())) : "";
+    return url.port() ? String::number(url.port()) : "";
 }
 
 String Location::pathname() const
@@ -125,8 +125,8 @@ String Location::hash() const
     if (!m_frame)
         return String();
 
-    const KURL& url = this->url();
-    return url.ref().isEmpty() ? "" : "#" + url.ref();
+    const String& fragmentIdentifier = this->url().fragmentIdentifier();
+    return fragmentIdentifier.isEmpty() ? "" : "#" + fragmentIdentifier;
 }
 
 String Location::toString() const

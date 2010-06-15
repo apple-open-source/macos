@@ -124,6 +124,7 @@ enum {
 #define XAUTH_MUST_PROMPT		0x0040
 #define XAUTH_DID_PROMPT		0x0080
 
+#define DISPLAY_RE_ENROLL_ALERT_INTERVAL	2*60	/* how much should lapse before displaying re-enroll alert again */
 struct isakmp_xauth {
 	u_int16_t	type;
 	CFStringRef str;
@@ -201,6 +202,8 @@ char *ipsec_error_to_str(int ike_code)
 		case VPNCTL_NTYPE_PEER_DEAD: return "Dead Peer";
 		case VPNCTL_NTYPE_PH1_DELETE: return "Phase 1 Delete";
 		case VPNCTL_NTYPE_IDLE_TIMEOUT: return "Idle Timeout";
+		case VPNCTL_NTYPE_PH1_DELETE_CERT_PREMATURE: return "Certificate premature";
+		case VPNCTL_NTYPE_PH1_DELETE_CERT_EXPIRED: return "Certificate expired";
 		case VPNCTL_NTYPE_INTERNAL_ERROR: return "Internal error";
 	}
 	return "Unknown error";
@@ -258,9 +261,14 @@ u_int32_t ipsec_error_to_status(struct service *serv, int from, int ike_code)
 		case VPNCTL_NTYPE_IDLE_TIMEOUT:
 			return IPSEC_NO_ERROR;
 
+		case VPNCTL_NTYPE_PH1_DELETE_CERT_PREMATURE: 
+		case VPNCTL_NTYPE_PH1_DELETE_CERT_EXPIRED: {
+			return IPSEC_CLIENT_CERTIFICATE_EXPIRED;
+		}
+
 		case VPNCTL_NTYPE_PH1_DELETE:
 			return ((serv->flags & FLAG_USECERTIFICATE) && (from == FROM_REMOTE) && (serv->u.ipsec.phase == IPSEC_PHASE1)) ?
-				IPSEC_CLIENT_CERTIFICATE_ERROR : IPSEC_NO_ERROR;
+				IPSEC_CERTIFICATEOTHER_ERROR : IPSEC_NO_ERROR;
 			
 	}
 	return IPSEC_GENERIC_ERROR;
@@ -529,7 +537,7 @@ void ipsec_user_notification_callback(struct service *serv, CFUserNotificationRe
 	if ((responseFlags & 3) != kCFUserNotificationDefaultResponse) {
 		switch (serv->u.ipsec.phase) {
 			case IPSEC_IDLE:
-				if (serv->u.ipsec.laststatus == IPSEC_CLIENT_CERTIFICATE_ERROR) {
+				if ((serv->u.ipsec.laststatus == IPSEC_CLIENT_CERTIFICATE_EXPIRED) || (serv->u.ipsec.laststatus == IPSEC_CLIENT_CERTIFICATE_ERROR)) {
 #ifdef TARGET_EMBEDDED_OS
 					start_profile_janitor(serv);
 #endif
@@ -3667,7 +3675,7 @@ int ipsec_start(struct service *serv, CFDictionaryRef options, uid_t uid, gid_t 
 {
 	char			remoteaddress[255];
 	
-	SCLog(gSCNCVerbose, LOG_INFO, CFSTR("IPSec Controller: ipsec_start"));
+	SCLog(gSCNCVerbose, LOG_INFO, CFSTR("IPSec Controller: ipsec_start, ondemand flag = %d"), onDemand);
 	
     switch (serv->u.ipsec.phase) {
         case IPSEC_IDLE:
@@ -3682,8 +3690,14 @@ int ipsec_start(struct service *serv, CFDictionaryRef options, uid_t uid, gid_t 
             return EIO;	// not the right time to dial
     }
 	
-	/* remove any pending notification */
+	/* check for pending cert expired alert */
 	if (serv->userNotificationRef) {
+		if ( onDemand ){
+			if ( (serv->u.ipsec.laststatus == IPSEC_CLIENT_CERTIFICATE_EXPIRED) || (serv->u.ipsec.laststatus == IPSEC_CLIENT_CERTIFICATE_ERROR)){
+				SCLog(TRUE, LOG_ERR, CFSTR("IPSec Controller: ipsec_start fails cert expires, returns error %d "), serv->u.ipsec.laststatus);
+				return serv->u.ipsec.laststatus;
+			}
+		}
 		CFUserNotificationCancel(serv->userNotificationRef);
 		CFRunLoopRemoveSource(CFRunLoopGetCurrent(), serv->userNotificationRLS, kCFRunLoopDefaultMode);
 		my_CFRelease(&serv->userNotificationRef);
@@ -3752,8 +3766,15 @@ int ipsec_start(struct service *serv, CFDictionaryRef options, uid_t uid, gid_t 
 		int need_edge = FALSE;
 		SCNetworkReachabilityRef ref = NULL;
 		SCNetworkConnectionFlags	flags = 0;
+		struct sockaddr_in peer_address;	/* the other side IP address */
 
-		ref = SCNetworkReachabilityCreateWithName(NULL, remoteaddress);
+		// we don't want a synchronous dns request to happen. 
+		// checking for default route is enough
+		bzero(&peer_address, sizeof(peer_address));
+		peer_address.sin_len = sizeof(peer_address);
+		peer_address.sin_family = AF_INET;
+		ref = SCNetworkReachabilityCreateWithAddress(NULL, (struct sockaddr *)&peer_address);
+		//ref = SCNetworkReachabilityCreateWithName(NULL, remoteaddress);
 		if (ref) {
 			
 			if (SCNetworkReachabilityGetFlags(ref, &flags)) {
@@ -3975,18 +3996,11 @@ int ipsec_stop(struct service *serv, int signal)
 		gNattKeepAliveInterval = -1;
 	}
 #endif
-	
-	/* 
-	 silently fail when connection is on demand,
-	 except for unrecoverable certificate errors
-	 if needed, kick profile janitor and disable OnDemand
-	 */
-	if (serv->u.ipsec.laststatus == IPSEC_CLIENT_CERTIFICATE_ERROR) {
-		disable_ondemand(serv);
 
+	if ((serv->u.ipsec.laststatus == IPSEC_CLIENT_CERTIFICATE_ERROR) || (serv->u.ipsec.laststatus == IPSEC_CLIENT_CERTIFICATE_EXPIRED)) {
 #ifdef TARGET_EMBEDDED_OS
 		if (serv->profileIdentifier) {
-			CFStringRef msg = CFStringCreateWithFormat(0, 0, CFSTR("IPSec Error %d, Re-enroll"), serv->u.ipsec.laststatus);
+			CFStringRef msg = CFStringCreateWithFormat(0, 0, CFSTR("IPSec Error %d, Re-enroll"), IPSEC_CLIENT_CERTIFICATE_ERROR);
 			if (msg) {
 				display_notification(serv, msg, 0, dialog_cert_fixme_type);
 				CFRelease(msg);
@@ -4384,6 +4398,14 @@ void display_notification(struct service *serv, CFStringRef message, int errnum,
     if (!msg || !CFStringGetLength(msg))
 		goto done;
 
+	/* Are we trying to display the re-enrolling alert */
+	if ((dialog_type == dialog_cert_fixme_type) && (serv->flags & FLAG_ONDEMAND)){
+		/* check the last time we displayed this */
+		if (serv->u.ipsec.display_reenroll_alert_time){
+			if ((CFAbsoluteTimeGetCurrent() - serv->u.ipsec.display_reenroll_alert_time) < DISPLAY_RE_ENROLL_ALERT_INTERVAL)
+				goto done;
+		}
+	}
     dict = CFDictionaryCreateMutable(NULL, 0, &kCFCopyStringDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
     if (!dict)
 		goto done;
@@ -4396,6 +4418,7 @@ void display_notification(struct service *serv, CFStringRef message, int errnum,
 	CFDictionaryAddValue(dict, kCFUserNotificationAlertMessageKey, msg);
 	CFDictionaryAddValue(dict, kCFUserNotificationAlertHeaderKey, CFSTR("VPN Connection"));
 
+	serv->u.ipsec.display_reenroll_alert_time = 0;
 	switch (dialog_type) {
 		case dialog_has_disconnect_type:
 			CFDictionaryAddValue(dict, kCFUserNotificationAlternateButtonTitleKey, CFSTR("Disconnect"));
@@ -4403,6 +4426,8 @@ void display_notification(struct service *serv, CFStringRef message, int errnum,
 		case dialog_cert_fixme_type:
 			CFDictionaryAddValue(dict, kCFUserNotificationDefaultButtonTitleKey, CFSTR("Ignore"));
 			CFDictionaryAddValue(dict, kCFUserNotificationAlternateButtonTitleKey, CFSTR("Settings"));
+			serv->u.ipsec.display_reenroll_alert_time = CFAbsoluteTimeGetCurrent();
+
 			break;
 	}
 	

@@ -2618,6 +2618,10 @@ isakmp_ph2expire(iph2)
 {
 	char *src, *dst;
 
+	if (iph2->status == PHASE2ST_EXPIRED) {
+		return;
+	}
+
 	SCHED_KILL(iph2->sce);
 
 	src = racoon_strdup(saddrwop2str(iph2->src));

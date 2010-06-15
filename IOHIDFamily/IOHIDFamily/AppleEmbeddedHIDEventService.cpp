@@ -71,9 +71,9 @@ void AppleEmbeddedHIDEventService::dispatchAccelerometerEvent(AbsoluteTime times
 //====================================================================================================
 // AppleEmbeddedHIDEventService::dispatchGyroEvent
 //====================================================================================================
-void AppleEmbeddedHIDEventService::dispatchGyroEvent(AbsoluteTime timestamp, IOFixed x, IOFixed y, IOFixed z, IOHIDGyroType type, IOHIDGyroSubType subType, IOOptionBits options)
+void AppleEmbeddedHIDEventService::dispatchGyroEvent(AbsoluteTime timestamp, IOFixed x, IOFixed y, IOFixed z, IOHIDGyroType type, IOHIDGyroSubType subType, IOFixed qx, IOFixed qy, IOFixed qz, IOFixed qw, IOOptionBits options)
 {
-    IOHIDEvent * event = IOHIDEvent::gyroEvent(timestamp, x, y, z, type, subType, options);
+    IOHIDEvent * event = IOHIDEvent::gyroEvent(timestamp, x, y, z, type, subType, qx, qy, qz, qw, options);
     
     if ( event ) {
         dispatchEvent(event);

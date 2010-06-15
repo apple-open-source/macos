@@ -36,7 +36,9 @@ namespace WebCore {
     public:
         SVGAltGlyphElement(const QualifiedName&, Document*);
         virtual ~SVGAltGlyphElement();
-                
+
+        virtual void synchronizeProperty(const QualifiedName&);
+
         virtual RenderObject* createRenderer(RenderArena*, RenderStyle*);
         bool childShouldCreateRenderer(Node*) const;
 
@@ -47,8 +49,9 @@ namespace WebCore {
     
         SVGGlyphElement* glyphElement() const;
 
-    protected:
-        virtual const SVGElement* contextElement() const { return this; }
+    private:    
+        // SVGURIReference
+        DECLARE_ANIMATED_PROPERTY(SVGAltGlyphElement, XLinkNames::hrefAttr, String, Href, href)
     };
 
 } // namespace WebCore

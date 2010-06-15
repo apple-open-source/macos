@@ -505,6 +505,11 @@ IOReturn AppleBacklightDisplay::framebufferEvent( IOFramebuffer * framebuffer,
         if (fDeferredEvents)
             fDeferredEvents->interruptOccurred(0, 0, 0);
     }
+    else if (kIOFBNotifyProbed == event)
+    {
+        if (fDeferredEvents)
+            fDeferredEvents->interruptOccurred(0, 0, 0);
+    }
     else if (kIOFBNotifyDisplayDimsChange == event)
     {
         UInt16 newLevel;

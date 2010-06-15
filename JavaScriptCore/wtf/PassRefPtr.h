@@ -29,10 +29,47 @@ namespace WTF {
     template<typename T> class PassRefPtr;
     template <typename T> PassRefPtr<T> adoptRef(T*);
 
+
+    // Remove inline for WINSCW compiler to prevent the compiler agressively resolving
+    // T::ref() and T::deref(), which will fail compiling when PassRefPtr<T> is used as
+    // a class member or function arguments before T is defined.
+
+    // [Qt]r57240 broke Qt build (might be a gcc bug)
+    // FIXME! See: https://bugs.webkit.org/show_bug.cgi?id=37253
+    template<typename T>
+#if !COMPILER(WINSCW)
+#if !PLATFORM(QT)
+    ALWAYS_INLINE
+#else
+    inline
+#endif
+#endif
+    void refIfNotNull(T* ptr)
+    {
+        if (UNLIKELY(ptr != 0))
+            ptr->ref();
+    }
+
+    // [Qt]r57240 broke Qt build (might be a gcc bug)
+    // FIXME! See: https://bugs.webkit.org/show_bug.cgi?id=37253
+    template<typename T> 
+#if !COMPILER(WINSCW)
+#if !PLATFORM(QT)
+    ALWAYS_INLINE
+#else
+    inline
+#endif
+#endif
+    void derefIfNotNull(T* ptr)
+    {
+        if (UNLIKELY(ptr != 0))
+            ptr->deref();
+    }
+
     template<typename T> class PassRefPtr {
     public:
         PassRefPtr() : m_ptr(0) {}
-        PassRefPtr(T* ptr) : m_ptr(ptr) { if (ptr) ptr->ref(); }
+        PassRefPtr(T* ptr) : m_ptr(ptr) { refIfNotNull(ptr); }
         // It somewhat breaks the type system to allow transfer of ownership out of
         // a const PassRefPtr. However, it makes it much easier to work with PassRefPtr
         // temporaries, and we don't really have a need to use real const PassRefPtrs 
@@ -40,14 +77,14 @@ namespace WTF {
         PassRefPtr(const PassRefPtr& o) : m_ptr(o.releaseRef()) {}
         template <typename U> PassRefPtr(const PassRefPtr<U>& o) : m_ptr(o.releaseRef()) { }
 
-        ALWAYS_INLINE ~PassRefPtr() { if (UNLIKELY(m_ptr != 0)) m_ptr->deref(); }
-        
+        ALWAYS_INLINE ~PassRefPtr() { derefIfNotNull(m_ptr); }
+
         template <class U> 
-        PassRefPtr(const RefPtr<U>& o) : m_ptr(o.get()) { if (T* ptr = m_ptr) ptr->ref(); }
+        PassRefPtr(const RefPtr<U>& o) : m_ptr(o.get()) { T* ptr = m_ptr; refIfNotNull(ptr); }
         
         T* get() const { return m_ptr; }
 
-        void clear() { if (T* ptr = m_ptr) ptr->deref(); m_ptr = 0; }
+        void clear() { T* ptr = m_ptr; derefIfNotNull(ptr); m_ptr = 0; }
         T* releaseRef() const { T* tmp = m_ptr; m_ptr = 0; return tmp; }
 
         T& operator*() const { return *m_ptr; }
@@ -56,12 +93,9 @@ namespace WTF {
         bool operator!() const { return !m_ptr; }
 
         // This conversion operator allows implicit conversion to bool but not to other integer types.
-#if COMPILER(WINSCW)
-        operator bool() const { return m_ptr; }
-#else
-        typedef T* PassRefPtr::*UnspecifiedBoolType;
+        typedef T* (PassRefPtr::*UnspecifiedBoolType);
         operator UnspecifiedBoolType() const { return m_ptr ? &PassRefPtr::m_ptr : 0; }
-#endif
+
         PassRefPtr& operator=(T*);
         PassRefPtr& operator=(const PassRefPtr&);
         template <typename U> PassRefPtr& operator=(const PassRefPtr<U>&);
@@ -74,26 +108,78 @@ namespace WTF {
         mutable T* m_ptr;
     };
     
+    // NonNullPassRefPtr: Optimized for passing non-null pointers. A NonNullPassRefPtr
+    // begins life non-null, and can only become null through a call to releaseRef()
+    // or clear().
+
+    // FIXME: NonNullPassRefPtr could just inherit from PassRefPtr. However,
+    // if we use inheritance, GCC's optimizer fails to realize that destruction
+    // of a released NonNullPassRefPtr is a no-op. So, for now, just copy the
+    // most important code from PassRefPtr.
+    template <typename T> class NonNullPassRefPtr {
+    public:
+        NonNullPassRefPtr(T* ptr)
+            : m_ptr(ptr)
+        {
+            ASSERT(m_ptr);
+            m_ptr->ref();
+        }
+
+        template <class U> NonNullPassRefPtr(const RefPtr<U>& o)
+            : m_ptr(o.get())
+        {
+            ASSERT(m_ptr);
+            m_ptr->ref();
+        }
+
+        NonNullPassRefPtr(const NonNullPassRefPtr& o)
+            : m_ptr(o.releaseRef())
+        {
+            ASSERT(m_ptr);
+        }
+
+        template <class U> NonNullPassRefPtr(const NonNullPassRefPtr<U>& o)
+            : m_ptr(o.releaseRef())
+        {
+            ASSERT(m_ptr);
+        }
+
+        template <class U> NonNullPassRefPtr(const PassRefPtr<U>& o)
+            : m_ptr(o.releaseRef())
+        {
+            ASSERT(m_ptr);
+        }
+
+        ALWAYS_INLINE ~NonNullPassRefPtr() { derefIfNotNull(m_ptr); }
+
+        T* get() const { return m_ptr; }
+
+        void clear() { derefIfNotNull(m_ptr); m_ptr = 0; }
+        T* releaseRef() const { T* tmp = m_ptr; m_ptr = 0; return tmp; }
+
+        T& operator*() const { return *m_ptr; }
+        T* operator->() const { return m_ptr; }
+
+    private:
+        mutable T* m_ptr;
+    };
+
     template <typename T> template <typename U> inline PassRefPtr<T>& PassRefPtr<T>::operator=(const RefPtr<U>& o) 
     {
         T* optr = o.get();
-        if (optr)
-            optr->ref();
+        refIfNotNull(optr);
         T* ptr = m_ptr;
         m_ptr = optr;
-        if (ptr)
-            ptr->deref();
+        derefIfNotNull(ptr);
         return *this;
     }
     
     template <typename T> inline PassRefPtr<T>& PassRefPtr<T>::operator=(T* optr)
     {
-        if (optr)
-            optr->ref();
+        refIfNotNull(optr);
         T* ptr = m_ptr;
         m_ptr = optr;
-        if (ptr)
-            ptr->deref();
+        derefIfNotNull(ptr);
         return *this;
     }
 
@@ -101,8 +187,7 @@ namespace WTF {
     {
         T* ptr = m_ptr;
         m_ptr = ref.releaseRef();
-        if (ptr)
-            ptr->deref();
+        derefIfNotNull(ptr);
         return *this;
     }
     
@@ -110,8 +195,7 @@ namespace WTF {
     {
         T* ptr = m_ptr;
         m_ptr = ref.releaseRef();
-        if (ptr)
-            ptr->deref();
+        derefIfNotNull(ptr);
         return *this;
     }
     
@@ -188,6 +272,7 @@ namespace WTF {
 } // namespace WTF
 
 using WTF::PassRefPtr;
+using WTF::NonNullPassRefPtr;
 using WTF::adoptRef;
 using WTF::static_pointer_cast;
 using WTF::const_pointer_cast;

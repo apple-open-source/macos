@@ -1,7 +1,3 @@
-TEMPLATE = app
-TARGET = tst_qwebframe
-include(../../../../WebKit.pri)
-SOURCES  += tst_qwebframe.cpp
-RESOURCES += qwebframe.qrc
-QT += testlib network
-QMAKE_RPATHDIR = $$OUTPUT_DIR/lib $$QMAKE_RPATHDIR
+isEmpty(OUTPUT_DIR): OUTPUT_DIR = ../../../..
+include(../tests.pri)
+exists($${TARGET}.qrc):RESOURCES += $${TARGET}.qrc

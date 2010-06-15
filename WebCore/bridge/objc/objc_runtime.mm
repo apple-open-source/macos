@@ -27,6 +27,7 @@
 #include "objc_runtime.h"
 
 #include "JSDOMBinding.h"
+#include "ObjCRuntimeObject.h"
 #include "WebScriptObject.h"
 #include "objc_instance.h"
 #include "runtime_array.h"
@@ -96,15 +97,15 @@ JSValue ObjcField::valueFromInstance(ExecState* exec, const Instance* instance) 
     
     id targetObject = (static_cast<const ObjcInstance*>(instance))->getObject();
 
-    JSLock::DropAllLocks dropAllLocks(false); // Can't put this inside the @try scope because it unwinds incorrectly.
+    JSLock::DropAllLocks dropAllLocks(SilenceAssertionsOnly); // Can't put this inside the @try scope because it unwinds incorrectly.
 
     @try {
         if (id objcValue = [targetObject valueForKey:(NSString *)_name.get()])
             result = convertObjcValueToValue(exec, &objcValue, ObjcObjectType, instance->rootObject());
     } @catch(NSException* localException) {
-        JSLock::lock(false);
+        JSLock::lock(SilenceAssertionsOnly);
         throwError(exec, GeneralError, [localException reason]);
-        JSLock::unlock(false);
+        JSLock::unlock(SilenceAssertionsOnly);
     }
 
     // Work around problem in some versions of GCC where result gets marked volatile and
@@ -125,14 +126,14 @@ void ObjcField::setValueToInstance(ExecState* exec, const Instance* instance, JS
     id targetObject = (static_cast<const ObjcInstance*>(instance))->getObject();
     id value = convertValueToObjcObject(exec, aValue);
 
-    JSLock::DropAllLocks dropAllLocks(false); // Can't put this inside the @try scope because it unwinds incorrectly.
+    JSLock::DropAllLocks dropAllLocks(SilenceAssertionsOnly); // Can't put this inside the @try scope because it unwinds incorrectly.
 
     @try {
         [targetObject setValue:value forKey:(NSString *)_name.get()];
     } @catch(NSException* localException) {
-        JSLock::lock(false);
+        JSLock::lock(SilenceAssertionsOnly);
         throwError(exec, GeneralError, [localException reason]);
-        JSLock::unlock(false);
+        JSLock::unlock(SilenceAssertionsOnly);
     }
 }
 
@@ -174,7 +175,7 @@ JSValue ObjcArray::valueAt(ExecState* exec, unsigned int index) const
     @try {
         id obj = [_array.get() objectAtIndex:index];
         if (obj)
-            return convertObjcValueToValue (exec, &obj, ObjcObjectType, _rootObject.get());
+            return convertObjcValueToValue (exec, &obj, ObjcObjectType, m_rootObject.get());
     } @catch(NSException* localException) {
         return throwError(exec, GeneralError, "Objective-C exception.");
     }
@@ -189,7 +190,8 @@ unsigned int ObjcArray::getLength() const
 const ClassInfo ObjcFallbackObjectImp::s_info = { "ObjcFallbackObject", 0, 0, 0 };
 
 ObjcFallbackObjectImp::ObjcFallbackObjectImp(ExecState* exec, ObjcInstance* i, const Identifier& propertyName)
-    : JSObject(getDOMStructure<ObjcFallbackObjectImp>(exec))
+    // FIXME: deprecatedGetDOMStructure uses the prototype off of the wrong global object
+    : JSObject(deprecatedGetDOMStructure<ObjcFallbackObjectImp>(exec))
     , _instance(i)
     , _item(propertyName)
 {
@@ -202,40 +204,44 @@ bool ObjcFallbackObjectImp::getOwnPropertySlot(ExecState*, const Identifier&, Pr
     return true;
 }
 
+bool ObjcFallbackObjectImp::getOwnPropertyDescriptor(ExecState*, const Identifier&, PropertyDescriptor& descriptor)
+{
+    // keep the prototype from getting called instead of just returning false
+    descriptor.setUndefined();
+    return true;
+}
+
 void ObjcFallbackObjectImp::put(ExecState*, const Identifier&, JSValue, PutPropertySlot&)
 {
 }
 
 static JSValue JSC_HOST_CALL callObjCFallbackObject(ExecState* exec, JSObject* function, JSValue thisValue, const ArgList& args)
 {
-    if (!thisValue.isObject(&RuntimeObjectImp::s_info))
+    if (!thisValue.inherits(&ObjCRuntimeObject::s_info))
         return throwError(exec, TypeError);
 
     JSValue result = jsUndefined();
 
-    RuntimeObjectImp* imp = static_cast<RuntimeObjectImp*>(asObject(thisValue));
-    Instance* instance = imp->getInternalInstance();
+    ObjCRuntimeObject* runtimeObject = static_cast<ObjCRuntimeObject*>(asObject(thisValue));
+    ObjcInstance* objcInstance = runtimeObject->getInternalObjCInstance();
 
-    if (!instance)
-        return RuntimeObjectImp::throwInvalidAccessError(exec);
+    if (!objcInstance)
+        return RuntimeObject::throwInvalidAccessError(exec);
     
-    instance->begin();
+    objcInstance->begin();
 
-    ObjcInstance* objcInstance = static_cast<ObjcInstance*>(instance);
     id targetObject = objcInstance->getObject();
     
     if ([targetObject respondsToSelector:@selector(invokeUndefinedMethodFromWebScript:withArguments:)]){
-        ObjcClass* objcClass = static_cast<ObjcClass*>(instance->getClass());
+        ObjcClass* objcClass = static_cast<ObjcClass*>(objcInstance->getClass());
         OwnPtr<ObjcMethod> fallbackMethod(new ObjcMethod(objcClass->isa(), @selector(invokeUndefinedMethodFromWebScript:withArguments:)));
         const Identifier& nameIdentifier = static_cast<ObjcFallbackObjectImp*>(function)->propertyName();
         RetainPtr<CFStringRef> name(AdoptCF, CFStringCreateWithCharacters(0, nameIdentifier.data(), nameIdentifier.size()));
         fallbackMethod->setJavaScriptName(name.get());
-        MethodList methodList;
-        methodList.append(fallbackMethod.get());
-        result = instance->invokeMethod(exec, methodList, args);
+        result = objcInstance->invokeObjcMethod(exec, fallbackMethod.get(), args);
     }
             
-    instance->end();
+    objcInstance->end();
 
     return result;
 }

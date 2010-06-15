@@ -240,7 +240,13 @@ IOUSBHIDDriver::free()
         _gate->release();
         _gate = NULL;
     }
-
+	
+	if (_buffer)
+    {
+        _buffer->release();
+        _buffer = NULL;
+    }
+	
     //  This needs to be the LAST thing we do, as it disposes of our "fake" member
     //  variables.
     //
@@ -904,7 +910,7 @@ IOUSBHIDDriver::powerStateDidChangeTo ( IOPMPowerFlags capabilities, unsigned lo
 			err = RearmInterruptRead();
 			if (err)
 			{
-				USBLog(1, "IOUSBHIDDriver(%s)[%p]::powerStateDidChangeTo - err (%p) returned from RearmInterruptRead", getName(), this, (void*)err);
+				USBLog(err != kIOReturnNoBandwidth ? 1 : 3, "IOUSBHIDDriver(%s)[%p]::powerStateDidChangeTo - err (%p) returned from RearmInterruptRead", getName(), this, (void*)err);
 				USBTrace( kUSBTHID,  kTPHIDpowerStateDidChangeTo, (uintptr_t)this, err, 0, 0);
 			}
 			if ( _SUSPENDPORT_TIMER )
@@ -1010,12 +1016,6 @@ void
 IOUSBHIDDriver::handleStop(IOService * provider)
 {
     USBLog(7, "IOUSBHIDDriver(%s)[%p]::handleStop", getName(), this);
-
-    if (_buffer)
-    {
-        _buffer->release();
-        _buffer = NULL;
-    }
 
     if (_deviceDeadCheckThread)
     {
@@ -1785,8 +1785,8 @@ IOUSBHIDDriver::CheckForDeadDevice()
 		else
 		{
 			USBTrace( kUSBTHID,  kTPHIDCheckForDeadDevice, (uintptr_t)this, info, _retryCount, 5);
-			// GetDeviceInformation did not error out, so see if our device is still attached (connected AND enabled)
-			if ((info & kUSBInformationDeviceIsConnectedMask) && (info & kUSBInformationDeviceIsEnabledMask))
+			// GetDeviceInformation did not error out, so see if our device is still attached (connected )
+			if (info & kUSBInformationDeviceIsConnectedMask)
 			{
 				USBTrace( kUSBTHID,  kTPHIDCheckForDeadDevice, (uintptr_t)this, _retryCount, 0, 6);
 				// Looks like the device is still plugged in.  Have we reached our retry count limit?
@@ -2777,29 +2777,6 @@ IOUSBHIDDriver::RearmInterruptRead()
 	SInt32			retries = 0;
 	bool			gotPend = false;
     
-    if ( (_buffer == NULL) || (_interruptPipe == NULL))
-	{
-		USBLog(1, "IOUSBHIDDriver(%s)[%p]::RearmInterruptRead - no _buffer or _interruptPipe", getName(), this);
-		USBTrace( kUSBTHID,  kTPHIDRearmInterruptRead, (uintptr_t)this, 0, 0, 1 );
-        return err;
-	}
-    
-	// if both actions are NULL, then someone subclassed us and didn't fill them in
-	if ((_COMPLETION_WITH_TIMESTAMP.action == NULL) && (_completion.action == NULL))
-	{
-		USBLog(1, "IOUSBHIDDriver(%s)[%p]::RearmInterruptRead - no action method", getName(), this);
-		USBTrace( kUSBTHID,  kTPHIDRearmInterruptRead, (uintptr_t)this, 0, 0, 2 );
-		return err;
-	}
-	
-	if (isInactive())
-	{
-		USBLog(5, "IOUSBHIDDriver(%s)[%p]::RearmInterruptRead - isInactive() - returning kIOReturnNotResponding", getName(), this);
-		USBTrace( kUSBTHID,  kTPHIDRearmInterruptRead, (uintptr_t)this, 0, 0, 6 );
-		return kIOReturnNotResponding;
-	}
-	
-	
     // Queue up another one before we leave.
     //
     if (!_gate || _gate->runAction(ClaimPendingRead, (void*)&gotPend))
@@ -2815,12 +2792,37 @@ IOUSBHIDDriver::RearmInterruptRead()
 		return kIOReturnSuccess;
 	}
 
+    if ( (_buffer == NULL) || (_interruptPipe == NULL))
+	{
+		USBLog(1, "IOUSBHIDDriver(%s)[%p]::RearmInterruptRead - no _buffer or _interruptPipe", getName(), this);
+		USBTrace( kUSBTHID,  kTPHIDRearmInterruptRead, (uintptr_t)this, 0, 0, 1 );
+		_PENDINGREAD = false;
+        return err;
+	}
+    
+	// if both actions are NULL, then someone subclassed us and didn't fill them in
+	if ((_COMPLETION_WITH_TIMESTAMP.action == NULL) && (_completion.action == NULL))
+	{
+		USBLog(1, "IOUSBHIDDriver(%s)[%p]::RearmInterruptRead - no action method", getName(), this);
+		USBTrace( kUSBTHID,  kTPHIDRearmInterruptRead, (uintptr_t)this, 0, 0, 2 );
+		_PENDINGREAD = false;
+		return err;
+	}
+	
+	if (isInactive())
+	{
+		USBLog(5, "IOUSBHIDDriver(%s)[%p]::RearmInterruptRead - isInactive() - returning kIOReturnNotResponding", getName(), this);
+		USBTrace( kUSBTHID,  kTPHIDRearmInterruptRead, (uintptr_t)this, 0, 0, 6 );
+		_PENDINGREAD = false;
+		return kIOReturnNotResponding;
+	}
+	
+	USBLog(7, "IOUSBHIDDriver(%s)[%p]::RearmInterruptRead - _completion.action(%p)", getName(), this, _completion.action);
+    IncrementOutstandingIO();
+
 	// Reset the length of the buffer
 	_buffer->setLength(_buffer->getCapacity());
 
-	USBLog(7, "IOUSBHIDDriver(%s)[%p]::RearmInterruptRead - _completion.action(%p)", getName(), this, _completion.action);
-    IncrementOutstandingIO();
-	
 	while ( (err != kIOReturnSuccess) && (err != kIOReturnNoBandwidth) && ( retries++ < 30 ) && (_buffer != NULL) && (_interruptPipe != NULL))
 	{
 		if (isInactive())

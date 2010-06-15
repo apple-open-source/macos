@@ -3,8 +3,6 @@
                   2004, 2005 Rob Buis <buis@kde.org>
     Copyright (C) 2008 Apple Inc. All rights reserved.
 
-    This file is part of the KDE project
-
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Library General Public
     License as published by the Free Software Foundation; either
@@ -31,6 +29,7 @@
 
 namespace WebCore {
     class SVGPathSegList;
+    class SVGPointList;
 
     class SVGAnimateElement : public SVGAnimationElement {
     public:
@@ -46,7 +45,7 @@ namespace WebCore {
         virtual float calculateDistance(const String& fromString, const String& toString);
 
     private:
-        enum PropertyType { NumberProperty, ColorProperty, StringProperty, PathProperty };
+        enum PropertyType { NumberProperty, ColorProperty, StringProperty, PathProperty, PointsProperty };
         PropertyType determinePropertyType(const String& attribute) const;
         PropertyType m_propertyType;
         
@@ -63,6 +62,9 @@ namespace WebCore {
         RefPtr<SVGPathSegList> m_fromPath;
         RefPtr<SVGPathSegList> m_toPath;
         RefPtr<SVGPathSegList> m_animatedPath;
+        RefPtr<SVGPointList> m_fromPoints;
+        RefPtr<SVGPointList> m_toPoints;
+        RefPtr<SVGPointList> m_animatedPoints;
     };
 
 } // namespace WebCore

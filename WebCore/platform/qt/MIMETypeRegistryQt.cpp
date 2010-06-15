@@ -36,7 +36,7 @@ struct ExtensionMap {
     const char* mimeType;
 };
 
-static const ExtensionMap extensionMap [] = {
+static const ExtensionMap extensionMap[] = {
     { "bmp", "image/bmp" },
     { "css", "text/css" },
     { "gif", "image/gif" },
@@ -80,6 +80,12 @@ String MIMETypeRegistry::getMIMETypeForExtension(const String &ext)
     }
 
     return "application/octet-stream";
+}
+
+bool MIMETypeRegistry::isApplicationPluginMIMEType(const String& mimeType)
+{
+    return mimeType.startsWith("application/x-qt-plugin", false)
+        || mimeType.startsWith("application/x-qt-styled-widget", false);
 }
 
 }

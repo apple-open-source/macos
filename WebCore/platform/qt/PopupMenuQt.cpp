@@ -1,7 +1,7 @@
 /*
  * This file is part of the popup menu implementation for <select> elements in WebCore.
  *
- * Copyright (C) 2008 Nokia Corporation and/or its subsidiary(-ies)
+ * Copyright (C) 2008, 2009, 2010 Nokia Corporation and/or its subsidiary(-ies)
  * Copyright (C) 2006 Apple Computer, Inc.
  * Copyright (C) 2006 Michael Emmel mike.emmel@gmail.com 
  * Coypright (C) 2006 Nikolas Zimmermann <zimmermann@kde.org>
@@ -26,26 +26,19 @@
 #include "config.h"
 #include "PopupMenu.h"
 
-#include "Frame.h"
+#include "Chrome.h"
+#include "ChromeClientQt.h"
 #include "FrameView.h"
-#include "HostWindow.h"
 #include "PopupMenuClient.h"
-#include "QWebPopup.h"
-
-#include <QAction>
-#include <QDebug>
-#include <QMenu>
-#include <QPoint>
-#include <QListWidget>
-#include <QListWidgetItem>
-#include <QWidgetAction>
+#include "QWebPageClient.h"
+#include "QtAbstractWebPopup.h"
 
 namespace WebCore {
 
 PopupMenu::PopupMenu(PopupMenuClient* client)
     : m_popupClient(client)
+    , m_popup(0)
 {
-    m_popup = new QWebPopup(client);
 }
 
 PopupMenu::~PopupMenu()
@@ -53,57 +46,30 @@ PopupMenu::~PopupMenu()
     delete m_popup;
 }
 
-void PopupMenu::clear()
+void PopupMenu::show(const IntRect& rect, FrameView* view, int index)
 {
-    m_popup->clear();
-}
+    ChromeClientQt* chromeClient = static_cast<ChromeClientQt*>(
+        view->frame()->page()->chrome()->client());
+    ASSERT(chromeClient);
 
-void PopupMenu::populate(const IntRect& r)
-{
-    clear();
-    Q_ASSERT(client());
+    if (!m_popup)
+        m_popup = chromeClient->createSelectPopup();
 
-    int size = client()->listSize();
-    for (int i = 0; i < size; i++) {
-        if (client()->itemIsSeparator(i)) {
-            //FIXME: better seperator item
-            m_popup->insertItem(i, QString::fromLatin1("---"));
-        }
-        else {
-            //PopupMenuStyle style = client()->itemStyle(i);
-            m_popup->insertItem(i, client()->itemText(i));
-#if 0
-            item = new QListWidgetItem(client()->itemText(i));
-            m_actions.insert(item, i);
-            if (style->font() != Font())
-                item->setFont(style->font());
+    m_popup->m_popupClient = m_popupClient;
+    m_popup->m_currentIndex = index;
+    m_popup->m_pageClient = chromeClient->platformPageClient();
 
-            Qt::ItemFlags flags = Qt::ItemIsSelectable;
-            if (client()->itemIsEnabled(i))
-                flags |= Qt::ItemIsEnabled;
-            item->setFlags(flags);
-#endif
-        }
-    }
-}
+    QRect geometry(rect);
+    geometry.moveTopLeft(view->contentsToWindow(rect.topLeft()));
+    m_popup->m_geometry = geometry;
 
-void PopupMenu::show(const IntRect& r, FrameView* v, int index)
-{
-    QWidget* window = v->hostWindow()->platformWindow();
-    populate(r);
-    QRect rect = r;
-    rect.moveTopLeft(v->contentsToWindow(r.topLeft()));
-    rect.setHeight(m_popup->sizeHint().height());
+    m_popup->show();
 
-    m_popup->setParent(window);
-    m_popup->setGeometry(rect);
-    m_popup->setCurrentIndex(index);
-    m_popup->exec();
 }
 
 void PopupMenu::hide()
 {
-    m_popup->hidePopup();
+    m_popup->hide();
 }
 
 void PopupMenu::updateFromElement()

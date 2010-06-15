@@ -1,6 +1,4 @@
 /*
- * This file is part of the HTML widget for KDE.
- *
  * Copyright (C) 1999 Lars Knoll (knoll@kde.org)
  * Copyright (C) 2006 Apple Computer, Inc.
  *
@@ -77,9 +75,11 @@ public:
     bool printing() const;
     void setPrintImages(bool enable) { m_printImages = enable; }
     bool printImages() const { return m_printImages; }
-    void setTruncatedAt(int y) { m_truncatedAt = y; m_bestTruncatedAt = m_truncatorWidth = 0; m_forcedPageBreak = false; }
+    void setTruncatedAt(int y) { m_truncatedAt = y; m_bestTruncatedAt = m_truncatorWidth = 0; m_minimumColumnHeight = 0; m_forcedPageBreak = false; }
     void setBestTruncatedAt(int y, RenderBoxModelObject* forRenderer, bool forcedBreak = false);
+    void setMinimumColumnHeight(int height) { m_minimumColumnHeight = height; }
     int bestTruncatedAt() const { return m_bestTruncatedAt; }
+    int minimumColumnHeight() const { return m_minimumColumnHeight; }
 
     int truncatedAt() const { return m_truncatedAt; }
 
@@ -140,6 +140,8 @@ public:
         state->destroy(renderArena());
     }
 
+    bool shouldDisableLayoutStateForSubtree(RenderObject*) const;
+
     // Returns true if layoutState should be used for its cached offset and clip.
     bool layoutStateEnabled() const { return m_layoutStateDisableCount == 0 && m_layoutState; }
     LayoutState* layoutState() const { return m_layoutState; }
@@ -193,10 +195,9 @@ protected:
     RenderWidgetSet m_widgets;
 
 private:
-    IntRect m_cachedSelectionBounds;
-
     int m_bestTruncatedAt;
     int m_truncatorWidth;
+    int m_minimumColumnHeight;
     bool m_forcedPageBreak;
     LayoutState* m_layoutState;
     unsigned m_layoutStateDisableCount;
@@ -205,16 +206,16 @@ private:
 #endif
 };
 
-inline RenderView* toRenderView(RenderObject* o)
+inline RenderView* toRenderView(RenderObject* object)
 {
-    ASSERT(!o || o->isRenderView());
-    return static_cast<RenderView*>(o);
+    ASSERT(!object || object->isRenderView());
+    return static_cast<RenderView*>(object);
 }
 
-inline const RenderView* toRenderView(const RenderObject* o)
+inline const RenderView* toRenderView(const RenderObject* object)
 {
-    ASSERT(!o || o->isRenderView());
-    return static_cast<const RenderView*>(o);
+    ASSERT(!object || object->isRenderView());
+    return static_cast<const RenderView*>(object);
 }
 
 // This will catch anyone doing an unnecessary cast.
@@ -222,7 +223,7 @@ void toRenderView(const RenderView*);
 
 
 // Stack-based class to assist with LayoutState push/pop
-class LayoutStateMaintainer : Noncopyable {
+class LayoutStateMaintainer : public Noncopyable {
 public:
     // ctor to push now
     LayoutStateMaintainer(RenderView* view, RenderBox* root, IntSize offset, bool disableState = false)

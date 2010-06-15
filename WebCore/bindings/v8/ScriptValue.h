@@ -35,12 +35,15 @@
 #include "ScriptState.h"
 
 #include <v8.h>
+#include <wtf/PassRefPtr.h>
 
 #ifndef NDEBUG
 #include "V8Proxy.h"  // for register and unregister global handles.
 #endif
 
 namespace WebCore {
+
+class SerializedScriptValue;
 
 class ScriptValue {
 public:
@@ -110,11 +113,21 @@ public:
     {
         return m_value->IsUndefined();
     }
-    
+
+    bool isObject() const
+    {
+        return m_value->IsObject();
+    }
+
     bool hasNoValue() const
     {
         return m_value.IsEmpty();
     }
+
+    PassRefPtr<SerializedScriptValue> serialize(ScriptState*);
+    static ScriptValue deserialize(ScriptState*, SerializedScriptValue*);
+
+    static ScriptValue undefined() { return ScriptValue(v8::Undefined()); }
 
     void clear()
     {
@@ -128,12 +141,13 @@ public:
         m_value.Clear();
     }
 
-    ~ScriptValue() 
+    virtual ~ScriptValue() 
     {
         clear();
     }
 
     v8::Handle<v8::Value> v8Value() const { return m_value; }
+    bool getString(ScriptState*, String& result) const { return getString(result); }
     bool getString(String& result) const;
     String toString(ScriptState*) const;
 

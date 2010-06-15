@@ -25,18 +25,14 @@
 #include "config.h"
 #include "FontPlatformData.h"
 
-#include "CString.h"
 #include "PlatformString.h"
 #include "FontDescription.h"
+#include <wtf/text/CString.h>
 #include <cairo.h>
 #include <assert.h>
 
 #include <pango/pango.h>
 #include <pango/pangocairo.h>
-
-#if !defined(PANGO_VERSION_CHECK)
-#define PANGO_VERSION_CHECK(major,minor,micro) 0
-#endif
 
 // Use cairo-ft i a recent enough Pango version isn't available
 #if !PANGO_VERSION_CHECK(1,18,0)
@@ -113,14 +109,14 @@ FontPlatformData::FontPlatformData(const FontDescription& fontDescription, const
         cairo_font_face_t* face = cairo_ft_font_face_create_for_pattern(fcfont->font_pattern);
         double size;
         if (FcPatternGetDouble(fcfont->font_pattern, FC_PIXEL_SIZE, 0, &size) != FcResultMatch)
-          size = 12.0;
+            size = 12.0;
         cairo_matrix_t fontMatrix;
         cairo_matrix_init_scale(&fontMatrix, size, size);
         cairo_font_options_t* fontOptions;
         if (pango_cairo_context_get_font_options(m_context))
-          fontOptions = cairo_font_options_copy(pango_cairo_context_get_font_options(m_context));
+            fontOptions = cairo_font_options_copy(pango_cairo_context_get_font_options(m_context));
         else
-          fontOptions = cairo_font_options_create();
+            fontOptions = cairo_font_options_create();
         cairo_matrix_t ctm;
         cairo_matrix_init_identity(&ctm);
         m_scaledFont = cairo_scaled_font_create(face, &fontMatrix, &ctm, fontOptions);
@@ -141,7 +137,7 @@ FontPlatformData::FontPlatformData(float size, bool bold, bool italic)
 {
 }
 
-FontPlatformData::FontPlatformData(cairo_font_face_t* fontFace, int size, bool bold, bool italic)
+FontPlatformData::FontPlatformData(cairo_font_face_t* fontFace, float size, bool bold, bool italic)
     : m_context(0)
     , m_font(0)
     , m_size(size)
@@ -218,13 +214,6 @@ bool FontPlatformData::isFixedPitch()
     return pango_font_family_is_monospace(family);
 }
 
-void FontPlatformData::setFont(cairo_t* cr) const
-{
-    ASSERT(m_scaledFont);
-
-    cairo_set_scaled_font(cr, m_scaledFont);
-}
-
 FontPlatformData& FontPlatformData::operator=(const FontPlatformData& other)
 {
     // Check for self-assignment.
@@ -278,5 +267,12 @@ bool FontPlatformData::operator==(const FontPlatformData& other) const
     pango_font_description_free(thisDesc);
     return result;
 }
+
+#ifndef NDEBUG
+String FontPlatformData::description() const
+{
+    return String();
+}
+#endif
 
 }

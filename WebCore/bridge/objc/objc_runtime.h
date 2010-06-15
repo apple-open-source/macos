@@ -26,8 +26,8 @@
 #ifndef KJS_BINDINGS_OBJC_RUNTIME_H
 #define KJS_BINDINGS_OBJC_RUNTIME_H
 
+#include "Bridge.h"
 #include "objc_header.h"
-#include "runtime.h"
 #include <runtime/JSGlobalObject.h>
 #include <wtf/RetainPtr.h>
 
@@ -104,11 +104,13 @@ public:
 
     static PassRefPtr<Structure> createStructure(JSValue prototype)
     {
-        return Structure::create(prototype, TypeInfo(ObjectType));
+        return Structure::create(prototype, TypeInfo(ObjectType, StructureFlags), AnonymousSlotCount);
     }
 
 private:
+    static const unsigned StructureFlags = OverridesGetOwnPropertySlot | JSObject::StructureFlags;
     virtual bool getOwnPropertySlot(ExecState*, const Identifier&, PropertySlot&);
+    virtual bool getOwnPropertyDescriptor(ExecState*, const Identifier&, PropertyDescriptor&);
     virtual void put(ExecState*, const Identifier& propertyName, JSValue, PutPropertySlot&);
     virtual CallType getCallData(CallData&);
     virtual bool deleteProperty(ExecState*, const Identifier& propertyName);

@@ -25,18 +25,16 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef __LP64__
-
 #include "config.h"
 #include "PluginPackage.h"
 
 #include <wtf/RetainPtr.h>
-#include "CString.h"
 #include "MIMETypeRegistry.h"
 #include "npruntime_impl.h"
 #include "PluginDatabase.h"
 #include "PluginDebug.h"
 #include "WebCoreNSStringExtras.h"
+#include <wtf/text/CString.h>
 
 #include <CoreFoundation/CoreFoundation.h>
 
@@ -159,7 +157,8 @@ bool PluginPackage::fetchInfo()
             plist = readPListFile(path.get(), /*createFile*/ true, m_module);
         }
 
-        mimeDict = (CFDictionaryRef)CFDictionaryGetValue(plist.get(), CFSTR("WebPluginMIMETypes"));
+        if (plist)
+            mimeDict = (CFDictionaryRef)CFDictionaryGetValue(plist.get(), CFSTR("WebPluginMIMETypes"));
     }
 
     if (!mimeDict)
@@ -176,7 +175,7 @@ bool PluginPackage::fetchInfo()
 
             WTF::RetainPtr<CFDictionaryRef> extensionsDict = (CFDictionaryRef)values[i];
 
-            WTF:RetainPtr<CFNumberRef> enabled = (CFNumberRef)CFDictionaryGetValue(extensionsDict.get(), CFSTR("WebPluginTypeEnabled"));
+            WTF::RetainPtr<CFNumberRef> enabled = (CFNumberRef)CFDictionaryGetValue(extensionsDict.get(), CFSTR("WebPluginTypeEnabled"));
             if (enabled) {
                 int enabledValue = 0;
                 if (CFNumberGetValue(enabled.get(), kCFNumberIntType, &enabledValue) && enabledValue == 0)
@@ -246,9 +245,6 @@ bool PluginPackage::fetchInfo()
 
 bool PluginPackage::isPluginBlacklisted()
 {
-    if (name() == "Silverlight Plug-In" || name().startsWith("QuickTime Plug-in"))
-        return true;
-
     return false;
 }
 
@@ -304,10 +300,8 @@ abort:
     return false;
 }
 
+uint16_t PluginPackage::NPVersion() const
+{
+    return NP_VERSION_MINOR;
+}
 } // namespace WebCore
-
-#else
-
-#include "../PluginPackageNone.cpp"
-
-#endif // !__LP64__

@@ -1,8 +1,7 @@
 /*
     Copyright (C) 2004, 2005, 2006, 2008 Nikolas Zimmermann <zimmermann@kde.org>
                   2004, 2005, 2006 Rob Buis <buis@kde.org>
-
-    This file is part of the KDE project
+    Copyright (C) 2009 Apple Inc. All rights reserved.
 
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Library General Public
@@ -24,34 +23,30 @@
 #define SVGElement_h
 
 #if ENABLE(SVG)
+#include "SVGDocumentExtensions.h"
 #include "StyledElement.h"
-#include "SVGAnimatedProperty.h"
-#include "SVGNames.h"
 
 namespace WebCore {
 
-    class TransformationMatrix;
     class CSSCursorImageValue;
     class Document;
     class SVGCursorElement;
-    class SVGDocumentExtensions;
     class SVGElementInstance;
+    class SVGElementRareData;
     class SVGSVGElement;
+    class AffineTransform;
 
     class SVGElement : public StyledElement {
     public:
-        SVGElement(const QualifiedName&, Document*);
+        static PassRefPtr<SVGElement> create(const QualifiedName&, Document*);
         virtual ~SVGElement();
-        virtual bool isSVGElement() const { return true; }
-        virtual bool isSupported(StringImpl* feature, StringImpl* version) const;
-        
-        String id() const;
-        void setId(const String&, ExceptionCode&);
+
         String xmlbase() const;
         void setXmlbase(const String&, ExceptionCode&);
 
         SVGSVGElement* ownerSVGElement() const;
         SVGElement* viewportElement() const;
+
         SVGDocumentExtensions* accessDocumentSVGExtensions() const;
 
         virtual void parseMappedAttribute(MappedAttribute*);
@@ -64,82 +59,56 @@ namespace WebCore {
         virtual bool isGradientStop() const { return false; }
         virtual bool isTextContent() const { return false; }
 
-        virtual bool isShadowNode() const { return m_shadowParent; }
-        virtual Node* shadowParentNode() { return m_shadowParent; }
-        void setShadowParentNode(ContainerNode* node) { m_shadowParent = node; }
-        virtual ContainerNode* eventParentNode();
-
         // For SVGTests
         virtual bool isValid() const { return true; }
-  
-        virtual void finishParsingChildren();
+
         virtual bool rendererIsNeeded(RenderStyle*) { return false; }
         virtual bool childShouldCreateRenderer(Node*) const;
 
-        virtual void insertedIntoDocument();
-        virtual void buildPendingResource() { }
-
         virtual void svgAttributeChanged(const QualifiedName&) { }
-        virtual void attributeChanged(Attribute*, bool preserveDecls = false);
+        virtual void synchronizeProperty(const QualifiedName&) { }
 
         void sendSVGLoadEventIfPossible(bool sendParentLoadEvents = false);
         
-        virtual TransformationMatrix* supplementalTransform() { return 0; }
+        virtual AffineTransform* supplementalTransform() { return 0; }
 
-        virtual void updateAnimatedSVGAttribute(const String&) const;
-        virtual void setSynchronizedSVGAttributes(bool) const;
+        void invalidateSVGAttributes() { clearAreSVGAttributesValid(); }
 
-        HashSet<SVGElementInstance*> instancesForElement() const;
- 
-        // Inlined methods handling SVG property synchronization
-        void invokeSVGPropertySynchronizer(const String& name) const
-        {
-            if (m_svgPropertyMap.contains(name)) {
-                const SVGAnimatedPropertyBase* property = m_svgPropertyMap.get(name);
-                ASSERT(property);
+        const HashSet<SVGElementInstance*>& instancesForElement() const;
 
-                property->synchronize();
-            }
-        }
+        void setCursorElement(SVGCursorElement*);
+        void setCursorImageValue(CSSCursorImageValue*);
 
-        void invokeAllSVGPropertySynchronizers() const
-        {
-            HashMap<String, const SVGAnimatedPropertyBase*>::const_iterator it = m_svgPropertyMap.begin();
-            const HashMap<String, const SVGAnimatedPropertyBase*>::const_iterator end = m_svgPropertyMap.end();
-            for (; it != end; ++it) {
-                const SVGAnimatedPropertyBase* property = it->second;
-                ASSERT(property);
+        virtual void updateAnimatedSVGAttribute(const QualifiedName&) const;
 
-                property->synchronize();
-            }
-        }
+    protected:
+        SVGElement(const QualifiedName&, Document*);
 
-        void addSVGPropertySynchronizer(const QualifiedName& attrName, const SVGAnimatedPropertyBase& base) const
-        {
-            m_svgPropertyMap.set(attrName.localName(), &base);
-        }
+        virtual void finishParsingChildren();
+        virtual void insertedIntoDocument();
+        virtual void attributeChanged(Attribute*, bool preserveDecls = false);
 
-        void setCursorElement(SVGCursorElement* cursorElement) { m_cursorElement = cursorElement; }
-        void setCursorImageValue(CSSCursorImageValue* cursorImageValue) { m_cursorImageValue = cursorImageValue; }
+        SVGElementRareData* rareSVGData() const;
+        SVGElementRareData* ensureRareSVGData();
 
     private:
         friend class SVGElementInstance;
+
+        virtual bool isSupported(StringImpl* feature, StringImpl* version) const;
+
+        virtual ContainerNode* eventParentNode();
+        virtual void buildPendingResource() { }
 
         void mapInstanceToElement(SVGElementInstance*);
         void removeInstanceMapping(SVGElementInstance*);
 
         virtual bool haveLoadedRequiredResources();
-
-        ContainerNode* m_shadowParent;
-        mutable HashMap<String, const SVGAnimatedPropertyBase*> m_svgPropertyMap;
-
-        SVGCursorElement* m_cursorElement;
-        CSSCursorImageValue* m_cursorImageValue;
-
-        HashSet<SVGElementInstance*> m_elementInstances;
     };
 
-} // namespace WebCore 
+}
 
-#endif // ENABLE(SVG)
-#endif // SVGElement_h
+// This file needs to be included after the SVGElement declaration
+#include "SVGAnimatedProperty.h"
+
+#endif
+#endif

@@ -19,31 +19,37 @@
  * Boston, MA 02110-1301, USA.
  *
  */
-#ifndef RenderThemeQt_H
-#define RenderThemeQt_H
+#ifndef RenderThemeQt_h
+#define RenderThemeQt_h
 
 #include "RenderTheme.h"
 
 #include <QStyle>
 
 QT_BEGIN_NAMESPACE
+class QLineEdit;
 class QPainter;
 class QWidget;
 QT_END_NAMESPACE
 
 namespace WebCore {
 
+#if ENABLE(PROGRESS_TAG)
+class RenderProgress;
+#endif
 class RenderStyle;
 class HTMLMediaElement;
+class ScrollbarThemeQt;
 
-class RenderThemeQt : public RenderTheme
-{
+class RenderThemeQt : public RenderTheme {
 private:
     RenderThemeQt(Page* page);
     virtual ~RenderThemeQt();
 
 public:
     static PassRefPtr<RenderTheme> create(Page*);
+
+    String extraDefaultStyleSheet();
 
     virtual bool supportsHover(const RenderStyle*) const;
     virtual bool supportsFocusRing(const RenderStyle* style) const;
@@ -57,9 +63,6 @@ public:
     virtual bool supportsControlTints() const;
 
     virtual void adjustRepaintRect(const RenderObject* o, IntRect& r);
-
-    virtual bool isControlStyled(const RenderStyle*, const BorderData&,
-                                 const FillLayer&, const Color&) const;
 
     // The platform selection color.
     virtual Color platformActiveSelectionBackgroundColor() const;
@@ -75,9 +78,16 @@ public:
 
     virtual double caretBlinkInterval() const;
 
+#if USE(QT_MOBILE_THEME)
+    virtual bool isControlStyled(const RenderStyle*, const BorderData&, const FillLayer&, const Color& backgroundColor) const;
+    virtual int popupInternalPaddingBottom(RenderStyle*) const;
+#endif
+
 #if ENABLE(VIDEO)
     virtual String extraMediaControlsStyleSheet();
 #endif
+
+    QStyle* qStyle() const;
 
 protected:
     virtual bool paintCheckbox(RenderObject* o, const RenderObject::PaintInfo& i, const IntRect& r);
@@ -102,8 +112,16 @@ protected:
     virtual bool paintMenuListButton(RenderObject*, const RenderObject::PaintInfo&, const IntRect&);
     virtual void adjustMenuListButtonStyle(CSSStyleSelector*, RenderStyle*, Element*) const;
 
+#if ENABLE(PROGRESS_TAG)
+    virtual void adjustProgressBarStyle(CSSStyleSelector*, RenderStyle*, Element*) const;
+    virtual bool paintProgressBar(RenderObject*, const RenderObject::PaintInfo&, const IntRect&);
+#endif
+
     virtual bool paintSliderTrack(RenderObject*, const RenderObject::PaintInfo&, const IntRect&);
+    virtual void adjustSliderTrackStyle(CSSStyleSelector*, RenderStyle*, Element*) const;
+
     virtual bool paintSliderThumb(RenderObject*, const RenderObject::PaintInfo&, const IntRect&);
+    virtual void adjustSliderThumbStyle(CSSStyleSelector*, RenderStyle*, Element*) const;
 
     virtual bool paintSearchField(RenderObject*, const RenderObject::PaintInfo&, const IntRect&);
     virtual void adjustSearchFieldStyle(CSSStyleSelector*, RenderStyle*, Element*) const;
@@ -117,6 +135,13 @@ protected:
     virtual void adjustSearchFieldResultsDecorationStyle(CSSStyleSelector*, RenderStyle*, Element*) const;
     virtual bool paintSearchFieldResultsDecoration(RenderObject*, const RenderObject::PaintInfo&, const IntRect&);
 
+#if ENABLE(PROGRESS_TAG)
+    // Returns the repeat interval of the animation for the progress bar.
+    virtual double animationRepeatIntervalForProgressBar(RenderProgress* renderProgress) const;
+    // Returns the duration of the animation for the progress bar.
+    virtual double animationDurationForProgressBar(RenderProgress* renderProgress) const;
+#endif
+
 #if ENABLE(VIDEO)
     virtual bool paintMediaFullscreenButton(RenderObject*, const RenderObject::PaintInfo&, const IntRect&);
     virtual bool paintMediaPlayButton(RenderObject*, const RenderObject::PaintInfo&, const IntRect&);
@@ -125,10 +150,15 @@ protected:
     virtual bool paintMediaSeekForwardButton(RenderObject*, const RenderObject::PaintInfo&, const IntRect&);
     virtual bool paintMediaSliderTrack(RenderObject*, const RenderObject::PaintInfo&, const IntRect&);
     virtual bool paintMediaSliderThumb(RenderObject*, const RenderObject::PaintInfo&, const IntRect&);
-
+    virtual bool paintMediaCurrentTime(RenderObject*, const RenderObject::PaintInfo&, const IntRect&);
+    virtual bool paintMediaVolumeSliderTrack(RenderObject*, const RenderObject::PaintInfo&, const IntRect&);
+    virtual bool paintMediaVolumeSliderThumb(RenderObject*, const RenderObject::PaintInfo&, const IntRect&);
+    virtual String formatMediaControlsCurrentTime(float currentTime, float duration) const;
+    virtual String formatMediaControlsRemainingTime(float currentTime, float duration) const;
 private:
     HTMLMediaElement* getMediaElementFromRenderObject(RenderObject* o) const;
     void paintMediaBackground(QPainter* painter, const IntRect& r) const;
+    double mediaControlsBaselineOpacity() const;
     QColor getMediaControlForegroundColor(RenderObject* o = 0) const;
 #endif
     void computeSizeBasedOnStyle(RenderStyle* renderStyle) const;
@@ -136,13 +166,16 @@ private:
 private:
     bool supportsFocus(ControlPart) const;
 
-    ControlPart applyTheme(QStyleOption&, RenderObject*) const;
+    ControlPart initializeCommonQStyleOptions(QStyleOption&, RenderObject*) const;
 
     void setButtonPadding(RenderStyle*) const;
     void setPopupPadding(RenderStyle*) const;
 
-    QStyle* qStyle() const;
-    QStyle* fallbackStyle();
+    void setPaletteFromPageClientIfExists(QPalette&) const;
+
+    int findFrameLineWidth(QStyle* style) const;
+
+    QStyle* fallbackStyle() const;
 
     Page* m_page;
 
@@ -152,13 +185,13 @@ private:
     QString m_buttonFontFamily;
 
     QStyle* m_fallbackStyle;
+    mutable QLineEdit* m_lineEdit;
 };
 
-class StylePainter
-{
+class StylePainter {
 public:
-    explicit StylePainter(const RenderObject::PaintInfo& paintInfo);
-    explicit StylePainter(GraphicsContext* context);
+    explicit StylePainter(RenderThemeQt*, const RenderObject::PaintInfo&);
+    explicit StylePainter(ScrollbarThemeQt*, GraphicsContext*);
     ~StylePainter();
 
     bool isValid() const { return painter && style; }
@@ -175,7 +208,7 @@ public:
     { style->drawComplexControl(cc, &opt, painter, widget); }
 
 private:
-    void init(GraphicsContext* context);
+    void init(GraphicsContext* context, QStyle*);
 
     QBrush oldBrush;
     bool oldAntialiasing;
@@ -185,4 +218,4 @@ private:
 
 }
 
-#endif
+#endif // RenderThemeQt_h

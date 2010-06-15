@@ -398,7 +398,7 @@ delete(int s, int argc, char * * argv)
 	    int ret;
 
 	    errno = 0;
-	    ret = arp_delete(s, iaddr, export);
+	    ret = arp_delete(s, iaddr, 0, export);
 	    if (ret == ARP_RETURN_SUCCESS) {
 		printf("%s (%s) deleted\n", host, inet_ntoa(iaddr));
 		return (0);
@@ -676,7 +676,7 @@ arp_get(int s, route_msg * msg_p, struct in_addr * iaddr_p, int if_index)
     	bzero(&opt, sizeof(opt));
     	opt.sdl_m = blank_sdl;
     	opt.sin_m = blank_sin;
-		opt.if_index = if_index;
+	opt.if_index = if_index;
     	sin = &opt.sin_m;
     	sin->sin_addr = *iaddr_p;
     
@@ -776,7 +776,7 @@ arp_set(int s, struct in_addr * iaddr_p, void * hwaddr_p, int hwaddr_len,
  *   s is an open routing socket
  */
 int 
-arp_delete(int s, struct in_addr iaddr, int export)
+arp_delete(int s, struct in_addr iaddr, int if_index, int export)
 {
     	route_options 			opt;
 	register struct sockaddr_inarp *sin;
@@ -790,6 +790,7 @@ arp_delete(int s, struct in_addr iaddr, int export)
 	if (export)
 		opt.export_only = 1;
 	opt.sin_m = blank_sin;
+	opt.if_index = if_index;
 	sin = &opt.sin_m;
 	sin->sin_addr = iaddr;
       tryagain:
@@ -831,7 +832,6 @@ arp_flush(int s, int all)
 	char *lim, *buf, *next;
 	struct rt_msghdr *rtm;
 	struct sockaddr_inarp *sin;
-	struct sockaddr_dl *sdl;
 
 	mib[0] = CTL_NET;
 	mib[1] = PF_ROUTE;
@@ -860,12 +860,11 @@ arp_flush(int s, int all)
 	for (next = buf; next < lim; next += rtm->rtm_msglen) {
 		rtm = (struct rt_msghdr *)next;
 		sin = (struct sockaddr_inarp *)(rtm + 1);
-		sdl = (struct sockaddr_dl *)(sin + 1);
 		if (rtm->rtm_rmx.rmx_expire == 0 && all == 0) {
 		    /* permanent entry */
 		    continue;
 		}
-		(void)arp_delete(s, sin->sin_addr, FALSE);
+		(void)arp_delete(s, sin->sin_addr, rtm->rtm_index, FALSE);
 	}
 	free(buf);
 	return (0);

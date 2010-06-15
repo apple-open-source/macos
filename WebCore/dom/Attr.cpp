@@ -3,7 +3,7 @@
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
  *           (C) 2001 Peter Kelly (pmk@post.com)
  *           (C) 2001 Dirk Mueller (mueller@kde.org)
- * Copyright (C) 2004, 2005, 2006, 2007 Apple Inc. All rights reserved.
+ * Copyright (C) 2004, 2005, 2006, 2007, 2009 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -27,24 +27,34 @@
 #include "Element.h"
 #include "ExceptionCode.h"
 #include "Text.h"
+#include "XMLNSNames.h"
 
 namespace WebCore {
 
-Attr::Attr(Element* element, Document* docPtr, PassRefPtr<Attribute> a)
-    : ContainerNode(docPtr)
+using namespace HTMLNames;
+
+inline Attr::Attr(Element* element, Document* document, PassRefPtr<Attribute> attribute)
+    : ContainerNode(document)
     , m_element(element)
-    , m_attribute(a)
+    , m_attribute(attribute)
     , m_ignoreChildrenChanged(0)
-    , m_specified(true)  
+    , m_specified(true)
 {
     ASSERT(!m_attribute->attr());
-    m_attribute->m_impl = this;
+    m_attribute->bindAttr(this);
+}
+
+PassRefPtr<Attr> Attr::create(Element* element, Document* document, PassRefPtr<Attribute> attribute)
+{
+    RefPtr<Attr> attr = adoptRef(new Attr(element, document, attribute));
+    attr->createTextChild();
+    return attr.release();
 }
 
 Attr::~Attr()
 {
     ASSERT(m_attribute->attr() == this);
-    m_attribute->m_impl = 0;
+    m_attribute->unbindAttr(this);
 }
 
 void Attr::createTextChild()
@@ -86,14 +96,20 @@ const AtomicString& Attr::prefix() const
     return m_attribute->prefix();
 }
 
-void Attr::setPrefix(const AtomicString &_prefix, ExceptionCode& ec)
+void Attr::setPrefix(const AtomicString& prefix, ExceptionCode& ec)
 {
     ec = 0;
-    checkSetPrefix(_prefix, ec);
+    checkSetPrefix(prefix, ec);
     if (ec)
         return;
 
-    m_attribute->setPrefix(_prefix);
+    if ((prefix == xmlnsAtom && namespaceURI() != XMLNSNames::xmlnsNamespaceURI)
+        || static_cast<Attr*>(this)->qualifiedName() == xmlnsAtom) {
+        ec = NAMESPACE_ERR;
+        return;
+    }
+
+    m_attribute->setPrefix(prefix.isEmpty() ? AtomicString() : prefix);
 }
 
 String Attr::nodeValue() const
@@ -101,11 +117,11 @@ String Attr::nodeValue() const
     return value();
 }
 
-void Attr::setValue(const String& v, ExceptionCode&)
+void Attr::setValue(const AtomicString& value, ExceptionCode&)
 {
     m_ignoreChildrenChanged++;
     removeChildren();
-    m_attribute->setValue(v.impl());
+    m_attribute->setValue(value);
     createTextChild();
     m_ignoreChildrenChanged--;
 
@@ -120,7 +136,7 @@ void Attr::setNodeValue(const String& v, ExceptionCode& ec)
 
 PassRefPtr<Node> Attr::cloneNode(bool /*deep*/)
 {
-    RefPtr<Attr> clone = new Attr(0, document(), m_attribute->clone());
+    RefPtr<Attr> clone = adoptRef(new Attr(0, document(), m_attribute->clone()));
     cloneChildNodes(clone.get());
     return clone.release();
 }
@@ -155,6 +171,11 @@ void Attr::childrenChanged(bool changedByParser, Node* beforeChange, Node* after
     m_attribute->setValue(val.impl());
     if (m_element)
         m_element->attributeChanged(m_attribute.get());
+}
+
+bool Attr::isId() const
+{
+    return qualifiedName().matches(m_element ? m_element->idAttributeName() : idAttr);
 }
 
 }

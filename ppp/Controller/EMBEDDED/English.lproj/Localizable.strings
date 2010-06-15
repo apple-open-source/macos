@@ -126,6 +126,10 @@
 "IPSec Error 17" = ""; /* "The connection was terminated because the VPN server is not responding. Try reconnecting."; */ /* Peer Dead Detection error */
 "IPSec Error 18" = "No network connection available."; /* EDGE connection failed */
 "IPSec Error 19" = ""; /* "You were disconnected because there was no network activity."; */ /* Idle Timeout error */
+"IPSec Error 20" = "Certificate authentication failed."; /* PH1_DELETE error when authenticated with cert */
+"IPSec Error 20, Re-enroll" = "Certificate authentication failed. Contact your network administrator or try re-enrolling in Settings."; /* PH1_DELETE error when authenticated with cert */
+"IPSec Error 21" = "Certificate expired."; /* Certificate expired error */
+"IPSec Error 21, Re-enroll" = "Certificate expired. Contact your network administrator or try re-enrolling in Settings."; /* Certificate expired error with Fix Me button */
 
 
 /* 

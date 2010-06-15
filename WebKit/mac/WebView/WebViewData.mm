@@ -34,6 +34,7 @@
 #import <WebCore/WebCoreObjCExtras.h>
 #import <objc/objc-auto.h>
 #import <runtime/InitializeThreading.h>
+#import <wtf/Threading.h>
 
 BOOL applicationIsTerminating = NO;
 int pluginDatabaseClientCount = 0;
@@ -43,6 +44,7 @@ int pluginDatabaseClientCount = 0;
 + (void)initialize
 {
     JSC::initializeThreading();
+    WTF::initializeMainThreadToProcessMainThread();
 #ifndef BUILDING_ON_TIGER
     WebCoreObjCFinalizeOnMainThread(self);
 #endif
@@ -65,7 +67,11 @@ int pluginDatabaseClientCount = 0;
     dashboardBehaviorAllowWheelScrolling = YES;
 #endif
 
-    shouldCloseWithWindow = objc_collecting_enabled();
+#if !defined(BUILDING_ON_TIGER)
+    shouldCloseWithWindow = objc_collectingEnabled();
+#else
+    shouldCloseWithWindow = NO;
+#endif
 
     smartInsertDeleteEnabled = ![[NSUserDefaults standardUserDefaults] objectForKey:WebSmartInsertDeleteEnabled]
         || [[NSUserDefaults standardUserDefaults] boolForKey:WebSmartInsertDeleteEnabled];
@@ -81,6 +87,9 @@ int pluginDatabaseClientCount = 0;
     ASSERT(applicationIsTerminating || !page);
     ASSERT(applicationIsTerminating || !preferences);
     ASSERT(!insertionPasteboard);
+#if ENABLE(VIDEO)
+    ASSERT(!fullscreenController);
+#endif
 
     [applicationNameForUserAgent release];
     [backgroundColor release];
@@ -100,6 +109,9 @@ int pluginDatabaseClientCount = 0;
 {
     ASSERT_MAIN_THREAD();
     ASSERT(!insertionPasteboard);
+#if ENABLE(VIDEO)
+    ASSERT(!fullscreenController);
+#endif
 
     [super finalize];
 }

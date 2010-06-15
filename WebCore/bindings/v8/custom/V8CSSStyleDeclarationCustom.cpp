@@ -29,15 +29,15 @@
  */
 
 #include "config.h"
-#include "CSSStyleDeclaration.h"
+#include "V8CSSStyleDeclaration.h"
 
 #include "CSSParser.h"
+#include "CSSStyleDeclaration.h"
 #include "CSSValue.h"
 #include "CSSPrimitiveValue.h"
 #include "EventTarget.h"
 
 #include "V8Binding.h"
-#include "V8CustomBinding.h"
 #include "V8Proxy.h"
 
 #include <wtf/ASCIICType.h>
@@ -152,7 +152,7 @@ static CSSPropertyInfo* cssPropertyInfo(v8::Handle<v8::String>v8PropertyName)
     return propInfo;
 }
 
-NAMED_PROPERTY_GETTER(CSSStyleDeclaration)
+v8::Handle<v8::Value> V8CSSStyleDeclaration::namedPropertyGetter(v8::Local<v8::String> name, const v8::AccessorInfo& info)
 {
     INC_STATS("DOM.CSSStyleDeclaration.NamedPropertyGetter");
     // First look for API defined attributes on the style declaration object.
@@ -160,8 +160,7 @@ NAMED_PROPERTY_GETTER(CSSStyleDeclaration)
         return notHandledByInterceptor();
 
     // Search the style declaration.
-    CSSStyleDeclaration* imp =
-        V8DOMWrapper::convertToNativeObject<CSSStyleDeclaration>(V8ClassIndex::CSSSTYLEDECLARATION, info.Holder());
+    CSSStyleDeclaration* imp = V8CSSStyleDeclaration::toNative(info.Holder());
     CSSPropertyInfo* propInfo = cssPropertyInfo(name);
 
     // Do not handle non-property names.
@@ -191,12 +190,10 @@ NAMED_PROPERTY_GETTER(CSSStyleDeclaration)
     return v8String(result);
 }
 
-NAMED_PROPERTY_SETTER(CSSStyleDeclaration)
+v8::Handle<v8::Value> V8CSSStyleDeclaration::namedPropertySetter(v8::Local<v8::String> name, v8::Local<v8::Value> value, const v8::AccessorInfo& info)
 {
     INC_STATS("DOM.CSSStyleDeclaration.NamedPropertySetter");
-    CSSStyleDeclaration* imp =
-        V8DOMWrapper::convertToNativeObject<CSSStyleDeclaration>(
-            V8ClassIndex::CSSSTYLEDECLARATION, info.Holder());
+    CSSStyleDeclaration* imp = V8CSSStyleDeclaration::toNative(info.Holder());
     CSSPropertyInfo* propInfo = cssPropertyInfo(name);
     if (!propInfo)
         return notHandledByInterceptor();

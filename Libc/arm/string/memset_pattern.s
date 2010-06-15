@@ -22,9 +22,6 @@
  */
 
 #include <arm/arch.h>
-
-#if defined(_ARM_ARCH_6)
-
 #include <mach/machine/asm.h>
 
 /* 
@@ -37,8 +34,8 @@
  * The memset() is implemented in the bzero.s file. 
  * 
  * This is a reasonably well optimized version of memset_pattern* routines
- * implemented for the ARM9 and ARM11 processors using the ARMv6 instruction
- * set. These routines use the ARM's core registers.  
+ * implemented for ARM processors using the ARMv4 and later instruction sets.
+ * These routines use the ARM's core registers.  
  *
  * The algorithm is to align the destination pointer on a 16 byte boundary 
  * and then blast data 64 bytes at a time, in two stores of 32 bytes per loop.
@@ -80,7 +77,9 @@ _memset_pattern4:
 
 	/* move 'len' into r1, get 4-byte pattern in r2 */
 	mov 	r6, r2 	/* temporarily move 'len' in to r6 */
-	ldr	r2, [r1]/* load 4-byte pattern into r2 */
+	bl	L_GetPatternWord /* get unaligned pattern word in r5 */
+	mov	r2, r5      /* move pattern word into r2 */
+	mov	r0, r12     /* r0 was clobbered - restore it */
 	mov	r1, r6 	/* move 'len' from r6 to r1 */
 
 	mov	r3, r2  /* copy 4-byte pattern into r3, r4 and r5 registers */
@@ -108,7 +107,8 @@ L_Short:
 	cmp 	r2, #0 /* more bytes left? */
 	bne	L_Bytewise
 	ldm	sp!, {r8, r10-r11} /* restores registers from stack */
-	ldm 	sp!, {r4-r7, pc}   /* restore & return from subroutine */
+	ldm 	sp!, {r4-r7, lr}   /* restore & return from subroutine */
+	bx	lr
 
 /* 'len' is long enough to justify aligning the destination pointer           */
 /*                                                                            */
@@ -176,7 +176,8 @@ L_Store15BytesAndRotatePattern:
 	mrs	r11, cpsr   /*copy cpsr in to r11 */
 	subs    r1, r1, r11, lsr #28
 	ldmeq	sp!, {r8, r10-r11} /* restores registers from stack */
-	ldmeq 	sp!, {r4-r7, pc}   /* restore & return from subroutine */
+	ldmeq 	sp!, {r4-r7, lr}   /* restore & return from subroutine */
+	bxeq	lr
 
 /* By the time we reach here, we are 16-byte aligned and r2-r5 contains       */
 /* rotated pattern. Now lets make sure we are 32-byte aligned.                */
@@ -211,7 +212,8 @@ L_Loop64:
 	/* return if 'len' is zero */
 	adds    r1, r1, #64 /* readjust length; previously subtracted extra 64*/
 	ldmeq	sp!, {r8, r10-r11} /* restores registers from stack */
-	ldmeq 	sp!, {r4-r7, pc}   /* restore & return from subroutine */
+	ldmeq 	sp!, {r4-r7, lr}   /* restore & return from subroutine */
+	bxeq	lr
 
 L_AlignedLessThan64:
         /* do we have 16 or more bytes left */
@@ -220,7 +222,8 @@ L_AlignedLessThan64:
         subsge 	r1, r1, #16
         bgt	L_AlignedLessThan64
 	ldmeq	sp!, {r8, r10-r11} /* restores registers from stack */
-	ldmeq 	sp!, {r4-r7, pc}   /* restore & return from subroutine */
+	ldmeq 	sp!, {r4-r7, lr}   /* restore & return from subroutine */
+	bxeq	lr
 
 L_AlignedLessThan16:
         /* store last up-to 15 bytes */
@@ -240,7 +243,8 @@ L_AlignedLessThan16:
 
         strbvs  r2, [r12], #1 /* v is set, store 1 byte */
 	ldm	sp!, {r8, r10-r11} /* restores registers from stack */
-	ldm 	sp!, {r4-r7, pc}   /* restore & return from subroutine */
+	ldm 	sp!, {r4-r7, lr}   /* restore & return from subroutine */
+	bx	lr
 
 /*----------------------------------------------------------------------------*/
 /* void     memset_pattern8(void *ptr, const void *pattern8, size_t len);     */
@@ -274,8 +278,11 @@ _memset_pattern8:
 
         /* move 'len' into r1, get 8-byte pattern in r2-r3 */
         mov     r6, r2       /* temporarily move 'len' in to r6 */
-        ldr     r2, [r1], #4 /* load 8-byte pattern into r2-r3 */
-        ldr     r3, [r1], #4 
+	bl	L_GetPatternWord /* get unaligned pattern word in r5 */
+	mov	r2, r5      /* move pattern word into r2 */
+	bl	L_GetPatternWord
+	mov	r3, r5
+	mov	r0, r12     /* r0 was clobbered - restore it */
         mov     r1, r6  /* move 'len' from r6 to r1 */
 
         mov     r4, r2  /* copy 8-byte pattern into r4-r5 registers */
@@ -315,13 +322,30 @@ _memset_pattern16:
 
         /* move 'len' into r1, get 16-byte pattern in r2-r5 */
         mov     r6, r2       /* temporarily move 'len' in to r6 */
-        ldr     r2, [r1], #4 /* load 16-byte pattern into r2-r5 */
-        ldr     r3, [r1], #4 
-        ldr     r4, [r1], #4 
-        ldr     r5, [r1], #4 
+	bl	L_GetPatternWord /* get unaligned pattern word in r5 */
+	mov	r2, r5     /* move pattern word into r2 */
+	bl	L_GetPatternWord
+	mov	r3, r5
+	bl	L_GetPatternWord
+	mov	r4, r5
+	bl	L_GetPatternWord
+	mov	r0, r12     /* r0 was clobbered - restore it */
         mov     r1, r6  /* move 'len' from r6 to r1 */
 
         b       L_NotShort  /* yes */
 
 
-#endif /* _ARM_ARCH_6 */
+/*----------------------------------------------------------------------------*/
+/* Get an unaligned word at r1, returning it in r5.                           */
+/* Increments r1 by 4, clobbers r0.                                           */
+/* This is tailored to fit the register usage by the call sites.              */
+/*----------------------------------------------------------------------------*/
+L_GetPatternWord:
+	ldrb	r5, [r1], #1		/* get the 1st byte at r1 */
+	ldrb	r0, [r1], #1		/* get the 2nd byte at r1 */
+	orr	r5, r5, r0, lsl #8	/* move into bits 15:8 */
+	ldrb	r0, [r1], #1		/* get the 3rd byte */
+	orr	r5, r5, r0, lsl #16	/* bits 23:16 */
+	ldrb	r0, [r1], #1		/* get the 4th byte */
+	orr	r5, r5, r0, lsl #24	/* bits 31:24 */
+	bx	lr	

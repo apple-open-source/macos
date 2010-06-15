@@ -30,6 +30,7 @@
 #include "JSVariableObject.h"
 
 #include "PropertyNameArray.h"
+#include "PropertyDescriptor.h"
 
 namespace JSC {
 
@@ -41,30 +42,30 @@ bool JSVariableObject::deleteProperty(ExecState* exec, const Identifier& propert
     return JSObject::deleteProperty(exec, propertyName);
 }
 
-void JSVariableObject::getPropertyNames(ExecState* exec, PropertyNameArray& propertyNames)
+void JSVariableObject::getOwnPropertyNames(ExecState* exec, PropertyNameArray& propertyNames, EnumerationMode mode)
 {
     SymbolTable::const_iterator end = symbolTable().end();
     for (SymbolTable::const_iterator it = symbolTable().begin(); it != end; ++it) {
-        if (!(it->second.getAttributes() & DontEnum))
+        if (!(it->second.getAttributes() & DontEnum) || (mode == IncludeDontEnumProperties))
             propertyNames.add(Identifier(exec, it->first.get()));
     }
     
-    JSObject::getPropertyNames(exec, propertyNames);
-}
-
-bool JSVariableObject::getPropertyAttributes(ExecState* exec, const Identifier& propertyName, unsigned& attributes) const
-{
-    SymbolTableEntry entry = symbolTable().get(propertyName.ustring().rep());
-    if (!entry.isNull()) {
-        attributes = entry.getAttributes() | DontDelete;
-        return true;
-    }
-    return JSObject::getPropertyAttributes(exec, propertyName, attributes);
+    JSObject::getOwnPropertyNames(exec, propertyNames, mode);
 }
 
 bool JSVariableObject::isVariableObject() const
 {
     return true;
+}
+
+bool JSVariableObject::symbolTableGet(const Identifier& propertyName, PropertyDescriptor& descriptor)
+{
+    SymbolTableEntry entry = symbolTable().inlineGet(propertyName.ustring().rep());
+    if (!entry.isNull()) {
+        descriptor.setDescriptor(registerAt(entry.getIndex()).jsValue(), entry.getAttributes() | DontDelete);
+        return true;
+    }
+    return false;
 }
 
 } // namespace JSC

@@ -22,10 +22,12 @@
 #include "RegExpPrototype.h"
 
 #include "ArrayPrototype.h"
+#include "Error.h"
 #include "JSArray.h"
 #include "JSFunction.h"
 #include "JSObject.h"
 #include "JSString.h"
+#include "JSStringBuilder.h"
 #include "JSValue.h"
 #include "ObjectPrototype.h"
 #include "PrototypeFunction.h"
@@ -45,7 +47,7 @@ static JSValue JSC_HOST_CALL regExpProtoFuncToString(ExecState*, JSObject*, JSVa
 
 const ClassInfo RegExpPrototype::info = { "RegExpPrototype", 0, 0, 0 };
 
-RegExpPrototype::RegExpPrototype(ExecState* exec, PassRefPtr<Structure> structure, Structure* prototypeFunctionStructure)
+RegExpPrototype::RegExpPrototype(ExecState* exec, NonNullPassRefPtr<Structure> structure, Structure* prototypeFunctionStructure)
     : JSObject(structure)
 {
     putDirectFunctionWithoutTransition(exec, new (exec) NativeFunctionWrapper(exec, prototypeFunctionStructure, 0, exec->propertyNames().compile, regExpProtoFuncCompile), DontEnum);
@@ -58,28 +60,28 @@ RegExpPrototype::RegExpPrototype(ExecState* exec, PassRefPtr<Structure> structur
     
 JSValue JSC_HOST_CALL regExpProtoFuncTest(ExecState* exec, JSObject*, JSValue thisValue, const ArgList& args)
 {
-    if (!thisValue.isObject(&RegExpObject::info))
+    if (!thisValue.inherits(&RegExpObject::info))
         return throwError(exec, TypeError);
     return asRegExpObject(thisValue)->test(exec, args);
 }
 
 JSValue JSC_HOST_CALL regExpProtoFuncExec(ExecState* exec, JSObject*, JSValue thisValue, const ArgList& args)
 {
-    if (!thisValue.isObject(&RegExpObject::info))
+    if (!thisValue.inherits(&RegExpObject::info))
         return throwError(exec, TypeError);
     return asRegExpObject(thisValue)->exec(exec, args);
 }
 
 JSValue JSC_HOST_CALL regExpProtoFuncCompile(ExecState* exec, JSObject*, JSValue thisValue, const ArgList& args)
 {
-    if (!thisValue.isObject(&RegExpObject::info))
+    if (!thisValue.inherits(&RegExpObject::info))
         return throwError(exec, TypeError);
 
     RefPtr<RegExp> regExp;
     JSValue arg0 = args.at(0);
     JSValue arg1 = args.at(1);
     
-    if (arg0.isObject(&RegExpObject::info)) {
+    if (arg0.inherits(&RegExpObject::info)) {
         if (!arg1.isUndefined())
             return throwError(exec, TypeError, "Cannot supply flags when constructing one RegExp from another.");
         regExp = asRegExpObject(arg0)->regExp();
@@ -90,7 +92,7 @@ JSValue JSC_HOST_CALL regExpProtoFuncCompile(ExecState* exec, JSObject*, JSValue
     }
 
     if (!regExp->isValid())
-        return throwError(exec, SyntaxError, UString("Invalid regular expression: ").append(regExp->errorMessage()));
+        return throwError(exec, SyntaxError, makeString("Invalid regular expression: ", regExp->errorMessage()));
 
     asRegExpObject(thisValue)->setRegExp(regExp.release());
     asRegExpObject(thisValue)->setLastIndex(0);
@@ -99,21 +101,23 @@ JSValue JSC_HOST_CALL regExpProtoFuncCompile(ExecState* exec, JSObject*, JSValue
 
 JSValue JSC_HOST_CALL regExpProtoFuncToString(ExecState* exec, JSObject*, JSValue thisValue, const ArgList&)
 {
-    if (!thisValue.isObject(&RegExpObject::info)) {
-        if (thisValue.isObject(&RegExpPrototype::info))
+    if (!thisValue.inherits(&RegExpObject::info)) {
+        if (thisValue.inherits(&RegExpPrototype::info))
             return jsNontrivialString(exec, "//");
         return throwError(exec, TypeError);
     }
 
-    UString result = "/" + asRegExpObject(thisValue)->get(exec, exec->propertyNames().source).toString(exec);
-    result.append('/');
+    char postfix[5] = { '/', 0, 0, 0, 0 };
+    int index = 1;
     if (asRegExpObject(thisValue)->get(exec, exec->propertyNames().global).toBoolean(exec))
-        result.append('g');
+        postfix[index++] = 'g';
     if (asRegExpObject(thisValue)->get(exec, exec->propertyNames().ignoreCase).toBoolean(exec))
-        result.append('i');
+        postfix[index++] = 'i';
     if (asRegExpObject(thisValue)->get(exec, exec->propertyNames().multiline).toBoolean(exec))
-        result.append('m');
-    return jsNontrivialString(exec, result);
+        postfix[index] = 'm';
+    UString source = asRegExpObject(thisValue)->get(exec, exec->propertyNames().source).toString(exec);
+    // If source is empty, use "/(?:)/" to avoid colliding with comment syntax
+    return jsMakeNontrivialString(exec, "/", source.size() ? source : UString("(?:)"), postfix);
 }
 
 } // namespace JSC

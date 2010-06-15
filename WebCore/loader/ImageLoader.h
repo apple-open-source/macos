@@ -45,16 +45,20 @@ public:
     // doesn't change; starts new load unconditionally (matches Firefox and Opera behavior).
     void updateFromElementIgnoringPreviousError();
 
+    void elementWillMoveToNewOwnerDocument();
+
     Element* element() const { return m_element; }
     bool imageComplete() const { return m_imageComplete; }
 
     CachedImage* image() const { return m_image.get(); }
-    void setImage(CachedImage*);
+    void setImage(CachedImage*); // Cancels pending beforeload and load events, and doesn't dispatch new ones.
 
     void setLoadManually(bool loadManually) { m_loadManually = loadManually; }
 
+    bool haveFiredBeforeLoadEvent() const { return m_firedBeforeLoad; }
     bool haveFiredLoadEvent() const { return m_firedLoad; }
 
+    static void dispatchPendingBeforeLoadEvents();
     static void dispatchPendingLoadEvents();
 
 protected:
@@ -64,14 +68,16 @@ private:
     virtual void dispatchLoadEvent() = 0;
     virtual String sourceURI(const AtomicString&) const = 0;
 
-    friend class ImageLoadEventSender;
+    friend class ImageEventSender;
+    void dispatchPendingBeforeLoadEvent();
     void dispatchPendingLoadEvent();
 
-    void setLoadingImage(CachedImage*);
+    void updateRenderer();
 
     Element* m_element;
     CachedResourceHandle<CachedImage> m_image;
     AtomicString m_failedLoadURL;
+    bool m_firedBeforeLoad : 1;
     bool m_firedLoad : 1;
     bool m_imageComplete : 1;
     bool m_loadManually : 1;

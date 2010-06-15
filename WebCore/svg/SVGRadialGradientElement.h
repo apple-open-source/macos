@@ -2,8 +2,6 @@
     Copyright (C) 2004, 2005, 2006, 2008 Nikolas Zimmermann <zimmermann@kde.org>
                   2004, 2005, 2006 Rob Buis <buis@kde.org>
 
-    This file is part of the KDE project
-
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Library General Public
     License as published by the Free Software Foundation; either
@@ -38,19 +36,19 @@ namespace WebCore {
 
         virtual void parseMappedAttribute(MappedAttribute*);
         virtual void svgAttributeChanged(const QualifiedName&);
+        virtual void synchronizeProperty(const QualifiedName&);
 
-    protected:
-        virtual void buildGradient() const;
-        virtual SVGPaintServerType gradientType() const { return RadialGradientPaintServer; }
+        virtual RenderObject* createRenderer(RenderArena*, RenderStyle*);
 
-        RadialGradientAttributes collectGradientProperties() const;
+        RadialGradientAttributes collectGradientProperties();
+        void calculateFocalCenterPointsAndRadius(const RadialGradientAttributes&, FloatPoint& focalPoint, FloatPoint& centerPoint, float& radius);
 
     private:
-        ANIMATED_PROPERTY_DECLARATIONS(SVGRadialGradientElement, SVGNames::radialGradientTagString, SVGNames::cxAttrString, SVGLength, Cx, cx)
-        ANIMATED_PROPERTY_DECLARATIONS(SVGRadialGradientElement, SVGNames::radialGradientTagString, SVGNames::cyAttrString, SVGLength, Cy, cy)
-        ANIMATED_PROPERTY_DECLARATIONS(SVGRadialGradientElement, SVGNames::radialGradientTagString, SVGNames::rAttrString, SVGLength, R, r)
-        ANIMATED_PROPERTY_DECLARATIONS(SVGRadialGradientElement, SVGNames::radialGradientTagString, SVGNames::fxAttrString, SVGLength, Fx, fx)
-        ANIMATED_PROPERTY_DECLARATIONS(SVGRadialGradientElement, SVGNames::radialGradientTagString, SVGNames::fyAttrString, SVGLength, Fy, fy)
+        DECLARE_ANIMATED_PROPERTY(SVGRadialGradientElement, SVGNames::cxAttr, SVGLength, Cx, cx)
+        DECLARE_ANIMATED_PROPERTY(SVGRadialGradientElement, SVGNames::cyAttr, SVGLength, Cy, cy)
+        DECLARE_ANIMATED_PROPERTY(SVGRadialGradientElement, SVGNames::rAttr, SVGLength, R, r)
+        DECLARE_ANIMATED_PROPERTY(SVGRadialGradientElement, SVGNames::fxAttr, SVGLength, Fx, fx)
+        DECLARE_ANIMATED_PROPERTY(SVGRadialGradientElement, SVGNames::fyAttr, SVGLength, Fy, fy)
     };
 
 } // namespace WebCore

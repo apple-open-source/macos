@@ -2,8 +2,6 @@
     Copyright (C) 2004, 2005 Nikolas Zimmermann <wildfox@kde.org>
                   2004, 2005, 2006 Rob Buis <buis@kde.org>
 
-    This file is part of the KDE project
-
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Library General Public
     License as published by the Free Software Foundation; either
@@ -27,11 +25,9 @@
 #include "SVGLangSpace.h"
 #include "SVGStyledElement.h"
 
-namespace WebCore
-{
+namespace WebCore {
     class SVGTitleElement : public SVGStyledElement,
-                            public SVGLangSpace
-    {
+                            public SVGLangSpace {
     public:
         SVGTitleElement(const QualifiedName&, Document*);
 

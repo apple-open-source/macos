@@ -1,6 +1,7 @@
 /*
- * Copyright (C) 2006 Apple Computer, Inc.  All rights reserved.
+ * Copyright (C) 2006, 2010 Apple Inc. All rights reserved.
  * Copyright (C) 2008 Google Inc. All rights reserved.
+ * Copyright (C) 2007-2009 Torch Mobile, Inc.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -32,7 +33,8 @@
 #include "config.h"
 #include "CurrentTime.h"
 
-#if PLATFORM(WIN_OS)
+#if OS(WINDOWS)
+
 // Windows is first since we want to use hires timers, despite PLATFORM(CF)
 // being defined.
 // If defined, WIN32_LEAN_AND_MEAN disables timeBeginPeriod/timeEndPeriod.
@@ -40,24 +42,38 @@
 #include <windows.h>
 #include <math.h>
 #include <stdint.h>
+#include <time.h>
+
+#if USE(QUERY_PERFORMANCE_COUNTER)
+#if OS(WINCE)
+extern "C" time_t mktime(struct tm *t);
+#else
 #include <sys/timeb.h>
 #include <sys/types.h>
-#include <time.h>
-#elif PLATFORM(CF)
-#include <CoreFoundation/CFDate.h>
+#endif
+#endif
+
 #elif PLATFORM(GTK)
 #include <glib.h>
 #elif PLATFORM(WX)
 #include <wx/datetime.h>
-#else // Posix systems relying on the gettimeofday()
+#elif PLATFORM(BREWMP)
+#include <AEEStdLib.h>
+#else
 #include <sys/time.h>
+#endif
+
+#if PLATFORM(CHROMIUM)
+#error Chromium uses a different timer implementation
 #endif
 
 namespace WTF {
 
 const double msPerSecond = 1000.0;
 
-#if PLATFORM(WIN_OS)
+#if OS(WINDOWS)
+
+#if USE(QUERY_PERFORMANCE_COUNTER)
 
 static LARGE_INTEGER qpcFrequency;
 static bool syncedTime;
@@ -107,7 +123,7 @@ static double highResUpTime()
 
 static double lowResUTCTime()
 {
-#if PLATFORM(WINCE)
+#if OS(WINCE)
     SYSTEMTIME systemTime;
     GetSystemTime(&systemTime);
     struct tm tmtime;
@@ -184,12 +200,54 @@ double currentTime()
     return utc / 1000.0;
 }
 
-#elif PLATFORM(CF)
+#else
+
+static double currentSystemTime()
+{
+    FILETIME ft;
+    GetCurrentFT(&ft);
+
+    // As per Windows documentation for FILETIME, copy the resulting FILETIME structure to a
+    // ULARGE_INTEGER structure using memcpy (using memcpy instead of direct assignment can
+    // prevent alignment faults on 64-bit Windows).
+
+    ULARGE_INTEGER t;
+    memcpy(&t, &ft, sizeof(t));
+
+    // Windows file times are in 100s of nanoseconds.
+    // To convert to seconds, we have to divide by 10,000,000, which is more quickly
+    // done by multiplying by 0.0000001.
+
+    // Between January 1, 1601 and January 1, 1970, there were 369 complete years,
+    // of which 89 were leap years (1700, 1800, and 1900 were not leap years).
+    // That is a total of 134774 days, which is 11644473600 seconds.
+
+    return t.QuadPart * 0.0000001 - 11644473600.0;
+}
 
 double currentTime()
 {
-    return CFAbsoluteTimeGetCurrent() + kCFAbsoluteTimeIntervalSince1970;
+    static bool init = false;
+    static double lastTime;
+    static DWORD lastTickCount;
+    if (!init) {
+        lastTime = currentSystemTime();
+        lastTickCount = GetTickCount();
+        init = true;
+        return lastTime;
+    }
+
+    DWORD tickCountNow = GetTickCount();
+    DWORD elapsed = tickCountNow - lastTickCount;
+    double timeNow = lastTime + (double)elapsed / 1000.;
+    if (elapsed >= 0x7FFFFFFF) {
+        lastTime = timeNow;
+        lastTickCount = tickCountNow;
+    }
+    return timeNow;
 }
+
+#endif // USE(QUERY_PERFORMANCE_COUNTER)
 
 #elif PLATFORM(GTK)
 
@@ -212,15 +270,27 @@ double currentTime()
     return (double)now.GetTicks() + (double)(now.GetMillisecond() / 1000.0);
 }
 
-#else // Other Posix systems rely on the gettimeofday().
+#elif PLATFORM(BREWMP)
+
+// GETUTCSECONDS returns the number of seconds since 1980/01/06 00:00:00 UTC,
+// and GETTIMEMS returns the number of milliseconds that have elapsed since the last
+// occurrence of 00:00:00 local time.
+// We can combine GETUTCSECONDS and GETTIMEMS to calculate the number of milliseconds
+// since 1970/01/01 00:00:00 UTC.
+double currentTime()
+{
+    // diffSeconds is the number of seconds from 1970/01/01 to 1980/01/06
+    const unsigned diffSeconds = 315964800;
+    return static_cast<double>(diffSeconds + GETUTCSECONDS() + ((GETTIMEMS() % 1000) / msPerSecond));
+}
+
+#else
 
 double currentTime()
 {
     struct timeval now;
-    struct timezone zone;
-
-    gettimeofday(&now, &zone);
-    return static_cast<double>(now.tv_sec) + (double)(now.tv_usec / 1000000.0);
+    gettimeofday(&now, 0);
+    return now.tv_sec + now.tv_usec / 1000000.0;
 }
 
 #endif

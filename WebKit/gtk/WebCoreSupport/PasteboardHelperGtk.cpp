@@ -1,6 +1,7 @@
 /*
  *  Copyright (C) 2007 Luca Bruno <lethalman88@gmail.com>
  *  Copyright (C) 2009 Holger Hans Peter Freyther
+ *  Copyright (C) 2010 Martin Robinson <mrobinson@webkit.org>
  *
  *  This library is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU Lesser General Public
@@ -20,51 +21,44 @@
 #include "config.h"
 #include "PasteboardHelperGtk.h"
 
+#include "DataObjectGtk.h"
+#include "FocusController.h"
 #include "Frame.h"
+#include <gtk/gtk.h>
 #include "webkitwebframe.h"
 #include "webkitwebview.h"
 #include "webkitprivate.h"
-
-#include <gtk/gtk.h>
 
 using namespace WebCore;
 
 namespace WebKit {
 
-GtkClipboard* PasteboardHelperGtk::getCurrentTarget(Frame* frame) const
+PasteboardHelperGtk::PasteboardHelperGtk()
 {
-    WebKitWebView* webView = webkit_web_frame_get_web_view(kit(frame));
-
-    if (webkit_web_view_use_primary_for_paste(webView))
-        return getPrimary(frame);
-    else
-        return getClipboard(frame);
+    initializeTargetList();
 }
 
-GtkClipboard* PasteboardHelperGtk::getClipboard(Frame* frame) const
+PasteboardHelperGtk::~PasteboardHelperGtk()
 {
-    WebKitWebView* webView = webkit_web_frame_get_web_view(kit(frame));
-    return gtk_widget_get_clipboard(GTK_WIDGET (webView),
-                                    GDK_SELECTION_CLIPBOARD);
 }
 
-GtkClipboard* PasteboardHelperGtk::getPrimary(Frame* frame) const
+guint PasteboardHelperGtk::getIdForTargetType(PasteboardTargetType type)
 {
-    WebKitWebView* webView = webkit_web_frame_get_web_view(kit(frame));
-    return gtk_widget_get_clipboard(GTK_WIDGET (webView),
-                                    GDK_SELECTION_PRIMARY);
+    if (type == TargetTypeMarkup)
+        return WEBKIT_WEB_VIEW_TARGET_INFO_HTML;
+    if (type == TargetTypeImage)
+        return WEBKIT_WEB_VIEW_TARGET_INFO_IMAGE;
+    if (type == TargetTypeURIList)
+        return WEBKIT_WEB_VIEW_TARGET_INFO_URI_LIST;
+    if (type == TargetTypeNetscapeURL)
+        return WEBKIT_WEB_VIEW_TARGET_INFO_NETSCAPE_URL;
+
+    return WEBKIT_WEB_VIEW_TARGET_INFO_TEXT;
 }
 
-GtkTargetList* PasteboardHelperGtk::getCopyTargetList(Frame* frame) const
+bool PasteboardHelperGtk::usePrimarySelectionClipboard(GtkWidget* widget)
 {
-    WebKitWebView* webView = webkit_web_frame_get_web_view(kit(frame));
-    return webkit_web_view_get_copy_target_list(webView);
-}
-
-GtkTargetList* PasteboardHelperGtk::getPasteTargetList(Frame* frame) const
-{
-    WebKitWebView* webView = webkit_web_frame_get_web_view(kit(frame));
-    return webkit_web_view_get_paste_target_list(webView);
+    return webkit_web_view_use_primary_for_paste(WEBKIT_WEB_VIEW((widget)));
 }
 
 }

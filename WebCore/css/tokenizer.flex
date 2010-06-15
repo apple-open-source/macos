@@ -24,13 +24,13 @@ url             ([!#$%&*-~]|{nonascii}|{escape})*
 w               [ \t\r\n\f]*
 nl              \n|\r\n|\r|\f
 range           \?{1,6}|{h}(\?{0,5}|{h}(\?{0,4}|{h}(\?{0,3}|{h}(\?{0,2}|{h}(\??|{h})))))
-nth             (-?[0-9]*n[\+-][0-9]+)|(-?[0-9]*n)
+nth             [\+-]?{intnum}*n([\+-]{intnum})?
 
 %%
 
-\/\*[^*]*\*+([^/*][^*]*\*+)*\/  /* ignore comments */
+\/\*[^*]*\*+([^/*][^*]*\*+)*\/ {countLines(); /* ignore comments */ }
 
-[ \t\r\n\f]+            {yyTok = WHITESPACE; return yyTok;}
+[ \t\r\n\f]+            {countLines(); yyTok = WHITESPACE; return yyTok;}
 
 "<!--"                  {yyTok = SGML_CD; return yyTok;}
 "-->"                   {yyTok = SGML_CD; return yyTok;}
@@ -53,6 +53,22 @@ nth             (-?[0-9]*n[\+-][0-9]+)|(-?[0-9]*n)
 
 "@import"               {BEGIN(mediaquery); yyTok = IMPORT_SYM; return yyTok;}
 "@page"                 {yyTok = PAGE_SYM; return yyTok;}
+"@top-left-corner"      {yyTok = TOPLEFTCORNER_SYM; return yyTok;}
+"@top-left"             {yyTok = TOPLEFT_SYM; return yyTok;}
+"@top-center"           {yyTok = TOPCENTER_SYM; return yyTok;}
+"@top-right"            {yyTok = TOPRIGHT_SYM; return yyTok;}
+"@top-right-corner"     {yyTok = TOPRIGHTCORNER_SYM; return yyTok;}
+"@bottom-left-corner"   {yyTok = BOTTOMLEFTCORNER_SYM; return yyTok;}
+"@bottom-left"          {yyTok = BOTTOMLEFT_SYM; return yyTok;}
+"@bottom-center"        {yyTok = BOTTOMCENTER_SYM; return yyTok;}
+"@bottom-right"         {yyTok = BOTTOMRIGHT_SYM; return yyTok;}
+"@bottom-right-corner"  {yyTok = BOTTOMRIGHTCORNER_SYM; return yyTok;}
+"@left-top"             {yyTok = LEFTTOP_SYM; return yyTok;}
+"@left-middle"          {yyTok = LEFTMIDDLE_SYM; return yyTok;}
+"@left-bottom"          {yyTok = LEFTBOTTOM_SYM; return yyTok;}
+"@right-top"            {yyTok = RIGHTTOP_SYM; return yyTok;}
+"@right-middle"         {yyTok = RIGHTMIDDLE_SYM; return yyTok;}
+"@right-bottom"         {yyTok = RIGHTBOTTOM_SYM; return yyTok;}
 "@media"                {BEGIN(mediaquery); yyTok = MEDIA_SYM; return yyTok;}
 "@font-face"            {yyTok = FONT_FACE_SYM; return yyTok;}
 "@charset"              {yyTok = CHARSET_SYM; return yyTok;}
@@ -73,6 +89,7 @@ nth             (-?[0-9]*n[\+-][0-9]+)|(-?[0-9]*n)
 "!"{w}"important"       {yyTok = IMPORTANT_SYM; return yyTok;}
 
 {num}em                 {yyTok = EMS; return yyTok;}
+{num}rem                {yyTok = REMS; return yyTok;}
 {num}__qem              {yyTok = QEMS; return yyTok;} /* quirky ems */
 {num}ex                 {yyTok = EXS; return yyTok;}
 {num}px                 {yyTok = PXS; return yyTok;}

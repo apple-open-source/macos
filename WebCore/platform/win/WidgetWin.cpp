@@ -26,6 +26,7 @@
 #include "config.h"
 #include "Widget.h"
 
+#include "Chrome.h"
 #include "Cursor.h"
 #include "Document.h"
 #include "Element.h"
@@ -100,7 +101,7 @@ void Widget::paint(GraphicsContext*, const IntRect&)
 {
 }
 
-void Widget::setFocus()
+void Widget::setFocus(bool focused)
 {
 }
 

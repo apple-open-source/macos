@@ -1,7 +1,7 @@
 /**
  * This file is part of the theme implementation for form controls in WebCore.
  *
- * Copyright (C) 2005, 2006, 2007, 2008 Apple Computer, Inc.
+ * Copyright (C) 2005, 2006, 2007, 2008, 2009 Apple Computer, Inc.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -30,11 +30,13 @@
 #include "GraphicsContext.h"
 #include "HTMLInputElement.h"
 #include "HTMLNames.h"
+#include "MediaControlElements.h"
 #include "Page.h"
 #include "RenderStyle.h"
 #include "RenderView.h"
 #include "SelectionController.h"
 #include "Settings.h"
+#include "TextControlInnerElements.h"
 
 // The methods in this file are shared by all themes on every platform.
 
@@ -84,7 +86,10 @@ void RenderTheme::adjustStyle(CSSStyleSelector* selector, RenderStyle* style, El
     
 #if USE(NEW_THEME)
     switch (part) {
+        case ListButtonPart:
         case CheckboxPart:
+        case InnerSpinButtonPart:
+        case OuterSpinButtonPart:
         case RadioPart:
         case PushButtonPart:
         case SquareButtonPart:
@@ -170,9 +175,14 @@ void RenderTheme::adjustStyle(CSSStyleSelector* selector, RenderStyle* style, El
             return adjustRadioStyle(selector, style, e);
         case PushButtonPart:
         case SquareButtonPart:
+        case ListButtonPart:
         case DefaultButtonPart:
         case ButtonPart:
             return adjustButtonStyle(selector, style, e);
+        case InnerSpinButtonPart:
+            return adjustInnerSpinButtonStyle(selector, style, e);
+        case OuterSpinButtonPart:
+            return adjustOuterSpinButtonStyle(selector, style, e);
 #endif
         case TextFieldPart:
             return adjustTextFieldStyle(selector, style, e);
@@ -183,6 +193,7 @@ void RenderTheme::adjustStyle(CSSStyleSelector* selector, RenderStyle* style, El
         case MenulistButtonPart:
             return adjustMenuListButtonStyle(selector, style, e);
         case MediaSliderPart:
+        case MediaVolumeSliderPart:
         case SliderHorizontalPart:
         case SliderVerticalPart:
             return adjustSliderTrackStyle(selector, style, e);
@@ -199,6 +210,10 @@ void RenderTheme::adjustStyle(CSSStyleSelector* selector, RenderStyle* style, El
             return adjustSearchFieldResultsDecorationStyle(selector, style, e);
         case SearchFieldResultsButtonPart:
             return adjustSearchFieldResultsButtonStyle(selector, style, e);
+#if ENABLE(PROGRESS_TAG)
+        case ProgressBarPart:
+            return adjustProgressBarStyle(selector, style, e);
+#endif
         default:
             break;
     }
@@ -225,8 +240,11 @@ bool RenderTheme::paint(RenderObject* o, const RenderObject::PaintInfo& paintInf
         case RadioPart:
         case PushButtonPart:
         case SquareButtonPart:
+        case ListButtonPart:
         case DefaultButtonPart:
         case ButtonPart:
+        case InnerSpinButtonPart:
+        case OuterSpinButtonPart:
             m_theme->paint(part, controlStatesForRenderer(o), const_cast<GraphicsContext*>(paintInfo.context), r, o->style()->effectiveZoom(), o->view()->frameView());
             return false;
         default:
@@ -243,12 +261,21 @@ bool RenderTheme::paint(RenderObject* o, const RenderObject::PaintInfo& paintInf
             return paintRadio(o, paintInfo, r);
         case PushButtonPart:
         case SquareButtonPart:
+        case ListButtonPart:
         case DefaultButtonPart:
         case ButtonPart:
             return paintButton(o, paintInfo, r);
+        case InnerSpinButtonPart:
+            return paintInnerSpinButton(o, paintInfo, r);
+        case OuterSpinButtonPart:
+            return paintOuterSpinButton(o, paintInfo, r);
 #endif
         case MenulistPart:
             return paintMenuList(o, paintInfo, r);
+#if ENABLE(PROGRESS_TAG)
+        case ProgressBarPart:
+            return paintProgressBar(o, paintInfo, r);
+#endif
         case SliderHorizontalPart:
         case SliderVerticalPart:
             return paintSliderTrack(o, paintInfo, r);
@@ -272,11 +299,21 @@ bool RenderTheme::paint(RenderObject* o, const RenderObject::PaintInfo& paintInf
             return paintMediaRewindButton(o, paintInfo, r);
         case MediaReturnToRealtimeButtonPart:
             return paintMediaReturnToRealtimeButton(o, paintInfo, r);
+        case MediaToggleClosedCaptionsButtonPart:
+            return paintMediaToggleClosedCaptionsButton(o, paintInfo, r);
         case MediaSliderPart:
             return paintMediaSliderTrack(o, paintInfo, r);
         case MediaSliderThumbPart:
             if (o->parent()->isSlider())
                 return paintMediaSliderThumb(o, paintInfo, r);
+            break;
+        case MediaVolumeSliderContainerPart:
+            return paintMediaVolumeSliderContainer(o, paintInfo, r);
+        case MediaVolumeSliderPart:
+            return paintMediaVolumeSliderTrack(o, paintInfo, r);
+        case MediaVolumeSliderThumbPart:
+            if (o->parent()->isSlider())
+                return paintMediaVolumeSliderThumb(o, paintInfo, r);
             break;
         case MediaTimeRemainingPart:
             return paintMediaTimeRemaining(o, paintInfo, r);
@@ -319,19 +356,23 @@ bool RenderTheme::paintBorderOnly(RenderObject* o, const RenderObject::PaintInfo
         case TextAreaPart:
             return paintTextArea(o, paintInfo, r);
         case MenulistButtonPart:
+        case SearchFieldPart:
             return true;
         case CheckboxPart:
         case RadioPart:
         case PushButtonPart:
         case SquareButtonPart:
+        case ListButtonPart:
         case DefaultButtonPart:
         case ButtonPart:
         case MenulistPart:
+#if ENABLE(PROGRESS_TAG)
+        case ProgressBarPart:
+#endif
         case SliderHorizontalPart:
         case SliderVerticalPart:
         case SliderThumbHorizontalPart:
         case SliderThumbVerticalPart:
-        case SearchFieldPart:
         case SearchFieldCancelButtonPart:
         case SearchFieldDecorationPart:
         case SearchFieldResultsDecorationPart:
@@ -359,9 +400,13 @@ bool RenderTheme::paintDecorations(RenderObject* o, const RenderObject::PaintInf
         case RadioPart:
         case PushButtonPart:
         case SquareButtonPart:
+        case ListButtonPart:
         case DefaultButtonPart:
         case ButtonPart:
         case MenulistPart:
+#if ENABLE(PROGRESS_TAG)
+        case ProgressBarPart:
+#endif
         case SliderHorizontalPart:
         case SliderVerticalPart:
         case SliderThumbHorizontalPart:
@@ -387,6 +432,54 @@ bool RenderTheme::hitTestMediaControlPart(RenderObject* o, const IntPoint& absPo
     FloatPoint localPoint = o->absoluteToLocal(absPoint, false, true);  // respect transforms
     return toRenderBox(o)->borderBoxRect().contains(roundedIntPoint(localPoint));
 }
+
+bool RenderTheme::shouldRenderMediaControlPart(ControlPart part, Element* e)
+{
+    HTMLMediaElement* mediaElement = static_cast<HTMLMediaElement*>(e);
+    switch (part) {
+    case MediaMuteButtonPart:
+        return mediaElement->hasAudio();
+    case MediaRewindButtonPart:
+        return mediaElement->movieLoadType() != MediaPlayer::LiveStream;
+    case MediaReturnToRealtimeButtonPart:
+        return mediaElement->movieLoadType() == MediaPlayer::LiveStream;
+    case MediaFullscreenButtonPart:
+        return mediaElement->supportsFullscreen();
+    case MediaToggleClosedCaptionsButtonPart:
+        return mediaElement->hasClosedCaptions();
+    default:
+        return true;
+    }
+}
+
+String RenderTheme::formatMediaControlsTime(float time) const
+{
+    if (!isfinite(time))
+        time = 0;
+    int seconds = (int)fabsf(time);
+    int hours = seconds / (60 * 60);
+    int minutes = (seconds / 60) % 60;
+    seconds %= 60;
+    if (hours) {
+        if (hours > 9)
+            return String::format("%s%02d:%02d:%02d", (time < 0 ? "-" : ""), hours, minutes, seconds);
+
+        return String::format("%s%01d:%02d:%02d", (time < 0 ? "-" : ""), hours, minutes, seconds);
+    }
+
+    return String::format("%s%02d:%02d", (time < 0 ? "-" : ""), minutes, seconds);
+}
+
+String RenderTheme::formatMediaControlsCurrentTime(float currentTime, float /*duration*/) const
+{
+    return formatMediaControlsTime(currentTime);
+}
+
+String RenderTheme::formatMediaControlsRemainingTime(float currentTime, float duration) const
+{
+    return formatMediaControlsTime(currentTime - duration);
+}
+
 #endif
 
 Color RenderTheme::activeSelectionBackgroundColor() const
@@ -521,6 +614,7 @@ bool RenderTheme::isControlStyled(const RenderStyle* style, const BorderData& bo
         case ButtonPart:
         case ListboxPart:
         case MenulistPart:
+        case ProgressBarPart:
         // FIXME: Uncomment this when making search fields style-able.
         // case SearchFieldPart:
         case TextFieldPart:
@@ -528,7 +622,7 @@ bool RenderTheme::isControlStyled(const RenderStyle* style, const BorderData& bo
             // Test the style to see if the UA border and background match.
             return (style->border() != border ||
                     *style->backgroundLayers() != background ||
-                    style->backgroundColor() != backgroundColor);
+                    style->visitedDependentColor(CSSPropertyBackgroundColor) != backgroundColor);
         default:
             return false;
     }
@@ -548,7 +642,7 @@ bool RenderTheme::supportsFocusRing(const RenderStyle* style) const
 
 bool RenderTheme::stateChanged(RenderObject* o, ControlState state) const
 {
-    // Default implementation assumes the controls dont respond to changes in :hover state
+    // Default implementation assumes the controls don't respond to changes in :hover state
     if (state == HoverState && !supportsHover(o->style()))
         return false;
 
@@ -564,10 +658,16 @@ bool RenderTheme::stateChanged(RenderObject* o, ControlState state) const
 ControlStates RenderTheme::controlStatesForRenderer(const RenderObject* o) const
 {
     ControlStates result = 0;
-    if (isHovered(o))
+    if (isHovered(o)) {
         result |= HoverState;
-    if (isPressed(o))
+        if (isSpinUpButtonPartHovered(o))
+            result |= SpinUpState;
+    }
+    if (isPressed(o)) {
         result |= PressedState;
+        if (isSpinUpButtonPartPressed(o))
+            result |= SpinUpState;
+    }
     if (isFocused(o) && o->style()->outlineStyleIsAuto())
         result |= FocusState;
     if (isEnabled(o))
@@ -651,6 +751,16 @@ bool RenderTheme::isPressed(const RenderObject* o) const
     return o->node()->active();
 }
 
+bool RenderTheme::isSpinUpButtonPartPressed(const RenderObject* o) const
+{
+    Node* node = o->node();
+    if (!node || !node->active() || !node->isElementNode()
+        || !static_cast<Element*>(node)->isSpinButtonElement())
+        return false;
+    SpinButtonElement* element = static_cast<SpinButtonElement*>(node);
+    return element->onUpButton();
+}
+
 bool RenderTheme::isReadOnlyControl(const RenderObject* o) const
 {
     Node* node = o->node();
@@ -666,8 +776,22 @@ bool RenderTheme::isHovered(const RenderObject* o) const
     return o->node()->hovered();
 }
 
+bool RenderTheme::isSpinUpButtonPartHovered(const RenderObject* o) const
+{
+    Node* node = o->node();
+    if (!node || !node->active() || !node->isElementNode()
+        || !static_cast<Element*>(node)->isSpinButtonElement())
+        return false;
+    SpinButtonElement* element = static_cast<SpinButtonElement*>(node);
+    return element->onUpButton();
+}
+
 bool RenderTheme::isDefault(const RenderObject* o) const
 {
+    // A button should only have the default appearance if the page is active
+    if (!isActive(o))
+        return false;
+
     if (!o->document())
         return false;
 
@@ -721,6 +845,14 @@ void RenderTheme::adjustButtonStyle(CSSStyleSelector*, RenderStyle* style, Eleme
     setButtonSize(style);
 }
 
+void RenderTheme::adjustInnerSpinButtonStyle(CSSStyleSelector*, RenderStyle*, Element*) const
+{
+}
+
+void RenderTheme::adjustOuterSpinButtonStyle(CSSStyleSelector*, RenderStyle*, Element*) const
+{
+}
+
 #endif
 
 void RenderTheme::adjustTextFieldStyle(CSSStyleSelector*, RenderStyle*, Element*) const
@@ -734,6 +866,22 @@ void RenderTheme::adjustTextAreaStyle(CSSStyleSelector*, RenderStyle*, Element*)
 void RenderTheme::adjustMenuListStyle(CSSStyleSelector*, RenderStyle*, Element*) const
 {
 }
+
+#if ENABLE(PROGRESS_TAG)
+double RenderTheme::animationRepeatIntervalForProgressBar(RenderProgress*) const
+{
+    return 0;
+}
+
+double RenderTheme::animationDurationForProgressBar(RenderProgress*) const
+{
+    return 0;
+}
+
+void RenderTheme::adjustProgressBarStyle(CSSStyleSelector*, RenderStyle*, Element*) const
+{
+}
+#endif
 
 void RenderTheme::adjustMenuListButtonStyle(CSSStyleSelector*, RenderStyle*, Element*) const
 {

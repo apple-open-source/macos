@@ -30,6 +30,7 @@
 
 #include "CachedPage.h"
 #include "DocumentLoader.h"
+#include "FileChooser.h"
 #include "FloatRect.h"
 #include "Frame.h"
 #include "FrameLoader.h"
@@ -54,7 +55,7 @@
 
 namespace WebCore {
 
-class SVGImageChromeClient : public EmptyChromeClient {
+class SVGImageChromeClient : public EmptyChromeClient, public Noncopyable {
 public:
     SVGImageChromeClient(SVGImage* image)
         : m_image(image)
@@ -69,7 +70,7 @@ private:
         m_image = 0;
     }
 
-    virtual void repaint(const IntRect& r, bool, bool, bool)
+    virtual void invalidateContentsAndWindow(const IntRect& r, bool)
     {
         if (m_image && m_image->imageObserver())
             m_image->imageObserver()->changedInRect(m_image, r);
@@ -173,7 +174,7 @@ bool SVGImage::hasRelativeHeight() const
     return rootElement->height().unitType() == LengthTypePercentage;
 }
 
-void SVGImage::draw(GraphicsContext* context, const FloatRect& dstRect, const FloatRect& srcRect, CompositeOperator compositeOp)
+void SVGImage::draw(GraphicsContext* context, const FloatRect& dstRect, const FloatRect& srcRect, ColorSpace, CompositeOperator compositeOp)
 {
     if (!m_page)
         return;
@@ -185,14 +186,23 @@ void SVGImage::draw(GraphicsContext* context, const FloatRect& dstRect, const Fl
     context->clip(enclosingIntRect(dstRect));
     if (compositeOp != CompositeSourceOver)
         context->beginTransparencyLayer(1);
-    context->translate(dstRect.location().x(), dstRect.location().y());
-    context->scale(FloatSize(dstRect.width() / srcRect.width(), dstRect.height() / srcRect.height()));
+
+    FloatSize scale(dstRect.width() / srcRect.width(), dstRect.height() / srcRect.height());
+    
+    // We can only draw the entire frame, clipped to the rect we want. So compute where the top left
+    // of the image would be if we were drawing without clipping, and translate accordingly.
+    FloatSize topLeftOffset(srcRect.location().x() * scale.width(), srcRect.location().y() * scale.height());
+    FloatPoint destOffset = dstRect.location() - topLeftOffset;
+
+    context->translate(destOffset.x(), destOffset.y());
+    context->scale(scale);
 
     view->resize(size());
 
     if (view->needsLayout())
         view->layout();
-    view->paint(context, enclosingIntRect(srcRect));
+
+    view->paint(context, IntRect(0, 0, view->width(), view->height()));
 
     if (compositeOp != CompositeSourceOver)
         context->endTransparencyLayer();
@@ -211,10 +221,10 @@ NativeImagePtr SVGImage::nativeImageForCurrentFrame()
     if (!m_frameCache) {
         if (!m_page)
             return 0;
-        m_frameCache = ImageBuffer::create(size(), false);
+        m_frameCache = ImageBuffer::create(size());
         if (!m_frameCache) // failed to allocate image
             return 0;
-        renderSubtreeToImage(m_frameCache.get(), m_page->mainFrame()->contentRenderer());
+        draw(m_frameCache->context(), rect(), rect(), DeviceColorSpace, CompositeSourceOver);
     }
     return m_frameCache->image()->nativeImageForCurrentFrame();
 }
@@ -222,41 +232,56 @@ NativeImagePtr SVGImage::nativeImageForCurrentFrame()
 bool SVGImage::dataChanged(bool allDataReceived)
 {
     // Don't do anything if is an empty image.
-    if (!m_data->size())
+    if (!data()->size())
         return true;
 
     if (allDataReceived) {
         static FrameLoaderClient* dummyFrameLoaderClient =  new EmptyFrameLoaderClient;
         static EditorClient* dummyEditorClient = new EmptyEditorClient;
+#if ENABLE(CONTEXT_MENUS)
         static ContextMenuClient* dummyContextMenuClient = new EmptyContextMenuClient;
+#else
+        static ContextMenuClient* dummyContextMenuClient = 0;
+#endif
+#if ENABLE(DRAG_SUPPORT)
         static DragClient* dummyDragClient = new EmptyDragClient;
+#else
+        static DragClient* dummyDragClient = 0;
+#endif
         static InspectorClient* dummyInspectorClient = new EmptyInspectorClient;
 
         m_chromeClient.set(new SVGImageChromeClient(this));
         
         // FIXME: If this SVG ends up loading itself, we might leak the world.
-        // THe comment said that the Cache code does not know about CachedImages
+        // The comment said that the Cache code does not know about CachedImages
         // holding Frames and won't know to break the cycle. But 
-        m_page.set(new Page(m_chromeClient.get(), dummyContextMenuClient, dummyEditorClient, dummyDragClient, dummyInspectorClient));
+        m_page.set(new Page(m_chromeClient.get(), dummyContextMenuClient, dummyEditorClient, dummyDragClient, dummyInspectorClient, 0, 0));
+        m_page->settings()->setMediaEnabled(false);
         m_page->settings()->setJavaScriptEnabled(false);
         m_page->settings()->setPluginsEnabled(false);
 
         RefPtr<Frame> frame = Frame::create(m_page.get(), 0, dummyFrameLoaderClient);
         frame->setView(FrameView::create(frame.get()));
         frame->init();
-        ResourceRequest fakeRequest(KURL(""));
+        ResourceRequest fakeRequest(KURL(ParsedURLString, ""));
         FrameLoader* loader = frame->loader();
+        loader->setForcedSandboxFlags(SandboxAll);
         loader->load(fakeRequest, false); // Make sure the DocumentLoader is created
-        loader->cancelContentPolicyCheck(); // cancel any policy checks
+        loader->policyChecker()->cancelCheck(); // cancel any policy checks
         loader->commitProvisionalLoad(0);
-        loader->setResponseMIMEType("image/svg+xml");
-        loader->begin(KURL()); // create the empty document
-        loader->write(m_data->data(), m_data->size());
-        loader->end();
+        loader->writer()->setMIMEType("image/svg+xml");
+        loader->writer()->begin(KURL()); // create the empty document
+        loader->writer()->addData(data()->data(), data()->size());
+        loader->writer()->end();
         frame->view()->setTransparent(true); // SVG Images are transparent.
     }
 
     return m_page;
+}
+
+String SVGImage::filenameExtension() const
+{
+    return "svg";
 }
 
 }

@@ -28,12 +28,12 @@
 #include "TextCodecICU.h"
 
 #include "CharacterNames.h"
-#include "CString.h"
 #include "PlatformString.h"
 #include "ThreadGlobalData.h"
 #include <unicode/ucnv.h>
 #include <unicode/ucnv_cb.h>
 #include <wtf/Assertions.h>
+#include <wtf/text/CString.h>
 #include <wtf/PassOwnPtr.h>
 #include <wtf/StringExtras.h>
 #include <wtf/Threading.h>
@@ -87,7 +87,7 @@ void TextCodecICU::registerExtendedEncodingNames(EncodingNameRegistrar registrar
         const char* name = ucnv_getAvailableName(i);
         UErrorCode error = U_ZERO_ERROR;
         // Try MIME before trying IANA to pick up commonly used names like
-        // 'EUC-JP' instead of horrendeously long names like 
+        // 'EUC-JP' instead of horrendously long names like 
         // 'Extended_UNIX_Code_Packed_Format_for_Japanese'. 
         const char* standardName = ucnv_getStandardName(name, "MIME", &error);
         if (!U_SUCCESS(error) || !standardName) {

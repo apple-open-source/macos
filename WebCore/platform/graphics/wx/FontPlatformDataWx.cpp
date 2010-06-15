@@ -27,7 +27,7 @@
 #include "FontPlatformData.h"
 
 #include "FontDescription.h"
-
+#include "PlatformString.h"
 #include <wx/defs.h>
 #include <wx/gdicmn.h>
 #include <wx/font.h>
@@ -99,7 +99,13 @@ FontPlatformData::FontPlatformData(const FontDescription& desc, const AtomicStri
                             )
                         ); 
 #endif
+#if OS(DARWIN)
+    m_atsuFontID = m_font->font()->MacGetATSUFontID();
+    cacheNSFont();
+#endif
+    m_size = desc.computedPixelSize();
     m_fontState = VALID;
+    m_size = desc.computedPixelSize();
      
 }
 
@@ -111,7 +117,7 @@ unsigned FontPlatformData::computeHash() const {
         // a font whose properties are equal should generate the same hash
         uintptr_t hashCodes[6] = { thisFont->GetPointSize(), thisFont->GetFamily(), thisFont->GetStyle(), 
                                     thisFont->GetWeight(), thisFont->GetUnderlined(), 
-                                    StringImpl::computeHash(thisFont->GetFaceName().mb_str(wxConvUTF8)) };
+                                    StringImpl::computeHash(thisFont->GetFaceName().utf8_str()) };
         
         return StringImpl::computeHash(reinterpret_cast<UChar*>(hashCodes), sizeof(hashCodes) / sizeof(UChar));
 }
@@ -121,5 +127,44 @@ FontPlatformData::~FontPlatformData()
     m_fontState = UNINITIALIZED;
     m_font = 0;
 }
+
+#ifndef NDEBUG
+String FontPlatformData::description() const
+{
+    return String();
+}
+#endif
+
+#if OS(WINDOWS)
+bool FontPlatformData::useGDI() const
+{
+    return true;
+}
+
+HFONT FontPlatformData::hfont() const
+{
+    return static_cast<HFONT>(m_font->font()->GetHFONT());
+}
+#endif
+
+#if OS(DARWIN)
+CGFontRef FontPlatformData::cgFont() const
+{
+    CGFontRef cgFont = 0;
+#ifdef wxOSX_USE_CORE_TEXT && wxOSX_USE_CORE_TEXT
+    cgFont = CTFontCopyGraphicsFont((CTFontRef)m_font->font()->OSXGetCTFont(), 0);
+#else
+    ATSFontRef fontRef;
+    
+    fontRef = FMGetATSFontRefFromFont(m_atsuFontID);
+    
+    if (fontRef)
+        cgFont = CGFontCreateWithPlatformFont((void*)&fontRef);
+#endif
+    return cgFont;
+}
+#endif
+
+
 
 }

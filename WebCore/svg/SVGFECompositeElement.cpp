@@ -2,8 +2,6 @@
     Copyright (C) 2004, 2005, 2007 Nikolas Zimmermann <zimmermann@kde.org>
                   2004, 2005, 2006 Rob Buis <buis@kde.org>
 
-    This file is part of the KDE project
-
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Library General Public
     License as published by the Free Software Foundation; either
@@ -27,19 +25,12 @@
 
 #include "MappedAttribute.h"
 #include "SVGNames.h"
-#include "SVGResourceFilter.h"
 
 namespace WebCore {
 
 SVGFECompositeElement::SVGFECompositeElement(const QualifiedName& tagName, Document* doc)
     : SVGFilterPrimitiveStandardAttributes(tagName, doc)
-    , m_in1(this, SVGNames::inAttr)
-    , m_in2(this, SVGNames::in2Attr)
-    , m__operator(this, SVGNames::operatorAttr, FECOMPOSITE_OPERATOR_OVER)
-    , m_k1(this, SVGNames::k1Attr)
-    , m_k2(this, SVGNames::k2Attr)
-    , m_k3(this, SVGNames::k3Attr)
-    , m_k4(this, SVGNames::k4Attr)
+    , m__operator(FECOMPOSITE_OPERATOR_OVER)
 {
 }
 
@@ -63,8 +54,7 @@ void SVGFECompositeElement::parseMappedAttribute(MappedAttribute *attr)
             set_operatorBaseValue(FECOMPOSITE_OPERATOR_XOR);
         else if (value == "arithmetic")
             set_operatorBaseValue(FECOMPOSITE_OPERATOR_ARITHMETIC);
-    }
-    else if (attr->name() == SVGNames::inAttr)
+    } else if (attr->name() == SVGNames::inAttr)
         setIn1BaseValue(value);
     else if (attr->name() == SVGNames::in2Attr)
         setIn2BaseValue(value);
@@ -80,19 +70,47 @@ void SVGFECompositeElement::parseMappedAttribute(MappedAttribute *attr)
         SVGFilterPrimitiveStandardAttributes::parseMappedAttribute(attr);
 }
 
-bool SVGFECompositeElement::build(SVGResourceFilter* filterResource)
+void SVGFECompositeElement::synchronizeProperty(const QualifiedName& attrName)
 {
-    FilterEffect* input1 = filterResource->builder()->getEffectById(in1());
-    FilterEffect* input2 = filterResource->builder()->getEffectById(in2());
-    
-    if(!input1 || !input2)
-        return false;
-    
-    RefPtr<FilterEffect> effect = FEComposite::create(input1, input2, static_cast<CompositeOperationType>(_operator()),
-                                        k1(), k2(), k3(), k4());
-    filterResource->addFilterEffect(this, effect.release());
+    SVGFilterPrimitiveStandardAttributes::synchronizeProperty(attrName);
 
-    return true;
+    if (attrName == anyQName()) {
+        synchronize_operator();
+        synchronizeIn1();
+        synchronizeIn2();
+        synchronizeK1();
+        synchronizeK2();
+        synchronizeK3();
+        synchronizeK4();
+        return;
+    }
+
+    if (attrName == SVGNames::operatorAttr)
+        synchronize_operator();
+    else if (attrName == SVGNames::inAttr)
+        synchronizeIn1();
+    else if (attrName == SVGNames::in2Attr)
+        synchronizeIn2();
+    else if (attrName == SVGNames::k1Attr)
+        synchronizeK1();
+    else if (attrName == SVGNames::k2Attr)
+        synchronizeK2();
+    else if (attrName == SVGNames::k3Attr)
+        synchronizeK3();
+    else if (attrName == SVGNames::k4Attr)
+        synchronizeK4();
+}
+
+PassRefPtr<FilterEffect> SVGFECompositeElement::build(SVGFilterBuilder* filterBuilder)
+{
+    FilterEffect* input1 = filterBuilder->getEffectById(in1());
+    FilterEffect* input2 = filterBuilder->getEffectById(in2());
+    
+    if (!input1 || !input2)
+        return 0;
+    
+    return FEComposite::create(input1, input2, static_cast<CompositeOperationType>(_operator()),
+                                        k1(), k2(), k3(), k4());
 }
 
 }

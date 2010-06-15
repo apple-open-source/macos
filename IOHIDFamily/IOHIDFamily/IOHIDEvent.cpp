@@ -372,6 +372,10 @@ IOHIDEvent * IOHIDEvent::gyroEvent(
 											IOFixed                 z,
 											IOHIDGyroType		type,
 											IOHIDGyroSubType		subType,
+											IOFixed                 qx,
+											IOFixed                 qy,												
+											IOFixed                 qz,												
+											IOFixed                 qw,												
 											IOOptionBits            options)
 {
     IOHIDEvent *                    event;
@@ -388,6 +392,10 @@ IOHIDEvent * IOHIDEvent::gyroEvent(
         data = (IOHIDGyroEventData *)event->_data;
         data->gyroType = type;
         data->gyroSubType = subType;
+        data->quaternionx = qx;
+        data->quaterniony = qy;
+        data->quaternionz = qz;
+        data->quaternionw = qw;
     }
     
     return event;

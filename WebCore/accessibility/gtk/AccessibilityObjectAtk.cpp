@@ -32,6 +32,48 @@ bool AccessibilityObject::accessibilityIgnoreAttachment() const
     return false;
 }
 
+AccessibilityObjectInclusion AccessibilityObject::accessibilityPlatformIncludesObject() const
+{
+    AccessibilityObject* parent = parentObject();
+    if (!parent)
+        return DefaultBehavior;
+
+    if (roleValue() == SplitterRole)
+        return IncludeObject;
+
+    if (isGroup()) {
+        // When a list item is made up entirely of children (e.g. paragraphs)
+        // the list item gets ignored. We need it.
+        if (parent->isList())
+            return IncludeObject;
+
+        // We expect the parent of a table cell to be a table.
+        AccessibilityObject* child = firstChild();
+        if (child && child->roleValue() == CellRole)
+            return IgnoreObject;
+    }
+
+    // Entries and password fields have extraneous children which we want to ignore.
+    if (parent->isPasswordField() || parent->isTextControl())
+        return IgnoreObject;
+
+    AccessibilityRole role = roleValue();
+
+    // Include all tables, even layout tables. The AT can decide what to do with each.
+    if (role == CellRole || role == TableRole)
+        return IncludeObject;
+
+    // We at some point might have a need to expose a table row; but it's not standard Gtk+.
+    if (role == RowRole)
+        return IgnoreObject;
+
+    // The object containing the text should implement AtkText itself.
+    if (role == StaticTextRole)
+        return IgnoreObject;
+
+    return DefaultBehavior;
+}
+
 AccessibilityObjectWrapper* AccessibilityObject::wrapper() const
 {
     return m_wrapper;

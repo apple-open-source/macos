@@ -41,6 +41,7 @@
 #include "DOMTimer.h"
 #include "V8DOMMap.h"
 #include "V8Proxy.h"
+#include "V8WorkerContext.h"
 #include "WorkerContext.h"
 #include "WorkerContextExecutionProxy.h"
 #include "WorkerObjectProxy.h"
@@ -62,39 +63,56 @@ WorkerScriptController::~WorkerScriptController()
 
 ScriptValue WorkerScriptController::evaluate(const ScriptSourceCode& sourceCode)
 {
+    return evaluate(sourceCode, 0);
+}
+
+ScriptValue WorkerScriptController::evaluate(const ScriptSourceCode& sourceCode, ScriptValue* exception)
+{
     {
         MutexLocker lock(m_sharedDataMutex);
         if (m_executionForbidden)
             return ScriptValue();
     }
 
-    v8::Local<v8::Value> result = m_proxy->evaluate(sourceCode.source(), sourceCode.url().string(), sourceCode.startLine() - 1);
-    m_workerContext->thread()->workerObjectProxy().reportPendingActivity(m_workerContext->hasPendingActivity());
-    return ScriptValue();
+    WorkerContextExecutionState state;
+    ScriptValue result = m_proxy->evaluate(sourceCode.source(), sourceCode.url().string(), sourceCode.startLine() - 1, &state);
+    if (state.hadException) {
+        if (exception)
+            *exception = state.exception;
+        else
+            m_workerContext->reportException(state.errorMessage, state.lineNumber, state.sourceURL);
+    }
+
+    return result;
 }
 
-ScriptValue WorkerScriptController::evaluate(const ScriptSourceCode& sourceCode, ScriptValue* exception)
+void WorkerScriptController::forbidExecution(ForbidExecutionOption option)
 {
-    v8::TryCatch exceptionCatcher;
-    ScriptValue result = evaluate(sourceCode);
-    if (exceptionCatcher.HasCaught()) {
-        *exception = ScriptValue(exceptionCatcher.Exception());
-        throwError(exceptionCatcher.Exception());
-        return ScriptValue();
-    } else
-        return result;
-}
-
-void WorkerScriptController::forbidExecution()
-{
-    // This function is called from another thread.
+    // This function may be called from another thread.
     MutexLocker lock(m_sharedDataMutex);
     m_executionForbidden = true;
+    if (option == TerminateRunningScript)
+        v8::V8::TerminateExecution();
 }
 
-void WorkerScriptController::setException(ScriptValue /* exception */)
+void WorkerScriptController::setException(ScriptValue exception)
 {
-    notImplemented();
+    throwError(*exception.v8Value());
+}
+
+WorkerScriptController* WorkerScriptController::controllerForContext()
+{
+    // Happens on frame destruction, check otherwise GetCurrent() will crash.
+    if (!v8::Context::InContext())
+        return 0;
+    v8::Handle<v8::Context> context = v8::Context::GetCurrent();
+    v8::Handle<v8::Object> global = context->Global();
+    global = V8DOMWrapper::lookupDOMWrapper(V8WorkerContext::GetTemplate(), global);
+    // Return 0 if the current executing context is not the worker context.
+    if (global.IsEmpty())
+        return 0;
+    WorkerContext* workerContext = V8WorkerContext::toNative(global);
+    return workerContext->script();
 }
 
 } // namespace WebCore

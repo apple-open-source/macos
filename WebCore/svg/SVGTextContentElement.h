@@ -2,8 +2,6 @@
     Copyright (C) 2004, 2005, 2008 Nikolas Zimmermann <zimmermann@kde.org>
                   2004, 2005, 2006, 2008 Rob Buis <buis@kde.org>
 
-    This file is part of the KDE project
-
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Library General Public
     License as published by the Free Software Foundation; either
@@ -30,8 +28,6 @@
 #include "SVGTests.h"
 
 namespace WebCore {
-
-    extern char SVGTextContentElementIdentifier[];
 
     class SVGLength;
 
@@ -63,15 +59,16 @@ namespace WebCore {
         void selectSubString(unsigned charnum, unsigned nchars, ExceptionCode&) const;
 
         virtual void parseMappedAttribute(MappedAttribute*);
+        virtual void synchronizeProperty(const QualifiedName&);
 
         bool isKnownAttribute(const QualifiedName&);
 
-    protected:
-        virtual const SVGElement* contextElement() const { return this; }
-
     private:
-        ANIMATED_PROPERTY_DECLARATIONS(SVGTextContentElement, SVGTextContentElementIdentifier, SVGNames::textLengthAttrString, SVGLength, TextLength, textLength)
-        ANIMATED_PROPERTY_DECLARATIONS(SVGTextContentElement, SVGTextContentElementIdentifier, SVGNames::lengthAdjustAttrString, int, LengthAdjust, lengthAdjust)
+        DECLARE_ANIMATED_PROPERTY(SVGTextContentElement, SVGNames::textLengthAttr, SVGLength, TextLength, textLength)
+        DECLARE_ANIMATED_PROPERTY(SVGTextContentElement, SVGNames::lengthAdjustAttr, int, LengthAdjust, lengthAdjust)
+
+        // SVGExternalResourcesRequired
+        DECLARE_ANIMATED_PROPERTY(SVGTextContentElement, SVGNames::externalResourcesRequiredAttr, bool, ExternalResourcesRequired, externalResourcesRequired) 
     };
 
 } // namespace WebCore

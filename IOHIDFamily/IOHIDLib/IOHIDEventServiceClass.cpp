@@ -572,7 +572,7 @@ CFTypeRef IOHIDEventServiceClass::getProperty(CFStringRef key)
     CFTypeRef value = CFDictionaryGetValue(_serviceProperties, key);
     
     if ( !value ) {
-        if ( !_dynamicServiceProperties || 
+        if ( !_dynamicServiceProperties && 
              !(_dynamicServiceProperties = CFDictionaryCreateMutable(kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks)))
             return NULL;
 

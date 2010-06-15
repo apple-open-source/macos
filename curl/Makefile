@@ -20,7 +20,8 @@ Patches = configure.diff \
           Kerberos-4258093.patch \
           DiskImages-6103805.patch \
           curl-config.in.diff \
-          tests__runtests.pl.diff
+          tests__runtests.pl.diff \
+          libcurl-contentencoding.patch
 
 Extra_Configure_Flags = --with-gssapi --enable-hidden-symbols --disable-static
 

@@ -27,6 +27,7 @@
 #include "CachedResourceClient.h"
 #include "CachedResourceHandle.h"
 #include "NamedMappedAttrMap.h"
+#include "MappedAttributeEntry.h"
 #include "SegmentedString.h"
 #include "Timer.h"
 #include "Tokenizer.h"
@@ -135,11 +136,12 @@ class HTMLTokenizer : public Tokenizer, public CachedResourceClient {
 public:
     HTMLTokenizer(HTMLDocument*, bool reportErrors);
     HTMLTokenizer(HTMLViewSourceDocument*);
-    HTMLTokenizer(DocumentFragment*);
+    HTMLTokenizer(DocumentFragment*, FragmentScriptingPermission = FragmentScriptingAllowed);
     virtual ~HTMLTokenizer();
 
     virtual void write(const SegmentedString&, bool appendData);
     virtual void finish();
+    virtual bool forceSynchronous() const { return m_state.forceSynchronous(); }
     virtual void setForceSynchronous(bool force);
     virtual bool isWaitingForScripts() const;
     virtual void stopParsing();
@@ -154,6 +156,7 @@ public:
     virtual void executeScriptsWaitingForStylesheets();
     
     virtual bool isHTMLTokenizer() const { return true; }
+    virtual HTMLTokenizer* asHTMLTokenizer() { return this; }
     HTMLParser* htmlParser() const { return m_parser.get(); }
 
 private:
@@ -205,6 +208,10 @@ private:
     // from CachedResourceClient
     void notifyFinished(CachedResource*);
 
+    void executeExternalScriptsIfReady();
+    void executeExternalScriptsTimerFired(Timer<HTMLTokenizer>*);
+    bool continueExecutingExternalScripts(double startTime);
+
     // Internal buffers
     ///////////////////
     UChar* m_buffer;
@@ -212,6 +219,10 @@ private:
     UChar* m_dest;
 
     Token m_currentToken;
+
+    // This buffer holds the raw characters we've seen between the beginning of
+    // the attribute name and the first character of the attribute value.
+    Vector<UChar, 32> m_rawAttributeBeforeValue;
 
     // Tokenizer flags
     //////////////////
@@ -397,6 +408,9 @@ private:
     // The timer for continued processing.
     Timer<HTMLTokenizer> m_timer;
 
+    // The timer for continued executing external scripts.
+    Timer<HTMLTokenizer> m_externalScriptsTimer;
+
 // This buffer can hold arbitrarily long user-defined attribute names, such as in EMBED tags.
 // So any fixed number might be too small, but rather than rewriting all usage of this buffer
 // we'll just make it large enough to handle all imaginable cases.
@@ -409,11 +423,12 @@ private:
     OwnPtr<HTMLParser> m_parser;
     bool m_inWrite;
     bool m_fragment;
+    FragmentScriptingPermission m_scriptingPermission;
 
     OwnPtr<PreloadScanner> m_preloadScanner;
 };
 
-void parseHTMLDocumentFragment(const String&, DocumentFragment*);
+void parseHTMLDocumentFragment(const String&, DocumentFragment*, FragmentScriptingPermission = FragmentScriptingAllowed);
 
 UChar decodeNamedEntity(const char*);
 

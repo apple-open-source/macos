@@ -22,11 +22,10 @@
 #include "config.h"
 #include "HTMLAreaElement.h"
 
-#include "Document.h"
-#include "FloatRect.h"
+#include "HTMLImageElement.h"
+#include "HTMLMapElement.h"
 #include "HTMLNames.h"
 #include "HitTestResult.h"
-#include "Length.h"
 #include "MappedAttribute.h"
 #include "Path.h"
 #include "RenderObject.h"
@@ -37,9 +36,8 @@ namespace WebCore {
 
 using namespace HTMLNames;
 
-HTMLAreaElement::HTMLAreaElement(const QualifiedName& tagName, Document* document)
+inline HTMLAreaElement::HTMLAreaElement(const QualifiedName& tagName, Document* document)
     : HTMLAnchorElement(tagName, document)
-    , m_coords(0)
     , m_coordsLen(0)
     , m_lastSize(-1, -1)
     , m_shape(Unknown)
@@ -47,12 +45,12 @@ HTMLAreaElement::HTMLAreaElement(const QualifiedName& tagName, Document* documen
     ASSERT(hasTagName(areaTag));
 }
 
-HTMLAreaElement::~HTMLAreaElement()
+PassRefPtr<HTMLAreaElement> HTMLAreaElement::create(const QualifiedName& tagName, Document* document)
 {
-    delete [] m_coords;
+    return adoptRef(new HTMLAreaElement(tagName, document));
 }
 
-void HTMLAreaElement::parseMappedAttribute(MappedAttribute *attr)
+void HTMLAreaElement::parseMappedAttribute(MappedAttribute* attr)
 {
     if (attr->name() == shapeAttr) {
         if (equalIgnoringCase(attr->value(), "default"))
@@ -64,8 +62,7 @@ void HTMLAreaElement::parseMappedAttribute(MappedAttribute *attr)
         else if (equalIgnoringCase(attr->value(), "rect"))
             m_shape = Rect;
     } else if (attr->name() == coordsAttr) {
-        delete [] m_coords;
-        m_coords = newCoordsArray(attr->value().string(), m_coordsLen);
+        m_coords.set(newCoordsArray(attr->value().string(), m_coordsLen));
     } else if (attr->name() == altAttr || attr->name() == accesskeyAttr) {
         // Do nothing.
     } else
@@ -87,13 +84,27 @@ bool HTMLAreaElement::mapMouseEvent(int x, int y, const IntSize& size, HitTestRe
     return true;
 }
 
-IntRect HTMLAreaElement::getRect(RenderObject* obj) const
+Path HTMLAreaElement::getPath(RenderObject* obj) const
 {
+    if (!obj)
+        return Path();
+    
     // FIXME: This doesn't work correctly with transforms.
     FloatPoint absPos = obj->localToAbsolute();
-    Path p = getRegion(m_lastSize);
+
+    // Default should default to the size of the containing object.
+    IntSize size = m_lastSize;
+    if (m_shape == Default)
+        size = obj->absoluteOutlineBounds().size();
+    
+    Path p = getRegion(size);
     p.translate(absPos - FloatPoint());
-    return enclosingIntRect(p.boundingRect());
+    return p;
+}
+    
+IntRect HTMLAreaElement::getRect(RenderObject* obj) const
+{
+    return enclosingIntRect(getPath(obj).boundingRect());
 }
 
 Path HTMLAreaElement::getRegion(const IntSize& size) const
@@ -152,44 +163,9 @@ Path HTMLAreaElement::getRegion(const IntSize& size) const
     return path;
 }
 
-const AtomicString& HTMLAreaElement::accessKey() const
-{
-    return getAttribute(accesskeyAttr);
-}
-
-void HTMLAreaElement::setAccessKey(const AtomicString& value)
-{
-    setAttribute(accesskeyAttr, value);
-}
-
-const AtomicString& HTMLAreaElement::alt() const
-{
-    return getAttribute(altAttr);
-}
-
-void HTMLAreaElement::setAlt(const AtomicString& value)
-{
-    setAttribute(altAttr, value);
-}
-
-const AtomicString& HTMLAreaElement::coords() const
-{
-    return getAttribute(coordsAttr);
-}
-
-void HTMLAreaElement::setCoords(const AtomicString& value)
-{
-    setAttribute(coordsAttr, value);
-}
-
 KURL HTMLAreaElement::href() const
 {
     return document()->completeURL(getAttribute(hrefAttr));
-}
-
-void HTMLAreaElement::setHref(const AtomicString& value)
-{
-    setAttribute(hrefAttr, value);
 }
 
 bool HTMLAreaElement::noHref() const
@@ -201,30 +177,63 @@ void HTMLAreaElement::setNoHref(bool noHref)
 {
     setAttribute(nohrefAttr, noHref ? "" : 0);
 }
-
-const AtomicString& HTMLAreaElement::shape() const
+    
+HTMLImageElement* HTMLAreaElement::imageElement() const
 {
-    return getAttribute(shapeAttr);
+    Node* mapElement = parent();
+    if (!mapElement->hasTagName(mapTag))
+        return 0;
+    
+    return static_cast<HTMLMapElement*>(mapElement)->imageElement();
 }
 
-void HTMLAreaElement::setShape(const AtomicString& value)
+bool HTMLAreaElement::isKeyboardFocusable(KeyboardEvent*) const
 {
-    setAttribute(shapeAttr, value);
+    return supportsFocus();
 }
 
 bool HTMLAreaElement::isFocusable() const
 {
-    return HTMLElement::isFocusable();
+    return supportsFocus();
+}
+    
+void HTMLAreaElement::dispatchBlurEvent()
+{
+    HTMLAnchorElement::dispatchBlurEvent();
+    
+    // On a blur, we might need to remove our focus rings by repainting.
+    updateFocusAppearance(false);
+}
+    
+void HTMLAreaElement::updateFocusAppearance(bool restorePreviousSelection)
+{
+    Node* parent = parentNode();
+    if (!parent || !parent->hasTagName(mapTag))
+        return;
+    
+    HTMLImageElement* imageElement = static_cast<HTMLMapElement*>(parent)->imageElement();
+    if (!imageElement)
+        return;
+    
+    // This will handle scrolling to the image if necessary.
+    imageElement->updateFocusAppearance(restorePreviousSelection);
+    
+    RenderObject* imageRenderer = imageElement->renderer();
+    if (imageRenderer)
+        imageRenderer->setNeedsLayout(true);
+}
+    
+bool HTMLAreaElement::supportsFocus() const
+{
+    // If the AREA element was a link, it should support focus.
+    // The inherited method is not used because it assumes that a render object must exist 
+    // for the element to support focus. AREA elements do not have render objects.
+    return isLink();
 }
 
 String HTMLAreaElement::target() const
 {
     return getAttribute(targetAttr);
-}
-
-void HTMLAreaElement::setTarget(const AtomicString& value)
-{
-    setAttribute(targetAttr, value);
 }
 
 }

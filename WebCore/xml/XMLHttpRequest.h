@@ -23,18 +23,21 @@
 #include "ActiveDOMObject.h"
 #include "AtomicStringHash.h"
 #include "EventListener.h"
+#include "EventNames.h"
 #include "EventTarget.h"
 #include "FormData.h"
 #include "ResourceResponse.h"
 #include "ScriptString.h"
 #include "ThreadableLoaderClient.h"
+#include "XMLHttpRequestProgressEventThrottle.h"
 #include <wtf/OwnPtr.h>
 
 namespace WebCore {
 
+class Blob;
 class Document;
-class File;
-struct ResourceRequest;
+class DOMFormData;
+class ResourceRequest;
 class TextResourceDecoder;
 class ThreadableLoader;
 
@@ -56,6 +59,8 @@ public:
 
     virtual void contextDestroyed();
     virtual bool canSuspend() const;
+    virtual void suspend();
+    virtual void resume();
     virtual void stop();
 
     virtual ScriptExecutionContext* scriptExecutionContext() const;
@@ -65,13 +70,15 @@ public:
     State readyState() const;
     bool withCredentials() const { return m_includeCredentials; }
     void setWithCredentials(bool, ExceptionCode&);
+    void open(const String& method, const KURL&, ExceptionCode&);
     void open(const String& method, const KURL&, bool async, ExceptionCode&);
     void open(const String& method, const KURL&, bool async, const String& user, ExceptionCode&);
     void open(const String& method, const KURL&, bool async, const String& user, const String& password, ExceptionCode&);
     void send(ExceptionCode&);
     void send(Document*, ExceptionCode&);
     void send(const String&, ExceptionCode&);
-    void send(File*, ExceptionCode&);
+    void send(Blob*, ExceptionCode&);
+    void send(DOMFormData*, ExceptionCode&);
     void abort();
     void setRequestHeader(const AtomicString& name, const String& value, ExceptionCode&);
     void overrideMimeType(const String& override);
@@ -85,41 +92,23 @@ public:
     XMLHttpRequestUpload* upload();
     XMLHttpRequestUpload* optionalUpload() const { return m_upload.get(); }
 
-    void setOnreadystatechange(PassRefPtr<EventListener> eventListener) { m_onReadyStateChangeListener = eventListener; }
-    EventListener* onreadystatechange() const { return m_onReadyStateChangeListener.get(); }
-
-    void setOnabort(PassRefPtr<EventListener> eventListener) { m_onAbortListener = eventListener; }
-    EventListener* onabort() const { return m_onAbortListener.get(); }
-
-    void setOnerror(PassRefPtr<EventListener> eventListener) { m_onErrorListener = eventListener; }
-    EventListener* onerror() const { return m_onErrorListener.get(); }
-
-    void setOnload(PassRefPtr<EventListener> eventListener) { m_onLoadListener = eventListener; }
-    EventListener* onload() const { return m_onLoadListener.get(); }
-
-    void setOnloadstart(PassRefPtr<EventListener> eventListener) { m_onLoadStartListener = eventListener; }
-    EventListener* onloadstart() const { return m_onLoadStartListener.get(); }
-
-    void setOnprogress(PassRefPtr<EventListener> eventListener) { m_onProgressListener = eventListener; }
-    EventListener* onprogress() const { return m_onProgressListener.get(); }
-
-    typedef Vector<RefPtr<EventListener> > ListenerVector;
-    typedef HashMap<AtomicString, ListenerVector> EventListenersMap;
-
-    // useCapture is not used, even for add/remove pairing (for Firefox compatibility).
-    virtual void addEventListener(const AtomicString& eventType, PassRefPtr<EventListener>, bool useCapture);
-    virtual void removeEventListener(const AtomicString& eventType, EventListener*, bool useCapture);
-    virtual bool dispatchEvent(PassRefPtr<Event>, ExceptionCode&);
-    EventListenersMap& eventListeners() { return m_eventListeners; }
+    DEFINE_ATTRIBUTE_EVENT_LISTENER(readystatechange);
+    DEFINE_ATTRIBUTE_EVENT_LISTENER(abort);
+    DEFINE_ATTRIBUTE_EVENT_LISTENER(error);
+    DEFINE_ATTRIBUTE_EVENT_LISTENER(load);
+    DEFINE_ATTRIBUTE_EVENT_LISTENER(loadstart);
+    DEFINE_ATTRIBUTE_EVENT_LISTENER(progress);
 
     using RefCounted<XMLHttpRequest>::ref;
     using RefCounted<XMLHttpRequest>::deref;
 
 private:
     XMLHttpRequest(ScriptExecutionContext*);
-    
+
     virtual void refEventTarget() { ref(); }
     virtual void derefEventTarget() { deref(); }
+    virtual EventTargetData* eventTargetData();
+    virtual EventTargetData* ensureEventTargetData();
 
     Document* document() const;
 
@@ -134,12 +123,6 @@ private:
     virtual void didFail(const ResourceError&);
     virtual void didFailRedirectCheck();
     virtual void didReceiveAuthenticationCancellation(const ResourceResponse&);
-
-    // Special versions for the preflight
-    void didReceiveResponsePreflight(const ResourceResponse&);
-    void didFinishLoadingPreflight();
-
-    void updateAndDispatchOnProgress(unsigned int len);
 
     String responseMIMEType() const;
     bool responseIsXML() const;
@@ -159,35 +142,9 @@ private:
 
     void createRequest(ExceptionCode&);
 
-    void makeSameOriginRequest(ExceptionCode&);
-    void makeCrossOriginAccessRequest(ExceptionCode&);
-
-    void makeSimpleCrossOriginAccessRequest(ExceptionCode&);
-    void makeCrossOriginAccessRequestWithPreflight(ExceptionCode&);
-    void handleAsynchronousPreflightResult();
-
-    void loadRequestSynchronously(ResourceRequest&, ExceptionCode&);
-    void loadRequestAsynchronously(ResourceRequest&);
-
     void genericError();
     void networkError();
     void abortError();
-
-    void dispatchReadyStateChangeEvent();
-    void dispatchXMLHttpRequestProgressEvent(EventListener* listener, const AtomicString& type, bool lengthComputable, unsigned loaded, unsigned total);
-    void dispatchAbortEvent();
-    void dispatchErrorEvent();
-    void dispatchLoadEvent();
-    void dispatchLoadStartEvent();
-    void dispatchProgressEvent(long long expectedLength);
-
-    RefPtr<EventListener> m_onReadyStateChangeListener;
-    RefPtr<EventListener> m_onAbortListener;
-    RefPtr<EventListener> m_onErrorListener;
-    RefPtr<EventListener> m_onLoadListener;
-    RefPtr<EventListener> m_onLoadStartListener;
-    RefPtr<EventListener> m_onProgressListener;
-    EventListenersMap m_eventListeners;
 
     RefPtr<XMLHttpRequestUpload> m_upload;
 
@@ -223,16 +180,18 @@ private:
     bool m_uploadComplete;
 
     bool m_sameOriginRequest;
-    bool m_allowAccess;
-    bool m_inPreflight;
     bool m_didTellLoaderAboutRequest;
 
     // Used for onprogress tracking
     long long m_receivedLength;
-    
+
     unsigned m_lastSendLineNumber;
     String m_lastSendURL;
     ExceptionCode m_exceptionCode;
+
+    EventTargetData m_eventTargetData;
+
+    XMLHttpRequestProgressEventThrottle m_progressEventThrottle;
 };
 
 } // namespace WebCore

@@ -33,20 +33,16 @@
 #include "CallFrame.h"
 #include "JSGlobalObject.h"
 
-#if PLATFORM(DARWIN)
+#if OS(DARWIN)
 #include <mach/mach.h>
-#endif
-
-#if HAVE(SYS_TIME_H)
-#include <sys/time.h>
-#endif
-
-#if PLATFORM(WIN_OS)
+#elif OS(WINDOWS)
 #include <windows.h>
+#else
+#include "CurrentTime.h"
 #endif
 
-#if PLATFORM(QT)
-#include <QDateTime>
+#if PLATFORM(BREWMP)
+#include <AEEStdLib.h>
 #endif
 
 using namespace std;
@@ -62,7 +58,7 @@ static const int intervalBetweenChecks = 1000;
 // Returns the time the current thread has spent executing, in milliseconds.
 static inline unsigned getCPUTime()
 {
-#if PLATFORM(DARWIN)
+#if OS(DARWIN)
     mach_msg_type_number_t infoCount = THREAD_BASIC_INFO_COUNT;
     thread_basic_info_data_t info;
 
@@ -75,15 +71,7 @@ static inline unsigned getCPUTime()
     time += info.system_time.seconds * 1000 + info.system_time.microseconds / 1000;
     
     return time;
-#elif HAVE(SYS_TIME_H)
-    // FIXME: This should probably use getrusage with the RUSAGE_THREAD flag.
-    struct timeval tv;
-    gettimeofday(&tv, 0);
-    return tv.tv_sec * 1000 + tv.tv_usec / 1000;
-#elif PLATFORM(QT)
-    QDateTime t = QDateTime::currentDateTime();
-    return t.toTime_t() * 1000 + t.time().msec();
-#elif PLATFORM(WIN_OS)
+#elif OS(WINDOWS)
     union {
         FILETIME fileTime;
         unsigned long long fileTimeAsLong;
@@ -96,8 +84,21 @@ static inline unsigned getCPUTime()
     GetThreadTimes(GetCurrentThread(), &creationTime, &exitTime, &kernelTime.fileTime, &userTime.fileTime);
     
     return userTime.fileTimeAsLong / 10000 + kernelTime.fileTimeAsLong / 10000;
+#elif OS(SYMBIAN)
+    RThread current;
+    TTimeIntervalMicroSeconds cpuTime;
+
+    TInt err = current.GetCpuTime(cpuTime);
+    ASSERT_WITH_MESSAGE(err == KErrNone, "GetCpuTime failed with %d", err);
+    return cpuTime.Int64() / 1000;
+#elif PLATFORM(BREWMP)
+    // This function returns a continuously and linearly increasing millisecond
+    // timer from the time the device was powered on.
+    // There is only one thread in BREW, so this is enough.
+    return GETUPTIMEMS();
 #else
-#error Platform does not have getCurrentTime function
+    // FIXME: We should return the time the current thread has spent executing.
+    return currentTime() * 1000;
 #endif
 }
 

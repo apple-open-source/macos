@@ -2,8 +2,6 @@
     Copyright (C) 2004, 2005, 2007, 2008 Nikolas Zimmermann <zimmermann@kde.org>
                   2004, 2005, 2006, 2007 Rob Buis <buis@kde.org>
 
-    This file is part of the KDE project
-
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Library General Public
     License as published by the Free Software Foundation; either
@@ -35,7 +33,7 @@ namespace WebCore {
 
 SVGStopElement::SVGStopElement(const QualifiedName& tagName, Document* doc)
     : SVGStyledElement(tagName, doc)
-    , m_offset(this, SVGNames::offsetAttr, 0.0f)
+    , m_offset(0.0f)
 {
 }
 
@@ -51,15 +49,30 @@ void SVGStopElement::parseMappedAttribute(MappedAttribute* attr)
             setOffsetBaseValue(value.left(value.length() - 1).toFloat() / 100.0f);
         else
             setOffsetBaseValue(value.toFloat());
-
-        setNeedsStyleRecalc();
     } else
         SVGStyledElement::parseMappedAttribute(attr);
+}
+
+void SVGStopElement::synchronizeProperty(const QualifiedName& attrName)
+{
+    SVGStyledElement::synchronizeProperty(attrName);
+
+    if (attrName == anyQName() || attrName == SVGNames::offsetAttr)
+        synchronizeOffset();
 }
 
 RenderObject* SVGStopElement::createRenderer(RenderArena* arena, RenderStyle*)
 {
     return new (arena) RenderSVGGradientStop(this);
+}
+
+Color SVGStopElement::stopColorIncludingOpacity() const
+{
+    ASSERT(renderer());
+    ASSERT(renderer()->style());
+
+    const SVGRenderStyle* svgStyle = renderer()->style()->svgStyle();
+    return colorWithOverrideAlpha(svgStyle->stopColor().rgb(), svgStyle->stopOpacity());
 }
 
 }

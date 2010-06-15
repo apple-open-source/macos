@@ -44,8 +44,8 @@
 #define methodDebug() qDebug() << "PasteboardQt: " << __FUNCTION__;
 
 namespace WebCore {
-    
-Pasteboard::Pasteboard() 
+
+Pasteboard::Pasteboard()
     : m_selectionMode(false)
 {
 }
@@ -58,7 +58,7 @@ Pasteboard* Pasteboard::generalPasteboard()
     return pasteboard;
 }
 
-void Pasteboard::writeSelection(Range* selectedRange, bool, Frame* frame)
+void Pasteboard::writeSelection(Range* selectedRange, bool canSmartCopyOrDelete, Frame* frame)
 {
     QMimeData* md = new QMimeData;
     QString text = frame->selectedText();
@@ -71,20 +71,24 @@ void Pasteboard::writeSelection(Range* selectedRange, bool, Frame* frame)
     md->setHtml(html);
 
 #ifndef QT_NO_CLIPBOARD
-    QApplication::clipboard()->setMimeData(md, m_selectionMode ? 
+    QApplication::clipboard()->setMimeData(md, m_selectionMode ?
             QClipboard::Selection : QClipboard::Clipboard);
 #endif
+    if (canSmartCopyOrDelete)
+        md->setData("application/vnd.qtwebkit.smartpaste", QByteArray());
 }
 
 bool Pasteboard::canSmartReplace()
 {
+    if (QApplication::clipboard()->mimeData()->hasFormat((QLatin1String("application/vnd.qtwebkit.smartpaste"))))
+        return true;
     return false;
 }
 
 String Pasteboard::plainText(Frame*)
 {
 #ifndef QT_NO_CLIPBOARD
-    return QApplication::clipboard()->text(m_selectionMode ? 
+    return QApplication::clipboard()->text(m_selectionMode ?
             QClipboard::Selection : QClipboard::Clipboard);
 #else
     return String();
@@ -103,7 +107,7 @@ PassRefPtr<DocumentFragment> Pasteboard::documentFragment(Frame* frame, PassRefP
     if (mimeData->hasHtml()) {
         QString html = mimeData->html();
         if (!html.isEmpty()) {
-            RefPtr<DocumentFragment> fragment = createFragmentFromMarkup(frame->document(), html, "");
+            RefPtr<DocumentFragment> fragment = createFragmentFromMarkup(frame->document(), html, "", FragmentScriptingNotAllowed);
             if (fragment)
                 return fragment.release();
         }
@@ -117,6 +121,18 @@ PassRefPtr<DocumentFragment> Pasteboard::documentFragment(Frame* frame, PassRefP
     }
 #endif
     return 0;
+}
+
+void Pasteboard::writePlainText(const String& text)
+{
+#ifndef QT_NO_CLIPBOARD
+    QMimeData* md = new QMimeData;
+    QString qtext = text;
+    qtext.replace(QChar(0xa0), QLatin1Char(' '));
+    md->setText(qtext);
+    QApplication::clipboard()->setMimeData(md, m_selectionMode ?
+            QClipboard::Selection : QClipboard::Clipboard);
+#endif
 }
 
 void Pasteboard::writeURL(const KURL& _url, const String&, Frame*)
@@ -138,8 +154,9 @@ void Pasteboard::writeImage(Node* node, const KURL&, const String&)
     ASSERT(node && node->renderer() && node->renderer()->isImage());
 
 #ifndef QT_NO_CLIPBOARD
-    CachedImage* cachedImage = static_cast<RenderImage*>(node->renderer())->cachedImage();
-    ASSERT(cachedImage);
+    CachedImage* cachedImage = toRenderImage(node->renderer())->cachedImage();
+    if (!cachedImage || cachedImage->errorOccurred())
+        return;
 
     Image* image = cachedImage->image();
     ASSERT(image);

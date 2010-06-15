@@ -37,15 +37,20 @@ void AXObjectCache::attachWrapper(AccessibilityObject* obj)
     g_object_unref(atkObj);
 }
 
-void AXObjectCache::postPlatformNotification(AccessibilityObject*, const String&)
+void AXObjectCache::postPlatformNotification(AccessibilityObject* coreObject, AXNotification notification)
 {
-}
-    
-void AXObjectCache::handleFocusedUIElementChanged()
-{
+    if (notification == AXCheckedStateChanged) {
+        if (!coreObject->isCheckboxOrRadio())
+            return;
+        g_signal_emit_by_name(coreObject->wrapper(), "state-change", "checked", coreObject->isChecked());
+    } else if (notification == AXSelectedChildrenChanged) {
+        if (!coreObject->isListBox())
+            return;
+        g_signal_emit_by_name(coreObject->wrapper(), "selection-changed");
+    }
 }
 
-void AXObjectCache::handleFocusedUIElementChangedWithRenderers(RenderObject* oldFocusedRender, RenderObject* newFocusedRender)
+void AXObjectCache::handleFocusedUIElementChanged(RenderObject* oldFocusedRender, RenderObject* newFocusedRender)
 {
     RefPtr<AccessibilityObject> oldObject = getOrCreate(oldFocusedRender);
     if (oldObject) {

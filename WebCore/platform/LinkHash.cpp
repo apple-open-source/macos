@@ -81,7 +81,7 @@ static inline bool containsColonSlashSlash(const UChar* characters, unsigned len
 
 static inline void cleanPath(Vector<UChar, 512>& path)
 {
-    // FIXME: Shold not do this in the query or anchor part.
+    // FIXME: Should not do this in the query or anchor part.
     int pos;
     while ((pos = findSlashDotDotSlash(path.data(), path.size())) != -1) {
         int prev = reverseFind(path.data(), path.size(), '/', pos - 1);
@@ -92,7 +92,7 @@ static inline void cleanPath(Vector<UChar, 512>& path)
             path.remove(prev, pos - prev + 3);
     }
 
-    // FIXME: Shold not do this in the query part.
+    // FIXME: Should not do this in the query part.
     // Set refPos to -2 to mean "I haven't looked for the anchor yet".
     // We don't want to waste a function call on the search for the the anchor
     // in the vast majority of cases where there is no "//" in the path.
@@ -110,7 +110,7 @@ static inline void cleanPath(Vector<UChar, 512>& path)
             pos += 2;
     }
 
-    // FIXME: Shold not do this in the query or anchor part.
+    // FIXME: Should not do this in the query or anchor part.
     while ((pos = findSlashDotSlash(path.data(), path.size())) != -1)
         path.remove(pos, 2);
 }
@@ -147,17 +147,23 @@ static inline bool needsTrailingSlash(const UChar* characters, unsigned length)
     return pos == length;
 }
 
-LinkHash visitedLinkHash(const UChar* url, unsigned length)
+static ALWAYS_INLINE LinkHash visitedLinkHashInline(const UChar* url, unsigned length)
 {
-  return AlreadyHashed::avoidDeletedValue(StringImpl::computeHash(url, length));
+    return AlreadyHashed::avoidDeletedValue(StringImpl::computeHash(url, length));
 }
 
-void visitedURL(const KURL& base, const AtomicString& attributeURL, Vector<UChar, 512>& buffer)
+LinkHash visitedLinkHash(const UChar* url, unsigned length)
 {
+    return visitedLinkHashInline(url, length);
+}
+
+static ALWAYS_INLINE void visitedURLInline(const KURL& base, const AtomicString& attributeURL, Vector<UChar, 512>& buffer)
+{
+    if (attributeURL.isNull())
+        return;
+
     const UChar* characters = attributeURL.characters();
     unsigned length = attributeURL.length();
-    if (!length)
-        return;
 
     // This is a poor man's completeURL. Faster with less memory allocation.
     // FIXME: It's missing a lot of what completeURL does and a lot of what KURL does.
@@ -186,16 +192,20 @@ void visitedURL(const KURL& base, const AtomicString& attributeURL, Vector<UChar
         return;
     }
 
-    switch (characters[0]) {
-        case '/':
-            buffer.append(base.string().characters(), base.pathStart());
-            break;
-        case '#':
-            buffer.append(base.string().characters(), base.pathEnd());
-            break;
-        default:
-            buffer.append(base.string().characters(), base.pathAfterLastSlash());
-            break;
+    if (!length)
+        buffer.append(base.string().characters(), base.string().length());
+    else {
+        switch (characters[0]) {
+            case '/':
+                buffer.append(base.string().characters(), base.pathStart());
+                break;
+            case '#':
+                buffer.append(base.string().characters(), base.pathEnd());
+                break;
+            default:
+                buffer.append(base.string().characters(), base.pathAfterLastSlash());
+                break;
+        }
     }
     buffer.append(characters, length);
     cleanPath(buffer);
@@ -208,14 +218,19 @@ void visitedURL(const KURL& base, const AtomicString& attributeURL, Vector<UChar
     return;
 }
 
+void visitedURL(const KURL& base, const AtomicString& attributeURL, Vector<UChar, 512>& buffer)
+{
+    return visitedURLInline(base, attributeURL, buffer);
+}
+
 LinkHash visitedLinkHash(const KURL& base, const AtomicString& attributeURL)
 {
     Vector<UChar, 512> url;
-    visitedURL(base, attributeURL, url);
+    visitedURLInline(base, attributeURL, url);
     if (url.isEmpty())
         return 0;
 
-    return visitedLinkHash(url.data(), url.size());
+    return visitedLinkHashInline(url.data(), url.size());
 }
 
 }  // namespace WebCore

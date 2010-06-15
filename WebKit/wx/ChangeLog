@@ -1,3 +1,989 @@
+2010-05-03  Kevin Watters  <kevinwatters@gmail.com>
+
+        Reviewed by Kevin Ollivier.
+
+        Build and use Mac's ComplexTextController to support complex text in wx.
+        https://bugs.webkit.org/show_bug.cgi?id=38482
+
+        * WebView.cpp:
+        (wxWebView::Create):
+        * wscript:
+
+2010-05-03  Kevin Watters  <kevinwatters@gmail.com>
+
+        Reviewed by Kevin Ollivier.
+
+        Provide access to GrantUniversalAccess to allow enabling of XSS support.
+        https://bugs.webkit.org/show_bug.cgi?id=38481
+
+        * WebFrame.cpp:
+        (wxWebFrame::GrantUniversalAccess):
+        * WebFrame.h:
+        * WebView.cpp:
+        (wxWebView::GetParseMode):
+        (wxWebView::GrantUniversalAccess):
+        * WebView.h:
+
+2010-05-03  Jens Alfke  <snej@chromium.org>
+
+        Reviewed by Darin Fisher.
+
+        [chromium] Add "willSendSubmitEvent" hook to WebFrameClient and FrameLoaderClient
+        https://bugs.webkit.org/show_bug.cgi?id=38397
+
+        No tests (functionality is exposed only through native WebKit API.)
+
+        * WebKitSupport/FrameLoaderClientWx.h:
+        (WebCore::FrameLoaderClientWx::dispatchWillSendSubmitEvent):
+
+2010-04-25  Sam Weinig  <sam@webkit.org>
+
+        Reviewed by Maciej Stachowiak.
+
+        Fix for https://bugs.webkit.org/show_bug.cgi?id=38097
+        Disentangle initializing the main thread from initializing threading
+
+        * WebView.cpp:
+        (wxWebView::Create): Add call to initializeMainThread.
+
+2010-04-25  Kevin Watters  <kevinwatters@gmail.com>
+
+        Reviewed by Kevin Ollivier.
+
+        Update focus handling code to match current approaches used by other platforms,
+        and fix focus handling for corner cases such as when a mouse down pops up a dialog.
+        
+        https://bugs.webkit.org/show_bug.cgi?id=38086
+
+        * WebView.cpp:
+        (wxWebView::Create):
+        (wxWebView::OnTLWActivated):
+        (wxWebView::OnPaint):
+        (wxWebView::OnMouseEvents):
+        (wxWebView::OnSetFocus):
+        (wxWebView::OnKillFocus):
+        * WebView.h:
+
+2010-04-20  Adam Barth  <abarth@webkit.org>
+
+        Reviewed by Eric Seidel.
+
+        Factor DocumentWriter out of FrameLoader
+        https://bugs.webkit.org/show_bug.cgi?id=37175
+
+        Update these callsites because the method moved to DocumentWriter.
+
+        * WebKitSupport/FrameLoaderClientWx.cpp:
+        (WebCore::FrameLoaderClientWx::committedLoad):
+
+2010-04-20  Kent Tamura  <tkent@chromium.org>
+
+        Reviewed by Darin Adler.
+
+        Change a parameter type of chooseIconForFiles()
+        https://bugs.webkit.org/show_bug.cgi?id=37504
+
+        * WebKitSupport/ChromeClientWx.cpp:
+        (WebCore::ChromeClientWx::chooseIconForFiles):
+        * WebKitSupport/ChromeClientWx.h:
+
+2010-04-19  Kevin Ollivier  <kevino@theolliviers.com>
+
+        Build fix, add stub for new FrameLoaderClient method.
+
+        * WebKitSupport/FrameLoaderClientWx.cpp:
+        (WebCore::FrameLoaderClientWx::dispatchDidChangeIcons):
+        * WebKitSupport/FrameLoaderClientWx.h:
+
+2010-04-11  Sheriff Bot  <webkit.review.bot@gmail.com>
+
+        Unreviewed, rolling out r57468.
+        http://trac.webkit.org/changeset/57468
+        https://bugs.webkit.org/show_bug.cgi?id=37433
+
+        Broke the world...  Must have applied the patch wrong
+        (Requested by abarth on #webkit).
+
+        * WebKitSupport/FrameLoaderClientWx.cpp:
+        (WebCore::FrameLoaderClientWx::committedLoad):
+
+2010-04-11  Adam Barth  <abarth@webkit.org>
+
+        Reviewed by Eric Seidel.
+
+        Factor DocumentWriter out of FrameLoader
+        https://bugs.webkit.org/show_bug.cgi?id=37175
+
+        Update these callsites because the method moved to DocumentWriter.
+
+        * WebKitSupport/FrameLoaderClientWx.cpp:
+        (WebCore::FrameLoaderClientWx::committedLoad):
+
+2010-04-07  Andrey Kosyakov  <caseq@chromium.org>
+
+        Reviewed by Yury Semikhatsky.
+
+        Removed redundant FrameLoaderClient::dispatchDidLoadResourceByXMLHttpRequest()
+        https://bugs.webkit.org/show_bug.cgi?id=36949
+
+        * WebKitSupport/FrameLoaderClientWx.cpp:
+        * WebKitSupport/FrameLoaderClientWx.h:
+
+2010-03-31  Marcus Bulach  <bulach@chromium.org>
+
+        Reviewed by Jeremy Orlow.
+
+        Adds Geolocation param for cancelGeolocationPermissionRequestForFrame.
+        https://bugs.webkit.org/show_bug.cgi?id=35031
+
+        * WebKitSupport/ChromeClientWx.h:
+        (WebCore::ChromeClientWx::cancelGeolocationPermissionRequestForFrame):
+
+2010-03-30  Gavin Barraclough  <barraclough@apple.com>
+
+        Rubber stamped by Sam Weinig.
+
+        https://bugs.webkit.org/show_bug.cgi?id=36866
+        Move CString to WTF
+
+        * WebFrame.cpp:
+        * WebView.cpp:
+
+2010-03-30  Kevin Ollivier  <kevino@theolliviers.com>
+
+        [wx] Build fix after method name change.
+
+        * WebFrame.cpp:
+        (wxWebFrame::RunScript):
+
+2010-03-28  Alexey Proskuryakov  <ap@apple.com>
+
+        Build fix. Include WindowsKeyboardCodes.h instead of KeyboardCodes.h.
+
+        * WebKitSupport/EditorClientWx.cpp:
+
+2010-03-24  Kent Tamura  <tkent@chromium.org>
+
+        Reviewed by Darin Adler.
+
+        Make Icon::createIconForFiles() optional.
+        https://bugs.webkit.org/show_bug.cgi?id=35072
+
+        - Rename iconForFiles() to chooseIconForFiles().
+        - Call Icon::createIconForFiles() from chooseIconForFiles().
+
+        * WebKitSupport/ChromeClientWx.cpp:
+        (WebCore::ChromeClientWx::chooseIconForFiles):
+        * WebKitSupport/ChromeClientWx.h:
+
+2010-03-20  Kevin Ollivier  <kevino@theolliviers.com>
+
+        [wx] Build fixes after recent changes, including move of setDatabasesEnabled from Settings.
+
+        * WebFrame.cpp:
+        (wxWebFrame::RunScript):
+        * WebKitSupport/InspectorClientWx.cpp:
+        (WebCore::InspectorClientWx::openInspectorFrontend):
+        * WebSettings.cpp:
+        * WebSettings.h:
+        * WebView.cpp:
+        (wxWebView::Create):
+        (wxWebView::SetDatabasesEnabled):
+        (wxWebView::AreDatabasesEnabled):
+        * WebView.h:
+
+2010-03-16  Yury Semikhatsky <yurys@chromium.org>
+
+        Reviewed by Pavel Feldman.
+
+        Introduce InspectorFrontendClient that provides InspectorFrontend with an interface to the embedder. InspectorClient now serves as a delegate for InspectorController and does not contain methods for managing inspector frontend window. That allows to create remote InspectorFrontendHost.
+
+        Introduce InspectorFrontendClient that would provide InspectorFrontend with an interface to the embedder
+        https://bugs.webkit.org/show_bug.cgi?id=35036
+
+        * WebKitSupport/InspectorClientWx.cpp:
+        * WebKitSupport/InspectorClientWx.h:
+
+2010-03-11  Anders Carlsson  <andersca@apple.com>
+
+        Reviewed by David Hyatt.
+
+        Remove invalidateContents, it isn't used and it never makes sense to only invalidate the contents.
+
+        * WebKitSupport/ChromeClientWx.cpp:
+        * WebKitSupport/ChromeClientWx.h:
+
+2010-03-02  Adam Treat  <atreat@rim.com>
+
+        Reviewed by Dave Hyatt.
+
+        Adapt the wx port to the refactoring of repaint methods.
+
+        https://bugs.webkit.org/show_bug.cgi?id=34214
+
+        * WebKitSupport/ChromeClientWx.cpp:
+        (WebCore::ChromeClientWx::invalidateContents):
+        (WebCore::ChromeClientWx::invalidateWindow):
+        (WebCore::ChromeClientWx::invalidateContentsForSlowScroll):
+        (WebCore::ChromeClientWx::invalidateContentsAndWindow):
+        * WebKitSupport/ChromeClientWx.h:
+
+2010-03-01  Jakob Petsovits  <jpetsovits@rim.com>
+
+        Reviewed by Adam Barth.
+
+        Adapt to the new ZoomMode enum.
+        https://bugs.webkit.org/show_bug.cgi?id=35347
+
+        * WebFrame.cpp:
+        (wxWebFrame::IncreaseTextSize):
+        (wxWebFrame::DecreaseTextSize):
+        (wxWebFrame::ResetTextSize):
+
+2010-02-23  Steve Block  <steveblock@google.com>
+
+        Reviewed by Darin Adler.
+
+        Adds ChromeClient::cancelGeolocationPermissionRequestForFrame
+        https://bugs.webkit.org/show_bug.cgi?id=34962
+
+        This method is required so that a Geolocation object can cancel an
+        asynchronous permission request. This allows the chrome client to cancel
+        any UI it is showing for the permission request.
+
+        * WebKitSupport/ChromeClientWx.h:
+        (WebCore::ChromeClientWx::cancelGeolocationPermissionRequestForFrame):
+
+2010-02-17  Dmitry Titov  <dimich@chromium.org>
+
+        Reviewed by David Levin, Darin Fisher, Simon Hausmann.
+
+        When a live iframe element is moved between pages, it still depends on the old page.
+        https://bugs.webkit.org/show_bug.cgi?id=34382
+
+        * WebKitSupport/FrameLoaderClientWx.cpp:
+        (WebCore::FrameLoaderClientWx::didTransferChildFrameToNewDocument):
+        Added empty implementation of a new virtual method.
+
+        * WebKitSupport/FrameLoaderClientWx.h:
+
+2010-02-17  Kent Tamura  <tkent@chromium.org>
+
+        Reviewed by Eric Seidel.
+
+        Introduces new Icon loading interface in order to support
+        asynchronous loading.
+        https://bugs.webkit.org/show_bug.cgi?id=32054
+
+        Add an empty implementation of ChromeClient::iconForFiles().
+
+        * WebKitSupport/ChromeClientWx.cpp:
+        (WebCore::ChromeClientWx::iconForFiles):
+        * WebKitSupport/ChromeClientWx.h:
+
+2010-02-04  Kevin Ollivier  <kevino@theolliviers.com>
+
+        Build fix after changes in r54345.
+
+        * WebView.cpp:
+        (wxWebView::OnKeyEvents):
+
+2010-02-04  Dan Bernstein  <mitz@apple.com>
+
+        Reviewed by Simon Fraser.
+
+        REGRESSION (r53718): When scrolling a tall window by page, the overlap between pages is too big
+        https://bugs.webkit.org/show_bug.cgi?id=34371
+
+        * WebView.cpp:
+        (wxWebView::OnKeyEvents): Use Scrollbar method instead of constant.
+
+2010-02-03  Kevin Watters  <kevinwatters@gmail.com>
+
+        Reviewed by Kevin Ollivier.
+
+        Add wxWebKitWindowFeatures and have createWindow send a notification for 
+        clients to handle.
+        
+        https://bugs.webkit.org/show_bug.cgi?id=34542
+
+        * WebKitSupport/ChromeClientWx.cpp:
+        (WebCore::wkFeaturesforWindowFeatures):
+        (WebCore::ChromeClientWx::createWindow):
+        * WebView.h:
+
+2010-01-27  Kevin Watters  <kevinwatters@gmail.com>
+
+        Reviewed by Kevin Ollivier.
+
+        Add a way to get the parse mode to wxWebKit API.
+        
+        https://bugs.webkit.org/show_bug.cgi?id=34341
+
+        * WebFrame.cpp:
+        (wxWebFrame::GetParseMode):
+        * WebFrame.h:
+        * WebView.cpp:
+        (wxWebView::GetParseMode):
+        * WebView.h:
+
+2010-01-22  Kevin Watters  <kevinwatters@gmail.com>
+
+        Reviewed by Kevin Ollivier.
+
+        [wx] Remove the Bakefile build system, which is no longer being used.
+        
+        https://bugs.webkit.org/show_bug.cgi?id=34022
+
+        * bindings/python/wxwebkit-py.bkl: Removed.
+        * dependencies.bkl: Removed.
+        * presets/wxwebkit.bkl: Removed.
+        * wxwebkit.bkl: Removed.
+        * wxwk-settings.bkl: Removed.
+
+2010-01-22  Kevin Ollivier  <kevino@theolliviers.com>
+
+        Build fix after r53718.
+
+        * WebView.cpp:
+        (wxWebView::OnKeyEvents):
+
+2010-01-15  Kevin Ollivier  <kevino@theolliviers.com>
+
+        Reviewed by Alexey Proskuryakov.
+
+        Move the code adding the child frame to the FrameTree into wxWebFrame constructor
+        so that it happens before we call init() on the new frame. Fixes asserts checking
+        frame count consistency.
+
+        * WebFrame.cpp:
+        (wxWebFrame::wxWebFrame):
+        * WebKitSupport/FrameLoaderClientWx.cpp:
+        (WebCore::FrameLoaderClientWx::createFrame):
+
+2010-01-14  Kevin Ollivier  <kevino@theolliviers.com>
+
+        [wx] Build fix, missing header.
+
+        * WebView.cpp:
+
+2010-01-09  Adam Barth  <abarth@webkit.org>
+
+        Reviewed by Darin Adler.
+
+        ScriptController::isEnabled needs to be renamed
+        https://bugs.webkit.org/show_bug.cgi?id=32063
+
+        Rename ScriptController::isEnabled to
+        ScriptController::canExecuteScripts.
+
+        * WebFrame.cpp:
+        (wxWebFrame::RunScript):
+
+2009-12-30  Kevin Watters  <kevinwatters@gmail.com>
+
+        Reviewed by Kevin Ollivier.
+
+        Introduce wxWebSettings API interface for editing wxWebView / page settings.
+        
+        https://bugs.webkit.org/show_bug.cgi?id=32956
+
+        * WebBrowserShell.h:
+        * WebFrame.h:
+        * WebKitDefines.h: Added.
+        * WebSettings.cpp: Added.
+        (wxWebSettings::SetDefaultFixedFontSize):
+        (wxWebSettings::GetDefaultFixedFontSize):
+        (wxWebSettings::SetDefaultFontSize):
+        (wxWebSettings::GetDefaultFontSize):
+        (wxWebSettings::SetMinimumFontSize):
+        (wxWebSettings::GetMinimumFontSize):
+        (wxWebSettings::SetLoadsImagesAutomatically):
+        (wxWebSettings::LoadsImagesAutomatically):
+        (wxWebSettings::SetJavaScriptEnabled):
+        (wxWebSettings::IsJavaScriptEnabled):
+        (wxWebSettings::SetDatabasesEnabled):
+        (wxWebSettings::AreDatabasesEnabled):
+        (wxWebSettings::SetLocalStoragePath):
+        (wxWebSettings::GetLocalStoragePath):
+        (wxWebSettings::SetEditableLinkBehavior):
+        (wxWebSettings::GetEditableLinkBehavior):
+        (wxWebSettings::SetPluginsEnabled):
+        (wxWebSettings::ArePluginsEnabled):
+        * WebSettings.h: Added.
+        * WebView.cpp:
+        (wxWebView::Create):
+        (wxWebView::GetWebSettings):
+        * WebView.h:
+        * bindings/python/webview.i:
+
+2009-12-28  Patrick Gansterer  <paroga@paroga.com>
+
+        Reviewed by Maciej Stachowiak.
+
+        Use JS_NO_EXPORT for JSBase.h.
+
+        * wxwk-settings.bkl:
+
+2009-12-20  Kevin Ollivier  <kevino@theolliviers.com>
+
+        [wx] build fixes after recent changes.
+
+        * WebFrame.cpp: Added missing header.
+        * WebKitSupport/EditorClientWx.cpp: Added missing header.
+        * WebView.cpp: Updated Page constructor call.
+        (wxWebView::Create):
+
+2009-12-08  Kevin Watters  <kevinwatters@gmail.com>
+
+        Reviewed by Kevin Ollivier.
+
+        [wx] Mac plugins support.
+        
+        https://bugs.webkit.org/show_bug.cgi?id=32236
+
+        * WebKitSupport/FrameLoaderClientWx.cpp:
+        (WebCore::FrameLoaderClientWx::createPlugin):
+        (WebCore::FrameLoaderClientWx::redirectDataToPlugin):
+        * WebView.cpp:
+        (wxWebView::Create):
+
+2009-12-03  Brady Eidson  <beidson@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        <rdar://problem/7214236> and http://webkit.org/b/32052 - Implement HTML5 state object history API
+
+        * WebKitSupport/FrameLoaderClientWx.cpp:
+        (WebCore::FrameLoaderClientWx::dispatchDidPushStateWithinPage):
+        (WebCore::FrameLoaderClientWx::dispatchDidReplaceStateWithinPage):
+        (WebCore::FrameLoaderClientWx::dispatchDidPopStateWithinPage):
+        * WebKitSupport/FrameLoaderClientWx.h:
+
+2009-12-03  Pavel Feldman  <pfeldman@dhcp-172-28-174-220.spb.corp.google.com>
+
+        Reviewed by Timothy Hatcher.
+
+        Web Inspector: Simplify the settings support in inspector controller.
+
+        https://bugs.webkit.org/show_bug.cgi?id=32076
+
+        * WebKitSupport/InspectorClientWx.cpp:
+        (WebCore::InspectorClientWx::populateSetting):
+        (WebCore::InspectorClientWx::storeSetting):
+        * WebKitSupport/InspectorClientWx.h:
+
+2009-12-03  Ben Murdoch  <benm@google.com>
+
+        Reviewed by Brady Eidson.
+
+        [Android] The FrameLoaderClient is unaware of BackForwardList changes.
+        https://bugs.webkit.org/show_bug.cgi?id=31914
+
+        * WebKitSupport/FrameLoaderClientWx.cpp:
+        (WebCore::FrameLoaderClientWx::dispatchDidAddBackForwardItem): Add an empty implementation. Method added to FrameLoaderClient by Android (see bug).
+        (WebCore::FrameLoaderClientWx::dispatchDidRemoveBackForwardItem): ditto.
+        (WebCore::FrameLoaderClientWx::dispatchDidChangeBackForwardIndex): ditto.
+        * WebKitSupport/FrameLoaderClientWx.h:
+
+2009-11-23  Laszlo Gombos  <laszlo.1.gombos@nokia.com>
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        Include "config.h" to meet Coding Style Guidelines
+        https://bugs.webkit.org/show_bug.cgi?id=31792
+
+        * WebKitSupport/DragClientWx.cpp:
+
+2009-11-18  Kevin Watters  <kevinwatters@gmail.com>
+
+        Reviewed by Kevin Ollivier.
+
+        Enable wx plugin support using the Windows implementation as a base.
+        
+        https://bugs.webkit.org/show_bug.cgi?id=31636
+
+        * WebKitSupport/FrameLoaderClientWx.cpp:
+        (WebCore::FrameLoaderClientWx::FrameLoaderClientWx):
+        (WebCore::FrameLoaderClientWx::finishedLoading):
+        (WebCore::FrameLoaderClientWx::committedLoad):
+        (WebCore::FrameLoaderClientWx::createPlugin):
+        (WebCore::FrameLoaderClientWx::redirectDataToPlugin):
+        (WebCore::FrameLoaderClientWx::shouldUsePluginDocument):
+        * WebKitSupport/FrameLoaderClientWx.h:
+        * WebView.cpp:
+        (wxWebView::Create):
+
+2009-11-13  Kevin Ollivier  <kevino@theolliviers.com>
+
+        wx build fix after r50923 change to externalRepresentation.
+
+        * WebFrame.cpp:
+        (wxWebFrame::GetExternalRepresentation):
+
+2009-11-13  Adam Roben  <aroben@apple.com>
+
+        Update for changes to FrameLoaderClient
+
+        Fixes <http://webkit.org/b/31124> Tell the WebFrameLoadDelegate when
+        window objects in isolated worlds are cleared
+
+        Reviewed by Dave Hyatt.
+
+        * WebKitSupport/FrameLoaderClientWx.cpp:
+        (WebCore::FrameLoaderClientWx::dispatchDidClearWindowObjectInWorld):
+        * WebKitSupport/FrameLoaderClientWx.h:
+        Replaced windowObjectCleared with this function. Does nothing if the
+        passed-in world is not the mainThreadNormalWorld().
+
+2009-11-10  Robin Dunn  <robin@alldunn.com>
+
+        Reviewed by Kevin Ollivier.
+
+        Add sanity checks to RunScript to ensure it doesn't run when the document hasn't yet
+        loaded nor when JavaScript is disabled.
+        
+        https://bugs.webkit.org/show_bug.cgi?id=31309
+
+        * WebFrame.cpp:
+        (wxWebFrame::RunScript):
+
+2009-11-04  Kevin Watters  <kevinwatters@gmail.com>
+
+        Reviewed by Kevin Ollivier.
+
+        Fix an assert on shutdown when wxWebView has captured the mouse,
+        and make sure wxWebView's right click handling is only active when 
+        the WebCore popup menu is used.
+        
+        https://bugs.webkit.org/show_bug.cgi?id=31131
+
+        * WebView.cpp:
+        (wxWebView::~wxWebView):
+        (wxWebView::OnContextMenuEvents):
+        (wxWebView::OnMenuSelectEvents):
+
+2009-11-04  Vadim Zeitlin  <vadim@wxwidgets.org>
+
+        Reviewed by Eric Seidel.
+
+        [wx] Small cleanup: avoid unnecessary wxString::mb_str() calls.
+
+        * WebFrame.cpp:
+        (wxWebFrame::SetPageSource):
+        (wxWebFrame::LoadURL):
+
+2009-10-30  Evan Stade  <estade@chromium.org>
+
+        Reviewed by David Levin.
+
+        Notify the chrome when the focused node has changed.
+        https://bugs.webkit.org/show_bug.cgi?id=30832
+
+        Added stub implementation for new ChromeClient function.
+
+        * WebKitSupport/ChromeClientWx.cpp:
+        (WebCore::ChromeClientWx::focusedNodeChanged):
+        * WebKitSupport/ChromeClientWx.h:
+
+2009-10-23  Kevin Ollivier  <kevino@theolliviers.com>
+
+        wx build fix. Update the globalObject calls after changes.
+
+        * WebFrame.cpp:
+        (wxWebFrame::RunScript):
+        * WebKitSupport/FrameLoaderClientWx.cpp:
+        (WebCore::FrameLoaderClientWx::windowObjectCleared):
+
+2009-10-21  Pedro Romano  <pmcnr72@gmail.com>
+
+        Reviewed by Kevin Ollivier.
+
+        Include 'WebFrame.h' declared classes in wxPython bindings.
+        
+        https://bugs.webkit.org/show_bug.cgi?id=30504
+
+        * bindings/python/webview.i:
+
+2009-10-18  Kevin Watters  <kevinwatters@gmail.com>
+
+        Reviewed by Kevin Ollivier.
+
+        Add the ability to specify a proxy for wxWebKit.
+        
+        https://bugs.webkit.org/show_bug.cgi?id=30446
+
+        * WebView.cpp:
+        (curlProxyType):
+        (wxWebView::SetProxyInfo):
+        * WebView.h:
+
+2009-10-18  Kevin Watters  <kevinwatters@gmail.com>
+
+        Reviewed by Kevin Ollivier.
+
+        Add basic database support to wx API
+        
+        https://bugs.webkit.org/show_bug.cgi?id=30445
+
+        * WebKitSupport/ChromeClientWx.cpp:
+        (WebCore::ChromeClientWx::exceededDatabaseQuota):
+        * WebView.cpp:
+        (wxWebView::Create):
+        (wxWebView::SetDatabaseDirectory):
+        (wxWebView::GetDatabaseDirectory):
+        * WebView.h:
+
+2009-10-16  Kevin Watters  <kevinwatters@gmail.com>
+
+        Reviewed by Kevin Ollivier.
+
+        Optionally allow the user to zoom text using the mouse wheel.
+        
+        https://bugs.webkit.org/show_bug.cgi?id=30444
+
+        * WebView.cpp:
+        (wxWebView::wxWebView):
+        (wxWebView::OnMouseEvents):
+        * WebView.h:
+
+2009-10-16  Kevin Ollivier  <kevino@theolliviers.com>
+
+        wxMSW non-precomp headers build fix.
+
+        * WebView.cpp:
+
+2009-10-15  Robin Dunn  <robin@alldunn.com>
+
+        Reviewed by Kevin Ollivier.
+
+        Update the wxPython simple.py sample to match current wxWebKit API.
+        
+        https://bugs.webkit.org/show_bug.cgi?id=30406
+
+        * bindings/python/samples/simple.py:
+
+2009-10-08  Adam Barth  <abarth@webkit.org>
+
+        Reviewed by Eric Seidel.
+
+        Move executeScript from FrameLoader to ScriptController
+        https://bugs.webkit.org/show_bug.cgi?id=30200
+
+        Update API call.
+
+        * WebFrame.cpp:
+        (wxWebFrame::RunScript):
+
+2009-10-07  Adam Barth  <abarth@webkit.org>
+
+        Reviewed by Darin Adler.
+
+        Factor PolicyChecker out of FrameLoader
+        https://bugs.webkit.org/show_bug.cgi?id=30155
+
+        Move the policy callback to the policy object.
+
+        * WebKitSupport/FrameLoaderClientWx.cpp:
+        (WebCore::FrameLoaderClientWx::dispatchWillSubmitForm):
+        (WebCore::FrameLoaderClientWx::dispatchDecidePolicyForMIMEType):
+        (WebCore::FrameLoaderClientWx::dispatchDecidePolicyForNewWindowAction):
+        (WebCore::FrameLoaderClientWx::dispatchDecidePolicyForNavigationAction):
+
+2009-09-25  Kevin Ollivier  <kevino@theolliviers.com>
+
+        wx build fix. Add EmptyPluginHalterClient when creating the Page.
+
+        * WebView.cpp:
+        (wxWebView::Create):
+
+2009-09-22  Kevin Ollivier  <kevino@theolliviers.com>
+
+        Build fix to ensure the import library gets properly installed on Windows.
+
+        * wscript:
+
+2009-09-17  Kenneth Rohde Christiansen  <kenneth@webkit.org>
+
+        Reviewed by Simon Hausmann.
+
+        Make PlatformWindow return something else than PlatformWidget
+        https://bugs.webkit.org/show_bug.cgi?id=29085
+
+        Reflect the rename of platformWindow and it's return type.
+
+        * WebKitSupport/ChromeClientWx.cpp:
+        (WebCore::ChromeClientWx::platformPageClient):
+        * WebKitSupport/ChromeClientWx.h:
+        * WebKitSupport/EditorClientWx.cpp:
+        (WebCore::EditorClientWx::isEditable):
+        (WebCore::EditorClientWx::registerCommandForUndo):
+        (WebCore::EditorClientWx::registerCommandForRedo):
+        (WebCore::EditorClientWx::clearUndoRedoOperations):
+        (WebCore::EditorClientWx::canUndo):
+        (WebCore::EditorClientWx::canRedo):
+        (WebCore::EditorClientWx::undo):
+        (WebCore::EditorClientWx::redo):
+
+2009-09-16  Kevin Ollivier  <kevino@theolliviers.com>
+
+        wxPython bindings build fixes after recent changes.
+
+        * WebView.h:
+        * bindings/python/wscript:
+
+2009-09-13  Kevin Watters  <kevinwatters@gmail.com>
+
+        Reviewed by Kevin Ollivier.
+
+        Allow a way to set the cache policy via wx API.
+        
+        https://bugs.webkit.org/show_bug.cgi?id=29200
+
+        * WebView.cpp:
+        (wxWebView::SetCachePolicy):
+        (wxWebView::GetCachePolicy):
+        * WebView.h:
+
+2009-09-13  Kevin Watters  <kevinwatters@gmail.com>
+
+        Reviewed by Kevin Ollivier.
+
+        Allow the user to query Frame::shouldClose via wx API.
+        
+        https://bugs.webkit.org/show_bug.cgi?id=29199
+
+        * WebFrame.cpp:
+        (wxWebFrame::ShouldClose):
+        * WebFrame.h:
+        * WebView.cpp:
+        (wxWebView::ShouldClose):
+        * WebView.h:
+
+2009-09-13  Kevin Watters  <kevinwatters@gmail.com>
+
+        Reviewed by Kevin Ollivier.
+
+        Fix mouse handling when the mouse leaves the window during mouse down.
+        
+        https://bugs.webkit.org/show_bug.cgi?id=29198
+
+        * WebView.cpp:
+        (wxWebView::OnMouseEvents):
+
+2009-09-13  Kevin Watters  <kevinwatters@gmail.com>
+
+        Reviewed by Kevin Ollivier.
+
+        Add support for console MessageLevel at wx API level.
+        
+        https://bugs.webkit.org/show_bug.cgi?id=29197
+
+        * WebKitSupport/ChromeClientWx.cpp:
+        (WebCore::ChromeClientWx::addMessageToConsole):
+        * WebView.h:
+
+2009-09-03  Adam Barth  <abarth@webkit.org>
+
+        Reviewed by eric@webkit.org.
+
+        https://bugs.webkit.org/show_bug.cgi?id=24696
+
+        Stub implementations of mixed content methods of FrameLoaderClient. 
+
+        * WebKitSupport/FrameLoaderClientWx.cpp:
+        (WebCore::FrameLoaderClientWx::didDisplayInsecureContent):
+        (WebCore::FrameLoaderClientWx::didRunInsecureContent):
+        * WebKitSupport/FrameLoaderClientWx.h:
+
+2009-09-03  Kevin Watters  <kevinwatters@gmail.com>
+
+        Reviewed by Kevin Ollivier.
+
+        [wx] Frames support
+        https://bugs.webkit.org/show_bug.cgi?id=19041
+
+        * WebFrame.cpp:
+        (wxWebFrame::wxWebFrame):
+        (wxWebFrame::~wxWebFrame):
+        (wxWebFrame::GetFrame):
+        * WebFrame.h:
+        * WebFramePrivate.h:
+        * WebKitSupport/ChromeClientWx.cpp:
+        (WebCore::ChromeClientWx::platformWindow):
+        (WebCore::ChromeClientWx::scroll):
+        * WebKitSupport/EditorClientWx.cpp:
+        (WebCore::EditorClientWx::isEditable):
+        (WebCore::EditorClientWx::registerCommandForUndo):
+        (WebCore::EditorClientWx::registerCommandForRedo):
+        (WebCore::EditorClientWx::clearUndoRedoOperations):
+        (WebCore::EditorClientWx::canUndo):
+        (WebCore::EditorClientWx::canRedo):
+        (WebCore::EditorClientWx::undo):
+        (WebCore::EditorClientWx::redo):
+        * WebKitSupport/FrameLoaderClientWx.cpp:
+        (WebCore::FrameLoaderClientWx::FrameLoaderClientWx):
+        (WebCore::FrameLoaderClientWx::setFrame):
+        (WebCore::FrameLoaderClientWx::dispatchWillSubmitForm):
+        (WebCore::FrameLoaderClientWx::frameLoaderDestroyed):
+        (WebCore::FrameLoaderClientWx::committedLoad):
+        (WebCore::FrameLoaderClientWx::dispatchDecidePolicyForMIMEType):
+        (WebCore::FrameLoaderClientWx::dispatchDecidePolicyForNewWindowAction):
+        (WebCore::FrameLoaderClientWx::dispatchDecidePolicyForNavigationAction):
+        (WebCore::FrameLoaderClientWx::createFrame):
+        (WebCore::FrameLoaderClientWx::transitionToCommittedForNewPage):
+        * WebKitSupport/FrameLoaderClientWx.h:
+        * WebView.h:
+        * WebViewPrivate.h:
+
+2009-09-02  Kevin Ollivier  <kevino@theolliviers.com>
+
+        waf build fixes for Windows/MSVC.
+
+        * bindings/python/wscript:
+        * wscript:
+
+2009-09-02  Kevin Watters  <kevinwatters@gmail.com>
+
+        Reviewed by Kevin Ollivier.
+
+        wx port: Call WTF::initializeThreading().
+        https://bugs.webkit.org/show_bug.cgi?id=28912
+
+        * WebView.cpp:
+        (wxWebView::Create): call WTF::initializeThreading()
+
+2009-09-02  Kevin Ollivier  <kevino@theolliviers.com>
+
+        wx build fix. Use the 2 param KURL constructor.
+
+        * WebFrame.cpp:
+        (wxWebFrame::SetPageSource):
+
+2009-08-31  Alexey Proskuryakov  <ap@webkit.org>
+
+        Reviewed by Darin Adler.
+
+        https://bugs.webkit.org/show_bug.cgi?id=28852
+        Rename KURL single argument constructor to avoid confusion
+
+        * WebFrame.cpp: (wxWebFrame::SetPageSource): Adapt to the change.
+
+2009-08-28  Gustavo Noronha Silva  <gustavo.noronha@collabora.co.uk>
+
+        Reviewed by Holger Freyther.
+
+        https://bugs.webkit.org/show_bug.cgi?id=25889
+        [GTK] scrollbar policy for main frame is not implementable
+
+        Add empty implementation for new ChromeClient method.
+
+        * WebKitSupport/ChromeClientWx.h:
+        (WebCore::ChromeClientWx::scrollbarsModeDidChange):
+
+2009-08-19  Kevin Watters  <kevinwatters@gmail.com>
+
+        Reviewed by Kevin Ollivier.
+
+        Use FrameLoader::load() for loading pages from a HTML page string to address
+        bugs with using begin/write/end loading.
+        
+        https://bugs.webkit.org/show_bug.cgi?id=28488
+
+        * WebFrame.cpp:
+        (wxWebFrame::SetPageSource):
+
+2009-08-13  Kevin Ollivier  <kevino@theolliviers.com>
+
+        wx build fix. Make sure that the wxWebKit dynamic library is rebuilt whenever
+        webcore or jscore libs change.
+
+        * wscript:
+
+2009-08-12  Kevin Ollivier  <kevino@theolliviers.com>
+
+        wxPython build fix, the SWIG defines must also be available when compiling.
+
+        * bindings/python/wscript:
+
+2009-08-05  Kevin Ollivier  <kevino@theolliviers.com>
+
+        Reviewed by Eric Seidel.
+
+        Adding support for building wx Python bindings using the waf build system.
+        
+        https://bugs.webkit.org/show_bug.cgi?id=27619
+
+        * bindings/python/wscript: Added.
+
+2009-08-04  Kevin Ollivier  <kevino@theolliviers.com>
+
+        wx build fix after InspectorClient API change.
+
+        * WebKitSupport/InspectorClientWx.cpp:
+        (WebCore::InspectorClientWx::inspectorWindowObjectCleared):
+        * WebKitSupport/InspectorClientWx.h:
+
+2009-08-02  Kevin Ollivier  <kevino@theolliviers.com>
+
+        Reviewed by Jan Alonzo.
+
+        Script for building the WebKit library for wx.
+        https://bugs.webkit.org/show_bug.cgi?id=27619
+
+        * wscript: Added.
+
+2009-07-24  Andrei Popescu  <andreip@google.com>
+
+        Reviewed by Anders Carlsson.
+
+        ApplicationCache should have size limit
+        https://bugs.webkit.org/show_bug.cgi?id=22700
+ 
+        * WebKitSupport/ChromeClientWx.cpp:
+        (WebCore::ChromeClientWx::reachedMaxAppCacheSize):
+        Adds empty implementation of the reachedMaxAppCacheSize callback.
+        * WebKitSupport/ChromeClientWx.h:
+
+2009-07-21  Kevin Ollivier  <kevino@theolliviers.com>
+
+        wx build fix. Missing header added.
+
+        * WebFrame.cpp:
+
+2009-07-21  Kevin Ollivier  <kevino@theolliviers.com>
+
+        wx build fix. Adding isSpeaking() to ContextMenuClientWx.
+
+        * WebKitSupport/ContextMenuClientWx.cpp:
+        (WebCore::ContextMenuClientWx::isSpeaking):
+        * WebKitSupport/ContextMenuClientWx.h:
+
+2009-07-16  Xiaomei Ji  <xji@chromium.org>
+
+        Reviewed by Darin Adler.
+
+        Fix tooltip does not get its directionality from its element's directionality.
+        https://bugs.webkit.org/show_bug.cgi?id=24187
+
+        Per mitz's suggestion in comment #6, while getting the plain-text 
+        title, we also get the directionality of the title. How to handle 
+        the directionality is up to clients. Clients could ignore it, 
+        or use attribute or unicode control characters to display the title
+        as what they want.
+
+        * WebKitSupport/ChromeClientWx.cpp:
+        (WebCore::ChromeClientWx::setToolTip): Add directionality as 2nd parameter to setToopTip() (without handling it yet).
+        * WebKitSupport/ChromeClientWx.h: Add directionality as 2nd parameter to setToolTip().
+
+2009-07-12  Brent Fulgham  <bfulgham@gmail.com>
+
+        Speculative build fix after http://trac.webkit.org/changeset/45786.
+
+        * WebKitSupport/ChromeClientWx.cpp:
+        (WebCore::ChromeClientWx::addMessageToConsole):
+        * WebKitSupport/ChromeClientWx.h:
+
 2009-07-09  Beth Dakin and Jon Honeycutt <bdakin@apple.com>
 
         Reviewed by Dave Hyatt.

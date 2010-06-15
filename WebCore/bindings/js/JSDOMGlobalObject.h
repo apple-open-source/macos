@@ -31,7 +31,9 @@
 
 namespace WebCore {
 
+    class Document;
     class Event;
+    class DOMWrapperWorld;
     class JSLazyEventListener;
     class JSEventListener;
     class ScriptExecutionContext;
@@ -44,8 +46,7 @@ namespace WebCore {
     protected:
         struct JSDOMGlobalObjectData;
 
-        JSDOMGlobalObject(PassRefPtr<JSC::Structure>, JSDOMGlobalObjectData*, JSC::JSObject* thisValue);
-        virtual ~JSDOMGlobalObject();
+        JSDOMGlobalObject(NonNullPassRefPtr<JSC::Structure>, JSDOMGlobalObjectData*, JSC::JSObject* thisValue);
 
     public:
         JSDOMStructureMap& structures() { return d()->structures; }
@@ -53,50 +54,45 @@ namespace WebCore {
 
         virtual ScriptExecutionContext* scriptExecutionContext() const = 0;
 
-        // Finds a wrapper of a GC-unprotected JS EventListener, returns 0 if no existing one.
-        JSEventListener* findJSEventListener(JSC::JSValue);
-
-        // Finds or creates a wrapper of a JS EventListener. JS EventListener object is *NOT* GC-protected.
-        PassRefPtr<JSEventListener> findOrCreateJSEventListener(JSC::JSValue);
-
-        // Creates a GC-protected JS EventListener for an "onXXX" event attribute.
-        // These listeners cannot be removed through the removeEventListener API.
-        PassRefPtr<JSEventListener> createJSAttributeEventListener(JSC::JSValue);
-
-        typedef HashMap<JSC::JSObject*, JSEventListener*> JSListenersMap;
-
-        JSListenersMap& jsEventListeners();
+        // Make binding code generation easier.
+        JSDOMGlobalObject* globalObject() { return this; }
 
         void setCurrentEvent(Event*);
         Event* currentEvent() const;
 
-        virtual void mark();
+        void setInjectedScript(JSObject*);
+        JSObject* injectedScript() const;
+
+        virtual void markChildren(JSC::MarkStack&);
+
+        DOMWrapperWorld* world() { return d()->m_world.get(); }
+
+        virtual const JSC::ClassInfo* classInfo() const { return &s_info; }
+        static const JSC::ClassInfo s_info;
 
     protected:
         struct JSDOMGlobalObjectData : public JSC::JSGlobalObject::JSGlobalObjectData {
-            JSDOMGlobalObjectData();
+            JSDOMGlobalObjectData(DOMWrapperWorld* world, Destructor destructor = destroyJSDOMGlobalObjectData)
+                : JSGlobalObjectData(destructor)
+                , evt(0)
+                , m_world(world)
+                , m_injectedScript(0)
+            {
+            }
 
             JSDOMStructureMap structures;
             JSDOMConstructorMap constructors;
 
-            JSDOMGlobalObject::JSListenersMap jsEventListeners;
-
             Event* evt;
+            RefPtr<DOMWrapperWorld> m_world;
+            JSObject* m_injectedScript;
         };
 
     private:
+        static void destroyJSDOMGlobalObjectData(void*);
+
         JSDOMGlobalObjectData* d() const { return static_cast<JSDOMGlobalObjectData*>(JSC::JSVariableObject::d); }
     };
-
-    template<class ConstructorClass>
-    inline JSC::JSObject* getDOMConstructor(JSC::ExecState* exec)
-    {
-        if (JSC::JSObject* constructor = getCachedDOMConstructor(exec, &ConstructorClass::s_info))
-            return constructor;
-        JSC::JSObject* constructor = new (exec) ConstructorClass(exec);
-        cacheDOMConstructor(exec, &ConstructorClass::s_info, constructor);
-        return constructor;
-    }
 
     template<class ConstructorClass>
     inline JSC::JSObject* getDOMConstructor(JSC::ExecState* exec, const JSDOMGlobalObject* globalObject)
@@ -109,7 +105,11 @@ namespace WebCore {
         return constructor;
     }
 
-    JSDOMGlobalObject* toJSDOMGlobalObject(ScriptExecutionContext*);
+    JSDOMGlobalObject* toJSDOMGlobalObject(Document*, JSC::ExecState*);
+    JSDOMGlobalObject* toJSDOMGlobalObject(ScriptExecutionContext*, JSC::ExecState*);
+
+    JSDOMGlobalObject* toJSDOMGlobalObject(Document*, DOMWrapperWorld*);
+    JSDOMGlobalObject* toJSDOMGlobalObject(ScriptExecutionContext*, DOMWrapperWorld*);
 
 } // namespace WebCore
 

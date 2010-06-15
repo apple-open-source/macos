@@ -3,7 +3,7 @@
  *
  *   IPP utilities for the Common UNIX Printing System (CUPS).
  *
- *   Copyright 2007-2009 by Apple Inc.
+ *   Copyright 2007-2010 by Apple Inc.
  *   Copyright 1997-2007 by Easy Software Products.
  *
  *   These coded instructions, statements, and computer programs are the
@@ -263,14 +263,15 @@ cupsDoIORequest(http_t     *http,	/* I - Connection to server or @code CUPS_HTTP
       response = cupsGetResponse(http, resource);
       status   = http->status;
     }
+    else
+      httpFlush(http);
 
     DEBUG_printf(("2cupsDoIORequest: status=%d", status));
 
-    if (status >= HTTP_BAD_REQUEST &&
-	status != HTTP_UNAUTHORIZED &&
-	status != HTTP_UPGRADE_REQUIRED)
+    if (status == HTTP_ERROR ||
+        (status >= HTTP_BAD_REQUEST && status != HTTP_UNAUTHORIZED &&
+	 status != HTTP_UPGRADE_REQUIRED))
     {
-      httpFlush(http);
       _cupsSetHTTPError(status);
       break;
     }
@@ -678,6 +679,9 @@ cupsSendRequest(http_t     *http,	/* I - Connection to server or @code CUPS_HTTP
     * Process the current HTTP status...
     */
 
+    if (status >= HTTP_BAD_REQUEST)
+      httpFlush(http);
+
     switch (status)
     {
       case HTTP_ERROR :
@@ -686,18 +690,15 @@ cupsSendRequest(http_t     *http,	/* I - Connection to server or @code CUPS_HTTP
           return (status);
 
       case HTTP_UNAUTHORIZED :
-          if (!cupsDoAuthentication(http, "POST", resource))
-	  {
-	    if (httpReconnect(http))
-	    {
-	      _cupsSetError(IPP_SERVICE_UNAVAILABLE, NULL, 0);
-	      return (HTTP_SERVICE_UNAVAILABLE);
-	    }
-	  }
-	  else
-	    status = HTTP_AUTHORIZATION_CANCELED;
+          if (cupsDoAuthentication(http, "POST", resource))
+	    return (HTTP_AUTHORIZATION_CANCELED);
 
-          return (status);
+	  if (httpReconnect(http))
+	  {
+	    _cupsSetError(IPP_SERVICE_UNAVAILABLE, NULL, 0);
+	    return (HTTP_SERVICE_UNAVAILABLE);
+	  }
+	  break;
 
 #ifdef HAVE_SSL
       case HTTP_UPGRADE_REQUIRED :
@@ -712,9 +713,12 @@ cupsSendRequest(http_t     *http,	/* I - Connection to server or @code CUPS_HTTP
 	    return (HTTP_SERVICE_UNAVAILABLE);
 	  }
 
-	  httpEncryption(http, HTTP_ENCRYPT_REQUIRED);
-
-          return (status);
+	  if (httpEncryption(http, HTTP_ENCRYPT_REQUIRED))
+	  {
+	    _cupsSetError(IPP_SERVICE_UNAVAILABLE, NULL, 0);
+	    return (HTTP_SERVICE_UNAVAILABLE);
+	  }
+	  break;
 #endif /* HAVE_SSL */
 
       case HTTP_EXPECTATION_FAILED :
@@ -801,7 +805,14 @@ cupsWriteRequestData(
     */
 
     if (_httpWait(http, 0, 1))
-      return (httpUpdate(http));
+    {
+      http_status_t	status;		/* Status from httpUpdate */
+
+      if ((status = httpUpdate(http)) >= HTTP_BAD_REQUEST)
+        httpFlush(http);
+
+      return (status);
+    }
   }
 
   return (HTTP_CONTINUE);

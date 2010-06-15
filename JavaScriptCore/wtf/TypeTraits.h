@@ -1,6 +1,6 @@
  /*
  * Copyright (C) 2006, 2007, 2008 Apple Inc. All rights reserved.
- * Copyright (C) 2009 Google Inc. All rights reserved.
+ * Copyright (C) 2009, 2010 Google Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -104,6 +104,40 @@ namespace WTF {
         static const bool value = true;
     };
 
+    template <typename T, typename U> class IsSubclass {
+        typedef char YesType;
+        struct NoType {
+            char padding[8];
+        };
+
+        static YesType subclassCheck(U*);
+        static NoType subclassCheck(...);
+        static T* t;
+    public:
+        static const bool value = sizeof(subclassCheck(t)) == sizeof(YesType);
+    };
+
+    template <typename T, template<class V> class U> class IsSubclassOfTemplate {
+        typedef char YesType;
+        struct NoType {
+            char padding[8];
+        };
+
+        template<typename W> static YesType subclassCheck(U<W>*);
+        static NoType subclassCheck(...);
+        static T* t;
+    public:
+        static const bool value = sizeof(subclassCheck(t)) == sizeof(YesType);
+    };
+
+    template <typename T, template <class V> class OuterTemplate> struct RemoveTemplate {
+        typedef T Type;
+    };
+
+    template <typename T, template <class V> class OuterTemplate> struct RemoveTemplate<OuterTemplate<T>, OuterTemplate> {
+        typedef T Type;
+    };
+
     template <typename T> struct RemoveConst {
         typedef T Type;
     };
@@ -155,7 +189,7 @@ namespace WTF {
     typedef IntegralConstant<bool, true>  true_type;
     typedef IntegralConstant<bool, false> false_type;
 
-#if defined(_MSC_VER) && (_MSC_VER >= 1400)
+#if defined(_MSC_VER) && (_MSC_VER >= 1400) && !defined(__INTEL_COMPILER)
     // VC8 (VS2005) and later have built-in compiler support for HasTrivialConstructor / HasTrivialDestructor,
     // but for some unexplained reason it doesn't work on built-in types.
     template <typename T> struct HasTrivialConstructor : public IntegralConstant<bool, __has_trivial_constructor(T)>{ };

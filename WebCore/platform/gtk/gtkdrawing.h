@@ -48,7 +48,6 @@
 #ifndef _GTK_DRAWING_H_
 #define _GTK_DRAWING_H_
 
-#include <gdk/gdk.h>
 #include <gtk/gtk.h>
 
 #ifdef __cplusplus
@@ -77,6 +76,54 @@ typedef struct {
   gint stepper_spacing;
   gint min_slider_size;
 } MozGtkScrollbarMetrics;
+
+typedef struct _GtkThemeParts {
+    GdkColormap* colormap;
+    GtkWidget* protoWindow;
+    GtkWidget* protoLayout;
+    GtkWidget* buttonWidget;
+    GtkWidget* toggleButtonWidget;
+    GtkWidget* buttonArrowWidget;
+    GtkWidget* checkboxWidget;
+    GtkWidget* radiobuttonWidget;
+    GtkWidget* horizScrollbarWidget;
+    GtkWidget* vertScrollbarWidget;
+    GtkWidget* spinWidget;
+    GtkWidget* hScaleWidget;
+    GtkWidget* vScaleWidget;
+    GtkWidget* entryWidget;
+    GtkWidget* comboBoxWidget;
+    GtkWidget* comboBoxButtonWidget;
+    GtkWidget* comboBoxArrowWidget;
+    GtkWidget* comboBoxSeparatorWidget;
+    GtkWidget* comboBoxEntryWidget;
+    GtkWidget* comboBoxEntryTextareaWidget;
+    GtkWidget* comboBoxEntryButtonWidget;
+    GtkWidget* comboBoxEntryArrowWidget;
+    GtkWidget* handleBoxWidget;
+    GtkWidget* toolbarWidget;
+    GtkWidget* frameWidget;
+    GtkWidget* statusbarWidget;
+    GtkWidget* progresWidget;
+    GtkWidget* tabWidget;
+    GtkWidget* tooltipWidget;
+    GtkWidget* menuBarWidget;
+    GtkWidget* menuBarItemWidget;
+    GtkWidget* menuPopupWidget;
+    GtkWidget* menuItemWidget;
+    GtkWidget* imageMenuItemWidget;
+    GtkWidget* checkMenuItemWidget;
+    GtkWidget* treeViewWidget;
+    GtkTreeViewColumn* middleTreeViewColumn;
+    GtkWidget* treeHeaderCellWidget;
+    GtkWidget* treeHeaderSortArrowWidget;
+    GtkWidget* expanderWidget;
+    GtkWidget* toolbarSeparatorWidget;
+    GtkWidget* menuSeparatorWidget;
+    GtkWidget* hpanedWidget;
+    GtkWidget* vpanedWidget;
+    GtkWidget* scrolledWindowWidget;
+} GtkThemeParts;
 
 typedef enum {
   MOZ_GTK_STEPPER_DOWN        = 1 << 0,
@@ -226,6 +273,14 @@ typedef enum {
 gint moz_gtk_init();
 
 /**
+ * Instruct the drawing library to do all rendering based on
+ * the given collection of theme parts. If any members of the
+ * GtkThemeParts struct are NULL, they will be created lazily.
+ */
+void
+moz_gtk_use_theme_parts(GtkThemeParts* parts);
+
+/**
  * Enable GTK+ 1.2.9+ theme enhancements. You must provide a pointer
  * to the GTK+ 1.2.9+ function "gtk_style_get_prop_experimental".
  * styleGetProp:  pointer to gtk_style_get_prop_experimental
@@ -242,6 +297,11 @@ gint moz_gtk_enable_style_props(style_prop_t styleGetProp);
  */
 gint moz_gtk_shutdown();
 
+/**
+ * Destroy the widgets in the given GtkThemeParts, which should
+ * be destroyed before the GtkThemeParts can be freed.
+ */
+void moz_gtk_destroy_theme_parts_widgets(GtkThemeParts* parts);
 
 /*** Widget drawing ***/
 /**

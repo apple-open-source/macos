@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2000 Peter Kelly (pmk@post.com)
- * Copyright (C) 2006, 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2006, 2008, 2009 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -35,28 +35,23 @@
 
 namespace WebCore {
 
-ProcessingInstruction::ProcessingInstruction(Document* doc)
-    : ContainerNode(doc)
+inline ProcessingInstruction::ProcessingInstruction(Document* document, const String& target, const String& data)
+    : ContainerNode(document)
+    , m_target(target)
+    , m_data(data)
     , m_cachedSheet(0)
     , m_loading(false)
     , m_alternate(false)
+    , m_createdByParser(false)
 #if ENABLE(XSLT)
     , m_isXSL(false)
 #endif
 {
 }
 
-ProcessingInstruction::ProcessingInstruction(Document* doc, const String& target, const String& data)
-    : ContainerNode(doc)
-    , m_target(target)
-    , m_data(data)
-    , m_cachedSheet(0)
-    , m_loading(false)
-    , m_alternate(false)
-#if ENABLE(XSLT)
-    , m_isXSL(false)
-#endif
+PassRefPtr<ProcessingInstruction> ProcessingInstruction::create(Document* document, const String& target, const String& data)
 {
+    return adoptRef(new ProcessingInstruction(document, target, data));
 }
 
 ProcessingInstruction::~ProcessingInstruction()
@@ -70,6 +65,7 @@ void ProcessingInstruction::setData(const String& data, ExceptionCode&)
     int oldLength = m_data.length();
     m_data = data;
     document()->textRemoved(this, 0, oldLength);
+    checkStyleSheet();
 }
 
 String ProcessingInstruction::nodeName() const
@@ -95,8 +91,9 @@ void ProcessingInstruction::setNodeValue(const String& nodeValue, ExceptionCode&
 
 PassRefPtr<Node> ProcessingInstruction::cloneNode(bool /*deep*/)
 {
-    // ### copy m_localHref
-    return new ProcessingInstruction(document(), m_target, m_data);
+    // FIXME: Is it a problem that this does not copy m_localHref?
+    // What about other data members?
+    return create(document(), m_target, m_data);
 }
 
 // DOM Section 1.1.1
@@ -123,7 +120,7 @@ void ProcessingInstruction::checkStyleSheet()
         bool isCSS = type.isEmpty() || type == "text/css";
 #if ENABLE(XSLT)
         m_isXSL = (type == "text/xml" || type == "text/xsl" || type == "application/xml" ||
-                   type == "application/xhtml+xml" || type == "application/rss+xml" || type == "application/atom=xml");
+                   type == "application/xhtml+xml" || type == "application/rss+xml" || type == "application/atom+xml");
         if (!isCSS && !m_isXSL)
 #else
         if (!isCSS)
@@ -142,29 +139,43 @@ void ProcessingInstruction::checkStyleSheet()
             // We need to make a synthetic XSLStyleSheet that is embedded.  It needs to be able
             // to kick off import/include loads that can hang off some parent sheet.
             if (m_isXSL) {
-                m_sheet = XSLStyleSheet::createEmbedded(this, m_localHref);
+                KURL finalURL(ParsedURLString, m_localHref);
+                m_sheet = XSLStyleSheet::createInline(this, finalURL);
                 m_loading = false;
             }
 #endif
         } else {
+            if (m_cachedSheet) {
+                m_cachedSheet->removeClient(this);
+                m_cachedSheet = 0;
+            }
+            
+            String url = document()->completeURL(href).string();
+            if (!dispatchBeforeLoadEvent(url))
+                return;
+            
             m_loading = true;
             document()->addPendingSheet();
-            if (m_cachedSheet)
-                m_cachedSheet->removeClient(this);
+            
 #if ENABLE(XSLT)
             if (m_isXSL)
-                m_cachedSheet = document()->docLoader()->requestXSLStyleSheet(document()->completeURL(href).string());
+                m_cachedSheet = document()->docLoader()->requestXSLStyleSheet(url);
             else
 #endif
             {
                 String charset = attrs.get("charset");
                 if (charset.isEmpty())
-                    charset = document()->frame()->loader()->encoding();
+                    charset = document()->frame()->loader()->writer()->encoding();
 
-                m_cachedSheet = document()->docLoader()->requestCSSStyleSheet(document()->completeURL(href).string(), charset);
+                m_cachedSheet = document()->docLoader()->requestCSSStyleSheet(url, charset);
             }
             if (m_cachedSheet)
                 m_cachedSheet->addClient(this);
+            else {
+                // The request may have been denied if (for example) the stylesheet is local and the document is remote.
+                m_loading = false;
+                document()->removePendingSheet();
+            }
         }
     }
 }
@@ -187,24 +198,27 @@ bool ProcessingInstruction::sheetLoaded()
     return false;
 }
 
-void ProcessingInstruction::setCSSStyleSheet(const String& url, const String& charset, const CachedCSSStyleSheet* sheet)
+void ProcessingInstruction::setCSSStyleSheet(const String& href, const KURL& baseURL, const String& charset, const CachedCSSStyleSheet* sheet)
 {
 #if ENABLE(XSLT)
     ASSERT(!m_isXSL);
 #endif
-    RefPtr<CSSStyleSheet> newSheet = CSSStyleSheet::create(this, url, charset);
+    RefPtr<CSSStyleSheet> newSheet = CSSStyleSheet::create(this, href, baseURL, charset);
     m_sheet = newSheet;
-    parseStyleSheet(sheet->sheetText());
+    // We don't need the cross-origin security check here because we are
+    // getting the sheet text in "strict" mode. This enforces a valid CSS MIME
+    // type.
+    parseStyleSheet(sheet->sheetText(true));
     newSheet->setTitle(m_title);
     newSheet->setMedia(MediaList::create(newSheet.get(), m_media));
     newSheet->setDisabled(m_alternate);
 }
 
 #if ENABLE(XSLT)
-void ProcessingInstruction::setXSLStyleSheet(const String& url, const String& sheet)
+void ProcessingInstruction::setXSLStyleSheet(const String& href, const KURL& baseURL, const String& sheet)
 {
     ASSERT(m_isXSL);
-    m_sheet = XSLStyleSheet::create(this, url);
+    m_sheet = XSLStyleSheet::create(this, href, baseURL);
     parseStyleSheet(sheet);
 }
 #endif

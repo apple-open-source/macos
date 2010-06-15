@@ -1,9 +1,9 @@
 /*
  * "$Id: config.h 6649 2007-07-11 21:46:42Z mike $"
  *
- *   Configuration file for the Common UNIX Printing System (CUPS).
+ *   Configuration file for CUPS.
  *
- *   Copyright 2007-2009 by Apple Inc.
+ *   Copyright 2007-2010 by Apple Inc.
  *   Copyright 1997-2007 by Easy Software Products.
  *
  *   These coded instructions, statements, and computer programs are the
@@ -52,6 +52,27 @@
 
 
 /*
+ * Map the POSIX sleep() and usleep() functions to the Win32 Sleep() function...
+ */
+
+#define sleep(X)	Sleep(1000 * (X))
+#define usleep(X)	Sleep((X)/1000)
+
+
+/*
+ * Map various parameters to Posix style system calls
+ */
+
+#  define F_OK		00
+#  define W_OK		02
+#  define R_OK		04
+#  define O_RDONLY	_O_RDONLY
+#  define O_WRONLY	_O_WRONLY
+#  define O_CREATE	_O_CREAT
+#  define O_TRUNC	_O_TRUNC
+
+
+/*
  * Compiler stuff...
  */
 
@@ -63,18 +84,18 @@
  * Version of software...
  */
 
-#define CUPS_SVERSION "CUPS v1.4.0"
-#define CUPS_MINIMAL "CUPS/1.4.0"
+#define CUPS_SVERSION "CUPS v1.4.4"
+#define CUPS_MINIMAL "CUPS/1.4.4"
 
 
 /*
  * Default user and groups...
  */
 
-#define CUPS_DEFAULT_USER	"lp"
-#define CUPS_DEFAULT_GROUP	"sys"
-#define CUPS_DEFAULT_SYSTEM_GROUPS "admin"
-#define CUPS_DEFAULT_PRINTOPERATOR_AUTH "@admin @lpadmin"
+#define CUPS_DEFAULT_USER	""
+#define CUPS_DEFAULT_GROUP	""
+#define CUPS_DEFAULT_SYSTEM_GROUPS ""
+#define CUPS_DEFAULT_PRINTOPERATOR_AUTH ""
 
 
 /*
@@ -208,6 +229,13 @@
 
 
 /*
+ * Do we have <scsi/sg.h>?
+ */
+
+/* #undef HAVE_SCSI_SG_H */
+
+
+/*
  * Use <string.h>, <strings.h>, and/or <bstring.h>?
  */
 
@@ -246,9 +274,9 @@
  * Do we have the strXXX() functions?
  */
 
-#define HAVE_STRDUP
-#define HAVE_STRCASECMP
-#define HAVE_STRNCASECMP
+#define HAVE_STRDUP 1
+#define HAVE_STRCASECMP 1
+#define HAVE_STRNCASECMP 1
 /* #undef HAVE_STRLCAT */
 /* #undef HAVE_STRLCPY */
 
@@ -471,7 +499,6 @@
 
 /* #undef HAVE_LAUNCH_H */
 /* #undef HAVE_LAUNCHD */
-#define CUPS_DEFAULT_LAUNCHD_CONF ""
 
 
 /*
@@ -519,6 +546,13 @@
 /* #undef HAVE_COREFOUNDATION_H */
 /* #undef HAVE_CFPRIV_H */
 /* #undef HAVE_CFBUNDLEPRIV_H */
+
+
+/*
+ * Do we have the SCDynamicStoreCopyComputerName function?
+ */
+
+/* #undef HAVE_SCDYNAMICSTORECOPYCOMPUTERNAME */
 
 
 /*
@@ -574,7 +608,7 @@
  * Default GSS service name...
  */
 
-#define CUPS_DEFAULT_GSSSERVICENAME "ipp"
+#define CUPS_DEFAULT_GSSSERVICENAME "host"
 
 
 /*
@@ -625,9 +659,23 @@
  * Which random number generator function to use...
  */
 
+/* #undef HAVE_ARC4RANDOM */
 /* #undef HAVE_RANDOM */
-/* #undef HAVE_MRAND48 */
 /* #undef HAVE_LRAND48 */
+
+#ifdef HAVE_ARC4RANDOM
+#  define CUPS_RAND() arc4random()
+#  define CUPS_SRAND(v) arc4random_stir()
+#elif defined(HAVE_RANDOM)
+#  define CUPS_RAND() random()
+#  define CUPS_SRAND(v) srandom(v)
+#elif defined(HAVE_LRAND48)
+#  define CUPS_RAND() lrand48()
+#  define CUPS_SRAND(v) srand48(v)
+#else
+#  define CUPS_RAND() rand()
+#  define CUPS_SRAND(v) srand(v)
+#endif /* HAVE_ARC4RANDOM */
 
 
 /*

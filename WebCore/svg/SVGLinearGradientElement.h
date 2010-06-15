@@ -2,8 +2,6 @@
     Copyright (C) 2004, 2005, 2006, 2008 Nikolas Zimmermann <zimmermann@kde.org>
                   2004, 2005, 2006 Rob Buis <buis@kde.org>
 
-    This file is part of the KDE project
-
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Library General Public
     License as published by the Free Software Foundation; either
@@ -38,18 +36,18 @@ namespace WebCore {
 
         virtual void parseMappedAttribute(MappedAttribute*);
         virtual void svgAttributeChanged(const QualifiedName&);
+        virtual void synchronizeProperty(const QualifiedName&);
 
-    protected:
-        virtual void buildGradient() const;
-        virtual SVGPaintServerType gradientType() const { return LinearGradientPaintServer; }
+        virtual RenderObject* createRenderer(RenderArena*, RenderStyle*);
 
-        LinearGradientAttributes collectGradientProperties() const;
+        LinearGradientAttributes collectGradientProperties();
+        void calculateStartEndPoints(const LinearGradientAttributes&, FloatPoint& startPoint, FloatPoint& endPoint);
 
     private:
-        ANIMATED_PROPERTY_DECLARATIONS(SVGLinearGradientElement, SVGNames::linearGradientTagString, SVGNames::x1AttrString, SVGLength, X1, x1)
-        ANIMATED_PROPERTY_DECLARATIONS(SVGLinearGradientElement, SVGNames::linearGradientTagString, SVGNames::y1AttrString, SVGLength, Y1, y1)
-        ANIMATED_PROPERTY_DECLARATIONS(SVGLinearGradientElement, SVGNames::linearGradientTagString, SVGNames::x2AttrString, SVGLength, X2, x2)
-        ANIMATED_PROPERTY_DECLARATIONS(SVGLinearGradientElement, SVGNames::linearGradientTagString, SVGNames::y2AttrString, SVGLength, Y2, y2)
+        DECLARE_ANIMATED_PROPERTY(SVGLinearGradientElement, SVGNames::x1Attr, SVGLength, X1, x1)
+        DECLARE_ANIMATED_PROPERTY(SVGLinearGradientElement, SVGNames::y1Attr, SVGLength, Y1, y1)
+        DECLARE_ANIMATED_PROPERTY(SVGLinearGradientElement, SVGNames::x2Attr, SVGLength, X2, x2)
+        DECLARE_ANIMATED_PROPERTY(SVGLinearGradientElement, SVGNames::y2Attr, SVGLength, Y2, y2)
     };
 
 } // namespace WebCore

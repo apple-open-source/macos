@@ -26,6 +26,7 @@
 #include "config.h"
 #include "CookieJar.h"
 
+#include "Cookie.h"
 #include "KURL.h"
 #include "PlatformString.h"
 #include "Document.h"
@@ -34,7 +35,6 @@
 #include <Wininet.h>
 
 namespace WebCore {
-
 
 void setCookies(Document* /*document*/, const KURL& url, const String& value)
 {
@@ -59,9 +59,27 @@ String cookies(const Document* /*document*/, const KURL& url)
     return String::adopt(buffer);
 }
 
+String cookieRequestHeaderFieldValue(const Document* document, const KURL& url)
+{
+    // FIXME: include HttpOnly cookie
+    return cookies(document, url);
+}
+
 bool cookiesEnabled(const Document* /*document*/)
 {
     return true;
+}
+
+bool getRawCookies(const Document*, const KURL&, Vector<Cookie>& rawCookies)
+{
+    // FIXME: Not yet implemented
+    rawCookies.clear();
+    return false; // return true when implemented
+}
+
+void deleteCookie(const Document*, const KURL&, const String&)
+{
+    // FIXME: Not yet implemented
 }
 
 }

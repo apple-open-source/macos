@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008 Apple Inc. All Rights Reserved.
+ * Copyright (C) 2008, 2009 Apple Inc. All Rights Reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -31,12 +31,10 @@ namespace JSC {
 
 ASSERT_CLASS_FITS_IN_CELL(JSStaticScopeObject);
 
-void JSStaticScopeObject::mark()
+void JSStaticScopeObject::markChildren(MarkStack& markStack)
 {
-    JSVariableObject::mark();
-    
-    if (!d()->registerStore.marked())
-        d()->registerStore.mark();
+    JSVariableObject::markChildren(markStack);
+    markStack.append(d()->registerStore.jsValue());
 }
 
 JSObject* JSStaticScopeObject::toThisObject(ExecState* exec) const
@@ -60,7 +58,7 @@ void JSStaticScopeObject::putWithAttributes(ExecState*, const Identifier& proper
     ASSERT_NOT_REACHED();
 }
 
-bool JSStaticScopeObject::isDynamicScope() const
+bool JSStaticScopeObject::isDynamicScope(bool&) const
 {
     return false;
 }

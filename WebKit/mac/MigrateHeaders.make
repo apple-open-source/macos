@@ -36,6 +36,8 @@ all : \
     $(PUBLIC_HEADERS_DIR)/DOM.h \
     $(PUBLIC_HEADERS_DIR)/DOMAbstractView.h \
     $(PUBLIC_HEADERS_DIR)/DOMAttr.h \
+    $(PUBLIC_HEADERS_DIR)/DOMBlob.h \
+    $(INTERNAL_HEADERS_DIR)/DOMBlobInternal.h \
     $(PUBLIC_HEADERS_DIR)/DOMCDATASection.h \
     $(PUBLIC_HEADERS_DIR)/DOMCSS.h \
     $(PUBLIC_HEADERS_DIR)/DOMCSSCharsetRule.h \
@@ -106,6 +108,7 @@ all : \
     $(PUBLIC_HEADERS_DIR)/DOMHTMLIFrameElement.h \
     $(PUBLIC_HEADERS_DIR)/DOMHTMLImageElement.h \
     $(PUBLIC_HEADERS_DIR)/DOMHTMLInputElement.h \
+    $(PRIVATE_HEADERS_DIR)/DOMHTMLInputElementPrivate.h \
     $(INTERNAL_HEADERS_DIR)/DOMHTMLInputElementInternal.h \
     $(PUBLIC_HEADERS_DIR)/DOMHTMLIsIndexElement.h \
     $(PUBLIC_HEADERS_DIR)/DOMHTMLLIElement.h \
@@ -182,6 +185,7 @@ all : \
     $(PUBLIC_HEADERS_DIR)/npapi.h \
     $(PUBLIC_HEADERS_DIR)/npfunctions.h \
     $(PUBLIC_HEADERS_DIR)/npruntime.h \
+    $(PUBLIC_HEADERS_DIR)/nptypes.h \
 #
 
 ifeq ($(findstring ENABLE_SVG_DOM_OBJC_BINDINGS,$(FEATURE_DEFINES)), ENABLE_SVG_DOM_OBJC_BINDINGS)
@@ -242,7 +246,6 @@ all : \
     $(INTERNAL_HEADERS_DIR)/DOMSVGCursorElementInternal.h \
     $(PRIVATE_HEADERS_DIR)/DOMSVGDefsElement.h \
     $(INTERNAL_HEADERS_DIR)/DOMSVGDefsElementInternal.h \
-    $(PRIVATE_HEADERS_DIR)/DOMSVGDefinitionSrcElement.h \
     $(PRIVATE_HEADERS_DIR)/DOMSVGDescElement.h \
     $(INTERNAL_HEADERS_DIR)/DOMSVGDescElementInternal.h \
     $(PRIVATE_HEADERS_DIR)/DOMSVGDocument.h \
@@ -289,6 +292,8 @@ all : \
     $(INTERNAL_HEADERS_DIR)/DOMSVGFEMergeElementInternal.h \
     $(PRIVATE_HEADERS_DIR)/DOMSVGFEMergeNodeElement.h \
     $(INTERNAL_HEADERS_DIR)/DOMSVGFEMergeNodeElementInternal.h \
+    $(PRIVATE_HEADERS_DIR)/DOMSVGFEMorphologyElement.h \
+    $(INTERNAL_HEADERS_DIR)/DOMSVGFEMorphologyElementInternal.h \
     $(PRIVATE_HEADERS_DIR)/DOMSVGFEOffsetElement.h \
     $(INTERNAL_HEADERS_DIR)/DOMSVGFEOffsetElementInternal.h \
     $(PRIVATE_HEADERS_DIR)/DOMSVGFEPointLightElement.h \

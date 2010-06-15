@@ -2,8 +2,6 @@
     Copyright (C) 2004, 2005, 2006, 2008 Nikolas Zimmermann <zimmermann@kde.org>
                   2004, 2005, 2006, 2007 Rob Buis <buis@kde.org>
 
-    This file is part of the KDE project
-
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Library General Public
     License as published by the Free Software Foundation; either
@@ -48,17 +46,14 @@ namespace WebCore {
 
         virtual void parseMappedAttribute(MappedAttribute*); 
         virtual void svgAttributeChanged(const QualifiedName&);
+        virtual void synchronizeProperty(const QualifiedName&);
 
-        virtual bool rendererIsNeeded(RenderStyle* style) { return StyledElement::rendererIsNeeded(style); }
         virtual bool supportsMarkers() const { return true; }
 
-        virtual void updateAnimatedSVGAttribute(const String&) const;
-
-    protected:
-        virtual const SVGElement* contextElement() const { return this; }
-
     private:
-        bool m_ignoreAttributeChanges : 1;
+        // SVGExternalResourcesRequired
+        DECLARE_ANIMATED_PROPERTY(SVGPolyElement, SVGNames::externalResourcesRequiredAttr, bool, ExternalResourcesRequired, externalResourcesRequired)
+
         mutable RefPtr<SVGPointList> m_points;
     };
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004, 2006 Apple Computer, Inc.  All rights reserved.
+ * Copyright (C) 2004, 2006, 2009 Apple Inc. All rights reserved.
  * Copyright (C) 2007 Alp Toker <alp@atoker.com>
  *
  * Redistribution and use in source and binary forms, with or without
@@ -27,104 +27,85 @@
 #ifndef HTMLCanvasElement_h
 #define HTMLCanvasElement_h
 
-#include "TransformationMatrix.h"
+#include "CanvasSurface.h"
 #include "FloatRect.h"
 #include "HTMLElement.h"
+#if ENABLE(3D_CANVAS)    
+#include "GraphicsContext3D.h"
+#endif
 #include "IntSize.h"
 
 namespace WebCore {
 
-class CanvasRenderingContext2D;
-typedef CanvasRenderingContext2D CanvasRenderingContext;
-class FloatPoint;
-class FloatRect;
-class FloatSize;
+class CanvasContextAttributes;
+class CanvasRenderingContext;
 class GraphicsContext;
 class HTMLCanvasElement;
-class ImageBuffer;
-class IntPoint;
 class IntSize;
 
 class CanvasObserver {
 public:
-    virtual ~CanvasObserver() {};
+    virtual ~CanvasObserver() { }
 
     virtual void canvasChanged(HTMLCanvasElement*, const FloatRect& changedRect) = 0;
     virtual void canvasResized(HTMLCanvasElement*) = 0;
     virtual void canvasDestroyed(HTMLCanvasElement*) = 0;
 };
 
-class HTMLCanvasElement : public HTMLElement {
+class HTMLCanvasElement : public HTMLElement, public CanvasSurface {
 public:
     HTMLCanvasElement(const QualifiedName&, Document*);
     virtual ~HTMLCanvasElement();
 
+    void setWidth(int);
+    void setHeight(int);
+
+    CanvasRenderingContext* getContext(const String&, CanvasContextAttributes* attributes = 0);
+
+    void setSize(const IntSize& newSize)
+    { 
+        if (newSize == size())
+            return;
+        m_ignoreReset = true; 
+        setWidth(newSize.width());
+        setHeight(newSize.height());
+        m_ignoreReset = false;
+        reset();
+    }
+
+    virtual void willDraw(const FloatRect&);
+
+    void paint(GraphicsContext*, const IntRect&);
+
+    void setObserver(CanvasObserver* observer) { m_observer = observer; }
+
+    CanvasRenderingContext* renderingContext() const { return m_context.get(); }
+
+    RenderBox* renderBox() const { return HTMLElement::renderBox(); }
+    RenderStyle* computedStyle() { return HTMLElement::computedStyle(); }
+
+#if ENABLE(3D_CANVAS)    
+    bool is3D() const;
+#endif
+
+private:
 #if ENABLE(DASHBOARD_SUPPORT)
     virtual HTMLTagStatus endTagRequirement() const;
     virtual int tagPriority() const;
 #endif
 
-    int width() const { return m_size.width(); }
-    int height() const { return m_size.height(); }
-    void setWidth(int);
-    void setHeight(int);
-
-    String toDataURL(const String& mimeType, ExceptionCode&);
-
-    CanvasRenderingContext* getContext(const String&);
-
     virtual void parseMappedAttribute(MappedAttribute*);
     virtual RenderObject* createRenderer(RenderArena*, RenderStyle*);
 
-    IntSize size() const { return m_size; }
-    void setSize(const IntSize& size)
-    { 
-        if (size == m_size)
-            return;
-        m_ignoreReset = true; 
-        setWidth(size.width());
-        setHeight(size.height());
-        m_ignoreReset = false;
-        reset();
-    }
-
-    void willDraw(const FloatRect&);
-
-    void paint(GraphicsContext*, const IntRect&);
-
-    GraphicsContext* drawingContext() const;
-
-    ImageBuffer* buffer() const;
-
-    IntRect convertLogicalToDevice(const FloatRect&) const;
-    IntSize convertLogicalToDevice(const FloatSize&) const;
-    IntPoint convertLogicalToDevice(const FloatPoint&) const;
-
-    void setOriginTainted() { m_originClean = false; } 
-    bool originClean() const { return m_originClean; }
-
-    static const float MaxCanvasArea;
-
-    void setObserver(CanvasObserver* o) { m_observer = o; }
-
-    TransformationMatrix baseTransform() const;
-private:
-    void createImageBuffer() const;
     void reset();
 
     bool m_rendererIsCanvas;
 
-    OwnPtr<CanvasRenderingContext2D> m_2DContext;
-    IntSize m_size;    
+    OwnPtr<CanvasRenderingContext> m_context;
     CanvasObserver* m_observer;
 
-    bool m_originClean;
     bool m_ignoreReset;
     FloatRect m_dirtyRect;
-
-    // m_createdImageBuffer means we tried to malloc the buffer.  We didn't necessarily get it.
-    mutable bool m_createdImageBuffer;
-    mutable OwnPtr<ImageBuffer> m_imageBuffer;
 };
 
 } //namespace

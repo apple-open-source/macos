@@ -19,6 +19,7 @@ owner:*:10:
 everyone:*:12:
 group:*:16:
 staff:*:20:root
+_wireless:*:25:
 _lp:*:26:
 _postfix:*:27:
 _postdrop:*:28:

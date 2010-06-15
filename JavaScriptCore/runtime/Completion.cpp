@@ -29,47 +29,44 @@
 #include "Interpreter.h"
 #include "Parser.h"
 #include "Debugger.h"
+#include "WTFThreadData.h"
 #include <stdio.h>
-
-#if !PLATFORM(WIN_OS)
-#include <unistd.h>
-#endif
 
 namespace JSC {
 
 Completion checkSyntax(ExecState* exec, const SourceCode& source)
 {
     JSLock lock(exec);
+    ASSERT(exec->globalData().identifierTable == wtfThreadData().currentIdentifierTable());
 
-    int errLine;
-    UString errMsg;
+    RefPtr<ProgramExecutable> program = ProgramExecutable::create(exec, source);
+    JSObject* error = program->checkSyntax(exec);
+    if (error)
+        return Completion(Throw, error);
 
-    RefPtr<ProgramNode> progNode = exec->globalData().parser->parse<ProgramNode>(exec, exec->dynamicGlobalObject()->debugger(), source, &errLine, &errMsg);
-    if (!progNode)
-        return Completion(Throw, Error::create(exec, SyntaxError, errMsg, errLine, source.provider()->asID(), source.provider()->url()));
     return Completion(Normal);
 }
 
 Completion evaluate(ExecState* exec, ScopeChain& scopeChain, const SourceCode& source, JSValue thisValue)
 {
     JSLock lock(exec);
-    
-    int errLine;
-    UString errMsg;
-    RefPtr<ProgramNode> programNode = exec->globalData().parser->parse<ProgramNode>(exec, exec->dynamicGlobalObject()->debugger(), source, &errLine, &errMsg);
+    ASSERT(exec->globalData().identifierTable == wtfThreadData().currentIdentifierTable());
 
-    if (!programNode)
-        return Completion(Throw, Error::create(exec, SyntaxError, errMsg, errLine, source.provider()->asID(), source.provider()->url()));
+    RefPtr<ProgramExecutable> program = ProgramExecutable::create(exec, source);
+    JSObject* error = program->compile(exec, scopeChain.node());
+    if (error)
+        return Completion(Throw, error);
 
     JSObject* thisObj = (!thisValue || thisValue.isUndefinedOrNull()) ? exec->dynamicGlobalObject() : thisValue.toObject(exec);
 
     JSValue exception;
-    JSValue result = exec->interpreter()->execute(programNode.get(), exec, scopeChain.node(), thisObj, &exception);
+    JSValue result = exec->interpreter()->execute(program.get(), exec, scopeChain.node(), thisObj, &exception);
 
     if (exception) {
-        if (exception.isObject() && asObject(exception)->isWatchdogException())
-            return Completion(Interrupted, exception);
-        return Completion(Throw, exception);
+        ComplType exceptionType = Throw;
+        if (exception.isObject())
+            exceptionType = asObject(exception)->exceptionType();
+        return Completion(exceptionType, exception);
     }
     return Completion(Normal, result);
 }

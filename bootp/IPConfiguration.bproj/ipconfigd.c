@@ -3237,10 +3237,10 @@ flush_routes(const struct in_addr ip, const struct in_addr broadcast)
 
     /* remove permanent arp entries for the IP and IP broadcast */
     if (ip.s_addr) { 
-	(void)arp_delete(s, ip, FALSE);
+	(void)arp_delete(s, ip, 0, FALSE);
     }
     if (broadcast.s_addr) { 
-	(void)arp_delete(s, broadcast, FALSE);
+	(void)arp_delete(s, broadcast, 0, FALSE);
     }
     (void)flush_dynamic_routes(s);
     close(s);

@@ -1061,7 +1061,24 @@ AppleUSBHubPort::SuspendPort( bool suspend, bool fromDevice )
 	return status;
 }
 
-
+bool
+AppleUSBHubPort::HasExpressCardCantWake()
+{
+	bool		result = false;
+	OSBoolean	*expressCardCantWakeRef;
+ 
+	if ( _portDevice && _hub->_hubWithExpressCardPort && (_hub->_expressCardPort == _portNum) )
+	{
+		// if express card can't wake then disable port
+		expressCardCantWakeRef = OSDynamicCast( OSBoolean, _portDevice->getProperty(kUSBExpressCardCantWake) );
+		if ( expressCardCantWakeRef && expressCardCantWakeRef->isTrue() )
+		{
+			result = true;
+		}
+	}
+	
+	return result;
+}
 
 IOReturn
 AppleUSBHubPort::ReEnumeratePort(UInt32 options)
@@ -2960,7 +2977,7 @@ AppleUSBHubPort::GetDevZeroDescriptorWithRetries()
         //
         if ( err == kIOReturnOverrun )
         {
-			USBLog(1, "AppleUSBHubPort[%p]::GetDevZeroDescriptorWithRetries - port %d - GetDeviceZeroDescriptor returned kIOReturnOverrun.  Checking to for valid descripor", this, _portNum);
+			USBLog(1, "AppleUSBHubPort[%p]::GetDevZeroDescriptorWithRetries - port %d - GetDeviceZeroDescriptor returned kIOReturnOverrun.  Checking for valid descriptor", this, _portNum);
 			USBTrace( kUSBTHubPort,  kTPHubPortGetDevZeroDescriptorWithRetries, (uintptr_t)this, _portNum, kIOReturnOverrun, 1 );
            
 			// We need to check that _desc looks like a valiad one

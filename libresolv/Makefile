@@ -37,6 +37,8 @@ PLUGIN_DEST = $(DSTROOT)/$(DESTDIR)usr/lib/info
 
 build:: dns.so
 
+_installhdrs:: _symlink_hdrs
+
 dns.so: dns_plugin.c
 	$(CC) -c $(CFLAGS) dns_plugin.c
 	$(CC) $(PLUGIN_CC_Flags) $(LDFLAGS) $(PLUGIN_LD_Flags) -o $(SYMROOT)/dns.so dns_plugin.o
@@ -44,6 +46,10 @@ dns.so: dns_plugin.c
 	$(INSTALL_DIRECTORY) $(PLUGIN_DEST)
 	$(INSTALL_LIBRARY) $(SYMROOT)/dns.so $(PLUGIN_DEST)
 	$(STRIP) -S $(PLUGIN_DEST)/dns.so
+
+_symlink_hdrs:
+	$(INSTALL_DIRECTORY) $(DSTROOT)/usr/include/arpa
+	$(LN) -sf ../nameser.h $(DSTROOT)/usr/include/arpa
 
 after_install:
 	$(INSTALL_DIRECTORY) $(DSTROOT)/usr/include/arpa

@@ -2,8 +2,6 @@
     Copyright (C) 2004, 2005, 2007 Nikolas Zimmermann <zimmermann@kde.org>
                   2004, 2005, 2006 Rob Buis <buis@kde.org>
 
-    This file is part of the KDE project
-
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Library General Public
     License as published by the Free Software Foundation; either
@@ -28,15 +26,13 @@
 #include "MappedAttribute.h"
 #include "SVGNames.h"
 #include "SVGNumberList.h"
-#include "SVGResourceFilter.h"
 
 namespace WebCore {
 
 SVGFEColorMatrixElement::SVGFEColorMatrixElement(const QualifiedName& tagName, Document* doc)
     : SVGFilterPrimitiveStandardAttributes(tagName, doc)
-    , m_in1(this, SVGNames::inAttr)
-    , m_type(this, SVGNames::typeAttr, FECOLORMATRIX_TYPE_UNKNOWN)
-    , m_values(this, SVGNames::valuesAttr, SVGNumberList::create(SVGNames::valuesAttr))
+    , m_type(FECOLORMATRIX_TYPE_UNKNOWN)
+    , m_values(SVGNumberList::create(SVGNames::valuesAttr))
 {
 }
 
@@ -65,25 +61,68 @@ void SVGFEColorMatrixElement::parseMappedAttribute(MappedAttribute* attr)
         SVGFilterPrimitiveStandardAttributes::parseMappedAttribute(attr);
 }
 
-bool SVGFEColorMatrixElement::build(SVGResourceFilter* filterResource)
+void SVGFEColorMatrixElement::synchronizeProperty(const QualifiedName& attrName)
 {
-    FilterEffect* input1 = filterResource->builder()->getEffectById(in1());
+    SVGFilterPrimitiveStandardAttributes::synchronizeProperty(attrName);
 
-    if(!input1)
-        return false;
+    if (attrName == anyQName()) {
+        synchronizeType();
+        synchronizeIn1();
+        synchronizeValues();
+        return;
+    }
 
-    Vector<float> _values;
+    if (attrName == SVGNames::typeAttr)
+        synchronizeType();
+    else if (attrName == SVGNames::inAttr)
+        synchronizeIn1();
+    else if (attrName == SVGNames::valuesAttr)
+        synchronizeValues();
+}
+
+PassRefPtr<FilterEffect> SVGFEColorMatrixElement::build(SVGFilterBuilder* filterBuilder)
+{
+    FilterEffect* input1 = filterBuilder->getEffectById(in1());
+
+    if (!input1)
+        return 0;
+
+    Vector<float> filterValues;
     SVGNumberList* numbers = values();
+    const ColorMatrixType filterType(static_cast<const ColorMatrixType>(type()));
 
-    ExceptionCode ec = 0;
-    unsigned int nr = numbers->numberOfItems();
-    for (unsigned int i = 0;i < nr;i++)
-        _values.append(numbers->getItem(i, ec));
+    // Use defaults if values is empty (SVG 1.1 15.10).
+    if (!hasAttribute(SVGNames::valuesAttr)) {
+        switch (filterType) {
+        case FECOLORMATRIX_TYPE_MATRIX:
+            for (size_t i = 0; i < 20; i++)
+                filterValues.append((i % 6) ? 0.0f : 1.0f);
+            break;
+        case FECOLORMATRIX_TYPE_HUEROTATE:
+            filterValues.append(0.0f);
+            break;
+        case FECOLORMATRIX_TYPE_SATURATE:
+            filterValues.append(1.0f);
+            break;
+        default:
+            break;
+        }
+    } else {
+        size_t size = numbers->numberOfItems();
+        for (size_t i = 0; i < size; i++) {
+            ExceptionCode ec = 0;
+            filterValues.append(numbers->getItem(i, ec));
+        }
+        size = filterValues.size();
 
-    RefPtr<FilterEffect> effect = FEColorMatrix::create(input1, static_cast<ColorMatrixType>(type()), _values);
-    filterResource->addFilterEffect(this, effect.release());
-    
-    return true;
+        if ((filterType == FECOLORMATRIX_TYPE_MATRIX && size != 20)
+            || (filterType == FECOLORMATRIX_TYPE_HUEROTATE && size != 1)
+            || (filterType == FECOLORMATRIX_TYPE_SATURATE && (size != 1
+                || filterValues[0] < 0.0f || filterValues[0] > 1.0f)))
+            return 0;
+    }
+
+    return FEColorMatrix::create(input1, filterType, filterValues);
 }
 
 } //namespace WebCore

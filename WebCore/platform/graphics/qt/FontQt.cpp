@@ -1,6 +1,6 @@
 /*
     Copyright (C) 2008 Nokia Corporation and/or its subsidiary(-ies)
-    Copyright (C) 2008 Holger Hans Peter Freyther
+    Copyright (C) 2008, 2010 Holger Hans Peter Freyther
     Copyright (C) 2009 Dirk Schulze <krit@webkit.org>
 
     This library is free software; you can redistribute it and/or
@@ -21,14 +21,14 @@
 
 #include "config.h"
 #include "Font.h"
+
+#include "AffineTransform.h"
 #include "FontDescription.h"
 #include "FontFallbackList.h"
 #include "FontSelector.h"
-
 #include "Gradient.h"
 #include "GraphicsContext.h"
 #include "Pattern.h"
-#include "TransformationMatrix.h"
 
 #include <QBrush>
 #include <QFontInfo>
@@ -42,28 +42,13 @@
 
 #include <limits.h>
 
-#if QT_VERSION >= 0x040400
 namespace WebCore {
 
-static const QString qstring(const TextRun& run)
+static const QString fromRawDataWithoutRef(const String& string)
 {
-    //We don't detach
-    return QString::fromRawData((const QChar *)run.characters(), run.length());
-}
-
-static const QString fixSpacing(const QString &string)
-{
-    //Only detach if we're actually changing something
-    QString possiblyDetached = string;
-    for (int i = 0; i < string.length(); ++i) {
-        const QChar c = string.at(i);
-        if (c.unicode() != 0x20 && Font::treatAsSpace(c.unicode())) {
-            possiblyDetached[i] = 0x20; //detach
-        } else if (c.unicode() != 0x200c && Font::treatAsZeroWidthSpace(c.unicode())) {
-            possiblyDetached[i] = 0x200c; //detach
-        }
-    }
-    return possiblyDetached;
+    // We don't detach. This assumes the WebCore string data will stay valid for the
+    // lifetime of the QString we pass back, since we don't ref the WebCore string.
+    return QString::fromRawData(reinterpret_cast<const QChar*>(string.characters()), string.length());
 }
 
 static QTextLine setupLayout(QTextLayout* layout, const TextRun& style)
@@ -94,7 +79,7 @@ void Font::drawComplexText(GraphicsContext* ctx, const TextRun& run, const Float
             brush.setTransform(ctx->fillGradient()->gradientSpaceTransform());
             p->setPen(QPen(brush, 0));
         } else if (ctx->fillPattern()) {
-            TransformationMatrix affine;
+            AffineTransform affine;
             p->setPen(QPen(QBrush(ctx->fillPattern()->createPlatformPattern(affine)), 0));
         } else
             p->setPen(QColor(ctx->fillColor()));
@@ -106,13 +91,14 @@ void Font::drawComplexText(GraphicsContext* ctx, const TextRun& run, const Float
             brush.setTransform(ctx->strokeGradient()->gradientSpaceTransform());
             p->setPen(QPen(brush, ctx->strokeThickness()));
         } else if (ctx->strokePattern()) {
-            TransformationMatrix affine;
+            AffineTransform affine;
             p->setPen(QPen(QBrush(ctx->strokePattern()->createPlatformPattern(affine)), ctx->strokeThickness()));
         } else
             p->setPen(QPen(QColor(ctx->strokeColor()), ctx->strokeThickness()));
     }
 
-    const QString string = fixSpacing(qstring(run));
+    String sanitized = Font::normalizeSpaces(String(run.characters(), run.length()));
+    QString string = fromRawDataWithoutRef(sanitized);
 
     // text shadow
     IntSize shadowSize;
@@ -148,7 +134,7 @@ void Font::drawComplexText(GraphicsContext* ctx, const TextRun& run, const Float
             clip.adjust(dx1, dx2, dy1, dy2);
         }
         p->save();
-        p->setClipRect(clip.toRect());
+        p->setClipRect(clip.toRect(), Qt::IntersectClip);
         QPointF pt(point.x(), point.y() - ascent);
         if (hasShadow) {
             p->save();
@@ -183,14 +169,18 @@ void Font::drawComplexText(GraphicsContext* ctx, const TextRun& run, const Float
         p->drawText(pt, string, flags, run.padding());
 }
 
-float Font::floatWidthForComplexText(const TextRun& run, HashSet<const SimpleFontData*>*) const
+float Font::floatWidthForComplexText(const TextRun& run, HashSet<const SimpleFontData*>*, GlyphOverflow*) const
 {
     if (!run.length())
         return 0;
-    const QString string = fixSpacing(qstring(run));
-    QTextLayout layout(string, font());
-    QTextLine line = setupLayout(&layout, run);
-    int w = int(line.naturalTextWidth());
+
+    if (run.length() == 1 && treatAsSpace(run[0]))
+        return QFontMetrics(font()).width(run[0]) - m_wordSpacing + run.padding();
+
+    String sanitized = Font::normalizeSpaces(String(run.characters(), run.length()));
+    QString string = fromRawDataWithoutRef(sanitized);
+
+    int w = QFontMetrics(font()).width(string);
     // WebKit expects us to ignore word spacing on the first character (as opposed to what Qt does)
     if (treatAsSpace(run[0]))
         w -= m_wordSpacing;
@@ -198,9 +188,11 @@ float Font::floatWidthForComplexText(const TextRun& run, HashSet<const SimpleFon
     return w + run.padding();
 }
 
-int Font::offsetForPositionForComplexText(const TextRun& run, int position, bool includePartialGlyphs) const
+int Font::offsetForPositionForComplexText(const TextRun& run, int position, bool) const
 {
-    const QString string = fixSpacing(qstring(run));
+    String sanitized = Font::normalizeSpaces(String(run.characters(), run.length()));
+    QString string = fromRawDataWithoutRef(sanitized);
+
     QTextLayout layout(string, font());
     QTextLine line = setupLayout(&layout, run);
     return line.xToCursor(position);
@@ -208,7 +200,9 @@ int Font::offsetForPositionForComplexText(const TextRun& run, int position, bool
 
 FloatRect Font::selectionRectForComplexText(const TextRun& run, const IntPoint& pt, int h, int from, int to) const
 {
-    const QString string = fixSpacing(qstring(run));
+    String sanitized = Font::normalizeSpaces(String(run.characters(), run.length()));
+    QString string = fromRawDataWithoutRef(sanitized);
+
     QTextLayout layout(string, font());
     QTextLine line = setupLayout(&layout, run);
 
@@ -222,10 +216,13 @@ FloatRect Font::selectionRectForComplexText(const TextRun& run, const IntPoint& 
 
 QFont Font::font() const
 {
-    return primaryFont()->getQtFont();
+    QFont f = primaryFont()->getQtFont();
+    if (m_letterSpacing != 0)
+        f.setLetterSpacing(QFont::AbsoluteSpacing, m_letterSpacing);
+    if (m_wordSpacing != 0)
+        f.setWordSpacing(m_wordSpacing);
+    return f;
 }
 
 }
-
-#endif
 

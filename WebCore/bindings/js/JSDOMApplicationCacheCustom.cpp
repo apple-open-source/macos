@@ -42,28 +42,6 @@ using namespace JSC;
 
 namespace WebCore {
 
-void JSDOMApplicationCache::mark()
-{
-    DOMObject::mark();
-
-    markIfNotNull(m_impl->onchecking());
-    markIfNotNull(m_impl->onerror());
-    markIfNotNull(m_impl->onnoupdate());
-    markIfNotNull(m_impl->ondownloading());
-    markIfNotNull(m_impl->onprogress());
-    markIfNotNull(m_impl->onupdateready());
-    markIfNotNull(m_impl->oncached());
-    markIfNotNull(m_impl->onobsolete());
-
-    typedef DOMApplicationCache::EventListenersMap EventListenersMap;
-    typedef DOMApplicationCache::ListenerVector ListenerVector;
-    EventListenersMap& eventListeners = m_impl->eventListeners();
-    for (EventListenersMap::iterator mapIter = eventListeners.begin(); mapIter != eventListeners.end(); ++mapIter) {
-        for (ListenerVector::iterator vecIter = mapIter->second.begin(); vecIter != mapIter->second.end(); ++vecIter)
-            (*vecIter)->markJSFunction();
-    }
-}
-
 #if ENABLE(APPLICATION_CACHE_DYNAMIC_ENTRIES)
 
 JSValue JSDOMApplicationCache::hasItem(ExecState* exec, const ArgList& args)
@@ -106,30 +84,6 @@ JSValue JSDOMApplicationCache::remove(ExecState* exec, const ArgList& args)
 }
 
 #endif // ENABLE(APPLICATION_CACHE_DYNAMIC_ENTRIES)
-
-JSValue JSDOMApplicationCache::addEventListener(ExecState* exec, const ArgList& args)
-{
-    JSDOMGlobalObject* globalObject = toJSDOMGlobalObject(impl()->scriptExecutionContext());
-    if (!globalObject)
-        return jsUndefined();
-    RefPtr<JSEventListener> listener = globalObject->findOrCreateJSEventListener(args.at(1));
-    if (!listener)
-        return jsUndefined();
-    impl()->addEventListener(args.at(0).toString(exec), listener.release(), args.at(2).toBoolean(exec));
-    return jsUndefined();
-}
-
-JSValue JSDOMApplicationCache::removeEventListener(ExecState* exec, const ArgList& args)
-{
-    JSDOMGlobalObject* globalObject = toJSDOMGlobalObject(impl()->scriptExecutionContext());
-    if (!globalObject)
-        return jsUndefined();
-    JSEventListener* listener = globalObject->findJSEventListener(args.at(1));
-    if (!listener)
-        return jsUndefined();
-    impl()->removeEventListener(args.at(0).toString(exec), listener, args.at(2).toBoolean(exec));
-    return jsUndefined();
-}
 
 } // namespace WebCore
 

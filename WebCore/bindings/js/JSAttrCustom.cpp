@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007, 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2007, 2008, 2009 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -33,6 +33,7 @@
 #include "Document.h"
 #include "HTMLFrameElementBase.h"
 #include "HTMLNames.h"
+#include "JSDOMBinding.h"
 
 using namespace JSC;
 
@@ -46,16 +47,22 @@ void JSAttr::setValue(ExecState* exec, JSValue value)
     String attrValue = valueToStringWithNullCheck(exec, value);
 
     Element* ownerElement = imp->ownerElement();
-    if (ownerElement && (ownerElement->hasTagName(iframeTag) || ownerElement->hasTagName(frameTag))) {
-        if (equalIgnoringCase(imp->name(), "src") && protocolIsJavaScript(parseURL(attrValue))) {
-            if (!checkNodeSecurity(exec, static_cast<HTMLFrameElementBase*>(ownerElement)->contentDocument()))
-                return;
-        }
-    }
+    if (ownerElement && !allowSettingSrcToJavascriptURL(exec, ownerElement, imp->name(), attrValue))
+        return;
 
     ExceptionCode ec = 0;
     imp->setValue(attrValue, ec);
     setDOMException(exec, ec);
+}
+
+void JSAttr::markChildren(MarkStack& markStack)
+{
+    Base::markChildren(markStack);
+
+    // Mark the element so that this will work to access the attribute even if the last
+    // other reference goes away.
+    if (Element* element = impl()->ownerElement())
+        markDOMNodeWrapper(markStack, element->document(), element);
 }
 
 } // namespace WebCore

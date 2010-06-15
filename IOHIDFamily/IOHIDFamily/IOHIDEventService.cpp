@@ -108,6 +108,7 @@ enum {
     #define     _debuggerMask                       _reserved->debuggerMask
     #define     _startDebuggerMask                  _reserved->startDebuggerMask
     #define     _debuggerTimerEventSource           _reserved->debuggerTimerEventSource
+    #define     _shouldSwapISO                      _reserved->shouldSwapISO
 
     #define     kDebuggerDelayMS                    2500
     #define     kDebuggerDelayPwrOnlyMS             10000
@@ -185,7 +186,7 @@ bool IOHIDEventService::start ( IOService * provider )
     if ( !handleStart(provider) )
         return false;
         
-    _workLoop = provider->getWorkLoop();
+    _workLoop = getWorkLoop();
     if ( !_workLoop )
         return false;
         
@@ -205,6 +206,8 @@ bool IOHIDEventService::start ( IOService * provider )
         
     calculateCapsLockDelay();
     
+    calculateStandardType();
+        
     SET_HID_PROPERTIES(this);
     SET_HID_PROPERTIES_EMBEDDED(this);
         
@@ -284,7 +287,19 @@ void IOHIDEventService::stop( IOService * provider )
 {
     handleStop ( provider );
 
-#if !TARGET_OS_EMBEDDED
+    if ( _capsTimerEventSource )
+        _capsTimerEventSource->cancelTimeout();
+
+    if ( _ejectTimerEventSource )
+        _ejectTimerEventSource->cancelTimeout();
+
+#if TARGET_OS_EMBEDDED
+    
+    if ( _debuggerTimerEventSource )
+        _debuggerTimerEventSource->cancelTimeout();
+    
+#else
+
     NUB_LOCK;
 
     stopAndReleaseShim ( _keyboardNub, this );
@@ -448,6 +463,70 @@ void IOHIDEventService::calculateCapsLockDelay()
     
 GET_OUT:
     IOHID_DEBUG(kIOHIDDebugCode_CalculatedCapsDelay, _capsDelayMS, 0, 0, 0);
+}
+
+//====================================================================================================
+// IOHIDEventService::calculateStandardType
+//====================================================================================================
+void IOHIDEventService::calculateStandardType()
+{
+    IOHIDStandardType   result = kIOHIDStandardTypeANSI;
+    OSNumber *          number;
+
+    number = OSDynamicCast(OSNumber, getProperty(kIOHIDStandardTypeKey));
+    if ( number ) {
+        result = number->unsigned32BitValue();
+    }
+    else {
+        UInt16 productID    = getProductID();
+        UInt16 vendorID     = getVendorID();
+
+        if (vendorID == kIOUSBVendorIDAppleComputer) {
+        
+            switch (productID) {
+                case kprodUSBCosmoISOKbd:  //Cosmo ISO
+                case kprodUSBAndyISOKbd:  //Andy ISO
+                case kprodQ6ISOKbd:  //Q6 ISO
+                case kprodQ30ISOKbd:  //Q30 ISO
+#if TARGET_OS_EMBEDDED
+                        _shouldSwapISO = true;
+#endif /* TARGET_OS_EMBEDDED */
+                        // fall through
+                case kprodFountainISOKbd:  //Fountain ISO
+                case kprodSantaISOKbd:  //Santa ISO
+                        result = kIOHIDStandardTypeISO;
+                        break;
+                case kprodUSBCosmoJISKbd:  //Cosmo JIS
+                case kprodUSBAndyJISKbd:  //Andy JIS is 0x206
+                case kprodQ6JISKbd:  //Q6 JIS
+                case kprodQ30JISKbd:  //Q30 JIS
+                case kprodFountainJISKbd:  //Fountain JIS
+                case kprodSantaJISKbd:  //Santa JIS
+                        result = kIOHIDStandardTypeJIS;
+                        break;
+            }
+            
+            setProperty(kIOHIDStandardTypeKey, result, 32);
+        }
+    }
+    
+#if TARGET_OS_EMBEDDED
+    if ( !_shouldSwapISO && result == kIOHIDStandardTypeISO ) {
+        number = OSDynamicCast(OSNumber, getProperty("alt_handler_id"));
+        if ( number ) {
+            switch (number->unsigned32BitValue()) {
+                case kgestUSBCosmoISOKbd: 
+                case kgestUSBAndyISOKbd: 
+                case kgestQ6ISOKbd: 
+                case kgestQ30ISOKbd: 
+                case kgestM89ISOKbd:
+                case kgestUSBGenericISOkd: 
+                    _shouldSwapISO = true;
+                    break;
+            }
+        }
+    }
+#endif /* TARGET_OS_EMBEDDED */
 }
 
 //====================================================================================================
@@ -1113,7 +1192,6 @@ void IOHIDEventService::free()
     }
     
     if (_ejectTimerEventSource) {
-        _ejectTimerEventSource->cancelTimeout();
         if ( _workLoop )
             _workLoop->removeEventSource(_ejectTimerEventSource);
             
@@ -1122,18 +1200,11 @@ void IOHIDEventService::free()
     }
     
     if (_capsTimerEventSource) {
-        _capsTimerEventSource->cancelTimeout();
         if ( _workLoop )
             _workLoop->removeEventSource(_capsTimerEventSource);
             
         _capsTimerEventSource->release();
         _capsTimerEventSource = 0;
-    }
-    
-    if ( _workLoop ) {
-        // not our workloop. don't stop it.
-        _workLoop->release();
-        _workLoop = NULL;
     }
     
 #if TARGET_OS_EMBEDDED
@@ -1147,8 +1218,23 @@ void IOHIDEventService::free()
         _clientDict->release();
         _clientDict = NULL;
     }
+
+    if (_debuggerTimerEventSource) {
+        if ( _workLoop )
+            _workLoop->removeEventSource(_debuggerTimerEventSource);
+        
+        _debuggerTimerEventSource->release();
+        _debuggerTimerEventSource = 0;
+    }
+
 #endif /* TARGET_OS_EMBEDDED */
-    
+
+    if ( _workLoop ) {
+        // not our workloop. don't stop it.
+        _workLoop->release();
+        _workLoop = NULL;
+    }
+        
     if (_reserved) {
         IODelete(_reserved, ExpansionData, 1);
         _reserved = NULL;
@@ -1459,12 +1545,25 @@ void IOHIDEventService::dispatchKeyboardEvent(
         return;
         
     NUB_LOCK;
-    
+
 #if TARGET_OS_EMBEDDED // {
     IOHIDEvent * event = NULL;
     UInt32 debugMask = 0;
     
     switch (usagePage) {
+        case kHIDPage_KeyboardOrKeypad:
+            if ( _shouldSwapISO ) {
+
+                switch ( usage ) {
+                    case kHIDUsage_KeyboardGraveAccentAndTilde:
+                        usage = kHIDUsage_KeyboardNonUSBackslash;
+                        break;
+                    case kHIDUsage_KeyboardNonUSBackslash:
+                        usage = kHIDUsage_KeyboardGraveAccentAndTilde;
+                        break;
+                }
+            }
+            break;
         case kHIDPage_Consumer:
             switch (usage) {
                 case kHIDUsage_Csmr_Power:
@@ -1494,8 +1593,7 @@ void IOHIDEventService::dispatchKeyboardEvent(
         if ( !_debuggerTimerEventSource ) {
             _debuggerTimerEventSource = IOTimerEventSource::timerEventSource(this, OSMemberFunctionCast(IOTimerEventSource::Action, this, &IOHIDEventService::debuggerTimerCallback));
             if (_debuggerTimerEventSource) {
-                IOWorkLoop * wl = getWorkLoop();
-                if (!wl || (wl->addEventSource(_debuggerTimerEventSource) != kIOReturnSuccess)) {
+                if ((_workLoop->addEventSource(_debuggerTimerEventSource) != kIOReturnSuccess)) {
                     _debuggerTimerEventSource->release();
                     _debuggerTimerEventSource = NULL;
                 }

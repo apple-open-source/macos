@@ -86,6 +86,7 @@ struct mntopt {
 #define MOPT_NODEV		{ "dev",	1, MNT_NODEV, 0 }
 #define MOPT_NOEXEC		{ "exec",	1, MNT_NOEXEC, 0 }
 #define MOPT_NOSUID		{ "suid",	1, MNT_NOSUID, 0 }
+#define MOPT_CPROTECT		{ "protect",	0, MNT_CPROTECT, 0 }
 #define MOPT_RDONLY		{ "rdonly",	0, MNT_RDONLY, 0 }
 #define MOPT_SYNC		{ "sync",	0, MNT_SYNCHRONOUS, 0 }
 #define MOPT_UNION		{ "union",	0, MNT_UNION, 0 }
@@ -121,6 +122,7 @@ struct mntopt {
 	MOPT_NODEV,							\
 	MOPT_NOEXEC,							\
 	MOPT_NOSUID,							\
+	MOPT_CPROTECT,							\
 	MOPT_RDONLY,							\
 	MOPT_UNION,							\
         MOPT_BROWSE,							\

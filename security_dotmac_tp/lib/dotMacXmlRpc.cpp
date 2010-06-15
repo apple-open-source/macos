@@ -86,7 +86,7 @@ static Boolean addAuthenticationToWSInvokation(
 
     if ((message != NULL) && (outgoingMessage != NULL)) {
         successful =  CFHTTPMessageAddAuthentication(outgoingMessage, message, 
-			username, password, NULL, FALSE);
+			username, password, kCFHTTPAuthenticationSchemeDigest, FALSE);
     }
 
     if (successful) {

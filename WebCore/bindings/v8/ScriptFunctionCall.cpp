@@ -31,8 +31,6 @@
 #include "config.h"
 #include "ScriptFunctionCall.h"
 
-#include "Document.h"
-#include "Frame.h"
 #include "ScriptScope.h"
 #include "ScriptState.h"
 #include "ScriptString.h"
@@ -40,21 +38,15 @@
 
 #include "V8Binding.h"
 #include "V8Proxy.h"
+#include "V8Utilities.h"
 
 #include <v8.h>
 #include <wtf/OwnArrayPtr.h>
 
 namespace WebCore {
 
-static void reportException(ScriptState* scriptState, v8::TryCatch &exceptionCatcher)
-{
-    v8::Local<v8::Message> message = exceptionCatcher.Message();
-    scriptState->frame()->document()->reportException(toWebCoreString(message->Get()), message->GetLineNumber(), toWebCoreString(message->GetScriptResourceName()));
-    exceptionCatcher.Reset();
-}
-
-ScriptFunctionCall::ScriptFunctionCall(ScriptState* scriptState, const ScriptObject& thisObject, const String& name)
-    : m_scriptState(scriptState)
+ScriptFunctionCall::ScriptFunctionCall(const ScriptObject& thisObject, const String& name)
+    : m_scriptState(thisObject.scriptState())
     , m_thisObject(thisObject)
     , m_name(name)
 {
@@ -62,6 +54,10 @@ ScriptFunctionCall::ScriptFunctionCall(ScriptState* scriptState, const ScriptObj
 
 void ScriptFunctionCall::appendArgument(const ScriptObject& argument)
 {
+    if (argument.scriptState() != m_scriptState) {
+        ASSERT_NOT_REACHED();
+        return;
+    }
     m_arguments.append(argument);
 }
 
@@ -82,6 +78,18 @@ void ScriptFunctionCall::appendArgument(const String& argument)
     m_arguments.append(v8String(argument));
 }
 
+void ScriptFunctionCall::appendArgument(const char* argument)
+{
+    ScriptScope scope(m_scriptState);
+    m_arguments.append(v8String(argument));
+}
+
+void ScriptFunctionCall::appendArgument(long argument)
+{
+    ScriptScope scope(m_scriptState);
+    m_arguments.append(v8::Number::New(argument));
+}
+
 void ScriptFunctionCall::appendArgument(long long argument)
 {
     ScriptScope scope(m_scriptState);
@@ -89,6 +97,12 @@ void ScriptFunctionCall::appendArgument(long long argument)
 }
 
 void ScriptFunctionCall::appendArgument(unsigned int argument)
+{
+    ScriptScope scope(m_scriptState);
+    m_arguments.append(v8::Number::New(argument));
+}
+
+void ScriptFunctionCall::appendArgument(unsigned long argument)
 {
     ScriptScope scope(m_scriptState);
     m_arguments.append(v8::Number::New(argument));
@@ -162,7 +176,7 @@ ScriptObject ScriptFunctionCall::construct(bool& hadException, bool reportExcept
         return ScriptObject();
     }
 
-    return ScriptObject(result);
+    return ScriptObject(m_scriptState, result);
 }
 
 } // namespace WebCore

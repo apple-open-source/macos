@@ -34,13 +34,13 @@ class PlaceholderDocument : public Document {
 public:
     static PassRefPtr<PlaceholderDocument> create(Frame* frame)
     {
-        return new PlaceholderDocument(frame);
+        return adoptRef(new PlaceholderDocument(frame));
     }
 
     virtual void attach();
 
 private:
-    PlaceholderDocument(Frame* frame) : Document(frame, false) { }
+    PlaceholderDocument(Frame* frame) : Document(frame, false, false) { }
 };
 
 } // namespace WebCore

@@ -26,7 +26,6 @@
 #ifndef JITInlineMethods_h
 #define JITInlineMethods_h
 
-#include <wtf/Platform.h>
 
 #if ENABLE(JIT)
 
@@ -37,28 +36,37 @@ namespace JSC {
 // puts an arg onto the stack, as an arg to a context threaded function.
 ALWAYS_INLINE void JIT::emitPutJITStubArg(RegisterID src, unsigned argumentNumber)
 {
-    poke(src, argumentNumber);
+    unsigned argumentStackOffset = (argumentNumber * (sizeof(JSValue) / sizeof(void*))) + JITSTACKFRAME_ARGS_INDEX;
+    poke(src, argumentStackOffset);
 }
 
 /* Deprecated: Please use JITStubCall instead. */
 
 ALWAYS_INLINE void JIT::emitPutJITStubArgConstant(unsigned value, unsigned argumentNumber)
 {
-    poke(Imm32(value), argumentNumber);
+    unsigned argumentStackOffset = (argumentNumber * (sizeof(JSValue) / sizeof(void*))) + JITSTACKFRAME_ARGS_INDEX;
+    poke(Imm32(value), argumentStackOffset);
 }
 
 /* Deprecated: Please use JITStubCall instead. */
 
 ALWAYS_INLINE void JIT::emitPutJITStubArgConstant(void* value, unsigned argumentNumber)
 {
-    poke(ImmPtr(value), argumentNumber);
+    unsigned argumentStackOffset = (argumentNumber * (sizeof(JSValue) / sizeof(void*))) + JITSTACKFRAME_ARGS_INDEX;
+    poke(ImmPtr(value), argumentStackOffset);
 }
 
 /* Deprecated: Please use JITStubCall instead. */
 
 ALWAYS_INLINE void JIT::emitGetJITStubArg(unsigned argumentNumber, RegisterID dst)
 {
-    peek(dst, argumentNumber);
+    unsigned argumentStackOffset = (argumentNumber * (sizeof(JSValue) / sizeof(void*))) + JITSTACKFRAME_ARGS_INDEX;
+    peek(dst, argumentStackOffset);
+}
+
+ALWAYS_INLINE bool JIT::isOperandConstantImmediateDouble(unsigned src)
+{
+    return m_codeBlock->isConstantRegisterIndex(src) && getConstantOperand(src).isDouble();
 }
 
 ALWAYS_INLINE JSValue JIT::getConstantOperand(unsigned src)
@@ -85,6 +93,16 @@ ALWAYS_INLINE void JIT::emitGetFromCallFrameHeaderPtr(RegisterFile::CallFrameHea
 #endif
 }
 
+ALWAYS_INLINE void JIT::emitLoadCharacterString(RegisterID src, RegisterID dst, JumpList& failures)
+{
+    failures.append(branchPtr(NotEqual, Address(src), ImmPtr(m_globalData->jsStringVPtr)));
+    failures.append(branchTest32(NonZero, Address(src, OBJECT_OFFSETOF(JSString, m_fiberCount))));
+    failures.append(branch32(NotEqual, MacroAssembler::Address(src, ThunkHelpers::jsStringLengthOffset()), Imm32(1)));
+    loadPtr(MacroAssembler::Address(src, ThunkHelpers::jsStringValueOffset()), dst);
+    loadPtr(MacroAssembler::Address(dst, ThunkHelpers::stringImplDataOffset()), dst);
+    load16(MacroAssembler::Address(dst, 0), dst);
+}
+
 ALWAYS_INLINE void JIT::emitGetFromCallFrameHeader32(RegisterFile::CallFrameHeaderEntry entry, RegisterID to, RegisterID from)
 {
     load32(Address(from, entry * sizeof(Register)), to);
@@ -102,24 +120,40 @@ ALWAYS_INLINE JIT::Call JIT::emitNakedCall(CodePtr function)
     return nakedCall;
 }
 
-#if PLATFORM(X86) || PLATFORM(X86_64)
+#if defined(ASSEMBLER_HAS_CONSTANT_POOL) && ASSEMBLER_HAS_CONSTANT_POOL
 
-ALWAYS_INLINE void JIT::preserveReturnAddressAfterCall(RegisterID reg)
+ALWAYS_INLINE void JIT::beginUninterruptedSequence(int insnSpace, int constSpace)
 {
-    pop(reg);
+#if CPU(ARM_TRADITIONAL)
+#ifndef NDEBUG
+    // Ensure the label after the sequence can also fit
+    insnSpace += sizeof(ARMWord);
+    constSpace += sizeof(uint64_t);
+#endif
+
+    ensureSpace(insnSpace, constSpace);
+
+#endif
+
+#if defined(ASSEMBLER_HAS_CONSTANT_POOL) && ASSEMBLER_HAS_CONSTANT_POOL
+#ifndef NDEBUG
+    m_uninterruptedInstructionSequenceBegin = label();
+    m_uninterruptedConstantSequenceBegin = sizeOfConstantPool();
+#endif
+#endif
 }
 
-ALWAYS_INLINE void JIT::restoreReturnAddressBeforeReturn(RegisterID reg)
+ALWAYS_INLINE void JIT::endUninterruptedSequence(int insnSpace, int constSpace)
 {
-    push(reg);
+#if defined(ASSEMBLER_HAS_CONSTANT_POOL) && ASSEMBLER_HAS_CONSTANT_POOL
+    ASSERT(differenceBetween(m_uninterruptedInstructionSequenceBegin, label()) == insnSpace);
+    ASSERT(sizeOfConstantPool() - m_uninterruptedConstantSequenceBegin == constSpace);
+#endif
 }
 
-ALWAYS_INLINE void JIT::restoreReturnAddressBeforeReturn(Address address)
-{
-    push(address);
-}
+#endif
 
-#elif PLATFORM_ARM_ARCH(7)
+#if CPU(ARM)
 
 ALWAYS_INLINE void JIT::preserveReturnAddressAfterCall(RegisterID reg)
 {
@@ -134,6 +168,40 @@ ALWAYS_INLINE void JIT::restoreReturnAddressBeforeReturn(RegisterID reg)
 ALWAYS_INLINE void JIT::restoreReturnAddressBeforeReturn(Address address)
 {
     loadPtr(address, linkRegister);
+}
+
+#elif CPU(MIPS)
+
+ALWAYS_INLINE void JIT::preserveReturnAddressAfterCall(RegisterID reg)
+{
+    move(returnAddressRegister, reg);
+}
+
+ALWAYS_INLINE void JIT::restoreReturnAddressBeforeReturn(RegisterID reg)
+{
+    move(reg, returnAddressRegister);
+}
+
+ALWAYS_INLINE void JIT::restoreReturnAddressBeforeReturn(Address address)
+{
+    loadPtr(address, returnAddressRegister);
+}
+
+#else // CPU(X86) || CPU(X86_64)
+
+ALWAYS_INLINE void JIT::preserveReturnAddressAfterCall(RegisterID reg)
+{
+    pop(reg);
+}
+
+ALWAYS_INLINE void JIT::restoreReturnAddressBeforeReturn(RegisterID reg)
+{
+    push(reg);
+}
+
+ALWAYS_INLINE void JIT::restoreReturnAddressBeforeReturn(Address address)
+{
+    push(address);
 }
 
 #endif
@@ -152,10 +220,10 @@ ALWAYS_INLINE void JIT::restoreArgumentReference()
 }
 ALWAYS_INLINE void JIT::restoreArgumentReferenceForTrampoline()
 {
-#if PLATFORM(X86)
+#if CPU(X86)
     // Within a trampoline the return address will be on the stack at this point.
     addPtr(Imm32(sizeof(void*)), stackPointerRegister, firstArgumentRegister);
-#elif PLATFORM_ARM_ARCH(7)
+#elif CPU(ARM)
     move(stackPointerRegister, firstArgumentRegister);
 #endif
     // In the trampoline on x86-64, the first argument register is not overwritten.
@@ -223,9 +291,9 @@ ALWAYS_INLINE void JIT::clearSamplingFlag(int32_t flag)
 #if ENABLE(SAMPLING_COUNTERS)
 ALWAYS_INLINE void JIT::emitCount(AbstractSamplingCounter& counter, uint32_t count)
 {
-#if PLATFORM(X86_64) // Or any other 64-bit plattform.
+#if CPU(X86_64) // Or any other 64-bit plattform.
     addPtr(Imm32(count), AbsoluteAddress(&counter.m_counter));
-#elif PLATFORM(X86) // Or any other little-endian 32-bit plattform.
+#elif CPU(X86) // Or any other little-endian 32-bit plattform.
     intptr_t hiWord = reinterpret_cast<intptr_t>(&counter.m_counter) + sizeof(int32_t);
     add32(Imm32(count), AbsoluteAddress(&counter.m_counter));
     addWithCarry32(Imm32(0), AbsoluteAddress(reinterpret_cast<void*>(hiWord)));
@@ -236,11 +304,11 @@ ALWAYS_INLINE void JIT::emitCount(AbstractSamplingCounter& counter, uint32_t cou
 #endif
 
 #if ENABLE(OPCODE_SAMPLING)
-#if PLATFORM(X86_64)
+#if CPU(X86_64)
 ALWAYS_INLINE void JIT::sampleInstruction(Instruction* instruction, bool inHostFunction)
 {
-    move(ImmPtr(m_interpreter->sampler()->sampleSlot()), X86::ecx);
-    storePtr(ImmPtr(m_interpreter->sampler()->encodeSample(instruction, inHostFunction)), X86::ecx);
+    move(ImmPtr(m_interpreter->sampler()->sampleSlot()), X86Registers::ecx);
+    storePtr(ImmPtr(m_interpreter->sampler()->encodeSample(instruction, inHostFunction)), X86Registers::ecx);
 }
 #else
 ALWAYS_INLINE void JIT::sampleInstruction(Instruction* instruction, bool inHostFunction)
@@ -251,11 +319,11 @@ ALWAYS_INLINE void JIT::sampleInstruction(Instruction* instruction, bool inHostF
 #endif
 
 #if ENABLE(CODEBLOCK_SAMPLING)
-#if PLATFORM(X86_64)
+#if CPU(X86_64)
 ALWAYS_INLINE void JIT::sampleCodeBlock(CodeBlock* codeBlock)
 {
-    move(ImmPtr(m_interpreter->sampler()->codeBlockSlot()), X86::ecx);
-    storePtr(ImmPtr(codeBlock), X86::ecx);
+    move(ImmPtr(m_interpreter->sampler()->codeBlockSlot()), X86Registers::ecx);
+    storePtr(ImmPtr(codeBlock), X86Registers::ecx);
 }
 #else
 ALWAYS_INLINE void JIT::sampleCodeBlock(CodeBlock* codeBlock)
@@ -265,22 +333,12 @@ ALWAYS_INLINE void JIT::sampleCodeBlock(CodeBlock* codeBlock)
 #endif
 #endif
 
+ALWAYS_INLINE bool JIT::isOperandConstantImmediateChar(unsigned src)
+{
+    return m_codeBlock->isConstantRegisterIndex(src) && getConstantOperand(src).isString() && asString(getConstantOperand(src).asCell())->length() == 1;
+}
+
 #if USE(JSVALUE32_64)
-
-inline JIT::Address JIT::tagFor(unsigned index, RegisterID base)
-{
-    return Address(base, (index * sizeof(Register)) + OBJECT_OFFSETOF(JSValue, u.asBits.tag));
-}
-
-inline JIT::Address JIT::payloadFor(unsigned index, RegisterID base)
-{
-    return Address(base, (index * sizeof(Register)) + OBJECT_OFFSETOF(JSValue, u.asBits.payload));
-}
-
-inline JIT::Address JIT::addressFor(unsigned index, RegisterID base)
-{
-    return Address(base, (index * sizeof(Register)));
-}
 
 inline void JIT::emitLoadTag(unsigned index, RegisterID tag)
 {
@@ -501,14 +559,22 @@ inline bool JIT::getMappedTag(unsigned virtualRegisterIndex, RegisterID& tag)
 
 inline void JIT::emitJumpSlowCaseIfNotJSCell(unsigned virtualRegisterIndex)
 {
-    if (!m_codeBlock->isKnownNotImmediate(virtualRegisterIndex))
-        addSlowCase(branch32(NotEqual, tagFor(virtualRegisterIndex), Imm32(JSValue::CellTag)));
+    if (!m_codeBlock->isKnownNotImmediate(virtualRegisterIndex)) {
+        if (m_codeBlock->isConstantRegisterIndex(virtualRegisterIndex))
+            addSlowCase(jump());
+        else
+            addSlowCase(emitJumpIfNotJSCell(virtualRegisterIndex));
+    }
 }
 
 inline void JIT::emitJumpSlowCaseIfNotJSCell(unsigned virtualRegisterIndex, RegisterID tag)
 {
-    if (!m_codeBlock->isKnownNotImmediate(virtualRegisterIndex))
-        addSlowCase(branch32(NotEqual, tag, Imm32(JSValue::CellTag)));
+    if (!m_codeBlock->isKnownNotImmediate(virtualRegisterIndex)) {
+        if (m_codeBlock->isConstantRegisterIndex(virtualRegisterIndex))
+            addSlowCase(jump());
+        else
+            addSlowCase(branch32(NotEqual, tag, Imm32(JSValue::CellTag)));
+    }
 }
 
 inline void JIT::linkSlowCaseIfNotJSCell(Vector<SlowCaseEntry>::iterator& iter, unsigned virtualRegisterIndex)
@@ -539,23 +605,28 @@ ALWAYS_INLINE bool JIT::getOperandConstantImmediateInt(unsigned op1, unsigned op
     return false;
 }
 
-ALWAYS_INLINE bool JIT::isOperandConstantImmediateDouble(unsigned src)
+/* Deprecated: Please use JITStubCall instead. */
+
+ALWAYS_INLINE void JIT::emitPutJITStubArg(RegisterID tag, RegisterID payload, unsigned argumentNumber)
 {
-    return m_codeBlock->isConstantRegisterIndex(src) && getConstantOperand(src).isDouble();
+    unsigned argumentStackOffset = (argumentNumber * (sizeof(JSValue) / sizeof(void*))) + JITSTACKFRAME_ARGS_INDEX;
+    poke(payload, argumentStackOffset);
+    poke(tag, argumentStackOffset + 1);
 }
 
 /* Deprecated: Please use JITStubCall instead. */
 
 ALWAYS_INLINE void JIT::emitPutJITStubArgFromVirtualRegister(unsigned src, unsigned argumentNumber, RegisterID scratch1, RegisterID scratch2)
 {
+    unsigned argumentStackOffset = (argumentNumber * (sizeof(JSValue) / sizeof(void*))) + JITSTACKFRAME_ARGS_INDEX;
     if (m_codeBlock->isConstantRegisterIndex(src)) {
         JSValue constant = m_codeBlock->getConstant(src);
-        poke(Imm32(constant.payload()), argumentNumber);
-        poke(Imm32(constant.tag()), argumentNumber + 1);
+        poke(Imm32(constant.payload()), argumentStackOffset);
+        poke(Imm32(constant.tag()), argumentStackOffset + 1);
     } else {
         emitLoad(src, scratch1, scratch2);
-        poke(scratch2, argumentNumber);
-        poke(scratch1, argumentNumber + 1);
+        poke(scratch2, argumentStackOffset);
+        poke(scratch1, argumentStackOffset + 1);
     }
 }
 
@@ -674,13 +745,23 @@ ALWAYS_INLINE void JIT::emitJumpSlowCaseIfNotJSCell(RegisterID reg, int vReg)
 }
 
 #if USE(JSVALUE64)
-ALWAYS_INLINE JIT::Jump JIT::emitJumpIfImmediateNumber(RegisterID reg)
+
+inline void JIT::emitLoadDouble(unsigned index, FPRegisterID value)
 {
-    return branchTestPtr(NonZero, reg, tagTypeNumberRegister);
+    if (m_codeBlock->isConstantRegisterIndex(index)) {
+        Register& inConstantPool = m_codeBlock->constantRegister(index);
+        loadDouble(&inConstantPool, value);
+    } else
+        loadDouble(addressFor(index), value);
 }
-ALWAYS_INLINE JIT::Jump JIT::emitJumpIfNotImmediateNumber(RegisterID reg)
+
+inline void JIT::emitLoadInt32ToDouble(unsigned index, FPRegisterID value)
 {
-    return branchTestPtr(Zero, reg, tagTypeNumberRegister);
+    if (m_codeBlock->isConstantRegisterIndex(index)) {
+        Register& inConstantPool = m_codeBlock->constantRegister(index);
+        convertInt32ToDouble(AbsoluteAddress(&inConstantPool), value);
+    } else
+        convertInt32ToDouble(addressFor(index), value);
 }
 #endif
 
@@ -719,6 +800,11 @@ ALWAYS_INLINE void JIT::emitJumpSlowCaseIfNotImmediateIntegers(RegisterID reg1, 
     addSlowCase(emitJumpIfNotImmediateIntegers(reg1, reg2, scratch));
 }
 
+ALWAYS_INLINE void JIT::emitJumpSlowCaseIfNotImmediateNumber(RegisterID reg)
+{
+    addSlowCase(emitJumpIfNotImmediateNumber(reg));
+}
+
 #if !USE(JSVALUE64)
 ALWAYS_INLINE void JIT::emitFastArithDeTagImmediate(RegisterID reg)
 {
@@ -739,15 +825,6 @@ ALWAYS_INLINE void JIT::emitFastArithReTagImmediate(RegisterID src, RegisterID d
     if (src != dest)
         move(src, dest);
     addPtr(Imm32(JSImmediate::TagTypeNumber), dest);
-#endif
-}
-
-ALWAYS_INLINE void JIT::emitFastArithImmToInt(RegisterID reg)
-{
-#if USE(JSVALUE64)
-    UNUSED_PARAM(reg);
-#else
-    rshiftPtr(Imm32(JSImmediate::IntegerPayloadShift), reg);
 #endif
 }
 
@@ -776,12 +853,13 @@ ALWAYS_INLINE void JIT::emitTagAsBoolImmediate(RegisterID reg)
 // get arg puts an arg from the SF register array onto the stack, as an arg to a context threaded function.
 ALWAYS_INLINE void JIT::emitPutJITStubArgFromVirtualRegister(unsigned src, unsigned argumentNumber, RegisterID scratch)
 {
+    unsigned argumentStackOffset = (argumentNumber * (sizeof(JSValue) / sizeof(void*))) + JITSTACKFRAME_ARGS_INDEX;
     if (m_codeBlock->isConstantRegisterIndex(src)) {
         JSValue value = m_codeBlock->getConstant(src);
-        emitPutJITStubArgConstant(JSValue::encode(value), argumentNumber);
+        poke(ImmPtr(JSValue::encode(value)), argumentStackOffset);
     } else {
         loadPtr(Address(callFrameRegister, src * sizeof(Register)), scratch);
-        emitPutJITStubArg(scratch, argumentNumber);
+        poke(scratch, argumentStackOffset);
     }
 
     killLastResultRegister();

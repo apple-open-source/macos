@@ -17,8 +17,8 @@
  * Boston, MA 02110-1301, USA.
  */
 
-#ifndef WEBKIT_WEB_BACK_FORWARD_LIST_H
-#define WEBKIT_WEB_BACK_FORWARD_LIST_H
+#ifndef webkitwebbackforwardlist_h
+#define webkitwebbackforwardlist_h
 
 #include <glib.h>
 #include <glib-object.h>
@@ -110,8 +110,10 @@ webkit_web_back_forward_list_set_limit                   (WebKitWebBackForwardLi
 WEBKIT_API void
 webkit_web_back_forward_list_add_item                    (WebKitWebBackForwardList *web_back_forward_list,
                                                           WebKitWebHistoryItem     *history_item);
+WEBKIT_API void
+webkit_web_back_forward_list_clear                       (WebKitWebBackForwardList *web_back_forward_list);
 
 G_END_DECLS
 
 
-#endif /* WEBKIT_WEB_BACK_FORWARD_LIST_H */
+#endif /* webkitwebbackforwardlist_h */

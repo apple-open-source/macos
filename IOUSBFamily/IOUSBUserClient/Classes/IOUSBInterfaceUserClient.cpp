@@ -1887,6 +1887,7 @@ IOUSBInterfaceUserClientV2::_ControlRequestOut(IOUSBInterfaceUserClientV2 * targ
     USBLog(7, "+IOUSBInterfaceUserClientV2[%p]::_ControlRequestOut",  target);
 	// target->PrintExternalMethodArgs(arguments, 5);
 	
+	
 	if ( arguments->asyncWakePort ) 
 	{
 		IOUSBCompletion						tap;

@@ -93,6 +93,10 @@
 		<string>LHA-6435378-nsnumber-is-bool.patch</string>
 		<string>LHA-7190048-dont-set-error-on-freed-context.patch</string>
 		<string>LHA-build-fix.patch</string>
+		<string>MITKRB5-SA-2009-004.patch</string>
+		<string>MITKRB5-SA-2010-001.patch</string>
+		<string>MITKRB5-SA-2010-003.patch</string>
+		<string>MITKRB5-SA-2010-004.patch</string>
 	</array>
 	<key>OpenSourceProject</key>
 	<string>Kerberos</string>

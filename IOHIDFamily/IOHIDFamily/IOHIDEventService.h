@@ -33,6 +33,7 @@
 #include <IOKit/hidsystem/IOHIDTypes.h>
 #include <IOKit/hid/IOHIDInterface.h>
 #include <IOKit/hid/IOHIDElement.h>
+#include <IOKit/hid/IOHIDKeys.h>
 
 #if TARGET_OS_EMBEDDED
     #include <IOKit/hid/IOHIDEvent.h>
@@ -110,6 +111,7 @@ private:
         UInt32                  debuggerMask;
         UInt32                  startDebuggerMask;
         IOTimerEventSource *    debuggerTimerEventSource;
+        bool                    shouldSwapISO;
 #endif
     };
     /*! @var reserved
@@ -152,6 +154,8 @@ private:
     void                    debuggerTimerCallback(IOTimerEventSource *sender);
 #endif
 	void					calculateCapsLockDelay();
+    
+    void                    calculateStandardType();
 
 protected:
 

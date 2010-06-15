@@ -42,7 +42,7 @@ class ApplicationCacheResource;
 class DocumentLoader;
 class KURL;
 
-struct ResourceRequest;
+class ResourceRequest;
 
 typedef Vector<std::pair<KURL, KURL> > FallbackURLVector;
 
@@ -65,6 +65,8 @@ public:
     ApplicationCacheResource* resourceForRequest(const ResourceRequest&);
     ApplicationCacheResource* resourceForURL(const String& url);
 
+    void setAllowsAllNetworkRequests(bool value) { m_allowAllNetworkRequests = value; }
+    bool allowsAllNetworkRequests() const { return m_allowAllNetworkRequests; }
     void setOnlineWhitelist(const Vector<KURL>& onlineWhitelist);
     const Vector<KURL>& onlineWhitelist() const { return m_onlineWhitelist; }
     bool isURLInOnlineWhitelist(const KURL&); // There is an entry in online whitelist that has the same origin as the resource's URL and that is a prefix match for the resource's URL.
@@ -87,6 +89,8 @@ public:
     
     static bool requestIsHTTPOrHTTPSGet(const ResourceRequest&);
 
+    int64_t estimatedSizeInStorage() const { return m_estimatedSizeInStorage; }
+
 private:
     ApplicationCache();
     
@@ -94,8 +98,14 @@ private:
     ResourceMap m_resources;
     ApplicationCacheResource* m_manifest;
 
+    bool m_allowAllNetworkRequests;
     Vector<KURL> m_onlineWhitelist;
     FallbackURLVector m_fallbackURLs;
+
+    // The total size of the resources belonging to this Application Cache instance.
+    // This is an estimation of the size this Application Cache occupies in the
+    // database file.
+    int64_t m_estimatedSizeInStorage;
 
     unsigned m_storageID;
 };

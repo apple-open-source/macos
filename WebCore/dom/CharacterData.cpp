@@ -1,7 +1,7 @@
 /*
  * Copyright (C) 1999 Lars Knoll (knoll@kde.org)
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
- * Copyright (C) 2003, 2004, 2005, 2006, 2007, 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2003, 2004, 2005, 2006, 2007, 2008, 2009 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -22,29 +22,12 @@
 #include "config.h"
 #include "CharacterData.h"
 
-#include "CString.h"
 #include "EventNames.h"
 #include "ExceptionCode.h"
 #include "MutationEvent.h"
 #include "RenderText.h"
 
 namespace WebCore {
-
-CharacterData::CharacterData(Document *doc, bool isText)
-    : Node(doc, false, false, isText)
-    , m_data(StringImpl::empty())
-{
-}
-
-CharacterData::CharacterData(Document* document, const String& text, bool isText)
-    : Node(document, false, false, isText)
-{
-    m_data = text.impl() ? text.impl() : StringImpl::empty();
-}
-
-CharacterData::~CharacterData()
-{
-}
 
 void CharacterData::setData(const String& data, ExceptionCode&)
 {
@@ -196,10 +179,8 @@ void CharacterData::dispatchModifiedEvent(StringImpl* prevValue)
 {
     if (parentNode())
         parentNode()->childrenChanged();
-    if (document()->hasListenerType(Document::DOMCHARACTERDATAMODIFIED_LISTENER)) {
-        ExceptionCode ec;
-        dispatchMutationEvent(eventNames().DOMCharacterDataModifiedEvent, true, 0, prevValue, m_data, ec); 
-    }
+    if (document()->hasListenerType(Document::DOMCHARACTERDATAMODIFIED_LISTENER))
+        dispatchEvent(MutationEvent::create(eventNames().DOMCharacterDataModifiedEvent, true, 0, prevValue, m_data));
     dispatchSubtreeModifiedEvent();
 }
 

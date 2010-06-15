@@ -28,6 +28,7 @@
 
 #import <WebKit/WebView.h>
 #import <WebKit/WebFramePrivate.h>
+#import <JavaScriptCore/JSBase.h>
 
 #if !defined(ENABLE_DASHBOARD_SUPPORT)
 #define ENABLE_DASHBOARD_SUPPORT 1
@@ -43,8 +44,10 @@
 
 @class NSError;
 @class WebFrame;
+@class WebGeolocationPosition;
 @class WebInspector;
 @class WebPreferences;
+@class WebScriptWorld;
 @class WebTextIterator;
 
 @protocol WebFormDelegate;
@@ -65,6 +68,10 @@ extern NSString *WebElementIsContentEditableKey; // NSNumber indicating whether 
 
 // other WebElementDictionary keys
 extern NSString *WebElementLinkIsLiveKey;        // NSNumber of BOOL indictating whether the link is live or not
+extern NSString *WebElementIsInScrollBarKey;
+
+// One of the subviews of the WebView entered compositing mode.
+extern NSString *_WebViewDidStartAcceleratedCompositingNotification;
 
 #if ENABLE_DASHBOARD_SUPPORT
 typedef enum {
@@ -75,6 +82,11 @@ typedef enum {
     WebDashboardBehaviorUseBackwardCompatibilityMode
 } WebDashboardBehavior;
 #endif
+
+typedef enum {
+    WebInjectAtDocumentStart,
+    WebInjectAtDocumentEnd,
+} WebUserScriptInjectionTime;
 
 @interface WebController : NSTreeController {
     IBOutlet WebView *webView;
@@ -134,6 +146,20 @@ typedef enum {
 */    
 - (id)scriptDebugDelegate;
 
+/*!
+    @method setHistoryDelegate:
+    @abstract Set the WebView's WebHistoryDelegate delegate.
+    @param delegate The WebHistoryDelegate to set as the delegate.
+*/    
+- (void)setHistoryDelegate:(id)delegate;
+
+/*!
+    @method historyDelegate
+    @abstract Return the WebView's WebHistoryDelegate delegate.
+    @result The WebView's WebHistoryDelegate delegate.
+*/    
+- (id)historyDelegate;
+
 - (BOOL)shouldClose;
 
 /*!
@@ -181,6 +207,9 @@ typedef enum {
 - (void)setMediaVolume:(float)volume;
 - (float)mediaVolume;
 
+// Add visited links
+- (void)addVisitedLinks:(NSArray *)visitedLinks;
+
 @end
 
 @interface WebView (WebPrivate)
@@ -212,6 +241,14 @@ Could be worth adding to the API.
  */
 - (void)_loadBackForwardListFromOtherView:(WebView *)otherView;
 
+/*
+ @method _reportException:inContext:
+ @abstract Logs the exception to the Web Inspector. This only needs called for exceptions that
+ occur while using the JavaScriptCore APIs with a context owned by a WebKit.
+ @param exception The exception value to log.
+ @param context   The context the exception occured in.
+*/
++ (void)_reportException:(JSValueRef)exception inContext:(JSContextRef)context;
 
 /*!
  @method _dispatchPendingLoadRequests:
@@ -438,10 +475,42 @@ Could be worth adding to the API.
 + (NSCursor *)_pointingHandCursor;
 
 // SPI for DumpRenderTree
+- (BOOL)_postsAcceleratedCompositingNotifications;
+- (void)_setPostsAcceleratedCompositingNotifications:(BOOL)flag;
 - (BOOL)_isUsingAcceleratedCompositing;
+
+// Returns YES if NSView -displayRectIgnoringOpacity:inContext: will produce a faithful representation of the content.
+- (BOOL)_isSoftwareRenderable;
+// When drawing into a bitmap context, we normally flatten compositing layers (and distort 3D transforms).
+// Clients who are able to capture their own copy of the compositing layers need to be able to disable this.
+- (void)_setIncludesFlattenedCompositingLayersWhenDrawingToBitmap:(BOOL)flag;
+- (BOOL)_includesFlattenedCompositingLayersWhenDrawingToBitmap;
+
+// SPI for PluginHalter
++ (BOOL)_isNodeHaltedPlugin:(DOMNode *)node;
++ (BOOL)_hasPluginForNodeBeenHalted:(DOMNode *)node;
++ (void)_restartHaltedPluginForNode:(DOMNode *)node;
 
 // Which pasteboard text is coming from in editing delegate methods such as shouldInsertNode.
 - (NSPasteboard *)_insertionPasteboard;
+
+// Whitelists access from an origin (sourceOrigin) to a set of one or more origins described by the parameters:
+// - destinationProtocol: The protocol to grant access to.
+// - destinationHost: The host to grant access to.
+// - allowDestinationSubdomains: If host is a domain, setting this to YES will whitelist host and all its subdomains, recursively.
++ (void)_addOriginAccessWhitelistEntryWithSourceOrigin:(NSString *)sourceOrigin destinationProtocol:(NSString *)destinationProtocol destinationHost:(NSString *)destinationHost allowDestinationSubdomains:(BOOL)allowDestinationSubdomains;
++ (void)_removeOriginAccessWhitelistEntryWithSourceOrigin:(NSString *)sourceOrigin destinationProtocol:(NSString *)destinationProtocol destinationHost:(NSString *)destinationHost allowDestinationSubdomains:(BOOL)allowDestinationSubdomains;
+
+// Removes all white list entries created with _addOriginAccessWhitelistEntryWithSourceOrigin.
++ (void)_resetOriginAccessWhitelists;
+
++ (void)_addUserScriptToGroup:(NSString *)groupName world:(WebScriptWorld *)world source:(NSString *)source url:(NSURL *)url whitelist:(NSArray *)whitelist blacklist:(NSArray *)blacklist injectionTime:(WebUserScriptInjectionTime)injectionTime;
++ (void)_addUserStyleSheetToGroup:(NSString *)groupName world:(WebScriptWorld *)world source:(NSString *)source url:(NSURL *)url whitelist:(NSArray *)whitelist blacklist:(NSArray *)blacklist;
++ (void)_removeUserScriptFromGroup:(NSString *)groupName world:(WebScriptWorld *)world url:(NSURL *)url;
++ (void)_removeUserStyleSheetFromGroup:(NSString *)groupName world:(WebScriptWorld *)world url:(NSURL *)url;
++ (void)_removeUserScriptsFromGroup:(NSString *)groupName world:(WebScriptWorld *)world;
++ (void)_removeUserStyleSheetsFromGroup:(NSString *)groupName world:(WebScriptWorld *)world;
++ (void)_removeAllUserContentFromGroup:(NSString *)groupName;
 
 /*!
     @method cssAnimationsSuspended
@@ -456,6 +525,9 @@ Could be worth adding to the API.
     @discussion Suspends or resumes all running animations and transitions in the page.
 */
 - (void)setCSSAnimationsSuspended:(BOOL)suspended;
+
++ (void)_setDomainRelaxationForbidden:(BOOL)forbidden forURLScheme:(NSString *)scheme;
++ (void)_registerURLSchemeAsSecure:(NSString *)scheme;
 
 @end
 
@@ -523,6 +595,24 @@ Could be worth adding to the API.
 - (BOOL)_selectionIsAll;
 @end
 
+@protocol WebGeolocationProvider <NSObject>
+- (void)registerWebView:(WebView *)webView;
+- (void)unregisterWebView:(WebView *)webView;
+- (WebGeolocationPosition *)lastPosition;
+@end
+
+@interface WebView (WebViewGeolocation)
+- (void)_setGeolocationProvider:(id<WebGeolocationProvider>)locationProvider;
+- (id<WebGeolocationProvider>)_geolocationProvider;
+
+- (void)_geolocationDidChangePosition:(WebGeolocationPosition *)position;
+- (void)_geolocationDidFailWithError:(NSError *)error;
+@end
+
+@interface WebView (WebViewPrivateStyleInfo)
+- (JSValueRef)_computedStyleIncludingVisitedInfo:(JSContextRef)context forElement:(JSValueRef)value;
+@end
+
 @interface NSObject (WebFrameLoadDelegatePrivate)
 - (void)webView:(WebView *)sender didFirstLayoutInFrame:(WebFrame *)frame;
 
@@ -535,6 +625,9 @@ Could be worth adding to the API.
 - (void)webView:(WebView *)sender didHandleOnloadEventsForFrame:(WebFrame *)frame;
 
 - (void)webView:(WebView *)sender didFirstVisuallyNonEmptyLayoutInFrame:(WebFrame *)frame;
+
+// For implementing the WebInspector's test harness
+- (void)webView:(WebView *)webView didClearInspectorWindowObject:(WebScriptObject *)windowObject forFrame:(WebFrame *)frame;
 
 @end
 

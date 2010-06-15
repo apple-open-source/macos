@@ -44,7 +44,8 @@ namespace WebCore {
     V(EVENT_LISTENER)             \
     V(NODE_FILTER)                \
     V(SCRIPTINSTANCE)             \
-    V(SCRIPTVALUE)
+    V(SCRIPTVALUE)                \
+    V(DATASOURCE)
 
 
     // Host information of persistent handles.
@@ -77,6 +78,12 @@ namespace WebCore {
 
         static void gcPrologue();
         static void gcEpilogue();
+
+        static void checkMemoryUsage();
+
+    private:
+        // Estimate of current working set.
+        static int workingSetEstimateMB;
     };
 
 }

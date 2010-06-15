@@ -25,10 +25,10 @@
 #define RenderPath_h
 
 #if ENABLE(SVG)
-
+#include "AffineTransform.h"
 #include "FloatRect.h"
 #include "RenderSVGModelObject.h"
-#include "TransformationMatrix.h"
+#include "SVGMarkerLayoutInfo.h"
 
 namespace WebCore {
 
@@ -40,42 +40,65 @@ class RenderPath : public RenderSVGModelObject {
 public:
     RenderPath(SVGStyledTransformableElement*);
 
+    const Path& path() const { return m_path; }
+    void setNeedsBoundariesUpdate() { m_needsBoundariesUpdate = true; }
+    void setNeedsPathUpdate() { m_needsPathUpdate = true; }
+    virtual void setNeedsTransformUpdate() { m_needsTransformUpdate = true; }
+
+private:
     // Hit-detection seperated for the fill and the stroke
     bool fillContains(const FloatPoint&, bool requiresFill = true) const;
     bool strokeContains(const FloatPoint&, bool requiresStroke = true) const;
 
-    virtual FloatRect objectBoundingBox() const;
-    virtual FloatRect repaintRectInLocalCoordinates() const;
-
-    virtual TransformationMatrix localToParentTransform() const;
-
-    const Path& path() const;
-    void setPath(const Path&);
+    virtual FloatRect objectBoundingBox() const { return m_fillBoundingBox; }
+    virtual FloatRect strokeBoundingBox() const { return m_strokeAndMarkerBoundingBox; }
+    virtual FloatRect repaintRectInLocalCoordinates() const { return m_repaintBoundingBox; }
+    virtual const AffineTransform& localToParentTransform() const { return m_localTransform; }
 
     virtual bool isRenderPath() const { return true; }
     virtual const char* renderName() const { return "RenderPath"; }
 
     virtual void layout();
     virtual void paint(PaintInfo&, int parentX, int parentY);
-    virtual void addFocusRingRects(GraphicsContext*, int tx, int ty);
+    virtual void addFocusRingRects(Vector<IntRect>&, int tx, int ty);
 
     virtual bool nodeAtFloatPoint(const HitTestRequest&, HitTestResult&, const FloatPoint& pointInParent, HitTestAction);
+    virtual void styleWillChange(StyleDifference, const RenderStyle*);
 
-    FloatRect drawMarkersIfNeeded(GraphicsContext*, const FloatRect&, const Path&) const;
+    FloatRect calculateMarkerBoundsIfNeeded();
+    void updateCachedBoundaries();
 
 private:
-    virtual TransformationMatrix localTransform() const;
+    virtual AffineTransform localTransform() const { return m_localTransform; }
+
+    bool m_needsBoundariesUpdate : 1;
+    bool m_needsPathUpdate : 1;
+    bool m_needsTransformUpdate : 1;
 
     mutable Path m_path;
-    mutable FloatRect m_cachedLocalFillBBox;
-    mutable FloatRect m_cachedLocalRepaintRect;
-    FloatRect m_markerBounds;
-    TransformationMatrix m_localTransform;
+    FloatRect m_fillBoundingBox;
+    FloatRect m_strokeAndMarkerBoundingBox;
+    FloatRect m_repaintBoundingBox;
+    SVGMarkerLayoutInfo m_markerLayoutInfo;
+    AffineTransform m_localTransform;
 };
+
+inline RenderPath* toRenderPath(RenderObject* object)
+{
+    ASSERT(!object || object->isRenderPath());
+    return static_cast<RenderPath*>(object);
+}
+
+inline const RenderPath* toRenderPath(const RenderObject* object)
+{
+    ASSERT(!object || object->isRenderPath());
+    return static_cast<const RenderPath*>(object);
+}
+
+// This will catch anyone doing an unnecessary cast.
+void toRenderPath(const RenderPath*);
 
 }
 
 #endif // ENABLE(SVG)
 #endif
-
-// vim:ts=4:noet

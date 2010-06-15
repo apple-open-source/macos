@@ -116,10 +116,35 @@ void SimpleFontData::platformInit()
     }
 }
 
+void SimpleFontData::platformCharWidthInit()
+{
+    // GDI Fonts init charwidths in initGDIFont.
+    if (!m_platformData.useGDI()) {
+        m_avgCharWidth = 0.f;
+        m_maxCharWidth = 0.f;
+        initCharWidths();
+    }
+}
+FloatRect SimpleFontData::platformBoundsForGlyph(Glyph glyph) const
+{
+    if (m_platformData.useGDI())
+        return boundsForGDIGlyph(glyph);
+
+    CGRect box;
+    CGFontGetGlyphBBoxes(m_platformData.cgFont(), &glyph, 1, &box);
+    float pointSize = m_platformData.size();
+    CGFloat scale = pointSize / unitsPerEm();
+    FloatRect boundingBox = CGRectApplyAffineTransform(box, CGAffineTransformMakeScale(scale, -scale));
+    if (m_syntheticBoldOffset)
+        boundingBox.setWidth(boundingBox.width() + m_syntheticBoldOffset);
+
+    return boundingBox;
+}
+
 float SimpleFontData::platformWidthForGlyph(Glyph glyph) const
 {
     if (m_platformData.useGDI())
-       return widthForGDIGlyph(glyph);
+        return widthForGDIGlyph(glyph);
 
     CGFontRef font = m_platformData.cgFont();
     float pointSize = m_platformData.size();

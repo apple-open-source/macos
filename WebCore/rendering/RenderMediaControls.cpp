@@ -37,7 +37,7 @@ using namespace std;
  
 namespace WebCore {
 
-#if !defined(NDEBUG) && defined(USE_DEBUG_SAFARI_THEME)
+#ifdef DEBUG_ALL
 SOFT_LINK_DEBUG_LIBRARY(SafariTheme)
 #else
 SOFT_LINK_LIBRARY(SafariTheme)
@@ -82,16 +82,6 @@ void RenderMediaControls::adjustMediaSliderThumbSize(RenderObject* o)
     o->style()->setHeight(Length(static_cast<int>(mediaSliderThumbHeight * zoomLevel), Fixed));
 }
 
-static HTMLMediaElement* parentMediaElement(RenderObject* o)
-{
-    Node* node = o->node();
-    Node* mediaNode = node ? node->shadowAncestorNode() : 0;
-    if (!mediaNode || (!mediaNode->hasTagName(HTMLNames::videoTag) && !mediaNode->hasTagName(HTMLNames::audioTag)))
-        return 0;
-
-    return static_cast<HTMLMediaElement*>(mediaNode);
-}
-
 bool RenderMediaControls::paintMediaControlsPart(MediaControlElementType part, RenderObject* o, const RenderObject::PaintInfo& paintInfo, const IntRect& r)
 {
     ASSERT(SafariThemeLibrary());
@@ -99,6 +89,15 @@ bool RenderMediaControls::paintMediaControlsPart(MediaControlElementType part, R
     switch (part) {
         case MediaFullscreenButton:
             paintThemePart(SafariTheme::MediaFullscreenButtonPart, paintInfo.context->platformContext(), r, NSRegularControlSize, determineState(o));
+            break;
+        case MediaShowClosedCaptionsButton:
+        case MediaHideClosedCaptionsButton:
+#if SAFARI_THEME_VERSION >= 4
+            if (MediaControlToggleClosedCaptionsButtonElement* btn = static_cast<MediaControlToggleClosedCaptionsButtonElement*>(o->node())) {
+                bool captionsVisible = btn->displayType() == MediaHideClosedCaptionsButton;
+                paintThemePart(captionsVisible ? SafariTheme::MediaHideClosedCaptionsButtonPart : SafariTheme::MediaShowClosedCaptionsButtonPart, paintInfo.context->platformContext(), r, NSRegularControlSize, determineState(o));
+            }
+#endif
             break;
         case MediaMuteButton:
         case MediaUnMuteButton:
@@ -110,8 +109,8 @@ bool RenderMediaControls::paintMediaControlsPart(MediaControlElementType part, R
         case MediaPauseButton:
         case MediaPlayButton:
             if (MediaControlPlayButtonElement* btn = static_cast<MediaControlPlayButtonElement*>(o->node())) {
-                bool currentlyPlaying = btn->displayType() == MediaPlayButton;
-                paintThemePart(currentlyPlaying ? SafariTheme::MediaPauseButtonPart : SafariTheme::MediaPlayButtonPart, paintInfo.context->platformContext(), r, NSRegularControlSize, determineState(o));
+                bool canPlay = btn->displayType() == MediaPlayButton;
+                paintThemePart(canPlay ? SafariTheme::MediaPlayButtonPart : SafariTheme::MediaPauseButtonPart, paintInfo.context->platformContext(), r, NSRegularControlSize, determineState(o));
             }
             break;
         case MediaSeekBackButton:
@@ -121,12 +120,24 @@ bool RenderMediaControls::paintMediaControlsPart(MediaControlElementType part, R
             paintThemePart(SafariTheme::MediaSeekForwardButtonPart, paintInfo.context->platformContext(), r, NSRegularControlSize, determineState(o));
             break;
         case MediaSlider: {
-            if (HTMLMediaElement* mediaElement = parentMediaElement(o))
+            if (HTMLMediaElement* mediaElement = toParentMediaElement(o))
                 STPaintProgressIndicator(SafariTheme::MediaType, paintInfo.context->platformContext(), r, NSRegularControlSize, 0, mediaElement->percentLoaded());
             break;
         }
         case MediaSliderThumb:
             paintThemePart(SafariTheme::MediaSliderThumbPart, paintInfo.context->platformContext(), r, NSRegularControlSize, determineState(o));
+            break;
+        case MediaVolumeSliderContainer:
+            // FIXME: Implement volume slider.
+            ASSERT_NOT_REACHED();
+            break;
+        case MediaVolumeSlider:
+            // FIXME: Implement volume slider.
+            ASSERT_NOT_REACHED();
+            break;
+        case MediaVolumeSliderThumb:
+            // FIXME: Implement volume slider.
+            ASSERT_NOT_REACHED();
             break;
         case MediaTimelineContainer:
             ASSERT_NOT_REACHED();
@@ -147,4 +158,3 @@ bool RenderMediaControls::paintMediaControlsPart(MediaControlElementType part, R
 #endif  // #if ENABLE(VIDEO)
 
 } // namespace WebCore
-

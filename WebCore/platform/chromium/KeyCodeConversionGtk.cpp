@@ -72,6 +72,23 @@ int windowsKeyCodeForKeyEvent(unsigned keycode)
     case GDK_KP_Divide:
         return VKEY_DIVIDE; // (6F) Divide key
 
+    case GDK_KP_Page_Up:
+        return VKEY_PRIOR; // (21) PAGE UP key
+    case GDK_KP_Page_Down:
+        return VKEY_NEXT; // (22) PAGE DOWN key
+    case GDK_KP_End:
+        return VKEY_END; // (23) END key
+    case GDK_KP_Home:
+        return VKEY_HOME; // (24) HOME key
+    case GDK_KP_Left:
+        return VKEY_LEFT; // (25) LEFT ARROW key
+    case GDK_KP_Up:
+        return VKEY_UP; // (26) UP ARROW key
+    case GDK_KP_Right:
+        return VKEY_RIGHT; // (27) RIGHT ARROW key
+    case GDK_KP_Down:
+        return VKEY_DOWN; // (28) DOWN ARROW key
+
     case GDK_BackSpace:
         return VKEY_BACK; // (08) BACKSPACE key
     case GDK_ISO_Left_Tab:
@@ -91,6 +108,7 @@ int windowsKeyCodeForKeyEvent(unsigned keycode)
     case GDK_Control_R:
         return VKEY_CONTROL; // (11) CTRL key
     case GDK_Menu:
+        return VKEY_APPS;  // (5D) Applications key (Natural keyboard)
     case GDK_Alt_L:
     case GDK_Alt_R:
         return VKEY_MENU; // (12) ALT key
@@ -261,7 +279,6 @@ int windowsKeyCodeForKeyEvent(unsigned keycode)
         return VKEY_LWIN; // (5B) Left Windows key (Microsoft Natural keyboard)
     case GDK_Meta_R:
         return VKEY_RWIN; // (5C) Right Windows key (Natural keyboard)
-        // VKEY_APPS (5D) Applications key (Natural keyboard)
         // VKEY_SLEEP (5F) Computer Sleep key
         // VKEY_SEPARATOR (6C) Separator key
         // VKEY_SUBTRACT (6D) Subtract key
@@ -357,6 +374,31 @@ int windowsKeyCodeForKeyEvent(unsigned keycode)
         // VKEY_NONAME (FC) Reserved for future use
         // VKEY_PA1 (FD) PA1 key
         // VKEY_OEM_CLEAR (FE) Clear key
+    case GDK_F1:
+    case GDK_F2:
+    case GDK_F3:
+    case GDK_F4:
+    case GDK_F5:
+    case GDK_F6:
+    case GDK_F7:
+    case GDK_F8:
+    case GDK_F9:
+    case GDK_F10:
+    case GDK_F11:
+    case GDK_F12:
+    case GDK_F13:
+    case GDK_F14:
+    case GDK_F15:
+    case GDK_F16:
+    case GDK_F17:
+    case GDK_F18:
+    case GDK_F19:
+    case GDK_F20:
+    case GDK_F21:
+    case GDK_F22:
+    case GDK_F23:
+    case GDK_F24:
+        return VKEY_F1 + (keycode - GDK_F1);
     default:
         return 0;
     }

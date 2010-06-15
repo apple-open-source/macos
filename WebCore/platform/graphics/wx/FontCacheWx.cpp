@@ -42,21 +42,34 @@ void FontCache::platformInit()
 const SimpleFontData* FontCache::getFontDataForCharacters(const Font& font, const UChar* characters, int length)
 {
     SimpleFontData* fontData = 0;
-    fontData = new SimpleFontData(FontPlatformData(font.fontDescription(), font.family().family()));
+    fontData = getCachedFontData(font.fontDescription(), font.family().family());
+    if (!fontData->containsCharacters(characters, length))
+        fontData = getSimilarFontPlatformData(font);
+    if (!fontData->containsCharacters(characters, length))
+        fontData = getLastResortFallbackFont(font.fontDescription());
+    
+    ASSERT(fontData->containsCharacters(characters, length));
     return fontData;
 }
 
-FontPlatformData* FontCache::getSimilarFontPlatformData(const Font& font)
+SimpleFontData* FontCache::getSimilarFontPlatformData(const Font& font)
 {
-    return new FontPlatformData(font.fontDescription(), font.family().family());
+    return getCachedFontData(font.fontDescription(), font.family().family());
 }
 
-FontPlatformData* FontCache::getLastResortFallbackFont(const FontDescription& fontDescription)
+SimpleFontData* FontCache::getLastResortFallbackFont(const FontDescription& fontDescription)
 {
     // FIXME: Would be even better to somehow get the user's default font here.  For now we'll pick
     // the default that the user would get without changing any prefs.
-    static AtomicString timesStr("systemfont");
-    return getCachedFontPlatformData(fontDescription, timesStr);
+    SimpleFontData* fallback = 0;
+#if OS(WINDOWS) || (OS(DARWIN) && !defined(BUILDING_ON_TIGER))
+    static AtomicString fallbackName("Arial Unicode MS");
+#else
+    static AtomicString fallbackName("Times New Roman");
+#endif
+    fallback = getCachedFontData(fontDescription, fallbackName);
+    
+    return fallback;
 }
 
 FontPlatformData* FontCache::createFontPlatformData(const FontDescription& fontDescription, const AtomicString& family)

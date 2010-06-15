@@ -27,16 +27,18 @@
 
 namespace WebCore {
 
-String parseURL(const String& url)
+String deprecatedParseURL(const String& url)
 {
     StringImpl* i = url.impl();
     if (!i)
-        return String();
+        return url;
+
+    int length = i->length();
 
     int o = 0;
-    int l = i->length();
+    int l = length;
 
-    while (o < l && (*i)[o] <= ' ') {
+    while (0 < l && (*i)[o] <= ' ') {
         ++o;
         --l;
     }
@@ -53,7 +55,7 @@ String parseURL(const String& url)
         l -= 5;
     }
 
-    while (o < l && (*i)[o] <= ' ') {
+    while (0 < l && (*i)[o] <= ' ') {
         ++o;
         --l;
     }
@@ -65,18 +67,31 @@ String parseURL(const String& url)
         l -= 2;
     }
 
-    while (o < l && (*i)[o] <= ' ') {
+    while (0 < l && (*i)[o] <= ' ') {
         ++o;
         --l;
     }
     while (l > 0 && (*i)[o + l - 1] <= ' ')
         --l;
 
+    const UChar* characters = i->characters();
+
+    // Optimize for the likely case there there is nothing to strip.
+    if (l == length) {
+        int k;
+        for (k = 0; k < length; k++) {
+            if (characters[k] > '\r')
+                break;
+        }
+        if (k == length)
+            return url;
+    }
+
     Vector<UChar, 2048> buffer(l);
 
     int nl = 0;
     for (int k = o; k < o + l; k++) {
-        UChar c = (*i)[k];
+        UChar c = characters[k];
         if (c > '\r')
             buffer[nl++] = c;
     }

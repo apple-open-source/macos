@@ -22,140 +22,66 @@
 #include "webkitwebview.h"
 #include "webkitwebinspector.h"
 #include "webkitprivate.h"
-#include "CString.h"
 #include "InspectorController.h"
 #include "NotImplemented.h"
 #include "PlatformString.h"
+#include <wtf/text/CString.h>
 
 using namespace WebCore;
 
 namespace WebKit {
 
-static void notifyWebViewDestroyed(WebKitWebView* webView, InspectorClient* inspectorClient)
+static void notifyWebViewDestroyed(WebKitWebView* webView, InspectorFrontendClient* inspectorFrontendClient)
 {
-    inspectorClient->webViewDestroyed();
+    inspectorFrontendClient->destroyInspectorWindow();
 }
 
 InspectorClient::InspectorClient(WebKitWebView* webView)
-    : m_webView(0)
-    , m_inspectedWebView(webView)
-    , m_webInspector(0)
+    : m_inspectedWebView(webView)
 {}
 
 void InspectorClient::inspectorDestroyed()
 {
-    if (m_webView) {
-        gboolean handled = FALSE;
-        g_signal_emit_by_name(m_webInspector, "destroy", &handled);
-
-        /* we can now dispose our own reference */
-        g_object_unref(m_webInspector);
-    }
-
     delete this;
 }
 
-void InspectorClient::webViewDestroyed()
+void InspectorClient::openInspectorFrontend(InspectorController* controller)
 {
-    m_webView = 0;
-    core(m_inspectedWebView)->inspectorController()->pageDestroyed();
-
-    // createPage will be called again, if the user chooses to inspect
-    // something else, and the inspector will be referenced again,
-    // there.
-    g_object_unref(m_webInspector);
-}
-
-Page* InspectorClient::createPage()
-{
-    if (m_webView)
-      return core(m_webView);
-
     // This g_object_get will ref the inspector. We're not doing an
     // unref if this method succeeds because the inspector object must
     // be alive even after the inspected WebView is destroyed - the
     // close-window and destroy signals still need to be
     // emitted.
-    WebKitWebInspector* webInspector;
+    WebKitWebInspector* webInspector = 0;
     g_object_get(m_inspectedWebView, "web-inspector", &webInspector, NULL);
-    m_webInspector = webInspector;
+    ASSERT(webInspector);
 
-    g_signal_emit_by_name(m_webInspector, "inspect-web-view", m_inspectedWebView, &m_webView);
+    WebKitWebView* inspectorWebView = 0;
+    g_signal_emit_by_name(webInspector, "inspect-web-view", m_inspectedWebView, &inspectorWebView);
 
-    if (!m_webView) {
-        g_object_unref(m_webInspector);
-        return 0;
+    if (!inspectorWebView) {
+        g_object_unref(webInspector);
+        return;
     }
 
-    webkit_web_inspector_set_web_view(m_webInspector, m_webView);
+    webkit_web_inspector_set_web_view(webInspector, inspectorWebView);
 
-    g_signal_connect(m_webView, "destroy",
-                     G_CALLBACK(notifyWebViewDestroyed), (gpointer)this);
+    GOwnPtr<gchar> inspectorURI;
 
-    gchar* inspectorURI = g_filename_to_uri(DATA_DIR"/webkit-1.0/webinspector/inspector.html", NULL, NULL);
-    webkit_web_view_load_uri(m_webView, inspectorURI);
-    g_free(inspectorURI);
+    // Make the Web Inspector work when running tests
+    if (g_file_test("WebCore/inspector/front-end/inspector.html", G_FILE_TEST_EXISTS)) {
+        GOwnPtr<gchar> currentDirectory(g_get_current_dir());
+        GOwnPtr<gchar> fullPath(g_strdup_printf("%s/WebCore/inspector/front-end/inspector.html", currentDirectory.get()));
+        inspectorURI.set(g_filename_to_uri(fullPath.get(), NULL, NULL));
+    } else
+        inspectorURI.set(g_filename_to_uri(DATA_DIR"/webkit-1.0/webinspector/inspector.html", NULL, NULL));
 
-    gtk_widget_show(GTK_WIDGET(m_webView));
+    webkit_web_view_load_uri(inspectorWebView, inspectorURI.get());
 
-    return core(m_webView);
-}
+    gtk_widget_show(GTK_WIDGET(inspectorWebView));
 
-String InspectorClient::localizedStringsURL()
-{
-    // FIXME: support l10n of localizedStrings.js
-    return String::fromUTF8(g_filename_to_uri(DATA_DIR"/webkit-1.0/webinspector/localizedStrings.js", NULL, NULL));
-}
-
-String InspectorClient::hiddenPanels()
-{
-    notImplemented();
-    return String();
-}
-
-void InspectorClient::showWindow()
-{
-    if (!m_webView)
-        return;
-
-    gboolean handled = FALSE;
-    g_signal_emit_by_name(m_webInspector, "show-window", &handled);
-
-    core(m_inspectedWebView)->inspectorController()->setWindowVisible(true);
-}
-
-void InspectorClient::closeWindow()
-{
-    if (!m_webView)
-        return;
-
-    gboolean handled = FALSE;
-    g_signal_emit_by_name(m_webInspector, "close-window", &handled);
-
-    core(m_inspectedWebView)->inspectorController()->setWindowVisible(false);
-}
-
-void InspectorClient::attachWindow()
-{
-    if (!m_webView)
-        return;
-
-    gboolean handled = FALSE;
-    g_signal_emit_by_name(m_webInspector, "attach-window", &handled);
-}
-
-void InspectorClient::detachWindow()
-{
-    if (!m_webView)
-        return;
-
-    gboolean handled = FALSE;
-    g_signal_emit_by_name(m_webInspector, "detach-window", &handled);
-}
-
-void InspectorClient::setAttachedWindowHeight(unsigned height)
-{
-    notImplemented();
+    Page* inspectorPage = core(inspectorWebView);
+    inspectorPage->inspectorController()->setInspectorFrontendClient(new InspectorFrontendClient(m_inspectedWebView, inspectorWebView, webInspector, inspectorPage));
 }
 
 void InspectorClient::highlight(Node* node)
@@ -168,27 +94,119 @@ void InspectorClient::hideHighlight()
     notImplemented();
 }
 
-void InspectorClient::inspectedURLChanged(const String& newURL)
+void InspectorClient::populateSetting(const String& key, String* value)
 {
-    if (!m_webView)
+    notImplemented();
+}
+
+void InspectorClient::storeSetting(const String& key, const String& value)
+{
+    notImplemented();
+}
+
+
+bool destroyed = TRUE;
+
+InspectorFrontendClient::InspectorFrontendClient(WebKitWebView* inspectedWebView, WebKitWebView* inspectorWebView, WebKitWebInspector* webInspector, Page* inspectorPage)
+    : InspectorFrontendClientLocal(core(inspectedWebView)->inspectorController(), inspectorPage)
+    , m_inspectorWebView(inspectorWebView)
+    , m_inspectedWebView(inspectedWebView)
+    , m_webInspector(webInspector)
+{
+    g_signal_connect(m_inspectorWebView, "destroy",
+                     G_CALLBACK(notifyWebViewDestroyed), (gpointer)this);
+}
+
+InspectorFrontendClient::~InspectorFrontendClient()
+{
+    ASSERT(!m_webInspector);
+}
+
+void InspectorFrontendClient::destroyInspectorWindow()
+{
+    if (!m_webInspector)
+        return;
+    WebKitWebInspector* webInspector = m_webInspector;
+    m_webInspector = 0;
+
+    g_signal_handlers_disconnect_by_func(m_inspectorWebView, (gpointer)notifyWebViewDestroyed, (gpointer)this);
+    m_inspectorWebView = 0;
+
+    core(m_inspectedWebView)->inspectorController()->disconnectFrontend();
+
+    gboolean handled = FALSE;
+    g_signal_emit_by_name(webInspector, "close-window", &handled);
+    ASSERT(handled);
+
+    /* we should now dispose our own reference */
+    g_object_unref(webInspector);
+}
+
+String InspectorFrontendClient::localizedStringsURL()
+{
+    GOwnPtr<gchar> URL;
+
+    // Make the Web Inspector work when running tests
+    if (g_file_test("WebCore/English.lproj/localizedStrings.js", G_FILE_TEST_EXISTS)) {
+        GOwnPtr<gchar> currentDirectory(g_get_current_dir());
+        GOwnPtr<gchar> fullPath(g_strdup_printf("%s/WebCore/English.lproj/localizedStrings.js", currentDirectory.get()));
+        URL.set(g_filename_to_uri(fullPath.get(), NULL, NULL));
+    } else
+        URL.set(g_filename_to_uri(DATA_DIR"/webkit-1.0/webinspector/localizedStrings.js", NULL, NULL));
+
+    // FIXME: support l10n of localizedStrings.js
+    return String::fromUTF8(URL.get());
+}
+
+String InspectorFrontendClient::hiddenPanels()
+{
+    notImplemented();
+    return String();
+}
+
+void InspectorFrontendClient::bringToFront()
+{
+    if (!m_inspectorWebView)
+        return;
+
+    gboolean handled = FALSE;
+    g_signal_emit_by_name(m_webInspector, "show-window", &handled);
+}
+
+void InspectorFrontendClient::closeWindow()
+{
+    destroyInspectorWindow();
+}
+
+void InspectorFrontendClient::attachWindow()
+{
+    if (!m_inspectorWebView)
+        return;
+
+    gboolean handled = FALSE;
+    g_signal_emit_by_name(m_webInspector, "attach-window", &handled);
+}
+
+void InspectorFrontendClient::detachWindow()
+{
+    if (!m_inspectorWebView)
+        return;
+
+    gboolean handled = FALSE;
+    g_signal_emit_by_name(m_webInspector, "detach-window", &handled);
+}
+
+void InspectorFrontendClient::setAttachedWindowHeight(unsigned height)
+{
+    notImplemented();
+}
+
+void InspectorFrontendClient::inspectedURLChanged(const String& newURL)
+{
+    if (!m_inspectorWebView)
         return;
 
     webkit_web_inspector_set_inspected_uri(m_webInspector, newURL.utf8().data());
-}
-
-void InspectorClient::populateSetting(const String& key, InspectorController::Setting& setting)
-{
-    notImplemented();
-}
-
-void InspectorClient::storeSetting(const String& key, const InspectorController::Setting& setting)
-{
-    notImplemented();
-}
-
-void InspectorClient::removeSetting(const String& key)
-{
-    notImplemented();
 }
 
 }

@@ -3,7 +3,7 @@
  * (C) 2000 Gunnstein Lye (gunnstein@netcom.no)
  * (C) 2000 Frederik Holljen (frederik.holljen@hig.no)
  * (C) 2001 Peter Kelly (pmk@post.com)
- * Copyright (C) 2004, 2005, 2006, 2007, 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2004, 2005, 2006, 2007, 2008, 2009 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -25,12 +25,15 @@
 #ifndef Range_h
 #define Range_h
 
+#include "FloatQuad.h"
 #include "RangeBoundaryPoint.h"
+#include <wtf/Forward.h>
 #include <wtf/RefCounted.h>
-#include <wtf/Vector.h>
 
 namespace WebCore {
 
+class ClientRect;
+class ClientRectList;
 class DocumentFragment;
 class NodeWithIndex;
 class Text;
@@ -59,10 +62,10 @@ public:
     void setStart(PassRefPtr<Node> container, int offset, ExceptionCode&);
     void setEnd(PassRefPtr<Node> container, int offset, ExceptionCode&);
     void collapse(bool toStart, ExceptionCode&);
-    bool isPointInRange(Node* refNode, int offset, ExceptionCode& ec);
-    short comparePoint(Node* refNode, int offset, ExceptionCode& ec);
+    bool isPointInRange(Node* refNode, int offset, ExceptionCode&);
+    short comparePoint(Node* refNode, int offset, ExceptionCode&) const;
     enum CompareResults { NODE_BEFORE, NODE_AFTER, NODE_BEFORE_AND_AFTER, NODE_INSIDE };
-    CompareResults compareNode(Node* refNode, ExceptionCode&);
+    CompareResults compareNode(Node* refNode, ExceptionCode&) const;
     enum CompareHow { START_TO_START, START_TO_END, END_TO_END, END_TO_START };
     short compareBoundaryPoints(CompareHow, const Range* sourceRange, ExceptionCode&) const;
     static short compareBoundaryPoints(Node* containerA, int offsetA, Node* containerB, int offsetB);
@@ -102,15 +105,27 @@ public:
     Node* shadowTreeRootNode() const;
 
     IntRect boundingBox();
+    // Not transform-friendly
     void textRects(Vector<IntRect>&, bool useSelectionHeight = false);
+    // Transform-friendly
+    void textQuads(Vector<FloatQuad>&, bool useSelectionHeight = false);
 
     void nodeChildrenChanged(ContainerNode*);
+    void nodeChildrenWillBeRemoved(ContainerNode*);
     void nodeWillBeRemoved(Node*);
 
     void textInserted(Node*, unsigned offset, unsigned length);
     void textRemoved(Node*, unsigned offset, unsigned length);
     void textNodesMerged(NodeWithIndex& oldNode, unsigned offset);
     void textNodeSplit(Text* oldNode);
+
+    // Expand range to a unit (word or sentence or block or document) boundary.
+    // Please refer to https://bugs.webkit.org/show_bug.cgi?id=27632 comment #5 
+    // for details.
+    void expand(const String&, ExceptionCode&);
+
+    PassRefPtr<ClientRectList> getClientRects() const;
+    PassRefPtr<ClientRect> getBoundingClientRect() const;
 
 #ifndef NDEBUG
     void formatForDebugger(char* buffer, unsigned length) const;
@@ -130,6 +145,8 @@ private:
     enum ActionType { DELETE_CONTENTS, EXTRACT_CONTENTS, CLONE_CONTENTS };
     PassRefPtr<DocumentFragment> processContents(ActionType, ExceptionCode&);
 
+    void getBorderAndTextQuads(Vector<FloatQuad>&) const;
+
     RefPtr<Document> m_ownerDocument;
     RangeBoundaryPoint m_start;
     RangeBoundaryPoint m_end;
@@ -137,9 +154,13 @@ private:
 
 PassRefPtr<Range> rangeOfContents(Node*);
 
-bool operator==(const Range&, const Range&);
-inline bool operator!=(const Range& a, const Range& b) { return !(a == b); }
+bool areRangesEqual(const Range*, const Range*);
 
 } // namespace
+
+#ifndef NDEBUG
+// Outside the WebCore namespace for ease of invocation from gdb.
+void showTree(const WebCore::Range*);
+#endif
 
 #endif

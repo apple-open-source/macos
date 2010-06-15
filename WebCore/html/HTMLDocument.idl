@@ -21,10 +21,7 @@
 module html {
 
     interface [
-        GenerateConstructor,
-        HasOverridingNameGetter,
-        InterfaceUUID=a183339c-8d74-412a-933d-6f6a4ad6266e,
-        ImplementationUUID=d0f7d966-033c-4cbf-847c-1461dacc2f6a
+        HasOverridingNameGetter
     ] HTMLDocument : Document {
         [Custom] void open();
         void close();
@@ -39,7 +36,7 @@ module html {
 
 #if defined(LANGUAGE_JAVASCRIPT) && LANGUAGE_JAVASCRIPT
         // FIXME: This should eventually be available (if they are wanted) for all languages.
-                 attribute [Custom, Deletable] HTMLCollection all;
+                 attribute [Custom, Deletable] HTMLAllCollection all;
 #endif
 
         void clear();

@@ -2,8 +2,6 @@
     Copyright (C) 2004, 2005, 2007 Nikolas Zimmermann <zimmermann@kde.org>
                   2004, 2005, 2006 Rob Buis <buis@kde.org>
 
-    This file is part of the KDE project
-
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Library General Public
     License as published by the Free Software Foundation; either
@@ -27,7 +25,6 @@
 
 #include "MappedAttribute.h"
 #include "SVGParserUtilities.h"
-#include "SVGResourceFilter.h"
 
 namespace WebCore {
 
@@ -36,12 +33,9 @@ char SVGBaseFrequencyYIdentifier[] = "SVGBaseFrequencyY";
 
 SVGFETurbulenceElement::SVGFETurbulenceElement(const QualifiedName& tagName, Document* doc)
     : SVGFilterPrimitiveStandardAttributes(tagName, doc)
-    , m_baseFrequencyX(this, SVGNames::baseFrequencyAttr)
-    , m_baseFrequencyY(this, SVGNames::baseFrequencyAttr)
-    , m_numOctaves(this, SVGNames::numOctavesAttr, 1)
-    , m_seed(this, SVGNames::seedAttr)
-    , m_stitchTiles(this, SVGNames::stitchTilesAttr, SVG_STITCHTYPE_NOSTITCH)
-    , m_type(this, SVGNames::typeAttr, FETURBULENCE_TYPE_TURBULENCE)
+    , m_numOctaves(1)
+    , m_stitchTiles(SVG_STITCHTYPE_NOSTITCH)
+    , m_type(FETURBULENCE_TYPE_TURBULENCE)
 {
 }
 
@@ -76,13 +70,37 @@ void SVGFETurbulenceElement::parseMappedAttribute(MappedAttribute* attr)
         SVGFilterPrimitiveStandardAttributes::parseMappedAttribute(attr);
 }
 
-bool SVGFETurbulenceElement::build(SVGResourceFilter* filterResource)
+void SVGFETurbulenceElement::synchronizeProperty(const QualifiedName& attrName)
 {
-    RefPtr<FilterEffect> effect = FETurbulence::create(static_cast<TurbulanceType>(type()), baseFrequencyX(), 
-                                        baseFrequencyY(), numOctaves(), seed(), stitchTiles() == SVG_STITCHTYPE_STITCH);
-    filterResource->addFilterEffect(this, effect.release());
+    SVGFilterPrimitiveStandardAttributes::synchronizeProperty(attrName);
 
-    return true;
+    if (attrName == anyQName()) {
+        synchronizeType();
+        synchronizeStitchTiles();
+        synchronizeBaseFrequencyX();
+        synchronizeBaseFrequencyY();
+        synchronizeSeed();
+        synchronizeNumOctaves();
+        return;
+    }
+
+    if (attrName == SVGNames::typeAttr)
+        synchronizeType();
+    else if (attrName == SVGNames::stitchTilesAttr)
+        synchronizeStitchTiles();
+    else if (attrName == SVGNames::baseFrequencyAttr) {
+        synchronizeBaseFrequencyX();
+        synchronizeBaseFrequencyY();
+    } else if (attrName == SVGNames::seedAttr)
+        synchronizeSeed();
+    else if (attrName == SVGNames::numOctavesAttr)
+        synchronizeNumOctaves();
+}
+
+PassRefPtr<FilterEffect> SVGFETurbulenceElement::build(SVGFilterBuilder*)
+{
+    return FETurbulence::create(static_cast<TurbulanceType>(type()), baseFrequencyX(), 
+                baseFrequencyY(), numOctaves(), seed(), stitchTiles() == SVG_STITCHTYPE_STITCH);
 }
 
 }

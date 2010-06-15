@@ -15,6 +15,8 @@ SubProjects = ac.tproj accton.tproj arch.tproj bootlog.tproj		\
 ifeq "$(Embedded)" "NO"
 SubProjects += at.tproj atrun.tproj \
 	chkpasswd.tproj chpass.tproj dirhelper.tproj shutdown.tproj
+else
+SubProjects += mean.tproj
 endif
 
 Extra_LD_Flags += -lcurses -lutil

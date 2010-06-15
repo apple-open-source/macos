@@ -23,17 +23,13 @@
 #include "SVGFEDisplacementMapElement.h"
 
 #include "MappedAttribute.h"
-#include "SVGResourceFilter.h"
 
 namespace WebCore {
 
 SVGFEDisplacementMapElement::SVGFEDisplacementMapElement(const QualifiedName& tagName, Document* doc)
     : SVGFilterPrimitiveStandardAttributes(tagName, doc)
-    , m_in1(this, SVGNames::inAttr)
-    , m_in2(this, SVGNames::in2Attr)
-    , m_xChannelSelector(this, SVGNames::xChannelSelectorAttr, CHANNEL_A)
-    , m_yChannelSelector(this, SVGNames::yChannelSelectorAttr, CHANNEL_A)
-    , m_scale(this, SVGNames::scaleAttr)
+    , m_xChannelSelector(CHANNEL_A)
+    , m_yChannelSelector(CHANNEL_A)
 {
 }
 
@@ -72,20 +68,42 @@ void SVGFEDisplacementMapElement::parseMappedAttribute(MappedAttribute* attr)
         SVGFilterPrimitiveStandardAttributes::parseMappedAttribute(attr);
 }
 
-bool SVGFEDisplacementMapElement::build(SVGResourceFilter* filterResource)
+void SVGFEDisplacementMapElement::synchronizeProperty(const QualifiedName& attrName)
 {
-    FilterEffect* input1 = filterResource->builder()->getEffectById(in1());
-    FilterEffect* input2 = filterResource->builder()->getEffectById(in2());
+    SVGFilterPrimitiveStandardAttributes::synchronizeProperty(attrName);
+
+    if (attrName == anyQName()) {
+        synchronizeXChannelSelector();
+        synchronizeYChannelSelector();
+        synchronizeIn1();
+        synchronizeIn2();
+        synchronizeScale();
+        return;
+    }
+
+    if (attrName == SVGNames::xChannelSelectorAttr)
+        synchronizeXChannelSelector();
+    else if (attrName == SVGNames::yChannelSelectorAttr)
+        synchronizeYChannelSelector();
+    else if (attrName == SVGNames::inAttr)
+        synchronizeIn1();
+    else if (attrName == SVGNames::in2Attr)
+        synchronizeIn2();
+    else if (attrName == SVGNames::scaleAttr)
+        synchronizeScale();
+}
+
+PassRefPtr<FilterEffect> SVGFEDisplacementMapElement::build(SVGFilterBuilder* filterBuilder)
+{
+    FilterEffect* input1 = filterBuilder->getEffectById(in1());
+    FilterEffect* input2 = filterBuilder->getEffectById(in2());
     
-    if(!input1 || !input2)
-        return false;
+    if (!input1 || !input2)
+        return 0;
         
     
-    RefPtr<FilterEffect> effect = FEDisplacementMap::create(input1, input2, static_cast<ChannelSelectorType>(xChannelSelector()), 
-                                        static_cast<ChannelSelectorType>(yChannelSelector()), scale());
-    filterResource->addFilterEffect(this, effect.release());
-    
-    return true;
+    return FEDisplacementMap::create(input1, input2, static_cast<ChannelSelectorType>(xChannelSelector()), 
+                                     static_cast<ChannelSelectorType>(yChannelSelector()), scale());
 }
 
 }

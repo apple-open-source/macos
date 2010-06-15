@@ -59,10 +59,10 @@ static const union {
     } doubles;
     
 } NaNInf = { {
-#if PLATFORM(BIG_ENDIAN)
+#if CPU(BIG_ENDIAN)
     { 0x7f, 0xf8, 0, 0, 0, 0, 0, 0 },
     { 0x7f, 0xf0, 0, 0, 0, 0, 0, 0 }
-#elif PLATFORM(MIDDLE_ENDIAN)
+#elif CPU(MIDDLE_ENDIAN)
     { 0, 0, 0xf8, 0x7f, 0, 0, 0, 0 },
     { 0, 0, 0xf0, 0x7f, 0, 0, 0, 0 }
 #else
@@ -76,36 +76,27 @@ extern const double Inf = NaNInf.doubles.Inf_Double;
  
 #endif // !(defined NAN && defined INFINITY)
 
-void* JSCell::operator new(size_t size, ExecState* exec)
-{
-#ifdef JAVASCRIPTCORE_BUILDING_ALL_IN_ONE_FILE
-    return exec->heap()->inlineAllocate(size);
-#else
-    return exec->heap()->allocate(size);
-#endif
-}
-
 bool JSCell::getUInt32(uint32_t&) const
 {
     return false;
 }
 
-bool JSCell::getString(UString&stringValue) const
+bool JSCell::getString(ExecState* exec, UString&stringValue) const
 {
     if (!isString())
         return false;
-    stringValue = static_cast<const JSString*>(this)->value();
+    stringValue = static_cast<const JSString*>(this)->value(exec);
     return true;
 }
 
-UString JSCell::getString() const
+UString JSCell::getString(ExecState* exec) const
 {
-    return isString() ? static_cast<const JSString*>(this)->value() : UString();
+    return isString() ? static_cast<const JSString*>(this)->value(exec) : UString();
 }
 
 JSObject* JSCell::getObject()
 {
-    return isObject() ? static_cast<JSObject*>(this) : 0;
+    return isObject() ? asObject(this) : 0;
 }
 
 const JSObject* JSCell::getObject() const
@@ -172,16 +163,6 @@ JSObject* JSCell::toThisObject(ExecState* exec) const
     return toObject(exec);
 }
 
-UString JSCell::toThisString(ExecState* exec) const
-{
-    return toThisObject(exec)->toString(exec);
-}
-
-JSString* JSCell::toThisJSString(ExecState* exec)
-{
-    return jsString(exec, toThisString(exec));
-}
-
 const ClassInfo* JSCell::classInfo() const
 {
     return 0;
@@ -195,6 +176,42 @@ JSValue JSCell::getJSNumber()
 bool JSCell::isGetterSetter() const
 {
     return false;
+}
+
+JSValue JSCell::toPrimitive(ExecState*, PreferredPrimitiveType) const
+{
+    ASSERT_NOT_REACHED();
+    return JSValue();
+}
+
+bool JSCell::getPrimitiveNumber(ExecState*, double&, JSValue&)
+{
+    ASSERT_NOT_REACHED();
+    return false;
+}
+
+bool JSCell::toBoolean(ExecState*) const
+{
+    ASSERT_NOT_REACHED();
+    return false;
+}
+
+double JSCell::toNumber(ExecState*) const
+{
+    ASSERT_NOT_REACHED();
+    return 0;
+}
+
+UString JSCell::toString(ExecState*) const
+{
+    ASSERT_NOT_REACHED();
+    return UString();
+}
+
+JSObject* JSCell::toObject(ExecState*) const
+{
+    ASSERT_NOT_REACHED();
+    return 0;
 }
 
 } // namespace JSC

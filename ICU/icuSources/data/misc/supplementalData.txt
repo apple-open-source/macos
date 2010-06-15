@@ -1,6 +1,6 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2008-2009 International Business Machines
+// * Copyright (C) 2010 International Business Machines
 // * Corporation and others.  All Rights Reserved.
 // * Tool: com.ibm.icu.dev.tool.cldr.LDML2ICUConverter.java
 // * Source File:<path>/supplementalData.xml
@@ -9311,7 +9311,6 @@ supplementalData:table(nofallback){
             "meta:Africa_Eastern_UG"{"Africa/Kampala"}
             "meta:Africa_Eastern_YT"{"Indian/Mayotte"}
             "meta:Africa_FarWestern_001"{"Africa/El_Aaiun"}
-            "meta:Africa_FarWestern_GW"{"Africa/Bissau"}
             "meta:Africa_Southern_001"{"Africa/Johannesburg"}
             "meta:Africa_Southern_LS"{"Africa/Maseru"}
             "meta:Africa_Southern_SZ"{"Africa/Mbabane"}
@@ -9376,7 +9375,7 @@ supplementalData:table(nofallback){
             "meta:Atlantic_DM"{"America/Dominica"}
             "meta:Atlantic_GD"{"America/Grenada"}
             "meta:Atlantic_GL"{"America/Thule"}
-            "meta:Atlantic_GP"{"America/Guadaloupe"}
+            "meta:Atlantic_GP"{"America/Guadeloupe"}
             "meta:Atlantic_KN"{"America/St_Kitts"}
             "meta:Atlantic_LC"{"America/St_Lucia"}
             "meta:Atlantic_MQ"{"America/Martinique"}
@@ -9478,7 +9477,6 @@ supplementalData:table(nofallback){
             "meta:GMT_GH"{"Africa/Accra"}
             "meta:GMT_GM"{"Africa/Banjul"}
             "meta:GMT_GN"{"Africa/Conakry"}
-            "meta:GMT_GW"{"Africa/Bissau"}
             "meta:GMT_IE"{"Europe/Dublin"}
             "meta:GMT_LR"{"Africa/Monrovia"}
             "meta:GMT_ML"{"Africa/Bamako"}
@@ -9625,18 +9623,19 @@ supplementalData:table(nofallback){
             "Atlantic Standard Time"{"America/Halifax"}
             "Azerbaijan Standard Time"{"Asia/Baku"}
             "Azores Standard Time"{"Atlantic/Azores"}
+            "Bangladesh Standard Time"{"Asia/Dhaka"}
             "Canada Central Standard Time"{"America/Regina"}
             "Cape Verde Standard Time"{"Atlantic/Cape_Verde"}
-            "Caucasus Standard Time"{"Asia/Tbilisi"}
+            "Caucasus Standard Time"{"Asia/Yerevan"}
             "Cen. Australia Standard Time"{"Australia/Adelaide"}
             "Central America Standard Time"{"America/Guatemala"}
-            "Central Asia Standard Time"{"Asia/Dhaka"}
-            "Central Brazilian Standard Time"{"America/Manaus"}
+            "Central Asia Standard Time"{"Asia/Almaty"}
+            "Central Brazilian Standard Time"{"America/Campo_Grande"}
             "Central Europe Standard Time"{"Europe/Budapest"}
             "Central European Standard Time"{"Europe/Warsaw"}
             "Central Pacific Standard Time"{"Pacific/Guadalcanal"}
-            "Central Standard Time (Mexico)"{"America/Mexico_City"}
             "Central Standard Time"{"America/Chicago"}
+            "Central Standard Time (Mexico)"{"America/Mexico_City"}
             "China Standard Time"{"Asia/Shanghai"}
             "Dateline Standard Time"{"Etc/GMT+12"}
             "E. Africa Standard Time"{"Africa/Nairobi"}
@@ -9652,20 +9651,23 @@ supplementalData:table(nofallback){
             "GTB Standard Time"{"Europe/Istanbul"}
             "Georgian Standard Time"{"Etc/GMT-3"}
             "Greenland Standard Time"{"America/Godthab"}
-            "Greenwich Standard Time"{"Africa/Casablanca"}
+            "Greenwich Standard Time"{"Atlantic/Reykjavik"}
             "Hawaiian Standard Time"{"Pacific/Honolulu"}
             "India Standard Time"{"Asia/Calcutta"}
             "Iran Standard Time"{"Asia/Tehran"}
             "Israel Standard Time"{"Asia/Jerusalem"}
             "Jordan Standard Time"{"Asia/Amman"}
+            "Kamchatka Standard Time"{"Asia/Kamchatka"}
             "Korea Standard Time"{"Asia/Seoul"}
-            "Mexico Standard Time 2"{"America/Chihuahua"}
+            "Mauritius Standard Time"{"Indian/Mauritius"}
             "Mexico Standard Time"{"America/Mexico_City"}
-            "Mid-Atlantic Standard Time"{"Atlantic/South_Georgia"}
+            "Mexico Standard Time 2"{"America/Chihuahua"}
+            "Mid-Atlantic Standard Time"{"Etc/GMT+2"}
             "Middle East Standard Time"{"Asia/Beirut"}
             "Montevideo Standard Time"{"America/Montevideo"}
-            "Mountain Standard Time (Mexico)"{"America/Chihuahua"}
+            "Morocco Standard Time"{"Africa/Casablanca"}
             "Mountain Standard Time"{"America/Denver"}
+            "Mountain Standard Time (Mexico)"{"America/Chihuahua"}
             "Myanmar Standard Time"{"Asia/Rangoon"}
             "N. Central Asia Standard Time"{"Asia/Novosibirsk"}
             "Namibia Standard Time"{"Africa/Windhoek"}
@@ -9675,11 +9677,13 @@ supplementalData:table(nofallback){
             "North Asia East Standard Time"{"Asia/Irkutsk"}
             "North Asia Standard Time"{"Asia/Krasnoyarsk"}
             "Pacific SA Standard Time"{"America/Santiago"}
-            "Pacific Standard Time (Mexico)"{"America/Tijuana"}
             "Pacific Standard Time"{"America/Los_Angeles"}
+            "Pacific Standard Time (Mexico)"{"America/Tijuana"}
+            "Pakistan Standard Time"{"Asia/Karachi"}
+            "Paraguay Standard Time"{"America/Asuncion"}
             "Romance Standard Time"{"Europe/Paris"}
             "Russian Standard Time"{"Europe/Moscow"}
-            "SA Eastern Standard Time"{"Etc/GMT+3"}
+            "SA Eastern Standard Time"{"America/Cayenne"}
             "SA Pacific Standard Time"{"America/Bogota"}
             "SA Western Standard Time"{"America/La_Paz"}
             "SE Asia Standard Time"{"Asia/Bangkok"}
@@ -9693,12 +9697,14 @@ supplementalData:table(nofallback){
             "Tonga Standard Time"{"Pacific/Tongatapu"}
             "US Eastern Standard Time"{"Etc/GMT+5"}
             "US Mountain Standard Time"{"America/Phoenix"}
+            "UTC"{"Etc/GMT"}
+            "Ulaanbaatar Standard Time"{"Asia/Ulaanbaatar"}
             "Venezuela Standard Time"{"America/Caracas"}
             "Vladivostok Standard Time"{"Asia/Vladivostok"}
             "W. Australia Standard Time"{"Australia/Perth"}
             "W. Central Africa Standard Time"{"Africa/Lagos"}
             "W. Europe Standard Time"{"Europe/Berlin"}
-            "West Asia Standard Time"{"Asia/Karachi"}
+            "West Asia Standard Time"{"Asia/Tashkent"}
             "West Pacific Standard Time"{"Pacific/Port_Moresby"}
             "Yakutsk Standard Time"{"Asia/Yakutsk"}
         }
@@ -11631,6 +11637,10 @@ supplementalData:table(nofallback){
             canonical{"America/Argentina/Rio_Gallegos"}
             territory{"AR"}
         }
+        "America:Argentina:Salta"{
+            canonical{"America/Argentina/Salta"}
+            territory{"AR"}
+        }
         "America:Argentina:San_Juan"{
             canonical{"America/Argentina/San_Juan"}
             territory{"AR"}
@@ -11994,6 +12004,10 @@ supplementalData:table(nofallback){
             canonical{"America/Martinique"}
             territory{"MQ"}
         }
+        "America:Matamoros"{
+            canonical{"America/Matamoros"}
+            territory{"MX"}
+        }
         "America:Mazatlan"{
             canonical{"America/Mazatlan"}
             territory{"MX"}
@@ -12083,6 +12097,10 @@ supplementalData:table(nofallback){
             canonical{"America/North_Dakota/New_Salem"}
             territory{"US"}
         }
+        "America:Ojinaga"{
+            canonical{"America/Ojinaga"}
+            territory{"MX"}
+        }
         "America:Panama"{
             canonical{"America/Panama"}
             territory{"PA"}
@@ -12153,6 +12171,10 @@ supplementalData:table(nofallback){
                 "America/Porto_Acre",
                 "Brazil/Acre",
             }
+        }
+        "America:Santa_Isabel"{
+            canonical{"America/Santa_Isabel"}
+            territory{"MX"}
         }
         "America:Santarem"{
             canonical{"America/Santarem"}
@@ -12293,6 +12315,10 @@ supplementalData:table(nofallback){
         }
         "Antarctica:DumontDUrville"{
             canonical{"Antarctica/DumontDUrville"}
+            territory{"AQ"}
+        }
+        "Antarctica:Macquarie"{
+            canonical{"Antarctica/Macquarie"}
             territory{"AQ"}
         }
         "Antarctica:Mawson"{
@@ -12497,6 +12523,9 @@ supplementalData:table(nofallback){
         "Asia:Katmandu"{
             canonical{"Asia/Katmandu"}
             territory{"NP"}
+            aliases{
+                "Asia/Kathmandu",
+            }
         }
         "Asia:Krasnoyarsk"{
             canonical{"Asia/Krasnoyarsk"}
@@ -12546,6 +12575,10 @@ supplementalData:table(nofallback){
             aliases{
                 "Europe/Nicosia",
             }
+        }
+        "Asia:Novokuznetsk"{
+            canonical{"Asia/Novokuznetsk"}
+            territory{"RU"}
         }
         "Asia:Novosibirsk"{
             canonical{"Asia/Novosibirsk"}

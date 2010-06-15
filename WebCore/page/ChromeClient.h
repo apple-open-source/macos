@@ -56,10 +56,15 @@ namespace WebCore {
     class Widget;
 
     struct FrameLoadRequest;
+    struct ViewportArguments;
     struct WindowFeatures;
 
 #if USE(ACCELERATED_COMPOSITING)
     class GraphicsLayer;
+#endif
+
+#if ENABLE(NOTIFICATIONS)
+    class NotificationPresenter;
 #endif
 
     class ChromeClient {
@@ -78,6 +83,8 @@ namespace WebCore {
 
         virtual bool canTakeFocus(FocusDirection) = 0;
         virtual void takeFocus(FocusDirection) = 0;
+
+        virtual void focusedNodeChanged(Node*) = 0;
 
         // The Frame pointer provides the ChromeClient with context about which
         // Frame wants to create the new Page.  Also, the newly created window
@@ -103,7 +110,7 @@ namespace WebCore {
 
         virtual void setResizable(bool) = 0;
         
-        virtual void addMessageToConsole(MessageSource, MessageLevel, const String& message, unsigned int lineNumber, const String& sourceID) = 0;
+        virtual void addMessageToConsole(MessageSource, MessageType, MessageLevel, const String& message, unsigned int lineNumber, const String& sourceID) = 0;
 
         virtual bool canRunBeforeUnloadConfirmPanel() = 0;
         virtual bool runBeforeUnloadConfirmPanel(const String& message, Frame* frame) = 0;
@@ -117,21 +124,29 @@ namespace WebCore {
         virtual bool shouldInterruptJavaScript() = 0;
         virtual bool tabsToLinks() const = 0;
 
+        virtual void registerProtocolHandler(const String&, const String&, const String&, const String&) { }
+        virtual void registerContentHandler(const String&, const String&, const String&, const String&) { }
+
         virtual IntRect windowResizerRect() const = 0;
 
         // Methods used by HostWindow.
-        virtual void repaint(const IntRect&, bool contentChanged, bool immediate = false, bool repaintContentOnly = false) = 0;
-        virtual void scroll(const IntSize& scrollDelta, const IntRect& rectToScroll, const IntRect& clipRect) = 0;
+        virtual void invalidateWindow(const IntRect&, bool) = 0;
+        virtual void invalidateContentsAndWindow(const IntRect&, bool) = 0;
+        virtual void invalidateContentsForSlowScroll(const IntRect&, bool) = 0;
+        virtual void scroll(const IntSize&, const IntRect&, const IntRect&) = 0;
         virtual IntPoint screenToWindow(const IntPoint&) const = 0;
         virtual IntRect windowToScreen(const IntRect&) const = 0;
-        virtual PlatformWidget platformWindow() const = 0;
+        virtual PlatformPageClient platformPageClient() const = 0;
         virtual void contentsSizeChanged(Frame*, const IntSize&) const = 0;
         virtual void scrollRectIntoView(const IntRect&, const ScrollView*) const = 0; // Currently only Mac has a non empty implementation.
         // End methods used by HostWindow.
 
+        virtual void scrollbarsModeDidChange() const = 0;
         virtual void mouseDidMoveOverElement(const HitTestResult&, unsigned modifierFlags) = 0;
 
-        virtual void setToolTip(const String&) = 0;
+        virtual void setToolTip(const String&, TextDirection) = 0;
+
+        virtual void didReceiveViewportArguments(Frame*, const ViewportArguments&) const { }
 
         virtual void print(Frame*) = 0;
 
@@ -139,8 +154,21 @@ namespace WebCore {
         virtual void exceededDatabaseQuota(Frame*, const String& databaseName) = 0;
 #endif
 
+#if ENABLE(OFFLINE_WEB_APPLICATIONS)
+        // Callback invoked when the application cache fails to save a cache object
+        // because storing it would grow the database file past its defined maximum
+        // size or past the amount of free space on the device. 
+        // The chrome client would need to take some action such as evicting some
+        // old caches.
+        virtual void reachedMaxAppCacheSize(int64_t spaceNeeded) = 0;
+#endif
+
 #if ENABLE(DASHBOARD_SUPPORT)
         virtual void dashboardRegionsChanged();
+#endif
+
+#if ENABLE(NOTIFICATIONS)
+        virtual NotificationPresenter* notificationPresenter() const = 0;
 #endif
 
         virtual void populateVisitedLinks();
@@ -157,17 +185,23 @@ namespace WebCore {
                                           float value, float proportion, ScrollbarControlPartMask);
         virtual bool paintCustomScrollCorner(GraphicsContext*, const FloatRect&);
 
-        // This is an asynchronous call. The ChromeClient can display UI asking the user for permission
-        // to use Geolococation. The ChromeClient must call Geolocation::setShouldClearCache() appropriately.
+        // This can be either a synchronous or asynchronous call. The ChromeClient can display UI asking the user for permission
+        // to use Geolocation.
         virtual void requestGeolocationPermissionForFrame(Frame*, Geolocation*) = 0;
+        virtual void cancelGeolocationPermissionRequestForFrame(Frame*, Geolocation*) = 0;
             
         virtual void runOpenPanel(Frame*, PassRefPtr<FileChooser>) = 0;
+        // Asynchronous request to load an icon for specified filenames.
+        virtual void chooseIconForFiles(const Vector<String>&, FileChooser*) = 0;
 
         virtual bool setCursor(PlatformCursorHandle) = 0;
 
         // Notification that the given form element has changed. This function
         // will be called frequently, so handling should be very fast.
         virtual void formStateDidChange(const Node*) = 0;
+        
+        virtual void formDidFocus(const Node*) { };
+        virtual void formDidBlur(const Node*) { };
 
         virtual PassOwnPtr<HTMLParserQuirks> createHTMLParserQuirks() = 0;
 
@@ -180,8 +214,15 @@ namespace WebCore {
         // Sets a flag to specify that the view needs to be updated, so we need
         // to do an eager layout before the drawing.
         virtual void scheduleCompositingLayerSync() = 0;
+        // Returns whether or not the client can render the composited layer,
+        // regardless of the settings.
+        virtual bool allowsAcceleratedCompositing() const { return true; }
 #endif
 
+        virtual bool supportsFullscreenForNode(const Node*) { return false; }
+        virtual void enterFullscreenForNode(Node*) { }
+        virtual void exitFullscreenForNode(Node*) { }
+        
 #if PLATFORM(MAC)
         virtual KeyboardUIMode keyboardUIMode() { return KeyboardAccessDefault; }
 
@@ -189,6 +230,18 @@ namespace WebCore {
         virtual void makeFirstResponder(NSResponder *) { }
 
         virtual void willPopUpMenu(NSMenu *) { }
+#endif
+
+#if ENABLE(TOUCH_EVENTS)
+        virtual void needTouchEvents(bool) = 0;
+#endif
+
+#if ENABLE(WIDGETS_10_SUPPORT)
+        virtual bool isWindowed() { return false; }
+        virtual bool isFloating() { return false; }
+        virtual bool isFullscreen() { return false; }
+        virtual bool isMaximized() { return false; }
+        virtual bool isMinimized() { return false; }
 #endif
 
     protected:

@@ -50,7 +50,7 @@ WebInspector.ProfileDataGridNode.prototype = {
     {
         function formatMilliseconds(time)
         {
-            return Number.secondsToString(time / 1000, WebInspector.UIString.bind(WebInspector), true);
+            return Number.secondsToString(time / 1000, WebInspector.UIString.bind(WebInspector), !Preferences.samplingCPUProfiler);
         }
 
         var data = {};
@@ -102,6 +102,7 @@ WebInspector.ProfileDataGridNode.prototype = {
             urlElement.className = "profile-node-file webkit-html-resource-link";
             urlElement.href = this.profileNode.url;
             urlElement.lineNumber = this.profileNode.lineNumber;
+            urlElement.preferredPanel = "scripts";
 
             if (this.profileNode.lineNumber > 0)
                 urlElement.textContent = fileName + ":" + this.profileNode.lineNumber;
@@ -126,20 +127,6 @@ WebInspector.ProfileDataGridNode.prototype = {
         this.profileView._dataGridNodeDeselected(this);
     },
 
-    expand: function()
-    {
-        if (!this.parent) {
-            var currentComparator = this.parent.lastComparator;
-
-            if (!currentComparator || (currentComparator === this.lastComparator))
-                return;
-
-            this.sort(currentComparator);
-        }
-
-        WebInspector.DataGridNode.prototype.expand.call(this);
-    },
-
     sort: function(/*Function*/ comparator, /*Boolean*/ force)
     {
         var gridNodeGroups = [[this]];
@@ -153,8 +140,11 @@ WebInspector.ProfileDataGridNode.prototype = {
 
                 // If the grid node is collapsed, then don't sort children (save operation for later).
                 // If the grid node has the same sorting as previously, then there is no point in sorting it again.
-                if (!force && !gridNode.expanded || gridNode.lastComparator === comparator)
+                if (!force && (!gridNode.expanded || gridNode.lastComparator === comparator)) {
+                    if (gridNode.children.length)
+                        gridNode.shouldRefreshChildren = true;
                     continue;
+                }
 
                 gridNode.lastComparator = comparator;
 
@@ -219,6 +209,26 @@ WebInspector.ProfileDataGridNode.prototype = {
     get totalPercent()
     {
         return this.totalTime / this.tree.totalTime * 100.0;
+    },
+
+    get _parent()
+    {
+        return this.parent !== this.dataGrid ? this.parent : this.tree;
+    },
+
+    _populate: function(event)
+    {
+        this._sharedPopulate();
+
+        if (this._parent) {
+            var currentComparator = this._parent.lastComparator;
+
+            if (currentComparator)
+                this.sort(currentComparator, true);
+        }
+
+        if (this.removeEventListener)
+            this.removeEventListener("populate", this._populate, this);
     },
 
     // When focusing and collapsing we modify lots of nodes in the tree.

@@ -1,7 +1,7 @@
 /*
  *  Copyright (C) 1999-2001 Harri Porten (porten@kde.org)
  *  Copyright (C) 2001 Peter Kelly (pmk@post.com)
- *  Copyright (C) 2003, 2004, 2005, 2007, 2008 Apple Inc. All rights reserved.
+ *  Copyright (C) 2003, 2004, 2005, 2007, 2008, 2009 Apple Inc. All rights reserved.
  *
  *  This library is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU Library General Public
@@ -20,15 +20,14 @@
  *
  */
 
-#include <stddef.h> // for size_t
-#include <stdint.h>
-
 #ifndef JSValue_h
 #define JSValue_h
 
 #include "CallData.h"
 #include "ConstructData.h"
 #include <math.h>
+#include <stddef.h> // for size_t
+#include <stdint.h>
 #include <wtf/AlwaysInline.h>
 #include <wtf/Assertions.h>
 #include <wtf/HashTraits.h>
@@ -67,6 +66,8 @@ namespace JSC {
         friend class JIT;
         friend class JITStubs;
         friend class JITStubCall;
+        friend class JSInterfaceJIT;
+        friend class SpecializedThunkJIT;
 
     public:
         static EncodedJSValue encode(JSValue value);
@@ -81,6 +82,7 @@ namespace JSC {
         enum JSUndefinedTag { JSUndefined };
         enum JSTrueTag { JSTrue };
         enum JSFalseTag { JSFalse };
+        enum EncodeAsDoubleTag { EncodeAsDouble };
 
         JSValue();
         JSValue(JSNullTag);
@@ -91,6 +93,7 @@ namespace JSC {
         JSValue(const JSCell* ptr);
 
         // Numbers
+        JSValue(EncodeAsDoubleTag, ExecState*, double);
         JSValue(ExecState*, double);
         JSValue(ExecState*, char);
         JSValue(ExecState*, unsigned char);
@@ -129,15 +132,15 @@ namespace JSC {
         bool isString() const;
         bool isGetterSetter() const;
         bool isObject() const;
-        bool isObject(const ClassInfo*) const;
+        bool inherits(const ClassInfo*) const;
         
         // Extracting the value.
         bool getBoolean(bool&) const;
         bool getBoolean() const; // false if not a boolean
         bool getNumber(double&) const;
         double uncheckedGetNumber() const;
-        bool getString(UString&) const;
-        UString getString() const; // null string if not a string
+        bool getString(ExecState* exec, UString&) const;
+        UString getString(ExecState* exec) const; // null string if not a string
         JSObject* getObject() const; // 0 if not an object
 
         CallType getCallData(CallData&);
@@ -157,6 +160,7 @@ namespace JSC {
         double toNumber(ExecState*) const;
         JSValue toJSNumber(ExecState*) const; // Fast path for when you expect that the value is an immediate number.
         UString toString(ExecState*) const;
+        UString toPrimitiveString(ExecState*) const;
         JSObject* toObject(ExecState*) const;
 
         // Integer conversions.
@@ -167,13 +171,13 @@ namespace JSC {
         uint32_t toUInt32(ExecState*) const;
         uint32_t toUInt32(ExecState*, bool& ok) const;
 
+#if ENABLE(JSC_ZOMBIES)
+        bool isZombie() const;
+#endif
+
         // Floating point conversions (this is a convenience method for webcore;
         // signle precision float is not a representation used in JS or JSC).
         float toFloat(ExecState* exec) const { return static_cast<float>(toNumber(exec)); }
-
-        // Garbage collection.
-        void mark();
-        bool marked() const;
 
         // Object operations, with the toObject operation included.
         JSValue get(ExecState*, const Identifier& propertyName) const;
@@ -186,14 +190,14 @@ namespace JSC {
         bool needsThisConversion() const;
         JSObject* toThisObject(ExecState*) const;
         UString toThisString(ExecState*) const;
-        JSString* toThisJSString(ExecState*);
+        JSString* toThisJSString(ExecState*) const;
 
         static bool equal(ExecState* exec, JSValue v1, JSValue v2);
         static bool equalSlowCase(ExecState* exec, JSValue v1, JSValue v2);
         static bool equalSlowCaseInline(ExecState* exec, JSValue v1, JSValue v2);
-        static bool strictEqual(JSValue v1, JSValue v2);
-        static bool strictEqualSlowCase(JSValue v1, JSValue v2);
-        static bool strictEqualSlowCaseInline(JSValue v1, JSValue v2);
+        static bool strictEqual(ExecState* exec, JSValue v1, JSValue v2);
+        static bool strictEqualSlowCase(ExecState* exec, JSValue v1, JSValue v2);
+        static bool strictEqualSlowCaseInline(ExecState* exec, JSValue v1, JSValue v2);
 
         JSValue getJSNumber(); // JSValue() if this is not a JSNumber or number object
 
@@ -212,27 +216,28 @@ namespace JSC {
         JSObject* toObjectSlowCase(ExecState*) const;
         JSObject* toThisObjectSlowCase(ExecState*) const;
 
+        JSObject* synthesizePrototype(ExecState*) const;
+        JSObject* synthesizeObject(ExecState*) const;
+
+#if USE(JSVALUE32_64)
         enum { Int32Tag =        0xffffffff };
         enum { CellTag =         0xfffffffe };
         enum { TrueTag =         0xfffffffd };
         enum { FalseTag =        0xfffffffc };
         enum { NullTag =         0xfffffffb };
         enum { UndefinedTag =    0xfffffffa };
-        enum { DeletedValueTag = 0xfffffff9 };
-
+        enum { EmptyValueTag =   0xfffffff9 };
+        enum { DeletedValueTag = 0xfffffff8 };
+        
         enum { LowestTag =  DeletedValueTag };
-
+        
         uint32_t tag() const;
         int32_t payload() const;
 
-        JSObject* synthesizePrototype(ExecState*) const;
-        JSObject* synthesizeObject(ExecState*) const;
-
-#if USE(JSVALUE32_64)
         union {
             EncodedJSValue asEncodedJSValue;
             double asDouble;
-#if PLATFORM(BIG_ENDIAN)
+#if CPU(BIG_ENDIAN)
             struct {
                 int32_t tag;
                 int32_t payload;
@@ -281,6 +286,11 @@ namespace JSC {
     inline JSValue jsBoolean(bool b)
     {
         return b ? JSValue(JSValue::JSTrue) : JSValue(JSValue::JSFalse);
+    }
+
+    ALWAYS_INLINE JSValue jsDoubleNumber(ExecState* exec, double d)
+    {
+        return JSValue(JSValue::EncodeAsDouble, exec, d);
     }
 
     ALWAYS_INLINE JSValue jsNumber(ExecState* exec, double d)
@@ -377,6 +387,14 @@ namespace JSC {
         return static_cast<uint32_t>(val);
     }
 
+    // FIXME: We should deprecate this and just use JSValue::asCell() instead.
+    JSCell* asCell(JSValue);
+
+    inline JSCell* asCell(JSValue value)
+    {
+        return value.asCell();
+    }
+
     ALWAYS_INLINE int32_t JSValue::toInt32(ExecState* exec) const
     {
         if (isInt32())
@@ -427,12 +445,15 @@ namespace JSC {
     {
         JSValue v;
         v.u.asEncodedJSValue = encodedJSValue;
+#if ENABLE(JSC_ZOMBIES)
+        ASSERT(!v.isZombie());
+#endif
         return v;
     }
 
     inline JSValue::JSValue()
     {
-        u.asBits.tag = CellTag;
+        u.asBits.tag = EmptyValueTag;
         u.asBits.payload = 0;
     }
 
@@ -468,19 +489,32 @@ namespace JSC {
 
     inline JSValue::JSValue(JSCell* ptr)
     {
-        u.asBits.tag = CellTag;
+        if (ptr)
+            u.asBits.tag = CellTag;
+        else
+            u.asBits.tag = EmptyValueTag;
         u.asBits.payload = reinterpret_cast<int32_t>(ptr);
+#if ENABLE(JSC_ZOMBIES)
+        ASSERT(!isZombie());
+#endif
     }
 
     inline JSValue::JSValue(const JSCell* ptr)
     {
-        u.asBits.tag = CellTag;
+        if (ptr)
+            u.asBits.tag = CellTag;
+        else
+            u.asBits.tag = EmptyValueTag;
         u.asBits.payload = reinterpret_cast<int32_t>(const_cast<JSCell*>(ptr));
+#if ENABLE(JSC_ZOMBIES)
+        ASSERT(!isZombie());
+#endif
     }
 
     inline JSValue::operator bool() const
     {
-        return u.asBits.payload || tag() != CellTag;
+        ASSERT(tag() != DeletedValueTag);
+        return tag() != EmptyValueTag;
     }
 
     inline bool JSValue::operator==(const JSValue& other) const
@@ -570,6 +604,11 @@ namespace JSC {
     {
         ASSERT(isCell());
         return reinterpret_cast<JSCell*>(u.asBits.payload);
+    }
+
+    ALWAYS_INLINE JSValue::JSValue(EncodeAsDoubleTag, ExecState*, double d)
+    {
+        u.asDouble = d;
     }
 
     inline JSValue::JSValue(ExecState* exec, double d)
@@ -770,11 +809,17 @@ namespace JSC {
     inline JSValue::JSValue(JSCell* ptr)
         : m_ptr(ptr)
     {
+#if ENABLE(JSC_ZOMBIES)
+        ASSERT(!isZombie());
+#endif
     }
 
     inline JSValue::JSValue(const JSCell* ptr)
         : m_ptr(const_cast<JSCell*>(ptr))
     {
+#if ENABLE(JSC_ZOMBIES)
+        ASSERT(!isZombie());
+#endif
     }
 
     inline JSValue::operator bool() const

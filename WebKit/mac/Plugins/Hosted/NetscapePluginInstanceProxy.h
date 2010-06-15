@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008 Apple Inc. All Rights Reserved.
+ * Copyright (C) 2008, 2009, 2010 Apple Inc. All Rights Reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -49,11 +49,13 @@ namespace JSC {
     }
 }
 @class WebHostedNetscapePluginView;
+@class WebFrame;
 
 namespace WebKit {
 
 class HostedNetscapePluginStream;
 class NetscapePluginHostProxy;
+class PluginRequest;
 class ProxyInstance;
     
 class NetscapePluginInstanceProxy : public RefCounted<NetscapePluginInstanceProxy> {
@@ -70,14 +72,14 @@ public:
         
         return m_pluginID;
     }
-    uint32_t renderContextID() const { return m_renderContextID; }
+    uint32_t renderContextID() const { ASSERT(fastMallocSize(this)); return m_renderContextID; }
     void setRenderContextID(uint32_t renderContextID) { m_renderContextID = renderContextID; }
     
-    bool useSoftwareRenderer() const { return m_useSoftwareRenderer; }
-    void setUseSoftwareRenderer(bool useSoftwareRenderer) { m_useSoftwareRenderer = useSoftwareRenderer; }
+    RendererType rendererType() const { return m_rendererType; }
+    void setRendererType(RendererType rendererType) { m_rendererType = rendererType; }
     
-    WebHostedNetscapePluginView *pluginView() const { return m_pluginView; }
-    NetscapePluginHostProxy* hostProxy() const { return m_pluginHostProxy; }
+    WebHostedNetscapePluginView *pluginView() const { ASSERT(fastMallocSize(this)); return m_pluginView; }
+    NetscapePluginHostProxy* hostProxy() const { ASSERT(fastMallocSize(this)); return m_pluginHostProxy; }
     
     bool cancelStreamLoad(uint32_t streamID, NPReason);
     void disconnectStream(HostedNetscapePluginStream*);
@@ -87,7 +89,7 @@ public:
     
     void pluginHostDied();
     
-    void resize(NSRect size, NSRect clipRect, bool sync);
+    void resize(NSRect size, NSRect clipRect);
     void destroy();
     void focusChanged(bool hasFocus);
     void windowFocusChanged(bool hasFocus);
@@ -100,6 +102,7 @@ public:
     void syntheticKeyDownWithCommandModifier(int keyCode, char character);
     void flagsChanged(NSEvent *);
     void print(CGContextRef, unsigned width, unsigned height);
+    void snapshot(CGContextRef, unsigned width, unsigned height);
     
     void startTimers(bool throttleTimers);
     void stopTimers();
@@ -109,8 +112,8 @@ public:
     // NPRuntime
     bool getWindowNPObject(uint32_t& objectID);
     bool getPluginElementNPObject(uint32_t& objectID);
-    void releaseObject(uint32_t objectID);
-    
+    bool forgetBrowserObjectID(uint32_t objectID); // Will fail if the ID is being sent to plug-in right now (i.e., retain/release calls aren't balanced).
+
     bool evaluate(uint32_t objectID, const WebCore::String& script, data_t& resultData, mach_msg_type_number_t& resultLength, bool allowPopups);
     bool invoke(uint32_t objectID, const JSC::Identifier& methodName, data_t argumentsData, mach_msg_type_number_t argumentsLength, data_t& resultData, mach_msg_type_number_t& resultLength);
     bool invokeDefault(uint32_t objectID, data_t argumentsData, mach_msg_type_number_t argumentsLength, data_t& resultData, mach_msg_type_number_t& resultLength);
@@ -138,11 +141,15 @@ public:
                                data_t& usernameData, mach_msg_type_number_t& usernameLength, data_t& passwordData, mach_msg_type_number_t& passwordLength);
     bool convertPoint(double sourceX, double sourceY, NPCoordinateSpace sourceSpace, 
                       double& destX, double& destY, NPCoordinateSpace destSpace);
-    
+
     PassRefPtr<JSC::Bindings::Instance> createBindingsInstance(PassRefPtr<JSC::Bindings::RootObject>);
     RetainPtr<NSData *> marshalValues(JSC::ExecState*, const JSC::ArgList& args);
-    void marshalValue(JSC::ExecState*, JSC::JSValue value, data_t& resultData, mach_msg_type_number_t& resultLength);
+    void marshalValue(JSC::ExecState*, JSC::JSValue, data_t& resultData, mach_msg_type_number_t& resultLength);
     JSC::JSValue demarshalValue(JSC::ExecState*, const char* valueData, mach_msg_type_number_t valueLength);
+
+    // No-op if the value does not contain a local object.
+    void retainLocalObject(JSC::JSValue);
+    void releaseLocalObject(JSC::JSValue);
 
     void addInstance(ProxyInstance*);
     void removeInstance(ProxyInstance*);
@@ -163,7 +170,11 @@ public:
     void resolveURL(const char* url, const char* target, data_t& resolvedURLData, mach_msg_type_number_t& resolvedURLLength);
     
     void didDraw();
+    void privateBrowsingModeDidChange(bool isPrivateBrowsingEnabled);
     
+    static void setGlobalException(const WebCore::String&);
+    static void moveGlobalExceptionToExecState(JSC::ExecState*);
+
     // Reply structs
     struct Reply {
         enum Type {
@@ -186,17 +197,17 @@ public:
     struct InstantiatePluginReply : public Reply {
         static const int ReplyType = InstantiatePlugin;
         
-        InstantiatePluginReply(kern_return_t resultCode, uint32_t renderContextID, boolean_t useSoftwareRenderer)
+        InstantiatePluginReply(kern_return_t resultCode, uint32_t renderContextID, RendererType rendererType)
             : Reply(InstantiatePlugin)
             , m_resultCode(resultCode)
             , m_renderContextID(renderContextID)
-            , m_useSoftwareRenderer(useSoftwareRenderer)
+            , m_rendererType(rendererType)
         {
         }
                  
         kern_return_t m_resultCode;
         uint32_t m_renderContextID;
-        boolean_t m_useSoftwareRenderer;
+        RendererType m_rendererType;
     };
 
     struct GetScriptableNPObjectReply : public Reply {
@@ -246,6 +257,9 @@ public:
     template <typename T>
     std::auto_ptr<T> waitForReply(uint32_t requestID)
     {
+        RefPtr<NetscapePluginInstanceProxy> protect(this); // Plug-in host may crash while we are waiting for reply, releasing all instances to the instance proxy.
+
+        willCallPluginFunction();
         m_waitingForReply = true;
 
         Reply* reply = processRequestsAndWaitForReply(requestID);
@@ -253,13 +267,18 @@ public:
             ASSERT(reply->m_type == T::ReplyType);
         
         m_waitingForReply = false;
+        
+        didCallPluginFunction();
+
         return std::auto_ptr<T>(static_cast<T*>(reply));
     }
     
-private:
-    NetscapePluginInstanceProxy(NetscapePluginHostProxy*, WebHostedNetscapePluginView *, bool fullFramePlugin);
+    void webFrameDidFinishLoadWithReason(WebFrame*, NPReason);
 
-    NPError loadRequest(NSURLRequest *, const char* cTarget, bool currentEventIsUserGesture, uint32_t& streamID);
+private:
+    NetscapePluginInstanceProxy(NetscapePluginHostProxy*, WebHostedNetscapePluginView*, bool fullFramePlugin);
+
+    NPError loadRequest(NSURLRequest*, const char* cTarget, bool currentEventIsUserGesture, uint32_t& streamID);
     
     class PluginRequest;
     void performRequest(PluginRequest*);
@@ -273,7 +292,7 @@ private:
 
     void requestTimerFired(WebCore::Timer<NetscapePluginInstanceProxy>*);
     WebCore::Timer<NetscapePluginInstanceProxy> m_requestTimer;
-    Deque<PluginRequest*> m_pluginRequests;
+    Deque<RefPtr<PluginRequest> > m_pluginRequests;
     
     HashMap<uint32_t, RefPtr<HostedNetscapePluginStream> > m_streams;
 
@@ -281,23 +300,40 @@ private:
     
     uint32_t m_pluginID;
     uint32_t m_renderContextID;
-    boolean_t m_useSoftwareRenderer;
+    RendererType m_rendererType;
     
     bool m_waitingForReply;
     HashMap<uint32_t, Reply*> m_replies;
     
     // NPRuntime
-    uint32_t idForObject(JSC::JSObject*);
-    
+
     void addValueToArray(NSMutableArray *, JSC::ExecState* exec, JSC::JSValue value);
     
     bool demarshalValueFromArray(JSC::ExecState*, NSArray *array, NSUInteger& index, JSC::JSValue& result);
     void demarshalValues(JSC::ExecState*, data_t valuesData, mach_msg_type_number_t valuesLength, JSC::MarkedArgumentBuffer& result);
 
-    uint32_t m_objectIDCounter;
-    typedef HashMap<uint32_t, JSC::ProtectedPtr<JSC::JSObject> > ObjectMap;
-    ObjectMap m_objects;
-    
+    class LocalObjectMap : Noncopyable {
+    public:
+        LocalObjectMap();
+        ~LocalObjectMap();
+        uint32_t idForObject(JSC::JSObject*);
+        void retain(JSC::JSObject*);
+        void release(JSC::JSObject*);
+        void clear();
+        bool forget(uint32_t);
+        bool contains(uint32_t) const;
+        JSC::JSObject* get(uint32_t) const;
+
+    private:
+        HashMap<uint32_t, JSC::ProtectedPtr<JSC::JSObject> > m_idToJSObjectMap;
+        // The pair consists of object ID and a reference count. One reference belongs to remote plug-in,
+        // and the proxy will add transient references for arguments that are being sent out.
+        HashMap<JSC::JSObject*, pair<uint32_t, uint32_t> > m_jsObjectToIDMap;
+        uint32_t m_objectIDCounter;
+    };
+
+    LocalObjectMap m_localObjects;
+
     typedef HashSet<ProxyInstance*> ProxyInstanceSet;
     ProxyInstanceSet m_instances;
 
@@ -312,6 +348,9 @@ private:
     bool m_pluginIsWaitingForDraw;
     
     RefPtr<HostedNetscapePluginStream> m_manualStream;
+
+    typedef HashMap<WebFrame*, RefPtr<PluginRequest> > FrameLoadMap;
+    FrameLoadMap m_pendingFrameLoads;
 };
     
 } // namespace WebKit

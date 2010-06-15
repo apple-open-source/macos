@@ -27,17 +27,15 @@
 #include "AuthenticationCF.h"
 
 #include "AuthenticationChallenge.h"
+#include "AuthenticationClient.h"
 #include "Credential.h"
 #include "ProtectionSpace.h"
-#include "ResourceHandle.h"
 
 #include <CFNetwork/CFURLAuthChallengePriv.h>
 #include <CFNetwork/CFURLCredentialPriv.h>
 #include <CFNetwork/CFURLProtectionSpacePriv.h>
 
 namespace WebCore {
-
-CFMutableDictionaryRef WebCoreCredentialStorage::m_storage;
 
 AuthenticationChallenge::AuthenticationChallenge(const ProtectionSpace& protectionSpace,
                                                  const Credential& proposedCredential,
@@ -53,20 +51,20 @@ AuthenticationChallenge::AuthenticationChallenge(const ProtectionSpace& protecti
 }
 
 AuthenticationChallenge::AuthenticationChallenge(CFURLAuthChallengeRef cfChallenge,
-                                                 ResourceHandle* sourceHandle)
+                                                 AuthenticationClient* authenticationClient)
     : AuthenticationChallengeBase(core(CFURLAuthChallengeGetProtectionSpace(cfChallenge)),
                                   core(CFURLAuthChallengeGetProposedCredential(cfChallenge)),
                                   CFURLAuthChallengeGetPreviousFailureCount(cfChallenge),
                                   (CFURLResponseRef)CFURLAuthChallengeGetFailureResponse(cfChallenge),
                                   CFURLAuthChallengeGetError(cfChallenge))
-    , m_sourceHandle(sourceHandle)
+    , m_authenticationClient(authenticationClient)
     , m_cfChallenge(cfChallenge)
 {
 }
 
 bool AuthenticationChallenge::platformCompare(const AuthenticationChallenge& a, const AuthenticationChallenge& b)
 {
-    if (a.sourceHandle() != b.sourceHandle())
+    if (a.authenticationClient() != b.authenticationClient())
         return false;
 
     if (a.cfURLAuthChallengeRef() != b.cfURLAuthChallengeRef())
@@ -255,6 +253,7 @@ ProtectionSpace core(CFURLProtectionSpaceRef cfSpace)
         scheme = ProtectionSpaceAuthenticationSchemeNegotiate;
         break;
     default:
+        scheme = ProtectionSpaceAuthenticationSchemeUnknown;
         ASSERT_NOT_REACHED();
     }
         

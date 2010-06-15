@@ -25,6 +25,7 @@
 
 namespace WebCore {
 
+
 void Chrome::focusNSView(NSView* view)
 {
     BEGIN_BLOCK_OBJC_EXCEPTIONS;

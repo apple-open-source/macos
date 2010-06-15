@@ -25,6 +25,8 @@
 
 #include "JavaScriptCore.h"
 #include "JSBasePrivate.h"
+#include "JSContextRefPrivate.h"
+#include "JSObjectRefPrivate.h"
 #include <math.h>
 #define ASSERT_DISABLED 0
 #include <wtf/Assertions.h>
@@ -41,8 +43,8 @@ static double nan(const char*)
 
 #endif
 
-static JSGlobalContextRef context = 0;
-static int failed = 0;
+static JSGlobalContextRef context;
+static int failed;
 static void assertEqualsAsBoolean(JSValueRef value, bool expectedValue)
 {
     if (JSValueToBoolean(context, value) != expectedValue) {
@@ -165,6 +167,10 @@ static JSValueRef MyObject_getProperty(JSContextRef context, JSObjectRef object,
     if (JSStringIsEqualToUTF8CString(propertyName, "cantFind")) {
         return JSValueMakeUndefined(context);
     }
+    
+    if (JSStringIsEqualToUTF8CString(propertyName, "hasPropertyLie")) {
+        return 0;
+    }
 
     if (JSStringIsEqualToUTF8CString(propertyName, "throwOnGet")) {
         return JSEvaluateScript(context, JSStringCreateWithUTF8CString("throw 'an exception'"), object, JSStringCreateWithUTF8CString("test script"), 1, exception);
@@ -175,7 +181,7 @@ static JSValueRef MyObject_getProperty(JSContextRef context, JSObjectRef object,
         return JSValueMakeNumber(context, 1);
     }
     
-    return NULL;
+    return JSValueMakeNull(context);
 }
 
 static bool MyObject_setProperty(JSContextRef context, JSObjectRef object, JSStringRef propertyName, JSValueRef value, JSValueRef* exception)
@@ -298,7 +304,7 @@ static JSValueRef MyObject_convertToType(JSContextRef context, JSObjectRef objec
     }
 
     // string conversion -- forward to default object class
-    return NULL;
+    return JSValueMakeNull(context);
 }
 
 static JSStaticValue evilStaticValues[] = {
@@ -373,7 +379,7 @@ static JSValueRef EvilExceptionObject_convertToType(JSContextRef context, JSObje
         funcName = JSStringCreateWithUTF8CString("toStringExplicit");
         break;
     default:
-        return NULL;
+        return JSValueMakeNull(context);
         break;
     }
     
@@ -381,7 +387,7 @@ static JSValueRef EvilExceptionObject_convertToType(JSContextRef context, JSObje
     JSStringRelease(funcName);    
     JSObjectRef function = JSValueToObject(context, func, exception);
     if (!function)
-        return NULL;
+        return JSValueMakeNull(context);
     JSValueRef value = JSObjectCallAsFunction(context, function, object, 0, NULL, exception);
     if (!value) {
         JSStringRef errorString = JSStringCreateWithUTF8CString("convertToType failed"); 
@@ -618,14 +624,27 @@ static JSClassRef Derived_class(JSContextRef context)
     return jsClass;
 }
 
-static JSValueRef print_callAsFunction(JSContextRef context, JSObjectRef functionObject, JSObjectRef thisObject, size_t argumentCount, const JSValueRef arguments[], JSValueRef* exception)
+static JSClassRef Derived2_class(JSContextRef context)
+{
+    static JSClassRef jsClass;
+    if (!jsClass) {
+        JSClassDefinition definition = kJSClassDefinitionEmpty;
+        definition.parentClass = Derived_class(context);
+        jsClass = JSClassCreate(&definition);
+    }
+    return jsClass;
+}
+
+static JSValueRef print_callAsFunction(JSContextRef ctx, JSObjectRef functionObject, JSObjectRef thisObject, size_t argumentCount, const JSValueRef arguments[], JSValueRef* exception)
 {
     UNUSED_PARAM(functionObject);
     UNUSED_PARAM(thisObject);
     UNUSED_PARAM(exception);
+
+    ASSERT(JSContextGetGlobalContext(ctx) == context);
     
     if (argumentCount > 0) {
-        JSStringRef string = JSValueToStringCopy(context, arguments[0], NULL);
+        JSStringRef string = JSValueToStringCopy(ctx, arguments[0], NULL);
         size_t sizeUTF8 = JSStringGetMaximumUTF8CStringSize(string);
         char* stringUTF8 = (char*)malloc(sizeUTF8);
         JSStringGetUTF8CString(string, stringUTF8, sizeUTF8);
@@ -634,7 +653,7 @@ static JSValueRef print_callAsFunction(JSContextRef context, JSObjectRef functio
         JSStringRelease(string);
     }
     
-    return JSValueMakeUndefined(context);
+    return JSValueMakeUndefined(ctx);
 }
 
 static JSObjectRef myConstructor_callAsConstructor(JSContextRef context, JSObjectRef constructorObject, size_t argumentCount, const JSValueRef arguments[], JSValueRef* exception)
@@ -734,6 +753,17 @@ static void testInitializeFinalize()
     ASSERT(JSObjectGetPrivate(o) == (void*)3);
 }
 
+static JSValueRef jsNumberValue =  NULL;
+
+static JSObjectRef aHeapRef = NULL;
+
+static void makeGlobalNumberValue(JSContextRef context) {
+    JSValueRef v = JSValueMakeNumber(context, 420);
+    JSValueProtect(context, v);
+    jsNumberValue = v;
+    v = NULL;
+}
+
 int main(int argc, char* argv[])
 {
     const char *scriptPath = "testapi.js";
@@ -760,6 +790,7 @@ int main(int argc, char* argv[])
 
     JSGlobalContextRetain(context);
     JSGlobalContextRelease(context);
+    ASSERT(JSContextGetGlobalContext(context) == context);
     
     JSReportExtraMemoryCost(context, 0);
     JSReportExtraMemoryCost(context, 1);
@@ -842,8 +873,107 @@ int main(int argc, char* argv[])
     JSObjectSetProperty(context, globalObject, EmptyObjectIString, EmptyObject, kJSPropertyAttributeNone, NULL);
     JSStringRelease(EmptyObjectIString);
     
-    JSValueRef exception;
+    JSStringRef lengthStr = JSStringCreateWithUTF8CString("length");
+    aHeapRef = JSObjectMakeArray(context, 0, 0, 0);
+    JSObjectSetProperty(context, aHeapRef, lengthStr, JSValueMakeNumber(context, 10), 0, 0);
+    JSStringRef privatePropertyName = JSStringCreateWithUTF8CString("privateProperty");
+    if (!JSObjectSetPrivateProperty(context, myObject, privatePropertyName, aHeapRef)) {
+        printf("FAIL: Could not set private property.\n");
+        failed = 1;        
+    } else {
+        printf("PASS: Set private property.\n");
+    }
+    if (JSObjectSetPrivateProperty(context, aHeapRef, privatePropertyName, aHeapRef)) {
+        printf("FAIL: JSObjectSetPrivateProperty should fail on non-API objects.\n");
+        failed = 1;        
+    } else {
+        printf("PASS: Did not allow JSObjectSetPrivateProperty on a non-API object.\n");
+    }
+    if (JSObjectGetPrivateProperty(context, myObject, privatePropertyName) != aHeapRef) {
+        printf("FAIL: Could not retrieve private property.\n");
+        failed = 1;
+    } else
+        printf("PASS: Retrieved private property.\n");
+    if (JSObjectGetPrivateProperty(context, aHeapRef, privatePropertyName)) {
+        printf("FAIL: JSObjectGetPrivateProperty should return NULL when called on a non-API object.\n");
+        failed = 1;
+    } else
+        printf("PASS: JSObjectGetPrivateProperty return NULL.\n");
+    
+    if (JSObjectGetProperty(context, myObject, privatePropertyName, 0) == aHeapRef) {
+        printf("FAIL: Accessed private property through ordinary property lookup.\n");
+        failed = 1;
+    } else
+        printf("PASS: Cannot access private property through ordinary property lookup.\n");
+    
+    JSGarbageCollect(context);
+    
+    for (int i = 0; i < 10000; i++)
+        JSObjectMake(context, 0, 0);
 
+    if (JSValueToNumber(context, JSObjectGetProperty(context, aHeapRef, lengthStr, 0), 0) != 10) {
+        printf("FAIL: Private property has been collected.\n");
+        failed = 1;
+    } else
+        printf("PASS: Private property does not appear to have been collected.\n");
+    JSStringRelease(lengthStr);
+    
+    JSStringRef validJSON = JSStringCreateWithUTF8CString("{\"aProperty\":true}");
+    JSValueRef jsonObject = JSValueMakeFromJSONString(context, validJSON);
+    JSStringRelease(validJSON);
+    if (!JSValueIsObject(context, jsonObject)) {
+        printf("FAIL: Did not parse valid JSON correctly\n");
+        failed = 1;
+    } else
+        printf("PASS: Parsed valid JSON string.\n");
+    JSStringRef propertyName = JSStringCreateWithUTF8CString("aProperty");
+    assertEqualsAsBoolean(JSObjectGetProperty(context, JSValueToObject(context, jsonObject, 0), propertyName, 0), true);
+    JSStringRelease(propertyName);
+    JSStringRef invalidJSON = JSStringCreateWithUTF8CString("fail!");
+    if (JSValueMakeFromJSONString(context, invalidJSON)) {
+        printf("FAIL: Should return null for invalid JSON data\n");
+        failed = 1;
+    } else
+        printf("PASS: Correctly returned null for invalid JSON data.\n");
+    JSValueRef exception;
+    JSStringRef str = JSValueCreateJSONString(context, jsonObject, 0, 0);
+    if (!JSStringIsEqualToUTF8CString(str, "{\"aProperty\":true}")) {
+        printf("FAIL: Did not correctly serialise with indent of 0.\n");
+        failed = 1;
+    } else
+        printf("PASS: Correctly serialised with indent of 0.\n");
+    JSStringRelease(str);
+
+    str = JSValueCreateJSONString(context, jsonObject, 4, 0);
+    if (!JSStringIsEqualToUTF8CString(str, "{\n    \"aProperty\": true\n}")) {
+        printf("FAIL: Did not correctly serialise with indent of 4.\n");
+        failed = 1;
+    } else
+        printf("PASS: Correctly serialised with indent of 4.\n");
+    JSStringRelease(str);
+    JSStringRef src = JSStringCreateWithUTF8CString("({get a(){ throw '';}})");
+    JSValueRef unstringifiableObj = JSEvaluateScript(context, src, NULL, NULL, 1, NULL);
+    
+    str = JSValueCreateJSONString(context, unstringifiableObj, 4, 0);
+    if (str) {
+        printf("FAIL: Didn't return null when attempting to serialize unserializable value.\n");
+        JSStringRelease(str);
+        failed = 1;
+    } else
+        printf("PASS: returned null when attempting to serialize unserializable value.\n");
+    
+    str = JSValueCreateJSONString(context, unstringifiableObj, 4, &exception);
+    if (str) {
+        printf("FAIL: Didn't return null when attempting to serialize unserializable value.\n");
+        JSStringRelease(str);
+        failed = 1;
+    } else
+        printf("PASS: returned null when attempting to serialize unserializable value.\n");
+    if (!exception) {
+        printf("FAIL: Did not set exception on serialisation error\n");
+        failed = 1;
+    } else
+        printf("PASS: set exception on serialisation error\n");
     // Conversions that throw exceptions
     exception = NULL;
     ASSERT(NULL == JSValueToObject(context, jsNull, &exception));
@@ -944,10 +1074,12 @@ int main(int argc, char* argv[])
     CFRelease(cfEmptyString);
     
     jsGlobalValue = JSObjectMake(context, NULL, NULL);
+    makeGlobalNumberValue(context);
     JSValueProtect(context, jsGlobalValue);
     JSGarbageCollect(context);
     ASSERT(JSValueIsObject(context, jsGlobalValue));
     JSValueUnprotect(context, jsGlobalValue);
+    JSValueUnprotect(context, jsNumberValue);
 
     JSStringRef goodSyntax = JSStringCreateWithUTF8CString("x = 1;");
     JSStringRef badSyntax = JSStringCreateWithUTF8CString("x := 1;");
@@ -1051,11 +1183,21 @@ int main(int argc, char* argv[])
     ASSERT(!JSObjectSetPrivate(myConstructor, (void*)1));
     ASSERT(!JSObjectGetPrivate(myConstructor));
     
+    string = JSStringCreateWithUTF8CString("Base");
+    JSObjectRef baseConstructor = JSObjectMakeConstructor(context, Base_class(context), NULL);
+    JSObjectSetProperty(context, globalObject, string, baseConstructor, kJSPropertyAttributeNone, NULL);
+    JSStringRelease(string);
+    
     string = JSStringCreateWithUTF8CString("Derived");
     JSObjectRef derivedConstructor = JSObjectMakeConstructor(context, Derived_class(context), NULL);
     JSObjectSetProperty(context, globalObject, string, derivedConstructor, kJSPropertyAttributeNone, NULL);
     JSStringRelease(string);
     
+    string = JSStringCreateWithUTF8CString("Derived2");
+    JSObjectRef derived2Constructor = JSObjectMakeConstructor(context, Derived2_class(context), NULL);
+    JSObjectSetProperty(context, globalObject, string, derived2Constructor, kJSPropertyAttributeNone, NULL);
+    JSStringRelease(string);
+
     o = JSObjectMake(context, NULL, NULL);
     JSObjectSetProperty(context, o, jsOneIString, JSValueMakeNumber(context, 1), kJSPropertyAttributeNone, NULL);
     JSObjectSetProperty(context, o, jsCFIString,  JSValueMakeNumber(context, 1), kJSPropertyAttributeDontEnum, NULL);
@@ -1154,7 +1296,7 @@ int main(int argc, char* argv[])
     } else {
         script = JSStringCreateWithUTF8CString(scriptUTF8);
         result = JSEvaluateScript(context, script, NULL, NULL, 1, &exception);
-        if (JSValueIsUndefined(context, result))
+        if (result && JSValueIsUndefined(context, result))
             printf("PASS: Test script executed successfully.\n");
         else {
             printf("FAIL: Test script returned unexpected value:\n");

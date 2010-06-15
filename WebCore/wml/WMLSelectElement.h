@@ -32,8 +32,6 @@ public:
     WMLSelectElement(const QualifiedName&, Document*);
     virtual ~WMLSelectElement();
 
-    virtual String title() const;
-
     virtual const AtomicString& formControlName() const;
     virtual const AtomicString& formControlType() const;
  
@@ -87,6 +85,9 @@ public:
     void scrollToSelection();
     void selectInitialOptions();
 
+    bool initialized() const { return m_initialized; }
+    
+    virtual void listBoxSelectItem(int listIndex, bool allowMultiplySelections, bool shift, bool fireOnChangeNow = true);
 private:
     virtual void insertedIntoTree(bool);
 
@@ -106,6 +107,7 @@ private:
     String ivalue() const;
 
     SelectElementData m_data;
+    bool m_initialized;
     Vector<unsigned> m_defaultOptionIndices;
 };
 

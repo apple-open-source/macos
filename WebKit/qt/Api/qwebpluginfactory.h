@@ -31,14 +31,15 @@ class QString;
 QT_END_NAMESPACE
 class QWebPluginFactoryPrivate;
 
-class QWEBKIT_EXPORT QWebPluginFactory : public QObject
-{
+class QWEBKIT_EXPORT QWebPluginFactory : public QObject {
     Q_OBJECT
 public:
-    struct MimeType {
+    struct QWEBKIT_EXPORT MimeType {
         QString name;
         QString description;
         QStringList fileExtensions;
+        bool operator==(const MimeType& other) const;
+        inline bool operator!=(const MimeType& other) const { return !operator==(other); }
     };
 
     struct Plugin {
@@ -47,16 +48,16 @@ public:
         QList<MimeType> mimeTypes;
     };
 
-    explicit QWebPluginFactory(QObject *parent = 0);
+    explicit QWebPluginFactory(QObject* parent = 0);
     virtual ~QWebPluginFactory();
 
     virtual QList<Plugin> plugins() const = 0;
     virtual void refreshPlugins();
 
-    virtual QObject *create(const QString &mimeType,
-                            const QUrl &url,
-                            const QStringList &argumentNames,
-                            const QStringList &argumentValues) const = 0;
+    virtual QObject *create(const QString& mimeType,
+                            const QUrl&,
+                            const QStringList& argumentNames,
+                            const QStringList& argumentValues) const = 0;
 
     enum Extension {
     };
@@ -64,11 +65,11 @@ public:
     {};
     class ExtensionReturn
     {};
-    virtual bool extension(Extension extension, const ExtensionOption *option = 0, ExtensionReturn *output = 0);
+    virtual bool extension(Extension extension, const ExtensionOption* option = 0, ExtensionReturn* output = 0);
     virtual bool supportsExtension(Extension extension) const;
 
 private:
-    QWebPluginFactoryPrivate *d;
+    QWebPluginFactoryPrivate* d;
 };
 
 #endif

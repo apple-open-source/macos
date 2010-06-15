@@ -786,8 +786,8 @@ IOReturn IONDRVFramebuffer::registerForInterruptType( IOSelect interruptType,
         void ** interruptRef )
 
 {
-    _VSLService *       service;
-    IOReturn            err;
+    _VSLService * service;
+    IOReturn      err;
 
     if ((interruptType == kIOFBVBLInterruptType)
             && (getProvider()->getProperty("Ignore VBL")))
@@ -812,24 +812,57 @@ IOReturn IONDRVFramebuffer::registerForInterruptType( IOSelect interruptType,
         }
     }
     else
-        err = kIOReturnNoResources;
+    {
+        err = super::registerForInterruptType(interruptType, proc, target, ref, interruptRef);
+    }
 
     return (err);
 }
 
 IOReturn IONDRVFramebuffer::unregisterInterrupt( void * interruptRef )
 {
-    _VSLService * service = (_VSLService *) interruptRef;
+    _VSLService * service;
+    IOReturn      err;
 
-    service->handler = 0;
+    for (service = vslServices;
+            service && (service != interruptRef);
+            service = service->next)
+        {}
 
-    return (kIOReturnSuccess);
+    if (service)
+    {
+        service->handler = 0;
+        err = kIOReturnSuccess;
+    }
+    else
+    {
+        err = super::unregisterInterrupt(interruptRef);
+    }
+
+    return (err);
 }
 
 IOReturn IONDRVFramebuffer::setInterruptState( void * interruptRef,
         UInt32 state )
 {
-    return (kIOReturnUnsupported);
+    _VSLService * service;
+    IOReturn      err;
+
+    for (service = vslServices;
+            service && (service != interruptRef);
+            service = service->next)
+        {}
+
+    if (service)
+    {
+        err = kIOReturnUnsupported;
+    }
+    else
+    {
+        err = super::setInterruptState(interruptRef, state);
+    }
+
+    return (err);
 }
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
@@ -3424,7 +3457,11 @@ IOReturn IONDRVFramebuffer::getAttributeForConnection( IOIndex connectIndex,
             featureList.csNumConfigFeatures = 0x7fff;
             thisRet = _doStatus(this, cscGetFeatureList, &featureList);
             if (kIOReturnSuccess == thisRet)
+            {
                 thisCount = featureList.csNumConfigFeatures;
+                for (uint32_t idx = thisCount; idx > 0; idx--)
+                    value[idx - 1] = ((OSType *)value)[idx - 1];
+            }
 
             ret = super::getAttributeForConnection( connectIndex,
                                                     attribute, value + thisCount );

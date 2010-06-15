@@ -4,6 +4,7 @@
  *  Copyright (C) 2009 Diego Escalante Urrelo <diegoe@gnome.org>
  *  Copyright (C) 2006, 2007 Apple Inc.  All rights reserved.
  *  Copyright (C) 2009, Igalia S.L.
+ *  Copyright (C) 2010, Martin Robinson <mrobinson@webkit.org>
  *
  *  This library is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU Lesser General Public
@@ -23,7 +24,7 @@
 #include "config.h"
 #include "EditorClientGtk.h"
 
-#include "CString.h"
+#include "DataObjectGtk.h"
 #include "EditCommand.h"
 #include "Editor.h"
 #include <enchant.h>
@@ -31,13 +32,16 @@
 #include "FocusController.h"
 #include "Frame.h"
 #include <glib.h>
-#include "KeyboardCodes.h"
 #include "KeyboardEvent.h"
+#include "markup.h"
 #include "NotImplemented.h"
 #include "Page.h"
+#include "PasteboardHelperGtk.h"
 #include "PlatformKeyboardEvent.h"
-#include "markup.h"
+#include "WindowsKeyboardCodes.h"
+#include "webkitmarshal.h"
 #include "webkitprivate.h"
+#include <wtf/text/CString.h>
 
 // Arbitrary depth limit for the undo stack, to keep it from using
 // unbounded memory.  This is the maximum number of distinct undoable
@@ -49,39 +53,48 @@ using namespace WebCore;
 
 namespace WebKit {
 
-static void imContextCommitted(GtkIMContext* context, const gchar* str, EditorClient* client)
+static void imContextCommitted(GtkIMContext* context, const gchar* compositionString, EditorClient* client)
 {
-    Frame* targetFrame = core(client->m_webView)->focusController()->focusedOrMainFrame();
-
-    if (!targetFrame || !targetFrame->editor()->canEdit())
+    Frame* frame = core(client->webView())->focusController()->focusedOrMainFrame();
+    if (!frame || !frame->editor()->canEdit())
         return;
 
-    Editor* editor = targetFrame->editor();
+    // If this signal fires during a keydown event when we are not in the middle
+    // of a composition, then treat this 'commit' as a normal key event and just
+    // change the editable area right before the keypress event.
+    if (client->treatContextCommitAsKeyEvent()) {
+        client->updatePendingComposition(compositionString);
+        return;
+    }
 
-    String commitString = String::fromUTF8(str);
-    editor->confirmComposition(commitString);
+    frame->editor()->confirmComposition(String::fromUTF8(compositionString));
+    client->clearPendingComposition();
 }
 
 static void imContextPreeditChanged(GtkIMContext* context, EditorClient* client)
 {
-    Frame* frame = core(client->m_webView)->focusController()->focusedOrMainFrame();
-    Editor* editor = frame->editor();
-
-    gchar* preedit = NULL;
-    gint cursorPos = 0;
-    // We ignore the provided PangoAttrList for now.
-    gtk_im_context_get_preedit_string(context, &preedit, NULL, &cursorPos);
-    String preeditString = String::fromUTF8(preedit);
-    g_free(preedit);
-
-    // setComposition() will replace the user selection if passed an empty
-    // preedit. We don't want this to happen.
-    if (preeditString.isEmpty() && !editor->hasComposition())
+    Frame* frame = core(client->webView())->focusController()->focusedOrMainFrame();
+    if (!frame || !frame->editor()->canEdit())
         return;
 
+    // We ignore the provided PangoAttrList for now.
+    GOwnPtr<gchar> newPreedit(0);
+    gtk_im_context_get_preedit_string(context, &newPreedit.outPtr(), 0, 0);
+
+    String preeditString = String::fromUTF8(newPreedit.get());
     Vector<CompositionUnderline> underlines;
     underlines.append(CompositionUnderline(0, preeditString.length(), Color(0, 0, 0), false));
-    editor->setComposition(preeditString, underlines, cursorPos, 0);
+    frame->editor()->setComposition(preeditString, underlines, 0, 0);
+}
+
+void EditorClient::updatePendingComposition(const gchar* newComposition)
+{
+    // The IMContext may signal more than one completed composition in a row,
+    // in which case we want to append them, rather than overwrite the old one.
+    if (!m_pendingComposition)
+        m_pendingComposition.set(g_strdup(newComposition));
+    else
+        m_pendingComposition.set(g_strconcat(m_pendingComposition.get(), newComposition, NULL));
 }
 
 void EditorClient::setInputMethodState(bool active)
@@ -136,12 +149,16 @@ int EditorClient::spellCheckerDocumentTag()
 
 bool EditorClient::shouldBeginEditing(WebCore::Range*)
 {
+    clearPendingComposition();
+
     notImplemented();
     return true;
 }
 
 bool EditorClient::shouldEndEditing(WebCore::Range*)
 {
+    clearPendingComposition();
+
     notImplemented();
     return true;
 }
@@ -180,35 +197,28 @@ void EditorClient::respondToChangedContents()
     notImplemented();
 }
 
-static void clipboard_get_contents_cb(GtkClipboard* clipboard, GtkSelectionData* selection_data, guint info, gpointer data)
+static WebKitWebView* viewSettingClipboard = 0;
+static void collapseSelection(GtkClipboard* clipboard, WebKitWebView* webView)
 {
-    WebKitWebView* webView = reinterpret_cast<WebKitWebView*>(data);
-    Frame* frame = core(webView)->focusController()->focusedOrMainFrame();
-    PassRefPtr<Range> selectedRange = frame->selection()->toNormalizedRange();
+    if (viewSettingClipboard && viewSettingClipboard == webView)
+        return;
 
-    if (static_cast<gint>(info) == WEBKIT_WEB_VIEW_TARGET_INFO_HTML) {
-        String markup = createMarkup(selectedRange.get(), 0, AnnotateForInterchange);
-        gtk_selection_data_set(selection_data, selection_data->target, 8,
-                               reinterpret_cast<const guchar*>(markup.utf8().data()), markup.utf8().length());
-    } else {
-        String text = selectedRange->text();
-        gtk_selection_data_set_text(selection_data, text.utf8().data(), text.utf8().length());
-    }
-}
+    WebCore::Page* corePage = core(webView);
+    if (!corePage || !corePage->focusController())
+        return;
 
-static void clipboard_clear_contents_cb(GtkClipboard* clipboard, gpointer data)
-{
-    WebKitWebView* webView = reinterpret_cast<WebKitWebView*>(data);
-    Frame* frame = core(webView)->focusController()->focusedOrMainFrame();
+    Frame* frame = corePage->focusController()->focusedOrMainFrame();
 
     // Collapse the selection without clearing it
+    ASSERT(frame);
     frame->selection()->setBase(frame->selection()->extent(), frame->selection()->affinity());
 }
 
 void EditorClient::respondToChangedSelection()
 {
     WebKitWebViewPrivate* priv = m_webView->priv;
-    Frame* targetFrame = core(m_webView)->focusController()->focusedOrMainFrame();
+    WebCore::Page* corePage = core(m_webView);
+    Frame* targetFrame = corePage->focusController()->focusedOrMainFrame();
 
     if (!targetFrame)
         return;
@@ -216,16 +226,21 @@ void EditorClient::respondToChangedSelection()
     if (targetFrame->editor()->ignoreCompositionSelectionChange())
         return;
 
+#if PLATFORM(X11)
     GtkClipboard* clipboard = gtk_widget_get_clipboard(GTK_WIDGET(m_webView), GDK_SELECTION_PRIMARY);
+    DataObjectGtk* dataObject = DataObjectGtk::forClipboard(clipboard);
+
     if (targetFrame->selection()->isRange()) {
-        GtkTargetList* targetList = webkit_web_view_get_copy_target_list(m_webView);
-        gint targetCount;
-        GtkTargetEntry* targets = gtk_target_table_new_from_list(targetList, &targetCount);
-        gtk_clipboard_set_with_owner(clipboard, targets, targetCount,
-                                     clipboard_get_contents_cb, clipboard_clear_contents_cb, G_OBJECT(m_webView));
-        gtk_target_table_free(targets, targetCount);
-    } else if (gtk_clipboard_get_owner(clipboard) == G_OBJECT(m_webView))
-        gtk_clipboard_clear(clipboard);
+        dataObject->clear();
+        dataObject->setRange(targetFrame->selection()->toNormalizedRange());
+
+        viewSettingClipboard = m_webView;
+        GClosure* callback = g_cclosure_new_object(G_CALLBACK(collapseSelection), G_OBJECT(m_webView));
+        g_closure_set_marshal(callback, g_cclosure_marshal_VOID__VOID);
+        pasteboardHelperInstance()->writeClipboardContents(clipboard, callback);
+        viewSettingClipboard = 0;
+    }
+#endif
 
     if (!targetFrame->editor()->hasComposition())
         return;
@@ -410,11 +425,6 @@ static const KeyDownEntry keyDownEntries[] = {
     { VK_RETURN, CtrlKey,            "InsertNewline"                               },
     { VK_RETURN, AltKey,             "InsertNewline"                               },
     { VK_RETURN, AltKey | ShiftKey,  "InsertNewline"                               },
-
-    // It's not quite clear whether Undo/Redo should be handled
-    // in the application or in WebKit. We chose WebKit.
-    { 'Z',       CtrlKey,            "Undo"                                        },
-    { 'Z',       CtrlKey | ShiftKey, "Redo"                                        },
 };
 
 static const KeyPressEntry keyPressEntries[] = {
@@ -426,7 +436,7 @@ static const KeyPressEntry keyPressEntries[] = {
     { '\r',   AltKey | ShiftKey,  "InsertNewline"                               },
 };
 
-static const char* interpretKeyEvent(const KeyboardEvent* evt)
+static const char* interpretEditorCommandKeyEvent(const KeyboardEvent* evt)
 {
     ASSERT(evt->type() == eventNames().keydownEvent || evt->type() == eventNames().keypressEvent);
 
@@ -461,74 +471,72 @@ static const char* interpretKeyEvent(const KeyboardEvent* evt)
     return mapKey ? keyPressCommandsMap->get(mapKey) : 0;
 }
 
-static bool handleEditingKeyboardEvent(KeyboardEvent* evt)
+void EditorClient::handleKeyboardEvent(KeyboardEvent* event)
 {
-    Node* node = evt->target()->toNode();
+    Node* node = event->target()->toNode();
     ASSERT(node);
     Frame* frame = node->document()->frame();
     ASSERT(frame);
 
-    const PlatformKeyboardEvent* keyEvent = evt->keyEvent();
-    if (!keyEvent)
-        return false;
+    const PlatformKeyboardEvent* platformEvent = event->keyEvent();
+    if (!platformEvent)
+        return;
 
-    bool caretBrowsing = frame->settings()->caretBrowsingEnabled();
-    if (caretBrowsing) {
-        switch (keyEvent->windowsVirtualKeyCode()) {
-            case VK_LEFT:
-                frame->selection()->modify(keyEvent->shiftKey() ? SelectionController::EXTEND : SelectionController::MOVE,
-                        SelectionController::LEFT,
-                        keyEvent->ctrlKey() ? WordGranularity : CharacterGranularity,
-                        true);
-                return true;
-            case VK_RIGHT:
-                frame->selection()->modify(keyEvent->shiftKey() ? SelectionController::EXTEND : SelectionController::MOVE,
-                        SelectionController::RIGHT,
-                        keyEvent->ctrlKey() ? WordGranularity : CharacterGranularity,
-                        true);
-                return true;
-            case VK_UP:
-                frame->selection()->modify(keyEvent->shiftKey() ? SelectionController::EXTEND : SelectionController::MOVE,
-                        SelectionController::BACKWARD,
-                        keyEvent->ctrlKey() ? ParagraphGranularity : LineGranularity,
-                        true);
-                return true;
-            case VK_DOWN:
-                frame->selection()->modify(keyEvent->shiftKey() ? SelectionController::EXTEND : SelectionController::MOVE,
-                        SelectionController::FORWARD,
-                        keyEvent->ctrlKey() ? ParagraphGranularity : LineGranularity,
-                        true);
-                return true;
+    // Don't allow editor commands or text insertion for nodes that
+    // cannot edit, unless we are in caret mode.
+    if (!frame->editor()->canEdit() && !(frame->settings() && frame->settings()->caretBrowsingEnabled()))
+        return;
+
+    const gchar* editorCommandString = interpretEditorCommandKeyEvent(event);
+    if (editorCommandString) {
+        Editor::Command command = frame->editor()->command(editorCommandString);
+
+        // On editor commands from key down events, we only want to let the event bubble up to
+        // the DOM if it inserts text. If it doesn't insert text (e.g. Tab that changes focus)
+        // we just want WebKit to handle it immediately without a DOM event.
+        if (platformEvent->type() == PlatformKeyboardEvent::RawKeyDown) {
+            if (!command.isTextInsertion() && command.execute(event))
+                event->setDefaultHandled();
+
+            clearPendingComposition();
+            return;
+        }
+
+        if (command.execute(event)) {
+            clearPendingComposition();
+            event->setDefaultHandled();
+            return;
         }
     }
 
-    Editor::Command command = frame->editor()->command(interpretKeyEvent(evt));
+    // This is just a normal text insertion, so wait to execute the insertion
+    // until a keypress event happens. This will ensure that the insertion will not
+    // be reflected in the contents of the field until the keyup DOM event.
+    if (event->type() == eventNames().keypressEvent) {
 
-    if (keyEvent->type() == PlatformKeyboardEvent::RawKeyDown) {
-        // WebKit doesn't have enough information about mode to decide how commands that just insert text if executed via Editor should be treated,
-        // so we leave it upon WebCore to either handle them immediately (e.g. Tab that changes focus) or let a keypress event be generated
-        // (e.g. Tab that inserts a Tab character, or Enter).
-        return !command.isTextInsertion() && command.execute(evt);
+        // If we have a pending composition at this point, it happened while
+        // filtering a keypress, so we treat it as a normal text insertion.
+        // This will also ensure that if the keypress event handler changed the
+        // currently focused node, the text is still inserted into the original
+        // node (insertText() has this logic, but confirmComposition() does not).
+        if (m_pendingComposition) {
+            frame->editor()->insertText(String::fromUTF8(m_pendingComposition.get()), event);
+            clearPendingComposition();
+            event->setDefaultHandled();
+
+        } else {
+            // Don't insert null or control characters as they can result in unexpected behaviour
+            if (event->charCode() < ' ')
+                return;
+
+            // Don't insert anything if a modifier is pressed
+            if (platformEvent->ctrlKey() || platformEvent->altKey())
+                return;
+
+            if (frame->editor()->insertText(platformEvent->text(), event))
+                event->setDefaultHandled();
+        }
     }
-
-    if (command.execute(evt))
-        return true;
-
-    // Don't insert null or control characters as they can result in unexpected behaviour
-    if (evt->charCode() < ' ')
-        return false;
-
-    // Don't insert anything if a modifier is pressed
-    if (keyEvent->ctrlKey() || keyEvent->altKey())
-        return false;
-
-    return frame->editor()->insertText(evt->keyEvent()->text(), evt);
-}
-
-void EditorClient::handleKeyboardEvent(KeyboardEvent* event)
-{
-    if (handleEditingKeyboardEvent(event))
-        event->setDefaultHandled();
 }
 
 void EditorClient::handleInputMethodKeydown(KeyboardEvent* event)
@@ -538,14 +546,52 @@ void EditorClient::handleInputMethodKeydown(KeyboardEvent* event)
         return;
 
     WebKitWebViewPrivate* priv = m_webView->priv;
-    // TODO: Dispatch IE-compatible text input events for IM events.
-    if (gtk_im_context_filter_keypress(priv->imContext, event->keyEvent()->gdkEventKey()))
-        event->setDefaultHandled();
+
+
+    // Some IM contexts (e.g. 'simple') will act as if they filter every
+    // keystroke and just issue a 'commit' signal during handling. In situations
+    // where the 'commit' signal happens during filtering and there is no active
+    // composition, act as if the keystroke was not filtered. The one exception to
+    // this is when the keyval parameter of the GdkKeyEvent is 0, which is often
+    // a key event sent by the IM context for committing the current composition.
+
+    // Here is a typical sequence of events for the 'simple' context:
+    // 1. GDK key press event -> webkit_web_view_key_press_event
+    // 2. Keydown event -> EditorClient::handleInputMethodKeydown
+    //     gtk_im_context_filter_keypress returns true, but there is a pending
+    //     composition so event->preventDefault is not called (below).
+    // 3. Keydown event bubbles through the DOM
+    // 4. Keydown event -> EditorClient::handleKeyboardEvent
+    //     No action taken.
+    // 4. GDK key release event -> webkit_web_view_key_release_event
+    // 5. gtk_im_context_filter_keypress is called on the release event.
+    //     Simple does not filter most key releases, so the event continues.
+    // 6. Keypress event bubbles through the DOM.
+    // 7. Keypress event -> EditorClient::handleKeyboardEvent
+    //     pending composition is inserted.
+    // 8. Keyup event bubbles through the DOM.
+    // 9. Keyup event -> EditorClient::handleKeyboardEvent
+    //     No action taken.
+
+    // There are two situations where we do filter the keystroke:
+    // 1. The IMContext instructed us to filter and we have no pending composition.
+    // 2. The IMContext did not instruct us to filter, but the keystroke caused a
+    //    composition in progress to finish. It seems that sometimes SCIM will finish
+    //    a composition and not mark the keystroke as filtered.
+    m_treatContextCommitAsKeyEvent = (!targetFrame->editor()->hasComposition())
+         && event->keyEvent()->gdkEventKey()->keyval;
+    clearPendingComposition();
+    if ((gtk_im_context_filter_keypress(priv->imContext, event->keyEvent()->gdkEventKey()) && !m_pendingComposition)
+        || (!m_treatContextCommitAsKeyEvent && !targetFrame->editor()->hasComposition()))
+        event->preventDefault();
+
+    m_treatContextCommitAsKeyEvent = false;
 }
 
 EditorClient::EditorClient(WebKitWebView* webView)
     : m_isInRedo(false)
     , m_webView(webView)
+    , m_treatContextCommitAsKeyEvent(false)
 {
     WebKitWebViewPrivate* priv = m_webView->priv;
     g_signal_connect(priv->imContext, "commit", G_CALLBACK(imContextCommitted), this);
@@ -588,28 +634,32 @@ void EditorClient::textDidChangeInTextArea(Element*)
 
 void EditorClient::ignoreWordInSpellDocument(const String& text)
 {
-    GSList* langs = webkit_web_settings_get_spell_languages(m_webView);
+    GSList* dicts = webkit_web_settings_get_enchant_dicts(m_webView);
 
-    for (; langs; langs = langs->next) {
-        SpellLanguage* lang = static_cast<SpellLanguage*>(langs->data);
+    for (; dicts; dicts = dicts->next) {
+        EnchantDict* dict = static_cast<EnchantDict*>(dicts->data);
 
-        enchant_dict_add_to_session(lang->speller, text.utf8().data(), -1);
+        enchant_dict_add_to_session(dict, text.utf8().data(), -1);
     }
 }
 
 void EditorClient::learnWord(const String& text)
 {
-    GSList* langs = webkit_web_settings_get_spell_languages(m_webView);
+    GSList* dicts = webkit_web_settings_get_enchant_dicts(m_webView);
 
-    for (; langs; langs = langs->next) {
-        SpellLanguage* lang = static_cast<SpellLanguage*>(langs->data);
+    for (; dicts; dicts = dicts->next) {
+        EnchantDict* dict = static_cast<EnchantDict*>(dicts->data);
 
-        enchant_dict_add_to_personal(lang->speller, text.utf8().data(), -1);
+        enchant_dict_add_to_personal(dict, text.utf8().data(), -1);
     }
 }
 
 void EditorClient::checkSpellingOfString(const UChar* text, int length, int* misspellingLocation, int* misspellingLength)
 {
+    GSList* dicts = webkit_web_settings_get_enchant_dicts(m_webView);
+    if (!dicts)
+        return;
+
     gchar* ctext = g_utf16_to_utf8(const_cast<gunichar2*>(text), length, 0, 0, 0);
     int utflen = g_utf8_strlen(ctext, -1);
 
@@ -627,7 +677,6 @@ void EditorClient::checkSpellingOfString(const UChar* text, int length, int* mis
             int start = i;
             int end = i;
             int wordLength;
-            GSList* langs = webkit_web_settings_get_spell_languages(m_webView);
 
             while (attrs[end].is_word_end < 1)
                 end++;
@@ -637,8 +686,8 @@ void EditorClient::checkSpellingOfString(const UChar* text, int length, int* mis
             // check characters twice.
             i = end;
 
-            for (; langs; langs = langs->next) {
-                SpellLanguage* lang = static_cast<SpellLanguage*>(langs->data);
+            for (; dicts; dicts = dicts->next) {
+                EnchantDict* dict = static_cast<EnchantDict*>(dicts->data);
                 gchar* cstart = g_utf8_offset_to_pointer(ctext, start);
                 gint bytes = static_cast<gint>(g_utf8_offset_to_pointer(ctext, end) - cstart);
                 gchar* word = g_new0(gchar, bytes+1);
@@ -646,7 +695,7 @@ void EditorClient::checkSpellingOfString(const UChar* text, int length, int* mis
 
                 g_utf8_strncpy(word, cstart, end - start);
 
-                result = enchant_dict_check(lang->speller, word, -1);
+                result = enchant_dict_check(dict, word, -1);
                 g_free(word);
                 if (result) {
                     *misspellingLocation = start;
@@ -700,21 +749,21 @@ bool EditorClient::spellingUIIsShowing()
 
 void EditorClient::getGuessesForWord(const String& word, WTF::Vector<String>& guesses)
 {
-    GSList* langs = webkit_web_settings_get_spell_languages(m_webView);
+    GSList* dicts = webkit_web_settings_get_enchant_dicts(m_webView);
     guesses.clear();
 
-    for (; langs; langs = langs->next) {
+    for (; dicts; dicts = dicts->next) {
         size_t numberOfSuggestions;
         size_t i;
 
-        SpellLanguage* lang = static_cast<SpellLanguage*>(langs->data);
-        gchar** suggestions = enchant_dict_suggest(lang->speller, word.utf8().data(), -1, &numberOfSuggestions);
+        EnchantDict* dict = static_cast<EnchantDict*>(dicts->data);
+        gchar** suggestions = enchant_dict_suggest(dict, word.utf8().data(), -1, &numberOfSuggestions);
 
         for (i = 0; i < numberOfSuggestions && i < 10; i++)
             guesses.append(String::fromUTF8(suggestions[i]));
 
         if (numberOfSuggestions > 0)
-            enchant_dict_free_suggestions(lang->speller, suggestions);
+            enchant_dict_free_suggestions(dict, suggestions);
     }
 }
 

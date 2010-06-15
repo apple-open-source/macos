@@ -151,6 +151,11 @@ void SimpleFontData::determinePitch()
     ReleaseDC(0, dc);
 }
 
+FloatRect SimpleFontData::platformBoundsForGlyph(Glyph) const
+{
+    return FloatRect();
+}
+
 float SimpleFontData::platformWidthForGlyph(Glyph glyph) const
 {
     HDC dc = GetDC(0);

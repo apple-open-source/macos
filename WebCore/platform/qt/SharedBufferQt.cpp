@@ -31,7 +31,7 @@
 namespace WebCore {
 
 PassRefPtr<SharedBuffer> SharedBuffer::createWithContentsOfFile(const String& fileName)
-{ 
+{
     if (fileName.isEmpty())
         return 0;
 
@@ -44,6 +44,8 @@ PassRefPtr<SharedBuffer> SharedBuffer::createWithContentsOfFile(const String& fi
     result->m_buffer.resize(file.size());
     if (result->m_buffer.size() != file.size())
         return 0;
+
+    result->m_size = result->m_buffer.size();
 
     file.read(result->m_buffer.data(), result->m_buffer.size());
     return result.release();

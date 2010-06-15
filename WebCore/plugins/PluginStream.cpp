@@ -27,7 +27,6 @@
 #include "config.h"
 #include "PluginStream.h"
 
-#include "CString.h"
 #include "DocumentLoader.h"
 #include "Frame.h"
 #include "FrameLoader.h"
@@ -35,6 +34,7 @@
 #include "SharedBuffer.h"
 #include "SubresourceLoader.h"
 #include <StringExtras.h>
+#include <wtf/text/CString.h>
 
 // We use -2 here because some plugins like to return -1 to indicate error
 // and this way we won't clash with them.
@@ -84,7 +84,7 @@ PluginStream::~PluginStream()
     ASSERT(m_streamState != StreamStarted);
     ASSERT(!m_loader);
 
-    free((char*)m_stream.url);
+    fastFree((char*)m_stream.url);
 
     streams().remove(&m_stream);
 }
@@ -120,6 +120,8 @@ void PluginStream::stop()
         m_loader->cancel();
         m_loader = 0;
     }
+
+    m_client = 0;
 }
 
 void PluginStream::startStream()
@@ -131,9 +133,9 @@ void PluginStream::startStream()
     // Some plugins (Flash) expect that javascript URLs are passed back decoded as this is the
     // format used when requesting the URL.
     if (protocolIsJavaScript(responseURL))
-        m_stream.url = strdup(decodeURLEscapeSequences(responseURL.string()).utf8().data());
+        m_stream.url = fastStrDup(decodeURLEscapeSequences(responseURL.string()).utf8().data());
     else
-        m_stream.url = strdup(responseURL.string().utf8().data());
+        m_stream.url = fastStrDup(responseURL.string().utf8().data());
 
     CString mimeTypeStr = m_resourceResponse.mimeType().utf8();
 
@@ -305,7 +307,7 @@ void PluginStream::destroyStream()
 
     m_streamState = StreamStopped;
 
-    if (!m_loadManually)
+    if (!m_loadManually && m_client)
         m_client->streamDidFinishLoading(this);
 
     if (!m_path.isNull()) {
@@ -334,20 +336,20 @@ void PluginStream::deliverData()
     if (!m_stream.ndata || m_deliveryData->size() == 0)
         return;
 
-    int32 totalBytes = m_deliveryData->size();
-    int32 totalBytesDelivered = 0;
+    int32_t totalBytes = m_deliveryData->size();
+    int32_t totalBytesDelivered = 0;
 
     if (m_loader)
         m_loader->setDefersLoading(true);
     while (totalBytesDelivered < totalBytes) {
-        int32 deliveryBytes = m_pluginFuncs->writeready(m_instance, &m_stream);
+        int32_t deliveryBytes = m_pluginFuncs->writeready(m_instance, &m_stream);
 
         if (deliveryBytes <= 0) {
             m_delayDeliveryTimer.startOneShot(0);
             break;
         } else {
             deliveryBytes = min(deliveryBytes, totalBytes - totalBytesDelivered);
-            int32 dataLength = deliveryBytes;
+            int32_t dataLength = deliveryBytes;
             char* data = m_deliveryData->data() + totalBytesDelivered;
 
             // Write the data

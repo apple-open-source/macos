@@ -34,7 +34,6 @@
 #pragma warning(push, 0)
 #include <WebCore/CharacterNames.h>
 #include <WebCore/Font.h>
-#include <WebCore/FontDatabase.h>
 #include <WebCore/FontDescription.h>
 #include <WebCore/FontSelector.h>
 #include <WebCore/GraphicsContext.h>
@@ -52,7 +51,6 @@ using namespace WebCore;
 static Font makeFont(const WebFontDescription& description)
 {
     AtomicString::init();
-    populateFontDatabase();
 
     String fontFamilyString(description.family, description.familyLength);
 
@@ -114,7 +112,7 @@ void WebDrawText(WebTextRenderInfo* info)
         // Set shadow setting
         if (info->structSize == sizeof(WebTextRenderInfo) &&
             (info->shadowOffset.cx || info->shadowOffset.cy || info->shadowBlur || info->shadowColor))
-            context.setShadow(info->shadowOffset, info->shadowBlur, info->shadowColor);
+            context.setShadow(info->shadowOffset, info->shadowBlur, info->shadowColor, DeviceColorSpace);
 
         WebCoreDrawTextAtPoint(context, drawString, info->pt, makeFont(*(info->description)), info->color, info->underlinedIndex);
         context.restore();

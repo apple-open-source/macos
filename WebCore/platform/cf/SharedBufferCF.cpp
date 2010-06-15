@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2008, 2010 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -33,7 +33,8 @@
 namespace WebCore {
 
 SharedBuffer::SharedBuffer(CFDataRef cfData)
-    : m_cfData(cfData)
+    : m_size(0)
+    , m_cfData(cfData)
 {
 }
 
@@ -47,7 +48,9 @@ CFDataRef SharedBuffer::createCFData()
         return m_cfData.get();
     }
 
-    return CFDataCreate(0, reinterpret_cast<const UInt8*>(m_buffer.data()), m_buffer.size());
+    // Internal data in SharedBuffer can be segmented. We need to get the contiguous buffer.
+    const Vector<char>& contiguousBuffer = buffer();
+    return CFDataCreate(0, reinterpret_cast<const UInt8*>(contiguousBuffer.data()), contiguousBuffer.size());
 }
 #endif
 
@@ -76,9 +79,9 @@ void SharedBuffer::maybeTransferPlatformData()
     if (!m_cfData)
         return;
     
-    ASSERT(m_buffer.size() == 0);
+    ASSERT(!m_size);
         
-    m_buffer.append((const char*)CFDataGetBytePtr(m_cfData.get()), CFDataGetLength(m_cfData.get()));
+    append((const char*)CFDataGetBytePtr(m_cfData.get()), CFDataGetLength(m_cfData.get()));
         
     m_cfData = 0;
 }

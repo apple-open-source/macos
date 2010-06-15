@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2005, 2006, 2007, 2008, 2009 Apple Inc. All rights reserved.
+ * Copyright (C) 2005, 2006, 2007, 2008, 2009, 2010 Apple Inc. All rights reserved.
  *           (C) 2006, 2007 Graham Dennis (graham.dennis@gmail.com)
  *
  * Redistribution and use in source and binary forms, with or without
@@ -103,6 +103,7 @@
 #import <WebCore/Page.h>
 #import <WebCore/PlatformKeyboardEvent.h>
 #import <WebCore/Range.h>
+#import <WebCore/RuntimeApplicationChecks.h>
 #import <WebCore/SelectionController.h>
 #import <WebCore/SharedBuffer.h>
 #import <WebCore/SimpleFontData.h>
@@ -117,6 +118,7 @@
 #import <dlfcn.h>
 #import <limits>
 #import <runtime/InitializeThreading.h>
+#import <wtf/Threading.h>
 
 #if USE(ACCELERATED_COMPOSITING)
 #import <QuartzCore/QuartzCore.h>
@@ -125,6 +127,7 @@
 using namespace WebCore;
 using namespace HTMLNames;
 using namespace WTF;
+using namespace std;
 
 @interface NSWindow (BorderViewAccess)
 - (NSView*)_web_borderView;
@@ -146,26 +149,52 @@ using namespace WTF;
 - (BOOL)receivedUnhandledCommand;
 @end
 
-static IMP oldSetCursorIMP = NULL;
+// if YES, do the standard NSView hit test (which can't give the right result when HTML overlaps a view)
+static BOOL forceNSViewHitTest;
 
-#ifdef BUILDING_ON_TIGER
+// if YES, do the "top WebHTMLView" hit test (which we'd like to do all the time but can't because of Java requirements [see bug 4349721])
+static BOOL forceWebHTMLViewHitTest;
 
-static IMP oldResetCursorRectsIMP = NULL;
+static WebHTMLView *lastHitView;
+
+static bool needsCursorRectsSupportAtPoint(NSWindow* window, NSPoint point)
+{
+    forceNSViewHitTest = YES;
+    NSView* view = [[window _web_borderView] hitTest:point];
+    forceNSViewHitTest = NO;
+
+    // WebHTMLView doesn't use cursor rects.
+    if ([view isKindOfClass:[WebHTMLView class]])
+        return false;
+
+    // Neither do NPAPI plug-ins.
+    if ([view isKindOfClass:[WebBaseNetscapePluginView class]])
+        return false;
+
+    // Non-Web content, WebPDFView, and WebKit plug-ins use normal cursor handling.
+    return true;
+}
+
+#ifndef BUILDING_ON_TIGER
+
+static IMP oldSetCursorForMouseLocationIMP;
+
+// Overriding an internal method is a hack; <rdar://problem/7662987> tracks finding a better solution.
+static void setCursor(NSWindow *self, SEL cmd, NSPoint point)
+{
+    if (needsCursorRectsSupportAtPoint(self, point))
+        oldSetCursorForMouseLocationIMP(self, cmd, point);
+}
+
+#else
+
+static IMP oldResetCursorRectsIMP;
+static IMP oldSetCursorIMP;
 static BOOL canSetCursor = YES;
 
 static void resetCursorRects(NSWindow* self, SEL cmd)
 {
-    NSPoint point = [self mouseLocationOutsideOfEventStream];
-    NSView* view = [[self _web_borderView] hitTest:point];
-    if ([view isKindOfClass:[WebHTMLView class]]) {
-        WebHTMLView *htmlView = (WebHTMLView*)view;
-        NSPoint localPoint = [htmlView convertPoint:point fromView:nil];
-        NSDictionary *dict = [htmlView elementAtPoint:localPoint allowShadowContent:NO];
-        DOMElement *element = [dict objectForKey:WebElementDOMNodeKey];
-        if (![element isKindOfClass:[DOMHTMLAppletElement class]] && ![element isKindOfClass:[DOMHTMLObjectElement class]] &&
-            ![element isKindOfClass:[DOMHTMLEmbedElement class]])
-            canSetCursor = NO;
-    }
+    canSetCursor = needsCursorRectsSupportAtPoint(self, [self mouseLocationOutsideOfEventStream]);
     oldResetCursorRectsIMP(self, cmd);
     canSetCursor = YES;
 }
@@ -174,23 +203,6 @@ static void setCursor(NSCursor* self, SEL cmd)
 {
     if (canSetCursor)
         oldSetCursorIMP(self, cmd);
-}
-
-#else
-
-static void setCursor(NSWindow* self, SEL cmd, NSPoint point)
-{
-    NSView* view = [[self _web_borderView] hitTest:point];
-    if ([view isKindOfClass:[WebHTMLView class]]) {
-        WebHTMLView *htmlView = (WebHTMLView*)view;
-        NSPoint localPoint = [htmlView convertPoint:point fromView:nil];
-        NSDictionary *dict = [htmlView elementAtPoint:localPoint allowShadowContent:NO];
-        DOMElement *element = [dict objectForKey:WebElementDOMNodeKey];
-        if (![element isKindOfClass:[DOMHTMLAppletElement class]] && ![element isKindOfClass:[DOMHTMLObjectElement class]] &&
-            ![element isKindOfClass:[DOMHTMLEmbedElement class]])
-            return;
-    }
-    oldSetCursorIMP(self, cmd, point);
 }
 
 #endif
@@ -210,9 +222,49 @@ extern NSString *NSTextInputReplacementRangeAttributeName;
 - (void)_recursive:(BOOL)recurse displayRectIgnoringOpacity:(NSRect)displayRect inContext:(NSGraphicsContext *)context topView:(BOOL)topView;
 - (NSRect)_dirtyRect;
 - (void)_setDrawsOwnDescendants:(BOOL)drawsOwnDescendants;
+- (BOOL)_drawnByAncestor;
 - (void)_propagateDirtyRectsToOpaqueAncestors;
 - (void)_windowChangedKeyState;
+#if USE(ACCELERATED_COMPOSITING) && defined(BUILDING_ON_LEOPARD)
+- (void)_updateLayerGeometryFromView;
+#endif
 @end
+
+#if USE(ACCELERATED_COMPOSITING)
+static IMP oldSetNeedsDisplayInRectIMP;
+
+static void setNeedsDisplayInRect(NSView *self, SEL cmd, NSRect invalidRect)
+{
+    if (![self _drawnByAncestor]) {
+        oldSetNeedsDisplayInRectIMP(self, cmd, invalidRect);
+        return;
+    }
+
+    static Class webFrameViewClass = [WebFrameView class];
+    WebFrameView *enclosingWebFrameView = (WebFrameView *)self;
+    while (enclosingWebFrameView && ![enclosingWebFrameView isKindOfClass:webFrameViewClass])
+        enclosingWebFrameView = (WebFrameView *)[enclosingWebFrameView superview];
+
+    if (!enclosingWebFrameView) {
+        oldSetNeedsDisplayInRectIMP(self, cmd, invalidRect);
+        return;
+    }
+
+    Frame* coreFrame = core([enclosingWebFrameView webFrame]);
+    FrameView* frameView = coreFrame ? coreFrame->view() : 0;
+    if (!frameView || !frameView->isEnclosedInCompositingLayer()) {
+        oldSetNeedsDisplayInRectIMP(self, cmd, invalidRect);
+        return;
+    }
+
+    NSRect invalidRectInWebFrameViewCoordinates = [enclosingWebFrameView convertRect:invalidRect fromView:self];
+    IntRect invalidRectInFrameViewCoordinates(invalidRectInWebFrameViewCoordinates);
+    if (![enclosingWebFrameView isFlipped])
+        invalidRectInFrameViewCoordinates.setY(frameView->frameRect().size().height() - invalidRectInFrameViewCoordinates.bottom());
+
+    frameView->invalidateRect(invalidRectInFrameViewCoordinates);
+}
+#endif // USE(ACCELERATED_COMPOSITING)
 
 @interface NSApplication (WebNSApplicationDetails)
 - (void)speakString:(NSString *)string;
@@ -236,13 +288,13 @@ extern NSString *NSTextInputReplacementRangeAttributeName;
 // print in IE and Camino. This lets them use fewer sheets than they
 // would otherwise, which is presumably why other browsers do this.
 // Wide pages will be scaled down more than this.
-#define PrintingMinimumShrinkFactor     1.25f
+const float _WebHTMLViewPrintingMinimumShrinkFactor = 1.25;
 
 // This number determines how small we are willing to reduce the page content
 // in order to accommodate the widest line. If the page would have to be
 // reduced smaller to make the widest line fit, we just clip instead (this
 // behavior matches MacIE and Mozilla, at least)
-#define PrintingMaximumShrinkFactor     2.0f
+const float _WebHTMLViewPrintingMaximumShrinkFactor = 2;
 
 // This number determines how short the last printed page of a multi-page print session
 // can be before we try to shrink the scale in order to reduce the number of pages, and
@@ -289,14 +341,6 @@ extern NSString *NSTextInputReplacementRangeAttributeName;
 @implementation WebCoreScrollView
 @end
 
-// if YES, do the standard NSView hit test (which can't give the right result when HTML overlaps a view)
-static BOOL forceNSViewHitTest;
-
-// if YES, do the "top WebHTMLView" hit test (which we'd like to do all the time but can't because of Java requirements [see bug 4349721])
-static BOOL forceWebHTMLViewHitTest;
-
-static WebHTMLView *lastHitView;
-
 // We need this to be able to safely reference the CachedImage for the promised drag data
 static CachedResourceClient* promisedDataClient()
 {
@@ -316,7 +360,6 @@ static CachedResourceClient* promisedDataClient()
 - (BOOL)_shouldInsertFragment:(DOMDocumentFragment *)fragment replacingDOMRange:(DOMRange *)range givenAction:(WebViewInsertAction)action;
 - (BOOL)_shouldInsertText:(NSString *)text replacingDOMRange:(DOMRange *)range givenAction:(WebViewInsertAction)action;
 - (BOOL)_shouldReplaceSelectionWithText:(NSString *)text givenAction:(WebViewInsertAction)action;
-- (float)_calculatePrintHeight;
 - (DOMRange *)_selectedRange;
 - (BOOL)_shouldDeleteRange:(DOMRange *)range;
 - (NSView *)_hitViewForEvent:(NSEvent *)event;
@@ -423,6 +466,9 @@ struct WebHTMLViewInterpretKeyEventsParameters {
     BOOL exposeInputContext;
 
     NSPoint lastScrollPosition;
+#ifndef BUILDING_ON_TIGER
+    BOOL inScrollPositionChanged;
+#endif
 
     WebPluginController *pluginController;
     
@@ -482,23 +528,35 @@ static NSCellStateValue kit(TriState state)
 + (void)initialize
 {
     JSC::initializeThreading();
+    WTF::initializeMainThreadToProcessMainThread();
 #ifndef BUILDING_ON_TIGER
     WebCoreObjCFinalizeOnMainThread(self);
 #endif
-
-    if (!oldSetCursorIMP) {
-#ifdef BUILDING_ON_TIGER
-        Method setCursorMethod = class_getInstanceMethod([NSCursor class], @selector(set));
-#else
+    
+#ifndef BUILDING_ON_TIGER
+    if (!oldSetCursorForMouseLocationIMP) {
         Method setCursorMethod = class_getInstanceMethod([NSWindow class], @selector(_setCursorForMouseLocation:));
-#endif
         ASSERT(setCursorMethod);
+        oldSetCursorForMouseLocationIMP = method_setImplementation(setCursorMethod, (IMP)setCursor);
+        ASSERT(oldSetCursorForMouseLocationIMP);
+    }
 
+#if USE(ACCELERATED_COMPOSITING)
+    if (!oldSetNeedsDisplayInRectIMP) {
+        Method setNeedsDisplayInRectMethod = class_getInstanceMethod([NSView class], @selector(setNeedsDisplayInRect:));
+        ASSERT(setNeedsDisplayInRectMethod);
+        oldSetNeedsDisplayInRectIMP = method_setImplementation(setNeedsDisplayInRectMethod, (IMP)setNeedsDisplayInRect);
+        ASSERT(oldSetNeedsDisplayInRectIMP);
+    }
+#endif // USE(ACCELERATED_COMPOSITING)
+
+#else // defined(BUILDING_ON_TIGER)
+    if (!oldSetCursorIMP) {
+        Method setCursorMethod = class_getInstanceMethod([NSCursor class], @selector(set));
+        ASSERT(setCursorMethod);
         oldSetCursorIMP = method_setImplementation(setCursorMethod, (IMP)setCursor);
         ASSERT(oldSetCursorIMP);
     }
-    
-#ifdef BUILDING_ON_TIGER
     if (!oldResetCursorRectsIMP) {
         Method resetCursorRectsMethod = class_getInstanceMethod([NSWindow class], @selector(resetCursorRects));
         ASSERT(resetCursorRectsMethod);
@@ -792,10 +850,26 @@ static NSURL* uniqueURLWithRelativePart(NSString *relativePart)
     [webView _setInsertionPasteboard:pasteboard];
 
     DOMRange *range = [self _selectedRange];
+    
+#if !defined(BUILDING_ON_TIGER) && !defined(BUILDING_ON_LEOPARD) && !defined(BUILDING_ON_SNOW_LEOPARD)
     DOMDocumentFragment *fragment = [self _documentFragmentFromPasteboard:pasteboard inContext:range allowPlainText:allowPlainText];
     if (fragment && [self _shouldInsertFragment:fragment replacingDOMRange:range givenAction:WebViewInsertActionPasted])
         [[self _frame] _replaceSelectionWithFragment:fragment selectReplacement:NO smartReplace:[self _canSmartReplaceWithPasteboard:pasteboard] matchStyle:NO];
-
+#else
+    // Mail is ignoring the frament passed to the delegate and creates a new one.
+    // We want to avoid creating the fragment twice.
+    if (applicationIsAppleMail()) {
+        if ([self _shouldInsertFragment:nil replacingDOMRange:range givenAction:WebViewInsertActionPasted]) {
+            DOMDocumentFragment *fragment = [self _documentFragmentFromPasteboard:pasteboard inContext:range allowPlainText:allowPlainText];
+            if (fragment)
+                [[self _frame] _replaceSelectionWithFragment:fragment selectReplacement:NO smartReplace:[self _canSmartReplaceWithPasteboard:pasteboard] matchStyle:NO];
+        }        
+    } else {
+        DOMDocumentFragment *fragment = [self _documentFragmentFromPasteboard:pasteboard inContext:range allowPlainText:allowPlainText];
+        if (fragment && [self _shouldInsertFragment:fragment replacingDOMRange:range givenAction:WebViewInsertActionPasted])
+            [[self _frame] _replaceSelectionWithFragment:fragment selectReplacement:NO smartReplace:[self _canSmartReplaceWithPasteboard:pasteboard] matchStyle:NO];
+    }
+#endif
     [webView _setInsertionPasteboard:nil];
     [webView release];
 }
@@ -873,17 +947,6 @@ static NSURL* uniqueURLWithRelativePart(NSString *relativePart)
 - (BOOL)_shouldReplaceSelectionWithText:(NSString *)text givenAction:(WebViewInsertAction)action
 {
     return [self _shouldInsertText:text replacingDOMRange:[self _selectedRange] givenAction:action];
-}
-
-// Calculate the vertical size of the view that fits on a single page
-- (float)_calculatePrintHeight
-{
-    // Obtain the print info object for the current operation
-    NSPrintInfo *pi = [[NSPrintOperation currentOperation] printInfo];
-    
-    // Calculate the page height in points
-    NSSize paperSize = [pi paperSize];
-    return paperSize.height - [pi topMargin] - [pi bottomMargin];
 }
 
 - (DOMRange *)_selectedRange
@@ -979,8 +1042,7 @@ static NSURL* uniqueURLWithRelativePart(NSString *relativePart)
 {
     // FIXME: this can fail if the dataSource is nil, which happens when the WebView is tearing down from the window closing.
     WebHTMLView *view = (WebHTMLView *)[[[[_private->dataSource _webView] mainFrame] frameView] documentView];
-    ASSERT(view);
-    ASSERT([view isKindOfClass:[WebHTMLView class]]);
+    ASSERT(!view || [view isKindOfClass:[WebHTMLView class]]);
     return view;
 }
 
@@ -1148,8 +1210,18 @@ static void _updateMouseoverTimerCallback(CFRunLoopTimerRef timer, void *info)
 {
     NSPoint origin = [[self superview] bounds].origin;
     if (!NSEqualPoints(_private->lastScrollPosition, origin)) {
-        if (Frame* coreFrame = core([self _frame]))
-            coreFrame->eventHandler()->sendScrollEvent();
+        if (Frame* coreFrame = core([self _frame])) {
+            if (FrameView* coreView = coreFrame->view()) {
+#ifndef BUILDING_ON_TIGER
+                _private->inScrollPositionChanged = YES;
+#endif
+                coreView->scrollPositionChanged();
+#ifndef BUILDING_ON_TIGER
+                _private->inScrollPositionChanged = NO;
+#endif
+            }
+        }
+    
         [_private->completionController endRevertingChange:NO moveLeft:NO];
         
         WebView *webView = [self _webView];
@@ -1166,6 +1238,10 @@ static void _updateMouseoverTimerCallback(CFRunLoopTimerRef timer, void *info)
                                                               _updateMouseoverTimerCallback, &context);
         CFRunLoopAddTimer(CFRunLoopGetCurrent(), _private->updateMouseoverTimer, kCFRunLoopDefaultMode);
     }
+    
+#if USE(ACCELERATED_COMPOSITING) && defined(BUILDING_ON_LEOPARD)
+    [self _updateLayerHostingViewPosition];
+#endif
 }
 
 - (void)_setAsideSubviews
@@ -1212,15 +1288,6 @@ static void _updateMouseoverTimerCallback(CFRunLoopTimerRef timer, void *info)
     if (_private->enumeratingSubviews)
         LOG(View, "A view of class %s was added during subview enumeration for layout or printing mode change. This view might paint without first receiving layout.", object_getClassName([subview class]));
 }
-
-- (void)willRemoveSubview:(NSView *)subview
-{
-    // Have to null-check _private, since this can be called via -dealloc when
-    // cleaning up the the layerHostingView.
-    if (_private && _private->enumeratingSubviews)
-        LOG(View, "A view of class %s was removed during subview enumeration for layout or printing mode change. We will still do layout or the printing mode change even though this view is no longer in the view hierarchy.", object_getClassName([subview class]));
-}
-
 #endif
 
 #ifdef BUILDING_ON_TIGER
@@ -1272,11 +1339,15 @@ static void _updateMouseoverTimerCallback(CFRunLoopTimerRef timer, void *info)
     // There are known cases where -viewWillDraw is not called on all views being drawn.
     // See <rdar://problem/6964278> for example. Performing layout at this point prevents us from
     // trying to paint without layout (which WebCore now refuses to do, instead bailing out without
-    // drawing at all), but we may still fail to update and regions dirtied by the layout which are
+    // drawing at all), but we may still fail to update any regions dirtied by the layout which are
     // not already dirty. 
     if ([self _needsLayout]) {
-        LOG_ERROR("View needs layout. Either -viewWillDraw wasn't called or layout was invalidated during the display operation. Performing layout now.");
-        [self _web_layoutIfNeededRecursive];
+        NSInteger rectCount;
+        [self getRectsBeingDrawn:0 count:&rectCount];
+        if (rectCount) {
+            LOG_ERROR("View needs layout. Either -viewWillDraw wasn't called or layout was invalidated during the display operation. Performing layout now.");
+            [self _web_layoutIfNeededRecursive];
+        }
     }
 #else
     // Because Tiger does not have viewWillDraw we need to do layout here.
@@ -1403,6 +1474,7 @@ static void _updateMouseoverTimerCallback(CFRunLoopTimerRef timer, void *info)
     else if (forceWebHTMLViewHitTest)
         captureHitsOnSubviews = YES;
     else {
+        // FIXME: Why doesn't this include mouse entered/exited events, or other mouse button events?
         NSEvent *event = [[self window] currentEvent];
         captureHitsOnSubviews = !([event type] == NSMouseMoved
             || [event type] == NSRightMouseDown
@@ -1645,10 +1717,10 @@ static void _updateMouseoverTimerCallback(CFRunLoopTimerRef timer, void *info)
         urlStringSize.height = [urlFont ascender] - [urlFont descender];
         imageSize.height += urlStringSize.height;
         if (urlStringSize.width > MAX_DRAG_LABEL_WIDTH) {
-            imageSize.width = MAX(MAX_DRAG_LABEL_WIDTH + DRAG_LABEL_BORDER_X * 2.0f, MIN_DRAG_LABEL_WIDTH_BEFORE_CLIP);
+            imageSize.width = max(MAX_DRAG_LABEL_WIDTH + DRAG_LABEL_BORDER_X * 2, MIN_DRAG_LABEL_WIDTH_BEFORE_CLIP);
             clipURLString = YES;
         } else {
-            imageSize.width = MAX(labelSize.width + DRAG_LABEL_BORDER_X * 2.0f, urlStringSize.width + DRAG_LABEL_BORDER_X * 2.0f);
+            imageSize.width = max(labelSize.width + DRAG_LABEL_BORDER_X * 2, urlStringSize.width + DRAG_LABEL_BORDER_X * 2);
         }
     }
     NSImage *dragImage = [[[NSImage alloc] initWithSize: imageSize] autorelease];
@@ -1966,11 +2038,6 @@ static void _updateMouseoverTimerCallback(CFRunLoopTimerRef timer, void *info)
     // remove tooltips before clearing _private so removeTrackingRect: will work correctly
     [self removeAllToolTips];
 
-#if USE(ACCELERATED_COMPOSITING)
-    if (_private->layerHostingView)
-        [[self _webView] _stoppedAcceleratedCompositingForFrame:[self _frame]];
-#endif
-
     [_private clear];
 
     Page* page = core([self _webView]);
@@ -2163,6 +2230,68 @@ static void _updateMouseoverTimerCallback(CFRunLoopTimerRef timer, void *info)
 #endif
 }
 
+- (NSView *)_compositingLayersHostingView
+{
+#if USE(ACCELERATED_COMPOSITING)
+    return _private->layerHostingView;
+#else
+    return 0;
+#endif
+}
+
+- (BOOL)_isInPrintMode
+{
+    return _private->printing;
+}
+
+- (BOOL)_beginPrintModeWithPageWidth:(float)pageWidth shrinkToFit:(BOOL)shrinkToFit
+{
+    Frame* frame = core([self _frame]);
+    if (!frame)
+        return NO;
+
+    float minLayoutWidth = 0;
+    float maxLayoutWidth = 0;
+
+    // If we are a frameset just print with the layout we have onscreen, otherwise relayout
+    // according to the page width.
+    if (!frame->document() || !frame->document()->isFrameSet()) {
+        minLayoutWidth = shrinkToFit ? pageWidth * _WebHTMLViewPrintingMinimumShrinkFactor : pageWidth;
+        maxLayoutWidth = shrinkToFit ? pageWidth * _WebHTMLViewPrintingMaximumShrinkFactor : pageWidth;
+    }
+    [self _setPrinting:YES minimumPageWidth:minLayoutWidth maximumPageWidth:maxLayoutWidth adjustViewSize:YES];
+
+    return YES;
+}
+
+- (void)_endPrintMode
+{
+    [self _setPrinting:NO minimumPageWidth:0 maximumPageWidth:0 adjustViewSize:YES];
+}
+
+- (CGFloat)_adjustedBottomOfPageWithTop:(CGFloat)top bottom:(CGFloat)bottom limit:(CGFloat)bottomLimit
+{
+    Frame* frame = core([self _frame]);
+    if (!frame)
+        return bottom;
+
+    FrameView* view = frame->view();
+    if (!view)
+        return bottom;
+
+    float newBottom;
+    view->adjustPageHeight(&newBottom, top, bottom, bottomLimit);
+
+#ifdef __LP64__
+    // If the new bottom is equal to the old bottom (when both are treated as floats), we just return the original
+    // bottom. This prevents rounding errors that can occur when converting newBottom to a double.
+    if (fabs(static_cast<float>(bottom) - newBottom) <= numeric_limits<float>::epsilon()) 
+        return bottom;
+    else
+#endif
+        return newBottom;
+}
+
 @end
 
 @implementation NSView (WebHTMLViewFileInternal)
@@ -2193,22 +2322,13 @@ static void _updateMouseoverTimerCallback(CFRunLoopTimerRef timer, void *info)
 
 @end
 
-@interface NSString (WebHTMLViewFileInternal)
-- (BOOL)matchesExtensionEquivalent:(NSString *)extension;
-@end
-
-@implementation NSString (WebHTMLViewFileInternal)
-
-- (BOOL)matchesExtensionEquivalent:(NSString *)extension
+static bool matchesExtensionOrEquivalent(NSString *filename, NSString *extension)
 {
-    if ([self hasSuffix:extension])
-        return YES;
-    else if ([extension isEqualToString:@"jpeg"] && [self hasSuffix:@"jpg"])
-        return YES;
-    return NO;
+    NSString *extensionAsSuffix = [@"." stringByAppendingString:extension];
+    return [filename _webkit_hasCaseInsensitiveSuffix:extensionAsSuffix]
+        || ([extension _webkit_isCaseInsensitiveEqualToString:@"jpeg"]
+            && [filename _webkit_hasCaseInsensitiveSuffix:@".jpg"]);
 }
-
-@end
 
 #ifdef BUILDING_ON_TIGER
 
@@ -2246,6 +2366,7 @@ static void _updateMouseoverTimerCallback(CFRunLoopTimerRef timer, void *info)
     [NSApp registerServicesMenuSendTypes:[[self class] _selectionPasteboardTypes] 
                              returnTypes:[[self class] _insertablePasteboardTypes]];
     JSC::initializeThreading();
+    WTF::initializeMainThreadToProcessMainThread();
 #ifndef BUILDING_ON_TIGER
     WebCoreObjCFinalizeOnMainThread(self);
 #endif
@@ -2304,24 +2425,36 @@ static void _updateMouseoverTimerCallback(CFRunLoopTimerRef timer, void *info)
     return [[webView _editingDelegateForwarder] webView:webView doCommandBySelector:selector];
 }
 
+typedef HashMap<SEL, String> SelectorNameMap;
+
+// Map selectors into Editor command names.
+// This is not needed for any selectors that have the same name as the Editor command.
+static const SelectorNameMap* createSelectorExceptionMap()
+{
+    SelectorNameMap* map = new HashMap<SEL, String>;
+
+    map->add(@selector(insertNewlineIgnoringFieldEditor:), "InsertNewline");
+    map->add(@selector(insertParagraphSeparator:), "InsertNewline");
+    map->add(@selector(insertTabIgnoringFieldEditor:), "InsertTab");
+    map->add(@selector(pageDown:), "MovePageDown");
+    map->add(@selector(pageDownAndModifySelection:), "MovePageDownAndModifySelection");
+    map->add(@selector(pageUp:), "MovePageUp");
+    map->add(@selector(pageUpAndModifySelection:), "MovePageUpAndModifySelection");
+
+    return map;
+}
+
 static String commandNameForSelector(SEL selector)
 {
-    // Change a few command names into ones supported by WebCore::Editor.
-    // If this list gets too long we might decide we need to use a hash table.
-    if (selector == @selector(insertParagraphSeparator:) || selector == @selector(insertNewlineIgnoringFieldEditor:))
-        return "InsertNewline";
-    if (selector == @selector(insertTabIgnoringFieldEditor:))
-        return "InsertTab";
-    if (selector == @selector(pageDown:))
-        return "MovePageDown";
-    if (selector == @selector(pageDownAndModifySelection:))
-        return "MovePageDownAndModifySelection";
-    if (selector == @selector(pageUp:))
-        return "MovePageUp";
-    if (selector == @selector(pageUpAndModifySelection:))
-        return "MovePageUpAndModifySelection";
+    // Check the exception map first.
+    static const SelectorNameMap* exceptionMap = createSelectorExceptionMap();
+    SelectorNameMap::const_iterator it = exceptionMap->find(selector);
+    if (it != exceptionMap->end())
+        return it->second;
 
     // Remove the trailing colon.
+    // No need to capitalize the command name since Editor command names are
+    // not case sensitive.
     const char* selectorName = sel_getName(selector);
     size_t selectorNameLength = strlen(selectorName);
     if (selectorNameLength < 2 || selectorName[selectorNameLength - 1] != ':')
@@ -2497,7 +2630,13 @@ WEBCORE_COMMAND(yankAndSelect)
 - (id)validRequestorForSendType:(NSString *)sendType returnType:(NSString *)returnType
 {
     BOOL isSendTypeOK = !sendType || ([[self pasteboardTypesForSelection] containsObject:sendType] && [self _hasSelection]);
-    BOOL isReturnTypeOK = !returnType || ([[[self class] _insertablePasteboardTypes] containsObject:returnType] && [self _isEditable]);
+    BOOL isReturnTypeOK = NO;
+    if (!returnType)
+        isReturnTypeOK = YES;
+    else if ([[[self class] _insertablePasteboardTypes] containsObject:returnType] && [self _isEditable]) {
+        // We can insert strings in any editable context.  We can insert other types, like images, only in rich edit contexts.
+        isReturnTypeOK = [returnType isEqualToString:NSStringPboardType] || [self _canEditRichly];
+    }
     if (isSendTypeOK && isReturnTypeOK)
         return self;
     return [[self nextResponder] validRequestorForSendType:sendType returnType:returnType];
@@ -2644,7 +2783,10 @@ WEBCORE_COMMAND(yankAndSelect)
     
     if (action == @selector(_lookUpInDictionaryFromMenu:))
         return [self _hasSelection];
-    
+
+    if (action == @selector(stopSpeaking:))
+        return [NSApp isSpeaking];
+
 #ifndef BUILDING_ON_TIGER
     if (action == @selector(toggleGrammarChecking:)) {
         // FIXME 4799134: WebView is the bottleneck for this grammar-checking logic, but we must validate 
@@ -2863,6 +3005,14 @@ WEBCORE_COMMAND(yankAndSelect)
 {
     if ([self superview] != nil)
         [self addSuperviewObservers];
+
+#if USE(ACCELERATED_COMPOSITING)
+    if ([self superview] && [self _isUsingAcceleratedCompositing]) {
+        WebView *webView = [self _webView];
+        if ([webView _postsAcceleratedCompositingNotifications])
+            [[NSNotificationCenter defaultCenter] postNotificationName:_WebViewDidStartAcceleratedCompositingNotification object:webView userInfo:nil];
+    }
+#endif
 }
 
 - (void)viewWillMoveToWindow:(NSWindow *)window
@@ -2879,7 +3029,9 @@ WEBCORE_COMMAND(yankAndSelect)
     [self _removeWindowObservers];
     [self _removeSuperviewObservers];
     [self _cancelUpdateMouseoverTimer];
-    
+
+    // FIXME: This accomplishes the same thing as the call to setCanStartMedia(false) in
+    // WebView. It would be nice to have a single mechanism instead of two.
     [[self _pluginController] stopAllPlugins];
 }
 
@@ -2899,6 +3051,8 @@ WEBCORE_COMMAND(yankAndSelect)
         [self addSuperviewObservers];
         [self addMouseMovedObserver];
 
+        // FIXME: This accomplishes the same thing as the call to setCanStartMedia(true) in
+        // WebView. It would be nice to have a single mechanism instead of two.
         [[self _pluginController] startAllPlugins];
 
         _private->lastScrollPosition = NSZeroPoint;
@@ -2926,6 +3080,13 @@ WEBCORE_COMMAND(yankAndSelect)
 
 - (void)willRemoveSubview:(NSView *)subview
 {
+#ifndef NDEBUG
+    // Have to null-check _private, since this can be called via -dealloc when
+    // cleaning up the the layerHostingView.
+    if (_private && _private->enumeratingSubviews)
+        LOG(View, "A view of class %s was removed during subview enumeration for layout or printing mode change. We will still do layout or the printing mode change even though this view is no longer in the view hierarchy.", object_getClassName([subview class]));
+#endif
+
     if ([WebPluginController isPlugInView:subview])
         [[self _pluginController] destroyPlugin:subview];
 
@@ -3083,11 +3244,29 @@ WEBCORE_COMMAND(yankAndSelect)
     return [[self _webView] drawsBackground];
 }
 
+#if !LOG_DISABLED
 - (void)setNeedsDisplay:(BOOL)flag
 {
     LOG(View, "%@ setNeedsDisplay:%@", self, flag ? @"YES" : @"NO");
     [super setNeedsDisplay:flag];
 }
+#endif
+
+#ifndef BUILDING_ON_TIGER
+- (void)setNeedsDisplayInRect:(NSRect)invalidRect
+{
+    if (_private->inScrollPositionChanged) {
+        // When scrolling, the dirty regions are adjusted for the scroll only
+        // after NSViewBoundsDidChangeNotification is sent. Translate the invalid
+        // rect to pre-scrolled coordinates in order to get the right dirty region
+        // after adjustment. See <rdar://problem/7678927>.
+        NSPoint origin = [[self superview] bounds].origin;
+        invalidRect.origin.x -= _private->lastScrollPosition.x - origin.x;
+        invalidRect.origin.y -= _private->lastScrollPosition.y - origin.y;
+    }
+    [super setNeedsDisplayInRect:invalidRect];
+}
+#endif
 
 - (void)setNeedsLayout: (BOOL)flag
 {
@@ -3165,7 +3344,8 @@ WEBCORE_COMMAND(yankAndSelect)
     double start = CFAbsoluteTimeGetCurrent();
 #endif
 
-    if ([[self _webView] _mustDrawUnionedRect:rect singleRects:rects count:count])
+    WebView *webView = [self _webView];
+    if ([webView _mustDrawUnionedRect:rect singleRects:rects count:count])
         [self drawSingleRect:rect];
     else
         for (int i = 0; i < count; ++i)
@@ -3178,18 +3358,19 @@ WEBCORE_COMMAND(yankAndSelect)
 
     if (subviewsWereSetAside)
         [self _setAsideSubviews];
-        
+
 #if USE(ACCELERATED_COMPOSITING)
-    if ([[self _webView] _needsOneShotDrawingSynchronization]) {
-        // Disable screen updates so that any layer changes committed here
-        // don't show up on the screen before the window flush at the end
-        // of the current window display.
+    // Only do the synchronization dance if we're drawing into the window, otherwise
+    // we risk disabling screen updates when no flush is pending.
+    if ([NSGraphicsContext currentContext] == [[self window] graphicsContext] && [webView _needsOneShotDrawingSynchronization]) {
+        // Disable screen updates to minimize the chances of the race between the CA
+        // display link and AppKit drawing causing flashes.
         [[self window] disableScreenUpdatesUntilFlush];
         
         // Make sure any layer changes that happened as a result of layout
         // via -viewWillDraw are committed.
         [CATransaction flush];
-        [[self _webView] _setNeedsOneShotDrawingSynchronization:NO];
+        [webView _setNeedsOneShotDrawingSynchronization:NO];
     }
 #endif
 }
@@ -3199,7 +3380,7 @@ WEBCORE_COMMAND(yankAndSelect)
 {
     if (!([[self superview] isKindOfClass:[WebClipView class]]))
         return [super visibleRect];
-        
+
     WebClipView *clipView = (WebClipView *)[self superview];
 
     BOOL hasAdditionalClip = [clipView hasAdditionalClip];
@@ -3277,6 +3458,12 @@ WEBCORE_COMMAND(yankAndSelect)
     return [[[self elementAtPoint:point allowShadowContent:YES] objectForKey:WebElementIsSelectedKey] boolValue];
 }
 
+- (BOOL)_isScrollBarEvent:(NSEvent *)event
+{
+    NSPoint point = [self convertPoint:[event locationInWindow] fromView:nil];
+    return [[[self elementAtPoint:point allowShadowContent:YES] objectForKey:WebElementIsInScrollBarKey] boolValue];
+}
+
 - (BOOL)acceptsFirstMouse:(NSEvent *)event
 {
     // There's a chance that responding to this event will run a nested event loop, and
@@ -3299,6 +3486,8 @@ WEBCORE_COMMAND(yankAndSelect)
             [hitHTMLView _setMouseDownEvent:event];
             if ([hitHTMLView _isSelectionEvent:event])
                 result = coreFrame->eventHandler()->eventMayStartDrag(event);
+            else if ([hitHTMLView _isScrollBarEvent:event])
+                result = true;
             [hitHTMLView _setMouseDownEvent:nil];
         }
         return result;
@@ -3412,26 +3601,7 @@ done:
     if (!page)
         return NSDragOperationNone;
 
-    // FIXME: Why do we override the source provided operation here?  Why not in DragController::startDrag
-    if (page->dragController()->sourceDragOperation() == DragOperationNone)
-        return NSDragOperationGeneric | NSDragOperationCopy;
-
     return (NSDragOperation)page->dragController()->sourceDragOperation();
-}
-
-- (void)draggedImage:(NSImage *)image movedTo:(NSPoint)screenLoc
-{
-    ASSERT(![self _webView] || [self _isTopHTMLView]);
-    
-    NSPoint windowImageLoc = [[self window] convertScreenToBase:screenLoc];
-    NSPoint windowMouseLoc = windowImageLoc;
-    
-    if (Page* page = core([self _webView])) {
-        DragController* dragController = page->dragController();
-        NSPoint windowMouseLoc = NSMakePoint(windowImageLoc.x + dragController->dragOffset().x(), windowImageLoc.y + dragController->dragOffset().y());
-    }
-    
-    [[self _frame] _dragSourceMovedTo:windowMouseLoc];
 }
 
 - (void)draggedImage:(NSImage *)anImage endedAt:(NSPoint)aPoint operation:(NSDragOperation)operation
@@ -3481,7 +3651,7 @@ done:
         wrapper = [[[NSFileWrapper alloc] initRegularFileWithContents:data] autorelease];
         NSString* filename = [response suggestedFilename];
         NSString* trueExtension(tiffResource->image()->filenameExtension());
-        if (![filename matchesExtensionEquivalent:trueExtension])
+        if (!matchesExtensionOrEquivalent(filename, trueExtension))
             filename = [[filename stringByAppendingString:@"."] stringByAppendingString:trueExtension];
         [wrapper setPreferredFilename:filename];
     }
@@ -3680,7 +3850,7 @@ static BOOL isInPasswordField(Frame* coreFrame)
         }
     }
 
-    if (printing != _private->printing) {
+    if (printing || _private->printing) {
         [_private->pageRects release];
         _private->pageRects = nil;
         _private->printing = printing;
@@ -3711,21 +3881,8 @@ static BOOL isInPasswordField(Frame* coreFrame)
     if (!wasInPrintingMode)
         [self _setPrinting:YES minimumPageWidth:0.0f maximumPageWidth:0.0f adjustViewSize:NO];
 
-    float newBottomFloat = *newBottom;
-    if (Frame* frame = core([self _frame])) {
-        if (FrameView* view = frame->view())
-            view->adjustPageHeight(&newBottomFloat, oldTop, oldBottom, bottomLimit);
-    }
+    *newBottom = [self _adjustedBottomOfPageWithTop:oldTop bottom:oldBottom limit:bottomLimit];
 
-#ifdef __LP64__
-    // If the new bottom is equal to the old bottom (when both are treated as floats), we just copy
-    // oldBottom over to newBottom. This prevents rounding errors that can occur when converting newBottomFloat to a double.
-    if (fabs((float)oldBottom - newBottomFloat) <= std::numeric_limits<float>::epsilon()) 
-        *newBottom = oldBottom;
-    else
-#endif
-        *newBottom = newBottomFloat;
-    
     if (!wasInPrintingMode) {
         NSPrintOperation *currenPrintOperation = [NSPrintOperation currentOperation];
         if (currenPrintOperation)
@@ -3737,12 +3894,6 @@ static BOOL isInPasswordField(Frame* coreFrame)
     }
 }
 
-- (float)_availablePaperWidthForPrintOperation:(NSPrintOperation *)printOperation
-{
-    NSPrintInfo *printInfo = [printOperation printInfo];
-    return [printInfo paperSize].width - [printInfo leftMargin] - [printInfo rightMargin];
-}
-
 - (float)_scaleFactorForPrintOperation:(NSPrintOperation *)printOperation
 {
     float viewWidth = NSWidth([self bounds]);
@@ -3752,10 +3903,10 @@ static BOOL isInPasswordField(Frame* coreFrame)
     }
 
     float userScaleFactor = [printOperation _web_pageSetupScaleFactor];
-    float maxShrinkToFitScaleFactor = 1.0f / PrintingMaximumShrinkFactor;
-    float shrinkToFitScaleFactor = [self _availablePaperWidthForPrintOperation:printOperation]/viewWidth;
+    float maxShrinkToFitScaleFactor = 1.0f / _WebHTMLViewPrintingMaximumShrinkFactor;
+    float shrinkToFitScaleFactor = [printOperation _web_availablePaperWidth] / viewWidth;
     float shrinkToAvoidOrphan = _private->avoidingPrintOrphan ? (1.0f / PrintingOrphanShrinkAdjustment) : 1.0f;
-    return userScaleFactor * MAX(maxShrinkToFitScaleFactor, shrinkToFitScaleFactor) * shrinkToAvoidOrphan;
+    return userScaleFactor * max(maxShrinkToFitScaleFactor, shrinkToFitScaleFactor) * shrinkToAvoidOrphan;
 }
 
 // FIXME 3491344: This is a secret AppKit-internal method that we need to override in order
@@ -3773,9 +3924,9 @@ static BOOL isInPasswordField(Frame* coreFrame)
     [self _setPrinting:YES minimumPageWidth:pageWidth maximumPageWidth:pageWidth adjustViewSize:YES];
 }
 
-- (void)_endPrintMode
+- (void)_endPrintModeAndRestoreWindowAutodisplay
 {
-    [self _setPrinting:NO minimumPageWidth:0.0f maximumPageWidth:0.0f adjustViewSize:YES];
+    [self _endPrintMode];
     [[self window] setAutodisplay:YES];
 }
 
@@ -3801,7 +3952,7 @@ static BOOL isInPasswordField(Frame* coreFrame)
         // cancelled, beginDocument and endDocument must not have been called, and we need to clean up
         // the print mode here.
         ASSERT(currentOperation == nil);
-        [self _endPrintMode];
+        [self _endPrintModeAndRestoreWindowAutodisplay];
     }
 }
 
@@ -3811,22 +3962,12 @@ static BOOL isInPasswordField(Frame* coreFrame)
     // Must do this explicit display here, because otherwise the view might redisplay while the print
     // sheet was up, using printer fonts (and looking different).
     [self displayIfNeeded];
-    [[self window] setAutodisplay:NO];
-    
-    // If we are a frameset just print with the layout we have onscreen, otherwise relayout
-    // according to the paper size
-    float minLayoutWidth = 0.0f;
-    float maxLayoutWidth = 0.0f;
-    Frame* frame = core([self _frame]);
-    if (!frame)
-        return NO;
-    if (!frame->document() || !frame->document()->isFrameSet()) {
-        float paperWidth = [self _availablePaperWidthForPrintOperation:[NSPrintOperation currentOperation]];
-        minLayoutWidth = paperWidth * PrintingMinimumShrinkFactor;
-        maxLayoutWidth = paperWidth * PrintingMaximumShrinkFactor;
-    }
-    [self _setPrinting:YES minimumPageWidth:minLayoutWidth maximumPageWidth:maxLayoutWidth adjustViewSize:YES]; // will relayout
+    [[self window] setAutodisplay:NO];    
+
     NSPrintOperation *printOperation = [NSPrintOperation currentOperation];
+    if (![self _beginPrintModeWithPageWidth:[printOperation _web_availablePaperWidth] shrinkToFit:YES])
+        return NO;
+
     // Certain types of errors, including invalid page ranges, can cause beginDocument and
     // endDocument to be skipped after we've put ourselves in print mode (see 4145905). In those cases
     // we need to get out of print mode without relying on any more callbacks from the printing mechanism.
@@ -3844,9 +3985,9 @@ static BOOL isInPasswordField(Frame* coreFrame)
     float totalScaleFactor = [self _scaleFactorForPrintOperation:printOperation];
     float userScaleFactor = [printOperation _web_pageSetupScaleFactor];
     [_private->pageRects release];
-    float fullPageHeight = floorf([self _calculatePrintHeight]/totalScaleFactor);
-    NSArray *newPageRects = [[self _frame] _computePageRectsWithPrintWidthScaleFactor:userScaleFactor
-                                                                          printHeight:fullPageHeight];
+    float fullPageHeight = floorf([printOperation _web_availablePaperHeight] / totalScaleFactor);
+    WebFrame *frame = [self _frame];
+    NSArray *newPageRects = [frame _computePageRectsWithPrintWidthScaleFactor:userScaleFactor printHeight:fullPageHeight];
     
     // AppKit gets all messed up if you give it a zero-length page count (see 3576334), so if we
     // hit that case we'll pass along a degenerate 1 pixel square to print. This will print
@@ -3859,8 +4000,7 @@ static BOOL isInPasswordField(Frame* coreFrame)
         // content onto one fewer page. If it does, use the adjusted scale. If not, use the original scale.
         float lastPageHeight = NSHeight([[newPageRects lastObject] rectValue]);
         if (lastPageHeight/fullPageHeight < LastPrintedPageOrphanRatio) {
-            NSArray *adjustedPageRects = [[self _frame] _computePageRectsWithPrintWidthScaleFactor:userScaleFactor
-                                                                                       printHeight:fullPageHeight*PrintingOrphanShrinkAdjustment];
+            NSArray *adjustedPageRects = [frame _computePageRectsWithPrintWidthScaleFactor:userScaleFactor printHeight:fullPageHeight * PrintingOrphanShrinkAdjustment];
             // Use the adjusted rects only if the page count went down
             if ([adjustedPageRects count] < [newPageRects count]) {
                 newPageRects = adjustedPageRects;
@@ -3900,7 +4040,7 @@ static BOOL isInPasswordField(Frame* coreFrame)
     } @catch (NSException *localException) {
         // Exception during [super beginDocument] means that endDocument will not get called,
         // so we need to clean up our "print mode" here.
-        [self _endPrintMode];
+        [self _endPrintModeAndRestoreWindowAutodisplay];
     }
 }
 
@@ -3908,7 +4048,7 @@ static BOOL isInPasswordField(Frame* coreFrame)
 {
     [super endDocument];
     // Note sadly at this point [NSGraphicsContext currentContextDrawingToScreen] is still NO 
-    [self _endPrintMode];
+    [self _endPrintModeAndRestoreWindowAutodisplay];
 }
 
 - (void)keyDown:(NSEvent *)event
@@ -4946,22 +5086,21 @@ static BOOL writingDirectionKeyBindingsEnabled()
 {
     // FIXME: NSTextView bails out if becoming or resigning first responder, for which it has ivar flags. Not
     // sure if we need to do something similar.
-    
+
     if (![self _canEdit])
         return;
-    
+
     NSWindow *window = [self window];
     // FIXME: is this first-responder check correct? What happens if a subframe is editable and is first responder?
-    if ([NSApp keyWindow] != window || [window firstResponder] != self)
+    if (![window isKeyWindow] || [window firstResponder] != self)
         return;
-    
+
     bool multipleFonts = false;
     NSFont *font = nil;
     if (Frame* coreFrame = core([self _frame])) {
         if (const SimpleFontData* fd = coreFrame->editor()->fontForSelection(multipleFonts))
             font = fd->getNSFont();
     }
-    
 
     // FIXME: for now, return a bogus font that distinguishes the empty selection from the non-empty
     // selection. We should be able to remove this once the rest of this code works properly.
@@ -5396,21 +5535,47 @@ static CGPoint coreGraphicsScreenPointForAppKitScreenPoint(NSPoint point)
 {
     if (!_private->layerHostingView) {
         NSView* hostingView = [[NSView alloc] initWithFrame:[self bounds]];
+#if !defined(BUILDING_ON_LEOPARD)
         [hostingView setAutoresizingMask:(NSViewWidthSizable | NSViewHeightSizable)];
+#endif
         [self addSubview:hostingView];
         [hostingView release];
         // hostingView is owned by being a subview of self
         _private->layerHostingView = hostingView;
-        [[self _webView] _startedAcceleratedCompositingForFrame:[self _frame]];
     }
 
-    // Make a container layer, which will get sized/positioned by AppKit and CA
+    // Make a container layer, which will get sized/positioned by AppKit and CA.
     CALayer* viewLayer = [CALayer layer];
+
+#if defined(BUILDING_ON_LEOPARD)
+    // Turn off default animations.
+    NSNull *nullValue = [NSNull null];
+    NSDictionary *actions = [NSDictionary dictionaryWithObjectsAndKeys:
+                             nullValue, @"anchorPoint",
+                             nullValue, @"bounds",
+                             nullValue, @"contents",
+                             nullValue, @"contentsRect",
+                             nullValue, @"opacity",
+                             nullValue, @"position",
+                             nullValue, @"sublayerTransform",
+                             nullValue, @"sublayers",
+                             nullValue, @"transform",
+                             nil];
+    [viewLayer setStyle:[NSDictionary dictionaryWithObject:actions forKey:@"actions"]];
+#endif
+
     [_private->layerHostingView setLayer:viewLayer];
     [_private->layerHostingView setWantsLayer:YES];
     
     // Parent our root layer in the container layer
     [viewLayer addSublayer:layer];
+    
+    if ([[self _webView] _postsAcceleratedCompositingNotifications])
+        [[NSNotificationCenter defaultCenter] postNotificationName:_WebViewDidStartAcceleratedCompositingNotification object:[self _webView] userInfo:nil];
+    
+#if defined(BUILDING_ON_LEOPARD)
+    [self _updateLayerHostingViewPosition];
+#endif
 }
 
 - (void)detachRootLayer
@@ -5420,10 +5585,40 @@ static CGPoint coreGraphicsScreenPointForAppKitScreenPoint(NSPoint point)
         [_private->layerHostingView setWantsLayer:NO];
         [_private->layerHostingView removeFromSuperview];
         _private->layerHostingView = nil;
-        [[self _webView] _stoppedAcceleratedCompositingForFrame:[self _frame]];
     }
 }
-#endif
+
+#if defined(BUILDING_ON_LEOPARD)
+// This method is necessary on Leopard to work around <rdar://problem/7067892>.
+- (void)_updateLayerHostingViewPosition
+{
+    if (!_private->layerHostingView)
+        return;
+    
+    const CGFloat maxHeight = 2048;
+    NSRect layerViewFrame = [self bounds];
+
+    if (layerViewFrame.size.height > maxHeight) {
+        CGFloat documentHeight = layerViewFrame.size.height;
+            
+        // Clamp the size of the view to <= maxHeight to avoid the bug.
+        layerViewFrame.size.height = maxHeight;
+        NSRect visibleRect = [[self enclosingScrollView] documentVisibleRect];
+        
+        // Place the top of the layer-hosting view at the top of the visibleRect.
+        CGFloat topOffset = NSMinY(visibleRect);
+        layerViewFrame.origin.y = topOffset;
+
+        // Compensate for the moved view by adjusting the sublayer transform on the view's layer (using flipped coords).
+        CGFloat bottomOffset = documentHeight - layerViewFrame.size.height - topOffset;
+        [[_private->layerHostingView layer] setSublayerTransform:CATransform3DMakeTranslation(0, -bottomOffset, 0)];
+    }
+
+    [_private->layerHostingView _updateLayerGeometryFromView];  // Workaround for <rdar://problem/7071636>
+    [_private->layerHostingView setFrame:layerViewFrame];
+}
+#endif // defined(BUILDING_ON_LEOPARD)
+#endif // USE(ACCELERATED_COMPOSITING)
 
 @end
 
@@ -5846,7 +6041,7 @@ static void extractUnderlines(NSAttributedString *string, Vector<CompositionUnde
     
     Vector<FloatRect> list;
     if (Frame* coreFrame = core([self _frame]))
-        coreFrame->selectionTextRects(list);
+        coreFrame->selectionTextRects(list, Frame::RespectTransforms);
 
     unsigned size = list.size();
     NSMutableArray *result = [[[NSMutableArray alloc] initWithCapacity:size] autorelease];

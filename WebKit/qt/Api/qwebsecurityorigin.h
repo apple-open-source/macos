@@ -34,10 +34,12 @@ class QWebSecurityOriginPrivate;
 class QWebDatabase;
 class QWebFrame;
 
-class QWEBKIT_EXPORT QWebSecurityOrigin
-{
+class QWEBKIT_EXPORT QWebSecurityOrigin {
 public:
     static QList<QWebSecurityOrigin> allOrigins();
+    static void addLocalScheme(const QString& scheme);
+    static void removeLocalScheme(const QString& scheme);
+    static QStringList localSchemes();
 
     ~QWebSecurityOrigin();
 

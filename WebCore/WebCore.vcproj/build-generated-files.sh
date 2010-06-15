@@ -55,21 +55,9 @@ export SDKROOT
 
 export BUILT_PRODUCTS_DIR="$XDSTROOT/obj/WebCore"
 
-if [ -e "$XDSTROOT/include/JavaScriptCore/create_hash_table" ]; then
-    export CREATE_HASH_TABLE="$XDSTROOT/include/JavaScriptCore/create_hash_table"
-elif [ -e "$XDSTROOT/include/private/JavaScriptCore/create_hash_table" ]; then
-    export CREATE_HASH_TABLE="$XDSTROOT/include/private/JavaScriptCore/create_hash_table"
-elif [ -e "$SDKROOT/include/JavaScriptCore/create_hash_table" ]; then
-    export CREATE_HASH_TABLE="$SDKROOT/include/JavaScriptCore/create_hash_table"
-elif [ -e "$SDKROOT/include/private/JavaScriptCore/create_hash_table" ]; then
-    export CREATE_HASH_TABLE="$SDKROOT/include/private/JavaScriptCore/create_hash_table"
-fi
-
-echo ${CREATE_HASH_TABLE}
-
 mkdir -p "${BUILT_PRODUCTS_DIR}/DerivedSources"
 cd "${BUILT_PRODUCTS_DIR}/DerivedSources"
 
 export WebCore="${XSRCROOT}"
-export FEATURE_DEFINES="ENABLE_DATABASE ENABLE_DOM_STORAGE ENABLE_ICONDATABASE ENABLE_JAVASCRIPT_DEBUGGER ENABLE_OFFLINE_WEB_APPLICATIONS ENABLE_SVG ENABLE_SVG_ANIMATION ENABLE_SVG_AS_IMAGE ENABLE_SVG_FONTS ENABLE_SVG_FOREIGN_OBJECT ENABLE_SVG_USE ENABLE_VIDEO ENABLE_WORKERS ENABLE_XPATH ENABLE_XSLT"
+export FEATURE_DEFINES=`$SDKROOT/tools/scripts/feature-defines.sh $SDKROOT $3`
 make -f "$WebCore/DerivedSources.make" -j ${NUMCPUS} || exit 1

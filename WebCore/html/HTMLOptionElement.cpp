@@ -2,8 +2,9 @@
  * Copyright (C) 1999 Lars Knoll (knoll@kde.org)
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
  *           (C) 2001 Dirk Mueller (mueller@kde.org)
- * Copyright (C) 2004, 2005, 2006 Apple Computer, Inc.
  *           (C) 2006 Alexey Proskuryakov (ap@nypop.com)
+ * Copyright (C) 2004, 2005, 2006, 2010 Apple Inc. All rights reserved.
+ * Copyright (C) 2010 Google Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -41,11 +42,31 @@ namespace WebCore {
 
 using namespace HTMLNames;
 
-HTMLOptionElement::HTMLOptionElement(const QualifiedName& tagName, Document* doc, HTMLFormElement* f)
-    : HTMLFormControlElement(tagName, doc, f)
+HTMLOptionElement::HTMLOptionElement(const QualifiedName& tagName, Document* document, HTMLFormElement* form)
+    : HTMLFormControlElement(tagName, document, form)
     , m_style(0)
 {
     ASSERT(hasTagName(optionTag));
+}
+
+PassRefPtr<HTMLOptionElement> HTMLOptionElement::createForJSConstructor(Document* document, const String& data, const String& value,
+        bool defaultSelected, bool selected, ExceptionCode& ec)
+{
+    RefPtr<HTMLOptionElement> element = new HTMLOptionElement(optionTag, document);
+
+    RefPtr<Text> text = Text::create(document, data.isNull() ? "" : data);
+
+    ec = 0;
+    element->appendChild(text.release(), ec);
+    if (ec)
+        return 0;
+
+    if (!value.isNull())
+        element->setValue(value);
+    element->setDefaultSelected(defaultSelected);
+    element->setSelected(selected);
+
+    return element.release();
 }
 
 bool HTMLOptionElement::checkDTD(const Node* newChild)
@@ -66,9 +87,15 @@ void HTMLOptionElement::detach()
     HTMLFormControlElement::detach();
 }
 
+bool HTMLOptionElement::supportsFocus() const
+{
+    return HTMLElement::supportsFocus();
+}
+
 bool HTMLOptionElement::isFocusable() const
 {
-    return HTMLElement::isFocusable();
+    // Option elements do not have a renderer so we check the renderStyle instead.
+    return supportsFocus() && renderStyle() && renderStyle()->display() != NONE;
 }
 
 const AtomicString& HTMLOptionElement::formControlType() const
@@ -79,7 +106,7 @@ const AtomicString& HTMLOptionElement::formControlType() const
 
 String HTMLOptionElement::text() const
 {
-    return OptionElement::collectOptionText(m_data, this);
+    return OptionElement::collectOptionLabelOrText(m_data, this);
 }
 
 void HTMLOptionElement::setText(const String &text, ExceptionCode& ec)
@@ -92,7 +119,7 @@ void HTMLOptionElement::setText(const String &text, ExceptionCode& ec)
     }
 
     removeChildren();
-    appendChild(new Text(document(), text), ec);
+    appendChild(Text::create(document(), text), ec);
 }
 
 void HTMLOptionElement::accessKeyAction(bool)
@@ -131,6 +158,8 @@ void HTMLOptionElement::setValue(const String& value)
 
 bool HTMLOptionElement::selected() const
 {
+    if (HTMLSelectElement* select = ownerSelectElement())
+        select->recalcListItemsIfNeeded();
     return m_data.selected();
 }
 
@@ -152,21 +181,21 @@ void HTMLOptionElement::setSelectedState(bool selected)
 
 void HTMLOptionElement::childrenChanged(bool changedByParser, Node* beforeChange, Node* afterChange, int childCountDelta)
 {
-   HTMLSelectElement* select = ownerSelectElement();
-   if (select)
-       select->childrenChanged(changedByParser);
-   HTMLFormControlElement::childrenChanged(changedByParser, beforeChange, afterChange, childCountDelta);
+    HTMLSelectElement* select = ownerSelectElement();
+    if (select)
+        select->childrenChanged(changedByParser);
+    HTMLFormControlElement::childrenChanged(changedByParser, beforeChange, afterChange, childCountDelta);
 }
 
 HTMLSelectElement* HTMLOptionElement::ownerSelectElement() const
 {
     Node* select = parentNode();
-    while (select && !select->hasTagName(selectTag))
+    while (select && !(select->hasTagName(selectTag) || select->hasTagName(keygenTag)))
         select = select->parentNode();
 
     if (!select)
         return 0;
-    
+
     return static_cast<HTMLSelectElement*>(select);
 }
 
@@ -195,9 +224,9 @@ void HTMLOptionElement::setRenderStyle(PassRefPtr<RenderStyle> newStyle)
     m_style = newStyle;
 }
 
-RenderStyle* HTMLOptionElement::nonRendererRenderStyle() const 
-{ 
-    return m_style.get(); 
+RenderStyle* HTMLOptionElement::nonRendererRenderStyle() const
+{
+    return m_style.get();
 }
 
 String HTMLOptionElement::textIndentedToRespectGroupLabel() const
@@ -206,19 +235,20 @@ String HTMLOptionElement::textIndentedToRespectGroupLabel() const
 }
 
 bool HTMLOptionElement::disabled() const
-{ 
-    return HTMLFormControlElement::disabled() || (parentNode() && static_cast<HTMLFormControlElement*>(parentNode())->disabled()); 
+{
+    return ownElementDisabled() || (parentNode() && static_cast<HTMLFormControlElement*>(parentNode())->disabled());
 }
 
 void HTMLOptionElement::insertedIntoTree(bool deep)
 {
     if (HTMLSelectElement* select = ownerSelectElement()) {
         select->setRecalcListItems();
-        if (selected())
+        // Avoid our selected() getter since it will recalculate list items incorrectly for us.
+        if (m_data.selected())
             select->setSelectedIndex(index(), false);
         select->scrollToSelection();
     }
-    
+
     HTMLFormControlElement::insertedIntoTree(deep);
 }
 

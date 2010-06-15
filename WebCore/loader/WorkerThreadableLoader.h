@@ -38,7 +38,7 @@
 #include "ThreadableLoaderClient.h"
 #include "ThreadableLoaderClientWrapper.h"
 
-#include <memory>
+#include <wtf/PassOwnPtr.h>
 #include <wtf/PassRefPtr.h>
 #include <wtf/RefCounted.h>
 #include <wtf/RefPtr.h>
@@ -47,7 +47,7 @@
 namespace WebCore {
 
     class ResourceError;
-    struct ResourceRequest;
+    class ResourceRequest;
     class WorkerContext;
     class WorkerLoaderProxy;
     struct CrossThreadResourceResponseData;
@@ -55,10 +55,10 @@ namespace WebCore {
 
     class WorkerThreadableLoader : public RefCounted<WorkerThreadableLoader>, public ThreadableLoader {
     public:
-        static void loadResourceSynchronously(WorkerContext*, const ResourceRequest&, ThreadableLoaderClient&, StoredCredentials, CrossOriginRedirectPolicy);
-        static PassRefPtr<WorkerThreadableLoader> create(WorkerContext* workerContext, ThreadableLoaderClient* client, const String& taskMode, const ResourceRequest& request, LoadCallbacks callbacksSetting, ContentSniff contentSniff, StoredCredentials storedCredentials, CrossOriginRedirectPolicy crossOriginRedirectPolicy)
+        static void loadResourceSynchronously(WorkerContext*, const ResourceRequest&, ThreadableLoaderClient&, const ThreadableLoaderOptions&);
+        static PassRefPtr<WorkerThreadableLoader> create(WorkerContext* workerContext, ThreadableLoaderClient* client, const String& taskMode, const ResourceRequest& request, const ThreadableLoaderOptions& options)
         {
-            return adoptRef(new WorkerThreadableLoader(workerContext, client, taskMode, request, callbacksSetting, contentSniff, storedCredentials, crossOriginRedirectPolicy));
+            return adoptRef(new WorkerThreadableLoader(workerContext, client, taskMode, request, options));
         }
 
         ~WorkerThreadableLoader();
@@ -82,7 +82,7 @@ namespace WebCore {
         //
         // all cases. All tasks posted from the worker context's thread are ok because
         //    the last task posted always is "mainThreadDestroy", so MainThreadBridge is
-        //    around for all tasks that use it on the mian thread.
+        //    around for all tasks that use it on the main thread.
         //
         // case 1. worker.terminate is called.
         //    In this case, no more tasks are posted from the worker object's thread to the worker
@@ -94,10 +94,10 @@ namespace WebCore {
         //    thread do "ThreadableLoaderClientWrapper::ref" (automatically inside of the cross thread copy
         //    done in createCallbackTask), so the ThreadableLoaderClientWrapper instance is there until all
         //    tasks are executed.
-        class MainThreadBridge : ThreadableLoaderClient {
+        class MainThreadBridge : public ThreadableLoaderClient {
         public:
             // All executed on the worker context's thread.
-            MainThreadBridge(PassRefPtr<ThreadableLoaderClientWrapper>, WorkerLoaderProxy&, const String& taskMode, const ResourceRequest&, LoadCallbacks, ContentSniff, StoredCredentials, CrossOriginRedirectPolicy);
+            MainThreadBridge(PassRefPtr<ThreadableLoaderClientWrapper>, WorkerLoaderProxy&, const String& taskMode, const ResourceRequest&, const ThreadableLoaderOptions&);
             void cancel();
             void destroy();
 
@@ -109,7 +109,7 @@ namespace WebCore {
             static void mainThreadDestroy(ScriptExecutionContext*, MainThreadBridge*);
             ~MainThreadBridge();
 
-            static void mainThreadCreateLoader(ScriptExecutionContext*, MainThreadBridge*, std::auto_ptr<CrossThreadResourceRequestData>, LoadCallbacks, ContentSniff, StoredCredentials, CrossOriginRedirectPolicy);
+            static void mainThreadCreateLoader(ScriptExecutionContext*, MainThreadBridge*, PassOwnPtr<CrossThreadResourceRequestData>, ThreadableLoaderOptions);
             static void mainThreadCancel(ScriptExecutionContext*, MainThreadBridge*);
             virtual void didSendData(unsigned long long bytesSent, unsigned long long totalBytesToBeSent);
             virtual void didReceiveResponse(const ResourceResponse&);
@@ -124,7 +124,7 @@ namespace WebCore {
 
             // ThreadableLoaderClientWrapper is to be used on the worker context thread.
             // The ref counting is done on either thread.
-            RefPtr<ThreadSafeShared<ThreadableLoaderClientWrapper> > m_workerClientWrapper;
+            RefPtr<ThreadableLoaderClientWrapper> m_workerClientWrapper;
 
             // May be used on either thread.
             WorkerLoaderProxy& m_loaderProxy;
@@ -133,7 +133,7 @@ namespace WebCore {
             String m_taskMode;
         };
 
-        WorkerThreadableLoader(WorkerContext*, ThreadableLoaderClient*, const String& taskMode, const ResourceRequest&, LoadCallbacks, ContentSniff, StoredCredentials, CrossOriginRedirectPolicy);
+        WorkerThreadableLoader(WorkerContext*, ThreadableLoaderClient*, const String& taskMode, const ResourceRequest&, const ThreadableLoaderOptions&);
 
         RefPtr<WorkerContext> m_workerContext;
         RefPtr<ThreadableLoaderClientWrapper> m_workerClientWrapper;

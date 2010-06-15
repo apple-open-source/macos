@@ -31,13 +31,16 @@
 #ifndef ScriptValue_h
 #define ScriptValue_h
 
+#include "JSDOMBinding.h"
 #include "PlatformString.h"
 #include "ScriptState.h"
+#include <runtime/JSValue.h>
 #include <runtime/Protect.h>
+#include <wtf/PassRefPtr.h>
 
 namespace WebCore {
 
-class String;
+class SerializedScriptValue;
 
 class ScriptValue {
 public:
@@ -45,12 +48,18 @@ public:
     virtual ~ScriptValue() {}
 
     JSC::JSValue jsValue() const { return m_value.get(); }
-    bool getString(String& result) const;
-    String toString(ScriptState* scriptState) const { return m_value.get().toString(scriptState); }
+    bool getString(ScriptState*, String& result) const;
+    String toString(ScriptState* scriptState) const { return ustringToString(m_value.get().toString(scriptState)); }
     bool isEqual(ScriptState*, const ScriptValue&) const;
     bool isNull() const;
     bool isUndefined() const;
+    bool isObject() const;
     bool hasNoValue() const { return m_value == JSC::JSValue(); }
+
+    PassRefPtr<SerializedScriptValue> serialize(ScriptState*);
+    static ScriptValue deserialize(ScriptState*, SerializedScriptValue*);
+
+    static ScriptValue undefined() { return ScriptValue(JSC::jsUndefined()); }
 
 private:
     JSC::ProtectedJSValue m_value;

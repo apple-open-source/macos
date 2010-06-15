@@ -300,22 +300,20 @@ Tuple* DSX509Query::GetNextTuple (UniqueIdentifier *&id)
 	if(!certData) return NULL;
 	DSX509Record record ((DSX509Relation*) mRelation);
 	
-	mNumberOfTuples = record.GetTuple (certData, original_search, mTupleList, kMaxTuples);
-	if (mNumberOfTuples != 0) // can this record be coerced to fit?
-		t = mTupleList[mNextTuple++];
+	t = record.GetTuple (certData, original_search, mTupleList, kMaxTuples);
+	mNextTuple++;
 	
 	if (EvaluateTuple (t)) {
 		id = new DSX509UniqueIdentifier (t);
 		return t;
 	}
-	delete t;
 	return NULL;
 }
 
 
 
 
-int DSX509Record::GetTuple (CFDataRef certData, CFStringRef original_search, DSX509Tuple *tupleList[], int maxTuples)
+DSX509Tuple* DSX509Record::GetTuple (CFDataRef certData, CFStringRef original_search, DSX509Tuple *tupleList[], int maxTuples)
 {
 	DSX509Tuple** tupleFinger = tupleList;
 	CSSM_CL_HANDLE clHandle = mRelation->GetCLHandle ();
@@ -390,5 +388,5 @@ int DSX509Record::GetTuple (CFDataRef certData, CFStringRef original_search, DSX
 	// save off the tuple
 	*tupleFinger++ = t;
 	--maxTuples;
-	return 1;
+	return t;
 }

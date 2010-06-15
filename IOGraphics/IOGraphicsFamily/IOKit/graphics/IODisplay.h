@@ -49,6 +49,23 @@ extern const OSSymbol * gIODisplayVideoBestKey;
 extern const OSSymbol * gIODisplayParametersTheatreModeKey;
 extern const OSSymbol * gIODisplayParametersTheatreModeWindowKey;
 
+extern const OSSymbol * gIODisplayMCCSVersionKey;
+extern const OSSymbol * gIODisplayTechnologyTypeKey;
+extern const OSSymbol * gIODisplayUsageTimeKey;
+extern const OSSymbol * gIODisplayFirmwareLevelKey;
+
+extern const OSSymbol * gIODisplaySpeakerVolumeKey;
+extern const OSSymbol * gIODisplaySpeakerSelectKey;
+extern const OSSymbol * gIODisplayMicrophoneVolumeKey;
+extern const OSSymbol * gIODisplayAmbientLightSensorKey;
+extern const OSSymbol * gIODisplayAudioMuteAndScreenBlankKey;
+extern const OSSymbol * gIODisplayAudioTrebleKey;
+extern const OSSymbol * gIODisplayAudioBassKey;
+extern const OSSymbol * gIODisplayAudioBalanceLRKey;
+extern const OSSymbol * gIODisplayAudioProcessorModeKey;
+extern const OSSymbol * gIODisplayPowerModeKey;
+extern const OSSymbol * gIODisplayManufacturerSpecificKey;
+
 extern const OSSymbol * gIODisplayParametersCommitKey;
 extern const OSSymbol * gIODisplayParametersDefaultKey;
 extern const OSSymbol * gIODisplayParametersFlushKey;

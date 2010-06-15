@@ -459,6 +459,8 @@ struct	iftot {
 	u_int64_t	ift_dr;			/* drops */
 	u_int64_t	ift_ib;			/* input bytes */
 	u_int64_t	ift_ob;			/* output bytes */
+	u_int64_t	ift_obgp;		/* output bg packets */
+	u_int64_t	ift_obgb;		/* output bg bytes */
 };
 
 u_char	signalled;			/* set if alarm goes off "early" */
@@ -541,6 +543,8 @@ banner:
 	    "packets", "errs", "bytes", "packets", "errs", "bytes", "colls");
 	if (dflag)
 		printf(" %5.5s", "drops");
+	if (prioflag)
+		printf(" %10s %10s", "obgpkts", "obgbytes");
 	putchar('\n');
 	fflush(stdout);
 	line = 0;
@@ -566,6 +570,10 @@ loop:
 				ifmd.ifmd_data.ifi_collisions - interesting->ift_co);
 			if (dflag)
 				printf(" %5llu", ifmd.ifmd_snd_drops - interesting->ift_dr);
+			if (prioflag)
+				printf(" %10llu %10llu",
+				    ifmd.ifmd_filler[0] - interesting->ift_obgp,
+				    ifmd.ifmd_filler[1] - interesting->ift_obgb);
 		}
 		interesting->ift_ip = ifmd.ifmd_data.ifi_ipackets;
 		interesting->ift_ie = ifmd.ifmd_data.ifi_ierrors;
@@ -575,6 +583,9 @@ loop:
 		interesting->ift_ob = ifmd.ifmd_data.ifi_obytes;
 		interesting->ift_co = ifmd.ifmd_data.ifi_collisions;
 		interesting->ift_dr = ifmd.ifmd_snd_drops;
+		/* private counters */
+		interesting->ift_obgp = ifmd.ifmd_filler[0];
+		interesting->ift_obgb = ifmd.ifmd_filler[1];
 	} else {
 		unsigned int latest_ifcount;
 		
@@ -609,6 +620,8 @@ loop:
 		sum->ift_ob = 0;
 		sum->ift_co = 0;
 		sum->ift_dr = 0;
+		sum->ift_obgp = 0;
+		sum->ift_obgb = 0;
 		for (i = 0; i < ifcount; i++) {
 			struct ifmibdata *ifmd = ifmdall + i;
 			
@@ -620,6 +633,9 @@ loop:
 			sum->ift_ob += ifmd->ifmd_data.ifi_obytes;
 			sum->ift_co += ifmd->ifmd_data.ifi_collisions;
 			sum->ift_dr += ifmd->ifmd_snd_drops;
+			/* private counters */
+			sum->ift_obgp += ifmd->ifmd_filler[0];
+			sum->ift_obgb += ifmd->ifmd_filler[1];
 		}
 		if (!first) {
 			printf("%10llu %5llu %10llu %10llu %5llu %10llu %5llu",
@@ -632,6 +648,10 @@ loop:
 				sum->ift_co - total->ift_co);
 			if (dflag)
 				printf(" %5llu", sum->ift_dr - total->ift_dr);
+			if (prioflag)
+				printf(" %10llu %10llu",
+				    sum->ift_obgp - total->ift_obgp,
+				    sum->ift_obgb - total->ift_obgb);
 		}
 		*total = *sum;
 	}

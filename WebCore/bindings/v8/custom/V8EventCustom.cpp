@@ -29,54 +29,124 @@
  */
 
 #include "config.h"
-#include "Event.h"
+#include "V8Event.h"
 
 #include "Clipboard.h"
 #include "ClipboardEvent.h"
-#include "MouseEvent.h"
-
+#include "CustomEvent.h"
+#include "Event.h"
+#include "V8BeforeLoadEvent.h"
 #include "V8Binding.h"
-#include "V8CustomBinding.h"
+#include "V8Clipboard.h"
+#include "V8CompositionEvent.h"
+#include "V8CustomEvent.h"
+#include "V8ErrorEvent.h"
+#include "V8KeyboardEvent.h"
+#include "V8MessageEvent.h"
+#include "V8MouseEvent.h"
+#include "V8MutationEvent.h"
+#include "V8OverflowEvent.h"
+#include "V8PageTransitionEvent.h"
+#include "V8PopStateEvent.h"
+#include "V8ProgressEvent.h"
 #include "V8Proxy.h"
+#include "V8StorageEvent.h"
+#include "V8TextEvent.h"
+#include "V8TouchEvent.h"
+#include "V8UIEvent.h"
+#include "V8WebKitAnimationEvent.h"
+#include "V8WebKitTransitionEvent.h"
+#include "V8WheelEvent.h"
+#include "V8XMLHttpRequestProgressEvent.h"
+
+#if ENABLE(SVG)
+#include "V8SVGZoomEvent.h"
+#endif
 
 namespace WebCore {
 
-ACCESSOR_SETTER(EventReturnValue)
+void V8Event::valueAccessorSetter(v8::Local<v8::String> name, v8::Local<v8::Value> value, const v8::AccessorInfo& info)
 {
-    Event* event = V8DOMWrapper::convertDOMWrapperToNative<Event>(info.Holder());
+    Event* event = V8Event::toNative(info.Holder());
     event->setDefaultPrevented(!value->BooleanValue());
 }
 
-ACCESSOR_GETTER(EventDataTransfer)
+v8::Handle<v8::Value> V8Event::dataTransferAccessorGetter(v8::Local<v8::String> name, const v8::AccessorInfo& info)
 {
-    Event* event = V8DOMWrapper::convertDOMWrapperToNative<Event>(info.Holder());
+    Event* event = V8Event::toNative(info.Holder());
 
     if (event->isDragEvent())
-        return V8DOMWrapper::convertToV8Object(V8ClassIndex::CLIPBOARD, static_cast<MouseEvent*>(event)->clipboard());
+        return toV8(static_cast<MouseEvent*>(event)->clipboard());
 
     return v8::Undefined();
 }
 
-ACCESSOR_GETTER(EventClipboardData)
+v8::Handle<v8::Value> V8Event::clipboardDataAccessorGetter(v8::Local<v8::String> name, const v8::AccessorInfo& info)
 {
-    Event* event = V8DOMWrapper::convertDOMWrapperToNative<Event>(info.Holder());
+    Event* event = V8Event::toNative(info.Holder());
 
     if (event->isClipboardEvent())
-        return V8DOMWrapper::convertToV8Object(V8ClassIndex::CLIPBOARD, static_cast<ClipboardEvent*>(event)->clipboard());
+        return toV8(static_cast<ClipboardEvent*>(event)->clipboard());
 
     return v8::Undefined();
 }
 
-ACCESSOR_GETTER(EventSrcElement)
+v8::Handle<v8::Value> toV8(Event* impl)
 {
-    Event* event = V8DOMWrapper::convertDOMWrapperToNative<Event>(info.Holder());
-    return V8DOMWrapper::convertEventTargetToV8Object(event->target());
+    if (!impl)
+        return v8::Null();
+    if (impl->isUIEvent()) {
+        if (impl->isKeyboardEvent())
+            return toV8(static_cast<KeyboardEvent*>(impl));
+        if (impl->isTextEvent())
+            return toV8(static_cast<TextEvent*>(impl));
+        if (impl->isMouseEvent())
+            return toV8(static_cast<MouseEvent*>(impl));
+        if (impl->isWheelEvent())
+            return toV8(static_cast<WheelEvent*>(impl));
+#if ENABLE(SVG)
+        if (impl->isSVGZoomEvent())
+            return toV8(static_cast<SVGZoomEvent*>(impl));
+#endif
+        if (impl->isCompositionEvent())
+            return toV8(static_cast<CompositionEvent*>(impl));
+#if ENABLE(TOUCH_EVENTS)
+        if (impl->isTouchEvent())
+            return toV8(static_cast<TouchEvent*>(impl));
+#endif
+        return toV8(static_cast<UIEvent*>(impl));
+    }
+    if (impl->isMutationEvent())
+        return toV8(static_cast<MutationEvent*>(impl));
+    if (impl->isOverflowEvent())
+        return toV8(static_cast<OverflowEvent*>(impl));
+    if (impl->isMessageEvent())
+        return toV8(static_cast<MessageEvent*>(impl));
+    if (impl->isPageTransitionEvent())
+        return toV8(static_cast<PageTransitionEvent*>(impl));
+    if (impl->isPopStateEvent())
+        return toV8(static_cast<PopStateEvent*>(impl));
+    if (impl->isProgressEvent()) {
+        if (impl->isXMLHttpRequestProgressEvent())
+            return toV8(static_cast<XMLHttpRequestProgressEvent*>(impl));
+        return toV8(static_cast<ProgressEvent*>(impl));
+    }
+    if (impl->isWebKitAnimationEvent())
+        return toV8(static_cast<WebKitAnimationEvent*>(impl));
+    if (impl->isWebKitTransitionEvent())
+        return toV8(static_cast<WebKitTransitionEvent*>(impl));
+#if ENABLE(WORKERS)
+    if (impl->isErrorEvent())
+        return toV8(static_cast<ErrorEvent*>(impl));
+#endif
+#if ENABLE(DOM_STORAGE)
+    if (impl->isStorageEvent())
+        return toV8(static_cast<StorageEvent*>(impl));
+#endif
+    if (impl->isBeforeLoadEvent())
+        return toV8(static_cast<BeforeLoadEvent*>(impl));
+    if (impl->isCustomEvent())
+        return toV8(static_cast<CustomEvent*>(impl));
+    return V8Event::wrap(impl);
 }
-
-ACCESSOR_GETTER(EventReturnValue)
-{
-    Event* event = V8DOMWrapper::convertDOMWrapperToNative<Event>(info.Holder());
-    return event->defaultPrevented() ? v8::False() : v8::True();
-}
-
 } // namespace WebCore

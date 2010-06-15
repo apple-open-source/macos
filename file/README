@@ -1,0 +1,6 @@
+The 'file' subdirectory is based on the vendor branch @ svn+ssh://src.apple.com/svn/BSD/file/vendor/file-5.0.3
+
+For now, the version needs to be manually updated in the "Other Files" target, "Man Pages" phase.
+
+Also, until Xcode provides an easy way to build host targets, the compilation of
+magic.mgc relies on the builder's version of file. <rdar://problem/7140945>

@@ -1,7 +1,8 @@
 /*
  * Copyright (C) 1999 Lars Knoll (knoll@kde.org)
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
- * Copyright (C) 2004, 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2004, 2008, 2010 Apple Inc. All rights reserved.
+ * Copyright (C) 2010 Google Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -34,6 +35,8 @@ class HTMLFormElement;
 class HTMLImageElement : public HTMLElement {
     friend class HTMLFormElement;
 public:
+    static PassRefPtr<HTMLImageElement> createForJSConstructor(Document*, const int* optionalWidth, const int* optionalHeight);
+
     HTMLImageElement(const QualifiedName&, Document*, HTMLFormElement* = 0);
     ~HTMLImageElement();
 
@@ -45,8 +48,6 @@ public:
 
     virtual void attach();
     virtual RenderObject* createRenderer(RenderArena*, RenderStyle*);
-    virtual void insertedIntoDocument();
-    virtual void removedFromDocument();
 
     virtual bool canStartSelection() const { return false; }
 
@@ -55,7 +56,7 @@ public:
 
     int naturalWidth() const;
     int naturalHeight() const;
-    
+
     bool isServerMap() const { return ismap && usemap.isEmpty(); }
 
     String altText() const;
@@ -67,19 +68,11 @@ public:
     CachedImage* cachedImage() const { return m_imageLoader.image(); }
     void setCachedImage(CachedImage* i) { m_imageLoader.setImage(i); };
 
-    void setLoadManually (bool loadManually) { m_imageLoader.setLoadManually(loadManually); }
+    void setLoadManually(bool loadManually) { m_imageLoader.setLoadManually(loadManually); }
 
-    String name() const;
-    void setName(const String&);
+    const AtomicString& alt() const;
 
-    String align() const;
-    void setAlign(const String&);
-
-    String alt() const;
-    void setAlt(const String&);
-
-    String border() const;
-    void setBorder(const String&);
+    virtual bool draggable() const;
 
     void setHeight(int);
 
@@ -98,9 +91,6 @@ public:
     KURL src() const;
     void setSrc(const String&);
 
-    String useMap() const;
-    void setUseMap(const String&);
-
     int vspace() const;
     void setVspace(int);
 
@@ -115,7 +105,15 @@ public:
 
     virtual void addSubresourceAttributeURLs(ListHashSet<KURL>&) const;
 
+protected:
+    virtual void willMoveToNewOwnerDocument();
+
 private:
+    virtual void insertedIntoDocument();
+    virtual void removedFromDocument();
+    virtual void insertedIntoTree(bool deep);
+    virtual void removedFromTree(bool deep);
+
     HTMLImageLoader m_imageLoader;
     String usemap;
     bool ismap;

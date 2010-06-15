@@ -36,6 +36,7 @@
 #include <WebCore/PageGroup.h>
 #include <WebCore/RenderThemeWin.h>
 #include <WebCore/SharedBuffer.h>
+#include <WebCore/WebCoreInstanceHandle.h>
 #include <WebCore/Widget.h>
 #include <wtf/Vector.h>
 #include <tchar.h>
@@ -60,7 +61,7 @@ STDAPI_(BOOL) DllMain( HMODULE hModule, DWORD  ul_reason_for_call, LPVOID /*lpRe
         case DLL_PROCESS_ATTACH:
             gLockCount = gClassCount = 0;
             gInstance = hModule;
-            WebCore::Page::setInstanceHandle(hModule);
+            WebCore::setInstanceHandle(hModule);
             return TRUE;
 
         case DLL_PROCESS_DETACH:
@@ -179,6 +180,16 @@ PassRefPtr<WebCore::SharedBuffer> loadResourceIntoBuffer(const char* name)
         idr = IDR_ZOOM_OUT_CURSOR;
     else if (!strcmp(name, "verticalTextCursor"))
         idr = IDR_VERTICAL_TEXT_CURSOR;
+    else if (!strcmp(name, "fsVideoAudioVolumeHigh"))
+        idr = IDR_FS_VIDEO_AUDIO_VOLUME_HIGH;
+    else if (!strcmp(name, "fsVideoAudioVolumeLow"))
+        idr = IDR_FS_VIDEO_AUDIO_VOLUME_LOW;
+    else if (!strcmp(name, "fsVideoExitFullscreen"))
+        idr = IDR_FS_VIDEO_EXIT_FULLSCREEN;
+    else if (!strcmp(name, "fsVideoPause"))
+        idr = IDR_FS_VIDEO_PAUSE;
+    else if (!strcmp(name, "fsVideoPlay"))
+        idr = IDR_FS_VIDEO_PLAY;
     else
         return 0;
 

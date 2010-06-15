@@ -26,25 +26,18 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WebInspector.Database = function(database, domain, name, version)
+WebInspector.Database = function(id, domain, name, version)
 {
-    this.database = database;
-    this.domain = domain;
-    this.name = name;
-    this.version = version;
+    this._id = id;
+    this._domain = domain;
+    this._name = name;
+    this._version = version;
 }
 
 WebInspector.Database.prototype = {
-    get database()
+    get id()
     {
-        return this._database;
-    },
-
-    set database(x)
-    {
-        if (this._database === x)
-            return;
-        this._database = x;
+        return this._id;
     },
 
     get name()
@@ -54,8 +47,6 @@ WebInspector.Database.prototype = {
 
     set name(x)
     {
-        if (this._name === x)
-            return;
         this._name = x;
     },
 
@@ -66,8 +57,6 @@ WebInspector.Database.prototype = {
 
     set version(x)
     {
-        if (this._version === x)
-            return;
         this._version = x;
     },
 
@@ -78,8 +67,6 @@ WebInspector.Database.prototype = {
 
     set domain(x)
     {
-        if (this._domain === x)
-            return;
         this._domain = x;
     },
 
@@ -88,8 +75,29 @@ WebInspector.Database.prototype = {
         return WebInspector.Resource.prototype.__lookupGetter__("displayDomain").call(this);
     },
 
-    get tableNames()
+    getTableNames: function(callback)
     {
-        return InspectorController.databaseTableNames(this.database).sort();
+        function sortingCallback(names)
+        {
+            callback(names.sort());
+        }
+        var callId = WebInspector.Callback.wrap(sortingCallback);
+        InspectorBackend.getDatabaseTableNames(callId, this._id);
+    },
+    
+    executeSql: function(query, onSuccess, onError)
+    {
+        function callback(result)
+        {
+            if (!(result instanceof Array)) {
+                onError(result);
+                return;
+            }
+            onSuccess(result);
+        }
+        // FIXME: execute the query in the frame the DB comes from.
+        InjectedScriptAccess.getDefault().executeSql(this._id, query, callback);
     }
 }
+
+WebInspector.didGetDatabaseTableNames = WebInspector.Callback.processCallback;

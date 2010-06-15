@@ -32,8 +32,10 @@
 #include "JSDOMBinding.h"
 #include "JSDOMGlobalObject.h"
 #include "JSEventListener.h"
+#include "JSEventSourceConstructor.h"
 #include "JSMessageChannelConstructor.h"
 #include "JSMessagePort.h"
+#include "JSWebSocketConstructor.h"
 #include "JSWorkerLocation.h"
 #include "JSWorkerNavigator.h"
 #include "JSXMLHttpRequestConstructor.h"
@@ -47,26 +49,18 @@ using namespace JSC;
 
 namespace WebCore {
 
-void JSWorkerContext::mark()
+void JSWorkerContext::markChildren(MarkStack& markStack)
 {
-    Base::mark();
+    Base::markChildren(markStack);
 
     JSGlobalData& globalData = *this->globalData();
 
-    markActiveObjectsForContext(globalData, scriptExecutionContext());
+    markActiveObjectsForContext(markStack, globalData, scriptExecutionContext());
 
-    markDOMObjectWrapper(globalData, impl()->optionalLocation());
-    markDOMObjectWrapper(globalData, impl()->optionalNavigator());
+    markDOMObjectWrapper(markStack, globalData, impl()->optionalLocation());
+    markDOMObjectWrapper(markStack, globalData, impl()->optionalNavigator());
 
-    markIfNotNull(impl()->onmessage());
-
-    typedef WorkerContext::EventListenersMap EventListenersMap;
-    typedef WorkerContext::ListenerVector ListenerVector;
-    EventListenersMap& eventListeners = impl()->eventListeners();
-    for (EventListenersMap::iterator mapIter = eventListeners.begin(); mapIter != eventListeners.end(); ++mapIter) {
-        for (ListenerVector::iterator vecIter = mapIter->second.begin(); vecIter != mapIter->second.end(); ++vecIter)
-            (*vecIter)->markJSFunction();
-    }
+    impl()->markJSEventListeners(markStack);
 }
 
 bool JSWorkerContext::getOwnPropertySlotDelegate(ExecState* exec, const Identifier& propertyName, PropertySlot& slot)
@@ -77,10 +71,32 @@ bool JSWorkerContext::getOwnPropertySlotDelegate(ExecState* exec, const Identifi
     return false;
 }
 
+bool JSWorkerContext::getOwnPropertyDescriptorDelegate(ExecState* exec, const Identifier& propertyName, PropertyDescriptor& descriptor)
+{
+    // Look for overrides before looking at any of our own properties.
+    if (JSGlobalObject::getOwnPropertyDescriptor(exec, propertyName, descriptor))
+        return true;
+    return false;
+}
+
+#if ENABLE(EVENTSOURCE)
+JSValue JSWorkerContext::eventSource(ExecState* exec) const
+{
+    return getDOMConstructor<JSEventSourceConstructor>(exec, this);
+}
+#endif
+
 JSValue JSWorkerContext::xmlHttpRequest(ExecState* exec) const
 {
     return getDOMConstructor<JSXMLHttpRequestConstructor>(exec, this);
 }
+
+#if ENABLE(WEB_SOCKETS)
+JSValue JSWorkerContext::webSocket(ExecState* exec) const
+{
+    return getDOMConstructor<JSWebSocketConstructor>(exec, this);
+}
+#endif
 
 JSValue JSWorkerContext::importScripts(ExecState* exec, const ArgList& args)
 {
@@ -89,56 +105,33 @@ JSValue JSWorkerContext::importScripts(ExecState* exec, const ArgList& args)
 
     Vector<String> urls;
     for (unsigned i = 0; i < args.size(); i++) {
-        urls.append(args.at(i).toString(exec));
+        urls.append(ustringToString(args.at(i).toString(exec)));
         if (exec->hadException())
             return jsUndefined();
     }
     ExceptionCode ec = 0;
-    int signedLineNumber;
-    intptr_t sourceID;
-    UString sourceURL;
-    JSValue function;
-    exec->interpreter()->retrieveLastCaller(exec, signedLineNumber, sourceID, sourceURL, function);
 
-    impl()->importScripts(urls, sourceURL, signedLineNumber >= 0 ? signedLineNumber : 0, ec);
+    impl()->importScripts(urls, ec);
     setDOMException(exec, ec);
-    return jsUndefined();
-}
-
-JSValue JSWorkerContext::addEventListener(ExecState* exec, const ArgList& args)
-{
-    RefPtr<JSEventListener> listener = findOrCreateJSEventListener(args.at(1));
-    if (!listener)
-        return jsUndefined();
-    impl()->addEventListener(args.at(0).toString(exec), listener.release(), args.at(2).toBoolean(exec));
-    return jsUndefined();
-}
-
-JSValue JSWorkerContext::removeEventListener(ExecState* exec, const ArgList& args)
-{
-    JSEventListener* listener = findJSEventListener(args.at(1));
-    if (!listener)
-        return jsUndefined();
-    impl()->removeEventListener(args.at(0).toString(exec), listener, args.at(2).toBoolean(exec));
     return jsUndefined();
 }
 
 JSValue JSWorkerContext::setTimeout(ExecState* exec, const ArgList& args)
 {
-    ScheduledAction* action = ScheduledAction::create(exec, args);
+    OwnPtr<ScheduledAction> action = ScheduledAction::create(exec, args, currentWorld(exec));
     if (exec->hadException())
         return jsUndefined();
     int delay = args.at(1).toInt32(exec);
-    return jsNumber(exec, impl()->setTimeout(action, delay));
+    return jsNumber(exec, impl()->setTimeout(action.release(), delay));
 }
 
 JSValue JSWorkerContext::setInterval(ExecState* exec, const ArgList& args)
 {
-    ScheduledAction* action = ScheduledAction::create(exec, args);
+    OwnPtr<ScheduledAction> action = ScheduledAction::create(exec, args, currentWorld(exec));
     if (exec->hadException())
         return jsUndefined();
     int delay = args.at(1).toInt32(exec);
-    return jsNumber(exec, impl()->setInterval(action, delay));
+    return jsNumber(exec, impl()->setInterval(action.release(), delay));
 }
 
 

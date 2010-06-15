@@ -37,16 +37,14 @@
 
 namespace WebCore {
 
-bool deleteFile(const String&)
+bool deleteFile(const String& path)
 {
-    notImplemented();
-    return false;
+    return ChromiumBridge::deleteFile(path);
 }
 
-bool deleteEmptyDirectory(const String&)
+bool deleteEmptyDirectory(const String& path)
 {
-    notImplemented();
-    return false;
+    return ChromiumBridge::deleteEmptyDirectory(path);
 }
 
 bool getFileSize(const String& path, long long& result)
@@ -54,34 +52,59 @@ bool getFileSize(const String& path, long long& result)
     return ChromiumBridge::getFileSize(path, result);
 }
 
-bool getFileModificationTime(const String&, time_t& result)
+bool getFileModificationTime(const String& path, time_t& result)
 {
-    notImplemented();
-    return false;
+    return ChromiumBridge::getFileModificationTime(path, result);
 }
 
-String directoryName(const String&)
+String directoryName(const String& path)
 {
-    notImplemented();
-    return String();
+    return ChromiumBridge::directoryName(path);
 }
 
 String pathByAppendingComponent(const String& path, const String& component)
 {
-    notImplemented();
-    return String();
+    return ChromiumBridge::pathByAppendingComponent(path, component);
 }
 
 bool makeAllDirectories(const String& path)
 {
-    notImplemented();
-    return false;
+    return ChromiumBridge::makeAllDirectories(path);
 }
 
-bool fileExists(const String&)
+bool fileExists(const String& path)
 {
-    notImplemented();
-    return false;
+    return ChromiumBridge::fileExists(path);
+}
+
+PlatformFileHandle openFile(const String& path, FileOpenMode mode)
+{
+    return ChromiumBridge::openFile(path, mode);
+}
+
+void closeFile(PlatformFileHandle& handle)
+{
+    return ChromiumBridge::closeFile(handle);
+}
+
+long long seekFile(PlatformFileHandle handle, long long offset, FileSeekOrigin origin)
+{
+    return ChromiumBridge::seekFile(handle, offset, origin);
+}
+
+bool truncateFile(PlatformFileHandle handle, long long offset)
+{
+    return ChromiumBridge::truncateFile(handle, offset);
+}
+
+int readFromFile(PlatformFileHandle handle, char* data, int length)
+{
+    return ChromiumBridge::readFromFile(handle, data, length);
+}
+
+int writeToFile(PlatformFileHandle handle, const char* data, int length)
+{
+    return ChromiumBridge::writeToFile(handle, data, length);
 }
 
 } // namespace WebCore

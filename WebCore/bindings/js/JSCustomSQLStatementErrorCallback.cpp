@@ -27,79 +27,46 @@
  */
 
 #include "config.h"
-#include "JSCustomSQLStatementErrorCallback.h"
+#include "JSSQLStatementErrorCallback.h"
 
 #if ENABLE(DATABASE)
 
 #include "Frame.h"
-#include "ScriptController.h"
 #include "JSSQLError.h"
 #include "JSSQLTransaction.h"
+#include "ScriptExecutionContext.h"
 #include <runtime/JSLock.h>
 
 namespace WebCore {
-    
-using namespace JSC;
-    
-JSCustomSQLStatementErrorCallback::JSCustomSQLStatementErrorCallback(JSObject* callback, Frame* frame)
-    : m_callback(callback)
-    , m_frame(frame)
-{
-}
-    
-bool JSCustomSQLStatementErrorCallback::handleEvent(SQLTransaction* transaction, SQLError* error)
-{
-    ASSERT(m_callback);
-    ASSERT(m_frame);
-        
-    if (!m_frame->script()->isEnabled())
-        return true;
-        
-    JSGlobalObject* globalObject = m_frame->script()->globalObject();
-    ExecState* exec = globalObject->globalExec();
-        
-    JSC::JSLock lock(false);
-        
-    JSValue handleEventFunction = m_callback->get(exec, Identifier(exec, "handleEvent"));
-    CallData handleEventCallData;
-    CallType handleEventCallType = handleEventFunction.getCallData(handleEventCallData);
-    CallData callbackCallData;
-    CallType callbackCallType = CallTypeNone;
 
-    if (handleEventCallType == CallTypeNone) {
-        callbackCallType = m_callback->getCallData(callbackCallData);
-        if (callbackCallType == CallTypeNone) {
-            // FIXME: Should an exception be thrown here?
-            return true;
-        }
-    }
-        
-    RefPtr<JSCustomSQLStatementErrorCallback> protect(this);
-        
+using namespace JSC;
+
+bool JSSQLStatementErrorCallback::handleEvent(ScriptExecutionContext* context, SQLTransaction* transaction, SQLError* error)
+{
+    ASSERT(m_data);
+    ASSERT(context);
+
+    RefPtr<JSSQLStatementErrorCallback> protect(this);
+
+    JSC::JSLock lock(SilenceAssertionsOnly);
+    JSDOMGlobalObject* globalObject = toJSDOMGlobalObject(context, m_isolatedWorld.get());
+    if (!globalObject)
+        return true; // if we cannot invoke the callback, roll back the transaction
+
+    ExecState* exec = globalObject->globalExec();
     MarkedArgumentBuffer args;
-    args.append(toJS(exec, transaction));
-    args.append(toJS(exec, error));
-        
-    JSValue result;
-    globalObject->globalData()->timeoutChecker.start();
-    if (handleEventCallType != CallTypeNone)
-        result = call(exec, handleEventFunction, handleEventCallType, handleEventCallData, m_callback, args);
-    else
-        result = call(exec, m_callback, callbackCallType, callbackCallData, m_callback, args);
-    globalObject->globalData()->timeoutChecker.stop();
-        
-    if (exec->hadException()) {
-        reportCurrentException(exec);
-            
+    args.append(toJS(exec, deprecatedGlobalObjectForPrototype(exec), transaction));
+    args.append(toJS(exec, deprecatedGlobalObjectForPrototype(exec), error));
+
+    bool raisedException = false;
+    JSValue result = m_data->invokeCallback(args, &raisedException);
+    if (raisedException) {
         // The spec says:
         // "If the error callback returns false, then move on to the next statement..."
         // "Otherwise, the error callback did not return false, or there was no error callback"
         // Therefore an exception and returning true are the same thing - so, return true on an exception
         return true;
     }
-        
-    Document::updateStyleForAllDocuments();
-
     return result.toBoolean(exec);
 }
 

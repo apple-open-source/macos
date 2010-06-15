@@ -2,8 +2,6 @@
     Copyright (C) 2004, 2005, 2007 Nikolas Zimmermann <zimmermann@kde.org>
                   2004, 2005, 2008 Rob Buis <buis@kde.org>
 
-    This file is part of the KDE project
-
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Library General Public
     License as published by the Free Software Foundation; either
@@ -27,22 +25,16 @@
 #include "SVGFEFlood.h"
 #include "SVGFilterPrimitiveStandardAttributes.h"
 
-namespace WebCore
-{
-    class SVGFEFloodElement : public SVGFilterPrimitiveStandardAttributes
-    {
-    public:
-        SVGFEFloodElement(const QualifiedName&, Document*);
-        virtual ~SVGFEFloodElement();
+namespace WebCore {
+class SVGFEFloodElement : public SVGFilterPrimitiveStandardAttributes {
+public:
+    SVGFEFloodElement(const QualifiedName&, Document*);
+    virtual ~SVGFEFloodElement();
 
-        virtual void parseMappedAttribute(MappedAttribute*);
-        virtual bool build(SVGResourceFilter*);
-
-    private:
-        ANIMATED_PROPERTY_DECLARATIONS(SVGFEFloodElement, SVGNames::feFloodTagString, SVGNames::inAttrString, String, In1, in1)
-    };
+    virtual PassRefPtr<FilterEffect> build(SVGFilterBuilder*);
+};
 
 } // namespace WebCore
 
-#endif // ENABLE(SVG)
+#endif // ENABLE(SVG) && ENABLE(FILTERS)
 #endif

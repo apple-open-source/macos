@@ -24,11 +24,11 @@
 #include "WMLErrorHandling.h"
 
 #include "Console.h"
-#include "CString.h"
 #include "Frame.h"
 #include "Document.h"
 #include "DOMWindow.h"
 #include "XMLTokenizer.h"
+#include <wtf/text/CString.h>
 
 namespace WebCore {
 
@@ -38,7 +38,8 @@ void reportWMLError(Document* doc, WMLErrorCode error)
         return;
 
     String errorMessage = errorMessageForErrorCode(error);
-    if (XMLTokenizer* tokenizer = static_cast<XMLTokenizer*>(doc->tokenizer())) {
+    XMLTokenizer* tokenizer = static_cast<XMLTokenizer*>(doc->tokenizer());
+    if (tokenizer && error != WMLErrorDeckNotAccessible) {
         // Some errors are reported as result of an insertedIntoDocument() call.
         // If this happened, parsing has been stopped, and the document fragment
         // is wrapped in a XHTML error document. That means insertedIntoDocument()
@@ -61,7 +62,7 @@ void reportWMLError(Document* doc, WMLErrorCode error)
         if (!console)
             return;
 
-        console->addMessage(WMLMessageSource, ErrorMessageLevel, errorMessage, 0, String());
+        console->addMessage(WMLMessageSource, LogMessageType, ErrorMessageLevel, errorMessage, 0, String());
     }
 }
 

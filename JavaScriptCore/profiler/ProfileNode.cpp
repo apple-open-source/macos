@@ -32,16 +32,19 @@
 #include "Profiler.h"
 #include <stdio.h>
 #include <wtf/DateMath.h>
+#include <wtf/text/StringHash.h>
 
-#if PLATFORM(WIN_OS)
+#if OS(WINDOWS)
 #include <windows.h>
 #endif
+
+using namespace WTF;
 
 namespace JSC {
 
 static double getCount()
 {
-#if PLATFORM(WIN_OS)
+#if OS(WINDOWS)
     static LARGE_INTEGER frequency = {0};
     if (!frequency.QuadPart)
         QueryPerformanceFrequency(&frequency);
@@ -49,7 +52,7 @@ static double getCount()
     QueryPerformanceCounter(&counter);
     return static_cast<double>(counter.QuadPart) / frequency.QuadPart;
 #else
-    return WTF::getCurrentUTCTimeWithMicroseconds();
+    return currentTimeMS();
 #endif
 }
 
@@ -291,11 +294,11 @@ void ProfileNode::debugPrintData(int indentLevel) const
         printf("  ");
 
     printf("Function Name %s %d SelfTime %.3fms/%.3f%% TotalTime %.3fms/%.3f%% VSelf %.3fms VTotal %.3fms Visible %s Next Sibling %s\n",
-        functionName().UTF8String().c_str(), 
+        functionName().UTF8String().data(), 
         m_numberOfCalls, m_actualSelfTime, selfPercent(), m_actualTotalTime, totalPercent(),
         m_visibleSelfTime, m_visibleTotalTime, 
         (m_visible ? "True" : "False"),
-        m_nextSibling ? m_nextSibling->functionName().UTF8String().c_str() : "");
+        m_nextSibling ? m_nextSibling->functionName().UTF8String().data() : "");
 
     ++indentLevel;
 
@@ -310,7 +313,7 @@ double ProfileNode::debugPrintDataSampleStyle(int indentLevel, FunctionCallHashC
     printf("    ");
 
     // Print function names
-    const char* name = functionName().UTF8String().c_str();
+    const char* name = functionName().UTF8String().data();
     double sampleCount = m_actualTotalTime * 1000;
     if (indentLevel) {
         for (int i = 0; i < indentLevel; ++i)
@@ -336,7 +339,7 @@ double ProfileNode::debugPrintDataSampleStyle(int indentLevel, FunctionCallHashC
         while (indentLevel--)
             printf("  ");
 
-        printf("%.0f %s\n", sampleCount - sumOfChildrensCount, functionName().UTF8String().c_str());
+        printf("%.0f %s\n", sampleCount - sumOfChildrensCount, functionName().UTF8String().data());
     }
 
     return m_actualTotalTime;

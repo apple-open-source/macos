@@ -38,6 +38,7 @@
 #import <WebCore/LegacyWebArchive.h>
 #import <WebCore/ThreadCheck.h>
 #import <WebCore/WebCoreObjCExtras.h>
+#import <wtf/Threading.h>
 
 using namespace WebCore;
 
@@ -66,6 +67,7 @@ static NSString * const WebSubframeArchivesKey = @"WebSubframeArchives";
 + (void)initialize
 {
     JSC::initializeThreading();
+    WTF::initializeMainThreadToProcessMainThread();
 #ifndef BUILDING_ON_TIGER
     WebCoreObjCFinalizeOnMainThread(self);
 #endif
@@ -239,13 +241,13 @@ static BOOL isArrayOfClass(id object, Class elementClass)
     @try {
         id object = [decoder decodeObjectForKey:WebMainResourceKey];
         if ([object isKindOfClass:[WebResource class]])
-            mainResource = [object retain];
+            mainResource = object;
         object = [decoder decodeObjectForKey:WebSubresourcesKey];
         if (isArrayOfClass(object, [WebResource class]))
-            subresources = [object retain];
+            subresources = object;
         object = [decoder decodeObjectForKey:WebSubframeArchivesKey];
         if (isArrayOfClass(object, [WebArchive class]))
-            subframeArchives = [object retain];
+            subframeArchives = object;
     } @catch(id) {
         [self release];
         return nil;

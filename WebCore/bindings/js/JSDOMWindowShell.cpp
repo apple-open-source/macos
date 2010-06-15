@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2008, 2009 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -43,9 +43,10 @@ ASSERT_CLASS_FITS_IN_CELL(JSDOMWindowShell);
 
 const ClassInfo JSDOMWindowShell::s_info = { "JSDOMWindowShell", 0, 0, 0 };
 
-JSDOMWindowShell::JSDOMWindowShell(PassRefPtr<DOMWindow> window)
+JSDOMWindowShell::JSDOMWindowShell(PassRefPtr<DOMWindow> window, DOMWrapperWorld* world)
     : Base(JSDOMWindowShell::createStructure(jsNull()))
     , m_window(0)
+    , m_world(world)
 {
     setWindow(window);
 }
@@ -71,11 +72,11 @@ void JSDOMWindowShell::setWindow(PassRefPtr<DOMWindow> domWindow)
 // JSObject methods
 // ----
 
-void JSDOMWindowShell::mark()
+void JSDOMWindowShell::markChildren(MarkStack& markStack)
 {
-    Base::mark();
-    if (m_window && !m_window->marked())
-        m_window->mark();
+    Base::markChildren(markStack);
+    if (m_window)
+        markStack.append(m_window);
 }
 
 UString JSDOMWindowShell::className() const
@@ -88,6 +89,11 @@ bool JSDOMWindowShell::getOwnPropertySlot(ExecState* exec, const Identifier& pro
     return m_window->getOwnPropertySlot(exec, propertyName, slot);
 }
 
+bool JSDOMWindowShell::getOwnPropertyDescriptor(ExecState* exec, const Identifier& propertyName, PropertyDescriptor& descriptor)
+{
+    return m_window->getOwnPropertyDescriptor(exec, propertyName, descriptor);
+}
+
 void JSDOMWindowShell::put(ExecState* exec, const Identifier& propertyName, JSValue value, PutPropertySlot& slot)
 {
     m_window->put(exec, propertyName, value, slot);
@@ -98,29 +104,34 @@ void JSDOMWindowShell::putWithAttributes(ExecState* exec, const Identifier& prop
     m_window->putWithAttributes(exec, propertyName, value, attributes);
 }
 
+bool JSDOMWindowShell::defineOwnProperty(JSC::ExecState* exec, const JSC::Identifier& propertyName, JSC::PropertyDescriptor& descriptor, bool shouldThrow)
+{
+    return m_window->defineOwnProperty(exec, propertyName, descriptor, shouldThrow);
+}
+
 bool JSDOMWindowShell::deleteProperty(ExecState* exec, const Identifier& propertyName)
 {
     return m_window->deleteProperty(exec, propertyName);
 }
 
-void JSDOMWindowShell::getPropertyNames(ExecState* exec, PropertyNameArray& propertyNames)
+void JSDOMWindowShell::getPropertyNames(ExecState* exec, PropertyNameArray& propertyNames, EnumerationMode mode)
 {
-    m_window->getPropertyNames(exec, propertyNames);
+    m_window->getPropertyNames(exec, propertyNames, mode);
 }
 
-bool JSDOMWindowShell::getPropertyAttributes(JSC::ExecState* exec, const Identifier& propertyName, unsigned& attributes) const
+void JSDOMWindowShell::getOwnPropertyNames(ExecState* exec, PropertyNameArray& propertyNames, EnumerationMode mode)
 {
-    return m_window->getPropertyAttributes(exec, propertyName, attributes);
+    m_window->getOwnPropertyNames(exec, propertyNames, mode);
 }
 
-void JSDOMWindowShell::defineGetter(ExecState* exec, const Identifier& propertyName, JSObject* getterFunction)
+void JSDOMWindowShell::defineGetter(ExecState* exec, const Identifier& propertyName, JSObject* getterFunction, unsigned attributes)
 {
-    m_window->defineGetter(exec, propertyName, getterFunction);
+    m_window->defineGetter(exec, propertyName, getterFunction, attributes);
 }
 
-void JSDOMWindowShell::defineSetter(ExecState* exec, const Identifier& propertyName, JSObject* setterFunction)
+void JSDOMWindowShell::defineSetter(ExecState* exec, const Identifier& propertyName, JSObject* setterFunction, unsigned attributes)
 {
-    m_window->defineSetter(exec, propertyName, setterFunction);
+    m_window->defineSetter(exec, propertyName, setterFunction, attributes);
 }
 
 JSValue JSDOMWindowShell::lookupGetter(ExecState* exec, const Identifier& propertyName)
@@ -156,18 +167,18 @@ void* JSDOMWindowShell::operator new(size_t size)
 // Conversion methods
 // ----
 
-JSValue toJS(ExecState*, Frame* frame)
+JSValue toJS(ExecState* exec, Frame* frame)
 {
     if (!frame)
         return jsNull();
-    return frame->script()->windowShell();
+    return frame->script()->windowShell(currentWorld(exec));
 }
 
-JSDOMWindowShell* toJSDOMWindowShell(Frame* frame)
+JSDOMWindowShell* toJSDOMWindowShell(Frame* frame, DOMWrapperWorld* isolatedWorld)
 {
     if (!frame)
         return 0;
-    return frame->script()->windowShell();
+    return frame->script()->windowShell(isolatedWorld);
 }
 
 } // namespace WebCore

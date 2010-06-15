@@ -30,15 +30,14 @@
 #include "WebLocalizableStrings.h"
 #include "WebView.h"
 
-#pragma warning(push, 0)
 #include <WebCore/ContextMenu.h>
 #include <WebCore/Event.h>
+#include <WebCore/Frame.h>
 #include <WebCore/FrameLoader.h>
 #include <WebCore/FrameLoadRequest.h>
 #include <WebCore/Page.h>
 #include <WebCore/ResourceRequest.h>
 #include <WebCore/NotImplemented.h>
-#pragma warning(pop)
 
 #include <tchar.h>
 
@@ -143,7 +142,7 @@ void WebContextMenuClient::searchWithGoogle(const Frame* frame)
 
     ResourceRequest request = ResourceRequest(url);
     if (Page* page = frame->page())
-        page->mainFrame()->loader()->urlSelected(request, String(), 0, false, false, true);
+        page->mainFrame()->loader()->urlSelected(request, String(), 0, false, false, true, SendReferrer);
 }
 
 void WebContextMenuClient::lookUpInDictionary(Frame*)

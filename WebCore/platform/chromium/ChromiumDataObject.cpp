@@ -35,10 +35,17 @@ namespace WebCore {
 
 void ChromiumDataObject::clear()
 {
+    clearAllExceptFiles();
+    filenames.clear();
+}
+
+void ChromiumDataObject::clearAllExceptFiles()
+{
     url = KURL();
     urlTitle = "";
+    uriList.clear();
+    downloadMetadata = "";
     fileExtension = "";
-    filenames.clear();
     plainText = "";
     textHtml = "";
     htmlBaseUrl = KURL();
@@ -50,6 +57,8 @@ void ChromiumDataObject::clear()
 bool ChromiumDataObject::hasData() const
 {
     return !url.isEmpty()
+        || !uriList.isEmpty()
+        || !downloadMetadata.isEmpty()
         || !fileExtension.isEmpty()
         || !filenames.isEmpty()
         || !plainText.isEmpty()
@@ -58,14 +67,16 @@ bool ChromiumDataObject::hasData() const
 }
 
 ChromiumDataObject::ChromiumDataObject(const ChromiumDataObject& other)
-    : url(other.url)
-    , urlTitle(other.urlTitle)
+    : urlTitle(other.urlTitle)
+    , downloadMetadata(other.downloadMetadata)
     , fileExtension(other.fileExtension)
     , filenames(other.filenames)
     , plainText(other.plainText)
     , textHtml(other.textHtml)
     , htmlBaseUrl(other.htmlBaseUrl)
     , fileContentFilename(other.fileContentFilename)
+    , url(other.url)
+    , uriList(other.uriList)
 {
     if (other.fileContent.get())
         fileContent = other.fileContent->copy();

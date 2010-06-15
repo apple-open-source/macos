@@ -43,6 +43,17 @@
 	}											\
 	return 0;
 	
+#define END_EXCEPTION_BLOCK_BOOL }					\
+	catch (CSSMError &error)						\
+	{											\
+		return false;							\
+	}											\
+	catch (...)									\
+	{											\
+		return false;							\
+	}											\
+	return true;
+	
 	
 
 Database* AttachedInstance::GetDatabaseFromDLDBHandle (const CSSM_DL_DB_HANDLE &dldbHandle)
@@ -140,8 +151,9 @@ CSSM_RETURN AttachedInstance::StubDataGetNext (CSSM_DL_DB_HANDLE dldbHandle,
 	
 	Database *d = GetDatabaseFromDLDBHandle (dldbHandle);
 	d->DbDataGetNext (resultsHandle, attributes, data, uniqueID);
-	
+
 	END_EXCEPTION_BLOCK
+
 }
 
 

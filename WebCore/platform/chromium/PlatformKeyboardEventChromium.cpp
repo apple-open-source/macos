@@ -27,9 +27,9 @@
 #include "config.h"
 #include "PlatformKeyboardEvent.h"
 
-#if PLATFORM(WIN_OS)
+#if OS(WINDOWS)
 #include <windows.h>
-#elif PLATFORM(DARWIN)
+#elif OS(DARWIN)
 #import <Carbon/Carbon.h>
 #else
 #include "NotImplemented.h"
@@ -37,9 +37,13 @@
 
 namespace WebCore {
 
+#if OS(WINDOWS)
+static const unsigned short HIGH_BIT_MASK_SHORT = 0x8000;
+#endif
+
 void PlatformKeyboardEvent::disambiguateKeyDownEvent(Type type, bool backwardCompatibilityMode)
 {
-#if PLATFORM(WIN_OS)
+#if OS(WINDOWS)
     // No KeyDown events on Windows to disambiguate.
     ASSERT_NOT_REACHED();
 #else
@@ -56,7 +60,7 @@ void PlatformKeyboardEvent::disambiguateKeyDownEvent(Type type, bool backwardCom
     } else {
         m_keyIdentifier = String();
         m_windowsVirtualKeyCode = 0;
-#if PLATFORM(DARWIN)
+#if OS(DARWIN)
         if (m_text.length() == 1 && (m_text[0U] >= 0xF700 && m_text[0U] <= 0xF7FF)) {
             // According to NSEvents.h, OpenStep reserves the range 0xF700-0xF8FF for function keys. However, some actual private use characters
             // happen to be in this range, e.g. the Apple logo (Option+Shift+K).
@@ -71,14 +75,32 @@ void PlatformKeyboardEvent::disambiguateKeyDownEvent(Type type, bool backwardCom
 
 bool PlatformKeyboardEvent::currentCapsLockState()
 {
-#if PLATFORM(WIN_OS)
+#if OS(WINDOWS)
     // FIXME: Does this even work inside the sandbox?
     return GetKeyState(VK_CAPITAL) & 1;
-#elif PLATFORM(DARWIN)
+#elif OS(DARWIN)
     return GetCurrentKeyModifiers() & alphaLock;
 #else
     notImplemented();
     return false;
+#endif
+}
+
+void PlatformKeyboardEvent::getCurrentModifierState(bool& shiftKey, bool& ctrlKey, bool& altKey, bool& metaKey)
+{
+#if OS(WINDOWS)
+    shiftKey = GetKeyState(VK_SHIFT) & HIGH_BIT_MASK_SHORT;
+    ctrlKey = GetKeyState(VK_CONTROL) & HIGH_BIT_MASK_SHORT;
+    altKey = GetKeyState(VK_MENU) & HIGH_BIT_MASK_SHORT;
+    metaKey = false;
+#elif OS(DARWIN)
+    UInt32 currentModifiers = GetCurrentKeyModifiers();
+    shiftKey = currentModifiers & ::shiftKey;
+    ctrlKey = currentModifiers & ::controlKey;
+    altKey = currentModifiers & ::optionKey;
+    metaKey = currentModifiers & ::cmdKey;
+#else
+    notImplemented();
 #endif
 }
 

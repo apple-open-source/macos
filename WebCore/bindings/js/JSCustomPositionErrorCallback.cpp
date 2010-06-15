@@ -26,6 +26,8 @@
 #include "config.h"
 #include "JSCustomPositionErrorCallback.h"
 
+#if ENABLE(GEOLOCATION)
+
 #include "Frame.h"
 #include "JSPositionError.h"
 #include "ScriptController.h"
@@ -35,50 +37,23 @@ namespace WebCore {
     
 using namespace JSC;
 
-JSCustomPositionErrorCallback::JSCustomPositionErrorCallback(JSObject* callback, Frame* frame)
-    : m_callback(callback)
-    , m_frame(frame)
+JSCustomPositionErrorCallback::JSCustomPositionErrorCallback(JSObject* callback, JSDOMGlobalObject* globalObject)
+    : m_data(callback, globalObject)
 {
 }
 
 void JSCustomPositionErrorCallback::handleEvent(PositionError* positionError)
 {
-    ASSERT(m_callback);
-    ASSERT(m_frame);
-    
-    if (!m_frame->script()->isEnabled())
-        return;
-    
-    JSGlobalObject* globalObject = m_frame->script()->globalObject();
-    ExecState* exec = globalObject->globalExec();
-    
-    JSC::JSLock lock(false);
-    
-    JSValue function = m_callback->get(exec, Identifier(exec, "handleEvent"));
-    CallData callData;
-    CallType callType = function.getCallData(callData);
-    if (callType == CallTypeNone) {
-        callType = m_callback->getCallData(callData);
-        if (callType == CallTypeNone) {
-            // FIXME: Should an exception be thrown here?
-            return;
-        }
-        function = m_callback;
-    }
-    
     RefPtr<JSCustomPositionErrorCallback> protect(this);
-    
+
+    JSC::JSLock lock(SilenceAssertionsOnly);
+    ExecState* exec = m_data.globalObject()->globalExec();
     MarkedArgumentBuffer args;
-    args.append(toJS(exec, positionError));
+    args.append(toJS(exec, deprecatedGlobalObjectForPrototype(exec), positionError));
     
-    globalObject->globalData()->timeoutChecker.start();
-    call(exec, function, callType, callData, m_callback, args);
-    globalObject->globalData()->timeoutChecker.stop();
-    
-    if (exec->hadException())
-        reportCurrentException(exec);
-    
-    Document::updateStyleForAllDocuments();
+    m_data.invokeCallback(args);
 }
     
 } // namespace WebCore
+
+#endif // ENABLE(GEOLOCATION)

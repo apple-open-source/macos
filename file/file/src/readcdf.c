@@ -117,7 +117,7 @@ cdf_file_property_info(struct magic_set *ms, const cdf_property_info_t *info,
 					char *c, *ec;
 					cdf_timestamp_to_timespec(&ts, tp);
 					c = ctime(&ts.tv_sec);
-					if ((ec = strchr(c, '\n')) != NULL)
+					if (c != NULL && (ec = strchr(c, '\n')) != NULL)
 						*ec = '\0';
 
 					if (NOTMIME(ms) && file_printf(ms,

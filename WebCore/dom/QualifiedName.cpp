@@ -26,9 +26,9 @@
 #endif
 
 #include "QualifiedName.h"
-#include "StaticConstructors.h"
 #include <wtf/Assertions.h>
 #include <wtf/HashSet.h>
+#include <wtf/StaticConstructors.h>
 
 namespace WebCore {
 
@@ -51,7 +51,7 @@ struct QNameComponentsTranslator {
 
 static QNameSet* gNameCache;
 
-QualifiedName::QualifiedName(const AtomicString& p, const AtomicString& l, const AtomicString& n)
+void QualifiedName::init(const AtomicString& p, const AtomicString& l, const AtomicString& n)
 {
     if (!gNameCache)
         gNameCache = new QNameSet;
@@ -62,12 +62,23 @@ QualifiedName::QualifiedName(const AtomicString& p, const AtomicString& l, const
         m_impl->ref();
 }
 
+QualifiedName::QualifiedName(const AtomicString& p, const AtomicString& l, const AtomicString& n)
+{
+    init(p, l, n);
+}
+
+QualifiedName::QualifiedName(const AtomicString& p, const char* l, const AtomicString& n)
+{
+    init(p, AtomicString(l), n);
+}
+
 void QualifiedName::deref()
 {
 #ifdef QNAME_DEFAULT_CONSTRUCTOR
     if (!m_impl)
         return;
 #endif
+    ASSERT(!isHashTableDeletedValue());
 
     if (m_impl->hasOneRef())
         gNameCache->remove(m_impl);
@@ -95,6 +106,13 @@ void QualifiedName::init()
         new ((void*)&anyName) QualifiedName(nullAtom, starAtom, starAtom);
         initialized = true;
     }
+}
+
+const AtomicString& QualifiedName::localNameUpper() const
+{
+    if (!m_impl->m_localNameUpper)
+        m_impl->m_localNameUpper = m_impl->m_localName.upper();
+    return m_impl->m_localNameUpper;
 }
 
 }

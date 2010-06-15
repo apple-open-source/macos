@@ -37,6 +37,7 @@
 #include <uuid/uuid.h>
 #include <string.h>
 #include <libkern/OSByteOrder.h>
+#include <TargetConditionals.h>
 
 #include "dirhelper.h"
 #include "dirhelper_priv.h"
@@ -104,8 +105,12 @@ encode_uuid_uid(uuid_t uuid, uid_t uid, char *str)
 char *
 __user_local_dirname(uid_t uid, dirhelper_which_t which, char *path, size_t pathlen)
 {
+#if TARGET_OS_EMBEDDED
+    char *tmpdir;
+#else
     uuid_t uuid;
     char str[ENCODEDSIZE + 1];
+#endif
     int res;
 
     if(which < 0 || which > DIRHELPER_USER_LOCAL_LAST) {
@@ -113,6 +118,15 @@ __user_local_dirname(uid_t uid, dirhelper_which_t which, char *path, size_t path
 	return NULL;
     }
 
+#if TARGET_OS_EMBEDDED
+    tmpdir = getenv("TMPDIR");
+    if(!tmpdir) {
+        errno = EINVAL;
+        return NULL;
+    }
+
+    res = snprintf(path, pathlen, "%s/%s", tmpdir, subdirs[which]);
+#else
     res = mbr_uid_to_uuid(uid, uuid);
     if(res != 0) {
         errno = res;
@@ -129,6 +143,7 @@ __user_local_dirname(uid_t uid, dirhelper_which_t which, char *path, size_t path
     res = snprintf(path, pathlen,
 	"%s%.*s/%s/%s",
 	VAR_FOLDERS_PATH, BUCKETLEN, str, str, subdirs[which]);
+#endif
     if(res >= pathlen) {
 	errno = EINVAL;
 	return NULL; /* buffer too small */

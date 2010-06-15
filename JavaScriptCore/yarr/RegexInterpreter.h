@@ -26,13 +26,11 @@
 #ifndef RegexInterpreter_h
 #define RegexInterpreter_h
 
-#include <wtf/Platform.h>
-
 #if ENABLE(YARR)
 
-#include <wtf/unicode/Unicode.h>
 #include "RegexParser.h"
 #include "RegexPattern.h"
+#include <wtf/unicode/Unicode.h>
 
 namespace JSC { namespace Yarr {
 
@@ -280,7 +278,7 @@ struct ByteTerm {
     }
 };
 
-class ByteDisjunction {
+class ByteDisjunction : public FastAllocBase {
 public:
     ByteDisjunction(unsigned numSubpatterns, unsigned frameSize)
         : m_numSubpatterns(numSubpatterns)
@@ -293,7 +291,7 @@ public:
     unsigned m_frameSize;
 };
 
-struct BytecodePattern {
+struct BytecodePattern : FastAllocBase {
     BytecodePattern(ByteDisjunction* body, Vector<ByteDisjunction*> allParenthesesInfo, RegexPattern& pattern)
         : m_body(body)
         , m_ignoreCase(pattern.m_ignoreCase)

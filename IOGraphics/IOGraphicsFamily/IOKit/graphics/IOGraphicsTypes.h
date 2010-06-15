@@ -1123,6 +1123,10 @@ enum {
 #define kAppleDisplayTypeKey            "AppleDisplayType"
 #define kAppleSenseKey                  "AppleSense"
 
+#define kIODisplayMCCSVersionKey                "IODisplayMCCSVersion"
+#define kIODisplayTechnologyTypeKey             "IODisplayTechnologyType"
+#define kIODisplayUsageTimeKey                  "IODisplayUsageTime"
+#define kIODisplayFirmwareLevelKey              "IODisplayFirmwareLevel"
 
 enum {
     kDisplayVendorIDUnknown     = 'unkn',
@@ -1227,6 +1231,19 @@ enum {
 #define kIODisplayTheatreModeWindowKey  "theatre-mode-window"
 #define kIODisplayOverscanKey           "oscn"
 #define kIODisplayVideoBestKey          "vbst"
+
+#define kIODisplaySpeakerVolumeKey              "speaker-volume"
+#define kIODisplaySpeakerSelectKey              "speaker-select"
+#define kIODisplayMicrophoneVolumeKey           "microphone-volume"
+#define kIODisplayAmbientLightSensorKey         "ambient-light-sensor"
+#define kIODisplayAudioMuteAndScreenBlankKey    "audio-mute-and-screen-blank"
+#define kIODisplayAudioTrebleKey                "audio-treble"
+#define kIODisplayAudioBassKey                  "audio-bass"
+#define kIODisplayAudioBalanceLRKey             "audio-balance-LR"
+#define kIODisplayAudioProcessorModeKey         "audio-processor-mode"
+#define kIODisplayPowerModeKey                  "power-mode"
+#define kIODisplayManufacturerSpecificKey       "manufacturer-specific"
+
 
 #define kIODisplayRedGammaScaleKey      "rgsc"
 #define kIODisplayGreenGammaScaleKey    "ggsc"

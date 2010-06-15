@@ -43,40 +43,52 @@ public:
     virtual bool isPasswordField() const = 0;
     virtual bool isSearchField() const = 0;
     virtual bool isTextField() const = 0;
+    virtual bool hasSpinButton() const { return false; }
 
-    virtual bool placeholderShouldBeVisible() const = 0;
     virtual bool searchEventsShouldBeDispatched() const = 0;
 
     virtual int size() const = 0;
+    virtual const String& suggestedValue() const = 0;
     virtual String value() const = 0;
-    virtual void setValue(const String&) = 0;
+    virtual void setValue(const String&, bool sendChangeEvent = false) = 0;
+    virtual void setValueForUser(const String&) = 0;
 
-    virtual String placeholder() const = 0;
-    virtual void setPlaceholder(const String&) = 0;
-
-    virtual String constrainValue(const String&) const = 0;
+    virtual String sanitizeValue(const String&) const = 0;
     virtual void setValueFromRenderer(const String&) = 0;
 
     virtual void cacheSelection(int start, int end) = 0;
     virtual void select() = 0;
+  
+#if ENABLE(WCSS)
+    virtual InputElementData data() const = 0; 
+#endif
 
     static const int s_maximumLength;
     static const int s_defaultSize;
 
 protected:
-    static void dispatchFocusEvent(InputElementData&, InputElement*, Element*);
-    static void dispatchBlurEvent(InputElementData&, InputElement*, Element*);
-    static void updatePlaceholderVisibility(InputElementData&, InputElement*, Element*, bool placeholderValueChanged = false);
+    static void dispatchFocusEvent(InputElement*, Element*);
+    static void dispatchBlurEvent(InputElement*, Element*);
     static void updateFocusAppearance(InputElementData&, InputElement*, Element*, bool restorePreviousSelection);
     static void updateSelectionRange(InputElement*, Element*, int start, int end);
     static void aboutToUnload(InputElement*, Element*);
     static void setValueFromRenderer(InputElementData&, InputElement*, Element*, const String&);
-    static String constrainValue(const InputElement*, const String& proposedValue, int maxLength);
-    static void handleBeforeTextInsertedEvent(InputElementData&, InputElement*, Document*, Event*);
+    // Replaces CRs and LFs, shrinks the value for s_maximumLength.
+    // This should be applied to values from the HTML value attribute and the DOM value property.
+    static String sanitizeValue(const InputElement*, const String&);
+    // Replaces CRs and LFs, shrinks the value for the specified maximum length.
+    // This should be applied to values specified by users.
+    static String sanitizeUserInputValue(const InputElement*, const String&, int);
+    static void handleBeforeTextInsertedEvent(InputElementData&, InputElement*, Element*, Event*);
     static void parseSizeAttribute(InputElementData&, Element*, MappedAttribute*);
     static void parseMaxLengthAttribute(InputElementData&, InputElement*, Element*, MappedAttribute*);
     static void updateValueIfNeeded(InputElementData&, InputElement*);
     static void notifyFormStateChanged(Element*);
+#if ENABLE(WCSS)
+    static bool isConformToInputMask(const InputElementData&, const String&);
+    static bool isConformToInputMask(const InputElementData&, UChar, unsigned);
+    static String validateInputMask(InputElementData&, String&);
+#endif
 };
 
 // HTML/WMLInputElement hold this struct as member variable
@@ -85,14 +97,14 @@ class InputElementData {
 public:
     InputElementData();
 
-    bool placeholderShouldBeVisible() const { return m_placeholderShouldBeVisible; }
-    void setPlaceholderShouldBeVisible(bool visible) { m_placeholderShouldBeVisible = visible; }
-
     const AtomicString& name() const;
     void setName(const AtomicString& value) { m_name = value; }
 
     String value() const { return m_value; }
     void setValue(const String& value) { m_value = value; }
+
+    const String& suggestedValue() const { return m_suggestedValue; }
+    void setSuggestedValue(const String& value) { m_suggestedValue = value; }
 
     int size() const { return m_size; }
     void setSize(int value) { m_size = value; }
@@ -106,14 +118,27 @@ public:
     int cachedSelectionEnd() const { return m_cachedSelectionEnd; }
     void setCachedSelectionEnd(int value) { m_cachedSelectionEnd = value; }
 
+#if ENABLE(WCSS)
+    String inputFormatMask() const { return m_inputFormatMask; }
+    void setInputFormatMask(const String& mask) { m_inputFormatMask = mask; }
+ 
+    unsigned maxInputCharsAllowed() const { return m_maxInputCharsAllowed; }
+    void setMaxInputCharsAllowed(unsigned maxLength) { m_maxInputCharsAllowed = maxLength; }
+  
+#endif
+
 private:
-    bool m_placeholderShouldBeVisible;
     AtomicString m_name;
     String m_value;
+    String m_suggestedValue;
     int m_size;
     int m_maxLength;
     int m_cachedSelectionStart;
     int m_cachedSelectionEnd;
+#if ENABLE(WCSS)
+    String m_inputFormatMask;
+    unsigned m_maxInputCharsAllowed;
+#endif
 };
 
 InputElement* toInputElement(Element*);

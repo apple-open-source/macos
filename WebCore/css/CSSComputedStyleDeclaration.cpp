@@ -31,12 +31,11 @@
 #include "CSSProperty.h"
 #include "CSSPropertyNames.h"
 #include "CSSReflectValue.h"
+#include "CSSSelector.h"
 #include "CSSTimingFunctionValue.h"
 #include "CSSValueList.h"
-#include "CachedImage.h"
 #include "Document.h"
 #include "ExceptionCode.h"
-#include "Pair.h"
 #include "Rect.h"
 #include "RenderBox.h"
 #include "RenderLayer.h"
@@ -52,11 +51,16 @@ namespace WebCore {
 // List of all properties we know how to compute, omitting shorthands.
 static const int computedProperties[] = {
     CSSPropertyBackgroundAttachment,
+    CSSPropertyBackgroundClip,
     CSSPropertyBackgroundColor,
     CSSPropertyBackgroundImage,
+    CSSPropertyBackgroundOrigin,
     CSSPropertyBackgroundPosition, // more-specific background-position-x/y are non-standard
     CSSPropertyBackgroundRepeat,
+    CSSPropertyBackgroundSize,
     CSSPropertyBorderBottomColor,
+    CSSPropertyBorderBottomLeftRadius,
+    CSSPropertyBorderBottomRightRadius,
     CSSPropertyBorderBottomStyle,
     CSSPropertyBorderBottomWidth,
     CSSPropertyBorderCollapse,
@@ -67,6 +71,8 @@ static const int computedProperties[] = {
     CSSPropertyBorderRightStyle,
     CSSPropertyBorderRightWidth,
     CSSPropertyBorderTopColor,
+    CSSPropertyBorderTopLeftRadius,
+    CSSPropertyBorderTopRightRadius,
     CSSPropertyBorderTopStyle,
     CSSPropertyBorderTopWidth,
     CSSPropertyBottom,
@@ -121,7 +127,9 @@ static const int computedProperties[] = {
     CSSPropertyTextAlign,
     CSSPropertyTextDecoration,
     CSSPropertyTextIndent,
+    CSSPropertyTextRendering,
     CSSPropertyTextShadow,
+    CSSPropertyTextOverflow,
     CSSPropertyTextTransform,
     CSSPropertyTop,
     CSSPropertyUnicodeBidi,
@@ -139,8 +147,10 @@ static const int computedProperties[] = {
     CSSPropertyWebkitAnimationDelay,
     CSSPropertyWebkitAnimationDirection,
     CSSPropertyWebkitAnimationDuration,
+    CSSPropertyWebkitAnimationFillMode,
     CSSPropertyWebkitAnimationIterationCount,
     CSSPropertyWebkitAnimationName,
+    CSSPropertyWebkitAnimationPlayState,
     CSSPropertyWebkitAnimationTimingFunction,
     CSSPropertyWebkitAppearance,
     CSSPropertyWebkitBackfaceVisibility,
@@ -148,13 +158,9 @@ static const int computedProperties[] = {
     CSSPropertyWebkitBackgroundComposite,
     CSSPropertyWebkitBackgroundOrigin,
     CSSPropertyWebkitBackgroundSize,
-    CSSPropertyWebkitBorderBottomLeftRadius,
-    CSSPropertyWebkitBorderBottomRightRadius,
     CSSPropertyWebkitBorderFit,
     CSSPropertyWebkitBorderHorizontalSpacing,
     CSSPropertyWebkitBorderImage,
-    CSSPropertyWebkitBorderTopLeftRadius,
-    CSSPropertyWebkitBorderTopRightRadius,
     CSSPropertyWebkitBorderVerticalSpacing,
     CSSPropertyWebkitBoxAlign,
     CSSPropertyWebkitBoxDirection,
@@ -167,6 +173,7 @@ static const int computedProperties[] = {
     CSSPropertyWebkitBoxReflect,
     CSSPropertyWebkitBoxShadow,
     CSSPropertyWebkitBoxSizing,
+    CSSPropertyWebkitColorCorrection,
     CSSPropertyWebkitColumnBreakAfter,
     CSSPropertyWebkitColumnBreakBefore,
     CSSPropertyWebkitColumnBreakInside,
@@ -179,6 +186,7 @@ static const int computedProperties[] = {
 #if ENABLE(DASHBOARD_SUPPORT)
     CSSPropertyWebkitDashboardRegion,
 #endif
+    CSSPropertyWebkitFontSmoothing,
     CSSPropertyWebkitHighlight,
     CSSPropertyWebkitLineBreak,
     CSSPropertyWebkitLineClamp,
@@ -247,7 +255,6 @@ static const int computedProperties[] = {
     CSSPropertyStrokeMiterlimit,
     CSSPropertyStrokeOpacity,
     CSSPropertyStrokeWidth,
-    CSSPropertyTextRendering,
     CSSPropertyAlignmentBaseline,
     CSSPropertyBaselineShift,
     CSSPropertyDominantBaseline,
@@ -255,27 +262,12 @@ static const int computedProperties[] = {
     CSSPropertyTextAnchor,
     CSSPropertyWritingMode,
     CSSPropertyGlyphOrientationHorizontal,
-    CSSPropertyGlyphOrientationVertical
+    CSSPropertyGlyphOrientationVertical,
+    CSSPropertyWebkitSvgShadow
 #endif
 };
 
 const unsigned numComputedProperties = sizeof(computedProperties) / sizeof(computedProperties[0]);
-
-static PassRefPtr<CSSValue> valueForShadow(const ShadowData* shadow)
-{
-    if (!shadow)
-        return CSSPrimitiveValue::createIdentifier(CSSValueNone);
-
-    RefPtr<CSSValueList> list = CSSValueList::createCommaSeparated();
-    for (const ShadowData* s = shadow; s; s = s->next) {
-        RefPtr<CSSPrimitiveValue> x = CSSPrimitiveValue::create(s->x, CSSPrimitiveValue::CSS_PX);
-        RefPtr<CSSPrimitiveValue> y = CSSPrimitiveValue::create(s->y, CSSPrimitiveValue::CSS_PX);
-        RefPtr<CSSPrimitiveValue> blur = CSSPrimitiveValue::create(s->blur, CSSPrimitiveValue::CSS_PX);
-        RefPtr<CSSPrimitiveValue> color = CSSPrimitiveValue::createColor(s->color.rgb());
-        list->prepend(ShadowValue::create(x.release(), y.release(), blur.release(), color.release()));
-    }
-    return list.release();
-}
 
 static int valueForRepeatRule(int rule)
 {
@@ -301,28 +293,28 @@ static PassRefPtr<CSSValue> valueForNinePieceImage(const NinePieceImage& image)
     
     // Create the slices.
     RefPtr<CSSPrimitiveValue> top;
-    if (image.m_slices.top().isPercent())
-        top = CSSPrimitiveValue::create(image.m_slices.top().value(), CSSPrimitiveValue::CSS_PERCENTAGE);
+    if (image.slices().top().isPercent())
+        top = CSSPrimitiveValue::create(image.slices().top().value(), CSSPrimitiveValue::CSS_PERCENTAGE);
     else
-        top = CSSPrimitiveValue::create(image.m_slices.top().value(), CSSPrimitiveValue::CSS_NUMBER);
+        top = CSSPrimitiveValue::create(image.slices().top().value(), CSSPrimitiveValue::CSS_NUMBER);
         
     RefPtr<CSSPrimitiveValue> right;
-    if (image.m_slices.right().isPercent())
-        right = CSSPrimitiveValue::create(image.m_slices.right().value(), CSSPrimitiveValue::CSS_PERCENTAGE);
+    if (image.slices().right().isPercent())
+        right = CSSPrimitiveValue::create(image.slices().right().value(), CSSPrimitiveValue::CSS_PERCENTAGE);
     else
-        right = CSSPrimitiveValue::create(image.m_slices.right().value(), CSSPrimitiveValue::CSS_NUMBER);
+        right = CSSPrimitiveValue::create(image.slices().right().value(), CSSPrimitiveValue::CSS_NUMBER);
         
     RefPtr<CSSPrimitiveValue> bottom;
-    if (image.m_slices.bottom().isPercent())
-        bottom = CSSPrimitiveValue::create(image.m_slices.bottom().value(), CSSPrimitiveValue::CSS_PERCENTAGE);
+    if (image.slices().bottom().isPercent())
+        bottom = CSSPrimitiveValue::create(image.slices().bottom().value(), CSSPrimitiveValue::CSS_PERCENTAGE);
     else
-        bottom = CSSPrimitiveValue::create(image.m_slices.bottom().value(), CSSPrimitiveValue::CSS_NUMBER);
+        bottom = CSSPrimitiveValue::create(image.slices().bottom().value(), CSSPrimitiveValue::CSS_NUMBER);
     
     RefPtr<CSSPrimitiveValue> left;
-    if (image.m_slices.left().isPercent())
-        left = CSSPrimitiveValue::create(image.m_slices.left().value(), CSSPrimitiveValue::CSS_PERCENTAGE);
+    if (image.slices().left().isPercent())
+        left = CSSPrimitiveValue::create(image.slices().left().value(), CSSPrimitiveValue::CSS_PERCENTAGE);
     else
-        left = CSSPrimitiveValue::create(image.m_slices.left().value(), CSSPrimitiveValue::CSS_NUMBER);
+        left = CSSPrimitiveValue::create(image.slices().left().value(), CSSPrimitiveValue::CSS_NUMBER);
 
     RefPtr<Rect> rect = Rect::create();
     rect->setTop(top);
@@ -330,7 +322,7 @@ static PassRefPtr<CSSValue> valueForNinePieceImage(const NinePieceImage& image)
     rect->setBottom(bottom);
     rect->setLeft(left);
 
-    return CSSBorderImageValue::create(imageValue, rect, valueForRepeatRule(image.m_horizontalRule), valueForRepeatRule(image.m_verticalRule));
+    return CSSBorderImageValue::create(imageValue, rect, valueForRepeatRule(image.horizontalRule()), valueForRepeatRule(image.verticalRule()));
 }
 
 static PassRefPtr<CSSValue> valueForReflection(const StyleReflection* reflection)
@@ -382,8 +374,9 @@ static PassRefPtr<CSSValue> getPositionOffsetValue(RenderStyle* style, int prope
     return CSSPrimitiveValue::createIdentifier(CSSValueAuto);
 }
 
-static PassRefPtr<CSSPrimitiveValue> currentColorOrValidColor(RenderStyle* style, const Color& color)
+PassRefPtr<CSSPrimitiveValue> CSSComputedStyleDeclaration::currentColorOrValidColor(RenderStyle* style, const Color& color) const
 {
+    // This function does NOT look at visited information, so that computed style doesn't expose that.
     if (!color.isValid())
         return CSSPrimitiveValue::createColor(style->color().rgb());
     return CSSPrimitiveValue::createColor(color.rgb());
@@ -509,9 +502,13 @@ static PassRefPtr<CSSValue> getTimingFunctionValue(const AnimationList* animList
     return list.release();
 }
 
-CSSComputedStyleDeclaration::CSSComputedStyleDeclaration(PassRefPtr<Node> n)
+CSSComputedStyleDeclaration::CSSComputedStyleDeclaration(PassRefPtr<Node> n, bool allowVisitedStyle, const String& pseudoElementName)
     : m_node(n)
+    , m_allowVisitedStyle(allowVisitedStyle)
 {
+    unsigned nameWithoutColonsStart = pseudoElementName[0] == ':' ? (pseudoElementName[1] == ':' ? 2 : 1) : 0;
+    m_pseudoElementSpecifier = CSSSelector::pseudoId(CSSSelector::parsePseudoType(
+        AtomicString(pseudoElementName.substring(nameWithoutColonsStart))));
 }
 
 CSSComputedStyleDeclaration::~CSSComputedStyleDeclaration()
@@ -554,7 +551,7 @@ PassRefPtr<CSSValue> CSSComputedStyleDeclaration::getFontSizeCSSValuePreferringK
 
     node->document()->updateLayoutIgnorePendingStylesheets();
 
-    RefPtr<RenderStyle> style = node->computedStyle();
+    RefPtr<RenderStyle> style = node->computedStyle(m_pseudoElementSpecifier);
     if (!style)
         return 0;
 
@@ -562,6 +559,26 @@ PassRefPtr<CSSValue> CSSComputedStyleDeclaration::getFontSizeCSSValuePreferringK
         return CSSPrimitiveValue::createIdentifier(cssIdentifierForFontSizeKeyword(keywordSize));
 
     return CSSPrimitiveValue::create(style->fontDescription().computedPixelSize(), CSSPrimitiveValue::CSS_PX);
+}
+
+PassRefPtr<CSSValue> CSSComputedStyleDeclaration::valueForShadow(const ShadowData* shadow, int id) const
+{
+    if (!shadow)
+        return CSSPrimitiveValue::createIdentifier(CSSValueNone);
+
+    CSSPropertyID propertyID = static_cast<CSSPropertyID>(id);
+
+    RefPtr<CSSValueList> list = CSSValueList::createCommaSeparated();
+    for (const ShadowData* s = shadow; s; s = s->next()) {
+        RefPtr<CSSPrimitiveValue> x = CSSPrimitiveValue::create(s->x(), CSSPrimitiveValue::CSS_PX);
+        RefPtr<CSSPrimitiveValue> y = CSSPrimitiveValue::create(s->y(), CSSPrimitiveValue::CSS_PX);
+        RefPtr<CSSPrimitiveValue> blur = CSSPrimitiveValue::create(s->blur(), CSSPrimitiveValue::CSS_PX);
+        RefPtr<CSSPrimitiveValue> spread = propertyID == CSSPropertyTextShadow ? 0 : CSSPrimitiveValue::create(s->spread(), CSSPrimitiveValue::CSS_PX);
+        RefPtr<CSSPrimitiveValue> style = propertyID == CSSPropertyTextShadow || s->style() == Normal ? 0 : CSSPrimitiveValue::createIdentifier(CSSValueInset);
+        RefPtr<CSSPrimitiveValue> color = CSSPrimitiveValue::createColor(s->color().rgb());
+        list->prepend(ShadowValue::create(x.release(), y.release(), blur.release(), spread.release(), style.release(), color.release()));
+    }
+    return list.release();
 }
 
 PassRefPtr<CSSValue> CSSComputedStyleDeclaration::getPropertyCSSValue(int propertyID) const
@@ -596,6 +613,49 @@ static PassRefPtr<CSSPrimitiveValue> valueForFamily(const AtomicString& family)
     return CSSPrimitiveValue::create(family.string(), CSSPrimitiveValue::CSS_STRING);
 }
 
+static PassRefPtr<CSSValue> renderTextDecorationFlagsToCSSValue(int textDecoration)
+{
+    RefPtr<CSSValueList> list = CSSValueList::createSpaceSeparated();
+    if (textDecoration & UNDERLINE)
+        list->append(CSSPrimitiveValue::createIdentifier(CSSValueUnderline));
+    if (textDecoration & OVERLINE)
+        list->append(CSSPrimitiveValue::createIdentifier(CSSValueOverline));
+    if (textDecoration & LINE_THROUGH)
+        list->append(CSSPrimitiveValue::createIdentifier(CSSValueLineThrough));
+    if (textDecoration & BLINK)
+        list->append(CSSPrimitiveValue::createIdentifier(CSSValueBlink));
+
+    if (!list->length())
+        return CSSPrimitiveValue::createIdentifier(CSSValueNone);
+    return list;
+}
+
+static PassRefPtr<CSSValue> fillRepeatToCSSValue(EFillRepeat xRepeat, EFillRepeat yRepeat)
+{
+    // For backwards compatibility, if both values are equal, just return one of them. And
+    // if the two values are equivalent to repeat-x or repeat-y, just return the shorthand.
+    if (xRepeat == yRepeat)
+        return CSSPrimitiveValue::create(xRepeat);
+    if (xRepeat == RepeatFill && yRepeat == NoRepeatFill)
+        return CSSPrimitiveValue::createIdentifier(CSSValueRepeatX);
+    if (xRepeat == NoRepeatFill && yRepeat == RepeatFill)
+        return CSSPrimitiveValue::createIdentifier(CSSValueRepeatY);
+
+    RefPtr<CSSValueList> list = CSSValueList::createSpaceSeparated();
+    list->append(CSSPrimitiveValue::create(xRepeat));
+    list->append(CSSPrimitiveValue::create(yRepeat));
+    return list.release();
+}
+
+static void logUnimplementedPropertyID(int propertyID)
+{
+    DEFINE_STATIC_LOCAL(HashSet<int>, propertyIDSet, ());
+    if (!propertyIDSet.add(propertyID).second)
+        return;
+
+    LOG_ERROR("WebKit does not yet implement getComputedStyle for '%s'.", getPropertyName(static_cast<CSSPropertyID>(propertyID)));
+} 
+
 PassRefPtr<CSSValue> CSSComputedStyleDeclaration::getPropertyCSSValue(int propertyID, EUpdateLayout updateLayout) const
 {
     Node* node = m_node.get();
@@ -609,10 +669,15 @@ PassRefPtr<CSSValue> CSSComputedStyleDeclaration::getPropertyCSSValue(int proper
     RenderObject* renderer = node->renderer();
 
     RefPtr<RenderStyle> style;
-    if (renderer && hasCompositedLayer(renderer) && AnimationController::supportsAcceleratedAnimationOfProperty(static_cast<CSSPropertyID>(propertyID)))
+    if (renderer && hasCompositedLayer(renderer) && AnimationController::supportsAcceleratedAnimationOfProperty(static_cast<CSSPropertyID>(propertyID))) {
         style = renderer->animation()->getAnimatedStyleForRenderer(renderer);
-    else
-       style = node->computedStyle();
+        if (m_pseudoElementSpecifier) {
+            // FIXME: This cached pseudo style will only exist if the animation has been run at least once.
+            style = style->getCachedPseudoStyle(m_pseudoElementSpecifier);
+        }
+    } else
+        style = node->computedStyle(m_pseudoElementSpecifier);
+
     if (!style)
         return 0;
 
@@ -621,28 +686,34 @@ PassRefPtr<CSSValue> CSSComputedStyleDeclaration::getPropertyCSSValue(int proper
             break;
 
         case CSSPropertyBackgroundColor:
-            return CSSPrimitiveValue::createColor(style->backgroundColor().rgb());
+            return CSSPrimitiveValue::createColor(m_allowVisitedStyle? style->visitedDependentColor(CSSPropertyBackgroundColor).rgb() : style->backgroundColor().rgb());
         case CSSPropertyBackgroundImage:
             if (style->backgroundImage())
                 return style->backgroundImage()->cssValue();
             return CSSPrimitiveValue::createIdentifier(CSSValueNone);
+        case CSSPropertyBackgroundSize:
         case CSSPropertyWebkitBackgroundSize: {
+            EFillSizeType size = style->backgroundSizeType();
+            if (size == Contain)
+                return CSSPrimitiveValue::createIdentifier(CSSValueContain);
+            if (size == Cover)
+                return CSSPrimitiveValue::createIdentifier(CSSValueCover);
             RefPtr<CSSValueList> list = CSSValueList::createSpaceSeparated();
-            list->append(CSSPrimitiveValue::create(style->backgroundSize().width()));
-            list->append(CSSPrimitiveValue::create(style->backgroundSize().height()));
+            list->append(CSSPrimitiveValue::create(style->backgroundSizeLength().width()));
+            list->append(CSSPrimitiveValue::create(style->backgroundSizeLength().height()));
             return list.release();
         }  
         case CSSPropertyBackgroundRepeat:
-            return CSSPrimitiveValue::create(style->backgroundRepeat());
+            return fillRepeatToCSSValue(style->backgroundRepeatX(), style->backgroundRepeatY());
         case CSSPropertyWebkitBackgroundComposite:
             return CSSPrimitiveValue::create(style->backgroundComposite());
         case CSSPropertyBackgroundAttachment:
-            if (style->backgroundAttachment())
-                return CSSPrimitiveValue::createIdentifier(CSSValueScroll);
-            return CSSPrimitiveValue::createIdentifier(CSSValueFixed);
+            return CSSPrimitiveValue::create(style->backgroundAttachment());
+        case CSSPropertyBackgroundClip:
+        case CSSPropertyBackgroundOrigin:
         case CSSPropertyWebkitBackgroundClip:
         case CSSPropertyWebkitBackgroundOrigin: {
-            EFillBox box = (propertyID == CSSPropertyWebkitBackgroundClip ? style->backgroundClip() : style->backgroundOrigin());
+            EFillBox box = (propertyID == CSSPropertyWebkitBackgroundClip || propertyID == CSSPropertyBackgroundClip) ? style->backgroundClip() : style->backgroundOrigin();
             return CSSPrimitiveValue::create(box);
         }
         case CSSPropertyBackgroundPosition: {
@@ -672,13 +743,13 @@ PassRefPtr<CSSValue> CSSComputedStyleDeclaration::getPropertyCSSValue(int proper
         case CSSPropertyWebkitBorderVerticalSpacing:
             return CSSPrimitiveValue::create(style->verticalBorderSpacing(), CSSPrimitiveValue::CSS_PX);
         case CSSPropertyBorderTopColor:
-            return currentColorOrValidColor(style.get(), style->borderTopColor());
+            return m_allowVisitedStyle ? CSSPrimitiveValue::createColor(style->visitedDependentColor(CSSPropertyBorderTopColor).rgb()) : currentColorOrValidColor(style.get(), style->borderTopColor());
         case CSSPropertyBorderRightColor:
-            return currentColorOrValidColor(style.get(), style->borderRightColor());
+            return m_allowVisitedStyle ? CSSPrimitiveValue::createColor(style->visitedDependentColor(CSSPropertyBorderRightColor).rgb()) : currentColorOrValidColor(style.get(), style->borderRightColor());
         case CSSPropertyBorderBottomColor:
-            return currentColorOrValidColor(style.get(), style->borderBottomColor());
+            return m_allowVisitedStyle ? CSSPrimitiveValue::createColor(style->visitedDependentColor(CSSPropertyBorderBottomColor).rgb()) : currentColorOrValidColor(style.get(), style->borderBottomColor());
         case CSSPropertyBorderLeftColor:
-            return currentColorOrValidColor(style.get(), style->borderLeftColor());
+            return m_allowVisitedStyle ? CSSPrimitiveValue::createColor(style->visitedDependentColor(CSSPropertyBorderLeftColor).rgb()) : currentColorOrValidColor(style.get(), style->borderLeftColor());
         case CSSPropertyBorderTopStyle:
             return CSSPrimitiveValue::create(style->borderTopStyle());
         case CSSPropertyBorderRightStyle:
@@ -722,13 +793,13 @@ PassRefPtr<CSSValue> CSSComputedStyleDeclaration::getPropertyCSSValue(int proper
         case CSSPropertyWebkitBoxReflect:
             return valueForReflection(style->boxReflect());
         case CSSPropertyWebkitBoxShadow:
-            return valueForShadow(style->boxShadow());
+            return valueForShadow(style->boxShadow(), propertyID);
         case CSSPropertyCaptionSide:
             return CSSPrimitiveValue::create(style->captionSide());
         case CSSPropertyClear:
             return CSSPrimitiveValue::create(style->clear());
         case CSSPropertyColor:
-            return CSSPrimitiveValue::createColor(style->color().rgb());
+            return CSSPrimitiveValue::createColor(m_allowVisitedStyle ? style->visitedDependentColor(CSSPropertyColor).rgb() : style->color().rgb());
         case CSSPropertyWebkitColumnCount:
             if (style->hasAutoColumnCount())
                 return CSSPrimitiveValue::createIdentifier(CSSValueAuto);
@@ -738,7 +809,7 @@ PassRefPtr<CSSValue> CSSComputedStyleDeclaration::getPropertyCSSValue(int proper
                 return CSSPrimitiveValue::createIdentifier(CSSValueNormal);
             return CSSPrimitiveValue::create(style->columnGap(), CSSPrimitiveValue::CSS_NUMBER);
         case CSSPropertyWebkitColumnRuleColor:
-            return currentColorOrValidColor(style.get(), style->columnRuleColor());
+            return m_allowVisitedStyle ? CSSPrimitiveValue::createColor(style->visitedDependentColor(CSSPropertyOutlineColor).rgb()) : currentColorOrValidColor(style.get(), style->columnRuleColor());
         case CSSPropertyWebkitColumnRuleStyle:
             return CSSPrimitiveValue::create(style->columnRuleStyle());
         case CSSPropertyWebkitColumnRuleWidth:
@@ -759,7 +830,7 @@ PassRefPtr<CSSValue> CSSComputedStyleDeclaration::getPropertyCSSValue(int proper
             if (cursors && cursors->size() > 0) {
                 list = CSSValueList::createCommaSeparated();
                 for (unsigned i = 0; i < cursors->size(); ++i)
-                    list->append(CSSPrimitiveValue::create((*cursors)[i].cursorImage->url(), CSSPrimitiveValue::CSS_URI));
+                    list->append(CSSPrimitiveValue::create((*cursors)[i].image()->url(), CSSPrimitiveValue::CSS_URI));
             }
             RefPtr<CSSValue> value = CSSPrimitiveValue::create(style->cursor());
             if (list) {
@@ -839,9 +910,9 @@ PassRefPtr<CSSValue> CSSComputedStyleDeclaration::getPropertyCSSValue(int proper
                 return CSSPrimitiveValue::createIdentifier(CSSValueNormal);
             return CSSPrimitiveValue::create(style->letterSpacing(), CSSPrimitiveValue::CSS_PX);
         case CSSPropertyWebkitLineClamp:
-            if (style->lineClamp() == -1)
+            if (style->lineClamp().isNone())
                 return CSSPrimitiveValue::createIdentifier(CSSValueNone);
-            return CSSPrimitiveValue::create(style->lineClamp(), CSSPrimitiveValue::CSS_PERCENTAGE);
+            return CSSPrimitiveValue::create(style->lineClamp().value(), style->lineClamp().isPercentage() ? CSSPrimitiveValue::CSS_PERCENTAGE : CSSPrimitiveValue::CSS_NUMBER);
         case CSSPropertyLineHeight: {
             Length length = style->lineHeight();
             if (length.isNegative())
@@ -897,17 +968,20 @@ PassRefPtr<CSSValue> CSSComputedStyleDeclaration::getPropertyCSSValue(int proper
                 return style->maskImage()->cssValue();
             return CSSPrimitiveValue::createIdentifier(CSSValueNone);
         case CSSPropertyWebkitMaskSize: {
+            EFillSizeType size = style->maskSizeType();
+            if (size == Contain)
+                return CSSPrimitiveValue::createIdentifier(CSSValueContain);
+            if (size == Cover)
+                return CSSPrimitiveValue::createIdentifier(CSSValueCover);
             RefPtr<CSSValueList> list = CSSValueList::createSpaceSeparated();
-            list->append(CSSPrimitiveValue::create(style->maskSize().width()));
-            list->append(CSSPrimitiveValue::create(style->maskSize().height()));
+            list->append(CSSPrimitiveValue::create(style->maskSizeLength().width()));
+            list->append(CSSPrimitiveValue::create(style->maskSizeLength().height()));
             return list.release();
         }  
         case CSSPropertyWebkitMaskRepeat:
-            return CSSPrimitiveValue::create(style->maskRepeat());
+            return fillRepeatToCSSValue(style->maskRepeatX(), style->maskRepeatY());
         case CSSPropertyWebkitMaskAttachment:
-            if (style->maskAttachment())
-                return CSSPrimitiveValue::createIdentifier(CSSValueScroll);
-            return CSSPrimitiveValue::createIdentifier(CSSValueFixed);
+            return CSSPrimitiveValue::create(style->maskAttachment());
         case CSSPropertyWebkitMaskComposite:
             return CSSPrimitiveValue::create(style->maskComposite());
         case CSSPropertyWebkitMaskClip:
@@ -950,7 +1024,7 @@ PassRefPtr<CSSValue> CSSComputedStyleDeclaration::getPropertyCSSValue(int proper
         case CSSPropertyOrphans:
             return CSSPrimitiveValue::create(style->orphans(), CSSPrimitiveValue::CSS_NUMBER);
         case CSSPropertyOutlineColor:
-            return currentColorOrValidColor(style.get(), style->outlineColor());
+            return m_allowVisitedStyle ? CSSPrimitiveValue::createColor(style->visitedDependentColor(CSSPropertyOutlineColor).rgb()) : currentColorOrValidColor(style.get(), style->outlineColor());
         case CSSPropertyOutlineStyle:
             if (style->outlineStyleIsAuto())
                 return CSSPrimitiveValue::createIdentifier(CSSValueAuto);
@@ -998,58 +1072,22 @@ PassRefPtr<CSSValue> CSSComputedStyleDeclaration::getPropertyCSSValue(int proper
             return CSSPrimitiveValue::create(style->tableLayout());
         case CSSPropertyTextAlign:
             return CSSPrimitiveValue::create(style->textAlign());
-        case CSSPropertyTextDecoration: {
-            String string;
-            if (style->textDecoration() & UNDERLINE)
-                string += "underline";
-            if (style->textDecoration() & OVERLINE) {
-                if (string.length())
-                    string += " ";
-                string += "overline";
-            }
-            if (style->textDecoration() & LINE_THROUGH) {
-                if (string.length())
-                    string += " ";
-                string += "line-through";
-            }
-            if (style->textDecoration() & BLINK) {
-                if (string.length())
-                    string += " ";
-                string += "blink";
-            }
-            if (!string.length())
-                return CSSPrimitiveValue::createIdentifier(CSSValueNone);
-            return CSSPrimitiveValue::create(string, CSSPrimitiveValue::CSS_STRING);
-        }
-        case CSSPropertyWebkitTextDecorationsInEffect: {
-            String string;
-            if (style->textDecorationsInEffect() & UNDERLINE)
-                string += "underline";
-            if (style->textDecorationsInEffect() & OVERLINE) {
-                if (string.length())
-                    string += " ";
-                string += "overline";
-            }
-            if (style->textDecorationsInEffect() & LINE_THROUGH) {
-                if (string.length())
-                    string += " ";
-                string += "line-through";
-            }
-            if (style->textDecorationsInEffect() & BLINK) {
-                if (string.length())
-                    string += " ";
-                string += "blink";
-            }
-            if (!string.length())
-                return CSSPrimitiveValue::createIdentifier(CSSValueNone);
-            return CSSPrimitiveValue::create(string, CSSPrimitiveValue::CSS_STRING);
-        }
+        case CSSPropertyTextDecoration:
+            return renderTextDecorationFlagsToCSSValue(style->textDecoration());
+        case CSSPropertyWebkitTextDecorationsInEffect:
+            return renderTextDecorationFlagsToCSSValue(style->textDecorationsInEffect());
         case CSSPropertyWebkitTextFillColor:
             return currentColorOrValidColor(style.get(), style->textFillColor());
         case CSSPropertyTextIndent:
             return CSSPrimitiveValue::create(style->textIndent());
         case CSSPropertyTextShadow:
-            return valueForShadow(style->textShadow());
+            return valueForShadow(style->textShadow(), propertyID);
+        case CSSPropertyTextRendering:
+            return CSSPrimitiveValue::create(style->fontDescription().textRenderingMode());
+        case CSSPropertyTextOverflow:
+            if (style->textOverflow())
+                return CSSPrimitiveValue::createIdentifier(CSSValueEllipsis);
+            return CSSPrimitiveValue::createIdentifier(CSSValueClip);
         case CSSPropertyWebkitTextSecurity:
             return CSSPrimitiveValue::create(style->textSecurity());
         case CSSPropertyWebkitTextSizeAdjust:
@@ -1115,6 +1153,8 @@ PassRefPtr<CSSValue> CSSComputedStyleDeclaration::getPropertyCSSValue(int proper
             return CSSPrimitiveValue::create(style->matchNearestMailBlockquoteColor());
         case CSSPropertyResize:
             return CSSPrimitiveValue::create(style->resize());
+        case CSSPropertyWebkitFontSmoothing:
+            return CSSPrimitiveValue::create(style->fontDescription().fontSmoothing());
         case CSSPropertyZIndex:
             if (style->hasAutoZIndex())
                 return CSSPrimitiveValue::createIdentifier(CSSValueAuto);
@@ -1175,6 +1215,30 @@ PassRefPtr<CSSValue> CSSComputedStyleDeclaration::getPropertyCSSValue(int proper
         }
         case CSSPropertyWebkitAnimationDuration:
             return getDurationValue(style->animations());
+        case CSSPropertyWebkitAnimationFillMode: {
+            RefPtr<CSSValueList> list = CSSValueList::createCommaSeparated();
+            const AnimationList* t = style->animations();
+            if (t) {
+                for (size_t i = 0; i < t->size(); ++i) {
+                    switch (t->animation(i)->fillMode()) {
+                    case AnimationFillModeNone:
+                        list->append(CSSPrimitiveValue::createIdentifier(CSSValueNone));
+                        break;
+                    case AnimationFillModeForwards:
+                        list->append(CSSPrimitiveValue::createIdentifier(CSSValueForwards));
+                        break;
+                    case AnimationFillModeBackwards:
+                        list->append(CSSPrimitiveValue::createIdentifier(CSSValueBackwards));
+                        break;
+                    case AnimationFillModeBoth:
+                        list->append(CSSPrimitiveValue::createIdentifier(CSSValueBoth));
+                        break;
+                    }
+                }
+            } else
+                list->append(CSSPrimitiveValue::createIdentifier(CSSValueNone));
+            return list.release();
+        }
         case CSSPropertyWebkitAnimationIterationCount: {
             RefPtr<CSSValueList> list = CSSValueList::createCommaSeparated();
             const AnimationList* t = style->animations();
@@ -1199,6 +1263,21 @@ PassRefPtr<CSSValue> CSSComputedStyleDeclaration::getPropertyCSSValue(int proper
                 }
             } else
                 list->append(CSSPrimitiveValue::createIdentifier(CSSValueNone));
+            return list.release();
+        }
+        case CSSPropertyWebkitAnimationPlayState: {
+            RefPtr<CSSValueList> list = CSSValueList::createCommaSeparated();
+            const AnimationList* t = style->animations();
+            if (t) {
+                for (size_t i = 0; i < t->size(); ++i) {
+                    int prop = t->animation(i)->playState();
+                    if (prop == AnimPlayStatePlaying)
+                        list->append(CSSPrimitiveValue::createIdentifier(CSSValueRunning));
+                    else
+                        list->append(CSSPrimitiveValue::createIdentifier(CSSValuePaused));
+                }
+            } else
+                list->append(CSSPrimitiveValue::createIdentifier(CSSValueRunning));
             return list.release();
         }
         case CSSPropertyWebkitAnimationTimingFunction:
@@ -1243,13 +1322,13 @@ PassRefPtr<CSSValue> CSSComputedStyleDeclaration::getPropertyCSSValue(int proper
             return CSSPrimitiveValue::create(style->userDrag());
         case CSSPropertyWebkitUserSelect:
             return CSSPrimitiveValue::create(style->userSelect());
-        case CSSPropertyWebkitBorderBottomLeftRadius:
+        case CSSPropertyBorderBottomLeftRadius:
             return getBorderRadiusCornerValue(style->borderBottomLeftRadius());
-        case CSSPropertyWebkitBorderBottomRightRadius:
+        case CSSPropertyBorderBottomRightRadius:
             return getBorderRadiusCornerValue(style->borderBottomRightRadius());
-        case CSSPropertyWebkitBorderTopLeftRadius:
+        case CSSPropertyBorderTopLeftRadius:
             return getBorderRadiusCornerValue(style->borderTopLeftRadius());
-        case CSSPropertyWebkitBorderTopRightRadius:
+        case CSSPropertyBorderTopRightRadius:
             return getBorderRadiusCornerValue(style->borderTopRightRadius());
         case CSSPropertyClip: {
             if (!style->hasClip())
@@ -1308,6 +1387,8 @@ PassRefPtr<CSSValue> CSSComputedStyleDeclaration::getPropertyCSSValue(int proper
             return getTimingFunctionValue(style->transitions());
         case CSSPropertyPointerEvents:
             return CSSPrimitiveValue::create(style->pointerEvents());
+        case CSSPropertyWebkitColorCorrection:
+            return CSSPrimitiveValue::create(style->colorSpace());
 
         /* Shorthand properties, currently not supported see bug 13658*/
         case CSSPropertyBackground:
@@ -1315,6 +1396,7 @@ PassRefPtr<CSSValue> CSSComputedStyleDeclaration::getPropertyCSSValue(int proper
         case CSSPropertyBorderBottom:
         case CSSPropertyBorderColor:
         case CSSPropertyBorderLeft:
+        case CSSPropertyBorderRadius:
         case CSSPropertyBorderRight:
         case CSSPropertyBorderStyle:
         case CSSPropertyBorderTop:
@@ -1331,7 +1413,6 @@ PassRefPtr<CSSValue> CSSComputedStyleDeclaration::getPropertyCSSValue(int proper
         case CSSPropertyTextLineThroughMode:
         case CSSPropertyTextLineThroughStyle:
         case CSSPropertyTextLineThroughWidth:
-        case CSSPropertyTextOverflow:
         case CSSPropertyTextOverline:
         case CSSPropertyTextOverlineColor:
         case CSSPropertyTextOverlineMode:
@@ -1351,6 +1432,8 @@ PassRefPtr<CSSValue> CSSComputedStyleDeclaration::getPropertyCSSValue(int proper
             break;
 
         /* Other unimplemented properties */
+        case CSSPropertyBackgroundRepeatX:
+        case CSSPropertyBackgroundRepeatY:
         case CSSPropertyContent: // FIXME: needs implementation, bug 23668
         case CSSPropertyCounterIncrement:
         case CSSPropertyCounterReset:
@@ -1371,6 +1454,8 @@ PassRefPtr<CSSValue> CSSComputedStyleDeclaration::getPropertyCSSValue(int proper
         case CSSPropertyWebkitMarquee:
         case CSSPropertyWebkitMarqueeSpeed:
         case CSSPropertyWebkitMask:
+        case CSSPropertyWebkitMaskRepeatX:
+        case CSSPropertyWebkitMaskRepeatY:
         case CSSPropertyWebkitPaddingStart:
         case CSSPropertyWebkitPerspectiveOriginX:
         case CSSPropertyWebkitPerspectiveOriginY:
@@ -1390,7 +1475,7 @@ PassRefPtr<CSSValue> CSSComputedStyleDeclaration::getPropertyCSSValue(int proper
 #endif
     }
 
-    LOG_ERROR("unimplemented propertyID: %d", propertyID);
+    logUnimplementedPropertyID(propertyID);
     return 0;
 }
 
@@ -1419,13 +1504,13 @@ void CSSComputedStyleDeclaration::setProperty(int /*propertyID*/, const String& 
     ec = NO_MODIFICATION_ALLOWED_ERR;
 }
 
-unsigned CSSComputedStyleDeclaration::length() const
+unsigned CSSComputedStyleDeclaration::virtualLength() const
 {
     Node* node = m_node.get();
     if (!node)
         return 0;
 
-    RenderStyle* style = node->computedStyle();
+    RenderStyle* style = node->computedStyle(m_pseudoElementSpecifier);
     if (!style)
         return 0;
 
@@ -1435,52 +1520,16 @@ unsigned CSSComputedStyleDeclaration::length() const
 String CSSComputedStyleDeclaration::item(unsigned i) const
 {
     if (i >= length())
-        return String();
+        return "";
 
     return getPropertyName(static_cast<CSSPropertyID>(computedProperties[i]));
-}
-
-// This is the list of properties we want to copy in the copyInheritableProperties() function.
-// It is the intersection of the list of inherited CSS properties and the
-// properties for which we have a computed implementation in this file.
-static const int inheritableProperties[] = {
-    CSSPropertyBorderCollapse,
-    CSSPropertyColor,
-    CSSPropertyFontFamily,
-    CSSPropertyFontSize,
-    CSSPropertyFontStyle,
-    CSSPropertyFontVariant,
-    CSSPropertyFontWeight,
-    CSSPropertyLetterSpacing,
-    CSSPropertyLineHeight,
-    CSSPropertyOrphans,
-    CSSPropertyTextAlign,
-    CSSPropertyTextIndent,
-    CSSPropertyTextTransform,
-    CSSPropertyWhiteSpace,
-    CSSPropertyWidows,
-    CSSPropertyWordSpacing,
-    CSSPropertyWebkitBorderHorizontalSpacing,
-    CSSPropertyWebkitBorderVerticalSpacing,
-    CSSPropertyWebkitTextDecorationsInEffect,
-    CSSPropertyWebkitTextFillColor,
-    CSSPropertyWebkitTextSizeAdjust,
-    CSSPropertyWebkitTextStrokeColor,
-    CSSPropertyWebkitTextStrokeWidth,
-};
-
-static const unsigned numInheritableProperties = sizeof(inheritableProperties) / sizeof(inheritableProperties[0]);
-
-void CSSComputedStyleDeclaration::removeComputedInheritablePropertiesFrom(CSSMutableStyleDeclaration* declaration)
-{
-    declaration->removePropertiesInSet(inheritableProperties, numInheritableProperties);
 }
 
 bool CSSComputedStyleDeclaration::cssPropertyMatches(const CSSProperty* property) const
 {
     if (property->id() == CSSPropertyFontSize && property->value()->isPrimitiveValue() && m_node) {
         m_node->document()->updateLayoutIgnorePendingStylesheets();
-        RenderStyle* style = m_node->computedStyle();
+        RenderStyle* style = m_node->computedStyle(m_pseudoElementSpecifier);
         if (style && style->fontDescription().keywordSize()) {
             int sizeValue = cssIdentifierForFontSizeKeyword(style->fontDescription().keywordSize());
             CSSPrimitiveValue* primitiveValue = static_cast<CSSPrimitiveValue*>(property->value());
@@ -1490,25 +1539,6 @@ bool CSSComputedStyleDeclaration::cssPropertyMatches(const CSSProperty* property
     }
 
     return CSSStyleDeclaration::cssPropertyMatches(property);
-}
-
-PassRefPtr<CSSMutableStyleDeclaration> CSSComputedStyleDeclaration::copyInheritableProperties() const
-{
-    RefPtr<CSSMutableStyleDeclaration> style = copyPropertiesInSet(inheritableProperties, numInheritableProperties);
-    if (style && m_node && m_node->computedStyle()) {
-        // If a node's text fill color is invalid, then its children use 
-        // their font-color as their text fill color (they don't
-        // inherit it).  Likewise for stroke color.
-        ExceptionCode ec = 0;
-        if (!m_node->computedStyle()->textFillColor().isValid())
-            style->removeProperty(CSSPropertyWebkitTextFillColor, ec);
-        if (!m_node->computedStyle()->textStrokeColor().isValid())
-            style->removeProperty(CSSPropertyWebkitTextStrokeColor, ec);
-        ASSERT(ec == 0);
-        if (int keywordSize = m_node->computedStyle()->fontDescription().keywordSize())
-            style->setProperty(CSSPropertyFontSize, cssIdentifierForFontSizeKeyword(keywordSize));
-    }
-    return style.release();
 }
 
 PassRefPtr<CSSMutableStyleDeclaration> CSSComputedStyleDeclaration::copy() const

@@ -1,9 +1,9 @@
 #
 # "$Id: Makedefs.in 7900 2008-09-03 13:47:57Z mike $"
 #
-#   Common makefile definitions for the Common UNIX Printing System (CUPS).
+#   Common makefile definitions for CUPS.
 #
-#   Copyright 2007-2009 by Apple Inc.
+#   Copyright 2007-2010 by Apple Inc.
 #   Copyright 1997-2007 by Easy Software Products, all rights reserved.
 #
 #   These coded instructions, statements, and computer programs are the
@@ -263,7 +263,7 @@ DBUSDIR		=	@DBUSDIR@
 
 .c.o:
 	echo Compiling $<...
-	$(CC) $(ARCHFLAGS) $(OPTIM) $(ALL_CFLAGS) -c $<
+	$(CC) $(ARCHFLAGS) $(OPTIM) $(ALL_CFLAGS) -c -o $@ $<
 
 .c.32.o:
 	echo Compiling 32-bit $<...
@@ -275,7 +275,7 @@ DBUSDIR		=	@DBUSDIR@
 
 .cxx.o:
 	echo Compiling $<...
-	$(CXX) $(ARCHFLAGS) $(OPTIM) $(ALL_CXXFLAGS) -c $<
+	$(CXX) $(ARCHFLAGS) $(OPTIM) $(ALL_CXXFLAGS) -c -o $@ $<
 
 .man.1 .man.1m .man.3 .man.5 .man.7 .man.8:
 	echo Linking $<...

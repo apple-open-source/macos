@@ -42,6 +42,7 @@ namespace WebCore {
     class AuthenticationChallenge;
     class CachedFrame;
     class HistoryItem;
+    class ProtectionSpace;
     class String;
     class ResourceLoader;
     class ResourceRequest;
@@ -79,6 +80,9 @@ private:
     virtual bool shouldUseCredentialStorage(WebCore::DocumentLoader*, unsigned long identifier);
     virtual void dispatchDidReceiveAuthenticationChallenge(WebCore::DocumentLoader*, unsigned long identifier, const WebCore::AuthenticationChallenge&);
     virtual void dispatchDidCancelAuthenticationChallenge(WebCore::DocumentLoader*, unsigned long identifier, const WebCore::AuthenticationChallenge&);
+#if USE(PROTECTION_SPACE_AUTH_CALLBACK)
+    virtual bool canAuthenticateAgainstProtectionSpace(WebCore::DocumentLoader*, unsigned long identifier, const WebCore::ProtectionSpace&);
+#endif
     virtual void dispatchDidReceiveResponse(WebCore::DocumentLoader*, unsigned long identifier, const WebCore::ResourceResponse&);
     virtual void dispatchDidReceiveContentLength(WebCore::DocumentLoader*, unsigned long identifier, int lengthReceived);
     virtual void dispatchDidFinishLoading(WebCore::DocumentLoader*, unsigned long identifier);
@@ -91,10 +95,15 @@ private:
     virtual void dispatchDidCancelClientRedirect();
     virtual void dispatchWillPerformClientRedirect(const WebCore::KURL&, double interval, double fireDate);
     virtual void dispatchDidChangeLocationWithinPage();
+    virtual void dispatchDidPushStateWithinPage();
+    virtual void dispatchDidReplaceStateWithinPage();
+    virtual void dispatchDidPopStateWithinPage();
+    
     virtual void dispatchWillClose();
     virtual void dispatchDidReceiveIcon();
     virtual void dispatchDidStartProvisionalLoad();
     virtual void dispatchDidReceiveTitle(const WebCore::String& title);
+    virtual void dispatchDidChangeIcons();
     virtual void dispatchDidCommitLoad();
     virtual void dispatchDidFailProvisionalLoad(const WebCore::ResourceError&);
     virtual void dispatchDidFailLoad(const WebCore::ResourceError&);
@@ -116,13 +125,13 @@ private:
 
     virtual void dispatchUnableToImplementPolicy(const WebCore::ResourceError&);
 
+    virtual void dispatchWillSendSubmitEvent(WebCore::HTMLFormElement*) { }
     virtual void dispatchWillSubmitForm(WebCore::FramePolicyFunction, PassRefPtr<WebCore::FormState>);
 
     virtual void dispatchDidLoadMainResource(WebCore::DocumentLoader*);
     virtual void revertToProvisionalState(WebCore::DocumentLoader*);
     virtual void setMainDocumentError(WebCore::DocumentLoader*, const WebCore::ResourceError&);
     virtual bool dispatchDidLoadResourceFromMemoryCache(WebCore::DocumentLoader*, const WebCore::ResourceRequest&, const WebCore::ResourceResponse&, int length);
-    virtual void dispatchDidLoadResourceByXMLHttpRequest(unsigned long identifier, const WebCore::ScriptString&);
 
     virtual void willChangeEstimatedProgress();
     virtual void didChangeEstimatedProgress();
@@ -143,6 +152,12 @@ private:
     virtual void updateGlobalHistoryRedirectLinks();
 
     virtual bool shouldGoToHistoryItem(WebCore::HistoryItem*) const;
+    virtual void dispatchDidAddBackForwardItem(WebCore::HistoryItem*) const;
+    virtual void dispatchDidRemoveBackForwardItem(WebCore::HistoryItem*) const;
+    virtual void dispatchDidChangeBackForwardIndex() const;
+
+    virtual void didDisplayInsecureContent();
+    virtual void didRunInsecureContent(WebCore::SecurityOrigin*);
 
     virtual WebCore::ResourceError cancelledError(const WebCore::ResourceRequest&);
     virtual WebCore::ResourceError blockedError(const WebCore::ResourceRequest&);
@@ -178,6 +193,7 @@ private:
 
     virtual PassRefPtr<WebCore::Frame> createFrame(const WebCore::KURL& url, const WebCore::String& name, WebCore::HTMLFrameOwnerElement*,
                                         const WebCore::String& referrer, bool allowsScrolling, int marginWidth, int marginHeight);
+    virtual void didTransferChildFrameToNewDocument();
     virtual PassRefPtr<WebCore::Widget> createPlugin(const WebCore::IntSize&, WebCore::HTMLPlugInElement*, const WebCore::KURL&, const Vector<WebCore::String>&,
                                           const Vector<WebCore::String>&, const WebCore::String&, bool);
     virtual void redirectDataToPlugin(WebCore::Widget* pluginWidget);
@@ -188,13 +204,13 @@ private:
     virtual WebCore::ObjectContentType objectContentType(const WebCore::KURL& url, const WebCore::String& mimeType);
     virtual WebCore::String overrideMediaType() const;
     
-    virtual void windowObjectCleared();
+    virtual void dispatchDidClearWindowObjectInWorld(WebCore::DOMWrapperWorld*);
     virtual void documentElementAvailable();
     virtual void didPerformFirstNavigation() const;
 
     virtual void registerForIconNotification(bool listen);
 
-#if ENABLE(MAC_JAVA_BRIDGE)
+#if ENABLE(JAVA_BRIDGE)
     virtual jobject javaApplet(NSView*);
 #endif
 
@@ -205,7 +221,7 @@ private:
     NSDictionary *actionDictionary(const WebCore::NavigationAction&, PassRefPtr<WebCore::FormState>) const;
     
     virtual bool canCachePage() const;
-
+    
     RetainPtr<WebFrame> m_webFrame;
 
     RetainPtr<WebFramePolicyListener> m_policyListener;

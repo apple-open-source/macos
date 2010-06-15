@@ -159,12 +159,12 @@ void MediaDocument::defaultEventHandler(Event* event)
         HTMLVideoElement* video = static_cast<HTMLVideoElement*>(targetNode);
         if (event->type() == eventNames().clickEvent) {
             if (!video->canPlay()) {
-                video->pause();
+                video->pause(event->fromUserGesture());
                 event->setDefaultHandled();
             }
         } else if (event->type() == eventNames().dblclickEvent) {
             if (video->canPlay()) {
-                video->play();
+                video->play(event->fromUserGesture());
                 event->setDefaultHandled();
             }
         }
@@ -186,9 +186,9 @@ void MediaDocument::defaultEventHandler(Event* event)
             if (keyboardEvent->keyIdentifier() == "U+0020") { // space
                 if (video->paused()) {
                     if (video->canPlay())
-                        video->play();
+                        video->play(event->fromUserGesture());
                 } else
-                    video->pause();
+                    video->pause(event->fromUserGesture());
                 event->setDefaultHandled();
             }
         }
@@ -226,8 +226,8 @@ void MediaDocument::replaceMediaElementTimerFired(Timer<MediaDocument>*)
         embedElement->setAttribute(widthAttr, "100%");
         embedElement->setAttribute(heightAttr, "100%");
         embedElement->setAttribute(nameAttr, "plugin");
-        embedElement->setSrc(url().string());
-        embedElement->setType(frame()->loader()->responseMIMEType());
+        embedElement->setAttribute(srcAttr, url().string());
+        embedElement->setAttribute(typeAttr, frame()->loader()->writer()->mimeType());
 
         ExceptionCode ec;
         videoElement->parent()->replaceChild(embedElement, videoElement, ec);

@@ -29,8 +29,10 @@
 #include <WebCore/FocusDirection.h>
 #include <WebCore/ScrollTypes.h>
 #include <wtf/Forward.h>
+#include <wtf/PassRefPtr.h>
 
 class WebView;
+class WebDesktopNotificationsDelegate;
 
 interface IWebUIDelegate;
 
@@ -53,6 +55,8 @@ public:
     virtual bool canTakeFocus(WebCore::FocusDirection);
     virtual void takeFocus(WebCore::FocusDirection);
 
+    virtual void focusedNodeChanged(WebCore::Node*);
+
     virtual WebCore::Page* createWindow(WebCore::Frame*, const WebCore::FrameLoadRequest&, const WebCore::WindowFeatures&);
     virtual void show();
 
@@ -73,7 +77,7 @@ public:
 
     virtual void setResizable(bool);
 
-    virtual void addMessageToConsole(WebCore::MessageSource source, WebCore::MessageLevel level, const WebCore::String& message, unsigned line, const WebCore::String& url);
+    virtual void addMessageToConsole(WebCore::MessageSource source, WebCore::MessageType type, WebCore::MessageLevel level, const WebCore::String& message, unsigned line, const WebCore::String& url);
 
     virtual bool canRunBeforeUnloadConfirmPanel();
     virtual bool runBeforeUnloadConfirmPanel(const WebCore::String& message, WebCore::Frame* frame);
@@ -89,21 +93,29 @@ public:
     virtual bool tabsToLinks() const;
     virtual WebCore::IntRect windowResizerRect() const;
 
-    virtual void repaint(const WebCore::IntRect&, bool contentChanged, bool immediate = false, bool repaintContentOnly = false);
+    virtual void invalidateWindow(const WebCore::IntRect&, bool);
+    virtual void invalidateContentsAndWindow(const WebCore::IntRect&, bool);
+    virtual void invalidateContentsForSlowScroll(const WebCore::IntRect&, bool);
     virtual void scroll(const WebCore::IntSize& scrollDelta, const WebCore::IntRect& rectToScroll, const WebCore::IntRect& clipRect);
+
     virtual WebCore::IntPoint screenToWindow(const WebCore::IntPoint& p) const;
     virtual WebCore::IntRect windowToScreen(const WebCore::IntRect& r) const;
-    virtual PlatformWidget platformWindow() const;
+    virtual PlatformPageClient platformPageClient() const;
     virtual void contentsSizeChanged(WebCore::Frame*, const WebCore::IntSize&) const;
 
+    virtual void scrollbarsModeDidChange() const { }
     virtual void mouseDidMoveOverElement(const WebCore::HitTestResult&, unsigned modifierFlags);
 
-    virtual void setToolTip(const WebCore::String&);
+    virtual void setToolTip(const WebCore::String&, WebCore::TextDirection);
 
     virtual void print(WebCore::Frame*);
 
 #if ENABLE(DATABASE)
     virtual void exceededDatabaseQuota(WebCore::Frame*, const WebCore::String&);
+#endif
+
+#if ENABLE(OFFLINE_WEB_APPLICATIONS)
+    virtual void reachedMaxAppCacheSize(int64_t spaceNeeded);
 #endif
 
     virtual void populateVisitedLinks();
@@ -114,6 +126,7 @@ public:
     virtual bool paintCustomScrollCorner(WebCore::GraphicsContext*, const WebCore::FloatRect&);
 
     virtual void runOpenPanel(WebCore::Frame*, PassRefPtr<WebCore::FileChooser>);
+    virtual void chooseIconForFiles(const Vector<WebCore::String>&, WebCore::FileChooser*);
 
     virtual bool setCursor(WebCore::PlatformCursorHandle cursor);
 
@@ -123,12 +136,38 @@ public:
 
     virtual PassOwnPtr<WebCore::HTMLParserQuirks> createHTMLParserQuirks() { return 0; }
 
+#if USE(ACCELERATED_COMPOSITING)
+        // Pass 0 as the GraphicsLayer to detatch the root layer.
+        virtual void attachRootGraphicsLayer(WebCore::Frame*, WebCore::GraphicsLayer*);
+        // Sets a flag to specify that the next time content is drawn to the window,
+        // the changes appear on the screen in synchrony with updates to GraphicsLayers.
+        virtual void setNeedsOneShotDrawingSynchronization() { }
+        // Sets a flag to specify that the view needs to be updated, so we need
+        // to do an eager layout before the drawing.
+        virtual void scheduleCompositingLayerSync();
+#endif
+
     virtual void scrollRectIntoView(const WebCore::IntRect&, const WebCore::ScrollView*) const {}
 
     virtual void requestGeolocationPermissionForFrame(WebCore::Frame*, WebCore::Geolocation*);
+    virtual void cancelGeolocationPermissionRequestForFrame(WebCore::Frame*, WebCore::Geolocation*) { }
+
+#if ENABLE(VIDEO)
+    virtual bool supportsFullscreenForNode(const WebCore::Node*);
+    virtual void enterFullscreenForNode(WebCore::Node*);
+    virtual void exitFullscreenForNode(WebCore::Node*);
+#endif
+
+#if ENABLE(NOTIFICATIONS)
+    virtual WebCore::NotificationPresenter* notificationPresenter() const { return reinterpret_cast<WebCore::NotificationPresenter*>(m_notificationsDelegate.get()); }
+#endif
 
 private:
     COMPtr<IWebUIDelegate> uiDelegate();
 
     WebView* m_webView;
+
+#if ENABLE(NOTIFICATIONS)
+    OwnPtr<WebDesktopNotificationsDelegate> m_notificationsDelegate;
+#endif
 };

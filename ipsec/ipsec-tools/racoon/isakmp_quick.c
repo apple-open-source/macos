@@ -97,7 +97,8 @@
 /* quick mode */
 static vchar_t *quick_ir1mx __P((struct ph2handle *, vchar_t *, vchar_t *));
 static int get_sainfo_r __P((struct ph2handle *));
-static int get_proposal_r __P((struct ph2handle *, int));
+static int get_proposal_r __P((struct ph2handle *));
+static int get_proposal_r_remote __P((struct ph2handle *, int));
 
 /* %%%
  * Quick Mode
@@ -568,6 +569,7 @@ quick_i2recv(iph2, msg0)
 								goto end;
 							}
 							plog(LLV_DEBUG, LOCATION, NULL, "external nat address saved.\n");
+							plogdump(LLV_DEBUG, iph2->ext_nat_id->v, iph2->ext_nat_id->l);
 						} else if (f_id && (iph2->ph1->natt_flags & NAT_DETECTED_PEER)) {
 							if (iph2->ext_nat_id_p)
 								vfree(iph2->ext_nat_id_p);
@@ -578,6 +580,7 @@ quick_i2recv(iph2, msg0)
 							}
 							memcpy(iph2->ext_nat_id_p->v, &(idp_ptr->b), iph2->ext_nat_id_p->l);
 							plog(LLV_DEBUG, LOCATION, NULL, "peer's external nat address saved.\n");
+							plogdump(LLV_DEBUG, iph2->ext_nat_id_p->v, iph2->ext_nat_id_p->l);
 						} 
 					} else {
 						plog(LLV_ERROR, LOCATION, NULL, "mismatched ID was returned.\n");
@@ -1369,12 +1372,7 @@ quick_r1recv(iph2, msg0)
 	}
 
     /* check the existence of ID payload and create responder's proposal */
-    error = get_proposal_r(iph2, 0);
-    if (error != -2 && error != 0 && 
-		(((iph2->ph1->natt_flags & NAT_DETECTED_ME) && lcconf->ext_nat_id != NULL) ||
-		 (iph2->parent_session && iph2->parent_session->is_client)))
-        error = get_proposal_r(iph2, 1);
-		
+	error = get_proposal_r(iph2);
 	switch (error) {
 	case -2:
 		/* generate a policy template from peer's proposal */
@@ -1602,6 +1600,8 @@ quick_r2send(iph2, msg)
 	}
 #endif
 
+	plog(LLV_DEBUG, LOCATION, NULL, "Approved SA\n");
+	printsaprop0(LLV_DEBUG, iph2->approval);
 
 	body = vmalloc(tlen);
 	if (body == NULL) { 
@@ -1634,9 +1634,13 @@ quick_r2send(iph2, msg)
 	if (iph2->id_p != NULL) {
 		/* IDci */
 		p = set_isakmp_payload(p, iph2->id_p, ISAKMP_NPTYPE_ID);
+		plog(LLV_DEBUG, LOCATION, NULL, "sending IDci2:\n");
+		plogdump(LLV_DEBUG, iph2->id_p->v, iph2->id_p->l);
 		/* IDcr */
 		np_p = &((struct isakmp_gen *)p)->np;	/* XXX */
 		p = set_isakmp_payload(p, iph2->id, (natoa_type ? natoa_type : ISAKMP_NPTYPE_NONE));
+		plog(LLV_DEBUG, LOCATION, NULL, "sending IDcr2:\n");
+		plogdump(LLV_DEBUG, iph2->id->v, iph2->id->l);
 	}
 
 	/* add a RESPONDER-LIFETIME notify payload if needed */
@@ -2369,6 +2373,22 @@ end:
 	return error;
 }
 
+static int
+get_proposal_r(iph2)
+	struct ph2handle *iph2;
+{
+	int error = get_proposal_r_remote(iph2, 0);
+	if (error != -2 && error != 0 && 
+		(((iph2->ph1->natt_flags & NAT_DETECTED_ME) && lcconf->ext_nat_id != NULL) ||
+		 (iph2->parent_session && iph2->parent_session->is_client))) {
+		if (iph2->parent_session && iph2->parent_session->is_client)
+			error = ike_session_get_proposal_r(iph2);
+		if (error != -2 && error != 0)
+			error = get_proposal_r_remote(iph2, 1);					
+	}
+	return error;
+}
+
 /*
  * Copy both IP addresses in ID payloads into [src,dst]_id if both ID types
  * are IP address and same address family.
@@ -2380,7 +2400,7 @@ end:
  * NOTE: This function is only for responder.
  */
 static int
-get_proposal_r(iph2, use_remote_addr)
+get_proposal_r_remote(iph2, use_remote_addr)
 	struct ph2handle *iph2;
 	int use_remote_addr;
 {

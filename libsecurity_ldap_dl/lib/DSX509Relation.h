@@ -73,7 +73,7 @@ protected:
 
 public:
 	DSX509Record (DSX509Relation* relation) : mRelation (relation) {}
-	int GetTuple (CFDataRef certData, CFStringRef original_search, DSX509Tuple *tupleList[], int maxTuples);
+	DSX509Tuple* GetTuple (CFDataRef certData, CFStringRef original_search, DSX509Tuple *tupleList[], int maxTuples);
 };
 
 

@@ -26,7 +26,7 @@
 #ifndef Color_h
 #define Color_h
 
-#include <wtf/Platform.h>
+#include <wtf/FastAllocBase.h>
 
 #if PLATFORM(CG)
 typedef struct CGColor* CGColorRef;
@@ -47,6 +47,10 @@ typedef struct _GdkColor GdkColor;
 class wxColour;
 #endif
 
+#if PLATFORM(HAIKU)
+struct rgb_color;
+#endif
+
 namespace WebCore {
 
 class String;
@@ -64,7 +68,7 @@ RGBA32 makeRGBAFromCMYKA(float c, float m, float y, float k, float a);
 
 int differenceSquared(const Color&, const Color&);
 
-class Color {
+class Color : public FastAllocBase {
 public:
     Color() : m_color(0), m_valid(false) { }
     Color(RGBA32 col) : m_color(col), m_valid(true) { }
@@ -119,6 +123,11 @@ public:
 
 #if PLATFORM(CG)
     Color(CGColorRef);
+#endif
+
+#if PLATFORM(HAIKU)
+    Color(const rgb_color&);
+    operator rgb_color() const;
 #endif
 
     static bool parseHexColor(const String& name, RGBA32& rgb);

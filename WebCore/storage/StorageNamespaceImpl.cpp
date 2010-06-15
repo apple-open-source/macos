@@ -28,6 +28,11 @@
 
 #if ENABLE(DOM_STORAGE)
 
+#include "SecurityOriginHash.h"
+#include "StringHash.h"
+#include "StorageAreaImpl.h"
+#include "StorageMap.h"
+#include "StorageSyncManager.h"
 #include <wtf/StdLibExtras.h>
 
 namespace WebCore {
@@ -40,12 +45,12 @@ static LocalStorageNamespaceMap& localStorageNamespaceMap()
     return localStorageNamespaceMap;
 }
 
-PassRefPtr<StorageNamespace> StorageNamespaceImpl::localStorageNamespace(const String& path)
+PassRefPtr<StorageNamespace> StorageNamespaceImpl::localStorageNamespace(const String& path, unsigned quota)
 {
     const String lookupPath = path.isNull() ? String("") : path;
     LocalStorageNamespaceMap::iterator it = localStorageNamespaceMap().find(lookupPath);
     if (it == localStorageNamespaceMap().end()) {
-        RefPtr<StorageNamespace> storageNamespace = adoptRef(new StorageNamespaceImpl(LocalStorage, lookupPath));
+        RefPtr<StorageNamespace> storageNamespace = adoptRef(new StorageNamespaceImpl(LocalStorage, lookupPath, quota));
         localStorageNamespaceMap().set(lookupPath, storageNamespace.get());
         return storageNamespace.release();
     }
@@ -53,18 +58,17 @@ PassRefPtr<StorageNamespace> StorageNamespaceImpl::localStorageNamespace(const S
     return it->second;
 }
 
-PassRefPtr<StorageNamespace> StorageNamespaceImpl::sessionStorageNamespace()
+PassRefPtr<StorageNamespace> StorageNamespaceImpl::sessionStorageNamespace(unsigned quota)
 {
-    return adoptRef(new StorageNamespaceImpl(SessionStorage, String()));
+    return adoptRef(new StorageNamespaceImpl(SessionStorage, String(), quota));
 }
 
-StorageNamespaceImpl::StorageNamespaceImpl(StorageType storageType, const String& path)
+StorageNamespaceImpl::StorageNamespaceImpl(StorageType storageType, const String& path, unsigned quota)
     : m_storageType(storageType)
-    , m_path(path.copy())  // FIXME: Is the .copy necessary?
+    , m_path(path.crossThreadString())
     , m_syncManager(0)
-#ifndef NDEBUG
+    , m_quota(quota)
     , m_isShutdown(false)
-#endif
 {
     if (m_storageType == LocalStorage && !m_path.isEmpty())
         m_syncManager = StorageSyncManager::create(m_path);
@@ -78,50 +82,66 @@ StorageNamespaceImpl::~StorageNamespaceImpl()
         ASSERT(localStorageNamespaceMap().get(m_path) == this);
         localStorageNamespaceMap().remove(m_path);
     }
+
+    if (!m_isShutdown)
+        close();
 }
 
 PassRefPtr<StorageNamespace> StorageNamespaceImpl::copy()
 {
     ASSERT(isMainThread());
     ASSERT(!m_isShutdown);
+    ASSERT(m_storageType == SessionStorage);
 
-    StorageNamespaceImpl* newNamespace = new StorageNamespaceImpl(m_storageType, m_path);
+    StorageNamespaceImpl* newNamespace = new StorageNamespaceImpl(m_storageType, m_path, m_quota);
 
     StorageAreaMap::iterator end = m_storageAreaMap.end();
-    for (StorageAreaMap::iterator i = m_storageAreaMap.begin(); i != end; ++i) {
-        RefPtr<StorageArea> areaCopy = i->second->copy(i->first.get());
-        newNamespace->m_storageAreaMap.set(i->first, areaCopy.release());
-    }
-
+    for (StorageAreaMap::iterator i = m_storageAreaMap.begin(); i != end; ++i)
+        newNamespace->m_storageAreaMap.set(i->first, i->second->copy());
     return adoptRef(newNamespace);
 }
 
-PassRefPtr<StorageArea> StorageNamespaceImpl::storageArea(SecurityOrigin* origin)
+PassRefPtr<StorageArea> StorageNamespaceImpl::storageArea(PassRefPtr<SecurityOrigin> prpOrigin)
 {
     ASSERT(isMainThread());
     ASSERT(!m_isShutdown);
 
-    RefPtr<StorageArea> storageArea;
+    RefPtr<SecurityOrigin> origin = prpOrigin;
+    RefPtr<StorageAreaImpl> storageArea;
     if (storageArea = m_storageAreaMap.get(origin))
         return storageArea.release();
 
-    storageArea = StorageArea::create(m_storageType, origin, m_syncManager);
-    m_storageAreaMap.set(origin, storageArea);
+    storageArea = StorageAreaImpl::create(m_storageType, origin, m_syncManager, m_quota);
+    m_storageAreaMap.set(origin.release(), storageArea);
     return storageArea.release();
 }
 
 void StorageNamespaceImpl::close()
 {
     ASSERT(isMainThread());
-    ASSERT(!m_isShutdown);
+
+    if (m_isShutdown)
+        return;
+
+    // If we're session storage, we shouldn't need to do any work here.
+    if (m_storageType == SessionStorage) {
+        ASSERT(!m_syncManager);
+        return;
+    }
 
     StorageAreaMap::iterator end = m_storageAreaMap.end();
     for (StorageAreaMap::iterator it = m_storageAreaMap.begin(); it != end; ++it)
         it->second->close();
 
-#ifndef NDEBUG
+    if (m_syncManager)
+        m_syncManager->close();
+
     m_isShutdown = true;
-#endif
+}
+
+void StorageNamespaceImpl::unlock()
+{
+    // Because there's a single event loop per-process, this is a no-op.
 }
 
 } // namespace WebCore

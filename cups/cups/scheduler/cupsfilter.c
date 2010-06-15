@@ -1,9 +1,9 @@
 /*
  * "$Id: cupsfilter.c 7952 2008-09-17 00:56:20Z mike $"
  *
- *   CUPS filtering program for the Common UNIX Printing System (CUPS).
+ *   CUPS filtering program for CUPS.
  *
- *   Copyright 2007-2009 by Apple Inc.
+ *   Copyright 2007-2010 by Apple Inc.
  *   Copyright 1997-2006 by Easy Software Products, all rights reserved.
  *
  *   These coded instructions, statements, and computer programs are the
@@ -43,7 +43,7 @@
 #include <sys/wait.h>
 #if defined(__APPLE__)
 #  include <libgen.h>
-#endif /* __APPLE__ */ 
+#endif /* __APPLE__ */
 
 
 /*
@@ -66,7 +66,7 @@ static char		*ServerBin = NULL;
 static char		*ServerRoot = NULL;
 					/* CUPS_SERVERROOT environment variable */
 static char		*RIPCache = NULL;
-					/* RIP_CACHE environment variable */
+					/* RIP_MAX_CACHE environment variable */
 static char		TempFile[1024] = "";
 					/* Temporary file */
 
@@ -730,7 +730,7 @@ exec_filter(const char *filter,		/* I - Filter to execute */
 
 
  /*
-  * Add special voodoo magic for MacOS X - this allows MacOS X 
+  * Add special voodoo magic for MacOS X - this allows MacOS X
   * programs to access their bundle resources properly...
   */
 
@@ -846,7 +846,7 @@ exec_filters(mime_type_t   *srctype,	/* I - Source type */
 		lang[1024],		/* LANG */
 		path[1024],		/* PATH */
 		ppd[1024],		/* PPD */
-		rip_cache[1024],	/* RIP_CACHE */
+		rip_max_cache[1024],	/* RIP_MAX_CACHE */
 		userenv[1024],		/* USER */
 		program[1024];		/* Program to run */
   mime_filter_t	*filter,		/* Current filter */
@@ -897,7 +897,7 @@ exec_filters(mime_type_t   *srctype,	/* I - Source type */
 #else
     snprintf(ppd, sizeof(ppd), "PPD=%s/model/laserjet.ppd", DataDir);
 #endif /* __APPLE__ */
-  snprintf(rip_cache, sizeof(rip_cache), "RIP_CACHE=%s", RIPCache);
+  snprintf(rip_max_cache, sizeof(rip_max_cache), "RIP_MAX_CACHE=%s", RIPCache);
   snprintf(userenv, sizeof(userenv), "USER=%s", user);
 
   argv[0] = (char *)printer;
@@ -921,7 +921,7 @@ exec_filters(mime_type_t   *srctype,	/* I - Source type */
   envp[6]  = lang;
   envp[7]  = path;
   envp[8]  = ppd;
-  envp[9]  = rip_cache;
+  envp[9]  = rip_max_cache;
   envp[10] = userenv;
   envp[11] = NULL;
 

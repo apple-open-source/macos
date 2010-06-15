@@ -41,13 +41,12 @@
 
 namespace WebCore {
 
-    class MessagePortChannel;
+    class DedicatedWorkerThread;
     class ScriptExecutionContext;
     class String;
     class Worker;
-    class WorkerThread;
 
-    class WorkerMessagingProxy : public WorkerContextProxy, public WorkerObjectProxy, public WorkerLoaderProxy, Noncopyable {
+    class WorkerMessagingProxy : public WorkerContextProxy, public WorkerObjectProxy, public WorkerLoaderProxy, public Noncopyable {
     public:
         WorkerMessagingProxy(Worker*);
 
@@ -55,26 +54,27 @@ namespace WebCore {
         // (Only use these methods in the worker object thread.)
         virtual void startWorkerContext(const KURL& scriptURL, const String& userAgent, const String& sourceCode);
         virtual void terminateWorkerContext();
-        virtual void postMessageToWorkerContext(const String&, PassOwnPtr<MessagePortChannel>);
+        virtual void postMessageToWorkerContext(PassRefPtr<SerializedScriptValue>, PassOwnPtr<MessagePortChannelArray>);
         virtual bool hasPendingActivity() const;
         virtual void workerObjectDestroyed();
 
         // Implementations of WorkerObjectProxy.
         // (Only use these methods in the worker context thread.)
-        virtual void postMessageToWorkerObject(const String&, PassOwnPtr<MessagePortChannel>);
+        virtual void postMessageToWorkerObject(PassRefPtr<SerializedScriptValue>, PassOwnPtr<MessagePortChannelArray>);
         virtual void postExceptionToWorkerObject(const String& errorMessage, int lineNumber, const String& sourceURL);
-        virtual void postConsoleMessageToWorkerObject(MessageDestination, MessageSource, MessageLevel, const String& message, int lineNumber, const String& sourceURL);
+        virtual void postConsoleMessageToWorkerObject(MessageSource, MessageType, MessageLevel, const String& message, int lineNumber, const String& sourceURL);
         virtual void confirmMessageFromWorkerObject(bool hasPendingActivity);
         virtual void reportPendingActivity(bool hasPendingActivity);
+        virtual void workerContextClosed();
         virtual void workerContextDestroyed();
 
         // Implementation of WorkerLoaderProxy.
         // These methods are called on different threads to schedule loading
         // requests and to send callbacks back to WorkerContext.
-        virtual void postTaskToLoader(PassRefPtr<ScriptExecutionContext::Task>);
-        virtual void postTaskForModeToWorkerContext(PassRefPtr<ScriptExecutionContext::Task>, const String& mode);
+        virtual void postTaskToLoader(PassOwnPtr<ScriptExecutionContext::Task>);
+        virtual void postTaskForModeToWorkerContext(PassOwnPtr<ScriptExecutionContext::Task>, const String& mode);
 
-        void workerThreadCreated(PassRefPtr<WorkerThread>);
+        void workerThreadCreated(PassRefPtr<DedicatedWorkerThread>);
 
         // Only use this method on the worker object thread.
         bool askedToTerminate() const { return m_askedToTerminate; }
@@ -82,6 +82,7 @@ namespace WebCore {
     private:
         friend class MessageWorkerTask;
         friend class WorkerContextDestroyedTask;
+        friend class WorkerExceptionTask;
         friend class WorkerThreadActivityReportTask;
 
         virtual ~WorkerMessagingProxy();
@@ -92,14 +93,14 @@ namespace WebCore {
 
         RefPtr<ScriptExecutionContext> m_scriptExecutionContext;
         Worker* m_workerObject;
-        RefPtr<WorkerThread> m_workerThread;
+        RefPtr<DedicatedWorkerThread> m_workerThread;
 
         unsigned m_unconfirmedMessageCount; // Unconfirmed messages from worker object to worker thread.
         bool m_workerThreadHadPendingActivity; // The latest confirmation from worker thread reported that it was still active.
 
         bool m_askedToTerminate;
 
-        Vector<RefPtr<ScriptExecutionContext::Task> > m_queuedEarlyTasks; // Tasks are queued here until there's a thread object created.
+        Vector<OwnPtr<ScriptExecutionContext::Task> > m_queuedEarlyTasks; // Tasks are queued here until there's a thread object created.
     };
 
 } // namespace WebCore

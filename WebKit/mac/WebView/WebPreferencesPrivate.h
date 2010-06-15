@@ -101,11 +101,26 @@ extern NSString *WebPreferencesRemovedNotification;
 - (BOOL)allowUniversalAccessFromFileURLs;
 - (void)setAllowUniversalAccessFromFileURLs:(BOOL)flag;
 
+- (BOOL)allowFileAccessFromFileURLs;
+- (void)setAllowFileAccessFromFileURLs:(BOOL)flag;
+
 - (BOOL)zoomsTextOnly;
 - (void)setZoomsTextOnly:(BOOL)zoomsTextOnly;
 
+- (BOOL)javaScriptCanAccessClipboard;
+- (void)setJavaScriptCanAccessClipboard:(BOOL)flag;
+
 - (BOOL)isXSSAuditorEnabled;
 - (void)setXSSAuditorEnabled:(BOOL)flag;
+
+- (BOOL)experimentalNotificationsEnabled;
+- (void)setExperimentalNotificationsEnabled:(BOOL)notificationsEnabled;
+
+- (unsigned)pluginAllowedRunTime;
+- (void)setPluginAllowedRunTime:(unsigned)allowedRunTime;
+
+- (BOOL)isFrameFlatteningEnabled;
+- (void)setFrameFlatteningEnabled:(BOOL)flag;
 
 // zero means do AutoScale
 - (float)PDFScaleFactor;
@@ -116,6 +131,10 @@ extern NSString *WebPreferencesRemovedNotification;
 
 - (WebTextDirectionSubmenuInclusionBehavior)textDirectionSubmenuInclusionBehavior;
 - (void)setTextDirectionSubmenuInclusionBehavior:(WebTextDirectionSubmenuInclusionBehavior)behavior;
+
+// Used to set preference specified in the test via LayoutTestController.overridePreference(..).
+// For use with DumpRenderTree only.
+- (void)_setPreferenceForTestWithValue:(NSString *)value forKey:(NSString *)key;
 
 // If site-specific spoofing is enabled, some pages that do inappropriate user-agent string checks will be
 // passed a nonstandard user-agent string to get them to work correctly. This method might be removed in
@@ -138,6 +157,18 @@ extern NSString *WebPreferencesRemovedNotification;
 
 - (BOOL)acceleratedCompositingEnabled;
 - (void)setAcceleratedCompositingEnabled:(BOOL)enabled;
+
+- (BOOL)showDebugBorders;
+- (void)setShowDebugBorders:(BOOL)show;
+
+- (BOOL)showRepaintCounter;
+- (void)setShowRepaintCounter:(BOOL)show;
+
+- (BOOL)webGLEnabled;
+- (void)setWebGLEnabled:(BOOL)enabled;
+
+- (BOOL)usesProxiedOpenPanel;
+- (void)setUsesProxiedOpenPanel:(BOOL)enabled;
 
 // Other private methods
 - (void)_postPreferencesChangesNotification;

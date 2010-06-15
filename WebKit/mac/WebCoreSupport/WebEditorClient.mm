@@ -62,6 +62,7 @@
 #import <WebCore/WebCoreObjCExtras.h>
 #import <runtime/InitializeThreading.h>
 #import <wtf/PassRefPtr.h>
+#import <wtf/Threading.h>
 
 using namespace WebCore;
 using namespace WTF;
@@ -94,6 +95,7 @@ static WebViewInsertAction kit(EditorInsertAction coreAction)
 + (void)initialize
 {
     JSC::initializeThreading();
+    WTF::initializeMainThreadToProcessMainThread();
 #ifndef BUILDING_ON_TIGER
     WebCoreObjCFinalizeOnMainThread(self);
 #endif
@@ -675,7 +677,8 @@ void WebEditorClient::checkGrammarOfString(const UChar* text, int length, Vector
         NSValue *detailRangeAsNSValue = [detail objectForKey:NSGrammarRange];
         ASSERT(detailRangeAsNSValue);
         NSRange detailNSRange = [detailRangeAsNSValue rangeValue];
-        ASSERT(detailNSRange.location != NSNotFound && detailNSRange.length > 0);
+        ASSERT(detailNSRange.location != NSNotFound);
+        ASSERT(detailNSRange.length > 0);
         grammarDetail.location = detailNSRange.location;
         grammarDetail.length = detailNSRange.length;
         grammarDetail.userDescription = [detail objectForKey:NSGrammarUserDescription];
@@ -696,7 +699,8 @@ void WebEditorClient::checkTextOfParagraph(const UChar* text, int length, uint64
     for (NSTextCheckingResult *incomingResult in incomingResults) {
         NSRange resultRange = [incomingResult range];
         NSTextCheckingType resultType = [incomingResult resultType];
-        ASSERT(resultRange.location != NSNotFound && resultRange.length > 0);
+        ASSERT(resultRange.location != NSNotFound);
+        ASSERT(resultRange.length > 0);
         if (NSTextCheckingTypeSpelling == resultType && 0 != (checkingTypes & NSTextCheckingTypeSpelling)) {
             TextCheckingResult result;
             result.type = TextCheckingTypeSpelling;
@@ -715,7 +719,8 @@ void WebEditorClient::checkTextOfParagraph(const UChar* text, int length, uint64
                 NSValue *detailRangeAsNSValue = [incomingDetail objectForKey:NSGrammarRange];
                 ASSERT(detailRangeAsNSValue);
                 NSRange detailNSRange = [detailRangeAsNSValue rangeValue];
-                ASSERT(detailNSRange.location != NSNotFound && detailNSRange.length > 0);
+                ASSERT(detailNSRange.location != NSNotFound);
+                ASSERT(detailNSRange.length > 0);
                 detail.location = detailNSRange.location;
                 detail.length = detailNSRange.length;
                 detail.userDescription = [incomingDetail objectForKey:NSGrammarUserDescription];

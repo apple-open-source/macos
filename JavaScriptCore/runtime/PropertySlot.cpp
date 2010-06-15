@@ -23,23 +23,22 @@
 
 #include "JSFunction.h"
 #include "JSGlobalObject.h"
-#include "JSObject.h"
 
 namespace JSC {
 
-JSValue PropertySlot::functionGetter(ExecState* exec, const Identifier&, const PropertySlot& slot)
+JSValue PropertySlot::functionGetter(ExecState* exec) const
 {
     // Prevent getter functions from observing execution if an exception is pending.
     if (exec->hadException())
         return exec->exception();
 
     CallData callData;
-    CallType callType = slot.m_data.getterFunc->getCallData(callData);
+    CallType callType = m_data.getterFunc->getCallData(callData);
     if (callType == CallTypeHost)
-        return callData.native.function(exec, slot.m_data.getterFunc, slot.slotBase(), exec->emptyList());
+        return callData.native.function(exec, m_data.getterFunc, thisValue(), exec->emptyList());
     ASSERT(callType == CallTypeJS);
     // FIXME: Can this be done more efficiently using the callData?
-    return static_cast<JSFunction*>(slot.m_data.getterFunc)->call(exec, slot.slotBase(), exec->emptyList());
+    return asFunction(m_data.getterFunc)->call(exec, thisValue(), exec->emptyList());
 }
 
 } // namespace JSC

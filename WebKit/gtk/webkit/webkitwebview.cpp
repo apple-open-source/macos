@@ -6,8 +6,10 @@
  *  Copyright (C) 2008 Jan Alonzo <jmalonzo@unpluggable.com>
  *  Copyright (C) 2008 Gustavo Noronha Silva <gns@gnome.org>
  *  Copyright (C) 2008 Nuanti Ltd.
- *  Copyright (C) 2008 Collabora Ltd.
+ *  Copyright (C) 2008, 2009, 2010 Collabora Ltd.
  *  Copyright (C) 2009 Igalia S.L.
+ *  Copyright (C) 2009 Movial Creative Technologies Inc.
+ *  Copyright (C) 2009 Bobby Powers
  *
  *  This library is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU Lesser General Public
@@ -25,49 +27,62 @@
  */
 
 #include "config.h"
+#include "webkitwebview.h"
 
 #include "webkitdownload.h"
-#include "webkitwebview.h"
 #include "webkitenumtypes.h"
+#include "webkitgeolocationpolicydecision.h"
 #include "webkitmarshal.h"
+#include "webkitnetworkrequest.h"
+#include "webkitnetworkresponse.h"
 #include "webkitprivate.h"
 #include "webkitwebinspector.h"
 #include "webkitwebbackforwardlist.h"
 #include "webkitwebhistoryitem.h"
 
 #include "AXObjectCache.h"
-#include "NotImplemented.h"
 #include "BackForwardList.h"
-#include "CString.h"
+#include "Cache.h"
 #include "ChromeClientGtk.h"
-#include "ContextMenu.h"
 #include "ContextMenuClientGtk.h"
 #include "ContextMenuController.h"
+#include "ContextMenu.h"
 #include "Cursor.h"
+#include "Database.h"
 #include "Document.h"
 #include "DocumentLoader.h"
 #include "DragClientGtk.h"
-#include "Editor.h"
 #include "EditorClientGtk.h"
+#include "Editor.h"
 #include "EventHandler.h"
 #include "FloatQuad.h"
 #include "FocusController.h"
+#include "FrameLoader.h"
 #include "FrameLoaderTypes.h"
+#include "FrameView.h"
+#include <glib/gi18n-lib.h>
+#include <GOwnPtr.h>
+#include "GraphicsContext.h"
+#include "GtkVersioning.h"
 #include "HitTestRequest.h"
 #include "HitTestResult.h"
-#include <glib/gi18n-lib.h>
-#include "GraphicsContext.h"
+#include "IconDatabase.h"
 #include "InspectorClientGtk.h"
-#include "FrameLoader.h"
-#include "FrameView.h"
+#include "MouseEventWithHitTestResults.h"
+#include "NotImplemented.h"
+#include "PageCache.h"
+#include "Pasteboard.h"
+#include "PasteboardHelperGtk.h"
 #include "PasteboardHelper.h"
 #include "PlatformKeyboardEvent.h"
 #include "PlatformWheelEvent.h"
 #include "ProgressTracker.h"
+#include "RenderView.h"
 #include "ResourceHandle.h"
 #include "ScriptValue.h"
 #include "Scrollbar.h"
-#include <wtf/GOwnPtr.h>
+#include "webkit/WebKitDOMDocumentPrivate.h"
+#include <wtf/text/CString.h>
 
 #include <gdk/gdkkeysyms.h>
 
@@ -96,7 +111,7 @@
  * gtk_container_add (GTK_CONTAINER (main_window), scrolled_window);
  *
  * /<!-- -->* Open a webpage *<!-- -->/
- * webkit_web_view_open (WEBKIT_WEB_VIEW (web_view), "http://www.gnome.org");
+ * webkit_web_view_load_uri (WEBKIT_WEB_VIEW (web_view), "http://www.gnome.org");
  *
  * /<!-- -->* Show the result *<!-- -->/
  * gtk_window_set_default_size (GTK_WINDOW (main_window), 800, 600);
@@ -105,6 +120,7 @@
  */
 
 static const double defaultDPI = 96.0;
+static WebKitCacheModel cacheModel;
 
 using namespace WebKit;
 using namespace WebCore;
@@ -127,7 +143,7 @@ enum {
     HOVERING_OVER_LINK,
     POPULATE_POPUP,
     STATUS_BAR_TEXT_CHANGED,
-    ICOND_LOADED,
+    ICON_LOADED,
     SELECTION_CHANGED,
     CONSOLE_MESSAGE,
     SCRIPT_ALERT,
@@ -141,6 +157,15 @@ enum {
     MOVE_CURSOR,
     PRINT_REQUESTED,
     PLUGIN_WIDGET,
+    CLOSE_WEB_VIEW,
+    UNDO,
+    REDO,
+    DATABASE_QUOTA_EXCEEDED,
+    RESOURCE_REQUEST_STARTING,
+    DOCUMENT_LOAD_FINISHED,
+    GEOLOCATION_POLICY_DECISION_REQUESTED,
+    GEOLOCATION_POLICY_DECISION_CANCELLED,
+    ONLOAD_EVENT,
     LAST_SIGNAL
 };
 
@@ -161,7 +186,9 @@ enum {
     PROP_LOAD_STATUS,
     PROP_PROGRESS,
     PROP_ENCODING,
-    PROP_CUSTOM_ENCODING
+    PROP_CUSTOM_ENCODING,
+    PROP_ICON_URI,
+    PROP_IM_CONTEXT
 };
 
 static guint webkit_web_view_signals[LAST_SIGNAL] = { 0, };
@@ -171,22 +198,89 @@ G_DEFINE_TYPE(WebKitWebView, webkit_web_view, GTK_TYPE_CONTAINER)
 static void webkit_web_view_settings_notify(WebKitWebSettings* webSettings, GParamSpec* pspec, WebKitWebView* webView);
 static void webkit_web_view_set_window_features(WebKitWebView* webView, WebKitWebWindowFeatures* webWindowFeatures);
 
+static GtkIMContext* webkit_web_view_get_im_context(WebKitWebView*);
+
+static void destroy_menu_cb(GtkObject* object, gpointer data)
+{
+    WebKitWebView* webView = WEBKIT_WEB_VIEW(data);
+    WebKitWebViewPrivate* priv = WEBKIT_WEB_VIEW_GET_PRIVATE(webView);
+
+    g_object_unref(priv->currentMenu);
+    priv->currentMenu = NULL;
+}
+
+static void PopupMenuPositionFunc(GtkMenu* menu, gint *x, gint *y, gboolean *pushIn, gpointer userData)
+{
+    WebKitWebView* view = WEBKIT_WEB_VIEW(userData);
+    WebKitWebViewPrivate* priv = WEBKIT_WEB_VIEW_GET_PRIVATE(view);
+    GdkScreen* screen = gtk_widget_get_screen(GTK_WIDGET(view));
+    GtkRequisition menuSize;
+
+    gtk_widget_size_request(GTK_WIDGET(menu), &menuSize);
+
+    *x = priv->lastPopupXPosition;
+    if ((*x + menuSize.width) >= gdk_screen_get_width(screen))
+      *x -= menuSize.width;
+
+    *y = priv->lastPopupYPosition;
+    if ((*y + menuSize.height) >= gdk_screen_get_height(screen))
+      *y -= menuSize.height;
+
+    *pushIn = FALSE;
+}
+
 static gboolean webkit_web_view_forward_context_menu_event(WebKitWebView* webView, const PlatformMouseEvent& event)
 {
     Page* page = core(webView);
     page->contextMenuController()->clearContextMenu();
-    Frame* focusedFrame = page->focusController()->focusedOrMainFrame();
+    Frame* focusedFrame;
+    Frame* mainFrame = page->mainFrame();
+    gboolean mousePressEventResult = FALSE;
 
-    if (!focusedFrame->view())
+    if (!mainFrame->view())
         return FALSE;
 
-    focusedFrame->view()->setCursor(pointerCursor());
+    mainFrame->view()->setCursor(pointerCursor());
+    if (page->frameCount()) {
+        HitTestRequest request(HitTestRequest::Active);
+        IntPoint point = mainFrame->view()->windowToContents(event.pos());
+        MouseEventWithHitTestResults mev = mainFrame->document()->prepareMouseEvent(request, point, event);
+
+        Frame* targetFrame = EventHandler::subframeForTargetNode(mev.targetNode());
+        if (!targetFrame)
+            targetFrame = mainFrame;
+
+        focusedFrame = page->focusController()->focusedOrMainFrame();
+        if (targetFrame != focusedFrame) {
+            page->focusController()->setFocusedFrame(targetFrame);
+            focusedFrame = targetFrame;
+        }
+    } else
+        focusedFrame = mainFrame;
+
+    if (focusedFrame->view() && focusedFrame->eventHandler()->handleMousePressEvent(event))
+        mousePressEventResult = TRUE;
+
+
     bool handledEvent = focusedFrame->eventHandler()->sendContextMenuEvent(event);
     if (!handledEvent)
         return FALSE;
 
+    // If coreMenu is NULL, this means WebCore decided to not create
+    // the default context menu; this may happen when the page is
+    // handling the right-click for reasons other than the context menu.
     ContextMenu* coreMenu = page->contextMenuController()->contextMenu();
     if (!coreMenu)
+        return mousePressEventResult;
+
+    // If we reach here, it's because WebCore is going to show the
+    // default context menu. We check our setting to figure out
+    // whether we want it or not.
+    WebKitWebSettings* settings = webkit_web_view_get_settings(webView);
+    gboolean enableDefaultContextMenu;
+    g_object_get(settings, "enable-default-context-menu", &enableDefaultContextMenu, NULL);
+
+    if (!enableDefaultContextMenu)
         return FALSE;
 
     GtkMenu* menu = GTK_MENU(coreMenu->platformDescription());
@@ -202,11 +296,17 @@ static gboolean webkit_web_view_forward_context_menu_event(WebKitWebView* webVie
         return FALSE;
 
     WebKitWebViewPrivate* priv = WEBKIT_WEB_VIEW_GET_PRIVATE(webView);
+    priv->currentMenu = GTK_MENU(g_object_ref(menu));
     priv->lastPopupXPosition = event.globalX();
     priv->lastPopupYPosition = event.globalY();
+
+    g_signal_connect(menu, "destroy",
+                     G_CALLBACK(destroy_menu_cb),
+                     NULL);
+
     gtk_menu_popup(menu, NULL, NULL,
-                   NULL,
-                   priv, event.button() + 1, gtk_get_current_event_time());
+                   &PopupMenuPositionFunc,
+                   webView, event.button() + 1, gtk_get_current_event_time());
     return TRUE;
 }
 
@@ -216,17 +316,19 @@ static gboolean webkit_web_view_popup_menu_handler(GtkWidget* widget)
 
     // The context menu event was generated from the keyboard, so show the context menu by the current selection.
     Page* page = core(WEBKIT_WEB_VIEW(widget));
-    FrameView* view = page->mainFrame()->view();
+    Frame* frame = page->focusController()->focusedOrMainFrame();
+    FrameView* view = frame->view();
     if (!view)
         return FALSE;    
 
-    Position start = page->mainFrame()->selection()->selection().start();
-    Position end = page->mainFrame()->selection()->selection().end();
+    Position start = frame->selection()->selection().start();
+    Position end = frame->selection()->selection().end();
 
     int rightAligned = FALSE;
     IntPoint location;
 
-    if (!start.node() || !end.node())
+    if (!start.node() || !end.node()
+        || (frame->selection()->selection().isCaret() && !frame->selection()->selection().isContentEditable()))
         location = IntPoint(rightAligned ? view->contentsWidth() - contextMenuMargin : contextMenuMargin, contextMenuMargin);
     else {
         RenderObject* renderer = start.node()->renderer();
@@ -267,13 +369,22 @@ static gboolean webkit_web_view_popup_menu_handler(GtkWidget* widget)
     }
 
     int x, y;
-    gdk_window_get_origin(GTK_WIDGET(view->hostWindow()->platformWindow())->window, &x, &y);
+    gdk_window_get_origin(GTK_WIDGET(view->hostWindow()->platformPageClient())->window, &x, &y);
 
     // FIXME: The IntSize(0, -1) is a hack to get the hit-testing to result in the selected element.
     // Ideally we'd have the position of a context menu event be separate from its target node.
     location = view->contentsToWindow(location) + IntSize(0, -1);
+    if (location.y() < 0)
+        location.setY(contextMenuMargin);
+    else if (location.y() > view->height())
+        location.setY(view->height() - contextMenuMargin);
+    if (location.x() < 0)
+        location.setX(contextMenuMargin);
+    else if (location.x() > view->width())
+        location.setX(view->width() - contextMenuMargin);
     IntPoint global = location + IntSize(x, y);
-    PlatformMouseEvent event(location, global, NoButton, MouseEventPressed, 0, false, false, false, false, gtk_get_current_event_time());
+
+    PlatformMouseEvent event(location, global, RightButton, MouseEventPressed, 0, false, false, false, false, gtk_get_current_event_time());
 
     return webkit_web_view_forward_context_menu_event(WEBKIT_WEB_VIEW(widget), event);
 }
@@ -327,6 +438,12 @@ static void webkit_web_view_get_property(GObject* object, guint prop_id, GValue*
         break;
     case PROP_PROGRESS:
         g_value_set_double(value, webkit_web_view_get_progress(webView));
+        break;
+    case PROP_ICON_URI:
+        g_value_set_string(value, webkit_web_view_get_icon_uri(webView));
+        break;
+    case PROP_IM_CONTEXT:
+        g_value_set_object(value, webkit_web_view_get_im_context(webView));
         break;
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
@@ -448,12 +565,19 @@ static gboolean webkit_web_view_key_release_event(GtkWidget* widget, GdkEventKey
 {
     WebKitWebView* webView = WEBKIT_WEB_VIEW(widget);
 
+    // GTK+ IM contexts often require us to filter key release events, which
+    // WebCore does not do by default, so we filter the event here. We only block
+    // the event if we don't have a pending composition, because that means we
+    // are using a context like 'simple' which marks every keystroke as filtered.
+    WebKit::EditorClient* client = static_cast<WebKit::EditorClient*>(core(webView)->editorClient());
+    if (gtk_im_context_filter_keypress(webView->priv->imContext, event) && !client->hasPendingComposition())
+        return TRUE;
+
     Frame* frame = core(webView)->focusController()->focusedOrMainFrame();
     if (!frame->view())
         return FALSE;
 
     PlatformKeyboardEvent keyboardEvent(event);
-
     if (frame->eventHandler()->keyEvent(keyboardEvent))
         return TRUE;
 
@@ -544,6 +668,21 @@ static gboolean webkit_web_view_scroll_event(GtkWidget* widget, GdkEventScroll* 
     return frame->eventHandler()->handleWheelEvent(wheelEvent);
 }
 
+static void webkit_web_view_size_request(GtkWidget* widget, GtkRequisition* requisition)
+{
+    WebKitWebView* web_view = WEBKIT_WEB_VIEW(widget);
+    Frame* coreFrame = core(webkit_web_view_get_main_frame(web_view));
+    if (!coreFrame)
+        return;
+
+    FrameView* view = coreFrame->view();
+    if (!view)
+        return;
+
+    requisition->width = view->contentsWidth();
+    requisition->height = view->contentsHeight();
+}
+
 static void webkit_web_view_size_allocate(GtkWidget* widget, GtkAllocation* allocation)
 {
     GTK_WIDGET_CLASS(webkit_web_view_parent_class)->size_allocate(widget,allocation);
@@ -555,8 +694,24 @@ static void webkit_web_view_size_allocate(GtkWidget* widget, GtkAllocation* allo
         return;
 
     frame->view()->resize(allocation->width, allocation->height);
-    frame->view()->forceLayout();
-    frame->view()->adjustViewSize();
+}
+
+static void webkit_web_view_grab_focus(GtkWidget* widget)
+{
+
+    if (gtk_widget_is_sensitive(widget)) {
+        WebKitWebView* webView = WEBKIT_WEB_VIEW(widget);
+        FocusController* focusController = core(webView)->focusController();
+
+        focusController->setActive(true);
+
+        if (focusController->focusedFrame())
+            focusController->setFocused(true);
+        else
+            focusController->setFocusedFrame(core(webView)->mainFrame());
+    }
+
+    return GTK_WIDGET_CLASS(webkit_web_view_parent_class)->grab_focus(widget);
 }
 
 static gboolean webkit_web_view_focus_in_event(GtkWidget* widget, GdkEventFocus* event)
@@ -564,12 +719,18 @@ static gboolean webkit_web_view_focus_in_event(GtkWidget* widget, GdkEventFocus*
     // TODO: Improve focus handling as suggested in
     // http://bugs.webkit.org/show_bug.cgi?id=16910
     GtkWidget* toplevel = gtk_widget_get_toplevel(widget);
-    if (GTK_WIDGET_TOPLEVEL(toplevel) && gtk_window_has_toplevel_focus(GTK_WINDOW(toplevel))) {
+    if (gtk_widget_is_toplevel(toplevel) && gtk_window_has_toplevel_focus(GTK_WINDOW(toplevel))) {
         WebKitWebView* webView = WEBKIT_WEB_VIEW(widget);
+        FocusController* focusController = core(webView)->focusController();
 
-        Frame* frame = core(webView)->mainFrame();
-        core(webView)->focusController()->setActive(frame);
-        core(webView)->focusController()->setFocused(true);
+        focusController->setActive(true);
+
+        if (focusController->focusedFrame())
+            focusController->setFocused(true);
+        else
+            focusController->setFocusedFrame(core(webView)->mainFrame());
+
+        gtk_im_context_focus_in(webView->priv->imContext);
     }
     return GTK_WIDGET_CLASS(webkit_web_view_parent_class)->focus_in_event(widget, event);
 }
@@ -578,8 +739,16 @@ static gboolean webkit_web_view_focus_out_event(GtkWidget* widget, GdkEventFocus
 {
     WebKitWebView* webView = WEBKIT_WEB_VIEW(widget);
 
-    core(webView)->focusController()->setActive(false);
-    core(webView)->focusController()->setFocused(false);
+    // We may hit this code while destroying the widget, and we might
+    // no longer have a page, then.
+    Page* page = core(webView);
+    if (page) {
+        page->focusController()->setActive(false);
+        page->focusController()->setFocused(false);
+    }
+
+    if (webView->priv->imContext)
+        gtk_im_context_focus_out(webView->priv->imContext);
 
     return GTK_WIDGET_CLASS(webkit_web_view_parent_class)->focus_out_event(widget, event);
 }
@@ -614,7 +783,7 @@ static void webkit_web_view_realize(GtkWidget* widget)
     gdk_window_set_user_data(widget->window, widget);
 
     widget->style = gtk_style_attach(widget->style, widget->window);
-    gdk_window_set_background(widget->window, &widget->style->base[GTK_WIDGET_STATE(widget)]);
+    gtk_style_set_background(widget->style, widget->window, GTK_STATE_NORMAL);
 
     WebKitWebView* webView = WEBKIT_WEB_VIEW(widget);
     WebKitWebViewPrivate* priv = webView->priv;
@@ -655,8 +824,6 @@ static void webkit_web_view_container_add(GtkContainer* container, GtkWidget* wi
     WebKitWebViewPrivate* priv = webView->priv;
 
     priv->children.add(widget);
-    if (GTK_WIDGET_REALIZED(container))
-        gtk_widget_set_parent_window(widget, GTK_WIDGET(webView)->window);
     gtk_widget_set_parent(widget, GTK_WIDGET(container));
 }
 
@@ -688,6 +855,11 @@ static WebKitWebView* webkit_web_view_real_create_web_view(WebKitWebView*, WebKi
 }
 
 static gboolean webkit_web_view_real_web_view_ready(WebKitWebView*)
+{
+    return FALSE;
+}
+
+static gboolean webkit_web_view_real_close_web_view(WebKitWebView*)
 {
     return FALSE;
 }
@@ -746,7 +918,7 @@ static gboolean webkit_web_view_script_dialog(WebKitWebView* webView, WebKitWebF
     }
 
     window = gtk_widget_get_toplevel(GTK_WIDGET(webView));
-    dialog = gtk_message_dialog_new(GTK_WIDGET_TOPLEVEL(window) ? GTK_WINDOW(window) : 0, GTK_DIALOG_DESTROY_WITH_PARENT, messageType, buttons, "%s", message);
+    dialog = gtk_message_dialog_new(gtk_widget_is_toplevel(window) ? GTK_WINDOW(window) : 0, GTK_DIALOG_DESTROY_WITH_PARENT, messageType, buttons, "%s", message);
     gchar* title = g_strconcat("JavaScript - ", webkit_web_frame_get_uri(frame), NULL);
     gtk_window_set_title(GTK_WINDOW(dialog), title);
     g_free(title);
@@ -804,7 +976,7 @@ static gboolean webkit_web_view_real_script_prompt(WebKitWebView* webView, WebKi
 
 static gboolean webkit_web_view_real_console_message(WebKitWebView* webView, const gchar* message, unsigned int line, const gchar* sourceId)
 {
-    g_print("console message: %s @%d: %s\n", sourceId, line, message);
+    g_message("console message: %s @%d: %s\n", sourceId, line, message);
     return TRUE;
 }
 
@@ -824,6 +996,18 @@ static void webkit_web_view_real_copy_clipboard(WebKitWebView* webView)
 {
     Frame* frame = core(webView)->focusController()->focusedOrMainFrame();
     frame->editor()->command("Copy").execute();
+}
+
+static void webkit_web_view_real_undo(WebKitWebView* webView)
+{
+    Frame* frame = core(webView)->focusController()->focusedOrMainFrame();
+    frame->editor()->command("Undo").execute();
+}
+
+static void webkit_web_view_real_redo(WebKitWebView* webView)
+{
+    Frame* frame = core(webView)->focusController()->focusedOrMainFrame();
+    frame->editor()->command("Redo").execute();
 }
 
 static gboolean webkit_web_view_real_move_cursor (WebKitWebView* webView, GtkMovementStep step, gint count)
@@ -928,13 +1112,19 @@ static void webkit_web_view_dispose(GObject* object)
 
         g_object_unref(priv->imContext);
         priv->imContext = NULL;
-
-        gtk_target_list_unref(priv->copy_target_list);
-        priv->copy_target_list = NULL;
-
-        gtk_target_list_unref(priv->paste_target_list);
-        priv->paste_target_list = NULL;
     }
+
+    if (priv->mainResource) {
+        g_object_unref(priv->mainResource);
+        priv->mainResource = NULL;
+    }
+
+    if (priv->subResources) {
+        g_hash_table_unref(priv->subResources);
+        priv->subResources = NULL;
+    }
+
+    priv->draggingDataObjects.clear();
 
     G_OBJECT_CLASS(webkit_web_view_parent_class)->dispose(object);
 }
@@ -944,8 +1134,11 @@ static void webkit_web_view_finalize(GObject* object)
     WebKitWebView* webView = WEBKIT_WEB_VIEW(object);
     WebKitWebViewPrivate* priv = webView->priv;
 
+    g_free(priv->tooltipText);
+    g_free(priv->mainResourceIdentifier);
     g_free(priv->encoding);
     g_free(priv->customEncoding);
+    g_free(priv->iconURI);
 
     G_OBJECT_CLASS(webkit_web_view_parent_class)->finalize(object);
 }
@@ -1041,6 +1234,50 @@ static void webkit_web_view_screen_changed(GtkWidget* widget, GdkScreen* previou
     settings->setMinimumLogicalFontSize(minimumLogicalFontSize / 72.0 * DPI);
 }
 
+static void webkit_web_view_drag_end(GtkWidget* widget, GdkDragContext* context)
+{
+    WebKitWebViewPrivate* priv = WEBKIT_WEB_VIEW_GET_PRIVATE(WEBKIT_WEB_VIEW(widget));
+
+    // This might happen if a drag is still in progress after a WebKitWebView
+    // is diposed and before it is finalized.
+    if (!priv->draggingDataObjects.contains(context))
+        return;
+
+    priv->draggingDataObjects.remove(context);
+}
+
+static void webkit_web_view_drag_data_get(GtkWidget* widget, GdkDragContext* context, GtkSelectionData* selectionData, guint info, guint)
+{
+    WebKitWebViewPrivate* priv = WEBKIT_WEB_VIEW_GET_PRIVATE(WEBKIT_WEB_VIEW(widget));
+
+    // This might happen if a drag is still in progress after a WebKitWebView
+    // is diposed and before it is finalized.
+    if (!priv->draggingDataObjects.contains(context))
+        return;
+
+    pasteboardHelperInstance()->fillSelectionData(selectionData, info, priv->draggingDataObjects.get(context).get());
+}
+
+#if GTK_CHECK_VERSION(2, 12, 0)
+static gboolean webkit_web_view_query_tooltip(GtkWidget *widget, gint x, gint y, gboolean keyboard_mode, GtkTooltip *tooltip)
+{
+    WebKitWebViewPrivate* priv = WEBKIT_WEB_VIEW_GET_PRIVATE(widget);
+
+    if (priv->tooltipText) {
+        gtk_tooltip_set_text(tooltip, priv->tooltipText);
+        return TRUE;
+    }
+
+    return FALSE;
+}
+#endif
+
+static GtkIMContext* webkit_web_view_get_im_context(WebKitWebView* webView)
+{
+    g_return_val_if_fail(WEBKIT_IS_WEB_VIEW(webView), 0);
+    return GTK_IM_CONTEXT(webView->priv->imContext);
+}
+
 static void webkit_web_view_class_init(WebKitWebViewClass* webViewClass)
 {
     GtkBindingSet* binding_set;
@@ -1055,7 +1292,6 @@ static void webkit_web_view_class_init(WebKitWebViewClass* webViewClass)
      * WebKitWebView::create-web-view:
      * @web_view: the object on which the signal is emitted
      * @frame: the #WebKitWebFrame
-     * @return: a newly allocated #WebKitWebView or %NULL
      *
      * Emitted when the creation of a new window is requested.
      * If this signal is handled the signal handler should return the
@@ -1064,11 +1300,13 @@ static void webkit_web_view_class_init(WebKitWebViewClass* webViewClass)
      * The new #WebKitWebView should not be displayed to the user
      * until the #WebKitWebView::web-view-ready signal is emitted.
      *
-     * The signal handlers should not try to deal with the reference
-     * count for the new #WebKitWebView. The widget to which the
-     * widget is added will handle that.
+     * The signal handlers should not try to deal with the reference count for
+     * the new #WebKitWebView. The widget to which the widget is added will
+     * handle that.
      *
-     * Since 1.0.3
+     * Return value: a newly allocated #WebKitWebView, or %NULL
+     *
+     * Since: 1.0.3
      */
     webkit_web_view_signals[CREATE_WEB_VIEW] = g_signal_new("create-web-view",
             G_TYPE_FROM_CLASS(webViewClass),
@@ -1083,8 +1321,6 @@ static void webkit_web_view_class_init(WebKitWebViewClass* webViewClass)
     /**
      * WebKitWebView::web-view-ready:
      * @web_view: the object on which the signal is emitted
-     * @return: %TRUE to stop other handlers from being invoked for
-     * the event, %FALSE to propagate the event further
      *
      * Emitted after #WebKitWebView::create-web-view when the new #WebKitWebView
      * should be displayed to the user. When this signal is emitted
@@ -1097,7 +1333,10 @@ static void webkit_web_view_class_init(WebKitWebViewClass* webViewClass)
      * time of the window, so you may want to connect to the ::notify
      * signal of the #WebKitWebWindowFeatures object to handle those.
      *
-     * Since 1.0.3
+     * Return value: %TRUE to stop handlers from being invoked for the event or
+     * %FALSE to propagate the event furter
+     *
+     * Since: 1.0.3
      */
     webkit_web_view_signals[WEB_VIEW_READY] = g_signal_new("web-view-ready",
             G_TYPE_FROM_CLASS(webViewClass),
@@ -1109,13 +1348,37 @@ static void webkit_web_view_class_init(WebKitWebViewClass* webViewClass)
             G_TYPE_BOOLEAN, 0);
 
     /**
+     * WebKitWebView::close-web-view:
+     * @web_view: the object on which the signal is emitted
+     *
+     * Emitted when closing a #WebKitWebView is requested. This occurs when a
+     * call is made from JavaScript's window.close function. The default
+     * signal handler does not do anything. It is the owner's responsibility
+     * to hide or delete the web view, if necessary.
+     *
+     * Return value: %TRUE to stop handlers from being invoked for the event or
+     * %FALSE to propagate the event furter
+     *
+     * Since: 1.1.11
+     */
+    webkit_web_view_signals[CLOSE_WEB_VIEW] = g_signal_new("close-web-view",
+            G_TYPE_FROM_CLASS(webViewClass),
+            (GSignalFlags)G_SIGNAL_RUN_LAST,
+            G_STRUCT_OFFSET (WebKitWebViewClass, close_web_view),
+            g_signal_accumulator_true_handled,
+            NULL,
+            webkit_marshal_BOOLEAN__VOID,
+            G_TYPE_BOOLEAN, 0);
+
+    /**
      * WebKitWebView::navigation-requested:
      * @web_view: the object on which the signal is emitted
      * @frame: the #WebKitWebFrame that required the navigation
      * @request: a #WebKitNetworkRequest
-     * @return: a WebKitNavigationResponse
      *
      * Emitted when @frame requests a navigation to another page.
+     *
+     * Return value: a #WebKitNavigationResponse
      *
      * Deprecated: Use WebKitWebView::navigation-policy-decision-requested
      * instead
@@ -1136,10 +1399,8 @@ static void webkit_web_view_class_init(WebKitWebViewClass* webViewClass)
      * @web_view: the object on which the signal is emitted
      * @frame: the #WebKitWebFrame that required the navigation
      * @request: a #WebKitNetworkRequest
-     * @navigation_action: a #WebKitWebNavigation
+     * @navigation_action: a #WebKitWebNavigationAction
      * @policy_decision: a #WebKitWebPolicyDecision
-     * @return: TRUE if a decision was made, FALSE to have the
-     *          default behavior apply
      *
      * Emitted when @frame requests opening a new window. With this
      * signal the browser can use the context of the request to decide
@@ -1160,6 +1421,9 @@ static void webkit_web_view_class_init(WebKitWebViewClass* webViewClass)
      * webkit_web_policy_decision_use(), or
      * webkit_web_policy_decision_download() on the @policy_decision
      * object.
+     *
+     * Return value: %TRUE if a decision was made, %FALSE to have the
+     * default behavior apply
      *
      * Since: 1.1.4
      */
@@ -1182,10 +1446,8 @@ static void webkit_web_view_class_init(WebKitWebViewClass* webViewClass)
      * @web_view: the object on which the signal is emitted
      * @frame: the #WebKitWebFrame that required the navigation
      * @request: a #WebKitNetworkRequest
-     * @navigation_action: a #WebKitWebNavigation
+     * @navigation_action: a #WebKitWebNavigationAction
      * @policy_decision: a #WebKitWebPolicyDecision
-     * @return: TRUE if a decision was made, FALSE to have the
-     *          default behavior apply
      *
      * Emitted when @frame requests a navigation to another page.
      * If this signal is not handled, the default behavior is to allow the
@@ -1197,6 +1459,9 @@ static void webkit_web_view_class_init(WebKitWebViewClass* webViewClass)
      * webkit_web_policy_decision_use(), or
      * webkit_web_policy_decision_download() on the @policy_decision
      * object.
+     *
+     * Return value: %TRUE if a decision was made, %FALSE to have the
+     * default behavior apply
      *
      * Since: 1.0.3
      */
@@ -1220,21 +1485,25 @@ static void webkit_web_view_class_init(WebKitWebViewClass* webViewClass)
      * @request: a WebKitNetworkRequest
      * @mimetype: the MIME type attempted to load
      * @policy_decision: a #WebKitWebPolicyDecision
-     * @return: TRUE if a decision was made, FALSE to have the
-     *          default behavior apply
      *
      * Decide whether or not to display the given MIME type.  If this
      * signal is not handled, the default behavior is to show the
      * content of the requested URI if WebKit can show this MIME
-     * type; if WebKit is not able to show the MIME type nothing
-     * happens.
+     * type and the content disposition is not a download; if WebKit
+     * is not able to show the MIME type nothing happens.
      *
      * Notice that if you return TRUE, meaning that you handled the
-     * signal, you are expected to have decided what to do, by calling
+     * signal, you are expected to be aware of the "Content-Disposition"
+     * header. A value of "attachment" usually indicates a download
+     * regardless of the MIME type, see also
+     * soup_message_headers_get_content_disposition(). And you must call
      * webkit_web_policy_decision_ignore(),
      * webkit_web_policy_decision_use(), or
      * webkit_web_policy_decision_download() on the @policy_decision
      * object.
+     *
+     * Return value: %TRUE if a decision was made, %FALSE to have the
+     * default behavior apply
      *
      * Since: 1.0.3
      */
@@ -1258,7 +1527,6 @@ static void webkit_web_view_class_init(WebKitWebViewClass* webViewClass)
      * @context: the #JSGlobalContextRef holding the global object and other
      * execution state; equivalent to the return value of
      * webkit_web_frame_get_global_context(@frame)
-     *
      * @window_object: the #JSObjectRef representing the frame's JavaScript
      * window object
      *
@@ -1283,12 +1551,12 @@ static void webkit_web_view_class_init(WebKitWebViewClass* webViewClass)
      * @web_view: the object on which the signal is emitted
      * @download: a #WebKitDownload object that lets you control the
      * download process
-     * @return: %TRUE if the download should be performed, %FALSE to cancel it.
      *
      * A new Download is being requested. By default, if the signal is
-     * not handled, the download is cancelled. Notice that while
-     * handling this signal you must set the target URI using
-     * webkit_download_set_target_uri().
+     * not handled, the download is cancelled. If you handle the download
+     * and call webkit_download_set_destination_uri(), it will be
+     * started for you. If you need to set the destination asynchronously
+     * you are responsible for starting or cancelling it yourself.
      *
      * If you intend to handle downloads yourself rather than using
      * the #WebKitDownload helper object you must handle this signal,
@@ -1304,6 +1572,9 @@ static void webkit_web_view_class_init(WebKitWebViewClass* webViewClass)
      * files you want your application to download (a common solution
      * is to download anything that WebKit can't handle, which you can
      * figure out by using webkit_web_view_can_show_mime_type()).
+     *
+     * Return value: TRUE if the download should be performed, %FALSE to
+     * cancel it
      *
      * Since: 1.1.2
      */
@@ -1323,6 +1594,8 @@ static void webkit_web_view_class_init(WebKitWebViewClass* webViewClass)
      * @frame: the frame going to do the load
      *
      * When a #WebKitWebFrame begins to load this signal is emitted.
+     *
+     * Deprecated: Use the "load-status" property instead.
      */
     webkit_web_view_signals[LOAD_STARTED] = g_signal_new("load-started",
             G_TYPE_FROM_CLASS(webViewClass),
@@ -1340,6 +1613,8 @@ static void webkit_web_view_class_init(WebKitWebViewClass* webViewClass)
      * @frame: the main frame that received the first data
      *
      * When a #WebKitWebFrame loaded the first data this signal is emitted.
+     *
+     * Deprecated: Use the "load-status" property instead.
      */
     webkit_web_view_signals[LOAD_COMMITTED] = g_signal_new("load-committed",
             G_TYPE_FROM_CLASS(webViewClass),
@@ -1356,6 +1631,8 @@ static void webkit_web_view_class_init(WebKitWebViewClass* webViewClass)
      * WebKitWebView::load-progress-changed:
      * @web_view: the #WebKitWebView
      * @progress: the global progress
+     *
+     * Deprecated: Use the "progress" property instead.
      */
     webkit_web_view_signals[LOAD_PROGRESS_CHANGED] = g_signal_new("load-progress-changed",
             G_TYPE_FROM_CLASS(webViewClass),
@@ -1379,6 +1656,9 @@ static void webkit_web_view_class_init(WebKitWebViewClass* webViewClass)
      * handle the signal if you want to provide your own error page.
      *
      * Since: 1.1.6
+     *
+     * Return value: %TRUE to stop other handlers from being invoked for the
+     * event. %FALSE to propagate the event further.
      */
     webkit_web_view_signals[LOAD_ERROR] = g_signal_new("load-error",
             G_TYPE_FROM_CLASS(webViewClass),
@@ -1392,7 +1672,31 @@ static void webkit_web_view_class_init(WebKitWebViewClass* webViewClass)
             G_TYPE_STRING,
             G_TYPE_POINTER);
 
+    /**
+     * WebKitWebView::load-finished:
+     * @web_view: the #WebKitWebView
+     * @frame: the #WebKitWebFrame
+     *
+     * Deprecated: Use the "load-status" property instead.
+     */
     webkit_web_view_signals[LOAD_FINISHED] = g_signal_new("load-finished",
+            G_TYPE_FROM_CLASS(webViewClass),
+            (GSignalFlags)G_SIGNAL_RUN_LAST,
+            0,
+            NULL,
+            NULL,
+            g_cclosure_marshal_VOID__OBJECT,
+            G_TYPE_NONE, 1,
+            WEBKIT_TYPE_WEB_FRAME);
+
+    /**
+     * WebKitWebView::onload-event:
+     * @web_view: the object on which the signal is emitted
+     * @frame: the frame
+     *
+     * When a #WebKitWebFrame receives an onload event this signal is emitted.
+     */
+    webkit_web_view_signals[LOAD_STARTED] = g_signal_new("onload-event",
             G_TYPE_FROM_CLASS(webViewClass),
             (GSignalFlags)G_SIGNAL_RUN_LAST,
             0,
@@ -1465,8 +1769,6 @@ static void webkit_web_view_class_init(WebKitWebViewClass* webViewClass)
      * WebKitWebView::print-requested
      * @web_view: the object in which the signal is emitted
      * @web_frame: the frame that is requesting to be printed
-     * @return: %TRUE if the print request has been handled, %FALSE if
-     * the default handler should run
      *
      * Emitted when printing is requested by the frame, usually
      * because of a javascript call. When handling this signal you
@@ -1477,6 +1779,9 @@ static void webkit_web_view_class_init(WebKitWebViewClass* webViewClass)
      * print operation. Notice that this means that if you intend to
      * ignore a print request you must connect to this signal, and
      * return %TRUE.
+     *
+     * Return value: %TRUE if the print request has been handled, %FALSE if
+     * the default handler should run
      *
      * Since: 1.1.5
      */
@@ -1500,14 +1805,24 @@ static void webkit_web_view_class_init(WebKitWebViewClass* webViewClass)
             G_TYPE_NONE, 1,
             G_TYPE_STRING);
 
-    webkit_web_view_signals[ICOND_LOADED] = g_signal_new("icon-loaded",
+    /**
+     * WebKitWebView::icon-loaded:
+     * @web_view: the object on which the signal is emitted
+     * @icon_uri: the URI for the icon
+     *
+     * This signal is emitted when the main frame has got a favicon.
+     *
+     * Since: 1.1.18
+     */
+    webkit_web_view_signals[ICON_LOADED] = g_signal_new("icon-loaded",
             G_TYPE_FROM_CLASS(webViewClass),
             (GSignalFlags)G_SIGNAL_RUN_LAST,
             0,
             NULL,
             NULL,
-            g_cclosure_marshal_VOID__VOID,
-            G_TYPE_NONE, 0);
+            g_cclosure_marshal_VOID__STRING,
+            G_TYPE_NONE, 1,
+            G_TYPE_STRING);
 
     webkit_web_view_signals[SELECTION_CHANGED] = g_signal_new("selection-changed",
             G_TYPE_FROM_CLASS(webViewClass),
@@ -1524,9 +1839,11 @@ static void webkit_web_view_class_init(WebKitWebViewClass* webViewClass)
      * @message: the message text
      * @line: the line where the error occured
      * @source_id: the source id
-     * @return: TRUE to stop other handlers from being invoked for the event. FALSE to propagate the event further.
      *
      * A JavaScript console message was created.
+     *
+     * Return value: %TRUE to stop other handlers from being invoked for the
+     * event. %FALSE to propagate the event further.
      */
     webkit_web_view_signals[CONSOLE_MESSAGE] = g_signal_new("console-message",
             G_TYPE_FROM_CLASS(webViewClass),
@@ -1543,9 +1860,11 @@ static void webkit_web_view_class_init(WebKitWebViewClass* webViewClass)
      * @web_view: the object on which the signal is emitted
      * @frame: the relevant frame
      * @message: the message text
-     * @return: TRUE to stop other handlers from being invoked for the event. FALSE to propagate the event further.
      *
      * A JavaScript alert dialog was created.
+     *
+     * Return value: %TRUE to stop other handlers from being invoked for the
+     * event. %FALSE to propagate the event further.
      */
     webkit_web_view_signals[SCRIPT_ALERT] = g_signal_new("script-alert",
             G_TYPE_FROM_CLASS(webViewClass),
@@ -1563,9 +1882,11 @@ static void webkit_web_view_class_init(WebKitWebViewClass* webViewClass)
      * @frame: the relevant frame
      * @message: the message text
      * @confirmed: whether the dialog has been confirmed
-     * @return: TRUE to stop other handlers from being invoked for the event. FALSE to propagate the event further.
      *
      * A JavaScript confirm dialog was created, providing Yes and No buttons.
+     *
+     * Return value: %TRUE to stop other handlers from being invoked for the
+     * event. %FALSE to propagate the event further.
      */
     webkit_web_view_signals[SCRIPT_CONFIRM] = g_signal_new("script-confirm",
             G_TYPE_FROM_CLASS(webViewClass),
@@ -1584,9 +1905,11 @@ static void webkit_web_view_class_init(WebKitWebViewClass* webViewClass)
      * @message: the message text
      * @default: the default value
      * @text: To be filled with the return value or NULL if the dialog was cancelled.
-     * @return: TRUE to stop other handlers from being invoked for the event. FALSE to propagate the event further.
      *
      * A JavaScript prompt dialog was created, providing an entry to input text.
+     *
+     * Return value: %TRUE to stop other handlers from being invoked for the
+     * event. %FALSE to propagate the event further.
      */
     webkit_web_view_signals[SCRIPT_PROMPT] = g_signal_new("script-prompt",
             G_TYPE_FROM_CLASS(webViewClass),
@@ -1667,6 +1990,44 @@ static void webkit_web_view_class_init(WebKitWebViewClass* webViewClass)
             G_TYPE_NONE, 0);
 
     /**
+     * WebKitWebView::undo
+     * @web_view: the object which received the signal
+     *
+     * The #WebKitWebView::undo signal is a keybinding signal which gets emitted to
+     * undo the last editing command.
+     *
+     * The default binding for this signal is Ctrl-z
+     *
+     * Since: 1.1.14
+     */
+    webkit_web_view_signals[UNDO] = g_signal_new("undo",
+            G_TYPE_FROM_CLASS(webViewClass),
+            (GSignalFlags)(G_SIGNAL_RUN_LAST | G_SIGNAL_ACTION),
+            G_STRUCT_OFFSET(WebKitWebViewClass, undo),
+            NULL, NULL,
+            g_cclosure_marshal_VOID__VOID,
+            G_TYPE_NONE, 0);
+
+    /**
+     * WebKitWebView::redo
+     * @web_view: the object which received the signal
+     *
+     * The #WebKitWebView::redo signal is a keybinding signal which gets emitted to
+     * redo the last editing command.
+     *
+     * The default binding for this signal is Ctrl-Shift-z
+     *
+     * Since: 1.1.14
+     */
+    webkit_web_view_signals[REDO] = g_signal_new("redo",
+            G_TYPE_FROM_CLASS(webViewClass),
+            (GSignalFlags)(G_SIGNAL_RUN_LAST | G_SIGNAL_ACTION),
+            G_STRUCT_OFFSET(WebKitWebViewClass, redo),
+            NULL, NULL,
+            g_cclosure_marshal_VOID__VOID,
+            G_TYPE_NONE, 0);
+
+    /**
      * WebKitWebView::move-cursor:
      * @web_view: the object which received the signal
      * @step: the type of movement, one of #GtkMovementStep
@@ -1675,6 +2036,8 @@ static void webkit_web_view_class_init(WebKitWebViewClass* webViewClass)
      *
      * The #WebKitWebView::move-cursor will be emitted to apply the
      * cursor movement described by its parameters to the @view.
+     *
+     * Return value: %TRUE or %FALSE
      * 
      * Since: 1.1.4
      */
@@ -1695,12 +2058,14 @@ static void webkit_web_view_class_init(WebKitWebViewClass* webViewClass)
      * @uri: the URI to load
      * @param: a #GHashTable with additional attributes (strings)
      *
-     * The #WebKitWebView::create-plugin signal will be emitted to
+     * The #WebKitWebView::create-plugin-widget signal will be emitted to
      * create a plugin widget for embed or object HTML tags. This
      * allows to embed a GtkWidget as a plugin into HTML content. In
      * case of a textual selection of the GtkWidget WebCore will attempt
      * to set the property value of "webkit-widget-is-selected". This can
      * be used to draw a visual indicator of the selection.
+     *
+     * Return value: a new #GtkWidget, or %NULL
      *
      * Since: 1.1.8
      */
@@ -1714,11 +2079,141 @@ static void webkit_web_view_class_init(WebKitWebViewClass* webViewClass)
             GTK_TYPE_WIDGET, 3,
             G_TYPE_STRING, G_TYPE_STRING, G_TYPE_HASH_TABLE);
 
+    /**
+     * WebKitWebView::database-quota-exceeded
+     * @web_view: the object which received the signal
+     * @frame: the relevant frame
+     * @database: the #WebKitWebDatabase which exceeded the quota of its #WebKitSecurityOrigin
+     *
+     * The #WebKitWebView::database-quota-exceeded signal will be emitted when
+     * a Web Database exceeds the quota of its security origin. This signal
+     * may be used to increase the size of the quota before the originating
+     * operation fails.
+     *
+     * Since: 1.1.14
+     */
+    webkit_web_view_signals[DATABASE_QUOTA_EXCEEDED] = g_signal_new("database-quota-exceeded",
+            G_TYPE_FROM_CLASS(webViewClass),
+            (GSignalFlags) (G_SIGNAL_RUN_LAST | G_SIGNAL_ACTION),
+            0,
+            NULL, NULL,
+            webkit_marshal_VOID__OBJECT_OBJECT,
+            G_TYPE_NONE, 2,
+            G_TYPE_OBJECT, G_TYPE_OBJECT);
+
+    /**
+     * WebKitWebView::resource-request-starting:
+     * @web_view: the object which received the signal
+     * @web_frame: the #WebKitWebFrame whose load dispatched this request
+     * @web_resource: an empty #WebKitWebResource object
+     * @request: the #WebKitNetworkRequest that will be dispatched
+     * @response: the #WebKitNetworkResponse representing the redirect
+     * response, if any
+     *
+     * Emitted when a request is about to be sent. You can modify the
+     * request while handling this signal. You can set the URI in the
+     * #WebKitNetworkRequest object itself, and add/remove/replace
+     * headers using the #SoupMessage object it carries, if it is
+     * present. See webkit_network_request_get_message(). Setting the
+     * request URI to "about:blank" will effectively cause the request
+     * to load nothing, and can be used to disable the loading of
+     * specific resources.
+     *
+     * Notice that information about an eventual redirect is available
+     * in @response's #SoupMessage, not in the #SoupMessage carried by
+     * the @request. If @response is %NULL, then this is not a
+     * redirected request.
+     *
+     * The #WebKitWebResource object will be the same throughout all
+     * the lifetime of the resource, but the contents may change from
+     * inbetween signal emissions.
+     *
+     * Since: 1.1.14
+     */
+    webkit_web_view_signals[RESOURCE_REQUEST_STARTING] = g_signal_new("resource-request-starting",
+            G_TYPE_FROM_CLASS(webViewClass),
+            (GSignalFlags)(G_SIGNAL_RUN_LAST | G_SIGNAL_ACTION),
+            0,
+            NULL, NULL,
+            webkit_marshal_VOID__OBJECT_OBJECT_OBJECT_OBJECT,
+            G_TYPE_NONE, 4,
+            WEBKIT_TYPE_WEB_FRAME,
+            WEBKIT_TYPE_WEB_RESOURCE,
+            WEBKIT_TYPE_NETWORK_REQUEST,
+            WEBKIT_TYPE_NETWORK_RESPONSE);
+
+    /**
+     * WebKitWebView::geolocation-policy-decision-requested:
+     * @web_view: the object on which the signal is emitted
+     * @frame: the frame that requests permission
+     * @policy_decision: a WebKitGeolocationPolicyDecision
+     *
+     * When a @frame wants to get its geolocation permission.
+     * The receiver must reply with a boolean wether it handled or not the
+     * request. If the request is not handled, default behaviour is to deny
+     * geolocation.
+     *
+     * Since: 1.1.23
+     */
+    webkit_web_view_signals[GEOLOCATION_POLICY_DECISION_REQUESTED] = g_signal_new("geolocation-policy-decision-requested",
+            G_TYPE_FROM_CLASS(webViewClass),
+            (GSignalFlags)(G_SIGNAL_RUN_LAST),
+            0,
+            NULL, NULL,
+            webkit_marshal_BOOLEAN__OBJECT_OBJECT,
+            G_TYPE_BOOLEAN, 2,
+            WEBKIT_TYPE_WEB_FRAME,
+            WEBKIT_TYPE_GEOLOCATION_POLICY_DECISION);
+
+    /**
+     * WebKitWebView::geolocation-policy-decision-cancelled:
+     * @web_view: the object on which the signal is emitted
+     * @frame: the frame that cancels geolocation request.
+     *
+     * When a @frame wants to cancel geolocation permission it had requested
+     * before.
+     *
+     * Since: 1.1.23
+     */
+    webkit_web_view_signals[GEOLOCATION_POLICY_DECISION_CANCELLED] = g_signal_new("geolocation-policy-decision-cancelled",
+            G_TYPE_FROM_CLASS(webViewClass),
+            (GSignalFlags)(G_SIGNAL_RUN_LAST),
+            0,
+            NULL, NULL,
+            g_cclosure_marshal_VOID__OBJECT,
+            G_TYPE_NONE, 1,
+            WEBKIT_TYPE_WEB_FRAME);
+
+    /*
+     * DOM-related signals. These signals are experimental, for now,
+     * and may change API and ABI. Their comments lack one * on
+     * purpose, to make them not be catched by gtk-doc.
+     */
+
+    /*
+     * WebKitWebView::document-load-finished
+     * @web_view: the object which received the signal
+     * @web_frame: the #WebKitWebFrame whose load dispatched this request
+     *
+     * Emitted when the DOM document object load is finished for the
+     * given frame.
+     */
+    webkit_web_view_signals[DOCUMENT_LOAD_FINISHED] = g_signal_new("document-load-finished",
+            G_TYPE_FROM_CLASS(webViewClass),
+            (GSignalFlags)(G_SIGNAL_RUN_LAST | G_SIGNAL_ACTION),
+            0,
+            NULL, NULL,
+            g_cclosure_marshal_VOID__OBJECT,
+            G_TYPE_NONE, 1,
+            WEBKIT_TYPE_WEB_FRAME);
+
+
     /*
      * implementations of virtual methods
      */
     webViewClass->create_web_view = webkit_web_view_real_create_web_view;
     webViewClass->web_view_ready = webkit_web_view_real_web_view_ready;
+    webViewClass->close_web_view = webkit_web_view_real_close_web_view;
     webViewClass->navigation_requested = webkit_web_view_real_navigation_requested;
     webViewClass->window_object_cleared = webkit_web_view_real_window_object_cleared;
     webViewClass->choose_file = webkit_web_view_real_choose_file;
@@ -1730,6 +2225,8 @@ static void webkit_web_view_class_init(WebKitWebViewClass* webViewClass)
     webViewClass->cut_clipboard = webkit_web_view_real_cut_clipboard;
     webViewClass->copy_clipboard = webkit_web_view_real_copy_clipboard;
     webViewClass->paste_clipboard = webkit_web_view_real_paste_clipboard;
+    webViewClass->undo = webkit_web_view_real_undo;
+    webViewClass->redo = webkit_web_view_real_redo;
     webViewClass->move_cursor = webkit_web_view_real_move_cursor;
 
     GObjectClass* objectClass = G_OBJECT_CLASS(webViewClass);
@@ -1748,11 +2245,18 @@ static void webkit_web_view_class_init(WebKitWebViewClass* webViewClass)
     widgetClass->motion_notify_event = webkit_web_view_motion_event;
     widgetClass->scroll_event = webkit_web_view_scroll_event;
     widgetClass->size_allocate = webkit_web_view_size_allocate;
+    widgetClass->size_request = webkit_web_view_size_request;
     widgetClass->popup_menu = webkit_web_view_popup_menu_handler;
+    widgetClass->grab_focus = webkit_web_view_grab_focus;
     widgetClass->focus_in_event = webkit_web_view_focus_in_event;
     widgetClass->focus_out_event = webkit_web_view_focus_out_event;
     widgetClass->get_accessible = webkit_web_view_get_accessible;
     widgetClass->screen_changed = webkit_web_view_screen_changed;
+    widgetClass->drag_end = webkit_web_view_drag_end;
+    widgetClass->drag_data_get = webkit_web_view_drag_data_get;
+#if GTK_CHECK_VERSION(2, 12, 0)
+    widgetClass->query_tooltip = webkit_web_view_query_tooltip;
+#endif
 
     GtkContainerClass* containerClass = GTK_CONTAINER_CLASS(webViewClass);
     containerClass->add = webkit_web_view_container_add;
@@ -1789,6 +2293,10 @@ static void webkit_web_view_class_init(WebKitWebViewClass* webViewClass)
                                  "copy_clipboard", 0);
     gtk_binding_entry_add_signal(binding_set, GDK_v, GDK_CONTROL_MASK,
                                  "paste_clipboard", 0);
+    gtk_binding_entry_add_signal(binding_set, GDK_z, GDK_CONTROL_MASK,
+                                 "undo", 0);
+    gtk_binding_entry_add_signal(binding_set, GDK_z, static_cast<GdkModifierType>(GDK_CONTROL_MASK | GDK_SHIFT_MASK),
+                                 "redo", 0);
 
     gtk_binding_entry_add_signal(binding_set, GDK_Delete, GDK_SHIFT_MASK,
                                  "cut_clipboard", 0);
@@ -2012,6 +2520,16 @@ static void webkit_web_view_class_init(WebKitWebViewClass* webViewClass)
     *
     * Determines the current status of the load.
     *
+    * Connect to "notify::load-status" to monitor loading.
+    *
+    * Some versions of WebKitGTK+ emitted this signal for the default
+    * error page, while loading it. This behavior was considered bad,
+    * because it was essentially exposing an implementation
+    * detail. From 1.1.19 onwards this signal is no longer emitted for
+    * the default error pages, but keep in mind that if you override
+    * the error pages by using webkit_web_frame_load_alternate_string()
+    * the signals will be emitted.
+    *
     * Since: 1.1.7
     */
     g_object_class_install_property(objectClass, PROP_LOAD_STATUS,
@@ -2036,6 +2554,37 @@ static void webkit_web_view_class_init(WebKitWebViewClass* webViewClass)
                                                         0.0, 1.0, 1.0,
                                                         WEBKIT_PARAM_READABLE));
 
+    /**
+     * WebKitWebView:icon-uri:
+     *
+     * The URI for the favicon for the #WebKitWebView.
+     *
+     * Since: 1.1.18
+     */
+    g_object_class_install_property(objectClass, PROP_ICON_URI,
+                                    g_param_spec_string("icon-uri",
+                                                        _("Icon URI"),
+                                                        _("The URI for the favicon for the #WebKitWebView."),
+                                                        NULL,
+                                                        WEBKIT_PARAM_READABLE));
+    /**
+    * WebKitWebView:im-context:
+    *
+    * The GtkIMMulticontext for the #WebKitWebView.
+    *
+    * This is the input method context used for all text entry widgets inside
+    * the #WebKitWebView. It can be used to generate context menu items for
+    * controlling the active input method.
+    *
+    * Since: 1.1.20
+    */
+    g_object_class_install_property(objectClass, PROP_IM_CONTEXT,
+                                    g_param_spec_object("im-context",
+                                                        "IM Context",
+                                                        "The GtkIMMultiContext for the #WebKitWebView.",
+                                                        GTK_TYPE_IM_CONTEXT,
+                                                        WEBKIT_PARAM_READABLE));
+
     g_type_class_add_private(webViewClass, sizeof(WebKitWebViewPrivate));
 }
 
@@ -2049,7 +2598,13 @@ static void webkit_web_view_update_settings(WebKitWebView* webView)
     gboolean autoLoadImages, autoShrinkImages, printBackgrounds,
         enableScripts, enablePlugins, enableDeveloperExtras, resizableTextAreas,
         enablePrivateBrowsing, enableCaretBrowsing, enableHTML5Database, enableHTML5LocalStorage,
-        enableXSSAuditor;
+        enableXSSAuditor, enableSpatialNavigation, javascriptCanOpenWindows,
+        javaScriptCanAccessClipboard, enableOfflineWebAppCache,
+        enableUniversalAccessFromFileURI, enableFileAccessFromFileURI,
+        enableDOMPaste, tabKeyCyclesThroughElements,
+        enableSiteSpecificQuirks, usePageCache, enableJavaApplet;
+
+    WebKitEditingBehavior editingBehavior;
 
     g_object_get(webSettings,
                  "default-encoding", &defaultEncoding,
@@ -2072,6 +2627,18 @@ static void webkit_web_view_update_settings(WebKitWebView* webView)
                  "enable-html5-database", &enableHTML5Database,
                  "enable-html5-local-storage", &enableHTML5LocalStorage,
                  "enable-xss-auditor", &enableXSSAuditor,
+                 "enable-spatial-navigation", &enableSpatialNavigation,
+                 "javascript-can-open-windows-automatically", &javascriptCanOpenWindows,
+                 "javascript-can-access-clipboard", &javaScriptCanAccessClipboard,
+                 "enable-offline-web-application-cache", &enableOfflineWebAppCache,
+                 "editing-behavior", &editingBehavior,
+                 "enable-universal-access-from-file-uris", &enableUniversalAccessFromFileURI,
+                 "enable-file-access-from-file-uris", &enableFileAccessFromFileURI,
+                 "enable-dom-paste", &enableDOMPaste,
+                 "tab-key-cycles-through-elements", &tabKeyCyclesThroughElements,
+                 "enable-site-specific-quirks", &enableSiteSpecificQuirks,
+                 "enable-page-cache", &usePageCache,
+                 "enable-java-applet", &enableJavaApplet,
                  NULL);
 
     settings->setDefaultTextEncodingName(defaultEncoding);
@@ -2091,9 +2658,26 @@ static void webkit_web_view_update_settings(WebKitWebView* webView)
     settings->setDeveloperExtrasEnabled(enableDeveloperExtras);
     settings->setPrivateBrowsingEnabled(enablePrivateBrowsing);
     settings->setCaretBrowsingEnabled(enableCaretBrowsing);
-    settings->setDatabasesEnabled(enableHTML5Database);
+#if ENABLE(DATABASE)
+    Database::setIsAvailable(enableHTML5Database);
+#endif
     settings->setLocalStorageEnabled(enableHTML5LocalStorage);
     settings->setXSSAuditorEnabled(enableXSSAuditor);
+    settings->setSpatialNavigationEnabled(enableSpatialNavigation);
+    settings->setJavaScriptCanOpenWindowsAutomatically(javascriptCanOpenWindows);
+    settings->setJavaScriptCanAccessClipboard(javaScriptCanAccessClipboard);
+    settings->setOfflineWebApplicationCacheEnabled(enableOfflineWebAppCache);
+    settings->setEditingBehavior(core(editingBehavior));
+    settings->setAllowUniversalAccessFromFileURLs(enableUniversalAccessFromFileURI);
+    settings->setAllowFileAccessFromFileURLs(enableFileAccessFromFileURI);
+    settings->setDOMPasteAllowed(enableDOMPaste);
+    settings->setNeedsSiteSpecificQuirks(enableSiteSpecificQuirks);
+    settings->setUsesPageCache(usePageCache);
+    settings->setJavaEnabled(enableJavaApplet);
+
+    Page* page = core(webView);
+    if (page)
+        page->setTabKeyCyclesThroughElements(tabKeyCyclesThroughElements);
 
     g_free(defaultEncoding);
     g_free(cursiveFontFamily);
@@ -2166,12 +2750,41 @@ static void webkit_web_view_settings_notify(WebKitWebSettings* webSettings, GPar
         settings->setPrivateBrowsingEnabled(g_value_get_boolean(&value));
     else if (name == g_intern_string("enable-caret-browsing"))
         settings->setCaretBrowsingEnabled(g_value_get_boolean(&value));
-    else if (name == g_intern_string("enable-html5-database"))
-        settings->setDatabasesEnabled(g_value_get_boolean(&value));
+#if ENABLE(DATABASE)
+    else if (name == g_intern_string("enable-html5-database")) {
+        Database::setIsAvailable(g_value_get_boolean(&value));
+    }
+#endif
     else if (name == g_intern_string("enable-html5-local-storage"))
         settings->setLocalStorageEnabled(g_value_get_boolean(&value));
     else if (name == g_intern_string("enable-xss-auditor"))
         settings->setXSSAuditorEnabled(g_value_get_boolean(&value));
+    else if (name == g_intern_string("enable-spatial-navigation"))
+        settings->setSpatialNavigationEnabled(g_value_get_boolean(&value));
+    else if (name == g_intern_string("javascript-can-open-windows-automatically"))
+        settings->setJavaScriptCanOpenWindowsAutomatically(g_value_get_boolean(&value));
+    else if (name == g_intern_string("javascript-can-access-clipboard"))
+        settings->setJavaScriptCanAccessClipboard(g_value_get_boolean(&value));
+    else if (name == g_intern_string("enable-offline-web-application-cache"))
+        settings->setOfflineWebApplicationCacheEnabled(g_value_get_boolean(&value));
+    else if (name == g_intern_string("editing-behavior"))
+        settings->setEditingBehavior(core(static_cast<WebKitEditingBehavior>(g_value_get_enum(&value))));
+    else if (name == g_intern_string("enable-universal-access-from-file-uris"))
+        settings->setAllowUniversalAccessFromFileURLs(g_value_get_boolean(&value));
+    else if (name == g_intern_string("enable-file-access-from-file-uris"))
+        settings->setAllowFileAccessFromFileURLs(g_value_get_boolean(&value));
+    else if (name == g_intern_string("enable-dom-paste"))
+        settings->setDOMPasteAllowed(g_value_get_boolean(&value));
+    else if (name == g_intern_string("tab-key-cycles-through-elements")) {
+        Page* page = core(webView);
+        if (page)
+            page->setTabKeyCyclesThroughElements(g_value_get_boolean(&value));
+    } else if (name == g_intern_string("enable-site-specific-quirks"))
+        settings->setNeedsSiteSpecificQuirks(g_value_get_boolean(&value));
+    else if (name == g_intern_string("enable-page-cache"))
+        settings->setUsesPageCache(g_value_get_boolean(&value));
+    else if (name == g_intern_string("enable-java-applet"))
+        settings->setJavaEnabled(g_value_get_boolean(&value));
     else if (!g_object_class_find_property(G_OBJECT_GET_CLASS(webSettings), name))
         g_warning("Unexpected setting '%s'", name);
     g_value_unset(&value);
@@ -2185,7 +2798,7 @@ static void webkit_web_view_init(WebKitWebView* webView)
     priv->imContext = gtk_im_multicontext_new();
 
     WebKit::InspectorClient* inspectorClient = new WebKit::InspectorClient(webView);
-    priv->corePage = new Page(new WebKit::ChromeClient(webView), new WebKit::ContextMenuClient(webView), new WebKit::EditorClient(webView), new WebKit::DragClient, inspectorClient);
+    priv->corePage = new Page(new WebKit::ChromeClient(webView), new WebKit::ContextMenuClient(webView), new WebKit::EditorClient(webView), new WebKit::DragClient(webView), inspectorClient, 0, 0);
 
     // We also add a simple wrapper class to provide the public
     // interface for the Web Inspector.
@@ -2207,22 +2820,15 @@ static void webkit_web_view_init(WebKitWebView* webView)
 
     priv->zoomFullContent = FALSE;
 
-    GdkAtom textHtml = gdk_atom_intern_static_string("text/html");
-    /* Targets for copy */
-    priv->copy_target_list = gtk_target_list_new(NULL, 0);
-    gtk_target_list_add(priv->copy_target_list, textHtml, 0, WEBKIT_WEB_VIEW_TARGET_INFO_HTML);
-    gtk_target_list_add_text_targets(priv->copy_target_list, WEBKIT_WEB_VIEW_TARGET_INFO_TEXT);
-
-    /* Targets for pasting */
-    priv->paste_target_list = gtk_target_list_new(NULL, 0);
-    gtk_target_list_add(priv->paste_target_list, textHtml, 0, WEBKIT_WEB_VIEW_TARGET_INFO_HTML);
-    gtk_target_list_add_text_targets(priv->paste_target_list, WEBKIT_WEB_VIEW_TARGET_INFO_TEXT);
-
     priv->webSettings = webkit_web_settings_new();
     webkit_web_view_update_settings(webView);
     g_signal_connect(priv->webSettings, "notify", G_CALLBACK(webkit_web_view_settings_notify), webView);
 
     priv->webWindowFeatures = webkit_web_window_features_new();
+
+    priv->subResources = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, g_object_unref);
+
+    priv->tooltipText = 0;
 }
 
 GtkWidget* webkit_web_view_new(void)
@@ -2241,14 +2847,16 @@ void webkit_web_view_notify_ready(WebKitWebView* webView)
     g_signal_emit(webView, webkit_web_view_signals[WEB_VIEW_READY], 0, &isHandled);
 }
 
-void webkit_web_view_request_download(WebKitWebView* webView, WebKitNetworkRequest* request, const ResourceResponse& response)
+void webkit_web_view_request_download(WebKitWebView* webView, WebKitNetworkRequest* request, const ResourceResponse& response, ResourceHandle* handle)
 {
     g_return_if_fail(WEBKIT_IS_WEB_VIEW(webView));
 
-    WebKitDownload* download = webkit_download_new(request);
+    WebKitDownload* download;
 
-    if (!response.isNull() && !response.suggestedFilename().isEmpty())
-        webkit_download_set_suggested_filename(download, response.suggestedFilename().utf8().data());
+    if (handle)
+        download = webkit_download_new_with_handle(request, handle, response);
+    else
+        download = webkit_download_new(request);
 
     gboolean handled;
     g_signal_emit(webView, webkit_web_view_signals[DOWNLOAD_REQUESTED], 0, download, &handled);
@@ -2259,7 +2867,10 @@ void webkit_web_view_request_download(WebKitWebView* webView, WebKitNetworkReque
         return;
     }
 
-    webkit_download_start(download);
+    /* Start the download now if it has a destination URI, otherwise it
+        may be handled asynchronously by the application. */
+    if (webkit_download_get_destination_uri(download))
+        webkit_download_start(download);
 }
 
 bool webkit_web_view_use_primary_for_paste(WebKitWebView* webView)
@@ -2318,8 +2929,11 @@ WebKitWebInspector* webkit_web_view_get_inspector(WebKitWebView* webView)
 static void webkit_web_view_set_window_features(WebKitWebView* webView, WebKitWebWindowFeatures* webWindowFeatures)
 {
     WebKitWebViewPrivate* priv = webView->priv;
+    
+    if (!webWindowFeatures)
+      return;
 
-    if(webkit_web_window_features_equal(priv->webWindowFeatures, webWindowFeatures))
+    if (webkit_web_window_features_equal(priv->webWindowFeatures, webWindowFeatures))
       return;
 
     g_object_unref(priv->webWindowFeatures);
@@ -2464,8 +3078,7 @@ void webkit_web_view_go_back_or_forward(WebKitWebView* webView, gint steps)
 {
     g_return_if_fail(WEBKIT_IS_WEB_VIEW(webView));
 
-    Frame* frame = core(webView)->mainFrame();
-    frame->loader()->goBackOrForward(steps);
+    core(webView)->goBackOrForward(steps);
 }
 
 /**
@@ -2514,8 +3127,7 @@ gboolean webkit_web_view_can_go_back_or_forward(WebKitWebView* webView, gint ste
 {
     g_return_val_if_fail(WEBKIT_IS_WEB_VIEW(webView), FALSE);
 
-    Frame* frame = core(webView)->mainFrame();
-    return frame->loader()->canGoBackOrForward(steps);
+    return core(webView)->canGoBackOrForward(steps);
 }
 
 /**
@@ -2669,6 +3281,12 @@ void webkit_web_view_load_request(WebKitWebView* webView, WebKitNetworkRequest* 
     webkit_web_frame_load_request(frame, request);
 }
 
+/**
+ * webkit_web_view_stop_loading:
+ * @webView: a #WebKitWebView
+ * 
+ * Stops any ongoing load in the @webView.
+ **/
 void webkit_web_view_stop_loading(WebKitWebView* webView)
 {
     g_return_if_fail(WEBKIT_IS_WEB_VIEW(webView));
@@ -2676,7 +3294,7 @@ void webkit_web_view_stop_loading(WebKitWebView* webView)
     Frame* frame = core(webView)->mainFrame();
 
     if (FrameLoader* loader = frame->loader())
-        loader->stopAllLoaders();
+        loader->stopForUserCancel();
 }
 
 /**
@@ -2707,7 +3325,7 @@ gboolean webkit_web_view_search_text(WebKitWebView* webView, const gchar* string
  * @web_view: a #WebKitWebView
  * @string: a string to look for
  * @case_sensitive: whether to respect the case of text
- * @limit: the maximum number of strings to look for or %0 for all
+ * @limit: the maximum number of strings to look for or 0 for all
  *
  * Attempts to highlight all occurances of #string inside #web_view.
  *
@@ -2734,7 +3352,11 @@ void webkit_web_view_set_highlight_text_matches(WebKitWebView* webView, gboolean
 {
     g_return_if_fail(WEBKIT_IS_WEB_VIEW(webView));
 
-    core(webView)->mainFrame()->setMarkedTextMatchesAreHighlighted(shouldHighlight);
+    Frame *frame = core(webView)->mainFrame();
+    do {
+        frame->setMarkedTextMatchesAreHighlighted(shouldHighlight);
+        frame = frame->tree()->traverseNextWithWrap(false);
+    } while (frame);
 }
 
 /**
@@ -2779,8 +3401,7 @@ void webkit_web_view_execute_script(WebKitWebView* webView, const gchar* script)
     g_return_if_fail(WEBKIT_IS_WEB_VIEW(webView));
     g_return_if_fail(script);
 
-    if (FrameLoader* loader = core(webView)->mainFrame()->loader())
-        loader->executeScript(String::fromUTF8(script), true);
+    core(webView)->mainFrame()->script()->executeScript(String::fromUTF8(script), true);
 }
 
 /**
@@ -3002,7 +3623,7 @@ void webkit_web_view_set_editable(WebKitWebView* webView, gboolean flag)
  *
  * This function returns the list of targets this #WebKitWebView can
  * provide for clipboard copying and as DND source. The targets in the list are
- * added with %info values from the #WebKitWebViewTargetInfo enum,
+ * added with values from the #WebKitWebViewTargetInfo enum,
  * using gtk_target_list_add() and
  * gtk_target_list_add_text_targets().
  *
@@ -3010,10 +3631,7 @@ void webkit_web_view_set_editable(WebKitWebView* webView, gboolean flag)
  **/
 GtkTargetList* webkit_web_view_get_copy_target_list(WebKitWebView* webView)
 {
-    g_return_val_if_fail(WEBKIT_IS_WEB_VIEW(webView), NULL);
-
-    WebKitWebViewPrivate* priv = webView->priv;
-    return priv->copy_target_list;
+    return pasteboardHelperInstance()->targetList();
 }
 
 /**
@@ -3022,7 +3640,7 @@ GtkTargetList* webkit_web_view_get_copy_target_list(WebKitWebView* webView)
  *
  * This function returns the list of targets this #WebKitWebView can
  * provide for clipboard pasting and as DND destination. The targets in the list are
- * added with %info values from the #WebKitWebViewTargetInfo enum,
+ * added with values from the #WebKitWebViewTargetInfo enum,
  * using gtk_target_list_add() and
  * gtk_target_list_add_text_targets().
  *
@@ -3030,10 +3648,7 @@ GtkTargetList* webkit_web_view_get_copy_target_list(WebKitWebView* webView)
  **/
 GtkTargetList* webkit_web_view_get_paste_target_list(WebKitWebView* webView)
 {
-    g_return_val_if_fail(WEBKIT_IS_WEB_VIEW(webView), NULL);
-
-    WebKitWebViewPrivate* priv = webView->priv;
-    return priv->paste_target_list;
+    return pasteboardHelperInstance()->targetList();
 }
 
 /**
@@ -3132,7 +3747,7 @@ static void webkit_web_view_apply_zoom_level(WebKitWebView* webView, gfloat zoom
         return;
 
     WebKitWebViewPrivate* priv = webView->priv;
-    frame->setZoomFactor(zoomLevel, !priv->zoomFullContent);
+    frame->setZoomFactor(zoomLevel, priv->zoomFullContent ? ZoomPage : ZoomTextOnly);
 }
 
 /**
@@ -3255,6 +3870,7 @@ void webkit_web_view_set_full_content_zoom(WebKitWebView* webView, gboolean zoom
  */
 SoupSession* webkit_get_default_session ()
 {
+    webkit_init();
     return ResourceHandle::defaultSession();
 }
 
@@ -3303,7 +3919,7 @@ const gchar* webkit_web_view_get_encoding(WebKitWebView* webView)
 {
     g_return_val_if_fail(WEBKIT_IS_WEB_VIEW(webView), NULL);
 
-    String encoding = core(webView)->mainFrame()->loader()->encoding();
+    String encoding = core(webView)->mainFrame()->loader()->writer()->encoding();
 
     if (!encoding.isEmpty()) {
         WebKitWebViewPrivate* priv = webView->priv;
@@ -3378,4 +3994,372 @@ void webkit_web_view_move_cursor(WebKitWebView* webView, GtkMovementStep step, g
 
     gboolean handled;
     g_signal_emit(webView, webkit_web_view_signals[MOVE_CURSOR], 0, step, count, &handled);
+}
+
+void webkit_web_view_set_group_name(WebKitWebView* webView, const gchar* groupName)
+{
+    g_return_if_fail(WEBKIT_IS_WEB_VIEW(webView));
+
+    WebKitWebViewPrivate* priv = webView->priv;
+
+    if (!priv->corePage)
+        return;
+
+    priv->corePage->setGroupName(String::fromUTF8(groupName));
+}
+
+/**
+ * webkit_web_view_can_undo:
+ * @web_view: a #WebKitWebView
+ *
+ * Determines whether or not it is currently possible to undo the last
+ * editing command in the view.
+ *
+ * Return value: %TRUE if a undo can be done, %FALSE if not
+ *
+ * Since: 1.1.14
+ */
+gboolean webkit_web_view_can_undo(WebKitWebView* webView)
+{
+    g_return_val_if_fail(WEBKIT_IS_WEB_VIEW(webView), FALSE);
+
+    Frame* frame = core(webView)->focusController()->focusedOrMainFrame();
+    return frame->editor()->canUndo();
+}
+
+/**
+ * webkit_web_view_undo:
+ * @web_view: a #WebKitWebView
+ *
+ * Undoes the last editing command in the view, if possible.
+ *
+ * Since: 1.1.14
+ */
+void webkit_web_view_undo(WebKitWebView* webView)
+{
+    g_return_if_fail(WEBKIT_IS_WEB_VIEW(webView));
+
+    if (webkit_web_view_can_undo(webView))
+        g_signal_emit(webView, webkit_web_view_signals[UNDO], 0);
+}
+
+/**
+ * webkit_web_view_can_redo:
+ * @web_view: a #WebKitWebView
+ *
+ * Determines whether or not it is currently possible to redo the last
+ * editing command in the view.
+ *
+ * Return value: %TRUE if a redo can be done, %FALSE if not
+ *
+ * Since: 1.1.14
+ */
+gboolean webkit_web_view_can_redo(WebKitWebView* webView)
+{
+    g_return_val_if_fail(WEBKIT_IS_WEB_VIEW(webView), FALSE);
+
+    Frame* frame = core(webView)->focusController()->focusedOrMainFrame();
+    return frame->editor()->canRedo();
+}
+
+/**
+ * webkit_web_view_redo:
+ * @web_view: a #WebKitWebView
+ *
+ * Redoes the last editing command in the view, if possible.
+ *
+ * Since: 1.1.14
+ */
+void webkit_web_view_redo(WebKitWebView* webView)
+{
+    g_return_if_fail(WEBKIT_IS_WEB_VIEW(webView));
+
+    if (webkit_web_view_can_redo(webView))
+        g_signal_emit(webView, webkit_web_view_signals[REDO], 0);
+}
+
+
+/**
+ * webkit_web_view_set_view_source_mode:
+ * @web_view: a #WebKitWebView
+ * @view_source_mode: the mode to turn on or off view source mode
+ *
+ * Set whether the view should be in view source mode. Setting this mode to
+ * %TRUE before loading a URI will display the source of the web page in a
+ * nice and readable format.
+ *
+ * Since: 1.1.14
+ */
+void webkit_web_view_set_view_source_mode (WebKitWebView* webView, gboolean mode)
+{
+    g_return_if_fail(WEBKIT_IS_WEB_VIEW(webView));
+
+    if (Frame* mainFrame = core(webView)->mainFrame())
+        mainFrame->setInViewSourceMode(mode);
+}
+
+/**
+ * webkit_web_view_get_view_source_mode:
+ * @web_view: a #WebKitWebView
+ *
+ * Return value: %TRUE if @web_view is in view source mode, %FALSE otherwise.
+ *
+ * Since: 1.1.14
+ */
+gboolean webkit_web_view_get_view_source_mode (WebKitWebView* webView)
+{
+    g_return_val_if_fail(WEBKIT_IS_WEB_VIEW(webView), FALSE);
+
+    if (Frame* mainFrame = core(webView)->mainFrame())
+        return mainFrame->inViewSourceMode();
+
+    return FALSE;
+}
+
+// Internal subresource management
+void webkit_web_view_add_resource(WebKitWebView* webView, char* identifier, WebKitWebResource* webResource)
+{
+    WebKitWebViewPrivate* priv = webView->priv;
+
+    if (!priv->mainResource) {
+        priv->mainResource = webResource;
+        priv->mainResourceIdentifier = g_strdup(identifier);
+        return;
+    }
+
+    g_hash_table_insert(priv->subResources, identifier, webResource);
+}
+
+WebKitWebResource* webkit_web_view_get_resource(WebKitWebView* webView, char* identifier)
+{
+    WebKitWebViewPrivate* priv = webView->priv;
+    gpointer webResource = NULL;
+
+    gboolean resourceFound = g_hash_table_lookup_extended(priv->subResources, identifier, NULL, &webResource);
+
+    // The only resource we do not store in this hash table is the
+    // main!  If we did not find a request, it probably means the load
+    // has been interrupted while while a resource was still being
+    // loaded.
+    if (!resourceFound && !g_str_equal(identifier, priv->mainResourceIdentifier))
+        return NULL;
+
+    if (!webResource)
+        return webkit_web_view_get_main_resource(webView);
+
+    return WEBKIT_WEB_RESOURCE(webResource);
+}
+
+WebKitWebResource* webkit_web_view_get_main_resource(WebKitWebView* webView)
+{
+    return webView->priv->mainResource;
+}
+
+void webkit_web_view_clear_resources(WebKitWebView* webView)
+{
+    WebKitWebViewPrivate* priv = webView->priv;
+
+    g_free(priv->mainResourceIdentifier);
+    priv->mainResourceIdentifier = NULL;
+
+    if (priv->mainResource) {
+        g_object_unref(priv->mainResource);
+        priv->mainResource = NULL;
+    }
+
+    if (priv->subResources)
+        g_hash_table_remove_all(priv->subResources);
+}
+
+GList* webkit_web_view_get_subresources(WebKitWebView* webView)
+{
+    WebKitWebViewPrivate* priv = webView->priv;
+    GList* subResources = g_hash_table_get_values(priv->subResources);
+    return g_list_remove(subResources, priv->mainResource);
+}
+
+/* From EventHandler.cpp */
+static IntPoint documentPointForWindowPoint(Frame* frame, const IntPoint& windowPoint)
+{
+    FrameView* view = frame->view();
+    // FIXME: Is it really OK to use the wrong coordinates here when view is 0?
+    // Historically the code would just crash; this is clearly no worse than that.
+    return view ? view->windowToContents(windowPoint) : windowPoint;
+}
+
+void webkit_web_view_set_tooltip_text(WebKitWebView* webView, const char* tooltip)
+{
+#if GTK_CHECK_VERSION(2, 12, 0)
+    WebKitWebViewPrivate* priv = webView->priv;
+    g_free(priv->tooltipText);
+    if (tooltip && *tooltip != '\0') {
+        priv->tooltipText = g_strdup(tooltip);
+        gtk_widget_set_has_tooltip(GTK_WIDGET(webView), TRUE);
+    } else {
+        priv->tooltipText = 0;
+        gtk_widget_set_has_tooltip(GTK_WIDGET(webView), FALSE);
+    }
+
+    gtk_widget_trigger_tooltip_query(GTK_WIDGET(webView));
+#else
+    // TODO: Support older GTK+ versions
+    // See http://bugs.webkit.org/show_bug.cgi?id=15793
+    notImplemented();
+#endif
+}
+
+/**
+ * webkit_web_view_get_hit_test_result:
+ * @webView: a #WebKitWebView
+ * @event: a #GdkEventButton
+ * 
+ * Does a 'hit test' in the coordinates specified by @event to figure
+ * out context information about that position in the @webView.
+ * 
+ * Returns: a newly created #WebKitHitTestResult with the context of the
+ * specified position.
+ *
+ * Since: 1.1.15
+ **/
+WebKitHitTestResult* webkit_web_view_get_hit_test_result(WebKitWebView* webView, GdkEventButton* event)
+{
+    g_return_val_if_fail(WEBKIT_IS_WEB_VIEW(webView), NULL);
+    g_return_val_if_fail(event, NULL);
+
+    PlatformMouseEvent mouseEvent = PlatformMouseEvent(event);
+    Frame* frame = core(webView)->focusController()->focusedOrMainFrame();
+    HitTestRequest request(HitTestRequest::Active);
+    IntPoint documentPoint = documentPointForWindowPoint(frame, mouseEvent.pos());
+    MouseEventWithHitTestResults mev = frame->document()->prepareMouseEvent(request, documentPoint, mouseEvent);
+
+    return kit(mev.hitTestResult());
+}
+
+/**
+ * webkit_web_view_get_icon_uri:
+ * @web_view: the #WebKitWebView object
+ *
+ * Obtains the URI for the favicon for the given #WebKitWebView, or
+ * %NULL if there is none.
+ *
+ * Return value: the URI for the favicon, or %NULL
+ *
+ * Since: 1.1.18
+ */
+G_CONST_RETURN gchar* webkit_web_view_get_icon_uri(WebKitWebView* webView)
+{
+    g_return_val_if_fail(WEBKIT_IS_WEB_VIEW(webView), NULL);
+
+    Page* corePage = core(webView);
+    String iconURL = iconDatabase()->iconURLForPageURL(corePage->mainFrame()->loader()->url().prettyURL());
+
+    WebKitWebViewPrivate* priv = webView->priv;
+    g_free(priv->iconURI);
+    priv->iconURI = g_strdup(iconURL.utf8().data());
+    return priv->iconURI;
+}
+
+/**
+ * webkit_set_cache_model:
+ * @cache_model: a #WebKitCacheModel
+ *
+ * Specifies a usage model for WebViews, which WebKit will use to
+ * determine its caching behavior. All web views follow the cache
+ * model. This cache model determines the RAM and disk space to use
+ * for caching previously viewed content .
+ *
+ * Research indicates that users tend to browse within clusters of
+ * documents that hold resources in common, and to revisit previously
+ * visited documents. WebKit and the frameworks below it include
+ * built-in caches that take advantage of these patterns,
+ * substantially improving document load speed in browsing
+ * situations. The WebKit cache model controls the behaviors of all of
+ * these caches, including various WebCore caches.
+ *
+ * Browsers can improve document load speed substantially by
+ * specifying WEBKIT_CACHE_MODEL_WEB_BROWSER. Applications without a
+ * browsing interface can reduce memory usage substantially by
+ * specifying WEBKIT_CACHE_MODEL_DOCUMENT_VIEWER. Default value is
+ * WEBKIT_CACHE_MODEL_WEB_BROWSER.
+ *
+ * Since: 1.1.18
+ */
+void webkit_set_cache_model(WebKitCacheModel model)
+{
+    webkit_init();
+
+    if (cacheModel == model)
+        return;
+
+    // FIXME: Add disk cache handling when soup has the API
+    guint cacheTotalCapacity;
+    guint cacheMinDeadCapacity;
+    guint cacheMaxDeadCapacity;
+    gdouble deadDecodedDataDeletionInterval;
+    guint pageCacheCapacity;
+
+    switch (model) {
+    case WEBKIT_CACHE_MODEL_DOCUMENT_VIEWER:
+        pageCacheCapacity = 0;
+        cacheTotalCapacity = 0;
+        cacheMinDeadCapacity = 0;
+        cacheMaxDeadCapacity = 0;
+        deadDecodedDataDeletionInterval = 0;
+        break;
+    case WEBKIT_CACHE_MODEL_WEB_BROWSER:
+        pageCacheCapacity = 3;
+        cacheTotalCapacity = 32 * 1024 * 1024;
+        cacheMinDeadCapacity = cacheTotalCapacity / 4;
+        cacheMaxDeadCapacity = cacheTotalCapacity / 2;
+        deadDecodedDataDeletionInterval = 60;
+        break;
+    default:
+        g_return_if_reached();
+    }
+
+    cache()->setCapacities(cacheMinDeadCapacity, cacheMaxDeadCapacity, cacheTotalCapacity);
+    cache()->setDeadDecodedDataDeletionInterval(deadDecodedDataDeletionInterval);
+    pageCache()->setCapacity(pageCacheCapacity);
+    cacheModel = model;
+}
+
+/**
+ * webkit_get_cache_model:
+ *
+ * Returns the current cache model. For more information about this
+ * value check the documentation of the function
+ * webkit_set_cache_model().
+ *
+ * Return value: the current #WebKitCacheModel
+ *
+ * Since: 1.1.18
+ */
+WebKitCacheModel webkit_get_cache_model()
+{
+    webkit_init();
+    return cacheModel;
+}
+
+/**
+ * webkit_web_view_get_dom_document:
+ * @webView: a #WebKitWebView
+ * 
+ * Returns: the #WebKitDOMDocument currently loaded in the @webView
+ *
+ * Since: 1.3.0
+ **/
+WebKitDOMDocument*
+webkit_web_view_get_dom_document(WebKitWebView* webView)
+{
+    g_return_val_if_fail(WEBKIT_IS_WEB_VIEW(webView), 0);
+
+    Frame* coreFrame = core(webView)->mainFrame();
+    if (!coreFrame)
+        return 0;
+
+    Document* doc = coreFrame->document();
+    if (!doc)
+        return 0;
+
+    return static_cast<WebKitDOMDocument*>(kit(doc));
 }

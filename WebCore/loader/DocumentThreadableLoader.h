@@ -31,21 +31,24 @@
 #ifndef DocumentThreadableLoader_h
 #define DocumentThreadableLoader_h
 
+#include "FrameLoaderTypes.h"
 #include "SubresourceLoaderClient.h"
 #include "ThreadableLoader.h"
+#include <wtf/OwnPtr.h>
 #include <wtf/PassRefPtr.h>
 #include <wtf/RefCounted.h>
 #include <wtf/RefPtr.h>
 
 namespace WebCore {
     class Document;
-    struct ResourceRequest;
+    class KURL;
+    class ResourceRequest;
     class ThreadableLoaderClient;
 
     class DocumentThreadableLoader : public RefCounted<DocumentThreadableLoader>, public ThreadableLoader, private SubresourceLoaderClient  {
     public:
-        static void loadResourceSynchronously(Document*, const ResourceRequest&, ThreadableLoaderClient&, StoredCredentials);
-        static PassRefPtr<DocumentThreadableLoader> create(Document*, ThreadableLoaderClient*, const ResourceRequest&, LoadCallbacks, ContentSniff, StoredCredentials, CrossOriginRedirectPolicy);
+        static void loadResourceSynchronously(Document*, const ResourceRequest&, ThreadableLoaderClient&, const ThreadableLoaderOptions&);
+        static PassRefPtr<DocumentThreadableLoader> create(Document*, ThreadableLoaderClient*, const ResourceRequest&, const ThreadableLoaderOptions&);
         virtual ~DocumentThreadableLoader();
 
         virtual void cancel();
@@ -58,7 +61,13 @@ namespace WebCore {
         virtual void derefThreadableLoader() { deref(); }
 
     private:
-        DocumentThreadableLoader(Document*, ThreadableLoaderClient*, const ResourceRequest&, LoadCallbacks, ContentSniff, StoredCredentials, CrossOriginRedirectPolicy);
+        enum BlockingBehavior {
+            LoadSynchronously,
+            LoadAsynchronously
+        };
+
+        DocumentThreadableLoader(Document*, ThreadableLoaderClient*, BlockingBehavior blockingBehavior, const ResourceRequest&, const ThreadableLoaderOptions& options);
+
         virtual void willSendRequest(SubresourceLoader*, ResourceRequest&, const ResourceResponse& redirectResponse);
         virtual void didSendData(SubresourceLoader*, unsigned long long bytesSent, unsigned long long totalBytesToBeSent);
 
@@ -71,12 +80,22 @@ namespace WebCore {
         virtual void didReceiveAuthenticationChallenge(SubresourceLoader*, const AuthenticationChallenge&);
         virtual void receivedCancellation(SubresourceLoader*, const AuthenticationChallenge&);
 
+        void didFinishLoading(unsigned long identifier);
+        void makeSimpleCrossOriginAccessRequest(const ResourceRequest& request);
+        void makeCrossOriginAccessRequestWithPreflight(const ResourceRequest& request);
+        void preflightSuccess();
+        void preflightFailure();
+
+        void loadRequest(const ResourceRequest&, SecurityCheckPolicy);
+        bool isAllowedRedirect(const KURL&);
+
         RefPtr<SubresourceLoader> m_loader;
         ThreadableLoaderClient* m_client;
         Document* m_document;
-        bool m_allowStoredCredentials;
+        ThreadableLoaderOptions m_options;
         bool m_sameOriginRequest;
-        bool m_denyCrossOriginRedirect;
+        bool m_async;
+        OwnPtr<ResourceRequest> m_actualRequest;  // non-null during Access Control preflight checks
     };
 
 } // namespace WebCore

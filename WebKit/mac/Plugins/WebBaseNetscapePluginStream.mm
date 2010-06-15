@@ -42,6 +42,7 @@
 #import <WebCore/DocumentLoader.h>
 #import <WebCore/Frame.h>
 #import <WebCore/FrameLoader.h>
+#import <WebCore/SecurityOrigin.h>
 #import <WebCore/WebCoreObjCExtras.h>
 #import <WebCore/WebCoreURLResponse.h>
 #import <WebKitSystemInterface.h>
@@ -49,6 +50,7 @@
 #import <wtf/StdLibExtras.h>
 
 using namespace WebCore;
+using namespace std;
 
 #define WEB_REASON_NONE -1
 
@@ -159,7 +161,7 @@ WebNetscapePluginStream::WebNetscapePluginStream(NSURLRequest *request, NPP plug
     WebNetscapePluginView *view = (WebNetscapePluginView *)plugin->ndata;
     
     // This check has already been done by the plug-in view.
-    ASSERT(FrameLoader::canLoad([request URL], String(), core([view webFrame])->document()));
+    ASSERT(SecurityOrigin::canLoad([request URL], String(), core([view webFrame])->document()));
     
     ASSERT([request URL]);
     ASSERT(plugin);
@@ -168,7 +170,7 @@ WebNetscapePluginStream::WebNetscapePluginStream(NSURLRequest *request, NPP plug
     
     streams().add(&m_stream, plugin);
         
-    if (core([view webFrame])->loader()->shouldHideReferrer([request URL], core([view webFrame])->loader()->outgoingReferrer()))
+    if (SecurityOrigin::shouldHideReferrer([request URL], core([view webFrame])->loader()->outgoingReferrer()))
         [m_request.get() _web_setHTTPReferrer:nil];
 }
 
@@ -218,8 +220,8 @@ void WebNetscapePluginStream::startStream(NSURL *url, long long expectedContentL
     m_stream.url = strdup([m_responseURL.get() _web_URLCString]);
 
     m_stream.ndata = this;
-    m_stream.end = expectedContentLength > 0 ? (uint32)expectedContentLength : 0;
-    m_stream.lastmodified = (uint32)[lastModifiedDate timeIntervalSince1970];
+    m_stream.end = expectedContentLength > 0 ? (uint32_t)expectedContentLength : 0;
+    m_stream.lastmodified = (uint32_t)[lastModifiedDate timeIntervalSince1970];
     m_stream.notifyData = m_notifyData;
 
     if (headers) {
@@ -365,7 +367,7 @@ bool WebNetscapePluginStream::wantsAllStreams() const
     NPError error;
     {
         PluginStopDeferrer deferrer(m_pluginView.get());
-        JSC::JSLock::DropAllLocks dropAllLocks(false);
+        JSC::JSLock::DropAllLocks dropAllLocks(JSC::SilenceAssertionsOnly);
         error = m_pluginFuncs->getvalue(m_plugin, NPPVpluginWantsAllNetworkStreams, &value);
     }
     if (error != NPERR_NO_ERROR)
@@ -505,12 +507,12 @@ void WebNetscapePluginStream::deliverData()
 
     RefPtr<WebNetscapePluginStream> protect(this);
 
-    int32 totalBytes = [m_deliveryData.get() length];
-    int32 totalBytesDelivered = 0;
+    int32_t totalBytes = [m_deliveryData.get() length];
+    int32_t totalBytesDelivered = 0;
 
     while (totalBytesDelivered < totalBytes) {
         PluginStopDeferrer deferrer(m_pluginView.get());
-        int32 deliveryBytes = m_pluginFuncs->writeready(m_plugin, &m_stream);
+        int32_t deliveryBytes = m_pluginFuncs->writeready(m_plugin, &m_stream);
         LOG(Plugins, "NPP_WriteReady responseURL=%@ bytes=%d", m_responseURL.get(), deliveryBytes);
 
         if (m_isTerminated)
@@ -522,7 +524,7 @@ void WebNetscapePluginStream::deliverData()
                 m_deliverDataTimer.startOneShot(0);
             break;
         } else {
-            deliveryBytes = MIN(deliveryBytes, totalBytes - totalBytesDelivered);
+            deliveryBytes = min(deliveryBytes, totalBytes - totalBytesDelivered);
             NSData *subdata = [m_deliveryData.get() subdataWithRange:NSMakeRange(totalBytesDelivered, deliveryBytes)];
             PluginStopDeferrer deferrer(m_pluginView.get());
             deliveryBytes = m_pluginFuncs->write(m_plugin, &m_stream, m_offset, [subdata length], (void *)[subdata bytes]);
@@ -531,7 +533,7 @@ void WebNetscapePluginStream::deliverData()
                 cancelLoadAndDestroyStreamWithError(pluginCancelledConnectionError());
                 return;
             }
-            deliveryBytes = MIN((unsigned)deliveryBytes, [subdata length]);
+            deliveryBytes = min<int32_t>(deliveryBytes, [subdata length]);
             m_offset += deliveryBytes;
             totalBytesDelivered += deliveryBytes;
             LOG(Plugins, "NPP_Write responseURL=%@ bytes=%d total-delivered=%d/%d", m_responseURL.get(), deliveryBytes, m_offset, m_stream.end);

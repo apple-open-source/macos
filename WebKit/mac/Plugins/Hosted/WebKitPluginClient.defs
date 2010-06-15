@@ -112,7 +112,7 @@ routine PCGetPluginElementNPObject(clientPort :mach_port_t;
                                  pluginID :uint32_t;
                                  out objectID :uint32_t);
                       
-routine PCReleaseObject(clientPort :mach_port_t;
+routine PCForgetBrowserObject(clientPort :mach_port_t;
                       pluginID :uint32_t;
                       objectID :uint32_t);
                       
@@ -149,18 +149,18 @@ simpleroutine PCGetProperty(clientPort :mach_port_t;
                             objectID :uint32_t;
                             propertyNameIdentifier :uint64_t);
 
-routine PCSetProperty(clientPort :mach_port_t;
+simpleroutine PCSetProperty(clientPort :mach_port_t;
                     pluginID :uint32_t;
+                    requestID :uint32_t;
                     objectID :uint32_t;
                     propertyNameIdentifier :uint64_t;
-                    value :data_t;
-                    out returnValue :boolean_t);
+                    value :data_t);
 
-routine PCRemoveProperty(clientPort :mach_port_t;
+simpleroutine PCRemoveProperty(clientPort :mach_port_t;
                        pluginID :uint32_t;
+                       requestID :uint32_t;
                        objectID :uint32_t;
-                       propertyNameIdentifier :uint64_t;
-                       out returnValue :boolean_t);
+                       propertyNameIdentifier :uint64_t);
 
 simpleroutine PCHasProperty(clientPort :mach_port_t;
                             pluginID :uint32_t;
@@ -206,14 +206,14 @@ routine PCResolveURL(clientPort :mach_port_t;
                      url :data_t;
                      target :data_t;
                      out resolvedURL :data_t, dealloc);
-                      
+
 // Replies
 simpleroutine PCInstantiatePluginReply(clientPort :mach_port_t;
                                      pluginID :uint32_t;
                                      requestID :uint32_t;
                                      result :kern_return_t;
                                      renderContextID :uint32_t;
-                                     useSoftwareRenderer :boolean_t);
+                                     rendererType :uint32_t);
 
 simpleroutine PCGetScriptableNPObjectReply(clientPort :mach_port_t;
                                          pluginID :uint32_t;
@@ -224,9 +224,18 @@ simpleroutine PCBooleanReply(clientPort :mach_port_t;
                              pluginID :uint32_t;
                              requestID :uint32_t;
                              result :boolean_t);
-                           
+
 simpleroutine PCBooleanAndDataReply(clientPort :mach_port_t;
                                     pluginID :uint32_t;
                                     requestID :uint32_t;
                                     returnValue :boolean_t;
                                     result :data_t);  
+
+simpleroutine PCRunSyncOpenPanel(clientPort :mach_port_t;
+                                 panelData :data_t);
+
+simpleroutine PCSetFullscreenWindowIsShowing(clientPort :mach_port_t;
+                                             isShowing :boolean_t);
+
+simpleroutine PCSetException(clientPort :mach_port_t;
+                             message :data_t);

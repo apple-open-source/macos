@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2006, 2007, 2008 Apple Inc. All rights reserved.
- *           (C) 2008 Torch Mobile Inc. All rights reserved. (http://www.torchmobile.com/)
+ *           (C) 2008, 2009 Torch Mobile Inc. All rights reserved. (http://www.torchmobile.com/)
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -34,6 +34,18 @@
 #include <stdint.h>
 #include <stdlib.h>
 
+#if OS(WINCE)
+extern "C" {
+#include "wince/mt19937ar.c"
+}
+#endif
+
+#if PLATFORM(BREWMP)
+#include <AEEAppGen.h>
+#include <AEESource.h>
+#include <AEEStdLib.h>
+#endif
+
 namespace WTF {
 
 double weakRandomNumber()
@@ -41,6 +53,10 @@ double weakRandomNumber()
 #if COMPILER(MSVC) && defined(_CRT_RAND_S)
     // rand_s is incredibly slow on windows so we fall back on rand for Math.random
     return (rand() + (rand() / (RAND_MAX + 1.0))) / (RAND_MAX + 1.0);
+#elif PLATFORM(BREWMP)
+    uint32_t bits;
+    GETRAND(reinterpret_cast<byte*>(&bits), sizeof(uint32_t));
+    return static_cast<double>(bits) / (static_cast<double>(std::numeric_limits<uint32_t>::max()) + 1.0);
 #else
     return randomNumber();
 #endif
@@ -60,10 +76,10 @@ double randomNumber()
     uint32_t bits;
     rand_s(&bits);
     return static_cast<double>(bits) / (static_cast<double>(std::numeric_limits<uint32_t>::max()) + 1.0);
-#elif PLATFORM(DARWIN)
+#elif OS(DARWIN)
     uint32_t bits = arc4random();
     return static_cast<double>(bits) / (static_cast<double>(std::numeric_limits<uint32_t>::max()) + 1.0);
-#elif PLATFORM(UNIX)
+#elif OS(UNIX)
     uint32_t part1 = random() & (RAND_MAX - 1);
     uint32_t part2 = random() & (RAND_MAX - 1);
     // random only provides 31 bits
@@ -74,6 +90,35 @@ double randomNumber()
     // Mask off the low 53bits
     fullRandom &= (1LL << 53) - 1;
     return static_cast<double>(fullRandom)/static_cast<double>(1LL << 53);
+#elif OS(WINCE)
+    return genrand_res53();
+#elif OS(WINDOWS)
+    uint32_t part1 = rand() & (RAND_MAX - 1);
+    uint32_t part2 = rand() & (RAND_MAX - 1);
+    uint32_t part3 = rand() & (RAND_MAX - 1);
+    uint32_t part4 = rand() & (RAND_MAX - 1);
+    // rand only provides 15 bits on Win32
+    uint64_t fullRandom = part1;
+    fullRandom <<= 15;
+    fullRandom |= part2;
+    fullRandom <<= 15;
+    fullRandom |= part3;
+    fullRandom <<= 15;
+    fullRandom |= part4;
+
+    // Mask off the low 53bits
+    fullRandom &= (1LL << 53) - 1;
+    return static_cast<double>(fullRandom)/static_cast<double>(1LL << 53);
+#elif PLATFORM(BREWMP)
+    uint32_t bits;
+    ISource* randomSource;
+
+    IShell* shell = reinterpret_cast<AEEApplet*>(GETAPPINSTANCE())->m_pIShell;
+    ISHELL_CreateInstance(shell, AEECLSID_RANDOM, reinterpret_cast<void**>(&randomSource));
+    ISOURCE_Read(randomSource, reinterpret_cast<char*>(&bits), 4);
+    ISOURCE_Release(randomSource);
+
+    return static_cast<double>(bits) / (static_cast<double>(std::numeric_limits<uint32_t>::max()) + 1.0);
 #else
     uint32_t part1 = rand() & (RAND_MAX - 1);
     uint32_t part2 = rand() & (RAND_MAX - 1);

@@ -3,8 +3,6 @@
                   2004, 2005 Rob Buis <buis@kde.org>
                   2007 Eric Seidel <eric@webkit.org>
 
-    This file is part of the KDE project
-
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Library General Public
     License as published by the Free Software Foundation; either
@@ -48,6 +46,7 @@ namespace WebCore {
 
         virtual void parseMappedAttribute(MappedAttribute*);
         virtual void svgAttributeChanged(const QualifiedName&);
+        virtual void synchronizeProperty(const QualifiedName&);
 
         virtual RenderObject* createRenderer(RenderArena*, RenderStyle*);
 
@@ -60,11 +59,14 @@ namespace WebCore {
 
         virtual bool childShouldCreateRenderer(Node*) const;
 
-    protected:
-        virtual const SVGElement* contextElement() const { return this; }
-
     private:
-        ANIMATED_PROPERTY_DECLARATIONS(SVGAElement, SVGNames::aTagString, SVGNames::targetAttrString, String, Target, target)
+        DECLARE_ANIMATED_PROPERTY(SVGAElement, SVGNames::targetAttr, String, Target, target)
+
+        // SVGURIReference
+        DECLARE_ANIMATED_PROPERTY(SVGAElement, XLinkNames::hrefAttr, String, Href, href)
+
+        // SVGExternalResourcesRequired
+        DECLARE_ANIMATED_PROPERTY(SVGAElement, SVGNames::externalResourcesRequiredAttr, bool, ExternalResourcesRequired, externalResourcesRequired)
     };
 
 } // namespace WebCore

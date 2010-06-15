@@ -24,15 +24,16 @@
 #include "config.h"
 #include "RenderPart.h"
 
+#include "RenderView.h"
 #include "Frame.h"
 #include "FrameView.h"
+#include "HTMLFrameElementBase.h"
 
 namespace WebCore {
 
 RenderPart::RenderPart(Element* node)
     : RenderWidget(node)
 {
-    // init RenderObject attributes
     setInline(false);
 }
 

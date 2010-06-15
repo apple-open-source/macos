@@ -36,6 +36,7 @@
 #import "WebHTMLViewPrivate.h"
 #import "WebKitErrorsPrivate.h"
 #import "WebKitLogging.h"
+#import "WebNSObjectExtras.h"
 #import "WebNSURLExtras.h"
 #import "WebNSViewExtras.h"
 #import "WebPlugin.h"
@@ -57,6 +58,7 @@
 #import <WebCore/ResourceRequest.h>
 #import <WebCore/ScriptController.h>
 #import <WebCore/WebCoreURLResponse.h>
+#import <objc/objc-runtime.h>
 #import <runtime/JSLock.h>
 
 using namespace WebCore;
@@ -78,6 +80,10 @@ using namespace HTMLNames;
 - (void)pluginDestroy;
 @end
 
+static bool isKindOfClass(id, NSString* className);
+static void installFlip4MacPlugInWorkaroundIfNecessary();
+
+
 static NSMutableSet *pluginViews = nil;
 
 @implementation WebPluginController
@@ -90,10 +96,10 @@ static NSMutableSet *pluginViews = nil;
     NSView *view = nil;
 
     if ([viewFactory respondsToSelector:@selector(plugInViewWithArguments:)]) {
-        JSC::JSLock::DropAllLocks dropAllLocks(false);
+        JSC::JSLock::DropAllLocks dropAllLocks(JSC::SilenceAssertionsOnly);
         view = [viewFactory plugInViewWithArguments:arguments];
     } else if ([viewFactory respondsToSelector:@selector(pluginViewWithArguments:)]) {
-        JSC::JSLock::DropAllLocks dropAllLocks(false);
+        JSC::JSLock::DropAllLocks dropAllLocks(JSC::SilenceAssertionsOnly);
         view = [viewFactory pluginViewWithArguments:arguments];
     }
     
@@ -135,6 +141,28 @@ static NSMutableSet *pluginViews = nil;
     [super dealloc];
 }
 
+- (void)stopOnePlugin:(NSView *)view
+{
+    if ([view respondsToSelector:@selector(webPlugInStop)]) {
+        JSC::JSLock::DropAllLocks dropAllLocks(JSC::SilenceAssertionsOnly);
+        [view webPlugInStop];
+    } else if ([view respondsToSelector:@selector(pluginStop)]) {
+        JSC::JSLock::DropAllLocks dropAllLocks(JSC::SilenceAssertionsOnly);
+        [view pluginStop];
+    }
+}
+
+- (void)destroyOnePlugin:(NSView *)view
+{
+    if ([view respondsToSelector:@selector(webPlugInDestroy)]) {
+        JSC::JSLock::DropAllLocks dropAllLocks(JSC::SilenceAssertionsOnly);
+        [view webPlugInDestroy];
+    } else if ([view respondsToSelector:@selector(pluginDestroy)]) {
+        JSC::JSLock::DropAllLocks dropAllLocks(JSC::SilenceAssertionsOnly);
+        [view pluginDestroy];
+    }
+}
+
 - (void)startAllPlugins
 {
     if (_started)
@@ -147,10 +175,10 @@ static NSMutableSet *pluginViews = nil;
     for (i = 0; i < count; i++) {
         id aView = [_views objectAtIndex:i];
         if ([aView respondsToSelector:@selector(webPlugInStart)]) {
-            JSC::JSLock::DropAllLocks dropAllLocks(false);
+            JSC::JSLock::DropAllLocks dropAllLocks(JSC::SilenceAssertionsOnly);
             [aView webPlugInStart];
         } else if ([aView respondsToSelector:@selector(pluginStart)]) {
-            JSC::JSLock::DropAllLocks dropAllLocks(false);
+            JSC::JSLock::DropAllLocks dropAllLocks(JSC::SilenceAssertionsOnly);
             [aView pluginStart];
         }
     }
@@ -167,16 +195,9 @@ static NSMutableSet *pluginViews = nil;
     }
     
     int i, count = [_views count];
-    for (i = 0; i < count; i++) {
-        id aView = [_views objectAtIndex:i];
-        if ([aView respondsToSelector:@selector(webPlugInStop)]) {
-            JSC::JSLock::DropAllLocks dropAllLocks(false);
-            [aView webPlugInStop];
-        } else if ([aView respondsToSelector:@selector(pluginStop)]) {
-            JSC::JSLock::DropAllLocks dropAllLocks(false);
-            [aView pluginStop];
-        }
-    }
+    for (i = 0; i < count; i++)
+        [self stopOnePlugin:[_views objectAtIndex:i]];
+
     _started = NO;
 }
 
@@ -194,13 +215,16 @@ static NSMutableSet *pluginViews = nil;
         BOOL oldDefersCallbacks = [[self webView] defersCallbacks];
         if (!oldDefersCallbacks)
             [[self webView] setDefersCallbacks:YES];
-        
+
+        if (isKindOfClass(view, @"WmvPlugin"))
+            installFlip4MacPlugInWorkaroundIfNecessary();
+
         LOG(Plugins, "initializing plug-in %@", view);
         if ([view respondsToSelector:@selector(webPlugInInitialize)]) {
-            JSC::JSLock::DropAllLocks dropAllLocks(false);
+            JSC::JSLock::DropAllLocks dropAllLocks(JSC::SilenceAssertionsOnly);
             [view webPlugInInitialize];
         } else if ([view respondsToSelector:@selector(pluginInitialize)]) {
-            JSC::JSLock::DropAllLocks dropAllLocks(false);
+            JSC::JSLock::DropAllLocks dropAllLocks(JSC::SilenceAssertionsOnly);
             [view pluginInitialize];
         }
 
@@ -210,15 +234,15 @@ static NSMutableSet *pluginViews = nil;
         if (_started) {
             LOG(Plugins, "starting plug-in %@", view);
             if ([view respondsToSelector:@selector(webPlugInStart)]) {
-                JSC::JSLock::DropAllLocks dropAllLocks(false);
+                JSC::JSLock::DropAllLocks dropAllLocks(JSC::SilenceAssertionsOnly);
                 [view webPlugInStart];
             } else if ([view respondsToSelector:@selector(pluginStart)]) {
-                JSC::JSLock::DropAllLocks dropAllLocks(false);
+                JSC::JSLock::DropAllLocks dropAllLocks(JSC::SilenceAssertionsOnly);
                 [view pluginStart];
             }
             
             if ([view respondsToSelector:@selector(setContainingWindow:)]) {
-                JSC::JSLock::DropAllLocks dropAllLocks(false);
+                JSC::JSLock::DropAllLocks dropAllLocks(JSC::SilenceAssertionsOnly);
                 [view setContainingWindow:[_documentView window]];
             }
         }
@@ -228,23 +252,9 @@ static NSMutableSet *pluginViews = nil;
 - (void)destroyPlugin:(NSView *)view
 {
     if ([_views containsObject:view]) {
-        if (_started) {
-            if ([view respondsToSelector:@selector(webPlugInStop)]) {
-                JSC::JSLock::DropAllLocks dropAllLocks(false);
-                [view webPlugInStop];
-            } else if ([view respondsToSelector:@selector(pluginStop)]) {
-                JSC::JSLock::DropAllLocks dropAllLocks(false);
-                [view pluginStop];
-            }
-        }
-        
-        if ([view respondsToSelector:@selector(webPlugInDestroy)]) {
-            JSC::JSLock::DropAllLocks dropAllLocks(false);
-            [view webPlugInDestroy];
-        } else if ([view respondsToSelector:@selector(pluginDestroy)]) {
-            JSC::JSLock::DropAllLocks dropAllLocks(false);
-            [view pluginDestroy];
-        }
+        if (_started)
+            [self stopOnePlugin:view];
+        [self destroyOnePlugin:view];
         
 #if ENABLE(NETSCAPE_PLUGIN_API)
         if (Frame* frame = core([self webFrame]))
@@ -290,13 +300,7 @@ static void cancelOutstandingCheck(const void *item, void *context)
     int i, count = [_views count];
     for (i = 0; i < count; i++) {
         id aView = [_views objectAtIndex:i];
-        if ([aView respondsToSelector:@selector(webPlugInDestroy)]) {
-            JSC::JSLock::DropAllLocks dropAllLocks(false);
-            [aView webPlugInDestroy];
-        } else if ([aView respondsToSelector:@selector(pluginDestroy)]) {
-            JSC::JSLock::DropAllLocks dropAllLocks(false);
-            [aView pluginDestroy];
-        }
+        [self destroyOnePlugin:aView];
         
 #if ENABLE(NETSCAPE_PLUGIN_API)
         if (Frame* frame = core([self webFrame]))
@@ -356,21 +360,11 @@ static void cancelOutstandingCheck(const void *item, void *context)
     }
 }
 
-// For compatibility only.
-- (void)showURL:(NSURL *)URL inFrame:(NSString *)target
-{
-    [self webPlugInContainerLoadRequest:[NSURLRequest requestWithURL:URL] inFrame:target];
-}
-
 - (void)webPlugInContainerShowStatus:(NSString *)message
 {
-    if (!message) {
+    if (!message)
         message = @"";
-    }
-    if (!_documentView) {
-        LOG_ERROR("could not show status message (%@) because plug-in has already been destroyed", message);
-        return;
-    }
+
     WebView *v = [_dataSource _webView];
     [[v _UIDelegateForwarder] webView:v setStatusText:message];
 }
@@ -480,3 +474,85 @@ static WebCore::HTMLMediaElement* mediaProxyClient(DOMElement* element)
 #endif
 
 @end
+
+static bool isKindOfClass(id object, NSString *className)
+{
+    Class cls = NSClassFromString(className);
+
+    if (!cls)
+        return false;
+
+    return [object isKindOfClass:cls];
+}
+
+
+// Existing versions of the Flip4Mac WebKit plug-in have an object lifetime bug related to an NSAlert that is
+// used to notify the user about updates to the plug-in. This bug can result in Safari crashing if the page
+// containing the plug-in navigates while the alert is displayed (<rdar://problem/7313430>).
+//
+// The gist of the bug is thus: Flip4Mac sets an instance of the TSUpdateCheck class as the modal delegate of the
+// NSAlert instance. This TSUpdateCheck instance itself has a delegate. The delegate is set to the WmvPlugin
+// instance which is the NSView subclass that is exposed to WebKit as the plug-in view. Since this relationship
+// is that of delegates the TSUpdateCheck does not retain the WmvPlugin. This leads to a bug if the WmvPlugin
+// instance is destroyed before the TSUpdateCheck instance as the TSUpdateCheck instance will be left with a
+// pointer to a stale object. This will happen if a page containing the Flip4Mac plug-in triggers a navigation
+// while the update sheet is visible as the WmvPlugin instance is removed from the view hierarchy and there are
+// no other references to keep the object alive.
+//
+// We work around this bug by patching the following two messages:
+//
+// 1) -[NSAlert beginSheetModalForWindow:modalDelegate:didEndSelector:contextInfo:]
+// 2) -[TSUpdateCheck alertDidEnd:returnCode:contextInfo:]
+//
+// Our override of 1) detects whether it is Flip4Mac's update sheet triggering the alert by checking whether the
+// modal delegate is an instance of TSUpdateCheck. If it is, it retains the modal delegate's delegate.
+//
+// Our override of 2) then autoreleases the delegate, balancing the retain we added in 1).
+//
+// These two overrides have the effect of ensuring that the WmvPlugin instance will always outlive the TSUpdateCheck
+// instance, preventing the TSUpdateCheck instance from accessing a stale delegate pointer and crashing the application.
+
+
+typedef void (*beginSheetModalForWindowIMP)(id, SEL, NSWindow *, id, SEL, void*);
+static beginSheetModalForWindowIMP original_NSAlert_beginSheetModalForWindow_modalDelegate_didEndSelector_contextInfo_;
+
+typedef void (*alertDidEndIMP)(id, SEL, NSAlert *, NSInteger, void*);
+static alertDidEndIMP original_TSUpdateCheck_alertDidEnd_returnCode_contextInfo_;
+
+static void WebKit_TSUpdateCheck_alertDidEnd_returnCode_contextInfo_(id object, SEL selector, NSAlert *alert, NSInteger returnCode, void* contextInfo)
+{
+    [[object delegate] autorelease];
+
+    original_TSUpdateCheck_alertDidEnd_returnCode_contextInfo_(object, selector, alert, returnCode, contextInfo);
+}
+
+static void WebKit_NSAlert_beginSheetModalForWindow_modalDelegate_didEndSelector_contextInfo_(id object, SEL selector, NSWindow *window, id modalDelegate, SEL didEndSelector, void* contextInfo)
+{
+    if (isKindOfClass(modalDelegate, @"TSUpdateCheck"))
+        [[modalDelegate delegate] retain];
+
+    original_NSAlert_beginSheetModalForWindow_modalDelegate_didEndSelector_contextInfo_(object, selector, window, modalDelegate, didEndSelector, contextInfo);
+}
+
+static void installFlip4MacPlugInWorkaroundIfNecessary()
+{
+    static bool hasInstalledFlip4MacPlugInWorkaround;
+    if (!hasInstalledFlip4MacPlugInWorkaround) {
+        Class TSUpdateCheck = objc_lookUpClass("TSUpdateCheck");
+        if (!TSUpdateCheck)
+            return;
+
+        Method methodToPatch = class_getInstanceMethod(TSUpdateCheck, @selector(alertDidEnd:returnCode:contextInfo:));
+        if (!methodToPatch)
+            return;
+
+        IMP originalMethod = method_setImplementation(methodToPatch, reinterpret_cast<IMP>(WebKit_TSUpdateCheck_alertDidEnd_returnCode_contextInfo_));
+        original_TSUpdateCheck_alertDidEnd_returnCode_contextInfo_ = reinterpret_cast<alertDidEndIMP>(originalMethod);
+
+        methodToPatch = class_getInstanceMethod(objc_getRequiredClass("NSAlert"), @selector(beginSheetModalForWindow:modalDelegate:didEndSelector:contextInfo:));
+        originalMethod = method_setImplementation(methodToPatch, reinterpret_cast<IMP>(WebKit_NSAlert_beginSheetModalForWindow_modalDelegate_didEndSelector_contextInfo_));
+        original_NSAlert_beginSheetModalForWindow_modalDelegate_didEndSelector_contextInfo_ = reinterpret_cast<beginSheetModalForWindowIMP>(originalMethod);
+
+        hasInstalledFlip4MacPlugInWorkaround = true;
+    }
+}

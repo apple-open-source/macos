@@ -11,10 +11,10 @@
 # to appropriate places in the file system, and makes symlinks where necessary.
 
 PROJECT_NAME=squirrelmail
-PROJECT_VERSION=1.4.17ja
+PROJECT_VERSION=1.4.20ja
 PROJECT_DIR=$(PROJECT_NAME)-$(PROJECT_VERSION)
 PROJECT_ARCHIVE=$(PROJECT_DIR).tar.gz
-PROJECT_LOCALE_ARCHIVE=all_locales-1.4.13-20071220.tar.gz
+PROJECT_LOCALE_ARCHIVE=all_locales-1.4.18-20090526.tar.gz
 VERSIONS_DIR=/usr/local/OpenSourceVersions
 LICENSE_DIR=/usr/local/OpenSourceLicenses
 
@@ -33,10 +33,12 @@ CONFIG_DIR=/private/etc/$(PROJECT_NAME)
 CONFIG_DEFAULT_FILE=config_default_apple.php
 CONFIG_FILE=config.php
 
-ifeq ($(MACOSX_DEPLOYMENT_TARGET), 10.6)
-	HTTPD_CONF_DST=$(DSTROOT)/private/etc/apache2
-else
+ifeq ($(MACOSX_DEPLOYMENT_TARGET), 10.4)
 	HTTPD_CONF_DST=$(DSTROOT)/private/etc/httpd
+else ifeq ($(MACOSX_DEPLOYMENT_TARGET), 10.5)
+	HTTPD_CONF_DST=$(DSTROOT)/private/etc/httpd
+else
+	HTTPD_CONF_DST=$(DSTROOT)/private/etc/apache2
 endif
 
 HTTPD_DEFAULT_CONF_FILE=httpd_squirrelmail_default.conf

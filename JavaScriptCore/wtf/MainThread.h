@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007, 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2007, 2008, 2010 Apple Inc. All rights reserved.
  * Copyright (C) 2007 Justin Haygood (jhaygood@reaktix.com)
  *
  * Redistribution and use in source and binary forms, with or without
@@ -30,28 +30,42 @@
 #ifndef MainThread_h
 #define MainThread_h
 
+#include <stdint.h>
+
 namespace WTF {
 
-class Mutex;
-
+typedef uint32_t ThreadIdentifier;
 typedef void MainThreadFunction(void*);
 
+// Must be called from the main thread.
+void initializeMainThread();
+
 void callOnMainThread(MainThreadFunction*, void* context);
+void callOnMainThreadAndWait(MainThreadFunction*, void* context);
+void cancelCallOnMainThread(MainThreadFunction*, void* context);
 
 void setMainThreadCallbacksPaused(bool paused);
 
-// Must be called from the main thread (Darwin is an exception to this rule).
-void initializeMainThread();
+bool isMainThread();
 
-// These functions are internal to the callOnMainThread implementation.
+// NOTE: these functions are internal to the callOnMainThread implementation.
 void initializeMainThreadPlatform();
 void scheduleDispatchFunctionsOnMainThread();
-Mutex& mainThreadFunctionQueueMutex();
 void dispatchFunctionsFromMainThread();
+
+#if PLATFORM(MAC)
+// This version of initializeMainThread sets up the main thread as corresponding
+// to the process's main thread, and not necessarily the thread that calls this
+// function. It should only be used as a legacy aid for Mac WebKit.
+void initializeMainThreadToProcessMainThread();
+void initializeMainThreadToProcessMainThreadPlatform();
+#endif
 
 } // namespace WTF
 
 using WTF::callOnMainThread;
+using WTF::callOnMainThreadAndWait;
+using WTF::cancelCallOnMainThread;
 using WTF::setMainThreadCallbacksPaused;
-
+using WTF::isMainThread;
 #endif // MainThread_h

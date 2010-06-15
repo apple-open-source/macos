@@ -36,7 +36,7 @@ ImageBufferData::ImageBufferData(const IntSize&)
 {
 }
 
-ImageBuffer::ImageBuffer(const IntSize&, bool grayScale, bool& success) : 
+ImageBuffer::ImageBuffer(const IntSize&, ImageColorSpace imageColorSpace, bool& success) : 
     m_data(IntSize())
 {
     notImplemented();
@@ -53,13 +53,24 @@ GraphicsContext* ImageBuffer::context() const
     return 0;
 }
 
-PassRefPtr<ImageData> ImageBuffer::getImageData(const IntRect&) const
+PassRefPtr<ImageData> ImageBuffer::getUnmultipliedImageData(const IntRect& rect) const
 {
     notImplemented();
     return 0;
 }
 
-void ImageBuffer::putImageData(ImageData*, const IntRect&, const IntPoint&)
+PassRefPtr<ImageData> ImageBuffer::getPremultipliedImageData(const IntRect& rect) const
+{
+    notImplemented();
+    return 0;
+}
+
+void ImageBuffer::putUnmultipliedImageData(ImageData* source, const IntRect& sourceRect, const IntPoint& destPoint)
+{
+    notImplemented();
+}
+
+void ImageBuffer::putPremultipliedImageData(ImageData* source, const IntRect& sourceRect, const IntPoint& destPoint)
 {
     notImplemented();
 }
@@ -74,6 +85,11 @@ Image* ImageBuffer::image() const
 {
     notImplemented();
     return 0;
+}
+
+void ImageBuffer::platformTransformColorSpace(const Vector<int>&)
+{
+    notImplemented();
 }
 
 } // namespace WebCore

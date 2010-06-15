@@ -180,6 +180,50 @@ inssatrns(pr, new)
 	return;
 }
 
+#ifdef ENABLE_NATT
+static void
+saprop_udp_encap (struct saproto *pr)
+{
+	switch (pr->encmode) {
+		case IPSECDOI_ATTR_ENC_MODE_UDPTUNNEL_RFC:
+		case IPSECDOI_ATTR_ENC_MODE_UDPTUNNEL_DRAFT:
+			pr->encmode = IPSECDOI_ATTR_ENC_MODE_TUNNEL;
+			pr->udp_encap = 1;
+			break;
+		case IPSECDOI_ATTR_ENC_MODE_UDPTRNS_RFC:
+		case IPSECDOI_ATTR_ENC_MODE_UDPTRNS_DRAFT:
+			pr->encmode = IPSECDOI_ATTR_ENC_MODE_TRNS;
+			pr->udp_encap = 1;
+			break;
+	}
+}
+
+static void
+saprop_adjust_encmode (struct saproto *pr2, struct saproto *pr1)
+{
+	int prev;
+
+	if (natt_udp_encap(pr2->encmode)) {
+		prev = pr2->encmode;
+		saprop_udp_encap(pr2);
+		plog(LLV_INFO, LOCATION, NULL, "Adjusting my encmode %s(%d)->%s(%d)\n",
+			 s_ipsecdoi_encmode(prev),
+			 prev,
+			 s_ipsecdoi_encmode(pr2->encmode),
+			 pr2->encmode);
+	}
+	if (natt_udp_encap(pr1->encmode)) {
+		prev = pr1->encmode;
+		saprop_udp_encap(pr1);
+		plog(LLV_INFO, LOCATION, NULL, "Adjusting peer's encmode %s(%d)->%s(%d)\n",
+			 s_ipsecdoi_encmode(prev),
+			 prev,
+			 s_ipsecdoi_encmode(pr1->encmode),
+			 pr1->encmode);
+	}	
+}
+#endif // ENABLE_NATT
+
 /*
  * take a single match between saprop.  allocate a new proposal and return it
  * for future use (like picking single proposal from a bundle).
@@ -388,27 +432,9 @@ cmpsaprop_alloc(ph1, pp1, pp2, side)
 			goto err;
 		}
 
-#ifdef ENABLE_NATT
-		if ((ph1->natt_flags & NAT_DETECTED) && 
-		    natt_udp_encap (pr2->encmode))
-		{
-			plog(LLV_INFO, LOCATION, NULL, "Adjusting my encmode %s->%s\n",
-			     s_ipsecdoi_encmode(pr2->encmode),
-			     s_ipsecdoi_encmode(pr2->encmode - ph1->natt_options->mode_udp_diff));
-			pr2->encmode -= ph1->natt_options->mode_udp_diff;
-			pr2->udp_encap = 1;
-		}
-
-		if ((ph1->natt_flags & NAT_DETECTED) &&
-		    natt_udp_encap (pr1->encmode))
-		{
-			plog(LLV_INFO, LOCATION, NULL, "Adjusting peer's encmode %s(%d)->%s(%d)\n",
-			     s_ipsecdoi_encmode(pr1->encmode),
-			     pr1->encmode,
-			     s_ipsecdoi_encmode(pr1->encmode - ph1->natt_options->mode_udp_diff),
-			     pr1->encmode - ph1->natt_options->mode_udp_diff);
-			pr1->encmode -= ph1->natt_options->mode_udp_diff;
-			pr1->udp_encap = 1;
+#ifdef ENABLE_NATT		
+		if (ph1->natt_flags & NAT_DETECTED) {
+			saprop_adjust_encmode(pr2, pr1);
 		}
 #endif
 
@@ -1207,4 +1233,85 @@ tunnel_mode_prop(p)
 		if (pr->encmode == IPSECDOI_ATTR_ENC_MODE_TUNNEL)
 			return 1;
 	return 0;
+}
+
+void
+dupsatrns(newpr, head)
+	struct saproto *newpr;
+	struct satrns *head;
+{
+	struct satrns *p, *newtr;
+
+	for (p = head; p != NULL; p = p->next) {
+		newtr = newsatrns();
+		if (newtr) {
+			newtr->trns_no = p->trns_no;
+			newtr->trns_id = p->trns_id;
+			newtr->encklen = p->encklen;
+			newtr->authtype = p->authtype;
+			inssatrns(newpr, newtr);
+		} else {
+			break;
+		}
+
+	}
+
+	return;
+}
+	
+void
+dupsaproto(newpp, head, ignore_spis)
+	struct saprop  *newpp;
+	struct saproto *head;
+	int ignore_spis;
+{
+	struct saproto *p, *newpr;
+
+	for (p = head; p != NULL; p = p->next) {
+		newpr = newsaproto();
+		if (newpr) {
+			newpr->proto_id = p->proto_id;
+			newpr->spisize = p->spisize;
+			newpr->encmode = p->encmode;
+			newpr->udp_encap = p->udp_encap;
+			if (!ignore_spis) {
+				newpr->spi = p->spi;
+				newpr->spi_p = p->spi_p;
+				newpr->reqid_in = p->reqid_in;
+				newpr->reqid_out = p->reqid_out;
+			}
+			dupsatrns(newpr, p->head);
+			inssaproto(newpp, newpr);
+		} else {
+			break;
+		}
+
+	}
+
+	return;
+}
+
+struct saprop *
+dupsaprop(head, ignore_spis)
+	struct saprop *head;
+	int ignore_spis;
+{
+	struct saprop *p, *newpp;
+
+	for (p = head, newpp = NULL; p != NULL; p = p->next) {
+		struct saprop *tmp = newsaprop();
+		if (tmp) {
+			tmp->prop_no = p->prop_no;
+			tmp->lifetime = p->lifetime;
+			tmp->lifebyte = p->lifebyte;
+			tmp->pfs_group = p->pfs_group;
+			tmp->claim = p->claim;
+			dupsaproto(tmp, p->head, ignore_spis);
+			inssaprop(&newpp, tmp);
+		} else {
+			break;
+		}
+	}
+
+	return newpp;
 }

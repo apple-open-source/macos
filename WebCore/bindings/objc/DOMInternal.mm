@@ -49,18 +49,6 @@ NSMapTable* createWrapperCache()
 #endif
 }
 
-NSMapTable* createWrapperCacheWithIntegerKeys()
-{
-#ifdef BUILDING_ON_TIGER
-    return NSCreateMapTable(NSIntMapKeyCallBacks, NSNonRetainedObjectMapValueCallBacks, 0);
-#else
-    // NSMapTable with zeroing weak pointers is the recommended way to build caches like this under garbage collection.
-    NSPointerFunctionsOptions keyOptions = NSPointerFunctionsOpaqueMemory | NSPointerFunctionsIntegerPersonality;
-    NSPointerFunctionsOptions valueOptions = NSPointerFunctionsZeroingWeakMemory | NSPointerFunctionsObjectPersonality;
-    return [[NSMapTable alloc] initWithKeyOptions:keyOptions valueOptions:valueOptions capacity:0];
-#endif
-}
-
 NSObject* getDOMWrapper(DOMObjectInternal* impl)
 {
     if (!DOMWrapperCache)
@@ -123,11 +111,13 @@ void removeDOMWrapper(DOMObjectInternal* impl)
         frame = document->frame();
     if (!frame)
         return;
-        
-    JSC::ExecState *exec = frame->script()->globalObject()->globalExec();
-    
+
+    // The global object which should own this node - FIXME: does this need to be isolated-world aware?
+    WebCore::JSDOMGlobalObject* globalObject = frame->script()->globalObject(WebCore::mainThreadNormalWorld());
+    JSC::ExecState *exec = globalObject->globalExec();
+
     // Get (or create) a cached JS object for the DOM node.
-    JSC::JSObject *scriptImp = asObject(WebCore::toJS(exec, nodeImpl));
+    JSC::JSObject *scriptImp = asObject(WebCore::toJS(exec, globalObject, nodeImpl));
 
     JSC::Bindings::RootObject* rootObject = frame->script()->bindingRootObject();
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008 Apple Inc. All Rights Reserved.
+ * Copyright (C) 2008, 2009, 2010 Apple Inc. All Rights Reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -28,25 +28,14 @@
 #include "AXObjectCache.h"
 
 #include "AccessibilityObject.h"
+#include "Chrome.h"
 #include "Document.h"
 #include "Page.h"
-#include <wtf/StdLibExtras.h>
+#include "RenderObject.h"
 
 using namespace std;
 
 namespace WebCore {
-
-static const String& AXScrolledToAnchor()
-{
-    DEFINE_STATIC_LOCAL(const String, value, ("AXScrolledToAnchor"));
-    return value;
-}
-
-static const String& AXFocusedUIElementChanged()
-{
-    DEFINE_STATIC_LOCAL(const String, value, ("AXFocusedUIElementChanged"));
-    return value;
-}
 
 void AXObjectCache::detachWrapper(AccessibilityObject* obj)
 {
@@ -63,7 +52,14 @@ void AXObjectCache::attachWrapper(AccessibilityObject*)
     // software requests them via get_accChild.
 }
 
-void AXObjectCache::postPlatformNotification(AccessibilityObject* obj, const String& notification)
+void AXObjectCache::handleScrolledToAnchor(const Node* anchorNode)
+{
+    // The anchor node may not be accessible. Post the notification for the
+    // first accessible object.
+    postPlatformNotification(AccessibilityObject::firstAccessibleObjectFromNode(anchorNode), AXScrolledToAnchor);
+}
+
+void AXObjectCache::postPlatformNotification(AccessibilityObject* obj, AXNotification notification)
 {
     if (!obj)
         return;
@@ -73,16 +69,28 @@ void AXObjectCache::postPlatformNotification(AccessibilityObject* obj, const Str
         return;
 
     Page* page = document->page();
-    if (!page || !page->chrome()->platformWindow())
+    if (!page || !page->chrome()->platformPageClient())
         return;
 
     DWORD msaaEvent;
-    if (notification == AXScrolledToAnchor())
-        msaaEvent = EVENT_SYSTEM_SCROLLINGSTART;
-    else if (notification == AXFocusedUIElementChanged())
-        msaaEvent = EVENT_OBJECT_FOCUS;
-    else
-        return;
+    switch (notification) {
+        case AXFocusedUIElementChanged:
+        case AXActiveDescendantChanged:
+            msaaEvent = EVENT_OBJECT_FOCUS;
+            break;
+
+        case AXScrolledToAnchor:
+            msaaEvent = EVENT_SYSTEM_SCROLLINGSTART;
+            break;
+
+        case AXValueChanged:
+        case AXMenuListValueChanged:
+            msaaEvent = EVENT_OBJECT_VALUECHANGE;
+            break;
+
+        default:
+            return;
+    }
 
     // Windows will end up calling get_accChild() on the root accessible
     // object for the WebView, passing the child ID that we specify below. We
@@ -92,7 +100,7 @@ void AXObjectCache::postPlatformNotification(AccessibilityObject* obj, const Str
     ASSERT(obj->axObjectID() >= 1);
     ASSERT(obj->axObjectID() <= numeric_limits<LONG>::max());
 
-    NotifyWinEvent(msaaEvent, page->chrome()->platformWindow(), OBJID_CLIENT, -static_cast<LONG>(obj->axObjectID()));
+    NotifyWinEvent(msaaEvent, page->chrome()->platformPageClient(), OBJID_CLIENT, -static_cast<LONG>(obj->axObjectID()));
 }
 
 AXID AXObjectCache::platformGenerateAXID() const
@@ -114,17 +122,13 @@ AXID AXObjectCache::platformGenerateAXID() const
     return objID;
 }
 
-void AXObjectCache::handleScrolledToAnchor(const Node* anchorNode)
+void AXObjectCache::handleFocusedUIElementChanged(RenderObject*, RenderObject* newFocusedRenderer)
 {
-    // The anchor node may not be accessible. Post the notification for the
-    // first accessible object.
-    postPlatformNotification(AccessibilityObject::firstAccessibleObjectFromNode(anchorNode), AXScrolledToAnchor());
-}
+    if (!newFocusedRenderer)
+        return;
 
-void AXObjectCache::handleFocusedUIElementChanged()
-{
-    Page* page = m_document->page();
-    if (!page || !page->chrome()->platformWindow())
+    Page* page = newFocusedRenderer->document()->page();
+    if (!page || !page->chrome()->platformPageClient())
         return;
 
     AccessibilityObject* focusedObject = focusedUIElementForPage(page);
@@ -133,7 +137,7 @@ void AXObjectCache::handleFocusedUIElementChanged()
 
     ASSERT(!focusedObject->accessibilityIsIgnored());
 
-    postPlatformNotification(focusedObject, AXFocusedUIElementChanged());
+    postPlatformNotification(focusedObject, AXFocusedUIElementChanged);
 }
 
 } // namespace WebCore

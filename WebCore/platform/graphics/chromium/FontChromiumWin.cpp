@@ -112,12 +112,16 @@ void TransparencyAwareFontPainter::init()
 
 void TransparencyAwareFontPainter::initializeForGDI()
 {
+    m_graphicsContext->save();
     SkColor color = m_platformContext->effectiveFillColor();
+    // Used only when m_createdTransparencyLayer is true.
+    float layerAlpha = 0.0f;
     if (SkColorGetA(color) != 0xFF) {
         // When the font has some transparency, apply it by creating a new
-        // transparency layer with that opacity applied.
+        // transparency layer with that opacity applied. We'll actually create
+        // a new transparency layer after we calculate the bounding box.
         m_createdTransparencyLayer = true;
-        m_graphicsContext->beginTransparencyLayer(SkColorGetA(color) / 255.0f);
+        layerAlpha = SkColorGetA(color) / 255.0f;
         // The color should be opaque now.
         color = SkColorSetRGB(SkColorGetR(color), SkColorGetG(color), SkColorGetB(color));
     }
@@ -131,16 +135,22 @@ void TransparencyAwareFontPainter::initializeForGDI()
         // and we could do ClearType in that case.
         layerMode = TransparencyWin::TextComposite;
         layerRect = estimateTextBounds();
+        m_graphicsContext->clip(layerRect);
+        if (m_createdTransparencyLayer)
+            m_graphicsContext->beginTransparencyLayer(layerAlpha);
 
         // The transparency helper requires that we draw text in black in
         // this mode and it will apply the color.
         m_transparency.setTextCompositeColor(color);
         color = SkColorSetRGB(0, 0, 0);
-    } else if (canvasHasMultipleLayers(m_platformContext->canvas())) {
+    } else if (m_createdTransparencyLayer || canvasHasMultipleLayers(m_platformContext->canvas())) {
         // When we're drawing a web page, we know the background is opaque,
         // but if we're drawing to a layer, we still need extra work.
         layerMode = TransparencyWin::OpaqueCompositeLayer;
         layerRect = estimateTextBounds();
+        m_graphicsContext->clip(layerRect);
+        if (m_createdTransparencyLayer)
+            m_graphicsContext->beginTransparencyLayer(layerAlpha);
     } else {
         // Common case of drawing onto the bottom layer of a web page: we
         // know everything is opaque so don't need to do anything special.
@@ -167,6 +177,7 @@ TransparencyAwareFontPainter::~TransparencyAwareFontPainter()
     m_transparency.composite();
     if (m_createdTransparencyLayer)
         m_graphicsContext->endTransparencyLayer();
+    m_graphicsContext->restore();
     m_platformContext->canvas()->endPlatformPaint();
 }
 
@@ -459,14 +470,16 @@ void Font::drawComplexText(GraphicsContext* graphicsContext,
     TransparencyAwareUniscribePainter painter(graphicsContext, this, run, from, to, point);
 
     HDC hdc = painter.hdc();
-    if (!hdc)
+    if (windowsCanHandleTextDrawing(graphicsContext) && !hdc)
         return;
 
     // TODO(maruel): http://b/700464 SetTextColor doesn't support transparency.
     // Enforce non-transparent color.
     color = SkColorSetRGB(SkColorGetR(color), SkColorGetG(color), SkColorGetB(color));
-    SetTextColor(hdc, skia::SkColorToCOLORREF(color));
-    SetBkMode(hdc, TRANSPARENT);
+    if (hdc) {
+        SetTextColor(hdc, skia::SkColorToCOLORREF(color));
+        SetBkMode(hdc, TRANSPARENT);
+    }
 
     // If there is a non-blur shadow and both the fill color and shadow color 
     // are opaque, handle without skia. 
@@ -490,7 +503,7 @@ void Font::drawComplexText(GraphicsContext* graphicsContext,
     context->canvas()->endPlatformPaint();
 }
 
-float Font::floatWidthForComplexText(const TextRun& run, HashSet<const SimpleFontData*>* /* fallbackFonts */) const
+float Font::floatWidthForComplexText(const TextRun& run, HashSet<const SimpleFontData*>* /* fallbackFonts */, GlyphOverflow* /* glyphOverflow */) const
 {
     UniscribeHelperTextRun state(run, *this);
     return static_cast<float>(state.width());

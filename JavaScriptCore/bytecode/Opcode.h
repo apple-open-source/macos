@@ -92,6 +92,7 @@ namespace JSC {
         macro(op_resolve, 3) \
         macro(op_resolve_skip, 4) \
         macro(op_resolve_global, 6) \
+        macro(op_resolve_global_dynamic, 7) \
         macro(op_get_scoped_var, 4) \
         macro(op_put_scoped_var, 4) \
         macro(op_get_global_var, 4) \
@@ -104,6 +105,16 @@ namespace JSC {
         macro(op_get_by_id_proto, 8) \
         macro(op_get_by_id_proto_list, 8) \
         macro(op_get_by_id_chain, 8) \
+        macro(op_get_by_id_getter_self, 8) \
+        macro(op_get_by_id_getter_self_list, 8) \
+        macro(op_get_by_id_getter_proto, 8) \
+        macro(op_get_by_id_getter_proto_list, 8) \
+        macro(op_get_by_id_getter_chain, 8) \
+        macro(op_get_by_id_custom_self, 8) \
+        macro(op_get_by_id_custom_self_list, 8) \
+        macro(op_get_by_id_custom_proto, 8) \
+        macro(op_get_by_id_custom_proto_list, 8) \
+        macro(op_get_by_id_custom_chain, 8) \
         macro(op_get_by_id_generic, 8) \
         macro(op_get_array_length, 8) \
         macro(op_get_string_length, 8) \
@@ -113,6 +124,7 @@ namespace JSC {
         macro(op_put_by_id_generic, 8) \
         macro(op_del_by_id, 4) \
         macro(op_get_by_val, 4) \
+        macro(op_get_by_pname, 7) \
         macro(op_put_by_val, 4) \
         macro(op_del_by_val, 4) \
         macro(op_put_by_index, 4) \
@@ -127,9 +139,12 @@ namespace JSC {
         macro(op_jneq_ptr, 4) \
         macro(op_jnless, 4) \
         macro(op_jnlesseq, 4) \
+        macro(op_jless, 4) \
+        macro(op_jlesseq, 4) \
         macro(op_jmp_scopes, 3) \
         macro(op_loop, 2) \
         macro(op_loop_if_true, 3) \
+        macro(op_loop_if_false, 3) \
         macro(op_loop_if_less, 4) \
         macro(op_loop_if_lesseq, 4) \
         macro(op_switch_imm, 4) \
@@ -152,8 +167,8 @@ namespace JSC {
         macro(op_strcat, 4) \
         macro(op_to_primitive, 3) \
         \
-        macro(op_get_pnames, 3) \
-        macro(op_next_pname, 4) \
+        macro(op_get_pnames, 6) \
+        macro(op_next_pname, 7) \
         \
         macro(op_push_scope, 2) \
         macro(op_pop_scope, 1) \
@@ -193,7 +208,11 @@ namespace JSC {
     #undef VERIFY_OPCODE_ID
 
 #if HAVE(COMPUTED_GOTO)
+#if COMPILER(RVCT)
     typedef void* Opcode;
+#else
+    typedef const void* Opcode;
+#endif
 #else
     typedef OpcodeID Opcode;
 #endif

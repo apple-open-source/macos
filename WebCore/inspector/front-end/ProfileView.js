@@ -23,7 +23,9 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WebInspector.ProfileView = function(profile)
+// FIXME: Rename the file.
+
+WebInspector.CPUProfileView = function(profile)
 {
     WebInspector.View.call(this);
 
@@ -38,6 +40,11 @@ WebInspector.ProfileView = function(profile)
                     "average": { title: WebInspector.UIString("Average"), width: "72px", sortable: true },
                     "calls": { title: WebInspector.UIString("Calls"), width: "54px", sortable: true },
                     "function": { title: WebInspector.UIString("Function"), disclosure: true, sortable: true } };
+
+    if (Preferences.samplingCPUProfiler) {
+        delete columns.average;
+        delete columns.calls;
+    }
 
     this.dataGrid = new WebInspector.DataGrid(columns);
     this.dataGrid.addEventListener("sorting changed", this._sortData, this);
@@ -56,41 +63,45 @@ WebInspector.ProfileView = function(profile)
     this.viewSelectElement.appendChild(heavyViewOption);
     this.viewSelectElement.appendChild(treeViewOption);
 
-    this.percentButton = document.createElement("button");
-    this.percentButton.className = "percent-time-status-bar-item status-bar-item";
+    this.percentButton = new WebInspector.StatusBarButton("", "percent-time-status-bar-item");
     this.percentButton.addEventListener("click", this._percentClicked.bind(this), false);
 
-    this.focusButton = document.createElement("button");
-    this.focusButton.title = WebInspector.UIString("Focus selected function.");
-    this.focusButton.className = "focus-profile-node-status-bar-item status-bar-item";
+    this.focusButton = new WebInspector.StatusBarButton(WebInspector.UIString("Focus selected function."), "focus-profile-node-status-bar-item");
     this.focusButton.disabled = true;
     this.focusButton.addEventListener("click", this._focusClicked.bind(this), false);
 
-    this.excludeButton = document.createElement("button");
-    this.excludeButton.title = WebInspector.UIString("Exclude selected function.");
-    this.excludeButton.className = "exclude-profile-node-status-bar-item status-bar-item";
+    this.excludeButton = new WebInspector.StatusBarButton(WebInspector.UIString("Exclude selected function."), "exclude-profile-node-status-bar-item");
     this.excludeButton.disabled = true;
     this.excludeButton.addEventListener("click", this._excludeClicked.bind(this), false);
 
-    this.resetButton = document.createElement("button");
-    this.resetButton.title = WebInspector.UIString("Restore all functions.");
-    this.resetButton.className = "reset-profile-status-bar-item status-bar-item hidden";
+    this.resetButton = new WebInspector.StatusBarButton(WebInspector.UIString("Restore all functions."), "reset-profile-status-bar-item");
+    this.resetButton.visible = false;
     this.resetButton.addEventListener("click", this._resetClicked.bind(this), false);
 
     this.profile = profile;
 
-    this.profileDataGridTree = this.bottomUpProfileDataGridTree;
-    this.profileDataGridTree.sort(WebInspector.ProfileDataGridTree.propertyComparator("selfTime", false));
+    var self = this;
+    function profileCallback(profile)
+    {
+        self.profile.head = profile.head;
+        self._assignParentsInProfile();
+      
+        self.profileDataGridTree = self.bottomUpProfileDataGridTree;
+        self.profileDataGridTree.sort(WebInspector.ProfileDataGridTree.propertyComparator("selfTime", false));
+     
+        self.refresh();
+     
+        self._updatePercentButton();
+    }
 
-    this.refresh();
-
-    this._updatePercentButton();
+    var callId = WebInspector.Callback.wrap(profileCallback);
+    InspectorBackend.getProfile(callId, this.profile.uid);
 }
 
-WebInspector.ProfileView.prototype = {
+WebInspector.CPUProfileView.prototype = {
     get statusBarItems()
     {
-        return [this.viewSelectElement, this.percentButton, this.focusButton, this.excludeButton, this.resetButton];
+        return [this.viewSelectElement, this.percentButton.element, this.focusButton.element, this.excludeButton.element, this.resetButton.element];
     },
 
     get profile()
@@ -148,10 +159,22 @@ WebInspector.ProfileView.prototype = {
         return this._bottomUpTree;
     },
 
+    show: function(parentElement)
+    {
+        WebInspector.View.prototype.show.call(this, parentElement);
+        this.dataGrid.updateWidths();
+    },
+
     hide: function()
     {
         WebInspector.View.prototype.hide.call(this);
         this._currentSearchResultIndex = -1;
+    },
+
+    resize: function()
+    {
+        if (this.dataGrid)
+            this.dataGrid.updateWidths();
     },
 
     refresh: function()
@@ -210,7 +233,7 @@ WebInspector.ProfileView.prototype = {
         // Call searchCanceled since it will reset everything we need before doing a new search.
         this.searchCanceled();
 
-        query = query.trimWhitespace();
+        query = query.trim();
 
         if (!query.length)
             return;
@@ -427,10 +450,10 @@ WebInspector.ProfileView.prototype = {
     {
         if (this.showSelfTimeAsPercent && this.showTotalTimeAsPercent && this.showAverageTimeAsPercent) {
             this.percentButton.title = WebInspector.UIString("Show absolute total and self times.");
-            this.percentButton.addStyleClass("toggled-on");
+            this.percentButton.toggled = true;
         } else {
             this.percentButton.title = WebInspector.UIString("Show total and self times as percentages.");
-            this.percentButton.removeStyleClass("toggled-on");
+            this.percentButton.toggled = false;
         }
     },
 
@@ -439,7 +462,7 @@ WebInspector.ProfileView.prototype = {
         if (!this.dataGrid.selectedNode)
             return;
 
-        this.resetButton.removeStyleClass("hidden");
+        this.resetButton.visible = true;
         this.profileDataGridTree.focus(this.dataGrid.selectedNode);
         this.refresh();
         this.refreshVisibleData();
@@ -454,7 +477,7 @@ WebInspector.ProfileView.prototype = {
 
         selectedNode.deselect();
 
-        this.resetButton.removeStyleClass("hidden");
+        this.resetButton.visible = true;
         this.profileDataGridTree.exclude(selectedNode);
         this.refresh();
         this.refreshVisibleData();
@@ -462,7 +485,7 @@ WebInspector.ProfileView.prototype = {
 
     _resetClicked: function(event)
     {
-        this.resetButton.addStyleClass("hidden");
+        this.resetButton.visible = false;
         this.profileDataGridTree.restore();
         this.refresh();
         this.refreshVisibleData();
@@ -522,7 +545,79 @@ WebInspector.ProfileView.prototype = {
 
         event.preventDefault();
         event.stopPropagation();
+    },
+
+    _assignParentsInProfile: function()
+    {
+        var head = this.profile.head;
+        head.parent = null;
+        head.head = null;
+        var nodesToTraverse = [ { parent: head, children: head.children } ];
+        while (nodesToTraverse.length > 0) {
+            var pair = nodesToTraverse.shift();
+            var parent = pair.parent;
+            var children = pair.children;
+            var length = children.length;
+            for (var i = 0; i < length; ++i) {
+                children[i].head = head;
+                children[i].parent = parent;
+                if (children[i].children.length > 0)
+                    nodesToTraverse.push({ parent: children[i], children: children[i].children });
+            }
+        }
     }
 }
 
-WebInspector.ProfileView.prototype.__proto__ = WebInspector.View.prototype;
+WebInspector.CPUProfileView.prototype.__proto__ = WebInspector.View.prototype;
+
+WebInspector.CPUProfileType = function()
+{
+    WebInspector.ProfileType.call(this, WebInspector.CPUProfileType.TypeId, WebInspector.UIString("CPU PROFILES"));
+    this._recording = false;
+}
+
+WebInspector.CPUProfileType.TypeId = "CPU";
+
+WebInspector.CPUProfileType.prototype = {
+    get buttonTooltip()
+    {
+        return this._recording ? WebInspector.UIString("Stop profiling.") : WebInspector.UIString("Start profiling.");
+    },
+
+    get buttonStyle()
+    {
+        return this._recording ? "record-profile-status-bar-item status-bar-item toggled-on" : "record-profile-status-bar-item status-bar-item";
+    },
+
+    buttonClicked: function()
+    {
+        this._recording = !this._recording;
+
+        if (this._recording)
+            InspectorBackend.startProfiling();
+        else
+            InspectorBackend.stopProfiling();
+    },
+
+    get welcomeMessage()
+    {
+        return WebInspector.UIString("Control CPU profiling by pressing the %s button on the status bar.");
+    },
+
+    setRecordingProfile: function(isProfiling)
+    {
+        this._recording = isProfiling;
+    },
+
+    createSidebarTreeElementForProfile: function(profile)
+    {
+        return new WebInspector.ProfileSidebarTreeElement(profile);
+    },
+
+    createView: function(profile)
+    {
+        return new WebInspector.CPUProfileView(profile);
+    }
+}
+
+WebInspector.CPUProfileType.prototype.__proto__ = WebInspector.ProfileType.prototype;

@@ -39,9 +39,7 @@
 
 namespace WebCore {
 
-unsigned EventHandler::s_accessKeyModifiers = PlatformKeyboardEvent::AltKey;
-
-bool EventHandler::tabsToAllControls(KeyboardEvent* ) const
+bool EventHandler::tabsToAllControls(KeyboardEvent*) const
 {
     return true;
 }
@@ -58,8 +56,7 @@ bool EventHandler::passWidgetMouseDownEventToWidget(const MouseEventWithHitTestR
     RenderObject* target = event.targetNode() ? event.targetNode()->renderer() : 0;
     if (!target || !target->isWidget())
         return false;
-    
-    return passMouseDownEventToWidget(static_cast<RenderWidget*>(target)->widget());
+    return passMouseDownEventToWidget(toRenderWidget(target)->widget());
 }
 
 bool EventHandler::passWidgetMouseDownEventToWidget(RenderWidget* renderWidget)
@@ -69,13 +66,13 @@ bool EventHandler::passWidgetMouseDownEventToWidget(RenderWidget* renderWidget)
 
 // This function is used to route the mouse down event to the native widgets, it seems like a
 // work around for the Mac platform which does not support double clicks, but browsers do.
-bool EventHandler::passMouseDownEventToWidget(Widget* )
+bool EventHandler::passMouseDownEventToWidget(Widget*)
 {
     // return false so the normal propogation handles the event
     return false;
 }
 
-bool EventHandler::eventActivatedView(const PlatformMouseEvent& ) const
+bool EventHandler::eventActivatedView(const PlatformMouseEvent&) const
 {
     notImplemented();
     return false;
@@ -85,7 +82,7 @@ bool EventHandler::eventActivatedView(const PlatformMouseEvent& ) const
 // It is used to ensure that events are sync'ed correctly between frames. For example
 // if the user presses down in one frame and up in another frame, this function will
 // returns true, and pass the event to the correct frame.
-bool EventHandler::passSubframeEventToSubframe(MouseEventWithHitTestResults& , Frame* , HitTestResult* )
+bool EventHandler::passSubframeEventToSubframe(MouseEventWithHitTestResults&, Frame*, HitTestResult*)
 {
     notImplemented();
     return false;
@@ -94,7 +91,7 @@ bool EventHandler::passSubframeEventToSubframe(MouseEventWithHitTestResults& , F
 // This is called to route wheel events to child widgets when they are RenderWidget
 // as the parent usually gets wheel event. Don't have a mouse with a wheel to confirm
 // the operation of this function.
-bool EventHandler::passWheelEventToWidget(PlatformWheelEvent& , Widget* )
+bool EventHandler::passWheelEventToWidget(PlatformWheelEvent&, Widget*)
 {
     notImplemented();
     return false;
@@ -106,7 +103,7 @@ bool EventHandler::passMousePressEventToSubframe(MouseEventWithHitTestResults& m
 }
 
 bool EventHandler::passMouseMoveEventToSubframe(MouseEventWithHitTestResults& mev, 
-    Frame* subframe, HitTestResult* )
+    Frame* subframe, HitTestResult*)
 {
     return passSubframeEventToSubframe(mev, subframe);
 }
@@ -122,6 +119,11 @@ class Clipboard : public RefCounted<Clipboard> {
 PassRefPtr<Clipboard> EventHandler::createDraggingClipboard() const
 {
     return PassRefPtr<Clipboard>(0);
+}
+
+unsigned EventHandler::accessKeyModifiers()
+{
+    return PlatformKeyboardEvent::AltKey;
 }
 
 const double EventHandler::TextDragDelay = 0.0;

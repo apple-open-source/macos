@@ -77,6 +77,9 @@ static void initShorthandMap(ShorthandMap& shorthandMap)
     static const int backgroundPositionProperties[] = { CSSPropertyBackgroundPositionX, CSSPropertyBackgroundPositionY };
     SET_SHORTHAND_MAP_ENTRY(shorthandMap, CSSPropertyBackgroundPosition, backgroundPositionProperties);
 
+    static const int backgroundRepeatProperties[] = { CSSPropertyBackgroundRepeatX, CSSPropertyBackgroundRepeatY };
+    SET_SHORTHAND_MAP_ENTRY(shorthandMap, CSSPropertyBackgroundRepeat, backgroundRepeatProperties);
+
     static const int borderSpacingProperties[] = { CSSPropertyWebkitBorderHorizontalSpacing, CSSPropertyWebkitBorderVerticalSpacing };
     SET_SHORTHAND_MAP_ENTRY(shorthandMap, CSSPropertyBorderSpacing, borderSpacingProperties);
 
@@ -128,13 +131,14 @@ static void initShorthandMap(ShorthandMap& shorthandMap)
 
     static const int backgroundProperties[] = {
         CSSPropertyBackgroundAttachment,
-        CSSPropertyWebkitBackgroundClip,
+        CSSPropertyBackgroundClip,
         CSSPropertyBackgroundColor,
         CSSPropertyBackgroundImage,
-        CSSPropertyWebkitBackgroundOrigin,
+        CSSPropertyBackgroundOrigin,
         CSSPropertyBackgroundPositionX,
         CSSPropertyBackgroundPositionY,
-        CSSPropertyBackgroundRepeat,
+        CSSPropertyBackgroundRepeatX,
+        CSSPropertyBackgroundRepeatY
     };
     SET_SHORTHAND_MAP_ENTRY(shorthandMap, CSSPropertyBackground, backgroundProperties);
 
@@ -152,15 +156,19 @@ static void initShorthandMap(ShorthandMap& shorthandMap)
     SET_SHORTHAND_MAP_ENTRY(shorthandMap, CSSPropertyOverflow, overflowProperties);
 
     static const int borderRadiusProperties[] = {
-        CSSPropertyWebkitBorderTopRightRadius,
-        CSSPropertyWebkitBorderTopLeftRadius,
-        CSSPropertyWebkitBorderBottomLeftRadius,
-        CSSPropertyWebkitBorderBottomRightRadius
+        CSSPropertyBorderTopRightRadius,
+        CSSPropertyBorderTopLeftRadius,
+        CSSPropertyBorderBottomLeftRadius,
+        CSSPropertyBorderBottomRightRadius
     };
+    SET_SHORTHAND_MAP_ENTRY(shorthandMap, CSSPropertyBorderRadius, borderRadiusProperties);
     SET_SHORTHAND_MAP_ENTRY(shorthandMap, CSSPropertyWebkitBorderRadius, borderRadiusProperties);
 
     static const int maskPositionProperties[] = { CSSPropertyWebkitMaskPositionX, CSSPropertyWebkitMaskPositionY };
     SET_SHORTHAND_MAP_ENTRY(shorthandMap, CSSPropertyWebkitMaskPosition, maskPositionProperties);
+
+    static const int maskRepeatProperties[] = { CSSPropertyWebkitMaskRepeatX, CSSPropertyWebkitMaskRepeatY };
+    SET_SHORTHAND_MAP_ENTRY(shorthandMap, CSSPropertyWebkitMaskRepeat, maskRepeatProperties);
 
     static const int maskProperties[] = {
         CSSPropertyWebkitMaskAttachment,
@@ -169,7 +177,8 @@ static void initShorthandMap(ShorthandMap& shorthandMap)
         CSSPropertyWebkitMaskOrigin,
         CSSPropertyWebkitMaskPositionX,
         CSSPropertyWebkitMaskPositionY,
-        CSSPropertyWebkitMaskRepeat,
+        CSSPropertyWebkitMaskRepeatX,
+        CSSPropertyWebkitMaskRepeatY
     };
     SET_SHORTHAND_MAP_ENTRY(shorthandMap, CSSPropertyWebkitMask, maskProperties);
 
@@ -179,7 +188,8 @@ static void initShorthandMap(ShorthandMap& shorthandMap)
         CSSPropertyWebkitAnimationTimingFunction,
         CSSPropertyWebkitAnimationDelay,
         CSSPropertyWebkitAnimationIterationCount,
-        CSSPropertyWebkitAnimationDirection
+        CSSPropertyWebkitAnimationDirection,
+        CSSPropertyWebkitAnimationFillMode
     };
     SET_SHORTHAND_MAP_ENTRY(shorthandMap, CSSPropertyWebkitAnimation, animationProperties);
 

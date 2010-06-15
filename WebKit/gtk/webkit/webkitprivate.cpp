@@ -19,14 +19,17 @@
  */
 
 #include "config.h"
-
-#include "webkitsoupauthdialog.h"
 #include "webkitprivate.h"
+
+#include "ApplicationCacheStorage.h"
+#include "Chrome.h"
 #include "ChromeClientGtk.h"
 #include "Frame.h"
 #include "FrameLoader.h"
 #include "FrameLoaderClientGtk.h"
-#include <libintl.h>
+#include "GtkVersioning.h"
+#include "HitTestResult.h"
+#include "IconDatabase.h"
 #include "Logging.h"
 #include "PageCache.h"
 #include "PageGroup.h"
@@ -35,7 +38,15 @@
 #include "ResourceHandle.h"
 #include "ResourceHandleClient.h"
 #include "ResourceHandleInternal.h"
+#include "ResourceResponse.h"
+#include "SecurityOrigin.h"
+#include "TextEncodingRegistry.h"
+#include "webkitnetworkresponse.h"
+#include "webkitsoupauthdialog.h"
+#include <libintl.h>
 #include <runtime/InitializeThreading.h>
+#include <stdlib.h>
+#include <wtf/Threading.h>
 
 #if ENABLE(DATABASE)
 #include "DatabaseTracker.h"
@@ -96,7 +107,7 @@ WebKitWebNavigationReason kit(WebCore::NavigationType type)
 
 WebCore::NavigationType core(WebKitWebNavigationReason type)
 {
-    return (WebCore::NavigationType)type;
+    return static_cast<WebCore::NavigationType>(type);
 }
 
 WebCore::ResourceRequest core(WebKitNetworkRequest* request)
@@ -107,6 +118,62 @@ WebCore::ResourceRequest core(WebKitNetworkRequest* request)
 
     KURL url = KURL(KURL(), String::fromUTF8(webkit_network_request_get_uri(request)));
     return ResourceRequest(url);
+}
+
+WebCore::ResourceResponse core(WebKitNetworkResponse* response)
+{
+    SoupMessage* soupMessage = webkit_network_response_get_message(response);
+    if (soupMessage)
+        return ResourceResponse(soupMessage);
+
+    return ResourceResponse();
+}
+
+WebCore::EditingBehavior core(WebKitEditingBehavior type)
+{
+    return (WebCore::EditingBehavior)type;
+}
+
+WebKitHitTestResult* kit(const WebCore::HitTestResult& result)
+{
+    guint context = WEBKIT_HIT_TEST_RESULT_CONTEXT_DOCUMENT;
+    GOwnPtr<char> linkURI(0);
+    GOwnPtr<char> imageURI(0);
+    GOwnPtr<char> mediaURI(0);
+
+    if (!result.absoluteLinkURL().isEmpty()) {
+        context |= WEBKIT_HIT_TEST_RESULT_CONTEXT_LINK;
+        linkURI.set(g_strdup(result.absoluteLinkURL().string().utf8().data()));
+    }
+
+    if (!result.absoluteImageURL().isEmpty()) {
+        context |= WEBKIT_HIT_TEST_RESULT_CONTEXT_IMAGE;
+        imageURI.set(g_strdup(result.absoluteImageURL().string().utf8().data()));
+    }
+
+    if (!result.absoluteMediaURL().isEmpty()) {
+        context |= WEBKIT_HIT_TEST_RESULT_CONTEXT_MEDIA;
+        mediaURI.set(g_strdup(result.absoluteMediaURL().string().utf8().data()));
+    }
+
+    if (result.isSelected())
+        context |= WEBKIT_HIT_TEST_RESULT_CONTEXT_SELECTION;
+
+    if (result.isContentEditable())
+        context |= WEBKIT_HIT_TEST_RESULT_CONTEXT_EDITABLE;
+
+    return WEBKIT_HIT_TEST_RESULT(g_object_new(WEBKIT_TYPE_HIT_TEST_RESULT,
+                                           "link-uri", linkURI.get(),
+                                           "image-uri", imageURI.get(),
+                                           "media-uri", mediaURI.get(),
+                                           "context", context,
+                                           NULL));
+}
+
+PasteboardHelperGtk* pasteboardHelperInstance()
+{
+    static PasteboardHelperGtk* helper = new PasteboardHelperGtk();
+    return helper;
 }
 
 } /** end namespace WebKit */
@@ -129,11 +196,16 @@ static GtkWidget* currentToplevelCallback(WebKitSoupAuthDialog* feature, SoupMes
     if (!frame)
         return NULL;
 
-    GtkWidget* toplevel =  gtk_widget_get_toplevel(GTK_WIDGET(frame->page()->chrome()->platformWindow()));
-    if (GTK_WIDGET_TOPLEVEL(toplevel))
+    GtkWidget* toplevel =  gtk_widget_get_toplevel(GTK_WIDGET(frame->page()->chrome()->platformPageClient()));
+    if (gtk_widget_is_toplevel(toplevel))
         return toplevel;
     else
         return NULL;
+}
+
+static void closeIconDatabaseOnExit()
+{
+    iconDatabase()->close();
 }
 
 void webkit_init()
@@ -147,23 +219,38 @@ void webkit_init()
     bind_textdomain_codeset(GETTEXT_PACKAGE, "UTF-8");
 
     JSC::initializeThreading();
+    WTF::initializeMainThread();
+
     WebCore::InitializeLoggingChannelsIfNecessary();
+
+    // We make sure the text codecs have been initialized, because
+    // that may only be done by the main thread.
+    atomicCanonicalTextEncodingName("UTF-8");
 
     // Page cache capacity (in pages). Comment from Mac port:
     // (Research indicates that value / page drops substantially after 3 pages.)
     // FIXME: Expose this with an API and/or calculate based on available resources
-    WebCore::pageCache()->setCapacity(3);
+    webkit_set_cache_model(WEBKIT_CACHE_MODEL_WEB_BROWSER);
 
 #if ENABLE(DATABASE)
-    // FIXME: It should be possible for client applications to override this default location
     gchar* databaseDirectory = g_build_filename(g_get_user_data_dir(), "webkit", "databases", NULL);
-    WebCore::DatabaseTracker::tracker().setDatabaseDirectoryPath(databaseDirectory);
+    webkit_set_web_database_directory_path(databaseDirectory);
+
+    // FIXME: It should be possible for client applications to override the default appcache location
+    WebCore::cacheStorage().setCacheDirectory(databaseDirectory);
     g_free(databaseDirectory);
 #endif
 
     PageGroup::setShouldTrackVisitedLinks(true);
 
-    Pasteboard::generalPasteboard()->setHelper(new WebKit::PasteboardHelperGtk());
+    Pasteboard::generalPasteboard()->setHelper(WebKit::pasteboardHelperInstance());
+
+    iconDatabase()->setEnabled(true);
+
+    GOwnPtr<gchar> iconDatabasePath(g_build_filename(g_get_user_data_dir(), "webkit", "icondatabase", NULL));
+    iconDatabase()->open(iconDatabasePath.get());
+
+    atexit(closeIconDatabaseOnExit);
 
     SoupSession* session = webkit_get_default_session();
 
@@ -175,4 +262,16 @@ void webkit_init()
     SoupSessionFeature* sniffer = static_cast<SoupSessionFeature*>(g_object_new(SOUP_TYPE_CONTENT_SNIFFER, NULL));
     soup_session_add_feature(session, sniffer);
     g_object_unref(sniffer);
+
+    soup_session_add_feature_by_type(session, SOUP_TYPE_CONTENT_DECODER);
+}
+
+void webkit_white_list_access_from_origin(const gchar* sourceOrigin, const gchar* destinationProtocol, const gchar* destinationHost, bool allowDestinationSubdomains)
+{
+    SecurityOrigin::addOriginAccessWhitelistEntry(*SecurityOrigin::createFromString(sourceOrigin), destinationProtocol, destinationHost, allowDestinationSubdomains);
+}
+
+void webkit_reset_origin_access_white_lists()
+{
+    SecurityOrigin::resetOriginAccessWhitelists();
 }

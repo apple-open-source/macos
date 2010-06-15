@@ -26,9 +26,9 @@
 #include <glib.h>
 #include <glib/gi18n-lib.h>
 
-#include "CString.h"
 #include "HistoryItem.h"
 #include "PlatformString.h"
+#include <wtf/text/CString.h>
 
 /**
  * SECTION:webkitwebhistoryitem
@@ -37,7 +37,7 @@
  *
  * A history item consists out of a title and a uri. It can be part of the
  * #WebKitWebBackForwardList and the global history. The global history is used
- * for coloring the links of visited sites.  #WebKitHistoryItem's constructed with
+ * for coloring the links of visited sites.  #WebKitWebHistoryItem's constructed with
  * #webkit_web_history_item_new and #webkit_web_history_item_new_with_data are
  * automatically added to the global history.
  *
@@ -54,10 +54,10 @@ using namespace WebKit;
 struct _WebKitWebHistoryItemPrivate {
     WebCore::HistoryItem* historyItem;
 
-    WebCore::CString title;
-    WebCore::CString alternateTitle;
-    WebCore::CString uri;
-    WebCore::CString originalUri;
+    WTF::CString title;
+    WTF::CString alternateTitle;
+    WTF::CString uri;
+    WTF::CString originalUri;
 
     gboolean disposed;
 };
@@ -113,10 +113,10 @@ static void webkit_web_history_item_finalize(GObject* object)
     WebKitWebHistoryItem* webHistoryItem = WEBKIT_WEB_HISTORY_ITEM(object);
     WebKitWebHistoryItemPrivate* priv = webHistoryItem->priv;
 
-    priv->title = WebCore::CString();
-    priv->alternateTitle = WebCore::CString();
-    priv->uri = WebCore::CString();
-    priv->originalUri = WebCore::CString();
+    priv->title = WTF::CString();
+    priv->alternateTitle = WTF::CString();
+    priv->uri = WTF::CString();
+    priv->originalUri = WTF::CString();
 
     G_OBJECT_CLASS(webkit_web_history_item_parent_class)->finalize(object);
 }
@@ -297,12 +297,11 @@ WebKitWebHistoryItem* webkit_web_history_item_new()
  */
 WebKitWebHistoryItem* webkit_web_history_item_new_with_data(const gchar* uri, const gchar* title)
 {
-    WebCore::KURL historyUri(uri);
-    WebCore::String historyTitle = WebCore::String::fromUTF8(title);
-
     WebKitWebHistoryItem* webHistoryItem = WEBKIT_WEB_HISTORY_ITEM(g_object_new(WEBKIT_TYPE_WEB_HISTORY_ITEM, NULL));
     WebKitWebHistoryItemPrivate* priv = webHistoryItem->priv;
 
+    WebCore::KURL historyUri(WebCore::KURL(), uri);
+    WebCore::String historyTitle = WebCore::String::fromUTF8(title);
     RefPtr<WebCore::HistoryItem> item = WebCore::HistoryItem::create(historyUri, historyTitle, 0);
     priv->historyItem = item.release().releaseRef();
     webkit_history_item_add(webHistoryItem, priv->historyItem);
@@ -433,6 +432,33 @@ gdouble webkit_web_history_item_get_last_visited_time(WebKitWebHistoryItem* webH
     return item->lastVisitedTime();
 }
 
+/**
+ * webkit_web_history_item_copy :
+ * @web_history_item: a #WebKitWebHistoryItem
+ *
+ * Makes a copy of the item for use with other WebView objects.
+ *
+ * Since: 1.1.18
+ *
+ * Return value: the new #WebKitWebHistoryItem.
+ */
+WebKitWebHistoryItem* webkit_web_history_item_copy(WebKitWebHistoryItem* self)
+{
+    WebKitWebHistoryItemPrivate* selfPrivate = self->priv;
+
+    WebKitWebHistoryItem* item = WEBKIT_WEB_HISTORY_ITEM(g_object_new(WEBKIT_TYPE_WEB_HISTORY_ITEM, 0));
+    WebKitWebHistoryItemPrivate* priv = item->priv;
+
+    priv->title = selfPrivate->title;
+    priv->alternateTitle = selfPrivate->alternateTitle;
+    priv->uri = selfPrivate->uri;
+    priv->originalUri = selfPrivate->originalUri;
+
+    priv->historyItem = selfPrivate->historyItem->copy().releaseRef();
+
+    return item;
+}
+
 /* private methods */
 
 G_CONST_RETURN gchar* webkit_web_history_item_get_target(WebKitWebHistoryItem* webHistoryItem)
@@ -443,7 +469,7 @@ G_CONST_RETURN gchar* webkit_web_history_item_get_target(WebKitWebHistoryItem* w
 
     g_return_val_if_fail(item, NULL);
 
-    WebCore::CString t = item->target().utf8();
+    WTF::CString t = item->target().utf8();
     return g_strdup(t.data());
 }
 

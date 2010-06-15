@@ -109,6 +109,12 @@ process_as_req(krb5_kdc_req *request, krb5_data *req_pkt,
     session_key.contents = 0;
     enc_tkt_reply.authorization_data = NULL;
 
+    if (request->msg_type != KRB5_AS_REQ) {
+        status = "msg_type mismatch";
+        errcode = KRB5_BADMSGTYPE;
+        goto errout;
+    }
+
     ktypes2str(ktypestr, sizeof(ktypestr),
 	       request->nktypes, request->ktype);
 

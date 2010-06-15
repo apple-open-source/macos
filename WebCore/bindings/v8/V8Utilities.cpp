@@ -33,8 +33,14 @@
 
 #include <v8.h>
 
-#include "V8CustomBinding.h"
+#include "Document.h"
+#include "Frame.h"
+#include "ScriptExecutionContext.h"
+#include "ScriptState.h"
+#include "V8Binding.h"
 #include "V8Proxy.h"
+#include "WorkerContext.h"
+#include "WorkerContextExecutionProxy.h"
 
 #include <wtf/Assertions.h>
 #include "Frame.h"
@@ -43,7 +49,7 @@ namespace WebCore {
 
 // Use an array to hold dependents. It works like a ref-counted scheme.
 // A value can be added more than once to the DOM object.
-void createHiddenDependency(v8::Local<v8::Object> object, v8::Local<v8::Value> value, int cacheIndex)
+void createHiddenDependency(v8::Handle<v8::Object> object, v8::Local<v8::Value> value, int cacheIndex)
 {
     v8::Local<v8::Value> cache = object->GetInternalField(cacheIndex);
     if (cache->IsNull() || cache->IsUndefined()) {
@@ -55,10 +61,11 @@ void createHiddenDependency(v8::Local<v8::Object> object, v8::Local<v8::Value> v
     cacheArray->Set(v8::Integer::New(cacheArray->Length()), value);
 }
 
-void removeHiddenDependency(v8::Local<v8::Object> object, v8::Local<v8::Value> value, int cacheIndex)
+void removeHiddenDependency(v8::Handle<v8::Object> object, v8::Local<v8::Value> value, int cacheIndex)
 {
     v8::Local<v8::Value> cache = object->GetInternalField(cacheIndex);
-    ASSERT(cache->IsArray());
+    if (!cache->IsArray())
+        return;
     v8::Local<v8::Array> cacheArray = v8::Local<v8::Array>::Cast(cache);
     for (int i = cacheArray->Length() - 1; i >= 0; --i) {
         v8::Local<v8::Value> cached = cacheArray->Get(v8::Integer::New(i));
@@ -67,10 +74,25 @@ void removeHiddenDependency(v8::Local<v8::Object> object, v8::Local<v8::Value> v
             return;
         }
     }
-
-    // We should only get here if we try to remove an event listener that was never added.
-    ASSERT_NOT_REACHED();
 }
+    
+void transferHiddenDependency(v8::Handle<v8::Object> object,
+                              EventListener* oldValue, 
+                              v8::Local<v8::Value> newValue, 
+                              int cacheIndex)
+{
+    if (oldValue) {
+        V8AbstractEventListener* oldListener = V8AbstractEventListener::cast(oldValue);
+        if (oldListener) {
+            v8::Local<v8::Object> oldListenerObject = oldListener->getExistingListenerObject();
+            if (!oldListenerObject.IsEmpty())
+                removeHiddenDependency(object, oldListenerObject, cacheIndex);
+        }
+    }
+    if (!newValue->IsNull() && !newValue->IsUndefined())
+        createHiddenDependency(object, newValue, cacheIndex);
+}
+    
 
 bool processingUserGesture()
 {
@@ -100,7 +122,20 @@ void navigateIfAllowed(Frame* frame, const KURL& url, bool lockHistory, bool loc
         return;
 
     if (!protocolIsJavaScript(url) || ScriptController::isSafeScript(frame))
-        frame->loader()->scheduleLocationChange(url.string(), callingFrame->loader()->outgoingReferrer(), lockHistory, lockBackForwardList, processingUserGesture());
+        frame->redirectScheduler()->scheduleLocationChange(url.string(), callingFrame->loader()->outgoingReferrer(), lockHistory, lockBackForwardList, processingUserGesture());
+}
+
+ScriptExecutionContext* getScriptExecutionContext()
+{
+#if ENABLE(WORKERS)
+    if (WorkerScriptController* controller = WorkerScriptController::controllerForContext())
+        return controller->workerContext();
+#endif
+
+    if (Frame* frame = V8Proxy::retrieveFrameForCurrentContext())
+        return frame->document()->scriptExecutionContext();
+
+    return 0;
 }
 
 } // namespace WebCore

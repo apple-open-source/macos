@@ -26,7 +26,7 @@
 
 #if ENABLE(SVG)
 
-#include "TransformationMatrix.h"
+#include "AffineTransform.h"
 #include "RenderSVGBlock.h"
 
 namespace WebCore {
@@ -37,11 +37,14 @@ class RenderSVGText : public RenderSVGBlock {
 public:
     RenderSVGText(SVGTextElement* node);
 
+    virtual void setNeedsTransformUpdate() { m_needsTransformUpdate = true; }
+
+private:
     virtual const char* renderName() const { return "RenderSVGText"; }
 
     virtual bool isSVGText() const { return true; }
 
-    virtual TransformationMatrix localToParentTransform() const { return m_localTransform; }
+    virtual const AffineTransform& localToParentTransform() const { return m_localTransform; }
 
     virtual void paint(PaintInfo&, int tx, int ty);
     virtual bool nodeAtPoint(const HitTestRequest&, HitTestResult&, int x, int y, int tx, int ty, HitTestAction);
@@ -49,6 +52,8 @@ public:
 
     virtual bool requiresLayer() const { return false; }
     virtual void layout();
+
+    virtual void destroy();
 
     virtual void absoluteRects(Vector<IntRect>&, int tx, int ty);
     virtual void absoluteQuads(Vector<FloatQuad>&);
@@ -59,15 +64,15 @@ public:
     virtual void mapLocalToContainer(RenderBoxModelObject* repaintContainer, bool useTransforms, bool fixed, TransformState&) const;
 
     virtual FloatRect objectBoundingBox() const;
+    virtual FloatRect strokeBoundingBox() const;
     virtual FloatRect repaintRectInLocalCoordinates() const;
 
-private:
-    // FIXME: This can be removed when localTransform() is removed from RenderObject
-    virtual TransformationMatrix localTransform() const { return m_localTransform; }
+    virtual AffineTransform localTransform() const { return m_localTransform; }
 
     virtual RootInlineBox* createRootInlineBox();
 
-    TransformationMatrix m_localTransform;
+    bool m_needsTransformUpdate : 1;
+    AffineTransform m_localTransform;
 };
 
 }

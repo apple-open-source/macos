@@ -29,6 +29,7 @@
 
 #include "IOHIDResourceUserClient.h"
 
+#define kHIDRTimeoutNS    1000000000
 
 #define super IOUserClient
 
@@ -119,6 +120,9 @@ void IOHIDResourceDeviceUserClient::free()
 //----------------------------------------------------------------------------------------------------
 IOReturn IOHIDResourceDeviceUserClient::registerNotificationPort(mach_port_t port, UInt32 type, io_user_reference_t refCon)
 {
+    if ( isInactive() )
+        return kIOReturnNoDevice;
+
     _port = port;
     _queue->setNotificationPort(port);
     return kIOReturnSuccess;
@@ -131,6 +135,9 @@ IOReturn IOHIDResourceDeviceUserClient::clientMemoryForType(UInt32 type, IOOptio
 {
     IOReturn ret = kIOReturnNoMemory;
            
+    if ( isInactive() )
+        return kIOReturnNoDevice;
+
     if ( !_queue ) {
         UInt32 maxOutputReportSize  = 0;
         UInt32 maxFeatureReportSize = 0;
@@ -180,6 +187,9 @@ IOReturn IOHIDResourceDeviceUserClient::externalMethod(
                                             OSObject *                  target, 
                                             void *                      reference)
 {
+    if ( isInactive() )
+        return kIOReturnNoDevice;
+        
     if (selector < (uint32_t) kIOHIDResourceDeviceUserClientMethodCount)
     {
         dispatch = (IOExternalMethodDispatch *) &_methods[selector];
@@ -397,10 +407,19 @@ IOReturn IOHIDResourceDeviceUserClient::getReport(IOMemoryDescriptor *report, IO
                 
         // if we successfully enqueue, let's sleep till we get a result from postReportResult
         if ( _queue->enqueueReport(&header) ){
-            IOLockSleep(_lock, (void *)retData, THREAD_ABORTSAFE);    
-            
-            // mem descriptor is already populated in desc.  just get retval
-            ret = result.ret;
+            AbsoluteTime ts;
+            clock_interval_to_deadline(1, kHIDRTimeoutNS, &ts);
+            switch ( IOLockSleepDeadline(_lock, (void *)retData, ts, THREAD_ABORTSAFE) ) {
+                case THREAD_AWAKENED:
+                    ret = result.ret;
+                    break;
+                case THREAD_TIMED_OUT:
+                    ret = kIOReturnTimeout;
+                    break;
+                default:
+                    ret = kIOReturnError;
+                    break;
+            }
         }
         _pending->removeObject(retData);
         
@@ -437,10 +456,22 @@ IOReturn IOHIDResourceDeviceUserClient::setReport(IOMemoryDescriptor *report, IO
         retData->release();
                 
         // if we successfully enqueue, let's sleep till we get a result from postReportResult
-        if ( _queue->enqueueReport(&header, report) ) {    
-            IOLockSleep(_lock, (void *)retData, THREAD_ABORTSAFE);    
+        if ( _queue->enqueueReport(&header, report) ) {   
+            AbsoluteTime ts;
+            clock_interval_to_deadline(1, kHIDRTimeoutNS, &ts);
             
-            ret = result.ret;
+            switch ( IOLockSleepDeadline(_lock, (void *)retData, ts, THREAD_ABORTSAFE) ) {
+                case THREAD_AWAKENED:
+                    ret = result.ret;
+                    break;
+                case THREAD_TIMED_OUT:
+                    ret = kIOReturnTimeout;
+                    break;
+                default:
+                    ret = kIOReturnError;
+                    break;
+            }
+            
         }
         _pending->removeObject(retData);
         

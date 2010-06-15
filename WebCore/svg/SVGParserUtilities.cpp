@@ -44,6 +44,7 @@
 #include "SVGPointList.h"
 #include "SVGPathElement.h"
 #include <math.h>
+#include <wtf/ASCIICType.h>
 #include <wtf/MathExtras.h>
 
 namespace WebCore {
@@ -138,6 +139,23 @@ bool parseNumber(const UChar*& ptr, const UChar* end, float& number, bool skip)
 static bool parseNumber(const UChar*& ptr, const UChar* end, double& number, bool skip = true) 
 {
     return _parseNumber(ptr, end, number, skip);
+}
+
+// only used to parse largeArcFlag and sweepFlag which must be a "0" or "1"
+// and might not have any whitespace/comma after it
+static bool parseArcFlag(const UChar*& ptr, const UChar* end, bool& flag)
+{
+    const UChar flagChar = *ptr++;
+    if (flagChar == '0')
+        flag = false;
+    else if (flagChar == '1')
+        flag = true;
+    else
+        return false;
+    
+    skipOptionalSpacesOrDelimiter(ptr, end);
+    
+    return true;
 }
 
 bool parseNumberOptionalNumber(const String& s, float& x, float& y)
@@ -246,7 +264,7 @@ bool SVGPathParser::parseSVG(const String& s, bool process)
 
         bool relative = false;
 
-        switch(command)
+        switch (command)
         {
             case 'm':
                 relative = true;
@@ -478,14 +496,10 @@ bool SVGPathParser::parseSVG(const String& s, bool process)
             {
                 bool largeArc, sweep;
                 double angle, rx, ry;
-                if (!parseNumber(ptr, end, rx)    || !parseNumber(ptr, end, ry) ||
-                    !parseNumber(ptr, end, angle) || !parseNumber(ptr, end, tox))
-                    return false;
-                largeArc = tox == 1;
-                if (!parseNumber(ptr, end, tox))
-                    return false;
-                sweep = tox == 1;
-                if (!parseNumber(ptr, end, tox) || !parseNumber(ptr, end, toy))
+                if (!parseNumber(ptr, end, rx)    || !parseNumber(ptr, end, ry)
+                    || !parseNumber(ptr, end, angle)
+                    || !parseArcFlag(ptr, end, largeArc) || !parseArcFlag(ptr, end, sweep)
+                    || !parseNumber(ptr, end, tox) || !parseNumber(ptr, end, toy))
                     return false;
 
                 // Spec: radii are nonnegative numbers
@@ -509,8 +523,8 @@ bool SVGPathParser::parseSVG(const String& s, bool process)
             return true;
 
         // Check for remaining coordinates in the current command.
-        if ((*ptr == '+' || *ptr == '-' || (*ptr >= '0' && *ptr <= '9')) &&
-            (command != 'z' && command != 'Z')) {
+        if ((*ptr == '+' || *ptr == '-' || *ptr == '.' || (*ptr >= '0' && *ptr <= '9'))
+            && (command != 'z' && command != 'Z')) {
             if (command == 'M')
                 command = 'L';
             else if (command == 'm')
@@ -625,7 +639,7 @@ void SVGPathParser::calculateArc(bool relative, double& curx, double& cury, doub
 
     n_segs = (int) (int) ceil(fabs(th_arc / (piDouble * 0.5 + 0.001)));
 
-    for(i = 0; i < n_segs; i++) {
+    for (i = 0; i < n_segs; i++) {
         double sin_th, cos_th;
         double a00, a01, a10, a11;
         double x1, y1, x2, y2, x3, y3;
@@ -727,15 +741,14 @@ class SVGPathSegListBuilder : private SVGPathParser {
 public:
     bool build(SVGPathSegList* segList, const String& d, bool process)
     {
-        if (!parseSVG(d, process))
-            return false;
+        bool result = parseSVG(d, process);
         size_t size = m_vector.size();
         for (size_t i = 0; i < size; ++i) {
             ExceptionCode ec;
             segList->appendItem(m_vector[i].release(), ec);
         }
         m_vector.clear();
-        return true;
+        return result;
     }
 
 private:
@@ -826,6 +839,125 @@ bool pathSegListFromSVGData(SVGPathSegList* path, const String& d, bool process)
 {
     SVGPathSegListBuilder builder;
     return builder.build(path, d, process);
+}
+
+void parseGlyphName(const String& input, HashSet<String>& values)
+{
+    values.clear();
+
+    const UChar* ptr = input.characters();
+    const UChar* end = ptr + input.length();
+    skipOptionalSpaces(ptr, end);
+
+    while (ptr < end) {
+        // Leading and trailing white space, and white space before and after separators, will be ignored.
+        const UChar* inputStart = ptr;
+        while (ptr < end && *ptr != ',')
+            ++ptr;
+
+        if (ptr == inputStart)
+            break;
+
+        // walk backwards from the ; to ignore any whitespace
+        const UChar* inputEnd = ptr - 1;
+        while (inputStart < inputEnd && isWhitespace(*inputEnd))
+            --inputEnd;
+
+        values.add(String(inputStart, inputEnd - inputStart + 1));
+        skipOptionalSpacesOrDelimiter(ptr, end, ',');
+    }
+}
+
+static bool parseUnicodeRange(const UChar* characters, unsigned length, UnicodeRange& range)
+{
+    if (length < 2 || characters[0] != 'U' || characters[1] != '+')
+        return false;
+    
+    // Parse the starting hex number (or its prefix).
+    unsigned startRange = 0;
+    unsigned startLength = 0;
+
+    const UChar* ptr = characters + 2;
+    const UChar* end = characters + length;
+    while (ptr < end) {
+        if (!isASCIIHexDigit(*ptr))
+            break;
+        ++startLength;
+        if (startLength > 6)
+            return false;
+        startRange = (startRange << 4) | toASCIIHexValue(*ptr);
+        ++ptr;
+    }
+    
+    // Handle the case of ranges separated by "-" sign.
+    if (2 + startLength < length && *ptr == '-') {
+        if (!startLength)
+            return false;
+        
+        // Parse the ending hex number (or its prefix).
+        unsigned endRange = 0;
+        unsigned endLength = 0;
+        ++ptr;
+        while (ptr < end) {
+            if (!isASCIIHexDigit(*ptr))
+                break;
+            ++endLength;
+            if (endLength > 6)
+                return false;
+            endRange = (endRange << 4) | toASCIIHexValue(*ptr);
+            ++ptr;
+        }
+        
+        if (!endLength)
+            return false;
+        
+        range.first = startRange;
+        range.second = endRange;
+        return true;
+    }
+    
+    // Handle the case of a number with some optional trailing question marks.
+    unsigned endRange = startRange;
+    while (ptr < end) {
+        if (*ptr != '?')
+            break;
+        ++startLength;
+        if (startLength > 6)
+            return false;
+        startRange <<= 4;
+        endRange = (endRange << 4) | 0xF;
+        ++ptr;
+    }
+    
+    if (!startLength)
+        return false;
+    
+    range.first = startRange;
+    range.second = endRange;
+    return true;
+}
+
+void parseKerningUnicodeString(const String& input, UnicodeRanges& rangeList, HashSet<String>& stringList)
+{
+    const UChar* ptr = input.characters();
+    const UChar* end = ptr + input.length();
+
+    while (ptr < end) {
+        const UChar* inputStart = ptr;
+        while (ptr < end && *ptr != ',')
+            ++ptr;
+
+        if (ptr == inputStart)
+            break;
+
+        // Try to parse unicode range first
+        UnicodeRange range;
+        if (parseUnicodeRange(inputStart, ptr - inputStart, range))
+            rangeList.append(range);
+        else
+            stringList.add(String(inputStart, ptr - inputStart));
+        ++ptr;
+    }
 }
 
 Vector<String> parseDelimitedString(const String& input, const char seperator)

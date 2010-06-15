@@ -49,6 +49,8 @@ NSString *WebDatabaseDidModifyOriginNotification = @"WebDatabaseDidModifyOriginN
 NSString *WebDatabaseDidModifyDatabaseNotification = @"WebDatabaseDidModifyDatabaseNotification";
 NSString *WebDatabaseIdentifierKey = @"WebDatabaseIdentifierKey";
 
+static NSString *databasesDirectoryPath();
+
 @implementation WebDatabaseManager
 
 + (WebDatabaseManager *) sharedWebDatabaseManager
@@ -107,17 +109,27 @@ NSString *WebDatabaseIdentifierKey = @"WebDatabaseIdentifierKey";
     DatabaseTracker::tracker().deleteAllDatabases();
 }
 
-- (void)deleteOrigin:(WebSecurityOrigin *)origin
+- (BOOL)deleteOrigin:(WebSecurityOrigin *)origin
 {
-    DatabaseTracker::tracker().deleteOrigin([origin _core]);
+    return DatabaseTracker::tracker().deleteOrigin([origin _core]);
 }
 
-- (void)deleteDatabase:(NSString *)databaseIdentifier withOrigin:(WebSecurityOrigin *)origin
+- (BOOL)deleteDatabase:(NSString *)databaseIdentifier withOrigin:(WebSecurityOrigin *)origin
 {
-    DatabaseTracker::tracker().deleteDatabase([origin _core], databaseIdentifier);
+    return DatabaseTracker::tracker().deleteDatabase([origin _core], databaseIdentifier);
 }
 
 @end
+
+static NSString *databasesDirectoryPath()
+{
+    NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
+    NSString *databasesDirectory = [defaults objectForKey:WebDatabaseDirectoryDefaultsKey];
+    if (!databasesDirectory || ![databasesDirectory isKindOfClass:[NSString class]])
+        databasesDirectory = @"~/Library/WebKit/Databases";
+    
+    return [databasesDirectory stringByStandardizingPath];
+}
 
 void WebKitInitializeDatabasesIfNecessary()
 {
@@ -126,13 +138,7 @@ void WebKitInitializeDatabasesIfNecessary()
         return;
 
     // Set the database root path in WebCore
-    NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
-
-    NSString *databasesDirectory = [defaults objectForKey:WebDatabaseDirectoryDefaultsKey];
-    if (!databasesDirectory || ![databasesDirectory isKindOfClass:[NSString class]])
-        databasesDirectory = @"~/Library/WebKit/Databases";
-
-    DatabaseTracker::tracker().setDatabaseDirectoryPath([databasesDirectory stringByStandardizingPath]);
+    DatabaseTracker::initializeTracker(databasesDirectoryPath());
 
     // Set the DatabaseTrackerClient
     DatabaseTracker::tracker().setClient(WebDatabaseTrackerClient::sharedWebDatabaseTrackerClient());

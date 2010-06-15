@@ -29,21 +29,23 @@
 #define Frame_h
 
 #include "AnimationController.h"
-#include "Document.h"
 #include "DragImage.h"
-#include "EditAction.h"
 #include "Editor.h"
 #include "EventHandler.h"
 #include "FrameLoader.h"
 #include "FrameTree.h"
-#include "Range.h"
-#include "ScrollBehavior.h"
 #include "ScriptController.h"
+#include "ScrollBehavior.h"
 #include "SelectionController.h"
-#include "TextGranularity.h"
+#include "UserScriptTypes.h"
+#include "ZoomMode.h"
 
 #if PLATFORM(WIN)
 #include "FrameWin.h"
+#endif
+
+#if ENABLE(TILED_BACKING_STORE)
+#include "TiledBackingStoreClient.h"
 #endif
 
 #if PLATFORM(MAC)
@@ -62,315 +64,318 @@ typedef struct HBITMAP__* HBITMAP;
 
 namespace WebCore {
 
-class CSSMutableStyleDeclaration;
-class Editor;
-class EventHandler;
-class FrameLoader;
-class FrameLoaderClient;
-class FrameTree;
-class FrameView;
-class HTMLFrameOwnerElement;
-class HTMLTableCellElement;
-class RegularExpression;
-class RenderPart;
-class ScriptController;
-class SelectionController;
-class Settings;
-class VisibleSelection;
-class Widget;
+    class CSSMutableStyleDeclaration;
+    class HTMLTableCellElement;
+    class RegularExpression;
+    class RenderPart;
+    class TiledBackingStore;
 
-#if FRAME_LOADS_USER_STYLESHEET
-    class UserStyleSheetLoader;
+    class Frame : public RefCounted<Frame>
+#if ENABLE(TILED_BACKING_STORE)
+        , public TiledBackingStoreClient
 #endif
-
-template <typename T> class Timer;
-
-class Frame : public RefCounted<Frame> {
-public:
-    static PassRefPtr<Frame> create(Page* page, HTMLFrameOwnerElement* ownerElement, FrameLoaderClient* client)
     {
-        return adoptRef(new Frame(page, ownerElement, client));
-    }
-    void setView(PassRefPtr<FrameView>);
-    ~Frame();
-    
-    void init();
+    public:
+        static PassRefPtr<Frame> create(Page* page, HTMLFrameOwnerElement* ownerElement, FrameLoaderClient* client)
+        {
+            return adoptRef(new Frame(page, ownerElement, client));
+        }
+        void setView(PassRefPtr<FrameView>);
+        ~Frame();
 
-    Page* page() const;
-    HTMLFrameOwnerElement* ownerElement() const;
+        void init();
 
-    void pageDestroyed();
-    void disconnectOwnerElement();
+        Page* page() const;
+        void detachFromPage();
+        void transferChildFrameToNewDocument();
 
-    Document* document() const;
-    FrameView* view() const;
+        HTMLFrameOwnerElement* ownerElement() const;
 
-    void setDOMWindow(DOMWindow*);
-    DOMWindow* domWindow() const;
-    void clearFormerDOMWindow(DOMWindow*);
+        void pageDestroyed();
+        void disconnectOwnerElement();
 
-    Editor* editor() const;
-    EventHandler* eventHandler() const;
-    FrameLoader* loader() const;
-    SelectionController* selection() const;
-    FrameTree* tree() const;
-    AnimationController* animation() const;
-    ScriptController* script();
+        Document* document() const;
+        FrameView* view() const;
 
-    RenderView* contentRenderer() const; // root renderer for the document contained in this frame
-    RenderPart* ownerRenderer() const; // renderer for the element that contains this frame
-    
-    bool isDisconnected() const;
-    void setIsDisconnected(bool);
-    bool excludeFromTextSearch() const;
-    void setExcludeFromTextSearch(bool);
+        void setDOMWindow(DOMWindow*);
+        void clearFormerDOMWindow(DOMWindow*);
 
-    void createView(const IntSize&, const Color&, bool, const IntSize &, bool,
-                    ScrollbarMode = ScrollbarAuto, ScrollbarMode = ScrollbarAuto);
+        // Unlike many of the accessors in Frame, domWindow() always creates a new DOMWindow if m_domWindow is null.
+        // Callers that don't need a new DOMWindow to be created should use existingDOMWindow().
+        DOMWindow* domWindow() const;
+        DOMWindow* existingDOMWindow() { return m_domWindow.get(); }
 
+        Editor* editor() const;
+        EventHandler* eventHandler() const;
+        FrameLoader* loader() const;
+        RedirectScheduler* redirectScheduler() const;
+        SelectionController* selection() const;
+        FrameTree* tree() const;
+        AnimationController* animation() const;
+        ScriptController* script();
 
-private:
-    Frame(Page*, HTMLFrameOwnerElement*, FrameLoaderClient*);
-    
-// === undecided, would like to consider moving to another class
+        RenderView* contentRenderer() const; // root renderer for the document contained in this frame
+        RenderPart* ownerRenderer() const; // renderer for the element that contains this frame
 
-public:
-    static Frame* frameForWidget(const Widget*);
+        bool isDisconnected() const;
+        void setIsDisconnected(bool);
+        bool excludeFromTextSearch() const;
+        void setExcludeFromTextSearch(bool);
 
-    Settings* settings() const; // can be NULL
+        void createView(const IntSize&, const Color&, bool, const IntSize &, bool,
+                        ScrollbarMode = ScrollbarAuto, bool horizontalLock = false,
+                        ScrollbarMode = ScrollbarAuto, bool verticalLock = false);
 
-#if FRAME_LOADS_USER_STYLESHEET
-    void setUserStyleSheetLocation(const KURL&);
-    void setUserStyleSheet(const String& styleSheetData);
+        void injectUserScripts(UserScriptInjectionTime);
+        
+        String layerTreeAsText() const;
+
+    private:
+        void injectUserScriptsForWorld(DOMWrapperWorld*, const UserScriptVector&, UserScriptInjectionTime);
+
+    private:
+        Frame(Page*, HTMLFrameOwnerElement*, FrameLoaderClient*);
+
+    // === undecided, would like to consider moving to another class
+
+    public:
+        static Frame* frameForWidget(const Widget*);
+
+        Settings* settings() const; // can be NULL
+
+        void setPrinting(bool printing, float minPageWidth, float maxPageWidth, bool adjustViewSize);
+
+        bool inViewSourceMode() const;
+        void setInViewSourceMode(bool = true);
+
+        void keepAlive(); // Used to keep the frame alive when running a script that might destroy it.
+    #ifndef NDEBUG
+        static void cancelAllKeepAlive();
+    #endif
+
+        void setDocument(PassRefPtr<Document>);
+
+#if ENABLE(ORIENTATION_EVENTS)
+        // Orientation is the interface orientation in degrees. Some examples are:
+        //  0 is straight up; -90 is when the device is rotated 90 clockwise;
+        //  90 is when rotated counter clockwise.
+        void sendOrientationChangeEvent(int orientation);
+        int orientation() const { return m_orientation; }
 #endif
 
-    void setPrinting(bool printing, float minPageWidth, float maxPageWidth, bool adjustViewSize);
+        void clearTimers();
+        static void clearTimers(FrameView*, Document*);
 
-    bool inViewSourceMode() const;
-    void setInViewSourceMode(bool = true);
+        void setNeedsReapplyStyles();
+        bool needsReapplyStyles() const;
+        void reapplyStyles();
 
-    void keepAlive(); // Used to keep the frame alive when running a script that might destroy it.
-#ifndef NDEBUG
-    static void cancelAllKeepAlive();
+        String documentTypeString() const;
+
+        // This method -- and the corresponding list of former DOM windows --
+        // should move onto ScriptController
+        void clearDOMWindow();
+
+        String displayStringModifiedByEncoding(const String& str) const
+        {
+            return document() ? document()->displayStringModifiedByEncoding(str) : str;
+        }
+
+#if ENABLE(TILED_BACKING_STORE)
+        TiledBackingStore* tiledBackingStore() const { return m_tiledBackingStore.get(); }
+        void setTiledBackingStoreEnabled(bool);
 #endif
 
-    void setDocument(PassRefPtr<Document>);
+    private:
+        void lifeSupportTimerFired(Timer<Frame>*);
 
-    void clearTimers();
-    static void clearTimers(FrameView*, Document*);
+    // === to be moved into FrameView
 
-    void setNeedsReapplyStyles();
-    bool needsReapplyStyles() const;
-    void reapplyStyles();
+    public:
+        void setZoomFactor(float scale, ZoomMode);
+        float zoomFactor() const;
+        ZoomMode zoomMode() const;
+        bool shouldApplyTextZoom() const;
+        bool shouldApplyPageZoom() const;
+        float pageZoomFactor() const { return shouldApplyPageZoom() ? zoomFactor() : 1.0f; }
+        float textZoomFactor() const { return shouldApplyTextZoom() ? zoomFactor() : 1.0f; }
 
-    String documentTypeString() const;
+    // === to be moved into Chrome
 
-    // This method -- and the corresponding list of former DOM windows --
-    // should move onto ScriptController
-    void clearDOMWindow();
+    public:
+        void focusWindow();
+        void unfocusWindow();
+        bool shouldClose();
+        void scheduleClose();
 
-    String displayStringModifiedByEncoding(const String& str) const 
-    {
-        return document() ? document()->displayStringModifiedByEncoding(str) : str;
-    }
+        void setJSStatusBarText(const String&);
+        void setJSDefaultStatusBarText(const String&);
+        String jsStatusBarText() const;
+        String jsDefaultStatusBarText() const;
 
-private:
-    void lifeSupportTimerFired(Timer<Frame>*);
+    // === to be moved into Editor
 
-// === to be moved into FrameView
+    public:
+        String selectedText() const;
+        bool findString(const String&, bool forward, bool caseFlag, bool wrapFlag, bool startInSelection);
 
-public: 
-    void setZoomFactor(float scale, bool isTextOnly);
-    float zoomFactor() const;
-    bool isZoomFactorTextOnly() const;
-    bool shouldApplyTextZoom() const;
-    bool shouldApplyPageZoom() const;
-    float pageZoomFactor() const { return shouldApplyPageZoom() ? zoomFactor() : 1.0f; }
-    float textZoomFactor() const { return shouldApplyTextZoom() ? zoomFactor() : 1.0f; }
+        const VisibleSelection& mark() const; // Mark, to be used as emacs uses it.
+        void setMark(const VisibleSelection&);
 
-// === to be moved into Chrome
+        void computeAndSetTypingStyle(CSSStyleDeclaration* , EditAction = EditActionUnspecified);
+        String selectionStartStylePropertyValue(int stylePropertyID) const;
+        void applyEditingStyleToBodyElement() const;
+        void removeEditingStyleFromBodyElement() const;
+        void applyEditingStyleToElement(Element*) const;
+        void removeEditingStyleFromElement(Element*) const;
 
-public:
-    void focusWindow();
-    void unfocusWindow();
-    bool shouldClose(RegisteredEventListenerVector* alternateEventListeners = 0);
-    void scheduleClose();
+        IntRect firstRectForRange(Range*) const;
 
-    void setJSStatusBarText(const String&);
-    void setJSDefaultStatusBarText(const String&);
-    String jsStatusBarText() const;
-    String jsDefaultStatusBarText() const;
+        void respondToChangedSelection(const VisibleSelection& oldSelection, bool closeTyping);
+        bool shouldChangeSelection(const VisibleSelection& oldSelection, const VisibleSelection& newSelection, EAffinity, bool stillSelecting) const;
 
-// === to be moved into Editor
+        RenderStyle* styleForSelectionStart(Node*& nodeToRemove) const;
 
-public:
-    String selectedText() const;  
-    bool findString(const String&, bool forward, bool caseFlag, bool wrapFlag, bool startInSelection);
+        unsigned markAllMatchesForText(const String&, bool caseFlag, unsigned limit);
+        bool markedTextMatchesAreHighlighted() const;
+        void setMarkedTextMatchesAreHighlighted(bool flag);
 
-    const VisibleSelection& mark() const; // Mark, to be used as emacs uses it.
-    void setMark(const VisibleSelection&);
+        PassRefPtr<CSSComputedStyleDeclaration> selectionComputedStyle(Node*& nodeToRemove) const;
 
-    void computeAndSetTypingStyle(CSSStyleDeclaration* , EditAction = EditActionUnspecified);
-    String selectionStartStylePropertyValue(int stylePropertyID) const;
-    void applyEditingStyleToBodyElement() const;
-    void removeEditingStyleFromBodyElement() const;
-    void applyEditingStyleToElement(Element*) const;
-    void removeEditingStyleFromElement(Element*) const;
+        void textFieldDidBeginEditing(Element*);
+        void textFieldDidEndEditing(Element*);
+        void textDidChangeInTextField(Element*);
+        bool doTextFieldCommandFromEvent(Element*, KeyboardEvent*);
+        void textWillBeDeletedInTextField(Element* input);
+        void textDidChangeInTextArea(Element*);
 
-    IntRect firstRectForRange(Range*) const;
-    
-    void respondToChangedSelection(const VisibleSelection& oldSelection, bool closeTyping);
-    bool shouldChangeSelection(const VisibleSelection& oldSelection, const VisibleSelection& newSelection, EAffinity, bool stillSelecting) const;
+        DragImageRef dragImageForSelection();
 
-    RenderStyle* styleForSelectionStart(Node*& nodeToRemove) const;
+    // === to be moved into SelectionController
 
-    unsigned markAllMatchesForText(const String&, bool caseFlag, unsigned limit);
-    bool markedTextMatchesAreHighlighted() const;
-    void setMarkedTextMatchesAreHighlighted(bool flag);
+    public:
+        TextGranularity selectionGranularity() const;
 
-    PassRefPtr<CSSComputedStyleDeclaration> selectionComputedStyle(Node*& nodeToRemove) const;
+        bool shouldChangeSelection(const VisibleSelection&) const;
+        bool shouldDeleteSelection(const VisibleSelection&) const;
+        void setFocusedNodeIfNeeded();
+        void notifyRendererOfSelectionChange(bool userTriggered);
 
-    void textFieldDidBeginEditing(Element*);
-    void textFieldDidEndEditing(Element*);
-    void textDidChangeInTextField(Element*);
-    bool doTextFieldCommandFromEvent(Element*, KeyboardEvent*);
-    void textWillBeDeletedInTextField(Element* input);
-    void textDidChangeInTextArea(Element*);
+        void paintDragCaret(GraphicsContext*, int tx, int ty, const IntRect& clipRect) const;
 
-    DragImageRef dragImageForSelection();
-    
-// === to be moved into SelectionController
+        bool isContentEditable() const; // if true, everything in frame is editable
 
-public:
-    TextGranularity selectionGranularity() const;
-    void setSelectionGranularity(TextGranularity);
+        CSSMutableStyleDeclaration* typingStyle() const;
+        void setTypingStyle(CSSMutableStyleDeclaration*);
+        void clearTypingStyle();
 
-    bool shouldChangeSelection(const VisibleSelection&) const;
-    bool shouldDeleteSelection(const VisibleSelection&) const;
-    void clearCaretRectIfNeeded();
-    void setFocusedNodeIfNeeded();
-    void selectionLayoutChanged();
-    void notifyRendererOfSelectionChange(bool userTriggered);
+        FloatRect selectionBounds(bool clipToVisibleContent = true) const;
+        enum SelectionRectRespectTransforms { RespectTransforms = true, IgnoreTransforms = false };
+        void selectionTextRects(Vector<FloatRect>&, SelectionRectRespectTransforms respectTransforms, bool clipToVisibleContent = true) const;
 
-    void invalidateSelection();
+        HTMLFormElement* currentForm() const;
 
-    void setCaretVisible(bool = true);
-    void paintCaret(GraphicsContext*, int tx, int ty, const IntRect& clipRect) const;  
-    void paintDragCaret(GraphicsContext*, int tx, int ty, const IntRect& clipRect) const;
+        void revealSelection(const ScrollAlignment& = ScrollAlignment::alignCenterIfNeeded, bool revealExtent = false);
+        void setSelectionFromNone();
 
-    bool isContentEditable() const; // if true, everything in frame is editable
+        SelectionController* dragCaretController() const;
 
-    void updateSecureKeyboardEntryIfActive();
+        String searchForLabelsAboveCell(RegularExpression*, HTMLTableCellElement*, size_t* resultDistanceFromStartOfCell);
+        String searchForLabelsBeforeElement(const Vector<String>& labels, Element*, size_t* resultDistance, bool* resultIsInCellAbove);
+        String matchLabelsAgainstElement(const Vector<String>& labels, Element*);
 
-    CSSMutableStyleDeclaration* typingStyle() const;
-    void setTypingStyle(CSSMutableStyleDeclaration*);
-    void clearTypingStyle();
-
-    FloatRect selectionBounds(bool clipToVisibleContent = true) const;
-    void selectionTextRects(Vector<FloatRect>&, bool clipToVisibleContent = true) const;
-
-    HTMLFormElement* currentForm() const;
-
-    void revealSelection(const ScrollAlignment& = ScrollAlignment::alignCenterIfNeeded, bool revealExtent = false);
-    void setSelectionFromNone();
-
-    void setUseSecureKeyboardEntry(bool);
-
-private:
-    void caretBlinkTimerFired(Timer<Frame>*);
-
-public:
-    SelectionController* dragCaretController() const;
-
-    String searchForLabelsAboveCell(RegularExpression*, HTMLTableCellElement*);
-    String searchForLabelsBeforeElement(const Vector<String>& labels, Element*);
-    String matchLabelsAgainstElement(const Vector<String>& labels, Element*);
-    
-    VisiblePosition visiblePositionForPoint(const IntPoint& framePoint);
-    Document* documentAtPoint(const IntPoint& windowPoint);
-
-#if PLATFORM(MAC)
-
-// === undecided, would like to consider moving to another class
-
-public:
-    NSString* searchForNSLabelsAboveCell(RegularExpression*, HTMLTableCellElement*);
-    NSString* searchForLabelsBeforeElement(NSArray* labels, Element*);
-    NSString* matchLabelsAgainstElement(NSArray* labels, Element*);
-
-#if ENABLE(DASHBOARD_SUPPORT)
-    NSMutableDictionary* dashboardRegionsDictionary();
+        VisiblePosition visiblePositionForPoint(const IntPoint& framePoint);
+        Document* documentAtPoint(const IntPoint& windowPoint);
+        
+    private:
+#if ENABLE(TILED_BACKING_STORE)
+        // TiledBackingStoreClient interface
+        virtual void tiledBackingStorePaintBegin();
+        virtual void tiledBackingStorePaint(GraphicsContext*, const IntRect&);
+        virtual void tiledBackingStorePaintEnd(const Vector<IntRect>& paintedArea);
+        virtual IntRect tiledBackingStoreContentsRect();
 #endif
 
-    NSImage* selectionImage(bool forceBlackText = false) const;
-    NSImage* snapshotDragImage(Node*, NSRect* imageRect, NSRect* elementRect) const;
-    NSImage* nodeImage(Node*) const;
+    #if PLATFORM(MAC)
 
-private:    
-    NSImage* imageFromRect(NSRect) const;
+    // === undecided, would like to consider moving to another class
 
-// === to be moved into Editor
+    public:
+        NSString* searchForNSLabelsAboveCell(RegularExpression*, HTMLTableCellElement*, size_t* resultDistanceFromStartOfCell);
+        NSString* searchForLabelsBeforeElement(NSArray* labels, Element*, size_t* resultDistance, bool* resultIsInCellAbove);
+        NSString* matchLabelsAgainstElement(NSArray* labels, Element*);
 
-public:
-    NSDictionary* fontAttributesForSelectionStart() const;
-    NSWritingDirection baseWritingDirectionForSelectionStart() const;
+    #if ENABLE(DASHBOARD_SUPPORT)
+        NSMutableDictionary* dashboardRegionsDictionary();
+    #endif
 
+        NSImage* selectionImage(bool forceBlackText = false) const;
+        NSImage* snapshotDragImage(Node*, NSRect* imageRect, NSRect* elementRect) const;
+        NSImage* nodeImage(Node*) const;
+
+    private:
+        NSImage* imageFromRect(NSRect) const;
+
+    // === to be moved into Editor
+
+    public:
+        NSDictionary* fontAttributesForSelectionStart() const;
+        NSWritingDirection baseWritingDirectionForSelectionStart() const;
+
+    #endif
+
+    #if PLATFORM(WIN)
+
+    public:
+        // FIXME - We should have a single version of nodeImage instead of using platform types.
+        HBITMAP nodeImage(Node*) const;
+
+    #endif
+
+    private:
+        Page* m_page;
+        mutable FrameTree m_treeNode;
+        mutable FrameLoader m_loader;
+        mutable RedirectScheduler m_redirectScheduler;
+
+        mutable RefPtr<DOMWindow> m_domWindow;
+        HashSet<DOMWindow*> m_liveFormerWindows;
+
+        HTMLFrameOwnerElement* m_ownerElement;
+        RefPtr<FrameView> m_view;
+        RefPtr<Document> m_doc;
+
+        ScriptController m_script;
+
+        String m_kjsStatusBarText;
+        String m_kjsDefaultStatusBarText;
+
+        float m_zoomFactor;
+
+        mutable SelectionController m_selectionController;
+        mutable VisibleSelection m_mark;
+        mutable Editor m_editor;
+        mutable EventHandler m_eventHandler;
+        mutable AnimationController m_animationController;
+
+        RefPtr<CSSMutableStyleDeclaration> m_typingStyle;
+
+        Timer<Frame> m_lifeSupportTimer;
+
+#if ENABLE(ORIENTATION_EVENTS)
+        int m_orientation;
 #endif
 
-#if PLATFORM(WIN)
+        bool m_highlightTextMatches;
+        bool m_inViewSourceMode;
+        bool m_needsReapplyStyles;
+        bool m_isDisconnected;
+        bool m_excludeFromTextSearch;
 
-public:
-    // FIXME - We should have a single version of nodeImage instead of using platform types.
-    HBITMAP nodeImage(Node*) const;
-
+#if ENABLE(TILED_BACKING_STORE)        
+        OwnPtr<TiledBackingStore> m_tiledBackingStore;
 #endif
-
-private:
-    Page* m_page;
-    mutable FrameTree m_treeNode;
-    mutable FrameLoader m_loader;
-
-    mutable RefPtr<DOMWindow> m_domWindow;
-    HashSet<DOMWindow*> m_liveFormerWindows;
-
-    HTMLFrameOwnerElement* m_ownerElement;
-    RefPtr<FrameView> m_view;
-    RefPtr<Document> m_doc;
-
-    ScriptController m_script;
-
-    String m_kjsStatusBarText;
-    String m_kjsDefaultStatusBarText;
-
-    float m_zoomFactor;
-
-    TextGranularity m_selectionGranularity;
-
-    mutable SelectionController m_selectionController;
-    mutable VisibleSelection m_mark;
-    Timer<Frame> m_caretBlinkTimer;
-    mutable Editor m_editor;
-    mutable EventHandler m_eventHandler;
-    mutable AnimationController m_animationController;
-
-    RefPtr<CSSMutableStyleDeclaration> m_typingStyle;
-
-    Timer<Frame> m_lifeSupportTimer;
-
-    bool m_caretVisible;
-    bool m_caretPaint;
-    
-    bool m_highlightTextMatches;
-    bool m_inViewSourceMode;
-    bool m_needsReapplyStyles;
-    bool m_isDisconnected;
-    bool m_excludeFromTextSearch;
-
-#if FRAME_LOADS_USER_STYLESHEET
-    UserStyleSheetLoader* m_userStyleSheetLoader;
-#endif
-
-};
+    };
 
 } // namespace WebCore
 

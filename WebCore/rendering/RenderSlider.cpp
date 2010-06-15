@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006, 2007, 2008, 2009 Apple Inc. All rights reserved.
+ * Copyright (C) 2006, 2007, 2008, 2009, 2010 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -30,11 +30,13 @@
 #include "HTMLInputElement.h"
 #include "HTMLDivElement.h"
 #include "HTMLNames.h"
+#include "HTMLParser.h"
 #include "MediaControlElements.h"
 #include "MouseEvent.h"
 #include "RenderLayer.h"
 #include "RenderTheme.h"
 #include "RenderView.h"
+#include "StepRange.h"
 #include <wtf/MathExtras.h>
 
 using std::min;
@@ -45,72 +47,10 @@ using namespace HTMLNames;
 
 static const int defaultTrackLength = 129;
 
-// FIXME: The SliderRange class and functions are entirely based on the DOM,
-// and could be put with HTMLInputElement (possibly with a new name) instead of here.
-struct SliderRange {
-    bool isIntegral;
-    double minimum;
-    double maximum;
-
-    explicit SliderRange(HTMLInputElement*);
-    double clampValue(double value);
-
-    // Map value into 0-1 range
-    double proportionFromValue(double value)
-    {
-        if (minimum == maximum)
-            return 0;
-
-        return (value - minimum) / (maximum - minimum);
-    }
-    
-    // Map from 0-1 range to value
-    double valueFromProportion(double proportion)
-    {
-        return minimum + proportion * (maximum - minimum);
-    }
-    
-    double valueFromElement(HTMLInputElement*, bool* wasClamped = 0);
-};
-
-SliderRange::SliderRange(HTMLInputElement* element)
-{
-    // FIXME: What's the right way to handle an integral range with non-integral minimum and maximum?
-    // Currently values are guaranteed to be integral but could be outside the range in that case.
-
-    isIntegral = !equalIgnoringCase(element->getAttribute(precisionAttr), "float");
-
-    // FIXME: This treats maximum strings that can't be parsed as 0, but perhaps 100 would be more appropriate.
-    const AtomicString& maxString = element->getAttribute(maxAttr);
-    maximum = maxString.isNull() ? 100.0 : maxString.toDouble();
-
-    // If the maximum is smaller, use it as the minimum.
-    minimum = min(element->getAttribute(minAttr).toDouble(), maximum);
-}
-
-double SliderRange::clampValue(double value)
-{
-    double clampedValue = max(minimum, min(value, maximum));
-    return isIntegral ? round(clampedValue) : clampedValue;
-}
-
-double SliderRange::valueFromElement(HTMLInputElement* element, bool* wasClamped)
-{
-    String valueString = element->value();
-    double oldValue = valueString.isNull() ? (minimum + maximum) / 2 : valueString.toDouble();
-    double newValue = clampValue(oldValue);
-
-    if (wasClamped)
-        *wasClamped = valueString.isNull() || newValue != oldValue;
-
-    return newValue;
-}
-
 // Returns a value between 0 and 1.
-// As with SliderRange, this could be on HTMLInputElement instead of here.
 static double sliderPosition(HTMLInputElement* element)
 {
-    SliderRange range(element);
+    StepRange range(element);
     return range.proportionFromValue(range.valueFromElement(element));
 }
 
@@ -152,7 +92,7 @@ void SliderThumbElement::defaultEventHandler(Event* event)
 
     if (eventType == eventNames().mousedownEvent && isLeftButton) {
         if (document()->frame() && renderer()) {
-            RenderSlider* slider = static_cast<RenderSlider*>(renderer()->parent());
+            RenderSlider* slider = toRenderSlider(renderer()->parent());
             if (slider) {
                 if (slider->mouseEventIsInThumb(mouseEvent)) {
                     // We selected the thumb, we want the cursor to always stay at
@@ -181,7 +121,7 @@ void SliderThumbElement::defaultEventHandler(Event* event)
         }
     } else if (eventType == eventNames().mousemoveEvent) {
         if (m_inDragMode && renderer() && renderer()->parent()) {
-            RenderSlider* slider = static_cast<RenderSlider*>(renderer()->parent());
+            RenderSlider* slider = toRenderSlider(renderer()->parent());
             if (slider) {
                 FloatPoint curPoint = slider->absoluteToLocal(mouseEvent->absoluteLocation(), false, true);
                 IntPoint eventOffset(curPoint.x() + m_offsetToThumb.x(), curPoint.y() + m_offsetToThumb.y());
@@ -243,7 +183,7 @@ void RenderSlider::calcPrefWidths()
         m_minPrefWidth = min(m_minPrefWidth, calcContentBoxWidth(style()->maxWidth().value()));
     }
 
-    int toAdd = paddingLeft() + paddingRight() + borderLeft() + borderRight();
+    int toAdd = borderAndPaddingWidth();
     m_minPrefWidth += toAdd;
     m_maxPrefWidth += toAdd;
 
@@ -281,8 +221,34 @@ PassRefPtr<RenderStyle> RenderSlider::createThumbStyle(const RenderStyle* parent
         style->setAppearance(SliderThumbHorizontalPart);
     else if (parentStyle->appearance() == MediaSliderPart)
         style->setAppearance(MediaSliderThumbPart);
+    else if (parentStyle->appearance() == MediaVolumeSliderPart)
+        style->setAppearance(MediaVolumeSliderThumbPart);
 
     return style.release();
+}
+
+IntRect RenderSlider::thumbRect()
+{
+    if (!m_thumb)
+        return IntRect();
+
+    IntRect thumbRect;
+    RenderBox* thumb = toRenderBox(m_thumb->renderer());
+
+    thumbRect.setWidth(thumb->style()->width().calcMinValue(contentWidth()));
+    thumbRect.setHeight(thumb->style()->height().calcMinValue(contentHeight()));
+
+    double fraction = sliderPosition(static_cast<HTMLInputElement*>(node()));
+    IntRect contentRect = contentBoxRect();
+    if (style()->appearance() == SliderVerticalPart || style()->appearance() == MediaVolumeSliderPart) {
+        thumbRect.setX(contentRect.x() + (contentRect.width() - thumbRect.width()) / 2);
+        thumbRect.setY(contentRect.y() + static_cast<int>(nextafter((contentRect.height() - thumbRect.height()) + 1, 0) * (1 - fraction)));
+    } else {
+        thumbRect.setX(contentRect.x() + static_cast<int>(nextafter((contentRect.width() - thumbRect.width()) + 1, 0) * fraction));
+        thumbRect.setY(contentRect.y() + (contentRect.height() - thumbRect.height()) / 2);
+    }
+
+    return thumbRect;
 }
 
 void RenderSlider::layout()
@@ -291,8 +257,7 @@ void RenderSlider::layout()
 
     RenderBox* thumb = m_thumb ? toRenderBox(m_thumb->renderer()) : 0;
 
-    IntSize baseSize(borderLeft() + paddingLeft() + paddingRight() + borderRight(),
-        borderTop() + paddingTop() + paddingBottom() + borderBottom());
+    IntSize baseSize(borderAndPaddingWidth(), borderAndPaddingHeight());
 
     if (thumb) {
         // Allow the theme to set the size of the thumb.
@@ -312,8 +277,6 @@ void RenderSlider::layout()
     calcWidth();
     calcHeight();
 
-    IntRect overflowRect(IntPoint(), size());
-
     if (thumb) {
         if (oldSize != size())
             thumb->setChildNeedsLayout(true, false);
@@ -324,39 +287,14 @@ void RenderSlider::layout()
 
         thumb->layoutIfNeeded();
 
-        IntRect thumbRect;
-
-        thumbRect.setWidth(thumb->style()->width().calcMinValue(contentWidth()));
-        thumbRect.setHeight(thumb->style()->height().calcMinValue(contentHeight()));
-
-        double fraction = sliderPosition(static_cast<HTMLInputElement*>(node()));
-        IntRect contentRect = contentBoxRect();
-        if (style()->appearance() == SliderVerticalPart) {
-            thumbRect.setX(contentRect.x() + (contentRect.width() - thumbRect.width()) / 2);
-            thumbRect.setY(contentRect.y() + static_cast<int>(nextafter((contentRect.height() - thumbRect.height()) + 1, 0) * (1 - fraction)));
-        } else {
-            thumbRect.setX(contentRect.x() + static_cast<int>(nextafter((contentRect.width() - thumbRect.width()) + 1, 0) * fraction));
-            thumbRect.setY(contentRect.y() + (contentRect.height() - thumbRect.height()) / 2);
-        }
-
-        thumb->setFrameRect(thumbRect);
-
+        IntRect rect = thumbRect();
+        thumb->setFrameRect(rect);
         if (thumb->checkForRepaintDuringLayout())
             thumb->repaintDuringLayoutIfMoved(oldThumbRect);
 
         statePusher.pop();
-
-        IntRect thumbOverflowRect = thumb->overflowRect();
-        thumbOverflowRect.move(thumb->x(), thumb->y());
-        overflowRect.unite(thumbOverflowRect);
+        addOverflowFromChild(thumb);
     }
-
-    // FIXME: m_overflowWidth and m_overflowHeight should be renamed
-    // m_overflowRight and m_overflowBottom.
-    m_overflowLeft = overflowRect.x();
-    m_overflowTop = overflowRect.y();
-    m_overflowWidth = overflowRect.right();
-    m_overflowHeight = overflowRect.bottom();
 
     repainter.repaintAfterLayout();    
 
@@ -365,15 +303,6 @@ void RenderSlider::layout()
 
 void RenderSlider::updateFromElement()
 {
-    HTMLInputElement* element = static_cast<HTMLInputElement*>(node());
-
-    // Send the value back to the element if the range changes it.
-    SliderRange range(element);
-    bool clamped;
-    double value = range.valueFromElement(element, &clamped);
-    if (clamped)
-        element->setValueFromRenderer(String::number(value));
-
     // Layout will take care of the thumb's size and position.
     if (!m_thumb) {
         m_thumb = new SliderThumbElement(document(), node());
@@ -381,7 +310,7 @@ void RenderSlider::updateFromElement()
         m_thumb->setRenderer(m_thumb->createRenderer(renderArena(), thumbStyle.get()));
         m_thumb->renderer()->setStyle(thumbStyle.release());
         m_thumb->setAttached();
-        m_thumb->setInDocument(true);
+        m_thumb->setInDocument();
         addChild(m_thumb->renderer());
     }
     setNeedsLayout(true);
@@ -393,7 +322,7 @@ bool RenderSlider::mouseEventIsInThumb(MouseEvent* evt)
         return false;
 
 #if ENABLE(VIDEO)
-    if (style()->appearance() == MediaSliderPart) {
+    if (style()->appearance() == MediaSliderPart || style()->appearance() == MediaVolumeSliderPart) {
         MediaControlInputElement *sliderThumb = static_cast<MediaControlInputElement*>(m_thumb->renderer()->node());
         return sliderThumb->hitTest(evt->absoluteLocation());
     }
@@ -406,7 +335,7 @@ bool RenderSlider::mouseEventIsInThumb(MouseEvent* evt)
 
 FloatPoint RenderSlider::mouseEventOffsetToThumb(MouseEvent* evt)
 {
-    ASSERT (m_thumb && m_thumb->renderer());
+    ASSERT(m_thumb && m_thumb->renderer());
     FloatPoint localPoint = m_thumb->renderBox()->absoluteToLocal(evt->absoluteLocation(), false, true);
     IntRect thumbBounds = m_thumb->renderBox()->borderBoxRect();
     FloatPoint offset;
@@ -423,12 +352,12 @@ void RenderSlider::setValueForPosition(int position)
     HTMLInputElement* element = static_cast<HTMLInputElement*>(node());
 
     // Calculate the new value based on the position, and send it to the element.
-    SliderRange range(element);
+    StepRange range(element);
     double fraction = static_cast<double>(position) / trackSize();
-    if (style()->appearance() == SliderVerticalPart)
+    if (style()->appearance() == SliderVerticalPart || style()->appearance() == MediaVolumeSliderPart)
         fraction = 1 - fraction;
     double value = range.clampValue(range.valueFromProportion(fraction));
-    element->setValueFromRenderer(String::number(value));
+    element->setValueFromRenderer(serializeForNumberType(value));
 
     // Also update the position if appropriate.
     if (position != currentPosition()) {
@@ -446,7 +375,7 @@ int RenderSlider::positionForOffset(const IntPoint& p)
         return 0;
 
     int position;
-    if (style()->appearance() == SliderVerticalPart)
+    if (style()->appearance() == SliderVerticalPart || style()->appearance() == MediaVolumeSliderPart)
         position = p.y() - m_thumb->renderBox()->height() / 2;
     else
         position = p.x() - m_thumb->renderBox()->width() / 2;
@@ -459,7 +388,7 @@ int RenderSlider::currentPosition()
     ASSERT(m_thumb);
     ASSERT(m_thumb->renderer());
 
-    if (style()->appearance() == SliderVerticalPart)
+    if (style()->appearance() == SliderVerticalPart || style()->appearance() == MediaVolumeSliderPart)
         return toRenderBox(m_thumb->renderer())->y() - contentBoxRect().y();
     return toRenderBox(m_thumb->renderer())->x() - contentBoxRect().x();
 }
@@ -469,7 +398,7 @@ int RenderSlider::trackSize()
     ASSERT(m_thumb);
     ASSERT(m_thumb->renderer());
 
-    if (style()->appearance() == SliderVerticalPart)
+    if (style()->appearance() == SliderVerticalPart || style()->appearance() == MediaVolumeSliderPart)
         return contentHeight() - m_thumb->renderBox()->height();
     return contentWidth() - m_thumb->renderBox()->width();
 }

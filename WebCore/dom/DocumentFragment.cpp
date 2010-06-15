@@ -1,10 +1,8 @@
-/**
- * This file is part of the DOM implementation for KDE.
- *
+/*
  * Copyright (C) 1999 Lars Knoll (knoll@kde.org)
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
  *           (C) 2001 Dirk Mueller (mueller@kde.org)
- * Copyright (C) 2004, 2005, 2006 Apple Computer, Inc.
+ * Copyright (C) 2004, 2005, 2006, 2009 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -23,18 +21,25 @@
  */
 
 #include "config.h"
-
 #include "DocumentFragment.h"
+
+#include "Document.h"
 
 namespace WebCore {
 
-DocumentFragment::DocumentFragment(Document *doc) : ContainerNode(doc)
+inline DocumentFragment::DocumentFragment(Document* document)
+    : ContainerNode(document)
 {
+}
+
+PassRefPtr<DocumentFragment> DocumentFragment::create(Document* document)
+{
+    return adoptRef(new DocumentFragment(document));
 }
 
 String DocumentFragment::nodeName() const
 {
-  return "#document-fragment";
+    return "#document-fragment";
 }
 
 Node::NodeType DocumentFragment::nodeType() const
@@ -42,7 +47,6 @@ Node::NodeType DocumentFragment::nodeType() const
     return DOCUMENT_FRAGMENT_NODE;
 }
 
-// DOM Section 1.1.1
 bool DocumentFragment::childTypeAllowed(NodeType type)
 {
     switch (type) {
@@ -60,7 +64,7 @@ bool DocumentFragment::childTypeAllowed(NodeType type)
 
 PassRefPtr<Node> DocumentFragment::cloneNode(bool deep)
 {
-    RefPtr<DocumentFragment> clone = new DocumentFragment(document());
+    RefPtr<DocumentFragment> clone = create(document());
     if (deep)
         cloneChildNodes(clone.get());
     return clone.release();

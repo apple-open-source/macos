@@ -38,10 +38,29 @@
 #include "Text.h"
 #include "htmlediting.h"
 #include "visible_units.h"
+#include "ApplyStyleCommand.h"
 
 namespace WebCore {
 
 using namespace HTMLNames;
+
+// When inserting a new line, we want to avoid nesting empty divs if we can.  Otherwise, when
+// pasting, it's easy to have each new line be a div deeper than the previous.  E.g., in the case
+// below, we want to insert at ^ instead of |.
+// <div>foo<div>bar</div>|</div>^
+static Element* highestVisuallyEquivalentDivBelowRoot(Element* startBlock)
+{
+    Element* curBlock = startBlock;
+    // We don't want to return a root node (if it happens to be a div, e.g., in a document fragment) because there are no
+    // siblings for us to append to.
+    while (!curBlock->nextSibling() && curBlock->parentElement()->hasTagName(divTag) && curBlock->parentElement()->parentElement()) {
+        NamedNodeMap* attributes = curBlock->parentElement()->attributes(true);
+        if (attributes && !attributes->isEmpty())
+            break;
+        curBlock = curBlock->parentElement();
+    }
+    return curBlock;
+}
 
 InsertParagraphSeparatorCommand::InsertParagraphSeparatorCommand(Document *document, bool mustUseDefaultParagraphElement) 
     : CompositeEditCommand(document)
@@ -63,7 +82,7 @@ void InsertParagraphSeparatorCommand::calculateStyleBeforeInsertion(const Positi
     if (!isStartOfParagraph(visiblePos) && !isEndOfParagraph(visiblePos))
         return;
     
-    m_style = styleAtPosition(pos);
+    m_style = ApplyStyleCommand::editingStyleAtPosition(pos, IncludeTypingStyle);
 }
 
 void InsertParagraphSeparatorCommand::applyStyleAfterInsertion(Node* originalEnclosingBlock)
@@ -79,8 +98,9 @@ void InsertParagraphSeparatorCommand::applyStyleAfterInsertion(Node* originalEnc
         
     if (!m_style)
         return;
+    
+    prepareEditingStyleToApplyAt(m_style.get(), endingSelection().start());
 
-    computedStyle(endingSelection().start().node())->diff(m_style.get());
     if (m_style->length() > 0)
         applyStyle(m_style.get());
 }
@@ -99,6 +119,30 @@ bool InsertParagraphSeparatorCommand::shouldUseDefaultParagraphElement(Node* enc
            enclosingBlock->hasTagName(h3Tag) ||
            enclosingBlock->hasTagName(h4Tag) ||
            enclosingBlock->hasTagName(h5Tag);
+}
+
+void InsertParagraphSeparatorCommand::getAncestorsInsideBlock(const Node* insertionNode, Element* outerBlock, Vector<Element*>& ancestors)
+{
+    ancestors.clear();
+    
+    // Build up list of ancestors elements between the insertion node and the outer block.
+    if (insertionNode != outerBlock) {
+        for (Element* n = insertionNode->parentElement(); n && n != outerBlock; n = n->parentElement())
+            ancestors.append(n);
+    }
+}
+
+PassRefPtr<Element> InsertParagraphSeparatorCommand::cloneHierarchyUnderNewBlock(const Vector<Element*>& ancestors, PassRefPtr<Element> blockToInsert)
+{
+    // Make clones of ancestors in between the start node and the start block.
+    RefPtr<Element> parent = blockToInsert;
+    for (size_t i = ancestors.size(); i != 0; --i) {
+        RefPtr<Element> child = ancestors[i - 1]->cloneElementWithoutChildren();
+        appendNode(child, parent);
+        parent = child.release();
+    }
+    
+    return parent.release();
 }
 
 void InsertParagraphSeparatorCommand::doApply()
@@ -188,15 +232,27 @@ void InsertParagraphSeparatorCommand::doApply()
                 // When inserting the newline after the blockquote, we don't want to apply the original style after the insertion
                 shouldApplyStyleAfterInsertion = false;
             }
-            insertNodeAfter(blockToInsert, startBlock);
+
+            // Most of the time we want to stay at the nesting level of the startBlock (e.g., when nesting within lists).  However,
+            // for div nodes, this can result in nested div tags that are hard to break out of.
+            Element* siblingNode = startBlock;
+            if (blockToInsert->hasTagName(divTag))
+                siblingNode = highestVisuallyEquivalentDivBelowRoot(startBlock);
+            insertNodeAfter(blockToInsert, siblingNode);
         }
 
-        appendBlockPlaceholder(blockToInsert);
-        setEndingSelection(VisibleSelection(Position(blockToInsert.get(), 0), DOWNSTREAM));
-        if (shouldApplyStyleAfterInsertion)
-            applyStyleAfterInsertion(startBlock);
+        // Recreate the same structure in the new paragraph.
+        
+        Vector<Element*> ancestors;
+        getAncestorsInsideBlock(insertionPosition.node(), startBlock, ancestors);      
+        RefPtr<Element> parent = cloneHierarchyUnderNewBlock(ancestors, blockToInsert);
+        
+        appendBlockPlaceholder(parent);
+
+        setEndingSelection(VisibleSelection(Position(parent.get(), 0), DOWNSTREAM));
         return;
     }
+    
 
     //---------------------------------------------------------------------
     // Handle case when position is in the first visible position in its block, and
@@ -215,9 +271,15 @@ void InsertParagraphSeparatorCommand::doApply()
         insertionPosition = insertionPosition.downstream();
         
         insertNodeBefore(blockToInsert, refNode);
-        appendBlockPlaceholder(blockToInsert.get());
-        setEndingSelection(VisibleSelection(Position(blockToInsert.get(), 0), DOWNSTREAM));
-        applyStyleAfterInsertion(startBlock);
+
+        // Recreate the same structure in the new paragraph.
+
+        Vector<Element*> ancestors;
+        getAncestorsInsideBlock(positionAvoidingSpecialElementBoundary(insertionPosition).node(), startBlock, ancestors);
+        
+        appendBlockPlaceholder(cloneHierarchyUnderNewBlock(ancestors, blockToInsert));
+        
+        // In this case, we need to set the new ending selection.
         setEndingSelection(VisibleSelection(insertionPosition, DOWNSTREAM));
         return;
     }
@@ -232,7 +294,7 @@ void InsertParagraphSeparatorCommand::doApply()
     if (isStartOfParagraph(visiblePos)) {
         RefPtr<Element> br = createBreakElement(document());
         insertNodeAt(br.get(), insertionPosition);
-        insertionPosition = positionAfterNode(br.get());
+        insertionPosition = positionInParentAfterNode(br.get());
     }
     
     // Move downstream. Typing style code will take care of carrying along the 
@@ -246,10 +308,7 @@ void InsertParagraphSeparatorCommand::doApply()
 
     // Build up list of ancestors in between the start node and the start block.
     Vector<Element*> ancestors;
-    if (insertionPosition.node() != startBlock) {
-        for (Element* n = insertionPosition.node()->parentElement(); n && n != startBlock; n = n->parentElement())
-            ancestors.append(n);
-    }
+    getAncestorsInsideBlock(insertionPosition.node(), startBlock, ancestors);
 
     // Make sure we do not cause a rendered space to become unrendered.
     // FIXME: We need the affinity for pos, but pos.downstream() does not give it
@@ -282,13 +341,8 @@ void InsertParagraphSeparatorCommand::doApply()
 
     updateLayout();
     
-    // Make clones of ancestors in between the start node and the start block.
-    RefPtr<Element> parent = blockToInsert;
-    for (size_t i = ancestors.size(); i != 0; --i) {
-        RefPtr<Element> child = ancestors[i - 1]->cloneElementWithoutChildren();
-        appendNode(child, parent);
-        parent = child.release();
-    }
+    // Make clones of ancestors in between the start node and the outer block.
+    RefPtr<Element> parent = cloneHierarchyUnderNewBlock(ancestors, blockToInsert);
 
     // If the paragraph separator was inserted at the end of a paragraph, an empty line must be
     // created.  All of the nodes, starting at visiblePos, are about to be added to the new paragraph 

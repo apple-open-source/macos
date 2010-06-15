@@ -2,8 +2,6 @@
     Copyright (C) 2004, 2005, 2006 Nikolas Zimmermann <zimmermann@kde.org>
                   2004, 2005, 2006, 2007 Rob Buis <buis@kde.org>
 
-    This file is part of the KDE project
-
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Library General Public
     License as published by the Free Software Foundation; either
@@ -33,8 +31,7 @@
 #include "SVGTests.h"
 #include "SVGZoomAndPan.h"
 
-namespace WebCore
-{
+namespace WebCore {
     class SVGAngle;
     class SVGLength;
     class SVGTransform;
@@ -46,8 +43,7 @@ namespace WebCore
                           public SVGLangSpace,
                           public SVGExternalResourcesRequired,
                           public SVGFitToViewBox,
-                          public SVGZoomAndPan
-    {
+                          public SVGZoomAndPan {
     public:
         SVGSVGElement(const QualifiedName&, Document*);
         virtual ~SVGSVGElement();
@@ -96,8 +92,8 @@ namespace WebCore
         float getCurrentTime() const;
         void setCurrentTime(float seconds);
 
-        unsigned long suspendRedraw(unsigned long max_wait_milliseconds);
-        void unsuspendRedraw(unsigned long suspend_handle_id, ExceptionCode&);
+        unsigned suspendRedraw(unsigned maxWaitMilliseconds);
+        void unsuspendRedraw(unsigned suspendHandleId);
         void unsuspendRedrawAll();
         void forceRedraw();
 
@@ -109,18 +105,14 @@ namespace WebCore
 
         static float createSVGNumber();
         static SVGLength createSVGLength();
-        static PassRefPtr<SVGAngle> createSVGAngle();
+        static SVGAngle createSVGAngle();
         static FloatPoint createSVGPoint();
-        static TransformationMatrix createSVGMatrix();
+        static AffineTransform createSVGMatrix();
         static FloatRect createSVGRect();
         static SVGTransform createSVGTransform();
-        static SVGTransform createSVGTransformFromMatrix(const TransformationMatrix&);
+        static SVGTransform createSVGTransformFromMatrix(const AffineTransform&);
 
         virtual void parseMappedAttribute(MappedAttribute*);
-
-        // 'virtual SVGLocatable' functions
-        virtual TransformationMatrix getCTM() const;
-        virtual TransformationMatrix getScreenCTM() const;
 
         virtual bool rendererIsNeeded(RenderStyle* style) { return StyledElement::rendererIsNeeded(style); }
         virtual RenderObject* createRenderer(RenderArena*, RenderStyle*);
@@ -129,33 +121,37 @@ namespace WebCore
         virtual void removedFromDocument();
 
         virtual void svgAttributeChanged(const QualifiedName&);
+        virtual void synchronizeProperty(const QualifiedName&);
 
-        virtual TransformationMatrix viewBoxToViewTransform(float viewWidth, float viewHeight) const;
+        AffineTransform viewBoxToViewTransform(float viewWidth, float viewHeight) const;
 
         void inheritViewAttributes(SVGViewElement*);
 
-    protected:
-        virtual const SVGElement* contextElement() const { return this; }
-
-        friend class RenderSVGRoot;
-        friend class RenderSVGViewportContainer;
-
-        virtual bool hasRelativeValues() const;
-        
         bool isOutermostSVG() const;
+        virtual bool hasRelativeValues() const;
 
     private:
-        ANIMATED_PROPERTY_DECLARATIONS(SVGSVGElement, SVGNames::svgTagString, SVGNames::xAttrString, SVGLength, X, x)
-        ANIMATED_PROPERTY_DECLARATIONS(SVGSVGElement, SVGNames::svgTagString, SVGNames::yAttrString, SVGLength, Y, y)
-        ANIMATED_PROPERTY_DECLARATIONS(SVGSVGElement, SVGNames::svgTagString, SVGNames::widthAttrString, SVGLength, Width, width)
-        ANIMATED_PROPERTY_DECLARATIONS(SVGSVGElement, SVGNames::svgTagString, SVGNames::heightAttrString, SVGLength, Height, height)
+        DECLARE_ANIMATED_PROPERTY(SVGSVGElement, SVGNames::xAttr, SVGLength, X, x)
+        DECLARE_ANIMATED_PROPERTY(SVGSVGElement, SVGNames::yAttr, SVGLength, Y, y)
+        DECLARE_ANIMATED_PROPERTY(SVGSVGElement, SVGNames::widthAttr, SVGLength, Width, width)
+        DECLARE_ANIMATED_PROPERTY(SVGSVGElement, SVGNames::heightAttr, SVGLength, Height, height)
 
+        // SVGExternalResourcesRequired
+        DECLARE_ANIMATED_PROPERTY(SVGSVGElement, SVGNames::externalResourcesRequiredAttr, bool, ExternalResourcesRequired, externalResourcesRequired)
+
+        // SVGFitToViewBox
+        DECLARE_ANIMATED_PROPERTY(SVGSVGElement, SVGNames::viewBoxAttr, FloatRect, ViewBox, viewBox)
+        DECLARE_ANIMATED_PROPERTY(SVGSVGElement, SVGNames::preserveAspectRatioAttr, SVGPreserveAspectRatio, PreserveAspectRatio, preserveAspectRatio)
+ 
         virtual void documentWillBecomeInactive();
         virtual void documentDidBecomeActive();
+
+        virtual AffineTransform localCoordinateSpaceTransform(SVGLocatable::CTMScope) const;
 
         bool m_useCurrentView;
         RefPtr<SMILTimeContainer> m_timeContainer;
         FloatPoint m_translation;
+        float m_scale;
         mutable OwnPtr<SVGViewSpec> m_viewSpec;
         IntSize m_containerSize;
         bool m_hasSetContainerSize;

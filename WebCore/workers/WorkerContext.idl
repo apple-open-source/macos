@@ -28,11 +28,14 @@ module threads {
 
     interface [
         Conditional=WORKERS,
-        DelegatingGetOwnPropertySlot,
         CustomMarkFunction,
+        DelegatingGetOwnPropertySlot,
+        EventTarget,
         ExtendsDOMGlobalObject,
+        IsWorkerContext,
         LegacyParent=JSWorkerContextBase,
-        NoStaticTables
+        NoStaticTables,
+        OmitConstructor
     ] WorkerContext {
 
         // WorkerGlobalScope
@@ -41,19 +44,13 @@ module threads {
 #endif
                  attribute [Replaceable] WorkerLocation location;
         void close();
-        //         attribute EventListener onerror;
+                 attribute EventListener onerror;
 
         // WorkerUtils
         [Custom] void importScripts(/*[Variadic] in DOMString urls */);
                  attribute [Replaceable] WorkerNavigator navigator;
         // Database openDatabase(in DOMString name, in DOMString version, in DOMString displayName, in unsigned long estimatedSize);
         // DatabaseSync openDatabaseSync(in DOMString name, in DOMString version, in DOMString displayName, in unsigned long estimatedSize);
-
-
-        // DedicatedWorkerGlobalScope
-        void postMessage(in DOMString message, in [Optional] MessagePort messagePort)
-            raises(DOMException);
-                 attribute EventListener onmessage;
 
         // Timers
         [Custom] long setTimeout(in TimeoutHandler handler, in long timeout);
@@ -65,15 +62,19 @@ module threads {
 
 
         // EventTarget interface
-        [Custom] void addEventListener(in DOMString type, 
-                                       in EventListener listener, 
-                                       in boolean useCapture);
-        [Custom] void removeEventListener(in DOMString type, 
-                                          in EventListener listener, 
-                                          in boolean useCapture);
+        void addEventListener(in DOMString type, 
+                              in EventListener listener, 
+                              in boolean useCapture);
+        void removeEventListener(in DOMString type, 
+                                 in EventListener listener, 
+                                 in boolean useCapture);
         boolean dispatchEvent(in Event evt)
             raises(EventException);
 
+#if defined(ENABLE_NOTIFICATIONS) && ENABLE_NOTIFICATIONS
+        // Notification interface
+        readonly attribute [EnabledAtRuntime] NotificationCenter webkitNotifications;
+#endif
 
         // Constructors
         attribute MessageEventConstructor MessageEvent;
@@ -82,7 +83,13 @@ module threads {
 #if ENABLE_CHANNEL_MESSAGING
         attribute [JSCCustomGetter] MessageChannelConstructor MessageChannel;
 #endif
+#if ENABLE_EVENTSOURCE
+        attribute [JSCCustomGetter] EventSourceConstructor EventSource;
+#endif
         attribute [JSCCustomGetter] XMLHttpRequestConstructor XMLHttpRequest;
+#if defined(ENABLE_WEB_SOCKETS) && ENABLE_WEB_SOCKETS
+        attribute [JSCCustomGetter,EnabledAtRuntime] WebSocketConstructor WebSocket; // Usable with the new operator
+#endif
     };
 
 }

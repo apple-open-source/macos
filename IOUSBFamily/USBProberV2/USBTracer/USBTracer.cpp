@@ -2939,7 +2939,7 @@ CollectTraceHubPort ( kd_buf tracepoint )
 		case USB_HUB_PORT_TRACE( kTPHubPortGetDevZeroDescriptorWithRetries ):
 			if ( arg4 == 1 )
 			{
-				log(info, "HubPort", "Get Dev Zero Desc Retry", parg1, "port %d - GetDeviceZeroDescriptor returned error 0x%x.  Checking to for valid descripor", arg2, arg3 );
+				log(info, "HubPort", "Get Dev Zero Desc Retry", parg1, "port %d - GetDeviceZeroDescriptor returned error 0x%x.  Checking to for valid descriptor", arg2, arg3 );
 			}
 			else if ( arg4 == 2 )
 			{

@@ -27,7 +27,6 @@
 #include "Pasteboard.h"
 
 #include "BitmapInfo.h"
-#include "CString.h"
 #include "ClipboardUtilitiesWin.h"
 #include "Document.h"
 #include "DocumentFragment.h"
@@ -40,7 +39,9 @@
 #include "Range.h"
 #include "RenderImage.h"
 #include "TextEncoding.h"
+#include "WebCoreInstanceHandle.h"
 #include "markup.h"
+#include <wtf/text/CString.h>
 
 namespace WebCore {
 
@@ -88,7 +89,7 @@ Pasteboard::Pasteboard()
     WNDCLASSEX wcex = {0};
     wcex.cbSize = sizeof(WNDCLASSEX);
     wcex.lpfnWndProc    = PasteboardOwnerWndProc;
-    wcex.hInstance      = Page::instanceHandle();
+    wcex.hInstance      = WebCore::instanceHandle();
     wcex.lpszClassName  = L"PasteboardOwnerWindowClass";
     ::RegisterClassEx(&wcex);
 
@@ -111,7 +112,7 @@ void Pasteboard::clear()
 void Pasteboard::writeSelection(Range* selectedRange, bool canSmartCopyOrDelete, Frame* frame)
 {
     clear();
-    
+
     // Put CF_HTML format on the pasteboard 
     if (::OpenClipboard(m_owner)) {
         ExceptionCode ec = 0;
@@ -142,6 +143,21 @@ void Pasteboard::writeSelection(Range* selectedRange, bool canSmartCopyOrDelete,
             ::CloseClipboard();
         }
         
+    }
+}
+
+void Pasteboard::writePlainText(const String& text)
+{
+    clear();
+
+    // Put plain string on the pasteboard. CF_UNICODETEXT covers CF_TEXT as well
+    String str = text;
+    replaceNewlinesWithWindowsStyleNewlines(str);
+    if (::OpenClipboard(m_owner)) {
+        HGLOBAL cbData = createGlobalData(str);
+        if (!::SetClipboardData(CF_UNICODETEXT, cbData))
+            ::GlobalFree(cbData);
+        ::CloseClipboard();
     }
 }
 
@@ -188,9 +204,10 @@ void Pasteboard::writeURL(const KURL& url, const String& titleStr, Frame* frame)
 void Pasteboard::writeImage(Node* node, const KURL&, const String&)
 {
     ASSERT(node && node->renderer() && node->renderer()->isImage());
-    RenderImage* renderer = static_cast<RenderImage*>(node->renderer());
-    CachedImage* cachedImage = static_cast<CachedImage*>(renderer->cachedImage());
-    ASSERT(cachedImage);
+    RenderImage* renderer = toRenderImage(node->renderer());
+    CachedImage* cachedImage = renderer->cachedImage();
+    if (!cachedImage || cachedImage->errorOccurred())
+        return;
     Image* image = cachedImage->image();
     ASSERT(image);
 

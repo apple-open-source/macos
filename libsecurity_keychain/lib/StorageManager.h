@@ -143,6 +143,8 @@ public:
 	
 	SecPreferencesDomain domain() { return mDomain; }
 	void domain(SecPreferencesDomain newDomain);
+	
+	bool keychainOwnerPermissionsValidForDomain(const char* path, SecPreferencesDomain domain);
 
 	// non-file based Keychain manipulation
 	void addToDomainList(SecPreferencesDomain domain, const char* dbName, const CSSM_GUID &guid, uint32 subServiceType);

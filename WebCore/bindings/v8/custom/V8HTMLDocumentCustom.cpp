@@ -29,23 +29,27 @@
  */
 
 #include "config.h"
-#include "HTMLDocument.h"
+#include "V8HTMLDocument.h"
 
 #include "Frame.h"
+#include "HTMLAllCollection.h"
+#include "HTMLDocument.h"
 #include "HTMLCollection.h"
 #include "HTMLIFrameElement.h"
 #include "HTMLNames.h"
-
 #include "V8Binding.h"
-#include "V8CustomBinding.h"
+#include "V8DOMWindow.h"
+#include "V8HTMLAllCollection.h"
+#include "V8HTMLCollection.h"
+#include "V8IsolatedContext.h"
+#include "V8Node.h"
 #include "V8Proxy.h"
-
 #include <wtf/RefPtr.h>
 #include <wtf/StdLibExtras.h>
 
 namespace WebCore {
 
-NAMED_PROPERTY_DELETER(HTMLDocument)
+v8::Handle<v8::Boolean> V8HTMLDocument::namedPropertyDeleter(v8::Local<v8::String> name, const v8::AccessorInfo& info)
 {
     // Only handle document.all.  Insert the marker object into the
     // shadow internal field to signal that document.all is no longer
@@ -55,13 +59,13 @@ NAMED_PROPERTY_DELETER(HTMLDocument)
     if (key != all)
         return deletionNotHandledByInterceptor();
 
-    ASSERT(info.Holder()->InternalFieldCount() == kHTMLDocumentInternalFieldCount);
-    v8::Local<v8::Value> marker = info.Holder()->GetInternalField(kHTMLDocumentMarkerIndex);
-    info.Holder()->SetInternalField(kHTMLDocumentShadowIndex, marker);
+    ASSERT(info.Holder()->InternalFieldCount() == V8HTMLDocument::internalFieldCount);
+    v8::Local<v8::Value> marker = info.Holder()->GetInternalField(V8HTMLDocument::markerIndex);
+    info.Holder()->SetInternalField(V8HTMLDocument::shadowIndex, marker);
     return v8::True();
 }
 
-NAMED_PROPERTY_GETTER(HTMLDocument)
+v8::Handle<v8::Value> V8HTMLDocument::namedPropertyGetter(v8::Local<v8::String> name, const v8::AccessorInfo& info)
 {
     INC_STATS("DOM.HTMLDocument.NamedPropertyGetter");
     AtomicString key = v8StringToAtomicWebCoreString(name);
@@ -71,14 +75,14 @@ NAMED_PROPERTY_GETTER(HTMLDocument)
     // been temporarily shadowed and we return the value.
     DEFINE_STATIC_LOCAL(const AtomicString, all, ("all"));
     if (key == all) {
-        ASSERT(info.Holder()->InternalFieldCount() == kHTMLDocumentInternalFieldCount);
-        v8::Local<v8::Value> marker = info.Holder()->GetInternalField(kHTMLDocumentMarkerIndex);
-        v8::Local<v8::Value> value = info.Holder()->GetInternalField(kHTMLDocumentShadowIndex);
+        ASSERT(info.Holder()->InternalFieldCount() == V8HTMLDocument::internalFieldCount);
+        v8::Local<v8::Value> marker = info.Holder()->GetInternalField(V8HTMLDocument::markerIndex);
+        v8::Local<v8::Value> value = info.Holder()->GetInternalField(V8HTMLDocument::shadowIndex);
         if (marker != value)
             return value;
     }
 
-    HTMLDocument* htmlDocument = V8DOMWrapper::convertDOMWrapperToNode<HTMLDocument>(info.Holder());
+    HTMLDocument* htmlDocument = V8HTMLDocument::toNative(info.Holder());
 
     // Fast case for named elements that are not there.
     if (!htmlDocument->hasNamedItem(key.impl()) && !htmlDocument->hasExtraNamedItem(key.impl()))
@@ -92,12 +96,19 @@ NAMED_PROPERTY_GETTER(HTMLDocument)
         Node* node = items->firstItem();
         Frame* frame = 0;
         if (node->hasTagName(HTMLNames::iframeTag) && (frame = static_cast<HTMLIFrameElement*>(node)->contentFrame()))
-            return V8DOMWrapper::convertToV8Object(V8ClassIndex::DOMWINDOW, frame->domWindow());
+            return toV8(frame->domWindow());
 
-        return V8DOMWrapper::convertNodeToV8Object(node);
+        return toV8(node);
     }
 
-    return V8DOMWrapper::convertToV8Object(V8ClassIndex::HTMLCOLLECTION, items.get());
+    return toV8(items.release());
+}
+
+v8::Handle<v8::Value> V8HTMLDocument::indexedPropertyGetter(uint32_t index, const v8::AccessorInfo &info) 
+{
+    INC_STATS("DOM.HTMLDocument.IndexedPropertyGetter");
+    v8::Local<v8::Integer> indexV8 = v8::Integer::NewFromUnsigned(index);
+    return namedPropertyGetter(indexV8->ToString(), info);
 }
 
 // HTMLDocument ----------------------------------------------------------------
@@ -114,30 +125,28 @@ static String writeHelperGetString(const v8::Arguments& args)
     return str;
 }
 
-CALLBACK_FUNC_DECL(HTMLDocumentWrite)
+v8::Handle<v8::Value> V8HTMLDocument::writeCallback(const v8::Arguments& args)
 {
     INC_STATS("DOM.HTMLDocument.write()");
-    HTMLDocument* htmlDocument = V8DOMWrapper::convertDOMWrapperToNode<HTMLDocument>(args.Holder());
+    HTMLDocument* htmlDocument = V8HTMLDocument::toNative(args.Holder());
     Frame* frame = V8Proxy::retrieveFrameForCallingContext();
-    ASSERT(frame);
-    htmlDocument->write(writeHelperGetString(args), frame->document());
+    htmlDocument->write(writeHelperGetString(args), frame ? frame->document() : NULL);
     return v8::Undefined();
 }
 
-CALLBACK_FUNC_DECL(HTMLDocumentWriteln)
+v8::Handle<v8::Value> V8HTMLDocument::writelnCallback(const v8::Arguments& args)
 {
     INC_STATS("DOM.HTMLDocument.writeln()");
-    HTMLDocument* htmlDocument = V8DOMWrapper::convertDOMWrapperToNode<HTMLDocument>(args.Holder());
+    HTMLDocument* htmlDocument = V8HTMLDocument::toNative(args.Holder());
     Frame* frame = V8Proxy::retrieveFrameForCallingContext();
-    ASSERT(frame);
-    htmlDocument->writeln(writeHelperGetString(args), frame->document());
+    htmlDocument->writeln(writeHelperGetString(args), frame ? frame->document() : NULL);
     return v8::Undefined();
 }
 
-CALLBACK_FUNC_DECL(HTMLDocumentOpen)
+v8::Handle<v8::Value> V8HTMLDocument::openCallback(const v8::Arguments& args)
 {
     INC_STATS("DOM.HTMLDocument.open()");
-    HTMLDocument* htmlDocument = V8DOMWrapper::convertDOMWrapperToNode<HTMLDocument>(args.Holder());
+    HTMLDocument* htmlDocument = V8HTMLDocument::toNative(args.Holder());
 
     if (args.Length() > 2) {
         if (Frame* frame = htmlDocument->frame()) {
@@ -169,27 +178,45 @@ CALLBACK_FUNC_DECL(HTMLDocumentOpen)
     }
 
     Frame* frame = V8Proxy::retrieveFrameForCallingContext();
-    htmlDocument->open(frame->document());
+    htmlDocument->open(frame ? frame->document() : NULL);
     // Return the document.
     return args.Holder();
 }
 
-ACCESSOR_GETTER(HTMLDocumentAll)
+v8::Handle<v8::Value> V8HTMLDocument::allAccessorGetter(v8::Local<v8::String> name, const v8::AccessorInfo& info)
 {
     INC_STATS("DOM.HTMLDocument.all._get");
-    v8::HandleScope scope;
     v8::Handle<v8::Object> holder = info.Holder();
-    HTMLDocument* htmlDocument = V8DOMWrapper::convertDOMWrapperToNode<HTMLDocument>(holder);
-    RefPtr<HTMLCollection> collection = WTF::getPtr(htmlDocument->all());
-    return V8DOMWrapper::convertToV8Object(V8ClassIndex::HTMLCOLLECTION, WTF::getPtr(collection));
+    HTMLDocument* htmlDocument = V8HTMLDocument::toNative(holder);
+    return toV8(htmlDocument->all());
 }
 
-ACCESSOR_SETTER(HTMLDocumentAll)
+void V8HTMLDocument::allAccessorSetter(v8::Local<v8::String> name, v8::Local<v8::Value> value, const v8::AccessorInfo& info)
 {
     INC_STATS("DOM.HTMLDocument.all._set");
     v8::Handle<v8::Object> holder = info.Holder();
-    ASSERT(info.Holder()->InternalFieldCount() == kHTMLDocumentInternalFieldCount);
-    info.Holder()->SetInternalField(kHTMLDocumentShadowIndex, value);
+    ASSERT(info.Holder()->InternalFieldCount() == V8HTMLDocument::internalFieldCount);
+    info.Holder()->SetInternalField(V8HTMLDocument::shadowIndex, value);
+}
+
+v8::Handle<v8::Value> toV8(HTMLDocument* impl, bool forceNewObject)
+{
+    if (!impl)
+        return v8::Null();
+    v8::Handle<v8::Object> wrapper = V8HTMLDocument::wrap(impl, forceNewObject);
+    if (wrapper.IsEmpty())
+        return wrapper;
+    if (!V8IsolatedContext::getEntered()) {
+        if (V8Proxy* proxy = V8Proxy::retrieve(impl->frame()))
+            proxy->windowShell()->updateDocumentWrapper(wrapper);
+    }
+    // Create marker object and insert it in two internal fields.
+    // This is used to implement temporary shadowing of document.all.
+    ASSERT(wrapper->InternalFieldCount() == V8HTMLDocument::internalFieldCount);
+    v8::Local<v8::Object> marker = v8::Object::New();
+    wrapper->SetInternalField(V8HTMLDocument::markerIndex, marker);
+    wrapper->SetInternalField(V8HTMLDocument::shadowIndex, marker);
+    return wrapper;
 }
 
 } // namespace WebCore

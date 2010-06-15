@@ -279,7 +279,7 @@ const Cursor& rowResizeCursor()
 
 const Cursor& middlePanningCursor()
 {
-    static const Cursor c = loadCursorByName("panIcon", 7, 7);
+    static const Cursor c = loadCursorByName("panIcon", 8, 8);
     return c;
 }
 
@@ -406,6 +406,11 @@ const Cursor& grabCursor()
 const Cursor& grabbingCursor()
 {
     return pointerCursor();
+}
+
+SharedCursor::~SharedCursor()
+{
+    DestroyIcon(m_nativeCursor);
 }
 
 }

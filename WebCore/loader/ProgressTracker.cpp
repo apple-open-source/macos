@@ -30,7 +30,9 @@
 #include "Frame.h"
 #include "FrameLoader.h"
 #include "FrameLoaderClient.h"
+#include "Logging.h"
 #include "ResourceResponse.h"
+#include <wtf/text/CString.h>
 #include <wtf/CurrentTime.h>
 
 using std::min;
@@ -47,7 +49,7 @@ static const double finalProgressValue = 0.9; // 1.0 - initialProgressValue
 
 static const int progressItemDefaultEstimatedLength = 1024 * 16;
 
-struct ProgressItem {
+struct ProgressItem : Noncopyable {
     ProgressItem(long long length) 
         : bytesReceived(0)
         , estimatedLength(length) { }
@@ -97,7 +99,7 @@ void ProgressTracker::reset()
 
 void ProgressTracker::progressStarted(Frame* frame)
 {
-    // LOG (Progress, "frame %p(%@), _private->numProgressTrackedFrames %d, _private->originatingProgressFrame %p", frame, [frame name], _private->numProgressTrackedFrames, _private->originatingProgressFrame);
+    LOG(Progress, "Progress started (%p) - frame %p(\"%s\"), value %f, tracked frames %d, originating frame %p", this, frame, frame->tree()->name().string().utf8().data(), m_progressValue, m_numProgressTrackedFrames, m_originatingProgressFrame.get());
 
     frame->loader()->client()->willChangeEstimatedProgress();
     
@@ -115,7 +117,7 @@ void ProgressTracker::progressStarted(Frame* frame)
 
 void ProgressTracker::progressCompleted(Frame* frame)
 {
-    // LOG (Progress, "frame %p(%@), _private->numProgressTrackedFrames %d, _private->originatingProgressFrame %p", frame, [frame name], _private->numProgressTrackedFrames, _private->originatingProgressFrame);
+    LOG(Progress, "Progress completed (%p) - frame %p(\"%s\"), value %f, tracked frames %d, originating frame %p", this, frame, frame->tree()->name().string().utf8().data(), m_progressValue, m_numProgressTrackedFrames, m_originatingProgressFrame.get());
     
     if (m_numProgressTrackedFrames <= 0)
         return;
@@ -132,7 +134,7 @@ void ProgressTracker::progressCompleted(Frame* frame)
 
 void ProgressTracker::finalProgressComplete()
 {
-    // LOG (Progress, "");
+    LOG(Progress, "Final progress complete (%p)", this);
     
     RefPtr<Frame> frame = m_originatingProgressFrame.release();
     
@@ -151,7 +153,7 @@ void ProgressTracker::finalProgressComplete()
 
 void ProgressTracker::incrementProgress(unsigned long identifier, const ResourceResponse& response)
 {
-    // LOG (Progress, "_private->numProgressTrackedFrames %d, _private->originatingProgressFrame %p", _private->numProgressTrackedFrames, _private->originatingProgressFrame);
+    LOG(Progress, "Progress incremented (%p) - value %f, tracked frames %d, originating frame %p", this, m_progressValue, m_numProgressTrackedFrames, m_originatingProgressFrame.get());
 
     if (m_numProgressTrackedFrames <= 0)
         return;
@@ -176,8 +178,10 @@ void ProgressTracker::incrementProgress(unsigned long identifier, const char*, i
     // FIXME: Can this ever happen?
     if (!item)
         return;
+
+    RefPtr<Frame> frame = m_originatingProgressFrame;
     
-    m_originatingProgressFrame->loader()->client()->willChangeEstimatedProgress();
+    frame->loader()->client()->willChangeEstimatedProgress();
     
     unsigned bytesReceived = length;
     double increment, percentOfRemainingBytes;
@@ -189,7 +193,7 @@ void ProgressTracker::incrementProgress(unsigned long identifier, const char*, i
         item->estimatedLength = item->bytesReceived * 2;
     }
     
-    int numPendingOrLoadingRequests = m_originatingProgressFrame->loader()->numPendingOrLoadingRequests(true);
+    int numPendingOrLoadingRequests = frame->loader()->numPendingOrLoadingRequests(true);
     estimatedBytesForPendingRequests = progressItemDefaultEstimatedLength * numPendingOrLoadingRequests;
     remainingBytes = ((m_totalPageAndResourceBytesToLoad + estimatedBytesForPendingRequests) - m_totalBytesReceived);
     if (remainingBytes > 0)  // Prevent divide by 0.
@@ -199,8 +203,8 @@ void ProgressTracker::incrementProgress(unsigned long identifier, const char*, i
     
     // For documents that use WebCore's layout system, treat first layout as the half-way point.
     // FIXME: The hasHTMLView function is a sort of roundabout way of asking "do you use WebCore's layout system".
-    bool useClampedMaxProgress = m_originatingProgressFrame->loader()->client()->hasHTMLView()
-        && !m_originatingProgressFrame->loader()->firstLayoutDone();
+    bool useClampedMaxProgress = frame->loader()->client()->hasHTMLView()
+        && !frame->loader()->firstLayoutDone();
     double maxProgressValue = useClampedMaxProgress ? 0.5 : finalProgressValue;
     increment = (maxProgressValue - m_progressValue) * percentOfRemainingBytes;
     m_progressValue += increment;
@@ -212,7 +216,7 @@ void ProgressTracker::incrementProgress(unsigned long identifier, const char*, i
     double now = currentTime();
     double notifiedProgressTimeDelta = now - m_lastNotifiedProgressTime;
     
-    // LOG (Progress, "_private->progressValue %g, _private->numProgressTrackedFrames %d", _private->progressValue, _private->numProgressTrackedFrames);
+    LOG(Progress, "Progress incremented (%p) - value %f, tracked frames %d", this, m_progressValue, m_numProgressTrackedFrames);
     double notificationProgressDelta = m_progressValue - m_lastNotifiedProgressValue;
     if ((notificationProgressDelta >= m_progressNotificationInterval ||
          notifiedProgressTimeDelta >= m_progressNotificationTimeInterval) &&
@@ -221,14 +225,14 @@ void ProgressTracker::incrementProgress(unsigned long identifier, const char*, i
             if (m_progressValue == 1)
                 m_finalProgressChangedSent = true;
             
-            m_originatingProgressFrame->loader()->client()->postProgressEstimateChangedNotification();
+            frame->loader()->client()->postProgressEstimateChangedNotification();
 
             m_lastNotifiedProgressValue = m_progressValue;
             m_lastNotifiedProgressTime = now;
         }
     }
     
-    m_originatingProgressFrame->loader()->client()->didChangeEstimatedProgress();
+    frame->loader()->client()->didChangeEstimatedProgress();
 }
 
 void ProgressTracker::completeProgress(unsigned long identifier)

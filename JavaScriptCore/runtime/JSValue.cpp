@@ -110,7 +110,10 @@ char* JSValue::description()
 {
     static const size_t size = 32;
     static char description[size];
-    if (isInt32())
+
+    if (!*this)
+        snprintf(description, size, "<JSValue()>");
+    else if (isInt32())
         snprintf(description, size, "Int32: %d", asInt32());
     else if (isDouble())
         snprintf(description, size, "Double: %lf", asDouble());
@@ -171,7 +174,11 @@ uint32_t toUInt32SlowCase(double d, bool& ok)
 
 NEVER_INLINE double nonInlineNaN()
 {
+#if OS(SYMBIAN)
+    return nanval();
+#else
     return std::numeric_limits<double>::quiet_NaN();
+#endif
 }
 
 } // namespace JSC

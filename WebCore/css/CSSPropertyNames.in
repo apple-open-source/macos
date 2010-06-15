@@ -8,17 +8,42 @@
 # http://msdn.microsoft.com/workshop/author/css/reference/attributes.asp
 #
 
+# high-priority property names have to be listed first, to simplify the check
+# for applying them first.
+color
+direction
+display
+font
+font-family
+font-size
+font-style
+font-variant
+font-weight
+-webkit-text-size-adjust
+zoom
+
+# line height needs to be right after the above high-priority properties
+line-height
+
+# The remaining properties are listed in alphabetical order
 background
 background-attachment
+background-clip
 background-color
 background-image
+background-origin
 background-position
 background-position-x
 background-position-y
 background-repeat
+background-repeat-x
+background-repeat-y
+background-size
 border
 border-bottom
 border-bottom-color
+border-bottom-left-radius
+border-bottom-right-radius
 border-bottom-style
 border-bottom-width
 border-collapse
@@ -27,6 +52,7 @@ border-left
 border-left-color
 border-left-style
 border-left-width
+border-radius
 border-right
 border-right-color
 border-right-style
@@ -35,6 +61,8 @@ border-spacing
 border-style
 border-top
 border-top-color
+border-top-left-radius
+border-top-right-radius
 border-top-style
 border-top-width
 border-width
@@ -42,26 +70,16 @@ bottom
 caption-side
 clear
 clip
-color
 content
 counter-increment
 counter-reset
 cursor
-direction
-display
 empty-cells
 float
-font
-font-family
-font-size
 font-stretch
-font-style
-font-variant
-font-weight
 height
 left
 letter-spacing
-line-height
 list-style
 list-style-image
 list-style-position
@@ -116,6 +134,7 @@ text-overline-color
 text-overline-mode
 text-overline-style
 text-overline-width
+text-rendering
 text-shadow
 text-transform
 text-underline
@@ -135,29 +154,33 @@ word-break
 word-spacing
 word-wrap
 z-index
-zoom
 -webkit-animation
 -webkit-animation-delay
 -webkit-animation-direction
 -webkit-animation-duration
+-webkit-animation-fill-mode
 -webkit-animation-iteration-count
 -webkit-animation-name
+-webkit-animation-play-state
 -webkit-animation-timing-function
 -webkit-appearance
 -webkit-backface-visibility
 -webkit-background-clip
 -webkit-background-composite
 -webkit-background-origin
+# -webkit-background-size differs from background-size only in the interpretation of
+# a single value: -webkit-background-size: l; is equivalent to background-size: l l;
+# whereas background-size: l; is equivalent to background-size: l auto;
 -webkit-background-size
 -webkit-binding
--webkit-border-bottom-left-radius
--webkit-border-bottom-right-radius
 -webkit-border-fit
 -webkit-border-horizontal-spacing
 -webkit-border-image
+
+# -webkit-border-radius differs from border-radius only in the interpretation of
+# a value consisting of two lengths: "-webkit-border-radius: l1 l2;" is equivalent
+# to "border-radius: l1 / l2;"
 -webkit-border-radius
--webkit-border-top-left-radius
--webkit-border-top-right-radius
 -webkit-border-vertical-spacing
 -webkit-box-align
 -webkit-box-direction
@@ -170,6 +193,7 @@ zoom
 -webkit-box-reflect
 -webkit-box-shadow
 -webkit-box-sizing
+-webkit-color-correction
 -webkit-column-break-after
 -webkit-column-break-before
 -webkit-column-break-inside
@@ -182,6 +206,7 @@ zoom
 -webkit-column-width
 -webkit-columns
 -webkit-font-size-delta
+-webkit-font-smoothing
 -webkit-highlight
 -webkit-line-break
 -webkit-line-clamp
@@ -206,6 +231,8 @@ zoom
 -webkit-mask-position-x
 -webkit-mask-position-y
 -webkit-mask-repeat
+-webkit-mask-repeat-x
+-webkit-mask-repeat-y
 -webkit-mask-size
 -webkit-match-nearest-mail-blockquote-color
 -webkit-nbsp-mode
@@ -218,7 +245,6 @@ zoom
 -webkit-text-decorations-in-effect
 -webkit-text-fill-color
 -webkit-text-security
--webkit-text-size-adjust
 -webkit-text-stroke
 -webkit-text-stroke-color
 -webkit-text-stroke-width

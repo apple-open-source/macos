@@ -17,8 +17,8 @@
  * Boston, MA 02110-1301, USA.
  */
 
-#ifndef __WEBKIT_WEB_INSPECTOR_H__
-#define __WEBKIT_WEB_INSPECTOR_H__
+#ifndef webkitwebinspector_h
+#define webkitwebinspector_h
 
 #include <glib-object.h>
 
@@ -60,6 +60,14 @@ webkit_web_inspector_get_web_view(WebKitWebInspector* web_inspector);
 WEBKIT_API const gchar*
 webkit_web_inspector_get_inspected_uri(WebKitWebInspector* web_inspector);
 
+WEBKIT_API void
+webkit_web_inspector_inspect_coordinates(WebKitWebInspector* web_inspector, gdouble x, gdouble y);
+
+WEBKIT_API void
+webkit_web_inspector_show(WebKitWebInspector* webInspector);
+
+WEBKIT_API void
+webkit_web_inspector_close(WebKitWebInspector* webInspector);
 G_END_DECLS
 
-#endif /* __WEBKIT_WEB_INSPECTOR_H__ */
+#endif /* webkitwebinspector_h */

@@ -45,7 +45,6 @@ namespace WebKit {
     
     NSSize _previousSize;
     RefPtr<WebKit::NetscapePluginInstanceProxy> _proxy;
-    BOOL _pluginHostDied;
 }
 
 - (id)initWithFrame:(NSRect)r
@@ -59,6 +58,9 @@ namespace WebKit {
             element:(PassRefPtr<WebCore::HTMLPlugInElement>)element;
 
 - (void)pluginHostDied;
+- (CALayer *)pluginLayer;
+- (void)webFrame:(WebFrame *)webFrame didFinishLoadWithReason:(NPReason)reason;
+
 @end
 
 #endif // USE(PLUGIN_HOST_PROCESS)

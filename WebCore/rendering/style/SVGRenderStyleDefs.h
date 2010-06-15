@@ -1,14 +1,13 @@
 /*
     Copyright (C) 2004, 2005, 2007 Nikolas Zimmermann <zimmermann@kde.org>
                   2004, 2005 Rob Buis <buis@kde.org>
+    Copyright (C) Research In Motion Limited 2010. All rights reserved.
 
     Based on khtml code by:
     Copyright (C) 2000-2003 Lars Knoll (knoll@kde.org)
               (C) 2000 Antti Koivisto (koivisto@kde.org)
               (C) 2000-2003 Dirk Mueller (mueller@kde.org)
               (C) 2002-2003 Apple Computer, Inc.
-
-    This file is part of the KDE project
 
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Library General Public
@@ -31,8 +30,9 @@
 
 #if ENABLE(SVG)
 #include "Color.h"
-#include "Path.h"
 #include "PlatformString.h"
+#include "ShadowData.h"
+#include <wtf/OwnPtr.h>
 #include <wtf/RefCounted.h>
 #include <wtf/RefPtr.h>
 
@@ -60,13 +60,20 @@
 #define SVG_RS_DEFINE_ATTRIBUTE_DATAREF_WITH_INITIAL_REFCOUNTED(Data, Group, Variable, Type, Name, Initial) \
     Data* Name() const { return Group->Variable.get(); } \
     void set##Type(PassRefPtr<Data> obj) { \
-        if(!(Group->Variable == obj)) \
+        if (!(Group->Variable == obj)) \
             Group.access()->Variable = obj; \
     } \
     static Data* initial##Type() { return Initial; }
 
+#define SVG_RS_DEFINE_ATTRIBUTE_DATAREF_WITH_INITIAL_OWNPTR(Data, Group, Variable, Type, Name, Initial) \
+    Data* Name() const { return Group->Variable.get(); } \
+    void set##Type(Data* obj) { \
+        Group.access()->Variable.set(obj); \
+    } \
+    static Data* initial##Type() { return Initial; }
+
 #define SVG_RS_SET_VARIABLE(Group, Variable, Value) \
-    if(!(Group->Variable == Value)) \
+    if (!(Group->Variable == Value)) \
         Group.access()->Variable = Value;
 
 namespace WebCore {
@@ -93,10 +100,6 @@ namespace WebCore {
 
     enum EShapeRendering {
         SR_AUTO, SR_OPTIMIZESPEED, SR_CRISPEDGES, SR_GEOMETRICPRECISION
-    };
-
-    enum ETextRendering {
-        TR_AUTO, TR_OPTIMIZESPEED, TR_OPTIMIZELEGIBILITY, TR_GEOMETRICPRECISION
     };
 
     enum EWritingMode {
@@ -129,8 +132,8 @@ namespace WebCore {
         static PassRefPtr<StyleFillData> create() { return adoptRef(new StyleFillData); }
         PassRefPtr<StyleFillData> copy() const { return adoptRef(new StyleFillData(*this)); }
         
-        bool operator==(const StyleFillData &other) const;
-        bool operator!=(const StyleFillData &other) const
+        bool operator==(const StyleFillData&) const;
+        bool operator!=(const StyleFillData& other) const
         {
             return !(*this == other);
         }
@@ -173,8 +176,8 @@ namespace WebCore {
         static PassRefPtr<StyleStopData> create() { return adoptRef(new StyleStopData); }
         PassRefPtr<StyleStopData> copy() const { return adoptRef(new StyleStopData(*this)); }
 
-        bool operator==(const StyleStopData &other) const;
-        bool operator!=(const StyleStopData &other) const
+        bool operator==(const StyleStopData&) const;
+        bool operator!=(const StyleStopData& other) const
         {
             return !(*this == other);
         }
@@ -202,78 +205,23 @@ namespace WebCore {
 
     private:
         StyleTextData();
-        StyleTextData(const StyleTextData& other);
+        StyleTextData(const StyleTextData&);
     };
 
-    class StyleClipData : public RefCounted<StyleClipData> {
-    public:
-        static PassRefPtr<StyleClipData> create() { return adoptRef(new StyleClipData); }
-        PassRefPtr<StyleClipData> copy() const { return adoptRef(new StyleClipData(*this)); }
-
-        bool operator==(const StyleClipData &other) const;
-        bool operator!=(const StyleClipData &other) const
-        {
-            return !(*this == other);
-        }
-
-        String clipPath;
-
-    private:
-        StyleClipData();
-        StyleClipData(const StyleClipData&);
-    };
-
-    class StyleMaskData : public RefCounted<StyleMaskData> {
-    public:
-        static PassRefPtr<StyleMaskData> create() { return adoptRef(new StyleMaskData); }
-        PassRefPtr<StyleMaskData> copy() const { return adoptRef(new StyleMaskData(*this)); }
-
-        bool operator==(const StyleMaskData &other) const;
-        bool operator!=(const StyleMaskData &other) const { return !(*this == other); }
-
-        String maskElement;
-
-    private:        
-        StyleMaskData();
-        StyleMaskData(const StyleMaskData&);
-    };
-
-    class StyleMarkerData : public RefCounted<StyleMarkerData> {
-    public:
-        static PassRefPtr<StyleMarkerData> create() { return adoptRef(new StyleMarkerData); }
-        PassRefPtr<StyleMarkerData> copy() const { return adoptRef(new StyleMarkerData(*this)); }
-
-        bool operator==(const StyleMarkerData &other) const;
-        bool operator!=(const StyleMarkerData &other) const
-        {
-            return !(*this == other);
-        }
-
-        String startMarker;
-        String midMarker;
-        String endMarker;
-
-    private:
-        StyleMarkerData();
-        StyleMarkerData(const StyleMarkerData&);
-    };
-
-    // Note : the rule for this class is, *no inheritance* of these props
+    // Note: the rule for this class is, *no inheritance* of these props
     class StyleMiscData : public RefCounted<StyleMiscData> {
     public:
         static PassRefPtr<StyleMiscData> create() { return adoptRef(new StyleMiscData); }
         PassRefPtr<StyleMiscData> copy() const { return adoptRef(new StyleMiscData(*this)); }
 
-        bool operator==(const StyleMiscData &other) const;
-        bool operator!=(const StyleMiscData &other) const
+        bool operator==(const StyleMiscData&) const;
+        bool operator!=(const StyleMiscData& other) const
         {
             return !(*this == other);
         }
 
-        String filter;
         Color floodColor;
         float floodOpacity;
-
         Color lightingColor;
 
         // non-inherited text stuff lives here not in StyleTextData.
@@ -284,9 +232,67 @@ namespace WebCore {
         StyleMiscData(const StyleMiscData&);
     };
 
+    class StyleShadowSVGData : public RefCounted<StyleShadowSVGData> {
+    public:
+        static PassRefPtr<StyleShadowSVGData> create() { return adoptRef(new StyleShadowSVGData); }
+        PassRefPtr<StyleShadowSVGData> copy() const { return adoptRef(new StyleShadowSVGData(*this)); }
+
+        bool operator==(const StyleShadowSVGData&) const;
+        bool operator!=(const StyleShadowSVGData& other) const
+        {
+            return !(*this == other);
+        }
+
+        OwnPtr<ShadowData> shadow;
+
+    private:
+        StyleShadowSVGData();
+        StyleShadowSVGData(const StyleShadowSVGData&);
+    };
+
+    // Non-inherited resources
+    class StyleResourceData : public RefCounted<StyleResourceData> {
+    public:
+        static PassRefPtr<StyleResourceData> create() { return adoptRef(new StyleResourceData); }
+        PassRefPtr<StyleResourceData> copy() const { return adoptRef(new StyleResourceData(*this)); }
+
+        bool operator==(const StyleResourceData&) const;
+        bool operator!=(const StyleResourceData& other) const
+        {
+            return !(*this == other);
+        }
+
+        String clipper;
+        String filter;
+        String masker;
+
+    private:
+        StyleResourceData();
+        StyleResourceData(const StyleResourceData&);
+    };
+
+    // Inherited resources
+    class StyleInheritedResourceData : public RefCounted<StyleInheritedResourceData> {
+    public:
+        static PassRefPtr<StyleInheritedResourceData> create() { return adoptRef(new StyleInheritedResourceData); }
+        PassRefPtr<StyleInheritedResourceData> copy() const { return adoptRef(new StyleInheritedResourceData(*this)); }
+
+        bool operator==(const StyleInheritedResourceData&) const;
+        bool operator!=(const StyleInheritedResourceData& other) const
+        {
+            return !(*this == other);
+        }
+
+        String markerStart;
+        String markerMid;
+        String markerEnd;
+
+    private:
+        StyleInheritedResourceData();
+        StyleInheritedResourceData(const StyleInheritedResourceData&);
+    };
+
 } // namespace WebCore
 
 #endif // ENABLE(SVG)
 #endif // SVGRenderStyleDefs_h
-
-// vim:ts=4:noet

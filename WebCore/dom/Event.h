@@ -75,6 +75,9 @@ namespace WebCore {
         void initEvent(const AtomicString& type, bool canBubble, bool cancelable);
 
         const AtomicString& type() const { return m_type; }
+        
+        const AtomicString& aliasedType() const;
+        bool hasAliasedType() const;
 
         EventTarget* target() const { return m_target.get(); }
         void setTarget(PassRefPtr<EventTarget>);
@@ -88,8 +91,10 @@ namespace WebCore {
         bool bubbles() const { return m_canBubble; }
         bool cancelable() const { return m_cancelable; }
         DOMTimeStamp timeStamp() const { return m_createTime; }
-        void stopPropagation() { m_propagationStopped = true; }
 
+        void stopPropagation() { m_propagationStopped = true; }
+        void stopImmediatePropagation() { m_immediatePropagationStopped = true; }
+        
         // IE Extensions
         EventTarget* srcElement() const { return target(); } // MSIE extension - "the object that fired the event"
 
@@ -98,29 +103,42 @@ namespace WebCore {
 
         Clipboard* clipboardData() const { return isClipboardEvent() ? clipboard() : 0; }
 
+        virtual bool isCustomEvent() const;
         virtual bool isUIEvent() const;
         virtual bool isMouseEvent() const;
         virtual bool isMutationEvent() const;
         virtual bool isKeyboardEvent() const;
         virtual bool isTextEvent() const;
+        virtual bool isCompositionEvent() const;
         virtual bool isDragEvent() const; // a subset of mouse events
         virtual bool isClipboardEvent() const;
         virtual bool isMessageEvent() const;
         virtual bool isWheelEvent() const;
         virtual bool isBeforeTextInsertedEvent() const;
         virtual bool isOverflowEvent() const;
+        virtual bool isPageTransitionEvent() const;
+        virtual bool isPopStateEvent() const;
         virtual bool isProgressEvent() const;
         virtual bool isXMLHttpRequestProgressEvent() const;
         virtual bool isWebKitAnimationEvent() const;
         virtual bool isWebKitTransitionEvent() const;
+        virtual bool isBeforeLoadEvent() const;
 #if ENABLE(SVG)
         virtual bool isSVGZoomEvent() const;
 #endif
 #if ENABLE(DOM_STORAGE)
         virtual bool isStorageEvent() const;
 #endif
-
-        bool propagationStopped() const { return m_propagationStopped; }
+#if ENABLE(WORKERS)
+        virtual bool isErrorEvent() const;
+#endif
+#if ENABLE(TOUCH_EVENTS)
+        virtual bool isTouchEvent() const;
+#endif
+        bool fromUserGesture();
+        
+        bool propagationStopped() const { return m_propagationStopped || m_immediatePropagationStopped; }
+        bool immediatePropagationStopped() const { return m_immediatePropagationStopped; }
 
         bool defaultPrevented() const { return m_defaultPrevented; }
         void preventDefault() { if (m_cancelable) m_defaultPrevented = true; }
@@ -153,6 +171,7 @@ namespace WebCore {
         bool m_cancelable;
 
         bool m_propagationStopped;
+        bool m_immediatePropagationStopped;
         bool m_defaultPrevented;
         bool m_defaultHandled;
         bool m_cancelBubble;

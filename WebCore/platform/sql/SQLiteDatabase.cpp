@@ -48,6 +48,7 @@ SQLiteDatabase::SQLiteDatabase()
     : m_db(0)
     , m_pageSize(-1)
     , m_transactionInProgress(false)
+    , m_sharable(false)
     , m_openingThread(0)
 {
 }
@@ -57,11 +58,11 @@ SQLiteDatabase::~SQLiteDatabase()
     close();
 }
 
-bool SQLiteDatabase::open(const String& filename)
+bool SQLiteDatabase::open(const String& filename, bool forWebSQLDatabase)
 {
     close();
-    
-    m_lastError = SQLiteFileSystem::openDatabase(filename, &m_db);
+
+    m_lastError = SQLiteFileSystem::openDatabase(filename, &m_db, forWebSQLDatabase);
     if (m_lastError != SQLITE_OK) {
         LOG_ERROR("SQLite database failed to load from %s\nCause - %s", filename.ascii().data(),
             sqlite3_errmsg(m_db));
@@ -72,7 +73,7 @@ bool SQLiteDatabase::open(const String& filename)
 
     if (isOpen())
         m_openingThread = currentThread();
-    
+
     if (!SQLiteStatement(*this, "PRAGMA temp_store = MEMORY;").executeCommand())
         LOG_ERROR("SQLite database could not set temp_store to memory");
 
@@ -101,14 +102,17 @@ void SQLiteDatabase::setFullsync(bool fsync)
 
 int64_t SQLiteDatabase::maximumSize()
 {
-    MutexLocker locker(m_authorizerLock);
-    enableAuthorizer(false);
-    
-    SQLiteStatement statement(*this, "PRAGMA max_page_count");
-    int64_t size = statement.getColumnInt64(0) * pageSize();
-    
-    enableAuthorizer(true);
-    return size;
+    int64_t maxPageCount = 0;
+
+    {
+        MutexLocker locker(m_authorizerLock);
+        enableAuthorizer(false);
+        SQLiteStatement statement(*this, "PRAGMA max_page_count");
+        maxPageCount = statement.getColumnInt64(0);
+        enableAuthorizer(true);
+    }
+
+    return maxPageCount * pageSize();
 }
 
 void SQLiteDatabase::setMaximumSize(int64_t size)
@@ -127,7 +131,7 @@ void SQLiteDatabase::setMaximumSize(int64_t size)
     SQLiteStatement statement(*this, "PRAGMA max_page_count = " + String::number(newMaxPageCount));
     statement.prepare();
     if (statement.step() != SQLResultRow)
-        LOG_ERROR("Failed to set maximum size of database to %lli bytes", size);
+        LOG_ERROR("Failed to set maximum size of database to %lli bytes", static_cast<long long>(size));
 
     enableAuthorizer(true);
 
@@ -148,6 +152,37 @@ int SQLiteDatabase::pageSize()
     }
 
     return m_pageSize;
+}
+
+int64_t SQLiteDatabase::freeSpaceSize()
+{
+    int64_t freelistCount = 0;
+
+    {
+        MutexLocker locker(m_authorizerLock);
+        enableAuthorizer(false);
+        // Note: freelist_count was added in SQLite 3.4.1.
+        SQLiteStatement statement(*this, "PRAGMA freelist_count");
+        freelistCount = statement.getColumnInt64(0);
+        enableAuthorizer(true);
+    }
+
+    return freelistCount * pageSize();
+}
+
+int64_t SQLiteDatabase::totalSize()
+{
+    int64_t pageCount = 0;
+
+    {
+        MutexLocker locker(m_authorizerLock);
+        enableAuthorizer(false);
+        SQLiteStatement statement(*this, "PRAGMA page_count");
+        pageCount = statement.getColumnInt64(0);
+        enableAuthorizer(true);
+    }
+
+    return pageCount * pageSize();
 }
 
 void SQLiteDatabase::setSynchronous(SynchronousPragma sync)
@@ -216,6 +251,17 @@ void SQLiteDatabase::runVacuumCommand()
         LOG(SQLDatabase, "Unable to vacuum database - %s", lastErrorMsg());
 }
 
+void SQLiteDatabase::runIncrementalVacuumCommand()
+{
+    MutexLocker locker(m_authorizerLock);
+    enableAuthorizer(false);
+
+    if (!executeCommand("PRAGMA incremental_vacuum"))
+        LOG(SQLDatabase, "Unable to run incremental vacuum - %s", lastErrorMsg());
+
+    enableAuthorizer(true);
+}
+
 int64_t SQLiteDatabase::lastInsertRowID()
 {
     if (!m_db)
@@ -239,6 +285,18 @@ const char* SQLiteDatabase::lastErrorMsg()
 { 
     return sqlite3_errmsg(m_db);
 }
+
+#ifndef NDEBUG
+void SQLiteDatabase::disableThreadingChecks()
+{
+    // This doesn't guarantee that SQList was compiled with -DTHREADSAFE, or that you haven't turned off the mutexes.
+#if SQLITE_VERSION_NUMBER >= 3003001
+    m_sharable = true;
+#else
+    ASSERT(0); // Your SQLite doesn't support sharing handles across threads.
+#endif
+}
+#endif
 
 int SQLiteDatabase::authorizerFunction(void* userData, int actionCode, const char* parameter1, const char* parameter2, const char* /*databaseName*/, const char* /*trigger_or_view*/)
 {
@@ -308,7 +366,7 @@ int SQLiteDatabase::authorizerFunction(void* userData, int actionCode, const cha
         case SQLITE_DROP_VTABLE:
             return auth->dropVTable(parameter1, parameter2);
         case SQLITE_FUNCTION:
-            return auth->allowFunction(parameter1);
+            return auth->allowFunction(parameter2);
 #endif
         default:
             ASSERT_NOT_REACHED();
@@ -347,6 +405,41 @@ void SQLiteDatabase::lock()
 void SQLiteDatabase::unlock()
 {
     m_lockingMutex.unlock();
+}
+
+bool SQLiteDatabase::isAutoCommitOn() const
+{
+    return sqlite3_get_autocommit(m_db);
+}
+
+bool SQLiteDatabase::turnOnIncrementalAutoVacuum()
+{
+    SQLiteStatement statement(*this, "PRAGMA auto_vacuum");
+    int autoVacuumMode = statement.getColumnInt(0);
+    int error = lastError();
+
+    // Check if we got an error while trying to get the value of the auto_vacuum flag.
+    // If we got a SQLITE_BUSY error, then there's probably another transaction in
+    // progress on this database. In this case, keep the current value of the
+    // auto_vacuum flag and try to set it to INCREMENTAL the next time we open this
+    // database. If the error is not SQLITE_BUSY, then we probably ran into a more
+    // serious problem and should return false (to log an error message).
+    if (error != SQLITE_ROW)
+        return false;
+
+    switch (autoVacuumMode) {
+    case AutoVacuumIncremental:
+        return true;
+    case AutoVacuumFull:
+        return executeCommand("PRAGMA auto_vacuum = 2");
+    case AutoVacuumNone:
+    default:
+        if (!executeCommand("PRAGMA auto_vacuum = 2"))
+            return false;
+        runVacuumCommand();
+        error = lastError();
+        return (error == SQLITE_OK);
+    }
 }
 
 } // namespace WebCore

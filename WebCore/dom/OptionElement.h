@@ -34,6 +34,7 @@ class OptionElement {
 public:
     virtual ~OptionElement() { }
 
+    virtual bool disabled() const = 0;
     virtual bool selected() const = 0;
     virtual void setSelectedState(bool) = 0;
 
@@ -44,9 +45,12 @@ public:
 protected:
     static void setSelectedState(OptionElementData&, Element*, bool selected);
     static int optionIndex(SelectElement*, const Element*);
-    static String collectOptionText(const OptionElementData&, const Element*);
+    static String collectOptionLabelOrText(const OptionElementData&, const Element*);
     static String collectOptionTextRespectingGroupLabel(const OptionElementData&, const Element*);
     static String collectOptionValue(const OptionElementData&, const Element*);
+private:
+    static String collectOptionInnerText(const Element*);
+    static String normalizeText(const Document*, const String&);
 };
 
 // HTML/WMLOptionElement hold this struct as member variable

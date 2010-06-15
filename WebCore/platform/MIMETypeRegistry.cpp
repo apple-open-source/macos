@@ -92,7 +92,7 @@ static void initializeSupportedImageMIMETypes()
 
 #elif PLATFORM(QT)
     QList<QByteArray> formats = QImageReader::supportedImageFormats();
-    for (size_t i = 0; i < formats.size(); ++i) {
+    for (size_t i = 0; i < static_cast<size_t>(formats.size()); ++i) {
 #if ENABLE(SVG)
         /*
          * Qt has support for SVG, but we want to use KSVG2
@@ -149,7 +149,7 @@ static void initializeSupportedImageMIMETypesForEncoding()
 #endif
 #elif PLATFORM(QT)
     QList<QByteArray> formats = QImageWriter::supportedImageFormats();
-    for (size_t i = 0; i < formats.size(); ++i) {
+    for (int i = 0; i < formats.size(); ++i) {
         String mimeType = MIMETypeRegistry::getMIMETypeForExtension(formats.at(i).constData());
         supportedImageMIMETypesForEncoding->add(mimeType);
     }
@@ -200,11 +200,10 @@ static void initializeSupportedNonImageMimeTypes()
         "text/",
         "application/xml",
         "application/xhtml+xml",
-#if ENABLE(XHTMLMP)
         "application/vnd.wap.xhtml+xml",
-#endif
         "application/rss+xml",
         "application/atom+xml",
+        "application/json",
 #if ENABLE(SVG)
         "image/svg+xml",
 #endif
@@ -212,7 +211,12 @@ static void initializeSupportedNonImageMimeTypes()
         "application/x-ftp-directory",
 #endif
         "multipart/x-mixed-replace"
+        // Note: ADDING a new type here will probably render it as HTML. This can
+        // result in cross-site scripting.
     };
+    COMPILE_ASSERT(sizeof(types) / sizeof(types[0]) <= 16,
+                   nonimage_mime_types_must_be_less_than_or_equal_to_16);
+
     for (size_t i = 0; i < sizeof(types)/sizeof(types[0]); ++i)
         supportedNonImageMIMETypes->add(types[i]);
 
@@ -235,8 +239,8 @@ static void initializeMediaTypeMaps()
     static const TypeExtensionPair pairs[] = {
     
         // Ogg
-        { "application/ogg", "ogg" },
         { "application/ogg", "ogx" },
+        { "audio/ogg", "ogg" },
         { "audio/ogg", "oga" },
         { "video/ogg", "ogv" },
 
@@ -369,6 +373,8 @@ bool MIMETypeRegistry::isSupportedImageResourceMIMEType(const String& mimeType)
 
 bool MIMETypeRegistry::isSupportedImageMIMETypeForEncoding(const String& mimeType)
 {
+    ASSERT(isMainThread());
+
     if (mimeType.isEmpty())
         return false;
     if (!supportedImageMIMETypesForEncoding)

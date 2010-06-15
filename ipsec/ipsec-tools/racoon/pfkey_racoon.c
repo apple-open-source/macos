@@ -998,6 +998,13 @@ pk_recvgetspi(mhp)
 		return -1;
 	}
 
+	if (iph2->is_dying) {
+		plog(LLV_ERROR, LOCATION, NULL,
+			 "status mismatch phase2 dying (db:%d msg:%d)\n",
+			 iph2->status, PHASE2ST_GETSPISENT);
+		return -1;
+	}
+
 	if (iph2->status != PHASE2ST_GETSPISENT) {
 		plog(LLV_ERROR, LOCATION, NULL,
 			"status mismatch (db:%d msg:%d)\n",
@@ -1337,6 +1344,13 @@ pk_recvupdate(mhp)
 			"seq %d of %s message not interesting.\n",
 			msg->sadb_msg_seq,
 			s_pfkey_type(msg->sadb_msg_type));
+		return -1;
+	}
+
+	if (iph2->is_dying) {
+		plog(LLV_ERROR, LOCATION, NULL,
+			 "status mismatch phase2 dying (db:%d msg:%d)\n",
+			 iph2->status, PHASE2ST_ADDSA);
 		return -1;
 	}
 
@@ -1809,7 +1823,7 @@ pk_recvexpire(mhp)
 			    sa_mode));
 		return 0;
 	}
-	if (iph2->status != PHASE2ST_ESTABLISHED) {
+	if (iph2->is_dying || iph2->status != PHASE2ST_ESTABLISHED) {
 		/*
 		 * If the status is not equal to PHASE2ST_ESTABLISHED,
 		 * racoon ignores this expire message.  There are two reason.
@@ -1820,7 +1834,7 @@ pk_recvexpire(mhp)
 		 */
 		plog(LLV_WARNING, LOCATION, NULL,
 			"the expire message is received "
-			"but the handler has not been established.\n");
+			"but the handler is dying or has not been established.\n");
 		return 0;
 	}
 

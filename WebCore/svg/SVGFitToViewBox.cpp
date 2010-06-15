@@ -2,8 +2,6 @@
     Copyright (C) 2004, 2005, 2008 Nikolas Zimmermann <zimmermann@kde.org>
                   2004, 2005, 2006, 2007 Rob Buis <buis@kde.org>
 
-    This file is part of the KDE project
-
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Library General Public
     License as published by the Free Software Foundation; either
@@ -25,6 +23,8 @@
 #if ENABLE(SVG)
 #include "SVGFitToViewBox.h"
 
+#include "AffineTransform.h"
+#include "Attr.h"
 #include "Document.h"
 #include "FloatRect.h"
 #include "MappedAttribute.h"
@@ -32,15 +32,10 @@
 #include "SVGParserUtilities.h"
 #include "SVGPreserveAspectRatio.h"
 #include "StringImpl.h"
-#include "TransformationMatrix.h"
 
 namespace WebCore {
 
-char SVGFitToViewBoxIdentifier[] = "SVGFitToViewBox";
-
 SVGFitToViewBox::SVGFitToViewBox()
-    : m_viewBox(this, SVGNames::viewBoxAttr)
-    , m_preserveAspectRatio(this, SVGNames::preserveAspectRatioAttr, SVGPreserveAspectRatio::create())
 {
 }
 
@@ -48,9 +43,8 @@ SVGFitToViewBox::~SVGFitToViewBox()
 {
 }
 
-bool SVGFitToViewBox::parseViewBox(const UChar*& c, const UChar* end, float& x, float& y, float& w, float& h, bool validate)
+bool SVGFitToViewBox::parseViewBox(Document* doc, const UChar*& c, const UChar* end, float& x, float& y, float& w, float& h, bool validate)
 {
-    Document* doc = contextElement()->document();
     String str(c, end - c);
 
     skipOptionalSpaces(c, end);
@@ -81,30 +75,25 @@ bool SVGFitToViewBox::parseViewBox(const UChar*& c, const UChar* end, float& x, 
     return true;
 }
 
-TransformationMatrix SVGFitToViewBox::viewBoxToViewTransform(float viewWidth, float viewHeight) const
+AffineTransform SVGFitToViewBox::viewBoxToViewTransform(const FloatRect& viewBoxRect, const SVGPreserveAspectRatio& preserveAspectRatio, float viewWidth, float viewHeight)
 {
-    FloatRect viewBoxRect = viewBox();
     if (!viewBoxRect.width() || !viewBoxRect.height())
-        return TransformationMatrix();
+        return AffineTransform();
 
-    return preserveAspectRatio()->getCTM(viewBoxRect.x(),
-            viewBoxRect.y(), viewBoxRect.width(), viewBoxRect.height(),
-            0, 0, viewWidth, viewHeight);
+    return preserveAspectRatio.getCTM(viewBoxRect.x(), viewBoxRect.y(), viewBoxRect.width(), viewBoxRect.height(), 0, 0, viewWidth, viewHeight);
 }
 
-bool SVGFitToViewBox::parseMappedAttribute(MappedAttribute* attr)
+bool SVGFitToViewBox::parseMappedAttribute(Document* document, MappedAttribute* attr)
 {
     if (attr->name() == SVGNames::viewBoxAttr) {
         float x = 0.0f, y = 0.0f, w = 0.0f, h = 0.0f;
         const UChar* c = attr->value().characters();
         const UChar* end = c + attr->value().length();
-        if (parseViewBox(c, end, x, y, w, h))
+        if (parseViewBox(document, c, end, x, y, w, h))
             setViewBoxBaseValue(FloatRect(x, y, w, h));
         return true;
     } else if (attr->name() == SVGNames::preserveAspectRatioAttr) {
-        const UChar* c = attr->value().characters();
-        const UChar* end = c + attr->value().length();
-        preserveAspectRatioBaseValue()->parsePreserveAspectRatio(c, end);
+        SVGPreserveAspectRatio::parsePreserveAspectRatio(this, attr->value());
         return true;
     }
 

@@ -1,6 +1,7 @@
 /*
  * Copyright (C) 2006, 2008 Apple Inc. All rights reserved.
  * Copyright (C) 2008 Collabora, Ltd.  All rights reserved.
+ * Copyright (C) 2009 Torch Mobile, Inc.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -28,7 +29,6 @@
 #include "config.h"
 #include "PluginPackage.h"
 
-#include "CString.h"
 #include "MIMETypeRegistry.h"
 #include "PluginDatabase.h"
 #include "PluginDebug.h"
@@ -36,6 +36,7 @@
 #include "npruntime_impl.h"
 #include <string.h>
 #include <wtf/OwnArrayPtr.h>
+#include <wtf/text/CString.h>
 #include <shlwapi.h>
 
 namespace WebCore {
@@ -53,17 +54,6 @@ static String getVersionInfo(const LPVOID versionInfoData, const String& info)
 
     // Subtract 1 from the length; we don't want the trailing null character.
     return String(reinterpret_cast<UChar*>(buffer), bufferLength - 1);
-}
-
-int PluginPackage::compareFileVersion(const PlatformModuleVersion& compareVersion) const
-{
-    // return -1, 0, or 1 if plug-in version is less than, equal to, or greater than
-    // the passed version
-    if (m_moduleVersion.mostSig != compareVersion.mostSig)
-        return m_moduleVersion.mostSig > compareVersion.mostSig ? 1 : -1;
-    if (m_moduleVersion.leastSig != compareVersion.leastSig)
-        return m_moduleVersion.leastSig > compareVersion.leastSig ? 1 : -1;
-    return 0;
 }
 
 bool PluginPackage::isPluginBlacklisted()
@@ -244,6 +234,9 @@ bool PluginPackage::load()
         m_loadCount++;
         return true;
     } else {
+#if OS(WINCE)
+        m_module = ::LoadLibraryW(m_path.charactersWithNullTermination());
+#else
         WCHAR currentPath[MAX_PATH];
 
         if (!::GetCurrentDirectoryW(MAX_PATH, currentPath))
@@ -262,6 +255,7 @@ bool PluginPackage::load()
                 ::FreeLibrary(m_module);
             return false;
         }
+#endif
     }
 
     if (!m_module)
@@ -273,13 +267,19 @@ bool PluginPackage::load()
     NP_InitializeFuncPtr NP_Initialize = 0;
     NPError npErr;
 
+#if OS(WINCE)
+    NP_Initialize = (NP_InitializeFuncPtr)GetProcAddress(m_module, L"NP_Initialize");
+    NP_GetEntryPoints = (NP_GetEntryPointsFuncPtr)GetProcAddress(m_module, L"NP_GetEntryPoints");
+    m_NPP_Shutdown = (NPP_ShutdownProcPtr)GetProcAddress(m_module, L"NP_Shutdown");
+#else
     NP_Initialize = (NP_InitializeFuncPtr)GetProcAddress(m_module, "NP_Initialize");
     NP_GetEntryPoints = (NP_GetEntryPointsFuncPtr)GetProcAddress(m_module, "NP_GetEntryPoints");
     m_NPP_Shutdown = (NPP_ShutdownProcPtr)GetProcAddress(m_module, "NP_Shutdown");
+#endif
 
     if (!NP_Initialize || !NP_GetEntryPoints || !m_NPP_Shutdown)
         goto abort;
-  
+
     memset(&m_pluginFuncs, 0, sizeof(m_pluginFuncs));
     m_pluginFuncs.size = sizeof(m_pluginFuncs);
 
@@ -335,4 +335,8 @@ bool PluginPackage::equal(const PluginPackage& a, const PluginPackage& b)
     return true;
 }
 
+uint16_t PluginPackage::NPVersion() const
+{
+    return NP_VERSION_MINOR;
+}
 }

@@ -40,8 +40,12 @@ __BEGIN_DECLS
 typedef enum {
 	OSThermalNotificationLevelAny      = -1,
 	OSThermalNotificationLevelNormal   =  0,
+	OSThermalNotificationLevel70PercentTorch  =  1,
 	OSThermalNotificationLevel70PercentBacklight  =  3,
+	OSThermalNotificationLevel50PercentTorch  =  3,
 	OSThermalNotificationLevel50PercentBacklight  =  5,
+	OSThermalNotificationLevelDisableTorch  =  5,
+	OSThermalNotificationLevel25PercentBacklight = 7,
 	OSThermalNotificationLevelAppTerminate  =  12,
 	OSThermalNotificationLevelDeviceRestart = 16
 } OSThermalNotificationLevel;

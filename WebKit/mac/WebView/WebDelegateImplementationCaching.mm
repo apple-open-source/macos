@@ -60,6 +60,14 @@ WebScriptDebugDelegateImplementationCache* WebViewGetScriptDebugDelegateImplemen
     return &webView->_private->scriptDebugDelegateImplementations;
 }
 
+WebHistoryDelegateImplementationCache* WebViewGetHistoryDelegateImplementations(WebView *webView)
+{
+    static WebHistoryDelegateImplementationCache empty;
+    if (!webView)
+        return &empty;
+    return &webView->_private->historyDelegateImplementations;
+}
+
 // We use these functions to call the delegates and block exceptions. These functions are
 // declared inside a WebView category to get direct access to the delegate data memebers,
 // preventing more ObjC message dispatch and compensating for the expense of the @try/@catch.
@@ -219,6 +227,20 @@ static inline BOOL CallDelegateReturningBoolean(BOOL result, WebView *self, id d
         return reinterpret_cast<BOOL (*)(id, SEL, WebView *, id, BOOL)>(objc_msgSend)(delegate, selector, self, object, boolean);
     @try {
         return reinterpret_cast<BOOL (*)(id, SEL, WebView *, id, BOOL)>(objc_msgSend)(delegate, selector, self, object, boolean);
+    } @catch(id exception) {
+        ReportDiscardedDelegateException(selector, exception);
+    }
+    return result;
+}
+
+static inline BOOL CallDelegateReturningBoolean(BOOL result, WebView *self, id delegate, SEL selector, id object, BOOL boolean, id object2)
+{
+    if (!delegate || ![delegate respondsToSelector:selector])
+        return result;
+    if (!self->_private->catchesDelegateExceptions)
+        return reinterpret_cast<BOOL (*)(id, SEL, WebView *, id, BOOL, id)>(objc_msgSend)(delegate, selector, self, object, boolean, object2);
+    @try {
+        return reinterpret_cast<BOOL (*)(id, SEL, WebView *, id, BOOL, id)>(objc_msgSend)(delegate, selector, self, object, boolean, object2);
     } @catch(id exception) {
         ReportDiscardedDelegateException(selector, exception);
     }
@@ -448,6 +470,11 @@ BOOL CallUIDelegateReturningBoolean(BOOL result, WebView *self, SEL selector, id
     return CallDelegateReturningBoolean(result, self, self->_private->UIDelegate, selector, object, boolean);
 }
 
+BOOL CallUIDelegateReturningBoolean(BOOL result, WebView *self, SEL selector, id object, BOOL boolean, id object2)
+{
+    return CallDelegateReturningBoolean(result, self, self->_private->UIDelegate, selector, object, boolean, object2);
+}
+
 BOOL CallUIDelegateReturningBoolean(BOOL result, WebView *self, SEL selector, id object1, id object2)
 {
     return CallDelegateReturningBoolean(result, self, self->_private->UIDelegate, selector, object1, object2);
@@ -520,6 +547,18 @@ BOOL CallResourceLoadDelegateReturningBoolean(BOOL result, IMP implementation, W
     return result;
 }
 
+BOOL CallResourceLoadDelegateReturningBoolean(BOOL result, IMP implementation, WebView *self, SEL selector, id object1, id object2, id object3)
+{
+    if (!self->_private->catchesDelegateExceptions)
+        return reinterpret_cast<BOOL (*)(id, SEL, WebView *, id, id, id)>(objc_msgSend)(self->_private->resourceProgressDelegate, selector, self, object1, object2, object3);
+    @try {
+        return reinterpret_cast<BOOL (*)(id, SEL, WebView *, id, id, id)>(objc_msgSend)(self->_private->resourceProgressDelegate, selector, self, object1, object2, object3);
+    } @catch(id exception) {
+        ReportDiscardedDelegateException(selector, exception);
+    }
+    return result;
+}
+
 id CallScriptDebugDelegate(IMP implementation, WebView *self, SEL selector, id object1, id object2, NSInteger integer, id object3)
 {
     return CallDelegate(implementation, self, self->_private->scriptDebugDelegate, selector, object1, object2, integer, object3);
@@ -538,6 +577,21 @@ id CallScriptDebugDelegate(IMP implementation, WebView *self, SEL selector, id o
 id CallScriptDebugDelegate(IMP implementation, WebView *self, SEL selector, id object1, NSInteger integer1, NSInteger integer2, id object2)
 {
     return CallDelegate(implementation, self, self->_private->scriptDebugDelegate, selector, object1, integer1, integer2, object2);
+}
+
+id CallHistoryDelegate(IMP implementation, WebView *self, SEL selector)
+{
+    return CallDelegate(implementation, self, self->_private->historyDelegate, selector);
+}
+
+id CallHistoryDelegate(IMP implementation, WebView *self, SEL selector, id object1, id object2)
+{
+    return CallDelegate(implementation, self, self->_private->historyDelegate, selector, object1, object2);
+}
+
+id CallHistoryDelegate(IMP implementation, WebView *self, SEL selector, id object1, id object2, id object3)
+{
+    return CallDelegate(implementation, self, self->_private->historyDelegate, selector, object1, object2, object3);
 }
 
 // The form delegate needs to have it's own implementation, because the first argument is never the WebView

@@ -26,6 +26,7 @@
 
 #include "CheckedRadioButtons.h"
 #include "FormDataBuilder.h"
+#include "FormState.h"
 #include "HTMLElement.h"
 #include <wtf/OwnPtr.h>
 
@@ -54,7 +55,7 @@ public:
     virtual void insertedIntoDocument();
     virtual void removedFromDocument();
  
-    virtual void handleLocalEvents(Event*, bool useCapture);
+    virtual void handleLocalEvents(Event*);
      
     PassRefPtr<HTMLCollection> elements();
     void getNamedElements(const AtomicString&, Vector<RefPtr<Node> >&);
@@ -78,7 +79,7 @@ public:
     void removeImgElement(HTMLImageElement*);
 
     bool prepareSubmit(Event*);
-    void submit(Event* = 0, bool activateSubmitButton = false, bool lockHistory = false);
+    void submit(Frame* javaScriptActiveFrame = 0);
     void reset();
 
     // Used to indicate a malformed state to keep from applying the bottom margin of the form.
@@ -90,11 +91,14 @@ public:
 
     virtual bool isURLAttribute(Attribute*) const;
     
-    void submitClick(Event*);
+    void submitImplicitly(Event*, bool fromImplicitSubmissionTrigger);
     bool formWouldHaveSecureSubmission(const String& url);
 
     String name() const;
     void setName(const String&);
+
+    bool noValidate() const;
+    void setNoValidate(bool);
 
     String acceptCharset() const { return m_formDataBuilder.acceptCharset(); }
     void setAcceptCharset(const String&);
@@ -107,7 +111,11 @@ public:
 
     virtual String target() const;
     void setTarget(const String&);
-    
+
+    HTMLFormControlElement* defaultButton() const;
+
+    bool checkValidity();
+
     PassRefPtr<HTMLFormControlElement> elementForAlias(const AtomicString&);
     void addElementAlias(HTMLFormControlElement*, const AtomicString& alias);
 
@@ -123,10 +131,17 @@ protected:
     virtual void didMoveToNewOwnerDocument();
 
 private:
+    void submit(Event*, bool activateSubmitButton, bool lockHistory, FormSubmissionTrigger);
+
     bool isMailtoForm() const;
     TextEncoding dataEncoding() const;
-    PassRefPtr<FormData> createFormData(const CString& boundary);
+    PassRefPtr<FormData> createFormData();
     unsigned formElementIndex(HTMLFormControlElement*);
+    // Returns true if the submission should be proceeded.
+    bool validateInteractively(Event*);
+    // Validates each of the controls, and stores controls of which 'invalid'
+    // event was not canceled to the specified vector.
+    void collectUnhandledInvalidControls(Vector<RefPtr<HTMLFormControlElement> >&);
 
     friend class HTMLFormCollection;
 

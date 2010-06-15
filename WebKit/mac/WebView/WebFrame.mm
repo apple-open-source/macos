@@ -39,6 +39,7 @@
 #import "WebChromeClient.h"
 #import "WebDataSourceInternal.h"
 #import "WebDocumentLoaderMac.h"
+#import "WebDynamicScrollBarsView.h"
 #import "WebFrameLoaderClient.h"
 #import "WebFrameViewInternal.h"
 #import "WebHTMLView.h"
@@ -49,17 +50,20 @@
 #import "WebNSObjectExtras.h"
 #import "WebNSURLExtras.h"
 #import "WebScriptDebugger.h"
+#import "WebScriptWorldInternal.h"
 #import "WebViewInternal.h"
 #import <JavaScriptCore/APICast.h>
 #import <WebCore/AXObjectCache.h>
 #import <WebCore/AccessibilityObject.h>
 #import <WebCore/AnimationController.h>
 #import <WebCore/CSSMutableStyleDeclaration.h>
+#import <WebCore/Chrome.h>
 #import <WebCore/ColorMac.h>
 #import <WebCore/DOMImplementation.h>
 #import <WebCore/DocLoader.h>
 #import <WebCore/DocumentFragment.h>
 #import <WebCore/EventHandler.h>
+#import <WebCore/EventNames.h>
 #import <WebCore/Frame.h>
 #import <WebCore/FrameLoader.h>
 #import <WebCore/FrameTree.h>
@@ -70,6 +74,7 @@
 #import <WebCore/LegacyWebArchive.h>
 #import <WebCore/Page.h>
 #import <WebCore/PluginData.h>
+#import <WebCore/PrintContext.h>
 #import <WebCore/RenderLayer.h>
 #import <WebCore/RenderPart.h>
 #import <WebCore/RenderView.h>
@@ -77,13 +82,16 @@
 #import <WebCore/RuntimeApplicationChecks.h>
 #import <WebCore/ScriptValue.h>
 #import <WebCore/SmartReplace.h>
+#import <WebCore/SVGSMILElement.h>
 #import <WebCore/TextIterator.h>
 #import <WebCore/ThreadCheck.h>
 #import <WebCore/TypingCommand.h>
 #import <WebCore/htmlediting.h>
 #import <WebCore/markup.h>
 #import <WebCore/visible_units.h>
+#import <WebKitSystemInterface.h>
 #import <runtime/JSLock.h>
+#import <runtime/JSObject.h>
 #import <runtime/JSValue.h>
 #import <wtf/CurrentTime.h>
 
@@ -94,6 +102,7 @@ using namespace HTMLNames;
 using JSC::JSGlobalObject;
 using JSC::JSLock;
 using JSC::JSValue;
+using JSC::SilenceAssertionsOnly;
 
 /*
 Here is the current behavior matrix for four types of navigations:
@@ -130,6 +139,14 @@ Repeat load of the same URL (by any other means of navigation other than the rel
 NSString *WebPageCacheEntryDateKey = @"WebPageCacheEntryDateKey";
 NSString *WebPageCacheDataSourceKey = @"WebPageCacheDataSourceKey";
 NSString *WebPageCacheDocumentViewKey = @"WebPageCacheDocumentViewKey";
+
+NSString *WebFrameMainDocumentError = @"WebFrameMainDocumentErrorKey";
+NSString *WebFrameHasPlugins = @"WebFrameHasPluginsKey";
+NSString *WebFrameHasUnloadListener = @"WebFrameHasUnloadListenerKey";
+NSString *WebFrameUsesDatabases = @"WebFrameUsesDatabasesKey";
+NSString *WebFrameUsesGeolocation = @"WebFrameUsesGeolocationKey";
+NSString *WebFrameUsesApplicationCache = @"WebFrameUsesApplicationCacheKey";
+NSString *WebFrameCanSuspendActiveDOMObjects = @"WebFrameCanSuspendActiveDOMObjectsKey";
 
 // FIXME: Remove when this key becomes publicly defined
 NSString *NSAccessibilityEnhancedUserInterfaceAttribute = @"AXEnhancedUserInterface";
@@ -255,16 +272,22 @@ WebView *getWebView(WebFrame *webFrame)
     return [self _createFrameWithPage:ownerElement->document()->frame()->page() frameName:name frameView:frameView ownerElement:ownerElement];
 }
 
+- (BOOL)_isIncludedInWebKitStatistics
+{
+    return _private && _private->includedInWebKitStatistics;
+}
+
 - (void)_attachScriptDebugger
 {
     ScriptController* scriptController = _private->coreFrame->script();
 
     // Calling ScriptController::globalObject() would create a window shell, and dispatch corresponding callbacks, which may be premature
-    //  if the script debugger is attached before a document is created.
-    if (!scriptController->haveWindowShell())
+    // if the script debugger is attached before a document is created.  These calls use the debuggerWorld(), we will need to pass a world
+    // to be able to debug isolated worlds.
+    if (!scriptController->existingWindowShell(debuggerWorld()))
         return;
 
-    JSGlobalObject* globalObject = scriptController->globalObject();
+    JSGlobalObject* globalObject = scriptController->globalObject(debuggerWorld());
     if (!globalObject)
         return;
 
@@ -293,14 +316,17 @@ WebView *getWebView(WebFrame *webFrame)
 
     _private = [[WebFramePrivate alloc] init];
 
+    // Set includedInWebKitStatistics before calling WebFrameView _setWebFrame, since
+    // it calls WebFrame _isIncludedInWebKitStatistics.
+    if ((_private->includedInWebKitStatistics = [[v class] shouldIncludeInWebKitStatistics]))
+        ++WebFrameCount;
+
     if (fv) {
         [_private setWebFrameView:fv];
         [fv _setWebFrame:self];
     }
 
     _private->shouldCreateRenderers = YES;
-
-    ++WebFrameCount;
 
     return self;
 }
@@ -508,14 +534,27 @@ static inline WebDataSource *dataSource(DocumentLoader* loader)
 
 - (void)_drawRect:(NSRect)rect contentsOnly:(BOOL)contentsOnly
 {
-    PlatformGraphicsContext* platformContext = static_cast<PlatformGraphicsContext*>([[NSGraphicsContext currentContext] graphicsPort]);
     ASSERT([[NSGraphicsContext currentContext] isFlipped]);
-    GraphicsContext context(platformContext);
+
+    CGContextRef ctx = static_cast<CGContextRef>([[NSGraphicsContext currentContext] graphicsPort]);
+    GraphicsContext context(ctx);
+
+    FrameView* view = _private->coreFrame->view();
+    
+    bool shouldFlatten = WKCGContextIsBitmapContext(ctx) && [getWebView(self) _includesFlattenedCompositingLayersWhenDrawingToBitmap];
+    PaintBehavior oldBehavior = PaintBehaviorNormal;
+    if (shouldFlatten) {
+        oldBehavior = view->paintBehavior();
+        view->setPaintBehavior(oldBehavior | PaintBehaviorFlattenCompositingLayers);
+    }
     
     if (contentsOnly)
         _private->coreFrame->view()->paintContents(&context, enclosingIntRect(rect));
     else
         _private->coreFrame->view()->paint(&context, enclosingIntRect(rect));
+
+    if (shouldFlatten)
+        view->setPaintBehavior(oldBehavior);
 }
 
 // Used by pagination code called from AppKit when a standalone web page is printed.
@@ -533,7 +572,7 @@ static inline WebDataSource *dataSource(DocumentLoader* loader)
     }
 
     if (!_private->coreFrame || !_private->coreFrame->document() || !_private->coreFrame->view()) return pages;
-    RenderView* root = static_cast<RenderView *>(_private->coreFrame->document()->renderer());
+    RenderView* root = toRenderView(_private->coreFrame->document()->renderer());
     if (!root) return pages;
     
     FrameView* view = _private->coreFrame->view();
@@ -544,22 +583,16 @@ static inline WebDataSource *dataSource(DocumentLoader* loader)
     if (!documentView)
         return pages;
 
-    float currPageHeight = printHeight;
-    float docHeight = root->layer()->height();
     float docWidth = root->layer()->width();
-    float printWidth = docWidth/printWidthScaleFactor;
-    
-    // We need to give the part the opportunity to adjust the page height at each step.
-    for (float i = 0; i < docHeight; i += currPageHeight) {
-        float proposedBottom = min(docHeight, i + printHeight);
-        view->adjustPageHeight(&proposedBottom, i, proposedBottom, i);
-        currPageHeight = max(1.0f, proposedBottom - i);
-        for (float j = 0; j < docWidth; j += printWidth) {
-            NSValue* val = [NSValue valueWithRect: NSMakeRect(j, i, printWidth, currPageHeight)];
-            [pages addObject: val];
-        }
-    }
-    
+    float printWidth = docWidth / printWidthScaleFactor;
+
+    PrintContext printContext(_private->coreFrame);
+    printContext.computePageRectsWithPageSize(FloatSize(printWidth, printHeight), true);
+
+    const Vector<IntRect>& pageRects = printContext.pageRects();
+    const size_t pageCount = pageRects.size();
+    for (size_t pageNumber = 0; pageNumber < pageCount; ++pageNumber)
+        [pages addObject: [NSValue valueWithRect: NSRect(pageRects[pageNumber])]];
     return pages;
 }
 
@@ -585,7 +618,7 @@ static inline WebDataSource *dataSource(DocumentLoader* loader)
 {
     ASSERT(_private->coreFrame->document());
     
-    JSValue result = _private->coreFrame->loader()->executeScript(string, forceUserGesture).jsValue();
+    JSValue result = _private->coreFrame->script()->executeScript(string, forceUserGesture).jsValue();
 
     if (!_private->coreFrame) // In case the script removed our frame from the page.
         return @"";
@@ -596,8 +629,8 @@ static inline WebDataSource *dataSource(DocumentLoader* loader)
     if (!result || !result.isBoolean() && !result.isString() && !result.isNumber())
         return @"";
 
-    JSLock lock(false);
-    return String(result.toString(_private->coreFrame->script()->globalObject()->globalExec()));
+    JSLock lock(SilenceAssertionsOnly);
+    return ustringToString(result.toString(_private->coreFrame->script()->globalObject(mainThreadNormalWorld())->globalExec()));
 }
 
 - (NSRect)_caretRectAtNode:(DOMNode *)node offset:(int)offset affinity:(NSSelectionAffinity)affinity
@@ -639,7 +672,7 @@ static inline WebDataSource *dataSource(DocumentLoader* loader)
 
     if (!_private->coreFrame || !_private->coreFrame->document())
         return nil;
-    RenderView* root = static_cast<RenderView *>(_private->coreFrame->document()->renderer());
+    RenderView* root = toRenderView(_private->coreFrame->document()->renderer());
     if (!root)
         return nil;
     return _private->coreFrame->document()->axObjectCache()->getOrCreate(root)->wrapper();
@@ -833,7 +866,7 @@ static inline WebDataSource *dataSource(DocumentLoader* loader)
     if (!_private->coreFrame || !_private->coreFrame->document())
         return nil;
 
-    return kit(createFragmentFromMarkup(_private->coreFrame->document(), markupString, baseURLString).get());
+    return kit(createFragmentFromMarkup(_private->coreFrame->document(), markupString, baseURLString, FragmentScriptingNotAllowed).get());
 }
 
 - (DOMDocumentFragment *)_documentFragmentWithNodesAsParagraphs:(NSArray *)nodes
@@ -911,20 +944,6 @@ static inline WebDataSource *dataSource(DocumentLoader* loader)
     _private->coreFrame->computeAndSetTypingStyle(core(style), undoAction);
 }
 
-- (void)_dragSourceMovedTo:(NSPoint)windowLoc
-{
-    if (!_private->coreFrame)
-        return;
-    FrameView* view = _private->coreFrame->view();
-    if (!view)
-        return;
-    ASSERT([getWebView(self) _usesDocumentViews]);
-    // FIXME: These are fake modifier keys here, but they should be real ones instead.
-    PlatformMouseEvent event(IntPoint(windowLoc), globalPoint(windowLoc, [view->platformWidget() window]),
-        LeftButton, MouseEventMoved, 0, false, false, false, false, currentTime());
-    _private->coreFrame->eventHandler()->dragSourceMovedTo(event);
-}
-
 - (void)_dragSourceEndedAt:(NSPoint)windowLoc operation:(NSDragOperation)operation
 {
     if (!_private->coreFrame)
@@ -942,7 +961,7 @@ static inline WebDataSource *dataSource(DocumentLoader* loader)
 - (BOOL)_canProvideDocumentSource
 {
     Frame* frame = _private->coreFrame;
-    String mimeType = frame->loader()->responseMIMEType();
+    String mimeType = frame->loader()->writer()->mimeType();
     PluginData* pluginData = frame->page() ? frame->page()->pluginData() : 0;
 
     if (WebCore::DOMImplementation::isTextMIMEType(mimeType) ||
@@ -967,7 +986,7 @@ static inline WebDataSource *dataSource(DocumentLoader* loader)
     bool userChosen = !encoding.isNull();
     if (encoding.isNull())
         encoding = textEncodingName;
-    _private->coreFrame->loader()->setEncoding(encoding, userChosen);
+    _private->coreFrame->loader()->writer()->setEncoding(encoding, userChosen);
     [self _addData:data];
 }
 
@@ -998,7 +1017,7 @@ static inline WebDataSource *dataSource(DocumentLoader* loader)
     RenderObject* bodyRenderer = body->renderer();
     if (!bodyRenderer)
         return nil;
-    Color color = bodyRenderer->style()->backgroundColor();
+    Color color = bodyRenderer->style()->visitedDependentColor(CSSPropertyBackgroundColor);
     if (!color.isValid())
         return nil;
     return nsColor(color);
@@ -1117,6 +1136,29 @@ static inline WebDataSource *dataSource(DocumentLoader* loader)
     return controller->pauseTransitionAtTime(coreNode->renderer(), name, time);
 }
 
+// Pause a given SVG animation on the target node at a specific time.
+// This method is only intended to be used for testing the SVG animation system.
+- (BOOL)_pauseSVGAnimation:(NSString*)elementId onSMILNode:(DOMNode *)node atTime:(NSTimeInterval)time
+{
+    Frame* frame = core(self);
+    if (!frame)
+        return false;
+ 
+    Document* document = frame->document();
+    if (!document || !document->svgExtensions())
+        return false;
+
+    Node* coreNode = core(node);
+    if (!coreNode || !SVGSMILElement::isSMILElement(coreNode))
+        return false;
+
+#if ENABLE(SVG)
+    return document->accessSVGExtensions()->sampleAnimationAtTime(elementId, static_cast<SVGSMILElement*>(coreNode), time);
+#else
+    return false;
+#endif
+}
+
 - (unsigned) _numberOfActiveAnimations
 {
     Frame* frame = core(self);
@@ -1151,11 +1193,130 @@ static inline WebDataSource *dataSource(DocumentLoader* loader)
     [self _replaceSelectionWithFragment:fragment selectReplacement:selectReplacement smartReplace:smartReplace matchStyle:NO];
 }
 
+- (NSMutableDictionary *)_cacheabilityDictionary
+{
+    NSMutableDictionary *result = [NSMutableDictionary dictionary];
+    
+    FrameLoader* frameLoader = _private->coreFrame->loader();
+    DocumentLoader* documentLoader = frameLoader->documentLoader();
+    if (documentLoader && !documentLoader->mainDocumentError().isNull())
+        [result setObject:(NSError *)documentLoader->mainDocumentError() forKey:WebFrameMainDocumentError];
+        
+    if (frameLoader->containsPlugins())
+        [result setObject:[NSNumber numberWithBool:YES] forKey:WebFrameHasPlugins];
+    
+    if (DOMWindow* domWindow = _private->coreFrame->domWindow()) {
+        if (domWindow->hasEventListeners(eventNames().unloadEvent))
+            [result setObject:[NSNumber numberWithBool:YES] forKey:WebFrameHasUnloadListener];
+            
+#if ENABLE(OFFLINE_WEB_APPLICATIONS)
+        if (domWindow->optionalApplicationCache())
+            [result setObject:[NSNumber numberWithBool:YES] forKey:WebFrameUsesApplicationCache];
+#endif
+    }
+    
+    if (Document* document = _private->coreFrame->document()) {
+#if ENABLE(DATABASE)
+        if (document->hasOpenDatabases())
+            [result setObject:[NSNumber numberWithBool:YES] forKey:WebFrameUsesDatabases];
+#endif
+            
+        if (document->usingGeolocation())
+            [result setObject:[NSNumber numberWithBool:YES] forKey:WebFrameUsesGeolocation];
+            
+        if (!document->canSuspendActiveDOMObjects())
+            [result setObject:[NSNumber numberWithBool:YES] forKey:WebFrameCanSuspendActiveDOMObjects];
+    }
+    
+    return result;
+}
+
 - (BOOL)_allowsFollowingLink:(NSURL *)URL
 {
     if (!_private->coreFrame)
         return YES;
-    return FrameLoader::canLoad(URL, String(), _private->coreFrame->document());
+    return SecurityOrigin::canLoad(URL, String(), _private->coreFrame->document());
+}
+
+- (NSString *)_stringByEvaluatingJavaScriptFromString:(NSString *)string withGlobalObject:(JSObjectRef)globalObjectRef inScriptWorld:(WebScriptWorld *)world
+{
+    // Start off with some guess at a frame and a global object, we'll try to do better...!
+    JSDOMWindow* anyWorldGlobalObject = _private->coreFrame->script()->globalObject(mainThreadNormalWorld());
+
+    // The global object is probably a shell object? - if so, we know how to use this!
+    JSC::JSObject* globalObjectObj = toJS(globalObjectRef);
+    if (!strcmp(globalObjectObj->classInfo()->className, "JSDOMWindowShell"))
+        anyWorldGlobalObject = static_cast<JSDOMWindowShell*>(globalObjectObj)->window();
+
+    // Get the frame frome the global object we've settled on.
+    Frame* frame = anyWorldGlobalObject->impl()->frame();
+    ASSERT(frame->document());
+    JSValue result = frame->script()->executeScriptInWorld(core(world), string, true).jsValue();
+
+    if (!frame) // In case the script removed our frame from the page.
+        return @"";
+
+    // This bizarre set of rules matches behavior from WebKit for Safari 2.0.
+    // If you don't like it, use -[WebScriptObject evaluateWebScript:] or 
+    // JSEvaluateScript instead, since they have less surprising semantics.
+    if (!result || !result.isBoolean() && !result.isString() && !result.isNumber())
+        return @"";
+
+    JSLock lock(SilenceAssertionsOnly);
+    return ustringToString(result.toString(anyWorldGlobalObject->globalExec()));
+}
+
+- (JSGlobalContextRef)_globalContextForScriptWorld:(WebScriptWorld *)world
+{
+    Frame* coreFrame = _private->coreFrame;
+    if (!coreFrame)
+        return 0;
+    DOMWrapperWorld* coreWorld = core(world);
+    if (!coreWorld)
+        return 0;
+    return toGlobalRef(coreFrame->script()->globalObject(coreWorld)->globalExec());
+}
+
+- (void)setAllowsScrollersToOverlapContent:(BOOL)flag
+{
+    ASSERT([[[self frameView] _scrollView] isKindOfClass:[WebDynamicScrollBarsView class]]);
+    [(WebDynamicScrollBarsView *)[[self frameView] _scrollView] setAllowsScrollersToOverlapContent:flag];
+}
+
+- (void)setAlwaysHideHorizontalScroller:(BOOL)flag
+{
+    ASSERT([[[self frameView] _scrollView] isKindOfClass:[WebDynamicScrollBarsView class]]);
+    [(WebDynamicScrollBarsView *)[[self frameView] _scrollView] setAlwaysHideHorizontalScroller:flag];
+}
+- (void)setAlwaysHideVerticalScroller:(BOOL)flag
+{
+    ASSERT([[[self frameView] _scrollView] isKindOfClass:[WebDynamicScrollBarsView class]]);
+    [(WebDynamicScrollBarsView *)[[self frameView] _scrollView] setAlwaysHideVerticalScroller:flag];
+}
+
+- (void)setAccessibleName:(NSString *)name
+{
+#if HAVE(ACCESSIBILITY)
+    if (!AXObjectCache::accessibilityEnabled())
+        return;
+    
+    RenderView* root = toRenderView(_private->coreFrame->document()->renderer());
+    if (!root)
+        return;
+    
+    AccessibilityObject* rootObject = _private->coreFrame->document()->axObjectCache()->getOrCreate(root);
+    String strName(name);
+    rootObject->setAccessibleName(strName);
+#endif
+}
+
+- (NSString*)_layerTreeAsText
+{
+    Frame* coreFrame = _private->coreFrame;
+    if (!coreFrame)
+        return @"";
+
+    return coreFrame->layerTreeAsText();
 }
 
 @end
@@ -1175,14 +1336,19 @@ static inline WebDataSource *dataSource(DocumentLoader* loader)
 
 - (void)dealloc
 {
+    if (_private && _private->includedInWebKitStatistics)
+        --WebFrameCount;
+
     [_private release];
-    --WebFrameCount;
+
     [super dealloc];
 }
 
 - (void)finalize
 {
-    --WebFrameCount;
+    if (_private && _private->includedInWebKitStatistics)
+        --WebFrameCount;
+
     [super finalize];
 }
 
@@ -1259,7 +1425,10 @@ static bool needsMicrosoftMessengerDOMDocumentWorkaround()
 
 - (void)loadRequest:(NSURLRequest *)request
 {
-    _private->coreFrame->loader()->load(request, false);
+    Frame* coreFrame = _private->coreFrame;
+    if (!coreFrame)
+        return;
+    coreFrame->loader()->load(request, false);
 }
 
 static NSURL *createUniqueWebDataURL()
@@ -1389,7 +1558,7 @@ static NSURL *createUniqueWebDataURL()
     Frame* coreFrame = _private->coreFrame;
     if (!coreFrame)
         return 0;
-    return toGlobalRef(coreFrame->script()->globalObject()->globalExec());
+    return toGlobalRef(coreFrame->script()->globalObject(mainThreadNormalWorld())->globalExec());
 }
 
 @end

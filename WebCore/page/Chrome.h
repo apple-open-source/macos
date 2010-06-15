@@ -42,8 +42,12 @@ namespace WebCore {
     class Geolocation;
     class HitTestResult;
     class IntRect;
+    class Node;
     class Page;
     class String;
+#if ENABLE(NOTIFICATIONS)
+    class NotificationPresenter;
+#endif
 
     struct FrameLoadRequest;
     struct WindowFeatures;
@@ -56,12 +60,17 @@ namespace WebCore {
         ChromeClient* client() { return m_client; }
 
         // HostWindow methods.
-        virtual void repaint(const IntRect&, bool contentChanged, bool immediate = false, bool repaintContentOnly = false);
-        virtual void scroll(const IntSize& scrollDelta, const IntRect& rectToScroll, const IntRect& clipRect);
+
+        virtual void invalidateWindow(const IntRect&, bool);
+        virtual void invalidateContentsAndWindow(const IntRect&, bool);
+        virtual void invalidateContentsForSlowScroll(const IntRect&, bool);
+        virtual void scroll(const IntSize&, const IntRect&, const IntRect&);
         virtual IntPoint screenToWindow(const IntPoint&) const;
         virtual IntRect windowToScreen(const IntRect&) const;
-        virtual PlatformWidget platformWindow() const;
-        virtual void scrollRectIntoView(const IntRect&, const ScrollView*) const;
+        virtual PlatformPageClient platformPageClient() const;
+        virtual void scrollbarsModeDidChange() const;
+
+        void scrollRectIntoView(const IntRect&) const;
 
         void contentsSizeChanged(Frame*, const IntSize&) const;
 
@@ -77,6 +86,8 @@ namespace WebCore {
 
         bool canTakeFocus(FocusDirection) const;
         void takeFocus(FocusDirection) const;
+
+        void focusedNodeChanged(Node*) const;
 
         Page* createWindow(Frame*, const FrameLoadRequest&, const WindowFeatures&) const;
         void show() const;
@@ -110,6 +121,9 @@ namespace WebCore {
         void setStatusbarText(Frame*, const String&);
         bool shouldInterruptJavaScript();
 
+        void registerProtocolHandler(const String& scheme, const String& baseURL, const String& url, const String& title);
+        void registerContentHandler(const String& mimeType, const String& baseURL, const String& url, const String& title);
+
         IntRect windowResizerRect() const;
 
         void mouseDidMoveOverElement(const HitTestResult&, unsigned modifierFlags);
@@ -119,13 +133,19 @@ namespace WebCore {
         void print(Frame*);
 
         void requestGeolocationPermissionForFrame(Frame*, Geolocation*);
+        void cancelGeolocationPermissionRequestForFrame(Frame*, Geolocation*);
 
         void runOpenPanel(Frame*, PassRefPtr<FileChooser>);
+        void chooseIconForFiles(const Vector<String>&, FileChooser*);
 
         bool setCursor(PlatformCursorHandle);
 
 #if PLATFORM(MAC)
         void focusNSView(NSView*);
+#endif
+
+#if ENABLE(NOTIFICATIONS)
+        NotificationPresenter* notificationPresenter() const; 
 #endif
 
     private:

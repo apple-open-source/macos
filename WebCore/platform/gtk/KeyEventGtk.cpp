@@ -30,9 +30,9 @@
 #include "config.h"
 #include "PlatformKeyboardEvent.h"
 
-#include "KeyboardCodes.h"
 #include "NotImplemented.h"
 #include "TextEncoding.h"
+#include "WindowsKeyboardCodes.h"
 
 #include <gdk/gdk.h>
 #include <gdk/gdkkeysyms.h>
@@ -136,6 +136,8 @@ static String keyIdentifierForGdkKeyCode(guint keyCode)
             // Standard says that DEL becomes U+007F.
         case GDK_Delete:
             return "U+007F";
+        case GDK_BackSpace:
+            return "U+0008";
         case GDK_ISO_Left_Tab:
         case GDK_3270_BackTab:
         case GDK_Tab:
@@ -179,6 +181,23 @@ static int windowsKeyCodeForKeyEvent(unsigned int keycode)
         case GDK_KP_Divide:
             return VK_DIVIDE; // (6F) Divide key
 
+        case GDK_KP_Page_Up:
+            return VK_PRIOR; // (21) PAGE UP key
+        case GDK_KP_Page_Down:
+            return VK_NEXT; // (22) PAGE DOWN key
+        case GDK_KP_End:
+            return VK_END; // (23) END key
+        case GDK_KP_Home:
+            return VK_HOME; // (24) HOME key
+        case GDK_KP_Left:
+            return VK_LEFT; // (25) LEFT ARROW key
+        case GDK_KP_Up:
+            return VK_UP; // (26) UP ARROW key
+        case GDK_KP_Right:
+            return VK_RIGHT; // (27) RIGHT ARROW key
+        case GDK_KP_Down:
+            return VK_DOWN; // (28) DOWN ARROW key
+
         case GDK_BackSpace:
             return VK_BACK; // (08) BACKSPACE key
         case GDK_ISO_Left_Tab:
@@ -198,6 +217,7 @@ static int windowsKeyCodeForKeyEvent(unsigned int keycode)
         case GDK_Control_R:
             return VK_CONTROL; // (11) CTRL key
         case GDK_Menu:
+            return VK_APPS;  // (5D) Applications key (Natural keyboard)
         case GDK_Alt_L:
         case GDK_Alt_R:
             return VK_MENU; // (12) ALT key
@@ -368,7 +388,6 @@ static int windowsKeyCodeForKeyEvent(unsigned int keycode)
             return VK_LWIN; // (5B) Left Windows key (Microsoft Natural keyboard)
         case GDK_Meta_R:
             return VK_RWIN; // (5C) Right Windows key (Natural keyboard)
-            // VK_APPS (5D) Applications key (Natural keyboard)
             // VK_SLEEP (5F) Computer Sleep key
             // VK_SEPARATOR (6C) Separator key
             // VK_SUBTRACT (6D) Subtract key
@@ -503,6 +522,10 @@ static String singleCharacterString(guint val)
         case GDK_KP_Enter:
         case GDK_Return:
             return String("\r");
+        case GDK_BackSpace:
+            return String("\x8");
+        case GDK_Tab:
+            return String("\t");
         default:
             gunichar c = gdk_keyval_to_unicode(val);
             glong nwc;
@@ -561,6 +584,15 @@ bool PlatformKeyboardEvent::currentCapsLockState()
 {
     notImplemented();
     return false;
+}
+
+void PlatformKeyboardEvent::getCurrentModifierState(bool& shiftKey, bool& ctrlKey, bool& altKey, bool& metaKey)
+{
+    notImplemented();
+    shiftKey = false;
+    ctrlKey = false;
+    altKey = false;
+    metaKey = false;
 }
 
 GdkEventKey* PlatformKeyboardEvent::gdkEventKey() const

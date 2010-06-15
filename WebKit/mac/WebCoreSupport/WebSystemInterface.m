@@ -1,5 +1,5 @@
 /*
- * Copyright 2006, 2007, 2008 Apple Inc. All rights reserved.
+ * Copyright 2006, 2007, 2008, 2009 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -31,6 +31,9 @@
 #import <WebCore/WebCoreSystemInterface.h>
 #import <WebKitSystemInterface.h>
 
+// Needed for builds not using PCH to expose BUILDING_ macros, see bug 32753.
+#include <wtf/Platform.h>
+
 #define INIT(function) wk##function = WK##function
 
 void InitWebCoreSystemInterface(void)
@@ -41,6 +44,8 @@ void InitWebCoreSystemInterface(void)
 
     INIT(AdvanceDefaultButtonPulseAnimation);
     INIT(CGContextGetShouldSmoothFonts);
+    INIT(CopyCONNECTProxyResponse);
+    INIT(CopyNSURLResponseStatusLine);
     INIT(CreateCustomCFReadStream);
     INIT(CreateNSURLConnectionDelegateProxy);
     INIT(DrawCapsLockIndicator);
@@ -62,13 +67,17 @@ void InitWebCoreSystemInterface(void)
     INIT(InitializeMaximumHTTPConnectionCountPerHost);
     INIT(IsLatchingWheelEvent);
     INIT(MeasureMediaUIPart);
+    INIT(MediaControllerThemeAvailable);
     INIT(PopupMenu);
     INIT(SetCGFontRenderingMode);
+    INIT(SetCONNECTProxyAuthorizationForStream);
+    INIT(SetCONNECTProxyForStream);
     INIT(SetDragImage);
     INIT(SetNSURLConnectionDefersCallbacks);
     INIT(SetNSURLRequestShouldContentSniff);
     INIT(SetPatternBaseCTM);
     INIT(SetPatternPhaseInUserSpace);
+    INIT(GetUserToBaseCTM);
     INIT(SetUpFontCache);
     INIT(SignalCFReadStreamEnd);
     INIT(SignalCFReadStreamError);
@@ -79,6 +88,9 @@ void InitWebCoreSystemInterface(void)
     INIT(QTMovieMaxTimeLoadedChangeNotification);
     INIT(QTMovieMaxTimeSeekable);
     INIT(QTMovieGetType);
+    INIT(QTMovieHasClosedCaptions);
+    INIT(QTMovieSetShowClosedCaptions);
+    INIT(QTMovieSelectPreferredAlternates);
     INIT(QTMovieViewSetDrawSynchronously);
 
 #ifndef BUILDING_ON_TIGER
@@ -97,6 +109,10 @@ void InitWebCoreSystemInterface(void)
     INIT(InitializeGlyphVector);
     INIT(ReleaseStyleGroup);
     INIT(SupportsMultipartXMixedReplace);
+#endif
+
+#if !defined(BUILDING_ON_TIGER) && !defined(BUILDING_ON_LEOPARD) && !defined(BUILDING_ON_SNOW_LEOPARD)
+    INIT(NoteOpenPanelFiles);
 #endif
 
     didInit = true;

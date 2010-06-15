@@ -71,11 +71,13 @@ namespace WebCore {
         virtual void setRadioSize(RenderStyle*) const;
 
         virtual bool paintButton(RenderObject*, const RenderObject::PaintInfo&, const IntRect&);
+        virtual void adjustButtonStyle(CSSStyleSelector*, RenderStyle*, Element*) const;
 
         virtual bool paintTextField(RenderObject*, const RenderObject::PaintInfo&, const IntRect&);
 
         virtual bool paintTextArea(RenderObject*, const RenderObject::PaintInfo&, const IntRect&);
 
+        virtual void adjustSearchFieldStyle(CSSStyleSelector*, RenderStyle*, Element*) const;
         virtual bool paintSearchField(RenderObject*, const RenderObject::PaintInfo&, const IntRect&);
 
         virtual void adjustSearchFieldCancelButtonStyle(CSSStyleSelector*, RenderStyle*, Element*) const;
@@ -89,6 +91,12 @@ namespace WebCore {
         virtual void adjustSearchFieldResultsButtonStyle(CSSStyleSelector*, RenderStyle*, Element*) const;
         virtual bool paintSearchFieldResultsButton(RenderObject*, const RenderObject::PaintInfo&, const IntRect&);
 
+        virtual bool paintMediaControlsBackground(RenderObject*, const RenderObject::PaintInfo&, const IntRect&);
+        virtual bool paintMediaSliderTrack(RenderObject*, const RenderObject::PaintInfo&, const IntRect&);
+        virtual bool paintMediaVolumeSliderTrack(RenderObject*, const RenderObject::PaintInfo&, const IntRect&);
+        virtual void adjustSliderThumbSize(RenderObject*) const;
+        virtual bool paintMediaSliderThumb(RenderObject*, const RenderObject::PaintInfo&, const IntRect&);
+        virtual bool paintMediaVolumeSliderThumb(RenderObject*, const RenderObject::PaintInfo&, const IntRect&);
         virtual bool paintMediaPlayButton(RenderObject*, const RenderObject::PaintInfo&, const IntRect&);
         virtual bool paintMediaMuteButton(RenderObject*, const RenderObject::PaintInfo&, const IntRect&);
 
@@ -106,16 +114,19 @@ namespace WebCore {
         virtual void adjustMenuListButtonStyle(CSSStyleSelector*, RenderStyle*, Element*) const;
         virtual bool paintMenuListButton(RenderObject*, const RenderObject::PaintInfo&, const IntRect&);
 
+        virtual bool paintSliderTrack(RenderObject*, const RenderObject::PaintInfo&, const IntRect&);
+        virtual bool paintSliderThumb(RenderObject*, const RenderObject::PaintInfo&, const IntRect&);
+
         // These methods define the padding for the MenuList's inner block.
         virtual int popupInternalPaddingLeft(RenderStyle*) const;
         virtual int popupInternalPaddingRight(RenderStyle*) const;
         virtual int popupInternalPaddingTop(RenderStyle*) const;
         virtual int popupInternalPaddingBottom(RenderStyle*) const;
 
-        virtual int buttonInternalPaddingLeft() const;
-        virtual int buttonInternalPaddingRight() const;
-        virtual int buttonInternalPaddingTop() const;
-        virtual int buttonInternalPaddingBottom() const;
+#if ENABLE(VIDEO)
+        // Media controls
+        virtual bool shouldRenderMediaControlPart(ControlPart, Element*);
+#endif
 
         // Provide a way to pass the default font size from the Settings object
         // to the render theme.  FIXME: http://b/1129186 A cleaner way would be
@@ -137,6 +148,7 @@ namespace WebCore {
     private:
         int menuListInternalPadding(RenderStyle*, int paddingType) const;
         bool paintMediaButtonInternal(GraphicsContext*, const IntRect&, Image*);
+        IntRect convertToPaintingRect(RenderObject* inputRenderer, const RenderObject* partRenderer, IntRect partRect, const IntRect& localOffset) const;
     };
 
 } // namespace WebCore

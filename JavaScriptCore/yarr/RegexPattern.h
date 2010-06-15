@@ -26,7 +26,6 @@
 #ifndef RegexPattern_h
 #define RegexPattern_h
 
-#include <wtf/Platform.h>
 
 #if ENABLE(YARR)
 
@@ -57,11 +56,35 @@ struct CharacterRange {
     }
 };
 
-struct CharacterClass {
+struct CharacterClassTable : RefCounted<CharacterClassTable> {
+    const char* m_table;
+    bool m_inverted;
+    static PassRefPtr<CharacterClassTable> create(const char* table, bool inverted)
+    {
+        return adoptRef(new CharacterClassTable(table, inverted));
+    }
+
+private:
+    CharacterClassTable(const char* table, bool inverted)
+        : m_table(table)
+        , m_inverted(inverted)
+    {
+    }
+};
+
+struct CharacterClass : FastAllocBase {
+    // All CharacterClass instances have to have the full set of matches and ranges,
+    // they may have an optional table for faster lookups (which must match the
+    // specified matches and ranges)
+    CharacterClass(PassRefPtr<CharacterClassTable> table)
+        : m_table(table)
+    {
+    }
     Vector<UChar> m_matches;
     Vector<CharacterRange> m_ranges;
     Vector<UChar> m_matchesUnicode;
     Vector<CharacterRange> m_rangesUnicode;
+    RefPtr<CharacterClassTable> m_table;
 };
 
 enum QuantifierType {
@@ -137,7 +160,7 @@ struct PatternTerm {
 
     PatternTerm(unsigned spatternId)
         : type(TypeBackReference)
-        , invertOrCapture(invertOrCapture)
+        , invertOrCapture(false)
     {
         subpatternId = spatternId;
         quantityType = QuantifierFixedCount;
@@ -181,7 +204,7 @@ struct PatternTerm {
     }
 };
 
-struct PatternAlternative {
+struct PatternAlternative : FastAllocBase {
     PatternAlternative(PatternDisjunction* disjunction)
         : m_parent(disjunction)
     {
@@ -205,7 +228,7 @@ struct PatternAlternative {
     bool m_hasFixedSize;
 };
 
-struct PatternDisjunction {
+struct PatternDisjunction : FastAllocBase {
     PatternDisjunction(PatternAlternative* parent = 0)
         : m_parent(parent)
     {
@@ -248,6 +271,7 @@ struct RegexPattern {
         , m_multiline(multiline)
         , m_numSubpatterns(0)
         , m_maxBackReference(0)
+        , m_shouldFallBack(false)
         , newlineCached(0)
         , digitsCached(0)
         , spacesCached(0)
@@ -268,6 +292,8 @@ struct RegexPattern {
     {
         m_numSubpatterns = 0;
         m_maxBackReference = 0;
+
+        m_shouldFallBack = false;
 
         newlineCached = 0;
         digitsCached = 0;
@@ -335,6 +361,7 @@ struct RegexPattern {
     bool m_multiline;
     unsigned m_numSubpatterns;
     unsigned m_maxBackReference;
+    bool m_shouldFallBack;
     PatternDisjunction* m_body;
     Vector<PatternDisjunction*, 4> m_disjunctions;
     Vector<CharacterClass*> m_userCharacterClasses;

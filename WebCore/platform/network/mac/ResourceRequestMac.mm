@@ -61,11 +61,12 @@ void ResourceRequest::doUpdateResourceRequest()
     
     if (NSString* method = [m_nsRequest.get() HTTPMethod])
         m_httpMethod = method;
-    m_allowHTTPCookies = [m_nsRequest.get() HTTPShouldHandleCookies];
+    m_allowCookies = [m_nsRequest.get() HTTPShouldHandleCookies];
     
     NSDictionary *headers = [m_nsRequest.get() allHTTPHeaderFields];
     NSEnumerator *e = [headers keyEnumerator];
     NSString *name;
+    m_httpHeaderFields.clear();
     while ((name = [e nextObject]))
         m_httpHeaderFields.set(name, [headers objectForKey:name]);
 
@@ -113,8 +114,12 @@ void ResourceRequest::doUpdatePlatformRequest()
     [nsRequest setMainDocumentURL:firstPartyForCookies()];
     if (!httpMethod().isEmpty())
         [nsRequest setHTTPMethod:httpMethod()];
-    [nsRequest setHTTPShouldHandleCookies:allowHTTPCookies()];
-    
+    [nsRequest setHTTPShouldHandleCookies:allowCookies()];
+
+    // Cannot just use setAllHTTPHeaderFields here, because it does not remove headers.
+    NSArray *oldHeaderFieldNames = [[nsRequest allHTTPHeaderFields] allKeys];
+    for (unsigned i = [oldHeaderFieldNames count]; i != 0; --i)
+        [nsRequest setValue:nil forHTTPHeaderField:[oldHeaderFieldNames objectAtIndex:i - 1]];
     HTTPHeaderMap::const_iterator end = httpHeaderFields().end();
     for (HTTPHeaderMap::const_iterator it = httpHeaderFields().begin(); it != end; ++it)
         [nsRequest setValue:it->second forHTTPHeaderField:it->first];

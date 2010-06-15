@@ -43,6 +43,10 @@ namespace WebCore {
 @class WebPreferences;
 @class WebTextCompletionController;
 @protocol WebFormDelegate;
+@protocol WebGeolocationProvider;
+#if ENABLE(VIDEO)
+@class WebVideoFullscreenController;
+#endif
 
 extern BOOL applicationIsTerminating;
 extern int pluginDatabaseClientCount;
@@ -64,6 +68,7 @@ extern int pluginDatabaseClientCount;
     id editingDelegate;
     id editingDelegateForwarder;
     id scriptDebugDelegate;
+    id historyDelegate;
 
     WebInspector *inspector;
     WebNodeHighlight *currentNodeHighlight;
@@ -86,6 +91,7 @@ extern int pluginDatabaseClientCount;
     WebResourceDelegateImplementationCache resourceLoadDelegateImplementations;
     WebFrameLoadDelegateImplementationCache frameLoadDelegateImplementations;
     WebScriptDebugDelegateImplementationCache scriptDebugDelegateImplementations;
+    WebHistoryDelegateImplementationCache historyDelegateImplementations;
 
     void *observationInfo;
     
@@ -131,13 +137,14 @@ extern int pluginDatabaseClientCount;
     
     // When this flag is set, we will not make any subviews underneath this WebView.  This means no WebFrameViews and no WebHTMLViews.
     BOOL usesDocumentViews;
+
+    BOOL includesFlattenedCompositingLayersWhenDrawingToBitmap;
     
 #if USE(ACCELERATED_COMPOSITING)
     // When this flag is set, next time a WebHTMLView draws, it needs to temporarily disable screen updates
     // so that the NSView drawing is visually synchronized with CALayer updates.
     BOOL needsOneShotDrawingSynchronization;
-    // Number of WebHTMLViews using accelerated compositing. Used to implement _isUsingAcceleratedCompositing.
-    int acceleratedFramesCount;
+    BOOL postsAcceleratedCompositingNotifications;
     // Run loop observer used to implement the compositing equivalent of -viewWillDraw
     CFRunLoopObserverRef layerSyncRunLoopObserver;
 #endif
@@ -158,5 +165,10 @@ extern int pluginDatabaseClientCount;
     NSEvent *autoscrollTriggerEvent;
 
     CFRunLoopTimerRef updateMouseoverTimer;
+#if ENABLE(VIDEO)
+    WebVideoFullscreenController *fullscreenController;
+#endif
+
+    id<WebGeolocationProvider> _geolocationProvider;
 }
 @end

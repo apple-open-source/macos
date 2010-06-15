@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2000 Peter Kelly (pmk@post.com)
- * Copyright (C) 2006, 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2006, 2008, 2009 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -21,12 +21,19 @@
 #include "config.h"
 #include "EntityReference.h"
 
+#include "Document.h"
+
 namespace WebCore {
 
-EntityReference::EntityReference(Document* document, const String& entityName)
+inline EntityReference::EntityReference(Document* document, const String& entityName)
     : ContainerNode(document)
     , m_entityName(entityName)
 {
+}
+
+PassRefPtr<EntityReference> EntityReference::create(Document* document, const String& entityName)
+{
+    return adoptRef(new EntityReference(document, entityName));
 }
 
 String EntityReference::nodeName() const
@@ -41,7 +48,7 @@ Node::NodeType EntityReference::nodeType() const
 
 PassRefPtr<Node> EntityReference::cloneNode(bool)
 {
-    return new EntityReference(document(), m_entityName);
+    return create(document(), m_entityName);
 }
 
 } // namespace

@@ -36,4 +36,6 @@ interface IWebHistoryPrivate : IUnknown
 {
     HRESULT allItems([in, out] int* count, [out, retval] IWebHistoryItem** items);
     HRESULT data([out, retval] IStream**);
+    HRESULT setVisitedLinkTrackingEnabled([in] BOOL visitedLinkTrackingEnable);
+    HRESULT removeAllVisitedLinks();
 }

@@ -2,8 +2,6 @@
     Copyright (C) 2004, 2005 Nikolas Zimmermann <zimmermann@kde.org>
                   2004, 2005, 2006 Rob Buis <buis@kde.org>
 
-    This file is part of the KDE project
-
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Library General Public
     License as published by the Free Software Foundation; either
@@ -25,6 +23,7 @@
 
 #if ENABLE(SVG) && ENABLE(FILTERS)
 #include "SVGElement.h"
+#include "SVGNames.h"
 
 namespace WebCore {
 
@@ -34,12 +33,10 @@ namespace WebCore {
         virtual ~SVGFEMergeNodeElement();
 
         virtual void parseMappedAttribute(MappedAttribute*);
-
-    protected:
-        virtual const SVGElement* contextElement() const { return this; }
+        virtual void synchronizeProperty(const QualifiedName&);
 
     private:
-        ANIMATED_PROPERTY_DECLARATIONS(SVGFEMergeNodeElement, SVGNames::feMergeNodeTagString, SVGNames::inAttrString, String, In1, in1)
+        DECLARE_ANIMATED_PROPERTY(SVGFEMergeNodeElement, SVGNames::inAttr, String, In1, in1)
     };
 
 } // namespace WebCore

@@ -29,28 +29,32 @@
  */
 
 #include "config.h"
-#include "NamedNodeMap.h"
+#include "V8NamedNodeMap.h"
 
+#include "NamedNodeMap.h"
+#include "V8Attr.h"
 #include "V8Binding.h"
-#include "V8CustomBinding.h"
+#include "V8BindingState.h"
+#include "V8Element.h"
+#include "V8Node.h"
 #include "V8Proxy.h"
 
 #include <wtf/RefPtr.h>
 
 namespace WebCore {
 
-INDEXED_PROPERTY_GETTER(NamedNodeMap)
+v8::Handle<v8::Value> V8NamedNodeMap::indexedPropertyGetter(uint32_t index, const v8::AccessorInfo& info)
 {
     INC_STATS("DOM.NamedNodeMap.IndexedPropertyGetter");
-    NamedNodeMap* imp = V8DOMWrapper::convertToNativeObject<NamedNodeMap>(V8ClassIndex::NAMEDNODEMAP, info.Holder());
+    NamedNodeMap* imp = V8NamedNodeMap::toNative(info.Holder());
     RefPtr<Node> result = imp->item(index);
     if (!result)
         return notHandledByInterceptor();
 
-    return V8DOMWrapper::convertNodeToV8Object(result.get());
+    return toV8(result.release());
 }
 
-NAMED_PROPERTY_GETTER(NamedNodeMap)
+v8::Handle<v8::Value> V8NamedNodeMap::namedPropertyGetter(v8::Local<v8::String> name, const v8::AccessorInfo& info)
 {
     INC_STATS("DOM.NamedNodeMap.NamedPropertyGetter");
     // Search the prototype chain first.
@@ -63,12 +67,66 @@ NAMED_PROPERTY_GETTER(NamedNodeMap)
         return notHandledByInterceptor();
 
     // Finally, search the DOM.
-    NamedNodeMap* imp = V8DOMWrapper::convertToNativeObject<NamedNodeMap>(V8ClassIndex::NAMEDNODEMAP, info.Holder());
+    NamedNodeMap* imp = V8NamedNodeMap::toNative(info.Holder());
     RefPtr<Node> result = imp->getNamedItem(toWebCoreString(name));
     if (!result)
         return notHandledByInterceptor();
 
-    return V8DOMWrapper::convertNodeToV8Object(result.get());
+    return toV8(result.release());
+}
+
+v8::Handle<v8::Value> V8NamedNodeMap::setNamedItemNSCallback(const v8::Arguments& args)
+{
+    INC_STATS("DOM.NamedNodeMap.setNamedItemNS");
+    NamedNodeMap* imp = V8NamedNodeMap::toNative(args.Holder());
+    Node* newNode = V8Node::HasInstance(args[0]) ? V8Node::toNative(v8::Handle<v8::Object>::Cast(args[0])) : 0;
+
+    if (newNode && newNode->nodeType() == Node::ATTRIBUTE_NODE && imp->element()) {
+        if (!V8BindingSecurity::allowSettingSrcToJavascriptURL(V8BindingState::Only(), imp->element(), newNode->nodeName(), newNode->nodeValue()))
+            return v8::Handle<v8::Value>();
+    }
+
+    ExceptionCode ec = 0;
+    RefPtr<Node> result = imp->setNamedItemNS(newNode, ec);
+    if (UNLIKELY(ec)) {
+        throwError(ec);
+        return v8::Handle<v8::Value>();
+    }
+
+    return toV8(result.release());
+}
+
+v8::Handle<v8::Value> V8NamedNodeMap::setNamedItemCallback(const v8::Arguments & args)
+{
+    INC_STATS("DOM.NamedNodeMap.setNamedItem");
+    NamedNodeMap* imp = V8NamedNodeMap::toNative(args.Holder());
+    Node* newNode = V8Node::HasInstance(args[0]) ? V8Node::toNative(v8::Handle<v8::Object>::Cast(args[0])) : 0;
+
+    if (newNode && newNode->nodeType() == Node::ATTRIBUTE_NODE && imp->element()) {
+      if (!V8BindingSecurity::allowSettingSrcToJavascriptURL(V8BindingState::Only(), imp->element(), newNode->nodeName(), newNode->nodeValue()))
+            return v8::Handle<v8::Value>();
+    }
+
+    ExceptionCode ec = 0;
+    RefPtr<Node> result = imp->setNamedItem(newNode, ec);
+    if (UNLIKELY(ec)) {
+        throwError(ec);
+        return v8::Handle<v8::Value>();
+    }
+
+    return toV8(result.release());
+}
+
+v8::Handle<v8::Value> toV8(NamedNodeMap* impl)
+{
+    if (!impl)
+        return v8::Null();
+    v8::Handle<v8::Object> wrapper = V8NamedNodeMap::wrap(impl);
+    // Add a hidden reference from named node map to its owner node.
+    Element* element = impl->element();
+    if (!wrapper.IsEmpty() && element)
+        V8DOMWrapper::setHiddenReference(wrapper, toV8(element));
+    return wrapper;
 }
 
 } // namespace WebCore

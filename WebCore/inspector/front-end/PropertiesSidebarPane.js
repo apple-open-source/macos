@@ -32,22 +32,33 @@ WebInspector.PropertiesSidebarPane = function()
 }
 
 WebInspector.PropertiesSidebarPane.prototype = {
-    update: function(object)
+    update: function(node)
     {
         var body = this.bodyElement;
 
-        body.removeChildren();
-
-        this.sections = [];
-
-        if (!object)
+        if (!node) {
+            body.removeChildren();
+            this.sections = [];
             return;
-
-        for (var prototype = object; prototype; prototype = prototype.__proto__) {
-            var section = new WebInspector.ObjectPropertiesSection(prototype);
-            this.sections.push(section);
-            body.appendChild(section.element);
         }
+
+        var self = this;
+        var callback = function(prototypes) {
+            var body = self.bodyElement;
+            body.removeChildren();
+            self.sections = [];
+
+            var path = [];
+            // Get array of prototype user-friendly names.
+            for (var i = 0; i < prototypes.length; ++i) {
+                var prototype = new WebInspector.ObjectProxy(node.injectedScriptId, node.id, path.slice());
+                var section = new WebInspector.ObjectPropertiesSection(prototype, prototypes[i], WebInspector.UIString("Prototype"));
+                self.sections.push(section);
+                body.appendChild(section.element);
+                path.push("__proto__");
+            }
+        };
+        InjectedScriptAccess.get(node.injectedScriptId).getPrototypes(node.id, callback);
     }
 }
 

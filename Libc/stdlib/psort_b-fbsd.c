@@ -394,7 +394,7 @@ psort(void *a, size_t n, size_t es, cmp_t *cmp)
 #endif
 			shared.cmp = cmp;
 			shared.es = es;
-			shared.queue = dispatch_get_concurrent_queue(0);
+			shared.queue = dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0);
 			shared.cond = (pthread_cond_t)PTHREAD_COND_INITIALIZER;
 			shared.mutex = (pthread_mutex_t)PTHREAD_MUTEX_INITIALIZER;
 			args->a = a;

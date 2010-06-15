@@ -60,7 +60,7 @@
 // responsible for managing the painting state which is store in separate
 // SkPaint objects. This class provides the adaptor that allows the painting
 // state to be pushed and popped along with the bitmap.
-class PlatformContextSkia : Noncopyable {
+class PlatformContextSkia : public Noncopyable {
 public:
     // For printing, there shouldn't be any canvas. canvas can be NULL. If you
     // supply a NULL canvas, you can also call setCanvas later.
@@ -71,7 +71,7 @@ public:
     // to the constructor.
     void setCanvas(skia::PlatformCanvas*);
 
-#if PLATFORM(WIN_OS)
+#if OS(WINDOWS)
     // If false we're rendering to a GraphicsContext for a web page, if false
     // we're not (as is the case when rendering to a canvas object).
     // If this is true the contents have not been marked up with the magic
@@ -88,10 +88,11 @@ public:
     // |rect|. This layer is implicitly restored when the next restore is
     // invoked.
     // NOTE: |imageBuffer| may be deleted before the |restore| is invoked.
-#if defined(__linux__) || PLATFORM(WIN_OS)
+#if OS(LINUX) || OS(WINDOWS)
     void beginLayerClippedToImage(const WebCore::FloatRect&,
                                   const WebCore::ImageBuffer*);
 #endif
+    void clipPathAntiAliased(const SkPath&);
 
     // Sets up the common flags on a paint for antialiasing, effects, etc.
     // This is implicitly called by setupPaintFill and setupPaintStroke, but
@@ -117,13 +118,13 @@ public:
     void setFillRule(SkPath::FillType);
     void setXfermodeMode(SkXfermode::Mode);
     void setFillColor(SkColor);
+    void setFillShader(SkShader*);
     void setStrokeStyle(WebCore::StrokeStyle);
     void setStrokeColor(SkColor);
     void setStrokeThickness(float thickness);
+    void setStrokeShader(SkShader*);
     void setTextDrawingMode(int mode);
     void setUseAntialiasing(bool enable);
-    void setGradient(SkShader*);
-    void setPattern(SkShader*);
     void setDashPathEffect(SkDashPathEffect*);
 
     SkDrawLooper* getDrawLooper() const;
@@ -167,11 +168,12 @@ public:
     bool isPrinting();
 
 private:
-#if defined(__linux__) || PLATFORM(WIN_OS)
+#if OS(LINUX) || OS(WINDOWS)
     // Used when restoring and the state has an image clip. Only shows the pixels in
     // m_canvas that are also in imageBuffer.
     void applyClipFromImage(const WebCore::FloatRect&, const SkBitmap&);
 #endif
+    void applyAntiAliasedClipPaths(WTF::Vector<SkPath>& paths);
 
     // Defines drawing style.
     struct State;
@@ -189,7 +191,7 @@ private:
     // Current path in global coordinates.
     SkPath m_path;
 
-#if PLATFORM(WIN_OS)
+#if OS(WINDOWS)
     bool m_drawingToImageBuffer;
 #endif
 };

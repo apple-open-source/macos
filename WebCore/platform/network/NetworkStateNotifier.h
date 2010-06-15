@@ -26,6 +26,8 @@
 #ifndef NetworkStateNotifier_h
 #define NetworkStateNotifier_h
 
+#include <wtf/Noncopyable.h>
+
 #if PLATFORM(MAC)
 
 #include <wtf/RetainPtr.h>
@@ -42,17 +44,34 @@ typedef const struct __SCDynamicStore * SCDynamicStoreRef;
 
 #include <windows.h>
 
+#elif PLATFORM(QT)
+
+#include <QtCore/qglobal.h>
+
+#ifdef QT_NO_BEARERMANAGEMENT
+#undef ENABLE_QT_BEARER
+#define ENABLE_QT_BEARER 0
+#endif
+
 #endif
 
 namespace WebCore {
 
-class NetworkStateNotifier {
+#if (PLATFORM(QT) && ENABLE(QT_BEARER))
+class NetworkStateNotifierPrivate;
+#endif
+
+class NetworkStateNotifier : public Noncopyable {
 public:
     NetworkStateNotifier();
     void setNetworkStateChangedFunction(void (*)());
     
     bool onLine() const { return m_isOnLine; }
-    
+
+#if (PLATFORM(QT) && ENABLE(QT_BEARER))
+    void setNetworkAccessAllowed(bool);
+#endif
+
 private:    
     bool m_isOnLine;
     void (*m_networkStateChangedFunction)();
@@ -78,10 +97,18 @@ private:
 
 #elif PLATFORM(CHROMIUM)
     NetworkStateNotifierPrivate p;
+
+#elif PLATFORM(ANDROID)
+public:
+    void networkStateChange(bool online);
+
+#elif PLATFORM(QT) && ENABLE(QT_BEARER)
+    friend class NetworkStateNotifierPrivate;
+    NetworkStateNotifierPrivate* p;
 #endif
 };
 
-#if !PLATFORM(MAC) && !PLATFORM(WIN) && !PLATFORM(CHROMIUM)
+#if !PLATFORM(MAC) && !PLATFORM(WIN) && !PLATFORM(CHROMIUM) && !(PLATFORM(QT) && ENABLE(QT_BEARER))
 
 inline NetworkStateNotifier::NetworkStateNotifier()
     : m_isOnLine(true)

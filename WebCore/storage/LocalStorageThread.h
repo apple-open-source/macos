@@ -20,7 +20,7 @@
  * PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY
  * OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
 #ifndef LocalStorageThread_h
@@ -30,6 +30,7 @@
 
 #include <wtf/HashSet.h>
 #include <wtf/MessageQueue.h>
+#include <wtf/PassOwnPtr.h>
 #include <wtf/PassRefPtr.h>
 #include <wtf/Threading.h>
 
@@ -39,34 +40,27 @@ namespace WebCore {
     class LocalStorageTask;
 
     // FIXME: Rename this class to StorageThread
-    class LocalStorageThread : public ThreadSafeShared<LocalStorageThread> {
+    class LocalStorageThread : public Noncopyable {
     public:
-        static PassRefPtr<LocalStorageThread> create();
+        static PassOwnPtr<LocalStorageThread> create();
+        ~LocalStorageThread();
 
         bool start();
-
-        void scheduleImport(PassRefPtr<StorageAreaSync>);
-        void scheduleSync(PassRefPtr<StorageAreaSync>);
-
-        // Called from the main thread to synchronously shut down this thread
         void terminate();
-        // Background thread part of the terminate procedure
+        void scheduleTask(PassOwnPtr<LocalStorageTask>);
+
+        // Background thread part of the terminate procedure.
         void performTerminate();
 
     private:
         LocalStorageThread();
 
-        static void* localStorageThreadStart(void*);
-        void* localStorageThread();
+        // Called on background thread.
+        static void* threadEntryPointCallback(void*);
+        void* threadEntryPoint();
 
-        Mutex m_threadCreationMutex;
         ThreadIdentifier m_threadID;
-        RefPtr<LocalStorageThread> m_selfRef;
-
-        MessageQueue<RefPtr<LocalStorageTask> > m_queue;
-        
-        Mutex m_terminateLock;
-        ThreadCondition m_terminateCondition;
+        MessageQueue<LocalStorageTask> m_queue;
     };
 
 } // namespace WebCore

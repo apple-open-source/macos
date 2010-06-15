@@ -40,10 +40,11 @@
 
 namespace WebCore {
 
-    class ApplicationCache;
+    class ApplicationCacheHost;
     class DocumentLoader;
     class Frame;
     class FrameLoader;
+    class ProtectionSpace;
     class ResourceHandle;
     class SharedBuffer;
     
@@ -86,6 +87,9 @@ namespace WebCore {
         virtual bool shouldUseCredentialStorage();
         virtual void didReceiveAuthenticationChallenge(const AuthenticationChallenge&);
         void didCancelAuthenticationChallenge(const AuthenticationChallenge&);
+#if USE(PROTECTION_SPACE_AUTH_CALLBACK)
+        virtual bool canAuthenticateAgainstProtectionSpace(const ProtectionSpace&);
+#endif
         virtual void receivedCancellation(const AuthenticationChallenge&);
 
         // ResourceHandleClient
@@ -101,6 +105,9 @@ namespace WebCore {
         virtual bool shouldUseCredentialStorage(ResourceHandle*) { return shouldUseCredentialStorage(); }
         virtual void didReceiveAuthenticationChallenge(ResourceHandle*, const AuthenticationChallenge& challenge) { didReceiveAuthenticationChallenge(challenge); } 
         virtual void didCancelAuthenticationChallenge(ResourceHandle*, const AuthenticationChallenge& challenge) { didCancelAuthenticationChallenge(challenge); } 
+#if USE(PROTECTION_SPACE_AUTH_CALLBACK)
+        virtual bool canAuthenticateAgainstProtectionSpace(ResourceHandle*, const ProtectionSpace& protectionSpace) { return canAuthenticateAgainstProtectionSpace(protectionSpace); }
+#endif
         virtual void receivedCancellation(ResourceHandle*, const AuthenticationChallenge& challenge) { receivedCancellation(challenge); }
         virtual void willCacheResponse(ResourceHandle*, CacheStoragePolicy&);
 #if PLATFORM(MAC)
@@ -119,7 +126,7 @@ namespace WebCore {
         ResourceLoader(Frame*, bool sendResourceLoadCallbacks, bool shouldContentSniff);
 
 #if ENABLE(OFFLINE_WEB_APPLICATIONS)
-        bool scheduleLoadFallbackResourceFromApplicationCache(ApplicationCache* = 0);
+        friend class ApplicationCacheHost;  // for access to request()
 #endif
 
         virtual void didCancel(const ResourceError&);
@@ -133,13 +140,13 @@ namespace WebCore {
         RefPtr<ResourceHandle> m_handle;
         RefPtr<Frame> m_frame;
         RefPtr<DocumentLoader> m_documentLoader;
-        ResourceResponse m_response;        
+        ResourceResponse m_response;
         
     private:
         ResourceRequest m_request;
         RefPtr<SharedBuffer> m_resourceData;
         
-        unsigned long m_identifier;        
+        unsigned long m_identifier;
 
         bool m_reachedTerminalState;
         bool m_cancelled;

@@ -45,6 +45,10 @@
 #include <IOKit/usb/IOUSBLog.h>
 
 
+enum {
+	kMaxExtendedDataEntriesSupported = 20
+};
+
 //================================================================================================
 //
 //   Class Declaration for IOUSBDeviceUserClientV2

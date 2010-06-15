@@ -26,31 +26,28 @@
 #ifndef JSCustomPositionCallback_h
 #define JSCustomPositionCallback_h
 
+#include "JSCallbackData.h"
 #include "PositionCallback.h"
-#include <runtime/JSObject.h>
-#include <runtime/Protect.h>
 #include <wtf/Forward.h>
-
-namespace JSC {
-    class JSObject;
-}
 
 namespace WebCore {
 
-class Frame;
 class Geoposition;
+class JSDOMGlobalObject;
 
 class JSCustomPositionCallback : public PositionCallback {
 public:
-    static PassRefPtr<JSCustomPositionCallback> create(JSC::JSObject* callback, Frame* frame) { return adoptRef(new JSCustomPositionCallback(callback, frame)); }
+    static PassRefPtr<JSCustomPositionCallback> create(JSC::JSObject* callback, JSDOMGlobalObject* globalObject)
+    {
+        return adoptRef(new JSCustomPositionCallback(callback, globalObject));
+    }
     
-    virtual void handleEvent(Geoposition*, bool& raisedException);
-
 private:
-    JSCustomPositionCallback(JSC::JSObject* callback, Frame*);
+    JSCustomPositionCallback(JSC::JSObject* callback, JSDOMGlobalObject*);
 
-    JSC::ProtectedPtr<JSC::JSObject> m_callback;
-    RefPtr<Frame> m_frame;
+    virtual void handleEvent(Geoposition*);
+    
+    JSCallbackData m_data;
 };
     
 } // namespace WebCore

@@ -2,7 +2,7 @@
  * Copyright (C) 1999 Lars Knoll (knoll@kde.org)
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
  *           (C) 2000 Dirk Mueller (mueller@kde.org)
- * Copyright (C) 2003, 2006 Apple Inc. All rights reserved.
+ * Copyright (C) 2003, 2006, 2010 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -24,10 +24,8 @@
 #include "config.h"
 #include "Font.h"
 
-#include "CharacterNames.h"
 #include "FloatRect.h"
 #include "FontCache.h"
-#include "FontFallbackList.h"
 #include "IntPoint.h"
 #include "GlyphBuffer.h"
 #include "WidthIterator.h"
@@ -102,10 +100,6 @@ Font& Font::operator=(const Font& other)
     return *this;
 }
 
-Font::~Font()
-{
-}
-
 bool Font::operator==(const Font& other) const
 {
     // Our FontData don't have to be checked, since checking the font description will be fine.
@@ -124,24 +118,6 @@ bool Font::operator==(const Font& other) const
            && (m_fontList ? m_fontList->generation() : 0) == (other.m_fontList ? other.m_fontList->generation() : 0);
 }
 
-const SimpleFontData* Font::primaryFont() const
-{
-    ASSERT(m_fontList);
-    return m_fontList->primarySimpleFontData(this);
-}
-
-const FontData* Font::fontDataAt(unsigned index) const
-{
-    ASSERT(m_fontList);
-    return m_fontList->fontDataAt(this, index);
-}
-
-const FontData* Font::fontDataForCharacters(const UChar* characters, int length) const
-{
-    ASSERT(m_fontList);
-    return m_fontList->fontDataForCharacters(this, characters, length);
-}
-
 void Font::update(PassRefPtr<FontSelector> fontSelector) const
 {
     // FIXME: It is pretty crazy that we are willing to just poke into a RefPtr, but it ends up 
@@ -152,12 +128,6 @@ void Font::update(PassRefPtr<FontSelector> fontSelector) const
     if (!m_fontList)
         m_fontList = FontFallbackList::create();
     m_fontList->invalidate(fontSelector);
-}
-
-bool Font::isFixedPitch() const
-{
-    ASSERT(m_fontList);
-    return m_fontList->isFixedPitch(this);
 }
 
 void Font::drawText(GraphicsContext* context, const TextRun& run, const FloatPoint& point, int from, int to) const
@@ -176,14 +146,14 @@ void Font::drawText(GraphicsContext* context, const TextRun& run, const FloatPoi
 #endif
 
 #if USE(FONT_FAST_PATH)
-    if (canUseGlyphCache(run))
+    if (codePath(run) != Complex)
         return drawSimpleText(context, run, point, from, to);
 #endif
 
     return drawComplexText(context, run, point, from, to);
 }
 
-float Font::floatWidth(const TextRun& run, HashSet<const SimpleFontData*>* fallbackFonts) const
+float Font::floatWidth(const TextRun& run, HashSet<const SimpleFontData*>* fallbackFonts, GlyphOverflow* glyphOverflow) const
 {
 #if ENABLE(SVG_FONTS)
     if (primaryFont()->isSVGFont())
@@ -191,15 +161,16 @@ float Font::floatWidth(const TextRun& run, HashSet<const SimpleFontData*>* fallb
 #endif
 
 #if USE(FONT_FAST_PATH)
-    if (canUseGlyphCache(run)) {
+    CodePath codePathToUse = codePath(run);
+    if (codePathToUse != Complex) {
         // If the complex text implementation cannot return fallback fonts, avoid
         // returning them for simple text as well.
         static bool returnFallbackFonts = canReturnFallbackFontsForComplexText();
-        return floatWidthForSimpleText(run, 0, returnFallbackFonts ? fallbackFonts : 0);
+        return floatWidthForSimpleText(run, 0, returnFallbackFonts ? fallbackFonts : 0, codePathToUse == SimpleWithGlyphOverflow ? glyphOverflow : 0);
     }
 #endif
 
-    return floatWidthForComplexText(run, fallbackFonts);
+    return floatWidthForComplexText(run, fallbackFonts, glyphOverflow);
 }
 
 float Font::floatWidth(const TextRun& run, int extraCharsAvailable, int& charsConsumed, String& glyphName) const
@@ -215,7 +186,7 @@ float Font::floatWidth(const TextRun& run, int extraCharsAvailable, int& charsCo
     glyphName = "";
 
 #if USE(FONT_FAST_PATH)
-    if (canUseGlyphCache(run))
+    if (codePath(run) != Complex)
         return floatWidthForSimpleText(run, 0);
 #endif
 
@@ -232,7 +203,7 @@ FloatRect Font::selectionRectForText(const TextRun& run, const IntPoint& point, 
     to = (to == -1 ? run.length() : to);
 
 #if USE(FONT_FAST_PATH)
-    if (canUseGlyphCache(run))
+    if (codePath(run) != Complex)
         return selectionRectForSimpleText(run, point, h, from, to);
 #endif
 
@@ -247,7 +218,7 @@ int Font::offsetForPosition(const TextRun& run, int x, bool includePartialGlyphs
 #endif
 
 #if USE(FONT_FAST_PATH)
-    if (canUseGlyphCache(run))
+    if (codePath(run) != Complex)
         return offsetForPositionForSimpleText(run, x, includePartialGlyphs);
 #endif
 
@@ -261,9 +232,21 @@ bool Font::isSVGFont() const
 }
 #endif
 
-FontSelector* Font::fontSelector() const
+String Font::normalizeSpaces(const String& string)
 {
-    return m_fontList ? m_fontList->fontSelector() : 0;
+    const UChar* characters = string.characters();
+    unsigned length = string.length();
+    Vector<UChar, 256> buffer(length);
+    bool didReplacement = false;
+
+    for (unsigned i = 0; i < length; ++i) {
+        UChar originalCharacter = characters[i];
+        buffer[i] = normalizeSpaces(originalCharacter);
+        if (buffer[i] != originalCharacter)
+            didReplacement = true;
+    }
+
+    return didReplacement ? String(buffer.data(), length) : string;
 }
 
 static bool shouldUseFontSmoothing = true;

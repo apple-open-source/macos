@@ -28,6 +28,7 @@
 #include "wtf/Assertions.h"
 #include "HTMLNames.h"
 
+#include <wtf/HashMap.h>
 #include <wtf/StdLibExtras.h>
 
 namespace WebCore {
@@ -65,11 +66,158 @@ unsigned int CSSSelector::specificity()
     return s & 0xffffff;
 }
 
-void CSSSelector::extractPseudoType() const
+PseudoId CSSSelector::pseudoId(PseudoType type)
 {
-    if (m_match != PseudoClass && m_match != PseudoElement)
-        return;
+    switch (type) {
+    case PseudoFirstLine:
+        return FIRST_LINE;
+    case PseudoFirstLetter:
+        return FIRST_LETTER;
+    case PseudoSelection:
+        return SELECTION;
+    case PseudoBefore:
+        return BEFORE;
+    case PseudoAfter:
+        return AFTER;
+    case PseudoFileUploadButton:
+        return FILE_UPLOAD_BUTTON;
+    case PseudoInputPlaceholder:
+        return INPUT_PLACEHOLDER;
+    case PseudoSliderThumb:
+        return SLIDER_THUMB;
+    case PseudoSearchCancelButton:
+        return SEARCH_CANCEL_BUTTON;
+    case PseudoSearchDecoration:
+        return SEARCH_DECORATION;
+    case PseudoSearchResultsDecoration:
+        return SEARCH_RESULTS_DECORATION;
+    case PseudoSearchResultsButton:
+        return SEARCH_RESULTS_BUTTON;
+    case PseudoMediaControlsPanel:
+        return MEDIA_CONTROLS_PANEL;
+    case PseudoMediaControlsMuteButton:
+        return MEDIA_CONTROLS_MUTE_BUTTON;
+    case PseudoMediaControlsPlayButton:
+        return MEDIA_CONTROLS_PLAY_BUTTON;
+    case PseudoMediaControlsTimelineContainer:
+        return MEDIA_CONTROLS_TIMELINE_CONTAINER;
+    case PseudoMediaControlsVolumeSliderContainer:
+        return MEDIA_CONTROLS_VOLUME_SLIDER_CONTAINER;
+    case PseudoMediaControlsCurrentTimeDisplay:
+        return MEDIA_CONTROLS_CURRENT_TIME_DISPLAY;
+    case PseudoMediaControlsTimeRemainingDisplay:
+        return MEDIA_CONTROLS_TIME_REMAINING_DISPLAY;
+    case PseudoMediaControlsTimeline:
+        return MEDIA_CONTROLS_TIMELINE;
+    case PseudoMediaControlsVolumeSlider:
+        return MEDIA_CONTROLS_VOLUME_SLIDER;
+    case PseudoMediaControlsSeekBackButton:
+        return MEDIA_CONTROLS_SEEK_BACK_BUTTON;
+    case PseudoMediaControlsSeekForwardButton:
+        return MEDIA_CONTROLS_SEEK_FORWARD_BUTTON;
+    case PseudoMediaControlsRewindButton:
+        return MEDIA_CONTROLS_REWIND_BUTTON;
+    case PseudoMediaControlsReturnToRealtimeButton:
+        return MEDIA_CONTROLS_RETURN_TO_REALTIME_BUTTON;
+    case PseudoMediaControlsToggleClosedCaptions:
+        return MEDIA_CONTROLS_TOGGLE_CLOSED_CAPTIONS_BUTTON;
+    case PseudoMediaControlsStatusDisplay:
+        return MEDIA_CONTROLS_STATUS_DISPLAY;
+    case PseudoMediaControlsFullscreenButton:
+        return MEDIA_CONTROLS_FULLSCREEN_BUTTON;
+    case PseudoScrollbar:
+        return SCROLLBAR;
+    case PseudoScrollbarButton:
+        return SCROLLBAR_BUTTON;
+    case PseudoScrollbarCorner:
+        return SCROLLBAR_CORNER;
+    case PseudoScrollbarThumb:
+        return SCROLLBAR_THUMB;
+    case PseudoScrollbarTrack:
+        return SCROLLBAR_TRACK;
+    case PseudoScrollbarTrackPiece:
+        return SCROLLBAR_TRACK_PIECE;
+    case PseudoResizer:
+        return RESIZER;
+    case PseudoInnerSpinButton:
+        return INNER_SPIN_BUTTON;
+    case PseudoOuterSpinButton:
+        return OUTER_SPIN_BUTTON;
+    case PseudoProgressBarValue:
+#if ENABLE(PROGRESS_TAG)
+        return PROGRESS_BAR_VALUE;
+#else
+        ASSERT_NOT_REACHED();
+        return NOPSEUDO;
+#endif
+    case PseudoInputListButton:
+#if ENABLE(DATALIST)
+        return INPUT_LIST_BUTTON;
+#endif
+    case PseudoUnknown:
+    case PseudoEmpty:
+    case PseudoFirstChild:
+    case PseudoFirstOfType:
+    case PseudoLastChild:
+    case PseudoLastOfType:
+    case PseudoOnlyChild:
+    case PseudoOnlyOfType:
+    case PseudoNthChild:
+    case PseudoNthOfType:
+    case PseudoNthLastChild:
+    case PseudoNthLastOfType:
+    case PseudoLink:
+    case PseudoVisited:
+    case PseudoAnyLink:
+    case PseudoAutofill:
+    case PseudoHover:
+    case PseudoDrag:
+    case PseudoFocus:
+    case PseudoActive:
+    case PseudoChecked:
+    case PseudoEnabled:
+    case PseudoFullPageMedia:
+    case PseudoDefault:
+    case PseudoDisabled:
+    case PseudoOptional:
+    case PseudoRequired:
+    case PseudoReadOnly:
+    case PseudoReadWrite:
+    case PseudoValid:
+    case PseudoInvalid:
+    case PseudoIndeterminate:
+    case PseudoTarget:
+    case PseudoLang:
+    case PseudoNot:
+    case PseudoRoot:
+    case PseudoScrollbarBack:
+    case PseudoScrollbarForward:
+    case PseudoWindowInactive:
+    case PseudoCornerPresent:
+    case PseudoDecrement:
+    case PseudoIncrement:
+    case PseudoHorizontal:
+    case PseudoVertical:
+    case PseudoStart:
+    case PseudoEnd:
+    case PseudoDoubleButton:
+    case PseudoSingleButton:
+    case PseudoNoButton:
+    case PseudoFirstPage:
+    case PseudoLeftPage:
+    case PseudoRightPage:
+        return NOPSEUDO;
+    case PseudoNotParsed:
+        ASSERT_NOT_REACHED();
+        return NOPSEUDO;
+    }
 
+    ASSERT_NOT_REACHED();
+    return NOPSEUDO;
+}
+
+static HashMap<AtomicStringImpl*, CSSSelector::PseudoType>* nameToPseudoTypeMap()
+{
     DEFINE_STATIC_LOCAL(AtomicString, active, ("active"));
     DEFINE_STATIC_LOCAL(AtomicString, after, ("after"));
     DEFINE_STATIC_LOCAL(AtomicString, anyLink, ("-webkit-any-link"));
@@ -77,9 +225,12 @@ void CSSSelector::extractPseudoType() const
     DEFINE_STATIC_LOCAL(AtomicString, before, ("before"));
     DEFINE_STATIC_LOCAL(AtomicString, checked, ("checked"));
     DEFINE_STATIC_LOCAL(AtomicString, fileUploadButton, ("-webkit-file-upload-button"));
+    DEFINE_STATIC_LOCAL(AtomicString, defaultString, ("default"));
     DEFINE_STATIC_LOCAL(AtomicString, disabled, ("disabled"));
     DEFINE_STATIC_LOCAL(AtomicString, readOnly, ("read-only"));
     DEFINE_STATIC_LOCAL(AtomicString, readWrite, ("read-write"));
+    DEFINE_STATIC_LOCAL(AtomicString, valid, ("valid"));
+    DEFINE_STATIC_LOCAL(AtomicString, invalid, ("invalid"));
     DEFINE_STATIC_LOCAL(AtomicString, drag, ("-webkit-drag"));
     DEFINE_STATIC_LOCAL(AtomicString, dragAlias, ("-khtml-drag")); // was documented with this name in Apple documentation, so keep an alia
     DEFINE_STATIC_LOCAL(AtomicString, empty, ("empty"));
@@ -96,6 +247,10 @@ void CSSSelector::extractPseudoType() const
     DEFINE_STATIC_LOCAL(AtomicString, focus, ("focus"));
     DEFINE_STATIC_LOCAL(AtomicString, hover, ("hover"));
     DEFINE_STATIC_LOCAL(AtomicString, indeterminate, ("indeterminate"));
+    DEFINE_STATIC_LOCAL(AtomicString, innerSpinButton, ("-webkit-inner-spin-button"));
+#if ENABLE(DATALIST)
+    DEFINE_STATIC_LOCAL(AtomicString, inputListButton, ("-webkit-input-list-button"));
+#endif
     DEFINE_STATIC_LOCAL(AtomicString, inputPlaceholder, ("-webkit-input-placeholder"));
     DEFINE_STATIC_LOCAL(AtomicString, lastChild, ("last-child"));
     DEFINE_STATIC_LOCAL(AtomicString, lastOfType, ("last-of-type"));
@@ -105,18 +260,27 @@ void CSSSelector::extractPseudoType() const
     DEFINE_STATIC_LOCAL(AtomicString, mediaControlsMuteButton, ("-webkit-media-controls-mute-button"));
     DEFINE_STATIC_LOCAL(AtomicString, mediaControlsPlayButton, ("-webkit-media-controls-play-button"));
     DEFINE_STATIC_LOCAL(AtomicString, mediaControlsTimeline, ("-webkit-media-controls-timeline"));
+    DEFINE_STATIC_LOCAL(AtomicString, mediaControlsVolumeSlider, ("-webkit-media-controls-volume-slider"));
     DEFINE_STATIC_LOCAL(AtomicString, mediaControlsSeekBackButton, ("-webkit-media-controls-seek-back-button"));
     DEFINE_STATIC_LOCAL(AtomicString, mediaControlsSeekForwardButton, ("-webkit-media-controls-seek-forward-button"));
     DEFINE_STATIC_LOCAL(AtomicString, mediaControlsRewindButton, ("-webkit-media-controls-rewind-button"));
     DEFINE_STATIC_LOCAL(AtomicString, mediaControlsReturnToRealtimeButton, ("-webkit-media-controls-return-to-realtime-button"));
+    DEFINE_STATIC_LOCAL(AtomicString, mediaControlsToggleClosedCaptionsButton, ("-webkit-media-controls-toggle-closed-captions-button"));
     DEFINE_STATIC_LOCAL(AtomicString, mediaControlsStatusDisplay, ("-webkit-media-controls-status-display"));
     DEFINE_STATIC_LOCAL(AtomicString, mediaControlsFullscreenButton, ("-webkit-media-controls-fullscreen-button"));
     DEFINE_STATIC_LOCAL(AtomicString, mediaControlsTimelineContainer, ("-webkit-media-controls-timeline-container"));
+    DEFINE_STATIC_LOCAL(AtomicString, mediaControlsVolumeSliderContainer, ("-webkit-media-controls-volume-slider-container"));
     DEFINE_STATIC_LOCAL(AtomicString, mediaControlsCurrentTimeDisplay, ("-webkit-media-controls-current-time-display"));
     DEFINE_STATIC_LOCAL(AtomicString, mediaControlsTimeRemainingDisplay, ("-webkit-media-controls-time-remaining-display"));
     DEFINE_STATIC_LOCAL(AtomicString, notStr, ("not("));
     DEFINE_STATIC_LOCAL(AtomicString, onlyChild, ("only-child"));
     DEFINE_STATIC_LOCAL(AtomicString, onlyOfType, ("only-of-type"));
+    DEFINE_STATIC_LOCAL(AtomicString, optional, ("optional"));
+    DEFINE_STATIC_LOCAL(AtomicString, outerSpinButton, ("-webkit-outer-spin-button"));
+#if ENABLE(PROGRESS_TAG)
+    DEFINE_STATIC_LOCAL(AtomicString, progressBarValue, ("-webkit-progress-bar-value"));
+#endif
+    DEFINE_STATIC_LOCAL(AtomicString, required, ("required"));
     DEFINE_STATIC_LOCAL(AtomicString, resizer, ("-webkit-resizer"));
     DEFINE_STATIC_LOCAL(AtomicString, root, ("root"));
     DEFINE_STATIC_LOCAL(AtomicString, scrollbar, ("-webkit-scrollbar"));
@@ -144,201 +308,236 @@ void CSSSelector::extractPseudoType() const
     DEFINE_STATIC_LOCAL(AtomicString, singleButton, ("single-button"));
     DEFINE_STATIC_LOCAL(AtomicString, noButton, ("no-button"));
     DEFINE_STATIC_LOCAL(AtomicString, cornerPresent, ("corner-present"));
+    // Paged Media pseudo-classes
+    DEFINE_STATIC_LOCAL(AtomicString, firstPage, ("first"));
+    DEFINE_STATIC_LOCAL(AtomicString, leftPage, ("left"));
+    DEFINE_STATIC_LOCAL(AtomicString, rightPage, ("right"));
+
+    static HashMap<AtomicStringImpl*, CSSSelector::PseudoType>* nameToPseudoType = 0;
+    if (!nameToPseudoType) {
+        nameToPseudoType = new HashMap<AtomicStringImpl*, CSSSelector::PseudoType>;
+        nameToPseudoType->set(active.impl(), CSSSelector::PseudoActive);
+        nameToPseudoType->set(after.impl(), CSSSelector::PseudoAfter);
+        nameToPseudoType->set(anyLink.impl(), CSSSelector::PseudoAnyLink);
+        nameToPseudoType->set(autofill.impl(), CSSSelector::PseudoAutofill);
+        nameToPseudoType->set(before.impl(), CSSSelector::PseudoBefore);
+        nameToPseudoType->set(checked.impl(), CSSSelector::PseudoChecked);
+        nameToPseudoType->set(fileUploadButton.impl(), CSSSelector::PseudoFileUploadButton);
+        nameToPseudoType->set(defaultString.impl(), CSSSelector::PseudoDefault);
+        nameToPseudoType->set(disabled.impl(), CSSSelector::PseudoDisabled);
+        nameToPseudoType->set(readOnly.impl(), CSSSelector::PseudoReadOnly);
+        nameToPseudoType->set(readWrite.impl(), CSSSelector::PseudoReadWrite);
+        nameToPseudoType->set(valid.impl(), CSSSelector::PseudoValid);
+        nameToPseudoType->set(invalid.impl(), CSSSelector::PseudoInvalid);
+        nameToPseudoType->set(drag.impl(), CSSSelector::PseudoDrag);
+        nameToPseudoType->set(dragAlias.impl(), CSSSelector::PseudoDrag);
+        nameToPseudoType->set(enabled.impl(), CSSSelector::PseudoEnabled);
+        nameToPseudoType->set(empty.impl(), CSSSelector::PseudoEmpty);
+        nameToPseudoType->set(firstChild.impl(), CSSSelector::PseudoFirstChild);
+        nameToPseudoType->set(fullPageMedia.impl(), CSSSelector::PseudoFullPageMedia);
+#if ENABLE(DATALIST)
+        nameToPseudoType->set(inputListButton.impl(), CSSSelector::PseudoInputListButton);
+#endif
+        nameToPseudoType->set(inputPlaceholder.impl(), CSSSelector::PseudoInputPlaceholder);
+        nameToPseudoType->set(lastChild.impl(), CSSSelector::PseudoLastChild);
+        nameToPseudoType->set(lastOfType.impl(), CSSSelector::PseudoLastOfType);
+        nameToPseudoType->set(onlyChild.impl(), CSSSelector::PseudoOnlyChild);
+        nameToPseudoType->set(onlyOfType.impl(), CSSSelector::PseudoOnlyOfType);
+        nameToPseudoType->set(firstLetter.impl(), CSSSelector::PseudoFirstLetter);
+        nameToPseudoType->set(firstLine.impl(), CSSSelector::PseudoFirstLine);
+        nameToPseudoType->set(firstOfType.impl(), CSSSelector::PseudoFirstOfType);
+        nameToPseudoType->set(focus.impl(), CSSSelector::PseudoFocus);
+        nameToPseudoType->set(hover.impl(), CSSSelector::PseudoHover);
+        nameToPseudoType->set(indeterminate.impl(), CSSSelector::PseudoIndeterminate);
+        nameToPseudoType->set(innerSpinButton.impl(), CSSSelector::PseudoInnerSpinButton);
+        nameToPseudoType->set(link.impl(), CSSSelector::PseudoLink);
+        nameToPseudoType->set(lang.impl(), CSSSelector::PseudoLang);
+        nameToPseudoType->set(mediaControlsPanel.impl(), CSSSelector::PseudoMediaControlsPanel);
+        nameToPseudoType->set(mediaControlsMuteButton.impl(), CSSSelector::PseudoMediaControlsMuteButton);
+        nameToPseudoType->set(mediaControlsPlayButton.impl(), CSSSelector::PseudoMediaControlsPlayButton);
+        nameToPseudoType->set(mediaControlsCurrentTimeDisplay.impl(), CSSSelector::PseudoMediaControlsCurrentTimeDisplay);
+        nameToPseudoType->set(mediaControlsTimeRemainingDisplay.impl(), CSSSelector::PseudoMediaControlsTimeRemainingDisplay);
+        nameToPseudoType->set(mediaControlsTimeline.impl(), CSSSelector::PseudoMediaControlsTimeline);
+        nameToPseudoType->set(mediaControlsVolumeSlider.impl(), CSSSelector::PseudoMediaControlsVolumeSlider);
+        nameToPseudoType->set(mediaControlsSeekBackButton.impl(), CSSSelector::PseudoMediaControlsSeekBackButton);
+        nameToPseudoType->set(mediaControlsSeekForwardButton.impl(), CSSSelector::PseudoMediaControlsSeekForwardButton);
+        nameToPseudoType->set(mediaControlsRewindButton.impl(), CSSSelector::PseudoMediaControlsRewindButton);
+        nameToPseudoType->set(mediaControlsReturnToRealtimeButton.impl(), CSSSelector::PseudoMediaControlsReturnToRealtimeButton);
+        nameToPseudoType->set(mediaControlsToggleClosedCaptionsButton.impl(), CSSSelector::PseudoMediaControlsToggleClosedCaptions);
+        nameToPseudoType->set(mediaControlsStatusDisplay.impl(), CSSSelector::PseudoMediaControlsStatusDisplay);
+        nameToPseudoType->set(mediaControlsFullscreenButton.impl(), CSSSelector::PseudoMediaControlsFullscreenButton);
+        nameToPseudoType->set(mediaControlsTimelineContainer.impl(), CSSSelector::PseudoMediaControlsTimelineContainer);
+        nameToPseudoType->set(mediaControlsVolumeSliderContainer.impl(), CSSSelector::PseudoMediaControlsVolumeSliderContainer);
+        nameToPseudoType->set(notStr.impl(), CSSSelector::PseudoNot);
+        nameToPseudoType->set(nthChild.impl(), CSSSelector::PseudoNthChild);
+        nameToPseudoType->set(nthOfType.impl(), CSSSelector::PseudoNthOfType);
+        nameToPseudoType->set(nthLastChild.impl(), CSSSelector::PseudoNthLastChild);
+        nameToPseudoType->set(nthLastOfType.impl(), CSSSelector::PseudoNthLastOfType);
+        nameToPseudoType->set(outerSpinButton.impl(), CSSSelector::PseudoOuterSpinButton);
+#if ENABLE(PROGRESS_TAG)
+        nameToPseudoType->set(progressBarValue.impl(), CSSSelector::PseudoProgressBarValue);
+#endif
+        nameToPseudoType->set(root.impl(), CSSSelector::PseudoRoot);
+        nameToPseudoType->set(windowInactive.impl(), CSSSelector::PseudoWindowInactive);
+        nameToPseudoType->set(decrement.impl(), CSSSelector::PseudoDecrement);
+        nameToPseudoType->set(increment.impl(), CSSSelector::PseudoIncrement);
+        nameToPseudoType->set(start.impl(), CSSSelector::PseudoStart);
+        nameToPseudoType->set(end.impl(), CSSSelector::PseudoEnd);
+        nameToPseudoType->set(horizontal.impl(), CSSSelector::PseudoHorizontal);
+        nameToPseudoType->set(vertical.impl(), CSSSelector::PseudoVertical);
+        nameToPseudoType->set(doubleButton.impl(), CSSSelector::PseudoDoubleButton);
+        nameToPseudoType->set(singleButton.impl(), CSSSelector::PseudoSingleButton);
+        nameToPseudoType->set(noButton.impl(), CSSSelector::PseudoNoButton);
+        nameToPseudoType->set(optional.impl(), CSSSelector::PseudoOptional);
+        nameToPseudoType->set(required.impl(), CSSSelector::PseudoRequired);
+        nameToPseudoType->set(resizer.impl(), CSSSelector::PseudoResizer);
+        nameToPseudoType->set(scrollbar.impl(), CSSSelector::PseudoScrollbar);
+        nameToPseudoType->set(scrollbarButton.impl(), CSSSelector::PseudoScrollbarButton);
+        nameToPseudoType->set(scrollbarCorner.impl(), CSSSelector::PseudoScrollbarCorner);
+        nameToPseudoType->set(scrollbarThumb.impl(), CSSSelector::PseudoScrollbarThumb);
+        nameToPseudoType->set(scrollbarTrack.impl(), CSSSelector::PseudoScrollbarTrack);
+        nameToPseudoType->set(scrollbarTrackPiece.impl(), CSSSelector::PseudoScrollbarTrackPiece);
+        nameToPseudoType->set(cornerPresent.impl(), CSSSelector::PseudoCornerPresent);
+        nameToPseudoType->set(searchCancelButton.impl(), CSSSelector::PseudoSearchCancelButton);
+        nameToPseudoType->set(searchDecoration.impl(), CSSSelector::PseudoSearchDecoration);
+        nameToPseudoType->set(searchResultsDecoration.impl(), CSSSelector::PseudoSearchResultsDecoration);
+        nameToPseudoType->set(searchResultsButton.impl(), CSSSelector::PseudoSearchResultsButton);
+        nameToPseudoType->set(selection.impl(), CSSSelector::PseudoSelection);
+        nameToPseudoType->set(sliderThumb.impl(), CSSSelector::PseudoSliderThumb);
+        nameToPseudoType->set(target.impl(), CSSSelector::PseudoTarget);
+        nameToPseudoType->set(visited.impl(), CSSSelector::PseudoVisited);
+        nameToPseudoType->set(firstPage.impl(), CSSSelector::PseudoFirstPage);
+        nameToPseudoType->set(leftPage.impl(), CSSSelector::PseudoLeftPage);
+        nameToPseudoType->set(rightPage.impl(), CSSSelector::PseudoRightPage);
+    }
+    return nameToPseudoType;
+}
+
+CSSSelector::PseudoType CSSSelector::parsePseudoType(const AtomicString& name)
+{
+    if (name.isNull())
+        return PseudoUnknown;
+    HashMap<AtomicStringImpl*, CSSSelector::PseudoType>* nameToPseudoType = nameToPseudoTypeMap();
+    HashMap<AtomicStringImpl*, CSSSelector::PseudoType>::iterator slot = nameToPseudoType->find(name.impl());
+    return slot == nameToPseudoType->end() ? PseudoUnknown : slot->second;
+}
+
+void CSSSelector::extractPseudoType() const
+{
+    if (m_match != PseudoClass && m_match != PseudoElement)
+        return;
+
+    m_pseudoType = parsePseudoType(m_value);
 
     bool element = false; // pseudo-element
     bool compat = false; // single colon compatbility mode
 
-    m_pseudoType = PseudoUnknown;
-    if (m_value == active)
-        m_pseudoType = PseudoActive;
-    else if (m_value == after) {
-        m_pseudoType = PseudoAfter;
-        element = true;
+    switch (m_pseudoType) {
+    case PseudoAfter:
+    case PseudoBefore:
+    case PseudoFirstLetter:
+    case PseudoFirstLine:
         compat = true;
-    } else if (m_value == anyLink)
-        m_pseudoType = PseudoAnyLink;
-    else if (m_value == autofill)
-        m_pseudoType = PseudoAutofill;
-    else if (m_value == before) {
-        m_pseudoType = PseudoBefore;
+    case PseudoFileUploadButton:
+    case PseudoInputListButton:
+    case PseudoInputPlaceholder:
+    case PseudoInnerSpinButton:
+    case PseudoMediaControlsPanel:
+    case PseudoMediaControlsMuteButton:
+    case PseudoMediaControlsPlayButton:
+    case PseudoMediaControlsCurrentTimeDisplay:
+    case PseudoMediaControlsTimeRemainingDisplay:
+    case PseudoMediaControlsTimeline:
+    case PseudoMediaControlsVolumeSlider:
+    case PseudoMediaControlsSeekBackButton:
+    case PseudoMediaControlsSeekForwardButton:
+    case PseudoMediaControlsRewindButton:
+    case PseudoMediaControlsReturnToRealtimeButton:
+    case PseudoMediaControlsToggleClosedCaptions:
+    case PseudoMediaControlsStatusDisplay:
+    case PseudoMediaControlsFullscreenButton:
+    case PseudoMediaControlsTimelineContainer:
+    case PseudoMediaControlsVolumeSliderContainer:
+    case PseudoOuterSpinButton:
+    case PseudoProgressBarValue:
+    case PseudoResizer:
+    case PseudoScrollbar:
+    case PseudoScrollbarCorner:
+    case PseudoScrollbarButton:
+    case PseudoScrollbarThumb:
+    case PseudoScrollbarTrack:
+    case PseudoScrollbarTrackPiece:
+    case PseudoSearchCancelButton:
+    case PseudoSearchDecoration:
+    case PseudoSearchResultsDecoration:
+    case PseudoSearchResultsButton:
+    case PseudoSelection:
+    case PseudoSliderThumb:
         element = true;
-        compat = true;
-    } else if (m_value == checked)
-        m_pseudoType = PseudoChecked;
-    else if (m_value == fileUploadButton) {
-        m_pseudoType = PseudoFileUploadButton;
-        element = true;
-    } else if (m_value == disabled)
-        m_pseudoType = PseudoDisabled;
-    else if (m_value == readOnly)
-        m_pseudoType = PseudoReadOnly;
-    else if (m_value == readWrite)
-        m_pseudoType = PseudoReadWrite;
-    else if (m_value == drag || m_value == dragAlias)
-        m_pseudoType = PseudoDrag;
-    else if (m_value == enabled)
-        m_pseudoType = PseudoEnabled;
-    else if (m_value == empty)
-        m_pseudoType = PseudoEmpty;
-    else if (m_value == firstChild)
-        m_pseudoType = PseudoFirstChild;
-    else if (m_value == fullPageMedia)
-        m_pseudoType = PseudoFullPageMedia;
-    else if (m_value == inputPlaceholder) {
-        m_pseudoType = PseudoInputPlaceholder;
-        element = true;
-    } else if (m_value == lastChild)
-        m_pseudoType = PseudoLastChild;
-    else if (m_value == lastOfType)
-        m_pseudoType = PseudoLastOfType;
-    else if (m_value == onlyChild)
-        m_pseudoType = PseudoOnlyChild;
-    else if (m_value == onlyOfType)
-        m_pseudoType = PseudoOnlyOfType;
-    else if (m_value == firstLetter) {
-        m_pseudoType = PseudoFirstLetter;
-        element = true;
-        compat = true;
-    } else if (m_value == firstLine) {
-        m_pseudoType = PseudoFirstLine;
-        element = true;
-        compat = true;
-    } else if (m_value == firstOfType)
-        m_pseudoType = PseudoFirstOfType;
-    else if (m_value == focus)
-        m_pseudoType = PseudoFocus;
-    else if (m_value == hover)
-        m_pseudoType = PseudoHover;
-    else if (m_value == indeterminate)
-        m_pseudoType = PseudoIndeterminate;
-    else if (m_value == link)
-        m_pseudoType = PseudoLink;
-    else if (m_value == lang)
-        m_pseudoType = PseudoLang;
-    else if (m_value == mediaControlsPanel) {
-        m_pseudoType = PseudoMediaControlsPanel;
-        element = true;
-    } else if (m_value == mediaControlsMuteButton) {
-        m_pseudoType = PseudoMediaControlsMuteButton;
-        element = true;
-    } else if (m_value == mediaControlsPlayButton) {
-        m_pseudoType = PseudoMediaControlsPlayButton;
-        element = true;
-    } else if (m_value == mediaControlsCurrentTimeDisplay) {
-        m_pseudoType = PseudoMediaControlsCurrentTimeDisplay;
-        element = true;
-    } else if (m_value == mediaControlsTimeRemainingDisplay) {
-        m_pseudoType = PseudoMediaControlsTimeRemainingDisplay;
-        element = true;
-    } else if (m_value == mediaControlsTimeline) {
-        m_pseudoType = PseudoMediaControlsTimeline;
-        element = true;
-    } else if (m_value == mediaControlsSeekBackButton) {
-        m_pseudoType = PseudoMediaControlsSeekBackButton;
-        element = true;
-    } else if (m_value == mediaControlsSeekForwardButton) {
-        m_pseudoType = PseudoMediaControlsSeekForwardButton;
-        element = true;
-    } else if (m_value == mediaControlsRewindButton) {
-        m_pseudoType = PseudoMediaControlsRewindButton;
-        element = true;
-    } else if (m_value == mediaControlsReturnToRealtimeButton) {
-        m_pseudoType = PseudoMediaControlsReturnToRealtimeButton;
-        element = true;
-    } else if (m_value == mediaControlsStatusDisplay) {
-        m_pseudoType = PseudoMediaControlsStatusDisplay;
-        element = true;
-    } else if (m_value == mediaControlsFullscreenButton) {
-        m_pseudoType = PseudoMediaControlsFullscreenButton;
-        element = true;
-    } else if (m_value == mediaControlsTimelineContainer) {
-        m_pseudoType = PseudoMediaControlsTimelineContainer;
-        element = true;
-    } else if (m_value == notStr)
-        m_pseudoType = PseudoNot;
-    else if (m_value == nthChild)
-        m_pseudoType = PseudoNthChild;
-    else if (m_value == nthOfType)
-        m_pseudoType = PseudoNthOfType;
-    else if (m_value == nthLastChild)
-        m_pseudoType = PseudoNthLastChild;
-    else if (m_value == nthLastOfType)
-        m_pseudoType = PseudoNthLastOfType;
-    else if (m_value == root)
-        m_pseudoType = PseudoRoot;
-    else if (m_value == windowInactive)
-        m_pseudoType = PseudoWindowInactive;
-    else if (m_value == decrement)
-        m_pseudoType = PseudoDecrement;
-    else if (m_value == increment)
-        m_pseudoType = PseudoIncrement;
-    else if (m_value == start)
-        m_pseudoType = PseudoStart;
-    else if (m_value == end)
-        m_pseudoType = PseudoEnd;
-    else if (m_value == horizontal)
-        m_pseudoType = PseudoHorizontal;
-    else if (m_value == vertical)
-        m_pseudoType = PseudoVertical;
-    else if (m_value == doubleButton)
-        m_pseudoType = PseudoDoubleButton;
-    else if (m_value == singleButton)
-        m_pseudoType = PseudoSingleButton;
-    else if (m_value == noButton)
-        m_pseudoType = PseudoNoButton;
-    else if (m_value == scrollbarCorner) {
-        element = true;
-        m_pseudoType = PseudoScrollbarCorner;
-    } else if (m_value == resizer) {
-        element = true;
-        m_pseudoType = PseudoResizer;
-    } else if (m_value == scrollbar) {
-        element = true;
-        m_pseudoType = PseudoScrollbar;
-    } else if (m_value == scrollbarButton) {
-        element = true;
-        m_pseudoType = PseudoScrollbarButton;
-    } else if (m_value == scrollbarCorner) {
-        element = true;
-        m_pseudoType = PseudoScrollbarCorner;
-    } else if (m_value == scrollbarThumb) {
-        element = true;
-        m_pseudoType = PseudoScrollbarThumb;
-    } else if (m_value == scrollbarTrack) {
-        element = true;
-        m_pseudoType = PseudoScrollbarTrack;
-    } else if (m_value == scrollbarTrackPiece) {
-        element = true;
-        m_pseudoType = PseudoScrollbarTrackPiece;
-    } else if (m_value == cornerPresent)
-         m_pseudoType = PseudoCornerPresent;
-    else if (m_value == searchCancelButton) {
-        m_pseudoType = PseudoSearchCancelButton;
-        element = true;
-    } else if (m_value == searchDecoration) {
-        m_pseudoType = PseudoSearchDecoration;
-        element = true;
-    } else if (m_value == searchResultsDecoration) {
-        m_pseudoType = PseudoSearchResultsDecoration;
-        element = true;
-    } else if (m_value == searchResultsButton) {
-        m_pseudoType = PseudoSearchResultsButton;
-        element = true;
-    }  else if (m_value == selection) {
-        m_pseudoType = PseudoSelection;
-        element = true;
-    } else if (m_value == sliderThumb) {
-        m_pseudoType = PseudoSliderThumb;
-        element = true;
-    } else if (m_value == target)
-        m_pseudoType = PseudoTarget;
-    else if (m_value == visited)
-        m_pseudoType = PseudoVisited;
+        break;
+    case PseudoUnknown:
+    case PseudoEmpty:
+    case PseudoFirstChild:
+    case PseudoFirstOfType:
+    case PseudoLastChild:
+    case PseudoLastOfType:
+    case PseudoOnlyChild:
+    case PseudoOnlyOfType:
+    case PseudoNthChild:
+    case PseudoNthOfType:
+    case PseudoNthLastChild:
+    case PseudoNthLastOfType:
+    case PseudoLink:
+    case PseudoVisited:
+    case PseudoAnyLink:
+    case PseudoAutofill:
+    case PseudoHover:
+    case PseudoDrag:
+    case PseudoFocus:
+    case PseudoActive:
+    case PseudoChecked:
+    case PseudoEnabled:
+    case PseudoFullPageMedia:
+    case PseudoDefault:
+    case PseudoDisabled:
+    case PseudoOptional:
+    case PseudoRequired:
+    case PseudoReadOnly:
+    case PseudoReadWrite:
+    case PseudoValid:
+    case PseudoInvalid:
+    case PseudoIndeterminate:
+    case PseudoTarget:
+    case PseudoLang:
+    case PseudoNot:
+    case PseudoRoot:
+    case PseudoScrollbarBack:
+    case PseudoScrollbarForward:
+    case PseudoWindowInactive:
+    case PseudoCornerPresent:
+    case PseudoDecrement:
+    case PseudoIncrement:
+    case PseudoHorizontal:
+    case PseudoVertical:
+    case PseudoStart:
+    case PseudoEnd:
+    case PseudoDoubleButton:
+    case PseudoSingleButton:
+    case PseudoNoButton:
+    case PseudoNotParsed:
+        break;
+    case PseudoFirstPage:
+    case PseudoLeftPage:
+    case PseudoRightPage:
+        // FIXME: These should only be allowed in @page rules. Disabled them altogether until that's implemented correctly.
+        m_pseudoType = PseudoUnknown;
+        return;
+    }
 
     if (m_match == PseudoClass && element) {
-        if (!compat) 
+        if (!compat)
             m_pseudoType = PseudoUnknown;
-        else 
+        else
            m_match = PseudoElement;
     } else if (m_match == PseudoElement && !element)
         m_pseudoType = PseudoUnknown;
@@ -518,10 +717,35 @@ bool CSSSelector::matchNth(int count)
     return m_data.m_rareData->matchNth(count);
 }
 
+bool CSSSelector::isSimple() const
+{
+    if (simpleSelector() || tagHistory() || matchesPseudoElement())
+        return false;
+
+    int numConditions = 0;
+
+    // hasTag() cannot be be used here because namespace may not be nullAtom.
+    // Example:
+    //     @namespace "http://www.w3.org/2000/svg";
+    //     svg:not(:root) { ...
+    if (m_tag != starAtom)
+        numConditions++;
+
+    if (m_match == Id || m_match == Class || m_match == PseudoClass)
+        numConditions++;
+
+    if (m_hasRareData && m_data.m_rareData->m_attribute != anyQName())
+        numConditions++;
+
+    // numConditions is 0 for a universal selector.
+    // numConditions is 1 for other simple selectors.
+    return numConditions <= 1;
+}
+
 // a helper function for parsing nth-arguments
 bool CSSSelector::RareData::parseNth()
-{    
-    const String& argument = m_argument;
+{
+    String argument = m_argument.lower();
     
     if (argument.isEmpty())
         return false;
@@ -552,7 +776,8 @@ bool CSSSelector::RareData::parseNth()
                 m_b = argument.substring(p + 1, argument.length() - p - 1).toInt();
             else {
                 p = argument.find('-', n);
-                m_b = -argument.substring(p + 1, argument.length() - p - 1).toInt();
+                if (p != -1)
+                    m_b = -argument.substring(p + 1, argument.length() - p - 1).toInt();
             }
         } else
             m_b = argument.toInt();

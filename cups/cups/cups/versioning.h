@@ -1,9 +1,9 @@
 /*
- * "$Id: versioning.h 903 2008-07-30 23:52:22Z msweet $"
+ * "$Id: versioning.h 2061 2010-04-09 23:03:02Z msweet $"
  *
- *   API versioning definitions for the Common UNIX Printing System (CUPS).
+ *   API versioning definitions for CUPS.
  *
- *   Copyright 2007-2008 by Apple Inc.
+ *   Copyright 2007-2010 by Apple Inc.
  *
  *   These coded instructions, statements, and computer programs are the
  *   property of Apple Inc. and are protected by Federal copyright
@@ -69,8 +69,12 @@
 #    define _CUPS_DEPRECATED
 #  endif /* __GNUC__ && __GNUC__ > 2 */
 
+#  ifndef __GNUC__
+#    define __attribute__(x)
+#  endif /* !__GNUC__ */
+
 #endif /* !_CUPS_VERSIONING_H_ */
 
 /*
- * End of "$Id: versioning.h 903 2008-07-30 23:52:22Z msweet $".
+ * End of "$Id: versioning.h 2061 2010-04-09 23:03:02Z msweet $".
  */

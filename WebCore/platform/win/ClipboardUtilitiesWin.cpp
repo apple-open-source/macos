@@ -26,7 +26,6 @@
 #include "config.h"
 #include "ClipboardUtilitiesWin.h"
 
-#include "CString.h"
 #include "DocumentFragment.h"
 #include "KURL.h"
 #include "PlatformString.h"
@@ -34,6 +33,7 @@
 #include "markup.h"
 #include <CoreFoundation/CoreFoundation.h>
 #include <wtf/RetainPtr.h>
+#include <wtf/text/CString.h>
 #include <shlwapi.h>
 #include <wininet.h>    // for INTERNET_MAX_URL_LENGTH
 
@@ -415,7 +415,7 @@ PassRefPtr<DocumentFragment> fragmentFromCF_HTML(Document* doc, const String& cf
     unsigned fragmentEnd = cf_html.reverseFind('<', tagEnd);
     String markup = cf_html.substring(fragmentStart, fragmentEnd - fragmentStart).stripWhiteSpace();
 
-    return createFragmentFromMarkup(doc, markup, srcURL);
+    return createFragmentFromMarkup(doc, markup, srcURL, FragmentScriptingNotAllowed);
 }
 
 
@@ -443,7 +443,7 @@ PassRefPtr<DocumentFragment> fragmentFromHTML(Document* doc, IDataObject* data)
         html = String(data);
         GlobalUnlock(store.hGlobal);      
         ReleaseStgMedium(&store);
-        return createFragmentFromMarkup(doc, html, srcURL);
+        return createFragmentFromMarkup(doc, html, srcURL, FragmentScriptingNotAllowed);
     } 
 
     return 0;

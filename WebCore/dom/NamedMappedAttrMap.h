@@ -26,7 +26,6 @@
 #ifndef NamedMappedAttrMap_h
 #define NamedMappedAttrMap_h
 
-#include "ClassNames.h"
 #include "NamedNodeMap.h"
 
 namespace WebCore {
@@ -37,7 +36,7 @@ public:
 
     void clearClass() { m_classNames.clear(); }
     void setClass(const String&);
-    const ClassNames& classNames() const { return m_classNames; }
+    const SpaceSplitString& classNames() const { return m_classNames; }
 
     bool hasMappedAttributes() const { return m_mappedAttributeCount > 0; }
     void declRemoved() { m_mappedAttributeCount--; }
@@ -46,15 +45,9 @@ public:
     bool mapsEquivalent(const NamedMappedAttrMap*) const;
 
 private:
-    NamedMappedAttrMap(Element* element) : NamedNodeMap(element), m_mappedAttributeCount(0) { }
-
-    virtual void clearAttributes();
-    virtual bool isMappedAttributeMap() const;
+    NamedMappedAttrMap(Element* element) : NamedNodeMap(element) { }
 
     int declCount() const;
-
-    ClassNames m_classNames;
-    int m_mappedAttributeCount;
 };
 
 } //namespace

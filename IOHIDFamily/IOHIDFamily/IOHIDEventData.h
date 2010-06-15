@@ -123,6 +123,10 @@ typedef struct _IOHIDGyroEventData {
     IOHIDAXISEVENT_BASE;
 	uint32_t        gyroType;
 	uint32_t		gyroSubType;
+	IOFixed		quaternionx;
+	IOFixed		quaterniony;
+	IOFixed		quaternionz;
+	IOFixed		quaternionw;
 } IOHIDGyroEventData;
 
 typedef struct _IOHIDAmbientLightSensorEventData {
@@ -432,6 +436,18 @@ typedef struct _IOHIDSystemQueueElement {
 						break;                          \
 					case IOHIDEventFieldOffset(kIOHIDEventFieldGyroSubType): \
 						value = gyro->gyroSubType;     \
+						break;                          \
+					case IOHIDEventFieldOffset(kIOHIDEventFieldGyroQuaternionX): \
+						value = gyro->quaternionx;     \
+						break;                          \
+					case IOHIDEventFieldOffset(kIOHIDEventFieldGyroQuaternionY): \
+						value = gyro->quaterniony;     \
+						break;                          \
+					case IOHIDEventFieldOffset(kIOHIDEventFieldGyroQuaternionZ): \
+						value = gyro->quaternionz;     \
+						break;                          \
+					case IOHIDEventFieldOffset(kIOHIDEventFieldGyroQuaternionW): \
+						value = gyro->quaternionw;     \
 						break;                          \
 				};                                      \
 			}                                           \
@@ -814,6 +830,18 @@ typedef struct _IOHIDSystemQueueElement {
 						break;                          \
 					case IOHIDEventFieldOffset(kIOHIDEventFieldGyroSubType): \
 						gyro->gyroSubType = value;     \
+						break;                          \
+					case IOHIDEventFieldOffset(kIOHIDEventFieldGyroQuaternionX): \
+						gyro->quaternionx = value;     \
+						break;                          \
+					case IOHIDEventFieldOffset(kIOHIDEventFieldGyroQuaternionY): \
+						gyro->quaterniony = value;     \
+						break;                          \
+					case IOHIDEventFieldOffset(kIOHIDEventFieldGyroQuaternionZ): \
+						gyro->quaternionz = value;     \
+						break;                          \
+					case IOHIDEventFieldOffset(kIOHIDEventFieldGyroQuaternionW): \
+						gyro->quaternionw = value;     \
 						break;                          \
 				};                                      \
 			}                                           \

@@ -2,6 +2,7 @@
  * Copyright (C) 2003 Lars Knoll (knoll@kde.org)
  * Copyright (C) 2004, 2005, 2006, 2008 Apple Inc. All rights reserved.
  * Copyright (C) 2008 Eric Seidel <eric@webkit.org>
+ * Copyright (C) 2009 - 2010  Torch Mobile (Beijing) Co. Ltd. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -82,7 +83,8 @@ namespace WebCore {
         bool parseFillImage(RefPtr<CSSValue>&);
         PassRefPtr<CSSValue> parseFillPositionXY(bool& xFound, bool& yFound);
         void parseFillPosition(RefPtr<CSSValue>&, RefPtr<CSSValue>&);
-        PassRefPtr<CSSValue> parseFillSize();
+        void parseFillRepeat(RefPtr<CSSValue>&, RefPtr<CSSValue>&);
+        PassRefPtr<CSSValue> parseFillSize(int propId, bool &allowComma);
         
         bool parseFillProperty(int propId, int& propId1, int& propId2, RefPtr<CSSValue>&, RefPtr<CSSValue>&);
         bool parseFillShorthand(int propId, const int* properties, int numProperties, bool important);
@@ -94,8 +96,10 @@ namespace WebCore {
         PassRefPtr<CSSValue> parseAnimationDelay();
         PassRefPtr<CSSValue> parseAnimationDirection();
         PassRefPtr<CSSValue> parseAnimationDuration();
+        PassRefPtr<CSSValue> parseAnimationFillMode();
         PassRefPtr<CSSValue> parseAnimationIterationCount();
         PassRefPtr<CSSValue> parseAnimationName();
+        PassRefPtr<CSSValue> parseAnimationPlayState();
         PassRefPtr<CSSValue> parseAnimationProperty();
         PassRefPtr<CSSValue> parseAnimationTimingFunction();
 
@@ -136,9 +140,14 @@ namespace WebCore {
         PassRefPtr<CSSValue> parseSVGStrokeDasharray();
 #endif
 
+#if ENABLE(WCSS)
+        PassRefPtr<CSSValue> parseWCSSInputProperty();
+#endif
+
         // CSS3 Parsing Routines (for properties specific to CSS3)
         bool parseShadow(int propId, bool important);
         bool parseBorderImage(int propId, bool important, RefPtr<CSSValue>&);
+        bool parseBorderRadius(int propId, bool important);
         
         bool parseReflect(int propId, bool important);
 
@@ -175,6 +184,10 @@ namespace WebCore {
         CSSRule* createStyleRule(Vector<CSSSelector*>* selectors);
         CSSRule* createFontFaceRule();
         CSSRule* createVariablesRule(MediaList*, bool variablesKeyword);
+        CSSRule* createPageRule(CSSSelector* pageSelector);
+        CSSRule* createMarginAtRule(CSSSelector::MarginBoxType marginBox);
+        void startDeclarationsForMarginBox();
+        void endDeclarationsForMarginBox();
 
         MediaQueryExp* createFloatingMediaQueryExp(const AtomicString&, CSSParserValueList*);
         MediaQueryExp* sinkFloatingMediaQueryExp(MediaQueryExp*);
@@ -184,14 +197,18 @@ namespace WebCore {
         MediaQuery* createFloatingMediaQuery(Vector<MediaQueryExp*>*);
         MediaQuery* sinkFloatingMediaQuery(MediaQuery*);
 
+        void addNamespace(const AtomicString& prefix, const AtomicString& uri);
+
         bool addVariable(const CSSParserString&, CSSParserValueList*);
         bool addVariableDeclarationBlock(const CSSParserString&);
         bool checkForVariables(CSSParserValueList*);
         void addUnresolvedProperty(int propId, bool important);
-        
+        void invalidBlockHit();
+
         Vector<CSSSelector*>* reusableSelectorVector() { return &m_reusableSelectorVector; }
-        
-    public:
+
+        void updateLastSelectorLine() { m_lastSelectorLine = m_line; }
+
         bool m_strict;
         bool m_important;
         int m_id;
@@ -204,12 +221,14 @@ namespace WebCore {
         CSSSelectorList* m_selectorListForParseSelector;
         unsigned m_numParsedProperties;
         unsigned m_maxParsedProperties;
+        unsigned m_numParsedPropertiesBeforeMarginBox;
 
         int m_inParseShorthand;
         int m_currentShorthand;
         bool m_implicitShorthand;
 
         bool m_hasFontFaceOnlyValues;
+        bool m_hadSyntacticallyValidCSSRule;
 
         Vector<String> m_variableNames;
         Vector<RefPtr<CSSValue> > m_variableValues;
@@ -217,13 +236,15 @@ namespace WebCore {
         AtomicString m_defaultNamespace;
 
         // tokenizer methods and data
-    public:
         int lex(void* yylval);
         int token() { return yyTok; }
         UChar* text(int* length);
+        void countLines();
         int lex();
         
     private:
+        void recheckAtKeyword(const UChar* str, int len);
+    
         void clearProperties();
 
         void setupParser(const char* prefix, const String&, const char* suffix);
@@ -236,6 +257,18 @@ namespace WebCore {
 
         void deleteFontFaceOnlyValues();
 
+        enum SizeParameterType {
+            None,
+            Auto,
+            Length,
+            PageSize,
+            Orientation,
+        };
+
+        bool parsePage(int propId, bool important);
+        bool parseSize(int propId, bool important);
+        SizeParameterType parseSizeParameter(CSSValueList* parsedValues, CSSParserValue* value, SizeParameterType prevParamType);
+
         UChar* m_data;
         UChar* yytext;
         UChar* yy_c_buf_p;
@@ -245,6 +278,12 @@ namespace WebCore {
         int yyleng;
         int yyTok;
         int yy_start;
+        int m_line;
+        int m_lastSelectorLine;
+
+        bool m_allowImportRules;
+        bool m_allowVariablesRules;
+        bool m_allowNamespaceDeclarations;
 
         Vector<RefPtr<StyleBase> > m_parsedStyleObjects;
         Vector<RefPtr<CSSRuleList> > m_parsedRuleLists;
@@ -286,7 +325,7 @@ namespace WebCore {
     int cssPropertyID(const String&);
     int cssValueKeywordID(const CSSParserString&);
 
-    class ShorthandScope {
+    class ShorthandScope : public FastAllocBase {
     public:
         ShorthandScope(CSSParser* parser, int propId) : m_parser(parser)
         {
@@ -302,6 +341,10 @@ namespace WebCore {
     private:
         CSSParser* m_parser;
     };
+
+    String quoteCSSString(const String&);
+    String quoteCSSStringIfNeeded(const String&);
+    String quoteCSSURLIfNeeded(const String&);
 
 } // namespace WebCore
 

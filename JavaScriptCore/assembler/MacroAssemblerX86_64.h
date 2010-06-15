@@ -26,9 +26,7 @@
 #ifndef MacroAssemblerX86_64_h
 #define MacroAssemblerX86_64_h
 
-#include <wtf/Platform.h>
-
-#if ENABLE(ASSEMBLER) && PLATFORM(X86_64)
+#if ENABLE(ASSEMBLER) && CPU(X86_64)
 
 #include "MacroAssemblerX86Common.h"
 
@@ -38,7 +36,7 @@ namespace JSC {
 
 class MacroAssemblerX86_64 : public MacroAssemblerX86Common {
 protected:
-    static const X86::RegisterID scratchRegister = X86::r11;
+    static const X86Registers::RegisterID scratchRegister = X86Registers::r11;
 
 public:
     static const Scale ScalePtr = TimesEight;
@@ -79,16 +77,16 @@ public:
 
     void load32(void* address, RegisterID dest)
     {
-        if (dest == X86::eax)
+        if (dest == X86Registers::eax)
             m_assembler.movl_mEAX(address);
         else {
-            move(X86::eax, dest);
+            move(X86Registers::eax, dest);
             m_assembler.movl_mEAX(address);
-            swap(X86::eax, dest);
+            swap(X86Registers::eax, dest);
         }
     }
 
-    void loadDouble(void* address, FPRegisterID dest)
+    void loadDouble(const void* address, FPRegisterID dest)
     {
         move(ImmPtr(address), scratchRegister);
         loadDouble(scratchRegister, dest);
@@ -102,10 +100,10 @@ public:
 
     void store32(Imm32 imm, void* address)
     {
-        move(X86::eax, scratchRegister);
-        move(imm, X86::eax);
+        move(X86Registers::eax, scratchRegister);
+        move(imm, X86Registers::eax);
         m_assembler.movl_EAXm(address);
-        move(scratchRegister, X86::eax);
+        move(scratchRegister, X86Registers::eax);
     }
 
     Call call()
@@ -192,33 +190,6 @@ public:
         m_assembler.orq_ir(imm.m_value, dest);
     }
 
-    void rshiftPtr(RegisterID shift_amount, RegisterID dest)
-    {
-        // On x86 we can only shift by ecx; if asked to shift by another register we'll
-        // need rejig the shift amount into ecx first, and restore the registers afterwards.
-        if (shift_amount != X86::ecx) {
-            swap(shift_amount, X86::ecx);
-
-            // E.g. transform "shll %eax, %eax" -> "xchgl %eax, %ecx; shll %ecx, %ecx; xchgl %eax, %ecx"
-            if (dest == shift_amount)
-                m_assembler.sarq_CLr(X86::ecx);
-            // E.g. transform "shll %eax, %ecx" -> "xchgl %eax, %ecx; shll %ecx, %eax; xchgl %eax, %ecx"
-            else if (dest == X86::ecx)
-                m_assembler.sarq_CLr(shift_amount);
-            // E.g. transform "shll %eax, %ebx" -> "xchgl %eax, %ecx; shll %ecx, %ebx; xchgl %eax, %ecx"
-            else
-                m_assembler.sarq_CLr(dest);
-        
-            swap(shift_amount, X86::ecx);
-        } else
-            m_assembler.sarq_CLr(dest);
-    }
-
-    void rshiftPtr(Imm32 imm, RegisterID dest)
-    {
-        m_assembler.sarq_i8r(imm.m_value, dest);
-    }
-
     void subPtr(RegisterID src, RegisterID dest)
     {
         m_assembler.subq_rr(src, dest);
@@ -258,12 +229,12 @@ public:
 
     void loadPtr(void* address, RegisterID dest)
     {
-        if (dest == X86::eax)
+        if (dest == X86Registers::eax)
             m_assembler.movq_mEAX(address);
         else {
-            move(X86::eax, dest);
+            move(X86Registers::eax, dest);
             m_assembler.movq_mEAX(address);
-            swap(X86::eax, dest);
+            swap(X86Registers::eax, dest);
         }
     }
 
@@ -285,24 +256,19 @@ public:
     
     void storePtr(RegisterID src, void* address)
     {
-        if (src == X86::eax)
+        if (src == X86Registers::eax)
             m_assembler.movq_EAXm(address);
         else {
-            swap(X86::eax, src);
+            swap(X86Registers::eax, src);
             m_assembler.movq_EAXm(address);
-            swap(X86::eax, src);
+            swap(X86Registers::eax, src);
         }
     }
 
     void storePtr(ImmPtr imm, ImplicitAddress address)
     {
-        intptr_t ptr = imm.asIntptr();
-        if (CAN_SIGN_EXTEND_32_64(ptr))
-            m_assembler.movq_i32m(static_cast<int>(ptr), address.offset, address.base);
-        else {
-            move(imm, scratchRegister);
-            storePtr(scratchRegister, address);
-        }
+        move(imm, scratchRegister);
+        storePtr(scratchRegister, address);
     }
 
     DataLabel32 storePtrWithAddressOffsetPatch(RegisterID src, Address address)
@@ -339,17 +305,8 @@ public:
 
     Jump branchPtr(Condition cond, RegisterID left, ImmPtr right)
     {
-        intptr_t imm = right.asIntptr();
-        if (CAN_SIGN_EXTEND_32_64(imm)) {
-            if (!imm)
-                m_assembler.testq_rr(left, left);
-            else
-                m_assembler.cmpq_ir(imm, left);
-            return Jump(m_assembler.jCC(x86Condition(cond)));
-        } else {
-            move(right, scratchRegister);
-            return branchPtr(cond, left, scratchRegister);
-        }
+        move(right, scratchRegister);
+        return branchPtr(cond, left, scratchRegister);
     }
 
     Jump branchPtr(Condition cond, RegisterID left, Address right)
@@ -452,6 +409,14 @@ public:
         return label;
     }
 
+    using MacroAssemblerX86Common::branchTest8;
+    Jump branchTest8(Condition cond, ExtendedAddress address, Imm32 mask = Imm32(-1))
+    {
+        ImmPtr addr(reinterpret_cast<void*>(address.offset));
+        MacroAssemblerX86Common::move(addr, scratchRegister);
+        return MacroAssemblerX86Common::branchTest8(cond, BaseIndex(scratchRegister, address.base, TimesOne), mask);
+    }
+
     Label loadPtrWithPatchToLEA(Address address, RegisterID dest)
     {
         Label label(this);
@@ -462,6 +427,7 @@ public:
     bool supportsFloatingPoint() const { return true; }
     // See comment on MacroAssemblerARMv7::supportsFloatingPointTruncate()
     bool supportsFloatingPointTruncate() const { return true; }
+    bool supportsFloatingPointSqrt() const { return true; }
 
 private:
     friend class LinkBuffer;

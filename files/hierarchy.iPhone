@@ -22,3 +22,5 @@
 0755	64	wheel	private/var/Keychains
 0755	root	wheel	private/var/MobileDevice
 0755	501	501	private/var/MobileDevice/ProvisioningProfiles
+0755	25	25	private/var/wireless
+0755	25	25	private/var/wireless/Library

@@ -1,7 +1,7 @@
 /*
  * Copyright (C) 1999 Lars Knoll (knoll@kde.org)
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
- * Copyright (C) 2004, 2005, 2006, 2007, 2009 Apple Inc. All rights reserved.
+ * Copyright (C) 2004, 2005, 2006, 2007, 2009, 2010 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -29,36 +29,64 @@
 #include "Element.h"
 #include "RenderImage.h"
 
+#if !ASSERT_DISABLED
+// ImageLoader objects are allocated as members of other objects, so generic pointer check would always fail.
+namespace WTF {
+
+template<> struct ValueCheck<WebCore::ImageLoader*> {
+    typedef WebCore::ImageLoader* TraitType;
+    static void checkConsistency(const WebCore::ImageLoader* p)
+    {
+        if (!p)
+            return;
+        ASSERT(p->element());
+        ValueCheck<WebCore::Element*>::checkConsistency(p->element());
+    }
+};
+
+}
+#endif
+
 namespace WebCore {
 
-class ImageLoadEventSender {
+class ImageEventSender : public Noncopyable {
 public:
-    ImageLoadEventSender();
+    ImageEventSender(const AtomicString& eventType);
 
-    void dispatchLoadEventSoon(ImageLoader*);
-    void cancelLoadEvent(ImageLoader*);
+    void dispatchEventSoon(ImageLoader*);
+    void cancelEvent(ImageLoader*);
 
-    void dispatchPendingLoadEvents();
+    void dispatchPendingEvents();
+
+#if !ASSERT_DISABLED
+    bool hasPendingEvents(ImageLoader* loader) { return m_dispatchSoonList.find(loader) != notFound; }
+#endif
 
 private:
-    ~ImageLoadEventSender();
+    void timerFired(Timer<ImageEventSender>*);
 
-    void timerFired(Timer<ImageLoadEventSender>*);
-
-    Timer<ImageLoadEventSender> m_timer;
+    AtomicString m_eventType;
+    Timer<ImageEventSender> m_timer;
     Vector<ImageLoader*> m_dispatchSoonList;
     Vector<ImageLoader*> m_dispatchingList;
 };
 
-static ImageLoadEventSender& loadEventSender()
+static ImageEventSender& beforeLoadEventSender()
 {
-    DEFINE_STATIC_LOCAL(ImageLoadEventSender, sender, ());
+    DEFINE_STATIC_LOCAL(ImageEventSender, sender, (eventNames().beforeloadEvent));
+    return sender;
+}
+
+static ImageEventSender& loadEventSender()
+{
+    DEFINE_STATIC_LOCAL(ImageEventSender, sender, (eventNames().loadEvent));
     return sender;
 }
 
 ImageLoader::ImageLoader(Element* element)
     : m_element(element)
     , m_image(0)
+    , m_firedBeforeLoad(true)
     , m_firedLoad(true)
     , m_imageComplete(true)
     , m_loadManually(false)
@@ -69,7 +97,14 @@ ImageLoader::~ImageLoader()
 {
     if (m_image)
         m_image->removeClient(this);
-    loadEventSender().cancelLoadEvent(this);
+
+    ASSERT(!m_firedBeforeLoad || !beforeLoadEventSender().hasPendingEvents(this));
+    if (!m_firedBeforeLoad)
+        beforeLoadEventSender().cancelEvent(this);
+
+    ASSERT(!m_firedLoad || !loadEventSender().hasPendingEvents(this));
+    if (!m_firedLoad)
+        loadEventSender().cancelEvent(this);
 }
 
 void ImageLoader::setImage(CachedImage* newImage)
@@ -77,8 +112,15 @@ void ImageLoader::setImage(CachedImage* newImage)
     ASSERT(m_failedLoadURL.isEmpty());
     CachedImage* oldImage = m_image.get();
     if (newImage != oldImage) {
-        setLoadingImage(newImage);
-        m_firedLoad = true;
+        m_image = newImage;
+        if (!m_firedBeforeLoad) {
+            beforeLoadEventSender().cancelEvent(this);
+            m_firedBeforeLoad = true;
+        }
+        if (!m_firedLoad) {
+            loadEventSender().cancelEvent(this);
+            m_firedLoad = true;
+        }
         m_imageComplete = true;
         if (newImage)
             newImage->addClient(this);
@@ -89,16 +131,8 @@ void ImageLoader::setImage(CachedImage* newImage)
     if (RenderObject* renderer = m_element->renderer()) {
         if (!renderer->isImage())
             return;
-
         toRenderImage(renderer)->resetAnimation();
     }
-}
-
-void ImageLoader::setLoadingImage(CachedImage* loadingImage)
-{
-    m_firedLoad = false;
-    m_imageComplete = false;
-    m_image = loadingImage;
 }
 
 void ImageLoader::updateFromElement()
@@ -136,9 +170,23 @@ void ImageLoader::updateFromElement()
     
     CachedImage* oldImage = m_image.get();
     if (newImage != oldImage) {
-        setLoadingImage(newImage);
-        if (newImage)
+        if (!m_firedBeforeLoad)
+            beforeLoadEventSender().cancelEvent(this);
+        if (!m_firedLoad)
+            loadEventSender().cancelEvent(this);
+
+        m_image = newImage;
+        m_firedBeforeLoad = !newImage;
+        m_firedLoad = !newImage;
+        m_imageComplete = !newImage;
+
+        if (newImage) {
             newImage->addClient(this);
+            if (!m_element->document()->hasListenerType(Document::BEFORELOAD_LISTENER))
+                dispatchPendingBeforeLoadEvent();
+            else
+                beforeLoadEventSender().dispatchEventSoon(this);
+        }
         if (oldImage)
             oldImage->removeClient(this);
     }
@@ -146,7 +194,6 @@ void ImageLoader::updateFromElement()
     if (RenderObject* renderer = m_element->renderer()) {
         if (!renderer->isImage())
             return;
-
         toRenderImage(renderer)->resetAnimation();
     }
 }
@@ -161,16 +208,51 @@ void ImageLoader::updateFromElementIgnoringPreviousError()
 void ImageLoader::notifyFinished(CachedResource*)
 {
     ASSERT(m_failedLoadURL.isEmpty());
+
     m_imageComplete = true;
+    if (haveFiredBeforeLoadEvent())
+        updateRenderer();
 
-    loadEventSender().dispatchLoadEventSoon(this);
+    if (m_firedLoad)
+        return;
 
+    loadEventSender().dispatchEventSoon(this);
+}
+
+void ImageLoader::updateRenderer()
+{
     if (RenderObject* renderer = m_element->renderer()) {
-        if (!renderer->isImage())
+        if (!renderer->isImage() && !renderer->isVideo())
             return;
-
-        toRenderImage(renderer)->setCachedImage(m_image.get());
+        RenderImage* imageRenderer = toRenderImage(renderer);
+        
+        // Only update the renderer if it doesn't have an image or if what we have
+        // is a complete image.  This prevents flickering in the case where a dynamic
+        // change is happening between two images.
+        CachedImage* cachedImage = imageRenderer->cachedImage();
+        if (m_image != cachedImage && (m_imageComplete || !cachedImage))
+            imageRenderer->setCachedImage(m_image.get());
     }
+}
+
+void ImageLoader::dispatchPendingBeforeLoadEvent()
+{
+    if (m_firedBeforeLoad)
+        return;
+    if (!m_image)
+        return;
+    if (!m_element->document()->attached())
+        return;
+    m_firedBeforeLoad = true;
+    if (m_element->dispatchBeforeLoadEvent(m_image->url())) {
+        updateRenderer();
+        return;
+    }
+    if (m_image) {
+        m_image->removeClient(this);
+        m_image = 0;
+    }
+    loadEventSender().cancelEvent(this);
 }
 
 void ImageLoader::dispatchPendingLoadEvent()
@@ -185,24 +267,35 @@ void ImageLoader::dispatchPendingLoadEvent()
     dispatchLoadEvent();
 }
 
+void ImageLoader::dispatchPendingBeforeLoadEvents()
+{
+    beforeLoadEventSender().dispatchPendingEvents();
+}
+
 void ImageLoader::dispatchPendingLoadEvents()
 {
-    loadEventSender().dispatchPendingLoadEvents();
+    loadEventSender().dispatchPendingEvents();
 }
 
-ImageLoadEventSender::ImageLoadEventSender()
-    : m_timer(this, &ImageLoadEventSender::timerFired)
+void ImageLoader::elementWillMoveToNewOwnerDocument()
+{
+    setImage(0);
+}
+
+ImageEventSender::ImageEventSender(const AtomicString& eventType)
+    : m_eventType(eventType)
+    , m_timer(this, &ImageEventSender::timerFired)
 {
 }
 
-void ImageLoadEventSender::dispatchLoadEventSoon(ImageLoader* loader)
+void ImageEventSender::dispatchEventSoon(ImageLoader* loader)
 {
     m_dispatchSoonList.append(loader);
     if (!m_timer.isActive())
         m_timer.startOneShot(0);
 }
 
-void ImageLoadEventSender::cancelLoadEvent(ImageLoader* loader)
+void ImageEventSender::cancelEvent(ImageLoader* loader)
 {
     // Remove instances of this loader from both lists.
     // Use loops because we allow multiple instances to get into the lists.
@@ -220,7 +313,7 @@ void ImageLoadEventSender::cancelLoadEvent(ImageLoader* loader)
         m_timer.stop();
 }
 
-void ImageLoadEventSender::dispatchPendingLoadEvents()
+void ImageEventSender::dispatchPendingEvents()
 {
     // Need to avoid re-entering this function; if new dispatches are
     // scheduled before the parent finishes processing the list, they
@@ -230,18 +323,24 @@ void ImageLoadEventSender::dispatchPendingLoadEvents()
 
     m_timer.stop();
 
+    m_dispatchSoonList.checkConsistency();
+
     m_dispatchingList.swap(m_dispatchSoonList);
     size_t size = m_dispatchingList.size();
     for (size_t i = 0; i < size; ++i) {
-        if (ImageLoader* loader = m_dispatchingList[i])
-            loader->dispatchPendingLoadEvent();
+        if (ImageLoader* loader = m_dispatchingList[i]) {
+            if (m_eventType == eventNames().beforeloadEvent)
+                loader->dispatchPendingBeforeLoadEvent();
+            else
+                loader->dispatchPendingLoadEvent();
+        }
     }
     m_dispatchingList.clear();
 }
 
-void ImageLoadEventSender::timerFired(Timer<ImageLoadEventSender>*)
+void ImageEventSender::timerFired(Timer<ImageEventSender>*)
 {
-    dispatchPendingLoadEvents();
+    dispatchPendingEvents();
 }
 
 }

@@ -54,6 +54,8 @@ public:
     virtual bool canTakeFocus(FocusDirection);
     virtual void takeFocus(FocusDirection);
 
+    virtual void focusedNodeChanged(Node*);
+
     virtual Page* createWindow(Frame*, const FrameLoadRequest&, const WindowFeatures&);
     virtual Page* createModalDialog(Frame*, const FrameLoadRequest&);
     virtual void show();
@@ -76,6 +78,7 @@ public:
     virtual void setResizable(bool);
 
     virtual void addMessageToConsole(MessageSource source,
+                                     MessageType type,
                                      MessageLevel level,
                                      const String& message,
                                      unsigned int lineNumber,
@@ -99,23 +102,33 @@ public:
     virtual void scrollBackingStore(int dx, int dy, const IntRect& scrollViewRect, const IntRect& clipRect);
     virtual void updateBackingStore();
     
-    virtual void repaint(const IntRect&, bool contentChanged, bool immediate = false, bool repaintContentOnly = false);
+    virtual void invalidateWindow(const IntRect&, bool);
+    virtual void invalidateContentsAndWindow(const IntRect&, bool);
+    virtual void invalidateContentsForSlowScroll(const IntRect&, bool);
     virtual void scroll(const IntSize& scrollDelta, const IntRect& rectToScroll, const IntRect& clipRect);
+
     virtual IntPoint screenToWindow(const IntPoint&) const;
     virtual IntRect windowToScreen(const IntRect&) const;
-    virtual PlatformWidget platformWindow() const;
+    virtual PlatformPageClient platformPageClient() const;
     virtual void contentsSizeChanged(Frame*, const IntSize&) const;
 
+    virtual void scrollbarsModeDidChange() const { }
     virtual void mouseDidMoveOverElement(const HitTestResult&, unsigned modifierFlags);
 
-    virtual void setToolTip(const String&);
+    virtual void setToolTip(const String&, TextDirection);
 
     virtual void print(Frame*);
 
 #if ENABLE(DATABASE)
     virtual void exceededDatabaseQuota(Frame*, const String&);
 #endif
+
+#if ENABLE(OFFLINE_WEB_APPLICATIONS)
+    virtual void reachedMaxAppCacheSize(int64_t spaceNeeded);
+#endif
+
     virtual void runOpenPanel(Frame*, PassRefPtr<FileChooser>);
+    virtual void chooseIconForFiles(const Vector<String>&, FileChooser*);
 
     virtual void formStateDidChange(const Node*) { }
 
@@ -126,6 +139,7 @@ public:
     virtual void scrollRectIntoView(const IntRect&, const ScrollView*) const {}
 
     virtual void requestGeolocationPermissionForFrame(Frame*, Geolocation*);
+    virtual void cancelGeolocationPermissionRequestForFrame(Frame*, Geolocation*) { }
 
 private:
     wxWebView* m_webView;

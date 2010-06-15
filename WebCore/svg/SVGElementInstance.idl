@@ -28,10 +28,7 @@ module svg {
 
     interface [
         Conditional=SVG,
-        CustomListeners,
         CustomMarkFunction,
-        CustomPushEventHandlerScope,
-        GenerateToJS,
         GenerateNativeConverter
     ] SVGElementInstance
 #if defined(LANGUAGE_OBJECTIVE_C) && LANGUAGE_OBJECTIVE_C
@@ -90,12 +87,12 @@ module svg {
         attribute [DontEnum] EventListener onsubmit;
         attribute [DontEnum] EventListener onunload;
 
-        [Custom] void addEventListener(in DOMString type, 
-                                       in EventListener listener, 
-                                       in boolean useCapture);
-        [Custom] void removeEventListener(in DOMString type, 
-                                          in EventListener listener, 
-                                          in boolean useCapture);
+        void addEventListener(in DOMString type, 
+                              in EventListener listener, 
+                              in boolean useCapture);
+        void removeEventListener(in DOMString type, 
+                                 in EventListener listener, 
+                                 in boolean useCapture);
         boolean dispatchEvent(in Event event)
             raises(EventException);
 #endif /* defined(LANGUAGE_OBJECTIVE_C) */

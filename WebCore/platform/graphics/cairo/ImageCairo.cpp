@@ -30,12 +30,12 @@
 
 #if PLATFORM(CAIRO)
 
+#include "AffineTransform.h"
 #include "Color.h"
 #include "FloatRect.h"
 #include "GraphicsContext.h"
 #include "ImageBuffer.h"
 #include "ImageObserver.h"
-#include "TransformationMatrix.h"
 #include <cairo.h>
 #include <math.h>
 #include <wtf/OwnPtr.h>
@@ -89,7 +89,7 @@ BitmapImage::BitmapImage(cairo_surface_t* surface, ImageObserver* observer)
     checkForSolidColor();
 }
 
-void BitmapImage::draw(GraphicsContext* context, const FloatRect& dst, const FloatRect& src, CompositeOperator op)
+void BitmapImage::draw(GraphicsContext* context, const FloatRect& dst, const FloatRect& src, ColorSpace styleColorSpace, CompositeOperator op)
 {
     FloatRect srcRect(src);
     FloatRect dstRect(dst);
@@ -105,7 +105,7 @@ void BitmapImage::draw(GraphicsContext* context, const FloatRect& dst, const Flo
         return;
 
     if (mayFillWithSolidColor()) {
-        fillWithSolidColor(context, dstRect, solidColor(), op);
+        fillWithSolidColor(context, dstRect, solidColor(), styleColorSpace, op);
         return;
     }
 
@@ -125,16 +125,36 @@ void BitmapImage::draw(GraphicsContext* context, const FloatRect& dst, const Flo
     // Test using example site at http://www.meyerweb.com/eric/css/edge/complexspiral/demo.html
     cairo_pattern_t* pattern = cairo_pattern_create_for_surface(image);
 
-    // To avoid the unwanted gradient effect (#14017) we use
-    // CAIRO_FILTER_NEAREST now, but the real fix will be to have
-    // CAIRO_EXTEND_PAD implemented for surfaces in Cairo allowing us to still
-    // use bilinear filtering
-    cairo_pattern_set_filter(pattern, CAIRO_FILTER_NEAREST);
+    cairo_pattern_set_extend(pattern, CAIRO_EXTEND_PAD);
 
     float scaleX = srcRect.width() / dstRect.width();
     float scaleY = srcRect.height() / dstRect.height();
     cairo_matrix_t matrix = { scaleX, 0, 0, scaleY, srcRect.x(), srcRect.y() };
     cairo_pattern_set_matrix(pattern, &matrix);
+
+    // Draw the shadow
+#if ENABLE(FILTERS)
+    IntSize shadowSize;
+    int shadowBlur;
+    Color shadowColor;
+    if (context->getShadow(shadowSize, shadowBlur, shadowColor)) {
+        IntSize shadowBufferSize;
+        FloatRect shadowRect;
+        float kernelSize (0.0);
+        GraphicsContext::calculateShadowBufferDimensions(shadowBufferSize, shadowRect, kernelSize, dstRect, shadowSize, shadowBlur);
+        shadowColor = colorWithOverrideAlpha(shadowColor.rgb(), (shadowColor.alpha() *  context->getAlpha()) / 255.f);
+
+        //draw shadow into a new ImageBuffer
+        OwnPtr<ImageBuffer> shadowBuffer = ImageBuffer::create(shadowBufferSize);
+        cairo_t* shadowContext = shadowBuffer->context()->platformContext();
+        cairo_set_source(shadowContext, pattern);
+        cairo_translate(shadowContext, -dstRect.x(), -dstRect.y());
+        cairo_rectangle(shadowContext, 0, 0, dstRect.width(), dstRect.height());
+        cairo_fill(shadowContext);
+
+        context->createPlatformShadow(shadowBuffer.release(), shadowColor, shadowRect, kernelSize);
+    }
+#endif
 
     // Draw the image.
     cairo_translate(cr, dstRect.x(), dstRect.y());
@@ -150,8 +170,8 @@ void BitmapImage::draw(GraphicsContext* context, const FloatRect& dst, const Flo
         imageObserver()->didDraw(this);
 }
 
-void Image::drawPattern(GraphicsContext* context, const FloatRect& tileRect, const TransformationMatrix& patternTransform,
-                        const FloatPoint& phase, CompositeOperator op, const FloatRect& destRect)
+void Image::drawPattern(GraphicsContext* context, const FloatRect& tileRect, const AffineTransform& patternTransform,
+                        const FloatPoint& phase, ColorSpace, CompositeOperator op, const FloatRect& destRect)
 {
     cairo_surface_t* image = nativeImageForCurrentFrame();
     if (!image) // If it's too early we won't have an image yet.
@@ -165,7 +185,7 @@ void Image::drawPattern(GraphicsContext* context, const FloatRect& tileRect, con
     context->save();
 
     IntRect imageSize = enclosingIntRect(tileRect);
-    OwnPtr<ImageBuffer> imageSurface = ImageBuffer::create(imageSize.size(), false);
+    OwnPtr<ImageBuffer> imageSurface = ImageBuffer::create(imageSize.size());
 
     if (!imageSurface)
         return;
@@ -179,9 +199,6 @@ void Image::drawPattern(GraphicsContext* context, const FloatRect& tileRect, con
 
     cairo_pattern_t* pattern = cairo_pattern_create_for_surface(image);
     cairo_pattern_set_extend(pattern, CAIRO_EXTEND_REPEAT);
-
-    // Workaround to avoid the unwanted gradient effect (#14017)
-    cairo_pattern_set_filter(pattern, CAIRO_FILTER_NEAREST);
 
     cairo_matrix_t pattern_matrix = cairo_matrix_t(patternTransform);
     cairo_matrix_t phase_matrix = {1, 0, 0, 1, phase.x() + tileRect.x() * patternTransform.a(), phase.y() + tileRect.y() * patternTransform.d()};

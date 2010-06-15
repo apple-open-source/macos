@@ -113,6 +113,35 @@ if (foundRegularType)
 else
     fail("MyObject.regularType was not enumerated");
 
+var alwaysOneDescriptor = Object.getOwnPropertyDescriptor(MyObject, "alwaysOne");
+shouldBe('typeof alwaysOneDescriptor', "object");
+shouldBe('alwaysOneDescriptor.value', MyObject.alwaysOne);
+shouldBe('alwaysOneDescriptor.configurable', true);
+shouldBe('alwaysOneDescriptor.enumerable', false); // Actually it is.
+var cantFindDescriptor = Object.getOwnPropertyDescriptor(MyObject, "cantFind");
+shouldBe('typeof cantFindDescriptor', "object");
+shouldBe('cantFindDescriptor.value', MyObject.cantFind);
+shouldBe('cantFindDescriptor.configurable', true);
+shouldBe('cantFindDescriptor.enumerable', false);
+try {
+    // If getOwnPropertyDescriptor() returned an access descriptor, this wouldn't throw.
+    Object.getOwnPropertyDescriptor(MyObject, "throwOnGet");
+} catch (e) {
+    pass("getting property descriptor of throwOnGet threw exception");
+}
+var myPropertyNameDescriptor = Object.getOwnPropertyDescriptor(MyObject, "myPropertyName");
+shouldBe('typeof myPropertyNameDescriptor', "object");
+shouldBe('myPropertyNameDescriptor.value', MyObject.myPropertyName);
+shouldBe('myPropertyNameDescriptor.configurable', true);
+shouldBe('myPropertyNameDescriptor.enumerable', false); // Actually it is.
+try {
+    // if getOwnPropertyDescriptor() returned an access descriptor, this wouldn't throw.
+    Object.getOwnPropertyDescriptor(MyObject, "hasPropertyLie");
+} catch (e) {
+    pass("getting property descriptor of hasPropertyLie threw exception");
+}
+shouldBe('Object.getOwnPropertyDescriptor(MyObject, "doesNotExist")', undefined);
+
 myObject = new MyObject();
 
 shouldBe("delete MyObject.regularType", true);
@@ -140,6 +169,9 @@ shouldThrow("MyObject.hasPropertyLie");
 
 derived = new Derived();
 
+shouldBe("derived instanceof Derived", true);
+shouldBe("derived instanceof Base", true);
+
 // base properties and functions return 1 when called/gotten; derived, 2
 shouldBe("derived.baseProtoDup()", 2);
 shouldBe("derived.baseProto()", 1);
@@ -154,6 +186,51 @@ shouldBe("derived.baseDup = 0", 2);
 shouldBe("derived.baseOnly = 0", 1);
 shouldBe("derived.derivedOnly = 0", 2)
 shouldBe("derived.protoDup = 0", 2);
+
+derived2 = new Derived2();
+
+shouldBe("derived2 instanceof Derived2", true);
+shouldBe("derived2 instanceof Derived", true);
+shouldBe("derived2 instanceof Base", true);
+
+// base properties and functions return 1 when called/gotten; derived, 2
+shouldBe("derived2.baseProtoDup()", 2);
+shouldBe("derived2.baseProto()", 1);
+shouldBe("derived2.baseDup", 2);
+shouldBe("derived2.baseOnly", 1);
+shouldBe("derived2.protoOnly()", 2);
+shouldBe("derived2.protoDup", 2);
+shouldBe("derived2.derivedOnly", 2)
+
+// base properties throw 1 when set; derived, 2
+shouldBe("derived2.baseDup = 0", 2);
+shouldBe("derived2.baseOnly = 0", 1);
+shouldBe("derived2.derivedOnly = 0", 2)
+shouldBe("derived2.protoDup = 0", 2);
+
+shouldBe('Object.getOwnPropertyDescriptor(derived, "baseProto")', undefined);
+shouldBe('Object.getOwnPropertyDescriptor(derived, "baseProtoDup")', undefined);
+var baseDupDescriptor = Object.getOwnPropertyDescriptor(derived, "baseDup");
+shouldBe('typeof baseDupDescriptor', "object");
+shouldBe('baseDupDescriptor.value', derived.baseDup);
+shouldBe('baseDupDescriptor.configurable', true);
+shouldBe('baseDupDescriptor.enumerable', false);
+var baseOnlyDescriptor = Object.getOwnPropertyDescriptor(derived, "baseOnly");
+shouldBe('typeof baseOnlyDescriptor', "object");
+shouldBe('baseOnlyDescriptor.value', derived.baseOnly);
+shouldBe('baseOnlyDescriptor.configurable', true);
+shouldBe('baseOnlyDescriptor.enumerable', false);
+shouldBe('Object.getOwnPropertyDescriptor(derived, "protoOnly")', undefined);
+var protoDupDescriptor = Object.getOwnPropertyDescriptor(derived, "protoDup");
+shouldBe('typeof protoDupDescriptor', "object");
+shouldBe('protoDupDescriptor.value', derived.protoDup);
+shouldBe('protoDupDescriptor.configurable', true);
+shouldBe('protoDupDescriptor.enumerable', false);
+var derivedOnlyDescriptor = Object.getOwnPropertyDescriptor(derived, "derivedOnly");
+shouldBe('typeof derivedOnlyDescriptor', "object");
+shouldBe('derivedOnlyDescriptor.value', derived.derivedOnly);
+shouldBe('derivedOnlyDescriptor.configurable', true);
+shouldBe('derivedOnlyDescriptor.enumerable', false);
 
 shouldBe("undefined instanceof MyObject", false);
 EvilExceptionObject.hasInstance = function f() { return f(); };

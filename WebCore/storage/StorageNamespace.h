@@ -28,28 +28,29 @@
 
 #if ENABLE(DOM_STORAGE)
 
-#include "SecurityOriginHash.h"
-#include "StorageArea.h"
+#include "PlatformString.h"
 
-#include <wtf/HashMap.h>
+#include <wtf/PassRefPtr.h>
 #include <wtf/RefCounted.h>
 
 namespace WebCore {
 
-    class StorageArea;
-    class StorageSyncManager;
+class Page;
+class SecurityOrigin;
+class StorageArea;
 
-    // This interface is required for Chromium since these actions need to be proxied between processes.
-    class StorageNamespace : public RefCounted<StorageNamespace> {
-    public:
-        static PassRefPtr<StorageNamespace> localStorageNamespace(const String& path);
-        static PassRefPtr<StorageNamespace> sessionStorageNamespace();
+// This interface is required for Chromium since these actions need to be proxied between processes.
+class StorageNamespace : public RefCounted<StorageNamespace> {
+public:
+    static PassRefPtr<StorageNamespace> localStorageNamespace(const String& path, unsigned quota);
+    static PassRefPtr<StorageNamespace> sessionStorageNamespace(Page*, unsigned quota);
 
-        virtual ~StorageNamespace() { }
-        virtual PassRefPtr<StorageArea> storageArea(SecurityOrigin*) = 0;
-        virtual PassRefPtr<StorageNamespace> copy() = 0;
-        virtual void close() = 0;
-    };
+    virtual ~StorageNamespace() { }
+    virtual PassRefPtr<StorageArea> storageArea(PassRefPtr<SecurityOrigin>) = 0;
+    virtual PassRefPtr<StorageNamespace> copy() = 0;
+    virtual void close() = 0;
+    virtual void unlock() = 0;
+};
 
 } // namespace WebCore
 

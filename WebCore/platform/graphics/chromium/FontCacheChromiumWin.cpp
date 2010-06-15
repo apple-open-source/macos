@@ -140,6 +140,9 @@ static bool LookupAltName(const String& name, String& altName)
         // 宋体, SimSun
         {L"\x5B8B\x4F53", {L"SimSun", simplifiedChineseCodepage}},
         {L"simsun", {L"\x5B8B\x4F53", simplifiedChineseCodepage}},
+        // 宋体-ExtB, SimSun-ExtB
+        {L"\x5B8B\x4F53-ExtB", {L"SimSun-ExtB", simplifiedChineseCodepage}},
+        {L"simsun-extb", {L"\x5B8B\x4F53-extb", simplifiedChineseCodepage}},
         // 黑体, SimHei
         {L"\x9ED1\x4F53", {L"SimHei", simplifiedChineseCodepage}},
         {L"simhei", {L"\x9ED1\x4F53", simplifiedChineseCodepage}},
@@ -164,9 +167,15 @@ static bool LookupAltName(const String& name, String& altName)
         // 新細明體, PMingLiu
         {L"\x65B0\x7D30\x660E\x9AD4", {L"PMingLiu", traditionalChineseCodepage}},
         {L"pmingliu", {L"\x65B0\x7D30\x660E\x9AD4", traditionalChineseCodepage}},
+        // 新細明體-ExtB, PMingLiu-ExtB
+        {L"\x65B0\x7D30\x660E\x9AD4-ExtB", {L"PMingLiu-ExtB", traditionalChineseCodepage}},
+        {L"pmingliu-extb", {L"\x65B0\x7D30\x660E\x9AD4-extb", traditionalChineseCodepage}},
         // 細明體, MingLiu
         {L"\x7D30\x660E\x9AD4", {L"MingLiu", traditionalChineseCodepage}},
         {L"mingliu", {L"\x7D30\x660E\x9AD4", traditionalChineseCodepage}},
+        // 細明體-ExtB, MingLiu-ExtB
+        {L"\x7D30\x660E\x9AD4-ExtB", {L"MingLiu-ExtB", traditionalChineseCodepage}},
+        {L"mingliu-extb", {L"x65B0\x7D30\x660E\x9AD4-extb", traditionalChineseCodepage}},
         // 微軟正黑體, Microsoft JhengHei
         {L"\x5FAE\x8EDF\x6B63\x9ED1\x9AD4", {L"Microsoft JhengHei", traditionalChineseCodepage}},
         {L"microsoft jhengHei", {L"\x5FAE\x8EDF\x6B63\x9ED1\x9AD4", traditionalChineseCodepage}},
@@ -261,7 +270,7 @@ static HFONT createFontIndirectAndGetWinName(const String& family, LOGFONT* winf
 // characters. Because it's family names rather than font faces we use
 // as keys, there might be edge cases where one face of a font family
 // has a different repertoire from another face of the same family. 
-typedef HashMap<const wchar_t*, UnicodeSet*> FontCmapCache;
+typedef HashMap<const wchar_t*, icu::UnicodeSet*> FontCmapCache;
 
 static bool fontContainsCharacter(const FontPlatformData* fontData,
                                   const wchar_t* family, UChar32 character)
@@ -277,7 +286,7 @@ static bool fontContainsCharacter(const FontPlatformData* fontData,
     if (!fontCmapCache)
         fontCmapCache = new FontCmapCache;
 
-    HashMap<const wchar_t*, UnicodeSet*>::iterator it = fontCmapCache->find(family);
+    HashMap<const wchar_t*, icu::UnicodeSet*>::iterator it = fontCmapCache->find(family);
     if (it != fontCmapCache->end()) 
         return it->second->contains(character);
     
@@ -308,7 +317,7 @@ static bool fontContainsCharacter(const FontPlatformData* fontData,
     // 1) port back ICU 4.0's faster look-up code for UnicodeSet
     // 2) port Mozilla's CompressedCharMap or gfxSparseBitset
     unsigned i = 0;
-    UnicodeSet* cmap = new UnicodeSet;
+    icu::UnicodeSet* cmap = new icu::UnicodeSet;
     while (i < glyphset->cRanges) {
         WCHAR start = glyphset->ranges[i].wcLow; 
         cmap->add(start, start + glyphset->ranges[i].cGlyphs - 1);
@@ -363,8 +372,10 @@ const SimpleFontData* FontCache::getFontDataForCharacters(const Font& font, cons
         L"lucida sans unicode",
         L"microsoft sans serif",
         L"palatino linotype",
-        // Four fonts below (and code2000 at the end) are not from MS, but
+        // Six fonts below (and code2000 at the end) are not from MS, but
         // once installed, cover a very wide range of characters.
+        L"dejavu serif",
+        L"dejavu sasns",
         L"freeserif",
         L"freesans",
         L"gentium",
@@ -406,12 +417,12 @@ const SimpleFontData* FontCache::getFontDataForCharacters(const Font& font, cons
 
 }
 
-FontPlatformData* FontCache::getSimilarFontPlatformData(const Font& font)
+SimpleFontData* FontCache::getSimilarFontPlatformData(const Font& font)
 {
     return 0;
 }
 
-FontPlatformData* FontCache::getLastResortFallbackFont(const FontDescription& description)
+SimpleFontData* FontCache::getLastResortFallbackFont(const FontDescription& description)
 {
     FontDescription::GenericFamilyType generic = description.genericFamily();
 
@@ -428,7 +439,7 @@ FontPlatformData* FontCache::getLastResortFallbackFont(const FontDescription& de
     else if (generic == FontDescription::MonospaceFamily)
         fontStr = courierStr;
 
-    return getCachedFontPlatformData(description, fontStr);
+    return getCachedFontData(description, fontStr);
 }
 
 static LONG toGDIFontWeight(FontWeight fontWeight)

@@ -3,7 +3,7 @@
  *
  *   Client routines for the Common UNIX Printing System (CUPS) scheduler.
  *
- *   Copyright 2007-2009 by Apple Inc.
+ *   Copyright 2007-2010 by Apple Inc.
  *   Copyright 1997-2007 by Easy Software Products, all rights reserved.
  *
  *   This file contains Kerberos support code, copyright 2006 by
@@ -1131,8 +1131,8 @@ cupsdReadClient(cupsd_client_t *con)	/* I - Client to read from */
 	  *ptr = '\0';
       }
       else
-        snprintf(locale, sizeof(locale), "%s.%s",
-	         con->http.fields[HTTP_FIELD_ACCEPT_LANGUAGE], DefaultCharset);
+        snprintf(locale, sizeof(locale), "%s.UTF-8",
+	         con->http.fields[HTTP_FIELD_ACCEPT_LANGUAGE]);
 
       con->language = cupsLangGet(locale);
     }
@@ -1365,6 +1365,35 @@ cupsdReadClient(cupsd_client_t *con)	/* I - Client to read from */
 
               if ((p = cupsdFindPrinter(con->uri + 10)) != NULL)
 		snprintf(con->uri, sizeof(con->uri), "/ppd/%s.ppd", p->name);
+	      else
+	      {
+		if (!cupsdSendError(con, HTTP_NOT_FOUND, CUPSD_AUTH_NONE))
+		{
+		  cupsdCloseClient(con);
+		  return;
+		}
+
+		break;
+	      }
+	    }
+            else if ((!strncmp(con->uri, "/printers/", 10) ||
+		      !strncmp(con->uri, "/classes/", 9)) &&
+		     !strcmp(con->uri + strlen(con->uri) - 4, ".png"))
+	    {
+	     /*
+	      * Send icon file - get the real queue name since queue names are
+	      * not case sensitive but filenames can be...
+	      */
+
+	      con->uri[strlen(con->uri) - 4] = '\0';	/* Drop ".png" */
+
+              if (!strncmp(con->uri, "/printers/", 10))
+                p = cupsdFindPrinter(con->uri + 10);
+              else
+                p = cupsdFindClass(con->uri + 9);
+
+              if (p)
+		snprintf(con->uri, sizeof(con->uri), "/icons/%s.png", p->name);
 	      else
 	      {
 		if (!cupsdSendError(con, HTTP_NOT_FOUND, CUPSD_AUTH_NONE))
@@ -2191,6 +2220,15 @@ cupsdReadClient(cupsd_client_t *con)	/* I - Client to read from */
 		cupsdCloseClient(con);
 		return;
 	      }
+	    }
+	    else if (filestats.st_size == 0)
+	    {
+	     /*
+	      * Don't allow empty file...
+	      */
+
+	      unlink(con->filename);
+	      cupsdClearString(&con->filename);
 	    }
 
 	    if (con->command)
@@ -3513,6 +3551,12 @@ get_file(cupsd_client_t *con,		/* I  - Client connection */
 
   if (!strncmp(con->uri, "/ppd/", 5))
     snprintf(filename, len, "%s%s", ServerRoot, con->uri);
+  else if (!strncmp(con->uri, "/icons/", 7) && !strchr(con->uri + 7, '/'))
+  {
+    snprintf(filename, len, "%s/%s", CacheDir, con->uri + 7);
+    if (access(filename, F_OK) < 0)
+      snprintf(filename, len, "%s/images/generic.png", DocumentRoot);
+  }
   else if (!strncmp(con->uri, "/rss/", 5) && !strchr(con->uri + 5, '/'))
     snprintf(filename, len, "%s/rss/%s", CacheDir, con->uri + 5);
   else if (!strncmp(con->uri, "/admin/conf/", 12))
@@ -3545,6 +3589,7 @@ get_file(cupsd_client_t *con,		/* I  - Client connection */
   */
 
   if ((status = stat(filename, filestats)) != 0 && language[0] &&
+      strncmp(con->uri, "/icons/", 7) &&
       strncmp(con->uri, "/ppd/", 5) &&
       strncmp(con->uri, "/admin/conf/", 12) &&
       strncmp(con->uri, "/admin/log/", 11))

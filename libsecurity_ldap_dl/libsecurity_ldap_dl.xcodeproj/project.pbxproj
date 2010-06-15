@@ -12,6 +12,9 @@
 		4803DCC70F7AD99D00DCA047 /* OpenDirectory.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 4803DCC60F7AD99D00DCA047 /* OpenDirectory.framework */; };
 		4803DCF00F7AD9D200DCA047 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 4803DCEF0F7AD9D200DCA047 /* CoreFoundation.framework */; };
 		4803DD450F7ADC6900DCA047 /* DSX509Relation.cpp in Sources */ = {isa = PBXBuildFile; fileRef = D66D84F90664F721004F6E1D /* DSX509Relation.cpp */; };
+		48DC2A801151AAA600EBFAE1 /* Database.cpp in Sources */ = {isa = PBXBuildFile; fileRef = D687EB47064C06B500DF1A47 /* Database.cpp */; };
+		48DC2A8F1151AAF900EBFAE1 /* Mutex.cpp in Sources */ = {isa = PBXBuildFile; fileRef = D687EAE4064BF83800DF1A47 /* Mutex.cpp */; };
+		48DC2A961151AB1600EBFAE1 /* CSSMStubs.cpp in Sources */ = {isa = PBXBuildFile; fileRef = D64218BB064A94E200ABB3AE /* CSSMStubs.cpp */; };
 		D67BE6B8065931A400E26A3B /* CommonCode.h in Headers */ = {isa = PBXBuildFile; fileRef = D67BE6B6065931A400E26A3B /* CommonCode.h */; };
 		D67BE6B9065931A400E26A3B /* CommonCode.cpp in Sources */ = {isa = PBXBuildFile; fileRef = D67BE6B7065931A400E26A3B /* CommonCode.cpp */; };
 		D6EFB0AE066528F800E68C0C /* PartialRelation.h in Headers */ = {isa = PBXBuildFile; fileRef = D6EFB0AC066528F800E68C0C /* PartialRelation.h */; };
@@ -29,11 +32,8 @@
 		D6FEBABE06518908003810E8 /* TableRelation.cpp in Sources */ = {isa = PBXBuildFile; fileRef = D661C5A70648673400A1CFFF /* TableRelation.cpp */; };
 		D6FEBABF06518908003810E8 /* Bridge.cpp in Sources */ = {isa = PBXBuildFile; fileRef = D64218A8064A89DE00ABB3AE /* Bridge.cpp */; };
 		D6FEBAC006518908003810E8 /* DataStorageLibrary.cpp in Sources */ = {isa = PBXBuildFile; fileRef = D64218B5064A8EF200ABB3AE /* DataStorageLibrary.cpp */; };
-		D6FEBAC106518908003810E8 /* CSSMStubs.cpp in Sources */ = {isa = PBXBuildFile; fileRef = D64218BB064A94E200ABB3AE /* CSSMStubs.cpp */; };
 		D6FEBAC206518908003810E8 /* LDAPDLModule.cpp in Sources */ = {isa = PBXBuildFile; fileRef = D64218CE064A99E300ABB3AE /* LDAPDLModule.cpp */; };
 		D6FEBAC306518908003810E8 /* AttachedInstance.cpp in Sources */ = {isa = PBXBuildFile; fileRef = D64218D2064A9E2800ABB3AE /* AttachedInstance.cpp */; };
-		D6FEBAC406518908003810E8 /* Mutex.cpp in Sources */ = {isa = PBXBuildFile; fileRef = D687EAE4064BF83800DF1A47 /* Mutex.cpp */; };
-		D6FEBAC506518908003810E8 /* Database.cpp in Sources */ = {isa = PBXBuildFile; fileRef = D687EB47064C06B500DF1A47 /* Database.cpp */; };
 		D6FEBAC706518908003810E8 /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D66B17040639E5E200E30944 /* Security.framework */; };
 /* End PBXBuildFile section */
 
@@ -138,8 +138,8 @@
 				D64218D2064A9E2800ABB3AE /* AttachedInstance.cpp */,
 				D687EAE3064BF83800DF1A47 /* Mutex.h */,
 				D687EAE4064BF83800DF1A47 /* Mutex.cpp */,
-				D687EB46064C06B500DF1A47 /* Database.h */,
 				D687EB47064C06B500DF1A47 /* Database.cpp */,
+				D687EB46064C06B500DF1A47 /* Database.h */,
 			);
 			path = lib;
 			sourceTree = "<group>";
@@ -246,15 +246,15 @@
 				D6FEBABE06518908003810E8 /* TableRelation.cpp in Sources */,
 				D6FEBABF06518908003810E8 /* Bridge.cpp in Sources */,
 				D6FEBAC006518908003810E8 /* DataStorageLibrary.cpp in Sources */,
-				D6FEBAC106518908003810E8 /* CSSMStubs.cpp in Sources */,
 				4803DD450F7ADC6900DCA047 /* DSX509Relation.cpp in Sources */,
 				D6FEBAC206518908003810E8 /* LDAPDLModule.cpp in Sources */,
 				D6FEBAC306518908003810E8 /* AttachedInstance.cpp in Sources */,
-				D6FEBAC406518908003810E8 /* Mutex.cpp in Sources */,
-				D6FEBAC506518908003810E8 /* Database.cpp in Sources */,
 				D67BE6B9065931A400E26A3B /* CommonCode.cpp in Sources */,
 				D6EFB0AF066528F800E68C0C /* PartialRelation.cpp in Sources */,
 				4803DC360F7AA54300DCA047 /* ODBridge.cpp in Sources */,
+				48DC2A801151AAA600EBFAE1 /* Database.cpp in Sources */,
+				48DC2A8F1151AAF900EBFAE1 /* Mutex.cpp in Sources */,
+				48DC2A961151AB1600EBFAE1 /* CSSMStubs.cpp in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -264,7 +264,7 @@
 		C27AD3890987FCDE001272E0 /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CURRENT_PROJECT_VERSION = 36927;
+				CURRENT_PROJECT_VERSION = 38579;
 				DEAD_CODE_STRIPPING = YES;
 				FRAMEWORK_SEARCH_PATHS = /usr/local/SecurityPieces/Frameworks;
 				GCC_DYNAMIC_NO_PIC = NO;
@@ -273,6 +273,7 @@
 				GCC_OPTIMIZATION_LEVEL = 0;
 				INFOPLIST_FILE = Info.plist;
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Security";
+				OTHER_CFLAGS = "";
 				PRODUCT_NAME = ldapdl;
 				SECTORDER_FLAGS = "";
 				WARNING_CFLAGS = (
@@ -288,13 +289,14 @@
 		C27AD38A0987FCDE001272E0 /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CURRENT_PROJECT_VERSION = 36927;
+				CURRENT_PROJECT_VERSION = 38579;
 				DEAD_CODE_STRIPPING = YES;
 				FRAMEWORK_SEARCH_PATHS = /usr/local/SecurityPieces/Frameworks;
 				GCC_ENABLE_OBJC_GC = "";
 				GCC_OPTIMIZATION_LEVEL = s;
 				INFOPLIST_FILE = Info.plist;
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Security";
+				OTHER_CFLAGS = "";
 				PRODUCT_NAME = ldapdl;
 				SECTORDER_FLAGS = "";
 				WARNING_CFLAGS = (
@@ -310,12 +312,13 @@
 		C27AD38B0987FCDE001272E0 /* Default */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CURRENT_PROJECT_VERSION = 36927;
+				CURRENT_PROJECT_VERSION = 38579;
 				DEAD_CODE_STRIPPING = YES;
 				FRAMEWORK_SEARCH_PATHS = /usr/local/SecurityPieces/Frameworks;
 				GCC_ENABLE_OBJC_GC = "";
 				INFOPLIST_FILE = Info.plist;
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Security";
+				OTHER_CFLAGS = "";
 				PRODUCT_NAME = ldapdl;
 				SECTORDER_FLAGS = "";
 				WARNING_CFLAGS = (

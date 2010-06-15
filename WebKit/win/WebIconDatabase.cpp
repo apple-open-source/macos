@@ -311,7 +311,7 @@ void WebIconDatabase::dispatchDidRemoveAllIcons()
 void WebIconDatabase::dispatchDidAddIconForPageURL(const String& pageURL)
 {   
     MutexLocker locker(m_notificationMutex);
-    m_notificationQueue.append(pageURL.copy());
+    m_notificationQueue.append(pageURL.threadsafeCopy());
     scheduleNotificationDelivery();
 }
 
@@ -358,7 +358,7 @@ static void postDidAddIconNotification(const String& pageURL, WebIconDatabase* i
     RetainPtr<CFStringRef> url(AdoptCF, pageURL.createCFString());
     CFDictionaryAddValue(dictionary.get(), WebIconDatabase::iconDatabaseNotificationUserInfoURLKey(), url.get());
 
-    COMPtr<CFDictionaryPropertyBag> userInfo(AdoptCOM, CFDictionaryPropertyBag::createInstance());
+    COMPtr<CFDictionaryPropertyBag> userInfo = CFDictionaryPropertyBag::createInstance();
     userInfo->setDictionary(dictionary.get());
 
     IWebNotificationCenter* notifyCenter = WebNotificationCenter::defaultCenterInternal();

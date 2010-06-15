@@ -35,6 +35,14 @@ bool AccessibilityObject::accessibilityIgnoreAttachment() const
     return false;
 }
 
+AccessibilityObjectInclusion AccessibilityObject::accessibilityPlatformIncludesObject() const
+{
+    if (isMenuListPopup() || isMenuListOption())
+        return IncludeObject;
+
+    return DefaultBehavior;
+}
+
 } // namespace WebCore
 
 #endif // HAVE(ACCESSIBILITY)

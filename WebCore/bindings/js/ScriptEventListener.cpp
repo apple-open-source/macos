@@ -33,10 +33,10 @@
 
 #include "Attribute.h"
 #include "Document.h"
+#include "EventListener.h"
 #include "JSNode.h"
 #include "Frame.h"
 #include "XSSAuditor.h"
-
 #include <runtime/JSLock.h>
 
 using namespace JSC;
@@ -53,29 +53,29 @@ static const String& eventParameterName(bool isSVGEvent)
 PassRefPtr<JSLazyEventListener> createAttributeEventListener(Node* node, Attribute* attr)
 {
     ASSERT(node);
-
-    Frame* frame = node->document()->frame();
-    if (!frame)
+    ASSERT(attr);
+    if (attr->isNull())
         return 0;
 
-    ScriptController* scriptController = frame->script();
-    if (!scriptController->isEnabled())
-        return 0;
-
-    if (!scriptController->xssAuditor()->canCreateInlineEventListener(attr->localName().string(), attr->value())) {
-        // This script is not safe to execute.
-        return 0;
-    }
+    int lineNumber = 1;
+    String sourceURL;
     
-    JSDOMWindow* globalObject = scriptController->globalObject();
+    // FIXME: We should be able to provide accurate source information for frameless documents, too (e.g. for importing nodes from XMLHttpRequest.responseXML).
+    if (Frame* frame = node->document()->frame()) {
+        ScriptController* scriptController = frame->script();
+        if (!scriptController->canExecuteScripts(AboutToExecuteScript))
+            return 0;
 
-    // Ensure that 'node' has a JavaScript wrapper to mark the event listener we're creating.
-    {
-        JSLock lock(false);
-        toJS(globalObject->globalExec(), node);
+        if (!scriptController->xssAuditor()->canCreateInlineEventListener(attr->localName().string(), attr->value())) {
+            // This script is not safe to execute.
+            return 0;
+        }
+
+        lineNumber = scriptController->eventHandlerLineNumber();
+        sourceURL = node->document()->url().string();
     }
 
-    return JSLazyEventListener::create(attr->localName().string(), eventParameterName(node->isSVGElement()), attr->value(), globalObject, node, scriptController->eventHandlerLineNumber());
+    return JSLazyEventListener::create(attr->localName().string(), eventParameterName(node->isSVGElement()), attr->value(), node, sourceURL, lineNumber, 0, mainThreadNormalWorld());
 }
 
 PassRefPtr<JSLazyEventListener> createAttributeEventListener(Frame* frame, Attribute* attr)
@@ -83,19 +83,43 @@ PassRefPtr<JSLazyEventListener> createAttributeEventListener(Frame* frame, Attri
     if (!frame)
         return 0;
 
-    ScriptController* scriptController = frame->script();
-    if (!scriptController->isEnabled())
+    ASSERT(attr);
+    if (attr->isNull())
         return 0;
+
+    int lineNumber = 1;
+    String sourceURL;
     
+    ScriptController* scriptController = frame->script();
+    if (!scriptController->canExecuteScripts(AboutToExecuteScript))
+        return 0;
+
     if (!scriptController->xssAuditor()->canCreateInlineEventListener(attr->localName().string(), attr->value())) {
         // This script is not safe to execute.
         return 0;
     }
 
-    // 'globalObject' is the JavaScript wrapper that will mark the event listener we're creating.
-    JSDOMWindow* globalObject = scriptController->globalObject();
+    lineNumber = scriptController->eventHandlerLineNumber();
+    sourceURL = frame->document()->url().string();
+    JSObject* wrapper = toJSDOMWindow(frame, mainThreadNormalWorld());
+    return JSLazyEventListener::create(attr->localName().string(), eventParameterName(frame->document()->isSVGDocument()), attr->value(), 0, sourceURL, lineNumber, wrapper, mainThreadNormalWorld());
+}
 
-    return JSLazyEventListener::create(attr->localName().string(), eventParameterName(frame->document()->isSVGDocument()), attr->value(), globalObject, 0, scriptController->eventHandlerLineNumber());
+String eventListenerHandlerBody(ScriptExecutionContext* context, ScriptState* scriptState, EventListener* eventListener)
+{
+    const JSEventListener* jsListener = JSEventListener::cast(eventListener);
+    if (!jsListener)
+        return "";
+    JSC::JSObject* jsFunction = jsListener->jsFunction(context);
+    if (!jsFunction)
+        return "";
+    return ustringToString(jsFunction->toString(scriptState));
+}
+
+bool eventListenerHandlerLocation(ScriptExecutionContext*, ScriptState*, EventListener*, String&, int&)
+{
+    // FIXME: Add support for getting function location.
+    return false;
 }
 
 } // namespace WebCore

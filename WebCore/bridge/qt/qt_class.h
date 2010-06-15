@@ -20,13 +20,12 @@
 #ifndef BINDINGS_QT_CLASS_H_
 #define BINDINGS_QT_CLASS_H_
 
-#include "runtime.h"
-
+#include "Bridge.h"
 #include "qglobal.h"
 
 QT_BEGIN_NAMESPACE
 class QObject;
-class QMetaObject;
+struct QMetaObject;
 QT_END_NAMESPACE
 
 namespace JSC {

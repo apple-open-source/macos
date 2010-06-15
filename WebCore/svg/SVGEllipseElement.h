@@ -2,8 +2,6 @@
     Copyright (C) 2004, 2005, 2006, 2008 Nikolas Zimmermann <zimmermann@kde.org>
                   2004, 2005, 2006 Rob Buis <buis@kde.org>
 
-    This file is part of the KDE project
-
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Library General Public
     License as published by the Free Software Foundation; either
@@ -43,18 +41,21 @@ namespace WebCore {
 
         virtual void parseMappedAttribute(MappedAttribute*);
         virtual void svgAttributeChanged(const QualifiedName&);
+        virtual void synchronizeProperty(const QualifiedName&);
 
         virtual Path toPathData() const;
 
     protected:
-        virtual const SVGElement* contextElement() const { return this; }
         virtual bool hasRelativeValues() const;
 
     private:
-        ANIMATED_PROPERTY_DECLARATIONS(SVGEllipseElement, SVGNames::ellipseTagString, SVGNames::cxAttrString, SVGLength, Cx, cx)
-        ANIMATED_PROPERTY_DECLARATIONS(SVGEllipseElement, SVGNames::ellipseTagString, SVGNames::cyAttrString, SVGLength, Cy, cy)
-        ANIMATED_PROPERTY_DECLARATIONS(SVGEllipseElement, SVGNames::ellipseTagString, SVGNames::rxAttrString, SVGLength, Rx, rx)
-        ANIMATED_PROPERTY_DECLARATIONS(SVGEllipseElement, SVGNames::ellipseTagString, SVGNames::ryAttrString, SVGLength, Ry, ry)
+        DECLARE_ANIMATED_PROPERTY(SVGEllipseElement, SVGNames::cxAttr, SVGLength, Cx, cx)
+        DECLARE_ANIMATED_PROPERTY(SVGEllipseElement, SVGNames::cyAttr, SVGLength, Cy, cy)
+        DECLARE_ANIMATED_PROPERTY(SVGEllipseElement, SVGNames::rxAttr, SVGLength, Rx, rx)
+        DECLARE_ANIMATED_PROPERTY(SVGEllipseElement, SVGNames::ryAttr, SVGLength, Ry, ry)
+
+        // SVGExternalResourcesRequired
+        DECLARE_ANIMATED_PROPERTY(SVGEllipseElement, SVGNames::externalResourcesRequiredAttr, bool, ExternalResourcesRequired, externalResourcesRequired)
     };
 
 } // namespace WebCore

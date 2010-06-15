@@ -33,10 +33,88 @@
 
 namespace JSC {
 
+struct JSCallbackObjectData {
+    JSCallbackObjectData(void* privateData, JSClassRef jsClass)
+        : privateData(privateData)
+        , jsClass(jsClass)
+    {
+        JSClassRetain(jsClass);
+    }
+    
+    ~JSCallbackObjectData()
+    {
+        JSClassRelease(jsClass);
+    }
+    
+    JSValue getPrivateProperty(const Identifier& propertyName) const
+    {
+        if (!m_privateProperties)
+            return JSValue();
+        return m_privateProperties->getPrivateProperty(propertyName);
+    }
+    
+    void setPrivateProperty(const Identifier& propertyName, JSValue value)
+    {
+        if (!m_privateProperties)
+            m_privateProperties.set(new JSPrivatePropertyMap);
+        m_privateProperties->setPrivateProperty(propertyName, value);
+    }
+    
+    void deletePrivateProperty(const Identifier& propertyName)
+    {
+        if (!m_privateProperties)
+            return;
+        m_privateProperties->deletePrivateProperty(propertyName);
+    }
+
+    void markChildren(MarkStack& markStack)
+    {
+        if (!m_privateProperties)
+            return;
+        m_privateProperties->markChildren(markStack);
+    }
+
+    void* privateData;
+    JSClassRef jsClass;
+    struct JSPrivatePropertyMap {
+        JSValue getPrivateProperty(const Identifier& propertyName) const
+        {
+            PrivatePropertyMap::const_iterator location = m_propertyMap.find(propertyName.ustring().rep());
+            if (location == m_propertyMap.end())
+                return JSValue();
+            return location->second;
+        }
+        
+        void setPrivateProperty(const Identifier& propertyName, JSValue value)
+        {
+            m_propertyMap.set(propertyName.ustring().rep(), value);
+        }
+        
+        void deletePrivateProperty(const Identifier& propertyName)
+        {
+            m_propertyMap.remove(propertyName.ustring().rep());
+        }
+
+        void markChildren(MarkStack& markStack)
+        {
+            for (PrivatePropertyMap::iterator ptr = m_propertyMap.begin(); ptr != m_propertyMap.end(); ++ptr) {
+                if (ptr->second)
+                    markStack.append(ptr->second);
+            }
+        }
+
+    private:
+        typedef HashMap<RefPtr<UString::Rep>, JSValue, IdentifierRepHash> PrivatePropertyMap;
+        PrivatePropertyMap m_propertyMap;
+    };
+    OwnPtr<JSPrivatePropertyMap> m_privateProperties;
+};
+
+    
 template <class Base>
 class JSCallbackObject : public Base {
 public:
-    JSCallbackObject(ExecState*, PassRefPtr<Structure>, JSClassRef, void* data);
+    JSCallbackObject(ExecState*, NonNullPassRefPtr<Structure>, JSClassRef, void* data);
     JSCallbackObject(JSClassRef);
     virtual ~JSCallbackObject();
 
@@ -50,14 +128,33 @@ public:
 
     static PassRefPtr<Structure> createStructure(JSValue proto) 
     { 
-        return Structure::create(proto, TypeInfo(ObjectType, ImplementsHasInstance | OverridesHasInstance)); 
+        return Structure::create(proto, TypeInfo(ObjectType, StructureFlags), Base::AnonymousSlotCount); 
     }
+    
+    JSValue getPrivateProperty(const Identifier& propertyName) const
+    {
+        return m_callbackObjectData->getPrivateProperty(propertyName);
+    }
+    
+    void setPrivateProperty(const Identifier& propertyName, JSValue value)
+    {
+        m_callbackObjectData->setPrivateProperty(propertyName, value);
+    }
+    
+    void deletePrivateProperty(const Identifier& propertyName)
+    {
+        m_callbackObjectData->deletePrivateProperty(propertyName);
+    }
+
+protected:
+    static const unsigned StructureFlags = OverridesGetOwnPropertySlot | ImplementsHasInstance | OverridesHasInstance | OverridesMarkChildren | OverridesGetPropertyNames | Base::StructureFlags;
 
 private:
     virtual UString className() const;
 
     virtual bool getOwnPropertySlot(ExecState*, const Identifier&, PropertySlot&);
     virtual bool getOwnPropertySlot(ExecState*, unsigned, PropertySlot&);
+    virtual bool getOwnPropertyDescriptor(ExecState*, const Identifier&, PropertyDescriptor&);
     
     virtual void put(ExecState*, const Identifier&, JSValue, PutPropertySlot&);
 
@@ -66,7 +163,7 @@ private:
 
     virtual bool hasInstance(ExecState* exec, JSValue value, JSValue proto);
 
-    virtual void getPropertyNames(ExecState*, PropertyNameArray&);
+    virtual void getOwnPropertyNames(ExecState*, PropertyNameArray&, EnumerationMode mode = ExcludeDontEnumProperties);
 
     virtual double toNumber(ExecState*) const;
     virtual UString toString(ExecState*) const;
@@ -75,6 +172,12 @@ private:
     virtual CallType getCallData(CallData&);
     virtual const ClassInfo* classInfo() const { return &info; }
 
+    virtual void markChildren(MarkStack& markStack)
+    {
+        Base::markChildren(markStack);
+        m_callbackObjectData->markChildren(markStack);
+    }
+
     void init(ExecState*);
  
     static JSCallbackObject* asCallbackObject(JSValue);
@@ -82,27 +185,10 @@ private:
     static JSValue JSC_HOST_CALL call(ExecState*, JSObject* functionObject, JSValue thisValue, const ArgList&);
     static JSObject* construct(ExecState*, JSObject* constructor, const ArgList&);
    
-    static JSValue staticValueGetter(ExecState*, const Identifier&, const PropertySlot&);
-    static JSValue staticFunctionGetter(ExecState*, const Identifier&, const PropertySlot&);
-    static JSValue callbackGetter(ExecState*, const Identifier&, const PropertySlot&);
+    static JSValue staticValueGetter(ExecState*, JSValue, const Identifier&);
+    static JSValue staticFunctionGetter(ExecState*, JSValue, const Identifier&);
+    static JSValue callbackGetter(ExecState*, JSValue, const Identifier&);
 
-    struct JSCallbackObjectData {
-        JSCallbackObjectData(void* privateData, JSClassRef jsClass)
-            : privateData(privateData)
-            , jsClass(jsClass)
-        {
-            JSClassRetain(jsClass);
-        }
-        
-        ~JSCallbackObjectData()
-        {
-            JSClassRelease(jsClass);
-        }
-        
-        void* privateData;
-        JSClassRef jsClass;
-    };
-    
     OwnPtr<JSCallbackObjectData> m_callbackObjectData;
 };
 

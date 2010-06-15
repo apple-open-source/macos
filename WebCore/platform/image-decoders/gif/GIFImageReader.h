@@ -69,8 +69,6 @@ typedef enum {
     gif_consume_block,
     gif_skip_block,
     gif_done,
-    gif_oom,
-    gif_error,
     gif_comment_extension,
     gif_application_extension,
     gif_netscape_extension_block,
@@ -194,10 +192,6 @@ struct GIFImageReader {
     }
 
     ~GIFImageReader() {
-        close();
-    }
-
-    void close() {
         delete []global_colormap;
         global_colormap = 0;
         delete frame_reader;
@@ -208,8 +202,8 @@ struct GIFImageReader {
               WebCore::GIFImageDecoder::GIFQuery query = WebCore::GIFImageDecoder::GIFFullQuery, unsigned haltAtFrame = -1);
 
 private:
-    void output_row();
-    int do_lzw(const unsigned char *q);
+    bool output_row();
+    bool do_lzw(const unsigned char *q);
 };
 
 #endif

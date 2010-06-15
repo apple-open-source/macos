@@ -30,14 +30,13 @@
 
 #import "WebNetscapePluginView.h"
 
+#import "WebBaseNetscapePluginStream.h"
 #import "WebDataSourceInternal.h"
 #import "WebDefaultUIDelegate.h"
 #import "WebFrameInternal.h" 
 #import "WebFrameView.h"
-#import "WebGraphicsExtras.h"
 #import "WebKitErrorsPrivate.h"
 #import "WebKitLogging.h"
-#import "WebNetscapeContainerCheckPrivate.h"
 #import "WebKitNSStringExtras.h"
 #import "WebKitSystemInterface.h"
 #import "WebNSDataExtras.h"
@@ -46,21 +45,17 @@
 #import "WebNSURLExtras.h"
 #import "WebNSURLRequestExtras.h"
 #import "WebNSViewExtras.h"
-#import "WebNetscapePluginPackage.h"
-#import "WebBaseNetscapePluginStream.h"
-#import "WebPluginContainerCheck.h"
 #import "WebNetscapeContainerCheckContextInfo.h"
+#import "WebNetscapeContainerCheckPrivate.h"
 #import "WebNetscapePluginEventHandler.h"
-#import "WebNullPluginView.h"
-#import "WebPreferences.h"
+#import "WebNetscapePluginPackage.h"
+#import "WebPluginContainerCheck.h"
 #import "WebPluginRequest.h"
-#import "WebViewInternal.h"
+#import "WebPreferences.h"
 #import "WebUIDelegatePrivate.h"
+#import "WebViewInternal.h"
 #import <Carbon/Carbon.h>
-#import <runtime/JSLock.h>
-#import <WebCore/npruntime_impl.h>
 #import <WebCore/CookieJar.h>
-#import <WebCore/CString.h>
 #import <WebCore/DocumentLoader.h>
 #import <WebCore/Element.h>
 #import <WebCore/Frame.h> 
@@ -70,23 +65,28 @@
 #import <WebCore/Page.h> 
 #import <WebCore/PluginMainThreadScheduler.h>
 #import <WebCore/ScriptController.h>
+#import <WebCore/SecurityOrigin.h>
 #import <WebCore/SoftLinking.h> 
 #import <WebCore/WebCoreObjCExtras.h>
 #import <WebCore/WebCoreURLResponse.h>
+#import <WebCore/npruntime_impl.h>
 #import <WebKit/DOMPrivate.h>
 #import <WebKit/WebUIDelegate.h>
-#import <runtime/InitializeThreading.h>
-#import <wtf/Assertions.h>
 #import <objc/objc-runtime.h>
-
-using std::max;
+#import <runtime/InitializeThreading.h>
+#import <runtime/JSLock.h>
+#import <wtf/Assertions.h>
+#import <wtf/Threading.h>
+#import <wtf/text/CString.h>
 
 #define LoginWindowDidSwitchFromUserNotification    @"WebLoginWindowDidSwitchFromUserNotification"
 #define LoginWindowDidSwitchToUserNotification      @"WebLoginWindowDidSwitchToUserNotification"
-static const int WKNVSilverlightFullScreenPerformanceIssueFixed = 7288546; /* TRUE if Siverlight addressed its underlying  bug in <rdar://problem/7288546> */
+#define WKNVSupportsCompositingCoreAnimationPluginsBool 74656  /* TRUE if the browser supports hardware compositing of Core Animation plug-ins  */
+static const int WKNVSilverlightFullscreenPerformanceIssueFixed = 7288546; /* TRUE if Siverlight addressed its underlying  bug in <rdar://problem/7288546> */
 
 using namespace WebCore;
 using namespace WebKit;
+using namespace std;
 
 static inline bool isDrawingModelQuickDraw(NPDrawingModel drawingModel)
 {
@@ -113,9 +113,9 @@ static const double ThrottledTimerInterval = 0.25;
 
 class PluginTimer : public TimerBase {
 public:
-    typedef void (*TimerFunc)(NPP npp, uint32 timerID);
+    typedef void (*TimerFunc)(NPP npp, uint32_t timerID);
     
-    PluginTimer(NPP npp, uint32 timerID, uint32 interval, NPBool repeat, TimerFunc timerFunc)
+    PluginTimer(NPP npp, uint32_t timerID, uint32_t interval, NPBool repeat, TimerFunc timerFunc)
         : m_npp(npp)
         , m_timerID(timerID)
         , m_interval(interval)
@@ -148,8 +148,8 @@ private:
     }
     
     NPP m_npp;
-    uint32 m_timerID;
-    uint32 m_interval;
+    uint32_t m_timerID;
+    uint32_t m_interval;
     NPBool m_repeat;
     TimerFunc m_timerFunc;
 };
@@ -189,6 +189,7 @@ typedef struct {
 + (void)initialize
 {
     JSC::initializeThreading();
+    WTF::initializeMainThreadToProcessMainThread();
 #ifndef BUILDING_ON_TIGER
     WebCoreObjCFinalizeOnMainThread(self);
 #endif
@@ -196,19 +197,6 @@ typedef struct {
 }
 
 #pragma mark EVENTS
-
-- (BOOL)superviewsHaveSuperviews
-{
-    NSView *contentView = [[self window] contentView];
-    NSView *view;
-    for (view = self; view != nil; view = [view superview]) { 
-        if (view == contentView) {
-            return YES;
-        }
-    }
-    return NO;
-}
-
 
 // The WindowRef created by -[NSWindow windowRef] has a QuickDraw GrafPort that covers 
 // the entire window frame (or structure region to use the Carbon term) rather then just the window content.
@@ -266,20 +254,20 @@ static UInt32 getQDPixelFormatForBitmapContext(CGContextRef context)
 
 static inline void getNPRect(const CGRect& cgr, NPRect& npr)
 {
-    npr.top = static_cast<uint16>(cgr.origin.y);
-    npr.left = static_cast<uint16>(cgr.origin.x);
-    npr.bottom = static_cast<uint16>(CGRectGetMaxY(cgr));
-    npr.right = static_cast<uint16>(CGRectGetMaxX(cgr));
+    npr.top = static_cast<uint16_t>(cgr.origin.y);
+    npr.left = static_cast<uint16_t>(cgr.origin.x);
+    npr.bottom = static_cast<uint16_t>(CGRectGetMaxY(cgr));
+    npr.right = static_cast<uint16_t>(CGRectGetMaxX(cgr));
 }
 
 #endif
 
 static inline void getNPRect(const NSRect& nr, NPRect& npr)
 {
-    npr.top = static_cast<uint16>(nr.origin.y);
-    npr.left = static_cast<uint16>(nr.origin.x);
-    npr.bottom = static_cast<uint16>(NSMaxY(nr));
-    npr.right = static_cast<uint16>(NSMaxX(nr));
+    npr.top = static_cast<uint16_t>(nr.origin.y);
+    npr.left = static_cast<uint16_t>(nr.origin.x);
+    npr.bottom = static_cast<uint16_t>(NSMaxY(nr));
+    npr.right = static_cast<uint16_t>(NSMaxX(nr));
 }
 
 - (PortState)saveAndSetNewPortStateForUpdate:(BOOL)forUpdate
@@ -318,10 +306,10 @@ static inline void getNPRect(const NSRect& nr, NPRect& npr)
 #endif
     
     window.type = NPWindowTypeWindow;
-    window.x = (int32)boundsInWindow.origin.x; 
-    window.y = (int32)boundsInWindow.origin.y;
-    window.width = static_cast<uint32>(NSWidth(boundsInWindow));
-    window.height = static_cast<uint32>(NSHeight(boundsInWindow));
+    window.x = (int32_t)boundsInWindow.origin.x; 
+    window.y = (int32_t)boundsInWindow.origin.y;
+    window.width = static_cast<uint32_t>(NSWidth(boundsInWindow));
+    window.height = static_cast<uint32_t>(NSHeight(boundsInWindow));
     
     // "Clip-out" the plug-in when:
     // 1) it's not really in a window or off-screen or has no height or width.
@@ -329,12 +317,7 @@ static inline void getNPRect(const NSRect& nr, NPRect& npr)
     // 3) the window is miniaturized or the app is hidden
     // 4) we're inside of viewWillMoveToWindow: with a nil window. In this case, superviews may already have nil 
     // superviews and nil windows and results from convertRect:toView: are incorrect.
-    NSWindow *realWindow = [self window];
-    if (window.width <= 0 || window.height <= 0 || window.x < -100000
-            || realWindow == nil || [realWindow isMiniaturized]
-            || [NSApp isHidden]
-            || ![self superviewsHaveSuperviews]
-            || [self isHiddenOrHasHiddenAncestor]) {
+    if (window.width <= 0 || window.height <= 0 || window.x < -100000 || [self shouldClipOutPlugin]) {
 
         // The following code tries to give plug-ins the same size they will eventually have.
         // The specifiedWidth and specifiedHeight variables are used to predict the size that
@@ -351,6 +334,13 @@ static inline void getNPRect(const NSRect& nr, NPRect& npr)
 
         window.clipRect.bottom = window.clipRect.top;
         window.clipRect.left = window.clipRect.right;
+        
+        // Core Animation plug-ins need to be updated (with a 0,0,0,0 clipRect) when
+        // moved to a background tab. We don't do this for Core Graphics plug-ins as
+        // older versions of Flash have historical WebKit-specific code that isn't
+        // compatible with this behavior.
+        if (drawingModel == NPDrawingModelCoreAnimation)
+            getNPRect(NSZeroRect, window.clipRect);
     } else {
         getNPRect(visibleRectInWindow, window.clipRect);
     }
@@ -365,8 +355,8 @@ static inline void getNPRect(const NSRect& nr, NPRect& npr)
             CGrafPtr port = GetWindowPort(windowRef);
             GetPortBounds(port, &portBounds);
             nPort.qdPort.port = port;
-            nPort.qdPort.portx = (int32)-boundsInWindow.origin.x;
-            nPort.qdPort.porty = (int32)-boundsInWindow.origin.y;
+            nPort.qdPort.portx = (int32_t)-boundsInWindow.origin.x;
+            nPort.qdPort.porty = (int32_t)-boundsInWindow.origin.y;
             window.window = &nPort;
 
             PortState_QD *qdPortState = (PortState_QD*)malloc(sizeof(PortState_QD));
@@ -404,7 +394,8 @@ static inline void getNPRect(const NSRect& nr, NPRect& npr)
                     QDErr err = NewGWorldFromPtr(&newOffscreenGWorld,
                         getQDPixelFormatForBitmapContext(currentContext), &offscreenBounds, 0, 0, 0,
                         static_cast<char*>(offscreenData), CGBitmapContextGetBytesPerRow(currentContext));
-                    ASSERT(newOffscreenGWorld && !err);
+                    ASSERT(newOffscreenGWorld);
+                    ASSERT(!err);
                     if (!err) {
                         if (offscreenGWorld)
                             DisposeGWorld(offscreenGWorld);
@@ -428,8 +419,8 @@ static inline void getNPRect(const NSRect& nr, NPRect& npr)
                         origin.x = offscreenBounds.left - origin.x * (axisFlip.x - origin.x);
                         origin.y = offscreenBounds.bottom + origin.y * (axisFlip.y - origin.y);
                         
-                        nPort.qdPort.portx = static_cast<int32>(-boundsInWindow.origin.x + origin.x);
-                        nPort.qdPort.porty = static_cast<int32>(-boundsInWindow.origin.y - origin.y);
+                        nPort.qdPort.portx = static_cast<int32_t>(-boundsInWindow.origin.x + origin.x);
+                        nPort.qdPort.porty = static_cast<int32_t>(-boundsInWindow.origin.y - origin.y);
                         window.x = 0;
                         window.y = 0;
                         window.window = &nPort;
@@ -670,7 +661,7 @@ static inline void getNPRect(const NSRect& nr, NPRect& npr)
     BOOL acceptedEvent;
     [self willCallPlugInFunction];
     {
-        JSC::JSLock::DropAllLocks dropAllLocks(false);
+        JSC::JSLock::DropAllLocks dropAllLocks(JSC::SilenceAssertionsOnly);
         acceptedEvent = [_pluginPackage.get() pluginFuncs]->event(plugin, event);
     }
     [self didCallPlugInFunction];
@@ -708,8 +699,8 @@ static inline void getNPRect(const NSRect& nr, NPRect& npr)
     if (!timers)
         return;
 
-    HashMap<uint32, PluginTimer*>::const_iterator end = timers->end();
-    for (HashMap<uint32, PluginTimer*>::const_iterator it = timers->begin(); it != end; ++it) {
+    HashMap<uint32_t, PluginTimer*>::const_iterator end = timers->end();
+    for (HashMap<uint32_t, PluginTimer*>::const_iterator it = timers->begin(); it != end; ++it) {
         PluginTimer* timer = it->second;
         timer->stop();
     }    
@@ -726,8 +717,8 @@ static inline void getNPRect(const NSRect& nr, NPRect& npr)
     if (!timers)
         return;
     
-    HashMap<uint32, PluginTimer*>::const_iterator end = timers->end();
-    for (HashMap<uint32, PluginTimer*>::const_iterator it = timers->begin(); it != end; ++it) {
+    HashMap<uint32_t, PluginTimer*>::const_iterator end = timers->end();
+    for (HashMap<uint32_t, PluginTimer*>::const_iterator it = timers->begin(); it != end; ++it) {
         PluginTimer* timer = it->second;
         ASSERT(!timer->isActive());
         timer->start(_isCompletelyObscured);
@@ -759,15 +750,18 @@ static inline void getNPRect(const NSRect& nr, NPRect& npr)
     _eventHandler->mouseUp(theEvent);
 }
 
-- (void)mouseEntered:(NSEvent *)theEvent
+- (void)handleMouseEntered:(NSEvent *)theEvent
 {
     if (!_isStarted)
         return;
 
+    // Set cursor to arrow. Plugins often handle cursor internally, but those that don't will just get this default one.
+    [[NSCursor arrowCursor] set];
+
     _eventHandler->mouseEntered(theEvent);
 }
 
-- (void)mouseExited:(NSEvent *)theEvent
+- (void)handleMouseExited:(NSEvent *)theEvent
 {
     if (!_isStarted)
         return;
@@ -779,8 +773,6 @@ static inline void getNPRect(const NSRect& nr, NPRect& npr)
     [[NSCursor arrowCursor] set];
 }
 
-// We can't name this method mouseMoved because we don't want to override 
-// the NSView mouseMoved implementation.
 - (void)handleMouseMoved:(NSEvent *)theEvent
 {
     if (!_isStarted)
@@ -838,6 +830,22 @@ static inline void getNPRect(const NSRect& nr, NPRect& npr)
         return;
     
     _eventHandler->syntheticKeyDownWithCommandModifier(keyCode, character);
+}
+
+- (void)privateBrowsingModeDidChange
+{
+    if (!_isStarted)
+        return;
+    
+    NPBool value = _isPrivateBrowsingEnabled;
+
+    [self willCallPlugInFunction];
+    {
+        JSC::JSLock::DropAllLocks dropAllLocks(JSC::SilenceAssertionsOnly);
+        if ([_pluginPackage.get() pluginFuncs]->setvalue)
+            [_pluginPackage.get() pluginFuncs]->setvalue(plugin, NPNVprivateModeBool, &value);
+    }
+    [self didCallPlugInFunction];
 }
 
 #pragma mark WEB_NETSCAPE_PLUGIN
@@ -974,7 +982,7 @@ static inline void getNPRect(const NSRect& nr, NPRect& npr)
         inSetWindow = YES;        
         [self willCallPlugInFunction];
         {
-            JSC::JSLock::DropAllLocks dropAllLocks(false);
+            JSC::JSLock::DropAllLocks dropAllLocks(JSC::SilenceAssertionsOnly);
             npErr = [_pluginPackage.get() pluginFuncs]->setwindow(plugin, &window);
         }
         [self didCallPlugInFunction];
@@ -1073,10 +1081,31 @@ static inline void getNPRect(const NSRect& nr, NPRect& npr)
     if (drawingModel == NPDrawingModelCoreAnimation) {
         void *value = 0;
         if ([_pluginPackage.get() pluginFuncs]->getvalue(plugin, NPPVpluginCoreAnimationLayer, &value) == NPERR_NO_ERROR && value) {
-            
+
             // The plug-in gives us a retained layer.
             _pluginLayer.adoptNS((CALayer *)value);
-            [self setWantsLayer:YES];
+
+            BOOL accleratedCompositingEnabled = false;
+#if USE(ACCELERATED_COMPOSITING)
+            accleratedCompositingEnabled = [[[self webView] preferences] acceleratedCompositingEnabled];
+#endif
+            if (accleratedCompositingEnabled) {
+                // FIXME: This code can be shared between WebHostedNetscapePluginView and WebNetscapePluginView.
+#ifndef BUILDING_ON_LEOPARD
+                // Since this layer isn't going to be inserted into a view, we need to create another layer and flip its geometry
+                // in order to get the coordinate system right.
+                RetainPtr<CALayer> realPluginLayer(AdoptNS, _pluginLayer.releaseRef());
+                
+                _pluginLayer.adoptNS([[CALayer alloc] init]);
+                _pluginLayer.get().bounds = realPluginLayer.get().bounds;
+                _pluginLayer.get().geometryFlipped = YES;
+
+                realPluginLayer.get().autoresizingMask = kCALayerWidthSizable | kCALayerHeightSizable;
+                [_pluginLayer.get() addSublayer:realPluginLayer.get()];
+#endif
+                [self element]->setNeedsStyleRecalc(SyntheticStyleChange);
+            } else
+                [self setWantsLayer:YES];
             LOG(Plugins, "%@ is using Core Animation drawing model with layer %@", _pluginPackage.get(), _pluginLayer.get());
         }
 
@@ -1091,6 +1120,12 @@ static inline void getNPRect(const NSRect& nr, NPRect& npr)
 }
 
 #ifndef BUILDING_ON_TIGER
+// FIXME: This method is an ideal candidate to move up to the base class
+- (CALayer *)pluginLayer
+{
+    return _pluginLayer.get();
+}
+
 - (void)setLayer:(CALayer *)newLayer
 {
     [super setLayer:newLayer];
@@ -1215,9 +1250,9 @@ static inline void getNPRect(const NSRect& nr, NPRect& npr)
     }
 }
 
-- (uint32)checkIfAllowedToLoadURL:(const char*)urlCString frame:(const char*)frameNameCString 
-                     callbackFunc:(void (*)(NPP npp, uint32 checkID, NPBool allowed, void* context))callbackFunc 
-                           context:(void*)context
+- (uint32_t)checkIfAllowedToLoadURL:(const char*)urlCString frame:(const char*)frameNameCString 
+                       callbackFunc:(void (*)(NPP npp, uint32_t checkID, NPBool allowed, void* context))callbackFunc 
+                            context:(void*)context
 {
     if (!_containerChecksInProgress) 
         _containerChecksInProgress = [[NSMutableDictionary alloc] init];
@@ -1246,7 +1281,7 @@ static inline void getNPRect(const NSRect& nr, NPRect& npr)
 - (void)_containerCheckResult:(PolicyAction)policy contextInfo:(id)contextInfo
 {
     ASSERT([contextInfo isKindOfClass:[WebNetscapeContainerCheckContextInfo class]]);
-    void (*pluginCallback)(NPP npp, uint32, NPBool, void*) = [contextInfo callback];
+    void (*pluginCallback)(NPP npp, uint32_t, NPBool, void*) = [contextInfo callback];
     
     if (!pluginCallback) {
         ASSERT_NOT_REACHED();
@@ -1256,7 +1291,7 @@ static inline void getNPRect(const NSRect& nr, NPRect& npr)
     pluginCallback([self plugin], [contextInfo checkRequestID], (policy == PolicyUse), [contextInfo context]);
 }
 
-- (void)cancelCheckIfAllowedToLoadURL:(uint32)checkID
+- (void)cancelCheckIfAllowedToLoadURL:(uint32_t)checkID
 {
     WebPluginContainerCheck *check = (WebPluginContainerCheck *)[_containerChecksInProgress objectForKey:[NSNumber numberWithInt:checkID]];
     
@@ -1273,7 +1308,7 @@ static inline void getNPRect(const NSRect& nr, NPRect& npr)
 {
     ASSERT([webPluginContainerCheck isKindOfClass:[WebPluginContainerCheck class]]);
     WebPluginContainerCheck *check = (WebPluginContainerCheck *)webPluginContainerCheck;
-    ASSERT([check contextInfo] && [[check contextInfo] isKindOfClass:[WebNetscapeContainerCheckContextInfo class]]);
+    ASSERT([[check contextInfo] isKindOfClass:[WebNetscapeContainerCheckContextInfo class]]);
     
     [self cancelCheckIfAllowedToLoadURL:[[check contextInfo] checkRequestID]];
 }
@@ -1376,13 +1411,13 @@ static inline void getNPRect(const NSRect& nr, NPRect& npr)
 
 - (void)drawRect:(NSRect)rect
 {
-    if (drawingModel == NPDrawingModelCoreAnimation)
+    if (drawingModel == NPDrawingModelCoreAnimation && (![self inFlatteningPaint] || ![self supportsSnapshotting]))
         return;
 
     if (!_isStarted)
         return;
     
-    if ([NSGraphicsContext currentContextDrawingToScreen])
+    if ([NSGraphicsContext currentContextDrawingToScreen] || _isFlash)
         [self sendDrawRectEvent:rect];
     else {
         NSBitmapImageRep *printedPluginBitmap = [self _printedPluginBitmap];
@@ -1409,7 +1444,7 @@ static inline void getNPRect(const NSRect& nr, NPRect& npr)
     NPError error;
     [self willCallPlugInFunction];
     {
-        JSC::JSLock::DropAllLocks dropAllLocks(false);
+        JSC::JSLock::DropAllLocks dropAllLocks(JSC::SilenceAssertionsOnly);
         error = [_pluginPackage.get() pluginFuncs]->getvalue(plugin, NPPVpluginScriptableNPObject, &value);
     }
     [self didCallPlugInFunction];
@@ -1540,7 +1575,7 @@ static inline void getNPRect(const NSRect& nr, NPRect& npr)
         if ([JSPluginRequest sendNotification]) {
             [self willCallPlugInFunction];
             {
-                JSC::JSLock::DropAllLocks dropAllLocks(false);
+                JSC::JSLock::DropAllLocks dropAllLocks(JSC::SilenceAssertionsOnly);
                 [_pluginPackage.get() pluginFuncs]->urlnotify(plugin, [URL _web_URLCString], NPRES_DONE, [JSPluginRequest notifyData]);
             }
             [self didCallPlugInFunction];
@@ -1572,7 +1607,7 @@ static inline void getNPRect(const NSRect& nr, NPRect& npr)
         
     [self willCallPlugInFunction];
     {
-        JSC::JSLock::DropAllLocks dropAllLocks(false);
+        JSC::JSLock::DropAllLocks dropAllLocks(JSC::SilenceAssertionsOnly);
         [_pluginPackage.get() pluginFuncs]->urlnotify(plugin, [[[pluginRequest request] URL] _web_URLCString], reason, [pluginRequest notifyData]);
     }
     [self didCallPlugInFunction];
@@ -1616,7 +1651,7 @@ static inline void getNPRect(const NSRect& nr, NPRect& npr)
                 if ([pluginRequest sendNotification]) {
                     [self willCallPlugInFunction];
                     {
-                        JSC::JSLock::DropAllLocks dropAllLocks(false);
+                        JSC::JSLock::DropAllLocks dropAllLocks(JSC::SilenceAssertionsOnly);
                         [_pluginPackage.get() pluginFuncs]->urlnotify(plugin, [[[pluginRequest request] URL] _web_URLCString], NPERR_GENERIC_ERROR, [pluginRequest notifyData]);
                     }
                     [self didCallPlugInFunction];
@@ -1685,7 +1720,7 @@ static inline void getNPRect(const NSRect& nr, NPRect& npr)
             return NPERR_INVALID_PARAM;
         }
     } else {
-        if (!FrameLoader::canLoad(URL, String(), core([self webFrame])->document()))
+        if (!SecurityOrigin::canLoad(URL, String(), core([self webFrame])->document()))
             return NPERR_GENERIC_ERROR;
     }
         
@@ -1796,7 +1831,7 @@ static inline void getNPRect(const NSRect& nr, NPRect& npr)
                 NSString *contentLength = [header objectForKey:@"Content-Length"];
 
                 if (contentLength != nil)
-                    dataLength = MIN((unsigned)[contentLength intValue], dataLength);
+                    dataLength = min<unsigned>([contentLength intValue], dataLength);
                 [header removeObjectForKey:@"Content-Length"];
 
                 if ([header count] > 0) {
@@ -1886,12 +1921,7 @@ static inline void getNPRect(const NSRect& nr, NPRect& npr)
 
 -(void)status:(const char *)message
 {    
-    if (!message) {
-        LOG_ERROR("NPN_Status passed a NULL status message");
-        return;
-    }
-
-    CFStringRef status = CFStringCreateWithCString(NULL, message, kCFStringEncodingUTF8);
+    CFStringRef status = CFStringCreateWithCString(NULL, message ? message : "", kCFStringEncodingUTF8);
     if (!status) {
         LOG_ERROR("NPN_Status: the message was not valid UTF-8");
         return;
@@ -2024,10 +2054,16 @@ static inline void getNPRect(const NSRect& nr, NPRect& npr)
             return NPERR_NO_ERROR;
         }
 #endif /* NP_NO_CARBON */
-            
+
         case NPNVsupportsCocoaBool:
         {
             *(NPBool *)value = TRUE;
+            return NPERR_NO_ERROR;
+        }
+
+        case NPNVprivateModeBool:
+        {
+            *(NPBool *)value = _isPrivateBrowsingEnabled;
             return NPERR_NO_ERROR;
         }
 
@@ -2036,6 +2072,13 @@ static inline void getNPRect(const NSRect& nr, NPRect& npr)
             *(WKNBrowserContainerCheckFuncs **)value = browserContainerCheckFuncs();
             return NPERR_NO_ERROR;
         }
+#if USE(ACCELERATED_COMPOSITING)
+        case WKNVSupportsCompositingCoreAnimationPluginsBool:
+        {
+            *(NPBool *)value = [[[self webView] preferences] acceleratedCompositingEnabled];
+            return NPERR_NO_ERROR;
+        }
+#endif
         default:
             break;
     }
@@ -2103,15 +2146,15 @@ static inline void getNPRect(const NSRect& nr, NPRect& npr)
     }
 }
 
-- (uint32)scheduleTimerWithInterval:(uint32)interval repeat:(NPBool)repeat timerFunc:(void (*)(NPP npp, uint32 timerID))timerFunc
+- (uint32_t)scheduleTimerWithInterval:(uint32_t)interval repeat:(NPBool)repeat timerFunc:(void (*)(NPP npp, uint32_t timerID))timerFunc
 {
     if (!timerFunc)
         return 0;
     
     if (!timers)
-        timers = new HashMap<uint32, PluginTimer*>;
+        timers = new HashMap<uint32_t, PluginTimer*>;
     
-    uint32 timerID;
+    uint32_t timerID;
     
     do {
         timerID = ++currentTimerID;
@@ -2126,7 +2169,7 @@ static inline void getNPRect(const NSRect& nr, NPRect& npr)
     return timerID;
 }
 
-- (void)unscheduleTimer:(uint32)timerID
+- (void)unscheduleTimer:(uint32_t)timerID
 {
     if (!timers)
         return;
@@ -2147,7 +2190,7 @@ static inline void getNPRect(const NSRect& nr, NPRect& npr)
     return NPERR_NO_ERROR;
 }
 
-- (NPError)getVariable:(NPNURLVariable)variable forURL:(const char*)url value:(char**)value length:(uint32*)length
+- (NPError)getVariable:(NPNURLVariable)variable forURL:(const char*)url value:(char**)value length:(uint32_t*)length
 {
     switch (variable) {
         case NPNURLVCookie: {
@@ -2199,7 +2242,7 @@ static inline void getNPRect(const NSRect& nr, NPRect& npr)
     return NPERR_GENERIC_ERROR;
 }
 
-- (NPError)setVariable:(NPNURLVariable)variable forURL:(const char*)url value:(const char*)value length:(uint32)length
+- (NPError)setVariable:(NPNURLVariable)variable forURL:(const char*)url value:(const char*)value length:(uint32_t)length
 {
     switch (variable) {
         case NPNURLVCookie: {
@@ -2225,9 +2268,9 @@ static inline void getNPRect(const NSRect& nr, NPRect& npr)
     return NPERR_GENERIC_ERROR;
 }
 
-- (NPError)getAuthenticationInfoWithProtocol:(const char*)protocolStr host:(const char*)hostStr port:(int32)port scheme:(const char*)schemeStr realm:(const char*)realmStr
-                                    username:(char**)usernameStr usernameLength:(uint32*)usernameLength 
-                                    password:(char**)passwordStr passwordLength:(uint32*)passwordLength
+- (NPError)getAuthenticationInfoWithProtocol:(const char*)protocolStr host:(const char*)hostStr port:(int32_t)port scheme:(const char*)schemeStr realm:(const char*)realmStr
+                                    username:(char**)usernameStr usernameLength:(uint32_t*)usernameLength 
+                                    password:(char**)passwordStr passwordLength:(uint32_t*)passwordLength
 {
     if (!protocolStr || !hostStr || !schemeStr || !realmStr || !usernameStr || !usernameLength || !passwordStr || !passwordLength)
         return NPERR_GENERIC_ERROR;
@@ -2250,7 +2293,7 @@ static inline void getNPRect(const NSRect& nr, NPRect& npr)
 
 - (char*)resolveURL:(const char*)url forTarget:(const char*)target
 {
-    WebCore::CString location = [self resolvedURLStringForURL:url target:target];
+    CString location = [self resolvedURLStringForURL:url target:target];
 
     if (location.isNull())
         return 0;
@@ -2281,13 +2324,13 @@ static inline void getNPRect(const NSRect& nr, NPRect& npr)
 // 1) Microsoft releases a genuine fix for 7288546.
 // 2) Enough Silverlight users update to the new Silverlight.
 // For now, we'll distinguish older broken versions of Silverlight by asking the plug-in if it resolved its full screen badness.
-- (void)_workaroundSilverlightFullScreenBug:(BOOL)initializedPlugin
+- (void)_workaroundSilverlightFullscreenBug:(BOOL)initializedPlugin
 {
 #if !defined(BUILDING_ON_TIGER) && !defined(BUILDING_ON_LEOPARD)
     ASSERT(_isSilverlight);
-    NPBool isFullScreenPerformanceIssueFixed = 0;
+    NPBool isFullscreenPerformanceIssueFixed = 0;
     NPPluginFuncs *pluginFuncs = [_pluginPackage.get() pluginFuncs];
-    if (pluginFuncs->getvalue && pluginFuncs->getvalue(plugin, static_cast<NPPVariable>(WKNVSilverlightFullScreenPerformanceIssueFixed), &isFullScreenPerformanceIssueFixed) == NPERR_NO_ERROR && isFullScreenPerformanceIssueFixed)
+    if (pluginFuncs->getvalue && pluginFuncs->getvalue(plugin, static_cast<NPPVariable>(WKNVSilverlightFullscreenPerformanceIssueFixed), &isFullscreenPerformanceIssueFixed) == NPERR_NO_ERROR && isFullscreenPerformanceIssueFixed)
         return;
     
     static CGLPixelFormatObj pixelFormatObject = 0;
@@ -2328,7 +2371,7 @@ static inline void getNPRect(const NSRect& nr, NPRect& npr)
     NPError npErr = [_pluginPackage.get() pluginFuncs]->newp((char *)[_MIMEType.get() cString], plugin, _mode, argsCount, cAttributes, cValues, NULL);
     [[self class] setCurrentPluginView:nil];
     if (_isSilverlight)
-        [self _workaroundSilverlightFullScreenBug:YES];
+        [self _workaroundSilverlightFullscreenBug:YES];
     LOG(Plugins, "NPP_New: %d", npErr);
     return npErr;
 }
@@ -2338,7 +2381,7 @@ static inline void getNPRect(const NSRect& nr, NPRect& npr)
     PluginMainThreadScheduler::scheduler().unregisterPlugin(plugin);
     
     if (_isSilverlight)
-        [self _workaroundSilverlightFullScreenBug:NO];
+        [self _workaroundSilverlightFullscreenBug:NO];
     
     NPError npErr;
     npErr = ![_pluginPackage.get() pluginFuncs]->destroy(plugin, NULL);
@@ -2413,7 +2456,7 @@ static inline void getNPRect(const NSRect& nr, NPRect& npr)
     // Tell the plugin to print into the GWorld
     [self willCallPlugInFunction];
     {
-        JSC::JSLock::DropAllLocks dropAllLocks(false);
+        JSC::JSLock::DropAllLocks dropAllLocks(JSC::SilenceAssertionsOnly);
         [_pluginPackage.get() pluginFuncs]->print(plugin, &npPrint);
     }
     [self didCallPlugInFunction];

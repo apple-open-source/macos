@@ -20,7 +20,7 @@
  * PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY
  * OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
 #ifndef StorageAreaSync_h
@@ -28,44 +28,41 @@
 
 #if ENABLE(DOM_STORAGE)
 
+#include "PlatformString.h"
 #include "SQLiteDatabase.h"
 #include "StringHash.h"
-#include "StorageSyncManager.h"
 #include "Timer.h"
 #include <wtf/HashMap.h>
 
 namespace WebCore {
 
     class Frame;
-    class StorageArea;
+    class StorageAreaImpl;
     class StorageSyncManager;
-    
+
     class StorageAreaSync : public RefCounted<StorageAreaSync> {
     public:
-#ifndef NDEBUG
+        static PassRefPtr<StorageAreaSync> create(PassRefPtr<StorageSyncManager> storageSyncManager, PassRefPtr<StorageAreaImpl> storageArea, String databaseIdentifier);
         ~StorageAreaSync();
-#endif
 
-        static PassRefPtr<StorageAreaSync> create(PassRefPtr<StorageSyncManager> storageSyncManager, PassRefPtr<StorageArea> storageArea);
-        
         void scheduleFinalSync();
-        void blockUntilImportComplete() const;
+        void blockUntilImportComplete();
 
         void scheduleItemForSync(const String& key, const String& value);
         void scheduleClear();
-        
+
     private:
-        StorageAreaSync(PassRefPtr<StorageSyncManager> storageSyncManager, PassRefPtr<StorageArea> storageArea);
+        StorageAreaSync(PassRefPtr<StorageSyncManager> storageSyncManager, PassRefPtr<StorageAreaImpl> storageArea, String databaseIdentifier);
 
         void dispatchStorageEvent(const String& key, const String& oldValue, const String& newValue, Frame* sourceFrame);
 
-        Timer<StorageAreaSync> m_syncTimer;        
+        Timer<StorageAreaSync> m_syncTimer;
         HashMap<String, String> m_changedItems;
         bool m_itemsCleared;
-        
+
         bool m_finalSyncScheduled;
 
-        RefPtr<StorageArea> m_storageArea;
+        RefPtr<StorageAreaImpl> m_storageArea;
         RefPtr<StorageSyncManager> m_syncManager;
 
         // The database handle will only ever be opened and used on the background thread.
@@ -81,10 +78,13 @@ namespace WebCore {
         void syncTimerFired(Timer<StorageAreaSync>*);
         void sync(bool clearItems, const HashMap<String, String>& items);
 
+        const String m_databaseIdentifier;
+
         Mutex m_syncLock;
         HashMap<String, String> m_itemsPendingSync;
         bool m_clearItemsWhileSyncing;
         bool m_syncScheduled;
+        bool m_syncInProgress;
 
         mutable Mutex m_importLock;
         mutable ThreadCondition m_importCondition;

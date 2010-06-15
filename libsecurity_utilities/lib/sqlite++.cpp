@@ -107,6 +107,11 @@ Database::Database(const char *path, int flags)
 
 Database::~Database()
 {
+	this->close();
+}
+
+void Database::close()
+{
 	if (mDb)
 		check(::sqlite3_close(mDb));
 }
@@ -234,7 +239,10 @@ Statement::Statement(Database &db, const char *text)
 
 Statement::~Statement()
 {
-	check(::sqlite3_finalize(mStmt));
+	// Sqlite3_finalize will return an error if the Statement (executed and) failed.
+	// So we eat any error code here, since we can't tell "genuine" errors apart from
+	// errors inherited from the Statement execution.
+	::sqlite3_finalize(mStmt);
 }
 
 

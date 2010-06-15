@@ -4,15 +4,15 @@
         <key>OpenSourceProject</key>
         <string>SquirrelMail</string>
         <key>OpenSourceVersion</key>
-        <string>1.4.17</string>
+        <string>1.4.20</string>
         <key>OpenSourceWebsiteURL</key>
         <string>http://www.squirrelmail.org/</string>
         <key>OpenSourceURL</key>
-        <string>http://www.yamaai-tech.com/~masato/Download/squirrelmail-1.4.17-ja-20081204.tar.gz</string>
+        <string>http://www.yamaai-tech.com/~masato/Download/squirrelmail-1.4.20-ja-20100310.tar.gz</string>
         <key>OpenSourceSHA1</key>
-        <string>78a133547dabb8c07779e88f60598b8d1fbae375</string>
+        <string>85352f4f15b67493a026d33509d13f33f09f10e9</string>
         <key>OpenSourceImportDate</key>
-        <string>2009-02-03</string>
+        <string>2010-05-03</string>
         <key>OpenSourceModifications</key>
         <array/>
         <key>OpenSourceLicense</key>

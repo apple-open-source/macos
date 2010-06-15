@@ -115,7 +115,7 @@ mach_port_t			gMembershipMachPort	= MACH_PORT_NULL;
 extern CDSLocalPlugin	*gLocalNode;
 
 #warning VERIFY the version string before each software release
-const char* gStrDaemonAppleVersion = "6.3"; //match this with x.y in 10.x.y
+const char* gStrDaemonAppleVersion = "6.4"; //match this with x.y in 10.x.y
 const char* gStrDaemonBuildVersion = "unlabeled/engineering";
 
 // ---------------------------------------------------------------------------

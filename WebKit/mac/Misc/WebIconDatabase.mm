@@ -40,7 +40,10 @@
 #import <WebCore/IconDatabase.h>
 #import <WebCore/Image.h>
 #import <WebCore/IntSize.h>
+#import <WebCore/SharedBuffer.h>
 #import <WebCore/ThreadCheck.h>
+#import <runtime/InitializeThreading.h>
+#import <wtf/Threading.h>
 
 using namespace WebCore;
 
@@ -65,8 +68,12 @@ NSSize WebIconLargeSize = {128, 128};
 
 static WebIconDatabaseClient* defaultClient()
 {
+#if ENABLE(ICONDATABASE)
     static WebIconDatabaseClient* defaultClient = new WebIconDatabaseClient();
     return defaultClient;
+#else
+    return 0;
+#endif
 }
 
 @interface WebIconDatabase (WebReallyInternal)
@@ -82,6 +89,12 @@ static WebIconDatabaseClient* defaultClient()
 @end
 
 @implementation WebIconDatabase
+
++ (void)initialize
+{
+    JSC::initializeThreading();
+    WTF::initializeMainThreadToProcessMainThread();
+}
 
 + (WebIconDatabase *)sharedIconDatabase
 {

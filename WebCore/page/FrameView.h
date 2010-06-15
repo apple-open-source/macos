@@ -25,7 +25,9 @@
 #ifndef FrameView_h
 #define FrameView_h
 
+#include "Frame.h"
 #include "IntSize.h"
+#include "Page.h"
 #include "RenderLayer.h"
 #include "ScrollView.h"
 #include <wtf/Forward.h>
@@ -37,12 +39,13 @@ class Color;
 class Event;
 class Frame;
 class FrameViewPrivate;
+class InspectorTimelineAgent;
 class IntRect;
 class Node;
 class PlatformMouseEvent;
 class RenderLayer;
 class RenderObject;
-class RenderPartObject;
+class RenderEmbeddedObject;
 class ScheduledEvent;
 class String;
 
@@ -70,8 +73,11 @@ public:
     void setMarginHeight(int);
 
     virtual void setCanHaveScrollbars(bool);
+    void updateCanHaveScrollbars();
 
     virtual PassRefPtr<Scrollbar> createScrollbar(ScrollbarOrientation);
+
+    virtual bool avoidScrollbarCreation();
 
     virtual void setContentsSize(const IntSize&);
 
@@ -86,7 +92,6 @@ public:
     RenderObject* layoutRoot(bool onlyDuringLayout = false) const;
     int layoutCount() const { return m_layoutCount; }
 
-    // These two helper functions just pass through to the RenderView.
     bool needsLayout() const;
     void setNeedsLayout();
 
@@ -99,9 +104,16 @@ public:
     // content rendered via the normal painting path.
     void setNeedsOneShotDrawingSynchronization();
 #endif
+
+    bool isEnclosedInCompositingLayer() const;
+
     // Only used with accelerated compositing, but outside the #ifdef to make linkage easier.
     // Returns true if the sync was completed.
     bool syncCompositingStateRecursive();
+
+    // Returns true when a paint with the PaintBehaviorFlattenCompositingLayers flag set gives
+    // a faithful representation of the content.
+    bool isSoftwareRenderable() const;
 
     void didMoveOnscreen();
     void willMoveOffscreen();
@@ -122,19 +134,18 @@ public:
     void setShouldUpdateWhileOffscreen(bool);
 
     void adjustViewSize();
-    void initScrollbars();
-    void updateDefaultScrollbarState();
     
     virtual IntRect windowClipRect(bool clipToContents = true) const;
     IntRect windowClipRectForLayer(const RenderLayer*, bool clipToLayerContents) const;
 
     virtual IntRect windowResizerRect() const;
 
-    virtual void scrollRectIntoViewRecursively(const IntRect&);
-    virtual void setScrollPosition(const IntPoint&);
+    void setScrollPosition(const IntPoint&);
+    virtual void scrollPositionChanged();
 
     String mediaType() const;
     void setMediaType(const String&);
+    void adjustMediaTypeForPrinting(bool printing);
 
     void setUseSlowRepaints();
     void setIsOverlapped(bool);
@@ -142,6 +153,9 @@ public:
 
     void addSlowRepaintObject();
     void removeSlowRepaintObject();
+
+    void addFixedObject();
+    void removeFixedObject();
 
     void beginDeferredRepaints();
     void endDeferredRepaints();
@@ -163,17 +177,19 @@ public:
     bool wasScrolledByUser() const;
     void setWasScrolledByUser(bool);
 
-    void addWidgetToUpdate(RenderPartObject*);
-    void removeWidgetToUpdate(RenderPartObject*);
+    void addWidgetToUpdate(RenderEmbeddedObject*);
+    void removeWidgetToUpdate(RenderEmbeddedObject*);
 
     virtual void paintContents(GraphicsContext*, const IntRect& damageRect);
-    void setPaintRestriction(PaintRestriction);
+    void setPaintBehavior(PaintBehavior);
+    PaintBehavior paintBehavior() const;
     bool isPainting() const;
     void setNodeToDraw(Node*);
 
     static double currentPaintTimeStamp() { return sCurrentPaintTimeStamp; } // returns 0 if not painting
     
     void layoutIfNeededRecursive();
+    void flushDeferredRepaints();
 
     void setIsVisuallyNonEmpty() { m_isVisuallyNonEmpty = true; }
 
@@ -182,6 +198,8 @@ public:
 
     void adjustPageHeight(float* newBottom, float oldTop, float oldBottom, float bottomLimit);
 
+    bool scrollToFragment(const KURL&);
+    bool scrollToAnchor(const String&);
     void maintainScrollPositionAtAnchor(Node*);
 
     // Methods to convert points and rects between the coordinate space of the renderer, and this view.
@@ -203,6 +221,9 @@ private:
 
     friend class RenderWidget;
     bool useSlowRepaints() const;
+    bool useSlowRepaintsIfNotOverlapped() const;
+
+    bool hasFixedObjects() const { return m_fixedObjectCount > 0; }
 
     void applyOverflowToViewport(RenderObject*, ScrollbarMode& hMode, ScrollbarMode& vMode);
 
@@ -213,11 +234,7 @@ private:
 
     virtual void repaintContentRectangle(const IntRect&, bool immediate);
     virtual void contentsResized() { setNeedsLayout(); }
-    virtual void visibleContentsResized()
-    {
-        if (needsLayout())
-            layout();
-    }
+    virtual void visibleContentsResized();
 
     // Override ScrollView methods to do point conversion via renderers, in order to
     // take transforms into account.
@@ -239,6 +256,10 @@ private:
 
     bool updateWidgets();
     void scrollToAnchor();
+
+#if ENABLE(INSPECTOR)
+    InspectorTimelineAgent* inspectorTimelineAgent() const;
+#endif
     
     bool hasCustomScrollbars() const;
 
@@ -249,17 +270,19 @@ private:
 
     IntSize m_size;
     IntSize m_margins;
-    OwnPtr<HashSet<RenderPartObject*> > m_widgetUpdateSet;
+    
+    typedef HashSet<RenderEmbeddedObject*> RenderEmbeddedObjectSet;
+    OwnPtr<RenderEmbeddedObjectSet> m_widgetUpdateSet;
     RefPtr<Frame> m_frame;
 
     bool m_doFullRepaint;
     
-    ScrollbarMode m_vmode;
-    ScrollbarMode m_hmode;
+    bool m_canHaveScrollbars;
     bool m_useSlowRepaints;
     bool m_isOverlapped;
     bool m_contentIsOpaque;
     unsigned m_slowRepaintObjectCount;
+    unsigned m_fixedObjectCount;
 
     int m_borderX, m_borderY;
 
@@ -275,14 +298,14 @@ private:
     bool m_firstLayoutCallbackPending;
 
     bool m_firstLayout;
-    bool m_needToInitScrollbars;
     bool m_isTransparent;
     Color m_baseBackgroundColor;
     IntSize m_lastLayoutSize;
     float m_lastZoomFactor;
 
     String m_mediaType;
-    
+    String m_mediaTypeWhenNotPrinting;
+
     unsigned m_enqueueEvents;
     Vector<ScheduledEvent*> m_scheduledEvents;
     
@@ -307,7 +330,7 @@ private:
     bool m_setNeedsLayoutWasDeferred;
 
     RefPtr<Node> m_nodeToDraw;
-    PaintRestriction m_paintRestriction;
+    PaintBehavior m_paintBehavior;
     bool m_isPainting;
 
     bool m_isVisuallyNonEmpty;
@@ -318,6 +341,13 @@ private:
     // Renderer to hold our custom scroll corner.
     RenderScrollbarPart* m_scrollCorner;
 };
+
+#if ENABLE(INSPECTOR)
+inline InspectorTimelineAgent* FrameView::inspectorTimelineAgent() const
+{
+    return m_frame->page() ? m_frame->page()->inspectorTimelineAgent() : 0;
+}
+#endif
 
 } // namespace WebCore
 

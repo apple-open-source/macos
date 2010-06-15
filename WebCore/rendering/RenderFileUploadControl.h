@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006, 2007 Apple Inc.
+ * Copyright (C) 2006, 2007, 2009 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -26,6 +26,7 @@
 
 namespace WebCore {
 
+class Chrome;
 class HTMLInputElement;
     
 // Each RenderFileUploadControl contains a RenderButton (for opening the file chooser), and
@@ -35,35 +36,57 @@ class HTMLInputElement;
 class RenderFileUploadControl : public RenderBlock, private FileChooserClient {
 public:
     RenderFileUploadControl(HTMLInputElement*);
-    ~RenderFileUploadControl();
+    virtual ~RenderFileUploadControl();
 
+    virtual bool isFileUploadControl() const { return true; }
+
+    void click();
+
+    void receiveDroppedFiles(const Vector<String>&);
+
+    String buttonValue();
+    String fileTextValue() const;
+    
+private:
     virtual const char* renderName() const { return "RenderFileUploadControl"; }
 
     virtual void updateFromElement();
     virtual void calcPrefWidths();
     virtual void paintObject(PaintInfo&, int tx, int ty);
 
-    void click();
-
-    void valueChanged();
-    
-    void receiveDroppedFiles(const Vector<String>&);
-
-    String buttonValue();
-    String fileTextValue();
-    
-    bool allowsMultipleFiles();
-
-protected:
     virtual void styleDidChange(StyleDifference, const RenderStyle* oldStyle);
 
-private:
+    virtual bool requiresForcedStyleRecalcPropagation() const { return true; }
+
+    // FileChooserClient methods.
+    void valueChanged();
+    void repaint() { RenderBlock::repaint(); }
+    bool allowsMultipleFiles();
+    String acceptTypes();
+    void chooseIconForFiles(FileChooser*, const Vector<String>&);
+
+    Chrome* chrome() const;
     int maxFilenameWidth() const;
     PassRefPtr<RenderStyle> createButtonStyle(const RenderStyle* parentStyle) const;
 
     RefPtr<HTMLInputElement> m_button;
     RefPtr<FileChooser> m_fileChooser;
 };
+
+inline RenderFileUploadControl* toRenderFileUploadControl(RenderObject* object)
+{
+    ASSERT(!object || object->isFileUploadControl());
+    return static_cast<RenderFileUploadControl*>(object);
+}
+
+inline const RenderFileUploadControl* toRenderFileUploadControl(const RenderObject* object)
+{
+    ASSERT(!object || object->isFileUploadControl());
+    return static_cast<const RenderFileUploadControl*>(object);
+}
+
+// This will catch anyone doing an unnecessary cast.
+void toRenderFileUploadControl(const RenderFileUploadControl*);
 
 } // namespace WebCore
 

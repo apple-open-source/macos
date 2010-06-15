@@ -35,37 +35,25 @@
 
 namespace WebCore {
 
-V8EventListener::V8EventListener(Frame* frame, v8::Local<v8::Object> listener, bool isAttribute)
-    : V8AbstractEventListener(frame, isAttribute)
+V8EventListener::V8EventListener(v8::Local<v8::Object> listener, bool isAttribute, const WorldContextHandle& worldContext)
+    : V8AbstractEventListener(isAttribute, worldContext)
 {
-    m_listener = v8::Persistent<v8::Object>::New(listener);
-#ifndef NDEBUG
-    V8GCController::registerGlobalHandle(EVENT_LISTENER, this, m_listener);
-#endif
+    setListenerObject(listener);
 }
 
-V8EventListener::~V8EventListener()
+v8::Local<v8::Function> V8EventListener::getListenerFunction(ScriptExecutionContext* context)
 {
-    if (m_frame) {
-        V8Proxy* proxy = V8Proxy::retrieve(m_frame);
-        if (proxy)
-            proxy->removeV8EventListener(this);
-    }
+    v8::Local<v8::Object> listener = getListenerObject(context);
 
-    disposeListenerObject();
-}
-
-v8::Local<v8::Function> V8EventListener::getListenerFunction()
-{
     // Has the listener been disposed?
-    if (m_listener.IsEmpty())
+    if (listener.IsEmpty())
         return v8::Local<v8::Function>();
 
-    if (m_listener->IsFunction())
-        return v8::Local<v8::Function>::New(v8::Persistent<v8::Function>::Cast(m_listener));
+    if (listener->IsFunction())
+        return v8::Local<v8::Function>::Cast(listener);
 
-    if (m_listener->IsObject()) {
-        v8::Local<v8::Value> property = m_listener->Get(v8::String::NewSymbol("handleEvent"));
+    if (listener->IsObject()) {
+        v8::Local<v8::Value> property = listener->Get(v8::String::NewSymbol("handleEvent"));
         if (property->IsFunction())
             return v8::Local<v8::Function>::Cast(property);
     }
@@ -73,17 +61,20 @@ v8::Local<v8::Function> V8EventListener::getListenerFunction()
     return v8::Local<v8::Function>();
 }
 
-v8::Local<v8::Value> V8EventListener::callListenerFunction(v8::Handle<v8::Value> jsEvent, Event* event, bool isWindowEvent)
+v8::Local<v8::Value> V8EventListener::callListenerFunction(ScriptExecutionContext* context, v8::Handle<v8::Value> jsEvent, Event* event)
 {
-    v8::Local<v8::Function> handlerFunction = getListenerFunction();
-    v8::Local<v8::Object> receiver = getReceiverObject(event, isWindowEvent);
+
+    v8::Local<v8::Function> handlerFunction = getListenerFunction(context);
+    v8::Local<v8::Object> receiver = getReceiverObject(event);
     if (handlerFunction.IsEmpty() || receiver.IsEmpty())
         return v8::Local<v8::Value>();
 
     v8::Handle<v8::Value> parameters[1] = { jsEvent };
 
-    V8Proxy* proxy = V8Proxy::retrieve(m_frame);
-    return proxy->callFunction(handlerFunction, receiver, 1, parameters);
+    if (V8Proxy* proxy = V8Proxy::retrieve(context))
+        return proxy->callFunction(handlerFunction, receiver, 1, parameters);
+
+    return v8::Local<v8::Value>();
 }
 
 } // namespace WebCore

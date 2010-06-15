@@ -25,7 +25,6 @@
 
 #include "CachedResource.h"
 #include "ImageObserver.h"
-#include "Image.h"
 #include "IntRect.h"
 #include "Timer.h"
 #include <wtf/Vector.h>
@@ -79,7 +78,7 @@ public:
 
     void clear();
     
-    bool stillNeedsLoad() const { return !m_errorOccurred && m_status == Unknown && m_loading == false; }
+    bool stillNeedsLoad() const { return !errorOccurred() && status() == Unknown && !isLoading(); }
     void load();
 
     // ImageObserver

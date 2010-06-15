@@ -38,8 +38,7 @@ namespace WebCore {
     class SMILTimeContainer;
 
     // This class implements SMIL interval timing model as needed for SVG animation.
-    class SVGSMILElement : public SVGElement
-    {
+    class SVGSMILElement : public SVGElement {
     public:
         SVGSMILElement(const QualifiedName&, Document*);
         virtual ~SVGSMILElement();
@@ -134,7 +133,8 @@ private:
         };
         bool parseCondition(const String&, BeginOrEnd beginOrEnd);
         void parseBeginOrEnd(const String&, BeginOrEnd beginOrEnd);
-        
+        Element* eventBaseFor(const Condition&) const;
+
         void connectConditions();
         void disconnectConditions();
         

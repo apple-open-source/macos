@@ -2,8 +2,6 @@
     Copyright (C) 2004, 2005, 2007, 2008 Nikolas Zimmermann <zimmermann@kde.org>
                   2004, 2005, 2006 Rob Buis <buis@kde.org>
 
-    This file is part of the KDE project
-
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Library General Public
     License as published by the Free Software Foundation; either
@@ -24,42 +22,39 @@
 #define SVGClipPathElement_h
 
 #if ENABLE(SVG)
+#include "RenderObject.h"
 #include "SVGExternalResourcesRequired.h"
 #include "SVGLangSpace.h"
-#include "SVGResourceClipper.h"
 #include "SVGStyledTransformableElement.h"
 #include "SVGTests.h"
 
 namespace WebCore {
 
-    class SVGClipPathElement : public SVGStyledTransformableElement,
-                               public SVGTests,
-                               public SVGLangSpace,
-                               public SVGExternalResourcesRequired
-    {
-    public:
-        SVGClipPathElement(const QualifiedName&, Document*);
-        virtual ~SVGClipPathElement();
+class SVGClipPathElement : public SVGStyledTransformableElement,
+                           public SVGTests,
+                           public SVGLangSpace,
+                           public SVGExternalResourcesRequired {
+public:
+    SVGClipPathElement(const QualifiedName&, Document*);
+    virtual ~SVGClipPathElement();
 
-        virtual bool isValid() const { return SVGTests::isValid(); }
-        virtual bool rendererIsNeeded(RenderStyle*) { return false; }
+    virtual bool isValid() const { return SVGTests::isValid(); }
 
-        virtual void parseMappedAttribute(MappedAttribute*);
-        virtual void svgAttributeChanged(const QualifiedName&);
-        virtual void childrenChanged(bool changedByParser = false, Node* beforeChange = 0, Node* afterChange = 0, int childCountDelta = 0);
+    virtual void parseMappedAttribute(MappedAttribute*);
+    virtual void svgAttributeChanged(const QualifiedName&);
+    virtual void synchronizeProperty(const QualifiedName&);
+    virtual void childrenChanged(bool changedByParser = false, Node* beforeChange = 0, Node* afterChange = 0, int childCountDelta = 0);
 
-        virtual SVGResource* canvasResource();
+    virtual RenderObject* createRenderer(RenderArena*, RenderStyle*);
 
-    protected:
-        virtual const SVGElement* contextElement() const { return this; }
+private:
+    DECLARE_ANIMATED_PROPERTY(SVGClipPathElement, SVGNames::clipPathUnitsAttr, int, ClipPathUnits, clipPathUnits)
 
-    private:
-        ANIMATED_PROPERTY_DECLARATIONS(SVGClipPathElement, SVGNames::clipPathTagString, SVGNames::clipPathUnitsAttrString, int, ClipPathUnits, clipPathUnits)
+    // SVGExternalResourcesRequired
+    DECLARE_ANIMATED_PROPERTY(SVGClipPathElement, SVGNames::externalResourcesRequiredAttr, bool, ExternalResourcesRequired, externalResourcesRequired)
+};
 
-        RefPtr<SVGResourceClipper> m_clipper;
-    };
+}
 
-} // namespace WebCore
-
-#endif // ENABLE(SVG)
+#endif
 #endif

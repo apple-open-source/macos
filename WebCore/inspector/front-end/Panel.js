@@ -81,11 +81,15 @@ WebInspector.Panel.prototype = {
         if ("_toolbarItem" in this)
             this._toolbarItem.addStyleClass("toggled-on");
 
-        WebInspector.currentFocusElement = document.getElementById("main-panels");
+        WebInspector.currentFocusElement = this.defaultFocusedElement;
+
+        this.updateSidebarWidth();
+        this._restoreScrollPositions();
     },
 
     hide: function()
     {
+        this._storeScrollPositions();
         WebInspector.View.prototype.hide.call(this);
 
         if (this._statusBarItemContainer && this._statusBarItemContainer.parentNode)
@@ -93,6 +97,11 @@ WebInspector.Panel.prototype = {
         delete this._statusBarItemContainer;
         if ("_toolbarItem" in this)
             this._toolbarItem.removeStyleClass("toggled-on");
+    },
+
+    get defaultFocusedElement()
+    {
+        return this.sidebarTreeElement || this.element;
     },
 
     attach: function()
@@ -223,14 +232,18 @@ WebInspector.Panel.prototype = {
         var currentView = this._searchResults[this._currentSearchResultIndex];
 
         if (currentView.showingLastSearchResult()) {
-            if (++this._currentSearchResultIndex >= this._searchResults.length)
-                this._currentSearchResultIndex = 0;
-            currentView = this._searchResults[this._currentSearchResultIndex];
+            if (this.searchIteratesOverViews()) {
+                if (++this._currentSearchResultIndex >= this._searchResults.length)
+                    this._currentSearchResultIndex = 0;
+                currentView = this._searchResults[this._currentSearchResultIndex];
+            }
             showFirstResult = true;
         }
 
-        if (currentView !== this.visibleView)
+        if (currentView !== this.visibleView) {
             this.showView(currentView);
+            WebInspector.focusSearchField();
+        }
 
         if (showFirstResult)
             currentView.jumpToFirstSearchResult();
@@ -254,19 +267,151 @@ WebInspector.Panel.prototype = {
         var currentView = this._searchResults[this._currentSearchResultIndex];
 
         if (currentView.showingFirstSearchResult()) {
-            if (--this._currentSearchResultIndex < 0)
-                this._currentSearchResultIndex = (this._searchResults.length - 1);
-            currentView = this._searchResults[this._currentSearchResultIndex];
+            if (this.searchIteratesOverViews()) {
+                if (--this._currentSearchResultIndex < 0)
+                    this._currentSearchResultIndex = (this._searchResults.length - 1);
+                currentView = this._searchResults[this._currentSearchResultIndex];
+            }
             showLastResult = true;
         }
 
-        if (currentView !== this.visibleView)
+        if (currentView !== this.visibleView) {
             this.showView(currentView);
+            WebInspector.focusSearchField();
+        }
 
         if (showLastResult)
             currentView.jumpToLastSearchResult();
         else
             currentView.jumpToPreviousSearchResult();
+    },
+
+    createSidebar: function(parentElement, resizerParentElement)
+    {
+        if (this.hasSidebar)
+            return;
+
+        if (!parentElement)
+            parentElement = this.element;
+
+        if (!resizerParentElement)
+            resizerParentElement = parentElement;
+
+        this.hasSidebar = true;
+
+        this.sidebarElement = document.createElement("div");
+        this.sidebarElement.className = "sidebar";
+        parentElement.appendChild(this.sidebarElement);
+
+        this.sidebarResizeElement = document.createElement("div");
+        this.sidebarResizeElement.className = "sidebar-resizer-vertical";
+        this.sidebarResizeElement.addEventListener("mousedown", this._startSidebarDragging.bind(this), false);
+        resizerParentElement.appendChild(this.sidebarResizeElement);
+
+        this.sidebarTreeElement = document.createElement("ol");
+        this.sidebarTreeElement.className = "sidebar-tree";
+        this.sidebarElement.appendChild(this.sidebarTreeElement);
+
+        this.sidebarTree = new TreeOutline(this.sidebarTreeElement);
+    },
+
+    _startSidebarDragging: function(event)
+    {
+        WebInspector.elementDragStart(this.sidebarResizeElement, this._sidebarDragging.bind(this), this._endSidebarDragging.bind(this), event, "col-resize");
+    },
+
+    _sidebarDragging: function(event)
+    {
+        this.updateSidebarWidth(event.pageX);
+
+        event.preventDefault();
+    },
+
+    _endSidebarDragging: function(event)
+    {
+        WebInspector.elementDragEnd(event);
+    },
+
+    updateSidebarWidth: function(width)
+    {
+        if (!this.hasSidebar)
+            return;
+
+        if (this.sidebarElement.offsetWidth <= 0) {
+            // The stylesheet hasn't loaded yet or the window is closed,
+            // so we can't calculate what is need. Return early.
+            return;
+        }
+
+        if (!("_currentSidebarWidth" in this))
+            this._currentSidebarWidth = this.sidebarElement.offsetWidth;
+
+        if (typeof width === "undefined")
+            width = this._currentSidebarWidth;
+
+        width = Number.constrain(width, Preferences.minSidebarWidth, window.innerWidth / 2);
+
+        this._currentSidebarWidth = width;
+        this.setSidebarWidth(width);
+
+        this.updateMainViewWidth(width);
+    },
+
+    setSidebarWidth: function(width)
+    {
+        this.sidebarElement.style.width = width + "px";
+        this.sidebarResizeElement.style.left = (width - 3) + "px";
+    },
+
+    updateMainViewWidth: function(width)
+    {
+        // Should be implemented by ancestors.
+    },
+
+    resize: function()
+    {
+        var visibleView = this.visibleView;
+        if (visibleView && "resize" in visibleView)
+            visibleView.resize();
+    },
+
+    canShowSourceLine: function(url, line)
+    {
+        return false;
+    },
+
+    showSourceLine: function(url, line)
+    {
+        return false;
+    },
+
+    searchIteratesOverViews: function()
+    {
+        return false;
+    },
+
+    elementsToRestoreScrollPositionsFor: function()
+    {
+        return [];
+    },
+
+    _storeScrollPositions: function()
+    {
+        var elements = this.elementsToRestoreScrollPositionsFor();
+        for (var i = 0; i < elements.length; ++i) {
+            var container = elements[i];
+            container._scrollTop = container.scrollTop;
+        }
+    },
+
+    _restoreScrollPositions: function()
+    {
+        var elements = this.elementsToRestoreScrollPositionsFor();
+        for (var i = 0; i < elements.length; ++i) {
+            var container = elements[i];
+            if (container._scrollTop)
+                container.scrollTop = container._scrollTop;
+        }
     }
 }
 

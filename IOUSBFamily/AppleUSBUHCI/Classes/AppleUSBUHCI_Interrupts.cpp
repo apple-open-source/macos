@@ -154,7 +154,8 @@ AppleUSBUHCI::GetFrameNumberInternal(void)
 	{
 		if (_myPowerState == kUSBPowerStateOn)
 		{
-			USBLog(1, "AppleUSBUHCI[%p]::GetFrameNumber called but controller is halted",  this);
+			// do not use USBLog from here, since this method can be called in interrupt context
+			// USBLog(1, "AppleUSBUHCI[%p]::GetFrameNumber called but controller is halted",  this);
 			USBTrace( kUSBTUHCIInterrupts,  kTPUHCIInterruptsGetFrameNumberInternal, (uintptr_t)this, kUHCI_STS_HCH, 0, 0);
 		}
 		return 0;

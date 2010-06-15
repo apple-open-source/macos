@@ -29,15 +29,15 @@
 
 #if PLATFORM(CG)
 
-#include "TransformationMatrix.h"
-#include <ApplicationServices/ApplicationServices.h>
+#include "AffineTransform.h"
 #include "FloatRect.h"
 #include "GraphicsContext.h"
 #include "IntRect.h"
 #include "PlatformString.h"
 #include "StrokeStyleApplier.h"
-
+#include <ApplicationServices/ApplicationServices.h>
 #include <wtf/MathExtras.h>
+#include <wtf/RetainPtr.h>
 
 namespace WebCore {
 
@@ -49,9 +49,8 @@ static size_t putBytesNowhere(void*, const void*, size_t count)
 static CGContextRef createScratchContext()
 {
     CGDataConsumerCallbacks callbacks = { putBytesNowhere, 0 };
-    CGDataConsumerRef consumer = CGDataConsumerCreate(0, &callbacks);
-    CGContextRef context = CGPDFContextCreate(consumer, 0, 0);
-    CGDataConsumerRelease(consumer);
+    RetainPtr<CGDataConsumerRef> consumer(AdoptCF, CGDataConsumerCreate(0, &callbacks));
+    CGContextRef context = CGPDFContextCreate(consumer.get(), 0, 0);
 
     CGFloat black[4] = { 0, 0, 0, 1 };
     CGContextSetFillColor(context, black);
@@ -129,9 +128,8 @@ bool Path::contains(const FloatPoint &point, WindRule rule) const
         return false;
 
     // CGPathContainsPoint returns false for non-closed paths, as a work-around, we copy and close the path first.  Radar 4758998 asks for a better CG API to use
-    CGMutablePathRef path = copyCGPathClosingSubpaths(m_path);
-    bool ret = CGPathContainsPoint(path, 0, point, rule == RULE_EVENODD ? true : false);
-    CGPathRelease(path);
+    RetainPtr<CGMutablePathRef> path(AdoptCF, copyCGPathClosingSubpaths(m_path));
+    bool ret = CGPathContainsPoint(path.get(), 0, point, rule == RULE_EVENODD ? true : false);
     return ret;
 }
 
@@ -245,7 +243,12 @@ void Path::clear()
 bool Path::isEmpty() const
 {
     return CGPathIsEmpty(m_path);
- }
+}
+
+bool Path::hasCurrentPoint() const
+{
+    return !isEmpty();
+}
 
 static void CGPathToCFStringApplierFunction(void* info, const CGPathElement *element)
 {
@@ -343,7 +346,7 @@ void Path::apply(void* info, PathApplierFunction function) const
     CGPathApply(m_path, &pinfo, CGPathApplierToPathApplier);
 }
 
-void Path::transform(const TransformationMatrix& transform)
+void Path::transform(const AffineTransform& transform)
 {
     CGMutablePathRef path = CGPathCreateMutable();
     CGAffineTransform transformCG = transform;

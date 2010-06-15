@@ -325,7 +325,13 @@ public:
 
     virtual HRESULT STDMETHODCALLTYPE setLocalStorageDatabasePath(
         /* [in] */ BSTR location);
-    
+
+    virtual HRESULT STDMETHODCALLTYPE experimentalNotificationsEnabled(
+        /* [retval][out] */ BOOL *enabled);
+
+    virtual HRESULT STDMETHODCALLTYPE setExperimentalNotificationsEnabled(
+        /* [in] */ BOOL enabled);
+
     virtual HRESULT STDMETHODCALLTYPE setShouldPaintNativeControls( 
     /* [in] */ BOOL shouldPaint);
 
@@ -340,7 +346,7 @@ public:
 
     virtual HRESULT STDMETHODCALLTYPE fontSmoothingContrast( 
     /* [retval][out] */ float* contrast);
-    
+
     virtual HRESULT STDMETHODCALLTYPE setFontSmoothingContrast( 
     /* [in] */ float contrast);
 
@@ -356,6 +362,18 @@ public:
     virtual HRESULT STDMETHODCALLTYPE setAllowUniversalAccessFromFileURLs(
     /* [in] */ BOOL allowAccess);
 
+    virtual HRESULT STDMETHODCALLTYPE allowFileAccessFromFileURLs(
+    /* [retval][out] */ BOOL* allowAccess);
+
+    virtual HRESULT STDMETHODCALLTYPE setAllowFileAccessFromFileURLs(
+    /* [in] */ BOOL allowAccess);
+
+    virtual HRESULT STDMETHODCALLTYPE javaScriptCanAccessClipboard(
+    /* [retval][out] */ BOOL* enabled);
+
+    virtual HRESULT STDMETHODCALLTYPE setJavaScriptCanAccessClipboard(
+    /* [in] */ BOOL enabled);
+
     virtual HRESULT STDMETHODCALLTYPE isXSSAuditorEnabled(
     /* [retval][out] */ BOOL* enabled);
 
@@ -368,7 +386,35 @@ public:
     virtual HRESULT STDMETHODCALLTYPE shouldUseHighResolutionTimers(
     /* [retval][out] */ BOOL* useHighResolutionTimers);
 
-    // WebPreferences
+    virtual HRESULT STDMETHODCALLTYPE setPluginAllowedRunTime(
+    /* [in] */ UINT allowedRunTime);
+
+    virtual HRESULT STDMETHODCALLTYPE pluginAllowedRunTime(
+    /* [retval][out] */ UINT* allowedRunTime);
+
+    virtual HRESULT STDMETHODCALLTYPE isFrameFlatteningEnabled(
+    /* [retval][out] */ BOOL* enabled);
+
+    virtual HRESULT STDMETHODCALLTYPE setFrameFlatteningEnabled(
+    /* [in] */ BOOL enabled);
+
+    virtual HRESULT STDMETHODCALLTYPE setPreferenceForTest(
+    /* [in] */ BSTR key,
+    /* [in] */ BSTR value);
+
+    virtual HRESULT STDMETHODCALLTYPE setAcceleratedCompositingEnabled(BOOL);
+    virtual HRESULT STDMETHODCALLTYPE acceleratedCompositingEnabled(BOOL*);
+
+    virtual HRESULT STDMETHODCALLTYPE setCustomDragCursorsEnabled(BOOL);
+    virtual HRESULT STDMETHODCALLTYPE customDragCursorsEnabled(BOOL*);
+
+    virtual HRESULT STDMETHODCALLTYPE setShowDebugBorders(BOOL);
+    virtual HRESULT STDMETHODCALLTYPE showDebugBorders(BOOL*);
+
+    virtual HRESULT STDMETHODCALLTYPE setShowRepaintCounter(BOOL);
+    virtual HRESULT STDMETHODCALLTYPE showRepaintCounter(BOOL*);
+
+   // WebPreferences
 
     // This method accesses a different preference key than developerExtrasEnabled.
     // See <rdar://5343767> for the justification.

@@ -2,7 +2,7 @@
  * Copyright (C) 1999 Lars Knoll (knoll@kde.org)
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
  *           (C) 2000 Stefan Schimanski (1Stein@gmx.de)
- * Copyright (C) 2004, 2005, 2006, 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2004, 2005, 2006, 2008, 2009 Apple Inc. All rights reserved.
  * Copyright (C) 2008 Nokia Corporation and/or its subsidiary(-ies)
  *
  * This library is free software; you can redistribute it and/or
@@ -32,8 +32,8 @@
 #include "HTMLNames.h"
 #include "HTMLObjectElement.h"
 #include "MappedAttribute.h"
+#include "RenderEmbeddedObject.h"
 #include "RenderImage.h"
-#include "RenderPartObject.h"
 #include "RenderWidget.h"
 #include "ScriptController.h"
 #include "Settings.h"
@@ -42,15 +42,16 @@ namespace WebCore {
 
 using namespace HTMLNames;
 
-HTMLEmbedElement::HTMLEmbedElement(const QualifiedName& tagName, Document* doc)
-    : HTMLPlugInImageElement(tagName, doc)
+inline HTMLEmbedElement::HTMLEmbedElement(const QualifiedName& tagName, Document* document)
+    : HTMLPlugInImageElement(tagName, document)
     , m_needWidgetUpdate(false)
 {
     ASSERT(hasTagName(embedTag));
 }
 
-HTMLEmbedElement::~HTMLEmbedElement()
+PassRefPtr<HTMLEmbedElement> HTMLEmbedElement::create(const QualifiedName& tagName, Document* document)
 {
+    return adoptRef(new HTMLEmbedElement(tagName, document));
 }
 
 static inline RenderWidget* findWidgetRenderer(const Node* n) 
@@ -61,19 +62,15 @@ static inline RenderWidget* findWidgetRenderer(const Node* n)
         while (n && !n->hasTagName(objectTag));
 
     if (n && n->renderer() && n->renderer()->isWidget())
-        return static_cast<RenderWidget*>(n->renderer());
+        return toRenderWidget(n->renderer());
 
     return 0;
 }
 
 RenderWidget* HTMLEmbedElement::renderWidgetForJSBindings() const
 {
-    RenderWidget* renderWidget = findWidgetRenderer(this);
-    if (renderWidget && !renderWidget->widget()) {
-        document()->updateLayoutIgnorePendingStylesheets();
-        renderWidget = findWidgetRenderer(this);
-    }
-    return renderWidget;
+    document()->updateLayoutIgnorePendingStylesheets();
+    return findWidgetRenderer(this);
 }
 
 bool HTMLEmbedElement::mapToEntry(const QualifiedName& attrName, MappedAttributeEntry& result) const
@@ -98,9 +95,9 @@ void HTMLEmbedElement::parseMappedAttribute(MappedAttribute* attr)
         if (!isImageType() && m_imageLoader)
             m_imageLoader.clear();
     } else if (attr->name() == codeAttr)
-        m_url = parseURL(value.string());
+        m_url = deprecatedParseURL(value.string());
     else if (attr->name() == srcAttr) {
-        m_url = parseURL(value.string());
+        m_url = deprecatedParseURL(value.string());
         if (renderer() && isImageType()) {
             if (!m_imageLoader)
                 m_imageLoader.set(new HTMLImageLoader(this));
@@ -154,7 +151,7 @@ RenderObject* HTMLEmbedElement::createRenderer(RenderArena* arena, RenderStyle*)
 {
     if (isImageType())
         return new (arena) RenderImage(this);
-    return new (arena) RenderPartObject(this);
+    return new (arena) RenderEmbeddedObject(this);
 }
 
 void HTMLEmbedElement::attach()
@@ -182,7 +179,7 @@ void HTMLEmbedElement::updateWidget()
 {
     document()->updateStyleIfNeeded();
     if (m_needWidgetUpdate && renderer() && !isImageType())
-        static_cast<RenderPartObject*>(renderer())->updateWidget(true);
+        toRenderEmbeddedObject(renderer())->updateWidget(true);
 }
 
 void HTMLEmbedElement::insertedIntoDocument()
@@ -238,31 +235,11 @@ const QualifiedName& HTMLEmbedElement::imageSourceAttributeName() const
     return srcAttr;
 }
 
-String HTMLEmbedElement::src() const
-{
-    return getAttribute(srcAttr);
-}
-
-void HTMLEmbedElement::setSrc(const String& value)
-{
-    setAttribute(srcAttr, value);
-}
-
-String HTMLEmbedElement::type() const
-{
-    return getAttribute(typeAttr);
-}
-
-void HTMLEmbedElement::setType(const String& value)
-{
-    setAttribute(typeAttr, value);
-}
-
 void HTMLEmbedElement::addSubresourceAttributeURLs(ListHashSet<KURL>& urls) const
 {
     HTMLPlugInImageElement::addSubresourceAttributeURLs(urls);
 
-    addSubresourceURL(urls, document()->completeURL(src()));
+    addSubresourceURL(urls, document()->completeURL(getAttribute(srcAttr)));
 }
 
 }

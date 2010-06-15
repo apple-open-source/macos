@@ -23,30 +23,34 @@
 #include "AtomicString.h"
 #include "HTMLCollection.h"
 #include "HTMLOptionsCollection.h"
+#include "HTMLAllCollection.h"
+#include "JSDOMBinding.h"
 #include "JSHTMLAllCollection.h"
 #include "JSHTMLOptionsCollection.h"
-#include "JSNamedNodesCollection.h"
 #include "JSNode.h"
+#include "JSNodeList.h"
 #include "Node.h"
-#include "JSDOMBinding.h"
+#include "StaticNodeList.h"
 #include <wtf/Vector.h>
 
 using namespace JSC;
 
 namespace WebCore {
 
-static JSValue getNamedItems(ExecState* exec, HTMLCollection* impl, const Identifier& propertyName)
+static JSValue getNamedItems(ExecState* exec, JSHTMLCollection* collection, const Identifier& propertyName)
 {
     Vector<RefPtr<Node> > namedItems;
-    impl->namedItems(propertyName, namedItems);
+    collection->impl()->namedItems(identifierToAtomicString(propertyName), namedItems);
 
     if (namedItems.isEmpty())
         return jsUndefined();
-
     if (namedItems.size() == 1)
-        return toJS(exec, namedItems[0].get());
+        return toJS(exec, collection->globalObject(), namedItems[0].get());
 
-    return new (exec) JSNamedNodesCollection(exec, namedItems);
+    // FIXME: HTML5 specifies that this should be a DynamicNodeList.
+    // FIXME: HTML5 specifies that non-HTMLOptionsCollection collections should return
+    // the first matching item instead of a NodeList.
+    return toJS(exec, collection->globalObject(), StaticNodeList::adopt(namedItems).get());
 }
 
 // HTMLCollections are strange objects, they support both get and call,
@@ -57,7 +61,8 @@ static JSValue JSC_HOST_CALL callHTMLCollection(ExecState* exec, JSObject* funct
         return jsUndefined();
 
     // Do not use thisObj here. It can be the JSHTMLDocument, in the document.forms(i) case.
-    HTMLCollection* collection = static_cast<JSHTMLCollection*>(function)->impl();
+    JSHTMLCollection* jsCollection = static_cast<JSHTMLCollection*>(function);
+    HTMLCollection* collection = jsCollection->impl();
 
     // Also, do we need the TypeError test here ?
 
@@ -67,10 +72,10 @@ static JSValue JSC_HOST_CALL callHTMLCollection(ExecState* exec, JSObject* funct
         UString string = args.at(0).toString(exec);
         unsigned index = string.toUInt32(&ok, false);
         if (ok)
-            return toJS(exec, collection->item(index));
+            return toJS(exec, jsCollection->globalObject(), collection->item(index));
 
         // Support for document.images('<name>') etc.
-        return getNamedItems(exec, collection, Identifier(exec, string));
+        return getNamedItems(exec, jsCollection, Identifier(exec, string));
     }
 
     // The second arg, if set, is the index of the item we want
@@ -78,11 +83,11 @@ static JSValue JSC_HOST_CALL callHTMLCollection(ExecState* exec, JSObject* funct
     UString string = args.at(0).toString(exec);
     unsigned index = args.at(1).toString(exec).toUInt32(&ok, false);
     if (ok) {
-        String pstr = string;
+        String pstr = ustringToString(string);
         Node* node = collection->namedItem(pstr);
         while (node) {
             if (!index)
-                return toJS(exec, node);
+                return toJS(exec, jsCollection->globalObject(), node);
             node = collection->nextNamedItem(pstr);
             --index;
         }
@@ -97,15 +102,17 @@ CallType JSHTMLCollection::getCallData(CallData& callData)
     return CallTypeHost;
 }
 
-bool JSHTMLCollection::canGetItemsForName(ExecState* exec, HTMLCollection* thisObj, const Identifier& propertyName)
+bool JSHTMLCollection::canGetItemsForName(ExecState*, HTMLCollection* collection, const Identifier& propertyName)
 {
-    return !getNamedItems(exec, thisObj, propertyName).isUndefined();
+    Vector<RefPtr<Node> > namedItems;
+    collection->namedItems(identifierToAtomicString(propertyName), namedItems);
+    return !namedItems.isEmpty();
 }
 
-JSValue JSHTMLCollection::nameGetter(ExecState* exec, const Identifier& propertyName, const PropertySlot& slot)
+JSValue JSHTMLCollection::nameGetter(ExecState* exec, JSValue slotBase, const Identifier& propertyName)
 {
-    JSHTMLCollection* thisObj = static_cast<JSHTMLCollection*>(asObject(slot.slotBase()));
-    return getNamedItems(exec, thisObj->impl(), propertyName);
+    JSHTMLCollection* thisObj = static_cast<JSHTMLCollection*>(asObject(slotBase));
+    return getNamedItems(exec, thisObj, propertyName);
 }
 
 JSValue JSHTMLCollection::item(ExecState* exec, const ArgList& args)
@@ -113,35 +120,34 @@ JSValue JSHTMLCollection::item(ExecState* exec, const ArgList& args)
     bool ok;
     uint32_t index = args.at(0).toString(exec).toUInt32(&ok, false);
     if (ok)
-        return toJS(exec, impl()->item(index));
-    return getNamedItems(exec, impl(), Identifier(exec, args.at(0).toString(exec)));
+        return toJS(exec, globalObject(), impl()->item(index));
+    return getNamedItems(exec, this, Identifier(exec, args.at(0).toString(exec)));
 }
 
 JSValue JSHTMLCollection::namedItem(ExecState* exec, const ArgList& args)
 {
-    return getNamedItems(exec, impl(), Identifier(exec, args.at(0).toString(exec)));
+    return getNamedItems(exec, this, Identifier(exec, args.at(0).toString(exec)));
 }
 
-JSValue toJS(ExecState* exec, HTMLCollection* collection)
+JSValue toJS(ExecState* exec, JSDOMGlobalObject* globalObject, HTMLCollection* collection)
 {
     if (!collection)
         return jsNull();
 
-    DOMObject* wrapper = getCachedDOMObjectWrapper(exec->globalData(), collection);
+    DOMObject* wrapper = getCachedDOMObjectWrapper(exec, collection);
 
     if (wrapper)
         return wrapper;
 
     switch (collection->type()) {
         case SelectOptions:
-            wrapper = CREATE_DOM_OBJECT_WRAPPER(exec, HTMLOptionsCollection, collection);
+            wrapper = CREATE_DOM_OBJECT_WRAPPER(exec, globalObject, HTMLOptionsCollection, collection);
             break;
         case DocAll:
-            typedef HTMLCollection HTMLAllCollection;
-            wrapper = CREATE_DOM_OBJECT_WRAPPER(exec, HTMLAllCollection, collection);
+            wrapper = CREATE_DOM_OBJECT_WRAPPER(exec, globalObject, HTMLAllCollection, collection);
             break;
         default:
-            wrapper = CREATE_DOM_OBJECT_WRAPPER(exec, HTMLCollection, collection);
+            wrapper = CREATE_DOM_OBJECT_WRAPPER(exec, globalObject, HTMLCollection, collection);
             break;
     }
 

@@ -1,7 +1,8 @@
 /*
  * Copyright (C) 1999 Lars Knoll (knoll@kde.org)
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
- * Copyright (C) 2004, 2005, 2006, 2007, 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2004, 2005, 2006, 2007, 2008, 2010 Apple Inc. All rights reserved.
+ * Copyright (C) 2010 Google Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -58,6 +59,16 @@ HTMLImageElement::~HTMLImageElement()
         m_form->removeImgElement(this);
 }
 
+PassRefPtr<HTMLImageElement> HTMLImageElement::createForJSConstructor(Document* document, const int* optionalWidth, const int* optionalHeight)
+{
+    RefPtr<HTMLImageElement> image = new HTMLImageElement(imgTag, document);
+    if (optionalWidth)
+        image->setWidth(*optionalWidth);
+    if (optionalHeight > 0)
+        image->setHeight(*optionalHeight);
+    return image.release();
+}
+
 bool HTMLImageElement::mapToEntry(const QualifiedName& attrName, MappedAttributeEntry& result) const
 {
     if (attrName == widthAttr ||
@@ -68,7 +79,7 @@ bool HTMLImageElement::mapToEntry(const QualifiedName& attrName, MappedAttribute
         result = eUniversal;
         return false;
     }
-    
+
     if (attrName == borderAttr || attrName == alignAttr) {
         result = eReplaced; // Shared with embed and iframe elements.
         return false;
@@ -110,7 +121,7 @@ void HTMLImageElement::parseMappedAttribute(MappedAttribute* attr)
         if (attr->value().string()[0] == '#')
             usemap = attr->value();
         else
-            usemap = document()->completeURL(parseURL(attr->value())).string();
+            usemap = document()->completeURL(deprecatedParseURL(attr->value())).string();
         setIsLink(!attr->isNull());
     } else if (attrName == ismapAttr)
         ismap = true;
@@ -118,6 +129,8 @@ void HTMLImageElement::parseMappedAttribute(MappedAttribute* attr)
         setAttributeEventListener(eventNames().abortEvent, createAttributeEventListener(this, attr));
     else if (attrName == onloadAttr)
         setAttributeEventListener(eventNames().loadEvent, createAttributeEventListener(this, attr));
+    else if (attrName == onbeforeloadAttr)
+        setAttributeEventListener(eventNames().beforeloadEvent, createAttributeEventListener(this, attr));
     else if (attrName == compositeAttr) {
         if (!parseCompositeOperator(attr->value(), m_compositeOperator))
             m_compositeOperator = CompositeSourceOver;
@@ -129,7 +142,7 @@ void HTMLImageElement::parseMappedAttribute(MappedAttribute* attr)
             document->addNamedItem(newName);
         }
         m_name = newName;
-    } else if (attr->name() == idAttr) {
+    } else if (attr->name() == idAttributeName()) {
         const AtomicString& newId = attr->value();
         if (inDocument() && document()->isHTMLDocument()) {
             HTMLDocument* document = static_cast<HTMLDocument*>(this->document());
@@ -159,7 +172,7 @@ RenderObject* HTMLImageElement::createRenderer(RenderArena* arena, RenderStyle* 
 {
      if (style->contentData())
         return RenderObject::createObject(this, style);
-     
+
      return new (arena) RenderImage(this);
 }
 
@@ -167,12 +180,12 @@ void HTMLImageElement::attach()
 {
     HTMLElement::attach();
 
-    if (renderer() && renderer()->isImage()) {
+    if (renderer() && renderer()->isImage() && m_imageLoader.haveFiredBeforeLoadEvent()) {
         RenderImage* imageObj = toRenderImage(renderer());
         if (imageObj->hasImage())
             return;
         imageObj->setCachedImage(m_imageLoader.image());
-        
+
         // If we have no image at all because we have no src attribute, set
         // image height and width for the alt text instead.
         if (!m_imageLoader.image() && !imageObj->cachedImage())
@@ -207,6 +220,30 @@ void HTMLImageElement::removedFromDocument()
     HTMLElement::removedFromDocument();
 }
 
+void HTMLImageElement::insertedIntoTree(bool deep)
+{
+    if (!m_form) {
+        // m_form can be non-null if it was set in constructor.
+        for (Node* ancestor = parentNode(); ancestor; ancestor = ancestor->parentNode()) {
+            if (ancestor->hasTagName(formTag)) {
+                m_form = static_cast<HTMLFormElement*>(ancestor);
+                m_form->registerImgElement(this);
+                break;
+            }
+        }
+    }
+
+    HTMLElement::insertedIntoTree(deep);
+}
+
+void HTMLImageElement::removedFromTree(bool deep)
+{
+    if (m_form)
+        m_form->removeImgElement(this);
+    m_form = 0;
+    HTMLElement::removedFromTree(deep);
+}
+
 int HTMLImageElement::width(bool ignorePendingStylesheets) const
 {
     if (!renderer()) {
@@ -215,7 +252,7 @@ int HTMLImageElement::width(bool ignorePendingStylesheets) const
         int width = getAttribute(widthAttr).toInt(&ok);
         if (ok)
             return width;
-        
+
         // if the image is available, use its width
         if (m_imageLoader.image()) {
             float zoomFactor = document()->frame() ? document()->frame()->pageZoomFactor() : 1.0f;
@@ -239,7 +276,7 @@ int HTMLImageElement::height(bool ignorePendingStylesheets) const
         int height = getAttribute(heightAttr).toInt(&ok);
         if (ok)
             return height;
-        
+
         // if the image is available, use its height
         if (m_imageLoader.image()) {
             float zoomFactor = document()->frame() ? document()->frame()->pageZoomFactor() : 1.0f;
@@ -267,10 +304,10 @@ int HTMLImageElement::naturalHeight() const
 {
     if (!m_imageLoader.image())
         return 0;
-    
+
     return m_imageLoader.image()->imageSize(1.0f).height();
 }
-    
+
 bool HTMLImageElement::isURLAttribute(Attribute* attr) const
 {
     return attr->name() == srcAttr
@@ -279,44 +316,15 @@ bool HTMLImageElement::isURLAttribute(Attribute* attr) const
         || (attr->name() == usemapAttr && attr->value().string()[0] != '#');
 }
 
-String HTMLImageElement::name() const
-{
-    return getAttribute(nameAttr);
-}
-
-void HTMLImageElement::setName(const String& value)
-{
-    setAttribute(nameAttr, value);
-}
-
-String HTMLImageElement::align() const
-{
-    return getAttribute(alignAttr);
-}
-
-void HTMLImageElement::setAlign(const String& value)
-{
-    setAttribute(alignAttr, value);
-}
-
-String HTMLImageElement::alt() const
+const AtomicString& HTMLImageElement::alt() const
 {
     return getAttribute(altAttr);
 }
 
-void HTMLImageElement::setAlt(const String& value)
+bool HTMLImageElement::draggable() const
 {
-    setAttribute(altAttr, value);
-}
-
-String HTMLImageElement::border() const
-{
-    return getAttribute(borderAttr);
-}
-
-void HTMLImageElement::setBorder(const String& value)
-{
-    setAttribute(borderAttr, value);
+    // Image elements are draggable by default.
+    return !equalIgnoringCase(getAttribute(draggableAttr), "false");
 }
 
 void HTMLImageElement::setHeight(int value)
@@ -375,16 +383,6 @@ void HTMLImageElement::setSrc(const String& value)
     setAttribute(srcAttr, value);
 }
 
-String HTMLImageElement::useMap() const
-{
-    return getAttribute(usemapAttr);
-}
-
-void HTMLImageElement::setUseMap(const String& value)
-{
-    setAttribute(usemapAttr, value);
-}
-
 int HTMLImageElement::vspace() const
 {
     // ### return actual vspace
@@ -433,7 +431,14 @@ void HTMLImageElement::addSubresourceAttributeURLs(ListHashSet<KURL>& urls) cons
     HTMLElement::addSubresourceAttributeURLs(urls);
 
     addSubresourceURL(urls, src());
-    addSubresourceURL(urls, document()->completeURL(useMap()));
+    // FIXME: What about when the usemap attribute begins with "#"?
+    addSubresourceURL(urls, document()->completeURL(getAttribute(usemapAttr)));
+}
+
+void HTMLImageElement::willMoveToNewOwnerDocument()
+{
+    m_imageLoader.elementWillMoveToNewOwnerDocument();
+    HTMLElement::willMoveToNewOwnerDocument();
 }
 
 }

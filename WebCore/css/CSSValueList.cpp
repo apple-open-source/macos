@@ -1,6 +1,4 @@
 /**
- * This file is part of the DOM implementation for KDE.
- *
  * (C) 1999-2003 Lars Knoll (knoll@kde.org)
  * Copyright (C) 2004, 2005, 2006, 2007 Apple Inc. All rights reserved.
  *
@@ -68,6 +66,40 @@ void CSSValueList::append(PassRefPtr<CSSValue> val)
 void CSSValueList::prepend(PassRefPtr<CSSValue> val)
 {
     m_values.prepend(val);
+}
+
+bool CSSValueList::removeAll(CSSValue* val)
+{
+    bool found = false;
+    // FIXME: we should be implementing operator== to CSSValue and its derived classes
+    // to make comparison more flexible and fast.
+    for (size_t index = 0; index < m_values.size(); index++) {
+        if (m_values.at(index)->cssText() == val->cssText()) {
+            m_values.remove(index);
+            found = true;
+        }
+    }
+    
+    return found;
+}
+    
+bool CSSValueList::hasValue(CSSValue* val)
+{
+    // FIXME: we should be implementing operator== to CSSValue and its derived classes
+    // to make comparison more flexible and fast.
+    for (size_t index = 0; index < m_values.size(); index++) {
+        if (m_values.at(index)->cssText() == val->cssText())
+            return true;
+    }
+    return false;
+}
+
+PassRefPtr<CSSValueList> CSSValueList::copy()
+{
+    PassRefPtr<CSSValueList> newList = m_isSpaceSeparated ? createSpaceSeparated() : createCommaSeparated();
+    for (size_t index = 0; index < m_values.size(); index++)
+        newList->append(item(index));
+    return newList;
 }
 
 String CSSValueList::cssText() const

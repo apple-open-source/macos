@@ -35,9 +35,32 @@
 #include <ApplicationServices/ApplicationServices.h>
 #include <wtf/UnusedParam.h>
 
+using namespace std;
+
 namespace WebCore {
 
 static const CFStringRef kCGImageSourceShouldPreferRGB32 = CFSTR("kCGImageSourceShouldPreferRGB32");
+
+#if !PLATFORM(MAC)
+size_t sharedBufferGetBytesAtPosition(void* info, void* buffer, off_t position, size_t count)
+{
+    SharedBuffer* sharedBuffer = static_cast<SharedBuffer*>(info);
+    size_t sourceSize = sharedBuffer->size();
+    if (position >= sourceSize)
+        return 0;
+
+    const char* source = sharedBuffer->data() + position;
+    size_t amount = min<size_t>(count, sourceSize - position);
+    memcpy(buffer, source, amount);
+    return amount;
+}
+
+void sharedBufferRelease(void* info)
+{
+    SharedBuffer* sharedBuffer = static_cast<SharedBuffer*>(info);
+    sharedBuffer->deref();
+}
+#endif
 
 ImageSource::ImageSource()
     : m_decoder(0)
@@ -51,7 +74,7 @@ ImageSource::~ImageSource()
 
 void ImageSource::clear(bool destroyAllFrames, size_t, SharedBuffer* data, bool allDataReceived)
 {
-#if PLATFORM(MAC) && !defined(BUILDING_ON_TIGER) && !defined(BUILDING_ON_LEOPARD)
+#if !defined(BUILDING_ON_TIGER) && !defined(BUILDING_ON_LEOPARD)
     // Recent versions of ImageIO discard previously decoded image frames if the client
     // application no longer holds references to them, so there's no need to throw away
     // the decoder unless we're explicitly asked to destroy all of the frames.
@@ -96,19 +119,33 @@ bool ImageSource::initialized() const
 
 void ImageSource::setData(SharedBuffer* data, bool allDataReceived)
 {
-    if (!m_decoder)
-        m_decoder = CGImageSourceCreateIncremental(NULL);
 #if PLATFORM(MAC)
+    if (!m_decoder)
+        m_decoder = CGImageSourceCreateIncremental(0);
     // On Mac the NSData inside the SharedBuffer can be secretly appended to without the SharedBuffer's knowledge.  We use SharedBuffer's ability
     // to wrap itself inside CFData to get around this, ensuring that ImageIO is really looking at the SharedBuffer.
-    CFDataRef cfData = data->createCFData();
+    RetainPtr<CFDataRef> cfData(AdoptCF, data->createCFData());
+    CGImageSourceUpdateData(m_decoder, cfData.get(), allDataReceived);
 #else
-    // If no NSData is available, then we know SharedBuffer will always just be a vector.  That means no secret changes can occur to it behind the
-    // scenes.  We use CFDataCreateWithBytesNoCopy in that case.
-    CFDataRef cfData = CFDataCreateWithBytesNoCopy(0, reinterpret_cast<const UInt8*>(data->data()), data->size(), kCFAllocatorNull);
+    if (!m_decoder) {
+        m_decoder = CGImageSourceCreateIncremental(0);
+    } else if (allDataReceived) {
+#if !PLATFORM(WIN)
+        // 10.6 bug workaround: image sources with final=false fail to draw into PDF contexts, so re-create image source
+        // when data is complete. <rdar://problem/7874035> (<http://openradar.appspot.com/7874035>)
+        CFRelease(m_decoder);
+        m_decoder = CGImageSourceCreateIncremental(0);
 #endif
-    CGImageSourceUpdateData(m_decoder, cfData, allDataReceived);
-    CFRelease(cfData);
+    }
+    // Create a CGDataProvider to wrap the SharedBuffer.
+    data->ref();
+    // We use the GetBytesAtPosition callback rather than the GetBytePointer one because SharedBuffer
+    // does not provide a way to lock down the byte pointer and guarantee that it won't move, which
+    // is a requirement for using the GetBytePointer callback.
+    CGDataProviderDirectCallbacks providerCallbacks = { 0, 0, 0, sharedBufferGetBytesAtPosition, sharedBufferRelease };
+    RetainPtr<CGDataProviderRef> dataProvider(AdoptCF, CGDataProviderCreateDirect(data, data->size(), &providerCallbacks));
+    CGImageSourceUpdateDataProvider(m_decoder, dataProvider.get(), allDataReceived);
+#endif
 }
 
 String ImageSource::filenameExtension() const
@@ -126,12 +163,11 @@ bool ImageSource::isSizeAvailable()
 
     // Ragnaros yells: TOO SOON! You have awakened me TOO SOON, Executus!
     if (imageSourceStatus >= kCGImageStatusIncomplete) {
-        CFDictionaryRef image0Properties = CGImageSourceCopyPropertiesAtIndex(m_decoder, 0, imageSourceOptions());
+        RetainPtr<CFDictionaryRef> image0Properties(AdoptCF, CGImageSourceCopyPropertiesAtIndex(m_decoder, 0, imageSourceOptions()));
         if (image0Properties) {
-            CFNumberRef widthNumber = (CFNumberRef)CFDictionaryGetValue(image0Properties, kCGImagePropertyPixelWidth);
-            CFNumberRef heightNumber = (CFNumberRef)CFDictionaryGetValue(image0Properties, kCGImagePropertyPixelHeight);
+            CFNumberRef widthNumber = (CFNumberRef)CFDictionaryGetValue(image0Properties.get(), kCGImagePropertyPixelWidth);
+            CFNumberRef heightNumber = (CFNumberRef)CFDictionaryGetValue(image0Properties.get(), kCGImagePropertyPixelHeight);
             result = widthNumber && heightNumber;
-            CFRelease(image0Properties);
         }
     }
     
@@ -141,17 +177,16 @@ bool ImageSource::isSizeAvailable()
 IntSize ImageSource::frameSizeAtIndex(size_t index) const
 {
     IntSize result;
-    CFDictionaryRef properties = CGImageSourceCopyPropertiesAtIndex(m_decoder, index, imageSourceOptions());
+    RetainPtr<CFDictionaryRef> properties(AdoptCF, CGImageSourceCopyPropertiesAtIndex(m_decoder, index, imageSourceOptions()));
     if (properties) {
         int w = 0, h = 0;
-        CFNumberRef num = (CFNumberRef)CFDictionaryGetValue(properties, kCGImagePropertyPixelWidth);
+        CFNumberRef num = (CFNumberRef)CFDictionaryGetValue(properties.get(), kCGImagePropertyPixelWidth);
         if (num)
             CFNumberGetValue(num, kCFNumberIntType, &w);
-        num = (CFNumberRef)CFDictionaryGetValue(properties, kCGImagePropertyPixelHeight);
+        num = (CFNumberRef)CFDictionaryGetValue(properties.get(), kCGImagePropertyPixelHeight);
         if (num)
             CFNumberGetValue(num, kCFNumberIntType, &h);
         result = IntSize(w, h);
-        CFRelease(properties);
     }
     return result;
 }
@@ -168,17 +203,15 @@ int ImageSource::repetitionCount()
         return result;
 
     // A property with value 0 means loop forever.
-    CFDictionaryRef properties = CGImageSourceCopyProperties(m_decoder, imageSourceOptions());
+    RetainPtr<CFDictionaryRef> properties(AdoptCF, CGImageSourceCopyProperties(m_decoder, imageSourceOptions()));
     if (properties) {
-        CFDictionaryRef gifProperties = (CFDictionaryRef)CFDictionaryGetValue(properties, kCGImagePropertyGIFDictionary);
+        CFDictionaryRef gifProperties = (CFDictionaryRef)CFDictionaryGetValue(properties.get(), kCGImagePropertyGIFDictionary);
         if (gifProperties) {
             CFNumberRef num = (CFNumberRef)CFDictionaryGetValue(gifProperties, kCGImagePropertyGIFLoopCount);
             if (num)
                 CFNumberGetValue(num, kCFNumberIntType, &result);
         } else
             result = cAnimationNone; // Turns out we're not a GIF after all, so we don't animate.
-        
-        CFRelease(properties);
     }
     
     return result;
@@ -194,25 +227,39 @@ CGImageRef ImageSource::createFrameAtIndex(size_t index)
     if (!initialized())
         return 0;
 
-    CGImageRef image = CGImageSourceCreateImageAtIndex(m_decoder, index, imageSourceOptions());
+    RetainPtr<CGImageRef> image(AdoptCF, CGImageSourceCreateImageAtIndex(m_decoder, index, imageSourceOptions()));
     CFStringRef imageUTI = CGImageSourceGetType(m_decoder);
     static const CFStringRef xbmUTI = CFSTR("public.xbitmap-image");
     if (!imageUTI || !CFEqual(imageUTI, xbmUTI))
-        return image;
+        return image.releaseRef();
     
     // If it is an xbm image, mask out all the white areas to render them transparent.
     const CGFloat maskingColors[6] = {255, 255,  255, 255, 255, 255};
-    CGImageRef maskedImage = CGImageCreateWithMaskingColors(image, maskingColors);
+    RetainPtr<CGImageRef> maskedImage(AdoptCF, CGImageCreateWithMaskingColors(image.get(), maskingColors));
     if (!maskedImage)
-        return image;
-        
-    CGImageRelease(image);
-    return maskedImage; 
+        return image.releaseRef();
+
+    return maskedImage.releaseRef();
 }
 
 bool ImageSource::frameIsCompleteAtIndex(size_t index)
 {
-    return CGImageSourceGetStatusAtIndex(m_decoder, index) == kCGImageStatusComplete;
+    ASSERT(frameCount());
+
+    // CGImageSourceGetStatusAtIndex claims that all frames of a multi-frame image are incomplete
+    // when we've not yet received the complete data for an image that is using an incremental data
+    // source (<rdar://problem/7679174>). We work around this by special-casing all frames except the
+    // last in an image and treating them as complete if they are present and reported as being
+    // incomplete. We do this on the assumption that loading new data can only modify the existing last
+    // frame or append new frames. The last frame is only treated as being complete if the image source
+    // reports it as such. This ensures that it is truly the last frame of the image rather than just
+    // the last that we currently have data for.
+
+    CGImageSourceStatus frameStatus = CGImageSourceGetStatusAtIndex(m_decoder, index);
+    if (index < frameCount() - 1)
+        return frameStatus >= kCGImageStatusIncomplete;
+
+    return frameStatus == kCGImageStatusComplete;
 }
 
 float ImageSource::frameDurationAtIndex(size_t index)
@@ -221,15 +268,14 @@ float ImageSource::frameDurationAtIndex(size_t index)
         return 0;
 
     float duration = 0;
-    CFDictionaryRef properties = CGImageSourceCopyPropertiesAtIndex(m_decoder, index, imageSourceOptions());
+    RetainPtr<CFDictionaryRef> properties(AdoptCF, CGImageSourceCopyPropertiesAtIndex(m_decoder, index, imageSourceOptions()));
     if (properties) {
-        CFDictionaryRef typeProperties = (CFDictionaryRef)CFDictionaryGetValue(properties, kCGImagePropertyGIFDictionary);
+        CFDictionaryRef typeProperties = (CFDictionaryRef)CFDictionaryGetValue(properties.get(), kCGImagePropertyGIFDictionary);
         if (typeProperties) {
             CFNumberRef num = (CFNumberRef)CFDictionaryGetValue(typeProperties, kCGImagePropertyGIFDelayTime);
             if (num)
                 CFNumberGetValue(num, kCFNumberFloatType, &duration);
         }
-        CFRelease(properties);
     }
 
     // Many annoying ads specify a 0 duration to make an image flash as quickly as possible.

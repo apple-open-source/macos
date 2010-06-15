@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008 Apple Inc. All Rights Reserved.
+ * Copyright (C) 2008, 2009, 2010 Apple Inc. All Rights Reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -29,6 +29,8 @@
 
 #include "AccessibleImage.h"
 #include "WebView.h"
+#include <WebCore/AccessibilityListBox.h>
+#include <WebCore/AccessibilityMenuListPopup.h>
 #include <WebCore/AccessibilityObject.h>
 #include <WebCore/AXObjectCache.h>
 #include <WebCore/BString.h>
@@ -75,15 +77,30 @@ AccessibleBase* AccessibleBase::createInstance(AccessibilityObject* obj)
     return new AccessibleBase(obj);
 }
 
+HRESULT AccessibleBase::QueryService(REFGUID guidService, REFIID riid, void **ppvObject)
+{
+    if (!IsEqualGUID(guidService, SID_AccessibleComparable)) {
+        *ppvObject = 0;
+        return E_INVALIDARG;
+    }
+    return QueryInterface(riid, ppvObject);
+}
+
 // IUnknown
 HRESULT STDMETHODCALLTYPE AccessibleBase::QueryInterface(REFIID riid, void** ppvObject)
 {
     if (IsEqualGUID(riid, __uuidof(IAccessible)))
-        *ppvObject = this;
+        *ppvObject = static_cast<IAccessible*>(this);
     else if (IsEqualGUID(riid, __uuidof(IDispatch)))
-        *ppvObject = this;
+        *ppvObject = static_cast<IAccessible*>(this);
     else if (IsEqualGUID(riid, __uuidof(IUnknown)))
-        *ppvObject = this;
+        *ppvObject = static_cast<IAccessible*>(this);
+    else if (IsEqualGUID(riid, __uuidof(IAccessibleComparable)))
+        *ppvObject = static_cast<IAccessibleComparable*>(this);
+    else if (IsEqualGUID(riid, __uuidof(IServiceProvider)))
+        *ppvObject = static_cast<IServiceProvider*>(this);
+    else if (IsEqualGUID(riid, __uuidof(AccessibleBase)))
+        *ppvObject = static_cast<AccessibleBase*>(this);
     else {
         *ppvObject = 0;
         return E_NOINTERFACE;
@@ -106,10 +123,20 @@ HRESULT STDMETHODCALLTYPE AccessibleBase::get_accParent(IDispatch** parent)
 {
     *parent = 0;
 
-    if (!m_object || !m_object->topDocumentFrameView())
+    if (!m_object)
         return E_FAIL;
 
-    return WebView::AccessibleObjectFromWindow(m_object->topDocumentFrameView()->hostWindow()->platformWindow(),
+    AccessibilityObject* parentObject = m_object->parentObjectUnignored();
+    if (parentObject) {
+        *parent = wrapper(parentObject);
+        (*parent)->AddRef();
+        return S_OK;
+    }
+
+    if (!m_object->topDocumentFrameView())
+        return E_FAIL;
+
+    return WebView::AccessibleObjectFromWindow(m_object->topDocumentFrameView()->hostWindow()->platformPageClient(),
         OBJID_WINDOW, __uuidof(IAccessible), reinterpret_cast<void**>(parent));
 }
 
@@ -252,9 +279,6 @@ HRESULT STDMETHODCALLTYPE AccessibleBase::get_accState(VARIANT vChild, VARIANT* 
     if (childObj->isOffScreen())
         pvState->lVal |= STATE_SYSTEM_OFFSCREEN;
 
-    if (childObj->isMultiSelect())
-        pvState->lVal |= STATE_SYSTEM_MULTISELECTABLE;
-
     if (childObj->isPasswordField())
         pvState->lVal |= STATE_SYSTEM_PROTECTED;
 
@@ -276,7 +300,27 @@ HRESULT STDMETHODCALLTYPE AccessibleBase::get_accState(VARIANT vChild, VARIANT* 
     if (childObj->canSetFocusAttribute())
         pvState->lVal |= STATE_SYSTEM_FOCUSABLE;
 
-    // TODO: Add selected and selectable states.
+    if (childObj->isSelected())
+        pvState->lVal |= STATE_SYSTEM_SELECTED;
+
+    if (childObj->canSetSelectedAttribute())
+        pvState->lVal |= STATE_SYSTEM_SELECTABLE;
+
+    if (childObj->isMultiSelectable())
+        pvState->lVal |= STATE_SYSTEM_EXTSELECTABLE | STATE_SYSTEM_MULTISELECTABLE;
+
+    if (!childObj->isVisible())
+        pvState->lVal |= STATE_SYSTEM_INVISIBLE;
+
+    if (childObj->isCollapsed())
+        pvState->lVal |= STATE_SYSTEM_COLLAPSED;
+
+    if (childObj->roleValue() == PopUpButtonRole) {
+        pvState->lVal |= STATE_SYSTEM_HASPOPUP;
+
+        if (!childObj->isCollapsed())
+            pvState->lVal |= STATE_SYSTEM_EXPANDED;
+    }
 
     return S_OK;
 }
@@ -335,9 +379,58 @@ HRESULT STDMETHODCALLTYPE AccessibleBase::get_accKeyboardShortcut(VARIANT vChild
     return S_OK;
 }
 
-HRESULT STDMETHODCALLTYPE AccessibleBase::accSelect(long, VARIANT)
+HRESULT STDMETHODCALLTYPE AccessibleBase::accSelect(long selectionFlags, VARIANT vChild)
 {
-    return E_NOTIMPL;
+    // According to MSDN, these combinations are invalid.
+    if (((selectionFlags & (SELFLAG_ADDSELECTION | SELFLAG_REMOVESELECTION)) == (SELFLAG_ADDSELECTION | SELFLAG_REMOVESELECTION))
+        || ((selectionFlags & (SELFLAG_ADDSELECTION | SELFLAG_TAKESELECTION)) == (SELFLAG_ADDSELECTION | SELFLAG_TAKESELECTION))
+        || ((selectionFlags & (SELFLAG_REMOVESELECTION | SELFLAG_TAKESELECTION)) == (SELFLAG_REMOVESELECTION | SELFLAG_TAKESELECTION))
+        || ((selectionFlags & (SELFLAG_EXTENDSELECTION | SELFLAG_TAKESELECTION)) == (SELFLAG_EXTENDSELECTION | SELFLAG_TAKESELECTION)))
+        return E_INVALIDARG;
+
+    AccessibilityObject* childObject;
+    HRESULT hr = getAccessibilityObjectForChild(vChild, childObject);
+
+    if (FAILED(hr))
+        return hr;
+
+    if (selectionFlags & SELFLAG_TAKEFOCUS)
+        childObject->setFocused(true);
+
+    AccessibilityObject* parentObject = childObject->parentObject();
+    if (!parentObject)
+        return E_INVALIDARG;
+
+    if (selectionFlags & SELFLAG_TAKESELECTION) {
+        if (parentObject->isListBox()) {
+            Vector<RefPtr<AccessibilityObject> > selectedChildren(1);
+            selectedChildren[0] = childObject;
+            static_cast<AccessibilityListBox*>(parentObject)->setSelectedChildren(selectedChildren);
+        } else { // any element may be selectable by virtue of it having the aria-selected property
+            ASSERT(!parentObject->isMultiSelectable());
+            childObject->setSelected(true);
+        }
+    }
+
+    // MSDN says that ADD, REMOVE, and EXTENDSELECTION with no other flags are invalid for
+    // single-select.
+    const long allSELFLAGs = SELFLAG_TAKEFOCUS | SELFLAG_TAKESELECTION | SELFLAG_EXTENDSELECTION | SELFLAG_ADDSELECTION | SELFLAG_REMOVESELECTION;
+    if (!parentObject->isMultiSelectable()
+        && (((selectionFlags & allSELFLAGs) == SELFLAG_ADDSELECTION)
+        || ((selectionFlags & allSELFLAGs) == SELFLAG_REMOVESELECTION)
+        || ((selectionFlags & allSELFLAGs) == SELFLAG_EXTENDSELECTION)))
+        return E_INVALIDARG;
+
+    if (selectionFlags & SELFLAG_ADDSELECTION)
+        childObject->setSelected(true);
+
+    if (selectionFlags & SELFLAG_REMOVESELECTION)
+        childObject->setSelected(false);
+
+    // FIXME: Should implement SELFLAG_EXTENDSELECTION. For now, we just return
+    // S_OK, matching Firefox.
+
+    return S_OK;
 }
 
 HRESULT STDMETHODCALLTYPE AccessibleBase::get_accSelection(VARIANT*)
@@ -405,7 +498,7 @@ HRESULT STDMETHODCALLTYPE AccessibleBase::accLocation(long* left, long* top, lon
     if (!childObj->documentFrameView())
         return E_FAIL;
 
-    IntRect screenRect(childObj->documentFrameView()->contentsToScreen(childObj->boundingBoxRect()));
+    IntRect screenRect(childObj->documentFrameView()->contentsToScreen(childObj->elementRect()));
     *left = screenRect.x();
     *top = screenRect.y();
     *width = screenRect.width();
@@ -542,8 +635,9 @@ static long MSAARole(AccessibilityRole role)
             return ROLE_SYSTEM_PAGETABLIST;
         case WebCore::TextFieldRole:
         case WebCore::TextAreaRole:
-        case WebCore::ListMarkerRole:
+        case WebCore::EditableTextRole:
             return ROLE_SYSTEM_TEXT;
+        case WebCore::ListMarkerRole:
         case WebCore::StaticTextRole:
             return ROLE_SYSTEM_STATICTEXT;
         case WebCore::OutlineRole:
@@ -555,6 +649,8 @@ static long MSAARole(AccessibilityRole role)
         case WebCore::GroupRole:
             return ROLE_SYSTEM_GROUPING;
         case WebCore::ListRole:
+        case WebCore::ListBoxRole:
+        case WebCore::MenuListPopupRole:
             return ROLE_SYSTEM_LIST;
         case WebCore::TableRole:
             return ROLE_SYSTEM_TABLE;
@@ -564,6 +660,12 @@ static long MSAARole(AccessibilityRole role)
         case WebCore::ImageMapRole:
         case WebCore::ImageRole:
             return ROLE_SYSTEM_GRAPHIC;
+        case WebCore::MenuListOptionRole:
+        case WebCore::ListItemRole:
+        case WebCore::ListBoxOptionRole:
+            return ROLE_SYSTEM_LISTITEM;
+        case WebCore::PopUpButtonRole:
+            return ROLE_SYSTEM_COMBOBOX;
         default:
             // This is the default role for MSAA.
             return ROLE_SYSTEM_CLIENT;
@@ -572,7 +674,7 @@ static long MSAARole(AccessibilityRole role)
 
 long AccessibleBase::role() const
 {
-    return MSAARole(m_object->roleValue());
+    return MSAARole(m_object->roleValueForMSAA());
 }
 
 HRESULT AccessibleBase::getAccessibilityObjectForChild(VARIANT vChild, AccessibilityObject*& childObj) const
@@ -615,4 +717,11 @@ AccessibleBase* AccessibleBase::wrapper(AccessibilityObject* obj)
     if (!result)
         result = createInstance(obj);
     return result;
+}
+
+HRESULT AccessibleBase::isSameObject(IAccessibleComparable* other, BOOL* result)
+{
+    COMPtr<AccessibleBase> otherAccessibleBase(Query, other);
+    *result = (otherAccessibleBase == this || otherAccessibleBase->m_object == m_object);
+    return S_OK;
 }

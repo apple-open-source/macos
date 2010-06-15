@@ -41,6 +41,7 @@ namespace WebCore {
     class KURL;
     class KeyboardEvent;
     class Page;
+    class Node;
 }
 #endif
 
@@ -63,34 +64,39 @@ namespace WebCore {
 
 @interface WebView (WebViewInternal)
 
-- (WebCore::Frame*)_mainCoreFrame;
++ (BOOL)shouldIncludeInWebKitStatistics;
 
-- (WebCore::String)_userAgentForURL:(const WebCore::KURL&)url;
+- (WebCore::Frame*)_mainCoreFrame;
+- (WebFrame *)_selectedOrMainFrame;
+
 - (WebCore::KeyboardUIMode)_keyboardUIMode;
 
 - (BOOL)_becomingFirstResponderFromOutside;
 
+#if ENABLE(ICONDATABASE)
 - (void)_registerForIconNotification:(BOOL)listen;
 - (void)_dispatchDidReceiveIconFromWebFrame:(WebFrame *)webFrame;
+#endif
 
-- (void)_setMouseDownEvent:(NSEvent *)event;
-- (void)_cancelUpdateMouseoverTimer;
-- (void)_stopAutoscrollTimer;
-- (void)_updateMouseoverWithFakeEvent;
 - (void)_selectionChanged;
-- (void)_setToolTip:(NSString *)toolTip;
 
 #if USE(ACCELERATED_COMPOSITING)
 - (BOOL)_needsOneShotDrawingSynchronization;
 - (void)_setNeedsOneShotDrawingSynchronization:(BOOL)needsSynchronization;
-- (void)_startedAcceleratedCompositingForFrame:(WebFrame*)webFrame;
-- (void)_stoppedAcceleratedCompositingForFrame:(WebFrame*)webFrame;
 - (void)_scheduleCompositingLayerSync;
 #endif
 
 @end
 
 #endif
+
+@interface WebView (WebViewEventHandling)
+- (void)_closingEventHandling;
+- (void)_updateMouseoverWithFakeEvent;
+- (void)_cancelUpdateMouseoverTimer;
+- (void)_stopAutoscrollTimer;
+- (void)_setToolTip:(NSString *)toolTip;
+@end
 
 // FIXME: Temporary way to expose methods that are in the wrong category inside WebView.
 @interface WebView (WebViewOtherInternal)
@@ -108,13 +114,13 @@ namespace WebCore {
 - (id)_policyDelegateForwarder;
 - (void)_pushPerformingProgrammaticFocus;
 - (void)_popPerformingProgrammaticFocus;
-- (void)_incrementProgressForIdentifier:(id)identifier response:(NSURLResponse *)response;
-- (void)_incrementProgressForIdentifier:(id)identifier length:(int)length;
-- (void)_completeProgressForIdentifier:(id)identifer;
-- (void)_progressStarted:(WebFrame *)frame;
 - (void)_didStartProvisionalLoadForFrame:(WebFrame *)frame;
-+ (BOOL)_viewClass:(Class *)vClass andRepresentationClass:(Class *)rClass forMIMEType:(NSString *)MIMEType;
++ (BOOL)_viewClass:(Class *)vClass andRepresentationClass:(Class *)rClass forMIMEType:(NSString *)MIMEType allowingPlugins:(BOOL)allowPlugins;
 - (BOOL)_viewClass:(Class *)vClass andRepresentationClass:(Class *)rClass forMIMEType:(NSString *)MIMEType;
++ (void)_registerPluginMIMEType:(NSString *)MIMEType;
++ (void)_unregisterPluginMIMEType:(NSString *)MIMEType;
++ (BOOL)_canShowMIMEType:(NSString *)MIMEType allowingPlugins:(BOOL)allowPlugins;
+- (BOOL)_canShowMIMEType:(NSString *)MIMEType;
 + (NSString *)_MIMETypeForFile:(NSString *)path;
 - (WebDownload *)_downloadURL:(NSURL *)URL;
 + (NSString *)_generatedMIMETypeForURLScheme:(NSString *)URLScheme;
@@ -136,7 +142,6 @@ namespace WebCore {
 - (void)_didChangeValueForKey:(NSString *)key;
 - (WebBasePluginPackage *)_pluginForMIMEType:(NSString *)MIMEType;
 - (WebBasePluginPackage *)_pluginForExtension:(NSString *)extension;
-- (BOOL)_isMIMETypeRegisteredAsPlugin:(NSString *)MIMEType;
 
 - (void)setCurrentNodeHighlight:(WebNodeHighlight *)nodeHighlight;
 - (WebNodeHighlight *)currentNodeHighlight;
@@ -165,5 +170,12 @@ namespace WebCore {
 + (BOOL)_canHandleRequest:(NSURLRequest *)request forMainFrame:(BOOL)forMainFrame;
 
 - (void)_setInsertionPasteboard:(NSPasteboard *)pasteboard;
+
+#if ENABLE(VIDEO) && defined(__cplusplus)
+- (void)_enterFullscreenForNode:(WebCore::Node*)node;
+- (void)_exitFullscreen;
+#endif
+
+- (JSValueRef)_computedStyleIncludingVisitedInfo:(JSContextRef)context forElement:(JSValueRef)value;
 
 @end

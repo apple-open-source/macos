@@ -35,6 +35,7 @@
 
 #pragma warning(push, 0)
 #include <WebCore/FrameWin.h>
+#include <WebCore/GraphicsContext.h>
 #include <WebCore/KURL.h>
 #include <WebCore/PlatformString.h>
 #include <WebCore/ResourceHandleClient.h>
@@ -49,6 +50,7 @@ namespace WebCore {
     class DocumentLoader;
     class Element;
     class Frame;
+    class GraphicsContext;
     class HTMLFrameOwnerElement;
     class IntRect;
     class Page;
@@ -58,6 +60,12 @@ namespace WebCore {
 
 typedef const struct OpaqueJSContext* JSContextRef;
 typedef struct OpaqueJSValue* JSObjectRef;
+
+#if PLATFORM(CG)
+typedef struct CGContext PlatformGraphicsContext;
+#elif PLATFORM(CAIRO)
+typedef struct _cairo PlatformGraphicsContext;
+#endif
 
 class WebFrame;
 class WebFramePolicyListener;
@@ -150,6 +158,21 @@ public:
     virtual HRESULT STDMETHODCALLTYPE renderTreeAsExternalRepresentation(
         /* [retval][out] */ BSTR *result);
 
+    virtual HRESULT STDMETHODCALLTYPE counterValueForElementById(
+        /* [in] */ BSTR id,
+        /* [retval][out] */ BSTR *result);
+
+    virtual HRESULT STDMETHODCALLTYPE pageNumberForElementById(
+        /* [in] */ BSTR id,
+        /* [in] */ float pageWidthInPixels,
+        /* [in] */ float pageHeightInPixels,
+        /* [retval][out] */ int* result);
+
+    virtual HRESULT STDMETHODCALLTYPE numberOfPages(
+        /* [in] */ float pageWidthInPixels,
+        /* [in] */ float pageHeightInPixels,
+        /* [retval][out] */ int* result);
+
     virtual HRESULT STDMETHODCALLTYPE scrollOffset(
         /* [retval][out] */ SIZE* offset);
 
@@ -216,8 +239,15 @@ public:
     virtual HRESULT STDMETHODCALLTYPE setExcludeFromTextSearch(
         /* [in] */ BOOL flag);
 
+    virtual HRESULT STDMETHODCALLTYPE reloadFromOrigin();
+
     virtual HRESULT STDMETHODCALLTYPE paintDocumentRectToContext(
         /* [in] */ RECT rect,
+        /* [in] */ OLE_HANDLE deviceContext);
+
+    virtual HRESULT STDMETHODCALLTYPE paintDocumentRectToContextAtPoint(
+        /* [in] */ RECT rect,
+        /* [in] */ POINT pt,
         /* [in] */ OLE_HANDLE deviceContext);
 
     virtual HRESULT STDMETHODCALLTYPE elementDoesAutoComplete(
@@ -226,6 +256,7 @@ public:
 
     virtual HRESULT STDMETHODCALLTYPE pauseAnimation(BSTR animationName, IDOMNode*, double secondsFromNow, BOOL* animationWasRunning);
     virtual HRESULT STDMETHODCALLTYPE pauseTransition(BSTR propertyName, IDOMNode*, double secondsFromNow, BOOL* transitionWasRunning);
+    virtual HRESULT STDMETHODCALLTYPE pauseSVGAnimation(BSTR elementId, IDOMNode*, double secondsFromNow, BOOL* animationWasRunning);
     virtual HRESULT STDMETHODCALLTYPE numberOfActiveAnimations(UINT*);
 
     virtual HRESULT STDMETHODCALLTYPE isDisplayingStandaloneImage(BOOL*);
@@ -233,6 +264,13 @@ public:
     virtual HRESULT STDMETHODCALLTYPE allowsFollowingLink(
         /* [in] */ BSTR url,
         /* [retval][out] */ BOOL* result);
+
+    virtual HRESULT STDMETHODCALLTYPE stringByEvaluatingJavaScriptInScriptWorld(IWebScriptWorld*, JSObjectRef globalObjectRef, BSTR script, BSTR* evaluationResult);
+    virtual JSGlobalContextRef STDMETHODCALLTYPE globalContextForScriptWorld(IWebScriptWorld*);
+
+    virtual HRESULT STDMETHODCALLTYPE visibleContentRect(RECT*);
+
+    virtual HRESULT STDMETHODCALLTYPE layerTreeAsText(BSTR*);
 
     // IWebDocumentText
     virtual HRESULT STDMETHODCALLTYPE supportsTextEncoding( 
@@ -253,11 +291,13 @@ public:
     virtual void detachedFromParent2();
     virtual void detachedFromParent3();
     virtual void cancelPolicyCheck();
+    virtual void dispatchWillSendSubmitEvent(WebCore::HTMLFormElement*) { }
     virtual void dispatchWillSubmitForm(WebCore::FramePolicyFunction, PassRefPtr<WebCore::FormState>);
     virtual void revertToProvisionalState(WebCore::DocumentLoader*);
     virtual void setMainFrameDocumentReady(bool);
     virtual void willChangeTitle(WebCore::DocumentLoader*);
     virtual void didChangeTitle(WebCore::DocumentLoader*);
+    virtual void didChangeIcons(WebCore::DocumentLoader*);
     virtual bool canHandleRequest(const WebCore::ResourceRequest&) const;
     virtual bool canShowMIMEType(const WebCore::String& MIMEType) const;
     virtual bool representationExistsForURLScheme(const WebCore::String& URLScheme) const;
@@ -295,7 +335,7 @@ public:
     virtual WebCore::ObjectContentType objectContentType(const WebCore::KURL& url, const WebCore::String& mimeType);
     virtual WebCore::String overrideMediaType() const;
 
-    virtual void windowObjectCleared();
+    virtual void dispatchDidClearWindowObjectInWorld(WebCore::DOMWrapperWorld*);
     virtual void documentElementAvailable();
     virtual void didPerformFirstNavigation() const;
 
@@ -318,7 +358,7 @@ public:
     HRESULT formForElement(IDOMElement* element, IDOMElement** form);
     HRESULT controlsInForm(IDOMElement* form, IDOMElement** controls, int* cControls);
     HRESULT elementIsPassword(IDOMElement* element, bool* result);
-    HRESULT searchForLabelsBeforeElement(const BSTR* labels, int cLabels, IDOMElement* beforeElement, BSTR* result);
+    HRESULT searchForLabelsBeforeElement(const BSTR* labels, unsigned cLabels, IDOMElement* beforeElement, unsigned* resultDistance, BOOL* resultIsInCellAbove, BSTR* result);
     HRESULT matchLabelsAgainstElement(const BSTR* labels, int cLabels, IDOMElement* againstElement, BSTR* result);
     HRESULT canProvideDocumentSource(bool* result);
 
@@ -338,6 +378,9 @@ protected:
     void setPrinting(bool printing, float minPageWidth, float maxPageWidth, bool adjustViewSize);
     void headerAndFooterHeights(float*, float*);
     WebCore::IntRect printerMarginRect(HDC);
+    void spoolPage (PlatformGraphicsContext* pctx, WebCore::GraphicsContext* spoolCtx, HDC printDC, IWebUIDelegate*, float headerHeight, float footerHeight, UINT page, UINT pageCount);
+    void drawHeader(PlatformGraphicsContext* pctx, IWebUIDelegate*, const WebCore::IntRect& pageRect, float headerHeight);
+    void drawFooter(PlatformGraphicsContext* pctx, IWebUIDelegate*, const WebCore::IntRect& pageRect, UINT page, UINT pageCount, float headerHeight, float footerHeight);
 
 protected:
     ULONG               m_refCount;

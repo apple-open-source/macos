@@ -32,6 +32,7 @@ namespace WebCore {
     class DOMWindow;
     class Event;
     class Frame;
+    class DOMWrapperWorld;
     class JSDOMWindow;
     class JSDOMWindowShell;
     class JSLocation;
@@ -43,7 +44,7 @@ namespace WebCore {
     class JSDOMWindowBase : public JSDOMGlobalObject {
         typedef JSDOMGlobalObject Base;
     protected:
-        JSDOMWindowBase(PassRefPtr<JSC::Structure>, PassRefPtr<DOMWindow>, JSDOMWindowShell*);
+        JSDOMWindowBase(NonNullPassRefPtr<JSC::Structure>, PassRefPtr<DOMWindow>, JSDOMWindowShell*);
 
     public:
         void updateDocument();
@@ -76,7 +77,7 @@ namespace WebCore {
 
     private:
         struct JSDOMWindowBaseData : public JSDOMGlobalObjectData {
-            JSDOMWindowBaseData(PassRefPtr<DOMWindow>, JSDOMWindowShell*);
+            JSDOMWindowBaseData(PassRefPtr<DOMWindow> window, JSDOMWindowShell* shell);
 
             RefPtr<DOMWindow> impl;
             JSDOMWindowShell* shell;
@@ -85,14 +86,19 @@ namespace WebCore {
         bool allowsAccessFromPrivate(const JSC::JSGlobalObject*) const;
         String crossDomainAccessErrorMessage(const JSC::JSGlobalObject*) const;
         
+        static void destroyJSDOMWindowBaseData(void*);
+
         JSDOMWindowBaseData* d() const { return static_cast<JSDOMWindowBaseData*>(JSC::JSVariableObject::d); }
     };
 
     // Returns a JSDOMWindow or jsNull()
+    // JSDOMGlobalObject* is ignored, accessing a window in any context will
+    // use that DOMWindow's prototype chain.
+    JSC::JSValue toJS(JSC::ExecState*, JSDOMGlobalObject*, DOMWindow*);
     JSC::JSValue toJS(JSC::ExecState*, DOMWindow*);
 
     // Returns JSDOMWindow or 0
-    JSDOMWindow* toJSDOMWindow(Frame*);
+    JSDOMWindow* toJSDOMWindow(Frame*, DOMWrapperWorld*);
     JSDOMWindow* toJSDOMWindow(JSC::JSValue);
 
 } // namespace WebCore

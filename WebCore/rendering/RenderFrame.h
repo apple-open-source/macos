@@ -23,14 +23,14 @@
 #ifndef RenderFrame_h
 #define RenderFrame_h
 
-#include "RenderPart.h"
+#include "RenderFrameBase.h"
 #include "RenderFrameSet.h"
 
 namespace WebCore {
 
 class HTMLFrameElement;
 
-class RenderFrame : public RenderPart {
+class RenderFrame : public RenderFrameBase {
 public:
     RenderFrame(HTMLFrameElement*);
 
@@ -42,6 +42,15 @@ private:
 
     virtual void viewCleared();
 };
+
+inline RenderFrame* toRenderFrame(RenderObject* object)
+{
+    ASSERT(!object || object->isFrame());
+    return static_cast<RenderFrame*>(object);
+}
+
+// This will catch anyone doing an unnecessary cast.
+void toRenderFrame(const RenderFrame*);
 
 } // namespace WebCore
 

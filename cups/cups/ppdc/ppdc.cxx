@@ -1,5 +1,5 @@
 //
-// "$Id: ppdc.cxx 1821 2010-01-14 23:05:18Z msweet $"
+// "$Id: ppdc.cxx 2114 2010-04-23 20:27:40Z msweet $"
 //
 //   PPD file compiler main entry for the CUPS PPD Compiler.
 //
@@ -59,24 +59,28 @@ main(int  argc,				// I - Number of command-line arguments
 			filename[1024];	// PPD filename
   int			comp,		// Compress
 			do_test,	// Test PPD files
+			single_language,// Generate single-language files
 			use_model_name,	// Use ModelName for filename
 			verbose;	// Verbosity
   ppdcLineEnding	le;		// Line ending to use
   ppdcArray		*locales;	// List of locales
+  cups_array_t		*filenames;	// List of generated filenames
 
 
   _cupsSetLocale(argv);
 
   // Scan the command-line...
-  catalog        = NULL;
-  comp           = 0;
-  do_test        = 0;
-  le             = PPDC_LFONLY;
-  locales        = NULL;
-  outdir         = "ppd";
-  src            = new ppdcSource();
-  use_model_name = 0;
-  verbose        = 0;
+  catalog         = NULL;
+  comp            = 0;
+  do_test         = 0;
+  le              = PPDC_LFONLY;
+  locales         = NULL;
+  outdir          = "ppd";
+  single_language = 0;
+  src             = new ppdcSource();
+  use_model_name  = 0;
+  verbose         = 0;
+  filenames       = cupsArrayNew((cups_array_func_t)strcasecmp, NULL);
 
   for (i = 1; i < argc; i ++)
     if (argv[i][0] == '-')
@@ -176,6 +180,8 @@ main(int  argc,				// I - Number of command-line arguments
 	      }
 	      else
 	      {
+	        single_language = 1;
+
         	if (verbose > 1)
 	          _cupsLangPrintf(stdout,
 		                  _("ppdc: Loading messages for locale "
@@ -355,6 +361,13 @@ main(int  argc,				// I - Number of command-line arguments
 	else
 	  snprintf(filename, sizeof(filename), "%s/%s", outdir, pcfilename);
 
+        if (cupsArrayFind(filenames, filename))
+	  _cupsLangPrintf(stderr,
+	                  _("ppdc: Warning - overlapping filename \"%s\".\n"),
+			  filename);
+	else
+	  cupsArrayAdd(filenames, strdup(filename));
+
 	fp = cupsFileOpen(filename, comp ? "w9" : "w");
 	if (!fp)
 	{
@@ -374,7 +387,7 @@ main(int  argc,				// I - Number of command-line arguments
 
       ppdcArray *templocales = locales;
 
-      if (!templocales)
+      if (!templocales && !single_language)
       {
 	templocales = new ppdcArray();
 	for (ppdcCatalog *tempcatalog = (ppdcCatalog *)src->po_files->first();
@@ -447,5 +460,5 @@ usage(void)
 
 
 //
-// End of "$Id: ppdc.cxx 1821 2010-01-14 23:05:18Z msweet $".
+// End of "$Id: ppdc.cxx 2114 2010-04-23 20:27:40Z msweet $".
 //

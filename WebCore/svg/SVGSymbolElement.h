@@ -1,8 +1,6 @@
 /*
-    Copyright (C) 2004, 2005 Nikolas Zimmermann <wildfox@kde.org>
+    Copyright (C) 2004, 2005 Nikolas Zimmermann <zimmermann@kde.org>
                   2004, 2005, 2006 Rob Buis <buis@kde.org>
-
-    This file is part of the KDE project
 
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Library General Public
@@ -22,8 +20,8 @@
 
 #ifndef SVGSymbolElement_h
 #define SVGSymbolElement_h
-#if ENABLE(SVG)
 
+#if ENABLE(SVG)
 #include "SVGExternalResourcesRequired.h"
 #include "SVGFitToViewBox.h"
 #include "SVGLangSpace.h"
@@ -40,12 +38,16 @@ namespace WebCore {
         virtual ~SVGSymbolElement();
 
         virtual void parseMappedAttribute(MappedAttribute*);
-        virtual bool shouldAttachChild(Element*) const { return false; }
-    
+        virtual void synchronizeProperty(const QualifiedName&);
         virtual bool rendererIsNeeded(RenderStyle*) { return false; }
 
-    protected:
-        virtual const SVGElement* contextElement() const { return this; }
+    private:
+        // SVGExternalResourcesRequired
+        DECLARE_ANIMATED_PROPERTY(SVGSymbolElement, SVGNames::externalResourcesRequiredAttr, bool, ExternalResourcesRequired, externalResourcesRequired)
+ 
+        // SVGFitToViewBox
+        DECLARE_ANIMATED_PROPERTY(SVGSymbolElement, SVGNames::viewBoxAttr, FloatRect, ViewBox, viewBox)
+        DECLARE_ANIMATED_PROPERTY(SVGSymbolElement, SVGNames::preserveAspectRatioAttr, SVGPreserveAspectRatio, PreserveAspectRatio, preserveAspectRatio) 
     };
 
 } // namespace WebCore

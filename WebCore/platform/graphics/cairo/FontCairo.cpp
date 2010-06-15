@@ -3,6 +3,7 @@
  * Copyright (C) 2006 Michael Emmel mike.emmel@gmail.com
  * Copyright (C) 2007, 2008 Alp Toker <alp@atoker.com>
  * Copyright (C) 2009 Dirk Schulze <krit@webkit.org>
+ * Copyright (C) 2010 Holger Hans Peter Freyther
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -29,12 +30,13 @@
 #include "config.h"
 #include "Font.h"
 
+#include "AffineTransform.h"
 #include "GlyphBuffer.h"
 #include "Gradient.h"
 #include "GraphicsContext.h"
+#include "ImageBuffer.h"
 #include "Pattern.h"
 #include "SimpleFontData.h"
-#include "TransformationMatrix.h"
 
 #define SYNTHETIC_OBLIQUE_ANGLE 14
 
@@ -46,7 +48,7 @@ void Font::drawGlyphs(GraphicsContext* context, const SimpleFontData* font, cons
     cairo_t* cr = context->platformContext();
     cairo_save(cr);
 
-    font->setFont(cr);
+    cairo_set_scaled_font(cr, font->platformData().scaledFont());
 
     GlyphBufferGlyph* glyphs = (GlyphBufferGlyph*)glyphBuffer.glyphs(from);
 
@@ -85,6 +87,34 @@ void Font::drawGlyphs(GraphicsContext* context, const SimpleFontData* font, cons
         shadowFillColor.getRGBA(red, green, blue, alpha);
         cairo_set_source_rgba(cr, red, green, blue, alpha);
 
+#if ENABLE(FILTERS)
+        cairo_text_extents_t extents;
+        cairo_scaled_font_glyph_extents(font->platformData().scaledFont(), glyphs, numGlyphs, &extents);
+
+        FloatRect rect(FloatPoint(), FloatSize(extents.width, extents.height));
+        IntSize shadowBufferSize;
+        FloatRect shadowRect;
+        float kernelSize = 0.f;
+        GraphicsContext::calculateShadowBufferDimensions(shadowBufferSize, shadowRect, kernelSize, rect, shadowSize, shadowBlur);
+
+        // Draw shadow into a new ImageBuffer
+        OwnPtr<ImageBuffer> shadowBuffer = ImageBuffer::create(shadowBufferSize);
+        GraphicsContext* shadowContext = shadowBuffer->context();
+        cairo_t* shadowCr = shadowContext->platformContext();
+
+        cairo_translate(shadowCr, kernelSize, extents.height + kernelSize);
+
+        cairo_set_scaled_font(shadowCr, font->platformData().scaledFont());
+        cairo_show_glyphs(shadowCr, glyphs, numGlyphs);
+        if (font->syntheticBoldOffset()) {
+            cairo_save(shadowCr);
+            cairo_translate(shadowCr, font->syntheticBoldOffset(), 0);
+            cairo_show_glyphs(shadowCr, glyphs, numGlyphs);
+            cairo_restore(shadowCr);
+        }
+        cairo_translate(cr, 0.0, -extents.height);
+        context->createPlatformShadow(shadowBuffer.release(), shadowColor, shadowRect, kernelSize);
+#else
         cairo_translate(cr, shadowSize.width(), shadowSize.height());
         cairo_show_glyphs(cr, glyphs, numGlyphs);
         if (font->syntheticBoldOffset()) {
@@ -93,6 +123,7 @@ void Font::drawGlyphs(GraphicsContext* context, const SimpleFontData* font, cons
             cairo_show_glyphs(cr, glyphs, numGlyphs);
             cairo_restore(cr);
         }
+#endif
 
         cairo_restore(cr);
     }
@@ -106,7 +137,7 @@ void Font::drawGlyphs(GraphicsContext* context, const SimpleFontData* font, cons
                 cairo_pop_group_to_source(cr);
             }
         } else if (context->fillPattern()) {
-            TransformationMatrix affine;
+            AffineTransform affine;
             cairo_set_source(cr, context->fillPattern()->createPlatformPattern(affine));
             if (context->getAlpha() < 1.0f) {
                 cairo_push_group(cr);
@@ -127,7 +158,11 @@ void Font::drawGlyphs(GraphicsContext* context, const SimpleFontData* font, cons
         }
     }
 
-    if (context->textDrawingMode() & cTextStroke) {
+    // Prevent running into a long computation within cairo. If the stroke width is
+    // twice the size of the width of the text we will not ask cairo to stroke
+    // the text as even one single stroke would cover the full wdth of the text.
+    //  See https://bugs.webkit.org/show_bug.cgi?id=33759.
+    if (context->textDrawingMode() & cTextStroke && context->strokeThickness() < 2 * offset) {
         if (context->strokeGradient()) {
             cairo_set_source(cr, context->strokeGradient()->platformGradient());
             if (context->getAlpha() < 1.0f) {
@@ -136,7 +171,7 @@ void Font::drawGlyphs(GraphicsContext* context, const SimpleFontData* font, cons
                 cairo_pop_group_to_source(cr);
             }
         } else if (context->strokePattern()) {
-            TransformationMatrix affine;
+            AffineTransform affine;
             cairo_set_source(cr, context->strokePattern()->createPlatformPattern(affine));
             if (context->getAlpha() < 1.0f) {
                 cairo_push_group(cr);
@@ -156,7 +191,7 @@ void Font::drawGlyphs(GraphicsContext* context, const SimpleFontData* font, cons
 
     // Re-enable the platform shadow we disabled earlier
     if (hasShadow)
-        context->setShadow(shadowSize, shadowBlur, shadowColor);
+        context->setShadow(shadowSize, shadowBlur, shadowColor, DeviceColorSpace);
 
     cairo_restore(cr);
 }

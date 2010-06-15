@@ -2,8 +2,6 @@
     Copyright (C) 2004, 2005, 2008 Nikolas Zimmermann <zimmermann@kde.org>
                   2004, 2005, 2006, 2007 Rob Buis <buis@kde.org>
 
-    This file is part of the KDE project
-
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Library General Public
     License as published by the Free Software Foundation; either
@@ -29,27 +27,22 @@
 
 namespace WebCore {
 
-    extern char SVGFitToViewBoxIdentifier[];
+class AffineTransform;
 
-    class TransformationMatrix;
+class SVGFitToViewBox {
+public:
+    SVGFitToViewBox();
+    virtual ~SVGFitToViewBox();
 
-    class SVGFitToViewBox {
-    public:
-        SVGFitToViewBox();
-        virtual ~SVGFitToViewBox();
+    bool parseViewBox(Document*, const UChar*& start, const UChar* end, float& x, float& y, float& w, float& h, bool validate = true);
+    static AffineTransform viewBoxToViewTransform(const FloatRect& viewBoxRect, const SVGPreserveAspectRatio&, float viewWidth, float viewHeight);
 
-        bool parseViewBox(const UChar*& start, const UChar* end, float& x, float& y, float& w, float& h, bool validate = true);
-        virtual TransformationMatrix viewBoxToViewTransform(float viewWidth, float viewHeight) const;
+    bool parseMappedAttribute(Document*, MappedAttribute*);
+    bool isKnownAttribute(const QualifiedName&);
 
-        bool parseMappedAttribute(MappedAttribute*);
-        bool isKnownAttribute(const QualifiedName&);
-
-        virtual const SVGElement* contextElement() const = 0;
-
-    private:
-        ANIMATED_PROPERTY_DECLARATIONS(SVGFitToViewBox, SVGFitToViewBoxIdentifier, SVGNames::viewBoxAttrString, FloatRect, ViewBox, viewBox)
-        ANIMATED_PROPERTY_DECLARATIONS(SVGFitToViewBox, SVGFitToViewBoxIdentifier, SVGNames::preserveAspectRatioAttrString, SVGPreserveAspectRatio, PreserveAspectRatio, preserveAspectRatio)
-    };
+    virtual void setViewBoxBaseValue(SVGAnimatedPropertyTraits<FloatRect>::PassType) = 0;
+    virtual void setPreserveAspectRatioBaseValue(SVGAnimatedPropertyTraits<SVGPreserveAspectRatio>::PassType) = 0;
+};
 
 } // namespace WebCore
 

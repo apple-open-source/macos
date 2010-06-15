@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2008, 2009 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -31,7 +31,6 @@
 
 #include "CodeBlock.h"
 #include "JSVariableObject.h"
-#include "RegisterFile.h"
 #include "SymbolTable.h"
 #include "Nodes.h"
 
@@ -43,12 +42,12 @@ namespace JSC {
     class JSActivation : public JSVariableObject {
         typedef JSVariableObject Base;
     public:
-        JSActivation(CallFrame*, PassRefPtr<FunctionBodyNode>);
+        JSActivation(CallFrame*, NonNullPassRefPtr<FunctionExecutable>);
         virtual ~JSActivation();
 
-        virtual void mark();
+        virtual void markChildren(MarkStack&);
 
-        virtual bool isDynamicScope() const;
+        virtual bool isDynamicScope(bool& requiresDynamicChecks) const;
 
         virtual bool isActivationObject() const { return true; }
 
@@ -66,22 +65,30 @@ namespace JSC {
         virtual const ClassInfo* classInfo() const { return &info; }
         static const ClassInfo info;
 
-        static PassRefPtr<Structure> createStructure(JSValue proto) { return Structure::create(proto, TypeInfo(ObjectType, NeedsThisConversion)); }
+        static PassRefPtr<Structure> createStructure(JSValue proto) { return Structure::create(proto, TypeInfo(ObjectType, StructureFlags), AnonymousSlotCount); }
+
+    protected:
+        static const unsigned StructureFlags = OverridesGetOwnPropertySlot | NeedsThisConversion | OverridesMarkChildren | OverridesGetPropertyNames | JSVariableObject::StructureFlags;
 
     private:
         struct JSActivationData : public JSVariableObjectData {
-            JSActivationData(PassRefPtr<FunctionBodyNode> _functionBody, Register* registers)
-                : JSVariableObjectData(&_functionBody->generatedBytecode().symbolTable(), registers)
-                , functionBody(_functionBody)
-                , numVars(functionBody->generatedBytecode().m_numVars)
+            JSActivationData(NonNullPassRefPtr<FunctionExecutable> _functionExecutable, Register* registers)
+                : JSVariableObjectData(_functionExecutable->generatedBytecode().symbolTable(), registers)
+                , functionExecutable(_functionExecutable)
             {
+                // We have to manually ref and deref the symbol table as JSVariableObjectData
+                // doesn't know about SharedSymbolTable
+                functionExecutable->generatedBytecode().sharedSymbolTable()->ref();
+            }
+            ~JSActivationData()
+            {
+                static_cast<SharedSymbolTable*>(symbolTable)->deref();
             }
 
-            RefPtr<FunctionBodyNode> functionBody;
-            size_t numVars;
+            RefPtr<FunctionExecutable> functionExecutable;
         };
         
-        static JSValue argumentsGetter(ExecState*, const Identifier&, const PropertySlot&);
+        static JSValue argumentsGetter(ExecState*, JSValue, const Identifier&);
         NEVER_INLINE PropertySlot::GetValueFunc getArgumentsGetter();
 
         JSActivationData* d() const { return static_cast<JSActivationData*>(JSVariableObject::d); }

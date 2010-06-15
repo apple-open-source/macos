@@ -23,12 +23,12 @@
 #if ENABLE(WML)
 #include "WMLPostfieldElement.h"
 
-#include "CString.h"
 #include "TextEncoding.h"
 #include "HTMLNames.h"
 #include "WMLDocument.h"
 #include "WMLGoElement.h"
 #include "WMLNames.h"
+#include <wtf/text/CString.h>
 
 namespace WebCore {
 
@@ -44,12 +44,17 @@ void WMLPostfieldElement::insertedIntoDocument()
     WMLElement::insertedIntoDocument();
 
     Node* parent = parentNode();
-    ASSERT(parent);
+    if (parent && parent->hasTagName(goTag))
+        static_cast<WMLGoElement*>(parent)->registerPostfieldElement(this);
+}
 
-    if (!parent->hasTagName(goTag))
-        return;
+void WMLPostfieldElement::removedFromDocument()
+{
+    Node* parent = parentNode();
+    if (parent && parent->hasTagName(goTag))
+        static_cast<WMLGoElement*>(parent)->deregisterPostfieldElement(this);
 
-    static_cast<WMLGoElement*>(parent)->registerPostfieldElement(this);
+    WMLElement::removedFromDocument();
 }
 
 String WMLPostfieldElement::name() const
@@ -59,7 +64,7 @@ String WMLPostfieldElement::name() const
 
 String WMLPostfieldElement::value() const
 {
-   return parseValueSubstitutingVariableReferences(getAttribute(HTMLNames::valueAttr));
+    return parseValueSubstitutingVariableReferences(getAttribute(HTMLNames::valueAttr));
 }
 
 static inline CString encodedString(const TextEncoding& encoding, const String& data)

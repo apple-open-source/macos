@@ -21,7 +21,7 @@
  * PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY
  * OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
 #include "config.h"
@@ -29,19 +29,30 @@
 
 #include "Frame.h"
 #include "KURL.h"
+#include "PluginDatabaseClient.h"
 #include "PluginPackage.h"
 #include <stdlib.h>
 
 namespace WebCore {
 
-PluginDatabase* PluginDatabase::installedPlugins()
+typedef HashMap<String, RefPtr<PluginPackage> > PluginPackageByNameMap;
+
+PluginDatabase::PluginDatabase()
+    : m_client(0)
+{
+}
+
+PluginDatabase* PluginDatabase::installedPlugins(bool populate)
 {
     static PluginDatabase* plugins = 0;
-    
+
     if (!plugins) {
         plugins = new PluginDatabase;
-        plugins->setPluginDirectories(PluginDatabase::defaultPluginDirectories());
-        plugins->refresh();
+
+        if (populate) {
+            plugins->setPluginDirectories(PluginDatabase::defaultPluginDirectories());
+            plugins->refresh();
+        }
     }
 
     return plugins;
@@ -64,7 +75,7 @@ void PluginDatabase::addExtraPluginDirectory(const String& directory)
 }
 
 bool PluginDatabase::refresh()
-{   
+{
     bool pluginSetChanged = false;
 
     if (!m_plugins.isEmpty()) {
@@ -106,9 +117,11 @@ bool PluginDatabase::refresh()
             remove(oldPackage.get());
         }
 
-        RefPtr<PluginPackage> package = PluginPackage::createPackage(*it, lastModified);
-        if (package && add(package.release()))
-            pluginSetChanged = true;
+        if (!m_client || m_client->shouldLoadPluginAtPath(*it)) {
+            RefPtr<PluginPackage> package = PluginPackage::createPackage(*it, lastModified);
+            if (package && (!m_client || m_client->shouldLoadPluginPackage(package.get())) && add(package.release()))
+                pluginSetChanged = true;
+        }
     }
 
     // Cache all the paths we found with their timestamps for next time.
@@ -123,10 +136,10 @@ bool PluginDatabase::refresh()
     PluginSet::const_iterator end = m_plugins.end();
     for (PluginSet::const_iterator it = m_plugins.begin(); it != end; ++it) {
         // Get MIME types
+        MIMEToDescriptionsMap::const_iterator map_it = (*it)->mimeToDescriptions().begin();
         MIMEToDescriptionsMap::const_iterator map_end = (*it)->mimeToDescriptions().end();
-        for (MIMEToDescriptionsMap::const_iterator map_it = (*it)->mimeToDescriptions().begin(); map_it != map_end; ++map_it) {
+        for (; map_it != map_end; ++map_it)
             m_registeredMIMETypes.add(map_it->first);
-        }
     }
 
     return true;
@@ -158,12 +171,23 @@ PluginPackage* PluginDatabase::pluginForMIMEType(const String& mimeType)
 
     String key = mimeType.lower();
     PluginSet::const_iterator end = m_plugins.end();
+    PluginPackage* preferredPlugin = m_preferredPlugins.get(key).get();
+    if (preferredPlugin
+        && preferredPlugin->isEnabled()
+        && preferredPlugin->mimeToDescriptions().contains(key)) {
+        return preferredPlugin;
+    }
 
     Vector<PluginPackage*, 2> pluginChoices;
 
     for (PluginSet::const_iterator it = m_plugins.begin(); it != end; ++it) {
-        if ((*it)->mimeToDescriptions().contains(key))
-            pluginChoices.append((*it).get());
+        PluginPackage* plugin = (*it).get();
+
+        if (!plugin->isEnabled())
+            continue;
+
+        if (plugin->mimeToDescriptions().contains(key))
+            pluginChoices.append(plugin);
     }
 
     if (pluginChoices.isEmpty())
@@ -185,16 +209,25 @@ String PluginDatabase::MIMETypeForExtension(const String& extension) const
     HashMap<PluginPackage*, String> mimeTypeForPlugin;
 
     for (PluginSet::const_iterator it = m_plugins.begin(); it != end; ++it) {
+        if (!(*it)->isEnabled())
+            continue;
+
         MIMEToExtensionsMap::const_iterator mime_end = (*it)->mimeToExtensions().end();
 
         for (MIMEToExtensionsMap::const_iterator mime_it = (*it)->mimeToExtensions().begin(); mime_it != mime_end; ++mime_it) {
+            mimeType = mime_it->first;
+            PluginPackage* preferredPlugin = m_preferredPlugins.get(mimeType).get();
             const Vector<String>& extensions = mime_it->second;
             bool foundMapping = false;
             for (unsigned i = 0; i < extensions.size(); i++) {
                 if (equalIgnoringCase(extensions[i], extension)) {
                     PluginPackage* plugin = (*it).get();
+
+                    if (preferredPlugin && PluginPackage::equal(*plugin, *preferredPlugin))
+                        return mimeType;
+
                     pluginChoices.append(plugin);
-                    mimeTypeForPlugin.add(plugin, mime_it->first);
+                    mimeTypeForPlugin.add(plugin, mimeType);
                     foundMapping = true;
                     break;
                 }
@@ -216,7 +249,7 @@ PluginPackage* PluginDatabase::findPlugin(const KURL& url, String& mimeType)
 {
     PluginPackage* plugin = pluginForMIMEType(mimeType);
     String filename = url.string();
-    
+
     if (!plugin) {
         String filename = url.lastPathComponent();
         if (!filename.endsWith("/")) {
@@ -224,16 +257,23 @@ PluginPackage* PluginDatabase::findPlugin(const KURL& url, String& mimeType)
             if (extensionPos != -1) {
                 String extension = filename.substring(extensionPos + 1);
 
-                mimeType = MIMETypeForExtension(extension);
-                plugin = pluginForMIMEType(mimeType);
+                String mimeTypeForExtension = MIMETypeForExtension(extension);
+                if ((plugin = pluginForMIMEType(mimeTypeForExtension)))
+                    mimeType = mimeTypeForExtension;
             }
         }
     }
 
-    // FIXME: if no plugin could be found, query Windows for the mime type 
+    // FIXME: if no plugin could be found, query Windows for the mime type
     // corresponding to the extension.
 
     return plugin;
+}
+
+void PluginDatabase::setPreferredPluginForMIMEType(const String& mimeType, PluginPackage* plugin)
+{
+    if (!plugin || plugin->mimeToExtensions().contains(mimeType))
+        m_preferredPlugins.set(mimeType.lower(), plugin);
 }
 
 void PluginDatabase::getDeletedPlugins(PluginSet& plugins) const
@@ -260,11 +300,28 @@ bool PluginDatabase::add(PassRefPtr<PluginPackage> prpPackage)
 
 void PluginDatabase::remove(PluginPackage* package)
 {
+    MIMEToExtensionsMap::const_iterator it = package->mimeToExtensions().begin();
+    MIMEToExtensionsMap::const_iterator end = package->mimeToExtensions().end();
+    for ( ; it != end; ++it) {
+        PluginPackageByNameMap::iterator packageInMap = m_preferredPlugins.find(it->first);
+        if (packageInMap != m_preferredPlugins.end() && packageInMap->second == package)
+            m_preferredPlugins.remove(packageInMap);
+    }
+
     m_plugins.remove(package);
     m_pluginsByPath.remove(package->path());
 }
 
-#if !PLATFORM(WIN_OS) || PLATFORM(WX)
+void PluginDatabase::clear()
+{
+    m_plugins.clear();
+    m_pluginsByPath.clear();
+    m_pluginPathsWithTimes.clear();
+    m_registeredMIMETypes.clear();
+    m_preferredPlugins.clear();
+}
+
+#if (!OS(WINCE)) && (!OS(SYMBIAN)) && (!OS(WINDOWS) || !ENABLE(NETSCAPE_PLUGIN_API))
 // For Safari/Win the following three methods are implemented
 // in PluginDatabaseWin.cpp, but if we can use WebCore constructs
 // for the logic we should perhaps move it here under XP_WIN?
@@ -299,6 +356,8 @@ Vector<String> PluginDatabase::defaultPluginDirectories()
     paths.append("/usr/lib/netscape/plugins-libc6");
     paths.append("/usr/lib64/netscape/plugins");
     paths.append("/usr/lib64/mozilla/plugins");
+    paths.append("/usr/lib/nsbrowser/plugins");
+    paths.append("/usr/lib64/nsbrowser/plugins");
 
     String mozHome(getenv("MOZILLA_HOME"));
     mozHome.append("/plugins");
@@ -322,7 +381,7 @@ Vector<String> PluginDatabase::defaultPluginDirectories()
     // Add paths specific to each port
 #if PLATFORM(QT)
     Vector<String> qtPaths;
-    String qtPath(getenv("QTWEBKIT_PLUGIN_PATH"));
+    String qtPath(qgetenv("QTWEBKIT_PLUGIN_PATH").constData());
     qtPath.split(UChar(':'), /* allowEmptyEntries */ false, qtPaths);
     paths.append(qtPaths);
 #endif
@@ -370,6 +429,6 @@ void PluginDatabase::getPluginPathsInDirectories(HashSet<String>& paths) const
     }
 }
 
-#endif // !PLATFORM(WIN_OS)
+#endif // !OS(SYMBIAN) && !OS(WINDOWS)
 
 }

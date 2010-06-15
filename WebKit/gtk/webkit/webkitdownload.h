@@ -18,8 +18,8 @@
  * Boston, MA 02110-1301, USA.
  */
 
-#ifndef WEBKIT_DOWNLOAD_H
-#define WEBKIT_DOWNLOAD_H
+#ifndef webkitdownload_h
+#define webkitdownload_h
 
 #include <webkit/webkitdefines.h>
 
@@ -83,6 +83,9 @@ webkit_download_get_uri                     (WebKitDownload       *download);
 
 WEBKIT_API WebKitNetworkRequest*
 webkit_download_get_network_request         (WebKitDownload       *download);
+
+WEBKIT_API WebKitNetworkResponse*
+webkit_download_get_network_response         (WebKitDownload       *download);
 
 WEBKIT_API const gchar*
 webkit_download_get_suggested_filename      (WebKitDownload       *download);

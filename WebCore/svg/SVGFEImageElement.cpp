@@ -1,8 +1,7 @@
 /*
     Copyright (C) 2004, 2005, 2007 Nikolas Zimmermann <zimmermann@kde.org>
                   2004, 2005 Rob Buis <buis@kde.org>
-
-    This file is part of the KDE project
+                  2010 Dirk Schulze <krit@webkit.org>
 
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Library General Public
@@ -33,7 +32,7 @@
 #include "SVGLength.h"
 #include "SVGNames.h"
 #include "SVGPreserveAspectRatio.h"
-#include "SVGResourceFilter.h"
+#include "SVGRenderSupport.h"
 
 namespace WebCore {
 
@@ -42,7 +41,6 @@ SVGFEImageElement::SVGFEImageElement(const QualifiedName& tagName, Document* doc
     , SVGURIReference()
     , SVGLangSpace()
     , SVGExternalResourcesRequired()
-    , m_preserveAspectRatio(this, SVGNames::preserveAspectRatioAttr, SVGPreserveAspectRatio::create())
 {
 }
 
@@ -52,23 +50,31 @@ SVGFEImageElement::~SVGFEImageElement()
         m_cachedImage->removeClient(this);
 }
 
+void SVGFEImageElement::requestImageResource()
+{
+    if (m_cachedImage) {
+        m_cachedImage->removeClient(this);
+        m_cachedImage = 0;
+    }
+
+    Element* hrefElement = document()->getElementById(SVGURIReference::getTarget(href()));
+    if (hrefElement && hrefElement->isSVGElement() && hrefElement->renderer())
+        return;
+
+    m_cachedImage = ownerDocument()->docLoader()->requestImage(href());
+
+    if (m_cachedImage)
+        m_cachedImage->addClient(this);
+}
+
 void SVGFEImageElement::parseMappedAttribute(MappedAttribute* attr)
 {
     const String& value = attr->value();
-    if (attr->name() == SVGNames::preserveAspectRatioAttr) {
-        const UChar* c = value.characters();
-        const UChar* end = c + value.length();
-        preserveAspectRatioBaseValue()->parsePreserveAspectRatio(c, end);
-    } else {
+    if (attr->name() == SVGNames::preserveAspectRatioAttr)
+        SVGPreserveAspectRatio::parsePreserveAspectRatio(this, value);
+    else {
         if (SVGURIReference::parseMappedAttribute(attr)) {
-            if (!href().startsWith("#")) {
-                // FIXME: this code needs to special-case url fragments and later look them up using getElementById instead of loading them here
-                if (m_cachedImage)
-                    m_cachedImage->removeClient(this);
-                m_cachedImage = ownerDocument()->docLoader()->requestImage(href());
-                if (m_cachedImage)
-                    m_cachedImage->addClient(this);
-            }
+            requestImageResource();
             return;
         }
         if (SVGLangSpace::parseMappedAttribute(attr))
@@ -80,19 +86,48 @@ void SVGFEImageElement::parseMappedAttribute(MappedAttribute* attr)
     }
 }
 
-void SVGFEImageElement::notifyFinished(CachedResource*)
+void SVGFEImageElement::synchronizeProperty(const QualifiedName& attrName)
 {
+    SVGFilterPrimitiveStandardAttributes::synchronizeProperty(attrName);
+
+    if (attrName == anyQName()) {
+        synchronizePreserveAspectRatio();
+        synchronizeHref();
+        synchronizeExternalResourcesRequired();
+        return;
+    }
+
+    if (attrName == SVGNames::preserveAspectRatioAttr)
+        synchronizePreserveAspectRatio();
+    else if (SVGURIReference::isKnownAttribute(attrName))
+        synchronizeHref();
+    else if (SVGExternalResourcesRequired::isKnownAttribute(attrName))
+        synchronizeExternalResourcesRequired();
 }
 
-bool SVGFEImageElement::build(SVGResourceFilter* filterResource)
+void SVGFEImageElement::notifyFinished(CachedResource*)
 {
-    if(!m_cachedImage)
-        return false;
+    SVGStyledElement::invalidateResourcesInAncestorChain();
+}
 
-    RefPtr<FilterEffect> effect = FEImage::create(m_cachedImage.get());
-    filterResource->addFilterEffect(this, effect.release());
+PassRefPtr<FilterEffect> SVGFEImageElement::build(SVGFilterBuilder*)
+{
+    if (!m_cachedImage && !m_targetImage) {
+        Element* hrefElement = document()->getElementById(SVGURIReference::getTarget(href()));
+        if (!hrefElement || !hrefElement->isSVGElement())
+            return 0;
 
-    return true;
+        RenderObject* renderer = hrefElement->renderer();
+        if (!renderer)
+            return 0;
+
+        IntRect targetRect = enclosingIntRect(renderer->objectBoundingBox());
+        m_targetImage = ImageBuffer::create(targetRect.size(), LinearRGB);
+
+        renderSubtreeToImage(m_targetImage.get(), renderer);
+    }
+
+    return FEImage::create(m_targetImage ? m_targetImage->image() : m_cachedImage->image(), preserveAspectRatio());
 }
 
 void SVGFEImageElement::addSubresourceAttributeURLs(ListHashSet<KURL>& urls) const

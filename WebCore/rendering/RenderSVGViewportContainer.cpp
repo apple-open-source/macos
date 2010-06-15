@@ -3,6 +3,7 @@
                   2004, 2005, 2007 Rob Buis <buis@kde.org>
                   2007 Eric Seidel <eric@webkit.org>
                   2009 Google, Inc.
+    Copyright (C) Research In Motion Limited 2009-2010. All rights reserved.
 
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Library General Public
@@ -26,9 +27,7 @@
 #include "RenderSVGViewportContainer.h"
 
 #include "GraphicsContext.h"
-
 #include "RenderView.h"
-#include "SVGMarkerElement.h"
 #include "SVGSVGElement.h"
 
 namespace WebCore {
@@ -38,28 +37,10 @@ RenderSVGViewportContainer::RenderSVGViewportContainer(SVGStyledElement* node)
 {
 }
 
-RenderSVGViewportContainer::~RenderSVGViewportContainer()
-{
-}
-
-void RenderSVGViewportContainer::paint(PaintInfo& paintInfo, int parentX, int parentY)
-{
-    // A value of zero disables rendering of the element. 
-    if (!viewport().isEmpty() && (viewport().width() <= 0. || viewport().height() <= 0.))
-        return;
-
-    RenderSVGContainer::paint(paintInfo, parentX, parentY);
-}
-
 void RenderSVGViewportContainer::applyViewportClip(PaintInfo& paintInfo)
 {
-    if (style()->overflowX() != OVISIBLE)
-        paintInfo.context->clip(enclosingIntRect(viewport())); // FIXME: Eventually we'll want float-precision clipping
-}
-
-FloatRect RenderSVGViewportContainer::viewport() const
-{
-    return m_viewport;
+    if (SVGRenderBase::isOverflowHidden(this))
+        paintInfo.context->clip(m_viewport);
 }
 
 void RenderSVGViewportContainer::calcViewport()
@@ -76,59 +57,37 @@ void RenderSVGViewportContainer::calcViewport()
         float w = svg->width().value(svg);
         float h = svg->height().value(svg);
         m_viewport = FloatRect(x, y, w, h);
-    } else if (svgelem->hasTagName(SVGNames::markerTag)) {
-        if (!selfNeedsLayout())
-            return;
-
-        SVGMarkerElement* svg = static_cast<SVGMarkerElement*>(node());
-        float w = svg->markerWidth().value(svg);
-        float h = svg->markerHeight().value(svg);
-        m_viewport = FloatRect(0, 0, w, h);
     }
 }
 
-TransformationMatrix RenderSVGViewportContainer::viewportTransform() const
+AffineTransform RenderSVGViewportContainer::viewportTransform() const
 {
     if (node()->hasTagName(SVGNames::svgTag)) {
         SVGSVGElement* svg = static_cast<SVGSVGElement*>(node());
-        return svg->viewBoxToViewTransform(viewport().width(), viewport().height());
-    } else if (node()->hasTagName(SVGNames::markerTag)) {
-        SVGMarkerElement* marker = static_cast<SVGMarkerElement*>(node());
-        return marker->viewBoxToViewTransform(viewport().width(), viewport().height());
+        return svg->viewBoxToViewTransform(m_viewport.width(), m_viewport.height());
     }
 
-    return TransformationMatrix();
+    return AffineTransform();
 }
 
-TransformationMatrix RenderSVGViewportContainer::localToParentTransform() const
+const AffineTransform& RenderSVGViewportContainer::localToParentTransform() const
 {
-    TransformationMatrix viewportTranslation;
-    viewportTranslation.translate(viewport().x(), viewport().y());
-    return viewportTransform() * viewportTranslation;
+    AffineTransform viewportTranslation(viewportTransform());
+    m_localToParentTransform = viewportTranslation.translateRight(m_viewport.x(), m_viewport.y());
+    return m_localToParentTransform;
     // If this class were ever given a localTransform(), then the above would read:
     // return viewportTransform() * localTransform() * viewportTranslation;
 }
 
-// FIXME: This method should be removed as soon as callers to RenderBox::absoluteTransform() can be removed.
-TransformationMatrix RenderSVGViewportContainer::absoluteTransform() const
-{
-    // This would apply localTransform() twice if localTransform() were not the identity.
-    return localToParentTransform() * RenderSVGContainer::absoluteTransform();
-}
-
 bool RenderSVGViewportContainer::pointIsInsideViewportClip(const FloatPoint& pointInParent)
 {
-    // Respect the viewport clip (which is in parent coords).  SVG does not support separate x/y overflow rules.
-    if (style()->overflowX() == OHIDDEN) {
-        ASSERT(style()->overflowY() == OHIDDEN);
-        if (!viewport().contains(pointInParent))
-            return false;
-    }
-    return true;
+    // Respect the viewport clip (which is in parent coords)
+    if (!SVGRenderBase::isOverflowHidden(this))
+        return true;
+    
+    return m_viewport.contains(pointInParent);
 }
 
 }
 
 #endif // ENABLE(SVG)
-
-// vim:ts=4:noet

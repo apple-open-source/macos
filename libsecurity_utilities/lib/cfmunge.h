@@ -115,7 +115,7 @@ CFType cfget(CFTypeRef source, const char *format, ...)
 	va_start(args, format);
 	CFType result = CFType(vcfget(source, format, args));
 	va_end(args);
-	return CFTraits<CFType>::check(result) ? result : NULL;
+	return (result && CFTraits<CFType>::check(result)) ? result : NULL;
 }
 
 template <class CFType>

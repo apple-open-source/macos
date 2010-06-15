@@ -3,6 +3,7 @@
                   2004, 2005, 2007, 2008 Rob Buis <buis@kde.org>
                   2007 Eric Seidel <eric@webkit.org>
     Copyright (C) 2009 Google, Inc.  All rights reserved.
+                  2009 Dirk Schulze <krit@webkit.org>
 
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Library General Public
@@ -25,24 +26,17 @@
 #if ENABLE(SVG)
 #include "RenderSVGContainer.h"
 
-#include "AXObjectCache.h"
-#include "FloatQuad.h"
 #include "GraphicsContext.h"
+#include "RenderSVGResourceFilter.h"
 #include "RenderView.h"
 #include "SVGRenderSupport.h"
-#include "SVGResourceFilter.h"
 #include "SVGStyledElement.h"
-#include "SVGURIReference.h"
 
 namespace WebCore {
 
 RenderSVGContainer::RenderSVGContainer(SVGStyledElement* node)
     : RenderSVGModelObject(node)
     , m_drawsContents(true)
-{
-}
-
-RenderSVGContainer::~RenderSVGContainer()
 {
 }
 
@@ -66,17 +60,7 @@ void RenderSVGContainer::layout()
     LayoutRepainter repainter(*this, checkForRepaintDuringLayout() || selfWillPaint());
     calculateLocalTransform(); // Allow RenderSVGTransformableContainer to update its transform
 
-    for (RenderObject* child = firstChild(); child; child = child->nextSibling()) {
-        // Only force our kids to layout if we're being asked to relayout as a result of a parent changing
-        // FIXME: We should be able to skip relayout of non-relative kids when only bounds size has changed
-        // that's a possible future optimization using LayoutState
-        // http://bugs.webkit.org/show_bug.cgi?id=15391
-        if (selfNeedsLayout())
-            child->setNeedsLayout(true);
-
-        child->layoutIfNeeded();
-        ASSERT(!child->needsLayout());
-    }
+    layoutChildren(this, selfNeedsLayout());
     repainter.repaintAfterLayout();
 
     setNeedsLayout(false);
@@ -86,7 +70,7 @@ bool RenderSVGContainer::selfWillPaint() const
 {
 #if ENABLE(FILTERS)
     const SVGRenderStyle* svgStyle = style()->svgStyle();
-    SVGResourceFilter* filter = getFilterById(document(), svgStyle->filter());
+    RenderSVGResourceFilter* filter = getRenderSVGResourceById<RenderSVGResourceFilter>(document(), svgStyle->filterResource());
     if (filter)
         return true;
 #endif
@@ -98,7 +82,7 @@ void RenderSVGContainer::paint(PaintInfo& paintInfo, int, int)
     if (paintInfo.context->paintingDisabled() || !drawsContents())
         return;
 
-     // Spec: groups w/o children still may render filter content.
+    // Spec: groups w/o children still may render filter content.
     if (!firstChild() && !selfWillPaint())
         return;
 
@@ -111,14 +95,18 @@ void RenderSVGContainer::paint(PaintInfo& paintInfo, int, int)
 
     applyTransformToPaintInfo(childPaintInfo, localToParentTransform());
 
-    SVGResourceFilter* filter = 0;
+    RenderSVGResourceFilter* filter = 0;
     FloatRect boundingBox = repaintRectInLocalCoordinates();
-    if (childPaintInfo.phase == PaintPhaseForeground)
-        prepareToRenderSVGContent(this, childPaintInfo, boundingBox, filter);
 
-    childPaintInfo.paintingRoot = paintingRootForChildren(childPaintInfo);
-    for (RenderObject* child = firstChild(); child; child = child->nextSibling())
-        child->paint(childPaintInfo, 0, 0);
+    bool continueRendering = true;
+    if (childPaintInfo.phase == PaintPhaseForeground)
+        continueRendering = prepareToRenderSVGContent(this, childPaintInfo, boundingBox, filter);
+
+    if (continueRendering) {
+        childPaintInfo.paintingRoot = paintingRootForChildren(childPaintInfo);
+        for (RenderObject* child = firstChild(); child; child = child->nextSibling())
+            child->paint(childPaintInfo, 0, 0);
+    }
 
     if (paintInfo.phase == PaintPhaseForeground)
         finishRenderSVGContent(this, childPaintInfo, filter, paintInfo.context);
@@ -132,19 +120,25 @@ void RenderSVGContainer::paint(PaintInfo& paintInfo, int, int)
     // We should instead disable our clip during PaintPhaseOutline
     IntRect paintRectInParent = enclosingIntRect(localToParentTransform().mapRect(repaintRectInLocalCoordinates()));
     if ((paintInfo.phase == PaintPhaseOutline || paintInfo.phase == PaintPhaseSelfOutline) && style()->outlineWidth() && style()->visibility() == VISIBLE)
-        paintOutline(paintInfo.context, paintRectInParent.x(), paintRectInParent.y(), paintRectInParent.width(), paintRectInParent.height(), style());
+        paintOutline(paintInfo.context, paintRectInParent.x(), paintRectInParent.y(), paintRectInParent.width(), paintRectInParent.height());
 }
 
 // addFocusRingRects is called from paintOutline and needs to be in the same coordinates as the paintOuline call
-void RenderSVGContainer::addFocusRingRects(GraphicsContext* graphicsContext, int, int)
+void RenderSVGContainer::addFocusRingRects(Vector<IntRect>& rects, int, int)
 {
     IntRect paintRectInParent = enclosingIntRect(localToParentTransform().mapRect(repaintRectInLocalCoordinates()));
-    graphicsContext->addFocusRingRect(paintRectInParent);
+    if (!paintRectInParent.isEmpty())
+        rects.append(paintRectInParent);
 }
 
 FloatRect RenderSVGContainer::objectBoundingBox() const
 {
     return computeContainerBoundingBox(this, false);
+}
+
+FloatRect RenderSVGContainer::strokeBoundingBox() const
+{
+    return computeContainerBoundingBox(this, true);
 }
 
 // RenderSVGContainer is used for <g> elements which do not themselves have a
@@ -153,8 +147,19 @@ FloatRect RenderSVGContainer::repaintRectInLocalCoordinates() const
 {
     FloatRect repaintRect = computeContainerBoundingBox(this, true);
 
-    // A filter on this container can paint outside of the union of the child repaint rects
-    repaintRect.unite(filterBoundingBoxForRenderer(this));
+    FloatRect rect = filterBoundingBoxForRenderer(this);
+    if (!rect.isEmpty())
+        repaintRect = rect;
+
+    rect = clipperBoundingBoxForRenderer(this);
+    if (!rect.isEmpty())
+        repaintRect.intersect(rect);
+
+    rect = maskerBoundingBoxForRenderer(this);
+    if (!rect.isEmpty())
+        repaintRect.intersect(rect);
+
+    style()->svgStyle()->inflateForShadow(repaintRect);
 
     return repaintRect;
 }
@@ -182,5 +187,3 @@ bool RenderSVGContainer::nodeAtFloatPoint(const HitTestRequest& request, HitTest
 }
 
 #endif // ENABLE(SVG)
-
-// vim:ts=4:noet

@@ -55,9 +55,9 @@ JSValue JSJavaScriptCallFrame::type(ExecState* exec) const
 {
     switch (impl()->type()) {
         case DebuggerCallFrame::FunctionType:
-            return jsString(exec, "function");
+            return jsString(exec, UString("function"));
         case DebuggerCallFrame::ProgramType:
-            return jsString(exec, "program");
+            return jsString(exec, UString("program"));
     }
 
     ASSERT_NOT_REACHED();
@@ -83,6 +83,43 @@ JSValue JSJavaScriptCallFrame::scopeChain(ExecState* exec) const
     } while (iter != end);
 
     return constructArray(exec, list);
+}
+
+JSValue JSJavaScriptCallFrame::scopeType(ExecState* exec, const ArgList& args)
+{
+    if (!impl()->scopeChain())
+        return jsUndefined();
+
+    if (!args.at(0).isInt32())
+        return jsUndefined();
+    int index = args.at(0).asInt32();
+
+    const ScopeChainNode* scopeChain = impl()->scopeChain();
+    ScopeChainIterator end = scopeChain->end();
+
+    bool foundLocalScope = false;
+    for (ScopeChainIterator iter = scopeChain->begin(); iter != end; ++iter) {
+        JSObject* scope = *iter;
+        if (scope->isActivationObject()) {
+            if (!foundLocalScope) {
+                // First activation object is local scope, each successive activation object is closure.
+                if (!index)
+                    return jsJavaScriptCallFrameLOCAL_SCOPE(exec, JSValue(), Identifier());
+                foundLocalScope = true;
+            } else if (!index)
+                return jsJavaScriptCallFrameCLOSURE_SCOPE(exec, JSValue(), Identifier());
+        }
+
+        if (!index) {
+            // Last in the chain is global scope.
+            if (++iter == end)
+                return jsJavaScriptCallFrameGLOBAL_SCOPE(exec, JSValue(), Identifier());
+            return jsJavaScriptCallFrameWITH_SCOPE(exec, JSValue(), Identifier());
+        }
+
+        --index;
+    }
+    return jsUndefined();
 }
 
 } // namespace WebCore

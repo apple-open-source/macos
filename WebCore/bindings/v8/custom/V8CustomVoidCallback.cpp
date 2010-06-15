@@ -32,6 +32,7 @@
 #include "V8CustomVoidCallback.h"
 
 #include "Frame.h"
+#include "V8Binding.h"
 
 namespace WebCore {
 
@@ -65,7 +66,6 @@ void V8CustomVoidCallback::handleEvent()
 
 bool invokeCallback(v8::Persistent<v8::Object> callback, int argc, v8::Handle<v8::Value> argv[], bool& callbackReturnValue)
 {
-    // FIXME: If an exception was thrown by the callback, we should report it
     v8::TryCatch exceptionCatcher;
 
     v8::Local<v8::Function> callbackFunction;
@@ -73,9 +73,8 @@ bool invokeCallback(v8::Persistent<v8::Object> callback, int argc, v8::Handle<v8
         callbackFunction = v8::Local<v8::Function>::New(v8::Persistent<v8::Function>::Cast(callback));
     } else if (callback->IsObject()) {
         v8::Local<v8::Value> handleEventFunction = callback->Get(v8::String::NewSymbol("handleEvent"));
-        if (handleEventFunction->IsFunction()) {
+        if (handleEventFunction->IsFunction())
             callbackFunction = v8::Local<v8::Function>::Cast(handleEventFunction);
-        }
     } else
         return false;
 
@@ -88,10 +87,15 @@ bool invokeCallback(v8::Persistent<v8::Object> callback, int argc, v8::Handle<v8
     ASSERT(proxy);
 
     v8::Handle<v8::Value> result = proxy->callFunction(callbackFunction, thisObject, argc, argv);
+    callbackReturnValue = !result.IsEmpty() && result->BooleanValue();
 
-    callbackReturnValue = result.IsEmpty() && result->IsBoolean() && result->BooleanValue();
+    if (exceptionCatcher.HasCaught()) {
+        v8::Local<v8::Message> message = exceptionCatcher.Message();
+        proxy->frame()->document()->reportException(toWebCoreString(message->Get()), message->GetLineNumber(), toWebCoreString(message->GetScriptResourceName()));
+        return true;
+    }
 
-    return exceptionCatcher.HasCaught();
+    return false;
 }
 
 } // namespace WebCore

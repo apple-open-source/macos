@@ -3,7 +3,7 @@
  *
  *   Text to PostScript filter for the Common UNIX Printing System (CUPS).
  *
- *   Copyright 2007-2008 by Apple Inc.
+ *   Copyright 2007-2010 by Apple Inc.
  *   Copyright 1993-2007 by Easy Software Products.
  *
  *   These coded instructions, statements, and computer programs are the
@@ -176,13 +176,25 @@ WriteProlog(const char *title,		/* I - Title of job */
   if (SizeColumns <= 0 || SizeColumns > 32767 ||
       SizeLines <= 0 || SizeLines > 32767)
   {
-    _cupsLangPrintf(stderr, _("ERROR: Unable to print %dx%d text page!\n"),
+    _cupsLangPrintf(stderr, _("ERROR: Unable to print %dx%d text page.\n"),
                     SizeColumns, SizeLines);
     exit(1);
   }
 
-  Page    = calloc(sizeof(lchar_t *), SizeLines);
-  Page[0] = calloc(sizeof(lchar_t), SizeColumns * SizeLines);
+  if ((Page = calloc(sizeof(lchar_t *), SizeLines)) == NULL)
+  {
+    _cupsLangPrintf(stderr, _("ERROR: Unable to print %dx%d text page.\n"),
+                    SizeColumns, SizeLines);
+    exit(1);
+  }
+
+  if ((Page[0] = calloc(sizeof(lchar_t), SizeColumns * SizeLines)) == NULL)
+  {
+    _cupsLangPrintf(stderr, _("ERROR: Unable to print %dx%d text page.\n"),
+                    SizeColumns, SizeLines);
+    exit(1);
+  }
+
   for (i = 1; i < SizeLines; i ++)
     Page[i] = Page[0] + i * SizeColumns;
 
@@ -197,7 +209,7 @@ WriteProlog(const char *title,		/* I - Title of job */
 
   if (ColumnWidth <= 0)
   {
-    _cupsLangPrintf(stderr, _("ERROR: Unable to print %d text columns!\n"),
+    _cupsLangPrintf(stderr, _("ERROR: Unable to print %d text columns\n"),
                     PageColumns);
     exit(1);
   }

@@ -28,9 +28,10 @@ namespace JSC {
 
     class ArrayPrototype : public JSArray {
     public:
-        explicit ArrayPrototype(PassRefPtr<Structure>);
+        explicit ArrayPrototype(NonNullPassRefPtr<Structure>);
 
         bool getOwnPropertySlot(ExecState*, const Identifier&, PropertySlot&);
+        virtual bool getOwnPropertyDescriptor(ExecState*, const Identifier&, PropertyDescriptor&);
 
         virtual const ClassInfo* classInfo() const { return &info; }
         static const ClassInfo info;

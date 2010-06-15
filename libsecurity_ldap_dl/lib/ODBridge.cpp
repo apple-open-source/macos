@@ -45,6 +45,11 @@ DirectoryService::DirectoryService()
 {
 	this->db_name = (char *)dbname;
 	CFErrorRef ODReturn;
+	this->all_open_queries = CFArrayCreateMutable(kCFAllocatorDefault, 5, NULL);
+
+	this->query_dispatch_queue = dispatch_queue_create("com.apple.ldapdl", NULL);
+	dispatch_retain(this->query_dispatch_queue);
+
 	if((this->node = ODNodeCreateWithNodeType(NULL, kODSessionDefault, kODNodeTypeContacts, &ODReturn)) == NULL)
 		throw DirectoryServiceException (ODReturn);
 }
@@ -59,6 +64,8 @@ DirectoryService::~DirectoryService()
 		result = (ODdl_results_handle) CFArrayGetValueAtIndex(this->all_open_queries, i);
 		CFRelease(result->query);
 		CFRelease(result->certificates);
+		CFRelease(result->searchString);
+		free(result);
 	}
 	CFRelease(this->node);
 }
@@ -85,23 +92,27 @@ void
 cert_query_callback(ODQueryRef query, CFArrayRef qresults, CFErrorRef error, void *context)
 {
 	ODdl_results_handle results = (ODdl_results_handle) context;
+	__block CFErrorRef	retError;
 	
-	if (qresults == NULL) {
-		if(error == NULL) {
-			if(results->results_done) dispatch_semaphore_signal(results->results_done);
+	dispatch_sync(results->result_modifier_queue, ^{
+		if (qresults == NULL) {
+			if(error == NULL) {
+				if(results->results_done) dispatch_semaphore_signal(results->results_done);
+			}
+			return;
 		}
-		return;
-	}
-	
-	CFIndex i, count;
-	for (i = 0, count = CFArrayGetCount(qresults); i < count; i++) {
-		ODRecordRef rec = (ODRecordRef)CFArrayGetValueAtIndex(qresults, i);
-		CFArrayRef certs = ODRecordCopyValues(rec, kODAttributeTypeUserCertificate, &error);
-		if(certs && CFArrayGetCount(certs)) {
-			CFArrayApplyFunction(certs, CFRangeMake( 0, CFArrayGetCount(certs)) , getCertsFromArray, context);
-			CFRelease(certs);
+		
+		CFIndex i, count;
+		for (i = 0, count = CFArrayGetCount(qresults); i < count; i++) {
+			ODRecordRef rec = (ODRecordRef)CFArrayGetValueAtIndex(qresults, i);
+			CFArrayRef certs = ODRecordCopyValues(rec, kODAttributeTypeUserCertificate, &retError);
+			if(certs && CFArrayGetCount(certs)) {
+				CFArrayApplyFunction(certs, CFRangeMake( 0, CFArrayGetCount(certs)) , getCertsFromArray, context);
+				CFRelease(certs);
+			}
 		}
-	}
+	});
+	error = retError;
 }
 
 // simplistic e-mail address filter
@@ -170,12 +181,14 @@ DirectoryService::translate_cssm_query_to_OD_query(const CSSM_QUERY *Query, CSSM
 		*error = CSSMERR_DL_MEMORY_ERROR;
 		return NULL;
 	}
-	
+	CFArrayAppendValue(this->all_open_queries, (const void *)results);
+
 	// Bookkeeping for this query
 	results->recordid = CSSM_DL_DB_RECORD_X509_CERTIFICATE;
 	results->certificates = CFArrayCreateMutable(NULL, 20, &kCFTypeArrayCallBacks);
 	results->currentRecord = 0;
 	results->results_done = dispatch_semaphore_create(0);
+	results->result_modifier_queue = dispatch_queue_create("com.apple.ldapdl.results", NULL);
 
 	// Get remaining query parameters
 	if (Query->QueryLimits.SizeLimit != CSSM_QUERY_SIZELIMIT_NONE) ODmaxResults = Query->QueryLimits.SizeLimit;
@@ -196,12 +209,8 @@ DirectoryService::translate_cssm_query_to_OD_query(const CSSM_QUERY *Query, CSSM
 	// Prepare callback for query
 	ODQuerySetCallback(results->query, cert_query_callback, (void *)results);
 	
-	// Setup a dispatch queue and go - the semaphore will ping us when the last result is retrieved or after the timeout OD_query_time_out
-	this->query_dispatch_queue = dispatch_queue_create("com.apple.ldapdl", NULL);
-	ODQuerySetDispatchQueue( results->query, this->query_dispatch_queue );
+	ODQuerySetDispatchQueue( results->query, query_dispatch_queue ); // dispatch_queue is setup in constructor now.
 	dispatch_semaphore_wait(results->results_done, dispatch_time(DISPATCH_TIME_NOW, OD_query_time_out));
-	CFRelease(results->query);
-
 	return results;
 }
 
@@ -209,16 +218,22 @@ DirectoryService::translate_cssm_query_to_OD_query(const CSSM_QUERY *Query, CSSM
 CFDataRef
 DirectoryService::getNextCertFromResults(ODdl_results_handle results)
 {
-	CFDataRef	retval;
-	if(!results) return NULL;
-	if(!results->certificates) return NULL;
+	__block CFDataRef	retval;
 	
-	if(results->currentRecord < CFArrayGetCount(results->certificates)) {
-		retval = (CFDataRef) CFArrayGetValueAtIndex(results->certificates, results->currentRecord);
-		results->currentRecord++;
-	} else {
+	if(results->result_modifier_queue == NULL) {
 		return NULL;
 	}
+	dispatch_sync(results->result_modifier_queue, ^{
+		if(!results || !results->certificates) { 
+			retval =  NULL;
+		} else if(results->currentRecord < CFArrayGetCount(results->certificates)) {
+			retval = (CFDataRef) CFArrayGetValueAtIndex(results->certificates, results->currentRecord);
+			results->currentRecord++;
+		} else {
+			retval =  NULL;
+		}
+	});
 	return retval;
+
 }
 

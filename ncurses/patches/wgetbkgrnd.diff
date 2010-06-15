@@ -1,0 +1,23 @@
+--- configure	2009-01-05 13:51:27.000000000 -0800
++++ configure	2009-01-05 14:50:56.000000000 -0800
+@@ -9859,6 +9859,11 @@
+ echo "$as_me:9860: checking if you want experimental reentrant code" >&5
+ echo $ECHO_N "checking if you want experimental reentrant code... $ECHO_C" >&6
+ 
++# Opaque structures make binaries less likely to be incompatable with
++# future versions of ncurses.
++cf_cv_enable_opaque="NCURSES_INTERNALS"
++NCURSES_OPAQUE=1
++
+ # Check whether --enable-reentrant or --disable-reentrant was given.
+ if test "${enable_reentrant+set}" = set; then
+   enableval="$enable_reentrant"
+@@ -9904,7 +9904,7 @@
+ else
+ 	cf_cv_enable_reentrant=0
+ 	cf_cv_enable_opaque="NCURSES_OPAQUE"
+-	NCURSES_OPAQUE=0
++	NCURSES_OPAQUE=1
+ 	NCURSES_SIZE_T=short
+ fi
+ 

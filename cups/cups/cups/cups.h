@@ -1,9 +1,9 @@
 /*
  * "$Id: cups.h 7847 2008-08-19 04:22:14Z mike $"
  *
- *   API definitions for the Common UNIX Printing System (CUPS).
+ *   API definitions for CUPS.
  *
- *   Copyright 2007-2009 by Apple Inc.
+ *   Copyright 2007-2010 by Apple Inc.
  *   Copyright 1997-2007 by Easy Software Products.
  *
  *   These coded instructions, statements, and computer programs are the
@@ -25,10 +25,12 @@
 #  include <sys/types.h>
 #  if defined(WIN32) && !defined(__CUPS_SSIZE_T_DEFINED)
 #    define __CUPS_SSIZE_T_DEFINED
+#    include <stddef.h>
 /* Windows does not support the ssize_t type, so map it to off_t... */
 typedef off_t ssize_t;			/* @private@ */
 #  endif /* WIN32 && !__CUPS_SSIZE_T_DEFINED */
 
+#  include "file.h"
 #  include "ipp.h"
 #  include "ppd.h"
 #  include "language.h"
@@ -59,10 +61,10 @@ extern "C" {
  * Constants...
  */
 
-#  define CUPS_VERSION		1.0403
+#  define CUPS_VERSION		1.0404
 #  define CUPS_VERSION_MAJOR	1
 #  define CUPS_VERSION_MINOR	4
-#  define CUPS_VERSION_PATCH	3
+#  define CUPS_VERSION_PATCH	4
 
 #  define CUPS_BC_FD		3	/* Back-channel file descriptor for select/poll */
 #  define CUPS_DATE_ANY		(time_t)-1

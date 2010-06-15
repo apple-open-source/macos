@@ -2569,7 +2569,7 @@ InstallCEA861EXT( IOFBConnectRef connectRef, EDID * edid, CEA861EXT * ext, Boole
     if ((1 == (kCEASupportNativeCount & ext->flags))
         && (kDisplayAppleVendorID == connectRef->displayVendor))
     {
-//        connectRef->defaultOnly = true;
+        connectRef->defaultOnly = true;
     }
         
     // Process the CEA Detailed Timing Descriptor.

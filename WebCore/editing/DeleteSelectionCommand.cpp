@@ -44,6 +44,7 @@
 #include "Text.h"
 #include "TextIterator.h"
 #include "visible_units.h"
+#include "ApplyStyleCommand.h"
 
 namespace WebCore {
 
@@ -120,7 +121,7 @@ void DeleteSelectionCommand::initializeStartEnd(Position& start, Position& end)
     else if (end.node()->hasTagName(hrTag))
         end = Position(end.node(), 1);
     
-    // FIXME: This is only used so that moveParagraphs can avoid the bugs in special element expanion.
+    // FIXME: This is only used so that moveParagraphs can avoid the bugs in special element expansion.
     if (!m_expandForSpecialElements)
         return;
     
@@ -136,16 +137,15 @@ void DeleteSelectionCommand::initializeStartEnd(Position& start, Position& end)
             
         if (VisiblePosition(start) != m_selectionToDelete.visibleStart() || VisiblePosition(end) != m_selectionToDelete.visibleEnd())
             break;
-        
-        // If we're going to expand to include the startSpecialContainer, it must be fully selected.
 
-        if (startSpecialContainer && !endSpecialContainer && comparePositions(positionAfterNode(startSpecialContainer), end) > -1)
+        // If we're going to expand to include the startSpecialContainer, it must be fully selected.
+        if (startSpecialContainer && !endSpecialContainer && comparePositions(positionInParentAfterNode(startSpecialContainer), end) > -1)
             break;
 
         // If we're going to expand to include the endSpecialContainer, it must be fully selected.
-        if (endSpecialContainer && !startSpecialContainer && comparePositions(start, positionBeforeNode(endSpecialContainer)) > -1)
+        if (endSpecialContainer && !startSpecialContainer && comparePositions(start, positionInParentBeforeNode(endSpecialContainer)) > -1)
             break;
-        
+
         if (startSpecialContainer && startSpecialContainer->isDescendantOf(endSpecialContainer))
             // Don't adjust the end yet, it is the end of a special element that contains the start
             // special element (which may or may not be fully selected).
@@ -161,6 +161,20 @@ void DeleteSelectionCommand::initializeStartEnd(Position& start, Position& end)
     }
 }
 
+void DeleteSelectionCommand::setStartingSelectionOnSmartDelete(const Position& start, const Position& end)
+{
+    VisiblePosition newBase;
+    VisiblePosition newExtent;
+    if (startingSelection().isBaseFirst()) {
+        newBase = start;
+        newExtent = end;
+    } else {
+        newBase = end;
+        newExtent = start;        
+    }
+    setStartingSelection(VisibleSelection(newBase, newExtent));            
+}
+    
 void DeleteSelectionCommand::initializePositionData()
 {
     Position start, end;
@@ -230,6 +244,8 @@ void DeleteSelectionCommand::initializePositionData()
             m_upstreamStart = pos.upstream();
             m_downstreamStart = pos.downstream();
             m_leadingWhitespace = m_upstreamStart.leadingWhitespacePosition(visiblePos.affinity());
+
+            setStartingSelectionOnSmartDelete(m_upstreamStart, m_upstreamEnd);
         }
         
         // trailing whitespace is only considered for smart delete if there is no leading
@@ -241,6 +257,8 @@ void DeleteSelectionCommand::initializePositionData()
             m_upstreamEnd = pos.upstream();
             m_downstreamEnd = pos.downstream();
             m_trailingWhitespace = m_downstreamEnd.trailingWhitespacePosition(VP_DEFAULT_AFFINITY);
+
+            setStartingSelectionOnSmartDelete(m_downstreamStart, m_downstreamEnd);
         }
     }
     
@@ -259,11 +277,8 @@ static void removeEnclosingAnchorStyle(CSSMutableStyleDeclaration* style, const 
     Node* enclosingAnchor = enclosingAnchorElement(position);
     if (!enclosingAnchor || !enclosingAnchor->parentNode())
         return;
-            
-    RefPtr<CSSMutableStyleDeclaration> parentStyle = Position(enclosingAnchor->parentNode(), 0).computedStyle()->copyInheritableProperties();
-    RefPtr<CSSMutableStyleDeclaration> anchorStyle = Position(enclosingAnchor, 0).computedStyle()->copyInheritableProperties();
-    parentStyle->diff(anchorStyle.get());
-    anchorStyle->diff(style);
+    
+    removeStylesAddedByNode(style, enclosingAnchor);
 }
 
 void DeleteSelectionCommand::saveTypingStyleState()
@@ -277,19 +292,17 @@ void DeleteSelectionCommand::saveTypingStyleState()
     // early return in calculateTypingStyleAfterDelete).
     if (m_upstreamStart.node() == m_downstreamEnd.node() && m_upstreamStart.node()->isTextNode())
         return;
-        
+
     // Figure out the typing style in effect before the delete is done.
-    RefPtr<CSSComputedStyleDeclaration> computedStyle = positionBeforeTabSpan(m_selectionToDelete.start()).computedStyle();
-    m_typingStyle = computedStyle->copyInheritableProperties();
-    
+    m_typingStyle = ApplyStyleCommand::editingStyleAtPosition(positionBeforeTabSpan(m_selectionToDelete.start()));
+
     removeEnclosingAnchorStyle(m_typingStyle.get(), m_selectionToDelete.start());
-    
+
     // If we're deleting into a Mail blockquote, save the style at end() instead of start()
     // We'll use this later in computeTypingStyleAfterDelete if we end up outside of a Mail blockquote
-    if (nearestMailBlockquote(m_selectionToDelete.start().node())) {
-        computedStyle = m_selectionToDelete.end().computedStyle();
-        m_deleteIntoBlockquoteStyle = computedStyle->copyInheritableProperties();
-    } else
+    if (nearestMailBlockquote(m_selectionToDelete.start().node()))
+        m_deleteIntoBlockquoteStyle = ApplyStyleCommand::editingStyleAtPosition(m_selectionToDelete.end());
+    else
         m_deleteIntoBlockquoteStyle = 0;
 }
 
@@ -321,7 +334,7 @@ static void updatePositionForNodeRemoval(Node* node, Position& position)
     if (node->parent() == position.node() && node->nodeIndex() < (unsigned)position.deprecatedEditingOffset())
         position = Position(position.node(), position.deprecatedEditingOffset() - 1);
     if (position.node() == node || position.node()->isDescendantOf(node))
-        position = positionBeforeNode(node);
+        position = positionInParentBeforeNode(node);
 }
 
 void DeleteSelectionCommand::removeNode(PassRefPtr<Node> node)
@@ -364,8 +377,8 @@ void DeleteSelectionCommand::removeNode(PassRefPtr<Node> node)
         // make sure empty cell has some height
         updateLayout();
         RenderObject *r = node->renderer();
-        if (r && r->isTableCell() && static_cast<RenderTableCell*>(r)->contentHeight() <= 0)
-            insertBlockPlaceholder(Position(node,0));
+        if (r && r->isTableCell() && toRenderTableCell(r)->contentHeight() <= 0)
+            insertBlockPlaceholder(Position(node, 0));
         return;
     }
     
@@ -542,8 +555,6 @@ void DeleteSelectionCommand::mergeParagraphs()
 {
     if (!m_mergeBlocksAfterDelete) {
         if (m_pruneStartBlockIfNecessary) {
-            // Make sure that the ending position isn't inside the block we're about to prune.
-            m_endingPosition = m_downstreamEnd;
             // We aren't going to merge into the start block, so remove it if it's empty.
             prune(m_startBlock);
             // Removing the start block during a deletion is usually an indication that we need
@@ -596,9 +607,18 @@ void DeleteSelectionCommand::mergeParagraphs()
     // The rule for merging into an empty block is: only do so if its farther to the right.
     // FIXME: Consider RTL.
     if (!m_startsAtEmptyLine && isStartOfParagraph(mergeDestination) && startOfParagraphToMove.absoluteCaretBounds().x() > mergeDestination.absoluteCaretBounds().x()) {
-        ASSERT(mergeDestination.deepEquivalent().downstream().node()->hasTagName(brTag));
-        removeNodeAndPruneAncestors(mergeDestination.deepEquivalent().downstream().node());
-        m_endingPosition = startOfParagraphToMove.deepEquivalent();
+        if (mergeDestination.deepEquivalent().downstream().node()->hasTagName(brTag)) {
+            removeNodeAndPruneAncestors(mergeDestination.deepEquivalent().downstream().node());
+            m_endingPosition = startOfParagraphToMove.deepEquivalent();
+            return;
+        }
+    }
+    
+    // Block images, tables and horizontal rules cannot be made inline with content at mergeDestination.  If there is 
+    // any (!isStartOfParagraph(mergeDestination)), don't merge, just move the caret to just before the selection we deleted.
+    // See https://bugs.webkit.org/show_bug.cgi?id=25439
+    if (isRenderedAsNonInlineTableImageOrHR(startOfParagraphToMove.deepEquivalent().node()) && !isStartOfParagraph(mergeDestination)) {
+        m_endingPosition = m_upstreamStart;
         return;
     }
     
@@ -668,9 +688,8 @@ void DeleteSelectionCommand::calculateTypingStyleAfterDelete()
     if (m_deleteIntoBlockquoteStyle && !nearestMailBlockquote(m_endingPosition.node()))
         m_typingStyle = m_deleteIntoBlockquoteStyle;
     m_deleteIntoBlockquoteStyle = 0;
-    
-    RefPtr<CSSComputedStyleDeclaration> endingStyle = computedStyle(m_endingPosition.node());
-    endingStyle->diff(m_typingStyle.get());
+
+    prepareEditingStyleToApplyAt(m_typingStyle.get(), m_endingPosition);
     if (!m_typingStyle->length())
         m_typingStyle = 0;
     VisiblePosition visibleEnd(m_endingPosition);

@@ -45,6 +45,8 @@ typedef UInt32 ATSUFontID;
 
 namespace WebCore {
 
+class String;
+
 #ifndef BUILDING_ON_TIGER
 inline CTFontRef toCTFontRef(NSFont *nsFont) { return reinterpret_cast<CTFontRef>(nsFont); }
 #endif
@@ -59,6 +61,7 @@ struct FontPlatformData {
 #ifdef BUILDING_ON_TIGER
         , m_cgFont(0)
 #endif
+        , m_isColorBitmapFont(false)
     {
     }
 
@@ -71,6 +74,7 @@ struct FontPlatformData {
         , m_size(size)
         , m_font(0)
         , m_cgFont(cgFont)
+        , m_isColorBitmapFont(false)
     {
     }
 
@@ -111,11 +115,16 @@ struct FontPlatformData {
 
     bool roundsGlyphAdvances() const;
     bool allowsLigatures() const;
+    bool isColorBitmapFont() const { return m_isColorBitmapFont; }
 
 #ifndef BUILDING_ON_TIGER
     CGFontRef cgFont() const { return m_cgFont.get(); }
 #else
     CGFontRef cgFont() const { return m_cgFont; }
+#endif
+
+#ifndef NDEBUG
+    String description() const;
 #endif
 
 private:
@@ -127,6 +136,8 @@ private:
 #else
     CGFontRef m_cgFont; // It is not necessary to refcount this, since either an NSFont owns it or some CachedFont has it referenced.
 #endif
+
+    bool m_isColorBitmapFont;
 };
 
 }

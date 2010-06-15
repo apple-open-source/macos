@@ -28,7 +28,6 @@
 #define PlatformKeyboardEvent_h
 
 #include "PlatformString.h"
-#include <wtf/Platform.h>
 
 #if PLATFORM(MAC)
 #include <wtf/RetainPtr.h>
@@ -59,9 +58,23 @@ QT_END_NAMESPACE
 class wxKeyEvent;
 #endif
 
+#if PLATFORM(HAIKU)
+class BMessage;
+#endif
+
+#if PLATFORM(EFL)
+#include <Evas.h>
+#endif
+
+#if PLATFORM(BREWMP)
+typedef unsigned short    uint16;
+typedef unsigned long int uint32;
+#define AEEEvent uint16
+#endif
+
 namespace WebCore {
 
-    class PlatformKeyboardEvent {
+    class PlatformKeyboardEvent : public FastAllocBase {
     public:
         enum Type {
             // KeyDown is sent by platforms such as Mac OS X, gtk and Qt, and has information about both physical pressed key, and its translation.
@@ -84,6 +97,28 @@ namespace WebCore {
             ShiftKey = 1 << 3,
         };
 
+        PlatformKeyboardEvent()
+            : m_type(KeyDown)
+            , m_autoRepeat(false)
+            , m_windowsVirtualKeyCode(0)
+            , m_nativeVirtualKeyCode(0)
+            , m_isKeypad(false)
+            , m_shiftKey(false)
+            , m_ctrlKey(false)
+            , m_altKey(false)
+            , m_metaKey(false)
+#if PLATFORM(WIN) || PLATFORM(CHROMIUM)
+            , m_isSystemKey(false)
+#endif
+#if PLATFORM(GTK)
+            , m_gdkEventKey(0)
+#endif
+#if PLATFORM(QT)
+            , m_qtEvent(0)
+#endif
+        {
+        }
+        
         Type type() const { return m_type; }
         void disambiguateKeyDownEvent(Type, bool backwardCompatibilityMode = false); // Only used on platforms that need it, i.e. those that generate KeyDown events.
 
@@ -124,6 +159,7 @@ namespace WebCore {
         }
 
         static bool currentCapsLockState();
+        static void getCurrentModifierState(bool& shiftKey, bool& ctrlKey, bool& altKey, bool& metaKey);
 
 #if PLATFORM(MAC)
         PlatformKeyboardEvent(NSEvent*);
@@ -148,8 +184,21 @@ namespace WebCore {
         PlatformKeyboardEvent(wxKeyEvent&);
 #endif
 
+#if PLATFORM(HAIKU)
+        PlatformKeyboardEvent(BMessage*);
+#endif
+
+#if PLATFORM(BREWMP)
+        PlatformKeyboardEvent(AEEEvent, uint16, uint32, Type);
+#endif
+
 #if PLATFORM(WIN) || PLATFORM(CHROMIUM)
         bool isSystemKey() const { return m_isSystemKey; }
+#endif
+
+#if PLATFORM(EFL)
+        PlatformKeyboardEvent(const Evas_Event_Key_Down*);
+        PlatformKeyboardEvent(const Evas_Event_Key_Up*);
 #endif
 
     protected:

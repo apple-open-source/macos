@@ -55,6 +55,7 @@
 #import "WebViewInternal.h"
 #import "WebViewPrivate.h"
 #import <Foundation/NSURLRequest.h>
+#import <WebCore/BackForwardList.h>
 #import <WebCore/DragController.h>
 #import <WebCore/EventHandler.h>
 #import <WebCore/Frame.h>
@@ -91,6 +92,7 @@ enum {
 @public
     WebFrame *webFrame;
     WebDynamicScrollBarsView *frameScrollView;
+    BOOL includedInWebKitStatistics;
 }
 @end
 
@@ -156,7 +158,7 @@ enum {
     NSString* MIMEType = [dataSource _responseMIMEType];
     if (!MIMEType)
         MIMEType = @"text/html";
-    Class viewClass = [[self class] _viewClassForMIMEType:MIMEType];
+    Class viewClass = [self _viewClassForMIMEType:MIMEType];
     NSView <WebDocumentView> *documentView;
     if (viewClass) {
         // If the dataSource's representation has already been created, and it is also the
@@ -186,6 +188,11 @@ enum {
 
     // Not retained because the WebView owns the WebFrame, which owns the WebFrameView.
     _private->webFrame = webFrame;    
+
+    if (!_private->includedInWebKitStatistics && [webFrame _isIncludedInWebKitStatistics]) {
+        _private->includedInWebKitStatistics = YES;
+        ++WebFrameViewCount;
+    }
 }
 
 - (WebDynamicScrollBarsView *)_scrollView
@@ -199,9 +206,8 @@ enum {
 
 - (float)_verticalPageScrollDistance
 {
-    float overlap = [self _verticalKeyboardScrollDistance];
     float height = [[self _contentView] bounds].size.height;
-    return (height < overlap) ? height / 2 : height - overlap;
+    return max<float>(height * Scrollbar::minFractionToStepWhenPaging(), height - Scrollbar::maxOverlapBetweenPages());
 }
 
 static inline void addTypesFromClass(NSMutableDictionary *allTypes, Class objCClass, NSArray *supportTypes)
@@ -244,10 +250,15 @@ static inline void addTypesFromClass(NSMutableDictionary *allTypes, Class objCCl
     return [[[self _viewTypesAllowImageTypeOmission:YES] _webkit_objectForMIMEType:MIMEType] isSubclassOfClass:[WebHTMLView class]];
 }
 
-+ (Class)_viewClassForMIMEType:(NSString *)MIMEType
++ (Class)_viewClassForMIMEType:(NSString *)MIMEType allowingPlugins:(BOOL)allowPlugins
 {
     Class viewClass;
-    return [WebView _viewClass:&viewClass andRepresentationClass:nil forMIMEType:MIMEType] ? viewClass : nil;
+    return [WebView _viewClass:&viewClass andRepresentationClass:nil forMIMEType:MIMEType allowingPlugins:allowPlugins] ? viewClass : nil;
+}
+
+- (Class)_viewClassForMIMEType:(NSString *)MIMEType
+{
+    return [[self class] _viewClassForMIMEType:MIMEType allowingPlugins:[[[self _webView] preferences] arePlugInsEnabled]];
 }
 
 - (void)_install
@@ -274,22 +285,14 @@ static inline void addTypesFromClass(NSMutableDictionary *allTypes, Class objCCl
         // Now the render part owns the view, so we don't any more.
     }
 
-    view->initScrollbars();
+    view->updateCanHaveScrollbars();
 }
 
 @end
 
 @implementation WebFrameView
 
-- initWithCoder:(NSCoder *)decoder
-{
-    // Older nibs containing WebViews will also contain WebFrameViews. We need to keep track of
-    // their count also to match the decrement in -dealloc.
-    ++WebFrameViewCount;
-    return [super initWithCoder:decoder];
-}
-
-- initWithFrame:(NSRect)frame
+- (id)initWithFrame:(NSRect)frame
 {
     self = [super initWithFrame:frame];
     if (!self)
@@ -337,7 +340,7 @@ static inline void addTypesFromClass(NSMutableDictionary *allTypes, Class objCCl
     [scrollView setHasVerticalScroller:NO];
     [scrollView setHasHorizontalScroller:NO];
     [scrollView setAutoresizingMask:NSViewWidthSizable | NSViewHeightSizable];
-    [scrollView setLineScroll:40.0f];
+    [scrollView setLineScroll:Scrollbar::pixelsPerLineStep()];
     [self addSubview:scrollView];
 
     // Don't call our overridden version of setNextKeyView here; we need to make the standard NSView
@@ -345,14 +348,13 @@ static inline void addTypesFromClass(NSMutableDictionary *allTypes, Class objCCl
     // This works together with our becomeFirstResponder and setNextKeyView overrides.
     [super setNextKeyView:scrollView];
     
-    ++WebFrameViewCount;
-    
     return self;
 }
 
 - (void)dealloc 
 {
-    --WebFrameViewCount;
+    if (_private && _private->includedInWebKitStatistics)
+        --WebFrameViewCount;
     
     [_private release];
     _private = nil;
@@ -362,14 +364,16 @@ static inline void addTypesFromClass(NSMutableDictionary *allTypes, Class objCCl
 
 - (void)finalize 
 {
-    --WebFrameViewCount;
+    if (_private && _private->includedInWebKitStatistics)
+        --WebFrameViewCount;
 
     [super finalize];
 }
 
 - (WebFrame *)webFrame
 {
-    return _private->webFrame;
+    // This method can be called beneath -[NSView dealloc] after _private has been cleared.
+    return _private ? _private->webFrame : nil;
 }
 
 - (void)setAllowsScrolling:(BOOL)flag
@@ -529,7 +533,7 @@ static inline void addTypesFromClass(NSMutableDictionary *allTypes, Class objCCl
 {
     if ([self _scrollOverflowInDirection:ScrollUp granularity:ScrollByDocument])
         return YES;
-    if (![self _hasScrollBars])
+    if (![self _isScrollable])
         return NO;
     NSPoint point = [[[self _scrollView] documentView] frame].origin;
     return [[self _contentView] _scrollTo:&point animate:YES];
@@ -539,7 +543,7 @@ static inline void addTypesFromClass(NSMutableDictionary *allTypes, Class objCCl
 {
     if ([self _scrollOverflowInDirection:ScrollDown granularity:ScrollByDocument])
         return YES;
-    if (![self _hasScrollBars])
+    if (![self _isScrollable])
         return NO;
     NSRect frame = [[[self _scrollView] documentView] frame];
     NSPoint point = NSMakePoint(frame.origin.x, NSMaxY(frame));
@@ -551,7 +555,7 @@ static inline void addTypesFromClass(NSMutableDictionary *allTypes, Class objCCl
     if ([self _scrollToBeginningOfDocument])
         return;
     
-    if (WebFrameView *child = [self _largestChildWithScrollBars]) {
+    if (WebFrameView *child = [self _largestScrollableChild]) {
         if ([child _scrollToBeginningOfDocument])
             return;
     }
@@ -563,7 +567,7 @@ static inline void addTypesFromClass(NSMutableDictionary *allTypes, Class objCCl
     if ([self _scrollToEndOfDocument])
         return;
 
-    if (WebFrameView *child = [self _largestChildWithScrollBars]) {
+    if (WebFrameView *child = [self _largestScrollableChild]) {
         if ([child _scrollToEndOfDocument])
             return;
     }
@@ -607,9 +611,8 @@ static inline void addTypesFromClass(NSMutableDictionary *allTypes, Class objCCl
 
 - (float)_horizontalPageScrollDistance
 {
-    float overlap = [self _horizontalKeyboardScrollDistance];
     float width = [[self _contentView] bounds].size.width;
-    return (width < overlap) ? width / 2 : width - overlap;
+    return max<float>(width * Scrollbar::minFractionToStepWhenPaging(), width - Scrollbar::maxOverlapBetweenPages());
 }
 
 - (BOOL)_pageVertically:(BOOL)up
@@ -617,8 +620,8 @@ static inline void addTypesFromClass(NSMutableDictionary *allTypes, Class objCCl
     if ([self _scrollOverflowInDirection:up ? ScrollUp : ScrollDown granularity:ScrollByPage])
         return YES;
     
-    if (![self _hasScrollBars])
-        return [[self _largestChildWithScrollBars] _pageVertically:up];
+    if (![self _isScrollable])
+        return [[self _largestScrollableChild] _pageVertically:up];
 
     float delta = [self _verticalPageScrollDistance];
     return [self _scrollVerticallyBy:up ? -delta : delta];
@@ -629,8 +632,8 @@ static inline void addTypesFromClass(NSMutableDictionary *allTypes, Class objCCl
     if ([self _scrollOverflowInDirection:left ? ScrollLeft : ScrollRight granularity:ScrollByPage])
         return YES;
 
-    if (![self _hasScrollBars])
-        return [[self _largestChildWithScrollBars] _pageHorizontally:left];
+    if (![self _isScrollable])
+        return [[self _largestScrollableChild] _pageHorizontally:left];
     
     float delta = [self _horizontalPageScrollDistance];
     return [self _scrollHorizontallyBy:left ? -delta : delta];
@@ -641,8 +644,8 @@ static inline void addTypesFromClass(NSMutableDictionary *allTypes, Class objCCl
     if ([self _scrollOverflowInDirection:up ? ScrollUp : ScrollDown granularity:ScrollByLine])
         return YES;
 
-    if (![self _hasScrollBars])
-        return [[self _largestChildWithScrollBars] _scrollLineVertically:up];
+    if (![self _isScrollable])
+        return [[self _largestScrollableChild] _scrollLineVertically:up];
     
     float delta = [self _verticalKeyboardScrollDistance];
     return [self _scrollVerticallyBy:up ? -delta : delta];
@@ -653,8 +656,8 @@ static inline void addTypesFromClass(NSMutableDictionary *allTypes, Class objCCl
     if ([self _scrollOverflowInDirection:left ? ScrollLeft : ScrollRight granularity:ScrollByLine])
         return YES;
 
-    if (![self _hasScrollBars])
-        return [[self _largestChildWithScrollBars] _scrollLineHorizontally:left];
+    if (![self _isScrollable])
+        return [[self _largestScrollableChild] _scrollLineHorizontally:left];
 
     float delta = [self _horizontalKeyboardScrollDistance];
     return [self _scrollHorizontallyBy:left ? -delta : delta];
@@ -728,7 +731,7 @@ static inline void addTypesFromClass(NSMutableDictionary *allTypes, Class objCCl
                 // Checking for a control will allow events to percolate 
                 // correctly when the focus is on a form control and we
                 // are in full keyboard access mode.
-                if ((![self allowsScrolling] && ![self _largestChildWithScrollBars]) || [self _firstResponderIsFormControl]) {
+                if ((![self allowsScrolling] && ![self _largestScrollableChild]) || [self _firstResponderIsFormControl]) {
                     callSuper = YES;
                     break;
                 }
@@ -740,7 +743,7 @@ static inline void addTypesFromClass(NSMutableDictionary *allTypes, Class objCCl
                 callSuper = NO;
                 break;
             case NSPageUpFunctionKey:
-                if (![self allowsScrolling] && ![self _largestChildWithScrollBars]) {
+                if (![self allowsScrolling] && ![self _largestScrollableChild]) {
                     callSuper = YES;
                     break;
                 }
@@ -748,7 +751,7 @@ static inline void addTypesFromClass(NSMutableDictionary *allTypes, Class objCCl
                 callSuper = NO;
                 break;
             case NSPageDownFunctionKey:
-                if (![self allowsScrolling] && ![self _largestChildWithScrollBars]) {
+                if (![self allowsScrolling] && ![self _largestScrollableChild]) {
                     callSuper = YES;
                     break;
                 }
@@ -756,7 +759,7 @@ static inline void addTypesFromClass(NSMutableDictionary *allTypes, Class objCCl
                 callSuper = NO;
                 break;
             case NSHomeFunctionKey:
-                if (![self allowsScrolling] && ![self _largestChildWithScrollBars]) {
+                if (![self allowsScrolling] && ![self _largestScrollableChild]) {
                     callSuper = YES;
                     break;
                 }
@@ -764,7 +767,7 @@ static inline void addTypesFromClass(NSMutableDictionary *allTypes, Class objCCl
                 callSuper = NO;
                 break;
             case NSEndFunctionKey:
-                if (![self allowsScrolling] && ![self _largestChildWithScrollBars]) {
+                if (![self allowsScrolling] && ![self _largestScrollableChild]) {
                     callSuper = YES;
                     break;
                 }
@@ -777,7 +780,7 @@ static inline void addTypesFromClass(NSMutableDictionary *allTypes, Class objCCl
                     callSuper = YES;
                     break;
                 }
-                if ((![self allowsScrolling] && ![self _largestChildWithScrollBars]) ||
+                if ((![self allowsScrolling] && ![self _largestScrollableChild]) ||
                     [[[self window] firstResponder] isKindOfClass:[NSPopUpButton class]]) {
                     // Let arrow keys go through to pop up buttons
                     // <rdar://problem/3455910>: hitting up or down arrows when focus is on a 
@@ -800,7 +803,7 @@ static inline void addTypesFromClass(NSMutableDictionary *allTypes, Class objCCl
                     callSuper = YES;
                     break;
                 }
-                if ((![self allowsScrolling] && ![self _largestChildWithScrollBars]) ||
+                if ((![self allowsScrolling] && ![self _largestScrollableChild]) ||
                     [[[self window] firstResponder] isKindOfClass:[NSPopUpButton class]]) {
                     // Let arrow keys go through to pop up buttons
                     // <rdar://problem/3455910>: hitting up or down arrows when focus is on a 
@@ -832,7 +835,7 @@ static inline void addTypesFromClass(NSMutableDictionary *allTypes, Class objCCl
                     [self _goBack];
                 } else {
                     // Now check scrolling related keys.
-                    if ((![self allowsScrolling] && ![self _largestChildWithScrollBars])) {
+                    if ((![self allowsScrolling] && ![self _largestScrollableChild])) {
                         callSuper = YES;
                         break;
                     }
@@ -860,7 +863,7 @@ static inline void addTypesFromClass(NSMutableDictionary *allTypes, Class objCCl
                     [self _goForward];
                 } else {
                     // Now check scrolling related keys.
-                    if ((![self allowsScrolling] && ![self _largestChildWithScrollBars])) {
+                    if ((![self allowsScrolling] && ![self _largestScrollableChild])) {
                         callSuper = YES;
                         break;
                     }
@@ -937,14 +940,52 @@ static inline void addTypesFromClass(NSMutableDictionary *allTypes, Class objCCl
     return frame.size.height * frame.size.width;
 }
 
+- (BOOL)_isScrollable
+{
+    WebDynamicScrollBarsView *scrollView = [self _scrollView];
+    return [scrollView horizontalScrollingAllowed] || [scrollView verticalScrollingAllowed];
+}
+
+- (WebFrameView *)_largestScrollableChild
+{
+    WebFrameView *largest = nil;
+    NSArray *frameChildren = [[self webFrame] childFrames];
+    
+    unsigned i;
+    for (i=0; i < [frameChildren count]; i++) {
+        WebFrameView *childFrameView = [[frameChildren objectAtIndex:i] frameView];
+        WebFrameView *scrollableFrameView = [childFrameView _isScrollable] ? childFrameView : [childFrameView _largestScrollableChild];
+        if (!scrollableFrameView)
+            continue;
+        
+        // Some ads lurk in child frames of zero width and height, see radar 4406994. These don't count as scrollable.
+        // Maybe someday we'll discover that this minimum area check should be larger, but this covers the known cases.
+        float area = [scrollableFrameView _area];
+        if (area < 1.0)
+            continue;
+        
+        if (!largest || (area > [largest _area])) {
+            largest = scrollableFrameView;
+        }
+    }
+    
+    return largest;
+}
+
 - (BOOL)_hasScrollBars
 {
+    // FIXME: This method was used by Safari 4.0.x and older versions, but has not been used by any other WebKit
+    // clients to my knowledge, and will not be used by future versions of Safari. It can probably be removed 
+    // once we no longer need to keep nightly WebKit builds working with Safari 4.0.x and earlier.
     NSScrollView *scrollView = [self _scrollView];
     return [scrollView hasHorizontalScroller] || [scrollView hasVerticalScroller];
 }
 
 - (WebFrameView *)_largestChildWithScrollBars
 {
+    // FIXME: This method was used by Safari 4.0.x and older versions, but has not been used by any other WebKit
+    // clients to my knowledge, and will not be used by future versions of Safari. It can probably be removed 
+    // once we no longer need to keep nightly WebKit builds working with Safari 4.0.x and earlier.
     WebFrameView *largest = nil;
     NSArray *frameChildren = [[self webFrame] childFrames];
     

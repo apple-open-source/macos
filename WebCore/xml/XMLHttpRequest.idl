@@ -29,7 +29,9 @@
 module xml {
 
     interface [
+        CustomConstructor,
         CustomMarkFunction,
+        EventTarget,
         NoStaticTables
     ] XMLHttpRequest {
         // From XMLHttpRequestEventTarget
@@ -89,12 +91,12 @@ module xml {
         [Custom] void overrideMimeType(in DOMString override);
 
         // EventTarget interface
-        [Custom] void addEventListener(in DOMString type, 
-                                      in EventListener listener, 
-                                      in boolean useCapture);
-        [Custom] void removeEventListener(in DOMString type, 
-                                          in EventListener listener, 
-                                          in boolean useCapture);
+        void addEventListener(in DOMString type, 
+                              in EventListener listener, 
+                              in boolean useCapture);
+        void removeEventListener(in DOMString type, 
+                                 in EventListener listener, 
+                                 in boolean useCapture);
         boolean dispatchEvent(in Event evt)
             raises(EventException);
     };

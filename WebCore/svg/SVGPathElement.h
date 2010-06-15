@@ -2,8 +2,6 @@
     Copyright (C) 2004, 2005, 2006, 2008 Nikolas Zimmermann <zimmermann@kde.org>
                   2004, 2005, 2006, 2007 Rob Buis <buis@kde.org>
 
-    This file is part of the KDE project
-
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Library General Public
     License as published by the Free Software Foundation; either
@@ -56,8 +54,7 @@ namespace WebCore {
                            public SVGTests,
                            public SVGLangSpace,
                            public SVGExternalResourcesRequired,
-                           public SVGAnimatedPathData
-    {
+                           public SVGAnimatedPathData {
     public:
         SVGPathElement(const QualifiedName&, Document*);
         virtual ~SVGPathElement();
@@ -65,7 +62,7 @@ namespace WebCore {
         virtual bool isValid() const { return SVGTests::isValid(); }
         float getTotalLength();
         FloatPoint getPointAtLength(float distance);
-        unsigned long getPathSegAtLength(float distance);
+        unsigned long getPathSegAtLength(float distance, ExceptionCode&);
 
         static PassRefPtr<SVGPathSegClosePath> createSVGPathSegClosePath();
         static PassRefPtr<SVGPathSegMovetoAbs> createSVGPathSegMovetoAbs(float x, float y);
@@ -95,18 +92,19 @@ namespace WebCore {
 
         virtual void parseMappedAttribute(MappedAttribute*);
         virtual void svgAttributeChanged(const QualifiedName&);
+        virtual void synchronizeProperty(const QualifiedName&);
 
         virtual Path toPathData() const;
 
         virtual bool supportsMarkers() const { return true; }
 
-    protected:
-        virtual const SVGElement* contextElement() const { return this; }
-
     private:
         mutable RefPtr<SVGPathSegList> m_pathSegList;
 
-        ANIMATED_PROPERTY_DECLARATIONS(SVGPathElement, SVGNames::pathTagString, SVGNames::pathLengthAttrString, float, PathLength, pathLength)
+        DECLARE_ANIMATED_PROPERTY(SVGPathElement, SVGNames::pathLengthAttr, float, PathLength, pathLength)
+
+        // SVGExternalResourcesRequired
+        DECLARE_ANIMATED_PROPERTY(SVGPathElement, SVGNames::externalResourcesRequiredAttr, bool, ExternalResourcesRequired, externalResourcesRequired)
     };
 
 } // namespace WebCore

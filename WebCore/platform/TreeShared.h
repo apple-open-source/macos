@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006, 2007 Apple Inc. All rights reserved.
+ * Copyright (C) 2006, 2007, 2009 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -23,24 +23,19 @@
 
 #include <wtf/Assertions.h>
 #include <wtf/Noncopyable.h>
+#ifndef NDEBUG
+#include <wtf/Threading.h>
+#endif
 
 namespace WebCore {
 
-template<class T> class TreeShared : Noncopyable {
+template<class T> class TreeShared : public Noncopyable {
 public:
-    TreeShared()
-        : m_refCount(0)
+    TreeShared(int initialRefCount = 1)
+        : m_refCount(initialRefCount)
         , m_parent(0)
     {
-#ifndef NDEBUG
-        m_deletionHasBegun = false;
-        m_inRemovedLastRefFunction = false;
-#endif
-    }
-    TreeShared(T* parent)
-        : m_refCount(0)
-        , m_parent(0)
-    {
+        ASSERT(isMainThread());
 #ifndef NDEBUG
         m_deletionHasBegun = false;
         m_inRemovedLastRefFunction = false;
@@ -48,11 +43,14 @@ public:
     }
     virtual ~TreeShared()
     {
+        ASSERT(isMainThread());
+        ASSERT(!m_refCount);
         ASSERT(m_deletionHasBegun);
     }
 
     void ref()
     {
+        ASSERT(isMainThread());
         ASSERT(!m_deletionHasBegun);
         ASSERT(!m_inRemovedLastRefFunction);
         ++m_refCount;
@@ -60,6 +58,8 @@ public:
 
     void deref()
     {
+        ASSERT(isMainThread());
+        ASSERT(m_refCount >= 0);
         ASSERT(!m_deletionHasBegun);
         ASSERT(!m_inRemovedLastRefFunction);
         if (--m_refCount <= 0 && !m_parent) {
@@ -82,8 +82,17 @@ public:
         return m_refCount;
     }
 
-    void setParent(T* parent) { m_parent = parent; }
-    T* parent() const { return m_parent; }
+    void setParent(T* parent)
+    { 
+        ASSERT(isMainThread());
+        m_parent = parent; 
+    }
+
+    T* parent() const
+    {
+        ASSERT(isMainThread());
+        return m_parent;
+    }
 
 #ifndef NDEBUG
     bool m_deletionHasBegun;

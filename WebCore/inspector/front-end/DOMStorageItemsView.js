@@ -32,21 +32,18 @@ WebInspector.DOMStorageItemsView = function(domStorage)
     this.element.addStyleClass("storage-view");
     this.element.addStyleClass("table");
 
-    this.deleteButton = document.createElement("button");
-    this.deleteButton.title = WebInspector.UIString("Delete");
-    this.deleteButton.className = "delete-storage-status-bar-item status-bar-item hidden";
+    this.deleteButton = new WebInspector.StatusBarButton(WebInspector.UIString("Delete"), "delete-storage-status-bar-item");
+    this.deleteButton.visible = false;
     this.deleteButton.addEventListener("click", this._deleteButtonClicked.bind(this), false);
 
-    this.refreshButton = document.createElement("button");
-    this.refreshButton.title = WebInspector.UIString("Refresh");
-    this.refreshButton.className = "refresh-storage-status-bar-item status-bar-item";
+    this.refreshButton = new WebInspector.StatusBarButton(WebInspector.UIString("Refresh"), "refresh-storage-status-bar-item");
     this.refreshButton.addEventListener("click", this._refreshButtonClicked.bind(this), false);
 }
 
 WebInspector.DOMStorageItemsView.prototype = {
     get statusBarItems()
     {
-        return [this.refreshButton, this.deleteButton];
+        return [this.refreshButton.element, this.deleteButton.element];
     },
 
     show: function(parentElement)
@@ -58,49 +55,101 @@ WebInspector.DOMStorageItemsView.prototype = {
     hide: function()
     {
         WebInspector.View.prototype.hide.call(this);
-        this.deleteButton.addStyleClass("hidden");
+        this.deleteButton.visible = false;
     },
 
     update: function()
     {
         this.element.removeChildren();
-        var hasDOMStorage = this.domStorage;
-        if (hasDOMStorage)
-            hasDOMStorage = this.domStorage.domStorage;
+        var callback = this._showDOMStorageEntries.bind(this);
+        this.domStorage.getEntries(callback);
+    },
 
-        if (hasDOMStorage) {
-            var dataGrid = WebInspector.panels.databases.dataGridForDOMStorage(this.domStorage.domStorage);
-            if (!dataGrid)
-                hasDOMStorage = 0;
-            else {
-                this._dataGrid = dataGrid;
-                this.element.appendChild(dataGrid.element);
-                this.deleteButton.removeStyleClass("hidden");
-            }
+    _showDOMStorageEntries: function(entries)
+    {
+        this._dataGrid = this._dataGridForDOMStorageEntries(entries);
+        this.element.appendChild(this._dataGrid.element);
+        this._dataGrid.autoSizeColumns(10);
+        this.deleteButton.visible = true;
+    },
+
+    resize: function()
+    {
+        if (this._dataGrid)
+            this._dataGrid.updateWidths();
+    },
+
+    _dataGridForDOMStorageEntries: function(entries)
+    {
+        var columns = {};
+        columns[0] = {};
+        columns[1] = {};
+        columns[0].title = WebInspector.UIString("Key");
+        columns[1].title = WebInspector.UIString("Value");
+
+        var nodes = [];
+
+        var keys = [];
+        var length = entries.length;
+        for (var i = 0; i < entries.length; i++) {
+            var data = {};
+
+            var key = entries[i][0];
+            data[0] = key;
+            var value = entries[i][1];
+            data[1] = value;
+            var node = new WebInspector.DataGridNode(data, false);
+            node.selectable = true;
+            nodes.push(node);
+            keys.push(key);
         }
 
-        if (!hasDOMStorage) {
-            var emptyMsgElement = document.createElement("div");
-            emptyMsgElement.className = "storage-table-empty";
-            if (this.domStorage)
-            emptyMsgElement.textContent = WebInspector.UIString("This storage is empty.");
-            this.element.appendChild(emptyMsgElement);
-            this._dataGrid = null;
-            this.deleteButton.addStyleClass("hidden");
-        }
+        var dataGrid = new WebInspector.DataGrid(columns, this._editingCallback.bind(this), this._deleteCallback.bind(this));
+        var length = nodes.length;
+        for (var i = 0; i < length; ++i)
+            dataGrid.appendChild(nodes[i]);
+        dataGrid.addCreationNode(false);
+        if (length > 0)
+            nodes[0].selected = true;
+        return dataGrid;
     },
 
     _deleteButtonClicked: function(event)
     {
-        if (this._dataGrid) {
-            this._dataGrid.deleteSelectedRow();
-            
-            this.show();
-        }
+        if (!this._dataGrid || !this._dataGrid.selectedNode)
+            return;
+
+        this._deleteCallback(this._dataGrid.selectedNode);
     },
 
     _refreshButtonClicked: function(event)
     {
+        this.update();
+    },
+    
+    _editingCallback: function(editingNode, columnIdentifier, oldText, newText)
+    {
+        var domStorage = this.domStorage;
+        if (columnIdentifier === 0) {
+            if (oldText)
+                domStorage.removeItem(oldText);
+
+            domStorage.setItem(newText, editingNode.data[1]);
+        } else {
+            domStorage.setItem(editingNode.data[0], newText);
+        }
+        
+        this.update();
+    },
+    
+    _deleteCallback: function(node)
+    {
+        if (!node || node.isCreationNode)
+            return;
+
+        if (this.domStorage)
+            this.domStorage.removeItem(node.data[0]);
+            
         this.update();
     }
 }

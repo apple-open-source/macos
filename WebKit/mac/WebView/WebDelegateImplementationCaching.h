@@ -35,6 +35,9 @@
 struct WebResourceDelegateImplementationCache {
     IMP didCancelAuthenticationChallengeFunc;
     IMP didReceiveAuthenticationChallengeFunc;
+#if USE(PROTECTION_SPACE_AUTH_CALLBACK)
+    IMP canAuthenticateAgainstProtectionSpaceFunc;
+#endif
     IMP identifierForRequestFunc;
     IMP willSendRequestFunc;
     IMP didReceiveResponseFunc;
@@ -49,12 +52,17 @@ struct WebResourceDelegateImplementationCache {
 
 struct WebFrameLoadDelegateImplementationCache {
     IMP didClearWindowObjectForFrameFunc;
+    IMP didClearWindowObjectForFrameInScriptWorldFunc;
+    IMP didClearInspectorWindowObjectForFrameFunc;
     IMP windowScriptObjectAvailableFunc;
     IMP didHandleOnloadEventsForFrameFunc;
     IMP didReceiveServerRedirectForProvisionalLoadForFrameFunc;
     IMP didCancelClientRedirectForFrameFunc;
     IMP willPerformClientRedirectToURLDelayFireDateForFrameFunc;
     IMP didChangeLocationWithinPageForFrameFunc;
+    IMP didPushStateWithinPageForFrameFunc;
+    IMP didReplaceStateWithinPageForFrameFunc;
+    IMP didPopStateWithinPageForFrameFunc;
     IMP willCloseFrameFunc;
     IMP didStartProvisionalLoadForFrameFunc;
     IMP didReceiveTitleForFrameFunc;
@@ -66,6 +74,8 @@ struct WebFrameLoadDelegateImplementationCache {
     IMP didFirstVisuallyNonEmptyLayoutInFrameFunc;
     IMP didReceiveIconForFrameFunc;
     IMP didFinishDocumentLoadForFrameFunc;
+    IMP didDisplayInsecureContentFunc;
+    IMP didRunInsecureContentFunc;
 };
 
 struct WebScriptDebugDelegateImplementationCache {
@@ -78,9 +88,18 @@ struct WebScriptDebugDelegateImplementationCache {
     IMP exceptionWasRaisedFunc;
 };
 
+struct WebHistoryDelegateImplementationCache {
+    IMP navigatedFunc;
+    IMP clientRedirectFunc;
+    IMP serverRedirectFunc;
+    IMP setTitleFunc;
+    IMP populateVisitedLinksFunc;
+};
+
 WebResourceDelegateImplementationCache* WebViewGetResourceLoadDelegateImplementations(WebView *);
 WebFrameLoadDelegateImplementationCache* WebViewGetFrameLoadDelegateImplementations(WebView *);
 WebScriptDebugDelegateImplementationCache* WebViewGetScriptDebugDelegateImplementations(WebView *);
+WebHistoryDelegateImplementationCache* WebViewGetHistoryDelegateImplementations(WebView *webView);
 
 id CallFormDelegate(WebView *, SEL, id, id);
 id CallFormDelegate(WebView *self, SEL selector, id object1, id object2, id object3, id object4, id object5);
@@ -98,6 +117,7 @@ BOOL CallUIDelegateReturningBoolean(BOOL, WebView *, SEL);
 BOOL CallUIDelegateReturningBoolean(BOOL, WebView *, SEL, id);
 BOOL CallUIDelegateReturningBoolean(BOOL, WebView *, SEL, id, id);
 BOOL CallUIDelegateReturningBoolean(BOOL, WebView *, SEL, id, BOOL);
+BOOL CallUIDelegateReturningBoolean(BOOL, WebView *, SEL, id, BOOL, id);
 
 id CallFrameLoadDelegate(IMP, WebView *, SEL);
 id CallFrameLoadDelegate(IMP, WebView *, SEL, id);
@@ -113,8 +133,13 @@ id CallResourceLoadDelegate(IMP, WebView *, SEL, id, NSInteger, id);
 id CallResourceLoadDelegate(IMP, WebView *, SEL, id, id, NSInteger, id);
 
 BOOL CallResourceLoadDelegateReturningBoolean(BOOL, IMP, WebView *, SEL, id, id);
+BOOL CallResourceLoadDelegateReturningBoolean(BOOL, IMP, WebView *, SEL, id, id, id);
 
 id CallScriptDebugDelegate(IMP, WebView *, SEL, id, id, NSInteger, id);
 id CallScriptDebugDelegate(IMP, WebView *, SEL, id, NSInteger, id, NSInteger, id);
 id CallScriptDebugDelegate(IMP, WebView *, SEL, id, NSInteger, id, id, id);
 id CallScriptDebugDelegate(IMP, WebView *, SEL, id, NSInteger, NSInteger, id);
+
+id CallHistoryDelegate(IMP, WebView *, SEL);
+id CallHistoryDelegate(IMP, WebView *, SEL, id, id);
+id CallHistoryDelegate(IMP, WebView *, SEL, id, id, id);

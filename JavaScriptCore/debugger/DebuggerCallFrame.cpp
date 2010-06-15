@@ -41,21 +41,27 @@ const UString* DebuggerCallFrame::functionName() const
     if (!m_callFrame->codeBlock())
         return 0;
 
-    JSFunction* function = static_cast<JSFunction*>(m_callFrame->callee());
+    if (!m_callFrame->callee())
+        return 0;
+
+    JSFunction* function = asFunction(m_callFrame->callee());
     if (!function)
         return 0;
-    return &function->name(&m_callFrame->globalData());
+    return &function->name(m_callFrame);
 }
     
 UString DebuggerCallFrame::calculatedFunctionName() const
 {
     if (!m_callFrame->codeBlock())
-        return 0;
-    
-    JSFunction* function = static_cast<JSFunction*>(m_callFrame->callee());
+        return UString();
+
+    if (!m_callFrame->callee())
+        return UString();
+
+    JSFunction* function = asFunction(m_callFrame->callee());
     if (!function)
-        return 0;
-    return function->calculatedDisplayName(&m_callFrame->globalData());
+        return UString();
+    return function->calculatedDisplayName(m_callFrame);
 }
 
 DebuggerCallFrame::Type DebuggerCallFrame::type() const
@@ -79,14 +85,12 @@ JSValue DebuggerCallFrame::evaluate(const UString& script, JSValue& exception) c
     if (!m_callFrame->codeBlock())
         return JSValue();
 
-    int errLine;
-    UString errMsg;
-    SourceCode source = makeSource(script);
-    RefPtr<EvalNode> evalNode = m_callFrame->scopeChain()->globalData->parser->parse<EvalNode>(m_callFrame, m_callFrame->dynamicGlobalObject()->debugger(), source, &errLine, &errMsg);
-    if (!evalNode)
-        return Error::create(m_callFrame, SyntaxError, errMsg, errLine, source.provider()->asID(), source.provider()->url());
+    RefPtr<EvalExecutable> eval = EvalExecutable::create(m_callFrame, makeSource(script));
+    JSObject* error = eval->compile(m_callFrame, m_callFrame->scopeChain());
+    if (error)
+        return error;
 
-    return m_callFrame->scopeChain()->globalData->interpreter->execute(evalNode.get(), m_callFrame, thisObject(), m_callFrame->scopeChain(), &exception);
+    return m_callFrame->scopeChain()->globalData->interpreter->execute(eval.get(), m_callFrame, thisObject(), m_callFrame->scopeChain(), &exception);
 }
 
 } // namespace JSC

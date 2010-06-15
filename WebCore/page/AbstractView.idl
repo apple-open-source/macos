@@ -28,9 +28,11 @@ module views {
 
     // Introduced in DOM Level 2:
     interface [
-        ObjCCustomImplementation
+        ObjCCustomImplementation,
+        OmitConstructor
     ] AbstractView {
         readonly attribute Document document;
+        readonly attribute Media styleMedia;
     };
 
 }

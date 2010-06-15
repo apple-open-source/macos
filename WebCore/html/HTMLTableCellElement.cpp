@@ -1,6 +1,4 @@
 /**
- * This file is part of the DOM implementation for KDE.
- *
  * Copyright (C) 1997 Martin Jones (mjones@kde.org)
  *           (C) 1997 Torben Weis (weis@kde.org)
  *           (C) 1998 Waldo Bastian (bastian@kde.org)
@@ -92,12 +90,12 @@ void HTMLTableCellElement::parseMappedAttribute(MappedAttribute *attr)
         rSpan = !attr->isNull() ? attr->value().toInt() : 1;
         rSpan = max(1, min(rSpan, maxRowspan));
         if (renderer() && renderer()->isTableCell())
-            static_cast<RenderTableCell*>(renderer())->updateFromElement();
+            toRenderTableCell(renderer())->updateFromElement();
     } else if (attr->name() == colspanAttr) {
         cSpan = !attr->isNull() ? attr->value().toInt() : 1;
         cSpan = max(1, cSpan);
         if (renderer() && renderer()->isTableCell())
-            static_cast<RenderTableCell*>(renderer())->updateFromElement();
+            toRenderTableCell(renderer())->updateFromElement();
     } else if (attr->name() == nowrapAttr) {
         if (!attr->isNull())
             addCSSProperty(attr, CSSPropertyWhiteSpace, CSSValueWebkitNowrap);

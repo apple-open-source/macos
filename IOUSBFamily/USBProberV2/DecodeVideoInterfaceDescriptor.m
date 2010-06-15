@@ -1115,13 +1115,13 @@
 				{
 					[thisDevice addProperty:"bFrameIntervalType:" withValue:"Continuous" atDepth:INTERFACE_LEVEL+1];
 					
-					sprintf((char *)buf, "0x%x (%8.3f ms)", Swap32(&pUncompressedFrameDesc->dwMinFrameInterval), (double ) (pUncompressedFrameDesc->dwMinFrameInterval / 100000) );
+					sprintf((char *)buf, "0x%x (%8.3f ms)", Swap32(&pUncompressedFrameDesc->dwMinFrameInterval), (double ) (pUncompressedFrameDesc->dwMinFrameInterval / 10000) );
 					[thisDevice addProperty:"dwMinFrameInterval (100 ns):" withValue:buf atDepth:INTERFACE_LEVEL+2];
 					
-					sprintf((char *)buf, "0x%x (%8.3f ms)", Swap32(&pUncompressedFrameDesc->dwMaxFrameInterval),  (double ) (pUncompressedFrameDesc->dwMaxFrameInterval / 100000) );
+					sprintf((char *)buf, "0x%x (%8.3f ms)", Swap32(&pUncompressedFrameDesc->dwMaxFrameInterval),  (double ) (pUncompressedFrameDesc->dwMaxFrameInterval / 10000) );
 					[thisDevice addProperty:"dwMaxFrameInterval (100 ns):" withValue:buf atDepth:INTERFACE_LEVEL+2];
 					
-					sprintf((char *)buf, "0x%x (%8.3f ms)", Swap32(&pUncompressedFrameDesc->dwFrameIntervalStep),  (double ) (pUncompressedFrameDesc->dwFrameIntervalStep / 100000) );
+					sprintf((char *)buf, "0x%x (%8.3f ms)", Swap32(&pUncompressedFrameDesc->dwFrameIntervalStep),  (double ) (pUncompressedFrameDesc->dwFrameIntervalStep / 10000) );
 					[thisDevice addProperty:"dwFrameIntervalStep (100 ns):" withValue:buf atDepth:INTERFACE_LEVEL+2];
 					
 				}

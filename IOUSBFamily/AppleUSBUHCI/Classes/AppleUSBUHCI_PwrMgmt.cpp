@@ -30,11 +30,13 @@
 #include <IOKit/usb/USB.h>
 #include <IOKit/usb/IOUSBLog.h>
 #include <IOKit/usb/IOUSBRootHubDevice.h>
+#include <IOKit/usb/IOUSBHubPolicyMaker.h>
 #include <IOKit/pwr_mgt/RootDomain.h>
 #include <IOKit/IORegistryEntry.h>
 #include <IOKit/IOHibernatePrivate.h>
 #include <IOKit/acpi/IOACPIPlatformDevice.h>
 #include <libkern/libkern.h>
+#include <libkern/version.h>
 
 #include "AppleUSBUHCI.h"
 #include "USBTracepoints.h"
@@ -52,7 +54,6 @@
 #ifndef kACPIDevicePathKey
 #define kACPIDevicePathKey			"acpi-path"
 #endif
-
 
 //================================================================================================
 //
@@ -342,8 +343,20 @@ AppleUSBUHCI::RestoreControllerStateFromSleep(void)
 		else if (value & kUHCI_PORTSC_RD)
 		{
 			USBLog(5, "AppleUSBUHCI[%p]::RestoreControllerStateFromSleep  Port %d on bus 0x%x has remote wakeup from some device", this, (int)i+1, (uint32_t)_busNumber);
-			// IOLog("USB (UHCI):Port %d on bus 0x%x has remote wakeup from some device\n", (int)i+1, (uint32_t)_busNumber);
-		}
+
+            // because of how UHCI works, the root hub driver might not be able to detect that there was a remote wakeup 
+			// on a port if the upper level driver issues a Resume before the root hub interrupt timer runs
+			// Let the hub driver know that from here to make sure we get the log
+
+            if (_rootHubDevice && _rootHubDevice->GetPolicyMaker())
+            {
+                _rootHubDevice->GetPolicyMaker()->message(kIOUSBMessageRootHubWakeEvent, this, (void *)(uintptr_t) i);
+            }
+			else
+			{
+				IOLog("USB (UHCI):Port %d on bus 0x%x has remote wakeup from some device\n", (int)i+1, (uint32_t)_busNumber);
+			}
+        }
 	}		
 	ResumeController();
 

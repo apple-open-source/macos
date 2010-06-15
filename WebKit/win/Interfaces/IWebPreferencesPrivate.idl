@@ -79,6 +79,37 @@ interface IWebPreferencesPrivate : IUnknown
     HRESULT isXSSAuditorEnabled([out, retval] BOOL *enabled);
     HRESULT setXSSAuditorEnabled([in] BOOL enabled);
 
+    HRESULT isFrameFlatteningEnabled([out, retval] BOOL *enabled);
+    HRESULT setFrameFlatteningEnabled([in] BOOL enabled);
+
+    HRESULT experimentalNotificationsEnabled([out, retval] BOOL *enabled);
+    HRESULT setExperimentalNotificationsEnabled([in] BOOL enabled);
+
     HRESULT setShouldUseHighResolutionTimers([in] BOOL useHighResolutionTimers);
     HRESULT shouldUseHighResolutionTimers([out, retval] BOOL* useHighResolutionTimers);
+
+    // Used to set preference specified by a test via LayoutTestController.overridePreference(..).
+    // Used by DumpRenderTree.
+    HRESULT setPreferenceForTest([in] BSTR key, [in] BSTR value);
+
+    HRESULT setPluginAllowedRunTime([in] UINT allowedRunTime);
+    HRESULT pluginAllowedRunTime([out, retval] UINT* allowedRunTime);
+
+    HRESULT setAcceleratedCompositingEnabled([in] BOOL);
+    HRESULT acceleratedCompositingEnabled([out, retval] BOOL*);
+
+    HRESULT setCustomDragCursorsEnabled([in] BOOL);
+    HRESULT customDragCursorsEnabled([out, retval] BOOL*);
+
+    HRESULT allowFileAccessFromFileURLs([out, retval] BOOL *allowAccess);
+    HRESULT setAllowFileAccessFromFileURLs([in] BOOL allowAccess);
+
+    HRESULT setShowDebugBorders([in] BOOL);
+    HRESULT showDebugBorders([out, retval] BOOL*);
+
+    HRESULT setShowRepaintCounter([in] BOOL);
+    HRESULT showRepaintCounter([out, retval] BOOL*);
+
+    HRESULT javaScriptCanAccessClipboard([out, retval] BOOL *enabled);
+    HRESULT setJavaScriptCanAccessClipboard([in] BOOL enabled);
 }

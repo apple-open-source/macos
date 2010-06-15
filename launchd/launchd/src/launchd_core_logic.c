@@ -16,7 +16,7 @@
  * @APPLE_APACHE_LICENSE_HEADER_END@
  */
 
-static const char *const __rcs_file_version__ = "$Revision: 24003 $";
+static const char *const __rcs_file_version__ = "$Revision: 24108 $";
 
 #include "config.h"
 #include "launchd_core_logic.h"
@@ -1439,7 +1439,7 @@ job_new_anonymous(jobmgr_t jm, pid_t anonpid)
 	}
 
 	if (jobmgr_assumes(jm, (jr = job_new(jm, AUTO_PICK_ANONYMOUS_LABEL, kp.kp_proc.p_comm, NULL)) != NULL)) {
-		u_int proc_fflags = NOTE_EXEC|NOTE_FORK|NOTE_EXIT|NOTE_REAP;
+		u_int proc_fflags = NOTE_EXEC|NOTE_FORK|NOTE_EXIT;
 
 		total_anon_children++;
 		jr->anonymous = true;
@@ -3338,10 +3338,6 @@ job_callback_proc(job_t j, struct kevent *kev)
 			j = NULL;
 		}
 	}
-
-	if (j && (fflags & NOTE_REAP)) {
-		job_assumes(j, j->p == 0);
-	}
 }
 
 void
@@ -3588,7 +3584,7 @@ job_start(job_t j)
 	char nbuf[64];
 	pid_t c;
 	bool sipc = false;
-	u_int proc_fflags = NOTE_EXIT|NOTE_FORK|NOTE_EXEC|NOTE_REAP;
+	u_int proc_fflags = NOTE_EXIT|NOTE_FORK|NOTE_EXEC;
 	
 	if (!job_assumes(j, j->mgr != NULL)) {
 		return;

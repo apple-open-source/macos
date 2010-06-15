@@ -29,6 +29,8 @@ namespace WTF {
     template<typename Value, typename HashFunctions, typename Traits> class HashSet;
     template<typename Value, typename HashFunctions, typename Traits>
     void deleteAllValues(const HashSet<Value, HashFunctions, Traits>&);
+    template<typename Value, typename HashFunctions, typename Traits>
+    void fastDeleteAllValues(const HashSet<Value, HashFunctions, Traits>&);
 
     template<typename T> struct IdentityExtractor;
 
@@ -79,7 +81,7 @@ namespace WTF {
 
         // An alternate version of add() that finds the object by hashing and comparing
         // with some other type, to avoid the cost of type conversion if the object is already
-        // in the table. HashTranslator must have the following methods:
+        // in the table. HashTranslator must have the following function members:
         //   static unsigned hash(const T&);
         //   static bool equal(const ValueType&, const T&);
         //   static translate(ValueType&, const T&, unsigned hashCode);
@@ -91,6 +93,7 @@ namespace WTF {
 
     private:
         friend void deleteAllValues<>(const HashSet&);
+        friend void fastDeleteAllValues<>(const HashSet&);
 
         HashTableType m_impl;
     };
@@ -176,28 +179,28 @@ namespace WTF {
     }
 
     template<typename Value, typename HashFunctions, typename Traits>
-    template<typename T, typename Translator> 
+    template<typename T, typename HashTranslator>
     typename HashSet<Value, HashFunctions, Traits>::iterator
     inline HashSet<Value, HashFunctions, Traits>::find(const T& value)
     {
-        typedef HashSetTranslatorAdapter<ValueType, ValueTraits, T, Translator> Adapter;
+        typedef HashSetTranslatorAdapter<ValueType, ValueTraits, T, HashTranslator> Adapter;
         return m_impl.template find<T, Adapter>(value);
     }
 
     template<typename Value, typename HashFunctions, typename Traits>
-    template<typename T, typename Translator> 
+    template<typename T, typename HashTranslator>
     typename HashSet<Value, HashFunctions, Traits>::const_iterator
     inline HashSet<Value, HashFunctions, Traits>::find(const T& value) const
     {
-        typedef HashSetTranslatorAdapter<ValueType, ValueTraits, T, Translator> Adapter;
+        typedef HashSetTranslatorAdapter<ValueType, ValueTraits, T, HashTranslator> Adapter;
         return m_impl.template find<T, Adapter>(value);
     }
 
     template<typename Value, typename HashFunctions, typename Traits>
-    template<typename T, typename Translator> 
+    template<typename T, typename HashTranslator>
     inline bool HashSet<Value, HashFunctions, Traits>::contains(const T& value) const
     {
-        typedef HashSetTranslatorAdapter<ValueType, ValueTraits, T, Translator> Adapter;
+        typedef HashSetTranslatorAdapter<ValueType, ValueTraits, T, HashTranslator> Adapter;
         return m_impl.template contains<T, Adapter>(value);
     }
 
@@ -208,11 +211,11 @@ namespace WTF {
     }
 
     template<typename Value, typename HashFunctions, typename Traits>
-    template<typename T, typename Translator> 
+    template<typename T, typename HashTranslator>
     pair<typename HashSet<Value, HashFunctions, Traits>::iterator, bool>
     HashSet<Value, HashFunctions, Traits>::add(const T& value)
     {
-        typedef HashSetTranslatorAdapter<ValueType, ValueTraits, T, Translator> Adapter;
+        typedef HashSetTranslatorAdapter<ValueType, ValueTraits, T, HashTranslator> Adapter;
         return m_impl.template addPassingHashCode<T, T, Adapter>(value, value);
     }
 
@@ -221,7 +224,7 @@ namespace WTF {
     {
         if (it.m_impl == m_impl.end())
             return;
-        m_impl.checkTableConsistency();
+        m_impl.internalCheckTableConsistency();
         m_impl.removeWithoutEntryConsistencyCheck(it.m_impl);
     }
 
@@ -250,6 +253,21 @@ namespace WTF {
     inline void deleteAllValues(const HashSet<T, U, V>& collection)
     {
         deleteAllValues<typename HashSet<T, U, V>::ValueType>(collection.m_impl);
+    }
+
+    template<typename ValueType, typename HashTableType>
+    void fastDeleteAllValues(HashTableType& collection)
+    {
+        typedef typename HashTableType::const_iterator iterator;
+        iterator end = collection.end();
+        for (iterator it = collection.begin(); it != end; ++it)
+            fastDelete(*it);
+    }
+
+    template<typename T, typename U, typename V>
+    inline void fastDeleteAllValues(const HashSet<T, U, V>& collection)
+    {
+        fastDeleteAllValues<typename HashSet<T, U, V>::ValueType>(collection.m_impl);
     }
     
     template<typename T, typename U, typename V, typename W>

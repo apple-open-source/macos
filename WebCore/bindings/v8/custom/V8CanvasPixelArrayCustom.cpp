@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009 Google Inc. All rights reserved.
+ * Copyright (C) 2010 Google Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -29,37 +29,18 @@
  */
 
 #include "config.h"
-#include "CanvasPixelArray.h"
-
-#include "V8Binding.h"
-#include "V8CustomBinding.h"
-#include "V8Proxy.h"
+#include "V8CanvasPixelArray.h"
 
 namespace WebCore {
 
-// Get the specified value from the pixel buffer and return it wrapped as a JavaScript Number object to V8. Accesses outside the valid pixel buffer range return "undefined".
-INDEXED_PROPERTY_GETTER(CanvasPixelArray)
+v8::Handle<v8::Value> toV8(CanvasPixelArray* impl)
 {
-    INC_STATS("DOM.CanvasPixelArray.IndexedPropertyGetter");
-    CanvasPixelArray* pixelBuffer = V8DOMWrapper::convertToNativeObject<CanvasPixelArray>(V8ClassIndex::CANVASPIXELARRAY, info.Holder());
-
-    if ((index < 0) || (index >= pixelBuffer->length()))
-        return v8::Undefined();
-    unsigned char result;
-    if (!pixelBuffer->get(index, result))
-        return v8::Undefined();
-    return v8::Number::New(result);
-}
-
-// Set the specified value in the pixel buffer. Accesses outside the valid pixel buffer range are silently ignored.
-INDEXED_PROPERTY_SETTER(CanvasPixelArray)
-{
-    INC_STATS("DOM.CanvasPixelArray.IndexedPropertySetter");
-    CanvasPixelArray* pixelBuffer = V8DOMWrapper::convertToNativeObject<CanvasPixelArray>(V8ClassIndex::CANVASPIXELARRAY, info.Holder());
-
-    if ((index >= 0) && (index < pixelBuffer->length()))
-        pixelBuffer->set(index, value->NumberValue());
-    return value;
+    if (!impl)
+        return v8::Null();
+    v8::Handle<v8::Object> wrapper = V8CanvasPixelArray::wrap(impl);
+    if (!wrapper.IsEmpty())
+        wrapper->SetIndexedPropertiesToPixelData(impl->data()->data(), impl->length());
+    return wrapper;
 }
 
 } // namespace WebCore

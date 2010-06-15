@@ -51,7 +51,7 @@ static inline bool isEqual(LPCWSTR s1, LPCWSTR s2)
     return !wcscmp(s1, s2);
 }
 
-class DatabaseDetailsPropertyBag : public IPropertyBag, Noncopyable {
+class DatabaseDetailsPropertyBag : public IPropertyBag, public Noncopyable {
 public:
     static DatabaseDetailsPropertyBag* createInstance(const DatabaseDetails&);
 
@@ -286,7 +286,7 @@ HRESULT STDMETHODCALLTYPE WebDatabaseManager::deleteAllDatabases()
 
     return S_OK;
 }
-   
+
 HRESULT STDMETHODCALLTYPE WebDatabaseManager::deleteOrigin( 
     /* [in] */ IWebSecurityOrigin* origin)
 {
@@ -336,6 +336,21 @@ void WebDatabaseManager::dispatchDidModifyOrigin(SecurityOrigin* origin)
     notifyCenter->postNotificationName(databaseDidModifyOriginName, securityOrigin.get(), 0);
 }
 
+HRESULT STDMETHODCALLTYPE WebDatabaseManager::setQuota(
+    /* [in] */ BSTR origin,
+    /* [in] */ unsigned long long quota)
+{
+    if (!origin)
+        return E_POINTER;
+
+    if (this != s_sharedWebDatabaseManager)
+        return E_FAIL;
+
+    DatabaseTracker::tracker().setQuota(SecurityOrigin::createFromString(origin).get(), quota);
+
+    return S_OK;
+}
+
 void WebDatabaseManager::dispatchDidModifyDatabase(SecurityOrigin* origin, const String& databaseName)
 {
     static BSTR databaseDidModifyOriginName = SysAllocString(WebDatabaseDidModifyDatabaseNotification);
@@ -349,22 +364,22 @@ void WebDatabaseManager::dispatchDidModifyDatabase(SecurityOrigin* origin, const
     RetainPtr<CFStringRef> str(AdoptCF, databaseName.createCFString());
     CFDictionarySetValue(userInfo.get(), databaseNameKey, str.get());
 
-    COMPtr<CFDictionaryPropertyBag> userInfoBag(AdoptCOM, CFDictionaryPropertyBag::createInstance());
+    COMPtr<CFDictionaryPropertyBag> userInfoBag = CFDictionaryPropertyBag::createInstance();
     userInfoBag->setDictionary(userInfo.get());
 
     notifyCenter->postNotificationName(databaseDidModifyOriginName, securityOrigin.get(), userInfoBag.get());
 }
 
-void WebKitSetWebDatabasesPathIfNecessary()
+void WebKitInitializeWebDatabasesIfNecessary()
 {
-    static bool pathSet = false;
-    if (pathSet)
+    static bool initialized = false;
+    if (initialized)
         return;
 
     WebCore::String databasesDirectory = WebCore::pathByAppendingComponent(WebCore::localUserSpecificStorageDirectory(), "Databases");
-    WebCore::DatabaseTracker::tracker().setDatabaseDirectoryPath(databasesDirectory);
+    WebCore::DatabaseTracker::initializeTracker(databasesDirectory);
 
-    pathSet = true;
+    initialized = true;
 }
 
 #endif

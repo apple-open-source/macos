@@ -36,15 +36,15 @@
 
 namespace JSC {
 
-    class CallIdentifier;
     class ExecState;
     class JSGlobalData;
     class JSObject;
     class JSValue;
     class ProfileGenerator;
     class UString;
+    struct CallIdentifier;    
 
-    class Profiler {
+    class Profiler : public FastAllocBase {
     public:
         static Profiler** enabledProfilerReference()
         {
@@ -52,7 +52,7 @@ namespace JSC {
         }
 
         static Profiler* profiler(); 
-        static CallIdentifier createCallIdentifier(JSGlobalData*, JSValue, const UString& sourceURL, int lineNumber);
+        static CallIdentifier createCallIdentifier(ExecState* exec, JSValue, const UString& sourceURL, int lineNumber);
 
         void startProfiling(ExecState*, const UString& title);
         PassRefPtr<Profile> stopProfiling(ExecState*, const UString& title);

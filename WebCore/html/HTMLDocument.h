@@ -1,7 +1,7 @@
 /*
  * Copyright (C) 1999 Lars Knoll (knoll@kde.org)
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
- * Copyright (C) 2004, 2006, 2007, 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2004, 2006, 2007, 2008, 2009 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -23,8 +23,10 @@
 #ifndef HTMLDocument_h
 #define HTMLDocument_h
 
+#include "AtomicStringHash.h"
 #include "CachedResourceClient.h"
 #include "Document.h"
+#include <wtf/HashCountedSet.h>
 
 namespace WebCore {
 
@@ -35,7 +37,7 @@ class HTMLDocument : public Document, public CachedResourceClient {
 public:
     static PassRefPtr<HTMLDocument> create(Frame* frame)
     {
-        return new HTMLDocument(frame);
+        return adoptRef(new HTMLDocument(frame));
     }
     virtual ~HTMLDocument();
 
@@ -69,10 +71,6 @@ public:
     void captureEvents();
     void releaseEvents();
 
-    virtual bool childAllowed(Node*);
-
-    virtual PassRefPtr<Element> createElement(const AtomicString& tagName, ExceptionCode&);
-
     void addNamedItem(const AtomicString& name);
     void removeNamedItem(const AtomicString& name);
     bool hasNamedItem(AtomicStringImpl* name);
@@ -81,19 +79,20 @@ public:
     void removeExtraNamedItem(const AtomicString& name);
     bool hasExtraNamedItem(AtomicStringImpl* name);
 
-    typedef HashMap<AtomicStringImpl*, int> NameCountMap;
-
 protected:
     HTMLDocument(Frame*);
 
 private:
-    virtual bool isHTMLDocument() const { return true; }
+    virtual bool childAllowed(Node*);
+
+    virtual PassRefPtr<Element> createElement(const AtomicString& tagName, ExceptionCode&);
+
     virtual bool isFrameSet() const;
     virtual Tokenizer* createTokenizer();
     virtual void determineParseMode();
 
-    NameCountMap m_namedItemCounts;
-    NameCountMap m_extraNamedItemCounts;
+    HashCountedSet<AtomicStringImpl*> m_namedItemCounts;
+    HashCountedSet<AtomicStringImpl*> m_extraNamedItemCounts;
 };
 
 inline bool HTMLDocument::hasNamedItem(AtomicStringImpl* name)
@@ -108,6 +107,6 @@ inline bool HTMLDocument::hasExtraNamedItem(AtomicStringImpl* name)
     return m_extraNamedItemCounts.contains(name);
 }
 
-} // namespace
+} // namespace WebCore
 
-#endif
+#endif // HTMLDocument_h

@@ -31,13 +31,15 @@
 
 #if ENABLE(DATABASE)
 
+#include "Chrome.h"
 #include "ChromeClient.h"
 #include "Database.h"
+#include "DatabaseThread.h"
 #include "DatabaseTrackerClient.h"
-#include "Document.h"
 #include "Logging.h"
 #include "OriginQuotaManager.h"
 #include "Page.h"
+#include "ScriptExecutionContext.h"
 #include "SecurityOrigin.h"
 #include "SecurityOriginHash.h"
 #include "SQLiteFileSystem.h"
@@ -47,53 +49,64 @@
 
 using namespace std;
 
+static WebCore::OriginQuotaManager& originQuotaManager()
+{
+    DEFINE_STATIC_LOCAL(WebCore::OriginQuotaManager, quotaManager, ());
+    return quotaManager;
+}
+
 namespace WebCore {
 
-OriginQuotaManager& DatabaseTracker::originQuotaManager()
+static DatabaseTracker* staticTracker = 0;
+
+void DatabaseTracker::initializeTracker(const String& databasePath)
 {
-    populateOrigins();
-    ASSERT(m_quotaManager);
-    return *m_quotaManager;
+    ASSERT(!staticTracker);
+    if (staticTracker)
+        return;
+
+    staticTracker = new DatabaseTracker(databasePath);
 }
 
 DatabaseTracker& DatabaseTracker::tracker()
 {
-    DEFINE_STATIC_LOCAL(DatabaseTracker, tracker, ());
-    return tracker;
+    if (!staticTracker)
+        staticTracker = new DatabaseTracker("");
+
+    return *staticTracker;
 }
 
-DatabaseTracker::DatabaseTracker()
+DatabaseTracker::DatabaseTracker(const String& databasePath)
     : m_client(0)
-    , m_proposedDatabase(0)
-#ifndef NDEBUG
-    , m_thread(currentThread())
-#endif
 {
+    setDatabaseDirectoryPath(databasePath);
+    
     SQLiteFileSystem::registerSQLiteVFS();
+
+    MutexLocker lockDatabase(m_databaseGuard);
+    populateOrigins();
 }
 
 void DatabaseTracker::setDatabaseDirectoryPath(const String& path)
 {
-    ASSERT(currentThread() == m_thread);
+    MutexLocker lockDatabase(m_databaseGuard);
     ASSERT(!m_database.isOpen());
-    m_databaseDirectoryPath = path;
+    m_databaseDirectoryPath = path.threadsafeCopy();
 }
 
-const String& DatabaseTracker::databaseDirectoryPath() const
+String DatabaseTracker::databaseDirectoryPath() const
 {
-    ASSERT(currentThread() == m_thread);
-    return m_databaseDirectoryPath;
+    return m_databaseDirectoryPath.threadsafeCopy();
 }
 
 String DatabaseTracker::trackerDatabasePath() const
 {
-    ASSERT(currentThread() == m_thread);
     return SQLiteFileSystem::appendDatabaseFileNameToPath(m_databaseDirectoryPath, "Databases.db");
 }
 
 void DatabaseTracker::openTrackerDatabase(bool createIfDoesNotExist)
 {
-    ASSERT(currentThread() == m_thread);
+    ASSERT(!m_databaseGuard.tryLock());
 
     if (m_database.isOpen())
         return;
@@ -104,70 +117,96 @@ void DatabaseTracker::openTrackerDatabase(bool createIfDoesNotExist)
 
     if (!m_database.open(databasePath)) {
         // FIXME: What do do here?
+        LOG_ERROR("Failed to open databasePath %s.", databasePath.ascii().data());
         return;
     }
+    m_database.disableThreadingChecks();
     if (!m_database.tableExists("Origins")) {
         if (!m_database.executeCommand("CREATE TABLE Origins (origin TEXT UNIQUE ON CONFLICT REPLACE, quota INTEGER NOT NULL ON CONFLICT FAIL);")) {
             // FIXME: and here
+            LOG_ERROR("Failed to create Origins table");
         }
     }
     if (!m_database.tableExists("Databases")) {
         if (!m_database.executeCommand("CREATE TABLE Databases (guid INTEGER PRIMARY KEY AUTOINCREMENT, origin TEXT, name TEXT, displayName TEXT, estimatedSize INTEGER, path TEXT);")) {
             // FIXME: and here
+            LOG_ERROR("Failed to create Databases table");
         }
     }
 }
 
-bool DatabaseTracker::canEstablishDatabase(Document* document, const String& name, const String& displayName, unsigned long estimatedSize)
+bool DatabaseTracker::canEstablishDatabase(ScriptExecutionContext* context, const String& name, const String& displayName, unsigned long estimatedSize)
 {
-    ASSERT(currentThread() == m_thread);
+    SecurityOrigin* origin = context->securityOrigin();
+    ProposedDatabase details;
 
-    // Populate the origins before we establish a database; this guarantees that quotaForOrigin
-    // can run on the database thread later.
-    populateOrigins();
+    unsigned long long requirement;
+    unsigned long long tempUsage;
+    {
+        MutexLocker lockDatabase(m_databaseGuard);
+        Locker<OriginQuotaManager> quotaManagerLocker(originQuotaManager());
 
-    SecurityOrigin* origin = document->securityOrigin();
+        if (!canCreateDatabase(origin, name))
+            return false;
 
-    // Since we're imminently opening a database within this Document's origin, make sure this origin is being tracked by the QuotaTracker
-    // by fetching it's current usage now
-    unsigned long long usage = usageForOrigin(origin);
-    
-    // If a database already exists, ignore the passed-in estimated size and say it's OK.
-    if (hasEntryForDatabase(origin, name))
-        return true;
+        recordCreatingDatabase(origin, name);
 
-    // If the database will fit, allow its creation.
-    unsigned long long requirement = usage + max(1UL, estimatedSize);
-    if (requirement < usage)
-        return false; // If the estimated size is so big it causes an overflow, don't allow creation.
-    if (requirement <= quotaForOrigin(origin))
-        return true;
+        // Since we're imminently opening a database within this context's origin, make sure this origin is being tracked by the QuotaTracker
+        // by fetching its current usage now.
+        unsigned long long usage = usageForOriginNoLock(origin);
 
-    // Give the chrome client a chance to increase the quota.
-    // Temporarily make the details of the proposed database available, so the client can get at them.
-    Page* page = document->page();
-    if (!page)
-        return false;
-    pair<SecurityOrigin*, DatabaseDetails> details(origin, DatabaseDetails(name, displayName, estimatedSize, 0));
-    m_proposedDatabase = &details;
-    page->chrome()->client()->exceededDatabaseQuota(document->frame(), name);
-    m_proposedDatabase = 0;
+        // If a database already exists, ignore the passed-in estimated size and say it's OK.
+        if (hasEntryForDatabase(origin, name))
+            return true;
+
+        // If the database will fit, allow its creation.
+        requirement = usage + max(1UL, estimatedSize);
+        tempUsage = usage;
+        if (requirement < usage) {
+            doneCreatingDatabase(origin, name);
+            return false; // If the estimated size is so big it causes an overflow, don't allow creation.
+        }
+        if (requirement <= quotaForOriginNoLock(origin))
+            return true;
+
+        // Give the chrome client a chance to increase the quota.
+        // Temporarily make the details of the proposed database available, so the client can get at them.
+        // FIXME: We should really just pass the details into this call, rather than using m_proposedDatabases.
+        details = ProposedDatabase(origin->threadsafeCopy(), DatabaseDetails(name.threadsafeCopy(), displayName.threadsafeCopy(), estimatedSize, 0));
+        m_proposedDatabases.add(&details);
+    }
+    // Drop all locks before calling out; we don't know what they'll do.
+    context->databaseExceededQuota(name);
+
+    MutexLocker lockDatabase(m_databaseGuard);
+
+    m_proposedDatabases.remove(&details);
 
     // If the database will fit now, allow its creation.
-    return requirement <= quotaForOrigin(origin);
+    if (requirement <= quotaForOriginNoLock(origin))
+        return true;
+
+    doneCreatingDatabase(origin, name);
+
+    return false;
+}
+
+bool DatabaseTracker::hasEntryForOriginNoLock(SecurityOrigin* origin)
+{
+    ASSERT(!m_databaseGuard.tryLock());
+    ASSERT(m_quotaMap);
+    return m_quotaMap->contains(origin);
 }
 
 bool DatabaseTracker::hasEntryForOrigin(SecurityOrigin* origin)
 {
-    ASSERT(currentThread() == m_thread);
-    populateOrigins();
-    MutexLocker lockQuotaMap(m_quotaMapGuard);
-    return m_quotaMap->contains(origin);
+    MutexLocker lockDatabase(m_databaseGuard);
+    return hasEntryForOriginNoLock(origin);
 }
 
 bool DatabaseTracker::hasEntryForDatabase(SecurityOrigin* origin, const String& databaseIdentifier)
 {
-    ASSERT(currentThread() == m_thread);
+    ASSERT(!m_databaseGuard.tryLock());
     openTrackerDatabase(false);
     if (!m_database.isOpen())
         return false;
@@ -182,28 +221,45 @@ bool DatabaseTracker::hasEntryForDatabase(SecurityOrigin* origin, const String& 
     return statement.step() == SQLResultRow;
 }
 
-String DatabaseTracker::originPath(SecurityOrigin* origin) const
+unsigned long long DatabaseTracker::getMaxSizeForDatabase(const Database* database)
 {
-    ASSERT(currentThread() == m_thread);
-    return SQLiteFileSystem::appendDatabaseFileNameToPath(m_databaseDirectoryPath, origin->databaseIdentifier());
+    ASSERT(currentThread() == database->scriptExecutionContext()->databaseThread()->getThreadID());
+    // The maximum size for a database is the full quota for its origin, minus the current usage within the origin,
+    // plus the current usage of the given database
+    MutexLocker lockDatabase(m_databaseGuard);
+    Locker<OriginQuotaManager> quotaManagerLocker(originQuotaManager());
+    SecurityOrigin* origin = database->securityOrigin();
+    return quotaForOriginNoLock(origin) - originQuotaManager().diskUsage(origin) + SQLiteFileSystem::getDatabaseFileSize(database->fileName());
 }
 
-String DatabaseTracker::fullPathForDatabase(SecurityOrigin* origin, const String& name, bool createIfNotExists)
+void DatabaseTracker::databaseChanged(Database* database)
 {
-    ASSERT(currentThread() == m_thread);
+    Locker<OriginQuotaManager> quotaManagerLocker(originQuotaManager());
+    originQuotaManager().markDatabase(database);
+}
 
-    if (m_proposedDatabase && m_proposedDatabase->first == origin && m_proposedDatabase->second.name() == name)
-        return String();
+String DatabaseTracker::originPath(SecurityOrigin* origin) const
+{
+    return SQLiteFileSystem::appendDatabaseFileNameToPath(m_databaseDirectoryPath.threadsafeCopy(), origin->databaseIdentifier());
+}
+
+String DatabaseTracker::fullPathForDatabaseNoLock(SecurityOrigin* origin, const String& name, bool createIfNotExists)
+{
+    ASSERT(!m_databaseGuard.tryLock());
+    ASSERT(!originQuotaManager().tryLock());
+
+    for (HashSet<ProposedDatabase*>::iterator iter = m_proposedDatabases.begin(); iter != m_proposedDatabases.end(); ++iter)
+        if ((*iter)->second.name() == name && (*iter)->first->equal(origin))
+            return String();
 
     String originIdentifier = origin->databaseIdentifier();
     String originPath = this->originPath(origin);
-    
+
     // Make sure the path for this SecurityOrigin exists
     if (createIfNotExists && !SQLiteFileSystem::ensureDatabaseDirectoryExists(originPath))
         return String();
-    
+
     // See if we have a path for this database yet
-    openTrackerDatabase(false);
     if (!m_database.isOpen())
         return String();
     SQLiteStatement statement(m_database, "SELECT path FROM Databases WHERE origin=? AND name=?;");
@@ -220,45 +276,41 @@ String DatabaseTracker::fullPathForDatabase(SecurityOrigin* origin, const String
         return SQLiteFileSystem::appendDatabaseFileNameToPath(originPath, statement.getColumnText(0));
     if (!createIfNotExists)
         return String();
-        
+
     if (result != SQLResultDone) {
-        LOG_ERROR("Failed to retrieve filename from Database Tracker for origin %s, name %s", origin->databaseIdentifier().ascii().data(), name.ascii().data());
+        LOG_ERROR("Failed to retrieve filename from Database Tracker for origin %s, name %s", originIdentifier.ascii().data(), name.ascii().data());
         return String();
     }
     statement.finalize();
-    
-    SQLiteStatement sequenceStatement(m_database, "SELECT seq FROM sqlite_sequence WHERE name='Databases';");
 
-    // FIXME: More informative error handling here, even though these steps should never fail
-    if (sequenceStatement.prepare() != SQLResultOk)
-        return String();
-    result = sequenceStatement.step();
-
-    String fileName = SQLiteFileSystem::getFileNameForNewDatabase(originPath, origin->databaseIdentifier(), name, &m_database);
+    String fileName = SQLiteFileSystem::getFileNameForNewDatabase(originPath, name, originIdentifier, &m_database);
     if (!addDatabase(origin, name, fileName))
         return String();
 
     // If this origin's quota is being tracked (open handle to a database in this origin), add this new database
     // to the quota manager now
     String fullFilePath = SQLiteFileSystem::appendDatabaseFileNameToPath(originPath, fileName);
-    {
-        Locker<OriginQuotaManager> locker(originQuotaManager());
-        if (originQuotaManager().tracksOrigin(origin))
-            originQuotaManager().addDatabase(origin, name, fullFilePath);
-    }
-    
+    if (originQuotaManager().tracksOrigin(origin))
+        originQuotaManager().addDatabase(origin, name, fullFilePath);
+
     return fullFilePath;
+}
+
+String DatabaseTracker::fullPathForDatabase(SecurityOrigin* origin, const String& name, bool createIfNotExists)
+{
+    MutexLocker lockDatabase(m_databaseGuard);
+    Locker<OriginQuotaManager> quotaManagerLocker(originQuotaManager());
+
+    return fullPathForDatabaseNoLock(origin, name, createIfNotExists).threadsafeCopy();
 }
 
 void DatabaseTracker::populateOrigins()
 {
+    ASSERT(!m_databaseGuard.tryLock());
     if (m_quotaMap)
         return;
 
-    ASSERT(currentThread() == m_thread);
-
     m_quotaMap.set(new QuotaMap);
-    m_quotaManager.set(new OriginQuotaManager);
 
     openTrackerDatabase(false);
     if (!m_database.isOpen())
@@ -266,30 +318,31 @@ void DatabaseTracker::populateOrigins()
 
     SQLiteStatement statement(m_database, "SELECT origin, quota FROM Origins");
 
-    if (statement.prepare() != SQLResultOk)
+    if (statement.prepare() != SQLResultOk) {
+        LOG_ERROR("Failed to prepare statement.");
         return;
+    }
 
     int result;
     while ((result = statement.step()) == SQLResultRow) {
         RefPtr<SecurityOrigin> origin = SecurityOrigin::createFromDatabaseIdentifier(statement.getColumnText(0));
-        m_quotaMap->set(origin.get(), statement.getColumnInt64(1));
+        m_quotaMap->set(origin.get()->threadsafeCopy(), statement.getColumnInt64(1));
     }
 
     if (result != SQLResultDone)
-        LOG_ERROR("Failed to read in all origins from the database");
+        LOG_ERROR("Failed to read in all origins from the database.");
 }
 
 void DatabaseTracker::origins(Vector<RefPtr<SecurityOrigin> >& result)
 {
-    ASSERT(currentThread() == m_thread);
-    populateOrigins();
-    MutexLocker lockQuotaMap(m_quotaMapGuard);
+    MutexLocker lockDatabase(m_databaseGuard);
+    ASSERT(m_quotaMap);
     copyKeysToVector(*m_quotaMap, result);
 }
 
-bool DatabaseTracker::databaseNamesForOrigin(SecurityOrigin* origin, Vector<String>& resultVector)
+bool DatabaseTracker::databaseNamesForOriginNoLock(SecurityOrigin* origin, Vector<String>& resultVector)
 {
-    ASSERT(currentThread() == m_thread);
+    ASSERT(!m_databaseGuard.tryLock());
     openTrackerDatabase(false);
     if (!m_database.isOpen())
         return false;
@@ -313,54 +366,77 @@ bool DatabaseTracker::databaseNamesForOrigin(SecurityOrigin* origin, Vector<Stri
     return true;
 }
 
+bool DatabaseTracker::databaseNamesForOrigin(SecurityOrigin* origin, Vector<String>& resultVector)
+{
+    Vector<String> temp;
+    {
+        MutexLocker lockDatabase(m_databaseGuard);
+        if (!databaseNamesForOriginNoLock(origin, temp))
+          return false;
+    }
+
+    for (Vector<String>::iterator iter = temp.begin(); iter != temp.end(); ++iter)
+        resultVector.append(iter->threadsafeCopy());
+    return true;
+}
+
 DatabaseDetails DatabaseTracker::detailsForNameAndOrigin(const String& name, SecurityOrigin* origin)
 {
-    ASSERT(currentThread() == m_thread);
-
-    if (m_proposedDatabase && m_proposedDatabase->first == origin && m_proposedDatabase->second.name() == name)
-        return m_proposedDatabase->second;
-
     String originIdentifier = origin->databaseIdentifier();
+    String displayName;
+    int64_t expectedUsage;
 
-    openTrackerDatabase(false);
-    if (!m_database.isOpen())
-        return DatabaseDetails();
-    SQLiteStatement statement(m_database, "SELECT displayName, estimatedSize FROM Databases WHERE origin=? AND name=?");
-    if (statement.prepare() != SQLResultOk)
-        return DatabaseDetails();
-   
-    statement.bindText(1, originIdentifier);
-    statement.bindText(2, name);
-    
-    int result = statement.step();
-    if (result == SQLResultDone)
-        return DatabaseDetails();
-    
-    if (result != SQLResultRow) {
-        LOG_ERROR("Error retrieving details for database %s in origin %s from tracker database", name.ascii().data(), originIdentifier.ascii().data());
-        return DatabaseDetails();
+    {
+        MutexLocker lockDatabase(m_databaseGuard);
+
+        for (HashSet<ProposedDatabase*>::iterator iter = m_proposedDatabases.begin(); iter != m_proposedDatabases.end(); ++iter)
+            if ((*iter)->second.name() == name && (*iter)->first->equal(origin)) {
+                ASSERT((*iter)->second.thread() == currentThread());
+                return (*iter)->second;
+            }
+
+        openTrackerDatabase(false);
+        if (!m_database.isOpen())
+            return DatabaseDetails();
+        SQLiteStatement statement(m_database, "SELECT displayName, estimatedSize FROM Databases WHERE origin=? AND name=?");
+        if (statement.prepare() != SQLResultOk)
+            return DatabaseDetails();
+
+        statement.bindText(1, originIdentifier);
+        statement.bindText(2, name);
+
+        int result = statement.step();
+        if (result == SQLResultDone)
+            return DatabaseDetails();
+
+        if (result != SQLResultRow) {
+            LOG_ERROR("Error retrieving details for database %s in origin %s from tracker database", name.ascii().data(), originIdentifier.ascii().data());
+            return DatabaseDetails();
+        }
+        displayName = statement.getColumnText(0);
+        expectedUsage = statement.getColumnInt64(1);
     }
-    
-    return DatabaseDetails(name, statement.getColumnText(0), statement.getColumnInt64(1), usageForDatabase(name, origin));
+
+    return DatabaseDetails(name, displayName, expectedUsage, usageForDatabase(name, origin));
 }
 
 void DatabaseTracker::setDatabaseDetails(SecurityOrigin* origin, const String& name, const String& displayName, unsigned long estimatedSize)
 {
-    ASSERT(currentThread() == m_thread);
-
     String originIdentifier = origin->databaseIdentifier();
     int64_t guid = 0;
-    
+
+    MutexLocker lockDatabase(m_databaseGuard);
+
     openTrackerDatabase(true);
     if (!m_database.isOpen())
         return;
     SQLiteStatement statement(m_database, "SELECT guid FROM Databases WHERE origin=? AND name=?");
     if (statement.prepare() != SQLResultOk)
         return;
-        
+
     statement.bindText(1, originIdentifier);
     statement.bindText(2, name);
-    
+
     int result = statement.step();
     if (result == SQLResultRow)
         guid = statement.getColumnInt64(0);
@@ -378,31 +454,30 @@ void DatabaseTracker::setDatabaseDetails(SecurityOrigin* origin, const String& n
         }
         return;
     }
-    
+
     SQLiteStatement updateStatement(m_database, "UPDATE Databases SET displayName=?, estimatedSize=? WHERE guid=?");
     if (updateStatement.prepare() != SQLResultOk)
         return;
-    
+
     updateStatement.bindText(1, displayName);
     updateStatement.bindInt64(2, estimatedSize);
     updateStatement.bindInt64(3, guid);
-    
+
     if (updateStatement.step() != SQLResultDone) {
         LOG_ERROR("Failed to update details for database %s in origin %s", name.ascii().data(), originIdentifier.ascii().data());
-        return;  
+        return;
     }
-    
+
     if (m_client)
         m_client->dispatchDidModifyDatabase(origin, name);
 }
 
 unsigned long long DatabaseTracker::usageForDatabase(const String& name, SecurityOrigin* origin)
 {
-    ASSERT(currentThread() == m_thread);
     String path = fullPathForDatabase(origin, name, false);
     if (path.isEmpty())
         return 0;
-        
+
     return SQLiteFileSystem::getDatabaseFileSize(path);
 }
 
@@ -411,29 +486,32 @@ void DatabaseTracker::addOpenDatabase(Database* database)
     if (!database)
         return;
 
-    MutexLocker openDatabaseMapLock(m_openDatabaseMapGuard);
+    {
+        MutexLocker openDatabaseMapLock(m_openDatabaseMapGuard);
 
-    if (!m_openDatabaseMap)
-        m_openDatabaseMap.set(new DatabaseOriginMap);
+        if (!m_openDatabaseMap)
+            m_openDatabaseMap.set(new DatabaseOriginMap);
 
-    RefPtr<SecurityOrigin> origin(database->securityOriginCopy());
-    String name(database->stringIdentifier());
+        String name(database->stringIdentifier());
+        DatabaseNameMap* nameMap = m_openDatabaseMap->get(database->securityOrigin());
+        if (!nameMap) {
+            nameMap = new DatabaseNameMap;
+            m_openDatabaseMap->set(database->securityOrigin()->threadsafeCopy(), nameMap);
+        }
 
-    DatabaseNameMap* nameMap = m_openDatabaseMap->get(origin);
-    if (!nameMap) {
-        nameMap = new DatabaseNameMap;
-        m_openDatabaseMap->set(origin, nameMap);
+        DatabaseSet* databaseSet = nameMap->get(name);
+        if (!databaseSet) {
+            databaseSet = new DatabaseSet;
+            nameMap->set(name.threadsafeCopy(), databaseSet);
+        }
+
+        databaseSet->add(database);
+
+        LOG(StorageAPI, "Added open Database %s (%p)\n", database->stringIdentifier().ascii().data(), database);
     }
 
-    DatabaseSet* databaseSet = nameMap->get(name);
-    if (!databaseSet) {
-        databaseSet = new DatabaseSet;
-        nameMap->set(name, databaseSet);
-    }
-
-    databaseSet->add(database);
-
-    LOG(StorageAPI, "Added open Database %s (%p)\n", database->stringIdentifier().ascii().data(), database);
+    MutexLocker lockDatabase(m_databaseGuard);
+    doneCreatingDatabase(database->securityOrigin(), database->stringIdentifier());
 }
 
 void DatabaseTracker::removeOpenDatabase(Database* database)
@@ -441,117 +519,146 @@ void DatabaseTracker::removeOpenDatabase(Database* database)
     if (!database)
         return;
 
-    MutexLocker openDatabaseMapLock(m_openDatabaseMapGuard);
+    {
+        MutexLocker openDatabaseMapLock(m_openDatabaseMapGuard);
 
-    if (!m_openDatabaseMap) {
-        ASSERT_NOT_REACHED();
-        return;
+        if (!m_openDatabaseMap) {
+            ASSERT_NOT_REACHED();
+            return;
+        }
+
+        String name(database->stringIdentifier());
+        DatabaseNameMap* nameMap = m_openDatabaseMap->get(database->securityOrigin());
+        if (!nameMap) {
+            ASSERT_NOT_REACHED();
+            return;
+        }
+
+        DatabaseSet* databaseSet = nameMap->get(name);
+        if (!databaseSet) {
+            ASSERT_NOT_REACHED();
+            return;
+        }
+
+        databaseSet->remove(database);
+
+        LOG(StorageAPI, "Removed open Database %s (%p)\n", database->stringIdentifier().ascii().data(), database);
+
+        if (!databaseSet->isEmpty())
+            return;
+
+        nameMap->remove(name);
+        delete databaseSet;
+
+        if (!nameMap->isEmpty())
+            return;
+
+        m_openDatabaseMap->remove(database->securityOrigin());
+        delete nameMap;
     }
 
-    RefPtr<SecurityOrigin> origin(database->securityOriginCopy());
-    String name(database->stringIdentifier());
-
-    DatabaseNameMap* nameMap = m_openDatabaseMap->get(origin);
-    if (!nameMap) {
-        ASSERT_NOT_REACHED();
-        return;
-    }
-
-    DatabaseSet* databaseSet = nameMap->get(name);
-    if (!databaseSet) {
-        ASSERT_NOT_REACHED();
-        return;
-    }
-
-    databaseSet->remove(database);
-
-    LOG(StorageAPI, "Removed open Database %s (%p)\n", database->stringIdentifier().ascii().data(), database);
-
-    if (!databaseSet->isEmpty())
-        return;
-
-    nameMap->remove(name);
-    delete databaseSet;
-
-    if (!nameMap->isEmpty())
-        return;
-
-    m_openDatabaseMap->remove(origin);
-    delete nameMap;
+    Locker<OriginQuotaManager> quotaManagerLocker(originQuotaManager());
+    originQuotaManager().removeOrigin(database->securityOrigin());
 }
 
-unsigned long long DatabaseTracker::usageForOrigin(SecurityOrigin* origin)
+void DatabaseTracker::getOpenDatabases(SecurityOrigin* origin, const String& name, HashSet<RefPtr<Database> >* databases)
 {
-    ASSERT(currentThread() == m_thread);
-    Locker<OriginQuotaManager> locker(originQuotaManager());
+    MutexLocker openDatabaseMapLock(m_openDatabaseMapGuard);
+    if (!m_openDatabaseMap)
+        return;
+
+    DatabaseNameMap* nameMap = m_openDatabaseMap->get(origin);
+    if (!nameMap)
+        return;
+
+    DatabaseSet* databaseSet = nameMap->get(name);
+    if (!databaseSet)
+        return;
+
+    for (DatabaseSet::iterator it = databaseSet->begin(); it != databaseSet->end(); ++it)
+        databases->add(*it);
+}
+
+unsigned long long DatabaseTracker::usageForOriginNoLock(SecurityOrigin* origin)
+{
+    ASSERT(!originQuotaManager().tryLock());
 
     // Use the OriginQuotaManager mechanism to calculate the usage
     if (originQuotaManager().tracksOrigin(origin))
         return originQuotaManager().diskUsage(origin);
-    
+
     // If the OriginQuotaManager doesn't track this origin already, prime it to do so
     originQuotaManager().trackOrigin(origin);
-    
+
     Vector<String> names;
-    databaseNamesForOrigin(origin, names);
+    databaseNamesForOriginNoLock(origin, names);
 
     for (unsigned i = 0; i < names.size(); ++i)
-        originQuotaManager().addDatabase(origin, names[i], fullPathForDatabase(origin, names[i], false));
-    
+        originQuotaManager().addDatabase(origin, names[i], fullPathForDatabaseNoLock(origin, names[i], false));
+
     if (!originQuotaManager().tracksOrigin(origin))
         return 0;
     return originQuotaManager().diskUsage(origin);
 }
 
+unsigned long long DatabaseTracker::usageForOrigin(SecurityOrigin* origin)
+{
+    MutexLocker lockDatabase(m_databaseGuard);
+    Locker<OriginQuotaManager> quotaManagerLocker(originQuotaManager());
+    return usageForOriginNoLock(origin);
+}
+
+unsigned long long DatabaseTracker::quotaForOriginNoLock(SecurityOrigin* origin)
+{
+    ASSERT(!m_databaseGuard.tryLock());
+    ASSERT(m_quotaMap);
+    return m_quotaMap->get(origin);
+}
+
 unsigned long long DatabaseTracker::quotaForOrigin(SecurityOrigin* origin)
 {
-    ASSERT(currentThread() == m_thread || m_quotaMap);
-    populateOrigins();
-    MutexLocker lockQuotaMap(m_quotaMapGuard);
-    return m_quotaMap->get(origin);
+    MutexLocker lockDatabase(m_databaseGuard);
+    return quotaForOriginNoLock(origin);
 }
 
 void DatabaseTracker::setQuota(SecurityOrigin* origin, unsigned long long quota)
 {
-    ASSERT(currentThread() == m_thread);
-    if (quotaForOrigin(origin) == quota)
+    MutexLocker lockDatabase(m_databaseGuard);
+
+    if (quotaForOriginNoLock(origin) == quota)
         return;
 
     openTrackerDatabase(true);
     if (!m_database.isOpen())
         return;
 
-    {
-        MutexLocker lockQuotaMap(m_quotaMapGuard);
-
-        if (!m_quotaMap->contains(origin)) {
-            SQLiteStatement statement(m_database, "INSERT INTO Origins VALUES (?, ?)");
-            if (statement.prepare() != SQLResultOk) {
-                LOG_ERROR("Unable to establish origin %s in the tracker", origin->databaseIdentifier().ascii().data());
-            } else {
-                statement.bindText(1, origin->databaseIdentifier());
-                statement.bindInt64(2, quota);
-
-                if (statement.step() != SQLResultDone)
-                    LOG_ERROR("Unable to establish origin %s in the tracker", origin->databaseIdentifier().ascii().data());
-            }
+    if (!m_quotaMap->contains(origin)) {
+        SQLiteStatement statement(m_database, "INSERT INTO Origins VALUES (?, ?)");
+        if (statement.prepare() != SQLResultOk) {
+            LOG_ERROR("Unable to establish origin %s in the tracker", origin->databaseIdentifier().ascii().data());
         } else {
-            SQLiteStatement statement(m_database, "UPDATE Origins SET quota=? WHERE origin=?");        
-            bool error = statement.prepare() != SQLResultOk;
-            if (!error) {
-                statement.bindInt64(1, quota);
-                statement.bindText(2, origin->databaseIdentifier());
+            statement.bindText(1, origin->databaseIdentifier());
+            statement.bindInt64(2, quota);
 
-                error = !statement.executeCommand();
-            }
+            if (statement.step() != SQLResultDone)
+                LOG_ERROR("Unable to establish origin %s in the tracker", origin->databaseIdentifier().ascii().data());
+        }
+    } else {
+        SQLiteStatement statement(m_database, "UPDATE Origins SET quota=? WHERE origin=?");
+        bool error = statement.prepare() != SQLResultOk;
+        if (!error) {
+            statement.bindInt64(1, quota);
+            statement.bindText(2, origin->databaseIdentifier());
 
-            if (error)
-                LOG_ERROR("Failed to set quota %llu in tracker database for origin %s", quota, origin->databaseIdentifier().ascii().data());
+            error = !statement.executeCommand();
         }
 
-        // FIXME: Is it really OK to update the quota in memory if we failed to update it on disk?
-        m_quotaMap->set(origin, quota);
+        if (error)
+            LOG_ERROR("Failed to set quota %llu in tracker database for origin %s", quota, origin->databaseIdentifier().ascii().data());
     }
+
+    // FIXME: Is it really OK to update the quota in memory if we failed to update it on disk?
+    m_quotaMap->set(origin->threadsafeCopy(), quota);
 
     if (m_client)
         m_client->dispatchDidModifyOrigin(origin);
@@ -559,13 +666,14 @@ void DatabaseTracker::setQuota(SecurityOrigin* origin, unsigned long long quota)
 
 bool DatabaseTracker::addDatabase(SecurityOrigin* origin, const String& name, const String& path)
 {
-    ASSERT(currentThread() == m_thread);
+    ASSERT(!m_databaseGuard.tryLock());
+    ASSERT(m_quotaMap);
     openTrackerDatabase(true);
     if (!m_database.isOpen())
         return false;
-        
+
     // New database should never be added until the origin has been established
-    ASSERT(hasEntryForOrigin(origin));
+    ASSERT(hasEntryForOriginNoLock(origin));
 
     SQLiteStatement statement(m_database, "INSERT INTO Databases (origin, name, path) VALUES (?, ?, ?);");
 
@@ -580,17 +688,15 @@ bool DatabaseTracker::addDatabase(SecurityOrigin* origin, const String& name, co
         LOG_ERROR("Failed to add database %s to origin %s: %s\n", name.ascii().data(), origin->databaseIdentifier().ascii().data(), m_database.lastErrorMsg());
         return false;
     }
-    
+
     if (m_client)
         m_client->dispatchDidModifyOrigin(origin);
-    
+
     return true;
 }
 
 void DatabaseTracker::deleteAllDatabases()
 {
-    ASSERT(currentThread() == m_thread);
-
     Vector<RefPtr<SecurityOrigin> > originsCopy;
     origins(originsCopy);
 
@@ -598,61 +704,76 @@ void DatabaseTracker::deleteAllDatabases()
         deleteOrigin(originsCopy[i].get());
 }
 
-void DatabaseTracker::deleteOrigin(SecurityOrigin* origin)
+// It is the caller's responsibility to make sure that nobody is trying to create, delete, open, or close databases in this origin while the deletion is
+// taking place.
+bool DatabaseTracker::deleteOrigin(SecurityOrigin* origin)
 {
-    ASSERT(currentThread() == m_thread);
-    openTrackerDatabase(false);
-    if (!m_database.isOpen())
-        return;
-
     Vector<String> databaseNames;
-    if (!databaseNamesForOrigin(origin, databaseNames)) {
-        LOG_ERROR("Unable to retrieve list of database names for origin %s", origin->databaseIdentifier().ascii().data());
-        return;
+    {
+        MutexLocker lockDatabase(m_databaseGuard);
+        openTrackerDatabase(false);
+        if (!m_database.isOpen())
+            return false;
+
+        if (!databaseNamesForOriginNoLock(origin, databaseNames)) {
+            LOG_ERROR("Unable to retrieve list of database names for origin %s", origin->databaseIdentifier().ascii().data());
+            return false;
+        }
+        if (!canDeleteOrigin(origin)) {
+            LOG_ERROR("Tried to delete an origin (%s) while either creating database in it or already deleting it", origin->databaseIdentifier().ascii().data());
+            ASSERT(false);
+            return false;
+        }
+        recordDeletingOrigin(origin);
     }
-    
+
+    // We drop the lock here because holding locks during a call to deleteDatabaseFile will deadlock.
     for (unsigned i = 0; i < databaseNames.size(); ++i) {
         if (!deleteDatabaseFile(origin, databaseNames[i])) {
+            // Even if the file can't be deleted, we want to try and delete the rest, don't return early here.
             LOG_ERROR("Unable to delete file for database %s in origin %s", databaseNames[i].ascii().data(), origin->databaseIdentifier().ascii().data());
-            return;
         }
     }
-    
-    SQLiteStatement statement(m_database, "DELETE FROM Databases WHERE origin=?");
-    if (statement.prepare() != SQLResultOk) {
-        LOG_ERROR("Unable to prepare deletion of databases from origin %s from tracker", origin->databaseIdentifier().ascii().data());
-        return;
-    }
-        
-    statement.bindText(1, origin->databaseIdentifier());
-    
-    if (!statement.executeCommand()) {
-        LOG_ERROR("Unable to execute deletion of databases from origin %s from tracker", origin->databaseIdentifier().ascii().data());
-        return;
-    }
-    
-    SQLiteStatement originStatement(m_database, "DELETE FROM Origins WHERE origin=?");
-    if (originStatement.prepare() != SQLResultOk) {
-        LOG_ERROR("Unable to prepare deletion of origin %s from tracker", origin->databaseIdentifier().ascii().data());
-        return;
-    }
 
-    originStatement.bindText(1, origin->databaseIdentifier());
-    
-    if (!originStatement.executeCommand()) {
-        LOG_ERROR("Unable to execute deletion of databases from origin %s from tracker", origin->databaseIdentifier().ascii().data());
-        return;
-    }
-
-    SQLiteFileSystem::deleteEmptyDatabaseDirectory(originPath(origin));
-
-    RefPtr<SecurityOrigin> originPossiblyLastReference = origin;
     {
-        MutexLocker lockQuotaMap(m_quotaMapGuard);
+        MutexLocker lockDatabase(m_databaseGuard);
+        doneDeletingOrigin(origin);
+
+        SQLiteStatement statement(m_database, "DELETE FROM Databases WHERE origin=?");
+        if (statement.prepare() != SQLResultOk) {
+            LOG_ERROR("Unable to prepare deletion of databases from origin %s from tracker", origin->databaseIdentifier().ascii().data());
+            return false;
+        }
+
+        statement.bindText(1, origin->databaseIdentifier());
+
+        if (!statement.executeCommand()) {
+            LOG_ERROR("Unable to execute deletion of databases from origin %s from tracker", origin->databaseIdentifier().ascii().data());
+            return false;
+        }
+
+        SQLiteStatement originStatement(m_database, "DELETE FROM Origins WHERE origin=?");
+        if (originStatement.prepare() != SQLResultOk) {
+            LOG_ERROR("Unable to prepare deletion of origin %s from tracker", origin->databaseIdentifier().ascii().data());
+            return false;
+        }
+
+        originStatement.bindText(1, origin->databaseIdentifier());
+
+        if (!originStatement.executeCommand()) {
+            LOG_ERROR("Unable to execute deletion of databases from origin %s from tracker", origin->databaseIdentifier().ascii().data());
+            return false;
+        }
+
+        SQLiteFileSystem::deleteEmptyDatabaseDirectory(originPath(origin));
+
+        RefPtr<SecurityOrigin> originPossiblyLastReference = origin;
         m_quotaMap->remove(origin);
 
-        Locker<OriginQuotaManager> quotaManagerLocker(originQuotaManager());
-        originQuotaManager().removeOrigin(origin);
+        {
+            Locker<OriginQuotaManager> quotaManagerLocker(originQuotaManager());
+            originQuotaManager().removeOrigin(origin);
+        }
 
         // If we removed the last origin, do some additional deletion.
         if (m_quotaMap->isEmpty()) {
@@ -661,72 +782,211 @@ void DatabaseTracker::deleteOrigin(SecurityOrigin* origin)
            SQLiteFileSystem::deleteDatabaseFile(trackerDatabasePath());
            SQLiteFileSystem::deleteEmptyDatabaseDirectory(m_databaseDirectoryPath);
         }
-    }
 
-    if (m_client) {
-        m_client->dispatchDidModifyOrigin(origin);
-        for (unsigned i = 0; i < databaseNames.size(); ++i)
-            m_client->dispatchDidModifyDatabase(origin, databaseNames[i]);
+        if (m_client) {
+            m_client->dispatchDidModifyOrigin(origin);
+            for (unsigned i = 0; i < databaseNames.size(); ++i)
+                m_client->dispatchDidModifyDatabase(origin, databaseNames[i]);
+        }
+    }
+    return true;
+}
+
+bool DatabaseTracker::canCreateDatabase(SecurityOrigin *origin, const String& name)
+{
+    ASSERT(!m_databaseGuard.tryLock());
+    // Can't create a database while someone else is deleting it; there's a risk of leaving untracked database debris on the disk.
+    return !deletingDatabase(origin, name) && !deletingOrigin(origin);
+}
+
+void DatabaseTracker::recordCreatingDatabase(SecurityOrigin *origin, const String& name)
+{
+    ASSERT(!m_databaseGuard.tryLock());
+    NameCountMap* nameMap = m_beingCreated.get(origin);
+    if (!nameMap) {
+        nameMap = new NameCountMap();
+        m_beingCreated.set(origin->threadsafeCopy(), nameMap);
+    }
+    long count = nameMap->get(name);
+    nameMap->set(name.threadsafeCopy(), count + 1);
+}
+
+void DatabaseTracker::doneCreatingDatabase(SecurityOrigin *origin, const String& name)
+{
+    ASSERT(!m_databaseGuard.tryLock());
+    NameCountMap* nameMap = m_beingCreated.get(origin);
+    if (nameMap) {
+        long count = nameMap->get(name);
+        ASSERT(count > 0);
+        if (count <= 1) {
+            nameMap->remove(name);
+            if (nameMap->isEmpty()) {
+                m_beingCreated.remove(origin);
+                delete nameMap;
+            }
+        } else
+            nameMap->set(name, count - 1);
+    } else
+        ASSERT(false);
+}
+
+bool DatabaseTracker::creatingDatabase(SecurityOrigin *origin, const String& name)
+{
+    ASSERT(!m_databaseGuard.tryLock());
+    NameCountMap* nameMap = m_beingCreated.get(origin);
+    return nameMap && nameMap->get(name);
+}
+
+bool DatabaseTracker::canDeleteDatabase(SecurityOrigin *origin, const String& name)
+{
+    ASSERT(!m_databaseGuard.tryLock());
+    return !creatingDatabase(origin, name) && !deletingDatabase(origin, name);
+}
+
+void DatabaseTracker::recordDeletingDatabase(SecurityOrigin *origin, const String& name)
+{
+    ASSERT(!m_databaseGuard.tryLock());
+    ASSERT(canDeleteDatabase(origin, name));
+    NameSet* nameSet = m_beingDeleted.get(origin);
+    if (!nameSet) {
+        nameSet = new NameSet();
+        m_beingDeleted.set(origin->threadsafeCopy(), nameSet);
+    }
+    ASSERT(!nameSet->contains(name));
+    nameSet->add(name.threadsafeCopy());
+}
+
+void DatabaseTracker::doneDeletingDatabase(SecurityOrigin *origin, const String& name)
+{
+    ASSERT(!m_databaseGuard.tryLock());
+    NameSet* nameSet = m_beingDeleted.get(origin);
+    if (nameSet) {
+        ASSERT(nameSet->contains(name));
+        nameSet->remove(name);
+        if (nameSet->isEmpty()) {
+            m_beingDeleted.remove(origin);
+            delete nameSet;
+        }
+    } else {
+        ASSERT(false);
     }
 }
 
-void DatabaseTracker::deleteDatabase(SecurityOrigin* origin, const String& name)
+bool DatabaseTracker::deletingDatabase(SecurityOrigin *origin, const String& name)
 {
-    ASSERT(currentThread() == m_thread);
-    openTrackerDatabase(false);
-    if (!m_database.isOpen())
-        return;
+    ASSERT(!m_databaseGuard.tryLock());
+    NameSet* nameSet = m_beingDeleted.get(origin);
+    return nameSet && nameSet->contains(name);
+}
 
+bool DatabaseTracker::canDeleteOrigin(SecurityOrigin *origin)
+{
+    ASSERT(!m_databaseGuard.tryLock());
+    return !(deletingOrigin(origin) || m_beingCreated.get(origin));
+}
+
+bool DatabaseTracker::deletingOrigin(SecurityOrigin *origin)
+{
+    ASSERT(!m_databaseGuard.tryLock());
+    return m_originsBeingDeleted.contains(origin);
+}
+
+void DatabaseTracker::recordDeletingOrigin(SecurityOrigin *origin)
+{
+    ASSERT(!m_databaseGuard.tryLock());
+    ASSERT(!deletingOrigin(origin));
+    m_originsBeingDeleted.add(origin->threadsafeCopy());
+}
+
+void DatabaseTracker::doneDeletingOrigin(SecurityOrigin *origin)
+{
+    ASSERT(!m_databaseGuard.tryLock());
+    ASSERT(deletingOrigin(origin));
+    m_originsBeingDeleted.remove(origin);
+}
+
+bool DatabaseTracker::deleteDatabase(SecurityOrigin* origin, const String& name)
+{
+    {
+        MutexLocker lockDatabase(m_databaseGuard);
+        openTrackerDatabase(false);
+        if (!m_database.isOpen())
+            return false;
+
+        if (!canDeleteDatabase(origin, name)) {
+            ASSERT(FALSE);
+            return false;
+        }
+        recordDeletingDatabase(origin, name);
+    }
+
+    // We drop the lock here because holding locks during a call to deleteDatabaseFile will deadlock.
     if (!deleteDatabaseFile(origin, name)) {
         LOG_ERROR("Unable to delete file for database %s in origin %s", name.ascii().data(), origin->databaseIdentifier().ascii().data());
-        return;
+        MutexLocker lockDatabase(m_databaseGuard);
+        doneDeletingDatabase(origin, name);
+        return false;
     }
-    
+
+    MutexLocker lockDatabase(m_databaseGuard);
+
     SQLiteStatement statement(m_database, "DELETE FROM Databases WHERE origin=? AND name=?");
     if (statement.prepare() != SQLResultOk) {
         LOG_ERROR("Unable to prepare deletion of database %s from origin %s from tracker", name.ascii().data(), origin->databaseIdentifier().ascii().data());
-        return;
+        doneDeletingDatabase(origin, name);
+        return false;
     }
-        
+
     statement.bindText(1, origin->databaseIdentifier());
     statement.bindText(2, name);
-    
+
     if (!statement.executeCommand()) {
         LOG_ERROR("Unable to execute deletion of database %s from origin %s from tracker", name.ascii().data(), origin->databaseIdentifier().ascii().data());
-        return;
+        doneDeletingDatabase(origin, name);
+        return false;
     }
-    
+
     {
         Locker<OriginQuotaManager> quotaManagerLocker(originQuotaManager());
         originQuotaManager().removeDatabase(origin, name);
     }
-    
+
     if (m_client) {
         m_client->dispatchDidModifyOrigin(origin);
         m_client->dispatchDidModifyDatabase(origin, name);
     }
+    doneDeletingDatabase(origin, name);
+    
+    return true;
 }
 
+// deleteDatabaseFile has to release locks between looking up the list of databases to close and closing them.  While this is in progress, the caller
+// is responsible for making sure no new databases are opened in the file to be deleted.
 bool DatabaseTracker::deleteDatabaseFile(SecurityOrigin* origin, const String& name)
 {
-    ASSERT(currentThread() == m_thread);
     String fullPath = fullPathForDatabase(origin, name, false);
     if (fullPath.isEmpty())
         return true;
 
+#ifndef NDEBUG
+    {
+        MutexLocker lockDatabase(m_databaseGuard);
+        ASSERT(deletingDatabase(origin, name) || deletingOrigin(origin));
+    }
+#endif
+
     Vector<RefPtr<Database> > deletedDatabases;
 
-    // Make sure not to hold the m_openDatabaseMapGuard mutex when calling
+    // Make sure not to hold the any locks when calling
     // Database::markAsDeletedAndClose(), since that can cause a deadlock
     // during the synchronous DatabaseThread call it triggers.
-
     {
         MutexLocker openDatabaseMapLock(m_openDatabaseMapGuard);
         if (m_openDatabaseMap) {
             // There are some open databases, lets check if they are for this origin.
             DatabaseNameMap* nameMap = m_openDatabaseMap->get(origin);
             if (nameMap && nameMap->size()) {
-                // There are some open databases for this origin, lets check
+                // There are some open databases for this origin, let's check
                 // if they are this database by name.
                 DatabaseSet* databaseSet = nameMap->get(name);
                 if (databaseSet && databaseSet->size()) {
@@ -747,7 +1007,6 @@ bool DatabaseTracker::deleteDatabaseFile(SecurityOrigin* origin, const String& n
 
 void DatabaseTracker::setClient(DatabaseTrackerClient* client)
 {
-    ASSERT(currentThread() == m_thread);
     m_client = client;
 }
 
@@ -757,7 +1016,7 @@ static Mutex& notificationMutex()
     return mutex;
 }
 
-typedef Vector<pair<SecurityOrigin*, String> > NotificationQueue;
+typedef Vector<pair<RefPtr<SecurityOrigin>, String> > NotificationQueue;
 
 static NotificationQueue& notificationQueue()
 {
@@ -769,7 +1028,7 @@ void DatabaseTracker::scheduleNotifyDatabaseChanged(SecurityOrigin* origin, cons
 {
     MutexLocker locker(notificationMutex());
 
-    notificationQueue().append(pair<SecurityOrigin*, String>(origin, name.copy()));
+    notificationQueue().append(pair<RefPtr<SecurityOrigin>, String>(origin->threadsafeCopy(), name.crossThreadString()));
     scheduleForNotification();
 }
 
@@ -804,7 +1063,7 @@ void DatabaseTracker::notifyDatabasesChanged(void*)
         return;
 
     for (unsigned i = 0; i < notifications.size(); ++i)
-        theTracker.m_client->dispatchDidModifyDatabase(notifications[i].first, notifications[i].second);
+        theTracker.m_client->dispatchDidModifyDatabase(notifications[i].first.get(), notifications[i].second);
 }
 
 

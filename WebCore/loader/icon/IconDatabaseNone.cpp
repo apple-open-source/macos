@@ -26,6 +26,8 @@
 #include "config.h"
 #include "IconDatabase.h"
 
+#if !ENABLE(ICONDATABASE)
+
 #include "PlatformString.h"
 #include "SharedBuffer.h"
 #include <wtf/StdLibExtras.h>
@@ -51,7 +53,7 @@ const int updateTimerDelay = 5;
 String IconDatabase::defaultDatabaseFilename()
 {
     DEFINE_STATIC_LOCAL(String, defaultDatabaseFilename, ("Icons.db"));
-    return defaultDatabaseFilename.copy();
+    return defaultDatabaseFilename.threadsafeCopy();
 }
 
 IconDatabase* iconDatabase()
@@ -194,4 +196,23 @@ void IconDatabase::setClient(IconDatabaseClient*)
 {
 }
 
+// ************************
+// *** Sync Thread Only ***
+// ************************
+
+void IconDatabase::importIconURLForPageURL(const String&, const String&)
+{
+}
+
+void IconDatabase::importIconDataForIconURL(PassRefPtr<SharedBuffer>, const String&)
+{
+}
+
+bool IconDatabase::shouldStopThreadActivity() const
+{
+    return true;
+}
+
 } // namespace WebCore
+
+#endif // !ENABLE(ICONDATABASE)

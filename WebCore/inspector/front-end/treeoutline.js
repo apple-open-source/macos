@@ -40,6 +40,9 @@ function TreeOutline(listNode)
     this.expanded = true;
     this.selected = false;
     this.treeOutline = this;
+
+    this._childrenListNode.tabIndex = 0;
+    this._childrenListNode.addEventListener("keydown", this._treeKeyDown.bind(this), true);
 }
 
 TreeOutline._knownTreeElementNextIdentifier = 1;
@@ -141,7 +144,15 @@ TreeOutline._removeChildAtIndex = function(childIndex)
     var child = this.children[childIndex];
     this.children.splice(childIndex, 1);
 
-    child.deselect();
+    var parent = child.parent;
+    if (child.deselect()) {
+        if (child.previousSibling)
+            child.previousSibling.select();
+        else if (child.nextSibling)
+            child.nextSibling.select();
+        else
+            parent.select();
+    }
 
     if (child.previousSibling)
         child.previousSibling.nextSibling = child.nextSibling;
@@ -249,13 +260,10 @@ TreeOutline.prototype._forgetChildrenRecursive = function(parentElement)
     }
 }
 
-TreeOutline.prototype.findTreeElement = function(representedObject, isAncestor, getParent, equal)
+TreeOutline.prototype.getCachedTreeElement = function(representedObject)
 {
     if (!representedObject)
         return null;
-
-    if (!equal)
-        equal = function(a, b) { return a === b };
 
     if ("__treeElementIdentifier" in representedObject) {
         // If this representedObject has a tree element identifier, and it is a known TreeElement
@@ -263,21 +271,29 @@ TreeOutline.prototype.findTreeElement = function(representedObject, isAncestor, 
         var elements = this._knownTreeElements[representedObject.__treeElementIdentifier];
         if (elements) {
             for (var i = 0; i < elements.length; ++i)
-                if (equal(elements[i].representedObject, representedObject))
+                if (elements[i].representedObject === representedObject)
                     return elements[i];
         }
     }
+    return null;
+}
 
-    if (!isAncestor || !(isAncestor instanceof Function) || !getParent || !(getParent instanceof Function))
+TreeOutline.prototype.findTreeElement = function(representedObject, isAncestor, getParent)
+{
+    if (!representedObject)
         return null;
 
-    // The representedObject isn't know, so we start at the top of the tree and work down to find the first
+    var cachedElement = this.getCachedTreeElement(representedObject);
+    if (cachedElement)
+        return cachedElement;
+
+    // The representedObject isn't known, so we start at the top of the tree and work down to find the first
     // tree element that represents representedObject or one of its ancestors.
     var item;
     var found = false;
     for (var i = 0; i < this.children.length; ++i) {
         item = this.children[i];
-        if (equal(item.representedObject, representedObject) || isAncestor(item.representedObject, representedObject)) {
+        if (item.representedObject === representedObject || isAncestor(item.representedObject, representedObject)) {
             found = true;
             break;
         }
@@ -292,7 +308,7 @@ TreeOutline.prototype.findTreeElement = function(representedObject, isAncestor, 
     var currentObject = representedObject;
     while (currentObject) {
         ancestors.unshift(currentObject);
-        if (equal(currentObject, item.representedObject))
+        if (currentObject === item.representedObject)
             break;
         currentObject = getParent(currentObject);
     }
@@ -301,18 +317,16 @@ TreeOutline.prototype.findTreeElement = function(representedObject, isAncestor, 
     for (var i = 0; i < ancestors.length; ++i) {
         // Make sure we don't call findTreeElement with the same representedObject
         // again, to prevent infinite recursion.
-        if (equal(ancestors[i], representedObject))
+        if (ancestors[i] === representedObject)
             continue;
         // FIXME: we could do something faster than findTreeElement since we will know the next
         // ancestor exists in the tree.
-        item = this.findTreeElement(ancestors[i], isAncestor, getParent, equal);
+        item = this.findTreeElement(ancestors[i], isAncestor, getParent);
         if (item && item.onpopulate)
             item.onpopulate(item);
     }
 
-    // Now that all the ancestors are populated, try to find the representedObject again. This time
-    // without the isAncestor and getParent functions to prevent an infinite recursion if it isn't found.
-    return this.findTreeElement(representedObject, null, null, equal);
+    return this.getCachedTreeElement(representedObject);
 }
 
 TreeOutline.prototype.treeElementFromPoint = function(x, y)
@@ -324,10 +338,13 @@ TreeOutline.prototype.treeElementFromPoint = function(x, y)
     return null;
 }
 
-TreeOutline.prototype.handleKeyEvent = function(event)
+TreeOutline.prototype._treeKeyDown = function(event)
 {
+    if (event.target !== this._childrenListNode)
+        return;
+
     if (!this.selectedTreeElement || event.shiftKey || event.metaKey || event.ctrlKey)
-        return false;
+        return;
 
     var handled = false;
     var nextSelectedElement;
@@ -383,8 +400,6 @@ TreeOutline.prototype.handleKeyEvent = function(event)
         event.preventDefault();
         event.stopPropagation();
     }
-
-    return handled;
 }
 
 TreeOutline.prototype.expand = function()
@@ -552,7 +567,7 @@ TreeElement.prototype._attach = function()
         if (this.selected)
             this._listItemNode.addStyleClass("selected");
 
-        this._listItemNode.addEventListener("mousedown", TreeElement.treeElementSelected, false);
+        this._listItemNode.addEventListener("mousedown", TreeElement.treeElementMouseDown, false);
         this._listItemNode.addEventListener("click", TreeElement.treeElementToggled, false);
         this._listItemNode.addEventListener("dblclick", TreeElement.treeElementDoubleClicked, false);
 
@@ -580,7 +595,7 @@ TreeElement.prototype._detach = function()
         this._childrenListNode.parentNode.removeChild(this._childrenListNode);
 }
 
-TreeElement.treeElementSelected = function(event)
+TreeElement.treeElementMouseDown = function(event)
 {
     var element = event.currentTarget;
     if (!element || !element.treeElement || !element.treeElement.selectable)
@@ -589,7 +604,7 @@ TreeElement.treeElementSelected = function(event)
     if (element.treeElement.isEventWithinDisclosureTriangle(event))
         return;
 
-    element.treeElement.select();
+    element.treeElement.selectOnMouseDown(event);
 }
 
 TreeElement.treeElementToggled = function(event)
@@ -621,7 +636,7 @@ TreeElement.treeElementDoubleClicked = function(event)
         return;
 
     if (element.treeElement.ondblclick)
-        element.treeElement.ondblclick(element.treeElement, event);
+        element.treeElement.ondblclick.call(element.treeElement, event);
     else if (element.treeElement.hasChildren && !element.treeElement.expanded)
         element.treeElement.expand();
 }
@@ -752,6 +767,11 @@ TreeElement.prototype.revealed = function()
     return true;
 }
 
+TreeElement.prototype.selectOnMouseDown = function(event)
+{
+    this.select();
+}
+
 TreeElement.prototype.select = function(supressOnSelect)
 {
     if (!this.treeOutline || !this.selectable || this.selected)
@@ -761,6 +781,7 @@ TreeElement.prototype.select = function(supressOnSelect)
         this.treeOutline.selectedTreeElement.deselect();
 
     this.selected = true;
+    this.treeOutline._childrenListNode.focus();
     this.treeOutline.selectedTreeElement = this;
     if (this._listItemNode)
         this._listItemNode.addStyleClass("selected");
@@ -772,7 +793,7 @@ TreeElement.prototype.select = function(supressOnSelect)
 TreeElement.prototype.deselect = function(supressOnDeselect)
 {
     if (!this.treeOutline || this.treeOutline.selectedTreeElement !== this || !this.selected)
-        return;
+        return false;
 
     this.selected = false;
     this.treeOutline.selectedTreeElement = null;
@@ -781,6 +802,7 @@ TreeElement.prototype.deselect = function(supressOnDeselect)
 
     if (this.ondeselect && !supressOnDeselect)
         this.ondeselect(this);
+    return true;
 }
 
 TreeElement.prototype.traverseNextTreeElement = function(skipHidden, stayWithin, dontPopulate, info)

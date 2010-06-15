@@ -349,5 +349,6 @@ si_list_t *si_addrinfo_list(si_mod_t *si, int socktype, int proto, struct in_add
 si_list_t *si_addrinfo_list_from_hostent(si_mod_t *si, uint32_t socktype, uint32_t proto, uint16_t port, uint16_t scope, const struct hostent *h4, const struct hostent *h6);
 
 int _gai_serv_to_port(const char *serv, uint32_t proto, uint16_t *port);
+si_list_t *_gai_simple(si_mod_t *si, const void *nodeptr, const void *servptr, uint32_t family, uint32_t socktype, uint32_t proto, uint32_t flags, const char *interface, uint32_t *err);
 
 #endif /* ! __SI_MODULE_H__ */

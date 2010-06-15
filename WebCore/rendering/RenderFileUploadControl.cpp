@@ -21,6 +21,7 @@
 #include "config.h"
 #include "RenderFileUploadControl.h"
 
+#include "Chrome.h"
 #include "FileList.h"
 #include "Frame.h"
 #include "FrameView.h"
@@ -63,8 +64,13 @@ private:
 RenderFileUploadControl::RenderFileUploadControl(HTMLInputElement* input)
     : RenderBlock(input)
     , m_button(0)
-    , m_fileChooser(FileChooser::create(this, input->value()))
 {
+    FileList* list = input->files();
+    Vector<String> filenames;
+    unsigned length = list ? list->length() : 0;
+    for (unsigned i = 0; i < length; ++i)
+        filenames.append(list->item(i)->path());
+    m_fileChooser = FileChooser::create(this, filenames);
 }
 
 RenderFileUploadControl::~RenderFileUploadControl()
@@ -103,15 +109,32 @@ bool RenderFileUploadControl::allowsMultipleFiles()
     return !input->getAttribute(multipleAttr).isNull();
 }
 
+String RenderFileUploadControl::acceptTypes()
+{
+    return static_cast<HTMLInputElement*>(node())->accept();
+}
+
+void RenderFileUploadControl::chooseIconForFiles(FileChooser* chooser, const Vector<String>& filenames)
+{
+    if (Chrome* chromePointer = chrome())
+        chromePointer->chooseIconForFiles(filenames, chooser);
+}
+
 void RenderFileUploadControl::click()
+{
+    if (Chrome* chromePointer = chrome())
+        chromePointer->runOpenPanel(node()->document()->frame(), m_fileChooser);
+}
+
+Chrome* RenderFileUploadControl::chrome() const
 {
     Frame* frame = node()->document()->frame();
     if (!frame)
-        return;
+        return 0;
     Page* page = frame->page();
     if (!page)
-        return;
-    page->chrome()->runOpenPanel(frame, m_fileChooser);
+        return 0;
+    return page->chrome();
 }
 
 void RenderFileUploadControl::updateFromElement()
@@ -129,7 +152,7 @@ void RenderFileUploadControl::updateFromElement()
         renderer->setStyle(buttonStyle.release());
         renderer->updateFromElement();
         m_button->setAttached();
-        m_button->setInDocument(true);
+        m_button->setInDocument();
 
         addChild(renderer);
     }
@@ -172,6 +195,7 @@ void RenderFileUploadControl::paintObject(PaintInfo& paintInfo, int tx, int ty)
 {
     if (style()->visibility() != VISIBLE)
         return;
+    ASSERT(m_fileChooser);
     
     // Push a clip.
     if (paintInfo.phase == PaintPhaseForeground || paintInfo.phase == PaintPhaseChildBlockBackgrounds) {
@@ -184,7 +208,7 @@ void RenderFileUploadControl::paintObject(PaintInfo& paintInfo, int tx, int ty)
     }
 
     if (paintInfo.phase == PaintPhaseForeground) {
-        const String& displayedFilename = m_fileChooser->basenameForWidth(style()->font(), maxFilenameWidth());        
+        const String& displayedFilename = fileTextValue();
         unsigned length = displayedFilename.length();
         const UChar* string = displayedFilename.characters();
         TextRun textRun(string, length, false, 0, 0, style()->direction() == RTL, style()->unicodeBidi() == Override);
@@ -204,7 +228,7 @@ void RenderFileUploadControl::paintObject(PaintInfo& paintInfo, int tx, int ty)
             + buttonRenderer->marginTop() + buttonRenderer->borderTop() + buttonRenderer->paddingTop()
             + buttonRenderer->baselinePosition(true, false);
 
-        paintInfo.context->setFillColor(style()->color());
+        paintInfo.context->setFillColor(style()->visitedDependentColor(CSSPropertyColor), style()->colorSpace());
         
         // Draw the filename
         paintInfo.context->drawBidiText(style()->font(), textRun, IntPoint(textX, textY));
@@ -261,7 +285,7 @@ void RenderFileUploadControl::calcPrefWidths()
         m_minPrefWidth = min(m_minPrefWidth, calcContentBoxWidth(style()->maxWidth().value()));
     }
 
-    int toAdd = paddingLeft() + paddingRight() + borderLeft() + borderRight();
+    int toAdd = borderAndPaddingWidth();
     m_minPrefWidth += toAdd;
     m_maxPrefWidth += toAdd;
 
@@ -284,7 +308,7 @@ String RenderFileUploadControl::buttonValue()
     return m_button->value();
 }
 
-String RenderFileUploadControl::fileTextValue()
+String RenderFileUploadControl::fileTextValue() const
 {
     return m_fileChooser->basenameForWidth(style()->font(), maxFilenameWidth());
 }

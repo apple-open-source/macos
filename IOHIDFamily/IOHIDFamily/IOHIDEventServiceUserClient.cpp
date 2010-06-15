@@ -170,7 +170,7 @@ bool IOHIDEventServiceUserClient::initWithTask(task_t owningTask, void * securit
     
     task_reference (_client);
 
-    _queue = IOHIDEventServiceQueue::withCapacity(1024);
+    _queue = IOHIDEventServiceQueue::withCapacity(4096);
     
     if ( !_queue )
         return false;

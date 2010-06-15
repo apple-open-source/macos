@@ -39,7 +39,7 @@ namespace WebCore {
 
     namespace XPath {
         
-        struct EvaluationContext {
+        struct EvaluationContext : FastAllocBase {
             RefPtr<Node> node;
             unsigned long size;
             unsigned long position;
@@ -53,7 +53,7 @@ namespace WebCore {
             virtual ~ParseNode() { }
         };
 
-        class Expression : public ParseNode, Noncopyable {
+        class Expression : public ParseNode, public Noncopyable {
         public:
             static EvaluationContext& evaluationContext();
 

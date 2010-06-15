@@ -37,21 +37,26 @@
 #include "FrameLoaderTypes.h"
 #include "FrameView.h"
 #include "FrameTree.h"
+#include "PluginView.h"
 #include "HTMLFormElement.h"
 #include "HTMLFrameOwnerElement.h"
 #include "NotImplemented.h"
 #include "Page.h"
 #include "PlatformString.h"
+#include "PluginView.h"
 #include "ProgressTracker.h"
 #include "RenderPart.h"
 #include "ResourceError.h"
 #include "ResourceResponse.h"
 #include "ScriptController.h"
 #include "ScriptString.h"
+#include <wtf/PassRefPtr.h>
+#include <wtf/RefPtr.h>
 
 #include <stdio.h>
 
 #include "WebFrame.h"
+#include "WebFramePrivate.h"
 #include "WebView.h"
 #include "WebViewPrivate.h"
 
@@ -78,6 +83,9 @@ inline int wxNavTypeFromWebNavType(NavigationType type){
 
 FrameLoaderClientWx::FrameLoaderClientWx()
     : m_frame(0)
+    , m_pluginView(0)
+    , m_hasSentResponseToPlugin(false)
+    , m_webFrame(0)
 {
 }
 
@@ -86,19 +94,15 @@ FrameLoaderClientWx::~FrameLoaderClientWx()
 {
 }
 
-void FrameLoaderClientWx::setFrame(Frame *frame)
+void FrameLoaderClientWx::setFrame(wxWebFrame *frame)
 {
-    m_frame = frame;
+    m_webFrame = frame;
+    m_frame = m_webFrame->m_impl->frame;
 }
 
 void FrameLoaderClientWx::setWebView(wxWebView *webview)
 {
     m_webView = webview;
-}
-
-void FrameLoaderClientWx::detachFrameLoader()
-{
-    m_frame = 0;
 }
 
 bool FrameLoaderClientWx::hasWebView() const
@@ -258,6 +262,20 @@ void FrameLoaderClientWx::dispatchDidChangeLocationWithinPage()
     notImplemented();
 }
 
+void FrameLoaderClientWx::dispatchDidPushStateWithinPage()
+{
+    notImplemented();
+}
+
+void FrameLoaderClientWx::dispatchDidReplaceStateWithinPage()
+{
+    notImplemented();
+}
+
+void FrameLoaderClientWx::dispatchDidPopStateWithinPage()
+{
+    notImplemented();
+}
 
 void FrameLoaderClientWx::dispatchWillClose()
 {
@@ -307,6 +325,11 @@ void FrameLoaderClientWx::dispatchDidFinishDocumentLoad()
     }
 }
 
+void FrameLoaderClientWx::dispatchDidChangeIcons()
+{
+    notImplemented();
+}
+
 void FrameLoaderClientWx::dispatchDidFinishLoad()
 {
     notImplemented();
@@ -339,9 +362,9 @@ void FrameLoaderClientWx::dispatchWillSubmitForm(FramePolicyFunction function,
                                                  PassRefPtr<FormState>)
 {
     // FIXME: Send an event to allow for alerts and cancellation
-    if (!m_frame)
+    if (!m_webFrame)
         return;
-    (m_frame->loader()->*function)(PolicyUse);
+    (m_frame->loader()->policyChecker()->*function)(PolicyUse);
 }
 
 
@@ -409,7 +432,11 @@ void FrameLoaderClientWx::didChangeTitle(DocumentLoader *l)
 
 void FrameLoaderClientWx::finishedLoading(DocumentLoader*)
 {
-    notImplemented();
+    if (m_pluginView) {
+        m_pluginView->didFinishLoading();
+        m_pluginView = 0;
+        m_hasSentResponseToPlugin = false;
+    }
 }
 
 
@@ -505,6 +532,9 @@ void FrameLoaderClientWx::dispatchDidReceiveIcon()
 
 void FrameLoaderClientWx::frameLoaderDestroyed()
 {
+    if (m_webFrame)
+        delete m_webFrame;
+    m_webFrame = 0;
     m_frame = 0;
     delete this;
 }
@@ -536,6 +566,28 @@ bool FrameLoaderClientWx::shouldGoToHistoryItem(WebCore::HistoryItem*) const
     return true;
 }
 
+void FrameLoaderClientWx::dispatchDidAddBackForwardItem(WebCore::HistoryItem*) const
+{
+}
+
+void FrameLoaderClientWx::dispatchDidRemoveBackForwardItem(WebCore::HistoryItem*) const
+{
+}
+
+void FrameLoaderClientWx::dispatchDidChangeBackForwardIndex() const
+{
+}
+
+void FrameLoaderClientWx::didDisplayInsecureContent()
+{
+    notImplemented();
+}
+
+void FrameLoaderClientWx::didRunInsecureContent(WebCore::SecurityOrigin*)
+{
+    notImplemented();
+}
+
 void FrameLoaderClientWx::saveScrollPositionAndViewStateToItem(WebCore::HistoryItem*)
 {
     notImplemented();
@@ -553,11 +605,27 @@ void FrameLoaderClientWx::setMainDocumentError(WebCore::DocumentLoader*, const W
 
 void FrameLoaderClientWx::committedLoad(WebCore::DocumentLoader* loader, const char* data, int length)
 {
-    if (!m_frame)
+    if (!m_webFrame)
         return;
-    FrameLoader* fl = loader->frameLoader();
-    fl->setEncoding(m_response.textEncodingName(), false);
-    fl->addData(data, length);
+    if (!m_pluginView) {
+        FrameLoader* fl = loader->frameLoader();
+        fl->writer()->setEncoding(m_response.textEncodingName(), false);
+        fl->addData(data, length);
+    }
+    
+    // We re-check here as the plugin can have been created
+    if (m_pluginView) {
+        if (!m_hasSentResponseToPlugin) {
+            m_pluginView->didReceiveResponse(loader->response());
+            // didReceiveResponse sets up a new stream to the plug-in. on a full-page plug-in, a failure in
+            // setting up this stream can cause the main document load to be cancelled, setting m_pluginView
+            // to null
+            if (!m_pluginView)
+                return;
+            m_hasSentResponseToPlugin = true;
+        }
+        m_pluginView->didReceiveData(data, length);
+    }
 }
 
 WebCore::ResourceError FrameLoaderClientWx::cancelledError(const WebCore::ResourceRequest& request)
@@ -670,11 +738,6 @@ bool FrameLoaderClientWx::dispatchDidLoadResourceFromMemoryCache(DocumentLoader*
     return false;
 }
 
-void FrameLoaderClientWx::dispatchDidLoadResourceByXMLHttpRequest(unsigned long, const ScriptString&)
-{
-  notImplemented();
-}
-
 void FrameLoaderClientWx::dispatchDidFailProvisionalLoad(const ResourceError&)
 {
     notImplemented();
@@ -693,16 +756,16 @@ Frame* FrameLoaderClientWx::dispatchCreatePage()
 
 void FrameLoaderClientWx::dispatchDecidePolicyForMIMEType(FramePolicyFunction function, const String& mimetype, const ResourceRequest& request)
 {
-    if (!m_frame)
+    if (!m_webFrame)
         return;
     
     notImplemented();
-    (m_frame->loader()->*function)(PolicyUse);
+    (m_frame->loader()->policyChecker()->*function)(PolicyUse);
 }
 
 void FrameLoaderClientWx::dispatchDecidePolicyForNewWindowAction(FramePolicyFunction function, const NavigationAction&, const ResourceRequest& request, PassRefPtr<FormState>, const String& targetName)
 {
-    if (!m_frame)
+    if (!m_webFrame)
         return;
 
     if (m_webView) {
@@ -712,17 +775,17 @@ void FrameLoaderClientWx::dispatchDecidePolicyForNewWindowAction(FramePolicyFunc
         if (m_webView->GetEventHandler()->ProcessEvent(wkEvent)) {
             // if the app handles and doesn't skip the event, 
             // from WebKit's perspective treat it as blocked / ignored
-            (m_frame->loader()->*function)(PolicyIgnore);
+            (m_frame->loader()->policyChecker()->*function)(PolicyIgnore);
             return;
         }
     }
     
-    (m_frame->loader()->*function)(PolicyUse);
+    (m_frame->loader()->policyChecker()->*function)(PolicyUse);
 }
 
 void FrameLoaderClientWx::dispatchDecidePolicyForNavigationAction(FramePolicyFunction function, const NavigationAction& action, const ResourceRequest& request, PassRefPtr<FormState>)
 {
-    if (!m_frame)
+    if (!m_webFrame)
         return;
         
     if (m_webView) {
@@ -732,9 +795,9 @@ void FrameLoaderClientWx::dispatchDecidePolicyForNavigationAction(FramePolicyFun
         
         m_webView->GetEventHandler()->ProcessEvent(wkEvent);
         if (wkEvent.IsCancelled())
-            (m_frame->loader()->*function)(PolicyIgnore);
+            (m_frame->loader()->policyChecker()->*function)(PolicyIgnore);
         else
-            (m_frame->loader()->*function)(PolicyUse);
+            (m_frame->loader()->policyChecker()->*function)(PolicyUse);
         
     }
 }
@@ -752,56 +815,34 @@ void FrameLoaderClientWx::startDownload(const ResourceRequest&)
 PassRefPtr<Frame> FrameLoaderClientWx::createFrame(const KURL& url, const String& name, HTMLFrameOwnerElement* ownerElement,
                                    const String& referrer, bool allowsScrolling, int marginWidth, int marginHeight)
 {
-/*
-    FIXME: Temporarily disabling code for loading subframes. While most 
-    (i)frames load and are destroyed properly, the iframe created by
-    google.com in its new homepage does not get destroyed when 
-    document()->detach() is called, as other (i)frames do. It is destroyed on 
-    app shutdown, but until that point, this 'in limbo' frame will do things
-    like steal keyboard focus and crash when clicked on. (On some platforms,
-    it is actually a visible object, even though it's not in a valid state.)
-    
-    Since just about every user is probably going to test against Google at 
-    some point, I'm disabling this functionality until I have time to track down
-    why it is not being destroyed.
-*/
-
-/*
-    wxWindow* parent = m_webView;
-
     WebViewFrameData* data = new WebViewFrameData();
     data->name = name;
     data->ownerElement = ownerElement;
     data->url = url;
     data->referrer = referrer;
+    data->allowsScrolling = allowsScrolling;
     data->marginWidth = marginWidth;
     data->marginHeight = marginHeight;
 
-    wxWebView* newWin = new wxWebView(parent, -1, wxDefaultPosition, wxDefaultSize, data);
+    wxWebFrame* newFrame = new wxWebFrame(m_webView, m_webFrame, data);
 
-    RefPtr<Frame> childFrame = newWin->m_impl->frame;
+    RefPtr<Frame> childFrame = adoptRef(newFrame->m_impl->frame);
 
-    // FIXME: All of the below should probably be moved over into WebCore
-    childFrame->tree()->setName(name);
-    m_frame->tree()->appendChild(childFrame);
-    // ### set override encoding if we have one
+    // The creation of the frame may have run arbitrary JavaScript that removed it from the page already.
+    if (!childFrame->page())
+        return 0;
 
-    FrameLoadType loadType = m_frame->loader()->loadType();
-    FrameLoadType childLoadType = FrameLoadTypeInternal;
-
-    childFrame->loader()->load(url, referrer, childLoadType,
-                            String(), 0, 0);
+    childFrame->loader()->loadURLIntoChildFrame(url, referrer, childFrame.get());
     
     // The frame's onload handler may have removed it from the document.
     if (!childFrame->tree()->parent())
         return 0;
     
-    delete data;
-    
-    return childFrame.get();
-*/
-    notImplemented();
-    return 0;
+    return childFrame.release();
+}
+
+void FrameLoaderClientWx::didTransferChildFrameToNewDocument()
+{
 }
 
 ObjectContentType FrameLoaderClientWx::objectContentType(const KURL& url, const String& mimeType)
@@ -810,16 +851,21 @@ ObjectContentType FrameLoaderClientWx::objectContentType(const KURL& url, const 
     return ObjectContentType();
 }
 
-PassRefPtr<Widget> FrameLoaderClientWx::createPlugin(const IntSize&, HTMLPlugInElement*, const KURL&, const Vector<String>&, const Vector<String>&, const String&, bool loadManually)
+PassRefPtr<Widget> FrameLoaderClientWx::createPlugin(const IntSize& size, HTMLPlugInElement* element, const KURL& url, const Vector<String>& paramNames, const Vector<String>& paramValues, const String& mimeType, bool loadManually)
 {
-    notImplemented();
+#if __WXMSW__ || __WXMAC__
+    RefPtr<PluginView> pv = PluginView::create(m_frame, size, element, url, paramNames, paramValues, mimeType, loadManually);
+    if (pv->status() == PluginStatusLoadedSuccessfully)
+        return pv;
+#endif
     return 0;
 }
 
 void FrameLoaderClientWx::redirectDataToPlugin(Widget* pluginWidget)
 {
-    notImplemented();
-    return;
+    ASSERT(!m_pluginView);
+    m_pluginView = static_cast<PluginView*>(pluginWidget);
+    m_hasSentResponseToPlugin = false;
 }
 
 ResourceError FrameLoaderClientWx::pluginWillHandleLoadError(const ResourceResponse& response)
@@ -841,13 +887,16 @@ String FrameLoaderClientWx::overrideMediaType() const
     return String();
 }
 
-void FrameLoaderClientWx::windowObjectCleared()
+void FrameLoaderClientWx::dispatchDidClearWindowObjectInWorld(DOMWrapperWorld* world)
 {
+    if (world != mainThreadNormalWorld())
+        return;
+
     if (m_webView) {
         wxWebViewWindowObjectClearedEvent wkEvent(m_webView);
         Frame* coreFrame = m_webView->GetMainFrame()->GetFrame();
-        JSGlobalContextRef context = toGlobalRef(coreFrame->script()->globalObject()->globalExec());
-        JSObjectRef windowObject = toRef(coreFrame->script()->globalObject());
+        JSGlobalContextRef context = toGlobalRef(coreFrame->script()->globalObject(mainThreadNormalWorld())->globalExec());
+        JSObjectRef windowObject = toRef(coreFrame->script()->globalObject(mainThreadNormalWorld()));
         wkEvent.SetJSContext(context);
         wkEvent.SetWindowObject(windowObject);
         m_webView->GetEventHandler()->ProcessEvent(wkEvent);
@@ -880,29 +929,26 @@ void FrameLoaderClientWx::transitionToCommittedFromCachedFrame(CachedFrame*)
 
 void FrameLoaderClientWx::transitionToCommittedForNewPage()
 { 
+    ASSERT(m_webFrame);
     ASSERT(m_frame);
     ASSERT(m_webView);
     
-    Page* page = m_frame->page();
-    ASSERT(page);
+    IntSize size = IntRect(m_webView->GetRect()).size();
+    // FIXME: This value should be gotten from m_webView->IsTransparent();
+    // but transitionToCommittedForNewPage() can be called while m_webView is
+    // still being initialized.
+    bool transparent = false;
+    Color backgroundColor = transparent ? WebCore::Color::transparent : WebCore::Color::white;
+    
+    if (m_frame)
+        m_frame->createView(size, backgroundColor, transparent, IntSize(), false); 
+}
 
-    bool isMainFrame = m_frame == page->mainFrame();
-
-    m_frame->setView(0);
-
-    RefPtr<FrameView> frameView;
-    if (isMainFrame)
-        frameView = FrameView::create(m_frame, IntRect(m_webView->GetRect()).size());
-    else
-        frameView = FrameView::create(m_frame);
-
-    ASSERT(frameView);
-    m_frame->setView(frameView);
-
-    frameView->setPlatformWidget(m_webView);
-
-    if (HTMLFrameOwnerElement* owner = m_frame->ownerElement())
-        m_frame->view()->setScrollbarModes(owner->scrollingMode(), owner->scrollingMode());
+bool FrameLoaderClientWx::shouldUsePluginDocument(const String &mimeType) const
+{
+    // NOTE: Plugin Documents are used for viewing PDFs, etc. inline, and should
+    // not be used for pages with plugins in them.
+    return false;
 }
 
 }

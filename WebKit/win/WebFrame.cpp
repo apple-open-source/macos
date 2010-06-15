@@ -1,5 +1,6 @@
 /*
- * Copyright (C) 2006, 2007, 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2006, 2007, 2008, 2009 Apple Inc. All rights reserved.
+ * Copyright (C) Research In Motion Limited 2009. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -28,29 +29,30 @@
 #include "WebFrame.h"
 
 #include "CFDictionaryPropertyBag.h"
-#include "COMPtr.h"
 #include "COMPropertyBag.h"
-#include "DefaultPolicyDelegate.h"
+#include "COMPtr.h"
 #include "DOMCoreClasses.h"
+#include "DefaultPolicyDelegate.h"
 #include "HTMLFrameOwnerElement.h"
 #include "MarshallingHelpers.h"
 #include "WebActionPropertyBag.h"
 #include "WebChromeClient.h"
+#include "WebDataSource.h"
 #include "WebDocumentLoader.h"
 #include "WebDownload.h"
-#include "WebError.h"
-#include "WebMutableURLRequest.h"
 #include "WebEditorClient.h"
+#include "WebError.h"
 #include "WebFramePolicyListener.h"
 #include "WebHistory.h"
+#include "WebHistoryItem.h"
 #include "WebIconFetcher.h"
 #include "WebKit.h"
 #include "WebKitStatisticsPrivate.h"
+#include "WebMutableURLRequest.h"
 #include "WebNotificationCenter.h"
-#include "WebView.h"
-#include "WebDataSource.h"
-#include "WebHistoryItem.h"
+#include "WebScriptWorld.h"
 #include "WebURLResponse.h"
+#include "WebView.h"
 #pragma warning( push, 0 )
 #include <WebCore/BString.h>
 #include <WebCore/Cache.h>
@@ -77,7 +79,6 @@
 #include <WebCore/HTMLPlugInElement.h>
 #include <WebCore/JSDOMWindow.h>
 #include <WebCore/KeyboardEvent.h>
-#include <WebCore/MIMETypeRegistry.h>
 #include <WebCore/MouseRelatedEvent.h>
 #include <WebCore/NotImplemented.h>
 #include <WebCore/Page.h>
@@ -85,29 +86,47 @@
 #include <WebCore/PluginInfoStore.h>
 #include <WebCore/PluginDatabase.h>
 #include <WebCore/PluginView.h>
+#include <WebCore/PrintContext.h>
 #include <WebCore/ResourceHandle.h>
 #include <WebCore/ResourceHandleWin.h>
 #include <WebCore/ResourceRequest.h>
 #include <WebCore/RenderView.h>
 #include <WebCore/RenderTreeAsText.h>
 #include <WebCore/Settings.h>
+#include <WebCore/SVGSMILElement.h>
 #include <WebCore/TextIterator.h>
 #include <WebCore/JSDOMBinding.h>
 #include <WebCore/ScriptController.h>
+#include <WebCore/SecurityOrigin.h>
 #include <JavaScriptCore/APICast.h>
+#include <JavaScriptCore/JSLock.h>
+#include <JavaScriptCore/JSObject.h>
+#include <JavaScriptCore/JSValue.h>
 #include <wtf/MathExtras.h>
 #pragma warning(pop)
 
+#if PLATFORM(CG)
 #include <CoreGraphics/CoreGraphics.h>
+#elif PLATFORM(CAIRO)
+#include <cairo-win32.h>
+#endif
 
+#if PLATFORM(CG)
 // CG SPI used for printing
 extern "C" {
     CGAffineTransform CGContextGetBaseCTM(CGContextRef c); 
     void CGContextSetBaseCTM(CGContextRef c, CGAffineTransform m); 
 }
+#endif
 
 using namespace WebCore;
 using namespace HTMLNames;
+using namespace std;
+
+using JSC::JSGlobalObject;
+using JSC::JSLock;
+using JSC::JSValue;
+using JSC::SilenceAssertionsOnly;
 
 #define FLASH_REDRAW 0
 
@@ -298,6 +317,16 @@ HRESULT STDMETHODCALLTYPE WebFrame::setExcludeFromTextSearch(
     return E_FAIL;
 }
 
+HRESULT WebFrame::reloadFromOrigin()
+{
+    Frame* coreFrame = core(this);
+    if (!coreFrame)
+        return E_FAIL;
+
+    coreFrame->loader()->reload(true);
+    return S_OK;
+}
+
 HRESULT STDMETHODCALLTYPE WebFrame::paintDocumentRectToContext(
     /* [in] */ RECT rect,
     /* [in] */ OLE_HANDLE deviceContext)
@@ -313,7 +342,7 @@ HRESULT STDMETHODCALLTYPE WebFrame::paintDocumentRectToContext(
     // We can't paint with a layout still pending.
     view->layoutIfNeededRecursive();
 
-    HDC dc = (HDC)(ULONG64)deviceContext;
+    HDC dc = reinterpret_cast<HDC>(static_cast<ULONG64>(deviceContext));
     GraphicsContext gc(dc);
     gc.setShouldIncludeChildWindows(true);
     gc.save();
@@ -324,6 +353,35 @@ HRESULT STDMETHODCALLTYPE WebFrame::paintDocumentRectToContext(
     dirtyRect.setHeight(height);
     gc.clip(dirtyRect);
     gc.translate(-rect.left, -rect.top);
+    view->paintContents(&gc, rect);
+    gc.restore();
+
+    return S_OK;
+}
+
+HRESULT STDMETHODCALLTYPE WebFrame::paintDocumentRectToContextAtPoint(
+    /* [in] */ RECT rect,
+    /* [in] */ POINT pt,
+    /* [in] */ OLE_HANDLE deviceContext)
+{
+    Frame* coreFrame = core(this);
+    if (!coreFrame)
+        return E_FAIL;
+
+    FrameView* view = coreFrame->view();
+    if (!view)
+        return E_FAIL;
+
+    // We can't paint with a layout still pending.
+    view->layoutIfNeededRecursive();
+
+    HDC dc = reinterpret_cast<HDC>(static_cast<ULONG64>(deviceContext));
+    GraphicsContext gc(dc);
+    gc.setShouldIncludeChildWindows(true);
+    gc.save();
+    IntRect dirtyRect(rect);
+    gc.translate(-pt.x, -pt.y);
+    gc.clip(dirtyRect);
     view->paintContents(&gc, rect);
     gc.restore();
 
@@ -462,7 +520,20 @@ JSGlobalContextRef STDMETHODCALLTYPE WebFrame::globalContext()
     if (!coreFrame)
         return 0;
 
-    return toGlobalRef(coreFrame->script()->globalObject()->globalExec());
+    return toGlobalRef(coreFrame->script()->globalObject(mainThreadNormalWorld())->globalExec());
+}
+
+JSGlobalContextRef WebFrame::globalContextForScriptWorld(IWebScriptWorld* iWorld)
+{
+    Frame* coreFrame = core(this);
+    if (!coreFrame)
+        return 0;
+
+    COMPtr<WebScriptWorld> world(Query, iWorld);
+    if (!world)
+        return 0;
+
+    return toGlobalRef(coreFrame->script()->globalObject(world->world())->globalExec());
 }
 
 HRESULT STDMETHODCALLTYPE WebFrame::loadRequest( 
@@ -785,7 +856,64 @@ HRESULT STDMETHODCALLTYPE WebFrame::renderTreeAsExternalRepresentation(
     if (!coreFrame)
         return E_FAIL;
 
-    *result = BString(externalRepresentation(coreFrame->contentRenderer())).release();
+    *result = BString(externalRepresentation(coreFrame)).release();
+    return S_OK;
+}
+
+HRESULT STDMETHODCALLTYPE WebFrame::counterValueForElementById(
+    /* [in] */ BSTR id, /* [retval][out] */ BSTR *result)
+{
+    if (!result)
+        return E_POINTER;
+
+    Frame* coreFrame = core(this);
+    if (!coreFrame)
+        return E_FAIL;
+
+    String coreId = String(id, SysStringLen(id));
+
+    Element* element = coreFrame->document()->getElementById(coreId);
+    if (!element)
+        return E_FAIL;
+    *result = BString(counterValueForElement(element)).release();
+    return S_OK;
+}
+
+HRESULT STDMETHODCALLTYPE WebFrame::pageNumberForElementById(
+    /* [in] */ BSTR id,
+    /* [in] */ float pageWidthInPixels,
+    /* [in] */ float pageHeightInPixels,
+    /* [retval][out] */ int* result)
+{
+    if (!result)
+        return E_POINTER;
+
+    Frame* coreFrame = core(this);
+    if (!coreFrame)
+        return E_FAIL;
+
+    String coreId = String(id, SysStringLen(id));
+
+    Element* element = coreFrame->document()->getElementById(coreId);
+    if (!element)
+        return E_FAIL;
+    *result = PrintContext::pageNumberForElement(element, FloatSize(pageWidthInPixels, pageHeightInPixels));
+    return S_OK;
+}
+
+HRESULT STDMETHODCALLTYPE WebFrame::numberOfPages(
+    /* [in] */ float pageWidthInPixels,
+    /* [in] */ float pageHeightInPixels,
+    /* [retval][out] */ int* result)
+{
+    if (!result)
+        return E_POINTER;
+
+    Frame* coreFrame = core(this);
+    if (!coreFrame)
+        return E_FAIL;
+
+    *result = PrintContext::numberOfPages(coreFrame, FloatSize(pageWidthInPixels, pageHeightInPixels));
     return S_OK;
 }
 
@@ -926,7 +1054,14 @@ HRESULT STDMETHODCALLTYPE WebFrame::selectedString(
 
 HRESULT STDMETHODCALLTYPE WebFrame::selectAll()
 {
-    return E_NOTIMPL;
+    Frame* coreFrame = core(this);
+    if (!coreFrame)
+        return E_FAIL;
+
+    if (!coreFrame->editor()->command("SelectAll").execute())
+        return E_FAIL;
+
+    return S_OK;
 }
 
 HRESULT STDMETHODCALLTYPE WebFrame::deselectAll()
@@ -968,7 +1103,7 @@ void WebFrame::setTextSizeMultiplier(float multiplier)
 {
     Frame* coreFrame = core(this);
     ASSERT(coreFrame);
-    coreFrame->setZoomFactor(multiplier, true);
+    coreFrame->setZoomFactor(multiplier, ZoomTextOnly);
 }
 
 HRESULT WebFrame::inViewSourceMode(BOOL* flag)
@@ -1046,7 +1181,7 @@ HRESULT WebFrame::elementDoesAutoComplete(IDOMElement *element, BOOL *result)
     if (!inputElement)
         *result = false;
     else
-        *result = (inputElement->inputType() == HTMLInputElement::TEXT && inputElement->autoComplete());
+        *result = inputElement->isTextField() && inputElement->inputType() != HTMLInputElement::PASSWORD && inputElement->autoComplete();
 
     return S_OK;
 }
@@ -1097,6 +1232,52 @@ HRESULT WebFrame::pauseTransition(BSTR propertyName, IDOMNode* node, double seco
     return S_OK;
 }
 
+HRESULT WebFrame::pauseSVGAnimation(BSTR elementId, IDOMNode* node, double secondsFromNow, BOOL* animationWasRunning)
+{
+    if (!node || !animationWasRunning)
+        return E_POINTER;
+
+    *animationWasRunning = FALSE;
+
+    Frame* frame = core(this);
+    if (!frame)
+        return E_FAIL;
+
+    Document* document = frame->document();
+    if (!document || !document->svgExtensions())
+        return E_FAIL;
+
+    COMPtr<DOMNode> domNode(Query, node);
+    if (!domNode || !SVGSMILElement::isSMILElement(domNode->node()))
+        return E_FAIL;
+
+#if ENABLE(SVG)
+    *animationWasRunning = document->accessSVGExtensions()->sampleAnimationAtTime(String(elementId, SysStringLen(elementId)), static_cast<SVGSMILElement*>(domNode->node()), secondsFromNow);
+#else
+    *animationWasRunning = FALSE;
+#endif
+
+    return S_OK;
+}
+
+HRESULT WebFrame::visibleContentRect(RECT* rect)
+{
+    if (!rect)
+        return E_POINTER;
+    SetRectEmpty(rect);
+
+    Frame* frame = core(this);
+    if (!frame)
+        return E_FAIL;
+
+    FrameView* view = frame->view();
+    if (!view)
+        return E_FAIL;
+
+    *rect = view->visibleContentRect(false);
+    return S_OK;
+}
+
 HRESULT WebFrame::numberOfActiveAnimations(UINT* number)
 {
     if (!number)
@@ -1143,7 +1324,7 @@ HRESULT WebFrame::allowsFollowingLink(BSTR url, BOOL* result)
     if (!frame)
         return E_FAIL;
 
-    *result = FrameLoader::canLoad(MarshallingHelpers::BSTRToKURL(url), String(), frame->document());
+    *result = SecurityOrigin::canLoad(MarshallingHelpers::BSTRToKURL(url), String(), frame->document());
     return S_OK;
 }
 
@@ -1183,13 +1364,17 @@ HRESULT WebFrame::elementIsPassword(IDOMElement *element, bool *result)
     return S_OK;
 }
 
-HRESULT WebFrame::searchForLabelsBeforeElement(const BSTR* labels, int cLabels, IDOMElement* beforeElement, BSTR* result)
+HRESULT WebFrame::searchForLabelsBeforeElement(const BSTR* labels, unsigned cLabels, IDOMElement* beforeElement, unsigned* outResultDistance, BOOL* outResultIsInCellAbove, BSTR* result)
 {
     if (!result) {
         ASSERT_NOT_REACHED();
         return E_POINTER;
     }
 
+    if (outResultDistance)
+        *outResultDistance = 0;
+    if (outResultIsInCellAbove)
+        *outResultIsInCellAbove = FALSE;
     *result = 0;
 
     if (!cLabels)
@@ -1208,11 +1393,18 @@ HRESULT WebFrame::searchForLabelsBeforeElement(const BSTR* labels, int cLabels, 
     if (!coreElement)
         return E_FAIL;
 
-    String label = coreFrame->searchForLabelsBeforeElement(labelStrings, coreElement);
+    size_t resultDistance;
+    bool resultIsInCellAbove;
+    String label = coreFrame->searchForLabelsBeforeElement(labelStrings, coreElement, &resultDistance, &resultIsInCellAbove);
     
     *result = SysAllocStringLen(label.characters(), label.length());
     if (label.length() && !*result)
         return E_OUTOFMEMORY;
+    if (outResultDistance)
+        *outResultDistance = resultDistance;
+    if (outResultIsInCellAbove)
+        *outResultIsInCellAbove = resultIsInCellAbove;
+
     return S_OK;
 }
 
@@ -1272,6 +1464,21 @@ HRESULT WebFrame::canProvideDocumentSource(bool* result)
     return hr;
 }
 
+HRESULT STDMETHODCALLTYPE WebFrame::layerTreeAsText(BSTR* result)
+{
+    if (!result)
+        return E_POINTER;
+    *result = 0;
+
+    Frame* frame = core(this);
+    if (!frame)
+        return E_FAIL;
+
+    String text = frame->layerTreeAsText();
+    *result = BString(text).release();
+    return S_OK;
+}
+
 void WebFrame::frameLoaderDestroyed()
 {
     // The FrameLoader going away is equivalent to the Frame going away,
@@ -1324,7 +1531,7 @@ void WebFrame::dispatchWillSubmitForm(FramePolicyFunction function, PassRefPtr<F
     COMPtr<IWebFormDelegate> formDelegate;
 
     if (FAILED(d->webView->formDelegate(&formDelegate))) {
-        (coreFrame->loader()->*function)(PolicyUse);
+        (coreFrame->loader()->policyChecker()->*function)(PolicyUse);
         return;
     }
 
@@ -1343,7 +1550,7 @@ void WebFrame::dispatchWillSubmitForm(FramePolicyFunction function, PassRefPtr<F
         return;
 
     // FIXME: Add a sane default implementation
-    (coreFrame->loader()->*function)(PolicyUse);
+    (coreFrame->loader()->policyChecker()->*function)(PolicyUse);
 }
 
 void WebFrame::revertToProvisionalState(DocumentLoader*)
@@ -1362,6 +1569,11 @@ void WebFrame::willChangeTitle(DocumentLoader*)
 }
 
 void WebFrame::didChangeTitle(DocumentLoader*)
+{
+    notImplemented();
+}
+
+void WebFrame::didChangeIcons(DocumentLoader*)
 {
     notImplemented();
 }
@@ -1509,7 +1721,7 @@ void WebFrame::receivedPolicyDecision(PolicyAction action)
     Frame* coreFrame = core(this);
     ASSERT(coreFrame);
 
-    (coreFrame->loader()->*function)(action);
+    (coreFrame->loader()->policyChecker()->*function)(action);
 }
 
 void WebFrame::dispatchDecidePolicyForMIMEType(FramePolicyFunction function, const String& mimeType, const ResourceRequest& request)
@@ -1526,7 +1738,7 @@ void WebFrame::dispatchDecidePolicyForMIMEType(FramePolicyFunction function, con
     if (SUCCEEDED(policyDelegate->decidePolicyForMIMEType(d->webView, BString(mimeType), urlRequest.get(), this, setUpPolicyListener(function).get())))
         return;
 
-    (coreFrame->loader()->*function)(PolicyUse);
+    (coreFrame->loader()->policyChecker()->*function)(PolicyUse);
 }
 
 void WebFrame::dispatchDecidePolicyForNewWindowAction(FramePolicyFunction function, const NavigationAction& action, const ResourceRequest& request, PassRefPtr<FormState> formState, const String& frameName)
@@ -1544,7 +1756,7 @@ void WebFrame::dispatchDecidePolicyForNewWindowAction(FramePolicyFunction functi
     if (SUCCEEDED(policyDelegate->decidePolicyForNewWindowAction(d->webView, actionInformation.get(), urlRequest.get(), BString(frameName), setUpPolicyListener(function).get())))
         return;
 
-    (coreFrame->loader()->*function)(PolicyUse);
+    (coreFrame->loader()->policyChecker()->*function)(PolicyUse);
 }
 
 void WebFrame::dispatchDecidePolicyForNavigationAction(FramePolicyFunction function, const NavigationAction& action, const ResourceRequest& request, PassRefPtr<FormState> formState)
@@ -1562,7 +1774,7 @@ void WebFrame::dispatchDecidePolicyForNavigationAction(FramePolicyFunction funct
     if (SUCCEEDED(policyDelegate->decidePolicyForNavigationAction(d->webView, actionInformation.get(), urlRequest.get(), this, setUpPolicyListener(function).get())))
         return;
 
-    (coreFrame->loader()->*function)(PolicyUse);
+    (coreFrame->loader()->policyChecker()->*function)(PolicyUse);
 }
 
 void WebFrame::dispatchUnableToImplementPolicy(const ResourceError& error)
@@ -1637,7 +1849,7 @@ PassRefPtr<Widget> WebFrame::createJavaAppletWidget(const IntSize& pluginSize, H
     if (FAILED(d->webView->resourceLoadDelegate(&resourceLoadDelegate)))
         return pluginView;
 
-    COMPtr<CFDictionaryPropertyBag> userInfoBag(AdoptCOM, CFDictionaryPropertyBag::createInstance());
+    COMPtr<CFDictionaryPropertyBag> userInfoBag = CFDictionaryPropertyBag::createInstance();
 
     ResourceError resourceError(String(WebKitErrorDomain), WebKitErrorJavaUnavailable, String(), String());
     COMPtr<IWebError> error(AdoptCOM, WebError::createInstance(resourceError, userInfoBag.get()));
@@ -1647,25 +1859,9 @@ PassRefPtr<Widget> WebFrame::createJavaAppletWidget(const IntSize& pluginSize, H
     return pluginView;
 }
 
-ObjectContentType WebFrame::objectContentType(const KURL& url, const String& mimeTypeIn)
+ObjectContentType WebFrame::objectContentType(const KURL& url, const String& mimeType)
 {
-    String mimeType = mimeTypeIn;
-    if (mimeType.isEmpty())
-        mimeType = MIMETypeRegistry::getMIMETypeForExtension(url.path().substring(url.path().reverseFind('.') + 1));
-
-    if (mimeType.isEmpty())
-        return ObjectContentFrame; // Go ahead and hope that we can display the content.
-
-    if (MIMETypeRegistry::isSupportedImageMIMEType(mimeType))
-        return WebCore::ObjectContentImage;
-
-    if (PluginDatabase::installedPlugins()->isMIMETypeRegistered(mimeType))
-        return WebCore::ObjectContentNetscapePlugin;
-
-    if (MIMETypeRegistry::isSupportedNonImageMIMEType(mimeType))
-        return WebCore::ObjectContentFrame;
-
-    return WebCore::ObjectContentNone;
+    return WebCore::FrameLoader::defaultObjectContentType(url, mimeType);
 }
 
 String WebFrame::overrideMediaType() const
@@ -1674,7 +1870,7 @@ String WebFrame::overrideMediaType() const
     return String();
 }
 
-void WebFrame::windowObjectCleared()
+void WebFrame::dispatchDidClearWindowObjectInWorld(DOMWrapperWorld* world)
 {
     Frame* coreFrame = core(this);
     ASSERT(coreFrame);
@@ -1684,14 +1880,22 @@ void WebFrame::windowObjectCleared()
         return;
 
     COMPtr<IWebFrameLoadDelegate> frameLoadDelegate;
-    if (SUCCEEDED(d->webView->frameLoadDelegate(&frameLoadDelegate))) {
-        JSContextRef context = toRef(coreFrame->script()->globalObject()->globalExec());
-        JSObjectRef windowObject = toRef(coreFrame->script()->globalObject());
-        ASSERT(windowObject);
+    if (FAILED(d->webView->frameLoadDelegate(&frameLoadDelegate)))
+        return;
 
-        if (FAILED(frameLoadDelegate->didClearWindowObject(d->webView, context, windowObject, this)))
-            frameLoadDelegate->windowScriptObjectAvailable(d->webView, context, windowObject);
-    }
+    COMPtr<IWebFrameLoadDelegatePrivate2> delegatePrivate(Query, frameLoadDelegate);
+    if (delegatePrivate && delegatePrivate->didClearWindowObjectForFrameInScriptWorld(d->webView, this, WebScriptWorld::findOrCreateWorld(world).get()) != E_NOTIMPL)
+        return;
+
+    if (world != mainThreadNormalWorld())
+        return;
+
+    JSContextRef context = toRef(coreFrame->script()->globalObject(world)->globalExec());
+    JSObjectRef windowObject = toRef(coreFrame->script()->globalObject(world));
+    ASSERT(windowObject);
+
+    if (FAILED(frameLoadDelegate->didClearWindowObject(d->webView, context, windowObject, this)))
+        frameLoadDelegate->windowScriptObjectAvailable(d->webView, context, windowObject);
 }
 
 void WebFrame::documentElementAvailable()
@@ -1865,16 +2069,186 @@ HRESULT STDMETHODCALLTYPE WebFrame::getPrintedPageCount(
     return S_OK;
 }
 
+#if PLATFORM(CG)
+void WebFrame::drawHeader(PlatformGraphicsContext* pctx, IWebUIDelegate* ui, const IntRect& pageRect, float headerHeight)
+{
+    int x = pageRect.x();
+    int y = 0;
+    RECT headerRect = {x, y, x+pageRect.width(), y+static_cast<int>(headerHeight)};
+    ui->drawHeaderInRect(d->webView, &headerRect, static_cast<OLE_HANDLE>(reinterpret_cast<LONG64>(pctx)));
+}
+
+void WebFrame::drawFooter(PlatformGraphicsContext* pctx, IWebUIDelegate* ui, const IntRect& pageRect, UINT page, UINT pageCount, float headerHeight, float footerHeight)
+{
+    int x = pageRect.x();
+    int y = max((int)headerHeight+pageRect.height(), m_pageHeight-static_cast<int>(footerHeight));
+    RECT footerRect = {x, y, x+pageRect.width(), y+static_cast<int>(footerHeight)};
+    ui->drawFooterInRect(d->webView, &footerRect, static_cast<OLE_HANDLE>(reinterpret_cast<LONG64>(pctx)), page+1, pageCount);
+}
+
+void WebFrame::spoolPage(PlatformGraphicsContext* pctx, GraphicsContext* spoolCtx, HDC printDC, IWebUIDelegate* ui, float headerHeight, float footerHeight, UINT page, UINT pageCount)
+{
+    Frame* coreFrame = core(this);
+
+    IntRect pageRect = m_pageRects[page];
+
+    CGContextSaveGState(pctx);
+
+    IntRect printRect = printerRect(printDC);
+    CGRect mediaBox = CGRectMake(CGFloat(0),
+                                 CGFloat(0),
+                                 CGFloat(printRect.width()),
+                                 CGFloat(printRect.height()));
+
+    CGContextBeginPage(pctx, &mediaBox);
+
+    CGFloat scale = static_cast<float>(mediaBox.size.width)/static_cast<float>(pageRect.width());
+    CGAffineTransform ctm = CGContextGetBaseCTM(pctx);
+    ctm = CGAffineTransformScale(ctm, -scale, -scale);
+    ctm = CGAffineTransformTranslate(ctm, CGFloat(-pageRect.x()), CGFloat(-pageRect.y()+headerHeight)); // reserves space for header
+    CGContextScaleCTM(pctx, scale, scale);
+    CGContextTranslateCTM(pctx, CGFloat(-pageRect.x()), CGFloat(-pageRect.y()+headerHeight));   // reserves space for header
+    CGContextSetBaseCTM(pctx, ctm);
+
+    coreFrame->view()->paintContents(spoolCtx, pageRect);
+
+    CGContextTranslateCTM(pctx, CGFloat(pageRect.x()), CGFloat(pageRect.y())-headerHeight);
+
+    if (headerHeight)
+        drawHeader(pctx, ui, pageRect, headerHeight);
+
+    if (footerHeight)
+        drawFooter(pctx, ui, pageRect, page, pageCount, headerHeight, footerHeight);
+
+    CGContextEndPage(pctx);
+    CGContextRestoreGState(pctx);
+}
+#elif PLATFORM(CAIRO)
+static float scaleFactor(HDC printDC, const IntRect& marginRect, const IntRect& pageRect)
+{
+    const IntRect& printRect = printerRect(printDC);
+
+    IntRect adjustedRect = IntRect(
+        printRect.x() + marginRect.x(),
+        printRect.y() + marginRect.y(),
+        printRect.width() - marginRect.x() - marginRect.right(),
+        printRect.height() - marginRect.y() - marginRect.bottom());
+
+    float scale = static_cast<float>(adjustedRect.width()) / static_cast<float>(pageRect.width());
+    if (!scale)
+       scale = 1.0;
+
+    return scale;
+}
+
+static HDC hdcFromContext(PlatformGraphicsContext* pctx)
+{
+    cairo_surface_t* surface = cairo_get_target(pctx);
+    return cairo_win32_surface_get_dc(surface);
+}
+
+void WebFrame::drawHeader(PlatformGraphicsContext* pctx, IWebUIDelegate* ui, const IntRect& pageRect, float headerHeight)
+{
+    HDC hdc = hdcFromContext(pctx);
+    const IntRect& marginRect = printerMarginRect(hdc);
+
+    const float scale = scaleFactor(hdc, marginRect, pageRect);
+    int x = static_cast<int>(scale * pageRect.x());
+    int y = 0;
+    RECT headerRect = {x, y, x + static_cast<int>(scale * pageRect.width()), y + static_cast<int>(scale * headerHeight)};
+
+    ui->drawHeaderInRect(d->webView, &headerRect, static_cast<OLE_HANDLE>(reinterpret_cast<LONG64>(hdc)));
+}
+
+void WebFrame::drawFooter(PlatformGraphicsContext* pctx, IWebUIDelegate* ui, const IntRect& pageRect, UINT page, UINT pageCount, float headerHeight, float footerHeight)
+{
+    HDC hdc = hdcFromContext(pctx);
+    const IntRect& marginRect = printerMarginRect(hdc);
+
+    const float scale = scaleFactor(hdc, marginRect, pageRect);
+    int x = static_cast<int>(scale * pageRect.x());
+    int y = static_cast<int>(scale * max(static_cast<int>(headerHeight) + pageRect.height(), m_pageHeight-static_cast<int>(footerHeight)));
+    RECT footerRect = {x, y, x + static_cast<int>(scale * pageRect.width()), y + static_cast<int>(scale * footerHeight)};
+
+    ui->drawFooterInRect(d->webView, &footerRect, static_cast<OLE_HANDLE>(reinterpret_cast<LONG64>(hdc)), page+1, pageCount);
+}
+
+void WebFrame::spoolPage(PlatformGraphicsContext* pctx, GraphicsContext* spoolCtx, HDC printDC, IWebUIDelegate* ui, float headerHeight, float footerHeight, UINT page, UINT pageCount)
+{
+    Frame* coreFrame = core(this);
+
+    const IntRect& pageRect = m_pageRects[page];
+    const IntRect& marginRect = printerMarginRect(printDC);
+
+    cairo_save(pctx);
+    spoolCtx->save();
+    float scale = scaleFactor(printDC, marginRect, pageRect);
+    cairo_scale(pctx, scale, scale);
+
+    IntRect cairoMarginRect (marginRect);
+    cairoMarginRect.scale (1 / scale);
+
+    // Modify Cairo and GDI World Transform to account for margin in the
+    // subsequent WebKit-controlled 'paintContents' drawing operations:
+    spoolCtx->translate(cairoMarginRect.x(), cairoMarginRect.y() + headerHeight);
+
+    // Modify Cairo (only) to account for page position.
+    cairo_translate(pctx, -pageRect.x(), -pageRect.y());
+    coreFrame->view()->paintContents(spoolCtx, pageRect);
+
+    cairo_translate(pctx, pageRect.x(), pageRect.y());
+
+    XFORM originalWorld;
+    ::GetWorldTransform(printDC, &originalWorld);
+
+    // Position GDI world transform to account for margin in GDI-only
+    // header/footer calls
+    XFORM newWorld = originalWorld;
+    newWorld.eDx = marginRect.x();
+    newWorld.eDy = marginRect.y();
+
+    ::SetWorldTransform(printDC, &newWorld);
+
+    if (headerHeight)
+        drawHeader(pctx, ui, pageRect, headerHeight);
+    
+    if (footerHeight)
+        drawFooter(pctx, ui, pageRect, page, pageCount, headerHeight, footerHeight);
+
+    ::SetWorldTransform(printDC, &originalWorld);
+
+    cairo_show_page(pctx);
+    ASSERT(!cairo_status(pctx));
+    spoolCtx->restore();
+    cairo_restore(pctx);
+}
+#endif
+
 HRESULT STDMETHODCALLTYPE WebFrame::spoolPages( 
     /* [in] */ HDC printDC,
     /* [in] */ UINT startPage,
     /* [in] */ UINT endPage,
     /* [retval][out] */ void* ctx)
 {
+#if PLATFORM(CG)
     if (!printDC || !ctx) {
         ASSERT_NOT_REACHED();
         return E_POINTER;
     }
+#elif PLATFORM(CAIRO)
+    if (!printDC) {
+        ASSERT_NOT_REACHED();
+        return E_POINTER;
+    }
+
+    cairo_surface_t* printSurface = cairo_win32_printing_surface_create(printDC);
+    ctx = cairo_create(printSurface);
+    if (!ctx) {
+        cairo_surface_destroy(printSurface);    
+        return E_FAIL;
+    }
+    cairo_surface_set_fallback_resolution(printSurface, 72.0, 72.0);
+#endif
 
     if (!m_inPrintingMode) {
         ASSERT_NOT_REACHED();
@@ -1908,48 +2282,16 @@ HRESULT STDMETHODCALLTYPE WebFrame::spoolPages(
     GraphicsContext spoolCtx(pctx);
     spoolCtx.setShouldIncludeChildWindows(true);
 
-    for (UINT ii = startPage; ii < endPage; ii++) {
-        IntRect pageRect = m_pageRects[ii];
+    for (UINT ii = startPage; ii < endPage; ii++)
+        spoolPage(pctx, &spoolCtx, printDC, ui.get(), headerHeight, footerHeight, ii, pageCount);
 
-        CGContextSaveGState(pctx);
+#if PLATFORM(CAIRO)
+    cairo_destroy(pctx);
+    cairo_surface_finish(printSurface);
+    ASSERT(!cairo_surface_status(printSurface));
+    cairo_surface_destroy(printSurface);
+#endif
 
-        IntRect printRect = printerRect(printDC);
-        CGRect mediaBox = CGRectMake(CGFloat(0),
-                                     CGFloat(0),
-                                     CGFloat(printRect.width()),
-                                     CGFloat(printRect.height()));
-
-        CGContextBeginPage(pctx, &mediaBox);
-
-        CGFloat scale = (float)mediaBox.size.width/ (float)pageRect.width();
-        CGAffineTransform ctm = CGContextGetBaseCTM(pctx);
-        ctm = CGAffineTransformScale(ctm, -scale, -scale);
-        ctm = CGAffineTransformTranslate(ctm, CGFloat(-pageRect.x()), CGFloat(-pageRect.y()+headerHeight)); // reserves space for header
-        CGContextScaleCTM(pctx, scale, scale);
-        CGContextTranslateCTM(pctx, CGFloat(-pageRect.x()), CGFloat(-pageRect.y()+headerHeight));   // reserves space for header
-        CGContextSetBaseCTM(pctx, ctm);
-
-        coreFrame->view()->paintContents(&spoolCtx, pageRect);
-
-        CGContextTranslateCTM(pctx, CGFloat(pageRect.x()), CGFloat(pageRect.y())-headerHeight);
-
-        int x = pageRect.x();
-        int y = 0;
-        if (headerHeight) {
-            RECT headerRect = {x, y, x+pageRect.width(), y+(int)headerHeight};
-            ui->drawHeaderInRect(d->webView, &headerRect, (OLE_HANDLE)(LONG64)pctx);
-        }
-
-        if (footerHeight) {
-            y = max((int)headerHeight+pageRect.height(), m_pageHeight-(int)footerHeight);
-            RECT footerRect = {x, y, x+pageRect.width(), y+(int)footerHeight};
-            ui->drawFooterInRect(d->webView, &footerRect, (OLE_HANDLE)(LONG64)pctx, ii+1, pageCount);
-        }
-
-        CGContextEndPage(pctx);
-        CGContextRestoreGState(pctx);
-    }
- 
     return S_OK;
 }
 
@@ -2075,6 +2417,51 @@ HRESULT STDMETHODCALLTYPE WebFrame::isDescendantOfFrame(
         return S_OK;
 
     *result = (coreFrame && coreFrame->tree()->isDescendantOf(core(ancestorWebFrame.get()))) ? TRUE : FALSE;
+    return S_OK;
+}
+
+HRESULT WebFrame::stringByEvaluatingJavaScriptInScriptWorld(IWebScriptWorld* iWorld, JSObjectRef globalObjectRef, BSTR script, BSTR* evaluationResult)
+{
+    if (!evaluationResult)
+        return E_POINTER;
+    *evaluationResult = 0;
+
+    if (!iWorld)
+        return E_POINTER;
+
+    COMPtr<WebScriptWorld> world(Query, iWorld);
+    if (!world)
+        return E_INVALIDARG;
+
+    Frame* coreFrame = core(this);
+    String string = String(script, SysStringLen(script));
+
+    // Start off with some guess at a frame and a global object, we'll try to do better...!
+    JSDOMWindow* anyWorldGlobalObject = coreFrame->script()->globalObject(mainThreadNormalWorld());
+
+    // The global object is probably a shell object? - if so, we know how to use this!
+    JSC::JSObject* globalObjectObj = toJS(globalObjectRef);
+    if (!strcmp(globalObjectObj->classInfo()->className, "JSDOMWindowShell"))
+        anyWorldGlobalObject = static_cast<JSDOMWindowShell*>(globalObjectObj)->window();
+
+    // Get the frame frome the global object we've settled on.
+    Frame* frame = anyWorldGlobalObject->impl()->frame();
+    ASSERT(frame->document());
+    JSValue result = frame->script()->executeScriptInWorld(world->world(), string, true).jsValue();
+
+    if (!frame) // In case the script removed our frame from the page.
+        return S_OK;
+
+    // This bizarre set of rules matches behavior from WebKit for Safari 2.0.
+    // If you don't like it, use -[WebScriptObject evaluateWebScript:] or 
+    // JSEvaluateScript instead, since they have less surprising semantics.
+    if (!result || !result.isBoolean() && !result.isString() && !result.isNumber())
+        return S_OK;
+
+    JSLock lock(SilenceAssertionsOnly);
+    String resultString = ustringToString(result.toString(anyWorldGlobalObject->globalExec()));
+    *evaluationResult = BString(resultString).release();
+
     return S_OK;
 }
 

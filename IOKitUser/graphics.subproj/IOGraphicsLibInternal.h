@@ -419,11 +419,6 @@ IOFBInstallMode( IOFBConnectRef connectRef, IODisplayModeID mode,
                  IOFBDisplayModeDescription * desc,
                  UInt32 driverFlags, IOOptionBits modeGenFlags );
 
-__private_extern__ io_service_t
-IODisplayForFramebuffer(
-        io_service_t            framebuffer,
-        IOOptionBits            options );
-
 __private_extern__ CFDictionaryRef
 _IODisplayCreateInfoDictionary(
     IOFBConnectRef              connectRef,

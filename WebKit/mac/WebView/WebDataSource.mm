@@ -60,6 +60,7 @@
 #import <WebKit/DOMPrivate.h>
 #import <runtime/InitializeThreading.h>
 #import <wtf/Assertions.h>
+#import <wtf/Threading.h>
 
 using namespace WebCore;
 
@@ -70,6 +71,7 @@ using namespace WebCore;
     id <WebDocumentRepresentation> representation;
     
     BOOL representationFinishedLoading;
+    BOOL includedInWebKitStatistics;
 }
 @end
 
@@ -78,6 +80,7 @@ using namespace WebCore;
 + (void)initialize
 {
     JSC::initializeThreading();
+    WTF::initializeMainThreadToProcessMainThread();
 #ifndef BUILDING_ON_TIGER
     WebCoreObjCFinalizeOnMainThread(self);
 #endif
@@ -140,10 +143,10 @@ static inline void addTypesFromClass(NSMutableDictionary *allTypes, Class objCCl
     }
 }
 
-+ (Class)_representationClassForMIMEType:(NSString *)MIMEType
++ (Class)_representationClassForMIMEType:(NSString *)MIMEType allowingPlugins:(BOOL)allowPlugins
 {
     Class repClass;
-    return [WebView _viewClass:nil andRepresentationClass:&repClass forMIMEType:MIMEType] ? repClass : nil;
+    return [WebView _viewClass:nil andRepresentationClass:&repClass forMIMEType:MIMEType allowingPlugins:allowPlugins] ? repClass : nil;
 }
 @end
 
@@ -194,18 +197,18 @@ static inline void addTypesFromClass(NSMutableDictionary *allTypes, Class objCCl
 
 - (BOOL)_transferApplicationCache:(NSString*)destinationBundleIdentifier
 {
+#if ENABLE(OFFLINE_WEB_APPLICATIONS)
     DocumentLoader* loader = [self _documentLoader];
     
     if (!loader)
         return NO;
-    
-    ApplicationCache* cache = loader->applicationCache();
-    if (!cache)
-        return YES;
-    
+        
     NSString *cacheDir = [NSString _webkit_localCacheDirectoryWithBundleIdentifier:destinationBundleIdentifier];
     
-    return ApplicationCacheStorage::storeCopyOfCache(cacheDir, cache);
+    return ApplicationCacheStorage::storeCopyOfCache(cacheDir, loader->applicationCacheHost());
+#else
+    return NO;
+#endif
 }
 
 @end
@@ -342,9 +345,9 @@ static inline void addTypesFromClass(NSMutableDictionary *allTypes, Class objCCl
     return [WebView canShowMIMETypeAsHTML:MIMEType];
 }
 
--(void)_makeRepresentation
+- (void)_makeRepresentation
 {
-    Class repClass = [[self class] _representationClassForMIMEType:[self _responseMIMEType]];
+    Class repClass = [[self class] _representationClassForMIMEType:[self _responseMIMEType] allowingPlugins:[[[self _webView] preferences] arePlugInsEnabled]];
     
     // Check if the data source was already bound?
     if (![[self representation] isKindOfClass:repClass]) {
@@ -352,7 +355,7 @@ static inline void addTypesFromClass(NSMutableDictionary *allTypes, Class objCCl
         [self _setRepresentation:(id <WebDocumentRepresentation>)newRep];
         [newRep release];
     }
-    
+
     [_private->representation setDataSource:self];
 }
 
@@ -372,10 +375,11 @@ static inline void addTypesFromClass(NSMutableDictionary *allTypes, Class objCCl
     _private->loader = loader.releaseRef();
         
     LOG(Loading, "creating datasource for %@", static_cast<NSURL *>(_private->loader->request().url()));
-    
-    ++WebDataSourceCount;
-    
-    return self;    
+
+    if ((_private->includedInWebKitStatistics = [[self webFrame] _isIncludedInWebKitStatistics]))
+        ++WebDataSourceCount;
+
+    return self;
 }
 
 @end
@@ -389,16 +393,18 @@ static inline void addTypesFromClass(NSMutableDictionary *allTypes, Class objCCl
 
 - (void)dealloc
 {
-    --WebDataSourceCount;
-    
+    if (_private && _private->includedInWebKitStatistics)
+        --WebDataSourceCount;
+
     [_private release];
-    
+
     [super dealloc];
 }
 
 - (void)finalize
 {
-    --WebDataSourceCount;
+    if (_private && _private->includedInWebKitStatistics)
+        --WebDataSourceCount;
 
     [super finalize];
 }

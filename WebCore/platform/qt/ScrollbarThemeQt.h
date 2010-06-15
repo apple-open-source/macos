@@ -28,6 +28,12 @@
 
 #include "ScrollbarTheme.h"
 
+#include <QtCore/qglobal.h>
+
+QT_BEGIN_NAMESPACE
+class QStyle;
+QT_END_NAMESPACE
+
 namespace WebCore {
 
 class ScrollbarThemeQt : public ScrollbarTheme {
@@ -40,7 +46,7 @@ public:
     virtual ScrollbarPart hitTest(Scrollbar*, const PlatformMouseEvent&);
 
     virtual bool shouldCenterOnThumb(Scrollbar*, const PlatformMouseEvent&);
-    
+
     virtual void invalidatePart(Scrollbar*, ScrollbarPart);
 
     virtual int thumbPosition(Scrollbar*);
@@ -49,6 +55,8 @@ public:
     virtual int trackLength(Scrollbar*);
 
     virtual int scrollbarThickness(ScrollbarControlSize = RegularScrollbar);
+
+    QStyle* style() const;
 };
 
 }

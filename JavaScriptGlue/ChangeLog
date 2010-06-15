@@ -1,3 +1,541 @@
+2010-04-23  Sam Weinig  <sam@webkit.org>
+
+        Reviewed by David Levin.
+
+        Fix for https://bugs.webkit.org/show_bug.cgi?id=38060
+        Split up Threading.h
+
+        Add necessary forwarding headers.
+
+        * ForwardingHeaders/wtf/Atomics.h: Added.
+        * ForwardingHeaders/wtf/ThreadSafeShared.h: Added.
+        * ForwardingHeaders/wtf/ThreadingPrimitives.h: Added.
+
+2010-04-22  Sam Weinig  <sam@webkit.org>
+
+        Reviewed by Anders Carlsson.
+
+        Fix for https://bugs.webkit.org/show_bug.cgi?id=38022
+        Move isMainThread predicate function to MainThread.h
+
+        Added forwarding header for MainThread.h
+
+        * ForwardingHeaders/wtf/MainThread.h: Added.
+
+2010-04-22  Gavin Barraclough  <barraclough@apple.com>
+
+        Rubber stamped by Sam Weinig
+
+        Do not get the globaldata for the APIShim via the
+        global object; global object construction creates identifiers
+        which results in the ASSERTs checking the thread data's
+        identifierTable has been set failing.
+
+        * JSUtils.cpp:
+        (unprotectGlobalObject):
+        (getThreadGlobalData):
+        (getThreadGlobalObject):
+        (JSGlueAPIEntry::JSGlueAPIEntry):
+        (JSGlueAPICallback::~JSGlueAPICallback):
+
+2010-04-21  Geoffrey Garen  <ggaren@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        <rdar://problem/7879485> Leopard: Crash after opening Software Update dialog
+
+        * JSUtils.cpp:
+        (unprotectGlobalObject): Use the version of JSGlueAPIEntry that doesn't
+        call pthread_getspecific, since it's not safe to call pthread_getspecific
+        from a thread-specific data destructor. (<rdar://problem/7889842>
+        pthread_getspecific returns 0 when called from thread-specific data
+        destructor function)
+
+        (getThreadGlobalObject): Make sure to set the currentIdentifierTable
+        when first constructing our JSGlobalObject, since JSGlueAPIEntry has not
+        yet had an opportunity to do so.
+
+        (JSGlueAPIEntry::JSGlueAPIEntry):
+        * JSUtils.h: New version of JSGlueAPIEntry that doesn't call
+        pthread_getspecific.
+
+2010-04-21  Gavin Barraclough  <barraclough@apple.com>
+
+        Reviewed by NOBODY (build fix).
+        Errk! tree on fire, add fwd!
+
+        * ForwardingHeaders/wtf/text/StringHash.h: Added.
+
+2010-04-20  Gavin Barraclough  <barraclough@apple.com>
+
+        Reviewed by Oliver Hunt, Darin Adler.
+
+        Bug 37906 - Remove JSC::UStringImpl; unify with StringImpl.
+        Add forwarding header.
+
+        * ForwardingHeaders/wtf/ASCIICType.h: Added.
+        * ForwardingHeaders/wtf/text/StringImpl.h: Added.
+
+2010-04-20  Gavin Barraclough  <barraclough@apple.com>
+
+        Reviewed by Oliver Hunt.
+
+        Bug 37895 - Share common code from UStringImplBase with StringImpl
+        Add forwarding header.
+
+        * ForwardingHeaders/wtf/text/StringImplBase.h: Added.
+
+2010-04-20  Gavin Barraclough  <barraclough@apple.com>
+
+        Rubber stamped by Maciej Stachowiak (relanding r57829).
+        Added missing JS_EXPORTDATA
+
+        * ForwardingHeaders/wtf/WTFThreadData.h: Copied from JavaScriptGlue/ForwardingHeaders/wtf/WTFThreadData.h.
+        * JSUtils.cpp:
+        (JSGlueAPIEntry::JSGlueAPIEntry):
+        (JSGlueAPIEntry::~JSGlueAPIEntry):
+        (JSGlueAPICallback::JSGlueAPICallback):
+        (JSGlueAPICallback::~JSGlueAPICallback):
+
+2010-04-19  Gavin Barraclough  <barraclough@apple.com>
+
+        Reviewed by NOBODY (rolling out r57829).
+        This broke windows.
+
+        * ForwardingHeaders/wtf/WTFThreadData.h: Removed.
+        * JSUtils.cpp:
+        (JSGlueAPIEntry::JSGlueAPIEntry):
+        (JSGlueAPIEntry::~JSGlueAPIEntry):
+        (JSGlueAPICallback::JSGlueAPICallback):
+        (JSGlueAPICallback::~JSGlueAPICallback):
+
+2010-04-16  Gavin Barraclough  <barraclough@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        https://bugs.webkit.org/show_bug.cgi?id=37745
+        Move string uniquing tables to (new) WTFThreadData class.
+
+        Remove AtomicString's dependency on ThreadGlobalData so that we can move
+        WebCore's string classes up to WTF.
+
+        * ForwardingHeaders/wtf/WTFThreadData.h: Added.
+        * JSUtils.cpp: Update 
+        (JSGlueAPIEntry::JSGlueAPIEntry):
+        (JSGlueAPIEntry::~JSGlueAPIEntry):
+        (JSGlueAPICallback::JSGlueAPICallback):
+        (JSGlueAPICallback::~JSGlueAPICallback):
+
+2010-03-31  Gavin Barraclough  <barraclough@apple.com>
+
+        Reviewed by Geoff Garen.
+
+        Bug 36871 - Remove JSC::CString
+        Use WTF::CString instead (which until recently was WebCore::CString).
+
+        * ForwardingHeaders/wtf/text: Added.
+        * ForwardingHeaders/wtf/text/CString.h: Added.
+
+2010-03-11  Mark Rowe  <mrowe@apple.com>
+
+        Reviewed by David Kilzer.
+
+        <rdar://problem/7745082> Make it possible to build WebKit for older Mac OS X versions from the current Mac OS X version
+
+        Default to using the appropriate SDK if the target Mac OS X version is not the current Mac OS X version.
+
+        * Configurations/Base.xcconfig:
+
+2010-03-11  Mark Rowe  <mrowe@apple.com>
+
+        Reviewed by Tim Hatcher.
+
+        <rdar://problem/7745082> Make it possible to build WebKit for older Mac OS X versions from the current Mac OS X version
+
+        Introduce TARGET_MAC_OS_X_VERSION_MAJOR to represent the Mac OS X version that is being targeted.  It defaults to the
+        current Mac OS X version unless otherwise specified.
+
+        Key off TARGET_MAC_OS_X_VERSION_MAJOR where we'd previously been keying off MAC_OS_X_VERSION_MAJOR.
+
+        Explicitly map from the target Mac OS X version to the preferred compiler since Xcode's default compiler choice
+        may not be usable when targetting a different Mac OS X version.
+
+        Key off TARGET_GCC_VERSION rather than MAC_OS_X_VERSION_MAJOR in locations where we'd previously been keying off
+        MAC_OS_X_VERSION_MAJOR but the decision is really related to the compiler version being used.
+
+        * Configurations/Base.xcconfig:
+        * Configurations/DebugRelease.xcconfig:
+        * Configurations/Version.xcconfig:
+        * JavaScriptGlue.xcodeproj/project.pbxproj:
+
+2010-03-01  Oliver Hunt  <oliver@apple.com>
+
+        Reviewed by Maciej Stachowiak.
+
+        Refactor named getter function signature to be in line with indexing getter signature
+        https://bugs.webkit.org/show_bug.cgi?id=35563
+
+        Fix method signature and update code as appropriate
+
+        * UserObjectImp.cpp:
+        (UserObjectImp::userObjectGetter):
+        * UserObjectImp.h:
+
+2010-02-09  Alexey Proskuryakov  <ap@apple.com>
+
+        Reviewed by Geoffrey Garen.
+
+        https://bugs.webkit.org/show_bug.cgi?id=34490
+        WebCore::ImageEventSender::dispatchPendingEvents() crashes in certain conditions
+
+        * ForwardingHeaders/wtf/ValueCheck.h: Added.
+
+2010-02-04  Mark Rowe  <mrowe@apple.com>
+
+        Reviewed by Timothy Hatcher.
+
+        Build fix.  Remove a symbol corresponding to an inline function from the linker export
+        file to prevent a weak external failure.
+
+        * JavaScriptGlue.xcodeproj/project.pbxproj: Accommodate rename of script.
+
+2010-01-28  Oliver Hunt  <oliver@apple.com>
+
+        Reviewed by Gavin Barraclough.
+
+        Simplify anonymous slot implementation
+        https://bugs.webkit.org/show_bug.cgi?id=34282
+
+        Update JSGlue Structure usage to pass the anonymous slot count.
+
+        * UserObjectImp.h:
+        (UserObjectImp::createStructure):
+
+2010-01-12  Kent Hansen  <kent.hansen@nokia.com>
+
+        Reviewed by Geoffrey Garen.
+
+        [ES5] Implement Object.getOwnPropertyNames
+        https://bugs.webkit.org/show_bug.cgi?id=32242
+
+        Add new argument to the reimplementation of getOwnPropertyNames().
+
+        * UserObjectImp.cpp:
+        (UserObjectImp::getOwnPropertyNames):
+        * UserObjectImp.h:
+
+2010-01-07  Alexey Proskuryakov  <ap@apple.com>
+
+        Mac build fix.
+
+        * config.h: Define JS_EXPORTCLASS for JavaScriptGlue.
+
+2010-01-05  Gavin Barraclough  <barraclough@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        https://bugs.webkit.org/show_bug.cgi?id=33236
+        Remove m_identifierTable pointer from UString
+
+        Add API shims similar to those used in the JSC API to track the current identifierTable.
+
+        * JSBase.cpp:
+        (JSBase::Release):
+        * JSUtils.cpp:
+        (JSObjectKJSValue):
+        (KJSValueToCFTypeInternal):
+        (unprotectGlobalObject):
+        (JSGlueAPIEntry::JSGlueAPIEntry):
+        (JSGlueAPIEntry::~JSGlueAPIEntry):
+        (JSGlueAPICallback::JSGlueAPICallback):
+        (JSGlueAPICallback::~JSGlueAPICallback):
+        * JSUtils.h:
+        * JSValueWrapper.cpp:
+        (JSValueWrapper::JSObjectCopyPropertyNames):
+        (JSValueWrapper::JSObjectCopyProperty):
+        (JSValueWrapper::JSObjectSetProperty):
+        (JSValueWrapper::JSObjectCallFunction):
+        (JSValueWrapper::JSObjectCopyCFValue):
+        * JavaScriptGlue.cpp:
+        (JSRunCreate):
+        (JSRunEvaluate):
+        (JSRunCheckSyntax):
+        (JSCollect):
+        * JavaScriptGlue.xcodeproj/project.pbxproj:
+        * UserObjectImp.cpp:
+        (UserObjectImp::callAsFunction):
+
+2010-01-04  Gavin Barraclough <barraclough@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        Add a forwarding header so that StringHashFunctions.h can be found.
+
+        * ForwardingHeaders/wtf/StringHashFunctions.h: Added.
+
+2010-01-04  Dan Bernstein  <mitz@apple.com>
+
+        Reviewed by Ada Chan and Mark Rowe.
+
+        Updated copyright string
+
+        * Info.plist:
+
+2009-12-21  Gavin Barraclough  <barraclough@apple.com>
+
+        Reviewed by Darin Adler.
+
+        https://bugs.webkit.org/show_bug.cgi?id=32831
+        Replace UString::Rep implementation, following introduction of ropes to JSC.
+
+        * ForwardingHeaders/wtf/PossiblyNull.h: Added.
+            - add forwarding header.
+
+2009-12-16  Mark Rowe  <mrowe@apple.com>
+
+        Build fix.  Disable debug variants of WebKit frameworks.
+
+        * JavaScriptGlue.xcodeproj/project.pbxproj:
+
+2009-12-13  Geoffrey Garen  <ggaren@apple.com>
+
+        Reviewed by Sam Weinig.
+        
+        Changed GC from mark-sweep to mark-allocate.
+        
+        * JavaScriptGlue.cpp:
+        (JSCollect): Updated for rename. Fixed a bug where JSGlue would not check
+        to avoid nested GC calls.
+
+2009-12-08  Dmitry Titov  <dimich@chromium.org>
+
+        Rubber-stamped by David Levin.
+
+        Revert and reopen "Add asserts to RefCounted to make sure ref/deref happens on the right thread."
+        It may have caused massive increase of reported leaks on the bots.
+        https://bugs.webkit.org/show_bug.cgi?id=31639
+
+        * ForwardingHeaders/wtf/ThreadVerifier.h: Removed.
+
+2009-12-08  Dmitry Titov  <dimich@chromium.org>
+
+        Reviewed by Darin Adler.
+
+        Add asserts to RefCounted to make sure ref/deref happens on the right thread.
+        https://bugs.webkit.org/show_bug.cgi?id=31639
+
+        * ForwardingHeaders/wtf/ThreadVerifier.h: Added.
+
+2009-11-24  Mark Rowe  <mrowe@apple.com>
+
+        Fix production builds where the source tree may be read-only.
+
+        * JavaScriptGlue.xcodeproj/project.pbxproj:
+
+2009-11-08  David Levin  <levin@chromium.org>
+
+        Reviewed by NOBODY (chromium build fix).
+
+        Added the use jsc define for files that use
+        this config file and DateMath.h. This should
+        be able to go away when DateMath is properly
+        split into wtf and jsc portions which is this bug:
+        https://bugs.webkit.org/show_bug.cgi?id=31246
+
+        * config.h:
+
+2009-11-06  Geoffrey Garen  <ggaren@apple.com>
+
+        Reviewed by Oliver Hunt.
+
+        https://bugs.webkit.org/show_bug.cgi?id=31197
+        Implemented a timezone cache not based on Mac OS X's notify_check API.
+        
+        * ForwardingHeaders/wtf/CurrentTime.h: Added.
+
+2009-10-27  Geoffrey Garen  <ggaren@apple.com>
+
+        Build fix: Updated for JavaScriptCore export changes.
+
+        * ForwardingHeaders/wtf/DateInstanceCache.h: Added.
+
+2009-10-27  Geoffrey Garen  <ggaren@apple.com>
+
+        Reviewed by Oliver Hunt.
+
+        Updated for JavaScriptCore export changes.
+
+        * ForwardingHeaders/wtf/DateMath.h: Added.
+
+2009-10-27  Dan Bernstein  <mitz@apple.com>
+
+        Reviewed by Darin Adler.
+
+        Updated license
+
+        * LICENSE:
+
+2009-10-16  Oliver Hunt  <oliver@apple.com>
+
+        Reviewed by Gavin Barraclough.
+
+        Make typeinfo flags default to false
+        https://bugs.webkit.org/show_bug.cgi?id=30372
+
+        Last part -- replace HasDefaultGetPropertyNames with OverridesGetPropertyNames
+        flag.
+
+        * UserObjectImp.h:
+        (UserObjectImp::createStructure):
+
+2009-10-15  Oliver Hunt  <oliver@apple.com>
+
+        Reviewed by Darin Adler.
+
+        Make typeinfo flags default to false
+        https://bugs.webkit.org/show_bug.cgi?id=30372
+
+        Part 2 -- Reverse the TypeInfo HasDefaultMark flag to OverridesMarkChildren, etc
+
+        * UserObjectImp.h:
+        (UserObjectImp::createStructure):
+
+2009-10-14  Oliver Hunt  <oliver@apple.com>
+
+        Reviewed by Geoff Garen.
+
+        Make typeinfo flags default to false
+        https://bugs.webkit.org/show_bug.cgi?id=30372
+        
+        Part 1. Reverse the HasStandardGetOwnPropertySlot flag.
+
+        * UserObjectImp.h:
+        (UserObjectImp::createStructure):
+
+2009-09-28  Geoffrey Garen  <ggaren@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        Removed virtual destructor from JSGlobalObjectData to eliminate pointer
+        fix-ups when accessing JSGlobalObject::d.
+        
+        Replaced with an explicit destructor function pointer.
+
+        * JSRun.cpp:
+        (JSGlueGlobalObject::destroyData):
+        * JSRun.h:
+        (JSGlueGlobalObject::Data::Data):
+
+2009-09-12  Oliver Hunt  <oliver@apple.com>
+
+        Reviewed by Maciej Stachowiak.
+
+        [ES5] Implement Object.keys
+        https://bugs.webkit.org/show_bug.cgi?id=29170
+
+        Switch over to getOwnPropertyNames instead of getPropertyNames.
+
+        * UserObjectImp.cpp:
+        (UserObjectImp::getOwnPropertyNames):
+        * UserObjectImp.h:
+
+2009-09-02  Darin Adler  <darin@apple.com>
+
+        Reviewed by Geoff Garen.
+
+        * JSValueWrapper.cpp:
+        (JSValueWrapper::JSObjectMark): Removed a check of the mark
+        bit. It's OK to do more work in this case, and there is no
+        longer a public function to access the mark bit.
+
+2009-08-14  Darin Adler  <darin@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        Rename the confusing isObject(<class>) to inherits(<class>).
+        It still works on non-objects, returning false.
+
+        * JSUtils.cpp:
+        (KJSValueToJSObject):
+        (KJSValueToCFTypeInternal):
+        Changed from isObject to inherits.
+
+2009-08-13  Oliver Hunt  <oliver@apple.com>
+
+        Reviewed by Maciej Stachowiak.
+
+        Devirtualise marking
+        https://bugs.webkit.org/show_bug.cgi?id=28294
+
+        Continue to jump through hoops to deal with the exposed marking routines
+        in JavaScriptGlue.
+
+        * JSValueWrapper.cpp:
+        (JSValueWrapper::JSObjectMark):
+
+2009-08-07  Oliver Hunt  <oliver@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        Stack overflow crash in JavaScript garbage collector mark pass
+        https://bugs.webkit.org/show_bug.cgi?id=12216
+
+        Make JSGlue interact with the new iterative mark logic.
+
+        * JSValueWrapper.cpp:
+        (JSValueWrapper::JSObjectMark):
+          Unfortunately JSGlue exposes recursive marking so we can only flatten
+          the recursion.  We just create a local mark stack if necessary and mark
+          the given object iteratively from this point.
+        * UserObjectImp.cpp:
+        (UserObjectImp::markChildren):
+        * UserObjectImp.h:
+
+2009-08-06  Mark Rowe  <mrowe@apple.com>
+
+        Rubber-stamped by Sam Weinig.
+
+        Add explicit dependencies for our build verification scripts to ensure that they always run after linking has completed.
+
+        * JavaScriptGlue.xcodeproj/project.pbxproj:
+
+2009-07-27  Alexey Proskuryakov  <ap@webkit.org>
+
+        Reviewed by Darin Adler.
+
+        https://bugs.webkit.org/show_bug.cgi?id=27735
+        Give a helpful name to JSLock constructor argument
+
+        * JSBase.cpp:
+        (JSBase::Release):
+        * JSUtils.cpp:
+        (JSObjectKJSValue):
+        (KJSValueToCFTypeInternal):
+        (unprotectGlobalObject):
+        * JSValueWrapper.cpp:
+        (JSValueWrapper::JSObjectCopyPropertyNames):
+        (JSValueWrapper::JSObjectCopyProperty):
+        (JSValueWrapper::JSObjectSetProperty):
+        (JSValueWrapper::JSObjectCallFunction):
+        (JSValueWrapper::JSObjectCopyCFValue):
+        * JavaScriptGlue.cpp:
+        (JSRunCreate):
+        (JSRunEvaluate):
+        (JSRunCheckSyntax):
+        (JSCollect):
+        (JSLockInterpreter):
+        (JSUnlockInterpreter):
+
+2009-07-10  Adam Roben  <aroben@apple.com>
+
+        Sort all our Xcode projects
+
+        Accomplished using sort-Xcode-project-file.
+
+        Requested by Dave Kilzer.
+
+        * JavaScriptGlue.xcodeproj/project.pbxproj:
+
 2009-07-08  Darin Adler  <darin@apple.com>
 
         Reviewed by Dan Bernstein

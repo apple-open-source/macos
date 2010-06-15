@@ -49,16 +49,20 @@ namespace JSC {
         virtual void putWithAttributes(ExecState*, const Identifier&, JSValue, unsigned attributes) = 0;
 
         virtual bool deleteProperty(ExecState*, const Identifier&);
-        virtual void getPropertyNames(ExecState*, PropertyNameArray&);
+        virtual void getOwnPropertyNames(ExecState*, PropertyNameArray&, EnumerationMode mode = ExcludeDontEnumProperties);
         
         virtual bool isVariableObject() const;
-        virtual bool isDynamicScope() const = 0;
-
-        virtual bool getPropertyAttributes(ExecState*, const Identifier& propertyName, unsigned& attributes) const;
+        virtual bool isDynamicScope(bool& requiresDynamicChecks) const = 0;
 
         Register& registerAt(int index) const { return d->registers[index]; }
 
+        static PassRefPtr<Structure> createStructure(JSValue prototype)
+        {
+            return Structure::create(prototype, TypeInfo(ObjectType, StructureFlags), AnonymousSlotCount);
+        }
+        
     protected:
+        static const unsigned StructureFlags = OverridesGetPropertyNames | JSObject::StructureFlags;
         // Subclasses of JSVariableObject can subclass this struct to add data
         // without increasing their own size (since there's a hard limit on the
         // size of a JSCell).
@@ -79,7 +83,7 @@ namespace JSC {
             JSVariableObjectData& operator=(const JSVariableObjectData&);
         };
 
-        JSVariableObject(PassRefPtr<Structure> structure, JSVariableObjectData* data)
+        JSVariableObject(NonNullPassRefPtr<Structure> structure, JSVariableObjectData* data)
             : JSObject(structure)
             , d(data) // Subclass owns this pointer.
         {
@@ -89,6 +93,7 @@ namespace JSC {
         void setRegisters(Register* r, Register* registerArray);
 
         bool symbolTableGet(const Identifier&, PropertySlot&);
+        bool symbolTableGet(const Identifier&, PropertyDescriptor&);
         bool symbolTableGet(const Identifier&, PropertySlot&, bool& slotIsWriteable);
         bool symbolTablePut(const Identifier&, JSValue);
         bool symbolTablePutWithAttributes(const Identifier&, JSValue, unsigned attributes);

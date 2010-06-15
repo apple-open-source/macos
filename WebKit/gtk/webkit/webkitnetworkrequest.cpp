@@ -21,33 +21,23 @@
 #include "config.h"
 #include "webkitnetworkrequest.h"
 
-#include "CString.h"
-#include "GOwnPtr.h"
 #include "ResourceRequest.h"
 #include "webkitprivate.h"
+#include <wtf/text/CString.h>
 
 #include <glib/gi18n-lib.h>
-
-namespace WTF {
-
-template <> void freeOwnedGPtr<SoupMessage>(SoupMessage* soupMessage)
-{
-    if (soupMessage)
-        g_object_unref(soupMessage);
-}
-
-}
 
 /**
  * SECTION:webkitnetworkrequest
  * @short_description: The target of a navigation request
- * @see_also: #WebKitWebView::navigation-requested
+ * @see_also: #WebKitWebView::navigation-policy-decision-requested
  *
  * This class represents the network related aspects of a navigation
- * request. Currently this is only the uri of the target. In the future
- * the state of the web form might be added.
- * Currently this object is only used along with the
- * #WebKitWebView::navigation-requested signal.
+ * request. It is used whenever WebKit wants to provide information
+ * about a request that will be sent, or has been sent. Inside it you
+ * can find the URI of the request, and, for valid URIs, a
+ * #SoupMessage object, which provides access to further information
+ * such as headers.
  *
  */
 
@@ -67,17 +57,25 @@ enum {
     PROP_MESSAGE,
 };
 
+static void webkit_network_request_dispose(GObject* object)
+{
+    WebKitNetworkRequest* request = WEBKIT_NETWORK_REQUEST(object);
+    WebKitNetworkRequestPrivate* priv = request->priv;
+
+    if (priv->message) {
+        g_object_unref(priv->message);
+        priv->message = NULL;
+    }
+
+    G_OBJECT_CLASS(webkit_network_request_parent_class)->dispose(object);
+}
+
 static void webkit_network_request_finalize(GObject* object)
 {
     WebKitNetworkRequest* request = WEBKIT_NETWORK_REQUEST(object);
     WebKitNetworkRequestPrivate* priv = request->priv;
 
     g_free(priv->uri);
-
-    if (priv->message) {
-        g_object_unref(priv->message);
-        priv->message = NULL;
-    }
 
     G_OBJECT_CLASS(webkit_network_request_parent_class)->finalize(object);
 }
@@ -119,6 +117,7 @@ static void webkit_network_request_class_init(WebKitNetworkRequestClass* request
 {
     GObjectClass* objectClass = G_OBJECT_CLASS(requestClass);
 
+    objectClass->dispose = webkit_network_request_dispose;
     objectClass->finalize = webkit_network_request_finalize;
     objectClass->get_property = webkit_network_request_get_property;
     objectClass->set_property = webkit_network_request_set_property;
@@ -165,7 +164,7 @@ static void webkit_network_request_init(WebKitNetworkRequest* request)
 // for internal use only
 WebKitNetworkRequest* webkit_network_request_new_with_core_request(const WebCore::ResourceRequest& resourceRequest)
 {
-    GOwnPtr<SoupMessage> soupMessage(resourceRequest.toSoupMessage());
+    GRefPtr<SoupMessage> soupMessage(adoptGRef(resourceRequest.toSoupMessage()));
     if (soupMessage)
         return WEBKIT_NETWORK_REQUEST(g_object_new(WEBKIT_TYPE_NETWORK_REQUEST, "message", soupMessage.get(), NULL));
 
@@ -213,10 +212,7 @@ void webkit_network_request_set_uri(WebKitNetworkRequest* request, const gchar* 
         return;
 
     SoupURI* soupURI = soup_uri_new(uri);
-    if (!soupURI) {
-        g_warning("Invalid URI: %s", uri);
-        return;
-    }
+    g_return_if_fail(soupURI);
 
     soup_message_set_uri(priv->message, soupURI);
     soup_uri_free(soupURI);

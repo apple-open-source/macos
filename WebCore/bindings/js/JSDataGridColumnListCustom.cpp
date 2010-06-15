@@ -43,10 +43,10 @@ bool JSDataGridColumnList::canGetItemsForName(ExecState*, DataGridColumnList* im
     return impl->itemWithName(propertyName);
 }
 
-JSValue JSDataGridColumnList::nameGetter(ExecState* exec, const Identifier& propertyName, const PropertySlot& slot)
+JSValue JSDataGridColumnList::nameGetter(ExecState* exec, JSValue slotBase, const Identifier& propertyName)
 {
-    JSDataGridColumnList* thisObj = static_cast<JSDataGridColumnList*>(asObject(slot.slotBase()));
-    return toJS(exec, thisObj->impl()->itemWithName(propertyName));
+    JSDataGridColumnList* thisObj = static_cast<JSDataGridColumnList*>(asObject(slotBase));
+    return toJS(exec, thisObj->globalObject(), thisObj->impl()->itemWithName(propertyName));
 }
 
 } // namespace WebCore

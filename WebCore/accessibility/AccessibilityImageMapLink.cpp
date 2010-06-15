@@ -29,8 +29,8 @@
 #include "config.h"
 #include "AccessibilityImageMapLink.h"
 
-#include "AccessibilityRenderObject.h"
 #include "AXObjectCache.h"
+#include "AccessibilityRenderObject.h"
 #include "Document.h"
 #include "HTMLNames.h"
 #include "IntRect.h"
@@ -68,6 +68,18 @@ AccessibilityObject* AccessibilityImageMapLink::parentObject() const
     return m_mapElement->document()->axObjectCache()->getOrCreate(m_mapElement->renderer());
 }
     
+AccessibilityRole AccessibilityImageMapLink::roleValue() const
+{
+    if (!m_areaElement)
+        return WebCoreLinkRole;
+    
+    const AtomicString& ariaRole = m_areaElement->getAttribute(roleAttr);
+    if (!ariaRole.isEmpty())
+        return AccessibilityObject::ariaRoleToWebCoreRole(ariaRole);
+
+    return WebCoreLinkRole;
+}
+    
 Element* AccessibilityImageMapLink::actionElement() const
 {
     return anchorElement();
@@ -91,6 +103,9 @@ String AccessibilityImageMapLink::accessibilityDescription() const
     if (!m_areaElement)
         return String();
 
+    const AtomicString& ariaLabel = m_areaElement->getAttribute(aria_labelAttr);
+    if (!ariaLabel.isEmpty())
+        return ariaLabel;
     const AtomicString& alt = m_areaElement->getAttribute(altAttr);
     if (!alt.isEmpty())
         return alt;

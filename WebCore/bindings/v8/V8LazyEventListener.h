@@ -45,35 +45,33 @@ namespace WebCore {
     // A V8LazyEventListener is always a HTML event handler.
     class V8LazyEventListener : public V8AbstractEventListener {
     public:
-        static PassRefPtr<V8LazyEventListener> create(Frame* frame, const String& code, const String& functionName, bool isSVGEvent)
+        static PassRefPtr<V8LazyEventListener> create(const String& functionName, bool isSVGEvent, const String& code, const String& sourceURL, int lineNumber, int columnNumber, const WorldContextHandle& worldContext)
         {
-            return adoptRef(new V8LazyEventListener(frame, code, functionName, isSVGEvent));
+            return adoptRef(new V8LazyEventListener(functionName, isSVGEvent, code, sourceURL, lineNumber, columnNumber, worldContext));
         }
 
-        // For lazy event listener, the listener object is the same as its listener
-        // function without additional scope chains.
-        virtual v8::Local<v8::Object> getListenerObject() { return getWrappedListenerFunction(); }
+        virtual bool isLazy() const { return true; }
+
+    protected:
+        virtual void prepareListenerObject(ScriptExecutionContext*);
 
     private:
-        V8LazyEventListener(Frame*, const String& code, const String& functionName, bool isSVGEvent);
-        virtual ~V8LazyEventListener();
+        V8LazyEventListener(const String& functionName, bool isSVGEvent, const String& code, const String sourceURL, int lineNumber, int columnNumber, const WorldContextHandle& worldContext);
 
-        virtual bool virtualisAttribute() const { return true; }
+        virtual v8::Local<v8::Value> callListenerFunction(ScriptExecutionContext*, v8::Handle<v8::Value> jsEvent, Event*);
 
-        String m_code;
+        // Needs to return true for all event handlers implemented in JavaScript so that
+        // the SVG code does not add the event handler in both
+        // SVGUseElement::buildShadowTree and again in
+        // SVGUseElement::transferEventListenersToShadowTree
+        virtual bool wasCreatedFromMarkup() const { return true; }
+
         String m_functionName;
         bool m_isSVGEvent;
-        bool m_compiled;
-
-        // If the event listener is on a non-document dom node, we compile the function with some implicit scope chains before it.
-        bool m_wrappedFunctionCompiled;
-        v8::Persistent<v8::Function> m_wrappedFunction;
-
-        v8::Local<v8::Function> getWrappedListenerFunction();
-
-        virtual v8::Local<v8::Value> callListenerFunction(v8::Handle<v8::Value> jsEvent, Event*, bool isWindowEvent);
-
-        v8::Local<v8::Function> getListenerFunction();
+        String m_code;
+        String m_sourceURL;
+        int m_lineNumber;
+        int m_columnNumber;
     };
 
 } // namespace WebCore

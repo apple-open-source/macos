@@ -876,6 +876,22 @@ enum
 	kHIDUsage_Csmr_ALNextTaskOrApplication	= 0x1A3,	/* Selector */
 	kHIDUsage_Csmr_ALPreviousTaskOrApplication	= 0x1A4,	/* Selector */
 	kHIDUsage_Csmr_ALPreemptiveHaltTaskOrApplication	= 0x1A5,	/* Selector */
+    kHIDUsage_Csmr_ALIntegratedHelpCenter   = 0x1A6, /* Selector */
+    kHIDUsage_Csmr_ALDocuments   = 0x1A7, /* Selector */
+    kHIDUsage_Csmr_ALThesaurus   = 0x1A8, /* Selector */
+    kHIDUsage_Csmr_ALDictionary   = 0x1A9, /* Selector */
+    kHIDUsage_Csmr_ALDesktop   = 0x1AA, /* Selector */
+    kHIDUsage_Csmr_ALSpellCheck   = 0x1AB, /* Selector */
+    kHIDUsage_Csmr_ALGrammerCheck   = 0x1AC, /* Selector */
+    kHIDUsage_Csmr_ALWirelessStatus   = 0x1AD, /* Selector */
+    kHIDUsage_Csmr_ALKeyboardLayout   = 0x1AE, /* Selector */
+    kHIDUsage_Csmr_ALVirusProtection   = 0x1AF, /* Selector */
+    kHIDUsage_Csmr_ALEncryption   = 0x1B0, /* Selector */
+    kHIDUsage_Csmr_ALScreenSaver   = 0x1B1, /* Selector */
+    kHIDUsage_Csmr_ALAlarms   = 0x1B2, /* Selector */
+    kHIDUsage_Csmr_ALClock   = 0x1B3, /* Selector */
+    kHIDUsage_Csmr_ALFileBrowser   = 0x1B4, /* Selector */
+    kHIDUsage_Csmr_ALPowerStatus   = 0x1B5, /* Selector */
 	/* 0x1A6 - 0x1FF Reserved */
 	kHIDUsage_Csmr_GenericGUIApplicationControls	= 0x200,	/* Named Array */
 	kHIDUsage_Csmr_ACNew	= 0x201,	/* Selector */

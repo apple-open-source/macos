@@ -46,7 +46,8 @@
 
 enum
 {
-    kSizeToIncrementLowLatencyCommandPool = 10
+    kSizeToIncrementLowLatencyCommandPool = 10,
+	kMaxExtendedDataEntriesSupported = 20
 };
 
 

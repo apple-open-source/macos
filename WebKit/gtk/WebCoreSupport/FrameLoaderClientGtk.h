@@ -69,17 +69,20 @@ namespace WebKit {
         virtual void dispatchDidFinishLoading(WebCore::DocumentLoader*, unsigned long  identifier);
         virtual void dispatchDidFailLoading(WebCore::DocumentLoader*, unsigned long  identifier, const WebCore::ResourceError&);
         virtual bool dispatchDidLoadResourceFromMemoryCache(WebCore::DocumentLoader*, const WebCore::ResourceRequest&, const WebCore::ResourceResponse&, int length);
-        virtual void dispatchDidLoadResourceByXMLHttpRequest(unsigned long, const WebCore::ScriptString&);
 
         virtual void dispatchDidHandleOnloadEvents();
         virtual void dispatchDidReceiveServerRedirectForProvisionalLoad();
         virtual void dispatchDidCancelClientRedirect();
         virtual void dispatchWillPerformClientRedirect(const WebCore::KURL&, double, double);
         virtual void dispatchDidChangeLocationWithinPage();
+        virtual void dispatchDidPushStateWithinPage();
+        virtual void dispatchDidReplaceStateWithinPage();
+        virtual void dispatchDidPopStateWithinPage();
         virtual void dispatchWillClose();
         virtual void dispatchDidReceiveIcon();
         virtual void dispatchDidStartProvisionalLoad();
         virtual void dispatchDidReceiveTitle(const WebCore::String&);
+        virtual void dispatchDidChangeIcons();
         virtual void dispatchDidCommitLoad();
         virtual void dispatchDidFailProvisionalLoad(const WebCore::ResourceError&);
         virtual void dispatchDidFailLoad(const WebCore::ResourceError&);
@@ -98,6 +101,7 @@ namespace WebKit {
 
         virtual void dispatchUnableToImplementPolicy(const WebCore::ResourceError&);
 
+        virtual void dispatchWillSendSubmitEvent(WebCore::HTMLFormElement*) { }
         virtual void dispatchWillSubmitForm(WebCore::FramePolicyFunction, WTF::PassRefPtr<WebCore::FormState>);
 
         virtual void dispatchDidLoadMainResource(WebCore::DocumentLoader*);
@@ -110,11 +114,12 @@ namespace WebKit {
 
         virtual PassRefPtr<WebCore::Frame> createFrame(const WebCore::KURL& url, const WebCore::String& name, WebCore::HTMLFrameOwnerElement* ownerElement,
                                    const WebCore::String& referrer, bool allowsScrolling, int marginWidth, int marginHeight);
+        virtual void didTransferChildFrameToNewDocument();
         virtual PassRefPtr<WebCore::Widget> createPlugin(const WebCore::IntSize&, WebCore::HTMLPlugInElement*, const WebCore::KURL&, const WTF::Vector<WebCore::String>&, const WTF::Vector<WebCore::String>&, const WebCore::String&, bool);
         virtual void redirectDataToPlugin(WebCore::Widget* pluginWidget);
         virtual PassRefPtr<WebCore::Widget> createJavaAppletWidget(const WebCore::IntSize&, WebCore::HTMLAppletElement*, const WebCore::KURL& baseURL, const WTF::Vector<WebCore::String>& paramNames, const WTF::Vector<WebCore::String>& paramValues);
         virtual WebCore::String overrideMediaType() const;
-        virtual void windowObjectCleared();
+        virtual void dispatchDidClearWindowObjectInWorld(WebCore::DOMWrapperWorld*);
         virtual void documentElementAvailable();
         virtual void didPerformFirstNavigation() const;
 
@@ -135,6 +140,12 @@ namespace WebKit {
         virtual void updateGlobalHistory();
         virtual void updateGlobalHistoryRedirectLinks();
         virtual bool shouldGoToHistoryItem(WebCore::HistoryItem*) const;
+        virtual void dispatchDidAddBackForwardItem(WebCore::HistoryItem*) const;
+        virtual void dispatchDidRemoveBackForwardItem(WebCore::HistoryItem*) const;
+        virtual void dispatchDidChangeBackForwardIndex() const;
+
+        virtual void didDisplayInsecureContent();
+        virtual void didRunInsecureContent(WebCore::SecurityOrigin*);
 
         virtual WebCore::ResourceError cancelledError(const WebCore::ResourceRequest&);
         virtual WebCore::ResourceError blockedError(const WebCore::ResourceRequest&);
@@ -174,6 +185,8 @@ namespace WebKit {
         WebKitWebFrame* m_frame;
         WebCore::ResourceResponse m_response;
         WebKitWebPolicyDecision* m_policyDecision;
+
+        bool m_loadingErrorPage;
 
         // Plugin view to redirect data to
         WebCore::PluginView* m_pluginView;

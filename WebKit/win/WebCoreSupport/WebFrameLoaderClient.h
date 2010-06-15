@@ -35,6 +35,7 @@
 
 namespace WebCore {
     class PluginManualLoader;
+    class PluginView;
 }
 
 template <typename T> class COMPtr;
@@ -56,7 +57,6 @@ public:
     virtual void dispatchDidReceiveContentLength(WebCore::DocumentLoader*, unsigned long identifier, int lengthReceived);
     virtual void dispatchDidFinishLoading(WebCore::DocumentLoader*, unsigned long identifier);
     virtual void dispatchDidFailLoading(WebCore::DocumentLoader*, unsigned long identifier, const WebCore::ResourceError&);
-    virtual void dispatchDidLoadResourceByXMLHttpRequest(unsigned long identifier, const WebCore::ScriptString&);
     virtual bool shouldCacheResponse(WebCore::DocumentLoader*, unsigned long identifier, const WebCore::ResourceResponse&, const unsigned char* data, unsigned long long length);
 
     virtual void dispatchDidHandleOnloadEvents();
@@ -64,10 +64,14 @@ public:
     virtual void dispatchDidCancelClientRedirect();
     virtual void dispatchWillPerformClientRedirect(const WebCore::KURL&, double interval, double fireDate);
     virtual void dispatchDidChangeLocationWithinPage();
+    virtual void dispatchDidPushStateWithinPage();
+    virtual void dispatchDidReplaceStateWithinPage();
+    virtual void dispatchDidPopStateWithinPage();
     virtual void dispatchWillClose();
     virtual void dispatchDidReceiveIcon();
     virtual void dispatchDidStartProvisionalLoad();
     virtual void dispatchDidReceiveTitle(const WebCore::String&);
+    virtual void dispatchDidChangeIcons();
     virtual void dispatchDidCommitLoad();
     virtual void dispatchDidFinishDocumentLoad();
     virtual void dispatchDidFinishLoad();
@@ -90,6 +94,12 @@ public:
     virtual void updateGlobalHistory();
     virtual void updateGlobalHistoryRedirectLinks();
     virtual bool shouldGoToHistoryItem(WebCore::HistoryItem*) const;
+    virtual void dispatchDidAddBackForwardItem(WebCore::HistoryItem*) const;
+    virtual void dispatchDidRemoveBackForwardItem(WebCore::HistoryItem*) const;
+    virtual void dispatchDidChangeBackForwardIndex() const;
+
+    virtual void didDisplayInsecureContent();
+    virtual void didRunInsecureContent(WebCore::SecurityOrigin*);
 
     virtual PassRefPtr<WebCore::DocumentLoader> createDocumentLoader(const WebCore::ResourceRequest&, const WebCore::SubstituteData&);
     virtual void setTitle(const WebCore::String& title, const WebCore::KURL&);
@@ -102,10 +112,13 @@ public:
 
     virtual PassRefPtr<WebCore::Frame> createFrame(const WebCore::KURL& url, const WebCore::String& name, WebCore::HTMLFrameOwnerElement* ownerElement,
                                const WebCore::String& referrer, bool allowsScrolling, int marginWidth, int marginHeight);
+    virtual void didTransferChildFrameToNewDocument();
     virtual PassRefPtr<WebCore::Widget> createPlugin(const WebCore::IntSize&, WebCore::HTMLPlugInElement*, const WebCore::KURL&, const Vector<WebCore::String>&, const Vector<WebCore::String>&, const WebCore::String&, bool loadManually);
     virtual void redirectDataToPlugin(WebCore::Widget* pluginWidget);
 
     virtual bool shouldUsePluginDocument(const WebCore::String& mimeType) const;
+
+    virtual void dispatchDidFailToStartPlugin(const WebCore::PluginView*) const;
 
 protected:
     WebFrameLoaderClient(WebFrame*);

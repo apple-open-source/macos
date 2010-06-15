@@ -27,7 +27,7 @@
 #include "JIT.h"
 
 // This probably does not belong here; adding here for now as a quick Windows build fix.
-#if ENABLE(ASSEMBLER) && PLATFORM(X86) && !PLATFORM(MAC)
+#if ENABLE(ASSEMBLER) && CPU(X86) && !OS(MAC_OS_X)
 #include "MacroAssembler.h"
 JSC::MacroAssemblerX86Common::SSE2CheckState JSC::MacroAssemblerX86Common::s_sse2CheckState = NotCheckedSSE2;
 #endif
@@ -37,7 +37,6 @@ JSC::MacroAssemblerX86Common::SSE2CheckState JSC::MacroAssemblerX86Common::s_sse
 #include "CodeBlock.h"
 #include "Interpreter.h"
 #include "JITInlineMethods.h"
-#include "JITStubs.h"
 #include "JITStubCall.h"
 #include "JSArray.h"
 #include "JSFunction.h"
@@ -195,14 +194,12 @@ void JIT::privateCompileMainPass()
 
         switch (m_interpreter->getOpcodeID(currentInstruction->u.opcode)) {
         DEFINE_BINARY_OP(op_del_by_val)
-#if !USE(JSVALUE32_64)
+#if USE(JSVALUE32)
         DEFINE_BINARY_OP(op_div)
 #endif
         DEFINE_BINARY_OP(op_in)
         DEFINE_BINARY_OP(op_less)
         DEFINE_BINARY_OP(op_lesseq)
-        DEFINE_BINARY_OP(op_urshift)
-        DEFINE_UNARY_OP(op_get_pnames)
         DEFINE_UNARY_OP(op_is_boolean)
         DEFINE_UNARY_OP(op_is_function)
         DEFINE_UNARY_OP(op_is_number)
@@ -230,7 +227,7 @@ void JIT::privateCompileMainPass()
         DEFINE_OP(op_create_arguments)
         DEFINE_OP(op_debug)
         DEFINE_OP(op_del_by_id)
-#if USE(JSVALUE32_64)
+#if !USE(JSVALUE32)
         DEFINE_OP(op_div)
 #endif
         DEFINE_OP(op_end)
@@ -240,7 +237,9 @@ void JIT::privateCompileMainPass()
         DEFINE_OP(op_eq_null)
         DEFINE_OP(op_get_by_id)
         DEFINE_OP(op_get_by_val)
+        DEFINE_OP(op_get_by_pname)
         DEFINE_OP(op_get_global_var)
+        DEFINE_OP(op_get_pnames)
         DEFINE_OP(op_get_scoped_var)
         DEFINE_OP(op_instanceof)
         DEFINE_OP(op_jeq_null)
@@ -250,6 +249,8 @@ void JIT::privateCompileMainPass()
         DEFINE_OP(op_jneq_null)
         DEFINE_OP(op_jneq_ptr)
         DEFINE_OP(op_jnless)
+        DEFINE_OP(op_jless)
+        DEFINE_OP(op_jlesseq)
         DEFINE_OP(op_jnlesseq)
         DEFINE_OP(op_jsr)
         DEFINE_OP(op_jtrue)
@@ -258,6 +259,7 @@ void JIT::privateCompileMainPass()
         DEFINE_OP(op_loop_if_less)
         DEFINE_OP(op_loop_if_lesseq)
         DEFINE_OP(op_loop_if_true)
+        DEFINE_OP(op_loop_if_false)
         DEFINE_OP(op_lshift)
         DEFINE_OP(op_method_check)
         DEFINE_OP(op_mod)
@@ -296,10 +298,12 @@ void JIT::privateCompileMainPass()
         DEFINE_OP(op_resolve)
         DEFINE_OP(op_resolve_base)
         DEFINE_OP(op_resolve_global)
+        DEFINE_OP(op_resolve_global_dynamic)
         DEFINE_OP(op_resolve_skip)
         DEFINE_OP(op_resolve_with_base)
         DEFINE_OP(op_ret)
         DEFINE_OP(op_rshift)
+        DEFINE_OP(op_urshift)
         DEFINE_OP(op_sret)
         DEFINE_OP(op_strcat)
         DEFINE_OP(op_stricteq)
@@ -320,6 +324,16 @@ void JIT::privateCompileMainPass()
         case op_get_by_id_proto_list:
         case op_get_by_id_self:
         case op_get_by_id_self_list:
+        case op_get_by_id_getter_chain:
+        case op_get_by_id_getter_proto:
+        case op_get_by_id_getter_proto_list:
+        case op_get_by_id_getter_self:
+        case op_get_by_id_getter_self_list:
+        case op_get_by_id_custom_chain:
+        case op_get_by_id_custom_proto:
+        case op_get_by_id_custom_proto_list:
+        case op_get_by_id_custom_self:
+        case op_get_by_id_custom_self_list:
         case op_get_string_length:
         case op_put_by_id_generic:
         case op_put_by_id_replace:
@@ -351,9 +365,7 @@ void JIT::privateCompileSlowCases()
     Instruction* instructionsBegin = m_codeBlock->instructions().begin();
 
     m_propertyAccessInstructionIndex = 0;
-#if USE(JSVALUE32_64)
     m_globalResolveInfoIndex = 0;
-#endif
     m_callLinkInfoIndex = 0;
 
     for (Vector<SlowCaseEntry>::iterator iter = m_slowCases.begin(); iter != m_slowCases.end();) {
@@ -379,20 +391,24 @@ void JIT::privateCompileSlowCases()
         DEFINE_SLOWCASE_OP(op_construct)
         DEFINE_SLOWCASE_OP(op_construct_verify)
         DEFINE_SLOWCASE_OP(op_convert_this)
-#if USE(JSVALUE32_64)
+#if !USE(JSVALUE32)
         DEFINE_SLOWCASE_OP(op_div)
 #endif
         DEFINE_SLOWCASE_OP(op_eq)
         DEFINE_SLOWCASE_OP(op_get_by_id)
         DEFINE_SLOWCASE_OP(op_get_by_val)
+        DEFINE_SLOWCASE_OP(op_get_by_pname)
         DEFINE_SLOWCASE_OP(op_instanceof)
         DEFINE_SLOWCASE_OP(op_jfalse)
         DEFINE_SLOWCASE_OP(op_jnless)
+        DEFINE_SLOWCASE_OP(op_jless)
+        DEFINE_SLOWCASE_OP(op_jlesseq)
         DEFINE_SLOWCASE_OP(op_jnlesseq)
         DEFINE_SLOWCASE_OP(op_jtrue)
         DEFINE_SLOWCASE_OP(op_loop_if_less)
         DEFINE_SLOWCASE_OP(op_loop_if_lesseq)
         DEFINE_SLOWCASE_OP(op_loop_if_true)
+        DEFINE_SLOWCASE_OP(op_loop_if_false)
         DEFINE_SLOWCASE_OP(op_lshift)
         DEFINE_SLOWCASE_OP(op_method_check)
         DEFINE_SLOWCASE_OP(op_mod)
@@ -409,10 +425,10 @@ void JIT::privateCompileSlowCases()
         DEFINE_SLOWCASE_OP(op_pre_inc)
         DEFINE_SLOWCASE_OP(op_put_by_id)
         DEFINE_SLOWCASE_OP(op_put_by_val)
-#if USE(JSVALUE32_64)
         DEFINE_SLOWCASE_OP(op_resolve_global)
-#endif
+        DEFINE_SLOWCASE_OP(op_resolve_global_dynamic)
         DEFINE_SLOWCASE_OP(op_rshift)
+        DEFINE_SLOWCASE_OP(op_urshift)
         DEFINE_SLOWCASE_OP(op_stricteq)
         DEFINE_SLOWCASE_OP(op_sub)
         DEFINE_SLOWCASE_OP(op_to_jsnumber)
@@ -438,7 +454,7 @@ void JIT::privateCompileSlowCases()
 #endif
 }
 
-void JIT::privateCompile()
+JITCode JIT::privateCompile()
 {
     sampleCodeBlock(m_codeBlock);
 #if ENABLE(OPCODE_SAMPLING)
@@ -489,21 +505,21 @@ void JIT::privateCompile()
             ASSERT(record.type == SwitchRecord::Immediate || record.type == SwitchRecord::Character); 
             ASSERT(record.jumpTable.simpleJumpTable->branchOffsets.size() == record.jumpTable.simpleJumpTable->ctiOffsets.size());
 
-            record.jumpTable.simpleJumpTable->ctiDefault = patchBuffer.locationOf(m_labels[bytecodeIndex + 3 + record.defaultOffset]);
+            record.jumpTable.simpleJumpTable->ctiDefault = patchBuffer.locationOf(m_labels[bytecodeIndex + record.defaultOffset]);
 
             for (unsigned j = 0; j < record.jumpTable.simpleJumpTable->branchOffsets.size(); ++j) {
                 unsigned offset = record.jumpTable.simpleJumpTable->branchOffsets[j];
-                record.jumpTable.simpleJumpTable->ctiOffsets[j] = offset ? patchBuffer.locationOf(m_labels[bytecodeIndex + 3 + offset]) : record.jumpTable.simpleJumpTable->ctiDefault;
+                record.jumpTable.simpleJumpTable->ctiOffsets[j] = offset ? patchBuffer.locationOf(m_labels[bytecodeIndex + offset]) : record.jumpTable.simpleJumpTable->ctiDefault;
             }
         } else {
             ASSERT(record.type == SwitchRecord::String);
 
-            record.jumpTable.stringJumpTable->ctiDefault = patchBuffer.locationOf(m_labels[bytecodeIndex + 3 + record.defaultOffset]);
+            record.jumpTable.stringJumpTable->ctiDefault = patchBuffer.locationOf(m_labels[bytecodeIndex + record.defaultOffset]);
 
             StringJumpTable::StringOffsetTable::iterator end = record.jumpTable.stringJumpTable->offsetTable.end();            
             for (StringJumpTable::StringOffsetTable::iterator it = record.jumpTable.stringJumpTable->offsetTable.begin(); it != end; ++it) {
                 unsigned offset = it->second.branchOffset;
-                it->second.ctiOffset = offset ? patchBuffer.locationOf(m_labels[bytecodeIndex + 3 + offset]) : record.jumpTable.stringJumpTable->ctiDefault;
+                it->second.ctiOffset = offset ? patchBuffer.locationOf(m_labels[bytecodeIndex + offset]) : record.jumpTable.stringJumpTable->ctiDefault;
             }
         }
     }
@@ -552,7 +568,7 @@ void JIT::privateCompile()
         info.callReturnLocation = m_codeBlock->structureStubInfo(m_methodCallCompilationInfo[i].propertyAccessIndex).callReturnLocation;
     }
 
-    m_codeBlock->setJITCode(patchBuffer.finalizeCode());
+    return patchBuffer.finalizeCode();
 }
 
 #if !USE(JSVALUE32_64)
@@ -587,12 +603,11 @@ void JIT::unlinkCall(CallLinkInfo* callLinkInfo)
 
 void JIT::linkCall(JSFunction* callee, CodeBlock* callerCodeBlock, CodeBlock* calleeCodeBlock, JITCode& code, CallLinkInfo* callLinkInfo, int callerArgCount, JSGlobalData* globalData)
 {
-    ASSERT(calleeCodeBlock);
     RepatchBuffer repatchBuffer(callerCodeBlock);
 
     // Currently we only link calls with the exact number of arguments.
     // If this is a native call calleeCodeBlock is null so the number of parameters is unimportant
-    if (callerArgCount == calleeCodeBlock->m_numParameters || calleeCodeBlock->codeType() == NativeCode) {
+    if (!calleeCodeBlock || (callerArgCount == calleeCodeBlock->m_numParameters)) {
         ASSERT(!callLinkInfo->isLinked());
     
         if (calleeCodeBlock)

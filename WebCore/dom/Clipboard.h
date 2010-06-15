@@ -43,8 +43,9 @@ namespace WebCore {
         // Is this operation a drag-drop or a copy-paste?
         bool isForDragging() const { return m_forDragging; }
 
-        String dropEffect() const { return m_dropEffect; }
+        String dropEffect() const { return dropEffectIsUninitialized() ? "none" : m_dropEffect; }
         void setDropEffect(const String&);
+        bool dropEffectIsUninitialized() const { return m_dropEffect == "uninitialized"; }
         String effectAllowed() const { return m_effectAllowed; }
         void setEffectAllowed(const String&);
     
@@ -64,16 +65,19 @@ namespace WebCore {
         virtual void setDragImageElement(Node*, const IntPoint&) = 0;
         
         virtual DragImageRef createDragImage(IntPoint& dragLocation) const = 0;
+#if ENABLE(DRAG_SUPPORT)
         virtual void declareAndWriteDragImage(Element*, const KURL&, const String& title, Frame*) = 0;
+#endif
         virtual void writeURL(const KURL&, const String&, Frame*) = 0;
         virtual void writeRange(Range*, Frame*) = 0;
+        virtual void writePlainText(const String&) = 0;
 
         virtual bool hasData() = 0;
         
         void setAccessPolicy(ClipboardAccessPolicy);
 
-        bool sourceOperation(DragOperation&) const;
-        bool destinationOperation(DragOperation&) const;
+        DragOperation sourceOperation() const;
+        DragOperation destinationOperation() const;
         void setSourceOperation(DragOperation);
         void setDestinationOperation(DragOperation);
         

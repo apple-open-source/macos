@@ -32,56 +32,53 @@
 #include "config.h"
 #include "FontCustomPlatformData.h"
 
-#if PLATFORM(WIN_OS)
+#if OS(WINDOWS)
 #include "Base64.h"
 #include "ChromiumBridge.h"
 #include "OpenTypeUtilities.h"
+#elif OS(LINUX)
+#include "SkStream.h"
 #endif
 
 #include "FontPlatformData.h"
 #include "NotImplemented.h"
+#include "OpenTypeSanitizer.h"
 #include "SharedBuffer.h"
 
-#if PLATFORM(WIN_OS)
+#if OS(WINDOWS)
 #include <objbase.h>
-#include <t2embapi.h>
-#pragma comment(lib, "t2embed")
+#elif OS(LINUX)
+#include <cstring>
 #endif
 
 namespace WebCore {
 
 FontCustomPlatformData::~FontCustomPlatformData()
 {
-#if PLATFORM(WIN_OS)
-    if (m_fontReference) {
-        if (m_name.isNull()) {
-            ULONG status;
-            TTDeleteEmbeddedFont(m_fontReference, 0, &status);
-        } else
-            RemoveFontMemResourceEx(m_fontReference);
-    }
+#if OS(WINDOWS)
+    if (m_fontReference)
+        RemoveFontMemResourceEx(m_fontReference);
+#elif OS(LINUX)
+    if (m_fontReference)
+        m_fontReference->unref();
 #endif
 }
 
 FontPlatformData FontCustomPlatformData::fontPlatformData(int size, bool bold, bool italic, FontRenderingMode mode)
 {
-#if PLATFORM(WIN_OS)
+#if OS(WINDOWS)
     ASSERT(m_fontReference);
 
     LOGFONT logFont;
-    if (m_name.isNull())
-        TTGetNewFontName(&m_fontReference, logFont.lfFaceName, LF_FACESIZE, 0, 0);
-    else {
-        // m_name comes from createUniqueFontName, which, in turn, gets
-        // it from base64-encoded uuid (128-bit). So, m_name
-        // can never be longer than LF_FACESIZE (32).
-        if (m_name.length() + 1 >= LF_FACESIZE) {
-            ASSERT_NOT_REACHED();
-            return FontPlatformData();
-        }
-        memcpy(logFont.lfFaceName, m_name.charactersWithNullTermination(),
-               sizeof(logFont.lfFaceName[0]) * (1 + m_name.length()));
+    // m_name comes from createUniqueFontName, which, in turn, gets
+    // it from base64-encoded uuid (128-bit). So, m_name
+    // can never be longer than LF_FACESIZE (32).
+    if (m_name.length() + 1 >= LF_FACESIZE) {
+        ASSERT_NOT_REACHED();
+        return FontPlatformData();
     }
+    memcpy(logFont.lfFaceName, m_name.charactersWithNullTermination(),
+           sizeof(logFont.lfFaceName[0]) * (1 + m_name.length()));
 
     // FIXME: almost identical to FillLogFont in FontCacheWin.cpp.
     // Need to refactor. 
@@ -102,76 +99,16 @@ FontPlatformData FontCustomPlatformData::fontPlatformData(int size, bool bold, b
 
     HFONT hfont = CreateFontIndirect(&logFont);
     return FontPlatformData(hfont, size);
+#elif OS(LINUX)
+    ASSERT(m_fontReference);
+    return FontPlatformData(m_fontReference, "", size, bold && !m_fontReference->isBold(), italic && !m_fontReference->isItalic());
 #else
     notImplemented();
     return FontPlatformData();
 #endif
 }
 
-#if PLATFORM(WIN_OS)
-// FIXME: EOTStream class and static functions in this #if block are
-// duplicated from platform/graphics/win/FontCustomPlatformData.cpp
-// and need to be shared.
-
-// Streams the concatenation of a header and font data.
-class EOTStream {
-public:
-    EOTStream(const EOTHeader& eotHeader, const SharedBuffer* fontData, size_t overlayDst, size_t overlaySrc, size_t overlayLength)
-        : m_eotHeader(eotHeader)
-        , m_fontData(fontData)
-        , m_overlayDst(overlayDst)
-        , m_overlaySrc(overlaySrc)
-        , m_overlayLength(overlayLength)
-        , m_offset(0)
-        , m_inHeader(true)
-    {
-    }
-
-    size_t read(void* buffer, size_t count);
-
-private:
-    const EOTHeader& m_eotHeader;
-    const SharedBuffer* m_fontData;
-    size_t m_overlayDst;
-    size_t m_overlaySrc;
-    size_t m_overlayLength;
-    size_t m_offset;
-    bool m_inHeader;
-};
-
-size_t EOTStream::read(void* buffer, size_t count)
-{
-    size_t bytesToRead = count;
-    if (m_inHeader) {
-        size_t bytesFromHeader = std::min(m_eotHeader.size() - m_offset, count);
-        memcpy(buffer, m_eotHeader.data() + m_offset, bytesFromHeader);
-        m_offset += bytesFromHeader;
-        bytesToRead -= bytesFromHeader;
-        if (m_offset == m_eotHeader.size()) {
-            m_inHeader = false;
-            m_offset = 0;
-        }
-    }
-    if (bytesToRead && !m_inHeader) {
-        size_t bytesFromData = std::min(m_fontData->size() - m_offset, bytesToRead);
-        memcpy(buffer, m_fontData->data() + m_offset, bytesFromData);
-        if (m_offset < m_overlayDst + m_overlayLength && m_offset + bytesFromData >= m_overlayDst) {
-            size_t dstOffset = std::max<int>(m_overlayDst - m_offset, 0);
-            size_t srcOffset = std::max<int>(0, m_offset - m_overlayDst);
-            size_t bytesToCopy = std::min(bytesFromData - dstOffset, m_overlayLength - srcOffset);
-            memcpy(reinterpret_cast<char*>(buffer) + dstOffset, m_fontData->data() + m_overlaySrc + srcOffset, bytesToCopy);
-        }
-        m_offset += bytesFromData;
-        bytesToRead -= bytesFromData;
-    }
-    return count - bytesToRead;
-}
-
-static unsigned long WINAPIV readEmbedProc(void* stream, void* buffer, unsigned long length)
-{
-    return static_cast<EOTStream*>(stream)->read(buffer, length);
-}
-
+#if OS(WINDOWS)
 // Creates a unique and unpredictable font name, in order to avoid collisions and to
 // not allow access from CSS.
 static String createUniqueFontName()
@@ -186,45 +123,80 @@ static String createUniqueFontName()
 }
 #endif
 
+#if OS(LINUX)
+class RemoteFontStream : public SkStream {
+public:
+    explicit RemoteFontStream(PassRefPtr<SharedBuffer> buffer)
+        : m_buffer(buffer)
+        , m_offset(0)
+    {
+    }
+
+    virtual ~RemoteFontStream()
+    {
+    }
+
+    virtual bool rewind()
+    {
+        m_offset = 0;
+        return true;
+    }
+
+    virtual size_t read(void* buffer, size_t size)
+    {
+        if (!buffer && !size) {
+            // This is request for the length of the stream.
+            return m_buffer->size();
+        }
+        if (!buffer) {
+            // This is a request to skip bytes. This operation is not supported.
+            return 0;
+        }
+        // This is a request to read bytes.
+        if (!m_buffer->data() || !m_buffer->size())
+            return 0;
+        size_t left = m_buffer->size() - m_offset;
+        size_t toRead = (left > size) ? size : left;
+        std::memcpy(buffer, m_buffer->data() + m_offset, toRead);
+        m_offset += toRead;
+        return toRead;
+    }
+
+private:
+    RefPtr<SharedBuffer> m_buffer;
+    size_t m_offset;
+};
+#endif
+
 FontCustomPlatformData* createFontCustomPlatformData(SharedBuffer* buffer)
 {
     ASSERT_ARG(buffer, buffer);
 
-#if PLATFORM(WIN_OS)
-    // Introduce the font to GDI. AddFontMemResourceEx cannot be used, because it will pollute the process's
+#if ENABLE(OPENTYPE_SANITIZER)
+    OpenTypeSanitizer sanitizer(buffer);
+    RefPtr<SharedBuffer> transcodeBuffer = sanitizer.sanitize();
+    if (!transcodeBuffer)
+        return 0; // validation failed.
+    buffer = transcodeBuffer.get();
+#endif
+
+#if OS(WINDOWS)
+    // Introduce the font to GDI. AddFontMemResourceEx should be used with care, because it will pollute the process's
     // font namespace (Windows has no API for creating an HFONT from data without exposing the font to the
-    // entire process first). TTLoadEmbeddedFont lets us override the font family name, so using a unique name
-    // we avoid namespace collisions.
-
+    // entire process first).
     String fontName = createUniqueFontName();
-
-    // TTLoadEmbeddedFont works only with Embedded OpenType (.eot) data,
-    // so we need to create an EOT header and prepend it to the font data.
-    EOTHeader eotHeader;
-    size_t overlayDst;
-    size_t overlaySrc;
-    size_t overlayLength;
-
-    if (!getEOTHeader(buffer, eotHeader, overlayDst, overlaySrc, overlayLength))
+    HANDLE fontReference = renameAndActivateFont(buffer, fontName);
+    if (!fontReference)
         return 0;
-
-    HANDLE fontReference;
-    ULONG privStatus;
-    ULONG status;
-    EOTStream eotStream(eotHeader, buffer, overlayDst, overlaySrc, overlayLength);
-
-    LONG loadEmbeddedFontResult = TTLoadEmbeddedFont(&fontReference, TTLOAD_PRIVATE, &privStatus, LICENSE_PREVIEWPRINT, &status, readEmbedProc, &eotStream, const_cast<LPWSTR>(fontName.charactersWithNullTermination()), 0, 0);
-    if (loadEmbeddedFontResult == E_NONE)
-        fontName = String();
-    else {
-        fontReference = renameAndActivateFont(buffer, fontName);
-        if (!fontReference)
-            return 0;
-    }
-
     return new FontCustomPlatformData(fontReference, fontName);
+#elif OS(LINUX)
+    RemoteFontStream* stream = new RemoteFontStream(buffer);
+    SkTypeface* typeface = SkTypeface::CreateFromStream(stream);
+    if (!typeface)
+        return 0;
+    return new FontCustomPlatformData(typeface);
 #else
-    notImplemented();;
+    notImplemented();
     return 0;
 #endif
 }

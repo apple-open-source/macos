@@ -3446,7 +3446,13 @@ static int call_trans2qfilepathinfo(connection_struct *conn, char *inbuf, char *
 		if (!NT_STATUS_IS_OK(status)) {
 			return ERROR_NT(status);
 		}
-		status = check_name(conn, fname);
+
+		/* APPLE It's OK to let unix clients do a readlink without
+		 * verifying the name since they resolve on the client side.
+		 */
+		status = (info_level == SMB_QUERY_FILE_UNIX_LINK) ?
+		    NT_STATUS_OK : check_name(conn, fname);
+
 		if (!NT_STATUS_IS_OK(status)) {
 			DEBUG(3,("call_trans2qfilepathinfo: fileinfo of %s failed (%s)\n",fname,nt_errstr(status)));
 			return ERROR_NT(status);
@@ -4556,6 +4562,8 @@ static NTSTATUS smb_set_file_unix_link(connection_struct *conn,
 
 	srvstr_pull(inbuf, link_target, pdata, sizeof(link_target), total_data, STR_TERMINATE);
 
+#if !__APPLE__
+
 	/* !widelinks forces the target path to be within the share. */
 	/* This means we can interpret the target as a pathname. */
 	if (!lp_widelinks(SNUM(conn))) {
@@ -4580,6 +4588,7 @@ static NTSTATUS smb_set_file_unix_link(connection_struct *conn,
 			return status;
 		}
 	}
+#endif
 
 	DEBUG(10,("smb_set_file_unix_link: SMB_SET_FILE_UNIX_LINK doing symlink %s -> %s\n",
 			newname, link_target ));

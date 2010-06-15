@@ -26,131 +26,124 @@
 #include "config.h"
 #include "PluginView.h"
 
-#include "NotImplemented.h"
-#include "PluginPackage.h"
-
 using namespace WTF;
 
 namespace WebCore {
 
-void PluginView::setFocus()
+void PluginView::setFocus(bool)
 {
-    notImplemented();
 }
 
 void PluginView::show()
 {
-    notImplemented();
 }
 
 void PluginView::hide()
 {
-    notImplemented();
 }
 
 void PluginView::paint(GraphicsContext*, const IntRect&)
 {
-    notImplemented();
 }
 
 void PluginView::handleKeyboardEvent(KeyboardEvent*)
 {
-    notImplemented();
 }
 
 void PluginView::handleMouseEvent(MouseEvent*)
 {
-    notImplemented();
 }
 
 void PluginView::setParent(ScrollView*)
 {
-    notImplemented();
 }
 
 void PluginView::setNPWindowRect(const IntRect&)
 {
-    notImplemented();
 }
 
-void PluginView::stop()
+NPError PluginView::handlePostReadFile(Vector<char>&, uint32_t, const char*)
 {
-    notImplemented();
-}
-
-const char* PluginView::userAgent()
-{
-    notImplemented();
     return 0;
 }
 
 #if ENABLE(NETSCAPE_PLUGIN_API)
-const char* PluginView::userAgentStatic()
+bool PluginView::platformGetValue(NPNVariable, void*, NPError*)
 {
-    notImplemented();
-    return 0;
-}
-#endif
-
-NPError PluginView::handlePostReadFile(Vector<char>&, uint32, const char*)
-{
-    notImplemented();
-
-    return 0;
+    return false;
 }
 
-NPError PluginView::getValue(NPNVariable, void*)
+bool PluginView::platformGetValueStatic(NPNVariable, void*, NPError*)
 {
-    notImplemented();
-    return 0;
-}
-
-#if ENABLE(NETSCAPE_PLUGIN_API)
-NPError PluginView::getValueStatic(NPNVariable variable, void* value)
-{
-    notImplemented();
-    return 0;
+    return false;
 }
 #endif
 
 void PluginView::invalidateRect(NPRect*)
 {
-    notImplemented();
 }
 
 void PluginView::invalidateRect(const IntRect&)
 {
-    notImplemented();
 }
 
 void PluginView::invalidateRegion(NPRegion)
 {
-    notImplemented();
 }
 
 void PluginView::forceRedraw()
 {
-    notImplemented();
 }
 
-PluginView::~PluginView()
+bool PluginView::platformStart()
 {
-    notImplemented();
+    return true;
 }
 
-void PluginView::init()
+void PluginView::platformDestroy()
 {
-    notImplemented();
 }
 
 void PluginView::setParentVisible(bool)
 {
-    notImplemented();
 }
 
 void PluginView::updatePluginWidget()
 {
-    notImplemented();
 }
+
+void PluginView::halt()
+{
+}
+
+void PluginView::restart()
+{
+}
+
+#if ENABLE(NETSCAPE_PLUGIN_API)
+void PluginView::keepAlive(NPP)
+{
+}
+#endif
+
+#if PLATFORM(MAC) || PLATFORM(CHROMIUM) || PLATFORM(EFL)
+void PluginView::privateBrowsingStateChanged(bool)
+{
+}
+
+void PluginView::setJavaScriptPaused(bool)
+{
+}
+#endif
+
+#if defined(XP_UNIX) && ENABLE(NETSCAPE_PLUGIN_API)
+void PluginView::handleFocusInEvent()
+{
+}
+
+void PluginView::handleFocusOutEvent()
+{
+}
+#endif
 
 } // namespace WebCore

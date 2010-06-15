@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007, 2008 Apple Inc.
+ * Copyright (C) 2007, 2008, 2009 Apple Inc.
  * Copyright (C) 2009 Kenneth Rohde Christiansen
  *
  * This library is free software; you can redistribute it and/or
@@ -86,7 +86,7 @@ PassRefPtr<RenderTheme> RenderTheme::themeForPage(Page* page)
     return safariTheme; // keep the reference of one.
 }
 
-#if !defined(NDEBUG) && defined(USE_DEBUG_SAFARI_THEME)
+#ifdef DEBUG_ALL
 SOFT_LINK_DEBUG_LIBRARY(SafariTheme)
 #else
 SOFT_LINK_LIBRARY(SafariTheme)
@@ -744,11 +744,21 @@ static void TrackGradientInterpolate(void* info, const CGFloat* inData, CGFloat*
 
 void RenderThemeSafari::paintMenuListButtonGradients(RenderObject* o, const RenderObject::PaintInfo& paintInfo, const IntRect& r)
 {
+    if (r.isEmpty())
+        return;
+
     CGContextRef context = paintInfo.context->platformContext();
 
     paintInfo.context->save();
 
-    int radius = o->style()->borderTopLeftRadius().width();
+    IntSize topLeftRadius;
+    IntSize topRightRadius;
+    IntSize bottomLeftRadius;
+    IntSize bottomRightRadius;
+
+    o->style()->getBorderRadiiForRect(r, topLeftRadius, topRightRadius, bottomLeftRadius, bottomRightRadius);
+
+    int radius = topLeftRadius.width();
 
     RetainPtr<CGColorSpaceRef> cspace(AdoptCF, CGColorSpaceCreateDeviceRGB());
 
@@ -771,33 +781,27 @@ void RenderThemeSafari::paintMenuListButtonGradients(RenderObject* o, const Rend
     RetainPtr<CGShadingRef> rightShading(AdoptCF, CGShadingCreateAxial(cspace.get(), CGPointMake(r.right(),  r.y()), CGPointMake(r.right() - radius, r.y()), mainFunction.get(), false, false));
     paintInfo.context->save();
     CGContextClipToRect(context, r);
-    paintInfo.context->addRoundedRectClip(r,
-        o->style()->borderTopLeftRadius(), o->style()->borderTopRightRadius(),
-        o->style()->borderBottomLeftRadius(), o->style()->borderBottomRightRadius());
+    paintInfo.context->addRoundedRectClip(r, topLeftRadius, topRightRadius, bottomLeftRadius, bottomRightRadius);
     CGContextDrawShading(context, mainShading.get());
     paintInfo.context->restore();
 
     paintInfo.context->save();
     CGContextClipToRect(context, topGradient);
-    paintInfo.context->addRoundedRectClip(enclosingIntRect(topGradient),
-        o->style()->borderTopLeftRadius(), o->style()->borderTopRightRadius(),
-        IntSize(), IntSize());
+    paintInfo.context->addRoundedRectClip(enclosingIntRect(topGradient), topLeftRadius, topRightRadius, IntSize(), IntSize());
     CGContextDrawShading(context, topShading.get());
     paintInfo.context->restore();
 
-    paintInfo.context->save();
-    CGContextClipToRect(context, bottomGradient);
-    paintInfo.context->addRoundedRectClip(enclosingIntRect(bottomGradient),
-        IntSize(), IntSize(),
-        o->style()->borderBottomLeftRadius(), o->style()->borderBottomRightRadius());
-    CGContextDrawShading(context, bottomShading.get());
-    paintInfo.context->restore();
+    if (!bottomGradient.isEmpty()) {
+        paintInfo.context->save();
+        CGContextClipToRect(context, bottomGradient);
+        paintInfo.context->addRoundedRectClip(enclosingIntRect(bottomGradient), IntSize(), IntSize(), bottomLeftRadius, bottomRightRadius);
+        CGContextDrawShading(context, bottomShading.get());
+        paintInfo.context->restore();
+    }
 
     paintInfo.context->save();
     CGContextClipToRect(context, r);
-    paintInfo.context->addRoundedRectClip(r,
-        o->style()->borderTopLeftRadius(), o->style()->borderTopRightRadius(),
-        o->style()->borderBottomLeftRadius(), o->style()->borderBottomRightRadius());
+    paintInfo.context->addRoundedRectClip(r, topLeftRadius, topRightRadius, bottomLeftRadius, bottomRightRadius);
     CGContextDrawShading(context, leftShading.get());
     CGContextDrawShading(context, rightShading.get());
     paintInfo.context->restore();
@@ -807,8 +811,6 @@ void RenderThemeSafari::paintMenuListButtonGradients(RenderObject* o, const Rend
 
 bool RenderThemeSafari::paintMenuListButton(RenderObject* o, const RenderObject::PaintInfo& paintInfo, const IntRect& r)
 {
-    paintInfo.context->save();
-
     IntRect bounds = IntRect(r.x() + o->style()->borderLeftWidth(),
                              r.y() + o->style()->borderTopWidth(),
                              r.width() - o->style()->borderLeftWidth() - o->style()->borderRightWidth(),
@@ -826,8 +828,10 @@ bool RenderThemeSafari::paintMenuListButton(RenderObject* o, const RenderObject:
     if (bounds.width() < arrowWidth + arrowPaddingLeft)
         return false;
 
-    paintInfo.context->setFillColor(o->style()->color());
-    paintInfo.context->setStrokeColor(NoStroke);
+    paintInfo.context->save();
+
+    paintInfo.context->setFillColor(o->style()->visitedDependentColor(CSSPropertyColor), DeviceColorSpace);
+    paintInfo.context->setStrokeColor(NoStroke, DeviceColorSpace);
 
     FloatPoint arrow[3];
     arrow[0] = FloatPoint(leftEdge, centerY - arrowHeight / 2.0f);
@@ -847,11 +851,11 @@ bool RenderThemeSafari::paintMenuListButton(RenderObject* o, const RenderObject:
     // Draw the separator to the left of the arrows
     paintInfo.context->setStrokeThickness(1.0f);
     paintInfo.context->setStrokeStyle(SolidStroke);
-    paintInfo.context->setStrokeColor(leftSeparatorColor);
+    paintInfo.context->setStrokeColor(leftSeparatorColor, DeviceColorSpace);
     paintInfo.context->drawLine(IntPoint(leftEdgeOfSeparator, bounds.y()),
                                 IntPoint(leftEdgeOfSeparator, bounds.bottom()));
 
-    paintInfo.context->setStrokeColor(rightSeparatorColor);
+    paintInfo.context->setStrokeColor(rightSeparatorColor, DeviceColorSpace);
     paintInfo.context->drawLine(IntPoint(leftEdgeOfSeparator + separatorSpace, bounds.y()),
                                 IntPoint(leftEdgeOfSeparator + separatorSpace, bounds.bottom()));
 
@@ -1000,7 +1004,7 @@ bool RenderThemeSafari::paintSliderThumb(RenderObject* o, const RenderObject::Pa
 
     ASSERT(o->parent()->isSlider());
 
-    bool pressed = static_cast<RenderSlider*>(o->parent())->inDragMode();
+    bool pressed = toRenderSlider(o->parent())->inDragMode();
     ThemeControlState state = determineState(o->parent());
     state &= ~SafariTheme::PressedState;
     if (pressed)

@@ -2,8 +2,6 @@
     Copyright (C) 2004, 2005, 2007 Nikolas Zimmermann <zimmermann@kde.org>
                   2004, 2005 Rob Buis <buis@kde.org>
 
-    This file is part of the KDE project
-
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Library General Public
     License as published by the Free Software Foundation; either
@@ -33,13 +31,11 @@
 #include "SVGFEFuncRElement.h"
 #include "SVGNames.h"
 #include "SVGRenderStyle.h"
-#include "SVGResourceFilter.h"
 
 namespace WebCore {
 
 SVGFEComponentTransferElement::SVGFEComponentTransferElement(const QualifiedName& tagName, Document* doc)
     : SVGFilterPrimitiveStandardAttributes(tagName, doc)
-    , m_in1(this, SVGNames::inAttr)
 {
 }
 
@@ -56,12 +52,20 @@ void SVGFEComponentTransferElement::parseMappedAttribute(MappedAttribute* attr)
         SVGFilterPrimitiveStandardAttributes::parseMappedAttribute(attr);
 }
 
-bool SVGFEComponentTransferElement::build(SVGResourceFilter* filterResource)
+void SVGFEComponentTransferElement::synchronizeProperty(const QualifiedName& attrName)
 {
-    FilterEffect* input1 = filterResource->builder()->getEffectById(in1());
+    SVGFilterPrimitiveStandardAttributes::synchronizeProperty(attrName);
+
+    if (attrName == anyQName() || attrName == SVGNames::inAttr)
+        synchronizeIn1();
+}
+
+PassRefPtr<FilterEffect> SVGFEComponentTransferElement::build(SVGFilterBuilder* filterBuilder)
+{
+    FilterEffect* input1 = filterBuilder->getEffectById(in1());
     
-    if(!input1)
-        return false;
+    if (!input1)
+        return 0;
 
     ComponentTransferFunction red;
     ComponentTransferFunction green;
@@ -79,14 +83,9 @@ bool SVGFEComponentTransferElement::build(SVGResourceFilter* filterResource)
             alpha = static_cast<SVGFEFuncAElement*>(n)->transferFunction();
     }
     
-    RefPtr<FilterEffect> effect = FEComponentTransfer::create(input1, red, green, blue, alpha);
-    filterResource->addFilterEffect(this, effect.release());
-    
-    return true;
+    return FEComponentTransfer::create(input1, red, green, blue, alpha);
 }
 
 }
 
-#endif // ENABLE(SVG)
-
-// vim:ts=4:noet
+#endif

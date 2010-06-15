@@ -57,6 +57,8 @@ public:
     virtual bool isTypingCommand() const;
     
     virtual bool preservesTypingStyle() const;
+    
+    bool isTopLevelCommand() const { return !m_parent; }
 
 protected:
     EditCommand(Document*);
@@ -66,7 +68,6 @@ protected:
     void setStartingSelection(const VisibleSelection&);
     void setEndingSelection(const VisibleSelection&);
 
-    PassRefPtr<CSSMutableStyleDeclaration> styleAtPosition(const Position&);
     void updateLayout() const;
 
 private:

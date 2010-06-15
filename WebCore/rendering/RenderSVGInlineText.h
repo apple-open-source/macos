@@ -33,9 +33,15 @@ namespace WebCore {
 class RenderSVGInlineText : public RenderText {
 public:
     RenderSVGInlineText(Node*, PassRefPtr<StringImpl>);
+
+private:
     virtual const char* renderName() const { return "RenderSVGInlineText"; }
         
     virtual void styleDidChange(StyleDifference, const RenderStyle*);
+
+    // FIXME: We need objectBoundingBox for DRT results and filters at the moment.
+    // This should be fixed to give back the objectBoundingBox of the text root.
+    virtual FloatRect objectBoundingBox() const { return FloatRect(); }
 
     virtual void absoluteRects(Vector<IntRect>& rects, int tx, int ty);
     virtual void absoluteQuads(Vector<FloatQuad>&);
@@ -49,7 +55,6 @@ public:
 
     virtual void destroy();
 
-private:
     virtual InlineTextBox* createTextBox();
     IntRect computeRepaintRectForRange(RenderBoxModelObject* repaintContainer, int startPos, int endPos);
     FloatQuad computeRepaintQuadForRange(RenderBoxModelObject* repaintContainer, int startPos, int endPos);

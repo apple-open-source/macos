@@ -31,7 +31,9 @@
 #include "ExceptionHelpers.h"
 #include "JSArray.h"
 #include "LiteralParser.h"
+#include "Lookup.h"
 #include "PropertyNameArray.h"
+#include "StringBuilder.h"
 #include <wtf/MathExtras.h>
 
 namespace JSC {
@@ -61,17 +63,15 @@ private:
     mutable JSValue m_value;
 };
 
-class Stringifier : Noncopyable {
+class Stringifier : public Noncopyable {
 public:
     Stringifier(ExecState*, JSValue replacer, JSValue space);
     ~Stringifier();
     JSValue stringify(JSValue);
 
-    void mark();
+    void markAggregate(MarkStack&);
 
 private:
-    typedef UString StringBuilder;
-
     class Holder {
     public:
         Holder(JSObject*);
@@ -120,38 +120,47 @@ private:
 
 // ------------------------------ helper functions --------------------------------
 
-static inline JSValue unwrapBoxedPrimitive(JSValue value)
+static inline JSValue unwrapBoxedPrimitive(ExecState* exec, JSValue value)
 {
     if (!value.isObject())
         return value;
-    if (!asObject(value)->inherits(&NumberObject::info) && !asObject(value)->inherits(&StringObject::info) && !asObject(value)->inherits(&BooleanObject::info))
-        return value;
-    return static_cast<JSWrapperObject*>(asObject(value))->internalValue();
+    JSObject* object = asObject(value);
+    if (object->inherits(&NumberObject::info))
+        return jsNumber(exec, object->toNumber(exec));
+    if (object->inherits(&StringObject::info))
+        return jsString(exec, object->toString(exec));
+    if (object->inherits(&BooleanObject::info))
+        return object->toPrimitive(exec);
+    return value;
 }
 
-static inline UString gap(JSValue space)
+static inline UString gap(ExecState* exec, JSValue space)
 {
-    space = unwrapBoxedPrimitive(space);
+    const unsigned maxGapLength = 10;
+    space = unwrapBoxedPrimitive(exec, space);
 
     // If the space value is a number, create a gap string with that number of spaces.
     double spaceCount;
     if (space.getNumber(spaceCount)) {
-        const int maxSpaceCount = 100;
         int count;
-        if (spaceCount > maxSpaceCount)
-            count = maxSpaceCount;
+        if (spaceCount > maxGapLength)
+            count = maxGapLength;
         else if (!(spaceCount > 0))
             count = 0;
         else
             count = static_cast<int>(spaceCount);
-        UChar spaces[maxSpaceCount];
+        UChar spaces[maxGapLength];
         for (int i = 0; i < count; ++i)
             spaces[i] = ' ';
         return UString(spaces, count);
     }
 
     // If the space value is a string, use it as the gap string, otherwise use no gap string.
-    return space.getString();
+    UString spaces = space.getString(exec);
+    if (spaces.size() > maxGapLength) {
+        spaces = spaces.substr(0, maxGapLength);
+    }
+    return spaces;
 }
 
 // ------------------------------ PropertyNameForFunctionCall --------------------------------
@@ -187,7 +196,7 @@ Stringifier::Stringifier(ExecState* exec, JSValue replacer, JSValue space)
     , m_usingArrayReplacer(false)
     , m_arrayReplacerPropertyNames(exec)
     , m_replacerCallType(CallTypeNone)
-    , m_gap(gap(space))
+    , m_gap(gap(exec, space))
 {
     exec->globalData().firstStringifierToMark = this;
 
@@ -202,12 +211,27 @@ Stringifier::Stringifier(ExecState* exec, JSValue replacer, JSValue space)
             JSValue name = array->get(exec, i);
             if (exec->hadException())
                 break;
+
             UString propertyName;
-            if (!name.getString(propertyName))
+            if (name.getString(exec, propertyName)) {
+                m_arrayReplacerPropertyNames.add(Identifier(exec, propertyName));
                 continue;
-            if (exec->hadException())
-                return;
-            m_arrayReplacerPropertyNames.add(Identifier(exec, propertyName));
+            }
+
+            double value = 0;
+            if (name.getNumber(value)) {
+                m_arrayReplacerPropertyNames.add(Identifier::from(exec, value));
+                continue;
+            }
+
+            if (name.isObject()) {
+                if (!asObject(name)->inherits(&NumberObject::info) && !asObject(name)->inherits(&StringObject::info))
+                    continue;
+                propertyName = name.toString(exec);
+                if (exec->hadException())
+                    break;
+                m_arrayReplacerPropertyNames.add(Identifier(exec, propertyName));
+            }
         }
         return;
     }
@@ -221,15 +245,12 @@ Stringifier::~Stringifier()
     m_exec->globalData().firstStringifierToMark = m_nextStringifierToMark;
 }
 
-void Stringifier::mark()
+void Stringifier::markAggregate(MarkStack& markStack)
 {
     for (Stringifier* stringifier = this; stringifier; stringifier = stringifier->m_nextStringifierToMark) {
         size_t size = m_holderStack.size();
-        for (size_t i = 0; i < size; ++i) {
-            JSObject* object = m_holderStack[i].object();
-            if (!object->marked())
-                object->mark();
-        }
+        for (size_t i = 0; i < size; ++i)
+            markStack.append(m_holderStack[i].object());
     }
 }
 
@@ -248,7 +269,7 @@ JSValue Stringifier::stringify(JSValue value)
     if (m_exec->hadException())
         return jsNull();
 
-    return jsString(m_exec, result);
+    return jsString(m_exec, result.build());
 }
 
 void Stringifier::appendQuotedString(StringBuilder& builder, const UString& value)
@@ -339,8 +360,6 @@ Stringifier::StringifyResult Stringifier::appendStringifiedValue(StringBuilder& 
     value = toJSON(value, propertyName);
     if (m_exec->hadException())
         return StringifyFailed;
-    if (value.isUndefined() && !holder->inherits(&JSArray::info))
-        return StringifyFailedDueToUndefinedValue;
 
     // Call the replacer function.
     if (m_replacerCallType != CallTypeNone) {
@@ -351,12 +370,18 @@ Stringifier::StringifyResult Stringifier::appendStringifiedValue(StringBuilder& 
             return StringifyFailed;
     }
 
+    if (value.isUndefined() && !holder->inherits(&JSArray::info))
+        return StringifyFailedDueToUndefinedValue;
+
     if (value.isNull()) {
         builder.append("null");
         return StringifySucceeded;
     }
 
-    value = unwrapBoxedPrimitive(value);
+    value = unwrapBoxedPrimitive(m_exec, value);
+
+    if (m_exec->hadException())
+        return StringifyFailed;
 
     if (value.isBoolean()) {
         builder.append(value.getBoolean() ? "true" : "false");
@@ -364,7 +389,7 @@ Stringifier::StringifyResult Stringifier::appendStringifiedValue(StringBuilder& 
     }
 
     UString stringValue;
-    if (value.getString(stringValue)) {
+    if (value.getString(m_exec, stringValue)) {
         appendQuotedString(builder, stringValue);
         return StringifySucceeded;
     }
@@ -383,9 +408,18 @@ Stringifier::StringifyResult Stringifier::appendStringifiedValue(StringBuilder& 
 
     JSObject* object = asObject(value);
 
+    CallData callData;
+    if (object->getCallData(callData) != CallTypeNone) {
+        if (holder->inherits(&JSArray::info)) {
+            builder.append("null");
+            return StringifySucceeded;
+        }
+        return StringifyFailedDueToUndefinedValue;
+    }
+
     // Handle cycle detection, and put the holder on the stack.
     if (!m_holderCycleDetector.add(object).second) {
-        throwError(m_exec, TypeError);
+        throwError(m_exec, TypeError, "JSON.stringify cannot serialize cyclic structures.");
         return StringifyFailed;
     }
     bool holderStackWasEmpty = m_holderStack.isEmpty();
@@ -423,9 +457,9 @@ inline bool Stringifier::willIndent() const
 inline void Stringifier::indent()
 {
     // Use a single shared string, m_repeatedGap, so we don't keep allocating new ones as we indent and unindent.
-    int newSize = m_indent.size() + m_gap.size();
+    unsigned newSize = m_indent.size() + m_gap.size();
     if (newSize > m_repeatedGap.size())
-        m_repeatedGap.append(m_gap);
+        m_repeatedGap = makeString(m_repeatedGap, m_gap);
     ASSERT(newSize <= m_repeatedGap.size());
     m_indent = m_repeatedGap.substr(0, newSize);
 }
@@ -468,7 +502,7 @@ bool Stringifier::Holder::appendNextProperty(Stringifier& stringifier, StringBui
                 m_propertyNames = stringifier.m_arrayReplacerPropertyNames.data();
             else {
                 PropertyNameArray objectPropertyNames(exec);
-                m_object->getPropertyNames(exec, objectPropertyNames);
+                m_object->getOwnPropertyNames(exec, objectPropertyNames);
                 m_propertyNames = objectPropertyNames.releaseData();
             }
             m_size = m_propertyNames->propertyNameVector().size();
@@ -552,7 +586,7 @@ bool Stringifier::Holder::appendNextProperty(Stringifier& stringifier, StringBui
             // This only occurs when get an undefined value for an object property.
             // In this case we don't want the separator and property name that we
             // already appended, so roll back.
-            builder = builder.substr(0, rollBackPoint);
+            builder.resize(rollBackPoint);
             break;
     }
 
@@ -574,18 +608,17 @@ const ClassInfo JSONObject::info = { "JSON", 0, 0, ExecState::jsonTable };
 
 bool JSONObject::getOwnPropertySlot(ExecState* exec, const Identifier& propertyName, PropertySlot& slot)
 {
-    const HashEntry* entry = ExecState::jsonTable(exec)->entry(exec, propertyName);
-    if (!entry)
-        return JSObject::getOwnPropertySlot(exec, propertyName, slot);
-
-    ASSERT(entry->attributes() & Function);
-    setUpStaticFunctionSlot(exec, entry, this, propertyName, slot);
-    return true;
+    return getStaticFunctionSlot<JSObject>(exec, ExecState::jsonTable(exec), this, propertyName, slot);
 }
 
-void JSONObject::markStringifiers(Stringifier* stringifier)
+bool JSONObject::getOwnPropertyDescriptor(ExecState* exec, const Identifier& propertyName, PropertyDescriptor& descriptor)
 {
-    stringifier->mark();
+    return getStaticFunctionDescriptor<JSObject>(exec, ExecState::jsonTable(exec), this, propertyName, descriptor);
+}
+
+void JSONObject::markStringifiers(MarkStack& markStack, Stringifier* stringifier)
+{
+    stringifier->markAggregate(markStack);
 }
 
 class Walker {
@@ -599,11 +632,11 @@ public:
     }
     JSValue walk(JSValue unfiltered);
 private:
-    JSValue callReviver(JSValue property, JSValue unfiltered)
+    JSValue callReviver(JSObject* thisObj, JSValue property, JSValue unfiltered)
     {
         JSValue args[] = { property, unfiltered };
         ArgList argList(args, 2);
-        return call(m_exec, m_function, m_callType, m_callData, jsNull(), argList);
+        return call(m_exec, m_function, m_callType, m_callData, thisObj, argList);
     }
 
     friend class Holder;
@@ -613,7 +646,10 @@ private:
     CallType m_callType;
     CallData m_callData;
 };
-    
+
+// We clamp recursion well beyond anything reasonable, but we also have a timeout check
+// to guard against "infinite" execution by inserting arbitrarily large objects.
+static const unsigned maximumFilterRecursion = 40000;
 enum WalkerState { StateUnknown, ArrayStartState, ArrayStartVisitMember, ArrayEndVisitMember, 
                                  ObjectStartState, ObjectStartVisitMember, ObjectEndVisitMember };
 NEVER_INLINE JSValue Walker::walk(JSValue unfiltered)
@@ -627,12 +663,21 @@ NEVER_INLINE JSValue Walker::walk(JSValue unfiltered)
     WalkerState state = StateUnknown;
     JSValue inValue = unfiltered;
     JSValue outValue = jsNull();
+    
+    TimeoutChecker localTimeoutChecker(m_exec->globalData().timeoutChecker);
+    localTimeoutChecker.reset();
+    unsigned tickCount = localTimeoutChecker.ticksUntilNextCheck();
     while (1) {
         switch (state) {
             arrayStartState:
             case ArrayStartState: {
                 ASSERT(inValue.isObject());
-                ASSERT(isJSArray(&m_exec->globalData(), asObject(inValue)));
+                ASSERT(isJSArray(&m_exec->globalData(), asObject(inValue)) || asObject(inValue)->inherits(&JSArray::info));
+                if (objectStack.size() + arrayStack.size() > maximumFilterRecursion) {
+                    m_exec->setException(createStackOverflowError(m_exec));
+                    return jsUndefined();
+                }
+
                 JSArray* array = asArray(inValue);
                 arrayStack.append(array);
                 indexStack.append(0);
@@ -640,6 +685,14 @@ NEVER_INLINE JSValue Walker::walk(JSValue unfiltered)
             }
             arrayStartVisitMember:
             case ArrayStartVisitMember: {
+                if (!--tickCount) {
+                    if (localTimeoutChecker.didTimeOut(m_exec)) {
+                        m_exec->setException(createInterruptedExecutionException(&m_exec->globalData()));
+                        return jsUndefined();
+                    }
+                    tickCount = localTimeoutChecker.ticksUntilNextCheck();
+                }
+
                 JSArray* array = arrayStack.last();
                 uint32_t index = indexStack.last();
                 if (index == array->length()) {
@@ -648,7 +701,16 @@ NEVER_INLINE JSValue Walker::walk(JSValue unfiltered)
                     indexStack.removeLast();
                     break;
                 }
-                inValue = array->getIndex(index);
+                if (isJSArray(&m_exec->globalData(), array) && array->canGetIndex(index))
+                    inValue = array->getIndex(index);
+                else {
+                    PropertySlot slot;
+                    if (array->getOwnPropertySlot(m_exec, index, slot))
+                        inValue = slot.getValue(m_exec, index);
+                    else
+                        inValue = jsUndefined();
+                }
+                    
                 if (inValue.isObject()) {
                     stateStack.append(ArrayEndVisitMember);
                     goto stateUnknown;
@@ -658,7 +720,15 @@ NEVER_INLINE JSValue Walker::walk(JSValue unfiltered)
             }
             case ArrayEndVisitMember: {
                 JSArray* array = arrayStack.last();
-                array->setIndex(indexStack.last(), callReviver(jsString(m_exec, UString::from(indexStack.last())), outValue));
+                JSValue filteredValue = callReviver(array, jsString(m_exec, UString::from(indexStack.last())), outValue);
+                if (filteredValue.isUndefined())
+                    array->deleteProperty(m_exec, indexStack.last());
+                else {
+                    if (isJSArray(&m_exec->globalData(), array) && array->canSetIndex(indexStack.last()))
+                        array->setIndex(indexStack.last(), filteredValue);
+                    else
+                        array->put(m_exec, indexStack.last(), filteredValue);
+                }
                 if (m_exec->hadException())
                     return jsNull();
                 indexStack.last()++;
@@ -667,16 +737,29 @@ NEVER_INLINE JSValue Walker::walk(JSValue unfiltered)
             objectStartState:
             case ObjectStartState: {
                 ASSERT(inValue.isObject());
-                ASSERT(!isJSArray(&m_exec->globalData(), asObject(inValue)));
+                ASSERT(!isJSArray(&m_exec->globalData(), asObject(inValue)) && !asObject(inValue)->inherits(&JSArray::info));
+                if (objectStack.size() + arrayStack.size() > maximumFilterRecursion) {
+                    m_exec->setException(createStackOverflowError(m_exec));
+                    return jsUndefined();
+                }
+
                 JSObject* object = asObject(inValue);
                 objectStack.append(object);
                 indexStack.append(0);
                 propertyStack.append(PropertyNameArray(m_exec));
-                object->getPropertyNames(m_exec, propertyStack.last());
+                object->getOwnPropertyNames(m_exec, propertyStack.last());
                 // fallthrough
             }
             objectStartVisitMember:
             case ObjectStartVisitMember: {
+                if (!--tickCount) {
+                    if (localTimeoutChecker.didTimeOut(m_exec)) {
+                        m_exec->setException(createInterruptedExecutionException(&m_exec->globalData()));
+                        return jsUndefined();
+                    }
+                    tickCount = localTimeoutChecker.ticksUntilNextCheck();
+                }
+
                 JSObject* object = objectStack.last();
                 uint32_t index = indexStack.last();
                 PropertyNameArray& properties = propertyStack.last();
@@ -688,9 +771,15 @@ NEVER_INLINE JSValue Walker::walk(JSValue unfiltered)
                     break;
                 }
                 PropertySlot slot;
-                object->getOwnPropertySlot(m_exec, properties[index], slot);
-                inValue = slot.getValue(m_exec, properties[index]);
-                ASSERT(!m_exec->hadException());
+                if (object->getOwnPropertySlot(m_exec, properties[index], slot))
+                    inValue = slot.getValue(m_exec, properties[index]);
+                else
+                    inValue = jsUndefined();
+
+                // The holder may be modified by the reviver function so any lookup may throw
+                if (m_exec->hadException())
+                    return jsNull();
+
                 if (inValue.isObject()) {
                     stateStack.append(ObjectEndVisitMember);
                     goto stateUnknown;
@@ -702,7 +791,11 @@ NEVER_INLINE JSValue Walker::walk(JSValue unfiltered)
                 JSObject* object = objectStack.last();
                 Identifier prop = propertyStack.last()[indexStack.last()];
                 PutPropertySlot slot;
-                object->put(m_exec, prop, callReviver(jsString(m_exec, prop.ustring()), outValue), slot);
+                JSValue filteredValue = callReviver(object, jsString(m_exec, prop.ustring()), outValue);
+                if (filteredValue.isUndefined())
+                    object->deleteProperty(m_exec, prop);
+                else
+                    object->put(m_exec, prop, filteredValue, slot);
                 if (m_exec->hadException())
                     return jsNull();
                 indexStack.last()++;
@@ -714,16 +807,29 @@ NEVER_INLINE JSValue Walker::walk(JSValue unfiltered)
                     outValue = inValue;
                     break;
                 }
-                if (isJSArray(&m_exec->globalData(), asObject(inValue)))
+                JSObject* object = asObject(inValue);
+                if (isJSArray(&m_exec->globalData(), object) || object->inherits(&JSArray::info))
                     goto arrayStartState;
                 goto objectStartState;
         }
         if (stateStack.isEmpty())
             break;
+
         state = stateStack.last();
         stateStack.removeLast();
+
+        if (!--tickCount) {
+            if (localTimeoutChecker.didTimeOut(m_exec)) {
+                m_exec->setException(createInterruptedExecutionException(&m_exec->globalData()));
+                return jsUndefined();
+            }
+            tickCount = localTimeoutChecker.ticksUntilNextCheck();
+        }
     }
-    return callReviver(jsEmptyString(m_exec), outValue);
+    JSObject* finalHolder = constructEmptyObject(m_exec);
+    PutPropertySlot slot;
+    finalHolder->put(m_exec, m_exec->globalData().propertyNames->emptyIdentifier, outValue, slot);
+    return callReviver(finalHolder, jsEmptyString(m_exec), outValue);
 }
 
 // ECMA-262 v5 15.12.2
@@ -761,6 +867,14 @@ JSValue JSC_HOST_CALL JSONProtoFuncStringify(ExecState* exec, JSObject*, JSValue
     JSValue replacer = args.at(1);
     JSValue space = args.at(2);
     return Stringifier(exec, replacer, space).stringify(value);
+}
+
+UString JSONStringify(ExecState* exec, JSValue value, unsigned indent)
+{
+    JSValue result = Stringifier(exec, jsNull(), jsNumber(exec, indent)).stringify(value);
+    if (result.isUndefinedOrNull())
+        return UString();
+    return result.getString(exec);
 }
 
 } // namespace JSC

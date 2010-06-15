@@ -1,6 +1,4 @@
 /**
- * This file is part of the DOM implementation for KDE.
- *
  * Copyright (C) 1999 Lars Knoll (knoll@kde.org)
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
  *           (C) 2000 Stefan Schimanski (1Stein@gmx.de)
@@ -47,7 +45,6 @@ namespace WebCore {
 using namespace HTMLNames;
 
 HTMLPlugInElement::HTMLPlugInElement(const QualifiedName& tagName, Document* doc)
-    // FIXME: Always passing false as createdByParser is odd (see bug22851).
     : HTMLFrameOwnerElement(tagName, doc)
 #if ENABLE(NETSCAPE_PLUGIN_API)
     , m_NPObject(0)
@@ -91,16 +88,6 @@ PassScriptInstance HTMLPlugInElement::getInstance() const
     return m_instance;
 }
 
-String HTMLPlugInElement::align() const
-{
-    return getAttribute(alignAttr);
-}
-
-void HTMLPlugInElement::setAlign(const String& value)
-{
-    setAttribute(alignAttr, value);
-}
-
 String HTMLPlugInElement::height() const
 {
     return getAttribute(heightAttr);
@@ -109,16 +96,6 @@ String HTMLPlugInElement::height() const
 void HTMLPlugInElement::setHeight(const String& value)
 {
     setAttribute(heightAttr, value);
-}
-
-String HTMLPlugInElement::name() const
-{
-    return getAttribute(nameAttr);
-}
-
-void HTMLPlugInElement::setName(const String& value)
-{
-    setAttribute(nameAttr, value);
 }
 
 String HTMLPlugInElement::width() const
@@ -174,12 +151,19 @@ bool HTMLPlugInElement::checkDTD(const Node* newChild)
 
 void HTMLPlugInElement::defaultEventHandler(Event* event)
 {
+    // Firefox seems to use a fake event listener to dispatch events to plug-in (tested with mouse events only).
+    // This is observable via different order of events - in Firefox, event listeners specified in HTML attributes fires first, then an event
+    // gets dispatched to plug-in, and only then other event listeners fire. Hopefully, this difference does not matter in practice.
+
+    // FIXME: Mouse down and scroll events are passed down to plug-in via custom code in EventHandler; these code paths should be united.
+
     RenderObject* r = renderer();
     if (!r || !r->isWidget())
         return;
-
-    if (Widget* widget = static_cast<RenderWidget*>(r)->widget())
-        widget->handleEvent(event);
+    Widget* widget = toRenderWidget(r)->widget();
+    if (!widget)
+        return;
+    widget->handleEvent(event);
 }
 
 #if ENABLE(NETSCAPE_PLUGIN_API)

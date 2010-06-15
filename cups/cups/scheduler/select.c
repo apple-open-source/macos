@@ -241,11 +241,11 @@ static fd_set		cupsd_global_input,
 
 static int		compare_fds(_cupsd_fd_t *a, _cupsd_fd_t *b);
 static _cupsd_fd_t	*find_fd(int fd);
-#define			release_fd(f) { \
+#define		release_fd(f) { \
 			  (f)->use --; \
 			  if (!(f)->use) free((f));\
 			}
-#define			retain_fd(f) (f)->use++
+#define		retain_fd(f) (f)->use++
 
 
 /*
@@ -454,7 +454,8 @@ cupsdDoSelect(long timeout)		/* I - Timeout in seconds */
     if (fdptr->read_cb && event->filter == EVFILT_READ)
       (*(fdptr->read_cb))(fdptr->data);
 
-    if (fdptr->use > 1 && fdptr->write_cb && event->filter == EVFILT_WRITE)
+    if (fdptr->use > 1 && fdptr->write_cb && event->filter == EVFILT_WRITE &&
+        !cupsArrayFind(cupsd_inactive_fds, fdptr))
       (*(fdptr->write_cb))(fdptr->data);
 
     release_fd(fdptr);
@@ -500,7 +501,8 @@ cupsdDoSelect(long timeout)		/* I - Timeout in seconds */
 	  (*(fdptr->read_cb))(fdptr->data);
 
 	if (fdptr->use > 1 && fdptr->write_cb &&
-	    (event->events & (EPOLLOUT | EPOLLERR | EPOLLHUP)))
+            (event->events & (EPOLLOUT | EPOLLERR | EPOLLHUP)) &&
+            !cupsArrayFind(cupsd_inactive_fds, fdptr))
 	  (*(fdptr->write_cb))(fdptr->data);
 
 	release_fd(fdptr);

@@ -26,6 +26,8 @@
     \brief The QWebPluginFactory class creates plugins to be embedded into web
     pages.
 
+    \inmodule QtWebKit
+
     QWebPluginFactory is a factory for creating plugins for QWebPage. A plugin
     factory can be installed on a QWebPage using QWebPage::setPluginFactory().
 
@@ -47,6 +49,8 @@
     \class QWebPluginFactory::Plugin
     \since 4.4
     \brief the QWebPluginFactory::Plugin structure describes the properties of a plugin a QWebPluginFactory can create.
+
+    \inmodule QtWebKit
 */
 
 /*!
@@ -68,6 +72,24 @@
     \class QWebPluginFactory::MimeType
     \since 4.4
     \brief The QWebPluginFactory::MimeType structure describes a mime type supported by a plugin.
+
+    \inmodule QtWebKit
+*/
+
+/*!
+    Returns true if this mimetype is the same as the \a other mime type.
+*/
+bool QWebPluginFactory::MimeType::operator==(const MimeType& other) const
+{
+    return name == other.name
+           && description == other.description
+           && fileExtensions == other.fileExtensions;
+}
+
+/*!
+    \fn bool QWebPluginFactory::MimeType::operator!=(const MimeType& other) const
+
+    Returns true if this mimetype is different from the \a other mime type.
 */
 
 /*!
@@ -136,7 +158,7 @@ void QWebPluginFactory::refreshPlugins()
     For example:
 
     \code
-    <object type="application/x-pdf" data="http://qtsoftware.com/document.pdf" width="500" height="400">
+    <object type="application/x-pdf" data="http://qt.nokia.com/document.pdf" width="500" height="400">
         <param name="showTableOfContents" value="true" />
         <param name="hideThumbnails" value="false" />
     </object>
@@ -149,7 +171,7 @@ void QWebPluginFactory::refreshPlugins()
     \row    \o mimeType
             \o "application/x-pdf"
     \row    \o url
-            \o "http://qtsoftware.com/document.pdf"
+            \o "http://qt.nokia.com/document.pdf"
     \row    \o argumentNames
             \o "showTableOfContents" "hideThumbnails"
     \row    \o argumentVaues
@@ -173,6 +195,8 @@ void QWebPluginFactory::refreshPlugins()
     \since 4.4
     \brief The ExtensionOption class provides an extended input argument to QWebPluginFactory's extension support.
 
+    \inmodule QtWebKit
+
     \sa QWebPluginFactory::extension()
 */
 
@@ -180,6 +204,8 @@ void QWebPluginFactory::refreshPlugins()
     \class QWebPluginFactory::ExtensionReturn
     \since 4.4
     \brief The ExtensionOption class provides an extended output argument to QWebPluginFactory's extension support.
+
+    \inmodule QtWebKit
 
     \sa QWebPluginFactory::extension()
 */

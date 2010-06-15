@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006, 2007 Apple Inc. All rights reserved.
+ * Copyright (C) 2006, 2007, 2009 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -21,43 +21,50 @@
 #ifndef HTMLFrameOwnerElement_h
 #define HTMLFrameOwnerElement_h
 
+#include "FrameLoaderTypes.h"
 #include "HTMLElement.h"
 
 namespace WebCore {
 
 class DOMWindow;
 class Frame;
-class KeyboardEvent;
 
 #if ENABLE(SVG)
 class SVGDocument;
 #endif
 
 class HTMLFrameOwnerElement : public HTMLElement {
-protected:
-    HTMLFrameOwnerElement(const QualifiedName& tagName, Document*);
-
 public:
     virtual ~HTMLFrameOwnerElement();
-
-    virtual void willRemove();
 
     Frame* contentFrame() const { return m_contentFrame; }
     DOMWindow* contentWindow() const;
     Document* contentDocument() const;
 
-    virtual bool isFrameOwnerElement() const { return true; }
-    virtual bool isKeyboardFocusable(KeyboardEvent*) const { return m_contentFrame; }
-    
-    virtual ScrollbarMode scrollingMode() const { return ScrollbarAuto; }
-
 #if ENABLE(SVG)
     SVGDocument* getSVGDocument(ExceptionCode&) const;
 #endif
 
+    virtual ScrollbarMode scrollingMode() const { return ScrollbarAuto; }
+
+    SandboxFlags sandboxFlags() const { return m_sandboxFlags; }
+
+protected:
+    HTMLFrameOwnerElement(const QualifiedName& tagName, Document*);
+
+    void setSandboxFlags(SandboxFlags);
+
+    virtual void willRemove();
+
 private:
     friend class Frame;
+
+    virtual void setName() { }
+    virtual bool isFrameOwnerElement() const { return true; }
+    virtual bool isKeyboardFocusable(KeyboardEvent*) const { return m_contentFrame; }
+
     Frame* m_contentFrame;
+    SandboxFlags m_sandboxFlags;
 };
 
 } // namespace WebCore

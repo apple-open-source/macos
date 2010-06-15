@@ -477,6 +477,13 @@ _internal_send(notify_state_t *ns, client_t *c)
 
 	if (ns == NULL) return;
 	if (c == NULL) return;
+	if (c->info == NULL) return;
+
+	if (c->info->state & NOTIFY_CLIENT_STATE_SUSPENDED)
+	{
+		c->info->state |= NOTIFY_CLIENT_STATE_PENDING;
+		return;
+	}
 
 	switch (c->info->notify_type)
 	{
@@ -528,6 +535,19 @@ _internal_send(notify_state_t *ns, client_t *c)
 			break;
 		}
 	}
+}
+
+uint32_t
+_notify_lib_post_client(notify_state_t *ns, client_t *c)
+{
+	if (ns == NULL) return NOTIFY_STATUS_FAILED;
+	if (c == NULL) return NOTIFY_STATUS_FAILED;
+
+	if (ns->lock != NULL) pthread_mutex_lock(ns->lock);
+	_internal_send(ns, c);
+	if (ns->lock != NULL) pthread_mutex_unlock(ns->lock);
+
+	return NOTIFY_STATUS_OK;
 }
 
 /*
@@ -621,16 +641,149 @@ _notify_lib_cancel(notify_state_t *ns, uint32_t cid)
 	if (ns->lock != NULL) pthread_mutex_unlock(ns->lock);
 }
 
+void
+_notify_lib_suspend(notify_state_t *ns, uint32_t cid)
+{
+	client_t *c;
+
+	if (ns == NULL) return;
+	if (cid == 0) return;
+
+	if (ns->lock != NULL) pthread_mutex_lock(ns->lock);
+
+	c = _nc_table_find_n(ns->client_table, cid);
+	if ((c != NULL) && (c->info != NULL))
+	{
+		c->info->state |= NOTIFY_CLIENT_STATE_SUSPENDED;
+		if (c->info->suspend_count < UINT32_MAX) c->info->suspend_count++;
+	}
+
+	if (ns->lock != NULL) pthread_mutex_unlock(ns->lock);
+}
+
+void
+_notify_lib_suspend_session(notify_state_t *ns, task_name_t session)
+{
+	client_t *c;
+	name_info_t *n;
+	void *tt;
+	list_t *l;
+
+	if (ns == NULL) return;
+	if (session == TASK_NAME_NULL) return;
+
+	if (ns->lock != NULL) pthread_mutex_lock(ns->lock);
+
+	/* Suspend all clients for this session */
+
+	tt = _nc_table_traverse_start(ns->name_table);
+	while (tt != NULL)
+	{
+		n = _nc_table_traverse(ns->name_table, tt);
+		if (n == NULL) break;
+
+		for (l = n->client_list; l != NULL; l = _nc_list_next(l))
+		{
+			c = _nc_list_data(l);
+			if ((c != NULL) && (c->info != NULL) && (c->info->session == session))
+			{
+				c->info->state |= NOTIFY_CLIENT_STATE_SUSPENDED;
+				if (c->info->suspend_count < UINT32_MAX) c->info->suspend_count++;
+			}
+		}
+	}
+	_nc_table_traverse_end(ns->name_table, tt);
+	
+	if (ns->lock != NULL) pthread_mutex_unlock(ns->lock);
+}
+
+void
+_notify_lib_resume(notify_state_t *ns, uint32_t cid)
+{
+	client_t *c;
+
+	if (ns == NULL) return;
+	if (cid == 0) return;
+
+	if (ns->lock != NULL) pthread_mutex_lock(ns->lock);
+
+	c = _nc_table_find_n(ns->client_table, cid);
+	if ((c != NULL) && (c->info != NULL))
+	{
+		if (c->info->suspend_count > 0) c->info->suspend_count--;
+		if (c->info->suspend_count == 0)
+		{
+			c->info->state &= ~NOTIFY_CLIENT_STATE_SUSPENDED;
+
+			if (c->info->state & NOTIFY_CLIENT_STATE_PENDING)
+			{
+				_internal_send(ns, c);
+				c->info->state &= ~NOTIFY_CLIENT_STATE_PENDING;
+			}
+		}
+	}
+
+	if (ns->lock != NULL) pthread_mutex_unlock(ns->lock);
+}
+
+void
+_notify_lib_resume_session(notify_state_t *ns, task_name_t session)
+{
+	client_t *c;
+	name_info_t *n;
+	void *tt;
+	list_t *l;
+
+	if (ns == NULL) return;
+	if (session == TASK_NAME_NULL) return;
+
+	if (ns->lock != NULL) pthread_mutex_lock(ns->lock);
+
+	/* Suspend all clients for this session */
+
+	tt = _nc_table_traverse_start(ns->name_table);
+	while (tt != NULL)
+	{
+		n = _nc_table_traverse(ns->name_table, tt);
+		if (n == NULL) break;
+
+		for (l = n->client_list; l != NULL; l = _nc_list_next(l))
+		{
+			c = _nc_list_data(l);
+			if ((c != NULL) && (c->info != NULL) && (c->info->session == session))
+			{
+				if (c->info->suspend_count > 0) c->info->suspend_count--;
+				if (c->info->suspend_count == 0)
+				{
+					c->info->state &= ~NOTIFY_CLIENT_STATE_SUSPENDED;
+
+					if (c->info->state & NOTIFY_CLIENT_STATE_PENDING)
+					{
+						_internal_send(ns, c);
+						c->info->state &= ~NOTIFY_CLIENT_STATE_PENDING;
+					}
+				}
+			}
+		}
+	}
+	_nc_table_traverse_end(ns->name_table, tt);
+
+	if (ns->lock != NULL) pthread_mutex_unlock(ns->lock);
+}
+
 /*
  * Delete all clients for a session
  */
 void
-_notify_lib_cancel_session(notify_state_t *ns, task_name_t tname)
+_notify_lib_cancel_session(notify_state_t *ns, task_name_t session)
 {
 	client_t *c, *a, *p;
 	name_info_t *n;
 	void *tt;
 	list_t *l, *x;
+
+	if (ns == NULL) return;
+	if (session == TASK_NAME_NULL) return;
 
 	a = NULL;
 	x = NULL;
@@ -647,7 +800,7 @@ _notify_lib_cancel_session(notify_state_t *ns, task_name_t tname)
 		for (l = n->client_list; l != NULL; l = _nc_list_next(l))
 		{
 			c = _nc_list_data(l);
-			if ((c->info != NULL) && (c->info->session == tname))
+			if ((c->info != NULL) && (c->info->session == session))
 			{
 				a = (client_t *)malloc(sizeof(client_t));
 				if (a == NULL)
@@ -1021,7 +1174,7 @@ _internal_register_common(notify_state_t *ns, const char *name, uid_t uid, gid_t
  * Returns the client_id;
  */
 uint32_t
-_notify_lib_register_signal(notify_state_t *ns, const char *name, task_name_t tname, pid_t pid, uint32_t sig, uid_t uid, gid_t gid, uint32_t *out_token)
+_notify_lib_register_signal(notify_state_t *ns, const char *name, task_name_t session, pid_t pid, uint32_t sig, uid_t uid, gid_t gid, uint32_t *out_token)
 {
 	client_t *c;
 	uint32_t status;
@@ -1043,7 +1196,7 @@ _notify_lib_register_signal(notify_state_t *ns, const char *name, task_name_t tn
 	c->info->notify_type = NOTIFY_TYPE_SIGNAL;
 	c->info->pid = pid;
 	c->info->sig = sig;
-	c->info->session = tname;
+	c->info->session = session;
 	*out_token = c->client_id;
 
 	if (ns->lock != NULL) pthread_mutex_unlock(ns->lock);
@@ -1055,7 +1208,7 @@ _notify_lib_register_signal(notify_state_t *ns, const char *name, task_name_t tn
  * Returns the client_id;
  */
 uint32_t
-_notify_lib_register_file_descriptor(notify_state_t *ns, const char *name, task_name_t tname, const char *path, uint32_t token, uid_t uid, gid_t gid, uint32_t *out_token)
+_notify_lib_register_file_descriptor(notify_state_t *ns, const char *name, task_name_t session, const char *path, uint32_t token, uid_t uid, gid_t gid, uint32_t *out_token)
 {
 	client_t *c;
 	name_info_t *n;
@@ -1100,7 +1253,7 @@ _notify_lib_register_file_descriptor(notify_state_t *ns, const char *name, task_
 	c->info->notify_type = NOTIFY_TYPE_FD;
 	c->info->fd = sock;
 	c->info->token = token;
-	c->info->session = tname;
+	c->info->session = session;
 	*out_token = c->client_id;
 
 	if (ns->lock != NULL) pthread_mutex_unlock(ns->lock);
@@ -1112,7 +1265,7 @@ _notify_lib_register_file_descriptor(notify_state_t *ns, const char *name, task_
  * Returns the client_id;
  */
 uint32_t
-_notify_lib_register_mach_port(notify_state_t *ns, const char *name, task_name_t tname, mach_port_t port, uint32_t token, uid_t uid, gid_t gid, uint32_t *out_token)
+_notify_lib_register_mach_port(notify_state_t *ns, const char *name, task_name_t session, mach_port_t port, uint32_t token, uid_t uid, gid_t gid, uint32_t *out_token)
 {
 	client_t *c;
 	uint32_t status;
@@ -1139,7 +1292,7 @@ _notify_lib_register_mach_port(notify_state_t *ns, const char *name, task_name_t
 	c->info->msg->header.msgh_size = sizeof(mach_msg_empty_send_t);
 	c->info->msg->header.msgh_id = token;
 	c->info->token = token;
-	c->info->session = tname;
+	c->info->session = session;
 	*out_token = c->client_id;
 
 	if (ns->lock != NULL) pthread_mutex_unlock(ns->lock);
@@ -1151,7 +1304,7 @@ _notify_lib_register_mach_port(notify_state_t *ns, const char *name, task_name_t
  * Returns the client_id.
  */
 uint32_t
-_notify_lib_register_plain(notify_state_t *ns, const char *name, task_name_t tname, uint32_t slot, uid_t uid, gid_t gid, uint32_t *out_token)
+_notify_lib_register_plain(notify_state_t *ns, const char *name, task_name_t session, uint32_t slot, uid_t uid, gid_t gid, uint32_t *out_token)
 {
 	client_t *c;
 	name_info_t *n;
@@ -1182,7 +1335,7 @@ _notify_lib_register_plain(notify_state_t *ns, const char *name, task_name_t tna
 		n->slot = slot;
 	}
 
-	c->info->session = tname;
+	c->info->session = session;
 	*out_token = c->client_id;
 
 	if (ns->lock != NULL) pthread_mutex_unlock(ns->lock);

@@ -30,7 +30,6 @@
 
 #include "config.h"
 
-#include "Font.h"
 #include "FontPlatformData.h"
 #include "wtf/OwnArrayPtr.h"
 
@@ -42,7 +41,6 @@
 
 extern "C" {
 #include "harfbuzz-shaper.h"
-#include "harfbuzz-unicode.h"
 }
 
 // This file implements the callbacks which Harfbuzz requires by using Skia
@@ -67,29 +65,10 @@ static HB_Bool stringToGlyphs(HB_Font hbFont, const HB_UChar16* characters, hb_u
 
     // HB_Glyph is 32-bit, but Skia outputs only 16-bit numbers. So our
     // |glyphs| array needs to be converted.
-    // Additionally, if the CSS white-space property is inhibiting line
-    // breaking, we might find end-of-line charactors rendered via the complex
-    // text path. Fonts don't provide glyphs for these code points so, if we
-    // find one, we simulate the space glyph being interposed in this case.
-    // Because the input is variable-length per code point, we walk the input
-    // in step with the output.
-    // FIXME: it seems that this logic is duplicated in CoreTextController and UniscribeController
-    ssize_t indexOfNextCodePoint = 0;
-    uint16_t spaceGlyphNumber = 0;
     for (int i = numGlyphs - 1; i >= 0; --i) {
-        const uint32_t currentCodePoint = utf16_to_code_point(characters, length, &indexOfNextCodePoint);
-
         uint16_t value;
         // We use a memcpy to avoid breaking strict aliasing rules.
         memcpy(&value, reinterpret_cast<char*>(glyphs) + sizeof(uint16_t) * i, sizeof(uint16_t));
-
-        if (!value && Font::treatAsSpace(currentCodePoint)) {
-            static const uint16_t spaceUTF16 = ' ';
-            if (!spaceGlyphNumber)
-                paint.textToGlyphs(&spaceUTF16, sizeof(spaceUTF16), &spaceGlyphNumber);
-            value = spaceGlyphNumber;
-        }
-
         glyphs[i] = value;
     }
 
@@ -160,7 +139,7 @@ static HB_Error getOutlinePoint(HB_Font hbFont, HB_Glyph glyph, int flags, hb_ui
     uint16_t glyph16 = glyph;
     SkPath path;
     paint.getTextPath(&glyph16, sizeof(glyph16), 0, 0, &path);
-    int numPoints = path.getPoints(NULL, 0);
+    int numPoints = path.getPoints(0, 0);
     if (point >= numPoints)
         return HB_Err_Invalid_SubTable;
     SkPoint* points = reinterpret_cast<SkPoint*>(fastMalloc(sizeof(SkPoint) * (point + 1)));
@@ -188,15 +167,16 @@ static void getGlyphMetrics(HB_Font hbFont, HB_Glyph glyph, HB_GlyphMetrics* met
     SkRect bounds;
     paint.getTextWidths(&glyph16, sizeof(glyph16), &width, &bounds);
 
-    metrics->x = SkiaScalarToHarfbuzzFixed(width);
+    metrics->x = SkiaScalarToHarfbuzzFixed(bounds.fLeft);
+    metrics->y = SkiaScalarToHarfbuzzFixed(bounds.fTop);
+    metrics->width = SkiaScalarToHarfbuzzFixed(bounds.width());
+    metrics->height = SkiaScalarToHarfbuzzFixed(bounds.height());
+
+    metrics->xOffset = SkiaScalarToHarfbuzzFixed(width);
     // We can't actually get the |y| correct because Skia doesn't export
     // the vertical advance. However, nor we do ever render vertical text at
     // the moment so it's unimportant.
-    metrics->y = 0;
-    metrics->width = SkiaScalarToHarfbuzzFixed(bounds.width());
-    metrics->height = SkiaScalarToHarfbuzzFixed(bounds.height());
-    metrics->xOffset = SkiaScalarToHarfbuzzFixed(bounds.fLeft);
-    metrics->yOffset = SkiaScalarToHarfbuzzFixed(bounds.fTop);
+    metrics->yOffset = 0;
 }
 
 static HB_Fixed getFontMetric(HB_Font hbFont, HB_FontMetric metric)

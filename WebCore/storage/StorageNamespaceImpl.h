@@ -28,24 +28,33 @@
 
 #if ENABLE(DOM_STORAGE)
 
+#include "PlatformString.h"
+#include "SecurityOriginHash.h"
+#include "StorageArea.h"
 #include "StorageNamespace.h"
+
+#include <wtf/HashMap.h>
+#include <wtf/RefPtr.h>
 
 namespace WebCore {
 
+    class StorageAreaImpl;
+
     class StorageNamespaceImpl : public StorageNamespace {
     public:
-        static PassRefPtr<StorageNamespace> localStorageNamespace(const String& path);
-        static PassRefPtr<StorageNamespace> sessionStorageNamespace();
+        static PassRefPtr<StorageNamespace> localStorageNamespace(const String& path, unsigned quota);
+        static PassRefPtr<StorageNamespace> sessionStorageNamespace(unsigned quota);
 
         virtual ~StorageNamespaceImpl();
-        virtual PassRefPtr<StorageArea> storageArea(SecurityOrigin*);
+        virtual PassRefPtr<StorageArea> storageArea(PassRefPtr<SecurityOrigin>);
         virtual PassRefPtr<StorageNamespace> copy();
         virtual void close();
+        virtual void unlock();
 
     private:
-        StorageNamespaceImpl(StorageType, const String& path);
+        StorageNamespaceImpl(StorageType, const String& path, unsigned quota);
 
-        typedef HashMap<RefPtr<SecurityOrigin>, RefPtr<StorageArea>, SecurityOriginHash> StorageAreaMap;
+        typedef HashMap<RefPtr<SecurityOrigin>, RefPtr<StorageAreaImpl>, SecurityOriginHash> StorageAreaMap;
         StorageAreaMap m_storageAreaMap;
 
         StorageType m_storageType;
@@ -54,9 +63,8 @@ namespace WebCore {
         String m_path;
         RefPtr<StorageSyncManager> m_syncManager;
 
-#ifndef NDEBUG
+        unsigned m_quota;  // The default quota for each new storage area.
         bool m_isShutdown;
-#endif
     };
 
 } // namespace WebCore

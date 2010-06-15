@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2006, 2008 Apple Computer, Inc.  All rights reserved.
+ * Copyright (C) 2007-2008 Torch Mobile, Inc.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -49,7 +50,7 @@ class FontDescription;
 class FontSelector;
 class SimpleFontData;
 
-class FontCache {
+class FontCache : public Noncopyable {
 public:
     friend FontCache* fontCache();
 
@@ -63,15 +64,22 @@ public:
     // Also implemented by the platform.
     void platformInit();
 
-#if PLATFORM(WIN)
+#if OS(WINCE) && !PLATFORM(QT)
+#if defined(IMLANG_FONT_LINK) && (IMLANG_FONT_LINK == 2)
+    IMLangFontLink2* getFontLinkInterface();
+#else
+    IMLangFontLink* getFontLinkInterface();
+#endif
+    static void comInitialize();
+    static void comUninitialize();
+#elif PLATFORM(WIN)
     IMLangFontLink2* getFontLinkInterface();
 #endif
 
     void getTraitsInFamily(const AtomicString&, Vector<unsigned>&);
 
-    FontPlatformData* getCachedFontPlatformData(const FontDescription&, const AtomicString& family, bool checkingAlternateName = false);
-    SimpleFontData* getCachedFontData(const FontPlatformData*);
-    FontPlatformData* getLastResortFallbackFont(const FontDescription&);
+    SimpleFontData* getCachedFontData(const FontDescription& fontDescription, const AtomicString& family, bool checkingAlternateName = false);
+    SimpleFontData* getLastResortFallbackFont(const FontDescription&);
 
     void addClient(FontSelector*);
     void removeClient(FontSelector*);
@@ -87,16 +95,22 @@ private:
     FontCache();
     ~FontCache();
 
+    // FIXME: This method should eventually be removed.
+    FontPlatformData* getCachedFontPlatformData(const FontDescription&, const AtomicString& family, bool checkingAlternateName = false);
+
     // These methods are implemented by each platform.
-    FontPlatformData* getSimilarFontPlatformData(const Font&);
+    SimpleFontData* getSimilarFontPlatformData(const Font&);
     FontPlatformData* createFontPlatformData(const FontDescription&, const AtomicString& family);
 
-    friend class SimpleFontData;
+    SimpleFontData* getCachedFontData(const FontPlatformData*);
+
+    friend class SimpleFontData; // For getCachedFontData(const FontPlatformData*)
     friend class FontFallbackList;
 };
 
 // Get the global fontCache.
 FontCache* fontCache();
+
 }
 
 #endif

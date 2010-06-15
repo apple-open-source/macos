@@ -327,6 +327,8 @@ disaster_message(asl_msg_t *msg)
 	uint64_t msgid;
 	uint32_t status;
 
+	global.disaster_occurred = 1;
+
 	msgid = 0;
 
 	if ((global.dbtype & DB_TYPE_MINI) == 0)
@@ -349,6 +351,16 @@ db_query(aslresponse query, aslresponse *res, uint64_t startid, int count, int f
 	uint32_t status, ucount;
 	int32_t dir;
 
+	/*
+	 * Special case: if count is -1, we return ASL_STATUS_OK to indicate that the store is
+	 * in memory, and ASL_STATUS_INVALID_STORE to indicate that the file store is in use.
+	 */
+	if (count == -1)
+	{
+		if ((global.dbtype & DB_TYPE_MEMORY) || (global.dbtype & DB_TYPE_MINI)) return ASL_STATUS_OK;
+		else return ASL_STATUS_INVALID_STORE;
+	}
+
 	ucount = count;
 	dir = SEARCH_FORWARD;
 	if (flags & QUERY_FLAG_SEARCH_REVERSE) dir = SEARCH_BACKWARD;
@@ -357,8 +369,19 @@ db_query(aslresponse query, aslresponse *res, uint64_t startid, int count, int f
 
 	status = ASL_STATUS_FAILED;
 
-	if (global.dbtype & DB_TYPE_MEMORY) status = asl_memory_match(global.memory_db, query, res, lastid, startid, ucount, dir, ruid, rgid);
-	else status = asl_mini_memory_match(global.mini_db, query, res, lastid, startid, ucount, dir);
+	if (global.dbtype & DB_TYPE_MEMORY)
+	{
+		status = asl_memory_match(global.memory_db, query, res, lastid, startid, ucount, dir, ruid, rgid);
+	}
+	else if (global.dbtype & DB_TYPE_MINI)
+	{
+		status = asl_mini_memory_match(global.mini_db, query, res, lastid, startid, ucount, dir);
+	}
+	else if (global.disaster_occurred != 0)
+	{
+		/* KernelEventAgent calls us to get the kernel disaster messages. */
+		status = asl_mini_memory_match(global.mini_db, query, res, lastid, startid, ucount, dir);
+	}
 
 	pthread_mutex_unlock(&db_lock);
 
@@ -544,7 +567,11 @@ __asl_server_query
 	*status = db_query(query, &res, startid, count, flags, lastid, token->val[0], token->val[1]);
 
 	aslresponse_free(query);
-	if (*status != ASL_STATUS_OK)
+	if (*status != ASL_STATUS_INVALID_STORE)
+	{
+		/* ignore */
+	}
+	else if (*status != ASL_STATUS_OK)
 	{
 		if (res != NULL) aslresponse_free(res);
 		return KERN_SUCCESS;

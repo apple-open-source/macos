@@ -29,8 +29,8 @@
 module xml {
 
     interface [
-        GenerateConstructor,
         CustomMarkFunction,
+        EventTarget,
         NoStaticTables
     ] XMLHttpRequestUpload {
         // From XMLHttpRequestEventTarget
@@ -42,12 +42,12 @@ module xml {
         attribute EventListener onprogress;
 
         // EventTarget interface
-        [Custom] void addEventListener(in DOMString type, 
-                                      in EventListener listener, 
-                                      in boolean useCapture);
-        [Custom] void removeEventListener(in DOMString type, 
-                                          in EventListener listener, 
-                                          in boolean useCapture);
+        void addEventListener(in DOMString type, 
+                              in EventListener listener, 
+                              in boolean useCapture);
+        void removeEventListener(in DOMString type, 
+                                 in EventListener listener, 
+                                 in boolean useCapture);
         boolean dispatchEvent(in Event evt)
             raises(EventException);
     };

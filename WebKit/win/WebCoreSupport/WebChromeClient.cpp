@@ -26,10 +26,14 @@
 #include "config.h"
 #include "WebChromeClient.h"
 
+#include "COMPropertyBag.h"
+#include "COMVariantSetter.h"
 #include "WebElementPropertyBag.h"
 #include "WebFrame.h"
+#include "WebGeolocationPolicyListener.h"
 #include "WebHistory.h"
 #include "WebMutableURLRequest.h"
+#include "WebDesktopNotificationsDelegate.h"
 #include "WebSecurityOrigin.h"
 #include "WebView.h"
 #pragma warning(push, 0)
@@ -41,6 +45,12 @@
 #include <WebCore/FloatRect.h>
 #include <WebCore/FrameLoadRequest.h>
 #include <WebCore/FrameView.h>
+#include <WebCore/Geolocation.h>
+#if USE(ACCELERATED_COMPOSITING)
+#include <WebCore/GraphicsLayer.h>
+#endif
+#include <WebCore/HTMLNames.h>
+#include <WebCore/Icon.h>
 #include <WebCore/LocalizedStrings.h>
 #include <WebCore/NotImplemented.h>
 #include <WebCore/Page.h>
@@ -58,6 +68,9 @@ static const size_t maxFilePathsListSize = USHRT_MAX;
 
 WebChromeClient::WebChromeClient(WebView* webView)
     : m_webView(webView)
+#if ENABLE(NOTIFICATIONS)
+    , m_notificationsDelegate(new WebDesktopNotificationsDelegate(webView))
+#endif
 {
 }
 
@@ -150,35 +163,63 @@ void WebChromeClient::takeFocus(FocusDirection direction)
     }
 }
 
+void WebChromeClient::focusedNodeChanged(Node*)
+{
+}
+
+static COMPtr<IPropertyBag> createWindowFeaturesPropertyBag(const WindowFeatures& features)
+{
+    HashMap<String, COMVariant> map;
+    if (features.xSet)
+        map.set(WebWindowFeaturesXKey, features.x);
+    if (features.ySet)
+        map.set(WebWindowFeaturesYKey, features.y);
+    if (features.widthSet)
+        map.set(WebWindowFeaturesWidthKey, features.width);
+    if (features.heightSet)
+        map.set(WebWindowFeaturesHeightKey, features.height);
+    map.set(WebWindowFeaturesMenuBarVisibleKey, features.menuBarVisible);
+    map.set(WebWindowFeaturesStatusBarVisibleKey, features.statusBarVisible);
+    map.set(WebWindowFeaturesToolBarVisibleKey, features.toolBarVisible);
+    map.set(WebWindowFeaturesScrollbarsVisibleKey, features.scrollbarsVisible);
+    map.set(WebWindowFeaturesResizableKey, features.resizable);
+    map.set(WebWindowFeaturesFullscreenKey, features.fullscreen);
+    map.set(WebWindowFeaturesDialogKey, features.dialog);
+
+    return COMPtr<IPropertyBag>(AdoptCOM, COMPropertyBag<COMVariant>::adopt(map));
+}
+
 Page* WebChromeClient::createWindow(Frame*, const FrameLoadRequest& frameLoadRequest, const WindowFeatures& features)
 {
+    COMPtr<IWebUIDelegate> delegate = uiDelegate();
+    if (!delegate)
+        return 0;
+
+    COMPtr<IWebMutableURLRequest> request(AdoptCOM, WebMutableURLRequest::createInstance(frameLoadRequest.resourceRequest()));
+
+    COMPtr<IWebUIDelegatePrivate2> delegatePrivate(Query, delegate);
+    if (delegatePrivate) {
+        COMPtr<IWebView> newWebView;
+        HRESULT hr = delegatePrivate->createWebViewWithRequest(m_webView, request.get(), createWindowFeaturesPropertyBag(features).get(), &newWebView);
+
+        if (SUCCEEDED(hr) && newWebView)
+            return core(newWebView.get());
+
+        // If the delegate doesn't implement the IWebUIDelegatePrivate2 version of the call, fall back
+        // to the old versions (even if they support the IWebUIDelegatePrivate2 interface).
+        if (hr != E_NOTIMPL)
+            return 0;
+    }
+
+    COMPtr<IWebView> newWebView;
+
     if (features.dialog) {
-        COMPtr<IWebUIDelegate> delegate = uiDelegate();
-        if (!delegate)
+        if (FAILED(delegate->createModalDialog(m_webView, request.get(), &newWebView)))
             return 0;
-        COMPtr<IWebMutableURLRequest> request(AdoptCOM, WebMutableURLRequest::createInstance(frameLoadRequest.resourceRequest()));
-        COMPtr<IWebView> dialog;
-        if (FAILED(delegate->createModalDialog(m_webView, request.get(), &dialog)))
-            return 0;
-        return core(dialog.get());
-    }
+    } else if (FAILED(delegate->createWebViewWithRequest(m_webView, request.get(), &newWebView)))
+        return 0;
 
-    Page* page = 0;
-    IWebUIDelegate* uiDelegate = 0;
-    IWebMutableURLRequest* request = WebMutableURLRequest::createInstance(frameLoadRequest.resourceRequest());
-
-    if (SUCCEEDED(m_webView->uiDelegate(&uiDelegate))) {
-        IWebView* webView = 0;
-        if (SUCCEEDED(uiDelegate->createWebViewWithRequest(m_webView, request, &webView))) {
-            page = core(webView);
-            webView->Release();
-        }
-    
-        uiDelegate->Release();
-    }
-
-    request->Release();
-    return page;
+    return newWebView ? core(newWebView.get()) : 0;
 }
 
 void WebChromeClient::show()
@@ -288,7 +329,7 @@ void WebChromeClient::setResizable(bool resizable)
     }
 }
 
-void WebChromeClient::addMessageToConsole(MessageSource source, MessageLevel level, const String& message, unsigned line, const String& url)
+void WebChromeClient::addMessageToConsole(MessageSource source, MessageType type, MessageLevel level, const String& message, unsigned line, const String& url)
 {
     COMPtr<IWebUIDelegate> uiDelegate;
     if (SUCCEEDED(m_webView->uiDelegate(&uiDelegate))) {
@@ -411,26 +452,25 @@ bool WebChromeClient::tabsToLinks() const
 
 IntRect WebChromeClient::windowResizerRect() const
 {
-    IntRect intRect;
-
-    IWebUIDelegate* ui;
-    if (SUCCEEDED(m_webView->uiDelegate(&ui)) && ui) {
-        IWebUIDelegatePrivate* uiPrivate;
-        if (SUCCEEDED(ui->QueryInterface(IID_IWebUIDelegatePrivate, (void**)&uiPrivate))) {
-            RECT r;
-            if (SUCCEEDED(uiPrivate->webViewResizerRect(m_webView, &r)))
-                intRect = IntRect(r.left, r.top, r.right-r.left, r.bottom-r.top);
-            uiPrivate->Release();
-        }
-        ui->Release();
-    }
-    return intRect;
+    return IntRect();
 }
 
-void WebChromeClient::repaint(const IntRect& windowRect, bool contentChanged, bool immediate, bool repaintContentOnly)
+void WebChromeClient::invalidateWindow(const IntRect& windowRect, bool immediate)
 {
     ASSERT(core(m_webView->topLevelFrame()));
-    m_webView->repaint(windowRect, contentChanged, immediate, repaintContentOnly);
+    m_webView->repaint(windowRect, false /*contentChanged*/, immediate, false /*repaintContentOnly*/);
+}
+
+void WebChromeClient::invalidateContentsAndWindow(const IntRect& windowRect, bool immediate)
+{
+    ASSERT(core(m_webView->topLevelFrame()));
+    m_webView->repaint(windowRect, true /*contentChanged*/, immediate /*immediate*/, false /*repaintContentOnly*/);
+}
+
+void WebChromeClient::invalidateContentsForSlowScroll(const IntRect& windowRect, bool immediate)
+{
+    ASSERT(core(m_webView->topLevelFrame()));
+    m_webView->repaint(windowRect, true /*contentChanged*/, immediate, true /*repaintContentOnly*/);
 }
 
 void WebChromeClient::scroll(const IntSize& delta, const IntRect& scrollViewRect, const IntRect& clipRect)
@@ -469,7 +509,7 @@ IntPoint WebChromeClient::screenToWindow(const IntPoint& point) const
     return result;
 }
 
-PlatformWidget WebChromeClient::platformWindow() const
+PlatformPageClient WebChromeClient::platformPageClient() const
 {
     HWND viewWindow;
     if (FAILED(m_webView->viewWindow(reinterpret_cast<OLE_HANDLE*>(&viewWindow))))
@@ -494,7 +534,7 @@ void WebChromeClient::mouseDidMoveOverElement(const HitTestResult& result, unsig
     uiDelegate->mouseDidMoveOverElement(m_webView, element.get(), modifierFlags);
 }
 
-void WebChromeClient::setToolTip(const String& toolTip)
+void WebChromeClient::setToolTip(const String& toolTip, TextDirection)
 {
     m_webView->setToolTip(toolTip);
 }
@@ -543,8 +583,24 @@ void WebChromeClient::exceededDatabaseQuota(Frame* frame, const String& database
 }
 #endif
 
+#if ENABLE(OFFLINE_WEB_APPLICATIONS)
+#include "ApplicationCacheStorage.h"
+void WebChromeClient::reachedMaxAppCacheSize(int64_t spaceNeeded)
+{
+    // FIXME: Free some space.
+    notImplemented();
+}
+#endif
+
 void WebChromeClient::populateVisitedLinks()
 {
+    COMPtr<IWebHistoryDelegate> historyDelegate;
+    m_webView->historyDelegate(&historyDelegate);
+    if (historyDelegate) {
+        historyDelegate->populateVisitedLinksForWebView(m_webView);
+        return;
+    }
+
     WebHistory* history = WebHistory::sharedHistory();
     if (!history)
         return;
@@ -694,6 +750,11 @@ void WebChromeClient::runOpenPanel(Frame*, PassRefPtr<FileChooser> prpFileChoose
     // FIXME: Show some sort of error if too many files are selected and the buffer is too small.  For now, this will fail silently.
 }
 
+void WebChromeClient::chooseIconForFiles(const Vector<WebCore::String>& filenames, WebCore::FileChooser* chooser)
+{
+    chooser->iconLoaded(Icon::createIconForFiles(filenames));
+}
+
 bool WebChromeClient::setCursor(PlatformCursorHandle cursor)
 {
     if (!cursor)
@@ -711,11 +772,41 @@ bool WebChromeClient::setCursor(PlatformCursorHandle cursor)
     return true;
 }
 
-void WebChromeClient::requestGeolocationPermissionForFrame(Frame*, Geolocation*)
+void WebChromeClient::requestGeolocationPermissionForFrame(Frame* frame, Geolocation* geolocation)
 {
-    // See the comment in WebCore/page/ChromeClient.h
-    notImplemented();
+    COMPtr<IWebUIDelegate> uiDelegate;
+    if (FAILED(m_webView->uiDelegate(&uiDelegate))) {
+        geolocation->setIsAllowed(false);
+        return;
+    }
+
+    COMPtr<IWebUIDelegatePrivate2> uiDelegatePrivate2(Query, uiDelegate);
+    if (!uiDelegatePrivate2) {
+        geolocation->setIsAllowed(false);
+        return;
+    }
+
+    COMPtr<WebSecurityOrigin> origin(AdoptCOM, WebSecurityOrigin::createInstance(frame->document()->securityOrigin()));
+    COMPtr<WebGeolocationPolicyListener> listener = WebGeolocationPolicyListener::createInstance(geolocation);
+    HRESULT hr = uiDelegatePrivate2->decidePolicyForGeolocationRequest(m_webView, kit(frame), origin.get(), listener.get());
+    if (hr != E_NOTIMPL)
+        return;
+
+    geolocation->setIsAllowed(false);
 }
+
+#if USE(ACCELERATED_COMPOSITING)
+void WebChromeClient::attachRootGraphicsLayer(Frame* frame, GraphicsLayer* graphicsLayer)
+{
+    m_webView->setRootChildLayer(graphicsLayer ? static_cast<WKCACFLayer*>(graphicsLayer->platformLayer()) : 0);
+}
+
+void WebChromeClient::scheduleCompositingLayerSync()
+{
+    m_webView->setRootLayerNeedsDisplay();
+}
+
+#endif
 
 COMPtr<IWebUIDelegate> WebChromeClient::uiDelegate()
 {
@@ -723,3 +814,23 @@ COMPtr<IWebUIDelegate> WebChromeClient::uiDelegate()
     m_webView->uiDelegate(&delegate);
     return delegate;
 }
+
+#if ENABLE(VIDEO)
+
+bool WebChromeClient::supportsFullscreenForNode(const Node* node)
+{
+    return node->hasTagName(HTMLNames::videoTag);
+}
+
+void WebChromeClient::enterFullscreenForNode(Node* node)
+{
+    m_webView->enterFullscreenForNode(node);
+}
+
+void WebChromeClient::exitFullscreenForNode(Node*)
+{
+    m_webView->exitFullscreen();
+}
+
+#endif
+

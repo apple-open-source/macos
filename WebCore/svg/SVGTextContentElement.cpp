@@ -32,7 +32,7 @@
 #include "MappedAttribute.h"
 #include "Position.h"
 #include "RenderSVGText.h"
-#include "SVGCharacterLayoutInfo.h"
+#include "SVGCharacterData.h"
 #include "SVGInlineTextBox.h"
 #include "SVGLength.h"
 #include "SVGNames.h"
@@ -43,15 +43,13 @@
 
 namespace WebCore {
 
-char SVGTextContentElementIdentifier[] = "SVGTextContentElement";
-
 SVGTextContentElement::SVGTextContentElement(const QualifiedName& tagName, Document* doc)
     : SVGStyledElement(tagName, doc)
     , SVGTests()
     , SVGLangSpace()
     , SVGExternalResourcesRequired()
-    , m_textLength(this, SVGNames::textLengthAttr, LengthModeOther)
-    , m_lengthAdjust(this, SVGNames::lengthAdjustAttr, LENGTHADJUST_SPACING)
+    , m_textLength(LengthModeOther)
+    , m_lengthAdjust(LENGTHADJUST_SPACING)
 {
 }
 
@@ -126,7 +124,7 @@ struct SVGInlineTextBoxQueryWalker {
     {
     }
 
-    void chunkPortionCallback(SVGInlineTextBox* textBox, int startOffset, const TransformationMatrix&,
+    void chunkPortionCallback(SVGInlineTextBox* textBox, int startOffset, const AffineTransform&,
                               const Vector<SVGChar>::iterator& start, const Vector<SVGChar>::iterator& end)
     {
         RenderStyle* style = textBox->textRenderer()->style();
@@ -328,7 +326,7 @@ static inline SVGRootInlineBox* rootInlineBoxForTextContentElement(const SVGText
     if (!object || !object->isSVGText() || object->isText())
         return 0;
 
-    RenderSVGText* svgText = static_cast<RenderSVGText*>(object);
+    RenderBlock* svgText = toRenderBlock(object);
 
     // Find root inline box
     SVGRootInlineBox* rootBox = static_cast<SVGRootInlineBox*>(svgText->firstRootBox());
@@ -514,6 +512,25 @@ void SVGTextContentElement::parseMappedAttribute(MappedAttribute* attr)
 
         SVGStyledElement::parseMappedAttribute(attr);
     }
+}
+
+void SVGTextContentElement::synchronizeProperty(const QualifiedName& attrName)
+{
+    SVGStyledElement::synchronizeProperty(attrName);
+
+    if (attrName == anyQName()) {
+        synchronizeLengthAdjust();
+        synchronizeTextLength();
+        synchronizeExternalResourcesRequired();
+        return;
+    }
+
+    if (attrName == SVGNames::lengthAdjustAttr)
+        synchronizeLengthAdjust();
+    else if (attrName == SVGNames::textLengthAttr)
+        synchronizeTextLength();
+    else if (SVGExternalResourcesRequired::isKnownAttribute(attrName))
+        synchronizeExternalResourcesRequired();
 }
 
 bool SVGTextContentElement::isKnownAttribute(const QualifiedName& attrName)

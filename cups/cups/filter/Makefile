@@ -3,7 +3,7 @@
 #
 #   Filter makefile for the Common UNIX Printing System (CUPS).
 #
-#   Copyright 2007-2009 by Apple Inc.
+#   Copyright 2007-2010 by Apple Inc.
 #   Copyright 1997-2006 by Easy Software Products.
 #
 #   These coded instructions, statements, and computer programs are the
@@ -131,7 +131,7 @@ install-exec:
 	$(LN) rastertolabel $(SERVERBIN)/filter/rastertodymo
 	if test "x$(SYMROOT)" != "x"; then \
 		$(INSTALL_DIR) $(SYMROOT); \
-		for file in $(TARGETS); do \
+		for file in $(FILTERS); do \
 			cp $$file $(SYMROOT); \
 		done \
 	fi
@@ -160,6 +160,10 @@ install-libs: $(INSTALLSTATIC) $(INSTALL32) $(INSTALL64)
 	-if test $(LIBCUPSIMAGE) = "libcupsimage.2.dylib"; then \
 		$(RM) $(LIBDIR)/libcupsimage.dylib; \
 		$(LN) $(LIBCUPSIMAGE) $(LIBDIR)/libcupsimage.dylib; \
+	fi
+	if test "x$(SYMROOT)" != "x"; then \
+		$(INSTALL_DIR) $(SYMROOT); \
+		cp $(LIBCUPSIMAGE) $(SYMROOT); \
 	fi
 
 installstatic:

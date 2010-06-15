@@ -1,6 +1,8 @@
 /*
     Copyright (C) 2008 Nokia Corporation and/or its subsidiary(-ies)
     Copyright (C) 2008 Holger Hans Peter Freyther
+    Copyright (C) 2006, 2008 Apple Inc. All rights reserved.
+    Copyright (C) 2007 Nicholas Shanks <webkit@nickshanks.com>
 
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Library General Public
@@ -26,82 +28,45 @@
 #include "FontDescription.h"
 #include "FontPlatformData.h"
 #include "Font.h"
+#include "PlatformString.h"
 #include "StringHash.h"
+#include <utility>
+#include <wtf/ListHashSet.h>
 #include <wtf/StdLibExtras.h>
 
-#include <QHash>
+#include <QFont>
+
+using namespace WTF;
 
 namespace WebCore {
 
-FontCache* fontCache()
-{
-    DEFINE_STATIC_LOCAL(FontCache, globalFontCache, ());
-    return &globalFontCache;
-}
-
-FontCache::FontCache()
+void FontCache::platformInit()
 {
 }
 
-void FontCache::getTraitsInFamily(const AtomicString& familyName, Vector<unsigned>& traitsMasks)
-{
-}
-
-typedef QHash<FontDescription, FontPlatformData*> FontPlatformDataCache;
-
-// using Q_GLOBAL_STATIC leads to crash. TODO investigate the way to fix this.
-static FontPlatformDataCache* gFontPlatformDataCache;
-
-uint qHash(const FontDescription& key)
-{
-    uint value = CaseFoldingHash::hash(key.family().family());
-    value ^= key.computedPixelSize();
-    value ^= static_cast<int>(key.weight());
-    return value;
-}
-
-FontPlatformData* FontCache::getCachedFontPlatformData(const FontDescription& description, const AtomicString& family, bool checkingAlternateName)
-{
-    if (!gFontPlatformDataCache)
-        gFontPlatformDataCache = new FontPlatformDataCache;
-
-    FontPlatformData* fontData = gFontPlatformDataCache->value(description, 0);
-    if (!fontData) {
-        fontData =  new FontPlatformData(description);
-        gFontPlatformDataCache->insert(description, fontData);
-    }
-
-    return fontData;
-}
-
-SimpleFontData* FontCache::getCachedFontData(const FontPlatformData*)
+const SimpleFontData* FontCache::getFontDataForCharacters(const Font&, const UChar*, int)
 {
     return 0;
 }
 
-FontPlatformData* FontCache::getLastResortFallbackFont(const FontDescription&)
+SimpleFontData* FontCache::getSimilarFontPlatformData(const Font& font)
 {
     return 0;
 }
 
-void FontCache::releaseFontData(const WebCore::SimpleFontData*)
+SimpleFontData* FontCache::getLastResortFallbackFont(const FontDescription& fontDescription)
+{
+    const AtomicString fallbackFamily = QFont(fontDescription.family().family()).lastResortFamily();
+    return getCachedFontData(new FontPlatformData(fontDescription, fallbackFamily));
+}
+
+void FontCache::getTraitsInFamily(const AtomicString&, Vector<unsigned>&)
 {
 }
 
-void FontCache::addClient(FontSelector*)
+FontPlatformData* FontCache::createFontPlatformData(const FontDescription& fontDescription, const AtomicString& familyName)
 {
-}
-
-void FontCache::removeClient(FontSelector*)
-{
-}
-
-void FontCache::invalidate()
-{
-    if (!gFontPlatformDataCache)
-        return;
-
-    gFontPlatformDataCache->clear();
+    return new FontPlatformData(fontDescription, familyName);
 }
 
 } // namespace WebCore

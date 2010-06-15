@@ -26,12 +26,14 @@
 #include "config.h"
 #include "Image.h"
 
+#include "AffineTransform.h"
 #include "BitmapImage.h"
 #include "FloatConversion.h"
 #include "FloatRect.h"
 #include "GraphicsContext.h"
 #include "ImageObserver.h"
-#include "TransformationMatrix.h"
+#include "NotImplemented.h"
+#include "SharedBuffer.h"
 
 #include <math.h>
 #include <stdio.h>
@@ -44,9 +46,6 @@
 #include <wx/graphics.h>
 #include <wx/image.h>
 #include <wx/thread.h>
-
-// This function loads resources from WebKit
-Vector<char> loadResourceIntoArray(const char*);
 
 namespace WebCore {
 
@@ -72,7 +71,9 @@ bool FrameData::clear(bool clearMetadata)
 
 PassRefPtr<Image> Image::loadPlatformResource(const char *name)
 {
-    Vector<char> arr = loadResourceIntoArray(name);
+    // FIXME: We need to have some 'placeholder' graphics for things like missing
+    // plugins or broken images.
+    Vector<char> arr;
     RefPtr<Image> img = BitmapImage::create();
     RefPtr<SharedBuffer> buffer = SharedBuffer::create(arr.data(), arr.size());
     img->setData(buffer, true);
@@ -86,13 +87,13 @@ void BitmapImage::initPlatformData()
 
 // Drawing Routines
 
-void BitmapImage::draw(GraphicsContext* ctxt, const FloatRect& dst, const FloatRect& src, CompositeOperator op)
+void BitmapImage::draw(GraphicsContext* ctxt, const FloatRect& dst, const FloatRect& src, ColorSpace styleColorSpace, CompositeOperator op)
 {
     if (!m_source.initialized())
         return;
 
     if (mayFillWithSolidColor()) {
-        fillWithSolidColor(ctxt, dst, solidColor(), op);
+        fillWithSolidColor(ctxt, dst, solidColor(), styleColorSpace, op);
         return;
     }
 
@@ -176,17 +177,16 @@ void BitmapImage::draw(GraphicsContext* ctxt, const FloatRect& dst, const FloatR
         observer->didDraw(this);
 }
 
-void BitmapImage::drawPattern(GraphicsContext* ctxt, const FloatRect& srcRect, const TransformationMatrix& patternTransform, const FloatPoint& phase, CompositeOperator, const FloatRect& dstRect)
+void Image::drawPattern(GraphicsContext* ctxt, const FloatRect& srcRect, const AffineTransform& patternTransform, const FloatPoint& phase, ColorSpace, CompositeOperator, const FloatRect& dstRect)
 {
-    if (!m_source.initialized())
-        return;
+    
 
 #if USE(WXGC)
     wxGCDC* context = (wxGCDC*)ctxt->platformContext();
-    wxGraphicsBitmap* bitmap = frameAtIndex(m_currentFrame);
+    wxGraphicsBitmap* bitmap = nativeImageForCurrentFrame();
 #else
     wxWindowDC* context = ctxt->platformContext();
-    wxBitmap* bitmap = frameAtIndex(m_currentFrame);
+    wxBitmap* bitmap = nativeImageForCurrentFrame();
 #endif
 
     if (!bitmap) // If it's too early we won't have an image yet.

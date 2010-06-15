@@ -28,7 +28,12 @@
 #include "ScriptExecutionContext.h"
 
 #include "ActiveDOMObject.h"
-#include "Document.h"
+#include "Database.h"
+#include "DatabaseTask.h"
+#include "DatabaseThread.h"
+#if ENABLE(FILE_READER) || ENABLE(FILE_WRITER)
+#include "FileThread.h"
+#endif
 #include "MessagePort.h"
 #include "SecurityOrigin.h"
 #include "WorkerContext.h"
@@ -36,13 +41,17 @@
 #include <wtf/MainThread.h>
 #include <wtf/PassRefPtr.h>
 
+#if USE(JSC)
+#include "JSDOMWindow.h"
+#endif
+
 namespace WebCore {
 
 class ProcessMessagesSoonTask : public ScriptExecutionContext::Task {
 public:
-    static PassRefPtr<ProcessMessagesSoonTask> create()
+    static PassOwnPtr<ProcessMessagesSoonTask> create()
     {
-        return adoptRef(new ProcessMessagesSoonTask);
+        return new ProcessMessagesSoonTask;
     }
 
     virtual void performTask(ScriptExecutionContext* context)
@@ -52,6 +61,9 @@ public:
 };
 
 ScriptExecutionContext::ScriptExecutionContext()
+#if ENABLE(DATABASE)
+    : m_hasOpenDatabases(false)
+#endif
 {
 }
 
@@ -68,7 +80,74 @@ ScriptExecutionContext::~ScriptExecutionContext()
         ASSERT((*iter)->scriptExecutionContext() == this);
         (*iter)->contextDestroyed();
     }
+#if ENABLE(DATABASE)
+    if (m_databaseThread) {
+        ASSERT(m_databaseThread->terminationRequested());
+        m_databaseThread = 0;
+    }
+#endif
+#if ENABLE(FILE_READER) || ENABLE(FILE_WRITER)
+    if (m_fileThread) {
+        m_fileThread->stop();
+        m_fileThread = 0;
+    }
+#endif
 }
+
+#if ENABLE(DATABASE)
+
+DatabaseThread* ScriptExecutionContext::databaseThread()
+{
+    if (!m_databaseThread && !m_hasOpenDatabases) {
+        // Create the database thread on first request - but not if at least one database was already opened,
+        // because in that case we already had a database thread and terminated it and should not create another.
+        m_databaseThread = DatabaseThread::create();
+        if (!m_databaseThread->start())
+            m_databaseThread = 0;
+    }
+
+    return m_databaseThread.get();
+}
+
+void ScriptExecutionContext::addOpenDatabase(Database* database)
+{
+    ASSERT(isContextThread());
+    if (!m_openDatabaseSet)
+        m_openDatabaseSet.set(new DatabaseSet());
+
+    ASSERT(!m_openDatabaseSet->contains(database));
+    m_openDatabaseSet->add(database);
+}
+
+void ScriptExecutionContext::removeOpenDatabase(Database* database)
+{
+    ASSERT(isContextThread());
+    ASSERT(m_openDatabaseSet && m_openDatabaseSet->contains(database));
+    if (!m_openDatabaseSet)
+        return;
+    m_openDatabaseSet->remove(database);
+}
+
+void ScriptExecutionContext::stopDatabases(DatabaseTaskSynchronizer* cleanupSync)
+{
+    ASSERT(isContextThread());
+    if (m_openDatabaseSet) {
+        DatabaseSet::iterator i = m_openDatabaseSet->begin();
+        DatabaseSet::iterator end = m_openDatabaseSet->end();
+        for (; i != end; ++i) {
+            (*i)->stop();
+            if (m_databaseThread)
+                m_databaseThread->unscheduleDatabaseTasks(*i);
+        }
+    }
+    
+    if (m_databaseThread)
+        m_databaseThread->requestTermination(cleanupSync);
+    else if (cleanupSync)
+        cleanupSync->taskCompleted();
+}
+
+#endif
 
 void ScriptExecutionContext::processMessagePortMessagesSoon()
 {
@@ -191,8 +270,36 @@ DOMTimer* ScriptExecutionContext::findTimeout(int timeoutId)
     return m_timeouts.get(timeoutId);
 }
 
+#if ENABLE(FILE_READER) || ENABLE(FILE_WRITER)
+FileThread* ScriptExecutionContext::fileThread()
+{
+    if (!m_fileThread) {
+        m_fileThread = FileThread::create();
+        if (!m_fileThread->start())
+            m_fileThread = 0;
+    }
+    return m_fileThread.get();
+}
+#endif
+
 ScriptExecutionContext::Task::~Task()
 {
 }
+
+#if USE(JSC)
+JSC::JSGlobalData* ScriptExecutionContext::globalData()
+{
+     if (isDocument())
+        return JSDOMWindow::commonJSGlobalData();
+
+#if ENABLE(WORKERS)
+    if (isWorkerContext())
+        return static_cast<WorkerContext*>(this)->script()->globalData();
+#endif
+
+    ASSERT_NOT_REACHED();
+    return 0;
+}
+#endif
 
 } // namespace WebCore

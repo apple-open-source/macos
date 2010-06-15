@@ -30,16 +30,23 @@ namespace WebCore {
 
 class FormDataList;
 class HTMLFormElement;
+class RenderTextControl;
+class ValidityState;
+class VisibleSelection;
 
 class HTMLFormControlElement : public HTMLElement {
 public:
-    HTMLFormControlElement(const QualifiedName& tagName, Document*, HTMLFormElement*);
+    HTMLFormControlElement(const QualifiedName& tagName, Document*, HTMLFormElement*, ConstructionType = CreateHTMLElementZeroRefCount);
     virtual ~HTMLFormControlElement();
 
     virtual HTMLTagStatus endTagRequirement() const { return TagStatusRequired; }
     virtual int tagPriority() const { return 1; }
 
     HTMLFormElement* form() const { return m_form; }
+    ValidityState* validity();
+
+    bool formNoValidate() const;
+    void setFormNoValidate(bool);
 
     virtual bool isTextFormControl() const { return false; }
     virtual bool isEnabledFormControl() const { return !disabled(); }
@@ -56,7 +63,7 @@ public:
 
     virtual void dispatchFormControlChangeEvent();
 
-    bool disabled() const;
+    bool disabled() const { return m_disabled; }
     void setDisabled(bool);
 
     virtual bool supportsFocus() const;
@@ -72,6 +79,9 @@ public:
     virtual bool autofocus() const;
     void setAutofocus(bool);
 
+    bool required() const;
+    void setRequired(bool);
+
     virtual void recalcStyle(StyleChange);
 
     virtual const AtomicString& formControlName() const;
@@ -84,6 +94,7 @@ public:
 
     virtual bool isFormControlElement() const { return true; }
     virtual bool isRadioButton() const { return false; }
+    virtual bool canTriggerImplicitSubmission() const { return false; }
 
     /* Override in derived classes to get the encoded name=value pair for submitting.
      * Return true for a successful control (see HTML4-17.13.2).
@@ -97,19 +108,45 @@ public:
     virtual short tabIndex() const;
 
     virtual bool willValidate() const;
+    String validationMessage();
+    bool checkValidity(Vector<RefPtr<HTMLFormControlElement> >* unhandledInvalidControls = 0);
+    // This must be called when a validation constraint or control value is changed.
+    void setNeedsValidityCheck();
+    void setCustomValidity(const String&);
+    virtual bool valueMissing() const { return false; }
+    virtual bool patternMismatch() const { return false; }
+    virtual bool tooLong() const { return false; }
 
     void formDestroyed() { m_form = 0; }
 
+    virtual void dispatchFocusEvent();
+    virtual void dispatchBlurEvent();
+
 protected:
     void removeFromForm();
+    // This must be called any time the result of willValidate() has changed.
+    void setNeedsWillValidateCheck();
+    virtual bool recalcWillValidate() const;
 
 private:
     virtual HTMLFormElement* virtualForm() const;
+    virtual bool isDefaultButtonForForm() const;
+    virtual bool isValidFormControlElement();
 
     HTMLFormElement* m_form;
-    bool m_disabled;
-    bool m_readOnly;
-    bool m_valueMatchesRenderer;
+    OwnPtr<ValidityState> m_validityState;
+    bool m_disabled : 1;
+    bool m_readOnly : 1;
+    bool m_required : 1;
+    bool m_valueMatchesRenderer : 1;
+    // The initial value of m_willValidate depends on a subclass, and we can't
+    // initialize it with a virtual function in the constructor. m_willValidate
+    // is not deterministic during m_willValidateInitialized=false.
+    mutable bool m_willValidateInitialized: 1;
+    mutable bool m_willValidate : 1;
+    // Cache of validity()->valid().
+    // "candidate for constraint validation" doesn't affect to m_isValid.
+    bool m_isValid : 1;
 };
 
 class HTMLFormControlElementWithState : public HTMLFormControlElement {
@@ -117,11 +154,48 @@ public:
     HTMLFormControlElementWithState(const QualifiedName& tagName, Document*, HTMLFormElement*);
     virtual ~HTMLFormControlElementWithState();
 
+    virtual bool autoComplete() const;
+    virtual bool shouldSaveAndRestoreFormControlState() const;
     virtual void finishParsingChildren();
 
 protected:
     virtual void willMoveToNewOwnerDocument();
     virtual void didMoveToNewOwnerDocument();
+    virtual void defaultEventHandler(Event*);
+};
+
+class HTMLTextFormControlElement : public HTMLFormControlElementWithState {
+public:
+    HTMLTextFormControlElement(const QualifiedName&, Document*, HTMLFormElement*);
+    virtual ~HTMLTextFormControlElement();
+    virtual void dispatchFocusEvent();
+    virtual void dispatchBlurEvent();
+
+    int selectionStart();
+    int selectionEnd();
+    void setSelectionStart(int);
+    void setSelectionEnd(int);
+    void select();
+    void setSelectionRange(int start, int end);
+    VisibleSelection selection() const;
+
+protected:
+    bool placeholderShouldBeVisible() const;
+    void updatePlaceholderVisibility(bool);
+    virtual int cachedSelectionStart() const = 0;
+    virtual int cachedSelectionEnd() const = 0;
+    virtual void parseMappedAttribute(MappedAttribute*);
+
+private:
+    // A subclass should return true if placeholder processing is needed.
+    virtual bool supportsPlaceholder() const = 0;
+    // Returns true if user-editable value is empty.  This is used to check placeholder visibility.
+    virtual bool isEmptyValue() const = 0;
+    // Called in dispatchFocusEvent(), after placeholder process, before calling parent's dispatchFocusEvent().
+    virtual void handleFocusEvent() { }
+    // Called in dispatchBlurEvent(), after placeholder process, before calling parent's dispatchBlurEvent().
+    virtual void handleBlurEvent() { }
+    RenderTextControl* textRendererAfterUpdateLayout();
 };
 
 } //namespace

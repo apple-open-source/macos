@@ -27,8 +27,8 @@
 #include "WebKitDLL.h"
 #include "WebKitClassFactory.h"
 
-#include "ForEachCoClass.h"
 #include "CFDictionaryPropertyBag.h"
+#include "ForEachCoClass.h"
 #include "WebArchive.h"
 #include "WebCache.h"
 #include "WebCookieManager.h"
@@ -37,30 +37,33 @@
 #include "WebDownload.h"
 #include "WebError.h"
 #include "WebFrame.h"
+#include "WebGeolocationPosition.h"
 #include "WebHistory.h"
 #include "WebHistoryItem.h"
 #include "WebIconDatabase.h"
 #include "WebJavaScriptCollector.h"
 #include "WebKit.h"
-#include "WebScrollBar.h"
 #include "WebKitStatistics.h"
 #include "WebMutableURLRequest.h"
 #include "WebNotificationCenter.h"
 #include "WebPreferences.h"
+#include "WebScriptWorld.h"
+#include "WebScrollBar.h"
+#include "WebSerializedJSValue.h"
 #include "WebTextRenderer.h"
 #include "WebURLCredential.h"
 #include "WebURLProtectionSpace.h"
 #include "WebURLResponse.h"
+#include "WebUserContentURLPattern.h"
 #include "WebView.h"
-#pragma warning(push, 0)
+#include "WebWorkersPrivate.h"
 #include <JavaScriptCore/InitializeThreading.h>
-#include <WebCore/FontDatabase.h>
 #include <WebCore/SoftLinking.h>
-#pragma warning(pop)
+#include <wtf/Threading.h>
 
 // WebKitClassFactory ---------------------------------------------------------
 #if USE(SAFARI_THEME)
-#if !defined(NDEBUG) && defined(USE_DEBUG_SAFARI_THEME)
+#ifdef DEBUG_ALL
 SOFT_LINK_DEBUG_LIBRARY(SafariTheme)
 #else
 SOFT_LINK_LIBRARY(SafariTheme)
@@ -83,7 +86,7 @@ WebKitClassFactory::WebKitClassFactory(CLSID targetClass)
 #endif
 
     JSC::initializeThreading();
-    WebCore::populateFontDatabase();
+    WTF::initializeMainThread();
 
     gClassCount++;
     gClassNameCount.add("WebKitClassFactory");
@@ -125,6 +128,19 @@ ULONG STDMETHODCALLTYPE WebKitClassFactory::Release(void)
     return newRef;
 }
 
+// FIXME: Remove these functions once all createInstance() functions return COMPtr.
+template <typename T>
+static T* releaseRefFromCreateInstance(T* object)
+{
+    return object;
+}
+
+template <typename T>
+static T* releaseRefFromCreateInstance(COMPtr<T> object)
+{
+    return object.releaseRef();
+}
+
 // IClassFactory --------------------------------------------------------------
 
 HRESULT STDMETHODCALLTYPE WebKitClassFactory::CreateInstance(IUnknown* pUnkOuter, REFIID riid, void** ppvObject)
@@ -137,7 +153,7 @@ HRESULT STDMETHODCALLTYPE WebKitClassFactory::CreateInstance(IUnknown* pUnkOuter
 
 #define INITIALIZE_IF_CLASS(cls) \
     if (IsEqualGUID(m_targetClass, CLSID_##cls)) \
-        unknown = static_cast<I##cls*>(cls::createInstance()); \
+        unknown = static_cast<I##cls*>(releaseRefFromCreateInstance(cls::createInstance())); \
     else \
     // end of macro
 

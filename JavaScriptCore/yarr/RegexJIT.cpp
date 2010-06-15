@@ -40,42 +40,49 @@ using namespace WTF;
 
 namespace JSC { namespace Yarr {
 
-
 class RegexGenerator : private MacroAssembler {
     friend void jitCompileRegex(JSGlobalData* globalData, RegexCodeBlock& jitObject, const UString& pattern, unsigned& numSubpatterns, const char*& error, bool ignoreCase, bool multiline);
 
-#if PLATFORM_ARM_ARCH(7)
-    static const RegisterID input = ARM::r0;
-    static const RegisterID index = ARM::r1;
-    static const RegisterID length = ARM::r2;
+#if CPU(ARM)
+    static const RegisterID input = ARMRegisters::r0;
+    static const RegisterID index = ARMRegisters::r1;
+    static const RegisterID length = ARMRegisters::r2;
+    static const RegisterID output = ARMRegisters::r4;
 
-    static const RegisterID output = ARM::r4;
-    static const RegisterID regT0 = ARM::r5;
-    static const RegisterID regT1 = ARM::r6;
+    static const RegisterID regT0 = ARMRegisters::r5;
+    static const RegisterID regT1 = ARMRegisters::r6;
 
-    static const RegisterID returnRegister = ARM::r0;
-#endif
-#if PLATFORM(X86)
-    static const RegisterID input = X86::eax;
-    static const RegisterID index = X86::edx;
-    static const RegisterID length = X86::ecx;
-    static const RegisterID output = X86::edi;
+    static const RegisterID returnRegister = ARMRegisters::r0;
+#elif CPU(MIPS)
+    static const RegisterID input = MIPSRegisters::a0;
+    static const RegisterID index = MIPSRegisters::a1;
+    static const RegisterID length = MIPSRegisters::a2;
+    static const RegisterID output = MIPSRegisters::a3;
 
-    static const RegisterID regT0 = X86::ebx;
-    static const RegisterID regT1 = X86::esi;
+    static const RegisterID regT0 = MIPSRegisters::t4;
+    static const RegisterID regT1 = MIPSRegisters::t5;
 
-    static const RegisterID returnRegister = X86::eax;
-#endif
-#if PLATFORM(X86_64)
-    static const RegisterID input = X86::edi;
-    static const RegisterID index = X86::esi;
-    static const RegisterID length = X86::edx;
-    static const RegisterID output = X86::ecx;
+    static const RegisterID returnRegister = MIPSRegisters::v0;
+#elif CPU(X86)
+    static const RegisterID input = X86Registers::eax;
+    static const RegisterID index = X86Registers::edx;
+    static const RegisterID length = X86Registers::ecx;
+    static const RegisterID output = X86Registers::edi;
 
-    static const RegisterID regT0 = X86::eax;
-    static const RegisterID regT1 = X86::ebx;
+    static const RegisterID regT0 = X86Registers::ebx;
+    static const RegisterID regT1 = X86Registers::esi;
 
-    static const RegisterID returnRegister = X86::eax;
+    static const RegisterID returnRegister = X86Registers::eax;
+#elif CPU(X86_64)
+    static const RegisterID input = X86Registers::edi;
+    static const RegisterID index = X86Registers::esi;
+    static const RegisterID length = X86Registers::edx;
+    static const RegisterID output = X86Registers::ecx;
+
+    static const RegisterID regT0 = X86Registers::eax;
+    static const RegisterID regT1 = X86Registers::ebx;
+
+    static const RegisterID returnRegister = X86Registers::eax;
 #endif
 
     void optimizeAlternative(PatternAlternative* alternative)
@@ -147,6 +154,11 @@ class RegexGenerator : private MacroAssembler {
 
     void matchCharacterClass(RegisterID character, JumpList& matchDest, const CharacterClass* charClass)
     {
+        if (charClass->m_table) {
+            ExtendedAddress tableEntry(character, reinterpret_cast<intptr_t>(charClass->m_table->m_table));
+            matchDest.append(branchTest8(charClass->m_table->m_inverted ? Zero : NonZero, tableEntry));   
+            return;
+        }
         Jump unicodeFail;
         if (charClass->m_matchesUnicode.size() || charClass->m_rangesUnicode.size()) {
             Jump isAscii = branch32(LessThanOrEqual, character, Imm32(0x7f));
@@ -551,11 +563,11 @@ class RegexGenerator : private MacroAssembler {
         }
 
         if (mask) {
-            load32(BaseIndex(input, index, TimesTwo, state.inputOffset() * sizeof(UChar)), character);
+            load32WithUnalignedHalfWords(BaseIndex(input, index, TimesTwo, state.inputOffset() * sizeof(UChar)), character);
             or32(Imm32(mask), character);
             state.jumpToBacktrack(branch32(NotEqual, character, Imm32(chPair | mask)), this);
         } else
-            state.jumpToBacktrack(branch32(NotEqual, BaseIndex(input, index, TimesTwo, state.inputOffset() * sizeof(UChar)), Imm32(chPair)), this);
+            state.jumpToBacktrack(branch32WithUnalignedHalfWords(NotEqual, BaseIndex(input, index, TimesTwo, state.inputOffset() * sizeof(UChar)), Imm32(chPair)), this);
     }
 
     void generatePatternCharacterFixed(TermGenerationState& state)
@@ -601,9 +613,14 @@ class RegexGenerator : private MacroAssembler {
             ASSERT(!m_pattern.m_ignoreCase || (Unicode::toLower(ch) == Unicode::toUpper(ch)));
             failures.append(jumpIfCharNotEquals(ch, state.inputOffset()));
         }
+
         add32(Imm32(1), countRegister);
         add32(Imm32(1), index);
-        branch32(NotEqual, countRegister, Imm32(term.quantityCount)).linkTo(loop, this);
+        if (term.quantityCount != 0xffffffff)
+            branch32(NotEqual, countRegister, Imm32(term.quantityCount)).linkTo(loop, this);
+        else
+            jump(loop);
+
         failures.append(jump());
 
         Label backtrackBegin(this);
@@ -638,7 +655,8 @@ class RegexGenerator : private MacroAssembler {
         loadFromFrame(term.frameLocation, countRegister);
 
         atEndOfInput().linkTo(hardFail, this);
-        branch32(Equal, countRegister, Imm32(term.quantityCount), hardFail);
+        if (term.quantityCount != 0xffffffff)
+            branch32(Equal, countRegister, Imm32(term.quantityCount), hardFail);
         if (m_pattern.m_ignoreCase && isASCIIAlpha(ch)) {
             readCharacter(state.inputOffset(), character);
             or32(Imm32(32), character);
@@ -724,7 +742,11 @@ class RegexGenerator : private MacroAssembler {
 
         add32(Imm32(1), countRegister);
         add32(Imm32(1), index);
-        branch32(NotEqual, countRegister, Imm32(term.quantityCount)).linkTo(loop, this);
+        if (term.quantityCount != 0xffffffff)
+            branch32(NotEqual, countRegister, Imm32(term.quantityCount)).linkTo(loop, this);
+        else
+            jump(loop);
+
         failures.append(jump());
 
         Label backtrackBegin(this);
@@ -1080,17 +1102,15 @@ class RegexGenerator : private MacroAssembler {
             break;
 
         case PatternTerm::TypeBackReference:
-            m_generationFailed = true;
+            ASSERT_NOT_REACHED();
             break;
 
         case PatternTerm::TypeForwardReference:
             break;
 
         case PatternTerm::TypeParenthesesSubpattern:
-            if ((term.quantityCount == 1) && !term.parentheses.isCopy)
-                generateParenthesesSingle(state);
-            else
-                m_generationFailed = true;
+            ASSERT((term.quantityCount == 1) && !term.parentheses.isCopy); // must fallback to pcre before this point
+            generateParenthesesSingle(state);
             break;
 
         case PatternTerm::TypeParentheticalAssertion:
@@ -1266,7 +1286,7 @@ class RegexGenerator : private MacroAssembler {
         // complex here in compilation, and in the common case we should end up coallescing the checks.
         //
         // FIXME: a nice improvement here may be to stop trying to match sooner, based on the least
-        // of the minimum-alterantive-lengths.  E.g. if I have two alternatives of length 200 and 150,
+        // of the minimum-alternative-lengths.  E.g. if I have two alternatives of length 200 and 150,
         // and a string of length 100, we'll end up looping index from 0 to 100, checking whether there
         // is sufficient input to run either alternative (constantly failing).  If there had been only
         // one alternative, or if the shorter alternative had come first, we would have terminated
@@ -1290,48 +1310,52 @@ class RegexGenerator : private MacroAssembler {
 
     void generateEnter()
     {
-#if PLATFORM(X86_64)
-        push(X86::ebp);
-        move(stackPointerRegister, X86::ebp);
-        push(X86::ebx);
-#elif PLATFORM(X86)
-        push(X86::ebp);
-        move(stackPointerRegister, X86::ebp);
+#if CPU(X86_64)
+        push(X86Registers::ebp);
+        move(stackPointerRegister, X86Registers::ebp);
+        push(X86Registers::ebx);
+#elif CPU(X86)
+        push(X86Registers::ebp);
+        move(stackPointerRegister, X86Registers::ebp);
         // TODO: do we need spill registers to fill the output pointer if there are no sub captures?
-        push(X86::ebx);
-        push(X86::edi);
-        push(X86::esi);
+        push(X86Registers::ebx);
+        push(X86Registers::edi);
+        push(X86Registers::esi);
         // load output into edi (2 = saved ebp + return address).
     #if COMPILER(MSVC)
-        loadPtr(Address(X86::ebp, 2 * sizeof(void*)), input);
-        loadPtr(Address(X86::ebp, 3 * sizeof(void*)), index);
-        loadPtr(Address(X86::ebp, 4 * sizeof(void*)), length);
-        loadPtr(Address(X86::ebp, 5 * sizeof(void*)), output);
+        loadPtr(Address(X86Registers::ebp, 2 * sizeof(void*)), input);
+        loadPtr(Address(X86Registers::ebp, 3 * sizeof(void*)), index);
+        loadPtr(Address(X86Registers::ebp, 4 * sizeof(void*)), length);
+        loadPtr(Address(X86Registers::ebp, 5 * sizeof(void*)), output);
     #else
-        loadPtr(Address(X86::ebp, 2 * sizeof(void*)), output);
+        loadPtr(Address(X86Registers::ebp, 2 * sizeof(void*)), output);
     #endif
-#elif PLATFORM_ARM_ARCH(7)
-        push(ARM::r4);
-        push(ARM::r5);
-        push(ARM::r6);
-        move(ARM::r3, output);
+#elif CPU(ARM)
+        push(ARMRegisters::r4);
+        push(ARMRegisters::r5);
+        push(ARMRegisters::r6);
+        move(ARMRegisters::r3, output);
+#elif CPU(MIPS)
+        // Do nothing.
 #endif
     }
 
     void generateReturn()
     {
-#if PLATFORM(X86_64)
-        pop(X86::ebx);
-        pop(X86::ebp);
-#elif PLATFORM(X86)
-        pop(X86::esi);
-        pop(X86::edi);
-        pop(X86::ebx);
-        pop(X86::ebp);
-#elif PLATFORM_ARM_ARCH(7)
-        pop(ARM::r6);
-        pop(ARM::r5);
-        pop(ARM::r4);
+#if CPU(X86_64)
+        pop(X86Registers::ebx);
+        pop(X86Registers::ebp);
+#elif CPU(X86)
+        pop(X86Registers::esi);
+        pop(X86Registers::edi);
+        pop(X86Registers::ebx);
+        pop(X86Registers::ebp);
+#elif CPU(ARM)
+        pop(ARMRegisters::r6);
+        pop(ARMRegisters::r5);
+        pop(ARMRegisters::r4);
+#elif CPU(MIPS)
+        // Do nothing
 #endif
         ret();
     }
@@ -1339,7 +1363,6 @@ class RegexGenerator : private MacroAssembler {
 public:
     RegexGenerator(RegexPattern& pattern)
         : m_pattern(pattern)
-        , m_generationFailed(false)
     {
     }
 
@@ -1369,15 +1392,9 @@ public:
         jitObject.set(patchBuffer.finalizeCode());
     }
 
-    bool generationFailed()
-    {
-        return m_generationFailed;
-    }
-
 private:
     RegexPattern& m_pattern;
     Vector<AlternativeBacktrackRecord> m_backtrackRecords;
-    bool m_generationFailed;
 };
 
 void jitCompileRegex(JSGlobalData* globalData, RegexCodeBlock& jitObject, const UString& patternString, unsigned& numSubpatterns, const char*& error, bool ignoreCase, bool multiline)
@@ -1389,22 +1406,14 @@ void jitCompileRegex(JSGlobalData* globalData, RegexCodeBlock& jitObject, const 
 
     numSubpatterns = pattern.m_numSubpatterns;
 
-    RegexGenerator generator(pattern);
-    generator.compile(globalData, jitObject);
-
-    if (generator.generationFailed()) {
+    if (pattern.m_shouldFallBack) {
         JSRegExpIgnoreCaseOption ignoreCaseOption = ignoreCase ? JSRegExpIgnoreCase : JSRegExpDoNotIgnoreCase;
         JSRegExpMultilineOption multilineOption = multiline ? JSRegExpMultiline : JSRegExpSingleLine;
         jitObject.setFallback(jsRegExpCompile(reinterpret_cast<const UChar*>(patternString.data()), patternString.size(), ignoreCaseOption, multilineOption, &numSubpatterns, &error));
+    } else {
+        RegexGenerator generator(pattern);
+        generator.compile(globalData, jitObject);
     }
-}
-
-int executeRegex(RegexCodeBlock& jitObject, const UChar* input, unsigned start, unsigned length, int* output, int outputArraySize)
-{
-    if (JSRegExp* fallback = jitObject.getFallback())
-        return (jsRegExpExecute(fallback, input, length, start, output, outputArraySize) < 0) ? -1 : output[0];
-
-    return jitObject.execute(input, start, length, output);
 }
 
 }}

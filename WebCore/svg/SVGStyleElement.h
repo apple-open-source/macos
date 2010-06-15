@@ -2,8 +2,6 @@
     Copyright (C) 2004, 2005 Nikolas Zimmermann <wildfox@kde.org>
                   2004, 2005, 2006, 2007 Rob Buis <buis@kde.org>
 
-    This file is part of the KDE project
-
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Library General Public
     License as published by the Free Software Foundation; either
@@ -25,11 +23,14 @@
 #if ENABLE(SVG)
 
 #include <SVGElement.h>
+#include "SVGLangSpace.h"
 #include "StyleElement.h"
 
 namespace WebCore {
 
-    class SVGStyleElement : public SVGElement, public StyleElement {
+    class SVGStyleElement : public SVGElement,
+                            public SVGLangSpace,
+                            public StyleElement {
     public:
         SVGStyleElement(const QualifiedName&, Document*, bool createdByParser);
 
@@ -40,10 +41,6 @@ namespace WebCore {
         virtual void childrenChanged(bool changedByParser = false, Node* beforeChange = 0, Node* afterChange = 0, int childCountDelta = 0);
 
         virtual void finishParsingChildren();
-
-        // 'SVGStyleElement' functions
-        const AtomicString& xmlspace() const;
-        void setXmlspace(const AtomicString&, ExceptionCode&);
 
         virtual bool sheetLoaded();
 

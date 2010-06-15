@@ -33,6 +33,7 @@
 #include "EventNames.h"
 #include "Frame.h"
 #include "FrameLoader.h"
+#include "FrameLoaderClient.h"
 #include "FrameView.h"
 #include "HTMLImageElement.h"
 #include "HTMLNames.h"
@@ -54,10 +55,24 @@ using namespace HTMLNames;
 class ImageEventListener : public EventListener {
 public:
     static PassRefPtr<ImageEventListener> create(ImageDocument* document) { return adoptRef(new ImageEventListener(document)); }
-    virtual void handleEvent(Event*, bool isWindowEvent);
+    static const ImageEventListener* cast(const EventListener* listener)
+    {
+        return listener->type() == ImageEventListenerType
+            ? static_cast<const ImageEventListener*>(listener)
+            : 0;
+    }
+
+    virtual bool operator==(const EventListener& other);
 
 private:
-    ImageEventListener(ImageDocument* document) : m_doc(document) { }
+    ImageEventListener(ImageDocument* document)
+        : EventListener(ImageEventListenerType)
+        , m_doc(document)
+    {
+    }
+
+    virtual void handleEvent(ScriptExecutionContext*, Event*);
+
     ImageDocument* m_doc;
 };
     
@@ -101,8 +116,13 @@ void ImageTokenizer::write(const SegmentedString&, bool)
 
 bool ImageTokenizer::writeRawData(const char*, int)
 {
+    Frame* frame = m_doc->frame();
+    Settings* settings = frame->settings();
+    if (!frame->loader()->client()->allowImages(!settings || settings->areImagesEnabled()))
+        return false;
+    
     CachedImage* cachedImage = m_doc->cachedImage();
-    cachedImage->data(m_doc->frame()->loader()->documentLoader()->mainResourceData(), false);
+    cachedImage->data(frame->loader()->documentLoader()->mainResourceData(), false);
 
     m_doc->imageChanged();
     
@@ -344,7 +364,7 @@ bool ImageDocument::shouldShrinkToFit() const
 
 // --------
 
-void ImageEventListener::handleEvent(Event* event, bool)
+void ImageEventListener::handleEvent(ScriptExecutionContext*, Event* event)
 {
     if (event->type() == eventNames().resizeEvent)
         m_doc->windowSizeChanged();
@@ -352,6 +372,13 @@ void ImageEventListener::handleEvent(Event* event, bool)
         MouseEvent* mouseEvent = static_cast<MouseEvent*>(event);
         m_doc->imageClicked(mouseEvent->x(), mouseEvent->y());
     }
+}
+
+bool ImageEventListener::operator==(const EventListener& listener)
+{
+    if (const ImageEventListener* imageEventListener = ImageEventListener::cast(&listener))
+        return m_doc == imageEventListener->m_doc;
+    return false;
 }
 
 // --------

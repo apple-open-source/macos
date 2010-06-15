@@ -904,7 +904,7 @@ ike_session_cleanup_other_established_ph1s (ike_session_t    *session,
 		 * TODO: currently, most recently established SA wins. Need to revisit to see if 
 		 * alternative selections is better (e.g. largest p->index stays).
 		 */
-		if (p != new_iph1) {
+		if (p != new_iph1 && !p->is_dying) {
 			SCHED_KILL(p->sce);
 			SCHED_KILL(p->sce_rekey);
 			p->is_dying = 1;
@@ -943,6 +943,10 @@ ike_session_cleanup_ph2 (struct ph2handle *iph2)
 
     SCHED_KILL(iph2->sce);
 
+	plog(LLV_ERROR, LOCATION, NULL,
+		 "about to cleanup ph2: status %d, seq %d dying %d\n",
+		 iph2->status, iph2->seq, iph2->is_dying);
+	
 	/* send delete information */
 	if (iph2->status == PHASE2ST_ESTABLISHED) {
 		isakmp_info_send_d2(iph2);
@@ -993,7 +997,7 @@ ike_session_cleanup_other_established_ph2s (ike_session_t    *session,
 		 * TODO: currently, most recently established SA wins. Need to revisit to see if 
 		 * alternative selections is better.
 		 */
-		if (p != new_iph2 && p->spid == new_iph2->spid) {
+		if (p != new_iph2 && p->spid == new_iph2->spid && !p->is_dying) {
 			SCHED_KILL(p->sce);
 			p->is_dying = 1;
 			
@@ -1067,6 +1071,9 @@ ike_session_purge_ph2s_by_ph1 (struct ph1handle *iph1)
 	for (p = LIST_FIRST(&iph1->parent_session->ikev1_state.ph2tree); p; p = next) {
 		// take next pointer now, since delete change the underlying ph2tree list
 		next = LIST_NEXT(p, ph2ofsession_chain);
+		if (p->is_dying) {
+			continue;
+		}
         SCHED_KILL(p->sce);
         p->is_dying = 1;
 			
@@ -1402,6 +1409,47 @@ ike_session_is_id_ipany (vchar_t *ext_id)
 }
 
 static int
+ike_session_is_id_portany (vchar_t *ext_id)
+{
+	struct id {
+		u_int8_t type;		/* ID Type */
+		u_int8_t proto_id;	/* Protocol ID */
+		u_int16_t port;		/* Port */
+		u_int32_t addr;		/* IPv4 address */
+		u_int32_t mask;
+	} *id_ptr;
+	
+	/* ignore addr */
+	id_ptr = (struct id *)ext_id->v;
+	if (id_ptr->type == IPSECDOI_ID_IPV4_ADDR &&
+	    id_ptr->port == 0) {
+		return 1;
+	}
+	plog(LLV_DEBUG2, LOCATION, NULL, "not portany_ids in %s: type %d, port %x.\n",
+		 __FUNCTION__, id_ptr->type, id_ptr->port);
+	return 0;
+}
+
+static void
+ike_session_set_id_portany (vchar_t *ext_id)
+{
+	struct id {
+		u_int8_t type;		/* ID Type */
+		u_int8_t proto_id;	/* Protocol ID */
+		u_int16_t port;		/* Port */
+		u_int32_t addr;		/* IPv4 address */
+		u_int32_t mask;
+	} *id_ptr;
+	
+	/* ignore addr */
+	id_ptr = (struct id *)ext_id->v;
+	if (id_ptr->type == IPSECDOI_ID_IPV4_ADDR) {
+	    id_ptr->port = 0;
+		return;
+	}
+}
+
+static int
 ike_session_cmp_ph2_ids_ipany (vchar_t *ext_id,
 							   vchar_t *ext_id_p)
 {
@@ -1412,10 +1460,19 @@ ike_session_cmp_ph2_ids_ipany (vchar_t *ext_id,
 	return 0;
 }
 
-static int
+/*
+ * ipsec rekeys for l2tp-over-ipsec fail particularly when client is behind nat because the client's configs and policies don't 
+ * match the server's view of the client's address and port.
+ * servers behave differently when using this address-port info to generate ids during phase2 rekeys, so try to match the incoming id to 
+ * a variety of info saved in the older phase2.
+ */
+int
 ike_session_cmp_ph2_ids (struct ph2handle *iph2,
 						 struct ph2handle *older_ph2)
 {
+	vchar_t *portany_id = NULL;
+	vchar_t *portany_id_p = NULL;
+
 	if (iph2->id && older_ph2->id &&
 	    iph2->id->l == older_ph2->id->l &&
 	    memcmp(iph2->id->v, older_ph2->id->v, iph2->id->l) == 0 &&
@@ -1440,6 +1497,82 @@ ike_session_cmp_ph2_ids (struct ph2handle *iph2,
 	    memcmp(iph2->id_p->v, older_ph2->ext_nat_id_p->v, iph2->id_p->l) == 0) {
 		return 0;
 	}
+	if (iph2->id && older_ph2->ext_nat_id &&
+	    iph2->id->l == older_ph2->ext_nat_id->l &&
+	    memcmp(iph2->id->v, older_ph2->ext_nat_id->v, iph2->id->l) == 0 &&
+	    iph2->id_p && older_ph2->id_p &&
+	    iph2->id_p->l == older_ph2->id_p->l &&
+	    memcmp(iph2->id_p->v, older_ph2->id_p->v, iph2->id_p->l) == 0) {
+		return 0;
+	}
+	if (iph2->id && older_ph2->id &&
+	    iph2->id->l == older_ph2->id->l &&
+	    memcmp(iph2->id->v, older_ph2->id->v, iph2->id->l) == 0 &&
+	    iph2->id_p && older_ph2->ext_nat_id_p &&
+	    iph2->id_p->l == older_ph2->ext_nat_id_p->l &&
+	    memcmp(iph2->id_p->v, older_ph2->ext_nat_id_p->v, iph2->id_p->l) == 0) {
+		return 0;
+	}
+
+	/* check if the external id has a wildcard port and compare ids accordingly */
+	if ((older_ph2->ext_nat_id && ike_session_is_id_portany(older_ph2->ext_nat_id)) ||
+		(older_ph2->ext_nat_id_p && ike_session_is_id_portany(older_ph2->ext_nat_id_p))) {
+		// try ignoring ports in iph2->id and iph2->id
+		if (iph2->id && (portany_id = vdup(iph2->id))) {
+			ike_session_set_id_portany(portany_id);
+		}
+		if (iph2->id_p && (portany_id_p = vdup(iph2->id_p))) {
+			ike_session_set_id_portany(portany_id_p);
+		}
+		if (portany_id && older_ph2->ext_nat_id &&
+			portany_id->l == older_ph2->ext_nat_id->l &&
+			memcmp(portany_id->v, older_ph2->ext_nat_id->v, portany_id->l) == 0 &&
+			portany_id_p && older_ph2->ext_nat_id_p &&
+			portany_id_p->l == older_ph2->ext_nat_id_p->l &&
+			memcmp(portany_id_p->v, older_ph2->ext_nat_id_p->v, portany_id_p->l) == 0) {
+			if (portany_id) {
+				vfree(portany_id);
+			}
+			if (portany_id_p) {
+				vfree(portany_id_p);
+			}
+			return 0;
+		}
+		if (iph2->id && older_ph2->ext_nat_id &&
+			iph2->id->l == older_ph2->ext_nat_id->l &&
+			memcmp(portany_id->v, older_ph2->ext_nat_id->v, portany_id->l) == 0 &&
+			iph2->id_p && older_ph2->id_p &&
+			iph2->id_p->l == older_ph2->id_p->l &&
+			memcmp(iph2->id_p->v, older_ph2->id_p->v, iph2->id_p->l) == 0) {
+			if (portany_id) {
+				vfree(portany_id);
+			}
+			if (portany_id_p) {
+				vfree(portany_id_p);
+			}
+			return 0;
+		}
+		if (iph2->id && older_ph2->id &&
+			iph2->id->l == older_ph2->id->l &&
+			memcmp(iph2->id->v, older_ph2->id->v, iph2->id->l) == 0 &&
+			iph2->id_p && older_ph2->ext_nat_id_p &&
+			iph2->id_p->l == older_ph2->ext_nat_id_p->l &&
+			memcmp(portany_id_p->v, older_ph2->ext_nat_id_p->v, portany_id_p->l) == 0) {
+			if (portany_id) {
+				vfree(portany_id);
+			}
+			if (portany_id_p) {
+				vfree(portany_id_p);
+			}
+			return 0;
+		}
+		if (portany_id) {
+			vfree(portany_id);
+		}
+		if (portany_id_p) {
+			vfree(portany_id_p);
+		}
+	}
 	return -1;
 }
 
@@ -1461,12 +1594,71 @@ ike_session_get_sainfo_r (struct ph2handle *iph2)
 				    ike_session_cmp_ph2_ids(iph2, p) == 0) {
 					plog(LLV_DEBUG2, LOCATION, NULL, "candidate ph2 matched in %s.\n", __FUNCTION__);
 					iph2->sainfo = p->sainfo;
+					if (p->ext_nat_id) {
+						if (iph2->ext_nat_id) {
+							vfree(iph2->ext_nat_id);
+						}
+						iph2->ext_nat_id = vdup(p->ext_nat_id);
+					}
+					if (p->ext_nat_id_p) {
+						if (iph2->ext_nat_id_p) {
+							vfree(iph2->ext_nat_id_p);
+						}
+						iph2->ext_nat_id_p = vdup(p->ext_nat_id_p);
+					}
 					return 0;
 				}
 			}
 		}
 	}
 	return -1;
+}
+
+int
+ike_session_get_proposal_r (struct ph2handle *iph2)
+{
+	if (iph2->parent_session &&
+	    iph2->parent_session->is_client &&
+	    iph2->id && iph2->id_p) {
+		struct ph2handle *p;
+		int ipany_ids = ike_session_cmp_ph2_ids_ipany(iph2->id, iph2->id_p);
+		plog(LLV_DEBUG2, LOCATION, NULL, "ipany_ids %d in %s.\n", ipany_ids, __FUNCTION__);
+
+		for (p = LIST_FIRST(&iph2->parent_session->ikev1_state.ph2tree); p; p = LIST_NEXT(p, ph2ofsession_chain)) {
+			if (iph2 != p && !p->is_dying && p->status >= PHASE2ST_ESTABLISHED &&
+			    p->approval) {
+				plog(LLV_DEBUG2, LOCATION, NULL, "candidate ph2 found in %s.\n", __FUNCTION__);
+				if (ipany_ids ||
+				    ike_session_cmp_ph2_ids(iph2, p) == 0) {
+					plog(LLV_DEBUG2, LOCATION, NULL, "candidate ph2 matched in %s.\n", __FUNCTION__);
+					iph2->proposal = dupsaprop(p->approval, 1);
+					return 0;
+				}
+			}
+		}
+	}
+	return -1;
+}
+
+void
+ike_session_update_natt_version (struct ph1handle *iph1)
+{
+	if (iph1->parent_session) {
+		if (iph1->natt_options) {
+			iph1->parent_session->natt_version = iph1->natt_options->version;
+		} else {
+			iph1->parent_session->natt_version = 0;
+		}
+	}
+}
+
+int
+ike_session_get_natt_version (struct ph1handle *iph1)
+{
+	if (iph1->parent_session) {
+		return(iph1->parent_session->natt_version);
+	}
+	return 0;
 }
 
 int

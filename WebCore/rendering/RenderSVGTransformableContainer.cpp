@@ -1,5 +1,5 @@
 /*
-    Copyright (C) 2004, 2005 Nikolas Zimmermann <wildfox@kde.org>
+    Copyright (C) 2004, 2005 Nikolas Zimmermann <zimmermann@kde.org>
                   2004, 2005, 2006 Rob Buis <buis@kde.org>
                   2009 Google, Inc.
 
@@ -20,33 +20,43 @@
  */
 
 #include "config.h"
-#if ENABLE(SVG)
 
+#if ENABLE(SVG)
 #include "RenderSVGTransformableContainer.h"
 
+#include "SVGShadowTreeElements.h"
 #include "SVGStyledTransformableElement.h"
-#include "SVGTransformList.h"
 
 namespace WebCore {
     
 RenderSVGTransformableContainer::RenderSVGTransformableContainer(SVGStyledTransformableElement* node)
     : RenderSVGContainer(node)
+    , m_needsTransformUpdate(true)
 {
-}
-
-TransformationMatrix RenderSVGTransformableContainer::localToParentTransform() const
-{
-    return m_localTransform;
-}
-
-TransformationMatrix RenderSVGTransformableContainer::localTransform() const
-{
-    return m_localTransform;
 }
 
 void RenderSVGTransformableContainer::calculateLocalTransform()
 {
-    m_localTransform = static_cast<SVGStyledTransformableElement*>(node())->animatedLocalTransform();
+    SVGStyledTransformableElement* element = static_cast<SVGStyledTransformableElement*>(node());
+
+    bool needsUpdate = m_needsTransformUpdate;
+    if (needsUpdate) {
+        m_localTransform = element->animatedLocalTransform();
+        m_needsTransformUpdate = false;
+    }
+
+    if (!element->hasTagName(SVGNames::gTag) || !static_cast<SVGGElement*>(element)->isShadowTreeContainerElement())
+        return;
+
+    FloatSize translation = static_cast<SVGShadowTreeContainerElement*>(element)->containerTranslation();
+    if (translation.width() == 0 && translation.height() == 0)
+        return;
+
+    // FIXME: Could optimize this case for use to avoid refetching the animatedLocalTransform() here, if only the containerTranslation() changed.
+    if (!needsUpdate)
+        m_localTransform = element->animatedLocalTransform();
+
+    m_localTransform.translate(translation.width(), translation.height());
 }
 
 }

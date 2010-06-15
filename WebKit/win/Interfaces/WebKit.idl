@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006, 2007, 2008, 2009 Apple Inc. All rights reserved.
+ * Copyright (C) 2006, 2007, 2008, 2009, 2010 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -24,7 +24,7 @@
  */
 
 cpp_quote("/*")
-cpp_quote(" * Copyright (C) 2006, 2007, 2008 Apple Inc.  All rights reserved.")
+cpp_quote(" * Copyright (C) 2006, 2007, 2008, 2009, 2010 Apple Inc. All rights reserved.")
 cpp_quote(" *")
 cpp_quote(" * Redistribution and use in source and binary forms, with or without")
 cpp_quote(" * modification, are permitted provided that the following conditions")
@@ -45,7 +45,7 @@ cpp_quote(" * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
 cpp_quote(" * PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY")
 cpp_quote(" * OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT")
 cpp_quote(" * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE")
-cpp_quote(" * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. ")
+cpp_quote(" * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.")
 cpp_quote(" */")
 
 #include "autoversion.h"
@@ -55,7 +55,9 @@ cpp_quote(" */")
 import "oaidl.idl";
 import "ocidl.idl";
 
+#include "AccessibleComparable.idl"
 #include "WebScrollbarTypes.idl"
+#include "JavaScriptCoreAPITypes.idl"
 #include "IWebScriptObject.idl"
 #include "DOMCSS.idl"
 #include "DOMCore.idl"
@@ -73,6 +75,7 @@ import "ocidl.idl";
 #include "IWebCoreStatistics.idl"
 #include "IWebDataSource.idl"
 #include "IWebDatabaseManager.idl"
+#include "IWebDesktopNotificationsDelegate.idl"
 #include "IWebDocument.idl"
 #include "IWebDownload.idl"
 #include "IWebEditingDelegate.idl"
@@ -83,34 +86,46 @@ import "ocidl.idl";
 #include "IWebFrame.idl"
 #include "IWebFrameLoadDelegate.idl"
 #include "IWebFrameLoadDelegatePrivate.idl"
+#include "IWebFrameLoadDelegatePrivate2.idl"
 #include "IWebFramePrivate.idl"
 #include "IWebFrameView.idl"
+#include "IWebGeolocationPolicyListener.idl"
+#include "IWebGeolocationPosition.idl"
+#include "IWebGeolocationProvider.idl"
 #include "IWebHTMLRepresentation.idl"
 #include "IWebHTTPURLResponse.idl"
 #include "IWebHistory.idl"
+#include "IWebHistoryDelegate.idl"
 #include "IWebHistoryItem.idl"
 #include "IWebHistoryItemPrivate.idl"
 #include "IWebHistoryPrivate.idl"
 #include "IWebIconDatabase.idl"
 #include "IWebIconFetcher.idl"
 #include "IWebInspector.idl"
+#include "IWebInspectorPrivate.idl"
 #include "IWebJavaScriptCollector.idl"
 #include "IWebKitStatistics.idl"
 #include "IWebMutableURLRequestPrivate.idl"
+#include "IWebNavigationData.idl"
 #include "IWebNotification.idl"
 #include "IWebNotificationCenter.idl"
 #include "IWebNotificationObserver.idl"
+#include "IWebPluginHalterDelegate.idl"
 #include "IWebPolicyDelegate.idl"
+#include "IWebPolicyDelegatePrivate.idl"
 #include "IWebPreferences.idl"
 #include "IWebPreferencesPrivate.idl"
 #include "IWebResource.idl"
 #include "IWebResourceLoadDelegate.idl"
 #include "IWebResourceLoadDelegatePrivate.idl"
+#include "IWebScriptWorld.idl"
 #include "IWebScrollBarDelegatePrivate.idl"
 #include "IWebScrollBarPrivate.idl"
 #include "IWebSecurityOrigin.idl"
+#include "IWebSerializedJSValue.idl"
 #include "IWebTextRenderer.idl"
 #include "IWebUIDelegate.idl"
+#include "IWebUIDelegate2.idl"
 #include "IWebUIDelegatePrivate.idl"
 #include "IWebURLAuthenticationChallenge.idl"
 #include "IWebURLRequest.idl"
@@ -119,108 +134,10 @@ import "ocidl.idl";
 #include "IWebURLResponsePrivate.idl"
 #include "IWebUndoManager.idl"
 #include "IWebUndoTarget.idl"
+#include "IWebUserContentURLPattern.idl"
 #include "IWebView.idl"
 #include "IWebViewPrivate.idl"
-
-#include "IGEN_DOMObject.idl"
-#include "IGEN_DOMCharacterData.idl"
-#include "IGEN_DOMText.idl"
-#include "IGEN_DOMAttr.idl"
-#include "IGEN_DOMCDATASection.idl"
-#include "IGEN_DOMCSSCharsetRule.idl"
-#include "IGEN_DOMCSSFontFaceRule.idl"
-#include "IGEN_DOMCSSImportRule.idl"
-#include "IGEN_DOMCSSMediaRule.idl"
-#include "IGEN_DOMCSSPageRule.idl"
-#include "IGEN_DOMCSSPrimitiveValue.idl"
-#include "IGEN_DOMCSSRule.idl"
-#include "IGEN_DOMCSSRuleList.idl"
-#include "IGEN_DOMCSSStyleDeclaration.idl"
-#include "IGEN_DOMCSSStyleRule.idl"
-#include "IGEN_DOMCSSStyleSheet.idl"
-#include "IGEN_DOMCSSUnknownRule.idl"
-#include "IGEN_DOMCSSValue.idl"
-#include "IGEN_DOMCSSValueList.idl"
-#include "IGEN_DOMComment.idl"
-#include "IGEN_DOMCounter.idl"
-#include "IGEN_DOMDOMImplementation.idl"
-#include "IGEN_DOMDocument.idl"
-#include "IGEN_DOMDocumentFragment.idl"
-#include "IGEN_DOMDocumentType.idl"
-#include "IGEN_DOMElement.idl"
-#include "IGEN_DOMEntity.idl"
-#include "IGEN_DOMEntityReference.idl"
-#include "IGEN_DOMEvent.idl"
-#include "IGEN_DOMEventListener.idl"
-#include "IGEN_DOMEventTarget.idl"
-#include "IGEN_DOMHTMLAnchorElement.idl"
-#include "IGEN_DOMHTMLAppletElement.idl"
-#include "IGEN_DOMHTMLAreaElement.idl"
-#include "IGEN_DOMHTMLBRElement.idl"
-#include "IGEN_DOMHTMLBaseElement.idl"
-#include "IGEN_DOMHTMLBaseFontElement.idl"
-#include "IGEN_DOMHTMLBlockquoteElement.idl"
-#include "IGEN_DOMHTMLBodyElement.idl"
-#include "IGEN_DOMHTMLButtonElement.idl"
-#include "IGEN_DOMHTMLCollection.idl"
-#include "IGEN_DOMHTMLDListElement.idl"
-#include "IGEN_DOMHTMLDirectoryElement.idl"
-#include "IGEN_DOMHTMLDivElement.idl"
-#include "IGEN_DOMHTMLDocument.idl"
-#include "IGEN_DOMHTMLElement.idl"
-#include "IGEN_DOMHTMLEmbedElement.idl"
-#include "IGEN_DOMHTMLFieldSetElement.idl"
-#include "IGEN_DOMHTMLFontElement.idl"
-#include "IGEN_DOMHTMLFormElement.idl"
-#include "IGEN_DOMHTMLFrameElement.idl"
-#include "IGEN_DOMHTMLFrameSetElement.idl"
-#include "IGEN_DOMHTMLHRElement.idl"
-#include "IGEN_DOMHTMLHeadElement.idl"
-#include "IGEN_DOMHTMLHeadingElement.idl"
-#include "IGEN_DOMHTMLHtmlElement.idl"
-#include "IGEN_DOMHTMLIFrameElement.idl"
-#include "IGEN_DOMHTMLImageElement.idl"
-#include "IGEN_DOMHTMLInputElement.idl"
-#include "IGEN_DOMHTMLIsIndexElement.idl"
-#include "IGEN_DOMHTMLLIElement.idl"
-#include "IGEN_DOMHTMLLabelElement.idl"
-#include "IGEN_DOMHTMLLegendElement.idl"
-#include "IGEN_DOMHTMLLinkElement.idl"
-#include "IGEN_DOMHTMLMapElement.idl"
-#include "IGEN_DOMHTMLMarqueeElement.idl"
-#include "IGEN_DOMHTMLMenuElement.idl"
-#include "IGEN_DOMHTMLMetaElement.idl"
-#include "IGEN_DOMHTMLModElement.idl"
-#include "IGEN_DOMHTMLOListElement.idl"
-#include "IGEN_DOMHTMLObjectElement.idl"
-#include "IGEN_DOMHTMLOptGroupElement.idl"
-#include "IGEN_DOMHTMLOptionElement.idl"
-#include "IGEN_DOMHTMLOptionsCollection.idl"
-#include "IGEN_DOMHTMLParagraphElement.idl"
-#include "IGEN_DOMHTMLParamElement.idl"
-#include "IGEN_DOMHTMLPreElement.idl"
-#include "IGEN_DOMHTMLQuoteElement.idl"
-#include "IGEN_DOMHTMLScriptElement.idl"
-#include "IGEN_DOMHTMLSelectElement.idl"
-#include "IGEN_DOMHTMLStyleElement.idl"
-#include "IGEN_DOMHTMLTableCaptionElement.idl"
-#include "IGEN_DOMHTMLTableCellElement.idl"
-#include "IGEN_DOMHTMLTableColElement.idl"
-#include "IGEN_DOMHTMLTableElement.idl"
-#include "IGEN_DOMHTMLTableRowElement.idl"
-#include "IGEN_DOMHTMLTableSectionElement.idl"
-#include "IGEN_DOMHTMLTextAreaElement.idl"
-#include "IGEN_DOMHTMLTitleElement.idl"
-#include "IGEN_DOMHTMLUListElement.idl"
-#include "IGEN_DOMMediaList.idl"
-#include "IGEN_DOMNamedNodeMap.idl"
-#include "IGEN_DOMNode.idl"
-#include "IGEN_DOMNodeList.idl"
-#include "IGEN_DOMNotation.idl"
-#include "IGEN_DOMProcessingInstruction.idl"
-#include "IGEN_DOMRect.idl"
-#include "IGEN_DOMStyleSheet.idl"
-#include "IGEN_DOMStyleSheetList.idl"
+#include "IWebWorkersPrivate.idl"
 
 #define __TYPELIB_VERSION__ __BUILD_NUMBER_MAJOR__##.##__BUILD_NUMBER_MINOR__
 
@@ -356,6 +273,31 @@ library WebKit
     [uuid(3F35F332-BB2B-49b3-AEDD-27B317687E07)]
     coclass WebCookieManager{
         [default] interface IWebCookieManager;
+    }
+
+    [uuid(0967AAFF-2FFE-4fcc-81F3-3FF2A9C6DCE2)]
+    coclass WebWorkersPrivate{
+        [default] interface IWebWorkersPrivate;
+    }
+
+    [uuid(D3C301EE-D59A-49c0-A43A-9EA01CDB1590)]
+    coclass WebScriptWorld {
+        [default] interface IWebScriptWorld;
+    }
+
+    [uuid(13C45703-A3B3-8797-276B-75632F6165C3)]
+    coclass WebSerializedJSValue {
+        [default] interface IWebSerializedJSValue;
+    }
+
+    [uuid(67712611-83CF-4703-89FC-07A0E2A19C0D)]
+    coclass WebGeolocationPosition {
+        [default] interface IWebGeolocationPosition;
+    }
+
+    [uuid(2D62AE25-DEAA-4945-A76E-CCE05E899664)]
+    coclass WebUserContentURLPattern {
+        [default] interface IWebUserContentURLPattern;
     }
 }
 

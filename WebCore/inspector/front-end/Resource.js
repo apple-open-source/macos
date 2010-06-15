@@ -26,22 +26,73 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WebInspector.Resource = function(requestHeaders, url, domain, path, lastPathComponent, identifier, mainResource, cached)
+WebInspector.Resource = function(identifier, url)
 {
     this.identifier = identifier;
-
-    this.startTime = -1;
-    this.endTime = -1;
-    this.mainResource = mainResource;
-    this.requestHeaders = requestHeaders;
-    this.url = url;
-    this.domain = domain;
-    this.path = path;
-    this.lastPathComponent = lastPathComponent;
-    this.cached = cached;
-
-    this.category = WebInspector.resourceCategories.other;
+    this._url = url;
+    this._startTime = -1;
+    this._endTime = -1;
+    this._requestMethod = "";
+    this._requestFormData = "";
+    this._category = WebInspector.resourceCategories.other;
 }
+
+WebInspector.Resource.StatusText = {
+    100: "Continue",
+    101: "Switching Protocols",
+    102: "Processing (WebDav)",
+    200: "OK",
+    201: "Created",
+    202: "Accepted",
+    203: "Non-Authoritative Information",
+    204: "No Content",
+    205: "Reset Content",
+    206: "Partial Content",
+    207: "Multi-Status (WebDav)",
+    300: "Multiple Choices",
+    301: "Moved Permanently",
+    302: "Found",
+    303: "See Other",
+    304: "Not Modified",
+    305: "Use Proxy",
+    306: "Switch Proxy",
+    307: "Temporary",
+    400: "Bad Request",
+    401: "Unauthorized",
+    402: "Payment Required",
+    403: "Forbidden",
+    404: "Not Found",
+    405: "Method Not Allowed",
+    406: "Not Acceptable",
+    407: "Proxy Authentication Required",
+    408: "Request Timeout",
+    409: "Conflict",
+    410: "Gone",
+    411: "Length Required",
+    412: "Precondition Failed",
+    413: "Request Entity Too Large",
+    414: "Request-URI Too Long",
+    415: "Unsupported Media Type",
+    416: "Requested Range Not Satisfiable",
+    417: "Expectation Failed",
+    418: "I'm a teapot",
+    422: "Unprocessable Entity (WebDav)",
+    423: "Locked (WebDav)",
+    424: "Failed Dependency (WebDav)",
+    425: "Unordered Collection",
+    426: "Upgrade Required",
+    449: "Retry With",
+    500: "Internal Server Error",
+    501: "Not Implemented",
+    502: "Bad Gateway",
+    503: "Service Unavailable",
+    504: "Gateway Timeout",
+    505: "HTTP Version Not Supported",
+    506: "Variant Also Negotiates",
+    507: "Insufficient Storage (WebDav)",
+    509: "Bandwidth Limit Exceeded",
+    510: "Not Extended"
+};
 
 // Keep these in sync with WebCore::InspectorResource::Type
 WebInspector.Resource.Type = {
@@ -51,7 +102,8 @@ WebInspector.Resource.Type = {
     Font:       3,
     Script:     4,
     XHR:        5,
-    Other:      6,
+    Media:      6,
+    Other:      7,
 
     isTextType: function(type)
     {
@@ -99,6 +151,18 @@ WebInspector.Resource.prototype = {
         WebInspector.resourceURLChanged(this, oldURL);
 
         this.dispatchEventToListeners("url changed");
+    },
+
+    get documentURL()
+    {
+        return this._documentURL;
+    },
+
+    set documentURL(x)
+    {
+        if (this._documentURL === x)
+            return;
+        this._documentURL = x;
     },
 
     get domain()
@@ -208,20 +272,26 @@ WebInspector.Resource.prototype = {
         return this._responseReceivedTime - this._startTime;
     },
 
-    get contentLength()
+    get resourceSize()
     {
-        return this._contentLength || 0;
+        return this._resourceSize || 0;
     },
 
-    set contentLength(x)
+    set resourceSize(x)
     {
-        if (this._contentLength === x)
+        if (this._resourceSize === x)
             return;
 
-        this._contentLength = x;
+        this._resourceSize = x;
 
         if (WebInspector.panels.resources)
             WebInspector.panels.resources.refreshResource(this);
+    },
+
+    get transferSize()
+    {
+        // FIXME: this is wrong for chunked-encoding resources.
+        return this.cached ? 0 : Number(this.responseHeaders["Content-Length"] || this.resourceSize || 0);
     },
 
     get expectedContentLength()
@@ -249,7 +319,6 @@ WebInspector.Resource.prototype = {
         this._finished = x;
 
         if (x) {
-            this._checkTips();
             this._checkWarnings();
             this.dispatchEventToListeners("finished");
         }
@@ -339,12 +408,6 @@ WebInspector.Resource.prototype = {
                 this.category = WebInspector.resourceCategories.other;
                 break;
         }
-    },
-
-    get documentNode() {
-        if ("identifier" in this)
-            return InspectorController.getResourceDocumentNode(this.identifier);
-        return null;
     },
 
     get requestHeaders()
@@ -471,59 +534,14 @@ WebInspector.Resource.prototype = {
         this._warnings = x;
     },
 
-    get tips()
-    {
-        if (!("_tips" in this))
-            this._tips = {};
-        return this._tips;
-    },
-
-    _addTip: function(tip)
-    {
-        if (tip.id in this.tips)
-            return;
-
-        this.tips[tip.id] = tip;
-
-        // FIXME: Re-enable this code once we have a scope bar in the Console.
-        // Otherwise, we flood the Console with too many tips.
-        /*
-        var msg = new WebInspector.ConsoleMessage(WebInspector.ConsoleMessage.MessageSource.Other,
-            WebInspector.ConsoleMessage.MessageLevel.Tip, -1, this.url, null, 1, tip.message);
-        WebInspector.console.addMessage(msg);
-        */
-    },
-
-    _checkTips: function()
-    {
-        for (var tip in WebInspector.Tips)
-            this._checkTip(WebInspector.Tips[tip]);
-    },
-
-    _checkTip: function(tip)
-    {
-        var addTip = false;
-        switch (tip.id) {
-            case WebInspector.Tips.ResourceNotCompressed.id:
-                addTip = this._shouldCompress();
-                break;
-        }
-
-        if (addTip)
-            this._addTip(tip);
-    },
-
-    _shouldCompress: function()
-    {
-        return WebInspector.Resource.Type.isTextType(this.type)
-            && this.domain
-            && !("Content-Encoding" in this.responseHeaders)
-            && this.contentLength !== undefined
-            && this.contentLength >= 512;
-    },
-
     _mimeTypeIsConsistentWithType: function()
     {
+        // If status is an error, content is likely to be of an inconsistent type,
+        // as it's going to be an error message. We do not want to emit a warning
+        // for this, though, as this will already be reported as resource loading failure.
+        if (this.statusCode >= 400)
+            return true;
+
         if (typeof this.type === "undefined"
          || this.type === WebInspector.Resource.Type.Other
          || this.type === WebInspector.Resource.Type.XHR)
@@ -532,7 +550,7 @@ WebInspector.Resource.prototype = {
         if (this.mimeType in WebInspector.MIMETypes)
             return this.type in WebInspector.MIMETypes[this.mimeType];
 
-        return true;
+        return false;
     },
 
     _checkWarnings: function()
@@ -543,12 +561,12 @@ WebInspector.Resource.prototype = {
 
     _checkWarning: function(warning)
     {
-        var addWarning = false;
         var msg;
         switch (warning.id) {
             case WebInspector.Warnings.IncorrectMIMEType.id:
                 if (!this._mimeTypeIsConsistentWithType())
                     msg = new WebInspector.ConsoleMessage(WebInspector.ConsoleMessage.MessageSource.Other,
+                        WebInspector.ConsoleMessage.MessageType.Log, 
                         WebInspector.ConsoleMessage.MessageLevel.Warning, -1, this.url, null, 1,
                         String.sprintf(WebInspector.Warnings.IncorrectMIMEType.message,
                         WebInspector.Resource.Type.toString(this.type), this.mimeType));
@@ -564,62 +582,49 @@ WebInspector.Resource.prototype.__proto__ = WebInspector.Object.prototype;
 
 WebInspector.Resource.CompareByStartTime = function(a, b)
 {
-    if (a.startTime < b.startTime)
-        return -1;
-    if (a.startTime > b.startTime)
-        return 1;
-    return 0;
+    return a.startTime - b.startTime;
 }
 
 WebInspector.Resource.CompareByResponseReceivedTime = function(a, b)
 {
-    if (a.responseReceivedTime === -1 && b.responseReceivedTime !== -1)
-        return 1;
-    if (a.responseReceivedTime !== -1 && b.responseReceivedTime === -1)
-        return -1;
-    if (a.responseReceivedTime < b.responseReceivedTime)
-        return -1;
-    if (a.responseReceivedTime > b.responseReceivedTime)
-        return 1;
-    return 0;
+    var aVal = a.responseReceivedTime;
+    var bVal = b.responseReceivedTime;
+    if (aVal === -1 ^ bVal === -1)
+        return bVal - aVal;
+    return aVal - bVal;
 }
 
 WebInspector.Resource.CompareByEndTime = function(a, b)
 {
-    if (a.endTime === -1 && b.endTime !== -1)
-        return 1;
-    if (a.endTime !== -1 && b.endTime === -1)
-        return -1;
-    if (a.endTime < b.endTime)
-        return -1;
-    if (a.endTime > b.endTime)
-        return 1;
-    return 0;
+    var aVal = a.endTime;
+    var bVal = b.endTime;
+    if (aVal === -1 ^ bVal === -1)
+        return bVal - aVal;
+    return aVal - bVal;
 }
 
 WebInspector.Resource.CompareByDuration = function(a, b)
 {
-    if (a.duration < b.duration)
-        return -1;
-    if (a.duration > b.duration)
-        return 1;
-    return 0;
+    return a.duration - b.duration;
 }
 
 WebInspector.Resource.CompareByLatency = function(a, b)
 {
-    if (a.latency < b.latency)
-        return -1;
-    if (a.latency > b.latency)
-        return 1;
-    return 0;
+    return a.latency - b.latency;
 }
 
 WebInspector.Resource.CompareBySize = function(a, b)
 {
-    if (a.contentLength < b.contentLength)
-        return -1;
-    if (a.contentLength > b.contentLength)
-        return 1;
-    return 0;
+    return a.resourceSize - b.resourceSize;
+}
+
+WebInspector.Resource.CompareByTransferSize = function(a, b)
+{
+    return a.transferSize - b.transferSize;
+}
+
+
+WebInspector.Resource.StatusTextForCode = function(code)
+{
+    return code ? code + " " + WebInspector.Resource.StatusText[code] : "";
 }

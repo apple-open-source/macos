@@ -19,25 +19,24 @@
 
 #include "config.h"
 
+#define LIBSOUP_I_HAVE_READ_BUG_594377_AND_KNOW_SOUP_PASSWORD_MANAGER_MIGHT_GO_AWAY
+
 #include <glib/gi18n-lib.h>
 #include <gtk/gtk.h>
 #include <libsoup/soup.h>
-#if USE(GNOMEKEYRING)
-#include <gnome-keyring.h>
-#endif
 
 #include "webkitmarshal.h"
 #include "webkitsoupauthdialog.h"
 
 /**
  * SECTION:webkitsoupauthdialog
- * @short_description: A #SoupFeature to provide a simple
+ * @short_description: A #SoupSessionFeature to provide a simple
  * authentication dialog for HTTP basic auth support.
  *
- * #WebKitSoupAuthDialog is a #SoupFeature that you can attach to your
- * #SoupSession to provide a simple authentication dialog, with
- * optional GNOME Keyring support, while handling HTTP basic auth. It
- * is built as a simple C-only module to ease reuse.
+ * #WebKitSoupAuthDialog is a #SoupSessionFeature that you can attach to your
+ * #SoupSession to provide a simple authentication dialog while
+ * handling HTTP basic auth. It is built as a simple C-only module
+ * to ease reuse.
  */
 
 static void webkit_soup_auth_dialog_session_feature_init(SoupSessionFeatureInterface* feature_interface, gpointer interface_data);
@@ -88,72 +87,66 @@ typedef struct _WebKitAuthData {
     SoupSessionFeature* manager;
     GtkWidget* loginEntry;
     GtkWidget* passwordEntry;
-#if USE(GNOMEKEYRING)
     GtkWidget* checkButton;
-#endif
+    char *username;
+    char *password;
 } WebKitAuthData;
 
 static void free_authData(WebKitAuthData* authData)
 {
     g_object_unref(authData->msg);
+    g_free(authData->username);
+    g_free(authData->password);
     g_slice_free(WebKitAuthData, authData);
 }
 
-#if USE(GNOMEKEYRING)
-static void set_password_callback(GnomeKeyringResult result, guint32 val, gpointer user_data)
+#ifdef SOUP_TYPE_PASSWORD_MANAGER
+static void save_password_callback(SoupMessage* msg, WebKitAuthData* authData)
 {
-    /* Dummy callback, gnome_keyring_set_network_password does not accept a NULL one */
+    /* Anything but 401 and 5xx means the password was accepted */
+    if (msg->status_code != 401 && msg->status_code < 500)
+        soup_auth_save_password(authData->auth, authData->username, authData->password);
+
+    /* Disconnect the callback. If the authentication succeeded we are
+     * done, and if it failed we'll create a new authData and we'll
+     * connect to 'got-headers' again in response_callback */
+    g_signal_handlers_disconnect_by_func(msg, save_password_callback, authData);
+
+    free_authData(authData);
 }
 #endif
 
 static void response_callback(GtkDialog* dialog, gint response_id, WebKitAuthData* authData)
 {
-    const char* login;
-    const char* password;
-#if USE(GNOMEKEYRING)
-    SoupURI* uri;
-    gboolean storePassword;
-#endif
+    gboolean freeAuthData = TRUE;
 
-    switch(response_id) {
-    case GTK_RESPONSE_OK:
-        login = gtk_entry_get_text(GTK_ENTRY(authData->loginEntry));
-        password = gtk_entry_get_text(GTK_ENTRY(authData->passwordEntry));
-        soup_auth_authenticate(authData->auth, login, password);
+    if (response_id == GTK_RESPONSE_OK) {
+        authData->username = g_strdup(gtk_entry_get_text(GTK_ENTRY(authData->loginEntry)));
+        authData->password = g_strdup(gtk_entry_get_text(GTK_ENTRY(authData->passwordEntry)));
 
-#if USE(GNOMEKEYRING)
-        storePassword = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(authData->checkButton));
-        if (storePassword) {
-            uri = soup_message_get_uri(authData->msg);
-            gnome_keyring_set_network_password(NULL,
-                                               login,
-                                               soup_auth_get_realm(authData->auth),
-                                               uri->host,
-                                               NULL,
-                                               uri->scheme,
-                                               soup_auth_get_scheme_name(authData->auth),
-                                               uri->port,
-                                               password,
-                                               (GnomeKeyringOperationGetIntCallback)set_password_callback,
-                                               NULL,
-                                               NULL);
+        soup_auth_authenticate(authData->auth, authData->username, authData->password);
+
+#ifdef SOUP_TYPE_PASSWORD_MANAGER
+        if (authData->checkButton &&
+            gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(authData->checkButton))) {
+            g_signal_connect(authData->msg, "got-headers", G_CALLBACK(save_password_callback), authData);
+            freeAuthData = FALSE;
         }
 #endif
-    default:
-        break;
     }
 
     soup_session_unpause_message(authData->session, authData->msg);
-    free_authData(authData);
+    if (freeAuthData)
+        free_authData(authData);
     gtk_widget_destroy(GTK_WIDGET(dialog));
 }
 
 static GtkWidget *
-table_add_entry (GtkWidget*  table,
-                 int         row,
-                 const char* label_text,
-                 const char* value,
-                 gpointer    user_data)
+table_add_entry(GtkWidget*  table,
+                int         row,
+                const char* label_text,
+                const char* value,
+                gpointer    user_data)
 {
     GtkWidget* entry;
     GtkWidget* label;
@@ -176,6 +169,15 @@ table_add_entry (GtkWidget*  table,
     return entry;
 }
 
+static gboolean session_can_save_passwords(SoupSession* session)
+{
+#ifdef SOUP_TYPE_PASSWORD_MANAGER
+    return soup_session_get_feature(session, SOUP_TYPE_PASSWORD_MANAGER) != NULL;
+#else
+    return FALSE;
+#endif
+}
+
 static void show_auth_dialog(WebKitAuthData* authData, const char* login, const char* password)
 {
     GtkWidget* toplevel;
@@ -188,13 +190,15 @@ static void show_auth_dialog(WebKitAuthData* authData, const char* login, const 
     GtkWidget* vbox;
     GtkWidget* icon;
     GtkWidget* table;
-    GtkWidget* messageLabel;
-    char* message;
+    GtkWidget* serverMessageDescriptionLabel;
+    GtkWidget* serverMessageLabel;
+    GtkWidget* descriptionLabel;
+    char* description;
+    const char* realm;
+    gboolean hasRealm;
     SoupURI* uri;
-#if USE(GNOMEKEYRING)
     GtkWidget* rememberBox;
     GtkWidget* checkButton;
-#endif
 
     /* From GTK+ gtkmountoperation.c, modified and simplified. LGPL 2 license */
 
@@ -209,9 +213,9 @@ static void show_auth_dialog(WebKitAuthData* authData, const char* login, const 
 
     /* Set the dialog up with HIG properties */
     gtk_dialog_set_has_separator(dialog, FALSE);
-    gtk_container_set_border_width(GTK_CONTAINER (dialog), 5);
+    gtk_container_set_border_width(GTK_CONTAINER(dialog), 5);
     gtk_box_set_spacing(GTK_BOX(dialog->vbox), 2); /* 2 * 5 + 2 = 12 */
-    gtk_container_set_border_width(GTK_CONTAINER (dialog->action_area), 5);
+    gtk_container_set_border_width(GTK_CONTAINER(dialog->action_area), 5);
     gtk_box_set_spacing(GTK_BOX(dialog->action_area), 6);
 
     gtk_window_set_resizable(window, FALSE);
@@ -241,16 +245,16 @@ static void show_auth_dialog(WebKitAuthData* authData, const char* login, const 
     gtk_box_pack_start(GTK_BOX(hbox), mainVBox, TRUE, TRUE, 0);
 
     uri = soup_message_get_uri(authData->msg);
-    message = g_strdup_printf(_("A username and password are being requested by the site %s"), uri->host);
-    messageLabel = gtk_label_new(message);
-    g_free(message);
-    gtk_misc_set_alignment(GTK_MISC(messageLabel), 0.0, 0.5);
-    gtk_label_set_line_wrap(GTK_LABEL(messageLabel), TRUE);
-    gtk_box_pack_start(GTK_BOX(mainVBox), GTK_WIDGET(messageLabel),
+    description = g_strdup_printf(_("A username and password are being requested by the site %s"), uri->host);
+    descriptionLabel = gtk_label_new(description);
+    g_free(description);
+    gtk_misc_set_alignment(GTK_MISC(descriptionLabel), 0.0, 0.5);
+    gtk_label_set_line_wrap(GTK_LABEL(descriptionLabel), TRUE);
+    gtk_box_pack_start(GTK_BOX(mainVBox), GTK_WIDGET(descriptionLabel),
                        FALSE, FALSE, 0);
 
     vbox = gtk_vbox_new(FALSE, 6);
-    gtk_box_pack_start(GTK_BOX (mainVBox), vbox, FALSE, FALSE, 0);
+    gtk_box_pack_start(GTK_BOX(mainVBox), vbox, FALSE, FALSE, 0);
 
     /* The table that holds the entries */
     entryContainer = gtk_alignment_new(0.0, 0.0, 1.0, 1.0);
@@ -261,96 +265,85 @@ static void show_auth_dialog(WebKitAuthData* authData, const char* login, const 
     gtk_box_pack_start(GTK_BOX(vbox), entryContainer,
                        FALSE, FALSE, 0);
 
-    table = gtk_table_new(2, 2, FALSE);
-    gtk_table_set_col_spacings(GTK_TABLE (table), 12);
-    gtk_table_set_row_spacings(GTK_TABLE (table), 6);
+    realm = soup_auth_get_realm(authData->auth);
+    // Checking that realm is not an empty string
+    hasRealm = (realm && (strlen(realm) > 0));
+
+    table = gtk_table_new(hasRealm ? 3 : 2, 2, FALSE);
+    gtk_table_set_col_spacings(GTK_TABLE(table), 12);
+    gtk_table_set_row_spacings(GTK_TABLE(table), 6);
     gtk_container_add(GTK_CONTAINER(entryContainer), table);
 
-    authData->loginEntry = table_add_entry(table, 0, _("Username:"),
+    if (hasRealm) {
+        serverMessageDescriptionLabel = gtk_label_new(_("Server message:"));
+        serverMessageLabel = gtk_label_new(realm);
+        gtk_misc_set_alignment(GTK_MISC(serverMessageDescriptionLabel), 0.0, 0.5);
+        gtk_label_set_line_wrap(GTK_LABEL(serverMessageDescriptionLabel), TRUE);
+        gtk_misc_set_alignment(GTK_MISC(serverMessageLabel), 0.0, 0.5);
+        gtk_label_set_line_wrap(GTK_LABEL(serverMessageLabel), TRUE);
+
+        gtk_table_attach_defaults(GTK_TABLE(table), serverMessageDescriptionLabel,
+                                  0, 1, 0, 1);
+        gtk_table_attach_defaults(GTK_TABLE(table), serverMessageLabel,
+                                  1, 2, 0, 1);
+    }
+
+    authData->loginEntry = table_add_entry(table, hasRealm ? 1 : 0, _("Username:"),
                                            login, NULL);
-    authData->passwordEntry = table_add_entry(table, 1, _("Password:"),
+    authData->passwordEntry = table_add_entry(table, hasRealm ? 2 : 1, _("Password:"),
                                               password, NULL);
 
     gtk_entry_set_visibility(GTK_ENTRY(authData->passwordEntry), FALSE);
 
-#if USE(GNOMEKEYRING)
-    rememberBox = gtk_vbox_new (FALSE, 6);
-    gtk_box_pack_start (GTK_BOX (vbox), rememberBox,
-                        FALSE, FALSE, 0);
-
-    checkButton = gtk_check_button_new_with_label(_("Remember password"));
-    if (login && password)
-        gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(checkButton), TRUE);
-    gtk_label_set_line_wrap(GTK_LABEL(gtk_bin_get_child(GTK_BIN(checkButton))), TRUE);
-    gtk_box_pack_start (GTK_BOX (rememberBox), checkButton, FALSE, FALSE, 0);
-    authData->checkButton = checkButton;
-#endif
+    if (session_can_save_passwords(authData->session)) {
+        rememberBox = gtk_vbox_new(FALSE, 6);
+        gtk_box_pack_start(GTK_BOX(vbox), rememberBox,
+                           FALSE, FALSE, 0);
+        checkButton = gtk_check_button_new_with_mnemonic(_("_Remember password"));
+        if (login && password)
+            gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(checkButton), TRUE);
+        gtk_label_set_line_wrap(GTK_LABEL(gtk_bin_get_child(GTK_BIN(checkButton))), TRUE);
+        gtk_box_pack_start(GTK_BOX(rememberBox), checkButton, FALSE, FALSE, 0);
+        authData->checkButton = checkButton;
+    }
 
     g_signal_connect(dialog, "response", G_CALLBACK(response_callback), authData);
     gtk_widget_show_all(widget);
 }
-
-#if USE(GNOMEKEYRING)
-static void find_password_callback(GnomeKeyringResult result, GList* list, WebKitAuthData* authData)
-{
-    GList* p;
-    const char* login = NULL;
-    const char* password = NULL;
-
-    for (p = list; p; p = p->next) {
-        /* FIXME: support multiple logins/passwords ? */
-        GnomeKeyringNetworkPasswordData* data = (GnomeKeyringNetworkPasswordData*)p->data;
-        login = data->user;
-        password = data->password;
-        break;
-    }
-
-    show_auth_dialog(authData, login, password);
-}
-#endif
 
 static void session_authenticate(SoupSession* session, SoupMessage* msg, SoupAuth* auth, gboolean retrying, gpointer user_data)
 {
     SoupURI* uri;
     WebKitAuthData* authData;
     SoupSessionFeature* manager = (SoupSessionFeature*)user_data;
-
-    /* 
-     * Workaround for http://bugzilla.gnome.org/show_bug.cgi?id=583462
-     * FIXME: we can remove this once we depend on a libsoup newer than 2.26.2
-     */
-    if (msg->status_code == 0)
-        return;
+#ifdef SOUP_TYPE_PASSWORD_MANAGER
+    GSList* users;
+#endif
+    const char *login, *password;
 
     soup_session_pause_message(session, msg);
     /* We need to make sure the message sticks around when pausing it */
     g_object_ref(msg);
 
     uri = soup_message_get_uri(msg);
-    authData = g_slice_new(WebKitAuthData);
+    authData = g_slice_new0(WebKitAuthData);
     authData->msg = msg;
     authData->auth = auth;
     authData->session = session;
     authData->manager = manager;
 
-    /*
-     * If we have gnome-keyring let's try to find the password first in the ring.
-     * Otherwise just show the dialog straight away
-     */
-#if USE(GNOMEKEYRING)
-    gnome_keyring_find_network_password(NULL,
-                                        soup_auth_get_realm(auth),
-                                        uri->host,
-                                        NULL,
-                                        uri->scheme,
-                                        soup_auth_get_scheme_name(auth),
-                                        uri->port,
-                                        (GnomeKeyringOperationGetListCallback)find_password_callback,
-                                        authData,
-                                        NULL);
-#else
-    show_auth_dialog(authData, NULL, NULL);
+    login = password = NULL;
+
+#ifdef SOUP_TYPE_PASSWORD_MANAGER
+    users = soup_auth_get_saved_users(auth);
+    if (users) {
+        login = users->data;
+        password = soup_auth_get_saved_password(auth, login);
+        g_slist_free(users);
+    }
 #endif
+
+    show_auth_dialog(authData, login, password);
 }
 
 static void attach(SoupSessionFeature* manager, SoupSession* session)

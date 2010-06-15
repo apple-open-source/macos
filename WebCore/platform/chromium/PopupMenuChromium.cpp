@@ -32,6 +32,7 @@
 #include "PopupMenuChromium.h"
 
 #include "CharacterNames.h"
+#include "Chrome.h"
 #include "ChromeClientChromium.h"
 #include "Font.h"
 #include "FontSelector.h"
@@ -50,6 +51,7 @@
 #include "PopupMenu.h"
 #include "RenderTheme.h"
 #include "ScrollbarTheme.h"
+#include "StringTruncator.h"
 #include "SystemTime.h"
 
 #include <wtf/CurrentTime.h>
@@ -72,10 +74,12 @@ static const TimeStamp kTypeAheadTimeoutMs = 1000;
 // The settings used for the drop down menu.
 // This is the delegate used if none is provided.
 static const PopupContainerSettings dropDownSettings = {
-    true, // focusOnShow
-    true, // setTextOnIndexChange
-    true, // acceptOnAbandon
-    false // loopSelectionNavigation
+    true,   // setTextOnIndexChange
+    true,   // acceptOnAbandon
+    false,  // loopSelectionNavigation
+    false,  // restrictWidthOfListBox
+    // display item text in its first strong directional character's directionality.
+    PopupContainerSettings::FirstStrongDirectionalCharacterDirection,
 };
 
 // This class uses WebCore code to paint and handle events for a drop-down list
@@ -100,10 +104,7 @@ public:
 
     // PopupListBox methods
 
-    // Shows the popup
-    void showPopup();
-
-    // Hides the popup.  Do not call this directly: use client->hidePopup().
+    // Hides the popup.
     void hidePopup();
 
     // Updates our internal list to match the client.
@@ -139,9 +140,9 @@ public:
     // Gets the height of a row.
     int getRowHeight(int index);
 
-    // Returns true if the selection can be changed to index.
-    // Disabled items, or labels cannot be selected.
-    bool isSelectableItem(int index);
+    void setMaxHeight(int maxHeight) { m_maxHeight = maxHeight; }
+
+    void disconnectClient() { m_popupClient = 0; }
 
     const Vector<PopupItem*>& items() const { return m_items; }
 
@@ -156,6 +157,7 @@ private:
         , m_acceptedIndexOnAbandon(-1)
         , m_visibleRows(0)
         , m_baseWidth(0)
+        , m_maxHeight(kMaxHeight)
         , m_popupClient(client)
         , m_repeatingChar(0)
         , m_lastCharTime(0)
@@ -168,12 +170,16 @@ private:
         clear();
     }
 
-    void disconnectClient() { m_popupClient = 0; }
-
     // Closes the popup
     void abandon();
+
+    // Returns true if the selection can be changed to index.
+    // Disabled items, or labels cannot be selected.
+    bool isSelectableItem(int index);
+
     // Select an index in the list, scrolling if necessary.
     void selectIndex(int index);
+
     // Accepts the selected index as the value to be displayed in the <select> widget on
     // the web page, and closes the popup.
     void acceptIndex(int index);
@@ -237,6 +243,9 @@ private:
     // Our suggested width, not including scrollbar.
     int m_baseWidth;
 
+    // The maximum height we can be without being off-screen.
+    int m_maxHeight;
+
     // A list of the options contained within the <select>
     Vector<PopupItem*> m_items;
 
@@ -293,15 +302,19 @@ static PlatformWheelEvent constructRelativeWheelEvent(const PlatformWheelEvent& 
 
 // static
 PassRefPtr<PopupContainer> PopupContainer::create(PopupMenuClient* client,
+                                                  PopupType popupType,
                                                   const PopupContainerSettings& settings)
 {
-    return adoptRef(new PopupContainer(client, settings));
+    return adoptRef(new PopupContainer(client, popupType, settings));
 }
 
 PopupContainer::PopupContainer(PopupMenuClient* client,
+                               PopupType popupType,
                                const PopupContainerSettings& settings)
     : m_listBox(PopupListBox::create(client, settings))
     , m_settings(settings)
+    , m_popupType(popupType)
+    , m_popupOpen(false)
 {
     setScrollbarModes(ScrollbarAlwaysOff, ScrollbarAlwaysOff);
 }
@@ -317,21 +330,45 @@ void PopupContainer::showPopup(FrameView* view)
     // Pre-layout, our size matches the <select> dropdown control.
     int selectHeight = frameRect().height();
 
+    // Reset the max height to its default value, it will be recomputed below
+    // if necessary.
+    m_listBox->setMaxHeight(kMaxHeight);
+
     // Lay everything out to figure out our preferred size, then tell the view's
     // WidgetClient about it.  It should assign us a client.
     layout();
 
-    ChromeClientChromium* chromeClient = static_cast<ChromeClientChromium*>(
-        view->frame()->page()->chrome()->client());
+    m_frameView = view;
+    ChromeClientChromium* chromeClient = chromeClientChromium();
     if (chromeClient) {
         // If the popup would extend past the bottom of the screen, open upwards
         // instead.
         FloatRect screen = screenAvailableRect(view);
         IntRect widgetRect = chromeClient->windowToScreen(frameRect());
-        if (widgetRect.bottom() > static_cast<int>(screen.bottom()))
-            widgetRect.move(0, -(widgetRect.height() + selectHeight));
 
-        chromeClient->popupOpened(this, widgetRect, m_settings.focusOnShow, false);
+        if (widgetRect.bottom() > static_cast<int>(screen.bottom())) {
+            if (widgetRect.y() - widgetRect.height() - selectHeight > 0) {
+                // There is enough room to open upwards.
+                widgetRect.move(0, -(widgetRect.height() + selectHeight));
+            } else {
+                // Figure whether upwards or downwards has more room and set the
+                // maximum number of items.
+                int spaceAbove = widgetRect.y() - selectHeight;
+                int spaceBelow = screen.bottom() - widgetRect.y();
+                if (spaceAbove > spaceBelow)
+                    m_listBox->setMaxHeight(spaceAbove);
+                else
+                    m_listBox->setMaxHeight(spaceBelow);
+                layout();
+                // Our size has changed, recompute the widgetRect.
+                widgetRect = chromeClient->windowToScreen(frameRect());
+                // And move upwards if necessary.
+                if (spaceAbove > spaceBelow)
+                    widgetRect.move(0, -(widgetRect.height() + selectHeight));
+            }
+        }
+        chromeClient->popupOpened(this, widgetRect, false);
+        m_popupOpen = true;
     }
 
     if (!m_listBox->parent())
@@ -364,15 +401,27 @@ void PopupContainer::showExternal(const IntRect& rect, FrameView* v, int index)
     IntRect popupRect(location, rect.size());
 
     // Get the ChromeClient and pass it the popup menu's listbox data.
-    ChromeClientChromium* client = static_cast<ChromeClientChromium*>(
-         v->frame()->page()->chrome()->client());
-    client->popupOpened(this, popupRect, true, true);
+    m_frameView = v;
+    chromeClientChromium()->popupOpened(this, popupRect, true);
+
+    // The popup sends its "closed" notification through its parent. Set the
+    // parent, even though external popups have no real on-screen widget but a
+    // native menu (see |PopupListBox::hidePopup()|);
+    if (!m_listBox->parent())
+        addChild(m_listBox.get());
 }
 
 void PopupContainer::hidePopup()
 {
-    if (client())
-        client()->popupClosed(this);
+    listBox()->hidePopup();
+}
+
+void PopupContainer::notifyPopupHidden()
+{
+    if (!m_popupOpen)
+        return;
+    m_popupOpen = false;
+    chromeClientChromium()->popupClosed(this);
 }
 
 void PopupContainer::layout()
@@ -382,9 +431,21 @@ void PopupContainer::layout()
     // Place the listbox within our border.
     m_listBox->move(kBorderSize, kBorderSize);
 
+    // popupWidth is the width of <select> element. Record it before resize frame.
+    int popupWidth = frameRect().width();
     // Size ourselves to contain listbox + border.
-    resize(m_listBox->width() + kBorderSize * 2, m_listBox->height() + kBorderSize * 2);
+    int listBoxWidth = m_listBox->width() + kBorderSize * 2;
+    resize(listBoxWidth, m_listBox->height() + kBorderSize * 2);
 
+    // Adjust the starting x-axis for RTL dropdown. For RTL dropdown, the right edge
+    // of dropdown box should be aligned with the right edge of <select> element box,
+    // and the dropdown box should be expanded to left if more space needed.
+    PopupMenuClient* popupClient = m_listBox->m_popupClient;
+    if (popupClient) {
+        bool rightAligned = m_listBox->m_popupClient->menuStyle().textDirection() == RTL;
+        if (rightAligned)
+            move(x() + popupWidth - listBoxWidth, y());
+    }
     invalidate();
 }
 
@@ -444,7 +505,7 @@ void PopupContainer::paintBorder(GraphicsContext* gc, const IntRect& rect)
     Color borderColor(127, 157, 185);
 
     gc->setStrokeStyle(NoStroke);
-    gc->setFillColor(borderColor);
+    gc->setFillColor(borderColor, DeviceColorSpace);
 
     int tx = x();
     int ty = y();
@@ -459,6 +520,11 @@ void PopupContainer::paintBorder(GraphicsContext* gc, const IntRect& rect)
 bool PopupContainer::isInterestedInEventForKey(int keyCode)
 {
     return m_listBox->isInterestedInEventForKey(keyCode);
+}
+
+ChromeClientChromium* PopupContainer::chromeClientChromium()
+{
+    return static_cast<ChromeClientChromium*>(m_frameView->frame()->page()->chrome()->client());
 }
 
 void PopupContainer::show(const IntRect& r, FrameView* v, int index)
@@ -500,6 +566,11 @@ int PopupContainer::selectedIndex() const
 int PopupContainer::menuItemHeight() const
 {
     return m_listBox->getRowHeight(0);
+}
+
+int PopupContainer::menuItemFontSize() const
+{
+    return m_listBox->getRowFont(0).size();
 }
 
 const WTF::Vector<PopupItem*>& PopupContainer:: popupData() const
@@ -599,6 +670,15 @@ bool PopupListBox::isInterestedInEventForKey(int keyCode)
     }
 }
 
+static bool isCharacterTypeEvent(const PlatformKeyboardEvent& event)
+{
+    // Check whether the event is a character-typed event or not.
+    // We use RawKeyDown/Char/KeyUp event scheme on all platforms,
+    // so PlatformKeyboardEvent::Char (not RawKeyDown) type event
+    // is considered as character type event.
+    return event.type() == PlatformKeyboardEvent::Char;
+}
+
 bool PopupListBox::handleKeyEvent(const PlatformKeyboardEvent& event)
 {
     if (event.type() == PlatformKeyboardEvent::KeyUp)
@@ -613,7 +693,7 @@ bool PopupListBox::handleKeyEvent(const PlatformKeyboardEvent& event)
         return true;
     case VKEY_RETURN:
         if (m_selectedIndex == -1)  {
-            m_popupClient->hidePopup();
+            hidePopup();
             // Don't eat the enter if nothing is selected.
             return false;
         }
@@ -639,7 +719,8 @@ bool PopupListBox::handleKeyEvent(const PlatformKeyboardEvent& event)
         break;
     default:
         if (!event.ctrlKey() && !event.altKey() && !event.metaKey()
-            && isPrintableChar(event.windowsVirtualKeyCode()))
+            && isPrintableChar(event.windowsVirtualKeyCode())
+            && isCharacterTypeEvent(event))
             typeAheadFind(event);
         break;
     }
@@ -655,12 +736,14 @@ bool PopupListBox::handleKeyEvent(const PlatformKeyboardEvent& event)
         setOriginalIndex(m_selectedIndex);
         if (m_settings.setTextOnIndexChange)
             m_popupClient->setTextFromItem(m_selectedIndex);
-    } else if (!m_settings.setTextOnIndexChange &&
-               event.windowsVirtualKeyCode() == VKEY_TAB) {
+    }
+    if (event.windowsVirtualKeyCode() == VKEY_TAB) {
         // TAB is a special case as it should select the current item if any and
         // advance focus.
         if (m_selectedIndex >= 0)
             m_popupClient->setTextFromItem(m_selectedIndex);
+        // Call abandon() so we honor m_acceptedIndexOnAbandon if set.
+        abandon();
         // Return false so the TAB key event is propagated to the page.
         return false;
     }
@@ -688,21 +771,6 @@ static String stripLeadingWhiteSpace(const String& string)
     return string.substring(i, length - i);
 }
 
-static bool isCharacterTypeEvent(const PlatformKeyboardEvent& event) {
-    // Check whether the event is a character-typed event or not. 
-    // In Windows, PlatformKeyboardEvent::Char (not RawKeyDown) type event
-    // is considered as character type event. In Mac OS, KeyDown (not 
-    // KeyUp) is considered as character type event.
-#if PLATFORM(WIN_OS)
-    if (event.type() == PlatformKeyboardEvent::Char)
-        return true;
-#else
-    if (event.type() == PlatformKeyboardEvent::KeyDown)
-        return true;
-#endif
-    return false;
-}
-
 // From HTMLSelectElement.cpp, with modifications
 void PopupListBox::typeAheadFind(const PlatformKeyboardEvent& event)
 {
@@ -712,8 +780,7 @@ void PopupListBox::typeAheadFind(const PlatformKeyboardEvent& event)
     // Reset the time when user types in a character. The time gap between
     // last character and the current character is used to indicate whether
     // user typed in a string or just a character as the search prefix.
-    if (isCharacterTypeEvent(event))
-        m_lastCharTime = now;
+    m_lastCharTime = now;
 
     UChar c = event.windowsVirtualKeyCode();
 
@@ -735,13 +802,18 @@ void PopupListBox::typeAheadFind(const PlatformKeyboardEvent& event)
         }
     }
 
+    // Compute a case-folded copy of the prefix string before beginning the search for
+    // a matching element. This code uses foldCase to work around the fact that
+    // String::startWith does not fold non-ASCII characters. This code can be changed
+    // to use startWith once that is fixed.
+    String prefixWithCaseFolded(prefix.foldCase());
     int itemCount = numItems();
     int index = (max(0, m_selectedIndex) + searchStartOffset) % itemCount;
     for (int i = 0; i < itemCount; i++, index = (index + 1) % itemCount) {
         if (!isSelectableItem(index))
             continue;
 
-        if (stripLeadingWhiteSpace(m_items[index]->label).startsWith(prefix, false)) {
+        if (stripLeadingWhiteSpace(m_items[index]->label).foldCase().startsWith(prefixWithCaseFolded)) {
             selectIndex(index);
             return;
         }
@@ -769,7 +841,7 @@ void PopupListBox::paint(GraphicsContext* gc, const IntRect& rect)
 
     // Special case for an empty popup.
     if (numItems() == 0)
-        gc->fillRect(r, Color::white);
+        gc->fillRect(r, Color::white, DeviceColorSpace);
 
     gc->restore();
 
@@ -802,38 +874,57 @@ void PopupListBox::paintRow(GraphicsContext* gc, const IntRect& rect, int rowInd
     // If we have a transparent background, make sure it has a color to blend
     // against.
     if (backColor.hasAlpha())
-        gc->fillRect(rowRect, Color::white);
+        gc->fillRect(rowRect, Color::white, DeviceColorSpace);
 
-    gc->fillRect(rowRect, backColor);
+    gc->fillRect(rowRect, backColor, DeviceColorSpace);
     
     if (m_popupClient->itemIsSeparator(rowIndex)) {
         IntRect separatorRect(
             rowRect.x() + separatorPadding,
             rowRect.y() + (rowRect.height() - separatorHeight) / 2,
             rowRect.width() - 2 * separatorPadding, separatorHeight);
-        gc->fillRect(separatorRect, textColor);
+        gc->fillRect(separatorRect, textColor, DeviceColorSpace);
         return;
     }
     
-    gc->setFillColor(textColor);
+    if (!style.isVisible())
+        return;
 
-    // Bunch of shit to deal with RTL text...
+    gc->setFillColor(textColor, DeviceColorSpace);
+
+    Font itemFont = getRowFont(rowIndex);
+    // FIXME: http://crbug.com/19872 We should get the padding of individual option
+    // elements.  This probably implies changes to PopupMenuClient.
+    bool rightAligned = m_popupClient->menuStyle().textDirection() == RTL;
+    int textX = 0;
+    int maxWidth = 0;
+    if (rightAligned)
+        maxWidth = rowRect.width() - max(0, m_popupClient->clientPaddingRight() - m_popupClient->clientInsetRight());
+    else {
+        textX = max(0, m_popupClient->clientPaddingLeft() - m_popupClient->clientInsetLeft());
+        maxWidth = rowRect.width() - textX;
+    }
+    // Prepare text to be drawn.
     String itemText = m_popupClient->itemText(rowIndex);
+    if (m_settings.restrictWidthOfListBox)  // truncate string to fit in.
+        itemText = StringTruncator::rightTruncate(itemText, maxWidth, itemFont);
     unsigned length = itemText.length();
     const UChar* str = itemText.characters();
-
-    TextRun textRun(str, length, false, 0, 0, itemText.defaultWritingDirection() == WTF::Unicode::RightToLeft);
-
-    // FIXME: http://b/1210481 We should get the padding of individual option
-    // elements.  This probably implies changes to PopupMenuClient.
-
-    // Draw the item text
-    if (style.isVisible()) {
-        Font itemFont = getRowFont(rowIndex);
-        int textX = max(0, m_popupClient->clientPaddingLeft() - m_popupClient->clientInsetLeft());
-        int textY = rowRect.y() + itemFont.ascent() + (rowRect.height() - itemFont.height()) / 2;
-        gc->drawBidiText(itemFont, textRun, IntPoint(textX, textY));
-    }
+    // Prepare the directionality to draw text.
+    bool rtl = false;
+    if (m_settings.itemTextDirectionalityHint == PopupContainerSettings::DOMElementDirection)
+        rtl = style.textDirection() == RTL;
+    else if (m_settings.itemTextDirectionalityHint ==
+             PopupContainerSettings::FirstStrongDirectionalCharacterDirection)
+        rtl = itemText.defaultWritingDirection() == WTF::Unicode::RightToLeft;
+    TextRun textRun(str, length, false, 0, 0, rtl);
+    // If the text is right-to-left, make it right-aligned by adjusting its
+    // beginning position.
+    if (rightAligned)
+        textX += maxWidth - itemFont.width(textRun);
+    // Draw the item text.
+    int textY = rowRect.y() + itemFont.ascent() + (rowRect.height() - itemFont.height()) / 2;
+    gc->drawBidiText(itemFont, textRun, IntPoint(textX, textY));
 }
 
 Font PopupListBox::getRowFont(int rowIndex)
@@ -857,10 +948,11 @@ void PopupListBox::abandon()
 
     m_selectedIndex = m_originalIndex;
 
-    m_popupClient->hidePopup();
+    hidePopup();
 
     if (m_acceptedIndexOnAbandon >= 0) {
-        m_popupClient->valueChanged(m_acceptedIndexOnAbandon);
+        if (m_popupClient)
+            m_popupClient->valueChanged(m_acceptedIndexOnAbandon);
         m_acceptedIndexOnAbandon = -1;
     }
 }
@@ -884,18 +976,26 @@ int PopupListBox::pointToRowIndex(const IntPoint& point)
 
 void PopupListBox::acceptIndex(int index)
 {
-    ASSERT(index >= -1 && index < numItems());
-    if (index == -1 && m_popupClient) {
-      // Enter pressed with no selection, just close the popup.
-      m_popupClient->hidePopup();
-      return;
+    // Clear m_acceptedIndexOnAbandon once user accepts the selected index.
+    if (m_acceptedIndexOnAbandon >= 0)
+        m_acceptedIndexOnAbandon = -1;
+
+    if (index >= numItems())
+        return;
+
+    if (index < 0) {
+        if (m_popupClient) {
+            // Enter pressed with no selection, just close the popup.
+            hidePopup();
+        }
+        return;
     }
 
     if (isSelectableItem(index)) {
         RefPtr<PopupListBox> keepAlive(this);
 
         // Hide ourselves first since valueChanged may have numerous side-effects.
-        m_popupClient->hidePopup();
+        hidePopup();
 
         // Tell the <select> PopupMenuClient what index was selected.
         m_popupClient->valueChanged(index);
@@ -904,7 +1004,8 @@ void PopupListBox::acceptIndex(int index)
 
 void PopupListBox::selectIndex(int index)
 {
-    ASSERT(index >= 0 && index < numItems());
+    if (index < 0 || index >= numItems())
+        return;
 
     if (index != m_selectedIndex && isSelectableItem(index)) {
         invalidateRow(m_selectedIndex);
@@ -964,6 +1065,7 @@ void PopupListBox::scrollToRevealRow(int index)
 
 bool PopupListBox::isSelectableItem(int index)
 {
+    ASSERT(index >= 0 && index < numItems());
     return m_items[index]->type == PopupItem::TypeOption && m_popupClient->itemIsEnabled(index);
 }
 
@@ -999,7 +1101,7 @@ void PopupListBox::selectPreviousRow()
         return;
     }
 
-    // No row are selected, jump to the last item.
+    // No row is selected, jump to the last item.
     selectIndex(numItems() - 1);
     scrollToRevealSelection();
 }
@@ -1037,6 +1139,19 @@ void PopupListBox::adjustSelectedIndex(int delta)
     // selection into view.
     selectIndex(targetIndex);
     scrollToRevealSelection();
+}
+
+void PopupListBox::hidePopup()
+{
+    if (parent()) {
+        PopupContainer* container = static_cast<PopupContainer*>(parent());
+        if (container->client())
+            container->client()->popupClosed(container);
+        container->notifyPopupHidden();
+    }
+
+    if (m_popupClient)
+        m_popupClient->popupDidHide();
 }
 
 void PopupListBox::updateFromElement()
@@ -1082,13 +1197,14 @@ void PopupListBox::layout()
             baseWidth = max(baseWidth, width);
         }
         // FIXME: http://b/1210481 We should get the padding of individual option elements.
-        paddingWidth = max(paddingWidth, 
+        paddingWidth = max(paddingWidth,
             m_popupClient->clientPaddingLeft() + m_popupClient->clientPaddingRight());
     }
 
+    // Calculate scroll bar width.
     int windowHeight = 0;
 
-#if PLATFORM(DARWIN)
+#if OS(DARWIN)
     // Set the popup's window to contain all available items on Mac only, which
     // uses native controls that manage their own scrolling. This allows hit
     // testing to work when selecting items in popups that have more menu entries
@@ -1100,9 +1216,9 @@ void PopupListBox::layout()
 
     for (int i = 0; i < m_visibleRows; ++i) {
         int rowHeight = getRowHeight(i);
-#if !PLATFORM(DARWIN)
+#if !OS(DARWIN)
         // Only clip the window height for non-Mac platforms.
-        if (windowHeight + rowHeight > kMaxHeight) {
+        if (windowHeight + rowHeight > m_maxHeight) {
             m_visibleRows = i;
             break;
         }
@@ -1116,14 +1232,20 @@ void PopupListBox::layout()
     if (m_visibleRows < numItems())
         scrollbarWidth = ScrollbarTheme::nativeTheme()->scrollbarThickness();
 
-    int windowWidth = baseWidth + scrollbarWidth + paddingWidth;
-    int contentWidth = baseWidth;
-
-    if (windowWidth < m_baseWidth) {
+    int windowWidth;
+    int contentWidth;
+    if (m_settings.restrictWidthOfListBox) {
         windowWidth = m_baseWidth;
         contentWidth = m_baseWidth - scrollbarWidth - paddingWidth;
     } else {
-        m_baseWidth = baseWidth;
+        windowWidth = baseWidth + scrollbarWidth + paddingWidth;
+        contentWidth = baseWidth;
+
+        if (windowWidth < m_baseWidth) {
+            windowWidth = m_baseWidth;
+            contentWidth = m_baseWidth - scrollbarWidth - paddingWidth;
+        } else
+            m_baseWidth = baseWidth;
     }
 
     resize(windowWidth, windowHeight);
@@ -1161,6 +1283,10 @@ PopupMenu::PopupMenu(PopupMenuClient* client)
 
 PopupMenu::~PopupMenu()
 {
+    // When the PopupMenu is destroyed, the client could already have been
+    // deleted.
+    if (p.popup)
+        p.popup->listBox()->disconnectClient();
     hide();
 }
 
@@ -1171,8 +1297,8 @@ PopupMenu::~PopupMenu()
 void PopupMenu::show(const IntRect& r, FrameView* v, int index)
 {
     if (!p.popup)
-        p.popup = PopupContainer::create(client(), dropDownSettings);
-#if PLATFORM(DARWIN)
+        p.popup = PopupContainer::create(client(), PopupContainer::Select, dropDownSettings);
+#if OS(DARWIN)
     p.popup->showExternal(r, v, index);
 #else
     p.popup->show(r, v, index);
@@ -1182,7 +1308,7 @@ void PopupMenu::show(const IntRect& r, FrameView* v, int index)
 void PopupMenu::hide()
 {
     if (p.popup)
-        p.popup->hidePopup();
+        p.popup->hide();
 }
 
 void PopupMenu::updateFromElement()

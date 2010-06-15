@@ -44,6 +44,8 @@ aes_cts_encrypt(const unsigned char *in, unsigned char *out,
 	memset(livec, 0, sizeof(livec));
     }
     
+    if (len < kCCBlockSizeAES128)
+	return KRB5_BAD_MSIZE;
 
     ret = CCCryptorCreate(encryptp ? kCCEncrypt : kCCDecrypt,
 			  kCCAlgorithmAES128,

@@ -25,18 +25,19 @@
 #include "qwebkitglobal.h"
 
 #include <QtCore/qobject.h>
+#include <QtCore/qurl.h>
 #include <QtGui/qwidget.h>
 
 QT_BEGIN_NAMESPACE
 class QNetworkProxy;
 class QUndoStack;
-class QUrl;
 class QMenu;
 class QNetworkRequest;
 class QNetworkReply;
 class QNetworkAccessManager;
 QT_END_NAMESPACE
 
+class QWebElement;
 class QWebFrame;
 class QWebNetworkRequest;
 class QWebHistory;
@@ -53,20 +54,22 @@ namespace WebCore {
     class EditorClientQt;
     class FrameLoaderClientQt;
     class InspectorClientQt;
+    class InspectorFrontendClientQt;
+    class NotificationPresenterClientQt;
     class ResourceHandle;
     class HitTestResult;
+    class QNetworkReplyHandler;
 
     struct FrameLoadRequest;
 }
 
-class QWEBKIT_EXPORT QWebPage : public QObject
-{
+class QWEBKIT_EXPORT QWebPage : public QObject {
     Q_OBJECT
 
     Q_PROPERTY(bool modified READ isModified)
     Q_PROPERTY(QString selectedText READ selectedText)
     Q_PROPERTY(QSize viewportSize READ viewportSize WRITE setViewportSize)
-    Q_PROPERTY(QSize fixedContentsSize READ fixedContentsSize WRITE setFixedContentsSize)
+    Q_PROPERTY(QSize preferredContentsSize READ preferredContentsSize WRITE setPreferredContentsSize)
     Q_PROPERTY(bool forwardUnsupportedContent READ forwardUnsupportedContent WRITE setForwardUnsupportedContent)
     Q_PROPERTY(LinkDelegationPolicy linkDelegationPolicy READ linkDelegationPolicy WRITE setLinkDelegationPolicy)
     Q_PROPERTY(QPalette palette READ palette WRITE setPalette)
@@ -149,6 +152,7 @@ public:
         InsertLineSeparator,
 
         SelectAll,
+        ReloadAndBypassCache,
 
         PasteAndMatchStyle,
         RemoveFormat,
@@ -206,20 +210,8 @@ public:
     QUndoStack *undoStack() const;
 #endif
 
-#if QT_VERSION < 0x040400 && !defined(qdoc)
-    void setNetworkInterface(QWebNetworkInterface *interface);
-    QWebNetworkInterface *networkInterface() const;
-
-    // #### why is this in the page itself?
-#ifndef QT_NO_NETWORKPROXY
-    void setNetworkProxy(const QNetworkProxy& proxy);
-    QNetworkProxy networkProxy() const;
-#endif
-
-#else
     void setNetworkAccessManager(QNetworkAccessManager *manager);
     QNetworkAccessManager *networkAccessManager() const;
-#endif
 
     void setPluginFactory(QWebPluginFactory *factory);
     QWebPluginFactory *pluginFactory() const;
@@ -229,14 +221,16 @@ public:
 
     QString selectedText() const;
 
+#ifndef QT_NO_ACTION
     QAction *action(WebAction action) const;
+#endif
     virtual void triggerAction(WebAction action, bool checked = false);
 
     QSize viewportSize() const;
     void setViewportSize(const QSize &size) const;
 
-    QSize fixedContentsSize() const;
-    void setFixedContentsSize(const QSize &size) const;
+    QSize preferredContentsSize() const;
+    void setPreferredContentsSize(const QSize &size) const;
 
     virtual bool event(QEvent*);
     bool focusNextPrevChild(bool next);
@@ -265,7 +259,8 @@ public:
     QMenu *createStandardContextMenu();
 
     enum Extension {
-        ChooseMultipleFilesExtension
+        ChooseMultipleFilesExtension,
+        ErrorPageExtension
     };
     class ExtensionOption
     {};
@@ -283,10 +278,33 @@ public:
         QStringList fileNames;
     };
 
+    enum ErrorDomain { QtNetwork, Http, WebKit };
+    class ErrorPageExtensionOption : public ExtensionOption {
+    public:
+        QUrl url;
+        QWebFrame* frame;
+        ErrorDomain domain;
+        int error;
+        QString errorString;
+    };
+
+    class ErrorPageExtensionReturn : public ExtensionReturn {
+    public:
+        ErrorPageExtensionReturn() : contentType(QLatin1String("text/html")), encoding(QLatin1String("utf-8")) {};
+        QString contentType;
+        QString encoding;
+        QUrl baseUrl;
+        QByteArray content;
+    };
+
+
     virtual bool extension(Extension extension, const ExtensionOption *option = 0, ExtensionReturn *output = 0);
     virtual bool supportsExtension(Extension extension) const;
 
     inline QWebPagePrivate* handle() const { return d; }
+
+public Q_SLOTS:
+    bool shouldInterruptJavaScript();
 
 Q_SIGNALS:
     void loadStarted();
@@ -308,10 +326,8 @@ Q_SIGNALS:
     void statusBarVisibilityChangeRequested(bool visible);
     void menuBarVisibilityChangeRequested(bool visible);
 
-#if QT_VERSION >= 0x040400
     void unsupportedContent(QNetworkReply *reply);
     void downloadRequested(const QNetworkRequest &request);
-#endif
 
     void microFocusChanged();
     void contentsChanged();
@@ -324,11 +340,7 @@ protected:
     virtual QWebPage *createWindow(WebWindowType type);
     virtual QObject *createPlugin(const QString &classid, const QUrl &url, const QStringList &paramNames, const QStringList &paramValues);
 
-#if QT_VERSION >= 0x040400
     virtual bool acceptNavigationRequest(QWebFrame *frame, const QNetworkRequest &request, NavigationType type);
-#else
-    virtual bool acceptNavigationRequest(QWebFrame *frame, const QWebNetworkRequest &request, NavigationType type);
-#endif
     virtual QString chooseFile(QWebFrame *originatingFrame, const QString& oldFile);
     virtual void javaScriptAlert(QWebFrame *originatingFrame, const QString& msg);
     virtual bool javaScriptConfirm(QWebFrame *originatingFrame, const QString& msg);
@@ -339,20 +351,29 @@ protected:
 
 private:
     Q_PRIVATE_SLOT(d, void _q_onLoadProgressChanged(int))
+#ifndef QT_NO_ACTION
     Q_PRIVATE_SLOT(d, void _q_webActionTriggered(bool checked))
-#ifndef NDEBUG
-    Q_PRIVATE_SLOT(d, void _q_cleanupLeakMessages())
 #endif
+    Q_PRIVATE_SLOT(d, void _q_cleanupLeakMessages())
+
     QWebPagePrivate *d;
 
     friend class QWebFrame;
     friend class QWebPagePrivate;
     friend class QWebView;
+    friend class QWebViewPrivate;
+    friend class QGraphicsWebView;
+    friend class QGraphicsWebViewPrivate;
+    friend class QWebInspector;
     friend class WebCore::ChromeClientQt;
     friend class WebCore::EditorClientQt;
     friend class WebCore::FrameLoaderClientQt;
     friend class WebCore::InspectorClientQt;
+    friend class WebCore::InspectorFrontendClientQt;
+    friend class WebCore::NotificationPresenterClientQt;
     friend class WebCore::ResourceHandle;
+    friend class WebCore::QNetworkReplyHandler;
+    friend class DumpRenderTreeSupportQt;
 };
 
 Q_DECLARE_OPERATORS_FOR_FLAGS(QWebPage::FindFlags)

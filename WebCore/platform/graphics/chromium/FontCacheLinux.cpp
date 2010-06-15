@@ -33,7 +33,6 @@
 
 #include "AtomicString.h"
 #include "ChromiumBridge.h"
-#include "CString.h"
 #include "Font.h"
 #include "FontDescription.h"
 #include "FontPlatformData.h"
@@ -47,6 +46,7 @@
 
 #include <unicode/utf16.h>
 #include <wtf/Assertions.h>
+#include <wtf/text/CString.h>
 
 namespace WebCore {
 
@@ -66,12 +66,12 @@ const SimpleFontData* FontCache::getFontDataForCharacters(const Font& font,
     return getCachedFontData(getCachedFontPlatformData(font.fontDescription(), atomicFamily, false));
 }
 
-FontPlatformData* FontCache::getSimilarFontPlatformData(const Font& font)
+SimpleFontData* FontCache::getSimilarFontPlatformData(const Font& font)
 {
     return 0;
 }
 
-FontPlatformData* FontCache::getLastResortFallbackFont(const FontDescription& description)
+SimpleFontData* FontCache::getLastResortFallbackFont(const FontDescription& description)
 {
     static const AtomicString sansStr("Sans");
     static const AtomicString serifStr("Serif");
@@ -92,7 +92,7 @@ FontPlatformData* FontCache::getLastResortFallbackFont(const FontDescription& de
     }
 
     ASSERT(fontPlatformData);
-    return fontPlatformData;
+    return getCachedFontData(fontPlatformData);
 }
 
 void FontCache::getTraitsInFamily(const AtomicString& familyName,
@@ -107,7 +107,9 @@ FontPlatformData* FontCache::createFontPlatformData(const FontDescription& fontD
     const char* name = 0;
     CString s;
 
-    if (family.length() == 0) {
+    // If we're creating a fallback font (e.g. "-webkit-monospace"), convert the name into
+    // the fallback name (like "monospace") that fontconfig understands.
+    if (!family.length() || family.startsWith("-webkit-")) {
         static const struct {
             FontDescription::GenericFamilyType mType;
             const char* mName;
@@ -145,6 +147,7 @@ FontPlatformData* FontCache::createFontPlatformData(const FontDescription& fontD
 
     FontPlatformData* result =
         new FontPlatformData(tf,
+                             name,
                              fontDescription.computedSize(),
                              (style & SkTypeface::kBold) && !tf->isBold(),
                              (style & SkTypeface::kItalic) && !tf->isItalic());

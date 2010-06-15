@@ -34,6 +34,7 @@
 #include "FloatRect.h"
 #include "GlyphBuffer.h"
 #include "GraphicsContext.h"
+#include "HarfbuzzSkia.h"
 #include "NotImplemented.h"
 #include "PlatformContextSkia.h"
 #include "SimpleFontData.h"
@@ -44,16 +45,33 @@
 #include "SkTypeface.h"
 #include "SkUtils.h"
 
-extern "C" {
-#include "harfbuzz-shaper.h"
-#include "harfbuzz-unicode.h"
-}
+#include <unicode/normlzr.h>
+#include <unicode/uchar.h>
+#include <wtf/OwnArrayPtr.h>
+#include <wtf/OwnPtr.h>
 
 namespace WebCore {
 
 bool Font::canReturnFallbackFontsForComplexText()
 {
     return false;
+}
+
+static bool isCanvasMultiLayered(SkCanvas* canvas)
+{
+    SkCanvas::LayerIter layerIterator(canvas, false);
+    layerIterator.next();
+    return !layerIterator.done();
+}
+
+static void adjustTextRenderMode(SkPaint* paint, bool isCanvasMultiLayered)
+{
+    // Our layers only have a single alpha channel. This means that subpixel
+    // rendered text cannot be compositied correctly when the layer is
+    // collapsed. Therefore, subpixel text is disabled when we are drawing
+    // onto a layer.
+    if (isCanvasMultiLayered)
+        paint->setLCDRenderText(false);
 }
 
 void Font::drawGlyphs(GraphicsContext* gc, const SimpleFontData* font,
@@ -83,12 +101,14 @@ void Font::drawGlyphs(GraphicsContext* gc, const SimpleFontData* font,
 
     SkCanvas* canvas = gc->platformContext()->canvas();
     int textMode = gc->platformContext()->getTextDrawingMode();
+    bool haveMultipleLayers = isCanvasMultiLayered(canvas);
 
     // We draw text up to two times (once for fill, once for stroke).
     if (textMode & cTextFill) {
         SkPaint paint;
         gc->platformContext()->setupPaintForFilling(&paint);
         font->platformData().setupPaint(&paint);
+        adjustTextRenderMode(&paint, haveMultipleLayers);
         paint.setTextEncoding(SkPaint::kGlyphID_TextEncoding);
         paint.setColor(gc->fillColor().rgb());
         canvas->drawPosText(glyphs, numGlyphs << 1, pos, paint);
@@ -101,6 +121,7 @@ void Font::drawGlyphs(GraphicsContext* gc, const SimpleFontData* font,
         SkPaint paint;
         gc->platformContext()->setupPaintForStroking(&paint, 0, 0);
         font->platformData().setupPaint(&paint);
+        adjustTextRenderMode(&paint, haveMultipleLayers);
         paint.setTextEncoding(SkPaint::kGlyphID_TextEncoding);
         paint.setColor(gc->strokeColor().rgb());
 
@@ -113,9 +134,6 @@ void Font::drawGlyphs(GraphicsContext* gc, const SimpleFontData* font,
         canvas->drawPosText(glyphs, numGlyphs << 1, pos, paint);
     }
 }
-
-extern const HB_FontClass harfbuzzSkiaClass;
-extern HB_Error harfbuzzSkiaGetTable(void* voidface, const HB_Tag, HB_Byte* buffer, HB_UInt* len);
 
 // Harfbuzz uses 26.6 fixed point values for pixel offsets. However, we don't
 // handle subpixel positioning so this function is used to truncate Harfbuzz
@@ -143,27 +161,29 @@ class TextRunWalker {
 public:
     TextRunWalker(const TextRun& run, unsigned startingX, const Font* font)
         : m_font(font)
-        , m_run(run)
         , m_startingX(startingX)
         , m_offsetX(m_startingX)
-        , m_iterateBackwards(run.rtl())
+        , m_run(getTextRun(run))
+        , m_iterateBackwards(m_run.rtl())
     {
+        // Do not use |run| inside this constructor. Use |m_run| instead.
+
         memset(&m_item, 0, sizeof(m_item));
         // We cannot know, ahead of time, how many glyphs a given script run
         // will produce. We take a guess that script runs will not produce more
         // than twice as many glyphs as there are code points and fallback if
         // we find that we are wrong.
-        m_maxGlyphs = run.length() * 2;
+        m_maxGlyphs = m_run.length() * 2;
         createGlyphArrays();
 
-        m_item.log_clusters = new unsigned short[run.length()];
+        m_item.log_clusters = new unsigned short[m_run.length()];
 
         m_item.face = 0;
         m_item.font = allocHarfbuzzFont();
 
-        m_item.string = run.characters();
-        m_item.stringLength = run.length();
-        m_item.item.bidiLevel = run.rtl();
+        m_item.string = m_run.characters();
+        m_item.stringLength = m_run.length();
+        m_item.item.bidiLevel = m_run.rtl();
 
         reset();
     }
@@ -173,8 +193,6 @@ public:
         fastFree(m_item.font);
         deleteGlyphArrays();
         delete[] m_item.log_clusters;
-        if (m_item.face)
-            HB_FreeFace(m_item.face);
     }
 
     void reset()
@@ -220,6 +238,23 @@ public:
         } else {
             if (!hb_utf16_script_run_next(&m_numCodePoints, &m_item.item, m_run.characters(), m_run.length(), &m_indexOfNextScriptRun))
                 return false;
+
+            // It is actually wrong to consider script runs at all in this code.
+            // Other WebKit code (e.g. Mac) segments complex text just by finding
+            // the longest span of text covered by a single font.
+            // But we currently need to call hb_utf16_script_run_next anyway to fill
+            // in the harfbuzz data structures to e.g. pick the correct script's shaper.
+            // So we allow that to run first, then do a second pass over the range it
+            // found and take the largest subregion that stays within a single font.
+            const FontData* glyphData = m_font->glyphDataForCharacter(m_item.string[m_item.item.pos], false, false).fontData;
+            int endOfRun;
+            for (endOfRun = 1; endOfRun < m_item.item.length; ++endOfRun) {
+                const FontData* nextGlyphData = m_font->glyphDataForCharacter(m_item.string[m_item.item.pos + endOfRun], false, false).fontData;
+                if (nextGlyphData != glyphData)
+                    break;
+            }
+            m_item.item.length = endOfRun;
+            m_indexOfNextScriptRun = m_item.item.pos + endOfRun;
         }
 
         setupFontForScriptRun();
@@ -292,17 +327,59 @@ public:
     }
 
 private:
+    const TextRun& getTextRun(const TextRun& originalRun)
+    {
+        // Normalize the text run in two ways:
+        // 1) Convert the |originalRun| to NFC normalized form if combining diacritical marks
+        // (U+0300..) are used in the run. This conversion is necessary since most OpenType
+        // fonts (e.g., Arial) don't have substitution rules for the diacritical marks in
+        // their GSUB tables.
+        //
+        // Note that we don't use the icu::Normalizer::isNormalized(UNORM_NFC) API here since
+        // the API returns FALSE (= not normalized) for complex runs that don't require NFC
+        // normalization (e.g., Arabic text). Unless the run contains the diacritical marks,
+        // Harfbuzz will do the same thing for us using the GSUB table.
+        // 2) Convert spacing characters into plain spaces, as some fonts will provide glyphs
+        // for characters like '\n' otherwise.
+        for (unsigned i = 0; i < originalRun.length(); ++i) {
+            UChar ch = originalRun[i];
+            UBlockCode block = ::ublock_getCode(ch);
+            if (block == UBLOCK_COMBINING_DIACRITICAL_MARKS || (Font::treatAsSpace(ch) && ch != ' ')) {
+                return getNormalizedTextRun(originalRun);
+            }
+        }
+        return originalRun;
+    }
+
+    const TextRun& getNormalizedTextRun(const TextRun& originalRun)
+    {
+        icu::UnicodeString normalizedString;
+        UErrorCode error = U_ZERO_ERROR;
+        icu::Normalizer::normalize(icu::UnicodeString(originalRun.characters(), originalRun.length()), UNORM_NFC, 0 /* no options */, normalizedString, error);
+        if (U_FAILURE(error))
+            return originalRun;
+
+        m_normalizedBuffer.set(new UChar[normalizedString.length() + 1]);
+        normalizedString.extract(m_normalizedBuffer.get(), normalizedString.length() + 1, error);
+        ASSERT(U_SUCCESS(error));
+
+        for (unsigned i = 0; i < normalizedString.length(); ++i) {
+            if (Font::treatAsSpace(m_normalizedBuffer[i]))
+                m_normalizedBuffer[i] = ' ';
+        }
+
+        m_normalizedRun.set(new TextRun(originalRun));
+        m_normalizedRun->setText(m_normalizedBuffer.get(), normalizedString.length());
+        return *m_normalizedRun;
+    }
+
     void setupFontForScriptRun()
     {
-        const FontData* fontData = m_font->fontDataAt(0);
-        if (!fontData->containsCharacters(m_item.string + m_item.item.pos, m_item.item.length))
-            fontData = m_font->fontDataForCharacters(m_item.string + m_item.item.pos, m_item.item.length);
+        const FontData* fontData = m_font->glyphDataForCharacter(m_item.string[m_item.item.pos], false, false).fontData;
         const FontPlatformData& platformData = fontData->fontDataForCharacter(' ')->platformData();
+        m_item.face = platformData.harfbuzzFace();
         void* opaquePlatformData = const_cast<FontPlatformData*>(&platformData);
         m_item.font->userData = opaquePlatformData;
-        if (m_item.face)
-            HB_FreeFace(m_item.face);
-        m_item.face = HB_NewFace(opaquePlatformData, harfbuzzSkiaGetTable);
     }
 
     HB_FontRec* allocHarfbuzzFont()
@@ -338,6 +415,8 @@ private:
         m_item.attributes = new HB_GlyphAttributes[m_maxGlyphs];
         m_item.advances = new HB_Fixed[m_maxGlyphs];
         m_item.offsets = new HB_FixedPoint[m_maxGlyphs];
+        // HB_FixedPoint is a struct, so we must use memset to clear it.
+        memset(m_item.offsets, 0, m_maxGlyphs * sizeof(HB_FixedPoint));
         m_glyphs16 = new uint16_t[m_maxGlyphs];
         m_xPositions = new SkScalar[m_maxGlyphs];
 
@@ -374,23 +453,23 @@ private:
 
     void setGlyphXPositions(bool isRTL)
     {
-        m_pixelWidth = 0;
-        for (unsigned i = 0; i < m_item.num_glyphs; ++i) {
-            int index;
-            if (isRTL)
-                index = m_item.num_glyphs - (i + 1);
-            else
-                index = i;
+        double position = 0;
+        for (int iter = 0; iter < m_item.num_glyphs; ++iter) {
+            // Glyphs are stored in logical order, but for layout purposes we always go left to right.
+            int i = isRTL ? m_item.num_glyphs - iter - 1 : iter;
 
             m_glyphs16[i] = m_item.glyphs[i];
-            m_xPositions[index] = m_offsetX + m_pixelWidth;
-            m_pixelWidth += truncateFixedPointToInteger(m_item.advances[index]);
+            double offsetX = truncateFixedPointToInteger(m_item.offsets[i].x);
+            m_xPositions[i] = m_offsetX + position + offsetX;
+
+            double advance = truncateFixedPointToInteger(m_item.advances[i]);
+            position += advance;
         }
+        m_pixelWidth = position;
         m_offsetX += m_pixelWidth;
     }
 
     const Font* const m_font;
-    const TextRun& m_run;
     HB_ShaperItem m_item;
     uint16_t* m_glyphs16; // A vector of 16-bit glyph ids.
     SkScalar* m_xPositions; // A vector of x positions for each glyph.
@@ -400,6 +479,10 @@ private:
     unsigned m_pixelWidth; // Width (in px) of the current script run.
     unsigned m_numCodePoints; // Code points in current script run.
     unsigned m_maxGlyphs; // Current size of all the Harfbuzz arrays.
+
+    OwnPtr<TextRun> m_normalizedRun;
+    OwnArrayPtr<UChar> m_normalizedBuffer; // A buffer for normalized run.
+    const TextRun& m_run;
     bool m_iterateBackwards;
 };
 
@@ -436,21 +519,24 @@ void Font::drawComplexText(GraphicsContext* gc, const TextRun& run,
     }
 
     TextRunWalker walker(run, point.x(), this);
+    bool haveMultipleLayers = isCanvasMultiLayered(canvas);
 
     while (walker.nextScriptRun()) {
         if (fill) {
             walker.fontPlatformDataForScriptRun()->setupPaint(&fillPaint);
+            adjustTextRenderMode(&fillPaint, haveMultipleLayers);
             canvas->drawPosTextH(walker.glyphs(), walker.length() << 1, walker.xPositions(), point.y(), fillPaint);
         }
 
         if (stroke) {
             walker.fontPlatformDataForScriptRun()->setupPaint(&strokePaint);
+            adjustTextRenderMode(&strokePaint, haveMultipleLayers);
             canvas->drawPosTextH(walker.glyphs(), walker.length() << 1, walker.xPositions(), point.y(), strokePaint);
         }
     }
 }
 
-float Font::floatWidthForComplexText(const TextRun& run, HashSet<const SimpleFontData*>* /* fallbackFonts */) const
+float Font::floatWidthForComplexText(const TextRun& run, HashSet<const SimpleFontData*>* /* fallbackFonts */, GlyphOverflow* /* glyphOverflow */) const
 {
     TextRunWalker walker(run, 0, this);
     return walker.widthOfFullRun();
@@ -519,7 +605,7 @@ int Font::offsetForPositionForComplexText(const TextRun& run, int x,
         if (walker.rtl())
             basePosition -= walker.numCodePoints();
 
-        if (x < walker.width()) {
+        if (x >= 0 && x < walker.width()) {
             // The x value in question is within this script run. We consider
             // each glyph in presentation order and stop when we find the one
             // covering this position.
@@ -529,13 +615,19 @@ int Font::offsetForPositionForComplexText(const TextRun& run, int x,
             // code-point index. Because of ligatures, several code-points may
             // have gone into a single glyph. We iterate over the clusters log
             // and find the first code-point which contributed to the glyph.
+
+            // Some shapers (i.e. Khmer) will produce cluster logs which report
+            // that /no/ code points contributed to certain glyphs. Because of
+            // this, we take any code point which contributed to the glyph in
+            // question, or any subsequent glyph. If we run off the end, then
+            // we take the last code point.
             const unsigned short* log = walker.logClusters();
             for (unsigned j = 0; j < walker.numCodePoints(); ++j) {
-                if (log[j] == glyphIndex)
+                if (log[j] >= glyphIndex)
                     return basePosition + j;
             }
 
-            ASSERT_NOT_REACHED();
+            return basePosition + walker.numCodePoints() - 1;
         }
 
         x -= walker.width();
@@ -603,8 +695,6 @@ FloatRect Font::selectionRectForComplexText(const TextRun& run,
 
     if (toX == -1 && !to)
         toX = rightEdge;
-    else if (!walker.rtl())
-        toX += truncateFixedPointToInteger(toAdvance);
 
     ASSERT(fromX != -1 && toX != -1);
 

@@ -2006,10 +2006,12 @@ dequeueAsyncDNSQuery(SCNetworkReachabilityRef target)
 		targetPrivate->dnsRLS = NULL;
 	}
 
-	CFMachPortInvalidate(targetPrivate->dnsPort);
-	CFRelease(targetPrivate->dnsPort);
-	targetPrivate->dnsPort = NULL;
-	targetPrivate->dnsMP = MACH_PORT_NULL;
+	if (targetPrivate->dnsPort != NULL) {
+		CFMachPortInvalidate(targetPrivate->dnsPort);
+		CFRelease(targetPrivate->dnsPort);
+		targetPrivate->dnsPort = NULL;
+		targetPrivate->dnsMP = MACH_PORT_NULL;
+	}
 
 	return;
 }

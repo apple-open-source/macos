@@ -20,9 +20,9 @@
  * PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY
  * OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
- 
+
 #include "config.h"
 #include "Storage.h"
 
@@ -47,6 +47,10 @@ Storage::Storage(Frame* frame, PassRefPtr<StorageArea> storageArea)
     ASSERT(m_storageArea);
 }
 
+Storage::~Storage()
+{
+}
+
 unsigned Storage::length() const
 {
     if (!m_frame)
@@ -55,13 +59,12 @@ unsigned Storage::length() const
     return m_storageArea->length();
 }
 
-String Storage::key(unsigned index, ExceptionCode& ec) const
+String Storage::key(unsigned index) const
 {
-    ec = 0;
     if (!m_frame)
         return String();
 
-    return m_storageArea->key(index, ec);
+    return m_storageArea->key(index);
 }
 
 String Storage::getItem(const String& key) const
@@ -108,4 +111,3 @@ bool Storage::contains(const String& key) const
 }
 
 #endif // ENABLE(DOM_STORAGE)
-

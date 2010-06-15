@@ -1,6 +1,6 @@
 /*
  *  Copyright (C) 1999-2001 Harri Porten (porten@kde.org)
- *  Copyright (C) 2003, 2004, 2005, 2006, 2007, 2008 Apple Inc. All rights reserved.
+ *  Copyright (C) 2003, 2004, 2005, 2006, 2007, 2008, 2009 Apple Inc. All rights reserved.
  *
  *  This library is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU Lesser General Public
@@ -25,6 +25,7 @@
 #include "JSArray.h"
 #include "JSFunction.h"
 #include "JSString.h"
+#include "JSStringBuilder.h"
 #include "Interpreter.h"
 #include "Lexer.h"
 #include "PrototypeFunction.h"
@@ -37,7 +38,7 @@ static JSValue JSC_HOST_CALL functionProtoFuncToString(ExecState*, JSObject*, JS
 static JSValue JSC_HOST_CALL functionProtoFuncApply(ExecState*, JSObject*, JSValue, const ArgList&);
 static JSValue JSC_HOST_CALL functionProtoFuncCall(ExecState*, JSObject*, JSValue, const ArgList&);
 
-FunctionPrototype::FunctionPrototype(ExecState* exec, PassRefPtr<Structure> structure)
+FunctionPrototype::FunctionPrototype(ExecState* exec, NonNullPassRefPtr<Structure> structure)
     : InternalFunction(&exec->globalData(), structure, exec->propertyNames().nullIdentifier)
 {
     putDirectWithoutTransition(exec->propertyNames().length, jsNumber(exec, 0), DontDelete | ReadOnly | DontEnum);
@@ -76,7 +77,7 @@ static inline void insertSemicolonIfNeeded(UString& functionBody)
         UChar ch = functionBody[i];
         if (!Lexer::isWhiteSpace(ch) && !Lexer::isLineTerminator(ch)) {
             if (ch != ';' && ch != '}')
-                functionBody = functionBody.substr(0, i + 1) + ";" + functionBody.substr(i + 1, functionBody.size() - (i + 1));
+                functionBody = makeString(functionBody.substr(0, i + 1), ";", functionBody.substr(i + 1, functionBody.size() - (i + 1)));
             return;
         }
     }
@@ -84,18 +85,19 @@ static inline void insertSemicolonIfNeeded(UString& functionBody)
 
 JSValue JSC_HOST_CALL functionProtoFuncToString(ExecState* exec, JSObject*, JSValue thisValue, const ArgList&)
 {
-    if (thisValue.isObject(&JSFunction::info)) {
+    if (thisValue.inherits(&JSFunction::info)) {
         JSFunction* function = asFunction(thisValue);
         if (!function->isHostFunction()) {
-            UString functionBody = function->body()->toSourceString();
-            insertSemicolonIfNeeded(functionBody);
-            return jsString(exec, "function " + function->name(&exec->globalData()) + "(" + function->body()->paramString() + ") " + functionBody);
+            FunctionExecutable* executable = function->jsExecutable();
+            UString sourceString = executable->source().toString();
+            insertSemicolonIfNeeded(sourceString);
+            return jsMakeNontrivialString(exec, "function ", function->name(exec), "(", executable->paramString(), ") ", sourceString);
         }
     }
 
-    if (thisValue.isObject(&InternalFunction::info)) {
+    if (thisValue.inherits(&InternalFunction::info)) {
         InternalFunction* function = asInternalFunction(thisValue);
-        return jsString(exec, "function " + function->name(&exec->globalData()) + "() {\n    [native code]\n}");
+        return jsMakeNontrivialString(exec, "function ", function->name(exec), "() {\n    [native code]\n}");
     }
 
     return throwError(exec, TypeError);

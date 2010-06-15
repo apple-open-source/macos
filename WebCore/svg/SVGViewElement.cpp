@@ -2,8 +2,6 @@
     Copyright (C) 2004, 2005, 2008 Nikolas Zimmermann <zimmermann@kde.org>
                   2004, 2005, 2007 Rob Buis <buis@kde.org>
 
-    This file is part of the KDE project
-
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Library General Public
     License as published by the Free Software Foundation; either
@@ -61,11 +59,30 @@ void SVGViewElement::parseMappedAttribute(MappedAttribute* attr)
         viewTarget()->reset(attr->value());
     else {
         if (SVGExternalResourcesRequired::parseMappedAttribute(attr)
-           || SVGFitToViewBox::parseMappedAttribute(attr)
+           || SVGFitToViewBox::parseMappedAttribute(document(), attr)
            || SVGZoomAndPan::parseMappedAttribute(attr))
             return;
 
         SVGStyledElement::parseMappedAttribute(attr);
+    }
+}
+
+void SVGViewElement::synchronizeProperty(const QualifiedName& attrName)
+{
+    SVGStyledElement::synchronizeProperty(attrName);
+
+    if (attrName == anyQName()) {
+        synchronizeExternalResourcesRequired();
+        synchronizeViewBox();
+        synchronizePreserveAspectRatio();
+        return;
+    }
+
+    if (SVGExternalResourcesRequired::isKnownAttribute(attrName))
+        synchronizeExternalResourcesRequired();
+    else if (SVGFitToViewBox::isKnownAttribute(attrName)) {
+        synchronizeViewBox();
+        synchronizePreserveAspectRatio();
     }
 }
 

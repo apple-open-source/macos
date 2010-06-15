@@ -28,7 +28,6 @@
 #import "config.h"
 #import "Frame.h"
 
-#import "Base64.h"
 #import "BlockExceptions.h"
 #import "ColorMac.h"
 #import "Cursor.h"
@@ -53,7 +52,6 @@
 #import "RenderTableCell.h"
 #import "Scrollbar.h"
 #import "SimpleFontData.h"
-#import "UserStyleSheetLoader.h"
 #import "WebCoreViewFactory.h"
 #import "visible_units.h"
 
@@ -145,12 +143,13 @@ static RegularExpression* regExpForLabels(NSArray* labels)
     return result;
 }
 
-NSString* Frame::searchForNSLabelsAboveCell(RegularExpression* regExp, HTMLTableCellElement* cell)
+NSString* Frame::searchForNSLabelsAboveCell(RegularExpression* regExp, HTMLTableCellElement* cell, size_t* resultDistanceFromStartOfCell)
 {
-    RenderTableCell* cellRenderer = static_cast<RenderTableCell*>(cell->renderer());
+    RenderObject* cellRenderer = cell->renderer();
 
     if (cellRenderer && cellRenderer->isTableCell()) {
-        RenderTableCell* cellAboveRenderer = cellRenderer->table()->cellAbove(cellRenderer);
+        RenderTableCell* tableCellRenderer = toRenderTableCell(cellRenderer);
+        RenderTableCell* cellAboveRenderer = tableCellRenderer->table()->cellAbove(tableCellRenderer);
 
         if (cellAboveRenderer) {
             HTMLTableCellElement* aboveCell =
@@ -158,23 +157,30 @@ NSString* Frame::searchForNSLabelsAboveCell(RegularExpression* regExp, HTMLTable
 
             if (aboveCell) {
                 // search within the above cell we found for a match
+                size_t lengthSearched = 0;    
                 for (Node* n = aboveCell->firstChild(); n; n = n->traverseNextNode(aboveCell)) {
                     if (n->isTextNode() && n->renderer() && n->renderer()->style()->visibility() == VISIBLE) {
                         // For each text chunk, run the regexp
                         String nodeString = n->nodeValue();
                         int pos = regExp->searchRev(nodeString);
-                        if (pos >= 0)
+                        if (pos >= 0) {
+                            if (resultDistanceFromStartOfCell)
+                                *resultDistanceFromStartOfCell = lengthSearched;
                             return nodeString.substring(pos, regExp->matchedLength());
+                        }
+                        lengthSearched += nodeString.length();
                     }
                 }
             }
         }
     }
     // Any reason in practice to search all cells in that are above cell?
+    if (resultDistanceFromStartOfCell)
+        *resultDistanceFromStartOfCell = notFound;
     return nil;
 }
 
-NSString* Frame::searchForLabelsBeforeElement(NSArray* labels, Element* element)
+NSString* Frame::searchForLabelsBeforeElement(NSArray* labels, Element* element, size_t* resultDistance, bool* resultIsInCellAbove)
 {
     RegularExpression* regExp = regExpForLabels(labels);
     // We stop searching after we've seen this many chars
@@ -185,6 +191,11 @@ NSString* Frame::searchForLabelsBeforeElement(NSArray* labels, Element* element)
     // If the starting element is within a table, the cell that contains it
     HTMLTableCellElement* startingTableCell = 0;
     bool searchedCellAbove = false;
+    
+    if (resultDistance)
+        *resultDistance = notFound;
+    if (resultIsInCellAbove)
+        *resultIsInCellAbove = false;
 
     // walk backwards in the node tree, until another element, or form, or end of tree
     int unsigned lengthSearched = 0;
@@ -201,9 +212,12 @@ NSString* Frame::searchForLabelsBeforeElement(NSArray* labels, Element* element)
         } else if (n->hasTagName(tdTag) && !startingTableCell) {
             startingTableCell = static_cast<HTMLTableCellElement*>(n);
         } else if (n->hasTagName(trTag) && startingTableCell) {
-            NSString* result = searchForLabelsAboveCell(regExp, startingTableCell);
-            if (result && [result length] > 0)
+            NSString* result = searchForLabelsAboveCell(regExp, startingTableCell, resultDistance);
+            if (result && [result length] > 0) {
+                if (resultIsInCellAbove)
+                    *resultIsInCellAbove = true;
                 return result;
+            }
             searchedCellAbove = true;
         } else if (n->isTextNode() && n->renderer() && n->renderer()->style()->visibility() == VISIBLE) {
             // For each text chunk, run the regexp
@@ -212,9 +226,11 @@ NSString* Frame::searchForLabelsBeforeElement(NSArray* labels, Element* element)
             if (lengthSearched + nodeString.length() > maxCharsSearched)
                 nodeString = nodeString.right(charsSearchedThreshold - lengthSearched);
             int pos = regExp->searchRev(nodeString);
-            if (pos >= 0)
+            if (pos >= 0) {
+                if (resultDistance)
+                    *resultDistance = lengthSearched;
                 return nodeString.substring(pos, regExp->matchedLength());
-
+            }
             lengthSearched += nodeString.length();
         }
     }
@@ -222,33 +238,37 @@ NSString* Frame::searchForLabelsBeforeElement(NSArray* labels, Element* element)
     // If we started in a cell, but bailed because we found the start of the form or the
     // previous element, we still might need to search the row above us for a label.
     if (startingTableCell && !searchedCellAbove) {
-        NSString* result = searchForLabelsAboveCell(regExp, startingTableCell);
-        if (result && [result length] > 0)
+        NSString* result = searchForLabelsAboveCell(regExp, startingTableCell, resultDistance);
+        if (result && [result length] > 0) {
+            if (resultIsInCellAbove)
+                *resultIsInCellAbove = true;
             return result;
+        }
     }
     
     return nil;
 }
 
-NSString* Frame::matchLabelsAgainstElement(NSArray* labels, Element* element)
+static NSString *matchLabelsAgainstString(NSArray *labels, const String& stringToMatch)
 {
-    String name = element->getAttribute(nameAttr);
-    if (name.isEmpty())
+    if (stringToMatch.isEmpty())
         return nil;
-
+    
+    String mutableStringToMatch = stringToMatch;
+    
     // Make numbers and _'s in field names behave like word boundaries, e.g., "address2"
-    replace(name, RegularExpression("\\d", TextCaseSensitive), " ");
-    name.replace('_', ' ');
-
+    replace(mutableStringToMatch, RegularExpression("\\d", TextCaseSensitive), " ");
+    mutableStringToMatch.replace('_', ' ');
+    
     RegularExpression* regExp = regExpForLabels(labels);
-    // Use the largest match we can find in the whole name string
+    // Use the largest match we can find in the whole string
     int pos;
     int length;
     int bestPos = -1;
     int bestLength = -1;
     int start = 0;
     do {
-        pos = regExp->match(name, start);
+        pos = regExp->match(mutableStringToMatch, start);
         if (pos != -1) {
             length = regExp->matchedLength();
             if (length >= bestLength) {
@@ -258,10 +278,23 @@ NSString* Frame::matchLabelsAgainstElement(NSArray* labels, Element* element)
             start = pos + 1;
         }
     } while (pos != -1);
-
+    
     if (bestPos != -1)
-        return name.substring(bestPos, bestLength);
+        return mutableStringToMatch.substring(bestPos, bestLength);
     return nil;
+}
+
+NSString* Frame::matchLabelsAgainstElement(NSArray* labels, Element* element)
+{
+    // Match against the name element, then against the id element if no match is found for the name element.
+    // See 7538330 for one popular site that benefits from the id element check.
+    // FIXME: This code is mirrored in Frame.cpp. It would be nice to make the Mac code call the platform-agnostic
+    // code, which would require converting the NSArray of NSStrings to a Vector of Strings somewhere along the way.
+    String resultFromNameAttribute = matchLabelsAgainstString(labels, element->getAttribute(nameAttr));
+    if (!resultFromNameAttribute.isEmpty())
+        return resultFromNameAttribute;
+    
+    return matchLabelsAgainstString(labels, element->getAttribute(idAttr));
 }
 
 NSImage* Frame::imageFromRect(NSRect rect) const
@@ -272,7 +305,9 @@ NSImage* Frame::imageFromRect(NSRect rect) const
     if (![view respondsToSelector:@selector(drawSingleRect:)])
         return nil;
     
-    NSImage* resultImage;
+    PaintBehavior oldPaintBehavior = m_view->paintBehavior();
+    m_view->setPaintBehavior(oldPaintBehavior | PaintBehaviorFlattenCompositingLayers);
+
     BEGIN_BLOCK_OBJC_EXCEPTIONS;
     
     NSRect bounds = [view bounds];
@@ -283,7 +318,7 @@ NSImage* Frame::imageFromRect(NSRect rect) const
     rect.size.width = roundf(rect.size.width);
     rect = [view convertRect:rect fromView:nil];
     
-    resultImage = [[[NSImage alloc] initWithSize:rect.size] autorelease];
+    NSImage* resultImage = [[[NSImage alloc] initWithSize:rect.size] autorelease];
 
     if (rect.size.width != 0 && rect.size.height != 0) {
         [resultImage setFlipped:YES];
@@ -302,19 +337,21 @@ NSImage* Frame::imageFromRect(NSRect rect) const
         [resultImage setFlipped:NO];
     }
 
+    m_view->setPaintBehavior(oldPaintBehavior);
     return resultImage;
 
     END_BLOCK_OBJC_EXCEPTIONS;
     
+    m_view->setPaintBehavior(oldPaintBehavior);
     return nil;
 }
 
 NSImage* Frame::selectionImage(bool forceBlackText) const
 {
-    m_view->setPaintRestriction(forceBlackText ? PaintRestrictionSelectionOnlyBlackText : PaintRestrictionSelectionOnly);
+    m_view->setPaintBehavior(PaintBehaviorSelectionOnly | (forceBlackText ? PaintBehaviorForceBlackText : 0));
     m_doc->updateLayout();
     NSImage* result = imageFromRect(selectionBounds());
-    m_view->setPaintRestriction(PaintRestrictionNone);
+    m_view->setPaintBehavior(PaintBehaviorNormal);
     return result;
 }
 
@@ -370,21 +407,21 @@ NSDictionary* Frame::fontAttributesForSelectionStart() const
 
     NSMutableDictionary* result = [NSMutableDictionary dictionary];
 
-    if (style->backgroundColor().isValid() && style->backgroundColor().alpha() != 0)
-        [result setObject:nsColor(style->backgroundColor()) forKey:NSBackgroundColorAttributeName];
+    if (style->visitedDependentColor(CSSPropertyBackgroundColor).isValid() && style->visitedDependentColor(CSSPropertyBackgroundColor).alpha() != 0)
+        [result setObject:nsColor(style->visitedDependentColor(CSSPropertyBackgroundColor)) forKey:NSBackgroundColorAttributeName];
 
     if (style->font().primaryFont()->getNSFont())
         [result setObject:style->font().primaryFont()->getNSFont() forKey:NSFontAttributeName];
 
-    if (style->color().isValid() && style->color() != Color::black)
-        [result setObject:nsColor(style->color()) forKey:NSForegroundColorAttributeName];
+    if (style->visitedDependentColor(CSSPropertyColor).isValid() && style->visitedDependentColor(CSSPropertyColor) != Color::black)
+        [result setObject:nsColor(style->visitedDependentColor(CSSPropertyColor)) forKey:NSForegroundColorAttributeName];
 
-    ShadowData* shadow = style->textShadow();
+    const ShadowData* shadow = style->textShadow();
     if (shadow) {
         NSShadow* s = [[NSShadow alloc] init];
-        [s setShadowOffset:NSMakeSize(shadow->x, shadow->y)];
-        [s setShadowBlurRadius:shadow->blur];
-        [s setShadowColor:nsColor(shadow->color)];
+        [s setShadowOffset:NSMakeSize(shadow->x(), shadow->y())];
+        [s setShadowBlurRadius:shadow->blur()];
+        [s setShadowColor:nsColor(shadow->color())];
         [result setObject:s forKey:NSShadowAttributeName];
     }
 
@@ -460,33 +497,6 @@ NSWritingDirection Frame::baseWritingDirectionForSelectionStart() const
     return result;
 }
 
-const short enableRomanKeyboardsOnly = -23;
-void Frame::setUseSecureKeyboardEntry(bool enable)
-{
-    if (enable == IsSecureEventInputEnabled())
-        return;
-    if (enable) {
-        EnableSecureEventInput();
-#ifdef BUILDING_ON_TIGER
-        KeyScript(enableRomanKeyboardsOnly);
-#else
-        // WebKit substitutes nil for input context when in password field, which corresponds to null TSMDocument. So, there is
-        // no need to call TSMGetActiveDocument(), which may return an incorrect result when selection hasn't been yet updated
-        // after focusing a node.
-        CFArrayRef inputSources = TISCreateASCIICapableInputSourceList();
-        TSMSetDocumentProperty(0, kTSMDocumentEnabledInputSourcesPropertyTag, sizeof(CFArrayRef), &inputSources);
-        CFRelease(inputSources);
-#endif
-    } else {
-        DisableSecureEventInput();
-#ifdef BUILDING_ON_TIGER
-        KeyScript(smKeyEnableKybds);
-#else
-        TSMRemoveDocumentProperty(0, kTSMDocumentEnabledInputSourcesPropertyTag);
-#endif
-    }
-}
-
 #if ENABLE(DASHBOARD_SUPPORT)
 NSMutableDictionary* Frame::dashboardRegionsDictionary()
 {
@@ -530,37 +540,6 @@ DragImageRef Frame::dragImageForSelection()
     if (!selection()->isRange())
         return nil;
     return selectionImage();
-}
-
-void Frame::setUserStyleSheetLocation(const KURL& url)
-{
-    delete m_userStyleSheetLoader;
-    m_userStyleSheetLoader = 0;
-
-    // Data URLs with base64-encoded UTF-8 style sheets are common. We can process them
-    // synchronously and avoid using a loader. 
-    if (url.protocolIs("data") && url.string().startsWith("data:text/css;charset=utf-8;base64,")) {
-        const unsigned prefixLength = 35;
-        Vector<char> encodedData(url.string().length() - prefixLength);
-        for (unsigned i = prefixLength; i < url.string().length(); ++i)
-            encodedData[i - prefixLength] = static_cast<char>(url.string()[i]);
-
-        Vector<char> styleSheetAsUTF8;
-        if (base64Decode(encodedData, styleSheetAsUTF8)) {
-            m_doc->setUserStyleSheet(String::fromUTF8(styleSheetAsUTF8.data()));
-            return;
-        }
-    }
-
-    if (m_doc->docLoader())
-        m_userStyleSheetLoader = new UserStyleSheetLoader(m_doc, url.string());
-}
-
-void Frame::setUserStyleSheet(const String& styleSheet)
-{
-    delete m_userStyleSheetLoader;
-    m_userStyleSheetLoader = 0;
-    m_doc->setUserStyleSheet(styleSheet);
 }
 
 } // namespace WebCore

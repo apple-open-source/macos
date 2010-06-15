@@ -1447,7 +1447,7 @@ purge_isakmp_spi(proto, spi, n)
 
 	for (i = 0; i < n; i++) {
 		iph1 = getph1byindex(&spi[i]);
-		if (!iph1)
+		if (!iph1 || iph1->is_dying || iph1->status == PHASE1ST_EXPIRED)
 			continue;
 
 		plog(LLV_INFO, LOCATION, NULL,

@@ -117,8 +117,6 @@ bool containsVariableReference(const String& text, bool& isValid)
                 if (!isValidVariableNameCharacter(text[nameEndPosition]))
                     break;
             }
-
-            --nameEndPosition;
         }
 
         if (nameEndPosition < nameStartPosition) {
@@ -127,7 +125,7 @@ bool containsVariableReference(const String& text, bool& isValid)
             break;
         }
     
-        // Eventually split of conversion string, and check it's syntax afterwards
+        // Eventually split of conversion string, and check its syntax afterwards
         String conversionString;
         String variableName = text.substring(nameStartPosition, nameEndPosition - nameStartPosition);
 
@@ -253,7 +251,7 @@ String substituteVariableReferences(const String& reference, Document* document,
         if (!conversionMode.isEmpty()) {
             // Override default escape mode, if desired
             WMLVariableEscapingMode specifiedEscapeMode = WMLVariableEscapingNone; 
-            if (isValid = isValidVariableEscapingModeString(conversionMode, specifiedEscapeMode))
+            if ((isValid = isValidVariableEscapingModeString(conversionMode, specifiedEscapeMode)))
                 escapeMode = specifiedEscapeMode;
 
             if (!isValid)

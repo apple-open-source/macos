@@ -587,6 +587,37 @@ int IOUSBDeviceDescriptionAppendInterfaceToConfiguration(IOUSBDeviceDescriptionR
 	return CFArrayGetCount(interfaces) - 1;
 }
 
+CFArrayRef IOUSBDeviceDescriptionCopyInterfaces(IOUSBDeviceDescriptionRef devDesc)
+{
+	CFArrayRef configs = CFDictionaryGetValue(devDesc->info, CFSTR("ConfigurationDescriptors"));
+	CFIndex numConfigs = CFArrayGetCount(configs);
+
+	CFMutableArrayRef allInterfaces = CFArrayCreateMutable(devDesc->allocator, numConfigs, &kCFTypeArrayCallBacks);
+	if (allInterfaces != NULL) {
+		
+		for (CFIndex i = 0; i < numConfigs; i++) {
+			CFDictionaryRef config = CFArrayGetValueAtIndex(configs, i);
+			CFArrayRef interfaces = CFDictionaryGetValue(config, CFSTR("Interfaces"));
+
+			/* 
+			 * Create a copy of the interfaces to return.  If this fails, we're
+			 * in trouble, but try to clean up and get out
+			 */
+			CFArrayRef interfacesCopy = CFArrayCreateCopy(devDesc->allocator, interfaces);
+			if (interfacesCopy == NULL) {
+				CFRelease(allInterfaces);
+				allInterfaces = NULL;
+				break;
+			}
+			
+			CFArrayAppendValue(allInterfaces, interfacesCopy);
+			CFRelease(interfacesCopy);
+		}
+	}
+
+	return allInterfaces;
+}
+
 static IOUSBDeviceDescriptionRef __IOUSBDeviceDescriptionCreateFromFile( CFAllocatorRef allocator, CFStringRef filePath )
 {
 	IOUSBDeviceDescriptionRef devDesc = NULL;

@@ -1,6 +1,7 @@
 /*
     Copyright (C) 2008 Nokia Corporation and/or its subsidiary(-ies)
     Copyright (C) 2008 Holger Hans Peter Freyther
+    Copyright (C) 2009 Girish Ramakrishnan <girish@forwardbias.in>
 
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Library General Public
@@ -20,9 +21,12 @@
 
 #include "config.h"
 #include "qwebview.h"
+
+#include "Page.h"
+#include "QWebPageClient.h"
+#include "Settings.h"
 #include "qwebframe.h"
 #include "qwebpage_p.h"
-
 #include "qbitmap.h"
 #include "qevent.h"
 #include "qpainter.h"
@@ -30,46 +34,175 @@
 #include "qdir.h"
 #include "qfile.h"
 
-class QWebViewPrivate
-{
+class QWebViewPrivate {
 public:
     QWebViewPrivate(QWebView *view)
         : view(view)
         , page(0)
         , renderHints(QPainter::TextAntialiasing)
-#ifndef QT_NO_CURSOR
-        , cursorSetByWebCore(false)
-        , usesWebCoreCursor(true)
-#endif
-    {}
+    {
+        Q_ASSERT(view);
+    }
+
+    void _q_pageDestroyed();
+    void unsetPageIfExists();
 
     QWebView *view;
     QWebPage *page;
 
     QPainter::RenderHints renderHints;
+};
 
-#ifndef QT_NO_CURSOR
-    /*
-     * We keep track of if we have called setCursor and if the CursorChange
-     * event is sent due our setCursor call and if we currently use the WebCore
-     * Cursor and use it to decide if we can update to another WebCore Cursor.
-     */
-    bool cursorSetByWebCore;
-    bool usesWebCoreCursor;
+void QWebViewPrivate::_q_pageDestroyed()
+{
+    page = 0;
+    view->setPage(0);
+}
 
-    void setCursor(const QCursor& newCursor)
+#ifdef Q_WS_MAEMO_5
+#include "qabstractkineticscroller.h"
+#include "qapplication.h"
+
+// QCoreApplication::sendSpontaneousEvent() is private, hence this friend wrapper
+bool qt_sendSpontaneousEvent(QObject* receiver, QEvent* ev)
+{
+    return QCoreApplication::sendSpontaneousEvent(receiver, ev);
+}
+
+class QWebViewKineticScroller : public QObject, public QAbstractKineticScroller {
+public:
+    QWebViewKineticScroller()
+        : QObject()
+        , QAbstractKineticScroller()
+        , m_view(0)
+        , m_ignoreEvents(false)
     {
-        webCoreCursor = newCursor;
+    }
 
-        if (usesWebCoreCursor) {
-            cursorSetByWebCore = true;
-            view->setCursor(webCoreCursor);
+    void setWidget(QWebView* widget)
+    {
+        if (m_view) {
+            m_view->removeEventFilter(this);
+            QWebFrame* frame = m_view->page()->mainFrame();
+            frame->setScrollBarPolicy(Qt::Vertical, m_oldVerticalScrollBarPolicy);
+            frame->setScrollBarPolicy(Qt::Horizontal, m_oldHorizontalScrollBarPolicy);
+        }
+
+        m_view = widget;
+        setParent(m_view);
+        if (m_view) {
+            QWebFrame* frame = m_view->page()->mainFrame();
+            m_oldHorizontalScrollBarPolicy = frame->scrollBarPolicy(Qt::Horizontal);
+            m_oldVerticalScrollBarPolicy = frame->scrollBarPolicy(Qt::Vertical);
+            frame->setScrollBarPolicy(Qt::Vertical, Qt::ScrollBarAlwaysOff);
+            frame->setScrollBarPolicy(Qt::Horizontal, Qt::ScrollBarAlwaysOff);
+            m_view->installEventFilter(this);
         }
     }
 
-    QCursor webCoreCursor;
-#endif
+protected:
+    bool eventFilter(QObject* o, QEvent* ev)
+    {
+        if (!o || m_view != o || m_ignoreEvents || !m_view->isEnabled())
+            return QObject::eventFilter(o, ev);
+
+        bool res = false;
+
+        switch (ev->type()) {
+        case QEvent::MouseButtonPress: {
+            // remember the frame where the button was pressed
+            QWebFrame* hitFrame = scrollingFrameAt(static_cast<QMouseEvent*>(ev)->pos());
+            if (hitFrame)
+                m_frame = hitFrame;
+            // fall through
+        }
+        case QEvent::MouseMove:
+        case QEvent::MouseButtonRelease:
+        case QEvent::MouseButtonDblClick:
+            res = handleMouseEvent(static_cast<QMouseEvent*>(ev));
+            break;
+        default:
+            break;
+        }
+        return res ? true : QObject::eventFilter(o, ev);
+    }
+
+    void cancelLeftMouseButtonPress(const QPoint& /* globalPressPos */)
+    {
+        QMouseEvent cmem(QEvent::MouseMove, QPoint(-INT_MAX, -INT_MAX), Qt::LeftButton, QApplication::mouseButtons() | Qt::LeftButton, QApplication::keyboardModifiers());
+        sendEvent(m_view, &cmem);
+        QMouseEvent cmer(QEvent::MouseButtonRelease, QPoint(-INT_MAX, -INT_MAX), Qt::LeftButton, QApplication::mouseButtons() & ~Qt::LeftButton, QApplication::keyboardModifiers());
+        sendEvent(m_view, &cmer);
+    }
+
+    QWebFrame* currentFrame() const
+    {
+        if (m_frame)
+            return m_frame;
+
+        if (m_view)
+            return m_view->page()->mainFrame();
+
+        return 0;
+    }
+
+    // Returns the innermost frame at the given position that can scroll.
+    QWebFrame* scrollingFrameAt(const QPoint& pos) const
+    {
+        QWebFrame* hitFrame = 0;
+        if (m_view) {
+            QWebFrame* frame = m_view->page()->mainFrame();
+            hitFrame = frame->hitTestContent(pos).frame();
+            QSize range = hitFrame->contentsSize() - hitFrame->geometry().size();
+
+            while (hitFrame && range.width() <= 1 && range.height() <= 1)
+                hitFrame = hitFrame->parentFrame();
+
+            return hitFrame;
+        }
+    }
+
+    QPoint maximumScrollPosition() const
+    {
+        QWebFrame* frame = currentFrame();
+        QSize s = frame ? frame->contentsSize() - frame->geometry().size() : QSize(0, 0);
+        return QPoint(qMax(0, s.width()), qMax(0, s.height()));
+    }
+
+    QPoint scrollPosition() const
+    {
+        QWebFrame* frame = currentFrame();
+        return frame ? frame->scrollPosition() : QPoint();
+    }
+
+    QSize viewportSize() const
+    {
+        return m_view ? m_view->page()->viewportSize() : QSize();
+    }
+
+    void setScrollPosition(const QPoint& point, const QPoint& /* overShootDelta */)
+    {
+        QWebFrame* frame = currentFrame();
+        if (frame)
+            frame->setScrollPosition(point);
+    }
+
+    void sendEvent(QWidget* w, QEvent* ev)
+    {
+        m_ignoreEvents = true;
+        qt_sendSpontaneousEvent(w, ev);
+        m_ignoreEvents = false;
+    }
+
+    QWebView* m_view;
+    bool m_ignoreEvents;
+    QPointer<QWebFrame> m_frame;
+    Qt::ScrollBarPolicy m_oldVerticalScrollBarPolicy;
+    Qt::ScrollBarPolicy m_oldHorizontalScrollBarPolicy;
 };
+
+#endif // Q_WS_MAEMO_5
+
 
 /*!
     \class QWebView
@@ -78,16 +211,18 @@ public:
     web documents.
     \ingroup advanced
 
+    \inmodule QtWebKit
+
     QWebView is the main widget component of the QtWebKit web browsing module.
     It can be used in various applications to display web content live from the
     Internet.
 
-    The image below shows QWebView previewed in \QD with the Trolltech website.
+    The image below shows QWebView previewed in \QD with a Nokia website.
 
     \image qwebview-url.png
 
     A web site can be loaded onto QWebView with the load() function. Like all
-    Qt Widgets, the show() function must be invoked in order to display
+    Qt widgets, the show() function must be invoked in order to display
     QWebView. The snippet below illustrates this:
 
     \snippet webkitsnippets/simple/main.cpp Using QWebView
@@ -147,7 +282,8 @@ public:
     if you do not require QWidget attributes. Nevertheless, QtWebKit depends
     on QtGui, so you should use a QApplication instead of QCoreApplication.
 
-    \sa {Previewer Example}, {Browser}
+    \sa {Previewer Example}, {Web Browser}, {Form Extractor Example},
+    {Google Chat Example}, {Fancy Browser Example}
 */
 
 /*!
@@ -160,10 +296,18 @@ QWebView::QWebView(QWidget *parent)
 {
     d = new QWebViewPrivate(this);
 
-#if !defined(Q_WS_QWS)
+#if !defined(Q_WS_QWS) && !defined(Q_OS_SYMBIAN)
     setAttribute(Qt::WA_InputMethodEnabled);
 #endif
 
+#if QT_VERSION >= QT_VERSION_CHECK(4, 6, 0)
+    setAttribute(Qt::WA_AcceptTouchEvents);
+#endif
+#if defined(Q_WS_MAEMO_5)
+    QAbstractKineticScroller* scroller = new QWebViewKineticScroller();
+    static_cast<QWebViewKineticScroller*>(scroller)->setWidget(this);
+    setProperty("kineticScroller", QVariant::fromValue(scroller));
+#endif
     setAcceptDrops(true);
 
     setMouseTracking(true);
@@ -175,8 +319,15 @@ QWebView::QWebView(QWidget *parent)
 */
 QWebView::~QWebView()
 {
-    if (d->page)
+    if (d->page) {
+#if QT_VERSION >= 0x040600
+        d->page->d->view.clear();
+#else
         d->page->d->view = 0;
+#endif
+        delete d->page->d->client;
+        d->page->d->client = 0;
+    }
 
     if (d->page && d->page->parent() == this)
         delete d->page;
@@ -197,6 +348,29 @@ QWebPage *QWebView::page() const
     return d->page;
 }
 
+void QWebViewPrivate::unsetPageIfExists()
+{
+    if (!page)
+        return;
+
+    // if the page client is the special client constructed for
+    // delegating the responsibilities to a QWidget, we need
+    // to destroy it.
+
+    if (page->d->client && page->d->client->isQWidgetClient())
+        delete page->d->client;
+
+    page->d->client = 0;
+
+    // if the page was created by us, we own it and need to
+    // destroy it as well.
+
+    if (page->parent() == view)
+        delete page;
+    else
+        page->disconnect(view);
+}
+
 /*!
     Makes \a page the new web page of the web view.
 
@@ -206,29 +380,25 @@ QWebPage *QWebView::page() const
 
     \sa page()
 */
-void QWebView::setPage(QWebPage *page)
+void QWebView::setPage(QWebPage* page)
 {
     if (d->page == page)
         return;
-    if (d->page) {
-        if (d->page->parent() == this) {
-            delete d->page;
-        } else {
-            d->page->disconnect(this);
-        }
-    }
+
+    d->unsetPageIfExists();
     d->page = page;
+
     if (d->page) {
         d->page->setView(this);
         d->page->setPalette(palette());
         // #### connect signals
         QWebFrame *mainFrame = d->page->mainFrame();
-        connect(mainFrame, SIGNAL(titleChanged(const QString&)),
-                this, SIGNAL(titleChanged(const QString&)));
+        connect(mainFrame, SIGNAL(titleChanged(QString)),
+                this, SIGNAL(titleChanged(QString)));
         connect(mainFrame, SIGNAL(iconChanged()),
                 this, SIGNAL(iconChanged()));
-        connect(mainFrame, SIGNAL(urlChanged(const QUrl &)),
-                this, SIGNAL(urlChanged(const QUrl &)));
+        connect(mainFrame, SIGNAL(urlChanged(QUrl)),
+                this, SIGNAL(urlChanged(QUrl)));
 
         connect(d->page, SIGNAL(loadStarted()),
                 this, SIGNAL(loadStarted()));
@@ -236,84 +406,18 @@ void QWebView::setPage(QWebPage *page)
                 this, SIGNAL(loadProgress(int)));
         connect(d->page, SIGNAL(loadFinished(bool)),
                 this, SIGNAL(loadFinished(bool)));
-        connect(d->page, SIGNAL(statusBarMessage(const QString &)),
-                this, SIGNAL(statusBarMessage(const QString &)));
-        connect(d->page, SIGNAL(linkClicked(const QUrl &)),
-                this, SIGNAL(linkClicked(const QUrl &)));
+        connect(d->page, SIGNAL(statusBarMessage(QString)),
+                this, SIGNAL(statusBarMessage(QString)));
+        connect(d->page, SIGNAL(linkClicked(QUrl)),
+                this, SIGNAL(linkClicked(QUrl)));
 
         connect(d->page, SIGNAL(microFocusChanged()),
                 this, SLOT(updateMicroFocus()));
+        connect(d->page, SIGNAL(destroyed()),
+                this, SLOT(_q_pageDestroyed()));
     }
     setAttribute(Qt::WA_OpaquePaintEvent, d->page);
     update();
-}
-
-/*!
-    Returns a valid URL from a user supplied \a string if one can be deducted.
-    In the case that is not possible, an invalid QUrl() is returned.
-
-    \since 4.6
-
-    Most applications that can browse the web, allow the user to input a URL
-    in the form of a plain string. This string can be manually typed into
-    a location bar, obtained from the clipboard, or passed in via command
-    line arguments.
-
-    When the string is not already a valid URL, a best guess is performed,
-    making various web related assumptions.
-
-    In the case the string corresponds to a valid file path on the system,
-    a file:// URL is constructed, using QUrl::fromLocalFile().
-
-    If that is not the case, an attempt is made to turn the string into a
-    http:// or ftp:// URL. The latter in the case the string starts with
-    'ftp'. The result is then passed through QUrl's tolerant parser, and
-    in the case or success, a valid QUrl is returned, or else a QUrl().
-
-    Examples
-    - webkit.org becomes http://webkit.org
-    - ftp.webkit.org becomes ftp://ftp.webkit.org
-    - localhost becomes http://localhost
-    - /home/user/test.html becomes file:///home/user/test.html (if exists)
-
-    Tips when dealing with URLs and strings
-    - When creating a QString from a QByteArray or a char*, always use
-      QString::fromUtf8().
-    - Do not use QUrl(string), nor QUrl::toString() anywhere where the URL might
-      be used, such as in the location bar, as those functions loose data.
-      Instead use QUrl::fromEncoded() and QUrl::toEncoded(), respectively.
-
- */
-QUrl QWebView::guessUrlFromString(const QString &string)
-{
-    QString trimmedString = string.trimmed();
-
-    // Check the most common case of a valid url with scheme and host first
-    QUrl url = QUrl::fromEncoded(trimmedString.toUtf8(), QUrl::TolerantMode);
-    if (url.isValid() && !url.scheme().isEmpty() && !url.host().isEmpty())
-        return url;
-
-    // Absolute files that exists
-    if (QDir::isAbsolutePath(trimmedString) && QFile::exists(trimmedString))
-        return QUrl::fromLocalFile(trimmedString);
-
-    // If the string is missing the scheme or the scheme is not valid prepend a scheme
-    QString scheme = url.scheme();
-    if (scheme.isEmpty() || scheme.contains(QLatin1Char('.')) || scheme == QLatin1String("localhost")) {
-        // Do not do anything for strings such as "foo", only "foo.com"
-        int dotIndex = trimmedString.indexOf(QLatin1Char('.'));
-        if (dotIndex != -1 || trimmedString.startsWith(QLatin1String("localhost"))) {
-            const QString hostscheme = trimmedString.left(dotIndex).toLower();
-            QByteArray scheme = (hostscheme == QLatin1String("ftp")) ? "ftp" : "http";
-            trimmedString = QLatin1String(scheme) + QLatin1String("://") + trimmedString;
-        }
-        url = QUrl::fromEncoded(trimmedString.toUtf8(), QUrl::TolerantMode);
-    }
-
-    if (url.isValid())
-        return url;
-
-    return QUrl();
 }
 
 /*!
@@ -321,7 +425,7 @@ QUrl QWebView::guessUrlFromString(const QString &string)
 
     \note The view remains the same until enough data has arrived to display the new \a url.
 
-    \sa setUrl(), url(), urlChanged(), guessUrlFromString()
+    \sa setUrl(), url(), urlChanged(), QUrl::fromUserInput()
 */
 void QWebView::load(const QUrl &url)
 {
@@ -340,19 +444,11 @@ void QWebView::load(const QUrl &url)
     \sa url(), urlChanged()
 */
 
-#if QT_VERSION < 0x040400 && !defined(qdoc)
-void QWebView::load(const QWebNetworkRequest &request)
-#else
 void QWebView::load(const QNetworkRequest &request,
                     QNetworkAccessManager::Operation operation,
                     const QByteArray &body)
-#endif
 {
-    page()->mainFrame()->load(request
-#if QT_VERSION >= 0x040400
-                              , operation, body
-#endif
-                             );
+    page()->mainFrame()->load(request, operation, body);
 }
 
 /*!
@@ -486,6 +582,7 @@ QString QWebView::selectedText() const
     return QString();
 }
 
+#ifndef QT_NO_ACTION
 /*!
     Returns a pointer to a QAction that encapsulates the specified web action \a action.
 */
@@ -493,6 +590,7 @@ QAction *QWebView::pageAction(QWebPage::WebAction action) const
 {
     return page()->action(action);
 }
+#endif
 
 /*!
     Triggers the specified \a action. If it is a checkable action the specified
@@ -609,15 +707,33 @@ qreal QWebView::textSizeMultiplier() const
     \since 4.6
     \brief the default render hints for the view
 
-    These hints are used to initialize QPainter before painting the web page.
+    These hints are used to initialize QPainter before painting the Web page.
 
     QPainter::TextAntialiasing is enabled by default.
+
+    \note This property is not available on Symbian. However, the getter and
+    setter functions can still be used directly.
+
+    \sa QPainter::renderHints()
+*/
+
+/*!
+    \since 4.6
+    Returns the render hints used by the view to render content.
+
+    \sa QPainter::renderHints()
 */
 QPainter::RenderHints QWebView::renderHints() const
 {
     return d->renderHints;
 }
 
+/*!
+    \since 4.6
+    Sets the render hints used by the view to the specified \a hints.
+
+    \sa QPainter::setRenderHints()
+*/
 void QWebView::setRenderHints(QPainter::RenderHints hints)
 {
     if (hints == d->renderHints)
@@ -627,11 +743,11 @@ void QWebView::setRenderHints(QPainter::RenderHints hints)
 }
 
 /*!
-    If \a enabled is true, the render hint \a hint is enabled; otherwise it
-    is disabled.
-
     \since 4.6
-    \sa renderHints
+    If \a enabled is true, enables the specified render \a hint; otherwise
+    disables it.
+
+    \sa renderHints, QPainter::renderHints()
 */
 void QWebView::setRenderHint(QPainter::RenderHint hint, bool enabled)
 {
@@ -688,24 +804,28 @@ bool QWebView::event(QEvent *e)
         if (e->type() == QEvent::ShortcutOverride) {
             d->page->event(e);
 #ifndef QT_NO_CURSOR
-        } else if (e->type() == static_cast<QEvent::Type>(WebCore::SetCursorEvent::EventType)) {
-            d->setCursor(static_cast<WebCore::SetCursorEvent*>(e)->cursor());
-#if QT_VERSION >= 0x040400
         } else if (e->type() == QEvent::CursorChange) {
-            // Okay we might use the WebCore Cursor now.
-            d->usesWebCoreCursor = d->cursorSetByWebCore;
-            d->cursorSetByWebCore = false;
-
-            // Go back to the WebCore Cursor. QWidget::unsetCursor is appromixated with this
-            if (!d->usesWebCoreCursor && cursor().shape() == Qt::ArrowCursor) {
-                d->usesWebCoreCursor = true;
-                d->setCursor(d->webCoreCursor);
-            }
+            // An unsetCursor will set the cursor to Qt::ArrowCursor.
+            // Thus this cursor change might be a QWidget::unsetCursor()
+            // If this is not the case and it came from WebCore, the
+            // QWebPageClient already has set its cursor internally
+            // to Qt::ArrowCursor, so updating the cursor is always
+            // right, as it falls back to the last cursor set by
+            // WebCore.
+            // FIXME: Add a QEvent::CursorUnset or similar to Qt.
+            if (cursor().shape() == Qt::ArrowCursor)
+                d->page->d->client->resetCursor();
 #endif
-#endif
-        } else if (e->type() == QEvent::Leave) {
+#if QT_VERSION >= QT_VERSION_CHECK(4, 6, 0)
+        } else if (e->type() == QEvent::TouchBegin 
+                   || e->type() == QEvent::TouchEnd 
+                   || e->type() == QEvent::TouchUpdate) {
             d->page->event(e);
-        }
+            if (e->isAccepted())
+                return true;
+#endif
+        } else if (e->type() == QEvent::Leave)
+            d->page->event(e);
     }
 
     return QWidget::event(e);
@@ -808,13 +928,17 @@ void QWebView::paintEvent(QPaintEvent *ev)
 
 #ifdef    QWEBKIT_TIME_RENDERING
     int elapsed = time.elapsed();
-    qDebug()<<"paint event on "<<ev->region()<<", took to render =  "<<elapsed;
+    qDebug() << "paint event on " << ev->region() << ", took to render =  " << elapsed;
 #endif
 }
 
 /*!
-    This function is called whenever WebKit wants to create a new window of the given \a type, for example as a result of
-    a JavaScript request to open a document in a new window.
+    This function is called from the createWindow() method of the associated QWebPage,
+    each time the page wants to create a new window of the given \a type. This might
+    be the result, for example, of a JavaScript request to open a document in a new window.
+
+    \note If the createWindow() method of the associated page is reimplemented, this
+    method is not called, unless explicitly done so in the reimplementation.
 
     \sa QWebPage::createWindow()
 */
@@ -1004,9 +1128,8 @@ void QWebView::inputMethodEvent(QInputMethodEvent *e)
 */
 void QWebView::changeEvent(QEvent *e)
 {
-    if (d->page && e->type() == QEvent::PaletteChange) {
+    if (d->page && e->type() == QEvent::PaletteChange)
         d->page->setPalette(palette());
-    }
     QWidget::changeEvent(e);
 }
 
@@ -1029,7 +1152,7 @@ void QWebView::changeEvent(QEvent *e)
 /*!
     \fn void QWebView::statusBarMessage(const QString& text)
 
-    This signal is emitted when the statusbar \a text is changed by the page.
+    This signal is emitted when the status bar \a text is changed by the page.
 */
 
 /*!
@@ -1090,3 +1213,6 @@ void QWebView::changeEvent(QEvent *e)
 
     \sa QWebPage::linkDelegationPolicy()
 */
+
+#include "moc_qwebview.cpp"
+

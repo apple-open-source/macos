@@ -31,14 +31,32 @@
 
 #include "FontDescription.h"
 #include "AtomicString.h"
-#include "CString.h"
 #include "StringImpl.h"
 #include <wtf/RefPtr.h>
+#include <wtf/text/CString.h>
 
 #include <wx/defs.h>
 #include <wx/font.h>
+#include <wx/gdicmn.h>
+
+#if OS(DARWIN)
+#include <ApplicationServices/ApplicationServices.h>
+
+#if __OBJC__
+@class NSFont;
+#else
+class NSFont;
+#endif
+
+#ifndef BUILDING_ON_TIGER
+inline CTFontRef toCTFontRef(NSFont *nsFont) { return reinterpret_cast<CTFontRef>(nsFont); }
+#endif
+
+#endif
 
 namespace WebCore {
+
+class String;
 
 class FontHolder: public WTF::RefCounted<FontHolder>
 {
@@ -62,22 +80,35 @@ public:
     enum FontState { UNINITIALIZED, DELETED, VALID };
 
     FontPlatformData(WTF::HashTableDeletedValueType)
-    : m_fontState(DELETED),
-      m_font(0)
+    : m_fontState(DELETED)
+    , m_font(0)
+    , m_size(0)
+#if OS(DARWIN)
+    , m_atsuFontID(0)
+#endif
     { }
 
     ~FontPlatformData();
 
     FontPlatformData(const FontDescription&, const AtomicString&);
+    
     FontPlatformData(float size, bool bold, bool italic)
     : m_fontState(UNINITIALIZED)
     , m_font(0)
+    , m_size(size)
+#if OS(DARWIN)
+    , m_atsuFontID(0)
+#endif
     {
     }
     
     FontPlatformData() 
     : m_fontState(UNINITIALIZED)
     , m_font(0)
+    , m_size(0)
+#if OS(DARWIN)
+    , m_atsuFontID(0)
+#endif
     {
     }
     
@@ -97,6 +128,8 @@ public:
     }
 
     unsigned computeHash() const;
+    
+    float size() const { return m_size; }
 
     bool operator==(const FontPlatformData& other) const
     { 
@@ -111,11 +144,35 @@ public:
 
     bool isHashTableDeletedValue() const { return m_fontState == DELETED; }
     
+    bool roundsGlyphAdvances() const { return false; }
     
+    bool allowsLigatures() const { return false; }
+    
+#if OS(WINDOWS)
+    bool useGDI() const;
+    HFONT hfont() const;
+#endif
+
+#if OS(DARWIN)
+    ATSUFontID m_atsuFontID;
+    CGFontRef cgFont() const;
+    NSFont* nsFont() const;
+    void cacheNSFont();
+    
+#endif
+
+    float m_size;
+
+#ifndef NDEBUG
+    String description() const;
+#endif
 
 private:
     WTF::RefPtr<FontHolder> m_font;
     FontState m_fontState;
+#if OS(DARWIN)
+    NSFont* m_nsFont;
+#endif
 };
 
 }

@@ -67,7 +67,7 @@ void RenderLineBoxList::deleteLineBoxTree(RenderArena* arena)
     InlineFlowBox* line = m_firstLineBox;
     InlineFlowBox* nextLine;
     while (line) {
-        nextLine = line->nextFlowBox();
+        nextLine = line->nextLineBox();
         line->deleteLine(arena);
         line = nextLine;
     }
@@ -78,13 +78,13 @@ void RenderLineBoxList::extractLineBox(InlineFlowBox* box)
 {
     checkConsistency();
     
-    m_lastLineBox = box->prevFlowBox();
+    m_lastLineBox = box->prevLineBox();
     if (box == m_firstLineBox)
         m_firstLineBox = 0;
     if (box->prevLineBox())
         box->prevLineBox()->setNextLineBox(0);
     box->setPreviousLineBox(0);
-    for (InlineRunBox* curr = box; curr; curr = curr->nextLineBox())
+    for (InlineFlowBox* curr = box; curr; curr = curr->nextLineBox())
         curr->setExtracted();
 
     checkConsistency();
@@ -100,7 +100,7 @@ void RenderLineBoxList::attachLineBox(InlineFlowBox* box)
     } else
         m_firstLineBox = box;
     InlineFlowBox* last = box;
-    for (InlineFlowBox* curr = box; curr; curr = curr->nextFlowBox()) {
+    for (InlineFlowBox* curr = box; curr; curr = curr->nextLineBox()) {
         curr->setExtracted(false);
         last = curr;
     }
@@ -114,9 +114,9 @@ void RenderLineBoxList::removeLineBox(InlineFlowBox* box)
     checkConsistency();
 
     if (box == m_firstLineBox)
-        m_firstLineBox = box->nextFlowBox();
+        m_firstLineBox = box->nextLineBox();
     if (box == m_lastLineBox)
-        m_lastLineBox = box->prevFlowBox();
+        m_lastLineBox = box->prevLineBox();
     if (box->nextLineBox())
         box->nextLineBox()->setPreviousLineBox(box->prevLineBox());
     if (box->prevLineBox())
@@ -128,8 +128,8 @@ void RenderLineBoxList::removeLineBox(InlineFlowBox* box)
 void RenderLineBoxList::deleteLineBoxes(RenderArena* arena)
 {
     if (m_firstLineBox) {
-        InlineRunBox* next;
-        for (InlineRunBox* curr = m_firstLineBox; curr; curr = next) {
+        InlineFlowBox* next;
+        for (InlineFlowBox* curr = m_firstLineBox; curr; curr = next) {
             next = curr->nextLineBox();
             curr->destroy(arena);
         }
@@ -140,7 +140,7 @@ void RenderLineBoxList::deleteLineBoxes(RenderArena* arena)
 
 void RenderLineBoxList::dirtyLineBoxes()
 {
-    for (InlineRunBox* curr = firstLineBox(); curr; curr = curr->nextLineBox())
+    for (InlineFlowBox* curr = firstLineBox(); curr; curr = curr->nextLineBox())
         curr->dirtyLineBoxes();
 }
 
@@ -162,8 +162,8 @@ void RenderLineBoxList::paint(RenderBoxModelObject* renderer, RenderObject::Pain
     // intersect.  This is a quick short-circuit that we can take to avoid walking any lines.
     // FIXME: This check is flawed in the following extremely obscure way:
     // if some line in the middle has a huge overflow, it might actually extend below the last line.
-    int yPos = firstLineBox()->root()->topOverflow() - renderer->maximalOutlineSize(paintInfo.phase);
-    int h = renderer->maximalOutlineSize(paintInfo.phase) + lastLineBox()->root()->bottomOverflow() - yPos;
+    int yPos = firstLineBox()->topVisibleOverflow() - renderer->maximalOutlineSize(paintInfo.phase);
+    int h = renderer->maximalOutlineSize(paintInfo.phase) + lastLineBox()->bottomVisibleOverflow() - yPos;
     yPos += ty;
     if (yPos >= paintInfo.rect.bottom() || yPos + h <= paintInfo.rect.y())
         return;
@@ -177,28 +177,29 @@ void RenderLineBoxList::paint(RenderBoxModelObject* renderer, RenderObject::Pain
     // based off positions of our first line box or our last line box.
     RenderView* v = renderer->view();
     bool usePrintRect = !v->printRect().isEmpty();
-    for (InlineFlowBox* curr = firstLineBox(); curr; curr = curr->nextFlowBox()) {
+    for (InlineFlowBox* curr = firstLineBox(); curr; curr = curr->nextLineBox()) {
         if (usePrintRect) {
             // FIXME: This is a feeble effort to avoid splitting a line across two pages.
             // It is utterly inadequate, and this should not be done at paint time at all.
             // The whole way objects break across pages needs to be redone.
             // Try to avoid splitting a line vertically, but only if it's less than the height
             // of the entire page.
-            if (curr->root()->bottomOverflow() - curr->root()->topOverflow() <= v->printRect().height()) {
-                if (ty + curr->root()->bottomOverflow() > v->printRect().bottom()) {
-                    if (ty + curr->root()->topOverflow() < v->truncatedAt())
-                        v->setBestTruncatedAt(ty + curr->root()->topOverflow(), renderer);
+            if (curr->bottomVisibleOverflow() - curr->topVisibleOverflow() <= v->printRect().height()) {
+                if (ty + curr->bottomVisibleOverflow() > v->printRect().bottom()) {
+                    if (ty + curr->topVisibleOverflow() < v->truncatedAt())
+                        v->setBestTruncatedAt(ty + curr->root()->topVisibleOverflow(), renderer);
                     // If we were able to truncate, don't paint.
-                    if (ty + curr->root()->topOverflow() >= v->truncatedAt())
+                    if (ty + curr->topVisibleOverflow() >= v->truncatedAt())
                         break;
                 }
             }
         }
 
-        int top = min(curr->root()->topOverflow(), curr->root()->selectionTop()) - renderer->maximalOutlineSize(info.phase);
-        int bottom = curr->root()->bottomOverflow() + renderer->maximalOutlineSize(info.phase);
+        int top = min(curr->topVisibleOverflow(), curr->root()->selectionTop()) - renderer->maximalOutlineSize(info.phase);
+        int bottom = curr->bottomVisibleOverflow() + renderer->maximalOutlineSize(info.phase);
         h = bottom - top;
         yPos = ty + top;
+        v->setMinimumColumnHeight(h);
         if (yPos < info.rect.bottom() && yPos + h > info.rect.y())
             curr->paint(info, tx, ty);
     }
@@ -229,14 +230,14 @@ bool RenderLineBoxList::hitTest(RenderBoxModelObject* renderer, const HitTestReq
     // contain the point.  This is a quick short-circuit that we can take to avoid walking any lines.
     // FIXME: This check is flawed in the following extremely obscure way:
     // if some line in the middle has a huge overflow, it might actually extend below the last line.
-    if ((y >= ty + lastLineBox()->root()->bottomOverflow()) || (y < ty + firstLineBox()->root()->topOverflow()))
+    if ((y >= ty + lastLineBox()->root()->bottomVisibleOverflow()) || (y < ty + firstLineBox()->root()->topVisibleOverflow()))
         return false;
 
     // See if our root lines contain the point.  If so, then we hit test
     // them further.  Note that boxes can easily overlap, so we can't make any assumptions
     // based off positions of our first line box or our last line box.
-    for (InlineFlowBox* curr = lastLineBox(); curr; curr = curr->prevFlowBox()) {
-        if (y >= ty + curr->root()->topOverflow() && y < ty + curr->root()->bottomOverflow()) {
+    for (InlineFlowBox* curr = lastLineBox(); curr; curr = curr->prevLineBox()) {
+        if (y >= ty + curr->root()->topVisibleOverflow() && y < ty + curr->root()->bottomVisibleOverflow()) {
             bool inside = curr->nodeAtPoint(request, result, x, y, tx, ty);
             if (inside) {
                 renderer->updateHitTestResult(result, IntPoint(x - tx, y - ty));
@@ -280,9 +281,9 @@ void RenderLineBoxList::dirtyLinesFromChangedChild(RenderObject* container, Rend
             if (textBox)
                 box = textBox->root();
         } else if (curr->isRenderInline()) {
-            InlineRunBox* runBox = toRenderInline(curr)->lastLineBox();
-            if (runBox)
-                box = runBox->root();
+            InlineFlowBox* flowBox = toRenderInline(curr)->lastLineBox();
+            if (flowBox)
+                box = flowBox->root();
         }
 
         if (box)
@@ -320,8 +321,8 @@ void RenderLineBoxList::checkConsistency() const
 {
 #ifdef CHECK_CONSISTENCY
     const InlineFlowBox* prev = 0;
-    for (const InlineFlowBox* child = m_firstLineBox; child != 0; child = child->nextFlowBox()) {
-        ASSERT(child->prevFlowBox() == prev);
+    for (const InlineFlowBox* child = m_firstLineBox; child != 0; child = child->nextLineBox()) {
+        ASSERT(child->prevLineBox() == prev);
         prev = child;
     }
     ASSERT(prev == m_lastLineBox);

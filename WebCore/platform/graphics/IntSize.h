@@ -26,8 +26,6 @@
 #ifndef IntSize_h
 #define IntSize_h
 
-#include <wtf/Platform.h>
-
 #if PLATFORM(CG)
 typedef struct CGSize CGSize;
 #endif
@@ -47,6 +45,16 @@ typedef struct tagSIZE SIZE;
 QT_BEGIN_NAMESPACE
 class QSize;
 QT_END_NAMESPACE
+#elif PLATFORM(HAIKU)
+class BSize;
+#endif
+
+#if PLATFORM(WX)
+class wxSize;
+#endif
+
+#if PLATFORM(BREWMP)
+typedef struct AEESize AEESize;
 #endif
 
 namespace WebCore {
@@ -63,7 +71,10 @@ public:
     void setHeight(int height) { m_height = height; }
 
     bool isEmpty() const { return m_width <= 0 || m_height <= 0; }
+    bool isZero() const { return !m_width && !m_height; }
 
+    float aspectRatio() const { return static_cast<float>(m_width) / static_cast<float>(m_height); }
+    
     void expand(int width, int height)
     {
         m_width += width;
@@ -113,6 +124,20 @@ public:
     operator QSize() const;
 #endif
 
+#if PLATFORM(HAIKU)
+    explicit IntSize(const BSize&);
+    operator BSize() const;
+#endif
+
+#if PLATFORM(WX)
+    IntSize(const wxSize&);
+    operator wxSize() const;
+#endif
+
+#if PLATFORM(BREWMP)
+    IntSize(const AEESize&);
+    operator AEESize() const;
+#endif
 
 private:
     int m_width, m_height;

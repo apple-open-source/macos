@@ -39,8 +39,28 @@
 
 #include <cairo.h>
 #include <wtf/Vector.h>
+#include <math.h>
 
 using namespace std;
+
+// Cairo doesn't provide a way to copy a cairo_surface_t.
+// See http://lists.cairographics.org/archives/cairo/2007-June/010877.html
+// Once cairo provides the way, use the function instead of this.
+static inline cairo_surface_t* copySurface(cairo_surface_t* surface)
+{
+    cairo_format_t format = cairo_image_surface_get_format(surface);
+    int width = cairo_image_surface_get_width(surface);
+    int height = cairo_image_surface_get_height(surface);
+    cairo_surface_t* newsurface = cairo_image_surface_create(format, width, height);
+
+    cairo_t* cr = cairo_create(newsurface);
+    cairo_set_source_surface(cr, surface, 0, 0);
+    cairo_set_operator(cr, CAIRO_OPERATOR_SOURCE);
+    cairo_paint(cr);
+    cairo_destroy(cr);
+
+    return newsurface;
+}
 
 namespace WebCore {
 
@@ -49,7 +69,7 @@ ImageBufferData::ImageBufferData(const IntSize& size)
 {
 }
 
-ImageBuffer::ImageBuffer(const IntSize& size, bool grayScale, bool& success)
+ImageBuffer::ImageBuffer(const IntSize& size, ImageColorSpace imageColorSpace, bool& success)
     : m_data(size)
     , m_size(size)
 {
@@ -82,22 +102,54 @@ Image* ImageBuffer::image() const
         // It's assumed that if image() is called, the actual rendering to the
         // GraphicsContext must be done.
         ASSERT(context());
+
+        // This creates a COPY of the image and will cache that copy. This means
+        // that if subsequent operations take place on the context, neither the
+        // currently-returned image, nor the results of future image() calls,
+        // will contain that operation.
+        //
+        // This seems silly, but is the way the CG port works: image() is
+        // intended to be used only when rendering is "complete."
+        cairo_surface_t* newsurface = copySurface(m_data.m_surface);
+
         // BitmapImage will release the passed in surface on destruction
-        m_image = BitmapImage::create(cairo_surface_reference(m_data.m_surface));
+        m_image = BitmapImage::create(newsurface);
     }
     return m_image.get();
 }
 
-PassRefPtr<ImageData> ImageBuffer::getImageData(const IntRect& rect) const
+void ImageBuffer::platformTransformColorSpace(const Vector<int>& lookUpTable)
 {
     ASSERT(cairo_surface_get_type(m_data.m_surface) == CAIRO_SURFACE_TYPE_IMAGE);
 
-    PassRefPtr<ImageData> result = ImageData::create(rect.width(), rect.height());
     unsigned char* dataSrc = cairo_image_surface_get_data(m_data.m_surface);
+    int stride = cairo_image_surface_get_stride(m_data.m_surface);
+    for (int y = 0; y < m_size.height(); ++y) {
+        unsigned* row = reinterpret_cast<unsigned*>(dataSrc + stride * y);
+        for (int x = 0; x < m_size.width(); x++) {
+            unsigned* pixel = row + x;
+            Color pixelColor = colorFromPremultipliedARGB(*pixel);
+            pixelColor = Color(lookUpTable[pixelColor.red()],
+                               lookUpTable[pixelColor.green()],
+                               lookUpTable[pixelColor.blue()],
+                               pixelColor.alpha());
+            *pixel = premultipliedARGBFromColor(pixelColor);
+        }
+    }
+    cairo_surface_mark_dirty_rectangle (m_data.m_surface, 0, 0, m_size.width(), m_size.height());
+}
+
+template <Multiply multiplied>
+PassRefPtr<ImageData> getImageData(const IntRect& rect, const ImageBufferData& data, const IntSize& size)
+{
+    ASSERT(cairo_surface_get_type(data.m_surface) == CAIRO_SURFACE_TYPE_IMAGE);
+
+    PassRefPtr<ImageData> result = ImageData::create(rect.width(), rect.height());
+    unsigned char* dataSrc = cairo_image_surface_get_data(data.m_surface);
     unsigned char* dataDst = result->data()->data()->data();
 
-    if (rect.x() < 0 || rect.y() < 0 || (rect.x() + rect.width()) > m_size.width() || (rect.y() + rect.height()) > m_size.height())
-        memset(dataSrc, 0, result->data()->length());
+    if (rect.x() < 0 || rect.y() < 0 || (rect.x() + rect.width()) > size.width() || (rect.y() + rect.height()) > size.height())
+        memset(dataDst, 0, result->data()->length());
 
     int originx = rect.x();
     int destx = 0;
@@ -106,8 +158,8 @@ PassRefPtr<ImageData> ImageBuffer::getImageData(const IntRect& rect) const
         originx = 0;
     }
     int endx = rect.x() + rect.width();
-    if (endx > m_size.width())
-        endx = m_size.width();
+    if (endx > size.width())
+        endx = size.width();
     int numColumns = endx - originx;
 
     int originy = rect.y();
@@ -117,11 +169,11 @@ PassRefPtr<ImageData> ImageBuffer::getImageData(const IntRect& rect) const
         originy = 0;
     }
     int endy = rect.y() + rect.height();
-    if (endy > m_size.height())
-        endy = m_size.height();
+    if (endy > size.height())
+        endy = size.height();
     int numRows = endy - originy;
 
-    int stride = cairo_image_surface_get_stride(m_data.m_surface);
+    int stride = cairo_image_surface_get_stride(data.m_surface);
     unsigned destBytesPerRow = 4 * rect.width();
 
     unsigned char* destRows = dataDst + desty * destBytesPerRow + destx * 4;
@@ -130,7 +182,11 @@ PassRefPtr<ImageData> ImageBuffer::getImageData(const IntRect& rect) const
         for (int x = 0; x < numColumns; x++) {
             int basex = x * 4;
             unsigned* pixel = row + x + originx;
-            Color pixelColor = colorFromPremultipliedARGB(*pixel);
+            Color pixelColor;
+            if (multiplied == Unmultiplied)
+                pixelColor = colorFromPremultipliedARGB(*pixel);
+            else
+                pixelColor = Color(*pixel);
             destRows[basex]     = pixelColor.red();
             destRows[basex + 1] = pixelColor.green();
             destRows[basex + 2] = pixelColor.blue();
@@ -142,11 +198,22 @@ PassRefPtr<ImageData> ImageBuffer::getImageData(const IntRect& rect) const
     return result;
 }
 
-void ImageBuffer::putImageData(ImageData* source, const IntRect& sourceRect, const IntPoint& destPoint)
+PassRefPtr<ImageData> ImageBuffer::getUnmultipliedImageData(const IntRect& rect) const
 {
-    ASSERT(cairo_surface_get_type(m_data.m_surface) == CAIRO_SURFACE_TYPE_IMAGE);
+    return getImageData<Unmultiplied>(rect, m_data, m_size);
+}
 
-    unsigned char* dataDst = cairo_image_surface_get_data(m_data.m_surface);
+PassRefPtr<ImageData> ImageBuffer::getPremultipliedImageData(const IntRect& rect) const
+{
+    return getImageData<Premultiplied>(rect, m_data, m_size);
+}
+
+template <Multiply multiplied>
+void putImageData(ImageData*& source, const IntRect& sourceRect, const IntPoint& destPoint, ImageBufferData& data, const IntSize& size)
+{
+    ASSERT(cairo_surface_get_type(data.m_surface) == CAIRO_SURFACE_TYPE_IMAGE);
+
+    unsigned char* dataDst = cairo_image_surface_get_data(data.m_surface);
 
     ASSERT(sourceRect.width() > 0);
     ASSERT(sourceRect.height() > 0);
@@ -154,28 +221,28 @@ void ImageBuffer::putImageData(ImageData* source, const IntRect& sourceRect, con
     int originx = sourceRect.x();
     int destx = destPoint.x() + sourceRect.x();
     ASSERT(destx >= 0);
-    ASSERT(destx < m_size.width());
+    ASSERT(destx < size.width());
     ASSERT(originx >= 0);
     ASSERT(originx <= sourceRect.right());
 
     int endx = destPoint.x() + sourceRect.right();
-    ASSERT(endx <= m_size.width());
+    ASSERT(endx <= size.width());
 
     int numColumns = endx - destx;
 
     int originy = sourceRect.y();
     int desty = destPoint.y() + sourceRect.y();
     ASSERT(desty >= 0);
-    ASSERT(desty < m_size.height());
+    ASSERT(desty < size.height());
     ASSERT(originy >= 0);
     ASSERT(originy <= sourceRect.bottom());
 
     int endy = destPoint.y() + sourceRect.bottom();
-    ASSERT(endy <= m_size.height());
+    ASSERT(endy <= size.height());
     int numRows = endy - desty;
 
     unsigned srcBytesPerRow = 4 * source->width();
-    int stride = cairo_image_surface_get_stride(m_data.m_surface);
+    int stride = cairo_image_surface_get_stride(data.m_surface);
 
     unsigned char* srcRows = source->data()->data()->data() + originy * srcBytesPerRow + originx * 4;
     for (int y = 0; y < numRows; ++y) {
@@ -187,10 +254,26 @@ void ImageBuffer::putImageData(ImageData* source, const IntRect& sourceRect, con
                     srcRows[basex + 1],
                     srcRows[basex + 2],
                     srcRows[basex + 3]);
-            *pixel = premultipliedARGBFromColor(pixelColor);
+            if (multiplied == Unmultiplied)
+                *pixel = premultipliedARGBFromColor(pixelColor);
+            else
+                *pixel = pixelColor.rgb();
         }
         srcRows += srcBytesPerRow;
     }
+    cairo_surface_mark_dirty_rectangle (data.m_surface,
+                                        destx, desty,
+                                        numColumns, numRows);
+}
+
+void ImageBuffer::putUnmultipliedImageData(ImageData* source, const IntRect& sourceRect, const IntPoint& destPoint)
+{
+    putImageData<Unmultiplied>(source, sourceRect, destPoint, m_data, m_size);
+}
+
+void ImageBuffer::putPremultipliedImageData(ImageData* source, const IntRect& sourceRect, const IntPoint& destPoint)
+{
+    putImageData<Premultiplied>(source, sourceRect, destPoint, m_data, m_size);
 }
 
 static cairo_status_t writeFunction(void* closure, const unsigned char* data, unsigned int length)

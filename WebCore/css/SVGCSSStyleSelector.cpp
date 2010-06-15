@@ -10,8 +10,6 @@
              (C) 2004 Allan Sandfeld Jensen(kde@carewolf.com)
              (C) 2004 Germain Garand(germain@ebooksfrance.org)
 
-    This file is part of the KDE project
-
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Library General Public
     License as published by the Free Software Foundation; either
@@ -37,6 +35,7 @@
 #include "CSSPropertyNames.h"
 #include "CSSValueList.h"
 #include "Document.h"
+#include "ShadowValue.h"
 #include "SVGColor.h"
 #include "SVGNames.h"
 #include "SVGPaint.h"
@@ -58,7 +57,6 @@ if (isInherit) \
 HANDLE_INHERIT(prop, Prop) \
 else if (isInitial) \
     svgstyle->set##Prop(SVGRenderStyle::initial##Prop());
-
 
 namespace WebCore {
 
@@ -92,13 +90,13 @@ static int angleToGlyphOrientation(float angle)
     return -1;
 }
 
-static Color colorFromSVGColorCSSValue(CSSValue* value, RenderStyle* style)
+static Color colorFromSVGColorCSSValue(CSSValue* value, const Color& fgColor)
 {
     ASSERT(value->isSVGColor());
     SVGColor* c = static_cast<SVGColor*>(value);
     Color color;
     if (c->colorType() == SVGColor::SVG_COLORTYPE_CURRENTCOLOR)
-        color = style->color();
+        color = fgColor;
     else
         color = c->color();
     return color;
@@ -229,13 +227,6 @@ void CSSStyleSelector::applySVGProperty(int id, CSSValue* value)
                 svgstyle->setShapeRendering(*primitiveValue);
             break;
         }
-        case CSSPropertyTextRendering:
-        {
-            HANDLE_INHERIT_AND_INITIAL(textRendering, TextRendering)
-            if (primitiveValue)
-                svgstyle->setTextRendering(*primitiveValue);
-            break;
-        }
         // end of ident only properties
         case CSSPropertyFill:
         {
@@ -329,7 +320,7 @@ void CSSStyleSelector::applySVGProperty(int id, CSSValue* value)
         }
         case CSSPropertyMarkerStart:
         {
-            HANDLE_INHERIT_AND_INITIAL(startMarker, StartMarker)
+            HANDLE_INHERIT_AND_INITIAL(markerStartResource, MarkerStartResource)
             if (!primitiveValue)
                 return;
 
@@ -340,12 +331,12 @@ void CSSStyleSelector::applySVGProperty(int id, CSSValue* value)
             else
                 return;
 
-            svgstyle->setStartMarker(SVGURIReference::getTarget(s));
+            svgstyle->setMarkerStartResource(SVGURIReference::getTarget(s));
             break;
         }
         case CSSPropertyMarkerMid:
         {
-            HANDLE_INHERIT_AND_INITIAL(midMarker, MidMarker)
+            HANDLE_INHERIT_AND_INITIAL(markerMidResource, MarkerMidResource)
             if (!primitiveValue)
                 return;
 
@@ -356,12 +347,12 @@ void CSSStyleSelector::applySVGProperty(int id, CSSValue* value)
             else
                 return;
 
-            svgstyle->setMidMarker(SVGURIReference::getTarget(s));
+            svgstyle->setMarkerMidResource(SVGURIReference::getTarget(s));
             break;
         }
         case CSSPropertyMarkerEnd:
         {
-            HANDLE_INHERIT_AND_INITIAL(endMarker, EndMarker)
+            HANDLE_INHERIT_AND_INITIAL(markerEndResource, MarkerEndResource)
             if (!primitiveValue)
                 return;
 
@@ -372,7 +363,7 @@ void CSSStyleSelector::applySVGProperty(int id, CSSValue* value)
             else
                 return;
 
-            svgstyle->setEndMarker(SVGURIReference::getTarget(s));
+            svgstyle->setMarkerEndResource(SVGURIReference::getTarget(s));
             break;
         }
         case CSSPropertyStrokeLinecap:
@@ -400,7 +391,7 @@ void CSSStyleSelector::applySVGProperty(int id, CSSValue* value)
         }
         case CSSPropertyFilter:
         {
-            HANDLE_INHERIT_AND_INITIAL(filter, Filter)
+            HANDLE_INHERIT_AND_INITIAL(filterResource, FilterResource)
             if (!primitiveValue)
                 return;
 
@@ -410,12 +401,13 @@ void CSSStyleSelector::applySVGProperty(int id, CSSValue* value)
                 s = primitiveValue->getStringValue();
             else
                 return;
-            svgstyle->setFilter(SVGURIReference::getTarget(s));
+
+            svgstyle->setFilterResource(SVGURIReference::getTarget(s));
             break;
         }
         case CSSPropertyMask:
         {
-            HANDLE_INHERIT_AND_INITIAL(maskElement, MaskElement)
+            HANDLE_INHERIT_AND_INITIAL(maskerResource, MaskerResource)
             if (!primitiveValue)
                 return;
 
@@ -425,13 +417,13 @@ void CSSStyleSelector::applySVGProperty(int id, CSSValue* value)
                 s = primitiveValue->getStringValue();
             else
                 return;
-
-            svgstyle->setMaskElement(SVGURIReference::getTarget(s));
+            
+            svgstyle->setMaskerResource(SVGURIReference::getTarget(s));
             break;
         }
         case CSSPropertyClipPath:
         {
-            HANDLE_INHERIT_AND_INITIAL(clipPath, ClipPath)
+            HANDLE_INHERIT_AND_INITIAL(clipperResource, ClipperResource)
             if (!primitiveValue)
                 return;
 
@@ -442,7 +434,7 @@ void CSSStyleSelector::applySVGProperty(int id, CSSValue* value)
             else
                 return;
 
-            svgstyle->setClipPath(SVGURIReference::getTarget(s));
+            svgstyle->setClipperResource(SVGURIReference::getTarget(s));
             break;
         }
         case CSSPropertyTextAnchor:
@@ -462,13 +454,13 @@ void CSSStyleSelector::applySVGProperty(int id, CSSValue* value)
         case CSSPropertyStopColor:
         {
             HANDLE_INHERIT_AND_INITIAL(stopColor, StopColor);
-            svgstyle->setStopColor(colorFromSVGColorCSSValue(value, m_style.get()));
+            svgstyle->setStopColor(colorFromSVGColorCSSValue(value, m_style->color()));
             break;
         }
        case CSSPropertyLightingColor:
         {
             HANDLE_INHERIT_AND_INITIAL(lightingColor, LightingColor);
-            svgstyle->setLightingColor(colorFromSVGColorCSSValue(value, m_style.get()));
+            svgstyle->setLightingColor(colorFromSVGColorCSSValue(value, m_style->color()));
             break;
         }
         case CSSPropertyFloodOpacity:
@@ -495,7 +487,7 @@ void CSSStyleSelector::applySVGProperty(int id, CSSValue* value)
                 svgstyle->setFloodColor(SVGRenderStyle::initialFloodColor());
                 return;
             }
-            svgstyle->setFloodColor(colorFromSVGColorCSSValue(value, m_style.get()));
+            svgstyle->setFloodColor(colorFromSVGColorCSSValue(value, m_style->color()));
             break;
         }
         case CSSPropertyGlyphOrientationHorizontal:
@@ -533,6 +525,33 @@ void CSSStyleSelector::applySVGProperty(int id, CSSValue* value)
             // Silently ignoring this property for now
             // http://bugs.webkit.org/show_bug.cgi?id=6022
             break;
+        case CSSPropertyWebkitSvgShadow: {
+            if (isInherit)
+                return svgstyle->setShadow(m_parentStyle->svgStyle()->shadow() ? new ShadowData(*m_parentStyle->svgStyle()->shadow()) : 0);
+            if (isInitial || primitiveValue) // initial | none
+                return svgstyle->setShadow(0);
+
+            if (!value->isValueList())
+                return;
+
+            CSSValueList *list = static_cast<CSSValueList*>(value);
+            ASSERT(list->length() == 1);
+            ShadowValue* item = static_cast<ShadowValue*>(list->itemWithoutBoundsCheck(0));
+            int x = item->x->computeLengthInt(style(), m_rootElementStyle);
+            int y = item->y->computeLengthInt(style(), m_rootElementStyle);
+            int blur = item->blur ? item->blur->computeLengthInt(style(), m_rootElementStyle) : 0;
+            Color color;
+            if (item->color)
+                color = getColorFromPrimitiveValue(item->color.get());
+
+            // -webkit-svg-shadow does should not have a spread or style
+            ASSERT(!item->spread);
+            ASSERT(!item->style);
+                
+            ShadowData* shadowData = new ShadowData(x, y, blur, 0, Normal, color.isValid() ? color : Color::transparent);
+            svgstyle->setShadow(shadowData);
+            return;
+        }
         default:
             // If you crash here, it's because you added a css property and are not handling it
             // in either this switch statement or the one in CSSStyleSelector::applyProperty
@@ -543,5 +562,4 @@ void CSSStyleSelector::applySVGProperty(int id, CSSValue* value)
 
 }
 
-// vim:ts=4:noet
-#endif // ENABLE(SVG)
+#endif

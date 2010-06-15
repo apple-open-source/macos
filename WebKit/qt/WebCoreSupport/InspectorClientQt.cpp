@@ -31,10 +31,13 @@
 #include "config.h"
 #include "InspectorClientQt.h"
 
+#include "qwebinspector.h"
+#include "qwebinspector_p.h"
 #include "qwebpage.h"
 #include "qwebpage_p.h"
 #include "qwebview.h"
 
+#include <QtCore/QSettings>
 #include <QtCore/QCoreApplication>
 
 #include "InspectorController.h"
@@ -44,48 +47,30 @@
 
 namespace WebCore {
 
-class InspectorClientWebPage : public QWebPage
-{
+static const QLatin1String settingStoragePrefix("Qt/QtWebKit/QWebInspector/");
+static const QLatin1String settingStorageTypeSuffix(".type");
+
+static String variantToSetting(const QVariant& qvariant);
+static QVariant settingToVariant(const String& value);
+
+class InspectorClientWebPage : public QWebPage {
     Q_OBJECT
     friend class InspectorClientQt;
 public:
+    InspectorClientWebPage(QObject* parent = 0)
+        : QWebPage(parent)
+    {
+    }
+
     QWebPage* createWindow(QWebPage::WebWindowType)
     {
-        QWidget *w = new QWebView(0);
-        QWebPage *page = new QWebPage(w);
-        page->setView(w);
-        connect(page, SIGNAL(destroyed()), w, SLOT(deleteLater()));
+        QWebView* view = new QWebView;
+        QWebPage* page = new QWebPage;
+        view->setPage(page);
+        view->setAttribute(Qt::WA_DeleteOnClose);
         return page;
     }
-
-Q_SIGNALS:
-    void attachRequested();
-    void detachRequested();
 };
-
-
-class InspectorClientView : public QWebView {
-public:
-    InspectorClientView(InspectorController* controller)
-        : QWebView(0)
-        , m_controller(controller)
-    {
-        setPage(new InspectorClientWebPage);
-        connect(page(), SIGNAL(destroyed()), SLOT(deleteLater()));
-    }
-
-protected:
-
-    void closeEvent(QCloseEvent* ev)
-    {
-        QWidget::closeEvent(ev);
-        m_controller->setWindowVisible(false);
-    }
-
-private:
-    InspectorController* m_controller;
-};
-
 
 InspectorClientQt::InspectorClientQt(QWebPage* page)
     : m_inspectedWebPage(page)
@@ -96,78 +81,25 @@ void InspectorClientQt::inspectorDestroyed()
     delete this;
 }
 
-Page* InspectorClientQt::createPage()
+    
+void InspectorClientQt::openInspectorFrontend(WebCore::InspectorController*)
 {
-    if (m_webPage)
-        return m_webPage->d->page;
+    QWebView* inspectorView = new QWebView;
+    InspectorClientWebPage* inspectorPage = new InspectorClientWebPage(inspectorView);
+    inspectorView->setPage(inspectorPage);
 
-    InspectorClientView* view = new InspectorClientView(m_inspectedWebPage->d->page->inspectorController());
-    m_webPage.set(qobject_cast<InspectorClientWebPage*>(view->page()));
-    m_webPage->mainFrame()->load(QString::fromLatin1("qrc:/webkit/inspector/inspector.html"));
-    m_webPage->view()->setMinimumSize(400,300);
-    return m_webPage->d->page;
+    QWebInspector* inspector = m_inspectedWebPage->d->getOrCreateInspector();
+    QUrl inspectorUrl = inspector->property("_q_inspectorUrl").toUrl();
+    if (!inspectorUrl.isValid())
+        inspectorUrl = QUrl("qrc:/webkit/inspector/inspector.html");
+    inspectorView->page()->mainFrame()->load(inspectorUrl);
+    m_inspectedWebPage->d->inspectorFrontend = inspectorView;
+    inspector->d->setFrontend(inspectorView);
+
+    inspectorView->page()->d->page->inspectorController()->setInspectorFrontendClient(new InspectorFrontendClientQt(m_inspectedWebPage, inspectorView));
 }
 
-String InspectorClientQt::localizedStringsURL()
-{
-    notImplemented();
-    return String();
-}
-
-String InspectorClientQt::hiddenPanels()
-{
-    notImplemented();
-    return String();
-}
-
-void InspectorClientQt::showWindow()
-{
-    if (!m_webPage)
-        return;
-
-    updateWindowTitle();
-    m_webPage->view()->show();
-    m_inspectedWebPage->d->page->inspectorController()->setWindowVisible(true);
-}
-
-void InspectorClientQt::closeWindow()
-{
-    if (!m_webPage)
-        return;
-
-    m_webPage->view()->hide();
-    m_inspectedWebPage->d->page->inspectorController()->setWindowVisible(false);
-}
-
-bool InspectorClientQt::windowVisible()
-{
-    if (!m_webPage)
-        return false;
-    return m_webPage->view()->isVisible();
-}
-
-void InspectorClientQt::attachWindow()
-{
-    if (!m_webPage)
-        return;
-
-    emit m_webPage->attachRequested();
-}
-
-void InspectorClientQt::detachWindow()
-{
-    if (!m_webPage)
-        return;
-
-    emit m_webPage->detachRequested();
-}
-
-void InspectorClientQt::setAttachedWindowHeight(unsigned height)
-{
-    notImplemented();
-}
-
-void InspectorClientQt::highlight(Node* node)
+void InspectorClientQt::highlight(Node*)
 {
     notImplemented();
 }
@@ -177,34 +109,146 @@ void InspectorClientQt::hideHighlight()
     notImplemented();
 }
 
-void InspectorClientQt::inspectedURLChanged(const String& newURL)
+void InspectorClientQt::populateSetting(const String& key, String* setting)
+{
+#ifdef QT_NO_SETTINGS
+    Q_UNUSED(key)
+    Q_UNUSED(setting)
+    qWarning("QWebInspector: QSettings is not supported by Qt.");
+#else
+    QSettings qsettings;
+    if (qsettings.status() == QSettings::AccessError) {
+        // QCoreApplication::setOrganizationName and QCoreApplication::setApplicationName haven't been called
+        qWarning("QWebInspector: QSettings couldn't read configuration setting [%s].",
+                 qPrintable(static_cast<QString>(key)));
+        return;
+    }
+
+    QString settingKey(settingStoragePrefix + QString(key));
+    QString storedValueType = qsettings.value(settingKey + settingStorageTypeSuffix).toString();
+    QVariant storedValue = qsettings.value(settingKey);
+    storedValue.convert(QVariant::nameToType(storedValueType.toAscii().data()));
+    *setting = variantToSetting(storedValue);
+#endif // QT_NO_SETTINGS
+}
+
+void InspectorClientQt::storeSetting(const String& key, const String& setting)
+{
+#ifdef QT_NO_SETTINGS
+    Q_UNUSED(key)
+    Q_UNUSED(setting)
+    qWarning("QWebInspector: QSettings is not supported by Qt.");
+#else
+    QSettings qsettings;
+    if (qsettings.status() == QSettings::AccessError) {
+        qWarning("QWebInspector: QSettings couldn't persist configuration setting [%s].",
+                 qPrintable(static_cast<QString>(key)));
+        return;
+    }
+
+    QVariant valueToStore = settingToVariant(setting);
+    QString settingKey(settingStoragePrefix + QString(key));
+    qsettings.setValue(settingKey, valueToStore);
+    qsettings.setValue(settingKey + settingStorageTypeSuffix, QVariant::typeToName(valueToStore.type()));
+#endif // QT_NO_SETTINGS
+}
+
+static String variantToSetting(const QVariant& qvariant)
+{
+    String retVal;
+
+    switch (qvariant.type()) {
+    case QVariant::Bool:
+        retVal = qvariant.toBool() ? "true" : "false";
+    case QVariant::String:
+        retVal = qvariant.toString();
+    default:
+        break;
+    }
+
+    return retVal;
+}
+
+static QVariant settingToVariant(const String& setting)
+{
+    QVariant retVal;
+    retVal.setValue(static_cast<QString>(setting));
+    return retVal;
+}
+
+InspectorFrontendClientQt::InspectorFrontendClientQt(QWebPage* inspectedWebPage, PassOwnPtr<QWebView> inspectorView)
+    : InspectorFrontendClientLocal(inspectedWebPage->d->page->inspectorController(), inspectorView->page()->d->page) 
+    , m_inspectedWebPage(inspectedWebPage)
+    , m_inspectorView(inspectorView)
+    , m_destroyingInspectorView(false)
+{
+}
+
+void InspectorFrontendClientQt::frontendLoaded()
+{
+    InspectorFrontendClientLocal::frontendLoaded();
+    setAttachedWindow(true);
+}
+
+String InspectorFrontendClientQt::localizedStringsURL()
+{
+    notImplemented();
+    return String();
+}
+
+String InspectorFrontendClientQt::hiddenPanels()
+{
+    notImplemented();
+    return String();
+}
+
+void InspectorFrontendClientQt::bringToFront()
+{
+    updateWindowTitle();
+}
+
+void InspectorFrontendClientQt::closeWindow()
+{
+    if (m_destroyingInspectorView)
+        return;
+    m_destroyingInspectorView = true;
+
+    // Clear reference from QWebInspector to the frontend view.
+    m_inspectedWebPage->d->getOrCreateInspector()->d->setFrontend(0);
+#if ENABLE(INSPECTOR)
+    m_inspectedWebPage->d->inspectorController()->disconnectFrontend();
+#endif
+    // Clear pointer before deleting WebView to avoid recursive calls to its destructor.
+    delete m_inspectorView.release();
+}
+
+void InspectorFrontendClientQt::attachWindow()
+{
+    notImplemented();
+}
+
+void InspectorFrontendClientQt::detachWindow()
+{
+    notImplemented();
+}
+
+void InspectorFrontendClientQt::setAttachedWindowHeight(unsigned)
+{
+    notImplemented();
+}
+
+void InspectorFrontendClientQt::inspectedURLChanged(const String& newURL)
 {
     m_inspectedURL = newURL;
     updateWindowTitle();
 }
 
-void InspectorClientQt::updateWindowTitle()
+void InspectorFrontendClientQt::updateWindowTitle()
 {
-    if (!m_webPage)
-        return;
-
-    QString caption = QCoreApplication::translate("QWebPage", "Web Inspector - %2");
-    m_webPage->view()->setWindowTitle(caption.arg(m_inspectedURL));
-}
-
-void InspectorClientQt::populateSetting(const String& key, InspectorController::Setting& setting)
-{
-    notImplemented();
-}
-
-void InspectorClientQt::storeSetting(const String& key, const InspectorController::Setting& setting)
-{
-    notImplemented();
-}
-
-void InspectorClientQt::removeSetting(const String& key)
-{
-    notImplemented();
+    if (m_inspectedWebPage->d->inspector) {
+        QString caption = QCoreApplication::translate("QWebPage", "Web Inspector - %2").arg(m_inspectedURL);
+        m_inspectedWebPage->d->inspector->setWindowTitle(caption);
+    }
 }
 
 }

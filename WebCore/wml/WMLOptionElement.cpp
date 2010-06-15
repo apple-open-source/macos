@@ -125,7 +125,15 @@ bool WMLOptionElement::selected() const
 
 void WMLOptionElement::setSelectedState(bool selected)
 {
+    if (this->selected() == selected)
+        return;
+
     OptionElement::setSelectedState(m_data, this, selected);
+
+    if (WMLSelectElement* select = ownerSelectElement(this)) {
+        if (select->multiple() || selected)
+            handleIntrinsicEventIfNeeded();
+    }
 }
 
 String WMLOptionElement::value() const
@@ -135,7 +143,7 @@ String WMLOptionElement::value() const
 
 String WMLOptionElement::text() const
 {
-    return OptionElement::collectOptionText(m_data, this);
+    return OptionElement::collectOptionLabelOrText(m_data, this);
 }
 
 String WMLOptionElement::textIndentedToRespectGroupLabel() const
@@ -150,12 +158,22 @@ RenderStyle* WMLOptionElement::nonRendererRenderStyle() const
 
 void WMLOptionElement::handleIntrinsicEventIfNeeded()
 {
+    WMLSelectElement* select = ownerSelectElement(this);
+    if (!select || !select->initialized())
+        return;
+
     WMLIntrinsicEventHandler* eventHandler = this->eventHandler();
     if (!eventHandler)
         return;
 
     if (eventHandler->hasIntrinsicEvent(WMLIntrinsicEventOnPick))
         eventHandler->triggerIntrinsicEvent(WMLIntrinsicEventOnPick);
+}
+
+bool WMLOptionElement::disabled() const
+{
+    /* Dummy implementation, as disabled() is pure virtual in OptionElement class */
+    return false;
 }
 
 }

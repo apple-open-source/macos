@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2005, 2007, 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2005, 2007, 2008, 2009 Apple Inc. All rights reserved.
  * Copyright (C) 2006 Alexey Proskuryakov (ap@nypop.com)
  *
  * Redistribution and use in source and binary forms, with or without
@@ -619,21 +619,9 @@ static CFStringRef createStringWithEscapedUnsafeCharacters(CFStringRef string)
     return result;
 }
 
-typedef struct {
-    NSString *scheme;
-    NSString *user;
-    NSString *password;
-    NSString *host;
-    CFIndex port; // kCFNotFound means ignore/omit
-    NSString *path;
-    NSString *query;
-    NSString *fragment;
-} WebKitURLComponents;
-
-- (NSURL *)_webkit_URLByRemovingComponent:(CFURLComponentType)component
+- (NSURL *)_web_URLByTruncatingOneCharacterBeforeComponent:(CFURLComponentType)component
 {
     CFRange fragRg = CFURLGetByteRangeForComponent((CFURLRef)self, component, NULL);
-    // Check to see if a fragment exists before decomposing the URL.
     if (fragRg.location == kCFNotFound)
         return self;
  
@@ -656,12 +644,53 @@ typedef struct {
 
 - (NSURL *)_webkit_URLByRemovingFragment
 {
-    return [self _webkit_URLByRemovingComponent:kCFURLComponentFragment];
+    return [self _web_URLByTruncatingOneCharacterBeforeComponent:kCFURLComponentFragment];
 }
 
 - (NSURL *)_webkit_URLByRemovingResourceSpecifier
 {
-    return [self _webkit_URLByRemovingComponent:kCFURLComponentResourceSpecifier];
+    return [self _web_URLByTruncatingOneCharacterBeforeComponent:kCFURLComponentResourceSpecifier];
+}
+
+- (NSURL *)_web_URLByRemovingComponentAndSubsequentCharacter:(CFURLComponentType)component
+{
+    CFRange range = CFURLGetByteRangeForComponent((CFURLRef)self, component, 0);
+    if (range.location == kCFNotFound)
+        return self;
+
+    // Remove one subsequent character.
+    ++range.length;
+
+    UInt8* urlBytes;
+    UInt8 buffer[2048];
+    CFIndex numBytes = CFURLGetBytes((CFURLRef)self, buffer, 2048);
+    if (numBytes == -1) {
+        numBytes = CFURLGetBytes((CFURLRef)self, NULL, 0);
+        urlBytes = static_cast<UInt8*>(malloc(numBytes));
+        CFURLGetBytes((CFURLRef)self, urlBytes, numBytes);
+    } else
+        urlBytes = buffer;
+
+    if (numBytes < range.location)
+        return self;
+    if (numBytes < range.location + range.length)
+        range.length = numBytes - range.location;
+
+    memmove(urlBytes + range.location, urlBytes + range.location + range.length, numBytes - range.location + range.length);
+
+    NSURL *result = (NSURL *)CFMakeCollectable(CFURLCreateWithBytes(NULL, urlBytes, numBytes - range.length, kCFStringEncodingUTF8, NULL));
+    if (!result)
+        result = (NSURL *)CFMakeCollectable(CFURLCreateWithBytes(NULL, urlBytes, numBytes - range.length, kCFStringEncodingISOLatin1, NULL));
+
+    if (urlBytes != buffer)
+        free(urlBytes);
+
+    return result ? [result autorelease] : self;
+}
+
+- (NSURL *)_web_URLByRemovingUserInfo
+{
+    return [self _web_URLByRemovingComponentAndSubsequentCharacter:kCFURLComponentUserInfo];
 }
 
 - (BOOL)_webkit_isJavaScriptURL
@@ -1021,6 +1050,41 @@ static BOOL allCharactersInIDNScriptWhiteList(const UChar *buffer, int32_t lengt
     return YES;
 }
 
+static BOOL allCharactersAllowedByTLDRules(const UChar* buffer, int32_t length)
+{
+    // Skip trailing dot for root domain.
+    if (buffer[length - 1] == '.')
+        --length;
+
+    if (length > 3
+        && buffer[length - 3] == '.'
+        && buffer[length - 2] == 0x0440 // CYRILLIC SMALL LETTER ER
+        && buffer[length - 1] == 0x0444) // CYRILLIC SMALL LETTER EF
+    {
+        // Rules defined by <http://www.cctld.ru/ru/docs/rulesrf.php>. This code only checks requirements that matter for presentation purposes.
+        for (int32_t i = length - 4; i; --i) {
+            UChar ch = buffer[i];
+
+            // Only modern Russian letters, digits and dashes are allowed.
+            if ((ch >= 0x0430 && ch <= 0x044f)
+                || ch == 0x0451
+                || (ch >= '0' && ch <= '9')
+                || ch == '-')
+                continue;
+
+            // Only check top level domain. Lower level registrars may have different rules.
+            if (ch == '.')
+                break;
+
+            return NO;
+        }
+        return YES;
+    }
+
+    // Not a known top level domain with special rules.
+    return NO;
+}
+
 // Return value of nil means no mapping is necessary.
 // If makeString is NO, then return value is either nil or self to indicate mapping is necessary.
 // If makeString is YES, then return value is either nil or the mapped string.
@@ -1058,7 +1122,7 @@ static BOOL allCharactersInIDNScriptWhiteList(const UChar *buffer, int32_t lengt
     if (numCharactersConverted == length && memcmp(sourceBuffer, destinationBuffer, length * sizeof(UChar)) == 0) {
         return nil;
     }
-    if (!encode && !allCharactersInIDNScriptWhiteList(destinationBuffer, numCharactersConverted)) {
+    if (!encode && !allCharactersInIDNScriptWhiteList(destinationBuffer, numCharactersConverted) && !allCharactersAllowedByTLDRules(destinationBuffer, numCharactersConverted)) {
         return nil;
     }
     return makeString ? (NSString *)[NSString stringWithCharacters:destinationBuffer length:numCharactersConverted] : (NSString *)self;

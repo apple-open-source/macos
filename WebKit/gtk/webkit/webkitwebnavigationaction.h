@@ -17,8 +17,8 @@
  * Boston, MA 02110-1301, USA.
  */
 
-#ifndef WEBKIT_WEB_NAVIGATION_ACTION_H
-#define WEBKIT_WEB_NAVIGATION_ACTION_H
+#ifndef webkitwebnavigationaction_h
+#define webkitwebnavigationaction_h
 
 #include <glib-object.h>
 
@@ -87,6 +87,9 @@ webkit_web_navigation_action_get_button(WebKitWebNavigationAction* navigationAct
 
 WEBKIT_API gint
 webkit_web_navigation_action_get_modifier_state(WebKitWebNavigationAction* navigationAction);
+
+WEBKIT_API G_CONST_RETURN gchar *
+webkit_web_navigation_action_get_target_frame(WebKitWebNavigationAction* navigationAction);
 
 G_END_DECLS
 

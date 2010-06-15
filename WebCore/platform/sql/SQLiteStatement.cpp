@@ -63,9 +63,22 @@ int SQLiteStatement::prepare()
     ASSERT(!m_isPrepared);
     const void* tail;
     LOG(SQLDatabase, "SQL - prepare - %s", m_query.ascii().data());
-    int error = sqlite3_prepare16_v2(m_database.sqlite3Handle(), m_query.charactersWithNullTermination(), -1, &m_statement, &tail);
+    String strippedQuery = m_query.stripWhiteSpace();
+    int error = sqlite3_prepare16_v2(m_database.sqlite3Handle(), strippedQuery.charactersWithNullTermination(), -1, &m_statement, &tail);
+
+    // Starting with version 3.6.16, sqlite has a patch (http://www.sqlite.org/src/ci/256ec3c6af)
+    // that should make sure sqlite3_prepare16_v2 doesn't return a SQLITE_SCHEMA error.
+    // If we're using an older sqlite version, try to emulate the patch.
+    if (error == SQLITE_SCHEMA) {
+      sqlite3_finalize(m_statement);
+      error = sqlite3_prepare16_v2(m_database.sqlite3Handle(), m_query.charactersWithNullTermination(), -1, &m_statement, &tail);
+    }
+
     if (error != SQLITE_OK)
         LOG(SQLDatabase, "sqlite3_prepare16 failed (%i)\n%s\n%s", error, m_query.ascii().data(), sqlite3_errmsg(m_database.sqlite3Handle()));
+    const UChar* ch = static_cast<const UChar*>(tail);
+    if (*ch)
+        error = SQLITE_ERROR;
 #ifndef NDEBUG
     m_isPrepared = error == SQLITE_OK;
 #endif
@@ -83,6 +96,7 @@ int SQLiteStatement::step()
         LOG(SQLDatabase, "sqlite3_step failed (%i)\nQuery - %s\nError - %s", 
             error, m_query.ascii().data(), sqlite3_errmsg(m_database.sqlite3Handle()));
     }
+
     return error;
 }
     

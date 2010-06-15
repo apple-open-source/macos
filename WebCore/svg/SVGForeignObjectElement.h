@@ -1,8 +1,6 @@
 /*
     Copyright (C) 2006 Apple Computer, Inc.
 
-    This file is part of the WebKit project
-
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Library General Public
     License as published by the Free Software Foundation; either
@@ -44,18 +42,22 @@ namespace WebCore {
         virtual bool isValid() const { return SVGTests::isValid(); }
         virtual void parseMappedAttribute(MappedAttribute*);
         virtual void svgAttributeChanged(const QualifiedName&);
+        virtual void synchronizeProperty(const QualifiedName&);
 
         bool childShouldCreateRenderer(Node*) const;
         virtual RenderObject* createRenderer(RenderArena* arena, RenderStyle* style);
 
-    protected:
-        virtual const SVGElement* contextElement() const { return this; }
-
     private:
-        ANIMATED_PROPERTY_DECLARATIONS(SVGForeignObjectElement, SVGNames::foreignObjectTagString, SVGNames::xAttrString, SVGLength, X, x)
-        ANIMATED_PROPERTY_DECLARATIONS(SVGForeignObjectElement, SVGNames::foreignObjectTagString, SVGNames::yAttrString, SVGLength, Y, y)
-        ANIMATED_PROPERTY_DECLARATIONS(SVGForeignObjectElement, SVGNames::foreignObjectTagString, SVGNames::widthAttrString, SVGLength, Width, width)
-        ANIMATED_PROPERTY_DECLARATIONS(SVGForeignObjectElement, SVGNames::foreignObjectTagString, SVGNames::heightAttrString, SVGLength, Height, height)
+        DECLARE_ANIMATED_PROPERTY(SVGForeignObjectElement, SVGNames::xAttr, SVGLength, X, x)
+        DECLARE_ANIMATED_PROPERTY(SVGForeignObjectElement, SVGNames::yAttr, SVGLength, Y, y)
+        DECLARE_ANIMATED_PROPERTY(SVGForeignObjectElement, SVGNames::widthAttr, SVGLength, Width, width)
+        DECLARE_ANIMATED_PROPERTY(SVGForeignObjectElement, SVGNames::heightAttr, SVGLength, Height, height)
+
+        // SVGURIReference
+        DECLARE_ANIMATED_PROPERTY(SVGForeignObjectElement, XLinkNames::hrefAttr, String, Href, href)
+
+        // SVGExternalResourcesRequired
+        DECLARE_ANIMATED_PROPERTY(SVGForeignObjectElement, SVGNames::externalResourcesRequiredAttr, bool, ExternalResourcesRequired, externalResourcesRequired)
     };
 
 } // namespace WebCore

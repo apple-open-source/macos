@@ -3,7 +3,7 @@
  *
  *   Printer routines for the Common UNIX Printing System (CUPS).
  *
- *   Copyright 2007-2009 by Apple Inc.
+ *   Copyright 2007-2010 by Apple Inc.
  *   Copyright 1997-2007 by Easy Software Products, all rights reserved.
  *
  *   These coded instructions, statements, and computer programs are the
@@ -51,6 +51,7 @@
  *   delete_string_array()      - Delete an array of CUPS strings.
  *   load_ppd()                 - Load a cached PPD file, updating the cache as
  *                                needed.
+ *   new_media_col()            - Create a media-col collection value.
  *   write_irix_config()        - Update the config files used by the IRIX
  *                                desktop tools.
  *   write_irix_state()         - Update the status files used by IRIX printing
@@ -64,7 +65,21 @@
 
 #include "cupsd.h"
 #include <cups/dir.h>
-#include <cups/pwgmedia.h>
+#ifdef HAVE_APPLICATIONSERVICES_H
+#  include <ApplicationServices/ApplicationServices.h>
+#endif /* HAVE_APPLICATIONSERVICES_H */
+#ifdef HAVE_SYS_MOUNT_H
+#  include <sys/mount.h>
+#endif /* HAVE_SYS_MOUNT_H */
+#ifdef HAVE_SYS_STATFS_H
+#  include <sys/statfs.h>
+#endif /* HAVE_SYS_STATFS_H */
+#ifdef HAVE_SYS_STATVFS_H
+#  include <sys/statvfs.h>
+#endif /* HAVE_SYS_STATVFS_H */
+#ifdef HAVE_SYS_VFS_H
+#  include <sys/vfs.h>
+#endif /* HAVE_SYS_VFS_H */
 
 
 /*
@@ -80,6 +95,8 @@ static int	compare_printers(void *first, void *second, void *data);
 static void	delete_printer_filters(cupsd_printer_t *p);
 static void	delete_string_array(cups_array_t **a);
 static void	load_ppd(cupsd_printer_t *p);
+static ipp_t	*new_media_col(_pwg_size_t *size, const char *source,
+		               const char *type);
 #ifdef __sgi
 static void	write_irix_config(cupsd_printer_t *p);
 static void	write_irix_state(cupsd_printer_t *p);
@@ -273,6 +290,14 @@ cupsdCreateCommonData(void)
   char			filename[1024],	/* Filename */
 			*notifier;	/* Current notifier */
   cupsd_policy_t	*p;		/* Current policy */
+  int			k_supported;	/* Maximum file size supported */
+#ifdef HAVE_STATFS
+  struct statfs		spoolinfo;	/* FS info for spool directory */
+  double		spoolsize;	/* FS size */
+#elif defined(HAVE_STATVFS)
+  struct statvfs	spoolinfo;	/* FS info for spool directory */
+  double		spoolsize;	/* FS size */
+#endif /* HAVE_STATFS */
   static const int nups[] =		/* number-up-supported values */
 		{ 1, 2, 4, 6, 9, 16 };
   static const int orients[4] =/* orientation-requested-supported values */
@@ -361,9 +386,12 @@ cupsdCreateCommonData(void)
 		};
   static const char * const media_col_supported[] =
 		{			/* media-col-supported values */
-		  "media-color",
-		  "media-key",
+		  "media-bottom-margin",
+		  "media-left-margin",
+		  "media-right-margin",
 		  "media-size",
+		  "media-source",
+		  "media-top-margin",
 		  "media-type"
 		};
   static const char * const multiple_document_handling[] =
@@ -401,20 +429,57 @@ cupsdCreateCommonData(void)
         	  "server-started",
         	  "server-stopped"
 		};
-  static const char * const job_settable[] =
-		{			/* job-settable-attributes-supported */
+  static const char * const job_creation[] =
+		{			/* job-creation-attributes-supported */
 		  "copies",
 		  "finishings",
+		  "ipp-attribute-fidelity",
 		  "job-hold-until",
+		  "job-name",
 		  "job-priority",
+		  "job-sheets",
 		  "media",
+		  "media-col",
 		  "multiple-document-handling",
 		  "number-up",
+		  "output-bin",
+		  "output-mode",
 		  "orientation-requested",
 		  "page-ranges",
 		  "print-quality",
 		  "printer-resolution",
 		  "sides"
+		};
+  static const char * const job_settable[] =
+		{			/* job-settable-attributes-supported */
+		  "copies",
+		  "finishings",
+		  "job-hold-until",
+		  "job-name",
+		  "job-priority",
+		  "media",
+		  "media-col",
+		  "multiple-document-handling",
+		  "number-up",
+		  "output-bin",
+		  "output-mode",
+		  "orientation-requested",
+		  "page-ranges",
+		  "print-quality",
+		  "printer-resolution",
+		  "sides"
+		};
+  static const char * const pdf_versions[] =
+		{			/* pdf-versions-supported */
+		  "adobe-1.2",
+		  "adobe-1.3",
+		  "adobe-1.4",
+		  "adobe-1.5",
+		  "adobe-1.6",
+		  "adobe-1.7",
+		  "iso-19005-1_2005",
+		  "iso-32000-1_2008",
+		  "pwg-5102.3"
 		};
   static const char * const printer_settable[] =
 		{			/* printer-settable-attributes-supported */
@@ -429,13 +494,41 @@ cupsdCreateCommonData(void)
   CommonData = ippNew();
 
  /*
+  * Get the maximum spool size based on the size of the filesystem used for
+  * the RequestRoot directory.  If the host OS doesn't support the statfs call
+  * or the filesystem is larger than 2TiB, always report INT_MAX.
+  */
+
+#ifdef HAVE_STATFS
+  if (statfs(RequestRoot, &spoolinfo))
+    k_supported = INT_MAX;
+  else if ((spoolsize = (double)spoolinfo.f_bsize * spoolinfo.f_blocks / 1024) >
+               INT_MAX)
+    k_supported = INT_MAX;
+  else
+    k_supported = (int)spoolsize;
+
+#elif defined(HAVE_STATVFS)
+  if (statvfs(RequestRoot, &spoolinfo))
+    k_supported = INT_MAX;
+  else if ((spoolsize = (double)spoolinfo.f_frsize * spoolinfo.f_blocks / 1024) >
+               INT_MAX)
+    k_supported = INT_MAX;
+  else
+    k_supported = (int)spoolsize;
+
+#else
+  k_supported = INT_MAX;
+#endif /* HAVE_STATFS */
+
+ /*
   * This list of attributes is sorted to improve performance when the
   * client provides a requested-attributes attribute...
   */
 
   /* charset-configured */
   ippAddString(CommonData, IPP_TAG_PRINTER, IPP_TAG_CHARSET | IPP_TAG_COPY,
-               "charset-configured", NULL, DefaultCharset);
+               "charset-configured", NULL, "utf-8");
 
   /* charset-supported */
   ippAddStrings(CommonData, IPP_TAG_PRINTER, IPP_TAG_CHARSET | IPP_TAG_COPY,
@@ -455,14 +548,24 @@ cupsdCreateCommonData(void)
   ippAddString(CommonData, IPP_TAG_PRINTER, IPP_TAG_TEXT | IPP_TAG_COPY,
                "cups-version", NULL, CUPS_SVERSION + 6);
 
-  /* generated-natural-language-supported */
-  ippAddString(CommonData, IPP_TAG_PRINTER, IPP_TAG_LANGUAGE | IPP_TAG_COPY,
+  /* generated-natural-language-supported (no IPP_TAG_COPY) */
+  ippAddString(CommonData, IPP_TAG_PRINTER, IPP_TAG_LANGUAGE,
                "generated-natural-language-supported", NULL, DefaultLanguage);
 
   /* ipp-versions-supported */
   ippAddStrings(CommonData, IPP_TAG_PRINTER, IPP_TAG_KEYWORD | IPP_TAG_COPY,
                 "ipp-versions-supported", sizeof(versions) / sizeof(versions[0]),
 		NULL, versions);
+
+  /* ippget-event-life */
+  ippAddInteger(CommonData, IPP_TAG_PRINTER, IPP_TAG_INTEGER,
+                "ippget-event-life", 15);
+
+  /* job-creation-attributes-supported */
+  ippAddStrings(CommonData, IPP_TAG_PRINTER, IPP_TAG_KEYWORD | IPP_TAG_COPY,
+                "job-creation-attributes-supported",
+		sizeof(job_creation) / sizeof(job_creation[0]),
+		NULL, job_creation);
 
   /* job-hold-until-supported */
   ippAddStrings(CommonData, IPP_TAG_PRINTER, IPP_TAG_KEYWORD | IPP_TAG_COPY,
@@ -517,6 +620,18 @@ cupsdCreateCommonData(void)
     ippAddString(CommonData, IPP_TAG_PRINTER, IPP_TAG_NAME | IPP_TAG_COPY,
                  "job-sheets-supported", NULL, "none");
 
+  /* jpeg-k-octets-supported */
+  ippAddRange(CommonData, IPP_TAG_PRINTER, "jpeg-k-octets-supported", 0,
+              k_supported);
+
+  /* jpeg-x-dimension-supported */
+  ippAddRange(CommonData, IPP_TAG_PRINTER, "jpeg-x-dimension-supported", 0,
+              65535);
+
+  /* jpeg-y-dimension-supported */
+  ippAddRange(CommonData, IPP_TAG_PRINTER, "jpeg-y-dimension-supported", 1,
+              65535);
+
   /* media-col-supported */
   ippAddStrings(CommonData, IPP_TAG_PRINTER, IPP_TAG_KEYWORD | IPP_TAG_COPY,
                 "media-col-supported",
@@ -539,8 +654,8 @@ cupsdCreateCommonData(void)
   ippAddInteger(CommonData, IPP_TAG_PRINTER, IPP_TAG_INTEGER,
                 "multiple-operation-time-out", MultipleOperationTimeout);
 
-  /* natural-language-configured */
-  ippAddString(CommonData, IPP_TAG_PRINTER, IPP_TAG_LANGUAGE | IPP_TAG_COPY,
+  /* natural-language-configured (no IPP_TAG_COPY) */
+  ippAddString(CommonData, IPP_TAG_PRINTER, IPP_TAG_LANGUAGE,
                "natural-language-configured", NULL, DefaultLanguage);
 
   /* notify-attributes-supported */
@@ -611,9 +726,19 @@ cupsdCreateCommonData(void)
   /* page-ranges-supported */
   ippAddBoolean(CommonData, IPP_TAG_PRINTER, "page-ranges-supported", 1);
 
-  /* pdf-override-supported */
+  /* pdf-k-octets-supported */
+  ippAddRange(CommonData, IPP_TAG_PRINTER, "pdf-k-octets-supported", 0,
+              k_supported);
+
+  /* pdf-versions-supported */
+  ippAddStrings(CommonData, IPP_TAG_PRINTER, IPP_TAG_KEYWORD | IPP_TAG_COPY,
+                "pdf-versions-supported",
+                sizeof(pdf_versions) / sizeof(pdf_versions[0]), NULL,
+                pdf_versions);
+
+  /* pdl-override-supported */
   ippAddString(CommonData, IPP_TAG_PRINTER, IPP_TAG_KEYWORD | IPP_TAG_COPY,
-               "pdl-override-supported", NULL, "not-attempted");
+               "pdl-override-supported", NULL, "attempted");
 
   /* printer-op-policy-supported */
   attr = ippAddStrings(CommonData, IPP_TAG_PRINTER, IPP_TAG_NAME | IPP_TAG_COPY,
@@ -660,12 +785,13 @@ cupsdDeleteAllPrinters(void)
  * 'cupsdDeletePrinter()' - Delete a printer from the system.
  */
 
-void
+int					/* O - 1 if classes affected, 0 otherwise */
 cupsdDeletePrinter(
     cupsd_printer_t *p,			/* I - Printer to delete */
     int             update)		/* I - Update printers.conf? */
 {
-  int	i;				/* Looping var */
+  int	i,				/* Looping var */
+	changed = 0;			/* Class changed? */
 #ifdef __sgi
   char	filename[1024];			/* Interface script filename */
 #endif /* __sgi */
@@ -776,7 +902,7 @@ cupsdDeletePrinter(
 
   if (!(p->type & CUPS_PRINTER_IMPLICIT))
   {
-    cupsdDeletePrinterFromClasses(p);
+    changed = cupsdDeletePrinterFromClasses(p);
 
    /*
     * Deregister from any browse protocols...
@@ -857,6 +983,8 @@ cupsdDeletePrinter(
   */
 
   cupsArrayRestore(Printers);
+
+  return (changed);
 }
 
 
@@ -2782,6 +2910,12 @@ cupsdSetPrinterState(
     int             update)		/* I - Update printers.conf? */
 {
   ipp_pstate_t	old_state;		/* Old printer state */
+  static const char * const printer_states[] =
+  {					/* State strings */
+    "idle",
+    "processing",
+    "stopped"
+  };
 
 
  /*
@@ -2805,9 +2939,9 @@ cupsdSetPrinterState(
   {
     cupsdAddEvent(s == IPP_PRINTER_STOPPED ? CUPSD_EVENT_PRINTER_STOPPED :
                       CUPSD_EVENT_PRINTER_STATE, p, NULL,
-		  "%s \"%s\" state changed.",
+		  "%s \"%s\" state changed to %s.",
 		  (p->type & CUPS_PRINTER_CLASS) ? "Class" : "Printer",
-		  p->name);
+		  p->name, printer_states[p->state]);
 
    /*
     * Let the browse code know this needs to be updated...
@@ -3433,11 +3567,10 @@ add_printer_defaults(cupsd_printer_t *p)/* I - Printer */
     cupsArrayAdd(CommonDefaults, _cupsStrAlloc("job-hold-until-default"));
     cupsArrayAdd(CommonDefaults, _cupsStrAlloc("job-priority-default"));
     cupsArrayAdd(CommonDefaults, _cupsStrAlloc("job-sheets-default"));
-    cupsArrayAdd(CommonDefaults, _cupsStrAlloc("media-default"));
+    cupsArrayAdd(CommonDefaults, _cupsStrAlloc("media-col-default"));
     cupsArrayAdd(CommonDefaults, _cupsStrAlloc("number-up-default"));
     cupsArrayAdd(CommonDefaults,
                  _cupsStrAlloc("orientation-requested-default"));
-    cupsArrayAdd(CommonDefaults, _cupsStrAlloc("sides-default"));
   }
 
  /*
@@ -3491,10 +3624,6 @@ add_printer_defaults(cupsd_printer_t *p)/* I - Printer */
     ippAddInteger(p->attrs, IPP_TAG_PRINTER, IPP_TAG_INTEGER,
                   "number-up-default", 1);
 
-  if (!cupsGetOption("orientation-requested", p->num_options, p->options))
-    ippAddString(p->attrs, IPP_TAG_PRINTER, IPP_TAG_NOVALUE,
-                 "orientation-requested-default", NULL, NULL);
-
   if (!cupsGetOption("notify-lease-duration", p->num_options, p->options))
     ippAddInteger(p->attrs, IPP_TAG_PRINTER, IPP_TAG_INTEGER,
         	  "notify-lease-duration-default", DefaultLeaseDuration);
@@ -3502,6 +3631,14 @@ add_printer_defaults(cupsd_printer_t *p)/* I - Printer */
   if (!cupsGetOption("notify-events", p->num_options, p->options))
     ippAddString(p->attrs, IPP_TAG_PRINTER, IPP_TAG_KEYWORD,
         	 "notify-events-default", NULL, "job-completed");
+
+  if (!cupsGetOption("orientation-requested", p->num_options, p->options))
+    ippAddString(p->attrs, IPP_TAG_PRINTER, IPP_TAG_NOVALUE,
+                 "orientation-requested-default", NULL, NULL);
+
+  if (!cupsGetOption("print-quality", p->num_options, p->options))
+    ippAddInteger(p->attrs, IPP_TAG_PRINTER, IPP_TAG_ENUM,
+                  "print-quality-default", IPP_QUALITY_NORMAL);
 }
 
 
@@ -3739,19 +3876,9 @@ add_printer_formats(cupsd_printer_t *p)	/* I - Printer */
     mime_filter_t	*filter;	/* MIME filter looping var */
 
 
-    pdl[0] = '\0';
-
-    if (mimeType(MimeDatabase, "application", "pdf"))
-      strlcat(pdl, "application/pdf,", sizeof(pdl));
-
-    if (mimeType(MimeDatabase, "application", "postscript"))
-      strlcat(pdl, "application/postscript,", sizeof(pdl));
-
-    if (mimeType(MimeDatabase, "application", "vnd.cups-raster"))
-      strlcat(pdl, "application/vnd.cups-raster,", sizeof(pdl));
-
    /*
-    * Determine if this is a Tioga PrintJobMgr based queue...
+    * We only support raw printing if this is not a Tioga PrintJobMgr based
+    * queue and if application/octet-stream is a known type...
     */
 
     for (filter = (mime_filter_t *)cupsArrayFirst(MimeDatabase->filters);
@@ -3763,16 +3890,36 @@ add_printer_formats(cupsd_printer_t *p)	/* I - Printer */
 	break;
     }
 
-   /*
-    * We only support raw printing if this is not a Tioga PrintJobMgr based
-    * queue and if application/octet-stream is a known conversion...
-    */
+    pdl[0] = '\0';
 
     if (!filter && mimeType(MimeDatabase, "application", "octet-stream"))
       strlcat(pdl, "application/octet-stream,", sizeof(pdl));
 
-    if (mimeType(MimeDatabase, "image", "png"))
-      strlcat(pdl, "image/png,", sizeof(pdl));
+   /*
+    * Then list a bunch of formats that are supported by the printer...
+    */
+
+    for (type = (mime_type_t *)cupsArrayFirst(p->filetypes);
+	 type;
+	 type = (mime_type_t *)cupsArrayNext(p->filetypes))
+    {
+      if (!strcasecmp(type->super, "application"))
+      {
+        if (!strcasecmp(type->type, "pdf"))
+	  strlcat(pdl, "application/pdf,", sizeof(pdl));
+        else if (!strcasecmp(type->type, "postscript"))
+	  strlcat(pdl, "application/postscript,", sizeof(pdl));
+      }
+      else if (!strcasecmp(type->super, "image"))
+      {
+        if (!strcasecmp(type->type, "jpeg"))
+	  strlcat(pdl, "image/jpeg,", sizeof(pdl));
+	else if (!strcasecmp(type->type, "png"))
+	  strlcat(pdl, "image/png,", sizeof(pdl));
+	else if (!strcasecmp(type->type, "urf"))
+	  strlcat(pdl, "image/urf,", sizeof(pdl));
+      }
+    }
 
     if (pdl[0])
       pdl[strlen(pdl) - 1] = '\0';	/* Remove trailing comma */
@@ -3879,27 +4026,43 @@ delete_string_array(cups_array_t **a)	/* I - Array */
 static void
 load_ppd(cupsd_printer_t *p)		/* I - Printer */
 {
-  int		i;			/* Looping var */
-  cups_file_t	*cache;			/* Cache file */
-  char		cache_name[1024];	/* Cache filename */
-  struct stat	cache_info;		/* Cache file info */
+  int		i, j, k;		/* Looping vars */
+  cups_file_t	*cache;			/* IPP cache file */
+  char		cache_name[1024];	/* IPP cache filename */
+  struct stat	cache_info;		/* IPP cache file info */
+  char		pwg_name[1024];		/* PWG cache filename */
+  struct stat	pwg_info;		/* PWG cache file info */
   ppd_file_t	*ppd;			/* PPD file */
   char		ppd_name[1024];		/* PPD filename */
   struct stat	ppd_info;		/* PPD file info */
   int		num_media;		/* Number of media options */
-  char		custom_in[256],		/* Custom size name in inches */
-		custom_mm[256];		/* Custom size name in millimeters */
-  ppd_size_t	*size;			/* Current size */
-  ppd_option_t	*output_bin,		/* OutputBin options */
-		*duplex;		/* Duplex options */
+  ppd_size_t	*size;			/* Current PPD size */
+  ppd_option_t	*duplex,		/* Duplex option */
+		*output_bin,		/* OutputBin option */
+		*output_mode,		/* OutputMode option */
+		*resolution;		/* (Set|JCL|)Resolution option */
+  ppd_choice_t	*choice,		/* Current PPD choice */
+		*input_slot,		/* Current input slot */
+		*media_type;		/* Current media type */
   ppd_attr_t	*ppd_attr;		/* PPD attribute */
-  _cups_pwg_media_t *pwgmedia;		/* Matching PWG size name */
+  int		xdpi,			/* Horizontal resolution */
+		ydpi;			/* Vertical resolution */
+  const char	*resptr;		/* Pointer into resolution keyword */
+  _pwg_size_t	*pwgsize;		/* Current PWG size */
+  _pwg_map_t	*pwgsource,		/* Current PWG source */
+		*pwgtype;		/* Current PWG type */
   ipp_attribute_t *attr;		/* Attribute data */
-  ipp_t		*media_col_default,	/* media-col-default collection value */
-		*media_size;		/* media-size collection value */
   ipp_value_t	*val;			/* Attribute value */
-  int		num_finishings;		/* Number of finishings */
-  int		finishings[5];		/* finishings-supported values */
+  int		num_finishings,		/* Number of finishings */
+		finishings[5];		/* finishings-supported values */
+  int		num_qualities,		/* Number of print-quality values */
+		qualities[3];		/* print-quality values */
+  int		num_urf;		/* Number of urf-supported values */
+  char		*urf[5],		/* urf-supported values */
+		urf_rs[255],		/* urf-supported RS (resolution) value */
+		*urf_ptr;		/* Pointer into URF value */
+  int		num_margins,		/* Number of media-*-margin-supported values */
+		margins[16];		/* media-*-margin-supported values */
   static const char * const sides[3] =	/* sides-supported values */
 		{
 		  "one-sided",
@@ -3918,9 +4081,13 @@ load_ppd(cupsd_printer_t *p)		/* I - Printer */
   * Check to see if the cache is up-to-date...
   */
 
-  snprintf(cache_name, sizeof(cache_name), "%s/%s.ipp", CacheDir, p->name);
+  snprintf(cache_name, sizeof(cache_name), "%s/%s.ipp2", CacheDir, p->name);
   if (stat(cache_name, &cache_info))
     cache_info.st_mtime = 0;
+
+  snprintf(pwg_name, sizeof(pwg_name), "%s/%s.pwg", CacheDir, p->name);
+  if (stat(pwg_name, &pwg_info))
+    pwg_info.st_mtime = 0;
 
   snprintf(ppd_name, sizeof(ppd_name), "%s/ppd/%s.ppd", ServerRoot, p->name);
   if (stat(ppd_name, &ppd_info))
@@ -3929,7 +4096,13 @@ load_ppd(cupsd_printer_t *p)		/* I - Printer */
   ippDelete(p->ppd_attrs);
   p->ppd_attrs = ippNew();
 
-  if (cache_info.st_mtime >= ppd_info.st_mtime &&
+  _pwgDestroy(p->pwg);
+  p->pwg = NULL;
+
+  if (pwg_info.st_mtime >= ppd_info.st_mtime)
+    p->pwg = _pwgCreateWithFile(pwg_name);
+
+  if (cache_info.st_mtime >= ppd_info.st_mtime && p->pwg &&
       (cache = cupsFileOpen(cache_name, "r")) != NULL)
   {
    /*
@@ -3954,6 +4127,9 @@ load_ppd(cupsd_printer_t *p)		/* I - Printer */
 
   cupsdMarkDirty(CUPSD_DIRTY_PRINTERS);
 
+  _pwgDestroy(p->pwg);
+  p->pwg = NULL;
+
   cupsdLogMessage(CUPSD_LOG_DEBUG, "load_ppd: Loading %s...", ppd_name);
 
   delete_string_array(&(p->filters));
@@ -3964,12 +4140,15 @@ load_ppd(cupsd_printer_t *p)		/* I - Printer */
 
   finishings[0]  = IPP_FINISHINGS_NONE;
   num_finishings = 1;
+  num_urf        = 0;
 
   if ((ppd = ppdOpenFile(ppd_name)) != NULL)
   {
    /*
     * Add make/model and other various attributes...
     */
+
+    p->pwg = _pwgCreateWithPPD(ppd);
 
     ppdMarkDefaults(ppd);
 
@@ -3986,8 +4165,60 @@ load_ppd(cupsd_printer_t *p)		/* I - Printer */
     ippAddBoolean(p->ppd_attrs, IPP_TAG_PRINTER, "color-supported",
 		  ppd->color_device);
     if (ppd->throughput)
+    {
       ippAddInteger(p->ppd_attrs, IPP_TAG_PRINTER, IPP_TAG_INTEGER,
 		    "pages-per-minute", ppd->throughput);
+      if (ppd->color_device)
+	ippAddInteger(p->ppd_attrs, IPP_TAG_PRINTER, IPP_TAG_INTEGER,
+		      "pages-per-minute-color", ppd->throughput);
+    }
+
+    urf[num_urf ++] = _cupsStrAlloc("W8");
+    if (ppd->color_device)
+      urf[num_urf ++] = _cupsStrAlloc("SRGB24");
+
+    if (ppd->manual_copies)
+      urf[num_urf ++] = _cupsStrAlloc("CP1");
+    else
+      urf[num_urf ++] = _cupsStrAlloc("CP255");
+
+    num_qualities = 0;
+
+    if ((output_mode = ppdFindOption(ppd, "OutputMode")) != NULL)
+    {
+      if (ppdFindChoice(output_mode, "draft") ||
+          ppdFindChoice(output_mode, "fast"))
+        qualities[num_qualities ++] = IPP_QUALITY_DRAFT;
+      if (ppdFindChoice(output_mode, "normal") ||
+          ppdFindChoice(output_mode, "good"))
+        qualities[num_qualities ++] = IPP_QUALITY_NORMAL;
+      if (ppdFindChoice(output_mode, "best") ||
+          ppdFindChoice(output_mode, "high"))
+        qualities[num_qualities ++] = IPP_QUALITY_HIGH;
+    }
+    else if ((ppd_attr = ppdFindAttr(ppd, "APPrinterPreset", NULL)) != NULL)
+    {
+      do
+      {
+        if (strstr(ppd_attr->spec, "draft") ||
+	    strstr(ppd_attr->spec, "Draft"))
+	{
+	  qualities[num_qualities ++] = IPP_QUALITY_DRAFT;
+	  break;
+	}
+      }
+      while ((ppd_attr = ppdFindNextAttr(ppd, "APPrinterPreset",
+                                         NULL)) != NULL);
+
+      qualities[num_qualities ++] = IPP_QUALITY_NORMAL;
+      qualities[num_qualities ++] = IPP_QUALITY_HIGH;
+    }
+
+    if (num_qualities == 0)
+      qualities[num_qualities ++] = IPP_QUALITY_NORMAL;
+
+    ippAddIntegers(p->ppd_attrs, IPP_TAG_PRINTER, IPP_TAG_ENUM,
+                   "print-quality-supported", num_qualities, qualities);
 
     if (ppd->nickname)
     {
@@ -4018,7 +4249,7 @@ load_ppd(cupsd_printer_t *p)		/* I - Printer */
     * Add media options from the PPD file...
     */
 
-    if (ppd->num_sizes == 0)
+    if (ppd->num_sizes == 0 || !p->pwg)
     {
       if (!ppdFindAttr(ppd, "APScannerOnly", NULL))
 	cupsdLogMessage(CUPSD_LOG_CRIT,
@@ -4026,104 +4257,288 @@ load_ppd(cupsd_printer_t *p)		/* I - Printer */
 			"options and is therefore invalid!", p->name);
 
       ippAddString(p->ppd_attrs, IPP_TAG_PRINTER, IPP_TAG_KEYWORD,
+		   "media-default", NULL, "unknown");
+      ippAddString(p->ppd_attrs, IPP_TAG_PRINTER, IPP_TAG_KEYWORD,
 		   "media-supported", NULL, "unknown");
     }
     else
     {
-      num_media = ppd->num_sizes;
-      if (ppd->variable_sizes)
-	num_media ++;
+     /*
+      * media-default
+      */
 
-      attr = ippAddStrings(p->ppd_attrs, IPP_TAG_PRINTER, IPP_TAG_KEYWORD,
-			   "media-supported", num_media, NULL, NULL);
-      if (attr != NULL)
+      if ((size = ppdPageSize(ppd, NULL)) != NULL)
+        pwgsize = _pwgGetSize(p->pwg, size->name);
+      else
+        pwgsize = NULL;
+
+      ippAddString(p->ppd_attrs, IPP_TAG_PRINTER, IPP_TAG_KEYWORD,
+		   "media-default", NULL,
+		   pwgsize ? pwgsize->map.pwg : "unknown");
+
+     /*
+      * media-col-default
+      */
+
+      if (pwgsize)
+      {
+        ipp_t	*col;			/* Collection value */
+
+	input_slot = ppdFindMarkedChoice(ppd, "InputSlot");
+	media_type = ppdFindMarkedChoice(ppd, "MediaType");
+	col        = new_media_col(pwgsize,
+			           input_slot ?
+				       _pwgGetSource(p->pwg,
+				                     input_slot->choice) :
+				       NULL,
+				   media_type ?
+				       _pwgGetType(p->pwg,
+				                   media_type->choice) :
+				       NULL);
+
+	ippAddCollection(p->ppd_attrs, IPP_TAG_PRINTER, "media-col-default",
+	                 col);
+        ippDelete(col);
+      }
+
+     /*
+      * media-supported
+      */
+
+      num_media = p->pwg->num_sizes;
+      if (p->pwg->custom_min_keyword)
+	num_media += 2;
+
+      if ((attr = ippAddStrings(p->ppd_attrs, IPP_TAG_PRINTER, IPP_TAG_KEYWORD,
+			        "media-supported", num_media, NULL,
+				NULL)) != NULL)
       {
 	val = attr->values;
 
-        for (i = ppd->num_sizes, size = ppd->sizes; i > 0; i --, size ++)
+        for (i = p->pwg->num_sizes, pwgsize = p->pwg->sizes;
+	     i > 0;
+	     i --, pwgsize ++, val ++)
+	  val->string.text = _cupsStrRetain(pwgsize->map.pwg);
+
+        if (p->pwg->custom_min_keyword)
 	{
-	  if (strcasecmp(size->name, "Custom"))
+	  val->string.text = _cupsStrRetain(p->pwg->custom_min_keyword);
+	  val ++;
+	  val->string.text = _cupsStrRetain(p->pwg->custom_max_keyword);
+        }
+      }
+
+     /*
+      * media-source-supported
+      */
+
+      if (p->pwg->num_sources > 0 &&
+          (attr = ippAddStrings(p->ppd_attrs, IPP_TAG_PRINTER, IPP_TAG_KEYWORD,
+	                        "media-source-supported", p->pwg->num_sources,
+			        NULL, NULL)) != NULL)
+      {
+	for (i = p->pwg->num_sources, pwgsource = p->pwg->sources,
+	         val = attr->values;
+	     i > 0;
+	     i --, pwgsource ++, val ++)
+	  val->string.text = _cupsStrRetain(pwgsource->pwg);
+      }
+
+     /*
+      * media-type-supported
+      */
+
+      if (p->pwg->num_types > 0 &&
+          (attr = ippAddStrings(p->ppd_attrs, IPP_TAG_PRINTER, IPP_TAG_KEYWORD,
+	                        "media-type-supported", p->pwg->num_types,
+			        NULL, NULL)) != NULL)
+      {
+	for (i = p->pwg->num_types, pwgtype = p->pwg->types,
+	         val = attr->values;
+	     i > 0;
+	     i --, pwgtype ++, val ++)
+	  val->string.text = _cupsStrRetain(pwgtype->pwg);
+      }
+
+     /*
+      * media-*-margin-supported
+      */
+
+      for (i = p->pwg->num_sizes, pwgsize = p->pwg->sizes, num_margins = 0;
+	   i > 0 && num_margins < (int)(sizeof(margins) / sizeof(margins[0]));
+	   i --, pwgsize ++)
+      {
+        for (j = 0; j < num_margins; j ++)
+	  if (pwgsize->bottom == margins[j])
+	    break;
+
+	if (j >= num_margins)
+	{
+	  margins[num_margins] = pwgsize->bottom;
+	  num_margins ++;
+	}
+      }
+
+      if (num_margins > 0)
+        ippAddIntegers(p->ppd_attrs, IPP_TAG_PRINTER, IPP_TAG_INTEGER,
+		       "media-bottom-margin-supported", num_margins, margins);
+      else
+        ippAddInteger(p->ppd_attrs, IPP_TAG_PRINTER, IPP_TAG_INTEGER,
+		      "media-bottom-margin-supported", 0);
+
+      for (i = p->pwg->num_sizes, pwgsize = p->pwg->sizes, num_margins = 0;
+	   i > 0 && num_margins < (int)(sizeof(margins) / sizeof(margins[0]));
+	   i --, pwgsize ++)
+      {
+        for (j = 0; j < num_margins; j ++)
+	  if (pwgsize->left == margins[j])
+	    break;
+
+	if (j >= num_margins)
+	{
+	  margins[num_margins] = pwgsize->left;
+	  num_margins ++;
+	}
+      }
+
+      if (num_margins > 0)
+        ippAddIntegers(p->ppd_attrs, IPP_TAG_PRINTER, IPP_TAG_INTEGER,
+		       "media-left-margin-supported", num_margins, margins);
+      else
+        ippAddInteger(p->ppd_attrs, IPP_TAG_PRINTER, IPP_TAG_INTEGER,
+		      "media-left-margin-supported", 0);
+
+      for (i = p->pwg->num_sizes, pwgsize = p->pwg->sizes, num_margins = 0;
+	   i > 0 && num_margins < (int)(sizeof(margins) / sizeof(margins[0]));
+	   i --, pwgsize ++)
+      {
+        for (j = 0; j < num_margins; j ++)
+	  if (pwgsize->right == margins[j])
+	    break;
+
+	if (j >= num_margins)
+	{
+	  margins[num_margins] = pwgsize->right;
+	  num_margins ++;
+	}
+      }
+
+      if (num_margins > 0)
+        ippAddIntegers(p->ppd_attrs, IPP_TAG_PRINTER, IPP_TAG_INTEGER,
+		       "media-right-margin-supported", num_margins, margins);
+      else
+        ippAddInteger(p->ppd_attrs, IPP_TAG_PRINTER, IPP_TAG_INTEGER,
+		      "media-right-margin-supported", 0);
+
+      for (i = p->pwg->num_sizes, pwgsize = p->pwg->sizes, num_margins = 0;
+	   i > 0 && num_margins < (int)(sizeof(margins) / sizeof(margins[0]));
+	   i --, pwgsize ++)
+      {
+        for (j = 0; j < num_margins; j ++)
+	  if (pwgsize->top == margins[j])
+	    break;
+
+	if (j >= num_margins)
+	{
+	  margins[num_margins] = pwgsize->top;
+	  num_margins ++;
+	}
+      }
+
+      if (num_margins > 0)
+        ippAddIntegers(p->ppd_attrs, IPP_TAG_PRINTER, IPP_TAG_INTEGER,
+		       "media-top-margin-supported", num_margins, margins);
+      else
+        ippAddInteger(p->ppd_attrs, IPP_TAG_PRINTER, IPP_TAG_INTEGER,
+		      "media-top-margin-supported", 0);
+
+     /*
+      * media-col-database
+      */
+
+      num_media = p->pwg->num_sizes;
+      if (p->pwg->num_sources)
+      {
+        if (p->pwg->num_types > 0)
+	  num_media += p->pwg->num_sizes * p->pwg->num_sources *
+	               p->pwg->num_types;
+	else
+          num_media += p->pwg->num_sizes * p->pwg->num_sources;
+      }
+      else if (p->pwg->num_types)
+        num_media += p->pwg->num_sizes * p->pwg->num_types;
+
+      if ((attr = ippAddCollections(p->ppd_attrs, IPP_TAG_PRINTER,
+                                    "media-col-database", num_media,
+				    NULL)) != NULL)
+      {
+        for (i = p->pwg->num_sizes, pwgsize = p->pwg->sizes, val = attr->values;
+	     i > 0;
+	     i --, pwgsize ++)
+	{
+	 /*
+	  * Start by adding the page size without source or type...
+	  */
+
+	  ppdMarkOption(ppd, "PageSize", pwgsize->map.ppd);
+
+          val->collection = new_media_col(pwgsize, NULL, NULL);
+	  val ++;
+
+         /*
+	  * Then add the specific, supported combinations of size, source, and
+	  * type...
+	  */
+
+	  if (p->pwg->num_sources > 0)
 	  {
-	    if ((pwgmedia = _cupsPWGMediaBySize(size->width,
-						size->length)) != NULL)
+	    for (j = p->pwg->num_sources, pwgsource = p->pwg->sources;
+	         j > 0;
+		 j --, pwgsource ++)
 	    {
-	      val->string.text = _cupsStrAlloc(pwgmedia->pwg);
+	      ppdMarkOption(ppd, "InputSlot", pwgsource->ppd);
+
+	      if (p->pwg->num_types > 0)
+	      {
+	        for (k = p->pwg->num_types, pwgtype = p->pwg->types;
+		     k > 0;
+		     k --, pwgtype ++)
+		{
+		  if (!ppdMarkOption(ppd, "MediaType", pwgtype->ppd))
+		  {
+		    val->collection = new_media_col(pwgsize, pwgsource->pwg,
+		                                    pwgtype->pwg);
+		    val ++;
+		  }
+		}
+	      }
+	      else if (!ppdConflicts(ppd))
+	      {
+	        val->collection = new_media_col(pwgsize, pwgsource->pwg, NULL);
+		val ++;
+	      }
 	    }
-	    else
+	  }
+	  else if (p->pwg->num_types > 0)
+	  {
+	    for (j = p->pwg->num_types, pwgtype = p->pwg->types;
+	         j > 0;
+		 j --, pwgtype ++)
 	    {
-	      snprintf(custom_in, sizeof(custom_in), "adobe_%s_%gx%gin",
-		       size->name, size->width / 72.0, size->length / 72.0);
-	      snprintf(custom_mm, sizeof(custom_mm), "adobe_%s_%gx%gmm",
-		       size->name, size->width * 25.4 / 72.0,
-		       size->length * 25.4 / 72.0);
-              if (strlen(custom_in) < strlen(custom_mm))
-		val->string.text = _cupsStrAlloc(custom_in);
-	      else
-		val->string.text = _cupsStrAlloc(custom_mm);
+	      if (!ppdMarkOption(ppd, "MediaType", pwgtype->ppd))
+	      {
+	        val->collection = new_media_col(pwgsize, NULL, pwgtype->pwg);
+		val ++;
+	      }
 	    }
-
-	    if (size->marked)
-	    {
-	     /*
-	      * Add media-default...
-	      */
-
-	      ippAddString(p->ppd_attrs, IPP_TAG_PRINTER, IPP_TAG_KEYWORD,
-			   "media-default", NULL, val->string.text);
-
-             /*
-	      * Add media-col-default...
-	      */
-
-	      media_size = ippNew();
-	      ippAddInteger(media_size, IPP_TAG_PRINTER, IPP_TAG_INTEGER,
-	                    "x-dimension", (int)(size->width * 2540.0 / 72.0));
-	      ippAddInteger(media_size, IPP_TAG_PRINTER, IPP_TAG_INTEGER,
-	                    "y-dimension", (int)(size->length * 2540.0 / 72.0));
-
-	      media_col_default = ippNew();
-	      ippAddString(media_col_default, IPP_TAG_PRINTER,
-	                   IPP_TAG_KEYWORD | IPP_TAG_COPY, "media-color", NULL,
-			   "white");
-	      ippAddString(media_col_default, IPP_TAG_PRINTER, IPP_TAG_KEYWORD,
-			   "media-key", NULL,val->string.text);
-	      ippAddCollection(media_col_default, IPP_TAG_PRINTER, "media-size",
-	                       media_size);
-	      ippAddString(media_col_default, IPP_TAG_PRINTER,
-	                   IPP_TAG_KEYWORD | IPP_TAG_COPY, "media-type", NULL,
-			   "stationary");
-
-              ippAddCollection(p->ppd_attrs, IPP_TAG_PRINTER,
-	                       "media-col-default", media_col_default);
-	    }
-
-            val ++;
 	  }
 	}
 
-        if (ppd->variable_sizes)
-	{
-	  snprintf(custom_in, sizeof(custom_in), "custom_min_%gx%gin",
-		   ppd->custom_min[0] / 72.0, ppd->custom_min[1] / 72.0);
-	  snprintf(custom_mm, sizeof(custom_mm), "custom_min_%gx%gmm",
-		   ppd->custom_min[0] * 25.4 / 72.0,
-		   ppd->custom_min[1] * 25.4 / 72.0);
-	  if (strlen(custom_in) < strlen(custom_mm))
-	    val->string.text = _cupsStrAlloc(custom_in);
-	  else
-	    val->string.text = _cupsStrAlloc(custom_mm);
-	  val ++;
+       /*
+        * Update the number of media-col-database values...
+	*/
 
-	  snprintf(custom_in, sizeof(custom_in), "custom_max_%gx%gin",
-		   ppd->custom_max[0] / 72.0, ppd->custom_max[1] / 72.0);
-	  snprintf(custom_mm, sizeof(custom_mm), "custom_max_%gx%gmm",
-		   ppd->custom_max[0] * 25.4 / 72.0,
-		   ppd->custom_max[1] * 25.4 / 72.0);
-	  if (strlen(custom_in) < strlen(custom_mm))
-	    val->string.text = _cupsStrAlloc(custom_in);
-	  else
-	    val->string.text = _cupsStrAlloc(custom_mm);
-	}
+	attr->num_values = val - attr->values;
       }
     }
 
@@ -4131,23 +4546,196 @@ load_ppd(cupsd_printer_t *p)		/* I - Printer */
     * Output bin...
     */
 
-    if ((output_bin = ppdFindOption(ppd, "OutputBin")) != NULL)
+    if (p->pwg && p->pwg->num_bins > 0)
     {
       attr = ippAddStrings(p->ppd_attrs, IPP_TAG_PRINTER, IPP_TAG_KEYWORD,
-			   "output-bin-supported", output_bin->num_choices,
+			   "output-bin-supported", p->pwg->num_bins,
 			   NULL, NULL);
 
       if (attr != NULL)
       {
 	for (i = 0, val = attr->values;
-	     i < output_bin->num_choices;
+	     i < p->pwg->num_bins;
 	     i ++, val ++)
-	  val->string.text = _cupsStrAlloc(output_bin->choices[i].choice);
+	  val->string.text = _cupsStrAlloc(p->pwg->bins[i].pwg);
       }
 
-      ippAddString(p->ppd_attrs, IPP_TAG_PRINTER, IPP_TAG_KEYWORD,
-		   "output-bin-default", NULL, output_bin->defchoice);
+      if ((output_bin = ppdFindOption(ppd, "OutputBin")) != NULL)
+      {
+	for (i = 0; i < p->pwg->num_bins; i ++)
+	  if (!strcmp(p->pwg->bins[i].ppd, output_bin->defchoice))
+	    break;
+
+        if (i >= p->pwg->num_bins)
+	  i = 0;
+
+	ippAddString(p->ppd_attrs, IPP_TAG_PRINTER, IPP_TAG_KEYWORD,
+		     "output-bin-default", NULL, p->pwg->bins[i].pwg);
+      }
+      else
+        ippAddString(p->ppd_attrs, IPP_TAG_PRINTER, IPP_TAG_KEYWORD,
+	             "output-bin-default", NULL, p->pwg->bins[0].pwg);
     }
+    else if ((ppd_attr = ppdFindAttr(ppd, "DefaultOutputOrder",
+                                     NULL)) != NULL &&
+	     !strcasecmp(ppd_attr->value, "Reverse"))
+    {
+      ippAddString(p->ppd_attrs, IPP_TAG_PRINTER, IPP_TAG_KEYWORD,
+		   "output-bin-supported", NULL, "face-up");
+      ippAddString(p->ppd_attrs, IPP_TAG_PRINTER, IPP_TAG_KEYWORD,
+		   "output-bin-default", NULL, "face-up");
+    }
+    else
+    {
+      ippAddString(p->ppd_attrs, IPP_TAG_PRINTER, IPP_TAG_KEYWORD,
+		   "output-bin-supported", NULL, "face-down");
+      ippAddString(p->ppd_attrs, IPP_TAG_PRINTER, IPP_TAG_KEYWORD,
+		   "output-bin-default", NULL, "face-down");
+    }
+
+   /*
+    * output-mode...
+    */
+
+    if (ppd->color_device)
+    {
+      static const char * const output_modes[] =
+      {
+        "monochrome",
+	"color"
+      };
+
+      ippAddStrings(p->ppd_attrs, IPP_TAG_PRINTER, IPP_TAG_KEYWORD,
+                    "output-mode-supported", 2, NULL, output_modes);
+      ippAddString(p->ppd_attrs, IPP_TAG_PRINTER, IPP_TAG_KEYWORD,
+                   "output-mode-default", NULL, "color");
+    }
+    else
+    {
+      ippAddString(p->ppd_attrs, IPP_TAG_PRINTER, IPP_TAG_KEYWORD,
+                   "output-mode-supported", NULL, "monochrome");
+      ippAddString(p->ppd_attrs, IPP_TAG_PRINTER, IPP_TAG_KEYWORD,
+                   "output-mode-default", NULL, "monochrome");
+    }
+
+   /*
+    * Printer resolutions...
+    */
+
+    if ((resolution = ppdFindOption(ppd, "Resolution")) == NULL)
+      if ((resolution = ppdFindOption(ppd, "JCLResolution")) == NULL)
+        if ((resolution = ppdFindOption(ppd, "SetResolution")) == NULL)
+	  resolution = ppdFindOption(ppd, "CNRes_PGP");
+
+    urf_rs[0] = '\0';
+
+    if (resolution)
+    {
+     /*
+      * Report all supported resolutions...
+      */
+
+      attr = ippAddResolutions(p->ppd_attrs, IPP_TAG_PRINTER,
+                               "printer-resolution-supported",
+                               resolution->num_choices, IPP_RES_PER_INCH,
+			       NULL, NULL);
+
+      for (i = 0, choice = resolution->choices;
+           i < resolution->num_choices;
+	   i ++, choice ++)
+      {
+        xdpi = ydpi = (int)strtol(choice->choice, (char **)&resptr, 10);
+	if (resptr > choice->choice && xdpi > 0 && *resptr == 'x')
+	  ydpi = (int)strtol(resptr + 1, (char **)&resptr, 10);
+
+	if (xdpi <= 0 || ydpi <= 0)
+	{
+	  cupsdLogMessage(CUPSD_LOG_WARN,
+	                  "Bad resolution \"%s\" for printer %s.",
+			  choice->choice, p->name);
+	  xdpi = ydpi = 300;
+	}
+	else if (xdpi <= 720)
+	{
+	  if (!urf_rs[0])
+	    snprintf(urf_rs, sizeof(urf_rs), "RS%d", xdpi);
+	  else
+	  {
+	    urf_ptr = urf_rs + strlen(urf_rs);
+	    snprintf(urf_ptr, sizeof(urf_rs) - (urf_ptr - urf_rs), "-%d", xdpi);
+	  }
+	}
+
+        attr->values[i].resolution.xres  = xdpi;
+        attr->values[i].resolution.yres  = ydpi;
+        attr->values[i].resolution.units = IPP_RES_PER_INCH;
+
+        if (choice->marked)
+	  ippAddResolution(p->ppd_attrs, IPP_TAG_PRINTER,
+	                   "printer-resolution-default", IPP_RES_PER_INCH,
+			   xdpi, ydpi);
+      }
+    }
+    else if ((ppd_attr = ppdFindAttr(ppd, "DefaultResolution", NULL)) != NULL &&
+             ppd_attr->value)
+    {
+     /*
+      * Just the DefaultResolution to report...
+      */
+
+      xdpi = ydpi = (int)strtol(ppd_attr->value, (char **)&resptr, 10);
+      if (resptr > ppd_attr->value && xdpi > 0)
+      {
+	if (*resptr == 'x')
+	  ydpi = (int)strtol(resptr + 1, (char **)&resptr, 10);
+	else
+	  ydpi = xdpi;
+      }
+
+      if (xdpi <= 0 || ydpi <= 0)
+      {
+	cupsdLogMessage(CUPSD_LOG_WARN,
+			"Bad default resolution \"%s\" for printer %s.",
+			ppd_attr->value, p->name);
+	xdpi = ydpi = 300;
+      }
+      else if (xdpi <= 720)
+	snprintf(urf_rs, sizeof(urf_rs), "RS%d", xdpi);
+      else
+      {
+        for (i = 2; i < 20; i ++)
+	  if ((i * (xdpi / i)) == xdpi && (xdpi / i) <= 720)
+	  {
+	    snprintf(urf_rs, sizeof(urf_rs), "RS%d", xdpi / i);
+	    break;
+	  }
+      }
+
+      ippAddResolution(p->ppd_attrs, IPP_TAG_PRINTER,
+		       "printer-resolution-default", IPP_RES_PER_INCH,
+		       xdpi, ydpi);
+      ippAddResolution(p->ppd_attrs, IPP_TAG_PRINTER,
+		       "printer-resolution-supported", IPP_RES_PER_INCH,
+		       xdpi, ydpi);
+    }
+    else
+    {
+     /*
+      * No resolutions in PPD - make one up...
+      */
+
+      ippAddResolution(p->ppd_attrs, IPP_TAG_PRINTER,
+		       "printer-resolution-default", IPP_RES_PER_INCH,
+		       300, 300);
+      ippAddResolution(p->ppd_attrs, IPP_TAG_PRINTER,
+		       "printer-resolution-supported", IPP_RES_PER_INCH,
+		       300, 300);
+    }
+
+    if (!urf_rs[0])
+      strlcpy(urf_rs, "RS300", sizeof(urf_rs));
+
+    urf[num_urf ++] = _cupsStrAlloc(urf_rs);
 
    /*
     * Duplexing, etc...
@@ -4164,6 +4752,8 @@ load_ppd(cupsd_printer_t *p)		/* I - Printer */
     {
       p->type |= CUPS_PRINTER_DUPLEX;
 
+      urf[num_urf ++] = _cupsStrAlloc("DM1");
+
       ippAddStrings(p->ppd_attrs, IPP_TAG_PRINTER, IPP_TAG_KEYWORD,
 		    "sides-supported", 3, NULL, sides);
 
@@ -4176,6 +4766,13 @@ load_ppd(cupsd_printer_t *p)		/* I - Printer */
       else
 	ippAddString(p->ppd_attrs, IPP_TAG_PRINTER, IPP_TAG_KEYWORD,
 		     "sides-default", NULL, "one-sided");
+    }
+    else
+    {
+      ippAddString(p->ppd_attrs, IPP_TAG_PRINTER, IPP_TAG_KEYWORD,
+		   "sides-supported", NULL, "one-sided");
+      ippAddString(p->ppd_attrs, IPP_TAG_PRINTER, IPP_TAG_KEYWORD,
+		   "sides-default", NULL, "one-sided");
     }
 
     if (ppdFindOption(ppd, "Collate") != NULL)
@@ -4407,6 +5004,129 @@ load_ppd(cupsd_printer_t *p)		/* I - Printer */
     if (ppdFindAttr(ppd, "APRemoteQueueID", NULL))
       p->type |= CUPS_PRINTER_REMOTE;
 
+#ifdef HAVE_APPLICATIONSERVICES_H
+   /*
+    * Convert the file referenced in APPrinterIconPath to a 128x128 PNG
+    * and save it as cacheDir/printername.png
+    */
+
+    if ((ppd_attr = ppdFindAttr(ppd, "APPrinterIconPath", NULL)) != NULL &&
+        ppd_attr->value)
+    {
+      CGImageRef	imageRef = NULL;/* Current icon image */
+      CGImageRef	biggestIconRef = NULL;
+					/* Biggest icon image */
+      CGImageRef	closestTo128IconRef = NULL;
+					/* Icon image closest to and >= 128 */
+      CGImageSourceRef	sourceRef;	/* The file's image source */
+      char		outPath[HTTP_MAX_URI];
+					/* The path to the PNG file */
+      CFURLRef		outUrl;		/* The URL made from the outPath */
+      CFURLRef		icnsFileUrl;	/* The URL of the original ICNS icon file */
+      CGImageDestinationRef destRef;	/* The image destination to write */
+      size_t		bytesPerRow;	/* The bytes per row used for resizing */
+      CGContextRef	context;	/* The CG context used for resizing */
+
+      snprintf(outPath, sizeof(outPath), "%s/%s.png", CacheDir, p->name);
+      outUrl      = CFURLCreateFromFileSystemRepresentation(kCFAllocatorDefault,
+                                                            (UInt8 *)outPath,
+						            strlen(outPath),
+						            FALSE);
+      icnsFileUrl = CFURLCreateFromFileSystemRepresentation(kCFAllocatorDefault,
+							    (UInt8 *)ppd_attr->value,
+							    strlen(ppd_attr->value),
+							    FALSE);
+      if (outUrl && icnsFileUrl)
+      {
+        sourceRef = CGImageSourceCreateWithURL(icnsFileUrl, NULL);
+        if (sourceRef)
+        {
+          for (i = 0; i < CGImageSourceGetCount(sourceRef); i ++)
+          {
+            imageRef = CGImageSourceCreateImageAtIndex(sourceRef, i, NULL);
+            if (imageRef &&
+                CGImageGetWidth(imageRef) == CGImageGetHeight(imageRef))
+            {
+             /*
+              * Loop through remembering the icon closest to 128 but >= 128
+              * and then remember the largest icon.
+              */
+
+              if (CGImageGetWidth(imageRef) >= 128 &&
+		  (!closestTo128IconRef ||
+		   CGImageGetWidth(imageRef) <
+		       CGImageGetWidth(closestTo128IconRef)))
+              {
+                CGImageRelease(closestTo128IconRef);
+                CGImageRetain(imageRef);
+                closestTo128IconRef = imageRef;
+              }
+
+              if (!biggestIconRef ||
+		  CGImageGetWidth(imageRef) > CGImageGetWidth(biggestIconRef))
+              {
+                CGImageRelease(biggestIconRef);
+                CGImageRetain(imageRef);
+                biggestIconRef = imageRef;
+              }
+
+              CGImageRelease(imageRef);
+            }
+          }
+
+          if (biggestIconRef)
+          {
+           /*
+            * If biggestIconRef is NULL, we found no icons. Otherwise we first
+            * want the closest to 128, but if none are larger than 128, we want
+            * the largest icon available.
+            */
+
+            imageRef = closestTo128IconRef ? closestTo128IconRef :
+                                             biggestIconRef;
+            CGImageRetain(imageRef);
+            CGImageRelease(biggestIconRef);
+            CGImageRelease(closestTo128IconRef);
+            destRef = CGImageDestinationCreateWithURL(outUrl, kUTTypePNG, 1,
+                                                      NULL);
+            if (destRef)
+            {
+              if (CGImageGetWidth(imageRef) != 128)
+              {
+                bytesPerRow = CGImageGetBytesPerRow(imageRef) /
+                              CGImageGetWidth(imageRef) * 128;
+                context     = CGBitmapContextCreate(NULL, 128, 128,
+						    CGImageGetBitsPerComponent(imageRef),
+						    bytesPerRow,
+						    CGImageGetColorSpace(imageRef),
+						    kCGImageAlphaPremultipliedFirst);
+                if (context)
+                {
+                  CGContextDrawImage(context, CGRectMake(0, 0, 128, 128),
+				     imageRef);
+                  CGImageRelease(imageRef);
+                  imageRef = CGBitmapContextCreateImage(context);
+                  CGContextRelease(context);
+                }
+              }
+
+              CGImageDestinationAddImage(destRef, imageRef, NULL);
+              CGImageDestinationFinalize(destRef);
+              CFRelease(destRef);
+            }
+
+            CGImageRelease(imageRef);
+          }
+
+          CFRelease(sourceRef);
+          CFRelease(icnsFileUrl);
+        }
+
+        CFRelease(outUrl);
+      }
+    }
+#endif /* HAVE_APPLICATIONSERVICES_H */
+
    /*
     * Close the PPD and set the type...
     */
@@ -4526,7 +5246,11 @@ load_ppd(cupsd_printer_t *p)		/* I - Printer */
   ippAddInteger(p->ppd_attrs, IPP_TAG_PRINTER, IPP_TAG_ENUM,
 		"finishings-default", IPP_FINISHINGS_NONE);
 
-  if (ppd && (cache = cupsFileOpen(cache_name, "w")) != NULL)
+  if (num_urf > 0 && mimeType(MimeDatabase, "image", "urf"))
+    ippAddStrings(p->ppd_attrs, IPP_TAG_PRINTER, IPP_TAG_KEYWORD | IPP_TAG_COPY,
+                  "urf-supported", num_urf, NULL, (const char * const *)urf);
+
+  if (ppd && (cache = cupsFileOpen(cache_name, "w9")) != NULL)
   {
    /*
     * Save cached PPD attributes to disk...
@@ -4546,15 +5270,65 @@ load_ppd(cupsd_printer_t *p)		/* I - Printer */
     }
 
     cupsFileClose(cache);
+
+    _pwgWriteFile(p->pwg, pwg_name);
   }
-  else if (cache_info.st_mtime)
+  else
   {
    /*
-    * Remove cache file...
+    * Remove cache files...
     */
 
-    unlink(cache_name);
+    if (cache_info.st_mtime)
+      unlink(cache_name);
+
+    if (pwg_info.st_mtime)
+      unlink(pwg_name);
   }
+}
+
+
+/*
+ * 'new_media_col()' - Create a media-col collection value.
+ */
+
+static ipp_t *				/* O - Collection value */
+new_media_col(_pwg_size_t *size,	/* I - media-size/margin values */
+              const char  *source,	/* I - media-source value */
+              const char  *type)	/* I - media-type value */
+{
+  ipp_t	*media_col,			/* Collection value */
+	*media_size;			/* media-size value */
+
+
+  media_col = ippNew();
+
+  media_size = ippNew();
+  ippAddInteger(media_size, IPP_TAG_PRINTER, IPP_TAG_INTEGER,
+		"x-dimension", size->width);
+  ippAddInteger(media_size, IPP_TAG_PRINTER, IPP_TAG_INTEGER,
+		"y-dimension", size->length);
+  ippAddCollection(media_col, IPP_TAG_PRINTER, "media-size", media_size);
+  ippDelete(media_size);
+
+  ippAddInteger(media_col, IPP_TAG_PRINTER, IPP_TAG_INTEGER,
+		"media-bottom-margin", size->bottom);
+  ippAddInteger(media_col, IPP_TAG_PRINTER, IPP_TAG_INTEGER,
+		"media-left-margin", size->left);
+  ippAddInteger(media_col, IPP_TAG_PRINTER, IPP_TAG_INTEGER,
+		"media-right-margin", size->right);
+  ippAddInteger(media_col, IPP_TAG_PRINTER, IPP_TAG_INTEGER,
+		"media-top-margin", size->top);
+
+  if (source)
+    ippAddString(media_col, IPP_TAG_PRINTER, IPP_TAG_KEYWORD, "media-source",
+		 NULL, source);
+
+  if (type)
+    ippAddString(media_col, IPP_TAG_PRINTER, IPP_TAG_KEYWORD, "media-type",
+		 NULL, type);
+
+  return (media_col);
 }
 
 

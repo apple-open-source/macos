@@ -31,7 +31,7 @@
 
 namespace WebCore {
     
-    class PurgeableBuffer : Noncopyable {
+    class PurgeableBuffer : public Noncopyable {
     public:
         static PurgeableBuffer* create(const char* data, size_t);
         static PurgeableBuffer* create(const Vector<char>& v) { return create(v.data(), v.size()); }
@@ -62,7 +62,7 @@ namespace WebCore {
         mutable State m_state;
     };
 
-#if !PLATFORM(DARWIN) || defined(BUILDING_ON_TIGER) || PLATFORM(QT) || PLATFORM(GTK)
+#if !OS(DARWIN) || defined(BUILDING_ON_TIGER) || PLATFORM(QT) || PLATFORM(GTK)
     inline PurgeableBuffer* PurgeableBuffer::create(const char*, size_t) { return 0; }
     inline PurgeableBuffer::~PurgeableBuffer() { }
     inline const char* PurgeableBuffer::data() const { return 0; }

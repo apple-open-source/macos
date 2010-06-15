@@ -58,9 +58,27 @@ const OSSymbol * gIODisplayVideoBestKey;
 const OSSymbol * gIODisplayParametersTheatreModeKey;
 const OSSymbol * gIODisplayParametersTheatreModeWindowKey;
 
+const OSSymbol * gIODisplayMCCSVersionKey;
+const OSSymbol * gIODisplayTechnologyTypeKey;
+const OSSymbol * gIODisplayUsageTimeKey;
+const OSSymbol * gIODisplayFirmwareLevelKey;
+
+const OSSymbol * gIODisplaySpeakerVolumeKey;
+const OSSymbol * gIODisplaySpeakerSelectKey;
+const OSSymbol * gIODisplayMicrophoneVolumeKey;
+const OSSymbol * gIODisplayAmbientLightSensorKey;
+const OSSymbol * gIODisplayAudioMuteAndScreenBlankKey;
+const OSSymbol * gIODisplayAudioTrebleKey;
+const OSSymbol * gIODisplayAudioBassKey;
+const OSSymbol * gIODisplayAudioBalanceLRKey;
+const OSSymbol * gIODisplayAudioProcessorModeKey;
+const OSSymbol * gIODisplayPowerModeKey;
+const OSSymbol * gIODisplayManufacturerSpecificKey;
+
 const OSSymbol * gIODisplayParametersCommitKey;
 const OSSymbol * gIODisplayParametersDefaultKey;
 const OSSymbol * gIODisplayParametersFlushKey;
+
 
 static const OSSymbol * gIODisplayFastBootEDIDKey;
 static IODTPlatformExpert * gIODisplayFastBootPlatform;
@@ -148,6 +166,37 @@ void IODisplay::initialize( void )
                                             kIODisplayTheatreModeKey);
     gIODisplayParametersTheatreModeWindowKey = OSSymbol::withCStringNoCopy(
                                             kIODisplayTheatreModeWindowKey);
+
+    gIODisplayMCCSVersionKey = OSSymbol::withCStringNoCopy(
+                                            kIODisplayMCCSVersionKey);
+    gIODisplayTechnologyTypeKey = OSSymbol::withCStringNoCopy(
+                                            kIODisplayTechnologyTypeKey);
+    gIODisplayUsageTimeKey = OSSymbol::withCStringNoCopy(
+                                            kIODisplayUsageTimeKey);
+    gIODisplayFirmwareLevelKey = OSSymbol::withCStringNoCopy(
+                                            kIODisplayFirmwareLevelKey);
+    gIODisplaySpeakerVolumeKey = OSSymbol::withCStringNoCopy(
+                                            kIODisplaySpeakerVolumeKey);
+    gIODisplaySpeakerSelectKey = OSSymbol::withCStringNoCopy(
+                                            kIODisplaySpeakerSelectKey);
+    gIODisplayMicrophoneVolumeKey = OSSymbol::withCStringNoCopy(
+                                            kIODisplayMicrophoneVolumeKey);
+    gIODisplayAmbientLightSensorKey = OSSymbol::withCStringNoCopy(
+                                            kIODisplayAmbientLightSensorKey);
+    gIODisplayAudioMuteAndScreenBlankKey = OSSymbol::withCStringNoCopy(
+                                            kIODisplayAudioMuteAndScreenBlankKey);
+    gIODisplayAudioTrebleKey = OSSymbol::withCStringNoCopy(
+                                            kIODisplayAudioTrebleKey);
+    gIODisplayAudioBassKey = OSSymbol::withCStringNoCopy(
+                                            kIODisplayAudioBassKey);
+    gIODisplayAudioBalanceLRKey = OSSymbol::withCStringNoCopy(
+                                            kIODisplayAudioBalanceLRKey);
+    gIODisplayAudioProcessorModeKey = OSSymbol::withCStringNoCopy(
+                                            kIODisplayAudioProcessorModeKey);
+    gIODisplayPowerModeKey = OSSymbol::withCStringNoCopy(
+                                            kIODisplayPowerModeKey);
+    gIODisplayManufacturerSpecificKey = OSSymbol::withCStringNoCopy(
+                                            kIODisplayManufacturerSpecificKey);
 
     IORegistryEntry * entry;
     if ((entry = getServiceRoot())

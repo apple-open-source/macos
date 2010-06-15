@@ -56,6 +56,11 @@ typedef class wxDataObject* DragDataRef;
 typedef void* DragDataRef;
 #elif PLATFORM(CHROMIUM)
 #include "DragDataRef.h"
+#elif PLATFORM(HAIKU)
+class BMessage;
+typedef class BMessage* DragDataRef;
+#elif PLATFORM(EFL)
+typedef void* DragDataRef;
 #endif
 
 

@@ -71,6 +71,11 @@ static void sslFreeDnList(
 #define DEFAULT_SSL3_ENABLE		true
 #define DEFAULT_TLS1_ENABLE		true
 
+#define SSL_ENABLE_ECDSA_SIGN_AUTH			1
+#define SSL_ENABLE_RSA_FIXED_ECDH_AUTH		1
+#define SSL_ENABLE_ECDSA_FIXED_ECDH_AUTH	1
+
+
 OSStatus
 SSLNewContext				(Boolean 			isServer,
 							 SSLContextRef 		*contextPtr)	/* RETURNED */
@@ -1009,6 +1014,8 @@ SSLSetCertificate			(SSLContextRef		ctx,
 		CFRelease(ctx->localCertArray);
 		ctx->localCertArray = NULL;
 	}
+	/* changing the client cert invalidates negotiated auth type */
+	ctx->negAuthType = SSLClientAuthNone;
 	if(certRefs == NULL) {
 		return noErr; // we have cleared the cert, as requested
 	}
@@ -1021,6 +1028,8 @@ SSLSetCertificate			(SSLContextRef		ctx,
 	if(ortn == noErr) {
 		ctx->localCertArray = certRefs;
 		CFRetain(certRefs);
+		/* client cert was changed, must update auth type */
+		ortn = SSLUpdateNegotiatedClientAuthType(ctx);
 	}
 	return ortn;
 }
@@ -1815,5 +1824,75 @@ OSStatus SSLGetNegotiatedClientAuthType(
 		return paramErr;
 	}
 	*authType = ctx->negAuthType;
+	return noErr;
+}
+
+/* 
+ * Update the negotiated client authentication type.
+ * This function may be called at any time; however, note that
+ * the negotiated authentication type will be SSLClientAuthNone
+ * until both of the following have taken place (in either order):
+ *   - a CertificateRequest message from the server has been processed
+ *   - a client certificate has been specified
+ * As such, this function (only) needs to be called from (both)
+ * SSLProcessCertificateRequest and SSLSetCertificate.
+ */
+OSStatus SSLUpdateNegotiatedClientAuthType(
+	SSLContextRef ctx)
+{
+	if(ctx == NULL) {
+		return paramErr;
+	}
+	/*
+	 * See if we have a signing cert that matches one of the 
+	 * allowed auth types. The x509Requested flag indicates "we
+	 * have a cert that we think the server will accept".
+	 */
+	ctx->x509Requested = 0;
+	ctx->negAuthType = SSLClientAuthNone;
+	if(ctx->signingPrivKeyRef != NULL) {
+		CSSM_ALGORITHMS ourKeyAlg = ctx->signingPubKey->KeyHeader.AlgorithmId;
+		unsigned i;
+		for(i=0; i<ctx->numAuthTypes; i++) {
+			switch(ctx->clientAuthTypes[i]) {
+				case SSLClientAuth_RSASign:
+					if(ourKeyAlg == CSSM_ALGID_RSA) {
+						ctx->x509Requested = 1;
+						ctx->negAuthType = SSLClientAuth_RSASign;
+					}
+					break;
+			#if SSL_ENABLE_ECDSA_SIGN_AUTH
+				case SSLClientAuth_ECDSASign:
+			#endif
+			#if SSL_ENABLE_ECDSA_FIXED_ECDH_AUTH
+				case SSLClientAuth_ECDSAFixedECDH:
+			#endif
+					if((ourKeyAlg == CSSM_ALGID_ECDSA) &&
+					   (ctx->ourSignerAlg == CSSM_ALGID_ECDSA)) {
+						ctx->x509Requested = 1;
+						ctx->negAuthType = ctx->clientAuthTypes[i];
+					}
+					break;
+			#if SSL_ENABLE_RSA_FIXED_ECDH_AUTH
+				case SSLClientAuth_RSAFixedECDH:
+					/* Odd case, we differ from our signer */
+					if((ourKeyAlg == CSSM_ALGID_ECDSA) &&
+					   (ctx->ourSignerAlg == CSSM_ALGID_RSA)) {
+						ctx->x509Requested = 1;
+						ctx->negAuthType = SSLClientAuth_RSAFixedECDH;
+					}
+					break;
+			#endif
+				default:
+					/* None others supported */
+					break;
+			}
+			if(ctx->x509Requested) {
+				sslLogNegotiateDebug("===CHOOSING authType %d", (int)ctx->negAuthType);
+				break;
+			}
+		}	/* parsing authTypes */
+	}	/* we have a signing key */
+
 	return noErr;
 }

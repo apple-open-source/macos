@@ -2,8 +2,6 @@
     Copyright (C) 2004, 2005, 2007, 2008 Nikolas Zimmermann <zimmermann@kde.org>
                   2004, 2005, 2006 Rob Buis <buis@kde.org>
 
-    This file is part of the KDE project
-
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Library General Public
     License as published by the Free Software Foundation; either
@@ -39,20 +37,19 @@ namespace WebCore {
         SVGGElement(const QualifiedName&, Document*);
         virtual ~SVGGElement();
 
+        virtual bool isShadowTreeContainerElement() const { return false; }
         virtual bool isValid() const { return SVGTests::isValid(); }
 
         virtual void parseMappedAttribute(MappedAttribute*);
         virtual void svgAttributeChanged(const QualifiedName&);
-        virtual void childrenChanged(bool changedByParser = false, Node* beforeChange = 0, Node* afterChange = 0, int childCountDelta = 0);
+        virtual void synchronizeProperty(const QualifiedName&);
 
+        virtual bool rendererIsNeeded(RenderStyle*) { return true; }
         virtual RenderObject* createRenderer(RenderArena*, RenderStyle*);
 
-    protected:
-        virtual const SVGElement* contextElement() const { return this; }
-
     private:
-        friend class SVGUseElement;
-        TransformationMatrix localMatrix() const;
+        // SVGExternalResourcesRequired
+        DECLARE_ANIMATED_PROPERTY(SVGGElement, SVGNames::externalResourcesRequiredAttr, bool, ExternalResourcesRequired, externalResourcesRequired)
     };
 
 } // namespace WebCore

@@ -397,6 +397,10 @@ store_symbols(char * file, vm_size_t file_size, struct symbol * symbols, uint32_
                     option_term = scan;
                     option_len = option_term - option;
 
+                    if (option_len >= sizeof(optionstr)) {
+                        fprintf(stderr, "option too long in symbol line: %s\n", line);
+                        exit(1);
+                    }
                     memcpy(optionstr, option, option_len);
                     optionstr[option_len] = '\0';
 

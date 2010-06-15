@@ -29,14 +29,15 @@
 #include "WebLocalizableStrings.h"
 
 #pragma warning(push, 0)
-#include <WebCore/CString.h>
 #include <WebCore/PlatformString.h>
 #include <WebCore/StringHash.h>
+#include <wtf/text/CString.h>
 #pragma warning(pop)
 
 #include <wtf/Assertions.h>
 #include <wtf/HashMap.h>
 #include <wtf/RetainPtr.h>
+#include <wtf/StdLibExtras.h>
 #include <CoreFoundation/CoreFoundation.h>
 
 class LocalizedString;
@@ -45,10 +46,33 @@ using namespace WebCore;
 
 WebLocalizableStringsBundle WebKitLocalizableStringsBundle = { "com.apple.WebKit", 0 };
 
-static HashMap<String, LocalizedString*> mainBundleLocStrings;
-static HashMap<String, LocalizedString*> frameworkLocStrings;
+typedef HashMap<String, LocalizedString*> LocalizedStringMap;
 
-class LocalizedString : Noncopyable {
+static Mutex& mainBundleLocStringsMutex()
+{
+    DEFINE_STATIC_LOCAL(Mutex, mutex, ());
+    return mutex;
+}
+
+static LocalizedStringMap& mainBundleLocStrings()
+{
+    DEFINE_STATIC_LOCAL(LocalizedStringMap, map, ());
+    return map;
+}
+
+static Mutex& frameworkLocStringsMutex()
+{
+    DEFINE_STATIC_LOCAL(Mutex, mutex, ());
+    return mutex;
+}
+
+static LocalizedStringMap frameworkLocStrings()
+{
+    DEFINE_STATIC_LOCAL(LocalizedStringMap, map, ());
+    return map;
+}
+
+class LocalizedString : public Noncopyable {
 public:
     LocalizedString(CFStringRef string)
         : m_cfString(string)
@@ -156,11 +180,15 @@ static CFStringRef copyLocalizedStringFromBundle(WebLocalizableStringsBundle* st
 
 static LocalizedString* findCachedString(WebLocalizableStringsBundle* stringsBundle, const String& key)
 {
-    if (!stringsBundle)
-        return mainBundleLocStrings.get(key);
+    if (!stringsBundle) {
+        MutexLocker lock(mainBundleLocStringsMutex());
+        return mainBundleLocStrings().get(key);
+    }
 
-    if (stringsBundle->bundle == WebKitLocalizableStringsBundle.bundle)
-        return frameworkLocStrings.get(key);
+    if (stringsBundle->bundle == WebKitLocalizableStringsBundle.bundle) {
+        MutexLocker lock(frameworkLocStringsMutex());
+        return frameworkLocStrings().get(key);
+    }
 
     return 0;
 }
@@ -168,11 +196,13 @@ static LocalizedString* findCachedString(WebLocalizableStringsBundle* stringsBun
 static void cacheString(WebLocalizableStringsBundle* stringsBundle, const String& key, LocalizedString* value)
 {
     if (!stringsBundle) {
-        mainBundleLocStrings.set(key, value);
+        MutexLocker lock(mainBundleLocStringsMutex());
+        mainBundleLocStrings().set(key, value);
         return;
     }
 
-    frameworkLocStrings.set(key, value);
+    MutexLocker lock(frameworkLocStringsMutex());
+    frameworkLocStrings().set(key, value);
 }
 
 static const LocalizedString& localizedString(WebLocalizableStringsBundle* stringsBundle, const String& key)

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007 Apple Inc. All rights reserved.
+ * Copyright (C) 2007, 2009 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -35,15 +35,27 @@ using namespace JSC;
 
 namespace WebCore {
 
-bool JSStyleSheetList::canGetItemsForName(ExecState*, StyleSheetList* styleSheetList, const Identifier& propertyName)
+void JSStyleSheetList::markChildren(MarkStack& markStack)
 {
-    return styleSheetList->getNamedItem(propertyName);
+    Base::markChildren(markStack);
+
+    StyleSheetList* list = impl();
+    JSGlobalData& globalData = *Heap::heap(this)->globalData();
+
+    unsigned length = list->length();
+    for (unsigned i = 0; i < length; ++i)
+        markDOMObjectWrapper(markStack, globalData, list->item(i));
 }
 
-JSValue JSStyleSheetList::nameGetter(ExecState* exec, const Identifier& propertyName, const PropertySlot& slot)
+bool JSStyleSheetList::canGetItemsForName(ExecState*, StyleSheetList* styleSheetList, const Identifier& propertyName)
 {
-    JSStyleSheetList* thisObj = static_cast<JSStyleSheetList*>(asObject(slot.slotBase()));
-    HTMLStyleElement* element = thisObj->impl()->getNamedItem(propertyName);
+    return styleSheetList->getNamedItem(identifierToString(propertyName));
+}
+
+JSValue JSStyleSheetList::nameGetter(ExecState* exec, JSValue slotBase, const Identifier& propertyName)
+{
+    JSStyleSheetList* thisObj = static_cast<JSStyleSheetList*>(asObject(slotBase));
+    HTMLStyleElement* element = thisObj->impl()->getNamedItem(identifierToString(propertyName));
     ASSERT(element);
     return toJS(exec, element->sheet());
 }

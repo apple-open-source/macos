@@ -43,7 +43,7 @@
 
 #if !PURE_TERMINFO
 #include <dump_entry.h>
-#include <termsort.c.h>
+#include <termsort.c>
 #endif
 #include <transform.h>
 

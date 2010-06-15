@@ -44,8 +44,12 @@ DragOperation DragController::dragOperation(DragData* dragData)
     if (dragData->containsURL())
         return DragOperationCopy;
 
-   return DragOperationNone;
-} 
+    return DragOperationNone;
+}
+
+void DragController::cleanupAfterSystemDrag()
+{
+}
 
 const float DragController::DragImageAlpha = 1.0f;
 static IntSize dummy;

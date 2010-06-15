@@ -34,11 +34,11 @@
 #include "Font.h"
 #include "FontCache.h"
 #include "FontDescription.h"
-#include "MathExtras.h"
 #include <cairo.h>
 #include <cairo-win32.h>
 #include <mlang.h>
 #include <tchar.h>
+#include <wtf/MathExtras.h>
 
 namespace WebCore {
 
@@ -96,6 +96,14 @@ void SimpleFontData::platformCharWidthInit()
     // charwidths are set in platformInit.
 }
 
+FloatRect SimpleFontData::platformBoundsForGlyph(Glyph glyph) const
+{
+    if (m_platformData.useGDI())
+        return boundsForGDIGlyph(glyph);
+    //FIXME: Implement this
+    return FloatRect();
+}
+    
 float SimpleFontData::platformWidthForGlyph(Glyph glyph) const
 {
     if (m_platformData.useGDI())
@@ -117,12 +125,6 @@ float SimpleFontData::platformWidthForGlyph(Glyph glyph) const
 
     const double metricsMultiplier = cairo_win32_scaled_font_get_metrics_factor(scaledFont) * m_platformData.size();
     return width * metricsMultiplier;
-}
-
-void SimpleFontData::setFont(cairo_t* cr) const
-{
-    ASSERT(cr);
-    m_platformData.setFont(cr);
 }
 
 }

@@ -1401,3 +1401,112 @@ notify_cancel(int token)
 	return status;
 }
 
+uint32_t
+notify_suspend(int token)
+{
+	token_table_node_t *t;
+	uint32_t status;
+	kern_return_t kstatus;
+
+	t = token_table_find(token);
+	if (t == NULL) return NOTIFY_STATUS_INVALID_TOKEN;
+
+	if (t->flags & TOKEN_TYPE_SELF)
+	{
+		_notify_lib_suspend(self_state, t->client_id);
+		return NOTIFY_STATUS_OK;
+	}
+
+	if (notify_server_port == MACH_PORT_NULL)
+	{
+		status = _notify_lib_init(NOTIFY_SERVICE_NAME);
+		if (status != 0)
+		{
+			token_table_delete(token, t);
+			return NOTIFY_STATUS_FAILED;
+		}
+	}
+
+	status = NOTIFY_STATUS_OK;
+	kstatus = _notify_server_suspend(notify_server_port, t->client_id, (int32_t *)&status);
+
+	if (kstatus != KERN_SUCCESS) status = NOTIFY_STATUS_FAILED;
+	return status;
+}
+
+uint32_t
+notify_resume(int token)
+{
+	token_table_node_t *t;
+	uint32_t status;
+	kern_return_t kstatus;
+
+	t = token_table_find(token);
+	if (t == NULL) return NOTIFY_STATUS_INVALID_TOKEN;
+
+	if (t->flags & TOKEN_TYPE_SELF)
+	{
+		_notify_lib_resume(self_state, t->client_id);
+		return NOTIFY_STATUS_OK;
+	}
+
+	if (notify_server_port == MACH_PORT_NULL)
+	{
+		status = _notify_lib_init(NOTIFY_SERVICE_NAME);
+		if (status != 0)
+		{
+			token_table_delete(token, t);
+			return NOTIFY_STATUS_FAILED;
+		}
+	}
+
+	status = NOTIFY_STATUS_OK;
+	kstatus = _notify_server_resume(notify_server_port, t->client_id, (int32_t *)&status);
+
+	if (kstatus != KERN_SUCCESS) status = NOTIFY_STATUS_FAILED;
+	return status;
+}
+
+uint32_t
+notify_suspend_pid(pid_t pid)
+{
+	uint32_t status;
+	kern_return_t kstatus;
+
+	if (notify_server_port == MACH_PORT_NULL)
+	{
+		status = _notify_lib_init(NOTIFY_SERVICE_NAME);
+		if (status != 0)
+		{
+			return NOTIFY_STATUS_FAILED;
+		}
+	}
+
+	status = NOTIFY_STATUS_OK;
+	kstatus = _notify_server_suspend_pid(notify_server_port, pid, (int32_t *)&status);
+
+	if (kstatus != KERN_SUCCESS) status = NOTIFY_STATUS_FAILED;
+	return status;
+}
+
+uint32_t
+notify_resume_pid(pid_t pid)
+{
+	uint32_t status;
+	kern_return_t kstatus;
+
+	if (notify_server_port == MACH_PORT_NULL)
+	{
+		status = _notify_lib_init(NOTIFY_SERVICE_NAME);
+		if (status != 0)
+		{
+			return NOTIFY_STATUS_FAILED;
+		}
+	}
+
+	status = NOTIFY_STATUS_OK;
+	kstatus = _notify_server_resume_pid(notify_server_port, pid, (int32_t *)&status);
+
+	if (kstatus != KERN_SUCCESS) status = NOTIFY_STATUS_FAILED;
+	return status;
+}

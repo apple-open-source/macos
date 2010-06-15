@@ -26,6 +26,8 @@
 #include "config.h"
 #include "JSCustomPositionCallback.h"
 
+#if ENABLE(GEOLOCATION)
+
 #include "Frame.h"
 #include "JSGeoposition.h"
 #include "ScriptController.h"
@@ -35,52 +37,22 @@ namespace WebCore {
 
 using namespace JSC;
 
-JSCustomPositionCallback::JSCustomPositionCallback(JSObject* callback, Frame* frame)
-    : m_callback(callback)
-    , m_frame(frame)
+JSCustomPositionCallback::JSCustomPositionCallback(JSObject* callback, JSDOMGlobalObject* globalObject)
+    : m_data(callback, globalObject)
 {
 }
 
-void JSCustomPositionCallback::handleEvent(Geoposition* geoposition, bool& raisedException)
+void JSCustomPositionCallback::handleEvent(Geoposition* geoposition)
 {
-    ASSERT(m_callback);
-    ASSERT(m_frame);
-    
-    if (!m_frame->script()->isEnabled())
-        return;
-    
-    JSGlobalObject* globalObject = m_frame->script()->globalObject();
-    ExecState* exec = globalObject->globalExec();
-    
-    JSC::JSLock lock(false);
-    
-    JSValue function = m_callback->get(exec, Identifier(exec, "handleEvent"));
-    CallData callData;
-    CallType callType = function.getCallData(callData);
-    if (callType == CallTypeNone) {
-        callType = m_callback->getCallData(callData);
-        if (callType == CallTypeNone) {
-            // FIXME: Should an exception be thrown here?
-            return;
-        }
-        function = m_callback;
-    }
-    
     RefPtr<JSCustomPositionCallback> protect(this);
-    
+
+    JSC::JSLock lock(SilenceAssertionsOnly);
+    ExecState* exec = m_data.globalObject()->globalExec();
     MarkedArgumentBuffer args;
-    args.append(toJS(exec, geoposition));
-    
-    globalObject->globalData()->timeoutChecker.start();
-    call(exec, function, callType, callData, m_callback, args);
-    globalObject->globalData()->timeoutChecker.stop();
-    
-    if (exec->hadException()) {
-        reportCurrentException(exec);
-        raisedException = true;
-    }
-    
-    Document::updateStyleForAllDocuments();
+    args.append(toJS(exec, deprecatedGlobalObjectForPrototype(exec), geoposition));
+    m_data.invokeCallback(args);
 }
 
 } // namespace WebCore
+
+#endif // ENABLE(GEOLOCATION)

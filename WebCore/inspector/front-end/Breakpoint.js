@@ -23,12 +23,14 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WebInspector.Breakpoint = function(url, line, sourceID)
+WebInspector.Breakpoint = function(url, line, sourceID, condition)
 {
     this.url = url;
     this.line = line;
     this.sourceID = sourceID;
     this._enabled = true;
+    this._sourceText = "";
+    this._condition = condition || "";
 }
 
 WebInspector.Breakpoint.prototype = {
@@ -48,6 +50,46 @@ WebInspector.Breakpoint.prototype = {
             this.dispatchEventToListeners("enabled");
         else
             this.dispatchEventToListeners("disabled");
+    },
+
+    get sourceText()
+    {
+        return this._sourceText;
+    },
+
+    set sourceText(text)
+    {
+        this._sourceText = text;
+        this.dispatchEventToListeners("text-changed");
+    },
+
+    get label()
+    {
+        var displayName = (this.url ? WebInspector.displayNameForURL(this.url) : WebInspector.UIString("(program)"));
+        return displayName + ":" + this.line;
+    },
+
+    get id()
+    {
+        return this.sourceID + ":" + this.line;
+    },
+
+    get condition()
+    {
+        return this._condition;
+    },
+
+    set condition(c)
+    {
+        c = c || "";
+        if (this._condition === c)
+            return;
+
+        this._condition = c;
+        this.dispatchEventToListeners("condition-changed");
+
+        if (this.enabled)
+            InspectorBackend.setBreakpoint(this.sourceID, this.line, this.enabled, this.condition);
     }
 }
 

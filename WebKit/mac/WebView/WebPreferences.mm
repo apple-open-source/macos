@@ -316,10 +316,12 @@ static WebCacheModel cacheModelForMainBundle(void)
         [NSNumber numberWithBool:YES],  WebKitJavaScriptEnabledPreferenceKey,
         [NSNumber numberWithBool:YES],  WebKitWebSecurityEnabledPreferenceKey,
         [NSNumber numberWithBool:YES],  WebKitAllowUniversalAccessFromFileURLsPreferenceKey,
+        [NSNumber numberWithBool:YES],  WebKitAllowFileAccessFromFileURLsPreferenceKey,
         [NSNumber numberWithBool:YES],  WebKitJavaScriptCanOpenWindowsAutomaticallyPreferenceKey,
         [NSNumber numberWithBool:YES],  WebKitPluginsEnabledPreferenceKey,
         [NSNumber numberWithBool:YES],  WebKitDatabasesEnabledPreferenceKey,
         [NSNumber numberWithBool:YES],  WebKitLocalStorageEnabledPreferenceKey,
+        [NSNumber numberWithBool:NO],   WebKitExperimentalNotificationsEnabledPreferenceKey,
         [NSNumber numberWithBool:YES],  WebKitAllowAnimatedImagesPreferenceKey,
         [NSNumber numberWithBool:YES],  WebKitAllowAnimatedImageLoopingPreferenceKey,
         [NSNumber numberWithBool:YES],  WebKitDisplayImagesKey,
@@ -348,8 +350,15 @@ static WebCacheModel cacheModelForMainBundle(void)
         [NSNumber numberWithBool:NO],   WebKitLocalFileContentSniffingEnabledPreferenceKey,
         [NSNumber numberWithBool:NO],   WebKitOfflineWebApplicationCacheEnabledPreferenceKey,
         [NSNumber numberWithBool:YES],  WebKitZoomsTextOnlyPreferenceKey,
-        [NSNumber numberWithBool:NO],   WebKitXSSAuditorEnabledPreferenceKey,
+        [NSNumber numberWithBool:NO],   WebKitJavaScriptCanAccessClipboardPreferenceKey,
+        [NSNumber numberWithBool:YES],  WebKitXSSAuditorEnabledPreferenceKey,
         [NSNumber numberWithBool:YES],  WebKitAcceleratedCompositingEnabledPreferenceKey,
+        [NSNumber numberWithBool:NO],   WebKitShowDebugBordersPreferenceKey,
+        [NSNumber numberWithBool:NO],   WebKitShowRepaintCounterPreferenceKey,
+        [NSNumber numberWithBool:NO],   WebKitWebGLEnabledPreferenceKey,
+        [NSNumber numberWithBool:NO],   WebKitUsesProxiedOpenPanelPreferenceKey,
+        [NSNumber numberWithUnsignedInt:4], WebKitPluginAllowedRunTimePreferenceKey,
+        [NSNumber numberWithBool:NO],   WebKitFrameFlatteningEnabledPreferenceKey,
         nil];
 
     // This value shouldn't ever change, which is assumed in the initialization of WebKitPDFDisplayModePreferenceKey above
@@ -823,6 +832,16 @@ static WebCacheModel cacheModelForMainBundle(void)
     [self _setBoolValue:flag forKey:WebKitZoomsTextOnlyPreferenceKey];
 }
 
+- (BOOL)javaScriptCanAccessClipboard
+{
+    return [self _boolValueForKey:WebKitJavaScriptCanAccessClipboardPreferenceKey];
+}
+
+- (void)setJavaScriptCanAccessClipboard:(BOOL)flag
+{
+    [self _setBoolValue:flag forKey:WebKitJavaScriptCanAccessClipboardPreferenceKey];
+}
+
 - (BOOL)isXSSAuditorEnabled
 {
     return [self _boolValueForKey:WebKitXSSAuditorEnabledPreferenceKey];
@@ -911,6 +930,16 @@ static WebCacheModel cacheModelForMainBundle(void)
 - (void)setAllowUniversalAccessFromFileURLs:(BOOL)flag
 {
     [self _setBoolValue: flag forKey: WebKitAllowUniversalAccessFromFileURLsPreferenceKey];
+}
+
+- (BOOL)allowFileAccessFromFileURLs
+{
+    return [self _boolValueForKey: WebKitAllowFileAccessFromFileURLsPreferenceKey];
+}
+
+- (void)setAllowFileAccessFromFileURLs:(BOOL)flag
+{
+    [self _setBoolValue: flag forKey: WebKitAllowFileAccessFromFileURLsPreferenceKey];
 }
 
 - (NSTimeInterval)_backForwardCacheExpirationInterval
@@ -1011,6 +1040,16 @@ static WebCacheModel cacheModelForMainBundle(void)
     [self _setBoolValue:localStorageEnabled forKey:WebKitLocalStorageEnabledPreferenceKey];
 }
 
+- (BOOL)experimentalNotificationsEnabled
+{
+    return [self _boolValueForKey:WebKitExperimentalNotificationsEnabledPreferenceKey];
+}
+
+- (void)setExperimentalNotificationsEnabled:(BOOL)experimentalNotificationsEnabled
+{
+    [self _setBoolValue:experimentalNotificationsEnabled forKey:WebKitExperimentalNotificationsEnabledPreferenceKey];
+}
+
 + (WebPreferences *)_getInstanceForIdentifier:(NSString *)ident
 {
     LOG(Encoding, "requesting for %@\n", ident);
@@ -1069,8 +1108,8 @@ static WebCacheModel cacheModelForMainBundle(void)
 {
     NSString *systemEncodingName = (NSString *)CFStringConvertEncodingToIANACharSetName([self _systemCFStringEncoding]);
 
-    // CFStringConvertEncodingToIANACharSetName() returns cp949 for kTextEncodingDOSKorean AKA "extended EUC-KR" AKA windows-939.
-    // ICU uses this name for a different encoding, so we need to change the name to a value that actually gives us windows-939.
+    // CFStringConvertEncodingToIANACharSetName() returns cp949 for kTextEncodingDOSKorean AKA "extended EUC-KR" AKA windows-949.
+    // ICU uses this name for a different encoding, so we need to change the name to a value that actually gives us windows-949.
     // In addition, this value must match what is used in Safari, see <rdar://problem/5579292>.
     // On some OS versions, the result is CP949 (uppercase).
     if ([systemEncodingName _webkit_isCaseInsensitiveEqualToString:@"cp949"])
@@ -1138,6 +1177,66 @@ static NSString *classIBCreatorID = nil;
     [self _setBoolValue:enabled forKey:WebKitAcceleratedCompositingEnabledPreferenceKey];
 }
 
+- (BOOL)showDebugBorders
+{
+    return [self _boolValueForKey:WebKitShowDebugBordersPreferenceKey];
+}
+
+- (void)setShowDebugBorders:(BOOL)enabled
+{
+    [self _setBoolValue:enabled forKey:WebKitShowDebugBordersPreferenceKey];
+}
+
+- (BOOL)showRepaintCounter
+{
+    return [self _boolValueForKey:WebKitShowRepaintCounterPreferenceKey];
+}
+
+- (void)setShowRepaintCounter:(BOOL)enabled
+{
+    [self _setBoolValue:enabled forKey:WebKitShowRepaintCounterPreferenceKey];
+}
+
+- (BOOL)webGLEnabled
+{
+    return [self _boolValueForKey:WebKitWebGLEnabledPreferenceKey];
+}
+
+- (void)setWebGLEnabled:(BOOL)enabled
+{
+    [self _setBoolValue:enabled forKey:WebKitWebGLEnabledPreferenceKey];
+}
+
+- (BOOL)usesProxiedOpenPanel
+{
+    return [self _boolValueForKey:WebKitUsesProxiedOpenPanelPreferenceKey];
+}
+
+- (void)setUsesProxiedOpenPanel:(BOOL)enabled
+{
+    [self _setBoolValue:enabled forKey:WebKitUsesProxiedOpenPanelPreferenceKey];
+}
+
+- (unsigned)pluginAllowedRunTime
+{
+    return [self _integerValueForKey:WebKitPluginAllowedRunTimePreferenceKey];
+}
+
+- (void)setPluginAllowedRunTime:(unsigned)allowedRunTime
+{
+    return [self _setIntegerValue:allowedRunTime forKey:WebKitPluginAllowedRunTimePreferenceKey];
+}
+
+- (BOOL)isFrameFlatteningEnabled
+{
+    return [self _boolValueForKey:WebKitFrameFlatteningEnabledPreferenceKey];
+}
+
+- (void)setFrameFlatteningEnabled:(BOOL)flag
+{
+    [self _setBoolValue:flag forKey:WebKitFrameFlatteningEnabledPreferenceKey];
+}
+
 - (void)didRemoveFromWebView
 {
     ASSERT(_private->numWebViews);
@@ -1152,6 +1251,12 @@ static NSString *classIBCreatorID = nil;
 {
     ++_private->numWebViews;
 }
+
+- (void)_setPreferenceForTestWithValue:(NSString *)value forKey:(NSString *)key
+{
+    [self _setStringValue:value forKey:key];
+}
+
 @end
 
 @implementation WebPreferences (WebInternal)

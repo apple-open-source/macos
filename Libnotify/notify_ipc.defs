@@ -191,3 +191,35 @@ routine _notify_server_get_event
 	out status : int;
 	ServerAuditToken token : audit_token_t
 );
+
+routine _notify_server_suspend
+(
+	server : mach_port_t;
+	client_id : int;
+	out status : int;
+	ServerAuditToken token : audit_token_t
+);
+
+routine _notify_server_resume
+(
+	server : mach_port_t;
+	client_id : int;
+	out status : int;
+	ServerAuditToken token : audit_token_t
+);
+
+routine _notify_server_suspend_pid
+(
+	server : mach_port_t;
+	pid : int;
+	out status : int;
+	ServerAuditToken token : audit_token_t
+);
+
+routine _notify_server_resume_pid
+(
+	server : mach_port_t;
+	pid : int;
+	out status : int;
+	ServerAuditToken token : audit_token_t
+);

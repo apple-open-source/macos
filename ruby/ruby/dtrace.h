@@ -105,27 +105,27 @@ do { \
 	__dtrace_isenabled$ruby$ruby__probe$v1()
 
 
-extern void __dtrace_probe$ruby$function__entry$v1$63686172202a$63686172202a$63686172202a$696e74(char *, char *, char *, int);
+extern void __dtrace_probe$ruby$function__entry$v1$63686172202a$63686172202a$63686172202a$696e74(const char *, const char *, const char *, int);
 extern int __dtrace_isenabled$ruby$function__entry$v1(void);
-extern void __dtrace_probe$ruby$function__return$v1$63686172202a$63686172202a$63686172202a$696e74(char *, char *, char *, int);
+extern void __dtrace_probe$ruby$function__return$v1$63686172202a$63686172202a$63686172202a$696e74(const char *, const char *, const char *, int);
 extern int __dtrace_isenabled$ruby$function__return$v1(void);
 extern void __dtrace_probe$ruby$gc__begin$v1(void);
 extern int __dtrace_isenabled$ruby$gc__begin$v1(void);
 extern void __dtrace_probe$ruby$gc__end$v1(void);
 extern int __dtrace_isenabled$ruby$gc__end$v1(void);
-extern void __dtrace_probe$ruby$line$v1$63686172202a$696e74(char *, int);
+extern void __dtrace_probe$ruby$line$v1$63686172202a$696e74(const char *, int);
 extern int __dtrace_isenabled$ruby$line$v1(void);
-extern void __dtrace_probe$ruby$object__create__done$v1$63686172202a$63686172202a$696e74(char *, char *, int);
+extern void __dtrace_probe$ruby$object__create__done$v1$63686172202a$63686172202a$696e74(const char *, const char *, int);
 extern int __dtrace_isenabled$ruby$object__create__done$v1(void);
-extern void __dtrace_probe$ruby$object__create__start$v1$63686172202a$63686172202a$696e74(char *, char *, int);
+extern void __dtrace_probe$ruby$object__create__start$v1$63686172202a$63686172202a$696e74(const char *, const char *, int);
 extern int __dtrace_isenabled$ruby$object__create__start$v1(void);
-extern void __dtrace_probe$ruby$object__free$v1$63686172202a(char *);
+extern void __dtrace_probe$ruby$object__free$v1$63686172202a(const char *);
 extern int __dtrace_isenabled$ruby$object__free$v1(void);
-extern void __dtrace_probe$ruby$raise$v1$63686172202a$63686172202a$696e74(char *, char *, int);
+extern void __dtrace_probe$ruby$raise$v1$63686172202a$63686172202a$696e74(const char *, const char *, int);
 extern int __dtrace_isenabled$ruby$raise$v1(void);
-extern void __dtrace_probe$ruby$rescue$v1$63686172202a$696e74(char *, int);
+extern void __dtrace_probe$ruby$rescue$v1$63686172202a$696e74(const char *, int);
 extern int __dtrace_isenabled$ruby$rescue$v1(void);
-extern void __dtrace_probe$ruby$ruby__probe$v1$63686172202a$63686172202a(char *, char *);
+extern void __dtrace_probe$ruby$ruby__probe$v1$63686172202a$63686172202a(const char *, const char *);
 extern int __dtrace_isenabled$ruby$ruby__probe$v1(void);
 
 #ifdef	__cplusplus

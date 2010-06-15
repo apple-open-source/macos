@@ -21,20 +21,21 @@
 #include "config.h"
 #include "FunctionConstructor.h"
 
+#include "Debugger.h"
 #include "FunctionPrototype.h"
 #include "JSFunction.h"
 #include "JSGlobalObject.h"
 #include "JSString.h"
-#include "Parser.h"
-#include "Debugger.h"
 #include "Lexer.h"
 #include "Nodes.h"
+#include "Parser.h"
+#include "StringBuilder.h"
 
 namespace JSC {
 
 ASSERT_CLASS_FITS_IN_CELL(FunctionConstructor);
 
-FunctionConstructor::FunctionConstructor(ExecState* exec, PassRefPtr<Structure> structure, FunctionPrototype* functionPrototype)
+FunctionConstructor::FunctionConstructor(ExecState* exec, NonNullPassRefPtr<Structure> structure, FunctionPrototype* functionPrototype)
     : InternalFunction(&exec->globalData(), structure, Identifier(exec, functionPrototype->classInfo()->className))
 {
     putDirectWithoutTransition(exec->propertyNames().prototype, functionPrototype, DontEnum | DontDelete | ReadOnly);
@@ -66,32 +67,6 @@ CallType FunctionConstructor::getCallData(CallData& callData)
     return CallTypeHost;
 }
 
-FunctionBodyNode* extractFunctionBody(ProgramNode* program)
-{
-    if (!program)
-        return 0;
-
-    StatementVector& children = program->children();
-    if (children.size() != 1)
-        return 0;
-
-    StatementNode* exprStatement = children[0];
-    ASSERT(exprStatement);
-    ASSERT(exprStatement->isExprStatement());
-    if (!exprStatement || !exprStatement->isExprStatement())
-        return 0;
-
-    ExpressionNode* funcExpr = static_cast<ExprStatementNode*>(exprStatement)->expr();
-    ASSERT(funcExpr);
-    ASSERT(funcExpr->isFuncExprNode());
-    if (!funcExpr || !funcExpr->isFuncExprNode())
-        return 0;
-
-    FunctionBodyNode* body = static_cast<FuncExprNode*>(funcExpr)->body();
-    ASSERT(body);
-    return body;
-}
-
 // ECMA 15.3.2 The Function Constructor
 JSObject* constructFunction(ExecState* exec, const ArgList& args, const Identifier& functionName, const UString& sourceURL, int lineNumber)
 {
@@ -102,26 +77,31 @@ JSObject* constructFunction(ExecState* exec, const ArgList& args, const Identifi
     if (args.isEmpty())
         program = "(function() { \n})";
     else if (args.size() == 1)
-        program = "(function() { " + args.at(0).toString(exec) + "\n})";
+        program = makeString("(function() { ", args.at(0).toString(exec), "\n})");
     else {
-        program = "(function(" + args.at(0).toString(exec);
-        for (size_t i = 1; i < args.size() - 1; i++)
-            program += "," + args.at(i).toString(exec);
-        program += ") { " + args.at(args.size() - 1).toString(exec) + "\n})";
+        StringBuilder builder;
+        builder.append("(function(");
+        builder.append(args.at(0).toString(exec));
+        for (size_t i = 1; i < args.size() - 1; i++) {
+            builder.append(",");
+            builder.append(args.at(i).toString(exec));
+        }
+        builder.append(") { ");
+        builder.append(args.at(args.size() - 1).toString(exec));
+        builder.append("\n})");
+        program = builder.build();
     }
 
     int errLine;
     UString errMsg;
     SourceCode source = makeSource(program, sourceURL, lineNumber);
-    RefPtr<ProgramNode> programNode = exec->globalData().parser->parse<ProgramNode>(exec, exec->dynamicGlobalObject()->debugger(), source, &errLine, &errMsg);
-
-    FunctionBodyNode* body = extractFunctionBody(programNode.get());
-    if (!body)
+    RefPtr<FunctionExecutable> function = FunctionExecutable::fromGlobalCode(functionName, exec, exec->dynamicGlobalObject()->debugger(), source, &errLine, &errMsg);
+    if (!function)
         return throwError(exec, SyntaxError, errMsg, errLine, source.provider()->asID(), source.provider()->url());
 
     JSGlobalObject* globalObject = exec->lexicalGlobalObject();
-    ScopeChain scopeChain(globalObject, globalObject->globalData(), exec->globalThisValue());
-    return new (exec) JSFunction(exec, functionName, body, scopeChain.node());
+    ScopeChain scopeChain(globalObject, globalObject->globalData(), globalObject, exec->globalThisValue());
+    return new (exec) JSFunction(exec, function, scopeChain.node());
 }
 
 // ECMA 15.3.2 The Function Constructor

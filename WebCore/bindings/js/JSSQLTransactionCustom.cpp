@@ -33,8 +33,8 @@
 
 #include "DOMWindow.h"
 #include "ExceptionCode.h"
-#include "JSCustomSQLStatementCallback.h"
-#include "JSCustomSQLStatementErrorCallback.h"
+#include "JSSQLStatementCallback.h"
+#include "JSSQLStatementErrorCallback.h"
 #include "JSDOMWindowCustom.h"
 #include "SQLTransaction.h"
 
@@ -44,7 +44,12 @@ namespace WebCore {
     
 JSValue JSSQLTransaction::executeSql(ExecState* exec, const ArgList& args)
 {
-    String sqlStatement = args.at(0).toString(exec);
+    if (args.isEmpty()) {
+        setDOMException(exec, SYNTAX_ERR);
+        return jsUndefined();
+    }
+
+    String sqlStatement = ustringToString(args.at(0).toString(exec));
     if (exec->hadException())
         return jsUndefined();
 
@@ -75,7 +80,7 @@ JSValue JSSQLTransaction::executeSql(ExecState* exec, const ArgList& args)
                 sqlValues.append(value.uncheckedGetNumber());
             else {
                 // Convert the argument to a string and append it
-                sqlValues.append(value.toString(exec));
+                sqlValues.append(ustringToString(value.toString(exec)));
                 if (exec->hadException())
                     return jsUndefined();
             }
@@ -90,8 +95,7 @@ JSValue JSSQLTransaction::executeSql(ExecState* exec, const ArgList& args)
             return jsUndefined();
         }
         
-        if (Frame* frame = asJSDOMWindow(exec->dynamicGlobalObject())->impl()->frame())
-            callback = JSCustomSQLStatementCallback::create(object, frame);
+        callback = JSSQLStatementCallback::create(object, static_cast<JSDOMGlobalObject*>(exec->dynamicGlobalObject()));
     }
     
     RefPtr<SQLStatementErrorCallback> errorCallback;
@@ -102,8 +106,7 @@ JSValue JSSQLTransaction::executeSql(ExecState* exec, const ArgList& args)
             return jsUndefined();
         }
         
-        if (Frame* frame = asJSDOMWindow(exec->dynamicGlobalObject())->impl()->frame())
-            errorCallback = JSCustomSQLStatementErrorCallback::create(object, frame);
+        errorCallback = JSSQLStatementErrorCallback::create(object, static_cast<JSDOMGlobalObject*>(exec->dynamicGlobalObject()));
     }
     
     ExceptionCode ec = 0;

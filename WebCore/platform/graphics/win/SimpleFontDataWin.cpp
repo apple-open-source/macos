@@ -37,10 +37,13 @@
 #include <wtf/MathExtras.h>
 #include <unicode/uchar.h>
 #include <unicode/unorm.h>
-#include <ApplicationServices/ApplicationServices.h>
 #include <mlang.h>
 #include <tchar.h>
+
+#if PLATFORM(CG)
+#include <ApplicationServices/ApplicationServices.h>
 #include <WebKitSystemInterface/WebKitSystemInterface.h>
+#endif
 
 namespace WebCore {
 
@@ -71,6 +74,8 @@ void SimpleFontData::initGDIFont()
      m_descent = textMetrics.tmDescent;
      m_lineGap = textMetrics.tmExternalLeading;
      m_lineSpacing = m_ascent + m_descent + m_lineGap;
+     m_avgCharWidth = textMetrics.tmAveCharWidth;
+     m_maxCharWidth = textMetrics.tmMaxCharWidth;
      m_xHeight = m_ascent * 0.56f; // Best guess for xHeight if no x glyph is present.
 
      GLYPHMETRICS gm;
@@ -174,16 +179,37 @@ void SimpleFontData::determinePitch()
     ReleaseDC(0, dc);
 }
 
+FloatRect SimpleFontData::boundsForGDIGlyph(Glyph glyph) const
+{
+    HDC hdc = GetDC(0);
+    SetGraphicsMode(hdc, GM_ADVANCED);
+    HGDIOBJ oldFont = SelectObject(hdc, m_platformData.hfont());
+    
+    GLYPHMETRICS gdiMetrics;
+    static const MAT2 identity = { 0, 1,  0, 0,  0, 0,  0, 1 };
+    GetGlyphOutline(hdc, glyph, GGO_METRICS | GGO_GLYPH_INDEX, &gdiMetrics, 0, 0, &identity);
+    
+    SelectObject(hdc, oldFont);
+    ReleaseDC(0, hdc);
+    
+    return FloatRect(gdiMetrics.gmptGlyphOrigin.x, -gdiMetrics.gmptGlyphOrigin.y,
+        gdiMetrics.gmBlackBoxX + m_syntheticBoldOffset, gdiMetrics.gmBlackBoxY); 
+}
+    
 float SimpleFontData::widthForGDIGlyph(Glyph glyph) const
 {
     HDC hdc = GetDC(0);
     SetGraphicsMode(hdc, GM_ADVANCED);
     HGDIOBJ oldFont = SelectObject(hdc, m_platformData.hfont());
-    int width;
-    GetCharWidthI(hdc, glyph, 1, 0, &width);
+
+    GLYPHMETRICS gdiMetrics;
+    static const MAT2 identity = { 0, 1,  0, 0,  0, 0,  0, 1 };
+    GetGlyphOutline(hdc, glyph, GGO_METRICS | GGO_GLYPH_INDEX, &gdiMetrics, 0, 0, &identity);
+
     SelectObject(hdc, oldFont);
     ReleaseDC(0, hdc);
-    return width + m_syntheticBoldOffset;
+
+    return gdiMetrics.gmCellIncX + m_syntheticBoldOffset;
 }
 
 SCRIPT_FONTPROPERTIES* SimpleFontData::scriptFontProperties() const

@@ -85,6 +85,7 @@ struct mntopt {
 /* alias the deprecated name for compatibility */
 #define MOPT_PERMISSIONS	{ "perm",	1, MNT_IGNORE_OWNERSHIP, 0}
 #define	MOPT_QUARANTINE		{ "quarantine",	0, MNT_QUARANTINE, 0}
+#define MOPT_CPROTECT		{ "protect",	0, MNT_CPROTECT, 0 }
 
 /* Control flags. */
 #define MOPT_FORCE		{ "force",	0, MNT_FORCE, 0 }
@@ -119,7 +120,8 @@ struct mntopt {
 	MOPT_NOATIME,							\
 	MOPT_PERMISSIONS,						\
 	MOPT_IGNORE_OWNERSHIP,						\
-	MOPT_QUARANTINE
+	MOPT_QUARANTINE,							\
+	MOPT_CPROTECT
 
 typedef struct mntoptparse *mntoptparse_t;
 mntoptparse_t getmntopts(const char *, const struct mntopt *, int *, int *);

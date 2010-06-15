@@ -33,11 +33,28 @@
 #include "JSEventListener.h"
 #include "JSMessagePort.h"
 #include "JSNode.h"
+#if ENABLE(SHARED_WORKERS)
+
+#include "JSSharedWorker.h"
+#include "JSSharedWorkerContext.h"
+#endif
+
 #include "JSXMLHttpRequest.h"
 #include "JSXMLHttpRequestUpload.h"
 #include "MessagePort.h"
+
+#if ENABLE(SHARED_WORKERS)
+#include "SharedWorker.h"
+#include "SharedWorkerContext.h"
+#endif
+
 #include "XMLHttpRequest.h"
 #include "XMLHttpRequestUpload.h"
+
+#if ENABLE(EVENTSOURCE)
+#include "EventSource.h"
+#include "JSEventSource.h"
+#endif
 
 #if ENABLE(OFFLINE_WEB_APPLICATIONS)
 #include "DOMApplicationCache.h"
@@ -50,53 +67,86 @@
 #endif
 
 #if ENABLE(WORKERS)
+#include "DedicatedWorkerContext.h"
+#include "JSDedicatedWorkerContext.h"
 #include "JSWorker.h"
-#include "JSWorkerContext.h"
 #include "Worker.h"
-#include "WorkerContext.h"
+#endif
+
+#if ENABLE(NOTIFICATIONS)
+#include "JSNotification.h"
+#include "Notification.h"
+#endif
+
+#if ENABLE(WEB_SOCKETS)
+#include "JSWebSocket.h"
+#include "WebSocket.h"
 #endif
 
 using namespace JSC;
 
 namespace WebCore {
 
-JSValue toJS(ExecState* exec, EventTarget* target)
+JSValue toJS(ExecState* exec, JSDOMGlobalObject* globalObject, EventTarget* target)
 {
     if (!target)
         return jsNull();
     
+#if ENABLE(EVENTSOURCE)
+    if (EventSource* eventSource = target->toEventSource())
+        return toJS(exec, globalObject, eventSource);
+#endif
+
 #if ENABLE(SVG)
     // SVGElementInstance supports both toSVGElementInstance and toNode since so much mouse handling code depends on toNode returning a valid node.
     if (SVGElementInstance* instance = target->toSVGElementInstance())
-        return toJS(exec, instance);
+        return toJS(exec, globalObject, instance);
 #endif
     
     if (Node* node = target->toNode())
-        return toJS(exec, node);
+        return toJS(exec, globalObject, node);
 
     if (DOMWindow* domWindow = target->toDOMWindow())
-        return toJS(exec, domWindow);
+        return toJS(exec, globalObject, domWindow);
 
     if (XMLHttpRequest* xhr = target->toXMLHttpRequest())
-        return toJS(exec, xhr);
+        return toJS(exec, globalObject, xhr);
 
     if (XMLHttpRequestUpload* upload = target->toXMLHttpRequestUpload())
-        return toJS(exec, upload);
+        return toJS(exec, globalObject, upload);
 
 #if ENABLE(OFFLINE_WEB_APPLICATIONS)
     if (DOMApplicationCache* cache = target->toDOMApplicationCache())
-        return toJS(exec, cache);
+        return toJS(exec, globalObject, cache);
 #endif
 
     if (MessagePort* messagePort = target->toMessagePort())
-        return toJS(exec, messagePort);
+        return toJS(exec, globalObject, messagePort);
 
 #if ENABLE(WORKERS)
     if (Worker* worker = target->toWorker())
-        return toJS(exec, worker);
+        return toJS(exec, globalObject, worker);
 
-    if (WorkerContext* workerContext = target->toWorkerContext())
-        return toJSDOMGlobalObject(workerContext);
+    if (DedicatedWorkerContext* workerContext = target->toDedicatedWorkerContext())
+        return toJSDOMGlobalObject(workerContext, exec);
+#endif
+
+#if ENABLE(SHARED_WORKERS)
+    if (SharedWorker* sharedWorker = target->toSharedWorker())
+        return toJS(exec, globalObject, sharedWorker);
+
+    if (SharedWorkerContext* workerContext = target->toSharedWorkerContext())
+        return toJSDOMGlobalObject(workerContext, exec);
+#endif
+
+#if ENABLE(NOTIFICATIONS)
+    if (Notification* notification = target->toNotification())
+        return toJS(exec, notification);
+#endif
+
+#if ENABLE(WEB_SOCKETS)
+    if (WebSocket* webSocket = target->toWebSocket())
+        return toJS(exec, webSocket);
 #endif
 
     ASSERT_NOT_REACHED();
@@ -106,7 +156,7 @@ JSValue toJS(ExecState* exec, EventTarget* target)
 EventTarget* toEventTarget(JSC::JSValue value)
 {
     #define CONVERT_TO_EVENT_TARGET(type) \
-        if (value.isObject(&JS##type::s_info)) \
+        if (value.inherits(&JS##type::s_info)) \
             return static_cast<JS##type*>(asObject(value))->impl();
 
     CONVERT_TO_EVENT_TARGET(Node)
@@ -114,8 +164,12 @@ EventTarget* toEventTarget(JSC::JSValue value)
     CONVERT_TO_EVENT_TARGET(XMLHttpRequestUpload)
     CONVERT_TO_EVENT_TARGET(MessagePort)
 
-    if (value.isObject(&JSDOMWindowShell::s_info))
+    if (value.inherits(&JSDOMWindowShell::s_info))
         return static_cast<JSDOMWindowShell*>(asObject(value))->impl();
+
+#if ENABLE(EVENTSOURCE)
+    CONVERT_TO_EVENT_TARGET(EventSource)
+#endif
 
 #if ENABLE(OFFLINE_WEB_APPLICATIONS)
     CONVERT_TO_EVENT_TARGET(DOMApplicationCache)
@@ -127,7 +181,20 @@ EventTarget* toEventTarget(JSC::JSValue value)
 
 #if ENABLE(WORKERS)
     CONVERT_TO_EVENT_TARGET(Worker)
-    CONVERT_TO_EVENT_TARGET(WorkerContext)
+    CONVERT_TO_EVENT_TARGET(DedicatedWorkerContext)
+#endif
+
+#if ENABLE(SHARED_WORKERS)
+    CONVERT_TO_EVENT_TARGET(SharedWorker)
+    CONVERT_TO_EVENT_TARGET(SharedWorkerContext)
+#endif
+
+#if ENABLE(NOTIFICATIONS)
+    CONVERT_TO_EVENT_TARGET(Notification)
+#endif
+
+#if ENABLE(WEB_SOCKETS)
+    CONVERT_TO_EVENT_TARGET(WebSocket)
 #endif
 
     return 0;

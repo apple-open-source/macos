@@ -53,11 +53,6 @@ static Vector<TimerBase*>& timerHeap()
     return threadGlobalData().threadTimers().timerHeap();
 }
 
-static HashSet<const TimerBase*>& timersReadyToFire()
-{
-    return threadGlobalData().threadTimers().timersReadyToFire();
-}
-
 // Class to represent elements in the heap when calling the standard library heap algorithms.
 // Maintains the m_heapIndex value in the timers themselves, which allows us to do efficient
 // modification of the heap.
@@ -201,13 +196,6 @@ void TimerBase::stop()
     ASSERT(!inHeap());
 }
 
-bool TimerBase::isActive() const
-{
-    ASSERT(m_thread == currentThread());
-
-    return m_nextFireTime || timersReadyToFire().contains(this);
-}
-
 double TimerBase::nextFireInterval() const
 {
     ASSERT(isActive());
@@ -296,9 +284,6 @@ void TimerBase::setNextFireTime(double newTime)
     ASSERT(m_thread == currentThread());
 
     // Keep heap valid while changing the next-fire time.
-
-    timersReadyToFire().remove(this);
-
     double oldTime = m_nextFireTime;
     if (oldTime != newTime) {
         m_nextFireTime = newTime;

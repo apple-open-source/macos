@@ -418,7 +418,7 @@ IOReturn IOHIDQueueClass::start (IOOptionBits options)
 {
     IOReturn ret = kIOReturnSuccess;
     
-    mostChecks();
+    allChecks();
     
     // if the queue size changes, we will need to dispose of the 
     // queue mapped memory

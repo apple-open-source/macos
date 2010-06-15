@@ -28,6 +28,7 @@
 #include "Cursor.h"
 #include "GraphicsContext.h"
 #include "IntRect.h"
+#include "NotImplemented.h"
 
 #include <wx/defs.h>
 #include <wx/scrolwin.h>
@@ -43,10 +44,12 @@ Widget::~Widget()
 {
 }
 
-void Widget::setFocus()
+void Widget::setFocus(bool focused)
 {
-    if (PlatformWidget widget = platformWidget())
-        widget->SetFocus();
+    if (focused) {
+        if (PlatformWidget widget = platformWidget())
+            widget->SetFocus();
+    }
 }
 
 void Widget::setCursor(const Cursor& cursor)
@@ -94,6 +97,11 @@ void Widget::paint(GraphicsContext*,const IntRect& r)
     invalidateRect(r);
     if (PlatformWidget widget = platformWidget())
         widget->Update();
+}
+
+void Widget::setIsSelected(bool)
+{
+    notImplemented();
 }
 
 }

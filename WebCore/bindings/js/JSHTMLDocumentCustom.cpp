@@ -28,6 +28,7 @@
 
 #include "CharacterNames.h"
 #include "Frame.h"
+#include "HTMLAllCollection.h"
 #include "HTMLBodyElement.h"
 #include "HTMLCollection.h"
 #include "HTMLDocument.h"
@@ -50,16 +51,16 @@ using namespace HTMLNames;
 
 bool JSHTMLDocument::canGetItemsForName(ExecState*, HTMLDocument* document, const Identifier& propertyName)
 {
-    AtomicStringImpl* atomicPropertyName = AtomicString::find(propertyName);
+    AtomicStringImpl* atomicPropertyName = findAtomicString(propertyName);
     return atomicPropertyName && (document->hasNamedItem(atomicPropertyName) || document->hasExtraNamedItem(atomicPropertyName));
 }
 
-JSValue JSHTMLDocument::nameGetter(ExecState* exec, const Identifier& propertyName, const PropertySlot& slot)
+JSValue JSHTMLDocument::nameGetter(ExecState* exec, JSValue slotBase, const Identifier& propertyName)
 {
-    JSHTMLDocument* thisObj = static_cast<JSHTMLDocument*>(asObject(slot.slotBase()));
+    JSHTMLDocument* thisObj = static_cast<JSHTMLDocument*>(asObject(slotBase));
     HTMLDocument* document = static_cast<HTMLDocument*>(thisObj->impl());
 
-    String name = propertyName;
+    String name = identifierToString(propertyName);
     RefPtr<HTMLCollection> collection = document->documentNamedItems(name);
 
     unsigned length = collection->length();
@@ -105,14 +106,14 @@ JSValue JSHTMLDocument::open(ExecState* exec, const ArgList& args)
     if (args.size() > 2) {
         Frame* frame = static_cast<HTMLDocument*>(impl())->frame();
         if (frame) {
-            JSDOMWindowShell* wrapper = toJSDOMWindowShell(frame);
+            JSDOMWindowShell* wrapper = toJSDOMWindowShell(frame, currentWorld(exec));
             if (wrapper) {
                 JSValue function = wrapper->get(exec, Identifier(exec, "open"));
                 CallData callData;
                 CallType callType = function.getCallData(callData);
                 if (callType == CallTypeNone)
                     return throwError(exec, TypeError);
-                return call(exec, function, callType, callData, wrapper, args);
+                return JSC::call(exec, function, callType, callData, wrapper, args);
             }
         }
         return jsUndefined();
@@ -136,14 +137,14 @@ static inline void documentWrite(ExecState* exec, const ArgList& args, HTMLDocum
     size_t size = args.size();
 
     UString firstString = args.at(0).toString(exec);
-    SegmentedString segmentedString = String(firstString);
+    SegmentedString segmentedString = ustringToString(firstString);
     if (size != 1) {
         if (!size)
             segmentedString.clear();
         else {
             for (size_t i = 1; i < size; ++i) {
                 UString subsequentString = args.at(i).toString(exec);
-                segmentedString.append(SegmentedString(String(subsequentString)));
+                segmentedString.append(SegmentedString(ustringToString(subsequentString)));
             }
         }
     }

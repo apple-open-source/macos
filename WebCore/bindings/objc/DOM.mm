@@ -29,21 +29,24 @@
 #import "DOMInternal.h" // import first to make the private/public trick work
 #import "DOM.h"
 
-#import "DOMRangeInternal.h"
 #import "DOMElementInternal.h"
-#import "DOMNodeInternal.h"
 #import "DOMHTMLCanvasElement.h"
+#import "DOMNodeInternal.h"
+#import "DOMPrivate.h"
+#import "DOMRangeInternal.h"
 #import "Frame.h"
-#import "HTMLNames.h"
 #import "HTMLElement.h"
-#import "RenderImage.h"
+#import "HTMLNames.h"
+#import "Image.h"
 #import "NodeFilter.h"
+#import "RenderImage.h"
 #import "WebScriptObjectPrivate.h"
 #import <wtf/HashMap.h>
 
 #if ENABLE(SVG_DOM_OBJC_BINDINGS)
 #import "DOMSVG.h"
 #import "SVGElementInstance.h"
+#import "SVGNames.h"
 #endif
 
 using namespace JSC;
@@ -154,9 +157,6 @@ static void createElementClassMap()
     addElementClass(SVGNames::circleTag, [DOMSVGCircleElement class]);
     addElementClass(SVGNames::clipPathTag, [DOMSVGClipPathElement class]);
     addElementClass(SVGNames::cursorTag, [DOMSVGCursorElement class]);
-#if ENABLE(SVG_FONTS)
-    addElementClass(SVGNames::definition_srcTag, [DOMSVGDefinitionSrcElement class]);
-#endif
     addElementClass(SVGNames::defsTag, [DOMSVGDefsElement class]);
     addElementClass(SVGNames::descTag, [DOMSVGDescElement class]);
     addElementClass(SVGNames::ellipseTag, [DOMSVGEllipseElement class]);
@@ -177,6 +177,7 @@ static void createElementClassMap()
     addElementClass(SVGNames::feImageTag, [DOMSVGFEImageElement class]);
     addElementClass(SVGNames::feMergeTag, [DOMSVGFEMergeElement class]);
     addElementClass(SVGNames::feMergeNodeTag, [DOMSVGFEMergeNodeElement class]);
+    addElementClass(SVGNames::feMorphologyTag, [DOMSVGFEMorphologyElement class]);
     addElementClass(SVGNames::feOffsetTag, [DOMSVGFEOffsetElement class]);
     addElementClass(SVGNames::fePointLightTag, [DOMSVGFEPointLightElement class]);
     addElementClass(SVGNames::feSpecularLightingTag, [DOMSVGFESpecularLightingElement class]);
@@ -359,20 +360,6 @@ id <DOMEventTarget> kit(WebCore::EventTarget* eventTarget)
     return renderer->absoluteBoundingBoxRect();
 }
 
-- (NSArray *)textRects
-{
-    // FIXME: Could we move this function to WebCore::Node and autogenerate?
-    core(self)->document()->updateLayoutIgnorePendingStylesheets();
-    if (!core(self)->renderer())
-        return nil;
-    RefPtr<Range> range = Range::create(core(self)->document());
-    WebCore::ExceptionCode ec = 0;
-    range->selectNodeContents(core(self), ec);
-    Vector<WebCore::IntRect> rects;
-    range->textRects(rects);
-    return kit(rects);
-}
-
 - (NSArray *)lineBoxRects
 {
     return [self textRects];
@@ -392,6 +379,19 @@ id <DOMEventTarget> kit(WebCore::EventTarget* eventTarget)
     return frame->nodeImage(node);
 }
 
+- (NSArray *)textRects
+{
+    // FIXME: Could we move this function to WebCore::Node and autogenerate?
+    core(self)->document()->updateLayoutIgnorePendingStylesheets();
+    if (!core(self)->renderer())
+        return nil;
+    RefPtr<Range> range = Range::create(core(self)->document());
+    WebCore::ExceptionCode ec = 0;
+    range->selectNodeContents(core(self), ec);
+    Vector<WebCore::IntRect> rects;
+    range->textRects(rects);
+    return kit(rects);
+}
 @end
 
 @implementation DOMRange (DOMRangeExtensions)
@@ -468,7 +468,7 @@ id <DOMEventTarget> kit(WebCore::EventTarget* eventTarget)
     ASSERT(name);
     WebCore::Element* element = core(self);
     ASSERT(element);
-    return element->document()->completeURL(parseURL(element->getAttribute(name)));
+    return element->document()->completeURL(deprecatedParseURL(element->getAttribute(name)));
 }
 
 - (BOOL)isFocused
@@ -501,6 +501,21 @@ id <DOMEventTarget> kit(WebCore::EventTarget* eventTarget)
 }
 
 @end
+
+//------------------------------------------------------------------------------------------
+// DOMRGBColor
+
+@implementation DOMRGBColor (WebPrivate)
+
+// FIXME: This should be removed as soon as all internal Apple uses of it have been replaced with
+// calls to the public method - (NSColor *)color.
+- (NSColor *)_color
+{
+    return [self color];
+}
+
+@end
+
 
 //------------------------------------------------------------------------------------------
 // DOMNodeFilter

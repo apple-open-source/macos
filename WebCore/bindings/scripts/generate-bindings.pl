@@ -16,7 +16,7 @@
 # Library General Public License for more details.
 # 
 # You should have received a copy of the GNU Library General Public License
-# aint with this library; see the file COPYING.LIB.  If not, write to
+# along with this library; see the file COPYING.LIB.  If not, write to
 # the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
 # Boston, MA 02110-1301, USA.
 # 
@@ -42,19 +42,20 @@ my $outputDirectory;
 my $generator;
 my $defines;
 my $preprocessor;
+my $writeDependencies;
 
 GetOptions('include=s@' => \@idlDirectories,
            'outputDir=s' => \$outputDirectory,
            'generator=s' => \$generator,
            'defines=s' => \$defines,
-           'preprocessor=s' => \$preprocessor);
+           'preprocessor=s' => \$preprocessor,
+           'write-dependencies' => \$writeDependencies);
 
 my $idlFile = $ARGV[0];
 
 die('Must specify input file.') unless defined($idlFile);
 die('Must specify IDL search path.') unless @idlDirectories;
 die('Must specify generator') unless defined($generator);
-die('Must specify input file.') unless defined($idlFile);
 die('Must specify output directory.') unless defined($outputDirectory);
 die('Must specify defines') unless defined($defines);
 
@@ -65,5 +66,5 @@ my $parser = IDLParser->new(1);
 my $document = $parser->Parse($idlFile, $defines, $preprocessor);
 
 # Generate desired output for given IDL file.
-my $codeGen = CodeGenerator->new(\@idlDirectories, $generator, $outputDirectory, 0, $preprocessor);
+my $codeGen = CodeGenerator->new(\@idlDirectories, $generator, $outputDirectory, 0, $preprocessor, $writeDependencies);
 $codeGen->ProcessDocument($document, $defines);

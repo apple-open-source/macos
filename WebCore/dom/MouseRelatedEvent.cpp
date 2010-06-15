@@ -57,7 +57,7 @@ static int contentsX(AbstractView* abstractView)
     FrameView* frameView = frame->view();
     if (!frameView)
         return 0;
-    return frameView->scrollX();
+    return frameView->scrollX() / frame->pageZoomFactor();
 }
 
 static int contentsY(AbstractView* abstractView)
@@ -70,7 +70,7 @@ static int contentsY(AbstractView* abstractView)
     FrameView* frameView = frame->view();
     if (!frameView)
         return 0;
-    return frameView->scrollY();
+    return frameView->scrollY() / frame->pageZoomFactor();
 }
 
 MouseRelatedEvent::MouseRelatedEvent(const AtomicString& eventType, bool canBubble, bool cancelable, PassRefPtr<AbstractView> viewArg,
@@ -151,7 +151,7 @@ void MouseRelatedEvent::receivedTarget()
     }
 
     // Adjust layerX/Y to be relative to the layer.
-    // FIXME: We're pretty sure this is the wrong defintion of "layer."
+    // FIXME: We're pretty sure this is the wrong definition of "layer."
     // Our RenderLayer is a more modern concept, and layerX/Y is some
     // other notion about groups of elements (left over from the Netscape 4 days?);
     // we should test and fix this.

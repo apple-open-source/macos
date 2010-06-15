@@ -39,6 +39,8 @@
 .Nm notify_check ,
 .Nm notify_get_state ,
 .Nm notify_set_state ,
+.Nm notify_suspend ,
+.Nm notify_resume ,
 .Nm notify_cancel
 .Nd event distribution functions
 .Sh SYNOPSIS
@@ -61,6 +63,10 @@
 .Fn notify_set_state "int token, uint64_t state"
 .Ft uint32_t
 .Fn notify_get_state "int token, uint64_t *state"
+.Ft uint32_t
+.Fn notify_suspend "int token"
+.Ft uint32_t
+.Fn notify_resume "int token"
 .Ft uint32_t
 .Fn notify_cancel "int token"
 .Sh DESCRIPTION
@@ -218,6 +224,22 @@ It may be used to synchronize state information between cooperating processes or
 Get the 64-bit unsigned integer value associated with a token.
 The default value of a state variable is zero.
 (Available in Mac OS X 10.5 or later.)
+.Ss notify_suspend
+Suspends delivery of notifications for a notification token.
+Any notifications corresponding to a token that are posted while it is suspended
+will be coalesced, and pended until notifications are resumed using
+.Fn notify_resume .
+.Pp
+Calls to
+.Fn notify_suspend
+may be nested.
+Notifications will resume only when a matching number of calls are made to
+.Fn notify_resume .
+.Ss notify_resume
+Removes one level of suspension for a token previously suspended by a call to
+.Fn notify_suspend .
+When resumed, notifications will be delivered normally.
+A single notification will be generated if any notifications were pended while the token was suspended.
 .Ss notify_cancel
 Cancel notification and free resources associated with a notification
 token.

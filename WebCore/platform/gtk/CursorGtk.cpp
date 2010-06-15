@@ -28,6 +28,9 @@
 #include "config.h"
 #include "CursorGtk.h"
 
+#include "Image.h"
+#include "IntPoint.h"
+
 #include <wtf/Assertions.h>
 
 #include <gdk/gdk.h>
@@ -60,15 +63,11 @@ Cursor::Cursor(const Cursor& other)
         gdk_cursor_ref(m_impl);
 }
 
-Cursor::Cursor(Image*, const IntPoint&)
+Cursor::Cursor(Image* image, const IntPoint& hotSpot)
 {
-    // FIXME: We don't support images for cursors yet.
-    // This is just a placeholder to avoid crashes.
-    Cursor other(crossCursor());
-    m_impl = other.m_impl;
-
-    if (m_impl)
-        gdk_cursor_ref(m_impl);
+    GdkPixbuf* pixbuf = image->getGdkPixbuf();
+    m_impl = gdk_cursor_new_from_pixbuf(gdk_display_get_default(), pixbuf, hotSpot.x(), hotSpot.y());
+    g_object_unref(pixbuf);
 }
 
 Cursor::~Cursor()
@@ -89,13 +88,15 @@ Cursor::Cursor(GdkCursor* c)
     : m_impl(c)
 {
     m_impl = c;
-    ASSERT(c);
-    gdk_cursor_ref(c);
+
+    // The GdkCursor may be NULL - the default cursor for the window.
+    if (c)
+        gdk_cursor_ref(c);
 }
 
 const Cursor& pointerCursor()
 {
-    static Cursor c = gdk_cursor_new(GDK_LEFT_PTR);
+    static Cursor c = 0;
     return c;
 }
 

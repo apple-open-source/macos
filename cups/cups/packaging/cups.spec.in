@@ -5,7 +5,7 @@
 #
 #   Original version by Jason McMullan <jmcc@ontv.com>.
 #
-#   Copyright 2007-2009 by Apple Inc.
+#   Copyright 2007-2010 by Apple Inc.
 #   Copyright 1999-2007 by Easy Software Products, all rights reserved.
 #
 #   These coded instructions, statements, and computer programs are the
@@ -39,7 +39,7 @@ Release: 0
 Epoch: 1
 License: GPL
 Group: System Environment/Daemons
-Source: ftp://ftp.easysw.com/pub/cups/%{version}/cups-%{version}-source.tar.gz
+Source: http://ftp.easysw.com/pub/cups/%{version}/cups-%{version}-source.tar.bz2
 Url: http://www.cups.org
 Packager: Anonymous <anonymous@foo.com>
 Vendor: Apple Inc.
@@ -240,6 +240,10 @@ rm -rf $RPM_BUILD_ROOT
 /usr/share/doc/cups/es/*
 %dir /usr/share/doc/cups/eu
 /usr/share/doc/cups/eu/*
+%dir /usr/share/doc/cups/id
+/usr/share/doc/cups/id/*
+%dir /usr/share/doc/cups/it
+/usr/share/doc/cups/it/*
 %dir /usr/share/doc/cups/ja
 /usr/share/doc/cups/ja/*
 %dir /usr/share/doc/cups/pl

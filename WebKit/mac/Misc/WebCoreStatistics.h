@@ -30,6 +30,8 @@
 
 #import <WebKit/WebFrame.h>
 
+@class DOMElement;
+
 @interface WebCoreStatistics : NSObject
 {
 }
@@ -41,6 +43,7 @@
 + (size_t)javaScriptProtectedObjectsCount;
 + (size_t)javaScriptProtectedGlobalObjectsCount;
 + (NSCountedSet *)javaScriptProtectedObjectTypeCounts;
++ (NSCountedSet *)javaScriptObjectTypeCounts;
 
 + (void)garbageCollectJavaScriptObjects;
 + (void)garbageCollectJavaScriptObjectsOnAlternateThreadForDebugging:(BOOL)waitUntilDone;
@@ -64,6 +67,10 @@
 + (NSDictionary *)memoryStatistics;
 + (void)returnFreeMemoryToSystem;
 
++ (int)cachedPageCount;
++ (int)cachedFrameCount;
++ (int)autoreleasedPageCount;
+
 // Deprecated, but used by older versions of Safari.
 + (void)emptyCache;
 + (void)setCacheDisabled:(BOOL)disabled;
@@ -76,5 +83,8 @@
 @end
 
 @interface WebFrame (WebKitDebug)
-- (NSString *)renderTreeAsExternalRepresentation;
+- (NSString *)renderTreeAsExternalRepresentationForPrinting:(BOOL)forPrinting;
+- (NSString *)counterValueForElement:(DOMElement*)element;
+- (int)pageNumberForElement:(DOMElement*)element:(float)pageWidthInPixels:(float)pageHeightInPixels;
+- (int)numberOfPages:(float)pageWidthInPixels:(float)pageHeightInPixels;
 @end

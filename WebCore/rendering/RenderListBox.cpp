@@ -188,7 +188,7 @@ void RenderListBox::calcPrefWidths()
         m_minPrefWidth = min(m_minPrefWidth, calcContentBoxWidth(style()->maxWidth().value()));
     }
 
-    int toAdd = paddingLeft() + paddingRight() + borderLeft() + borderRight();
+    int toAdd = borderAndPaddingWidth();
     m_minPrefWidth += toAdd;
     m_maxPrefWidth += toAdd;
                                 
@@ -221,7 +221,7 @@ int RenderListBox::listHeight() const
 
 void RenderListBox::calcHeight()
 {
-    int toAdd = paddingTop() + paddingBottom() + borderTop() + borderBottom();
+    int toAdd = borderAndPaddingHeight();
  
     int itemHeight = RenderListBox::itemHeight();
     setHeight(itemHeight * size() - rowSpacing + toAdd);
@@ -312,7 +312,7 @@ void RenderListBox::paintItemForeground(PaintInfo& paintInfo, int tx, int ty, in
     if (!itemStyle)
         itemStyle = style();
     
-    Color textColor = element->renderStyle() ? element->renderStyle()->color() : style()->color();
+    Color textColor = element->renderStyle() ? element->renderStyle()->visitedDependentColor(CSSPropertyColor) : style()->visitedDependentColor(CSSPropertyColor);
     if (optionElement && optionElement->selected()) {
         if (document()->frame()->selection()->isFocusedAndActive() && document()->focusedNode() == node())
             textColor = theme()->activeListBoxSelectionForegroundColor();
@@ -321,7 +321,8 @@ void RenderListBox::paintItemForeground(PaintInfo& paintInfo, int tx, int ty, in
             textColor = theme()->inactiveListBoxSelectionForegroundColor();
     }
 
-    paintInfo.context->setFillColor(textColor);
+    ColorSpace colorSpace = itemStyle->colorSpace();
+    paintInfo.context->setFillColor(textColor, colorSpace);
 
     Font itemFont = style()->font();
     if (isOptionGroupElement(element)) {
@@ -354,13 +355,14 @@ void RenderListBox::paintItemBackground(PaintInfo& paintInfo, int tx, int ty, in
         else
             backColor = theme()->inactiveListBoxSelectionBackgroundColor();
     } else
-        backColor = element->renderStyle() ? element->renderStyle()->backgroundColor() : style()->backgroundColor();
+        backColor = element->renderStyle() ? element->renderStyle()->visitedDependentColor(CSSPropertyBackgroundColor) : style()->visitedDependentColor(CSSPropertyBackgroundColor);
 
     // Draw the background for this list box item
     if (!element->renderStyle() || element->renderStyle()->visibility() != HIDDEN) {
+        ColorSpace colorSpace = element->renderStyle() ? element->renderStyle()->colorSpace() : style()->colorSpace();
         IntRect itemRect = itemBoundingBoxRect(tx, ty, listIndex);
         itemRect.intersect(controlClipRect(tx, ty));
-        paintInfo.context->fillRect(itemRect, backColor);
+        paintInfo.context->fillRect(itemRect, backColor, colorSpace);
     }
 }
 
@@ -527,8 +529,7 @@ void RenderListBox::valueChanged(Scrollbar*)
     if (newOffset != m_indexOffset) {
         m_indexOffset = newOffset;
         repaint();
-        // Fire the scroll DOM event.
-        node()->dispatchEvent(eventNames().scrollEvent, false, false);
+        node()->dispatchEvent(Event::create(eventNames().scrollEvent, false, false));
     }
 }
 

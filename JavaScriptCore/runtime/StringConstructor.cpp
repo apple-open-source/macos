@@ -30,12 +30,12 @@ namespace JSC {
 
 static NEVER_INLINE JSValue stringFromCharCodeSlowCase(ExecState* exec, const ArgList& args)
 {
-    UChar* buf = static_cast<UChar*>(fastMalloc(args.size() * sizeof(UChar)));
-    UChar* p = buf;
-    ArgList::const_iterator end = args.end();
-    for (ArgList::const_iterator it = args.begin(); it != end; ++it)
-        *p++ = static_cast<UChar>((*it).toUInt32(exec));
-    return jsString(exec, UString(buf, p - buf, false));
+    unsigned length = args.size();
+    UChar* buf;
+    PassRefPtr<UStringImpl> impl = UStringImpl::createUninitialized(length, buf);
+    for (unsigned i = 0; i < length; ++i)
+        buf[i] = static_cast<UChar>(args.at(i).toUInt32(exec));
+    return jsString(exec, impl);
 }
 
 static JSValue JSC_HOST_CALL stringFromCharCode(ExecState* exec, JSObject*, JSValue, const ArgList& args)
@@ -47,15 +47,18 @@ static JSValue JSC_HOST_CALL stringFromCharCode(ExecState* exec, JSObject*, JSVa
 
 ASSERT_CLASS_FITS_IN_CELL(StringConstructor);
 
-StringConstructor::StringConstructor(ExecState* exec, PassRefPtr<Structure> structure, Structure* prototypeFunctionStructure, StringPrototype* stringPrototype)
+StringConstructor::StringConstructor(ExecState* exec, NonNullPassRefPtr<Structure> structure, Structure* prototypeFunctionStructure, StringPrototype* stringPrototype)
     : InternalFunction(&exec->globalData(), structure, Identifier(exec, stringPrototype->classInfo()->className))
 {
     // ECMA 15.5.3.1 String.prototype
     putDirectWithoutTransition(exec->propertyNames().prototype, stringPrototype, ReadOnly | DontEnum | DontDelete);
 
     // ECMA 15.5.3.2 fromCharCode()
+#if ENABLE(JIT)
+    putDirectFunctionWithoutTransition(exec, new (exec) NativeFunctionWrapper(exec, prototypeFunctionStructure, 1, exec->propertyNames().fromCharCode, exec->globalData().getThunk(fromCharCodeThunkGenerator), stringFromCharCode), DontEnum);
+#else
     putDirectFunctionWithoutTransition(exec, new (exec) NativeFunctionWrapper(exec, prototypeFunctionStructure, 1, exec->propertyNames().fromCharCode, stringFromCharCode), DontEnum);
-
+#endif
     // no. of arguments for constructor
     putDirectWithoutTransition(exec->propertyNames().length, jsNumber(exec, 1), ReadOnly | DontEnum | DontDelete);
 }

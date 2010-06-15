@@ -56,10 +56,10 @@ public:
     virtual int size() const;
     virtual const AtomicString& formControlType() const;
     virtual const AtomicString& formControlName() const;
+    virtual const String& suggestedValue() const;
     virtual String value() const;
-    virtual void setValue(const String&);
-    virtual String placeholder() const { return String(); }
-    virtual void setPlaceholder(const String&) { }
+    virtual void setValue(const String&, bool sendChangeEvent = false);
+    virtual void setValueForUser(const String&);
     virtual void setValueFromRenderer(const String&);
 
     virtual bool saveFormControlState(String& value) const;
@@ -79,16 +79,18 @@ public:
     virtual void defaultEventHandler(Event*);
     virtual void cacheSelection(int start, int end);
 
-    virtual String constrainValue(const String& proposedValue) const;
+    virtual String sanitizeValue(const String& proposedValue) const { return constrainValue(proposedValue); }
 
     virtual void documentDidBecomeActive();
-    virtual bool placeholderShouldBeVisible() const;
 
     virtual void willMoveToNewOwnerDocument();
     virtual void didMoveToNewOwnerDocument();
 
     bool isConformedToInputMask(const String&);
     bool isConformedToInputMask(UChar, unsigned, bool isUserInput = true);
+#if ENABLE(WCSS)
+    virtual InputElementData data() const { return m_data; }
+#endif
 
 private:
     friend class WMLCardElement;
@@ -96,6 +98,7 @@ private:
 
     String validateInputMask(const String&);
     unsigned cursorPositionToMaskIndex(unsigned);
+    String constrainValue(const String&) const;
 
     InputElementData m_data;
     bool m_isPasswordField;

@@ -59,6 +59,9 @@
 #define ASL_OPT_IGNORE "ignore"
 #define ASL_OPT_STORE "store"
 
+#define ASL_STORE_LOCATION_FILE 0
+#define ASL_STORE_LOCATION_MEMORY 1
+
 typedef struct __aslclient
 {
 	uint32_t options;
@@ -103,6 +106,7 @@ __BEGIN_DECLS
 int asl_add_output(aslclient asl, int fd, const char *msg_fmt, const char *time_fmt, uint32_t text_encoding);
 int asl_remove_output(aslclient asl, int fd);
 char *asl_format_message(aslmsg msg, const char *msg_fmt, const char *time_fmt, uint32_t text_encoding, uint32_t *outlen);
+int asl_store_location();
 
 __END_DECLS
 

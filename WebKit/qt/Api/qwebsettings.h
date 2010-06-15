@@ -27,19 +27,18 @@
 #include <QtGui/qicon.h>
 #include <QtCore/qshareddata.h>
 
-namespace WebCore
-{
+namespace WebCore {
     class Settings;
 }
 
 class QWebPage;
+class QWebPluginDatabase;
 class QWebSettingsPrivate;
 QT_BEGIN_NAMESPACE
 class QUrl;
 QT_END_NAMESPACE
 
-class QWEBKIT_EXPORT QWebSettings
-{
+class QWEBKIT_EXPORT QWebSettings {
 public:
     enum FontFamily {
         StandardFont,
@@ -56,21 +55,34 @@ public:
         PluginsEnabled,
         PrivateBrowsingEnabled,
         JavascriptCanOpenWindows,
-        JavascriptCanAccessClipboard,
+        DOMPasteAllowed,
         DeveloperExtrasEnabled,
         LinksIncludedInFocusChain,
         ZoomTextOnly,
         PrintElementBackgrounds,
         OfflineStorageDatabaseEnabled,
         OfflineWebApplicationCacheEnabled,
-        LocalStorageDatabaseEnabled,
-        LocalContentCanAccessRemoteUrls
+        LocalStorageEnabled,
+#ifdef QT_DEPRECATED
+        LocalStorageDatabaseEnabled = LocalStorageEnabled,
+#endif
+        LocalContentCanAccessRemoteUrls,
+        DnsPrefetchEnabled,
+        JavaScriptCanAccessClipboard,
+        XSSAuditingEnabled,
+        AcceleratedCompositingEnabled,
+        SpatialNavigationEnabled,
+        LocalContentCanAccessFileUrls,
+        TiledBackingStoreEnabled,
+        FrameFlatteningEnabled,
+        WebGLEnabled
     };
     enum WebGraphic {
         MissingImageGraphic,
         MissingPluginGraphic,
         DefaultFrameIconGraphic,
-        TextAreaSizeGripCornerGraphic
+        TextAreaSizeGripCornerGraphic,
+        DeleteButtonGraphic
     };
     enum FontSize {
         MinimumFontSize,
@@ -104,6 +116,8 @@ public:
     static void clearIconDatabase();
     static QIcon iconForUrl(const QUrl &url);
 
+    //static QWebPluginDatabase *pluginDatabase();
+
     static void setWebGraphic(WebGraphic type, const QPixmap &graphic);
     static QPixmap webGraphic(WebGraphic type);
 
@@ -116,7 +130,17 @@ public:
     static void setOfflineStorageDefaultQuota(qint64 maximumSize);
     static qint64 offlineStorageDefaultQuota();
 
+    static void setOfflineWebApplicationCachePath(const QString& path);
+    static QString offlineWebApplicationCachePath();
+    static void setOfflineWebApplicationCacheQuota(qint64 maximumSize);
+    static qint64 offlineWebApplicationCacheQuota();
+    
+    void setLocalStoragePath(const QString& path);
+    QString localStoragePath() const; 
+
     static void clearMemoryCaches();
+
+    static void enablePersistentStorage(const QString& path = QString());
 
     inline QWebSettingsPrivate* handle() const { return d; }
 

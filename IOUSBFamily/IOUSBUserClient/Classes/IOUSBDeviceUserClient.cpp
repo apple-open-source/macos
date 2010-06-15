@@ -820,6 +820,7 @@ IOUSBDeviceUserClientV2::_DeviceRequestOut(IOUSBDeviceUserClientV2 * target, voi
     USBLog(7, "+IOUSBDeviceUserClientV2[%p]::_DeviceRequestOut  ", target);
 	// target->PrintExternalMethodArgs(arguments, 5);
 	
+	
 	if ( arguments->asyncWakePort ) 
 	{
 		IOUSBCompletion							tap;

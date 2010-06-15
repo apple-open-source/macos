@@ -30,22 +30,38 @@
 
 #include "WorkerThread.h"
 
+#include "DatabaseTask.h"
+#include "DedicatedWorkerContext.h"
 #include "KURL.h"
 #include "PlatformString.h"
 #include "ScriptSourceCode.h"
 #include "ScriptValue.h"
-#include "WorkerContext.h"
-#include "WorkerObjectProxy.h"
+#include "ThreadGlobalData.h"
 
 #include <utility>
 #include <wtf/Noncopyable.h>
 
 namespace WebCore {
+
+static Mutex& threadCountMutex()
+{
+    AtomicallyInitializedStatic(Mutex&, mutex = *new Mutex);
+    return mutex;
+}
+
+unsigned WorkerThread::m_threadCount = 0;
+
+unsigned WorkerThread::workerThreadCount()
+{
+    MutexLocker lock(threadCountMutex());
+    return m_threadCount;
+}
+
 struct WorkerThreadStartupData : Noncopyable {
 public:
-    static std::auto_ptr<WorkerThreadStartupData> create(const KURL& scriptURL, const String& userAgent, const String& sourceCode)
+    static PassOwnPtr<WorkerThreadStartupData> create(const KURL& scriptURL, const String& userAgent, const String& sourceCode)
     {
-        return std::auto_ptr<WorkerThreadStartupData>(new WorkerThreadStartupData(scriptURL, userAgent, sourceCode));
+        return new WorkerThreadStartupData(scriptURL, userAgent, sourceCode);
     }
 
     KURL m_scriptURL;
@@ -57,26 +73,26 @@ private:
 
 WorkerThreadStartupData::WorkerThreadStartupData(const KURL& scriptURL, const String& userAgent, const String& sourceCode)
     : m_scriptURL(scriptURL.copy())
-    , m_userAgent(userAgent.copy())
-    , m_sourceCode(sourceCode.copy())
+    , m_userAgent(userAgent.crossThreadString())
+    , m_sourceCode(sourceCode.crossThreadString())
 {
 }
 
-PassRefPtr<WorkerThread> WorkerThread::create(const KURL& scriptURL, const String& userAgent, const String& sourceCode, WorkerLoaderProxy& workerLoaderProxy, WorkerObjectProxy& workerObjectProxy)
-{
-    return adoptRef(new WorkerThread(scriptURL, userAgent, sourceCode, workerLoaderProxy, workerObjectProxy));
-}
-
-WorkerThread::WorkerThread(const KURL& scriptURL, const String& userAgent, const String& sourceCode, WorkerLoaderProxy& workerLoaderProxy, WorkerObjectProxy& workerObjectProxy)
+WorkerThread::WorkerThread(const KURL& scriptURL, const String& userAgent, const String& sourceCode, WorkerLoaderProxy& workerLoaderProxy, WorkerReportingProxy& workerReportingProxy)
     : m_threadID(0)
     , m_workerLoaderProxy(workerLoaderProxy)
-    , m_workerObjectProxy(workerObjectProxy)
+    , m_workerReportingProxy(workerReportingProxy)
     , m_startupData(WorkerThreadStartupData::create(scriptURL, userAgent, sourceCode))
 {
+    MutexLocker lock(threadCountMutex());
+    m_threadCount++;
 }
 
 WorkerThread::~WorkerThread()
 {
+    MutexLocker lock(threadCountMutex());
+    ASSERT(m_threadCount > 0);
+    m_threadCount--;
 }
 
 bool WorkerThread::start()
@@ -101,11 +117,12 @@ void* WorkerThread::workerThread()
 {
     {
         MutexLocker lock(m_threadCreationMutex);
-        m_workerContext = WorkerContext::create(m_startupData->m_scriptURL, m_startupData->m_userAgent, this);
+        m_workerContext = createWorkerContext(m_startupData->m_scriptURL, m_startupData->m_userAgent);
+
         if (m_runLoop.terminated()) {
-            // The worker was terminated before the thread had a chance to run. Since the context didn't exist yet, 
+            // The worker was terminated before the thread had a chance to run. Since the context didn't exist yet,
             // forbidExecution() couldn't be called from stop().
-           m_workerContext->script()->forbidExecution();
+           m_workerContext->script()->forbidExecution(WorkerScriptController::TerminateRunningScript);
         }
     }
 
@@ -116,25 +133,87 @@ void* WorkerThread::workerThread()
     // WorkerThread::~WorkerThread happens on a different thread where it was created.
     m_startupData.clear();
 
-    m_workerObjectProxy.reportPendingActivity(m_workerContext->hasPendingActivity());
-
-    // Blocks until terminated.
-    m_runLoop.run(m_workerContext.get());
+    runEventLoop();
 
     ThreadIdentifier threadID = m_threadID;
 
-    m_workerContext->stopActiveDOMObjects();
-    m_workerContext->clearScript();
     ASSERT(m_workerContext->hasOneRef());
+
     // The below assignment will destroy the context, which will in turn notify messaging proxy.
     // We cannot let any objects survive past thread exit, because no other thread will run GC or otherwise destroy them.
     m_workerContext = 0;
-    
+
+    // Clean up WebCore::ThreadGlobalData before WTF::WTFThreadData goes away!
+    threadGlobalData().destroy();
+
     // The thread object may be already destroyed from notification now, don't try to access "this".
     detachThread(threadID);
 
     return 0;
 }
+
+void WorkerThread::runEventLoop()
+{
+    // Does not return until terminated.
+    m_runLoop.run(m_workerContext.get());
+}
+
+class WorkerThreadShutdownFinishTask : public ScriptExecutionContext::Task {
+public:
+    static PassOwnPtr<WorkerThreadShutdownFinishTask> create()
+    {
+        return new WorkerThreadShutdownFinishTask();
+    }
+
+    virtual void performTask(ScriptExecutionContext *context)
+    {
+        ASSERT(context->isWorkerContext());
+        WorkerContext* workerContext = static_cast<WorkerContext*>(context);
+        workerContext->thread()->runLoop().terminate();
+    }
+
+    virtual bool isCleanupTask() const { return true; }
+};
+
+class WorkerThreadShutdownStartTask : public ScriptExecutionContext::Task {
+public:
+    static PassOwnPtr<WorkerThreadShutdownStartTask> create()
+    {
+        return new WorkerThreadShutdownStartTask();
+    }
+
+    virtual void performTask(ScriptExecutionContext *context)
+    {
+        ASSERT(context->isWorkerContext());
+        WorkerContext* workerContext = static_cast<WorkerContext*>(context);
+
+#if ENABLE(DATABASE)
+        // We currently ignore any DatabasePolicy used for the document's
+        // databases; if it's actually used anywhere, this should be revisited.
+        DatabaseTaskSynchronizer cleanupSync;
+        workerContext->stopDatabases(&cleanupSync);
+#endif
+
+        workerContext->stopActiveDOMObjects();
+
+        // Event listeners would keep DOMWrapperWorld objects alive for too long. Also, they have references to JS objects,
+        // which become dangling once Heap is destroyed.
+        workerContext->removeAllEventListeners();
+        workerContext->clearScript();
+
+#if ENABLE(DATABASE)
+        // We wait for the database thread to clean up all its stuff so that we
+        // can do more stringent leak checks as we exit.
+        cleanupSync.waitForTaskCompletion();
+#endif
+
+        // Stick a shutdown command at the end of the queue, so that we deal
+        // with all the cleanup tasks the databases post first.
+        workerContext->postTask(WorkerThreadShutdownFinishTask::create());
+    }
+
+    virtual bool isCleanupTask() const { return true; }
+};
 
 void WorkerThread::stop()
 {
@@ -142,11 +221,15 @@ void WorkerThread::stop()
     MutexLocker lock(m_threadCreationMutex);
 
     // Ensure that tasks are being handled by thread event loop. If script execution weren't forbidden, a while(1) loop in JS could keep the thread alive forever.
-    if (m_workerContext)
-        m_workerContext->script()->forbidExecution();
+    if (m_workerContext) {
+        m_workerContext->script()->forbidExecution(WorkerScriptController::TerminateRunningScript);
 
     // FIXME: Rudely killing the thread won't work when we allow nested workers, because they will try to post notifications of their destruction.
-    m_runLoop.terminate();
+    // This can likely use the same mechanism as used for databases above.
+
+        m_runLoop.postTask(WorkerThreadShutdownStartTask::create());
+    } else
+        m_runLoop.terminate();
 }
 
 } // namespace WebCore

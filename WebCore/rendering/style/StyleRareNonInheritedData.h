@@ -29,6 +29,7 @@
 #include "CursorData.h"
 #include "DataRef.h"
 #include "FillLayer.h"
+#include "LineClampValue.h"
 #include "NinePieceImage.h"
 #include "StyleTransformData.h"
 #include <wtf/OwnPtr.h>
@@ -39,13 +40,14 @@ namespace WebCore {
 
 class AnimationList;
 class CSSStyleSelector;
+class ShadowData;
 class StyleFlexibleBoxData;
 class StyleMarqueeData;
 class StyleMultiColData;
 class StyleReflection;
 class StyleTransformData;
+
 struct ContentData;
-struct ShadowData;
 
 #if ENABLE(DASHBOARD_SUPPORT)
 class StyleDashboardRegion;
@@ -77,7 +79,7 @@ public:
     bool animationDataEquivalent(const StyleRareNonInheritedData&) const;
     bool transitionDataEquivalent(const StyleRareNonInheritedData&) const;
 
-    int lineClamp; // An Apple extension.
+    LineClampValue lineClamp; // An Apple extension.
 #if ENABLE(DASHBOARD_SUPPORT)
     Vector<StyleDashboardRegion> m_dashboardRegions;
 #endif
@@ -98,9 +100,13 @@ public:
     unsigned matchNearestMailBlockquoteColor : 1; // EMatchNearestMailBlockquoteColor, FIXME: This property needs to be eliminated. It should never have been added.
     unsigned m_appearance : 6; // EAppearance
     unsigned m_borderFit : 1; // EBorderFit
+    
+    short m_counterIncrement;
+    short m_counterReset;
+    
 #if USE(ACCELERATED_COMPOSITING)
     bool m_runningAcceleratedAnimation : 1;
-#endif    
+#endif
     OwnPtr<ShadowData> m_boxShadow;  // For box-shadow decorations.
     
     RefPtr<StyleReflection> m_boxReflect;

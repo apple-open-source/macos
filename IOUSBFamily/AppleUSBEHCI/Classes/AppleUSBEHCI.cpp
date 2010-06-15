@@ -1577,6 +1577,14 @@ void
 AppleUSBEHCI::ReturnIsochDoneQueue(IOUSBControllerIsochEndpoint* isochEP)
 {
 	super::ReturnIsochDoneQueue(isochEP);
+
+	if (_activeIsochTransfers == 0)
+	{	
+		// Make sure that when we start isoch transfers again, we don't have a pending counter for the
+		// scavenging location
+		_outSlot = kEHCIPeriodicListEntries + 1;
+		
+	}
 }
 
 

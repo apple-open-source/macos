@@ -33,8 +33,8 @@
 #include <wtf/MathExtras.h>
 
 #if PLATFORM(GTK)
-#include <gdk/gdk.h>
 #include <pango/pango.h>
+typedef struct _GdkExposeEvent GdkExposeEvent;
 #elif PLATFORM(WIN)
 #include <cairo-win32.h>
 #endif
@@ -71,6 +71,7 @@ public:
     void scale(const FloatSize&);
     void rotate(float);
     void translate(float, float);
+    void concatCTM(const AffineTransform&);
     void concatCTM(const TransformationMatrix&);
     void beginTransparencyLayer() { m_transparencyCount++; }
     void endTransparencyLayer() { m_transparencyCount--; }
@@ -85,6 +86,7 @@ public:
     void scale(const FloatSize&) {}
     void rotate(float) {}
     void translate(float, float) {}
+    void concatCTM(const AffineTransform&) {}
     void concatCTM(const TransformationMatrix&) {}
     void beginTransparencyLayer() {}
     void endTransparencyLayer() {}

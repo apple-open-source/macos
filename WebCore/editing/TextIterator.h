@@ -68,11 +68,18 @@ private:
 // at points where replaced elements break up the text flow.  The text comes back in
 // chunks so as to optimize for performance of the iteration.
 
+enum TextIteratorBehavior {
+    TextIteratorDefaultBehavior = 0,
+    TextIteratorEmitsCharactersBetweenAllVisiblePositions = 1 << 0,
+    TextIteratorEntersTextControls = 1 << 1,
+    TextIteratorEmitsTextsWithoutTranscoding = 1 << 2,
+};
+
 class TextIterator {
 public:
     TextIterator();
-    explicit TextIterator(const Range*, bool emitCharactersBetweenAllVisiblePositions = false, bool enterTextControls = false);
-    
+    explicit TextIterator(const Range*, TextIteratorBehavior = TextIteratorDefaultBehavior);
+
     bool atEnd() const { return !m_positionNode; }
     void advance();
     
@@ -120,10 +127,12 @@ private:
     mutable int m_positionEndOffset;
     const UChar* m_textCharacters;
     int m_textLength;
-    
+    // Hold string m_textCharacters points to so we ensure it won't be deleted.
+    String m_text;
+
     // Used when there is still some pending text from the current node; when these
     // are false and 0, we go back to normal iterating.
-    bool m_needAnotherNewline;
+    bool m_needsAnotherNewline;
     InlineTextBox* m_textBox;
     
     // Used to do the whitespace collapsing logic.
@@ -139,14 +148,17 @@ private:
     size_t m_sortedTextBoxesPosition;
     
     // Used when deciding whether to emit a "positioning" (e.g. newline) before any other content
-    bool m_haveEmitted;
+    bool m_hasEmitted;
     
     // Used by selection preservation code.  There should be one character emitted between every VisiblePosition
     // in the Range used to create the TextIterator.
     // FIXME <rdar://problem/6028818>: This functionality should eventually be phased out when we rewrite 
     // moveParagraphs to not clone/destroy moved content.
-    bool m_emitCharactersBetweenAllVisiblePositions;
-    bool m_enterTextControls;
+    bool m_emitsCharactersBetweenAllVisiblePositions;
+    bool m_entersTextControls;
+
+    // Used when we want texts for copying, pasting, and transposing.
+    bool m_emitsTextWithoutTranscoding;
 };
 
 // Iterates through the DOM range, returning all the text, and 0-length boundaries
@@ -210,7 +222,7 @@ private:
 class CharacterIterator {
 public:
     CharacterIterator();
-    explicit CharacterIterator(const Range*, bool emitCharactersBetweenAllVisiblePositions = false, bool enterTextControls = false);
+    explicit CharacterIterator(const Range*, TextIteratorBehavior = TextIteratorDefaultBehavior);
     
     void advance(int numCharacters);
     

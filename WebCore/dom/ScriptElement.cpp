@@ -151,6 +151,9 @@ void ScriptElementData::requestScript(const String& sourceUrl)
     if (!document->frame())
         return;
 
+    if (!m_element->dispatchBeforeLoadEvent(sourceUrl))
+        return;
+
     ASSERT(!m_cachedScript);
     m_cachedScript = document->docLoader()->requestScript(sourceUrl, scriptCharset());
     m_requested = true;
@@ -174,7 +177,7 @@ void ScriptElementData::evaluateScript(const ScriptSourceCode& sourceCode)
         return;
 
     if (Frame* frame = m_element->document()->frame()) {
-        if (!frame->script()->isEnabled())
+        if (!frame->script()->canExecuteScripts(AboutToExecuteScript))
             return;
 
         m_evaluated = true;
@@ -226,12 +229,14 @@ bool ScriptElementData::shouldExecuteAsJavaScript() const
          We want to accept all the values that either of these browsers accept, but not other values.
      */
     String type = m_scriptElement->typeAttributeValue();
-    if (!type.isEmpty())
-        return MIMETypeRegistry::isSupportedJavaScriptMIMEType(type.stripWhiteSpace().lower());
-
-    String language = m_scriptElement->languageAttributeValue();
-    if (!language.isEmpty())
-        return isSupportedJavaScriptLanguage(language);
+    if (!type.isEmpty()) {
+        if (!MIMETypeRegistry::isSupportedJavaScriptMIMEType(type.stripWhiteSpace().lower()))
+            return false;
+    } else {
+        String language = m_scriptElement->languageAttributeValue();
+        if (!language.isEmpty() && !isSupportedJavaScriptLanguage(language))
+            return false;
+    }    
 
     // No type or language is specified, so we assume the script to be JavaScript.
     // We don't yet support setting event listeners via the 'for' attribute for scripts.
@@ -241,7 +246,13 @@ bool ScriptElementData::shouldExecuteAsJavaScript() const
     // and we support the for syntax in script tags, this check can be removed and we should just
     // return 'true' here.
     String forAttribute = m_scriptElement->forAttributeValue();
-    return forAttribute.isEmpty();
+    String eventAttribute = m_scriptElement->eventAttributeValue();
+    if (forAttribute.isEmpty() || eventAttribute.isEmpty())
+        return true;
+    
+    forAttribute = forAttribute.stripWhiteSpace();
+    eventAttribute = eventAttribute.stripWhiteSpace();
+    return equalIgnoringCase(forAttribute, "window") && (equalIgnoringCase(eventAttribute, "onload") || equalIgnoringCase(eventAttribute, "onload()"));
 }
 
 String ScriptElementData::scriptCharset() const
@@ -252,7 +263,7 @@ String ScriptElementData::scriptCharset() const
     // If charset has not been declared in script tag, fall back to frame encoding.
     if (charset.isEmpty()) {
         if (Frame* frame = m_element->document()->frame())
-            charset = frame->loader()->encoding();
+            charset = frame->loader()->writer()->encoding();
     }
 
     return charset;

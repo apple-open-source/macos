@@ -47,6 +47,8 @@ namespace WebCore {
     private:
         virtual ~SVGImage();
 
+        virtual String filenameExtension() const;
+
         virtual void setContainerSize(const IntSize&);
         virtual bool usesContainerSize() const;
         virtual bool hasRelativeWidth() const;
@@ -64,7 +66,7 @@ namespace WebCore {
         virtual NativeImagePtr frameAtIndex(size_t) { return 0; }
         
         SVGImage(ImageObserver*);
-        virtual void draw(GraphicsContext*, const FloatRect& fromRect, const FloatRect& toRect, CompositeOperator);
+        virtual void draw(GraphicsContext*, const FloatRect& fromRect, const FloatRect& toRect, ColorSpace styleColorSpace, CompositeOperator);
         
         virtual NativeImagePtr nativeImageForCurrentFrame();
         

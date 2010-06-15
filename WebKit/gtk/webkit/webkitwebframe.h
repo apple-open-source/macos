@@ -18,8 +18,8 @@
  * Boston, MA 02110-1301, USA.
  */
 
-#ifndef WEBKIT_WEB_FRAME_H
-#define WEBKIT_WEB_FRAME_H
+#ifndef webkitwebframe_h
+#define webkitwebframe_h
 
 #include <glib-object.h>
 #include <gtk/gtk.h>
@@ -28,6 +28,7 @@
 
 #include <webkit/webkitdefines.h>
 #include <webkit/webkitnetworkrequest.h>
+#include <webkit/webkitwebdatasource.h>
 
 G_BEGIN_DECLS
 
@@ -72,15 +73,19 @@ struct _WebKitWebFrameClass {
  * actual visible content happened; one or more layouts may have
  * happened before that caused nothing to be visible on the screen,
  * because the data available at the time was not significant enough.
- * @WEBKIT_LOAD_FINISHED: This state means either that everything that
- * was required to display the page has been loaded, or that an error
- * has happened.
+ * @WEBKIT_LOAD_FINISHED: This state means that everything that was
+ * required to display the page has been loaded.
+ * @WEBKIT_LOAD_FAILED: This state means that some error occurred
+ * during the page load that prevented it from being completed. You
+ * can connect to the #WebKitWebView::load-error signal if you want to
+ * know precisely what kind of error occurred.
  */
 typedef enum {
     WEBKIT_LOAD_PROVISIONAL,
     WEBKIT_LOAD_COMMITTED,
     WEBKIT_LOAD_FINISHED,
-    WEBKIT_LOAD_FIRST_VISUALLY_NON_EMPTY_LAYOUT
+    WEBKIT_LOAD_FIRST_VISUALLY_NON_EMPTY_LAYOUT,
+    WEBKIT_LOAD_FAILED
 } WebKitLoadStatus;
 
 WEBKIT_API GType
@@ -151,6 +156,24 @@ webkit_web_frame_print              (WebKitWebFrame       *frame);
 
 WEBKIT_API WebKitLoadStatus
 webkit_web_frame_get_load_status    (WebKitWebFrame       *frame);
+
+WEBKIT_API GtkPolicyType
+webkit_web_frame_get_horizontal_scrollbar_policy (WebKitWebFrame        *frame);
+
+WEBKIT_API GtkPolicyType
+webkit_web_frame_get_vertical_scrollbar_policy   (WebKitWebFrame        *frame);
+
+WEBKIT_API WebKitWebDataSource *
+webkit_web_frame_get_data_source             (WebKitWebFrame       *frame);
+
+WEBKIT_API WebKitWebDataSource *
+webkit_web_frame_get_provisional_data_source (WebKitWebFrame       *frame);
+
+WEBKIT_API WebKitSecurityOrigin*
+webkit_web_frame_get_security_origin         (WebKitWebFrame       *frame);
+
+WEBKIT_API WebKitNetworkResponse*
+webkit_web_frame_get_network_response        (WebKitWebFrame       *frame);
 
 G_END_DECLS
 

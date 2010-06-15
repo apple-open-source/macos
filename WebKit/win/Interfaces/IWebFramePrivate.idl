@@ -32,6 +32,7 @@ import "IWebFrame.idl";
 interface IWebFrame;
 interface IWebIconFetcher;
 interface IWebIconFetcherDelegate;
+interface IWebScriptWorld;
 
 typedef enum {
     WebFrameLoadTypeStandard,
@@ -42,7 +43,9 @@ typedef enum {
     WebFrameLoadTypeReloadAllowingStaleData,
     WebFrameLoadTypeSame,               // user loads same URL again (but not reload button)
     WebFrameLoadTypeRedirectWithLockedBackForwardList,
-    WebFrameLoadTypeReplace
+    WebFrameLoadTypeReplace,
+    WebFrameLoadTypeReloadFromOrigin,
+    WebFrameLoadTypeBackWMLDeckNotAccessible
 } WebFrameLoadType;
 
 [
@@ -91,4 +94,22 @@ interface IWebFramePrivate : IUnknown
     HRESULT isDisplayingStandaloneImage([out, retval] BOOL* result);
 
     HRESULT allowsFollowingLink([in] BSTR url, [out, retval] BOOL* result);
+
+    [local] HRESULT stringByEvaluatingJavaScriptInScriptWorld([in] IWebScriptWorld*, [in] JSObjectRef globalObject, [in] BSTR script, [out, retval] BSTR* result);
+
+    [local] JSGlobalContextRef globalContextForScriptWorld([in] IWebScriptWorld*);
+
+    HRESULT counterValueForElementById([in] BSTR id, [out, retval] BSTR* result);
+
+    HRESULT pauseSVGAnimation([in] BSTR elementId, [in] IDOMNode* node, [in] double secondsFromNow, [out, retval] BOOL* animationWasRunning);
+
+    HRESULT visibleContentRect([out, retval] RECT*);
+
+    HRESULT pageNumberForElementById([in] BSTR id, [in] float pageWidthInPixels, [in] float pageHeightInPixels, [out, retval] int* pageNumber);
+
+    HRESULT numberOfPages([in] float pageWidthInPixels, [in] float pageHeightInPixels, [out, retval] int* pageNumber);
+
+    HRESULT layerTreeAsText([out, retval] BSTR* result);
+
+    HRESULT paintDocumentRectToContextAtPoint([in] RECT rect, [in] POINT pt, [in] OLE_HANDLE deviceContext);
 }

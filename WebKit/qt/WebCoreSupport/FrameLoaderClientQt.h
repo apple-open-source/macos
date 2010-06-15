@@ -59,6 +59,7 @@ namespace WebCore {
 
         friend class ::QWebFrame;
         void callPolicyFunction(FramePolicyFunction function, PolicyAction action);
+        void callErrorPageExtension(const ResourceError&);
     signals:
         void loadStarted();
         void loadProgress(int d);
@@ -95,17 +96,20 @@ namespace WebCore {
         virtual void dispatchDidFinishLoading(WebCore::DocumentLoader*, unsigned long);
         virtual void dispatchDidFailLoading(WebCore::DocumentLoader*, unsigned long, const WebCore::ResourceError&);
         virtual bool dispatchDidLoadResourceFromMemoryCache(WebCore::DocumentLoader*, const WebCore::ResourceRequest&, const WebCore::ResourceResponse&, int);
-        virtual void dispatchDidLoadResourceByXMLHttpRequest(unsigned long identifier, const WebCore::ScriptString& sourceString);
 
         virtual void dispatchDidHandleOnloadEvents();
         virtual void dispatchDidReceiveServerRedirectForProvisionalLoad();
         virtual void dispatchDidCancelClientRedirect();
         virtual void dispatchWillPerformClientRedirect(const KURL&, double interval, double fireDate);
         virtual void dispatchDidChangeLocationWithinPage();
+        virtual void dispatchDidPushStateWithinPage();
+        virtual void dispatchDidReplaceStateWithinPage();
+        virtual void dispatchDidPopStateWithinPage();
         virtual void dispatchWillClose();
         virtual void dispatchDidReceiveIcon();
         virtual void dispatchDidStartProvisionalLoad();
         virtual void dispatchDidReceiveTitle(const String& title);
+        virtual void dispatchDidChangeIcons();
         virtual void dispatchDidCommitLoad();
         virtual void dispatchDidFailProvisionalLoad(const ResourceError&);
         virtual void dispatchDidFailLoad(const WebCore::ResourceError&);
@@ -124,6 +128,7 @@ namespace WebCore {
 
         virtual void dispatchUnableToImplementPolicy(const WebCore::ResourceError&);
 
+        virtual void dispatchWillSendSubmitEvent(HTMLFormElement*) { }
         virtual void dispatchWillSubmitForm(FramePolicyFunction, PassRefPtr<FormState>);
 
         virtual void dispatchDidLoadMainResource(DocumentLoader*);
@@ -147,6 +152,11 @@ namespace WebCore {
         virtual void updateGlobalHistory();
         virtual void updateGlobalHistoryRedirectLinks();
         virtual bool shouldGoToHistoryItem(HistoryItem*) const;
+        virtual void dispatchDidAddBackForwardItem(HistoryItem*) const;
+        virtual void dispatchDidRemoveBackForwardItem(HistoryItem*) const;
+        virtual void dispatchDidChangeBackForwardIndex() const;
+        virtual void didDisplayInsecureContent();
+        virtual void didRunInsecureContent(SecurityOrigin*);
 
         virtual ResourceError cancelledError(const ResourceRequest&);
         virtual ResourceError blockedError(const ResourceRequest&);
@@ -185,6 +195,7 @@ namespace WebCore {
 
         virtual PassRefPtr<Frame> createFrame(const KURL& url, const String& name, HTMLFrameOwnerElement* ownerElement,
                                    const String& referrer, bool allowsScrolling, int marginWidth, int marginHeight) ;
+        virtual void didTransferChildFrameToNewDocument();
         virtual PassRefPtr<Widget> createPlugin(const IntSize&, HTMLPlugInElement*, const KURL&, const Vector<String>&, const Vector<String>&, const String&, bool);
         virtual void redirectDataToPlugin(Widget* pluginWidget);
 
@@ -193,7 +204,7 @@ namespace WebCore {
         virtual ObjectContentType objectContentType(const KURL& url, const String& mimeType);
         virtual String overrideMediaType() const;
 
-        virtual void windowObjectCleared();
+        virtual void dispatchDidClearWindowObjectInWorld(DOMWrapperWorld*);
         virtual void documentElementAvailable();
         virtual void didPerformFirstNavigation() const;
 
@@ -211,7 +222,7 @@ namespace WebCore {
         WebCore::PluginView* m_pluginView;
         bool m_hasSentResponseToPlugin;
 
-        bool m_loadSucceeded;
+        ResourceError m_loadError;
     };
 
 }

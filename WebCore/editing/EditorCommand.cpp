@@ -1,6 +1,7 @@
 /*
  * Copyright (C) 2006, 2007, 2008 Apple Inc. All rights reserved.
  * Copyright (C) 2008 Nokia Corporation and/or its subsidiary(-ies)
+ * Copyright (C) 2009 Igalia S.L.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -27,9 +28,11 @@
 #include "config.h"
 
 #include "AtomicString.h"
+#include "CSSComputedStyleDeclaration.h"
 #include "CSSMutableStyleDeclaration.h"
 #include "CSSPropertyNames.h"
 #include "CSSValueKeywords.h"
+#include "Chrome.h"
 #include "CreateLinkCommand.h"
 #include "DocumentFragment.h"
 #include "Editor.h"
@@ -39,6 +42,7 @@
 #include "FormatBlockCommand.h"
 #include "Frame.h"
 #include "HTMLFontElement.h"
+#include "HTMLHRElement.h"
 #include "HTMLImageElement.h"
 #include "IndentOutdentCommand.h"
 #include "InsertListCommand.h"
@@ -89,64 +93,85 @@ static Frame* targetFrame(Frame* frame, Event* event)
     return node->document()->frame();
 }
 
-static bool executeApplyStyle(Frame* frame, EditorCommandSource source, EditAction action, int propertyID, const String& propertyValue)
+static bool applyCommandToFrame(Frame* frame, EditorCommandSource source, EditAction action, CSSMutableStyleDeclaration* style)
 {
-    RefPtr<CSSMutableStyleDeclaration> style = CSSMutableStyleDeclaration::create();
-    style->setProperty(propertyID, propertyValue);
     // FIXME: We don't call shouldApplyStyle when the source is DOM; is there a good reason for that?
     switch (source) {
         case CommandFromMenuOrKeyBinding:
-            frame->editor()->applyStyleToSelection(style.get(), action);
+            frame->editor()->applyStyleToSelection(style, action);
             return true;
         case CommandFromDOM:
         case CommandFromDOMWithUserInterface:
-            frame->editor()->applyStyle(style.get());
+            frame->editor()->applyStyle(style);
             return true;
     }
     ASSERT_NOT_REACHED();
     return false;
 }
 
-static bool executeApplyStyle(Frame* frame, EditorCommandSource source, EditAction action, int propertyID, const char* propertyValue)
+static bool executeApplyStyle(Frame* frame, EditorCommandSource source, EditAction action, int propertyID, const String& propertyValue)
 {
-    return executeApplyStyle(frame, source, action, propertyID, String(propertyValue));
+    RefPtr<CSSMutableStyleDeclaration> style = CSSMutableStyleDeclaration::create();
+    style->setProperty(propertyID, propertyValue);
+    return applyCommandToFrame(frame, source, action, style.get());
 }
 
 static bool executeApplyStyle(Frame* frame, EditorCommandSource source, EditAction action, int propertyID, int propertyValue)
 {
     RefPtr<CSSMutableStyleDeclaration> style = CSSMutableStyleDeclaration::create();
     style->setProperty(propertyID, propertyValue);
-    // FIXME: We don't call shouldApplyStyle when the source is DOM; is there a good reason for that?
-    switch (source) {
-        case CommandFromMenuOrKeyBinding:
-            frame->editor()->applyStyleToSelection(style.get(), action);
-            return true;
-        case CommandFromDOM:
-        case CommandFromDOMWithUserInterface:
-            frame->editor()->applyStyle(style.get());
-            return true;
+    return applyCommandToFrame(frame, source, action, style.get());
+}
+
+// FIXME: executeToggleStyleInList does not handle complicated cases such as <b><u>hello</u>world</b> properly.
+//        This function must use Editor::selectionHasStyle to determine the current style but we cannot fix this
+//        until https://bugs.webkit.org/show_bug.cgi?id=27818 is resolved.
+static bool executeToggleStyleInList(Frame* frame, EditorCommandSource source, EditAction action, int propertyID, CSSValue* value)
+{
+    ExceptionCode ec = 0;
+    Node* nodeToRemove = 0;
+    RefPtr<CSSComputedStyleDeclaration> selectionStyle = frame->selectionComputedStyle(nodeToRemove);
+    RefPtr<CSSValue> selectedCSSValue = selectionStyle->getPropertyCSSValue(propertyID);
+    String newStyle = "none";
+    if (selectedCSSValue->isValueList()) {
+        RefPtr<CSSValueList> selectedCSSValueList = static_cast<CSSValueList*>(selectedCSSValue.get());
+        if (!selectedCSSValueList->removeAll(value))
+            selectedCSSValueList->append(value);
+        if (selectedCSSValueList->length())
+            newStyle = selectedCSSValueList->cssText();
+
+    } else if (selectedCSSValue->cssText() == "none")
+        newStyle = value->cssText();
+
+    ASSERT(ec == 0);
+    if (nodeToRemove) {
+        nodeToRemove->remove(ec);
+        ASSERT(ec == 0);
     }
-    ASSERT_NOT_REACHED();
-    return false;
+
+    // FIXME: We shouldn't be having to convert new style into text.  We should have setPropertyCSSValue.
+    RefPtr<CSSMutableStyleDeclaration> newMutableStyle = CSSMutableStyleDeclaration::create();
+    newMutableStyle->setProperty(propertyID, newStyle,ec);
+    return applyCommandToFrame(frame, source, action, newMutableStyle.get());
 }
 
 static bool executeToggleStyle(Frame* frame, EditorCommandSource source, EditAction action, int propertyID, const char* offValue, const char* onValue)
 {
     RefPtr<CSSMutableStyleDeclaration> style = CSSMutableStyleDeclaration::create();
-    style->setProperty(propertyID, onValue);
-    style->setProperty(propertyID, frame->editor()->selectionStartHasStyle(style.get()) ? offValue : onValue);
-    // FIXME: We don't call shouldApplyStyle when the source is DOM; is there a good reason for that?
-    switch (source) {
-        case CommandFromMenuOrKeyBinding:
-            frame->editor()->applyStyleToSelection(style.get(), action);
-            return true;
-        case CommandFromDOM:
-        case CommandFromDOMWithUserInterface:
-            frame->editor()->applyStyle(style.get());
-            return true;
-    }
-    ASSERT_NOT_REACHED();
-    return false;
+    style->setProperty(propertyID, onValue); // We need to add this style to pass it to selectionStartHasStyle / selectionHasStyle
+
+    // Style is considered present when
+    // mac: present at the beginning of selection
+    // other: present throughout the selection
+    Settings* settings = frame->document()->settings();
+    bool styleIsPresent;
+    if (settings && settings->editingBehavior() == EditingMacBehavior)
+        styleIsPresent = frame->editor()->selectionStartHasStyle(style.get());
+    else
+        styleIsPresent = frame->editor()->selectionHasStyle(style.get()) == TrueTriState;
+
+    style->setProperty(propertyID, styleIsPresent ? offValue : onValue);
+    return applyCommandToFrame(frame, source, action, style.get());
 }
 
 static bool executeApplyParagraphStyle(Frame* frame, EditorCommandSource source, EditAction action, int propertyID, const String& propertyValue)
@@ -176,7 +201,7 @@ static bool executeInsertFragment(Frame* frame, PassRefPtr<DocumentFragment> fra
 
 static bool executeInsertNode(Frame* frame, PassRefPtr<Node> content)
 {
-    RefPtr<DocumentFragment> fragment = new DocumentFragment(frame->document());
+    RefPtr<DocumentFragment> fragment = DocumentFragment::create(frame->document());
     ExceptionCode ec = 0;
     fragment->appendChild(content, ec);
     if (ec)
@@ -232,10 +257,10 @@ static int verticalScrollDistance(Frame* frame)
     RenderStyle* style = renderer->style();
     if (!style)
         return 0;
-    if (!(style->overflowY() == OSCROLL || style->overflowY() == OAUTO || renderer->isTextArea()))
+    if (!(style->overflowY() == OSCROLL || style->overflowY() == OAUTO || focusedNode->isContentEditable()))
         return 0;
     int height = toRenderBox(renderer)->clientHeight();
-    return max((height + 1) / 2, height - cAmountToKeepWhenPaging);
+    return max(max<int>(height * Scrollbar::minFractionToStepWhenPaging(), height - Scrollbar::maxOverlapBetweenPages()), 1);
 }
 
 static RefPtr<Range> unionDOMRanges(Range* a, Range* b)
@@ -445,9 +470,9 @@ static bool executeInsertBacktab(Frame* frame, Event* event, EditorCommandSource
 
 static bool executeInsertHorizontalRule(Frame* frame, Event*, EditorCommandSource, const String& value)
 {
-    RefPtr<HTMLElement> hr = new HTMLElement(hrTag, frame->document());
+    RefPtr<HTMLHRElement> hr = new HTMLHRElement(hrTag, frame->document());
     if (!value.isEmpty())
-        hr->setId(value);
+        hr->setAttribute(hr->idAttributeName(), value);
     return executeInsertNode(frame, hr.release());
 }
 
@@ -937,7 +962,8 @@ static bool executeSetMark(Frame* frame, Event*, EditorCommandSource, const Stri
 
 static bool executeStrikethrough(Frame* frame, Event*, EditorCommandSource source, const String&)
 {
-    return executeToggleStyle(frame, source, EditActionChangeAttributes, CSSPropertyWebkitTextDecorationsInEffect, "none", "line-through");
+    RefPtr<CSSPrimitiveValue> lineThrough = CSSPrimitiveValue::createIdentifier(CSSValueLineThrough);
+    return executeToggleStyleInList(frame, source, EditActionUnderline, CSSPropertyWebkitTextDecorationsInEffect, lineThrough.get());
 }
 
 static bool executeStyleWithCSS(Frame* frame, Event*, EditorCommandSource, const String& value)
@@ -990,8 +1016,8 @@ static bool executeTranspose(Frame* frame, Event*, EditorCommandSource, const St
 
 static bool executeUnderline(Frame* frame, Event*, EditorCommandSource source, const String&)
 {
-    // FIXME: This currently clears overline, line-through, and blink as an unwanted side effect.
-    return executeToggleStyle(frame, source, EditActionUnderline, CSSPropertyWebkitTextDecorationsInEffect, "none", "underline");
+    RefPtr<CSSPrimitiveValue> underline = CSSPrimitiveValue::createIdentifier(CSSValueUnderline);
+    return executeToggleStyleInList(frame, source, EditActionUnderline, CSSPropertyWebkitTextDecorationsInEffect, underline.get());
 }
 
 static bool executeUndo(Frame* frame, Event*, EditorCommandSource, const String&)
@@ -1043,6 +1069,21 @@ static bool supportedFromMenuOrKeyBinding(Frame*, EditorCommandSource source)
     return source == CommandFromMenuOrKeyBinding;
 }
 
+static bool supportedCopyCut(Frame* frame, EditorCommandSource source)
+{
+    switch (source) {
+        case CommandFromMenuOrKeyBinding:
+            return true;
+        case CommandFromDOM:
+        case CommandFromDOMWithUserInterface: {
+            Settings* settings = frame ? frame->settings() : 0;
+            return settings && settings->javaScriptCanAccessClipboard();
+        }
+    }
+    ASSERT_NOT_REACHED();
+    return false;
+}
+
 static bool supportedPaste(Frame* frame, EditorCommandSource source)
 {
     switch (source) {
@@ -1051,7 +1092,7 @@ static bool supportedPaste(Frame* frame, EditorCommandSource source)
         case CommandFromDOM:
         case CommandFromDOMWithUserInterface: {
             Settings* settings = frame ? frame->settings() : 0;
-            return settings && settings->isDOMPasteAllowed();
+            return settings && (settings->javaScriptCanAccessClipboard() ? settings->isDOMPasteAllowed() : 0);
         }
     }
     ASSERT_NOT_REACHED();
@@ -1070,6 +1111,19 @@ static bool enabledVisibleSelection(Frame* frame, Event* event, EditorCommandSou
     // The term "visible" here includes a caret in editable text or a range in any text.
     const VisibleSelection& selection = frame->editor()->selectionForCommand(event);
     return (selection.isCaret() && selection.isContentEditable()) || selection.isRange();
+}
+
+static bool caretBrowsingEnabled(Frame* frame)
+{
+    return frame->settings() && frame->settings()->caretBrowsingEnabled();
+}
+
+static EditorCommandSource dummyEditorCommandSource = static_cast<EditorCommandSource>(0);
+
+static bool enabledVisibleSelectionOrCaretBrowsing(Frame* frame, Event* event, EditorCommandSource)
+{
+    // The EditorCommandSource parameter is unused in enabledVisibleSelection, so just pass a dummy variable
+    return caretBrowsingEnabled(frame) || enabledVisibleSelection(frame, event, dummyEditorCommandSource);
 }
 
 static bool enabledVisibleSelectionAndMark(Frame* frame, Event* event, EditorCommandSource)
@@ -1114,6 +1168,12 @@ static bool enabledDelete(Frame* frame, Event* event, EditorCommandSource source
 static bool enabledInEditableText(Frame* frame, Event* event, EditorCommandSource)
 {
     return frame->editor()->selectionForCommand(event).isContentEditable();
+}
+
+static bool enabledInEditableTextOrCaretBrowsing(Frame* frame, Event* event, EditorCommandSource)
+{
+    // The EditorCommandSource parameter is unused in enabledInEditableText, so just pass a dummy variable
+    return caretBrowsingEnabled(frame) || enabledInEditableText(frame, event, dummyEditorCommandSource);
 }
 
 static bool enabledInRichlyEditableText(Frame* frame, Event*, EditorCommandSource)
@@ -1170,7 +1230,7 @@ static TriState stateOrderedList(Frame* frame, Event*)
 
 static TriState stateStrikethrough(Frame* frame, Event*)
 {
-    return stateStyle(frame, CSSPropertyTextDecoration, "line-through");
+    return stateStyle(frame, CSSPropertyWebkitTextDecorationsInEffect, "line-through");
 }
 
 static TriState stateStyleWithCSS(Frame* frame, Event*)
@@ -1205,7 +1265,7 @@ static TriState stateTextWritingDirectionRightToLeft(Frame* frame, Event*)
 
 static TriState stateUnderline(Frame* frame, Event*)
 {
-    return stateStyle(frame, CSSPropertyTextDecoration, "underline");
+    return stateStyle(frame, CSSPropertyWebkitTextDecorationsInEffect, "underline");
 }
 
 static TriState stateUnorderedList(Frame* frame, Event*)
@@ -1247,10 +1307,10 @@ static String valueForeColor(Frame* frame, Event*)
 
 // Map of functions
 
+struct CommandEntry { const char* name; EditorInternalCommand command; };
+
 static const CommandMap& createCommandMap()
 {
-    struct CommandEntry { const char* name; EditorInternalCommand command; };
-    
     static const CommandEntry commands[] = {
         { "AlignCenter", { executeJustifyCenter, supportedFromMenuOrKeyBinding, enabledInRichlyEditableText, stateNone, valueNull, notTextInsertion, doNotAllowExecutionWhenDisabled } },
         { "AlignJustified", { executeJustifyFull, supportedFromMenuOrKeyBinding, enabledInRichlyEditableText, stateNone, valueNull, notTextInsertion, doNotAllowExecutionWhenDisabled } },
@@ -1259,9 +1319,9 @@ static const CommandMap& createCommandMap()
         { "BackColor", { executeBackColor, supported, enabledInRichlyEditableText, stateNone, valueBackColor, notTextInsertion, doNotAllowExecutionWhenDisabled } },
         { "BackwardDelete", { executeDeleteBackward, supportedFromMenuOrKeyBinding, enabledInEditableText, stateNone, valueNull, notTextInsertion, doNotAllowExecutionWhenDisabled } }, // FIXME: remove BackwardDelete when Safari for Windows stops using it.
         { "Bold", { executeToggleBold, supported, enabledInRichlyEditableText, stateBold, valueNull, notTextInsertion, doNotAllowExecutionWhenDisabled } },
-        { "Copy", { executeCopy, supported, enabledCopy, stateNone, valueNull, notTextInsertion, allowExecutionWhenDisabled } },
+        { "Copy", { executeCopy, supportedCopyCut, enabledCopy, stateNone, valueNull, notTextInsertion, allowExecutionWhenDisabled } },
         { "CreateLink", { executeCreateLink, supported, enabledInRichlyEditableText, stateNone, valueNull, notTextInsertion, doNotAllowExecutionWhenDisabled } },
-        { "Cut", { executeCut, supported, enabledCut, stateNone, valueNull, notTextInsertion, allowExecutionWhenDisabled } },
+        { "Cut", { executeCut, supportedCopyCut, enabledCut, stateNone, valueNull, notTextInsertion, allowExecutionWhenDisabled } },
         { "Delete", { executeDelete, supported, enabledDelete, stateNone, valueNull, notTextInsertion, doNotAllowExecutionWhenDisabled } },
         { "DeleteBackward", { executeDeleteBackward, supportedFromMenuOrKeyBinding, enabledInEditableText, stateNone, valueNull, notTextInsertion, doNotAllowExecutionWhenDisabled } },
         { "DeleteBackwardByDecomposingPreviousCharacter", { executeDeleteBackwardByDecomposingPreviousCharacter, supportedFromMenuOrKeyBinding, enabledInEditableText, stateNone, valueNull, notTextInsertion, doNotAllowExecutionWhenDisabled } },
@@ -1306,20 +1366,20 @@ static const CommandMap& createCommandMap()
         { "MakeTextWritingDirectionRightToLeft", { executeMakeTextWritingDirectionRightToLeft, supportedFromMenuOrKeyBinding, enabledInRichlyEditableText, stateTextWritingDirectionRightToLeft, valueNull, notTextInsertion, doNotAllowExecutionWhenDisabled } },
         { "MoveBackward", { executeMoveBackward, supportedFromMenuOrKeyBinding, enabledInEditableText, stateNone, valueNull, notTextInsertion, doNotAllowExecutionWhenDisabled } },
         { "MoveBackwardAndModifySelection", { executeMoveBackwardAndModifySelection, supportedFromMenuOrKeyBinding, enabledVisibleSelection, stateNone, valueNull, notTextInsertion, doNotAllowExecutionWhenDisabled } },
-        { "MoveDown", { executeMoveDown, supportedFromMenuOrKeyBinding, enabledInEditableText, stateNone, valueNull, notTextInsertion, doNotAllowExecutionWhenDisabled } },
-        { "MoveDownAndModifySelection", { executeMoveDownAndModifySelection, supportedFromMenuOrKeyBinding, enabledVisibleSelection, stateNone, valueNull, notTextInsertion, doNotAllowExecutionWhenDisabled } },
+        { "MoveDown", { executeMoveDown, supportedFromMenuOrKeyBinding, enabledInEditableTextOrCaretBrowsing, stateNone, valueNull, notTextInsertion, doNotAllowExecutionWhenDisabled } },
+        { "MoveDownAndModifySelection", { executeMoveDownAndModifySelection, supportedFromMenuOrKeyBinding, enabledVisibleSelectionOrCaretBrowsing, stateNone, valueNull, notTextInsertion, doNotAllowExecutionWhenDisabled } },
         { "MoveForward", { executeMoveForward, supportedFromMenuOrKeyBinding, enabledInEditableText, stateNone, valueNull, notTextInsertion, doNotAllowExecutionWhenDisabled } },
         { "MoveForwardAndModifySelection", { executeMoveForwardAndModifySelection, supportedFromMenuOrKeyBinding, enabledVisibleSelection, stateNone, valueNull, notTextInsertion, doNotAllowExecutionWhenDisabled } },
-        { "MoveLeft", { executeMoveLeft, supportedFromMenuOrKeyBinding, enabledInEditableText, stateNone, valueNull, notTextInsertion, doNotAllowExecutionWhenDisabled } },
-        { "MoveLeftAndModifySelection", { executeMoveLeftAndModifySelection, supportedFromMenuOrKeyBinding, enabledVisibleSelection, stateNone, valueNull, notTextInsertion, doNotAllowExecutionWhenDisabled } },
+        { "MoveLeft", { executeMoveLeft, supportedFromMenuOrKeyBinding, enabledInEditableTextOrCaretBrowsing, stateNone, valueNull, notTextInsertion, doNotAllowExecutionWhenDisabled } },
+        { "MoveLeftAndModifySelection", { executeMoveLeftAndModifySelection, supportedFromMenuOrKeyBinding, enabledVisibleSelectionOrCaretBrowsing, stateNone, valueNull, notTextInsertion, doNotAllowExecutionWhenDisabled } },
         { "MovePageDown", { executeMovePageDown, supportedFromMenuOrKeyBinding, enabledInEditableText, stateNone, valueNull, notTextInsertion, doNotAllowExecutionWhenDisabled } },
         { "MovePageDownAndModifySelection", { executeMovePageDownAndModifySelection, supportedFromMenuOrKeyBinding, enabledVisibleSelection, stateNone, valueNull, notTextInsertion, doNotAllowExecutionWhenDisabled } },
         { "MovePageUp", { executeMovePageUp, supportedFromMenuOrKeyBinding, enabledInEditableText, stateNone, valueNull, notTextInsertion, doNotAllowExecutionWhenDisabled } },
         { "MovePageUpAndModifySelection", { executeMovePageUpAndModifySelection, supportedFromMenuOrKeyBinding, enabledVisibleSelection, stateNone, valueNull, notTextInsertion, doNotAllowExecutionWhenDisabled } },
-        { "MoveParagraphBackwardAndModifySelection", { executeMoveParagraphBackwardAndModifySelection, supportedFromMenuOrKeyBinding, enabledVisibleSelection, stateNone, valueNull, notTextInsertion, doNotAllowExecutionWhenDisabled } },
-        { "MoveParagraphForwardAndModifySelection", { executeMoveParagraphForwardAndModifySelection, supportedFromMenuOrKeyBinding, enabledVisibleSelection, stateNone, valueNull, notTextInsertion, doNotAllowExecutionWhenDisabled } },
-        { "MoveRight", { executeMoveRight, supportedFromMenuOrKeyBinding, enabledInEditableText, stateNone, valueNull, notTextInsertion, doNotAllowExecutionWhenDisabled } },
-        { "MoveRightAndModifySelection", { executeMoveRightAndModifySelection, supportedFromMenuOrKeyBinding, enabledVisibleSelection, stateNone, valueNull, notTextInsertion, doNotAllowExecutionWhenDisabled } },
+        { "MoveParagraphBackwardAndModifySelection", { executeMoveParagraphBackwardAndModifySelection, supportedFromMenuOrKeyBinding, enabledVisibleSelectionOrCaretBrowsing, stateNone, valueNull, notTextInsertion, doNotAllowExecutionWhenDisabled } },
+        { "MoveParagraphForwardAndModifySelection", { executeMoveParagraphForwardAndModifySelection, supportedFromMenuOrKeyBinding, enabledVisibleSelectionOrCaretBrowsing, stateNone, valueNull, notTextInsertion, doNotAllowExecutionWhenDisabled } },
+        { "MoveRight", { executeMoveRight, supportedFromMenuOrKeyBinding, enabledInEditableTextOrCaretBrowsing, stateNone, valueNull, notTextInsertion, doNotAllowExecutionWhenDisabled } },
+        { "MoveRightAndModifySelection", { executeMoveRightAndModifySelection, supportedFromMenuOrKeyBinding, enabledVisibleSelectionOrCaretBrowsing, stateNone, valueNull, notTextInsertion, doNotAllowExecutionWhenDisabled } },
         { "MoveToBeginningOfDocument", { executeMoveToBeginningOfDocument, supportedFromMenuOrKeyBinding, enabledInEditableText, stateNone, valueNull, notTextInsertion, doNotAllowExecutionWhenDisabled } },
         { "MoveToBeginningOfDocumentAndModifySelection", { executeMoveToBeginningOfDocumentAndModifySelection, supportedFromMenuOrKeyBinding, enabledVisibleSelection, stateNone, valueNull, notTextInsertion, doNotAllowExecutionWhenDisabled } },
         { "MoveToBeginningOfLine", { executeMoveToBeginningOfLine, supportedFromMenuOrKeyBinding, enabledInEditableText, stateNone, valueNull, notTextInsertion, doNotAllowExecutionWhenDisabled } },
@@ -1340,16 +1400,16 @@ static const CommandMap& createCommandMap()
         { "MoveToLeftEndOfLineAndModifySelection", { executeMoveToLeftEndOfLineAndModifySelection, supportedFromMenuOrKeyBinding, enabledInEditableText, stateNone, valueNull, notTextInsertion, doNotAllowExecutionWhenDisabled } },
         { "MoveToRightEndOfLine", { executeMoveToRightEndOfLine, supportedFromMenuOrKeyBinding, enabledInEditableText, stateNone, valueNull, notTextInsertion, doNotAllowExecutionWhenDisabled } },
         { "MoveToRightEndOfLineAndModifySelection", { executeMoveToRightEndOfLineAndModifySelection, supportedFromMenuOrKeyBinding, enabledInEditableText, stateNone, valueNull, notTextInsertion, doNotAllowExecutionWhenDisabled } },
-        { "MoveUp", { executeMoveUp, supportedFromMenuOrKeyBinding, enabledInEditableText, stateNone, valueNull, notTextInsertion, doNotAllowExecutionWhenDisabled } },
-        { "MoveUpAndModifySelection", { executeMoveUpAndModifySelection, supportedFromMenuOrKeyBinding, enabledVisibleSelection, stateNone, valueNull, notTextInsertion, doNotAllowExecutionWhenDisabled } },
+        { "MoveUp", { executeMoveUp, supportedFromMenuOrKeyBinding, enabledInEditableTextOrCaretBrowsing, stateNone, valueNull, notTextInsertion, doNotAllowExecutionWhenDisabled } },
+        { "MoveUpAndModifySelection", { executeMoveUpAndModifySelection, supportedFromMenuOrKeyBinding, enabledVisibleSelectionOrCaretBrowsing, stateNone, valueNull, notTextInsertion, doNotAllowExecutionWhenDisabled } },
         { "MoveWordBackward", { executeMoveWordBackward, supportedFromMenuOrKeyBinding, enabledInEditableText, stateNone, valueNull, notTextInsertion, doNotAllowExecutionWhenDisabled } },
         { "MoveWordBackwardAndModifySelection", { executeMoveWordBackwardAndModifySelection, supportedFromMenuOrKeyBinding, enabledVisibleSelection, stateNone, valueNull, notTextInsertion, doNotAllowExecutionWhenDisabled } },
         { "MoveWordForward", { executeMoveWordForward, supportedFromMenuOrKeyBinding, enabledInEditableText, stateNone, valueNull, notTextInsertion, doNotAllowExecutionWhenDisabled } },
         { "MoveWordForwardAndModifySelection", { executeMoveWordForwardAndModifySelection, supportedFromMenuOrKeyBinding, enabledVisibleSelection, stateNone, valueNull, notTextInsertion, doNotAllowExecutionWhenDisabled } },
-        { "MoveWordLeft", { executeMoveWordLeft, supportedFromMenuOrKeyBinding, enabledInEditableText, stateNone, valueNull, notTextInsertion, doNotAllowExecutionWhenDisabled } },
-        { "MoveWordLeftAndModifySelection", { executeMoveWordLeftAndModifySelection, supportedFromMenuOrKeyBinding, enabledVisibleSelection, stateNone, valueNull, notTextInsertion, doNotAllowExecutionWhenDisabled } },
-        { "MoveWordRight", { executeMoveWordRight, supportedFromMenuOrKeyBinding, enabledInEditableText, stateNone, valueNull, notTextInsertion, doNotAllowExecutionWhenDisabled } },
-        { "MoveWordRightAndModifySelection", { executeMoveWordRightAndModifySelection, supportedFromMenuOrKeyBinding, enabledVisibleSelection, stateNone, valueNull, notTextInsertion, doNotAllowExecutionWhenDisabled } },
+        { "MoveWordLeft", { executeMoveWordLeft, supportedFromMenuOrKeyBinding, enabledInEditableTextOrCaretBrowsing, stateNone, valueNull, notTextInsertion, doNotAllowExecutionWhenDisabled } },
+        { "MoveWordLeftAndModifySelection", { executeMoveWordLeftAndModifySelection, supportedFromMenuOrKeyBinding, enabledVisibleSelectionOrCaretBrowsing, stateNone, valueNull, notTextInsertion, doNotAllowExecutionWhenDisabled } },
+        { "MoveWordRight", { executeMoveWordRight, supportedFromMenuOrKeyBinding, enabledInEditableTextOrCaretBrowsing, stateNone, valueNull, notTextInsertion, doNotAllowExecutionWhenDisabled } },
+        { "MoveWordRightAndModifySelection", { executeMoveWordRightAndModifySelection, supportedFromMenuOrKeyBinding, enabledVisibleSelectionOrCaretBrowsing, stateNone, valueNull, notTextInsertion, doNotAllowExecutionWhenDisabled } },
         { "Outdent", { executeOutdent, supported, enabledInRichlyEditableText, stateNone, valueNull, notTextInsertion, doNotAllowExecutionWhenDisabled } },
         { "Paste", { executePaste, supportedPaste, enabledPaste, stateNone, valueNull, notTextInsertion, allowExecutionWhenDisabled } },
         { "PasteAndMatchStyle", { executePasteAndMatchStyle, supportedPaste, enabledPaste, stateNone, valueNull, notTextInsertion, allowExecutionWhenDisabled } },

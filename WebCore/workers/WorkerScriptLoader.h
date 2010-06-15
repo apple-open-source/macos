@@ -30,6 +30,8 @@
 
 #if ENABLE(WORKERS)
 
+#include "KURL.h"
+#include "ResourceRequest.h"
 #include "ResourceResponse.h"
 #include "ScriptString.h"
 #include "TextResourceDecoder.h"
@@ -43,12 +45,15 @@ namespace WebCore {
 
     class WorkerScriptLoader : public ThreadableLoaderClient {
     public:
-        WorkerScriptLoader();
+        explicit WorkerScriptLoader(ResourceRequestBase::TargetType);
 
-        void loadSynchronously(ScriptExecutionContext*, const String& url, CrossOriginRedirectPolicy);
-        void loadAsynchronously(ScriptExecutionContext*, const String& url, CrossOriginRedirectPolicy, WorkerScriptLoaderClient*);
+        void loadSynchronously(ScriptExecutionContext*, const KURL&, CrossOriginRequestPolicy);
+        void loadAsynchronously(ScriptExecutionContext*, const KURL&, CrossOriginRequestPolicy, WorkerScriptLoaderClient*);
+
+        void notifyError();
 
         const String& script() const { return m_script; }
+        const KURL& url() const { return m_url; }
         bool failed() const { return m_failed; }
         unsigned long identifier() const { return m_identifier; }
 
@@ -60,6 +65,7 @@ namespace WebCore {
         virtual void didReceiveAuthenticationCancellation(const ResourceResponse&);
 
     private:
+        PassOwnPtr<ResourceRequest> createResourceRequest();
         void notifyFinished();
 
         WorkerScriptLoaderClient* m_client;
@@ -67,8 +73,10 @@ namespace WebCore {
         String m_responseEncoding;        
         RefPtr<TextResourceDecoder> m_decoder;
         String m_script;
+        KURL m_url;
         bool m_failed;
         unsigned long m_identifier;
+        ResourceRequestBase::TargetType m_targetType;
     };
 
 } // namespace WebCore

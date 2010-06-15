@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2007, 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2009 Torch Mobile Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -31,7 +32,7 @@
 
 #include "Assertions.h"
 #include "Threading.h"
-#if !PLATFORM(WINCE)
+#if !OS(WINCE)
 #include <windows.h>
 #endif
 
@@ -55,16 +56,29 @@ void initializeMainThreadPlatform()
     if (threadingWindowHandle)
         return;
 
+    HWND hWndParent = 0;
+#if OS(WINCE)
+    WNDCLASS wcex;
+    memset(&wcex, 0, sizeof(WNDCLASS));
+#else
     WNDCLASSEX wcex;
     memset(&wcex, 0, sizeof(WNDCLASSEX));
     wcex.cbSize = sizeof(WNDCLASSEX);
+#endif
     wcex.lpfnWndProc    = ThreadingWindowWndProc;
     wcex.lpszClassName  = kThreadingWindowClassName;
+#if OS(WINCE)
+    RegisterClass(&wcex);
+#else
     RegisterClassEx(&wcex);
+    hWndParent = HWND_MESSAGE;
+#endif
 
     threadingWindowHandle = CreateWindow(kThreadingWindowClassName, 0, 0,
-       CW_USEDEFAULT, 0, CW_USEDEFAULT, 0, HWND_MESSAGE, 0, 0, 0);
+       CW_USEDEFAULT, 0, CW_USEDEFAULT, 0, hWndParent, 0, 0, 0);
     threadingFiredMessage = RegisterWindowMessage(L"com.apple.WebKit.MainThreadFired");
+
+    initializeCurrentThreadInternal("Main Thread");
 }
 
 void scheduleDispatchFunctionsOnMainThread()

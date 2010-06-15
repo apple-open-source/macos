@@ -127,7 +127,9 @@ enum {
 
     kIOFBNotifyOnlineChange     = 40,
 
-    kIOFBNotifyDisplayDimsChange = 50
+    kIOFBNotifyDisplayDimsChange = 50,
+
+    kIOFBNotifyProbed           = 60,
 };
 
 enum {

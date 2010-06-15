@@ -31,92 +31,99 @@
 
 #include "PlatformString.h"
 
-#if ENABLE(JAVASCRIPT_DEBUGGER)
-#include <profiler/Profile.h>
-#endif
+#include "ScriptProfile.h"
 
-#include <wtf/RefCounted.h>
 #include <wtf/PassRefPtr.h>
+#include <wtf/RefCounted.h>
 
 namespace WebCore {
 
 #if ENABLE(JAVASCRIPT_DEBUGGER)
-    typedef Vector<RefPtr<JSC::Profile> > ProfilesArray;
+typedef Vector<RefPtr<ScriptProfile> > ProfilesArray;
 #endif
 
-    class Frame;
-    class Page;
-    class String;
-    class ScriptCallStack;
+class Frame;
+class Page;
+class String;
+class ScriptCallStack;
 
-    // Keep in sync with inspector/front-end/Console.js
-    enum MessageSource {
-        HTMLMessageSource,
-        WMLMessageSource,
-        XMLMessageSource,
-        JSMessageSource,
-        CSSMessageSource,
-        OtherMessageSource
-    };
+// Keep in sync with inspector/front-end/Console.js
+enum MessageSource {
+    HTMLMessageSource,
+    WMLMessageSource,
+    XMLMessageSource,
+    JSMessageSource,
+    CSSMessageSource,
+    OtherMessageSource
+};
 
-    enum MessageLevel {
-        TipMessageLevel,
-        LogMessageLevel,
-        WarningMessageLevel,
-        ErrorMessageLevel,
-        // FIXME: the remaining levels should become a new MessageType enum.
-        ObjectMessageLevel,
-        TraceMessageLevel,
-        StartGroupMessageLevel,
-        EndGroupMessageLevel
-    };
+enum MessageType {
+    LogMessageType,
+    ObjectMessageType,
+    TraceMessageType,
+    StartGroupMessageType,
+    EndGroupMessageType,
+    AssertMessageType
+};
 
-    class Console : public RefCounted<Console> {
-    public:
-        static PassRefPtr<Console> create(Frame* frame) { return adoptRef(new Console(frame)); }
+enum MessageLevel {
+    TipMessageLevel,
+    LogMessageLevel,
+    WarningMessageLevel,
+    ErrorMessageLevel,
+    DebugMessageLevel
+};
 
-        Frame* frame() const;
-        void disconnectFrame();
+class Console : public RefCounted<Console> {
+public:
+    static PassRefPtr<Console> create(Frame* frame) { return adoptRef(new Console(frame)); }
 
-        void addMessage(MessageSource, MessageLevel, const String& message, unsigned lineNumber, const String& sourceURL);
+    Frame* frame() const;
+    void disconnectFrame();
 
-        void debug(ScriptCallStack*);
-        void error(ScriptCallStack*);
-        void info(ScriptCallStack*);
-        void log(ScriptCallStack*);
-        void warn(ScriptCallStack*);
-        void dir(ScriptCallStack*);
-        void dirxml(ScriptCallStack*);
-        void trace(ScriptCallStack*);
-        void assertCondition(bool condition, ScriptCallStack*);
-        void count(ScriptCallStack*);
+    void addMessage(MessageSource, MessageType, MessageLevel, const String& message, unsigned lineNumber, const String& sourceURL);
+
+    void debug(ScriptCallStack*);
+    void error(ScriptCallStack*);
+    void info(ScriptCallStack*);
+    void log(ScriptCallStack*);
+    void warn(ScriptCallStack*);
+    void dir(ScriptCallStack*);
+    void dirxml(ScriptCallStack*);
+    void trace(ScriptCallStack*);
+    void assertCondition(bool condition, ScriptCallStack*);
+    void count(ScriptCallStack*);
+    void markTimeline(ScriptCallStack*);
+#if ENABLE(WML)
+    String lastWMLErrorMessage() const;
+#endif
 #if ENABLE(JAVASCRIPT_DEBUGGER)
-        void profile(const JSC::UString&, ScriptCallStack*);
-        void profileEnd(const JSC::UString&, ScriptCallStack*);
+    void profile(const String&, ScriptCallStack*);
+    void profileEnd(const String&, ScriptCallStack*);
 #endif
-        void time(const String&);
-        void timeEnd(const String&, ScriptCallStack*);
-        void group(ScriptCallStack*);
-        void groupEnd();
+    void time(const String&);
+    void timeEnd(const String&, ScriptCallStack*);
+    void group(ScriptCallStack*);
+    void groupEnd();
 
-        static bool shouldPrintExceptions();
-        static void setShouldPrintExceptions(bool);
+    static bool shouldPrintExceptions();
+    static void setShouldPrintExceptions(bool);
 
 #if ENABLE(JAVASCRIPT_DEBUGGER)
-        const ProfilesArray& profiles() const { return m_profiles; }
+    const ProfilesArray& profiles() const { return m_profiles; }
 #endif
 
-    private:
-        inline Page* page() const;
-        void addMessage(MessageLevel, ScriptCallStack*, bool acceptNoArguments = false);
+private:
+    inline Page* page() const;
+    void addMessage(MessageType, MessageLevel, ScriptCallStack*, bool acceptNoArguments = false);
 
-        Console(Frame*);
+    Console(Frame*);
 
-        Frame* m_frame;
+    Frame* m_frame;
 #if ENABLE(JAVASCRIPT_DEBUGGER)
-        ProfilesArray m_profiles;
+    ProfilesArray m_profiles;
 #endif
-    };
+};
 
 } // namespace WebCore
 

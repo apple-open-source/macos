@@ -1,6 +1,4 @@
 /*
- * This file is part of the DOM implementation for KDE.
- *
  * Copyright (C) 2006 Apple Computer, Inc.
  *
  * This library is free software; you can redistribute it and/or
@@ -20,17 +18,10 @@
  *
  */
 
-#ifndef AtomicStringImpl_h
-#define AtomicStringImpl_h
+#ifndef WebCoreAtomicStringImpl_h
+#define WebCoreAtomicStringImpl_h
 
-#include "StringImpl.h"
-
-namespace WebCore {
-
-class AtomicStringImpl : public StringImpl
-{
-};
-
-}
+// FIXME: remove this header, use the forward from wtf directly.
+#include <wtf/text/AtomicStringImpl.h>
 
 #endif

@@ -72,6 +72,8 @@ HRESULT STDMETHODCALLTYPE WebInspector::QueryInterface(REFIID riid, void** ppvOb
     *ppvObject = 0;
     if (IsEqualGUID(riid, IID_IWebInspector))
         *ppvObject = static_cast<IWebInspector*>(this);
+    else if (IsEqualGUID(riid, IID_IWebInspectorPrivate))
+        *ppvObject = static_cast<IWebInspectorPrivate*>(this);
     else if (IsEqualGUID(riid, IID_IUnknown))
         *ppvObject = static_cast<IWebInspector*>(this);
     else
@@ -129,19 +131,11 @@ HRESULT STDMETHODCALLTYPE WebInspector::close()
 
 HRESULT STDMETHODCALLTYPE WebInspector::attach()
 {
-    if (m_webView)
-        if (Page* page = m_webView->page())
-            page->inspectorController()->attachWindow();
-
     return S_OK;
 }
 
 HRESULT STDMETHODCALLTYPE WebInspector::detach()
 {
-    if (m_webView)
-        if (Page* page = m_webView->page())
-            page->inspectorController()->detachWindow();
-
     return S_OK;
 }
 
@@ -253,6 +247,55 @@ HRESULT STDMETHODCALLTYPE WebInspector::setJavaScriptProfilingEnabled(BOOL enabl
         page->inspectorController()->enableProfiler();
     else
         page->inspectorController()->disableProfiler();
+
+    return S_OK;
+}
+
+HRESULT STDMETHODCALLTYPE  WebInspector::evaluateInFrontend(ULONG callId, BSTR bScript)
+{
+    if (!m_webView)
+        return S_OK;
+
+    Page* page = m_webView->page();
+    if (!page)
+        return S_OK;
+
+    String script(bScript, SysStringLen(bScript));
+    page->inspectorController()->evaluateForTestInFrontend(callId, script);
+    return S_OK;
+}
+
+HRESULT STDMETHODCALLTYPE WebInspector::isTimelineProfilingEnabled(BOOL* isEnabled)
+{
+    if (!isEnabled)
+        return E_POINTER;
+
+    *isEnabled = FALSE;
+
+    if (!m_webView)
+        return S_OK;
+
+    Page* page = m_webView->page();
+    if (!page)
+        return S_OK;
+
+    *isEnabled = page->inspectorController()->timelineAgent() != 0;
+    return S_OK;
+}
+
+HRESULT STDMETHODCALLTYPE WebInspector::setTimelineProfilingEnabled(BOOL enabled)
+{
+    if (!m_webView)
+        return S_OK;
+
+    Page* page = m_webView->page();
+    if (!page)
+        return S_OK;
+
+    if (enabled)
+        page->inspectorController()->startTimelineProfiler();
+    else
+        page->inspectorController()->stopTimelineProfiler();
 
     return S_OK;
 }

@@ -43,7 +43,9 @@
 #include "WebHistory.h"
 #include "WebHistoryItem.h"
 #include "WebMutableURLRequest.h"
+#include "WebNavigationData.h"
 #include "WebNotificationCenter.h"
+#include "WebSecurityOrigin.h"
 #include "WebURLAuthenticationChallenge.h"
 #include "WebURLResponse.h"
 #include "WebView.h"
@@ -141,7 +143,7 @@ bool WebFrameLoaderClient::shouldUseCredentialStorage(DocumentLoader* loader, un
 void WebFrameLoaderClient::dispatchDidReceiveAuthenticationChallenge(DocumentLoader* loader, unsigned long identifier, const AuthenticationChallenge& challenge)
 {
 #if USE(CFNETWORK)
-    ASSERT(challenge.sourceHandle());
+    ASSERT(challenge.authenticationClient());
 
     WebView* webView = m_webFrame->webView();
     COMPtr<IWebResourceLoadDelegate> resourceLoadDelegate;
@@ -153,7 +155,7 @@ void WebFrameLoaderClient::dispatchDidReceiveAuthenticationChallenge(DocumentLoa
 
     // If the ResourceLoadDelegate doesn't exist or fails to handle the call, we tell the ResourceHandle
     // to continue without credential - this is the best approximation of Mac behavior
-    challenge.sourceHandle()->receivedRequestToContinueWithoutCredential(challenge);
+    challenge.authenticationClient()->receivedRequestToContinueWithoutCredential(challenge);
 #else
    notImplemented();
 #endif
@@ -186,6 +188,11 @@ void WebFrameLoaderClient::dispatchWillSendRequest(DocumentLoader* loader, unsig
 
     if (webURLRequest == newWebURLRequest)
         return;
+
+    if (!newWebURLRequest) {
+        request = ResourceRequest();
+        return;
+    }
 
     COMPtr<WebMutableURLRequest> newWebURLRequestImpl(Query, newWebURLRequest);
     if (!newWebURLRequestImpl)
@@ -234,10 +241,6 @@ void WebFrameLoaderClient::dispatchDidFailLoading(DocumentLoader* loader, unsign
 
     COMPtr<WebError> webError(AdoptCOM, WebError::createInstance(error));
     resourceLoadDelegate->didFailLoadingWithError(webView, identifier, webError.get(), getWebDataSource(loader));
-}
-
-void WebFrameLoaderClient::dispatchDidLoadResourceByXMLHttpRequest(unsigned long, const ScriptString&)
-{
 }
 
 bool WebFrameLoaderClient::shouldCacheResponse(DocumentLoader* loader, unsigned long identifier, const ResourceResponse& response, const unsigned char* data, const unsigned long long length)
@@ -299,6 +302,47 @@ void WebFrameLoaderClient::dispatchDidChangeLocationWithinPage()
         frameLoadDelegate->didChangeLocationWithinPageForFrame(webView, m_webFrame);
 }
 
+void WebFrameLoaderClient::dispatchDidPushStateWithinPage()
+{
+    WebView* webView = m_webFrame->webView();
+    COMPtr<IWebFrameLoadDelegatePrivate> frameLoadDelegatePriv;
+    if (FAILED(webView->frameLoadDelegatePrivate(&frameLoadDelegatePriv)) || !frameLoadDelegatePriv)
+        return;
+
+    COMPtr<IWebFrameLoadDelegatePrivate2> frameLoadDelegatePriv2(Query, frameLoadDelegatePriv);
+    if (!frameLoadDelegatePriv2)
+        return;
+
+    frameLoadDelegatePriv2->didPushStateWithinPageForFrame(webView, m_webFrame);
+}
+
+void WebFrameLoaderClient::dispatchDidReplaceStateWithinPage()
+{
+    WebView* webView = m_webFrame->webView();
+    COMPtr<IWebFrameLoadDelegatePrivate> frameLoadDelegatePriv;
+    if (FAILED(webView->frameLoadDelegatePrivate(&frameLoadDelegatePriv)) || !frameLoadDelegatePriv)
+        return;
+
+    COMPtr<IWebFrameLoadDelegatePrivate2> frameLoadDelegatePriv2(Query, frameLoadDelegatePriv);
+    if (!frameLoadDelegatePriv2)
+        return;
+
+    frameLoadDelegatePriv2->didReplaceStateWithinPageForFrame(webView, m_webFrame);
+}
+
+void WebFrameLoaderClient::dispatchDidPopStateWithinPage()
+{
+    WebView* webView = m_webFrame->webView();
+    COMPtr<IWebFrameLoadDelegatePrivate> frameLoadDelegatePriv;
+    if (FAILED(webView->frameLoadDelegatePrivate(&frameLoadDelegatePriv)) || !frameLoadDelegatePriv)
+        return;
+
+    COMPtr<IWebFrameLoadDelegatePrivate2> frameLoadDelegatePriv2(Query, frameLoadDelegatePriv);
+    if (!frameLoadDelegatePriv2)
+        return;
+
+    frameLoadDelegatePriv2->didPopStateWithinPageForFrame(webView, m_webFrame);
+}
 void WebFrameLoaderClient::dispatchWillClose()
 {
     WebView* webView = m_webFrame->webView();
@@ -326,6 +370,20 @@ void WebFrameLoaderClient::dispatchDidReceiveTitle(const String& title)
     COMPtr<IWebFrameLoadDelegate> frameLoadDelegate;
     if (SUCCEEDED(webView->frameLoadDelegate(&frameLoadDelegate)))
         frameLoadDelegate->didReceiveTitle(webView, BString(title), m_webFrame);
+}
+
+void WebFrameLoaderClient::dispatchDidChangeIcons()
+{
+    WebView* webView = m_webFrame->webView();
+    COMPtr<IWebFrameLoadDelegatePrivate> frameLoadDelegatePriv;
+    if (FAILED(webView->frameLoadDelegatePrivate(&frameLoadDelegatePriv)) || !frameLoadDelegatePriv)
+        return;
+
+    COMPtr<IWebFrameLoadDelegatePrivate2> frameLoadDelegatePriv2(Query, frameLoadDelegatePriv);
+    if (!frameLoadDelegatePriv2)
+        return;
+
+    frameLoadDelegatePriv2->didChangeIcons(webView, m_webFrame);
 }
 
 void WebFrameLoaderClient::dispatchDidCommitLoad()
@@ -465,7 +523,7 @@ void WebFrameLoaderClient::receivedData(const char* data, int length, const Stri
     bool userChosen = !encoding.isNull();
     if (encoding.isNull())
         encoding = textEncoding;
-    coreFrame->loader()->setEncoding(encoding, userChosen);
+    coreFrame->loader()->writer()->setEncoding(encoding, userChosen);
 
     coreFrame->loader()->addData(data, length);
 }
@@ -487,34 +545,67 @@ void WebFrameLoaderClient::finishedLoading(DocumentLoader* loader)
 
 void WebFrameLoaderClient::updateGlobalHistory()
 {
+    DocumentLoader* loader = core(m_webFrame)->loader()->documentLoader();
+    WebView* webView = m_webFrame->webView();
+    COMPtr<IWebHistoryDelegate> historyDelegate;
+    webView->historyDelegate(&historyDelegate);
+
+    if (historyDelegate) {
+        COMPtr<IWebURLResponse> urlResponse(AdoptCOM, WebURLResponse::createInstance(loader->response()));
+        COMPtr<IWebURLRequest> urlRequest(AdoptCOM, WebMutableURLRequest::createInstance(loader->originalRequestCopy()));
+        
+        COMPtr<IWebNavigationData> navigationData(AdoptCOM, WebNavigationData::createInstance(
+            loader->urlForHistory(), loader->title(), urlRequest.get(), urlResponse.get(), loader->substituteData().isValid(), loader->clientRedirectSourceForHistory()));
+
+        historyDelegate->didNavigateWithNavigationData(webView, navigationData.get(), m_webFrame);
+        return;
+    }
+
     WebHistory* history = WebHistory::sharedHistory();
     if (!history)
         return;
 
-    DocumentLoader* loader = core(m_webFrame)->loader()->documentLoader();
     history->visitedURL(loader->urlForHistory(), loader->title(), loader->originalRequestCopy().httpMethod(), loader->urlForHistoryReflectsFailure(), !loader->clientRedirectSourceForHistory());
 }
 
 void WebFrameLoaderClient::updateGlobalHistoryRedirectLinks()
 {
+    WebView* webView = m_webFrame->webView();
+    COMPtr<IWebHistoryDelegate> historyDelegate;
+    webView->historyDelegate(&historyDelegate);
+
     WebHistory* history = WebHistory::sharedHistory();
-    if (!history)
-        return;
 
     DocumentLoader* loader = core(m_webFrame)->loader()->documentLoader();
     ASSERT(loader->unreachableURL().isEmpty());
 
     if (!loader->clientRedirectSourceForHistory().isNull()) {
-        if (COMPtr<IWebHistoryItem> iWebHistoryItem = history->itemForURLString(loader->clientRedirectSourceForHistory())) {
-            COMPtr<WebHistoryItem> webHistoryItem(Query, iWebHistoryItem);
-            webHistoryItem->historyItem()->addRedirectURL(loader->clientRedirectDestinationForHistory());
+        if (historyDelegate) {
+            BString sourceURL(loader->clientRedirectSourceForHistory());
+            BString destURL(loader->clientRedirectDestinationForHistory());
+            historyDelegate->didPerformClientRedirectFromURL(webView, sourceURL, destURL, m_webFrame);
+        } else {
+            if (history) {
+                if (COMPtr<IWebHistoryItem> iWebHistoryItem = history->itemForURLString(loader->clientRedirectSourceForHistory())) {
+                    COMPtr<WebHistoryItem> webHistoryItem(Query, iWebHistoryItem);
+                    webHistoryItem->historyItem()->addRedirectURL(loader->clientRedirectDestinationForHistory());
+                }
+            }
         }
     }
 
     if (!loader->serverRedirectSourceForHistory().isNull()) {
-        if (COMPtr<IWebHistoryItem> iWebHistoryItem = history->itemForURLString(loader->serverRedirectSourceForHistory())) {
-            COMPtr<WebHistoryItem> webHistoryItem(Query, iWebHistoryItem);
-            webHistoryItem->historyItem()->addRedirectURL(loader->serverRedirectDestinationForHistory());
+        if (historyDelegate) {
+            BString sourceURL(loader->serverRedirectSourceForHistory());
+            BString destURL(loader->serverRedirectDestinationForHistory());
+            historyDelegate->didPerformServerRedirectFromURL(webView, sourceURL, destURL, m_webFrame);
+        } else {
+            if (history) {
+                if (COMPtr<IWebHistoryItem> iWebHistoryItem = history->itemForURLString(loader->serverRedirectSourceForHistory())) {
+                    COMPtr<WebHistoryItem> webHistoryItem(Query, iWebHistoryItem);
+                    webHistoryItem->historyItem()->addRedirectURL(loader->serverRedirectDestinationForHistory());
+                }
+            }
         }
     }
 }
@@ -522,6 +613,48 @@ void WebFrameLoaderClient::updateGlobalHistoryRedirectLinks()
 bool WebFrameLoaderClient::shouldGoToHistoryItem(HistoryItem*) const
 {
     return true;
+}
+
+void WebFrameLoaderClient::dispatchDidAddBackForwardItem(HistoryItem*) const
+{
+}
+
+void WebFrameLoaderClient::dispatchDidRemoveBackForwardItem(HistoryItem*) const
+{
+}
+
+void WebFrameLoaderClient::dispatchDidChangeBackForwardIndex() const
+{
+}
+
+void WebFrameLoaderClient::didDisplayInsecureContent()
+{
+    WebView* webView = m_webFrame->webView();
+    COMPtr<IWebFrameLoadDelegatePrivate> frameLoadDelegatePriv;
+    if (FAILED(webView->frameLoadDelegatePrivate(&frameLoadDelegatePriv)) || !frameLoadDelegatePriv)
+        return;
+
+    COMPtr<IWebFrameLoadDelegatePrivate2> frameLoadDelegatePriv2(Query, frameLoadDelegatePriv);
+    if (!frameLoadDelegatePriv2)
+        return;
+
+    frameLoadDelegatePriv2->didDisplayInsecureContent(webView);
+}
+
+void WebFrameLoaderClient::didRunInsecureContent(SecurityOrigin* origin)
+{
+    COMPtr<IWebSecurityOrigin> webSecurityOrigin = WebSecurityOrigin::createInstance(origin);
+
+    WebView* webView = m_webFrame->webView();
+    COMPtr<IWebFrameLoadDelegatePrivate> frameLoadDelegatePriv;
+    if (FAILED(webView->frameLoadDelegatePrivate(&frameLoadDelegatePriv)) || !frameLoadDelegatePriv)
+        return;
+
+    COMPtr<IWebFrameLoadDelegatePrivate2> frameLoadDelegatePriv2(Query, frameLoadDelegatePriv);
+    if (!frameLoadDelegatePriv2)
+        return;
+
+    frameLoadDelegatePriv2->didRunInsecureContent(webView, webSecurityOrigin.get());
 }
 
 PassRefPtr<DocumentLoader> WebFrameLoaderClient::createDocumentLoader(const ResourceRequest& request, const SubstituteData& substituteData)
@@ -536,6 +669,16 @@ PassRefPtr<DocumentLoader> WebFrameLoaderClient::createDocumentLoader(const Reso
 
 void WebFrameLoaderClient::setTitle(const String& title, const KURL& url)
 {
+    WebView* webView = m_webFrame->webView();
+    COMPtr<IWebHistoryDelegate> historyDelegate;
+    webView->historyDelegate(&historyDelegate);
+    if (historyDelegate) {
+        BString titleBSTR(title);
+        BString urlBSTR(url.string());
+        historyDelegate->updateHistoryTitle(webView, titleBSTR, urlBSTR);
+        return;
+    }
+
     BOOL privateBrowsingEnabled = FALSE;
     COMPtr<IWebPreferences> preferences;
     if (SUCCEEDED(m_webFrame->webView()->preferences(&preferences)))
@@ -604,6 +747,10 @@ PassRefPtr<Frame> WebFrameLoaderClient::createFrame(const KURL& url, const Strin
     return result.release();
 }
 
+void WebFrameLoaderClient::didTransferChildFrameToNewDocument()
+{
+}
+
 PassRefPtr<Frame> WebFrameLoaderClient::createFrame(const KURL& URL, const String& name, HTMLFrameOwnerElement* ownerElement, const String& referrer)
 {
     Frame* coreFrame = core(m_webFrame);
@@ -624,6 +771,65 @@ PassRefPtr<Frame> WebFrameLoaderClient::createFrame(const KURL& URL, const Strin
         return 0;
 
     return childFrame.release();
+}
+
+void WebFrameLoaderClient::dispatchDidFailToStartPlugin(const PluginView* pluginView) const
+{
+    WebView* webView = m_webFrame->webView();
+
+    COMPtr<IWebResourceLoadDelegate> resourceLoadDelegate;
+    if (FAILED(webView->resourceLoadDelegate(&resourceLoadDelegate)))
+        return;
+
+    RetainPtr<CFMutableDictionaryRef> userInfo(AdoptCF, CFDictionaryCreateMutable(0, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks));
+
+    Frame* frame = core(m_webFrame);
+    ASSERT(frame == pluginView->parentFrame());
+
+    if (!pluginView->pluginsPage().isNull()) {
+        KURL pluginPageURL = frame->document()->completeURL(deprecatedParseURL(pluginView->pluginsPage()));
+        if (pluginPageURL.protocolInHTTPFamily()) {
+            static CFStringRef key = MarshallingHelpers::LPCOLESTRToCFStringRef(WebKitErrorPlugInPageURLStringKey);
+            RetainPtr<CFStringRef> str(AdoptCF, pluginPageURL.string().createCFString());
+            CFDictionarySetValue(userInfo.get(), key, str.get());
+        }
+    }
+
+    if (!pluginView->mimeType().isNull()) {
+        static CFStringRef key = MarshallingHelpers::LPCOLESTRToCFStringRef(WebKitErrorMIMETypeKey);
+
+        RetainPtr<CFStringRef> str(AdoptCF, pluginView->mimeType().createCFString());
+        CFDictionarySetValue(userInfo.get(), key, str.get());
+    }
+
+    if (pluginView->plugin()) {
+        String pluginName = pluginView->plugin()->name();
+        if (!pluginName.isNull()) {
+            static CFStringRef key = MarshallingHelpers::LPCOLESTRToCFStringRef(WebKitErrorPlugInNameKey);
+            RetainPtr<CFStringRef> str(AdoptCF, pluginName.createCFString());
+            CFDictionarySetValue(userInfo.get(), key, str.get());
+        }
+    }
+
+    COMPtr<CFDictionaryPropertyBag> userInfoBag = CFDictionaryPropertyBag::createInstance();
+    userInfoBag->setDictionary(userInfo.get());
+ 
+    int errorCode = 0;
+    switch (pluginView->status()) {
+        case PluginStatusCanNotFindPlugin:
+            errorCode = WebKitErrorCannotFindPlugIn;
+            break;
+        case PluginStatusCanNotLoadPlugin:
+            errorCode = WebKitErrorCannotLoadPlugIn;
+            break;
+        default:
+            ASSERT_NOT_REACHED();
+    }
+
+    ResourceError resourceError(String(WebKitErrorDomain), errorCode, pluginView->url().string(), String());
+    COMPtr<IWebError> error(AdoptCOM, WebError::createInstance(resourceError, userInfoBag.get()));
+     
+    resourceLoadDelegate->plugInFailedWithError(webView, error.get(), getWebDataSource(frame->loader()->documentLoader()));
 }
 
 PassRefPtr<Widget> WebFrameLoaderClient::createPlugin(const IntSize& pluginSize, HTMLPlugInElement* element, const KURL& url, const Vector<String>& paramNames, const Vector<String>& paramValues, const String& mimeType, bool loadManually)
@@ -669,63 +875,9 @@ PassRefPtr<Widget> WebFrameLoaderClient::createPlugin(const IntSize& pluginSize,
     if (pluginView->status() == PluginStatusLoadedSuccessfully)
         return pluginView;
 
-    COMPtr<IWebResourceLoadDelegate> resourceLoadDelegate;
+    dispatchDidFailToStartPlugin(pluginView.get());
 
-    if (FAILED(webView->resourceLoadDelegate(&resourceLoadDelegate)))
-        return pluginView;
-
-    RetainPtr<CFMutableDictionaryRef> userInfo(AdoptCF, CFDictionaryCreateMutable(0, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks));
-
-    size_t size = paramNames.size();
-    for (size_t i = 0; i < size; i++) {
-        if (paramNames[i] == "pluginspage") {
-            KURL pluginPageURL = frame->document()->completeURL(parseURL(paramValues[i]));
-            if (pluginPageURL.protocolInHTTPFamily()) {
-                static CFStringRef key = MarshallingHelpers::LPCOLESTRToCFStringRef(WebKitErrorPlugInPageURLStringKey);
-                RetainPtr<CFStringRef> str(AdoptCF, pluginPageURL.string().createCFString());
-                CFDictionarySetValue(userInfo.get(), key, str.get());
-            }
-            break;
-        }
-    }
-
-    if (!mimeType.isNull()) {
-        static CFStringRef key = MarshallingHelpers::LPCOLESTRToCFStringRef(WebKitErrorMIMETypeKey);
-
-        RetainPtr<CFStringRef> str(AdoptCF, mimeType.createCFString());
-        CFDictionarySetValue(userInfo.get(), key, str.get());
-    }
-
-    if (pluginView->plugin()) {
-        String pluginName = pluginView->plugin()->name();
-        if (!pluginName.isNull()) {
-            static CFStringRef key = MarshallingHelpers::LPCOLESTRToCFStringRef(WebKitErrorPlugInNameKey);
-            RetainPtr<CFStringRef> str(AdoptCF, pluginName.createCFString());
-            CFDictionarySetValue(userInfo.get(), key, str.get());
-        }
-    }
-
-    COMPtr<CFDictionaryPropertyBag> userInfoBag(AdoptCOM, CFDictionaryPropertyBag::createInstance());
-    userInfoBag->setDictionary(userInfo.get());
- 
-    int errorCode = 0;
-    switch (pluginView->status()) {
-        case PluginStatusCanNotFindPlugin:
-            errorCode = WebKitErrorCannotFindPlugIn;
-            break;
-        case PluginStatusCanNotLoadPlugin:
-            errorCode = WebKitErrorCannotLoadPlugIn;
-            break;
-        default:
-            ASSERT_NOT_REACHED();
-    }
-
-    ResourceError resourceError(String(WebKitErrorDomain), errorCode, url.string(), String());
-    COMPtr<IWebError> error(AdoptCOM, WebError::createInstance(resourceError, userInfoBag.get()));
-     
-    resourceLoadDelegate->plugInFailedWithError(webView, error.get(), getWebDataSource(frame->loader()->documentLoader()));
-
-    return pluginView;
+    return 0;
 }
 
 void WebFrameLoaderClient::redirectDataToPlugin(Widget* pluginWidget)

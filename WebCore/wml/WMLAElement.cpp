@@ -29,7 +29,6 @@
 #if ENABLE(WML)
 #include "WMLAElement.h"
 
-#include "DNS.h"
 #include "Event.h"
 #include "EventHandler.h"
 #include "EventNames.h"
@@ -40,6 +39,7 @@
 #include "MappedAttribute.h"
 #include "MouseEvent.h"
 #include "RenderBox.h"
+#include "ResourceHandle.h"
 #include "WMLNames.h"
 
 namespace WebCore {
@@ -61,7 +61,7 @@ void WMLAElement::parseMappedAttribute(MappedAttribute* attr)
         if (isLink() && document()->isDNSPrefetchEnabled()) {
             String value = attr->value();
             if (protocolIs(value, "http") || protocolIs(value, "https") || value.startsWith("//"))
-                prefetchDNS(document()->completeURL(value).host());
+                ResourceHandle::prepareForURL(document()->completeURL(value));
         }
     } else if (attr->name() == HTMLNames::nameAttr
                || attr->name() == HTMLNames::titleAttr
@@ -73,17 +73,7 @@ void WMLAElement::parseMappedAttribute(MappedAttribute* attr)
 
 bool WMLAElement::supportsFocus() const
 {
-    return isFocusable() || (isLink() && document() && !document()->haveStylesheetsLoaded());
-}
-
-bool WMLAElement::isFocusable() const
-{
-    // FIXME: Even if we are not visible, we might have a child that is visible.
-    // Dave wants to fix that some day with a "has visible content" flag or the like.
-    if (!(isLink() && renderer() && renderer()->style()->visibility() == VISIBLE))
-        return false;
-
-    return true;
+    return isLink() || WMLElement::supportsFocus();
 }
 
 bool WMLAElement::isMouseFocusable() const
@@ -150,8 +140,8 @@ void WMLAElement::defaultEventHandler(Event* event)
         }
  
         if (!event->defaultPrevented() && document()->frame()) {
-            KURL url = document()->completeURL(parseURL(getAttribute(HTMLNames::hrefAttr)));
-            document()->frame()->loader()->urlSelected(url, target(), event, false, false, true);
+            String url = document()->completeURL(deprecatedParseURL(getAttribute(HTMLNames::hrefAttr)));
+            document()->frame()->loader()->urlSelected(url, target(), event, false, false, true, SendReferrer);
         }
 
         event->setDefaultHandled();

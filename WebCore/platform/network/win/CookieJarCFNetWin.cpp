@@ -26,6 +26,7 @@
 #include "config.h"
 #include "CookieJar.h"
 
+#include "Cookie.h"
 #include "CookieStorageWin.h"
 #include "Document.h"
 #include "KURL.h"
@@ -105,12 +106,82 @@ String cookies(const Document* /*document*/, const KURL& url)
     return (CFStringRef)CFDictionaryGetValue(headerCF.get(), s_cookieCF);
 }
 
+String cookieRequestHeaderFieldValue(const Document* /*document*/, const KURL& url)
+{
+    CFHTTPCookieStorageRef cookieStorage = currentCookieStorage();
+    if (!cookieStorage)
+        return String();
+
+    RetainPtr<CFURLRef> urlCF(AdoptCF, url.createCFURL());
+
+    bool secure = url.protocolIs("https");
+    RetainPtr<CFArrayRef> cookiesCF(AdoptCF, CFHTTPCookieStorageCopyCookiesForURL(cookieStorage, urlCF.get(), secure));
+    RetainPtr<CFDictionaryRef> headerCF(AdoptCF, CFHTTPCookieCopyRequestHeaderFields(kCFAllocatorDefault, cookiesCF.get()));
+    return (CFStringRef)CFDictionaryGetValue(headerCF.get(), s_cookieCF);
+}
+
 bool cookiesEnabled(const Document* /*document*/)
 {
     CFHTTPCookieStorageAcceptPolicy policy = CFHTTPCookieStorageAcceptPolicyOnlyFromMainDocumentDomain;
     if (CFHTTPCookieStorageRef cookieStorage = currentCookieStorage())
         policy = CFHTTPCookieStorageGetCookieAcceptPolicy(cookieStorage);
     return policy == CFHTTPCookieStorageAcceptPolicyOnlyFromMainDocumentDomain || policy == CFHTTPCookieStorageAcceptPolicyAlways;
+}
+
+bool getRawCookies(const Document*, const KURL& url, Vector<Cookie>& rawCookies)
+{
+    rawCookies.clear();
+    CFHTTPCookieStorageRef cookieStorage = currentCookieStorage();
+    if (!cookieStorage)
+        return false;
+
+    RetainPtr<CFURLRef> urlCF(AdoptCF, url.createCFURL());
+
+    bool sendSecureCookies = url.protocolIs("https");
+    RetainPtr<CFArrayRef> cookiesCF(AdoptCF, CFHTTPCookieStorageCopyCookiesForURL(cookieStorage, urlCF.get(), sendSecureCookies));
+
+    CFIndex count = CFArrayGetCount(cookiesCF.get());
+    rawCookies.reserveCapacity(count);
+
+    for (CFIndex i = 0; i < count; i++) {
+       CFHTTPCookieRef cookie = (CFHTTPCookieRef)CFArrayGetValueAtIndex(cookiesCF.get(), i);
+       String name = CFHTTPCookieGetName(cookie);
+       String value = CFHTTPCookieGetValue(cookie);
+       String domain = CFHTTPCookieGetDomain(cookie);
+       String path = CFHTTPCookieGetPath(cookie);
+
+       double expires = (CFDateGetAbsoluteTime(CFHTTPCookieGetExpiratonDate(cookie)) + kCFAbsoluteTimeIntervalSince1970) * 1000;
+
+       bool httpOnly = CFHTTPCookieIsHTTPOnly(cookie);
+       bool secure = CFHTTPCookieIsSecure(cookie);
+       bool session = false;    // FIXME: Need API for if a cookie is a session cookie.
+
+       rawCookies.uncheckedAppend(Cookie(name, value, domain, path, expires, httpOnly, secure, session));
+    }
+
+    return true;
+}
+
+void deleteCookie(const Document*, const KURL& url, const String& name)
+{
+    CFHTTPCookieStorageRef cookieStorage = currentCookieStorage();
+    if (!cookieStorage)
+        return;
+
+    RetainPtr<CFURLRef> urlCF(AdoptCF, url.createCFURL());
+
+    bool sendSecureCookies = url.protocolIs("https");
+    RetainPtr<CFArrayRef> cookiesCF(AdoptCF, CFHTTPCookieStorageCopyCookiesForURL(cookieStorage, urlCF.get(), sendSecureCookies));
+
+    CFIndex count = CFArrayGetCount(cookiesCF.get());
+    for (CFIndex i = 0; i < count; i++) {
+        CFHTTPCookieRef cookie = (CFHTTPCookieRef)CFArrayGetValueAtIndex(cookiesCF.get(), i);
+        String cookieName = CFHTTPCookieGetName(cookie);
+        if (cookieName == name) {
+            CFHTTPCookieStorageDeleteCookie(cookieStorage, cookie);
+            break;
+        }
+    }
 }
 
 }

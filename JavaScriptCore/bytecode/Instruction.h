@@ -31,6 +31,7 @@
 
 #include "MacroAssembler.h"
 #include "Opcode.h"
+#include "PropertySlot.h"
 #include "Structure.h"
 #include <wtf/VectorTraits.h>
 
@@ -53,7 +54,7 @@ namespace JSC {
     class StructureChain;
 
     // Structure used by op_get_by_id_self_list and op_get_by_id_proto_list instruction to hold data off the main opcode stream.
-    struct PolymorphicAccessStructureList {
+    struct PolymorphicAccessStructureList : FastAllocBase {
         struct PolymorphicStubInfo {
             bool isChain;
             PolymorphicAccessStructureListStubRoutineType stubRoutine;
@@ -144,6 +145,7 @@ namespace JSC {
         Instruction(StructureChain* structureChain) { u.structureChain = structureChain; }
         Instruction(JSCell* jsCell) { u.jsCell = jsCell; }
         Instruction(PolymorphicAccessStructureList* polymorphicStructures) { u.polymorphicStructures = polymorphicStructures; }
+        Instruction(PropertySlot::GetValueFunc getterFunc) { u.getterFunc = getterFunc; }
 
         union {
             Opcode opcode;
@@ -152,6 +154,7 @@ namespace JSC {
             StructureChain* structureChain;
             JSCell* jsCell;
             PolymorphicAccessStructureList* polymorphicStructures;
+            PropertySlot::GetValueFunc getterFunc;
         } u;
     };
 

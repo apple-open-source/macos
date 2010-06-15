@@ -1,9 +1,9 @@
 #
-# "$Id: Makefile 1558 2009-06-10 19:21:50Z msweet $"
+# "$Id: Makefile 2114 2010-04-23 20:27:40Z msweet $"
 #
 #   Makefile for the CUPS base drivers.
 #
-#   Copyright 2007-2009 by Apple Inc.
+#   Copyright 2007-2010 by Apple Inc.
 #   Copyright 2002-2005 by Easy Software Products.
 #
 #   These coded instructions, statements, and computer programs are the
@@ -51,12 +51,14 @@ UNITTARGETS =	\
 		testcmyk \
 		testdither \
 		testrgb
-TARGETS =	\
-		$(LIBTARGETS) \
+FILTERS =	\
 		commandtoescpx \
 		commandtopclx \
 		rastertoescpx \
 		rastertopclx
+TARGETS =	\
+		$(LIBTARGETS) \
+		$(FILTERS)
 
 
 #
@@ -120,12 +122,12 @@ install-data:
 
 install-exec:
 	$(INSTALL_DIR) $(SERVERBIN)/filter
-	for file in commandtoescpx commandtopclx rastertoescpx rastertopclx; do \
+	for file in $(FILTERS); do \
 		$(INSTALL_BIN) $$file $(SERVERBIN)/filter; \
 	done
 	if test "x$(SYMROOT)" != "x"; then \
 		$(INSTALL_DIR) $(SYMROOT); \
-		for file in commandtoescpx commandtopclx rastertoescpx rastertopclx; do \
+		for file in $(FILTERS); do \
 			cp $$file $(SYMROOT); \
 		done \
 	fi
@@ -376,5 +378,5 @@ include Dependencies
 
 
 #
-# End of "$Id: Makefile 1558 2009-06-10 19:21:50Z msweet $".
+# End of "$Id: Makefile 2114 2010-04-23 20:27:40Z msweet $".
 #

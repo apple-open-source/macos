@@ -2,8 +2,6 @@
     Copyright (C) 2004, 2005, 2006, 2008 Nikolas Zimmermann <zimmermann@kde.org>
                   2004, 2005, 2006, 2007 Rob Buis <buis@kde.org>
 
-    This file is part of the KDE project
-
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Library General Public
     License as published by the Free Software Foundation; either
@@ -38,10 +36,10 @@ SVGEllipseElement::SVGEllipseElement(const QualifiedName& tagName, Document* doc
     , SVGTests()
     , SVGLangSpace()
     , SVGExternalResourcesRequired()
-    , m_cx(this, SVGNames::cxAttr, LengthModeWidth)
-    , m_cy(this, SVGNames::cyAttr, LengthModeHeight)
-    , m_rx(this, SVGNames::rxAttr, LengthModeWidth)
-    , m_ry(this, SVGNames::ryAttr, LengthModeHeight)
+    , m_cx(LengthModeWidth)
+    , m_cy(LengthModeHeight)
+    , m_rx(LengthModeWidth)
+    , m_ry(LengthModeHeight)
 {
 }    
 
@@ -78,16 +76,54 @@ void SVGEllipseElement::svgAttributeChanged(const QualifiedName& attrName)
 {
     SVGStyledTransformableElement::svgAttributeChanged(attrName);
 
-    if (!renderer())
+    RenderPath* renderer = static_cast<RenderPath*>(this->renderer());
+    if (!renderer)
         return;
 
-    if (attrName == SVGNames::cxAttr || attrName == SVGNames::cyAttr ||
-        attrName == SVGNames::rxAttr || attrName == SVGNames::ryAttr ||
-        SVGTests::isKnownAttribute(attrName) ||
-        SVGLangSpace::isKnownAttribute(attrName) ||
-        SVGExternalResourcesRequired::isKnownAttribute(attrName) ||
-        SVGStyledTransformableElement::isKnownAttribute(attrName))
-        renderer()->setNeedsLayout(true);
+    if (SVGStyledTransformableElement::isKnownAttribute(attrName)) {
+        renderer->setNeedsTransformUpdate();
+        renderer->setNeedsLayout(true);
+        return;
+    }
+
+    if (attrName == SVGNames::cxAttr
+        || attrName == SVGNames::cyAttr
+        || attrName == SVGNames::rxAttr
+        || attrName == SVGNames::ryAttr) {
+        renderer->setNeedsPathUpdate();
+        renderer->setNeedsLayout(true);
+        return;
+    }
+
+    if (SVGTests::isKnownAttribute(attrName)
+        || SVGLangSpace::isKnownAttribute(attrName)
+        || SVGExternalResourcesRequired::isKnownAttribute(attrName))
+        renderer->setNeedsLayout(true);
+}
+
+void SVGEllipseElement::synchronizeProperty(const QualifiedName& attrName)
+{
+    SVGStyledTransformableElement::synchronizeProperty(attrName);
+
+    if (attrName == anyQName()) {
+        synchronizeCx();
+        synchronizeCy();
+        synchronizeRx();
+        synchronizeRy();
+        synchronizeExternalResourcesRequired();
+        return;
+    }
+
+    if (attrName == SVGNames::cxAttr)
+        synchronizeCx();
+    else if (attrName == SVGNames::cyAttr)
+        synchronizeCy();
+    else if (attrName == SVGNames::rxAttr)
+        synchronizeRx();
+    else if (attrName == SVGNames::ryAttr)
+        synchronizeRy();
+    else if (SVGExternalResourcesRequired::isKnownAttribute(attrName))
+        synchronizeExternalResourcesRequired();
 }
 
 Path SVGEllipseElement::toPathData() const

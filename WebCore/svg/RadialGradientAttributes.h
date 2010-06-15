@@ -1,8 +1,6 @@
 /*
     Copyright (C) 2006 Nikolas Zimmermann <zimmermann@kde.org>
 
-    This file is part of the KDE project
-
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Library General Public
     License as published by the Free Software Foundation; either
@@ -22,19 +20,17 @@
 #ifndef RadialGradientAttributes_h
 #define RadialGradientAttributes_h
 
+#if ENABLE(SVG)
 #include "GradientAttributes.h"
 
-#if ENABLE(SVG)
-
-namespace WebCore
-{
+namespace WebCore {
     struct RadialGradientAttributes : GradientAttributes {
         RadialGradientAttributes()
-            : m_cx(0.5)
-            , m_cy(0.5)
-            , m_r(0.5)
-            , m_fx(0.0)
-            , m_fy(0.0)
+            : m_cx(LengthModeWidth, "50%")
+            , m_cy(LengthModeWidth, "50%")
+            , m_r(LengthModeWidth, "50%")
+            , m_fx()
+            , m_fy()
             , m_cxSet(false)
             , m_cySet(false)
             , m_rSet(false)
@@ -43,17 +39,17 @@ namespace WebCore
         {
         }
 
-        double cx() const { return m_cx; }
-        double cy() const { return m_cy; }
-        double r() const { return m_r; }
-        double fx() const { return m_fx; }
-        double fy() const { return m_fy; }
+        SVGLength cx() const { return m_cx; }
+        SVGLength cy() const { return m_cy; }
+        SVGLength r() const { return m_r; }
+        SVGLength fx() const { return m_fx; }
+        SVGLength fy() const { return m_fy; }
 
-        void setCx(double value) { m_cx = value; m_cxSet = true; }
-        void setCy(double value) { m_cy = value; m_cySet = true; }
-        void setR(double value) { m_r = value; m_rSet = true; }
-        void setFx(double value) { m_fx = value; m_fxSet = true; }
-        void setFy(double value) { m_fy = value; m_fySet = true; }
+        void setCx(const SVGLength& value) { m_cx = value; m_cxSet = true; }
+        void setCy(const SVGLength& value) { m_cy = value; m_cySet = true; }
+        void setR(const SVGLength& value) { m_r = value; m_rSet = true; }
+        void setFx(const SVGLength& value) { m_fx = value; m_fxSet = true; }
+        void setFy(const SVGLength& value) { m_fy = value; m_fySet = true; }
 
         bool hasCx() const { return m_cxSet; }
         bool hasCy() const { return m_cySet; }
@@ -63,11 +59,11 @@ namespace WebCore
 
     private:
         // Properties
-        double m_cx;
-        double m_cy;
-        double m_r;
-        double m_fx;
-        double m_fy;
+        SVGLength m_cx;
+        SVGLength m_cy;
+        SVGLength m_r;
+        SVGLength m_fx;
+        SVGLength m_fy;
 
         // Property states
         bool m_cxSet : 1;

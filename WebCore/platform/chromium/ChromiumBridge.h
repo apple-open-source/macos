@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2008, 2009, Google Inc. All rights reserved.
+ * Copyright (c) 2010, Google Inc. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -31,17 +31,19 @@
 #ifndef ChromiumBridge_h
 #define ChromiumBridge_h
 
+#include "FileSystem.h"
+#include "ImageSource.h"
 #include "LinkHash.h"
 #include "PassRefPtr.h"
 #include "PasteboardPrivate.h"
 
-class NativeImageSkia;
+#include <wtf/Vector.h>
 
 typedef struct NPObject NPObject;
 typedef struct _NPP NPP_t;
 typedef NPP_t* NPP;
 
-#if PLATFORM(WIN_OS)
+#if OS(WINDOWS)
 typedef struct HFONT__* HFONT;
 #endif
 
@@ -51,14 +53,19 @@ namespace WebCore {
     class Cursor;
     class Document;
     class Frame;
+    class GeolocationServiceBridge;
+    class GeolocationServiceChromium;
     class GraphicsContext;
     class Image;
+    class IndexedDatabase;
     class IntRect;
     class KURL;
     class String;
     class Widget;
 
+    struct Cookie;
     struct PluginInfo;
+    struct FontRenderStyle;
 
     // An interface to the embedding layer, which has the ability to answer
     // questions about the system and so on...
@@ -66,45 +73,96 @@ namespace WebCore {
     class ChromiumBridge {
     public:
         // Clipboard ----------------------------------------------------------
-        static bool clipboardIsFormatAvailable(PasteboardPrivate::ClipboardFormat);
+        static bool clipboardIsFormatAvailable(PasteboardPrivate::ClipboardFormat, PasteboardPrivate::ClipboardBuffer);
 
-        static String clipboardReadPlainText();
-        static void clipboardReadHTML(String*, KURL*);
+        static String clipboardReadPlainText(PasteboardPrivate::ClipboardBuffer);
+        static void clipboardReadHTML(PasteboardPrivate::ClipboardBuffer, String*, KURL*);
 
+        // Only the clipboardRead functions take a buffer argument because 
+        // Chromium currently uses a different technique to write to alternate
+        // clipboard buffers.
         static void clipboardWriteSelection(const String&, const KURL&, const String&, bool);
+        static void clipboardWritePlainText(const String&);
         static void clipboardWriteURL(const KURL&, const String&);
-        static void clipboardWriteImage(const NativeImageSkia*, const KURL&, const String&);
+        static void clipboardWriteImage(NativeImagePtr, const KURL&, const String&);
 
         // Cookies ------------------------------------------------------------
-        static void setCookies(const KURL& url, const KURL& firstPartyForCookies, const String& value);
-        static String cookies(const KURL& url, const KURL& firstPartyForCookies);
+        static void setCookies(const Document*, const KURL&, const String& value);
+        static String cookies(const Document*, const KURL&);
+        static String cookieRequestHeaderFieldValue(const Document*, const KURL&);
+        static bool rawCookies(const Document*, const KURL& url, Vector<Cookie>&);
+        static void deleteCookie(const Document*, const KURL& url, const String& cookieName);
+        static bool cookiesEnabled(const Document*);
 
         // DNS ----------------------------------------------------------------
         static void prefetchDNS(const String& hostname);
 
         // File ---------------------------------------------------------------
-        static bool getFileSize(const String& path, long long& result);
+        static bool fileExists(const String&);
+        static bool deleteFile(const String&);
+        static bool deleteEmptyDirectory(const String&);
+        static bool getFileSize(const String&, long long& result);
+        static bool getFileModificationTime(const String&, time_t& result);
+        static String directoryName(const String& path);
+        static String pathByAppendingComponent(const String& path, const String& component);
+        static bool makeAllDirectories(const String& path);
+        static String getAbsolutePath(const String&);
+        static bool isDirectory(const String&);
+        static KURL filePathToURL(const String&);
+        static PlatformFileHandle openFile(const String& path, FileOpenMode);
+        static void closeFile(PlatformFileHandle&);
+        static long long seekFile(PlatformFileHandle, long long offset, FileSeekOrigin);
+        static bool truncateFile(PlatformFileHandle, long long offset);
+        static int readFromFile(PlatformFileHandle, char* data, int length);
+        static int writeToFile(PlatformFileHandle, const char* data, int length);
 
         // Font ---------------------------------------------------------------
-#if PLATFORM(WIN_OS)
+#if OS(WINDOWS)
         static bool ensureFontLoaded(HFONT font);
 #endif
-#if PLATFORM(LINUX)
+#if OS(LINUX)
+        static void getRenderStyleForStrike(const char* family, int sizeAndStyle, FontRenderStyle* result);
         static String getFontFamilyForCharacters(const UChar*, size_t numCharacters);
 #endif
 
         // Forms --------------------------------------------------------------
         static void notifyFormStateChanged(const Document*);
 
+        // Geolocation --------------------------------------------------------
+        static GeolocationServiceBridge* createGeolocationServiceBridge(GeolocationServiceChromium*);
+
+        // HTML5 DB -----------------------------------------------------------
+#if ENABLE(DATABASE)
+        // Returns a handle to the DB file and ooptionally a handle to its containing directory
+        static PlatformFileHandle databaseOpenFile(const String& vfsFleName, int desiredFlags, PlatformFileHandle* dirHandle = 0);
+        // Returns a SQLite code (SQLITE_OK = 0, on success)
+        static int databaseDeleteFile(const String& vfsFileName, bool syncDir = false);
+        // Returns the attributes of the DB file
+        static long databaseGetFileAttributes(const String& vfsFileName);
+        // Returns the size of the DB file
+        static long long databaseGetFileSize(const String& vfsFileName);
+#endif
+
+        // IndexedDB ----------------------------------------------------------
+        static PassRefPtr<IndexedDatabase> indexedDatabase();
+
         // JavaScript ---------------------------------------------------------
         static void notifyJSOutOfMemory(Frame*);
         static bool allowScriptDespiteSettings(const KURL& documentURL);
+
+        // Keygen -------------------------------------------------------------
+        static String signedPublicKeyAndChallengeString(unsigned keySizeIndex, const String& challenge, const KURL& url);
 
         // Language -----------------------------------------------------------
         static String computedDefaultLanguage();
 
         // LayoutTestMode -----------------------------------------------------
         static bool layoutTestMode();
+
+        // Memory -------------------------------------------------------------
+        // Returns the current space allocated for the pagefile, in MB.
+        // That is committed size for Windows and virtual memory size for POSIX
+        static int memoryUsageMB();
 
         // MimeType -----------------------------------------------------------
         static bool isSupportedImageMIMEType(const String& mimeType);
@@ -119,11 +177,11 @@ namespace WebCore {
         static NPObject* pluginScriptableObject(Widget*);
         static bool popupsAllowed(NPP);
 
-        // Protocol -----------------------------------------------------------
-        static String uiResourceProtocol();  // deprecated
-
         // Resources ----------------------------------------------------------
         static PassRefPtr<Image> loadPlatformImageResource(const char* name);
+
+        // Sandbox ------------------------------------------------------------
+        static bool sandboxEnabled();
 
         // Screen -------------------------------------------------------------
         static int screenDepth(Widget*);
@@ -148,7 +206,7 @@ namespace WebCore {
         static double currentTime();
 
         // Theming ------------------------------------------------------------
-#if PLATFORM(WIN_OS)
+#if OS(WINDOWS)
         static void paintButton(
             GraphicsContext*, int part, int state, int classicState, const IntRect&);
         static void paintMenuList(

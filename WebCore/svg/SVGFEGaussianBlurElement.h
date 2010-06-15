@@ -2,8 +2,6 @@
     Copyright (C) 2004, 2005, 2007 Nikolas Zimmermann <zimmermann@kde.org>
                   2004, 2005, 2006 Rob Buis <buis@kde.org>
 
-    This file is part of the KDE project
-
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Library General Public
     License as published by the Free Software Foundation; either
@@ -24,29 +22,30 @@
 #define SVGFEGaussianBlurElement_h
 
 #if ENABLE(SVG) && ENABLE(FILTERS)
-#include "SVGFEGaussianBlur.h"
+#include "FEGaussianBlur.h"
 #include "SVGFilterPrimitiveStandardAttributes.h"
 
 namespace WebCore {
 
-    extern char SVGStdDeviationXAttrIdentifier[];
-    extern char SVGStdDeviationYAttrIdentifier[];
+extern char SVGStdDeviationXAttrIdentifier[];
+extern char SVGStdDeviationYAttrIdentifier[];
 
-    class SVGFEGaussianBlurElement : public SVGFilterPrimitiveStandardAttributes {
-    public:
-        SVGFEGaussianBlurElement(const QualifiedName&, Document*);
-        virtual ~SVGFEGaussianBlurElement();
+class SVGFEGaussianBlurElement : public SVGFilterPrimitiveStandardAttributes {
+public:
+    SVGFEGaussianBlurElement(const QualifiedName&, Document*);
+    virtual ~SVGFEGaussianBlurElement();
 
-        void setStdDeviation(float stdDeviationX, float stdDeviationY);
+    void setStdDeviation(float stdDeviationX, float stdDeviationY);
 
-        virtual void parseMappedAttribute(MappedAttribute*);
-        virtual bool build(SVGResourceFilter*);
+    virtual void parseMappedAttribute(MappedAttribute*);
+    virtual void synchronizeProperty(const QualifiedName&);
+    virtual PassRefPtr<FilterEffect> build(SVGFilterBuilder*);
 
-    private:
-        ANIMATED_PROPERTY_DECLARATIONS(SVGFEGaussianBlurElement, SVGNames::feGaussianBlurTagString, SVGNames::inAttrString, String, In1, in1)
-        ANIMATED_PROPERTY_DECLARATIONS(SVGFEGaussianBlurElement, SVGNames::feGaussianBlurTagString, SVGStdDeviationXAttrIdentifier, float, StdDeviationX, stdDeviationX)
-        ANIMATED_PROPERTY_DECLARATIONS(SVGFEGaussianBlurElement, SVGNames::feGaussianBlurTagString, SVGStdDeviationYAttrIdentifier, float, StdDeviationY, stdDeviationY)
-    };
+private:
+    DECLARE_ANIMATED_PROPERTY(SVGFEGaussianBlurElement, SVGNames::inAttr, String, In1, in1)
+    DECLARE_ANIMATED_PROPERTY_MULTIPLE_WRAPPERS(SVGFEGaussianBlurElement, SVGNames::stdDeviationAttr, SVGStdDeviationXAttrIdentifier, float, StdDeviationX, stdDeviationX)
+    DECLARE_ANIMATED_PROPERTY_MULTIPLE_WRAPPERS(SVGFEGaussianBlurElement, SVGNames::stdDeviationAttr, SVGStdDeviationYAttrIdentifier, float, StdDeviationY, stdDeviationY)
+};
 
 } // namespace WebCore
 

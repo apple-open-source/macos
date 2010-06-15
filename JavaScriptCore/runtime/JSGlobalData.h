@@ -29,12 +29,18 @@
 #ifndef JSGlobalData_h
 #define JSGlobalData_h
 
+#include "CachedTranscendentalFunction.h"
 #include "Collector.h"
+#include "DateInstanceCache.h"
 #include "ExecutableAllocator.h"
 #include "JITStubs.h"
 #include "JSValue.h"
+#include "MarkStack.h"
+#include "NumericStrings.h"
 #include "SmallStrings.h"
+#include "Terminator.h"
 #include "TimeoutChecker.h"
+#include "WeakRandom.h"
 #include <wtf/Forward.h>
 #include <wtf/HashMap.h>
 #include <wtf/RefCounted.h>
@@ -44,34 +50,69 @@ struct OpaqueJSClassContextData;
 
 namespace JSC {
 
+    class CodeBlock;
     class CommonIdentifiers;
-    class FunctionBodyNode;
     class IdentifierTable;
-    class Instruction;
     class Interpreter;
     class JSGlobalObject;
     class JSObject;
     class Lexer;
     class Parser;
-    class ScopeNode;
     class Stringifier;
     class Structure;
     class UString;
 
     struct HashTable;
-    struct VPtrSet;
+    struct Instruction;    
+
+    struct DSTOffsetCache {
+        DSTOffsetCache()
+        {
+            reset();
+        }
+        
+        void reset()
+        {
+            offset = 0.0;
+            start = 0.0;
+            end = -1.0;
+            increment = 0.0;
+        }
+
+        double offset;
+        double start;
+        double end;
+        double increment;
+    };
+
+    enum ThreadStackType {
+        ThreadStackTypeLarge,
+        ThreadStackTypeSmall
+    };
 
     class JSGlobalData : public RefCounted<JSGlobalData> {
     public:
+        // WebCore has a one-to-one mapping of threads to JSGlobalDatas;
+        // either create() or createLeaked() should only be called once
+        // on a thread, this is the 'default' JSGlobalData (it uses the
+        // thread's default string uniquing table from wtfThreadData).
+        // API contexts created using the new context group aware interface
+        // create APIContextGroup objects which require less locking of JSC
+        // than the old singleton APIShared JSGlobalData created for use by
+        // the original API.
+        enum GlobalDataType { Default, APIContextGroup, APIShared };
+
         struct ClientData {
             virtual ~ClientData() = 0;
         };
 
+        bool isSharedInstance() { return globalDataType == APIShared; }
         static bool sharedInstanceExists();
         static JSGlobalData& sharedInstance();
 
-        static PassRefPtr<JSGlobalData> create(bool isShared = false);
-        static PassRefPtr<JSGlobalData> createLeaked();
+        static PassRefPtr<JSGlobalData> create(ThreadStackType);
+        static PassRefPtr<JSGlobalData> createLeaked(ThreadStackType);
+        static PassRefPtr<JSGlobalData> createContextGroup(ThreadStackType);
         ~JSGlobalData();
 
 #if ENABLE(JSC_MULTIPLE_THREADS)
@@ -79,7 +120,7 @@ namespace JSC {
         void makeUsableFromMultipleThreads() { heap.makeUsableFromMultipleThreads(); }
 #endif
 
-        bool isSharedInstance;
+        GlobalDataType globalDataType;
         ClientData* clientData;
 
         const HashTable* arrayTable;
@@ -93,24 +134,33 @@ namespace JSC {
         
         RefPtr<Structure> activationStructure;
         RefPtr<Structure> interruptedExecutionErrorStructure;
+        RefPtr<Structure> terminatedExecutionErrorStructure;
         RefPtr<Structure> staticScopeStructure;
         RefPtr<Structure> stringStructure;
         RefPtr<Structure> notAnObjectErrorStubStructure;
         RefPtr<Structure> notAnObjectStructure;
+        RefPtr<Structure> propertyNameIteratorStructure;
+        RefPtr<Structure> getterSetterStructure;
+        RefPtr<Structure> apiWrapperStructure;
+        RefPtr<Structure> dummyMarkableCellStructure;
+
 #if USE(JSVALUE32)
         RefPtr<Structure> numberStructure;
 #endif
 
-        void* jsArrayVPtr;
-        void* jsByteArrayVPtr;
-        void* jsStringVPtr;
-        void* jsFunctionVPtr;
+        static void storeVPtrs();
+        static JS_EXPORTDATA void* jsArrayVPtr;
+        static JS_EXPORTDATA void* jsByteArrayVPtr;
+        static JS_EXPORTDATA void* jsStringVPtr;
+        static JS_EXPORTDATA void* jsFunctionVPtr;
 
         IdentifierTable* identifierTable;
         CommonIdentifiers* propertyNames;
         const MarkedArgumentBuffer* emptyList; // Lists are supposed to be allocated on the stack to have their elements properly marked, which is not the case here - but this list has nothing to mark.
         SmallStrings smallStrings;
-
+        NumericStrings numericStrings;
+        DateInstanceCache dateInstanceCache;
+        
 #if ENABLE(ASSEMBLER)
         ExecutableAllocator executableAllocator;
 #endif
@@ -120,8 +170,13 @@ namespace JSC {
         Interpreter* interpreter;
 #if ENABLE(JIT)
         JITThunks jitStubs;
+        NativeExecutable* getThunk(ThunkGenerator generator)
+        {
+            return jitStubs.specializedThunk(this, generator);
+        }
 #endif
         TimeoutChecker timeoutChecker;
+        Terminator terminator;
         Heap heap;
 
         JSValue exception;
@@ -140,11 +195,33 @@ namespace JSC {
 
         HashSet<JSObject*> arrayVisitedElements;
 
-        ScopeNode* scopeNodeBeingReparsed;
+        CodeBlock* functionCodeBlockBeingReparsed;
         Stringifier* firstStringifierToMark;
 
+        MarkStack markStack;
+
+        double cachedUTCOffset;
+        DSTOffsetCache dstOffsetCache;
+        
+        UString cachedDateString;
+        double cachedDateStringValue;
+        
+        WeakRandom weakRandom;
+
+        int maxReentryDepth;
+#ifndef NDEBUG
+        ThreadIdentifier exclusiveThread;
+#endif
+
+        CachedTranscendentalFunction<sin> cachedSin;
+
+        void resetDateCache();
+
+        void startSampling();
+        void stopSampling();
+        void dumpSampleData(ExecState* exec);
     private:
-        JSGlobalData(bool isShared, const VPtrSet&);
+        JSGlobalData(GlobalDataType, ThreadStackType);
         static JSGlobalData*& sharedInstanceInternal();
         void createNativeThunk();
     };

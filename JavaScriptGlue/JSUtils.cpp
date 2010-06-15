@@ -36,6 +36,7 @@
 #include "UserObjectImp.h"
 #include <JavaScriptCore/JSString.h>
 #include <JavaScriptCore/PropertyNameArray.h>
+#include <JavaScriptCore/WTFThreadData.h>
 
 struct ObjectImpList {
     JSObject* imp;
@@ -104,7 +105,7 @@ JSUserObject* KJSValueToJSObject(JSValue inValue, ExecState *exec)
 {
     JSUserObject* result = 0;
 
-    if (inValue.isObject(&UserObjectImp::info)) {
+    if (inValue.inherits(&UserObjectImp::info)) {
         UserObjectImp* userObjectImp = static_cast<UserObjectImp *>(asObject(inValue));
         result = userObjectImp->GetJSUserObject();
         if (result)
@@ -128,7 +129,7 @@ JSUserObject* KJSValueToJSObject(JSValue inValue, ExecState *exec)
 //--------------------------------------------------------------------------
 JSValue JSObjectKJSValue(JSUserObject* ptr)
 {
-    JSLock lock(true);
+    JSGlueAPIEntry entry;
 
     JSValue result = jsUndefined();
     if (ptr)
@@ -203,7 +204,7 @@ CFTypeRef KJSValueToCFTypeInternal(JSValue inValue, ExecState *exec, ObjectImpLi
 
     CFTypeRef result = 0;
 
-    JSLock lock(true);
+    JSGlueAPIEntry entry;
 
         if (inValue.isBoolean())
             {
@@ -237,8 +238,8 @@ CFTypeRef KJSValueToCFTypeInternal(JSValue inValue, ExecState *exec, ObjectImpLi
 
         if (inValue.isObject())
             {
-                            if (inValue.isObject(&UserObjectImp::info)) {
-                                UserObjectImp* userObjectImp = static_cast<UserObjectImp *>(asObject(inValue));
+                if (inValue.inherits(&UserObjectImp::info)) {
+                    UserObjectImp* userObjectImp = static_cast<UserObjectImp *>(asObject(inValue));
                     JSUserObject* ptr = userObjectImp->GetJSUserObject();
                     if (ptr)
                     {
@@ -394,7 +395,7 @@ static pthread_once_t globalObjectKeyOnce = PTHREAD_ONCE_INIT;
 
 static void unprotectGlobalObject(void* data) 
 {
-    JSLock lock(true);
+    JSGlueAPIEntry entry;
     gcUnprotect(static_cast<JSGlueGlobalObject*>(data));
 }
 
@@ -403,12 +404,17 @@ static void initializeGlobalObjectKey()
     pthread_key_create(&globalObjectKey, unprotectGlobalObject);
 }
 
+JSGlobalData* getThreadGlobalData()
+{
+    return &JSGlobalData::sharedInstance();
+}
+
 static JSGlueGlobalObject* getThreadGlobalObject()
 {
     pthread_once(&globalObjectKeyOnce, initializeGlobalObjectKey);
     JSGlueGlobalObject* globalObject = static_cast<JSGlueGlobalObject*>(pthread_getspecific(globalObjectKey));
     if (!globalObject) {
-        globalObject = new (&JSGlobalData::sharedInstance()) JSGlueGlobalObject(JSGlueGlobalObject::createStructure(jsNull()));
+        globalObject = new (getThreadGlobalData()) JSGlueGlobalObject(JSGlueGlobalObject::createStructure(jsNull()));
         gcProtect(globalObject);
         pthread_setspecific(globalObjectKey, globalObject);
     }
@@ -423,4 +429,27 @@ ExecState* getThreadGlobalExecState()
     // evaluation throughout the thread
     exec->clearException();
     return exec;
+}
+
+JSGlueAPIEntry::JSGlueAPIEntry()
+    : m_lock(LockForReal)
+    , m_storedIdentifierTable(wtfThreadData().currentIdentifierTable())
+{
+    wtfThreadData().setCurrentIdentifierTable(getThreadGlobalData()->identifierTable);
+}
+
+JSGlueAPIEntry::~JSGlueAPIEntry()
+{
+    wtfThreadData().setCurrentIdentifierTable(m_storedIdentifierTable);
+}
+
+JSGlueAPICallback::JSGlueAPICallback(ExecState* exec)
+    : m_dropLocks(exec)
+{
+    wtfThreadData().resetCurrentIdentifierTable();
+}
+
+JSGlueAPICallback::~JSGlueAPICallback()
+{
+    wtfThreadData().setCurrentIdentifierTable(getThreadGlobalData()->identifierTable);
 }

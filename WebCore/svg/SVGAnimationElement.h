@@ -1,10 +1,9 @@
 /*
-    Copyright (C) 2004, 2005 Nikolas Zimmermann <wildfox@kde.org>
+    Copyright (C) 2004, 2005 Nikolas Zimmermann <zimmermann@kde.org>
                   2004, 2005, 2006 Rob Buis <buis@kde.org>
     Copyright (C) 2007 Eric Seidel <eric@webkit.org>
     Copyright (C) 2008 Apple Inc. All rights reserved.
-
-    This file is part of the KDE project
+    Copyright (C) 2008 Cameron McCormack <cam@mcc.id.au>
 
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Library General Public
@@ -43,14 +42,14 @@ namespace WebCore {
     class SVGAnimationElement : public SVGSMILElement,
                                 public SVGTests,
                                 public SVGExternalResourcesRequired,
-                                public ElementTimeControl
-    {
+                                public ElementTimeControl {
     public:
         SVGAnimationElement(const QualifiedName&, Document*);
         virtual ~SVGAnimationElement();
-        
+
         virtual void parseMappedAttribute(MappedAttribute*);
         virtual void attributeChanged(Attribute*, bool preserveDecls);
+        virtual void synchronizeProperty(const QualifiedName&);
 
         // SVGAnimationElement
         float getStartTime() const;
@@ -58,16 +57,14 @@ namespace WebCore {
         float getSimpleDuration(ExceptionCode&) const;
         
         // ElementTimeControl
-        virtual bool beginElement(ExceptionCode&);
-        virtual bool beginElementAt(float offset, ExceptionCode&);
-        virtual bool endElement(ExceptionCode&);
-        virtual bool endElementAt(float offset, ExceptionCode&);
+        virtual void beginElement();
+        virtual void beginElementAt(float offset);
+        virtual void endElement();
+        virtual void endElementAt(float offset);
         
         static bool attributeIsCSS(const String& attributeName);
 
     protected:
-        virtual const SVGElement* contextElement() const { return this; }
- 
         enum CalcMode { CalcModeDiscrete, CalcModeLinear, CalcModePaced, CalcModeSpline };
         CalcMode calcMode() const;
         
@@ -109,6 +106,9 @@ namespace WebCore {
         float calculatePercentForSpline(float percent, unsigned splineIndex) const;
         
     protected:
+        // SVGExternalResourcesRequired
+        DECLARE_ANIMATED_PROPERTY(SVGAnimationElement, SVGNames::externalResourcesRequiredAttr, bool, ExternalResourcesRequired, externalResourcesRequired)
+
         bool m_animationValid;
 
         Vector<String> m_values;

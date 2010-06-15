@@ -35,11 +35,12 @@ using namespace WebCore;
     \since 4.5
     \brief The QWebSecurityOrigin class defines a security boundary for web sites.
 
-    QWebSecurityOrigin provides access to the security domains defined by web sites.
-    An origin consists of a host name, a scheme, and a port number. Web sites with the same
-    security origin can access each other's resources for client-side scripting or databases.
+    \inmodule QtWebKit
 
-    ### diagram
+    QWebSecurityOrigin provides access to the security domains defined by web sites.
+    An origin consists of a host name, a scheme, and a port number. Web sites
+    with the same security origin can access each other's resources for client-side
+    scripting or databases.
 
     For example the site \c{http://www.example.com/my/page.html} is allowed to share the same
     database as \c{http://www.example.com/my/overview.html}, or access each other's
@@ -47,7 +48,13 @@ using namespace WebCore;
     \c{http://www.malicious.com/evil.html} from accessing \c{http://www.example.com/}'s resources,
     because they are of a different security origin.
 
-    QWebSecurity also provides access to all databases defined within a security origin.
+    Call QWebFrame::securityOrigin() to get the QWebSecurityOrigin for a frame in a
+    web page, and use host(), scheme() and port() to identify the security origin.
+
+    Use databases() to access the databases defined within a security origin. The
+    disk usage of the origin's databases can be limited with setDatabaseQuota().
+    databaseQuota() and databaseUsage() report the current limit as well as the
+    current usage.
 
     For more information refer to the
     \l{http://en.wikipedia.org/wiki/Same_origin_policy}{"Same origin policy" Wikipedia Article}.
@@ -193,3 +200,42 @@ QList<QWebDatabase> QWebSecurityOrigin::databases() const
     return databases;
 }
 
+/*!
+    \since 4.6
+
+    Adds the given \a scheme to the list of schemes that are considered equivalent
+    to the \c file: scheme. They are not subject to cross domain restrictions.
+*/
+void QWebSecurityOrigin::addLocalScheme(const QString& scheme)
+{
+    SecurityOrigin::registerURLSchemeAsLocal(scheme);
+}
+
+/*!
+    \since 4.6
+
+    Removes the given \a scheme from the list of local schemes.
+
+    \sa addLocalScheme()
+*/
+void QWebSecurityOrigin::removeLocalScheme(const QString& scheme)
+{
+    SecurityOrigin::removeURLSchemeRegisteredAsLocal(scheme);
+}
+
+/*!
+    \since 4.6
+    Returns a list of all the schemes that were set by the application as local schemes,
+    \sa addLocalScheme(), removeLocalScheme()
+*/
+QStringList QWebSecurityOrigin::localSchemes()
+{
+    QStringList list;
+    const URLSchemesMap& map = SecurityOrigin::localURLSchemes();
+    URLSchemesMap::const_iterator end = map.end();
+    for (URLSchemesMap::const_iterator i = map.begin(); i != end; ++i) {
+        const QString scheme = *i;
+        list.append(scheme);
+    }
+    return list;
+}

@@ -27,7 +27,6 @@
 #define ResourceHandleClient_h
 
 #include <wtf/RefCounted.h>
-#include <wtf/Platform.h>
 #include <wtf/RefPtr.h>
 
 #if USE(CFNETWORK)
@@ -48,9 +47,10 @@ namespace WebCore {
     class AuthenticationChallenge;
     class Credential;
     class KURL;
+    class ProtectionSpace;
     class ResourceHandle;
     class ResourceError;
-    struct ResourceRequest;
+    class ResourceRequest;
     class ResourceResponse;
 
     enum CacheStoragePolicy {
@@ -79,6 +79,9 @@ namespace WebCore {
         virtual bool shouldUseCredentialStorage(ResourceHandle*) { return false; }
         virtual void didReceiveAuthenticationChallenge(ResourceHandle*, const AuthenticationChallenge&) { }
         virtual void didCancelAuthenticationChallenge(ResourceHandle*, const AuthenticationChallenge&) { }
+#if USE(PROTECTION_SPACE_AUTH_CALLBACK)
+        virtual bool canAuthenticateAgainstProtectionSpace(ResourceHandle*, const ProtectionSpace&) { return false; }
+#endif
         virtual void receivedCancellation(ResourceHandle*, const AuthenticationChallenge&) { }
 
 #if PLATFORM(MAC)        

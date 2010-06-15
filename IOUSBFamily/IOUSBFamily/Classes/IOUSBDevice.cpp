@@ -165,10 +165,15 @@ IOUSBInterfaceIterator::init(IOUSBDevice *dev, IOUSBFindInterfaceRequest *reqIn)
 {
     if (!OSIterator::init())
 		return false;
+	
+	if ( dev == NULL || reqIn == NULL )
+		return false;
+	
     fDevice = dev;
     fDevice->retain();
     fRequest = *reqIn;
     fCurrent = NULL;
+	
     return true;
 }
 
@@ -178,9 +183,14 @@ void
 IOUSBInterfaceIterator::free()
 {
     if (fCurrent)
+	{
 		fCurrent->release();
+		fCurrent = NULL;
+	}
 	
     fDevice->release();
+	fDevice = NULL;
+	
     OSIterator::free();
 }
 
@@ -190,9 +200,10 @@ void
 IOUSBInterfaceIterator::reset()
 {
     if (fCurrent)
+	{
         fCurrent->release();
-	
-    fCurrent = NULL;
+		fCurrent = NULL;
+	}
 }
 
 
@@ -210,12 +221,22 @@ IOUSBInterfaceIterator::getNextObject()
 {
     IOUSBInterface *next;
 	
+	// Make sure we don't go away while we're in the middle of a request
+	retain();
+	
     next = fDevice->FindNextInterface(fCurrent, &fRequest);
+	
     if (next)
 		next->retain();
+	
     if (fCurrent)
         fCurrent->release();
+	
     fCurrent = next;
+	
+	// Good to go, now we can release() ourselves
+	release();
+	
     return next;
 }
 
@@ -3270,11 +3291,7 @@ IOUSBDevice::SuspendDevice( bool suspend )
 	USBLog(5, "+%s[%p]::SuspendDevice(%s) for port %d", getName(), this, suspend ? "suspend" : "resume", (uint32_t)_PORT_NUMBER );
 	USBTrace( kUSBTDevice,  kTPDeviceSuspendDevice, (uintptr_t)this, _PORT_NUMBER, suspend, 4);
 
-	// zzz Remove after <rdar://problem/6553617> AppleUSBBluetoothHCIController ... is submitted
-	if ( suspend )
-		status = _USBPLANE_PARENT->messageClients(kIOUSBMessageHubSuspendPort, &_PORT_NUMBER, sizeof(_PORT_NUMBER));
-
-	if ( _HUBPARENT )
+	if( _HUBPARENT )
 	{
 		status = _HUBPARENT->SuspendPort( _PORT_NUMBER, suspend );
 	}

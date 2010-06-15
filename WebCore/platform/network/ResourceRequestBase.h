@@ -32,7 +32,6 @@
 #include "KURL.h"
 #include "HTTPHeaderMap.h"
 
-#include <memory>
 #include <wtf/OwnPtr.h>
 
 namespace WebCore {
@@ -46,16 +45,31 @@ namespace WebCore {
 
     const int unspecifiedTimeoutInterval = INT_MAX;
 
-    struct ResourceRequest;
+    class ResourceRequest;
     struct CrossThreadResourceRequestData;
 
     // Do not use this type directly.  Use ResourceRequest instead.
-    class ResourceRequestBase {
+    class ResourceRequestBase : public FastAllocBase {
     public:
-        static std::auto_ptr<ResourceRequest> adopt(std::auto_ptr<CrossThreadResourceRequestData>);
+        // The type of this ResourceRequest, based on how the resource will be used.
+        enum TargetType {
+            TargetIsMainFrame,
+            TargetIsSubframe,
+            TargetIsSubresource,  // Resource is a generic subresource.  (Generally a specific type should be specified)
+            TargetIsStyleSheet,
+            TargetIsScript,
+            TargetIsFontResource,
+            TargetIsImage,
+            TargetIsObject,
+            TargetIsMedia,
+            TargetIsWorker,
+            TargetIsSharedWorker
+        };
+
+        static PassOwnPtr<ResourceRequest> adopt(PassOwnPtr<CrossThreadResourceRequestData>);
 
         // Gets a copy of the data suitable for passing to another thread.
-        std::auto_ptr<CrossThreadResourceRequestData> copyData() const;
+        PassOwnPtr<CrossThreadResourceRequestData> copyData() const;
 
         bool isNull() const;
         bool isEmpty() const;
@@ -79,7 +93,9 @@ namespace WebCore {
         
         const HTTPHeaderMap& httpHeaderFields() const;
         String httpHeaderField(const AtomicString& name) const;
+        String httpHeaderField(const char* name) const;
         void setHTTPHeaderField(const AtomicString& name, const String& value);
+        void setHTTPHeaderField(const char* name, const String& value);
         void addHTTPHeaderField(const AtomicString& name, const String& value);
         void addHTTPHeaderFields(const HTTPHeaderMap& headerFields);
         
@@ -88,11 +104,11 @@ namespace WebCore {
         
         String httpReferrer() const { return httpHeaderField("Referer"); }
         void setHTTPReferrer(const String& httpReferrer) { setHTTPHeaderField("Referer", httpReferrer); }
-        void clearHTTPReferrer() { m_httpHeaderFields.remove("Referer"); }
+        void clearHTTPReferrer();
         
         String httpOrigin() const { return httpHeaderField("Origin"); }
         void setHTTPOrigin(const String& httpOrigin) { setHTTPHeaderField("Origin", httpOrigin); }
-        void clearHTTPOrigin() { m_httpHeaderFields.remove("Origin"); }
+        void clearHTTPOrigin();
 
         String httpUserAgent() const { return httpHeaderField("User-Agent"); }
         void setHTTPUserAgent(const String& httpUserAgent) { setHTTPHeaderField("User-Agent", httpUserAgent); }
@@ -105,8 +121,8 @@ namespace WebCore {
         FormData* httpBody() const;
         void setHTTPBody(PassRefPtr<FormData> httpBody);
         
-        bool allowHTTPCookies() const;
-        void setAllowHTTPCookies(bool allowHTTPCookies);
+        bool allowCookies() const;
+        void setAllowCookies(bool allowCookies);
 
         bool isConditional() const;
 
@@ -115,12 +131,17 @@ namespace WebCore {
         bool reportUploadProgress() const { return m_reportUploadProgress; }
         void setReportUploadProgress(bool reportUploadProgress) { m_reportUploadProgress = reportUploadProgress; }
 
+        // What this request is for.
+        TargetType targetType() const { return m_targetType; }
+        void setTargetType(TargetType type) { m_targetType = type; }
+
     protected:
         // Used when ResourceRequest is initialized from a platform representation of the request
         ResourceRequestBase()
             : m_resourceRequestUpdated(false)
             , m_platformRequestUpdated(true)
             , m_reportUploadProgress(false)
+            , m_targetType(TargetIsSubresource)
         {
         }
 
@@ -129,10 +150,11 @@ namespace WebCore {
             , m_cachePolicy(policy)
             , m_timeoutInterval(unspecifiedTimeoutInterval)
             , m_httpMethod("GET")
-            , m_allowHTTPCookies(true)
+            , m_allowCookies(true)
             , m_resourceRequestUpdated(true)
             , m_platformRequestUpdated(false)
             , m_reportUploadProgress(false)
+            , m_targetType(TargetIsSubresource)
         {
         }
 
@@ -148,10 +170,11 @@ namespace WebCore {
         HTTPHeaderMap m_httpHeaderFields;
         Vector<String> m_responseContentDispositionEncodingFallbackArray;
         RefPtr<FormData> m_httpBody;
-        bool m_allowHTTPCookies;
+        bool m_allowCookies;
         mutable bool m_resourceRequestUpdated;
         mutable bool m_platformRequestUpdated;
         bool m_reportUploadProgress;
+        TargetType m_targetType;
 
     private:
         const ResourceRequest& asResourceRequest() const;
@@ -162,7 +185,7 @@ namespace WebCore {
     bool operator==(const ResourceRequestBase&, const ResourceRequestBase&);
     inline bool operator!=(ResourceRequestBase& a, const ResourceRequestBase& b) { return !(a == b); }
 
-    struct CrossThreadResourceRequestData {
+    struct CrossThreadResourceRequestData : Noncopyable {
         KURL m_url;
 
         ResourceRequestCachePolicy m_cachePolicy;
@@ -173,7 +196,8 @@ namespace WebCore {
         OwnPtr<CrossThreadHTTPHeaderMapData> m_httpHeaders;
         Vector<String> m_responseContentDispositionEncodingFallbackArray;
         RefPtr<FormData> m_httpBody;
-        bool m_allowHTTPCookies;
+        bool m_allowCookies;
+        ResourceRequestBase::TargetType m_targetType;
     };
     
     unsigned initializeMaximumHTTPConnectionCountPerHost();

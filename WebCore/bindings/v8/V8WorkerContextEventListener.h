@@ -44,23 +44,19 @@ namespace WebCore {
 
     class V8WorkerContextEventListener : public V8EventListener {
     public:
-        static PassRefPtr<V8WorkerContextEventListener> create(WorkerContextExecutionProxy* proxy, v8::Local<v8::Object> listener, bool isInline)
+        static PassRefPtr<V8WorkerContextEventListener> create(v8::Local<v8::Object> listener, bool isInline, const WorldContextHandle& worldContext)
         {
-            return adoptRef(new V8WorkerContextEventListener(proxy, listener, isInline));
+            return adoptRef(new V8WorkerContextEventListener(listener, isInline, worldContext));
         }
-        V8WorkerContextEventListener(WorkerContextExecutionProxy*, v8::Local<v8::Object> listener, bool isInline);
 
-        virtual ~V8WorkerContextEventListener();
-        virtual void handleEvent(Event*, bool isWindowEvent);
-        virtual bool disconnected() const { return !m_proxy; }
+        virtual void handleEvent(ScriptExecutionContext*, Event*);
 
-        WorkerContextExecutionProxy* proxy() const { return m_proxy; }
-        void disconnect() { m_proxy = 0; }
+    protected:
+        V8WorkerContextEventListener(v8::Local<v8::Object> listener, bool isInline, const WorldContextHandle& worldContext);
 
     private:
-        virtual v8::Local<v8::Value> callListenerFunction(v8::Handle<v8::Value> jsEvent, Event*, bool isWindowEvent);
-        v8::Local<v8::Object> getReceiverObject(Event*, bool isWindowEvent);
-        WorkerContextExecutionProxy* m_proxy;
+        virtual v8::Local<v8::Value> callListenerFunction(ScriptExecutionContext*, v8::Handle<v8::Value> jsEvent, Event*);
+        v8::Local<v8::Object> getReceiverObject(ScriptExecutionContext*, Event*);
     };
 
 } // namespace WebCore

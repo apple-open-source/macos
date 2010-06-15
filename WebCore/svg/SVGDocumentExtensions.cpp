@@ -34,6 +34,7 @@
 #include "Frame.h"
 #include "FrameLoader.h"
 #include "Page.h"
+#include "SVGSMILElement.h"
 #include "SVGSVGElement.h"
 #include "SMILTimeContainer.h"
 #include "XMLTokenizer.h"
@@ -61,6 +62,33 @@ void SVGDocumentExtensions::removeTimeContainer(SVGSVGElement* element)
     m_timeContainers.remove(element);
 }
 
+void SVGDocumentExtensions::addResource(const AtomicString& id, RenderSVGResourceContainer* resource)
+{
+    ASSERT(resource);
+
+    if (id.isEmpty())
+        return;
+
+    // Replaces resource if already present, to handle potential id changes
+    m_resources.set(id, resource);
+}
+
+void SVGDocumentExtensions::removeResource(const AtomicString& id)
+{
+    if (id.isEmpty() || !m_resources.contains(id))
+        return;
+
+    m_resources.remove(id);
+}
+
+RenderSVGResourceContainer* SVGDocumentExtensions::resourceById(const AtomicString& id) const
+{
+    if (id.isEmpty())
+        return 0;
+
+    return m_resources.get(id);
+}
+
 void SVGDocumentExtensions::startAnimations()
 {
     // FIXME: Eventually every "Time Container" will need a way to latch on to some global timer
@@ -86,16 +114,27 @@ void SVGDocumentExtensions::unpauseAnimations()
         (*itr)->unpauseAnimations();
 }
 
+bool SVGDocumentExtensions::sampleAnimationAtTime(const String& elementId, SVGSMILElement* element, double time)
+{
+    ASSERT(element);
+    SMILTimeContainer* container = element->timeContainer();
+    if (!container || container->isPaused())
+        return false;
+
+    container->sampleAnimationAtTime(elementId, time);
+    return true;
+}
+
 void SVGDocumentExtensions::reportWarning(const String& message)
 {
     if (Frame* frame = m_doc->frame())
-        frame->domWindow()->console()->addMessage(JSMessageSource, ErrorMessageLevel, "Warning: " + message, m_doc->tokenizer() ? m_doc->tokenizer()->lineNumber() : 1, String());
+        frame->domWindow()->console()->addMessage(JSMessageSource, LogMessageType, ErrorMessageLevel, "Warning: " + message, m_doc->tokenizer() ? m_doc->tokenizer()->lineNumber() : 1, String());
 }
 
 void SVGDocumentExtensions::reportError(const String& message)
 {
     if (Frame* frame = m_doc->frame())
-        frame->domWindow()->console()->addMessage(JSMessageSource, ErrorMessageLevel, "Error: " + message, m_doc->tokenizer() ? m_doc->tokenizer()->lineNumber() : 1, String());
+        frame->domWindow()->console()->addMessage(JSMessageSource, LogMessageType, ErrorMessageLevel, "Error: " + message, m_doc->tokenizer() ? m_doc->tokenizer()->lineNumber() : 1, String());
 }
 
 void SVGDocumentExtensions::addPendingResource(const AtomicString& id, SVGStyledElement* obj)
@@ -108,7 +147,7 @@ void SVGDocumentExtensions::addPendingResource(const AtomicString& id, SVGStyled
     if (m_pendingResources.contains(id))
         m_pendingResources.get(id)->add(obj);
     else {
-        HashSet<SVGStyledElement*>* set = new HashSet<SVGStyledElement*>();
+        HashSet<SVGStyledElement*>* set = new HashSet<SVGStyledElement*>;
         set->add(obj);
 
         m_pendingResources.add(id, set);
@@ -123,13 +162,13 @@ bool SVGDocumentExtensions::isPendingResource(const AtomicString& id) const
     return m_pendingResources.contains(id);
 }
 
-std::auto_ptr<HashSet<SVGStyledElement*> > SVGDocumentExtensions::removePendingResource(const AtomicString& id)
+PassOwnPtr<HashSet<SVGStyledElement*> > SVGDocumentExtensions::removePendingResource(const AtomicString& id)
 {
     ASSERT(m_pendingResources.contains(id));
 
-    std::auto_ptr<HashSet<SVGStyledElement*> > set(m_pendingResources.get(id));
+    OwnPtr<HashSet<SVGStyledElement*> > set(m_pendingResources.get(id));
     m_pendingResources.remove(id);
-    return set;
+    return set.release();
 }
 
 }

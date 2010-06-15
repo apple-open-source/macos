@@ -57,6 +57,7 @@
 
     mangled names = no
     stat cache = no
+    wide links = no
 
     ; The darwin_streams module gives us named streams support.
     stream support = yes

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2005 Apple Computer, Inc.  All rights reserved.
+ * Copyright (C) 2005, 2009 Apple Computer, Inc.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -29,6 +29,7 @@
 #include "config.h"
 #include "JSValueWrapper.h"
 #include "JSRun.h"
+#include <JavaScriptCore/JSArray.h>
 #include <JavaScriptCore/PropertyNameArray.h>
 #include <pthread.h>
 
@@ -66,7 +67,7 @@ void JSValueWrapper::JSObjectDispose(void *data)
 
 CFArrayRef JSValueWrapper::JSObjectCopyPropertyNames(void *data)
 {
-    JSLock lock(true);
+    JSGlueAPIEntry entry;
 
     CFMutableArrayRef result = 0;
     JSValueWrapper* ptr = (JSValueWrapper*)data;
@@ -101,7 +102,7 @@ CFArrayRef JSValueWrapper::JSObjectCopyPropertyNames(void *data)
 
 JSObjectRef JSValueWrapper::JSObjectCopyProperty(void *data, CFStringRef propertyName)
 {
-    JSLock lock(true);
+    JSGlueAPIEntry entry;
 
     JSObjectRef result = 0;
     JSValueWrapper* ptr = (JSValueWrapper*)data;
@@ -125,7 +126,7 @@ JSObjectRef JSValueWrapper::JSObjectCopyProperty(void *data, CFStringRef propert
 
 void JSValueWrapper::JSObjectSetProperty(void *data, CFStringRef propertyName, JSObjectRef jsValue)
 {
-    JSLock lock(true);
+    JSGlueAPIEntry entry;
 
     JSValueWrapper* ptr = (JSValueWrapper*)data;
     if (ptr)
@@ -140,7 +141,7 @@ void JSValueWrapper::JSObjectSetProperty(void *data, CFStringRef propertyName, J
 
 JSObjectRef JSValueWrapper::JSObjectCallFunction(void *data, JSObjectRef thisObj, CFArrayRef args)
 {
-    JSLock lock(true);
+    JSGlueAPIEntry entry;
 
     JSObjectRef result = 0;
     JSValueWrapper* ptr = (JSValueWrapper*)data;
@@ -180,7 +181,7 @@ JSObjectRef JSValueWrapper::JSObjectCallFunction(void *data, JSObjectRef thisObj
 
 CFTypeRef JSValueWrapper::JSObjectCopyCFValue(void *data)
 {
-    JSLock lock(true);
+    JSGlueAPIEntry entry;
 
     CFTypeRef result = 0;
     JSValueWrapper* ptr = (JSValueWrapper*)data;
@@ -196,6 +197,12 @@ void JSValueWrapper::JSObjectMark(void *data)
     JSValueWrapper* ptr = (JSValueWrapper*)data;
     if (ptr)
     {
-        ptr->fValue.get().mark();
+        // This results in recursive marking but will be otherwise safe and correct.
+        // We claim the array vptr is 0 because we don't have access to it here, and
+        // claiming 0 is functionally harmless -- it merely means that we can't
+        // devirtualise marking of arrays when recursing from this point.
+        MarkStack markStack(0);
+        markStack.append(ptr->fValue.get());
+        markStack.drain();
     }
 }

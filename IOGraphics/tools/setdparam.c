@@ -33,9 +33,14 @@ int main(int argc, char * argv[])
                                         kCFStringEncodingMacRoman );
 
 
-    for(i = 0; i < max; i++ )
+    for(i = 0; i < max; i++, IOObjectRelease(service) )
     {
         service = CGDisplayIOServicePort(displayIDs[i]);
+        if(MACH_PORT_NULL == service)
+            continue;
+        service = IODisplayForFramebuffer(service, kNilOptions);
+        if(MACH_PORT_NULL == service)
+            continue;
 
         err = IODisplayGetIntegerRangeParameter(service, kNilOptions, key,
                                                 &ivalue, &imin, &imax);

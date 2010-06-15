@@ -38,13 +38,13 @@ namespace WebCore {
 
 bool JSStorage::canGetItemsForName(ExecState*, Storage* impl, const Identifier& propertyName)
 {
-    return impl->contains(propertyName);
+    return impl->contains(identifierToString(propertyName));
 }
 
-JSValue JSStorage::nameGetter(ExecState* exec, const Identifier& propertyName, const PropertySlot& slot)
+JSValue JSStorage::nameGetter(ExecState* exec, JSValue slotBase, const Identifier& propertyName)
 {
-    JSStorage* thisObj = static_cast<JSStorage*>(asObject(slot.slotBase()));
-    return jsStringOrNull(exec, thisObj->impl()->getItem(propertyName));
+    JSStorage* thisObj = static_cast<JSStorage*>(asObject(slotBase));
+    return jsStringOrNull(exec, thisObj->impl()->getItem(identifierToString(propertyName)));
 }
 
 bool JSStorage::deleteProperty(ExecState* exec, const Identifier& propertyName)
@@ -60,18 +60,17 @@ bool JSStorage::deleteProperty(ExecState* exec, const Identifier& propertyName)
     if (prototype.isObject() && asObject(prototype)->hasProperty(exec, propertyName))
         return false;
 
-    m_impl->removeItem(propertyName);
+    m_impl->removeItem(identifierToString(propertyName));
     return true;
 }
 
-void JSStorage::getPropertyNames(ExecState* exec, PropertyNameArray& propertyNames)
+void JSStorage::getOwnPropertyNames(ExecState* exec, PropertyNameArray& propertyNames, EnumerationMode mode)
 {
-    ExceptionCode ec;
     unsigned length = m_impl->length();
     for (unsigned i = 0; i < length; ++i)
-        propertyNames.add(Identifier(exec, m_impl->key(i, ec)));
+        propertyNames.add(Identifier(exec, stringToUString(m_impl->key(i))));
         
-    Base::getPropertyNames(exec, propertyNames);
+    Base::getOwnPropertyNames(exec, propertyNames, mode);
 }
 
 bool JSStorage::putDelegate(ExecState* exec, const Identifier& propertyName, JSValue value, PutPropertySlot&)
@@ -87,12 +86,12 @@ bool JSStorage::putDelegate(ExecState* exec, const Identifier& propertyName, JSV
     if (prototype.isObject() && asObject(prototype)->hasProperty(exec, propertyName))
         return false;
     
-    String stringValue = value.toString(exec);
+    String stringValue = ustringToString(value.toString(exec));
     if (exec->hadException())
         return true;
     
     ExceptionCode ec = 0;
-    impl()->setItem(propertyName, stringValue, ec);
+    impl()->setItem(identifierToString(propertyName), stringValue, ec);
     setDOMException(exec, ec);
 
     return true;

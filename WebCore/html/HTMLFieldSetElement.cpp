@@ -34,7 +34,7 @@ namespace WebCore {
 using namespace HTMLNames;
 
 HTMLFieldSetElement::HTMLFieldSetElement(const QualifiedName& tagName, Document *doc, HTMLFormElement *f)
-   : HTMLFormControlElement(tagName, doc, f)
+    : HTMLFormControlElement(tagName, doc, f)
 {
     ASSERT(hasTagName(fieldsetTag));
 }
@@ -48,9 +48,9 @@ bool HTMLFieldSetElement::checkDTD(const Node* newChild)
     return newChild->hasTagName(legendTag) || HTMLElement::checkDTD(newChild);
 }
 
-bool HTMLFieldSetElement::isFocusable() const
+bool HTMLFieldSetElement::supportsFocus() const
 {
-    return HTMLElement::isFocusable();
+    return HTMLElement::supportsFocus();
 }
 
 const AtomicString& HTMLFieldSetElement::formControlType() const

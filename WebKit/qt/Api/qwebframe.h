@@ -26,9 +26,7 @@
 #include <QtCore/qvariant.h>
 #include <QtGui/qicon.h>
 #include <QtScript/qscriptengine.h>
-#if QT_VERSION >= 0x040400
 #include <QtNetwork/qnetworkaccessmanager.h>
-#endif
 #include "qwebkitglobal.h"
 
 QT_BEGIN_NAMESPACE
@@ -50,7 +48,9 @@ class QWebHitTestResult;
 class QWebHistoryItem;
 class QWebSecurityOrigin;
 class QWebElement;
+class QWebElementCollection;
 
+class DumpRenderTreeSupportQt;
 namespace WebCore {
     class WidgetPrivate;
     class FrameLoaderClientQt;
@@ -60,8 +60,7 @@ class QWebFrameData;
 class QWebHitTestResultPrivate;
 class QWebFrame;
 
-class QWEBKIT_EXPORT QWebHitTestResult
-{
+class QWEBKIT_EXPORT QWebHitTestResult {
 public:
     QWebHitTestResult();
     QWebHitTestResult(const QWebHitTestResult &other);
@@ -102,13 +101,13 @@ private:
     friend class QWebPage;
 };
 
-class QWEBKIT_EXPORT QWebFrame : public QObject
-{
+class QWEBKIT_EXPORT QWebFrame : public QObject {
     Q_OBJECT
     Q_PROPERTY(qreal textSizeMultiplier READ textSizeMultiplier WRITE setTextSizeMultiplier DESIGNABLE false)
     Q_PROPERTY(qreal zoomFactor READ zoomFactor WRITE setZoomFactor)
     Q_PROPERTY(QString title READ title)
     Q_PROPERTY(QUrl url READ url WRITE setUrl)
+    Q_PROPERTY(QUrl requestedUrl READ requestedUrl)
     Q_PROPERTY(QUrl baseUrl READ baseUrl)
     Q_PROPERTY(QIcon icon READ icon)
     Q_PROPERTY(QSize contentsSize READ contentsSize)
@@ -123,13 +122,9 @@ public:
     QWebPage *page() const;
 
     void load(const QUrl &url);
-#if QT_VERSION < 0x040400
-    void load(const QWebNetworkRequest &request);
-#else
     void load(const QNetworkRequest &request,
               QNetworkAccessManager::Operation operation = QNetworkAccessManager::GetOperation,
               const QByteArray &body = QByteArray());
-#endif
     void setHtml(const QString &html, const QUrl &baseUrl = QUrl());
     void setContent(const QByteArray &data, const QString &mimeType = QString(), const QUrl &baseUrl = QUrl());
 
@@ -142,6 +137,7 @@ public:
     QString title() const;
     void setUrl(const QUrl &url);
     QUrl url() const;
+    QUrl requestedUrl() const;
     QUrl baseUrl() const;
     QIcon icon() const;
     QMultiMap<QString, QString> metaData() const;
@@ -164,9 +160,19 @@ public:
     QPoint scrollPosition() const;
     void setScrollPosition(const QPoint &pos);
 
-    void render(QPainter *painter, const QRegion &clip);
-    void render(QPainter *painter);
-    void renderContents(QPainter *painter, const QRegion &contents);
+    void scrollToAnchor(const QString& anchor);
+
+    enum RenderLayer {
+        ContentsLayer = 0x10,
+        ScrollBarLayer = 0x20,
+        PanIconLayer = 0x40,
+
+        AllLayers = 0xff
+    };
+
+    void render(QPainter*);
+    void render(QPainter*, const QRegion& clip);
+    void render(QPainter*, RenderLayer layer, const QRegion& clip = QRegion());
 
     void setTextSizeMultiplier(qreal factor);
     qreal textSizeMultiplier() const;
@@ -182,7 +188,7 @@ public:
     QSize contentsSize() const;
 
     QWebElement documentElement() const;
-    QList<QWebElement> findAllElements(const QString &selectorQuery) const;
+    QWebElementCollection findAllElements(const QString &selectorQuery) const;
     QWebElement findFirstElement(const QString &selectorQuery) const;
 
     QWebHitTestResult hitTestContent(const QPoint &pos) const;
@@ -210,10 +216,17 @@ Q_SIGNALS:
 
     void contentsSizeChanged(const QSize &size);
 
+    void loadStarted();
+    void loadFinished(bool ok);
+
+    void pageChanged();
+
 private:
+    friend class QGraphicsWebView;
     friend class QWebPage;
     friend class QWebPagePrivate;
     friend class QWebFramePrivate;
+    friend class DumpRenderTreeSupportQt;
     friend class WebCore::WidgetPrivate;
     friend class WebCore::FrameLoaderClientQt;
     friend class WebCore::ChromeClientQt;

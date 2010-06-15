@@ -1,0 +1,463 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 45;
+	objects = {
+
+/* Begin PBXAggregateTarget section */
+		FD93081410A8FEDF007DD96A /* Root */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = FD93082E10A8FF09007DD96A /* Build configuration list for PBXAggregateTarget "Root" */;
+			buildPhases = (
+			);
+			dependencies = (
+				FD93082110A8FF02007DD96A /* PBXTargetDependency */,
+				FD93081710A8FEE8007DD96A /* PBXTargetDependency */,
+				FD93088810A913E8007DD96A /* PBXTargetDependency */,
+			);
+			name = Root;
+			productName = Root;
+		};
+		FD93088510A913E1007DD96A /* Other Files */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = FD93089110A91400007DD96A /* Build configuration list for PBXAggregateTarget "Other Files" */;
+			buildPhases = (
+				FD93088410A913E1007DD96A /* Magic */,
+				FD9308BA10A918D3007DD96A /* Man Pages */,
+				FD9308C910A91A17007DD96A /* ShellScript */,
+			);
+			dependencies = (
+				FD93088A10A913EC007DD96A /* PBXTargetDependency */,
+			);
+			name = "Other Files";
+			productName = "Magic Files";
+		};
+/* End PBXAggregateTarget section */
+
+/* Begin PBXBuildFile section */
+		FD93081110A8FED5007DD96A /* libmagic.a in Frameworks */ = {isa = PBXBuildFile; fileRef = FD9307FD10A8FDBC007DD96A /* libmagic.a */; };
+		FD93083F10A91079007DD96A /* apprentice.c in Sources */ = {isa = PBXBuildFile; fileRef = FD93082F10A91079007DD96A /* apprentice.c */; };
+		FD93084010A91079007DD96A /* apptype.c in Sources */ = {isa = PBXBuildFile; fileRef = FD93083010A91079007DD96A /* apptype.c */; };
+		FD93084110A91079007DD96A /* ascmagic.c in Sources */ = {isa = PBXBuildFile; fileRef = FD93083110A91079007DD96A /* ascmagic.c */; };
+		FD93084210A91079007DD96A /* cdf_time.c in Sources */ = {isa = PBXBuildFile; fileRef = FD93083210A91079007DD96A /* cdf_time.c */; };
+		FD93084310A91079007DD96A /* cdf.c in Sources */ = {isa = PBXBuildFile; fileRef = FD93083310A91079007DD96A /* cdf.c */; };
+		FD93084410A91079007DD96A /* compress.c in Sources */ = {isa = PBXBuildFile; fileRef = FD93083410A91079007DD96A /* compress.c */; };
+		FD93084510A91079007DD96A /* encoding.c in Sources */ = {isa = PBXBuildFile; fileRef = FD93083510A91079007DD96A /* encoding.c */; };
+		FD93084610A91079007DD96A /* fsmagic.c in Sources */ = {isa = PBXBuildFile; fileRef = FD93083610A91079007DD96A /* fsmagic.c */; };
+		FD93084710A91079007DD96A /* funcs.c in Sources */ = {isa = PBXBuildFile; fileRef = FD93083710A91079007DD96A /* funcs.c */; };
+		FD93084810A91079007DD96A /* is_tar.c in Sources */ = {isa = PBXBuildFile; fileRef = FD93083810A91079007DD96A /* is_tar.c */; };
+		FD93084910A91079007DD96A /* magic.c in Sources */ = {isa = PBXBuildFile; fileRef = FD93083910A91079007DD96A /* magic.c */; };
+		FD93084A10A91079007DD96A /* print.c in Sources */ = {isa = PBXBuildFile; fileRef = FD93083A10A91079007DD96A /* print.c */; };
+		FD93084B10A91079007DD96A /* readcdf.c in Sources */ = {isa = PBXBuildFile; fileRef = FD93083B10A91079007DD96A /* readcdf.c */; };
+		FD93084C10A91079007DD96A /* readelf.c in Sources */ = {isa = PBXBuildFile; fileRef = FD93083C10A91079007DD96A /* readelf.c */; };
+		FD93084D10A91079007DD96A /* readmacho.c in Sources */ = {isa = PBXBuildFile; fileRef = FD93083D10A91079007DD96A /* readmacho.c */; };
+		FD93084E10A91079007DD96A /* softmagic.c in Sources */ = {isa = PBXBuildFile; fileRef = FD93083E10A91079007DD96A /* softmagic.c */; };
+		FD93085E10A91156007DD96A /* file.c in Sources */ = {isa = PBXBuildFile; fileRef = FD93085D10A91156007DD96A /* file.c */; };
+		FD93086710A911A1007DD96A /* libz.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = FD93086610A911A1007DD96A /* libz.dylib */; };
+		FD9308A910A91805007DD96A /* magic.h in Headers */ = {isa = PBXBuildFile; fileRef = FD9308A810A91805007DD96A /* magic.h */; settings = {ATTRIBUTES = (Private, ); }; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		FD93081610A8FEE8007DD96A /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = FD9307F010A8FD99007DD96A /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = FD93080B10A8FEC3007DD96A;
+			remoteInfo = file;
+		};
+		FD93081C10A8FEF9007DD96A /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = FD9307F010A8FD99007DD96A /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = FD9307FC10A8FDBC007DD96A;
+			remoteInfo = libmagic;
+		};
+		FD93082010A8FF02007DD96A /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = FD9307F010A8FD99007DD96A /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = FD9307FC10A8FDBC007DD96A;
+			remoteInfo = libmagic;
+		};
+		FD93088710A913E8007DD96A /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = FD9307F010A8FD99007DD96A /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = FD93088510A913E1007DD96A;
+			remoteInfo = "Magic Files";
+		};
+		FD93088910A913EC007DD96A /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = FD9307F010A8FD99007DD96A /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = FD93080B10A8FEC3007DD96A;
+			remoteInfo = file;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		FD9307FD10A8FDBC007DD96A /* libmagic.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libmagic.a; sourceTree = BUILT_PRODUCTS_DIR; };
+		FD93080C10A8FEC3007DD96A /* file */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = file; sourceTree = BUILT_PRODUCTS_DIR; };
+		FD93082F10A91079007DD96A /* apprentice.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = apprentice.c; path = file/src/apprentice.c; sourceTree = "<group>"; };
+		FD93083010A91079007DD96A /* apptype.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = apptype.c; path = file/src/apptype.c; sourceTree = "<group>"; };
+		FD93083110A91079007DD96A /* ascmagic.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = ascmagic.c; path = file/src/ascmagic.c; sourceTree = "<group>"; };
+		FD93083210A91079007DD96A /* cdf_time.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = cdf_time.c; path = file/src/cdf_time.c; sourceTree = "<group>"; };
+		FD93083310A91079007DD96A /* cdf.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = cdf.c; path = file/src/cdf.c; sourceTree = "<group>"; };
+		FD93083410A91079007DD96A /* compress.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = compress.c; path = file/src/compress.c; sourceTree = "<group>"; };
+		FD93083510A91079007DD96A /* encoding.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = encoding.c; path = file/src/encoding.c; sourceTree = "<group>"; };
+		FD93083610A91079007DD96A /* fsmagic.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = fsmagic.c; path = file/src/fsmagic.c; sourceTree = "<group>"; };
+		FD93083710A91079007DD96A /* funcs.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = funcs.c; path = file/src/funcs.c; sourceTree = "<group>"; };
+		FD93083810A91079007DD96A /* is_tar.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = is_tar.c; path = file/src/is_tar.c; sourceTree = "<group>"; };
+		FD93083910A91079007DD96A /* magic.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = magic.c; path = file/src/magic.c; sourceTree = "<group>"; };
+		FD93083A10A91079007DD96A /* print.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = print.c; path = file/src/print.c; sourceTree = "<group>"; };
+		FD93083B10A91079007DD96A /* readcdf.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = readcdf.c; path = file/src/readcdf.c; sourceTree = "<group>"; };
+		FD93083C10A91079007DD96A /* readelf.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = readelf.c; path = file/src/readelf.c; sourceTree = "<group>"; };
+		FD93083D10A91079007DD96A /* readmacho.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = readmacho.c; path = file/src/readmacho.c; sourceTree = "<group>"; };
+		FD93083E10A91079007DD96A /* softmagic.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = softmagic.c; path = file/src/softmagic.c; sourceTree = "<group>"; };
+		FD93085D10A91156007DD96A /* file.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = file.c; path = file/src/file.c; sourceTree = "<group>"; };
+		FD93086610A911A1007DD96A /* libz.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libz.dylib; path = /usr/lib/libz.dylib; sourceTree = "<absolute>"; };
+		FD9308A810A91805007DD96A /* magic.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = magic.h; path = file/src/magic.h; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		FD9307FB10A8FDBC007DD96A /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		FD93080A10A8FEC3007DD96A /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				FD93081110A8FED5007DD96A /* libmagic.a in Frameworks */,
+				FD93086710A911A1007DD96A /* libz.dylib in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		FD9307EE10A8FD99007DD96A = {
+			isa = PBXGroup;
+			children = (
+				FD93084F10A9107C007DD96A /* src */,
+				FD9307FE10A8FDBC007DD96A /* Products */,
+				FD93086610A911A1007DD96A /* libz.dylib */,
+			);
+			sourceTree = "<group>";
+		};
+		FD9307FE10A8FDBC007DD96A /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				FD9307FD10A8FDBC007DD96A /* libmagic.a */,
+				FD93080C10A8FEC3007DD96A /* file */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		FD93084F10A9107C007DD96A /* src */ = {
+			isa = PBXGroup;
+			children = (
+				FD9308A810A91805007DD96A /* magic.h */,
+				FD93082F10A91079007DD96A /* apprentice.c */,
+				FD93083010A91079007DD96A /* apptype.c */,
+				FD93083110A91079007DD96A /* ascmagic.c */,
+				FD93083210A91079007DD96A /* cdf_time.c */,
+				FD93083310A91079007DD96A /* cdf.c */,
+				FD93083410A91079007DD96A /* compress.c */,
+				FD93083510A91079007DD96A /* encoding.c */,
+				FD93083610A91079007DD96A /* fsmagic.c */,
+				FD93083710A91079007DD96A /* funcs.c */,
+				FD93083810A91079007DD96A /* is_tar.c */,
+				FD93083910A91079007DD96A /* magic.c */,
+				FD93083A10A91079007DD96A /* print.c */,
+				FD93083B10A91079007DD96A /* readcdf.c */,
+				FD93083C10A91079007DD96A /* readelf.c */,
+				FD93083D10A91079007DD96A /* readmacho.c */,
+				FD93083E10A91079007DD96A /* softmagic.c */,
+				FD93085D10A91156007DD96A /* file.c */,
+			);
+			name = src;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXHeadersBuildPhase section */
+		FD9307F910A8FDBC007DD96A /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				FD9308A910A91805007DD96A /* magic.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXHeadersBuildPhase section */
+
+/* Begin PBXNativeTarget section */
+		FD9307FC10A8FDBC007DD96A /* libmagic */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = FD93080010A8FDBD007DD96A /* Build configuration list for PBXNativeTarget "libmagic" */;
+			buildPhases = (
+				FD9307F910A8FDBC007DD96A /* Headers */,
+				FD9307FA10A8FDBC007DD96A /* Sources */,
+				FD9307FB10A8FDBC007DD96A /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = libmagic;
+			productName = libmagic;
+			productReference = FD9307FD10A8FDBC007DD96A /* libmagic.a */;
+			productType = "com.apple.product-type.library.static";
+		};
+		FD93080B10A8FEC3007DD96A /* file */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = FD93082D10A8FF09007DD96A /* Build configuration list for PBXNativeTarget "file" */;
+			buildPhases = (
+				FD93080910A8FEC3007DD96A /* Sources */,
+				FD93080A10A8FEC3007DD96A /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				FD93081D10A8FEF9007DD96A /* PBXTargetDependency */,
+			);
+			name = file;
+			productName = file;
+			productReference = FD93080C10A8FEC3007DD96A /* file */;
+			productType = "com.apple.product-type.tool";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		FD9307F010A8FD99007DD96A /* Project object */ = {
+			isa = PBXProject;
+			buildConfigurationList = FD9307F310A8FD99007DD96A /* Build configuration list for PBXProject "file" */;
+			compatibilityVersion = "Xcode 2.4";
+			hasScannedForEncodings = 0;
+			mainGroup = FD9307EE10A8FD99007DD96A;
+			productRefGroup = FD9307FE10A8FDBC007DD96A /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				FD93081410A8FEDF007DD96A /* Root */,
+				FD9307FC10A8FDBC007DD96A /* libmagic */,
+				FD93080B10A8FEC3007DD96A /* file */,
+				FD93088510A913E1007DD96A /* Other Files */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		FD93088410A913E1007DD96A /* Magic */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 8;
+			files = (
+			);
+			inputPaths = (
+			);
+			name = Magic;
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+			shellPath = /bin/sh;
+			shellScript = "set -ex\n\n# Note using builder version of file until it's easy to be self-hosting <rdar://problem/7140945>\ncd \"${TEMP_DIR}\" && file -C -m ${SRCROOT}/file/magic/Magdir\n\ninstall -d -m 0755 ${DSTROOT}/usr/share/file\ninstall -m 0644 \"${TEMP_DIR}/Magdir.mgc\" ${DSTROOT}/usr/share/file/magic.mgc\n\ninstall -d -m 0755 ${DSTROOT}/usr/share/file/magic\ninstall -m 0644 ${SRCROOT}/file/magic/Magdir/* ${DSTROOT}/usr/share/file/magic";
+			showEnvVarsInLog = 0;
+		};
+		FD9308BA10A918D3007DD96A /* Man Pages */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 8;
+			files = (
+			);
+			inputPaths = (
+			);
+			name = "Man Pages";
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+			shellPath = /bin/sh;
+			shellScript = "set -ex\n\nCOMMAND=\"sed -e s@__CSECTION__@1@g -e s@__FSECTION__@5@g -e s@__VERSION__@5.03@g -e s@__MAGIC__@/usr/share/file/magic@g\"\n\ninstall -d -m 0755 ${DSTROOT}/usr/share/man/man1 ${DSTROOT}/usr/share/man/man5 ${DSTROOT}/usr/local/share/man/man3\n\n${COMMAND} ${SRCROOT}/file/doc/file.man > ${DSTROOT}/usr/share/man/man1/file.1\n${COMMAND} ${SRCROOT}/file/doc/magic.man > ${DSTROOT}/usr/share/man/man5/magic.5\n${COMMAND} ${SRCROOT}/file/doc/libmagic.man > ${DSTROOT}/usr/local/share/man/man3/libmagic.3";
+		};
+		FD9308C910A91A17007DD96A /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 8;
+			files = (
+			);
+			inputPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+			shellPath = /bin/sh;
+			shellScript = "set -ex\n\ninstall -d -m 0755 ${DSTROOT}/usr/local/OpenSourceLicenses ${DSTROOT}/usr/local/OpenSourceVersions\ninstall -m 0644 ${SRCROOT}/file/COPYING ${DSTROOT}/usr/local/OpenSourceLicenses/file.txt\ninstall -m 0644 ${SRCROOT}/file.plist ${DSTROOT}/usr/local/OpenSourceVersions/file.plist";
+		};
+/* End PBXShellScriptBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		FD9307FA10A8FDBC007DD96A /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				FD93083F10A91079007DD96A /* apprentice.c in Sources */,
+				FD93084010A91079007DD96A /* apptype.c in Sources */,
+				FD93084110A91079007DD96A /* ascmagic.c in Sources */,
+				FD93084210A91079007DD96A /* cdf_time.c in Sources */,
+				FD93084310A91079007DD96A /* cdf.c in Sources */,
+				FD93084410A91079007DD96A /* compress.c in Sources */,
+				FD93084510A91079007DD96A /* encoding.c in Sources */,
+				FD93084610A91079007DD96A /* fsmagic.c in Sources */,
+				FD93084710A91079007DD96A /* funcs.c in Sources */,
+				FD93084810A91079007DD96A /* is_tar.c in Sources */,
+				FD93084910A91079007DD96A /* magic.c in Sources */,
+				FD93084A10A91079007DD96A /* print.c in Sources */,
+				FD93084B10A91079007DD96A /* readcdf.c in Sources */,
+				FD93084C10A91079007DD96A /* readelf.c in Sources */,
+				FD93084D10A91079007DD96A /* readmacho.c in Sources */,
+				FD93084E10A91079007DD96A /* softmagic.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		FD93080910A8FEC3007DD96A /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				FD93085E10A91156007DD96A /* file.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		FD93081710A8FEE8007DD96A /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = FD93080B10A8FEC3007DD96A /* file */;
+			targetProxy = FD93081610A8FEE8007DD96A /* PBXContainerItemProxy */;
+		};
+		FD93081D10A8FEF9007DD96A /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = FD9307FC10A8FDBC007DD96A /* libmagic */;
+			targetProxy = FD93081C10A8FEF9007DD96A /* PBXContainerItemProxy */;
+		};
+		FD93082110A8FF02007DD96A /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = FD9307FC10A8FDBC007DD96A /* libmagic */;
+			targetProxy = FD93082010A8FF02007DD96A /* PBXContainerItemProxy */;
+		};
+		FD93088810A913E8007DD96A /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = FD93088510A913E1007DD96A /* Other Files */;
+			targetProxy = FD93088710A913E8007DD96A /* PBXContainerItemProxy */;
+		};
+		FD93088A10A913EC007DD96A /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = FD93080B10A8FEC3007DD96A /* file */;
+			targetProxy = FD93088910A913EC007DD96A /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		FD9307F210A8FD99007DD96A /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
+				CODE_SIGN_IDENTITY = "-";
+				CURRENT_PROJECT_VERSION = "$(RC_ProjectSourceVersion)";
+				DEAD_CODE_STRIPPING = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					HAVE_CONFIG_H,
+					"MAGIC=\\\"/usr/share/file/magic\\\"",
+					BUILTIN_MACHO,
+				);
+				HEADER_SEARCH_PATHS = "$(SRCROOT)";
+				PREBINDING = NO;
+				USE_HEADERMAP = NO;
+				VERSIONING_SYSTEM = "apple-generic";
+				VERSION_INFO_PREFIX = __;
+				ZERO_LINK = NO;
+			};
+			name = Release;
+		};
+		FD9307FF10A8FDBD007DD96A /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				INSTALL_PATH = /usr/local/lib;
+				PRODUCT_NAME = magic;
+			};
+			name = Release;
+		};
+		FD93080E10A8FEC4007DD96A /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				INSTALL_PATH = /usr/bin;
+				PRODUCT_NAME = file;
+			};
+			name = Release;
+		};
+		FD93081510A8FEDF007DD96A /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = Root;
+			};
+			name = Release;
+		};
+		FD93088610A913E2007DD96A /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = "Magic Files";
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		FD9307F310A8FD99007DD96A /* Build configuration list for PBXProject "file" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				FD9307F210A8FD99007DD96A /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		FD93080010A8FDBD007DD96A /* Build configuration list for PBXNativeTarget "libmagic" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				FD9307FF10A8FDBD007DD96A /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		FD93082D10A8FF09007DD96A /* Build configuration list for PBXNativeTarget "file" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				FD93080E10A8FEC4007DD96A /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		FD93082E10A8FF09007DD96A /* Build configuration list for PBXAggregateTarget "Root" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				FD93081510A8FEDF007DD96A /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		FD93089110A91400007DD96A /* Build configuration list for PBXAggregateTarget "Other Files" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				FD93088610A913E2007DD96A /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = FD9307F010A8FD99007DD96A /* Project object */;
+}

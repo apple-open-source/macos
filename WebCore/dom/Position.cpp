@@ -27,7 +27,6 @@
 #include "Position.h"
 
 #include "CSSComputedStyleDeclaration.h"
-#include "CString.h"
 #include "CharacterNames.h"
 #include "Logging.h"
 #include "PositionIterator.h"
@@ -38,6 +37,7 @@
 #include "htmlediting.h"
 #include "visible_units.h"
 #include <stdio.h>
+#include <wtf/text/CString.h>
   
 namespace WebCore {
 
@@ -138,10 +138,7 @@ int Position::computeOffsetInContainerNode() const
 
     switch (anchorType()) {
     case PositionIsOffsetInAnchor:
-    {
-        int maximumValidOffset = m_anchorNode->offsetInCharacters() ? m_anchorNode->maxCharacterOffset() : m_anchorNode->childNodeCount();
-        return std::min(maximumValidOffset, m_offset);
-    }
+        return std::min(lastOffsetInNode(m_anchorNode.get()), m_offset);
     case PositionIsBeforeAnchor:
         return m_anchorNode->nodeIndex();
     case PositionIsAfterAnchor:
@@ -310,6 +307,27 @@ bool Position::atLastEditingPositionForNode() const
     return m_offset >= lastOffsetForEditing(node());
 }
 
+// A position is considered at editing boundary if one of the following is true:
+// 1. It is the first position in the node and the next visually equivalent position
+//    is non editable.
+// 2. It is the last position in the node and the previous visually equivalent position
+//    is non editable.
+// 3. It is an editable position and both the next and previous visually equivalent
+//    positions are both non editable.
+bool Position::atEditingBoundary() const
+{
+    Position nextPosition = downstream(CanCrossEditingBoundary);
+    if (atFirstEditingPositionForNode() && nextPosition.isNotNull() && !nextPosition.node()->isContentEditable())
+        return true;
+        
+    Position prevPosition = upstream(CanCrossEditingBoundary);
+    if (atLastEditingPositionForNode() && prevPosition.isNotNull() && !prevPosition.node()->isContentEditable())
+        return true;
+        
+    return nextPosition.isNotNull() && !nextPosition.node()->isContentEditable()
+        && prevPosition.isNotNull() && !prevPosition.node()->isContentEditable();
+}
+
 bool Position::atStartOfTree() const
 {
     if (isNull())
@@ -451,7 +469,7 @@ static bool isStreamer(const PositionIterator& pos)
 // and downstream() will return the right one.
 // Also, upstream() will return [boundary, 0] for any of the positions from [boundary, 0] to the first candidate
 // in boundary, where endsOfNodeAreVisuallyDistinctPositions(boundary) is true.
-Position Position::upstream() const
+Position Position::upstream(EditingBoundaryCrossingRule rule) const
 {
     Node* startNode = node();
     if (!startNode)
@@ -463,6 +481,7 @@ Position Position::upstream() const
     PositionIterator currentPos = lastVisible;
     bool startEditable = startNode->isContentEditable();
     Node* lastNode = startNode;
+    bool boundaryCrossed = false;
     for (; !currentPos.atStart(); currentPos.decrement()) {
         Node* currentNode = currentPos.node();
         
@@ -471,12 +490,15 @@ Position Position::upstream() const
         if (currentNode != lastNode) {
             // Don't change editability.
             bool currentEditable = currentNode->isContentEditable();
-            if (startEditable != currentEditable)
-                break;
+            if (startEditable != currentEditable) {
+                if (rule == CannotCrossEditingBoundary)
+                    break;
+                boundaryCrossed = true;
+            }
             lastNode = currentNode;
         }
 
-        // If we've moved to a position that is visually disinct, return the last saved position. There 
+        // If we've moved to a position that is visually distinct, return the last saved position. There 
         // is code below that terminates early if we're *about* to move to a visually distinct position.
         if (endsOfNodeAreVisuallyDistinctPositions(currentNode) && currentNode != boundary)
             return lastVisible;
@@ -486,6 +508,11 @@ Position Position::upstream() const
         if (!renderer || renderer->style()->visibility() != VISIBLE)
             continue;
                  
+        if (rule == CanCrossEditingBoundary && boundaryCrossed) {
+            lastVisible = currentPos;
+            break;
+        }
+        
         // track last visible streamer position
         if (isStreamer(currentPos))
             lastVisible = currentPos;
@@ -563,7 +590,7 @@ Position Position::upstream() const
 // and upstream() will return the left one.
 // Also, downstream() will return the last position in the last atomic node in boundary for all of the positions
 // in boundary after the last candidate, where endsOfNodeAreVisuallyDistinctPositions(boundary).
-Position Position::downstream() const
+Position Position::downstream(EditingBoundaryCrossingRule rule) const
 {
     Node* startNode = node();
     if (!startNode)
@@ -575,6 +602,7 @@ Position Position::downstream() const
     PositionIterator currentPos = lastVisible;
     bool startEditable = startNode->isContentEditable();
     Node* lastNode = startNode;
+    bool boundaryCrossed = false;
     for (; !currentPos.atEnd(); currentPos.increment()) {   
         Node* currentNode = currentPos.node();
         
@@ -583,8 +611,12 @@ Position Position::downstream() const
         if (currentNode != lastNode) {
             // Don't change editability.
             bool currentEditable = currentNode->isContentEditable();
-            if (startEditable != currentEditable)
-                break;
+            if (startEditable != currentEditable) {
+                if (rule == CannotCrossEditingBoundary)
+                    break;
+                boundaryCrossed = true;
+            }
+                
             lastNode = currentNode;
         }
 
@@ -607,6 +639,11 @@ Position Position::downstream() const
         if (!renderer || renderer->style()->visibility() != VISIBLE)
             continue;
             
+        if (rule == CanCrossEditingBoundary && boundaryCrossed) {
+            lastVisible = currentPos;
+            break;
+        }
+        
         // track last visible streamer position
         if (isStreamer(currentPos))
             lastVisible = currentPos;
@@ -707,10 +744,18 @@ bool Position::isCandidate() const
     if (isTableElement(node()) || editingIgnoresContent(node()))
         return (atFirstEditingPositionForNode() || atLastEditingPositionForNode()) && !nodeIsUserSelectNone(node()->parent());
 
-    if (!node()->hasTagName(htmlTag) && renderer->isBlockFlow() && !hasRenderedNonAnonymousDescendantsWithHeight(renderer) &&
-       (toRenderBox(renderer)->height() || node()->hasTagName(bodyTag)))
-        return atFirstEditingPositionForNode() && !nodeIsUserSelectNone(node());
-    
+    if (m_anchorNode->hasTagName(htmlTag))
+        return false;
+        
+    if (renderer->isBlockFlow()) {
+        if (toRenderBlock(renderer)->height() || m_anchorNode->hasTagName(bodyTag)) {
+            if (!Position::hasRenderedNonAnonymousDescendantsWithHeight(renderer))
+                return atFirstEditingPositionForNode() && !Position::nodeIsUserSelectNone(node());
+            return m_anchorNode->isContentEditable() && !Position::nodeIsUserSelectNone(node()) && atEditingBoundary();
+        }
+    } else
+        return m_anchorNode->isContentEditable() && !Position::nodeIsUserSelectNone(node()) && atEditingBoundary();
+
     return false;
 }
 
@@ -901,14 +946,7 @@ Position Position::trailingWhitespacePosition(EAffinity, bool considerNonCollaps
 
 void Position::getInlineBoxAndOffset(EAffinity affinity, InlineBox*& inlineBox, int& caretOffset) const
 {
-    TextDirection primaryDirection = LTR;
-    for (RenderObject* r = node()->renderer(); r; r = r->parent()) {
-        if (r->isBlockFlow()) {
-            primaryDirection = r->style()->direction();
-            break;
-        }
-    }
-    getInlineBoxAndOffset(affinity, primaryDirection, inlineBox, caretOffset);
+    getInlineBoxAndOffset(affinity, primaryDirection(), inlineBox, caretOffset);
 }
 
 static bool isNonTextLeafChild(RenderObject* object)
@@ -948,14 +986,51 @@ static InlineTextBox* searchAheadForBetterMatch(RenderObject* renderer)
     return 0;
 }
 
+static Position downstreamIgnoringEditingBoundaries(Position position)
+{
+    Position lastPosition;
+    while (position != lastPosition) {
+        lastPosition = position;
+        position = position.downstream(Position::CanCrossEditingBoundary);
+    }
+    return position;
+}
+
+static Position upstreamIgnoringEditingBoundaries(Position position)
+{
+    Position lastPosition;
+    while (position != lastPosition) {
+        lastPosition = position;
+        position = position.upstream(Position::CanCrossEditingBoundary);
+    }
+    return position;
+}
+
 void Position::getInlineBoxAndOffset(EAffinity affinity, TextDirection primaryDirection, InlineBox*& inlineBox, int& caretOffset) const
 {
     caretOffset = m_offset;
     RenderObject* renderer = node()->renderer();
+
     if (!renderer->isText()) {
-        inlineBox = renderer->isBox() ? toRenderBox(renderer)->inlineBoxWrapper() : 0;
-        if (!inlineBox || (caretOffset > inlineBox->caretMinOffset() && caretOffset < inlineBox->caretMaxOffset()))
+        inlineBox = 0;
+        if (canHaveChildrenForEditing(node()) && renderer->isBlockFlow() && hasRenderedNonAnonymousDescendantsWithHeight(renderer)) {
+            // Try a visually equivalent position with possibly opposite editability. This helps in case |this| is in
+            // an editable block but surrounded by non-editable positions. It acts to negate the logic at the beginning
+            // of RenderObject::createVisiblePosition().
+            Position equivalent = downstreamIgnoringEditingBoundaries(*this);
+            if (equivalent == *this)
+                equivalent = upstreamIgnoringEditingBoundaries(*this);
+            if (equivalent == *this)
+                return;
+
+            equivalent.getInlineBoxAndOffset(UPSTREAM, primaryDirection, inlineBox, caretOffset);
             return;
+        }
+        if (renderer->isBox()) {
+            inlineBox = toRenderBox(renderer)->inlineBoxWrapper();
+            if (!inlineBox || (caretOffset > inlineBox->caretMinOffset() && caretOffset < inlineBox->caretMaxOffset()))
+                return;
+        }
     } else {
         RenderText* textRenderer = toRenderText(renderer);
 
@@ -974,12 +1049,13 @@ void Position::getInlineBoxAndOffset(EAffinity affinity, TextDirection primaryDi
                 return;
             }
 
-            if ((caretOffset == caretMinOffset) ^ (affinity == UPSTREAM))
+            if (((caretOffset == caretMaxOffset) ^ (affinity == DOWNSTREAM))
+                || ((caretOffset == caretMinOffset) ^ (affinity == UPSTREAM)))
                 break;
 
             candidate = box;
         }
-        if (candidate && !box && affinity == DOWNSTREAM) {
+        if (candidate && candidate == textRenderer->lastTextBox() && affinity == DOWNSTREAM) {
             box = searchAheadForBetterMatch(textRenderer);
             if (box)
                 caretOffset = box->caretMinOffset();
@@ -1079,6 +1155,20 @@ void Position::getInlineBoxAndOffset(EAffinity affinity, TextDirection primaryDi
     }
 }
 
+TextDirection Position::primaryDirection() const
+{
+    TextDirection primaryDirection = LTR;
+    for (const RenderObject* r = m_anchorNode->renderer(); r; r = r->parent()) {
+        if (r->isBlockFlow()) {
+            primaryDirection = r->style()->direction();
+            break;
+        }
+    }
+
+    return primaryDirection;
+}
+
+
 void Position::debugPosition(const char* msg) const
 {
     if (isNull())
@@ -1109,34 +1199,15 @@ void Position::formatForDebugger(char* buffer, unsigned length) const
 
 void Position::showTreeForThis() const
 {
-    if (node())
+    if (node()) {
         node()->showTreeForThis();
+        fprintf(stderr, "offset: %d\n", m_offset);
+    }
 }
 
 #endif
 
-Position startPosition(const Range* r)
-{
-    return r ? r->startPosition() : Position();
-}
 
-Position endPosition(const Range* r)
-{
-    return r ? r->endPosition() : Position();
-}
-
-// NOTE: first/lastDeepEditingPositionForNode can return "editing positions" (like [img, 0])
-// for elements which editing "ignores".  the rest of the editing code will treat [img, 0]
-// as "the last position before the img"
-Position firstDeepEditingPositionForNode(Node* node)
-{
-    return Position(node, 0);
-}
-
-Position lastDeepEditingPositionForNode(Node* node)
-{
-    return Position(node, lastOffsetForEditing(node));
-}
 
 } // namespace WebCore
 

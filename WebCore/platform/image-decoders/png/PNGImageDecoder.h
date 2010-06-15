@@ -27,6 +27,7 @@
 #define PNGImageDecoder_h
 
 #include "ImageDecoder.h"
+#include <wtf/OwnPtr.h>
 
 namespace WebCore {
 
@@ -36,30 +37,31 @@ namespace WebCore {
     class PNGImageDecoder : public ImageDecoder {
     public:
         PNGImageDecoder();
-        ~PNGImageDecoder();
+        virtual ~PNGImageDecoder();
 
+        // ImageDecoder
         virtual String filenameExtension() const { return "png"; }
-
-        // Take the data and store it.
-        virtual void setData(SharedBuffer* data, bool allDataReceived);
-
-        // Whether or not the size information has been decoded yet.
         virtual bool isSizeAvailable();
-
+        virtual bool setSize(unsigned width, unsigned height);
         virtual RGBA32Buffer* frameBufferAtIndex(size_t index);
 
-        void decode(bool sizeOnly = false);
-
-        PNGImageReader* reader() { return m_reader; }
-
         // Callbacks from libpng
-        void decodingFailed();
         void headerAvailable();
         void rowAvailable(unsigned char* rowBuffer, unsigned rowIndex, int interlacePass);
         void pngComplete();
 
+        bool isComplete() const
+        {
+            return !m_frameBufferCache.isEmpty() && (m_frameBufferCache.first().status() == RGBA32Buffer::FrameComplete);
+        }
+
     private:
-        PNGImageReader* m_reader;
+        // Decodes the image.  If |onlySize| is true, stops decoding after
+        // calculating the image size.  If decoding fails but there is no more
+        // data coming, sets the "decode failure" flag.
+        void decode(bool onlySize);
+
+        OwnPtr<PNGImageReader> m_reader;
     };
 
 } // namespace WebCore

@@ -706,6 +706,7 @@ public:
 
     
 	virtual IOUSBControllerIsochEndpoint*			AllocateIsochEP();
+    virtual void									ReturnIsochDoneQueue(IOUSBControllerIsochEndpoint*);
 
     virtual IOReturn								GetLowLatencyOptionsAndPhysicalMask(IOOptionBits *optionBits, mach_vm_address_t *physicalMask);
 	virtual IODMACommand							*GetNewDMACommand();

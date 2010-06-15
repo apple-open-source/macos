@@ -877,6 +877,31 @@ Example:
 
 
 /*!
+ @defined kIOPropertyPhysicalInterconnectTypeSecureDigital
+ @discussion This key defines the value of Secure Digital for the key
+ kIOPropertyPhysicalInterconnectTypeSecureDigital. If the device is a
+ connected to a Secure Digital port and follows the Secure Digital 
+ specification, this key should be set. 
+ 
+ Example:
+ <pre>
+ @textblock
+ <dict>
+    <key>Protocol Characteristics</key>
+    <dict>
+        <key>Physical Interconnect</key>
+        <string>Secure Digital</string>
+        <key>Physical Interconnect Location</key>
+        <string>Internal</string>
+    </dict>
+ </dict>
+ @/textblock
+ </pre>
+ */
+#define kIOPropertyPhysicalInterconnectTypeSecureDigital	"Secure Digital"
+
+
+/*!
 @defined kIOPropertyPhysicalInterconnectTypeSCSIParallel
 @discussion This key defines the value of SCSI Parallel Interface for the key
 kIOPropertyPhysicalInterconnectTypeKey. If the device is connected

@@ -28,6 +28,7 @@
 		2D38AA13102CD8B800D3D622 /* notify_register_signal.3 in Copy man3 Files */ = {isa = PBXBuildFile; fileRef = 2D312B90102CA38F00F90022 /* notify_register_signal.3 */; };
 		2D38AA14102CD8B800D3D622 /* notify_set_state.3 in Copy man3 Files */ = {isa = PBXBuildFile; fileRef = 2D312B91102CA38F00F90022 /* notify_set_state.3 */; };
 		2D38AA60102CE16100D3D622 /* notify_ipc.defs in Headers */ = {isa = PBXBuildFile; fileRef = 2D312B79102CA30200F90022 /* notify_ipc.defs */; settings = {ATTRIBUTES = (Private, ); }; };
+		2DCB287210D99ADA00DF3A8D /* notify_private.h in Headers */ = {isa = PBXBuildFile; fileRef = 2DCB287110D99ADA00DF3A8D /* notify_private.h */; settings = {ATTRIBUTES = (Private, ); }; };
 /* End PBXBuildFile section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -75,6 +76,7 @@
 		2D312B90102CA38F00F90022 /* notify_register_signal.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = notify_register_signal.3; sourceTree = "<group>"; };
 		2D312B91102CA38F00F90022 /* notify_set_state.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = notify_set_state.3; sourceTree = "<group>"; };
 		2D312B92102CA38F00F90022 /* notify.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = notify.3; sourceTree = "<group>"; };
+		2DCB287110D99ADA00DF3A8D /* notify_private.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = notify_private.h; sourceTree = "<group>"; };
 		2DF9EA0B102CF33400DE9E8D /* APPLE_LICENSE */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = APPLE_LICENSE; sourceTree = "<group>"; };
 		D2AAC046055464E500DB518D /* libnotify.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libnotify.a; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
@@ -135,6 +137,7 @@
 		2D312B80102CA33600F90022 /* Private Headers */ = {
 			isa = PBXGroup;
 			children = (
+				2DCB287110D99ADA00DF3A8D /* notify_private.h */,
 				2D312B81102CA34D00F90022 /* libnotify.h */,
 			);
 			name = "Private Headers";
@@ -188,6 +191,7 @@
 				2D312B86102CA36C00F90022 /* notify_ipc_types.h in Headers */,
 				2D312B87102CA36C00F90022 /* table.h in Headers */,
 				2D38AA60102CE16100D3D622 /* notify_ipc.defs in Headers */,
+				2DCB287210D99ADA00DF3A8D /* notify_private.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

@@ -31,11 +31,11 @@
 #include "config.h"
 #include <windows.h>
 
+#include "AffineTransform.h"
 #include "GraphicsContext.h"
 #include "ImageBuffer.h"
 #include "PlatformContextSkia.h"
 #include "SimpleFontData.h"
-#include "TransformationMatrix.h"
 #include "TransparencyWin.h"
 
 #include "SkColorPriv.h"
@@ -61,7 +61,7 @@ inline const SkBitmap& bitmapForContext(const GraphicsContext& context)
 
 void compositeToCopy(const GraphicsContext& sourceLayers,
                      GraphicsContext& destContext,
-                     const TransformationMatrix& matrix)
+                     const AffineTransform& matrix)
 {
     // Make a list of all devices. The iterator goes top-down, and we want
     // bottom-up. Note that each layer can also have an offset in canvas
@@ -109,7 +109,7 @@ class TransparencyWin::OwnedBuffers {
 public:
     OwnedBuffers(const IntSize& size, bool needReferenceBuffer)
     {
-        m_destBitmap = ImageBuffer::create(size, false);
+        m_destBitmap = ImageBuffer::create(size);
 
         if (needReferenceBuffer) {
             m_referenceBitmap.setConfig(SkBitmap::kARGB_8888_Config, size.width(), size.height());
@@ -247,7 +247,7 @@ void TransparencyWin::setupLayerForOpaqueCompositeLayer()
     if (!m_validLayer)
         return;
 
-    TransformationMatrix mapping;
+    AffineTransform mapping;
     mapping.translate(-m_transformedSourceRect.x(), -m_transformedSourceRect.y());
     if (m_transformMode == Untransform){ 
         // Compute the inverse mapping from the canvas space to the
@@ -275,7 +275,7 @@ void TransparencyWin::setupLayerForWhiteLayer()
     if (!m_validLayer)
         return;
 
-    m_drawContext->fillRect(IntRect(IntPoint(0, 0), m_layerSize), Color::white);
+    m_drawContext->fillRect(IntRect(IntPoint(0, 0), m_layerSize), Color::white, DeviceColorSpace);
     // Layer rect represents the part of the original layer.
 }
 
@@ -307,7 +307,7 @@ void TransparencyWin::setupTransformForKeepTransform(const IntRect& region)
         // Account for the fact that the layer may be offset from the
         // original. This only happens when we create a layer that has the
         // same coordinate space as the parent.
-        TransformationMatrix xform;
+        AffineTransform xform;
         xform.translate(-m_transformedSourceRect.x(), -m_transformedSourceRect.y());
 
         // We're making a layer, so apply the old transform to the new one
@@ -371,8 +371,11 @@ void TransparencyWin::initializeNewContext()
             return;
 
         m_drawContext = m_layerBuffer->context();
-        if (needReferenceBitmap)
+        if (needReferenceBitmap) {
             m_referenceBitmap = m_ownedBuffers->referenceBitmap();
+            if (!m_referenceBitmap || !m_referenceBitmap->getPixels()) 
+                return;
+        }
         m_validLayer = true;
         return;
     }
@@ -478,6 +481,7 @@ void TransparencyWin::compositeTextComposite()
 
     // Now the layer has text with the proper color and opacity.
     SkCanvas* destCanvas = canvasForContext(*m_destContext);
+    destCanvas->save();
 
     // We want to use Untransformed space (see above)
     SkMatrix identity;
@@ -507,4 +511,3 @@ void TransparencyWin::makeLayerOpaque()
 }
 
 } // namespace WebCore
-

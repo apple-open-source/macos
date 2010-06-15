@@ -28,6 +28,7 @@
 
 #import "WebCoreStatistics.h"
 
+#import "DOMElementInternal.h"
 #import "WebCache.h"
 #import "WebFrameInternal.h"
 #import <runtime/JSLock.h>
@@ -38,6 +39,8 @@
 #import <WebCore/GlyphPageTreeNode.h>
 #import <WebCore/IconDatabase.h>
 #import <WebCore/JSDOMWindow.h>
+#import <WebCore/PageCache.h>
+#import <WebCore/PrintContext.h>
 #import <WebCore/RenderTreeAsText.h>
 #import <WebCore/RenderView.h>
 
@@ -53,35 +56,50 @@ using namespace WebCore;
 
 + (size_t)javaScriptObjectsCount
 {
-    JSLock lock(false);
+    JSLock lock(SilenceAssertionsOnly);
     return JSDOMWindow::commonJSGlobalData()->heap.objectCount();
 }
 
 + (size_t)javaScriptGlobalObjectsCount
 {
-    JSLock lock(false);
+    JSLock lock(SilenceAssertionsOnly);
     return JSDOMWindow::commonJSGlobalData()->heap.globalObjectCount();
 }
 
 + (size_t)javaScriptProtectedObjectsCount
 {
-    JSLock lock(false);
+    JSLock lock(SilenceAssertionsOnly);
     return JSDOMWindow::commonJSGlobalData()->heap.protectedObjectCount();
 }
 
 + (size_t)javaScriptProtectedGlobalObjectsCount
 {
-    JSLock lock(false);
+    JSLock lock(SilenceAssertionsOnly);
     return JSDOMWindow::commonJSGlobalData()->heap.protectedGlobalObjectCount();
 }
 
 + (NSCountedSet *)javaScriptProtectedObjectTypeCounts
 {
-    JSLock lock(false);
+    JSLock lock(SilenceAssertionsOnly);
     
     NSCountedSet *result = [NSCountedSet set];
 
     OwnPtr<HashCountedSet<const char*> > counts(JSDOMWindow::commonJSGlobalData()->heap.protectedObjectTypeCounts());
+    HashCountedSet<const char*>::iterator end = counts->end();
+    for (HashCountedSet<const char*>::iterator it = counts->begin(); it != end; ++it)
+        for (unsigned i = 0; i < it->second; ++i)
+            [result addObject:[NSString stringWithUTF8String:it->first]];
+    
+    return result;
+}
+
++ (NSCountedSet *)javaScriptObjectTypeCounts
+{
+    JSLock lock(SilenceAssertionsOnly);
+    
+    NSCountedSet *result = [NSCountedSet set];
+
+    OwnPtr<HashCountedSet<const char*> > counts(JSDOMWindow::commonJSGlobalData()->heap.objectTypeCounts());
     HashCountedSet<const char*>::iterator end = counts->end();
     for (HashCountedSet<const char*>::iterator it = counts->begin(); it != end; ++it)
         for (unsigned i = 0; i < it->second; ++i)
@@ -142,13 +160,13 @@ using namespace WebCore;
 
 + (BOOL)shouldPrintExceptions
 {
-    JSLock lock(false);
+    JSLock lock(SilenceAssertionsOnly);
     return Console::shouldPrintExceptions();
 }
 
 + (void)setShouldPrintExceptions:(BOOL)print
 {
-    JSLock lock(false);
+    JSLock lock(SilenceAssertionsOnly);
     Console::setShouldPrintExceptions(print);
 }
 
@@ -175,13 +193,12 @@ using namespace WebCore;
 + (NSDictionary *)memoryStatistics
 {
     WTF::FastMallocStatistics fastMallocStatistics = WTF::fastMallocStatistics();
-    JSLock lock(false);
+    JSLock lock(SilenceAssertionsOnly);
     Heap::Statistics jsHeapStatistics = JSDOMWindow::commonJSGlobalData()->heap.statistics();
     return [NSDictionary dictionaryWithObjectsAndKeys:
-                [NSNumber numberWithInt:fastMallocStatistics.heapSize], @"FastMallocHeapSize",
-                [NSNumber numberWithInt:fastMallocStatistics.freeSizeInHeap], @"FastMallocFreeSizeInHeap",
-                [NSNumber numberWithInt:fastMallocStatistics.freeSizeInCaches], @"FastMallocFreeSizeInCaches",
-                [NSNumber numberWithInt:fastMallocStatistics.returnedSize], @"FastMallocReturnedSize",
+                [NSNumber numberWithInt:fastMallocStatistics.reservedVMBytes], @"FastMallocReservedVMBytes",
+                [NSNumber numberWithInt:fastMallocStatistics.committedVMBytes], @"FastMallocCommittedVMBytes",
+                [NSNumber numberWithInt:fastMallocStatistics.freeListBytes], @"FastMallocFreeListBytes",
                 [NSNumber numberWithInt:jsHeapStatistics.size], @"JavaScriptHeapSize",
                 [NSNumber numberWithInt:jsHeapStatistics.free], @"JavaScriptFreeSize",
             nil];
@@ -192,6 +209,21 @@ using namespace WebCore;
     WTF::releaseFastMallocFreeMemory();
 }
 
++ (int)cachedPageCount
+{
+    return pageCache()->pageCount();
+}
+
++ (int)cachedFrameCount
+{
+    return pageCache()->frameCount();
+}
+
++ (int)autoreleasedPageCount
+{
+    return pageCache()->autoreleasedPageCount();
+}
+
 // Deprecated
 + (size_t)javaScriptNoGCAllowedObjectsCount
 {
@@ -200,7 +232,7 @@ using namespace WebCore;
 
 + (size_t)javaScriptReferencedObjectsCount
 {
-    JSLock lock(false);
+    JSLock lock(SilenceAssertionsOnly);
     return JSDOMWindow::commonJSGlobalData()->heap.protectedObjectCount();
 }
 
@@ -223,9 +255,24 @@ using namespace WebCore;
 
 @implementation WebFrame (WebKitDebug)
 
-- (NSString *)renderTreeAsExternalRepresentation
+- (NSString *)renderTreeAsExternalRepresentationForPrinting:(BOOL)forPrinting
 {
-    return externalRepresentation(_private->coreFrame->contentRenderer());
+    return externalRepresentation(_private->coreFrame, forPrinting ? RenderAsTextPrintingMode : RenderAsTextBehaviorNormal);
+}
+
+- (NSString *)counterValueForElement:(DOMElement*)element
+{
+    return counterValueForElement(core(element));
+}
+
+- (int)pageNumberForElement:(DOMElement*)element:(float)pageWidthInPixels:(float)pageHeightInPixels
+{
+    return PrintContext::pageNumberForElement(core(element), FloatSize(pageWidthInPixels, pageHeightInPixels));
+}
+
+- (int)numberOfPages:(float)pageWidthInPixels:(float)pageHeightInPixels
+{
+    return PrintContext::numberOfPages(_private->coreFrame, FloatSize(pageWidthInPixels, pageHeightInPixels));
 }
 
 @end

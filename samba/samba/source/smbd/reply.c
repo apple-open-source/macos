@@ -2004,15 +2004,34 @@ NTSTATUS unlink_internals(connection_struct *conn, uint32 dirtype,
 		mangle_check_cache( mask, sizeof(pstring)-1, conn->params );
 	
 	if (!has_wild) {
-		pstrcat(directory,"/");
-		pstrcat(directory,mask);
 		if (dirtype == 0) {
 			dirtype = FILE_ATTRIBUTE_NORMAL;
 		}
 
+		/* APPLE check the container name, not the final target name.
+		 * This lets clients delete symlinks without excaping the
+		 * share.
+		 */
 		status = check_name(conn, directory);
 		if (!NT_STATUS_IS_OK(status)) {
 			return status;
+		}
+
+		pstrcat(directory,"/");
+		pstrcat(directory,mask);
+
+		/* APPLE now that we know the parent directory is OK, that
+		 * means it is also OK to follow that to test the child. If
+		 * the child is a symlink, we can just blow it away now, since
+		 * we know that it can't be subject to deny modes, locking,
+		 * etc. we can skip the can_delete(). If we actually do the
+		 * can_delete, it resolves symlinks and incorrectly denies the
+		 * delete.
+		 */
+
+		if (SMB_VFS_LSTAT(conn, directory, &sbuf) == 0 &&
+			S_ISLNK(sbuf.st_mode)) {
+		    goto skip_delete_check;
 		}
 
 		status = can_delete(conn,directory,dirtype,can_defer);
@@ -2020,6 +2039,7 @@ NTSTATUS unlink_internals(connection_struct *conn, uint32 dirtype,
 			return status;
 		}
 
+skip_delete_check:
 		if (SMB_VFS_UNLINK(conn,directory) == 0) {
 			count++;
 			notify_fname(conn, NOTIFY_ACTION_REMOVED,

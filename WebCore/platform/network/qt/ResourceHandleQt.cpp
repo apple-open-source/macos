@@ -28,29 +28,29 @@
  */
 
 #include "config.h"
-
-#include "Frame.h"
-#include "DocLoader.h"
 #include "ResourceHandle.h"
-#include "ResourceHandleClient.h"
-#include "ResourceHandleInternal.h"
-#include "qwebpage_p.h"
+
 #include "ChromeClientQt.h"
+#include "DocLoader.h"
+#include "Frame.h"
 #include "FrameLoaderClientQt.h"
+#include "NotImplemented.h"
 #include "Page.h"
 #include "QNetworkReplyHandler.h"
+#include "ResourceHandleClient.h"
+#include "ResourceHandleInternal.h"
+#include "SharedBuffer.h"
 
-#include "NotImplemented.h"
+// FIXME: WebCore including these headers from WebKit is a massive layering violation.
+#include "qwebframe_p.h"
+#include "qwebpage_p.h"
 
+#include <QAbstractNetworkCache>
 #include <QCoreApplication>
 #include <QUrl>
-#if QT_VERSION >= 0x040400
 #include <QNetworkAccessManager>
 #include <QNetworkRequest>
 #include <QNetworkReply>
-#else
-#include "qwebnetworkinterface_p.h"
-#endif
 
 namespace WebCore {
 
@@ -73,11 +73,10 @@ private:
     ResourceResponse m_response;
     ResourceError m_error;
     Vector<char> m_data;
-    bool m_finished;
+    QEventLoop m_eventLoop;
 };
 
 WebCoreSynchronousLoader::WebCoreSynchronousLoader()
-    : m_finished(false)
 {
 }
 
@@ -93,19 +92,18 @@ void WebCoreSynchronousLoader::didReceiveData(ResourceHandle*, const char* data,
 
 void WebCoreSynchronousLoader::didFinishLoading(ResourceHandle*)
 {
-    m_finished = true;
+    m_eventLoop.exit();
 }
 
 void WebCoreSynchronousLoader::didFail(ResourceHandle*, const ResourceError& error)
 {
     m_error = error;
-    m_finished = true;
+    m_eventLoop.exit();
 }
 
 void WebCoreSynchronousLoader::waitForCompletion()
 {
-    while (!m_finished)
-        QCoreApplication::processEvents(QEventLoop::ExcludeUserInputEvents);
+    m_eventLoop.exec(QEventLoop::ExcludeUserInputEvents);
 }
 
 ResourceHandleInternal::~ResourceHandleInternal()
@@ -129,24 +127,27 @@ bool ResourceHandle::start(Frame* frame)
     if (!page)
         return false;
 
+    if (!(d->m_user.isEmpty() || d->m_pass.isEmpty())) {
+        // If credentials were specified for this request, add them to the url,
+        // so that they will be passed to QNetworkRequest.
+        KURL urlWithCredentials(d->m_request.url());
+        urlWithCredentials.setUser(d->m_user);
+        urlWithCredentials.setPass(d->m_pass);
+        d->m_request.setURL(urlWithCredentials);
+    }
+
     getInternal()->m_frame = static_cast<FrameLoaderClientQt*>(frame->loader()->client())->webFrame();
-#if QT_VERSION < 0x040400
-    return QWebNetworkManager::self()->add(this, getInternal()->m_frame->page()->d->networkInterface);
-#else
     ResourceHandleInternal *d = getInternal();
     d->m_job = new QNetworkReplyHandler(this, QNetworkReplyHandler::LoadMode(d->m_defersLoading));
     return true;
-#endif
 }
 
 void ResourceHandle::cancel()
 {
-#if QT_VERSION < 0x040400
-    QWebNetworkManager::self()->cancel(this);
-#else
-    if (d->m_job)
+    if (d->m_job) {
         d->m_job->abort();
-#endif
+        d->m_job = 0;
+    }
 }
 
 bool ResourceHandle::loadsBlocked()
@@ -154,9 +155,23 @@ bool ResourceHandle::loadsBlocked()
     return false;
 }
 
-bool ResourceHandle::willLoadFromCache(ResourceRequest& request)
+bool ResourceHandle::willLoadFromCache(ResourceRequest& request, Frame* frame)
 {
-    notImplemented();
+    if (!frame)
+        return false;
+
+    QNetworkAccessManager* manager = QWebFramePrivate::kit(frame)->page()->networkAccessManager();
+    QAbstractNetworkCache* cache = manager->cache();
+
+    if (!cache)
+        return false;
+
+    QNetworkCacheMetaData data = cache->metaData(request.url());
+    if (data.isValid()) {
+        request.setCachePolicy(ReturnCacheDataDontLoad);
+        return true;
+    }
+
     return false;
 }
 
@@ -174,19 +189,19 @@ PassRefPtr<SharedBuffer> ResourceHandle::bufferedData()
 void ResourceHandle::loadResourceSynchronously(const ResourceRequest& request, StoredCredentials /*storedCredentials*/, ResourceError& error, ResourceResponse& response, Vector<char>& data, Frame* frame)
 {
     WebCoreSynchronousLoader syncLoader;
-    ResourceHandle handle(request, &syncLoader, true, false, true);
+    ResourceHandle handle(request, &syncLoader, true, false);
 
-#if QT_VERSION < 0x040400
-    if (!QWebNetworkManager::self()->add(&handle, QWebNetworkInterface::defaultInterface(), QWebNetworkManager::SynchronousJob)) {
-        // FIXME Create a sane ResourceError
-        error = ResourceError(String(), -1, String(), String());
-        return;
-    }
-#else
     ResourceHandleInternal *d = handle.getInternal();
+    if (!(d->m_user.isEmpty() || d->m_pass.isEmpty())) {
+        // If credentials were specified for this request, add them to the url,
+        // so that they will be passed to QNetworkRequest.
+        KURL urlWithCredentials(d->m_request.url());
+        urlWithCredentials.setUser(d->m_user);
+        urlWithCredentials.setPass(d->m_pass);
+        d->m_request.setURL(urlWithCredentials);
+    }
     d->m_frame = static_cast<FrameLoaderClientQt*>(frame->loader()->client())->webFrame();
     d->m_job = new QNetworkReplyHandler(&handle, QNetworkReplyHandler::LoadNormal);
-#endif
 
     syncLoader.waitForCompletion();
     error = syncLoader.resourceError();
@@ -199,10 +214,8 @@ void ResourceHandle::setDefersLoading(bool defers)
 {
     d->m_defersLoading = defers;
 
-#if QT_VERSION >= 0x040400
     if (d->m_job)
         d->m_job->setLoadMode(QNetworkReplyHandler::LoadMode(defers));
-#endif
 }
 
 } // namespace WebCore

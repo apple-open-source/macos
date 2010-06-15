@@ -11,7 +11,7 @@
  *    documentation and/or other materials provided with the distribution.
  *
  * THIS SOFTWARE IS PROVIDED BY APPLE COMPUTER, INC. ``AS IS'' AND ANY
- * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * EXPRESS OR IMPLIED WARRANTIES, INCfLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
  * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
@@ -30,17 +30,25 @@
 #include "WebKit.h"
 #include "WebFrame.h"
 #include "WebPreferences.h"
-
+#include <WebCore/DragActions.h>
 #include <WebCore/IntRect.h>
-#include <WebCore/Timer.h>
+#include <WebCore/RefCountedGDIHandle.h>
+#include <WebCore/SuspendableTimer.h>
 #include <WebCore/WindowMessageListener.h>
+#include <WebCore/WKCACFLayer.h>
+#include <WebCore/WKCACFLayerRenderer.h>
 #include <wtf/HashSet.h>
 #include <wtf/OwnPtr.h>
+#include <wtf/RefPtr.h>
 
-class WebFrame;
+class FullscreenVideoController;
 class WebBackForwardList;
+class WebFrame;
 class WebInspector;
 class WebInspectorClient;
+
+typedef WebCore::RefCountedGDIHandle<HBITMAP> RefCountedHBITMAP;
+typedef WebCore::RefCountedGDIHandle<HRGN> RefCountedHRGN;
 
 WebView* kit(WebCore::Page*);
 WebCore::Page* core(IWebView*);
@@ -58,6 +66,9 @@ class WebView
     , public IWebNotificationObserver
     , public IDropTarget
     , WebCore::WindowMessageListener
+#if USE(ACCELERATED_COMPOSITING)
+    , WebCore::WKCACFLayerRendererClient
+#endif
 {
 public:
     static WebView* createInstance();
@@ -76,11 +87,11 @@ public:
     virtual HRESULT STDMETHODCALLTYPE canShowMIMEType( 
         /* [in] */ BSTR mimeType,
         /* [retval][out] */ BOOL *canShow);
-    
+
     virtual HRESULT STDMETHODCALLTYPE canShowMIMETypeAsHTML( 
         /* [in] */ BSTR mimeType,
         /* [retval][out] */ BOOL *canShow);
-    
+
     virtual HRESULT STDMETHODCALLTYPE MIMETypesShownAsHTML( 
         /* [retval][out] */ IEnumVARIANT **enumVariant);
     
@@ -353,6 +364,9 @@ public:
     virtual HRESULT STDMETHODCALLTYPE toggleGrammarChecking( 
         /* [in] */ IUnknown *sender);
 
+    virtual HRESULT STDMETHODCALLTYPE reloadFromOrigin( 
+        /* [in] */ IUnknown *sender);
+
     // IWebViewCSS
 
     virtual HRESULT STDMETHODCALLTYPE computedStyleForElement( 
@@ -568,6 +582,11 @@ public:
         /* [in] */ IWebNotification *notification);
 
     // IWebViewPrivate
+
+    virtual HRESULT STDMETHODCALLTYPE MIMETypeForExtension(
+        /* [in] */ BSTR extension,
+        /* [retval][out] */ BSTR *mimeType);
+
     virtual HRESULT STDMETHODCALLTYPE setCustomDropTarget(
         /* [in] */ IDropTarget* dt);
 
@@ -678,6 +697,15 @@ public:
         /* [in] */ RECT rect,
         /* [in] */ OLE_HANDLE dc);
 
+    virtual HRESULT STDMETHODCALLTYPE paintDocumentRectToContextAtPoint(
+        /* [in] */ RECT rect,
+        /* [in] */ POINT pt,
+        /* [in] */ OLE_HANDLE dc);
+
+    virtual HRESULT STDMETHODCALLTYPE reportException(
+        /* [in] */ JSContextRef context,
+        /* [in] */ JSValueRef exception);
+
     virtual HRESULT STDMETHODCALLTYPE setCustomHTMLTokenizerTimeDelay(
         /* [in] */ double timeDelay);
 
@@ -729,6 +757,49 @@ public:
     virtual HRESULT STDMETHODCALLTYPE setJavaScriptURLsAreAllowed(
         /* [in] */ BOOL areAllowed);
 
+    virtual HRESULT STDMETHODCALLTYPE setCanStartPlugins(
+        /* [in] */ BOOL canStartPlugins);
+
+    virtual HRESULT STDMETHODCALLTYPE addUserScriptToGroup(BSTR groupName, IWebScriptWorld*, BSTR source, BSTR url,
+                                                           unsigned whitelistCount, BSTR* whitelist, 
+                                                           unsigned blacklistCount, BSTR* blacklist,
+                                                           WebUserScriptInjectionTime);
+    virtual HRESULT STDMETHODCALLTYPE addUserStyleSheetToGroup(BSTR groupName, IWebScriptWorld*, BSTR source, BSTR url,
+                                                               unsigned whitelistCount, BSTR* whitelist, 
+                                                               unsigned blacklistCount, BSTR* blacklist);
+    virtual HRESULT STDMETHODCALLTYPE removeUserScriptFromGroup(BSTR groupName, IWebScriptWorld*, BSTR url);
+    virtual HRESULT STDMETHODCALLTYPE removeUserStyleSheetFromGroup(BSTR groupName, IWebScriptWorld*, BSTR url);
+    virtual HRESULT STDMETHODCALLTYPE removeUserScriptsFromGroup(BSTR groupName, IWebScriptWorld*);
+    virtual HRESULT STDMETHODCALLTYPE removeUserStyleSheetsFromGroup(BSTR groupName, IWebScriptWorld*);
+    virtual HRESULT STDMETHODCALLTYPE removeAllUserContentFromGroup(BSTR groupName);
+
+    virtual HRESULT STDMETHODCALLTYPE setPluginHalterDelegate(IWebPluginHalterDelegate*);
+    virtual HRESULT STDMETHODCALLTYPE pluginHalterDelegate(IWebPluginHalterDelegate**);
+
+    virtual HRESULT STDMETHODCALLTYPE invalidateBackingStore(const RECT*);
+
+    virtual HRESULT STDMETHODCALLTYPE addOriginAccessWhitelistEntry(BSTR sourceOrigin, BSTR destinationProtocol, BSTR destinationHost, BOOL allowDestinationSubdomains);
+    virtual HRESULT STDMETHODCALLTYPE removeOriginAccessWhitelistEntry(BSTR sourceOrigin, BSTR destinationProtocol, BSTR destinationHost, BOOL allowDestinationSubdomains);
+    virtual HRESULT STDMETHODCALLTYPE resetOriginAccessWhitelists();
+
+    virtual HRESULT STDMETHODCALLTYPE setHistoryDelegate(IWebHistoryDelegate* historyDelegate);
+    virtual HRESULT STDMETHODCALLTYPE historyDelegate(IWebHistoryDelegate** historyDelegate);
+    virtual HRESULT STDMETHODCALLTYPE addVisitedLinks(BSTR* visitedURLs, unsigned visitedURLCount);
+
+    virtual HRESULT STDMETHODCALLTYPE isNodeHaltedPlugin(IDOMNode*, BOOL*);
+    virtual HRESULT STDMETHODCALLTYPE restartHaltedPluginForNode(IDOMNode*);
+    virtual HRESULT STDMETHODCALLTYPE hasPluginForNodeBeenHalted(IDOMNode*, BOOL*);
+
+    virtual HRESULT STDMETHODCALLTYPE setGeolocationProvider(IWebGeolocationProvider* locationProvider);
+    virtual HRESULT STDMETHODCALLTYPE geolocationProvider(IWebGeolocationProvider** locationProvider);
+    virtual HRESULT STDMETHODCALLTYPE geolocationDidChangePosition(IWebGeolocationPosition* position);
+    virtual HRESULT STDMETHODCALLTYPE geolocationDidFailWithError(IWebError* error);
+
+    virtual HRESULT STDMETHODCALLTYPE setDomainRelaxationForbiddenForURLScheme(BOOL forbidden, BSTR scheme);
+    virtual HRESULT STDMETHODCALLTYPE registerURLSchemeAsSecure(BSTR);
+
+    virtual HRESULT STDMETHODCALLTYPE nextDisplayIsSynchronous();
+
     // WebView
     bool shouldUseEmbeddedView(const WebCore::String& mimeType) const;
 
@@ -742,13 +813,14 @@ public:
     bool onUninitMenuPopup(WPARAM, LPARAM);
     void performContextMenuAction(WPARAM, LPARAM, bool byPosition);
     bool mouseWheel(WPARAM, LPARAM, bool isMouseHWheel);
+    bool verticalScroll(WPARAM, LPARAM);
+    bool horizontalScroll(WPARAM, LPARAM);
     bool gesture(WPARAM, LPARAM);
     bool gestureNotify(WPARAM, LPARAM);
     bool execCommand(WPARAM wParam, LPARAM lParam);
     bool keyDown(WPARAM, LPARAM, bool systemKeyDown = false);
     bool keyUp(WPARAM, LPARAM, bool systemKeyDown = false);
     bool keyPress(WPARAM, LPARAM, bool systemKeyDown = false);
-    bool inResizer(LPARAM lParam);
     void paint(HDC, LPARAM);
     void paintIntoWindow(HDC bitmapDC, HDC windowDC, const WebCore::IntRect& dirtyRect);
     bool ensureBackingStore();
@@ -760,6 +832,7 @@ public:
     void frameRect(RECT* rect);
     void closeWindow();
     void closeWindowSoon();
+    void closeWindowTimerFired();
     bool didClose() const { return m_didClose; }
 
     bool transparent() const { return m_transparent; }
@@ -769,7 +842,7 @@ public:
     bool onIMEEndComposition();
     bool onIMEChar(WPARAM, LPARAM);
     bool onIMENotify(WPARAM, LPARAM, LRESULT*);
-    bool onIMERequest(WPARAM, LPARAM, LRESULT*);
+    LRESULT onIMERequest(WPARAM, LPARAM);
     bool onIMESelect(WPARAM, LPARAM);
     bool onIMESetContext(WPARAM, LPARAM);
     void selectionChanged();
@@ -813,6 +886,7 @@ public:
     void cancelDeleteBackingStoreSoon();
 
     HWND topLevelParent() const { return m_topLevelParent; }
+    HWND viewWindow() const { return m_viewWindow; }
 
     void updateActiveState();
 
@@ -820,6 +894,14 @@ public:
     static STDMETHODIMP AccessibleObjectFromWindow(HWND, DWORD objectID, REFIID, void** ppObject);
 
     void downloadURL(const WebCore::KURL&);
+
+#if USE(ACCELERATED_COMPOSITING)
+    void setRootLayerNeedsDisplay() { if (m_layerRenderer) m_layerRenderer->setNeedsDisplay(); }
+    void setRootChildLayer(WebCore::WKCACFLayer* layer);
+#endif
+
+    void enterFullscreenForNode(WebCore::Node*);
+    void exitFullscreen();
 
 private:
     void setZoomMultiplier(float multiplier, bool isTextOnly);
@@ -836,19 +918,36 @@ private:
     void paintIntoBackingStore(WebCore::FrameView*, HDC bitmapDC, const WebCore::IntRect& dirtyRect, WindowsToPaint);
     void updateBackingStore(WebCore::FrameView*, HDC = 0, bool backingStoreCompletelyDirty = false, WindowsToPaint = PaintWebViewOnly);
 
+    WebCore::DragOperation keyStateToDragOperation(DWORD grfKeyState) const;
+
+    // FIXME: This variable is part of a workaround. The drop effect (pdwEffect) passed to Drop is incorrect. 
+    // We set this variable in DragEnter and DragOver so that it can be used in Drop to set the correct drop effect. 
+    // Thus, on return from DoDragDrop we have the correct pdwEffect for the drag-and-drop operation.
+    // (see https://bugs.webkit.org/show_bug.cgi?id=29264)
+    DWORD m_lastDropEffect;
+
+#if USE(ACCELERATED_COMPOSITING)
+    // WKCACFLayerRendererClient
+    virtual bool shouldRender() const;
+#endif
+
 protected:
+    static bool registerWebViewWindowClass();
+    static LRESULT CALLBACK WebViewWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam);
+
     HIMC getIMMContext();
     void releaseIMMContext(HIMC);
     static bool allowSiteSpecificHacks() { return s_allowSiteSpecificHacks; } 
     void preflightSpellChecker();
     bool continuousCheckingAllowed();
     void initializeToolTipWindow();
-    void closeWindowTimerFired(WebCore::Timer<WebView>*);
     void prepareCandidateWindow(WebCore::Frame*, HIMC);
     void updateSelectionForIME();
-    bool onIMERequestCharPosition(WebCore::Frame*, IMECHARPOSITION*, LRESULT*);
-    bool onIMERequestReconvertString(WebCore::Frame*, RECONVERTSTRING*, LRESULT*);
+    LRESULT onIMERequestCharPosition(WebCore::Frame*, IMECHARPOSITION*);
+    LRESULT onIMERequestReconvertString(WebCore::Frame*, RECONVERTSTRING*);
     bool developerExtrasEnabled() const;
+
+    bool shouldInitializeTrackPointHack();
 
     // AllWebViewSet functions
     void addToAllWebViewsSet();
@@ -857,14 +956,17 @@ protected:
     virtual void windowReceivedMessage(HWND, UINT message, WPARAM, LPARAM);
 
     ULONG m_refCount;
+#if !ASSERT_DISABLED
+    bool m_deletionHasBegun;
+#endif
     HWND m_hostWindow;
     HWND m_viewWindow;
     WebFrame* m_mainFrame;
     WebCore::Page* m_page;
     
-    OwnPtr<HBITMAP> m_backingStoreBitmap;
+    RefPtr<RefCountedHBITMAP> m_backingStoreBitmap;
     SIZE m_backingStoreSize;
-    OwnPtr<HRGN> m_backingStoreDirtyRegion;
+    RefPtr<RefCountedHRGN> m_backingStoreDirtyRegion;
 
     COMPtr<IWebEditingDelegate> m_editingDelegate;
     COMPtr<IWebFrameLoadDelegate> m_frameLoadDelegate;
@@ -875,8 +977,11 @@ protected:
     COMPtr<IWebPolicyDelegate> m_policyDelegate;
     COMPtr<IWebResourceLoadDelegate> m_resourceLoadDelegate;
     COMPtr<IWebDownloadDelegate> m_downloadDelegate;
+    COMPtr<IWebHistoryDelegate> m_historyDelegate;
     COMPtr<WebPreferences> m_preferences;
     COMPtr<WebInspector> m_webInspector;
+    COMPtr<IWebPluginHalterDelegate> m_pluginHalterDelegate;
+    COMPtr<IWebGeolocationProvider> m_geolocationProvider;
 
     bool m_userAgentOverridden;
     bool m_useBackForwardList;
@@ -907,7 +1012,7 @@ protected:
 
     static bool s_allowSiteSpecificHacks;
 
-    WebCore::Timer<WebView> m_closeWindowTimer;
+    WebCore::SuspendableTimer* m_closeWindowTimer;
     OwnPtr<TRACKMOUSEEVENT> m_mouseOutTracker;
 
     HWND m_topLevelParent;
@@ -915,10 +1020,28 @@ protected:
     OwnPtr<HashSet<WebCore::String> > m_embeddedViewMIMETypes;
 
     //Variables needed to store gesture information
+    RefPtr<WebCore::Node> m_gestureTargetNode;
     long m_lastPanX;
     long m_lastPanY;
     long m_xOverpan;
     long m_yOverpan;
+
+#if ENABLE(VIDEO)
+    OwnPtr<FullscreenVideoController> m_fullscreenController;
+#endif
+
+#if USE(ACCELERATED_COMPOSITING)
+    bool isAcceleratedCompositing() const { return m_isAcceleratedCompositing; }
+    void setAcceleratedCompositing(bool);
+    void updateRootLayerContents();
+    void resizeLayerRenderer() { m_layerRenderer->resize(); }
+    void layerRendererBecameVisible() { m_layerRenderer->createRenderer(); }
+
+    OwnPtr<WebCore::WKCACFLayerRenderer> m_layerRenderer;
+    bool m_isAcceleratedCompositing;
+#endif
+
+    bool m_nextDisplayIsSynchronous;
 };
 
 #endif

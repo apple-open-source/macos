@@ -33,7 +33,7 @@
 
 #include <QtCore/QObject>
 #include <QtCore/QCoreApplication>
-
+#include <QThread>
 
 namespace WTF {
 
@@ -65,6 +65,11 @@ void initializeMainThreadPlatform()
 void scheduleDispatchFunctionsOnMainThread()
 {
     QMetaObject::invokeMethod(webkit_main_thread_invoker(), "dispatch", Qt::QueuedConnection);
+}
+
+bool isMainThread()
+{
+    return QThread::currentThread() == QCoreApplication::instance()->thread();
 }
 
 } // namespace WTF

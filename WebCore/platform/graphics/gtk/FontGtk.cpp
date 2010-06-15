@@ -44,12 +44,6 @@
 #include <pango/pangofc-fontmap.h>
 #endif
 
-#if !defined(PANGO_VERSION_CHECK)
-// PANGO_VERSION_CHECK() and pango_layout_get_line_readonly() appeared in 1.5.2
-#define pango_layout_get_line_readonly pango_layout_get_line
-#define PANGO_VERSION_CHECK(major,minor,micro) 0
-#endif
-
 namespace WebCore {
 
 #define IS_HIGH_SURROGATE(u)  ((UChar)(u) >= (UChar)0xd800 && (UChar)(u) <= (UChar)0xdbff)
@@ -265,7 +259,7 @@ void Font::drawComplexText(GraphicsContext* context, const TextRun& run, const F
 
     // Re-enable the platform shadow we disabled earlier
     if (hasShadow)
-        context->setShadow(shadowSize, shadowBlur, shadowColor);
+        context->setShadow(shadowSize, shadowBlur, shadowColor, DeviceColorSpace);
 
     // Pango sometimes leaves behind paths we don't want
     cairo_new_path(cr);
@@ -294,7 +288,7 @@ static PangoLayout* getDefaultPangoLayout(const TextRun& run)
     return layout;
 }
 
-float Font::floatWidthForComplexText(const TextRun& run, HashSet<const SimpleFontData*>* /* fallbackFonts */) const
+float Font::floatWidthForComplexText(const TextRun& run, HashSet<const SimpleFontData*>* /* fallbackFonts */, GlyphOverflow*) const
 {
     if (run.length() == 0)
         return 0.0f;

@@ -2,8 +2,7 @@
     Copyright (C) 2004, 2005, 2006, 2007 Nikolas Zimmermann <zimmermann@kde.org>
     Copyright (C) 2004, 2005, 2006 Rob Buis <buis@kde.org>
     Copyright (C) 2006 Samuel Weinig <sam.weinig@gmail.com>
-
-    This file is part of the KDE project
+    Copyright (C) Research In Motion Limited 2010. All rights reserved.
 
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Library General Public
@@ -25,7 +24,7 @@
 #define SVGFilterElement_h
 
 #if ENABLE(SVG) && ENABLE(FILTERS)
-#include "SVGResourceFilter.h"
+#include "RenderObject.h"
 #include "SVGExternalResourcesRequired.h"
 #include "SVGLangSpace.h"
 #include "SVGStyledElement.h"
@@ -33,41 +32,43 @@
 
 namespace WebCore {
 
-    extern char SVGFilterResXIdentifier[];
-    extern char SVGFilterResYIdentifier[];
+extern char SVGFilterResXIdentifier[];
+extern char SVGFilterResYIdentifier[];
 
-    class SVGFilterElement : public SVGStyledElement,
-                             public SVGURIReference,
-                             public SVGLangSpace,
-                             public SVGExternalResourcesRequired {
-    public:
-        SVGFilterElement(const QualifiedName&, Document*);
-        virtual ~SVGFilterElement();
+class SVGFilterElement : public SVGStyledElement,
+                         public SVGURIReference,
+                         public SVGLangSpace,
+                         public SVGExternalResourcesRequired {
+public:
+    SVGFilterElement(const QualifiedName&, Document*);
+    virtual ~SVGFilterElement();
 
-        virtual SVGResource* canvasResource();
+    void setFilterRes(unsigned long filterResX, unsigned long filterResY) const;
+    FloatRect filterBoundingBox(const FloatRect&) const;
 
-        void setFilterRes(unsigned long filterResX, unsigned long filterResY) const;
+    virtual void parseMappedAttribute(MappedAttribute*);
+    virtual void synchronizeProperty(const QualifiedName&);
 
-        virtual void parseMappedAttribute(MappedAttribute*);
-        virtual bool rendererIsNeeded(RenderStyle*) { return false; }
+    virtual RenderObject* createRenderer(RenderArena*, RenderStyle*);
 
-    protected:
-        virtual const SVGElement* contextElement() const { return this; }
+private:
+    DECLARE_ANIMATED_PROPERTY(SVGFilterElement, SVGNames::filterUnitsAttr, int, FilterUnits, filterUnits)
+    DECLARE_ANIMATED_PROPERTY(SVGFilterElement, SVGNames::primitiveUnitsAttr, int, PrimitiveUnits, primitiveUnits)
+    DECLARE_ANIMATED_PROPERTY(SVGFilterElement, SVGNames::xAttr, SVGLength, X, x)
+    DECLARE_ANIMATED_PROPERTY(SVGFilterElement, SVGNames::yAttr, SVGLength, Y, y)
+    DECLARE_ANIMATED_PROPERTY(SVGFilterElement, SVGNames::widthAttr, SVGLength, Width, width)
+    DECLARE_ANIMATED_PROPERTY(SVGFilterElement, SVGNames::heightAttr, SVGLength, Height, height)
+    DECLARE_ANIMATED_PROPERTY_MULTIPLE_WRAPPERS(SVGFilterElement, SVGNames::filterResAttr, SVGFilterResXIdentifier, long, FilterResX, filterResX)
+    DECLARE_ANIMATED_PROPERTY_MULTIPLE_WRAPPERS(SVGFilterElement, SVGNames::filterResAttr, SVGFilterResYIdentifier, long, FilterResY, filterResY)
 
-    private:
-        ANIMATED_PROPERTY_DECLARATIONS(SVGFilterElement, SVGNames::filterTagString, SVGNames::filterUnitsAttrString, int, FilterUnits, filterUnits)
-        ANIMATED_PROPERTY_DECLARATIONS(SVGFilterElement, SVGNames::filterTagString, SVGNames::primitiveUnitsAttrString, int, PrimitiveUnits, primitiveUnits)
-        ANIMATED_PROPERTY_DECLARATIONS(SVGFilterElement, SVGNames::filterTagString, SVGNames::xAttrString, SVGLength, X, x)
-        ANIMATED_PROPERTY_DECLARATIONS(SVGFilterElement, SVGNames::filterTagString, SVGNames::yAttrString, SVGLength, Y, y)
-        ANIMATED_PROPERTY_DECLARATIONS(SVGFilterElement, SVGNames::filterTagString, SVGNames::widthAttrString, SVGLength, Width, width)
-        ANIMATED_PROPERTY_DECLARATIONS(SVGFilterElement, SVGNames::filterTagString, SVGNames::heightAttrString, SVGLength, Height, height)
-        ANIMATED_PROPERTY_DECLARATIONS(SVGFilterElement, SVGNames::filterTagString, SVGFilterResXIdentifier, long, FilterResX, filterResX)
-        ANIMATED_PROPERTY_DECLARATIONS(SVGFilterElement, SVGNames::filterTagString, SVGFilterResYIdentifier, long, FilterResY, filterResY)
+    // SVGURIReference
+    DECLARE_ANIMATED_PROPERTY(SVGFilterElement, XLinkNames::hrefAttr, String, Href, href)
 
-        RefPtr<SVGResourceFilter> m_filter;
-    };
+    // SVGExternalResourcesRequired
+    DECLARE_ANIMATED_PROPERTY(SVGFilterElement, SVGNames::externalResourcesRequiredAttr, bool, ExternalResourcesRequired, externalResourcesRequired)
+};
 
-} // namespace WebCore
+}
 
-#endif // ENABLE(SVG)
+#endif
 #endif

@@ -50,25 +50,27 @@ QT_END_NAMESPACE
 #include "KURLGooglePrivate.h"
 #endif
 
+#if USE(JSC)
+#include <runtime/UString.h>
+#endif
+
 namespace WebCore {
 
 class TextEncoding;
 struct KURLHash;
 
-// FIXME: Our terminology here is a bit inconsistent. We refer to the part
-// after the "#" as the "fragment" in some places and the "ref" in others.
-// We should fix the terminology to match the URL and URI RFCs as closely
-// as possible to resolve this.
+enum ParsedURLStringTag { ParsedURLString };
 
 class KURL {
 public:
     // Generates a URL which contains a null string.
     KURL() { invalidate(); }
 
-    // The argument is an absolute URL string. The string is assumed to be
-    // an already encoded (ASCII-only) valid absolute URL.
-    explicit KURL(const char*);
-    explicit KURL(const String&);
+    // The argument is an absolute URL string. The string is assumed to be output of KURL::string() called on a valid
+    // KURL object, or indiscernible from such.
+    // It is usually best to avoid repeatedly parsing a string, unless memory saving outweigh the possible slow-downs.
+    KURL(ParsedURLStringTag, const char*);
+    KURL(ParsedURLStringTag, const String&);
 
     // Resolves the relative URL with the given base URL. If provided, the
     // TextEncoding is used to encode non-ASCII characers. The base URL can be
@@ -79,6 +81,7 @@ public:
     // the same way we treate null and empty base URLs.
     KURL(const KURL& base, const String& relative);
     KURL(const KURL& base, const String& relative, const TextEncoding&);
+
 
 #if USE(GOOGLEURL)
     // For conversions for other structures that have already parsed and
@@ -106,6 +109,12 @@ public:
     // non-hierarchical (like "javascript:") URLs will have no path.
     bool hasPath() const;
 
+    // Returns true if you can set the host and port for the URL.
+    // Non-hierarchical URLs don't have a host and port.
+    bool canSetHostOrPort() const { return isHierarchical(); }
+
+    bool canSetPathname() const { return isHierarchical(); }
+    
 #if USE(GOOGLEURL)
     const String& string() const { return m_url.string(); }
 #else
@@ -115,13 +124,14 @@ public:
     String protocol() const;
     String host() const;
     unsigned short port() const;
+    bool hasPort() const;
     String user() const;
     String pass() const;
     String path() const;
     String lastPathComponent() const;
     String query() const;
-    String ref() const;
-    bool hasRef() const;
+    String fragmentIdentifier() const;
+    bool hasFragmentIdentifier() const;
 
     String baseAsString() const;
 
@@ -134,10 +144,10 @@ public:
     bool protocolInHTTPFamily() const;
     bool isLocalFile() const;
 
-    void setProtocol(const String&);
+    bool setProtocol(const String&);
     void setHost(const String&);
 
-    // Setting the port to 0 will clear any port from the URL.
+    void removePort();
     void setPort(unsigned short);
 
     // Input is like "foo.com" or "foo.com:8000".
@@ -155,10 +165,10 @@ public:
     // URL (with nothing after it). To clear the query, pass a null string.
     void setQuery(const String&);
 
-    void setRef(const String&);
-    void removeRef();
+    void setFragmentIdentifier(const String&);
+    void removeFragmentIdentifier();
 
-    friend bool equalIgnoringRef(const KURL&, const KURL&);
+    friend bool equalIgnoringFragmentIdentifier(const KURL&, const KURL&);
 
     friend bool protocolHostAndPortAreEqual(const KURL&, const KURL&);
 
@@ -169,9 +179,6 @@ public:
     unsigned pathEnd() const;
     unsigned pathAfterLastSlash() const;
     operator const String&() const { return string(); }
-#if USE(JSC)
-    operator JSC::UString() const { return string(); }
-#endif
 
 #if PLATFORM(CF)
     KURL(CFURLRef);
@@ -244,7 +251,7 @@ bool operator!=(const KURL&, const KURL&);
 bool operator!=(const KURL&, const String&);
 bool operator!=(const String&, const KURL&);
 
-bool equalIgnoringRef(const KURL&, const KURL&);
+bool equalIgnoringFragmentIdentifier(const KURL&, const KURL&);
 bool protocolHostAndPortAreEqual(const KURL&, const KURL&);
     
 const KURL& blankURL();
@@ -256,6 +263,9 @@ const KURL& blankURL();
 
 bool protocolIs(const String& url, const char* protocol);
 bool protocolIsJavaScript(const String& url);
+
+bool isDefaultPortForProtocol(unsigned short port, const String& protocol);
+bool portAllowed(const KURL&); // Blacklist ports that should never be used for Web resources.
 
 String mimeTypeFromDataURL(const String& url);
 
@@ -317,6 +327,11 @@ inline bool KURL::isEmpty() const
 inline bool KURL::isValid() const
 {
     return m_isValid;
+}
+
+inline bool KURL::hasPort() const
+{
+    return m_hostEnd < m_portEnd;
 }
 
 inline bool KURL::protocolInHTTPFamily() const
