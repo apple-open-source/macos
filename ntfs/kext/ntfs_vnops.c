@@ -1,8 +1,8 @@
 /*
  * ntfs_vnops.c - NTFS kernel vnode operations.
  *
- * Copyright (c) 2006-2008 Anton Altaparmakov.  All Rights Reserved.
- * Portions Copyright (c) 2006-2008 Apple Inc.  All Rights Reserved.
+ * Copyright (c) 2006-2010 Anton Altaparmakov.  All Rights Reserved.
+ * Portions Copyright (c) 2006-2010 Apple Inc.  All Rights Reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -222,24 +222,32 @@ err:
  * Note that ntfs_buf_iodone() is called deep from within the driver stack and
  * thus there are limitations on what it is allowed to do.  In particular it is
  * not allowed to initiate new i/o operations nor to allocate/free memory.
+ *
+ * WARNING: This function can be called whilst an unmount is in progress and
+ * thus it may not look up nor use the ntfs_volume structure to which the inode
+ * belongs.
  */
 static void ntfs_buf_iodone(buf_t buf, void *arg __unused)
 {
 	s64 ofs, data_size, init_size;
+	vnode_t vn;
+	mount_t mp;
 	ntfs_inode *ni;
-	ntfs_volume *vol;
 	unsigned size, b_flags;
 	errno_t err;
 
-	ni = NTFS_I(buf_vnode(buf));
+	vn = buf_vnode(buf);
+	mp = vnode_mount(vn);
+	ni = NTFS_I(vn);
 	ntfs_debug("Entering for mft_no 0x%llx, lblkno 0x%llx.",
 			(unsigned long long)ni->mft_no,
 			(unsigned long long)buf_lblkno(buf));
 	if (!NInoMstProtected(ni))
 		panic("%s(): !NInoMstProtected(ni)\n", __FUNCTION__);
-	vol = ni->vol;
-	if (ni != vol->mft_ni)
-		panic("%s(): ni != vol->mft_ni\n", __FUNCTION__);
+	if (ni->mft_no)
+		panic("%s(): ni->mft_no\n", __FUNCTION__);
+	if (NInoAttr(ni))
+		panic("%s(): NInoAttr(ni)\n", __FUNCTION__);
 	/* The size and offset in the attribute at which this buffer begins. */
 	size = buf_count(buf);
 	if (size != ni->block_size)
@@ -257,17 +265,17 @@ static void ntfs_buf_iodone(buf_t buf, void *arg __unused)
 	 */
 	if (ofs + size > init_size) {
 		if (ofs > data_size) {
-			ntfs_error(vol->mp, "Buffer begins past the end of "
-					"the data of the attribute (mft_no "
+			ntfs_error(mp, "Buffer begins past the end of the "
+					"data of the attribute (mft_no "
 					"0x%llx).",
 					(unsigned long long)ni->mft_no);
 			err = EINVAL;
 			goto err;
 		}
 		if (ofs > init_size) {
-			ntfs_error(vol->mp, "Buffer begins past the end of "
-					"the initialized data of the "
-					"attribute (mft_no 0x%llx).",
+			ntfs_error(mp, "Buffer begins past the end of the "
+					"initialized data of the attribute "
+					"(mft_no 0x%llx).",
 					(unsigned long long)ni->mft_no);
 			err = EINVAL;
 			goto err;
@@ -282,17 +290,16 @@ static void ntfs_buf_iodone(buf_t buf, void *arg __unused)
 
 		err = buf_map(buf, (caddr_t*)&rec);
 		if (err) {
-			ntfs_error(vol->mp, "Failed to map buffer (error %d).",
+			ntfs_error(mp, "Failed to map buffer (error %d).",
 					err);
 			goto err;
 		}
 		if (b_flags & B_READ) {
 			err = ntfs_mst_fixup_post_read(rec, size);
 			if (err) {
-				ntfs_error(vol->mp, "Multi sector transfer "
-						"error dected in mft_no "
-						"0x%llx (error %d).  Run "
-						"chkdsk",
+				ntfs_error(mp, "Multi sector transfer error "
+						"detected in mft_no 0x%llx "
+						"(error %d).  Run chkdsk",
 						(unsigned long long)ni->mft_no,
 						err);
 				buf_seterror(buf, err);
@@ -301,8 +308,8 @@ static void ntfs_buf_iodone(buf_t buf, void *arg __unused)
 			ntfs_mst_fixup_post_write(rec);
 		err = buf_unmap(buf);
 		if (err) {
-			ntfs_error(vol->mp, "Failed to unmap buffer (error "
-					"%d).", err);
+			ntfs_error(mp, "Failed to unmap buffer (error %d).",
+					err);
 			goto err;
 		}
 	}

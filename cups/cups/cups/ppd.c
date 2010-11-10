@@ -666,6 +666,8 @@ ppdOpen2(cups_file_t *fp)		/* I - File to read from */
 
       goto error;
     }
+    else if (!string)
+      continue;
 
    /*
     * Certain main keywords (as defined by the PPD spec) may be used
@@ -1258,7 +1260,7 @@ ppdOpen2(cups_file_t *fp)		/* I - File to read from */
       if (name[0] == '*')
         _cups_strcpy(name, name + 1); /* Eliminate leading asterisk */
 
-      for (i = (int)strlen(name) - 1; i > 0 && isspace(name[i] & 255); i --)
+      for (i = (int)strlen(name) - 1; i > 0 && _cups_isspace(name[i]); i --)
         name[i] = '\0'; /* Eliminate trailing spaces */
 
       DEBUG_printf(("2ppdOpen2: OpenUI of %s in group %s...", name,
@@ -2358,7 +2360,7 @@ ppd_decode(char *string)		/* I - String to decode */
       inptr ++;
       while (isxdigit(*inptr & 255))
       {
-	if (isalpha(*inptr))
+	if (_cups_isalpha(*inptr))
 	  *outptr = (tolower(*inptr) - 'a' + 10) << 4;
 	else
 	  *outptr = (*inptr - '0') << 4;
@@ -2368,7 +2370,7 @@ ppd_decode(char *string)		/* I - String to decode */
         if (!isxdigit(*inptr & 255))
 	  break;
 
-	if (isalpha(*inptr))
+	if (_cups_isalpha(*inptr))
 	  *outptr |= tolower(*inptr) - 'a' + 10;
 	else
 	  *outptr |= *inptr - '0';
@@ -2999,7 +3001,7 @@ ppd_read(cups_file_t    *fp,		/* I - File to read from */
       */
 
       for (lineptr = line->buffer; *lineptr; lineptr ++)
-        if (!isspace(*lineptr & 255))
+        if (*lineptr && !_cups_isspace(*lineptr))
 	  break;
 
       if (*lineptr)
@@ -3019,7 +3021,7 @@ ppd_read(cups_file_t    *fp,		/* I - File to read from */
 
     keyptr = keyword;
 
-    while (*lineptr != '\0' && *lineptr != ':' && !isspace(*lineptr & 255))
+    while (*lineptr && *lineptr != ':' && !_cups_isspace(*lineptr))
     {
       if (*lineptr <= ' ' || *lineptr > 126 || *lineptr == '/' ||
           (keyptr - keyword) >= (PPD_MAX_NAME - 1))
@@ -3038,18 +3040,18 @@ ppd_read(cups_file_t    *fp,		/* I - File to read from */
 
     mask |= PPD_KEYWORD;
 
-    if (isspace(*lineptr & 255))
+    if (_cups_isspace(*lineptr))
     {
      /*
       * Get an option name...
       */
 
-      while (isspace(*lineptr & 255))
+      while (_cups_isspace(*lineptr))
         lineptr ++;
 
       optptr = option;
 
-      while (*lineptr != '\0' && !isspace(*lineptr & 255) && *lineptr != ':' &&
+      while (*lineptr && !_cups_isspace(*lineptr) && *lineptr != ':' &&
              *lineptr != '/')
       {
 	if (*lineptr <= ' ' || *lineptr > 126 ||
@@ -3064,13 +3066,13 @@ ppd_read(cups_file_t    *fp,		/* I - File to read from */
 
       *optptr = '\0';
 
-      if (isspace(*lineptr & 255) && cg->ppd_conform == PPD_CONFORM_STRICT)
+      if (_cups_isspace(*lineptr) && cg->ppd_conform == PPD_CONFORM_STRICT)
       {
         cg->ppd_status = PPD_ILLEGAL_WHITESPACE;
 	return (0);
       }
 
-      while (isspace(*lineptr & 255))
+      while (_cups_isspace(*lineptr))
 	lineptr ++;
 
       mask |= PPD_OPTION;
@@ -3110,13 +3112,13 @@ ppd_read(cups_file_t    *fp,		/* I - File to read from */
       }
     }
 
-    if (isspace(*lineptr & 255) && cg->ppd_conform == PPD_CONFORM_STRICT)
+    if (_cups_isspace(*lineptr) && cg->ppd_conform == PPD_CONFORM_STRICT)
     {
       cg->ppd_status = PPD_ILLEGAL_WHITESPACE;
       return (0);
     }
 
-    while (isspace(*lineptr & 255))
+    while (_cups_isspace(*lineptr))
       lineptr ++;
 
     if (*lineptr == ':')
@@ -3126,11 +3128,11 @@ ppd_read(cups_file_t    *fp,		/* I - File to read from */
       */
 
       lineptr ++;
-      while (isspace(*lineptr & 255))
+      while (_cups_isspace(*lineptr))
         lineptr ++;
 
       strptr = lineptr + strlen(lineptr) - 1;
-      while (strptr >= lineptr && isspace(*strptr & 255))
+      while (strptr >= lineptr && _cups_isspace(*strptr))
         *strptr-- = '\0';
 
       if (*strptr == '\"')

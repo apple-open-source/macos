@@ -3075,7 +3075,7 @@ config_tls_option(ConfigArgs *c) {
 	case CFG_TLS_CA_PATH:	flag = LDAP_OPT_X_TLS_CACERTDIR;	break;
 	case CFG_TLS_CA_FILE:	flag = LDAP_OPT_X_TLS_CACERTFILE;	break;
 	case CFG_TLS_DH_FILE:	flag = LDAP_OPT_X_TLS_DHFILE;	break;
-	case CFG_TLS_CERT_PASSPHRASE_TOOL:	flag = LDAP_OPT_X_TLS_PASSPHRASE_TOOL;	break;			
+	case CFG_TLS_CERT_PASSPHRASE_TOOL: flag = LDAP_OPT_X_TLS_PASSPHRASE_TOOL; break;
 #ifdef HAVE_GNUTLS
 	case CFG_TLS_CRL_FILE:	flag = LDAP_OPT_X_TLS_CRLFILE;	break;
 #endif
@@ -3094,7 +3094,7 @@ config_tls_option(ConfigArgs *c) {
 		void *argv_ptr = ((c->argv != NULL) && (c->argv[0] != NULL) && (c->argv[1] != NULL)) ? &(c->argv[1]) : NULL;
 		return(ldap_pvt_tls_set_option(NULL, flag, argv_ptr));
 	} else {
-		return(ldap_pvt_tls_set_option(NULL, flag, c->argv[1]));
+		return(ldap_pvt_tls_set_option(ld, flag, c->argv[1]));
 	}
 }
 

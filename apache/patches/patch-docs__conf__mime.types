@@ -1,38 +1,46 @@
---- docs/conf/mime.types.orig	2009-08-03 16:57:20.000000000 -0700
-+++ docs/conf/mime.types	2009-09-22 17:05:43.000000000 -0700
-@@ -116,7 +116,7 @@
- application/nss
- application/ocsp-request
- application/ocsp-response
--application/octet-stream bin dms lha lrf lzh so iso dmg dist distz pkg bpk dump elc deploy
-+application/octet-stream bin dms lha lrf lzh so iso dmg dist distz pkg bpk dump elc deploy scpt dmgpart
+--- docs/conf/mime.types.orig	2009-08-28 07:37:37.000000000 -0700
++++ docs/conf/mime.types	2009-10-30 16:05:38.000000000 -0700
+@@ -121,7 +121,7 @@
+ # application/nss
+ # application/ocsp-request
+ # application/ocsp-response
+-application/octet-stream	bin dms lha lrf lzh so iso dmg dist distz pkg bpk dump elc deploy
++application/octet-stream	bin dms lha lrf lzh so iso dmg dist distz pkg bpk dump elc deploy scpt dmgpart
  application/oda					oda
  application/oebps-package+xml			opf
  application/ogg					ogx
-@@ -921,7 +921,7 @@
+@@ -912,6 +912,7 @@
+ application/x-java-jnlp-file			jnlp
+ application/x-latex				latex
+ application/x-mobipocket-ebook			prc mobi
++application/x-mpegurl				m3u8
+ application/x-ms-application			application
+ application/x-ms-wmd				wmd
+ application/x-ms-wmz				wmz
+@@ -1031,7 +1032,7 @@
  audio/midi					mid midi kar rmi
- audio/mobile-xmf
+ # audio/mobile-xmf
  audio/mp4					mp4a
--audio/mp4a-latm
+-# audio/mp4a-latm
 +audio/mp4a-latm			m4a m4p
- audio/mpa
- audio/mpa-robust
+ # audio/mpa
+ # audio/mpa-robust
  audio/mpeg					mpga mp2 mp2a mp3 m2a m3a
-@@ -1006,11 +1006,12 @@
+@@ -1120,11 +1121,12 @@
  image/g3fax					g3
  image/gif					gif
  image/ief					ief
--image/jp2
+-# image/jp2
 +image/jp2			jp2
  image/jpeg					jpeg jpg jpe
- image/jpm
- image/jpx
- image/naplps
+ # image/jpm
+ # image/jpx
+ # image/naplps
 +image/pict			pict pic pct
  image/png					png
  image/prs.btif					btif
- image/prs.pti
-@@ -1044,12 +1045,14 @@
+ # image/prs.pti
+@@ -1158,12 +1160,14 @@
  image/x-cmx					cmx
  image/x-freehand				fh fhc fh4 fh5 fh7
  image/x-icon					ico
@@ -47,18 +55,28 @@
  image/x-rgb					rgb
  image/x-xbitmap					xbm
  image/x-xpixmap					xpm
-@@ -1184,7 +1187,7 @@
- video/mp1s
- video/mp2p
- video/mp2t
+@@ -1216,6 +1220,7 @@
+ # multipart/report
+ # multipart/signed
+ # multipart/voice-message
++text/cache-manifest				manifest
+ text/calendar					ics ifb
+ text/css					css
+ text/csv					csv
+@@ -1298,8 +1303,8 @@
+ video/mj2					mj2 mjp2
+ # video/mp1s
+ # video/mp2p
+-# video/mp2t
 -video/mp4					mp4 mp4v mpg4
++video/mp2t					ts
 +video/mp4					mp4 mp4v mpg4 m4v
- video/mp4v-es
+ # video/mp4v-es
  video/mpeg					mpeg mpg mpe m1v m2v
- video/mpeg4-generic
-@@ -1222,6 +1225,7 @@
- video/vnd.sealed.swf
- video/vnd.sealedmedia.softseal.mov
+ # video/mpeg4-generic
+@@ -1337,6 +1342,7 @@
+ # video/vnd.sealed.swf
+ # video/vnd.sealedmedia.softseal.mov
  video/vnd.vivo					viv
 +video/x-dv			dv dif
  video/x-f4v					f4v

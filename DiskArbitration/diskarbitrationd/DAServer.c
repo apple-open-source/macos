@@ -643,8 +643,6 @@ void _DAMediaAppearedCallback( void * context, io_iterator_t notification )
                         chown( DADiskGetBSDPath( disk, TRUE  ), deviceUser, -1 );
                         chown( DADiskGetBSDPath( disk, FALSE ), deviceUser, -1 );
 ///w:stop
-
-                        ___DADisplayUpdateActivity( );
                     }
                 }
                 else

@@ -28,10 +28,11 @@
 #include <IOKit/hid/IOHIDPrivateKeys.h>
 #include <IOKit/hid/IOHIDDevicePlugIn.h>
 #include <IOKit/hid/IOHIDLibPrivate.h>
+#include "IOHIDManagerPersistentProperties.h"
 
 static IOHIDElementRef      __IOHIDElementCreate(
                                     CFAllocatorRef          allocator, 
-                                    CFAllocatorContext *    context __unused);
+                                    CFAllocatorContext *    context);
 static Boolean              __IOHIDElementEqual(
                                     CFTypeRef               cf1, 
                                     CFTypeRef               cf2);
@@ -48,6 +49,8 @@ static void                 _IOHIDElementDetach(
                                     IOHIDElementRef         element, 
                                     IOHIDElementRef         toAttach,
                                     Boolean                 propagate);
+static void                 __IOHIDElementApplyCalibration(
+                                    IOHIDElementRef element);
 
 typedef struct __IOHIDElement
 {
@@ -65,7 +68,9 @@ typedef struct __IOHIDElement
     IOHIDElementRef                 parentElement;
     IOHIDElementRef                 originalElement;
     IOHIDCalibrationInfo *          calibrationPtr;
-    CFMutableDictionaryRef          extraProperties;
+    CFMutableDictionaryRef          properties;
+    CFStringRef                     rootKey;
+    Boolean                         isDirty;
 } __IOHIDElement, *__IOHIDElementRef;
 
 static const CFRuntimeClass __IOHIDElementClass = {
@@ -82,6 +87,16 @@ static const CFRuntimeClass __IOHIDElementClass = {
 };
 
 static CFTypeID __kIOHIDElementTypeID = _kCFRuntimeNotATypeID;
+static CFStringRef __KIOHIDElementSpecialKeys[] = {
+    CFSTR(kIOHIDElementCalibrationMinKey),
+    CFSTR(kIOHIDElementCalibrationMaxKey),
+    CFSTR(kIOHIDElementCalibrationSaturationMinKey),
+    CFSTR(kIOHIDElementCalibrationSaturationMaxKey),
+    CFSTR(kIOHIDElementCalibrationMaxKey),
+    CFSTR(kIOHIDElementCalibrationMaxKey),
+    CFSTR(kIOHIDElementCalibrationMaxKey),
+    NULL
+};
 
 //------------------------------------------------------------------------------
 // __IOHIDElementCreate
@@ -113,14 +128,17 @@ IOHIDElementRef __IOHIDElementCreate(
 void __IOHIDElementRelease( CFTypeRef object )
 {
     IOHIDElementRef element = ( IOHIDElementRef ) object;
+    
+    CFRELEASE_IF_NOT_NULL(element->attachedElements);
+    CFRELEASE_IF_NOT_NULL(element->childElements);
+    CFRELEASE_IF_NOT_NULL(element->parentElement);
+    CFRELEASE_IF_NOT_NULL(element->data);
+    CFRELEASE_IF_NOT_NULL(element->originalElement);
+    CFRELEASE_IF_NOT_NULL(element->properties);
+    CFRELEASE_IF_NOT_NULL(element->rootKey);
 
-    if (element->attachedElements)  CFRelease(element->attachedElements);
-    if (element->childElements)     CFRelease(element->childElements);
-    if (element->parentElement)     CFRelease(element->parentElement);
-    if (element->data)              CFRelease(element->data);
-    if (element->originalElement)   CFRelease(element->originalElement);
-    if (element->extraProperties)   CFRelease(element->extraProperties);
     if (element->calibrationPtr)    free(element->calibrationPtr);
+    element->calibrationPtr = NULL;
 }
 
 //------------------------------------------------------------------------------
@@ -715,10 +733,10 @@ IOHIDCalibrationInfo * _IOHIDElementGetCalibrationInfo(IOHIDElementRef element)
 //------------------------------------------------------------------------------
 CFTypeRef IOHIDElementGetProperty(IOHIDElementRef element, CFStringRef key)
 {
-    if ( !element->extraProperties )
+    if ( !element->properties )
         return NULL;
         
-    return CFDictionaryGetValue(element->extraProperties, key);
+    return CFDictionaryGetValue(element->properties, key);
 }
 
 //------------------------------------------------------------------------------
@@ -729,14 +747,13 @@ Boolean IOHIDElementSetProperty(            IOHIDElementRef         element,
                                             CFStringRef             key, 
                                             CFTypeRef               property)
 {
-    if ( !element->extraProperties ) {
-        element->extraProperties = CFDictionaryCreateMutable(
-                                            kCFAllocatorDefault, 
-                                            0, 
-                                            &kCFTypeDictionaryKeyCallBacks, 
-                                            &kCFTypeDictionaryValueCallBacks);
-                                            
-        if ( !element->extraProperties )
+    if ( !element->properties ) {
+        element->properties = CFDictionaryCreateMutable(kCFAllocatorDefault, 
+                                                        0, 
+                                                        &kCFTypeDictionaryKeyCallBacks, 
+                                                        &kCFTypeDictionaryValueCallBacks);
+        
+        if ( !element->properties )
             return FALSE;
     }
     
@@ -748,6 +765,8 @@ Boolean IOHIDElementSetProperty(            IOHIDElementRef         element,
     boolean_t   isDZMax  = FALSE;
     boolean_t   isGran   = FALSE;
      
+    element->isDirty = TRUE;
+
     if ((CFGetTypeID(property) == CFNumberGetTypeID()) && (
         (isCalMin   = CFEqual(key, CFSTR(kIOHIDElementCalibrationMinKey))) || 
         (isCalMax   = CFEqual(key, CFSTR(kIOHIDElementCalibrationMaxKey))) || 
@@ -787,8 +806,112 @@ Boolean IOHIDElementSetProperty(            IOHIDElementRef         element,
             
     }
         
-    CFDictionarySetValue(element->extraProperties, key, property);
-    
+    CFDictionarySetValue(element->properties, key, property);
+   
     return TRUE;
 }
 
+//------------------------------------------------------------------------------
+CFStringRef __IOHIDElementGetRootKey(IOHIDElementRef element)
+{
+    if (!element->rootKey) {
+        // Device Root Key
+        // All *required* matching information
+        CFStringRef device = __IOHIDDeviceGetUUIDKey(element->device);
+        long int usagePage = (long int)IOHIDElementGetUsagePage(element);
+        long int usage = (long int)IOHIDElementGetUsage(element);
+        long int cookie = (long int)IOHIDElementGetCookie(element);
+        long int type = (long int)IOHIDElementGetType(element);
+        
+        element->rootKey = CFStringCreateWithFormat(NULL, NULL, 
+                                                    CFSTR("%@#%04lx#%04lx#%016llx#%ld"), 
+                                                    device,
+                                                    usagePage,
+                                                    usage,
+                                                    cookie,
+                                                    type);
+    }
+    
+    return element->rootKey;
+}
+
+//------------------------------------------------------------------------------
+void __IOHIDElementSaveProperties(IOHIDElementRef element, __IOHIDPropertyContext *context)
+{
+    if (element->isDirty && element->properties) {
+        __IOHIDPropertySaveToKeyWithSpecialKeys(element->properties, __IOHIDElementGetRootKey(element), __KIOHIDElementSpecialKeys, context);
+        element->isDirty = FALSE;
+    }
+}
+
+//------------------------------------------------------------------------------
+void __IOHIDElementLoadProperties(IOHIDElementRef element)
+{
+    CFMutableDictionaryRef properties = __IOHIDPropertyLoadFromKeyWithSpecialKeys(__IOHIDElementGetRootKey(element), __KIOHIDElementSpecialKeys);
+    
+    if (properties) {
+        CFRELEASE_IF_NOT_NULL(element->properties);
+        element->properties = properties;
+        __IOHIDElementApplyCalibration(element);
+        element->isDirty = FALSE;
+    }
+}
+
+//------------------------------------------------------------------------------
+void __IOHIDElementApplyCalibration(IOHIDElementRef element)
+{
+    if (element->properties) {
+        CFNumberRef property;
+        
+        property = CFDictionaryGetValue(element->properties, CFSTR(kIOHIDElementCalibrationMinKey));
+        if (property && (CFGetTypeID(property) == CFNumberGetTypeID())) {
+            CFNumberGetValue(property, kCFNumberCFIndexType, &element->calibrationPtr->min);
+        }
+        
+        property = CFDictionaryGetValue(element->properties, CFSTR(kIOHIDElementCalibrationMaxKey));
+        if (property && (CFGetTypeID(property) == CFNumberGetTypeID())) {
+            CFNumberGetValue(property, kCFNumberCFIndexType, &element->calibrationPtr->max);
+        }
+        
+        property = CFDictionaryGetValue(element->properties, CFSTR(kIOHIDElementCalibrationSaturationMinKey));
+        if (property && (CFGetTypeID(property) == CFNumberGetTypeID())) {
+            CFNumberGetValue(property, kCFNumberCFIndexType, &element->calibrationPtr->satMin);
+        }
+        
+        property = CFDictionaryGetValue(element->properties, CFSTR(kIOHIDElementCalibrationSaturationMaxKey));
+        if (property && (CFGetTypeID(property) == CFNumberGetTypeID())) {
+            CFNumberGetValue(property, kCFNumberCFIndexType, &element->calibrationPtr->satMax);
+        }
+        
+        property = CFDictionaryGetValue(element->properties, CFSTR(kIOHIDElementCalibrationDeadZoneMinKey));
+        if (property && (CFGetTypeID(property) == CFNumberGetTypeID())) {
+            CFNumberGetValue(property, kCFNumberCFIndexType, &element->calibrationPtr->dzMin);
+        }
+        
+        property = CFDictionaryGetValue(element->properties, CFSTR(kIOHIDElementCalibrationDeadZoneMaxKey));
+        if (property && (CFGetTypeID(property) == CFNumberGetTypeID())) {
+            CFNumberGetValue(property, kCFNumberCFIndexType, &element->calibrationPtr->dzMax);
+        }
+        
+        property = CFDictionaryGetValue(element->properties, CFSTR(kIOHIDElementCalibrationGranularityKey));
+        if (property && (CFGetTypeID(property) == CFNumberGetTypeID())) {
+            CFNumberGetValue(property, kCFNumberFloat64Type, &element->calibrationPtr->gran);
+        }
+    }
+}
+
+//------------------------------------------------------------------------------
+void __IOHIDSaveElementSet(const void *value, void *context) {
+    IOHIDElementRef element = (IOHIDElementRef)value;
+    if (element)
+        __IOHIDElementSaveProperties(element, (__IOHIDPropertyContext*)context);
+}
+
+//------------------------------------------------------------------------------
+void __IOHIDLoadElementSet(const void *value, void *context __unused) {
+    IOHIDElementRef element = (IOHIDElementRef)value;
+    if (element)
+        __IOHIDElementLoadProperties(element);
+}
+
+//------------------------------------------------------------------------------

@@ -233,7 +233,7 @@ extern struct remoteconf *getrmconf_strict
 extern int link_rmconf_to_ph1 __P((struct remoteconf *));
 extern int unlink_rmconf_from_ph1 __P((struct remoteconf *));
 #endif
-extern int no_remote_configs __P((void));
+extern int no_remote_configs __P((int));
 extern struct remoteconf *copyrmconf __P((struct sockaddr *));
 extern struct remoteconf *newrmconf __P((void));
 extern struct remoteconf *duprmconf __P((struct remoteconf *));

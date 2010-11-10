@@ -47,6 +47,7 @@
 #include "PMSystemEvents.h"
 #include "SystemLoad.h"
 #include "PMConnection.h"
+#include "ExternalMedia.h"
 
 #define kIOPMAppName        "Power Management configd plugin"
 #define kIOPMPrefsPath        "com.apple.PowerManagement.xml"
@@ -322,11 +323,13 @@ void *pm_run_thread(void *arg)
 
 #if !TARGET_OS_EMBEDDED
     TTYKeepAwake_prime();
+    ExternalMedia_prime();
 #endif
 
     CFRunLoopRun();
     return NULL;
 }
+
 
 
 static void BatteryMatch(

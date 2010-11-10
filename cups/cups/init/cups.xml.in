@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <!DOCTYPE service_bundle SYSTEM "/usr/share/lib/xml/dtd/service_bundle.dtd.1">
 <!--
-    $Id: cups.xml.in 907 2008-08-04 21:51:29Z msweet $
+    $Id: cups.xml.in 2318 2010-07-08 23:29:48Z msweet $
 
     Service manifest for CUPS.
 
@@ -116,6 +116,10 @@
     type='service'
     version='1'>
 
+    <restarter>
+	<service_fmri value='svc:/network/inetd:default' />
+    </restarter>
+
     <dependency
         name='filesystem_minimal'
         grouping='require_all'
@@ -155,10 +159,6 @@
         timeout_seconds='60' />
 
     <instance name='default' enabled='false' >
-        <restarter>
-            <service_fmri value='svc:/network/inetd:default' />
-        </restarter>
-
         <dependency
             name='cupsd'
             grouping='require_all'

@@ -324,6 +324,10 @@
 		0284172109E580260060E31A /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ARCHS = (
+					i386,
+					x86_64,
+				);
 				GCC_ENABLE_CPP_EXCEPTIONS = NO;
 				GCC_ENABLE_OBJC_EXCEPTIONS = NO;
 				GCC_ENABLE_OBJC_GC = YES;
@@ -335,6 +339,10 @@
 		0284172209E580260060E31A /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ARCHS = (
+					i386,
+					x86_64,
+				);
 				GCC_ENABLE_OBJC_GC = YES;
 				PRIVATE_HEADERS_FOLDER_PATH = /usr/local/include;
 				SDKROOT = "";
@@ -344,6 +352,11 @@
 		0284172309E580260060E31A /* Default */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ARCHS = (
+					i386,
+					x86_64,
+				);
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
 				GCC_ENABLE_OBJC_GC = YES;
 				PRIVATE_HEADERS_FOLDER_PATH = /usr/local/include;
 			};

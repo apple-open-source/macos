@@ -17,9 +17,16 @@ CFLAGS=-O0 $(RC_CFLAGS)
 #
 
 PROJECT_NAME=clamav
-OS_VER=0.95.3
+OS_VER=0.96.1
 CLAMAV_TAR_GZ=clamav-$(OS_VER).tar.gz
-CLAMAV_DIFF_5876278=clamav-$(OS_VER)-5876278.diff
+CLAMAV_PATCH_DIFFS=clamav-$(OS_VER).diff
+
+MODULES=Crypt-OpenSSL-RSA-0.26 Mail-DKIM-0.38 
+
+PERL_VER=`perl -V:version | sed -n -e "s/[^0-9.]*\([0-9.]*\).*/\1/p"`
+PERL_DIR=/System/Library/Perl
+PERL_EXTRA_DIR=/System/Library/Perl/Extras
+PERL_EXTRA_VER_DIR=$(PERL_EXTRA_DIR)/$(PERL_VER)
 
 CLAMAV_BUILD_DIR=/clamav/clamav-$(OS_VER)
 ETC_DIR=/private/etc
@@ -54,6 +61,16 @@ STRIP=/usr/bin/strip
 GNUTAR=/usr/bin/gnutar
 CHOWN=/usr/sbin/chown
 PATCH=/usr/bin/patch
+
+# Perl config
+#
+PERL_CONFIG = \
+	PREFIX=/ \
+	INSTALLPRIVLIB=/System/Library/Perl/$(PERL_VER) \
+	INSTALLSITELIB=/System/Library/Perl/Extras/$(PERL_VER) \
+	INSTALLMAN1DIR=/usr/share/man/man1 \
+	INSTALLMAN3DIR=/usr/share/man/man3
+
 
 # Clam Antivirus config
 #
@@ -107,8 +124,8 @@ make_clamav :
 	$(SILENT) if [ -e "$(SRCROOT)/$(BINARY_DIR)/$(CLAMAV_TAR_GZ)" ]; then\
 		$(SILENT) ($(CD) "$(SRCROOT)/$(PROJECT)" && $(GNUTAR) -xzpf "$(SRCROOT)/$(BINARY_DIR)/$(CLAMAV_TAR_GZ)") ; \
 	fi
-	$(SILENT) if [ -e "$(SRCROOT)/$(BINARY_DIR)/$(CLAMAV_DIFF_5876278)" ]; then\
-		$(SILENT) ($(CD) "$(SRCROOT)$(CLAMAV_BUILD_DIR)" && $(PATCH) -p1 < "$(SRCROOT)/$(BINARY_DIR)/$(CLAMAV_DIFF_5876278)") ; \
+	$(SILENT) if [ -e "$(SRCROOT)/$(BINARY_DIR)/$(CLAMAV_PATCH_DIFFS)" ]; then\
+		$(SILENT) ($(CD) "$(SRCROOT)$(CLAMAV_BUILD_DIR)" && $(PATCH) -p1 < "$(SRCROOT)/$(BINARY_DIR)/$(CLAMAV_PATCH_DIFFS)") ; \
 	fi
 	$(SILENT) ($(CD) "$(SRCROOT)$(CLAMAV_BUILD_DIR)" && ./configure $(CLAMAV_CONFIG))
 	$(SILENT) ($(CD) "$(SRCROOT)$(CLAMAV_BUILD_DIR)" && make CFLAGS="$(CFLAGS)")
@@ -117,17 +134,35 @@ make_clamav :
 
 make_clamav_install :
 	# Unstuff archive
+	$(SILENT) $(ECHO) "------------ Make Install Perl Modules ------------"
+	$(SILENT) $(ECHO) "Perl Version: $(PERL_VER)"
+	$(SILENT) mkdir "$(OBJROOT)/build"
+	for perl_mod in $(MODULES); \
+	do \
+		$(CD) "$(OBJROOT)/build" && $(GNUTAR) -xzpf "$(SRCROOT)/$(BINARY_DIR)/$$perl_mod.tar.gz"; \
+		$(CD) "$(OBJROOT)/build/$$perl_mod" && perl Makefile.PL $(PERL_CONFIG) && \
+				make DESTDIR=$(DSTROOT) CFLAGS="$(RC_CFLAGS)" OTHERLDFLAGS="$(RC_CFLAGS)" install; \
+	done
+
+	$(SILENT) mkdir "$(DSTROOT)/usr"
+	$(SILENT) if [ -d "$(DSTROOT)/share" ]; then\
+		$(SILENT) ($(MV) "$(DSTROOT)/share" "$(DSTROOT)/usr/"); \
+	fi
+	$(SILENT) if [ -d "$(DSTROOT)$(PERL_DIR)/$(PERL_VER)" ]; then\
+		$(SILENT) ($(RM) -r "$(DSTROOT)$(PERL_DIR)/$(PERL_VER)"); \
+	fi
+	$(SILENT) $(ECHO) "------------ Make Install Perl Modules Done ------------"
+
 	$(SILENT) $(ECHO) "------------ Make Install Clam AV ------------"
 	$(SILENT) if [ -e "$(SRCROOT)/$(BINARY_DIR)/$(CLAMAV_TAR_GZ)" ]; then\
 		$(SILENT) ($(CD) "$(SRCROOT)/$(PROJECT)" && $(GNUTAR) -xzpf "$(SRCROOT)/$(BINARY_DIR)/$(CLAMAV_TAR_GZ)") ; \
 	fi
-	$(SILENT) if [ -e "$(SRCROOT)/$(BINARY_DIR)/$(CLAMAV_DIFF_5876278)" ]; then\
-		$(SILENT) ($(CD) "$(SRCROOT)$(CLAMAV_BUILD_DIR)" && $(PATCH) -p1 < "$(SRCROOT)/$(BINARY_DIR)/$(CLAMAV_DIFF_5876278)") ; \
+	$(SILENT) if [ -e "$(SRCROOT)/$(BINARY_DIR)/$(CLAMAV_PATCH_DIFFS)" ]; then\
+		$(SILENT) ($(CD) "$(SRCROOT)$(CLAMAV_BUILD_DIR)" && $(PATCH) -p1 < "$(SRCROOT)/$(BINARY_DIR)/$(CLAMAV_PATCH_DIFFS)") ; \
 	fi
 
 	$(SILENT) ($(CD) "$(SRCROOT)/$(UPDATE_DIR)" && /usr/bin/xcodebuild install DSTROOT="$(DSTROOT)")
 	$(SILENT) ($(CD) "$(SRCROOT)/$(UPDATE_DIR)" && /usr/bin/xcodebuild clean)
-	#$(SILENT) ($(RM) -rf "$(SRCROOT)/$(UPDATE_DIR)/build")
 
 	# Configure and make Clam AV
 	$(SILENT) ($(CD) "$(SRCROOT)$(CLAMAV_BUILD_DIR)" && ./configure $(CLAMAV_CONFIG))
@@ -135,8 +170,8 @@ make_clamav_install :
 		mv $(LIB_TOOL) $(LIB_TOOL).bak ; \
 		sed -e 's/LTCFLAGS=\"-g -O2\"/LTCFLAGS=\"$(CFLAGS)"/g' $(LIB_TOOL).bak > $(LIB_TOOL) ; \
 	fi
-	$(SILENT) ($(CD) "$(SRCROOT)$(CLAMAV_BUILD_DIR)" && make CFLAGS="$(CFLAGS)")
-	$(SILENT) ($(CD) "$(SRCROOT)$(CLAMAV_BUILD_DIR)" && make "DESTDIR=$(SRCROOT)/$(TEMP_DIR)" CFLAGS="$(CFLAGS)" install)
+	$(SILENT) ($(CD) "$(SRCROOT)$(CLAMAV_BUILD_DIR)" && make CFLAGS="$(CFLAGS)" CPPFLAGS="$(CFLAGS)")
+	$(SILENT) ($(CD) "$(SRCROOT)$(CLAMAV_BUILD_DIR)" && make "DESTDIR=$(SRCROOT)/$(TEMP_DIR)" CFLAGS="$(CFLAGS)" CPPFLAGS="$(CFLAGS)" install)
 	install -m 0755 "$(DSTROOT)/System/Library/ServerSetup/MigrationExtras/UpgradeClamAV" \
 			"$(DSTROOT)/System/Library/ServerSetup/MigrationExtras/66_clamav_migrator"
 	$(SILENT) ($(RM) -rf "$(DSTROOT)/System/Library/ServerSetup/MigrationExtras/UpgradeClamAV")
@@ -158,11 +193,12 @@ make_clamav_install :
 
 	# Install & strip binaries
 	install -d -m 0755 "$(DSTROOT)$(USR_BIN)"
-	#install -m 0755 -s "$(SRCROOT)$(TEMP_DIR)$(USR_BIN)/clamav-config" "$(DSTROOT)$(USR_BIN)/clamav-config"
 	install -m 0755 -s "$(SRCROOT)$(TEMP_DIR)$(USR_BIN)/clamdscan" "$(DSTROOT)$(USR_BIN)/clamdscan"
 	install -m 0755 -s "$(SRCROOT)$(TEMP_DIR)$(USR_BIN)/clamscan" "$(DSTROOT)$(USR_BIN)/clamscan"
 	install -m 0755 -s "$(SRCROOT)$(TEMP_DIR)$(USR_BIN)/freshclam" "$(DSTROOT)$(USR_BIN)/freshclam"
 	install -m 0755 -s "$(SRCROOT)$(TEMP_DIR)$(USR_BIN)/sigtool" "$(DSTROOT)$(USR_BIN)/sigtool"
+	$(SILENT) $(STRIP) -S "$(DSTROOT)/System/Library/Perl/Extras/5.10.0/darwin-thread-multi-2level/auto/Crypt/OpenSSL/RSA/RSA.bundle"
+	$(SILENT) $(RM) "$(DSTROOT)/System/Library/Perl/Extras/5.10.0/darwin-thread-multi-2level/auto/Crypt/OpenSSL/RSA/RSA.bs"
 
 	install -d -m 0755 "$(DSTROOT)$(USR_SBIN)"
 	install -m 0755 -s "$(SRCROOT)$(TEMP_DIR)$(USR_SBIN)/clamd" "$(DSTROOT)$(USR_SBIN)/clamd"

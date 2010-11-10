@@ -141,7 +141,7 @@ if($target eq 'install') {
     $ENV{OBJCFLAGS}="$ENV{CFLAGS}";
     $ENV{LDFLAGS}="-L$ENV{DSTROOT}$prefix/lib -L$prefix/lib -pipe $arch_flags_exec";
 
-    chdir("$ENV{OBJROOT}/Xquartz/xorg-server-1.4.2-apple53");
+    chdir("$ENV{OBJROOT}/Xquartz/xorg-server-1.4.2-apple56");
     print "Building Xquartz\n";
 
     sys_print("autoreconf -fvi");
@@ -185,7 +185,7 @@ if($target eq 'install') {
     sys_print("make -j".`sysctl -n hw.activecpu`);
     sys_print("make install DESTDIR=$ENV{DSTROOT}");
 
-    chdir("$ENV{OBJROOT}/xinit/xinit-1.2.0");
+    chdir("$ENV{OBJROOT}/xinit/xinit-1.2.1");
     print "Building xinit\n";
 
     sys_print("autoreconf -fvi");

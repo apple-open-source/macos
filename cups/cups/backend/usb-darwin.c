@@ -1,7 +1,7 @@
 /*
 * "$Id: usb-darwin.c 8806 2009-08-31 18:45:38Z mike $"
 *
-* Copyright 2005-2009 Apple Inc. All rights reserved.
+* Copyright 2005-2010 Apple Inc. All rights reserved.
 *
 * IMPORTANT:  This Apple software is supplied to you by Apple Computer,
 * Inc. ("Apple") in consideration of your agreement to the following
@@ -292,8 +292,8 @@ static void status_timer_cb(CFRunLoopTimerRef timer, void *info);
 #if defined(__i386__) || defined(__x86_64__)
 static pid_t	child_pid;		/* Child PID */
 static void run_legacy_backend(int argc, char *argv[], int fd);	/* Starts child backend process running as a ppc executable */
-static void sigterm_handler(int sig);	/* SIGTERM handler */
 #endif /* __i386__ || __x86_64__ */
+static void sigterm_handler(int sig);	/* SIGTERM handler */
 
 #ifdef PARSE_PS_ERRORS
 static const char *next_line (const char *buffer);
@@ -750,6 +750,22 @@ print_device(const char *uri,		/* I - Device URI */
 
   fprintf(stderr, "DEBUG: Sent %lld bytes...\n", (off_t)total_bytes);
 
+  if (!print_fd)
+  {
+   /*
+    * Re-enable the SIGTERM handler so pthread_kill() will work...
+    */
+  
+    struct sigaction	action;		/* POSIX signal action */
+
+    memset(&action, 0, sizeof(action));
+
+    sigemptyset(&action.sa_mask);
+    sigaddset(&action.sa_mask, SIGTERM);
+    action.sa_handler = sigterm_handler;
+    sigaction(SIGTERM, &action, NULL);
+  }
+
  /*
   * Wait for the side channel thread to exit...
   */
@@ -780,6 +796,7 @@ print_device(const char *uri,		/* I - Device URI */
 	* Force the side-channel thread to exit...
 	*/
 
+	fputs("DEBUG: Force the side-channel thread to exit...\n", stderr);
 	pthread_kill(sidechannel_thread_id, SIGTERM);
       }
     }
@@ -820,6 +837,7 @@ print_device(const char *uri,		/* I - Device URI */
       */
 
       g.wait_eof = 0;
+      fputs("DEBUG: Force the read thread to exit...\n", stderr);
       pthread_kill(read_thread_id, SIGTERM);
     }
   }
@@ -1379,7 +1397,10 @@ static kern_return_t load_classdriver(CFStringRef	    driverPath,
   {
     fprintf(stderr, "DEBUG: Unable to load class driver \"%s\": %s\n",
 	    bundlestr, strerror(errno));
-    return (kr);
+    if (errno == ENOENT)
+      return (load_classdriver(NULL, intf, printerDriver));
+    else
+      return (kr);
   }
   else if (bundleinfo.st_mode & S_IWOTH)
   {
@@ -2031,6 +2052,8 @@ static void run_legacy_backend(int argc,
 
   exit(exitstatus);
 }
+#endif /* __i386__ || __x86_64__ */
+
 
 /*
  * 'sigterm_handler()' - SIGTERM handler.
@@ -2039,8 +2062,11 @@ static void run_legacy_backend(int argc,
 static void
 sigterm_handler(int sig)		/* I - Signal */
 {
-  /* If we started a child process pass the signal on to it...
-   */
+#if defined(__i386__) || defined(__x86_64__)
+ /*
+  * If we started a child process pass the signal on to it...
+  */
+
   if (child_pid)
   {
    /*
@@ -2062,9 +2088,8 @@ sigterm_handler(int sig)		/* I - Signal */
       exit(CUPS_BACKEND_STOP);
     }
   }
-}
-
 #endif /* __i386__ || __x86_64__ */
+}
 
 
 #ifdef PARSE_PS_ERRORS

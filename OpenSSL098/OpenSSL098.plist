@@ -32,6 +32,6 @@
 	<key>OpenSourceVersion</key>
 	<string>0.9.8l</string>
 	<key>OpenSourceWebsiteURL</key>
-	<string>http://:wwww.openssl.org/</string>
+	<string>http://www.openssl.org/</string>
 </dict>
 </plist>

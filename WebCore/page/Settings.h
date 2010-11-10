@@ -166,6 +166,9 @@ namespace WebCore {
         void setUsesEncodingDetector(bool);
         bool usesEncodingDetector() const { return m_usesEncodingDetector; }
 
+        void setDNSPrefetchingEnabled(bool);
+        bool dnsPrefetchingEnabled() const { return m_dnsPrefetchingEnabled; }
+
         void setUserStyleSheetLocation(const KURL&);
         const KURL& userStyleSheetLocation() const { return m_userStyleSheetLocation; }
 
@@ -308,6 +311,13 @@ namespace WebCore {
         void setTiledBackingStoreEnabled(bool);
         bool tiledBackingStoreEnabled() const { return m_tiledBackingStoreEnabled; }
 
+        // This setting will be removed when an HTML5 compatibility issue is
+        // resolved and WebKit implementation of interactive validation is
+        // completed. See http://webkit.org/b/40520, http://webkit.org/b/40747,
+        // and http://webkit.org/b/40908
+        void setInteractiveFormValidationEnabled(bool flag) { m_interactiveFormValidation = flag; }
+        bool interactiveFormValidationEnabled() const { return m_interactiveFormValidation; }
+
     private:
         Page* m_page;
         
@@ -387,6 +397,8 @@ namespace WebCore {
         bool m_webGLEnabled : 1;
         bool m_loadDeferringEnabled : 1;
         bool m_tiledBackingStoreEnabled : 1;
+        bool m_dnsPrefetchingEnabled : 1;
+        bool m_interactiveFormValidation: 1;
 
 #if USE(SAFARI_THEME)
         static bool gShouldPaintNativeControls;

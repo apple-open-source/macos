@@ -1,8 +1,11 @@
 Project               = neon
-ProjectVersion        = 0.28.3
+ProjectVersion        = 0.28.6
 Patches               = configure.diff neon-config.in.diff
 
 include $(MAKEFILEPATH)/CoreOS/ReleaseControl/Common.make
+
+# 7337914
+unexport KRB5_CONFIG
 
 CONFIGURE_ENV  = CFLAGS="$(RC_CFLAGS) $(CC_Debug) $(CC_Optimize)"
 CONFIGURE_ARGS = --prefix=/usr \
@@ -27,8 +30,8 @@ install::
 	ed - $(DSTROOT)/usr/local/lib/pkgconfig/neon.pc < $(SRCROOT)/files/remove_arch_flags.ed
 
 	$(MKDIR) $(SYMROOT)/usr/lib
-	$(CP) $(DSTROOT)/usr/lib/libneon.27.1.3.dylib $(SYMROOT)/usr/lib
-	$(STRIP) -S $(DSTROOT)/usr/lib/libneon.27.1.3.dylib
+	$(CP) $(DSTROOT)/usr/lib/libneon.27.dylib $(SYMROOT)/usr/lib
+	$(STRIP) -S $(DSTROOT)/usr/lib/libneon.27.dylib
 
 	$(MV) $(DSTROOT)/usr/lib/libneon.la $(DSTROOT)/usr/local/lib/libneon.la
 

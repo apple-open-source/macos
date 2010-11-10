@@ -179,11 +179,16 @@ int GetClassDescriptor(IOUSBDeviceRef deviceIntf, UInt8 descType, UInt8 descInde
     return req.wLenDone;
 }
 
-int GetDescriptorFromInterface(IOUSBDeviceRef deviceIntf, UInt8 descType, UInt8 descIndex, UInt16 wIndex, void *buf, UInt16 len)
+int GetDescriptorFromInterface(IOUSBDeviceRef deviceIntf, UInt8 descType, UInt8 descIndex, UInt16 wIndex, void *buf, UInt16 len, Boolean inCurrentConfig)
 {
     IOUSBDevRequest req;
     IOReturn err;
     
+	if(!inCurrentConfig)	// Can only get something from an interface, if the interface exists, ie in current config
+	{
+		return(-1);
+	}
+	
 	bzero(&req, sizeof(req));
     req.bmRequestType = USBmakebmRequestType(kUSBIn, kUSBStandard, kUSBInterface);
     req.bRequest = kUSBRqGetDescriptor;
@@ -195,6 +200,25 @@ int GetDescriptorFromInterface(IOUSBDeviceRef deviceIntf, UInt8 descType, UInt8 
     verify_noerr(err = (*deviceIntf)->DeviceRequest(deviceIntf, &req));
     if (err) return -1;
     return req.wLenDone;
+}
+
+int GetCurrentConfiguration(IOUSBDeviceRef deviceIntf)
+{
+    IOUSBDevRequest req;
+    IOReturn err;
+	char buf;
+    
+	bzero(&req, sizeof(req));
+    req.bmRequestType = USBmakebmRequestType(kUSBIn, kUSBStandard, kUSBDevice);
+    req.bRequest = kUSBRqGetConfig;
+    req.wValue = 0;
+    req.wIndex = 0;
+    req.wLength = 1;
+    req.pData = &buf;
+    
+    verify_noerr(err = (*deviceIntf)->DeviceRequest(deviceIntf, &req));
+    if (err) return -1;
+    return buf;
 }
 
 char * GetStringFromNumber(UInt32 value, int sizeInBytes, int style) {

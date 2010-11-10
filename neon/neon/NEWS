@@ -1,3 +1,25 @@
+Changes in release 0.28.6:
+* SECURITY (CVE-2009-2473): Fix "billion laughs" attack against expat;
+  could allow a Denial of Service attack by a malicious server.
+* SECURITY (CVE-2009-2474): Fix handling of an embedded NUL byte in
+  a certificate subject name with OpenSSL; could allow an undetected
+  MITM attack against an SSL server if a trusted CA issues such a cert.
+
+Changes in release 0.28.5:
+* Enable support for X.509v1 CA certificates in GnuTLS.
+* Fix handling of EINTR in connect() calls.
+* Fix use of builds with SOCK_CLOEXEC support on older Linux kernels.
+
+Changes in release 0.28.4:
+* Fix ne_forget_auth (Kai Sommerfeld)
+* GnuTLS support fixes:
+ - fix handling of PKCS#12 client certs with multiple certs or keys
+ - fix crash with OpenPGP certificate
+ - use pkg-config data in configure, in preference to libgnutls-config
+* Add PKCS#11 support for OpenSSL builds (where pakchois is available)
+* Fix small memory leak in PKCS#11 code.
+* Fix build on Haiku (scott mc)
+
 Changes in release 0.28.3:
 * SECURITY (CVE-2008-3746): Fix potential NULL pointer dereference in
   Digest domain parameter support; could allow a DoS by a malicious server

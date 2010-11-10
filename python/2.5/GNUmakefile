@@ -146,7 +146,9 @@ $(OBJROOT)/$(PROJECT):
 	done
 	@set -x && \
 	cd '$(OBJROOT)/$(PROJECT)' && \
-	patch -p0 -i $(FIX)/qt-changes.diff
+	patch -p0 -i $(FIX)/qt-changes.diff && \
+	patch -p0 -i $(FIX)/CVE-2009-4134,CVE-2010-1449,CVE-2010-1450-rgbimg-int-overflow.patch && \
+	patch -p0 -i $(FIX)/CVE-2010-1634,CVE-2010-2089-audioop-int-overflow.patch
 	@set -x && \
 	cd '$(OBJROOT)' && \
 	ed - $(PROJECT)/configure.in < $(FIX)/configure42.in.ed

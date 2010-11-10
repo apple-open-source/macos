@@ -146,5 +146,13 @@ inline void bzero_nc( void * p, UInt32 l )              { bzero( p, l ); }
 
 #define thisIndex               _IOFramebuffer_reserved[4]
 
+extern uint32_t gIOGDebugFlags;
+enum
+{
+	kIOGDbgLidOpen     = 0x00000001,
+	kIOGDbgVBLThrottle = 0x00000002,
+	kIOGDbgK59Mode     = 0x00000004,
+};
+
 #endif /* ! _IOKIT_IOGRAPHICSPRIVATE_H */
 

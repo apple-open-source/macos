@@ -300,18 +300,21 @@ AppleUSBEHCI::FilterInterrupt(int index)
 				IOUSBControllerIsochListElement *cachedHead;
 				UInt32							cachedProducer;
 				UInt32							frIndex;
-				UInt16							curSlot, testSlot, nextSlot;
+				UInt16							curSlot, testSlot, nextSlot, stopSlot;
 				UInt16							curMicroFrame;
 				
 				frIndex = USBToHostLong(_pEHCIRegisters->FRIndex);
 				curSlot = (frIndex >> 3) & (kEHCIPeriodicListEntries-1);
+				stopSlot = (curSlot+1) & (kEHCIPeriodicListEntries-1);
 				curMicroFrame = frIndex & 7;
 				
 				cachedHead = (IOUSBControllerIsochListElement*)_savedDoneQueueHead;
 				cachedProducer = _producerCount;
 				testSlot = _outSlot;
-				
-				while (testSlot != curSlot)
+
+				// kprintf("EHCI::FilterInterrupt - testSlot(%d) stopSlot(%d)\n", (int)testSlot, (int)stopSlot);
+
+				while (testSlot != stopSlot)
 				{
 					IOUSBControllerListElement				*thing, *prevThing, *nextThing;
 					IOUSBControllerIsochListElement			*isochEl;
@@ -344,6 +347,32 @@ AppleUSBEHCI::FilterInterrupt(int index)
 							continue;
 						}
 						
+						if (testSlot == curSlot)
+						{
+							bool scavengeThisThing = false;
+							
+							if (splitTD)
+							{
+								UInt32 statFlags = USBToHostLong(splitTD->GetSharedLogical()->statFlags);
+								if (statFlags & kEHCIsiTDStatStatusActive)
+								{
+									// kprintf("EHCI::FilterInterrupt - splitTD(%p) still active.. curFrame(%d) curMicroFrame(%d) testSlot(%d)\n", isochEl, (int)curFrame, (int)curMicroFrame, (int)testSlot);
+									scavengeThisThing = false;
+								}
+								else
+								{
+									scavengeThisThing = true;
+								}
+
+							}
+							if (!scavengeThisThing)
+							{
+								prevThing = thing;
+								thing = nextThing;
+								needToRescavenge = true;
+								continue;
+							}
+						}
 						// need to unlink this TD
 						if (!prevThing)
 						{
@@ -356,7 +385,10 @@ AppleUSBEHCI::FilterInterrupt(int index)
 						}
 						
 						if (isochEl->_lowLatency)
+						{
+							// kprintf("EHCI::FilterInterrupt - updating isochEl(%p) curFrame(%d) curMicroFrame(%d)\n", isochEl, (int)curFrame, (int)curMicroFrame);
 							isochEl->UpdateFrameList(*(AbsoluteTime*)&timeStamp);
+						}
 						// place this guy on the backward done queue
 						// the reason that we do not use the _logicalNext link is that the done queue is not a null terminated list
 						// and the element linked "last" in the list might not be a true link - trust me
@@ -372,7 +404,7 @@ AppleUSBEHCI::FilterInterrupt(int index)
 						thing = nextThing;
 					}
 					testSlot = nextSlot;
-					if (!needToRescavenge)
+					if (!needToRescavenge && (testSlot != curSlot))
 						_outSlot = testSlot;
 				}
 				IOSimpleLockLock( _wdhLock );

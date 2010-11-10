@@ -1,6 +1,6 @@
 /* 
    SSL/TLS abstraction layer for neon
-   Copyright (C) 2003-2006, Joe Orton <joe@manyfish.co.uk>
+   Copyright (C) 2003-2006, 2009, Joe Orton <joe@manyfish.co.uk>
 
    This library is free software; you can redistribute it and/or
    modify it under the terms of the GNU Library General Public
@@ -116,33 +116,40 @@ int ne_ssl_cert_cmp(const ne_ssl_certificate *c1,
 /* Deallocate memory associated with certificate. */
 void ne_ssl_cert_free(ne_ssl_certificate *cert);
 
-/* A client certificate (and private key). */
+/* A client certificate (and private key).  A client certificate
+ * object has state; the object is either in the "encrypted" or
+ * "decrypted" state.  */
 typedef struct ne_ssl_client_cert_s ne_ssl_client_cert;
 
 /* Read a client certificate and private key from a PKCS12 file;
  * returns NULL if the file could not be parsed, or otherwise
- * returning a client certificate object. */
+ * returning a client certificate object.  The returned object may be
+ * in either the encrypted or decrypted state. */
 ne_ssl_client_cert *ne_ssl_clicert_read(const char *filename);
 
-/* Returns the "friendly name" given for the client cert, or NULL if
- * none given.  This can be called before or after the client cert has
- * been decrypted.  Returns a NUL-terminated, UTF-8-encoded string. */
-const char *ne_ssl_clicert_name(const ne_ssl_client_cert *ccert);
-
-/* Returns non-zero if client cert is encrypted. */
+/* Returns non-zero if client cert is in the encrypted state. */
 int ne_ssl_clicert_encrypted(const ne_ssl_client_cert *ccert);
 
-/* Decrypt the encrypted client cert using given password.  Returns
- * non-zero on failure, in which case, the function can be called
- * again with a different password.  For a ccert on which _encrypted()
- * returns 0, calling _decrypt results in undefined behaviour. */
+/* Returns the "friendly name" given for the client cert, or NULL if
+ * none given.  Returns a NUL-terminated, UTF-8-encoded string.  This
+ * function may be used on a ccert object in either encrypted or
+ * decrypted state. */
+const char *ne_ssl_clicert_name(const ne_ssl_client_cert *ccert);
+
+/* Decrypt the encrypted client cert using the given password.
+ * Returns non-zero on failure, in which case, the ccert object
+ * remains in the encrypted state and the function may be called again
+ * with a different password.  This function has undefined behaviour
+ * for a ccert object which is in the decrypted state. */
 int ne_ssl_clicert_decrypt(ne_ssl_client_cert *ccert, const char *password);
 
 /* Return the actual certificate part of the client certificate (never
- * returns NULL). */
+ * returns NULL).  This function has undefined behaviour for a ccert
+ * object which is in the encrypted state. */
 const ne_ssl_certificate *ne_ssl_clicert_owner(const ne_ssl_client_cert *ccert);
 
-/* Destroy a client certificate object. */
+/* Destroy a client certificate object.  This function may be used on
+ * a ccert object in either the encrypted or decrypted state. */
 void ne_ssl_clicert_free(ne_ssl_client_cert *ccert);
 
 

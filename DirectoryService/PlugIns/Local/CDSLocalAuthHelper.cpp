@@ -5554,8 +5554,8 @@ tDirStatus CDSLocalAuthHelper::DoLocalCachedUserAuthPhase2(	tDirNodeReference in
 	if ( inOKToModifyAuthAuthority && siResult == eDSAuthAccountDisabled )
 	{
 		inAuthAuthorityList.SetValueDisabledForTag( kDSTagAuthAuthorityLocalCachedUser );
-		siResult = SaveAuthAuthorities( inPlugin, inNodeRef, inParams.pUserName, inNativeRecType, inAuthAuthorityList );
-		if ( siResult != eDSNoErr )
+		siResult2 = SaveAuthAuthorities( inPlugin, inNodeRef, inParams.pUserName, inNativeRecType, inAuthAuthorityList );
+		if ( siResult2 != eDSNoErr )
 			DbgLog( kLogPlugin, "CDSLocalAuthHelper::DoLocalCachedUserAuthPhase2(): SaveAuthAuthorities = %d", siResult );
 	}
 	

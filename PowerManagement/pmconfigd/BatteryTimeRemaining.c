@@ -326,7 +326,7 @@ BatteryTimeRemainingBatteriesHaveChanged(IOPMBattery **batteries)
     {
         // If we have AC power, then the warnings come down.
         newWarningLevel = kIOPSLowBatteryWarningNone;
-    } else if (combinedLevel && combinedTime)
+    } else if ((combinedLevel > 0) && (combinedTime > 0))
     {
         // non-zero data in combinedLevel && combinedTime
         // implies a correct reading - continue.

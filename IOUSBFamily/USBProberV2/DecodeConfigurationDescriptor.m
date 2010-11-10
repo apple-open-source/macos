@@ -28,7 +28,7 @@
 
 @implementation DecodeConfigurationDescriptor
 
-+ (void)decodeBytes:(IOUSBConfigurationDescHeader *)cfgHeader forDevice:(BusProbeDevice *)thisDevice deviceInterface:(IOUSBDeviceRef)deviceIntf configNumber:(int)iconfig isOtherSpeedDesc:(BOOL)isOtherSpeedDesc {
++ (void)decodeBytes:(IOUSBConfigurationDescHeader *)cfgHeader forDevice:(BusProbeDevice *)thisDevice deviceInterface:(IOUSBDeviceRef)deviceIntf configNumber:(int)iconfig currentConfig:(int)cconfig isOtherSpeedDesc:(BOOL)isOtherSpeedDesc {
     /*	struct IOUSBConfigurationDescriptor {
     UInt8 			bLength;
     UInt8 			bDescriptorType;
@@ -87,13 +87,29 @@
     
     if (strcmp(cstr1, "0x00") != 0) {
         if (!isOtherSpeedDesc)
-            [thisDevice addProperty:"Configuration Descriptor: ......................................." withValue:cstr1 atDepth:CONFIGURATION_DESCRIPTOR_LEVEL-1];
-        else
+		{
+			if(cfg->bConfigurationValue==cconfig)	// Current config
+			{
+				[thisDevice addProperty:"Configuration Descriptor (current config): ......................" withValue:cstr1 atDepth:CONFIGURATION_DESCRIPTOR_LEVEL-1];
+			}
+			else
+			{
+				[thisDevice addProperty:"Configuration Descriptor: ......................................." withValue:cstr1 atDepth:CONFIGURATION_DESCRIPTOR_LEVEL-1];
+			}
+        }
+		else
             [thisDevice addProperty:"Other Speed Configuration Descriptor: ......................................." withValue:cstr1 atDepth:CONFIGURATION_DESCRIPTOR_LEVEL-1];
     }
     else {
         if (!isOtherSpeedDesc)
-            [thisDevice addProperty:"Configuration Descriptor" withValue:"" atDepth:CONFIGURATION_DESCRIPTOR_LEVEL-1];
+			if(cfg->bConfigurationValue==cconfig)	// Current config
+			{
+				[thisDevice addProperty:"Configuration Descriptor (current config)" withValue:"" atDepth:CONFIGURATION_DESCRIPTOR_LEVEL-1];
+			}
+			else
+			{
+				[thisDevice addProperty:"Configuration Descriptor" withValue:"" atDepth:CONFIGURATION_DESCRIPTOR_LEVEL-1];
+			}
         else
             [thisDevice addProperty:"Other Speed Configuration Descriptor" withValue:"" atDepth:CONFIGURATION_DESCRIPTOR_LEVEL-1];
     }
@@ -155,7 +171,7 @@
                 [thisDevice setCurrentInterfaceNumber:(int)((IOUSBInterfaceDescriptor *)p)->bInterfaceNumber];
             }
 
-            [DescriptorDecoder decodeBytes:p forDevice:thisDevice deviceInterface:deviceIntf userInfo:NULL isOtherSpeedDesc:isOtherSpeedDesc];
+            [DescriptorDecoder decodeBytes:p forDevice:thisDevice deviceInterface:deviceIntf userInfo:NULL isOtherSpeedDesc:isOtherSpeedDesc isinCurrentConfig:cfg->bConfigurationValue==cconfig];
 
             p += descLen;
         }

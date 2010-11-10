@@ -140,7 +140,10 @@ private:
 	bool							_printConnectIOLog;
 	bool							_suspendChangeAlreadyLogged;						// to prevent double logging
  	SInt32							_debounceCount;
-   
+	bool							_detectedExpressCardCantWake;
+	UInt16							_cachedBadExpressCardVID;
+	UInt16							_cachedBadExpressCardPID;
+	
     static void						PortInitEntry(OSObject *target);					// this will run on its own thread
     static void						PortStatusChangedHandlerEntry(OSObject *target);	// this will run on its own thread
     static void						AddDeviceEntry(OSObject *target);					// this will run on its own thread
@@ -196,7 +199,8 @@ protected:
     bool							IsCaptive()					{ return _captive; }
     bool							GetDevZeroLock()			{ return _devZero; }
     UInt32							GetPortTimeStamp()			{ return _devZeroCounter; }
-
+	bool							DetectExpressCardCantWake();
+	
 private:
 	IOReturn						Suspend( bool fromDevice, bool portStatusSuspended );
 	IOReturn						Resume();

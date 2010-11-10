@@ -453,7 +453,7 @@ IOReturn
 AppleUSBEHCI::AsyncInitialize (void)
 {
     _AsyncHead = NULL;
-	
+	_InactiveAsyncHead = NULL;
     return kIOReturnSuccess;
 }
 
@@ -786,10 +786,16 @@ AppleUSBEHCI::GetFrameNumber()
     UInt64	temp1, temp2;
     register 	UInt32	frindex;
     
+	//*******************************************************************************************************
+	// ************* WARNING WARNING WARNING ****************************************************************
+	// Preemption may be off, which means that we cannot make any calls which may block
+	// So don't call USBLog for example (see AddIsochFramesToSchedule)
+	//*******************************************************************************************************
+
 	// If the controller is halted, then we should just bail out
 	if ( USBToHostLong(_pEHCIRegisters->USBSTS) & kEHCIHCHaltedBit)
 	{
-		USBLog(1, "AppleUSBEHCI[%p]::GetFrameNumber called but controller is halted",  this);
+		// USBLog(1, "AppleUSBEHCI[%p]::GetFrameNumber called but controller is halted",  this);
 		USBTrace( kUSBTEHCI, kTPEHCIGetFrameNumber , (uintptr_t)this, USBToHostLong(_pEHCIRegisters->USBSTS), kEHCIHCHaltedBit, 0);
 		return 0;
 	}
@@ -1170,17 +1176,66 @@ AppleUSBEHCI::DeallocateSITD (AppleEHCISplitIsochTransferDescriptor *pTD)
     USBLog(7, "AppleUSBEHCI[%p]::DeallocateSITD - deallocating %p",  this, pTD);
     pTD->_logicalNext = NULL;
 	
-    if (_pLastFreeSITD)
-    {
-        _pLastFreeSITD->_logicalNext = pTD;
-        _pLastFreeSITD = pTD;
-    } 
-    else 
-    {
-        // list is currently empty
-        _pLastFreeSITD = pTD;
-        _pFreeSITD = pTD;
-    }
+	if (pTD->_frameNumber == GetFrameNumber())
+	{
+		// the UIM has completed its work with this SITD, but it could still be accessed by the hardware, so we need to delay
+		// putting it on the free list until we know that the hardware is no longer accessing it (based on the frame number)
+		USBLog(3, "AppleUSBEHCI::DeallocateSITD - pTD(%p) is for the current frame (%Ld) - delaying", pTD, pTD->_frameNumber);
+		if (_pLastDelayedSITD)
+		{
+			_pLastDelayedSITD->_logicalNext = pTD;
+			_pLastDelayedSITD = pTD;
+		} 
+		else 
+		{
+			// list is currently empty
+			_pLastDelayedSITD = pTD;
+			_pDelayedSITD = pTD;
+		}
+	}
+	else
+	{
+
+		if (_pLastFreeSITD)
+		{
+			_pLastFreeSITD->_logicalNext = pTD;
+			_pLastFreeSITD = pTD;
+		} 
+		else 
+		{
+			// list is currently empty
+			_pLastFreeSITD = pTD;
+			_pFreeSITD = pTD;
+		}
+	}
+	pTD = _pDelayedSITD;
+	if (pTD)
+	{
+		USBLog(6, "AppleUSBEHCI::DeallocateSITD - looking at _pDelayedSITD(%p)", pTD);
+	}
+	
+	while (pTD && (pTD->_frameNumber < GetFrameNumber()))
+	{
+		AppleEHCISplitIsochTransferDescriptor *nextSITD = (AppleEHCISplitIsochTransferDescriptor *)pTD->_logicalNext;
+		
+		USBLog(6, "AppleUSBEHCI::DeallocateSITD - pTD(%p) was delayed (frame %Ld) and I am now freeing it", pTD, pTD->_frameNumber);
+		pTD->_logicalNext = NULL;
+		if (_pLastFreeSITD)
+		{
+			_pLastFreeSITD->_logicalNext = pTD;
+			_pLastFreeSITD = pTD;
+		} 
+		else 
+		{
+			// list is currently empty
+			_pLastFreeSITD = pTD;
+			_pFreeSITD = pTD;
+		}
+		pTD = nextSITD;
+		_pDelayedSITD = pTD;
+		if (!_pDelayedSITD)
+			_pLastDelayedSITD = NULL;
+	}
     return kIOReturnSuccess;
 }
 
@@ -1210,6 +1265,10 @@ AppleUSBEHCI::EnableAsyncSchedule(bool waitForON)
 	if (!_pEHCIRegisters->AsyncListAddr)
 	{
 		USBLog(1, "AppleUSBEHCI[%p]::EnableAsyncSchedule.. AsyncListAddr is NULL!! We shouldn't be doing this", this);
+#if DEBUG_LEVEL != DEBUG_LEVEL_PRODUCTION
+		panic("AppleUSBEHCI::EnableAsyncSchedule.. AsyncListAddr is NULL!!\n");
+#endif
+		return kIOReturnInternalError;
 	}
     if (!(_pEHCIRegisters->USBCMD & HostToUSBLong(kEHCICMDAsyncEnable)))
     {
@@ -1488,7 +1547,7 @@ AppleUSBEHCI::message( UInt32 type, IOService * provider,  void * argument )
 			nub->retain();
 			USBLog(1, "AppleUSBEHCI[%p]::message - got kIOUSBMessageExpressCardCantWake from driver %s[%p] argument is %s[%p]", this, provider->getName(), provider, nub->getName(), nub);
 			USBTrace( kUSBTEHCI, kTPEHCIMessage , (uintptr_t)this, (uintptr_t)provider, (uintptr_t)nub, kIOUSBMessageExpressCardCantWake );
-			if (parentHub == _rootHubDevice)
+			if ( parentHub == _rootHubDevice || (nub == _rootHubDevice && parentHub == NULL) )
 			{
 				USBLog(1, "AppleUSBEHCI[%p]::message - device is attached to my root hub!!", this);
 				USBTrace( kUSBTEHCI, kTPEHCIMessage , (uintptr_t)this, 0, 0, 0);
@@ -1584,7 +1643,7 @@ AppleUSBEHCI::ReturnIsochDoneQueue(IOUSBControllerIsochEndpoint* isochEP)
 		// scavenging location
 		_outSlot = kEHCIPeriodicListEntries + 1;
 		
-	}
+}
 }
 
 

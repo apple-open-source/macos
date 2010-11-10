@@ -67,6 +67,8 @@ do {                                                                           \
 
 /* must be called after it's called from scheduler. */
 #define SCHED_INIT(s)	(s) = NULL
+#define SELECT_SEC_MAX  86400  /* kernel's upper limit is actually 100000000 */
+#define SELECT_USEC_MAX 1000000 /* kernel's upper limit */
 
 struct scheddump {
 	time_t xtime;

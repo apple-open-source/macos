@@ -273,7 +273,7 @@ UInt32 IOAudioControl::getUsage()
 
 void IOAudioControl::free()
 {
-    audioDebugIOLog(3, "IOAudioControl[%p]::free()", this);
+    audioDebugIOLog(3, "+ IOAudioControl[%p]::free()\n", this);
 
     if (userClients) {
         // should we do some sort of notification here?
@@ -311,6 +311,7 @@ void IOAudioControl::free()
 	}
 
     super::free();
+    audioDebugIOLog(3, "- IOAudioControl[%p]::free()\n", this);
 }
 
 bool IOAudioControl::start(IOService *provider)
@@ -345,7 +346,7 @@ bool IOAudioControl::attachAndStart(IOService *provider)
 
 void IOAudioControl::stop(IOService *provider)
 {
-    audioDebugIOLog(3, "IOAudioControl[%p]::stop(%p)", this, provider);
+    audioDebugIOLog(3, "+ IOAudioControl[%p]::stop(%p)\n", this, provider);
 
     if (userClients && (userClients->getCount() > 0)) {
         IOCommandGate *cg;
@@ -378,6 +379,8 @@ void IOAudioControl::stop(IOService *provider)
     super::stop(provider);
 
     isStarted = false;
+	
+    audioDebugIOLog(3, "- IOAudioControl[%p]::stop(%p)\n", this, provider);
 }
 
 bool IOAudioControl::getIsStarted()
@@ -454,9 +457,9 @@ IOReturn IOAudioControl::setValue(OSObject *newValue)
     IOReturn result = kIOReturnSuccess;
     
     if (OSDynamicCast(OSNumber, newValue)) {
-        audioDebugIOLog(3, "IOAudioControl[%p]::setValue(int = %d)", this, ((OSNumber *)newValue)->unsigned32BitValue());
+        audioDebugIOLog(3, "+ IOAudioControl[%p]::setValue(int = %d)\n", this, ((OSNumber *)newValue)->unsigned32BitValue());
     } else {
-        audioDebugIOLog(3, "IOAudioControl[%p]::setValue(%p)", this, newValue);
+        audioDebugIOLog(3, "+ IOAudioControl[%p]::setValue(%p)\n", this, newValue);
     }
 
     if (newValue) {
@@ -467,14 +470,20 @@ IOReturn IOAudioControl::setValue(OSObject *newValue)
                 if (result == kIOReturnSuccess) {
                     result = updateValue(newValue);
                 } else {
-                    audioDebugIOLog(2, "IOAudioControl[%p]::setValue(%p) - Error 0x%x received from driver - value not set!", this, newValue, result);
+                    audioDebugIOLog(2, "  Error 0x%x received from driver - value not set!\n", result);
                 }
             } else {
-                audioDebugIOLog(2, "IOAudioControl[%p]::setValue(%p) - Error 0x%x - invalid value.", this, newValue, result);
+                audioDebugIOLog(2, "  Error 0x%x - invalid value.\n", result);
             }
         }
     } else {
         result = kIOReturnBadArgument;
+    }
+
+    if (OSDynamicCast(OSNumber, newValue)) {
+        audioDebugIOLog(3, "- IOAudioControl[%p]::setValue(int = %d) returns 0x%lX\n", this, ((OSNumber *)newValue)->unsigned32BitValue(), (long unsigned int)result );
+    } else {
+        audioDebugIOLog(3, "- IOAudioControl[%p]::setValue(%p) returns 0x%lX\n", this, newValue, (long unsigned int)result );
     }
 
     return result;
@@ -530,7 +539,7 @@ IOReturn IOAudioControl::hardwareValueChanged(OSObject *newValue)
 {
     IOReturn result = kIOReturnSuccess;
 
-    audioDebugIOLog(3, "IOAudioControl[%p]::hardwareValueChanged(%p)", this, newValue);
+    audioDebugIOLog(3, "+ IOAudioControl[%p]::hardwareValueChanged(%p)\n", this, newValue);
     
     if (newValue) {
         if (!value || !value->isEqualTo(newValue)) {
@@ -545,6 +554,7 @@ IOReturn IOAudioControl::hardwareValueChanged(OSObject *newValue)
         result = kIOReturnBadArgument;
     }
     
+    audioDebugIOLog(3, "- IOAudioControl[%p]::hardwareValueChanged(%p) returns 0x%lX\n", this, newValue, (long unsigned int)result );
     return result;
 }
 
@@ -586,7 +596,7 @@ IOReturn IOAudioControl::performValueChange(OSObject *newValue)
 {
     IOReturn result = kIOReturnError;
     
-    audioDebugIOLog(3, "IOAudioControl[%p]::performValueChange(%p)", this, newValue);
+    audioDebugIOLog(3, "+ IOAudioControl[%p]::performValueChange(%p)\n", this, newValue);
 
     if (valueChangeHandler.intHandler != NULL) {
         switch(valueChangeHandlerType) {
@@ -646,6 +656,7 @@ IOReturn IOAudioControl::performValueChange(OSObject *newValue)
         }
     }
 
+    audioDebugIOLog(3, "- IOAudioControl[%p]::performValueChange(%p) returns 0x%lX\n", this, newValue, (long unsigned int)result );
     return result;
 }
 
@@ -768,7 +779,7 @@ IOReturn IOAudioControl::newUserClient(task_t task, void *securityID, UInt32 typ
     IOReturn result = kIOReturnSuccess;
     IOAudioControlUserClient *client = NULL;
     
-    audioDebugIOLog(3, "IOAudioControl[%p]::newUserClient()", this);
+    audioDebugIOLog(3, "+ IOAudioControl[%p]::newUserClient()\n", this);
 
     if (!isInactive()) {	// <rdar://7324947>
 		result = createUserClient(task, securityID, type, &client);
@@ -797,60 +808,79 @@ IOReturn IOAudioControl::newUserClient(task_t task, void *securityID, UInt32 typ
         result = kIOReturnNoDevice;
     }
 	
+    audioDebugIOLog(3, "- IOAudioControl[%p]::newUserClient() returns 0x%lX\n", this, (long unsigned int)result );
     return result;
 #endif
 }
 
+//	<rdar://8121989>	Restructured for single point of entry and single point of exit so that 
+//	the indentifier post processing tool can properly insert scope when post processing a log file
+//	obtained via fwkpfv.
+
 IOReturn IOAudioControl::newUserClient(task_t task, void *securityID, UInt32 type, OSDictionary *properties, IOUserClient **handler)
 {
-    IOReturn result = kIOReturnSuccess;
-    IOAudioControlUserClient *client = NULL;
+    IOReturn					result = kIOReturnSuccess;
+    IOAudioControlUserClient *	client = NULL;
 	
-    audioDebugIOLog(3, "IOAudioControl[%p]::newUserClient()", this);
+    audioDebugIOLog(3, "+ IOAudioControl[%p]::newUserClient()\n", this);
 	
-    if (!isInactive()) {	// <rdar://7324947>
-		if (kIOReturnSuccess == newUserClient(task, securityID, type, handler)) {
-			return kIOReturnSuccess;
-		}	
-		
-		result = createUserClient(task, securityID, type, &client, properties);
-		
-		if ((result == kIOReturnSuccess) && (client != NULL)) {
-			if (!client->attach(this)) {
-				client->release();
-				result = kIOReturnError;
-			} else if (!client->start(this) || !userClients) {
-				client->detach(this);
-				client->release();
-				result = kIOReturnError;
-			} else {
-				if (workLoop) {	// <rdar://7324947>
-					result = workLoop->runAction(_addUserClientAction, this, client);	// <rdar://7324947>, <rdar://7529580>
-		
-					if (result == kIOReturnSuccess) {
-						*handler = client;
-					}
-				} else {
+    if ( !isInactive () )	// <rdar://7324947>
+	{
+		if ( kIOReturnSuccess != newUserClient ( task, securityID, type, handler ) )
+		{
+			result = createUserClient ( task, securityID, type, &client, properties );
+			
+			if ( ( kIOReturnSuccess == result ) && ( NULL != client ) )
+			{
+				if ( !client->attach ( this ) )
+				{
+					client->release ();
 					result = kIOReturnError;
+				}
+				else if ( !client->start ( this ) || !userClients)
+				{
+					client->detach ( this );
+					client->release ();
+					result = kIOReturnError;
+				}
+				else
+				{
+					if ( workLoop )	// <rdar://7324947>
+					{
+						result = workLoop->runAction ( _addUserClientAction, this, client );	// <rdar://7324947>, <rdar://7529580>
+			
+						if ( result == kIOReturnSuccess )
+						{
+							*handler = client;
+						}
+					}
+					else
+					{
+						result = kIOReturnError;
+					}
 				}
 			}
 		}
-    } else {	// <rdar://7324947>
+    }
+    else	// <rdar://7324947>
+    {
         result = kIOReturnNoDevice;
     }
 	
+    audioDebugIOLog(3, "- IOAudioControl[%p]::newUserClient() returns 0x%lX\n", this, (long unsigned int)result );
     return result;
 }
 
 void IOAudioControl::clientClosed(IOAudioControlUserClient *client)
 {
-    audioDebugIOLog(3, "IOAudioControl[%p]::clientClosed(%p)", this, client);
+    audioDebugIOLog(3, "+ IOAudioControl[%p]::clientClosed(%p)\n", this, client);
 
     if (client) {
 		if (workLoop) {														// <rdar://7529580>
 			workLoop->runAction(_removeUserClientAction, this, client);		// <rdar://7529580>
 		}
     }
+    audioDebugIOLog(3, "- IOAudioControl[%p]::clientClosed(%p)\n", this, client);
 }
 
 // <rdar://7529580>
@@ -943,18 +973,19 @@ IOReturn IOAudioControl::detachUserClientsAction(OSObject *owner, void *arg1, vo
 
 IOReturn IOAudioControl::addUserClient(IOAudioControlUserClient *newUserClient)
 {
-    audioDebugIOLog(3, "IOAudioControl[%p]::addUserClient(%p)", this, newUserClient);
+    audioDebugIOLog(3, "+ IOAudioControl[%p]::addUserClient(%p)\n", this, newUserClient);
 
     assert(userClients);
 
     userClients->setObject(newUserClient);
 
+    audioDebugIOLog(3, "- IOAudioControl[%p]::addUserClient(%p) returns 0x%lX\n", this, newUserClient, (long unsigned int)kIOReturnSuccess );
     return kIOReturnSuccess;
 }
 
 IOReturn IOAudioControl::removeUserClient(IOAudioControlUserClient *userClient)
 {
-    audioDebugIOLog(3, "IOAudioControl[%p]::removeUserClient(%p)", this, userClient);
+    audioDebugIOLog(3, "+ IOAudioControl[%p]::removeUserClient(%p)\n", this, userClient);
 
     assert(userClients);
 
@@ -968,6 +999,7 @@ IOReturn IOAudioControl::removeUserClient(IOAudioControlUserClient *userClient)
     
     userClient->release();
 
+    audioDebugIOLog(3, "- IOAudioControl[%p]::removeUserClient(%p) returns 0x%lX\n", this, userClient, (long unsigned int)kIOReturnSuccess );
     return kIOReturnSuccess;
 }
 
@@ -975,7 +1007,7 @@ IOReturn IOAudioControl::detachUserClients()
 {
     IOReturn result = kIOReturnSuccess;
     
-    audioDebugIOLog(3, "IOAudioControl[%p]::detachUserClients()", this);
+    audioDebugIOLog(3, "+ IOAudioControl[%p]::detachUserClients()\n", this);
     
     assert(userClients);
     
@@ -997,6 +1029,7 @@ IOReturn IOAudioControl::detachUserClients()
     
     userClients->flushCollection();
     
+    audioDebugIOLog(3, "- IOAudioControl[%p]::detachUserClients() returns 0x%lX\n", this, (long unsigned int)result );
     return result;
 }
 

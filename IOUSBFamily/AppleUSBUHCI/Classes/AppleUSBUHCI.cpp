@@ -682,6 +682,7 @@ AppleUSBUHCI::Run(bool run)
 }
 
 
+
 // For now, the frame number is really only 32 bits
 UInt64
 AppleUSBUHCI::GetFrameNumber(void)
@@ -692,12 +693,20 @@ AppleUSBUHCI::GetFrameNumber(void)
     UInt32				overflow;
     UInt32				newFrame;
     
+	
+	//*******************************************************************************************************
+	// ************* WARNING WARNING WARNING ****************************************************************
+	// Preemption may be off, which means that we cannot make any calls which may block
+	// So don't call USBLog for example (see AddIsochFramesToSchedule)
+	//*******************************************************************************************************
+
+	
 	// If the controller is halted, then we should just bail out
 	if (ioRead16(kUHCI_STS) & kUHCI_STS_HCH)
 	{
 		if (_myPowerState < kUSBPowerStateOn)
 		{
-			USBLog(1, "AppleUSBUHCI[%p]::GetFrameNumber called but controller is halted",  this);
+			// USBLog(1, "AppleUSBUHCI[%p]::GetFrameNumber called but controller is halted",  this);
 			USBTrace( kUSBTUHCI,  kTPUHCIGetFrameNumber, (uintptr_t)this, _myPowerState, kUSBPowerStateOn, 0);
 		}
 		return 0;
@@ -705,7 +714,7 @@ AppleUSBUHCI::GetFrameNumber(void)
 	
     if (_lastFrameNumberLow >= (UInt32)(~kUHCI_FRNUM_MASK)) 
 	{
-        USBLog(7, "AppleUSBUHCI[%p]::GetFrameNumber - locking to check frame number", this);
+        // USBLog(7, "AppleUSBUHCI[%p]::GetFrameNumber - locking to check frame number", this);
 		IOLockLock(_frameLock);
         lastFrameNumber = _lastFrameNumberLow;
 		
@@ -722,7 +731,7 @@ AppleUSBUHCI::GetFrameNumber(void)
             // 11-bit and 32-bit overflow
             _lastFrameNumberHigh++;
             newFrame = overflow + thisFrame + kUHCI_FRNUM_COUNT;
-            USBLog(7, "AppleUSBUHCI[%p]::GetFrameNumber - 64-bit frame number overflow (low %p)", this, (void*)newFrame);
+            // USBLog(7, "AppleUSBUHCI[%p]::GetFrameNumber - 64-bit frame number overflow (low %p)", this, (void*)newFrame);
         }
         _lastFrameNumberLow = newFrame;
 	    IOLockUnlock(_frameLock);
@@ -743,12 +752,12 @@ AppleUSBUHCI::GetFrameNumber(void)
 		{
             // 11-bit overflow, but no 32-bit overflow
             newFrame = overflow + thisFrame + kUHCI_FRNUM_COUNT;
-            USBLog(7, "AppleUSBUHCI[%p]::GetFrameNumber - 11-bit frame number overflow", this);
+            // USBLog(7, "AppleUSBUHCI[%p]::GetFrameNumber - 11-bit frame number overflow", this);
         }
         
     } while (!OSCompareAndSwap(lastFrameNumber, newFrame, &_lastFrameNumberLow));
     
-    USBLog(7, "AppleUSBUHCI[%p]:: GetFrameNumber - frame number is %qx", this, (UInt64)newFrame | ((UInt64)_lastFrameNumberHigh << 32));
+    // USBLog(7, "AppleUSBUHCI[%p]:: GetFrameNumber - frame number is %qx", this, (UInt64)newFrame | ((UInt64)_lastFrameNumberHigh << 32));
     return (UInt64)newFrame | ((UInt64)_lastFrameNumberHigh << 32);
 }
 
@@ -758,6 +767,8 @@ AppleUSBUHCI::GetFrameNumber32()
 {
     return (UInt32)GetFrameNumber();
 }
+
+
 
 // this call is not gated, so we need to gate it ourselves
 IOReturn
@@ -1417,7 +1428,6 @@ AppleUSBUHCI::UHCIUIMDoDoneQueueProcessing(AppleUHCITransferDescriptor *pHCDoneT
 		{
 			if ( pHCDoneTD->command == NULL )
 			{
-				// IOPanic("pHCDoneTD->command is NULL in UHCIUIMDoneQueueProcessing");
 				USBError (1, "AppleUSBUHCI[%p]::UHCIUIMDoDoneQueueProcessing pHCDoneTD->command is NULL (%p)", this, pHCDoneTD);
 			}
 			else

@@ -204,14 +204,14 @@
 				[finalString appendFormat:@"illegal option : "];
 				[finalString appendFormat:@"%@ \n",word];
 			}
-			[finalString appendFormat:@"%@", usage];
+			[finalString appendFormat:@"%@\n", usage];
 		}
 		[usage release];
 		[filterDevice release];
 		[filterDeviceClassInfo release];
 	}
-	
-	NSLog(@"%@\n", finalString);
+
+	fprintf(stdout, "%s", [finalString cStringUsingEncoding:NSUTF8StringEncoding]);
 	
 	[finalString release];
 }

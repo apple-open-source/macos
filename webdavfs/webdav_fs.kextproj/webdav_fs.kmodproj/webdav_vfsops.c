@@ -621,6 +621,7 @@ static int webdav_vfs_getattr(struct mount *mp, struct vfs_attr *sbp, vfs_contex
 					/* Don't bother trying to fetching stats */
 					/* from the server, break out.  We will return */
 					/* whatever msleep returned.  */
+					lck_mtx_unlock(&fmp->pm_mutex);
 					goto ready;
 				}
 			}

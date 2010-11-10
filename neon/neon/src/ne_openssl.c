@@ -1,6 +1,6 @@
 /* 
    neon SSL/TLS support using OpenSSL
-   Copyright (C) 2002-2007, Joe Orton <joe@manyfish.co.uk>
+   Copyright (C) 2002-2009, Joe Orton <joe@manyfish.co.uk>
    Portions are:
    Copyright (C) 1999-2000 Tommi Komulainen <Tommi.Komulainen@iki.fi>
 
@@ -92,10 +92,16 @@ static int append_dirstring(ne_buffer *buf, ASN1_STRING *str)
     int len;
 
     switch (str->type) {
-    case V_ASN1_UTF8STRING:
     case V_ASN1_IA5STRING: /* definitely ASCII */
     case V_ASN1_VISIBLESTRING: /* probably ASCII */
     case V_ASN1_PRINTABLESTRING: /* subset of ASCII */
+        ne__buffer_qappend(buf, str->data, str->length);
+        break;
+    case V_ASN1_UTF8STRING:
+        /* Fail for embedded NUL bytes. */
+        if (strlen((char *)str->data) != (size_t)str->length) {
+            return -1;
+        }
         ne_buffer_append(buf, (char *)str->data, str->length);
         break;
     case V_ASN1_UNIVERSALSTRING:
@@ -103,8 +109,15 @@ static int append_dirstring(ne_buffer *buf, ASN1_STRING *str)
     case V_ASN1_BMPSTRING: 
         len = ASN1_STRING_to_UTF8(&tmp, str);
         if (len > 0) {
-            ne_buffer_append(buf, (char *)tmp, len);
-            OPENSSL_free(tmp);
+            /* Fail if there were embedded NUL bytes. */
+            if (strlen((char *)tmp) != (size_t)len) {
+                OPENSSL_free(tmp);
+                return -1;
+            } 
+            else {
+                ne_buffer_append(buf, (char *)tmp, len);
+                OPENSSL_free(tmp);
+            }
             break;
         } else {
             ERR_clear_error();
@@ -119,13 +132,11 @@ static int append_dirstring(ne_buffer *buf, ASN1_STRING *str)
     return 0;
 }
 
-/* Returns a malloc-allocate version of IA5 string AS.  Really only
- * here to prevent char * vs unsigned char * type mismatches without
- * losing all hope at type-safety. */
+/* Returns a malloc-allocated version of IA5 string AS, escaped for
+ * safety. */
 static char *dup_ia5string(const ASN1_IA5STRING *as)
 {
-    unsigned char *data = as->data;
-    return ne_strndup((char *)data, as->length);
+    return ne__strnqdup(as->data, as->length);
 }
 
 char *ne_ssl_readable_dname(const ne_ssl_dname *name)
@@ -236,7 +247,7 @@ static int check_identity(const ne_uri *server, X509 *cert, char **identity)
 	    if (nm->type == GEN_DNS) {
 		char *name = dup_ia5string(nm->d.ia5);
                 if (identity && !found) *identity = ne_strdup(name);
-		match = ne__ssl_match_hostname(name, hostname);
+		match = ne__ssl_match_hostname(name, strlen(name), hostname);
 		ne_free(name);
 		found = 1;
             } 
@@ -320,7 +331,7 @@ static int check_identity(const ne_uri *server, X509 *cert, char **identity)
             return -1;
         }
         if (identity) *identity = ne_strdup(cname->data);
-        match = ne__ssl_match_hostname(cname->data, hostname);
+        match = ne__ssl_match_hostname(cname->data, cname->used - 1, hostname);
         ne_buffer_destroy(cname);
     }
 
@@ -819,6 +830,48 @@ ne_ssl_client_cert *ne_ssl_clicert_read(const char *filename)
         }
     }
 }
+
+#ifdef HAVE_PAKCHOIS
+ne_ssl_client_cert *ne__ssl_clicert_exkey_import(const unsigned char *der,
+                                                 size_t der_len,
+                                                 const RSA_METHOD *method)
+{
+    ne_ssl_client_cert *cc;
+    ne_d2i_uchar *p;
+    X509 *x5;
+    RSA *pk;    
+    EVP_PKEY *epk, *tpk;
+
+    p = der;
+    x5 = d2i_X509(NULL, &p, der_len); /* p is incremented */
+    if (x5 == NULL) {
+        ERR_clear_error();
+        return NULL;
+    }
+    
+    pk = RSA_new();
+    RSA_set_method(pk, method);
+    epk = EVP_PKEY_new();
+    EVP_PKEY_assign_RSA(epk, pk);
+    
+    /* It is necessary to initialize pk->n otherwise OpenSSL will barf
+     * later calling RSA_size() on this RSA structure.
+     * X509_get_pubkey() forces the relevant RSA parameters to be
+     * extracted from the certificate. */
+    tpk = X509_get_pubkey(x5);
+    pk->n = BN_dup(tpk->pkey.rsa->n);
+    EVP_PKEY_free(tpk);
+
+    cc = ne_calloc(sizeof *cc);
+    
+    cc->decrypted = 1;
+    cc->pkey = epk;
+
+    populate_cert(&cc->cert, x5);
+
+    return cc;    
+}
+#endif
 
 int ne_ssl_clicert_encrypted(const ne_ssl_client_cert *cc)
 {

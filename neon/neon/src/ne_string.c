@@ -1,6 +1,6 @@
 /* 
    String utility functions
-   Copyright (C) 1999-2007, Joe Orton <joe@manyfish.co.uk>
+   Copyright (C) 1999-2007, 2009, Joe Orton <joe@manyfish.co.uk>
    strcasecmp/strncasecmp implementations are:
    Copyright (C) 1991, 1992, 1995, 1996, 1997 Free Software Foundation, Inc.
    This file is part of the GNU C Library.
@@ -38,6 +38,8 @@
 
 #include "ne_alloc.h"
 #include "ne_string.h"
+/* hack for 0.28.x backport of ne_strnqdup, ne_buffer_qappend */
+#include "ne_private.h"
 
 char *ne_token(char **str, char separator)
 {
@@ -252,6 +254,98 @@ void ne_buffer_altered(ne_buffer *buf)
     buf->used = strlen(buf->data) + 1;
 }
 
+
+/* ascii_quote[n] gives the number of bytes needed by
+ * ne_buffer_qappend() to append character 'n'. */
+static const unsigned char ascii_quote[256] = {
+    4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 
+    4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 
+    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 
+    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 
+    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 
+    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 
+    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 
+    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 4, 
+    4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 
+    4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 
+    4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 
+    4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 
+    4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 
+    4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 
+    4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 
+    4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4
+};
+
+static const char hex_chars[16] = "0123456789ABCDEF";
+
+/* Return the expected number of bytes needed to append the string
+ * beginning at byte 's', where 'send' points to the last byte after
+ * 's'. */ 
+static size_t qappend_count(const unsigned char *s, const unsigned char *send)
+{
+    const unsigned char *p;
+    size_t ret;
+    
+    for (p = s, ret = 0; p < send; p++) {
+        ret += ascii_quote[*p];
+    }
+
+    return ret;
+}       
+
+/* Append the string 's', up to but not including 'send', to string
+ * 'dest', quoting along the way.  Returns pointer to NUL. */
+static char *quoted_append(char *dest, const unsigned char *s, 
+                           const unsigned char *send)
+{
+    const unsigned char *p;
+    char *q = dest;
+
+    for (p = s; p < send; p++) {
+        if (ascii_quote[*p] == 1) {
+            *q++ = *p;
+        }
+        else {
+            *q++ = '\\';
+            *q++ = 'x';
+            *q++ = hex_chars[(*p >> 4) & 0x0f];
+            *q++ = hex_chars[*p & 0x0f];
+        }
+    }
+
+    /* NUL terminate after the last character */
+    *q = '\0';
+    
+    return q;
+}
+
+void ne__buffer_qappend(ne_buffer *buf, const unsigned char *data, size_t len)
+{
+    const unsigned char *dend = data + len;
+    char *q, *qs;
+
+    ne_buffer_grow(buf, buf->used + qappend_count(data, dend));
+
+    /* buf->used >= 1, so this is safe. */
+    qs = buf->data + buf->used - 1;
+
+    q = quoted_append(qs, data, dend);
+    
+    /* used already accounts for a NUL, so increment by number of
+     * characters appended, *before* the NUL. */
+    buf->used += q - qs;
+}
+
+char *ne__strnqdup(const unsigned char *data, size_t len)
+{
+    const unsigned char *dend = data + len;
+    char *dest = malloc(qappend_count(data, dend) + 1);
+
+    quoted_append(dest, data, dend);
+
+    return dest;
+}
+
 static const char b64_alphabet[] =  
     "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
     "abcdefghijklmnopqrstuvwxyz"
@@ -345,9 +439,9 @@ size_t ne_unbase64(const char *data, unsigned char **out)
     return outp - *out;
 }
 
-/* Character map array; array[n] = isprint(n) ? 0x20 : n.  Used by
- * ne_strclean as a locale-independent isprint(). */
-static const unsigned char ascii_printable[256] = {
+/* Character map array; ascii_clean[n] = isprint(n) ? n : 0x20.  Used
+ * by ne_strclean as a locale-independent isprint(). */
+static const unsigned char ascii_clean[256] = {
     0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 
     0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 
     0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 
@@ -387,7 +481,7 @@ char *ne_strclean(char *str)
     unsigned char *pnt;
 
     for (pnt = (unsigned char *)str; *pnt; pnt++)
-        *pnt = (char)ascii_printable[*pnt];
+        *pnt = (char)ascii_clean[*pnt];
 
     return str;
 }

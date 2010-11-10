@@ -1,0 +1,20 @@
+--- ./usr/lib/php/pearcmd.php	2010-02-01 14:26:14.000000000 -0800
++++ ./tmp/pearcmd.php	2010-02-01 17:08:37.000000000 -0800
+@@ -26,7 +26,7 @@
+  * @nodep Gtk
+  */
+ if ('/usr/lib/php' != '@'.'include_path'.'@') {
+-    ini_set('include_path', '/usr/lib/php');
++    // ini_set('include_path', '/usr/lib/php');
+     $raw = false;
+ } else {
+     // this is a raw, uninstalled pear, either a cvs checkout, or php distro
+@@ -45,6 +45,8 @@
+ 
+ $pear_package_version = "1.9.1";
+ 
++echo "Looking for include files in ".ini_get('include_path').".\n";
++
+ require_once 'PEAR.php';
+ require_once 'PEAR/Frontend.php';
+ require_once 'PEAR/Config.php';

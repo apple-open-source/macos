@@ -38,7 +38,9 @@ AEP_Filename   = $(AEP_ProjVers).tar.gz
 AEP_ExtractDir = $(AEP_ProjVers)
 AEP_Patches    = patch-doc__Makefile.in \
                  patch-gzip.1 patch-gzip.c \
-                 patch-zless.1
+                 patch-zless.1 \
+                 PR-7408343.diff \
+                 PR-7634893.diff
 
 # Extract the source.
 install_source::

@@ -53,8 +53,8 @@ GetEDType(AppleOHCIEndpointDescriptorPtr pED)
 IOReturn 
 AppleUSBOHCI::CreateGeneralTransfer(AppleOHCIEndpointDescriptorPtr queue, IOUSBCommand* command, IOMemoryDescriptor* CBP, UInt32 bufferSize, UInt32 flags, UInt32 type, UInt32 kickBits)
 {
-    AppleOHCIGeneralTransferDescriptorPtr	pOHCIGeneralTransferDescriptor,
-											newOHCIGeneralTransferDescriptor;
+    AppleOHCIGeneralTransferDescriptorPtr	pOHCIGeneralTransferDescriptor = NULL,
+											newOHCIGeneralTransferDescriptor = NULL;
     IOReturn								status = kIOReturnSuccess;
     IOByteCount								transferOffset;
     UInt32									pageCount;
@@ -273,6 +273,8 @@ AppleUSBOHCI::CreateGeneralTransfer(AppleOHCIEndpointDescriptorPtr queue, IOUSBC
         }
     }
 
+	printTD(pOHCIGeneralTransferDescriptor, 7);
+	
 #if (DEBUGGING_LEVEL > 2)
     print_td(pOHCIGeneralTransferDescriptor);
 #endif
@@ -611,9 +613,9 @@ AppleUSBOHCI::UIMCreateInterruptEndpoint(
 {
     AppleOHCIEndpointDescriptorPtr		pOHCIEndpointDescriptor;
     AppleOHCIEndpointDescriptorPtr		pED, temp;
-    int                                         offset;
-    short                                       originalDirection = direction;
-    
+    int                                 offset;
+    short								originalDirection = direction;
+    UInt32								currentToggle = 0;
     
     USBLog(5, "AppleUSBOHCI[%p]: UIMCreateInterruptEndpoint ( Addr: %d:%d, max=%d, dir=%d, rate=%d, %s)", this,
            functionAddress, endpointNumber, maxPacketSize,direction,
@@ -647,6 +649,13 @@ AppleUSBOHCI::UIMCreateInterruptEndpoint(
     {
         IOReturn ret;
         USBLog(3, "AppleUSBOHCI[%p]: UIMCreateInterruptEndpoint endpoint already existed -- deleting it", this);
+		
+		currentToggle = USBToHostLong(pED->pShared->tdQueueHeadPtr) & (kOHCIHeadPointer_C);
+		if ( currentToggle != 0)
+		{
+			USBLog(6,"AppleUSBOHCI[%p]::UIMCreateInterruptEndpoint:  Preserving a data toggle of 1 before of the EP that we are going to delete!", this);
+		}
+		
         ret = UIMDeleteEndpoint(functionAddress, endpointNumber, originalDirection);
         if ( ret != kIOReturnSuccess)
         {
@@ -656,7 +665,7 @@ AppleUSBOHCI::UIMCreateInterruptEndpoint(
     }
     else
 	{
-        USBLog(3, "AppleUSBOHCI[%p]: UIMCreateInterruptEndpoint endpoint does NOT exist", this);
+        USBLog(6, "AppleUSBOHCI[%p]: UIMCreateInterruptEndpoint endpoint does NOT exist", this);
 	}
     
     
@@ -680,6 +689,9 @@ AppleUSBOHCI::UIMCreateInterruptEndpoint(
     
     _pInterruptHead[offset].nodeBandwidth += maxPacketSize;
     
+	// Write back the toggle in case we deleted the EP and recreated it
+	pOHCIEndpointDescriptor->pShared->tdQueueHeadPtr |= HostToUSBLong(currentToggle);
+		
 #if (DEBUGGING_LEVEL > 2)
     print_int_list();
 #endif
@@ -1104,18 +1116,22 @@ AppleUSBOHCI::UIMClearEndpointStall(short functionAddress, short endpointNumber,
     if (!pED)
     {
         USBLog(3, "AppleUSBOHCI[%p] UIMClearEndpointStall- Could not find endpoint!", this);
-        return (kIOUSBEndpointNotFound);
+        return kIOUSBEndpointNotFound;
     }
 
-    if (pED != NULL)
-    {
-        tail = USBToHostLong(pED->pShared->tdQueueTailPtr);
-        transaction = AppleUSBOHCIgtdMemoryBlock::GetGTDFromPhysical(USBToHostLong(pED->pShared->tdQueueHeadPtr) & kOHCIHeadPMask);
-        
-		// Unlink all transactions at once (this also clears the halted bit AND resets the data toggle)
-        pED->pShared->tdQueueHeadPtr = pED->pShared->tdQueueTailPtr;
-        pED->pLogicalHeadP = pED->pLogicalTailP;
-    }	
+	if (pED->pAborting)
+	{
+		// 7946083 - don't allow the abort to recurse
+        USBLog(1, "AppleUSBOHCI[%p]::UIMClearEndpointStall- Already aborting endpoint [%p] - not recursing!", this, pED);
+		return kIOUSBClearPipeStallNotRecursive;
+	}
+	pED->pAborting = true;
+	tail = USBToHostLong(pED->pShared->tdQueueTailPtr);
+	transaction = AppleUSBOHCIgtdMemoryBlock::GetGTDFromPhysical(USBToHostLong(pED->pShared->tdQueueHeadPtr) & kOHCIHeadPMask);
+	
+	// Unlink all transactions at once (this also clears the halted bit AND resets the data toggle)
+	pED->pShared->tdQueueHeadPtr = pED->pShared->tdQueueTailPtr;
+	pED->pLogicalHeadP = pED->pLogicalTailP;
 
     if (transaction != NULL)
     {
@@ -1123,8 +1139,8 @@ AppleUSBOHCI::UIMClearEndpointStall(short functionAddress, short endpointNumber,
     }
     
     USBLog(5, "-AppleUSBOHCI[%p]: clearing endpoint %d:%d stall", this, functionAddress, endpointNumber);
-
-    return (kIOReturnSuccess);
+	pED->pAborting = false;
+    return kIOReturnSuccess;
 }
 
 
@@ -1437,6 +1453,41 @@ bool AppleUSBOHCI::DetermineInterruptOffset(
     else
         *offset = (num%32) + 0;
     return (true);
+}
+
+void 
+AppleUSBOHCI::printTD(AppleOHCIGeneralTransferDescriptorPtr pTD, int level)
+{
+    UInt32 w0, dir;
+
+    if (pTD == 0)
+    {
+        USBLog(level, "AppleUSBOHCI[%p]::printTD  Attempt to print null TD", this);
+        return;
+    }
+	
+    w0 = USBToHostLong(pTD->pShared->ohciFlags);
+    dir = (w0 & kOHCIGTDControl_DP) >> kOHCIGTDControl_DPPhase;
+
+ 	USBLog(level, "AppleUSBOHCI[%p]::printTD: ------pTD at %p (%s)", this, pTD, dir == 0 ? "SETUP" : (dir==2?"IN":"OUT"));
+	USBLog(level, "AppleUSBOHCI[%p]::printTD: pEndpoint:                %p (%d:%d)", this, pTD->pEndpoint, 
+		   (USBToHostLong((pTD->pEndpoint)->pShared->flags) & kOHCIEDControl_FA) >> kOHCIEDControl_FAPhase,
+		   (USBToHostLong((pTD->pEndpoint)->pShared->flags) & kOHCIEDControl_EN) >> kOHCIEDControl_ENPhase
+		   );
+	USBLog(level, "AppleUSBOHCI[%p]::printTD: shared.ohciFlags:         0x%x", this, USBToHostLong(pTD->pShared->ohciFlags));
+	USBLog(level, "AppleUSBOHCI[%p]::printTD: shared.currentBufferPtr:  0x%x", this, USBToHostLong(pTD->pShared->currentBufferPtr));
+	USBLog(level, "AppleUSBOHCI[%p]::printTD: shared.nextTD:            0x%x", this, USBToHostLong(pTD->pShared->nextTD));
+	USBLog(level, "AppleUSBOHCI[%p]::printTD: shared.bufferEnd:         0x%x", this, USBToHostLong(pTD->pShared->bufferEnd));
+	
+	USBLog(level, "AppleUSBOHCI[%p]::printTD: pType:                    0x%x", this, pTD->pType);
+	USBLog(level, "AppleUSBOHCI[%p]::printTD: uimFlags:                 0x%x", this, pTD->uimFlags);
+	USBLog(level, "AppleUSBOHCI[%p]::printTD: pPhysical:                0x%x", this, (uint32_t)(pTD->pPhysical));
+	USBLog(level, "AppleUSBOHCI[%p]::printTD: pLogicalNext:             %p", this, (pTD->pLogicalNext));
+	
+	USBLog(level, "AppleUSBOHCI[%p]::printTD: lastFrame:                0x%x",  this, (uint32_t)(pTD->lastFrame));
+	USBLog(level, "AppleUSBOHCI[%p]::printTD: lastRemaining:            0x%x",  this, (uint32_t)(pTD->lastRemaining));
+	USBLog(level, "AppleUSBOHCI[%p]::printTD: bufferSize:               0x%x",  this, (uint32_t)(pTD->bufferSize));
+	
 }
 
 #if (DEBUGGING_LEVEL > 2)

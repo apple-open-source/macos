@@ -361,16 +361,17 @@ IOReturn AppleSmartBatteryManager::setPowerState(
     unsigned long which, 
     IOService *whom)
 {
-    if( (kMyOnPowerState == which) 
-        && fBatteryGate )
+    IOReturn ret = IOPMAckImplied;
+
+    if( fBatteryGate )
     {
         // We are waking from sleep - kick off a battery read to make sure
         // our battery concept is in line with reality.
-        fBatteryGate->runAction(OSMemberFunctionCast(IOCommandGate::Action,
-                           fBattery, &AppleSmartBattery::pollBatteryState),
-                           (void *)1, NULL, NULL, NULL); // kNewBatteryPath = 1
+        ret = fBatteryGate->runAction(OSMemberFunctionCast(IOCommandGate::Action,
+                           fBattery, &AppleSmartBattery::handleSystemSleepWake),
+                           (void *) this, (void *) !which, NULL, NULL);
     }
-    return IOPMAckImplied;
+    return ret;
 }
 
 

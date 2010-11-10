@@ -447,8 +447,9 @@ protected:
 				kIOPropertySASAddressKey,
 				kIOPropertyFibreChannelNodeWorldWideNameKey,
 				kIOPropertyFibreChannelPortWorldWideNameKey,
-				kIOPropertyFibreChannelAddressIdentifierKey, and
-				kIOPropertyFibreChannelALPAKey.
+				kIOPropertyFibreChannelAddressIdentifierKey, 
+				kIOPropertyFibreChannelALPAKey, and
+				kIOPropertyRetryCountKey.
 				These keys are defined in
 				<IOKit/storage/IOStorageProtocolCharacteristics.h> and the values
 				associated with these keys must be of the proper type/size,

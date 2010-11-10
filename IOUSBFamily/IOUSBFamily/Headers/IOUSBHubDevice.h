@@ -67,6 +67,10 @@ private:
 		UInt32					_extraPowerForPorts;			// Of the power requested from our parent, how much can we parcel out -- the rest is consumed by voltage drop thru the cable
 		UInt32					_extraPowerAllocated;			// Amount of power that we actually got from our parent
 		bool					_requestFromParent;				// True if we are to request the extra power from our parent, without modifying the request.  Used for RMHs
+		UInt32					_maxPortSleepCurrent;			// Maximum current per port during sleep
+		UInt32					_extraSleepPowerAllocated;		// Amount of sleep power that we actually got from our parent
+		UInt32					_canRequestExtraSleepPower;		// If 0, this hub does not support requesting extra sleep power from its parent, non-zero:  how much power we need to request in order to give out _extraPowerForPorts
+		UInt32					_standardPortSleepCurrent;		// Standard current that can be drawn in sleep -- usually 1 USB load
 	};
     ExpansionData			*_expansionData;
 	
@@ -76,6 +80,18 @@ protected:
 	virtual void			SetHubCharacteristics(UInt32);
 	virtual bool			InitializeCharacteristics(void);					// used at start
 	
+	// these are called through the workloop
+	static IOReturn			GatedRequestExtraPower(OSObject *target, void *arg0, void *arg1, void *arg2, void *arg3);
+	static IOReturn			GatedReturnExtraPower(OSObject *target, void *arg0, void *arg1, void *arg2, void *arg3);
+	static IOReturn			GatedRequestSleepPower(OSObject *target, void *arg0, void *arg1, void *arg2, void *arg3);
+	static IOReturn			GatedReturnSleepPower(OSObject *target, void *arg0, void *arg1, void *arg2, void *arg3);
+
+	// a non static but non-virtual function
+	IOReturn				RequestExtraPower(uint64_t requestedPower, uint64_t *powerAllocated);
+	IOReturn				RequestSleepPower(uint64_t requestedPower, uint64_t *powerAllocated);
+	IOReturn				ReturnExtraPower(uint64_t returnedPower);
+	IOReturn				ReturnSleepPower(uint64_t returnedPower);
+
 public:
 	// static constructor
     static IOUSBHubDevice	*NewHubDevice(void);
@@ -143,8 +159,13 @@ public:
     OSMetaClassDeclareReservedUsed(IOUSBHubDevice,  4);
 	virtual	UInt32			GetSleepCurrent();
 	
-    OSMetaClassDeclareReservedUnused(IOUSBHubDevice,  5);
-    OSMetaClassDeclareReservedUnused(IOUSBHubDevice,  6);
+    OSMetaClassDeclareReservedUsed(IOUSBHubDevice,  5);
+	
+	virtual void			InitializeExtraPower(UInt32 maxPortCurrent, UInt32 totalExtraCurrent, UInt32 maxPortCurrentInSleep, UInt32 totalExtraCurrentInSleep);
+	
+    OSMetaClassDeclareReservedUsed(IOUSBHubDevice,  6);
+	virtual void			SendExtraPowerMessage(UInt32 type, UInt32 returnedPower);
+
     OSMetaClassDeclareReservedUnused(IOUSBHubDevice,  7);
     OSMetaClassDeclareReservedUnused(IOUSBHubDevice,  8);
     OSMetaClassDeclareReservedUnused(IOUSBHubDevice,  9);

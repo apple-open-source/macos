@@ -11,13 +11,3 @@ diff -Naur php-5.3.0/ext/iconv/iconv.c php/ext/iconv/iconv.c
  
  #include "ext/standard/php_smart_str.h"
  #include "ext/standard/base64.h"
-@@ -182,9 +179,6 @@
- }
- /* }}} */
- 
--#ifdef HAVE_LIBICONV
--#define iconv libiconv
--#endif
- 
- /* {{{ typedef enum php_iconv_enc_scheme_t */
- typedef enum _php_iconv_enc_scheme_t {

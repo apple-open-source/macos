@@ -54,6 +54,7 @@
 #define kDefaultNegativeExpirationStr "DefaultFailureExpirationInSecs"
 #define kDefaultKernelExpirationInSecsStr "DefaultKernelExpirationInSecs"
 #define kKerberosFallbackToRecordName "KerberosFallbackToRecordName"
+#define kKernelResolverTimeout "KernelResolverTimeout"
 
 #define kUUIDBlock		1
 #define kSmallSIDBlock	2
@@ -97,6 +98,8 @@ extern dsBool		gDSInstallDaemonMode;
 extern dsBool		gServerOS;
 extern CPlugInList	*gPlugins;
 
+int gKernelTimeout = 60;
+
 static MbrdCache			*gMbrdCache		= NULL;
 
 // keep these around, we use them a lot
@@ -127,6 +130,7 @@ static dispatch_queue_t			gLookupQueue = NULL;
 static pthread_key_t			gMembershipThreadKey = NULL;
 
 extern CCachePlugin				*gCacheNode;
+extern uint32_t					gNumberOfCores;
 
 extern sCacheValidation* ParsePasswdEntry( tDirReference inDirRef, tDirNodeReference inNodeRef, kvbuf_t *inBuffer, tDataBufferPtr inDataBuffer, 
 										   tRecordEntryPtr inRecEntry, tAttributeListRef inAttrListRef, void *additionalInfo, CCache *inCache,
@@ -865,7 +869,9 @@ UserGroup **Mbrd_FindItemsAndRetain( tDirNodeReference dirNode, tDataListPtr rec
 							{
 								result->fName = dsCStrFromCharacters( attrValue->fAttributeValueData.fBufferData,
 																	  attrValue->fAttributeValueData.fBufferLength );
-								result->fFlags |= kUGFlagHasName;
+								if (result->fName != NULL) {
+									result->fFlags |= kUGFlagHasName;
+								}
 							}
 							else if (strcmp(attrName, kDSNAttrAltSecurityIdentities) == 0 )
 							{
@@ -1776,22 +1782,30 @@ static void Mbrd_ResolveGroupsForItem( UserGroup *item, uint32_t flags, UserGrou
 	Mbrd_AddToAverage( &gStatBlock.fAverageuSecPerMembershipSearch, &gStatBlock.fTotalMembershipSearches, microsec);
 }
 
-static void Mbrd_GenerateItemMembership( UserGroup *item, uint32_t flags, bool bAsyncRefresh = false )
+static void Mbrd_GenerateItemMembership( UserGroup *item, uint32_t flags, bool inAsyncRefresh = false )
 {
-	static dispatch_queue_t membership_queue;
+	static dispatch_semaphore_t semaphore;
+	static dispatch_queue_t trampoline;
 	static dispatch_once_t once;
 
 	// don't issue a refresh if one is in flight
 	if ( item == NULL ) return;
 	
+	// ensure we don't issue too much work for group resolution
 	dispatch_once(&once, ^(void) {
-		membership_queue = dispatch_queue_create("com.apple.DirectoryService.membership", NULL);
-		dispatch_queue_set_width(membership_queue, DISPATCH_QUEUE_WIDTH_MAX_LOGICAL_CPUS);
+		semaphore = dispatch_semaphore_create(4); // hard limit of 4 membership generations
+		trampoline = dispatch_queue_create("com.apple.DirectoryService.refreshTrampoline", NULL);
 	});
 	
-	__block bool bDoWaitBlock = false;
+	/*
+	 * note we could make the group wait for membership generation be < timeout to the kernel if we wanted to
+	 * by forcing everything through the group_wait.  For kernel we wait N seconds, for user-space we wait indefinitely
+	 */
+	
 	__block bool bIssueRefresh = false;
+	__block bool bAsyncRefresh = ((flags & kKernelRequest) != 0 ? true : inAsyncRefresh); // always async if kernel
 	const char *reqOrigin = ((flags & kKernelRequest) != 0 ? "mbr_syscall" : "mbr_mig");
+	dispatch_group_t group = dispatch_group_create();
 
 	dispatch_sync( item->fQueue,
 				   ^(void) {
@@ -1808,28 +1822,28 @@ static void Mbrd_GenerateItemMembership( UserGroup *item, uint32_t flags, bool b
 							   }
 							   else {
 								   DbgLog( kLogInfo, "%s - Membership - '%s' (%s) force refresh requested - entry and group memberships %s", 
-										   reqOrigin, item->fName ? : "", item->fNode ? : "", bAsyncRefresh ? "(Async requested)" : "" );
+										   reqOrigin, item->fName ? : "", item->fNode ? : "", bAsyncRefresh ? "(async requested but ignored)" : "" );
 							   }
 							   
 							   bIssueRefresh = true;
 						   }
 						   
-						   bDoWaitBlock = true;
+						   bAsyncRefresh = false;
 					   }
 					   else if ( item->fExpiration <= currentTime )
 					   {
 						   if ( __sync_bool_compare_and_swap(&item->fRefreshActive, false, true) == true ) {
-							   DbgLog( kLogInfo, "%s - Membership - '%s' (%s) outdated - will refresh entry and group memberships asynchronously", 
-									   reqOrigin, item->fName ? : "", item->fNode ? : "" );
+							   DbgLog(kLogInfo, "%s - Membership - '%s' (%s) outdated - will refresh entry and group memberships%s", 
+									  reqOrigin, item->fName ? : "", item->fNode ? : "", (bAsyncRefresh ? " asynchronously" : ""));
 							   bIssueRefresh = true;
 						   }
 					   }
 				   } );
 	
 	if ( bIssueRefresh == true ) {
-		UserGroup_Retain( item );
-		dispatch_async( item->fRefreshQueue, 
-					    ^(void) {
+		dispatch_block_t refresh_block;
+		
+		refresh_block = ^(void) {
 							CInternalDispatch::AddCapability();
 							
 							UserGroup *refreshed = NULL;
@@ -1860,9 +1874,7 @@ static void Mbrd_GenerateItemMembership( UserGroup *item, uint32_t flags, bool b
 								// copy the entry (skipping memberships) and resolve the memberships, then we'll merge back into the existing
 								UserGroup_Merge( workingCopy, refreshed, false );
 								
-								dispatch_sync(membership_queue, ^(void) {
-									Mbrd_ResolveGroupsForItem( workingCopy, flags );
-								});
+								Mbrd_ResolveGroupsForItem( workingCopy, flags );
 								
 								// now merge back into the original item
 								UserGroup_Merge( refreshed, workingCopy, true );
@@ -1880,18 +1892,29 @@ static void Mbrd_GenerateItemMembership( UserGroup *item, uint32_t flags, bool b
 							}
 							
 							UserGroup_Release( item );
-						} );
+							dispatch_semaphore_signal(semaphore);
+						};
+		
+		// use another queue that blocks waiting to issue the async refresh if we are at max
+		// we shouldn't block callers that expect async behavior because we've reached our max refresh limit
+		UserGroup_Retain( item );
+		dispatch_group_async(group, trampoline, ^(void) {
+			dispatch_semaphore_wait(semaphore, DISPATCH_TIME_FOREVER);
+			dispatch_group_async(group, item->fRefreshQueue, refresh_block);
+		});
 	}
 	
-	if ( bDoWaitBlock == true && bAsyncRefresh == false ) {
+	if (bIssueRefresh == true && bAsyncRefresh == false) {
 		DbgLog( kLogInfo, "%s - Membership - '%s' (%s) - waiting for an inflight membership generation to complete",
 			    reqOrigin, item->fName ? : "", item->fNode ? : "" );
-		dispatch_sync( item->fRefreshQueue, 
-					   ^(void) {
-						   DbgLog( kLogDebug, "%s - Membership - '%s' (%s) - finished waiting for an inflight membership generation to complete",
-								   reqOrigin, item->fName ? : "", item->fNode ? : "" );
-					   } );
+		dispatch_group_wait(group, DISPATCH_TIME_FOREVER);
+		dispatch_sync(item->fRefreshQueue, ^(void) {
+			DbgLog(kLogDebug, "%s - Membership - '%s' (%s) - finished waiting for an inflight membership generation to complete",
+				   reqOrigin, item->fName ? : "", item->fNode ? : "");
+		});
 	}
+	
+	dispatch_release(group);
 }
 
 int IsUserMemberOfGroupByGUID( UserGroup* user, uuid_t groupGUID, uint32_t flags )
@@ -2105,6 +2128,14 @@ void Mbrd_InitializeGlobals( void )
 				{
 					temp += sizeof(kKerberosFallbackToRecordName) - 1;
 					kerberosFallback = strtol(temp, &temp, 10);
+				}
+				else if (strncmp(temp, kKernelResolverTimeout, sizeof(kKernelResolverTimeout) - 1) == 0 )
+				{
+					temp += sizeof(kKernelResolverTimeout) - 1;
+					gKernelTimeout = strtol(temp, &temp, 10);
+					if (gKernelTimeout == 0) {
+						gKernelTimeout = 60; // default to 60 if timeout is 0
+					}
 				}
 				
 				i += strlen(temp) + 1;

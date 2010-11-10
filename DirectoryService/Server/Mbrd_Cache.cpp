@@ -567,7 +567,9 @@ UserGroup *MbrdCache_AddOrUpdate( MbrdCache *cache, UserGroup *entry, uint32_t f
 			break;
 			
 		case kUGFoundByKerberos:
-			result = HashTable_GetAndRetain( &cache->fKerberosHash, entry->fKerberos[0] );
+			if ((entry->fFlags & kUGFlagHasKerberos) != 0) {
+				result = HashTable_GetAndRetain( &cache->fKerberosHash, entry->fKerberos[0] );
+			}
 			break;
 	}
 		
@@ -699,6 +701,9 @@ void MbrdCache_ResetCache( MbrdCache *cache )
 	HashTable_Reset( &cache->fGroupNameHash );
 	HashTable_Reset( &cache->fComputerNameHash );
 	HashTable_Reset( &cache->fComputerGroupNameHash );
+
+	HashTable_Reset(&cache->fX509Hash);
+	HashTable_Reset(&cache->fKerberosHash);
 
 	UserGroup* temp = cache->fListHead;
 	cache->fListHead = NULL;

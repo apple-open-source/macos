@@ -1,3 +1,1558 @@
+2010-08-09  Mark Rowe  <mrowe@apple.com>
+
+        Merge r63772.
+
+    2010-07-20  Leo Yang  <leo.yang@torchmobile.com.cn>
+
+        Reviewed by David Hyatt.
+
+        Don't merge Anonymous block whose first child is inline run-in.
+        Make run-in recalculate its style after its renderer is destroyed.
+        https://bugs.webkit.org/show_bug.cgi?id=41375.
+
+        Test: fast/runin/crash-when-reparent-sibling.html
+
+        * rendering/RenderBlock.cpp:
+        (WebCore::canMergeContiguousAnonymousBlocks):
+        * rendering/RenderObjectChildList.cpp:
+        (WebCore::RenderObjectChildList::destroyLeftoverChildren):
+
+2010-08-09  Mark Rowe  <mrowe@apple.com>
+
+        Merge r64110.
+
+    2010-07-27  Kent Tamura  <tkent@chromium.org>
+
+        Reviewed by Ojan Vafai.
+
+        Add a runtime setting for interactive form validation.
+        https://bugs.webkit.org/show_bug.cgi?id=40520
+
+        The interactive validation feature was disabled for non-strict
+        modes by r61059 to avoid a compatibility issue. This removes the
+        mode checking and introduce a runtime setting to enable/disable
+        the feature instead.
+        The default value is 'disable' and we'll remove the setting when
+        the compatibility issue is resolved and interactive validation
+        implementation is completed.
+
+        * html/HTMLFormElement.cpp:
+        (WebCore::HTMLFormElement::validateInteractively):
+        * page/Settings.cpp:
+        (WebCore::Settings::Settings):
+        * page/Settings.h:
+        (WebCore::Settings::setInteractiveFormValidationEnabled):
+        (WebCore::Settings::interactiveFormValidationEnabled):
+
+2010-08-09  Mark Rowe  <mrowe@apple.com>
+
+        Merge r64095.
+
+    2010-07-26  Simon Fraser  <simon.fraser@apple.com>
+
+        Reviewed by Dan Bernstein.
+
+        Google image search results broken on pages with Flash
+        https://bugs.webkit.org/show_bug.cgi?id=43014
+
+        The test for overflow added in r63452 is wrong in that it ignores the effects
+        of positioning on overflow.
+        
+        The correct approach is to start by using RenderView's layoutOverflowRect as the largest bounds,
+        then getting the oveflow rect via backgroundClipRect() relative to the root layer.
+        
+        Test: compositing/geometry/limit-layer-bounds-overflow-root.html
+
+        * rendering/RenderLayerBacking.cpp:
+        (WebCore::layerOrAncestorIsTransformed):
+        (WebCore::RenderLayerBacking::updateCompositedBounds):
+
+2010-07-22  Mark Rowe  <mrowe@apple.com>
+
+        Merge r63927.
+
+    2010-07-22  Sam Weinig  <sam@webkit.org>
+
+        Reviewed by Maciej Stachowiak.
+
+        Fix for <rdar://problem/8222626>
+        Send textDidChangeInTextField delegate callback only in response to typing or other forms of user text input.
+
+        * GNUmakefile.am:
+        * WebCore.gypi:
+        * WebCore.pro:
+        * WebCore.vcproj/WebCore.vcproj:
+        * WebCore.xcodeproj/project.pbxproj:
+        Update project files.
+        
+        * dom/UserTypingGestureIndicator.cpp: Copied from dom/UserGestureIndicator.cpp.
+        (WebCore::UserTypingGestureIndicator::processingUserTypingGesture):
+        (WebCore::focusedNode):
+        (WebCore::UserTypingGestureIndicator::focusedElementAtGestureStart):
+        (WebCore::UserTypingGestureIndicator::UserTypingGestureIndicator):
+        (WebCore::UserTypingGestureIndicator::~UserTypingGestureIndicator):
+        * dom/UserTypingGestureIndicator.h: Copied from dom/UserGestureIndicator.h.
+        Version of UserGestureIndicator that just tracks keyboard gestures and the focused
+        node they were targeting.
+        
+        * editing/Editor.cpp:
+        (WebCore::Editor::confirmComposition):
+        (WebCore::Editor::setComposition):
+        * page/EventHandler.cpp:
+        (WebCore::EventHandler::keyEvent):
+        Put UserTypingGestureIndicator on the stack for user generated keyboard events.
+
+2010-07-22  Mark Rowe  <mrowe@apple.com>
+
+        Merge r63924.
+
+    2010-07-22  Andy Estes  <aestes@apple.com>
+
+        Reviewed by Maciej Stachowiak.
+
+        When there are no beforeload listeners on a document,
+        HTMLLinkElement::process() should be called immediately when the node is
+        inserted into the document, rather than waiting until after attach is
+        performed.
+        <https://bugs.webkit.org/show_bug.cgi?id=42859>
+        <rdar://problem/8194528>
+
+        No new tests.
+
+        * html/HTMLLinkElement.cpp:
+        (WebCore::HTMLLinkElement::insertedIntoDocument): If there are no
+        beforeload listeners, call process() immediately.  Otherwise, add it as
+        a post-attach callback.
+
+2010-07-15  Mark Rowe  <mrowe@apple.com>
+
+        Merge r63452.
+
+    2010-07-15  Simon Fraser  <simon.fraser@apple.com>
+
+        Reviewed by Dan Bernstein.
+
+        Avoid creating huge compositing layers for elements that project outside the viewport
+        https://bugs.webkit.org/show_bug.cgi?id=42338
+
+        The logic that computed the bounds of compositing layers naively used the
+        union of the bounds of descendant, non-composited RenderLayers, without regard
+        to what is actually visible. This could result in huge layers for page with
+        elements are large negative offsets, or with large negative text-indent (both
+        common).
+        
+        For elements without transforms on them or in their ancestor chain, and when
+        no 3d transforms or hardware-accelerated animations are used, can clip compositing
+        layers to the size of the document, or based on CSS overflow and clip.
+
+        Tests: compositing/geometry/limit-layer-bounds-clipping-ancestor.html
+               compositing/geometry/limit-layer-bounds-fixed-positioned.html
+               compositing/geometry/limit-layer-bounds-overflow-repaint.html
+               compositing/geometry/limit-layer-bounds-positioned-transition.html
+               compositing/geometry/limit-layer-bounds-positioned.html
+               compositing/geometry/limit-layer-bounds-transformed-overflow.html
+               compositing/geometry/limit-layer-bounds-transformed.html
+
+        * rendering/RenderLayerBacking.cpp:
+        (WebCore::enclosingOverflowClipAncestor):  Walk up the RenderLayer tree
+        looking for an ancestor that has overflow, or to the root. Along the way, check for
+        transformed elements.
+        (WebCore::RenderLayerBacking::updateCompositedBounds):  If we're in "consult
+        overlap" mode, and we don't have transforms, then constrain the bounds
+        of composited layers by the RenderView's layoutOverflowRect(), or by the
+        enclosing layer with overflow.
+        (WebCore::RenderLayerBacking::updateGraphicsLayerGeometry): If the offset from the renderer changes,
+        we need to repaint the layer.
+
+2010-07-15  Mark Rowe  <mrowe@apple.com>
+
+        Merge r63283.
+
+    2010-07-13  Simon Fraser  <simon.fraser@apple.com>
+
+        Reviewed by Dan Bernstein.
+
+        Page flashes to mostly white towards the end of loading
+        https://bugs.webkit.org/show_bug.cgi?id=42230
+        
+        We constrain the size of huge composited layers. When doing so, we
+        need to use the constained size to set the position as well
+        as the dimensions, to ensure the layer appears in the correct place.
+
+        Test: compositing/tiling/constrained-layer-size.html
+
+        * platform/graphics/mac/GraphicsLayerCA.mm:
+        (WebCore::GraphicsLayerCA::updateLayerPosition):
+
+2010-07-12  Mark Rowe  <mrowe@apple.com>
+
+        Merge r63149.
+
+    2010-07-12  Simon Fraser  <simon.fraser@apple.com>
+
+        Reviewed by Dan Bernstein.
+
+        Don't go into compositing mode for 0x0 plugins
+        https://bugs.webkit.org/show_bug.cgi?id=34009
+        
+        Don't use compositing for small (0-height or width, or 1x1) plugins, or iframes whose
+        height or width is zero.
+        
+        Previously we made all compositing decisions inside styleChanged(). However,
+        now that plugin and iframe compositing behavior depends on renderer size, we have
+        to wait until layout before deciding whether to composite these. This behavior
+        change is controlled by the m_compositingDependsOnGeometry flag. When set,
+        updateCompositingLayers() always does a hierarchy update.
+
+        Tests: compositing/iframes/iframe-size-from-zero.html
+               compositing/iframes/iframe-size-to-zero.html
+               compositing/plugins/1x1-composited-plugin.html
+               compositing/plugins/large-to-small-composited-plugin.html
+               compositing/plugins/small-to-large-composited-plugin.html
+
+        * page/FrameView.cpp:
+        (WebCore::FrameView::updateCompositingLayers): No longer bail if usesCompositing() is false; we
+        have to always enter updateCompositingLayers().
+        (WebCore::FrameView::repaintFixedElementsAfterScrolling): Ditto
+        (WebCore::FrameView::enterCompositingMode): Remove bogus return of a void.
+
+        * rendering/RenderLayerCompositor.h: Add m_compositingDependsOnGeometry.
+        * rendering/RenderLayerCompositor.cpp:
+        (WebCore::RenderLayerCompositor::RenderLayerCompositor): Initialize m_compositingDependsOnGeometry to false.
+        (WebCore::RenderLayerCompositor::updateCompositingLayers): If m_compositingDependsOnGeometry is true,
+        we always need to run through the layer hierarchy looking for things which need to be composited, even if
+        we're not (yet) in compositing mode.
+        
+        (WebCore::RenderLayerCompositor::computeCompositingRequirements): Because we can enter compositing mode
+        on the fly inside updateCompositingLayers() now, the state of willBeComposited needs to be updated
+        when processing the root layer, for the case where the compositing mode changes.
+        
+        (WebCore::RenderLayerCompositor::requiresCompositingForPlugin): Set the m_compositingDependsOnGeometry
+        flag if we see a potentially-composited plugin. Once we have layout information, only composite the plugin
+        if height * width > 1.
+        
+        (WebCore::RenderLayerCompositor::requiresCompositingForIFrame): Set the m_compositingDependsOnGeometry
+        flag if we see a potentially-composited iframe. Once we have layout information, only composite the plugin
+        if height or width is greater than zero.
+
+2010-07-12  Mark Rowe  <mrowe@apple.com>
+
+        Merge r63112.
+
+    2010-07-12  Simon Fraser  <simon.fraser@apple.com>
+
+        Reviewed by Dan Bernstein.
+
+        Need to do a layout when RenderLayers come and go because of compositing
+        https://bugs.webkit.org/show_bug.cgi?id=42108
+        
+        If we create or destroy RenderLayers for reasons other than style changes
+        (e.g. because of composited iframes or plugins), then we need to ensure
+        that we do a layout.
+
+        Test: compositing/iframes/layout-on-compositing-change.html
+
+        * rendering/RenderObject.cpp:
+        (WebCore::RenderObject::adjustStyleDifference):
+
+2010-07-12  Mark Rowe  <mrowe@apple.com>
+
+        Merge r62302.
+
+    2010-07-01  Andy Estes  <aestes@apple.com>
+
+        Reviewed by Darin Adler.
+
+        <rdar://problem/8113003> Correctly fire beforeload events for images
+        added to the DOM using .innerHTML.
+        https://bugs.webkit.org/show_bug.cgi?id=40919
+
+        Test: fast/dom/beforeload/image-before-load-innerHTML.html
+
+        * html/LegacyHTMLDocumentParser.cpp:
+        (WebCore::LegacyHTMLDocumentParser::write): Do not fire synchronous
+        image beforeload events immediately after parsing a document fragment.
+        Let the events fire later, giving the fragment time to potentially be
+        inserted into the document.
+
+2010-07-12  Mark Rowe  <mrowe@apple.com>
+
+        Merge r62271.
+
+    2010-07-01  Justin Schuh  <jschuh@chromium.org>
+
+        Reviewed by Dan Bernstein.
+
+        Prevent crash on counter destruction
+        https://bugs.webkit.org/show_bug.cgi?id=40032
+
+        Added counter destruction to RenderWidget::destroy()
+
+        Test: fast/css/counters/destroy-counter-crash.html
+
+        * rendering/RenderWidget.cpp:
+        (WebCore::RenderWidget::destroy):
+
+2010-07-12  Mark Rowe  <mrowe@apple.com>
+
+        Merge r62304.
+
+    2010-07-01  Alexey Proskuryakov  <ap@apple.com>
+
+        Reviewed by Dan Bernstein.
+
+        https://bugs.webkit.org/show_bug.cgi?id=41488
+        <rdar://problem/7487420> Crash in SubresourceLoader::create when load is initiated from plug-in destructor
+
+        Test: plugins/js-from-destroy.html
+
+        * loader/SubresourceLoader.cpp: (WebCore::SubresourceLoader::create): Null check active
+        document loader.
+
+2010-07-09  Mark Rowe  <mrowe@apple.com>
+
+        Merge r62687.
+
+    2010-07-07  Simon Fraser  <simon.fraser@apple.com>
+
+        Reviewed by Dan Bernstein.
+
+        REGRESSION: GMail becomes blank after closing other tabs
+        https://bugs.webkit.org/show_bug.cgi?id=40421
+
+        RenderLayerCompositor's attach/detachRootPlatformLayer methods use
+        setNeedsStyleRecalc() in order to trigger acclerated compositing layers
+        to be hooked together across iframe boundaries. However, it was possible
+        for these to get called while inside of Document::recalcStyle(), which
+        is bad because it can cause the recalc to fail to get processed.
+        
+        Fix this by using the existing queuePostAttachCallback() functionality
+        to delay the call to setNeedsStyleRecalc() if post-attach callbacks 
+        are suspended (indicating that we're inside recalcStyle()).
+        
+        No new tests because I wasn't able to make a test that shows the problem.
+
+        * dom/ContainerNode.h: Make queuePostAttachCallback() public.
+        * dom/ContainerNode.cpp:
+        (WebCore::ContainerNode::postAttachCallbacksAreSuspended): Added; returns
+        whether s_attachDepth is non-zero.
+
+        * rendering/RenderLayerCompositor.cpp:
+        (WebCore::RenderLayerCompositor::attachRootPlatformLayer): Call scheduleNeedsStyleRecalc()
+        instead of setNeedsStyleRecalc().
+        (WebCore::RenderLayerCompositor::detachRootPlatformLayer): Ditto.
+        (WebCore::needsStyleRecalcCallback): Here we call setNeedsStyleRecalc().
+        (WebCore::RenderLayerCompositor::scheduleNeedsStyleRecalc):
+        (WebCore::RenderLayerCompositor::notifyIFramesOfCompositingChange):
+        * rendering/RenderLayerCompositor.h: Add scheduleNeedsStyleRecalc().
+
+2010-07-09  Mark Rowe  <mrowe@apple.com>
+
+        Merge r62894.
+
+    2010-07-08  Simon Fraser  <simon.fraser@apple.com>
+
+        Reviewed by Darin Adler.
+
+        compositing/iframes/iframe-resize.html displays incorrectly after the resize
+        https://bugs.webkit.org/show_bug.cgi?id=41794
+        
+        The clip and scroll layers of a composited iframe's RenderLayerCompositor are updated from
+        from updateGraphicsLayerGeometry(), but this is too early to get the correct layoutWidth and
+        layoutHeight from the FrameView which happen later in layout. So when a widget size changes,
+        call updateAfterWidgetResize() directly on the RenderLayerBacking (if any).
+
+        * rendering/RenderLayerBacking.cpp:
+        (WebCore::RenderLayerBacking::updateAfterWidgetResize): New method that updates the clip
+        and scroll layers of the iframe's content RenderLayerCompositor.
+        (WebCore::RenderLayerBacking::updateGraphicsLayerGeometry): Call updateAfterWidgetResize()
+        * rendering/RenderLayerBacking.h: Add updateAfterWidgetResize().
+        * rendering/RenderWidget.cpp:
+        (WebCore::RenderWidget::setWidgetGeometry): Call updateAfterWidgetResize().
+
+2010-07-09  Mark Rowe  <mrowe@apple.com>
+
+        Merge r62875.
+
+    2010-07-08  Adele Peterson  <adele@apple.com>
+
+        Reviewed by Jon Honeycutt, Adam Roben, and Darin Adler.
+
+        Fix for https://bugs.webkit.org/show_bug.cgi?id=41721
+        <rdar://problem/8158561> Missing plug-in indicator should have a pressed state
+
+        Test: plugins/clicking-missing-plugin-fires-delegate.html
+
+        * html/HTMLPlugInElement.cpp:
+        (WebCore::HTMLPlugInElement::HTMLPlugInElement): Initialize m_isCapturingMouseEvents.
+        (WebCore::HTMLPlugInElement::detach): If we're still capturing when getting detached, clear the capturing node on the EventHandler.
+        (WebCore::HTMLPlugInElement::defaultEventHandler): Call handleMissingPluginIndicatorEvent when the missing plugin indicator is showing.
+        * html/HTMLPlugInElement.h:
+        (WebCore::HTMLPlugInElement::isCapturingMouseEvents):
+        (WebCore::HTMLPlugInElement::setIsCapturingMouseEvents):
+        * page/ChromeClient.h:
+        (WebCore::ChromeClient::shouldMissingPluginMessageBeButton): Added default implementation.
+        * rendering/RenderEmbeddedObject.cpp:
+        (WebCore::replacementTextRoundedRectPressedColor):
+        (WebCore::RenderEmbeddedObject::RenderEmbeddedObject):
+        (WebCore::RenderEmbeddedObject::setMissingPluginIndicatorIsPressed): Added.  Causes a repaint when the state changes.
+        (WebCore::RenderEmbeddedObject::paintReplaced): Call getReplacementTextGeometry.
+        (WebCore::RenderEmbeddedObject::getReplacementTextGeometry): Factored this out so it can be used in paintReplaced and in isInMissingPluginIndicator.
+        (WebCore::RenderEmbeddedObject::isInMissingPluginIndicator): Hit test to see if the mouse event is in the missing plugin indicator.
+        (WebCore::RenderEmbeddedObject::handleMissingPluginIndicatorEvent): Capture mouse events as needed and track the pressed appearance.
+        * rendering/RenderEmbeddedObject.h:
+
+2010-07-09  Mark Rowe  <mrowe@apple.com>
+
+        Merge r62451.
+
+    2010-07-03  Jon Honeycutt  <jhoneycutt@apple.com>
+
+        The missing plug-in indicator should be clickable
+
+        https://bugs.webkit.org/show_bug.cgi?id=41550
+        <rdar://problem/8132162>
+
+        From an original patch by Kevin Decker.
+
+        Reviewed by Darin Adler.
+
+        * html/HTMLPlugInElement.cpp:
+        (WebCore::HTMLPlugInElement::defaultEventHandler):
+        If the renderer is a RenderEmbeddedWidget showing the missing plug-in
+        indicator, and the event is a click even, call the ChromeClient's
+        missingPluginButtonClicked() function.
+
+        * page/ChromeClient.h:
+        (WebCore::ChromeClient::missingPluginButtonClicked):
+        Declare missingPluginButtonClicked(), and stub the default
+        implementation.
+
+        * rendering/RenderEmbeddedObject.cpp:
+        (WebCore::RenderEmbeddedObject::RenderEmbeddedObject):
+        Initialize m_showsMissingPluginIndicator.
+        (WebCore::RenderEmbeddedObject::setShowsMissingPluginIndicator):
+        Assert that we're not currently showing any replacement text. Set
+        m_showsMissingPluginIndicator after setting the replacement text.
+        (WebCore::RenderEmbeddedObject::setShowsCrashedPluginIndicator):
+        Add the same assert as above.
+
+        * rendering/RenderEmbeddedObject.h:
+        (WebCore::RenderEmbeddedObject::showsMissingPluginIndicator):
+        Getter for m_showsMissingPluginIndicator.
+
+2010-07-09  Mark Rowe  <mrowe@apple.com>
+
+        Merge r62284.
+
+    2010-07-01  Timothy Hatcher  <timothy@apple.com>
+
+        Provide a WebView preference to disable DNS prefetching.
+
+        https://bugs.webkit.org/show_bug.cgi?id=28825
+        rdar://problem/7181249
+
+        Reviewed by Darin Adler.
+
+        * WebCore.base.exp: Added Settings::setDNSPrefetchingEnabled.
+        * dom/Document.cpp:
+        (WebCore::Document::initDNSPrefetch): Check settings->dnsPrefetchingEnabled().
+        * page/Settings.cpp:
+        (WebCore::Settings::Settings): Set m_dnsPrefetchingEnabled to true.
+        (WebCore::Settings::setDNSPrefetchingEnabled): Added. Set m_dnsPrefetchingEnabled.
+        * page/Settings.h:
+        (WebCore::Settings::dnsPrefetchingEnabled): Added. Return m_dnsPrefetchingEnabled.
+
+2010-07-09  Mark Rowe  <mrowe@apple.com>
+
+        Merge r59338.
+
+    2010-05-12  Simon Fraser  <simon.fraser@apple.com>
+
+        Reviewed by David Hyatt.
+
+        Composited plug-ins can cause missed painting
+        https://bugs.webkit.org/show_bug.cgi?id=39033
+        <rdar://problem/7972478>
+
+        Fixed missed painting (and assertions in debug builds) related to compositing
+        propagating out of iframes that contain plug-ins.
+        
+        When an iframe enters or leaves compositing mode, RenderLayerCompositor uses
+        setNeedsStyleRecalc(SyntheticStyleChange) to trigger the parent document to re-evaluate
+        whether the iframe itself should be composited. However, for iframes containing plug-ins,
+        this can happen at inappropriate times. For example, when a browser tab is brought frontmost,
+        plug-ins are instantiated for the first time (via -viewDidMoveToWindow), which triggers a 
+        setNeedsStyleRecalc() on the object element. Soon after, the -viewWillDraw machinery
+        does layout from the top down. During layout of the iframe, the iframe enters compositing mode,
+        and does a setNeedsStyleRecalc() on the iframe element in its parent document. This leaves the
+        FrameView as needsLayout(), so the FrameView::paintContents() asserts and bails.
+        
+        The fix is to avoid doing a setNeedsStyleRecalc() on the root while inside a recalcStyle on
+        the iframe. We do this by switching the iframe into compositing mode eagerly as soon as we know
+        the plug-in needs it.
+        
+        A secondary fix is to ensure that if a document has composited iframes, when that document becomes
+        composited, we connect compositing layers between the iframes and the parent document.
+
+        Tests: compositing/iframes/connect-compositing-iframe-delayed.html
+               compositing/iframes/iframe-src-change.html
+
+        * WebCore.base.exp: Export FrameView::enterCompositingMode()
+
+        * page/FrameView.h: New method, enterCompositingMode(), that we can call from WebKit plug-in code.
+        * page/FrameView.cpp:
+        (WebCore::FrameView::enterCompositingMode):
+
+        * rendering/RenderLayerCompositor.h:
+        * rendering/RenderLayerCompositor.cpp:
+        (WebCore::RenderLayerCompositor::enableCompositingMode): When we switch into compositing mode, we
+            force a style recaclc on any iframes to get them into compositing layers, so they can hook up
+            with their content layers if necessary.
+        (WebCore::RenderLayerCompositor::didMoveOnscreen): Only call attachRootPlatformLayer() if we really need to.
+        (WebCore::RenderLayerCompositor::willMoveOffscreen): Only call detachRootPlatformLayer() if we really need to.
+        (WebCore::RenderLayerCompositor::detachRootPlatformLayer): Whitespace.
+        (WebCore::RenderLayerCompositor::notifyIFramesOfCompositingChange): Fetch iframe elements, and send a 
+            synthetic style recalc on them.
+
+2010-07-09  Mark Rowe  <mrowe@apple.com>
+
+        Merge r61645.
+
+    2010-06-22  Adele Peterson  <adele@apple.com>
+
+        Reviewed by Darin Adler.
+
+        Fix for Crash when the renderer for the button in <input type="number"> goes away during event handling
+        https://bugs.webkit.org/show_bug.cgi?id=41013
+
+        Test: fast/forms/input-number-crash.html
+
+        * rendering/TextControlInnerElements.cpp: (WebCore::SpinButtonElement::defaultEventHandler):
+        Nil check the RenderBox since its possible the renderer has gone away during event handling.
+
+2010-07-09  Mark Rowe  <mrowe@apple.com>
+
+        Merge r61801.
+
+    2010-06-24  Alexey Proskuryakov  <ap@apple.com>
+
+        Reviewed by Brady Eidson.
+
+        https://bugs.webkit.org/show_bug.cgi?id=41178
+        Timed refresh in subframes isn't stopped when going into b/f cache
+
+        Test: fast/history/timed-refresh-in-cached-frame.html
+
+        * history/CachedFrame.cpp: (WebCore::CachedFrame::CachedFrame): Top frame's stopLoading()
+        won't help cached subframes; stop loading from here.
+
+        * loader/FrameLoader.cpp:
+        (WebCore::FrameLoader::stopLoading): Don't stop loading in child frames. This didn't work
+        for cached frames due to frame tree having been already desonstructed, and it's not necessary
+        in non-cached case because stopLoading() will be called for subframes via
+        FrameLoader::detachFromParent() and closeURL().
+        (WebCore::FrameLoader::pageHidden): This was a second code path that dispatched pagehide
+        event - it's no longer needed, because everything goes through FrameLoader::stopLoading().
+        (WebCore::FrameLoader::commitProvisionalLoad): Don't call pageHidden(), the code for adding
+        frame to b/f cache will do everything.
+
+        * loader/FrameLoader.h: Removed pageHidden().
+
+2010-07-09  Mark Rowe  <mrowe@apple.com>
+
+        Merge r61707.
+
+    2010-06-23  Andy Estes  <aestes@apple.com>
+
+        Reviewed by Alexey Proskuryakov.
+        
+        <rdar://problem/8107855> Prevent a crash in WebCore when removing an
+        object element with an invalid data URL in in a listener to its
+        beforeload event.
+        https://bugs.webkit.org/show_bug.cgi?id=41054
+
+        Tests: fast/dom/beforeload/remove-bad-object-in-beforeload-listener.html
+
+        * html/HTMLObjectElement.cpp:
+        (WebCore::HTMLObjectElement::renderFallbackContent): Exit early if the
+        object element is not in the document.
+        * rendering/RenderEmbeddedObject.cpp:
+        (WebCore::RenderEmbeddedObject::updateWidget): If RenderWidget::destroy()
+        was called during processing of onbeforeload, do not proceed with loading
+        the object.
+
+2010-07-09  Mark Rowe  <mrowe@apple.com>
+
+        Merge r61424.
+
+    2010-06-17  Andy Estes  <aestes@apple.com>
+
+        Reviewed by Dan Bernstein.
+
+        <rdar://problem/8091385> Prevent a crash in WebCore when removing a stylesheet link element in
+        in a listener to its beforeload event.
+        https://bugs.webkit.org/show_bug.cgi?id=40742
+        
+        Postpone loading of link elements until after they have been inserted into the DOM and
+        attached. This prevents DOM mutations triggered by beforeload handlers from firing in the
+        midst of DOM insertion, which can lead to assertion failures and crashes.
+
+        Test: fast/dom/beforeload/remove-link-in-beforeload-listener.html
+
+        * html/HTMLLinkElement.cpp:
+        (WebCore::HTMLLinkElement::HTMLLinkElement): Initialize m_shouldProcessAfterAttach to false.
+        (WebCore::HTMLLinkElement::processCallback): Add a static callback function which calls
+        HTMLLinkElement::process().
+        (WebCore::HTMLLinkElement::insertedIntoDocument): Instead of calling process() directly, set
+        m_shouldProcessAfterAttach to true to indicate that process() should be called after attach().
+        (WebCore::HTMLLinkElement::removedFromDocument): Set m_shouldProcessAfterAttach to false.
+        (WebCore::HTMLLinkElement::attach): If m_shouldProcessAfterAttach is true, register
+        HTMLLinkElement::processCallback() as a post-attach callback.
+        * html/HTMLLinkElement.h: Add m_shouldProcessAfterAttach.
+        (WebCore::HTMLLinkElement::canLazyAttach): Override canLazyAttach() to return false to
+        indicate that a full attach should be performed.  This ensures the post-attach callbacks are
+        fired.
+
+2010-07-07  Mark Rowe  <mrowe@apple.com>
+
+        Merge r62625.
+
+    2010-07-06  Steve Falkenburg  <sfalken@apple.com>
+
+        Reviewed by Simon Fraser.
+
+        Expose URL matching from WebUserContentURLPattern
+        https://bugs.webkit.org/show_bug.cgi?id=41726
+        <rdar://problem/7910144>
+
+        * WebCore.exp.in: Export UserContentURLPattern::matches for use in WebKit.
+
+2010-07-07  Mark Rowe  <mrowe@apple.com>
+
+        Merge r62477.
+
+    2010-07-04  Alice Liu  <alice.liu@apple.com>
+
+        Reviewed by Dan Bernstein.
+
+        Crash reading past end of block in UniscribeController::shapeAndPlaceItem
+        https://bugs.webkit.org/show_bug.cgi?id=41554
+
+        Test: platform/win/fast/text/uniscribe-item-boundary-crash.html
+
+        * platform/graphics/win/UniscribeController.cpp:
+        (WebCore::UniscribeController::shapeAndPlaceItem):
+        Don't look one past the end of str. Instead look to the next item, if applicable.
+
+2010-07-07  Hayato Ito  <hayato@chromium.org>
+
+        Reviewed by Darin Adler.
+
+        Rolling out 'page-break-inside:avoid' part of the r54929.
+        Rebased the related layout tests, which are now expected to fail, as well.
+
+        https://bugs.webkit.org/show_bug.cgi?id=41532
+
+        * rendering/RenderBlock.cpp:
+        (WebCore::RenderBlock::paintChildren):
+
+2010-07-07  Mark Rowe  <mrowe@apple.com>
+
+        Merge r62482.
+
+    2010-07-05  Nikolas Zimmermann  <nzimmermann@rim.com>
+
+        Reviewed by Darin Adler.
+
+        Memory corruption with SVG <use> element
+        https://bugs.webkit.org/show_bug.cgi?id=40994
+
+        Fix race condition in svgAttributeChanged. Never call svgAttributeChanged() from attributeChanged()
+        when we're synchronizing SVG attributes. It leads to either unnecessary extra work being done or
+        crashes. Especially together with <polyline>/<polygon> which always synchronize the SVGAnimatedPoints
+        datastructure with the points attribute, no matter if there are changes are not. This should be
+        furhter optimized, but this fix is sane and fixes the root of the evil races.
+
+        Test: svg/custom/use-property-synchronization-crash.svg
+
+        * svg/SVGElement.cpp:
+        (WebCore::SVGElement::attributeChanged):
+
+2010-07-07  Mark Rowe  <mrowe@apple.com>
+
+        Merge r62662.
+
+    2010-07-06  Nikolas Zimmermann  <nzimmermann@rim.com>
+
+        Reviewed by Dirk Schulze.
+
+        <use> on <font-face> causes crashes, if SVGUseElement gets detached
+        https://bugs.webkit.org/show_bug.cgi?id=41621
+
+        Do not call removeFromMappedElementSheet() from the SVGFontFaceElement destructor,
+        as that can potentially cause the element to be reattached while destructing.
+
+        In order to fix the crash in the testcase, the order of calling the base-class detach
+        method in SVGUseElement and the instance/shadow tree destruction has to be reversed,
+        matching the order in removedFromDocument().
+
+        Test: svg/custom/use-font-face-crash.svg
+
+        * svg/SVGFontFaceElement.cpp:
+        (WebCore::SVGFontFaceElement::~SVGFontFaceElement): Remove removeFromMappedElementSheet() call.
+        * svg/SVGUseElement.cpp:
+        (WebCore::SVGUseElement::detach): Reverse order of calling base-class detach method and instance/shadow tree destruction.
+
+2010-07-07  Mark Rowe  <mrowe@apple.com>
+
+        Merge r59903.
+
+    2010-05-20  Fumitoshi Ukai  <ukai@chromium.org>
+
+        Reviewed by Alexey Proskuryakov.
+
+        WebSocket handshake incompatible change in draft-hixie-thewebsocketprotocol-76
+        https://bugs.webkit.org/show_bug.cgi?id=35572
+
+        WebSocket opening handshake is changed.  New protocol draft could be found at http://www.whatwg.org/specs/web-socket-protocol/
+        It requires https://bugs.webkit.org/show_bug.cgi?id=38034 to pass websocket tests.
+
+        * websockets/WebSocketHandshake.cpp:
+        (WebCore::extractResponseCode):
+        add lineLength parameter to return length of status line.
+        (WebCore::hostName): Added.
+        (WebCore::generateSecWebSocketKey): Added.
+        (WebCore::generateKey3): Added.
+        (WebCore::setChallengeNumber): Added.
+        (WebCore::generateChallengeResponseExpected): Added.
+        (WebCore::WebSocketHandshake::WebSocketHandshake):
+         generate challenge response key and expected data.
+        (WebCore::WebSocketHandshake::clientLocation):
+         use hostName.
+        (WebCore::WebSocketHandshake::clientHandshakeMessage):
+         changed for draft 76 spec.
+        (WebCore::WebSocketHandshake::clientHandshakeRequest):
+        (WebCore::WebSocketHandshake::readServerHandshake):
+         changed for draft 76 spec.
+         m_mode is managed in this method.
+        (WebCore::WebSocketHandshake::readHTTPHeaders):
+         change error log messages.
+        (WebCore::WebSocketHandshake::processHeaders):
+         chagned for draft 76 spec.
+        (WebCore::WebSocketHandshake::checkResponseHeaders):
+         return boolean whether response header is ok or not and not change m_mode in it.
+        * websockets/WebSocketHandshake.h:
+
+2010-07-07  Mark Rowe  <mrowe@apple.com>
+
+        Merge r62664.
+
+    2010-07-07  Andy Estes  <aestes@apple.com>
+
+        Reviewed by Adam Barth.
+
+        Allow a beforeload listener to prevent loading of images in <object> tags.
+        https://bugs.webkit.org/show_bug.cgi?id=41027
+        <rdar://problem/8120596>
+
+        Tests: fast/dom/beforeload/image-object-before-load-innerHTML.html
+               fast/dom/beforeload/image-object-before-load.html
+
+        * html/HTMLObjectElement.cpp:
+        (WebCore::HTMLObjectElement::attach): Do not call
+        RenderImage::setCachedImage() at the end of attach(). Instead, allow
+        this to happen conditionally after beforeload is dispatched.
+        * loader/ImageLoader.cpp:
+        (WebCore::ImageLoader::dispatchPendingBeforeLoadEvent): Render fallback
+        content if an object's load was cancelled.
+
+2010-07-07  Mark Rowe  <mrowe@apple.com>
+
+        Merge r62391.
+
+    2010-06-24  Dimitri Glazkov  <dglazkov@chromium.org>
+
+        Reviewed by Alexey Proskuryakov.
+
+        REGRESSION: Enter does not trigger submit of forms when focus is on select.
+        https://bugs.webkit.org/show_bug.cgi?id=39532
+
+        Restore behavior where hitting "Enter" on a select element attempts to submit
+        form implicitly.
+
+        * dom/SelectElement.cpp:
+        (WebCore::SelectElement::menuListDefaultEventHandler): Added htmlForm argument,
+            and attempting to submit implicitly.
+        (WebCore::SelectElement::listBoxDefaultEventHandler): Ditto.
+        (WebCore::SelectElement::defaultEventHandler): Plumbed through htmlForm argument.
+        * dom/SelectElement.h: Added htmlForm argument to method declaration.
+        * html/HTMLSelectElement.cpp:
+        (WebCore::HTMLSelectElement::defaultEventHandler): Changed to provide submitting form
+            as the argument.
+
+2010-07-01  Mark Rowe  <mrowe@apple.com>
+
+        Merge r61667.
+
+    2010-06-23  Nikolas Zimmermann  <nzimmermann@rim.com>
+
+        Reviewed by Eric Seidel.
+
+        Reproducible crash in com.apple.WebCore 0x01ed3784 WebCore::RenderLineBoxList::appendLineBox(WebCore::InlineFlowBox*) + 36
+        https://bugs.webkit.org/show_bug.cgi?id=40953
+
+        REGRESSION (r58209-58231): Memory corruption with invalid SVG
+        https://bugs.webkit.org/show_bug.cgi?id=40173
+
+        Fix several crashes, all related to <foreignObject> and/or invalid SVG documents.
+        - Only allow <svg> nodes, as direct children of a <foreignObject>, not any other "partial" SVG content.
+        - Assure to create RenderSVGRoot objects for <svg> nodes in <foreignObject>, treat them as "outermost SVG elements".
+        - Never allow any partial SVG content to appear in any document. Only <svg> elements are allowed.
+
+        Tests: svg/custom/bug45331.svg
+               svg/foreignObject/disallowed-svg-nodes-as-direct-children.svg
+               svg/foreignObject/no-crash-with-svg-content-in-html-document.svg
+               svg/foreignObject/svg-document-as-direct-child.svg
+               svg/foreignObject/svg-document-in-html-document.svg
+               svg/foreignObject/text-tref-02-b.svg
+
+        * dom/Element.cpp: Added childShouldCreateRenderer, with ENABLE(SVG) guards.
+        (WebCore::Element::childShouldCreateRenderer): Only create a renderer for a SVG child, if we're a SVG element, or if the child is a <svg> element.
+        * dom/Element.h: Added childShouldCreateRenderer, with ENABLE(SVG) guards.
+        * svg/SVGForeignObjectElement.cpp:
+        (WebCore::SVGForeignObjectElement::childShouldCreateRenderer): Disallow arbitary SVG content, only <svg> elements are allowed as direct children of a <foreignObject>
+        * svg/SVGSVGElement.cpp:
+        (WebCore::SVGSVGElement::isOutermostSVG): Be sure to create RenderSVGRoot objects for <svg> elements inside <foreignObject>
+
+2010-07-01  Mark Rowe  <mrowe@apple.com>
+
+        Merge r61044.
+
+    2010-06-11  Abhishek Arya  <inferno@chromium.org>
+
+        Reviewed by David Hyatt.
+
+        Don't process floats if parent node is not a RenderBlock.
+        https://bugs.webkit.org/show_bug.cgi?id=40033
+
+        Test: svg/text/clear-floats-crash.svg
+
+        * rendering/RenderBlock.cpp:
+        (WebCore::RenderBlock::clearFloats):
+
+2010-07-01  Mark Rowe  <mrowe@apple.com>
+
+        Merge r61050.
+
+    2010-06-10  Abhishek Arya  <inferno@chromium.org>
+
+        Reviewed by Dave Hyatt.
+
+        Do not render CSS Styles :first-letter and :first-line in a SVG text element context. 
+        https://bugs.webkit.org/show_bug.cgi?id=40031
+
+        Test: svg/text/text-style-invalid.svg
+
+        * rendering/RenderSVGText.cpp:
+        (WebCore::RenderSVGText::firstLineBlock):
+        (WebCore::RenderSVGText::updateFirstLetter):
+        * rendering/RenderSVGText.h:
+
+2010-07-01  Mark Rowe  <mrowe@apple.com>
+
+        Merge r62279.
+
+    2010-07-01  Alexey Proskuryakov  <ap@apple.com>
+
+        Reviewed by Darin Adler.
+
+        <rdar://problem/8148656> <https://bugs.webkit.org/show_bug.cgi?id=41431>
+        REGRESSION (r49411): Various crashes due to JavaScript execution during plug-in destruction
+
+        Test: plugins/write-xssauditor-from-destroy.html
+
+        Fix specific known cases that also crash in same process case. I don't know if there is
+        any rule for when documentLoader should be checked for being null, it looks like a mess.
+
+        * loader/FrameLoader.cpp:
+        (WebCore::FrameLoader::referrer):
+        * page/XSSAuditor.cpp:
+        (WebCore::XSSAuditor::findInRequest):
+
+2010-07-01  Mark Rowe  <mrowe@apple.com>
+
+        Merge r61654.
+
+    2010-06-22  David Levin  <levin@chromium.org>
+
+        Reviewed by Alexey Proskuryakov.
+
+        REGRESSION: (r47291): Upload progress events are not fired for simple cross-site XHR.
+        https://bugs.webkit.org/show_bug.cgi?id=39029
+
+        Specifically, WebKit should fire upload events if one or more event listeners are
+        registered on the XMLHttpRequestUpload object when send is called in an async manner.
+
+        * xml/XMLHttpRequest.cpp:
+        (WebCore::XMLHttpRequest::createRequest): Allow upload events to be fired when there are
+        handlers for them in the cross-origin simple request case.
+
+2010-07-01  Mark Rowe  <mrowe@apple.com>
+
+        Merge r60882.
+
+    2010-06-08  Mark Rowe  <mrowe@apple.com>
+
+        Reviewed by Adele Peterson.
+
+        <rdar://problem/8072136> REGRESSION (r56051): Inspect Element context menu does nothing in applications linked against 10.4 SDK
+
+        Revert the change to ContextMenu::addInspectElementItem from r56051. It was made without
+        explanation and broke a reliance that WebKit has on the presence of a separator before the
+        Inspect Element menu item. This also restores the context menu item to the correct location
+        at the bottom of the context menu in applications built against the Mac OS X 10.4 SDK.
+
+        * platform/ContextMenu.cpp:
+        (WebCore::ContextMenu::addInspectElementItem):
+
+2010-07-01  Mark Rowe  <mrowe@apple.com>
+
+        Merge r62135.
+
+    2010-06-29  Beth Dakin  <bdakin@apple.com>
+
+        Reviewed by Darin Adler.
+
+        Speculative fix for <rdar://problem/8071558> CrashTracer: [USER] 
+        2300+ crashes in Safari at com.apple.WebCore: 
+        WebCore::FrameView::scheduleRelayout + 352
+
+        Unfortunately, we don't have a reproducible case for this bug, and 
+        therefore, we do not have a layout test either. It is pretty clear 
+        from the logs that m_frame->settings() is null in 
+        FrameView::scheduleRelayout() in the crashing case. 
+        m_frame->settings() is null whenever page is null. Everywhere else 
+        in FrameView.cpp we null-check either page or settings before using 
+        settings. It seems plausible to me that scheduleRelayout could be 
+        called when page is null, so the fix is just to add null-checks. 
+
+        * page/FrameView.cpp:
+        (WebCore::FrameView::layout):
+        (WebCore::FrameView::scheduleRelayout):
+
+2010-07-01  Mark Rowe  <mrowe@apple.com>
+
+        Merge r62134.
+
+    2010-06-29  Dan Bernstein  <mitz@apple.com>
+
+        Reviewed by Darin Adler.
+
+        <rdar://problem/7975842> Certain text is repeated after using splitText()
+
+        Tests: fast/text/setData-dirty-lines.html
+               fast/text/splitText-dirty-lines.html
+
+        * dom/CharacterData.cpp:
+        (WebCore::CharacterData::setData): Call RenderText::setTextWithOffset() rather than
+        setText(), because only the former correctly dirties line boxes.
+        * dom/Text.cpp:
+        (WebCore::Text::splitText): Ditto.
+
+2010-07-01  Mark Rowe  <mrowe@apple.com>
+
+        Merge r61921.
+
+    2010-06-25  Dan Bernstein  <mitz@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        <rdar://problem/8000667> Certain text is repeated before and after a line break
+
+        Test: fast/text/bidi-explicit-embedding-past-end.html
+
+        * platform/text/BidiResolver.h:
+        (WebCore::::createBidiRunsForLine): Committing explicit embedding past the end of the range
+        creates BidiRuns up to the end of the range, so at that point, we can stop iterating.
+
+2010-07-01  Mark Rowe  <mrowe@apple.com>
+
+        Merge r59396.
+
+    2010-05-13  Simon Fraser  <simon.fraser@apple.com>
+
+        Reviewed by Dave Hyatt.
+
+        Fix scrolling in composited iframes
+        https://bugs.webkit.org/show_bug.cgi?id=39088
+        <rdar://problem/7980099>
+        
+        When propagating compositing out of iframes, we have to update the position of the iframe content
+        layers on scrolling.
+
+        Test: compositing/iframes/scrolling-iframe.html
+
+        * page/FrameView.cpp:
+        (WebCore::FrameView::scrollPositionChanged): Call updateContentLayerScrollPosition() when scrolling.
+
+        * rendering/RenderLayerBacking.cpp:
+        (WebCore::RenderLayerBacking::updateGraphicsLayerGeometry): Renamed setRootPlatformLayerClippingBox() to updateContentLayerOffset().
+
+        * rendering/RenderLayerCompositor.h:
+        * rendering/RenderLayerCompositor.cpp: Rename m_clippingLayer to m_clipLayer to go better with m_scrollLayer.
+        (WebCore::RenderLayerCompositor::updateContentLayerOffset): Renamed from setRootPlatformLayerClippingBox().
+            Set the size of the clipping layer from the FrameView now, so that scrollbars are not clipped out.
+            Update the scroll layer position too.
+        (WebCore::RenderLayerCompositor::updateContentLayerScrollPosition): Set the position of the scroll layer
+            when the ScrollView is scrolled.
+        (WebCore::RenderLayerCompositor::rootPlatformLayer): m_clippingLayer rename.
+        (WebCore::RenderLayerCompositor::ensureRootPlatformLayer): m_clippingLayer rename. Also create m_scrollLayer at
+            the same time as the clip layer, and clean it up as necessary.
+        (WebCore::RenderLayerCompositor::destroyRootPlatformLayer): m_clippingLayer rename, and clean up the m_scrollLayer too.
+        (WebCore::RenderLayerCompositor::detachRootPlatformLayer): m_clippingLayer rename
+
+2010-07-01  Mark Rowe  <mrowe@apple.com>
+
+        Merge r61435.
+
+    2010-06-18  Alexey Proskuryakov  <ap@apple.com>
+
+        Reviewed by Geoff Garen.
+
+        https://bugs.webkit.org/show_bug.cgi?id=40852
+        <rdar://problem/8105498> Limit simultaneous DNS prefetch request number (40852)
+
+        No change in functionality, so no tests.
+
+        We still queue up to 64 names, but only make up to 8 requests at once. If there are names
+        remaining in queue, we retry after a short timeout (which is easier than posting
+        notifications from client callback).
+
+        * platform/network/cf/DNSCFNet.cpp:
+        (WebCore::DNSResolveQueue::add):
+        (WebCore::DNSResolveQueue::fired):
+
+2010-07-01  Mark Rowe  <mrowe@apple.com>
+
+        Merge r61296.
+
+    2010-06-16  Brady Eidson  <beidson@apple.com>
+
+        Reviewed by Eric Carlson
+
+        <rdar://problem/7249553> and https://bugs.webkit.org/show_bug.cgi?id=40749
+        ResourceLoader::willCacheResponse() needs to null-check Frame::Settings()
+
+        No new tests. (Discovered via crash reports, no reproducible cases noted)
+
+        * loader/ResourceLoader.cpp:
+        (WebCore::ResourceLoader::willCacheResponse):  Null check m_frame->settings(), 
+          but also add an ASSERT so debug-build developers can learn more about why
+          this might be happening.
+
+2010-07-01  Mark Rowe  <mrowe@apple.com>
+
+        Merge r60640.
+
+    2010-06-03  James Robinson  <jamesr@chromium.org>
+
+        Reviewed by Dan Bernstein.
+
+        Take container's scroll offset and clip into account when initializing LayoutState
+        https://bugs.webkit.org/show_bug.cgi?id=38506
+
+        When doing a subtree layout, the initial LayoutState creation needs to
+        take the layout root container's offset and its scroll offset into account
+        to create the initial offset.  Otherwise if a subtree layout occurs
+        for a layout root whose container has a non-zero scroll offset
+        the LayoutState's offset and clip are wrong, resulting in a mispaint.
+        See the test cases for examples.
+
+        Tests: fast/repaint/layout-state-scrolloffset.html
+               fast/repaint/layout-state-scrolloffset2.html
+               fast/repaint/layout-state-scrolloffset3.html
+
+        * rendering/LayoutState.cpp:
+        (WebCore::LayoutState::LayoutState):
+
+2010-07-01  Mark Rowe  <mrowe@apple.com>
+
+        Merge r61070.
+
+    2010-06-12  Dan Bernstein  <mitz@apple.com>
+
+        Reviewed by Oliver Hunt.
+
+        <rdar://problem/8025267> REGRESSION (Safari 4-TOT): Crash when a frame’s resize handler removes the frame
+        https://bugs.webkit.org/show_bug.cgi?id=40534
+
+        Test: fast/replaced/frame-removed-during-resize.html
+
+        * rendering/RenderWidget.cpp:
+        (WebCore::RenderWidget::updateWidgetPosition): Null-check m_widget, since resizing the widget
+        may trigger an iframe’s resize handler, which may destroy the widget.
+
+2010-07-01  Mark Rowe  <mrowe@apple.com>
+
+        Merge r61200.
+
+    2010-06-15  Simon Fraser  <simon.fraser@apple.com>
+
+        Reviewed by Dan Bernstein.
+
+        YouTube thumbnail borders vanish during transition
+        https://bugs.webkit.org/show_bug.cgi?id=40551
+        
+        Turn off the direct image optimization if the image has a clip style, so that is is
+        correctly rendered with the clip.
+
+        Test: compositing/images/clip-on-directly-composited-image.html
+
+        * rendering/RenderLayerBacking.cpp:
+        (WebCore::RenderLayerBacking::isDirectlyCompositedImage):
+
+2010-07-01  Mark Rowe  <mrowe@apple.com>
+
+        Merge r60908.
+
+    2010-06-09  Mark Rowe  <mrowe@apple.com>
+
+        Reviewed by Adele Peterson.
+
+        <rdar://problem/8070662> REGRESSION (r51629): WebBackForwardList created via -init crashes when -addItem: is called.
+
+        A WebBackForwardList created via -init results in a BackForwardList being created with a null m_page.
+        BackForwardList needs to be careful not to dereference m_page without first ensuring it's not null.
+
+        * history/BackForwardList.cpp:
+        (WebCore::BackForwardList::addItem): Null-check m_page.
+        (WebCore::BackForwardList::goBack): Ditto.
+        (WebCore::BackForwardList::goForward): Ditto.
+        (WebCore::BackForwardList::goToItem): Ditto.
+        (WebCore::BackForwardList::setCapacity): Ditto.
+
+2010-07-01  Mark Rowe  <mrowe@apple.com>
+
+        Merge r61060.
+
+    2010-06-12  Kent Tamura  <tkent@chromium.org>
+
+        Reviewed by Darin Adler.
+
+        REGRESSION: Can't submit a form with <input type=radio required>
+        https://bugs.webkit.org/show_bug.cgi?id=40429
+
+        Validity state was not updated correctly for radio buttons, and it
+        prevents form submission even if a radio button group has a
+        checked radio button.
+
+        Test: fast/forms/interactive-validation-required-radio.html
+
+        * html/HTMLInputElement.cpp:
+        (WebCore::HTMLInputElement::updateCheckedRadioButtons):
+         Call setNeedsValidityCheck() for all of radio buttons in the same group
+         to update validity state.
+        (WebCore::HTMLInputElement::setChecked):
+         Remove setNeedsValidityCheck() call because it is called in
+         updateCheckedRadioButtons().
+
+2010-07-01  Mark Rowe  <mrowe@apple.com>
+
+        Merge r60984.
+
+    2010-06-10  Tony Chang  <tony@chromium.org>
+
+        Reviewed by Kent Tamura.
+
+        crash when focus is changed while trying to focus next element
+        https://bugs.webkit.org/show_bug.cgi?id=40407
+
+        Test: fast/events/focus-change-crash.html
+
+        * dom/Element.cpp:
+        (WebCore::Element::focus):
+
+2010-07-01  Mark Rowe  <mrowe@apple.com>
+
+        Merge r60459.
+
+    2010-05-31  Tony Chang  <tony@chromium.org>
+
+        Reviewed by Dan Bernstein.
+
+        REGRESSION (r58665): Infinite recursion in Position::getInlineBoxAndOffset()
+        https://bugs.webkit.org/show_bug.cgi?id=39946
+        
+        r58665 added an infinite recursion check, but didn't take into consideration recursion between two
+        Positions.  This adds a check for when
+        downstreamIgnoringEditingBoundaries(p1) == p2 and upstreamIgnoringEditingBoundaries(p2) == p1
+
+        Test: editing/selection/mixed-editability-12.html
+
+        * dom/Position.cpp:
+        (WebCore::Position::getInlineBoxAndOffset):
+
+2010-07-01  Mark Rowe  <mrowe@apple.com>
+
+        Merge r61068.
+
+    2010-06-12  Dean Jackson  <dino@apple.com>
+
+        Reviewed by Darin Adler.
+
+        Animation keyframe timing functions are applying incorrectly
+        https://bugs.webkit.org/show_bug.cgi?id=38963
+        
+        When copying RenderStyles, we have to clone the AnimationList so that each keyframe
+        can have its own timing function.
+
+        Tests: animations/keyframe-timing-functions-transform.html
+               animations/keyframe-timing-functions2.html
+
+        * platform/animation/Animation.h:
+        (WebCore::Animation::create):
+        * platform/animation/AnimationList.cpp:
+        (WebCore::AnimationList::AnimationList):
+        * platform/animation/AnimationList.h:
+        (WebCore::AnimationList::AnimationList):
+
+2010-07-01  Mark Rowe  <mrowe@apple.com>
+
+        Merge r60727.
+
+    2010-06-04  Chris Fleizach  <cfleizach@apple.com>
+
+        Reviewed by David Kilzer.
+
+        AX: need an aria-help
+        https://bugs.webkit.org/show_bug.cgi?id=40010
+
+        Test: accessibility/aria-help.html
+
+        * accessibility/AccessibilityRenderObject.cpp:
+        (WebCore::AccessibilityRenderObject::helpText):
+        * html/HTMLAttributeNames.in:
+
+2010-07-01  Mark Rowe  <mrowe@apple.com>
+
+        Merge r61132.
+
+    2010-06-14  Chris Fleizach  <cfleizach@apple.com>
+
+        Reviewed by Beth Dakin.
+
+        AX: AXUnknown objects are being returned
+        https://bugs.webkit.org/show_bug.cgi?id=40574
+
+        Test: platform/mac/accessibility/no-unknown-objects-when-title-attribute-present.html
+
+        * accessibility/mac/AccessibilityObjectMac.mm:
+        (WebCore::AccessibilityObject::accessibilityPlatformIncludesObject):
+
+2010-07-01  Mark Rowe  <mrowe@apple.com>
+
+        Merge r61231.
+
+    2010-06-15  Mark Rowe  <mrowe@apple.com>
+
+        Rubber-stamped by David Harrison.
+
+        sqlite3_prepare16_v2 is not documented as always setting "tail" during error cases.
+        Explicitly initialize it to null, just to be safe.
+
+        * platform/sql/SQLiteStatement.cpp:
+        (WebCore::SQLiteStatement::prepare):
+
+2010-07-01  Mark Rowe  <mrowe@apple.com>
+
+        Merge r61171.
+
+    2010-06-14  Mark Rowe  <mrowe@apple.com>
+
+        Reviewed by Brady Eidson.
+
+        <rdar://problem/8071866> REGRESSION: Crash on launch on Tiger and Leopard with network home folder
+
+        * platform/sql/SQLiteStatement.cpp:
+        (WebCore::SQLiteStatement::prepare): Don't assume that tail is always non-null, since that may
+        not be the case with some versions of SQLite. Instead we must null-check before dereferencing.
+
+2010-07-01  Mark Rowe  <mrowe@apple.com>
+
+        Merge r61365.
+
+    2010-06-17  Abhishek Arya  <inferno@chromium.org>
+
+        Reviewed by David Kilzer.
+
+        (Landed by Dirk Pranke).
+
+        Check for a null frame before setting drag selection.
+        https://bugs.webkit.org/show_bug.cgi?id=38893
+        Same Layout test as https://bugs.webkit.org/show_bug.cgi?id=37168.
+
+        Test: editing/pasteboard/drag-drop-iframe-refresh-crash.html  
+
+        Note that you need to run the test manually 20-30 times for the crash
+        to reproduce.
+
+        * editing/SelectionController.cpp:
+        (WebCore::SelectionController::setSelection):
+
+2010-06-28  Mark Rowe  <mrowe@apple.com>
+
+        Merge r61045.
+
+    2010-06-11  Simon Fraser  <simon.fraser@apple.com>
+
+        Reviewed by Dr Dan Bernstein.
+
+        REGRESSION: crash when unloading an iFrame with Flash from the DOM
+        https://bugs.webkit.org/show_bug.cgi?id=40161
+        <rdar://problem/7994710>
+        
+        Null-check the ownerElement of the RenderView's document when unhooking the compositing
+        root of an iframe whose layers are parented via the enclosing document. Fixes a crash when
+        dynamically removing such an iframe.
+
+        Test: compositing/iframes/remove-iframe-crash.html
+
+        * rendering/RenderLayerCompositor.cpp:
+        (WebCore::RenderLayerCompositor::detachRootPlatformLayer):
+
+2010-06-28  Mark Rowe  <mrowe@apple.com>
+
+        Merge r59143.
+
+    2010-05-10  Simon Fraser  <simon.fraser@apple.com>
+
+        Fix asserting GTK build.
+
+        r59137 changed the behavior of RenderObject::repaintUsingContainer(). I mistakenly
+        thought that non-compositing builds would always pass a 0 repaintContainer, but
+        actually the RenderView is passed in this case. So use this to repaint if 
+        ACCELERATED_COMPOSITING is turned off.
+
+        * rendering/RenderObject.cpp:
+        (WebCore::RenderObject::repaintUsingContainer):
+
+2010-06-28  Mark Rowe  <mrowe@apple.com>
+
+        Merge r59140.
+
+    2010-05-10  Simon Fraser  <simon.fraser@apple.com>
+
+        Fix warning on Windows about unreachable code.
+
+        * rendering/RenderLayerCompositor.cpp:
+        (WebCore::RenderLayerCompositor::shouldPropagateCompositingToEnclosingIFrame):
+
+2010-06-28  Mark Rowe  <mrowe@apple.com>
+
+        Merge r59137.
+
+    2010-05-10  Simon Fraser  <simon.fraser@apple.com>
+
+        Reviewed by Anders Carlsson
+
+        Allow compositing layers to be connected across iframe boundaries on Mac
+        https://bugs.webkit.org/show_bug.cgi?id=38856
+        
+        RenderObject::repaintUsingContainer() incorrectly did a view-based
+        repaint if the repaint container was the RenderView. Instead, we need
+        to check to see if the RenderView's layer is composited, and, if so,
+        whether it's painting into the window or not. This can occur when iframes
+        are composited.
+
+        The bug is timing-sensitive, involving compositing in iframes, and I was not able to
+        concoct a good testcase.
+
+        * rendering/RenderObject.cpp:
+        (WebCore::RenderObject::repaintUsingContainer):
+
+2010-06-28  Mark Rowe  <mrowe@apple.com>
+
+        Merge r59136.
+
+    2010-05-10  Simon Fraser  <simon.fraser@apple.com>
+
+        Reviewed by Anders Carlsson
+
+        Allow compositing layers to be connected across iframe boundaries on Mac
+        https://bugs.webkit.org/show_bug.cgi?id=38856
+
+        Changes to allow compositing layers for iframes to switch between being hosted
+        by the iframe's layer-backed NSView, and parented in the GraphicsLayer tree of the
+        enclosing document.
+
+        Tests: compositing/iframes/connect-compositing-iframe.html
+               compositing/iframes/connect-compositing-iframe2.html
+               compositing/iframes/connect-compositing-iframe3.html
+
+        * page/FrameView.h:
+        * page/FrameView.cpp:
+        (WebCore::FrameView::hasCompositedContent): New convenience method.
+        (WebCore::FrameView::setIsOverlapped): If we're composited, poke the owner document in case it
+            wants to re-evaluate compositing decisions.
+        (WebCore::FrameView::isOverlapped): Just expose the existing flag.
+
+        * rendering/RenderLayer.cpp:
+        (WebCore::RenderLayer::shouldBeNormalFlowOnly):
+        (WebCore::RenderLayer::isSelfPaintingLayer):
+
+        * rendering/RenderLayerBacking.cpp:
+        (WebCore::RenderLayerBacking::updateGraphicsLayerConfiguration): If this is an iframe, we need
+            to ensure that the layers for the iframe content are hooked up.
+        (WebCore::RenderLayerBacking::updateDrawsContent): When an iframe toggles between different
+            attachments, the 'drawsContent' behavior of its root layer changes, so needs to be updated.
+
+        * rendering/RenderLayerCompositor.h:
+        (WebCore::RenderLayerCompositor::updateCompositingLayers): Call destroyRootPlatformLayer()
+            instead of detachRootPlatformLayer() and manually zeroing out the OwnPtrs.
+        (WebCore::RenderLayerCompositor::updateBacking): If a RenderIFrame changes compositing mode,
+            we need to ensure that its content compositor attachment is updated.
+        (WebCore::RenderLayerCompositor::repaintOnCompositingChange): The existing code had a bug
+            that caused repaints for RenderViews (which have no parent) to bail. We only want to bail
+            for non-RenderViews that are not attached.
+        (WebCore::RenderLayerCompositor::rebuildCompositingLayerTree): Factored the iframe-connecting
+            code into a new method, parentIFrameContentLayers().
+        (WebCore::RenderLayerCompositor::parentIFrameContentLayers): New method to share the code that hooks
+            up the iframe's compositing layers to the parent.
+        (WebCore::RenderLayerCompositor::shouldPropagateCompositingToEnclosingIFrame): Add logic to propagate
+            compositing out of iframes on Mac in two situations: 1) when the FrameView is overlapped, and 2)
+            if the parent document is already composited.
+        (WebCore::RenderLayerCompositor::ensureRootPlatformLayer): Clean up the logic here to better deal
+            with dynamic changes of the attachment type.
+        (WebCore::RenderLayerCompositor::destroyRootPlatformLayer): Clean up and null out the clipping layer here.
+        (WebCore::RenderLayerCompositor::attachRootPlatformLayer): Call rootLayerAttachmentChanged().
+        (WebCore::RenderLayerCompositor::detachRootPlatformLayer): Ditto. Also unparent the clipping and platform layers.
+        (WebCore::RenderLayerCompositor::updateRootLayerAttachment): Call ensureRootPlatformLayer() to re-evaluate
+            the layer attachment.
+        (WebCore::RenderLayerCompositor::rootLayerAttachmentChanged): We need to update the drawsContent() status
+            of the RenderView's layer's backing, because it changes depending on the attachment.
+
+        * rendering/RenderWidget.cpp:
+        (WebCore::RenderWidget::paint): Do overlap testing if the frameView can do fast repaints (as before),
+            but also now when the frameView has composited content.
+
+2010-06-28  Mark Rowe  <mrowe@apple.com>
+
+        Merge r59134.
+
+    2010-05-10  Simon Fraser  <simon.fraser@apple.com>
+
+        Reviewed by Anders Carlsson
+
+        Allow compositing layers to be connected across iframe boundaries on Mac
+        https://bugs.webkit.org/show_bug.cgi?id=38856
+
+        Rename the static shouldPropagateCompositingToIFrameParent() to shouldPropagateCompositingToEnclosingIFrame(),
+        to pave the way for runtime switches in the propagation behavior. We have to make sure we call it on
+        the correct RenderLayerCompositor (that belonging to the iframe's content document).
+        
+        * rendering/RenderLayerBacking.cpp:
+        (WebCore::RenderLayerBacking::paintingGoesToWindow): Now that we know the root layer attachment, we
+        can simplify this method.
+
+        * rendering/RenderLayerCompositor.h:
+        * rendering/RenderLayerCompositor.cpp:
+        (WebCore::RenderLayerCompositor::enableCompositingMode): No need for the setNeedsStyleRecalc()
+        here, because the ensureRootPlatformLayer() or destroyRootPlatformLayer() will have already done it.
+
+        (WebCore::RenderLayerCompositor::rebuildCompositingLayerTree): Use the root layer attachment to determine
+        whether to parent the iframe's layers.
+        
+        (WebCore::RenderLayerCompositor::didMoveOnscreen): Method name change.
+        (WebCore::RenderLayerCompositor::shouldPropagateCompositingToEnclosingIFrame): Name change.
+        (WebCore::RenderLayerCompositor::requiresCompositingForIFrame): We need to consult the iframe contents
+        document's compositor to ask whether propagation is appropriate.
+        (WebCore::RenderLayerCompositor::ensureRootPlatformLayer): Name change.
+
+2010-06-28  Mark Rowe  <mrowe@apple.com>
+
+        Merge r59133.
+
+    2010-05-10  Simon Fraser  <simon.fraser@apple.com>
+
+        Reviewed by Anders Carlsson
+
+        Allow compositing layers to be connected across iframe boundaries on Mac
+        https://bugs.webkit.org/show_bug.cgi?id=38856
+        
+        Use an enum for the type of root layer attachment on a RenderLayerCompositor, so we can
+        determine if the attachment is via the ChromeClient, via an enclosing iframe, or unattached.
+
+        * rendering/RenderLayerCompositor.h: New RootLayerAttachment enum.
+        (WebCore::RenderLayerCompositor::rootLayerAttachment): getter for the current attachment.
+
+        * rendering/RenderLayerCompositor.cpp:
+        (WebCore::RenderLayerCompositor::RenderLayerCompositor): Init m_rootLayerAttachment.
+        (WebCore::RenderLayerCompositor::~RenderLayerCompositor): Assert that is unattached.
+        (WebCore::RenderLayerCompositor::updateCompositingLayers): Call destroyRootPlatformLayer instead of willMoveOffscreen,
+        when there are no layers left. Also clear out the clipping layer.
+        (WebCore::RenderLayerCompositor::didMoveOnscreen): Call attachRootPlatformLayer.
+        (WebCore::RenderLayerCompositor::willMoveOffscreen): Call ensureRootPlatformLayer with the appropriate attachment.
+        (WebCore::RenderLayerCompositor::ensureRootPlatformLayer): Only create the m_rootPlatformLayer if we don't have one
+           already, but be sure to always set the root layer geometry orientation. Also only create the
+           m_clippingLayer if we need to.
+        (WebCore::RenderLayerCompositor::destroyRootPlatformLayer): Call detachRootPlatformLayer().
+        (WebCore::RenderLayerCompositor::attachRootPlatformLayer): Code moved from didMoveOnscreen, but switching on
+            attachment.
+        (WebCore::RenderLayerCompositor::detachRootPlatformLayer): Code moved from willMoveOffscreen, but switching on
+            attachment.
+
+2010-06-28  Mark Rowe  <mrowe@apple.com>
+
+        Merge r59132.
+
+    2010-05-10  Simon Fraser  <simon.fraser@apple.com>
+
+        Reviewed by Anders Carlsson
+
+        Allow compositing layers to be connected across iframe boundaries on Mac
+        https://bugs.webkit.org/show_bug.cgi?id=38856
+
+        Clean up the geometry logic when propagating compositing out of iframes.
+
+        * rendering/RenderLayerCompositor.cpp:
+        (WebCore::RenderLayerCompositor::updateRootLayerPosition): Geometry on m_rootPlatformLayer no longer
+        needs to be special when there's a clipping layer.
+        
+        (WebCore::RenderLayerCompositor::ensureRootPlatformLayer): Don't set the clipping layer to have
+        flipped geometry ever, and only set the root layer to have flipped geometry if it is not
+        being hosted in an iframe. Also no need to set a custom anchor point on the clipping layer.
+
+2010-06-28  Mark Rowe  <mrowe@apple.com>
+
+        Merge r59129.
+
+    2010-05-10  Simon Fraser  <simon.fraser@apple.com>
+
+        Reviewed by Anders Carlsson
+
+        Allow compositing layers to be connected across iframe boundaries on Mac
+        https://bugs.webkit.org/show_bug.cgi?id=38856
+
+        Clean up some methods related to composited iframes. No behavioral changes.
+
+        * rendering/RenderLayerBacking.h: Move innerRenderLayerCompositor() to be a static method:
+            RenderLayerCompositor::iframeContentsCompositor().
+        * rendering/RenderLayerBacking.cpp: Remove innerRenderLayerCompositor().
+        (WebCore::RenderLayerBacking::updateGraphicsLayerGeometry): Call iframeContentsCompositor().
+        
+        * rendering/RenderLayerCompositor.cpp:
+        (WebCore::RenderLayerCompositor::enableCompositingMode): Call enclosingIFrameElement()
+        (WebCore::RenderLayerCompositor::rebuildCompositingLayerTree): iframeContentsCompositor() is now a static method in this class.
+        Also check that the iframe contents are in compositing mode (slightly clearer than relying on rootPlatformLayer() returning
+        null).
+        (WebCore::RenderLayerCompositor::iframeContentsCompositor): Moved from RenderLayerBacking.
+        (WebCore::RenderLayerCompositor::didMoveOnscreen): Use enclosingIFrameElement() method.
+        (WebCore::RenderLayerCompositor::willMoveOffscreen): Ditto.
+        (WebCore::RenderLayerCompositor::enclosingIFrameElement): New method.
+        (WebCore::RenderLayerCompositor::ensureRootPlatformLayer): Call enclosingIFrameElement().
+        * rendering/RenderLayerCompositor.h: New method, iframeContentsCompositor().
+
 2010-06-03  Mark Rowe  <mrowe@apple.com>
 
         Merge r59498.

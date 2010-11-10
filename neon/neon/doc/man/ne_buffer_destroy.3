@@ -1,42 +1,50 @@
+'\" t
 .\"     Title: ne_buffer_destroy
 .\"    Author: 
-.\" Generator: DocBook XSL Stylesheets v1.73.2 <http://docbook.sf.net/>
-.\"      Date: 20 August 2008
+.\" Generator: DocBook XSL Stylesheets v1.74.3 <http://docbook.sf.net/>
+.\"      Date: 18 August 2009
 .\"    Manual: neon API reference
-.\"    Source: neon 0.28.3
+.\"    Source: neon 0.28.6
+.\"  Language: English
 .\"
-.TH "NE_BUFFER_DESTROY" "3" "20 August 2008" "neon 0.28.3" "neon API reference"
+.TH "NE_BUFFER_DESTROY" "3" "18 August 2009" "neon 0.28.6" "neon API reference"
+.\" -----------------------------------------------------------------
+.\" * set default formatting
+.\" -----------------------------------------------------------------
 .\" disable hyphenation
 .nh
 .\" disable justification (adjust text to left margin only)
 .ad l
+.\" -----------------------------------------------------------------
+.\" * MAIN CONTENT STARTS HERE *
+.\" -----------------------------------------------------------------
 .SH "NAME"
-ne_buffer_destroy, ne_buffer_finish - destroy a buffer object
+ne_buffer_destroy, ne_buffer_finish \- destroy a buffer object
 .SH "SYNOPSIS"
 .sp
 .ft B
 .nf
-#include <ne_string\.h>
+#include <ne_string\&.h>
 .fi
 .ft
-.HP 23
+.HP \w'void\ ne_buffer_destroy('u
 .BI "void ne_buffer_destroy(ne_buffer\ *" "buf" ");"
-.HP 23
+.HP \w'char\ *ne_buffer_finish('u
 .BI "char *ne_buffer_finish(ne_buffer\ *" "buf" ");"
 .SH "DESCRIPTION"
 .PP
 \fBne_buffer_destroy\fR
-frees all memory associated with the buffer\.
+frees all memory associated with the buffer\&.
 \fBne_buffer_finish\fR
 frees the buffer structure, but not the actual string stored in the buffer, which is returned and must be
-\fBfree\fR()d by the caller\.
+\fBfree\fR()d by the caller\&.
 .PP
-Any use of the buffer object after calling either of these functions gives undefined behaviour\.
+Any use of the buffer object after calling either of these functions gives undefined behaviour\&.
 .SH "RETURN VALUE"
 .PP
 \fBne_buffer_finish\fR
 returns the
-\fBmalloc\fR\-allocated string stored in the buffer\.
+\fBmalloc\fR\-allocated string stored in the buffer\&.
 .SH "EXAMPLES"
 .PP
 An example use of
@@ -47,7 +55,9 @@ function returns a string made up of
 copies of
 \fIstr\fR:
 .sp
+.if n \{\
 .RS 4
+.\}
 .nf
 static char *duplicate(int n, const char *str)
 {
@@ -58,7 +68,9 @@ static char *duplicate(int n, const char *str)
   return ne_buffer_finish(buf);
 }
 .fi
+.if n \{\
 .RE
+.\}
 .SH "SEE ALSO"
 .PP
 ne_buffer,
@@ -67,7 +79,8 @@ ne_buffer_zappend
 .SH "AUTHOR"
 .PP
 \fBJoe Orton\fR <\&neon@lists.manyfish.co.uk\&>
-.sp -1n
-.IP "" 4
+.RS 4
 Author.
+.RE
 .SH "COPYRIGHT"
+.br

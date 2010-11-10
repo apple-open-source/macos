@@ -41,6 +41,7 @@
 #include <limits.h>
 #include "array.h"
 #include "debug.h"
+#define _CUPS_STRING_C_
 #include "string.h"
 #ifdef HAVE_PTHREAD_H
 #  include <pthread.h>
@@ -428,7 +429,7 @@ _cupsStrScand(const char   *buf,	/* I - Pointer to number */
   * Skip leading whitespace...
   */
 
-  while (isspace(*buf & 255))
+  while (_cups_isspace(*buf))
     buf ++;
 
  /*

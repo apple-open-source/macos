@@ -895,13 +895,7 @@ IOReturn IOBlockStorageDriver::message(UInt32      type,
         {
             IOReturn status;
             IOLockLock(_mediaStateLock);
-            lockForArbitration();
-            if (!isInactive()) {
-                status = mediaStateHasChanged((uintptr_t) argument);
-            } else {
-                status = kIOReturnNoMedia;
-            }
-            unlockForArbitration();
+            status = mediaStateHasChanged((uintptr_t) argument);
             IOLockUnlock(_mediaStateLock);
             return status;
         }
@@ -1062,12 +1056,19 @@ IOBlockStorageDriver::mediaStateHasChanged(IOMediaState state)
             return(kIOReturnBadArgument);
         }
 
+        lockForArbitration();
+        if (isInactive()) {
+            unlockForArbitration();    
+            return(kIOReturnNoMedia);
+        }
+
         /* Allow a subclass to decide whether we accept the media. Such a
          * decision might be based on things like password-protection, etc.
          */
 
         if (validateNewMedia() == false) {	/* we're told to reject it */
             rejectMedia();			/* so let subclass do whatever it wants */
+            unlockForArbitration();    
             return(kIOReturnSuccess);		/* pretend nothing happened */
         }
 
@@ -1076,6 +1077,7 @@ IOBlockStorageDriver::mediaStateHasChanged(IOMediaState state)
             initMediaState();		/* deny existence of new media */
 	    IOLog("%s[IOBlockStorageDriver]::checkForMedia: err '%s' from recordMediaParameters\n",
 			getName(),stringFromReturn(result));
+            unlockForArbitration();    
             return(result);
         }
 
@@ -1083,7 +1085,6 @@ IOBlockStorageDriver::mediaStateHasChanged(IOMediaState state)
          * show up properly in the system.
          */
 
-        lockForArbitration();    
         result = acceptNewMedia();
 
         if (result != kIOReturnSuccess) {
@@ -1097,9 +1098,7 @@ IOBlockStorageDriver::mediaStateHasChanged(IOMediaState state)
 
     } else {				/* media is now absent */
 
-        lockForArbitration();
         result = decommissionMedia(true);	/* force a teardown */
-        unlockForArbitration();
 
         if (result != kIOReturnSuccess && result != kIOReturnNoMedia) {
 	    IOLog("%s[IOBlockStorageDriver]::checkForMedia; err '%s' from decommissionNewMedia\n",
@@ -1128,20 +1127,21 @@ IOBlockStorageDriver::constrainByteCount(UInt64 /* requestedCount */ ,bool isWri
  * in an orphaned state.)
  */
 /* Tear down the stack above the specified object. Usually these objects will
- * be of type IOMedia, but they could be any IOService. The arbitration lock is
- * assumed to be held during the call.
+ * be of type IOMedia, but they could be any IOService.
  */
 IOReturn
 IOBlockStorageDriver::decommissionMedia(bool forcible)
 {
+    IOMedia *m = NULL;
     IOReturn result;
 
+    lockForArbitration();
+
     if (_mediaObject) {
-        /* If this is a forcible decommission (i.e. media is gone), we don't
-         * care whether the teardown worked; we forget about the media.
+        /* If this is a forcible decommission (i.e. media is gone), we
+         * forget about the media.
          */
-        if ((forcible || !_openClients->containsObject(_mediaObject)) &&
-            (isInactive() || _mediaObject->terminate() || forcible)) {
+        if (forcible || !_openClients->containsObject(_mediaObject)) {
             IORegistryEntry * parent;
 
             /* Unwire the media object from the device tree. */
@@ -1150,7 +1150,7 @@ IOBlockStorageDriver::decommissionMedia(bool forcible)
                 _mediaObject->detachFromParent(parent, gIODTPlane);
             }
 
-            _mediaObject->release();
+            m = _mediaObject;
             _mediaObject = 0;
 
             initMediaState();        /* clear all knowledge of the media */
@@ -1161,6 +1161,13 @@ IOBlockStorageDriver::decommissionMedia(bool forcible)
         }
     } else {
         result = kIOReturnNoMedia;
+    }
+
+    unlockForArbitration();
+
+    if (m) {
+        m->terminate();
+        m->release();
     }
 
     return(result);
@@ -1177,9 +1184,7 @@ IOBlockStorageDriver::ejectMedia(void)
     {
         bool mediaDirtied = _mediaDirtied;
 
-        lockForArbitration();
         result = decommissionMedia(false);	/* try to teardown */
-        unlockForArbitration();
 
         if (result == kIOReturnSuccess) {	/* eject */
             if (mediaDirtied) {
@@ -1277,9 +1282,7 @@ IOBlockStorageDriver::formatMedia(UInt64 byteCapacity)
 
     IOLockLock(_mediaStateLock);
 
-    lockForArbitration();
     result = decommissionMedia(false);	/* try to teardown */
-    unlockForArbitration();
 
     if (result == kIOReturnSuccess) {	/* format */
         result = getProvider()->doFormatMedia(byteCapacity);

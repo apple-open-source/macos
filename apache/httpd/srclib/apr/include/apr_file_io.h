@@ -113,7 +113,7 @@ extern "C" {
  * to decipher a sparse file, so it's critical that the sparse file
  * flag should only be used for files accessed only by APR or other
  * applications known to be able to decipher them.  APR does not
- * guarentee that it will compress the file into sparse segments
+ * guarantee that it will compress the file into sparse segments
  * if it was previously created and written without the sparse flag.
  * On platforms which do not understand, or on file systems which
  * cannot handle sparse files, the flag is ignored by apr_file_open().
@@ -263,6 +263,15 @@ APR_DECLARE(apr_status_t) apr_file_remove(const char *path, apr_pool_t *pool);
 APR_DECLARE(apr_status_t) apr_file_rename(const char *from_path, 
                                           const char *to_path,
                                           apr_pool_t *pool);
+
+/**
+ * Create a hard link to the specified file.
+ * @param from_path The full path to the original file (using / on all systems)
+ * @param to_path The full path to the new file (using / on all systems)
+ * @remark Both files must reside on the same device.
+ */
+APR_DECLARE(apr_status_t) apr_file_link(const char *from_path, 
+                                          const char *to_path);
 
 /**
  * Copy the specified file to another file.
@@ -556,6 +565,18 @@ APR_DECLARE(apr_status_t) apr_file_puts(const char *str, apr_file_t *thefile);
 APR_DECLARE(apr_status_t) apr_file_flush(apr_file_t *thefile);
 
 /**
+ * Transfer all file modified data and metadata to disk.
+ * @param thefile The file descriptor to sync
+ */
+APR_DECLARE(apr_status_t) apr_file_sync(apr_file_t *thefile);
+
+/**
+ * Transfer all file modified data to disk.
+ * @param thefile The file descriptor to sync
+ */
+APR_DECLARE(apr_status_t) apr_file_datasync(apr_file_t *thefile);
+
+/**
  * Duplicate the specified file descriptor.
  * @param new_file The structure to duplicate into. 
  * @param old_file The file to duplicate.
@@ -653,6 +674,7 @@ APR_DECLARE(apr_status_t) apr_file_pipe_create(apr_file_t **in,
  * @param in The newly created pipe's file for reading.
  * @param out The newly created pipe's file for writing.
  * @param blocking one of these values defined in apr_thread_proc.h;
+ * @param pool The pool to operate on.
  * <pre>
  *       APR_FULL_BLOCK
  *       APR_READ_BLOCK
@@ -671,7 +693,7 @@ APR_DECLARE(apr_status_t) apr_file_pipe_create(apr_file_t **in,
 APR_DECLARE(apr_status_t) apr_file_pipe_create_ex(apr_file_t **in, 
                                                   apr_file_t **out, 
                                                   apr_int32_t blocking, 
-                                                  apr_pool_t *p);
+                                                  apr_pool_t *pool);
 
 /**
  * Create a named pipe.
@@ -732,7 +754,7 @@ APR_DECLARE(apr_status_t) apr_file_name_get(const char **new_path,
 /**
  * Return the data associated with the current file.
  * @param data The user data associated with the file.  
- * @param key The key to use for retreiving data associated with this file.
+ * @param key The key to use for retrieving data associated with this file.
  * @param file The currently open file.
  */                     
 APR_DECLARE(apr_status_t) apr_file_data_get(void **data, const char *key, 
@@ -742,7 +764,7 @@ APR_DECLARE(apr_status_t) apr_file_data_get(void **data, const char *key,
  * Set the data associated with the current file.
  * @param file The currently open file.
  * @param data The user data to associate with the file.  
- * @param key The key to use for assocaiteing data with the file.
+ * @param key The key to use for associating data with the file.
  * @param cleanup The cleanup routine to use when the file is destroyed.
  */                     
 APR_DECLARE(apr_status_t) apr_file_data_set(apr_file_t *file, void *data,
@@ -786,7 +808,7 @@ APR_DECLARE(apr_status_t) apr_file_perms_set(const char *fname,
  * </PRE>
  * @param attr_mask Mask of valid bits in attributes.
  * @param pool the pool to use.
- * @remark This function should be used in preference to explict manipulation
+ * @remark This function should be used in preference to explicit manipulation
  *      of the file permissions, because the operations to provide these
  *      attributes are platform specific and may involve more than simply
  *      setting permission bits.
@@ -813,7 +835,7 @@ APR_DECLARE(apr_status_t) apr_file_mtime_set(const char *fname,
 /**
  * Create a new directory on the file system.
  * @param path the path for the directory to be created. (use / on all systems)
- * @param perm Permissions for the new direcoty.
+ * @param perm Permissions for the new directory.
  * @param pool the pool to use.
  */                        
 APR_DECLARE(apr_status_t) apr_dir_make(const char *path, apr_fileperms_t perm, 
@@ -823,7 +845,7 @@ APR_DECLARE(apr_status_t) apr_dir_make(const char *path, apr_fileperms_t perm,
  * 'mkdir -p'. Creates intermediate directories as required. No error
  * will be reported if PATH already exists.
  * @param path the path for the directory to be created. (use / on all systems)
- * @param perm Permissions for the new direcoty.
+ * @param perm Permissions for the new directory.
  * @param pool the pool to use.
  */
 APR_DECLARE(apr_status_t) apr_dir_make_recursive(const char *path,

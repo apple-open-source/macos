@@ -63,6 +63,8 @@
 
 #define DEBUG_CLIENT			0 // set to one to debug malloc client
 
+#define DEBUG_MADVISE			0
+
 #if DEBUG_MALLOC
 #warning DEBUG_MALLOC ENABLED
 # define INLINE
@@ -240,6 +242,7 @@ typedef struct region_trailer
     struct region_trailer	*prev;
     struct region_trailer	*next;
     boolean_t			recirc_suitable;
+    boolean_t			failedREUSE;
     unsigned			bytes_used;
     mag_index_t			mag_index;
 } region_trailer_t;
@@ -528,12 +531,12 @@ typedef struct {			// vm_allocate()'d, so the array of magazines is page-aligned
 #endif
 } magazine_t;
 
-#define TINY_MAX_MAGAZINES		16 /* MUST BE A POWER OF 2! */    
+#define TINY_MAX_MAGAZINES		32 /* MUST BE A POWER OF 2! */    
 #define TINY_MAGAZINE_PAGED_SIZE						\
     (((sizeof(magazine_t) * (TINY_MAX_MAGAZINES + 1)) + vm_page_size - 1) &\
     ~ (vm_page_size - 1)) /* + 1 for the Depot */
 						
-#define SMALL_MAX_MAGAZINES		16 /* MUST BE A POWER OF 2! */    
+#define SMALL_MAX_MAGAZINES		32 /* MUST BE A POWER OF 2! */    
 #define SMALL_MAGAZINE_PAGED_SIZE						\
     (((sizeof(magazine_t) * (SMALL_MAX_MAGAZINES + 1)) + vm_page_size - 1) &\
     ~ (vm_page_size - 1)) /* + 1 for the Depot */
@@ -688,7 +691,8 @@ static size_t		tiny_free_reattach_region(szone_t *szone, magazine_t *tiny_mag_pt
 static void		tiny_free_scan_madvise_free(szone_t *szone, magazine_t *depot_ptr, region_t r);
 static void		tiny_free_try_depot_unmap_no_lock(szone_t *szone, magazine_t *depot_ptr, region_trailer_t *node);
 static void		tiny_free_do_recirc_to_depot(szone_t *szone, magazine_t *tiny_mag_ptr, mag_index_t mag_index);
-static boolean_t	tiny_get_region_from_depot(szone_t *szone, magazine_t *tiny_mag_ptr, mag_index_t mag_index);
+static region_t 	tiny_find_msize_region(szone_t *szone, magazine_t *tiny_mag_ptr, mag_index_t mag_index, msize_t msize);
+static boolean_t	tiny_get_region_from_depot(szone_t *szone, magazine_t *tiny_mag_ptr, mag_index_t mag_index, msize_t msize);
 
 static INLINE void	tiny_free_no_lock(szone_t *szone, magazine_t *tiny_mag_ptr, mag_index_t mag_index, region_t region, 
 					  void *ptr, msize_t msize) ALWAYSINLINE;
@@ -719,7 +723,8 @@ static size_t		small_free_reattach_region(szone_t *szone, magazine_t *small_mag_
 static void		small_free_scan_depot_madvise_free(szone_t *szone, magazine_t *depot_ptr, region_t r);
 static void		small_free_try_depot_unmap_no_lock(szone_t *szone, magazine_t *depot_ptr, region_trailer_t *node);
 static void		small_free_do_recirc_to_depot(szone_t *szone, magazine_t *small_mag_ptr, mag_index_t mag_index);
-static boolean_t	small_get_region_from_depot(szone_t *szone, magazine_t *small_mag_ptr, mag_index_t mag_index);
+static region_t 	small_find_msize_region(szone_t *szone, magazine_t *small_mag_ptr, mag_index_t mag_index, msize_t msize);
+static boolean_t	small_get_region_from_depot(szone_t *szone, magazine_t *small_mag_ptr, mag_index_t mag_index, msize_t msize);
 static INLINE void	small_free_no_lock(szone_t *szone, magazine_t *small_mag_ptr, mag_index_t mag_index, region_t region, 
 					   void *ptr, msize_t msize) ALWAYSINLINE;
 static void		*small_malloc_from_region_no_lock(szone_t *szone, magazine_t *small_mag_ptr, mag_index_t mag_index, 
@@ -1050,8 +1055,8 @@ madvise_free_range(szone_t *szone, region_t r, uintptr_t pgLo, uintptr_t pgHi)
 	if (-1 == madvise((void *)pgLo, len, MADV_FREE_REUSABLE)) {
 #endif
 	    /* -1 return: VM map entry change makes this unfit for reuse. Something evil lurks. */
-#if DEBUG_MALLOC
-	    szone_error(szone, 1, "madvise_free_range madvise(..., MADV_FREE_REUSABLE) failed", (void *)pgLo, NULL);
+#if DEBUG_MADVISE
+	    szone_error(szone, 0, "madvise_free_range madvise(..., MADV_FREE_REUSABLE) failed", (void *)pgLo, "length=%d\n", len);
 #endif
 	}
     }
@@ -2155,8 +2160,65 @@ tiny_free_do_recirc_to_depot(szone_t *szone, magazine_t *tiny_mag_ptr, mag_index
 	SZONE_MAGAZINE_PTR_UNLOCK(szone,depot_ptr);
 }    
 
+static region_t
+tiny_find_msize_region(szone_t *szone, magazine_t *tiny_mag_ptr, mag_index_t mag_index, msize_t msize)
+{
+    free_list_t		*ptr;
+    grain_t		slot = msize - 1;
+    free_list_t		**free_list = tiny_mag_ptr->mag_free_list;
+    free_list_t		**the_slot = free_list + slot;
+    free_list_t		**limit;
+#if defined(__LP64__)
+    uint64_t		bitmap;
+#else
+    uint32_t		bitmap;
+#endif
+    // Assumes we've locked the magazine
+    CHECK_MAGAZINE_PTR_LOCKED(szone, tiny_mag_ptr, __PRETTY_FUNCTION__);
+    
+    // Look for an exact match by checking the freelist for this msize.
+    ptr = *the_slot;
+    if (ptr)
+	return TINY_REGION_FOR_PTR(ptr);
+
+    // Mask off the bits representing slots holding free blocks smaller than the
+    // size we need.  If there are no larger free blocks, try allocating from
+    // the free space at the end of the tiny region.
+#if defined(__LP64__)
+    bitmap = ((uint64_t *)(tiny_mag_ptr->mag_bitmap))[0] & ~ ((1ULL << slot) - 1);
+#else
+    bitmap = tiny_mag_ptr->mag_bitmap[0] & ~ ((1 << slot) - 1);
+#endif
+    if (!bitmap)
+        return NULL;
+        
+    slot = BITMAPV_CTZ(bitmap);
+    limit = free_list + NUM_TINY_SLOTS - 1;
+    free_list += slot;
+    
+    if (free_list < limit) {
+        ptr = *free_list;
+        if (ptr)
+	    return TINY_REGION_FOR_PTR(ptr);
+	else {
+	    /* Shouldn't happen. Fall through to look at last slot. */
+#if DEBUG_MALLOC
+	    malloc_printf("in tiny_find_msize_region(), mag_bitmap out of sync, slot=%d\n",slot);
+#endif
+	}
+    }
+
+    // We are now looking at the last slot, which contains blocks equal to, or
+    // due to coalescing of free blocks, larger than (NUM_TINY_SLOTS - 1) * tiny quantum size.
+    ptr = *limit;
+    if (ptr)
+	return TINY_REGION_FOR_PTR(ptr);
+
+    return NULL;
+}
+
 static boolean_t
-tiny_get_region_from_depot(szone_t *szone, magazine_t *tiny_mag_ptr, mag_index_t mag_index)
+tiny_get_region_from_depot(szone_t *szone, magazine_t *tiny_mag_ptr, mag_index_t mag_index, msize_t msize)
 {
     magazine_t *depot_ptr = &(szone->tiny_magazines[DEPOT_MAGAZINE_INDEX]);
 
@@ -2173,19 +2235,19 @@ tiny_get_region_from_depot(szone_t *szone, magazine_t *tiny_mag_ptr, mag_index_t
 	
     SZONE_MAGAZINE_PTR_LOCK(szone,depot_ptr);
 
-    // Appropriate one of the Depot's regions. Prefer LIFO selection for best cache utilization.
-    region_trailer_t *node = depot_ptr->firstNode;
-	
-    if (NULL == node) { // Depot empty?
-        SZONE_MAGAZINE_PTR_UNLOCK(szone,depot_ptr);
+    // Appropriate one of the Depot's regions that can satisfy requested msize.	
+    region_t sparse_region = tiny_find_msize_region(szone, depot_ptr, DEPOT_MAGAZINE_INDEX, msize);
+    if (NULL == sparse_region) { // Depot empty?
+	SZONE_MAGAZINE_PTR_UNLOCK(szone,depot_ptr);
 	return 0;
     }
     
-    // disconnect first node from Depot
+    region_trailer_t *node = REGION_TRAILER_FOR_TINY_REGION(sparse_region);
+
+   // disconnect node from Depot
     recirc_list_extract(szone, depot_ptr, node);
     
     // Iterate the region pulling its free entries off the (locked) Depot's free list
-    region_t sparse_region = TINY_REGION_FOR_PTR(node);
     int objects_in_use = tiny_free_detach_region(szone, depot_ptr, sparse_region);
 
     // Transfer ownership of the region
@@ -2207,18 +2269,19 @@ tiny_get_region_from_depot(szone_t *szone, magazine_t *tiny_mag_ptr, mag_index_t
     	
     SZONE_MAGAZINE_PTR_UNLOCK(szone,depot_ptr);
 
-    MAGMALLOC_DEPOTREGION((void *)szone, (int)mag_index, (int)BYTES_USED_FOR_TINY_REGION(sparse_region)); // DTrace USDT Probe
-    
 #if !TARGET_OS_EMBEDDED
-    if (-1 == madvise((void *)sparse_region, TINY_REGION_PAYLOAD_BYTES, MADV_FREE_REUSE)) {
+    if (node->failedREUSE ||
+	-1 == madvise((void *)sparse_region, TINY_REGION_PAYLOAD_BYTES, MADV_FREE_REUSE)) {
 	/* -1 return: VM map entry change makes this unfit for reuse. Something evil lurks. */
-#if DEBUG_MALLOC
-	szone_error(szone, 1, "tiny_get_region_from_depot madvise(..., MADV_FREE_REUSE) failed", sparse_region, NULL);
+#if DEBUG_MADVISE
+	szone_error(szone, 0, "tiny_get_region_from_depot madvise(..., MADV_FREE_REUSE) failed", sparse_region, "length=%d\n", TINY_REGION_PAYLOAD_BYTES);
 #endif
-	return 0;
+	node->failedREUSE = TRUE;
     }
 #endif
 
+    MAGMALLOC_DEPOTREGION((void *)szone, (int)mag_index, (int)BYTES_USED_FOR_TINY_REGION(sparse_region)); // DTrace USDT Probe
+    
     return 1;
 }
 
@@ -2809,8 +2872,6 @@ tiny_in_use_enumerator(task_t task, void *context, unsigned type_mask, szone_t *
 			else
 			    msize = 1;
 
-			if (!msize)
-			    break;
 		    } else if (range.address + block_offset != mag_last_free_ptr) {
 			msize = 1; 
 			bit = block_index + 1;
@@ -2831,6 +2892,10 @@ tiny_in_use_enumerator(task_t task, void *context, unsigned type_mask, szone_t *
 			// it is and move on
 			msize = mag_last_free_msize;
 		    }
+
+		    if (!msize)
+			return KERN_FAILURE; // Somethings amiss. Avoid looping at this block_index.
+
 		    block_index += msize;
 		}
 		if (count) {
@@ -3071,7 +3136,7 @@ tiny_malloc_should_clear(szone_t *szone, msize_t msize, boolean_t cleared_reques
 	return ptr;
     }
 
-    if (tiny_get_region_from_depot(szone, tiny_mag_ptr, mag_index)) {
+    if (tiny_get_region_from_depot(szone, tiny_mag_ptr, mag_index, msize)) {
 	ptr = tiny_malloc_from_free_list(szone, tiny_mag_ptr, mag_index, msize);
 	if (ptr) {
 	    SZONE_MAGAZINE_PTR_UNLOCK(szone, tiny_mag_ptr);
@@ -3650,7 +3715,7 @@ small_free_try_depot_unmap_no_lock(szone_t *szone, magazine_t *depot_ptr, region
 	return;
     }
     
-    // disconnect first node from Depot
+    // disconnect node from Depot
     recirc_list_extract(szone, depot_ptr, node);
     
     // Iterate the region pulling its free entries off the (locked) Depot's free list
@@ -3751,8 +3816,77 @@ small_free_do_recirc_to_depot(szone_t *szone, magazine_t *small_mag_ptr, mag_ind
 	SZONE_MAGAZINE_PTR_UNLOCK(szone,depot_ptr);
 }    
 
+static region_t
+small_find_msize_region(szone_t *szone, magazine_t *small_mag_ptr, mag_index_t mag_index, msize_t msize)
+{
+    free_list_t		*ptr;
+    grain_t		slot = (msize <= szone->num_small_slots) ? msize - 1 : szone->num_small_slots - 1;
+    free_list_t		**free_list = small_mag_ptr->mag_free_list;
+    free_list_t		**the_slot = free_list + slot;
+    free_list_t		**limit;
+    unsigned		bitmap;
+
+    // Assumes we've locked the magazine
+    CHECK_MAGAZINE_PTR_LOCKED(szone, small_mag_ptr, __PRETTY_FUNCTION__);
+
+    // Look for an exact match by checking the freelist for this msize.
+    ptr = *the_slot;
+    if (ptr)
+	return SMALL_REGION_FOR_PTR(ptr);
+	 
+    // Mask off the bits representing slots holding free blocks smaller than
+    // the size we need.
+    if (szone->is_largemem) {
+	// BITMAPN_CTZ implementation
+	unsigned idx = slot >> 5;
+	bitmap = 0;
+	unsigned mask = ~ ((1 << (slot & 31)) - 1);
+	for ( ; idx < SMALL_BITMAP_WORDS; ++idx ) {
+	    bitmap = small_mag_ptr->mag_bitmap[idx] & mask;
+	    if (bitmap != 0)
+		break;
+	    mask = ~0U;
+	}
+	// Check for fallthrough: No bits set in bitmap
+	if ((bitmap == 0) && (idx == SMALL_BITMAP_WORDS))
+            return NULL;
+
+	// Start looking at the first set bit, plus 32 bits for every word of
+	// zeroes or entries that were too small.
+	slot = BITMAP32_CTZ((&bitmap)) + (idx * 32);
+    } else {
+ 	bitmap = small_mag_ptr->mag_bitmap[0] & ~ ((1 << slot) - 1);
+	if (!bitmap) 
+	    return NULL;
+
+	slot = BITMAP32_CTZ((&bitmap));
+    }
+    limit = free_list + szone->num_small_slots - 1;
+    free_list += slot;
+
+    if (free_list < limit) {
+        ptr = *free_list;
+        if (ptr) 
+	    return SMALL_REGION_FOR_PTR(ptr);
+	else {
+	    /* Shouldn't happen. Fall through to look at last slot. */
+#if DEBUG_MALLOC
+	    malloc_printf("in small_malloc_from_free_list(), mag_bitmap out of sync, slot=%d\n",slot);
+#endif
+	}
+    }
+
+    // We are now looking at the last slot, which contains blocks equal to, or
+    // due to coalescing of free blocks, larger than (num_small_slots - 1) * (small quantum size).
+    ptr = *limit;
+    if (ptr) 
+	return SMALL_REGION_FOR_PTR(ptr);
+    
+    return NULL;
+}
+
 static boolean_t
-small_get_region_from_depot(szone_t *szone, magazine_t *small_mag_ptr, mag_index_t mag_index)
+small_get_region_from_depot(szone_t *szone, magazine_t *small_mag_ptr, mag_index_t mag_index, msize_t msize)
 {
     magazine_t *depot_ptr = &(szone->small_magazines[DEPOT_MAGAZINE_INDEX]);
 
@@ -3769,19 +3903,18 @@ small_get_region_from_depot(szone_t *szone, magazine_t *small_mag_ptr, mag_index
 	
     SZONE_MAGAZINE_PTR_LOCK(szone,depot_ptr);
 
-    // Appropriate one of the Depot's regions. Prefer LIFO selection for best cache utilization.
-    region_trailer_t *node = depot_ptr->firstNode;
-	
-    if (NULL == node) { // Depot empty?
-        SZONE_MAGAZINE_PTR_UNLOCK(szone,depot_ptr);
+    // Appropriate one of the Depot's regions that can satisfy requested msize.	
+    region_t sparse_region = small_find_msize_region(szone, depot_ptr, DEPOT_MAGAZINE_INDEX, msize);
+    if (NULL == sparse_region) { // Depot empty?
+	SZONE_MAGAZINE_PTR_UNLOCK(szone,depot_ptr);
 	return 0;
     }
-    
-    // disconnect first node from Depot
+
+    region_trailer_t *node = REGION_TRAILER_FOR_SMALL_REGION(sparse_region);
+    // disconnect node from Depot
     recirc_list_extract(szone, depot_ptr, node);
     
     // Iterate the region pulling its free entries off the (locked) Depot's free list
-    region_t sparse_region = SMALL_REGION_FOR_PTR(node);
     int objects_in_use = small_free_detach_region(szone, depot_ptr, sparse_region);
 
     // Transfer ownership of the region
@@ -3803,18 +3936,19 @@ small_get_region_from_depot(szone_t *szone, magazine_t *small_mag_ptr, mag_index
     	
     SZONE_MAGAZINE_PTR_UNLOCK(szone,depot_ptr);
 
-    MAGMALLOC_DEPOTREGION((void *)szone, (int)mag_index, (int)BYTES_USED_FOR_SMALL_REGION(sparse_region)); // DTrace USDT Probe
-	
 #if !TARGET_OS_EMBEDDED
-    if (-1 == madvise((void *)sparse_region, SMALL_REGION_PAYLOAD_BYTES, MADV_FREE_REUSE)) {
+    if (node->failedREUSE ||
+	-1 == madvise((void *)sparse_region, SMALL_REGION_PAYLOAD_BYTES, MADV_FREE_REUSE)) {
 	/* -1 return: VM map entry change makes this unfit for reuse. Something evil lurks. */
-#if DEBUG_MALLOC
-	szone_error(szone, 1, "small_get_region_from_depot madvise(..., MADV_FREE_REUSE) failed", sparse_region, NULL);
+#if DEBUG_MADVISE
+	szone_error(szone, 0, "small_get_region_from_depot madvise(..., MADV_FREE_REUSE) failed", sparse_region, "length=%d\n", SMALL_REGION_PAYLOAD_BYTES);
 #endif
-	return 0;
+	node->failedREUSE = TRUE;
     }
 #endif
 
+    MAGMALLOC_DEPOTREGION((void *)szone, (int)mag_index, (int)BYTES_USED_FOR_SMALL_REGION(sparse_region)); // DTrace USDT Probe
+	
     return 1;
 }
 
@@ -4327,6 +4461,10 @@ small_in_use_enumerator(task_t task, void *context, unsigned type_mask, szone_t 
 			    count = 0;
 			}
 		    }
+
+		    if (!msize)
+			return KERN_FAILURE; // Somethings amiss. Avoid looping at this block_index.
+
 		    block_index += msize;
 		}
 		if (count) {
@@ -4555,7 +4693,7 @@ small_malloc_should_clear(szone_t *szone, msize_t msize, boolean_t cleared_reque
 	return ptr;
     }
     
-    if (small_get_region_from_depot(szone, small_mag_ptr, mag_index)) {
+    if (small_get_region_from_depot(szone, small_mag_ptr, mag_index, msize)) {
 	ptr = small_malloc_from_free_list(szone, small_mag_ptr, mag_index, msize);
 	if (ptr) {
 	    SZONE_MAGAZINE_PTR_UNLOCK(szone, small_mag_ptr);
@@ -5163,8 +5301,8 @@ large_malloc(szone_t *szone, size_t num_pages, unsigned char alignment,
 	// In the unusual case of failure, reacquire the lock to unwind.
 	if (was_madvised_reusable && -1 == madvise(addr, size, MADV_FREE_REUSE)) {
 	    /* -1 return: VM map entry change makes this unfit for reuse. */
-#if DEBUG_MALLOC
-	    szone_error(szone, 1, "large_malloc madvise(..., MADV_FREE_REUSE) failed", addr, NULL);
+#if DEBUG_MADVISE
+	    szone_error(szone, 0, "large_malloc madvise(..., MADV_FREE_REUSE) failed", addr, "length=%d\n", size);
 #endif
 	    
 	    SZONE_LOCK(szone);
@@ -5304,8 +5442,8 @@ free_large(szone_t *szone, void *ptr)
 
 		if (-1 == madvise((void *)(this_entry.address), this_entry.size, MADV_FREE_REUSABLE)) {
 		    /* -1 return: VM map entry change makes this unfit for reuse. */
-#if DEBUG_MALLOC
-		    szone_error(szone, 1, "free_large madvise(..., MADV_FREE_REUSABLE) failed", (void *)this_entry.address, NULL);
+#if DEBUG_MADVISE
+		    szone_error(szone, 0, "free_large madvise(..., MADV_FREE_REUSABLE) failed", (void *)this_entry.address, "length=%d\n", this_entry.size);
 #endif
 		    reusable = FALSE;
 		}
@@ -5879,6 +6017,7 @@ szone_memalign(szone_t *szone, size_t alignment, size_t size)
 				    REGION_TRAILER_FOR_TINY_REGION(TINY_REGION_FOR_PTR(p)),
 				    MAGAZINE_INDEX_FOR_TINY_REGION(TINY_REGION_FOR_PTR(p)));    
 	    set_tiny_meta_header_in_use(q, msize);
+	    tiny_mag_ptr->mag_num_objects++;
 	    
 	    // set_tiny_meta_header_in_use() "reaffirms" the block_header on the *following* block, so
 	    // now set its in_use bit as well. But only if its within the original allocation made above.
@@ -5900,6 +6039,7 @@ szone_memalign(szone_t *szone, size_t alignment, size_t size)
 				    REGION_TRAILER_FOR_TINY_REGION(TINY_REGION_FOR_PTR(p)),
 				    MAGAZINE_INDEX_FOR_TINY_REGION(TINY_REGION_FOR_PTR(p)));    
 	    set_tiny_meta_header_in_use(q, mwaste);
+	    tiny_mag_ptr->mag_num_objects++;
 	    SZONE_MAGAZINE_PTR_UNLOCK(szone, tiny_mag_ptr);
 	    
 	    // Give up mwaste blocks beginning at q to the tiny free list
@@ -5941,6 +6081,7 @@ szone_memalign(szone_t *szone, size_t alignment, size_t size)
 				    MAGAZINE_INDEX_FOR_SMALL_REGION(SMALL_REGION_FOR_PTR(p)));    
 	    small_meta_header_set_in_use(SMALL_META_HEADER_FOR_PTR(p), SMALL_META_INDEX_FOR_PTR(p), mpad);
 	    small_meta_header_set_in_use(SMALL_META_HEADER_FOR_PTR(q), SMALL_META_INDEX_FOR_PTR(q), msize + mwaste);
+	    small_mag_ptr->mag_num_objects++;
 	    SZONE_MAGAZINE_PTR_UNLOCK(szone, small_mag_ptr);
 	    
 	    // Give up mpad blocks beginning at p to the small free list
@@ -5957,6 +6098,7 @@ szone_memalign(szone_t *szone, size_t alignment, size_t size)
 				    MAGAZINE_INDEX_FOR_SMALL_REGION(SMALL_REGION_FOR_PTR(p)));    
 	    small_meta_header_set_in_use(SMALL_META_HEADER_FOR_PTR(p), SMALL_META_INDEX_FOR_PTR(p), msize);
 	    small_meta_header_set_in_use(SMALL_META_HEADER_FOR_PTR(q), SMALL_META_INDEX_FOR_PTR(q), mwaste);
+	    small_mag_ptr->mag_num_objects++;
 	    SZONE_MAGAZINE_PTR_UNLOCK(szone, small_mag_ptr);
 	    
 	    // Give up mwaste blocks beginning at q to the small free list
@@ -6100,6 +6242,15 @@ szone_destroy(szone_t *szone)
     size_t		index;
     large_entry_t	*large;
     vm_range_t		range_to_deallocate;
+
+    /* destroy large entries cache */
+    int idx = szone->large_entry_cache_oldest, idx_max = szone->large_entry_cache_newest;
+    while (idx != idx_max) {
+	deallocate_pages(szone, (void *) szone->large_entry_cache[idx].address, szone->large_entry_cache[idx].size, 0);
+	if (++idx == LARGE_ENTRY_CACHE_SIZE) idx = 0;
+    }
+    if (0 != szone->large_entry_cache[idx].address && 0 != szone->large_entry_cache[idx].size)
+	deallocate_pages(szone, (void *) szone->large_entry_cache[idx].address, szone->large_entry_cache[idx].size, 0);
 
     /* destroy large entries */
     index = szone->num_large_entries;
@@ -6357,17 +6508,17 @@ szone_print(szone_t *szone, boolean_t verbose)
   
     scalable_zone_info((void *)szone, info, 13);
     _malloc_printf(MALLOC_PRINTF_NOLOG | MALLOC_PRINTF_NOPREFIX,
-                 "Scalable zone %p: inUse=%d(%y) touched=%y allocated=%y flags=%d\n",
+                 "Scalable zone %p: inUse=%u(%y) touched=%y allocated=%y flags=%d\n",
                  szone, info[0], info[1], info[2], info[3], info[12]);
     _malloc_printf(MALLOC_PRINTF_NOLOG | MALLOC_PRINTF_NOPREFIX,
-                 "\ttiny=%d(%y) small=%d(%y) large=%d(%y) huge=%d(%y)\n",
+                 "\ttiny=%u(%y) small=%u(%y) large=%u(%y) huge=%u(%y)\n",
                  info[4], info[5], info[6], info[7], info[8], info[9], info[10], info[11]);
     // tiny
     _malloc_printf(MALLOC_PRINTF_NOLOG | MALLOC_PRINTF_NOPREFIX,
-                 "%d tiny regions:\n", szone->num_tiny_regions);
+                 "%lu tiny regions:\n", szone->num_tiny_regions);
     if (szone->num_tiny_regions_dealloc)
 	_malloc_printf(MALLOC_PRINTF_NOLOG | MALLOC_PRINTF_NOPREFIX,
-	    "[%d tiny regions have been vm_deallocate'd]\n", szone->num_tiny_regions_dealloc);
+	    "[%lu tiny regions have been vm_deallocate'd]\n", szone->num_tiny_regions_dealloc);
     for (index = 0; index < szone->tiny_region_generation->num_regions_allocated; ++index) {
 	region = szone->tiny_region_generation->hashed_regions[index];
 	if (HASHRING_OPEN_ENTRY != region && HASHRING_REGION_DEALLOCATED != region) {
@@ -6380,10 +6531,10 @@ szone_print(szone_t *szone, boolean_t verbose)
 	print_tiny_free_list(szone);
     // small
     _malloc_printf(MALLOC_PRINTF_NOLOG | MALLOC_PRINTF_NOPREFIX,
-                 "%d small regions:\n", szone->num_small_regions);
+                 "%lu small regions:\n", szone->num_small_regions);
     if (szone->num_small_regions_dealloc)
 	_malloc_printf(MALLOC_PRINTF_NOLOG | MALLOC_PRINTF_NOPREFIX,
-	    "[%d small regions have been vm_deallocate'd]\n", szone->num_small_regions_dealloc);
+	    "[%lu small regions have been vm_deallocate'd]\n", szone->num_small_regions_dealloc);
     for (index = 0; index < szone->small_region_generation->num_regions_allocated; ++index) {
 	region = szone->small_region_generation->hashed_regions[index];
 	if (HASHRING_OPEN_ENTRY != region && HASHRING_REGION_DEALLOCATED != region) {
@@ -6977,7 +7128,7 @@ static void
 purgeable_print(szone_t *szone, boolean_t verbose)
 {
     _malloc_printf(MALLOC_PRINTF_NOLOG | MALLOC_PRINTF_NOPREFIX,
-                 "Scalable zone %p: inUse=%d(%y) flags=%d\n",
+                 "Scalable zone %p: inUse=%u(%y) flags=%d\n",
                  szone, szone->num_large_objects_in_use, szone->num_bytes_in_large_objects, szone->debug_flags);
 }
 
@@ -7077,9 +7228,9 @@ create_purgeable_zone(size_t initial_size, malloc_zone_t *malloc_default_zone, u
     szone->basic_zone.introspect = (struct malloc_introspection_t *)&purgeable_introspect;
     szone->basic_zone.memalign = (void *)purgeable_memalign;
     szone->basic_zone.free_definite_size = (void *)purgeable_free_definite_size;
-    
+
     szone->debug_flags = debug_flags | SCALABLE_MALLOC_PURGEABLE;
-    
+
     /* Purgeable zone does not support SCALABLE_MALLOC_ADD_GUARD_PAGES. */
     if (szone->debug_flags & SCALABLE_MALLOC_ADD_GUARD_PAGES) {
 	_malloc_printf(ASL_LEVEL_INFO, "purgeable zone does not support guard pages\n");

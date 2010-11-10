@@ -87,8 +87,7 @@ will also display the settings currently in use.
 .br
 .Fl g
 .Ar custom
-will display custom settings for all power sources, although these settings may not currently be in use;
-a pre-set settings profile may be active instead.
+will display custom settings for all power sources.
 .br
 .Fl g
 .Ar cap
@@ -113,10 +112,6 @@ will display an ongoing log of power source (battery and UPS) state.
 .Fl g
 .Ar rawlog
 will display an ongoing log of battery state as read directly from battery.
-.br
-.Fl g
-.Ar profiles
-will display the settings associated with each Energy Saver profile.
 .Sh ARGUMENTS
 .Ar displaysleep
 - display sleep timer; replaces 'dim' argument in 10.4 (value in minutes, or 0 to disable)
@@ -162,53 +157,54 @@ will display the settings associated with each Energy Saver profile.
 .br
 .Ar ttyskeepawake
 - prevent idle system sleep when any tty (e.g. remote login session) is 'active'. A tty is 'inactive' only when its idle time exceeds the system sleep timer. (value = 0/1)
-.Sh SETTINGS PROFILES
-Mac OS X stores sets of pre-defined Energy Saver settings in a few numbered profiles (1, 2, 3). 
-All user-modified settings are stored in the custom profile (-1). 
-The two numbered profiles 0 and 4 are unused.
-.Pp
-Profiles are set per-power source. Default profile selections are 
-.br
-(AC=2, Batt=1, UPS=1). See 
-.Pa Examples 
-for ways to set profiles.
-.Pp
-Any modifications made to Energy Saver settings via Energy Saver or pmset will automatically switch your active profile to Custom if it was not already Custom. OS X tracks the selected profiles and the settings for the Custom profile in 
-.Pa com.apple.PowerManagement.plist
-discussed in
-.Pa Files
-below.
-.Pp
-.Ar 1
-corresponds to Energy Saver Optimization for "Better Energy Savings"
-.br
-.Ar 2
-corresponds to Energy Saver Optimization for "Normal"
-.br
-.Ar 3
-corresponds to Energy Saver Optimization for "Better Performance"
-.br
-.Ar -1
-corresponds to Energy Saver Optimization for "Custom"
 .Sh SAFE SLEEP ARGUMENTS
 .Ar hibernatemode
 takes a bitfield argument defining SafeSleep behavior. Passing 0 disables SafeSleep altogether, forcing the computer into a regular sleep.
 .Pp
-.Ar 0001 
+.Ar 0000 0001 
 (bit 0) enables hibernation; causes OS X to write memory state to hibernation image at sleep time. On wake (without bit 1 set) OS X will resume from the hibernation image. Bit 0 set (without bit 1 set) causes OS X to write memory state and immediately hibernate at sleep time.
 .Pp
-.Ar 0010
+.Ar 0000 0010
 (bit 1), in conjunction with bit 0, causes OS X to maintain system state in memory and leave system power on until battery level drops below a near empty threshold (This enables quicker wakeup from memory while battery power is available). Upon nearly emptying the battery, OS X shuts off all system power and hibernates; on wake the system will resume from hibernation image, not from memory. 
 .Pp
-.Ar hibernatemode 
-is set to 3 (binary 0011) by default on supported portables.
+.Ar 0000 1000
+(bit 3) encourages the dynamic pager to page out inactive pages prior to hibernation, for a smaller memory footprint.
+.Pp
+.Ar 0001 0000
+(bit 4) encourages the dynamic pager to page out more aggressively prior to hibernation, for a smaller memory footprint.
+.Pp
+We do not recommend modifying hibernation settings. Any changes you make are not supported. If you choose to do so anyway, we recommend using one of these three settings. For your sake and mine, please don't use anything other 0, 3, or 25.
 .Pp
 .Ar hibernatemode 
-is set to 0 (binary 0000) by default on supported desktops.
+= 0 (binary 0000) by default on supported desktops. The system will not back memory up to persistent storage. The system must wake from the contents of memory; the system will lose context on power loss. This is, historically, plain old sleep.
+.Pp
+.Ar hibernatemode 
+= 3 (binary 0011) by default on supported portables. The system will store a copy of memory to persistent storage (the disk), and will power memory during sleep. The system will wake from memory, unless a power loss forces it to restore from disk image.
+.Pp
+.Ar hibernatemode
+= 25 (binary 0001 1001) is only settable via pmset. The system will store a copy of memory to persistent storage (the disk), and will remove power to memory. The system will restore from disk image. If you want "hibernation" - slower sleeps, slower wakes, and better battery life, you should use this setting.
 .Pp
 Please note that
 .Ar hibernatefile
 may only point to a file located on the root volume.
+.Sh DEEP SLEEP ARGUMENTS
+.Ar deepsleep
+causes kernel power management to automatically hibernate a machine after it has slept for a specified time period. This saves power while asleep. This setting defaults to
+.Ar ON
+for supported hardware. The setting
+.Ar deepsleep
+will be visible in
+.Nm
+.Fl g
+if the feature is supported on this machine.
+.Pp
+.Ar deepsleep 
+only works if
+.Ar hibernation
+is turned on to hibernatemode 3 or 25.
+.Pp
+.Ar deepsleepdelay
+specifies the delay, in seconds, before writing the hibernation image to disk and powering off memory for Deep Sleep.
 .Sh UPS SPECIFIC ARGUMENTS
 .br
 UPS-specific arguments are only valid following the 
@@ -282,6 +278,9 @@ a problem with an aging battery.
 .Ar sleepnow
 - causes an immediate system sleep
 .br
+.Ar resetdisplayambientparams
+- resets the ambient light parameters for certain Apple displays.
+.br
 .Ar dim 
 - deprecated in 10.4 in favor of 'displaysleep'. 'dim' will continue to work.
 .br
@@ -302,15 +301,7 @@ turns on WakeOnMagicPacket for ALL power sources (AC, Battery, and UPS) as appro
 .Fl a
 displaysleep 10 disksleep 10 sleep 30 womp 1
 .Pp
-Restores the system's energy settings to their default values. Any user modifications are preserved under the custom profile -1.
-.Pp
-.Nm
--c 2 -b 1 -u 1
-.Pp
-Changes energy settings for all power sources to the Custom settings set via pmset or Energy Saver.
-.Pp
-.Nm
--a -1
+Restores the system's energy settings to their default values.
 .Pp
 For a system with an attached and supported UPS, this instructs the system to
 perform an emergency shutdown when UPS battery drains to below 40%.

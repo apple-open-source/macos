@@ -115,7 +115,7 @@ mach_port_t			gMembershipMachPort	= MACH_PORT_NULL;
 extern CDSLocalPlugin	*gLocalNode;
 
 #warning VERIFY the version string before each software release
-const char* gStrDaemonAppleVersion = "6.4"; //match this with x.y in 10.x.y
+const char* gStrDaemonAppleVersion = "6.5"; //match this with x.y in 10.x.y
 const char* gStrDaemonBuildVersion = "unlabeled/engineering";
 
 // ---------------------------------------------------------------------------
@@ -673,7 +673,6 @@ int main ( int argc, char * const *argv )
 		sbsz = sizeof( gNumberOfCores );
 		sysctlbyname( "hw.logicalcpu_max", &gNumberOfCores, &sbsz, NULL, 0 );
 		SrvrLog( kLogApplication, "Detected %d logical CPUs", gNumberOfCores );
-		if ( gNumberOfCores > 4 ) gNumberOfCores = 4;
 		
 		SInt32 startSrvr;
 		startSrvr = gSrvrCntl->StartUpServer();

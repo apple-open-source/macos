@@ -800,6 +800,8 @@ void decodeBytes20( UInt8 *descriptor, BusProbeDevice * thisDevice ) {
     auto Audio20CtrlHdrDescriptorPtr		pAudioHdrDesc;
     auto Audio20CtrlInTermDescriptorPtr		pAudioInTermDesc;
     auto Audio20ClockSourceDescriptorPtr		pAudioClockSourceDesc;
+	auto Audio20ClockSelectorDescriptorPtr		pAudioClockSelectorDesc;
+	auto Audio20ClockMultiplierDescriptorPtr	pAudioClockMultiplierDesc;
     auto Audio20CtrlOutTermDescriptorPtr		pAudioOutTermDesc;
     auto AudioCtrlMixerDescriptorPtr		pAudioMixerDesc;
     auto AudioCtrlSelectorDescriptorPtr		pAudioSelectorDesc;
@@ -810,7 +812,7 @@ void decodeBytes20( UInt8 *descriptor, BusProbeDevice * thisDevice ) {
     auto CS20AS_InterfaceDescriptorPtr		pAudioGeneralDesc;
     auto CS20AS_FormatTypeIDescPtr		pAudioFormatTypeDesc;
     UInt16					i,n,ch,tempIndex;
-    UInt8					*p, *srcIdPtr;
+    UInt8					*p, *srcIdPtr, *bufPtr;
     char					*s;
 	bool					addedAttribute;
     UInt16					srcIndex;
@@ -869,6 +871,12 @@ void decodeBytes20( UInt8 *descriptor, BusProbeDevice * thisDevice ) {
                 break;
             case AC20S_CLOCK_SOURCE:
                 sprintf((char *)buf, "Audio Class Specific Clock Source");
+                break;
+			case AC20S_CLOCK_SELECTOR:
+                sprintf((char *)buf, "Audio Class Specific Clock Selector");
+                break;
+			case AC20S_CLOCK_MULTIPLIER:
+                sprintf((char *)buf, "Audio Class Specific Clock Multiplier");
                 break;
             case ACS_OUTPUT_TERMINAL:
                 sprintf((char *)buf, "Audio Class Specific Output Terminal");
@@ -1108,11 +1116,68 @@ void decodeBytes20( UInt8 *descriptor, BusProbeDevice * thisDevice ) {
 				{
 					sprintf((char *)buf, "%u", pAudioClockSourceDesc->desciClockSourceName );
 				}
-				[thisDevice addProperty:"Terminal Name String Index:" withValue:buf atDepth:INTERFACE_LEVEL+1];
+				[thisDevice addProperty:"Clock Source Name String Index:" withValue:buf atDepth:INTERFACE_LEVEL+1];
 				DUMPIT( pAudioClockSourceDesc, 1 );
 
                 break;
-
+				
+			case AC20S_CLOCK_SELECTOR:
+				pAudioClockSelectorDesc = (Audio20ClockSelectorDescriptorPtr)desc;
+				
+				sprintf( (char *)buf, "%u", pAudioClockSelectorDesc->descClockID );
+                [thisDevice addProperty:"Clock ID:" withValue:buf atDepth:INTERFACE_LEVEL+1];
+				
+				bufPtr = pAudioClockSelectorDesc->descClockPID;
+				for( i = 0; i < pAudioClockSelectorDesc->descNumPins; i++ )
+                {
+                    sprintf( (char *)buf2,	"Clock Source ID Pin[%d]:", i+1 );
+                    sprintf( (char *)buf,	"%u", pAudioClockSelectorDesc->descClockPID[i] );
+                    [thisDevice addProperty:buf2 withValue:buf atDepth:INTERFACE_LEVEL+1];
+					bufPtr++;
+                }
+				
+				sprintf( (char *)buf, "%u", *bufPtr );
+				[thisDevice addProperty:"Controls:" withValue:buf atDepth:INTERFACE_LEVEL+1];
+				
+				bufPtr++;
+				if ( !*bufPtr )
+                {
+                    sprintf( (char *)buf, "%u [NONE]", *bufPtr );
+                }
+				else
+				{
+					sprintf( (char *)buf, "%u", *bufPtr );
+				}
+				[thisDevice addProperty:"Clock Selector Name String Index:" withValue:buf atDepth:INTERFACE_LEVEL+1];
+				
+				DUMPIT( pAudioClockSelectorDesc, 1 );
+				break;
+				
+			case AC20S_CLOCK_MULTIPLIER:	
+				pAudioClockMultiplierDesc = (Audio20ClockMultiplierDescriptorPtr)desc;
+				
+                sprintf( (char *)buf, "%u", pAudioClockMultiplierDesc->descClockID );
+                [thisDevice addProperty:"Clock ID:" withValue:buf atDepth:INTERFACE_LEVEL+1];
+				
+				sprintf( (char *)buf, "%u", pAudioClockMultiplierDesc->descClockSourceID );
+                [thisDevice addProperty:"Clock Source ID:" withValue:buf atDepth:INTERFACE_LEVEL+1];
+				
+				sprintf( (char *)buf, "%u", pAudioClockMultiplierDesc->descbmControls );
+				[thisDevice addProperty:"Controls:" withValue:buf atDepth:INTERFACE_LEVEL+1];
+				
+				if ( !pAudioClockMultiplierDesc->desciClockMultiplierName )
+                {
+                    sprintf( (char *)buf, "%u [NONE]", pAudioClockMultiplierDesc->desciClockMultiplierName );
+                }
+				else
+				{
+					sprintf( (char *)buf, "%u", pAudioClockMultiplierDesc->desciClockMultiplierName );
+				}
+				[thisDevice addProperty:"Clock Multiplier Name String Index:" withValue:buf atDepth:INTERFACE_LEVEL+1];
+				
+				DUMPIT( pAudioClockMultiplierDesc, 1 );
+				break;
+				
             case ACS_OUTPUT_TERMINAL:
                 pAudioOutTermDesc = (Audio20CtrlOutTermDescriptorPtr)desc;
                 //sprintf((char *)buf, "ACS_OUTPUT_TERMINAL" ); // AddStringChild(item, buf);

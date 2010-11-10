@@ -2,7 +2,7 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright © 1998-2009 Apple Inc.  All rights reserved.
+ * Copyright © 1998-2010 Apple Inc.  All rights reserved.
  * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
@@ -244,11 +244,21 @@ IOUSBController::CheckForDisjointDescriptor(IOUSBCommand *command, UInt16 maxPac
 				newBuf->release();
 				return err;
 			}
+			err = dmaCommand->setMemoryDescriptor(newBuf);
+			if (err)
+			{
+				USBLog(1, "%s[%p]::CheckForDisjointDescriptor - err 0x%x in setMemoryDescriptor", getName(), this, err);
+				USBTrace( kUSBTController, kTPControllerCheckForDisjointDescriptor, (uintptr_t)this, err, 0, 8 );
+				newBuf->complete();
+				newBuf->release();
+				return err;
+			}
+			
 			command->SetOrigBuffer(command->GetBuffer());
 			command->SetDisjointCompletion(command->GetClientCompletion());
 			USBLog(5, "%s[%p]::CheckForDisjointDescriptor - changing buffer from (%p) to (%p) and putting new buffer in dmaCommand (%p)", getName(), this, command->GetBuffer(), newBuf, dmaCommand);
 			command->SetBuffer(newBuf);
-			dmaCommand->setMemoryDescriptor(newBuf);
+			
 			
 			IOUSBCompletion completion;
 			completion.target = this;
@@ -338,6 +348,18 @@ IOUSBController::Read(IOMemoryDescriptor *buffer, USBDeviceAddress address, Endp
 		return kIOReturnInternalError;
     }
     
+    if (  (uintptr_t) completion->action == (uintptr_t) &IOUSBSyncCompletion )
+	{
+		isSyncTransfer = true;
+		// 7889995 - check to see if we are on the workloop thread before setting up the IOUSBCommand
+		if ( _workLoop->onThread() )
+		{
+            USBError(1,"IOUSBController(%s)[%p]::Read sync request on workloop thread.  Use async!", getName(), this);
+            return kIOUSBSyncRequestOnWLThread;
+		}
+	}
+	
+	
     // allocate the command
     command = (IOUSBCommand *)_freeUSBCommandPool->getCommand(false);
 	
@@ -389,13 +411,8 @@ IOUSBController::Read(IOMemoryDescriptor *buffer, USBDeviceAddress address, Endp
 
 	if (!err)
 	{
-		// Set up a flag indicating that we have a synchronous request in this command
-		//
-		if ( completion->action == &IOUSBSyncCompletion )
-			command->SetIsSyncTransfer(true);
-		else
-			command->SetIsSyncTransfer(false);
-		
+
+		command->SetIsSyncTransfer(isSyncTransfer);
 		command->SetUseTimeStamp(false);
 		command->SetSelector(READ);
 		command->SetRequest(0);            	// Not a device request
@@ -420,11 +437,8 @@ IOUSBController::Read(IOMemoryDescriptor *buffer, USBDeviceAddress address, Endp
 		
 		err = CheckForDisjointDescriptor(command, endpoint->maxPacketSize);
 		if (!err)
-		{
-			isSyncTransfer = command->GetIsSyncTransfer();
-			
+		{			
 			err = _commandGate->runAction(DoIOTransfer, command);
-			
 		}
 	}
 
@@ -438,7 +452,7 @@ IOUSBController::Read(IOMemoryDescriptor *buffer, USBDeviceAddress address, Endp
 		
 		if (!isSyncTransfer)
 		{
-			USBLog(1, "%s[%p]::Read - General error (%p) - cleaning up - command(%p) dmaCommand(%p)", getName(), this, (void*)err, command, dmaCommand);
+			USBLog(2, "%s[%p]::Read - General error (%p) - cleaning up - command(%p) dmaCommand(%p)", getName(), this, (void*)err, command, dmaCommand);
 		}
 		
 		if (memDesc)
@@ -518,6 +532,18 @@ IOUSBController::Write(IOMemoryDescriptor *buffer, USBDeviceAddress address, End
 		return kIOReturnInternalError;
     }
 
+    if (  (uintptr_t) completion->action == (uintptr_t) &IOUSBSyncCompletion )
+	{
+		isSyncTransfer = true;
+		// 7889995 - check to see if we are on the workloop thread before setting up the IOUSBCommand
+		if ( _workLoop->onThread() )
+		{
+            USBError(1,"IOUSBController(%s)[%p]::Write sync request on workloop thread.  Use async!", getName(), this);
+            return kIOUSBSyncRequestOnWLThread;
+		}
+	}
+	
+	
     // allocate the command
     command = (IOUSBCommand *)_freeUSBCommandPool->getCommand(false);
     
@@ -570,13 +596,7 @@ IOUSBController::Write(IOMemoryDescriptor *buffer, USBDeviceAddress address, End
 	
 	if (!err)
 	{
-		// Set up a flag indicating that we have a synchronous request in this command
-		//
-		if ( completion->action == &IOUSBSyncCompletion )
-			command->SetIsSyncTransfer(true);
-		else
-			command->SetIsSyncTransfer(false);
-		
+		command->SetIsSyncTransfer(isSyncTransfer);
 		command->SetUseTimeStamp(false);
 		command->SetSelector(WRITE);
 		command->SetRequest(0);            // Not a device request
@@ -601,11 +621,8 @@ IOUSBController::Write(IOMemoryDescriptor *buffer, USBDeviceAddress address, End
 
 		err = CheckForDisjointDescriptor(command, endpoint->maxPacketSize);
 		if (!err)
-		{
-			isSyncTransfer = command->GetIsSyncTransfer();
-			
+		{			
 			err = _commandGate->runAction(DoIOTransfer, command);
-			
 		}
 	}
 	
@@ -619,7 +636,7 @@ IOUSBController::Write(IOMemoryDescriptor *buffer, USBDeviceAddress address, End
 
 		if (!isSyncTransfer)
 		{
-			USBLog(1, "%s[%p]::Write - General error (%p) - cleaning up - command(%p) dmaCommand(%p)", getName(), this, (void*)err, command, dmaCommand);
+			USBLog(2, "%s[%p]::Write - General error (%p) - cleaning up - command(%p) dmaCommand(%p)", getName(), this, (void*)err, command, dmaCommand);
 		}
 
 		if (memDesc)
@@ -685,6 +702,17 @@ IOUSBController::IsocIO(IOMemoryDescriptor *				buffer,
 		return kIOReturnBadArgument;
 	}
 
+    if ( completion->action == &IOUSBSyncIsoCompletion )
+	{
+		syncTransfer = true;
+        if ( _workLoop->onThread() )
+        {
+            USBError(1,"IOUSBController(%s)[%p]::DoIsocTransfer sync request on workloop thread.  Use async!", getName(), this);
+            return kIOUSBSyncRequestOnWLThread;
+        }
+		
+	}
+	
 	command = (IOUSBIsocCommand *)_freeUSBIsocCommandPool->getCommand(false);
 	
     // If we couldn't get a command, increase the allocation and try again
@@ -724,9 +752,6 @@ IOUSBController::IsocIO(IOMemoryDescriptor *				buffer,
 	
 	// Set up a flag indicating that we have a synchronous request in this command
 	//
-    if ( completion->action == &IOUSBSyncIsoCompletion )
-		syncTransfer = true;
-		
 	command->SetIsSyncTransfer(syncTransfer);
 	
 	// Setup the direction
@@ -826,6 +851,17 @@ IOUSBController::IsocIO(IOMemoryDescriptor *			buffer,
 		return kIOReturnBadArgument;
 	}
 	
+    if ( (uintptr_t)completion->action == (uintptr_t)&IOUSBSyncIsoCompletion )
+	{
+		syncTransfer = true;
+        if ( _workLoop->onThread() )
+        {
+            USBError(1,"IOUSBController(%s)[%p]::DoIsocTransfer sync request on workloop thread.  Use async!", getName(), this);
+            return kIOUSBSyncRequestOnWLThread;
+        }
+		
+	}
+	
 	command = (IOUSBIsocCommand *)_freeUSBIsocCommandPool->getCommand(false);
     // If we couldn't get a command, increase the allocation and try again
     //
@@ -863,11 +899,6 @@ IOUSBController::IsocIO(IOMemoryDescriptor *			buffer,
 	// If the high order bit of the endpoint transfer type is set, then this means it's a request from an Rosetta client
 	command->SetRosettaClient(crossEndianRequest);
 	
-	// Set up a flag indicating that we have a synchronous request in this command
-	//
-    if ( (uintptr_t)completion->action == (uintptr_t) &IOUSBSyncIsoCompletion )
-		syncTransfer = true;
-		
 	command->SetIsSyncTransfer(syncTransfer);
 	
 	// Setup the direction

@@ -442,13 +442,6 @@ AppleUSBOHCI::UIMFinalize(void)
 			(uint32_t)_deviceBase->getVirtualAddress(),
 			(uint32_t)_deviceBase->getPhysicalAddress());
 	
-#if 0
-	// 4930013: JRH - This is a bad thing to do with shared interrupts, and since we turn off interrupts at the source
-	// it should be redundant. Let's stop doing it..
-    // Disable the interrupt delivery
-    //
-    _workLoop->disableAllInterrupts();
-#endif
 	
     // If we are NOT being terminated, then talk to the OHCI controller and
     // set up all the registers to be off

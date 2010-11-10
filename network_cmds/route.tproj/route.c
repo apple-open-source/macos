@@ -1299,8 +1299,10 @@ print_rtmsg(rtm, msglen)
 			(long)rtm->rtm_pid, rtm->rtm_seq, rtm->rtm_errno);
 		if (rtm->rtm_flags & RTF_IFSCOPE)
 			(void) printf("ifscope %d, ", rtm->rtm_index);
+#ifdef RTF_IFREF
 		if (rtm->rtm_flags & RTF_IFREF)
 			(void) printf("ifref, ");
+#endif /* RTF_IFREF */
 		(void) printf("flags:");
 		bprintf(stdout, rtm->rtm_flags, routeflags);
 		pmsg_common(rtm);

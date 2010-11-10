@@ -67,7 +67,7 @@ public:
     void searchLibs(StorageManager::KeychainList &libs)	{ mSearchLibs = libs; }
     
 	// perform evaluation
-    void evaluate();
+    void evaluate(bool disableEV=false);
     
 	// get at evaluation results
     void buildEvidence(CFArrayRef &certChain, TPEvidenceInfo * &statusChain);

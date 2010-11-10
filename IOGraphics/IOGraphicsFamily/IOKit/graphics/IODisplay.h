@@ -45,6 +45,11 @@ extern const OSSymbol * gIODisplayParallelogramKey;
 extern const OSSymbol * gIODisplayRotationKey;
 extern const OSSymbol * gIODisplayOverscanKey;
 extern const OSSymbol * gIODisplayVideoBestKey;
+extern const OSSymbol * gIODisplaySelectedColorModeKey;
+
+extern const OSSymbol * gIODisplayRedGammaScaleKey;
+extern const OSSymbol * gIODisplayGreenGammaScaleKey;
+extern const OSSymbol * gIODisplayBlueGammaScaleKey;
 
 extern const OSSymbol * gIODisplayParametersTheatreModeKey;
 extern const OSSymbol * gIODisplayParametersTheatreModeWindowKey;
@@ -73,16 +78,6 @@ extern const OSSymbol * gIODisplayParametersFlushKey;
 enum {
     kIODisplayNumPowerStates = 4,
     kIODisplayMaxPowerState  = kIODisplayNumPowerStates - 1
-};
-
-// these are the private instance variables for power management
-struct DisplayPMVars
-{
-    UInt32              currentState;
-    // highest state number normally, lowest usable state in emergency
-    unsigned long       maxState;
-    // true if the display has had power lowered due to user inactivity
-    bool                displayIdle;
 };
 
 class IODisplayConnect : public IOService
@@ -126,7 +121,7 @@ protected:
     IONotifier *                        fNotifier;
 
     // pointer to protected instance variables for power management
-    struct DisplayPMVars *              fDisplayPMVars;
+    struct IODisplayPMVars *              fDisplayPMVars;
 
     // reserved for future expansion
     void *                              _IODisplay_reserved[32];
@@ -172,6 +167,7 @@ public:
 
     // power management methods
     virtual IOReturn setPowerState( unsigned long, IOService * );
+    void setDisplayPowerState(unsigned long state);
     virtual unsigned long maxCapabilityForDomainState( IOPMPowerFlags );
     virtual unsigned long initialPowerStateForDomainState( IOPMPowerFlags );
     virtual unsigned long powerStateForDomainState( IOPMPowerFlags );

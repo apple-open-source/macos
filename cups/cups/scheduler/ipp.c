@@ -1245,7 +1245,7 @@ add_class(cupsd_client_t  *con,		/* I - Client connection */
 
   if (modify)
   {
-    cupsdAddEvent(CUPSD_EVENT_PRINTER_MODIFIED | CUPSD_EVENT_PRINTER_CONFIG,
+    cupsdAddEvent(CUPSD_EVENT_PRINTER_MODIFIED,
 		  pclass, NULL, "Class \"%s\" modified by \"%s\".",
 		  pclass->name, get_username(con));
 
@@ -1256,7 +1256,7 @@ add_class(cupsd_client_t  *con,		/* I - Client connection */
   {
     cupsdAddPrinterHistory(pclass);
 
-    cupsdAddEvent(CUPSD_EVENT_PRINTER_ADDED | CUPSD_EVENT_PRINTER_CONFIG,
+    cupsdAddEvent(CUPSD_EVENT_PRINTER_ADDED,
 		  pclass, NULL, "New class \"%s\" added by \"%s\".",
 		  pclass->name, get_username(con));
 
@@ -1350,7 +1350,6 @@ add_job(cupsd_client_t  *con,		/* I - Client connection */
   int		kbytes;			/* Size of print file */
   int		i;			/* Looping var */
   int		lowerpagerange;		/* Page range bound */
-  const char	*ppd;			/* PPD keyword for media selection */
   int		exact;			/* Did we have an exact match? */
   ipp_attribute_t *media_col,		/* media-col attribute */
 		*media_margin;		/* media-*-margin attribute */
@@ -1524,22 +1523,10 @@ add_job(cupsd_client_t  *con,		/* I - Client connection */
   * Do media selection as needed...
   */
 
-  if (!ippFindAttribute(con->request, "InputSlot", IPP_TAG_ZERO) &&
-      (ppd = _pwgGetInputSlot(printer->pwg, con->request, NULL)) != NULL)
-    ippAddString(con->request, IPP_TAG_JOB, IPP_TAG_NAME, "InputSlot", NULL,
-                 ppd);
-
-  if (!ippFindAttribute(con->request, "MediaType", IPP_TAG_ZERO) &&
-      (ppd = _pwgGetMediaType(printer->pwg, con->request, NULL)) != NULL)
-    ippAddString(con->request, IPP_TAG_JOB, IPP_TAG_NAME, "MediaType", NULL,
-                 ppd);
-
-  if (!ippFindAttribute(con->request, "PageSize", IPP_TAG_ZERO) &&
-      (ppd = _pwgGetPageSize(printer->pwg, con->request, NULL, &exact)) != NULL)
+  if (!ippFindAttribute(con->request, "PageRegion", IPP_TAG_ZERO) &&
+      !ippFindAttribute(con->request, "PageSize", IPP_TAG_ZERO) &&
+      _pwgGetPageSize(printer->pwg, con->request, NULL, &exact))
   {
-    ippAddString(con->request, IPP_TAG_JOB, IPP_TAG_NAME, "PageSize", NULL,
-                 ppd);
-
     if (!exact &&
         (media_col = ippFindAttribute(con->request, "media-col",
 	                              IPP_TAG_BEGIN_COLLECTION)) != NULL)
@@ -2936,18 +2923,20 @@ add_printer(cupsd_client_t  *con,	/* I - Client connection */
   {
    /*
     * If we changed the PPD/interface script, then remove the printer's cache
-    * file...
+    * file and clear the printer-state-reasons...
     */
 
     char cache_name[1024];		/* Cache filename for printer attrs */
 
-    snprintf(cache_name, sizeof(cache_name), "%s/%s.ipp", CacheDir,
+    snprintf(cache_name, sizeof(cache_name), "%s/%s.ipp4", CacheDir,
              printer->name);
     unlink(cache_name);
 
-    snprintf(cache_name, sizeof(cache_name), "%s/%s.pwg", CacheDir,
+    snprintf(cache_name, sizeof(cache_name), "%s/%s.pwg3", CacheDir,
              printer->name);
     unlink(cache_name);
+
+    cupsdSetPrinterReasons(printer, "none");
 
 #ifdef __APPLE__
    /*
@@ -3025,7 +3014,7 @@ add_printer(cupsd_client_t  *con,	/* I - Client connection */
 
   if (modify)
   {
-    cupsdAddEvent(CUPSD_EVENT_PRINTER_MODIFIED | CUPSD_EVENT_PRINTER_CONFIG,
+    cupsdAddEvent(CUPSD_EVENT_PRINTER_MODIFIED,
                   printer, NULL, "Printer \"%s\" modified by \"%s\".",
 		  printer->name, get_username(con));
 
@@ -3036,7 +3025,7 @@ add_printer(cupsd_client_t  *con,	/* I - Client connection */
   {
     cupsdAddPrinterHistory(printer);
 
-    cupsdAddEvent(CUPSD_EVENT_PRINTER_ADDED | CUPSD_EVENT_PRINTER_CONFIG,
+    cupsdAddEvent(CUPSD_EVENT_PRINTER_ADDED,
                   printer, NULL, "New printer \"%s\" added by \"%s\".",
 		  printer->name, get_username(con));
 
@@ -4295,7 +4284,8 @@ check_rss_recipient(
  * 'check_quotas()' - Check quotas for a printer and user.
  */
 
-static int				/* O - 1 if OK, 0 if not */
+static int				/* O - 1 if OK, 0 if forbidden,
+					       -1 if limit reached */
 check_quotas(cupsd_client_t  *con,	/* I - Client connection */
              cupsd_printer_t *p)	/* I - Printer or class */
 {
@@ -4345,7 +4335,7 @@ check_quotas(cupsd_client_t  *con,	/* I - Client connection */
     {
       cupsdLogMessage(CUPSD_LOG_INFO, "Too many jobs for printer \"%s\"...",
                       p->name);
-      return (0);
+      return (-1);
     }
   }
 
@@ -4359,7 +4349,7 @@ check_quotas(cupsd_client_t  *con,	/* I - Client connection */
     {
       cupsdLogMessage(CUPSD_LOG_INFO, "Too many jobs for user \"%s\"...",
                       username);
-      return (0);
+      return (-1);
     }
   }
 
@@ -6009,6 +5999,9 @@ create_requested_array(ipp_t *request)	/* I - IPP request */
       cupsArrayAdd(ra, "job-k-octets-supported");
       cupsArrayAdd(ra, "job-media-sheets-supported");
       cupsArrayAdd(ra, "job-settable-attributes-supported");
+      cupsArrayAdd(ra, "jpeg-k-octets-supported");
+      cupsArrayAdd(ra, "jpeg-x-dimension-supported");
+      cupsArrayAdd(ra, "jpeg-y-dimension-supported");
       cupsArrayAdd(ra, "multiple-document-jobs-supported");
       cupsArrayAdd(ra, "multiple-operation-time-out");
       cupsArrayAdd(ra, "natural-language-configured");
@@ -6023,6 +6016,8 @@ create_requested_array(ipp_t *request)	/* I - IPP request */
       cupsArrayAdd(ra, "operations-supported");
       cupsArrayAdd(ra, "pages-per-minute");
       cupsArrayAdd(ra, "pages-per-minute-color");
+      cupsArrayAdd(ra, "pdf-k-octets-supported");
+      cupsArrayAdd(ra, "pdf-versions-supported");
       cupsArrayAdd(ra, "pdl-override-supported");
       cupsArrayAdd(ra, "printer-alert");
       cupsArrayAdd(ra, "printer-alert-description");
@@ -6047,6 +6042,7 @@ create_requested_array(ipp_t *request)	/* I - IPP request */
       cupsArrayAdd(ra, "printer-uri-supported");
       cupsArrayAdd(ra, "queued-job-count");
       cupsArrayAdd(ra, "reference-uri-schemes-supported");
+      cupsArrayAdd(ra, "urf-supported");
       cupsArrayAdd(ra, "uri-authentication-supported");
       cupsArrayAdd(ra, "uri-security-supported");
     }
@@ -6519,13 +6515,13 @@ delete_printer(cupsd_client_t  *con,	/* I - Client connection */
            printer->name);
   unlink(filename);
 
-  snprintf(filename, sizeof(filename), "%s/%s.ipp", CacheDir, printer->name);
+  snprintf(filename, sizeof(filename), "%s/%s.ipp4", CacheDir, printer->name);
   unlink(filename);
 
-	snprintf(filename, sizeof(filename), "%s/%s.png", CacheDir, printer->name);
-	unlink(filename);
+  snprintf(filename, sizeof(filename), "%s/%s.png", CacheDir, printer->name);
+  unlink(filename);
 
-  snprintf(filename, sizeof(filename), "%s/%s.pwg", CacheDir, printer->name);
+  snprintf(filename, sizeof(filename), "%s/%s.pwg3", CacheDir, printer->name);
   unlink(filename);
 
 #ifdef __APPLE__
@@ -11426,6 +11422,7 @@ static void
 validate_job(cupsd_client_t  *con,	/* I - Client connection */
 	     ipp_attribute_t *uri)	/* I - Printer URI */
 {
+  int			i;		/* Temporary variable */
   http_status_t		status;		/* Policy status */
   ipp_attribute_t	*attr;		/* Current attribute */
   ipp_attribute_t	*format;	/* Document-format attribute */
@@ -11508,6 +11505,21 @@ validate_job(cupsd_client_t  *con,	/* I - Client connection */
   if ((status = cupsdCheckPolicy(printer->op_policy_ptr, con, NULL)) != HTTP_OK)
   {
     send_http_error(con, status, printer);
+    return;
+  }
+
+ /*
+  * Check quotas...
+  */
+
+  if ((i = check_quotas(con, printer)) < 0)
+  {
+    send_ipp_status(con, IPP_NOT_POSSIBLE, _("Quota limit reached."));
+    return;
+  }
+  else if (i == 0)
+  {
+    send_ipp_status(con, IPP_NOT_AUTHORIZED, _("Not allowed to print."));
     return;
   }
 

@@ -1956,6 +1956,12 @@
 			buildConfigurationList = 84EC18A508D8FA9B00E9F643 /* Build configuration list for PBXProject "IOHIDFamily" */;
 			compatibilityVersion = "Xcode 3.1";
 			hasScannedForEncodings = 1;
+			knownRegions = (
+				English,
+				Japanese,
+				French,
+				German,
+			);
 			mainGroup = 089C166AFE841209C02AAC07 /* IOHIDFamily */;
 			projectDirPath = "";
 			projectRoot = "";

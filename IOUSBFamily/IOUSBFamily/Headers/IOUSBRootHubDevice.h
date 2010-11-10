@@ -90,7 +90,8 @@ public:
     OSMetaClassDeclareReservedUsed(IOUSBRootHubDevice,  3);
 	virtual UInt32			GetSleepCurrent();
 
-    OSMetaClassDeclareReservedUnused(IOUSBRootHubDevice,  4);
+    OSMetaClassDeclareReservedUsed(IOUSBRootHubDevice,  4);
+	virtual void			SendExtraPowerMessage(UInt32 type, UInt32 returnedPower);
 };
 
 #endif /* _IOKIT_IOUSBROOTHUBDEVICE_H */

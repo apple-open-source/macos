@@ -533,7 +533,11 @@ IOReturn IOHIDEventSystemUserClient::destroyEventQueue(void*p1,void*p2,void*p3,v
 
 IOReturn IOHIDEventSystemUserClient::tickle(void*,void*,void*,void*,void*,void*)
 {
-    owner->displayManager->activityTickle(0,0);;
+    if ( owner && (owner->displayState & IOPMDeviceUsable) ) {	// if display is off, consume the tickle        
+        // TICKLE_DISPLAY;
+        if (!owner->evStateChanging && owner->displayManager)
+            owner->displayManager->activityTickle(0,0);;
+    }
 
     return kIOReturnSuccess;
 }

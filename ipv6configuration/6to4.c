@@ -50,39 +50,66 @@ typedef struct {
     struct in6_addr		prefixmask;
 } Service_6to4_t;
 
-#define TEN_NET		0x0a000000	/* 10.0.0.0 */
-#define IN_TEN_NET(i)	(((u_int32_t)(i) & 0xff000000) == TEN_NET)
-#define ONE_NINE_TWO_NET	0xc0a80000	/* 192.168.0.0 */
-#define IN_ONE_NINE_TWO_NET(i)	(((u_int32_t)(i) & 0xffff0000) == ONE_NINE_TWO_NET)
-#define ONE_SEVEN_TWO_NET_START	0xac100000	/* 172.16.0.0 */
-#define ONE_SEVEN_TWO_NET_END	0xac1f0000	/* 172.31.0.0 */
-#define IN_ONE_SEVEN_TWO_NET(i)	\
-    ((((u_int32_t)(i) & 0xfff00000) >= ONE_SEVEN_TWO_NET_START) \
-	&& (((u_int32_t)(i) & 0xfff00000) <= ONE_SEVEN_TWO_NET_END))
-#define IS_NOT_ROUTABLE_IP(i) \
-    ((IN_TEN_NET(i)) || (IN_ONE_NINE_TWO_NET(i)) || (IN_ONE_SEVEN_TWO_NET(i)))
+/*
+ * Taken from RFC 1918.  Private IP address ranges are:
+ * 10.0.0.0        -   10.255.255.255  (10/8 prefix)
+ * 172.16.0.0      -   172.31.255.255  (172.16/12 prefix)
+ * 192.168.0.0     -   192.168.255.255 (192.168/16 prefix)
+ */
+
+#define IN_PRIVATE_10		((u_int32_t)0x0a000000)
+#define IN_PRIVATE_10_NET	((u_int32_t)IN_CLASSA_NET)
+
+#define IN_PRIVATE_172_16	((u_int32_t)0xac100000)
+#define IN_PRIVATE_172_16_NET	((u_int32_t)0xfff00000)
+
+#define IN_PRIVATE_192_168	((u_int32_t)0xc0a80000)
+#define IN_PRIVATE_192_168_NET	((u_int32_t)IN_CLASSB_NET)
+
+static __inline__ boolean_t
+ip_is_private(struct in_addr iaddr)
+{
+    u_int32_t	val = ntohl(iaddr.s_addr);
+
+    if ((val & IN_PRIVATE_10_NET) == IN_PRIVATE_10
+	|| (val & IN_PRIVATE_172_16_NET) == IN_PRIVATE_172_16
+	|| (val & IN_PRIVATE_192_168_NET) == IN_PRIVATE_192_168) {
+	return (TRUE);
+    }
+    return (FALSE);
+}
+
+static __inline__ boolean_t
+ip_is_linklocal(struct in_addr iaddr)
+{
+    u_int32_t	val = ntohl(iaddr.s_addr);
+
+    return (IN_LINKLOCAL(val));
+}
 
 static boolean_t
-stf_get_valid_ip4(ip6config_method_data_t * method_data, struct in_addr * ip4_addr)
+stf_get_valid_ip4(ip6config_method_data_t * method_data,
+		  struct in_addr * ip4_addr)
 {
-    int		i, count = method_data->stf_data.n_ip4;
-    boolean_t	found = FALSE;
+    int			count;
+    int			i;
+    struct in_addr *	scan;
 
-    if (method_data->stf_data.ip4_addrs_list != NULL) {
-	for (i = 0; i < count; i++) {
-	    if (IN_LINKLOCAL(method_data->stf_data.ip4_addrs_list[i].s_addr)
-		|| IS_NOT_ROUTABLE_IP(method_data->stf_data.ip4_addrs_list[i].s_addr)) {
-		my_log(LOG_DEBUG, "6to4: not a good address");
-		continue;
-	    }
-
-	    *ip4_addr = method_data->stf_data.ip4_addrs_list[i];
-	    found = TRUE;
-	    break;
+    scan = method_data->stf_data.ip4_addrs_list;
+    count = method_data->stf_data.n_ip4;
+    if (scan == NULL || count == 0) {
+	goto done;
+    }
+    for (i = 0; i < count; i++, scan++) {
+	if (ip_is_linklocal(*scan) || ip_is_private(*scan)) {
+	    continue;
 	}
+	*ip4_addr = *scan;
+	return (TRUE);
     }
 
-    return (found);
+ done:
+    return (FALSE);
 }
 
 static void

@@ -364,8 +364,9 @@ AppleUSBOHCI::SetRootHubPortFeature(UInt16 wValue, UInt16 wIndex)
 IOReturn 
 AppleUSBOHCI::ClearRootHubPortFeature(UInt16 wValue, UInt16 wIndex)
 {
-    UInt16	port = wIndex-1;
-	bool	renableRHSCInterrupt = false;
+    UInt16		port = wIndex-1;
+	bool		renableRHSCInterrupt = false;
+	IOReturn	err = kIOReturnSuccess;
 
     switch(wValue)
     {
@@ -378,9 +379,17 @@ AppleUSBOHCI::ClearRootHubPortFeature(UInt16 wValue, UInt16 wIndex)
             break;
 
         case kUSBHubPortPowerFeature :
-            OHCIRootHubPortPower(port, false);
-            // Now need to check if all ports are switched off and
-            // gang off if in gang mode
+ 			if (_errataBits & kErrataIgnoreRootHubPowerClearFeature)
+			{
+				USBLog(5,"AppleUSBOHCI[%p]::ClearRootHubPortFeature (kUSBHubPortPowerFeature) port %d, ignoring per errata bit",  this, port+1);
+				err = kIOReturnUnsupported;
+			}
+			else 
+			{			
+				OHCIRootHubPortPower(port, false);
+				// Now need to check if all ports are switched off and
+				// gang off if in gang mode
+			}
             break;
 
         // ****** Change features *******
@@ -426,7 +435,7 @@ AppleUSBOHCI::ClearRootHubPortFeature(UInt16 wValue, UInt16 wIndex)
 		IOSync();
 	}
 	
-    return(kIOReturnSuccess);
+    return err;
 }
 
 

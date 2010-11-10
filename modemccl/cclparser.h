@@ -51,7 +51,8 @@
 // personalities with Connect Type values other than those listed.
 // (e.g. "GPRS" or "Dialup"; someday WWAN?)
 // Flat CCL bundles (which have no type information) are still included.
-// Be sure to call -clearParser if changing the list for an existing object.
+// Be sure to call -clearParser and then the process* routines again
+// if changing the filter list for an existing object.
 - (void)setTypeFilter:(NSSet*)desiredConnectTypes;
 
 // recursively searches directory (i.e. /Library/Modem Scripts) for CCLs.
@@ -59,9 +60,9 @@
 //
 // A CCL bundle is a directory with the .ccl extension.
 // processFolder: returns NO if it finds any directory that looks like a
-// CCL but isn't a properly formed (doesn't have the right files, bad
-// version, etc).  It does not give up just because it found one malformed.
-// CCL.  Conforming bundles still have their personality data added.  
+// CCL bundle but isn't a properly formed (doesn't have the right files, bad
+// version, etc).  It does not give up just because it found one malformed
+// CCL bundle.  Conforming bundles still have their personality data added.  
 // Any files are assumed to be flat CCL scripts and are gathered together
 // under the 'Other' vendor.  "Flat" CCL personalities have their DeviceVendor
 // property set to the English string "Other" (kCCLOtherVendorName).

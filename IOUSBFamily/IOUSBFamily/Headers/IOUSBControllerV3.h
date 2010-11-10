@@ -24,6 +24,7 @@
 #define _IOKIT_IOUSBCONTROLLERV3_H
 
 #include <IOKit/pci/IOPCIDevice.h>
+#include <IOKit/pwr_mgt/RootDomain.h>
 
 #include <IOKit/usb/IOUSBControllerV2.h>
 #include <IOKit/usb/IOUSBHubDevice.h>
@@ -106,6 +107,8 @@ class IOUSBControllerV3 : public IOUSBControllerV2
 		struct V3ExpansionData { 
 			uint32_t				_rootHubPollingRate32;
 			bool					_rootHubTransactionWasAborted;
+			IOPMDriverAssertionID	_externalUSBDeviceAssertionID;		// power manager assertion that we have an external USB device
+			SInt32					_externalDeviceCount;				// the count of external devices in this controller - changed through the WL gate
 		};
 		V3ExpansionData *_v3ExpansionData;
 
@@ -151,6 +154,7 @@ class IOUSBControllerV3 : public IOUSBControllerV2
 		static IOReturn					DoEnableAddressEndpoints(OSObject *owner, void *arg0, void *arg1, void *arg2, void *arg3 );
 		static IOReturn					DoEnableAllEndpoints(OSObject *owner, void *arg0, void *arg1, void *arg2, void *arg3 );
 		static IOReturn					GatedPowerChange(OSObject *owner, void *arg0, void *arg1, void *arg2, void *arg3 );
+		static IOReturn					ChangeExternalDeviceCount(OSObject *owner, void *arg0, void *arg1, void *arg2, void *arg3 );
 
 		// also on the workloop
 	    static void						RootHubTimerFired(OSObject *owner, IOTimerEventSource *sender);
@@ -199,7 +203,9 @@ class IOUSBControllerV3 : public IOUSBControllerV2
 	OSMetaClassDeclareReservedUsed(IOUSBControllerV3,  0);
 	virtual IOReturn				RootHubStartTimer32(uint32_t pollingRate);
 	
-	OSMetaClassDeclareReservedUnused(IOUSBControllerV3,  1);
+	OSMetaClassDeclareReservedUsed(IOUSBControllerV3,  1);
+	virtual IOReturn				CheckPMAssertions(IOUSBDevice *forDevice, bool deviceBeingAdded);
+	
 	OSMetaClassDeclareReservedUnused(IOUSBControllerV3,  2);
 	OSMetaClassDeclareReservedUnused(IOUSBControllerV3,  3);
 	OSMetaClassDeclareReservedUnused(IOUSBControllerV3,  4);

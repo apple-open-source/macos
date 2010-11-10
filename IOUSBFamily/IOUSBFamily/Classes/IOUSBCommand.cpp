@@ -23,6 +23,8 @@
  */
 
 
+#include <libkern/version.h>
+
 #include <libkern/OSDebug.h>
 #include <IOKit/IOLib.h>
 #include <IOKit/usb/IOUSBCommand.h>
@@ -521,14 +523,16 @@ IOUSBCommandPool::gatedGetCommand(IOCommand ** command, bool blockForCommand)
 IOReturn
 IOUSBCommandPool::gatedReturnCommand(IOCommand * command)
 {
+	IOUSBCommand		*usbCommand		= OSDynamicCast(IOUSBCommand, command);					// only one of these should be non-null
+	IOUSBIsocCommand	*isocCommand	= OSDynamicCast(IOUSBIsocCommand, command);
+
 	USBLog(7,"IOUSBCommandPool[%p]::gatedReturnCommand %p", this, command);
 	if (!command)
 	{
 #if DEBUG_LEVEL != DEBUG_LEVEL_PRODUCTION
 		panic("IOUSBCommandPool::gatedReturnCommand( NULL )");
-#else
-		return kIOReturnBadArgument;
 #endif
+		return kIOReturnBadArgument;
 	}
 	
 	if (command->fCommandChain.next &&
@@ -536,20 +540,58 @@ IOUSBCommandPool::gatedReturnCommand(IOCommand * command)
 		 &command->fCommandChain != command->fCommandChain.prev))
 	{
 #if DEBUG_LEVEL != DEBUG_LEVEL_PRODUCTION
-		kprintf("WARNING: gatedReturnCommand(%p) already on queue [next=%p prev=%p]\n",
-				command, command->fCommandChain.next, command->fCommandChain.prev);
-		
+		kprintf("WARNING: gatedReturnCommand(%p) already on queue [next=%p prev=%p]\n", command, command->fCommandChain.next, command->fCommandChain.prev);
 		panic("IOUSBCommandPool::gatedReturnCommand already on queue");
-#else
+#endif
 		char*		bt[8];
 		
 		OSBacktrace((void**)bt, 8);
 		
 		USBError(1,"IOUSBCommandPool[%p]::gatedReturnCommand  command already in queue, not putting it back into the queue, bt: [%p][%p][%p][%p][%p][%p][%p][%p]", this, bt[0], bt[1], bt[2], bt[3], bt[4], bt[5], bt[6], bt[7]);
 		return kIOReturnBadArgument;
-#endif
 	}
 	
+	if (usbCommand)
+	{
+		IODMACommand *dmaCommand = usbCommand->GetDMACommand();
+		if (dmaCommand)
+		{
+			if (dmaCommand->getMemoryDescriptor())
+			{
+				USBError(1, "IOUSBCommandPool::gatedReturnCommand - command (%p) still has dmaCommand(%p) with an active memory descriptor(%p)", usbCommand, dmaCommand, dmaCommand->getMemoryDescriptor());
+#if DEBUG_LEVEL != DEBUG_LEVEL_PRODUCTION
+#if VERSION_MAJOR < 11
+				panic("IOUSBCommandPool::gatedReturnCommand -dmaCommand still has active IOMD");
+#endif
+#endif
+			}
+		}
+		else
+		{
+			USBError(1,"IOUSBCommandPool[%p]::gatedReturnCommand - missing dmaCommand in IOUSBCommand", this);
+		}
+	}
+	
+	if (isocCommand)
+	{
+		IODMACommand *dmaCommand = isocCommand->GetDMACommand();
+		if (dmaCommand)
+		{
+			if (dmaCommand->getMemoryDescriptor())
+			{
+				USBError(1, "IOUSBCommandPool::gatedReturnCommand - isocCommand (%p) still has dmaCommand(%p) with an active memory descriptor(%p)", isocCommand, dmaCommand, dmaCommand->getMemoryDescriptor());
+#if DEBUG_LEVEL != DEBUG_LEVEL_PRODUCTION
+#if VERSION_MAJOR < 11
+				panic("IOUSBCommandPool::gatedReturnCommand - dmaCommand still has active IOMD (isoc)");
+#endif
+#endif
+			}
+		}
+		else
+		{
+			USBError(1,"IOUSBCommandPool[%p]::gatedReturnCommand - missing dmaCommand in IOUSBIsocCommand", this);
+		}
+	}
 	return IOCommandPool::gatedReturnCommand(command);
 }
 

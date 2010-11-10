@@ -45,6 +45,7 @@
 #include "KeyframeList.h"
 #include "PluginWidget.h"
 #include "RenderBox.h"
+#include "RenderIFrame.h"
 #include "RenderImage.h"
 #include "RenderLayerCompositor.h"
 #include "RenderEmbeddedObject.h"
@@ -150,10 +151,41 @@ static bool hasNonZeroTransformOrigin(const RenderObject* renderer)
         || (style->transformOriginY().type() == Fixed && style->transformOriginY().value());
 }
 
+static bool layerOrAncestorIsTransformed(RenderLayer* layer)
+{
+    for (RenderLayer* curr = layer; curr; curr = curr->parent()) {
+        if (curr->hasTransform())
+            return true;
+    }
+    
+    return false;
+}
+
 void RenderLayerBacking::updateCompositedBounds()
 {
     IntRect layerBounds = compositor()->calculateCompositedBounds(m_owningLayer, m_owningLayer);
 
+    // Clip to the size of the document or enclosing overflow-scroll layer.
+    // If this or an ancestor is transformed, we can't currently compute the correct rect to intersect with.
+    // We'd need RenderObject::convertContainerToLocalQuad(), which doesn't yet exist.
+    if (compositor()->compositingConsultsOverlap() && !layerOrAncestorIsTransformed(m_owningLayer)) {
+        RenderView* view = m_owningLayer->renderer()->view();
+        RenderLayer* rootLayer = view->layer();
+
+        // Start by clipping to the view's bounds.
+        IntRect clippingBounds = view->layoutOverflowRect();
+
+        if (m_owningLayer != rootLayer)
+            clippingBounds.intersect(m_owningLayer->backgroundClipRect(rootLayer, true));
+
+        int deltaX = 0;
+        int deltaY = 0;
+        m_owningLayer->convertToLayerCoords(rootLayer, deltaX, deltaY);
+        clippingBounds.move(-deltaX, -deltaY);
+
+        layerBounds.intersect(clippingBounds);
+    }
+    
     // If the element has a transform-origin that has fixed lengths, and the renderer has zero size,
     // then we need to ensure that the compositing layer has non-zero size so that we can apply
     // the transform-origin via the GraphicsLayer anchorPoint (which is expressed as a fractional value).
@@ -165,6 +197,14 @@ void RenderLayerBacking::updateCompositedBounds()
         m_artificiallyInflatedBounds = false;
 
     setCompositedBounds(layerBounds);
+}
+
+void RenderLayerBacking::updateAfterWidgetResize()
+{
+    if (renderer()->isRenderIFrame()) {
+        if (RenderLayerCompositor* innerCompositor = RenderLayerCompositor::iframeContentsCompositor(toRenderIFrame(renderer())))
+            innerCompositor->updateContentLayerOffset(contentsBox().location());
+    }
 }
 
 void RenderLayerBacking::updateAfterLayout(UpdateDepth updateDepth, bool isUpdateRoot)
@@ -232,6 +272,9 @@ bool RenderLayerBacking::updateGraphicsLayerConfiguration()
     }
 #endif
 
+    if (renderer()->isRenderIFrame())
+        layerConfigChanged = RenderLayerCompositor::parentIFrameContentLayers(toRenderIFrame(renderer()));
+
     return layerConfigChanged;
 }
 
@@ -295,7 +338,12 @@ void RenderLayerBacking::updateGraphicsLayerGeometry()
     }
 
     m_graphicsLayer->setPosition(FloatPoint() + (relativeCompositingBounds.location() - graphicsLayerParentLocation));
+    
+    IntSize oldOffsetFromRenderer = m_graphicsLayer->offsetFromRenderer();
     m_graphicsLayer->setOffsetFromRenderer(localCompositingBounds.location() - IntPoint());
+    // If the compositing layer offset changes, we need to repaint.
+    if (oldOffsetFromRenderer != m_graphicsLayer->offsetFromRenderer())
+        m_graphicsLayer->setNeedsDisplay();
     
     FloatSize oldSize = m_graphicsLayer->size();
     FloatSize newSize = relativeCompositingBounds.size();
@@ -384,25 +432,8 @@ void RenderLayerBacking::updateGraphicsLayerGeometry()
     }
 
     m_graphicsLayer->setContentsRect(contentsBox());
-    m_graphicsLayer->setDrawsContent(containsPaintedContent());
-
-    // If this is an iframe parent, update the iframe content's box
-    RenderLayerCompositor* innerCompositor = innerRenderLayerCompositor();
-    if (innerCompositor)
-        innerCompositor->setRootPlatformLayerClippingBox(contentsBox());
-}
-
-RenderLayerCompositor* RenderLayerBacking::innerRenderLayerCompositor() const
-{
-    if (renderer()->isRenderIFrame()) {
-        HTMLIFrameElement* element = static_cast<HTMLIFrameElement*>(renderer()->node());
-        if (Document* contentDocument = element->contentDocument()) {
-            if (RenderView* view = contentDocument->renderView())
-                return view->compositor();
-        }
-    }
-
-    return 0;
+    updateDrawsContent();
+    updateAfterWidgetResize();
 }
 
 void RenderLayerBacking::updateInternalHierarchy()
@@ -419,6 +450,11 @@ void RenderLayerBacking::updateInternalHierarchy()
         m_clippingLayer->removeFromParent();
         m_graphicsLayer->addChild(m_clippingLayer.get());
     }
+}
+
+void RenderLayerBacking::updateDrawsContent()
+{
+    m_graphicsLayer->setDrawsContent(containsPaintedContent());
 }
 
 // Return true if the layers changed.
@@ -729,7 +765,7 @@ bool RenderLayerBacking::containsPaintedContent() const
 bool RenderLayerBacking::isDirectlyCompositedImage() const
 {
     RenderObject* renderObject = renderer();
-    return renderObject->isImage() && !hasBoxDecorationsOrBackground(renderObject);
+    return renderObject->isImage() && !hasBoxDecorationsOrBackground(renderObject) && !renderObject->hasClip();
 }
 
 void RenderLayerBacking::rendererContentChanged()
@@ -838,14 +874,10 @@ FloatPoint RenderLayerBacking::contentsToGraphicsLayerCoordinates(const Graphics
 
 bool RenderLayerBacking::paintingGoesToWindow() const
 {
-    if (!RenderLayerCompositor::shouldPropagateCompositingToIFrameParent())
-        return m_owningLayer->isRootLayer();
-
-    if (!m_owningLayer->isRootLayer())
-        return false;
-
-    // Iframe root layers paint into backing store.
-    return !toRenderView(renderer())->document()->ownerElement();
+    if (m_owningLayer->isRootLayer())
+        return compositor()->rootLayerAttachment() == RenderLayerCompositor::RootLayerAttachedViaChromeClient;
+    
+    return false;
 }
 
 void RenderLayerBacking::setContentsNeedDisplay()

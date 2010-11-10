@@ -84,17 +84,17 @@
 	</dict>
 	<dict>
 		<key>OpenSourceImportDate</key>
-		<string>2010-01-12</string>
+		<string>2010-06-10</string>
 		<key>OpenSourceLicense</key>
 		<string>MIT</string>
 		<key>OpenSourceProject</key>
 		<string>xorg-server</string>
 		<key>OpenSourceSHA1</key>
-		<string>cfad49848163b526d66fa4f7d14e7df1511b3c8d</string>
+		<string>9f4a7f8c8c351d6d5316066dc806c58989deadbb</string>
 		<key>OpenSourceURL</key>
-		<string>http://xquartz.macosforge.org/downloads/src/xorg-server-1.4.2-apple53.tar.bz2</string>
+		<string>http://xquartz.macosforge.org/downloads/src/xorg-server-1.4.2-apple56.tar.bz2</string>
 		<key>OpenSourceVersion</key>
-		<string>1.4.2-apple53</string>
+		<string>1.4.2-apple56</string>
 		<key>OpenSourceWebsiteURL</key>
 		<string>http://xquartz.macosforge.org</string>
 	</dict>
@@ -116,18 +116,18 @@
 	</dict>
 	<dict>
 		<key>OpenSourceImportDate</key>
-		<string>2009-11-14</string>
+		<string>2010-03-15</string>
 		<key>OpenSourceLicense</key>
 		<string>MIT</string>
 		<key>OpenSourceProject</key>
 		<string>xinit</string>
 		<key>OpenSourceSHA1</key>
-		<string>85a838c2010f27ef6d09d6ec4b1208a66cc8d697</string>
+		<string>baf36374aa1632054816a8281e55e1539459664b</string>
 		<key>OpenSourceURL</key>
-		<string>http://xorg.freedesktop.org/archive/individual/app/xinit-1.2.0.tar.bz2</string>
+		<string>http://xorg.freedesktop.org/archive/individual/app/xinit-1.2.1.tar.bz2</string>
 		<key>OpenSourceVersion</key>
-		<string>1.2.0</string>
+		<string>1.2.1</string>
 		<key>OpenSourceWebsiteURL</key>
 		<string>http://www.x.org</string>
-	</dict></array>
+	</dict>
 </plist>

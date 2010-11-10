@@ -100,13 +100,13 @@ public:
 	
 
 	void inferHints(Process &thisProcess);
-    void addHint(const char *name, const void *value = NULL, UInt32 valueLen = 0, UInt32 flags = 0);
+	void addHint(const char *name, const void *value = NULL, UInt32 valueLen = 0, UInt32 flags = 0);
 
 	virtual ~SecurityAgentQuery();
 
 	virtual void activate();
-    virtual void reconnect();
-    virtual void disconnect();
+	virtual void reconnect();
+	virtual void disconnect();
 	virtual void terminate();
 	void create(const char *pluginId, const char *mechanismId, const SessionId inSessionId);
 

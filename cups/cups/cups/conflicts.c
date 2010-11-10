@@ -1,5 +1,5 @@
 /*
- * "$Id: conflicts.c 1793 2009-12-16 01:45:27Z msweet $"
+ * "$Id: conflicts.c 2485 2010-08-13 03:54:00Z msweet $"
  *
  *   Option marking routines for the Common UNIX Printing System (CUPS).
  *
@@ -290,25 +290,25 @@ cupsResolveConflicts(
 
         for (resval = resolver->value; *resval && !changed;)
 	{
-	  while (isspace(*resval & 255))
+	  while (_cups_isspace(*resval))
 	    resval ++;
 
 	  if (*resval != '*')
 	    break;
 
 	  for (resval ++, resptr = resoption;
-	       *resval && !isspace(*resval & 255);
+	       *resval && !_cups_isspace(*resval);
 	       resval ++)
             if (resptr < (resoption + sizeof(resoption) - 1))
 	      *resptr++ = *resval;
 
           *resptr = '\0';
 
-	  while (isspace(*resval & 255))
+	  while (_cups_isspace(*resval))
 	    resval ++;
 
 	  for (resptr = reschoice;
-	       *resval && !isspace(*resval & 255);
+	       *resval && !_cups_isspace(*resval);
 	       resval ++)
             if (resptr < (reschoice + sizeof(reschoice) - 1))
 	      *resptr++ = *resval;
@@ -887,20 +887,20 @@ ppd_load_constraints(ppd_file_t *ppd)	/* I - PPD file */
       * Extract "*Option Choice" or just "*Option"...
       */
 
-      for (vptr ++, ptr = option; *vptr && !isspace(*vptr & 255); vptr ++)
+      for (vptr ++, ptr = option; *vptr && !_cups_isspace(*vptr); vptr ++)
 	if (ptr < (option + sizeof(option) - 1))
 	  *ptr++ = *vptr;
 
       *ptr = '\0';
 
-      while (isspace(*vptr & 255))
+      while (_cups_isspace(*vptr))
 	vptr ++;
 
       if (*vptr == '*')
 	choice[0] = '\0';
       else
       {
-	for (ptr = choice; *vptr && !isspace(*vptr & 255); vptr ++)
+	for (ptr = choice; *vptr && !_cups_isspace(*vptr); vptr ++)
 	  if (ptr < (choice + sizeof(choice) - 1))
 	    *ptr++ = *vptr;
 
@@ -1143,5 +1143,5 @@ ppd_test_constraints(
 
 
 /*
- * End of "$Id: conflicts.c 1793 2009-12-16 01:45:27Z msweet $".
+ * End of "$Id: conflicts.c 2485 2010-08-13 03:54:00Z msweet $".
  */

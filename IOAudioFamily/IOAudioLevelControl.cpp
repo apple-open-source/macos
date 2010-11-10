@@ -299,14 +299,14 @@ IOReturn IOAudioLevelControl::validateValue(OSObject *newValue)
     
     number = OSDynamicCast(OSNumber, newValue);
 	
-	audioDebugIOLog(3, "IOAudioLevelControl::validateValue[%p] (%p)", this, newValue);
+	audioDebugIOLog(3, "+ IOAudioLevelControl::validateValue[%p] (%p)\n", this, newValue);
    
     if (number) {
         SInt32 newIntValue;
         
         newIntValue = (SInt32)number->unsigned32BitValue();
 
-		audioDebugIOLog(3, "IOAudioLevelControl::validateValue[%p] - newIntValue = %ld, min = %ld, max = %ld", this, newIntValue, minValue, maxValue);
+		audioDebugIOLog(3, "  IOAudioLevelControl::validateValue[%p] - newIntValue = %ld, min = %ld, max = %ld\n", this, (long int)newIntValue, (long int)minValue, (long int)maxValue);
         
         if ((newIntValue >= minValue) && (newIntValue <= maxValue)) {
             result = kIOReturnSuccess;
@@ -315,6 +315,7 @@ IOReturn IOAudioLevelControl::validateValue(OSObject *newValue)
         }
     }
     
+	audioDebugIOLog(3, "- IOAudioLevelControl::validateValue[%p] (%p) returns 0x%lX\n", this, newValue, (long unsigned int)result );
     return result;
 }
 

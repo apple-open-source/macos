@@ -1682,6 +1682,33 @@ int dkioctl(dev_t dev, u_long cmd, caddr_t data, int flags, proc_t proc)
 
         } break;
 
+        case DKIOCISSOLIDSTATE:                                  // (uint32_t *)
+        {
+            //
+            // This ioctl returns truth if the device is solid state.
+            //
+
+            OSDictionary * dictionary = OSDynamicCast(
+                         /* class  */ OSDictionary,
+                         /* object */ minor->media->getProperty(
+                                 /* key   */ kIOPropertyDeviceCharacteristicsKey,
+                                 /* plane */ gIOServicePlane ) );
+
+            *(uint32_t *)data = false;
+
+            if ( dictionary )
+            {
+                OSString * string = OSDynamicCast( 
+                         /* class  */ OSString,
+                         /* object */ dictionary->getObject(
+                                 /* key   */ kIOPropertyMediumTypeKey ) );
+
+                if ( string && string->isEqualTo( kIOPropertyMediumTypeSolidStateKey ) )
+                    *(uint32_t *)data = true;
+            }
+
+        } break;
+
         case DKIOCISVIRTUAL:                                     // (uint32_t *)
         {
             //

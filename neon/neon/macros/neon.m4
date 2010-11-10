@@ -1,4 +1,4 @@
-# Copyright (C) 1998-2008 Joe Orton <joe@manyfish.co.uk>    -*- autoconf -*-
+# Copyright (C) 1998-2009 Joe Orton <joe@manyfish.co.uk>    -*- autoconf -*-
 # Copyright (C) 2004 Aleix Conchillo Flaque <aleix@member.fsf.org>
 #
 # This file is free software; you may copy and/or distribute it with
@@ -137,7 +137,7 @@ AC_DEFUN([NE_VERSIONS_BUNDLED], [
 # Define the current versions.
 NE_VERSION_MAJOR=0
 NE_VERSION_MINOR=28
-NE_VERSION_PATCH=3
+NE_VERSION_PATCH=6
 NE_VERSION_TAG=
 
 # 0.28.x is backwards-compatible with 0.27.x, so AGE=1
@@ -430,8 +430,10 @@ AC_DEFUN([NEON_COMMON_CHECKS], [
 # These checks are done whether or not the bundled neon build
 # is used.
 
+ifdef([AC_USE_SYSTEM_EXTENSIONS], 
+[AC_USE_SYSTEM_EXTENSIONS],
+[AC_ISC_POSIX])
 AC_REQUIRE([AC_PROG_CC])
-AC_REQUIRE([AC_ISC_POSIX])
 AC_REQUIRE([AC_C_INLINE])
 AC_REQUIRE([AC_C_CONST])
 AC_REQUIRE([AC_TYPE_SIZE_T])
@@ -626,7 +628,8 @@ char *stpcpy(char *, const char *);
 
 # Unixware 7 can only link gethostbyname with -lnsl -lsocket
 # Pick up -lsocket first, then the gethostbyname check will work.
-NE_SEARCH_LIBS(socket, socket inet ws2_32)
+# Haiku requires -lnetwork for socket functions.
+NE_SEARCH_LIBS(socket, socket inet ws2_32 network)
 
 # Enable getaddrinfo support if it, gai_strerror and inet_ntop are
 # all available.
@@ -659,7 +662,8 @@ else
    # Checks for non-getaddrinfo() based resolver interfaces.
    # QNX has gethostbyname in -lsocket. BeOS only has it in -lbind.
    # CygWin/Winsock2 has it in -lws2_32, allegedly.
-   NE_SEARCH_LIBS(gethostbyname, socket nsl bind ws2_32)
+   # Haiku requires -lnetwork for socket functions.
+   NE_SEARCH_LIBS(gethostbyname, socket nsl bind ws2_32 network)
    NE_SEARCH_LIBS(hstrerror, resolv,,[:])
    NE_CHECK_FUNCS(hstrerror)
    # Older Unixes don't declare h_errno.
@@ -937,27 +941,37 @@ yes|openssl)
    NEON_EXTRAOBJS="$NEON_EXTRAOBJS ne_openssl"
    ;;
 gnutls)
-   AC_PATH_PROG(GNUTLS_CONFIG, libgnutls-config, no)
+   NE_PKG_CONFIG(NE_SSL, gnutls,
+     [AC_MSG_NOTICE(using GnuTLS configuration from pkg-config)
+      CPPFLAGS="$CPPFLAGS ${NE_SSL_CFLAGS}"
+      NEON_LIBS="$NEON_LIBS ${NE_SSL_LIBS}"
 
-   if test "$GNUTLS_CONFIG" = "no"; then
-     AC_MSG_ERROR([could not find libgnutls-config in \$PATH])
-   fi
+      ne_gnutls_ver=`$PKG_CONFIG --modversion gnutls`
+     ], [
+      # Fall back on libgnutls-config script
+      AC_PATH_PROG(GNUTLS_CONFIG, libgnutls-config, no)
 
-   ne_gnutls_ver=`$GNUTLS_CONFIG --version`
+      if test "$GNUTLS_CONFIG" = "no"; then
+        AC_MSG_ERROR([could not find libgnutls-config in \$PATH])
+      fi
+
+      CPPFLAGS="$CPPFLAGS `$GNUTLS_CONFIG --cflags`"
+      NEON_LIBS="$NEON_LIBS `$GNUTLS_CONFIG --libs`"
+
+      ne_gnutls_ver=`$GNUTLS_CONFIG --version`
+     ])
+
    case $ne_gnutls_ver in
    1.0.?|1.0.1?|1.0.20|1.0.21) 
       AC_MSG_ERROR([GNU TLS version $ne_gnutls_ver is too old -- 1.0.22 or later required]) 
       ;;
    esac
 
-   CPPFLAGS="$CPPFLAGS `$GNUTLS_CONFIG --cflags`"
-
    AC_CHECK_HEADER([gnutls/gnutls.h],,
       [AC_MSG_ERROR([could not find gnutls/gnutls.h in include path])])
 
    NE_ENABLE_SUPPORT(SSL, [SSL support enabled, using GnuTLS $ne_gnutls_ver])
    NEON_EXTRAOBJS="$NEON_EXTRAOBJS ne_gnutls"
-   NEON_LIBS="$NEON_LIBS `$GNUTLS_CONFIG --libs`"
    AC_DEFINE([HAVE_GNUTLS], 1, [Define if GnuTLS support is enabled])
 
    # Check for functions in later releases
@@ -968,19 +982,6 @@ gnutls)
    if test ${ac_cv_func_gnutls_x509_dn_get_rdn_ava}X${ac_cv_header_iconv_h} = yesXyes; then
       AC_CHECK_FUNCS(iconv)
    fi
-
-   if test x${ac_cv_func_gnutls_sign_callback_set} = xyes; then
-      if test "$with_pakchois" != "no"; then
-         # PKCS#11... ho!
-         NE_PKG_CONFIG(NE_PK11, pakchois,
-           [AC_MSG_NOTICE(using pakchois for PKCS11 support)
-            AC_DEFINE(HAVE_PAKCHOIS, 1, [Define if pakchois library supported])
-            CPPFLAGS="$CPPFLAGS ${NE_PK11_CFLAGS}"
-            NEON_LIBS="${NEON_LIBS} ${NE_PK11_LIBS}"],
-           [AC_MSG_NOTICE(pakchois library not found; no PKCS11 support)])
-      fi
-   fi
-
    ;;
 *) # Default to off; only create crypto-enabled binaries if requested.
    NE_DISABLE_SUPPORT(SSL, [SSL support is not enabled])
@@ -1024,6 +1025,18 @@ posix|yes)
   ;;
 esac
 
+case ${with_pakchois}X${ac_cv_func_gnutls_sign_callback_set}Y${ne_cv_lib_ssl097} in
+noX*Y*) ;;
+*X*Yyes|*XyesY*)
+    # PKCS#11... ho!
+    NE_PKG_CONFIG(NE_PK11, pakchois,
+      [AC_MSG_NOTICE([[using pakchois for PKCS#11 support]])
+       AC_DEFINE(HAVE_PAKCHOIS, 1, [Define if pakchois library supported])
+       CPPFLAGS="$CPPFLAGS ${NE_PK11_CFLAGS}"
+       NEON_LIBS="${NEON_LIBS} ${NE_PK11_LIBS}"],
+      [AC_MSG_NOTICE([[pakchois library not found; no PKCS#11 support]])])
+   ;;
+esac
 ])
 
 dnl Check for Kerberos installation

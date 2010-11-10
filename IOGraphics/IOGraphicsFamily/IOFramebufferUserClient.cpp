@@ -188,7 +188,7 @@ IOReturn IOFramebufferUserClient::externalMethod( uint32_t selector, IOExternalM
         /*[13]*/ { (IOExternalMethodAction) &IOFramebuffer::extSetCursorPosition,
                     2, 0, 0, 0 },
         /*[14]*/ { (IOExternalMethodAction) &IOFramebuffer::extAcknowledgeNotification,
-                    0, 0, 0, 0 },
+                    kIOUCVariableStructureSize, 0, 0, 0 },
         /*[15]*/ { (IOExternalMethodAction) &IOFramebuffer::extSetColorConvertTable,
                     1, kIOUCVariableStructureSize, 0, 0 },
         /*[16]*/ { (IOExternalMethodAction) &IOFramebuffer::extSetCLUTWithEntries,

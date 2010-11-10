@@ -394,15 +394,15 @@ static struct ifmedia_description ifm_subtype_fddi_aliases[] =
 static struct ifmedia_description ifm_subtype_fddi_option_descriptions[] =
     IFM_SUBTYPE_FDDI_OPTION_DESCRIPTIONS;
 
-#ifdef notdef
 static struct ifmedia_description ifm_subtype_ieee80211_descriptions[] =
     IFM_SUBTYPE_IEEE80211_DESCRIPTIONS;
 
-static struct ifmedia_description ifm_subtype_ieee80211_aliases[] =
-    IFM_SUBTYPE_IEEE80211_ALIASES;
-
 static struct ifmedia_description ifm_subtype_ieee80211_option_descriptions[] =
     IFM_SUBTYPE_IEEE80211_OPTION_DESCRIPTIONS;
+
+#ifdef notdef
+static struct ifmedia_description ifm_subtype_ieee80211_aliases[] =
+    IFM_SUBTYPE_IEEE80211_ALIASES;
 
 struct ifmedia_description ifm_subtype_ieee80211_mode_descriptions[] =
     IFM_SUBTYPE_IEEE80211_MODE_DESCRIPTIONS;
@@ -497,6 +497,24 @@ static struct ifmedia_type_to_subtype ifmedia_types_to_subtypes[] = {
 			{ NULL, 0 },
 		},
 	},
+#ifdef __APPLE__
+	{
+		{
+			{ &ifm_subtype_shared_descriptions[0], 0 },
+			{ &ifm_subtype_shared_aliases[0], 1 },
+			{ &ifm_subtype_ieee80211_descriptions[0], 0 },
+			{ NULL, 0 },
+		},
+		{
+			{ &ifm_shared_option_descriptions[0], 0 },
+			{ &ifm_subtype_ieee80211_option_descriptions[0], 1 },
+			{ NULL, 0 },
+		},
+		{
+			{ NULL, 0 },
+		},
+	},
+#else /* __APPLE__ */
 #ifdef notdef
 	{
 		{
@@ -535,6 +553,7 @@ static struct ifmedia_type_to_subtype ifmedia_types_to_subtypes[] = {
 		},
 	},
 #endif
+#endif /* __APPLE__ */
 };
 
 static int

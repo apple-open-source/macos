@@ -147,7 +147,8 @@ enum {
     kUSB100mA           = 50,
     kUSBAtrBusPowered   = 0x80,
     kUSBAtrSelfPowered  = 0x40,
-    kUSBAtrRemoteWakeup = 0x20
+    kUSBAtrRemoteWakeup = 0x20,
+	kUSB2MaxPowerPerPort = 500
 };
 
     /*!

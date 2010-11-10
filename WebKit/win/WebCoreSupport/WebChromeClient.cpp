@@ -28,6 +28,7 @@
 
 #include "COMPropertyBag.h"
 #include "COMVariantSetter.h"
+#include "DOMCoreClasses.h"
 #include "WebElementPropertyBag.h"
 #include "WebFrame.h"
 #include "WebGeolocationPolicyListener.h"
@@ -532,6 +533,32 @@ void WebChromeClient::mouseDidMoveOverElement(const HitTestResult& result, unsig
     element.adoptRef(WebElementPropertyBag::createInstance(result));
 
     uiDelegate->mouseDidMoveOverElement(m_webView, element.get(), modifierFlags);
+}
+
+bool WebChromeClient::shouldMissingPluginMessageBeButton() const
+{
+    COMPtr<IWebUIDelegate> uiDelegate;
+    if (FAILED(m_webView->uiDelegate(&uiDelegate)))
+        return false;
+    
+    // If the UI delegate implements IWebUIDelegatePrivate3, 
+    // which contains didPressMissingPluginButton, then the message should be a button.
+    COMPtr<IWebUIDelegatePrivate3> uiDelegatePrivate3(Query, uiDelegate);
+    return uiDelegatePrivate3;
+}
+
+void WebChromeClient::missingPluginButtonClicked(Element* element) const
+{
+    COMPtr<IWebUIDelegate> uiDelegate;
+    if (FAILED(m_webView->uiDelegate(&uiDelegate)))
+        return;
+
+    COMPtr<IWebUIDelegatePrivate3> uiDelegatePrivate3(Query, uiDelegate);
+    if (!uiDelegatePrivate3)
+        return;
+
+    COMPtr<IDOMElement> e(AdoptCOM, DOMElement::createInstance(element));
+    uiDelegatePrivate3->didPressMissingPluginButton(e.get());
 }
 
 void WebChromeClient::setToolTip(const String& toolTip, TextDirection)

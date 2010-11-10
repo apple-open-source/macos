@@ -948,7 +948,7 @@
 		F5BCFC9704583E9E01000109 /* AppleUSBEHCI_Interrupts.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = AppleUSBEHCI_Interrupts.cpp; path = AppleUSBEHCI/Classes/AppleUSBEHCI_Interrupts.cpp; sourceTree = "<group>"; };
 		F5BCFC9804583E9E01000109 /* AppleUSBEHCI_PwrMgmt.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = AppleUSBEHCI_PwrMgmt.cpp; path = AppleUSBEHCI/Classes/AppleUSBEHCI_PwrMgmt.cpp; sourceTree = "<group>"; };
 		F5BCFC9904583E9E01000109 /* AppleUSBEHCI_RootHub.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = AppleUSBEHCI_RootHub.cpp; path = AppleUSBEHCI/Classes/AppleUSBEHCI_RootHub.cpp; sourceTree = "<group>"; };
-		F5BCFC9A04583E9E01000109 /* AppleUSBEHCI_UIM.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = AppleUSBEHCI_UIM.cpp; path = AppleUSBEHCI/Classes/AppleUSBEHCI_UIM.cpp; sourceTree = "<group>"; };
+		F5BCFC9A04583E9E01000109 /* AppleUSBEHCI_UIM.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = AppleUSBEHCI_UIM.cpp; path = AppleUSBEHCI/Classes/AppleUSBEHCI_UIM.cpp; sourceTree = "<group>"; };
 		F5BCFC9B04583E9E01000109 /* AppleUSBEHCI.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = AppleUSBEHCI.cpp; path = AppleUSBEHCI/Classes/AppleUSBEHCI.cpp; sourceTree = "<group>"; };
 		F5BCFC9C04583E9E01000109 /* AppleUSBEHCIHubInfo.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = AppleUSBEHCIHubInfo.cpp; path = AppleUSBEHCI/Classes/AppleUSBEHCIHubInfo.cpp; sourceTree = "<group>"; };
 		F5C2AE73032E5BA501000164 /* Kernel.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Kernel.framework; path = /System/Library/Frameworks/Kernel.framework; sourceTree = "<absolute>"; };
@@ -4932,7 +4932,9 @@
 				PRODUCT_NAME = IOUSBLib;
 				SECTORDER_FLAGS = "";
 				SKIP_INSTALL = YES;
-				VALID_ARCHS = "i386 ppc x86_64";
+				VALID_ARCHS = "$(VALID_ARCHS_$(MAC_OS_X_VERSION_MAJOR))";
+				VALID_ARCHS_1060 = "ppc i386 x86_64";
+				VALID_ARCHS_1070 = "i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -4970,7 +4972,9 @@
 				PRODUCT_NAME = IOUSBLib;
 				SECTORDER_FLAGS = "";
 				SKIP_INSTALL = YES;
-				VALID_ARCHS = "i386 ppc x86_64";
+				VALID_ARCHS = "$(VALID_ARCHS_$(MAC_OS_X_VERSION_MAJOR))";
+				VALID_ARCHS_1060 = "ppc i386 x86_64";
+				VALID_ARCHS_1070 = "i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -5008,7 +5012,9 @@
 				PRODUCT_NAME = IOUSBLib;
 				SECTORDER_FLAGS = "";
 				SKIP_INSTALL = YES;
-				VALID_ARCHS = "i386 ppc x86_64";
+				VALID_ARCHS = "$(VALID_ARCHS_$(MAC_OS_X_VERSION_MAJOR))";
+				VALID_ARCHS_1060 = "ppc i386 x86_64";
+				VALID_ARCHS_1070 = "i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",

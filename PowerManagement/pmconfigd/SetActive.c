@@ -76,6 +76,7 @@ enum {
     kDisableWarningsIndex       = 4,
     kPreventDisplaySleepIndex   = 5,
     kEnableIdleIndex            = 6,
+    kExternalMediaIndex         = 7,
     
     // Make sure this is the last enum element, as it tells us the total
     // number of elements in the enum definition
@@ -102,6 +103,7 @@ extern CFMachPortRef            pmServerMachPort;
 static void evaluateAssertions(void);
 static void calculateAggregates(void);
 static void publishAssertionStatus(void);
+static void sendUserAssertionsToKernel(uint32_t user_assertions);
 static void sendSmartBatteryCommand(uint32_t which, uint32_t level);
 static int indexForAssertionName(CFStringRef assertionName);
 static void logAssertionEvent(
@@ -278,10 +280,18 @@ calculateAggregates(void)
     // Initialize kEnableIdleIndex to idle_enable_assumed
     aggregate_assertions[kEnableIdleIndex] = idle_enable_assumed;
     
+    if (!gAssertionsDict) {
+        goto exit;
+    }
+    
     process_count = CFDictionaryGetCount(gAssertionsDict);
+    if (0 == process_count) {
+        goto exit;
+    }
+    
     process_assertions = malloc(sizeof(CFDictionaryRef) * process_count);
     CFDictionaryGetKeysAndValues(gAssertionsDict, NULL, (const void **)process_assertions);
-    for(i=0; i<process_count; i++)
+    for (i=0; i<process_count; i++)
     {
         CFArrayRef          asst_arr = NULL;
         int                 asst_arr_count = 0;
@@ -289,7 +299,8 @@ calculateAggregates(void)
 
         asst_arr = isA_CFArray(
             CFDictionaryGetValue(process_assertions[i], kIOPMTaskAssertionsKey));
-        if(!asst_arr) continue;
+        if(!asst_arr) 
+            continue;
         
         asst_arr_count = CFArrayGetCount(asst_arr);
         for(j=0; j<asst_arr_count; j++)
@@ -336,6 +347,9 @@ calculateAggregates(void)
                         } else if (CFEqual(asst_type, kIOPMAssertionTypeNoDisplaySleep))
                         {
                             aggregate_assertions[kPreventDisplaySleepIndex] = 1;
+                        } else if (CFEqual(asst_type, _kIOPMAssertionTypeExternalMedia)) 
+                        {
+                            aggregate_assertions[kExternalMediaIndex] = 1;
                         }
                     }
                 }
@@ -344,9 +358,10 @@ calculateAggregates(void)
     }
     free(process_assertions);
     
+exit:
     // At this point we have iterated through the entire nested data structure
-    // and have calculaed what the total settings are for each of the profiles
-    // and have stored them in the global array aggregate_assertions
+    // and have calculated an on/off value for each assertion in the global array aggregate_assertions.
+    return;
 }
 
 static void 
@@ -477,16 +492,45 @@ updateAssertionStatusCallback(CFRunLoopTimerRef timer, void *info)
     }
 }
 
+static void sendUserAssertionsToKernel(uint32_t user_assertions)
+{
+    io_service_t                rootDomainService = IO_OBJECT_NULL;
+    io_connect_t                gRootDomainConnect = IO_OBJECT_NULL;
+    kern_return_t               kr = 0;
+    const uint64_t              in = (uint64_t)user_assertions;
+    
+    rootDomainService = getRootDomain();
+    if (IO_OBJECT_NULL == rootDomainService) {
+        goto exit;
+    }
+    
+    kr = IOServiceOpen(rootDomainService, mach_task_self(), 0, &gRootDomainConnect);    
+    if (KERN_SUCCESS != kr) {
+        goto exit;    
+    }
+    
+    IOConnectCallMethod(gRootDomainConnect, kPMSetUserAssertionLevels, 
+                              &in, 1, 
+                              NULL, 0, NULL, 
+                              NULL, NULL, NULL);
+        
+exit:
+    if (IO_OBJECT_NULL != gRootDomainConnect)
+        IOServiceClose(gRootDomainConnect);
+    return;
+}
+
+
 static void
 evaluateAssertions(void)
 {
     calculateAggregates();
 
     // Override PM settings
-    overrideSetting( kPMForceHighSpeed, 
-                    aggregate_assertions[kHighPerfIndex]);
-    overrideSetting( kPMPreventDisplaySleep, 
-                    aggregate_assertions[kPreventDisplaySleepIndex]);
+    overrideSetting( kPMForceHighSpeed, aggregate_assertions[kHighPerfIndex]);
+
+    overrideSetting( kPMPreventDisplaySleep, aggregate_assertions[kPreventDisplaySleepIndex]);
+    
     if(  aggregate_assertions[kPreventIdleIndex]
      || !aggregate_assertions[kEnableIdleIndex]) {
         overrideSetting(kPMPreventIdleSleep, 1);
@@ -519,6 +563,14 @@ evaluateAssertions(void)
                                     ? kCFBooleanTrue : kCFBooleanFalse));
     }
     
+    if( aggregate_assertions[kExternalMediaIndex] 
+       != last_aggregate_assertions[kExternalMediaIndex]) 
+    {
+        sendUserAssertionsToKernel( aggregate_assertions[kExternalMediaIndex] 
+                                    ? kIOPMDriverAssertionExternalMediaMountedBit : 0);
+    }
+    
+    
     bcopy(aggregate_assertions, last_aggregate_assertions, 
                             sizeof(aggregate_assertions));
     
@@ -527,20 +579,20 @@ evaluateAssertions(void)
     CFAbsoluteTime fireTime = (CFAbsoluteTimeGetCurrent() + 5.0);
     if (gUpdateAssertionStatusTimer)
     {
-	CFRunLoopTimerSetNextFireDate(gUpdateAssertionStatusTimer, fireTime);
+        CFRunLoopTimerSetNextFireDate(gUpdateAssertionStatusTimer, fireTime);
     }
     else
     {
-	/* timer will repeat roughly once every 100 years, i.e. never. We need
-	 a repeating timer so that it doesn't get removed from the runloop and
-	 and we can set the next fire date to our next wakeup time. */
-	static const CFAbsoluteTime intervalNever = 100. * 365. * 24. * 60. * 60.;
-	gUpdateAssertionStatusTimer = CFRunLoopTimerCreate(0, fireTime, intervalNever, 0,
-                                             0, updateAssertionStatusCallback, 0);
-	if (gUpdateAssertionStatusTimer)
-	{
-	    CFRunLoopAddTimer(CFRunLoopGetCurrent(), gUpdateAssertionStatusTimer, kCFRunLoopDefaultMode);
-	}
+        /* timer will repeat roughly once every 100 years, i.e. never. We need
+         a repeating timer so that it doesn't get removed from the runloop and
+         and we can set the next fire date to our next wakeup time. */
+        static const CFAbsoluteTime intervalNever = 100. * 365. * 24. * 60. * 60.;
+        gUpdateAssertionStatusTimer = CFRunLoopTimerCreate(0, fireTime, intervalNever, 0,
+                                                 0, updateAssertionStatusCallback, 0);
+        if (gUpdateAssertionStatusTimer)
+        {
+            CFRunLoopAddTimer(CFRunLoopGetCurrent(), gUpdateAssertionStatusTimer, kCFRunLoopDefaultMode);
+        }
     }
 }
 
@@ -723,12 +775,32 @@ PMAssertions_prime(void)
     assertion_types_arr[kDisableWarningsIndex]      = kIOPMAssertionTypeDisableLowBatteryWarnings;
     assertion_types_arr[kPreventDisplaySleepIndex]  = kIOPMAssertionTypeNoDisplaySleep;
     assertion_types_arr[kEnableIdleIndex]           = kIOPMAssertionTypeEnableIdleSleep;
+    assertion_types_arr[kExternalMediaIndex]        = _kIOPMAssertionTypeExternalMedia;
 
-    publishAssertionStatus();
-
+    evaluateAssertions();
+    
     return;
 }
 
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+
+__private_extern__ void InternalAssertionCreate(
+     char                *nameCStr,
+     char                *assertionCStr,
+     int                 *assertion_id)
+{
+    _IOPMAssertionCreateRequiresRoot(mach_task_self(), nameCStr, assertionCStr, kIOPMAssertionLevelOn, assertion_id);
+}
+
+__private_extern__ void InternalAssertionRelease(
+    int                 assertion_id
+)
+{
+    int status_dont_care = 0;
+    
+    _io_pm_assertion_release(MACH_PORT_NULL, mach_task_self(), assertion_id, &status_dont_care);    
+}
+                             
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
 
@@ -751,11 +823,14 @@ IOReturn _IOPMAssertionCreateRequiresRoot
     CFNumberRef             task_pid_num = NULL;
     mach_port_t             oldNotify = MACH_PORT_NULL;
     kern_return_t           err = KERN_SUCCESS;
+    const mach_port_t       mach_task_me = mach_task_self();
     
-    __MACH_PORT_DEBUG(true, "assertion_create: expect send right", task_port);
-    // Expect to have 1 send right on task_port if this is the first new assertion for this process
-    // Expect to have 2 send rights on task_port if this isn't the first assertion
-
+    if (mach_task_me != task_port) {
+        __MACH_PORT_DEBUG(true, "assertion_create: expect send right", task_port);
+        // Expect to have 1 send right on task_port if this is the first new assertion for this process
+        // Expect to have 2 send rights on task_port if this isn't the first assertion
+    }
+    
     // assertion_id will be set to kIOPMNullAssertionID on failure.
     *assertion_id = kIOPMNullAssertionID;
 
@@ -769,19 +844,22 @@ IOReturn _IOPMAssertionCreateRequiresRoot
     }
     if (this_task)
     {
-        // task_port rights invariant: since we are tracking task_port in gAssertionsDict, we already
-        // held a send right on task_port.
-        // We just received a second send right in mig call io_pm_assertion_create;
-        // so let's clear that send right.
-        
-        __MACH_PORT_DEBUG(true, "assertion_create: deallocate extra send right", task_port);
-        mach_port_deallocate(mach_task_self(), task_port);        
+        if (mach_task_me != task_port) {
+            // task_port rights invariant: since we are tracking task_port in gAssertionsDict, we already
+            // held a send right on task_port.
+            // We just received a second send right in mig call io_pm_assertion_create;
+            // so let's clear that send right.
+            
+            __MACH_PORT_DEBUG(true, "assertion_create: deallocate extra send right", task_port);
+            mach_port_deallocate(mach_task_self(), task_port);        
+        }
     } else {
 
 
-
-        __MACH_PORT_DEBUG(true, "assertion_create: did set invalid callback", task_port);
-    
+        if (mach_task_me != task_port) {
+            __MACH_PORT_DEBUG(true, "assertion_create: did set invalid callback", task_port);
+        }
+        
         // This is the first assertion for this process, so we'll create a new
         // assertion datastructure.
         this_task = CFDictionaryCreateMutable(0, 0, 
@@ -796,29 +874,32 @@ IOReturn _IOPMAssertionCreateRequiresRoot
             CFDictionarySetValue(this_task, kIOPMTaskPIDKey, task_pid_num);
         }
 
-        // Register for a dead name notification on this task_t
-        err = mach_port_request_notification(
-                    mach_task_self(),       // task
-                    task_port,                   // port that will die
-                    MACH_NOTIFY_DEAD_NAME,   // msgid
-                    1,                      // make-send count
-                    CFMachPortGetPort(pmServerMachPort),       // notify port
-                    MACH_MSG_TYPE_MAKE_SEND_ONCE, // notifyPoly
-                    &oldNotify);            // previous
+        if (mach_task_me != task_port) {
 
-        if (KERN_SUCCESS != err)
-        {
-            syslog(LOG_ERR, "PM assertion mach port request notification error %s(0x%08x)\n",
-                mach_error_string(err), err);
-            mach_port_deallocate(mach_task_self(), task_port);
-            result = err;
-            goto exit;
-        }
-                    
-        if (oldNotify != MACH_PORT_NULL) {
-            mach_port_deallocate(mach_task_self(), oldNotify);
-        }
+            // Register for a dead name notification on this task_t
+            err = mach_port_request_notification(
+                        mach_task_self(),       // task
+                        task_port,                   // port that will die
+                        MACH_NOTIFY_DEAD_NAME,   // msgid
+                        1,                      // make-send count
+                        CFMachPortGetPort(pmServerMachPort),       // notify port
+                        MACH_MSG_TYPE_MAKE_SEND_ONCE, // notifyPoly
+                        &oldNotify);            // previous
 
+            if (KERN_SUCCESS != err)
+            {
+                syslog(LOG_ERR, "PM assertion mach port request notification error %s(0x%08x)\n",
+                    mach_error_string(err), err);
+                mach_port_deallocate(mach_task_self(), task_port);
+                result = err;
+                goto exit;
+            }
+                        
+            if (oldNotify != MACH_PORT_NULL) {
+                mach_port_deallocate(mach_task_self(), oldNotify);
+            }
+        }
+            
         // gAssertionsDict is the global dictionary that maps a processes to their assertions.
         if (!gAssertionsDict) {
             gAssertionsDict = CFDictionaryCreateMutable(0, 0, NULL, &kCFTypeDictionaryValueCallBacks);
@@ -915,7 +996,7 @@ static const int kIOMinimumTimeoutInterval = 1;
 
 kern_return_t _io_pm_assertion_settimeout
 (
-    mach_port_t server,
+    mach_port_t server __unused,
     mach_port_t task,
     int         assertion_id,
     int         interval,
@@ -925,16 +1006,19 @@ kern_return_t _io_pm_assertion_settimeout
     CFMutableDictionaryRef  timeoutAssertion = NULL;
     CFNumberRef             intervalNum = NULL;
     CFRunLoopTimerRef       timeOutTimer = NULL;
+    const mach_port_t       mach_task_me = mach_task_self();
 
     if (interval < kIOMinimumTimeoutInterval) {
         return kIOReturnBadArgument;
     }
-
-    __MACH_PORT_DEBUG(true, "set_timeout: expect send right", task);
-    // Expect to have 2 send right on tasks if this assertion exists.
-    // If this was called (invalidly) by a process without any assertions, 
-    // we expect 1 send right on task.
-
+    if (mach_task_me != task) {
+        
+        __MACH_PORT_DEBUG(true, "set_timeout: expect send right", task);
+        // Expect to have 2 send right on tasks if this assertion exists.
+        // If this was called (invalidly) by a process without any assertions, 
+        // we expect 1 send right on task.
+    }
+    
     *return_code = copyAssertionForID(task, 
                                 assertion_id,
                                 NULL, /* task's dictionary */
@@ -983,11 +1067,12 @@ kern_return_t _io_pm_assertion_settimeout
     *return_code = kIOReturnSuccess;
 
 exit:
-
-    // Remove the send right on task that we received with this invocation.
-    __MACH_PORT_DEBUG(true, "set_timeout: deallocate extra send right", task);
-    mach_port_deallocate(mach_task_self(), task);
-
+    if (mach_task_me != task) {
+        // Remove the send right on task that we received with this invocation.
+        __MACH_PORT_DEBUG(true, "set_timeout: deallocate extra send right", task);
+        mach_port_deallocate(mach_task_self(), task);
+    }
+    
     if (timeoutAssertion) {
         CFRelease(timeoutAssertion);
     }
@@ -999,7 +1084,7 @@ exit:
 
 kern_return_t _io_pm_assertion_release
 (
-    mach_port_t server,
+    mach_port_t server __unused,
     mach_port_t task,
     int assertion_id,
     int *return_code
@@ -1012,12 +1097,15 @@ kern_return_t _io_pm_assertion_release
     int                     i;
     int                     n;
     bool                    releaseTask;
+    const mach_port_t       mach_task_me        = mach_task_self();
 
     // Expect to have 2 send right on task if this assertion exists.
     // If this was called (invalidly) by a process without any assertions, 
     // we expect 1 send right on task.
-    __MACH_PORT_DEBUG(true, "assertion_release", task);
-
+    if (mach_task_me != task) {
+        __MACH_PORT_DEBUG(true, "assertion_release", task);
+    }
+    
     *return_code = copyAssertionForID(task, 
                                 assertion_id,
                                 &callerTask,
@@ -1070,10 +1158,12 @@ kern_return_t _io_pm_assertion_release
     if (releaseTask) {
         CFDictionaryRemoveValue(gAssertionsDict, MY_CAST_INT_POINTER(task));
 
-        // If we're dropping the task, then we need to drop our send right
-        // that we received in _IOPMAssertionCreateRequiresRoot
-        __MACH_PORT_DEBUG(true, "assertion_release: deallocating task's #1 send right", task);
-        mach_port_deallocate(mach_task_self(), task);
+        if (mach_task_me != task) {
+            // If we're dropping the task, then we need to drop our send right
+            // that we received in _IOPMAssertionCreateRequiresRoot
+            __MACH_PORT_DEBUG(true, "assertion_release: deallocating task's #1 send right", task);
+            mach_port_deallocate(mach_task_self(), task);
+        }
     }
     
     // Re-evaluate
@@ -1098,9 +1188,10 @@ kern_return_t _io_pm_assertion_release
 
 
 exit:
-    __MACH_PORT_DEBUG(true, "assertion_release: EXIT deallocating send right", task);
-    mach_port_deallocate(mach_task_self(), task);
-    
+    if (mach_task_me != task) {
+        __MACH_PORT_DEBUG(true, "assertion_release: EXIT deallocating send right", task);
+        mach_port_deallocate(mach_task_self(), task);
+    }
     return KERN_SUCCESS;   
 }
 

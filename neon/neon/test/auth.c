@@ -1,6 +1,6 @@
 /* 
    Authentication tests
-   Copyright (C) 2001-2008, Joe Orton <joe@manyfish.co.uk>
+   Copyright (C) 2001-2009, Joe Orton <joe@manyfish.co.uk>
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -1115,7 +1115,61 @@ static int defaults(void)
     return await_server();
 }
 
-/* test logout */
+static void fail_hdr(char *value)
+{
+    auth_failed = 1;
+}
+
+static int serve_forgotten(ne_socket *sock, void *userdata)
+{
+    auth_failed = 0;
+    got_header = fail_hdr;
+    want_header = "Authorization";
+    
+    CALL(discard_request(sock));
+    if (auth_failed) {
+        /* Should not get initial Auth header.  Eek. */
+        send_response(sock, NULL, 403, 1);
+        return 0;
+    }
+    send_response(sock, CHAL_WALLY, 401, 0);
+    
+    got_header = auth_hdr;
+    CALL(discard_request(sock));
+    if (auth_failed) {
+        send_response(sock, NULL, 403, 1);
+        return 0;
+    }
+    send_response(sock, NULL, 200, 0);
+    
+    ne_sock_read_timeout(sock, 5);
+
+    /* Last time; should get no Auth header. */
+    got_header = fail_hdr;
+    CALL(discard_request(sock));
+    send_response(sock, NULL, auth_failed ? 500 : 200, 1);
+    
+    return 0;                  
+}
+
+static int forget(void)
+{
+    ne_session *sess;
+
+    CALL(make_session(&sess, serve_forgotten, NULL));
+
+    ne_set_server_auth(sess, auth_cb, NULL);
+    
+    CALL(any_2xx_request(sess, "/norman"));
+    
+    ne_forget_auth(sess);
+
+    CALL(any_2xx_request(sess, "/norman"));
+
+    ne_session_destroy(sess);
+    
+    return await_server();
+}
 
 /* proxy auth, proxy AND origin */
 
@@ -1133,5 +1187,6 @@ ne_test tests[] = {
     T(domains),
     T(defaults),
     T(CVE_2008_3746),
+    T(forget),
     T(NULL)
 };

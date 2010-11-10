@@ -325,6 +325,7 @@ main(int argc, char *argv[])
     struct bsxbpb *bsxbpb;
     struct bsx *bsx;
     struct de *de;
+    u_int8_t *bpb_buffer;
     u_int8_t *io_buffer;    /* The buffer for sectors being constructed/written */
     u_int8_t *img;	    /* Current sector within io_buffer */
     const char *fname, *dtype, *bname;
@@ -753,6 +754,8 @@ main(int argc, char *argv[])
         tm = localtime(&now);
         if (!(io_buffer = malloc(IO_BUFFER_SIZE)))
             err(1, NULL);
+        if (!(bpb_buffer = malloc(bpb.bps)))
+            err(1, NULL);
 	img = io_buffer;
         dir = bpb.res + (bpb.spf ? bpb.spf : bpb.bspf) * bpb.nft;
 	for (lsn = 0; lsn < dir + (fat == 32 ? bpb.spc : rds); lsn++) {
@@ -855,6 +858,13 @@ main(int argc, char *argv[])
 		mk2(de->date, x);
 	    }
 	    img += bpb.bps;
+
+	    if (lsn == 0) {
+		/* Zero out boot sector for now and save it to be written at the end */
+		memcpy(bpb_buffer, io_buffer, bpb.bps);
+		bzero(io_buffer, bpb.bps);
+	    }
+
 	    if (img >= (io_buffer + IO_BUFFER_SIZE)) {
 		/* We filled the I/O buffer, so write it out now */
 		if ((n = write(fd, io_buffer, IO_BUFFER_SIZE)) == -1)
@@ -871,6 +881,13 @@ main(int argc, char *argv[])
 	    if (n != (img-io_buffer))
 		errx(1, "%s: can't write sector %u", fname, lsn);
 	}
+	/* Write out boot sector at the end now */
+	if (lseek(fd, 0, SEEK_SET) == -1) 
+		err(1, "lseek: %s", fname);
+	if ((n = write(fd, bpb_buffer, bpb.bps)) == -1)
+		err(1, "write: %s", fname);
+	if (n != bpb.bps)
+		errx(1, "%s: can't write boot sector", fname);
     }
     return 0;
 }

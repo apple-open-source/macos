@@ -1,5 +1,10 @@
 /* include/arch/unix/apr_private.h.in.  Generated from configure.in by autoheader.  */
 
+
+#ifndef APR_PRIVATE_H
+#define APR_PRIVATE_H
+
+
 /* Define if building universal (internal helper macro) */
 #undef AC_APPLE_UNIVERSAL_BUILD
 
@@ -145,6 +150,9 @@
 
 /* Define to 1 if you have the <fcntl.h> header file. */
 #undef HAVE_FCNTL_H
+
+/* Define to 1 if you have the `fdatasync' function. */
+#undef HAVE_FDATASYNC
 
 /* Define to 1 if you have the `flock' function. */
 #undef HAVE_FLOCK
@@ -527,40 +535,40 @@
 /* Define if struct impreq was found */
 #undef HAVE_STRUCT_IPMREQ
 
-/* Define to 1 if `struct stat' is a member of `st_atimensec'. */
+/* Define to 1 if `st_atimensec' is member of `struct stat'. */
 #undef HAVE_STRUCT_STAT_ST_ATIMENSEC
 
-/* Define to 1 if `struct stat' is a member of `st_atime_n'. */
+/* Define to 1 if `st_atime_n' is member of `struct stat'. */
 #undef HAVE_STRUCT_STAT_ST_ATIME_N
 
-/* Define to 1 if `struct stat' is a member of `st_atim.tv_nsec'. */
+/* Define to 1 if `st_atim.tv_nsec' is member of `struct stat'. */
 #undef HAVE_STRUCT_STAT_ST_ATIM_TV_NSEC
 
-/* Define to 1 if `struct stat' is a member of `st_blocks'. */
+/* Define to 1 if `st_blocks' is member of `struct stat'. */
 #undef HAVE_STRUCT_STAT_ST_BLOCKS
 
-/* Define to 1 if `struct stat' is a member of `st_ctimensec'. */
+/* Define to 1 if `st_ctimensec' is member of `struct stat'. */
 #undef HAVE_STRUCT_STAT_ST_CTIMENSEC
 
-/* Define to 1 if `struct stat' is a member of `st_ctime_n'. */
+/* Define to 1 if `st_ctime_n' is member of `struct stat'. */
 #undef HAVE_STRUCT_STAT_ST_CTIME_N
 
-/* Define to 1 if `struct stat' is a member of `st_ctim.tv_nsec'. */
+/* Define to 1 if `st_ctim.tv_nsec' is member of `struct stat'. */
 #undef HAVE_STRUCT_STAT_ST_CTIM_TV_NSEC
 
-/* Define to 1 if `struct stat' is a member of `st_mtimensec'. */
+/* Define to 1 if `st_mtimensec' is member of `struct stat'. */
 #undef HAVE_STRUCT_STAT_ST_MTIMENSEC
 
-/* Define to 1 if `struct stat' is a member of `st_mtime_n'. */
+/* Define to 1 if `st_mtime_n' is member of `struct stat'. */
 #undef HAVE_STRUCT_STAT_ST_MTIME_N
 
-/* Define to 1 if `struct stat' is a member of `st_mtim.tv_nsec'. */
+/* Define to 1 if `st_mtim.tv_nsec' is member of `struct stat'. */
 #undef HAVE_STRUCT_STAT_ST_MTIM_TV_NSEC
 
-/* Define to 1 if `struct tm' is a member of `tm_gmtoff'. */
+/* Define to 1 if `tm_gmtoff' is member of `struct tm'. */
 #undef HAVE_STRUCT_TM_TM_GMTOFF
 
-/* Define to 1 if `struct tm' is a member of `__tm_gmtoff'. */
+/* Define to 1 if `__tm_gmtoff' is member of `struct tm'. */
 #undef HAVE_STRUCT_TM___TM_GMTOFF
 
 /* Define to 1 if you have the <sysapi.h> header file. */
@@ -724,9 +732,6 @@
 
 /* Define to the one symbol short name of this package. */
 #undef PACKAGE_TARNAME
-
-/* Define to the home page for this package. */
-#undef PACKAGE_URL
 
 /* Define to the version of this package. */
 #undef PACKAGE_VERSION
@@ -939,4 +944,5 @@
  * Include common private declarations.
  */
 #include "../apr_private_common.h"
+#endif /* APR_PRIVATE_H */
 

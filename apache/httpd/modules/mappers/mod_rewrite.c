@@ -606,6 +606,13 @@ static unsigned is_absolute_uri(char *uri)
             return 7;
         }
         break;
+
+    case 's':
+    case 'S':
+        if (!strncasecmp(uri, "cgi://", 6)) {       /* scgi://   */
+            return 7;
+        }
+        break;
     }
 
     return 0;
@@ -838,7 +845,10 @@ static void reduce_uri(request_rec *r)
  */
 static void fully_qualify_uri(request_rec *r)
 {
-    if (!is_absolute_uri(r->filename)) {
+    if (r->method_number == M_CONNECT) {
+        return;
+    }
+    else if (!is_absolute_uri(r->filename)) {
         const char *thisserver;
         char *thisport;
         int port;

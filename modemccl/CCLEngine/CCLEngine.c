@@ -285,7 +285,6 @@ void sLog(char *fmt, ...);
 -------------------------------------------------------------------------- */
 void badsignal(int signo)
 {
-
     signalerror = cclErr_NoMemErr;
 }
 
@@ -293,7 +292,9 @@ void badsignal(int signo)
 -------------------------------------------------------------------------- */
 void hangup(int signo)
 {
-    signalerror = cclErr_ScriptCancelled;
+	// 7341084: ignore signals during disconnection
+	if (enginemode != mode_disconnect)
+		signalerror = cclErr_ScriptCancelled;
 }
 
 
@@ -753,7 +754,7 @@ int main(int argc, char **argv)
     fd_set          rset;
     struct timeval  timo;
 
-/* move the DEBUG below here if ppp/CCLEngine interactions need debugging */
+/* move DEBUG stuff (below) here if ppp/CCLEngine interactions need debugging */
     
     signal(SIGHUP, hangup);			/* Hangup */
     signal(SIGINT, hangup);			/* Interrupt */

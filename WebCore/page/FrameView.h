@@ -105,6 +105,8 @@ public:
     void setNeedsOneShotDrawingSynchronization();
 #endif
 
+    bool hasCompositedContent() const;
+    void enterCompositingMode();
     bool isEnclosedInCompositingLayer() const;
 
     // Only used with accelerated compositing, but outside the #ifdef to make linkage easier.
@@ -149,6 +151,7 @@ public:
 
     void setUseSlowRepaints();
     void setIsOverlapped(bool);
+    bool isOverlapped() const { return m_isOverlapped; }
     void setContentIsOpaque(bool);
 
     void addSlowRepaintObject();

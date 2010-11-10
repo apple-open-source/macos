@@ -373,7 +373,7 @@ void IODisplayWrangler::destroyDisplayConnects( IOFramebuffer * fb )
     }
 }
 
-void IODisplayWrangler::connectChange( IOFramebuffer * fb )
+void IODisplayWrangler::activityChange( IOFramebuffer * fb )
 {
     gIODisplayWrangler->activityTickle(0,0);
 }
@@ -587,6 +587,8 @@ IOReturn IODisplayWrangler::setAggressiveness( unsigned long type, unsigned long
 
 IOReturn IODisplayWrangler::setPowerState( unsigned long powerStateOrdinal, IOService * whatDevice )
 {
+    fPendingPowerState = powerStateOrdinal;
+
     if (powerStateOrdinal == 0)
     {
         // system is going to sleep
@@ -594,82 +596,41 @@ IOReturn IODisplayWrangler::setPowerState( unsigned long powerStateOrdinal, IOSe
         changePowerStateToPriv(0);
         return (IOPMNoErr);
     }
-    DEBG1("W", " setPowerState(%ld), sys %d\n", powerStateOrdinal, gIOGraphicsSystemPower);
-    if (!gIOGraphicsSystemPower)
+    DEBG1("W", " setPowerState(%ld), sys %d open %d\n", 
+                powerStateOrdinal, gIOGraphicsSystemPower, fOpen);
+    if (!gIOGraphicsSystemPower || !fOpen)
         return (IOPMNoErr);
     else if (powerStateOrdinal < getPowerState())
     {
         // HI is idle, drop power
-        idleDisplays();
+        if (kIODisplayWranglerMaxPowerState == getPowerState())
+        {
+            // Log time of initial dimming
+            UInt64 current_time_ns;
+            UInt64 current_time_secs;
+
+            AbsoluteTime current_time_absolute;
+            AbsoluteTime_to_scalar(&current_time_absolute) = mach_absolute_time();
+            absolutetime_to_nanoseconds(current_time_absolute, &current_time_ns);
+            current_time_secs = current_time_ns / NSEC_PER_SEC;
+            fLastDimTime_secs = current_time_secs;
+        }
+        IOFramebuffer::updateDisplaysPowerState();
     }
     else if (powerStateOrdinal == kIODisplayWranglerMaxPowerState)
     {
         // there is activity, raise power
-        makeDisplaysUsable();
+        IOFramebuffer::updateDisplaysPowerState();
     }
     return (IOPMNoErr);
 }
 
-
-/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
-// makeDisplaysUsable
-//
-// This needs to be called only from setPowerState to serialize it, because of the lock.
-
-void IODisplayWrangler::makeDisplaysUsable ( void )
+unsigned long IODisplayWrangler::getDisplaysPowerState(void)
 {
-    OSIterator *        iter;
-    IODisplay * display;
-
-    IOTakeLock( fMatchingLock );
-
-    iter = OSCollectionIterator::withCollection( fDisplays );
-    if (iter)
-    {
-        while ((display = (IODisplay *) iter->getNextObject()))
-        {
-            display->makeDisplayUsable();
-        }
-        iter->release();
-    }
-    IOUnlock( fMatchingLock );
-}
-
-
-/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
-// idleDisplays
-//
-// This needs to be called only from setPowerState to serialize it, because of the lock.
-
-void IODisplayWrangler::idleDisplays ( void )
-{
-    OSIterator *        iter;
-    IODisplay * display;
-    UInt64              current_time_ns;
-    UInt64              current_time_secs;
-
-    if ( kIODisplayWranglerMaxPowerState == getPowerState() )
-    {
-        // Log time of initial dimming
-        AbsoluteTime current_time_absolute;
-                AbsoluteTime_to_scalar(&current_time_absolute) = mach_absolute_time();
-        absolutetime_to_nanoseconds(current_time_absolute, &current_time_ns);
-        current_time_secs = current_time_ns / NSEC_PER_SEC;
-        fLastDimTime_secs = current_time_secs;
-    }
-
-    IOTakeLock( fMatchingLock );
-
-    iter = OSCollectionIterator::withCollection( fDisplays );
-    if (iter)
-    {
-        while ((display = (IODisplay *) iter->getNextObject()))
-        {
-            display->dropOneLevel();
-        }
-        iter->release();
-    }
-    IOUnlock( fMatchingLock );
+    unsigned long state = gIODisplayWrangler 
+                                ? gIODisplayWrangler->fPendingPowerState
+                                : kIODisplayWranglerMaxPowerState;
+    return (state);
 }
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */

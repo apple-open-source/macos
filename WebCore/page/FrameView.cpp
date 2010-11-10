@@ -462,10 +462,6 @@ void FrameView::updateCompositingLayers()
 
     // This call will make sure the cached hasAcceleratedCompositing is updated from the pref
     view->compositor()->cacheAcceleratedCompositingFlags();
-    
-    if (!view->usesCompositing())
-        return;
-
     view->compositor()->updateCompositingLayers(CompositingUpdateAfterLayoutOrStyleChange);
 }
 
@@ -477,6 +473,24 @@ void FrameView::setNeedsOneShotDrawingSynchronization()
 }
 
 #endif // USE(ACCELERATED_COMPOSITING)
+
+bool FrameView::hasCompositedContent() const
+{
+#if USE(ACCELERATED_COMPOSITING)
+    if (RenderView* view = m_frame->contentRenderer())
+        return view->compositor()->inCompositingMode();
+#endif
+    return false;
+}
+
+// Sometimes (for plug-ins) we need to eagerly go into compositing mode.
+void FrameView::enterCompositingMode()
+{
+#if USE(ACCELERATED_COMPOSITING)
+    if (RenderView* view = m_frame->contentRenderer())
+        view->compositor()->enableCompositingMode();
+#endif
+}
 
 bool FrameView::isEnclosedInCompositingLayer() const
 {
@@ -647,7 +661,7 @@ void FrameView::layout(bool allowSubtree)
         RenderObject* rootRenderer = documentElement ? documentElement->renderer() : 0;
         Node* body = document->body();
         if (body && body->renderer()) {
-            if (body->hasTagName(framesetTag) && !m_frame->settings()->frameFlatteningEnabled()) {
+            if (body->hasTagName(framesetTag) && m_frame->settings() && !m_frame->settings()->frameFlatteningEnabled()) {
                 body->renderer()->setChildNeedsLayout(true);
                 vMode = ScrollbarAlwaysOff;
                 hMode = ScrollbarAlwaysOff;
@@ -897,6 +911,15 @@ void FrameView::setIsOverlapped(bool isOverlapped)
 
     m_isOverlapped = isOverlapped;
     setCanBlitOnScroll(!useSlowRepaints());
+    
+#if USE(ACCELERATED_COMPOSITING)
+    // Overlap can affect compositing tests, so if it changes, we need to trigger
+    // a recalcStyle in the parent document.
+    if (hasCompositedContent()) {
+        if (Element* ownerElement = m_frame->document()->ownerElement())
+            ownerElement->setNeedsStyleRecalc(SyntheticStyleChange);
+    }
+#endif    
 }
 
 void FrameView::setContentIsOpaque(bool contentIsOpaque)
@@ -1015,11 +1038,17 @@ void FrameView::scrollPositionChanged()
             root->updateWidgetPositions();
             root->layer()->updateRepaintRectsAfterScroll();
 #if USE(ACCELERATED_COMPOSITING)
-            if (root->usesCompositing())
-                root->compositor()->updateCompositingLayers(CompositingUpdateOnScroll);
+            root->compositor()->updateCompositingLayers(CompositingUpdateOnScroll);
 #endif
         }
     }
+
+#if USE(ACCELERATED_COMPOSITING)
+    if (RenderView* root = m_frame->contentRenderer()) {
+        if (root->usesCompositing())
+            root->compositor()->updateContentLayerScrollPosition(scrollPosition());
+    }
+#endif
 }
 
 HostWindow* FrameView::hostWindow() const
@@ -1221,7 +1250,7 @@ void FrameView::scheduleRelayout()
 
     // When frame flattening is enabled, the contents of the frame affects layout of the parent frames.
     // Also invalidate parent frame starting from the owner element of this frame.
-    if (m_frame->settings()->frameFlatteningEnabled() && m_frame->ownerRenderer()) {
+    if (m_frame->settings() && m_frame->settings()->frameFlatteningEnabled() && m_frame->ownerRenderer()) {
         if (m_frame->ownerElement()->hasTagName(iframeTag) || m_frame->ownerElement()->hasTagName(frameTag))
             m_frame->ownerRenderer()->setNeedsLayout(true, true);
     }

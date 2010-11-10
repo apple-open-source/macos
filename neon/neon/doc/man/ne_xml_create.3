@@ -1,33 +1,41 @@
+'\" t
 .\"     Title: ne_xml_create
 .\"    Author: 
-.\" Generator: DocBook XSL Stylesheets v1.73.2 <http://docbook.sf.net/>
-.\"      Date: 20 August 2008
+.\" Generator: DocBook XSL Stylesheets v1.74.3 <http://docbook.sf.net/>
+.\"      Date: 18 August 2009
 .\"    Manual: neon API reference
-.\"    Source: neon 0.28.3
+.\"    Source: neon 0.28.6
+.\"  Language: English
 .\"
-.TH "NE_XML_CREATE" "3" "20 August 2008" "neon 0.28.3" "neon API reference"
+.TH "NE_XML_CREATE" "3" "18 August 2009" "neon 0.28.6" "neon API reference"
+.\" -----------------------------------------------------------------
+.\" * set default formatting
+.\" -----------------------------------------------------------------
 .\" disable hyphenation
 .nh
 .\" disable justification (adjust text to left margin only)
 .ad l
+.\" -----------------------------------------------------------------
+.\" * MAIN CONTENT STARTS HERE *
+.\" -----------------------------------------------------------------
 .SH "NAME"
-ne_xml_create, ne_xml_destroy - create and destroy an XML parser
+ne_xml_create, ne_xml_destroy \- create and destroy an XML parser
 .SH "SYNOPSIS"
 .sp
 .ft B
 .nf
-#include <ne_xml\.h>
+#include <ne_xml\&.h>
 .fi
 .ft
-.HP 29
+.HP \w'ne_xml_parser\ *ne_xml_create('u
 .BI "ne_xml_parser *ne_xml_create(void);"
-.HP 20
+.HP \w'void\ ne_xml_destroy('u
 .BI "void ne_xml_destroy(ne_xml_parser\ *" "parser" ");"
 .SH "DESCRIPTION"
 .PP
 The
 \fBne_xml_create\fR
-function creates an XML parser object, which can be used for parsing XML documents using stacked SAX handlers\.
+function creates an XML parser object, which can be used for parsing XML documents using stacked SAX handlers\&.
 .SH "RETURN VALUE"
 .PP
 \fBne_xml_create\fR
@@ -39,7 +47,8 @@ XXX
 .SH "AUTHOR"
 .PP
 \fBJoe Orton\fR <\&neon@lists.manyfish.co.uk\&>
-.sp -1n
-.IP "" 4
+.RS 4
 Author.
+.RE
 .SH "COPYRIGHT"
+.br

@@ -54,6 +54,11 @@ const OSSymbol * gIODisplayParallelogramKey;
 const OSSymbol * gIODisplayRotationKey;
 const OSSymbol * gIODisplayOverscanKey;
 const OSSymbol * gIODisplayVideoBestKey;
+const OSSymbol * gIODisplaySelectedColorModeKey;
+
+const OSSymbol * gIODisplayRedGammaScaleKey;
+const OSSymbol * gIODisplayGreenGammaScaleKey;
+const OSSymbol * gIODisplayBlueGammaScaleKey;
 
 const OSSymbol * gIODisplayParametersTheatreModeKey;
 const OSSymbol * gIODisplayParametersTheatreModeWindowKey;
@@ -86,6 +91,23 @@ static OSData *  gIODisplayZeroData;
 
 enum {
     kIODisplayMaxUsableState  = kIODisplayMaxPowerState - 1
+};
+
+// these are the private instance variables for power management
+struct IODisplayPMVars
+{
+    UInt32              currentState;
+    // highest state number normally, lowest usable state in emergency
+    unsigned long       maxState;
+    unsigned long       minDimState;
+    // true if the display has had power lowered due to user inactivity
+    bool                displayIdle;
+};
+
+enum 
+{
+    kIODisplayBlankValue   = 0x100,
+    kIODisplayUnblankValue = 0x200,
 };
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
@@ -154,6 +176,14 @@ void IODisplay::initialize( void )
                                         kIODisplayOverscanKey );
     gIODisplayVideoBestKey      = OSSymbol::withCStringNoCopy(
                                         kIODisplayVideoBestKey );
+    gIODisplaySelectedColorModeKey = OSSymbol::withCStringNoCopy(
+                                        kIODisplaySelectedColorModeKey );
+    gIODisplayRedGammaScaleKey = OSSymbol::withCStringNoCopy(
+                                        kIODisplayRedGammaScaleKey );
+    gIODisplayGreenGammaScaleKey = OSSymbol::withCStringNoCopy(
+                                        kIODisplayGreenGammaScaleKey );
+    gIODisplayBlueGammaScaleKey = OSSymbol::withCStringNoCopy(
+                                        kIODisplayBlueGammaScaleKey );
 
     gIODisplayParametersCommitKey = OSSymbol::withCStringNoCopy(
                                         kIODisplayParametersCommitKey );
@@ -387,26 +417,28 @@ bool IODisplay::start( IOService * provider )
     IOService *                 look = this;
     IODisplayParameterHandler * parameterHandler = 0;
 
-    while (look && !fParameterHandler)
+    IORegistryEntry * entry;
+    IORegistryIterator * iter;
+
+    iter = IORegistryIterator::iterateOver(framebuffer, gIOServicePlane,
+                                           kIORegistryIterateRecursively);
+    if(iter)
     {
-        client = look->copyClientWithCategory(gIODisplayParametersKey);
-        parameterHandler = OSDynamicCast(IODisplayParameterHandler, client);
-
-        if (parameterHandler && parameterHandler->setDisplay(this))
-            addParameterHandler(parameterHandler);
-
-        if (client)
-            client->release();
-
-        if (fParameterHandler)
-            break;
-        if (OSDynamicCast(IOPlatformDevice, look))
-            look = OSDynamicCast( IOService, look->getParentEntry( gIODTPlane ));
-        else
-            look = look->getProvider();
+        do
+        {
+            iter->reset();
+            while( (entry = iter->getNextObject()))
+            {
+                if (!(parameterHandler = OSDynamicCast(IODisplayParameterHandler, entry)))
+                    continue;
+                addParameterHandler(parameterHandler);
+            }
+        } 
+        while (!iter->isValid());
+        iter->release();
     }
 
-    if (!fParameterHandler && OSDynamicCast(IOBacklightDisplay, this))
+    if (OSDynamicCast(IOBacklightDisplay, this))
     {
         OSDictionary * matching = nameMatching("backlight");
         OSIterator *   iter = NULL;
@@ -426,8 +458,7 @@ bool IODisplay::start( IOService * provider )
             parameterHandler = OSDynamicCast(IODisplayParameterHandler, client);
             if (parameterHandler)
             {
-                if (parameterHandler->setDisplay(this))
-                    addParameterHandler(parameterHandler);
+                addParameterHandler(parameterHandler);
             }
             if (client)
                 client->release();
@@ -438,23 +469,23 @@ bool IODisplay::start( IOService * provider )
     if ((parameterHandler = OSDynamicCast(IODisplayParameterHandler,
                                             framebuffer->getProperty(gIODisplayParametersKey))))
     {
-        if (parameterHandler->setDisplay(this))
-            addParameterHandler(parameterHandler);
+        addParameterHandler(parameterHandler);
     }
 
     doUpdate();
 
     // initialize power management of the display
 
-    fDisplayPMVars = IONew(DisplayPMVars, 1);
+    fDisplayPMVars = IONew(IODisplayPMVars, 1);
     assert( fDisplayPMVars );
-    bzero(fDisplayPMVars, sizeof(DisplayPMVars));
+    bzero(fDisplayPMVars, sizeof(IODisplayPMVars));
 
     fDisplayPMVars->maxState = kIODisplayMaxPowerState;
+    fDisplayPMVars->currentState = kIODisplayMaxPowerState;
 
     initPowerManagement( provider );
 
-    IOFramebuffer::displayOnline((NULL != OSDynamicCast(IOBacklightDisplay, this)), +1);
+    framebuffer->displayOnline(this, +1);
 
     fNotifier = framebuffer->addFramebufferNotification(
                     &IODisplay::_framebufferEvent, this, NULL );
@@ -467,22 +498,23 @@ bool IODisplay::start( IOService * provider )
 bool IODisplay::addParameterHandler( IODisplayParameterHandler * parameterHandler )
 {
     OSArray * array;
+    array = OSDynamicCast(OSArray, fParameterHandler);
 
-    if (!fParameterHandler)
-    {
-        parameterHandler->retain();
-        fParameterHandler = parameterHandler;
+    if (array && ((unsigned int) -1 != array->getNextIndexOfObject(parameterHandler, 0)))
         return (true);
-    }
 
-    array = OSArray::withCapacity(2);
-    if (!array)
+    if (!parameterHandler->setDisplay(this))
         return (false);
 
-    array->setObject(fParameterHandler);
-    fParameterHandler->release();
+    if (!array)
+    {
+        array = OSArray::withCapacity(2);
+        if (!array)
+            return (false);
+       fParameterHandler = (IODisplayParameterHandler *) array;
+    }
+
     array->setObject(parameterHandler);
-    fParameterHandler = (IODisplayParameterHandler *) array;
 
     return (true);
 }
@@ -513,7 +545,8 @@ bool IODisplay::removeParameterHandler( IODisplayParameterHandler * parameterHan
 
 void IODisplay::stop( IOService * provider )
 {
-    IOFramebuffer::displayOnline((NULL != OSDynamicCast(IOBacklightDisplay, this)), -1);
+    if (fConnection)
+        fConnection->getFramebuffer()->displayOnline(this, -1);
 
     IODisplayUpdateNVRAM(this, 0);
 
@@ -1017,20 +1050,39 @@ bool IODisplay::doUpdate( void )
     subclass IODisplay and override this and other appropriate methods.
  */
 
-static IOPMPowerState ourPowerStates[kIODisplayNumPowerStates] = {
-    // version,
-    // capabilityFlags, outputPowerCharacter, inputPowerRequirement,
-    { 1, 0,                                     0, 0,           0,0,0,0,0,0,0,0 },
-    { 1, 0,                                     0, 0,           0,0,0,0,0,0,0,0 },
-    { 1, IOPMDeviceUsable,                      0, IOPMPowerOn, 0,0,0,0,0,0,0,0 },
-    { 1, IOPMDeviceUsable | IOPMMaxPerformance, 0, IOPMPowerOn, 0,0,0,0,0,0,0,0 }
-    // staticPower, unbudgetedPower, powerToAttain, timeToAttain, settleUpTime,
-    // timeToLower, settleDownTime, powerDomainBudget
-};
-
-
 void IODisplay::initPowerManagement( IOService * provider )
 {
+    static const IOPMPowerState defaultPowerStates[kIODisplayNumPowerStates] = {
+        // version,
+        // capabilityFlags, outputPowerCharacter, inputPowerRequirement,
+        { 1, 0,                                     0, 0,           0,0,0,0,0,0,0,0 },
+        { 1, 0,                                     0, 0,           0,0,0,0,0,0,0,0 },
+        { 1, IOPMDeviceUsable,                      0, kIOPMPowerOn, 0,0,0,0,0,0,0,0 },
+        { 1, IOPMDeviceUsable | IOPMMaxPerformance, 0, kIOPMPowerOn, 0,0,0,0,0,0,0,0 }
+        // staticPower, unbudgetedPower, powerToAttain, timeToAttain, settleUpTime,
+        // timeToLower, settleDownTime, powerDomainBudget
+    };
+    IOPMPowerState ourPowerStates[kIODisplayNumPowerStates];
+
+    OSDictionary * displayParams;
+    SInt32         value, min, max;
+
+    bcopy(defaultPowerStates, ourPowerStates, sizeof(ourPowerStates));
+    displayParams = OSDynamicCast(OSDictionary, copyProperty(gIODisplayParametersKey));
+    if (displayParams)
+    {
+        if (getIntegerRange(displayParams, gIODisplayAudioMuteAndScreenBlankKey,
+                             &value, &min, &max))
+        {
+            if ((max >= kIODisplayBlankValue)
+                || (kIOGDbgK59Mode & gIOGDebugFlags))
+            {
+                ourPowerStates[1].inputPowerRequirement |= kIOPMPowerOn;
+                fDisplayPMVars->minDimState = 1;
+            }
+        }
+        displayParams->release();
+    }
     fDisplayPMVars->currentState = kIODisplayMaxPowerState;
 
     // initialize superclass variables
@@ -1044,45 +1096,38 @@ void IODisplay::initPowerManagement( IOService * provider )
 
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
-// dropOneLevel
+// setDisplayPowerState
 //
 // Called by the display wrangler when it decides there hasn't been user
 // activity for a while.  We drop one power level.  This can be called by the
-// display wrangler before we have been completely initialized.
-
-void IODisplay::dropOneLevel( void )
-{
-    if (initialized)
-    {
-        fDisplayPMVars->displayIdle = true;
-
-        if (getPowerState() > 0)
-            // drop a level
-            changePowerStateToPriv(getPowerState() - 1);
-        else
-            // this may rescind previous request for domain power
-            changePowerStateToPriv(0);
-    }
-}
-
-/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
-// makeDisplayUsable
-//
+// display wrangler before we have been completely initialized, or:
 // The DisplayWrangler has sensed user activity after we have idled the
 // display and wants us to make it usable again.  We are running on its
 // workloop thread.  This can be called before we are completely
 // initialized.
 
-void IODisplay::makeDisplayUsable( void )
+void IODisplay::setDisplayPowerState(unsigned long state)
 {
     if (initialized)
     {
-        fDisplayPMVars->displayIdle = false;
-        if ( initialized )
-            changePowerStateToPriv(fDisplayPMVars->maxState);
+        if (state)
+        {
+            state--;
+            if (state < fDisplayPMVars->minDimState)
+                state = fDisplayPMVars->minDimState;
+        }
+        fDisplayPMVars->displayIdle = (state != fDisplayPMVars->maxState);
+        changePowerStateToPriv(state);
     }
 }
 
+// obsolete
+void IODisplay::dropOneLevel(void)
+{
+}
+void IODisplay::makeDisplayUsable(void)
+{
+}
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 // setPowerState
@@ -1091,6 +1136,26 @@ void IODisplay::makeDisplayUsable( void )
 
 IOReturn IODisplay::setPowerState( unsigned long powerState, IOService * whatDevice )
 {
+    OSDictionary * displayParams;
+
+    if (fDisplayPMVars->minDimState)
+    {
+        displayParams = OSDynamicCast(OSDictionary, copyProperty(gIODisplayParametersKey));
+        if (displayParams)
+        {
+            doIntegerSet(displayParams, gIODisplayAudioMuteAndScreenBlankKey, 
+                                (powerState > fDisplayPMVars->minDimState) 
+                                    ? kIODisplayUnblankValue : kIODisplayBlankValue);
+            if (kIOGDbgK59Mode & gIOGDebugFlags)
+            {
+                doIntegerSet(displayParams, gIODisplayBrightnessKey, 
+                                (powerState > fDisplayPMVars->minDimState) 
+                                    ? 255 : 0);
+            }
+            displayParams->release();
+        }
+    }
+
     return (kIOReturnSuccess);
 }
 

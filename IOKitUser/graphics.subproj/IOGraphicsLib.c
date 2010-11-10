@@ -2008,7 +2008,119 @@ IOFBUpdateConnectState( IOFBConnectRef connectRef )
     connectRef->state = IOFBGetState( connectRef );
 }
 
+IOReturn
+IOAccelReadFramebuffer(io_service_t framebuffer, uint32_t width, uint32_t height, size_t rowBytes,
+                        vm_address_t * result, vm_size_t * bytecount)
+{
+    IOReturn     err;
+    io_service_t accelerator;
+    UInt32       framebufferIndex;
+    size_t       size = 0;
+    uintptr_t    surfaceID = 155;
+    vm_address_t buffer = 0;
+    IOAccelConnect                      connect = MACH_PORT_NULL;
+    IOAccelDeviceRegion *               region = NULL;
+    IOAccelSurfaceInformation           surfaceInfo;
+    IOGraphicsAcceleratorInterface **   interface = 0;
+    IOBlitterPtr                        copyRegionProc;
+    IOBlitCopyRegion                    op;
+    IOBlitSurface                       dest;
+    SInt32                              quality = 0;
 
+    TIMESTART();
+
+    *result    = 0;
+    *bytecount = 0;
+    dest.interfaceRef = NULL;
+
+    do
+    {
+        err = IOAccelFindAccelerator(framebuffer, &accelerator, &framebufferIndex);
+        if (kIOReturnSuccess != err) continue;
+        err = IOAccelCreateSurface(accelerator, surfaceID, 
+                                   kIOAccelSurfaceModeWindowedBit | kIOAccelSurfaceModeColorDepth8888,
+                                   &connect);
+        IOObjectRelease(accelerator);
+        if (kIOReturnSuccess != err) continue;
+    
+        size = rowBytes * height;
+    
+        region = calloc(1, sizeof (IOAccelDeviceRegion) + sizeof(IOAccelBounds));
+        if (!region) continue;
+    
+        region->num_rects = 1;
+        region->bounds.x = region->rect[0].x = 0;
+        region->bounds.y = region->rect[0].y = 0;
+        region->bounds.h = region->rect[0].h = height;
+        region->bounds.w = region->rect[0].w = width;
+        
+        err = vm_allocate(mach_task_self(), &buffer, size, 
+                          VM_FLAGS_ANYWHERE | VM_MAKE_TAG(VM_MEMORY_COREGRAPHICS_FRAMEBUFFERS));
+        if (kIOReturnSuccess != err) continue;
+    
+        err = IOAccelSetSurfaceFramebufferShapeWithBackingAndLength(connect, region,
+                    kIOAccelSurfaceShapeIdentityScaleBit| 
+                    kIOAccelSurfaceShapeNonBlockingBit| 
+                    //kIOAccelSurfaceShapeStaleBackingBit |
+                    kIOAccelSurfaceShapeNonSimpleBit,
+                    0,
+                    (IOVirtualAddress) buffer,
+                    (UInt32) rowBytes,
+                    (UInt32) size);
+        if (kIOReturnSuccess != err) continue;
+        err = IOCreatePlugInInterfaceForService(framebuffer,
+                            kIOGraphicsAcceleratorTypeID,
+                            kIOGraphicsAcceleratorInterfaceID,
+                            (IOCFPlugInInterface ***)&interface, &quality );
+        if (kIOReturnSuccess != err) continue;
+        err = (*interface)->GetBlitter(interface,
+                                    kIOBlitAllOptions,
+                                    (kIOBlitTypeCopyRegion | kIOBlitTypeOperationType0),
+                                    kIOBlitSourceFramebuffer,
+                                    &copyRegionProc);
+        if (kIOReturnSuccess != err) continue;
+        err = (*interface)->AllocateSurface(interface, kIOBlitHasCGSSurface, &dest, (void *) surfaceID);
+        if (kIOReturnSuccess != err) continue;
+        err = (*interface)->SetDestination(interface, kIOBlitSurfaceDestination, &dest);
+        if (kIOReturnSuccess != err) continue;
+        op.region = region;
+        op.deltaX = 0;
+        op.deltaY = 0;
+        err = (*copyRegionProc)(interface,
+                        kNilOptions,
+                        (kIOBlitTypeCopyRegion | kIOBlitTypeOperationType0),
+                        kIOBlitSourceFramebuffer,
+                        &op.operation,
+                        (void *) 0);
+        if (kIOReturnSuccess != err) continue;
+        (*interface)->Flush(interface, kNilOptions);
+        err = IOAccelWriteLockSurfaceWithOptions(connect,
+                kIOAccelSurfaceLockInBacking, &surfaceInfo, sizeof(surfaceInfo));
+        if (kIOReturnSuccess != err) continue;
+    
+        (void ) IOAccelWriteUnlockSurfaceWithOptions(connect, kIOAccelSurfaceLockInBacking);
+    }
+    while (false);
+
+    if (dest.interfaceRef) (*interface)->FreeSurface(interface, kIOBlitHasCGSSurface, &dest);
+
+    // destroy the surface
+    if (connect) (void) IOAccelDestroySurface(connect);
+
+    if (region) free(region);
+
+    if (interface) IODestroyPlugInInterface((IOCFPlugInInterface **)interface);
+
+    if (kIOReturnSuccess == err) 
+    {
+        *result    = buffer;
+        *bytecount = size;
+    }
+
+    TIMEEND("IOAccelReadFramebuffer");
+
+    return (err);
+}
 static kern_return_t
 IOFBResetTransform( IOFBConnectRef connectRef )
 {
@@ -2148,7 +2260,7 @@ IOFBRebuild( IOFBConnectRef connectRef, Boolean forConnectChange )
     if( kIOReturnSuccess != IOFBGetAttributeForFramebuffer( connectRef->connect, MACH_PORT_NULL,
                                     kIOMirrorDefaultAttribute, &connectRef->mirrorDefaultFlags))
         connectRef->mirrorDefaultFlags = 0;
-    
+
     TIMEEND("IOFBGetAttributeForFramebuffer");
 
     DEBG(connectRef, "%p: ID(%qx,%d) -> %p, %08x, %08x, %08x\n",
@@ -2383,10 +2495,12 @@ IOFBDispatchMessageNotification( io_connect_t connect, mach_msg_header_t * messa
     switch( message->msgh_id)
     {
         case 0:
+            connectRef->didPowerOff = true;
             callbacks->WillPowerOff(callbackRef, (void *) (uintptr_t) connect);
             break;
 
         case 1:
+            connectRef->didPowerOff = false;
             callbacks->DidPowerOn(callbackRef, (void *) (uintptr_t) connect);
             break;
 
@@ -2416,9 +2530,53 @@ IOFBAcknowledgeNotification( void * notificationID )
 extern kern_return_t
 IOFBAcknowledgePM( io_connect_t connect )
 {
-    return IOConnectCallMethod(connect, 14,     // Index
-                NULL,    0, NULL,    0,         // Input
-                NULL, NULL, NULL, NULL);        // Output
+    IOFBConnectRef  connectRef = IOFBConnectToRef( connect );
+    IOReturn        err;
+    UInt32          vramSave;
+    IODisplayModeID mode;
+    IOIndex         depth;
+    IOPixelInformation  pixelInfo;
+    vm_address_t        bits = 0;
+    vm_size_t           bytes = 0;
+    uint64_t            inData[] = { 0, 0 };
+
+    if (connectRef->didPowerOff)
+    do
+    {
+        connectRef->didPowerOff = false;
+        if(!(kIOFBConnectStateOnline & connectRef->state))
+            continue;
+        err = _IOFBGetAttributeForFramebuffer( connect,
+                                                MACH_PORT_NULL,
+                                                kIOVRAMSaveAttribute, &vramSave );
+        if ((kIOReturnSuccess != err) || !vramSave)
+            continue;
+        err = _IOFBGetCurrentDisplayModeAndDepth(connectRef, &mode, &depth);
+        if (err)
+            continue;
+        err = _IOFBGetPixelInformation( connectRef, mode, depth,
+                                        kIOFBSystemAperture, &pixelInfo );
+        if (err)
+            continue;
+        err = IOAccelReadFramebuffer(connectRef->framebuffer,
+                                     pixelInfo.activeWidth, pixelInfo.activeHeight,
+                                     pixelInfo.bytesPerRow,
+                                     &bits, &bytes);
+        if (err)
+            continue;
+        inData[0] = bits;
+        inData[1] = bytes;
+    }
+    while (false);
+
+    err = IOConnectCallMethod(connect, 14,         // Index
+                inData, arrayCnt(inData), NULL, 0, // Input
+                NULL, NULL, NULL, NULL);           // Output
+
+    if (bits)
+        (void) vm_deallocate(mach_task_self(), bits, bytes);
+
+    return (err);
 }
 
 // Display mode information

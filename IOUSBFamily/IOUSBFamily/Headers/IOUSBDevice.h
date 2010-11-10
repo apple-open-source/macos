@@ -73,12 +73,12 @@ protected:
     IOUSBDeviceDescriptor			_descriptor;
     UInt32							_busPowerAvailable;
     UInt8							_speed;
-    IOUSBEndpointDescriptor			_endpointZero; 				// Fake ep for control pipe
+    IOUSBEndpointDescriptor			_endpointZero; 			// Fake ep for control pipe
     void *							_port;					// Obsolete, do not use
     IOBufferMemoryDescriptor**		_configList;
-    IOUSBInterface**				_interfaceList;
+    IOUSBInterface**				_interfaceList;			// Obsolete, do not use
     UInt8							_currentConfigValue;
-    UInt8							_numInterfaces;
+    UInt8							_numInterfaces;			// Obsolete, do not use
     
     struct ExpansionData 
     {
@@ -117,6 +117,8 @@ protected:
 		bool					_newGetConfigLock;					// new lock, taken within the WL gate, when doing a GetConfig
 		UInt32					_resetAndReEnumerateLock;			// "Lock" to prevent us from doing a reset or a re-enumerate while the other one is in progress		
 		UInt32					_locationID;
+		IOLock*					_interfaceArrayLock;
+	    OSArray*				_interfaceArray;
     };	
     ExpansionData * _expansionData;
 
@@ -503,19 +505,19 @@ public:
     
 private:
 
-    static void 	ProcessPortResetEntry(OSObject *target);
-    void 		ProcessPortReset(void);
+    static void			ProcessPortResetEntry(__unused OSObject *target){};			// obsolete
+    void				ProcessPortReset(void){};									// obsolete
 
-    void 		TerminateInterfaces(void);
+    void				TerminateInterfaces(bool terminate);
 
-    static void 	ProcessPortReEnumerateEntry(OSObject *target, thread_call_param_t options);
-    void 		ProcessPortReEnumerate(UInt32 options);
+    static void			ProcessPortReEnumerateEntry(OSObject *target, thread_call_param_t options);
+    void				ProcessPortReEnumerate(UInt32 options);
 	
-    static void 	DoMessageClientsEntry(OSObject *target, thread_call_param_t messageStruct);
-    void 		DoMessageClients( void * messageStructPtr);
+    static void			DoMessageClientsEntry(OSObject *target, thread_call_param_t messageStruct);
+    void				DoMessageClients( void * messageStructPtr);
 	
-    static void 	DisplayUserNotificationForDeviceEntry (OSObject *owner, IOTimerEventSource *sender);
-    void		DisplayUserNotificationForDevice( );
+    static void			DisplayUserNotificationForDeviceEntry (OSObject *owner, IOTimerEventSource *sender);
+    void				DisplayUserNotificationForDevice( );
     
     UInt32              SimpleUnicodeToUTF8(UInt16 uChar, UInt8 utf8Bytes[4]);
     void                SwapUniWords (UInt16  **unicodeString, UInt32 uniSize);
@@ -523,6 +525,12 @@ private:
     IOReturn			TakeGetConfigLock(void);
     IOReturn			ReleaseGetConfigLock(void);
     static IOReturn		ChangeGetConfigLock(OSObject *target, void *arg0, void *arg1, void *arg2, void *arg3);
+	
+	void				RegisterInterfaces(void);
+	
+    static IOReturn		_ResetDevice(OSObject *target, void *arg0, void *arg1, void *arg2, void *arg3);
+    static IOReturn		_ReEnumerateDevice(OSObject *target, void *arg0, void *arg1, void *arg2, void *arg3);
+
 };
 
 #endif /* _IOKIT_IOUSBDEVICE_H */

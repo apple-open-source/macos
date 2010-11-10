@@ -120,6 +120,8 @@ void DeviceNotification( void *		refCon,
     kern_return_t	kr;
     MyPrivateData	*privateDataRef = (MyPrivateData *) refCon;
     
+	printf("Device 0x%08x received message 0x%x.\n", service, messageType);
+
     if (messageType == kIOMessageServiceIsTerminated)
     {
         printf("Device 0x%08x removed.\n", service);

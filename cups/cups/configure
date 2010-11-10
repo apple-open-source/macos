@@ -745,6 +745,9 @@ LIBCUPSDRIVER
 LIBCUPSIMAGE
 LIBCUPSMIME
 LIBCUPSPPDC
+EXTLINKCUPS
+EXTLINKCUPSDRIVER
+EXTLINKCUPSIMAGE
 LINKCUPS
 LINKCUPSIMAGE
 DSOLIBS
@@ -779,6 +782,7 @@ LIBSLP
 LIBGSSAPI
 KRB5CONFIG
 LIBLDAP
+PTHREAD_FLAGS
 LIBGNUTLSCONFIG
 LIBGCRYPTCONFIG
 SSLFLAGS
@@ -789,7 +793,6 @@ PAMFILE
 PAMLIBS
 PAMMOD
 PAMMODAUTH
-PTHREAD_FLAGS
 LARGEFILE
 DNSSDLIBS
 DNSSD_BACKEND
@@ -1440,12 +1443,12 @@ Optional Features:
   --disable-slp           disable SLP support
   --disable-gssapi        disable GSSAPI support
   --disable-ldap          disable LDAP support
+  --disable-threads       disable multi-threading support
   --disable-ssl           disable SSL/TLS support
   --enable-cdsassl        use CDSA for SSL/TLS support, default=first
   --enable-gnutls         use GNU TLS for SSL/TLS support, default=second
   --enable-openssl        use OpenSSL for SSL/TLS support, default=third
   --disable-pam           disable PAM support
-  --disable-threads       disable multi-threading support
   --disable-largefile     omit support for large files
   --disable-dnssd         disable DNS Service Discovery support
   --disable-launchd       disable launchd support
@@ -1986,7 +1989,7 @@ esac
 ac_config_headers="$ac_config_headers config.h"
 
 
-CUPS_VERSION="1.4.4"
+CUPS_VERSION="1.4.5"
 CUPS_REVISION=""
 #if test -z "$CUPS_REVISION" -a -d .svn; then
 #	CUPS_REVISION="-r`svnversion . | awk -F: '{print $NF}' | sed -e '1,$s/[[a-zA-Z]]*//g'`"
@@ -7921,6 +7924,57 @@ fi
 
 rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
 
+{ echo "$as_me:$LINENO: checking for st_gen member in stat structure" >&5
+echo $ECHO_N "checking for st_gen member in stat structure... $ECHO_C" >&6; }
+cat >conftest.$ac_ext <<_ACEOF
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+#include <sys/stat.h>
+int
+main ()
+{
+struct stat t;
+	int o = t.st_gen;
+  ;
+  return 0;
+}
+_ACEOF
+rm -f conftest.$ac_objext
+if { (ac_try="$ac_compile"
+case "(($ac_try" in
+  *\"* | *\`* | *\\*) ac_try_echo=\$ac_try;;
+  *) ac_try_echo=$ac_try;;
+esac
+eval "echo \"\$as_me:$LINENO: $ac_try_echo\"") >&5
+  (eval "$ac_compile") 2>conftest.er1
+  ac_status=$?
+  grep -v '^ *+' conftest.er1 >conftest.err
+  rm -f conftest.er1
+  cat conftest.err >&5
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } && {
+	 test -z "$ac_c_werror_flag" ||
+	 test ! -s conftest.err
+       } && test -s conftest.$ac_objext; then
+  { echo "$as_me:$LINENO: result: yes" >&5
+echo "${ECHO_T}yes" >&6; }
+	cat >>confdefs.h <<\_ACEOF
+#define HAVE_ST_GEN 1
+_ACEOF
+
+else
+  echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+	{ echo "$as_me:$LINENO: result: no" >&5
+echo "${ECHO_T}no" >&6; }
+fi
+
+rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
+
 
 for ac_func in removefile
 do
@@ -11524,15 +11578,30 @@ DSO64FLAGS="$DSOFLAGS"
 if test x$enable_shared = xno; then
 	LINKCUPS="../cups/libcups.a"
 	LINKCUPSIMAGE="../filter/libcupsimage.a"
+
+	EXTLINKCUPS="-lcups"
+	EXTLINKCUPSDRIVER="-lcupsdriver"
+	EXTLINKCUPSIMAGE="-lcupsimage"
 else
 	if test $uname = AIX; then
 		LINKCUPS="-lcups_s"
 		LINKCUPSIMAGE="-lcupsimage_s"
+
+		EXTLINKCUPS="-lcups_s"
+		EXTLINKCUPSDRIVER="-lcupsdriver_s"
+		EXTLINKCUPSIMAGE="-lcupsimage_s"
 	else
 		LINKCUPS="-lcups"
 		LINKCUPSIMAGE="-lcupsimage"
+
+		EXTLINKCUPS="-lcups"
+		EXTLINKCUPSDRIVER="-lcupsdriver"
+		EXTLINKCUPSIMAGE="-lcupsimage"
 	fi
 fi
+
+
+
 
 
 
@@ -17204,6 +17273,220 @@ fi
 
 
 
+# Check whether --enable-threads was given.
+if test "${enable_threads+set}" = set; then
+  enableval=$enable_threads;
+fi
+
+
+have_pthread=no
+PTHREAD_FLAGS=""
+
+if test "x$enable_threads" != xno; then
+	if test "${ac_cv_header_pthread_h+set}" = set; then
+  { echo "$as_me:$LINENO: checking for pthread.h" >&5
+echo $ECHO_N "checking for pthread.h... $ECHO_C" >&6; }
+if test "${ac_cv_header_pthread_h+set}" = set; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+fi
+{ echo "$as_me:$LINENO: result: $ac_cv_header_pthread_h" >&5
+echo "${ECHO_T}$ac_cv_header_pthread_h" >&6; }
+else
+  # Is the header compilable?
+{ echo "$as_me:$LINENO: checking pthread.h usability" >&5
+echo $ECHO_N "checking pthread.h usability... $ECHO_C" >&6; }
+cat >conftest.$ac_ext <<_ACEOF
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+$ac_includes_default
+#include <pthread.h>
+_ACEOF
+rm -f conftest.$ac_objext
+if { (ac_try="$ac_compile"
+case "(($ac_try" in
+  *\"* | *\`* | *\\*) ac_try_echo=\$ac_try;;
+  *) ac_try_echo=$ac_try;;
+esac
+eval "echo \"\$as_me:$LINENO: $ac_try_echo\"") >&5
+  (eval "$ac_compile") 2>conftest.er1
+  ac_status=$?
+  grep -v '^ *+' conftest.er1 >conftest.err
+  rm -f conftest.er1
+  cat conftest.err >&5
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } && {
+	 test -z "$ac_c_werror_flag" ||
+	 test ! -s conftest.err
+       } && test -s conftest.$ac_objext; then
+  ac_header_compiler=yes
+else
+  echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+	ac_header_compiler=no
+fi
+
+rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
+{ echo "$as_me:$LINENO: result: $ac_header_compiler" >&5
+echo "${ECHO_T}$ac_header_compiler" >&6; }
+
+# Is the header present?
+{ echo "$as_me:$LINENO: checking pthread.h presence" >&5
+echo $ECHO_N "checking pthread.h presence... $ECHO_C" >&6; }
+cat >conftest.$ac_ext <<_ACEOF
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+#include <pthread.h>
+_ACEOF
+if { (ac_try="$ac_cpp conftest.$ac_ext"
+case "(($ac_try" in
+  *\"* | *\`* | *\\*) ac_try_echo=\$ac_try;;
+  *) ac_try_echo=$ac_try;;
+esac
+eval "echo \"\$as_me:$LINENO: $ac_try_echo\"") >&5
+  (eval "$ac_cpp conftest.$ac_ext") 2>conftest.er1
+  ac_status=$?
+  grep -v '^ *+' conftest.er1 >conftest.err
+  rm -f conftest.er1
+  cat conftest.err >&5
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } >/dev/null && {
+	 test -z "$ac_c_preproc_warn_flag$ac_c_werror_flag" ||
+	 test ! -s conftest.err
+       }; then
+  ac_header_preproc=yes
+else
+  echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+  ac_header_preproc=no
+fi
+
+rm -f conftest.err conftest.$ac_ext
+{ echo "$as_me:$LINENO: result: $ac_header_preproc" >&5
+echo "${ECHO_T}$ac_header_preproc" >&6; }
+
+# So?  What about this header?
+case $ac_header_compiler:$ac_header_preproc:$ac_c_preproc_warn_flag in
+  yes:no: )
+    { echo "$as_me:$LINENO: WARNING: pthread.h: accepted by the compiler, rejected by the preprocessor!" >&5
+echo "$as_me: WARNING: pthread.h: accepted by the compiler, rejected by the preprocessor!" >&2;}
+    { echo "$as_me:$LINENO: WARNING: pthread.h: proceeding with the compiler's result" >&5
+echo "$as_me: WARNING: pthread.h: proceeding with the compiler's result" >&2;}
+    ac_header_preproc=yes
+    ;;
+  no:yes:* )
+    { echo "$as_me:$LINENO: WARNING: pthread.h: present but cannot be compiled" >&5
+echo "$as_me: WARNING: pthread.h: present but cannot be compiled" >&2;}
+    { echo "$as_me:$LINENO: WARNING: pthread.h:     check for missing prerequisite headers?" >&5
+echo "$as_me: WARNING: pthread.h:     check for missing prerequisite headers?" >&2;}
+    { echo "$as_me:$LINENO: WARNING: pthread.h: see the Autoconf documentation" >&5
+echo "$as_me: WARNING: pthread.h: see the Autoconf documentation" >&2;}
+    { echo "$as_me:$LINENO: WARNING: pthread.h:     section \"Present But Cannot Be Compiled\"" >&5
+echo "$as_me: WARNING: pthread.h:     section \"Present But Cannot Be Compiled\"" >&2;}
+    { echo "$as_me:$LINENO: WARNING: pthread.h: proceeding with the preprocessor's result" >&5
+echo "$as_me: WARNING: pthread.h: proceeding with the preprocessor's result" >&2;}
+    { echo "$as_me:$LINENO: WARNING: pthread.h: in the future, the compiler will take precedence" >&5
+echo "$as_me: WARNING: pthread.h: in the future, the compiler will take precedence" >&2;}
+
+    ;;
+esac
+{ echo "$as_me:$LINENO: checking for pthread.h" >&5
+echo $ECHO_N "checking for pthread.h... $ECHO_C" >&6; }
+if test "${ac_cv_header_pthread_h+set}" = set; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+else
+  ac_cv_header_pthread_h=$ac_header_preproc
+fi
+{ echo "$as_me:$LINENO: result: $ac_cv_header_pthread_h" >&5
+echo "${ECHO_T}$ac_cv_header_pthread_h" >&6; }
+
+fi
+if test $ac_cv_header_pthread_h = yes; then
+  cat >>confdefs.h <<\_ACEOF
+#define HAVE_PTHREAD_H 1
+_ACEOF
+
+fi
+
+
+
+	if test x$ac_cv_header_pthread_h = xyes; then
+				for flag in -lpthreads -lpthread -pthread; do
+        		{ echo "$as_me:$LINENO: checking for pthread_create using $flag" >&5
+echo $ECHO_N "checking for pthread_create using $flag... $ECHO_C" >&6; }
+			SAVELIBS="$LIBS"
+			LIBS="$flag $LIBS"
+        		cat >conftest.$ac_ext <<_ACEOF
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+#include <pthread.h>
+int
+main ()
+{
+pthread_create(0, 0, 0, 0);
+  ;
+  return 0;
+}
+_ACEOF
+rm -f conftest.$ac_objext conftest$ac_exeext
+if { (ac_try="$ac_link"
+case "(($ac_try" in
+  *\"* | *\`* | *\\*) ac_try_echo=\$ac_try;;
+  *) ac_try_echo=$ac_try;;
+esac
+eval "echo \"\$as_me:$LINENO: $ac_try_echo\"") >&5
+  (eval "$ac_link") 2>conftest.er1
+  ac_status=$?
+  grep -v '^ *+' conftest.er1 >conftest.err
+  rm -f conftest.er1
+  cat conftest.err >&5
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } && {
+	 test -z "$ac_c_werror_flag" ||
+	 test ! -s conftest.err
+       } && test -s conftest$ac_exeext &&
+       $as_test_x conftest$ac_exeext; then
+  have_pthread=yes
+else
+  echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+	LIBS="$SAVELIBS"
+fi
+
+rm -f core conftest.err conftest.$ac_objext conftest_ipa8_conftest.oo \
+      conftest$ac_exeext conftest.$ac_ext
+        		{ echo "$as_me:$LINENO: result: $have_pthread" >&5
+echo "${ECHO_T}$have_pthread" >&6; }
+
+			if test $have_pthread = yes; then
+				PTHREAD_FLAGS="-D_THREAD_SAFE -D_REENTRANT"
+
+				# Solaris requires -D_POSIX_PTHREAD_SEMANTICS to
+				# be POSIX-compliant... :(
+				if test $uname = SunOS; then
+					PTHREAD_FLAGS="$PTHREAD_FLAGS -D_POSIX_PTHREAD_SEMANTICS"
+				fi
+				break
+			fi
+		done
+	fi
+fi
+
+
+
+
+
 # Check whether --enable-ssl was given.
 if test "${enable_ssl+set}" = set; then
   enableval=$enable_ssl;
@@ -17383,7 +17666,140 @@ _ACEOF
 _ACEOF
 
 
-				if test "${ac_cv_header_Security_SecPolicy_h+set}" = set; then
+				if test "${ac_cv_header_Security_SecItemPriv_h+set}" = set; then
+  { echo "$as_me:$LINENO: checking for Security/SecItemPriv.h" >&5
+echo $ECHO_N "checking for Security/SecItemPriv.h... $ECHO_C" >&6; }
+if test "${ac_cv_header_Security_SecItemPriv_h+set}" = set; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+fi
+{ echo "$as_me:$LINENO: result: $ac_cv_header_Security_SecItemPriv_h" >&5
+echo "${ECHO_T}$ac_cv_header_Security_SecItemPriv_h" >&6; }
+else
+  # Is the header compilable?
+{ echo "$as_me:$LINENO: checking Security/SecItemPriv.h usability" >&5
+echo $ECHO_N "checking Security/SecItemPriv.h usability... $ECHO_C" >&6; }
+cat >conftest.$ac_ext <<_ACEOF
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+$ac_includes_default
+#include <Security/SecItemPriv.h>
+_ACEOF
+rm -f conftest.$ac_objext
+if { (ac_try="$ac_compile"
+case "(($ac_try" in
+  *\"* | *\`* | *\\*) ac_try_echo=\$ac_try;;
+  *) ac_try_echo=$ac_try;;
+esac
+eval "echo \"\$as_me:$LINENO: $ac_try_echo\"") >&5
+  (eval "$ac_compile") 2>conftest.er1
+  ac_status=$?
+  grep -v '^ *+' conftest.er1 >conftest.err
+  rm -f conftest.er1
+  cat conftest.err >&5
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } && {
+	 test -z "$ac_c_werror_flag" ||
+	 test ! -s conftest.err
+       } && test -s conftest.$ac_objext; then
+  ac_header_compiler=yes
+else
+  echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+	ac_header_compiler=no
+fi
+
+rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
+{ echo "$as_me:$LINENO: result: $ac_header_compiler" >&5
+echo "${ECHO_T}$ac_header_compiler" >&6; }
+
+# Is the header present?
+{ echo "$as_me:$LINENO: checking Security/SecItemPriv.h presence" >&5
+echo $ECHO_N "checking Security/SecItemPriv.h presence... $ECHO_C" >&6; }
+cat >conftest.$ac_ext <<_ACEOF
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+#include <Security/SecItemPriv.h>
+_ACEOF
+if { (ac_try="$ac_cpp conftest.$ac_ext"
+case "(($ac_try" in
+  *\"* | *\`* | *\\*) ac_try_echo=\$ac_try;;
+  *) ac_try_echo=$ac_try;;
+esac
+eval "echo \"\$as_me:$LINENO: $ac_try_echo\"") >&5
+  (eval "$ac_cpp conftest.$ac_ext") 2>conftest.er1
+  ac_status=$?
+  grep -v '^ *+' conftest.er1 >conftest.err
+  rm -f conftest.er1
+  cat conftest.err >&5
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } >/dev/null && {
+	 test -z "$ac_c_preproc_warn_flag$ac_c_werror_flag" ||
+	 test ! -s conftest.err
+       }; then
+  ac_header_preproc=yes
+else
+  echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+  ac_header_preproc=no
+fi
+
+rm -f conftest.err conftest.$ac_ext
+{ echo "$as_me:$LINENO: result: $ac_header_preproc" >&5
+echo "${ECHO_T}$ac_header_preproc" >&6; }
+
+# So?  What about this header?
+case $ac_header_compiler:$ac_header_preproc:$ac_c_preproc_warn_flag in
+  yes:no: )
+    { echo "$as_me:$LINENO: WARNING: Security/SecItemPriv.h: accepted by the compiler, rejected by the preprocessor!" >&5
+echo "$as_me: WARNING: Security/SecItemPriv.h: accepted by the compiler, rejected by the preprocessor!" >&2;}
+    { echo "$as_me:$LINENO: WARNING: Security/SecItemPriv.h: proceeding with the compiler's result" >&5
+echo "$as_me: WARNING: Security/SecItemPriv.h: proceeding with the compiler's result" >&2;}
+    ac_header_preproc=yes
+    ;;
+  no:yes:* )
+    { echo "$as_me:$LINENO: WARNING: Security/SecItemPriv.h: present but cannot be compiled" >&5
+echo "$as_me: WARNING: Security/SecItemPriv.h: present but cannot be compiled" >&2;}
+    { echo "$as_me:$LINENO: WARNING: Security/SecItemPriv.h:     check for missing prerequisite headers?" >&5
+echo "$as_me: WARNING: Security/SecItemPriv.h:     check for missing prerequisite headers?" >&2;}
+    { echo "$as_me:$LINENO: WARNING: Security/SecItemPriv.h: see the Autoconf documentation" >&5
+echo "$as_me: WARNING: Security/SecItemPriv.h: see the Autoconf documentation" >&2;}
+    { echo "$as_me:$LINENO: WARNING: Security/SecItemPriv.h:     section \"Present But Cannot Be Compiled\"" >&5
+echo "$as_me: WARNING: Security/SecItemPriv.h:     section \"Present But Cannot Be Compiled\"" >&2;}
+    { echo "$as_me:$LINENO: WARNING: Security/SecItemPriv.h: proceeding with the preprocessor's result" >&5
+echo "$as_me: WARNING: Security/SecItemPriv.h: proceeding with the preprocessor's result" >&2;}
+    { echo "$as_me:$LINENO: WARNING: Security/SecItemPriv.h: in the future, the compiler will take precedence" >&5
+echo "$as_me: WARNING: Security/SecItemPriv.h: in the future, the compiler will take precedence" >&2;}
+
+    ;;
+esac
+{ echo "$as_me:$LINENO: checking for Security/SecItemPriv.h" >&5
+echo $ECHO_N "checking for Security/SecItemPriv.h... $ECHO_C" >&6; }
+if test "${ac_cv_header_Security_SecItemPriv_h+set}" = set; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+else
+  ac_cv_header_Security_SecItemPriv_h=$ac_header_preproc
+fi
+{ echo "$as_me:$LINENO: result: $ac_cv_header_Security_SecItemPriv_h" >&5
+echo "${ECHO_T}$ac_cv_header_Security_SecItemPriv_h" >&6; }
+
+fi
+if test $ac_cv_header_Security_SecItemPriv_h = yes; then
+  cat >>confdefs.h <<\_ACEOF
+#define HAVE_SECITEMPRIV_H 1
+_ACEOF
+
+fi
+
+
+		if test "${ac_cv_header_Security_SecPolicy_h+set}" = set; then
   { echo "$as_me:$LINENO: checking for Security/SecPolicy.h" >&5
 echo $ECHO_N "checking for Security/SecPolicy.h... $ECHO_C" >&6; }
 if test "${ac_cv_header_Security_SecPolicy_h+set}" = set; then
@@ -17929,6 +18345,20 @@ echo "${ECHO_T}yes" >&6; }
 		    { echo "$as_me:$LINENO: result: no" >&5
 echo "${ECHO_T}no" >&6; }
 		fi
+
+				{ echo "$as_me:$LINENO: checking for SecPolicyCreateSSL" >&5
+echo $ECHO_N "checking for SecPolicyCreateSSL... $ECHO_C" >&6; }
+		if test $uversion -ge 110; then
+		    cat >>confdefs.h <<\_ACEOF
+#define HAVE_SECPOLICYCREATESSL 1
+_ACEOF
+
+		    { echo "$as_me:$LINENO: result: yes" >&5
+echo "${ECHO_T}yes" >&6; }
+		else
+		    { echo "$as_me:$LINENO: result: no" >&5
+echo "${ECHO_T}no" >&6; }
+		fi
 fi
 
 
@@ -18017,36 +18447,46 @@ fi
 
 
 	if $PKGCONFIG --exists gnutls; then
-	    have_ssl=1
-	    SSLLIBS=`$PKGCONFIG --libs gnutls`
-	    SSLFLAGS=`$PKGCONFIG --cflags gnutls`
-	    cat >>confdefs.h <<\_ACEOF
+	    if test "x$have_pthread" = xyes; then
+		{ echo "$as_me:$LINENO: WARNING: The current version of GNU TLS cannot be made thread-safe." >&5
+echo "$as_me: WARNING: The current version of GNU TLS cannot be made thread-safe." >&2;}
+	    else
+	        have_ssl=1
+	        SSLLIBS=`$PKGCONFIG --libs gnutls`
+	        SSLFLAGS=`$PKGCONFIG --cflags gnutls`
+	        cat >>confdefs.h <<\_ACEOF
 #define HAVE_SSL 1
 _ACEOF
 
-	    cat >>confdefs.h <<\_ACEOF
+	        cat >>confdefs.h <<\_ACEOF
 #define HAVE_GNUTLS 1
 _ACEOF
 
-	elif "x$LIBGNUTLSCONFIG" != x; then
-	    have_ssl=1
-	    SSLLIBS=`$LIBGNUTLSCONFIG --libs`
-	    SSLFLAGS=`$LIBGNUTLSCONFIG --cflags`
-	    cat >>confdefs.h <<\_ACEOF
+	    fi
+	elif test "x$LIBGNUTLSCONFIG" != x; then
+	    if test "x$have_pthread" = xyes; then
+		{ echo "$as_me:$LINENO: WARNING: The current version of GNU TLS cannot be made thread-safe." >&5
+echo "$as_me: WARNING: The current version of GNU TLS cannot be made thread-safe." >&2;}
+	    else
+	        have_ssl=1
+	        SSLLIBS=`$LIBGNUTLSCONFIG --libs`
+	        SSLFLAGS=`$LIBGNUTLSCONFIG --cflags`
+	        cat >>confdefs.h <<\_ACEOF
 #define HAVE_SSL 1
 _ACEOF
 
-	    cat >>confdefs.h <<\_ACEOF
+	        cat >>confdefs.h <<\_ACEOF
 #define HAVE_GNUTLS 1
 _ACEOF
 
+	    fi
 	fi
 
 	if test $have_ssl = 1; then
             if $PKGCONFIG --exists gcrypt; then
 	        SSLLIBS="$SSLLIBS `$PKGCONFIG --libs gcrypt`"
 	        SSLFLAGS="$SSLFLAGS `$PKGCONFIG --cflags gcrypt`"
-	    elif "x$LIBGCRYPTCONFIG" != x; then
+	    elif test "x$LIBGCRYPTCONFIG" != x; then
 	        SSLLIBS="$SSLLIBS `$LIBGCRYPTCONFIG --libs`"
 	        SSLFLAGS="$SSLFLAGS `$LIBGCRYPTCONFIG --cflags`"
 	    fi
@@ -18912,220 +19352,6 @@ fi
 
 
 
-
-
-
-
-
-# Check whether --enable-threads was given.
-if test "${enable_threads+set}" = set; then
-  enableval=$enable_threads;
-fi
-
-
-have_pthread=no
-PTHREAD_FLAGS=""
-
-if test "x$enable_threads" != xno; then
-	if test "${ac_cv_header_pthread_h+set}" = set; then
-  { echo "$as_me:$LINENO: checking for pthread.h" >&5
-echo $ECHO_N "checking for pthread.h... $ECHO_C" >&6; }
-if test "${ac_cv_header_pthread_h+set}" = set; then
-  echo $ECHO_N "(cached) $ECHO_C" >&6
-fi
-{ echo "$as_me:$LINENO: result: $ac_cv_header_pthread_h" >&5
-echo "${ECHO_T}$ac_cv_header_pthread_h" >&6; }
-else
-  # Is the header compilable?
-{ echo "$as_me:$LINENO: checking pthread.h usability" >&5
-echo $ECHO_N "checking pthread.h usability... $ECHO_C" >&6; }
-cat >conftest.$ac_ext <<_ACEOF
-/* confdefs.h.  */
-_ACEOF
-cat confdefs.h >>conftest.$ac_ext
-cat >>conftest.$ac_ext <<_ACEOF
-/* end confdefs.h.  */
-$ac_includes_default
-#include <pthread.h>
-_ACEOF
-rm -f conftest.$ac_objext
-if { (ac_try="$ac_compile"
-case "(($ac_try" in
-  *\"* | *\`* | *\\*) ac_try_echo=\$ac_try;;
-  *) ac_try_echo=$ac_try;;
-esac
-eval "echo \"\$as_me:$LINENO: $ac_try_echo\"") >&5
-  (eval "$ac_compile") 2>conftest.er1
-  ac_status=$?
-  grep -v '^ *+' conftest.er1 >conftest.err
-  rm -f conftest.er1
-  cat conftest.err >&5
-  echo "$as_me:$LINENO: \$? = $ac_status" >&5
-  (exit $ac_status); } && {
-	 test -z "$ac_c_werror_flag" ||
-	 test ! -s conftest.err
-       } && test -s conftest.$ac_objext; then
-  ac_header_compiler=yes
-else
-  echo "$as_me: failed program was:" >&5
-sed 's/^/| /' conftest.$ac_ext >&5
-
-	ac_header_compiler=no
-fi
-
-rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
-{ echo "$as_me:$LINENO: result: $ac_header_compiler" >&5
-echo "${ECHO_T}$ac_header_compiler" >&6; }
-
-# Is the header present?
-{ echo "$as_me:$LINENO: checking pthread.h presence" >&5
-echo $ECHO_N "checking pthread.h presence... $ECHO_C" >&6; }
-cat >conftest.$ac_ext <<_ACEOF
-/* confdefs.h.  */
-_ACEOF
-cat confdefs.h >>conftest.$ac_ext
-cat >>conftest.$ac_ext <<_ACEOF
-/* end confdefs.h.  */
-#include <pthread.h>
-_ACEOF
-if { (ac_try="$ac_cpp conftest.$ac_ext"
-case "(($ac_try" in
-  *\"* | *\`* | *\\*) ac_try_echo=\$ac_try;;
-  *) ac_try_echo=$ac_try;;
-esac
-eval "echo \"\$as_me:$LINENO: $ac_try_echo\"") >&5
-  (eval "$ac_cpp conftest.$ac_ext") 2>conftest.er1
-  ac_status=$?
-  grep -v '^ *+' conftest.er1 >conftest.err
-  rm -f conftest.er1
-  cat conftest.err >&5
-  echo "$as_me:$LINENO: \$? = $ac_status" >&5
-  (exit $ac_status); } >/dev/null && {
-	 test -z "$ac_c_preproc_warn_flag$ac_c_werror_flag" ||
-	 test ! -s conftest.err
-       }; then
-  ac_header_preproc=yes
-else
-  echo "$as_me: failed program was:" >&5
-sed 's/^/| /' conftest.$ac_ext >&5
-
-  ac_header_preproc=no
-fi
-
-rm -f conftest.err conftest.$ac_ext
-{ echo "$as_me:$LINENO: result: $ac_header_preproc" >&5
-echo "${ECHO_T}$ac_header_preproc" >&6; }
-
-# So?  What about this header?
-case $ac_header_compiler:$ac_header_preproc:$ac_c_preproc_warn_flag in
-  yes:no: )
-    { echo "$as_me:$LINENO: WARNING: pthread.h: accepted by the compiler, rejected by the preprocessor!" >&5
-echo "$as_me: WARNING: pthread.h: accepted by the compiler, rejected by the preprocessor!" >&2;}
-    { echo "$as_me:$LINENO: WARNING: pthread.h: proceeding with the compiler's result" >&5
-echo "$as_me: WARNING: pthread.h: proceeding with the compiler's result" >&2;}
-    ac_header_preproc=yes
-    ;;
-  no:yes:* )
-    { echo "$as_me:$LINENO: WARNING: pthread.h: present but cannot be compiled" >&5
-echo "$as_me: WARNING: pthread.h: present but cannot be compiled" >&2;}
-    { echo "$as_me:$LINENO: WARNING: pthread.h:     check for missing prerequisite headers?" >&5
-echo "$as_me: WARNING: pthread.h:     check for missing prerequisite headers?" >&2;}
-    { echo "$as_me:$LINENO: WARNING: pthread.h: see the Autoconf documentation" >&5
-echo "$as_me: WARNING: pthread.h: see the Autoconf documentation" >&2;}
-    { echo "$as_me:$LINENO: WARNING: pthread.h:     section \"Present But Cannot Be Compiled\"" >&5
-echo "$as_me: WARNING: pthread.h:     section \"Present But Cannot Be Compiled\"" >&2;}
-    { echo "$as_me:$LINENO: WARNING: pthread.h: proceeding with the preprocessor's result" >&5
-echo "$as_me: WARNING: pthread.h: proceeding with the preprocessor's result" >&2;}
-    { echo "$as_me:$LINENO: WARNING: pthread.h: in the future, the compiler will take precedence" >&5
-echo "$as_me: WARNING: pthread.h: in the future, the compiler will take precedence" >&2;}
-
-    ;;
-esac
-{ echo "$as_me:$LINENO: checking for pthread.h" >&5
-echo $ECHO_N "checking for pthread.h... $ECHO_C" >&6; }
-if test "${ac_cv_header_pthread_h+set}" = set; then
-  echo $ECHO_N "(cached) $ECHO_C" >&6
-else
-  ac_cv_header_pthread_h=$ac_header_preproc
-fi
-{ echo "$as_me:$LINENO: result: $ac_cv_header_pthread_h" >&5
-echo "${ECHO_T}$ac_cv_header_pthread_h" >&6; }
-
-fi
-if test $ac_cv_header_pthread_h = yes; then
-  cat >>confdefs.h <<\_ACEOF
-#define HAVE_PTHREAD_H 1
-_ACEOF
-
-fi
-
-
-
-	if test x$ac_cv_header_pthread_h = xyes; then
-				for flag in -lpthreads -lpthread -pthread; do
-        		{ echo "$as_me:$LINENO: checking for pthread_create using $flag" >&5
-echo $ECHO_N "checking for pthread_create using $flag... $ECHO_C" >&6; }
-			SAVELIBS="$LIBS"
-			LIBS="$flag $LIBS"
-        		cat >conftest.$ac_ext <<_ACEOF
-/* confdefs.h.  */
-_ACEOF
-cat confdefs.h >>conftest.$ac_ext
-cat >>conftest.$ac_ext <<_ACEOF
-/* end confdefs.h.  */
-#include <pthread.h>
-int
-main ()
-{
-pthread_create(0, 0, 0, 0);
-  ;
-  return 0;
-}
-_ACEOF
-rm -f conftest.$ac_objext conftest$ac_exeext
-if { (ac_try="$ac_link"
-case "(($ac_try" in
-  *\"* | *\`* | *\\*) ac_try_echo=\$ac_try;;
-  *) ac_try_echo=$ac_try;;
-esac
-eval "echo \"\$as_me:$LINENO: $ac_try_echo\"") >&5
-  (eval "$ac_link") 2>conftest.er1
-  ac_status=$?
-  grep -v '^ *+' conftest.er1 >conftest.err
-  rm -f conftest.er1
-  cat conftest.err >&5
-  echo "$as_me:$LINENO: \$? = $ac_status" >&5
-  (exit $ac_status); } && {
-	 test -z "$ac_c_werror_flag" ||
-	 test ! -s conftest.err
-       } && test -s conftest$ac_exeext &&
-       $as_test_x conftest$ac_exeext; then
-  have_pthread=yes
-else
-  echo "$as_me: failed program was:" >&5
-sed 's/^/| /' conftest.$ac_ext >&5
-
-	LIBS="$SAVELIBS"
-fi
-
-rm -f core conftest.err conftest.$ac_objext conftest_ipa8_conftest.oo \
-      conftest$ac_exeext conftest.$ac_ext
-        		{ echo "$as_me:$LINENO: result: $have_pthread" >&5
-echo "${ECHO_T}$have_pthread" >&6; }
-
-			if test $have_pthread = yes; then
-				PTHREAD_FLAGS="-D_THREAD_SAFE -D_REENTRANT"
-
-				# Solaris requires -D_POSIX_PTHREAD_SEMANTICS to
-				# be POSIX-compliant... :(
-				if test $uname = SunOS; then
-					PTHREAD_FLAGS="$PTHREAD_FLAGS -D_POSIX_PTHREAD_SEMANTICS"
-				fi
-				break
-			fi
-		done
-	fi
-fi
 
 
 
@@ -21685,7 +21911,7 @@ fi
 
 
 
-ac_config_files="$ac_config_files Makedefs packaging/cups.list init/cups.sh init/cups-lpd cups-config conf/cupsd.conf conf/mime.convs conf/pam.std conf/snmp.conf data/testprint desktop/cups.desktop doc/index.html doc/help/ref-cupsd-conf.html doc/help/standard.html init/org.cups.cups-lpd.plist init/cups.xml man/client.conf.man man/cups-deviced.man man/cups-driverd.man man/cups-lpd.man man/cupsaddsmb.man man/cupsd.man man/cupsd.conf.man man/drv.man man/lpoptions.man templates/header.tmpl $LANGFILES"
+ac_config_files="$ac_config_files Makedefs packaging/cups.list init/cups.sh init/cups-lpd cups-config conf/cupsd.conf conf/mime.convs conf/pam.std conf/snmp.conf data/testprint desktop/cups.desktop doc/index.html doc/help/ref-cupsd-conf.html doc/help/standard.html init/org.cups.cups-lpd.plist init/cups.xml man/client.conf.man man/cups-deviced.man man/cups-driverd.man man/cups-lpd.man man/cupsaddsmb.man man/cupsd.man man/cupsd.conf.man man/lpoptions.man templates/header.tmpl $LANGFILES"
 
 cat >confcache <<\_ACEOF
 # This file is a shell script that caches the results of configure
@@ -22263,7 +22489,6 @@ do
     "man/cupsaddsmb.man") CONFIG_FILES="$CONFIG_FILES man/cupsaddsmb.man" ;;
     "man/cupsd.man") CONFIG_FILES="$CONFIG_FILES man/cupsd.man" ;;
     "man/cupsd.conf.man") CONFIG_FILES="$CONFIG_FILES man/cupsd.conf.man" ;;
-    "man/drv.man") CONFIG_FILES="$CONFIG_FILES man/drv.man" ;;
     "man/lpoptions.man") CONFIG_FILES="$CONFIG_FILES man/lpoptions.man" ;;
     "templates/header.tmpl") CONFIG_FILES="$CONFIG_FILES templates/header.tmpl" ;;
     "$LANGFILES") CONFIG_FILES="$CONFIG_FILES $LANGFILES" ;;
@@ -22500,6 +22725,9 @@ LIBCUPSDRIVER!$LIBCUPSDRIVER$ac_delim
 LIBCUPSIMAGE!$LIBCUPSIMAGE$ac_delim
 LIBCUPSMIME!$LIBCUPSMIME$ac_delim
 LIBCUPSPPDC!$LIBCUPSPPDC$ac_delim
+EXTLINKCUPS!$EXTLINKCUPS$ac_delim
+EXTLINKCUPSDRIVER!$EXTLINKCUPSDRIVER$ac_delim
+EXTLINKCUPSIMAGE!$EXTLINKCUPSIMAGE$ac_delim
 LINKCUPS!$LINKCUPS$ac_delim
 LINKCUPSIMAGE!$LINKCUPSIMAGE$ac_delim
 DSOLIBS!$DSOLIBS$ac_delim
@@ -22534,6 +22762,7 @@ LIBSLP!$LIBSLP$ac_delim
 LIBGSSAPI!$LIBGSSAPI$ac_delim
 KRB5CONFIG!$KRB5CONFIG$ac_delim
 LIBLDAP!$LIBLDAP$ac_delim
+PTHREAD_FLAGS!$PTHREAD_FLAGS$ac_delim
 LIBGNUTLSCONFIG!$LIBGNUTLSCONFIG$ac_delim
 LIBGCRYPTCONFIG!$LIBGCRYPTCONFIG$ac_delim
 SSLFLAGS!$SSLFLAGS$ac_delim
@@ -22544,7 +22773,6 @@ PAMFILE!$PAMFILE$ac_delim
 PAMLIBS!$PAMLIBS$ac_delim
 PAMMOD!$PAMMOD$ac_delim
 PAMMODAUTH!$PAMMODAUTH$ac_delim
-PTHREAD_FLAGS!$PTHREAD_FLAGS$ac_delim
 LARGEFILE!$LARGEFILE$ac_delim
 DNSSDLIBS!$DNSSDLIBS$ac_delim
 DNSSD_BACKEND!$DNSSD_BACKEND$ac_delim
@@ -22560,9 +22788,6 @@ CUPS_BROWSING!$CUPS_BROWSING$ac_delim
 CUPS_BROWSE_LOCAL_PROTOCOLS!$CUPS_BROWSE_LOCAL_PROTOCOLS$ac_delim
 CUPS_BROWSE_REMOTE_PROTOCOLS!$CUPS_BROWSE_REMOTE_PROTOCOLS$ac_delim
 CUPS_BROWSE_SHORT_NAMES!$CUPS_BROWSE_SHORT_NAMES$ac_delim
-CUPS_DEFAULT_SHARED!$CUPS_DEFAULT_SHARED$ac_delim
-CUPS_IMPLICIT_CLASSES!$CUPS_IMPLICIT_CLASSES$ac_delim
-CUPS_USE_NETWORK_DEFAULT!$CUPS_USE_NETWORK_DEFAULT$ac_delim
 _ACEOF
 
   if test `sed -n "s/.*$ac_delim\$/X/p" conf$$subs.sed | grep -c X` = 97; then
@@ -22604,6 +22829,9 @@ _ACEOF
 ac_delim='%!_!# '
 for ac_last_try in false false false false false :; do
   cat >conf$$subs.sed <<_ACEOF
+CUPS_DEFAULT_SHARED!$CUPS_DEFAULT_SHARED$ac_delim
+CUPS_IMPLICIT_CLASSES!$CUPS_IMPLICIT_CLASSES$ac_delim
+CUPS_USE_NETWORK_DEFAULT!$CUPS_USE_NETWORK_DEFAULT$ac_delim
 CUPS_USER!$CUPS_USER$ac_delim
 CUPS_GROUP!$CUPS_GROUP$ac_delim
 CUPS_SYSTEM_GROUPS!$CUPS_SYSTEM_GROUPS$ac_delim
@@ -22633,7 +22861,7 @@ LIBOBJS!$LIBOBJS$ac_delim
 LTLIBOBJS!$LTLIBOBJS$ac_delim
 _ACEOF
 
-  if test `sed -n "s/.*$ac_delim\$/X/p" conf$$subs.sed | grep -c X` = 27; then
+  if test `sed -n "s/.*$ac_delim\$/X/p" conf$$subs.sed | grep -c X` = 30; then
     break
   elif $ac_last_try; then
     { { echo "$as_me:$LINENO: error: could not make $CONFIG_STATUS" >&5

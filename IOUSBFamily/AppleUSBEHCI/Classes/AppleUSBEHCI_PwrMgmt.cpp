@@ -41,6 +41,7 @@
 #include <IOKit/IOTimerEventSource.h>
 
 #include <IOKit/usb/IOUSBRootHubDevice.h>
+#include <IOKit/usb/IOUSBHubPolicyMaker.h>
 #include <IOKit/usb/IOUSBLog.h>
 #include <libkern/libkern.h>
 
@@ -66,10 +67,6 @@ static class AppleUSBEHCI_IOLockClass gEHCI_GlobalLock;
 #define super IOUSBControllerV3
 
 #define _controllerCanSleep				_expansionData->_controllerCanSleep
-
-#ifndef kACPIDevicePathKey
-#define kACPIDevicePathKey			"acpi-path"
-#endif
 
 // From the file Gossamer.h that is not available
 enum {
@@ -408,7 +405,7 @@ AppleUSBEHCI::SuspendUSBBus()
 		{
 			USBLog(4, "AppleUSBEHCI[%p]::SuspendUSBBus - port %d owned by OHCI",  this, i+1);
 		}
-		else if (portStat & kEHCIPortSC_Enabled)
+		else
 		{
 			// is this an ExpressCard port that needs to turn off resume enable?
 			if (_badExpressCardAttached && ((int)_ExpressCardPort == (i+1)))
@@ -419,20 +416,23 @@ AppleUSBEHCI::SuspendUSBBus()
 				IOSync();
 			}
 			
-			if (portStat & kEHCIPortSC_Suspend)
+			if (portStat & kEHCIPortSC_Enabled)
 			{
-				_savedSuspendedPortBitmap |= (1<<i);
-				USBLog(4, "AppleUSBEHCI[%p]::SuspendUSBBus - port %d was already suspended (as it should have been)",  this, i+1);
+				if (portStat & kEHCIPortSC_Suspend)
+				{
+					_savedSuspendedPortBitmap |= (1<<i);
+					USBLog(4, "AppleUSBEHCI[%p]::SuspendUSBBus - port %d was already suspended (as it should have been)",  this, i+1);
+				}
+				else
+				{
+					USBError(1, "AppleUSBEHCI[%p]::SuspendUSBBus - port %d was NOT already suspended (as it should have been) PROBLEMS AHEAD",  this, i+1);
+					// EHCIRootHubPortSuspend(i+1, true);
+				}
 			}
 			else
 			{
-				USBError(1, "AppleUSBEHCI[%p]::SuspendUSBBus - port %d was NOT already suspended (as it should have been) PROBLEMS AHEAD",  this, i+1);
-				// EHCIRootHubPortSuspend(i+1, true);
+				USBLog(4, "AppleUSBEHCI[%p]::SuspendUSBBus - port %d not enabled",  this, i+1);
 			}
-		}
-		else
-		{
-			USBLog(4, "AppleUSBEHCI[%p]::SuspendUSBBus - port %d not enabled",  this, i+1);
 		}
     }
 
@@ -589,8 +589,23 @@ AppleUSBEHCI::RestoreControllerStateFromSleep(void)
 			}
 			else if (portSC & kEHCIPortSC_Resume)
 			{
-				IOLog("\tUSB (EHCI):Port %d on bus 0x%x has remote wakeup from some device\n", (int)port+1, (uint32_t)_busNumber);
+
 				USBLog(5, "AppleUSBEHCI[%p]::RestoreControllerStateFromSleep  Port %d on bus 0x%x - has remote wakeup from some device", this, (int)port+1, (uint32_t)_busNumber);
+				
+				// because of how EHCI works, the root hub driver might not be able to detect that there was a remote wakeup 
+				// on a port if the upper level driver issues a Resume before the root hub interrupt timer runs
+				// Let the hub driver know that from here to make sure we get the log
+				
+				if (_rootHubDevice && _rootHubDevice->GetPolicyMaker())
+				{
+					_rootHubDevice->GetPolicyMaker()->message(kIOUSBMessageRootHubWakeEvent, this, (void *)(uintptr_t) port);
+				}
+				else
+				{
+					IOLog("\tUSB (EHCI):Port %d on bus 0x%x has remote wakeup from some device\n", (int)port+1, (uint32_t)_busNumber);
+				}
+				
+				
 				if ((_errataBits & kErrataMissingPortChangeInt) && !_portChangeInterrupt && !(USBToHostLong(_pEHCIRegisters->USBSTS) & kEHCIPortChangeIntBit))
 				{
 					USBLog(2, "AppleUSBEHCI[%p]::RestoreControllerStateFromSleep - reclaiming missing Port Change interrupt for port %d",  this, (int)port+1);
@@ -960,132 +975,6 @@ AppleUSBEHCI::powerChangeDone ( unsigned long fromState)
 	super::powerChangeDone(fromState);
 }
 
-
-//================================================================================================
-//
-//   CopyACPIDevice
-//
-//================================================================================================
-//
-IOACPIPlatformDevice * 
-AppleUSBEHCI::CopyACPIDevice( IORegistryEntry * device )
-{
-	IOACPIPlatformDevice *  acpiDevice = 0;
-	OSString *				acpiPath;
-	
-	if (device)
-	{
-		acpiPath = (OSString *) device->copyProperty(kACPIDevicePathKey);
-		if (acpiPath && !OSDynamicCast(OSString, acpiPath))
-		{
-			acpiPath->release();
-			acpiPath = 0;
-		}
-		
-		if (acpiPath)
-		{
-			IORegistryEntry * entry;
-			
-			// fromPath returns a retain()'d entry that needs to be released later
-			entry = IORegistryEntry::fromPath(acpiPath->getCStringNoCopy());
-			acpiPath->release();
-			
-			if (entry && entry->metaCast("IOACPIPlatformDevice"))
-				acpiDevice = (IOACPIPlatformDevice *) entry;
-			else if (entry)
-				entry->release();
-		}
-	}
-	
-	return (acpiDevice);
-}
-
-//================================================================================================
-//
-//   HasExpressCardUSB
-//
-//================================================================================================
-//
-bool 
-AppleUSBEHCI::HasExpressCardUSB( IORegistryEntry * acpiDevice, UInt32 * portnum )
-{
-	const IORegistryPlane *	acpiPlane;
-	bool					match = false;
-	IORegistryIterator *	iter;
-	IORegistryEntry *		entry;
-	
-	do {
-		acpiPlane = acpiDevice->getPlane( "IOACPIPlane" );
-		if (!acpiPlane)
-			break;
-		
-		// acpiDevice is the USB controller in ACPI plane.
-		// Recursively iterate over children of acpiDevice.
-		
-		iter = IORegistryIterator::iterateOver(
-											   /* start */	acpiDevice,
-											   /* plane */	acpiPlane,
-											   /* options */ kIORegistryIterateRecursively);
-		
-		if (iter)
-		{
-			while (!match && (entry = iter->getNextObject()))
-			{
-				// USB port must be a leaf node (no child), and
-				// must be an IOACPIPlatformDevice.
-				
-				if ((entry->getChildEntry(acpiPlane) == 0) &&
-					entry->metaCast("IOACPIPlatformDevice"))
-				{
-					IOACPIPlatformDevice * port;
-					port = (IOACPIPlatformDevice *) entry;
-					
-					// Express card port? Is port ejectable?
-					
-					if (port->validateObject( "_EJD" ) == kIOReturnSuccess)
-					{
-						// Determining the USB port number.
-						if (portnum)
-							*portnum = strtoul(port->getLocation(), NULL, 10);
-						match = true;
-						USBLog(3, "AppleUSBEHCI for acpiDevice: %p:  HasExpressCardUSB: portNum: %d\n", acpiDevice, (uint32_t)*portnum);
-					}
-				}
-			}
-			
-			iter->release();
-		}
-	}
-	while (false);
-	
-	return match;
-}
-
-//================================================================================================
-//
-//   ExpressCardPort
-//
-// Checks for ExpressCard connected to this controller, and returns the port number (1 based)
-// Will return 0 if no ExpressCard is connected to this controller.
-//
-//================================================================================================
-//
-UInt32 
-AppleUSBEHCI::ExpressCardPort( IOService * provider )
-{
-	IOACPIPlatformDevice *	acpiDevice;
-	UInt32					portNum = 0;
-	bool					isPCIeUSB;
-	
-	acpiDevice = CopyACPIDevice( provider );
-	if (acpiDevice)
-	{
-		isPCIeUSB = HasExpressCardUSB( acpiDevice, &portNum );	
-		acpiDevice->release();
-		acpiDevice = NULL;
-	}
-	return(portNum);
-}
 
 
 

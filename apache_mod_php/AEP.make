@@ -162,7 +162,7 @@ ifeq ($(AEP),YES)
 	$(MV) $(AEP_ExtractRoot)/$(AEP_ExtractDir) $(Sources)
 	for patchfile in $(AEP_Patches); do \
 	   echo "Applying $$patchfile..."; \
-	   cd $(Sources) && patch -lp1 < $(SRCROOT)/patches/$$patchfile; \
+	   cd $(Sources) && $(PATCH) -lp1 < $(SRCROOT)/patches/$$patchfile; \
 	done
 endif
 

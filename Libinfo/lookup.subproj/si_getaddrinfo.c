@@ -34,6 +34,9 @@
 #include <net/if.h>
 #include <string.h>
 #include <sys/param.h>
+#include <notify.h>
+#include <notify_keys.h>
+#include <pthread.h>
 #include <TargetConditionals.h>
 #include "netdb_async.h"
 #include "si_module.h"
@@ -50,6 +53,14 @@
 #define WANT_A6_PLUS_MAPPED_A4 3
 #define WANT_A6_OR_MAPPED_A4_IF_NO_A6 4
 
+#define V6TO4_PREFIX_16 0x2002
+
+static int net_config_token = -1;
+static uint32_t net_v4_count = 0;
+static uint32_t net_v6_count = 0;	// includes 6to4 addresses
+static uint32_t net_v6to4_count = 0;
+static pthread_mutex_t net_config_mutex = PTHREAD_MUTEX_INITIALIZER;
+
 typedef struct {
 	struct hostent host;
 	int alias_count;
@@ -57,6 +68,72 @@ typedef struct {
 	uint64_t ttl;
 } build_hostent_t;
 
+static int
+_si_netconfig(uint32_t *v4, uint32_t *v6, uint32_t *v6to4)
+{
+	int status, checkit;
+	struct ifaddrs *ifa, *ifap;
+	struct sockaddr_in6 *sa6;
+
+	pthread_mutex_lock(&net_config_mutex);
+
+	checkit = 1;
+
+	if (net_config_token < 0)
+	{
+		status = notify_register_check(kNotifySCNetworkChange, &net_config_token);
+		if (status != 0) net_config_token = -1;
+	}
+
+	if (net_config_token >= 0)
+	{
+		status = notify_check(net_config_token, &checkit);
+		if (status != 0) checkit = 1;
+	}
+
+	status = 0;
+
+	if (checkit != 0)
+	{
+		if (getifaddrs(&ifa) < 0)
+		{
+			status = -1;
+		}
+		else
+		{
+			net_v4_count = 0;
+			net_v6_count = 0;
+			net_v6to4_count = 0;
+			for (ifap = ifa; ifap != NULL; ifap = ifap->ifa_next)
+			{
+				if (ifap->ifa_addr == NULL) continue;
+				if ((ifap->ifa_flags & IFF_UP) == 0) continue;
+
+				if (ifap->ifa_addr->sa_family == AF_INET)
+				{
+					net_v4_count++;
+				}
+				else if (ifap->ifa_addr->sa_family == AF_INET6)
+				{
+					net_v6_count++;
+					sa6 = (struct sockaddr_in6 *)ifap->ifa_addr;
+					if (sa6->sin6_addr.__u6_addr.__u6_addr16[0] == ntohs(V6TO4_PREFIX_16)) net_v6to4_count++;
+				}
+			}
+
+			freeifaddrs(ifa);
+		}
+	}
+
+	if (v4 != NULL) *v4 = net_v4_count;
+	if (v6 != NULL) *v6 = net_v6_count;
+	if (v6to4 != NULL) *v6to4 = net_v6to4_count;
+
+	pthread_mutex_unlock(&net_config_mutex);
+
+	return status;
+}
+	
 void
 freeaddrinfo(struct addrinfo *a)
 {
@@ -573,6 +650,56 @@ si_addrinfo_list_from_hostent(si_mod_t *si, uint32_t socktype, uint32_t proto, u
 	return out;
 }
 
+static si_list_t *
+_gai_sort_list(si_list_t *in)
+{
+	si_list_t *out;
+	int lead;
+	uint32_t i, v6to4;
+	si_addrinfo_t *a;
+
+	if (in == NULL) return NULL;
+
+	v6to4 = 0;
+	if (_si_netconfig(NULL, NULL, &v6to4) < 0) v6to4 = 0;
+
+	out = (si_list_t *)calloc(1, sizeof(si_list_t));
+	if (out == NULL) return in;
+
+	out->refcount = in->refcount;
+	out->count = in->count;
+	out->entry = (si_item_t **)calloc(in->count, sizeof(si_item_t *));
+	if (out->entry == NULL)
+	{
+		free(out);
+		return in;
+	}
+
+	lead = AF_INET6;
+	if (v6to4 > 0) lead = AF_INET;
+
+	out->curr = 0;
+
+	for (i = 0; i < in->count; i++)
+	{
+		a = (si_addrinfo_t *)((uintptr_t)in->entry[i] + sizeof(si_item_t));
+		if (a->ai_family == lead) out->entry[out->curr++] = in->entry[i];
+	}
+
+	for (i = 0; i < in->count; i++)
+	{
+		a = (si_addrinfo_t *)((uintptr_t)in->entry[i] + sizeof(si_item_t));
+		if (a->ai_family != lead) out->entry[out->curr++] = in->entry[i];
+	}
+
+	free(in->entry);
+	free(in);
+
+	out->curr = 0;
+
+	return out;
+}
+
 /* _gai_simple
  * Simple lookup via gethostbyname2(3) mechanism.
  */
@@ -635,7 +762,7 @@ _gai_simple(si_mod_t *si, const void *nodeptr, const void *servptr, uint32_t fam
 	si_item_release(h4_item);
 	si_item_release(h6_item);
 
-	return out;
+	return _gai_sort_list(out);
 }
 
 __private_extern__ si_list_t *
@@ -747,6 +874,7 @@ si_addrinfo(si_mod_t *si, const char *node, const char *serv, uint32_t family, u
 	struct in_addr a4, *p4;
 	struct in6_addr a6, *p6;
 	const char *cname;
+	si_list_t *out;
 
 	if (err != NULL) *err = SI_STATUS_NO_ERROR;
 
@@ -825,7 +953,8 @@ si_addrinfo(si_mod_t *si, const char *node, const char *serv, uint32_t family, u
 	if ((flags & AI_SRV) != 0)
 	{
 		/* AI_SRV SPI */
-		return _gai_srv(si, node, serv, family, socktype, proto, flags, interface, err);
+		out = _gai_srv(si, node, serv, family, socktype, proto, flags, interface, err);
+		return _gai_sort_list(out);
 	}
 	else
 	{
@@ -904,16 +1033,19 @@ si_addrinfo(si_mod_t *si, const char *node, const char *serv, uint32_t family, u
 		if (node == NULL) cname = "localhost";
 
 		/* handle trivial questions */
-		return si_addrinfo_list(si, socktype, proto, p4, p6, port, 0, cname, cname);
+		out = si_addrinfo_list(si, socktype, proto, p4, p6, port, 0, cname, cname);
+		return _gai_sort_list(out);
 	}
 	else if ((si->sim_wants_addrinfo != NULL) && si->sim_wants_addrinfo(si))
 	{
 		/* or let the current module handle the host lookups intelligently */
-		return si->sim_addrinfo(si, nodeptr, servptr, family, socktype, proto, flags, interface, err);
+		out = si->sim_addrinfo(si, nodeptr, servptr, family, socktype, proto, flags, interface, err);
+		return _gai_sort_list(out);
 	}
 
 	/* fall back to a default path */
-	return _gai_simple(si, nodeptr, servptr, family, socktype, proto, flags, interface, err);
+	out = _gai_simple(si, nodeptr, servptr, family, socktype, proto, flags, interface, err);
+	return _gai_sort_list(out);
 }
 
 static struct addrinfo *
@@ -1135,8 +1267,8 @@ free_build_hostent(build_hostent_t *h)
 __private_extern__ si_item_t *
 si_ipnode_byname(si_mod_t *si, const char *name, int family, int flags, const char *interface, uint32_t *err)
 {
-	int i, status, want, if4, if6;
-	struct ifaddrs *ifa, *ifap;
+	int i, status, want;
+	uint32_t if4, if6;
 	struct in_addr addr4;
 	struct in6_addr addr6;
 	si_item_t *item4, *item6;
@@ -1221,21 +1353,11 @@ si_ipnode_byname(si_mod_t *si, const char *name, int family, int flags, const ch
 
 	if (flags & AI_ADDRCONFIG)
 	{
-		if (getifaddrs(&ifa) < 0)
+		if (_si_netconfig(&if4, &if6, NULL) < 0)
 		{
 			if (err != NULL) *err = SI_STATUS_H_ERRNO_NO_RECOVERY;
 			return NULL;
 		}
-
-		for (ifap = ifa; ifap != NULL; ifap = ifap->ifa_next)
-		{
-			if (ifap->ifa_addr == NULL) continue;
-			if ((ifap->ifa_flags & IFF_UP) == 0) continue;
-			if (ifap->ifa_addr->sa_family == AF_INET) if4++;
-			else if (ifap->ifa_addr->sa_family == AF_INET6) if6++;
-		}
-
-		freeifaddrs(ifa);
 
 		/* Bail out if there are no interfaces */
 		if ((if4 == 0) && (if6 == 0))

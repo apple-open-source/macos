@@ -1,6 +1,6 @@
 /* 
    HTTP request/response handling
-   Copyright (C) 1999-2008, Joe Orton <joe@manyfish.co.uk>
+   Copyright (C) 1999-2009, Joe Orton <joe@manyfish.co.uk>
 
    This library is free software; you can redistribute it and/or
    modify it under the terms of the GNU Library General Public
@@ -1266,8 +1266,10 @@ int ne_begin_request(ne_request *req)
     } 
     else if ((value = get_response_header_hv(req, HH_HV_CONTENT_LENGTH,
                                              "content-length")) != NULL) {
-        ne_off_t len = ne_strtoff(value, NULL, 10);
-        if (len != NE_OFFT_MAX && len >= 0) {
+        char *endptr = NULL;
+        ne_off_t len = ne_strtoff(value, &endptr, 10);
+
+        if (*value && len != NE_OFFT_MAX && len >= 0 && endptr && *endptr == '\0') {
             req->resp.mode = R_CLENGTH;
             req->resp.body.clen.total = req->resp.body.clen.remain = len;
         } else {

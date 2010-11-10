@@ -45,6 +45,9 @@
 #include <IOKit/ps/IOPowerSourcesPrivate.h>
 #include <IOKit/IOCFSerialize.h>
 
+// #include <DisplayServices/DisplayServices.h>
+    IOReturn DisplayServicesResetAmbientLightAll( void );
+
 #include "../pmconfigd/PrivateLib.h"
 
 // dynamically mig generated
@@ -102,6 +105,8 @@
 #define ARG_MOTIONSENSOR2   "ams"
 #define ARG_TTYKEEPAWAKE    "ttyskeepawake"
 #define ARG_GPU             "gpuswitch"
+#define ARG_DEEPSLEEP       "deepsleep"
+#define ARG_DEEPSLEEPDELAY  "deepsleepdelay"
 
 // Scheduling options
 #define ARG_SCHEDULE        "schedule"
@@ -150,6 +155,8 @@
 #define ARG_TOUCH           "touch"
 #define ARG_NOIDLE          "noidle"
 #define ARG_SLEEPNOW        "sleepnow"
+#define ARG_RESETDISPLAYAMBIENTPARAMS       "resetdisplayambientparams"
+#define ARG_RDAP            "rdap"
 
 // special system
 #define ARG_DISABLESLEEP    "disablesleep"
@@ -186,7 +193,7 @@
 #define kMaxLongStringLength        255
 
 
-#define kNUM_PM_FEATURES    13
+#define kNUM_PM_FEATURES    15
 /* list of all features */
 char    *all_features[kNUM_PM_FEATURES] =
 { 
@@ -202,7 +209,9 @@ char    *all_features[kNUM_PM_FEATURES] =
     kIOPMReduceBrightnessKey,
     kIOPMDisplaySleepUsesDimKey,
     kIOPMMobileMotionModuleKey,
-    kIOPMGPUSwitchKey
+    kIOPMGPUSwitchKey,
+    kIOPMDeepSleepEnabledKey,
+    kIOPMDeepSleepDelayKey
 };
 
 enum ArgumentType {
@@ -836,6 +845,10 @@ static void show_pm_settings_dict(
                 printf(" %s\t", ARG_HIBERNATEMODE);
         else if (strcmp(ps, kIOHibernateFileKey) == 0)
                 printf(" %s\t", ARG_HIBERNATEFILE);
+        else if (strcmp(ps, kIOPMDeepSleepEnabledKey) == 0)
+                printf(" %s\t", ARG_DEEPSLEEP);
+        else if (strcmp(ps, kIOPMDeepSleepDelayKey) == 0)
+                printf(" %s\t", ARG_DEEPSLEEPDELAY);
         else {
                 // unknown setting
                 printf("%s\t", ps);
@@ -990,7 +1003,8 @@ static void show_supported_pm_features(void)
     {
         feature = CFStringCreateWithCStringNoCopy(NULL, all_features[i], 
                                 kCFStringEncodingMacRoman, kCFAllocatorNull);
-        if(!isA_CFString(feature)) continue;
+        if(!isA_CFString(feature)) 
+            continue;
         if( IOPMFeatureIsAvailable(feature, source) )
         {
           if (strcmp(all_features[i], kIOPMSystemSleepKey) == 0)
@@ -1025,6 +1039,10 @@ static void show_supported_pm_features(void)
             printf(" %s\n", ARG_HIBERNATEMODE);
           else if (strcmp(all_features[i], kIOHibernateFileKey) == 0)
             printf(" %s\n", ARG_HIBERNATEFILE);
+          else if (strcmp(all_features[i], kIOPMDeepSleepEnabledKey) == 0)
+              printf(" %s\n", ARG_DEEPSLEEP);
+          else if (strcmp(all_features[i], kIOPMDeepSleepDelayKey) == 0)
+              printf(" %s\n", ARG_DEEPSLEEPDELAY);
           else
             printf("%s\n", all_features[i]);
         }
@@ -2210,6 +2228,7 @@ static void log_systemload(void)
     printf("LogSystemLoad: Error setting up systemload notification run loop source. Exiting.\n");
 
 }
+
 
 /******************************************************************************/
 
@@ -3411,6 +3430,21 @@ static int parseArgs(int argc,
     {
         *pmCmd = kPMCommandSleepNow;
         return kIOReturnSuccess;
+    } else if ((0 == strcmp(argv[1], ARG_RESETDISPLAYAMBIENTPARAMS))
+              || (0 == strcmp(argv[1], ARG_RDAP)) )
+    {
+        
+        IOReturn ret = DisplayServicesResetAmbientLightAll();
+        
+        if (kIOReturnSuccess == ret) {
+            printf("Success.\n");
+        } else if (kIOReturnNoDevice == ret) {
+            printf("Error: No supported displays found for pmset argument \"%s\"\n", argv[1]);
+        } else {
+            printf("Error: Failure 0%08x setting display ambient parameters.\n", ret);
+        }
+    
+        return kIOReturnSuccess;;
     }
 
 
@@ -3906,6 +3940,22 @@ static int parseArgs(int argc,
                 if(-1 == checkAndSetIntValue(argv[i+1], CFSTR(kIOPMGPUSwitchKey), 
                                                         apply, false, kNoMultiplier,
                                                         ac, battery, ups))
+                    return kParseBadArgs;
+                modified |= kModSettings;
+                i+=2;
+            } else if(0 == strcmp(argv[i], ARG_DEEPSLEEP))
+            {
+                if(-1 == checkAndSetIntValue(argv[i+1], CFSTR(kIOPMDeepSleepEnabledKey), 
+                                             apply, false, kNoMultiplier,
+                                             ac, battery, ups))
+                    return kParseBadArgs;
+                modified |= kModSettings;
+                i+=2;
+            } else if(0 == strcmp(argv[i], ARG_DEEPSLEEPDELAY))
+            {
+                if(-1 == checkAndSetIntValue(argv[i+1], CFSTR(kIOPMDeepSleepDelayKey), 
+                                             apply, false, kNoMultiplier,
+                                             ac, battery, ups))
                     return kParseBadArgs;
                 modified |= kModSettings;
                 i+=2;

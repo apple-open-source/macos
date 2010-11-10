@@ -34,7 +34,6 @@
 #include <IOKit/pwr_mgt/RootDomain.h>
 #include <IOKit/IORegistryEntry.h>
 #include <IOKit/IOHibernatePrivate.h>
-#include <IOKit/acpi/IOACPIPlatformDevice.h>
 #include <libkern/libkern.h>
 #include <libkern/version.h>
 
@@ -51,9 +50,6 @@
 
 #define _controllerCanSleep				_expansionData->_controllerCanSleep
 
-#ifndef kACPIDevicePathKey
-#define kACPIDevicePathKey			"acpi-path"
-#endif
 
 //================================================================================================
 //
@@ -630,129 +626,4 @@ AppleUSBUHCI::powerChangeDone ( unsigned long fromState)
 	if (_controllerAvailable)
 		showRegisters(7, "powerChangeDone");
 	super::powerChangeDone(fromState);
-}
-
-
-
-#pragma mark ¥¥¥¥ Utility functions ¥¥¥¥
-//================================================================================================
-//
-//   CopyACPIDevice
-//
-//================================================================================================
-//
-static IOACPIPlatformDevice * 
-CopyACPIDevice( IORegistryEntry * device )
-{
-	IOACPIPlatformDevice *  acpiDevice = 0;
-	OSString *				acpiPath;
-
-	if (device)
-	{
-		acpiPath = (OSString *) device->copyProperty(kACPIDevicePathKey);
-		if (acpiPath && !OSDynamicCast(OSString, acpiPath))
-		{
-			acpiPath->release();
-			acpiPath = 0;
-		}
-
-		if (acpiPath)
-		{
-			IORegistryEntry * entry;
-
-			entry = IORegistryEntry::fromPath(acpiPath->getCStringNoCopy());
-			acpiPath->release();
-
-			if (entry && entry->metaCast("IOACPIPlatformDevice"))
-				acpiDevice = (IOACPIPlatformDevice *) entry;
-			else if (entry)
-				entry->release();
-		}
-	}
-
-	return (acpiDevice);
-}
-
-//================================================================================================
-//
-//   HasExpressCardUSB
-//
-//================================================================================================
-//
-static bool HasExpressCardUSB( IORegistryEntry * acpiDevice, UInt32 * portnum )
-{
-	const IORegistryPlane *	acpiPlane;
-	bool					match = false;
-	IORegistryIterator *	iter;
-	IORegistryEntry *		entry;
-
-	do {
-		acpiPlane = acpiDevice->getPlane( "IOACPIPlane" );
-		if (!acpiPlane)
-			break;
-
-		// acpiDevice is the USB controller in ACPI plane.
-		// Recursively iterate over children of acpiDevice.
-
-		iter = IORegistryIterator::iterateOver(
-				/* start */	acpiDevice,
-				/* plane */	acpiPlane,
-				/* options */ kIORegistryIterateRecursively);
-
-		if (iter)
-		{
-			while (!match && (entry = iter->getNextObject()))
-			{
-				// USB port must be a leaf node (no child), and
-				// must be an IOACPIPlatformDevice.
-
-				if ((entry->getChildEntry(acpiPlane) == 0) &&
-					entry->metaCast("IOACPIPlatformDevice"))
-				{
-					IOACPIPlatformDevice * port;
-					port = (IOACPIPlatformDevice *) entry;
-
-					// Express card port? Is port ejectable?
-
-					if (port->validateObject( "_EJD" ) == kIOReturnSuccess)
-					{
-						// Determining the USB port number.
-						if (portnum)
-							*portnum = strtoul(port->getLocation(), NULL, 10);
-						match = true;
-						USBLog(3, "AppleUSBUHCI for acpiDevice: %p:  HasExpressCardUSB: portNum: %d", acpiDevice, (uint32_t)*portnum);
-					}
-				}
-			}
-
-			iter->release();
-		}
-	}
-	while (false);
-	
-	return match;
-}
-
-//================================================================================================
-//
-//   ExpressCardPort
-//
-// Checks for ExpressCard connected to this controller, and returns the port number (1 based)
-// Will return 0 if no ExpressCard is connected to this controller.
-//
-//================================================================================================
-//
-UInt32 AppleUSBUHCI::ExpressCardPort( IOService * provider )
-{
-	IOACPIPlatformDevice *	acpiDevice;
-	UInt32					portNum = 0;
-	bool					isPCIeUSB;
-	
-	acpiDevice = CopyACPIDevice( provider );
-	if (acpiDevice)
-	{
-		isPCIeUSB = HasExpressCardUSB( acpiDevice, &portNum );	
-		acpiDevice->release();
-	}
-	return(portNum);
 }

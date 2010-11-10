@@ -193,14 +193,31 @@ getrmconf_strict(remote, allow_anon)
 }
 
 int
-no_remote_configs()
+no_remote_configs(ignore_anonymous)
+	int ignore_anonymous;
 {
 	
 	struct remoteconf *p;
+#if !TARGET_OS_EMBEDDED
+	static const char default_idv[] = "macuser@localhost";
+	static const int default_idv_len = sizeof(default_idv) - 1;
+#endif
 
 	TAILQ_FOREACH(p, &rmtree, chain) {
-		if (p->remote->sa_family == AF_UNSPEC)	/* anonymous */
+		if (ignore_anonymous) {
+			if (p->remote->sa_family == AF_UNSPEC)	/* anonymous */
+				continue;
+		}
+#if !TARGET_OS_EMBEDDED
+		// ignore the default btmm ipv6 config thats always present in racoon.conf
+		if (p->remote->sa_family == AF_INET6 &&
+			p->idvtype == IDTYPE_USERFQDN &&
+			p->idv != NULL &&
+			p->idv->l == default_idv_len &&
+			strncmp(p->idv->v, default_idv, p->idv->l) == 0) {
 			continue;
+		}
+#endif
 		return 0;
 	}
 	return 1;

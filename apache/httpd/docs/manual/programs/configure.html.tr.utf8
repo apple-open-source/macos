@@ -231,7 +231,7 @@
         <dd><code>httpd.conf</code>, <code>mime.types</code> gibi tek
           makinelik salt okunur sunucu yapılandırma dosyaları
           <code><em>dizin</em></code> dizinine kurulur. Öntanımlı olarak
-          <code>sysconfdir</code> bu dizini <code><var>PREFIX</var>/etc</code>
+          <code>sysconfdir</code> bu dizini <code><var>PREFIX</var>/conf</code>
           olarak tanımlar.</dd>
       </dl>
     

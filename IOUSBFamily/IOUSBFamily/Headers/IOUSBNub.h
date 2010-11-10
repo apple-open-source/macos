@@ -50,6 +50,9 @@ public:
     
     bool							IsWildCardMatch( OSDictionary   * matching, const char     * key );
     bool							USBComparePropertyWithMask( OSDictionary *matching, const char *key, const char * maskKey );
+	bool							USBComparePropertyInArray( OSDictionary *matching, const char *arrayName, const char * key, UInt32 * theProductIDThatMatched );
+	bool							USBComparePropertyInArrayWithMask( OSDictionary *matching, const char *arrayName, const char * key, const char * maskKey, UInt32 * theProductIDThatMatched );
+
 };
 
 #ifdef __cplusplus

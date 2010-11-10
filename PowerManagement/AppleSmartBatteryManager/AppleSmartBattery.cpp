@@ -255,6 +255,8 @@ bool AppleSmartBattery::start(IOService *provider)
     fInflowDisabled         = false;
     fRebootPolling          = false;
     fCellVoltages           = NULL;
+    fSystemSleeping         = false;
+    fPowerServiceToAck      = NULL;
 
     fIncompleteReadRetries = kIncompleteReadRetryMax;
     
@@ -339,6 +341,77 @@ void AppleSmartBattery::logReadError(
     return;
 }
 
+/******************************************************************************
+ * AppleSmartBattery::handleSystemSleepWake
+ *
+ * Caller must hold the gate.
+ ******************************************************************************/
+
+IOReturn AppleSmartBattery::handleSystemSleepWake(
+    IOService * powerService, bool isSystemSleep )
+{
+    IOReturn ret = kIOPMAckImplied;
+
+    if (!powerService || (fSystemSleeping == isSystemSleep))
+        return kIOPMAckImplied;
+
+    if (fPowerServiceToAck)
+    {
+        fPowerServiceToAck->release();
+        fPowerServiceToAck = 0;
+    }
+
+    fSystemSleeping = isSystemSleep;
+    if (fSystemSleeping)
+    {
+        // Stall PM until battery poll in progress is cancelled.
+        if (fPollingNow)
+        {
+            fPowerServiceToAck = powerService;
+            fPowerServiceToAck->retain();
+            fPollTimer->cancelTimeout();    
+            fBatteryReadAllTimer->cancelTimeout();
+            ret = (kBatteryReadAllTimeout * 1000);
+        }
+    }
+    else // System Wake
+    {
+        fPowerServiceToAck = powerService;
+        fPowerServiceToAck->retain();
+        pollBatteryState(kExistingBatteryPath);
+
+        if (fPollingNow)
+        {
+            // Transaction started, wait for completion.
+            ret = (kBatteryReadAllTimeout * 1000);
+        }
+        else if (fPowerServiceToAck)
+        {
+            fPowerServiceToAck->release();
+            fPowerServiceToAck = 0;
+        }
+    }
+
+    BattLog("SmartBattery: handleSystemSleepWake(%d) = %u\n",
+        isSystemSleep, (uint32_t) ret);
+    return ret;
+}
+
+/******************************************************************************
+ * AppleSmartBattery::acknowledgeSystemSleepWake
+ *
+ * Caller must hold the gate.
+ ******************************************************************************/
+
+void AppleSmartBattery::acknowledgeSystemSleepWake( void )
+{
+    if (fPowerServiceToAck)
+    {
+        fPowerServiceToAck->acknowledgeSetPowerState();
+        fPowerServiceToAck->release();
+        fPowerServiceToAck = 0;
+    }
+}
 
 /******************************************************************************
  * AppleSmartBattery::setPollingInterval
@@ -404,6 +477,7 @@ void AppleSmartBattery::handleBatteryRemoved(void)
     
     // This must be called under workloop synchronization
     clearBatteryState(true);
+    acknowledgeSystemSleepWake();
 
     return;
 }
@@ -603,6 +677,15 @@ bool AppleSmartBattery::transactionCompletion(
     OSNumber    *cell_volt_num = NULL;
     OSNumber    *pfstatus_num = NULL;
     
+    /* Stop battery work when system is going to sleep.
+     */
+    if (fSystemSleeping)
+    {
+        fPollingNow = false;
+        acknowledgeSystemSleepWake();
+        return true;
+    }
+
     /* If a user client has exclusive access to the SMBus, 
      * we'll exit immediately.
      */
@@ -733,6 +816,11 @@ bool AppleSmartBattery::transactionCompletion(
             fRetryAttempts = 0;
 
             transaction_needs_retry = false;
+
+            // After too many retries, unblock PM state machine in case it is
+            // waiting for the first battery poll after wake to complete,
+            // avoiding a setPowerState timeout.
+            acknowledgeSystemSleepWake();
         }
         
         /* Finally we actually retry!!
@@ -1521,6 +1609,7 @@ bool AppleSmartBattery::transactionCompletion(
             updateStatus();
             
             fPollingNow = false;
+            acknowledgeSystemSleepWake();
 
 
             /* fPollingInterval == 0 --> debug mode; never cease polling.

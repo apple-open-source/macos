@@ -423,6 +423,8 @@ tellClockController(
         CFRelease(gmt_tz);
 
         cal_date->second    = lround(gmt_calendar.second);
+        if (60 == cal_date->second)
+            cal_date->second = 59;
         cal_date->minute    = gmt_calendar.minute;
         cal_date->hour      = gmt_calendar.hour;
         cal_date->day       = gmt_calendar.day;

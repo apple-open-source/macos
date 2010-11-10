@@ -1,8 +1,9 @@
---- php-5.3.1/acconfig.h	2009-11-18 12:11:57.000000000 -0800
-+++ php/acconfig.h	2009-11-19 18:09:31.000000000 -0800
+diff -aur php-5.3.2/acconfig.h php/acconfig.h
+--- php-5.3.2/acconfig.h	2010-03-03 08:52:37.000000000 -0800
++++ php/acconfig.h	2010-03-05 16:38:04.000000000 -0800
 @@ -20,6 +20,8 @@
  
- /* $Id: acconfig.h 272370 2008-12-31 11:15:49Z sebastian $ */
+ /* $Id: acconfig.h 293155 2010-01-05 20:46:53Z sebastian $ */
  
 +#ifndef ZEND_API
 +
@@ -36,18 +37,19 @@
   * Local variables:
   * tab-width: 4
   * c-basic-offset: 4
---- php-5.3.1/main/php_config.h.in	2009-11-18 12:12:01.000000000 -0800
-+++ php/main/php_config.h.in	2009-11-19 18:09:31.000000000 -0800
+diff -aur php-5.3.2/main/php_config.h.in php/main/php_config.h.in
+--- php-5.3.2/main/php_config.h.in	2010-03-03 08:52:40.000000000 -0800
++++ php/main/php_config.h.in	2010-03-05 16:38:04.000000000 -0800
 @@ -21,6 +21,8 @@
  
- /* $Id: acconfig.h 272370 2008-12-31 11:15:49Z sebastian $ */
+ /* $Id: acconfig.h 293155 2010-01-05 20:46:53Z sebastian $ */
  
 +#ifndef ZEND_API
 +
  #if defined(__GNUC__) && __GNUC__ >= 4
  # define ZEND_API __attribute__ ((visibility("default")))
  # define ZEND_DLEXPORT __attribute__ ((visibility("default")))
-@@ -2918,6 +2920,26 @@
+@@ -2993,6 +2995,26 @@
  #endif
  
  /*

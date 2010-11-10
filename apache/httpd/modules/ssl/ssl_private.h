@@ -471,6 +471,7 @@ struct SSLSrvConfigRec {
     int              vhost_id_len;
     int              session_cache_timeout;
     BOOL             cipher_server_pref;
+    BOOL             insecure_reneg;
     modssl_ctx_t    *server;
     modssl_ctx_t    *proxy;
     ssl_enabled_t    proxy_ssl_check_peer_expire;
@@ -545,6 +546,7 @@ const char  *ssl_cmd_SSLRequire(cmd_parms *, void *, const char *);
 const char  *ssl_cmd_SSLUserName(cmd_parms *, void *, const char *);
 const char  *ssl_cmd_SSLRenegBufferSize(cmd_parms *cmd, void *dcfg, const char *arg);
 const char  *ssl_cmd_SSLStrictSNIVHostCheck(cmd_parms *cmd, void *dcfg, int flag);
+const char *ssl_cmd_SSLInsecureRenegotiation(cmd_parms *cmd, void *dcfg, int flag);
 
 const char  *ssl_cmd_SSLProxyEngine(cmd_parms *cmd, void *dcfg, int flag);
 const char  *ssl_cmd_SSLProxyProtocol(cmd_parms *, void *, const char *);
@@ -694,6 +696,10 @@ const char  *ssl_ext_lookup(apr_pool_t *p, conn_rec *c, int peer, const char *oi
 extern apr_array_header_t *ssl_extlist_by_oid(request_rec *r, const char *oidstr);
 
 void         ssl_var_log_config_register(apr_pool_t *p);
+
+/* Extract SSL_*_DN_* variables into table 't' from SSL object 'ssl',
+ * allocating from 'p': */
+void modssl_var_extract_dns(apr_table_t *t, SSL *ssl, apr_pool_t *p);
 
 #define APR_SHM_MAXSIZE (64 * 1024 * 1024)
 

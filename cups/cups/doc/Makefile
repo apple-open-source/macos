@@ -70,7 +70,6 @@ HELPFILES	=	\
 			help/man-cupsenable.html \
 			help/man-cupstestdsc.html \
 			help/man-cupstestppd.html \
-			help/man-drv.html \
 			help/man-filter.html \
 			help/man-lp.html \
 			help/man-lpadmin.html \

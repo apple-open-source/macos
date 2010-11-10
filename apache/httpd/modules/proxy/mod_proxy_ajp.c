@@ -257,7 +257,7 @@ static int ap_proxy_ajp_request(apr_pool_t *p, request_rec *r,
             ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, r->server,
                          "proxy: ap_get_brigade failed");
             apr_brigade_destroy(input_brigade);
-            return HTTP_INTERNAL_SERVER_ERROR;
+            return HTTP_BAD_REQUEST;
         }
 
         /* have something */
@@ -469,7 +469,9 @@ static int ap_proxy_ajp_request(apr_pool_t *p, request_rec *r,
                     if (ap_pass_brigade(r->output_filters,
                                         output_brigade) != APR_SUCCESS) {
                         ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r,
-                                      "proxy: error processing body");
+                                      "proxy: error processing body.%s",
+                                      r->connection->aborted ?
+                                      " Client aborted connection." : "");
                         output_failed = 1;
                     }
                     data_sent = 1;
@@ -507,6 +509,7 @@ static int ap_proxy_ajp_request(apr_pool_t *p, request_rec *r,
             conn->close++;
             output_failed = 0;
             result = CMD_AJP13_END_RESPONSE;
+            request_ended = 1;
         }
 
         /*

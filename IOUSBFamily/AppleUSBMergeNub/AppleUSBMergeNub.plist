@@ -98,29 +98,7 @@
 				<true/>
 			</dict>
 			<key>bConfigurationValue</key>
-			<integer>1</integer>
-			<key>bInterfaceNumber</key>
-			<integer>0</integer>
-			<key>idProduct</key>
-			<integer>4865</integer>
-			<key>idVendor</key>
-			<integer>1452</integer>
-		</dict>
-		<key>Apple 1301 - 2</key>
-		<dict>
-			<key>CFBundleIdentifier</key>
-			<string>com.apple.driver.AppleUSBMergeNub</string>
-			<key>IOClass</key>
-			<string>AppleUSBMergeNub</string>
-			<key>IOProviderClass</key>
-			<string>IOUSBInterface</string>
-			<key>IOProviderMergeProperties</key>
-			<dict>
-				<key>Out of spec MPS OK</key>
-				<true/>
-			</dict>
-			<key>bConfigurationValue</key>
-			<integer>2</integer>
+			<string>*</string>
 			<key>bInterfaceNumber</key>
 			<integer>0</integer>
 			<key>idProduct</key>
@@ -208,58 +186,49 @@
 			<key>idVendor</key>
 			<integer>1293</integer>
 		</dict>
-		<key>Apple 4752</key>
+		<key>Apple 4762</key>
 		<dict>
 			<key>CFBundleIdentifier</key>
 			<string>com.apple.driver.AppleUSBMergeNub</string>
 			<key>IOClass</key>
 			<string>AppleUSBiPod</string>
 			<key>IOProbeScore</key>
-			<integer>10</integer>
+			<integer>9010</integer>
 			<key>IOProviderClass</key>
 			<string>IOUSBDevice</string>
-			<key>Preferred Configuration</key>
-			<integer>3</integer>
 			<key>idProduct</key>
 			<integer>4752</integer>
+			<key>idProductMask</key>
+			<integer>65520</integer>
 			<key>idVendor</key>
 			<integer>1452</integer>
 		</dict>
-		<key>Apple 4753</key>
+		<key>Apple 0242</key>
 		<dict>
 			<key>CFBundleIdentifier</key>
 			<string>com.apple.driver.AppleUSBMergeNub</string>
 			<key>IOClass</key>
-			<string>AppleUSBiPod</string>
-			<key>IOProbeScore</key>
-			<integer>10</integer>
+			<string>AppleUSBMergeNub</string>
 			<key>IOProviderClass</key>
 			<string>IOUSBDevice</string>
-			<key>Preferred Configuration</key>
-			<integer>3</integer>
-			<key>idProduct</key>
-			<integer>4753</integer>
+			<key>IOProviderMergeProperties</key>
+			<dict>
+				<key>retryGetReport</key>
+				<true/>
+			</dict>
+			<key>idProductArray</key>
+			<array>
+				<integer>575</integer>
+				<integer>576</integer>
+				<integer>577</integer>
+				<integer>578</integer>
+				<integer>579</integer>
+				<integer>580</integer>
+			</array>
 			<key>idVendor</key>
 			<integer>1452</integer>
 		</dict>
-		<key>Apple 4754</key>
-		<dict>
-			<key>CFBundleIdentifier</key>
-			<string>com.apple.driver.AppleUSBMergeNub</string>
-			<key>IOClass</key>
-			<string>AppleUSBiPod</string>
-			<key>IOProbeScore</key>
-			<integer>10</integer>
-			<key>IOProviderClass</key>
-			<string>IOUSBDevice</string>
-			<key>Preferred Configuration</key>
-			<integer>3</integer>
-			<key>idProduct</key>
-			<integer>4754</integer>
-			<key>idVendor</key>
-			<integer>1452</integer>
-		</dict>
-		<key>Apple Hub 4101</key>
+		<key>Apple Hub 4101/2</key>
 		<dict>
 			<key>CFBundleIdentifier</key>
 			<string>com.apple.driver.AppleUSBMergeNub</string>
@@ -276,30 +245,11 @@
 				<key>kHubPowerSequencingDelay</key>
 				<true/>
 			</dict>
-			<key>idProduct</key>
-			<integer>4101</integer>
-			<key>idVendor</key>
-			<integer>1452</integer>
-		</dict>
-		<key>Apple Hub 4102</key>
-		<dict>
-			<key>CFBundleIdentifier</key>
-			<string>com.apple.driver.AppleUSBMergeNub</string>
-			<key>IOClass</key>
-			<string>AppleUSBMergeNub</string>
-			<key>IOProviderClass</key>
-			<string>IOUSBDevice</string>
-			<key>IOProviderMergeProperties</key>
-			<dict>
-				<key>ExtraPowerRequest</key>
-				<integer>600</integer>
-				<key>ExtraPowerForPorts</key>
-				<integer>400</integer>
-				<key>kHubPowerSequencingDelay</key>
-				<true/>
-			</dict>
-			<key>idProduct</key>
-			<integer>4102</integer>
+			<key>idProductArray</key>
+			<array>
+				<integer>4101</integer>
+				<integer>4102</integer>
+			</array>
 			<key>idVendor</key>
 			<integer>1452</integer>
 		</dict>
@@ -322,6 +272,26 @@
 			</dict>
 			<key>idProduct</key>
 			<integer>10514</integer>
+			<key>idVendor</key>
+			<integer>1452</integer>
+		</dict>
+		<key>Apple LED Display Audio #2</key>
+		<dict>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.driver.AppleUSBMergeNub</string>
+			<key>IOClass</key>
+			<string>AppleUSBMergeNub</string>
+			<key>IOProviderClass</key>
+			<string>IOUSBDevice</string>
+			<key>IOProviderMergeProperties</key>
+			<dict>
+				<key>IOAudioDeviceLocalizedBundle</key>
+				<string>IOUSBFamily.kext/Contents/PlugIns/AppleUSBMergeNub.kext</string>
+				<key>DisplayRouting</key>
+				<integer>0</integer>
+			</dict>
+			<key>idProduct</key>
+			<integer>4357</integer>
 			<key>idVendor</key>
 			<integer>1452</integer>
 		</dict>
@@ -384,28 +354,13 @@
 			</dict>
 			<key>idProduct</key>
 			<integer>4608</integer>
+			<key>idProductArray</key>
+			<array>
+				<integer>4608</integer>
+				<integer>4864</integer>
+			</array>
 			<key>idProductMask</key>
 			<integer>65408</integer>
-			<key>idVendor</key>
-			<integer>1452</integer>
-		</dict>
-		<key>Apple13</key>
-		<dict>
-			<key>CFBundleIdentifier</key>
-			<string>com.apple.driver.AppleUSBMergeNub</string>
-			<key>IOClass</key>
-			<string>AppleUSBMergeNub</string>
-			<key>IOProviderClass</key>
-			<string>IOUSBDevice</string>
-			<key>IOProviderMergeProperties</key>
-			<dict>
-				<key>kUSBDeviceResumeRecoveryTime</key>
-				<integer>400</integer>
-			</dict>
-			<key>idProduct</key>
-			<integer>4864</integer>
-			<key>idProductMask</key>
-			<integer>65280</integer>
 			<key>idVendor</key>
 			<integer>1452</integer>
 		</dict>
@@ -424,28 +379,12 @@
 				<key>kUSBHubDontAllowLowPower</key>
 				<true/>
 			</dict>
-			<key>idProduct</key>
-			<integer>37139</integer>
-			<key>idVendor</key>
-			<integer>1452</integer>
-		</dict>
-		<key>AppleUSBHub37141</key>
-		<dict>
-			<key>CFBundleIdentifier</key>
-			<string>com.apple.driver.AppleUSBMergeNub</string>
-			<key>IOClass</key>
-			<string>AppleUSBMergeNub</string>
-			<key>IOProviderClass</key>
-			<string>IOUSBDevice</string>
-			<key>IOProviderMergeProperties</key>
-			<dict>
-				<key>AAPL,current-available</key>
-				<integer>3000</integer>
-				<key>kUSBHubDontAllowLowPower</key>
-				<true/>
-			</dict>
-			<key>idProduct</key>
-			<integer>37141</integer>
+			<key>idProductArray</key>
+			<array>
+				<integer>37139</integer>
+				<integer>37141</integer>
+				<integer>37142</integer>
+			</array>
 			<key>idVendor</key>
 			<integer>1452</integer>
 		</dict>
@@ -500,28 +439,11 @@
 				<key>OverrideConfig0MaxPower</key>
 				<integer>50</integer>
 			</dict>
-			<key>idProduct</key>
-			<integer>37151</integer>
-			<key>idVendor</key>
-			<integer>1452</integer>
-			<key>bcdDevice</key>
-			<integer>1</integer>
-		</dict>
-		<key>AppleUSBHub37152v1</key>
-		<dict>
-			<key>CFBundleIdentifier</key>
-			<string>com.apple.driver.AppleUSBMergeNub</string>
-			<key>IOClass</key>
-			<string>AppleUSBMergeNub</string>
-			<key>IOProviderClass</key>
-			<string>IOUSBDevice</string>
-			<key>IOProviderMergeProperties</key>
-			<dict>
-				<key>OverrideConfig0MaxPower</key>
-				<integer>50</integer>
-			</dict>
-			<key>idProduct</key>
-			<integer>37152</integer>
+			<key>idProductArray</key>
+			<array>
+				<integer>37151</integer>
+				<integer>37152</integer>
+			</array>
 			<key>idVendor</key>
 			<integer>1452</integer>
 			<key>bcdDevice</key>
@@ -546,26 +468,6 @@
 			<integer>1452</integer>
 			<key>bcdDevice</key>
 			<integer>307</integer>
-		</dict>
-		<key>AppleUSBHub37142</key>
-		<dict>
-			<key>CFBundleIdentifier</key>
-			<string>com.apple.driver.AppleUSBMergeNub</string>
-			<key>IOClass</key>
-			<string>AppleUSBMergeNub</string>
-			<key>IOProviderClass</key>
-			<string>IOUSBDevice</string>
-			<key>IOProviderMergeProperties</key>
-			<dict>
-				<key>AAPL,current-available</key>
-				<integer>3000</integer>
-				<key>kUSBHubDontAllowLowPower</key>
-				<true/>
-			</dict>
-			<key>idProduct</key>
-			<integer>37142</integer>
-			<key>idVendor</key>
-			<integer>1452</integer>
 		</dict>
 		<key>AppleUSBHub37143</key>
 		<dict>
@@ -641,11 +543,39 @@
 				<integer>1500</integer>
 				<key>AAPL,current-extra</key>
 				<integer>1800</integer>
-				<key>AAPL,current-in-sleep</key>
-				<integer>3000</integer>
+				<key>AAPL,max-port-current-in-sleep</key>
+				<integer>1500</integer>
+				<key>AAPL,current-extra-in-sleep</key>
+				<integer>1800</integer>
 			</dict>
 			<key>idProduct</key>
 			<integer>37174</integer>
+			<key>idVendor</key>
+			<integer>1452</integer>
+		</dict>
+		<key>AppleUSBHub37158</key>
+		<dict>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.driver.AppleUSBMergeNub</string>
+			<key>IOClass</key>
+			<string>AppleUSBMergeNub</string>
+			<key>IOProviderClass</key>
+			<string>IOUSBDevice</string>
+			<key>IOProviderMergeProperties</key>
+			<dict>
+				<key>AAPL,current-available</key>
+				<integer>1500</integer>
+				<key>AAPL,current-extra</key>
+				<integer>2000</integer>
+				<key>AAPL,max-port-current-in-sleep</key>
+				<integer>1500</integer>
+				<key>AAPL,current-extra-in-sleep</key>
+				<integer>2000</integer>
+				<key>kStartupDelay</key>
+				<integer>500</integer>
+			</dict>
+			<key>idProduct</key>
+			<integer>37158</integer>
 			<key>idVendor</key>
 			<integer>1452</integer>
 		</dict>
@@ -668,78 +598,6 @@
 			<integer>1452</integer>
 			<key>bcdDevice</key>
 			<integer>257</integer>
-		</dict>
-		<key>BluetoothModule1</key>
-		<dict>
-			<key>CFBundleIdentifier</key>
-			<string>com.apple.driver.AppleUSBMergeNub</string>
-			<key>IOClass</key>
-			<string>AppleUSBMergeNub</string>
-			<key>IOProviderClass</key>
-			<string>IOUSBDevice</string>
-			<key>IOProviderMergeProperties</key>
-			<dict>
-				<key>kCallInterfaceCloseWithGate</key>
-				<true/>
-			</dict>
-			<key>idProduct</key>
-			<integer>33283</integer>
-			<key>idVendor</key>
-			<integer>1452</integer>
-		</dict>
-		<key>BluetoothModule2</key>
-		<dict>
-			<key>CFBundleIdentifier</key>
-			<string>com.apple.driver.AppleUSBMergeNub</string>
-			<key>IOClass</key>
-			<string>AppleUSBMergeNub</string>
-			<key>IOProviderClass</key>
-			<string>IOUSBDevice</string>
-			<key>IOProviderMergeProperties</key>
-			<dict>
-				<key>kCallInterfaceCloseWithGate</key>
-				<true/>
-			</dict>
-			<key>idProduct</key>
-			<integer>33284</integer>
-			<key>idVendor</key>
-			<integer>1452</integer>
-		</dict>
-		<key>BluetoothModule3</key>
-		<dict>
-			<key>CFBundleIdentifier</key>
-			<string>com.apple.driver.AppleUSBMergeNub</string>
-			<key>IOClass</key>
-			<string>AppleUSBMergeNub</string>
-			<key>IOProviderClass</key>
-			<string>IOUSBDevice</string>
-			<key>IOProviderMergeProperties</key>
-			<dict>
-				<key>kCallInterfaceCloseWithGate</key>
-				<true/>
-			</dict>
-			<key>idProduct</key>
-			<integer>33285</integer>
-			<key>idVendor</key>
-			<integer>1452</integer>
-		</dict>
-		<key>BluetoothModule4</key>
-		<dict>
-			<key>CFBundleIdentifier</key>
-			<string>com.apple.driver.AppleUSBMergeNub</string>
-			<key>IOClass</key>
-			<string>AppleUSBMergeNub</string>
-			<key>IOProviderClass</key>
-			<string>IOUSBDevice</string>
-			<key>IOProviderMergeProperties</key>
-			<dict>
-				<key>kCallInterfaceCloseWithGate</key>
-				<true/>
-			</dict>
-			<key>idProduct</key>
-			<integer>33286</integer>
-			<key>idVendor</key>
-			<integer>1452</integer>
 		</dict>
 		<key>Buffalo ExpressCard</key>
 		<dict>
@@ -812,6 +670,8 @@
 				<key>MacModel</key>
 				<array>
 					<string>iMac11,1</string>
+					<string>iMac11,2</string>
+					<string>iMac11,3</string>
 					<string>MacBookPro6,1</string>
 					<string>MacBookPro6,2</string>
 				</array>
@@ -828,7 +688,7 @@
 			<key>idVendor</key>
 			<integer>1060</integer>
 		</dict>
-		<key>Built-in iSight</key>
+		<key>SuspendPort</key>
 		<dict>
 			<key>CFBundleIdentifier</key>
 			<string>com.apple.driver.AppleUSBMergeNub</string>
@@ -841,28 +701,19 @@
 				<key>kSuspendPort</key>
 				<true/>
 			</dict>
-			<key>idProduct</key>
-			<integer>34049</integer>
 			<key>idVendor</key>
 			<integer>1452</integer>
-		</dict>
-		<key>Built-in iSight2</key>
-		<dict>
-			<key>CFBundleIdentifier</key>
-			<string>com.apple.driver.AppleUSBMergeNub</string>
-			<key>IOClass</key>
-			<string>AppleUSBMergeNub</string>
-			<key>IOProviderClass</key>
-			<string>IOUSBDevice</string>
-			<key>IOProviderMergeProperties</key>
-			<dict>
-				<key>kSuspendPort</key>
-				<true/>
-			</dict>
-			<key>idProduct</key>
-			<integer>34050</integer>
-			<key>idVendor</key>
-			<integer>1452</integer>
+			<key>idProductArray</key>
+			<array>
+				<integer>34049</integer>
+				<integer>34050</integer>
+				<integer>34053</integer>
+				<integer>34055</integer>
+				<integer>34056</integer>
+				<integer>34057</integer>
+				<integer>34058</integer>
+				<integer>34059</integer>
+			</array>
 		</dict>
 		<key>Built-in iSight2 - 0x219</key>
 		<dict>
@@ -888,24 +739,6 @@
 			<key>bcdDevice</key>
 			<integer>537</integer>
 		</dict>
-		<key>Built-in iSight3</key>
-		<dict>
-			<key>CFBundleIdentifier</key>
-			<string>com.apple.driver.AppleUSBMergeNub</string>
-			<key>IOClass</key>
-			<string>AppleUSBMergeNub</string>
-			<key>IOProviderClass</key>
-			<string>IOUSBDevice</string>
-			<key>IOProviderMergeProperties</key>
-			<dict>
-				<key>kSuspendPort</key>
-				<true/>
-			</dict>
-			<key>idProduct</key>
-			<integer>34053</integer>
-			<key>idVendor</key>
-			<integer>1452</integer>
-		</dict>
 		<key>Built-in iSight3 - 0x319</key>
 		<dict>
 			<key>CFBundleIdentifier</key>
@@ -930,25 +763,7 @@
 			<key>bcdDevice</key>
 			<integer>793</integer>
 		</dict>
-		<key>Built-in iSight4</key>
-		<dict>
-			<key>CFBundleIdentifier</key>
-			<string>com.apple.driver.AppleUSBMergeNub</string>
-			<key>IOClass</key>
-			<string>AppleUSBMergeNub</string>
-			<key>IOProviderClass</key>
-			<string>IOUSBDevice</string>
-			<key>IOProviderMergeProperties</key>
-			<dict>
-				<key>kSuspendPort</key>
-				<true/>
-			</dict>
-			<key>idProduct</key>
-			<integer>34056</integer>
-			<key>idVendor</key>
-			<integer>1452</integer>
-		</dict>
-		<key>DisplayiSight0x219</key>
+		<key>DisplayiSight - 0x219</key>
 		<dict>
 			<key>CFBundleIdentifier</key>
 			<string>com.apple.driver.AppleUSBMergeNub</string>
@@ -971,24 +786,6 @@
 			<integer>1452</integer>
 			<key>bcdDevice</key>
 			<integer>537</integer>
-		</dict>
-		<key>Built-in iSight5</key>
-		<dict>
-			<key>CFBundleIdentifier</key>
-			<string>com.apple.driver.AppleUSBMergeNub</string>
-			<key>IOClass</key>
-			<string>AppleUSBMergeNub</string>
-			<key>IOProviderClass</key>
-			<string>IOUSBDevice</string>
-			<key>IOProviderMergeProperties</key>
-			<dict>
-				<key>kSuspendPort</key>
-				<true/>
-			</dict>
-			<key>idProduct</key>
-			<integer>34055</integer>
-			<key>idVendor</key>
-			<integer>1452</integer>
 		</dict>
 		<key>Built-in iSight5-0x419</key>
 		<dict>
@@ -1104,24 +901,6 @@
 			<key>idVendor</key>
 			<integer>21930</integer>
 		</dict>
-		<key>InternalUSBModem</key>
-		<dict>
-			<key>CFBundleIdentifier</key>
-			<string>com.apple.driver.AppleUSBMergeNub</string>
-			<key>IOClass</key>
-			<string>AppleUSBMergeNub</string>
-			<key>IOProviderClass</key>
-			<string>IOUSBDevice</string>
-			<key>IOProviderMergeProperties</key>
-			<dict>
-				<key>kCallInterfaceOpenWithGate</key>
-				<true/>
-			</dict>
-			<key>idProduct</key>
-			<integer>33282</integer>
-			<key>idVendor</key>
-			<integer>1452</integer>
-		</dict>
 		<key>Keyboard1</key>
 		<dict>
 			<key>CFBundleIdentifier</key>
@@ -1139,56 +918,16 @@
 			<integer>1</integer>
 			<key>bInterfaceNumber</key>
 			<integer>0</integer>
-			<key>idProduct</key>
-			<integer>523</integer>
 			<key>idVendor</key>
 			<integer>1452</integer>
+			<key>idProductArray</key>
+			<array>
+				<integer>523</integer>
+				<integer>524</integer>
+				<integer>525</integer>
+			</array>
 		</dict>
-		<key>Keyboard2</key>
-		<dict>
-			<key>CFBundleIdentifier</key>
-			<string>com.apple.driver.AppleUSBMergeNub</string>
-			<key>IOClass</key>
-			<string>AppleUSBMergeNub</string>
-			<key>IOProviderClass</key>
-			<string>IOUSBInterface</string>
-			<key>IOProviderMergeProperties</key>
-			<dict>
-				<key>Ignore transactions for ms after wake</key>
-				<integer>250</integer>
-			</dict>
-			<key>bConfigurationValue</key>
-			<integer>1</integer>
-			<key>bInterfaceNumber</key>
-			<integer>0</integer>
-			<key>idProduct</key>
-			<integer>524</integer>
-			<key>idVendor</key>
-			<integer>1452</integer>
-		</dict>
-		<key>Keyboard3</key>
-		<dict>
-			<key>CFBundleIdentifier</key>
-			<string>com.apple.driver.AppleUSBMergeNub</string>
-			<key>IOClass</key>
-			<string>AppleUSBMergeNub</string>
-			<key>IOProviderClass</key>
-			<string>IOUSBInterface</string>
-			<key>IOProviderMergeProperties</key>
-			<dict>
-				<key>Ignore transactions for ms after wake</key>
-				<integer>250</integer>
-			</dict>
-			<key>bConfigurationValue</key>
-			<integer>1</integer>
-			<key>bInterfaceNumber</key>
-			<integer>0</integer>
-			<key>idProduct</key>
-			<integer>525</integer>
-			<key>idVendor</key>
-			<integer>1452</integer>
-		</dict>
-		<key>LogitechCamera1</key>
+		<key>LogitechCameras</key>
 		<dict>
 			<key>CFBundleIdentifier</key>
 			<string>com.apple.driver.AppleUSBMergeNub</string>
@@ -1201,64 +940,27 @@
 				<key>USB Product Name</key>
 				<string>Logitech Camera</string>
 			</dict>
-			<key>idProduct</key>
-			<integer>2249</integer>
 			<key>idVendor</key>
 			<integer>1133</integer>
-		</dict>
-		<key>LogitechCamera1 - 4</key>
-		<dict>
-			<key>CFBundleIdentifier</key>
-			<string>com.apple.driver.AppleUSBMergeNub</string>
-			<key>IOClass</key>
-			<string>AppleUSBMergeNub</string>
-			<key>IOProviderClass</key>
-			<string>IOUSBDevice</string>
-			<key>IOProviderMergeProperties</key>
-			<dict>
-				<key>USB Product Name</key>
-				<string>Logitech Camera</string>
-			</dict>
-			<key>idProduct</key>
-			<integer>2050</integer>
-			<key>idVendor</key>
-			<integer>1133</integer>
-		</dict>
-		<key>LogitechCamera1 - 3</key>
-		<dict>
-			<key>CFBundleIdentifier</key>
-			<string>com.apple.driver.AppleUSBMergeNub</string>
-			<key>IOClass</key>
-			<string>AppleUSBMergeNub</string>
-			<key>IOProviderClass</key>
-			<string>IOUSBDevice</string>
-			<key>IOProviderMergeProperties</key>
-			<dict>
-				<key>USB Product Name</key>
-				<string>Logitech Camera</string>
-			</dict>
-			<key>idProduct</key>
-			<integer>2056</integer>
-			<key>idVendor</key>
-			<integer>1133</integer>
-		</dict>
-		<key>LogitechCamera1 - 2</key>
-		<dict>
-			<key>CFBundleIdentifier</key>
-			<string>com.apple.driver.AppleUSBMergeNub</string>
-			<key>IOClass</key>
-			<string>AppleUSBMergeNub</string>
-			<key>IOProviderClass</key>
-			<string>IOUSBDevice</string>
-			<key>IOProviderMergeProperties</key>
-			<dict>
-				<key>USB Product Name</key>
-				<string>Logitech Camera</string>
-			</dict>
-			<key>idProduct</key>
-			<integer>2053</integer>
-			<key>idVendor</key>
-			<integer>1133</integer>
+			<key>idProductArray</key>
+			<array>
+				<integer>2249</integer>
+				<integer>2050</integer>
+				<integer>2056</integer>
+				<integer>2053</integer>
+				<integer>2497</integer>
+				<integer>2470</integer>
+				<integer>2252</integer>
+				<integer>2250</integer>
+				<integer>2254</integer>
+				<integer>2251</integer>
+				<integer>2448</integer>
+				<integer>2450</integer>
+				<integer>2449</integer>
+				<integer>2269</integer>
+				<integer>2075</integer>
+				<integer>2077</integer>
+			</array>
 		</dict>
 		<key>Apple 8403</key>
 		<dict>
@@ -1277,186 +979,6 @@
 			<integer>33795</integer>
 			<key>idVendor</key>
 			<integer>1452</integer>
-		</dict>
-		<key>LogitechCamera10</key>
-		<dict>
-			<key>CFBundleIdentifier</key>
-			<string>com.apple.driver.AppleUSBMergeNub</string>
-			<key>IOClass</key>
-			<string>AppleUSBMergeNub</string>
-			<key>IOProviderClass</key>
-			<string>IOUSBDevice</string>
-			<key>IOProviderMergeProperties</key>
-			<dict>
-				<key>USB Product Name</key>
-				<string>Logitech Camera</string>
-			</dict>
-			<key>idProduct</key>
-			<integer>2497</integer>
-			<key>idVendor</key>
-			<integer>1133</integer>
-		</dict>
-		<key>LogitechCamera11</key>
-		<dict>
-			<key>CFBundleIdentifier</key>
-			<string>com.apple.driver.AppleUSBMergeNub</string>
-			<key>IOClass</key>
-			<string>AppleUSBMergeNub</string>
-			<key>IOProviderClass</key>
-			<string>IOUSBDevice</string>
-			<key>IOProviderMergeProperties</key>
-			<dict>
-				<key>USB Product Name</key>
-				<string>Logitech Camera</string>
-			</dict>
-			<key>idProduct</key>
-			<integer>2470</integer>
-			<key>idVendor</key>
-			<integer>1133</integer>
-		</dict>
-		<key>LogitechCamera2</key>
-		<dict>
-			<key>CFBundleIdentifier</key>
-			<string>com.apple.driver.AppleUSBMergeNub</string>
-			<key>IOClass</key>
-			<string>AppleUSBMergeNub</string>
-			<key>IOProviderClass</key>
-			<string>IOUSBDevice</string>
-			<key>IOProviderMergeProperties</key>
-			<dict>
-				<key>USB Product Name</key>
-				<string>Logitech Camera</string>
-			</dict>
-			<key>idProduct</key>
-			<integer>2252</integer>
-			<key>idVendor</key>
-			<integer>1133</integer>
-		</dict>
-		<key>LogitechCamera3</key>
-		<dict>
-			<key>CFBundleIdentifier</key>
-			<string>com.apple.driver.AppleUSBMergeNub</string>
-			<key>IOClass</key>
-			<string>AppleUSBMergeNub</string>
-			<key>IOProviderClass</key>
-			<string>IOUSBDevice</string>
-			<key>IOProviderMergeProperties</key>
-			<dict>
-				<key>USB Product Name</key>
-				<string>Logitech Camera</string>
-			</dict>
-			<key>idProduct</key>
-			<integer>2250</integer>
-			<key>idVendor</key>
-			<integer>1133</integer>
-		</dict>
-		<key>LogitechCamera4</key>
-		<dict>
-			<key>CFBundleIdentifier</key>
-			<string>com.apple.driver.AppleUSBMergeNub</string>
-			<key>IOClass</key>
-			<string>AppleUSBMergeNub</string>
-			<key>IOProviderClass</key>
-			<string>IOUSBDevice</string>
-			<key>IOProviderMergeProperties</key>
-			<dict>
-				<key>USB Product Name</key>
-				<string>Logitech Camera</string>
-			</dict>
-			<key>idProduct</key>
-			<integer>2254</integer>
-			<key>idVendor</key>
-			<integer>1133</integer>
-		</dict>
-		<key>LogitechCamera5</key>
-		<dict>
-			<key>CFBundleIdentifier</key>
-			<string>com.apple.driver.AppleUSBMergeNub</string>
-			<key>IOClass</key>
-			<string>AppleUSBMergeNub</string>
-			<key>IOProviderClass</key>
-			<string>IOUSBDevice</string>
-			<key>IOProviderMergeProperties</key>
-			<dict>
-				<key>USB Product Name</key>
-				<string>Logitech Camera</string>
-			</dict>
-			<key>idProduct</key>
-			<integer>2251</integer>
-			<key>idVendor</key>
-			<integer>1133</integer>
-		</dict>
-		<key>LogitechCamera6</key>
-		<dict>
-			<key>CFBundleIdentifier</key>
-			<string>com.apple.driver.AppleUSBMergeNub</string>
-			<key>IOClass</key>
-			<string>AppleUSBMergeNub</string>
-			<key>IOProviderClass</key>
-			<string>IOUSBDevice</string>
-			<key>IOProviderMergeProperties</key>
-			<dict>
-				<key>USB Product Name</key>
-				<string>Logitech Camera</string>
-			</dict>
-			<key>idProduct</key>
-			<integer>2448</integer>
-			<key>idVendor</key>
-			<integer>1133</integer>
-		</dict>
-		<key>LogitechCamera7</key>
-		<dict>
-			<key>CFBundleIdentifier</key>
-			<string>com.apple.driver.AppleUSBMergeNub</string>
-			<key>IOClass</key>
-			<string>AppleUSBMergeNub</string>
-			<key>IOProviderClass</key>
-			<string>IOUSBDevice</string>
-			<key>IOProviderMergeProperties</key>
-			<dict>
-				<key>USB Product Name</key>
-				<string>Logitech Camera</string>
-			</dict>
-			<key>idProduct</key>
-			<integer>2450</integer>
-			<key>idVendor</key>
-			<integer>1133</integer>
-		</dict>
-		<key>LogitechCamera8</key>
-		<dict>
-			<key>CFBundleIdentifier</key>
-			<string>com.apple.driver.AppleUSBMergeNub</string>
-			<key>IOClass</key>
-			<string>AppleUSBMergeNub</string>
-			<key>IOProviderClass</key>
-			<string>IOUSBDevice</string>
-			<key>IOProviderMergeProperties</key>
-			<dict>
-				<key>USB Product Name</key>
-				<string>Logitech Camera</string>
-			</dict>
-			<key>idProduct</key>
-			<integer>2449</integer>
-			<key>idVendor</key>
-			<integer>1133</integer>
-		</dict>
-		<key>LogitechCamera9</key>
-		<dict>
-			<key>CFBundleIdentifier</key>
-			<string>com.apple.driver.AppleUSBMergeNub</string>
-			<key>IOClass</key>
-			<string>AppleUSBMergeNub</string>
-			<key>IOProviderClass</key>
-			<string>IOUSBDevice</string>
-			<key>IOProviderMergeProperties</key>
-			<dict>
-				<key>USB Product Name</key>
-				<string>Logitech Camera</string>
-			</dict>
-			<key>idProduct</key>
-			<integer>2269</integer>
-			<key>idVendor</key>
-			<integer>1133</integer>
 		</dict>
 		<key>Novatel ExpressCard</key>
 		<dict>
@@ -1602,24 +1124,6 @@
 			<key>idVendor</key>
 			<integer>1211</integer>
 		</dict>
-		<key>USBInternalModem</key>
-		<dict>
-			<key>CFBundleIdentifier</key>
-			<string>com.apple.driver.AppleUSBMergeNub</string>
-			<key>IOClass</key>
-			<string>AppleUSBMergeNub</string>
-			<key>IOProviderClass</key>
-			<string>IOUSBDevice</string>
-			<key>IOProviderMergeProperties</key>
-			<dict>
-				<key>kCallInterfaceOpenWithGate</key>
-				<true/>
-			</dict>
-			<key>bDeviceClass</key>
-			<integer>2</integer>
-			<key>bDeviceSubClass</key>
-			<integer>0</integer>
-		</dict>
 		<key>WILLCOM WS008HA ExpressCard</key>
 		<dict>
 			<key>CFBundleIdentifier</key>
@@ -1674,7 +1178,7 @@
 			<key>idVendor</key>
 			<integer>1857</integer>
 		</dict>
-		<key>Apple 0x0226 Device</key>
+		<key>Apple DFU Device</key>
 		<dict>
 			<key>CFBundleIdentifier</key>
 			<string>com.apple.driver.AppleUSBMergeNub</string>
@@ -1687,264 +1191,28 @@
 				<key>NeedsAdministratorPrivilege</key>
 				<true/>
 			</dict>
-			<key>idProduct</key>
-			<integer>550</integer>
 			<key>idVendor</key>
 			<integer>1452</integer>
+			<key>idProductArray</key>
+			<array>
+				<integer>550</integer>
+				<integer>551</integer>
+				<integer>552</integer>
+				<integer>564</integer>
+				<integer>565</integer>
+				<integer>559</integer>
+				<integer>5633</integer>
+				<integer>33297</integer>
+				<integer>33298</integer>
+				<integer>33305</integer>
+				<integer>34052</integer>
+				<integer>34054</integer>
+				<integer>34060</integer>
+				<integer>34061</integer>
+				<integer>34062</integer>
+			</array>
 		</dict>
-		<key>Apple 0x0227 Device</key>
-		<dict>
-			<key>CFBundleIdentifier</key>
-			<string>com.apple.driver.AppleUSBMergeNub</string>
-			<key>IOClass</key>
-			<string>AppleUSBMergeNub</string>
-			<key>IOProviderClass</key>
-			<string>IOUSBDevice</string>
-			<key>IOProviderMergeProperties</key>
-			<dict>
-				<key>NeedsAdministratorPrivilege</key>
-				<true/>
-			</dict>
-			<key>idProduct</key>
-			<integer>551</integer>
-			<key>idVendor</key>
-			<integer>1452</integer>
-		</dict>
-		<key>Apple 0x0228 Device</key>
-		<dict>
-			<key>CFBundleIdentifier</key>
-			<string>com.apple.driver.AppleUSBMergeNub</string>
-			<key>IOClass</key>
-			<string>AppleUSBMergeNub</string>
-			<key>IOProviderClass</key>
-			<string>IOUSBDevice</string>
-			<key>IOProviderMergeProperties</key>
-			<dict>
-				<key>NeedsAdministratorPrivilege</key>
-				<true/>
-			</dict>
-			<key>idProduct</key>
-			<integer>552</integer>
-			<key>idVendor</key>
-			<integer>1452</integer>
-		</dict>
-		<key>Apple 0x0234 Device</key>
-		<dict>
-			<key>CFBundleIdentifier</key>
-			<string>com.apple.driver.AppleUSBMergeNub</string>
-			<key>IOClass</key>
-			<string>AppleUSBMergeNub</string>
-			<key>IOProviderClass</key>
-			<string>IOUSBDevice</string>
-			<key>IOProviderMergeProperties</key>
-			<dict>
-				<key>NeedsAdministratorPrivilege</key>
-				<true/>
-			</dict>
-			<key>idProduct</key>
-			<integer>564</integer>
-			<key>idVendor</key>
-			<integer>1452</integer>
-		</dict>
-		<key>Apple 0x0235 Device</key>
-		<dict>
-			<key>CFBundleIdentifier</key>
-			<string>com.apple.driver.AppleUSBMergeNub</string>
-			<key>IOClass</key>
-			<string>AppleUSBMergeNub</string>
-			<key>IOProviderClass</key>
-			<string>IOUSBDevice</string>
-			<key>IOProviderMergeProperties</key>
-			<dict>
-				<key>NeedsAdministratorPrivilege</key>
-				<true/>
-			</dict>
-			<key>idProduct</key>
-			<integer>565</integer>
-			<key>idVendor</key>
-			<integer>1452</integer>
-		</dict>
-		<key>Apple 0x022f Device</key>
-		<dict>
-			<key>CFBundleIdentifier</key>
-			<string>com.apple.driver.AppleUSBMergeNub</string>
-			<key>IOClass</key>
-			<string>AppleUSBMergeNub</string>
-			<key>IOProviderClass</key>
-			<string>IOUSBDevice</string>
-			<key>IOProviderMergeProperties</key>
-			<dict>
-				<key>NeedsAdministratorPrivilege</key>
-				<true/>
-			</dict>
-			<key>idProduct</key>
-			<integer>559</integer>
-			<key>idVendor</key>
-			<integer>1452</integer>
-		</dict>
-		<key>Apple 0x1601 Device</key>
-		<dict>
-			<key>CFBundleIdentifier</key>
-			<string>com.apple.driver.AppleUSBMergeNub</string>
-			<key>IOClass</key>
-			<string>AppleUSBMergeNub</string>
-			<key>IOProviderClass</key>
-			<string>IOUSBDevice</string>
-			<key>IOProviderMergeProperties</key>
-			<dict>
-				<key>NeedsAdministratorPrivilege</key>
-				<true/>
-			</dict>
-			<key>idProduct</key>
-			<integer>5633</integer>
-			<key>idVendor</key>
-			<integer>1452</integer>
-		</dict>
-		<key>Apple 0x8211 Device</key>
-		<dict>
-			<key>CFBundleIdentifier</key>
-			<string>com.apple.driver.AppleUSBMergeNub</string>
-			<key>IOClass</key>
-			<string>AppleUSBMergeNub</string>
-			<key>IOProviderClass</key>
-			<string>IOUSBDevice</string>
-			<key>IOProviderMergeProperties</key>
-			<dict>
-				<key>NeedsAdministratorPrivilege</key>
-				<true/>
-			</dict>
-			<key>idProduct</key>
-			<integer>33297</integer>
-			<key>idVendor</key>
-			<integer>1452</integer>
-		</dict>
-		<key>Apple 0x8212 Device</key>
-		<dict>
-			<key>CFBundleIdentifier</key>
-			<string>com.apple.driver.AppleUSBMergeNub</string>
-			<key>IOClass</key>
-			<string>AppleUSBMergeNub</string>
-			<key>IOProviderClass</key>
-			<string>IOUSBDevice</string>
-			<key>IOProviderMergeProperties</key>
-			<dict>
-				<key>NeedsAdministratorPrivilege</key>
-				<true/>
-			</dict>
-			<key>idProduct</key>
-			<integer>33298</integer>
-			<key>idVendor</key>
-			<integer>1452</integer>
-		</dict>
-		<key>Apple 0x8219 Device</key>
-		<dict>
-			<key>CFBundleIdentifier</key>
-			<string>com.apple.driver.AppleUSBMergeNub</string>
-			<key>IOClass</key>
-			<string>AppleUSBMergeNub</string>
-			<key>IOProviderClass</key>
-			<string>IOUSBDevice</string>
-			<key>IOProviderMergeProperties</key>
-			<dict>
-				<key>NeedsAdministratorPrivilege</key>
-				<true/>
-			</dict>
-			<key>idProduct</key>
-			<integer>33305</integer>
-			<key>idVendor</key>
-			<integer>1452</integer>
-		</dict>
-		<key>Apple 0x8504 Device</key>
-		<dict>
-			<key>CFBundleIdentifier</key>
-			<string>com.apple.driver.AppleUSBMergeNub</string>
-			<key>IOClass</key>
-			<string>AppleUSBMergeNub</string>
-			<key>IOProviderClass</key>
-			<string>IOUSBDevice</string>
-			<key>IOProviderMergeProperties</key>
-			<dict>
-				<key>NeedsAdministratorPrivilege</key>
-				<true/>
-			</dict>
-			<key>idProduct</key>
-			<integer>34052</integer>
-			<key>idVendor</key>
-			<integer>1452</integer>
-		</dict>
-		<key>Apple 0x8506 Device</key>
-		<dict>
-			<key>CFBundleIdentifier</key>
-			<string>com.apple.driver.AppleUSBMergeNub</string>
-			<key>IOClass</key>
-			<string>AppleUSBMergeNub</string>
-			<key>IOProviderClass</key>
-			<string>IOUSBDevice</string>
-			<key>IOProviderMergeProperties</key>
-			<dict>
-				<key>NeedsAdministratorPrivilege</key>
-				<true/>
-			</dict>
-			<key>idProduct</key>
-			<integer>34054</integer>
-			<key>idVendor</key>
-			<integer>1452</integer>
-		</dict>
-		<key>Apple 0x820c Device </key>
-		<dict>
-			<key>CFBundleIdentifier</key>
-			<string>com.apple.driver.AppleUSBMergeNub</string>
-			<key>IOClass</key>
-			<string>AppleUSBMergeNub</string>
-			<key>IOProviderClass</key>
-			<string>IOUSBDevice</string>
-			<key>IOProviderMergeProperties</key>
-			<dict>
-				<key>NeedsAdministratorPrivilege</key>
-				<true/>
-			</dict>
-			<key>idProduct</key>
-			<integer>34060</integer>
-			<key>idVendor</key>
-			<integer>1452</integer>
-		</dict>
-		<key>Apple 0x850d Device</key>
-		<dict>
-			<key>CFBundleIdentifier</key>
-			<string>com.apple.driver.AppleUSBMergeNub</string>
-			<key>IOClass</key>
-			<string>AppleUSBMergeNub</string>
-			<key>IOProviderClass</key>
-			<string>IOUSBDevice</string>
-			<key>IOProviderMergeProperties</key>
-			<dict>
-				<key>NeedsAdministratorPrivilege</key>
-				<true/>
-			</dict>
-			<key>idProduct</key>
-			<integer>34061</integer>
-			<key>idVendor</key>
-			<integer>1452</integer>
-		</dict>
-		<key>Apple 0x850e Device</key>
-		<dict>
-			<key>CFBundleIdentifier</key>
-			<string>com.apple.driver.AppleUSBMergeNub</string>
-			<key>IOClass</key>
-			<string>AppleUSBMergeNub</string>
-			<key>IOProviderClass</key>
-			<string>IOUSBDevice</string>
-			<key>IOProviderMergeProperties</key>
-			<dict>
-				<key>NeedsAdministratorPrivilege</key>
-				<true/>
-			</dict>
-			<key>idProduct</key>
-			<integer>34062</integer>
-			<key>idVendor</key>
-			<integer>1452</integer>
-		</dict>
-		<key>Apple 0x0226 Interface</key>
+		<key>Apple DFU Interface</key>
 		<dict>
 			<key>CFBundleIdentifier</key>
 			<string>com.apple.driver.AppleUSBMergeNub</string>
@@ -1961,318 +1229,26 @@
 			<string>*</string>
 			<key>bInterfaceNumber</key>
 			<string>*</string>
-			<key>idProduct</key>
-			<integer>550</integer>
 			<key>idVendor</key>
 			<integer>1452</integer>
-		</dict>
-		<key>Apple 0x0227 Interface</key>
-		<dict>
-			<key>CFBundleIdentifier</key>
-			<string>com.apple.driver.AppleUSBMergeNub</string>
-			<key>IOClass</key>
-			<string>AppleUSBMergeNub</string>
-			<key>IOProviderClass</key>
-			<string>IOUSBInterface</string>
-			<key>IOProviderMergeProperties</key>
-			<dict>
-				<key>NeedsAdministratorPrivilege</key>
-				<true/>
-			</dict>
-			<key>bConfigurationValue</key>
-			<string>*</string>
-			<key>bInterfaceNumber</key>
-			<string>*</string>
-			<key>idProduct</key>
-			<integer>551</integer>
-			<key>idVendor</key>
-			<integer>1452</integer>
-		</dict>
-		<key>Apple 0x0228 Interface</key>
-		<dict>
-			<key>CFBundleIdentifier</key>
-			<string>com.apple.driver.AppleUSBMergeNub</string>
-			<key>IOClass</key>
-			<string>AppleUSBMergeNub</string>
-			<key>IOProviderClass</key>
-			<string>IOUSBInterface</string>
-			<key>IOProviderMergeProperties</key>
-			<dict>
-				<key>NeedsAdministratorPrivilege</key>
-				<true/>
-			</dict>
-			<key>bConfigurationValue</key>
-			<string>*</string>
-			<key>bInterfaceNumber</key>
-			<string>*</string>
-			<key>idProduct</key>
-			<integer>552</integer>
-			<key>idVendor</key>
-			<integer>1452</integer>
-		</dict>
-		<key>Apple 0x0234 Interface</key>
-		<dict>
-			<key>CFBundleIdentifier</key>
-			<string>com.apple.driver.AppleUSBMergeNub</string>
-			<key>IOClass</key>
-			<string>AppleUSBMergeNub</string>
-			<key>IOProviderClass</key>
-			<string>IOUSBInterface</string>
-			<key>IOProviderMergeProperties</key>
-			<dict>
-				<key>NeedsAdministratorPrivilege</key>
-				<true/>
-			</dict>
-			<key>bConfigurationValue</key>
-			<string>*</string>
-			<key>bInterfaceNumber</key>
-			<string>*</string>
-			<key>idProduct</key>
-			<integer>564</integer>
-			<key>idVendor</key>
-			<integer>1452</integer>
-		</dict>
-		<key>Apple 0x0235 Interface</key>
-		<dict>
-			<key>CFBundleIdentifier</key>
-			<string>com.apple.driver.AppleUSBMergeNub</string>
-			<key>IOClass</key>
-			<string>AppleUSBMergeNub</string>
-			<key>IOProviderClass</key>
-			<string>IOUSBInterface</string>
-			<key>IOProviderMergeProperties</key>
-			<dict>
-				<key>NeedsAdministratorPrivilege</key>
-				<true/>
-			</dict>
-			<key>bConfigurationValue</key>
-			<string>*</string>
-			<key>bInterfaceNumber</key>
-			<string>*</string>
-			<key>idProduct</key>
-			<integer>565</integer>
-			<key>idVendor</key>
-			<integer>1452</integer>
-		</dict>
-		<key>Apple 0x022f Interface</key>
-		<dict>
-			<key>CFBundleIdentifier</key>
-			<string>com.apple.driver.AppleUSBMergeNub</string>
-			<key>IOClass</key>
-			<string>AppleUSBMergeNub</string>
-			<key>IOProviderClass</key>
-			<string>IOUSBInterface</string>
-			<key>IOProviderMergeProperties</key>
-			<dict>
-				<key>NeedsAdministratorPrivilege</key>
-				<true/>
-			</dict>
-			<key>bConfigurationValue</key>
-			<string>*</string>
-			<key>bInterfaceNumber</key>
-			<string>*</string>
-			<key>idProduct</key>
-			<integer>559</integer>
-			<key>idVendor</key>
-			<integer>1452</integer>
-		</dict>
-		<key>Apple 0x1601 Interface</key>
-		<dict>
-			<key>CFBundleIdentifier</key>
-			<string>com.apple.driver.AppleUSBMergeNub</string>
-			<key>IOClass</key>
-			<string>AppleUSBMergeNub</string>
-			<key>IOProviderClass</key>
-			<string>IOUSBInterface</string>
-			<key>IOProviderMergeProperties</key>
-			<dict>
-				<key>NeedsAdministratorPrivilege</key>
-				<true/>
-			</dict>
-			<key>bConfigurationValue</key>
-			<string>*</string>
-			<key>bInterfaceNumber</key>
-			<string>*</string>
-			<key>idProduct</key>
-			<integer>5633</integer>
-			<key>idVendor</key>
-			<integer>1452</integer>
-		</dict>
-		<key>Apple 0x8211 Interface</key>
-		<dict>
-			<key>CFBundleIdentifier</key>
-			<string>com.apple.driver.AppleUSBMergeNub</string>
-			<key>IOClass</key>
-			<string>AppleUSBMergeNub</string>
-			<key>IOProviderClass</key>
-			<string>IOUSBInterface</string>
-			<key>IOProviderMergeProperties</key>
-			<dict>
-				<key>NeedsAdministratorPrivilege</key>
-				<true/>
-			</dict>
-			<key>bConfigurationValue</key>
-			<string>*</string>
-			<key>bInterfaceNumber</key>
-			<string>*</string>
-			<key>idProduct</key>
-			<integer>33297</integer>
-			<key>idVendor</key>
-			<integer>1452</integer>
-		</dict>
-		<key>Apple 0x8212 Interface</key>
-		<dict>
-			<key>CFBundleIdentifier</key>
-			<string>com.apple.driver.AppleUSBMergeNub</string>
-			<key>IOClass</key>
-			<string>AppleUSBMergeNub</string>
-			<key>IOProviderClass</key>
-			<string>IOUSBInterface</string>
-			<key>IOProviderMergeProperties</key>
-			<dict>
-				<key>NeedsAdministratorPrivilege</key>
-				<true/>
-			</dict>
-			<key>bConfigurationValue</key>
-			<string>*</string>
-			<key>bInterfaceNumber</key>
-			<string>*</string>
-			<key>idProduct</key>
-			<integer>33298</integer>
-			<key>idVendor</key>
-			<integer>1452</integer>
-		</dict>
-		<key>Apple 0x8219 Interface</key>
-		<dict>
-			<key>CFBundleIdentifier</key>
-			<string>com.apple.driver.AppleUSBMergeNub</string>
-			<key>IOClass</key>
-			<string>AppleUSBMergeNub</string>
-			<key>IOProviderClass</key>
-			<string>IOUSBInterface</string>
-			<key>IOProviderMergeProperties</key>
-			<dict>
-				<key>NeedsAdministratorPrivilege</key>
-				<true/>
-			</dict>
-			<key>bConfigurationValue</key>
-			<string>*</string>
-			<key>bInterfaceNumber</key>
-			<string>*</string>
-			<key>idProduct</key>
-			<integer>33305</integer>
-			<key>idVendor</key>
-			<integer>1452</integer>
-		</dict>
-		<key>Apple 0x8504 Interface</key>
-		<dict>
-			<key>CFBundleIdentifier</key>
-			<string>com.apple.driver.AppleUSBMergeNub</string>
-			<key>IOClass</key>
-			<string>AppleUSBMergeNub</string>
-			<key>IOProviderClass</key>
-			<string>IOUSBInterface</string>
-			<key>IOProviderMergeProperties</key>
-			<dict>
-				<key>NeedsAdministratorPrivilege</key>
-				<true/>
-			</dict>
-			<key>bConfigurationValue</key>
-			<string>*</string>
-			<key>bInterfaceNumber</key>
-			<string>*</string>
-			<key>idProduct</key>
-			<integer>34052</integer>
-			<key>idVendor</key>
-			<integer>1452</integer>
-		</dict>
-		<key>Apple 0x8506 Interface</key>
-		<dict>
-			<key>CFBundleIdentifier</key>
-			<string>com.apple.driver.AppleUSBMergeNub</string>
-			<key>IOClass</key>
-			<string>AppleUSBMergeNub</string>
-			<key>IOProviderClass</key>
-			<string>IOUSBInterface</string>
-			<key>IOProviderMergeProperties</key>
-			<dict>
-				<key>NeedsAdministratorPrivilege</key>
-				<true/>
-			</dict>
-			<key>bConfigurationValue</key>
-			<string>*</string>
-			<key>bInterfaceNumber</key>
-			<string>*</string>
-			<key>idProduct</key>
-			<integer>34054</integer>
-			<key>idVendor</key>
-			<integer>1452</integer>
-		</dict>
-		<key>Apple 0x850c Interface</key>
-		<dict>
-			<key>CFBundleIdentifier</key>
-			<string>com.apple.driver.AppleUSBMergeNub</string>
-			<key>IOClass</key>
-			<string>AppleUSBMergeNub</string>
-			<key>IOProviderClass</key>
-			<string>IOUSBInterface</string>
-			<key>IOProviderMergeProperties</key>
-			<dict>
-				<key>NeedsAdministratorPrivilege</key>
-				<true/>
-			</dict>
-			<key>bConfigurationValue</key>
-			<string>*</string>
-			<key>bInterfaceNumber</key>
-			<string>*</string>
-			<key>idProduct</key>
-			<integer>34060</integer>
-			<key>idVendor</key>
-			<integer>1452</integer>
-		</dict>
-		<key>Apple 0x850d Interface</key>
-		<dict>
-			<key>CFBundleIdentifier</key>
-			<string>com.apple.driver.AppleUSBMergeNub</string>
-			<key>IOClass</key>
-			<string>AppleUSBMergeNub</string>
-			<key>IOProviderClass</key>
-			<string>IOUSBInterface</string>
-			<key>IOProviderMergeProperties</key>
-			<dict>
-				<key>NeedsAdministratorPrivilege</key>
-				<true/>
-			</dict>
-			<key>bConfigurationValue</key>
-			<string>*</string>
-			<key>bInterfaceNumber</key>
-			<string>*</string>
-			<key>idProduct</key>
-			<integer>34061</integer>
-			<key>idVendor</key>
-			<integer>1452</integer>
-		</dict>
-		<key>Apple 0x850e Interface</key>
-		<dict>
-			<key>CFBundleIdentifier</key>
-			<string>com.apple.driver.AppleUSBMergeNub</string>
-			<key>IOClass</key>
-			<string>AppleUSBMergeNub</string>
-			<key>IOProviderClass</key>
-			<string>IOUSBInterface</string>
-			<key>IOProviderMergeProperties</key>
-			<dict>
-				<key>NeedsAdministratorPrivilege</key>
-				<true/>
-			</dict>
-			<key>bConfigurationValue</key>
-			<string>*</string>
-			<key>bInterfaceNumber</key>
-			<string>*</string>
-			<key>idProduct</key>
-			<integer>34062</integer>
-			<key>idVendor</key>
-			<integer>1452</integer>
+			<key>idProductArray</key>
+			<array>
+				<integer>550</integer>
+				<integer>551</integer>
+				<integer>552</integer>
+				<integer>564</integer>
+				<integer>565</integer>
+				<integer>559</integer>
+				<integer>5633</integer>
+				<integer>33297</integer>
+				<integer>33298</integer>
+				<integer>33305</integer>
+				<integer>34052</integer>
+				<integer>34054</integer>
+				<integer>34060</integer>
+				<integer>34061</integer>
+				<integer>34062</integer>
+			</array>
 		</dict>
 		<key>Apple 0x9226 Interface</key>
 		<dict>
@@ -2318,6 +1294,26 @@
 			<key>idVendor</key>
 			<integer>1452</integer>
 		</dict>
+		<key>ComfortKbdHub</key>
+		<dict>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.driver.AppleUSBMergeNub</string>
+			<key>IOClass</key>
+			<string>AppleUSBMergeNub</string>
+			<key>IOProviderClass</key>
+			<string>IOUSBDevice</string>
+			<key>IOProviderMergeProperties</key>
+			<dict>
+				<key>kRetryBogusPortStatus</key>
+				<true/>
+			</dict>
+			<key>idProduct</key>
+			<integer>256</integer>
+			<key>idVendor</key>
+			<integer>1204</integer>
+			<key>bcdDevice</key>
+			<integer>1</integer>
+		</dict>
 	</dict>
 	<key>OSBundleCompatibleVersion</key>
 	<string>1.8</string>
@@ -2326,13 +1322,13 @@
 		<key>com.apple.driver.AppleUSBComposite</key>
 		<string>2.2.0</string>
 		<key>com.apple.iokit.IOUSBFamily</key>
-		<string>3.5.0a20</string>
+		<string>4.1.5</string>
 		<key>com.apple.kpi.libkern</key>
-		<string>10.0.0d4</string>
+		<string>10.4.2</string>
 		<key>com.apple.kpi.iokit</key>
-		<string>10.0.0d4</string>
+		<string>10.4.2</string>
 		<key>com.apple.kpi.bsd</key>
-		<string>10.0.0d4</string>
+		<string>10.4.2</string>
 	</dict>
 	<key>OSBundleRequired</key>
 	<string>Root</string>

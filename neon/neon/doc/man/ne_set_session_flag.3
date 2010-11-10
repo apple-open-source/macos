@@ -1,35 +1,43 @@
+'\" t
 .\"     Title: ne_set_session_flag
 .\"    Author: 
-.\" Generator: DocBook XSL Stylesheets v1.73.2 <http://docbook.sf.net/>
-.\"      Date: 20 August 2008
+.\" Generator: DocBook XSL Stylesheets v1.74.3 <http://docbook.sf.net/>
+.\"      Date: 18 August 2009
 .\"    Manual: neon API reference
-.\"    Source: neon 0.28.3
+.\"    Source: neon 0.28.6
+.\"  Language: English
 .\"
-.TH "NE_SET_SESSION_FLAG" "3" "20 August 2008" "neon 0.28.3" "neon API reference"
+.TH "NE_SET_SESSION_FLAG" "3" "18 August 2009" "neon 0.28.6" "neon API reference"
+.\" -----------------------------------------------------------------
+.\" * set default formatting
+.\" -----------------------------------------------------------------
 .\" disable hyphenation
 .nh
 .\" disable justification (adjust text to left margin only)
 .ad l
+.\" -----------------------------------------------------------------
+.\" * MAIN CONTENT STARTS HERE *
+.\" -----------------------------------------------------------------
 .SH "NAME"
-ne_set_session_flag, ne_get_session_flag - set and retrieve session flags
+ne_set_session_flag, ne_get_session_flag \- set and retrieve session flags
 .SH "SYNOPSIS"
 .sp
 .ft B
 .nf
-#include <ne_request\.h>
+#include <ne_request\&.h>
 .fi
 .ft
-.HP 25
+.HP \w'void\ ne_set_session_flag('u
 .BI "void ne_set_session_flag(ne_session\ *" "sess" ", ne_session_flag\ " "flag" ", int\ " "value" ");"
-.HP 24
+.HP \w'int\ ne_get_session_flag('u
 .BI "int ne_get_session_flag(ne_session\ *" "sess" ", ne_session_flag\ " "flag" ");"
 .SH "DESCRIPTION"
 .PP
 The
 \fBne_set_session_flag\fR
-function enables or disables a session flag\. Passing a non\-zero
+function enables or disables a session flag\&. Passing a non\-zero
 \fIvalue\fR
-argument enables the flag, and zero disables it\.
+argument enables the flag, and zero disables it\&.
 .PP
 The following flags are defined:
 .PP
@@ -66,14 +74,15 @@ disable this flag if a server is used which does not correctly support the TLS S
 .PP
 The
 \fBne_get_session_flag\fR
-function returns zero if a flag is disabled, less than zero if the flag is not supported, or greater than zero if the flag is enabled\.
+function returns zero if a flag is disabled, less than zero if the flag is not supported, or greater than zero if the flag is enabled\&.
 .SH "SEE ALSO"
 .PP
-ne_session_create\.
+ne_session_create\&.
 .SH "AUTHOR"
 .PP
 \fBJoe Orton\fR <\&neon@lists.manyfish.co.uk\&>
-.sp -1n
-.IP "" 4
+.RS 4
 Author.
+.RE
 .SH "COPYRIGHT"
+.br

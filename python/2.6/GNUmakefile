@@ -153,7 +153,8 @@ $(OBJROOT)/$(PROJECT):
 	echo > $(PROJECT)/Lib/test/nullcert.pem
 	@set -x && \
 	cd '$(OBJROOT)/$(PROJECT)' && \
-	patch -p0 -i $(FIX)/qt-changes.diff
+	patch -p0 -i $(FIX)/qt-changes.diff && \
+	patch -p0 -i $(FIX)/CVE-2010-1634,CVE-2010-2089-audioop-int-overflow.patch
 	cd '$(OBJROOT)/$(PROJECT)' && autoconf
 	dtrace -h -s $(FIX)/pydtrace.d -o '$(PYDTRACE_H)'
 

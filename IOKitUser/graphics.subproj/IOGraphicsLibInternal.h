@@ -396,6 +396,7 @@ struct IOFBConnect
     Boolean                     relaunch;
     Boolean                     firstBoot;
     Boolean                     displayMirror;
+    Boolean                     didPowerOff;
 
     struct IOAccelConnectStruct * transformSurface;
 

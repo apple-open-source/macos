@@ -61,6 +61,9 @@ protected:
     uint8_t                     fIncompleteReadRetries;
     int                         fRetryAttempts;
     
+    IOService *                 fPowerServiceToAck;
+    bool                        fSystemSleeping;
+
     bool                        fPermanentFailure;
     bool                        fFullyDischarged;
     bool                        fFullyCharged;
@@ -136,6 +139,8 @@ public:
     
     void    handleExclusiveAccess(bool exclusive);
 
+    IOReturn handleSystemSleepWake(IOService * powerService, bool isSystemSleep);
+
 protected:
     void    logReadError( const char *error_type, 
                           uint16_t additional_error,
@@ -156,6 +161,8 @@ protected:
     IOReturn writeWordAsync(uint8_t address, uint8_t cmd, uint16_t writeWord);
 
     IOReturn readBlockAsync(uint8_t address, uint8_t cmd);
+
+    void    acknowledgeSystemSleepWake( void );
 };
 
 #endif

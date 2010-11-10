@@ -59,7 +59,6 @@ __private_extern__ void            ___CFStringPad( CFMutableStringRef string, CF
 __private_extern__ CFUUIDRef       ___CFUUIDCreateFromName( CFAllocatorRef allocator, CFUUIDRef space, CFDataRef name );
 __private_extern__ CFUUIDRef       ___CFUUIDCreateFromString( CFAllocatorRef allocator, CFStringRef string );
 __private_extern__ CFStringRef     ___CFURLCopyRawDeviceFileSystemPath( CFURLRef url, CFURLPathStyle pathStyle );
-__private_extern__ void            ___DADisplayUpdateActivity( void );
 __private_extern__ kern_return_t   ___IORegistryEntryGetPath( io_registry_entry_t entry, const io_name_t plane, ___io_path_t path );
 
 #ifdef __cplusplus

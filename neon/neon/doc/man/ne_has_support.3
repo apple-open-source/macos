@@ -1,32 +1,40 @@
+'\" t
 .\"     Title: ne_has_support
 .\"    Author: 
-.\" Generator: DocBook XSL Stylesheets v1.73.2 <http://docbook.sf.net/>
-.\"      Date: 20 August 2008
+.\" Generator: DocBook XSL Stylesheets v1.74.3 <http://docbook.sf.net/>
+.\"      Date: 18 August 2009
 .\"    Manual: neon API reference
-.\"    Source: neon 0.28.3
+.\"    Source: neon 0.28.6
+.\"  Language: English
 .\"
-.TH "NE_HAS_SUPPORT" "3" "20 August 2008" "neon 0.28.3" "neon API reference"
+.TH "NE_HAS_SUPPORT" "3" "18 August 2009" "neon 0.28.6" "neon API reference"
+.\" -----------------------------------------------------------------
+.\" * set default formatting
+.\" -----------------------------------------------------------------
 .\" disable hyphenation
 .nh
 .\" disable justification (adjust text to left margin only)
 .ad l
+.\" -----------------------------------------------------------------
+.\" * MAIN CONTENT STARTS HERE *
+.\" -----------------------------------------------------------------
 .SH "NAME"
-ne_has_support - determine feature support status
+ne_has_support \- determine feature support status
 .SH "SYNOPSIS"
 .sp
 .ft B
 .nf
-#include <ne_utils\.h>
+#include <ne_utils\&.h>
 .fi
 .ft
-.HP 19
+.HP \w'int\ ne_has_support('u
 .BI "int ne_has_support(int\ " "feature" ");"
 .SH "DESCRIPTION"
 .PP
 The
 \fBne_has_support\fR
 function can be used to determine whether a particular optional feature, given by the feature code
-\fIfeature\fR, is supported\. The following feature codes are available:
+\fIfeature\fR, is supported\&. The following feature codes are available:
 .PP
 \fBNE_FEATURE_SSL\fR
 .RS 4
@@ -61,7 +69,7 @@ ne_sock_init
 .SH "RETURN VALUE"
 .PP
 \fBne_has_support\fR
-returns non\-zero if the given feature is supported, or zero otherwise\.
+returns non\-zero if the given feature is supported, or zero otherwise\&.
 .SH "SEE ALSO"
 .PP
 ne_version_match(3),
@@ -69,7 +77,8 @@ ne_sock_init(3)
 .SH "AUTHOR"
 .PP
 \fBJoe Orton\fR <\&neon@lists.manyfish.co.uk\&>
-.sp -1n
-.IP "" 4
+.RS 4
 Author.
+.RE
 .SH "COPYRIGHT"
+.br

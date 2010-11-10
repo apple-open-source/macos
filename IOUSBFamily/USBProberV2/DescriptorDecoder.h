@@ -40,6 +40,7 @@
 
 #define HID_DESCRIPTOR                  0x21
 #define DFU_FUNCTIONAL_DESCRIPTOR       0x21
+#define CCID_DESCRIPTOR					0x21
 
 enum ClassSpecific {
     CS_INTERFACE		= 0x24,
@@ -50,7 +51,7 @@ enum ClassSpecific {
 
 }
 
-+ (void)decodeBytes:(Byte *)p forDevice:(BusProbeDevice *)thisDevice deviceInterface:(IOUSBDeviceRef)deviceIntf userInfo:(void *)userInfo isOtherSpeedDesc:(BOOL)isOtherSpeedDesc;
++ (void)decodeBytes:(Byte *)p forDevice:(BusProbeDevice *)thisDevice deviceInterface:(IOUSBDeviceRef)deviceIntf userInfo:(void *)userInfo isOtherSpeedDesc:(BOOL)isOtherSpeedDesc  isinCurrentConfig:(Boolean)inCurrentConfig;
 +(void)dumpRawDescriptor:(Byte *)p forDevice:(BusProbeDevice *)thisDevice atDepth:(int)depth;
 +(void)dumpRawConfigDescriptor:(IOUSBConfigurationDescriptor*)cfg forDevice:(BusProbeDevice *)thisDevice atDepth:(int)depth;
 +(void)dump:(int)n byte:(Byte *)p forDevice:(BusProbeDevice *)thisDevice atDepth:(int)depth;

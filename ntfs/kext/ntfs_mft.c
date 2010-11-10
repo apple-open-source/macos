@@ -1,8 +1,8 @@
 /*
  * ntfs_mft.c - NTFS kernel mft record operations.
  *
- * Copyright (c) 2006-2008 Anton Altaparmakov.  All Rights Reserved.
- * Portions Copyright (c) 2006-2008 Apple Inc.  All Rights Reserved.
+ * Copyright (c) 2006-2010 Anton Altaparmakov.  All Rights Reserved.
+ * Portions Copyright (c) 2006-2010 Apple Inc.  All Rights Reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -106,6 +106,21 @@ errno_t ntfs_mft_record_map_ext(ntfs_inode *ni, MFT_RECORD **mrec,
 		panic("%s(): Called for attribute inode.\n", __FUNCTION__);
 	vol = ni->vol;
 	mft_ni = vol->mft_ni;
+	/*
+	 * If the volume is in the process of being unmounted then @vol->mft_ni
+	 * may have become NULL in which case we need to bail out.
+	 */
+	if (!mft_ni) {
+		/*
+		 * Avoid using @vol for anything from now on as we know we are
+		 * in the process of getting unmounted thus we derive the
+		 * mount_t from the vnode of the ntfs inode instead.
+		 */
+		ntfs_error(vnode_mount(ni->vn), "The volume is being "
+				"unmounted, bailing out (you can ignore "
+				"any errors following this one).");
+		return EINVAL;
+	}
 	/* Get an iocount reference on the $MFT vnode. */
 	err = vnode_getwithref(mft_ni->vn);
 	if (err) {

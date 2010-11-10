@@ -80,10 +80,10 @@
   <bookinfo>
     <title>neon HTTP/WebDAV client library</title>
     <author>
-      <firstname>Joe</firstname><surname>Orton</surname>
-      <affiliation>
-	<address><email>neon@lists.manyfish.co.uk</email></address>
-      </affiliation>
+      <personname>
+        <firstname>Joe</firstname><surname>Orton</surname>
+      </personname>
+      <email>neon@lists.manyfish.co.uk</email>
     </author>
     <copyright><year>2001-2008</year><holder>Joe Orton</holder></copyright>
 

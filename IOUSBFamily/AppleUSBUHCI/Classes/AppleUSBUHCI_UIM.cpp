@@ -321,6 +321,7 @@ AppleUSBUHCI::UIMCreateInterruptEndpoint(short				functionNumber,
     AppleUHCIQueueHead			*pQH, *prevQH;
 	AppleUHCITransferDescriptor	*pTD;
     int							i;
+	UInt32						currentToggle = 0;
     
     USBLog(3, "AppleUSBUHCI[%p]::UIMCreateInterruptEndpoint (fn %d, ep %d, dir %d) spd %d pkt %d rate %d", this, functionNumber, endpointNumber, direction, speed, maxPacketSize, pollingRate );
 	
@@ -342,7 +343,13 @@ AppleUSBUHCI::UIMCreateInterruptEndpoint(short				functionNumber,
     if ( pQH != NULL )
     {
         IOReturn ret;
-        USBLog(2, "AppleUSBUHCI[%p]::UIMCreateInterruptEndpoint endpoint already existed -- deleting it", this);
+        USBLog(3, "AppleUSBUHCI[%p]::UIMCreateInterruptEndpoint endpoint already existed -- deleting it", this);
+		
+		currentToggle = USBToHostLong(pQH->firstTD->GetSharedLogical()->token) & kUHCI_TD_D;
+		if ( currentToggle != 0)
+		{
+			USBLog(6,"AppleUSBOHCI[%p]::UIMCreateInterruptEndpoint:  Preserving a data toggle of 1 before of the EP that we are going to delete!", this);
+		}
         ret = UIMDeleteEndpoint(functionNumber, endpointNumber, direction);
         if ( ret != kIOReturnSuccess)
         {
@@ -380,7 +387,8 @@ AppleUSBUHCI::UIMCreateInterruptEndpoint(short				functionNumber,
 	}
 	
 	// this is a dummy TD which will be filled in when we create a transfer
-	pTD->GetSharedLogical()->ctrlStatus = 0;						// make sure it is inactive
+	pTD->GetSharedLogical()->ctrlStatus = 0;							// make sure it is inactive
+	pTD->GetSharedLogical()->token |= HostToUSBLong(currentToggle);		// Restore any data toggle from a deleted EP
 	pQH->firstTD = pTD;
 	pQH->lastTD = pTD;
 	pQH->GetSharedLogical()->elink = HostToUSBLong(pTD->GetPhysicalAddrWithType());
@@ -1058,6 +1066,15 @@ AppleUSBUHCI::HandleEndpointAbort(short functionAddress, short endpointNumber, s
         return kIOUSBEndpointNotFound;
     }
 	
+	if (pQH->aborting)
+	{
+		// 7946083 - don't allow the abort to recurse
+		USBLog(1, "AppleUSBUHCI[%p]::HandleEndpointAbort - endpoint [%p] currently aborting. not recursing", this, pQH);
+		return kIOUSBClearPipeStallNotRecursive;
+	}
+	
+	pQH->aborting = true;
+	
 	// we don't need to handle any TDs if the queue is empty, so check for that..
     if (pQH->firstTD != pQH->lastTD)			// There are transactions on this queue
     {
@@ -1113,6 +1130,7 @@ AppleUSBUHCI::HandleEndpointAbort(short functionAddress, short endpointNumber, s
     USBLog(4, "AppleUSBUHCI[%p]::HandleEndpointAbort: Addr: %d, Endpoint: %d,%d - calling DoDoneQueue", this, functionAddress, endpointNumber, direction);
 	UHCIUIMDoDoneQueueProcessing(savedFirstTD, kIOUSBTransactionReturned, savedLastTD);
 	
+	pQH->aborting = false;
     return kIOReturnSuccess;
 	
 }
@@ -2032,7 +2050,7 @@ AppleUSBUHCI::AddIsochFramesToSchedule(IOUSBControllerIsochEndpoint* pEP)
 			}
 			// Place TD in list
 			//USBLog(7, "AppleUSBUHCI[%p]::AddIsochFramesToSchedule - linking TD (%p) with frame (0x%Ld) into slot (0x%x) - curr next log (%p) phys (%p)", this, pTD, pTD->_frameNumber, pEP->inSlot, _logicalFrameList[pEP->inSlot], (void*)USBToHostLong(_frameList[pEP->inSlot]));
-			pTD->print(7);
+			//pTD->print(7);
 			
 			pTD->SetPhysicalLink(USBToHostLong(_frameList[pEP->inSlot]));
 			pTD->_logicalNext = _logicalFrameList[pEP->inSlot];
@@ -2077,6 +2095,12 @@ AppleUSBUHCI::AbortIsochEP(IOUSBControllerIsochEndpoint* pEP)
 	
     USBLog(7, "+AppleUSBUHCI[%p]::AbortIsochEP (%p)", this, pEP);
 	
+	if (pEP->aborting)
+	{
+		USBLog(1, "AppleUSBUHCI[%p]::AbortIsochEP[%p] - re-enterred.. bailing out", this, pEP);
+		return kIOReturnSuccess;
+	}
+
     // we need to make sure that the interrupt routine is not processing the periodic list
 	_inAbortIsochEP = true;
 	pEP->aborting = true;

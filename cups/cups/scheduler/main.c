@@ -728,6 +728,8 @@ main(int  argc,				/* I - Number of command-line args */
 	* Shutdown the server...
 	*/
 
+        DoingShutdown = 1;
+
 	cupsdStopServer();
 
        /*
@@ -757,6 +759,8 @@ main(int  argc,				/* I - Number of command-line args */
        /*
         * Startup the server...
         */
+
+        DoingShutdown = 0;
 
         cupsdStartServer();
 
@@ -792,8 +796,7 @@ main(int  argc,				/* I - Number of command-line args */
         !cupsArrayCount(ActiveJobs) &&
 	(!Browsing ||
 	 (!BrowseRemoteProtocols &&
-	  (!NumBrowsers || !BrowseLocalProtocols ||
-	   cupsArrayCount(Printers) == 0))))
+	  (!BrowseLocalProtocols || !cupsArrayCount(Printers)))))
     {
       timeout		= LaunchdTimeout;
       launchd_idle_exit = 1;
@@ -1133,6 +1136,8 @@ main(int  argc,				/* I - Number of command-line args */
  /*
   * Close all network clients...
   */
+
+  DoingShutdown = 1;
 
   cupsdStopServer();
 
@@ -1656,10 +1661,10 @@ launchd_checkout(void)
   * shared printers to advertise...
   */
 
-  if ((cupsArrayCount(ActiveJobs) || NumPolled ||
-       (Browsing &&
-	(BrowseRemoteProtocols ||
-        (BrowseLocalProtocols && NumBrowsers && cupsArrayCount(Printers))))))
+  if (cupsArrayCount(ActiveJobs) || NumPolled ||
+      (Browsing &&
+       (BrowseRemoteProtocols || 
+        (BrowseLocalProtocols && cupsArrayCount(Printers)))))
   {
     cupsdLogMessage(CUPSD_LOG_DEBUG,
                     "Creating launchd keepalive file \"" CUPS_KEEPALIVE

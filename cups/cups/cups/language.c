@@ -267,9 +267,17 @@ _cupsEncodingName(
 {
   if (encoding < 0 ||
       encoding >= (sizeof(lang_encodings) / sizeof(const char *)))
+  {
+    DEBUG_printf(("1_cupsEncodingName(encoding=%d) = out of range (\"%s\")",
+                  encoding, lang_encodings[0]));
     return (lang_encodings[0]);
+  }
   else
+  {
+    DEBUG_printf(("1_cupsEncodingName(encoding=%d) = \"%s\"",
+                  encoding, lang_encodings[encoding]));
     return (lang_encodings[encoding]);
+  }
 }
 
 
@@ -497,7 +505,7 @@ cupsLangGet(const char *language)	/* I - Language or locale */
 	*/
 
 	for (ptr = charset, csptr ++; *csptr; csptr ++)
-	  if (ptr < (charset + sizeof(charset) - 1) && isalnum(*csptr & 255))
+	  if (ptr < (charset + sizeof(charset) - 1) && _cups_isalnum(*csptr))
 	    *ptr++ = *csptr;
 
         *ptr = '\0';
@@ -557,7 +565,7 @@ cupsLangGet(const char *language)	/* I - Language or locale */
     */
 
     for (ptr = charset; *csptr; csptr ++)
-      if (isalnum(*csptr & 255) && ptr < (charset + sizeof(charset) - 1))
+      if (_cups_isalnum(*csptr) && ptr < (charset + sizeof(charset) - 1))
         *ptr++ = *csptr;
 
     *ptr = '\0';
@@ -624,7 +632,7 @@ cupsLangGet(const char *language)	/* I - Language or locale */
       */
 
       for (language ++, ptr = charset; *language; language ++)
-        if (isalnum(*language & 255) && ptr < (charset + sizeof(charset) - 1))
+        if (_cups_isalnum(*language) && ptr < (charset + sizeof(charset) - 1))
           *ptr++ = toupper(*language & 255);
 
       *ptr = '\0';

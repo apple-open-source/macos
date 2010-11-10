@@ -30,6 +30,14 @@
  */
 #ifndef _PMSetActive_h_
 #define _PMSetActive_h_
+
+/* ExternalMedia assertion
+ * This assertion is only defined here in PM configd. 
+ * It can only be asserted by PM configd; not by other user processes.
+ */
+#define _kIOPMAssertionTypeExternalMediaCStr    "ExternalMedia"
+#define _kIOPMAssertionTypeExternalMedia    CFSTR(_kIOPMAssertionTypeExternalMediaCStr)
+
  
 __private_extern__ void PMAssertions_prime(void);
 __private_extern__ bool PMAssertionsHandleDeadName(mach_port_t dead_port);
@@ -47,5 +55,13 @@ __private_extern__ IOReturn _IOPMAssertionCreateRequiresRoot(
                                 int *assertion_id);
 
 __private_extern__ void _TaskPortInvalidatedCallout(CFMachPortRef port, void *info);
+
+__private_extern__ void InternalAssertionCreate(
+                                char                *nameCStr,
+                                char                *assertionCStr,
+                                int                 *assertion_id);
+
+__private_extern__ void InternalAssertionRelease(
+                                 int                 assertion_id);
 
 #endif _PSLowPower_h_

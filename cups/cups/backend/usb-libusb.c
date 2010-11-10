@@ -1,9 +1,9 @@
 /*
- * "$Id: usb-libusb.c 1691 2009-09-22 23:56:49Z msweet $"
+ * "$Id: usb-libusb.c 2485 2010-08-13 03:54:00Z msweet $"
  *
- *   Libusb interface code for the Common UNIX Printing System (CUPS).
+ *   Libusb interface code for CUPS.
  *
- *   Copyright 2007-2009 by Apple Inc.
+ *   Copyright 2007-2010 by Apple Inc.
  *
  *   These coded instructions, statements, and computer programs are the
  *   property of Apple Inc. and are protected by Federal copyright
@@ -172,7 +172,7 @@ print_device(const char *uri,		/* I - Device URI */
 	if ((bytes = read(print_fd, buffer, sizeof(buffer))) > 0)
 	{
 	  if (usb_bulk_write(printer->handle, printer->write_endp, buffer,
-	                        bytes, 45000) < 0)
+	                        bytes, 3600000) < 0)
 	  {
 	    _cupsLangPrintf(stderr,
 			    _("ERROR: Unable to write %d bytes to printer!\n"),
@@ -518,7 +518,8 @@ make_device_uri(
 
   if ((sern = cupsGetOption("SERIALNUMBER", num_values, values)) == NULL)
     if ((sern = cupsGetOption("SERN", num_values, values)) == NULL)
-      if ((sern = cupsGetOption("SN", num_values, values)) == NULL)
+      if ((sern = cupsGetOption("SN", num_values, values)) == NULL &&
+          printer->device->descriptor.iSerialNumber)
       {
        /*
         * Try getting the serial number from the device itself...
@@ -827,6 +828,6 @@ side_cb(usb_printer_t *printer,		/* I - Printer */
 
 
 /*
- * End of "$Id: usb-libusb.c 1691 2009-09-22 23:56:49Z msweet $".
+ * End of "$Id: usb-libusb.c 2485 2010-08-13 03:54:00Z msweet $".
  */
 

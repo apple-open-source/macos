@@ -19,4 +19,6 @@
      getting used -->
 <xsl:variable name="man.output.copyright.info" select="0"/>
 
+<xsl:variable name="refentry.meta.get.quietly" select="1"/>
+
 </xsl:stylesheet>

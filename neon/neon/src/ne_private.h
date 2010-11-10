@@ -1,6 +1,6 @@
 /* 
    HTTP Request Handling
-   Copyright (C) 1999-2008, Joe Orton <joe@manyfish.co.uk>
+   Copyright (C) 1999-2009, Joe Orton <joe@manyfish.co.uk>
 
    This library is free software; you can redistribute it and/or
    modify it under the terms of the GNU Library General Public
@@ -128,8 +128,17 @@ int ne__negotiate_ssl(ne_session *sess);
 void ne__ssl_set_verify_err(ne_session *sess, int failures);
 
 /* Return non-zero if hostname from certificate (cn) matches hostname
- * used for session (hostname); follows RFC2818 logic.  cn is modified
- * in-place. */
-int ne__ssl_match_hostname(char *cn, const char *hostname);
+ * used for session (hostname); follows RFC2818 logic. */
+int ne__ssl_match_hostname(const char *cn, size_t cnlen, const char *hostname);
+
+/* Return a malloc-allocated copy of 'data', of length 'len', with all
+ * non-ASCII bytes, and ASCII control characters escaped.  (Note that
+ * the escaping includes the NUL byte). */
+char *ne__strnqdup(const unsigned char *data, size_t len);
+
+/* Append 'len' bytes of 'data' to buf.  All non-ASCII bytes, and
+ * ASCII control characters, are escaped.  (Note that this includes
+ * the NUL byte). */
+void ne__buffer_qappend(ne_buffer *buf, const unsigned char *data, size_t len);
 
 #endif /* HTTP_PRIVATE_H */

@@ -102,10 +102,10 @@ enum
 	kClearEndPointStallCode					= UMC_TRACE ( kClearEndPointStall ),
 	kGetEndPointStatusCode					= UMC_TRACE ( kGetEndPointStatus ),
 	kHandlePowerOnUSBResetCode				= UMC_TRACE ( kHandlePowerOnUSBReset ),
-	kUSBDeviceResetWhileTerminatingCode		= ( UMC_TRACE ( kUSBDeviceResetWhileTerminating ) | DBG_FUNC_START ),
-	kUSBDeviceResetWhileTerminating_2Code	= ( UMC_TRACE ( kUSBDeviceResetWhileTerminating ) | DBG_FUNC_END ),
+	kUSBDeviceResetWhileTerminatingCode		= UMC_TRACE ( kUSBDeviceResetWhileTerminating ),
 	kUSBDeviceResetAfterDisconnectCode		= UMC_TRACE ( kUSBDeviceResetAfterDisconnect ),
 	kUSBDeviceResetReturnedCode				= UMC_TRACE ( kUSBDeviceResetReturned ),
+	kAbortCurrentSCSITaskCode				= UMC_TRACE ( kAbortCurrentSCSITask ),
 	
 	// CBI Specific							0x052D0400 - 0x052D07FF
 	kCBIProtocolDeviceDetectedCode			= UMC_TRACE ( kCBIProtocolDeviceDetected ),
@@ -723,11 +723,20 @@ CollectTrace ( void )
 			}
 			break;
 			
+			case kAbortCurrentSCSITaskCode:
+			{
+				printf ( "[%p] Aborted currentTask %p DeviceAttached = %d ConsecutiveResetCount = %d\n",
+						( void * ) gTraceBuffer[index].arg1, ( void * ) gTraceBuffer[index].arg2,
+						( int ) gTraceBuffer[index].arg3, ( int ) gTraceBuffer[index].arg4 );
+			}
+			break;
+				
 			case kCompleteSCSICommandCode:
 			{
 				
-				errorString = StringFromReturnCode ( gTraceBuffer[index].arg3 );
-				printf ( "[%p] Task %p Completed with status = %s (0x%x)\n", ( void * ) gTraceBuffer[index].arg1, ( void * ) gTraceBuffer[index].arg2, errorString, (int) gTraceBuffer[index].arg3  );				
+				printf ( "[%p] Task %p Completed with serviceResponse = %d taskStatus = 0x%x\n",
+						( void * ) gTraceBuffer[index].arg1, ( void * ) gTraceBuffer[index].arg2,
+						( int ) gTraceBuffer[index].arg3, ( int ) gTraceBuffer[index].arg4 );				
 				printf ( "[%p] -------------------------------------------------\n", ( void * ) gTraceBuffer[index].arg1 );
 				
 			}
@@ -784,14 +793,14 @@ CollectTrace ( void )
 			case kWillTerminateCalledCode:
 			{
 				printf ( "[%p] willTerminate called, CurrentInterface=%p, isInactive=%u\n", 
-					( void * ) gTraceBuffer[index].arg1, ( void * ) gTraceBuffer[index].arg2, ( unsigned int ) gTraceBuffer[index].arg3);
+					( void * ) gTraceBuffer[index].arg1, ( void * ) gTraceBuffer[index].arg2, ( unsigned int ) gTraceBuffer[index].arg3 );
 			}
 			break;
 			
 			case kDidTerminateCalledCode:
 			{
-				printf ( "[%p] didTerminate called, CurrentInterface=%p, isInactive=%u, fResetInProgress=%u\n", 
-					( void * ) gTraceBuffer[index].arg1, ( void * ) gTraceBuffer[index].arg2, ( unsigned int ) gTraceBuffer[index].arg3, ( unsigned int ) gTraceBuffer[index].arg4);
+				printf ( "[%p] didTerminate called, fTerminationDeferred=%u\n", 
+						( void * ) gTraceBuffer[index].arg1, ( void * ) gTraceBuffer[index].arg2 );
 			}
 			break;
 			
@@ -852,7 +861,7 @@ CollectTrace ( void )
 			{
 				
 				errorString = StringFromReturnCode ( gTraceBuffer[index].arg2 );
-				printf ( "[%p] ClearFeatureEndpointStall status=%s (0x%x), endpoint=%u\n", 
+				printf ( "[%p] GetEndpointStatus status=%s (0x%x), endpoint=%u\n", 
 						( void * ) gTraceBuffer[index].arg1, errorString, ( unsigned int ) gTraceBuffer[index].arg2, ( unsigned int ) gTraceBuffer[index].arg3 );		
 				
 			}
@@ -870,15 +879,6 @@ CollectTrace ( void )
 			{
 				
 				printf ( "%p Termination started before device reset could be initiated! fTerminating=%u, isInactive=%u\n", 
-                            ( void * ) gTraceBuffer[index].arg1, ( unsigned int ) gTraceBuffer[index].arg2, ( unsigned int ) gTraceBuffer[index].arg3 );
-				
-			}
-			break;
-			
-			case kUSBDeviceResetWhileTerminating_2Code:
-			{
-				
-				printf ( "[%p] Termination occurred while we were reseting the device! fTerminating=%u, isInactive=%u\n", 
                             ( void * ) gTraceBuffer[index].arg1, ( unsigned int ) gTraceBuffer[index].arg2, ( unsigned int ) gTraceBuffer[index].arg3 );
 				
 			}

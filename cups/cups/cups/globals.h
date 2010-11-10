@@ -26,6 +26,7 @@
 #  include "http-private.h"
 #  include "cups.h"
 #  include "i18n.h"
+#  include "ppd-private.h"
 #  include "pwg-private.h"
 
 #  ifdef HAVE_PTHREAD_H

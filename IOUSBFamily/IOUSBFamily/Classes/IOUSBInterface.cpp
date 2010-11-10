@@ -64,7 +64,6 @@ extern KernelDebugLevel	    gKernelDebugLevel;
 #define _NEED_TO_CLOSE	_expansionData->_needToClose
 #define _PIPEOBJLOCK	_expansionData->_pipeObjLock
 
-
 /* Convert USBLog to use kprintf debugging */
 #define IOUSBINTERFACE_USE_KPRINTF 0
 
@@ -250,12 +249,27 @@ IOUSBInterface::handleOpen( IOService *forClient, IOOptionBits options, void *ar
 
 // 
 // close - the IOService close method
-// note that we don't actually do anything related to the close here. we just run the call through our workLoop gate
-// the actual close work is handled in handleClose
+// note that we don't actually do all of the close stuff here
+// the rest of the actual close work is handled in handleClose
 //
 void 
 IOUSBInterface::close( IOService *forClient, IOOptionBits options)
 {
+	int			i;
+	IOUSBPipe	*pipe;
+	
+	// before we go through the WL gate, we go ahead and grab the PIPEOBJLOCK and Abort the pipes
+	// this can help prevent a deadlock
+	
+	IOLockLock(_PIPEOBJLOCK);
+	
+    for( i=0; i < kUSBMaxPipes; i++) 
+	{
+        if ( (pipe = OSDynamicCast(IOUSBPipe,_pipeList[i]))) 
+			pipe->Abort(); 
+	}
+	
+	IOLockUnlock(_PIPEOBJLOCK);
 	
     if ( _expansionData && _GATE )
     {
@@ -273,19 +287,9 @@ IOUSBInterface::close( IOService *forClient, IOOptionBits options)
 
 void 
 IOUSBInterface::handleClose(IOService *	forClient, IOOptionBits	options )
-{
-    IOUSBPipe 		*pipe;
-    unsigned int	i;
-    // Don't tear down the pipes when we get closed.  Do it in finalize. (Radar #2607982)
-	
-    // however, we do want to go ahead and abort any transactions left on those pipes.
-    //
+{	
     USBLog(6,"+IOUSBInterface[%p]::handleClose", this);
 	
-    for( i=0; i < kUSBMaxPipes; i++) 
-        if ( (pipe = _pipeList[i])) 
-		pipe->Abort(); 
-    
     super::handleClose(forClient, options);
 	
 	if (_expansionData && _NEED_TO_CLOSE)
@@ -320,15 +324,19 @@ IOUSBInterface::message( UInt32 type, IOService * provider,  void * argument )
 		
 		// First, reset all our pipes so that the UIM clears any state
 		//
+		IOLockLock(_PIPEOBJLOCK);
+
 		for ( i = 0; i < kUSBMaxPipes; i++)
 		{
-			pipe = _pipeList[i];
+			pipe = OSDynamicCast(IOUSBPipe,_pipeList[i]);
 			if ( pipe ) 
 			{
 				pipe->Reset(); 
 			}
 		}
 		
+		IOLockUnlock(_PIPEOBJLOCK);
+
 		// We should also set the alternate interface here if we have set it in the past
 		
 		// Forward the message to our clients
@@ -453,7 +461,8 @@ IOUSBInterface::finalize(IOOptionBits options)
 void
 IOUSBInterface::free()
 {
-	
+	USBLog(5, "+%s[%p]::free", getName(), this);
+
     //  This needs to be the LAST thing we do, as it disposes of our "fake" member
     //  variables.
     //
@@ -480,7 +489,9 @@ IOUSBInterface::free()
         IOFree(_expansionData, sizeof(ExpansionData));
         _expansionData = NULL;
     }
-    
+
+	USBLog(5, "-%s[%p]::free", getName(), this);
+
     super::free();
 }
 
@@ -745,7 +756,7 @@ IOUSBInterface::ClosePipes(void)
 
     for( unsigned int i=0; i < kUSBMaxPipes; i++) 
     {
-        if ( (pipe = _pipeList[i])) 
+        if ( (pipe = OSDynamicCast(IOUSBPipe,_pipeList[i]))) 
         {
             pipe->Abort(); 
             pipe->ClosePipe();
@@ -841,62 +852,89 @@ IOUSBInterface::FindNextAltInterface(const IOUSBInterfaceDescriptor *current,
 
 
 IOUSBPipe*
-IOUSBInterface::FindNextPipe(IOUSBPipe *current,
-                                IOUSBFindEndpointRequest *request)
+IOUSBInterface::FindNextPipe(IOUSBPipe *current, 
+							 IOUSBFindEndpointRequest *request)
 {
-    const IOUSBController::Endpoint *	endpoint;
-    IOUSBPipe *							pipe;
-    int									numEndpoints;
-    int									i;
-
-    numEndpoints = _bNumEndpoints;
-
-    if (request == 0)
-        return NULL;
-
-    if (current != 0) 
-    {
-        for(i=0;i < numEndpoints; i++) 
-        {
-            if (_pipeList[i] == current) 
-            {
-		i++; // Skip the one we just did
-                break;
-            }
-	}
-    }
-    else
-        i = 0;	// Start at beginning.
-
-    for ( ;i < numEndpoints; i++) {
-        pipe = _pipeList[i];
-        if (!pipe)
-            continue;
-			
-        endpoint = pipe->GetEndpoint();
-
-        // check the request parameters
-        if (request->type != kUSBAnyType &&
-            request->type != endpoint->transferType)
-            pipe = NULL;								// this is not it
-        else if (request->direction != kUSBAnyDirn &&
-            request->direction != endpoint->direction)
-            pipe = NULL;								// this is not it
-
-        if (pipe == NULL)
-            continue;
-
-        request->type = endpoint->transferType;
-        request->direction = endpoint->direction;
-        request->maxPacketSize = endpoint->maxPacketSize;
-        request->interval = endpoint->interval;
-        return pipe;
-    }
-
-    return NULL;
+	IOUSBPipe *							pipe;
+	
+	//	For backwards compatibility, release the retained pipe before returning to the caller.
+	pipe = FindNextPipe(current, request, true);
+	if (pipe)
+		pipe->release();
+	
+	return pipe;
 }
 
+OSMetaClassDefineReservedUsed(IOUSBInterface,  1);
 
+IOUSBPipe*
+IOUSBInterface::FindNextPipe(IOUSBPipe *current,
+							 IOUSBFindEndpointRequest *request,
+							 bool withRetain)
+{
+	const IOUSBController::Endpoint *	endpoint;
+	IOUSBPipe *							pipe = NULL;
+	int									numEndpoints;
+	int									i;
+	
+	numEndpoints = _bNumEndpoints;
+	
+	if (request == 0)
+		return NULL;
+	
+	IOLockLock(_PIPEOBJLOCK);
+	
+	if (current != 0)
+	{
+		for(i=0;i < numEndpoints; i++)
+		{
+			if (_pipeList[i] == current)
+			{
+				i++; // Skip the one we just did
+				break;
+			}
+		}
+	}
+	else
+	{
+		i = 0;	// Start at beginning.
+	}
+	
+	for ( ;i < numEndpoints; i++) 
+	{
+		pipe = OSDynamicCast(IOUSBPipe,_pipeList[i]);
+		if (!pipe)
+			continue;
+		
+		endpoint = pipe->GetEndpoint();
+		
+		// check the request parameters
+		if (request->type != kUSBAnyType && request->type != endpoint->transferType)
+		{
+			pipe = NULL;								// this is not it
+		}
+		else if (request->direction != kUSBAnyDirn && request->direction != endpoint->direction)
+		{
+			pipe = NULL;								// this is not it
+		}
+		
+		if (pipe == NULL)
+			continue;
+		
+		request->type = endpoint->transferType;
+		request->direction = endpoint->direction;
+		request->maxPacketSize = endpoint->maxPacketSize;
+		request->interval = endpoint->interval;
+		break;
+	}
+	
+	if (pipe && withRetain)
+		pipe->retain();				// caller will release
+	
+	IOLockUnlock(_PIPEOBJLOCK);
+	
+	return pipe;
+}
 
 const IOUSBDescriptorHeader *
 IOUSBInterface::FindNextAssociatedDescriptor(const void *current, UInt8 type)
@@ -933,7 +971,7 @@ IOUSBInterface::FindNextAssociatedDescriptor(const void *current, UInt8 type)
 }
 
 
-
+// zzz need to go behind a gate??
 IOReturn
 IOUSBInterface::SetAlternateInterface(IOService *forClient, UInt16 alternateSetting)
 {
@@ -1053,9 +1091,9 @@ ErrorExit:
 bool 
 IOUSBInterface::matchPropertyTable(OSDictionary * table, SInt32 *score)
 {
-    bool 	returnValue = true;
-    SInt32	propertyScore = *score;
-    char	logString[256]="";
+    bool		returnValue = true;
+    SInt32		propertyScore = *score;
+    char		logString[256]="";
     UInt32      wildCardMatches = 0;
     UInt32      vendorIsWildCard = 0;
     UInt32      productIsWildCard = 0;
@@ -1066,7 +1104,8 @@ IOUSBInterface::matchPropertyTable(OSDictionary * table, SInt32 *score)
     UInt32      subClassIsWildCard = 0;
     UInt32      protocolIsWildCard = 0;
 	bool		usedMaskForProductID = false;
-	
+	UInt32		productIDInArray;
+
     if ( table == NULL )
     {
         return false;
@@ -1081,6 +1120,7 @@ IOUSBInterface::matchPropertyTable(OSDictionary * table, SInt32 *score)
     bool	interfaceSubClassPropertyExists = table->getObject(kUSBInterfaceSubClass) ? true : false ;
     bool	interfaceProtocolPropertyExists= table->getObject(kUSBInterfaceProtocol) ? true : false ;
     bool    productIDMaskExists = table->getObject(kUSBProductIDMask) ? true : false;
+	bool	productIDArrayExists = OSDynamicCast(OSArray, table->getObject(kUSBProductIdsArrayName)) ? true : false;
 	
     // USBComparePropery() will return false if the property does NOT exist, or if it exists and it doesn't match
     //
@@ -1093,6 +1133,14 @@ IOUSBInterface::matchPropertyTable(OSDictionary * table, SInt32 *score)
     bool	interfaceSubClassPropertyMatches = USBCompareProperty(table, kUSBInterfaceSubClass);
     bool	interfaceProtocolPropertyMatches= USBCompareProperty(table, kUSBInterfaceProtocol);
     
+	// If there is an productIDArray, then see if any of the entries matches to our productID
+	
+	if ( productIDArrayExists )
+	{
+		productPropertyMatches = USBComparePropertyInArray( table, kUSBProductIdsArrayName, kUSBProductID, &productIDInArray);
+        USBLog(7, "%s[%p]::matchPropertyTable  productIDArrayExists was true, matches = %s", getName(), this, productPropertyMatches?"true":"false");
+	}
+
     // Now, let's look and see whether any of the properties were OSString's AND their value was "*".  This indicates that
     // we should match to all the values for that category -- i.e. a wild card match
     //
@@ -1159,8 +1207,16 @@ IOUSBInterface::matchPropertyTable(OSDictionary * table, SInt32 *score)
 	//
     if ( !productPropertyMatches && productIDMaskExists )
     {
-		productPropertyMatches = USBComparePropertyWithMask( table, kUSBProductID, kUSBProductIDMask);
-		usedMaskForProductID = productPropertyMatches;
+		if ( !productIDArrayExists )
+		{
+			productPropertyMatches = USBComparePropertyWithMask( table, kUSBProductID, kUSBProductIDMask);
+			usedMaskForProductID = productPropertyMatches;
+		}
+		else 
+		{
+			productPropertyMatches = USBComparePropertyInArrayWithMask( table, kUSBProductIdsArrayName, kUSBProductID, kUSBProductIDMask, &productIDInArray);
+			usedMaskForProductID = productPropertyMatches;
+		}
     }
     
     // If the service object wishes to compare some of its properties in its
@@ -1299,8 +1355,14 @@ IOUSBInterface::matchPropertyTable(OSDictionary * table, SInt32 *score)
 			snprintf(logString, sizeof(logString), "\tMatched: ");
 			match = false;
 			if ( vendorPropertyMatches ) { match = true; snprintf(tempString, sizeof(tempString), "idVendor (%d) ", vendor->unsigned32BitValue()); strlcat(logString, tempString, sizeof(logString)); }
-			if ( productPropertyMatches ) { match = true; snprintf(tempString, sizeof(tempString), "idProduct (%d) ", product->unsigned32BitValue()); strlcat(logString, tempString, sizeof(logString)); }
-			if ( usedMaskForProductID && dictMask && dictProduct) { snprintf(tempString, sizeof(tempString), "to (%d) with mask (0x%x), ", dictProduct->unsigned32BitValue(), dictMask->unsigned32BitValue()); strlcat(logString, tempString, sizeof(logString));}
+			
+			if ( productIDArrayExists && productPropertyMatches ) { match = true; snprintf(tempString, sizeof(tempString), "idProduct in array (%d) ", (uint32_t)productIDInArray);  strlcat(logString, tempString, sizeof(logString));}
+			else if ( productPropertyMatches ) { match = true; snprintf(tempString, sizeof(tempString), "idProduct (%d) ", product->unsigned32BitValue());  strlcat(logString, tempString, sizeof(logString));}
+			
+			if ( usedMaskForProductID && dictMask )
+				if (dictProduct) { snprintf(tempString, sizeof(tempString), "to (%d) with mask (0x%x), ", dictProduct->unsigned32BitValue(), dictMask->unsigned32BitValue()); strlcat(logString, tempString, sizeof(logString));}
+				else if ( productIDArrayExists && productPropertyMatches ) { snprintf(tempString, sizeof(tempString), "to (%d) with mask (0x%x), ", (uint32_t)productIDInArray, dictMask->unsigned32BitValue()); strlcat(logString, tempString, sizeof(logString));}
+
 			if ( deviceReleasePropertyMatches ) { match = true; snprintf(tempString, sizeof(tempString), "bcdDevice (%d) ", release->unsigned32BitValue()); strlcat(logString, tempString, sizeof(logString)); }
 			if ( configurationValuePropertyMatches ) { match = true; snprintf(tempString, sizeof(tempString), "bConfigurationValue (%d) ", configuration->unsigned32BitValue());strlcat(logString, tempString, sizeof(logString));  }
 			if ( interfaceNumberPropertyMatches ) { match = true; snprintf(tempString, sizeof(tempString), "bInterfaceNumber (%d) ", interfaceNumber->unsigned32BitValue());strlcat(logString, tempString, sizeof(logString));  }
@@ -1512,7 +1574,6 @@ IOUSBInterface::GetEndpointProperties(UInt8 alternateSetting, UInt8 endpointNumb
     return kIOUSBEndpointNotFound;
 }
 
-OSMetaClassDefineReservedUnused(IOUSBInterface,  1);
 OSMetaClassDefineReservedUnused(IOUSBInterface,  2);
 OSMetaClassDefineReservedUnused(IOUSBInterface,  3);
 OSMetaClassDefineReservedUnused(IOUSBInterface,  4);

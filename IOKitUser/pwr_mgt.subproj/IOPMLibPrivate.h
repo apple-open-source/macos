@@ -243,7 +243,10 @@ CFStringRef IOPMAssertionCreateAggregateAssertionKey(void);
 #define kIOPMTTYSPreventSleepKey                        "TTYSPreventSleep"
 // units - CFNumber 0/1
 #define kIOPMGPUSwitchKey                               "GPUSwitch"
-
+// units - CFBoolean
+// kIOPMDeepSleepEnabledKey defined in xnu/iokit/IOKit/pwr_mgt/IOPM.h
+// units - CFNumber in seconds
+// kIOPMDeepSleepDelayKey defined in xnu/iokit/IOKit/pwr_mgt/IOPM.h
 
 // kIOPMReduceSpeedKey
 // Deprecated; do not use. Only relevant to PowerPC systems.

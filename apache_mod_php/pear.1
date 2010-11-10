@@ -1,0 +1,235 @@
+.\"	$Id: clusterd.8,v 1.13 2005/01/26 00:59:49 cjalbert Exp $
+.\"
+.\" Copyright (c) 2010 Apple Inc. and The PHP Group, all rights reserved.
+.\"/usr/share/misc/mdoc.template
+.mso www.tmac
+.Dd February 23, 2010
+.Dt pear 1
+.Sh NAME
+.Nm pear
+.Nd PHP Extension and Application Repository
+.Sh SYNOPSIS
+.Nm
+.Op options
+.Ar command
+.Op command-options
+.Ar parameters
+.Sh DESCRIPTION
+PEAR is an acronym for
+.Qq PHP Extension and Application Repository
+and is pronounced just like the fruit. The purpose of PEAR is to provide:
+.Bl -bullet -offset 3n -compact
+.It
+A structured library of open-source code for PHP users
+.It
+A system for code distribution and package maintenance
+.It
+A standard style for code written in PHP
+.It
+The PHP Extension Community Library (PECL)
+.It
+A web site, mailing lists and download mirrors to support the PHP/PEAR community
+.El
+.Pp
+Run
+.Ql Cm pear help
+to access the built-in tool documentation.
+.Pp
+Run
+.Ql Cm pear help options
+to list all options.
+.Pp
+Run
+.Ql Cm pear help shortcuts
+to list all command shortcuts.
+.Pp
+Run
+.Ql Cm pear help Ao Ar command Ac
+to get the help for the specified command.
+.Sh OPTIONS
+The following options are available:
+.Bl -tag -width ".Fl -d Ns Ar foo=bar" -offset indent -compact
+.It Fl c Ar file
+find user configuration in
+.Ar file
+.It Fl C Ar file
+find system configuration in
+.Ar file
+.It Fl d Ar foo=bar
+set user config variable
+.Ar foo
+to
+.Ar bar
+.It Fl D Ar foo=bar
+set system config variable
+.Ar foo
+to
+.Ar bar
+.It Fl G
+start in graphical (Gtk) mode
+.It Fl h , Fl ?
+display help/usage (this message)
+.It Fl q
+be quiet, decrease verbosity level
+.It Fl s
+store user configuration
+.It Fl S
+store system configuration
+.It Fl u Ar foo
+unset `foo' in the user configuration
+.It Fl v
+increase verbosity level (default 1)
+.It Fl V
+version information
+.El
+.Pp
+.Sh COMMANDS
+.Bl -tag -width ".It Cm package-dependencies" -compact
+.It Cm build
+Build an Extension From C Source
+.It Cm bundle
+Unpacks a Pecl Package
+.It Cm channel-add
+Add a Channel
+.It Cm channel-alias
+Specify an alias to a channel name
+.It Cm channel-delete
+Remove a Channel From the List
+.It Cm channel-discover
+Initialize a Channel from its server
+.It Cm channel-info
+Retrieve Information on a Channel
+.It Cm channel-login
+Connects and authenticates to remote channel server
+.It Cm channel-logout
+Logs out from the remote channel server
+.It Cm channel-update
+Update an Existing Channel
+.It Cm clear-cache
+Clear Web Services Cache
+.It Cm config-create
+Create a Default configuration file
+.It Cm config-get
+Show One Setting
+.It Cm config-help
+Show Information About Setting
+.It Cm config-set
+Change Setting
+.It Cm config-show
+Show All Settings
+.It Cm convert
+Convert a package.xml 1.0 to package.xml 2.0 format
+.It Cm cvsdiff
+Run a "cvs diff" for all files in a package
+.It Cm cvstag
+Set CVS Release Tag
+.It Cm download
+Download Package
+.It Cm download-all
+Downloads each available package from the default channel
+.It Cm info
+Display information about a package
+.It Cm install
+Install Package
+.It Cm list
+List Installed Packages In The Default Channel
+.It Cm list-all
+List All Packages
+.It Cm list-channels
+List Available Channels
+.It Cm list-files
+List Files In Installed Package
+.It Cm list-upgrades
+List Available Upgrades
+.It Cm login
+Connects and authenticates to remote server
+.Bq Deprecated in favor of Cm channel-login
+.It Cm logout
+Logs out from the remote server
+.Bq Deprecated in favor of Cm channel-logout
+.It Cm makerpm
+Builds an RPM spec file from a PEAR package
+.It Cm package
+Build Package
+.It Cm package-dependencies
+Show package dependencies
+.It Cm package-validate
+Validate Package Consistency
+.It Cm pickle
+Build PECL Package
+.It Cm remote-info
+Information About Remote Packages
+.It Cm remote-list
+List Remote Packages
+.It Cm run-scripts
+Run Post-Install Scripts bundled with a package
+.It Cm run-tests
+Run Regression Tests
+.It Cm search
+Search remote package database
+.It Cm shell-test
+Shell Script Test
+.It Cm sign
+Sign a package distribution file
+.It Cm svntag
+Set SVN Release Tag
+.It Cm uninstall
+Un-install Package
+.It Cm update-channels
+Update the Channel List
+.It Cm upgrade
+Upgrade Package
+.It Cm upgrade-all
+Upgrade All Packages
+.Bo Deprecated in favor of calling
+.Cm upgrade
+with no parameters
+.Bc
+.El
+.Sh SEE ALSO
+For a complete description of PEAR see
+.Bl -item -offset 4n -compact
+.It
+.URL http://\:pear.php.net/\:manual/
+.El
+.Sh BUGS
+You can view the list of known bugs or report any new bug you
+found at
+.Bl -item -offset 4n -compact
+.It
+.URL http://\:pear.php.net
+.El
+.Sh AUTHORS
+The PHP Group: Thies C. Arntzen, Stig Bakken, Andi Gutmans, Rasmus Lerdorf,
+Sam Ruby, Sascha Schumann, Zeev Suraski, Jim Winstead, Andrei Zmievski.
+.Pp
+Additional work for the CLI sapi was done by Edin Kadribasic, Marcus Boerger
+and Johannes Schlueter.
+.Pp
+A list of active developers can be found on the PHP web site
+.Bl -item -offset 4n -compact
+.It
+.URL http://\:www.php.net/\:credits.php
+.El
+.Pp
+And last but not least PHP was developed with the help of a huge amount of 
+contributors all around the world.
+.Sh VERSION INFORMATION
+This manpage describes
+.Cm php
+version 5.3.1.
+.Sh COPYRIGHT
+Copyright \(co 1997\-2010 The PHP Group
+.Pp
+This source file is subject to version 3.01 of the PHP license,
+that is bundled with this package in the file LICENSE, and is
+available through the world-wide-web at the following url:
+.Bl -item -offset 4n -compact
+.It
+.URL http://\:www.php.net/\:license/\:3_01.txt
+.El
+.Pp
+If you did not receive a copy of the PHP license and are unable to
+obtain it through the world-wide-web, please send a note to
+.MTO license@php.net
+so we can mail you a copy immediately.

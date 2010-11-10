@@ -509,6 +509,8 @@ static int resolve(void)
         ONN("bad pointer was returned", 
             ne_uri_resolve(&base, &relative, &resolved) != &resolved);
 
+        ONN("NULL path after resolve", resolved.path == NULL);
+
         actual = ne_uri_unparse(&resolved);
         
         ONCMP(ts[n].expected, actual, ts[n].relative, "output mismatch");

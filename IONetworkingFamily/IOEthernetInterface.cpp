@@ -1130,7 +1130,7 @@ IOEthernetInterface::controllerWillChangePowerState(
     {
         _controllerLostPower = true;
 
-        if (_ctrEnabled)
+        if (_ctrEnabled && !ctr->isInactive())
         {
             if (policyMaker)
             {
@@ -1203,7 +1203,8 @@ IOEthernetInterface::controllerDidChangePowerState(
         // perhaps enable the controller, restore all Ethernet controller
         // state, then mark the interface as Running.
 
-        syncSIOCSIFFLAGS(ctr);
+        if (!ctr->isInactive())
+            syncSIOCSIFFLAGS(ctr);
     }
 
     return ret;
@@ -1403,10 +1404,19 @@ bool IOEthernetInterface::inputEvent( UInt32 type, void * data )
         (type == kIONetworkEventTypeLinkDown) ||
         (type == kIONetworkEventWakeOnLANSupportChanged))
     {
-        // reportInterfaceWakeFlags() callout
-        retain();
-        if (thread_call_enter( _inputEventThreadCall ) == TRUE)
-            release();
+        IONetworkController * ctr = getController();
+
+        if (ctr && !ctr->isInactive())
+        {
+            // reportInterfaceWakeFlags() callout
+            retain();
+            ctr->retain();
+            if (thread_call_enter( _inputEventThreadCall ) == TRUE)
+            {
+                release();
+                ctr->release();
+            }
+        }
     }
 
     return super::inputEvent(type, data);
@@ -1422,14 +1432,18 @@ void IOEthernetInterface::handleEthernetInputEvent(
     if (me)
     {
         ctr = me->getController();
-        if (ctr) ctr->executeCommand(
-            me,     /* client */
-                    /* action */
-            OSMemberFunctionCast(
-                IONetworkController::Action, me,
-                &IOEthernetInterface::reportInterfaceWakeFlags),
-            me );   /* target */
+        if (ctr)
+        {
+            ctr->executeCommand(
+                me,     /* client */
+                        /* action */
+                OSMemberFunctionCast(
+                    IONetworkController::Action, me,
+                    &IOEthernetInterface::reportInterfaceWakeFlags),
+                me );   /* target */
 
+            ctr->release();
+        }
         me->release();
     }
 }

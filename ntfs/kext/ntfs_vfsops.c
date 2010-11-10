@@ -1,8 +1,8 @@
 /*
  * ntfs_vfsops.c - NTFS kernel vfs operations.
  *
- * Copyright (c) 2006-2008 Anton Altaparmakov.  All Rights Reserved.
- * Portions Copyright (c) 2006-2009 Apple Inc.  All Rights Reserved.
+ * Copyright (c) 2006-2010 Anton Altaparmakov.  All Rights Reserved.
+ * Portions Copyright (c) 2006-2010 Apple Inc.  All Rights Reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -3382,8 +3382,9 @@ static void ntfs_unmount_inode_detach(ntfs_inode **pni)
  * which will also get rid off the ntfs inode.  Otherwise kill the ntfs inode
  * directly.
  *
- * If the volume is successfully unmounted, we must call OSKextReleaseKextWithLoadTag
- * to allow the KEXT to be unloaded when no longer in use.
+ * If the volume is successfully unmounted, we must call
+ * OSKextReleaseKextWithLoadTag() to allow the KEXT to be unloaded when no
+ * longer in use.
  *
  * Return 0 on success and errno on error.
  */
@@ -3408,7 +3409,9 @@ static int ntfs_unmount(mount_t mp, int mnt_flags,
 	 */
 	err = vflush(mp, NULLVP, vflags|SKIPROOT|SKIPSYSTEM);
 	if (err) {
-		printf("ntfs_unmount: error %d from vflush\n", err);
+		ntfs_warning(mp, "Cannot unmount (vflush() returned error "
+				"%d).  Are there open files keeping the "
+				"volume busy?\n", err);
 		goto done;
 	}
 	/*
@@ -3428,12 +3431,12 @@ static int ntfs_unmount(mount_t mp, int mnt_flags,
 	if (!NVolReadOnly(vol)) {
 		if (!NVolErrors(vol)) {
 			if (ntfs_volume_flags_clear(vol, VOLUME_IS_DIRTY))
-				ntfs_warning(vol->mp, "Failed to clear dirty "
-						"bit in volume information "
+				ntfs_warning(mp, "Failed to clear dirty bit "
+						"in volume information "
 						"flags.  Run chkdsk.");
 		} else
-			ntfs_warning(vol->mp, "Volume has errors.  Leaving "
-					"volume marked dirty.  Run chkdsk.");
+			ntfs_warning(mp, "Volume has errors.  Leaving volume "
+					"marked dirty.  Run chkdsk.");
 	}
 	/* Ntfs 3.0+ specific clean up. */
 	if (vol->major_ver >= 3) {
@@ -3796,8 +3799,6 @@ static errno_t ntfs_remount(mount_t mp,
 		}
 		NVolClearReadOnly(vol);
 	} else if (!NVolReadOnly(vol) && vfs_isrdonly(mp)) {
-		errno_t err;
-
 		/* Remounting read-only, flush all pending writes. */
 		err = ntfs_sync(mp, MNT_WAIT, NULL);
 		if (err) {
@@ -3856,9 +3857,9 @@ err_exit:
  *
  * Return 0 on success and errno on error.
  *
- * We call OSKextRetainKextWithLoadTag to prevent the KEXT from being unloaded
- * automatically while in use.  If the mount fails, we must call
- * OSKextReleaseKextWithLoadTag to allow the KEXT to be unloaded.
+ * We call OSKextRetainKextWithLoadTag() to prevent the KEXT from being
+ * unloaded automatically while in use.  If the mount fails, we must call
+ * OSKextReleaseKextWithLoadTag() to allow the KEXT to be unloaded.
  */
 static int ntfs_mount(mount_t mp, vnode_t dev_vn, user_addr_t data,
 		vfs_context_t context)
@@ -4251,9 +4252,9 @@ err:
 	ntfs_error(mp, "Mount failed (error %d).", err);
 	/*
 	 * ntfs_unmount() will clean up everything we did until we encountered
-	 * the error condition.
+	 * the error condition including calling OSKextReleaseKextWithLoadTag().
 	 */
-	ntfs_unmount(mp, 0, context);	/* ntfs_mount calls OSKextReleaseKextWithLoadTag */
+	ntfs_unmount(mp, 0, context);
 	return err;
 unload_exit:
 	OSKextReleaseKextWithLoadTag(OSKextGetCurrentLoadTag());

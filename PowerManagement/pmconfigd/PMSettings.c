@@ -222,11 +222,12 @@ activate_profiles(CFDictionaryRef d, CFStringRef s, bool removeUnsupported)
     
     if(NULL == s) s = CFSTR(kIOPMACPowerKey);
 
+    energy_settings = (CFDictionaryRef)isA_CFDictionary(CFDictionaryGetValue(d, s));
+    if(!energy_settings) return kIOReturnError;
+
 #if TARGET_OS_EMBEDDED
     CFNumberRef                         sleepSetting;
 
-    energy_settings = (CFDictionaryRef)isA_CFDictionary(CFDictionaryGetValue(d, s));
-    if(!energy_settings) return kIOReturnError;
     sleepSetting = (CFNumberRef)isA_CFNumber(CFDictionaryGetValue(energy_settings, CFSTR(kIOPMSystemSleepKey)));
     if (sleepSetting)
 	CFNumberGetValue(sleepSetting, kCFNumberLongType, &gSleepSetting);
@@ -234,11 +235,6 @@ activate_profiles(CFDictionaryRef d, CFStringRef s, bool removeUnsupported)
 
     if(g_overrides)
     {
-#if !TARGET_OS_EMBEDDED
-        energy_settings = (CFDictionaryRef)isA_CFDictionary(CFDictionaryGetValue(d, s));
-        if(!energy_settings) return kIOReturnError;
-#endif
-
         profiles_activated = CFDictionaryCreateMutableCopy(kCFAllocatorDefault, 
             CFDictionaryGetCount(energy_settings), energy_settings);
         if(!profiles_activated) return kIOReturnError;

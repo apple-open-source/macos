@@ -253,8 +253,14 @@ int unlzw(in, out)
 	for (i = 0 ; i < e ; ++i) {
 	    inbuf[i] = inbuf[i+o];
 	}
-	insize = e;
+
+	insize = 0;
 	posbits = 0;
+	if (e >= 0) {
+		insize = e;
+	} else {
+		posbits = abs(e)<<3;
+	}
 
 	if (insize < INBUF_EXTRA) {
 	    rsize = read_buffer (in, (char *) inbuf + insize, INBUFSIZ);

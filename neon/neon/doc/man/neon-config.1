@@ -1,25 +1,33 @@
+'\" t
 .\"     Title: neon-config
 .\"    Author: 
-.\" Generator: DocBook XSL Stylesheets v1.73.2 <http://docbook.sf.net/>
-.\"      Date: 20 August 2008
+.\" Generator: DocBook XSL Stylesheets v1.74.3 <http://docbook.sf.net/>
+.\"      Date: 18 August 2009
 .\"    Manual: neon API reference
-.\"    Source: neon 0.28.3
+.\"    Source: neon 0.28.6
+.\"  Language: English
 .\"
-.TH "NEON\-CONFIG" "1" "20 August 2008" "neon 0.28.3" "neon API reference"
+.TH "NEON\-CONFIG" "1" "18 August 2009" "neon 0.28.6" "neon API reference"
+.\" -----------------------------------------------------------------
+.\" * set default formatting
+.\" -----------------------------------------------------------------
 .\" disable hyphenation
 .nh
 .\" disable justification (adjust text to left margin only)
 .ad l
+.\" -----------------------------------------------------------------
+.\" * MAIN CONTENT STARTS HERE *
+.\" -----------------------------------------------------------------
 .SH "NAME"
-neon-config - script providing information about installed copy of neon library
+neon-config \- script providing information about installed copy of neon library
 .SH "SYNOPSIS"
-.HP 12
+.HP \w'\fBneon\-config\fR\ 'u
 \fBneon\-config\fR [\fB\-\-prefix\fR] [[\fB\-\-cflags\fR] | [\fB\-\-libs\fR] | [\fB\-\-la\-file\fR] | [\fB\-\-support\fR\ \fIfeature\fR] | [\fB\-\-help\fR] | [\fB\-\-version\fR]]
 .SH "DESCRIPTION"
 .PP
 The
 \fBneon\-config\fR
-script provides information about an installed copy of the neon library\. The
+script provides information about an installed copy of the neon library\&. The
 \fB\-\-cflags\fR
 and
 \fB\-\-libs\fR
@@ -27,12 +35,12 @@ options instruct how to compile and link an application against the library; the
 \fB\-\-version\fR
 and
 \fB\-\-support\fR
-options can help determine whether the library meets the applications requirements\.
+options can help determine whether the library meets the applications requirements\&.
 .SH "OPTIONS"
 .PP
 \fB\-\-cflags\fR
 .RS 4
-Print the flags which should be passed to the C compiler when compiling object files, when the object files use neon header files\.
+Print the flags which should be passed to the C compiler when compiling object files, when the object files use neon header files\&.
 .RE
 .PP
 \fB\-\-libs\fR
@@ -43,7 +51,7 @@ Print the flags which should be passed to the linker when linking an application
 \fB\-\-la\-file\fR
 .RS 4
 Print the location of the libtool library script,
-\fIlibneon\.la\fR, which can be used to link against neon by applications using libtool\.
+libneon\&.la, which can be used to link against neon by applications using libtool\&.
 .RE
 .PP
 \fB\-\-version\fR
@@ -59,45 +67,50 @@ is given; relocate output of
 \fB\-\-cflags\fR
 and
 \fB\-\-libs\fR
-as if neon was installed in given prefix directory\. Otherwise, print the installation prefix of the library\.
+as if neon was installed in given prefix directory\&. Otherwise, print the installation prefix of the library\&.
 .RE
 .PP
 \fB\-\-support\fR \fIfeature\fR
 .RS 4
 The script exits with success if
 \fIfeature\fR
-is supported by the library\.
+is supported by the library\&.
 .RE
 .PP
 \fB\-\-help\fR
 .RS 4
-Print help message; includes list of known features and whether they are supported or not\.
+Print help message; includes list of known features and whether they are supported or not\&.
 .RE
 .SH "EXAMPLE"
 .PP
 Below is a Makefile fragment which could be used to build an application against an installed neon library, when the
 \fBneon\-config\fR
 script can be found in
-\fB$PATH\fR\.
+\fB$PATH\fR\&.
 .sp
+.if n \{\
 .RS 4
+.\}
 .nf
 CFLAGS = `neon\-config \-\-cflags`
 LIBS = `neon\-config \-\-libs`
-OBJECTS = myapp\.o
+OBJECTS = myapp\&.o
 TARGET = myapp
 
 $(TARGET): $(OBJECTS)
 	$(CC) $(LDFLAGS) \-o $(TARGET) $(OBJECTS) $(LIBS)
 
-myapp\.o: myapp\.c
-	$(CC) $(CFLAGS) \-c myapp\.c \-o myapp\.o
+myapp\&.o: myapp\&.c
+	$(CC) $(CFLAGS) \-c myapp\&.c \-o myapp\&.o
 .fi
+.if n \{\
 .RE
+.\}
 .SH "AUTHOR"
 .PP
 \fBJoe Orton\fR <\&neon@lists.manyfish.co.uk\&>
-.sp -1n
-.IP "" 4
+.RS 4
 Author.
+.RE
 .SH "COPYRIGHT"
+.br

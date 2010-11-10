@@ -6,15 +6,17 @@
 		<key>OpenSourceProject</key>
 		<string>MySQL</string>
 		<key>OpenSourceVersion</key>
-		<string>5.0.88</string>
+		<string>5.0.91</string>
 		<key>OpenSourceURL</key>
-		<string>http://downloads.mysql.com/archives/mysql-5.0/mysql-5.0.88.tar.gz</string>
+		<string>http://downloads.mysql.com/archives/mysql-5.0/mysql-5.0.91.tar.gz</string>
 		<key>OpenSourceSHA1</key>
-		<string>2dc7a462eaca1452eefd334888a6c40022deb352</string>
+		<string>6ccd8ded208aad458e091b8cdc349702929c2b53</string>
 		<key>OpenSourceImportDate</key>
-		<string>2009-12-03</string>
+		<string>2010-09-21</string>
 		<key>OpenSourceModifications</key>
-		<array/>
+		<array>
+			<string>Removed yacc/bison-generated files</string>
+		</array>
 		<key>OpenSourceLicense</key>
 		<string>GPL</string>
 		<key>OpenSourceLicenseFile</key>

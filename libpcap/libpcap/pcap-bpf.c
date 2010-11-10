@@ -1860,7 +1860,7 @@ pcap_activate_bpf(pcap_t *p)
 		 * (Treating it as such doesn't fix the timeout
 		 * problem described below.)
 		 */
-		struct timeval to;
+		struct BPF_TIMEVAL to;
 		to.tv_sec = p->md.timeout / 1000;
 		to.tv_usec = (p->md.timeout * 1000) % 1000000;
 		if (ioctl(p->fd, BIOCSRTIMEOUT, (caddr_t)&to) < 0) {

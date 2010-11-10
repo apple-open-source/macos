@@ -1,5 +1,5 @@
 /*
- * "$Id: pwg-private.h 2114 2010-04-23 20:27:40Z msweet $"
+ * "$Id: pwg-private.h 2397 2010-07-27 00:20:59Z msweet $"
  *
  *   Private PWG media API definitions for CUPS.
  *
@@ -48,6 +48,21 @@ extern "C" {
  * Types and structures...
  */
 
+typedef enum _pwg_output_mode_e		/**** PWG output-mode indices ****/
+{
+  _PWG_OUTPUT_MODE_MONOCHROME = 0,	/* output-mode=monochrome */
+  _PWG_OUTPUT_MODE_COLOR,		/* output-mode=color */
+  _PWG_OUTPUT_MODE_MAX
+} _pwg_output_mode_t;
+
+typedef enum _pwg_print_quality_e	/**** PWG print-quality indices ****/
+{
+  _PWG_PRINT_QUALITY_DRAFT = 0,		/* print-quality=3 */
+  _PWG_PRINT_QUALITY_NORMAL,		/* print-quality=4 */
+  _PWG_PRINT_QUALITY_HIGH,		/* print-quality=5 */
+  _PWG_PRINT_QUALITY_MAX
+} _pwg_print_quality_t;
+
 typedef struct _pwg_media_s		/**** Common media size data ****/
 {
   const char	*pwg,			/* PWG 5101.1 "self describing" name */
@@ -88,10 +103,19 @@ typedef struct _pwg_s			/**** PWG-PPD conversion data ****/
 		*custom_min_keyword,	/* Minimum custom size PWG keyword */
 		custom_ppd_size[41];	/* Custom PPD size name */
   _pwg_size_t	custom_size;		/* Custom size record */
+  char		*source_option;		/* PPD option for media source */
   int		num_sources;		/* Number of media sources */
   _pwg_map_t	*sources;		/* Media sources */
   int		num_types;		/* Number of media types */
   _pwg_map_t	*types;			/* Media types */
+  int		num_presets[_PWG_OUTPUT_MODE_MAX][_PWG_PRINT_QUALITY_MAX];
+					/* Number of output-mode/print-quality options */
+  cups_option_t	*presets[_PWG_OUTPUT_MODE_MAX][_PWG_PRINT_QUALITY_MAX];
+					/* output-mode/print-quality options */
+  char		*sides_option,		/* PPD option for sides */
+		*sides_1sided,		/* Choice for one-sided */
+		*sides_2sided_long,	/* Choice for two-sided-long-edge */
+		*sides_2sided_short;	/* Choice for two-sided-short-edge */
 } _pwg_t;
 
 
@@ -139,5 +163,5 @@ extern int		_pwgWriteFile(_pwg_t *pwg, const char *filename);
 #endif /* !_CUPS_PWG_PRIVATE_H_ */
 
 /*
- * End of "$Id: pwg-private.h 2114 2010-04-23 20:27:40Z msweet $".
+ * End of "$Id: pwg-private.h 2397 2010-07-27 00:20:59Z msweet $".
  */

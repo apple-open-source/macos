@@ -287,6 +287,7 @@ static void clean_session(auth_session *sess)
     ne_sspi_destroy_context(sess->sspi_context);
     sess->sspi_context = NULL;
 #endif
+    sess->protocol = NULL;
 }
 
 /* Returns client nonce string. */

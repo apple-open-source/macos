@@ -119,10 +119,10 @@ distclean: clean
 
 again: clean
 
-Makefile: Makefile.in
+Makefile: $(srcdir)/Makefile.in
 	@./config.status Makefile
 
-neon-config: neon-config.in
+neon-config: $(srcdir)/neon-config.in
 	@./config.status neon-config
 
 install-docs: install-man install-html

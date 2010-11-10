@@ -503,9 +503,14 @@ CSSM_BOOL tpCompareHostNames(
 			return CSSM_FALSE;
 		}
 		
-		/* skip over this component */
-		hostName    += hostCompLen;
-		certName    += certCompLen;
+		/* skip over this component
+		 * (note: since tpNextDnsComp will first skip over a leading '.',
+		 * we must make sure to skip over it here as well.)
+		 */
+		if(*hostName == '.') hostName++;
+		hostName += hostCompLen;
+		if(*certName == '.') certName++;
+		certName += certCompLen;
 	} while(1);
 	/* NOT REACHED */
 	//assert(0):

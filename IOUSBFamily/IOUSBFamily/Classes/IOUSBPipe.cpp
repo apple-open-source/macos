@@ -325,13 +325,7 @@ IOUSBPipe::ClosePipe(void)
     // releases the pipe.  We do it here instead of in the free method (as was previosuly done) because
     // _controller->ClosePipe() will end up deleting the endpoint, which is necessary.  If we left this
     // call in the free method then this wouldn't get called if someone had an extra retain on the pipe object.
-    // Hence the USBLog.
-    //
-    if ( getRetainCount() > 1 )
-    {
-        USBLog(1,"IOUSBPipe[%p]:ClosePipe for address %d, ep %d had a retain count > 1.  Leaking a pipe", this, _address, _endpoint.number);
-    }
-    
+
     return _controller->ClosePipe(_address, &_endpoint);
 }
 
@@ -384,6 +378,12 @@ IOUSBPipe::ClearPipeStall(bool withDeviceRequest)
 	_DEVICE->retain();
 	
     err = _controller->ClearPipeStall(_address, &_endpoint);
+	
+	if (err == kIOUSBClearPipeStallNotRecursive)
+	{
+		USBLog(1,"IOUSBPipe[%p]::ClearPipeStall - tried to call recursively, err = %p", this, (void*)err);
+	}
+	
 	
     if (_DEVICE->GetSpeed() == kUSBDeviceSpeedHigh)
     {
@@ -463,7 +463,7 @@ IOUSBPipe::ClearPipeStall(bool withDeviceRequest)
     }
 	
 	_DEVICE->release();
-	
+
     return err;
 }
 
@@ -1143,9 +1143,9 @@ IOUSBPipe::ControlRequest(IOUSBDevRequest *request, UInt32 noDataTimeout, UInt32
 
 	// USBTrace_Start( kUSBTPipe, kTPPipeControlRequest, request->bmRequestType,  request->bRequest, request->wValue, request->wIndex );
 
-	if ( _DEVICE && request && (_DEVICE->GetVendorID() == kAppleVendorID) && (request->bmRequestType == USBmakebmRequestType(kUSBOut, kUSBVendor, kUSBDevice)) && (request->bRequest == 0x40) )
+	if ( _DEVICE && request && (_DEVICE->GetVendorID() == kAppleVendorID) && (request->bmRequestType == USBmakebmRequestType(kUSBOut, kUSBVendor, kUSBDevice)) && (request->bRequest == 0x40) && (request->wLength == 0) )
 	{
-		USBLog(6, "IOUSBPipe[%p]::ControlRequest  Possible charging command sent to %s[%p] operating: %d extra, sleep: %d", this, _DEVICE->getName(), _DEVICE, request->wIndex, request->wValue);
+		USBLog(1, "IOUSBPipe[%p]::ControlRequest  Possible charging command sent to %s @ 0x%x, operating: %d extra, sleep: %d", this, _DEVICE->getName(), (uint32_t)_DEVICE->_expansionData->_locationID, request->wIndex, request->wValue );
 	}
 
 
@@ -1197,9 +1197,9 @@ IOUSBPipe::ControlRequest(IOUSBDevRequestDesc *request, UInt32 noDataTimeout, UI
 	
 	// USBTrace_Start( kUSBTPipe, kTPPipeControlRequestMemDesc, request->bmRequestType,  request->bRequest, request->wValue, request->wIndex );
 	
-	if ( _DEVICE && request && (_DEVICE->GetVendorID() == kAppleVendorID) && (request->bmRequestType == USBmakebmRequestType(kUSBOut, kUSBVendor, kUSBDevice)) && (request->bRequest == 0x40) )
+	if ( _DEVICE && request && (_DEVICE->GetVendorID() == kAppleVendorID) && (request->bmRequestType == USBmakebmRequestType(kUSBOut, kUSBVendor, kUSBDevice)) && (request->bRequest == 0x40) && (request->wLength == 0) )
 	{
-		USBLog(6, "IOUSBPipe[%p]::ControlRequest  Possible charging command sent to %s[%p] operating: %d extra, sleep: %d", this, _DEVICE->getName(), _DEVICE, request->wIndex, request->wValue);
+		USBLog(1, "IOUSBPipe[%p]::ControlRequest  Possible charging command sent to %s @ 0x%x, operating: %d extra, sleep: %d", this, _DEVICE->getName(), (uint32_t)_DEVICE->_expansionData->_locationID, request->wIndex, request->wValue );
 	}
 	
 	

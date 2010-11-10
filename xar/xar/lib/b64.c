@@ -42,7 +42,7 @@ static unsigned char table [] = {
 's', 't', 'u', 'v', 'w', 'x', 'y', 'z', '0', '1', '2',
 '3', '4', '5', '6', '7', '8', '9', '+', '/' };
 
-unsigned char* xar_to_base64(const unsigned char* input, int len)
+unsigned char* xar_to_base64(const unsigned char* input, size_t len)
 {
     unsigned char b6;
     /*UNUSED unsigned char tmp; */
@@ -50,6 +50,7 @@ unsigned char* xar_to_base64(const unsigned char* input, int len)
     int i=0;
     unsigned char* output;
     int outsize = (((float)len)*4/3)+5;
+	
 
     output = malloc(outsize);
     if( !output )
@@ -149,17 +150,17 @@ typedef enum _B64CodecErrorCodes {
 #define B64_INPUT_BLOCK_OFFSET	((inputIndex - 1 - ignorableCharacterCount) % 4)
 
 static unsigned int raw_base64_decode(
-  const unsigned char *input, unsigned char *output, int inLengthToDecode,
-  unsigned int *outputDecodedLength)
+  const unsigned char *input, unsigned char *output, size_t inLengthToDecode,
+  size_t *outputDecodedLength)
 {
     int currentBase64Value;
 	unsigned int inputIndex = 0;
-	unsigned int *decodedCharacterCount;
-	unsigned int dummyValue;
 	unsigned int ignorableCharacterCount = 0;
 	unsigned int i;
     unsigned char decodedBuffer[3];
 	unsigned char currentInputBlockPaddingCharacterCount = 0;
+	size_t *decodedCharacterCount;
+	size_t dummyValue;
 	
 	if (outputDecodedLength == NULL) {
 		// do this so that if caller passes in NULL for outputDecodedLength
@@ -246,7 +247,7 @@ static unsigned int raw_base64_decode(
     return B64_noError;
 }
 
-unsigned char* xar_from_base64(const unsigned char* input, int inputLength, unsigned int *outputLength)
+unsigned char* xar_from_base64(const unsigned char* input, size_t inputLength, size_t *outputLength)
 {
     int err;
     unsigned char *output;

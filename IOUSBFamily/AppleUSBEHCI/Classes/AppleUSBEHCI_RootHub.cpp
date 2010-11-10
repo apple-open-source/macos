@@ -459,7 +459,7 @@ IOReturn
 AppleUSBEHCI::ClearRootHubPortFeature(UInt16 wValue, UInt16 wIndex)
 {
     IOReturn	err;
-    UInt16	port = wIndex;
+    UInt16		port = wIndex;
 	
 	USBLog(4, "AppleUSBEHCI[%p]::ClearRootHubPortFeature - port %d, feature: %d",  this, wIndex, wValue);
 
@@ -476,9 +476,18 @@ AppleUSBEHCI::ClearRootHubPortFeature(UInt16 wValue, UInt16 wIndex)
             break;
 			
         case kUSBHubPortPowerFeature :
-			err = EHCIRootHubPortPower(port, false);
-            // Now need to check if all ports are switched off and
-            // gang off if in gang mode
+			if (_errataBits & kErrataIgnoreRootHubPowerClearFeature)
+			{
+				USBLog(5,"AppleUSBEHCI[%p]::ClearRootHubPortFeature (kUSBHubPortPowerFeature) port %d, ignoring per errata bit",  this, port);
+				err = kIOReturnUnsupported;
+			}
+			else 
+			{			
+				err = EHCIRootHubPortPower(port, false);
+				
+				// Now need to check if all ports are switched off and
+				// gang off if in gang mode
+			}
             break;
 			
 			// ****** Change features *******
@@ -1327,8 +1336,6 @@ AppleUSBEHCI::RHResumePortTimer(UInt32 port)
 	USBLog(6, "AppleUSBEHCI[%p]::RHResumePortTimer - Host controller resume about to finish - calling EnsureUsability", this);
 	EnsureUsability();		
 	_commandGate->runAction(RHResumePortCompletionEntry, (void*)port);
-	
-	CheckForRootHubChanges();
 }
 
 
@@ -1391,6 +1398,10 @@ AppleUSBEHCI::RHResumePortCompletion(UInt32 port)
 
 	_rhPortBeingResumed[port-1] = false;
 	_rhChangeBits[port-1] |= kHubPortSuspend;									// mark the suspend bit as having changed
+	
+	// Look to see if we have any pending changes while we still hold the gate:
+	CheckForRootHubChanges();
+
 	return kIOReturnSuccess;
 }
 

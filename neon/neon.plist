@@ -1,22 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
-<array>
 <dict>
 	<key>OpenSourceProject</key>
 	<string>neon</string>
 	<key>OpenSourceVersion</key>
-	<string>0.28.3</string>
+	<string>0.28.6</string>
 	<key>OpenSourceWebsiteURL</key>
 	<string>http://webdav.org/neon/</string>
 	<key>OpenSourceURL</key>
-	<string>http://webdav.org/neon/neon-0.28.3.tar.gz</string>
+	<string>http://webdav.org/neon/neon-0.28.6.tar.gz</string>
 	<key>OpenSourceSHA1</key>
-	<string>544a92dbfba144ec600506cadbda92ae0b0eb9b0</string>
+	<string>da7db2e3289cc3dbef7794e8cc3c56978a0d7157</string>
 	<key>OpenSourceImportDate</key>
-	<string>2008-09-03</string>
+	<string>2010-06-14</string>
 	<key>OpenSourceLicense</key>
 	<string>LGPL</string>
 	<key>OpenSourceLicenseFile</key>
 	<string>neon.txt</string>
 </dict>
-</array>
 </plist>

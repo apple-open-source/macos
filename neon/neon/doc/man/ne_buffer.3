@@ -1,22 +1,30 @@
+'\" t
 .\"     Title: ne_buffer
 .\"    Author: 
-.\" Generator: DocBook XSL Stylesheets v1.73.2 <http://docbook.sf.net/>
-.\"      Date: 20 August 2008
+.\" Generator: DocBook XSL Stylesheets v1.74.3 <http://docbook.sf.net/>
+.\"      Date: 18 August 2009
 .\"    Manual: neon API reference
-.\"    Source: neon 0.28.3
+.\"    Source: neon 0.28.6
+.\"  Language: English
 .\"
-.TH "NE_BUFFER" "3" "20 August 2008" "neon 0.28.3" "neon API reference"
+.TH "NE_BUFFER" "3" "18 August 2009" "neon 0.28.6" "neon API reference"
+.\" -----------------------------------------------------------------
+.\" * set default formatting
+.\" -----------------------------------------------------------------
 .\" disable hyphenation
 .nh
 .\" disable justification (adjust text to left margin only)
 .ad l
+.\" -----------------------------------------------------------------
+.\" * MAIN CONTENT STARTS HERE *
+.\" -----------------------------------------------------------------
 .SH "NAME"
-ne_buffer - string buffer handling
+ne_buffer \- string buffer handling
 .SH "SYNOPSIS"
 .sp
 .ft B
 .nf
-#include <ne_string\.h>
+#include <ne_string\&.h>
 
 typedef struct {
     char *data;
@@ -30,15 +38,15 @@ typedef struct {
 The
 \fBne_buffer\fR
 type represents an expandable memory buffer for holding
-NUL\-terminated strings\. The
-data
+NUL\-terminated strings\&. The
+\fIdata\fR
 field points to the beginnning of the string, the length of which is given by the
-used
-field\. The current size of memory allocated is given by the
-length
-field\. It is not recommended that the fields of a buffer are manipulated directly\. The
-data
-pointer may change when the buffer is modified\.
+\fIused\fR
+field\&. The current size of memory allocated is given by the
+\fIlength\fR
+field\&. It is not recommended that the fields of a buffer are manipulated directly\&. The
+\fIdata\fR
+pointer may change when the buffer is modified\&.
 .PP
 A buffer is created using
 ne_buffer_create
@@ -46,22 +54,23 @@ or
 ne_buffer_ncreate, and destroyed using
 ne_buffer_destroy
 or
-ne_buffer_finish\. The functions
+ne_buffer_finish\&. The functions
 ne_buffer_append,
 ne_buffer_zappend
 and
 ne_buffer_concat
-are used to append data to a buffer\.
+are used to append data to a buffer\&.
 .PP
 If the string referenced by the
-data
+\fIdata\fR
 pointer is modified directly (rather than using one of the functions listed above),
 \fBne_buffer_altered\fR
-must be called\.
+must be called\&.
 .SH "AUTHOR"
 .PP
 \fBJoe Orton\fR <\&neon@lists.manyfish.co.uk\&>
-.sp -1n
-.IP "" 4
+.RS 4
 Author.
+.RE
 .SH "COPYRIGHT"
+.br

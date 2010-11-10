@@ -1,6 +1,6 @@
 /* 
    neon test suite
-   Copyright (C) 2002-2008, Joe Orton <joe@manyfish.co.uk>
+   Copyright (C) 2002-2009, Joe Orton <joe@manyfish.co.uk>
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -50,6 +50,8 @@
 #define SERVER_CERT "server.cert"
 #define CA_CERT "ca/cert.pem"
 
+#define P12_PASSPHRASE "foobar"
+
 #define SERVER_DNAME "Neon QA Dept, Neon Hackers Ltd, " \
                      "Cambridge, Cambridgeshire, GB"
 #define CACERT_DNAME "Random Dept, Neosign, Oakland, California, US"
@@ -72,7 +74,6 @@ struct ssl_server_args {
     /* client cert handling: */
     int require_cc; /* require a client cert if non-NULL */
     const char *ca_list; /* file of CA certs to verify client cert against */
-    const char *send_ca; /* file of CA certs to send in client cert request */
     int fail_silently; /* exit with success if handshake fails */
     
     /* session caching: */
@@ -84,6 +85,8 @@ struct ssl_server_args {
     int count; /* internal use. */
 
     int use_ssl2; /* force use of SSLv2 only */
+
+    const char *key;
 };
 
 /* default response string if args->response is NULL */
@@ -95,6 +98,7 @@ static int ssl_server(ne_socket *sock, void *userdata)
     struct ssl_server_args *args = userdata;
     int ret;
     char buf[BUFSIZ];
+    const char *key;
     static ne_ssl_context *ctx = NULL;
 
     if (ctx == NULL) {
@@ -104,17 +108,19 @@ static int ssl_server(ne_socket *sock, void *userdata)
 
     ONV(ctx == NULL, ("could not create SSL context"));
 
-    ONV(ne_ssl_context_keypair(ctx, args->cert, server_key),
+    key = args->key ? args->key : server_key;
+    NE_DEBUG(NE_DBG_HTTP, "SSL server init with keypair (%s, %s).\n",
+             args->cert, key);
+             
+    ONV(ne_ssl_context_keypair(ctx, args->cert, key),
         ("failed to load server keypair: ..."));
-
-    NE_DEBUG(NE_DBG_HTTP, "using server cert %s\n", args->cert);
 
     if (args->require_cc && !args->ca_list) {
         args->ca_list = CA_CERT;
     }
 
-    ne_ssl_context_set_verify(ctx, args->require_cc, args->send_ca,
-                              args->ca_list);
+    ne_ssl_context_set_verify(ctx, args->require_cc, 
+                              args->ca_list, args->ca_list);
 
     ret = ne_sock_accept_ssl(sock, ctx);
     if (ret && args->fail_silently) {
@@ -249,13 +255,24 @@ static int init(void)
     
     /* tests for the encrypted client cert, client.p12 */
     def_cli_cert = ne_ssl_clicert_read("client.p12");
-    ONN("could not load client.p12", def_cli_cert == NULL);
+    if (def_cli_cert == NULL) {
+        t_context("could not load client.p12");
+        return FAILHARD;
+    }
 
-    ONN("client.p12 is not encrypted!?", 
-        !ne_ssl_clicert_encrypted(def_cli_cert));
-    
-    ONN("failed to decrypt client.p12",
-        ne_ssl_clicert_decrypt(def_cli_cert, "foobar"));
+    if (!ne_ssl_clicert_encrypted(def_cli_cert)) {
+        ne_ssl_clicert_free(def_cli_cert);
+        def_cli_cert = NULL;
+        t_context("client.p12 is not encrypted!?");
+        return FAIL;
+    }
+
+    if (ne_ssl_clicert_decrypt(def_cli_cert, P12_PASSPHRASE)) {
+        ne_ssl_clicert_free(def_cli_cert);
+        def_cli_cert = NULL;
+        t_context("failed to decrypt client.p12");
+        return FAIL;
+    }
 
     return OK;
 }
@@ -304,7 +321,7 @@ static int load_client_cert(void)
     } else {
         ONV(strcmp(name, CC_NAME), ("friendly name was %s not %s", name, CC_NAME));
     }
-    ONN("failed to decrypt", ne_ssl_clicert_decrypt(cc, "foobar"));
+    ONN("failed to decrypt", ne_ssl_clicert_decrypt(cc, P12_PASSPHRASE));
     ne_ssl_clicert_free(cc);
 
     cc = ne_ssl_clicert_read("client.p12");
@@ -337,7 +354,8 @@ static int load_client_cert(void)
     cc = ne_ssl_clicert_read("clientca.p12");
     ONN("could not load clientca.p12", cc == NULL);
     ONN("encrypted cert marked unencrypted?", !ne_ssl_clicert_encrypted(cc));
-    ONN("could not decrypt clientca.p12", ne_ssl_clicert_decrypt(cc, "foobar"));
+    ONN("could not decrypt clientca.p12", 
+        ne_ssl_clicert_decrypt(cc, P12_PASSPHRASE));
     ne_ssl_clicert_free(cc);
 
     /* test for ccert without a private key, nkclient.p12 */
@@ -600,12 +618,15 @@ static int parse_cert(void)
     return OK;
 }
 
+#define WRONGCN_DNAME "Bad Hostname Department, Neon Hackers Ltd, " \
+    "Cambridge, Cambridgeshire, GB"
+
 /* Check the certificate chain presented against known dnames. */
 static int check_chain(void *userdata, int fs, const ne_ssl_certificate *cert)
 {
     int *ret = userdata;
 
-    if (check_cert_dnames(cert, SERVER_DNAME, CACERT_DNAME) == FAIL) {
+    if (check_cert_dnames(cert, WRONGCN_DNAME, CACERT_DNAME) == FAIL) {
         *ret = -1;
         return 0;
     }
@@ -631,13 +652,13 @@ static int parse_chain(void)
 {
     ne_session *sess = DEFSESS;
     int ret = 0;
-    struct ssl_server_args args = {SERVER_CERT, 0};
+    struct ssl_server_args args = {"wrongcn.cert", 0};
 
     args.ca_list = "ca/cert.pem";    
 
-    /* don't give a CA cert; should force the verify callback to be
-     * used. */
-    CALL(any_ssl_request(sess, ssl_server, &args, NULL, 
+    /* The cert is signed by the CA but has a CN mismatch, so will
+     * force the verification callback to be invoked. */
+    CALL(any_ssl_request(sess, ssl_server, &args, "ca/cert.pem", 
 			 check_chain, &ret));
     ne_session_destroy(sess);
 
@@ -706,17 +727,37 @@ static int get_failures(void *userdata, int fs, const ne_ssl_certificate *c)
 /* Helper function: run a request using the given self-signed server
  * certificate, and expect the request to fail with the given
  * verification failure flags. */
-static int fail_ssl_request(char *cert, char *cacert, const char *host,
-			    const char *msg, int failures)
+static int fail_ssl_request_with_error2(char *cert, char *key, char *cacert, 
+                                        const char *host, const char *fakehost,
+                                        const char *msg, int failures,
+                                        const char *errstr)
 {
     ne_session *sess = ne_session_create("https", host, 7777);
     int gotf = 0, ret;
+    struct ssl_server_args args = {0};
+    ne_sock_addr *addr;
+    const ne_inet_addr *list[1];
 
-    ret = any_ssl_request(sess, fail_serve, cert, cacert,
+    if (fakehost) {
+        addr = ne_addr_resolve(fakehost, 0);
+
+        ONV(ne_addr_result(addr),
+            ("fake hostname lookup failed for %s", fakehost));
+        
+        list[0] = ne_addr_first(addr);
+        
+        ne_set_addrlist(sess, list, 1);
+    }
+
+    args.cert = cert;
+    args.key = key;
+    args.fail_silently = 1;
+    
+    ret = any_ssl_request(sess, ssl_server, &args, cacert,
 			  get_failures, &gotf);
 
     ONV(gotf == 0,
-	("no error in verification callback; request failed: %s",
+	("no error in verification callback; error string: %s",
 	 ne_get_error(sess)));
 
     ONV(gotf & ~NE_SSL_FAILMASK,
@@ -734,6 +775,16 @@ static int fail_ssl_request(char *cert, char *cacert, const char *host,
     return OK;
 }
 
+/* Helper function: run a request using the given self-signed server
+ * certificate, and expect the request to fail with the given
+ * verification failure flags. */
+static int fail_ssl_request(char *cert, char *cacert, const char *host,
+			    const char *msg, int failures)
+{
+    return fail_ssl_request_with_error2(cert, NULL, cacert, host, NULL,
+                                        msg, failures, NULL);
+}        
+
 /* Note that the certs used for fail_* are mostly self-signed, so the
  * cert is passed as CA cert and server cert to fail_ssl_request. */
 
@@ -741,9 +792,27 @@ static int fail_ssl_request(char *cert, char *cacert, const char *host,
  * flagged as such. */
 static int fail_wrongCN(void)
 {
-    return fail_ssl_request("wrongcn.pem", "wrongcn.pem", "localhost",
+    return fail_ssl_request("wrongcn.cert", "ca/cert.pem", "localhost",
 			    "certificate with incorrect CN was accepted",
 			    NE_SSL_IDMISMATCH);
+}
+
+static int fail_nul_cn(void)
+{
+    return fail_ssl_request_with_error2("nulcn.pem", "nulsrv.key", "nulca.pem", 
+                                        "www.bank.com", "localhost",
+                                        "certificate with incorrect CN was accepted",
+                                        NE_SSL_IDMISMATCH,
+                                        "certificate issued for a different hostname");
+}
+
+static int fail_nul_san(void)
+{
+    return fail_ssl_request_with_error2("nulsan.pem", "nulsrv.key", "nulca.pem", 
+                                        "www.bank.com", "localhost",
+                                        "certificate with incorrect CN was accepted",
+                                        NE_SSL_IDMISMATCH,
+                                        "certificate issued for a different hostname");
 }
 
 /* Check that an expired certificate is flagged as such. */
@@ -865,7 +934,7 @@ static int client_cert_provided(void)
     cc = ne_ssl_clicert_read("client.p12");
     ONN("could not load client.p12", cc == NULL);
     ONN("could not decrypt client.p12", 
-        ne_ssl_clicert_decrypt(cc, "foobar"));
+        ne_ssl_clicert_decrypt(cc, P12_PASSPHRASE));
     
     ne_ssl_provide_clicert(sess, ccert_provider, cc);
     CALL(any_ssl_request(sess, ssl_server, &args, CA_CERT,
@@ -921,7 +990,7 @@ static int cc_provided_dnames(void)
     struct ssl_server_args args = {SERVER_CERT, NULL};
 
     args.require_cc = 1;
-    args.send_ca = "calist.pem";
+    args.ca_list = "calist.pem";
 
     PRECOND(def_cli_cert);
 
@@ -953,6 +1022,30 @@ static int client_cert_pkcs12(void)
     return OK;
 }
 
+/* Test use of a PKCS#12 cert with an embedded CA cert - fails with <=
+ * 0.28.3 in GnuTLS build. */
+static int client_cert_ca(void)
+{
+    ne_session *sess = DEFSESS;
+    struct ssl_server_args args = {SERVER_CERT, NULL};
+    ne_ssl_client_cert *cc;
+
+    args.require_cc = 1;
+
+    cc = ne_ssl_clicert_read("clientca.p12");
+    ONN("could not load clientca.p12", cc == NULL);
+    ONN("encrypted cert marked unencrypted?", !ne_ssl_clicert_encrypted(cc));
+    ONN("could not decrypt clientca.p12", 
+        ne_ssl_clicert_decrypt(cc, P12_PASSPHRASE));
+
+    ne_ssl_set_clicert(sess, cc);
+    CALL(any_ssl_request(sess, ssl_server, &args, CA_CERT, NULL, NULL));
+
+    ne_ssl_clicert_free(cc);
+
+    ne_session_destroy(sess);    
+    return OK;
+}
 
 /* Tests use of an unencrypted client certificate. */
 static int ccert_unencrypted(void)
@@ -1251,6 +1344,24 @@ static int cert_identities(void)
     for (n = 0; certs[n].fname != NULL; n++)
         CALL(check_identity(certs[n].fname, certs[n].identity));
 
+    return OK;
+}
+
+static int nulcn_identity(void)
+{
+    ne_ssl_certificate *cert = ne_ssl_cert_read("nulcn.pem");
+    const char *id, *expected = "www.bank.com\\x00.badguy.com";
+
+    ONN("could not read nulcn.pem", cert == NULL);
+
+    id = ne_ssl_cert_identity(cert);
+
+    ONV(id != NULL
+        && strcmp(id, expected) != 0,
+        ("certificate `nulcn.pem' had identity `%s' not `%s'", 
+         id, expected));
+    
+    ne_ssl_cert_free(cert);
     return OK;
 }
 
@@ -1654,6 +1765,7 @@ ne_test tests[] = {
     T(client_cert_provided),
     T(cc_provided_dnames),
     T(no_client_cert),
+    T(client_cert_ca),
 
     T(parse_cert),
     T(parse_chain),
@@ -1683,6 +1795,10 @@ ne_test tests[] = {
     T(fail_bad_ipaltname),
     T(fail_bad_urialtname),
 
+    T(nulcn_identity),
+    T(fail_nul_cn),
+    T(fail_nul_san),
+    
     T(session_cache),
 	
     T(fail_tunnel),

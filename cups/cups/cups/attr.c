@@ -4,7 +4,7 @@
  *   PPD model-specific attribute routines for the Common UNIX Printing System
  *   (CUPS).
  *
- *   Copyright 2007-2009 by Apple Inc.
+ *   Copyright 2007-2010 by Apple Inc.
  *   Copyright 1997-2006 by Easy Software Products.
  *
  *   These coded instructions, statements, and computer programs are the
@@ -15,8 +15,10 @@
  *
  * Contents:
  *
- *   ppdFindAttr()     - Find the first matching attribute.
- *   ppdFindNextAttr() - Find the next matching attribute.
+ *   ppdFindAttr()               - Find the first matching attribute.
+ *   ppdFindNextAttr()           - Find the next matching attribute.
+ *   _ppdGet1284Values()         - Get 1284 device ID keys and values.
+ *   _ppdNormalizeMakeAndModel() - Normalize a product/make-and-model string.
  */
 
 /*
@@ -178,7 +180,7 @@ _ppdGet1284Values(
   num_values = 0;
   while (*device_id)
   {
-    while (isspace(*device_id & 255))
+    while (_cups_isspace(*device_id))
       device_id ++;
 
     if (!*device_id)
@@ -191,13 +193,13 @@ _ppdGet1284Values(
     if (!*device_id)
       break;
 
-    while (ptr > key && isspace(ptr[-1] & 255))
+    while (ptr > key && _cups_isspace(ptr[-1]))
       ptr --;
 
     *ptr = '\0';
     device_id ++;
 
-    while (isspace(*device_id & 255))
+    while (_cups_isspace(*device_id))
       device_id ++;
 
     if (!*device_id)
@@ -210,7 +212,7 @@ _ppdGet1284Values(
     if (!*device_id)
       break;
 
-    while (ptr > value && isspace(ptr[-1] & 255))
+    while (ptr > value && _cups_isspace(ptr[-1]))
       ptr --;
 
     *ptr = '\0';
@@ -251,7 +253,7 @@ _ppdNormalizeMakeAndModel(
   * Skip leading whitespace...
   */
 
-  while (isspace(*make_and_model & 255))
+  while (_cups_isspace(*make_and_model))
     make_and_model ++;
 
  /*
@@ -406,7 +408,7 @@ _ppdNormalizeMakeAndModel(
   */
 
   for (bufptr = buffer + strlen(buffer) - 1;
-       bufptr >= buffer && isspace(*bufptr & 255);
+       bufptr >= buffer && _cups_isspace(*bufptr);
        bufptr --);
 
   bufptr[1] = '\0';

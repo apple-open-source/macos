@@ -310,7 +310,8 @@ IOUSBMassStorageClass::BulkOnlyTransferData (
 	// Start a bulk in or out transaction
 	if ( GetDataTransferDirection ( boRequestBlock->request ) == kSCSIDataTransfer_FromTargetToInitiator )
 	{
-	
+		requireMaxBusStall ( 10000 );
+		fRequiredMaxBusStall = 10000;
 		status = GetBulkInPipe()->Read(
 					GetDataBuffer( boRequestBlock->request ), 
 					GetTimeoutDuration( boRequestBlock->request ),  // Use the client's timeout for both
@@ -321,6 +322,8 @@ IOUSBMassStorageClass::BulkOnlyTransferData (
 	}
 	else if ( GetDataTransferDirection(boRequestBlock->request) == kSCSIDataTransfer_FromInitiatorToTarget )
 	{
+		requireMaxBusStall ( 10000 );
+		fRequiredMaxBusStall = 10000;
 		status = GetBulkOutPipe()->Write(
 					GetDataBuffer ( boRequestBlock->request ), 
 					GetTimeoutDuration ( boRequestBlock->request ),  // Use the client's timeout for both
@@ -391,6 +394,12 @@ IOUSBMassStorageClass::BulkOnlyExecuteCommandCompletion (
 
 	STATUS_LOG ( ( 4, "%s[%p]: BulkOnlyExecuteCommandCompletion Entered with boRequestBlock=%p currentState=%d resultingStatus=0x%x", getName(), this, boRequestBlock, boRequestBlock->currentState, resultingStatus ) );
 
+	if ( fRequiredMaxBusStall != 0 )
+	{
+		requireMaxBusStall ( 0 );
+		fRequiredMaxBusStall = 0;
+	}
+	
 	if ( ( boRequestBlock->request == NULL ) || ( fBulkOnlyCommandStructInUse == false ) )
 	{ 
 		// The request field is NULL, this appears to  be a double callback, do nothing.

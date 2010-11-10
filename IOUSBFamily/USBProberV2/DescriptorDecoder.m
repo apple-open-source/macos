@@ -28,7 +28,7 @@
 
 @implementation DescriptorDecoder
 
-+ (void)decodeBytes:(Byte *)p forDevice:(BusProbeDevice *)thisDevice deviceInterface:(IOUSBDeviceRef)deviceIntf userInfo:(void *)userInfo isOtherSpeedDesc:(BOOL)isOtherSpeedDesc 
++ (void)decodeBytes:(Byte *)p forDevice:(BusProbeDevice *)thisDevice deviceInterface:(IOUSBDeviceRef)deviceIntf userInfo:(void *)userInfo isOtherSpeedDesc:(BOOL)isOtherSpeedDesc  isinCurrentConfig:(Boolean)inCurrentConfig
 {
     switch ((UInt8)p[1]) {
         case kUSBInterfaceDesc:
@@ -38,8 +38,9 @@
             [DecodeEndpointDescriptor decodeBytes:p forDevice:thisDevice isOtherSpeedDesc:isOtherSpeedDesc];
             break;
         case HID_DESCRIPTOR:
-        // case DFU_FUNCTIONAL_DESCRIPTOR:  - same value, compiler complains
-            [DecodeHIDDescriptor decodeBytes:p forDevice:thisDevice withDeviceInterface:deviceIntf];
+			// case DFU_FUNCTIONAL_DESCRIPTOR:  - same value, compiler complains
+			// case CCID_DESCRIPTOR: // same value again
+            [DecodeHIDDescriptor decodeBytes:p forDevice:thisDevice withDeviceInterface:deviceIntf isinCurrentConfig:inCurrentConfig];
             break;
         case kUSBHUBDesc:
             [DecodeHubDescriptor decodeBytes:p forDevice:thisDevice];

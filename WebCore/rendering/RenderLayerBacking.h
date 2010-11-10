@@ -62,6 +62,7 @@ public:
     void updateGraphicsLayerGeometry(); // make private
     // Update contents and clipping structure.
     void updateInternalHierarchy(); // make private
+    void updateDrawsContent();
     
     GraphicsLayer* graphicsLayer() const { return m_graphicsLayer.get(); }
 
@@ -109,6 +110,8 @@ public:
     IntRect compositedBounds() const;
     void setCompositedBounds(const IntRect&);
     void updateCompositedBounds();
+    
+    void updateAfterWidgetResize();
 
     FloatPoint graphicsLayerToContentsCoordinates(const GraphicsLayer*, const FloatPoint&);
     FloatPoint contentsToGraphicsLayerCoordinates(const GraphicsLayer*, const FloatPoint&);
@@ -124,8 +127,6 @@ public:
 
     IntRect contentsBox() const;
     
-    RenderLayerCompositor* innerRenderLayerCompositor() const;
-
 private:
     void createGraphicsLayer();
     void destroyGraphicsLayer();

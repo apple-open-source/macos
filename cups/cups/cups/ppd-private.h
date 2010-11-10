@@ -1,5 +1,5 @@
 /*
- * "$Id: ppd-private.h 871 2008-07-18 19:03:59Z msweet $"
+ * "$Id: ppd-private.h 2254 2010-06-22 03:36:06Z msweet $"
  *
  *   Private PPD definitions for the Common UNIX Printing System (CUPS).
  *
@@ -44,8 +44,15 @@ extern "C" {
 
 
 /*
- * Structures...
+ * Types and structures...
  */
+
+typedef enum _ppd_parse_e		/**** Selector for _ppdParseOptions ****/
+{
+  _PPD_PARSE_OPTIONS,			/* Parse only the options */
+  _PPD_PARSE_PROPERTIES,		/* Parse only the properties */
+  _PPD_PARSE_ALL			/* Parse everything */
+} _ppd_parse_t;
 
 typedef struct _ppd_cups_uiconst_s	/**** Constraint from cupsUIConstraints ****/
 {
@@ -79,7 +86,8 @@ extern char		*_ppdNormalizeMakeAndModel(const char *make_and_model,
 			                           char *buffer,
 						   size_t bufsize);
 extern int		_ppdParseOptions(const char *s, int num_options,
-			                 cups_option_t **options);
+			                 cups_option_t **options,
+					 _ppd_parse_t which);
 
 
 /*
@@ -92,5 +100,5 @@ extern int		_ppdParseOptions(const char *s, int num_options,
 #endif /* !_CUPS_PPD_PRIVATE_H_ */
 
 /*
- * End of "$Id: ppd-private.h 871 2008-07-18 19:03:59Z msweet $".
+ * End of "$Id: ppd-private.h 2254 2010-06-22 03:36:06Z msweet $".
  */

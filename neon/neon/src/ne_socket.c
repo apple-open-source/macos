@@ -1,6 +1,6 @@
 /* 
    Socket handling routines
-   Copyright (C) 1998-2008, Joe Orton <joe@manyfish.co.uk>
+   Copyright (C) 1998-2009, Joe Orton <joe@manyfish.co.uk>
    Copyright (C) 1999-2000 Tommi Komulainen <Tommi.Komulainen@iki.fi>
    Copyright (C) 2004 Aleix Conchillo Flaque <aleix@member.fsf.org>
 
@@ -705,13 +705,18 @@ static ssize_t error_gnutls(ne_socket *sock, ssize_t sret)
 static ssize_t read_gnutls(ne_socket *sock, char *buffer, size_t len)
 {
     ssize_t ret;
+    unsigned reneg = 1; /* number of allowed rehandshakes */
 
     ret = readable_gnutls(sock, sock->rdtimeout);
     if (ret) return ret;
     
     do {
-        ret = gnutls_record_recv(sock->ssl, buffer, len);
-    } while (RETRY_GNUTLS(sock, ret));
+        do {
+            ret = gnutls_record_recv(sock->ssl, buffer, len);
+        } while (RETRY_GNUTLS(sock, ret));
+        
+    } while (ret == GNUTLS_E_REHANDSHAKE && reneg--
+             && (ret = gnutls_handshake(sock->ssl)) == GNUTLS_E_SUCCESS);
 
     if (ret <= 0)
 	ret = error_gnutls(sock, ret);
@@ -1002,6 +1007,20 @@ void ne_addr_destroy(ne_sock_addr *addr)
     ne_free(addr);
 }
 
+/* Perform a connect() for given fd, handling EINTR retries.  Returns
+ * zero on success or -1 on failure, in which case, ne_errno is set
+ * appropriately. */
+static int raw_connect(int fd, const struct sockaddr *sa, size_t salen)
+{
+    int ret;
+
+    do {
+        ret = connect(fd, sa, salen);
+    } while (ret < 0 && NE_ISINTR(ne_errno));
+
+    return ret;
+}
+
 /* Perform a connect() for fd to address sa of length salen, with a
  * timeout if supported on this platform.  Returns zero on success or
  * NE_SOCK_* on failure, with sock->error set appropriately. */
@@ -1016,12 +1035,17 @@ static int timed_connect(ne_socket *sock, int fd,
 
         /* Get flags and then set O_NONBLOCK. */
         flags = fcntl(fd, F_GETFL);
-        if (fcntl(fd, F_SETFL, flags | O_NONBLOCK) == -1) {
+        if (flags & O_NONBLOCK) {
+            /* This socket was created using SOCK_NONBLOCK... flip the
+             * bit for restoring flags later. */
+            flags &= ~O_NONBLOCK;
+        }
+        else if (fcntl(fd, F_SETFL, flags | O_NONBLOCK) == -1) {
             set_strerror(sock, errno);
             return NE_SOCK_ERROR;
         }
         
-        ret = connect(fd, sa, salen);
+        ret = raw_connect(fd, sa, salen);
         if (ret == -1) {
             errnum = ne_errno;
             if (NE_ISINPROGRESS(errnum)) {
@@ -1065,7 +1089,7 @@ static int timed_connect(ne_socket *sock, int fd,
     } else 
 #endif /* USE_NONBLOCKING_CONNECT */
     {
-        ret = connect(fd, sa, salen);
+        ret = raw_connect(fd, sa, salen);
         
         if (ret < 0) {
             set_strerror(sock, errno);
@@ -1191,14 +1215,43 @@ static int do_bind(int fd, int peer_family,
     }
 }
 
+#ifdef SOCK_CLOEXEC
+/* sock_cloexec is initialized to SOCK_CLOEXEC and cleared to zero if
+ * a socket() call ever fails with EINVAL. */
+static int sock_cloexec = SOCK_CLOEXEC;
+#define RETRY_ON_EINVAL
+#else
+#define sock_cloexec 0
+#endif
+
 int ne_sock_connect(ne_socket *sock,
                     const ne_inet_addr *addr, unsigned int port)
 {
     int fd, ret;
+    int type = SOCK_STREAM | sock_cloexec;
+
+#if defined(RETRY_ON_EINVAL) && defined(SOCK_NONBLOCK) \
+    && defined(USE_NONBLOCKING_CONNECT)
+    /* If the SOCK_NONBLOCK flag is defined, and the retry-on-EINVAL
+     * logic is enabled, and the socket has a configured timeout, then
+     * also use the SOCK_NONBLOCK flag to save enabling O_NONBLOCK
+     * later. */
+    if (sock->cotimeout && sock_cloexec) {
+        type |= SOCK_NONBLOCK;
+    }
+#endif
 
     /* use SOCK_STREAM rather than ai_socktype: some getaddrinfo
      * implementations do not set ai_socktype, e.g. RHL6.2. */
-    fd = socket(ia_family(addr), SOCK_STREAM, ia_proto(addr));
+    fd = socket(ia_family(addr), type, ia_proto(addr));
+#ifdef RETRY_ON_EINVAL
+    /* Handle forwards compat for new glibc on an older kernels; clear
+     * the sock_cloexec flag and retry the call: */
+    if (fd < 0 && sock_cloexec && errno == EINVAL) {
+        sock_cloexec = 0;
+        fd = socket(ia_family(addr), SOCK_STREAM, ia_proto(addr));
+    }
+#endif
     if (fd < 0) {
         set_strerror(sock, ne_errno);
 	return -1;
@@ -1213,9 +1266,10 @@ int ne_sock_connect(ne_socket *sock,
 #endif
    
 #if defined(HAVE_FCNTL) && defined(F_GETFD) && defined(F_SETFD) \
-    && defined(FD_CLOEXEC)
-    /* Set the FD_CLOEXEC bit for the new fd. */
-    if ((ret = fcntl(fd, F_GETFD)) >= 0) {
+  && defined(FD_CLOEXEC)
+    /* Set the FD_CLOEXEC bit for the new fd, if the socket was not
+     * created with the CLOEXEC bit already set. */
+    if (!sock_cloexec && (ret = fcntl(fd, F_GETFD)) >= 0) {
         fcntl(fd, F_SETFD, ret | FD_CLOEXEC);
         /* ignore failure; not a critical error. */
     }
@@ -1251,6 +1305,7 @@ int ne_sock_connect(ne_socket *sock,
 ne_inet_addr *ne_sock_peer(ne_socket *sock, unsigned int *port)
 {
     union saun {
+        struct sockaddr sa;
         struct sockaddr_in sin;
 #if defined(USE_GETADDRINFO) && defined(AF_INET6)
         struct sockaddr_in6 sin6;
@@ -1277,13 +1332,13 @@ ne_inet_addr *ne_sock_peer(ne_socket *sock, unsigned int *port)
     ia->ai_addr = ne_malloc(sizeof *ia);
     ia->ai_addrlen = len;
     memcpy(ia->ai_addr, sad, len);
-    ia->ai_family = sad->sa_family;
+    ia->ai_family = saun.sa.sa_family;
 #else
     memcpy(ia, &saun.sin.sin_addr.s_addr, sizeof *ia);
 #endif    
 
 #if defined(USE_GETADDRINFO) && defined(AF_INET6)
-    *port = ntohs(sad->sa_family == AF_INET ? 
+    *port = ntohs(saun.sa.sa_family == AF_INET ? 
                   saun.sin.sin_port : saun.sin6.sin6_port);
 #else
     *port = ntohs(saun.sin.sin_port);

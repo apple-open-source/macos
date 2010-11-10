@@ -1155,7 +1155,7 @@ SInt32 IONetworkInterface::performCommand(IONetworkController * ctr,
         // Get interface media type and status.
 
         case SIOCGIFMEDIA32:
-	case SIOCGIFMEDIA64:
+        case SIOCGIFMEDIA64:
             ret = syncSIOCGIFMEDIA(ctr, ifr, cmd);
             break;
 
@@ -1234,16 +1234,28 @@ int IONetworkInterface::performGatedCommand(void * target,
 errno_t
 IONetworkInterface::ioctl_shim(ifnet_t ifn, unsigned long cmd, void * data)
 {
-//    assert(ifp && ifp->if_private);
+    IONetworkInterface *    nif = (IONetworkInterface *) ifnet_softc(ifn);
+    IONetworkController *   ctr;
+    errno_t                 err;
+    
+    if (!nif || nif->isInactive())
+    {
+        return EOPNOTSUPP;
+    }
 
-    IONetworkInterface * self = (IONetworkInterface *) ifnet_softc(ifn);
+    ctr = nif->_controller;
+    if (!ctr)
+    {
+        return EINVAL;
+    }
+    
+    ctr->retain();
 
-//    assert(ifp == self->_ifp);
+    err = nif->performCommand( ctr, cmd, (void *) ifn, data );
 
-    return self->performCommand( self->_controller,
-                                 cmd,
-                                 (void *) ifn,
-                                 data );
+    ctr->release();
+
+    return err;
 }
 
 //---------------------------------------------------------------------------

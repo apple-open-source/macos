@@ -34,6 +34,8 @@ namespace WebCore {
 #define PROFILE_LAYER_REBUILD 0
 
 class GraphicsLayer;
+class RenderEmbeddedObject;
+class RenderIFrame;
 #if ENABLE(VIDEO)
 class RenderVideo;
 #endif
@@ -121,10 +123,18 @@ public:
     RenderLayer* rootRenderLayer() const;
     GraphicsLayer* rootPlatformLayer() const;
 
+    enum RootLayerAttachment {
+        RootLayerUnattached,
+        RootLayerAttachedViaChromeClient,
+        RootLayerAttachedViaEnclosingIframe
+    };
+
+    RootLayerAttachment rootLayerAttachment() const { return m_rootLayerAttachment; }
+    void updateRootLayerAttachment();
+    void updateRootLayerPosition();
+    
     void didMoveOnscreen();
     void willMoveOffscreen();
-
-    void updateRootLayerPosition();
     
     void didStartAcceleratedAnimation();
     
@@ -139,9 +149,17 @@ public:
     
     // Some platforms may wish to connect compositing layer trees between iframes and
     // their parent document.
-    static bool shouldPropagateCompositingToIFrameParent();
+    bool shouldPropagateCompositingToEnclosingIFrame() const;
 
-    void setRootPlatformLayerClippingBox(const IntRect& contentsBox);
+    Element* enclosingIFrameElement() const;
+
+    static RenderLayerCompositor* iframeContentsCompositor(RenderIFrame*);
+    // Return true if the layers changed.
+    static bool parentIFrameContentLayers(RenderIFrame*);
+
+    // Update the geometry of the layers used for clipping and scrolling in frames.
+    void updateContentLayerOffset(const IntPoint& contentsOffset);
+    void updateContentLayerScrollPosition(const IntPoint&);
 
 private:
     // Whether the given RL needs a compositing layer.
@@ -178,7 +196,15 @@ private:
 
     void ensureRootPlatformLayer();
     void destroyRootPlatformLayer();
+
+    void attachRootPlatformLayer(RootLayerAttachment);
+    void detachRootPlatformLayer();
     
+    void rootLayerAttachmentChanged();
+    
+    void scheduleNeedsStyleRecalc(Element*);
+    void notifyIFramesOfCompositingChange();
+
     // Whether a running transition or animation enforces the need for a compositing layer.
     bool requiresCompositingForAnimation(RenderObject*) const;
     bool requiresCompositingForTransform(RenderObject*) const;
@@ -195,12 +221,20 @@ private:
     bool m_showDebugBorders;
     bool m_showRepaintCounter;
     bool m_compositingConsultsOverlap;
+
+    // When true, we have to wait until layout has happened before we can decide whether to enter compositing mode,
+    // because only then do we know the final size of plugins and iframes.
+    // FIXME: once set, this is never cleared.
+    mutable bool m_compositingDependsOnGeometry;
+
     bool m_compositing;
-    bool m_rootLayerAttached;
     bool m_compositingLayersNeedRebuild;
 
+    RootLayerAttachment m_rootLayerAttachment;
+
     // Enclosing clipping layer for iframe content
-    OwnPtr<GraphicsLayer> m_clippingLayer;
+    OwnPtr<GraphicsLayer> m_clipLayer;
+    OwnPtr<GraphicsLayer> m_scrollLayer;
     
 #if PROFILE_LAYER_REBUILD
     int m_rootLayerUpdateCount;

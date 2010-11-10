@@ -1,5 +1,5 @@
 //
-// "$Id: ppdc-source.cxx 1821 2010-01-14 23:05:18Z msweet $"
+// "$Id: ppdc-source.cxx 2318 2010-07-08 23:29:48Z msweet $"
 //
 //   Source class for the CUPS PPD Compiler.
 //
@@ -1364,17 +1364,17 @@ ppdcSource::get_integer(const char *v)	// I - Value string
 	while (isspace(*newv & 255))
 	  newv ++;
 
-        if (strncmp(newv, "==", 2))
+        if (!strncmp(newv, "==", 2))
 	{
 	  compop = PPDC_EQ;
 	  newv += 2;
 	}
-        else if (strncmp(newv, "!=", 2))
+        else if (!strncmp(newv, "!=", 2))
         {
 	  compop = PPDC_NE;
 	  newv += 2;
 	}
-        else if (strncmp(newv, "<=", 2))
+        else if (!strncmp(newv, "<=", 2))
         {
 	  compop = PPDC_LE;
 	  newv += 2;
@@ -1384,7 +1384,7 @@ ppdcSource::get_integer(const char *v)	// I - Value string
 	  compop = PPDC_LT;
 	  newv ++;
 	}
-        else if (strncmp(newv, ">=", 2))
+        else if (!strncmp(newv, ">=", 2))
         {
 	  compop = PPDC_GE;
 	  newv += 2;
@@ -1405,7 +1405,7 @@ ppdcSource::get_integer(const char *v)	// I - Value string
           if (*newv == ')' || !*newv)
 	    return (-1);
 
-	  if (isdigit(*v & 255) || *v == '-' || *v == '+')
+	  if (isdigit(*newv & 255) || *newv == '-' || *newv == '+')
 	  {
 	    // Get the second number...
 	    temp2 = strtol(newv, &newv, 0);
@@ -2046,8 +2046,8 @@ ppdcSource::get_token(ppdcFile *fp,	// I - File to read
 	var = find_variable(name);
 	if (var)
 	{
-	  strncpy(bufptr, var->value->value, bufend - bufptr);
-	  bufptr += strlen(var->value->value);
+	  strlcpy(bufptr, var->value->value, bufend - bufptr + 1);
+	  bufptr += strlen(bufptr);
 	}
 	else
 	{
@@ -2057,7 +2057,7 @@ ppdcSource::get_token(ppdcFile *fp,	// I - File to read
 			      "%s.\n"), name, fp->line, fp->filename);
 
 	  snprintf(bufptr, bufend - bufptr + 1, "$%s", name);
-	  bufptr += strlen(name) + 1;
+	  bufptr += strlen(bufptr);
 	}
       }
     }
@@ -3897,5 +3897,5 @@ ppdcSource::write_file(const char *f)	// I - File to write
 
 
 //
-// End of "$Id: ppdc-source.cxx 1821 2010-01-14 23:05:18Z msweet $".
+// End of "$Id: ppdc-source.cxx 2318 2010-07-08 23:29:48Z msweet $".
 //

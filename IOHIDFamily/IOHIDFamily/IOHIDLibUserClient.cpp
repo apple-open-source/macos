@@ -155,6 +155,8 @@ sMethods[kIOHIDLibUserClientNumCommands] = {
 	}
 };
 
+#define kIOHIDLibClientExtendedData     "ExtendedData"
+
 static void deflate_vec(uint32_t *dp, uint32_t d, const uint64_t *sp, uint32_t s)
 {
 	if (d > s)
@@ -169,8 +171,13 @@ bool IOHIDLibUserClient::
 initWithTask(task_t owningTask, void * /* security_id */, UInt32 /* type */)
 {
 	if (!super::init())
-	return false;
+		return false;
 
+    if (IOUserClient::clientHasPrivilege(owningTask, kIOClientPrivilegeAdministrator) != kIOReturnSuccess) {
+		// Preparing for extended data. Set a temporary key.
+        setProperty(kIOHIDLibClientExtendedData, true);
+    }
+    
 	fClient = owningTask;
 	task_reference (fClient);
 	
@@ -1216,26 +1223,58 @@ IOReturn IOHIDLibUserClient::setReport(IOMemoryDescriptor * mem, IOHIDReportType
 
 	if (fNub && !isInactive()) {
 		ret = mem->prepare();
-		if(ret == kIOReturnSuccess)
-			if ( completion ) {
-				AsyncParam * pb = (AsyncParam *)completion->parameter;
-				pb->fMax		= mem->getLength();
-				pb->fMem		= mem;
-				pb->reportType	= reportType;
+		if(ret == kIOReturnSuccess) {
+            OSArray *extended = OSDynamicCast(OSArray, getProperty(kIOHIDLibClientExtendedData));
+            if (extended && extended->getCount()) {
+                OSCollectionIterator *itr = OSCollectionIterator::withCollection(extended);
+                if (itr) {
+                    bool done = false;
+                    while (!done) {
+                        OSObject *obj;
+                        while (!done && (NULL != (obj = itr->getNextObject()))) {
+                            OSNumber *num = OSDynamicCast(OSNumber, obj);
+                            if (num && (num->numberOfBits() <= 64)) {
+                                if (num->unsigned64BitValue() == reportID) {
+                                	// Block
+                                    done = true;
+                                    ret = kIOReturnNotPrivileged;
+                                }
+                            }
+                        }
+                        if (itr->isValid()) {
+                        	// Do not block
+                            done = true;
+                        }
+                        else {
+                        	// Someone changed the array. Check again.
+                            itr->reset();
+                        }
+                    }
+                    itr->release();
+                }
+            }
+            if (ret == kIOReturnSuccess) {
+                if ( completion ) {
+                    AsyncParam * pb = (AsyncParam *)completion->parameter;
+                    pb->fMax		= mem->getLength();
+                    pb->fMem		= mem;
+                    pb->reportType	= reportType;
 
-				mem->retain();
+                    mem->retain();
 
-				ret = fNub->setReport(mem, reportType, reportID, timeout, completion);
-			}
-			else {
-				ret = fNub->setReport(mem, reportType, reportID);
-					
-				// make sure the element values are updated.
-				if (ret == kIOReturnSuccess)
-					fNub->handleReport(mem, reportType, kIOHIDReportOptionNotInterrupt);
-				
-				mem->complete();
-			}
+                    ret = fNub->setReport(mem, reportType, reportID, timeout, completion);
+                }
+                else {
+                    ret = fNub->setReport(mem, reportType, reportID);
+                        
+                    // make sure the element values are updated.
+                    if (ret == kIOReturnSuccess)
+                        fNub->handleReport(mem, reportType, kIOHIDReportOptionNotInterrupt);
+                    
+                    mem->complete();
+                }
+            }
+        }
 	}
 	else
 		ret = kIOReturnNotAttached;
@@ -1334,3 +1373,23 @@ u_int IOHIDLibUserClient::getNextTokenForToken(u_int token)
 
 // rdar://5957582 end
 
+bool
+IOHIDLibUserClient::attach(IOService * provider)
+{
+    if (!super::attach(provider)) {
+        return false;
+    }
+    if (provider && getProperty(kIOHIDLibClientExtendedData)) {
+        // Check for extended data
+        OSArray *extended = OSDynamicCast(OSArray, provider->getProperty(kIOHIDLibClientExtendedData, gIOServicePlane));
+        if (extended && extended->getCount()) {
+            // Extended data found. Replace the temporary key.
+            setProperty(kIOHIDLibClientExtendedData, extended);
+        }
+        else {
+        	// No extended data found. Remove the temporary key.
+            removeProperty(kIOHIDLibClientExtendedData);
+        }
+    }
+    return true;
+}

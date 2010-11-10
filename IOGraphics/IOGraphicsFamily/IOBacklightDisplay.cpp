@@ -128,8 +128,8 @@ void IOBacklightDisplay::initPowerManagement( IOService * provider )
         //   capabilityFlags,      outputPowerCharacter, inputPowerRequirement,
         { 1, 0,                                     0, 0,           0,0,0,0,0,0,0,0 },
         { 1, 0,                                     0, 0,           0,0,0,0,0,0,0,0 },
-        { 1, IOPMDeviceUsable,                      0, IOPMPowerOn, 0,0,0,0,0,0,0,0 },
-        { 1, IOPMDeviceUsable | IOPMMaxPerformance, 0, IOPMPowerOn, 0,0,0,0,0,0,0,0 }
+        { 1, IOPMDeviceUsable,                      0, kIOPMPowerOn, 0,0,0,0,0,0,0,0 },
+        { 1, IOPMDeviceUsable | IOPMMaxPerformance, 0, kIOPMPowerOn, 0,0,0,0,0,0,0,0 }
         // staticPower, unbudgetedPower, powerToAttain, timeToAttain, settleUpTime,
         // timeToLower, settleDownTime, powerDomainBudget
     };
@@ -169,8 +169,6 @@ void IOBacklightDisplay::initPowerManagement( IOService * provider )
     fMaxBrightnessLevel[1] = fMinBrightness;
     fMaxBrightnessLevel[2] = fMinBrightness + 1;
     fMaxBrightnessLevel[3] = fMaxBrightness;
-
-    fDisplayPMVars->currentState = kIODisplayMaxPowerState;
 
     // Check initial state of "DisplaySleepUsesDim"
     OSObject * obj = getPMRootDomain()->copyPMSetting(

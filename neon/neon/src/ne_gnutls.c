@@ -350,7 +350,7 @@ static int check_identity(const ne_uri *server, gnutls_x509_crt cert,
         case GNUTLS_SAN_DNSNAME:
             name[len] = '\0';
             if (identity && !found) *identity = ne_strdup(name);
-            match = ne__ssl_match_hostname(name, hostname);
+            match = ne__ssl_match_hostname(name, len, hostname);
             found = 1;
             break;
         case GNUTLS_SAN_IPADDRESS: {
@@ -419,7 +419,7 @@ static int check_identity(const ne_uri *server, gnutls_x509_crt cert,
                                                 seq, 0, name, &len);
             if (ret == 0) {
                 if (identity) *identity = ne_strdup(name);
-                match = ne__ssl_match_hostname(name, hostname);
+                match = ne__ssl_match_hostname(name, len, hostname);
             }
         } else {
             return -1;
@@ -574,6 +574,8 @@ ne_ssl_context *ne_ssl_context_create(int flags)
         gnutls_certificate_client_set_retrieve_function(ctx->cred,
                                                         provide_client_cert);
     }
+    gnutls_certificate_set_verify_flags(ctx->cred, 
+                                        GNUTLS_VERIFY_ALLOW_X509_V1_CA_CRT);
     return ctx;
 }
 
@@ -634,7 +636,9 @@ static ne_ssl_certificate *make_peers_chain(gnutls_session sock)
 
         if (gnutls_x509_crt_init(&x5) ||
             gnutls_x509_crt_import(x5, &certs[n], GNUTLS_X509_FMT_DER)) {
-            ne_ssl_cert_free(top);
+            if (top) {
+                ne_ssl_cert_free(top);
+            }
             return NULL;
         }
 
@@ -854,6 +858,10 @@ static int pkcs12_parse(gnutls_pkcs12 p12, gnutls_x509_privkey *pkey,
             switch (type) {
             case GNUTLS_BAG_PKCS8_KEY:
             case GNUTLS_BAG_PKCS8_ENCRYPTED_KEY:
+                /* Ignore any but the first key encountered; really
+                 * need to match up keyids. */
+                if (*pkey) break;
+
                 gnutls_x509_privkey_init(pkey);
 
                 ret = gnutls_pkcs12_bag_get_data(bag, j, &data);
@@ -866,6 +874,10 @@ static int pkcs12_parse(gnutls_pkcs12 p12, gnutls_x509_privkey *pkey,
                 if (ret < 0) continue;
                 break;
             case GNUTLS_BAG_CERTIFICATE:
+                /* Ignore any but the first cert encountered; again,
+                 * really need to match up keyids. */
+                if (*x5) break;
+
                 gnutls_x509_crt_init(x5);
 
                 ret = gnutls_pkcs12_bag_get_data(bag, j, &data);

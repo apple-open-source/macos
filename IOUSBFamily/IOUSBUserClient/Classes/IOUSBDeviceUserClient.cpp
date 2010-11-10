@@ -1422,7 +1422,7 @@ IOUSBDeviceUserClientV2::RequestExtraPower(UInt32 type, UInt32 requestedPower, u
 {
 	IOReturn	ret = kIOReturnSuccess;
 	
-	USBLog(5, "+IOUSBDeviceUserClientV2[%p]::RequestExtraPower  requesting type %d power = %d",  this, (uint32_t) type, (uint32_t) requestedPower);
+	USBLog(5, "+IOUSBDeviceUserClientV2[%p]::RequestExtraPower  requesting type %s, power = %d",  this, type == kUSBPowerDuringSleep ? "kUSBPowerDuringSleep" : "kUSBPowerDuringWake", (uint32_t) requestedPower);
 	IncrementOutstandingIO();
     
 	*powerAvailable = 0;
@@ -1464,7 +1464,7 @@ IOUSBDeviceUserClientV2::ReturnExtraPower(UInt32 type, UInt32 returnedPower)
 {
     IOReturn	ret = kIOReturnSuccess;
 	
-    USBLog(5, "+IOUSBDeviceUserClientV2[%p]::ReturnExtraPower returning type %d power = %d",  this, (uint32_t) type, (uint32_t) returnedPower);
+    USBLog(5, "+IOUSBDeviceUserClientV2[%p]::ReturnExtraPower returning type %s, power = %d",  this, type == kUSBPowerDuringSleep ? "kUSBPowerDuringSleep" : "kUSBPowerDuringWake", (uint32_t) returnedPower);
     IncrementOutstandingIO();
     
     if (fOwner && !isInactive())
@@ -1501,7 +1501,7 @@ IOUSBDeviceUserClientV2::GetExtraPowerAllocated(UInt32 type, uint64_t *powerAllo
 {
 	IOReturn	ret = kIOReturnSuccess;
 	
-	USBLog(5, "+IOUSBDeviceUserClientV2[%p]::GetExtraPowerAllocated  requesting type %d",  this, (uint32_t) type);
+	USBLog(5, "+IOUSBDeviceUserClientV2[%p]::GetExtraPowerAllocated  requesting type %s",  this, type == kUSBPowerDuringSleep ? "kUSBPowerDuringSleep" : "kUSBPowerDuringWake");
 	IncrementOutstandingIO();
     
 	*powerAllocated = 0;
@@ -1510,6 +1510,12 @@ IOUSBDeviceUserClientV2::GetExtraPowerAllocated(UInt32 type, uint64_t *powerAllo
 	{
 		*powerAllocated = (uint64_t) fOwner->GetExtraPowerAllocated(type);
 		
+		// Workaround for 8001347.  We know that the user client only asks for 500, so if we 400, set it to 0
+		if ( *powerAllocated == 400 && type == kUSBPowerDuringWake )
+		{
+			USBLog(3, "IOUSBDeviceUserClientV2[%p]::GetExtraPowerAllocated - setting  *powerAllocated to 0 from 400 for bug workaround",  this);
+			*powerAllocated = 0;
+		}
 	}
     else
         ret = kIOReturnNotAttached;
@@ -1932,6 +1938,7 @@ IOUSBDeviceUserClientV2::message( UInt32 type, IOService * provider,  void * arg
             break;
     }
     
+	USBLog(6,"IOUSBDeviceUserClientV2[%p]::message -  received 0x%x", this, (unsigned int)type);
     return err;
 }
 

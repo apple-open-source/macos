@@ -190,6 +190,7 @@
 @interface NSWindow (WebNSWindowDetails) 
 - (id)_oldFirstResponderBeforeBecoming;
 - (void)_enableScreenUpdatesIfNeeded;
+- (BOOL)_wrapsCarbonWindow;
 @end
 
 using namespace WebCore;
@@ -1395,6 +1396,7 @@ static bool fastDocumentTeardownEnabled()
     settings->setJavaScriptCanAccessClipboard([preferences javaScriptCanAccessClipboard]);
     settings->setXSSAuditorEnabled([preferences isXSSAuditorEnabled]);
     settings->setEnforceCSSMIMETypeInStrictMode(!WKAppVersionCheckLessThan(@"com.apple.iWeb", -1, 2.1));
+    settings->setDNSPrefetchingEnabled([preferences isDNSPrefetchingEnabled]);
     
     // FIXME: Enabling accelerated compositing when WebGL is enabled causes tests to fail on Leopard which expect HW compositing to be disabled.
     // Until we fix that, I will comment out the test (CFM)
@@ -5663,7 +5665,15 @@ static void layerSyncRunLoopObserverCallBack(CFRunLoopObserverRef, CFRunLoopActi
     // An NSWindow may not display in the next runloop cycle after dirtying due to delayed window display logic,
     // in which case this observer can fire first. So if the window is due for a display, don't commit
     // layer changes, otherwise they'll show on screen before the view drawing.
-    if ([window viewsNeedDisplay])
+    bool viewsNeedDisplay;
+#ifndef __LP64__
+    if (window && [window _wrapsCarbonWindow])
+        viewsNeedDisplay = HIViewGetNeedsDisplay(HIViewGetRoot(static_cast<WindowRef>([window windowRef])));
+    else
+#endif
+        viewsNeedDisplay = [window viewsNeedDisplay];
+
+    if (viewsNeedDisplay)
         return;
 
     if ([webView _syncCompositingChanges]) {

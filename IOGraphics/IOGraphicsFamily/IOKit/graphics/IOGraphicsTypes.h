@@ -31,7 +31,7 @@
 extern "C" {
 #endif
 
-#define IOGRAPHICSTYPES_REV     24
+#define IOGRAPHICSTYPES_REV     28
 
 typedef SInt32  IOIndex;
 typedef UInt32  IOSelect;
@@ -710,6 +710,8 @@ enum {
     kConnectionControllerDitherControl   = '\0gdc',
 
     kConnectionDisplayFlags              = 'dflg',
+
+    kConnectionEnableAudio               = 'aud ',
 };
 
 // kConnectionFlags values
@@ -750,10 +752,11 @@ enum {
 #define kIODisplaySupportsBasicAudioKey "IODisplaySupportsBasicAudio"
 #define kIODisplaySupportsYCbCr444Key   "IODisplaySupportsYCbCr444"
 #define kIODisplaySupportsYCbCr422Key   "IODisplaySupportsYCbCr422"
+#define kIODisplaySelectedColorModeKey  "cmod"
 
 enum
 { 
-    kIODisplayColorMode = kConnectionColorMode,
+    kIODisplayColorMode         = kConnectionColorMode,
 };
 
 #if 0
@@ -985,7 +988,9 @@ enum {
     // DisplayPort link event
     kIOFBDisplayPortLinkChangeInterruptType = 'dplk',
     // MCCS
-    kIOFBMCCSInterruptType                  = 'mccs'
+    kIOFBMCCSInterruptType                  = 'mccs',
+    // early vram notification
+    kIOFBWakeInterruptType                  = 'vwak'
 };
 
 // IOAppleTimingID's
@@ -1090,6 +1095,8 @@ enum {
     kIOHibernatePreviewUpdates = 0x00000002
 };
 #endif
+
+#define kIOHibernateEFIGfxStatusKey    "IOHibernateEFIGfxStatus"
 
 // CFNumber/CFData
 #define kIOFBAVSignalTypeKey            "av-signal-type"

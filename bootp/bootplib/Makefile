@@ -25,7 +25,7 @@ readtest:
 	cc -Wall -g -o readtest -DREAD_TEST NICache.c dynarray.c ptrlist.c netinfo.c host_identifier.c util.c
 
 arp: arp.c arp.h
-	cc -Wall -g -o arp -DMAIN arp.c
+	cc -Wall -g -o arp -DMAIN arp.c -I/System/Library/Frameworks/System.framework/PrivateHeaders
 
 nihosts:
 	cc -Wall -g -o nihosts -DTEST_NIHOSTS NIHosts.m util.c NIDomain.c dynarray.c ptrlist.c netinfo.c host_identifier.c

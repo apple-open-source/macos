@@ -397,6 +397,8 @@
 		84EC17970EF71A1B00885282 /* IOUserEthernetController.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 84EC17930EF719FF00885282 /* IOUserEthernetController.h */; };
 		84F70BC80EF0E5AF00FF9E99 /* IOUserEthernetResourceUserClient.h in Headers */ = {isa = PBXBuildFile; fileRef = 84F70BC70EF0E5AF00FF9E99 /* IOUserEthernetResourceUserClient.h */; };
 		84F70BC90EF0E5C300FF9E99 /* IOUserEthernetResourceUserClient.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 84F70BC70EF0E5AF00FF9E99 /* IOUserEthernetResourceUserClient.h */; };
+		B976815B11DA68F400538ECD /* IOHIDManagerPersistentProperties.h in Headers */ = {isa = PBXBuildFile; fileRef = B976815A11DA68F400538ECD /* IOHIDManagerPersistentProperties.h */; };
+		B976815C11DA692400538ECD /* IOHIDManagerPersistentProperties.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = B976815A11DA68F400538ECD /* IOHIDManagerPersistentProperties.h */; };
 		BABB8C3C07DF311D005D5A3C /* IOPMLibPrivate.c in Sources */ = {isa = PBXBuildFile; fileRef = BABB8C3707DF311D005D5A3C /* IOPMLibPrivate.c */; };
 		DA3CE2A40D46AF6B009749E9 /* IOUSBDeviceControllerLib.c in Sources */ = {isa = PBXBuildFile; fileRef = DA3CE2A20D46AF6B009749E9 /* IOUSBDeviceControllerLib.c */; };
 		DA3CE2A50D46AF6B009749E9 /* IOUSBDeviceControllerLib.h in Headers */ = {isa = PBXBuildFile; fileRef = DA3CE2A30D46AF6B009749E9 /* IOUSBDeviceControllerLib.h */; };
@@ -860,6 +862,7 @@
 			dstPath = "Versions/$(FRAMEWORK_VERSION)/PrivateHeaders/hid";
 			dstSubfolderSpec = 1;
 			files = (
+				B976815C11DA692400538ECD /* IOHIDManagerPersistentProperties.h in CopyFiles */,
 				843C1FFD0C0793010009057F /* IOHIDEvent.h in CopyFiles */,
 				843C1FFE0C0793010009057F /* IOHIDServiceKeys.h in CopyFiles */,
 				843C1FFF0C0793010009057F /* IOHIDServicePlugIn.h in CopyFiles */,
@@ -1243,6 +1246,7 @@
 		84EC17950EF71A0700885282 /* IOUserEthernetController.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = IOUserEthernetController.c; sourceTree = "<group>"; };
 		84F70BC70EF0E5AF00FF9E99 /* IOUserEthernetResourceUserClient.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = IOUserEthernetResourceUserClient.h; path = System/Library/Frameworks/IOKit.framework/Versions/A/PrivateHeaders/network/IOUserEthernetResourceUserClient.h; sourceTree = SDKROOT; };
 		A949EDE20E15DFAC004079DB /* AspenSDK.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; name = AspenSDK.xcconfig; path = AppleInternal/XcodeConfig/AspenSDK.xcconfig; sourceTree = DEVELOPER_DIR; };
+		B976815A11DA68F400538ECD /* IOHIDManagerPersistentProperties.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = IOHIDManagerPersistentProperties.h; sourceTree = "<group>"; };
 		BABB8C3607DF311D005D5A3C /* IOPMKeys.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IOPMKeys.h; sourceTree = "<group>"; };
 		BABB8C3707DF311D005D5A3C /* IOPMLibPrivate.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = IOPMLibPrivate.c; sourceTree = "<group>"; };
 		BABB8C3807DF311D005D5A3C /* IOPMLibPrivate.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IOPMLibPrivate.h; sourceTree = "<group>"; };
@@ -1551,6 +1555,7 @@
 		844A55DA0A54A8F100FAE0BC /* PrivateHeaders */ = {
 			isa = PBXGroup;
 			children = (
+				B976815A11DA68F400538ECD /* IOHIDManagerPersistentProperties.h */,
 				843C1FEE0C0790410009057F /* IOHIDEvent.h */,
 				843C1FFB0C0792FA0009057F /* IOHIDServiceKeys.h */,
 				843C1FF80C0792DB0009057F /* IOHIDServicePlugIn.h */,
@@ -2087,6 +2092,7 @@
 				847A12690C07C3A400F3CCDB /* IOHIDTypes.h in Headers */,
 				8445AAC50C31A941007BF6A8 /* IOHIDEventQueue.h in Headers */,
 				8494352F104F76D100C3497B /* IOMIGMachPort.h in Headers */,
+				B976815B11DA68F400538ECD /* IOHIDManagerPersistentProperties.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

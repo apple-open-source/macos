@@ -63,13 +63,8 @@ extern "C" {
 #define super IOUSBNub
 
 #define _PORT_NUMBER					_expansionData->_portNumber
-#define _DO_PORT_RESET_THREAD			_expansionData->_doPortResetThread
 #define _USBPLANE_PARENT				_expansionData->_usbPlaneParent
-#define _PORT_RESET_THREAD_ACTIVE		_expansionData->_portResetThreadActive
 #define _ALLOW_CONFIGVALUE_OF_ZERO		_expansionData->_allowConfigValueOfZero
-#define _DO_PORT_REENUMERATE_THREAD		_expansionData->_doPortReEnumerateThread
-#define _RESET_IN_PROGRESS				_expansionData->_resetInProgress
-#define _PORT_HAS_BEEN_RESET			_expansionData->_portHasBeenReset
 #define _WORKLOOP						_expansionData->_workLoop
 #define _NOTIFIERHANDLER_TIMER			_expansionData->_notifierHandlerTimer
 #define _NOTIFICATION_TYPE				_expansionData->_notificationType
@@ -89,8 +84,11 @@ extern "C" {
 #define _DEVICEISINTERNAL				_expansionData->_deviceIsInternal
 #define _DEVICEISINTERNALISVALID		_expansionData->_deviceIsInternalIsValid
 #define _GETCONFIGLOCK					_expansionData->_newGetConfigLock
-#define _RESET_AND_REENUMERATE_LOCK		_expansionData->_resetAndReEnumerateLock
 #define _LOCATIONID						_expansionData->_locationID
+#define _INTERFACEARRAYLOCK				_expansionData->_interfaceArrayLock
+#define _INTERFACEARRAY					_expansionData->_interfaceArray
+#define _RESET_IN_PROGRESS				_expansionData->_resetInProgress
+#define _DO_PORT_REENUMERATE_THREAD		_expansionData->_doPortReEnumerateThread
 
 
 #define kNotifyTimerDelay			30000	// in milliseconds = 30 seconds
@@ -309,6 +307,13 @@ IOUSBDevice::start( IOService * provider )
         goto ErrorExit;
 	}
 
+	_INTERFACEARRAYLOCK = IOLockAlloc();
+    if (!_INTERFACEARRAYLOCK)
+	{
+		USBError(1,"%s[%p]::start - unable to allocate _INTERFACEARRAYLOCK", getName(), this);
+        return kIOReturnNoMemory;
+	}
+	
 	// Don't do this until we have a controller
     //
     _endpointZero.bLength = sizeof(_endpointZero);
@@ -441,16 +446,16 @@ IOUSBDevice::start( IOService * provider )
 		{
 			switch ( _descriptor.bDeviceClass )
 			{
-				case (kUSBCompositeClass):				setName("IOUSBCompositeDevice");			break;
-				case (kUSBAudioClass):					setName("IOUSBAudioDevice");				break;
-				case (kUSBCommClass):					setName("IOUSBCommunicationsDevice");		break;
-				case (kUSBHubClass):					setName("IOUSBHubDevice");					break;
-				case (kUSBDataClass):					setName("IOUSBDataDevice");					break;
-				case (kUSBDiagnosticClass):				setName("IOUSBDiagnosticDevice");			break;
-				case (kUSBWirelessControllerClass):		setName("IOUSBWirelessControllerDevice");	break;
-				case (kUSBMiscellaneousClass):			setName("IOUSBMiscellaneousDevice");		break;
-				case (kUSBApplicationSpecificClass):	setName("IOUSBApplicationSpecific");		break;
-				case (kUSBVendorSpecificClass):			setName("IOUSBVendorSpecificDevice");		break;
+				case (kUSBCompositeClass):				setName("CompositeDevice");				break;
+				case (kUSBAudioClass):					setName("AudioDevice");					break;
+				case (kUSBCommClass):					setName("CommunicationsDevice");		break;
+				case (kUSBHubClass):					setName("HubDevice");					break;
+				case (kUSBDataClass):					setName("DataDevice");					break;
+				case (kUSBDiagnosticClass):				setName("DiagnosticDevice");			break;
+				case (kUSBWirelessControllerClass):		setName("WirelessControllerDevice");	break;
+				case (kUSBMiscellaneousClass):			setName("MiscellaneousDevice");			break;
+				case (kUSBApplicationSpecificClass):	setName("ApplicationSpecific");			break;
+				case (kUSBVendorSpecificClass):			setName("VendorSpecificDevice");		break;
 			}
 		}
 		
@@ -497,35 +502,20 @@ IOUSBDevice::start( IOService * provider )
 	
     // allocate a thread_call structure for reset and suspend
     //
-    _DO_PORT_RESET_THREAD = thread_call_allocate((thread_call_func_t)ProcessPortResetEntry, (thread_call_param_t)this);
-    _DO_PORT_REENUMERATE_THREAD = thread_call_allocate((thread_call_func_t)ProcessPortReEnumerateEntry, (thread_call_param_t)this);
 	_DO_MESSAGE_CLIENTS_THREAD = thread_call_allocate((thread_call_func_t)DoMessageClientsEntry, (thread_call_param_t)this);
+    _DO_PORT_REENUMERATE_THREAD = thread_call_allocate((thread_call_func_t)ProcessPortReEnumerateEntry, (thread_call_param_t)this);
 	
-	if ( !_DO_PORT_RESET_THREAD || !_DO_PORT_REENUMERATE_THREAD || !_DO_MESSAGE_CLIENTS_THREAD )
+	if (  !_DO_MESSAGE_CLIENTS_THREAD || !_DO_PORT_REENUMERATE_THREAD)
 	{
 		USBError(1, "%s[%p] could not allocate all thread functions.  Aborting start", getName(), this);
 		goto ErrorExit;
 	}
 	
     // for now, we have no interfaces, so make sure the list is NULL and zero out other counts
-    _interfaceList = NULL;
+    _INTERFACEARRAY = NULL;
     _currentConfigValue	= 0;		// unconfigured device
-    _numInterfaces = 0;			// so no active interfaces
-	
-    _NOTIFIERHANDLER_TIMER = IOTimerEventSource::timerEventSource(this, (IOTimerEventSource::Action) DisplayUserNotificationForDeviceEntry);
-	
-    if ( _NOTIFIERHANDLER_TIMER == NULL )
-    {
-        USBError(1, "%s[%p]::start Couldn't allocate timer event source", getName(), this);
-        goto ErrorExit;
-    }
+	_NOTIFIERHANDLER_TIMER = 0;
 		
-    if ( _WORKLOOP->addEventSource( _NOTIFIERHANDLER_TIMER ) != kIOReturnSuccess )
-    {
-        USBError(1, "%s[%p]::start Couldn't add timer event source", getName(), this);
-        goto ErrorExit;
-    }
-	
     return true;
 	
 ErrorExit:
@@ -560,22 +550,16 @@ ErrorExit:
         _WORKLOOP = NULL;
     }
 	
-    if (_DO_PORT_RESET_THREAD)
-    {
-        thread_call_cancel(_DO_PORT_RESET_THREAD);
-        thread_call_free(_DO_PORT_RESET_THREAD);
-    }
-	
-    if (_DO_PORT_REENUMERATE_THREAD)
-    {
-        thread_call_cancel(_DO_PORT_REENUMERATE_THREAD);
-        thread_call_free(_DO_PORT_REENUMERATE_THREAD);
-    }
-	
     if (_DO_MESSAGE_CLIENTS_THREAD)
     {
         thread_call_cancel(_DO_MESSAGE_CLIENTS_THREAD);
         thread_call_free(_DO_MESSAGE_CLIENTS_THREAD);
+    }
+	
+	if (_DO_PORT_REENUMERATE_THREAD)
+    {
+        thread_call_cancel(_DO_PORT_REENUMERATE_THREAD);
+        thread_call_free(_DO_PORT_REENUMERATE_THREAD);
     }
 	
     return false;
@@ -683,6 +667,7 @@ IOUSBDevice::handleClose(IOService *forClient, IOOptionBits options)
 bool	
 IOUSBDevice::terminate(IOOptionBits options)
 {	
+	IOReturn				kr = kIOReturnSuccess;
 	bool					retValue;
 	IOUSBControllerV3		*v3Bus = OSDynamicCast(IOUSBControllerV3, _controller);
 	
@@ -698,12 +683,62 @@ IOUSBDevice::terminate(IOOptionBits options)
 		v3Bus->EnableAddressEndpoints(_address, true);
 	}
 	
+	if ( _SLEEPPOWERALLOCATED != 0 )
+	{
+		USBLog(6, "%s[%p]::terminate  we still had %d sleep power allocated", getName(), this, (uint32_t) _SLEEPPOWERALLOCATED);
+		if ( _HUBPARENT )
+			kr = _HUBPARENT->ReturnExtraPower(_PORT_NUMBER, kUSBPowerDuringSleep, _SLEEPPOWERALLOCATED);
+		
+		if ( kr != kIOReturnSuccess )
+		{			
+			USBLog(6, "%s[%p]::terminate  ReturnExtraPower(kUSBPowerDuringSleep) returned 0x%x", getName(), this, kr);
+		}
+		else 
+		{
+			_SLEEPPOWERALLOCATED = 0;
+		}
+		
+		USBLog(6, "%s[%p]::terminate - calling for other devices to reallocate sleep extra power", getName(), this);
+		kr = RequestExtraPower(kUSBPowerRequestSleepReallocate, 0);
+		if ( kr != kIOReturnSuccess )
+		{			
+			USBLog(6, "%s[%p]::terminate  RequestExtraPower(kUSBPowerRequestSleepReallocate) returned 0x%x", getName(), this, kr);
+		}
+	}
+	
+	if ( _WAKEPOWERALLOCATED != 0 )
+	{
+		USBLog(6, "%s[%p]::terminate  we still had %d wake power allocated", getName(), this, (uint32_t) _WAKEPOWERALLOCATED);
+		if ( _HUBPARENT )
+			kr = _HUBPARENT->ReturnExtraPower(_PORT_NUMBER, kUSBPowerDuringWake, _WAKEPOWERALLOCATED);
+		
+		if ( kr != kIOReturnSuccess )
+		{			
+			USBLog(6, "%s[%p]::terminate  ReturnExtraPower(kUSBPowerDuringSleep) returned 0x%x", getName(), this, kr);
+		}
+		else 
+		{
+			_WAKEPOWERALLOCATED = 0;
+		}
+
+			USBLog(6, "%s[%p]::terminate - calling for other devices to reallocate wake extra power", getName(), this);
+			kr = RequestExtraPower(kUSBPowerRequestWakeReallocate, 0);
+			if ( kr != kIOReturnSuccess )
+			{			
+				USBLog(6, "%s[%p]::terminate  RequestExtraPower(kUSBPowerRequestWakeReallocate) returned 0x%x", getName(), this, kr);
+			}
+	}
+
 	USBLog(5, "IOUSBDevice(%s)[%p]::terminate - calling super::terminate", getName(), this);
 	retValue = super::terminate(options);
 	if (_OPEN_INTERFACES)
 	{
 		USBLog(5, "IOUSBDevice(%s)[%p]::terminate - _openInterfaces has a count of %d", getName(), this, _OPEN_INTERFACES->getCount());
 	}
+	
+	// Device is going away so let's detach and remove our children	
+	TerminateInterfaces(false);
+
 	USBLog(5, "IOUSBDevice(%s)[%p]::-terminate", getName(), this);
 	
 	return retValue;
@@ -723,7 +758,7 @@ IOUSBDevice::requestTerminate(IOService * provider, IOOptionBits options)
 IOReturn 
 IOUSBDevice::message( UInt32 type, IOService * provider,  void * argument )
 {
-#pragma unused (provider)
+#pragma unused (provider, argument)
     IOReturn 			err = kIOReturnSuccess;
     IOUSBRootHubDevice * 	rootHub = NULL;
     OSIterator *		iter;
@@ -732,50 +767,6 @@ IOUSBDevice::message( UInt32 type, IOService * provider,  void * argument )
     switch ( type )
     {
 	case kIOUSBMessagePortHasBeenReset:
-		
-		// First decode the error that the hub driver has sent to us
-		_RESET_ERROR = * (IOReturn *) argument;
-		
-		USBLog(4,"%s[%p] received kIOUSBMessagePortHasBeenReset with error = 0x%x",getName(), this, _RESET_ERROR);
-		
-		// We have reset our device, so the configuration in the device is 0
-		_currentConfigValue = 0;
-			
-		// If we had set our thread to sleep waiting for the reset to complete, now wake it up
-		//
-		if ( _RESET_COMMAND )
-		{
-			USBLog(3,"%s[%p]::message  calling commandWakeUp due to kIOUSBMessagePortHasBeenReset", getName(),this);
-			if (_COMMAND_GATE)
-			{
-				_COMMAND_GATE->commandWakeup(&_RESET_COMMAND,  true);
-			}
-			else
-			{
-				USBLog(1,"%s[%p]::message  cannot call commandGate->wakeup because there is no gate", getName(),this);
-				USBTrace( kUSBTDevice,  kTPDeviceMessage, (uintptr_t)this, kIOUSBMessagePortHasBeenReset, 0, 1 );
-			}
-		}
-		
-		// Recreate PipeZero object
-		_pipeZero = IOUSBPipe::ToEndpoint(&_endpointZero, this, _controller, NULL);
-		if (!_pipeZero)
-		{
-			USBLog(1,"%s[%p]::message DANGER could not recreate pipe Zero after reset", getName(), this);
-			USBTrace( kUSBTDevice,  kTPDeviceMessage, (uintptr_t)this, kIOUSBMessagePortHasBeenReset, kIOReturnNoMemory, 2 );
-			err = kIOReturnNoMemory;
-		}
-		
-		// If there is an error, we don't want to forward the message.  Instead, we will return an error from ResetDevice() using the _RESET_ERROR
-		if ( (_RESET_ERROR == kIOReturnSuccess) && (_pipeZero != NULL) )
-		{
-			USBLog(3, "%s[%p] calling messageClients (kIOUSBMessagePortHasBeenReset (port %d, err 0x%x))", getName(), this, (uint32_t)_PORT_NUMBER, _RESET_ERROR );
-			(void) messageClients(kIOUSBMessagePortHasBeenReset, &_RESET_ERROR, sizeof(IOReturn));
-		}
-		
-		// Finally, indicate that we have finished the reset
-		_PORT_HAS_BEEN_RESET = true;
-		
 		break;
 		
 	case kIOUSBMessageHubIsDeviceConnected:
@@ -860,68 +851,40 @@ IOUSBDevice::message( UInt32 type, IOService * provider,  void * argument )
 void 
 IOUSBDevice::stop( IOService * provider )
 {
-	IOReturn	kr = kIOReturnSuccess;
-	
     USBLog(5, "%s[%p]::stop isInactive = %d", getName(), this, isInactive());
 	
-	if ( _SLEEPPOWERALLOCATED != 0 )
-	{
-		USBLog(6, "+%s[%p]::stop  we still had %d sleep power allocated", getName(), this, (uint32_t) _SLEEPPOWERALLOCATED);
-		if ( _HUBPARENT )
-			kr = _HUBPARENT->ReturnExtraPower(_PORT_NUMBER, kUSBPowerDuringSleep, _SLEEPPOWERALLOCATED);
-		
-		if ( kr != kIOReturnSuccess )
-		{			
-			USBLog(6, "+%s[%p]::stop  ReturnExtraPower(kUSBPowerDuringSleep) returned 0x%x", getName(), this, kr);
-		}
-	}
-	
-	if ( _WAKEPOWERALLOCATED != 0 )
-	{
-		USBLog(6, "+%s[%p]::stop  we still had %d wake power allocated", getName(), this, (uint32_t) _WAKEPOWERALLOCATED);
-		if ( _HUBPARENT )
-			kr = _HUBPARENT->ReturnExtraPower(_PORT_NUMBER, kUSBPowerDuringWake, _WAKEPOWERALLOCATED);
-		
-		if ( kr != kIOReturnSuccess )
-		{			
-			USBLog(6, "+%s[%p]::stop  ReturnExtraPower(kUSBPowerDuringSleep) returned 0x%x", getName(), this, kr);
-		}
-	}
-
 	if ( _WORKLOOP && _NOTIFIERHANDLER_TIMER)
 		_WORKLOOP->removeEventSource(_NOTIFIERHANDLER_TIMER);
 	
 	if ( _WORKLOOP )
 		_WORKLOOP->removeEventSource(_COMMAND_GATE);
 
-	super::stop(provider);
-	
-}
-
-
-
-bool 
-IOUSBDevice::finalize(IOOptionBits options)
-{
-    USBLog(5,"%s[%p]::finalize",getName(), this);
-    
-    if (_pipeZero) 
+	if (_pipeZero) 
     {
         _pipeZero->Abort();
 		_pipeZero->ClosePipe();
         _pipeZero->release();
         _pipeZero = NULL;
     }
-    _currentConfigValue = 0;
+	
+	USBLog(5, "%s[%p]::-stop isInactive = %d", getName(), this, isInactive());
+
+	super::stop(provider);
+}
+
+bool 
+IOUSBDevice::finalize(IOOptionBits options)
+{
+    USBLog(5,"%s[%p]::finalize",getName(), this);
 	
     return(super::finalize(options));
 }
 
-
-
 void 
 IOUSBDevice::free()
 {
+	USBLog(5,"IOUSBDevice[%p]::+free", this);
+
     if (_configList) 
     {
 		int 	i;
@@ -935,40 +898,25 @@ IOUSBDevice::free()
 		_configList = NULL;
     }
 	
-	if (_interfaceList && _numInterfaces)
-    {
-		IODelete(_interfaceList, IOUSBInterface*, _numInterfaces);
-		_interfaceList = NULL;
-		_numInterfaces = 0;
-    }
-	
     _currentConfigValue = 0;
 	
     //  This needs to be the LAST thing we do, as it disposes of our "fake" member
     //  variables.
     //
     if (_expansionData)
-    {
-		if (_DO_PORT_RESET_THREAD)
+    {		
+		if (_DO_MESSAGE_CLIENTS_THREAD)
 		{
-			thread_call_cancel(_DO_PORT_RESET_THREAD);
-			thread_call_free(_DO_PORT_RESET_THREAD);
-			_DO_PORT_RESET_THREAD = NULL;
+			thread_call_cancel(_DO_MESSAGE_CLIENTS_THREAD);
+			thread_call_free(_DO_MESSAGE_CLIENTS_THREAD);
+			_DO_MESSAGE_CLIENTS_THREAD = NULL;
 		}
-		
 		
 		if (_DO_PORT_REENUMERATE_THREAD)
 		{
 			thread_call_cancel(_DO_PORT_REENUMERATE_THREAD);
 			thread_call_free(_DO_PORT_REENUMERATE_THREAD);
 			_DO_PORT_REENUMERATE_THREAD = NULL;
-		}
-		
-		if (_DO_MESSAGE_CLIENTS_THREAD)
-		{
-			thread_call_cancel(_DO_MESSAGE_CLIENTS_THREAD);
-			thread_call_free(_DO_MESSAGE_CLIENTS_THREAD);
-			_DO_MESSAGE_CLIENTS_THREAD = NULL;
 		}
 		
 		if (_OPEN_INTERFACES)
@@ -1014,9 +962,17 @@ IOUSBDevice::free()
 			_HUBPARENT = NULL;
 		}
 		
+		if ( _INTERFACEARRAYLOCK )
+		{
+			IOLockFree(_INTERFACEARRAYLOCK);
+			_INTERFACEARRAYLOCK = NULL;
+		}
+		
         IOFree(_expansionData, sizeof(ExpansionData));
         _expansionData = NULL;
     }
+
+	USBLog(5,"IOUSBDevice[%p]::-free", this);
 
     super::free();
 }
@@ -1066,9 +1022,7 @@ IOUSBDevice::init(USBDeviceAddress deviceAddress, UInt32 powerAvailable, UInt8 s
     _descriptor.bMaxPacketSize0 = maxPacketSize;
     _busPowerAvailable = powerAvailable;
     _speed = speed;
-    _PORT_RESET_THREAD_ACTIVE = false;
     _ALLOW_CONFIGVALUE_OF_ZERO = false;
-    _PORT_HAS_BEEN_RESET = false;
     
     USBLog(5,"%s @ %d (%dmA available, %s speed)", getName(), _address,(uint32_t)_busPowerAvailable*2, (_speed == kUSBDeviceSpeedLow) ? "low" : ((_speed == kUSBDeviceSpeedFull) ? "full" : "high") );
     
@@ -1185,103 +1139,125 @@ IOUSBDevice::GetChildLocationID(UInt32 parentLocationID, int port)
     return location;
 }
 
-// Stop all activity, reset device, restart.  Will not renumerate the device
-//
 IOReturn 
 IOUSBDevice::ResetDevice()
 {
-    UInt32		retries = 0;
 	IOReturn	kr = kIOReturnSuccess;
-	bool		gotLock;
 	
-    if ( isInactive() )
+	USBLog(5, "%s[%p]::ResetDevice (port %d device at 0x%x)", getName(), this, (uint32_t)_PORT_NUMBER, (uint32_t)_LOCATIONID);
+	
+	if ( _expansionData && _COMMAND_GATE )
+		kr =  _COMMAND_GATE->runAction(_ResetDevice);
+	else
+		kr = kIOReturnNoDevice;
+
+	USBLog(5, "%s[%p]::ResetDevice (port %d device at 0x%x) returning 0x%x", getName(), this, (uint32_t)_PORT_NUMBER, (uint32_t)_LOCATIONID, (uint32_t)kr);
+	
+	return kr;
+}
+
+IOReturn
+IOUSBDevice::ReEnumerateDevice( UInt32 options )
+{
+	IOReturn	kr = kIOReturnSuccess;
+	
+	USBLog(5, "%s[%p]::ReEnumerateDevice (port %d device at 0x%x)", getName(), this, (uint32_t)_PORT_NUMBER, (uint32_t)_LOCATIONID);
+	
+	if ( _expansionData && _COMMAND_GATE )
+		kr = _COMMAND_GATE->runAction(_ReEnumerateDevice, &options);
+	else
+		kr = kIOReturnNoDevice;
+	
+	USBLog(5, "%s[%p]::ReEnumerateDevice (port %d device at 0x%x) returning 0x%x", getName(), this, (uint32_t)_PORT_NUMBER, (uint32_t)_LOCATIONID, (uint32_t)kr);
+	
+	return kr;
+}
+	
+
+// Stop all activity, reset device, restart.  Will not renumerate the device
+//
+IOReturn
+IOUSBDevice::_ResetDevice(OSObject *target, __unused void *arg0, __unused void *arg1, __unused void *arg2, __unused void *arg3)
+{
+	IOReturn	status = kIOReturnSuccess;
+	IOUSBDevice	*me = OSDynamicCast(IOUSBDevice, target);
+
+	if ( me->_WORKLOOP->onThread() )
+	{
+		USBLog(1, "%s[%p] _ResetDevice(port %d) - called on workloop thread !", me->getName(), me, (uint32_t)me->_PORT_NUMBER);
+		USBTrace( kUSBTDevice,  kTPDeviceResetDevice, (uintptr_t)me, me->_PORT_NUMBER, 0, 0 );
+        return kIOUSBSyncRequestOnWLThread;
+	}
+	
+    if ( me->isInactive() )
     {
-        USBLog(1, "%s[%p]::ResetDevice - while terminating!", getName(), this);
-		USBTrace( kUSBTDevice,  kTPDeviceResetDevice, (uintptr_t)this, _PORT_NUMBER, 0, 1);
+        USBLog(1, "%s[%p]::_ResetDevice - while terminating!", me->getName(), me);
+		USBTrace( kUSBTDevice,  kTPDeviceResetDevice, (uintptr_t)me, me->_PORT_NUMBER, 0, 1 );
         return kIOReturnNoDevice;
     }
 	
-	gotLock = OSCompareAndSwap(0, 1, &_RESET_AND_REENUMERATE_LOCK);
-	if ( !gotLock )
+	if (me->_RESET_IN_PROGRESS)
 	{
-        USBLog(5, "%s[%p]::ResetDevice( port %d) while ResetDevice or ReEnumerateDevice in progress. Returning kIOReturnNotPermitted.", getName(), this, (uint32_t)_PORT_NUMBER );
-		USBTrace( kUSBTDevice,  kTPDeviceResetDevice, (uintptr_t)this, _PORT_NUMBER, 0, 2);
+		USBLog(1, "(%s)[%p]::_ResetDevice - reset already in progress - returning kIOReturnNotPermitted", me->getName(), me);
+		USBTrace( kUSBTDevice,  kTPDeviceResetDevice, (uintptr_t)me, me->_PORT_NUMBER, 0, 2);
 		return kIOReturnNotPermitted;
 	}
 	
-    retain();
-	_PORT_HAS_BEEN_RESET = false;
-	_RESET_ERROR = kIOReturnSuccess;
-   
-    USBLog(5, "+%s[%p]::ResetDevice for port %d", getName(), this, (uint32_t)_PORT_NUMBER );
-	USBTrace( kUSBTDevice,  kTPDeviceResetDevice, (uintptr_t)this, _PORT_NUMBER, 0, 7);
-    if ( thread_call_enter( _DO_PORT_RESET_THREAD )  == TRUE )
+	USBLog(6, "%s[%p]::_ResetDevice (port %d device at 0x%x)", me->getName(), me, (uint32_t)me->_PORT_NUMBER, (uint32_t)me->_LOCATIONID);
+
+	me->_RESET_IN_PROGRESS = true;
+	
+	if( me->_HUBPARENT )
 	{
-		USBLog(3, "%s[%p]::ResetDevice for port %d, _DO_PORT_RESET_THREAD already queued", getName(), this, (uint32_t)_PORT_NUMBER );
-		USBTrace( kUSBTDevice,  kTPDeviceResetDevice, (uintptr_t)this, _PORT_NUMBER, 0, 3);
-		release();
-		kr = kIOReturnBusy;
-	}
-	else 
-	{
-		if ( _WORKLOOP->inGate() && _COMMAND_GATE)
+		if( me->_pipeZero) 
 		{
-			USBLog(5,"%s[%p]::ResetDevice calling commandSleep", getName(), this);
-			
-			_RESET_COMMAND = true;
-			kr = _COMMAND_GATE->commandSleep(&_RESET_COMMAND);
-			_RESET_COMMAND = false;
-			if (kr != THREAD_AWAKENED)
-			{
-				USBLog(5,"%s[%p]::ResetDevice  commandSleep returned %d", getName(), this, kr);
-				USBTrace( kUSBTDevice,  kTPDeviceResetDevice, (uintptr_t)this, _PORT_NUMBER, kr, 4);
-			}
-			USBLog(5,"%s[%p]::ResetDevice  woke up with error 0x%x", getName(), this, kr);
-			
-		}
-		else
-		{
-			while ( !_PORT_HAS_BEEN_RESET && retries < (kMaxTimeToWaitForReset / 50) )
-			{
-				IOSleep(50);
-				
-				if ( isInactive() )
-				{
-					USBLog(3, "+%s[%p]::ResetDevice isInactive() while waiting for reset to finish", getName(), this );
-					USBTrace( kUSBTDevice,  kTPDeviceResetDevice, (uintptr_t)this, _PORT_NUMBER, 0, 5);
-					_RESET_ERROR = kIOReturnNoDevice;
-					break;
-				}
-				
-				retries++;
-			}
+			me->_pipeZero->Abort();
+			me->_pipeZero->ClosePipe();
+			me->_pipeZero->release();
+			me->_pipeZero = NULL;
 		}
 		
-		// If we did all our retries, then the reset probably did not complete
-		//
-		if ( retries == (kMaxTimeToWaitForReset / 50) )
-		{
-			USBLog(5, "+%s[%p]::ResetDevice timed out while waiting for reset to finish", getName(), this );
-			USBTrace( kUSBTDevice,  kTPDeviceResetDevice, (uintptr_t)this, _PORT_NUMBER, 0, 6);
-			_RESET_ERROR = kIOUSBTransactionTimeout;
-		}
-		
-		USBLog(5, "-%s[%p]::ResetDevice for port %d, error: 0x%x", getName(), this, (uint32_t)_PORT_NUMBER, _RESET_ERROR );
-		
-		kr = _RESET_ERROR;
+		status = me->_HUBPARENT->ResetPort( me->_PORT_NUMBER );
 	}
 	
-	gotLock = OSCompareAndSwap(1, 0, &_RESET_AND_REENUMERATE_LOCK);
-	if ( !gotLock )
+	USBLog(6,"%s[%p]::_ResetDevice _HUBPARENT->ResetPort returned 0x%x", me->getName(), me, (uint32_t)status);
+
+	// Recreate PipeZero object
+	me->_pipeZero = IOUSBPipe::ToEndpoint(&me->_endpointZero, me, me->_controller, NULL);
+	if (!me->_pipeZero)
 	{
-        USBLog(1, "%s[%p]::ResetDevice( port %d) our resetLock was not set.  Unexpected", getName(), this, (uint32_t)_PORT_NUMBER );
+		USBLog(1,"%s[%p]::_ResetDevice DANGER could not recreate pipe Zero after reset", me->getName(), me);
+		USBTrace( kUSBTDevice,  kTPDeviceMessage, (uintptr_t)me, kIOUSBMessagePortHasBeenReset, kIOReturnNoMemory, 2 );
+		status = kIOReturnNoMemory;
 	}
 	
-	USBTrace( kUSBTDevice,  kTPDeviceResetDevice, (uintptr_t)this, _PORT_NUMBER, kr, 8);
+	// If there is an error, we don't want to forward the message.  Instead, we will return an error from ResetDevice() using the status
+	if ( (status == kIOReturnSuccess) && (me->_pipeZero != NULL) )
+	{
+		USBLog(3, "%s[%p] _ResetDevice calling messageClients (kIOUSBMessagePortHasBeenReset (port %d, status 0x%x))", me->getName(), me, (uint32_t)me->_PORT_NUMBER, status );
+		
+		// This should be freed in the thread after messageClients has returned
+		IOUSBDeviceMessage *	messageStructPtr = (IOUSBDeviceMessage *) IOMalloc( sizeof(IOUSBDeviceMessage));
+
+		messageStructPtr->type	= kIOUSBMessagePortHasBeenReset;
+		messageStructPtr->error = 0;
+		
+		USBTrace( kUSBTDevice,  kTPDeviceResetDevice, (uintptr_t)me, me->_PORT_NUMBER, kIOUSBMessagePortHasBeenReset, 3);
+		me->retain();
+		if ( thread_call_enter1( me->_DO_MESSAGE_CLIENTS_THREAD, (thread_call_param_t) messageStructPtr ) == TRUE )
+		{
+			USBLog(3, "%s[%p]: _ResetDevice _DO_MESSAGE_CLIENTS_THREAD already queued ", me->getName(), me);
+			USBTrace( kUSBTDevice,  kTPDeviceResetDevice, (uintptr_t)me, me->_PORT_NUMBER, 0, 4);
+			me->release();
+		}
+	}		
 	
-	release();
+	USBTrace( kUSBTDevice,  kTPDeviceResetDevice, (uintptr_t)me, me->_PORT_NUMBER, status, 5);
+	USBLog(6,"%s[%p]::_ResetDevice port %d device at 0x%x returning 0x%x", me->getName(), me,  (uint32_t)me->_PORT_NUMBER, (uint32_t)me->_LOCATIONID, status);
 	
-	return kr;
+	me->_RESET_IN_PROGRESS = false;
+	
+	return status;
 }
 
 /******************************************************
@@ -1846,37 +1822,60 @@ IOUSBDevice::GetConfigDescriptor(UInt8 configIndex, void *desc, UInt32 len)
 }
 
 void
-IOUSBDevice::TerminateInterfaces()
+IOUSBDevice::RegisterInterfaces()
 {
-    int i;
-    
-    USBLog(5,"%s[%p]::TerminateInterfaces interfaceList %p, numInterfaces: %d",getName(),this, _interfaceList, _numInterfaces);
-    
-    if (_interfaceList && _numInterfaces)
-    {
-		// Go through the list of interfaces and release them
-        //
-		for (i=0; i < _numInterfaces; i++)
-		{
-			IOUSBInterface *intf = _interfaceList[i];
-			if (intf)
-			{
-				_interfaceList[i] = NULL;
-				
-				// this call should do everything, including detaching the interface from us
-                //
-				USBLog(5,"%s[%p]::TerminateInterfaces terminating interface %p",getName(),this, intf);
-				intf->terminate(kIOServiceSynchronous);
-			}
+	IOLockLock(_INTERFACEARRAYLOCK);
+
+	USBLog(5,"%s[%p]::RegisterInterfaces interfaceArray %p", getName(), this, _INTERFACEARRAY );
+
+	OSArray *iteratorArray = OSArray::withArray(_INTERFACEARRAY, _INTERFACEARRAY->getCount());
+	int iteratorCount = iteratorArray->getCount();
+	
+	IOLockUnlock(_INTERFACEARRAYLOCK);
+	
+	for( int i = 0; i < iteratorCount; i++ )
+	{
+		IOUSBInterface *intf = NULL;
+		if( NULL != (intf = OSDynamicCast(IOUSBInterface, iteratorArray->getObject(i))) )
+		{ 
+			USBLog(5,"%s[%p]::RegisterInterfaces  matching to interface = %p",getName(), this, intf);
+			intf->registerService(kIOServiceSynchronous);
 		}
-		// free the interface list memory
-        //
-		IODelete(_interfaceList, IOUSBInterface*, _numInterfaces);
-		_interfaceList = NULL;
+	}
+	
+	iteratorArray->release();
+}
+
+void
+IOUSBDevice::TerminateInterfaces(bool terminate)
+{
+	IOLockLock(_INTERFACEARRAYLOCK);
+
+	USBLog(5,"%s[%p]::TerminateInterfaces interfaceList %p terminate: %d", getName(), this, _INTERFACEARRAY, terminate );
+	
+	if (_INTERFACEARRAY)
+	{		
+		IOUSBInterface* theInterface = NULL;
+
+		while( NULL != (theInterface = OSDynamicCast(IOUSBInterface, _INTERFACEARRAY->getLastObject())))
+		{
+			if(terminate) 
+			{
+				USBLog(5,"%s[%p]::TerminateInterfaces terminating interface =  %p", getName(), this, theInterface );
+				theInterface->terminate(kIOServiceSynchronous);
+			}
+			_INTERFACEARRAY->removeObject((_INTERFACEARRAY->getCount()-1));
+		}
+
+		_INTERFACEARRAY->flushCollection();
+		_INTERFACEARRAY->release();
+		_INTERFACEARRAY = NULL;
+	}
+	
+	if (_INTERFACEARRAY == NULL)
 		_numInterfaces = 0;
-    }
-    USBLog(5,"-%s[%p]::TerminateInterfaces",getName(),this);
-    
+
+	IOLockUnlock(_INTERFACEARRAYLOCK);
 }
 
 IOReturn 
@@ -1983,7 +1982,7 @@ IOUSBDevice::SetConfiguration(IOService *forClient, UInt8 configNumber, bool sta
     //  Go ahead and remove all the interfaces that are attached to this
     //  device.
     //
-    TerminateInterfaces();
+    TerminateInterfaces(true);
     
     USBLog(5,"%s[%p]::SetConfiguration to %d",getName(), this, configNumber);
 	
@@ -2024,20 +2023,20 @@ IOUSBDevice::SetConfiguration(IOService *forClient, UInt8 configNumber, bool sta
 			return kIOReturnNoResources;
         }
 		
-		_interfaceList = IONew(IOUSBInterface*, confDesc->bNumInterfaces);
-		if (!_interfaceList)
+		_INTERFACEARRAY = OSArray::withCapacity( confDesc->bNumInterfaces ) ;
+
+		if (!_INTERFACEARRAY)
         {
             USBLog(3,"%s[%p]::SetConfiguration  Could not create IOUSBInterface list",getName(), this );
 			return kIOReturnNoResources;
         }
-        
+        		
 		_numInterfaces = confDesc->bNumInterfaces;
-		
+
 		const IOUSBInterfaceDescriptor *intfDesc = NULL;
-        
-		for (i=0; i<_numInterfaces; i++)
+        i = 0;
+		while( i < confDesc->bNumInterfaces )
 		{
-			_interfaceList[i] = NULL;
 			intfDesc = (IOUSBInterfaceDescriptor *)FindNextDescriptor(intfDesc, kUSBInterfaceDesc);
             
             USBLog(5,"%s[%p]::SetConfiguration  Found InterfaceDescription[%d] = %p",getName(), this, i, intfDesc);
@@ -2066,33 +2065,40 @@ IOUSBDevice::SetConfiguration(IOService *forClient, UInt8 configNumber, bool sta
                 if (theInterface)
                 {
 					USBLog(6,"%s[%p]::SetConfiguration  retaining the interface[%d] = %p",getName(), this, i, theInterface );
-					// retain this interface until we are done with SetConfiguration()
-					theInterface->retain();
 					
 					// Now that we have it retained, put it into our interfaceList
-					_interfaceList[i] = theInterface;
-					
-                    USBLog(5,"%s[%p]::SetConfiguration  Attaching an interface[%d] = %p",getName(), this, i, _interfaceList[i] );
-                    
-                    if ( _interfaceList[i]->attach(this) )
-                    {
-                        _interfaceList[i]->release();
-                        if (!_interfaceList[i]->start(this))
-                        {
-                            USBLog(3,"%s[%p]::SetConfiguration  Could not start IOUSBInterface[%d] = %p",getName(), this, i, _interfaceList[i] );
-                            _interfaceList[i]->detach(this);
-  							_interfaceList[i]->release();
-                          _interfaceList[i] = NULL;
-                        }
+					IOLockLock(_INTERFACEARRAYLOCK);
+					bool added = _INTERFACEARRAY->setObject(i, theInterface);
+					IOLockUnlock(_INTERFACEARRAYLOCK);
+						
+					if(added)
+					{
+						theInterface->release();
+						
+						if ( theInterface->attach(this) )
+						{
+							if (!theInterface->start(this))
+							{
+								USBLog(3,"%s[%p]::SetConfiguration  Could not start IOUSBInterface[%d] = %p",getName(), this, i, theInterface );
+								theInterface->detach(this);
+								IOLockLock(_INTERFACEARRAYLOCK);
+								_INTERFACEARRAY->removeObject(i);
+								IOLockUnlock(_INTERFACEARRAYLOCK);
+							}
+						}
+						else
+						{
+							USBLog(3,"%s[%p]::SetConfiguration  Attaching an interface[%d] = %p failed",getName(), this, i, theInterface );
+							TerminateInterfaces(false);
+							return kIOReturnNoResources;
+						}
 					}
-                    else
-                    {
-                        USBLog(3,"%s[%p]::SetConfiguration  Attaching an interface[%d] = %p failed",getName(), this, i, _interfaceList[i] );
- 						_interfaceList[i]->release();
-						_interfaceList[i] = NULL;
-                       return kIOReturnNoResources;
-                    }
-					
+					else
+					{
+						USBLog(1,"%s[%p]::SetConfiguration  Could not add interface(%p) #%d to the InterfaceArray for device at 0x%x",getName(), this, theInterface, i, (uint32_t)_LOCATIONID );
+						theInterface->release();
+						return kIOReturnNoResources;
+					}
                 }
                 else
                 {
@@ -2104,39 +2110,18 @@ IOUSBDevice::SetConfiguration(IOService *forClient, UInt8 configNumber, bool sta
 			else
             {
 				USBLog(3,"%s[%p]: SetConfiguration(%d): could not find interface in InterfaceDescription[%d] = %p", getName(), this, configNumber, i, intfDesc);
+				break;
             }
+			i++;
 		}
 
 		if (startMatchingInterfaces)
 		{
             retain();	// retain ourselves because registerService could block
-			for (i=0; i<_numInterfaces; i++)
-			{
-				if (_interfaceList[i])
-                {
-                    IOUSBInterface *theInterface = _interfaceList[i];
-                    
-                    USBLog(5,"%s[%p]::SetConfiguration  matching to interface[%d] = %p",getName(), this, i, theInterface);
-                    
-                    // need to do an extra retain in case we get terminated while loading a driver
-                    theInterface->retain();
-					theInterface->registerService(kIOServiceSynchronous);
-                    theInterface->release();
-                }
-			}
+			RegisterInterfaces();
             release();
 		}
-		
-		// We need to release the interface that we retain()'d when we created it
-		for (i=0; i<_numInterfaces; i++)
-		{
-			if (_interfaceList[i])
-			{
-				USBLog(6,"%s[%p]::SetConfiguration  releasing interface[%d] = %p",getName(), this, i, _interfaceList[i]);
-				_interfaceList[i]->release();
-			}
-		}
-    }
+	}
     else
     {
         USBLog(5,"%s[%p]::SetConfiguration  Not matching to interfaces: configNumber (%d) is zero and no errata to allow it (%d)",getName(), this, configNumber, _ALLOW_CONFIGVALUE_OF_ZERO);
@@ -2183,21 +2168,33 @@ IOUSBDevice::SetFeature(UInt8 feature)
 IOUSBInterface* 
 IOUSBDevice::GetInterface(const IOUSBInterfaceDescriptor *intfDesc)
 {
-    int				i;
-	
-    if (!_interfaceList)
-        return NULL;
-	
-    for (i=0; i < _numInterfaces; i++)
-    {
-        if (!_interfaceList[i])
-            continue;
-        if ( (_interfaceList[i]->GetInterfaceNumber() == intfDesc->bInterfaceNumber) &&
-			 (_interfaceList[i]->GetAlternateSetting() == intfDesc->bAlternateSetting) )
-            return _interfaceList[i];
-    }
-    return NULL;
-    
+	IOUSBInterface	*intf		= NULL;
+
+	if ( _expansionData && _INTERFACEARRAYLOCK && _INTERFACEARRAY )
+	{
+		IOLockLock(_INTERFACEARRAYLOCK);
+		
+		int				i;
+		
+		for( i = 0; i < _numInterfaces; i++ )
+		{
+			if( NULL != (intf = OSDynamicCast(IOUSBInterface, _INTERFACEARRAY->getObject(i))) )
+			{ 
+				if ( (intf->GetInterfaceNumber() == intfDesc->bInterfaceNumber) &&
+					(intf->GetAlternateSetting() == intfDesc->bAlternateSetting) )
+				{
+					break;
+				}
+			}
+		}
+		
+		if ( i == _numInterfaces )
+			intf = NULL;
+		
+		IOLockUnlock(_INTERFACEARRAYLOCK);
+	}
+
+    return intf;
 }
 
 
@@ -2227,9 +2224,9 @@ IOUSBDevice::GetConfigurationDescriptor(UInt8 configValue, void *data, UInt32 le
 bool 
 IOUSBDevice::matchPropertyTable(OSDictionary * table, SInt32 *score)
 {	
-    bool 	returnValue = true;
-    SInt32	propertyScore = *score;
-    char	logString[256]="";
+    bool		returnValue = true;
+    SInt32		propertyScore = *score;
+    char		logString[256]="";
     UInt32      wildCardMatches = 0;
     UInt32      vendorIsWildCard = 0;
     UInt32      productIsWildCard = 0;
@@ -2237,7 +2234,8 @@ IOUSBDevice::matchPropertyTable(OSDictionary * table, SInt32 *score)
     UInt32      classIsWildCard = 0;
     UInt32      subClassIsWildCard = 0;
     UInt32      protocolIsWildCard = 0;
-    bool	usedMaskForProductID = false;
+    bool		usedMaskForProductID = false;
+	UInt32		productIDInArray;
     
     if ( table == NULL )
     {
@@ -2250,7 +2248,8 @@ IOUSBDevice::matchPropertyTable(OSDictionary * table, SInt32 *score)
     bool	deviceClassPropertyExists = table->getObject(kUSBDeviceClass) ? true : false ;
     bool	deviceSubClassPropertyExists = table->getObject(kUSBDeviceSubClass) ? true : false ;
     bool	deviceProtocolPropertyExists= table->getObject(kUSBDeviceProtocol) ? true : false ;
-    bool        productIDMaskExists = table->getObject(kUSBProductIDMask) ? true : false;
+    bool    productIDMaskExists = table->getObject(kUSBProductIDMask) ? true : false;
+	bool	productIDArrayExists = OSDynamicCast(OSArray, table->getObject(kUSBProductIdsArrayName)) ? true : false;
 	
     // USBComparePropery() will return false if the property does NOT exist, or if it exists and it doesn't match
     //
@@ -2260,6 +2259,14 @@ IOUSBDevice::matchPropertyTable(OSDictionary * table, SInt32 *score)
     bool	deviceClassPropertyMatches = USBCompareProperty(table, kUSBDeviceClass);
     bool	deviceSubClassPropertyMatches = USBCompareProperty(table, kUSBDeviceSubClass);
     bool	deviceProtocolPropertyMatches= USBCompareProperty(table, kUSBDeviceProtocol);
+	
+	// If there is an productIDArray, then see if any of the entries matches to our productID
+	
+	if ( productIDArrayExists )
+	{
+		productPropertyMatches = USBComparePropertyInArray( table, kUSBProductIdsArrayName, kUSBProductID, &productIDInArray);
+        USBLog(7, "%s[%p]::matchPropertyTable  productIDArrayExists was true, matches = %s", getName(), this, productPropertyMatches?"true":"false");
+	}
 	
     // Now, let's look and see whether any of the properties were OSString's AND their value was "*".  This indicates that
     // we should match to all the values for that category -- i.e. a wild card match
@@ -2311,8 +2318,16 @@ IOUSBDevice::matchPropertyTable(OSDictionary * table, SInt32 *score)
     //
     if ( productIDMaskExists && !productPropertyMatches )
     {
-		productPropertyMatches = USBComparePropertyWithMask( table, kUSBProductID, kUSBProductIDMask);
-		usedMaskForProductID = productPropertyMatches;
+		if ( !productIDArrayExists )
+		{
+			productPropertyMatches = USBComparePropertyWithMask( table, kUSBProductID, kUSBProductIDMask);
+			usedMaskForProductID = productPropertyMatches;
+		}
+		else 
+		{
+			productPropertyMatches = USBComparePropertyInArrayWithMask( table, kUSBProductIdsArrayName, kUSBProductID, kUSBProductIDMask, &productIDInArray);
+			usedMaskForProductID = productPropertyMatches;
+		}
     }
     
     // If the service object wishes to compare some of its properties in its
@@ -2441,8 +2456,14 @@ IOUSBDevice::matchPropertyTable(OSDictionary * table, SInt32 *score)
 			
 			snprintf(logString, sizeof(logString), "\tMatched: ");
 			if ( vendorPropertyMatches ) { match = true; snprintf(tempString, sizeof(tempString), "idVendor (%d) ", vendor->unsigned32BitValue()); strlcat(logString, tempString, sizeof(logString)); }
-			if ( productPropertyMatches ) { match = true; snprintf(tempString, sizeof(tempString), "idProduct (%d) ", product->unsigned32BitValue());  strlcat(logString, tempString, sizeof(logString));}
-			if ( usedMaskForProductID && dictMask && dictProduct ) { snprintf(tempString, sizeof(tempString), "to (%d) with mask (0x%x), ", dictProduct->unsigned32BitValue(), dictMask->unsigned32BitValue()); strlcat(logString, tempString, sizeof(logString));}
+			
+			if ( productIDArrayExists && productPropertyMatches ) { match = true; snprintf(tempString, sizeof(tempString), "idProduct in array (%d) ", (uint32_t)productIDInArray);  strlcat(logString, tempString, sizeof(logString));}
+			else if ( productPropertyMatches ) { match = true; snprintf(tempString, sizeof(tempString), "idProduct (%d) ", product->unsigned32BitValue());  strlcat(logString, tempString, sizeof(logString));}
+			
+			if ( usedMaskForProductID && dictMask )
+				if (dictProduct) { snprintf(tempString, sizeof(tempString), "to (%d) with mask (0x%x), ", dictProduct->unsigned32BitValue(), dictMask->unsigned32BitValue()); strlcat(logString, tempString, sizeof(logString));}
+				else if ( productIDArrayExists && productPropertyMatches ) { snprintf(tempString, sizeof(tempString), "to (%d) with mask (0x%x), ", (uint32_t)productIDInArray, dictMask->unsigned32BitValue()); strlcat(logString, tempString, sizeof(logString));}
+			
 			if ( deviceReleasePropertyMatches ) { match = true; snprintf(tempString, sizeof(tempString), "bcdDevice (%d) ", release->unsigned32BitValue());  strlcat(logString, tempString, sizeof(logString));}
 			if ( deviceClassPropertyMatches ) { match = true; snprintf(tempString, sizeof(tempString), "bDeviceClass (%d) ", deviceClass->unsigned32BitValue());  strlcat(logString, tempString, sizeof(logString));}
 			if ( deviceSubClassPropertyMatches ) { match = true; snprintf(tempString, sizeof(tempString), "bDeviceSubClass (%d) ", deviceSubClass->unsigned32BitValue());  strlcat(logString, tempString, sizeof(logString));}
@@ -2982,8 +3003,29 @@ IOUSBDevice::DisplayUserNotificationForDevice ()
         // Bummer, we couldn't do it.  Set the time so that we try again later
         //
         USBLog(3,"%s[%p]DisplayUserNotificationForDevice returned error 0x%x", getName(), this, notificationError);
+
+		// If we don't have one create it
+		if (_NOTIFIERHANDLER_TIMER == NULL)
+		{
+			_NOTIFIERHANDLER_TIMER = IOTimerEventSource::timerEventSource(this, (IOTimerEventSource::Action) DisplayUserNotificationForDeviceEntry);
+			
+			if ( _NOTIFIERHANDLER_TIMER == NULL )
+			{
+				USBError(1, "%s[%p]::DisplayUserNotificationForDevice Couldn't allocate timer event source", getName(), this);
+			}
+			else
+			{
+				if ( _WORKLOOP->addEventSource( _NOTIFIERHANDLER_TIMER ) != kIOReturnSuccess )
+				{
+					USBError(1, "%s[%p]::DisplayUserNotificationForDevice Couldn't add timer event source", getName(), this);
+				}
+			}
+		}
 		
-        _NOTIFIERHANDLER_TIMER->setTimeoutMS (kNotifyTimerDelay);	// No one logged in yet (except maybe root) reset the timer to fire later.
+		if (_NOTIFIERHANDLER_TIMER)
+		{
+			_NOTIFIERHANDLER_TIMER->setTimeoutMS (kNotifyTimerDelay);	// No one logged in yet (except maybe root) reset the timer to fire later.
+		}
     }
 	
     return;
@@ -3270,26 +3312,19 @@ IOUSBDevice::SuspendDevice( bool suspend )
 	if ( _WORKLOOP->onThread() )
 	{
 		USBLog(1, "%s[%p]::SuspendDevice(port %d) - called on workloop thread !", getName(), this, (uint32_t)_PORT_NUMBER);
-		USBTrace( kUSBTDevice,  kTPDeviceSuspendDevice, (uintptr_t)this, _PORT_NUMBER, 0, 1);
+		USBTrace( kUSBTDevice,  kTPDeviceSuspendDevice, (uintptr_t)this, _PORT_NUMBER, _LOCATIONID, 1);
         return kIOUSBSyncRequestOnWLThread;
 	}
-	
-    if ( _RESET_IN_PROGRESS )
-    {
-        USBLog(3, "%s[%p]::SuspendDevice(port %d) while in ResetDevice or ReEnumerateDevice in progress. Returning kIOReturnNotPermitted.", getName(), this, (uint32_t)_PORT_NUMBER );
-		USBTrace( kUSBTDevice,  kTPDeviceSuspendDevice, (uintptr_t)this, _PORT_NUMBER, 0, 2);
-        return kIOReturnNotPermitted;
-    }
 	
     if ( isInactive() )
     {
         USBLog(1, "%s[%p]::SuspendDevice - while inactive!", getName(), this);
-		USBTrace( kUSBTDevice,  kTPDeviceSuspendDevice, (uintptr_t)this, _PORT_NUMBER, 0, 3);
+		USBTrace( kUSBTDevice,  kTPDeviceSuspendDevice, (uintptr_t)this, _PORT_NUMBER,  _LOCATIONID, 3);
         return kIOReturnNoDevice;
     }
 	
-	USBLog(5, "+%s[%p]::SuspendDevice(%s) for port %d", getName(), this, suspend ? "suspend" : "resume", (uint32_t)_PORT_NUMBER );
-	USBTrace( kUSBTDevice,  kTPDeviceSuspendDevice, (uintptr_t)this, _PORT_NUMBER, suspend, 4);
+	USBLog(5, "+%s[%p]::SuspendDevice(%s) for port %d device @ 0x%x", getName(), this, suspend ? "suspend" : "resume", (uint32_t)_PORT_NUMBER, (uint32_t)_LOCATIONID );
+	USBTrace( kUSBTDevice,  kTPDeviceSuspendDevice, (uintptr_t)this,  _LOCATIONID, suspend, 4);
 
 	if( _HUBPARENT )
 	{
@@ -3328,63 +3363,116 @@ IOUSBDevice::SuspendDevice( bool suspend )
 		}
 	}
 	
-	USBLog(5, "-%s[%p]::SuspendDevice for port %d with error 0x%x ", getName(), this, (uint32_t)_PORT_NUMBER, status );
+	USBLog(5, "-%s[%p]::SuspendDevice for port %d device at 0x%x with error 0x%x ", getName(), this, (uint32_t)_PORT_NUMBER, (uint32_t)_LOCATIONID, status );
 	USBTrace( kUSBTDevice,  kTPDeviceSuspendDevice, (uintptr_t)this, _PORT_NUMBER, status, 5);
 
     return status;
 }
 
 
-
-IOReturn
-IOUSBDevice::ReEnumerateDevice( UInt32 options )
+IOReturn		
+IOUSBDevice::_ReEnumerateDevice(OSObject *target, void *arg0, __unused void *arg1, __unused void *arg2, __unused void *arg3)
 {
-	IOReturn	kr = kIOReturnSuccess;
-	bool		gotLock;
+	IOReturn	status	= kIOReturnSuccess;
+	IOUSBDevice	*me		= OSDynamicCast(IOUSBDevice, target);
+	UInt32		*options= (UInt32*)arg0;
 	
-    if (isInactive())
+	if ( me->_WORKLOOP->onThread() )
+	{
+		USBLog(1, "%s[%p]::_ReEnumerateDevice(port %d) - called on workloop thread !", me->getName(), me, (uint32_t)me->_PORT_NUMBER);
+		USBTrace( kUSBTDevice, kTPDeviceReEnumerateDevice, (uintptr_t)me, me->_PORT_NUMBER, 0, 0);
+        return kIOUSBSyncRequestOnWLThread;
+	}
+	
+    if (me->isInactive())
     {
-        USBLog(1, "%s[%p]::ReEnumerateDevice - while terminating!", getName(), this);
-		USBTrace( kUSBTDevice, kTPDeviceReEnumerateDevice, (uintptr_t)this, _PORT_NUMBER, 0, 1);
+        USBLog(1, "%s[%p]::_ReEnumerateDevice - while terminating!", me->getName(), me);
+		USBTrace( kUSBTDevice, kTPDeviceReEnumerateDevice, (uintptr_t)me, me->_PORT_NUMBER, 0, 1);
         return kIOReturnNoDevice;
     }
 	
-	gotLock = OSCompareAndSwap(0, 1, &_RESET_AND_REENUMERATE_LOCK);
-	if ( !gotLock )
+	if (me->_RESET_IN_PROGRESS)
 	{
-        USBLog(5, "%s[%p]::ReEnumerateDevice( port %d) while ResetDevice or ReEnumerateDevice in progress.  Returning kIOReturnNotPermitted.", getName(), this, (uint32_t)_PORT_NUMBER );
-		USBTrace( kUSBTDevice, kTPDeviceReEnumerateDevice, (uintptr_t)this, _PORT_NUMBER, 0, 2);
+		USBLog(1, "(%s)[%p]::_ReEnumerateDevice - reset already in progress - returning kIOReturnNotPermitted", me->getName(), me);
+		USBTrace( kUSBTDevice, kTPDeviceReEnumerateDevice, (uintptr_t)me, me->_PORT_NUMBER, 0, 2);
 		return kIOReturnNotPermitted;
 	}
 	
-    // If we have the _ADD_EXTRA_RESET_TIME, set bit 31 of the options
+	me->_RESET_IN_PROGRESS = true;
+	
+	// If we have the _ADD_EXTRA_RESET_TIME, set bit 31 of the options
     //
-    if ( _ADD_EXTRA_RESET_TIME )
+    if ( me->_ADD_EXTRA_RESET_TIME )
     {
-        USBLog(1, "%s[%p]::ReEnumerateDevice - setting extra reset time options!", getName(), this);
-		USBTrace( kUSBTDevice, kTPDeviceReEnumerateDevice, (uintptr_t)this, _PORT_NUMBER, options, 3 );
-        options |= kUSBAddExtraResetTimeMask;
+        USBLog(1, "%s[%p]::_ReEnumerateDevice - setting extra reset time options!", me->getName(), me);
+		USBTrace( kUSBTDevice, kTPDeviceReEnumerateDevice, (uintptr_t)me, me->_PORT_NUMBER, *options, 3 );
+        (*options) |= kUSBAddExtraResetTimeMask;
     }
 
     // Since we are going to re-enumerate the device, all drivers and interfaces will be
     // terminated, so we don't need to make this device synchronous.  In fact, we want it
     // async, because this device will go away. We do clear our lock when we finish processing the re-enumeration in the callout thread.
     //
-    USBLog(5, "%s[%p]::ReEnumerateDevice for port %d, options 0x%x", getName(), this, (uint32_t)_PORT_NUMBER, (uint32_t)options );
-	USBTrace( kUSBTDevice, kTPDeviceReEnumerateDevice, (uintptr_t)this, _PORT_NUMBER, 0, 5 );
-    retain();
-    if ( thread_call_enter1( _DO_PORT_REENUMERATE_THREAD, (thread_call_param_t) options) == TRUE )
-	{
-		USBLog(3, "%s[%p]::ReEnumerateDevice for port %d, _DO_PORT_REENUMERATE_THREAD already queued", getName(), this, (uint32_t)_PORT_NUMBER );
-		USBTrace( kUSBTDevice, kTPDeviceReEnumerateDevice, (uintptr_t)this, _PORT_NUMBER, 0, 4);
-		release();
-		kr = kIOReturnBusy;
-	}
+	USBLog(6, "%s[%p]::_ReEnumerateDevice for port %d, options 0x%x", me->getName(), me, (uint32_t)me->_PORT_NUMBER, (uint32_t)*options );
+	USBTrace( kUSBTDevice, kTPDeviceReEnumerateDevice, (uintptr_t)me, me->_PORT_NUMBER, *options, 4 );
 
-	USBLog(5, "%s[%p]::ReEnumerateDevice for port %d, returning 0x%x", getName(), this, (uint32_t)_PORT_NUMBER, (uint32_t)kr );
-	USBTrace( kUSBTDevice, kTPDeviceReEnumerateDevice, (uintptr_t)this, _PORT_NUMBER, kr, 6 );
+    if( me->_pipeZero) 
+    {
+        me->_pipeZero->Abort();
+		me->_pipeZero->ClosePipe();
+        me->_pipeZero->release();
+        me->_pipeZero = NULL;
+    }
 	
-	return kr;
+    // Remove any interfaces and their drivers
+    //
+    me->TerminateInterfaces(true);
+	
+	if( me->_HUBPARENT )
+	{
+		me->retain();
+		if ( thread_call_enter1( me->_DO_PORT_REENUMERATE_THREAD, (thread_call_param_t) *options) == TRUE )
+		{
+			USBLog(3, "%s[%p]::ReEnumerateDevice for port %d, _DO_PORT_REENUMERATE_THREAD already queued", me->getName(), me, (uint32_t)me->_PORT_NUMBER );
+			USBTrace( kUSBTDevice, kTPDeviceReEnumerateDevice, (uintptr_t)me, me->_PORT_NUMBER, 0, 4);
+			me->release();
+			status = kIOReturnBusy;
+		}
+	}
+	else
+	{
+		status = kIOReturnNoDevice;
+	}	
+	
+	USBLog(6, "%s[%p]::_ReEnumerateDevice for port %d, returning 0x%x", me->getName(), me, (uint32_t)me->_PORT_NUMBER, (uint32_t)status );
+	USBTrace( kUSBTDevice, kTPDeviceReEnumerateDevice, (uintptr_t)me, me->_PORT_NUMBER, status, 5 );
+	
+	return status;
+}
+
+void 
+IOUSBDevice::ProcessPortReEnumerateEntry(OSObject *target,thread_call_param_t options)
+{
+    IOUSBDevice *	me = OSDynamicCast(IOUSBDevice, target);
+    
+    if (!me)
+        return;
+	
+    me->ProcessPortReEnumerate( (uintptr_t) options);
+	me->_RESET_IN_PROGRESS = false;
+    me->release();
+}
+
+
+
+void 
+IOUSBDevice::ProcessPortReEnumerate(UInt32 options)
+{
+    USBLog(5,"+%s[%p]::ProcessPortReEnumerate",getName(),this); 
+	
+	IOReturn status = _HUBPARENT->ReEnumeratePort( _PORT_NUMBER, options );
+	
+    USBLog(5,"-%s[%p]::ProcessPortReEnumerate returned 0x%x",getName(),this, (uint32_t)status); 
 }
 
 void
@@ -3491,7 +3579,7 @@ IOUSBDevice::RequestExtraPower(UInt32 type, UInt32 requestedPower)
 {
 	UInt32	returnValue = 0;
 	
-	USBLog(6, "%s[%p]::RequestExtraPower type %d, requested %d", getName(), this, (uint32_t) type, (uint32_t) requestedPower);
+	USBLog(6, "%s[%p]::RequestExtraPower type: %d, requested %d (_SLEEPPOWERALLOCATED = %d, _WAKEPOWERALLOCATED = %d)", getName(), this, (uint32_t)type, (uint32_t) requestedPower, (uint32_t)_SLEEPPOWERALLOCATED, (uint32_t)_WAKEPOWERALLOCATED);
 
 	if ( _HUBPARENT )
 		returnValue = _HUBPARENT->RequestExtraPower(_PORT_NUMBER, type, requestedPower);
@@ -3512,7 +3600,7 @@ IOUSBDevice::RequestExtraPower(UInt32 type, UInt32 requestedPower)
 		setProperty("PortUsingExtraPowerForWake", _WAKEPOWERALLOCATED, 32);
 	}
 	
-	USBLog(6, "%s[%p]::RequestExtraPower type %d, returning %d", getName(), this, (uint32_t) type, (uint32_t) returnValue);
+	USBLog(6, "%s[%p]::RequestExtraPower type: %d, returning %d, (_SLEEPPOWERALLOCATED = %d, _WAKEPOWERALLOCATED = %d)", getName(), this, (uint32_t)type, (uint32_t) returnValue, (uint32_t)_SLEEPPOWERALLOCATED, (uint32_t)_WAKEPOWERALLOCATED);
 	
 	return returnValue;
 }
@@ -3524,14 +3612,14 @@ IOUSBDevice::ReturnExtraPower(UInt32 type, UInt32 returnedPower)
 {
 	IOReturn	kr = kIOReturnSuccess;
 	
-	USBLog(6, "%s[%p]::ReturnExtraPower type %d, returnedPower %d", getName(), this, (uint32_t) type, (uint32_t) returnedPower);
+	USBLog(6, "%s[%p]::ReturnExtraPower type: %d, returnedPower %d", getName(), this, (uint32_t)type, (uint32_t) returnedPower);
 	
 	// Make sure that we are not returning more than we had requested
 	if ( type == kUSBPowerDuringSleep )
 	{
 		if ( returnedPower > _SLEEPPOWERALLOCATED )
 		{
-			USBLog(6, "%s[%p]::ReturnExtraPower type %d, returnedPower %d was more than what we had previously allocated (%d)", getName(), this, (uint32_t) type, (uint32_t) returnedPower,  (uint32_t) _SLEEPPOWERALLOCATED);
+			USBLog(6, "%s[%p]::ReturnExtraPower type: %s, returnedPower %d was more than what we had previously allocated (%d)", getName(), this, type == kUSBPowerDuringSleep ? "kUSBPowerDuringSleep" : "kUSBPowerDuringWake", (uint32_t) returnedPower,  (uint32_t) _SLEEPPOWERALLOCATED);
 			return kIOReturnBadArgument;
 		}
 	}
@@ -3540,7 +3628,7 @@ IOUSBDevice::ReturnExtraPower(UInt32 type, UInt32 returnedPower)
 	{
 		if ( returnedPower > _WAKEPOWERALLOCATED )
 		{
-			USBLog(6, "%s[%p]::ReturnExtraPower type %d, returnedPower %d was more than what we had previously allocated (%d)", getName(), this, (uint32_t) type, (uint32_t) returnedPower,  (uint32_t) _WAKEPOWERALLOCATED);
+			USBLog(6, "%s[%p]::ReturnExtraPower type: %s, returnedPower %d was more than what we had previously allocated (%d), returning kIOReturnBadArgument", getName(), this, type == kUSBPowerDuringSleep ? "kUSBPowerDuringSleep" : "kUSBPowerDuringWake", (uint32_t) returnedPower,  (uint32_t) _WAKEPOWERALLOCATED);
 			return kIOReturnBadArgument;
 		}
 	}
@@ -3568,6 +3656,9 @@ IOUSBDevice::ReturnExtraPower(UInt32 type, UInt32 returnedPower)
 	{
 		USBLog(3, "%s[%p]::ReturnExtraPower  _HUBPARENT->ReturnExtraPower returned 0x%x", getName(), this, kr);
 	}
+	
+	USBLog(6, "-%s[%p]::ReturnExtraPower type: %d, returnedPower %d (_SLEEPPOWERALLOCATED = %d, _WAKEPOWERALLOCATED = %d)", getName(), this, (uint32_t)type, (uint32_t) returnedPower, (uint32_t)_SLEEPPOWERALLOCATED, (uint32_t)_WAKEPOWERALLOCATED);
+	
 	return kr;
 }
 
@@ -3575,6 +3666,8 @@ UInt32
 IOUSBDevice::GetExtraPowerAllocated(UInt32 type)
 {
 	UInt32		returnValue = 0;
+	
+	USBLog(6, "%s[%p]::GetExtraPowerAllocated type: %s, _SLEEPPOWERALLOCATED = %d, _WAKEPOWERALLOCATED = %d", getName(), this, type == kUSBPowerDuringSleep ? "kUSBPowerDuringSleep" : "kUSBPowerDuringWake", (uint32_t)_SLEEPPOWERALLOCATED, (uint32_t)_WAKEPOWERALLOCATED);
 	
 	// Keep track of what we have allocated
 	if ( type == kUSBPowerDuringSleep )
@@ -3685,151 +3778,6 @@ IOUSBDevice::DoLocationOverrideAndModelMatch()
 	
 	USBLog(6, "%s[%p]::DoLocationOverrideAndModelMatch returning %s", getName(), this, returnValue ? "TRUE" : "FALSE");
 	return returnValue;
-}
-
-//=============================================================================================
-//
-//  ProcessPortReset
-//
-//  This routine will tear stop all activity on the default pipe, tear down all the interfaces,
-//  (causing their drivers to get unloaded), issue a reset port request to the hub driver, and
-//  will then re-create the default pipe.  The hub driver is responsible for sending a message
-//  to the appropriate device telling it that it has been reset. 
-//
-//=============================================================================================
-//
-void 
-IOUSBDevice::ProcessPortResetEntry(OSObject *target)
-{
-    IOUSBDevice *	me = OSDynamicCast(IOUSBDevice, target);
-    
-    if (!me)
-        return;
-	
-    me->retain();
-    me->ProcessPortReset();
-    me->release();
-}
-
-
-
-void 
-IOUSBDevice::ProcessPortReset()
-{
-    IOReturn			err = kIOReturnSuccess;
-	
-    USBLog(6,"+%s[%p]::ProcessPortReset, _PORT_RESET_THREAD_ACTIVE = %d, isInactive() = %d",getName(), this, _PORT_RESET_THREAD_ACTIVE, isInactive() ); 
-	
-	// if we are already resetting the port, then just return ( Perhaps we should do this atomically)?
-	//
-	if ( _PORT_RESET_THREAD_ACTIVE || isInactive() )
-		return;
-	else
-	    _PORT_RESET_THREAD_ACTIVE = true;
-	
-    if ( _pipeZero) 
-    {
-        _pipeZero->Abort();
-		_pipeZero->ClosePipe();
-        _pipeZero->release();
-        _pipeZero = NULL;
-    }
-	
-   // In the past, we "terminated" all the interfaces at this point.  As of 9/17/01, we will not do 
-    // that anymore.  10/30/01:  We will do it in the case that we want to reenumerate devices:
-    //
-    
-    // Now, we need to tell our parent to issue a port reset to our port.  Our parent is an IOUSBDevice
-    // that has a hub driver attached to it.  However, we don't know what kind of driver that is, so we
-    // just send a message to all the clients of our parent.  The hub driver will be the only one that
-    // should do anything with that message.
-    //
-    if ( _USBPLANE_PARENT )
-    {
-        USBLog(5, "%s[%p]::ProcessPortReset calling messageClients (kIOUSBMessageHubResetPort)", getName(), this);
-		
-        _USBPLANE_PARENT->retain();
-        err = _USBPLANE_PARENT->messageClients(kIOUSBMessageHubResetPort, &_PORT_NUMBER, sizeof(_PORT_NUMBER));
-        _USBPLANE_PARENT->release();
-    }
-    
-	_PORT_RESET_THREAD_ACTIVE = false;
-	
-    USBLog(6,"-%s[%p]::ProcessPortReset (_pipeZero %p)",getName(), this, _pipeZero); 
-}
-
-//=============================================================================================
-//
-//  ProcessPortReEnumerateEntry
-//
-//  This routine will stop all activity on the default pipe, tear down all the interfaces,
-//  (causing their drivers to get unloaded), issue a reenumerate port request to the hub driver.
-//  The Hub driver will terminate the device and then add it again, generating a reset pulse
-//  during this new enumeration.
-//
-//=============================================================================================
-//
-void 
-IOUSBDevice::ProcessPortReEnumerateEntry(OSObject *target,thread_call_param_t options)
-{
-    IOUSBDevice *	me = OSDynamicCast(IOUSBDevice, target);
-    
-    if (!me)
-        return;
-	
-    me->ProcessPortReEnumerate( (uintptr_t) options);
-    me->release();
-}
-
-
-
-void 
-IOUSBDevice::ProcessPortReEnumerate(UInt32 options)
-{
-    IOReturn				err = kIOReturnSuccess;
-    IOUSBHubPortReEnumerateParam	params;
-	bool					gotLock;
-    
-    USBLog(5,"+%s[%p]::ProcessPortReEnumerate",getName(),this); 
-	
-    // Set the parameters for our message call
-    //
-    params.portNumber = _PORT_NUMBER;
-    params.options = options;
-    
-    if ( _pipeZero) 
-    {
-        _pipeZero->Abort();
-		_pipeZero->ClosePipe();
-        _pipeZero->release();
-        _pipeZero = NULL;
-    }
-	
-    // Remove any interfaces and their drivers
-    //
-    TerminateInterfaces();
-    
-    // Now, we need to tell our parent to issue a port reenumerate to our port.  Our parent is an IOUSBDevice
-    // that has a hub driver attached to it.  However, we don't know what kind of driver that is, so we
-    // just send a message to all the clients of our parent.  The hub driver will be the only one that
-    // should do anything with that message.
-    //
-    if ( _expansionData && _USBPLANE_PARENT )
-    {
-        USBLog(3, "%s[%p]::ProcessPortReEnumerate calling messageClients (kIOUSBMessageHubReEnumeratePort)", getName(), this);
-        _USBPLANE_PARENT->retain();
-        err = _USBPLANE_PARENT->messageClients(kIOUSBMessageHubReEnumeratePort, &params, sizeof(IOUSBHubPortReEnumerateParam));
-        _USBPLANE_PARENT->release();
-    }
-    
-	
-	gotLock = OSCompareAndSwap(1, 0, &_RESET_AND_REENUMERATE_LOCK);
-	if ( !gotLock )
-	{
-        USBLog(1, "%s[%p]::ProcessPortReEnumerate( port %d) our resetLock was not set.  Unexpected", getName(), this, (uint32_t)_PORT_NUMBER );
-	}
-	
-    USBLog(5,"-%s[%p]::ProcessPortReEnumerate",getName(),this); 
 }
 
 void 

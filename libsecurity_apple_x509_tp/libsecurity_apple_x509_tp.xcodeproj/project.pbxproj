@@ -21,6 +21,8 @@
 		4CCB01030580131200981D43 /* tp_common.mdsinfo in CopyFiles */ = {isa = PBXBuildFile; fileRef = 4094B069057EA5B000B44BCC /* tp_common.mdsinfo */; };
 		4CCB01040580131200981D43 /* tp_policyOids.mdsinfo in CopyFiles */ = {isa = PBXBuildFile; fileRef = 4094B06A057EA5B000B44BCC /* tp_policyOids.mdsinfo */; };
 		4CCB01050580131200981D43 /* tp_primary.mdsinfo in CopyFiles */ = {isa = PBXBuildFile; fileRef = 4094B06B057EA5B000B44BCC /* tp_primary.mdsinfo */; };
+		BE1207A511EE7D4C00EED536 /* cuEnc64.c in Sources */ = {isa = PBXBuildFile; fileRef = BE1207A311EE7D4C00EED536 /* cuEnc64.c */; };
+		BE1207A611EE7D4C00EED536 /* cuEnc64.h in Headers */ = {isa = PBXBuildFile; fileRef = BE1207A411EE7D4C00EED536 /* cuEnc64.h */; };
 		C2196B77053B5A2B005808D4 /* AppleX509TPBuiltin.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C2196B76053B5A2B005808D4 /* AppleX509TPBuiltin.cpp */; };
 		C2B5C4F00534C6AA00AF53F5 /* AppleTP.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C2B5C4D40534C6AA00AF53F5 /* AppleTP.cpp */; };
 		C2B5C4F10534C6AA00AF53F5 /* AppleTP.h in Headers */ = {isa = PBXBuildFile; fileRef = C2B5C4D50534C6AA00AF53F5 /* AppleTP.h */; };
@@ -98,6 +100,8 @@
 		4094B06B057EA5B000B44BCC /* tp_primary.mdsinfo */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.xml; path = tp_primary.mdsinfo; sourceTree = "<group>"; };
 		4C58E3A20540C16500B89535 /* security_apple_x509_tp.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; path = security_apple_x509_tp.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		4CA1FEBE052A3C8100F22E42 /* security_apple_x509_tp */ = {isa = PBXFileReference; explicitFileType = archive.ar; path = security_apple_x509_tp; sourceTree = BUILT_PRODUCTS_DIR; };
+		BE1207A311EE7D4C00EED536 /* cuEnc64.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = cuEnc64.c; sourceTree = "<group>"; };
+		BE1207A411EE7D4C00EED536 /* cuEnc64.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = cuEnc64.h; sourceTree = "<group>"; };
 		C2196B76053B5A2B005808D4 /* AppleX509TPBuiltin.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = AppleX509TPBuiltin.cpp; path = lib/AppleX509TPBuiltin.cpp; sourceTree = "<group>"; };
 		C2B5C4D40534C6AA00AF53F5 /* AppleTP.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = AppleTP.cpp; sourceTree = "<group>"; };
 		C2B5C4D50534C6AA00AF53F5 /* AppleTP.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = AppleTP.h; sourceTree = "<group>"; };
@@ -175,6 +179,8 @@
 				C2B5C4D80534C6AA00AF53F5 /* AppleX509TPPlugin.cpp */,
 				C2B5C4D90534C6AA00AF53F5 /* certGroupUtils.cpp */,
 				C2B5C4DA0534C6AA00AF53F5 /* certGroupUtils.h */,
+				BE1207A311EE7D4C00EED536 /* cuEnc64.c */,
+				BE1207A411EE7D4C00EED536 /* cuEnc64.h */,
 				C2B5C4DF0534C6AA00AF53F5 /* tpCertGroup.cpp */,
 				C2B5C4E00534C6AA00AF53F5 /* TPCertInfo.cpp */,
 				C2B5C4E10534C6AA00AF53F5 /* TPCertInfo.h */,
@@ -233,6 +239,7 @@
 				0544C53806A8718D00F54E48 /* tpOcspCache.h in Headers */,
 				0544C53A06A8718D00F54E48 /* tpOcspCertVfy.h in Headers */,
 				0544C53C06A8718D00F54E48 /* tpOcspVerify.h in Headers */,
+				BE1207A611EE7D4C00EED536 /* cuEnc64.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -340,6 +347,7 @@
 				0544C53706A8718D00F54E48 /* tpOcspCache.cpp in Sources */,
 				0544C53906A8718D00F54E48 /* tpOcspCertVfy.cpp in Sources */,
 				0544C53B06A8718D00F54E48 /* tpOcspVerify.cpp in Sources */,
+				BE1207A511EE7D4C00EED536 /* cuEnc64.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -403,7 +411,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUILD_VARIANTS = debug;
-				CURRENT_PROJECT_VERSION = 37601;
+				CURRENT_PROJECT_VERSION = 39454;
 				EXECUTABLE_PREFIX = "";
 				EXECUTABLE_SUFFIX = "";
 				FRAMEWORK_SEARCH_PATHS = (
@@ -452,7 +460,7 @@
 					normal,
 					debug,
 				);
-				CURRENT_PROJECT_VERSION = 37601;
+				CURRENT_PROJECT_VERSION = 39454;
 				EXECUTABLE_PREFIX = "";
 				EXECUTABLE_SUFFIX = "";
 				FRAMEWORK_SEARCH_PATHS = (
@@ -498,7 +506,7 @@
 					normal,
 					debug,
 				);
-				CURRENT_PROJECT_VERSION = 37601;
+				CURRENT_PROJECT_VERSION = 39454;
 				EXECUTABLE_PREFIX = "";
 				EXECUTABLE_SUFFIX = "";
 				FRAMEWORK_SEARCH_PATHS = (

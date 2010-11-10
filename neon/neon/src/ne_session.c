@@ -403,24 +403,21 @@ void ne__ssl_set_verify_err(ne_session *sess, int failures)
 
 /* This doesn't actually implement complete RFC 2818 logic; omits
  * "f*.example.com" support for simplicity. */
-int ne__ssl_match_hostname(char *cn, const char *hostname)
+int ne__ssl_match_hostname(const char *cn, size_t cnlen, const char *hostname)
 {
     const char *dot;
 
-    dot = strchr(hostname, '.');
-    if (dot == NULL) {
-	char *pnt = strchr(cn, '.');
-	/* hostname is not fully-qualified; unqualify the cn. */
-	if (pnt != NULL) {
-	    *pnt = '\0';
-	}
-    }
-    else if (strncmp(cn, "*.", 2) == 0) {
+    NE_DEBUG(NE_DBG_SSL, "ssl: Match common name '%s' against '%s'\n",
+             cn, hostname);
+
+    if (strncmp(cn, "*.", 2) == 0 && cnlen > 2
+        && (dot = strchr(hostname, '.')) != NULL) {
 	hostname = dot + 1;
 	cn += 2;
+        cnlen -= 2;
     }
 
-    return !ne_strcasecmp(cn, hostname);
+    return cnlen == strlen(hostname) && !ne_strcasecmp(cn, hostname);
 }
 
 #endif /* NE_HAVE_SSL */

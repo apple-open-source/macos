@@ -1,8 +1,6 @@
 LIBRARY libcups2
 VERSION 2.7
 EXPORTS
-_cupsAdminGetServerSettings
-_cupsAdminSetServerSettings
 _cupsCharmapFlush
 _cupsCharmapFree
 _cupsCharmapGet

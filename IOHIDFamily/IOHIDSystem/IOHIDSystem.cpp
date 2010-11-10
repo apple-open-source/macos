@@ -810,7 +810,10 @@ bool IOHIDSystem::handleTerminateNotification(
         // Clear the service button state
         AbsoluteTime	ts;
         clock_get_uptime(&ts);
-        self->relativePointerEvent(0, 0, 0, ts, service);
+        
+        if ( (self->displayState & IOPMDeviceUsable) ) {
+            self->relativePointerEvent(0, 0, 0, ts, service);
+        }
         
         CachedMouseEventStruct *cachedMouseEvent;
         if ((cachedMouseEvent = GetCachedMouseEventForService(self->cachedButtonStates, service)) &&
@@ -2384,7 +2387,9 @@ void IOHIDSystem::relativePointerEventGated(int buttons, int dx, int dy, Absolut
     if(ShouldConsumeHIDEvent(ts, stateChangeDeadline))
         return;
 
-    if ( !(displayState & IOPMDeviceUsable) ) {	// display is off, consume the button event
+    // If the display is off, do not go ahead with regular processing
+    if ( !(displayState & IOPMDeviceUsable) ) {
+        // Do not wake on mouse down
         if ( buttons ) {
             return;
         }
@@ -3375,7 +3380,8 @@ void IOHIDSystem::keyboardSpecialEventGated(
     if(ShouldConsumeHIDEvent(ts, stateChangeDeadline))
         return;
 
-    TICKLE_DISPLAY;
+    if ((key =! NX_NOSPECIALKEY) || (flavor != NX_SUBTYPE_STICKYKEYS_RELEASE))
+        TICKLE_DISPLAY;
 
     // Since the HIDSystem will now take on BSD Console duty,
     // we need to make sure to process the programmer key info
@@ -4513,6 +4519,7 @@ IOReturn IOHIDSystem::getCapsLockState(unsigned int *state_O)
                 itr->reset();
             }
         }
+        itr->release();
     }
     return retVal;
 }
@@ -4546,6 +4553,7 @@ IOReturn IOHIDSystem::setCapsLockState(unsigned int state_I)
                 itr->reset();
             }
         }
+        itr->release();
     }
     return retVal;
 }
@@ -4576,6 +4584,7 @@ IOReturn IOHIDSystem::getNumLockState(unsigned int *state_O)
                 itr->reset();
             }
         }
+        itr->release();
     }
     return retVal;
 }
@@ -4609,6 +4618,7 @@ IOReturn IOHIDSystem::setNumLockState(unsigned int state_I)
                 itr->reset();
             }
         }
+        itr->release();
     }
     return retVal;
 }

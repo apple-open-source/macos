@@ -1,0 +1,12 @@
+#!/bin/bash
+
+set -ex
+
+srcdir="${SRCROOT}/src/doc/crypto"
+bnf="${srcdir}/bn_internal.pod"
+
+echo "Updating bn_internal.pod to have BN_print, not bn_print."
+
+cat "${bnf}" | sed "s@bn_print@BN_print@g" > "${bnf}.tmp"
+mv "${bnf}.tmp" "${bnf}"
+

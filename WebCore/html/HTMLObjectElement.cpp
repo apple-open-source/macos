@@ -154,12 +154,6 @@ void HTMLObjectElement::attach()
         if (!m_imageLoader)
             m_imageLoader.set(new HTMLImageLoader(this));
         m_imageLoader->updateFromElement();
-        // updateForElement() may have changed us to use fallback content and called detach() and attach().
-        if (m_useFallbackContent)
-            return;
-
-        if (renderer())
-            toRenderImage(renderer())->setCachedImage(m_imageLoader->image());
     }
 }
 
@@ -242,6 +236,9 @@ const QualifiedName& HTMLObjectElement::imageSourceAttributeName() const
 void HTMLObjectElement::renderFallbackContent()
 {
     if (m_useFallbackContent)
+        return;
+    
+    if (!inDocument())
         return;
 
     // Before we give up and use fallback content, check to see if this is a MIME type issue.

@@ -50,7 +50,7 @@
 // Allow clients to define their own debug level.
 
 #if ( !defined( DEBUG_LEVEL ) )
-	#define	DEBUG_LEVEL			DEBUG_LEVEL_PRODUCTION
+	#define	DEBUG_LEVEL			DEBUG_LEVEL_FINAL
 #endif
 
 // Index for user client methods

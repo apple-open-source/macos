@@ -582,20 +582,21 @@ static CSSM_DATA_PTR _copyFieldDataForOid(CSSM_OID_PTR oid, CSSM_DATA_PTR cert, 
 // those requirements, if the revocation server is down or will not give us a
 // response for whatever reason, that is not our problem.
 
-static bool _isRevocationServerMetaError(CSSM_RETURN statusCode)
+bool isRevocationServerMetaError(CSSM_RETURN statusCode)
 {
    switch (statusCode) {
        case CSSMERR_APPLETP_CRL_NOT_FOUND:             // 13. CRL not found
        case CSSMERR_APPLETP_CRL_SERVER_DOWN:           // 14. CRL server down
        case CSSMERR_APPLETP_OCSP_UNAVAILABLE:          // 33. OCSP service unavailable
+       case CSSMERR_APPLETP_NETWORK_FAILURE:           // 36. General network failure
        case CSSMERR_APPLETP_OCSP_RESP_MALFORMED_REQ:   // 41. OCSP responder status: malformed request
        case CSSMERR_APPLETP_OCSP_RESP_INTERNAL_ERR:    // 42. OCSP responder status: internal error
        case CSSMERR_APPLETP_OCSP_RESP_TRY_LATER:       // 43. OCSP responder status: try later
        case CSSMERR_APPLETP_OCSP_RESP_SIG_REQUIRED:    // 44. OCSP responder status: signature required
        case CSSMERR_APPLETP_OCSP_RESP_UNAUTHORIZED:    // 45. OCSP responder status: unauthorized
-           return TRUE;
+           return true;
        default:
-           return FALSE;
+           return false;
    }
 }
 
@@ -688,7 +689,7 @@ CFDictionaryRef extendedValidationResults(CFArrayRef certChain, SecTrustResultTy
         // real-world case, we'll check for OCSP and CRL meta-errors specifically.
         bool recovered = false;
         if (trustResult == kSecTrustResultRecoverableTrustFailure) {
-            recovered = _isRevocationServerMetaError((CSSM_RETURN)tpResult);
+            recovered = isRevocationServerMetaError((CSSM_RETURN)tpResult);
         }
         if (!recovered) {
             return NULL;

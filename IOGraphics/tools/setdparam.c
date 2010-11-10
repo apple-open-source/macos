@@ -12,6 +12,7 @@ cc -g -o /tmp/setdparam setdparam.c -framework ApplicationServices -framework IO
 int main(int argc, char * argv[])
 {
     io_service_t        service;
+    io_string_t         path;
     CGError             err;
     int                 i;
     CGDisplayCount      max;
@@ -38,9 +39,27 @@ int main(int argc, char * argv[])
         service = CGDisplayIOServicePort(displayIDs[i]);
         if(MACH_PORT_NULL == service)
             continue;
+
+        err = IORegistryEntryGetPath(service, kIOServicePlane, path);
+        if( kIOReturnSuccess != err)
+        {
+            printf("IORegistryEntryGetPath(err 0x%x, %d)\n", err, service);
+            continue;
+        }
+        printf("framebuffer: %s\n", path);
         service = IODisplayForFramebuffer(service, kNilOptions);
         if(MACH_PORT_NULL == service)
+        {
+            printf("no display there\n", err, service);
             continue;
+        }
+        err = IORegistryEntryGetPath(service, kIOServicePlane, path);
+        if( kIOReturnSuccess != err)
+        {
+            printf("IORegistryEntryGetPath(err 0x%x, %d)\n", err, service);
+            continue;
+        }
+        printf("display: %s\n", path);
 
         err = IODisplayGetIntegerRangeParameter(service, kNilOptions, key,
                                                 &ivalue, &imin, &imax);

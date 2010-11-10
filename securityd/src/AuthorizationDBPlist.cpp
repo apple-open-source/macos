@@ -27,6 +27,7 @@
 
 #include "AuthorizationDBPlist.h"
 #include <security_utilities/logging.h>
+#include <System/sys/fsctl.h>
 
 // mLock is held when the database is changed
 // mReadWriteLock is held when the file on disk is changed
@@ -126,11 +127,24 @@ void AuthorizationDBPlist::save()
 	}
 	else
 	{
+		if (-1 == fcntl(fd, F_FULLFSYNC, NULL))
+			fsync(fd);
+
 		close(fd);
+		int fd2 = open (mFileName.c_str(), O_RDONLY);
 		if (rename(tempFile.c_str(), mFileName.c_str()))
+		{
+			close(fd2);
 			unlink(tempFile.c_str());
+		}
 		else
+		{
+			/* force a sync to flush the journal */
+			int flags = FSCTL_SYNC_WAIT|FSCTL_SYNC_FULLSYNC;
+			ffsctl(fd2, FSCTL_SYNC_VOLUME, &flags, sizeof(flags));
+			close(fd2);
 			mLastChecked = CFAbsoluteTimeGetCurrent(); // we have the copy that's on disk now, so don't go loading it right away
+		}
 	}
 }
 

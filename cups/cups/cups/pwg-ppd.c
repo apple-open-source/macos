@@ -1,5 +1,5 @@
 /*
- * "$Id: pwg-ppd.c 2114 2010-04-23 20:27:40Z msweet $"
+ * "$Id: pwg-ppd.c 2771 2010-10-06 19:50:44Z msweet $"
  *
  *   PWG PPD mapping API implementation for CUPS.
  *
@@ -49,6 +49,13 @@
 
 
 /*
+ * Macro to test for two almost-equal PWG measurements.
+ */
+
+#define _PWG_EQUIVALENT(x, y)	(abs((x)-(y)) < 2)
+
+
+/*
  * Local functions...
  */
 
@@ -63,20 +70,44 @@ static void	pwg_unppdize_name(const char *ppd, char *name, size_t namesize);
 _pwg_t *				/* O - PWG mapping data */
 _pwgCreateWithPPD(ppd_file_t *ppd)	/* I - PPD file */
 {
-  int		i, j;			/* Looping vars */
-  _pwg_t	*pwg;			/* PWG mapping data */
-  ppd_option_t	*input_slot,		/* InputSlot option */
-		*media_type,		/* MediaType option */
-		*output_bin;		/* OutputBin option */
-  ppd_choice_t	*choice;		/* Current InputSlot/MediaType */
-  _pwg_map_t	*map;			/* Current source/type map */
-  ppd_size_t	*ppd_size;		/* Current PPD size */
-  _pwg_size_t	*pwg_size;		/* Current PWG size */
-  char		pwg_keyword[3 + PPD_MAX_NAME + 1 + 12 + 1 + 12 + 3],
+  int			i, j, k;	/* Looping vars */
+  _pwg_t		*pwg;		/* PWG mapping data */
+  ppd_option_t		*input_slot,	/* InputSlot option */
+			*media_type,	/* MediaType option */
+			*output_bin,	/* OutputBin option */
+			*color_model,	/* ColorModel option */
+			*duplex;	/* Duplex option */
+  ppd_choice_t		*choice;	/* Current InputSlot/MediaType */
+  _pwg_map_t		*map;		/* Current source/type map */
+  ppd_attr_t		*ppd_attr;	/* Current PPD preset attribute */
+  int			num_options;	/* Number of preset options and props */
+  cups_option_t		*options;	/* Preset options and properties */
+  ppd_size_t		*ppd_size;	/* Current PPD size */
+  _pwg_size_t		*pwg_size;	/* Current PWG size */
+  char			pwg_keyword[3 + PPD_MAX_NAME + 1 + 12 + 1 + 12 + 3],
 					/* PWG keyword string */
-		ppd_name[PPD_MAX_NAME];	/* Normalized PPD name */
-  const char	*pwg_name;		/* Standard PWG media name */
-  _pwg_media_t	*pwg_media;		/* PWG media data */
+			ppd_name[PPD_MAX_NAME];
+					/* Normalized PPD name */
+  const char		*pwg_name;	/* Standard PWG media name */
+  _pwg_media_t		*pwg_media;	/* PWG media data */
+  _pwg_output_mode_t	pwg_output_mode;/* output-mode index */
+  _pwg_print_quality_t	pwg_print_quality;
+					/* print-quality index */
+  int			similar;	/* Are the old and new size similar? */
+  _pwg_size_t           *old_size;	/* Current old size */
+  int			old_imageable,	/* Old imageable length in 2540ths */
+			old_borderless,	/* Old borderless state */
+			old_known_pwg;	/* Old PWG name is well-known */
+  int			new_width,	/* New width in 2540ths */
+			new_length,	/* New length in 2540ths */
+			new_left,	/* New left margin in 2540ths */
+			new_bottom,	/* New bottom margin in 2540ths */
+			new_right,	/* New right margin in 2540ths */
+			new_top,	/* New top margin in 2540ths */
+			new_imageable,	/* New imageable length in 2540ths */
+			new_borderless,	/* New borderless state */
+			new_known_pwg;	/* New PWG name is well-known */
+  _pwg_size_t           *new_size;	/* New size to add, if any */
 
 
   DEBUG_printf(("_pwgCreateWithPPD(ppd=%p)", ppd));
@@ -125,7 +156,7 @@ _pwgCreateWithPPD(ppd_file_t *ppd)	/* I - PPD file */
 
     if (!strcasecmp(ppd_size->name, "Custom"))
       continue;
-
+	
    /*
     * Convert the PPD size name to the corresponding PWG keyword name.
     */
@@ -150,7 +181,8 @@ _pwgCreateWithPPD(ppd_file_t *ppd)	/* I - PPD file */
       * Standard name and no conflicts, use it!
       */
 
-      pwg_name = pwg_media->pwg;
+      pwg_name      = pwg_media->pwg;
+      new_known_pwg = 1;
     }
     else
     {
@@ -160,7 +192,8 @@ _pwgCreateWithPPD(ppd_file_t *ppd)	/* I - PPD file */
       *     pp_lowerppd_WIDTHxHEIGHTuu
       */
 
-      pwg_name = pwg_keyword;
+      pwg_name      = pwg_keyword;
+      new_known_pwg = 0;
 
       pwg_unppdize_name(ppd_size->name, ppd_name, sizeof(ppd_name));
       _pwgGenerateSize(pwg_keyword, sizeof(pwg_keyword), NULL, ppd_name,
@@ -169,20 +202,75 @@ _pwgCreateWithPPD(ppd_file_t *ppd)	/* I - PPD file */
     }
 
    /*
-    * Save this size...
+    * If we have a similar paper with non-zero margins then we only
+    * want to keep it if it has a larger imageable area length.
     */
 
-    pwg_size->map.ppd = _cupsStrAlloc(ppd_size->name);
-    pwg_size->map.pwg = _cupsStrAlloc(pwg_name);
-    pwg_size->width   = _PWG_FROMPTS(ppd_size->width);
-    pwg_size->length  = _PWG_FROMPTS(ppd_size->length);
-    pwg_size->left    = _PWG_FROMPTS(ppd_size->left);
-    pwg_size->bottom  = _PWG_FROMPTS(ppd_size->bottom);
-    pwg_size->right   = _PWG_FROMPTS(ppd_size->width - ppd_size->right);
-    pwg_size->top     = _PWG_FROMPTS(ppd_size->length - ppd_size->top);
+    new_width      = _PWG_FROMPTS(ppd_size->width);
+    new_length     = _PWG_FROMPTS(ppd_size->length);
+    new_left       = _PWG_FROMPTS(ppd_size->left);
+    new_bottom     = _PWG_FROMPTS(ppd_size->bottom);
+    new_right      = _PWG_FROMPTS(ppd_size->width - ppd_size->right);
+    new_top        = _PWG_FROMPTS(ppd_size->length - ppd_size->top);
+    new_imageable  = new_length - new_top - new_bottom;
+    new_borderless = new_bottom == 0 && new_top == 0 &&
+                     new_left == 0 && new_right == 0;
 
-    pwg->num_sizes ++;
-    pwg_size ++;
+    for (k = pwg->num_sizes, similar = 0, old_size = pwg->sizes, new_size = NULL;
+         k > 0 && !similar;
+         k --, old_size ++)
+    {
+      old_imageable  = old_size->length - old_size->top - old_size->bottom;
+      old_borderless = old_size->left == 0 && old_size->bottom == 0 &&
+	               old_size->right == 0 && old_size->top == 0;
+      old_known_pwg  = strncmp(old_size->map.pwg, "oe_", 3) &&
+		       strncmp(old_size->map.pwg, "om_", 3);
+		
+      similar = old_borderless == new_borderless &&
+                _PWG_EQUIVALENT(old_size->width, new_width) &&
+	        _PWG_EQUIVALENT(old_size->length, new_length);
+
+      if (similar && 
+          (new_known_pwg || (!old_known_pwg && new_imageable > old_imageable)))
+      {
+       /*
+	* The new paper has a larger imageable area so it could replace
+	* the older paper.  Regardless of the imageable area, we always
+	* prefer the size with a well-known PWG name.
+	*/
+
+	new_size = old_size;
+	_cupsStrFree(old_size->map.ppd);
+	_cupsStrFree(old_size->map.pwg);
+      }
+    }
+
+    if (!similar)
+    {
+     /*
+      * The paper was unique enough to deserve its own entry so add it to the
+      * end.
+      */
+
+      new_size = pwg_size ++;
+      pwg->num_sizes ++;
+    } 
+
+    if (new_size)
+    {
+     /*
+      * Save this size...
+      */
+
+      new_size->map.ppd = _cupsStrAlloc(ppd_size->name);
+      new_size->map.pwg = _cupsStrAlloc(pwg_name);
+      new_size->width   = new_width;
+      new_size->length  = new_length;
+      new_size->left    = new_left;
+      new_size->bottom  = new_bottom;
+      new_size->right   = new_right;
+      new_size->top     = new_top;
+    }
   }
 
   if (ppd->variable_sizes)
@@ -215,8 +303,13 @@ _pwgCreateWithPPD(ppd_file_t *ppd)	/* I - PPD file */
   * Copy and convert InputSlot data...
   */
 
-  if ((input_slot = ppdFindOption(ppd, "InputSlot")) != NULL)
+  if ((input_slot = ppdFindOption(ppd, "InputSlot")) == NULL)
+    input_slot = ppdFindOption(ppd, "HPPaperSource");
+
+  if (input_slot)
   {
+    pwg->source_option = _cupsStrAlloc(input_slot->keyword);
+
     if ((pwg->sources = calloc(input_slot->num_choices,
                                sizeof(_pwg_map_t))) == NULL)
     {
@@ -237,6 +330,10 @@ _pwgCreateWithPPD(ppd_file_t *ppd)	/* I - PPD file */
         pwg_name = "auto";
       else if (!strcasecmp(choice->choice, "Cassette"))
         pwg_name = "main";
+      else if (!strcasecmp(choice->choice, "PhotoTray"))
+        pwg_name = "photo";
+      else if (!strcasecmp(choice->choice, "CDTray"))
+        pwg_name = "disc";
       else if (!strncasecmp(choice->choice, "Multipurpose", 12) ||
                !strcasecmp(choice->choice, "MP") ||
                !strcasecmp(choice->choice, "MPTray"))
@@ -362,6 +459,238 @@ _pwgCreateWithPPD(ppd_file_t *ppd)	/* I - PPD file */
     }
   }
 
+  if ((ppd_attr = ppdFindAttr(ppd, "APPrinterPreset", NULL)) != NULL)
+  {
+   /*
+    * Copy and convert APPrinterPreset (output-mode + print-quality) data...
+    */
+
+    const char	*quality,		/* com.apple.print.preset.quality value */
+		*output_mode,		/* com.apple.print.preset.output-mode value */
+		*color_model_val,	/* ColorModel choice */
+		*graphics_type,		/* com.apple.print.preset.graphicsType value */
+		*paper_coating;		/* com.apple.print.preset.media-front-coating value */
+
+
+    do
+    {
+      num_options = _ppdParseOptions(ppd_attr->value, 0, &options,
+                                     _PPD_PARSE_ALL);
+
+      if ((quality = cupsGetOption("com.apple.print.preset.quality",
+                                   num_options, options)) != NULL)
+      {
+       /*
+        * Get the print-quality for this preset...
+	*/
+
+	if (!strcmp(quality, "low"))
+	  pwg_print_quality = _PWG_PRINT_QUALITY_DRAFT;
+	else if (!strcmp(quality, "high"))
+	  pwg_print_quality = _PWG_PRINT_QUALITY_HIGH;
+	else
+	  pwg_print_quality = _PWG_PRINT_QUALITY_NORMAL;
+
+       /*
+	* Ignore graphicsType "Photo" presets that are not high quality.
+	*/
+
+	graphics_type = cupsGetOption("com.apple.print.preset.graphicsType",
+				      num_options, options);
+
+	if (pwg_print_quality != _PWG_PRINT_QUALITY_HIGH && graphics_type &&
+	    !strcmp(graphics_type, "Photo"))
+	  continue;
+
+       /*
+	* Ignore presets for normal and draft quality where the coating
+	* isn't "none" or "autodetect".
+	*/
+
+	paper_coating = cupsGetOption(
+	                    "com.apple.print.preset.media-front-coating",
+			    num_options, options);
+
+        if (pwg_print_quality != _PWG_PRINT_QUALITY_HIGH && paper_coating &&
+	    strcmp(paper_coating, "none") &&
+	    strcmp(paper_coating, "autodetect"))		
+	  continue;
+
+       /*
+        * Get the output mode for this preset...
+	*/
+
+        output_mode     = cupsGetOption("com.apple.print.preset.output-mode",
+	                                num_options, options);
+        color_model_val = cupsGetOption("ColorModel", num_options, options);
+
+        if (output_mode)
+	{
+	  if (!strcmp(output_mode, "monochrome"))
+	    pwg_output_mode = _PWG_OUTPUT_MODE_MONOCHROME;
+	  else
+	    pwg_output_mode = _PWG_OUTPUT_MODE_COLOR;
+	}
+	else if (color_model_val)
+	{
+	  if (!strcasecmp(color_model_val, "Gray"))
+	    pwg_output_mode = _PWG_OUTPUT_MODE_MONOCHROME;
+	  else
+	    pwg_output_mode = _PWG_OUTPUT_MODE_COLOR;
+	}
+	else
+	  pwg_output_mode = _PWG_OUTPUT_MODE_COLOR;
+
+       /*
+        * Save the options for this combination as needed...
+	*/
+
+        if (!pwg->num_presets[pwg_output_mode][pwg_print_quality])
+	  pwg->num_presets[pwg_output_mode][pwg_print_quality] =
+	      _ppdParseOptions(ppd_attr->value, 0,
+	                       pwg->presets[pwg_output_mode] +
+			           pwg_print_quality, _PPD_PARSE_OPTIONS);
+      }
+
+      cupsFreeOptions(num_options, options);
+    }
+    while ((ppd_attr = ppdFindNextAttr(ppd, "APPrinterPreset", NULL)) != NULL);
+  }
+
+  if (!pwg->num_presets[_PWG_OUTPUT_MODE_MONOCHROME][_PWG_PRINT_QUALITY_DRAFT] &&
+      !pwg->num_presets[_PWG_OUTPUT_MODE_MONOCHROME][_PWG_PRINT_QUALITY_NORMAL] &&
+      !pwg->num_presets[_PWG_OUTPUT_MODE_MONOCHROME][_PWG_PRINT_QUALITY_HIGH])
+  {
+   /*
+    * Try adding some common color options to create grayscale presets.  These
+    * are listed in order of popularity...
+    */
+
+    const char	*color_option = NULL,	/* Color control option */
+		*gray_choice = NULL;	/* Choice to select grayscale */
+
+    if ((color_model = ppdFindOption(ppd, "ColorModel")) != NULL &&
+        ppdFindChoice(color_model, "Gray"))
+    {
+      color_option = "ColorModel";
+      gray_choice  = "Gray";
+    }
+    else if ((color_model = ppdFindOption(ppd, "HPColorMode")) != NULL &&
+             ppdFindChoice(color_model, "grayscale"))
+    {
+      color_option = "HPColorMode";
+      gray_choice  = "grayscale";
+    }
+    else if ((color_model = ppdFindOption(ppd, "BRMonoColor")) != NULL &&
+             ppdFindChoice(color_model, "Mono"))
+    {
+      color_option = "BRMonoColor";
+      gray_choice  = "Mono";
+    }
+    else if ((color_model = ppdFindOption(ppd, "CNIJSGrayScale")) != NULL &&
+             ppdFindChoice(color_model, "1"))
+    {
+      color_option = "CNIJSGrayScale";
+      gray_choice  = "1";
+    }
+    else if ((color_model = ppdFindOption(ppd, "HPColorAsGray")) != NULL &&
+             ppdFindChoice(color_model, "True"))
+    {
+      color_option = "HPColorAsGray";
+      gray_choice  = "True";
+    }
+
+    if (color_option && gray_choice)
+    {
+     /*
+      * Copy and convert ColorModel (output-mode) data...
+      */
+
+      cups_option_t	*coption,	/* Color option */
+			  *moption;	/* Monochrome option */
+
+      for (pwg_print_quality = _PWG_PRINT_QUALITY_DRAFT;
+	   pwg_print_quality < _PWG_PRINT_QUALITY_MAX;
+	   pwg_print_quality ++)
+      {
+	if (pwg->num_presets[_PWG_OUTPUT_MODE_COLOR][pwg_print_quality])
+	{
+	 /*
+	  * Copy the color options...
+	  */
+
+	  num_options = pwg->num_presets[_PWG_OUTPUT_MODE_COLOR]
+					[pwg_print_quality];
+	  options     = calloc(sizeof(cups_option_t), num_options);
+
+	  if (options)
+	  {
+	    for (i = num_options, moption = options,
+		     coption = pwg->presets[_PWG_OUTPUT_MODE_COLOR]
+					   [pwg_print_quality];
+		 i > 0;
+		 i --, moption ++, coption ++)
+	    {
+	      moption->name  = _cupsStrRetain(coption->name);
+	      moption->value = _cupsStrRetain(coption->value);
+	    }
+
+	    pwg->num_presets[_PWG_OUTPUT_MODE_MONOCHROME][pwg_print_quality] =
+		num_options;
+	    pwg->presets[_PWG_OUTPUT_MODE_MONOCHROME][pwg_print_quality] =
+		options;
+	  }
+	}
+	else if (pwg_print_quality != _PWG_PRINT_QUALITY_NORMAL)
+	  continue;
+
+       /*
+	* Add the grayscale option to the preset...
+	*/
+
+	pwg->num_presets[_PWG_OUTPUT_MODE_MONOCHROME][pwg_print_quality] =
+	    cupsAddOption(color_option, gray_choice,
+			  pwg->num_presets[_PWG_OUTPUT_MODE_MONOCHROME]
+					  [pwg_print_quality],
+			  pwg->presets[_PWG_OUTPUT_MODE_MONOCHROME] +
+			      pwg_print_quality);
+      }
+    }
+  }
+
+ /*
+  * Copy and convert Duplex (sides) data...
+  */
+
+  if ((duplex = ppdFindOption(ppd, "Duplex")) == NULL)
+    if ((duplex = ppdFindOption(ppd, "JCLDuplex")) == NULL)
+      if ((duplex = ppdFindOption(ppd, "EFDuplex")) == NULL)
+        if ((duplex = ppdFindOption(ppd, "EFDuplexing")) == NULL)
+	  duplex = ppdFindOption(ppd, "KD03Duplex");
+
+  if (duplex)
+  {
+    pwg->sides_option = _cupsStrAlloc(duplex->keyword);
+
+    for (i = duplex->num_choices, choice = duplex->choices;
+         i > 0;
+	 i --, choice ++)
+    {
+      if ((!strcasecmp(choice->choice, "None") ||
+	   !strcasecmp(choice->choice, "False")) && !pwg->sides_1sided)
+        pwg->sides_1sided = _cupsStrAlloc(choice->choice);
+      else if ((!strcasecmp(choice->choice, "DuplexNoTumble") ||
+	        !strcasecmp(choice->choice, "LongEdge") ||
+	        !strcasecmp(choice->choice, "Top")) && !pwg->sides_2sided_long)
+        pwg->sides_2sided_long = _cupsStrAlloc(choice->choice);
+      else if ((!strcasecmp(choice->choice, "DuplexTumble") ||
+	        !strcasecmp(choice->choice, "ShortEdge") ||
+	        !strcasecmp(choice->choice, "Bottom")) &&
+	       !pwg->sides_2sided_short)
+        pwg->sides_2sided_short = _cupsStrAlloc(choice->choice);
+    }
+  }
+
   return (pwg);
 
  /*
@@ -434,13 +763,30 @@ _pwgGetInputSlot(_pwg_t     *pwg,	/* I - PWG mapping data */
 
     ipp_attribute_t	*media_col,	/* media-col attribute */
 			*media_source;	/* media-source attribute */
+    _pwg_size_t		size;		/* Dimensional size */
+    int			margins_set;	/* Were the margins set? */
 
     media_col = ippFindAttribute(job, "media-col", IPP_TAG_BEGIN_COLLECTION);
     if (media_col &&
         (media_source = ippFindAttribute(media_col->values[0].collection,
                                          "media-source",
 	                                 IPP_TAG_KEYWORD)) != NULL)
+    {
+     /*
+      * Use the media-source value from media-col...
+      */
+
       keyword = media_source->values[0].string.text;
+    }
+    else if (_pwgInitSize(&size, job, &margins_set))
+    {
+     /*
+      * For media <= 5x7, look for a photo tray...
+      */
+
+      if (size.width <= (5 * 2540) && size.length <= (7 * 2540))
+        keyword = "photo";
+    }
   }
 
   if (keyword)
@@ -565,7 +911,11 @@ _pwgGetPageSize(_pwg_t     *pwg,	/* I - PWG mapping data */
 		dtop,			/* Difference in top margins */
 		dmin,			/* Minimum difference */
 		dclosest;		/* Closest difference */
+  const char	*ppd_name;		/* PPD media name */
 
+
+  DEBUG_printf(("_pwgGetPageSize(pwg=%p, job=%p, keyword=\"%s\", exact=%p)",
+	        pwg, job, keyword, exact));
 
  /*
   * Range check input...
@@ -576,6 +926,58 @@ _pwgGetPageSize(_pwg_t     *pwg,	/* I - PWG mapping data */
 
   if (exact)
     *exact = 0;
+
+  ppd_name = keyword;
+
+  if (job)
+  {
+   /*
+    * Try getting the PPD media name from the job attributes...
+    */
+
+    ipp_attribute_t	*attr;		/* Job attribute */
+
+    if ((attr = ippFindAttribute(job, "PageSize", IPP_TAG_ZERO)) == NULL)
+      if ((attr = ippFindAttribute(job, "PageRegion", IPP_TAG_ZERO)) == NULL)
+        attr = ippFindAttribute(job, "media", IPP_TAG_ZERO);
+
+#ifdef DEBUG
+    if (attr)
+      DEBUG_printf(("1_pwgGetPageSize: Found attribute %s (%s)", attr->name,
+		    ippTagString(attr->value_tag)));
+    else
+      DEBUG_puts("1_pwgGetPageSize: Did not find media attribute.");
+#endif /* DEBUG */
+
+    if (attr && (attr->value_tag == IPP_TAG_NAME ||
+                 attr->value_tag == IPP_TAG_KEYWORD))
+      ppd_name = attr->values[0].string.text;
+  }
+
+  DEBUG_printf(("1_pwgGetPageSize: ppd_name=\"%s\"", ppd_name));
+
+  if (ppd_name)
+  {
+   /*
+    * Try looking up the named PPD size first...
+    */
+
+    for (i = pwg->num_sizes, size = pwg->sizes; i > 0; i --, size ++)
+    {
+      DEBUG_printf(("2_pwgGetPageSize: size[%d]=[\"%s\" \"%s\"]",
+                    (int)(size - pwg->sizes), size->map.pwg, size->map.ppd));
+
+      if (!strcasecmp(ppd_name, size->map.ppd))
+      {
+	if (exact)
+	  *exact = 1;
+
+        DEBUG_printf(("1_pwgGetPageSize: Returning \"%s\"", ppd_name));
+
+        return (ppd_name);
+      }
+    }
+  }
 
   if (job && !keyword)
   {
@@ -598,7 +1000,8 @@ _pwgGetPageSize(_pwg_t     *pwg,	/* I - PWG mapping data */
 
     if ((media = _pwgMediaForPWG(keyword)) == NULL)
       if ((media = _pwgMediaForLegacy(keyword)) == NULL)
-        return (NULL);
+        if ((media = _pwgMediaForPPD(keyword)) == NULL)
+	  return (NULL);
 
     jobsize.width  = media->width;
     jobsize.length = media->length;
@@ -659,11 +1062,18 @@ _pwgGetPageSize(_pwg_t     *pwg,	/* I - PWG mapping data */
     if (exact)
       *exact = 1;
 
+    DEBUG_printf(("1_pwgGetPageSize: Returning \"%s\"", size->map.ppd));
+
     return (size->map.ppd);
   }
 
   if (closest)
+  {
+    DEBUG_printf(("1_pwgGetPageSize: Returning \"%s\" (closest)",
+                  closest->map.ppd));
+
     return (closest->map.ppd);
+  }
 
  /*
   * If we get here we need to check for custom page size support...
@@ -695,12 +1105,17 @@ _pwgGetPageSize(_pwg_t     *pwg,	/* I - PWG mapping data */
     else if (exact)
       *exact = 1;
 
+    DEBUG_printf(("1_pwgGetPageSize: Returning \"%s\" (custom)",
+                  pwg->custom_ppd_size));
+
     return (pwg->custom_ppd_size);
   }
 
  /*
   * No custom page size support or the size is out of range - return NULL.
   */
+
+  DEBUG_puts("1_pwgGetPageSize: Returning NULL");
 
   return (NULL);
 }
@@ -1024,7 +1439,7 @@ pwg_ppdize_name(const char *ipp,	/* I - IPP keyword */
 
   for (ptr = name + 1, end = name + namesize - 1; *ipp && ptr < end;)
   {
-    if (*ipp == '-' && isalpha(ipp[1] & 255))
+    if (*ipp == '-' && _cups_isalpha(ipp[1]))
     {
       ipp ++;
       *ptr++ = toupper(*ipp++ & 255);
@@ -1052,13 +1467,13 @@ pwg_unppdize_name(const char *ppd,	/* I - PPD keyword */
 
   for (ptr = name, end = name + namesize - 1; *ppd && ptr < end; ppd ++)
   {
-    if (isalnum(*ppd & 255) || *ppd == '-' || *ppd == '.')
+    if (_cups_isalnum(*ppd) || *ppd == '-')
       *ptr++ = tolower(*ppd & 255);
-    else if (*ppd == '_')
+    else if (*ppd == '_' || *ppd == '.')
       *ptr++ = '-';
 
-    if (!isupper(*ppd & 255) && isalnum(*ppd & 255) &&
-	isupper(ppd[1] & 255) && ptr < end)
+    if (!_cups_isupper(*ppd) && _cups_isalnum(*ppd) &&
+	_cups_isupper(ppd[1]) && ptr < end)
       *ptr++ = '-';
   }
 
@@ -1067,5 +1482,5 @@ pwg_unppdize_name(const char *ppd,	/* I - PPD keyword */
 
 
 /*
- * End of "$Id: pwg-ppd.c 2114 2010-04-23 20:27:40Z msweet $".
+ * End of "$Id: pwg-ppd.c 2771 2010-10-06 19:50:44Z msweet $".
  */

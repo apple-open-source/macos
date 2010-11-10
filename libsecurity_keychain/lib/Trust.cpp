@@ -165,8 +165,11 @@ CSSM_DL_DB_HANDLE cfKeychain(SecKeychainRef ref)
 // Note that evaluate() can be called repeatedly, so we must be careful to
 // dispose of prior results.
 //
-void Trust::evaluate()
+void Trust::evaluate(bool disableEV)
 {
+	bool isEVCandidate=false;
+	// begin evaluation block with stack-based mutex
+	{
 	StLock<Mutex>_(mMutex);
 	// if we have evaluated before, release prior result
 	clearResults();
@@ -174,7 +177,7 @@ void Trust::evaluate()
 	// determine whether the leaf certificate is an EV candidate
 	CFArrayRef allowedAnchors = allowedEVRootsForLeafCertificate(mCerts);
 	CFArrayRef filteredCerts = NULL;
-	bool isEVCandidate = (allowedAnchors) ? true : false;
+	isEVCandidate = (allowedAnchors && !disableEV) ? true : false;
 	if (isEVCandidate) {
 		secdebug("evTrust", "Trust::evaluate() certificate is EV candidate");
 		filteredCerts = potentialEVChainWithCertificates(mCerts);
@@ -373,6 +376,8 @@ void Trust::evaluate()
 			CFRelease(evResult);
 		CFRelease(fullChain);
 		secdebug("evTrust", "Trust::evaluate() post-processing complete");
+	} else {
+		mExtendedResult = NULL;
 	}
 	
 	/* Clean up Policies we created implicitly */
@@ -381,6 +386,14 @@ void Trust::evaluate()
 	}
 	if(numPrefAdded) {
 		Trust::freePreferenceRevocationPolicies(allPolicies, numPrefAdded, context.allocator);
+	}
+	} // end evaluation block with mutex; releases all temporary allocations in this scope
+	
+
+	if (isEVCandidate && mResult == kSecTrustResultRecoverableTrustFailure &&
+		isRevocationServerMetaError(mTpReturn)) {
+		// re-do the evaluation, this time disabling EV
+		evaluate(true);
 	}
 }
 

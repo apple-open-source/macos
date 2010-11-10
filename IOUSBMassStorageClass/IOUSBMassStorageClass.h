@@ -189,6 +189,7 @@ protected:
 		UInt8					fConsecutiveResetCount;
 		bool					fClearStallInProgress;				/* OBSOLETE */
 		bool					fTerminationDeferred;
+		UInt32					fRequiredMaxBusStall;
 	};
     ExpansionData *				reserved;
 	
@@ -211,6 +212,7 @@ protected:
 	#define fConsecutiveResetCount				reserved->fConsecutiveResetCount
 	#define fClearStallInProgress				reserved->fClearStallInProgress
 	#define fTerminationDeferred				reserved->fTerminationDeferred
+	#define fRequiredMaxBusStall				reserved->fRequiredMaxBusStall
 	
 	// Enumerated constants used to control various aspects of this
 	// driver.

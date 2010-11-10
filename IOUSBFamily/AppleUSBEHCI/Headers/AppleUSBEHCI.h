@@ -2,7 +2,7 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1998-2007 Apple Inc.  All Rights Reserved.
+ * Copyright (c) 1998-2010 Apple Inc.  All Rights Reserved.
  * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
@@ -46,6 +46,9 @@
 
 #define MICROSECOND		(1)
 #define MILLISECOND		(1000)
+
+// Change the define to get the TT Scheduler logs to show up at a different level
+#define EHCISPLITTRANSFERLOGGING	7
 
 // Convert USBLog to use kprintf debugging
 // The switch is here, but the work is done in the individual source files because this header is included by the companion controllers
@@ -190,9 +193,6 @@ class AppleUSBEHCI : public IOUSBControllerV3
 	
 	
 private:
- 	UInt32							ExpressCardPort( IOService * provider );
-	IOACPIPlatformDevice *			CopyACPIDevice( IORegistryEntry * device );
-	bool							HasExpressCardUSB( IORegistryEntry * acpiDevice, UInt32 * portnum );
 	
     void							showRegisters(UInt32 level, const char *s);
     void							printTD(EHCIGeneralTransferDescriptorPtr pTD, int level);
@@ -214,13 +214,15 @@ protected:
     EHCIRegistersPtr						_pEHCIRegisters;					// Pointer to base address of EHCI registers.
     UInt32									_dataAllocationSize;				// # of bytes allocated in for TD's
     SInt32									_greatestPeriod;					// Longest interrupt period allocated.
-    EHCIGeneralTransferDescriptorPtr		_pFreeTD;							// list of availabble Trasfer Descriptors
-    AppleEHCIIsochTransferDescriptor		*_pFreeITD;							// list of availabble Trasfer Descriptors
-    AppleEHCISplitIsochTransferDescriptor 	*_pFreeSITD;						// list of availabble Trasfer Descriptors
+    EHCIGeneralTransferDescriptorPtr		_pFreeTD;							// list of available Trasfer Descriptors
+    AppleEHCIIsochTransferDescriptor		*_pFreeITD;							// list of available Trasfer Descriptors
+    AppleEHCISplitIsochTransferDescriptor 	*_pFreeSITD;						// list of available Trasfer Descriptors
+    AppleEHCISplitIsochTransferDescriptor 	*_pDelayedSITD;						// list of SITDs which are not being Deallocated quite yet..
     AppleEHCIQueueHead						*_pFreeQH;							// list of available Endpoint Descriptors
-    EHCIGeneralTransferDescriptorPtr		_pLastFreeTD;						// last of availabble Trasfer Descriptors
-    AppleEHCIIsochTransferDescriptor		*_pLastFreeITD;						// last of availabble Trasfer Descriptors
-    AppleEHCISplitIsochTransferDescriptor	*_pLastFreeSITD;					// last of availabble Trasfer Descriptors
+    EHCIGeneralTransferDescriptorPtr		_pLastFreeTD;						// last of available Trasfer Descriptors
+    AppleEHCIIsochTransferDescriptor		*_pLastFreeITD;						// last of available Trasfer Descriptors
+    AppleEHCISplitIsochTransferDescriptor	*_pLastFreeSITD;					// last of available Trasfer Descriptors
+    AppleEHCISplitIsochTransferDescriptor	*_pLastDelayedSITD;					// last of delayed Transfer Descriptors
     AppleEHCIQueueHead						*_pLastFreeQH;						// last of available Endpoint Descriptors
 	IOBufferMemoryDescriptor				*_periodicListBuffer;				// IOBMD for the periodic list
     USBPhysicalAddress32					*_periodicList;						// Physical interrrupt heads
@@ -268,6 +270,7 @@ protected:
 	} _errors;
     UInt32									_frameListSize;
     AppleEHCIQueueHead						*_AsyncHead;							// ptr to Control list
+    AppleEHCIQueueHead						*_InactiveAsyncHead;					// ptr to Control EDs which are not active
 	
     AppleEHCIedMemoryBlock					*_edMBHead;
     AppleEHCItdMemoryBlock					*_tdMBHead;
@@ -310,9 +313,6 @@ protected:
 	UIMDiagnostics							_UIMDiagnostics;
 	
 	
-	
-	
-	
 	// methods
     
     static void 				InterruptHandler(OSObject *owner, IOInterruptEventSource * source, int count);
@@ -341,6 +341,7 @@ protected:
 											 UInt8					direction);
 	
 	void linkInterruptEndpoint(AppleEHCIQueueHead *pEHCIEndpointDescriptor);
+	void maybeLinkAsyncEndpoint(AppleEHCIQueueHead *CBED);
 	void linkAsyncEndpoint(AppleEHCIQueueHead *CBED);
 	void returnTransactions(AppleEHCIQueueHead *pED, EHCIGeneralTransferDescriptor *untilThisOne, IOReturn error, bool clearToggle);
 	
@@ -371,7 +372,9 @@ protected:
 						  UInt32				bufferSize,
 						  UInt16				direction,
 						  Boolean				controlTransaction);
-	
+
+	void checkHeads(void);
+
     AppleEHCIQueueHead *FindControlBulkEndpoint (short 						functionNumber, 
 												 short						endpointNumber, 
 												 AppleEHCIQueueHead   				**pEDBack,
@@ -416,7 +419,8 @@ protected:
 	void				ReturnOneTransaction(EHCIGeneralTransferDescriptor 	*transaction,
 							   AppleEHCIQueueHead				*pED,
 							   AppleEHCIQueueHead				*pEDBack,
-							   IOReturn							err);
+							   IOReturn							err,
+							   Boolean							inactive);
 	
     UInt32				findBufferRemaining(AppleEHCIQueueHead *pED);
 	void				UIMCheckForTimeouts(void);
@@ -662,7 +666,7 @@ public:
     IOReturn		EnablePeriodicSchedule(bool waitForON);
     IOReturn		DisablePeriodicSchedule(bool waitForOFF);
 	
-    void 			CheckEDListForTimeouts(AppleEHCIQueueHead *head);
+    bool 			CheckEDListForTimeouts(AppleEHCIQueueHead *head);
     void			GetNumberOfPorts(UInt8 *numPorts);
 
 	virtual IOUSBControllerIsochEndpoint*			AllocateIsochEP();

@@ -1098,7 +1098,7 @@ struct dfs_stack {
  * PATH_MAX/2.  Note that catalog hierarchy check puts limitation of 100 
  * on the maximum depth of a directory hierarchy.
  */
-#define DIRLINK_DFS_MAX_DEPTH 	PATH_MAX/2
+#define DIRLINK_DEFAULT_DFS_MAX_DEPTH 	PATH_MAX/2
 
 /* Check if the current directory exists in the current traversal path.  
  * If yes, loops in directory exists and return non-zero value.  If not,
@@ -1218,30 +1218,40 @@ static int check_hierarchy_loops(SGlobPtr gptr)
 	struct dfs_id child;
 	struct dfs_id parent;
 	struct visited_dirinode visited;
+	size_t max_alloc_depth = DIRLINK_DEFAULT_DFS_MAX_DEPTH;
 	uint32_t is_dirinode;
 
-#define DFS_PUSH(dfs_id) \
+#define DFS_PUSH(dfsid) \
 		{ \
-			dfs.idptr[dfs.depth].inode_id = dfs_id.inode_id; \
-			dfs.idptr[dfs.depth].catalog_id = dfs_id.catalog_id; \
+			dfs.idptr[dfs.depth].inode_id = dfsid.inode_id; \
+			dfs.idptr[dfs.depth].catalog_id = dfsid.catalog_id; \
 			dfs.depth++; \
+			if (dfs.depth == max_alloc_depth) { \
+				void *tptr = realloc(dfs.idptr, (max_alloc_depth + DIRLINK_DEFAULT_DFS_MAX_DEPTH) * sizeof(struct dfs_id)); \
+				if (tptr == NULL) { \
+					break; \
+				} else { \
+					dfs.idptr = tptr; \
+					max_alloc_depth += DIRLINK_DEFAULT_DFS_MAX_DEPTH; \
+				} \
+			} \
 		}
 
-#define DFS_POP(dfs_id) \
+#define DFS_POP(dfsid) \
 		{ \
 			dfs.depth--; \
-			dfs_id.inode_id = dfs.idptr[dfs.depth].inode_id; \
-			dfs_id.catalog_id = dfs.idptr[dfs.depth].catalog_id; \
+			dfsid.inode_id = dfs.idptr[dfs.depth].inode_id; \
+			dfsid.catalog_id = dfs.idptr[dfs.depth].catalog_id; \
 		}
 	
-#define DFS_PEEK(dfs_id) \
+#define DFS_PEEK(dfsid) \
 		{ \
-			dfs_id.inode_id = dfs.idptr[dfs.depth-1].inode_id; \
-			dfs_id.catalog_id = dfs.idptr[dfs.depth-1].catalog_id; \
+			dfsid.inode_id = dfs.idptr[dfs.depth-1].inode_id; \
+			dfsid.catalog_id = dfs.idptr[dfs.depth-1].catalog_id; \
 		}
 
 	/* Initialize the traversal stack */
-	dfs.idptr = malloc(DIRLINK_DFS_MAX_DEPTH * sizeof(struct dfs_id));
+	dfs.idptr = malloc(max_alloc_depth * sizeof(struct dfs_id));
 	if (!dfs.idptr) {
 		return ENOMEM;
 	}
@@ -1278,10 +1288,12 @@ static int check_hierarchy_loops(SGlobPtr gptr)
 	}
 
 	/* Initialize the first parent and its first unknown child */
-	DFS_PUSH(parent);
-	DFS_PUSH(unknown_child);
+	do {
+		DFS_PUSH(parent);
+		DFS_PUSH(unknown_child);
+	} while (0);
 
-	while ((dfs.depth > 1) && (dfs.depth < DIRLINK_DFS_MAX_DEPTH)) {
+	while (dfs.depth > 1) {
 		DFS_POP(child);
 		DFS_PEEK(parent);
 		retval = find_next_child_dir(gptr, parent.inode_id,
@@ -1323,7 +1335,7 @@ static int check_hierarchy_loops(SGlobPtr gptr)
 		}
 	}
 
-	if (dfs.depth >= DIRLINK_DFS_MAX_DEPTH) {
+	if (dfs.depth >= max_alloc_depth) {
 		fsckPrint(gptr->context, E_DirHardLinkNesting);
 		if (fsckGetVerbosity(gptr->context) >= kDebugLog) {
 			print_dfs(&dfs);

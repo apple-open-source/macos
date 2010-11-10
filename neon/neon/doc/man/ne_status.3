@@ -1,22 +1,30 @@
+'\" t
 .\"     Title: ne_status
 .\"    Author: 
-.\" Generator: DocBook XSL Stylesheets v1.73.2 <http://docbook.sf.net/>
-.\"      Date: 20 August 2008
+.\" Generator: DocBook XSL Stylesheets v1.74.3 <http://docbook.sf.net/>
+.\"      Date: 18 August 2009
 .\"    Manual: neon API reference
-.\"    Source: neon 0.28.3
+.\"    Source: neon 0.28.6
+.\"  Language: English
 .\"
-.TH "NE_STATUS" "3" "20 August 2008" "neon 0.28.3" "neon API reference"
+.TH "NE_STATUS" "3" "18 August 2009" "neon 0.28.6" "neon API reference"
+.\" -----------------------------------------------------------------
+.\" * set default formatting
+.\" -----------------------------------------------------------------
 .\" disable hyphenation
 .nh
 .\" disable justification (adjust text to left margin only)
 .ad l
+.\" -----------------------------------------------------------------
+.\" * MAIN CONTENT STARTS HERE *
+.\" -----------------------------------------------------------------
 .SH "NAME"
-ne_status - HTTP status structure
+ne_status \- HTTP status structure
 .SH "SYNOPSIS"
 .sp
 .ft B
 .nf
-#include <ne_utils\.h>
+#include <ne_utils\&.h>
 
 typedef struct {
     int major_version, minor_version;
@@ -29,21 +37,21 @@ typedef struct {
 .PP
 An
 \fBne_status\fR
-type represents an HTTP response status; used in response messages giving a result of request\. The
-major_version
+type represents an HTTP response status; used in response messages giving a result of request\&. The
+\fImajor_version\fR
 and
-minor_version
-fields give the HTTP version supported by the server issuing the response\. The
-code
+\fIminor_version\fR
+fields give the HTTP version supported by the server issuing the response\&. The
+\fIcode\fR
 field gives the status code of the result (lying between 100 and 999 inclusive), and the
-klass
-field gives the class\&[1], which is equal to the most significant digit of the status\.
+\fIklass\fR
+field gives the class\&\s-2\u[1]\d\s+2, which is equal to the most significant digit of the status\&.
 .PP
 There are five classes of HTTP status code defined by RFC2616:
 .PP
 1xx
 .RS 4
-Informational response\.
+Informational response\&.
 .RE
 .PP
 2xx
@@ -58,7 +66,7 @@ Redirection
 .PP
 4xx
 .RS 4
-Client error: the request made was incorrect in some manner\.
+Client error: the request made was incorrect in some manner\&.
 .RE
 .PP
 5xx
@@ -67,14 +75,15 @@ Server error
 .RE
 .SH "SEE ALSO"
 .PP
-ne_get_status\.
+ne_get_status\&.
 .SH "AUTHOR"
 .PP
 \fBJoe Orton\fR <\&neon@lists.manyfish.co.uk\&>
-.sp -1n
-.IP "" 4
+.RS 4
 Author.
+.RE
 .SH "COPYRIGHT"
+.br
 .SH "NOTES"
 .IP " 1." 4
 the field is named

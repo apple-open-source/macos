@@ -34,6 +34,7 @@
 #include "IOHIDElement.h"
 #include "IOHIDTransaction.h"
 #include "IOHIDLibPrivate.h"
+#include "IOHIDManagerPersistentProperties.h"
 
 static IOHIDDeviceRef   __IOHIDDeviceCreate(
                                     CFAllocatorRef          allocator, 
@@ -97,7 +98,10 @@ typedef struct __IOHIDDevice
     io_service_t                    service;
     IOHIDDeviceDeviceInterface**    deviceInterface;
     IOCFPlugInInterface **          plugInInterface;
-    CFDictionaryRef                 properties;
+    CFMutableDictionaryRef          properties;
+    CFMutableSetRef                 elements;
+    CFStringRef                     rootKey;
+    CFStringRef                     UUIDKey;
     IONotificationPortRef           notificationPort;
     io_object_t                     notification;
     CFTypeRef                       asyncEventSource;
@@ -111,6 +115,8 @@ typedef struct __IOHIDDevice
     void *                          inputContext;
     IOHIDValueCallback              inputCallback;
     CFArrayRef                      inputMatchingMultiple;
+    Boolean                         loadProperties;
+    Boolean                         isDirty;
 } __IOHIDDevice, *__IOHIDDeviceRef;
 
 static const CFRuntimeClass __IOHIDDeviceClass = {
@@ -172,10 +178,15 @@ void __IOHIDDeviceRelease( CFTypeRef object )
         CFRelease(device->inputMatchingMultiple);
         device->inputMatchingMultiple = NULL;
     }
+    
     if ( device->queue ) {
         CFRelease(device->queue);
         device->queue = NULL;
     }
+    
+    CFRELEASE_IF_NOT_NULL(device->properties);
+    CFRELEASE_IF_NOT_NULL(device->elements);
+    CFRELEASE_IF_NOT_NULL(device->rootKey);
     
     if ( device->deviceInterface ) {
         (*device->deviceInterface)->Release(device->deviceInterface);
@@ -379,15 +390,24 @@ CFTypeRef IOHIDDeviceGetProperty(
                                 IOHIDDeviceRef                  device, 
                                 CFStringRef                     key)
 {
-    CFTypeRef   property;
+    CFTypeRef   property = NULL;
     IOReturn    ret;
     
     ret = (*device->deviceInterface)->getProperty(
                                             device->deviceInterface,
                                             key, 
                                             &property);
+    
+    if ((ret != kIOReturnSuccess) || !property) {
+        if (device->properties) {
+            property = CFDictionaryGetValue(device->properties, key);
+        }
+        else {
+            property = NULL;
+        }
+    }
 
-    return ( ret == kIOReturnSuccess ) ? property : NULL;
+    return property;
 }
                                 
 //------------------------------------------------------------------------------
@@ -398,9 +418,23 @@ Boolean IOHIDDeviceSetProperty(
                                 CFStringRef                     key,
                                 CFTypeRef                       property)
 {
+    if (!device->properties) {
+        device->properties = CFDictionaryCreateMutable(kCFAllocatorDefault, 
+                                                        0,
+                                                        &kCFTypeDictionaryKeyCallBacks,
+                                                        &kCFTypeDictionaryValueCallBacks);
+        if (!device->properties)
+            return FALSE;
+    }
+    
+    device->isDirty = TRUE;
+    CFDictionarySetValue(device->properties, key, property);
+
+    // A device does not apply its properties to its elements.
+
     return (*device->deviceInterface)->setProperty(device->deviceInterface, 
-                                            key, 
-                                            property) == kIOReturnSuccess;
+                                                   key, 
+                                                   property) == kIOReturnSuccess;
 }
 
 //------------------------------------------------------------------------------
@@ -433,6 +467,18 @@ CFArrayRef IOHIDDeviceCopyMatchingElements(
         for (index=0; index<count; index++) {
             element = (IOHIDElementRef)CFArrayGetValueAtIndex(elements, index);
             _IOHIDElementSetDevice(element, device);
+            
+            if (device->elements || 
+                (device->elements = CFSetCreateMutable(kCFAllocatorDefault, 
+                                                        0,
+                                                        &kCFTypeSetCallBacks))) {
+                if (!CFSetContainsValue(device->elements, element)) {
+                    CFSetSetValue(device->elements, element);
+                    if (device->loadProperties) {
+                        __IOHIDElementLoadProperties(element);
+                    }
+                }
+            }
         }
     }
     
@@ -1376,3 +1422,171 @@ IOReturn IOHIDDeviceGetReportWithCallback(
                                                 reportInfo,
                                                 0);
 }
+
+//------------------------------------------------------------------------------
+CFStringRef __IOHIDDeviceGetRootKey(IOHIDDeviceRef device) 
+{
+    if (!device->rootKey) {
+        // Device Root Key
+        // All *required* matching information
+        CFStringRef manager = __IOHIDManagerGetRootKey();
+        CFStringRef transport = (CFStringRef)IOHIDDeviceGetProperty(device, CFSTR(kIOHIDTransportKey));
+        CFNumberRef vendor = (CFNumberRef)IOHIDDeviceGetProperty(device, CFSTR(kIOHIDVendorIDKey));
+        CFNumberRef product = (CFNumberRef)IOHIDDeviceGetProperty(device, CFSTR(kIOHIDProductIDKey));
+        CFStringRef serial = (CFStringRef)IOHIDDeviceGetProperty(device, CFSTR(kIOHIDSerialNumberKey));
+        if (!transport || (CFGetTypeID(transport) != CFStringGetTypeID())) {
+            transport = CFSTR("unknown");
+        }
+        if (!vendor || (CFGetTypeID(vendor) != CFNumberGetTypeID())) {
+            vendor = kCFNumberNaN;
+        }
+        if (!product || (CFGetTypeID(product) != CFNumberGetTypeID())) {
+            product = kCFNumberNaN;
+        }
+        if (!serial || (CFGetTypeID(serial) != CFStringGetTypeID())) {
+            serial = CFSTR("none");
+        }
+        
+        device->rootKey = CFStringCreateWithFormat(NULL, NULL, 
+                                                   CFSTR("%@#%@#%@#%@#%@"), 
+                                                   manager,
+                                                   transport,
+                                                   vendor,
+                                                   product,
+                                                   serial);
+    }
+    
+    return device->rootKey;
+}
+
+//------------------------------------------------------------------------------
+CFStringRef __IOHIDDeviceGetUUIDString(IOHIDDeviceRef device)
+{
+    CFStringRef uuidStr = IOHIDDeviceGetProperty(device, CFSTR(kIOHIDManagerUUIDKey));
+    if (!uuidStr || (CFGetTypeID(uuidStr) != CFStringGetTypeID())) {
+        CFUUIDRef uuid = CFUUIDCreate(NULL);
+        uuidStr = CFUUIDCreateString(NULL, uuid);
+        IOHIDDeviceSetProperty(device, CFSTR(kIOHIDManagerUUIDKey), uuidStr);
+        CFRelease(uuid);
+        CFRelease(uuidStr);
+    }
+    return uuidStr;
+}
+
+//------------------------------------------------------------------------------
+CFStringRef __IOHIDDeviceGetUUIDKey(IOHIDDeviceRef device) 
+{
+    if (!device->UUIDKey) {
+        CFStringRef manager = __IOHIDManagerGetRootKey();
+        CFStringRef uuidStr = __IOHIDDeviceGetUUIDString(device);
+
+        device->UUIDKey = CFStringCreateWithFormat(NULL, NULL, 
+                                                   CFSTR("%@#%@"), 
+                                                   manager,
+                                                   uuidStr);
+    }
+    
+    return device->UUIDKey;
+}
+
+//------------------------------------------------------------------------------
+void __IOHIDDeviceSaveProperties(IOHIDDeviceRef device, __IOHIDPropertyContext *context)
+{
+    if (device->isDirty && device->properties) {
+        CFStringRef uuidStr = __IOHIDDeviceGetUUIDString(device);
+        CFArrayRef uuids = (CFArrayRef)CFPreferencesCopyAppValue(__IOHIDDeviceGetRootKey(device), kCFPreferencesCurrentApplication);
+        CFArrayRef uuidsToWrite = NULL;
+        if (uuids && (CFGetTypeID(uuids) == CFArrayGetTypeID())) {
+            CFRange range = { 0, CFArrayGetCount(uuids) };
+            if (!CFArrayContainsValue(uuids, range, uuidStr)) {
+                uuidsToWrite = CFArrayCreateMutableCopy(NULL, CFArrayGetCount(uuids) + 1, uuids);
+                CFArrayAppendValue((CFMutableArrayRef)uuidsToWrite, uuidStr);
+            }
+        }
+        else {
+            uuidsToWrite = CFArrayCreate(NULL, (const void**)&uuidStr, 1, &kCFTypeArrayCallBacks);
+        }
+        if (uuidsToWrite) {
+            __IOHIDPropertySaveWithContext(__IOHIDDeviceGetRootKey(device), uuidsToWrite, context);
+        }
+        
+        CFRELEASE_IF_NOT_NULL(uuids);
+        CFRELEASE_IF_NOT_NULL(uuidsToWrite);
+        
+        __IOHIDPropertySaveToKeyWithSpecialKeys(device->properties, 
+                                               __IOHIDDeviceGetUUIDKey(device), 
+                                               NULL, 
+                                               context);
+        device->isDirty = FALSE;
+    }
+
+    if (device->elements)
+        CFSetApplyFunction(device->elements, __IOHIDSaveElementSet, context);
+}
+
+//------------------------------------------------------------------------------
+void __IOHIDDeviceLoadProperties(IOHIDDeviceRef device)
+{
+    CFStringRef uuidStr = IOHIDDeviceGetProperty(device, CFSTR(kIOHIDManagerUUIDKey));
+    device->loadProperties = TRUE;
+    
+    // Have we already generated a key?
+    if (!device->UUIDKey) {
+        // Is there a UUID in the device properties?
+        if (!uuidStr || (CFGetTypeID(uuidStr) != CFStringGetTypeID())) {
+            // Are there any UUIDs for this device?
+            CFArrayRef uuids = (CFArrayRef)CFPreferencesCopyAppValue(__IOHIDDeviceGetRootKey(device), kCFPreferencesCurrentApplication);
+            if (uuids && (CFGetTypeID(uuids) == CFArrayGetTypeID()) && CFArrayGetCount(uuids)) {
+                // VTN3 • TODO: Add optional matching based on location ID and anything else you can think of
+                uuidStr = (CFStringRef)CFArrayGetValueAtIndex(uuids, 0);
+            }
+        }
+        if (!uuidStr || (CFGetTypeID(uuidStr) != CFStringGetTypeID())) {
+            CFUUIDRef uuid = CFUUIDCreate(NULL);
+            uuidStr = CFUUIDCreateString(NULL, uuid);
+            CFRelease(uuid);
+        }
+        IOHIDDeviceSetProperty(device, CFSTR(kIOHIDManagerUUIDKey), uuidStr);
+    }
+    
+    // Convert to __IOHIDPropertyLoadFromKeyWithSpecialKeys if we identify special keys
+    CFMutableDictionaryRef properties = __IOHIDPropertyLoadDictionaryFromKey(__IOHIDDeviceGetUUIDKey(device));
+    
+    if (properties) {
+        CFRELEASE_IF_NOT_NULL(device->properties);
+        device->properties = properties;
+        device->isDirty = FALSE;
+    }
+    
+    IOHIDDeviceSetProperty(device, CFSTR(kIOHIDManagerUUIDKey), uuidStr);
+    
+    // A device does not apply its properties to its elements.
+    if (device->elements)
+        CFSetApplyFunction(device->elements, __IOHIDLoadElementSet, NULL);
+}
+
+//------------------------------------------------------------------------------
+void __IOHIDApplyPropertyToDeviceSet(const void *value, void *context) {
+    IOHIDDeviceRef device = (IOHIDDeviceRef)value;
+    __IOHIDApplyPropertyToSetContext *data = (__IOHIDApplyPropertyToSetContext*)context;
+    if (device && data) {
+        IOHIDDeviceSetProperty(device, data->key, data->property);
+    }
+}
+
+//------------------------------------------------------------------------------
+void __IOHIDApplyPropertiesToDeviceFromDictionary(const void *key, const void *value, void *context) {
+    IOHIDDeviceRef device = (IOHIDDeviceRef)context;
+    if (device && key && value) {
+        IOHIDDeviceSetProperty(device, (CFStringRef)key, (CFTypeRef)value);
+    }
+}
+
+//------------------------------------------------------------------------------
+void __IOHIDSaveDeviceSet(const void *value, void *context) {
+    IOHIDDeviceRef device = (IOHIDDeviceRef)value;
+    if (device)
+        __IOHIDDeviceSaveProperties(device, (__IOHIDPropertyContext*)context);
+}
+
+//------------------------------------------------------------------------------

@@ -7,6 +7,28 @@
 	objects = {
 
 /* Begin PBXAggregateTarget section */
+		1C06922A10112D1A00631593 /* pre-test */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = 1C06922C10112D2E00631593 /* Build configuration list for PBXAggregateTarget "pre-test" */;
+			buildPhases = (
+				1C06922910112D1A00631593 /* ShellScript */,
+			);
+			dependencies = (
+			);
+			name = "pre-test";
+			productName = "Pre-test Work";
+		};
+		1C06925D1011359200631593 /* post-test */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = 1C06925F1011359200631593 /* Build configuration list for PBXAggregateTarget "post-test" */;
+			buildPhases = (
+				1C06925E1011359200631593 /* ShellScript */,
+			);
+			dependencies = (
+			);
+			name = "post-test";
+			productName = "Pre-test Work";
+		};
 		1CC41AFF0F98FD8200362F40 /* Install symlinks and scripts */ = {
 			isa = PBXAggregateTarget;
 			buildConfigurationList = 1CC41B010F98FDA000362F40 /* Build configuration list for PBXAggregateTarget "Install symlinks and scripts" */;
@@ -169,6 +191,7 @@
 			buildPhases = (
 			);
 			dependencies = (
+				1C06925C1011356D00631593 /* PBXTargetDependency */,
 				1CD4BE890FA147A7001142D5 /* PBXTargetDependency */,
 				1CD4BE5F0FA14089001142D5 /* PBXTargetDependency */,
 				1CD4BE5D0FA14089001142D5 /* PBXTargetDependency */,
@@ -207,8 +230,9 @@
 				1CD4BE1B0FA14088001142D5 /* PBXTargetDependency */,
 				1C690E620FA244B000DC2CFC /* PBXTargetDependency */,
 				1CD4BE150FA14078001142D5 /* PBXTargetDependency */,
-				1CD4BE170FA14078001142D5 /* PBXTargetDependency */,
 				1CD4BE190FA14078001142D5 /* PBXTargetDependency */,
+				1C069262101135B800631593 /* PBXTargetDependency */,
+				1C069264101135D500631593 /* PBXTargetDependency */,
 			);
 			name = test;
 			productName = test;
@@ -221,6 +245,7 @@
 			);
 			dependencies = (
 				1CD4BE750FA1452E001142D5 /* PBXTargetDependency */,
+				1C06926A1011366F00631593 /* PBXTargetDependency */,
 			);
 			name = test_ca;
 			productName = test_enc;
@@ -1006,9 +1031,44 @@
 		1CD4BE060FA13ED4001142D5 /* libcrypto.0.9.8.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 1C342FEE0F71A9220045E860 /* libcrypto.0.9.8.dylib */; };
 		1CD4BE070FA13ED4001142D5 /* libssl.0.9.8.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 1C3430030F71AA900045E860 /* libssl.0.9.8.dylib */; };
 		1CD4BE0D0FA13EF3001142D5 /* jpaketest.c in Sources */ = {isa = PBXBuildFile; fileRef = 1C4E31300FA1174400F91AE5 /* jpaketest.c */; };
+		4C1115DB110E1A1400FCEEB6 /* unit_tests.m in Sources */ = {isa = PBXBuildFile; fileRef = 4C1115BB110E16B400FCEEB6 /* unit_tests.m */; };
+		4C11165D110E693900FCEEB6 /* libcrypto.0.9.8.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 1C342FEE0F71A9220045E860 /* libcrypto.0.9.8.dylib */; };
+		4C11165E110E693900FCEEB6 /* libssl.0.9.8.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 1C3430030F71AA900045E860 /* libssl.0.9.8.dylib */; };
+		4C11168F110F5C6B00FCEEB6 /* client.crt in Resources */ = {isa = PBXBuildFile; fileRef = 4C11168B110F5C6B00FCEEB6 /* client.crt */; };
+		4C111690110F5C6B00FCEEB6 /* client.pem in Resources */ = {isa = PBXBuildFile; fileRef = 4C11168C110F5C6B00FCEEB6 /* client.pem */; };
+		4C111691110F5C6B00FCEEB6 /* server.pem in Resources */ = {isa = PBXBuildFile; fileRef = 4C11168D110F5C6B00FCEEB6 /* server.pem */; };
+		4C111692110F5C6B00FCEEB6 /* signed.pem in Resources */ = {isa = PBXBuildFile; fileRef = 4C11168E110F5C6B00FCEEB6 /* signed.pem */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
+		1C06925B1011356D00631593 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 1C06922A10112D1A00631593;
+			remoteInfo = "Pre-test Work";
+		};
+		1C069261101135B800631593 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 1C342FED0F71A9220045E860;
+			remoteInfo = crypto.0.9.8;
+		};
+		1C069263101135D500631593 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 1C06925D1011359200631593;
+			remoteInfo = "post-test";
+		};
+		1C0692691011366F00631593 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 1C06922A10112D1A00631593;
+			remoteInfo = "pre-test";
+		};
 		1C3434480F71AB270045E860 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
@@ -1583,13 +1643,6 @@
 			remoteGlobalIDString = 1C3434420F71AB0C0045E860;
 			remoteInfo = openssl;
 		};
-		1CD4BE160FA14078001142D5 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 1C342FED0F71A9220045E860;
-			remoteInfo = crypto.0.9.8;
-		};
 		1CD4BE180FA14078001142D5 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
@@ -1862,6 +1915,27 @@
 			proxyType = 1;
 			remoteGlobalIDString = 1C3434420F71AB0C0045E860;
 			remoteInfo = openssl;
+		};
+		4C1115B2110A866200FCEEB6 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 1C3434420F71AB0C0045E860;
+			remoteInfo = openssl;
+		};
+		4C1115B4110A866200FCEEB6 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 1C342FED0F71A9220045E860;
+			remoteInfo = crypto.0.9.8;
+		};
+		4C1115B6110A866200FCEEB6 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 1C3430020F71AA900045E860;
+			remoteInfo = ssl.0.9.8;
 		};
 /* End PBXContainerItemProxy section */
 
@@ -2753,6 +2827,15 @@
 		1CF7920C0F79A4DF00F27DA5 /* libssl.pc */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = libssl.pc; path = pkgconfigs/libssl.pc; sourceTree = "<group>"; };
 		1CF7920D0F79A4DF00F27DA5 /* openssl.pc */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = openssl.pc; path = pkgconfigs/openssl.pc; sourceTree = "<group>"; };
 		1CF7920E0F79A4EB00F27DA5 /* install_manpages */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.perl; name = install_manpages; path = bin/install_manpages; sourceTree = "<group>"; };
+		4C1115AE110A862400FCEEB6 /* Unit Tests.octest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "Unit Tests.octest"; sourceTree = BUILT_PRODUCTS_DIR; };
+		4C1115AF110A862400FCEEB6 /* Unit Tests-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "Unit Tests-Info.plist"; sourceTree = "<group>"; };
+		4C1115BA110E16B400FCEEB6 /* unit_tests.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = unit_tests.h; sourceTree = "<group>"; };
+		4C1115BB110E16B400FCEEB6 /* unit_tests.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = unit_tests.m; sourceTree = "<group>"; };
+		4C1115D2110E19C300FCEEB6 /* Unit-Tests-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "Unit-Tests-Info.plist"; sourceTree = "<group>"; };
+		4C11168B110F5C6B00FCEEB6 /* client.crt */ = {isa = PBXFileReference; lastKnownFileType = file; path = client.crt; sourceTree = "<group>"; };
+		4C11168C110F5C6B00FCEEB6 /* client.pem */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = client.pem; sourceTree = "<group>"; };
+		4C11168D110F5C6B00FCEEB6 /* server.pem */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = server.pem; sourceTree = "<group>"; };
+		4C11168E110F5C6B00FCEEB6 /* signed.pem */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = signed.pem; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -3034,16 +3117,31 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		4C1115AB110A862400FCEEB6 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				4C11165D110E693900FCEEB6 /* libcrypto.0.9.8.dylib in Frameworks */,
+				4C11165E110E693900FCEEB6 /* libssl.0.9.8.dylib in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
 		08FB7794FE84155DC02AAC07 /* openssl */ = {
 			isa = PBXGroup;
 			children = (
+				4C111681110F5C2E00FCEEB6 /* Resources */,
+				1C06923910112F4300631593 /* Scripts */,
 				1C343D0E0F71ABD50045E860 /* Source */,
 				1C0879160F72FACD00A4C5A8 /* Linked Libraries */,
 				1AB674ADFE9D54B511CA2CBB /* Products */,
 				1CD58E7D0F79ADED003A1E68 /* README */,
+				4C1115AF110A862400FCEEB6 /* Unit Tests-Info.plist */,
+				4C1115BA110E16B400FCEEB6 /* unit_tests.h */,
+				4C1115BB110E16B400FCEEB6 /* unit_tests.m */,
+				4C1115D2110E19C300FCEEB6 /* Unit-Tests-Info.plist */,
 			);
 			name = openssl;
 			sourceTree = "<group>";
@@ -3082,8 +3180,16 @@
 				1CD4BDF50FA13E59001142D5 /* test_ige */,
 				1CD4BE0B0FA13ED4001142D5 /* test_jpake */,
 				1C6CEF440FA239E100D47643 /* test_ssl */,
+				4C1115AE110A862400FCEEB6 /* Unit Tests.octest */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		1C06923910112F4300631593 /* Scripts */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			name = Scripts;
 			sourceTree = "<group>";
 		};
 		1C0876FC0F72F7FE00A4C5A8 /* seed */ = {
@@ -4300,6 +4406,17 @@
 			name = pkgconfig;
 			sourceTree = "<group>";
 		};
+		4C111681110F5C2E00FCEEB6 /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				4C11168B110F5C6B00FCEEB6 /* client.crt */,
+				4C11168C110F5C6B00FCEEB6 /* client.pem */,
+				4C11168D110F5C6B00FCEEB6 /* server.pem */,
+				4C11168E110F5C6B00FCEEB6 /* signed.pem */,
+			);
+			name = Resources;
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
@@ -4889,6 +5006,27 @@
 			productReference = 1CD4BE0B0FA13ED4001142D5 /* test_jpake */;
 			productType = "com.apple.product-type.tool";
 		};
+		4C1115AD110A862400FCEEB6 /* Unit Tests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 4C1115B1110A862800FCEEB6 /* Build configuration list for PBXNativeTarget "Unit Tests" */;
+			buildPhases = (
+				4C1115A9110A862400FCEEB6 /* Resources */,
+				4C1115AA110A862400FCEEB6 /* Sources */,
+				4C1115AB110A862400FCEEB6 /* Frameworks */,
+				4C1115AC110A862400FCEEB6 /* ShellScript */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				4C1115B3110A866200FCEEB6 /* PBXTargetDependency */,
+				4C1115B7110A866200FCEEB6 /* PBXTargetDependency */,
+				4C1115B5110A866200FCEEB6 /* PBXTargetDependency */,
+			);
+			name = "Unit Tests";
+			productName = "Unit Tests";
+			productReference = 4C1115AE110A862400FCEEB6 /* Unit Tests.octest */;
+			productType = "com.apple.product-type.bundle";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -4911,6 +5049,8 @@
 				1CC41B060F98FE4400362F40 /* Install manpages */,
 				1CC41B090F98FE6B00362F40 /* Install pkgconfig */,
 				1CC41B0F0F98FE9C00362F40 /* Install legal */,
+				1C06922A10112D1A00631593 /* pre-test */,
+				1C06925D1011359200631593 /* post-test */,
 				1C4E311A0FA115F600F91AE5 /* test_des */,
 				1C4E31670FA1236F00F91AE5 /* test_sha */,
 				1CD4BB450FA1257A001142D5 /* test_sha1 */,
@@ -4948,11 +5088,54 @@
 				1CD4BDFE0FA13ED4001142D5 /* test_jpake */,
 				1CD4BE740FA1452E001142D5 /* test_ca */,
 				1C6CEF430FA239E100D47643 /* test_ssl */,
+				4C1115AD110A862400FCEEB6 /* Unit Tests */,
 			);
 		};
 /* End PBXProject section */
 
+/* Begin PBXResourcesBuildPhase section */
+		4C1115A9110A862400FCEEB6 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				4C11168F110F5C6B00FCEEB6 /* client.crt in Resources */,
+				4C111690110F5C6B00FCEEB6 /* client.pem in Resources */,
+				4C111691110F5C6B00FCEEB6 /* server.pem in Resources */,
+				4C111692110F5C6B00FCEEB6 /* signed.pem in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
 /* Begin PBXShellScriptBuildPhase section */
+		1C06922910112D1A00631593 /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "\nfuncs=\"${SRCROOT}/bin/test_functions.sh\"\nif [ -f \"${funcs}\" ]\nthen\n\tsource \"${funcs}\"\n\tarches=\"`get_exec_arches squash`\"\nelse\n\tprintf \"Unable to source in functions: \\\"%s\\\".\" \"${funcs}\"\nfi\n";
+			showEnvVarsInLog = 0;
+		};
+		1C06925E1011359200631593 /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "\nfuncs=\"${SRCROOT}/bin/test_functions.sh\"\nif [ -f \"${funcs}\" ]\nthen\n\tsource \"${funcs}\"\n\tarches=\"`get_exec_arches`\"\nelse\n\tprintf \"Unable to source in functions: \\\"%s\\\".\" \"${funcs}\"\nfi\n\nremove_arch_cache\n";
+			showEnvVarsInLog = 0;
+		};
 		1C4E315A0FA1219D00F91AE5 /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 12;
@@ -4964,7 +5147,8 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "\n\"${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}\"\n";
+			shellScript = "\nfuncs=\"${SRCROOT}/bin/test_functions.sh\"\nif [ -f \"${funcs}\" ]\nthen\n\tsource \"${funcs}\"\n\tarches=\"`get_exec_arches`\"\nelse\n\tprintf \"Unable to source in functions: \\\"%s\\\".\" \"${funcs}\"\nfi\n\ntest_binary \"${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}\"\n";
+			showEnvVarsInLog = 0;
 		};
 		1C4E31770FA123EC00F91AE5 /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -4977,7 +5161,8 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "\n\"${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}\"";
+			shellScript = "\nfuncs=\"${SRCROOT}/bin/test_functions.sh\"\nif [ -f \"${funcs}\" ]\nthen\n\tsource \"${funcs}\"\n\tarches=\"`get_exec_arches`\"\nelse\n\tprintf \"Unable to source in functions: \\\"%s\\\".\" \"${funcs}\"\nfi\n\ntest_binary \"${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}\"\n";
+			showEnvVarsInLog = 0;
 		};
 		1C6CEFBA0FA23A4F00D47643 /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -4990,7 +5175,8 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "\n\ndir=\"${SRCROOT}/src/test/\"\ncd \"${dir}\"\n\necho \"Generate and certify a test certificate\"\n/bin/sh \"${SRCROOT}/src/test/testss\"\nret=$? && if [ $ret != 0 ]; then\texit $?; fi\n\ncat certCA.ss certU.ss > intP1.ss\ncat certCA.ss certU.ss certP1.ss > intP2.ss\n\necho \"test SSL protocol\"\n\"${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}\" -test_cipherlist\nret=$? && if [ $ret != 0 ]; then\texit $?; fi\n\n/bin/sh \"${dir}/testssl\" keyU.ss certU.ss certCA.ss\nret=$? && if [ $ret != 0 ]; then\texit $?; fi\n\n/bin/sh \"${dir}/testsslproxy\" keyP1.ss certP1.ss intP1.ss\nret=$? && if [ $ret != 0 ]; then\texit $?; fi\n\n/bin/sh \"${dir}/testsslproxy\" keyP2.ss certP2.ss intP2.ss\nret=$? && if [ $ret != 0 ]; then\texit $?; fi";
+			shellScript = "\ndir=\"${SRCROOT}/src/test/\"\n\nfuncs=\"${SRCROOT}/bin/test_functions.sh\"\nif [[ -f \"${funcs}\" ]]\nthen\n\tsource \"${funcs}\"\n\tarches=\"$(get_exec_arches)\"\nelse\n\tprintf \"Unable to source in functions: \\\"%s\\\".\" \"${funcs}\"\nfi\n\necho \"Generate and certify a test certificate\"\ntest_binary_in_dir \"${dir}\" /bin/sh \"${SRCROOT}/src/test/testss\"\n\ncat certCA.ss certU.ss > intP1.ss\ncat certCA.ss certU.ss certP1.ss > intP2.ss\n\necho \"test SSL protocol\"\ntest_binary_in_dir \"${dir}\" \"${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}\" -test_cipherlist\n\ntest_binary_in_dir \"${dir}\" /bin/sh \"${dir}/testssl\" keyU.ss certU.ss certCA.ss\n\ntest_binary_in_dir \"${dir}\" /bin/sh \"${dir}/testsslproxy\" keyP1.ss certP1.ss intP1.ss\n\ntest_binary_in_dir \"${dir}\" /bin/sh \"${dir}/testsslproxy\" keyP2.ss certP2.ss intP2.ss\n\n\n";
+			showEnvVarsInLog = 0;
 		};
 		1CC41AFE0F98FD8200362F40 /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -5004,6 +5190,7 @@
 			runOnlyForDeploymentPostprocessing = 1;
 			shellPath = /bin/sh;
 			shellScript = "\nbindir=\"$DSTROOT/usr/bin\"\nsrcdir=\"$SRCROOT/src\"\n\ninstall -o \"$INSTALL_OWNER\" -g \"$INSTALL_GROUP\" -m 0755 -d \"$bindir\"\ninstall -o \"$INSTALL_OWNER\" -g \"$INSTALL_GROUP\" -m 0755 \"$srcdir/tools/c_rehash\" \"$bindir/c_rehash\"\n\nlibdir=\"$DSTROOT/usr/lib/\"\nln -s \"libcrypto.0.9.8.dylib\" \"$libdir/libcrypto.dylib\"\nln -s \"libssl.0.9.8.dylib\"    \"$libdir/libssl.dylib\"";
+			showEnvVarsInLog = 0;
 		};
 		1CC41B020F98FE3500362F40 /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -5017,6 +5204,7 @@
 			runOnlyForDeploymentPostprocessing = 1;
 			shellPath = /bin/sh;
 			shellScript = "\nsysdir=\"$DSTROOT/System/Library/OpenSSL\"\nsrcdir=\"$SRCROOT/src\"\n\ninstall -o \"$INSTALL_OWNER\" -g \"$INSTALL_GROUP\" -m 0755 -d \"$sysdir\"\ninstall -o \"$INSTALL_OWNER\" -g \"$INSTALL_GROUP\" -m 0644 -d \"$sysdir/certs\"\ninstall -o \"$INSTALL_OWNER\" -g \"$INSTALL_GROUP\" -m 0755 -d \"$sysdir/misc\"\ninstall -o \"$INSTALL_OWNER\" -g \"$INSTALL_GROUP\" -m 0644 -d \"$sysdir/private\"\n\ninstall -o \"$INSTALL_OWNER\" -g \"$INSTALL_GROUP\" -m 0644 \"$srcdir/apps/openssl.cnf\" \"$sysdir/openssl.cnf\"\n\nsysdir=\"$DSTROOT/System/Library/OpenSSL/misc\"\ninstall -o \"$INSTALL_OWNER\" -g \"$INSTALL_GROUP\" -m 0755 \"$srcdir/apps/CA.pl\" \"$sysdir/CA.pl\"\ninstall -o \"$INSTALL_OWNER\" -g \"$INSTALL_GROUP\" -m 0755 \"$srcdir/apps/CA.sh\" \"$sysdir/CA.sh\"\ninstall -o \"$INSTALL_OWNER\" -g \"$INSTALL_GROUP\" -m 0755 \"$srcdir/tools/c_hash\" \"$sysdir/c_hash\"\ninstall -o \"$INSTALL_OWNER\" -g \"$INSTALL_GROUP\" -m 0755 \"$srcdir/tools/c_info\" \"$sysdir/c_info\"\ninstall -o \"$INSTALL_OWNER\" -g \"$INSTALL_GROUP\" -m 0755 \"$srcdir/tools/c_issuer\" \"$sysdir/c_issuer\"\ninstall -o \"$INSTALL_OWNER\" -g \"$INSTALL_GROUP\" -m 0755 \"$srcdir/tools/c_name\" \"$sysdir/c_name\"\n";
+			showEnvVarsInLog = 0;
 		};
 		1CC41B050F98FE4400362F40 /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -5029,7 +5217,8 @@
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 			shellPath = /bin/sh;
-			shellScript = "\n(cd \"${SRCROOT}/src/\" && \"${SRCROOT}/bin/fix_manpages.pl\")\n\nusr_sh=\"$DSTROOT/usr/share/man\"\ninstall -o \"$INSTALL_OWNER\" -g \"$INSTALL_GROUP\" -m 0755 -d \"$usr_sh/man1\"\ninstall -o \"$INSTALL_OWNER\" -g \"$INSTALL_GROUP\" -m 0755 -d \"$usr_sh/man3\"\ninstall -o \"$INSTALL_OWNER\" -g \"$INSTALL_GROUP\" -m 0755 -d \"$usr_sh/man5\"\ninstall -o \"$INSTALL_OWNER\" -g \"$INSTALL_GROUP\" -m 0755 -d \"$usr_sh/man7\"\n\n\"${SRCROOT}/bin/install_manpages\"\n/bin/ln -s verify.1ssl \"$usr_sh\"/man1/c_rehash.1ssl\n\n/Developer/Makefiles/bin/compress-man-pages.pl -d \"$DSTROOT\" /usr/share/man\n\nexit 0";
+			shellScript = "\nusr_sh=\"$DSTROOT/usr/share/man\"\ninstall -o \"$INSTALL_OWNER\" -g \"$INSTALL_GROUP\" -m 0755 -d \"$usr_sh/man1\"\ninstall -o \"$INSTALL_OWNER\" -g \"$INSTALL_GROUP\" -m 0755 -d \"$usr_sh/man3\"\ninstall -o \"$INSTALL_OWNER\" -g \"$INSTALL_GROUP\" -m 0755 -d \"$usr_sh/man5\"\ninstall -o \"$INSTALL_OWNER\" -g \"$INSTALL_GROUP\" -m 0755 -d \"$usr_sh/man7\"\n\n\"${SRCROOT}/bin/clean_bn_internal\"\n\n\"${SRCROOT}/bin/install_manpages\"\n/bin/ln -s verify.1ssl \"$usr_sh\"/man1/c_rehash.1ssl\n\n/Developer/Makefiles/bin/compress-man-pages.pl -d \"$DSTROOT\" /usr/share/man\n\nexit 0";
+			showEnvVarsInLog = 0;
 		};
 		1CC41B080F98FE6B00362F40 /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -5043,6 +5232,7 @@
 			runOnlyForDeploymentPostprocessing = 1;
 			shellPath = /bin/sh;
 			shellScript = "\npkgdir=\"$DSTROOT/usr/lib/pkgconfig\"\n\ninstall -o \"$INSTALL_OWNER\" -g \"$INSTALL_GROUP\" -m 0755 -d \"$pkgdir\"\n\ninstall -o \"$INSTALL_OWNER\" -g \"$INSTALL_GROUP\" -m 0644 \"$SRCROOT/pkgconfigs/libcrypto.pc\" \"$pkgdir/libcrypto.pc\"\ninstall -o \"$INSTALL_OWNER\" -g \"$INSTALL_GROUP\" -m 0644 \"$SRCROOT/pkgconfigs/libssl.pc\"    \"$pkgdir/libssl.pc\"\ninstall -o \"$INSTALL_OWNER\" -g \"$INSTALL_GROUP\" -m 0644 \"$SRCROOT/pkgconfigs/openssl.pc\"   \"$pkgdir/openssl.pc\"\n";
+			showEnvVarsInLog = 0;
 		};
 		1CC41B0E0F98FE9C00362F40 /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -5056,6 +5246,7 @@
 			runOnlyForDeploymentPostprocessing = 1;
 			shellPath = /bin/sh;
 			shellScript = "usr_lc=\"$DSTROOT/usr/local/OpenSourceLicenses\"\n\ninstall -o \"$INSTALL_OWNER\" -g \"$INSTALL_GROUP\" -m 0755 -d \"$usr_lc\"\ninstall -o \"$INSTALL_OWNER\" -g \"$INSTALL_GROUP\" -m 0444 \"$SRCROOT/src/LICENSE\" \"$usr_lc/OpenSSL098.txt\"\n\nusr_lv=\"$DSTROOT/usr/local/OpenSourceVersions\"\nplist=\"OpenSSL098.plist\"\n\ninstall -o \"$INSTALL_OWNER\" -g \"$INSTALL_GROUP\" -m 0755 -d \"$usr_lv\"\ninstall -o \"$INSTALL_OWNER\" -g \"$INSTALL_GROUP\" -m 0444 \"$SRCROOT/$plist\" \"$usr_lv/$plist\"\n";
+			showEnvVarsInLog = 0;
 		};
 		1CD4BB520FA125A7001142D5 /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -5068,7 +5259,8 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "\n\"${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}\"";
+			shellScript = "\nfuncs=\"${SRCROOT}/bin/test_functions.sh\"\nif [ -f \"${funcs}\" ]\nthen\n\tsource \"${funcs}\"\n\tarches=\"`get_exec_arches`\"\nelse\n\tprintf \"Unable to source in functions: \\\"%s\\\".\" \"${funcs}\"\nfi\n\ntest_binary \"${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}\"\n";
+			showEnvVarsInLog = 0;
 		};
 		1CD4BB650FA125F8001142D5 /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -5081,7 +5273,8 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "\n\"${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}\"";
+			shellScript = "\nfuncs=\"${SRCROOT}/bin/test_functions.sh\"\nif [ -f \"${funcs}\" ]\nthen\n\tsource \"${funcs}\"\n\tarches=\"`get_exec_arches`\"\nelse\n\tprintf \"Unable to source in functions: \\\"%s\\\".\" \"${funcs}\"\nfi\n\ntest_binary \"${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}\"\n";
+			showEnvVarsInLog = 0;
 		};
 		1CD4BB7A0FA12655001142D5 /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -5094,7 +5287,8 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "\n\"${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}\"";
+			shellScript = "\nfuncs=\"${SRCROOT}/bin/test_functions.sh\"\nif [ -f \"${funcs}\" ]\nthen\n\tsource \"${funcs}\"\n\tarches=\"`get_exec_arches`\"\nelse\n\tprintf \"Unable to source in functions: \\\"%s\\\".\" \"${funcs}\"\nfi\n\ntest_binary \"${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}\"\n";
+			showEnvVarsInLog = 0;
 		};
 		1CD4BB8B0FA12699001142D5 /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -5107,7 +5301,8 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "\n\"${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}\"";
+			shellScript = "\nfuncs=\"${SRCROOT}/bin/test_functions.sh\"\nif [ -f \"${funcs}\" ]\nthen\n\tsource \"${funcs}\"\n\tarches=\"`get_exec_arches`\"\nelse\n\tprintf \"Unable to source in functions: \\\"%s\\\".\" \"${funcs}\"\nfi\n\ntest_binary \"${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}\"\n";
+			showEnvVarsInLog = 0;
 		};
 		1CD4BB9C0FA126DB001142D5 /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -5120,7 +5315,8 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "\n\"${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}\"";
+			shellScript = "\nfuncs=\"${SRCROOT}/bin/test_functions.sh\"\nif [ -f \"${funcs}\" ]\nthen\n\tsource \"${funcs}\"\n\tarches=\"`get_exec_arches`\"\nelse\n\tprintf \"Unable to source in functions: \\\"%s\\\".\" \"${funcs}\"\nfi\n\ntest_binary \"${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}\"\n";
+			showEnvVarsInLog = 0;
 		};
 		1CD4BBB60FA12735001142D5 /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -5133,7 +5329,8 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "\n\"${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}\"";
+			shellScript = "\nfuncs=\"${SRCROOT}/bin/test_functions.sh\"\nif [ -f \"${funcs}\" ]\nthen\n\tsource \"${funcs}\"\n\tarches=\"`get_exec_arches`\"\nelse\n\tprintf \"Unable to source in functions: \\\"%s\\\".\" \"${funcs}\"\nfi\n\ntest_binary \"${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}\"\n";
+			showEnvVarsInLog = 0;
 		};
 		1CD4BBCC0FA127A0001142D5 /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -5146,7 +5343,8 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "\n\"${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}\"";
+			shellScript = "\nfuncs=\"${SRCROOT}/bin/test_functions.sh\"\nif [ -f \"${funcs}\" ]\nthen\n\tsource \"${funcs}\"\n\tarches=\"`get_exec_arches`\"\nelse\n\tprintf \"Unable to source in functions: \\\"%s\\\".\" \"${funcs}\"\nfi\n\ntest_binary \"${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}\"\n";
+			showEnvVarsInLog = 0;
 		};
 		1CD4BBE00FA12822001142D5 /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -5159,7 +5357,8 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "\n\"${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}\"";
+			shellScript = "\nfuncs=\"${SRCROOT}/bin/test_functions.sh\"\nif [ -f \"${funcs}\" ]\nthen\n\tsource \"${funcs}\"\n\tarches=\"`get_exec_arches`\"\nelse\n\tprintf \"Unable to source in functions: \\\"%s\\\".\" \"${funcs}\"\nfi\n\ntest_binary \"${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}\"\n";
+			showEnvVarsInLog = 0;
 		};
 		1CD4BBF00FA1287D001142D5 /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -5172,7 +5371,8 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "\n\"${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}\"";
+			shellScript = "\nfuncs=\"${SRCROOT}/bin/test_functions.sh\"\nif [ -f \"${funcs}\" ]\nthen\n\tsource \"${funcs}\"\n\tarches=\"`get_exec_arches`\"\nelse\n\tprintf \"Unable to source in functions: \\\"%s\\\".\" \"${funcs}\"\nfi\n\ntest_binary \"${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}\"\n";
+			showEnvVarsInLog = 0;
 		};
 		1CD4BC060FA12A3A001142D5 /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -5185,7 +5385,8 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "\n\"${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}\"";
+			shellScript = "\nfuncs=\"${SRCROOT}/bin/test_functions.sh\"\nif [ -f \"${funcs}\" ]\nthen\n\tsource \"${funcs}\"\n\tarches=\"`get_exec_arches`\"\nelse\n\tprintf \"Unable to source in functions: \\\"%s\\\".\" \"${funcs}\"\nfi\n\ntest_binary \"${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}\"\n";
+			showEnvVarsInLog = 0;
 		};
 		1CD4BC160FA12A75001142D5 /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -5198,7 +5399,8 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "\n\"${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}\"";
+			shellScript = "\nfuncs=\"${SRCROOT}/bin/test_functions.sh\"\nif [ -f \"${funcs}\" ]\nthen\n\tsource \"${funcs}\"\n\tarches=\"`get_exec_arches`\"\nelse\n\tprintf \"Unable to source in functions: \\\"%s\\\".\" \"${funcs}\"\nfi\n\ntest_binary \"${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}\"\n";
+			showEnvVarsInLog = 0;
 		};
 		1CD4BC280FA12AC1001142D5 /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -5211,7 +5413,8 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "\n\"${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}\"";
+			shellScript = "\nfuncs=\"${SRCROOT}/bin/test_functions.sh\"\nif [ -f \"${funcs}\" ]\nthen\n\tsource \"${funcs}\"\n\tarches=\"`get_exec_arches`\"\nelse\n\tprintf \"Unable to source in functions: \\\"%s\\\".\" \"${funcs}\"\nfi\n\ntest_binary \"${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}\"\n";
+			showEnvVarsInLog = 0;
 		};
 		1CD4BC3A0FA12B2B001142D5 /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -5224,7 +5427,8 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "\n\"${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}\"";
+			shellScript = "\nfuncs=\"${SRCROOT}/bin/test_functions.sh\"\nif [ -f \"${funcs}\" ]\nthen\n\tsource \"${funcs}\"\n\tarches=\"`get_exec_arches`\"\nelse\n\tprintf \"Unable to source in functions: \\\"%s\\\".\" \"${funcs}\"\nfi\n\ntest_binary \"${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}\"\n";
+			showEnvVarsInLog = 0;
 		};
 		1CD4BC4D0FA12B78001142D5 /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -5237,7 +5441,8 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "\n\"${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}\"";
+			shellScript = "\nfuncs=\"${SRCROOT}/bin/test_functions.sh\"\nif [ -f \"${funcs}\" ]\nthen\n\tsource \"${funcs}\"\n\tarches=\"`get_exec_arches`\"\nelse\n\tprintf \"Unable to source in functions: \\\"%s\\\".\" \"${funcs}\"\nfi\n\ntest_binary \"${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}\"\n";
+			showEnvVarsInLog = 0;
 		};
 		1CD4BC620FA12BEF001142D5 /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -5250,7 +5455,8 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "\n\"${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}\"";
+			shellScript = "\nfuncs=\"${SRCROOT}/bin/test_functions.sh\"\nif [ -f \"${funcs}\" ]\nthen\n\tsource \"${funcs}\"\n\tarches=\"`get_exec_arches`\"\nelse\n\tprintf \"Unable to source in functions: \\\"%s\\\".\" \"${funcs}\"\nfi\n\ntest_binary \"${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}\"\n";
+			showEnvVarsInLog = 0;
 		};
 		1CD4BC730FA12CCA001142D5 /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -5263,7 +5469,8 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "\ncd \"${SRCROOT}/src/test/\"\n\necho test normal x509v1 certificate\n/bin/sh \"${SRCROOT}/src/test/tx509\"\nret=$? && if [ $ret != 0 ]; then\texit $?; fi\n\necho test first x509v3 certificate\n/bin/sh \"${SRCROOT}/src/test/tx509\" v3-cert1.pem\nret=$? && if [ $ret != 0 ]; then\texit $?; fi\n\necho test second x509v3 certificate\n/bin/sh \"${SRCROOT}/src/test/tx509\" v3-cert2.pem\nret=$? && if [ $ret != 0 ]; then\texit $?; fi";
+			shellScript = "\nfuncs=\"${SRCROOT}/bin/test_functions.sh\"\nif [[ -f \"${funcs}\" ]]\nthen\n\tsource \"${funcs}\"\n\tarches=\"$(get_exec_arches)\"\nelse\n\tprintf \"Unable to source in functions: \\\"%s\\\".\" \"${funcs}\"\nfi\n\necho test normal x509v1 certificate\ntest_binary_in_dir \"${SRCROOT}/src/test/\" /bin/sh \"${SRCROOT}/src/test/tx509\"\n\necho test first x509v3 certificate\ntest_binary_in_dir \"${SRCROOT}/src/test/\" /bin/sh \"${SRCROOT}/src/test/tx509\" v3-cert1.pem\n\necho test second x509v3 certificate\ntest_binary_in_dir \"${SRCROOT}/src/test/\" /bin/sh \"${SRCROOT}/src/test/tx509\" v3-cert2.pem\n";
+			showEnvVarsInLog = 0;
 		};
 		1CD4BC9B0FA12FB8001142D5 /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -5276,7 +5483,8 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "\ncd \"${SRCROOT}/src/test/\"\n\n/bin/sh \"${SRCROOT}/src/test/testenc\"";
+			shellScript = "\nfuncs=\"${SRCROOT}/bin/test_functions.sh\"\nif [ -f \"${funcs}\" ]\nthen\n\tsource \"${funcs}\"\n\tarches=\"`get_exec_arches`\"\nelse\n\tprintf \"Unable to source in functions: \\\"%s\\\".\" \"${funcs}\"\nfi\n\ntest_binary_in_dir \"${SRCROOT}/src/test/\" /bin/sh \"${SRCROOT}/src/test/testenc\"\n";
+			showEnvVarsInLog = 0;
 		};
 		1CD4BCAC0FA1309B001142D5 /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -5289,7 +5497,8 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "\ncd \"${SRCROOT}/src/test/\"\n\n/bin/sh \"${SRCROOT}/src/test/tcrl\"";
+			shellScript = "\nfuncs=\"${SRCROOT}/bin/test_functions.sh\"\nif [ -f \"${funcs}\" ]\nthen\n\tsource \"${funcs}\"\n\tarches=\"`get_exec_arches`\"\nelse\n\tprintf \"Unable to source in functions: \\\"%s\\\".\" \"${funcs}\"\nfi\n\ntest_binary_in_dir \"${SRCROOT}/src/test/\" /bin/sh \"${SRCROOT}/src/test/tcrl\"\n";
+			showEnvVarsInLog = 0;
 		};
 		1CD4BCBA0FA13121001142D5 /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -5302,7 +5511,8 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "\ncd \"${SRCROOT}/src/test/\"\n\n/bin/sh \"${SRCROOT}/src/test/tsid\"";
+			shellScript = "\nfuncs=\"${SRCROOT}/bin/test_functions.sh\"\nif [ -f \"${funcs}\" ]\nthen\n\tsource \"${funcs}\"\n\tarches=\"`get_exec_arches`\"\nelse\n\tprintf \"Unable to source in functions: \\\"%s\\\".\" \"${funcs}\"\nfi\n\ntest_binary_in_dir \"${SRCROOT}/src/test/\" /bin/sh \"${SRCROOT}/src/test/tsid\"\n";
+			showEnvVarsInLog = 0;
 		};
 		1CD4BCC40FA13197001142D5 /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -5315,7 +5525,8 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "\ncd \"${SRCROOT}/src/test/\"\n\n/bin/sh \"${SRCROOT}/src/test/treq\" 2>/dev/null\nret=$? && if [ $ret != 0 ]; then\texit $?; fi\n\n/bin/sh \"${SRCROOT}/src/test/treq\" testreq2.pem 2>/dev/null\nret=$? && if [ $ret != 0 ]; then\texit $?; fi\n";
+			shellScript = "\nfuncs=\"${SRCROOT}/bin/test_functions.sh\"\nif [ -f \"${funcs}\" ]\nthen\n\tsource \"${funcs}\"\n\tarches=\"`get_exec_arches`\"\nelse\n\tprintf \"Unable to source in functions: \\\"%s\\\".\" \"${funcs}\"\nfi\n\ntest_binary_in_dir \"${SRCROOT}/src/test/\" /bin/sh \"${SRCROOT}/src/test/treq\"\n\ntest_binary_in_dir \"${SRCROOT}/src/test/\" /bin/sh \"${SRCROOT}/src/test/treq\" testreq2.pem";
+			showEnvVarsInLog = 0;
 		};
 		1CD4BCD80FA13443001142D5 /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -5328,7 +5539,8 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "\ncd \"${SRCROOT}/src/test/\"\n\n/bin/sh \"${SRCROOT}/src/test/tpkcs7\" 2>/dev/null\nret=$? && if [ $ret != 0 ]; then\texit $?; fi\n\n/bin/sh \"${SRCROOT}/src/test/tpkcs7d\" 2>/dev/null\nret=$? && if [ $ret != 0 ]; then\texit $?; fi\n";
+			shellScript = "\nfuncs=\"${SRCROOT}/bin/test_functions.sh\"\nif [ -f \"${funcs}\" ]\nthen\n\tsource \"${funcs}\"\n\tarches=\"`get_exec_arches`\"\nelse\n\tprintf \"Unable to source in functions: \\\"%s\\\".\" \"${funcs}\"\nfi\n\ntest_binary_in_dir \"${SRCROOT}/src/test/\" /bin/sh \"${SRCROOT}/src/test/tpkcs7\"\n\ntest_binary_in_dir \"${SRCROOT}/src/test/\" /bin/sh \"${SRCROOT}/src/test/tpkcs7d\"";
+			showEnvVarsInLog = 0;
 		};
 		1CD4BCF20FA1355A001142D5 /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -5341,7 +5553,8 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "\nbn_file=\"${TEMP_FILE_DIR}/tmp.bntest\"\n\necho starting big number library test, could take a while...\n\"${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}\" > \"${bn_file}\"\nret=$? && if [ $ret != 0 ]; then\texit $?; fi\n\necho quit >> \"${bn_file}\"\necho running bc\n\n<$bn_file  sh -c \"`sh \"${SRCROOT}/src/test/bctest\" ignore`\" | /usr/bin/perl -e '$i=0; while (<STDIN>) {if (/^test (.*)/) {print STDERR \"\\nverify $1\";} elsif (!/^0$/) {die \"\\nFailed! bc: $_\";    } else {print STDERR \".\"; $i++;}} print STDERR \"\\n$i tests passed\\n\"'\n\n";
+			shellScript = "\n\nfuncs=\"${SRCROOT}/bin/test_functions.sh\"\nif [[ -f \"${funcs}\" ]]\nthen\n\tsource \"${funcs}\"\n\tarches=\"$(get_exec_arches)\"\nelse\n\tprintf \"Unable to source in functions: \\\"%s\\\".\" \"${funcs}\"\nfi\n\nfor aa in ${arches}\ndo\n\techo starting $aa big number library test, could take a while...\n\tbn_file=\"${TEMP_FILE_DIR}/tmp.bntest.$aa\"\n\n\tarch -$aa \"${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}\" > \"${bn_file}\"\n\n\techo quit >> \"${bn_file}\"\n\techo running bc\n\n<$bn_file  sh -c \"`sh \"${SRCROOT}/src/test/bctest\" ignore`\" | /usr/bin/perl -e '$i=0; while (<STDIN>) {if (/^test (.*)/) {print STDERR \"\\nverify $1\";} elsif (!/^0$/) {die \"\\nFailed! bc: $_\";    } else {print STDERR \".\"; $i++;}} print STDERR \"\\n$i tests passed\\n\"'\n\ndone";
+			showEnvVarsInLog = 0;
 		};
 		1CD4BD150FA137DA001142D5 /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -5354,7 +5567,8 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "\n\"${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}\"";
+			shellScript = "\nfuncs=\"${SRCROOT}/bin/test_functions.sh\"\nif [ -f \"${funcs}\" ]\nthen\n\tsource \"${funcs}\"\n\tarches=\"`get_exec_arches`\"\nelse\n\tprintf \"Unable to source in functions: \\\"%s\\\".\" \"${funcs}\"\nfi\n\ntest_binary \"${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}\"\n";
+			showEnvVarsInLog = 0;
 		};
 		1CD4BD2F0FA13860001142D5 /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -5367,7 +5581,8 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "\n\"${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}\"";
+			shellScript = "\nfuncs=\"${SRCROOT}/bin/test_functions.sh\"\nif [ -f \"${funcs}\" ]\nthen\n\tsource \"${funcs}\"\n\tarches=\"`get_exec_arches`\"\nelse\n\tprintf \"Unable to source in functions: \\\"%s\\\".\" \"${funcs}\"\nfi\n\ntest_binary \"${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}\"\n";
+			showEnvVarsInLog = 0;
 		};
 		1CD4BD440FA138B8001142D5 /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -5380,7 +5595,8 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "\n\"${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}\"";
+			shellScript = "\nfuncs=\"${SRCROOT}/bin/test_functions.sh\"\nif [ -f \"${funcs}\" ]\nthen\n\tsource \"${funcs}\"\n\tarches=\"`get_exec_arches`\"\nelse\n\tprintf \"Unable to source in functions: \\\"%s\\\".\" \"${funcs}\"\nfi\n\ntest_binary \"${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}\"\n";
+			showEnvVarsInLog = 0;
 		};
 		1CD4BD570FA13914001142D5 /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -5393,7 +5609,8 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "\n\"${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}\"";
+			shellScript = "\nfuncs=\"${SRCROOT}/bin/test_functions.sh\"\nif [ -f \"${funcs}\" ]\nthen\n\tsource \"${funcs}\"\n\tarches=\"`get_exec_arches`\"\nelse\n\tprintf \"Unable to source in functions: \\\"%s\\\".\" \"${funcs}\"\nfi\n\ntest_binary \"${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}\"\n";
+			showEnvVarsInLog = 0;
 		};
 		1CD4BD5C0FA13940001142D5 /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -5407,6 +5624,7 @@
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "\necho \"This test does not run when run from the OpenSSL build system. Skipping.\"\nexit 0\n\n\ncd \"${SRCROOT}/src/test/\"\n\necho \"The following command should have some OK's and some failures\"\necho \"There are definitly a few expired certificates\"\necho ${BUILT_PRODUCTS_DIR}/openssl verify -CAPath \"${SRCROOT}/src/certs\" \"${SRCROOT}\"/src/certs/*.pem";
+			showEnvVarsInLog = 0;
 		};
 		1CD4BD820FA13B39001142D5 /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -5419,7 +5637,8 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "\n\"${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}\"";
+			shellScript = "\nfuncs=\"${SRCROOT}/bin/test_functions.sh\"\nif [ -f \"${funcs}\" ]\nthen\n\tsource \"${funcs}\"\n\tarches=\"`get_exec_arches`\"\nelse\n\tprintf \"Unable to source in functions: \\\"%s\\\".\" \"${funcs}\"\nfi\n\ntest_binary \"${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}\"\n";
+			showEnvVarsInLog = 0;
 		};
 		1CD4BD910FA13B6B001142D5 /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -5432,7 +5651,8 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "\n\"${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}\"\nret=$? && if [ $ret != 0 ]; then\texit $?; fi\n\n\"${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}\" -app2_1\nret=$? && if [ $ret != 0 ]; then\texit $?; fi\n";
+			shellScript = "\nfuncs=\"${SRCROOT}/bin/test_functions.sh\"\nif [[ -f \"${funcs}\" ]]\nthen\n\tsource \"${funcs}\"\n\tarches=\"$(get_exec_arches)\"\nelse\n\tprintf \"Unable to source in functions: \\\"%s\\\".\" \"${funcs}\"\nfi\n\ntest_binary \"${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}\"\n\ntest_binary \"${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}\" -app2_1\n";
+			showEnvVarsInLog = 0;
 		};
 		1CD4BDC00FA13D0C001142D5 /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -5445,7 +5665,8 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "\ncd \"${SRCROOT}/src/test/\"\n\n/bin/sh \"${SRCROOT}/src/test/testgen\"";
+			shellScript = "\nfuncs=\"${SRCROOT}/bin/test_functions.sh\"\nif [[ -f \"${funcs}\" ]]\nthen\n\tsource \"${funcs}\"\n\tarches=\"$(get_exec_arches)\"\nelse\n\tprintf \"Unable to source in functions: \\\"%s\\\".\" \"${funcs}\"\nfi\n\ntest_binary_in_dir \"${SRCROOT}/src/test/\" /bin/sh \"${SRCROOT}/src/test/testgen\"\n";
+			showEnvVarsInLog = 0;
 		};
 		1CD4BDDE0FA13E07001142D5 /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -5458,7 +5679,8 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "\n\"${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}\"\n";
+			shellScript = "\nfuncs=\"${SRCROOT}/bin/test_functions.sh\"\nif [ -f \"${funcs}\" ]\nthen\n\tsource \"${funcs}\"\n\tarches=\"`get_exec_arches`\"\nelse\n\tprintf \"Unable to source in functions: \\\"%s\\\".\" \"${funcs}\"\nfi\n\ntest_binary \"${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}\"\n";
+			showEnvVarsInLog = 0;
 		};
 		1CD4BDF20FA13E59001142D5 /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -5471,7 +5693,8 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "\n\"${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}\"\n ";
+			shellScript = "\nfuncs=\"${SRCROOT}/bin/test_functions.sh\"\nif [ -f \"${funcs}\" ]\nthen\n\tsource \"${funcs}\"\n\tarches=\"`get_exec_arches`\"\nelse\n\tprintf \"Unable to source in functions: \\\"%s\\\".\" \"${funcs}\"\nfi\n\ntest_binary \"${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}\"\n";
+			showEnvVarsInLog = 0;
 		};
 		1CD4BE080FA13ED4001142D5 /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -5484,7 +5707,8 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "\n\"${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}\"\n ";
+			shellScript = "\nfuncs=\"${SRCROOT}/bin/test_functions.sh\"\nif [ -f \"${funcs}\" ]\nthen\n\tsource \"${funcs}\"\n\tarches=\"`get_exec_arches`\"\nelse\n\tprintf \"Unable to source in functions: \\\"%s\\\".\" \"${funcs}\"\nfi\n\ntest_binary \"${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}\"\n";
+			showEnvVarsInLog = 0;
 		};
 		1CD4BE770FA1452E001142D5 /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -5497,7 +5721,21 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "\ncd \"${SRCROOT}/src/test/\"\n\n/bin/sh \"${SRCROOT}/src/test/testca\"";
+			shellScript = "\nfuncs=\"${SRCROOT}/bin/test_functions.sh\"\nif [ -f \"${funcs}\" ]\nthen\n\tsource \"${funcs}\"\n\tarches=\"`get_exec_arches`\"\nelse\n\tprintf \"Unable to source in functions: \\\"%s\\\".\" \"${funcs}\"\nfi\n\ntest_binary_in_dir \"${SRCROOT}/src/test\" /bin/sh \"${SRCROOT}/src/test/testca\"\n";
+			showEnvVarsInLog = 0;
+		};
+		4C1115AC110A862400FCEEB6 /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "# Run the unit tests in this test bundle.\n\"${SYSTEM_DEVELOPER_DIR}/Tools/RunUnitTests\"\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -6346,9 +6584,37 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		4C1115AA110A862400FCEEB6 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				4C1115DB110E1A1400FCEEB6 /* unit_tests.m in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
+		1C06925C1011356D00631593 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 1C06922A10112D1A00631593 /* pre-test */;
+			targetProxy = 1C06925B1011356D00631593 /* PBXContainerItemProxy */;
+		};
+		1C069262101135B800631593 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 1C342FED0F71A9220045E860 /* crypto.0.9.8 */;
+			targetProxy = 1C069261101135B800631593 /* PBXContainerItemProxy */;
+		};
+		1C069264101135D500631593 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 1C06925D1011359200631593 /* post-test */;
+			targetProxy = 1C069263101135D500631593 /* PBXContainerItemProxy */;
+		};
+		1C06926A1011366F00631593 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 1C06922A10112D1A00631593 /* pre-test */;
+			targetProxy = 1C0692691011366F00631593 /* PBXContainerItemProxy */;
+		};
 		1C3434490F71AB270045E860 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = 1C342FED0F71A9220045E860 /* crypto.0.9.8 */;
@@ -6759,11 +7025,6 @@
 			target = 1C3434420F71AB0C0045E860 /* openssl */;
 			targetProxy = 1CD4BE140FA14078001142D5 /* PBXContainerItemProxy */;
 		};
-		1CD4BE170FA14078001142D5 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 1C342FED0F71A9220045E860 /* crypto.0.9.8 */;
-			targetProxy = 1CD4BE160FA14078001142D5 /* PBXContainerItemProxy */;
-		};
 		1CD4BE190FA14078001142D5 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = 1C3430020F71AA900045E860 /* ssl.0.9.8 */;
@@ -6959,9 +7220,38 @@
 			target = 1C3434420F71AB0C0045E860 /* openssl */;
 			targetProxy = 1CF791C30F79829000F27DA5 /* PBXContainerItemProxy */;
 		};
+		4C1115B3110A866200FCEEB6 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 1C3434420F71AB0C0045E860 /* openssl */;
+			targetProxy = 4C1115B2110A866200FCEEB6 /* PBXContainerItemProxy */;
+		};
+		4C1115B5110A866200FCEEB6 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 1C342FED0F71A9220045E860 /* crypto.0.9.8 */;
+			targetProxy = 4C1115B4110A866200FCEEB6 /* PBXContainerItemProxy */;
+		};
+		4C1115B7110A866200FCEEB6 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 1C3430020F71AA900045E860 /* ssl.0.9.8 */;
+			targetProxy = 4C1115B6110A866200FCEEB6 /* PBXContainerItemProxy */;
+		};
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
+		1C06922B10112D1A00631593 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = "pre-test";
+			};
+			name = Release;
+		};
+		1C0692601011359200631593 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = "post-test";
+			};
+			name = Release;
+		};
 		1C342FF00F71A9230045E860 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -6995,8 +7285,6 @@
 		1C4E311D0FA115F700F91AE5 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				DYLD_LIBRARY_PATH = "${BUILT_PRODUCTS_DIR}";
-				DYLD_PRINT_LIBRARIES = 1;
 				PRODUCT_NAME = test_des;
 			};
 			name = Release;
@@ -7004,8 +7292,6 @@
 		1C4E316A0FA1237000F91AE5 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				DYLD_LIBRARY_PATH = "${BUILT_PRODUCTS_DIR}";
-				DYLD_PRINT_LIBRARIES = 1;
 				PRODUCT_NAME = test_sha;
 			};
 			name = Release;
@@ -7013,8 +7299,6 @@
 		1C6CEF460FA239E200D47643 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				DYLD_LIBRARY_PATH = "${BUILT_PRODUCTS_DIR}";
-				DYLD_PRINT_LIBRARIES = 1;
 				PRODUCT_NAME = test_ssl;
 			};
 			name = Release;
@@ -7057,8 +7341,6 @@
 		1CD4BB480FA1257B001142D5 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				DYLD_LIBRARY_PATH = "${BUILT_PRODUCTS_DIR}";
-				DYLD_PRINT_LIBRARIES = 1;
 				PRODUCT_NAME = test_sha1;
 			};
 			name = Release;
@@ -7066,8 +7348,6 @@
 		1CD4BB5D0FA125E1001142D5 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				DYLD_LIBRARY_PATH = "${BUILT_PRODUCTS_DIR}";
-				DYLD_PRINT_LIBRARIES = 1;
 				PRODUCT_NAME = test_sha256;
 			};
 			name = Release;
@@ -7075,8 +7355,6 @@
 		1CD4BB710FA12633001142D5 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				DYLD_LIBRARY_PATH = "${BUILT_PRODUCTS_DIR}";
-				DYLD_PRINT_LIBRARIES = 1;
 				PRODUCT_NAME = test_sha512;
 			};
 			name = Release;
@@ -7084,8 +7362,6 @@
 		1CD4BB830FA1267B001142D5 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				DYLD_LIBRARY_PATH = "${BUILT_PRODUCTS_DIR}";
-				DYLD_PRINT_LIBRARIES = 1;
 				PRODUCT_NAME = test_mdc2;
 			};
 			name = Release;
@@ -7093,8 +7369,6 @@
 		1CD4BB940FA126C4001142D5 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				DYLD_LIBRARY_PATH = "${BUILT_PRODUCTS_DIR}";
-				DYLD_PRINT_LIBRARIES = 1;
 				PRODUCT_NAME = test_md5;
 			};
 			name = Release;
@@ -7102,8 +7376,6 @@
 		1CD4BBAE0FA1271A001142D5 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				DYLD_LIBRARY_PATH = "${BUILT_PRODUCTS_DIR}";
-				DYLD_PRINT_LIBRARIES = 1;
 				PRODUCT_NAME = test_md4;
 			};
 			name = Release;
@@ -7111,8 +7383,6 @@
 		1CD4BBBF0FA1275C001142D5 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				DYLD_LIBRARY_PATH = "${BUILT_PRODUCTS_DIR}";
-				DYLD_PRINT_LIBRARIES = 1;
 				PRODUCT_NAME = test_hmac;
 			};
 			name = Release;
@@ -7120,8 +7390,6 @@
 		1CD4BBD60FA127D4001142D5 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				DYLD_LIBRARY_PATH = "${BUILT_PRODUCTS_DIR}";
-				DYLD_PRINT_LIBRARIES = 1;
 				PRODUCT_NAME = test_md2;
 			};
 			name = Release;
@@ -7129,8 +7397,6 @@
 		1CD4BBE80FA12861001142D5 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				DYLD_LIBRARY_PATH = "${BUILT_PRODUCTS_DIR}";
-				DYLD_PRINT_LIBRARIES = 1;
 				PRODUCT_NAME = test_rmd;
 			};
 			name = Release;
@@ -7138,8 +7404,6 @@
 		1CD4BBFA0FA129F3001142D5 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				DYLD_LIBRARY_PATH = "${BUILT_PRODUCTS_DIR}";
-				DYLD_PRINT_LIBRARIES = 1;
 				PRODUCT_NAME = test_bf;
 			};
 			name = Release;
@@ -7147,8 +7411,6 @@
 		1CD4BC0E0FA12A52001142D5 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				DYLD_LIBRARY_PATH = "${BUILT_PRODUCTS_DIR}";
-				DYLD_PRINT_LIBRARIES = 1;
 				PRODUCT_NAME = test_cast;
 			};
 			name = Release;
@@ -7156,8 +7418,6 @@
 		1CD4BC1F0FA12A9D001142D5 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				DYLD_LIBRARY_PATH = "${BUILT_PRODUCTS_DIR}";
-				DYLD_PRINT_LIBRARIES = 1;
 				PRODUCT_NAME = test_rc2;
 			};
 			name = Release;
@@ -7165,8 +7425,6 @@
 		1CD4BC300FA12AD9001142D5 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				DYLD_LIBRARY_PATH = "${BUILT_PRODUCTS_DIR}";
-				DYLD_PRINT_LIBRARIES = 1;
 				PRODUCT_NAME = test_rc4;
 			};
 			name = Release;
@@ -7174,8 +7432,6 @@
 		1CD4BC440FA12B4D001142D5 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				DYLD_LIBRARY_PATH = "${BUILT_PRODUCTS_DIR}";
-				DYLD_PRINT_LIBRARIES = 1;
 				PRODUCT_NAME = test_rc5;
 			};
 			name = Release;
@@ -7183,8 +7439,6 @@
 		1CD4BC560FA12BBC001142D5 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				DYLD_LIBRARY_PATH = "${BUILT_PRODUCTS_DIR}";
-				DYLD_PRINT_LIBRARIES = 1;
 				PRODUCT_NAME = test_rand;
 			};
 			name = Release;
@@ -7192,8 +7446,6 @@
 		1CD4BC750FA12CCA001142D5 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				DYLD_LIBRARY_PATH = "${BUILT_PRODUCTS_DIR}";
-				DYLD_PRINT_LIBRARIES = 1;
 				PRODUCT_NAME = test_x509;
 			};
 			name = Release;
@@ -7201,8 +7453,6 @@
 		1CD4BC9D0FA12FB8001142D5 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				DYLD_LIBRARY_PATH = "${BUILT_PRODUCTS_DIR}";
-				DYLD_PRINT_LIBRARIES = 1;
 				PRODUCT_NAME = test_enc;
 			};
 			name = Release;
@@ -7210,8 +7460,6 @@
 		1CD4BCAE0FA1309B001142D5 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				DYLD_LIBRARY_PATH = "${BUILT_PRODUCTS_DIR}";
-				DYLD_PRINT_LIBRARIES = 1;
 				PRODUCT_NAME = test_crl;
 			};
 			name = Release;
@@ -7219,8 +7467,6 @@
 		1CD4BCBC0FA13122001142D5 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				DYLD_LIBRARY_PATH = "${BUILT_PRODUCTS_DIR}";
-				DYLD_PRINT_LIBRARIES = 1;
 				PRODUCT_NAME = test_sid;
 			};
 			name = Release;
@@ -7228,8 +7474,6 @@
 		1CD4BCC60FA13198001142D5 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				DYLD_LIBRARY_PATH = "${BUILT_PRODUCTS_DIR}";
-				DYLD_PRINT_LIBRARIES = 1;
 				PRODUCT_NAME = test_req;
 			};
 			name = Release;
@@ -7237,8 +7481,6 @@
 		1CD4BCDA0FA13443001142D5 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				DYLD_LIBRARY_PATH = "${BUILT_PRODUCTS_DIR}";
-				DYLD_PRINT_LIBRARIES = 1;
 				PRODUCT_NAME = test_pkcs7;
 			};
 			name = Release;
@@ -7246,8 +7488,6 @@
 		1CD4BCE90FA13532001142D5 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				DYLD_LIBRARY_PATH = "${BUILT_PRODUCTS_DIR}";
-				DYLD_PRINT_LIBRARIES = 1;
 				PRODUCT_NAME = test_bn;
 			};
 			name = Release;
@@ -7255,8 +7495,6 @@
 		1CD4BD0D0FA137BD001142D5 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				DYLD_LIBRARY_PATH = "${BUILT_PRODUCTS_DIR}";
-				DYLD_PRINT_LIBRARIES = 1;
 				PRODUCT_NAME = test_exp;
 			};
 			name = Release;
@@ -7264,8 +7502,6 @@
 		1CD4BD270FA1383B001142D5 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				DYLD_LIBRARY_PATH = "${BUILT_PRODUCTS_DIR}";
-				DYLD_PRINT_LIBRARIES = 1;
 				PRODUCT_NAME = test_ec;
 			};
 			name = Release;
@@ -7273,8 +7509,6 @@
 		1CD4BD3B0FA13898001142D5 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				DYLD_LIBRARY_PATH = "${BUILT_PRODUCTS_DIR}";
-				DYLD_PRINT_LIBRARIES = 1;
 				PRODUCT_NAME = test_ecdsa;
 			};
 			name = Release;
@@ -7282,8 +7516,6 @@
 		1CD4BD4F0FA138F7001142D5 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				DYLD_LIBRARY_PATH = "${BUILT_PRODUCTS_DIR}";
-				DYLD_PRINT_LIBRARIES = 1;
 				PRODUCT_NAME = test_ecdh;
 			};
 			name = Release;
@@ -7291,8 +7523,6 @@
 		1CD4BD5E0FA13940001142D5 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				DYLD_LIBRARY_PATH = "${BUILT_PRODUCTS_DIR}";
-				DYLD_PRINT_LIBRARIES = 1;
 				PRODUCT_NAME = test_verify;
 			};
 			name = Release;
@@ -7300,8 +7530,6 @@
 		1CD4BD770FA13B0C001142D5 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				DYLD_LIBRARY_PATH = "${BUILT_PRODUCTS_DIR}";
-				DYLD_PRINT_LIBRARIES = 1;
 				PRODUCT_NAME = test_dh;
 			};
 			name = Release;
@@ -7309,8 +7537,6 @@
 		1CD4BD930FA13B6B001142D5 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				DYLD_LIBRARY_PATH = "${BUILT_PRODUCTS_DIR}";
-				DYLD_PRINT_LIBRARIES = 1;
 				PRODUCT_NAME = test_dsa;
 			};
 			name = Release;
@@ -7318,8 +7544,6 @@
 		1CD4BDC20FA13D0C001142D5 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				DYLD_LIBRARY_PATH = "${BUILT_PRODUCTS_DIR}";
-				DYLD_PRINT_LIBRARIES = 1;
 				PRODUCT_NAME = test_gen;
 			};
 			name = Release;
@@ -7327,8 +7551,6 @@
 		1CD4BDE00FA13E07001142D5 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				DYLD_LIBRARY_PATH = "${BUILT_PRODUCTS_DIR}";
-				DYLD_PRINT_LIBRARIES = 1;
 				PRODUCT_NAME = test_engine;
 			};
 			name = Release;
@@ -7336,8 +7558,6 @@
 		1CD4BDF40FA13E59001142D5 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				DYLD_LIBRARY_PATH = "${BUILT_PRODUCTS_DIR}";
-				DYLD_PRINT_LIBRARIES = 1;
 				PRODUCT_NAME = test_ige;
 			};
 			name = Release;
@@ -7345,8 +7565,6 @@
 		1CD4BE0A0FA13ED4001142D5 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				DYLD_LIBRARY_PATH = "${BUILT_PRODUCTS_DIR}";
-				DYLD_PRINT_LIBRARIES = 1;
 				PRODUCT_NAME = test_jpake;
 			};
 			name = Release;
@@ -7354,8 +7572,6 @@
 		1CD4BE130FA1406C001142D5 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				DYLD_LIBRARY_PATH = "${BUILT_PRODUCTS_DIR}";
-				DYLD_PRINT_LIBRARIES = 1;
 				PRODUCT_NAME = test;
 			};
 			name = Release;
@@ -7363,8 +7579,6 @@
 		1CD4BE790FA1452E001142D5 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				DYLD_LIBRARY_PATH = "${BUILT_PRODUCTS_DIR}";
-				DYLD_PRINT_LIBRARIES = 1;
 				PRODUCT_NAME = test_ca;
 			};
 			name = Release;
@@ -7415,16 +7629,58 @@
 					OPENSSL_THREADS,
 					ZLIB,
 				);
-				GCC_VERSION = com.apple.compilers.llvmgcc42;
 				HEADER_SEARCH_PATHS = "$(SRCROOT)/src/include";
 				PUBLIC_HEADERS_FOLDER_PATH = /usr/include/openssl;
 				STRIP_STYLE = debugging;
 			};
 			name = Release;
 		};
+		4C1115B0110A862600FCEEB6 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				FRAMEWORK_SEARCH_PATHS = "$(DEVELOPER_LIBRARY_DIR)/Frameworks";
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_ENABLE_OBJC_EXCEPTIONS = YES;
+				GCC_MODEL_TUNING = G5;
+				GCC_PRECOMPILE_PREFIX_HEADER = YES;
+				GCC_PREFIX_HEADER = "$(SYSTEM_LIBRARY_DIR)/Frameworks/Cocoa.framework/Headers/Cocoa.h";
+				INFOPLIST_FILE = "Unit Tests-Info.plist";
+				INSTALL_PATH = "$(USER_LIBRARY_DIR)/Bundles";
+				OTHER_LDFLAGS = (
+					"-framework",
+					Cocoa,
+					"-framework",
+					SenTestingKit,
+				);
+				PREBINDING = NO;
+				PRODUCT_NAME = "Unit Tests";
+				WRAPPER_EXTENSION = octest;
+				ZERO_LINK = NO;
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		1C06922C10112D2E00631593 /* Build configuration list for PBXAggregateTarget "pre-test" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				1C06922B10112D1A00631593 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		1C06925F1011359200631593 /* Build configuration list for PBXAggregateTarget "post-test" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				1C0692601011359200631593 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 		1C342FF30F71A9450045E860 /* Build configuration list for PBXNativeTarget "crypto.0.9.8" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
@@ -7805,6 +8061,14 @@
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				1DEB915008733D8E0010E9CD /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		4C1115B1110A862800FCEEB6 /* Build configuration list for PBXNativeTarget "Unit Tests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				4C1115B0110A862600FCEEB6 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

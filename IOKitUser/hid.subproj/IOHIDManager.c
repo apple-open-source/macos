@@ -22,10 +22,12 @@
  */
 #include <pthread.h>
 #include <CoreFoundation/CFRuntime.h>
+#include "IOHIDManager.h"
 #include <IOKit/IOKitLib.h>
 #include "IOHIDLibPrivate.h"
 #include "IOHIDDevice.h"
 #include "IOHIDLib.h"
+#include "IOHIDManagerPersistentProperties.h"
 
 static IOHIDManagerRef  __IOHIDManagerCreate(
                                     CFAllocatorRef          allocator, 
@@ -46,9 +48,9 @@ static void             __IOHIDManagerDeviceApplier(
                                     void *                      context);
 static void             __IOHIDManagerInitialEnumCallback(
                                     void *                      info);
-static void             __MergeDictionaries(
+static void             __IOHIDManagerMergeDictionaries(
                                     CFDictionaryRef             srcDict, 
-                                    CFMutableDictionaryRef *    pDstDict);
+                                    CFMutableDictionaryRef      dstDict);
 
 enum {
     kDeviceApplierOpen                      = 1 << 0,
@@ -65,7 +67,7 @@ typedef struct __DeviceApplierArgs {
     IOHIDManagerRef     manager;
     IOOptionBits        options;
     IOReturn            retVal;
-}DeviceApplierArgs;
+}   DeviceApplierArgs;
 
 typedef struct __IOHIDManager
 {
@@ -84,7 +86,8 @@ typedef struct __IOHIDManager
     CFMutableDictionaryRef          initRetVals;
     
     Boolean                         isOpen;
-    IOOptionBits                    options;
+    IOOptionBits                    openOptions;
+    IOOptionBits                    createOptions;
     
     void *                          inputContext;
     IOHIDValueCallback              inputCallback;
@@ -99,6 +102,7 @@ typedef struct __IOHIDManager
     IOHIDDeviceCallback             removalCallback;
     
     CFArrayRef                      inputMatchingMultiple;
+    Boolean                         isDirty;
 
 } __IOHIDManager, *__IOHIDManagerRef;
 
@@ -161,8 +165,13 @@ void __IOHIDManagerRelease( CFTypeRef object )
 {
     IOHIDManagerRef manager = (IOHIDManagerRef)object;
     
+    if ( (manager->createOptions & kIOHIDManagerOptionUsePersistentProperties) && 
+        !(manager->createOptions & kIOHIDManagerOptionDoNotSaveProperties)) {
+        __IOHIDManagerSaveProperties(manager, NULL);
+    }
+    
     if ( manager->isOpen )
-        IOHIDManagerClose(manager, manager->options);
+        IOHIDManagerClose(manager, manager->openOptions);
         
     if ( manager->notifyPort ) {
         IONotificationPortDestroy(manager->notifyPort);
@@ -231,7 +240,7 @@ void __IOHIDManagerSetDeviceMatching(
     if ( !matchingDict )
         return;
         
-    __MergeDictionaries(matching, &matchingDict);
+    __IOHIDManagerMergeDictionaries(matching, matchingDict);
     
     // Now set up a notification to be called when a device is first 
     // matched by I/O Kit.  Note that this will not catch any devices that were 
@@ -264,7 +273,8 @@ void __IOHIDManagerSetDeviceMatching(
             return;
     }
         
-    CFSetAddValue(manager->iterators, (void *)iterator);
+    intptr_t temp = iterator;
+    CFSetAddValue(manager->iterators, (void *)temp);
 
     __IOHIDManagerDeviceAdded(manager, iterator);
 }
@@ -301,8 +311,9 @@ void __IOHIDManagerDeviceAdded(     void *                      refcon,
                                             NULL);
             }
         
-            if ( manager->devices )
+            if ( manager->devices ) {
                 CFSetAddValue(manager->devices, device);
+            }
                 
             CFRelease(device);
             
@@ -342,6 +353,15 @@ void __IOHIDManagerDeviceAdded(     void *                      refcon,
             
             __IOHIDManagerDeviceApplier((const void *)device, &args);
 
+            if ( (manager->createOptions & kIOHIDManagerOptionUsePersistentProperties) && 
+                !(manager->createOptions & kIOHIDManagerOptionDoNotLoadProperties)) {
+                __IOHIDDeviceLoadProperties(device);
+            }
+            if (manager->properties) {
+                CFDictionaryApplyFunction(manager->properties, 
+                                          __IOHIDApplyPropertiesToDeviceFromDictionary, 
+                                          device);
+            }
         }
         
         IOObjectRelease(service);
@@ -385,6 +405,12 @@ void __IOHIDManagerDeviceRemoved(   void *                      context,
     if ( manager->deviceInputBuffers )
         CFDictionaryRemoveValue(manager->deviceInputBuffers, sender);
         
+    if ( (manager->createOptions & kIOHIDManagerOptionUsePersistentProperties) && 
+        !(manager->createOptions & kIOHIDManagerOptionDoNotSaveProperties)) {
+        if (CFSetContainsValue(manager->devices, sender))
+            __IOHIDDeviceSaveProperties((IOHIDDeviceRef)sender, NULL);
+    }
+
     CFSetRemoveValue(manager->devices, sender);
     
     if ( manager->removalCallback )
@@ -435,22 +461,22 @@ void __IOHIDManagerDeviceApplier(
 {
     DeviceApplierArgs * args    = (DeviceApplierArgs*)context;
     IOHIDDeviceRef      device  = (IOHIDDeviceRef)value;
-    IOReturn            retVal  = kIOReturnSuccess;
+    intptr_t            retVal  = kIOReturnSuccess;
     
     if ( args->options & kDeviceApplierOpen ) {
         retVal = IOHIDDeviceOpen(           device,
-                                            args->manager->options);
+                                            args->manager->openOptions);
         if ( args->manager->initRetVals )
             CFDictionarySetValue(args->manager->initRetVals, device, (void*)retVal);
     }
 
     if ( args->options & kDeviceApplierClose )
         retVal = IOHIDDeviceClose(          device,
-                                            args->manager->options);
+                                            args->manager->openOptions);
                                             
     if ( args->options & kDeviceApplierInitEnumCallback ) {
         if ( args->manager->initRetVals )
-            retVal = (IOReturn)CFDictionaryGetValue(
+            retVal = (intptr_t)CFDictionaryGetValue(
                                             args->manager->initRetVals, 
                                             device);
             
@@ -532,7 +558,7 @@ CFTypeID IOHIDManagerGetTypeID(void)
 //------------------------------------------------------------------------------
 IOHIDManagerRef IOHIDManagerCreate(     
                                     CFAllocatorRef          allocator,
-                                    IOOptionBits            options __unused)
+                                    IOOptionBits            options)
 {    
     IOHIDManagerRef manager;
     
@@ -541,6 +567,13 @@ IOHIDManagerRef IOHIDManagerCreate(
     if (!manager)
         return NULL;
     
+    manager->createOptions = options;
+    
+    if ( (manager->createOptions & kIOHIDManagerOptionUsePersistentProperties) && 
+        !(manager->createOptions & kIOHIDManagerOptionDoNotLoadProperties))
+    {
+        __IOHIDManagerLoadProperties(manager);
+    }
         
     return manager;
 }
@@ -555,8 +588,8 @@ IOReturn IOHIDManagerOpen(
     IOReturn retVal = kIOReturnSuccess;
     
     if ( !manager->isOpen ) {
-        manager->isOpen     = TRUE;
-        manager->options    = options;
+        manager->isOpen         = TRUE;
+        manager->openOptions    = options;
 
         if ( manager->devices ) {
             DeviceApplierArgs args;
@@ -595,8 +628,8 @@ IOReturn IOHIDManagerClose(
     IOReturn retVal = kIOReturnSuccess;
 
     if ( manager->isOpen ) {
-        manager->isOpen     = FALSE;
-        manager->options    = options;
+        manager->isOpen         = FALSE;
+        manager->openOptions    = options;
 
         if ( manager->devices ) {
             DeviceApplierArgs args;
@@ -611,6 +644,11 @@ IOReturn IOHIDManagerClose(
 
             retVal = args.retVal;
         }
+    }
+
+    if ( (manager->createOptions & kIOHIDManagerOptionUsePersistentProperties) && 
+        !(manager->createOptions & kIOHIDManagerOptionDoNotSaveProperties)) {
+        __IOHIDManagerSaveProperties(manager, NULL);
     }
 
     return retVal;
@@ -637,17 +675,24 @@ Boolean IOHIDManagerSetProperty(
                                 CFStringRef                     key,
                                 CFTypeRef                       value)
 {
-    if (!manager->properties || 
-        !(manager->properties = CFDictionaryCreateMutable(
-                                            kCFAllocatorDefault, 
-                                            0,
-                                            &kCFTypeDictionaryKeyCallBacks,
-                                            &kCFTypeDictionaryValueCallBacks)))
-        return FALSE;
-        
-    CFDictionarySetValue(manager->properties, key, value);
+    __IOHIDApplyPropertyToSetContext context = {
+        key, value
+    };
     
-    // RY: Should iterate through all devices and set properties too.
+    if (!manager->properties) {
+        manager->properties = CFDictionaryCreateMutable(kCFAllocatorDefault, 
+                                                        0,
+                                                        &kCFTypeDictionaryKeyCallBacks,
+                                                        &kCFTypeDictionaryValueCallBacks);
+        if (!manager->properties)
+            return FALSE;
+    }
+    
+    manager->isDirty = TRUE;
+    CFDictionarySetValue(manager->properties, key, value);
+    if (manager->devices)
+        CFSetApplyFunction(manager->devices, __IOHIDApplyPropertyToDeviceSet, &context);
+    
     return TRUE;
 }
                                         
@@ -682,8 +727,13 @@ void IOHIDManagerSetDeviceMatchingMultiple(
     CFIndex         i, count;
     CFTypeRef       value;
     
-    if ( manager->devices )
+    if ( manager->devices ) {
+        if ( (manager->createOptions & kIOHIDManagerOptionUsePersistentProperties) && 
+            !(manager->createOptions & kIOHIDManagerOptionDoNotSaveProperties)) {
+            __IOHIDManagerSaveProperties(manager, NULL);
+        }
         CFSetRemoveAllValues(manager->devices);
+    }
         
     if ( manager->iterators )
         CFSetRemoveAllValues(manager->iterators);
@@ -901,25 +951,210 @@ void IOHIDManagerUnscheduleFromRunLoop(
     manager->runLoopMode    = NULL;
 }
 
+//------------------------------------------------------------------------------
+// IOHIDManagerUnscheduleFromRunLoop
+//------------------------------------------------------------------------------
+void IOHIDManagerSaveToPropertyDomain(IOHIDManagerRef                 manager,
+                                      CFStringRef                     applicationID,
+                                      CFStringRef                     userName,
+                                      CFStringRef                     hostName,
+                                      IOOptionBits                    options)
+{
+    __IOHIDPropertyContext context = {
+        applicationID, userName, hostName, options
+    };
+    
+    if (manager && applicationID && userName && hostName) {
+        __IOHIDManagerSaveProperties(manager, &context);        
+    }
+    else {
+        // LOG AN ERROR?
+    }
+}
+
+//------------------------------------------------------------------------------
+CFStringRef __IOHIDManagerGetRootKey() 
+{
+    return CFSTR(kIOHIDManagerKey);
+}
+
+//------------------------------------------------------------------------------
+void __IOHIDManagerSaveProperties(IOHIDManagerRef manager, __IOHIDPropertyContext *context)
+{
+    if (manager->isDirty && manager->properties) {
+        __IOHIDPropertySaveToKeyWithSpecialKeys(manager->properties, 
+                                               __IOHIDManagerGetRootKey(),
+                                               NULL,
+                                               context);
+        manager->isDirty = FALSE;
+    }
+    
+    if (manager->devices)
+        CFSetApplyFunction(manager->devices, __IOHIDSaveDeviceSet, context);
+}
+
+//------------------------------------------------------------------------------
+void __IOHIDManagerLoadProperties(IOHIDManagerRef manager)
+{
+    // Convert to __IOHIDPropertyLoadFromKeyWithSpecialKeys if we identify special keys
+    CFMutableDictionaryRef properties = __IOHIDPropertyLoadDictionaryFromKey(__IOHIDManagerGetRootKey());
+    
+    if (properties) {
+        CFRELEASE_IF_NOT_NULL(manager->properties);
+        manager->properties = properties;
+        manager->isDirty = FALSE;
+    }
+    
+    // We do not load device properties here, since the devices are not present when this is called.
+}
+
+//------------------------------------------------------------------------------
+void __IOHIDPropertySaveWithContext(CFStringRef key, CFPropertyListRef value, __IOHIDPropertyContext *context)
+{
+    if (key && value) {
+        if (context && context->applicationID && context->userName && context->hostName) {
+            CFPreferencesSetValue(key, value, context->applicationID, context->userName, context->hostName);
+        }
+        else {
+            CFPreferencesSetAppValue(key, value, kCFPreferencesCurrentApplication);
+        }
+    }
+}
+
+//------------------------------------------------------------------------------
+void __IOHIDPropertySaveToKeyWithSpecialKeys(CFDictionaryRef dictionary, CFStringRef key, CFStringRef *specialKeys, __IOHIDPropertyContext *context)
+{
+    CFMutableDictionaryRef temp = CFDictionaryCreateMutableCopy(NULL, 0, dictionary);
+    
+    if (specialKeys) {
+        while (*specialKeys) {
+            CFTypeRef value = CFDictionaryGetValue(temp, *specialKeys);
+            if (value) {
+                CFStringRef subKey = CFStringCreateWithFormat(NULL, NULL, 
+                                                              CFSTR("%@#%@"), 
+                                                              key,
+                                                              *specialKeys);
+                __IOHIDPropertySaveWithContext(subKey, value, context);
+                CFDictionaryRemoveValue(temp, *specialKeys);
+                CFRelease(subKey);
+            }
+            specialKeys++;
+        }
+    }
+    
+    CFAbsoluteTime time = CFAbsoluteTimeGetCurrent();
+    CFNumberRef timeNum = CFNumberCreate(NULL, kCFNumberDoubleType, &time);
+    CFDictionaryAddValue(temp, CFSTR("time of last save"), timeNum);
+    CFRelease(timeNum);
+    __IOHIDPropertySaveWithContext(key, temp, context);
+    CFRelease(temp);
+}
+
+//------------------------------------------------------------------------------
+CFMutableDictionaryRef __IOHIDPropertyLoadDictionaryFromKey(CFStringRef key)
+{
+    CFMutableDictionaryRef result = NULL;
+    CFDictionaryRef baseProperties = CFPreferencesCopyAppValue(key, kCFPreferencesCurrentApplication);
+    if (baseProperties && (CFGetTypeID(baseProperties) == CFDictionaryGetTypeID())) {
+        result = CFDictionaryCreateMutable(NULL, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+        
+        CFDictionaryRef properties = CFPreferencesCopyValue(key, kCFPreferencesAnyApplication, kCFPreferencesAnyUser, kCFPreferencesAnyHost);
+        if (properties && (CFGetTypeID(properties) == CFDictionaryGetTypeID()))
+            __IOHIDManagerMergeDictionaries(properties, result);
+        if (properties)
+            CFRelease(properties);
+        
+        properties = CFPreferencesCopyValue(key, kCFPreferencesAnyApplication, kCFPreferencesAnyUser, kCFPreferencesCurrentHost);
+        if (properties && (CFGetTypeID(properties) == CFDictionaryGetTypeID()))
+            __IOHIDManagerMergeDictionaries(properties, result);
+        if (properties)
+            CFRelease(properties);
+        
+        properties = CFPreferencesCopyValue(key, kCFPreferencesAnyApplication, kCFPreferencesCurrentUser, kCFPreferencesAnyHost);
+        if (properties && (CFGetTypeID(properties) == CFDictionaryGetTypeID()))
+            __IOHIDManagerMergeDictionaries(properties, result);
+        if (properties)
+            CFRelease(properties);
+        
+        properties = CFPreferencesCopyValue(key, kCFPreferencesAnyApplication, kCFPreferencesCurrentUser, kCFPreferencesCurrentHost);
+        if (properties && (CFGetTypeID(properties) == CFDictionaryGetTypeID()))
+            __IOHIDManagerMergeDictionaries(properties, result);
+        if (properties)
+            CFRelease(properties);
+        
+        properties = CFPreferencesCopyValue(key, kCFPreferencesCurrentApplication, kCFPreferencesAnyUser, kCFPreferencesAnyHost);
+        if (properties && (CFGetTypeID(properties) == CFDictionaryGetTypeID()))
+            __IOHIDManagerMergeDictionaries(properties, result);
+        if (properties)
+            CFRelease(properties);
+        
+        properties = CFPreferencesCopyValue(key, kCFPreferencesCurrentApplication, kCFPreferencesAnyUser, kCFPreferencesCurrentHost);
+        if (properties && (CFGetTypeID(properties) == CFDictionaryGetTypeID()))
+            __IOHIDManagerMergeDictionaries(properties, result);
+        if (properties)
+            CFRelease(properties);
+        
+        properties = CFPreferencesCopyValue(key, kCFPreferencesCurrentApplication, kCFPreferencesCurrentUser, kCFPreferencesAnyHost);
+        if (properties && (CFGetTypeID(properties) == CFDictionaryGetTypeID()))
+            __IOHIDManagerMergeDictionaries(properties, result);
+        if (properties)
+            CFRelease(properties);
+        
+        properties = CFPreferencesCopyValue(key, kCFPreferencesCurrentApplication, kCFPreferencesCurrentUser, kCFPreferencesCurrentHost);
+        if (properties && (CFGetTypeID(properties) == CFDictionaryGetTypeID()))
+            __IOHIDManagerMergeDictionaries(properties, result);
+        if (properties)
+            CFRelease(properties);
+        
+        __IOHIDManagerMergeDictionaries(baseProperties, result);
+    }
+    if (baseProperties)
+        CFRelease(baseProperties);
+    return result;
+}
+
+//------------------------------------------------------------------------------
+CFMutableDictionaryRef __IOHIDPropertyLoadFromKeyWithSpecialKeys(CFStringRef key, CFStringRef *specialKeys)
+{
+    CFMutableDictionaryRef result = __IOHIDPropertyLoadDictionaryFromKey(key);
+    
+    if (!result)
+        result = CFDictionaryCreateMutable(NULL, 0, &kCFCopyStringDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+    
+    while (*specialKeys) {
+        CFStringRef subKey = CFStringCreateWithFormat(NULL, NULL, 
+                                                      CFSTR("%@#%@"), 
+                                                      key,
+                                                      *specialKeys);
+        CFPropertyListRef value = CFPreferencesCopyAppValue(subKey, kCFPreferencesCurrentApplication);
+        if (value) {
+            CFDictionarySetValue(result, *specialKeys, value);
+            CFRelease(value);
+        }
+        
+        CFRelease(subKey);
+        specialKeys++;
+    }
+    
+    return result;
+}
+
 //===========================================================================
 // Static Helper Definitions
 //===========================================================================
 //------------------------------------------------------------------------------
-// __MergeDictionaries
+// __IOHIDManagerMergeDictionaries
 //------------------------------------------------------------------------------
-void __MergeDictionaries(           CFDictionaryRef             srcDict, 
-                                    CFMutableDictionaryRef *    pDstDict)
+void __IOHIDManagerMergeDictionaries(CFDictionaryRef        srcDict, 
+                                     CFMutableDictionaryRef dstDict)
 {
     uint32_t        count;
     CFTypeRef *     values;
     CFStringRef *   keys;
     
-    if ( !pDstDict || !srcDict || !(count = CFDictionaryGetCount(srcDict)))
+    if ( !dstDict || !srcDict || !(count = CFDictionaryGetCount(srcDict)))
         return;
         
-    if ( !*pDstDict )
-        return;
-                
     values  = (CFTypeRef *)malloc(sizeof(CFTypeRef) * count);
     keys    = (CFStringRef *)malloc(sizeof(CFStringRef) * count);
     
@@ -927,7 +1162,7 @@ void __MergeDictionaries(           CFDictionaryRef             srcDict,
         CFDictionaryGetKeysAndValues(srcDict, (const void **)keys, (const void **)values);
         
         for ( uint32_t i=0; i<count; i++) 
-            CFDictionarySetValue(*pDstDict, keys[i], values[i]);
+            CFDictionarySetValue(dstDict, keys[i], values[i]);
     }
         
     if ( values )

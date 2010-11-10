@@ -29,6 +29,7 @@
 #define _TRUST_ADDITIONS_H_
 
 #include <CoreFoundation/CFArray.h>
+#include <Security/cssmtype.h>
 #include <Security/SecTrust.h>
 
 #ifdef __cplusplus
@@ -37,6 +38,7 @@ extern "C" {
 
 CFArrayRef potentialEVChainWithCertificates(CFArrayRef certificates);
 CFArrayRef allowedEVRootsForLeafCertificate(CFArrayRef certificates);
+bool isRevocationServerMetaError(CSSM_RETURN statusCode);
 CFDictionaryRef extendedValidationResults(CFArrayRef certChain, SecTrustResultType trustResult, OSStatus tpResult);
 
 #ifdef __cplusplus

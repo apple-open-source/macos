@@ -336,23 +336,24 @@ typedef struct IOUSBLowLatencyIsocCompletion {
 @discussion  Errors specific to the IOUSBFamily.  Note that the iokit_usb_err(x) translates to 0xe0004xxx, where xxx is the value in parenthesis as a hex number.
 */
 #define	iokit_usb_err(return)       (sys_iokit|sub_iokit_usb|return)
-#define kIOUSBUnknownPipeErr        iokit_usb_err(0x61)			// 0xe0004061  Pipe ref not recognized
-#define kIOUSBTooManyPipesErr       iokit_usb_err(0x60)			// 0xe0004060  Too many pipes
-#define kIOUSBNoAsyncPortErr        iokit_usb_err(0x5f)			// 0xe000405f  no async port
-#define kIOUSBNotEnoughPipesErr     iokit_usb_err(0x5e)			// 0xe000405e  not enough pipes in interface
-#define kIOUSBNotEnoughPowerErr     iokit_usb_err(0x5d)			// 0xe000405d  not enough power for selected configuration
-#define kIOUSBEndpointNotFound      iokit_usb_err(0x57)			// 0xe0004057  Endpoint Not found
-#define kIOUSBConfigNotFound        iokit_usb_err(0x56)			// 0xe0004056  Configuration Not found
-#define kIOUSBTransactionTimeout    iokit_usb_err(0x51)			// 0xe0004051  Transaction timed out
-#define kIOUSBTransactionReturned   iokit_usb_err(0x50)			// 0xe0004050  The transaction has been returned to the caller
-#define kIOUSBPipeStalled           iokit_usb_err(0x4f)			// 0xe000404f  Pipe has stalled, error needs to be cleared
-#define kIOUSBInterfaceNotFound     iokit_usb_err(0x4e)			// 0xe000404e  Interface ref not recognized
+#define kIOUSBUnknownPipeErr        iokit_usb_err(0x61)									// 0xe0004061  Pipe ref not recognized
+#define kIOUSBTooManyPipesErr       iokit_usb_err(0x60)									// 0xe0004060  Too many pipes
+#define kIOUSBNoAsyncPortErr        iokit_usb_err(0x5f)									// 0xe000405f  no async port
+#define kIOUSBNotEnoughPipesErr     iokit_usb_err(0x5e)									// 0xe000405e  not enough pipes in interface
+#define kIOUSBNotEnoughPowerErr     iokit_usb_err(0x5d)									// 0xe000405d  not enough power for selected configuration
+#define kIOUSBEndpointNotFound      iokit_usb_err(0x57)									// 0xe0004057  Endpoint Not found
+#define kIOUSBConfigNotFound        iokit_usb_err(0x56)									// 0xe0004056  Configuration Not found
+#define kIOUSBTransactionTimeout    iokit_usb_err(0x51)									// 0xe0004051  Transaction timed out
+#define kIOUSBTransactionReturned   iokit_usb_err(0x50)									// 0xe0004050  The transaction has been returned to the caller
+#define kIOUSBPipeStalled           iokit_usb_err(0x4f)									// 0xe000404f  Pipe has stalled, error needs to be cleared
+#define kIOUSBInterfaceNotFound     iokit_usb_err(0x4e)									// 0xe000404e  Interface ref not recognized
 #define kIOUSBLowLatencyBufferNotPreviouslyAllocated        iokit_usb_err(0x4d)			// 0xe000404d  Attempted to use user land low latency isoc calls w/out calling PrepareBuffer (on the data buffer) first 
 #define kIOUSBLowLatencyFrameListNotPreviouslyAllocated     iokit_usb_err(0x4c)			// 0xe000404c  Attempted to use user land low latency isoc calls w/out calling PrepareBuffer (on the frame list) first
-#define kIOUSBHighSpeedSplitError     iokit_usb_err(0x4b)		// 0xe000404b Error to hub on high speed bus trying to do split transaction
-#define kIOUSBSyncRequestOnWLThread	iokit_usb_err(0x4a)			// 0xe000404a  A synchronous USB request was made on the workloop thread (from a callback?).  Only async requests are permitted in that case
-#define kIOUSBDeviceNotHighSpeed	iokit_usb_err(0x49)			// 0xe0004049  The device is not a high speed device, so the EHCI driver returns an error
-#define kIOUSBDevicePortWasNotSuspended iokit_usb_err(0x50)		// 0xe0004050  Port was not suspended
+#define kIOUSBHighSpeedSplitError     iokit_usb_err(0x4b)								// 0xe000404b Error to hub on high speed bus trying to do split transaction
+#define kIOUSBSyncRequestOnWLThread	iokit_usb_err(0x4a)									// 0xe000404a  A synchronous USB request was made on the workloop thread (from a callback?).  Only async requests are permitted in that case
+#define kIOUSBDeviceNotHighSpeed	iokit_usb_err(0x49)									// 0xe0004049  The device is not a high speed device, so the EHCI driver returns an error
+#define kIOUSBDevicePortWasNotSuspended iokit_usb_err(0x50)								// 0xe0004050  Port was not suspended
+#define kIOUSBClearPipeStallNotRecursive iokit_usb_err(0x48)							// 0xe0004048  IOUSBPipe::ClearPipeStall should not be called rescursively
 	
 /*!
 @defined IOUSBFamily hardware error codes
@@ -405,6 +406,9 @@ Completion Code         Error Returned              Description
 #define kIOUSBMessageNotEnoughPower					iokit_usb_msg(0x14)     // 0xe0004014  Message sent to the clients of the device's hub parent, when a device causes an low power notice to be displayed.  The message argument contains the locationID of the device
 #define kIOUSBMessageController						iokit_usb_msg(0x15)		// 0xe0004015  Generic message sent from controller user client to controllers 
 #define	kIOUSBMessageRootHubWakeEvent				iokit_usb_msg(0x16)		// 0xe0004016  Message from the HC Wakeup code indicating that a Root Hub port has a wake event
+#define kIOUSBMessageReleaseExtraCurrent			iokit_usb_msg(0x17)		// 0xe0004017  Message to ask any clients using extra current to release it if possible
+#define kIOUSBMessageReallocateExtraCurrent			iokit_usb_msg(0x18)		// 0xe0004018  Message to ask any clients using extra current to attempt to allocate it some more
+
 
 // Obsolete
 //
@@ -986,6 +990,7 @@ enum {
 #define kUSBDevicePropertyAddress               "USB Address"
 #define kUSBDevicePropertyLocationID            "locationID"
 #define kUSBProductIDMask						"idProductMask"
+#define kUSBProductIdsArrayName					"idProductArray"
 #define kUSBPreferredConfiguration				"Preferred Configuration"
 #define kUSBSuspendPort							"kSuspendPort"
 #define kUSBExpressCardCantWake					"ExpressCardCantWake"
@@ -1053,21 +1058,46 @@ typedef enum {
 	/*!
 	 @enum USBPowerRequestTypes
 	 @discussion Used to specify what kind of power will be reserved using the IOUSBDevice RequestExtraPower and ReturnExtraPower APIs. 
-	 @constant	kUSBPowerDuringSleep	The power is to be used during sleep.
+	 @constant	kUSBPowerDuringSleep	The power is to be used during sleep.  
 	 @constant	kUSBPowerDuringWake		The power is to be used while the system is awake (i.e not sleeping)
+	 @constant	kUSBPowerRequestWakeRelease		When used with ReturnExtraPower(), it will send a message to all devices to return any extra wake power if possible.
+	 @constant	kUSBPowerRequestSleepRelease	When used with ReturnExtraPower(), it will send a message to all devices to return any sleep power if possible.
+	 @constant	kUSBPowerRequestWakeReallocate		When used with ReturnExtraPower(), it will send a message to all devices indicating that they can ask for more wake power, as some device has released it.
+	 @constant	kUSBPowerRequestSleepReallocate		When used with ReturnExtraPower(), it will send a message to all devices indicating that they can ask for more sleep power, as some device has released it.
 	 */
 	typedef enum {
 		kUSBPowerDuringSleep 		= 0,
-		kUSBPowerDuringWake			= 1
+		kUSBPowerDuringWake			= 1,
+		kUSBPowerRequestWakeRelease = 2,
+		kUSBPowerRequestSleepRelease = 3,
+		kUSBPowerRequestWakeReallocate = 4,
+		kUSBPowerRequestSleepReallocate = 5,
+
 	} USBPowerRequestTypes;
 	
 	// Apple specific properties
 #define kAppleCurrentAvailable		"AAPL,current-available"
+#define kAppleMaxPortCurrent		"AAPL,current-available"
 #define kAppleCurrentInSleep		"AAPL,current-in-sleep"
 #define kAppleCurrentExtra			"AAPL,current-extra"
+#define kAppleMaxPortCurrentInSleep	"AAPL,max-port-current-in-sleep"
+#define kAppleCurrentExtraInSleep	"AAPL,current-extra-in-sleep"
+#define kApplePortCurrentInSleep	"AAPL,port-current-in-sleep"
 #define kAppleInternalUSBDevice		"AAPL,device-internal"
 #define kUSBBusID					"AAPL,bus-id"
-	
+
+// UPC definitions from ACPI Rev 4.0
+typedef enum {
+	kUSBPortNotConnectable 		= 0,	// Port is not connectable
+	kUSBPortConnectable			= 1		// Port is connectable either user visible or invisible
+} kUSBConnectable;
+
+typedef enum {
+	kUSBTypeAConnector				= 0x00,	// Type ÔAÕ connector
+	kUSBTypeMiniABConnector	        = 0x01,	// Mini-AB connector
+	kUSBTypeExpressCard				= 0x02,	// ExpressCard
+	kUSBProprietaryConnector		= 0xFF	// Proprietary connector
+} kUSBHostConnectorType;
 
 #ifdef __cplusplus
 }       

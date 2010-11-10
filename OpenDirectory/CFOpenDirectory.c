@@ -9183,11 +9183,11 @@ static tDirStatus _Authenticate( ODNodeRef inNodeRef, char *inAuthType, char *in
 {
     _ODNode         *pODNodeRef = (_ODNode *) inNodeRef;
     tDataBufferPtr  dsAuthType  = dsDataNodeAllocateString( 0, inAuthType );
-    tDataBufferPtr  dsAuthData  = dsDataBufferAllocate( 0, 2048 );
+    tDataBufferPtr  dsAuthData  = NULL;
     tDataBufferPtr  dsAuthStep  = dsDataBufferAllocate( 0, 1024 );
     tDirStatus      dsStatus    = eDSAuthFailed;
     CFIndex         iCount      = (NULL != inAuthItems ? CFArrayGetCount(inAuthItems) : 0 );
-    char            *pTempPtr   = dsAuthData->fBufferData;
+    char            *pTempPtr   = NULL;
     _ODContext      *pContext   = NULL;
     tContextData    dsContext   = 0;
     CFIndex         ii;
@@ -9208,6 +9208,9 @@ static tDirStatus _Authenticate( ODNodeRef inNodeRef, char *inAuthType, char *in
                 char        *pTemp  = (char *) CFDataGetBytePtr( cfRef );
                 uint32_t    uiTemp  = CFDataGetLength( cfRef );
                 
+                dsAuthData = dsDataBufferAllocate(0, uiTemp);
+                pTempPtr = dsAuthData->fBufferData;
+
                 bcopy( pTemp, pTempPtr, uiTemp );
                 pTempPtr += uiTemp;
             }
@@ -9215,6 +9218,24 @@ static tDirStatus _Authenticate( ODNodeRef inNodeRef, char *inAuthType, char *in
     }
     else
     {
+        UInt32 authBufSize = 0;
+
+        /* 7716346: Precalculate the length so we don't overrun the buffer. */
+        for (ii = 0; ii < iCount; ii++) {
+            CFTypeRef cfRef = CFArrayGetValueAtIndex( inAuthItems, ii );
+
+            authBufSize += sizeof(uint32_t);
+
+            if (CFGetTypeID(cfRef) == CFStringGetTypeID()) {
+                authBufSize += CFStringGetMaximumSizeForEncoding(CFStringGetLength(cfRef), kCFStringEncodingUTF8);
+            } else if (CFGetTypeID(cfRef) == CFDataGetTypeID()) {
+                authBufSize += CFDataGetLength(cfRef);
+            }
+        }
+
+        dsAuthData = dsDataBufferAllocate(0, authBufSize);
+        pTempPtr = dsAuthData->fBufferData;
+
         for( ii = 0; ii < iCount; ii++ )
         {
             CFTypeRef   cfRef = CFArrayGetValueAtIndex( inAuthItems, ii );
@@ -9243,6 +9264,11 @@ static tDirStatus _Authenticate( ODNodeRef inNodeRef, char *inAuthType, char *in
                 pTempPtr += uiTemp;
             }
         }
+    }
+
+    if (dsAuthData == NULL) {
+        dsAuthData = dsDataBufferAllocate(0, 2048);
+        pTempPtr = dsAuthData->fBufferData;
     }
     
     dsAuthData->fBufferLength = (pTempPtr - dsAuthData->fBufferData);

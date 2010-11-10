@@ -220,6 +220,7 @@ SCSIParallelTask::ResetForNewTask ( void )
 	fSCSITask					= NULL;
 	fRealizedTransferCount		= 0;
 	fControllerTaskIdentifier	= 0;
+	fTaskRetryCount				= 0;
 	
 	fSCSIParallelFeatureRequestCount		= 0;
 	fSCSIParallelFeatureRequestResultCount	= 0;

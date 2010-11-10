@@ -32,7 +32,6 @@
 #include <IOKit/IOFilterInterruptEventSource.h>
 #include <IOKit/pci/IOPCIBridge.h>
 #include <IOKit/pci/IOPCIDevice.h>
-#include <IOKit/acpi/IOACPIPlatformDevice.h>
 
 #include <IOKit/usb/IOUSBControllerV3.h>
 #include <IOKit/usb/USB.h>
@@ -91,9 +90,10 @@ struct AppleOHCIEndpointDescriptorStruct
 {
     OHCIEndpointDescriptorSharedPtr	pShared;
     AppleOHCIEndpointDescriptorPtr	pLogicalNext;	
-    IOPhysicalAddress			pPhysical;		
-    void*				pLogicalTailP;		
-    void*				pLogicalHeadP;
+    IOPhysicalAddress				pPhysical;		
+    void*							pLogicalTailP;		
+    void*							pLogicalHeadP;
+	bool							pAborting;
 };
 
 struct AppleOHCIGeneralTransferDescriptorStruct
@@ -137,6 +137,7 @@ class AppleUSBOHCI : public IOUSBControllerV3
 private:
     void						ResumeUSBBus(bool wakingFromSleep);
     void						SuspendUSBBus(bool goingToSleep);
+    void						printTD(AppleOHCIGeneralTransferDescriptorPtr pTD, int level);
     void						print_td(AppleOHCIGeneralTransferDescriptorPtr x);
     void						print_itd(AppleOHCIIsochTransferDescriptorPtr x);
     void						print_ed(AppleOHCIEndpointDescriptorPtr x);
@@ -225,10 +226,6 @@ protected:
 	bool									_badExpressCardAttached;			// True if a driver has identified a bad ExpressCard
 	bool									_needToReEnableRHSCInterrupt;		// True when we have disabled the RHSC and we need to enable it once we clear the root hub change
 	bool									_rootHubStatuschangedInterruptReceived;	// True when we receive a RHSC interrupt so that we can tell whether a controller waking from Doze is from a device or from software
-
-	UInt32									ExpressCardPort( IOService * provider );
-	IOACPIPlatformDevice *					CopyACPIDevice( IORegistryEntry * device );
-	bool									HasExpressCardUSB( IORegistryEntry * acpiDevice, UInt32 * portnum );
 
 	// saved root hub port registers
 	UInt32									_savedHcRhPortStatus[15];

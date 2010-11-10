@@ -492,7 +492,7 @@ ParseArguments ( int argc, const char * argv[] )
 				
 			case 'S':
 				gPrintNoSep = TRUE;
-				vlog( "Will NOT seperate log from method during formatting.\n");
+				vlog( "Will NOT separate log from method during formatting.\n");
 				break;
 				
 			case 'D':
@@ -506,7 +506,7 @@ ParseArguments ( int argc, const char * argv[] )
 				break;
 				
 			case 'V':
-				fprintf(stdout,"usbtracer version %s\n", USBTRACE_VERSION);
+				fprintf(stdout,"usbtracer version:  %s\n", QUOTEDSTRING(USBTRACE_VERSION));
 				break;
 			
 			case 'h':
@@ -1286,7 +1286,13 @@ CollectTraceController( kd_buf tracepoint )
 					log(info, "Controller", "Check For DD", parg1, "bad copy on a write");
 				}
 				else if ( arg4 == 7 )
+				{
 					log(info, "Controller", "Check For DD", parg1, "error %x in prepare", arg2 );
+				}
+				else if ( arg4 == 8 )
+				{
+					log(info, "Controller", "Check For DD", parg1, "error %x in setMemoryDescriptor", arg2 );
+				}
 			}
 			break;
 
@@ -1961,7 +1967,11 @@ CollectTraceDevice ( kd_buf tracepoint )
 			break;
 		
 		case USB_DEVICE_TRACE( kTPDeviceResetDevice ):
-			if ( arg4 == 1 )
+			if ( arg4 == 0 )
+			{
+				log(info, "Device", "ResetDevice", parg1, "port %d, called on workloop thread !, returning kIOUSBSyncRequestOnWLThread ", arg2 );
+			}
+			else if ( arg4 == 1 )
 			{
 				log(info, "Device", "ResetDevice", parg1, "port %d, called while inactive, returning kIOReturnNoDevice ", arg2 );
 			}
@@ -1971,25 +1981,13 @@ CollectTraceDevice ( kd_buf tracepoint )
 			}
 			else if ( arg4 == 3 )
 			{
-				log(info, "Device", "ResetDevice", parg1, "port %d _DO_PORT_RESET_THREAD already queued", arg2);
+				log(info, "Device", "ResetDevice", parg1, "port %d, sending message 0x%x to clients", arg2, arg3);
 			}
 			else if ( arg4 == 4 )
 			{
-				log(info, "Device", "ResetDevice", parg1, "port %d commandSleep returned %d", arg2, arg3);
+				log(info, "Device", "ResetDevice", parg1, "port %d, _DO_MESSAGE_CLIENTS_THREAD already queued", arg2);
 			}
 			else if ( arg4 == 5 )
-			{
-				log(info, "Device", "ResetDevice", parg1, "port %d isInactive() while waiting for reset to finish", arg2);
-			}
-			else if ( arg4 == 6 )
-			{
-				log(info, "Device", "ResetDevice", parg1, "port %d timed out while waiting for reset to finish", arg2);
-			}
-			else if ( arg4 == 7 )
-			{
-				log(info, "Device", "ResetDevice", parg1, "port %d", arg2);
-			}
-			else if ( arg4 == 8 )
 			{
 				log(info, "Device", "ResetDevice", parg1, "port %d, returning 0x%x", arg2, arg3);
 			}
@@ -2105,7 +2103,7 @@ CollectTraceDevice ( kd_buf tracepoint )
 			}
 			else if ( arg4 == 4 )
 			{
-				log(info, "Device", "Suspend Device", parg1, "port %d, %s", arg2, arg3 ? "suspend" : "resume");
+				log(info, "Device", "Suspend Device", parg1, "Device at: 0x%x, %s", arg2, arg3 ? "suspend" : "resume");
 			}
 			else if ( arg4 == 5 )
 			{
@@ -2122,7 +2120,11 @@ CollectTraceDevice ( kd_buf tracepoint )
 			break;
 
 		case USB_DEVICE_TRACE( kTPDeviceReEnumerateDevice ):
-			if ( arg4 == 1 )
+			if ( arg4 == 0 )
+			{
+				log(info, "Device", "ReEnumerateDevice", parg1, "port %d, called on workloop thread !, returning kIOUSBSyncRequestOnWLThread ", arg2 );
+			}
+			else if ( arg4 == 1 )
 			{
 				log(info, "Device", "ReEnumerateDevice", parg1, "port %d, called while inactive, returning kIOReturnNoDevice ", arg2 );
 			}
@@ -2136,13 +2138,9 @@ CollectTraceDevice ( kd_buf tracepoint )
 			}
 			else if ( arg4 == 4 )
 			{
-				log(info, "Device", "ReEnumerateDevice", parg1, "port %d _DO_PORT_REENUMERATE_THREAD already queued", arg2);
+				log(info, "Device", "ReEnumerateDevice", parg1, "port %d options 0x%x", arg2, arg3);
 			}
 			else if ( arg4 == 5 )
-			{
-				log(info, "Device", "ReEnumerateDevice", parg1, "port %d _DO_PORT_REENUMERATE_THREAD already queued", arg2);
-			}
-			else if ( arg4 == 6 )
 			{
 				log(info, "Device", "ReEnumerateDevice", parg1, "port %d returning 0x%x", arg2, arg3);
 			}
@@ -2747,6 +2745,10 @@ CollectTraceHub ( kd_buf tracepoint )
 			{			   
 				log(info, "Hub", "CheckForDeadHub", parg1, "device is still connected (and enabled) _retryCount: %d", arg2);
 			}
+			else if ( arg4 == 14)
+			{			   
+				log(info, "Hub", "CheckForDeadHub", parg1, "device is still connected (but NOT enabled) calling ResetMyPort()");
+			}
 		default:
 			CollectTraceUnknown( tracepoint );
 			break;	
@@ -2920,7 +2922,7 @@ CollectTraceHubPort ( kd_buf tracepoint )
 			break;
 
 		case USB_HUB_PORT_TRACE( kTPHubPortReleaseDevZeroLock ):
-			log(info, "HubPort", "Rel Dev Zero Lock", parg1, "ReleaseDevZeroLock() port %d devzero %d", arg2, arg3 );
+			log(info, "HubPort", "Rel Dev Zero Lock", parg1, "ReleaseDevZeroLock() port %d of hub @ 0x%x, devzero %d", arg2, arg4, arg3 );
 			break;
 
 		case USB_HUB_PORT_TRACE( kTPHubPortDetachDevice ):
@@ -2939,11 +2941,11 @@ CollectTraceHubPort ( kd_buf tracepoint )
 		case USB_HUB_PORT_TRACE( kTPHubPortGetDevZeroDescriptorWithRetries ):
 			if ( arg4 == 1 )
 			{
-				log(info, "HubPort", "Get Dev Zero Desc Retry", parg1, "port %d - GetDeviceZeroDescriptor returned error 0x%x.  Checking to for valid descriptor", arg2, arg3 );
+				log(info, "HubPort", "Get Dev Zero Desc Retry", parg1, "port %d of hub @ 0x%x - GetDeviceZeroDescriptor returned kIOReturnOverrun.  Checking for valid descriptor", arg2, arg3 );
 			}
 			else if ( arg4 == 2 )
 			{
-				log(info, "HubPort", "Get Dev Zero Desc Retry", parg1, "port %d - GetDeviceZeroDescriptor returned status 0x%x.  Descriptor looks valid", arg2, arg3 );
+				log(info, "HubPort", "Get Dev Zero Desc Retry", parg1, "port %d of hub @ 0x%x - GetDeviceZeroDescriptor.  Descriptor looks valid", arg2, arg3 );
 			}
 			else if ( arg4 == 3 )
 			{
@@ -2955,11 +2957,15 @@ CollectTraceHubPort ( kd_buf tracepoint )
 			}
 			else if ( arg4 == 5 )
 			{
-				log(info, "HubPort", "Get Dev Zero With Retry", parg1, "port %d - port is suspended", arg2 );
+				log(info, "HubPort", "Get Dev Zero With Retry", parg1, "port %d of hub @ 0x%x, - port is suspended", arg2, arg3 );
 			}
 			else if ( arg4 == 6 )
 			{
-				log(info, "HubPort", "Get Dev Zero With Retry", parg1, "aborting due to power change to %d ", arg2 );
+				log(info, "HubPort", "Get Dev Zero With Retry", parg1, "port %d of hub @ 0x%x, - bad USB descriptor", arg2, arg3 );
+			}
+			else if ( arg4 == 7 )
+			{
+				log(info, "HubPort", "Get Dev Zero With Retry", parg1, "port %d aborting due to power change to %d ", arg2, arg3 );
 			}
 			else
 				log(info, "HubPort", "Get Dev Zero With Retry", parg1, "port %d - device has gone away state %d status 0x%x", arg2, arg3, arg4 );
@@ -3979,11 +3985,11 @@ CollectTraceEnumeration	( kd_buf tracepoint )
 	switch ( type )
 	{
 		case USB_ENUMERATION_TRACE( kTPEnumerationProcessStatusChanged ):
-			log(info, "Enumeration", "ProcessStatusChanged", parg1, "Bitmap 0x%x", arg2 );
+			log(info, "Enumeration", "ProcessStatusChanged", parg1, "LocationID: 0x%x, Bitmap 0x%x", arg3, arg2 );
 			break;
 			
 		case USB_ENUMERATION_TRACE( kTPEnumerationInitialGetPortStatus ):
-			log(info, "Enumeration", "PortStatusChangeHandler", parg1, "Port %d:  Status: 0x%4.04x, Change: 0x%4.04x", arg2, arg3, arg4 );
+			log(info, "Enumeration", "PortStatusChangeHandler", parg1, "Port %d:  Hub @ 0x%x, Status: 0x%4.04x, Change: 0x%4.04x", arg2, arg3, (arg4 & 0xFFFF0000)>>16, arg4  & 0xFFFF);
 			break;
 			
 		case USB_ENUMERATION_TRACE( kTPEnumerationCallAddDevice ):
@@ -6152,6 +6158,8 @@ const char * DecodeUSBTransferType( uint32_t type )
 		case kUSBIsoc: return "Isoc";
 		case kUSBBulk: return "Bulk";
 		case kUSBInterrupt: return "Interrupt";
-		case kUSBAnyType: return "Any";
+		case kUSBAnyType: 
+		default: return "Any";
 	}
+	
 }

@@ -222,5 +222,15 @@ enum
     kDPIRQSinkSpecific                = 0x40,
 };
 
+enum
+{
+    // values for graphic-options & kIOMirrorDefaultAttribute
+//  kIOMirrorDefault       = 0x00000001,
+//  kIOMirrorForced        = 0x00000002,
+    kIOGPlatformYCbCr      = 0x00000004,
+//  kIOMirrorHint          = 0x00010000,
+};
+
+
 #endif /* ! _IOKIT_IOGRAPHICSTYPESPRIVATE_H */
 

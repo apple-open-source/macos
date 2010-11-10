@@ -499,15 +499,17 @@ do
 
 			HOST=`/bin/echo "${SRV}" | cut -d ' ' -f 4-`
 			if [ -n "${HOST}" ]; then
-			V4=`DIG ${HOST} a`
+				V4=`DIG ${HOST} a`
 				V6=`DIG ${HOST} aaaa`
 				KRB=`DIG _kerberos.${HOST} txt`
 				TUN=`DIG _autotunnel._udp.${HOST} srv`
+				AT6=`DIG _autotunnel6.${HOST} aaaa`
 			else
 				V4=""
 				V6=""
 				KRB=""
 				TUN=""
+				AT6=""
 			fi
 			if [ -n "${V4}" ]; then
 				echo "     v4: ${V4}"		>> btmm
@@ -515,20 +517,26 @@ do
 			if [ -n "${V6}" ]; then
 				echo "     v6: ${V6}"		>> btmm
 			fi
-			echo "    KRB: ${KRB}"			>> btmm
-			echo "    TUN: ${TUN}"			>> btmm
+			if [ -n "${KRB}" ]; then
+				echo "    KRB: ${KRB}"		>> btmm
+			fi
 			if [ -n "${TUN}" ]; then
-			HOST=`/bin/echo "${TUN}" | cut -d ' ' -f 4-`
+				echo "    TUN: ${TUN}"		>> btmm
+
+				HOST=`/bin/echo "${TUN}" | cut -d ' ' -f 4-`
 				if [ -n "${HOST}" ]; then
-			V4=`DIG ${HOST} a`
+					V4=`DIG ${HOST} a`
 					V6=`DIG ${HOST} aaaa`
 				fi
-			if [ -n "${V4}" ]; then
-				echo "     v4: ${V4}"		>> btmm
+				if [ -n "${V4}" ]; then
+					echo "     v4: ${V4}"	>> btmm
+				fi
+				if [ -n "${V6}" ]; then
+					echo "     v6: ${V6}"	>> btmm
+				fi
 			fi
-			if [ -n "${V6}" ]; then
-				echo "     v6: ${V6}"		>> btmm
-			fi
+			if [ -n "${AT6}" ]; then
+				echo "    AT6: ${AT6}"		>> btmm
 			fi
 		done
 	done

@@ -2537,13 +2537,13 @@ static int msdosfs_symlink(struct vnop_symlink_args /* {
 
 	/* Write out the symlink */
 	error = buf_bwrite(bp);
+	bp = NULL;
+	buf_invalblkno(pmp->pm_devvp, cntobn(pmp, cn), BUF_WAIT);
 	if (error)
 	{
 		if (DEBUG) panic("msdosfs_symlink: buf_bwrite returned %d\n", error);
 		goto exit;
 	}
-	bp = NULL;
-	buf_invalblkno(pmp->pm_devvp, cntobn(pmp, cn), BUF_WAIT);
 
 	/* Start setting up new directory entry */
 	bzero(&ndirent, sizeof(ndirent));

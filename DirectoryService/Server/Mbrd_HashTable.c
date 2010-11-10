@@ -74,9 +74,9 @@ static int rbt_compare_name_nodes( const struct rb_node *n1, const struct rb_nod
 {
 	const char *name1 = RBNODE_TO_USERGROUP(n1)->fName;
 	const char *name2 = RBNODE_TO_USERGROUP(n2)->fName;
-	
-	assert(name1);
-	assert(name2);
+	if (name1 == NULL || name2 == NULL) {
+		return 0;
+	}
 	return strcmp( name1, name2 );
 }
 
@@ -85,8 +85,9 @@ static int rbt_compare_name_key( const struct rb_node *n, const void *v )
 	const char *name1 = RBNODE_TO_USERGROUP(n)->fName;
 	const char *name2 = (const char *) v;
 	
-	assert(name1);
-	assert(name2);
+	if (name1 == NULL || name2 == NULL) {
+		return 0;
+	}
 	return strcmp( name1, name2 );
 }
 

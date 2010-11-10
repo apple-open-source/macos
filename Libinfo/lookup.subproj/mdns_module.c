@@ -178,9 +178,10 @@ typedef struct {
 DNSServiceRef _mdns_sdref;
 DNSServiceRef _mdns_old_sdref;
 
-static int _mdns_query_mDNSResponder(const char *name, int class, int type, const char *interface,
-									 uint8_t *answer, uint32_t *anslen,
-									 mdns_reply_t *reply, uint32_t timeout);
+static int _mdns_query_mDNSResponder(const char *name, int class, int type,
+	const char *interface, DNSServiceFlags flags,
+	uint8_t *answer, uint32_t *anslen,
+	mdns_reply_t *reply, uint32_t timeout);
 
 static int _mdns_resolver_get_option(dns_resolver_t *resolver, const char* option);
 static void _mdns_hostent_clear(mdns_hostent_t *h);
@@ -564,7 +565,7 @@ _mdns_timeout_for_name(mdns_config_t *config, const char *name)
  * of the default resolver's domains).
  */
 static int
-_mdns_query_unqualified(mdns_config_t *config, const char *name, uint32_t class, uint32_t type, const char *interface, uint8_t *buf, uint32_t *len, mdns_reply_t *reply)
+_mdns_query_unqualified(mdns_config_t *config, const char *name, uint32_t class, uint32_t type, const char *interface, DNSServiceFlags flags, uint8_t *buf, uint32_t *len, mdns_reply_t *reply)
 {
 	int i, res = -1;
 
@@ -573,7 +574,7 @@ _mdns_query_unqualified(mdns_config_t *config, const char *name, uint32_t class,
 		char *qname;
 
 		asprintf(&qname, "%s.%s", name, resolver->domain ? resolver->domain : "");
-		res = _mdns_query_mDNSResponder(qname, class, type, interface, buf, len, reply, resolver->timeout);
+		res = _mdns_query_mDNSResponder(qname, class, type, interface, flags, buf, len, reply, resolver->timeout);
 		free(qname);
 
 		if (res == 0) break;
@@ -587,7 +588,7 @@ _mdns_query_unqualified(mdns_config_t *config, const char *name, uint32_t class,
  * additional domains).
  */
 static int
-_mdns_query_absolute(mdns_config_t *config, const char *name, uint32_t class, uint32_t type, const char *interface, uint32_t fqdn, uint8_t *buf, uint32_t *len, mdns_reply_t *reply)
+_mdns_query_absolute(mdns_config_t *config, const char *name, uint32_t class, uint32_t type, const char *interface, DNSServiceFlags flags, uint32_t fqdn, uint8_t *buf, uint32_t *len, mdns_reply_t *reply)
 {
 	int res = -1;
 	char *qname = (char *)name;
@@ -595,14 +596,14 @@ _mdns_query_absolute(mdns_config_t *config, const char *name, uint32_t class, ui
 	uint32_t timeout = _mdns_timeout_for_name(config, name);
 
 	if (fqdn == 0) asprintf(&qname, "%s.", name);
-	res = _mdns_query_mDNSResponder(qname, class, type, interface, buf, len, reply, timeout);
+	res = _mdns_query_mDNSResponder(qname, class, type, interface, flags, buf, len, reply, timeout);
 	if (fqdn == 0) free(qname);
 	if (res != 0) _mdns_reply_clear(reply);
 	return res;
 }
 
 static int
-_mdns_search(const char *name, uint32_t class, uint32_t type, const char *interface, uint32_t fqdn, uint32_t recurse, uint8_t *buf, uint32_t *len, mdns_reply_t *reply)
+_mdns_search(const char *name, uint32_t class, uint32_t type, const char *interface, DNSServiceFlags flags, uint32_t fqdn, uint32_t recurse, uint8_t *buf, uint32_t *len, mdns_reply_t *reply)
 {
 	int res = -1;
 	int i, n, ndots;
@@ -632,7 +633,7 @@ _mdns_search(const char *name, uint32_t class, uint32_t type, const char *interf
 	// if the name has at least ndots, try first as an absolute query.
 	// FQDN and PTR queries are always absolute.
 	if (n >= ndots || fqdn == 1 || type == ns_t_ptr) {
-		res = _mdns_query_absolute(config, name, class, type, interface, fqdn, buf, len, reply);
+		res = _mdns_query_absolute(config, name, class, type, interface, flags, fqdn, buf, len, reply);
 		if (res == 0) {
 			_mdns_config_release(config);
 			return res;
@@ -652,7 +653,7 @@ _mdns_search(const char *name, uint32_t class, uint32_t type, const char *interf
 		for (i = 0; i < MAXDNSRCH && search[i] != NULL; ++i) {
 			char *qname;
 			asprintf(&qname, "%s.%s", name, search[i]);
-			res = _mdns_search(qname, class, type, interface, 0, 0, buf, len, reply);
+			res = _mdns_search(qname, class, type, interface, flags, 0, 0, buf, len, reply);
 			free(qname);
 			if (res == 0) break;
 		}
@@ -660,7 +661,7 @@ _mdns_search(const char *name, uint32_t class, uint32_t type, const char *interf
 		// The name is not fully qualified and there is no search list.
 		// Try each default resolver, qualifying the name with that
 		// resolver's domain.
-		res = _mdns_query_unqualified(config, name, class, type, interface, buf, len, reply);
+		res = _mdns_query_unqualified(config, name, class, type, interface, flags, buf, len, reply);
 	}
 	_mdns_config_release(config);
 	return res;
@@ -844,6 +845,7 @@ _mdns_hostbyname(si_mod_t *si, const char *name, int af, const char *interface, 
 	si_item_t *out = NULL;
 	uint64_t bb;
 	int status;
+	DNSServiceFlags flags = 0;
 
 	if (err != NULL) *err = SI_STATUS_NO_ERROR;
 
@@ -872,7 +874,7 @@ _mdns_hostbyname(si_mod_t *si, const char *name, int af, const char *interface, 
 	}
 	h.host.h_addrtype = af;
 
-	status = _mdns_search(name, ns_c_in, type, interface, 0, 1, NULL, NULL, &reply);
+	status = _mdns_search(name, ns_c_in, type, interface, flags, 0, 1, NULL, NULL, &reply);
 	if (status != 0 || h.addr_count == 0) {
 		_mdns_reply_clear(&reply);
 		if (err != NULL) *err = SI_STATUS_H_ERRNO_HOST_NOT_FOUND;
@@ -907,6 +909,7 @@ _mdns_hostbyaddr(si_mod_t *si, const void *addr, int af, const char *interface, 
 	uint64_t bb;
 	int cat;
 	int status;
+	DNSServiceFlags flags = 0;
 
 	if (err != NULL) *err = SI_STATUS_NO_ERROR;
 
@@ -937,7 +940,7 @@ _mdns_hostbyaddr(si_mod_t *si, const void *addr, int af, const char *interface, 
 	}
 	h.host.h_addrtype = af;
 
-	status = _mdns_search(name, ns_c_in, ns_t_ptr, interface, 0, 1, NULL, NULL, &reply);
+	status = _mdns_search(name, ns_c_in, ns_t_ptr, interface, flags, 0, 1, NULL, NULL, &reply);
 	free(name);
 	if (status != 0) {
 		_mdns_reply_clear(&reply);
@@ -1030,8 +1033,12 @@ _mdns_addrinfo(si_mod_t *si, const void *node, const void *serv, uint32_t family
 		}
 		out = si_addrinfo_list(si, socktype, proto, p4, p6, port, 0, cname, cname);
 	} else {
+		DNSServiceFlags dns_flags = 0;
+		if (flags & AI_ADDRCONFIG) {
+			dns_flags |= kDNSServiceFlagsSuppressUnusable;
+		}
 		int res;
-		res = _mdns_search(node, ns_c_in, type, interface, 0, 1, NULL, NULL, &reply);
+		res = _mdns_search(node, ns_c_in, type, interface, dns_flags, 0, 1, NULL, NULL, &reply);
 		if (res == 0 && (h4.addr_count > 0 || h6.addr_count > 0)) {
 			out = si_addrinfo_list_from_hostent(si, socktype, proto,
 												port, 0,
@@ -1053,11 +1060,12 @@ _mdns_srv_byname(si_mod_t* si, const char *qname, const char *interface, uint32_
 	mdns_srv_t *srv;
 	int res;
 	const uint64_t unused = 0;
+	DNSServiceFlags flags = 0;
 
 	if (err != NULL) *err = SI_STATUS_NO_ERROR;
 
 	memset(&reply, 0, sizeof(reply));
-	res = _mdns_search(qname, ns_c_in, ns_t_srv, interface, 0, 1, NULL, NULL, &reply);
+	res = _mdns_search(qname, ns_c_in, ns_t_srv, interface, flags, 0, 1, NULL, NULL, &reply);
 	if (res == 0) {
 		srv = reply.srv;
 		while (srv) {
@@ -1086,6 +1094,7 @@ _mdns_item_call(si_mod_t *si, int call, const char *name, const char *ignored, c
 	mdns_hostent_t h6;
 	si_item_t *out;
 	int norecurse = 0;
+	DNSServiceFlags flags = 0;
 
 	if (err != NULL) *err = SI_STATUS_NO_ERROR;
 
@@ -1117,7 +1126,7 @@ _mdns_item_call(si_mod_t *si, int call, const char *name, const char *ignored, c
 	reply.h4 = &h4;
 	reply.h6 = &h6;
 
-	res = _mdns_search(name, class, type, interface, norecurse, 1, buf, &len, &reply);
+	res = _mdns_search(name, class, type, interface, flags, norecurse, 1, buf, &len, &reply);
 	if (res != 0 || len <= 0 || len > DNS_MAX_RECEIVE_SIZE) {
 		_mdns_reply_clear(&reply);
 		if (err != NULL) *err = SI_STATUS_H_ERRNO_HOST_NOT_FOUND;
@@ -1423,11 +1432,12 @@ _mdns_query_callback(DNSServiceRef, DNSServiceFlags, uint32_t, DNSServiceErrorTy
  * initializes the context and starts a DNS-SD query.
  */
 static DNSServiceErrorType
-_mdns_query_start(mdns_query_context_t *ctx, mdns_reply_t *reply, uint8_t *answer, uint32_t *anslen, const char* name, int class, int type, const char *interface, int kq)
+_mdns_query_start(mdns_query_context_t *ctx, mdns_reply_t *reply, uint8_t *answer, uint32_t *anslen, const char* name, int class, int type, const char *interface, DNSServiceFlags flags, int kq)
 {
 	DNSServiceErrorType status;
 
-	int dns_flags = kDNSServiceFlagsShareConnection | kDNSServiceFlagsReturnIntermediates;
+	flags |= kDNSServiceFlagsShareConnection;
+	flags |= kDNSServiceFlagsReturnIntermediates;
 
 	memset(ctx, 0, sizeof(mdns_query_context_t));
 
@@ -1469,7 +1479,7 @@ _mdns_query_start(mdns_query_context_t *ctx, mdns_reply_t *reply, uint8_t *answe
 	}
 
 	if (_mdns_debug) printf(";; mdns query %s %d %d\n", qname, type, class);
-	status = DNSServiceQueryRecord(&ctx->sd, dns_flags, iface, qname, type, class, _mdns_query_callback, ctx);
+	status = DNSServiceQueryRecord(&ctx->sd, flags, iface, qname, type, class, _mdns_query_callback, ctx);
 	if (qname != name) free(qname);
 	return status;
 }
@@ -1768,7 +1778,7 @@ _mdns_timeout(struct timespec *timeout, const struct timespec *deadline)
 }
 
 int
-_mdns_query_mDNSResponder(const char *name, int class, int type, const char *interface, uint8_t *answer, uint32_t *anslen, mdns_reply_t *reply, uint32_t timeout_sec)
+_mdns_query_mDNSResponder(const char *name, int class, int type, const char *interface, DNSServiceFlags flags, uint8_t *answer, uint32_t *anslen, mdns_reply_t *reply, uint32_t timeout_sec)
 {
 	DNSServiceErrorType err = 0;
 	int kq, n, wait = 1;
@@ -1847,12 +1857,12 @@ _mdns_query_mDNSResponder(const char *name, int class, int type, const char *int
 				err = _mdns_query_start(&ctx[n_ctx++], reply,
 										answer, anslen,
 										name, class,
-										(type == 0) ? ns_t_a : type, interface, kq);
+										(type == 0) ? ns_t_a : type, interface, flags, kq);
 			}
 			if (err == 0 && type == 0) {
 				err = _mdns_query_start(&ctx[n_ctx++], reply,
 										answer, anslen,
-										name, class, ns_t_aaaa, interface, kq);
+										name, class, ns_t_aaaa, interface, flags, kq);
 			}
 			if (err && _mdns_debug) printf(";; initialization error %d\n", err);
 			// try to reinitialize
@@ -1910,7 +1920,7 @@ _mdns_query_mDNSResponder(const char *name, int class, int type, const char *int
 		// Check if all queries are complete (including errors)
 		complete = 1;
 		for (i = 0; i < n_ctx; ++i) {
-			if (_mdns_query_is_complete(&ctx[i]) || ctx[i].error) {
+			if (_mdns_query_is_complete(&ctx[i]) || ctx[i].error != 0) {
 				if (ctx[i].type == ns_t_a) {
 					got_response = 1;
 				}
@@ -1928,25 +1938,32 @@ _mdns_query_mDNSResponder(const char *name, int class, int type, const char *int
 			break;
 		} else if (got_response == 1) {
 			// got A, adjust deadline for AAAA
-			struct timespec now;
-			_mdns_now(&now);
-			_mdns_sub_time(&delta, &now, &start); // delta = N
-			// minimum N of 50ms
-			if (delta.tv_sec == 0 && delta.tv_nsec < 50000000) {
-				delta.tv_nsec = 50000000;
-			}
+			struct timespec now, tn, ms100;
 
-			// only move deadline if timeout > 2N
-			_mdns_sub_time(&now, &timeout, &delta);
-			if (now.tv_sec >= 0) {
-				if (_mdns_debug) printf(";; new timeout %ld.%ld\n", delta.tv_sec, delta.tv_nsec);
+			// delta = now - start
+			_mdns_now(&now);
+			_mdns_sub_time(&delta, &now, &start);
+
+			// tn = 2 * delta
+			_mdns_add_time(&tn, &delta, &delta);
+
+			// delta = tn + 100ms
+			ms100.tv_sec = 0;
+			ms100.tv_nsec = 100000000;
+			_mdns_add_time(&delta, &tn, &ms100);
+
+			// check that delta doesn't exceed our total timeout
+			_mdns_sub_time(&tn, &timeout, &delta);
+			if (tn.tv_sec >= 0) {
+				if (_mdns_debug) printf(";; new timeout (waiting for AAAA) %ld.%ld\n", delta.tv_sec, delta.tv_nsec);
 				_mdns_deadline(&finish, &delta);
 			}
 		}
 
 		// calculate remaining timeout
 		_mdns_timeout(&timeout, &finish);
-		// no time remaining
+
+		// check for time remaining
 		if (timeout.tv_sec < 0) {
 			if (_mdns_debug) printf(";; timeout\n");
 			break;

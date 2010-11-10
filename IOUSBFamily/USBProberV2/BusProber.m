@@ -212,6 +212,7 @@ static void DeviceRemoved(void *refCon, io_iterator_t iterator)
     USBDeviceAddress        address = 0;
     IOUSBDeviceDescriptor   dev;
     int                     len = 0;
+	int						currConfig;
     IOReturn                error = kIOReturnSuccess, actErr = kIOReturnSuccess;
 	BOOL					needToSuspend = FALSE;
 	
@@ -286,7 +287,25 @@ static void DeviceRemoved(void *refCon, io_iterator_t iterator)
 		if (actErr != kIOReturnSuccess) {
 			[thisDevice setDeviceDescription: [NSString stringWithFormat:@"%@ - Gave an error getting descriptor - %s (0x%x)", usbName, USBErrorToString(actErr), actErr]];
 		}
-		
+		// Check the current configuration
+		currConfig = GetCurrentConfiguration(deviceIntf);
+		if(currConfig < 1)	// Almost everything has a current config of 1
+		{
+			char buf[256];
+			
+			if(currConfig == -1)
+			{
+				// failed the request for some reason
+				sprintf((char *)buf, "%s", "failed to get configuration" );
+			}
+			else
+			{
+				sprintf((char *)buf, "%d (unconfigured)", currConfig );
+			}
+			[thisDevice addProperty:"Current configuration:" withValue:buf  atDepth:ROOT_LEVEL];
+
+
+		}
 		// Go decode the Config Desriptor
         for (iconfig = 0; iconfig < dev.bNumConfigurations; ++iconfig) {
             IOUSBConfigurationDescHeader cfgHeader;
@@ -300,7 +319,7 @@ static void DeviceRemoved(void *refCon, io_iterator_t iterator)
                 //
                 cfgHeader.bDescriptorType = sizeof(cfgHeader);
                 cfgHeader.wTotalLength = 0;
-                [DecodeConfigurationDescriptor decodeBytes:(IOUSBConfigurationDescHeader *)&cfgHeader forDevice:thisDevice deviceInterface:deviceIntf configNumber:iconfig isOtherSpeedDesc:NO];
+                [DecodeConfigurationDescriptor decodeBytes:(IOUSBConfigurationDescHeader *)&cfgHeader forDevice:thisDevice deviceInterface:deviceIntf configNumber:iconfig currentConfig:currConfig isOtherSpeedDesc:NO];
                 
                 // Try to get the descriptor again, using the sizeof(IOUSBConfigurationDescriptor) 
                 //
@@ -316,7 +335,7 @@ static void DeviceRemoved(void *refCon, io_iterator_t iterator)
                     cfgHeader.wTotalLength = config.wTotalLength;
                 }
             }
-            [DecodeConfigurationDescriptor decodeBytes:(IOUSBConfigurationDescHeader *)&cfgHeader forDevice:thisDevice deviceInterface:deviceIntf configNumber:iconfig isOtherSpeedDesc:NO];
+            [DecodeConfigurationDescriptor decodeBytes:(IOUSBConfigurationDescHeader *)&cfgHeader forDevice:thisDevice deviceInterface:deviceIntf configNumber:iconfig currentConfig:currConfig isOtherSpeedDesc:NO];
         }
 		
 		// If the device is a hub, then dump the Hub descriptor
@@ -326,7 +345,7 @@ static void DeviceRemoved(void *refCon, io_iterator_t iterator)
 			
 			len = GetClassDescriptor(deviceIntf, kUSBHUBDesc, 0, &cfg, sizeof(cfg));
 			if (len > 0) {
-				[DescriptorDecoder decodeBytes:(Byte *)&cfg forDevice:thisDevice deviceInterface:deviceIntf userInfo:NULL isOtherSpeedDesc:false];
+				[DescriptorDecoder decodeBytes:(Byte *)&cfg forDevice:thisDevice deviceInterface:deviceIntf userInfo:NULL isOtherSpeedDesc:false isinCurrentConfig:false];
 			}
 		}
 		
@@ -338,7 +357,7 @@ static void DeviceRemoved(void *refCon, io_iterator_t iterator)
 			error = GetDescriptor(deviceIntf, kUSBDeviceQualifierDesc, 0, &desc, sizeof(desc), nil);
 			
 			if (error == kIOReturnSuccess) {
-				[DescriptorDecoder decodeBytes:(Byte *)&desc forDevice:thisDevice deviceInterface:deviceIntf userInfo:NULL isOtherSpeedDesc:false];
+				[DescriptorDecoder decodeBytes:(Byte *)&desc forDevice:thisDevice deviceInterface:deviceIntf userInfo:NULL isOtherSpeedDesc:false isinCurrentConfig:false];
 				
 				// Since we have a Device Qualifier Descriptor, we can get a "Other Speed Configuration Descriptor"
 				// (It's the same as a regular configuration descriptor)
@@ -357,7 +376,9 @@ static void DeviceRemoved(void *refCon, io_iterator_t iterator)
 						//
 						cfgHeader.bDescriptorType = sizeof(cfgHeader);
 						cfgHeader.wTotalLength = 0;
-						[DecodeConfigurationDescriptor decodeBytes:(IOUSBConfigurationDescHeader *)&cfgHeader forDevice:thisDevice deviceInterface:deviceIntf configNumber:iconfig isOtherSpeedDesc:YES];
+						
+						// Note: currentConfig:-1 as this is never in the current config.
+						[DecodeConfigurationDescriptor decodeBytes:(IOUSBConfigurationDescHeader *)&cfgHeader forDevice:thisDevice deviceInterface:deviceIntf configNumber:iconfig currentConfig:-1 isOtherSpeedDesc:YES];
 						
 						// Try to get the descriptor again, using the sizeof(IOUSBConfigurationDescriptor) 
 						//
@@ -373,7 +394,7 @@ static void DeviceRemoved(void *refCon, io_iterator_t iterator)
 							cfgHeader.wTotalLength = config.wTotalLength;
 						}
 					}
-					[DecodeConfigurationDescriptor decodeBytes:(IOUSBConfigurationDescHeader *)&cfgHeader forDevice:thisDevice deviceInterface:deviceIntf configNumber:iconfig isOtherSpeedDesc:YES];
+					[DecodeConfigurationDescriptor decodeBytes:(IOUSBConfigurationDescHeader *)&cfgHeader forDevice:thisDevice deviceInterface:deviceIntf configNumber:iconfig currentConfig:-1 isOtherSpeedDesc:YES];
 				}
 			}
 		}

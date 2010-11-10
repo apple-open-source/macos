@@ -6,7 +6,7 @@ m4_define(ne_version, [m4_translit(m4_include(.version), [
 
 AC_INIT(neon, ne_version, [neon@lists.manyfish.co.uk])
 
-AC_COPYRIGHT([Copyright 2000-2008 Joe Orton and others
+AC_COPYRIGHT([Copyright 2000-2009 Joe Orton and others
 This configure script may be copied, distributed and modified under the 
 terms of the GNU Library General Public license; see src/COPYING.LIB for
 more details.])
@@ -35,15 +35,6 @@ AH_BOTTOM([
 
 AC_PROG_INSTALL
 
-dnl Avoid libtool 1.5 bug where configure fails if a C++ compiler
-dnl is not available.
-m4_ifdef([AC_LIBTOOL_TAGS], [AC_LIBTOOL_TAGS([])])
-
-AC_DISABLE_SHARED
-m4_ifdef([LT_INIT], [LT_INIT], [AC_PROG_LIBTOOL])
-
-AC_EXEEXT
-
 AC_ARG_ENABLE(webdav, 
   AS_HELP_STRING([--disable-webdav],[disable WebDAV support]))
 
@@ -62,10 +53,19 @@ NEON_BUILD_BUNDLED=yes
 # Define NEON_VERSION etc and make the appropriate substitutions.
 NE_VERSIONS_BUNDLED
 
+LIBNEON_SOURCE_CHECKS
+
+dnl Avoid libtool 1.5 bug where configure fails if a C++ compiler
+dnl is not available.
+m4_ifdef([AC_LIBTOOL_TAGS], [AC_LIBTOOL_TAGS([])])
+
+AC_DISABLE_SHARED
+m4_ifdef([LT_INIT], [LT_INIT], [AC_PROG_LIBTOOL])
+
+AC_EXEEXT
+
 # Checks to compile test suite
 NEON_TEST
-
-LIBNEON_SOURCE_CHECKS
 
 # Use the libtool-type build.
 NEON_LIBTOOL_BUILD

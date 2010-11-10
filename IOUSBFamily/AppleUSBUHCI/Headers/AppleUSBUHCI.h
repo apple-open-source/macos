@@ -483,8 +483,6 @@ protected:
     IONotifier								*_powerDownNotifier;
 	UInt32									_ExpressCardPort;					// Port number of ExpressCard (0 if no ExpressCard on this controller)
 	bool									_badExpressCardAttached;			// True if a driver has identified a bad ExpressCard
-	
-	UInt32									ExpressCardPort( IOService * provider );
     
     void									ResumeController(void);
     void									SuspendController(void);

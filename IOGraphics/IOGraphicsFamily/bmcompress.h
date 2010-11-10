@@ -488,9 +488,11 @@ static inline int compress_line_8(uint8_t *srcbase, int width, uint8_t *dstbase)
     return sizeof( Pixel_Type )*wrtCnt;
 }
 
-
-static int CompressData(uint8_t *srcbase, uint32_t depth, uint32_t width, uint32_t height,
-                 uint32_t rowbytes, uint8_t *dstbase, uint32_t dlen)
+static int CompressData(uint8_t *srcbase, bool vram,
+                 uint32_t depth, uint32_t width, uint32_t height,
+                 uint32_t rowbytes, uint8_t *dstbase, uint32_t dlen,
+                 uint32_t gammaChannelCount, uint32_t gammaDataCount, 
+                 uint32_t gammaDataWidth, uint8_t * gammaData)
 {
     uint32_t * dst;
     uint32_t * cScan,*pScan;
@@ -511,14 +513,29 @@ static int CompressData(uint8_t *srcbase, uint32_t depth, uint32_t width, uint32
     lineBuffer = dstbase + dlen - lineLen;
     dlen -= lineLen;
 
-    dst[0]   = depth;
-    dst[1]   = width;
-    dst[2]   = height;
-    dst      = dst + 3;
+    dst[0] = depth;
+    dst[1] = width;
+    dst[2] = height;
+    dst    = dst + 3;
 
-    cScan    = dst + height;
-    pScan    = cScan;
-    pSize    = -1;
+    uint8_t *  gammaOut = (uint8_t *) &dst[height];
+    uint32_t   idx, idxIn, channel;
+    for (channel = 0; channel < 3; channel++)
+    {
+        for (idx = 0; idx < 256; idx++)
+        {
+            idxIn = (idx * (gammaDataCount - 1)) / 255;
+            if (gammaDataWidth <= 8)
+                *gammaOut++ = gammaData[idxIn] << (8 - gammaDataWidth);
+            else
+                *gammaOut++ = ((uint16_t *) gammaData)[idxIn] >> (gammaDataWidth - 8);
+        }
+        gammaData += gammaDataCount * ((gammaDataWidth + 7) / 8);
+    }
+
+    cScan = (uint32_t *) gammaOut;
+    pScan = cScan;
+    pSize = -1;
 
     for(y=0 ; y<height ; y++)
     {
@@ -530,14 +547,18 @@ static int CompressData(uint8_t *srcbase, uint32_t depth, uint32_t width, uint32
             return 0;
         }
 
-        bcopy_nc(srcbase + y*rowbytes, lineBuffer, lineLen);
-
-        if (0 == (y & 7))
+        if (!vram)
+            lineBuffer = srcbase + y*rowbytes;
+        else
         {
-            AbsoluteTime deadline;
-            clock_interval_to_deadline(8, kMicrosecondScale, &deadline);
-            assert_wait_deadline((event_t)&clock_delay_until, THREAD_UNINT, __OSAbsoluteTime(deadline));
-            thread_block(NULL);
+            bcopy_nc(srcbase + y*rowbytes, lineBuffer, lineLen);
+            if (0 == (y & 7))
+            {
+                AbsoluteTime deadline;
+                clock_interval_to_deadline(8, kMicrosecondScale, &deadline);
+                assert_wait_deadline((event_t)&clock_delay_until, THREAD_UNINT, __OSAbsoluteTime(deadline));
+                thread_block(NULL);
+            }
         }
 
         cSize = (depth <= 1 ? compress_line_8 :

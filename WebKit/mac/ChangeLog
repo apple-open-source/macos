@@ -1,3 +1,244 @@
+2010-08-09  Mark Rowe  <mrowe@apple.com>
+
+        Merge r62872.
+
+    2010-07-08  Brady Eidson  <beidson@apple.com>
+
+        Reviewed by Tim Hatcher.
+
+        <rdar://problem/8136327> - Crash in Entourage calling WebCache method from background thread
+
+        * Misc/WebCache.mm:
+        (+[WebCache setDisabled:]): Forward the call to the main thread if called from a background thread.
+
+        * Misc/WebNSObjectExtras.h:
+        * Misc/WebNSObjectExtras.mm:
+        (+[NSObject _webkit_invokeOnMainThread]): Add a class version of the main thread invoker.
+
+2010-07-22  Mark Rowe  <mrowe@apple.com>
+
+        Merge r63927.
+
+    2010-07-22  Sam Weinig  <sam@webkit.org>
+
+        Reviewed by Maciej Stachowiak.
+
+        Fix for <rdar://problem/8222626>
+        Send textDidChangeInTextField delegate callback only in response to typing or other forms of user text input.
+
+        The function name no longer perfectly matches the behavior, but I didn't want to break any existing clients. Maybe we
+        should migrate to a new function name eventually
+
+        * WebCoreSupport/WebEditorClient.mm:
+        (WebEditorClient::textDidChangeInTextField):
+
+2010-07-09  Mark Rowe  <mrowe@apple.com>
+
+        Merge r62875.
+
+    2010-07-08  Adele Peterson  <adele@apple.com>
+
+        Reviewed by Jon Honeycutt, Adam Roben, and Darin Adler.
+
+        Fix for https://bugs.webkit.org/show_bug.cgi?id=41721
+        <rdar://problem/8158561> Missing plug-in indicator should have a pressed state
+
+        Implement shouldMissingPluginMessageBeButton.
+
+        * WebCoreSupport/WebChromeClient.h:
+        * WebCoreSupport/WebChromeClient.mm:
+        (WebChromeClient::shouldMissingPluginMessageBeButton):
+
+2010-07-09  Mark Rowe  <mrowe@apple.com>
+
+        Merge r62451.
+
+    2010-07-03  Jon Honeycutt  <jhoneycutt@apple.com>
+
+        The missing plug-in indicator should be clickable
+
+        https://bugs.webkit.org/show_bug.cgi?id=41550
+        <rdar://problem/8132162>
+
+        From an original patch by Kevin Decker.
+
+        Reviewed by Darin Adler.
+
+        * WebCoreSupport/WebChromeClient.h:
+        Declare an override of missingPluginButtonClicked().
+
+        * WebCoreSupport/WebChromeClient.mm:
+        (WebChromeClient::missingPluginButtonClicked):
+        Call the UIDelegate's method.
+
+        * WebView/WebUIDelegatePrivate.h:
+        Declare didPressMissingPluginButton.
+
+2010-07-09  Mark Rowe  <mrowe@apple.com>
+
+        Merge r62284.
+
+    2010-07-01  Timothy Hatcher  <timothy@apple.com>
+
+        Provide a WebView preference to disable DNS prefetching.
+
+        https://bugs.webkit.org/show_bug.cgi?id=28825
+        rdar://problem/7181249
+
+        Reviewed by Darin Adler.
+
+        * WebView/WebPreferenceKeysPrivate.h: Added WebKitDNSPrefetchingEnabledPreferenceKey.
+        * WebView/WebPreferences.mm:
+        (+[WebPreferences initialize]): Set WebKitDNSPrefetchingEnabledPreferenceKey to YES.
+        (-[WebPreferences isDNSPrefetchingEnabled]): Added. Return WebKitDNSPrefetchingEnabledPreferenceKey's value.
+        (-[WebPreferences setDNSPrefetchingEnabled:]): Added. Set WebKitDNSPrefetchingEnabledPreferenceKey's value.
+        * WebView/WebPreferencesPrivate.h: Added isDNSPrefetchingEnabled and setDNSPrefetchingEnabled:.
+        * WebView/WebView.mm:
+        (-[WebView _preferencesChangedNotification:]): Call WebCore::Settings::setDNSPrefetchingEnabled.
+
+2010-07-09  Mark Rowe  <mrowe@apple.com>
+
+        Merge r59338.
+
+    2010-05-12  Simon Fraser  <simon.fraser@apple.com>
+
+        Reviewed by David Hyatt.
+
+        Composited plug-ins can cause missed painting
+        https://bugs.webkit.org/show_bug.cgi?id=39033
+        <rdar://problem/7972478>
+        
+        Eagerly enable compositing mode via the enclosing FrameView when the plug-in tells us it wants
+        to do compositing.
+
+        * Plugins/Hosted/WebHostedNetscapePluginView.mm:
+        (-[WebHostedNetscapePluginView createPlugin]):
+        * Plugins/WebNetscapePluginView.mm:
+        (-[WebNetscapePluginView createPlugin]):
+
+2010-07-07  Mark Rowe  <mrowe@apple.com>
+
+        Merge r62625.
+
+    2010-07-06  Steve Falkenburg  <sfalken@apple.com>
+
+        Reviewed by Simon Fraser.
+
+        Expose URL matching from WebUserContentURLPattern
+        https://bugs.webkit.org/show_bug.cgi?id=41726
+        <rdar://problem/7910144>
+
+        We previously had a way to construct WebUserContentURLPattern
+        instances via WebKit, but no way for callers to perform matching.
+        This patch adds the matchesURL functionality to allow for this.
+
+        * Misc/WebUserContentURLPattern.h: Added matchesURL.
+        * Misc/WebUserContentURLPattern.mm:
+        (-[WebUserContentURLPattern matchesURL:]): Added. Calls through to WebCore::UserContentURLPattern::matches.
+
+2010-07-01  Mark Rowe  <mrowe@apple.com>
+
+        Merge r62279.
+
+    2010-07-01  Alexey Proskuryakov  <ap@apple.com>
+
+        Reviewed by Anders Carlsson.
+
+        <rdar://problem/8148656> <https://bugs.webkit.org/show_bug.cgi?id=41431>
+        REGRESSION (r49411): Various crashes due to JavaScript execution during plug-in destruction
+
+        Strengthen m_inDestroy "swipe under the carpet" fix.
+
+        * Plugins/Hosted/NetscapePluginInstanceProxy.h: Added a long comment about m_inDestroy, and
+        changed it to static.
+
+        * Plugins/Hosted/NetscapePluginInstanceProxy.mm:
+        (WebKit::NetscapePluginInstanceProxy::NetscapePluginInstanceProxy): m_inDestroy is now
+        static, so we don't initialize it in constructor.
+        (WebKit::NetscapePluginInstanceProxy::destroy): Assert that we aren't already destroying
+        some plug-in.
+        (WebKit::NetscapePluginInstanceProxy::evaluate): This function accidentally lacked an
+        m_inDestroy check in r42789.
+
+2010-07-01  Mark Rowe  <mrowe@apple.com>
+
+        Merge r60882.
+
+    2010-06-08  Mark Rowe  <mrowe@apple.com>
+
+        Reviewed by Adele Peterson.
+
+        <rdar://problem/8072136> REGRESSION (r56051): Inspect Element context menu does nothing in applications linked against 10.4 SDK
+
+        * WebCoreSupport/WebContextMenuClient.mm:
+        (fixMenusReceivedFromOldClients): Fix up the tag on the Inspect Element menu item. This ensures that even if the
+        context menu layout doesn't match our expectations that the menu item will continue to trigger the web inspector.
+
+2010-07-01  Mark Rowe  <mrowe@apple.com>
+
+        Merge r61189.
+
+    2010-06-15  Dan Bernstein  <mitz@apple.com>
+
+        Reviewed by John Sullivan.
+
+        <rdar://problem/8077032> REGRESSION (r50796): Black background on AppleScript generated email
+
+        Test: platform/mac/editing/input/NSBackgroundColor-transparent.html
+
+        r50796 changed the initial background color from invalid to transparent. As a result,
+        NSAttributedStrings returned from +_web_attributedStringFromRange started including the
+        NSBackgroundColor attribute, with a transparent color as the value. This caused problems for
+        components in the system that ignore the alpha component, turning the color into opaque black.
+
+        * Misc/WebNSAttributedStringExtras.mm:
+        (+[NSAttributedString _web_attributedStringFromRange:]): Change to not include the background
+        and foreground color attributes if the color are transparent.
+
+2010-07-01  Mark Rowe  <mrowe@apple.com>
+
+        Merge r61204.
+
+    2010-06-11  Simon Fraser  <simon.fraser@apple.com>
+
+        Reviewed by Darin Adler.
+
+        <rdar://problem/8084721> Pages using accelerated compositing fail to update correctly in Carbon apps
+        
+        The run loop observer used to commit compositing layer changes does not do
+        updates if [window viewsNeedDisplay] is true, because this indicates that a delayed window
+        update is pending (added in r58623).
+        
+        However, Carbon apps don't use the NSWindow updating mechanism, so [window viewsNeedDisplay] always returns YES.
+        This caused us to never sync compositing layers.
+        
+        So detect if the current window is wrapping a carbon window, and in that case consult the root
+        HIView to detect if display is pending.
+
+        * WebView/WebView.mm:
+        (layerSyncRunLoopObserverCallBack):
+
+2010-06-28  Mark Rowe  <mrowe@apple.com>
+
+        Merge r59138.
+
+    2010-05-10  Simon Fraser  <simon.fraser@apple.com>
+
+        Reviewed by Anders Carlsson.
+
+        Allow compositing layers to be connected across iframe boundaries on Mac
+        https://bugs.webkit.org/show_bug.cgi?id=38856
+        
+        When painting an iframe into a compositing layer, the "PaintBehaviorFlattenCompositingLayers"
+        flag was mistakenly set, because we'd detect that we were drawing into a bitmap. This caused
+        content to show up in both compositing layers, and the painted background inside the iframe.
+        
+        Fix by taking the flattening state from the parent frame, if there is one. For the root
+        frame, we continue to look to see if we're painting into a bitmap.
+
+        * WebView/WebFrame.mm:
+        (-[WebFrame _drawRect:contentsOnly:]):
+
 2010-06-01  Mark Rowe  <mrowe@apple.com>
 
         Merge r60504.

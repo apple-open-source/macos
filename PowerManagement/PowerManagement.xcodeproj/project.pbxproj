@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 45;
+	objectVersion = 44;
 	objects = {
 
 /* Begin PBXAggregateTarget section */
@@ -59,7 +59,10 @@
 		7266E1730E5BEDAE00F9BC0B /* PMConnection.c in Sources */ = {isa = PBXBuildFile; fileRef = 7266E16F0E5BEDAE00F9BC0B /* PMConnection.c */; };
 		72692B350D1B3E4300CC49CB /* BatterySnapshotController.m in Sources */ = {isa = PBXBuildFile; fileRef = 72692B330D1B3E4300CC49CB /* BatterySnapshotController.m */; };
 		72692B370D1B3E5500CC49CB /* BatterySnapshots.xml in Resources */ = {isa = PBXBuildFile; fileRef = 72692B360D1B3E5500CC49CB /* BatterySnapshots.xml */; };
+		726F8655119C9F2000221765 /* DisplayServices.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 726F8654119C9F2000221765 /* DisplayServices.framework */; };
 		727D788A0A02D513002EBD29 /* suidLauncher.c in Sources */ = {isa = PBXBuildFile; fileRef = 727D78890A02D513002EBD29 /* suidLauncher.c */; };
+		72961DF011E7CC4C00DC844A /* ExternalMedia.c in Sources */ = {isa = PBXBuildFile; fileRef = 72961DEE11E7CC4C00DC844A /* ExternalMedia.c */; };
+		72961DF111E7CC4C00DC844A /* ExternalMedia.h in Headers */ = {isa = PBXBuildFile; fileRef = 72961DEF11E7CC4C00DC844A /* ExternalMedia.h */; };
 		729A74330A01EC0C000AB587 /* pmset.1 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 40D4F0DD01F4A1F40ACA2928 /* pmset.1 */; };
 		729A75720A01EC19000AB587 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 40882BA6019747120ACA2928 /* CoreFoundation.framework */; };
 		729A75730A01EC19000AB587 /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 40882BA7019747120ACA2928 /* IOKit.framework */; };
@@ -101,6 +104,7 @@
 		729A75D10A01F3B3000AB587 /* upsshutdown.8 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 72FE7EA609AE4942003E0C4C /* upsshutdown.8 */; };
 		72A9DF030CDAA05B000FDB18 /* PMSystemEvents.c in Sources */ = {isa = PBXBuildFile; fileRef = 72A9DF010CDAA05B000FDB18 /* PMSystemEvents.c */; };
 		72A9DF040CDAA05B000FDB18 /* PMSystemEvents.h in Headers */ = {isa = PBXBuildFile; fileRef = 72A9DF020CDAA05B000FDB18 /* PMSystemEvents.h */; };
+		72AF3BB811EBB68100CF0CBB /* DiskArbitration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 72AF3BB711EBB68100CF0CBB /* DiskArbitration.framework */; };
 		72D0ECFF08F73FB600CCEA2F /* AppleSmartBattery.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 72D0ECF908F73FB600CCEA2F /* AppleSmartBattery.cpp */; };
 		72D0ED0008F73FB600CCEA2F /* AppleSmartBatteryManager.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 72D0ECFC08F73FB600CCEA2F /* AppleSmartBatteryManager.cpp */; };
 		72D9844A0B20BE7800D66087 /* TTYKeepAwake.c in Sources */ = {isa = PBXBuildFile; fileRef = 72D984480B20BE7800D66087 /* TTYKeepAwake.c */; };
@@ -364,14 +368,18 @@
 		72692B330D1B3E4300CC49CB /* BatterySnapshotController.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = BatterySnapshotController.m; sourceTree = "<group>"; };
 		72692B340D1B3E4300CC49CB /* BatterySnapshotController.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = BatterySnapshotController.h; sourceTree = "<group>"; };
 		72692B360D1B3E5500CC49CB /* BatterySnapshots.xml */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xml; path = BatterySnapshots.xml; sourceTree = "<group>"; };
+		726F8654119C9F2000221765 /* DisplayServices.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = DisplayServices.framework; path = /System/Library/PrivateFrameworks/DisplayServices.framework; sourceTree = "<absolute>"; };
 		727D787D0A02D48D002EBD29 /* suidLauncherTool */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = suidLauncherTool; sourceTree = BUILT_PRODUCTS_DIR; };
 		727D78890A02D513002EBD29 /* suidLauncher.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = suidLauncher.c; sourceTree = "<group>"; };
+		72961DEE11E7CC4C00DC844A /* ExternalMedia.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = ExternalMedia.c; sourceTree = "<group>"; };
+		72961DEF11E7CC4C00DC844A /* ExternalMedia.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ExternalMedia.h; sourceTree = "<group>"; };
 		729A742C0A01EBB0000AB587 /* pmset */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = pmset; sourceTree = BUILT_PRODUCTS_DIR; };
 		729A757E0A01EDED000AB587 /* ioupsd */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = ioupsd; sourceTree = BUILT_PRODUCTS_DIR; };
 		729A759B0A01F1D7000AB587 /* PowerManagement.bundle */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = PowerManagement.bundle; sourceTree = BUILT_PRODUCTS_DIR; };
 		729A759C0A01F1D7000AB587 /* Power Management Bundle-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "Power Management Bundle-Info.plist"; sourceTree = "<group>"; };
 		72A9DF010CDAA05B000FDB18 /* PMSystemEvents.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = PMSystemEvents.c; sourceTree = "<group>"; };
 		72A9DF020CDAA05B000FDB18 /* PMSystemEvents.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = PMSystemEvents.h; sourceTree = "<group>"; };
+		72AF3BB711EBB68100CF0CBB /* DiskArbitration.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = DiskArbitration.framework; path = /System/Library/Frameworks/DiskArbitration.framework; sourceTree = "<absolute>"; };
 		72C2C512062F57BB000F5FC7 /* com.apple.SystemPowerProfileDefaults.plist */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.plist.xml; path = com.apple.SystemPowerProfileDefaults.plist; sourceTree = "<group>"; };
 		72D0ECDF08F73D3000CCEA2F /* AppleSmartBatteryManager.kext */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = AppleSmartBatteryManager.kext; sourceTree = BUILT_PRODUCTS_DIR; };
 		72D0ECF908F73FB600CCEA2F /* AppleSmartBattery.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = AppleSmartBattery.cpp; path = AppleSmartBatteryManager/AppleSmartBattery.cpp; sourceTree = "<group>"; };
@@ -462,6 +470,7 @@
 				729A75720A01EC19000AB587 /* CoreFoundation.framework in Frameworks */,
 				729A75730A01EC19000AB587 /* IOKit.framework in Frameworks */,
 				729A75740A01EC19000AB587 /* SystemConfiguration.framework in Frameworks */,
+				726F8655119C9F2000221765 /* DisplayServices.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -482,6 +491,7 @@
 				729A75CD0A01F350000AB587 /* CoreFoundation.framework in Frameworks */,
 				729A75CE0A01F350000AB587 /* SystemConfiguration.framework in Frameworks */,
 				729A75CF0A01F350000AB587 /* IOKit.framework in Frameworks */,
+				72AF3BB811EBB68100CF0CBB /* DiskArbitration.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -556,6 +566,8 @@
 				7266E16F0E5BEDAE00F9BC0B /* PMConnection.c */,
 				72A9DF010CDAA05B000FDB18 /* PMSystemEvents.c */,
 				72A9DF020CDAA05B000FDB18 /* PMSystemEvents.h */,
+				72961DEE11E7CC4C00DC844A /* ExternalMedia.c */,
+				72961DEF11E7CC4C00DC844A /* ExternalMedia.h */,
 				40BE9CF4031ECBBC0ACA28D7 /* PMSettings.c */,
 				40BE9CF5031ECBBC0ACA28D7 /* PMSettings.h */,
 				40BE9CF6031ECBBC0ACA28D7 /* PSLowPower.c */,
@@ -594,6 +606,7 @@
 			children = (
 				40D4F0DC01F4A1F40ACA2928 /* pmset.c */,
 				40D4F0DD01F4A1F40ACA2928 /* pmset.1 */,
+				726F8654119C9F2000221765 /* DisplayServices.framework */,
 			);
 			path = pmset;
 			sourceTree = "<group>";
@@ -601,6 +614,7 @@
 		40882B99019742A20ACA2928 /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				72AF3BB711EBB68100CF0CBB /* DiskArbitration.framework */,
 				724387C50A05CEC50080C1F1 /* ApplicationServices.framework */,
 				72FE22EF0A018A5700885E24 /* Cocoa.framework */,
 				40882BA6019747120ACA2928 /* CoreFoundation.framework */,
@@ -780,6 +794,7 @@
 				72D9844B0B20BE7800D66087 /* TTYKeepAwake.h in Headers */,
 				72A9DF040CDAA05B000FDB18 /* PMSystemEvents.h in Headers */,
 				7266E1720E5BEDAE00F9BC0B /* PMConnection.h in Headers */,
+				72961DF111E7CC4C00DC844A /* ExternalMedia.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1120,6 +1135,7 @@
 				72D9844A0B20BE7800D66087 /* TTYKeepAwake.c in Sources */,
 				72A9DF030CDAA05B000FDB18 /* PMSystemEvents.c in Sources */,
 				7266E1730E5BEDAE00F9BC0B /* PMConnection.c in Sources */,
+				72961DF011E7CC4C00DC844A /* ExternalMedia.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1329,13 +1345,20 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				COPY_PHASE_STRIP = NO;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"",
+				);
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_MODEL_TUNING = G5;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				INSTALL_PATH = /usr/bin;
-				OTHER_CFLAGS = "-D__I_AM_PMSET__ -DUSE_SYSTEMCONFIGURATION_PRIVATE_HEADERS";
+				OTHER_CFLAGS = (
+					"-D__I_AM_PMSET__",
+					"-DUSE_SYSTEMCONFIGURATION_PRIVATE_HEADERS",
+				);
 				PREBINDING = NO;
 				PRODUCT_NAME = pmset;
 				ZERO_LINK = NO;
@@ -1346,11 +1369,18 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				COPY_PHASE_STRIP = YES;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"",
+				);
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
 				GCC_MODEL_TUNING = G5;
 				INSTALL_PATH = /usr/bin;
-				OTHER_CFLAGS = "-D__I_AM_PMSET__ -DUSE_SYSTEMCONFIGURATION_PRIVATE_HEADERS";
+				OTHER_CFLAGS = (
+					"-D__I_AM_PMSET__",
+					"-DUSE_SYSTEMCONFIGURATION_PRIVATE_HEADERS",
+				);
 				PREBINDING = NO;
 				PRODUCT_NAME = pmset;
 				STRIP_INSTALLED_PRODUCT = YES;
@@ -1361,6 +1391,10 @@
 		729A74310A01EBD4000AB587 /* Default */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"",
+				);
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_MODEL_TUNING = G5;
 				INSTALL_PATH = /usr/bin;
@@ -2136,6 +2170,10 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				COPY_PHASE_STRIP = NO;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"",
+				);
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
@@ -2376,6 +2414,10 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				COPY_PHASE_STRIP = YES;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"",
+				);
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
 				GCC_MODEL_TUNING = G5;

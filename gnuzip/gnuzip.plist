@@ -17,6 +17,7 @@
 	<array>
 		<string>UNIX conformance.</string>
 		<string>EA support.</string>
+		<string>gzip vulnerability CVE-2010-0001.</string>
 	</array>
 	<key>OpenSourceLicense</key>
 	<string>GPL</string>

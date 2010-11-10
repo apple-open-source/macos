@@ -116,7 +116,9 @@ struct bits {
 	{ RTF_BLACKHOLE,'B' },
 	{ RTF_BROADCAST,'b' },
 	{ RTF_IFSCOPE,	'I' },
+#ifdef RTF_IFREF
 	{ RTF_IFREF,	'i' },
+#endif /* RTF_IFREF */
 	{ 0 }
 };
 

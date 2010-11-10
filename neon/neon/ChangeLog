@@ -1,7 +1,358 @@
 ------------------------------------------------------------------------
-r1538 | joe | 2008-08-20 20:45:52 +0100 (Wed, 20 Aug 2008) | 1 line
+r1691 | joe | 2009-08-18 15:53:47 +0100 (Tue, 18 Aug 2009) | 1 line
 
-Tag release 0.28.3.
+Tag release 0.28.6.
+------------------------------------------------------------------------
+r1690 | joe | 2009-08-18 15:52:59 +0100 (Tue, 18 Aug 2009) | 2 lines
+
+* po/: make update-po.
+
+------------------------------------------------------------------------
+r1689 | joe | 2009-08-18 15:24:08 +0100 (Tue, 18 Aug 2009) | 2 lines
+
+* macros/neon.m4, NEWS: Prepare for 0.28.6.
+
+------------------------------------------------------------------------
+r1688 | joe | 2009-08-18 15:19:39 +0100 (Tue, 18 Aug 2009) | 14 lines
+
+Merge r1687 from trunk:
+
+Security fix for CVE-2009-2473: prevent the "billion laughs" attack
+against expat:
+
+* src/ne_xml.c (ne_xml_create) [HAVE_EXPAT]: Register entity
+  decl handler.
+  [HAVE_LIBXML]: Use xmlCtxtUseOptions interface.
+  (entity_declaration): New function.
+
+* test/xml.c (fail_parse): Add billion laughs test case.
+
+* test/run.sh: Limit run-time CPU use to 120 seconds.
+
+------------------------------------------------------------------------
+r1685 | joe | 2009-08-18 14:43:29 +0100 (Tue, 18 Aug 2009) | 12 lines
+
+Merge r1429 from trunk:
+
+Fix issues with CA list handling in the SSL server, for GnuTLS:
+
+* test/makekeys.sh: Generate wrongcn.cert signed by the CA.
+
+* test/ssl.c (struct ssl_server_args): Remove send_ca field.
+  (check_cert): Update to expect the wrongcn subject name.
+  (parse_chain, fail_wrongCN): Update to use the wrongcn cert, and to
+  trust the CA cert.  
+  (cc_provided_dnames): Stop using the send_ca server args field.
+
+------------------------------------------------------------------------
+r1684 | joe | 2009-08-18 14:35:23 +0100 (Tue, 18 Aug 2009) | 40 lines
+
+Merge r1676, r1680 from trunk: modified to make new functions private.
+
+* src/ne_string.c (ne__buffer_qappend): New function.
+
+* src/ne_string.c (qappend_count, quoted_append): Factor out from
+  ne_buffer_qappend.
+  (ne__strnqdup): New function.
+
+* src/ne_private.h (ne__strnqdup): New prototype.
+* src/ne_string.h (ne__buffer_qappend): New prototype.
+
+Merge r1681 from trunk:
+
+Security fix for CVE-2009-2474, handling of "NUL" bytes in certificate
+names:
+
+* src/ne_private.h (ne__ssl_match_hostname): Take cn len, make cn
+  const.
+
+* src/ne_session.c (ne__ssl_match_hostname): Drop handling of
+  unqualified hostnames; check CN length matches.
+
+* src/ne_gnutls.c (check_identity): Adjust accordingly.
+
+* src/ne_openssl.c (append_dirstring): Use a quoted append for ASCII
+  data.  Check for embedded NUL bytes in UTF-8 data.
+  (dup_ia5string): Use quoted append.  
+
+* test/ssl.c (struct ssl_server_args): Add key field.
+  (ssl_server): Use key field from args.
+  (fail_ssl_request_with_error2): Rename from
+  fail_ssl_request_with_error, add host, fakehost 
+  parameters.
+  (fail_ssl_request_with_error): Reimplement using
+  fail_ssl_request_with_error2.
+  (fail_nul_cn, fail_nul_san, nulcn_identity): New tests.
+
+* test/nulca.pem, test/nulcn.pem, test/nulsan.pem, test/nulsrv.key:
+  Add test cases, thanks to Tomas Hoger <thoger redhat.com>.
+
+------------------------------------------------------------------------
+r1683 | joe | 2009-08-18 14:16:07 +0100 (Tue, 18 Aug 2009) | 4 lines
+
+Merge r1675 from trunk:
+
+* src/ne_socket.c (ne_sock_peer): Fix strict-aliasing issue.
+
+------------------------------------------------------------------------
+r1682 | joe | 2009-08-18 14:13:58 +0100 (Tue, 18 Aug 2009) | 4 lines
+
+Merge r1677 from trunk:
+
+* test/openssl.conf: Sign certs using SHA1 since GnuTLS fails MD5-signed certs.
+
+------------------------------------------------------------------------
+r1673 | joe | 2009-07-03 15:07:24 +0100 (Fri, 03 Jul 2009) | 2 lines
+
+* macros/neon.m4, NEWS: Prep for 0.28.5.
+
+------------------------------------------------------------------------
+r1672 | joe | 2009-07-02 22:28:46 +0100 (Thu, 02 Jul 2009) | 7 lines
+
+Merge r1665, r1666 from trunk:
+
+* configure.in: Reorder to prevent autoconf 2.6x warnings.
+
+* macros/neon.m4 (LIBNEON_SOURCE_CHECKS): Silence warnings with autoconf
+  2.6x; use AC_USE_SYSTEM_EXTENSIONS.
+
+------------------------------------------------------------------------
+r1664 | joe | 2009-07-02 08:46:05 +0100 (Thu, 02 Jul 2009) | 2 lines
+
+* po/: make update-po.
+
+------------------------------------------------------------------------
+r1663 | joe | 2009-06-09 14:34:34 +0100 (Tue, 09 Jun 2009) | 8 lines
+
+Merge r1662 from trunk:
+
+* src/ne_socket.c (timed_connect): Only enable O_NONBLOCK if it 
+  is not already enabled.
+  (ne_sock_connect): Use SOCK_NONBLOCK if available, and
+  use of SOCK_CLOEXEC has not previously failed, and a
+  connect timeout is configured.
+
+------------------------------------------------------------------------
+r1660 | joe | 2009-06-09 11:27:17 +0100 (Tue, 09 Jun 2009) | 17 lines
+
+Merge r1644, r1645, r1646, r1647, r1654 from trunk:
+
+* test/common/tests.c: Remove sys/signal.h include.
+
+* src/ne_request.c (ne_begin_request): Fail for a C-L with trailing
+  non-numeric chars, or is an empty string.
+
+* test/request.c (no_body_empty_clength, no_body_bad_clength): Remove tests.
+  (fail_on_invalid): Add tests for invalid C-L.
+
+* src/ne_ssl.h: Improve ne_ssl_clicert_* docs, specify object state.
+
+* test/uri-tests.c (resolve): Test API guarantee for resolved ->path.
+
+* src/ne_gnutls.c (ne_ssl_context_create): Enable support for
+  X.509v1 CA certs.
+
+------------------------------------------------------------------------
+r1659 | joe | 2009-06-09 11:19:45 +0100 (Tue, 09 Jun 2009) | 11 lines
+
+Merge r1656, r1657, r1658 from trunk:
+
+* src/ne_socket.c (ne_sock_connect): Fix forward compat with
+  new-glibc/ old kernel cases - use SOCK_CLOEXEC only if no previous
+  socket() call has failed with EINVAL.  Retry such a failed socket()
+
+* src/ne_socket.c (ne_sock_connect): Fix FD_CLOEXEC for !SOCK_CLOEXEC builds.
+
+* src/ne_socket.c (raw_connect): New function.
+  (timed_connect): Use it to correctly handle EINTR.
+
+------------------------------------------------------------------------
+r1638 | joe | 2009-03-03 21:27:22 +0000 (Tue, 03 Mar 2009) | 2 lines
+
+* NEWS: Missing bug fix.
+
+------------------------------------------------------------------------
+r1636 | joe | 2009-02-25 14:12:40 +0000 (Wed, 25 Feb 2009) | 2 lines
+
+* NEWS: More news.
+
+------------------------------------------------------------------------
+r1635 | joe | 2009-02-25 14:09:16 +0000 (Wed, 25 Feb 2009) | 6 lines
+
+Merge r1477 from trunk:
+
+* test/ssl.c: Use P12_PASSPHRASE for client*.p12 passphrase.
+ (init): Fail gracefully if client cert decrypt fails.
+
+
+------------------------------------------------------------------------
+r1634 | joe | 2009-02-25 14:05:15 +0000 (Wed, 25 Feb 2009) | 5 lines
+
+Merge r1633 from trunk:
+
+* doc/man.xsl, doc/manual.xml: Fix <author> and quieten
+newer docbook-xsl man page generation.
+
+------------------------------------------------------------------------
+r1632 | joe | 2009-02-25 13:57:29 +0000 (Wed, 25 Feb 2009) | 2 lines
+
+* po/: make update-po.
+
+------------------------------------------------------------------------
+r1631 | joe | 2009-02-25 13:50:48 +0000 (Wed, 25 Feb 2009) | 2 lines
+
+* install-sh: Remove, rely on provided version.
+
+------------------------------------------------------------------------
+r1629 | joe | 2009-02-25 13:48:09 +0000 (Wed, 25 Feb 2009) | 10 lines
+
+Merge r1628 from trunk:
+
+Fix ne_forget_auth():
+
+* src/ne_auth.c (clean_session): Clear ->protocol field; patch frm Kai
+  Sommerfeld.
+
+* test/auth.c (serve_forgotten, forget): New test case.
+
+
+------------------------------------------------------------------------
+r1627 | joe | 2009-01-29 01:19:48 +0000 (Thu, 29 Jan 2009) | 4 lines
+
+Merge r1626 from trunk:
+
+* macros/neon.m4: Add the hash back into PKCS#11 in output messages.
+
+------------------------------------------------------------------------
+r1625 | joe | 2009-01-29 01:16:15 +0000 (Thu, 29 Jan 2009) | 10 lines
+
+Merge r1617, r1618, r1619 from trunk:
+
+* macros/neon.m4 (LIBNEON_SOURCE_CHECKS): Check for 
+  socket functions in -lnetwork, for Haiku.
+
+* THANKS: Convert to UTF-8.
+
+* src/ne_basic.h: Docs updates.
+
+
+------------------------------------------------------------------------
+r1624 | joe | 2009-01-29 01:14:28 +0000 (Thu, 29 Jan 2009) | 6 lines
+
+Merge r1620 from trunk:
+
+* src/ne_socket.c (read_gnutls): Perform a new handshake if required
+  and indicated by a gnutls_record_recv() failure.
+
+
+------------------------------------------------------------------------
+r1623 | joe | 2009-01-29 01:13:36 +0000 (Thu, 29 Jan 2009) | 7 lines
+
+Merge r1616 from trunk:
+
+* Makefile.in: Fix Makefile/neon-config generation in VPATH builds.
+
+Submitted by: joe
+Reviewed by: jorton
+
+------------------------------------------------------------------------
+r1615 | joe | 2008-11-20 21:43:48 +0000 (Thu, 20 Nov 2008) | 4 lines
+
+Merge r1614 from trunk:
+
+* src/ne_pkcs11.c (pk11_provide): Fix memory leak.
+
+------------------------------------------------------------------------
+r1600 | joe | 2008-11-04 20:56:04 +0000 (Tue, 04 Nov 2008) | 5 lines
+
+Merge r1599 from trunk:
+
+* src/ne_socket.c (ne_sock_connect): Use SOCK_CLOEXEC in place of
+  setting the O_CLOEXEC flag, where available.
+
+------------------------------------------------------------------------
+r1598 | joe | 2008-11-04 18:27:16 +0000 (Tue, 04 Nov 2008) | 4 lines
+
+Merge r1597 from trunk:
+
+* test/request.c (status, status_chunked): Fix memory leak.
+
+------------------------------------------------------------------------
+r1596 | joe | 2008-10-31 09:31:30 +0000 (Fri, 31 Oct 2008) | 2 lines
+
+* NEWS: Update.
+
+------------------------------------------------------------------------
+r1595 | joe | 2008-10-31 09:30:35 +0000 (Fri, 31 Oct 2008) | 6 lines
+
+Merge r1594 from trunk:
+
+* macros/neon.m4 (NEON_SSL): Configure GnuTLS support via pkg-config
+  data if possible.
+
+
+------------------------------------------------------------------------
+r1593 | joe | 2008-10-30 20:31:06 +0000 (Thu, 30 Oct 2008) | 2 lines
+
+* NEWS, macros/neon.m4: Prepare for 0.28.4.
+
+------------------------------------------------------------------------
+r1592 | joe | 2008-10-30 20:30:10 +0000 (Thu, 30 Oct 2008) | 2 lines
+
+* po/: make update-po.
+
+------------------------------------------------------------------------
+r1591 | joe | 2008-10-30 20:26:18 +0000 (Thu, 30 Oct 2008) | 10 lines
+
+Merge r1556, r1589 from trunk:
+
+* src/ne_gnutls.c (make_peers_chain): Fix potential segfault.
+
+* src/ne_gnutls.c (pkcs12_parse): Ignore any but the first key or cert
+  encountered.  Should fix issues with PKCS#12 files with embedded CA
+  certs, see Debian bug 480041.
+
+* test/ssl.c (client_cert_ca): Add test case.
+
+------------------------------------------------------------------------
+r1590 | joe | 2008-10-30 20:23:54 +0000 (Thu, 30 Oct 2008) | 36 lines
+
+Synch with PKCS#11 support from the trunk.
+
+Merge r1413, r1424, r1425, r1541, r1542, r1543, r1544 from trunk:
+
+* src/ne_pkcs11.c: Fix typo.
+
+Submitted by: Arfrever Frehtes Taifersar Arahesis
+
+* src/ne_pkcs11.c (pk11_find_pkey): Don't require RSA keys; retrieve
+  the key type.
+  (pk11_sign_callback): Use mechanism appropriate to the key type.
+
+* src/ne_pkcs11.c (pk11_find_pkey): Fix logic to reject non-DSA/RSA
+  keys.
+
+Support PKCS#11 in OpenSSL builds:
+
+* src/ne_openssl.c (ne__ssl_clicert_exkey_import): New function.
+
+* src/ne_privssl.h (ne__ssl_clicert_exkey_import): New prototype.
+
+* src/ne_pkcs11.c [HAVE_OPENSSL] (pk11_rsa_sign, pk11_rsa_init,
+  pk11_rsa_finish, pk11_rsa_method): New functions.
+  (pk11_find_pkey): Ignore DSA privkeys if using OpenSSL.
+  (ne_ssl_set_pkcs11_provider): Omit GnuTLS code for OpenSSL.
+
+* macros/neon.m4 (NEON_SSL): Support pakchois with OpenSSL too.
+
+* src/ne_pkcs11.c: Revert debugging change in previous commit.
+
+* macros/neon.m4 (NEON_SSL): Fix pakchois/GnuTLS support.
+
+* src/ne_pkcs11.c (pk11_rsa_method): Remove redundant flag
+  from the RSA_METHOD flags bitfield, and update comment.
+
+
 ------------------------------------------------------------------------
 r1537 | joe | 2008-08-20 20:45:21 +0100 (Wed, 20 Aug 2008) | 2 lines
 

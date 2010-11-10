@@ -3,6 +3,7 @@
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
  *           (C) 2007 David Smith (catfish.man@gmail.com)
  * Copyright (C) 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010 Apple Inc. All rights reserved.
+ * Copyright (C) Research In Motion Limited 2010. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -543,7 +544,8 @@ void RenderBlock::removeChild(RenderObject* oldChild)
     bool canDeleteAnonymousBlocks = !documentBeingDestroyed() && !isInline() && !oldChild->isInline() && 
                                     (!oldChild->isRenderBlock() || !toRenderBlock(oldChild)->inlineContinuation()) && 
                                     (!prev || (prev->isAnonymousBlock() && prev->childrenInline())) &&
-                                    (!next || (next->isAnonymousBlock() && next->childrenInline()));
+                                    (!next || (next->isAnonymousBlock() && next->childrenInline())) &&
+                                    !(prev && prev->firstChild() && prev->firstChild()->isInline() && prev->firstChild()->isRunIn());
     if (canDeleteAnonymousBlocks && prev && next) {
         // Take all the children out of the |next| block and put them in
         // the |prev| block.
@@ -1661,15 +1663,6 @@ void RenderBlock::paintChildren(PaintInfo& paintInfo, int tx, int ty)
         if (isPrinting && !childrenInline() && child->style()->pageBreakBefore() == PBALWAYS
             && (ty + child->y()) > paintInfo.rect.y()
             && (ty + child->y()) < paintInfo.rect.bottom()) {
-            view()->setBestTruncatedAt(ty + child->y(), this, true);
-            return;
-        }
-
-        // Check for page-break-inside: avoid, and it it's set, break and bail.
-        if (isPrinting && !childrenInline() && child->style()->pageBreakInside() == PBAVOID
-            && ty + child->y() > paintInfo.rect.y()
-            && ty + child->y() < paintInfo.rect.bottom()
-            && ty + child->y() + child->height() > paintInfo.rect.bottom()) {
             view()->setBestTruncatedAt(ty + child->y(), this, true);
             return;
         }
@@ -2980,6 +2973,12 @@ void RenderBlock::clearFloats()
         } else
             m_floatingObjects->clear();
     }
+
+    // We should not process floats if the parent node is not a RenderBlock. Otherwise, we will add 
+    // floats in an invalid context. This will cause a crash arising from a bad cast on the parent.
+    // See <rdar://problem/8049753>, where float property is applied on a text node in a SVG.
+    if (!parent() || !parent()->isRenderBlock())
+        return;
 
     // Attempt to locate a previous sibling with overhanging floats.  We skip any elements that are
     // out of flow (like floating/positioned elements), and we also skip over any objects that may have shifted

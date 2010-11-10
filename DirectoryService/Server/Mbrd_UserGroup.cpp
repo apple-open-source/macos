@@ -178,15 +178,12 @@ void UserGroup_Merge( UserGroup *existing, UserGroup *source, bool includeMember
 	existing->fToken = source->fToken;
 	existing->fNodeAvailable = source->fNodeAvailable;
 
-	if ( existing->fName != NULL ) {
-		free( existing->fName );
-	}
-	
+	// Leave existing name so rbtree sorting remains valid
 	if ( source->fName != NULL ) {
+		if ( existing->fName != NULL ) {
+			free( existing->fName );
+		}
 		existing->fName = strdup( source->fName );
-	}
-	else {
-		existing->fName = NULL;
 	}
 	
 	// X509 field

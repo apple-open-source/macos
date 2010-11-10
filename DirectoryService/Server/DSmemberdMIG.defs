@@ -33,7 +33,7 @@ serverprefix memberdDSmig_do_;
 #include <mach/mach_types.defs>
 import <DSmemberdMIG_types.h>;
 
-type kauth_identity_extlookup = struct [200] of uint8_t;
+type kauth_identity_extlookup = struct [232] of uint8_t;
 type guid_t = struct [16] of uint8_t;
 type StatBlock = struct [16] of uint64_t;
 type GIDArray = array [16] of uint32_t;

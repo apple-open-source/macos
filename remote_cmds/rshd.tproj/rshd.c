@@ -90,20 +90,24 @@ __FBSDID("$FreeBSD: src/libexec/rshd/rshd.c,v 1.51 2005/05/11 02:41:39 jmallett 
 #include <unistd.h>
 #ifndef __APPLE__
 #include <login_cap.h>
-
-#include <security/pam_appl.h>
-#include <security/openpam.h>
 #endif
-#include <sys/wait.h>
 
 #ifdef __APPLE__
 #include <TargetConditionals.h>
 #endif
 
-#ifndef __APPLE__
+#if !TARGET_OS_EMBEDDED
+#include <security/pam_appl.h>
+#include <security/openpam.h>
+#endif
+
+#include <sys/wait.h>
+
+#if !TARGET_OS_EMBEDDED
 static struct pam_conv pamc = { openpam_nullconv, NULL };
 static pam_handle_t *pamh;
 static int pam_err;
+#endif
 
 #define PAM_END { \
 	if ((pam_err = pam_setcred(pamh, PAM_DELETE_CRED)) != PAM_SUCCESS) \
@@ -113,9 +117,6 @@ static int pam_err;
 	if ((pam_err = pam_end(pamh, pam_err)) != PAM_SUCCESS) \
 		syslog(LOG_ERR|LOG_AUTH, "pam_end(): %s", pam_strerror(pamh, pam_err)); \
 }
-#else
-#define PAM_END {;}
-#endif
 
 int	keepalive = 1;
 int	check_all;
@@ -490,9 +491,8 @@ doit(struct sockaddr *fromp)
 	getstr(luser, sizeof(luser), "luser");
 	getstr(cmdbuf, maxcmdlen, "command");
 	(void) alarm(0);
-
-#ifndef __APPLE__
-	pam_err = pam_start("rsh", luser, &pamc, &pamh);
+#if !TARGET_OS_EMBEDDED
+	pam_err = pam_start("rshd", luser, &pamc, &pamh);
 	if (pam_err != PAM_SUCCESS) {
 		syslog(LOG_ERR|LOG_AUTH, "pam_start(): %s",
 		    pam_strerror(pamh, pam_err));
@@ -522,7 +522,6 @@ doit(struct sockaddr *fromp)
 		rshd_errx(1, "Login incorrect.");
 	}
 #endif
-
 	setpwent();
 	pwd = getpwnam(luser);
 	if (pwd == NULL) {
@@ -627,14 +626,15 @@ doit(struct sockaddr *fromp)
 		syslog(LOG_ERR, "setusercontext: %m");
 		exit(1);
 	}
+#endif /* !__APPLE__ */
 
+#if !TARGET_OS_EMBEDDED
 	if ((pam_err = pam_open_session(pamh, 0)) != PAM_SUCCESS) {
 		syslog(LOG_ERR, "pam_open_session: %s", pam_strerror(pamh, pam_err));
 	} else if ((pam_err = pam_setcred(pamh, PAM_ESTABLISH_CRED)) != PAM_SUCCESS) {
 		syslog(LOG_ERR, "pam_setcred: %s", pam_strerror(pamh, pam_err));
 	}
-#endif /* !__APPLE__ */
-
+#endif
 	(void) write(STDERR_FILENO, "\0", 1);
 	sent_null = 1;
 
@@ -760,7 +760,9 @@ doit(struct sockaddr *fromp)
 			    (doencrypt && FD_ISSET(pv1[0], &readfrom)) ||
 #endif /* KERBEROS && CRYPT */
 			    FD_ISSET(pv[0], &readfrom));
+#if !TARGET_OS_EMBEDDED
 			PAM_END;
+#endif
 			exit(0);
 		}
 #ifdef __APPLE__
@@ -815,7 +817,8 @@ doit(struct sockaddr *fromp)
 	strcat(path, _PATH_DEFPATH);
 	strncat(shell, pwd->pw_shell, sizeof(shell)-7);
 	strncat(username, pwd->pw_name, sizeof(username)-6);
-#else
+#endif
+#if !TARGET_OS_EMBEDDED
 	(void) pam_setenv(pamh, "HOME", pwd->pw_dir, 1);
 	(void) pam_setenv(pamh, "SHELL", pwd->pw_shell, 1);
 	(void) pam_setenv(pamh, "USER", pwd->pw_name, 1);

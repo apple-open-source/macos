@@ -317,6 +317,8 @@ protected:
 	void	RemoveFromResendTaskList ( 
 					SCSIParallelTaskIdentifier 	parallelTask );
 	
+	void	SendFromResendTaskList ( void );
+	
 	// ---- Methods for Accessing the local data in the SCSI Parallel Task Object ----
 	
 	/*!
@@ -695,6 +697,7 @@ private:
 	queue_head_t				fOutstandingTaskList;
 	queue_head_t				fResendTaskList;
 	bool						fAllowResends;
+	bool						fResendThreadScheduled;
 	
 	IOSCSIParallelInterfaceController *	fController;
 	

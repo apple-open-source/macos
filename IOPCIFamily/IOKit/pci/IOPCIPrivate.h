@@ -29,10 +29,13 @@
 #include <IOKit/pci/IOPCIDevice.h>
 #include <libkern/OSDebug.h>
 
-#if defined(__i386__) || defined(__x86_64__)
+#if !defined(__ppc__)
 #define USE_IOPCICONFIGURATOR   1
 #define USE_MSI                 1
 #define USE_LEGACYINTS          1
+#endif
+
+#if defined(__i386__) || defined(__x86_64__)
 #define ACPI_SUPPORT            1
 #endif
 
@@ -83,8 +86,10 @@ struct IOPCIConfigShadow
 // flags in kIOPCIConfigShadowFlags
 enum
 {
-    kIOPCIConfigShadowValid    = 0x00000001,
-    kIOPCIConfigShadowBridge   = 0x00000002
+    kIOPCIConfigShadowValid        = 0x00000001,
+    kIOPCIConfigShadowBridge       = 0x00000002,
+    kIOPCIConfigShadowHostBridge   = 0x00000004,
+    kIOPCIConfigShadowBridgeDriver = 0x00000008
 };
 
 // whatToDo for setDevicePowerState()

@@ -40,6 +40,7 @@
 #include <IOKit/IOKitKeys.h>
 #include <IOKit/IOCommandGate.h>
 #include <IOKit/IOCommandPool.h>
+#include <IOKit/IOPlatformExpert.h>
 #include <IOKit/IOTimerEventSource.h>
 
 #include <IOKit/usb/IOUSBController.h>
@@ -51,6 +52,9 @@
 #include <IOKit/usb/IOUSBLog.h>
 #include <IOKit/usb/IOUSBWorkLoop.h>
 #include "USBTracepoints.h"
+#include "IOUSBFamilyInfoPlist.pch"
+
+#include <IOKit/acpi/IOACPIPlatformDevice.h>
 
 // bsd
 #include <sys/sysctl.h>
@@ -134,8 +138,9 @@ USBGlobals::~USBGlobals ( void )
 //   Local Definitions
 //
 //================================================================================================
-#define kUSBSetup			kUSBNone
-#define	kMaxNumberUSBBusses	256
+#define kUSBSetup				kUSBNone
+#define	kMaxNumberUSBBusses		256
+#define NSEC_PER_MS				1000000		/* nanosecond per millisecond */
 
 #define super IOUSBBus
 
@@ -151,6 +156,11 @@ __attribute__((format(printf, 1, 2)));
 #define USBLog( LEVEL, FORMAT, ARGS... )  if ((LEVEL) <= CONTROLLER_USE_KPRINTF) { kprintf( FORMAT "\n", ## ARGS ) ; }
 #define USBError( LEVEL, FORMAT, ARGS... )  { kprintf( FORMAT "\n", ## ARGS ) ; }
 #endif
+
+#ifndef kACPIDevicePathKey
+#define kACPIDevicePathKey			"acpi-path"
+#endif
+
 
 enum {
     kSetupSent  = 0x01,
@@ -191,6 +201,52 @@ IOUSBLog *					IOUSBController::_log;
 const IORegistryPlane *		IOUSBController::gIOUSBPlane = 0;
 UInt32						IOUSBController::_busCount;
 bool						IOUSBController::gUsedBusIDs[kMaxNumberUSBBusses];
+UInt32						IOUSBController::gExtraCurrentPropertiesInitialized = 0;
+
+//================================================================================================
+//
+//  Table for MacModels and their corresponding wake and sleep current properties.  If a number is non-zero, it will
+//  override whatever is in EFI.  This allows us to override bogus values in EFI
+//
+//================================================================================================
+static SleepCurrentPerModel  gSleepCurrentInfo[] = {
+	
+	//  Mac Model			totalExtraWakeCurrent	maxWakeCurrentPerPort	totalExtraSleepCurrent	maxSleepCurrentPerPort
+	{	"iMac8,1",			0,						0,						500,					1000 },
+	{	"MacPro4,1",		0,						0,						500,					1000 },
+	{	"MacPro5,1",		0,						0,						500,					1000 },
+	{	"MacBookPro7,1",	0,						0,						1000,					1000 },
+	{	"Xserve3,1",		0,						0,						500,					1000 },
+	{	"MacBookPro6,1",	1200,					0,						1000,					1000 },
+	{	"MacBookPro6,2",	1200,					0,						1000,					1000 },
+	{	"MacBookPro5,3",	0,						0,						500,					1000 },
+	{	"MacBookPro5,4",	0,						0,						500,					1000 },
+	{	"MacBookPro5,2",	0,						0,						500,					1000 },
+	{	"iMac10,1",			0,						0,						1000,					1000 },
+	{	"iMac11,1",			0,						0,						1000,					1000 },
+	{	"MacBookPro5,5",	0,						0,						500,					1000 },
+	{	"MacBook3,1",		0,						0,						500,					1000 },
+	{	"MacBook4,1",		0,						0,						500,					1000 },
+	{	"MacBook5,2",		0,						0,						500,					1000 },
+	{	"MacBook5,3",		0,						0,						500,					1000 },
+	{	"iMac9,1",			0,						0,						500,					1000 },
+	{	"MacBook6,1",		0,						0,						500,					1000 },
+	{	"Macmini3,1",		1100,					0,						500,					1000 },
+	{	"Xserve2,1",		0,						0,						500,					1000 },
+	{	"iMac7,1",			0,						0,						500,					1000 },
+	{	"MacBookAir1,1",	0,						0,						500,					1000 },
+	{	"MacPro3,1",		0,						0,						500,					1000 },
+	{	"MacBookPro4,1",	0,						0,						500,					1000 },
+	{	"MacBookAir2,1",	0,						0,						500,					1000 },
+	{	"MacBook5,1",		0,						0,						500,					1000 },
+	{	"MacBookPro5,1",	0,						0,						500,					1000 },
+	{	"MacBook7,1",		0,						0,						1000,					1000 },
+	{	"Macmini4,1",		1100,					0,						500,					1000 },
+	{	"iMac11,2",			0,						0,						1000,					1000 },
+	{	"iMac11,3",			0,						0,						1000,					1000 }
+};
+
+#define sleepCurrentPerModelLength (sizeof(gSleepCurrentInfo)/sizeof(SleepCurrentPerModel))
 
 #define _freeUSBCommandPool				_expansionData->freeUSBCommandPool
 #define _freeUSBIsocCommandPool			_expansionData->freeUSBIsocCommandPool
@@ -347,6 +403,17 @@ IOUSBController::start( IOService * provider )
 	
 #if CONTROLLER_USE_KPRINTF
 	IOSleep(5000);
+#endif
+	
+#if DEBUG_LEVEL != DEBUG_LEVEL_PRODUCTION
+	static bool gVersionPrinted = false;
+	
+	setProperty("IOUSBFamily version", QUOTEDSTRING(IOUSBFAMILY_VERSION));
+	if ( not gVersionPrinted)
+	{
+		gVersionPrinted = true;
+		IOLog("IOUSBFamily version: %s\n", QUOTEDSTRING(IOUSBFAMILY_VERSION));
+	}
 #endif
 	
 	USBTrace_Start( kUSBTController, kTPControllerStart, (uintptr_t)provider, 0, 0, 0);
@@ -557,7 +624,6 @@ IOUSBController::start( IOService * provider )
 		_workLoop = NULL;
 	}
 
-	retain();									// 7303256  If we let the IOUSBController free, we crash
 	PMstop();									// 7297543 - clean up the PM stuff if it is running
 	
 	_provider->close(this);
@@ -900,6 +966,9 @@ IOUSBController::ControlPacketHandler( OSObject * 	target,
     IOUSBController			*me = (IOUSBController *)target;
 	bool					isSyncTransfer;
  	uint32_t				busFunctEP = ( (me->_busNumber << 16 ) | ( command->GetAddress() << 8) | command->GetEndpoint() );
+	IOUSBCompletion			theCompletion;
+	IOReturn				theStatus;
+	UInt32					theDataRemaining;
 	
     if (command == 0)
         return;
@@ -1031,8 +1100,6 @@ IOUSBController::ControlPacketHandler( OSObject * 	target,
 			{
 				USBLog(7, "%s[%p]::ControlPacketHandler - clearing memory descriptor (%p) from dmaCommand (%p)", me->getName(), me, dmaCommand->getMemoryDescriptor(), dmaCommand);
 				dmaCommand->clearMemoryDescriptor();
-				// memDesc->complete();					should i do this?
-				// memDesc->release();					should i do this?
 			}
 			command->GetRequestMemoryDescriptor()->release();
 			command->SetRequestMemoryDescriptor(NULL);
@@ -1057,8 +1124,9 @@ IOUSBController::ControlPacketHandler( OSObject * 	target,
         
 		isSyncTransfer = command->GetIsSyncTransfer();
 		
-        // Call the clients handler
-        me->Complete(command->GetClientCompletion(), command->GetStatus(), command->GetDataRemaining());
+		theCompletion = command->GetClientCompletion();
+		theStatus = command->GetStatus();
+		theDataRemaining = command->GetDataRemaining();
 		
 		// Only return the command if this is NOT a synchronous request.  For Sync requests, we return it later
 		//
@@ -1071,6 +1139,10 @@ IOUSBController::ControlPacketHandler( OSObject * 	target,
 			if (aBufferCommand)
 				me->_freeUSBCommandPool->returnCommand(aBufferCommand);
 		}
+
+        // Call the clients handler
+        me->Complete(theCompletion, theStatus, theDataRemaining);
+		
     }
     else
 	{
@@ -1138,6 +1210,8 @@ IOUSBController::InterruptPacketHandler(OSObject * target, void * parameter, IOR
 	IOMemoryDescriptor	*memDesc = dmaCommand ? (IOMemoryDescriptor *)dmaCommand->getMemoryDescriptor() : NULL;
     IOUSBController 	*me = (IOUSBController *)target;
 	bool				isSyncTransfer;
+	IOUSBCompletion		theCompletion;
+	AbsoluteTime		theTimeStamp;
 	
     if (command == 0)
         return;
@@ -1178,23 +1252,8 @@ IOUSBController::InterruptPacketHandler(OSObject * target, void * parameter, IOR
 	}
 	
 	isSyncTransfer = command->GetIsSyncTransfer();
-	
-    /* Call the clients handler */
-    if ( command->GetUseTimeStamp() )
-    {
-        IOUSBCompletion					completion = command->GetClientCompletion();
-        IOUSBCompletionWithTimeStamp	completionWithTimeStamp;
-		
-        // Copy the completion to a completion with time stamp
-        //
-        completionWithTimeStamp.target = completion.target;
-        completionWithTimeStamp.parameter = completion.parameter;
-        completionWithTimeStamp.action = (IOUSBCompletionActionWithTimeStamp) completion.action;
-        
-        me->CompleteWithTimeStamp( completionWithTimeStamp, status, bufferSizeRemaining, command->GetTimeStamp());
-    }
-    else
-        me->Complete(command->GetClientCompletion(), status, bufferSizeRemaining);
+	theCompletion = command->GetClientCompletion();
+	theTimeStamp = command->GetTimeStamp();
 	
     // Only return the command if this is NOT a synchronous request.  For Sync requests, we return it later
 	//
@@ -1202,6 +1261,23 @@ IOUSBController::InterruptPacketHandler(OSObject * target, void * parameter, IOR
 	{
 		me->_freeUSBCommandPool->returnCommand(command);
 	}
+
+    // Call the clients handler
+    if ( command->GetUseTimeStamp() )
+    {
+        IOUSBCompletionWithTimeStamp	completionWithTimeStamp;
+		
+        // Copy the completion to a completion with time stamp
+        //
+        completionWithTimeStamp.target = theCompletion.target;
+        completionWithTimeStamp.parameter = theCompletion.parameter;
+        completionWithTimeStamp.action = (IOUSBCompletionActionWithTimeStamp) theCompletion.action;
+        
+        me->CompleteWithTimeStamp( completionWithTimeStamp, status, bufferSizeRemaining, theTimeStamp);
+    }
+    else
+        me->Complete(theCompletion, status, bufferSizeRemaining);
+	
 }
 
 
@@ -1264,6 +1340,7 @@ IOUSBController::BulkPacketHandler(OSObject *target, void *parameter, IOReturn	s
 	IODMACommand *			dmaCommand = command->GetDMACommand();
 	IOMemoryDescriptor *	memDesc = dmaCommand ? (IOMemoryDescriptor *)dmaCommand->getMemoryDescriptor() : NULL;
 	bool					isSyncTransfer;
+	IOUSBCompletion			theCompletion;
     
     if (command == 0)
         return;
@@ -1303,8 +1380,7 @@ IOUSBController::BulkPacketHandler(OSObject *target, void *parameter, IOReturn	s
 	
 	isSyncTransfer = command->GetIsSyncTransfer();
 	
-	/* Call the clients handler */
-    me->Complete(command->GetClientCompletion(), status, bufferSizeRemaining);
+	theCompletion = command->GetClientCompletion();
 	
     // Only return the command if this is NOT a synchronous request.  For Sync requests, we return it later
 	//
@@ -1312,6 +1388,10 @@ IOUSBController::BulkPacketHandler(OSObject *target, void *parameter, IOReturn	s
 	{
 		me->_freeUSBCommandPool->returnCommand(command);
 	}
+
+	// Call the clients handler
+    me->Complete(theCompletion, status, bufferSizeRemaining);
+	
 }
 
 
@@ -1345,12 +1425,6 @@ IOUSBController::DoIsocTransfer(OSObject *owner, void *cmd, void *, void *, void
         bool						inCommandSleep = true;
 		IOUSBIsocCompletion			completion = command->GetCompletion();			// we will replace the target
 	
-        if ( controller->getWorkLoop()->onThread() )
-        {
-            USBError(1,"%s[%p]::DoIsocTransfer sync request on workloop thread.  Use async!", controller->getName(), controller);
-            return kIOUSBSyncRequestOnWLThread;
-        }
-		
         // Fill out our structure that the completion routine will use to wake
         // the thread up.  Set this structure as the target for the completion
         //
@@ -1572,12 +1646,6 @@ IOUSBController::DoIOTransfer(OSObject *owner, void *cmd, void *, void *, void *
     {
         IOUSBSyncCompletionTarget	syncTarget;
         bool				inCommandSleep = true;
-		
-        if ( controller->getWorkLoop()->onThread() )
-        {
-            USBError(1,"%s[%p]::DoIOTransfer sync request on workloop thread.  Use async!", controller->getName(), controller);
-            return kIOUSBSyncRequestOnWLThread;
-        }
 		
         // Fill out our structure that the completion routine will use to wake
         // the thread up.  Set this structure as the target for the completion
@@ -2671,7 +2739,7 @@ IOUSBController::DeviceRequest(IOUSBDevRequest *request, IOUSBCompletion *comple
 	UInt16					reqLength = request->wLength;
 	IODMACommand			*dmaCommand = NULL;
 	IODMACommand			*bufferDMACommand = NULL;
-	bool					isSyncTransfer;
+	bool					isSyncTransfer = false;
 	
 	USBLog(7,"%s[%p]::DeviceRequest [%x,%x],[%x,%x],[%x,%p]",getName(),this, 
 		   request->bmRequestType,
@@ -2684,49 +2752,13 @@ IOUSBController::DeviceRequest(IOUSBDevRequest *request, IOUSBCompletion *comple
 	if ( GetCommandGate() == 0)
 		return kIOReturnInternalError;
 	
-	// This method will only convert an IOUSBDevRequest to an IOUSBDevRequestDesc and then call the other method
-	
-	// Allocate the command
-	//
-	command = (IOUSBCommand *)_freeUSBCommandPool->getCommand(false);
-	if (reqLength)
-		bufferCommand = (IOUSBCommand *)_freeUSBCommandPool->getCommand(false);
-	
-    // If we couldn't get a command, increase the allocation and try again
-    //
-    if ( !command || (reqLength && !bufferCommand))
-    {
-        IncreaseCommandPool();
-        
-		if (!command)
-			command = (IOUSBCommand *)_freeUSBCommandPool->getCommand(false);
-		
-		if (reqLength && !bufferCommand)
-			bufferCommand = (IOUSBCommand *)_freeUSBCommandPool->getCommand(false);
-		
-		if ( !command || (reqLength && !bufferCommand))
-        {
-            USBLog(3,"%s[%p]::DeviceRequest Could not get a IOUSBCommand (1:%p 2:%p)", getName(), this, command, bufferCommand);
-            return kIOReturnNoResources;
-        }
-    }
-	
-	dmaCommand = command->GetDMACommand();
-	if (!dmaCommand)
-	{
-		USBError(1,"%s[%p]::DeviceRequest - No dmaCommand in the usb command", getName(), this);
-		return kIOReturnNoResources;
-	}
-	
-	if (dmaCommand->getMemoryDescriptor())
-	{
-		IOMemoryDescriptor		*memDesc = (IOMemoryDescriptor *)dmaCommand->getMemoryDescriptor();
-		USBError(1,"%s[%p]::DeviceRequest - dmaCommand (%p) already had memory descriptor (%p) - clearing", getName(), this, dmaCommand, memDesc);
-		dmaCommand->clearMemoryDescriptor();
-		// memDesc->complete();					should i do this?
-		// memDesc->release();					should i do this?
-	}
+	if (reqLength && (request->pData == NULL))
+		return kIOReturnBadArgument;
 
+	// The reason this method is basically the same code as the other one (with the IOUSBDevRequestDesc)
+	// but it doesn't call that method is that the cleanup happens in the callback (which is ugly)
+	// and so we have to do things slightly differently. The difference is in the SetSelector calls.
+	
 	// the request is in Host format, so I need to convert the 16 bit fields to bus format
 	request->wValue = HostToUSBWord(request->wValue);
 	request->wIndex = HostToUSBWord(request->wIndex);
@@ -2734,135 +2766,289 @@ IOUSBController::DeviceRequest(IOUSBDevRequest *request, IOUSBCompletion *comple
 	
 	// set up the memory descriptor for the request
 	requestMemoryDescriptor = IOMemoryDescriptor::withAddress(request, 8, kIODirectionOut);
-	if (!requestMemoryDescriptor)
-	{
-		USBError(1,"%s[%p]::DeviceRequest - could not create request memory descriptor", getName(), this);
-		return kIOReturnNoMemory;
-	}
 	
-	err = requestMemoryDescriptor->prepare();
-	if (err)
+	do				// not a real loop. just a way of avoiding gotos
 	{
-		USBError(1,"%s[%p]::DeviceRequest - err (%p) trying to prepare request memory descriptor", getName(), this, (void*)err);
-		requestMemoryDescriptor->release();
-		return err;
-	}
-	
-	command->SetRequestMemoryDescriptor(requestMemoryDescriptor);
-	command->SetReqCount(8);
-	
-	USBLog(7,"%s[%p]::DeviceRequest - setting memory descriptor (%p) into dmaCommand (%p)", getName(), this, requestMemoryDescriptor, dmaCommand);
-	err = dmaCommand->setMemoryDescriptor(requestMemoryDescriptor);
-	if (err)
-	{
-		USBError(1,"%s[%p]::DeviceRequest - err (%p) setting memory descriptor (%p) into dmaCommand (%p)", getName(), this, (void*)err, requestMemoryDescriptor, dmaCommand);
-		requestMemoryDescriptor->complete();
-		requestMemoryDescriptor->release();
-		return err;
-	}
-	
-	if (reqLength)
-	{
-		IOMemoryDescriptor		*memDesc;
+		if (!requestMemoryDescriptor)
+		{
+			USBError(1,"%s[%p]::DeviceRequest - could not create request memory descriptor", getName(), this);
+			err = kIOReturnNoMemory;
+			break;
+		}
+		err = requestMemoryDescriptor->prepare();
+		if (err != kIOReturnSuccess)
+		{
+			USBError(1,"%s[%p]::DeviceRequest - err (%p) trying to prepare request memory descriptor", getName(), this, (void*)err);
+			requestMemoryDescriptor->release();
+			requestMemoryDescriptor = NULL;
+			break;
+		}
 		
-		bufferDMACommand = bufferCommand->GetDMACommand();
-		if (!bufferDMACommand)
+		if (reqLength)
 		{
-			USBError(1,"%s[%p]::DeviceRequest - No dmaCommand in the usb command", getName(), this);
-			return kIOReturnNoResources;
-		}
-		memDesc = (IOMemoryDescriptor *)bufferDMACommand->getMemoryDescriptor();
-		if (memDesc)
-		{
-			USBError(1,"%s[%p]::DeviceRequest - buffer dmaCommand (%p) already had memory descriptor (%p) - clearing", getName(), this, bufferDMACommand, bufferDMACommand->getMemoryDescriptor());
-			bufferDMACommand->clearMemoryDescriptor();
-			// memDesc->complete();					should i do this?
-			// memDesc->release();					should i do this?
-		}
-	}
-
-	// if we have a buffer, create a memory descriptor
-	if (reqLength && (request->pData != NULL))
-	{
-		bufferMemoryDescriptor = IOMemoryDescriptor::withAddress(request->pData, reqLength, (direction == kUSBIn) ? kIODirectionIn : kIODirectionOut);
-		if (bufferMemoryDescriptor)
-		{
+			// We verified earlier that pData is non-NULL if reqLength is >0
+			bufferMemoryDescriptor = IOMemoryDescriptor::withAddress(request->pData, reqLength, (direction == kUSBIn) ? kIODirectionIn : kIODirectionOut);
+			if (!bufferMemoryDescriptor)
+			{
+				USBError(1,"%s[%p]::DeviceRequest - could not create buffer memory descriptor", getName(), this);
+				err = kIOReturnNoMemory;
+				break;
+			}
 			err = bufferMemoryDescriptor->prepare();
-			if (err)
+			if (err != kIOReturnSuccess)
 			{
 				USBError(1,"%s[%p]::DeviceRequest - err (%p) trying to prepare bufferMemoryDescriptor", getName(), this, (void*)err);
-				return err;
+				bufferMemoryDescriptor->release();
+				bufferMemoryDescriptor = NULL;
+				break;
 			}
-			bufferCommand->SetBufferMemoryDescriptor(bufferMemoryDescriptor);
-			bufferCommand->SetReqCount(reqLength);
-			bufferCommand->SetSelector(DEVICE_REQUEST);							// signal that this descriptor needs to be returned
+		}
+		// Allocate the command
+		//
+		command = (IOUSBCommand *)_freeUSBCommandPool->getCommand(false);
+		if (reqLength)
+			bufferCommand = (IOUSBCommand *)_freeUSBCommandPool->getCommand(false);
+		
+		// If we couldn't get a command, increase the allocation and try again
+		//
+		if ( !command || (reqLength && !bufferCommand))
+		{
+			IncreaseCommandPool();
+			
+			if (!command)
+				command = (IOUSBCommand *)_freeUSBCommandPool->getCommand(false);
+			
+			if (reqLength && !bufferCommand)
+				bufferCommand = (IOUSBCommand *)_freeUSBCommandPool->getCommand(false);
+			
+			if ( !command || (reqLength && !bufferCommand))
+			{
+				USBLog(1,"%s[%p]::DeviceRequest Could not get a IOUSBCommand (1:%p 2:%p)", getName(), this, command, bufferCommand);
+				err = kIOReturnNoResources;
+				if (command)
+				{
+					if (command->GetBufferUSBCommand())
+					{
+						USBLog(1,"%s[%p]::DeviceRequest - unexpected BufferUSBCommand(%p) inside of new command(%p)", getName(), this, command->GetBufferUSBCommand(), command);
+						command->SetBufferUSBCommand(NULL);
+					}
+					if (command->GetRequestMemoryDescriptor())
+					{
+						USBLog(1,"%s[%p]::DeviceRequest - unexpected RequestMemoryDescriptor(%p) inside of new command(%p)", getName(), this, command->GetRequestMemoryDescriptor(), command);
+						command->SetRequestMemoryDescriptor(NULL);
+					}
+				}
+				break;
+			}
+		}
+		
+		// these are necessary in case we bail out before we put the real buffer command or request memory descriptor into a valid command
+		if (command->GetBufferUSBCommand())
+		{
+			USBLog(1,"%s[%p]::DeviceRequest - unexpected BufferUSBCommand(%p) inside of new command(%p)", getName(), this, command->GetBufferUSBCommand(), command);
+			command->SetBufferUSBCommand(NULL);
+		}
+		if (command->GetRequestMemoryDescriptor())
+		{
+			USBLog(1,"%s[%p]::DeviceRequest - unexpected RequestMemoryDescriptor(%p) inside of new command(%p)", getName(), this, command->GetRequestMemoryDescriptor(), command);
+			command->SetRequestMemoryDescriptor(NULL);
+		}
+		if (bufferCommand && bufferCommand->GetBufferMemoryDescriptor())
+		{
+			USBLog(1,"%s[%p]::DeviceRequest - unexpected BufferMemoryDescriptor(%p) inside of new bufferCommand(%p)", getName(), this, bufferCommand->GetBufferMemoryDescriptor(), bufferCommand);
+			bufferCommand->SetBufferMemoryDescriptor(NULL);
+		}
+
+		// put the bufferCommand into the command now, so that it can be cleaned up correctly in case of an error (it may be NULL)
+		command->SetBufferUSBCommand(bufferCommand);
+		
+		// Make sure we have a dmaCommand and that it doesn't yet have a memory descriptor in it
+		dmaCommand = command->GetDMACommand();
+		if (!dmaCommand)
+		{
+			USBError(1,"%s[%p]::DeviceRequest - No dmaCommand in the usb command", getName(), this);
+			err = kIOReturnNoResources;
+			break;
+		}
+		if (dmaCommand->getMemoryDescriptor())
+		{
+			IOMemoryDescriptor		*memDesc = (IOMemoryDescriptor *)dmaCommand->getMemoryDescriptor();
+			USBError(1,"%s[%p]::DeviceRequest - dmaCommand (%p) already had memory descriptor (%p) - clearing", getName(), this, dmaCommand, memDesc);
+			dmaCommand->clearMemoryDescriptor();
+		}
+		// put the requestMemoryDescriptor into the dmaCommand and into the command structure
+		USBLog(7,"%s[%p]::DeviceRequest - setting memory descriptor (%p) into dmaCommand (%p)", getName(), this, requestMemoryDescriptor, dmaCommand);
+		err = dmaCommand->setMemoryDescriptor(requestMemoryDescriptor);
+		if (err != kIOReturnSuccess)
+		{
+			USBError(1,"%s[%p]::DeviceRequest - err (%p) setting memory descriptor (%p) into dmaCommand (%p)", getName(), this, (void*)err, requestMemoryDescriptor, dmaCommand);
+			break;
+		}
+		command->SetRequestMemoryDescriptor(requestMemoryDescriptor);
+		command->SetReqCount(8);
+		requestMemoryDescriptor = NULL;						// this is so we don't release it again once we have put it in the command
+		
+		if (bufferCommand)
+		{		
+			bufferDMACommand = bufferCommand->GetDMACommand();
+			if (!bufferDMACommand)
+			{
+				USBError(1,"%s[%p]::DeviceRequest - No dmaCommand in the usb command", getName(), this);
+				err = kIOReturnNoResources;
+				break;
+			}
+			IOMemoryDescriptor		*memDesc = (IOMemoryDescriptor *)bufferDMACommand->getMemoryDescriptor();
+			if (memDesc)
+			{
+				USBError(1,"%s[%p]::DeviceRequest - buffer dmaCommand (%p) already had memory descriptor (%p) - clearing", getName(), this, bufferDMACommand, bufferDMACommand->getMemoryDescriptor());
+				bufferDMACommand->clearMemoryDescriptor();
+			}
+		}
+		if (bufferMemoryDescriptor)
+		{
 			USBLog(7,"%s[%p]::DeviceRequest - setting buffer memory descriptor (%p) into buffer dmaCommand (%p)", getName(), this, bufferMemoryDescriptor, bufferDMACommand);
 			err = bufferDMACommand->setMemoryDescriptor(bufferMemoryDescriptor);
 			if (err)
 			{
 				USBError(1,"%s[%p]::DeviceRequest - err (%p) setting buffer memory descriptor (%p) into buffer dmaCommand (%p)", getName(), this, (void*)err, bufferMemoryDescriptor, bufferDMACommand);
-				bufferMemoryDescriptor->complete();
-				bufferMemoryDescriptor->release();
-				return err;
+				break;
 			}
+			bufferCommand->SetBufferMemoryDescriptor(bufferMemoryDescriptor);
+			bufferCommand->SetReqCount(reqLength);
+			bufferCommand->SetSelector(DEVICE_REQUEST);							// signal that this descriptor needs to be returned
+			bufferMemoryDescriptor = NULL;										// so we don't release it twice
 		}
+		// Set up the rest of the command before calling into the UIM
+		//
+		if (  completion->action == &IOUSBSyncCompletion )
+			isSyncTransfer = true;
+		
+		command->SetIsSyncTransfer(isSyncTransfer);
+		command->SetUseTimeStamp(false);
+		if (bufferCommand)
+			command->SetSelector(DEVICE_REQUEST_BUFFERCOMMAND);
 		else
-		{
-			USBError(1, "%s[%p]::DeviceRequest - unable to get needed IOMemoryDescriptor", getName(), this);
-			return kIOReturnNoResources;
-		}
-	}
-	
-	
-	// Set up a flag indicating that we have a synchronous request in this command
-	//
-    if (  completion->action == &IOUSBSyncCompletion )
-		command->SetIsSyncTransfer(true);
-	else
-		command->SetIsSyncTransfer(false);
-	
-	isSyncTransfer = command->GetIsSyncTransfer();
+			command->SetSelector(DEVICE_REQUEST);
+		command->SetRequest(request);
+		command->SetAddress(address);
+		command->SetEndpoint(ep);
+		command->SetDirection(kUSBAnyDirn);
+		command->SetType(kUSBControl);
+		command->SetBuffer(0);											// no buffer for device requests
+		command->SetClientCompletion(*completion);
+		command->SetNoDataTimeout(noDataTimeout);
+		command->SetCompletionTimeout(completionTimeout);	
+		
+		// Set the USL completion to NULL, so the high speed controller can do its own thing
+		nullCompletion.target = (void *) NULL;
+		nullCompletion.action = (IOUSBCompletionAction) NULL;
+		nullCompletion.parameter = (void *) NULL;
+		command->SetUSLCompletion(nullCompletion);
+		command->SetDisjointCompletion(nullCompletion);
+		command->SetMultiTransferTransaction(false);				// these will get set correctly in IOUSBCommand::ControlRequest
+		command->SetFinalTransferInTransaction(false);				// these will get set correctly in IOUSBCommand::ControlRequest
+		
+		for (i=0; i < 10; i++)
+			command->SetUIMScratch(i, 0);
+		
+		err = GetCommandGate()->runAction(DoControlTransfer, command);
+	} while (false);
 
-	command->SetUseTimeStamp(false);
-	if (bufferMemoryDescriptor)
-		command->SetSelector(DEVICE_REQUEST_BUFFERCOMMAND);
-	else
-		command->SetSelector(DEVICE_REQUEST);
-	command->SetRequest(request);
-	command->SetAddress(address);
-	command->SetEndpoint(ep);
-    command->SetDirection(kUSBAnyDirn);
-	command->SetType(kUSBControl);
-	command->SetBuffer(0);											// no buffer for device requests
-	command->SetClientCompletion(*completion);
-	command->SetNoDataTimeout(noDataTimeout);
-	command->SetCompletionTimeout(completionTimeout);	
-	command->SetBufferUSBCommand(bufferCommand);
-	
-	// Set the USL completion to NULL, so the high speed controller can do its own thing
-	nullCompletion.target = (void *) NULL;
-	nullCompletion.action = (IOUSBCompletionAction) NULL;
-	nullCompletion.parameter = (void *) NULL;
-	command->SetUSLCompletion(nullCompletion);
-	command->SetDisjointCompletion(nullCompletion);
-	command->SetMultiTransferTransaction(false);				// these will get set correctly in IOUSBCommand::ControlRequest
-	command->SetFinalTransferInTransaction(false);				// these will get set correctly in IOUSBCommand::ControlRequest
-	
-	for (i=0; i < 10; i++)
-	    command->SetUIMScratch(i, 0);
-	
-	err = GetCommandGate()->runAction(DoControlTransfer, command);
 	
 	// If we have a sync request, then we always return the command after the DoControlTransfer.  If it's an async request, we only return it if 
 	// we get an immediate error
 	//
-	if ( (kIOReturnSuccess != err) ||  isSyncTransfer )
+	if ( (kIOReturnSuccess != err) || isSyncTransfer )
 	{
-		IOUSBCommand			*aBufferCommand = command->GetBufferUSBCommand();
-		command->SetBufferUSBCommand(NULL);
-		_freeUSBCommandPool->returnCommand(command);
-		if (aBufferCommand)
-			_freeUSBCommandPool->returnCommand(aBufferCommand);
+		
+		if (requestMemoryDescriptor)
+		{
+			// if this is not NULL at this point, then something went wrong pretty early above and we may not even have a command
+			requestMemoryDescriptor->complete();
+			requestMemoryDescriptor->release();
+			requestMemoryDescriptor = NULL;
+		}
+		
+		if (bufferMemoryDescriptor)
+		{
+			// similar to the above..
+			bufferMemoryDescriptor->complete();
+			bufferMemoryDescriptor->release();
+			bufferMemoryDescriptor = NULL;
+		}
+		
+		// most of these things should have gotten cleared by the handler function, but
+		// I check here to make sure. the only ones which should need to get returned are
+		// the command and possibly the bufferCommand
+		
+		if (command)
+		{
+			// the bufferCommand is optional to begin with
+			bufferCommand = command->GetBufferUSBCommand();
+			// the requestMemoryDescriptor may have been cleared by the callback method
+			requestMemoryDescriptor = command->GetRequestMemoryDescriptor();
+			if (requestMemoryDescriptor)
+				command->SetRequestMemoryDescriptor(NULL);
+			// the dmaCommand is always attached to the command
+			dmaCommand = command->GetDMACommand();
+		}
+		else
+		{
+			bufferCommand = NULL;
+		}
+
+		if (bufferCommand)
+		{
+			command->SetBufferUSBCommand(NULL);
+			// the bufferMemoryDescriptor may have been cleared by the callback method
+			bufferMemoryDescriptor = bufferCommand->GetBufferMemoryDescriptor();
+			if (bufferMemoryDescriptor)
+				bufferCommand->SetBufferMemoryDescriptor(NULL);
+			// the bufferDMACommand is always attached to the bufferCommand
+			bufferDMACommand = bufferCommand->GetDMACommand();
+		}
+		
+		
+		// these things will normally be done in the completion routines, so the logs are fairly low here
+		if (dmaCommand && dmaCommand->getMemoryDescriptor())
+		{
+			USBLog(2,"%s[%p]::DeviceRequest - clearing dmaCommand (err %p)", getName(), this, (void*)err);
+			dmaCommand->clearMemoryDescriptor();
+		}
+		
+		if (bufferDMACommand && bufferDMACommand->getMemoryDescriptor())
+		{
+			USBLog(2,"%s[%p]::DeviceRequest - clearing bufferDMACommand (err %p)", getName(), this, (void*)err);
+			bufferDMACommand->clearMemoryDescriptor();
+		}
+		
+		if (bufferMemoryDescriptor)
+		{
+			USBLog(2,"%s[%p]::DeviceRequest - clearing bufferMemoryDescriptor (err %p)", getName(), this, (void*)err);
+			bufferMemoryDescriptor->complete();
+			bufferMemoryDescriptor->release();
+		}
+		
+		if (requestMemoryDescriptor)
+		{
+			USBLog(2,"%s[%p]::DeviceRequest - clearing requestMemoryDescriptor (err %p)", getName(), this, (void*)err);
+			requestMemoryDescriptor->complete();
+			requestMemoryDescriptor->release();
+		}
+		
+		// normally the command and if used the bufferCommand will get returned, and everything else will have been done by now
+		if (bufferCommand)
+		{
+			USBLog(7,"%s[%p]::DeviceRequest - returning bufferCommand", getName(), this);
+			_freeUSBCommandPool->returnCommand(bufferCommand);
+		}
+		
+		if (command)
+		{
+			USBLog(7,"%s[%p]::DeviceRequest - returning command", getName(), this);
+			_freeUSBCommandPool->returnCommand(command);
+		}
+		
 	}
 	
     return err;
@@ -2880,9 +3066,10 @@ IOUSBController::DeviceRequest(IOUSBDevRequestDesc *request, IOUSBCompletion *co
     IOMemoryDescriptor		*requestMemoryDescriptor = NULL;
     IOReturn				err = kIOReturnSuccess; 
     IOUSBCompletion			nullCompletion;
+	IODMACommand			*dmaCommand = NULL;
 	UInt16					reqLength = request->wLength;
 	int						i;
-	bool					isSyncTransfer;
+	bool					isSyncTransfer = false;
 	
 	USBLog(7,"%s[%p]::DeviceRequestDesc [%x,%x],[%x,%x],[%x,%p]",getName(),this, 
 		   request->bmRequestType,
@@ -2895,41 +3082,9 @@ IOUSBController::DeviceRequest(IOUSBDevRequestDesc *request, IOUSBCompletion *co
 	if ( GetCommandGate() == NULL)
 		return kIOReturnInternalError;
 	
-	// Allocate the command
-	//
-	command = (IOUSBCommand *)_freeUSBCommandPool->getCommand(false);
-	if (reqLength)
-		bufferCommand = (IOUSBCommand *)_freeUSBCommandPool->getCommand(false);
-	
-    // If we couldn't get a command, increase the allocation and try again
-    //
-    if ( !command || (reqLength && !bufferCommand))
-    {
-        IncreaseCommandPool();
-        
-		if (!command)
-			command = (IOUSBCommand *)_freeUSBCommandPool->getCommand(false);
-		
-		if (reqLength && !bufferCommand)
-			bufferCommand = (IOUSBCommand *)_freeUSBCommandPool->getCommand(false);
-		
-		if ( !command || (reqLength && !bufferCommand))
-        {
-            USBLog(3,"%s[%p]::DeviceRequest Could not get a IOUSBCommand (1:%p 2:%p)", getName(), this, command, bufferCommand);
-            return kIOReturnNoResources;
-        }
-    }
-	
-	// Set up a flag indicating that we have a synchronous request in this command
-	//
-    if ( completion->action == &IOUSBSyncCompletion )
-		command->SetIsSyncTransfer(true);
-	else
-		command->SetIsSyncTransfer(false);
-	
-	isSyncTransfer = command->GetIsSyncTransfer();
+	if (reqLength && (request->pData == NULL))
+		return kIOReturnBadArgument;
 
-	command->SetUseTimeStamp(false);
 	// the request is in Host format, so I need to convert the 16 bit fields to bus format
 	request->wValue = HostToUSBWord(request->wValue);
 	request->wIndex = HostToUSBWord(request->wIndex);
@@ -2937,104 +3092,262 @@ IOUSBController::DeviceRequest(IOUSBDevRequestDesc *request, IOUSBCompletion *co
 	
 	// set up the memory descriptor for the request
 	requestMemoryDescriptor = IOMemoryDescriptor::withAddress(request, 8, kIODirectionOut);
-	if (!requestMemoryDescriptor)
-	{
-		USBError(1,"%s[%p]::DeviceRequest - could not create request memory descriptor", getName(), this);
-		return kIOReturnNoMemory;
-	}
 	
-	err = requestMemoryDescriptor->prepare();
-	if (err)
+	do				// not a real loop. just a way of avoiding gotos
 	{
-		USBError(1,"%s[%p]::DeviceRequest - err (%p) trying to prepare request memory descriptor", getName(), this, (void*)err);
-		requestMemoryDescriptor->release();
-		return err;
-	}
-	
-	command->SetRequestMemoryDescriptor(requestMemoryDescriptor);
-	command->SetReqCount(8);
-	
-	USBLog(7,"%s[%p]::DeviceRequest - setting memory descriptor (%p) into dmaCommand (%p)", getName(), this, requestMemoryDescriptor, command->GetDMACommand());
-	err = command->GetDMACommand()->setMemoryDescriptor(requestMemoryDescriptor);
-	if (err)
-	{
-		USBError(1,"%s[%p]::DeviceRequest - err (%p) setting memory descriptor (%p) into dmaCommand (%p)", getName(), this, (void*)err, requestMemoryDescriptor, command->GetDMACommand());
-		requestMemoryDescriptor->complete();
-		requestMemoryDescriptor->release();
-		return err;
-	}
-	
-	if (bufferCommand)
-	{
-		bufferDMACommand = bufferCommand->GetDMACommand();
-		bufferCommand->SetBufferMemoryDescriptor(request->pData);
-		bufferCommand->SetReqCount(reqLength);
-		bufferCommand->SetSelector(DEVICE_REQUEST_DESC);			// signal NOT to release the mem desc when we are done (the client will do that)
-		command->SetSelector(DEVICE_REQUEST_BUFFERCOMMAND);
-		// request->pData->retain();				// should i do this?
-		// err = request->pData->prepare();			// should i do this?
-		if (0) // if (err)
+		if (!requestMemoryDescriptor)
 		{
-			USBError(1,"%s[%p]::DeviceRequest - err (%p) preparing clients memory descriptor (%p)", getName(), this, (void*)err, request->pData);
-			request->pData->release();			// should i do this?
-			return err;
+			USBError(1,"%s[%p]::DeviceRequest - could not create request memory descriptor", getName(), this);
+			err = kIOReturnNoMemory;
+			break;
 		}
-		USBLog(7,"%s[%p]::DeviceRequest - setting buffer memory descriptor (%p) into buffer dmaCommand (%p)", getName(), this, request->pData, bufferDMACommand);
-		err = bufferDMACommand->setMemoryDescriptor(request->pData);
-		if (err)
+		err = requestMemoryDescriptor->prepare();
+		if (err != kIOReturnSuccess)
 		{
-			USBError(1,"%s[%p]::DeviceRequest - err (%p) setting buffer memory descriptor (%p) into buffer dmaCommand (%p)", getName(), this, (void*)err, request->pData, bufferDMACommand);
-			// request->pData->complete();			// should i do this?
-			// request->pData->release();			// should i do this?
-			return err;
+			USBError(1,"%s[%p]::DeviceRequest - err (%p) trying to prepare request memory descriptor", getName(), this, (void*)err);
+			requestMemoryDescriptor->release();
+			requestMemoryDescriptor = NULL;
+			break;
 		}
-	}
-	else
-	{
-		command->SetSelector(DEVICE_REQUEST_DESC);
-		command->SetBuffer(request->pData);							// this is really an IOMemoryDescriptor - but should be NULL in this case
-		if (request->pData)
+		// Allocate the command
+		//
+		command = (IOUSBCommand *)_freeUSBCommandPool->getCommand(false);
+		if (reqLength)
+			bufferCommand = (IOUSBCommand *)_freeUSBCommandPool->getCommand(false);
+		
+		// If we couldn't get a command, increase the allocation and try again
+		//
+		if ( !command || (reqLength && !bufferCommand))
 		{
-			USBError(1, "%s[%p]::DeviceRequest - expected NULL request->pData (%p)", getName(), this, request->pData);
+			IncreaseCommandPool();
+			
+			if (!command)
+				command = (IOUSBCommand *)_freeUSBCommandPool->getCommand(false);
+			
+			if (reqLength && !bufferCommand)
+				bufferCommand = (IOUSBCommand *)_freeUSBCommandPool->getCommand(false);
+			
+			if ( !command || (reqLength && !bufferCommand))
+			{
+				USBLog(1,"%s[%p]::DeviceRequest Could not get a IOUSBCommand (1:%p 2:%p)", getName(), this, command, bufferCommand);
+				err = kIOReturnNoResources;
+				if (command)
+				{
+					if (command->GetBufferUSBCommand())
+					{
+						USBLog(1,"%s[%p]::DeviceRequest - unexpected BufferUSBCommand(%p) inside of new command(%p)", getName(), this, command->GetBufferUSBCommand(), command);
+						command->SetBufferUSBCommand(NULL);
+					}
+					if (command->GetRequestMemoryDescriptor())
+					{
+						USBLog(1,"%s[%p]::DeviceRequest - unexpected RequestMemoryDescriptor(%p) inside of new command(%p)", getName(), this, command->GetRequestMemoryDescriptor(), command);
+						command->SetRequestMemoryDescriptor(NULL);
+					}
+				}
+				break;
+			}
 		}
-	}
-	
-	// IOUSBDevRequest and IOUSBDevRequestDesc are same except for
-	// pData (void * or descriptor).
-	command->SetRequest((IOUSBDevRequest *)request);
-	command->SetAddress(address);
-	command->SetEndpoint(ep);
-    command->SetDirection(kUSBAnyDirn);
-	command->SetType(kUSBControl);
-	command->SetClientCompletion(*completion);
-	command->SetNoDataTimeout(noDataTimeout);
-	command->SetCompletionTimeout(completionTimeout);
-	command->SetBufferUSBCommand(bufferCommand);
-	
-	// Set the USL completion to NULL, so the high speed controller can do its own thing
-	nullCompletion.target = (void *) NULL;
-	nullCompletion.action = (IOUSBCompletionAction) NULL;
-	nullCompletion.parameter = (void *) NULL;
-	command->SetUSLCompletion(nullCompletion);
-	command->SetDisjointCompletion(nullCompletion);
-	command->SetMultiTransferTransaction(false);				// these will get set correctly in IOUSBCommand::ControlRequest
-	command->SetFinalTransferInTransaction(false);				// these will get set correctly in IOUSBCommand::ControlRequest
 
-	for (i=0; i < 10; i++)
-	    command->SetUIMScratch(i, 0);
+		// these are necessary in case we bail out before we put the real buffer command or request memory descriptor into a valid command
+		if (command->GetBufferUSBCommand())
+		{
+			USBLog(1,"%s[%p]::DeviceRequest - unexpected BufferUSBCommand(%p) inside of new command(%p)", getName(), this, command->GetBufferUSBCommand(), command);
+			command->SetBufferUSBCommand(NULL);
+		}
+		if (command->GetRequestMemoryDescriptor())
+		{
+			USBLog(1,"%s[%p]::DeviceRequest - unexpected RequestMemoryDescriptor(%p) inside of new command(%p)", getName(), this, command->GetRequestMemoryDescriptor(), command);
+			command->SetRequestMemoryDescriptor(NULL);
+		}
+		if (bufferCommand && bufferCommand->GetBufferMemoryDescriptor())
+		{
+			USBLog(1,"%s[%p]::DeviceRequest - unexpected BufferMemoryDescriptor(%p) inside of new bufferCommand(%p)", getName(), this, bufferCommand->GetBufferMemoryDescriptor(), bufferCommand);
+			bufferCommand->SetBufferMemoryDescriptor(NULL);
+		}
+		
+		// put the bufferCommand into the command now, so that it can be cleaned up correctly in case of an error (it may be NULL)
+		command->SetBufferUSBCommand(bufferCommand);
+		
+		// Make sure we have a dmaCommand and that it doesn't yet have a memory descriptor in it
+		dmaCommand = command->GetDMACommand();
+		if (!dmaCommand)
+		{
+			USBError(1,"%s[%p]::DeviceRequest - No dmaCommand in the usb command", getName(), this);
+			err = kIOReturnNoResources;
+			break;
+		}
+		if (dmaCommand->getMemoryDescriptor())
+		{
+			IOMemoryDescriptor		*memDesc = (IOMemoryDescriptor *)dmaCommand->getMemoryDescriptor();
+			USBError(1,"%s[%p]::DeviceRequest - dmaCommand (%p) already had memory descriptor (%p) - clearing", getName(), this, dmaCommand, memDesc);
+			dmaCommand->clearMemoryDescriptor();
+		}
+		
+		// put the requestMemoryDescriptor into the command structure and into the dmaCommand
+		USBLog(7,"%s[%p]::DeviceRequest - setting memory descriptor (%p) into dmaCommand (%p)", getName(), this, requestMemoryDescriptor, dmaCommand);
+		err = dmaCommand->setMemoryDescriptor(requestMemoryDescriptor);
+		if (err != kIOReturnSuccess)
+		{
+			USBError(1,"%s[%p]::DeviceRequest - err (%p) setting memory descriptor (%p) into dmaCommand (%p)", getName(), this, (void*)err, requestMemoryDescriptor, dmaCommand);
+			break;
+		}
+		command->SetRequestMemoryDescriptor(requestMemoryDescriptor);
+		command->SetReqCount(8);
+		requestMemoryDescriptor = NULL;
+		
+		if (bufferCommand)
+		{		
+			bufferDMACommand = bufferCommand->GetDMACommand();
+			if (!bufferDMACommand)
+			{
+				USBError(1,"%s[%p]::DeviceRequest - No dmaCommand in the usb command", getName(), this);
+				err = kIOReturnNoResources;
+				break;
+			}
+			IOMemoryDescriptor		*memDesc = (IOMemoryDescriptor *)bufferDMACommand->getMemoryDescriptor();
+			if (memDesc)
+			{
+				USBError(1,"%s[%p]::DeviceRequest - buffer dmaCommand (%p) already had memory descriptor (%p) - clearing", getName(), this, bufferDMACommand, bufferDMACommand->getMemoryDescriptor());
+				bufferDMACommand->clearMemoryDescriptor();
+			}
+		}
+		
+		// Set up a flag indicating that we have a synchronous request in this command
+		//
+		if ( completion->action == &IOUSBSyncCompletion )
+			isSyncTransfer = true;
+		
+		command->SetIsSyncTransfer(isSyncTransfer);
+		
+		command->SetUseTimeStamp(false);
+		
+		if (bufferCommand)
+		{
+			bufferCommand->SetBufferMemoryDescriptor(request->pData);
+			bufferCommand->SetReqCount(reqLength);
+			bufferCommand->SetSelector(DEVICE_REQUEST_DESC);			// signal NOT to release the mem desc when we are done (the client will do that)
+			command->SetSelector(DEVICE_REQUEST_BUFFERCOMMAND);
+			USBLog(7,"%s[%p]::DeviceRequest - setting buffer memory descriptor (%p) into buffer dmaCommand (%p)", getName(), this, request->pData, bufferDMACommand);
+			err = bufferDMACommand->setMemoryDescriptor(request->pData);
+			if (err)
+			{
+				USBError(1,"%s[%p]::DeviceRequest - err (%p) setting buffer memory descriptor (%p) into buffer dmaCommand (%p)", getName(), this, (void*)err, request->pData, bufferDMACommand);
+				break;
+			}
+		}
+		else
+		{
+			command->SetSelector(DEVICE_REQUEST_DESC);
+			command->SetBuffer(request->pData);							// this is really an IOMemoryDescriptor - but should be NULL in this case
+			if (request->pData)
+			{
+				USBError(1, "%s[%p]::DeviceRequest - expected NULL request->pData (%p)", getName(), this, request->pData);
+			}
+		}
+		
+		// IOUSBDevRequest and IOUSBDevRequestDesc are same except for
+		// pData (void * or descriptor).
+		command->SetRequest((IOUSBDevRequest *)request);
+		command->SetAddress(address);
+		command->SetEndpoint(ep);
+		command->SetDirection(kUSBAnyDirn);
+		command->SetType(kUSBControl);
+		command->SetClientCompletion(*completion);
+		command->SetNoDataTimeout(noDataTimeout);
+		command->SetCompletionTimeout(completionTimeout);
+		command->SetBufferUSBCommand(bufferCommand);
+		
+		// Set the USL completion to NULL, so the high speed controller can do its own thing
+		nullCompletion.target = (void *) NULL;
+		nullCompletion.action = (IOUSBCompletionAction) NULL;
+		nullCompletion.parameter = (void *) NULL;
+		command->SetUSLCompletion(nullCompletion);
+		command->SetDisjointCompletion(nullCompletion);
+		command->SetMultiTransferTransaction(false);				// these will get set correctly in IOUSBCommand::ControlRequest
+		command->SetFinalTransferInTransaction(false);				// these will get set correctly in IOUSBCommand::ControlRequest
+		
+		for (i=0; i < 10; i++)
+			command->SetUIMScratch(i, 0);
+		
+		err = GetCommandGate()->runAction(DoControlTransfer, command);
+
+	} while (false);
 	
-	err = GetCommandGate()->runAction(DoControlTransfer, command);
 	
 	// If we have a sync request, then we always return the command after the DoControlTransfer.  If it's an async request, we only return it if 
 	// we get an immediate error
 	//
-	if ( (kIOReturnSuccess != err) ||  isSyncTransfer )
+	if ( (kIOReturnSuccess != err) || isSyncTransfer )
 	{
-		IOUSBCommand			*aBufferCommand = command->GetBufferUSBCommand();
-		command->SetBufferUSBCommand(NULL);
-		_freeUSBCommandPool->returnCommand(command);
-		if (aBufferCommand)
-			_freeUSBCommandPool->returnCommand(aBufferCommand);
+		if (requestMemoryDescriptor)
+		{
+			// if this is not NULL at this point, then something went wrong pretty early above and we may not even have a command
+			requestMemoryDescriptor->complete();
+			requestMemoryDescriptor->release();
+			requestMemoryDescriptor = NULL;
+		}
+		
+		// most of these things should have gotten cleared by the handler function, but
+		// I check here to make sure. the only ones which should need to get returned are
+		// the command and possibly the bufferCommand
+		
+		if (command)
+		{
+			// the bufferCommand is optional to begin with
+			bufferCommand = command->GetBufferUSBCommand();
+			// the requestMemoryDescriptor may have been cleared by the callback method
+			requestMemoryDescriptor = command->GetRequestMemoryDescriptor();
+			if (requestMemoryDescriptor)
+				command->SetRequestMemoryDescriptor(NULL);
+			// the dmaCommand is always attached to the command
+			dmaCommand = command->GetDMACommand();
+		}
+		else
+		{
+			bufferCommand = NULL;
+		}
+		
+		if (bufferCommand)
+		{
+			command->SetBufferUSBCommand(NULL);
+			// the bufferDMACommand is always attached to the bufferCommand
+			bufferDMACommand = bufferCommand->GetDMACommand();
+		}
+
+		// these things will normally be done in the completion routines, so the logs are fairly low here
+		if (dmaCommand && dmaCommand->getMemoryDescriptor())
+		{
+			USBLog(2, "%s[%p]::DeviceRequest - clearing dmaCommand", getName(), this);
+			dmaCommand->clearMemoryDescriptor();
+		}
+		
+		if (bufferDMACommand && bufferDMACommand->getMemoryDescriptor())
+		{
+			USBLog(2, "%s[%p]::DeviceRequest - clearing bufferDMACommand", getName(), this);
+			bufferDMACommand->clearMemoryDescriptor();
+		}
+		
+		if (requestMemoryDescriptor)
+		{
+			// we repeat this here on purpose, because it means that we got the MD out of the request, and that we enterred this part with it NULL
+			USBLog(2, "%s[%p]::DeviceRequest - clearing requestMemoryDescriptor", getName(), this);
+			requestMemoryDescriptor->complete();
+			requestMemoryDescriptor->release();
+		}
+		
+		// these will normally be done here
+		if (bufferCommand)
+		{
+			USBLog(7, "%s[%p]::DeviceRequest - returning bufferCommand", getName(), this);
+			_freeUSBCommandPool->returnCommand(bufferCommand);
+		}
+		
+		if (command)
+		{
+			USBLog(7, "%s[%p]::DeviceRequest - returning command", getName(), this);
+			_freeUSBCommandPool->returnCommand(command);
+		}
+		
 	}
 	
     return err;
@@ -3101,6 +3414,7 @@ IOUSBController::CreateRootHubDevice( IOService * provider, IOUSBRootHubDevice *
     SInt32						busIndex;
 	const char *				parentLocation;
 	IOPCIDevice *				pciDevice = OSDynamicCast(IOPCIDevice, provider);
+	bool						sleepExtraCurrentExists = false;
 
 	USBTrace_Start( kUSBTController, kTPControllerCreateRootHubDevice, (uintptr_t)provider, 0, 0, 0);
 	
@@ -3110,7 +3424,7 @@ IOUSBController::CreateRootHubDevice( IOService * provider, IOUSBRootHubDevice *
     err = GetRootHubDeviceDescriptor( &desc );
     if ( err != kIOReturnSuccess)
     {
-        USBError(1,"%s: unable to get root hub descriptor", getName());
+        USBError(1,"%s[%p]::CreateRootHubDevice  unable to get root hub descriptor", getName(), this);
 		USBTrace( kUSBTController, kTPControllerCreateRootHubDevice, (uintptr_t)this, 0, 0, 1 );
         goto ErrorExit;
     }
@@ -3122,7 +3436,7 @@ IOUSBController::CreateRootHubDevice( IOService * provider, IOUSBRootHubDevice *
     err = CreateDevice(*rootHubDevice, address, desc.bMaxPacketSize0, _controllerSpeed, kUSB500mAAvailable);
     if ( err != kIOReturnSuccess)
     {
-        USBError(1,"%s: unable to create and initialize root hub device", getName());
+        USBError(1,"%s[%p]::CreateRootHubDevice  unable to create and initialize root hub device", getName(), this);
 		USBTrace( kUSBTController, kTPControllerCreateRootHubDevice, (uintptr_t)this, (uintptr_t)*rootHubDevice, 0, 2 );
 		(*rootHubDevice)->release();
 		*rootHubDevice = NULL;
@@ -3169,7 +3483,7 @@ IOUSBController::CreateRootHubDevice( IOService * provider, IOUSBRootHubDevice *
         if ( gUsedBusIDs[bus] )
         {
             //
-            USBError(1,"IOUSBController::CreateRootHubDevice  Bus %d already taken", (uint32_t) bus);
+            USBError(1,"%s[%p]::CreateRootHubDevice  Bus %d already taken", getName(), this, (uint32_t) bus);
 			USBTrace( kUSBTController, kTPControllerCreateRootHubDevice, (uintptr_t)this, bus, 0, 3 );
             
             for ( busIndex = kMaxNumberUSBBusses - 1; busIndex >= 0; busIndex-- )
@@ -3210,13 +3524,6 @@ IOUSBController::CreateRootHubDevice( IOService * provider, IOUSBRootHubDevice *
 	}
 	
 	// 5187893 - do the same for these other two properties
-    aProperty = provider->copyProperty(kAppleCurrentInSleep);
-    if (aProperty)
-	{
-        (*rootHubDevice)->setProperty(kAppleCurrentInSleep, aProperty);
-		aProperty->release();
-	}
-	
     aProperty = provider->copyProperty(kAppleCurrentExtra);
     if (aProperty)
 	{
@@ -3224,6 +3531,22 @@ IOUSBController::CreateRootHubDevice( IOService * provider, IOUSBRootHubDevice *
 		aProperty->release();
 	}
 	
+    aProperty = provider->copyProperty(kAppleMaxPortCurrentInSleep);
+    if (aProperty)
+	{
+        (*rootHubDevice)->setProperty(kAppleMaxPortCurrentInSleep, aProperty);
+		aProperty->release();
+	}
+	
+	// 
+    aProperty = provider->copyProperty(kAppleCurrentExtraInSleep);
+    if (aProperty)
+	{
+        (*rootHubDevice)->setProperty(kAppleCurrentExtraInSleep, aProperty);
+		aProperty->release();
+	}
+	
+	// kAppleInternalUSBDevice
     aProperty = provider->copyProperty(kAppleInternalUSBDevice);
     if (aProperty)
 	{
@@ -3231,14 +3554,117 @@ IOUSBController::CreateRootHubDevice( IOService * provider, IOUSBRootHubDevice *
 		aProperty->release();
 	}
 	
+	// kAppleMaxPortCurrentInSleep
+    aProperty = provider->copyProperty(kAppleMaxPortCurrentInSleep);
+    if (aProperty)
+	{
+        (*rootHubDevice)->setProperty(kAppleMaxPortCurrentInSleep, aProperty);
+		aProperty->release();
+	}
+	
+	// kAppleCurrentExtraInSleep
+    aProperty = provider->copyProperty(kAppleCurrentExtraInSleep);
+    if (aProperty)
+	{
+		sleepExtraCurrentExists = true;
+        (*rootHubDevice)->setProperty(kAppleCurrentExtraInSleep, aProperty);
+		(*rootHubDevice)->setProperty(kApplePortCurrentInSleep, kUSB2MaxPowerPerPort, 32);
+		aProperty->release();
+	}
+	
+	if ( !sleepExtraCurrentExists)
+	{
+		//  We need to synthesize the properties from a table because the EFI shipped without those properties
+		bool		result;
+		bool		matched = false;
+		char		model[14];
+		uint32_t	i;
+		
+		result = PEGetModelName(model, sizeof(model));
+		if (result)
+		{
+			for ( i = 0; i < sleepCurrentPerModelLength; i++)
+			{
+				if ( !strncmp(model, gSleepCurrentInfo[i].model, sizeof(model)) )
+				{
+					
+					USBLog(6, "%s[%p]::CreateRootHubDevice  Matched SleepCurrentPerModel: %s, %d, %d", getName(), this, gSleepCurrentInfo[i].model, (uint32_t)gSleepCurrentInfo[i].totalExtraSleepCurrent, (uint32_t)gSleepCurrentInfo[i].maxSleepCurrentPerPort);
+					matched = true;
+					break;
+				}
+			}
+			
+			if (matched)
+			{
+				// Update our properties with those from the table.  Also, for root hubs, we do always provide at least 500mA in sleep
+				(*rootHubDevice)->setProperty(kApplePortCurrentInSleep, kUSB2MaxPowerPerPort, 32);
+
+				if ( gSleepCurrentInfo[i].totalExtraWakeCurrent != 0)
+				{
+					USBLog(5, "%s[%p]::CreateRootHubDevice  Overriding kAppleCurrentExtra for %s with %d", getName(), this, gSleepCurrentInfo[i].model, (uint32_t)gSleepCurrentInfo[i].totalExtraWakeCurrent);
+					(*rootHubDevice)->setProperty(kAppleCurrentExtra, gSleepCurrentInfo[i].totalExtraWakeCurrent, 32);
+				}
+				
+				if ( gSleepCurrentInfo[i].maxWakeCurrentPerPort != 0)
+				{
+					USBLog(5, "%s[%p]::CreateRootHubDevice  Overriding kAppleCurrentAvailable for %s with %d", getName(), this, gSleepCurrentInfo[i].model, (uint32_t)gSleepCurrentInfo[i].maxWakeCurrentPerPort);
+					(*rootHubDevice)->setProperty(kAppleCurrentAvailable, gSleepCurrentInfo[i].maxWakeCurrentPerPort, 32);
+				}
+				
+				if ( gSleepCurrentInfo[i].totalExtraSleepCurrent != 0)
+				{
+					USBLog(5, "%s[%p]::CreateRootHubDevice  Overriding kAppleCurrentExtraInSleep for %s with %d", getName(), this, gSleepCurrentInfo[i].model, (uint32_t)gSleepCurrentInfo[i].totalExtraSleepCurrent);
+					(*rootHubDevice)->setProperty(kAppleCurrentExtraInSleep, gSleepCurrentInfo[i].totalExtraSleepCurrent, 32);
+				}
+				
+				if ( gSleepCurrentInfo[i].maxSleepCurrentPerPort != 0)
+				{
+					USBLog(5, "%s[%p]::CreateRootHubDevice  Overriding kAppleMaxPortCurrentInSleep for %s with %d", getName(), this, gSleepCurrentInfo[i].model, (uint32_t)gSleepCurrentInfo[i].maxSleepCurrentPerPort);
+					(*rootHubDevice)->setProperty(kAppleMaxPortCurrentInSleep, gSleepCurrentInfo[i].maxSleepCurrentPerPort, 32);
+				}
+			}
+		}
+	}
+	
+	// Now, add the pertinent properties to IOResources.  Do this only once per system, since ALL root hubs will share those properties.  This will avoid any race condition in initializing those properties.
+
+	if (OSCompareAndSwap(0, 1, &gExtraCurrentPropertiesInitialized))
+	{
+		IOService * ioResources;
+		
+		USBLog(2, "%s[%p]::CreateRootHubDevice -  gExtraCurrentPropertiesInitialized have not been initialized, doing so", getName(), this);
+		
+		ioResources = waitForMatchingService( serviceMatching("IOResources"), NSEC_PER_MS * 1000 * 10ULL);
+		if ( ioResources != NULL )
+		{
+			// Let's add the properties that are used to parcel out the extra current during sleep and wake
+			aProperty = (*rootHubDevice)->getProperty(kAppleCurrentExtra);
+			ioResources->setProperty(kAppleCurrentExtra, aProperty);
+			
+			aProperty = (*rootHubDevice)->getProperty(kAppleCurrentAvailable);
+			ioResources->setProperty(kAppleCurrentAvailable, aProperty);
+			
+			aProperty = (*rootHubDevice)->getProperty(kAppleMaxPortCurrentInSleep);
+			ioResources->setProperty(kAppleMaxPortCurrentInSleep, aProperty);
+			
+			aProperty = (*rootHubDevice)->getProperty(kAppleCurrentExtraInSleep);
+			ioResources->setProperty(kAppleCurrentExtraInSleep, aProperty);
+			
+		}
+		else 
+		{
+			USBLog(1, "%s[%p]::CreateRootHubDevice -  could not find IOResources entry", getName(), this);
+		}
+	}
+	
 	if (_controllerCanSleep)
 	{
-		USBLog(2, "IOUSBController[%p]::CreateRootHubDevice - controller (%s) can sleep, setting characteristic in root hub (%p)", this, getName(), rootHubDevice);
+		USBLog(2, "%s[%p]::CreateRootHubDevice - controller (%s) can sleep, setting characteristic in root hub (%p)", getName(), this, getName(), rootHubDevice);
 		(*rootHubDevice)->SetHubCharacteristics((*rootHubDevice)->GetHubCharacteristics() | kIOUSBHubDeviceCanSleep);
 	}
 	else
 	{
-		USBLog(1, "IOUSBController[%p]::CreateRootHubDevice - controller (%s) does not support sleep, NOT setting characteristic in root hub (%p)", this, getName(), rootHubDevice);
+		USBLog(1, "%s[%p]::CreateRootHubDevice - controller (%s) does not support sleep, NOT setting characteristic in root hub (%p)", getName(), this, getName(), rootHubDevice);
 		USBTrace( kUSBTController, kTPControllerCreateRootHubDevice, (uintptr_t)this, (uintptr_t)rootHubDevice, 0, 0 );
 	}
 	
@@ -3337,6 +3763,429 @@ IOUSBController::UIMCreateIsochTransfer(IOUSBIsocCommand *command)
 	return err;
 }
 
+//================================================================================================
+//
+//   CopyACPIDevice
+//
+//================================================================================================
+//
+IOACPIPlatformDevice * 
+IOUSBController::CopyACPIDevice( IORegistryEntry * device )
+{
+	IOACPIPlatformDevice *  acpiDevice = 0;
+	OSString *				acpiPath;
+	
+	if (device)
+	{
+		acpiPath = (OSString *) device->copyProperty(kACPIDevicePathKey);
+		if (acpiPath && !OSDynamicCast(OSString, acpiPath))
+		{
+			acpiPath->release();
+			acpiPath = 0;
+		}
+		
+		if (acpiPath)
+		{
+			IORegistryEntry * entry;
+			
+			// fromPath returns a retain()'d entry that needs to be released later
+			entry = IORegistryEntry::fromPath(acpiPath->getCStringNoCopy());
+			acpiPath->release();
+			
+			if (entry && entry->metaCast("IOACPIPlatformDevice"))
+				acpiDevice = (IOACPIPlatformDevice *) entry;
+			else if (entry)
+				entry->release();
+		}
+	}
+	
+	return (acpiDevice);
+}
+
+const char *DecodeUSBConnectorType( UInt8 type )
+{
+	switch (type)
+	{
+		case kUSBTypeAConnector			: return "Type A connector";	
+		case kUSBTypeMiniABConnector	: return "Mini-AB connector";	
+		case kUSBTypeExpressCard		: return "ExpressCard";				
+		case kUSBProprietaryConnector	: return "Proprietary connector";
+		default							: return "Unknown/Reserved connector";
+	}
+}
+//================================================================================================
+//
+//   HasExpressCard
+//
+//================================================================================================
+//
+bool 
+IOUSBController::HasExpressCard( IORegistryEntry *acpiDevice, UInt32 * portnum )
+{
+	const IORegistryPlane*	acpiPlane;
+	bool					match = false;
+	IORegistryIterator*		iter = NULL;
+	IORegistryEntry*		entry;
+	
+	if( acpiDevice )
+	{
+		acpiPlane = acpiDevice->getPlane( "IOACPIPlane" );
+		if (acpiPlane)
+		{
+			iter = IORegistryIterator::iterateOver(
+												   acpiDevice,
+												   acpiPlane,
+												   kIORegistryIterateRecursively);
+		}
+	}
+	
+	if (iter)
+	{
+		while (!match && (entry = iter->getNextObject()))
+		{			
+			// USB port must be a leaf node (no child), and
+			// must be an IOACPIPlatformDevice.
+			if ((entry->getChildEntry(acpiPlane) == 0) && entry->metaCast("IOACPIPlatformDevice"))
+			{
+				char path[255];
+				int	 length = 254;
+				
+				IOACPIPlatformDevice * port = (IOACPIPlatformDevice *) entry;
+				
+				// Express card port? Is port ejectable?
+				if (port->validateObject("_EJD") == kIOReturnSuccess)
+				{
+					entry->getPath(path, &length, acpiPlane);
+					
+					if (portnum)
+					{
+						*portnum = strtoul(port->getLocation(), NULL, 10);
+					}
+					
+					match = true;
+					USBLog(5, "IOUSBController[%p]::HasExpressCard _EJD:  %s", this, path);
+				} // end of EJD parsing - pre-K17 projects
+				
+				if ( (port->validateObject("_UPC") == kIOReturnSuccess) && (match == false) )
+				{
+					length = 254;
+					
+					entry->getPath(path, &length, acpiPlane);
+					
+					OSObject*	theObject;
+					IOReturn	status = port->evaluateObject("_UPC", &theObject);
+					
+					if (status == kIOReturnSuccess)
+					{
+						UInt32		portNumber	= strtoul(entry->getLocation(acpiPlane), NULL, 10);
+						OSArray*	upcData		= OSDynamicCast(OSArray, theObject);
+						
+						if (upcData)
+						{
+							OSNumber*	theUPCObject	= OSDynamicCast(OSNumber, upcData->getObject(1)); // 1 for connector look up
+							
+							if (theUPCObject)
+							{
+								UInt8 upcPackageValue = theUPCObject->unsigned8BitValue();
+								
+								if (upcPackageValue == kUSBTypeExpressCard)
+								{
+									match		= true;
+									*portnum	= portNumber;
+								}
+							}
+						}
+						theObject->release();
+					} 
+				} // end of UPC parsing
+			}
+		}
+		iter->release();
+	}
+
+	
+	if (match == true) 
+	{
+		USBLog(5, "IOUSBController[%p]::HasExpressCard found an Express Card in port %d", this, (unsigned int)*portnum);
+	}
+	else
+	{
+		USBLog(5, "IOUSBController[%p]::HasExpressCard did not find an Express Card", this);
+	}
+	
+	return match;
+}
+
+//================================================================================================
+//
+//   DumpUSBACPI
+//
+//================================================================================================
+//
+bool 
+IOUSBController::DumpUSBACPI( IORegistryEntry * provider )
+{
+	const IORegistryPlane*	acpiPlane;
+	IORegistryIterator*		iter;
+	IORegistryEntry*		entry;
+	UInt32					portnum = 0;
+	IOACPIPlatformDevice*	acpiDevice;
+	
+	acpiDevice = CopyACPIDevice( provider );
+	if (!acpiDevice)
+	{
+		USBLog(3, "IOUSBController[%p]::DumpUSBACPI acpiDevice not found", this);
+		return false;
+	}
+	
+	do {
+		acpiPlane = acpiDevice->getPlane( "IOACPIPlane" );
+		if (!acpiPlane)
+			break;
+		
+		// acpiDevice is the USB controller in ACPI plane.
+		// Recursively iterate over children of acpiDevice.
+		iter = IORegistryIterator::iterateOver(
+											   /* start */	acpiDevice,
+											   /* plane */	acpiPlane,
+											   /* options */ kIORegistryIterateRecursively);
+		
+		if (iter)
+		{
+			while ( (entry = iter->getNextObject()) )
+			{
+				
+				// USB port must be a leaf node (no child), and
+				// must be an IOACPIPlatformDevice.
+				if ((entry->getChildEntry(acpiPlane) == 0) && entry->metaCast("IOACPIPlatformDevice"))
+				{
+					char path[255];
+					int	 length = 254;
+					
+					IOACPIPlatformDevice * port;
+					port = (IOACPIPlatformDevice *) entry;
+					
+					// Express card port? Is port ejectable?
+					if (port->validateObject( "_EJD" ) == kIOReturnSuccess)
+					{
+						entry->getPath(path, &length, acpiPlane);
+						
+						// Determining the USB port number. we might go thru this twice but pick 
+						// the later number for the port number. This is a known bug in pre-K17 ACPI
+						// definitions
+						portnum = strtoul(port->getLocation(), NULL, 10);
+						
+						USBLog(5, "IOUSBController[%p]::DumpUSBACPI  _EJD: %s portnum %d", this, path,  (unsigned int)portnum);
+					} // end of EJD parsing - pre-K17 projects
+					
+					if ( (port->validateObject( "_UPC" ) == kIOReturnSuccess) )
+					{
+						length = 254;
+						
+						entry->getPath(path, &length, acpiPlane);
+
+						USBLog(5, "IOUSBController[%p]::DumpUSBACPI  _UPC: %s", this, path);
+						
+						OSObject*	theObject;
+						IOReturn	status		= port->evaluateObject("_UPC", &theObject);
+						UInt32		portNumber	= strtoul(entry->getLocation(acpiPlane), NULL, 10);
+						
+						if ( status == kIOReturnSuccess)
+						{
+							unsigned int	i;
+							OSArray*		upcData	= OSDynamicCast(OSArray, theObject);
+							
+							for (i = 0; i < upcData->getCount(); i++ )
+							{
+								OSNumber*	theUPCObject = OSDynamicCast(OSNumber, upcData->getObject(i));
+								
+								if ( theUPCObject )
+								{
+									UInt8 upcPackageValue = theUPCObject->unsigned8BitValue();
+									
+									if (i == 0)
+									{
+										USBLog(5, "IOUSBController[%p]::DumpUSBACPI  _UPC[%d]=0x%02x Connectable Port => %s  ", 
+											   this, i, upcPackageValue, (upcPackageValue == kUSBPortNotConnectable ) ? "No" : "Yes" );
+									}
+									else if (i == 1)
+									{
+										USBLog(5, "IOUSBController[%p]::DumpUSBACPI  _UPC[%d]=0x%02x Connector Type   => %s", 
+											   this, i, upcPackageValue, DecodeUSBConnectorType(upcPackageValue) );
+										
+										if ( (upcPackageValue == kUSBTypeExpressCard) )
+										{
+											portnum	= portNumber;
+										}
+									}
+									else if ( (i == 2) or (i == 3) )
+									{
+										USBLog(5, "IOUSBController[%p]::DumpUSBACPI  _UPC[%d]=0x%02x Reserved%d        => %s ", 
+											   this, i, upcPackageValue, (i==2)? 0:1, (upcPackageValue == 0x00 ) ? "is correct" : "incorrect" );
+									}
+								}
+							}
+							theObject->release();
+						} 
+					} // end of UPC parsing
+				}
+			}
+			iter->release();
+		}
+	}
+	while (false);
+
+	acpiDevice->release();
+	acpiDevice = NULL;
+
+	USBLog(5, "IOUSBController[%p]::DumpUSBACPI Express Card %s port %d", this, (unsigned int)(portnum > 0) ? "found" : "not found", (unsigned int)portnum );
+	
+	return portnum;
+}
+
+//================================================================================================
+//
+//   ExpressCardPort
+//
+// Checks for ExpressCard connected to this controller, and returns the port number (1 based)
+// Will return 0 if no ExpressCard is connected to this controller.
+//
+//================================================================================================
+//
+UInt32 
+IOUSBController::ExpressCardPort( IORegistryEntry* provider )
+{
+	IOACPIPlatformDevice *	acpiDevice;
+	UInt32					portNum = 0;
+	bool					isPCIeUSB;
+	
+	acpiDevice = CopyACPIDevice( provider );
+	if (acpiDevice)
+	{
+		isPCIeUSB = HasExpressCard( acpiDevice, &portNum );	
+		acpiDevice->release();
+		acpiDevice = NULL;
+	}
+	return(portNum);
+}
+
+bool 
+IOUSBController::IsPortInternal( IORegistryEntry * provider, UInt32 portnum )
+{
+	IOACPIPlatformDevice *	acpiDevice;
+	bool					isInternal = false;
+	
+	acpiDevice = CopyACPIDevice( provider );
+	if (acpiDevice)
+	{
+		isInternal = CheckACPIUPCTable( acpiDevice, portnum );	
+		acpiDevice->release();
+		acpiDevice = NULL;
+	}
+	
+	return isInternal;
+}
+
+bool 
+IOUSBController::CheckACPIUPCTable( IORegistryEntry * acpiDevice, UInt32 portnum )
+{
+	const IORegistryPlane*	acpiPlane;
+	bool					match = false;
+	IORegistryIterator*		iter = NULL;
+	IORegistryEntry*		entry;
+	
+	if( acpiDevice )
+	{
+		acpiPlane = acpiDevice->getPlane( "IOACPIPlane" );
+		if (acpiPlane)
+		{
+			iter = IORegistryIterator::iterateOver(
+												   acpiDevice,
+												   acpiPlane,
+												   kIORegistryIterateRecursively);
+		}
+	}
+	
+	if (iter)
+	{
+		while (!match && (entry = iter->getNextObject()))
+		{			
+			// USB port must be a leaf node (no child), and
+			// must be an IOACPIPlatformDevice.
+			if ((entry->getChildEntry(acpiPlane) == 0) && entry->metaCast("IOACPIPlatformDevice"))
+			{
+				char path[255];
+				int	 length = 254;
+				
+				IOACPIPlatformDevice * port = (IOACPIPlatformDevice *) entry;
+				
+				if ( (port->validateObject("_UPC") == kIOReturnSuccess) && (match == false) )
+				{
+					length = 254;
+					
+					entry->getPath(path, &length, acpiPlane);
+					
+					OSObject*	theObject;
+					IOReturn	status = port->evaluateObject("_UPC", &theObject);
+					
+					if (status == kIOReturnSuccess)
+					{
+						UInt32		portNumber	= strtoul(entry->getLocation(acpiPlane), NULL, 10);
+						OSArray*	upcData		= OSDynamicCast(OSArray, theObject);
+						
+						if (upcData)
+						{
+							OSNumber*	theUPCObject	= OSDynamicCast(OSNumber, upcData->getObject(1)); // 1 for connector look up
+							
+							if (theUPCObject)
+							{
+								UInt8 upcPackageValue = theUPCObject->unsigned8BitValue();
+								
+								// Ignoring express card slots because it is connectable to external devices. We want to include
+								// only ports which are connected internally.
+								if ( (upcPackageValue == kUSBProprietaryConnector) && (portNumber == portnum) )
+								{
+									match = true;
+								}
+							}
+						}
+						theObject->release();
+					} 
+				} // end of UPC parsing
+			}
+		}
+		iter->release();
+	}
+	
+	
+	if (match == true) 
+	{
+		USBLog(5, "IOUSBController[%p]::CheckACPIUPCTable found an internal device @ port %d", this, (unsigned int)portnum);
+	}
+	else
+	{
+		USBLog(5, "IOUSBController[%p]::CheckACPIUPCTable did not find an internal device @ port %d", this, (unsigned int)portnum);
+	}
+	
+	return match;
+}
 
 OSMetaClassDefineReservedUnused(IOUSBController,  19);
+
+
+//================================================================================================
+//
+//   IOUSBController_ExtraCurrentIOLockClass methods
+//
+//================================================================================================
+//
+IOUSBController_ExtraCurrentIOLockClass::IOUSBController_ExtraCurrentIOLockClass() 
+{
+	lock = IOLockAlloc();
+}
+
+IOUSBController_ExtraCurrentIOLockClass::~IOUSBController_ExtraCurrentIOLockClass() 
+{
+	IOLockFree(lock);
+}		
 

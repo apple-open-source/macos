@@ -1,7 +1,7 @@
 /*
  * "$Id: printers.c 8921 2009-12-14 22:08:53Z mike $"
  *
- *   Printer routines for the Common UNIX Printing System (CUPS).
+ *   Printer routines for the CUPS scheduler.
  *
  *   Copyright 2007-2010 by Apple Inc.
  *   Copyright 1997-2007 by Easy Software Products, all rights reserved.
@@ -112,6 +112,7 @@ cupsd_printer_t *			/* O - New printer */
 cupsdAddPrinter(const char *name)	/* I - Name of printer */
 {
   cupsd_printer_t	*p;		/* New printer */
+  char			uri[1024];	/* Printer URI */
 
 
  /*
@@ -135,8 +136,9 @@ cupsdAddPrinter(const char *name)	/* I - Name of printer */
   cupsdSetString(&p->info, name);
   cupsdSetString(&p->hostname, ServerName);
 
-  cupsdSetStringf(&p->uri, "ipp://%s:%d/printers/%s", ServerName, RemotePort,
-                  name);
+  httpAssembleURIf(HTTP_URI_CODING_ALL, uri, sizeof(uri), "ipp", NULL,
+		   ServerName, RemotePort, "/printers/%s", name);
+  cupsdSetString(&p->uri, uri);
   cupsdSetDeviceURI(p, "file:///dev/null");
 
   p->state      = IPP_PRINTER_STOPPED;
@@ -1637,7 +1639,7 @@ cupsdSaveAllPrinters(void)
   */
 
   fchown(cupsFileNumber(fp), getuid(), Group);
-  fchmod(cupsFileNumber(fp), 0600);
+  fchmod(cupsFileNumber(fp), ConfigFilePerm & 0600);
 
  /*
   * Write a small header to the file...
@@ -2757,8 +2759,8 @@ cupsdSetPrinterAttrs(cupsd_printer_t *p)/* I - Printer to setup */
 
 int					/* O - 1 if something changed, 0 otherwise */
 cupsdSetPrinterReasons(
-    cupsd_printer_t  *p,		/* I - Printer */
-    const char *s)			/* I - Reasons strings */
+    cupsd_printer_t *p,			/* I - Printer */
+    const char      *s)			/* I - Reasons strings */
 {
   int		i,			/* Looping var */
 		changed = 0;		/* Did something change? */
@@ -4081,11 +4083,11 @@ load_ppd(cupsd_printer_t *p)		/* I - Printer */
   * Check to see if the cache is up-to-date...
   */
 
-  snprintf(cache_name, sizeof(cache_name), "%s/%s.ipp2", CacheDir, p->name);
+  snprintf(cache_name, sizeof(cache_name), "%s/%s.ipp4", CacheDir, p->name);
   if (stat(cache_name, &cache_info))
     cache_info.st_mtime = 0;
 
-  snprintf(pwg_name, sizeof(pwg_name), "%s/%s.pwg", CacheDir, p->name);
+  snprintf(pwg_name, sizeof(pwg_name), "%s/%s.pwg3", CacheDir, p->name);
   if (stat(pwg_name, &pwg_info))
     pwg_info.st_mtime = 0;
 
@@ -4177,10 +4179,7 @@ load_ppd(cupsd_printer_t *p)		/* I - Printer */
     if (ppd->color_device)
       urf[num_urf ++] = _cupsStrAlloc("SRGB24");
 
-    if (ppd->manual_copies)
-      urf[num_urf ++] = _cupsStrAlloc("CP1");
-    else
-      urf[num_urf ++] = _cupsStrAlloc("CP255");
+    urf[num_urf ++] = _cupsStrAlloc("CP255");
 
     num_qualities = 0;
 
@@ -4576,10 +4575,18 @@ load_ppd(cupsd_printer_t *p)		/* I - Printer */
         ippAddString(p->ppd_attrs, IPP_TAG_PRINTER, IPP_TAG_KEYWORD,
 	             "output-bin-default", NULL, p->pwg->bins[0].pwg);
     }
-    else if ((ppd_attr = ppdFindAttr(ppd, "DefaultOutputOrder",
+    else if (((ppd_attr = ppdFindAttr(ppd, "DefaultOutputOrder",
                                      NULL)) != NULL &&
-	     !strcasecmp(ppd_attr->value, "Reverse"))
+	      !strcasecmp(ppd_attr->value, "Reverse")) ||
+	     (!ppd_attr && ppd->manufacturer &&	/* "Compatibility heuristic" */
+	      (!strcasecmp(ppd->manufacturer, "epson") ||
+	       !strcasecmp(ppd->manufacturer, "lexmark"))))
     {
+     /*
+      * Report that this printer has a single output bin that leaves pages face
+      * up.
+      */
+
       ippAddString(p->ppd_attrs, IPP_TAG_PRINTER, IPP_TAG_KEYWORD,
 		   "output-bin-supported", NULL, "face-up");
       ippAddString(p->ppd_attrs, IPP_TAG_PRINTER, IPP_TAG_KEYWORD,
@@ -4740,6 +4747,8 @@ load_ppd(cupsd_printer_t *p)		/* I - Printer */
    /*
     * Duplexing, etc...
     */
+
+    ppdMarkDefaults(ppd);
 
     if ((duplex = ppdFindOption(ppd, "Duplex")) == NULL)
       if ((duplex = ppdFindOption(ppd, "EFDuplex")) == NULL)

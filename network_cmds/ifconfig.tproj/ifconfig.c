@@ -162,7 +162,7 @@ main(int argc, char *argv[])
 #ifndef __APPLE__
 	strlcpy(options, "adklmnuv", sizeof(options));
 #else
-	strlcpy(options, "adlmruv", sizeof(options));
+	strlcpy(options, "abdlmruv", sizeof(options));
 #endif
 	for (p = opts; p != NULL; p = p->next)
 		strlcat(options, p->opt, sizeof(options));

@@ -44,6 +44,12 @@ struct ne_ssl_context_s {
 
 typedef SSL *ne_ssl_socket;
 
+/* Create a clicert object from cert DER {der, der_len}, using given
+ * RSA_METHOD for the RSA object. */
+ne_ssl_client_cert *ne__ssl_clicert_exkey_import(const unsigned char *der,
+                                                 size_t der_len,
+                                                 const RSA_METHOD *method);
+
 #endif /* HAVE_OPENSSL */
 
 #ifdef HAVE_GNUTLS

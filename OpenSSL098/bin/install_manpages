@@ -19,10 +19,7 @@ $MANSUFFIX = "ssl";
 $TMPROOT   = $ENV{'TEMP_FILES_DIR'};
 $INSTALL_OWNER = $ENV{'INSTALL_OWNER'};
 $INSTALL_GROUP = $ENV{'INSTALL_GROUP'};
-%FILE_BLACKLIST = ( 
-		'BN_INTERNAL' => 1,
-		'DGST' => 1
-	);
+%FILE_BLACKLIST = ( );
 
 use File::Basename;
 use File::Path;
@@ -106,15 +103,24 @@ sub do_man($$$)
 					printf("\t%s(%s): make %s %s %s\n", $f_name, $s_numb, $manname, $exists, $issym);
 					&make_manpage($s_name, $s_numb, $podfile, $manfile, "0644");
 				} else {
-					printf("\t%s(%s): link %s -> %s %s %s", $f_name, $s_numb, $manname, $linkname, $exists, $issym);
-					if( ! -e $linkfile )
+					if ( uc($s_name) ne uc($f_name) )
 					{
-						printf("(also generating manpage)");
-						&make_manpage($f_name, $s_numb, $podfile, $linkfile, "0644");
+						printf("\t%s(%s): link %s -> %s %s %s", $f_name, $s_numb, $manname, $linkname, $exists, $issym);
+						if( ! -e $linkfile )
+						{
+							printf("(also generating manpage)");
+							&make_manpage($f_name, $s_numb, $podfile, $linkfile, "0644");
+						}
+						printf("\n");
+
+						&make_link($linkname, $manfile);
+					} else {
+						printf("Detected a case-base file name collision: %s\n", $s_name);
+						$s_name = lc($s_name);
+						$manname = $s_name.".".$s_numb.$MANSUFFIX;
+						$manfile = $dst."/man".$s_numb."/".$manname;
+						&make_manpage($s_name, $s_numb, $podfile, $manfile, "0644");
 					}
-					printf("\n");
-					
-					&make_link($linkname, $manfile);
 				}
 			}
 		}
@@ -184,25 +190,21 @@ $retval = &do_man($srcdir."/doc/ssl",    $dstroot, 3);
 exit $retval if $retval;
 
 
-qx{ln -fs "verify.1ssl" "$dstroot/man1/c_rehash.1ssl"};
 
 my @remove_files = (
-	"usr/share/man/man1/dgst.1ssl.gz",
-	"usr/share/man/man1/md2.1ssl.gz",
-	"usr/share/man/man1/md4.1ssl.gz",
-	"usr/share/man/man1/md5.1ssl.gz",
-	"usr/share/man/man1/mdc2.1ssl.gz",
-	"usr/share/man/man1/ripemd160.1ssl.gz",
-	"usr/share/man/man1/sha.1ssl.gz",
-	"usr/share/man/man1/sha1.1ssl.gz"
+       "man1/dgst.1ssl",
+       "man1/md2.1ssl",
+       "man1/md4.1ssl",
+       "man1/md5.1ssl",
+       "man1/mdc2.1ssl",
+       "man1/ripemd160.1ssl",
+       "man1/sha.1ssl",
+       "man1/sha1.1ssl"
 );
 
 foreach my $rf (@remove_files)
 {
 	my $rff = $dstroot."/".$rf;
-	if (-e $rff)
-	{
-		printf("Removing %s.\n", $rf);
-		qx{rm -f "$rff"};
-	}
+	printf("Removing %s.\n", $rff);
+	qx{rm -f "$rff"};
 }

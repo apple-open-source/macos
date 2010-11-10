@@ -941,18 +941,21 @@ OSStatus IONDRVFramebuffer::VSLDisposeInterruptService(_VSLService * vslService)
 
 OSStatus IONDRVFramebuffer::VSLDoInterruptService( _VSLService * vslService )
 {
-    IOFBInterruptProc   proc;
+    IOReturn          ret = kIOReturnSuccess;
+    IOFBInterruptProc proc;
 
     if (vslService)
     {
         if (kIOFBConnectInterruptType == vslService->type)
             vslService->framebuffer->__private->ackConnectChange = true;
+        else if (kIOFBWakeInterruptType == vslService->type)
+            ret = vslService->framebuffer->handleEvent(kIOFBNotifyVRAMReady);
 
         if ((proc = vslService->handler))
             (*proc) (vslService->target, vslService->ref);
     }
 
-    return (kIOReturnSuccess);
+    return (ret);
 }
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
@@ -2598,17 +2601,12 @@ IOReturn IONDRVFramebuffer::setAttribute( IOSelect attribute, uintptr_t _value )
     IOReturn            err = kIOReturnSuccess;
     IONDRVFramebuffer * other = 0;
     uintptr_t *         data = (uintptr_t *) _value;
-    OSData *            stateData;
     UInt32              value;
 
     switch (attribute)
     {
         case kIOPowerStateAttribute:
-            if ((stateData = OSDynamicCast(OSData, getPMRootDomain()->getProperty(kIOHibernateStateKey))))
-                device->setProperty(kIOHibernateStateKey, stateData);
             err = ndrvSetPowerState( (UInt32)_value );
-            if (stateData)
-                device->setProperty(kIOHibernateStateKey, gIOFBZero32Data);
             break;
 
         case kIODriverPowerAttribute:
@@ -3146,7 +3144,7 @@ IOReturn IONDRVFramebuffer::ndrvGetSetFeature( UInt32 feature,
     err = _doStatus( this, cscGetFeatureConfiguration, &configRec );
     TIMEEND(thisName, "cscGetFeatureConfiguration: '%c%c%c%c' %qd ms\n", FEAT(feature));
 
-    DEBG(thisName, " cscGetFeatureConfiguration(%d), %08x %08lx %08lx %08lx\n", err,
+    DEBG1(thisName, " cscGetFeatureConfiguration(%d), %08x %08lx %08lx %08lx\n", err,
          (uint32_t) configRec.csConfigSupport, configRec.csConfigValue, configRec.csReserved1, configRec.csReserved2);
 
     if ((kIOReturnSuccess != err) || !configRec.csConfigSupport)
@@ -3169,10 +3167,10 @@ IOReturn IONDRVFramebuffer::ndrvGetSetFeature( UInt32 feature,
             TIMEEND(thisName, "cscSetFeatureConfiguration: '%c%c%c%c' = 0x%lx %qd ms\n",
                     FEAT(feature), newValue);
 
-            DEBG(thisName, " cscSetFeatureConfiguration(%d) %08lx\n", err, configRec.csConfigValue);
+            DEBG1(thisName, " cscSetFeatureConfiguration(%d) %08lx\n", err, configRec.csConfigValue);
         }
         else
-            DEBG(thisName, " skipped cscSetFeatureConfiguration(%d) %08lx\n", err, configRec.csConfigValue);
+            DEBG1(thisName, " skipped cscSetFeatureConfiguration(%d) %08lx\n", err, configRec.csConfigValue);
     }
 
     return (err);
@@ -4010,6 +4008,8 @@ IOReturn IONDRVFramebuffer::ndrvSetPowerState( UInt32 newState )
 
             if (kNDRVFramebufferSleepState == oldState)
                 __private->postWakeProbe = (0 != (kPowerStateSleepWakeNeedsProbeMask & sleepInfo.powerFlags));
+            else if (kNDRVFramebufferSleepState == newState)
+                __private->postWakeProbe = false;
         }
     }
 
@@ -4057,8 +4057,8 @@ IOReturn IONDRVFramebuffer::ndrvSetPowerState( UInt32 newState )
     IONDRVFramebuffer * other;
     other = OSDynamicCast(IONDRVFramebuffer, nextDependent);
     if (true && other
-            && ((newState > oldState)
-                || ((newState == kNDRVFramebufferDozeState) /*&& !other->getOnlineState()*/)))
+            && ((newState > oldState)))
+//                 /*|| ((newState == kNDRVFramebufferDozeState)&& !other->getOnlineState()*/)))
     {
         other->ndrvSetPowerState( newState );
     }

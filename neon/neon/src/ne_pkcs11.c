@@ -39,6 +39,7 @@ struct ne_ssl_pkcs11_provider_s {
     pakchois_session_t *session;
     ne_ssl_client_cert *clicert;
     ck_object_handle_t privkey;
+    ck_key_type_t keytype;
 };
 
 /* To do list for PKCS#11 support:
@@ -49,8 +50,7 @@ struct ne_ssl_pkcs11_provider_s {
    - add API to specify a particular cert ID for clicert
    - find a certificate which has an issuer matching the 
      CA dnames given by GnuTLS
-   - make sure subject name matches betweeen pubkey and privkey
-   - support DSA along with RSA
+   - make sure subject name matches between pubkey and privkey
    - check error handling & fail gracefully if the token is 
    ejected mid-session
    - add API to enumerate/search provided certs and allow 
@@ -60,8 +60,105 @@ struct ne_ssl_pkcs11_provider_s {
    - add API to import all CA certs as trusted
    (CKA_CERTIFICATE_CATEGORY seems to be unused unfortunately; 
     just add all X509 certs with CKA_TRUSTED set to true))
+   - make DSA work
 
 */
+
+#ifdef HAVE_OPENSSL
+
+#include <openssl/rsa.h>
+#include <openssl/err.h>
+
+#define PK11_RSA_ERR (RSA_F_RSA_EAY_PRIVATE_ENCRYPT)
+
+/* RSA_METHOD ->rsa_sign calback. */
+static int pk11_rsa_sign(int type,
+                         const unsigned char *m, unsigned int mlen,
+                         unsigned char *sigret, unsigned int *siglen, 
+                         const RSA *r)
+{
+    ne_ssl_pkcs11_provider *prov = (ne_ssl_pkcs11_provider *)r->meth->app_data;
+    ck_rv_t rv;
+    struct ck_mechanism mech;
+    unsigned long len;
+
+    if (!prov->session || prov->privkey == CK_INVALID_HANDLE) {
+        NE_DEBUG(NE_DBG_SSL, "pk11: Cannot sign, no session/key.\n");
+        RSAerr(PK11_RSA_ERR,ERR_R_RSA_LIB);
+        return 0;
+    }
+
+    mech.mechanism = CKM_RSA_PKCS;
+    mech.parameter = NULL;
+    mech.parameter_len = 0;
+
+    /* Initialize signing operation; using the private key discovered
+     * earlier. */
+    rv = pakchois_sign_init(prov->session, &mech, prov->privkey);
+    if (rv != CKR_OK) {
+        NE_DEBUG(NE_DBG_SSL, "pk11: SignInit failed: %lx.\n", rv);
+        RSAerr(PK11_RSA_ERR, ERR_R_RSA_LIB);
+        return 0;
+    }
+
+    len = *siglen = RSA_size(r);
+    rv = pakchois_sign(prov->session, (unsigned char *)m, mlen, sigret, &len);
+    if (rv != CKR_OK) {
+        NE_DEBUG(NE_DBG_SSL, "pk11: Sign failed.\n");
+        RSAerr(PK11_RSA_ERR, ERR_R_RSA_LIB);
+        return 0;
+    }
+
+    NE_DEBUG(NE_DBG_SSL, "pk11: Signed successfully.\n");
+    return 1;
+}
+
+/* RSA_METHOD ->rsa_init implementation; called during RSA_new(rsa). */
+static int pk11_rsa_init(RSA *rsa)
+{
+    /* Ensures that RSA_sign() uses meth->rsa_sign: */
+    rsa->flags |= RSA_FLAG_SIGN_VER;
+    return 1;
+}
+
+/* RSA_METHOD ->rsa_finish implementation; called during
+ * RSA_free(rsa). */
+static int pk11_rsa_finish(RSA *rsa)
+{
+    RSA_METHOD *meth = (RSA_METHOD *)rsa->meth;
+
+    /* Freeing the dynamically allocated method here works as well as
+     * doing anything else: */
+    ne_free(meth);
+    /* Does not appear that rsa->meth will be used after this, but in
+     * case it is, ensure a NULL pointer dereference rather than a
+     * random pointer dereference. */
+    rsa->meth = NULL;
+
+    return 0;
+}
+
+/* Return an RSA_METHOD which will use the PKCS#11 provider to
+ * implement the signing operation. */
+static RSA_METHOD *pk11_rsa_method(ne_ssl_pkcs11_provider *prov)
+{
+    RSA_METHOD *m = ne_calloc(sizeof *m);
+
+    m->name = "neon PKCS#11";
+    m->rsa_sign = pk11_rsa_sign;
+    
+    m->init = pk11_rsa_init;
+    m->finish = pk11_rsa_finish;
+    
+    /* This is hopefully under complete control of the RSA_METHOD,
+     * otherwise there is nowhere to put this. */
+    m->app_data = (char *)prov;
+
+    m->flags = RSA_METHOD_FLAG_NO_CHECK;
+    
+    return m;    
+}
+#endif
 
 static int pk11_find_x509(ne_ssl_pkcs11_provider *prov,
                           pakchois_session_t *pks, 
@@ -109,7 +206,11 @@ static int pk11_find_x509(ne_ssl_pkcs11_provider *prov,
         if (pakchois_get_attribute_value(pks, obj, a, 3) == CKR_OK) {
             ne_ssl_client_cert *cc;
             
+#ifdef HAVE_GNUTLS
             cc = ne__ssl_clicert_exkey_import(value, a[0].value_len);
+#else
+            cc = ne__ssl_clicert_exkey_import(value, a[0].value_len, pk11_rsa_method(prov));
+#endif
             if (cc) {
                 NE_DEBUG(NE_DBG_SSL, "pk11: Imported X.509 cert.\n");
                 prov->clicert = cc;
@@ -127,20 +228,25 @@ static int pk11_find_x509(ne_ssl_pkcs11_provider *prov,
     return found;    
 }
 
+#ifdef HAVE_OPENSSL
+/* No DSA support for OpenSSL (yet, anyway). */
+#define KEYTYPE_IS_DSA(kt) (0)
+#else
+#define KEYTYPE_IS_DSA(kt) (kt == CKK_DSA)
+#endif
+
 static int pk11_find_pkey(ne_ssl_pkcs11_provider *prov, 
                           pakchois_session_t *pks,
                           unsigned char *certid, unsigned long cid_len)
 {
     struct ck_attribute a[3];
     ck_object_class_t class;
-    ck_key_type_t type;
     ck_rv_t rv;
     ck_object_handle_t obj;
     unsigned long count;
     int found = 0;
 
     class = CKO_PRIVATE_KEY;
-    type = CKK_RSA; /* FIXME: check from the cert whether DSA or RSA */
 
     /* Find an object with private key class and a certificate ID
      * which matches the certificate. */
@@ -148,14 +254,11 @@ static int pk11_find_pkey(ne_ssl_pkcs11_provider *prov,
     a[0].type = CKA_CLASS;
     a[0].value = &class;
     a[0].value_len = sizeof class;
-    a[1].type = CKA_KEY_TYPE;
-    a[1].value = &type;
-    a[1].value_len = sizeof type;
-    a[2].type = CKA_ID;
-    a[2].value = certid;
-    a[2].value_len = cid_len;
+    a[1].type = CKA_ID;
+    a[1].value = certid;
+    a[1].value_len = cid_len;
 
-    rv = pakchois_find_objects_init(pks, a, 3);
+    rv = pakchois_find_objects_init(pks, a, 2);
     if (rv != CKR_OK) {
         NE_DEBUG(NE_DBG_SSL, "pk11: FindObjectsInit failed.\n");
         /* TODO: error propagation */
@@ -165,8 +268,19 @@ static int pk11_find_pkey(ne_ssl_pkcs11_provider *prov,
     rv = pakchois_find_objects(pks, &obj, 1, &count);
     if (rv == CKR_OK && count == 1) {
         NE_DEBUG(NE_DBG_SSL, "pk11: Found private key.\n");
-        found = 1;
-        prov->privkey = obj;
+
+        a[0].type = CKA_KEY_TYPE;
+        a[0].value = &prov->keytype;
+        a[0].value_len = sizeof prov->keytype;
+
+        if (pakchois_get_attribute_value(pks, obj, a, 1) == CKR_OK
+            && (prov->keytype == CKK_RSA || KEYTYPE_IS_DSA(prov->keytype))) {
+            found = 1;
+            prov->privkey = obj;
+        }
+        else {
+            NE_DEBUG(NE_DBG_SSL, "pk11: Could not determine key type.\n");
+        }
     }
 
     pakchois_find_objects_final(pks);
@@ -185,6 +299,7 @@ static int find_client_cert(ne_ssl_pkcs11_provider *prov,
         && pk11_find_pkey(prov, pks, certid, cid_len);
 }
 
+#ifdef HAVE_GNUTLS
 /* Callback invoked by GnuTLS to provide the signature.  The signature
  * operation is handled here by the PKCS#11 provider.  */
 static int pk11_sign_callback(gnutls_session_t session,
@@ -204,9 +319,7 @@ static int pk11_sign_callback(gnutls_session_t session,
         return GNUTLS_E_NO_CERTIFICATE_FOUND;
     }
 
-    /* FIXME: from the object determine whether this should be
-     * CKM_DSA, or CKM_RSA_PKCS, or something unknown (&fail). */
-    mech.mechanism = CKM_RSA_PKCS;
+    mech.mechanism = prov->keytype == CKK_DSA ? CKM_DSA : CKM_RSA_PKCS;
     mech.parameter = NULL;
     mech.parameter_len = 0;
 
@@ -239,6 +352,7 @@ static int pk11_sign_callback(gnutls_session_t session,
 
     return 0;
 }
+#endif
 
 static void terminate_string(unsigned char *str, size_t len)
 {
@@ -397,6 +511,7 @@ static void pk11_provide(void *userdata, ne_session *sess,
                 NE_DEBUG(NE_DBG_SSL, "pk11: Setup complete.\n");
                 prov->session = pks;
                 ne_ssl_set_clicert(sess, prov->clicert);
+                ne_free(slots);
                 return;
             }
         }
@@ -455,14 +570,15 @@ void ne_ssl_pkcs11_provider_pin(ne_ssl_pkcs11_provider *provider,
 {
     provider->pin_fn = fn;
     provider->pin_data = userdata;
-
 }
 
 void ne_ssl_set_pkcs11_provider(ne_session *sess, 
                                 ne_ssl_pkcs11_provider *provider)
 {
+#ifdef HAVE_GNUTLS
     sess->ssl_context->sign_func = pk11_sign_callback;
     sess->ssl_context->sign_data = provider;
+#endif
 
     ne_ssl_provide_clicert(sess, pk11_provide, provider);
 }

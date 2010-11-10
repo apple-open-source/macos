@@ -27,6 +27,7 @@
 		<string>/Library/Python/2.x/site-packages is now native</string>
 		<string>man page explains readline modules use of libedit</string>
 		<string>initial dtrace probe support</string>
+		<string>CVE-2010-1634 and CVE-2010-2089 audioop overflow patches</string>
 	</array>	
 </dict>
 </array>

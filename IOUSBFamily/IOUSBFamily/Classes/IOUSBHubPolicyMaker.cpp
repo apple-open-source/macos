@@ -254,8 +254,9 @@ IOUSBHubPolicyMaker::start(IOService * provider)
 		}
 	}
 
-	// Check to see if we have any extra power to give to any of our downstream ports
-	AllocateExtraPower();
+	// Check to see if we have any extra power to give to any of our downstream ports (operating and sleep)
+	if ( !_isRootHub)
+		AllocateExtraPower();
 
 	// call the old AppleUSBHub::start method, now renamed to ConfigureHubDriver
 	if (!ConfigureHubDriver())
@@ -265,17 +266,16 @@ IOUSBHubPolicyMaker::start(IOService * provider)
 		return false;
 	}
 	
-	// After we have configure the hub, see if we have sleep-current
-	numberObj = OSDynamicCast(OSNumber,  _device->getProperty(kAppleCurrentInSleep));
+	// After we have configure the hub, see if we have sleep-current -- the amount of power per port we can give during sleep
+	numberObj = OSDynamicCast(OSNumber,  _device->getProperty(kApplePortCurrentInSleep));
 	if ( numberObj )
 	{
-		UInt32	totalPowerInSleep = 0;
+		UInt32	perPortPowerInSleep = 0;
 		
-		totalPowerInSleep = numberObj->unsigned32BitValue();
-		USBLog(5, "IOUSBHubPolicyMaker[%p]::start - setting sleep current to %d", this, (uint32_t) totalPowerInSleep);
-		_device->SetSleepCurrent( totalPowerInSleep);
+		perPortPowerInSleep = numberObj->unsigned32BitValue();
+		USBLog(5, "IOUSBHubPolicyMaker[%p]::start - setting per port power in sleep to %d", this, (uint32_t) perPortPowerInSleep);
+		_device->SetSleepCurrent( perPortPowerInSleep);
 	}
-
 	
 	// now register our controlling driver
 	USBLog(7, "IOUSBHubPolicyMaker[%p]::start - calling registerPowerDriver", this);
@@ -418,18 +418,22 @@ IOUSBHubPolicyMaker::EnsureUsability(void)
 }
 
 
+//================================================================================================
 //
 // AllocateExtraPower
-// Checks to see if the device node has an ExtraPowerRequest property, and if so, tries to make that request from the upstream hub
 //
-// Also, see if we can provide extra power to this hub's downstream ports.
+// Set's up the properties that will be used to determine if a hub (root hub or otherwise) can provide
+// more than the standard amount of power
 //
+//================================================================================================
 void
 IOUSBHubPolicyMaker::AllocateExtraPower()
 {
     OSNumber				*powerProp = NULL;
 	UInt32					maxPortCurrent = 0;
 	UInt32					totalExtraCurrent = 0;
+	UInt32					maxPortCurrentInSleep = 0;
+	UInt32					totalExtraCurrentInSleep = 0;
 	
 	USBLog(2, "IOUSBHubPolicyMaker[%p]::AllocateExtraPower - _parentHubDevice(%p - %s) _device(%p - %s)", this, _parentHubDevice, _parentHubDevice != NULL ? _parentHubDevice->getName() : "", _device, _device != NULL ? _device->getName() : "");
 	
@@ -440,33 +444,58 @@ IOUSBHubPolicyMaker::AllocateExtraPower()
 	//	Initially, this was just root hubs, but now there are monitor hubs that can provide 
 	//	extra power as well.
 	
-	maxPortCurrent = 500;	// for extra-power purposes assume all hubs have 500ma per port available;
-	totalExtraCurrent = 0;  // with no extra
+	maxPortCurrent = kUSB2MaxPowerPerPort;	// for extra-power purposes assume all hubs have 500ma per port available;
+	totalExtraCurrent = 0;					// with no extra
 	
-	powerProp = OSDynamicCast(OSNumber,  _device->getProperty(kAppleCurrentAvailable));
+	powerProp = OSDynamicCast(OSNumber,  _device->getProperty(kAppleMaxPortCurrent));
 	if ( powerProp )
 	{
 		maxPortCurrent = powerProp->unsigned32BitValue();
-		USBLog(6, "IOUSBHubPolicyMaker[%p]::AllocateExtraPower  Maximum Port Current = 0x%d", this, (uint32_t)maxPortCurrent);
+		USBLog(6, "IOUSBHubPolicyMaker[%p]::AllocateExtraPower  Setting Maximum Port Current = %d", this, (uint32_t)maxPortCurrent);
 	}
 	else
 	{
-		USBLog(6, "IOUSBHubPolicyMaker[%p]::AllocateExtraPower  no kAppleCurrentAvailable property", this);
+		USBLog(6, "IOUSBHubPolicyMaker[%p]::AllocateExtraPower  no kAppleMaxPortCurrent property", this);
 	}
 	
 	powerProp = OSDynamicCast(OSNumber,  _device->getProperty(kAppleCurrentExtra));
 	if ( powerProp )
 	{
 		totalExtraCurrent = powerProp->unsigned32BitValue();
-		USBLog(6, "IOUSBHubPolicyMaker[%p]::AllocateExtraPower  Total Extra Current = 0x%d", this, (uint32_t)totalExtraCurrent);
+		USBLog(6, "IOUSBHubPolicyMaker[%p]::AllocateExtraPower  Setting Total Extra Current = %d", this, (uint32_t)totalExtraCurrent);
 	}
 	else
 	{
 		USBLog(6, "IOUSBHubPolicyMaker[%p]::AllocateExtraPower  no kAppleCurrentExtra property", this);
 	}
 	
+	// Add the properties for sleep
+	powerProp = OSDynamicCast(OSNumber,  _device->getProperty(kAppleMaxPortCurrentInSleep));
+	if ( powerProp )
+	{
+		maxPortCurrentInSleep = powerProp->unsigned32BitValue();
+		USBLog(6, "IOUSBHubPolicyMaker[%p]::AllocateExtraPower  Setting Maximum Port Current in sleep = %d", this, (uint32_t)maxPortCurrentInSleep);
+	}
+	else
+	{
+		USBLog(6, "IOUSBHubPolicyMaker[%p]::AllocateExtraPower  no kAppleMaxPortCurrentInSleep property", this);
+	}
+	
+
+	powerProp = OSDynamicCast(OSNumber,  _device->getProperty(kAppleCurrentExtraInSleep));
+	if ( powerProp )
+	{
+		totalExtraCurrentInSleep = powerProp->unsigned32BitValue();
+		USBLog(6, "IOUSBHubPolicyMaker[%p]::AllocateExtraPower  Setting Total Extra Current in Sleep = %d", this, (uint32_t)totalExtraCurrentInSleep);
+	}
+	else
+	{
+		USBLog(6, "IOUSBHubPolicyMaker[%p]::AllocateExtraPower  no kAppleCurrentExtraInSleep property", this);
+	}
+	
+	
 	// Go ahead and set the device properties that will allow us to parcel out extra power
-	_device->InitializeExtraPower(maxPortCurrent, totalExtraCurrent);
+	_device->InitializeExtraPower(maxPortCurrent, totalExtraCurrent, maxPortCurrentInSleep, totalExtraCurrentInSleep);
 	
 }
 
@@ -539,8 +568,8 @@ IOUSBHubPolicyMaker::RequestExtraPower(UInt32 portNum, UInt32 type, UInt32 reque
 	UInt32		returnValue = 0;
 	
 	// Need to check whether this request will exceed the maximum power for this port (as opposed to whether there is enough extra available)
-	
-	USBLog(5, "IOUSBHubPolicyMaker[%p]::RequestExtraPower  for port[%d], type %d, requested %d", this, (uint32_t)portNum, (uint32_t) type, (uint32_t) requestedPower);
+
+	USBLog(5, "IOUSBHubPolicyMaker[%p]::RequestExtraPower  for port %d, type: %d, requested %d", this, (uint32_t)portNum,(uint32_t)type, (uint32_t) requestedPower);
 	if ( type == kUSBPowerDuringWake )
 	{
 		returnValue = _device->RequestExtraPower( requestedPower );
@@ -548,6 +577,10 @@ IOUSBHubPolicyMaker::RequestExtraPower(UInt32 portNum, UInt32 type, UInt32 reque
 	else  if ( type == kUSBPowerDuringSleep )
 	{
 		returnValue = _device->RequestSleepPower( requestedPower );
+	}
+	else if ( type == kUSBPowerRequestWakeReallocate || type == kUSBPowerRequestSleepReallocate)
+	{
+		_device->SendExtraPowerMessage( type, requestedPower );
 	}
 	
 	return returnValue;
@@ -560,14 +593,18 @@ IOUSBHubPolicyMaker::ReturnExtraPower(UInt32 portNum, UInt32 type, UInt32 return
 #pragma unused (portNum)
 	IOReturn	kr = kIOReturnSuccess;
 	
-	USBLog(5, "IOUSBHubPolicyMaker[%p]::ReturnExtraPower  for port[%d], type %d, returnedPower %d", this, (uint32_t)portNum, (uint32_t) type, (uint32_t) returnedPower);
+	USBLog(5, "IOUSBHubPolicyMaker[%p]::ReturnExtraPower  for port %d, type %d, returnedPower %d", this, (uint32_t)portNum, (uint32_t)type, (uint32_t) returnedPower);
 	if ( type == kUSBPowerDuringWake )
 	{
 		_device->ReturnExtraPower( returnedPower );
 	}
-	else  if ( type == kUSBPowerDuringSleep )
+	else if ( type == kUSBPowerDuringSleep )
 	{
 		_device->ReturnSleepPower( returnedPower );
+	}
+	else if ( type == kUSBPowerRequestWakeRelease || type == kUSBPowerRequestSleepRelease )
+	{
+		_device->SendExtraPowerMessage( type, returnedPower );
 	}
 	else
 		kr = kIOReturnBadArgument;

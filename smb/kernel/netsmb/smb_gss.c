@@ -1605,7 +1605,7 @@ smb_reply2principal(struct smb_vc *vcp, const uint8_t *rp, u_int16_t rplen, char
 	endp = spn + spnlen;
 	service = spn;
 	/* Search for end of service part */
-	for (host = spn; *host != '/' && host < endp; host++)
+	for (host = spn; (host < endp) && (*host != '/'); host++)
 		;
 	if (host == endp) {
 		/* 
@@ -1622,7 +1622,7 @@ smb_reply2principal(struct smb_vc *vcp, const uint8_t *rp, u_int16_t rplen, char
 	}
 
 	/* Search for the realm part */
-	for (realm = host; *realm != '@' && realm < endp; realm++)
+	for (realm = host; (realm < endp) && (*realm != '@'); realm++)
 		;
 	if (realm < endp && realm > host) {
 		h_end = realm;

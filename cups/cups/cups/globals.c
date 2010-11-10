@@ -38,11 +38,12 @@
 static void
 cups_env_init(_cups_globals_t *g)	/* I - Global data */
 {
-#ifdef HAVE_GETEUID
+#ifndef WIN32
+#  ifdef HAVE_GETEUID
   if ((geteuid() != getuid() && getuid()) || getegid() != getgid())
-#else
+#  else
   if (!getuid())
-#endif /* HAVE_GETEUID */
+#  endif /* HAVE_GETEUID */
   {
    /*
     * When running setuid/setgid, don't allow environment variables to override
@@ -56,6 +57,7 @@ cups_env_init(_cups_globals_t *g)	/* I - Global data */
     g->localedir       = CUPS_LOCALEDIR;
   }
   else
+#endif /* !WIN32 */
   {
    /*
     * Allow directories to be overridden by environment variables.
@@ -183,7 +185,9 @@ globals_destructor(void *value)		/* I - Data to free */
   if (cg->last_status_message)
     _cupsStrFree(cg->last_status_message);
 
+#  ifndef CUPS_LITE
   cupsFreeOptions(cg->cupsd_num_settings, cg->cupsd_settings);
+#  endif /* !CUPS_LITE */
 
   for (buffer = cg->ipp_buffers; buffer; buffer = next)
   {

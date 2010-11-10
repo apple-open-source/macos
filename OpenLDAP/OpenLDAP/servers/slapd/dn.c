@@ -318,10 +318,8 @@ LDAPRDN_rewrite( LDAPRDN rdn, unsigned flags, void *ctx )
 		ava->la_attr = ad->ad_cname;
 
 		if( ava->la_flags & LDAP_AVA_BINARY ) {
-			if( ava->la_value.bv_len == 0 ) {
-				/* BER encoding is empty */
-				return LDAP_INVALID_SYNTAX;
-			}
+			/* AVA is binary encoded, not supported */
+			return LDAP_INVALID_SYNTAX;
 
 			/* Do not allow X-ORDERED 'VALUES' naming attributes */
 		} else if( ad->ad_type->sat_flags & SLAP_AT_ORDERED_VAL ) {
@@ -394,6 +392,10 @@ LDAPRDN_rewrite( LDAPRDN rdn, unsigned flags, void *ctx )
 				ber_memfree_x( ava->la_value.bv_val, ctx );
 			ava->la_value = bv;
 			ava->la_flags |= LDAP_AVA_FREE_VALUE;
+		}
+		/* reject empty values */
+		if (!ava->la_value.bv_len) {
+			return LDAP_INVALID_SYNTAX;
 		}
 	}
 	rc = LDAP_SUCCESS;
@@ -980,8 +982,8 @@ dnParent(
 
 	/* one-level dn */
 	if ( p == NULL ) {
-		pdn->bv_len = 0;
 		pdn->bv_val = dn->bv_val + dn->bv_len;
+		pdn->bv_len = 0;
 		return;
 	}
 

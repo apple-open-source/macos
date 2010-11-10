@@ -51,26 +51,29 @@ int ne_put(ne_session *sess, const char *path, int fd);
  * collection resource, depth may be NE_DEPTH_ZERO to request that the
  * collection and its properties are to be copied, or
  * NE_DEPTH_INFINITE to request that the collection and its contents
- * are to be copied.  */
+ * are to be copied.  Returns NE_* error code. */
 int ne_copy(ne_session *sess, int overwrite, int depth,
 	    const char *src, const char *dest);
 
-/* Move resource from 'src' to dest 'path'. */
+/* Move resource from 'src' to 'dest' path.  Returns NE_* error
+ * code. */
 int ne_move(ne_session *sess, int overwrite,
 	    const char *src, const char *dest);
 
-/* Delete resource at 'path'. */
+/* Delete resource at 'path'.  Returns NE_* error code. */
 int ne_delete(ne_session *sess, const char *path);
-/* Create a collection at 'path', which MUST have a trailing slash. */
+
+/* Create a collection at 'path', which is required to have a trailing
+ * slash.  Returns NE_* error code. */
 int ne_mkcol(ne_session *sess, const char *path);
 
-/* Adds a Depth: header to a request */
+/* Adds a Depth: header to a request. */
 void ne_add_depth_header(ne_request *req, int depth);
 
 /* Retrieve modification time of resource at location 'path', using
  * the HEAD method, placing parsed time in *modtime.  *modtime is set
  * to -1 if no Last-Modified response header was given, or the date
- * given could not be parsed. */
+ * given could not be parsed.  Returns NE_* error code.  */
 int ne_getmodtime(ne_session *sess, const char *path, time_t *modtime);
 
 typedef struct {

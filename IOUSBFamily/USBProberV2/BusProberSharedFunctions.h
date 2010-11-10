@@ -40,6 +40,7 @@ typedef struct 	IOUSBInterfaceStruct220**	 		IOUSBInterfaceRef ;
 #define ENDPOINT_LEVEL                          INTERFACE_LEVEL + 1
 #define HID_DESCRIPTOR_LEVEL			INTERFACE_LEVEL + 1
 #define DFU_DESCRIPTOR_LEVEL			INTERFACE_LEVEL + 1
+#define CCID_DESCRIPTOR_LEVEL			INTERFACE_LEVEL + 1
 #define HUB_DESCRIPTOR_LEVEL			ROOT_LEVEL + 1
 #define DEVICE_QUAL_DESCRIPTOR_LEVEL            ROOT_LEVEL + 1
 
@@ -56,7 +57,8 @@ int SuspendDevice( IOUSBDeviceRef deviceIntf, BOOL suspend );
 IOReturn GetDescriptor(IOUSBDeviceRef deviceIntf, UInt8 descType, UInt8 descIndex, void *buf, UInt16 len, IOReturn *actError);
 int GetStringDescriptor(IOUSBDeviceRef deviceIntf, UInt8 descIndex, void *buf, UInt16 len, UInt16 lang);
 int GetClassDescriptor(IOUSBDeviceRef deviceIntf, UInt8 descType, UInt8 descIndex, void *buf, UInt16 len);
-int GetDescriptorFromInterface(IOUSBDeviceRef deviceIntf, UInt8 descType, UInt8 descIndex, UInt16 wIndex, void *buf, UInt16 len);
+int GetDescriptorFromInterface(IOUSBDeviceRef deviceIntf, UInt8 descType, UInt8 descIndex, UInt16 wIndex, void *buf, UInt16 len, Boolean inCurrentConfig);
+int GetCurrentConfiguration(IOUSBDeviceRef deviceIntf);
 //BusProbeClass * GetClassAndSubClass(UInt8 * pcls);
 BusProbeClass * GetDeviceClassAndSubClass(UInt8 * pcls);
 BusProbeClass * GetInterfaceClassAndSubClass(UInt8 * pcls);

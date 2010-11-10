@@ -1,8 +1,5 @@
-
-#ifndef _S_ARP_H
-#define _S_ARP_H
 /*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999-2010 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -23,6 +20,10 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
+
+#ifndef _S_ARP_H
+#define _S_ARP_H
+
 /*
  * arp.h
  */
@@ -35,14 +36,12 @@
  */ 
 
 #define ARP_RETURN_SUCCESS			0
-#define ARP_RETURN_INTERFACE_NOT_FOUND		1
-#define ARP_RETURN_PROXY_ONLY			2
-#define ARP_RETURN_PROXY_ON_NON_802		3
-#define ARP_RETURN_INTERNAL_ERROR		4
-#define ARP_RETURN_WRITE_FAILED			5
-#define ARP_RETURN_READ_FAILED			6
-#define ARP_RETURN_HOST_NOT_FOUND		7
-#define ARP_RETURN_LAST				8
+#define ARP_RETURN_FAILURE			1
+#define ARP_RETURN_INTERNAL_ERROR		2
+#define ARP_RETURN_WRITE_FAILED			3
+#define ARP_RETURN_READ_FAILED			4
+#define ARP_RETURN_HOST_NOT_FOUND		5
+#define ARP_RETURN_LAST				6
 
 #include <net/route.h>
 
@@ -51,13 +50,11 @@ typedef struct {
 	char	m_space[512];
 } route_msg;
 
-const char * 	arp_strerror(int err);
-int		arp_get(int s, route_msg * msg_p, struct in_addr * iaddr_p, int if_index);
-int		arp_set(int s, struct in_addr * iaddr_p, void * hwaddr_p, 
-			int hwaddr_len, int temp, int public);
-int 		arp_delete(int s, struct in_addr iaddr, int if_index, int export);
+int		arp_get(int s, route_msg * msg_p, struct in_addr iaddr,
+			int if_index);
+int 		arp_delete(int s, struct in_addr iaddr, int if_index);
 int		arp_flush(int s, int all);
+int		arp_open_routing_socket(void);
+int		arp_get_next_seq(void);
 
-int		arp_get_routing_socket();
-
-#endif _S_ARP_H
+#endif /* _S_ARP_H */

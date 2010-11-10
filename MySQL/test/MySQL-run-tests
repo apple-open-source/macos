@@ -1,0 +1,239 @@
+#!/bin/tcsh
+#
+# Name:        MySQL-run-tests
+# Author:      Steve Peralta
+# Description: See 'MySQL-run-tests --help' for details
+#
+
+	set __script_name="MySQL-run-tests"
+	set __loop_forever=0
+	set __show_help=0
+	set __no_exec=0
+	set __repeats=1
+	set __delay_secs=0
+	set __testname=""
+	set __debug_opt=0
+	set __keep_opt=0
+
+	while ( "x-${1}" != "x-" )
+		switch ("${1}")
+			case "--forever":
+				set __loop_forever=1
+				breaksw
+			case "--repeats":
+				shift
+				set __repeats=${1}
+				breaksw
+			case "--delay":
+				shift
+				set __delay_secs=${1}
+				breaksw
+			case "--debug":
+				set __debug_opt=1
+				breaksw
+			case "--keep":
+				set __keep_opt=1
+				breaksw
+			case "--noexec":
+				set __no_exec=1
+				breaksw
+			case "--help":
+			case "-h":
+				set __show_help=1
+				breaksw
+			default:
+				set __testname="${1}"
+		endsw
+		shift
+	end
+
+	if ( ${__show_help} == 1 ) then
+		echo "${__script_name} - runs the MySQL test suite for all tests or an individual test"
+		echo ""
+		echo "Usage: ${__script_name} [ --help | [--forever] [--repeats num-times] [--delay num-secs] [--noexec] [ test-name ] ] "
+		echo ""
+		echo "where:"
+		echo "   test-name   [optional] if used, runs only the named test.  [DEFAULT=ALL TESTS]"
+		echo ""
+		echo "where:"
+		echo "   --help      Displays this message."
+		echo "   --forever   Runs the test suite in a continuous loop until terminated by the user [DEFAULT=USE REPEATS]"
+		echo "   --repeats N Number of test iterations to run [DEFAULT=1]"
+		echo "               (Hint: use '--forever' to run unending repeats."
+		echo "   --delay N   Pause N seconds between test iterations when used with --repeat > 1 or --forever [DEFAULT=NO DELAY]"
+		echo "   --noexec    Runs the iteration loop without running the MySQL test(s) for script debugging [DEFAULT=EXECUTE TESTS]"
+		echo "   --debug     Runs mysql-test-run with the --debug option [DEFAULT=(disabled)]"
+		echo "   --keep      Prevents deletion of the mysql-test folder after completion [DEFAULT=delete folder]"
+		goto __exit
+	endif
+
+	set __datefmt="+%Y/%m/%d %H:%M:%S"
+	
+	if ( ${__repeats} == 0 ) then
+		echo ""
+		echo "ERROR: Invalid option: '--repeat 0' (hint: use '--forever' instead)."
+		echo ""
+		exit 1
+	endif
+
+	echo -n "Repeats     : "
+	if ( ${__loop_forever} == 1 ) then
+		echo "[FOREVER]"
+		set __repeats=0
+	else
+		echo "${__repeats}"
+	endif
+
+	echo -n "Delay       : "
+	if ( ${__delay_secs} == 0 ) then
+		echo "[DISABLED]"
+	else
+		echo "${__delay_secs} secs"
+	endif
+
+	echo -n "Test-only   : "
+	if ( ${__no_exec} == 0 ) then
+		echo "NO"
+	else
+		echo "YES"
+	endif
+
+	echo -n "Debug       : "
+	if ( ${__debug_opt} == 0 ) then
+		echo "NO"
+	else
+		echo "YES"
+	endif
+
+	echo -n "Keep results: "
+	if ( ${__keep_opt} == 0 ) then
+		echo "NO"
+	else
+		echo "YES"
+	endif
+
+	echo -n "Test(s)     : "
+	if ( "x-${__testname}" != "x-" ) then
+		echo "${__testname}"
+	else
+		echo "[ALL TESTS]"
+	endif
+
+#   exit 0
+
+#   clear
+	echo "==========================================================================="
+	echo -n "Checking MySQL installation..."
+	if (! -e /usr/libexec/mysqld) then
+		echo " [FAILED]"
+		echo "MySQL not installed!"
+		echo "Install MySQL root and try again."
+		goto __end
+	endif
+	echo " [FOUND]"
+	echo "MySQL version: `/usr/libexec/mysqld --help | head -1`"
+	
+	echo "Initializing test environment:"
+	echo -n "  looking for mysqld process..."
+	set __mysqld=`ps auwwx | grep mysqld | grep usr\/libexec`
+	if ( "x-${__mysqld}" == "x-" ) then
+		echo " [FAILED]"
+		echo "Error -- mysqld process not found!"
+		echo "Start mysqld and try again (hint: use 'serveradmin start mysql')"
+		goto __end
+	endif
+	echo " [FOUND]"
+   
+	echo -n "  copying /usr/share/mysql/mysql-test folder to /usr/... "
+	rm -rf /usr/mysql-test
+	cp -r /usr/share/mysql/mysql-test /usr
+	echo " [DONE]"
+   
+	echo -n "  creating /usr/bin/ symlink to /usr/libexec/mysqld... "
+	rm -rf /usr/bin/mysqld
+	ln -s /usr/libexec/mysqld /usr/bin
+	echo " [DONE]"
+
+	echo "==========================================================================="
+
+	set __iter=0
+	set __remains=${__repeats}
+	set __test_start=`date "${__datefmt}"`
+
+__loop:
+	set __iter=`expr ${__iter} + 1`
+	if ( ${__loop_forever} == 0 ) then
+		if ( ${__remains} == 0 ) then
+			goto __finished
+		endif
+		set __remains=`expr ${__repeats} - ${__iter}`
+	endif
+
+	set __iter_start=`date "${__datefmt}"`
+	echo ""
+	echo ""
+	echo -n "${__iter_start} ${__script_name}: STARTING TEST SUITE [${__iter}"
+	if ( ${__loop_forever} == 0 ) then
+		echo -n " of ${__repeats}"
+	endif
+	echo "]"
+	echo ""
+	echo ""
+
+	cd /usr/mysql-test
+	if ( ${__no_exec} == 1 ) then
+		set __now=`date "${__datefmt}"`
+		echo "${__now} ${__script_name}: *** TEST ONLY -- no tests run."
+		goto __skip
+	endif
+
+	set __test_run_opts=""
+	if ( ${__debug_opt} == 1 ) then
+		set __test_run_opts="--debug"
+	endif
+
+	if ( "${__testname}" == "" ) then
+		# run all tests except for kill which is expected to fail sometimes
+		./mysql-test-run --force ${__test_run_opts} --mysqld=--user=root --skip-test=kill
+	else
+		# run single test
+		./mysql-test-run --force ${__test_run_opts} --mysqld=--user=root --do-test=${__testname}
+	endif
+	unset __test_run_opts
+
+__skip:
+	if ( ${__delay_secs} != 0 ) then
+		sleep ${__delay_secs}
+	endif
+	goto __loop
+
+__finished:
+	set __now=`date "${__datefmt}"`
+	echo ""
+	echo "==========================================================================="
+	echo " ${__script_name}: All test iterations completed."
+	echo "   Started : " ${__test_start}
+	echo "   Finished: " ${__now}
+	echo "==========================================================================="
+	if ( ${__keep_opt} == 0 ) then
+		rm -rf /usr/bin/mysqld
+		rm -rf /usr/mysql-test
+	endif
+   
+__end:
+	unset __remains
+	unset __iter
+	unset __now
+	unset __iter_start
+	unset __test_start
+	unset __keep_opt
+	unset __debug_opt
+	unset __testname
+	unset __delay_secs
+	unset __repeats
+	unset __no_exec
+	unset __show_help
+	unset __loop_forever
+	unset __script_name
+   
+__exit:

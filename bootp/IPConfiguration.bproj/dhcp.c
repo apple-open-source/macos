@@ -2266,6 +2266,9 @@ dhcp_init_reboot(Service_t * service_p, IFEventID_t evid, void * event_data)
 				 IP_LIST(&dhcp->saved.our_ip),
 				 current_time - dhcp->start_secs);
 		      }
+                      /* don't bother trying to figure out what lease to use */
+                      arp_client_cancel(dhcp->arp);
+
 		      dhcp->gathering = TRUE;
 		      timer_set_relative(dhcp->timer, t, 
 					 (timer_func_t *)dhcp_init_reboot,
@@ -3307,7 +3310,7 @@ dhcp_wait_until_arp_completes(Service_dhcp_t * dhcp,
 	    addr_wait = *router_p;
 	}
     }
-    s = socket(AF_ROUTE, SOCK_RAW, 0);
+    s = arp_open_routing_socket();
     if (s == -1) {
 	my_log(LOG_ERR, "DHCP %s: socket(AF_ROUTE) failed, %s", if_name(if_p),
 	       strerror(errno));
@@ -3320,7 +3323,7 @@ dhcp_wait_until_arp_completes(Service_dhcp_t * dhcp,
     
     i = 1;
     while (TRUE) {
-	if (arp_get(s, &msg, &addr_wait, if_index) != ARP_RETURN_SUCCESS) {
+	if (arp_get(s, &msg, addr_wait, if_index) != ARP_RETURN_SUCCESS) {
 	    goto failed;
 	}
 	sdl = (struct sockaddr_dl *)(sin->sin_len + (char *)sin);

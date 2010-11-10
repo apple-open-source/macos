@@ -489,7 +489,7 @@
 		306FEE6F090FDD0A00D6B7FE /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				SDKROOT = /Developer/SDKs/MacOSX10.4u.sdk;
+				SDKROOT = "$(DEVELOPER_SDK_DIR)/MacOSX10.6.sdk";
 			};
 			name = Development;
 		};
@@ -532,7 +532,7 @@
 				LIBRARY_SEARCH_PATHS_QUOTED_FOR_TARGET_1 = "\"$(SRCROOT)/build/Development\"";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOAudioFamily;
-				MODULE_VERSION = 1.7.6fc2;
+				MODULE_VERSION = 1.7.9fc4;
 				OTHER_CFLAGS = (
 					"$(DEBUG_CFLAGS)",
 					"-DIOAUDIOFAMILY_SELF_BUILD",
@@ -540,7 +540,7 @@
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = IOAudioFamily;
-				SDKROOT = "";
+				SDKROOT = "$(DEVELOPER_SDK_DIR)/MacOSX10.6.sdk";
 				SECTORDER_FLAGS = "";
 				UNSTRIPPED_PRODUCT = YES;
 				VALID_ARCHS = "x86_64 ppc i386";
@@ -578,7 +578,7 @@
 				LIBRARY_SEARCH_PATHS_QUOTED_FOR_TARGET_1 = "\"$(SRCROOT)/build/Default\"";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOAudioFamily;
-				MODULE_VERSION = 1.7.6fc2;
+				MODULE_VERSION = 1.7.9fc4;
 				OTHER_CFLAGS = (
 					"$(DEBUG_CFLAGS)",
 					"-DIOAUDIOFAMILY_SELF_BUILD",
@@ -586,7 +586,7 @@
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = IOAudioFamily;
-				SDKROOT = "";
+				SDKROOT = "$(DEVELOPER_SDK_DIR)/MacOSX10.6.sdk";
 				SECTORDER_FLAGS = "";
 				VALID_ARCHS = "x86_64 ppc i386";
 				WARNING_CFLAGS = (
@@ -619,7 +619,7 @@
 				MACOSX_DEPLOYMENT_TARGET = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOAudioFamily;
-				MODULE_VERSION = 1.7.6fc2;
+				MODULE_VERSION = 1.7.9fc4;
 				OTHER_CFLAGS = (
 					"$(DEBUG_CFLAGS)",
 					"-DIOAUDIOFAMILY_SELF_BUILD",
@@ -687,7 +687,7 @@
 				PER_ARCH_CFLAGS_ppc = "-mlong-branch";
 				PRODUCT_NAME = IOAudioFloatLib;
 				REZ_EXECUTABLE = YES;
-				SDKROOT = "";
+				SDKROOT = "$(DEVELOPER_SDK_DIR)/MacOSX10.6.sdk";
 				SECTORDER_FLAGS = "";
 				UNSTRIPPED_PRODUCT = YES;
 				VALID_ARCHS = "x86_64 ppc i386";
@@ -745,7 +745,7 @@
 				PER_ARCH_CFLAGS_ppc = "-mlong-branch";
 				PRODUCT_NAME = IOAudioFloatLib;
 				REZ_EXECUTABLE = YES;
-				SDKROOT = "";
+				SDKROOT = "$(DEVELOPER_SDK_DIR)/MacOSX10.6.sdk";
 				SECTORDER_FLAGS = "";
 				VALID_ARCHS = "x86_64 ppc i386";
 				WARNING_CFLAGS = (
@@ -827,7 +827,7 @@
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = InstallHeaders;
 				REZ_EXECUTABLE = YES;
-				SDKROOT = "";
+				SDKROOT = "$(DEVELOPER_SDK_DIR)/MacOSX10.6.sdk";
 				SECTORDER_FLAGS = "";
 				UNSTRIPPED_PRODUCT = YES;
 				WARNING_CFLAGS = (
@@ -851,6 +851,7 @@
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = InstallHeaders;
 				REZ_EXECUTABLE = YES;
+				SDKROOT = "$(DEVELOPER_SDK_DIR)/MacOSX10.6.sdk";
 				SECTORDER_FLAGS = "";
 				WARNING_CFLAGS = (
 					"-Wmost",

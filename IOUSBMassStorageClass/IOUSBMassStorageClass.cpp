@@ -423,14 +423,14 @@ IOUSBMassStorageClass::start ( IOService * provider )
 								 ( uintptr_t ) this, NULL,
 								 NULL, NULL );
         
-            // Find the interrupt pipe for the device
+            // Find the interrupt pipe for the device.
+			// Note that the pipe will already be retained on our behalf.
 	        request.type = kUSBInterrupt;
 	        request.direction = kUSBIn;
- 			fInterruptPipe = GetInterfaceReference()->FindNextPipe ( NULL, &request );
+ 			fInterruptPipe = GetInterfaceReference()->FindNextPipe ( NULL, &request, true );
 
 	        STATUS_LOG ( ( 7, "%s[%p]: find interrupt pipe", getName(), this ) );
 	        require_nonzero ( fInterruptPipe, abortStart );
-			fInterruptPipe->retain ( );
 			
 			fCBIMemoryDescriptor = IOMemoryDescriptor::withAddress (
 											&fCBICommandRequestBlock.cbiGetStatusBuffer, 
@@ -495,17 +495,15 @@ IOUSBMassStorageClass::start ( IOService * provider )
     STATUS_LOG ( ( 7, "%s[%p]: find bulk in pipe", getName(), this ) );
 	request.type = kUSBBulk;
 	request.direction = kUSBIn;
-	fBulkInPipe = GetInterfaceReference()->FindNextPipe ( NULL, &request );
+	fBulkInPipe = GetInterfaceReference()->FindNextPipe ( NULL, &request, true );
 	require_nonzero ( fBulkInPipe, abortStart );
-	fBulkInPipe->retain ( );
 	
 	// Find the Bulk Out pipe for the device
     STATUS_LOG ( ( 7, "%s[%p]: find bulk out pipe", getName(), this ) );
 	request.type = kUSBBulk;
 	request.direction = kUSBOut;
-	fBulkOutPipe = GetInterfaceReference()->FindNextPipe ( NULL, &request );
+	fBulkOutPipe = GetInterfaceReference()->FindNextPipe ( NULL, &request, true );
 	require_nonzero ( fBulkOutPipe, abortStart );
-	fBulkOutPipe->retain ( );
 	
 	// Build the Protocol Characteristics dictionary since not all devices will have a 
 	// SCSI Peripheral Device Nub to guarantee its existance.
@@ -884,15 +882,14 @@ IOUSBMassStorageClass::didTerminate ( IOService * provider, IOOptionBits options
     // hold on to the device and IOKit will terminate us when we close it later.
     
     STATUS_LOG ( ( 3 , "%s[%p]::didTerminate: Entered with options=0x%x defer=%d", getName ( ), this, options, ( defer ? *defer : false ) ) );
-    
-	RecordUSBTimeStamp (	UMC_TRACE ( kDidTerminateCalled ),
-							( uintptr_t ) this, ( uintptr_t ) GetInterfaceReference ( ), 
-							( unsigned int ) isInactive(), ( unsigned int ) fResetInProgress );
 	
 	//	If we have a SCSI task outstanding, we will block here until it completes.
 	//	This ensures that we don't try to send requests to our provider after we have closed it.
 	
 	fTerminationDeferred = fBulkOnlyCommandStructInUse | fCBICommandStructInUse;
+    
+	RecordUSBTimeStamp (	UMC_TRACE ( kDidTerminateCalled ),
+						( uintptr_t ) this, ( unsigned int ) fTerminationDeferred, NULL, NULL );
 	
 	while ( fTerminationDeferred == true )
 	{
@@ -1158,10 +1155,6 @@ IOUSBMassStorageClass::SendSCSICommand (
 	IOReturn					status;
 	SCSICommandDescriptorBlock	cdbData;
 	bool						accepted = false;
-
-	// Set the defaults to an error state.		
-	*taskStatus = kSCSITaskStatus_No_Status;
-	*serviceResponse =  kSCSIServiceResponse_SERVICE_DELIVERY_OR_TARGET_FAILURE;
 	
    	STATUS_LOG ( ( 6, "%s[%p]: SendSCSICommand Entered with request=%p", getName ( ), this, request ) );
 
@@ -1175,16 +1168,12 @@ IOUSBMassStorageClass::SendSCSICommand (
 								&accepted );
 	
 	require_quiet ( accepted, Exit );
+
+	//	Now that we have committed to accepting this task, we must return kSCSIServiceResponse_Request_In_Progress,
+	//	even if we subsequently fail that task from within this method via CommandCompleted().
 	
-    if ( fPortIsSuspended == true )
-    {
-    
-        // Our port is suspended, but the client layer would like to send a SCSI
-        // command. Time to resume. 
-        status = SuspendPort ( false );
-        require_success ( status, Exit );
-        
-    }
+	*taskStatus = kSCSITaskStatus_No_Status;
+	*serviceResponse =  kSCSIServiceResponse_Request_In_Process;
     
 	GetCommandDescriptorBlock( request, &cdbData );
 	
@@ -1226,7 +1215,13 @@ IOUSBMassStorageClass::SendSCSICommand (
                     cdbData[14], cdbData[15] ) );
 #endif
 	
-   	if ( GetInterfaceProtocol() == kProtocolBulkOnly )
+	if ( isInactive ( ) ) {
+		
+		status = kIOReturnNoDevice;
+		
+	}
+	
+   	else if ( GetInterfaceProtocol() == kProtocolBulkOnly )
 	{
 	
 		status = SendSCSICommandForBulkOnlyProtocol ( request );
@@ -1249,17 +1244,19 @@ IOUSBMassStorageClass::SendSCSICommand (
    		STATUS_LOG ( ( 5, "%s[%p]: SendSCSICommandforCBIProtocol returned %x", getName ( ), this, status ) );
 		
 	}
-
-	if ( status == kIOReturnSuccess )
-	{	
-		*serviceResponse = kSCSIServiceResponse_Request_In_Process;
-	}
 	
-	else
+	//	A nonzero status indicates that we could not post the USB CBW request to the device, probably due to termination.
+	//	In that case, we fail this task via a call to CommandCompleted().
+	//	We never fail a task with an immediate serviceResponse, because the retain which ExecuteTask() took on us on
+	//	behalf of the SCSI task would never be released, preventing us from being freed.
+
+	if ( status != kIOReturnSuccess )
 	{
 		
-		SCSIServiceResponse	serviceResponse 	= kSCSIServiceResponse_SERVICE_DELIVERY_OR_TARGET_FAILURE;
-		SCSITaskStatus		taskStatus			= kSCSITaskStatus_DeliveryFailure;
+		SCSIServiceResponse	localServiceResponse 	= kSCSIServiceResponse_SERVICE_DELIVERY_OR_TARGET_FAILURE;
+		SCSITaskStatus		localTaskStatus			= kSCSITaskStatus_DeliveryFailure;
+		
+		STATUS_LOG ( ( 5, "%s[%p]: Failing immediately due to status=0x%x", getName ( ), this, status ) );
 		
 		//	An error was seen which prevented the command from being sent. Fail the SCSI task.
 		fCommandGate->runAction (
@@ -1267,8 +1264,8 @@ IOUSBMassStorageClass::SendSCSICommand (
 									this,
 									&IOUSBMassStorageClass::GatedCompleteSCSICommand ),
 			request,
-			( void * ) &serviceResponse,
-			( void * ) &taskStatus );
+			( void * ) &localServiceResponse,
+			( void * ) &localTaskStatus );
 		
 	}
 
@@ -1300,10 +1297,6 @@ IOUSBMassStorageClass::CompleteSCSICommand ( SCSITaskIdentifier request, IORetur
 
 	//	Clear the count of consecutive I/Os which required a USB Device Reset.
 	fConsecutiveResetCount = 0;
-						
-	RecordUSBTimeStamp (	UMC_TRACE ( kCompleteSCSICommand ),
-							( uintptr_t ) this, ( uintptr_t ) request,
-							status, NULL );
 								
 	if ( status == kIOReturnSuccess )
 	{	
@@ -1316,6 +1309,10 @@ IOUSBMassStorageClass::CompleteSCSICommand ( SCSITaskIdentifier request, IORetur
 
 	STATUS_LOG ( ( 6, "%s[%p]: CompleteSCSICommand request=%p taskStatus=0x%02x", getName(), this, request, taskStatus ) );
 
+	RecordUSBTimeStamp (	UMC_TRACE ( kCompleteSCSICommand ),
+						( uintptr_t ) this, ( uintptr_t ) request,
+						kSCSIServiceResponse_TASK_COMPLETE, taskStatus );
+	
 	CommandCompleted ( request, kSCSIServiceResponse_TASK_COMPLETE, taskStatus );
 	
 	//	If didTerminate() was called while this SCSI task was outstanding, then termination would
@@ -1384,7 +1381,7 @@ IOUSBMassStorageClass::IsProtocolServiceSupported (
 	bool			isSupported 	= false;
 	OSDictionary * 	characterDict 	= NULL;
 	
-	STATUS_LOG ( ( 6,  "%s[%p]::IsProtocolServiceSupported called", getName(), this ) );
+	STATUS_LOG ( ( 6,  "%s[%p]::IsProtocolServiceSupported called for feature=%d", getName ( ), this, feature ) );
 	
 	characterDict = OSDynamicCast ( OSDictionary, ( getProperty ( kIOPropertySCSIDeviceCharacteristicsKey ) ) );
 	
@@ -1555,16 +1552,22 @@ IOUSBMassStorageClass::HandleProtocolServiceFeature (
 			UInt32		value			= * ( UInt32 * ) serviceValue;
 
 
-			// If this device doesn't support suspend/resume bail.
+			// By having indicated support for this feature, the IOSAM layer calls this method during power
+			// transitions, to allow us to perform any protocol-specific power handling in place of its
+			// default power handling (e.g. - issue a START_STOP_UNIT command).
+			
 			if ( fPortSuspendResumeForPMEnabled == true )
 			{
+				
+				// This flag indicates that we should suspend the device when powering off,
+				// and resume it when powering up.
 				
 				if ( value == kSCSIProtocolPowerStateOff )
 				{
 				
 					 STATUS_LOG ( ( 6,  "%s[%p]::HandleProtocolServiceFeature suspend port", getName(), this ) );
 					
-					// Supsend the port. 
+					// Suspend the port. 
 					status = SuspendPort ( true );
 					require ( ( status == kIOReturnSuccess ), Exit );
 				
@@ -1591,7 +1594,9 @@ IOUSBMassStorageClass::HandleProtocolServiceFeature (
 				
 				// This a workaround for devices which spin themselves up/down and can't
 				// properly handle START_STOP commands from the host when the drive is 
-				// already in the requested state.
+				// already in the requested state. We need do nothing here - we've already
+				// prevented IOSAM from issuing the START_STOP command.
+				
 				isSupported = true;
 				
 			}
@@ -1977,17 +1982,6 @@ IOUSBMassStorageClass::AcceptSCSITask ( SCSITaskIdentifier request, bool * accep
 	
 	*accepted = false;
 	
-	// If we have been marked as inactive, or no longer have the device, return false.
-	if ( isInactive ( ) || ( fDeviceAttached == false ) || ( fTerminating == true ) )
-	{	
-		
-        RecordUSBTimeStamp (	UMC_TRACE ( kNewCommandWhileTerminating ),
-							( uintptr_t ) this, ( uintptr_t ) request, NULL, NULL );
-        
-		goto Exit;
-		
-	}
-	
 	if ( GetInterfaceProtocol ( ) == kProtocolBulkOnly )
 	{
 		
@@ -2084,6 +2078,10 @@ IOUSBMassStorageClass::GatedCompleteSCSICommand (
 	fConsecutiveResetCount = 0;
 	
 	STATUS_LOG ( ( 4, "%s[%p]: GatedCompleteSCSICommand request=%p serviceResponse=%d taskStatus=0x%02x", getName(), this, request, *serviceResponse, *taskStatus ) );
+	
+	RecordUSBTimeStamp (	UMC_TRACE ( kCompleteSCSICommand ),
+						( uintptr_t ) this, ( uintptr_t ) request,
+						*serviceResponse, *taskStatus );
 	
 	CommandCompleted ( request, *serviceResponse, *taskStatus );
 	
@@ -2326,7 +2324,7 @@ IOUSBMassStorageClass::sResetDevice ( void * refcon )
 	{
         
 		STATUS_LOG ( ( 2, "%s[%p]: sResetDevice - We are being terminated!", driver->getName ( ), driver ) );
-		RecordUSBTimeStamp ( ( UMC_TRACE ( kUSBDeviceResetWhileTerminating ) | DBG_FUNC_START ), ( uintptr_t ) driver, 
+		RecordUSBTimeStamp ( UMC_TRACE ( kUSBDeviceResetWhileTerminating ), ( uintptr_t ) driver, 
                              ( unsigned int ) driver->fTerminating, ( unsigned int ) driver->isInactive ( ), NULL );
         
 		goto ErrorExit;
@@ -2722,6 +2720,8 @@ IOUSBMassStorageClass::AbortCurrentSCSITask ( void )
 	
 	if ( currentTask != NULL )
 	{
+		
+		SCSITaskStatus			taskStatus;
 	
 		fBulkOnlyCommandStructInUse 			= false;
 		fCBICommandStructInUse 					= false;
@@ -2747,13 +2747,16 @@ IOUSBMassStorageClass::AbortCurrentSCSITask ( void )
 			STATUS_LOG ( ( 4, "%s[%p]: AbortCurrentSCSITask fConsecutiveResetCount=%u", getName(), this, fConsecutiveResetCount ) );
 		}
 		
+		RecordUSBTimeStamp (	UMC_TRACE( kAbortCurrentSCSITask ),
+							( uintptr_t ) this, ( uintptr_t ) currentTask, ( uintptr_t ) fDeviceAttached, ( uintptr_t ) fConsecutiveResetCount );
+		
 		if ( fDeviceAttached == false )
 		{ 
 			
 			STATUS_LOG ( ( 1, "%s[%p]: AbortCurrentSCSITask Aborting currentTask=%p with device not present.", getName(), this, currentTask ) );
 			fTerminating = true;
 			SendNotification_DeviceRemoved ( );
-			CommandCompleted ( currentTask, kSCSIServiceResponse_SERVICE_DELIVERY_OR_TARGET_FAILURE, kSCSITaskStatus_DeviceNotPresent );
+			taskStatus = kSCSITaskStatus_DeviceNotPresent;
 			
 		}
 		
@@ -2761,9 +2764,15 @@ IOUSBMassStorageClass::AbortCurrentSCSITask ( void )
 		{
 			
 			STATUS_LOG ( ( 1, "%s[%p]: AbortCurrentSCSITask Aborting currentTask=%p with delivery failure.", getName(), this, currentTask ) );
-			CommandCompleted ( currentTask, kSCSIServiceResponse_SERVICE_DELIVERY_OR_TARGET_FAILURE, kSCSITaskStatus_DeliveryFailure );
+			taskStatus = kSCSITaskStatus_DeliveryFailure;
 			
 		}
+		
+		RecordUSBTimeStamp (	UMC_TRACE ( kCompleteSCSICommand ),
+							( uintptr_t ) this, ( uintptr_t ) currentTask,
+							kSCSIServiceResponse_SERVICE_DELIVERY_OR_TARGET_FAILURE, taskStatus );
+		
+		CommandCompleted ( currentTask, kSCSIServiceResponse_SERVICE_DELIVERY_OR_TARGET_FAILURE, taskStatus );
 		
 		//	If didTerminate() was called while this SCSI task was outstanding, then termination would
 		//	have been deferred until it completed. Check for that now, while behind the command gate.
@@ -2828,7 +2837,7 @@ IOUSBMassStorageClass::SuspendPort ( bool suspend )
 {
 
 	
-	STATUS_LOG ( ( 4, "%s[%p]: SuspendPort called!", getName(), this ) );
+	STATUS_LOG ( ( 4, "%s[%p]: SuspendPort entered with suspend=%d onThread=%d", getName ( ), this, suspend, fWorkLoop->onThread ( ) ) );
 	
     IOReturn            status          = kIOReturnError;
     IOUSBInterface *    usbInterfaceRef = NULL;
@@ -2846,7 +2855,7 @@ IOUSBMassStorageClass::SuspendPort ( bool suspend )
         
     }
     
-    // Get our Device referene safely.
+    // Get our Device reference safely.
     usbInterfaceRef = GetInterfaceReference();
     require ( usbInterfaceRef, Exit );
     
@@ -2859,7 +2868,7 @@ IOUSBMassStorageClass::SuspendPort ( bool suspend )
     
          STATUS_LOG ( ( 6,  "%s[%p]::SuspendPort suspend port", getName(), this ) );
         
-        // Supsend the port. 
+        // Suspend the port. 
         status = usbDeviceRef->SuspendDevice ( true );
         require ( ( status == kIOReturnSuccess ), Exit );
         
@@ -2874,7 +2883,7 @@ IOUSBMassStorageClass::SuspendPort ( bool suspend )
         
         STATUS_LOG ( ( 6,  "%s[%p]::SuspendPort resume port", getName(), this ) );
         
-        // Reusme the port. 
+        // Resume the port. 
         status = usbDeviceRef->SuspendDevice ( false );
         require ( ( status == kIOReturnSuccess ), Exit );
         
@@ -2889,6 +2898,7 @@ IOUSBMassStorageClass::SuspendPort ( bool suspend )
 Exit:
     
     
+	STATUS_LOG ( ( 4, "%s[%p]: SuspendPort: returning status=0x%x fPortIsSuspended=%d", getName ( ), this, status, fPortIsSuspended ) );
     return status;
 	
 }

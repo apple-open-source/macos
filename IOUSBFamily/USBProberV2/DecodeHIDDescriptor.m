@@ -26,9 +26,10 @@
 #import "DecodeHIDDescriptor.h"
 
 
+
 @implementation DecodeHIDDescriptor
 
-+ (void)decodeBytes:(Byte *)p forDevice:(BusProbeDevice *)thisDevice withDeviceInterface:(IOUSBDeviceRef)deviceIntf {
++ (void)decodeBytes:(Byte *)p forDevice:(BusProbeDevice *)thisDevice withDeviceInterface:(IOUSBDeviceRef)deviceIntf isinCurrentConfig:(Boolean)inCurrentConfig {
     char 	temporaryString[500];
     BusProbeClass *     lastInterfaceClassInfo = [thisDevice lastInterfaceClassInfo];
     
@@ -100,18 +101,25 @@
                 sprintf(tempCString, "%s  (Report Descriptor)", [tempString cStringUsingEncoding:NSUTF8StringEncoding]);
                 [thisDevice addProperty:"Type:" withValue:tempCString atDepth:HID_DESCRIPTOR_LEVEL+1];
                 sprintf(tempCString, "%d", hidDescriptorLength);
-                [thisDevice addProperty:"Length (and contents):" withValue:tempCString atDepth:HID_DESCRIPTOR_LEVEL+1];
-                reportdesc = malloc(hidDescriptorLength);
-                if (reportdesc)
-                {
-                    hidlen = GetDescriptorFromInterface(deviceIntf, kUSBReportDesc, 0 /*desc index*/,  [thisDevice currentInterfaceNumber], reportdesc, hidDescriptorLength);
-                    if (hidlen == hidDescriptorLength)
-                    {
-                        [DescriptorDecoder dump:hidlen byte:reportdesc forDevice:thisDevice atDepth:HID_DESCRIPTOR_LEVEL+2];
-                        [self decodeHIDReport:reportdesc forDevice:thisDevice atDepth:HID_DESCRIPTOR_LEVEL+1 reportLen:hidlen];
-                    }
-                    free(reportdesc);
-                }
+				if(inCurrentConfig)
+				{
+					[thisDevice addProperty:"Length (and contents):" withValue:tempCString atDepth:HID_DESCRIPTOR_LEVEL+1];
+					reportdesc = malloc(hidDescriptorLength);
+					if (reportdesc)
+					{
+						hidlen = GetDescriptorFromInterface(deviceIntf, kUSBReportDesc, 0 /*desc index*/,  [thisDevice currentInterfaceNumber], reportdesc, hidDescriptorLength, inCurrentConfig);
+						if (hidlen == hidDescriptorLength)
+						{
+							[DescriptorDecoder dump:hidlen byte:reportdesc forDevice:thisDevice atDepth:HID_DESCRIPTOR_LEVEL+2];
+							[self decodeHIDReport:reportdesc forDevice:thisDevice atDepth:HID_DESCRIPTOR_LEVEL+1 reportLen:hidlen];
+						}
+						free(reportdesc);
+					}
+				}
+				else
+				{
+					[thisDevice addProperty:"Length (interface does not currently exist):" withValue:tempCString atDepth:HID_DESCRIPTOR_LEVEL+1];
+				}
             }
             else if (hidDescriptor.hidDescriptorType == kUSBPhysicalDesc)
             {
@@ -131,7 +139,83 @@
             }
         }
     }
-    else
+    else if ([lastInterfaceClassInfo classNum] == kUSBChipSmartCardInterfaceClass)
+	{
+		IOUSBCCIDDescriptor CCIDDescriptor;
+		
+		CCIDDescriptor = *(IOUSBCCIDDescriptor *)p;
+		
+        [thisDevice addProperty:"CCID Descriptor" withValue:"" atDepth:CCID_DESCRIPTOR_LEVEL-1];
+ 
+		// Descriptor 21 for an smartcards.  Just dump it out
+        //
+        [DescriptorDecoder dumpRawDescriptor:p forDevice:thisDevice atDepth:CCID_DESCRIPTOR_LEVEL];
+ 		
+		
+		sprintf(temporaryString, "%04x", Swap16(&CCIDDescriptor.bcdCCID) );     
+        [thisDevice addProperty:"bcdCCID:" withValue:temporaryString atDepth:CCID_DESCRIPTOR_LEVEL];
+        
+		sprintf(temporaryString, "%d", CCIDDescriptor.bMaxSlotIndex );     
+        [thisDevice addProperty:"bMaxSlotIndex:" withValue:temporaryString atDepth:CCID_DESCRIPTOR_LEVEL];
+
+		sprintf(temporaryString, "%d", CCIDDescriptor.bVoltageSupport );     
+        [thisDevice addProperty:"bVoltageSupport:" withValue:temporaryString atDepth:CCID_DESCRIPTOR_LEVEL];
+
+		sprintf(temporaryString, "%08x", Swap32(&CCIDDescriptor.dwProtocols) );     
+        [thisDevice addProperty:"dwProtocols:" withValue:temporaryString atDepth:CCID_DESCRIPTOR_LEVEL];
+
+		sprintf(temporaryString, "%0d", Swap32(&CCIDDescriptor.dwDefaultClock) );     
+        [thisDevice addProperty:"dwDefaultClock:" withValue:temporaryString atDepth:CCID_DESCRIPTOR_LEVEL];
+
+		sprintf(temporaryString, "%0d", Swap32(&CCIDDescriptor.dwMaximumClock) );     
+        [thisDevice addProperty:"dwMaximumClock:" withValue:temporaryString atDepth:CCID_DESCRIPTOR_LEVEL];
+
+		sprintf(temporaryString, "%d", CCIDDescriptor.bNumClockSupported );     
+        [thisDevice addProperty:"bNumClockSupported:" withValue:temporaryString atDepth:CCID_DESCRIPTOR_LEVEL];
+		
+		sprintf(temporaryString, "%0d", Swap32(&CCIDDescriptor.dwDataRate) );     
+        [thisDevice addProperty:"dwDataRate:" withValue:temporaryString atDepth:CCID_DESCRIPTOR_LEVEL];
+		
+		sprintf(temporaryString, "%0d", Swap32(&CCIDDescriptor.dwMaxDataRate) );     
+        [thisDevice addProperty:"dwMaxDataRate:" withValue:temporaryString atDepth:CCID_DESCRIPTOR_LEVEL];
+		
+		sprintf(temporaryString, "%d", CCIDDescriptor.bNumDataRatesSupported );     
+        [thisDevice addProperty:"bNumDataRatesSupported:" withValue:temporaryString atDepth:CCID_DESCRIPTOR_LEVEL];
+		
+		sprintf(temporaryString, "%08x", Swap32(&CCIDDescriptor.dwMaxIFSD) );     
+        [thisDevice addProperty:"dwMaxIFSD:" withValue:temporaryString atDepth:CCID_DESCRIPTOR_LEVEL];
+		
+		sprintf(temporaryString, "%08x", Swap32(&CCIDDescriptor.dwSyncProtocols) );     
+        [thisDevice addProperty:"dwSyncProtocols:" withValue:temporaryString atDepth:CCID_DESCRIPTOR_LEVEL];
+		
+		sprintf(temporaryString, "%08x", Swap32(&CCIDDescriptor.dwMechanical) );     
+        [thisDevice addProperty:"dwMechanical:" withValue:temporaryString atDepth:CCID_DESCRIPTOR_LEVEL];
+		
+		sprintf(temporaryString, "%08x", Swap32(&CCIDDescriptor.dwFeatures) );     
+        [thisDevice addProperty:"dwFeatures:" withValue:temporaryString atDepth:CCID_DESCRIPTOR_LEVEL];
+		
+		sprintf(temporaryString, "%d", Swap32(&CCIDDescriptor.dwMaxCCIDMessageLength) );     
+        [thisDevice addProperty:"dwMaxCCIDMessageLength:" withValue:temporaryString atDepth:CCID_DESCRIPTOR_LEVEL];
+		
+		sprintf(temporaryString, "%d", CCIDDescriptor.bClassGetResponse );     
+        [thisDevice addProperty:"bClassGetResponse:" withValue:temporaryString atDepth:CCID_DESCRIPTOR_LEVEL];
+		
+		sprintf(temporaryString, "%d", CCIDDescriptor.bClassEnvelope );     
+        [thisDevice addProperty:"bClassEnvelope:" withValue:temporaryString atDepth:CCID_DESCRIPTOR_LEVEL];
+		
+		sprintf(temporaryString, "%04x", Swap16(&CCIDDescriptor.wLcdLayout) );     
+        [thisDevice addProperty:"wLcdLayout:" withValue:temporaryString atDepth:CCID_DESCRIPTOR_LEVEL];
+        
+		sprintf(temporaryString, "%d", CCIDDescriptor.bPINSupport );     
+        [thisDevice addProperty:"bPINSupport:" withValue:temporaryString atDepth:CCID_DESCRIPTOR_LEVEL];
+		
+		sprintf(temporaryString, "%d", CCIDDescriptor.bMaxCCIDBusySlots );     
+        [thisDevice addProperty:"bMaxCCIDBusySlots:" withValue:temporaryString atDepth:CCID_DESCRIPTOR_LEVEL];
+	
+		
+		
+	}
+	else
     {
         // Descriptor 21 for an unknown class.  Just dump it out
         //
@@ -291,40 +375,50 @@
                         usagesigned = true;
                         usagePage = value;
                         strcat((char *)bufvalue, (char *)"(");
-                        switch (usagePage)
-                        {
-                            case kUsage_PageGenericDesktop: sprintf((char *)tempbufvalue, "Generic Desktop"); break;
-                            case kUsage_PageSimulationControls: sprintf((char *)tempbufvalue, "Simulation Controls"); break;
-                            case kUsage_PageVRControls: sprintf((char *)tempbufvalue, "VR Controls"); break;
-                            case kUsage_PageSportControls: sprintf((char *)tempbufvalue, "Sports Controls"); break;
-                            case kUsage_PageGameControls: sprintf((char *)tempbufvalue, "Game Controls"); break;
-                            case kUsage_PageKeyboard:
-                                sprintf((char *)tempbufvalue, "Keyboard/Keypad");
-                                usagesigned = false;
-                                break;
+						if( (usagePage >= (kUsage_VendorDefinedStart+0)) &&
+						    (usagePage <= (kUsage_VendorDefinedStart+255)) )
+						{
+							sprintf((char *)tempbufvalue, "Vendor defined %d", (uint32_t)usagePage-kUsage_VendorDefinedStart);
+						}
+						else
+						{
+							switch (usagePage)
+							{
+								case kUsage_PageGenericDesktop: sprintf((char *)tempbufvalue, "Generic Desktop"); break;
+								case kUsage_PageSimulationControls: sprintf((char *)tempbufvalue, "Simulation Controls"); break;
+								case kUsage_PageVRControls: sprintf((char *)tempbufvalue, "VR Controls"); break;
+								case kUsage_PageSportControls: sprintf((char *)tempbufvalue, "Sports Controls"); break;
+								case kUsage_PageGameControls: sprintf((char *)tempbufvalue, "Game Controls"); break;
+								case kUsage_PageKeyboard:
+									sprintf((char *)tempbufvalue, "Keyboard/Keypad");
+									usagesigned = false;
+									break;
+									
+								case kUsage_PageLED: sprintf((char *)tempbufvalue, "LED"); break;
+								case kUsage_PageButton: sprintf((char *)tempbufvalue, "Button"); break;
+								case kUsage_PageOrdinal: sprintf((char *)tempbufvalue, "Ordinal"); break;
+								case kUsage_PageTelephonyDevice: sprintf((char *)tempbufvalue, "Telephony Device"); break;
+								case kUsage_PageConsumer: sprintf((char *)tempbufvalue, "Consumer"); break;
+								case kUsage_PageDigitizers: sprintf((char *)tempbufvalue, "Digitizer"); break;
+								case kUsage_PagePID: sprintf((char *)tempbufvalue, "PID"); break;
+								case kUsage_PageUnicode: sprintf((char *)tempbufvalue, "Unicode"); break;
+								case kUsage_PageAlphanumericDisplay: sprintf((char *)tempbufvalue, "Alphanumeric Display"); break;
+								case kUsage_PageMonitor: sprintf((char *)tempbufvalue, "Monitor"); break;
+								case kUsage_PageMonitorEnumeratedValues: sprintf((char *)tempbufvalue, "Monitor Enumerated Values"); break;
+								case kUsage_PageMonitorVirtualControl: sprintf((char *)tempbufvalue, "VESA Virtual Controls"); break;
+								case kUsage_PageMonitorReserved: sprintf((char *)tempbufvalue, "Monitor Class reserved"); break;
+								case kUsage_PagePowerDevice: sprintf((char *)tempbufvalue, "Power Device"); break;
+								case kUsage_PageBatterySystem: sprintf((char *)tempbufvalue, "Battery System"); break;
+								case kUsage_PowerClassReserved: sprintf((char *)tempbufvalue, "Power Class reserved"); break;
+								case kUsage_PowerClassReserved2: sprintf((char *)tempbufvalue, "Power Class reserved"); break;
+								//case 0xff: sprintf((char *)tempbufvalue, "Vendor Defined"); break;	// 0xff is not a valid vendor defined page
+									
+								default: sprintf((char *)tempbufvalue, "%d", (uint32_t)usagePage); break;
+							}
+							
+						}
 
-                            case kUsage_PageLED: sprintf((char *)tempbufvalue, "LED"); break;
-                            case kUsage_PageButton: sprintf((char *)tempbufvalue, "Button"); break;
-                            case kUsage_PageOrdinal: sprintf((char *)tempbufvalue, "Ordinal"); break;
-                            case kUsage_PageTelephonyDevice: sprintf((char *)tempbufvalue, "Telephony Device"); break;
-                            case kUsage_PageConsumer: sprintf((char *)tempbufvalue, "Consumer"); break;
-                            case kUsage_PageDigitizers: sprintf((char *)tempbufvalue, "Digitizer"); break;
-                            case kUsage_PagePID: sprintf((char *)tempbufvalue, "PID"); break;
-                            case kUsage_PageUnicode: sprintf((char *)tempbufvalue, "Unicode"); break;
-                            case kUsage_PageAlphanumericDisplay: sprintf((char *)tempbufvalue, "Alphanumeric Display"); break;
-                            case kUsage_PageMonitor: sprintf((char *)tempbufvalue, "Monitor"); break;
-                            case kUsage_PageMonitorEnumeratedValues: sprintf((char *)tempbufvalue, "Monitor Enumerated Values"); break;
-                            case kUsage_PageMonitorVirtualControl: sprintf((char *)tempbufvalue, "VESA Virtual Controls"); break;
-                            case kUsage_PageMonitorReserved: sprintf((char *)tempbufvalue, "Monitor Class reserved"); break;
-                            case kUsage_PagePowerDevice: sprintf((char *)tempbufvalue, "Power Device"); break;
-                            case kUsage_PageBatterySystem: sprintf((char *)tempbufvalue, "Battery System"); break;
-                            case kUsage_PowerClassReserved: sprintf((char *)tempbufvalue, "Power Class reserved"); break;
-                            case kUsage_PowerClassReserved2: sprintf((char *)tempbufvalue, "Power Class reserved"); break;
-                            case 0xff: sprintf((char *)tempbufvalue, "Vendor Defined"); break;
-
-                            default: sprintf((char *)tempbufvalue, "%d", (uint32_t)usagePage); break;
-                        }
-
+ 
                             //strcat((char *)buf, (char *)tempbuf);
                             strcat((char *)bufvalue, (char *)tempbufvalue);
                         strcat((char *)bufvalue, (char *)")");

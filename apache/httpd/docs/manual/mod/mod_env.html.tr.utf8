@@ -85,6 +85,14 @@ müdahale etmek için kullanılır.</td></tr>
       SetEnv SPECIAL_PATH /foo/bin
     </code></p></div>
 
+    <div class="note"><p>Bu yönerge ile atanan dahili ortam değişkenleri, erişim denetimi ve
+      URI'leri dosya isimleri ile eşleştirme gibi daha önceki istek işleme
+      yönergelerinden <em>sonra</em> atanır. Eğer atayacağınız ortam
+      değikenlerinin <code class="directive"><a href="../mod/mod_rewrite.html#rewriterule">RewriteRule</a></code>
+      yönergelerindeki gibi erken dönem işlem aşamalarında etkili olmasını
+      istiyorsanız bu ortam değişkenlerini <code class="directive"><a href="../mod/mod_setenvif.html#setenvif">SetEnvIf</a></code> yönergesi ile atamalısınız.</p>
+    </div>
+
 </div>
 <div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
 <div class="directive-section"><h2><a name="UnsetEnv" id="UnsetEnv">UnsetEnv</a> <a name="unsetenv" id="unsetenv">Yönergesi</a></h2>

@@ -563,11 +563,8 @@
 		72E40F85091CC03000674539 /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = (
-					i386,
-					ppc,
-					x86_64,
-				);
+				ARCHS = "$(ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1)";
+				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				GCC_DEBUGGING_SYMBOLS = full;
@@ -604,11 +601,8 @@
 		72E40F86091CC03000674539 /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = (
-					i386,
-					ppc,
-					x86_64,
-				);
+				ARCHS = "$(ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1)";
+				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				GCC_DEBUGGING_SYMBOLS = full;
@@ -658,7 +652,7 @@
 				MODULE_NAME = com.apple.filesystems.ntfs;
 				MODULE_START = ntfs_module_start;
 				MODULE_STOP = ntfs_module_stop;
-				MODULE_VERSION = 3.2;
+				MODULE_VERSION = 3.3;
 				PREBINDING = NO;
 				PRODUCT_NAME = ntfs;
 				STRIP_INSTALLED_PRODUCT = YES;
@@ -683,7 +677,7 @@
 				MODULE_NAME = com.apple.filesystems.ntfs;
 				MODULE_START = ntfs_module_start;
 				MODULE_STOP = ntfs_module_stop;
-				MODULE_VERSION = 3.2;
+				MODULE_VERSION = 3.3;
 				PREBINDING = NO;
 				PRODUCT_NAME = ntfs;
 				STRIP_INSTALLED_PRODUCT = YES;

@@ -77,7 +77,18 @@ enum
 
 enum
 {
-    kIOPCIClassBridge = 0x06
+    kIOPCIClassBridge           = 0x06,
+
+    kIOPCISubClassBridgeHost    = 0x00,
+    kIOPCISubClassBridgeISA     = 0x01,
+    kIOPCISubClassBridgeEISA    = 0x02,
+    kIOPCISubClassBridgeMCA     = 0x03,
+    kIOPCISubClassBridgePCI     = 0x04,
+    kIOPCISubClassBridgePCMCIA  = 0x05,
+    kIOPCISubClassBridgeNuBus   = 0x06,
+    kIOPCISubClassBridgeCardBus = 0x07,
+    kIOPCISubClassBridgeRaceWay = 0x08,
+    kIOPCISubClassBridgeOther   = 0x80,
 };
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
@@ -838,10 +849,12 @@ IOReturn IOPCIBridge::saveDeviceState( IOPCIDevice * device,
     device->callPlatformFunction(gIOPlatformDeviceMessageKey, false,
         (void *) kIOMessageDeviceWillPowerOff, device, p3, (void *) 0);
 
-    if (kIOPCIConfigShadowBridge & flags)
+    if (kIOPCIConfigShadowHostBridge & flags)
     {
-        if (configShadow(device)->bridge)
-            configShadow(device)->bridge->saveBridgeState();
+    }
+    else if (configShadow(device)->bridge)
+    {
+        configShadow(device)->bridge->saveBridgeState();
     }
     else
     {
@@ -907,27 +920,32 @@ IOReturn IOPCIBridge::_restoreDeviceState( IOPCIDevice * device,
     uint32_t     data;
     bool         ok;
 
-    clock_interval_to_deadline(20, kMillisecondScale, &deadline);
-    do
+    if (!(kIOPCIConfigShadowBridgeDriver & flags))
     {
-        data = device->configRead32(kIOPCIConfigVendorID);
-        ok = (data && (data != 0xFFFFFFFF));
-        if (ok)
-            break;
-        retries++;
-        clock_get_uptime(&now);
-    }
-    while (AbsoluteTime_to_scalar(&now) < AbsoluteTime_to_scalar(&deadline));
-    if (retries)
-    {
-        IOLog("pci restore waited for %s (%d) %s\n", 
-                device->getName(), retries, ok ? "ok" : "fail");
+        clock_interval_to_deadline(20, kMillisecondScale, &deadline);
+        do
+        {
+            data = device->configRead32(kIOPCIConfigVendorID);
+            ok = (data && (data != 0xFFFFFFFF));
+            if (ok)
+                break;
+            retries++;
+            clock_get_uptime(&now);
+        }
+        while (AbsoluteTime_to_scalar(&now) < AbsoluteTime_to_scalar(&deadline));
+        if (retries)
+        {
+            IOLog("pci restore waited for %s (%d) %s\n", 
+                    device->getName(), retries, ok ? "ok" : "fail");
+        }
     }
 
-    if (kIOPCIConfigShadowBridge & flags)
+    if (kIOPCIConfigShadowHostBridge & flags)
     {
-        if (configShadow(device)->bridge)
-            configShadow(device)->bridge->restoreBridgeState();
+    }
+    else if (configShadow(device)->bridge)
+    {
+        configShadow(device)->bridge->restoreBridgeState();
     }
     else
     {
@@ -1388,8 +1406,16 @@ bool IOPCIBridge::publishNub( IOPCIDevice * nub, UInt32 /* index */ )
 
         checkProperties( nub );
 
-        if (shadow && (kIOPCIClassBridge == nub->savedConfig[kIOPCIConfigRevisionID >> 2] >> 24))
+        if (shadow && (kIOPCIClassBridge == (nub->savedConfig[kIOPCIConfigRevisionID >> 2] >> 24)))
+        {
             shadow->flags |= kIOPCIConfigShadowBridge;
+#if 0
+            if (kIOPCISubClassBridgeMCA >= (0xff & (nub->savedConfig[kIOPCIConfigRevisionID >> 2] >> 16)))
+            {
+                shadow->flags |= kIOPCIConfigShadowHostBridge;
+            }
+#endif
+        }
 
 #if ROM_KEXTS
         // look for a "driver-reg,AAPL,MacOSX,PowerPC" property.
@@ -2499,8 +2525,10 @@ bool IOPCI2PCIBridge::configure( IOService * provider )
     saveBridgeState();
     if (bridgeDevice->savedConfig)
     {
-        configShadow(bridgeDevice)->flags |= kIOPCIConfigShadowBridge;
         configShadow(bridgeDevice)->bridge = this;
+        configShadow(bridgeDevice)->flags |= kIOPCIConfigShadowBridge;
+        if (OSTypeIDInst(this) != OSTypeID(IOPCI2PCIBridge))
+            configShadow(bridgeDevice)->flags |= kIOPCIConfigShadowBridgeDriver;
     }
 
     return (super::configure(provider));

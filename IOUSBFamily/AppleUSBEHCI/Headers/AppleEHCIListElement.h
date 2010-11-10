@@ -97,7 +97,11 @@ public:
 	UInt8									_bInterval;								// the "raw" bInterval from the endpoint descriptor
 	UInt8									_startFrame;							// beginning ms frame in a 32 ms schedule
 	UInt8									_startuFrame;							// first uFrame (HS endpoints only)
+	bool									_aborting;								// this queue head is in the process of aborting
 	UInt16									_pollingRate;							// converted polling rate in frames for FS/LS and uFrames for HS
+	USBPhysicalAddress32					_inactiveTD;							// For inactive detection
+	IOPhysicalAddress						_lastSeenTD;							// For inactive QH detection
+	UInt32									_lastSeenFrame;							// Also for inactive detection
 };
 
 

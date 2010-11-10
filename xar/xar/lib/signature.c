@@ -279,7 +279,7 @@ xar_signature_t xar_signature_unserialize(xar_t x, xmlTextReaderPtr reader)
 	const xmlChar *value = NULL;
 	const xmlChar *name = NULL;
 	int type;
-	unsigned int outputLength;
+	size_t outputLength = 0;
 	
 	ret = malloc(sizeof(struct __xar_signature_t));
 	

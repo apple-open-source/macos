@@ -33,9 +33,4 @@
 #define SIZEOF_XML_SIZE 4
 #endif
 .
-/WORDS_BIGENDIAN/c
-#ifdef __BIG_ENDIAN__
-#define WORDS_BIGENDIAN 1
-#endif
-.
 w

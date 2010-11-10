@@ -158,6 +158,9 @@ class IOHIDLibUserClient : public IOUserClient
 	void setValid(bool state);
 	
 	IOReturn dispatchMessage(void* message);
+
+public:
+	bool attach(IOService * provider);
 	
 protected:
 	static const IOExternalMethodDispatch

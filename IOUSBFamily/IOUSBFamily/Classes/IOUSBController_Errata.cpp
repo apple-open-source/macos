@@ -60,11 +60,11 @@ static ErrataListEntry  errataList[] = {
 	{0x8086, 0x265B, 0x03, 0x04, kErrataICH6PowerSequencing | kErrataUHCISupportsOvercurrent | kErrataNeedsOvercurrentDebounce | kErrataSupportsPortResumeEnable | kErrataUHCISupportsResumeDetectOnConnect },	// ICH6 UHCI #4
 	{0x8086, 0x265C, 0x03, 0x04, kErrataICH6PowerSequencing | kErrataNeedsOvercurrentDebounce },									// ICH6 EHCI
 	
-	{0x8086, 0x2688, 0x00, 0xff, kErrataICH6PowerSequencing | kErrataUHCISupportsOvercurrent | kErrataNeedsOvercurrentDebounce | kErrataSupportsPortResumeEnable | kErrataUHCISupportsResumeDetectOnConnect },	// Southbridge UHCI #1
-	{0x8086, 0x2689, 0x00, 0xff, kErrataICH6PowerSequencing | kErrataUHCISupportsOvercurrent | kErrataNeedsOvercurrentDebounce | kErrataSupportsPortResumeEnable | kErrataUHCISupportsResumeDetectOnConnect },	// Southbridge UHCI #2
-	{0x8086, 0x268A, 0x00, 0xff, kErrataICH6PowerSequencing | kErrataUHCISupportsOvercurrent | kErrataNeedsOvercurrentDebounce | kErrataSupportsPortResumeEnable | kErrataUHCISupportsResumeDetectOnConnect },	// Southbridge UHCI #3
-	{0x8086, 0x268B, 0x00, 0xff, kErrataICH6PowerSequencing | kErrataUHCISupportsOvercurrent | kErrataNeedsOvercurrentDebounce | kErrataSupportsPortResumeEnable | kErrataUHCISupportsResumeDetectOnConnect },	// Southbridge UHCI #4
-	{0x8086, 0x268C, 0x00, 0xff, kErrataICH6PowerSequencing | kErrataNeedsOvercurrentDebounce },									// Southbridge EHCI
+	{0x8086, 0x2688, 0x00, 0xff, kErrataICH6PowerSequencing | kErrataUHCISupportsOvercurrent | kErrataNeedsOvercurrentDebounce | kErrataSupportsPortResumeEnable | kErrataUHCISupportsResumeDetectOnConnect },	// ESB UHCI #1
+	{0x8086, 0x2689, 0x00, 0xff, kErrataICH6PowerSequencing | kErrataUHCISupportsOvercurrent | kErrataNeedsOvercurrentDebounce | kErrataSupportsPortResumeEnable | kErrataUHCISupportsResumeDetectOnConnect },	// ESB UHCI #2
+	{0x8086, 0x268A, 0x00, 0xff, kErrataICH6PowerSequencing | kErrataUHCISupportsOvercurrent | kErrataNeedsOvercurrentDebounce | kErrataSupportsPortResumeEnable | kErrataUHCISupportsResumeDetectOnConnect },	// ESB UHCI #3
+	{0x8086, 0x268B, 0x00, 0xff, kErrataICH6PowerSequencing | kErrataUHCISupportsOvercurrent | kErrataNeedsOvercurrentDebounce | kErrataSupportsPortResumeEnable | kErrataUHCISupportsResumeDetectOnConnect },	// ESB UHCI #4
+	{0x8086, 0x268C, 0x00, 0xff, kErrataICH6PowerSequencing | kErrataNeedsOvercurrentDebounce },									// ESB EHCI
 	
 	{0x8086, 0x27C8, 0x00, 0xff, kErrataICH6PowerSequencing | kErrataUHCISupportsOvercurrent | kErrataNeedsOvercurrentDebounce | kErrataSupportsPortResumeEnable | kErrataUHCISupportsResumeDetectOnConnect },	// ICH7 UHCI #1
 	{0x8086, 0x27C9, 0x00, 0xff, kErrataICH6PowerSequencing | kErrataUHCISupportsOvercurrent | kErrataNeedsOvercurrentDebounce | kErrataSupportsPortResumeEnable | kErrataUHCISupportsResumeDetectOnConnect },	// ICH7 UHCI #2
@@ -99,15 +99,20 @@ static ErrataListEntry  errataList[] = {
 	{0x8086, 0x3a3a, 0x00, 0xff, kErrataICH6PowerSequencing | kErrataNeedsOvercurrentDebounce },			// ICH10 EHCI #1
 	{0x8086, 0x3a3c, 0x00, 0xff, kErrataICH6PowerSequencing | kErrataNeedsOvercurrentDebounce },			// ICH10 EHCI #2
 	
-	{0x8086, 0x3b36, 0x00, 0xff, kErrataDontUseCompanionController },   // PCH UHCI #1
-	{0x8086, 0x3b37, 0x00, 0xff, kErrataDontUseCompanionController },   // PCH UHCI #2
-	{0x8086, 0x3b38, 0x00, 0xff, kErrataDontUseCompanionController },   // PCH UHCI #3
-	{0x8086, 0x3b39, 0x00, 0xff, kErrataDontUseCompanionController },   // PCH UHCI #4
-	{0x8086, 0x3b3b, 0x00, 0xff, kErrataDontUseCompanionController },   // PCH UHCI #5
-	{0x8086, 0x3b3e, 0x00, 0xff, kErrataDontUseCompanionController },   // PCH UHCI #6
-	{0x8086, 0x3b3f, 0x00, 0xff, kErrataDontUseCompanionController },   // PCH UHCI #7
-	{0x8086, 0x3b34, 0x00, 0xff, kErrataDontUseCompanionController },	// PCH EHCI #1
-	{0x8086, 0x3b3c, 0x00, 0xff, kErrataDontUseCompanionController }	// PCH EHCI #2
+	{0x8086, 0x3b36, 0x00, 0xff, kErrataDontUseCompanionController },   // P55 UHCI #1
+	{0x8086, 0x3b37, 0x00, 0xff, kErrataDontUseCompanionController },   // P55 UHCI #2
+	{0x8086, 0x3b38, 0x00, 0xff, kErrataDontUseCompanionController },   // P55 UHCI #3
+	{0x8086, 0x3b39, 0x00, 0xff, kErrataDontUseCompanionController },   // P55 UHCI #4
+	{0x8086, 0x3b3b, 0x00, 0xff, kErrataDontUseCompanionController },   // P55 UHCI #5
+	{0x8086, 0x3b3e, 0x00, 0xff, kErrataDontUseCompanionController },   // P55 UHCI #6
+	{0x8086, 0x3b3f, 0x00, 0xff, kErrataDontUseCompanionController },   // P55 UHCI #7
+	{0x8086, 0x3b34, 0x00, 0xff, kErrataDontUseCompanionController },	// P55 EHCI #1
+	{0x8086, 0x3b3c, 0x00, 0xff, kErrataDontUseCompanionController }	// P55 EHCI #2
+	
+
+	,
+	{0x10de, 0x0d9d, 0x00, 0xff, kErrataIgnoreRootHubPowerClearFeature },			// MCP89 EHCI #1,2
+	{0x10de, 0x0d9c, 0x00, 0xff, kErrataIgnoreRootHubPowerClearFeature }			// MCP89 OHCI #1,2
 	
 };
 

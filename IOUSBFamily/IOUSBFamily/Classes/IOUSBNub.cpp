@@ -72,9 +72,102 @@ IOUSBNub::USBCompareProperty( OSDictionary   * matching, const char     * key )
 	}
     else
         matches = false;
-
+	
     return matches;
 }
+
+//  This routine will look to see if the OSArray contains any matching keys.  The OSArray has to contain a list of OSNumbers.
+bool 
+IOUSBNub::USBComparePropertyInArray( OSDictionary *matching, const char * arrayName, const char * key, UInt32 * theProductIDThatMatched )
+{
+    // We return success iff we match any entry in the array with the key 
+	OSArray *		propertyIDArray = NULL;
+	OSNumber *		registryProperty = NULL;
+	OSNumber *		propertyFromArrayItem = NULL;
+    bool			matches = false;
+	unsigned int	index;
+	
+	*theProductIDThatMatched = 0;
+	
+	// Get our nub's value for the key
+	registryProperty = OSDynamicCast(OSNumber, getProperty(key));
+	propertyIDArray = OSDynamicCast(OSArray, matching->getObject(arrayName));
+	
+	// Iterate over the array looking for the entries
+	if (propertyIDArray && registryProperty)
+	{
+		USBLog(7, "%s[%p]::USBComparePropertyInArray - found array with capacity of %d", getName(), this, propertyIDArray->getCount());
+		
+		for (index = 0; index < propertyIDArray->getCount(); index++)
+		{
+			propertyFromArrayItem = OSDynamicCast(OSNumber, propertyIDArray->getObject(index));
+			if (propertyFromArrayItem)
+			{
+				// See if this item has the same value as the one in our registry for this key
+				matches = propertyFromArrayItem->isEqualTo( registryProperty);
+				if (matches)
+				{
+					*theProductIDThatMatched = propertyFromArrayItem->unsigned32BitValue();
+					USBLog(7, "%s[%p]::USBComparePropertyInArray - item %d matched:  id = 0x%x", getName(), this, index, (uint32_t) *theProductIDThatMatched);
+					break;
+				}
+				else 
+				{
+					USBLog(7, "%s[%p]::USBComparePropertyInArray - item %d did not match", getName(), this, index);
+				}
+			}
+		}
+	}
+	
+    return matches;
+}
+
+//  This routine will look to see if the OSArray contains any matching keys.  The OSArray has to contain a list of OSNumbers.
+bool 
+IOUSBNub::USBComparePropertyInArrayWithMask( OSDictionary *matching, const char * arrayName, const char * key, const char * maskKey, UInt32 * theProductIDThatMatched )
+{
+    // We return success iff we match any entry in the array with the key 
+	OSArray *		propertyIDArray = NULL;
+	OSNumber *		registryProperty = NULL;
+	OSNumber *		propertyFromArrayItem = NULL;
+    OSNumber *		dictionaryMask = NULL;
+    bool			matches = false;
+	unsigned int	index;
+	
+	*theProductIDThatMatched = 0;
+	
+	// Get our nub's value for the key
+	registryProperty = OSDynamicCast(OSNumber, getProperty(key));
+	propertyIDArray = OSDynamicCast(OSArray, matching->getObject(arrayName));
+    dictionaryMask = OSDynamicCast(OSNumber, matching->getObject(maskKey));
+	
+	// Iterate over the array looking for the entries
+	if (propertyIDArray && registryProperty && dictionaryMask)
+	{
+		USBLog(7, "%s[%p]::USBComparePropertyInArrayWithMask - found array with capacity of %d", getName(), this, propertyIDArray->getCount());
+		
+		for (index = 0; index < propertyIDArray->getCount(); index++)
+		{
+			propertyFromArrayItem = OSDynamicCast(OSNumber, propertyIDArray->getObject(index));
+			if (propertyFromArrayItem)
+			{
+				UInt32  registryValue = registryProperty->unsigned32BitValue();
+				UInt32  arrayValue = propertyFromArrayItem->unsigned32BitValue();
+				UInt32  mask = dictionaryMask->unsigned32BitValue();
+				
+				if ( (registryValue & mask) == (arrayValue & mask) )
+				{
+					USBLog(7, "%s[%p]::USBComparePropertyInArrayWithMask - 0x%x, 0x%x, mask 0x%x matched", getName(), this, (uint32_t)arrayValue, (uint32_t)registryValue, (uint32_t)mask);
+					*theProductIDThatMatched = registryValue;
+					matches = true;
+				}
+			}
+		}
+	}
+	
+    return matches;
+}
+
 
 bool 
 IOUSBNub::IsWildCardMatch( OSDictionary   * matching, const char     * key )

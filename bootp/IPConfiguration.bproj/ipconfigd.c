@@ -3227,21 +3227,23 @@ flush_routes(const struct in_addr ip, const struct in_addr broadcast)
 {
     int		s;
 
-    s = socket(AF_ROUTE, SOCK_RAW, 0);
+    s = arp_open_routing_socket();
     if (s < 0) {
 	return;
+    }
+
+    /* remove permanent arp entries for the IP and IP broadcast */
+    if (ip.s_addr) { 
+	(void)arp_delete(s, ip, 0);
+    }
+    if (broadcast.s_addr) { 
+	(void)arp_delete(s, broadcast, 0);
     }
 
     /* blow away all non-permanent arp entries */
     (void)arp_flush(s, FALSE);
 
-    /* remove permanent arp entries for the IP and IP broadcast */
-    if (ip.s_addr) { 
-	(void)arp_delete(s, ip, 0, FALSE);
-    }
-    if (broadcast.s_addr) { 
-	(void)arp_delete(s, broadcast, 0, FALSE);
-    }
+    /* flush all dynamic routes */
     (void)flush_dynamic_routes(s);
     close(s);
     return;
@@ -3328,8 +3330,6 @@ inet_detach_interface(const char * ifname)
     return (ret);
 }
 
-static int 			rtm_seq;
-
 static boolean_t
 host_route(int cmd, struct in_addr iaddr)
 {
@@ -3342,7 +3342,8 @@ host_route(int cmd, struct in_addr iaddr)
     } 				rtmsg;
     int 			sockfd = -1;
 
-    if ((sockfd = socket(AF_ROUTE, SOCK_RAW, 0)) < 0) {
+    sockfd = arp_open_routing_socket();
+    if (sockfd < 0) {
 	my_log(LOG_NOTICE, "host_route: open routing socket failed, %s",
 	       strerror(errno));
 	ret = FALSE;
@@ -3353,7 +3354,7 @@ host_route(int cmd, struct in_addr iaddr)
     rtmsg.hdr.rtm_type = cmd;
     rtmsg.hdr.rtm_flags = RTF_UP | RTF_STATIC | RTF_HOST;
     rtmsg.hdr.rtm_version = RTM_VERSION;
-    rtmsg.hdr.rtm_seq = ++rtm_seq;
+    rtmsg.hdr.rtm_seq = arp_get_next_seq();
     rtmsg.hdr.rtm_addrs = RTA_DST | RTA_GATEWAY;
     rtmsg.dst.sin_len = sizeof(rtmsg.dst);
     rtmsg.dst.sin_family = AF_INET;
@@ -3394,6 +3395,7 @@ subnet_route(int cmd, struct in_addr gateway, struct in_addr netaddr,
 {
     int 			len;
     boolean_t			ret = TRUE;
+    int 			rtm_seq;
     struct {
 	struct rt_msghdr	hdr;
 	struct sockaddr_in	dst;
@@ -3404,7 +3406,8 @@ subnet_route(int cmd, struct in_addr gateway, struct in_addr netaddr,
     } 				rtmsg;
     int 			sockfd = -1;
 
-    if ((sockfd = socket(AF_ROUTE, SOCK_RAW, 0)) < 0) {
+    sockfd = arp_open_routing_socket();
+    if (sockfd < 0) {
 	my_log(LOG_NOTICE, "subnet_route: open routing socket failed, %s",
 	       strerror(errno));
 	ret = FALSE;
@@ -3415,7 +3418,7 @@ subnet_route(int cmd, struct in_addr gateway, struct in_addr netaddr,
     rtmsg.hdr.rtm_type = cmd;
     rtmsg.hdr.rtm_flags = RTF_UP | RTF_STATIC | RTF_CLONING;
     rtmsg.hdr.rtm_version = RTM_VERSION;
-    rtmsg.hdr.rtm_seq = ++rtm_seq;
+    rtmsg.hdr.rtm_seq = rtm_seq = arp_get_next_seq();
     rtmsg.hdr.rtm_addrs = RTA_DST | RTA_GATEWAY | RTA_NETMASK;
     rtmsg.dst.sin_len = sizeof(rtmsg.dst);
     rtmsg.dst.sin_family = AF_INET;
@@ -3499,26 +3502,27 @@ subnet_route_if_index(struct in_addr netaddr, struct in_addr netmask)
     int 			len;
     int				n;
     char *			ptr;
-    int				pid;
+    int				pid = getpid();
     boolean_t			ret_if_index = 0;
+    int 			rtm_seq;
     struct {
 	struct rt_msghdr hdr;
 	char		 data[512];
     }				rtmsg;
-    int 			rtmsg_tries = 0;
     struct sockaddr_dl *	sdl;
     int 			sockfd = -1;
 
-    if ((sockfd = socket(AF_ROUTE, SOCK_RAW, 0)) < 0) {
+    sockfd = arp_open_routing_socket();
+    if (sockfd < 0) {
 	my_log(LOG_NOTICE, 
 	       "subnet_route_if_index: open routing socket failed, %s",
 	       strerror(errno));
 	goto done;
     }
     memset(&rtmsg, 0, sizeof(rtmsg));
-    rtmsg.hdr.rtm_type = RTM_GET;
+    rtmsg.hdr.rtm_type = RTM_GET_SILENT;
     rtmsg.hdr.rtm_version = RTM_VERSION;
-    rtmsg.hdr.rtm_seq = ++rtm_seq;
+    rtmsg.hdr.rtm_seq = rtm_seq = arp_get_next_seq();
     rtmsg.hdr.rtm_addrs = RTA_DST | RTA_NETMASK;
     ptr = rtmsg.data;
 
@@ -3556,16 +3560,11 @@ subnet_route_if_index(struct in_addr netaddr, struct in_addr netmask)
 	}
 	goto done;
     }
-    pid = getpid();
     while ((n = read(sockfd, &rtmsg, sizeof(rtmsg))) > 0) {
 	struct rt_addrinfo	info;
 
-	if (rtmsg.hdr.rtm_seq != rtm_seq || rtmsg.hdr.rtm_pid != pid) {
-	    rtmsg_tries++;
-#define ARP_MAX_RETRIES		20
-	    if (rtmsg_tries > ARP_MAX_RETRIES) {
-		break;
-	    }
+	if (rtmsg.hdr.rtm_type != RTM_GET
+	    || rtmsg.hdr.rtm_seq != rtm_seq || rtmsg.hdr.rtm_pid != pid) {
 	    continue;
 	}
 	info.rti_addrs = rtmsg.hdr.rtm_addrs;

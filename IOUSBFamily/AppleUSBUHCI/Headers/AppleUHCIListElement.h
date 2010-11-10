@@ -39,6 +39,7 @@ public:
     UInt8										type;					// Control, interrupt, etc.
 	UInt8										interruptSlot;			// index into the interrupt queue head tree iff type is kUSBInterrupt
     bool										stalled;
+	bool										aborting;				// this endpoint is in the process of aborting
     
     // AbsoluteTime								timestamp;
         

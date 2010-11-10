@@ -123,7 +123,8 @@ enum
     kUsage_PagePowerDevice				= 0x84,
     kUsage_PageBatterySystem			= 0x85,
     kUsage_PowerClassReserved			= 0x86,
-    kUsage_PowerClassReserved2			= 0x87
+    kUsage_PowerClassReserved2			= 0x87,
+	kUsage_VendorDefinedStart			= 0xff00
 };
 
 // Usage constants for Generic Desktop page (01) from HID Usage Tables spec 1.0
@@ -174,13 +175,52 @@ enum
     kUsage_01_SystemMenuDown	= 0x8D
 };
 
+/*!
+ @typedef IOUSBCCIDDescriptor
+ @discussion USB Device CHIP CARD ID Descriptor.  See the USB CCID Specification at <a href="http://www.usb.org"TARGET="_blank">http://www.usb.org</a>.
+ */
+
+#pragma pack(1)
+struct IOUSBCCIDDescriptor 
+{
+	UInt8 			bLength;
+	UInt8 			bDescriptorType;
+	UInt16			bcdCCID;
+	UInt8			bMaxSlotIndex;
+	UInt8			bVoltageSupport;
+	UInt32			dwProtocols;
+	UInt32			dwDefaultClock;
+	UInt32			dwMaximumClock;
+	UInt8			bNumClockSupported;
+	UInt32			dwDataRate;
+	UInt32			dwMaxDataRate;
+	UInt8			bNumDataRatesSupported;
+	UInt32			dwMaxIFSD;
+	UInt32			dwSyncProtocols;
+	UInt32			dwMechanical;
+	UInt32			dwFeatures;
+	UInt32			dwMaxCCIDMessageLength;
+	UInt8			bClassGetResponse;
+	UInt8			bClassEnvelope;
+	UInt16			wLcdLayout;
+	UInt8			bPINSupport;
+	UInt8			bMaxCCIDBusySlots;
+};
+typedef struct 	IOUSBCCIDDescriptor 		IOUSBCCIDDescriptor;
+typedef 		IOUSBCCIDDescriptor *	IOUSBCCIDDescriptorPtr;
+
+#pragma options align=reset
+
+
+
+
 /*	end HID Constants Spec 1.0 	*/
 
 @interface DecodeHIDDescriptor : NSObject {
 
 }
 
-+ (void)decodeBytes:(Byte *)p forDevice:(BusProbeDevice *)thisDevice withDeviceInterface:(IOUSBDeviceRef)deviceIntf;
++ (void)decodeBytes:(Byte *)p forDevice:(BusProbeDevice *)thisDevice withDeviceInterface:(IOUSBDeviceRef)deviceIntf  isinCurrentConfig:(Boolean)inCurrentConfig;
 
 +(void)decodeHIDReport:(UInt8 *)reportDesc forDevice:(BusProbeDevice *)thisDevice atDepth:(UInt16)depth reportLen:(UInt16)length;
 

@@ -130,6 +130,8 @@ enum {
     kIOFBNotifyDisplayDimsChange = 50,
 
     kIOFBNotifyProbed           = 60,
+
+    kIOFBNotifyVRAMReady        = 70,
 };
 
 enum {
@@ -142,6 +144,7 @@ enum {
 
 struct StdFBShmem_t;
 class IOFramebufferUserClient;
+class IODisplay;
 
 /*! @class IOFramebuffer : public IOGraphicsDevice
     @abstract The base class for graphics devices to be made available as part of the desktop.

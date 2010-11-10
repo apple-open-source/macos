@@ -80,6 +80,8 @@
 #define kACDisplaySleepUsesDim          1
 #define kACMobileMotionModule           1
 #define kACGPUSavings                   0
+#define kACDeepSleepEnabled             0
+#define kACDeepSleepDelay               0
 
 /*
  *      Battery
@@ -97,6 +99,8 @@
 #define kBatteryDisplaySleepUsesDim     1
 #define kBatteryMobileMotionModule      1
 #define kBatteryGPUSavings              1
+#define kBatteryDeepSleepEnabled        0
+#define kBatteryDeepSleepDelay          0
 
 /*
  *      UPS
@@ -114,6 +118,8 @@
 #define kUPSDisplaySleepUsesDim          kACDisplaySleepUsesDim
 #define kUPSMobileMotionModule           kACMobileMotionModule
 #define kUPSGPUSavings                   kACGPUSavings
+#define kUPSDeepSleepEnabled             0
+#define kUPSDeepSleepDelay               0
 
 /*
  * Settings with same default value across all power sources
@@ -124,7 +130,7 @@
 #define kIOHibernateDefaultFile     "/var/vm/sleepimage"
 enum { kIOHibernateMinFreeSpace     = 750*1024ULL*1024ULL }; /* 750Mb */
 
-#define kIOPMNumPMFeatures      14
+#define kIOPMNumPMFeatures      17
 
 static char *energy_features_array[kIOPMNumPMFeatures] = {
     kIOPMDisplaySleepKey, 
@@ -140,8 +146,10 @@ static char *energy_features_array[kIOPMNumPMFeatures] = {
     kIOPMDisplaySleepUsesDimKey,
     kIOPMMobileMotionModuleKey,
     kIOHibernateModeKey,
-    kIOPMTTYSPreventSleepKey
-    kIOPMGPUSwitchKey
+    kIOPMTTYSPreventSleepKey,
+    kIOPMGPUSwitchKey,
+    kIOPMDeepSleepEnabledKey,
+    kIOPMDeepSleepDelayKey
 };
 
 static const unsigned int battery_defaults_array[] = {
@@ -159,7 +167,9 @@ static const unsigned int battery_defaults_array[] = {
     kBatteryMobileMotionModule,
     kIOHibernateModeOn | kIOHibernateModeSleep,  /* safe sleep mode */
     kTTYSPreventSleepDefault,
-    kBatteryGPUSavings
+    kBatteryGPUSavings,
+    kBatteryDeepSleepEnabled,
+    kBatteryDeepSleepDelay
 };
 
 static const unsigned int ac_defaults_array[] = {
@@ -177,7 +187,9 @@ static const unsigned int ac_defaults_array[] = {
     kACMobileMotionModule,
     kIOHibernateModeOn | kIOHibernateModeSleep,  /* safe sleep mode */
     kTTYSPreventSleepDefault,
-    kACGPUSavings
+    kACGPUSavings,
+    kACDeepSleepEnabled,
+    kACDeepSleepDelay
 };
 
 static const unsigned int ups_defaults_array[] = {
@@ -195,16 +207,18 @@ static const unsigned int ups_defaults_array[] = {
     kUPSMobileMotionModule,
     kIOHibernateModeOn | kIOHibernateModeSleep,  /* safe sleep mode */
     kTTYSPreventSleepDefault,
-    kUPSGPUSavings
+    kUPSGPUSavings,
+    kUPSDeepSleepEnabled,
+    kUPSDeepSleepDelay
 };
 
-#define kIOPMPrefsPath              CFSTR("com.apple.PowerManagement.xml")
-#define kIOPMAppName                CFSTR("PowerManagement configd")
+#define kIOPMPrefsPath                          CFSTR("com.apple.PowerManagement.xml")
+#define kIOPMAppName                            CFSTR("PowerManagement configd")
 
 /* IOPMRootDomain property keys for default settings
  */
-#define kIOPMSystemDefaultProfilesKey "SystemPowerProfiles"
-#define kIOPMSystemDefaultOverrideKey "SystemPowerProfileOverrideDict"
+#define kIOPMSystemDefaultProfilesKey           "SystemPowerProfiles"
+#define kIOPMSystemDefaultOverrideKey           "SystemPowerProfileOverrideDict"
 
 /* Keys for Cheetah Energy Settings shim
  */
@@ -251,6 +265,8 @@ typedef struct {
     unsigned int        fDisplaySleepUsesDimming;
     unsigned int        fMobileMotionModule;
     unsigned int        fGPU;
+    unsigned int        fDeepSleepEnable;
+    unsigned int        fDeepSleepDelay;
 } IOPMAggressivenessFactors;
 
 
@@ -1538,6 +1554,32 @@ static int sendEnergySettingsToKernel(
             CFRelease(num);
         }
     }
+    
+    // DeepSleepEnable
+    // Defaults to on
+    if( !removeUnsupportedSettings
+       || IOPMFeatureIsAvailable(CFSTR(kIOPMDeepSleepEnabledKey), providing_power))
+    {
+        ret = IORegistryEntrySetCFProperty(PMRootDomain, 
+                                           CFSTR(kIOPMDeepSleepEnabledKey), 
+                                           (p->fDeepSleepEnable?kCFBooleanTrue:kCFBooleanFalse));            
+    }
+    
+
+    // DeepSleepDelay
+    // In seconds
+    if( !removeUnsupportedSettings
+       || IOPMFeatureIsAvailable(CFSTR(kIOPMDeepSleepDelayKey), providing_power))
+    {
+        num = CFNumberCreate(0, kCFNumberIntType, &p->fDeepSleepDelay);
+        if (num) {
+            ret = IORegistryEntrySetCFProperty(PMRootDomain, 
+                                           CFSTR(kIOPMDeepSleepDelayKey), 
+                                           num);            
+            CFRelease(num);
+        }
+    }
+        
 
     CFDictionaryRef dict = NULL;
     if((dict = CFDictionaryGetValue(System, prof)) )
@@ -1644,6 +1686,13 @@ static int getAggressivenessFactorsFromProfile(
     // GPU
     getAggressivenessValue(p, CFSTR(kIOPMGPUSwitchKey),
                            kCFNumberSInt32Type, &agg->fGPU);
+
+    getAggressivenessValue(p, CFSTR(kIOPMDeepSleepEnabledKey),
+                           kCFNumberSInt32Type, &agg->fDeepSleepEnable);
+
+    getAggressivenessValue(p, CFSTR(kIOPMDeepSleepDelayKey),
+                           kCFNumberSInt32Type, &agg->fDeepSleepDelay);
+
     return 0;
 }
 
@@ -1671,6 +1720,12 @@ supportedNameForPMName( CFStringRef pm_name )
     if(CFEqual(pm_name, CFSTR(kIOPMMobileMotionModuleKey)))
     {
         return CFSTR("MobileMotionModule");
+    }
+    
+    if (CFEqual(pm_name, CFSTR(kIOPMDeepSleepEnabledKey))
+        || CFEqual(pm_name, CFSTR(kIOPMDeepSleepDelayKey)))
+    {
+        return CFSTR("DeepSleep");
     }
 
     if( CFEqual(pm_name, CFSTR(kIOHibernateModeKey))

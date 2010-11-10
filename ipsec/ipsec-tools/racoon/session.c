@@ -127,6 +127,19 @@ static int dying = 0;
 static struct sched *check_rtsock_sched = NULL;
 int terminated = 0;
 
+static void
+reinit_socks (void)
+{
+	isakmp_close(); 
+	close(lcconf->rtsock);
+	initmyaddr();
+	if (isakmp_open() < 0) {
+		plog(LLV_ERROR2, LOCATION, NULL,
+			 "failed to reopen isakmp sockets\n");
+	}
+	initfds();	
+}
+
 int
 session(void)
 {
@@ -226,7 +239,20 @@ session(void)
 
 		/* scheduling */
 		timeout = schedular();
-
+		// <rdar://problem/7650111> Workaround: make sure timeout is playing nice
+		if (timeout) {
+			if (timeout->tv_usec < 0 || timeout->tv_usec > SELECT_USEC_MAX ) {
+				timeout->tv_sec += ((__typeof__(timeout->tv_sec))timeout->tv_usec)/SELECT_USEC_MAX;
+				timeout->tv_usec %= SELECT_USEC_MAX;
+			}
+			if (timeout->tv_sec > SELECT_SEC_MAX /* tv_sec is unsigned */) {
+				timeout->tv_sec = SELECT_SEC_MAX;
+			}
+			if (!timeout->tv_sec && !timeout->tv_usec) {
+				timeout->tv_sec = 1;
+			}
+		}
+		
 		if (dying)
 			rfds = maskdying;
 		else
@@ -238,18 +264,10 @@ session(void)
 				continue;
 			default:
 				plog(LLV_ERROR2, LOCATION, NULL,
-					"failed select (%s)\n",
-					strerror(errno));
-				/* serious socket problem - close all listening sockets and re-open */
-				if (lcconf->autograbaddr) {
-					isakmp_close(); 
-					initfds();
-					sched_new(5, check_rtsock, NULL);
-				} else {
-					isakmp_close_sockets();
-					isakmp_open();
-					initfds();
-				}
+					 "failed select (%s) nfds %d\n",
+					 strerror(errno), nfds);					
+				reinit_socks();
+				update_fds = 0;
 				continue;
 			}
 			/*NOTREACHED*/
@@ -291,18 +309,8 @@ session(void)
 					break;
 		}
 		if (error == -2) {
-			if (lcconf->autograbaddr) {
-				/* serious socket problem - close all listening sockets and re-open */
-				isakmp_close(); 
-				initfds();
-				sched_new(5, check_rtsock, NULL);
-				continue;
-			} else {
-				isakmp_close_sockets();
-				isakmp_open();
-				initfds();
-				continue;
-			}
+			reinit_socks();
+			update_fds = 0;
 		}
 
 		if (FD_ISSET(lcconf->sock_pfkey, &rfds))
@@ -539,7 +547,7 @@ check_sigreq()
 #endif /* __APPLE__ */
 			initfds();
 #if TARGET_OS_EMBEDDED
-			if (no_remote_configs()) {
+			if (no_remote_configs(TRUE)) {
 				EVT_PUSH(NULL, NULL, EVTT_RACOON_QUIT, NULL);
 				pfkey_send_flush(lcconf->sock_pfkey, SADB_SATYPE_UNSPEC);
 #ifdef ENABLE_FASTQUIT
@@ -649,6 +657,15 @@ check_flushsa()
 		return;
 	}
 
+#if !TARGET_OS_EMBEDDED
+	// abort exit if policies/config/control state is still there
+	if (vpn_control_connected() ||
+		policies_installed() ||
+		!no_remote_configs(FALSE)) {
+		return;
+	}
+#endif
+	
 	close_session();
 #if !TARGET_OS_EMBEDDED
 	if (lcconf->vt)
@@ -673,12 +690,14 @@ check_auto_exit(void)
 	if (lcconf->auto_exit_sched != NULL) {	/* exit scheduled? */
 		if (lcconf->auto_exit_state != LC_AUTOEXITSTATE_ENABLED
 			|| vpn_control_connected()				/* vpn control connected */
-			|| policies_installed())			/* policies installed in kernel */
+			|| policies_installed()			/* policies installed in kernel */
+			|| !no_remote_configs(FALSE))			/* remote or anonymous configs */
 			SCHED_KILL(lcconf->auto_exit_sched);
 	} else {								/* exit not scheduled */
 		if (lcconf->auto_exit_state == LC_AUTOEXITSTATE_ENABLED
 			&& !vpn_control_connected()	
-			&& !policies_installed())
+			&& !policies_installed()
+			&& no_remote_configs(FALSE))
 				if (lcconf->auto_exit_delay == 0)
 					auto_exit_do(NULL);		/* immediate exit */
 				else

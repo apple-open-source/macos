@@ -352,7 +352,7 @@ CRefTable::VerifyReference( UInt32 inRef, eRefType inType, CServerPlugin **outPl
 						dispatch_sync( fQueue, 
 									   ^(void) {
 										   entryIter = client->fSubRefs.find( inRef );
-										   if ( entryIter != fRefToEntry.end() ) {
+										   if ( entryIter != client->fSubRefs.end() ) {
 											   (*outPlugin) = entryIter->second->fPlugin;
 											   status = eDSNoErr;
 										   }
@@ -376,7 +376,7 @@ CRefTable::VerifyReference( UInt32 inRef, eRefType inType, CServerPlugin **outPl
 						dispatch_sync( fQueue, 
 									   ^(void) {
 										   entryIter = client->fSubRefs.find( inRef );
-										   if ( entryIter != fRefToEntry.end() ) {
+										   if ( entryIter != client->fSubRefs.end() ) {
 											   (*outPlugin) = entryIter->second->fPlugin;
 											   status = eDSNoErr;
 										   }

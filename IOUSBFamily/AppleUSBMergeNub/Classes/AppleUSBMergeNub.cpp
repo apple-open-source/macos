@@ -30,6 +30,20 @@
 
 #include "AppleUSBMergeNub.h"
 
+/* Convert USBLog to use kprintf debugging */
+#ifndef APPLEUSBMERGENUB_USE_KPRINTF
+#define APPLEUSBMERGENUB_USE_KPRINTF 0
+#endif
+
+#if APPLEUSBMERGENUB_USE_KPRINTF
+#undef USBLog
+#undef USBError
+void kprintf(const char *format, ...)
+__attribute__((format(printf, 1, 2)));
+#define USBLog( LEVEL, FORMAT, ARGS... )  if ((LEVEL) <= APPLEUSBMERGENUB_USE_KPRINTF) { kprintf( FORMAT "\n", ## ARGS ) ; }
+#define USBError( LEVEL, FORMAT, ARGS... )  { kprintf( FORMAT "\n", ## ARGS ) ; }
+#endif
+
 #define super IOService
 
 OSDefineMetaClassAndStructors(AppleUSBMergeNub, IOService)
@@ -96,7 +110,7 @@ AppleUSBMergeNub::MergeDictionaryIntoProvider(IOService * provider, OSDictionary
     OSCollectionIterator * 	iter = NULL;
     bool			result = false;
 
-    USBLog(7,"+%s[%p]::MergeDictionary(%p)IntoProvider(%p)", getName(), this, dictionaryToMerge, provider);
+    USBLog(6,"+%s[%p]::MergeDictionary(%p)IntoProvider(%p)", getName(), this, dictionaryToMerge, provider);
 
     if (!provider || !dictionaryToMerge)
         return false;
@@ -154,6 +168,8 @@ AppleUSBMergeNub::MergeDictionaryIntoProvider(IOService * provider, OSDictionary
 
             if ( providerDictionary &&  sourceDictionary )
             {
+				   USBLog(5,"%s[%p]::MergeDictionaryIntoProvider  merging dictionary(%p) into (%p)", getName(), this, sourceDictionary, providerDictionary);
+
                 // Need to merge our entry into the provider's dictionary.  However, we don't have a copy of our dictionary, just
                 // a reference to it.  So, we need to make a copy of our provider's dictionary
                 //
@@ -176,8 +192,9 @@ AppleUSBMergeNub::MergeDictionaryIntoProvider(IOService * provider, OSDictionary
                 // Note that our providerDictionary *might* change
                 // between the time we copied it and when we write it out again.  If so, we will obviously overwrite anychanges
                 //
-                USBLog(5,"%s[%p]::MergeDictionaryIntoProvider  need to merge a dictionary (%s)", getName(), this, str);
+                USBLog(5,"%s[%p]::MergeDictionaryIntoProvider  need to merge a dictionary \"%s\" %p into %p", getName(), this, str, sourceDictionary, localCopyOfProvidersDictionary);
                 result = MergeDictionaryIntoDictionary(  sourceDictionary, localCopyOfProvidersDictionary);
+
                 if ( result )
                 {
                     // Get the size of our provider's dictionary so to see if it's changed  (Yes, the size could remain the same but the contents
@@ -205,7 +222,7 @@ AppleUSBMergeNub::MergeDictionaryIntoProvider(IOService * provider, OSDictionary
                     USBLog(3,"%s[%p]::MergeDictionaryIntoProvider  MergeDictionaryIntoDictionary(%p,%p) returned false", getName(), this, sourceDictionary, providerDictionary);
                     break;
                 }
-            }
+           }
             else
             {
                 USBLog(5,"%s[%p]::MergeDictionaryIntoProvider  setting property %s", getName(), this, str);
@@ -286,16 +303,60 @@ AppleUSBMergeNub::MergeDictionaryIntoDictionary(OSDictionary * parentSourceDicti
 
         if ( childTargetDictionary && childSourceDictionary)
         {
-            // Our destination dictionary already has the entry for this same object AND our
-            // source is also a dcitionary, so we need to recursively add it.
+            // Our target dictionary already has the entry for this same object AND our
+            // source is also a dictionary, so we need to recursively add it.
             //
-            USBLog(3,"%s[%p]::MergeDictionaryIntoDictionary  recursing(%p,%p)", getName(), this, childSourceDictionary, childTargetDictionary);
-            result = MergeDictionaryIntoDictionary(childSourceDictionary, childTargetDictionary) ;
-            if ( !result )
-            {
-                USBLog(3,"%s[%p]::MergeDictionaryIntoDictionary  recursing (%p,%p) failed", getName(), this, childSourceDictionary, childTargetDictionary);
-                break;
-            }
+			// Need to merge our entry into the provider's dictionary.  However, we don't have a copy of our dictionary, just
+			// a reference to it.  So, we need to make a copy of our target's dictionary
+			//
+			OSDictionary *		localCopyOfTargetDictionary;
+			UInt32			targetSize;
+			UInt32			targetSizeAfterMerge;
+			
+			localCopyOfTargetDictionary = OSDictionary::withDictionary( childTargetDictionary, 0);
+			if ( localCopyOfTargetDictionary == NULL )
+			{
+				USBError(1,"%s[%p]::MergeDictionaryIntoDictionary  could not copy our target's dictionary",getName(), this);
+				break;
+			}
+			
+			// Get the size of our provider's dictionary so that we can check later whether it changed
+			//
+			targetSize = childTargetDictionary->getCapacity();
+			USBLog(5,"%s[%p]::MergeDictionaryIntoDictionary  Created a local copy(%p) of dictionary (%p), size %d", getName(), this, localCopyOfTargetDictionary, childTargetDictionary, (uint32_t)targetSize);
+			
+			// Note that our targetDictionary *might* change
+			// between the time we copied it and when we write it out again.  If so, we will obviously overwrite anychanges
+			//
+			USBLog(5,"%s[%p]::MergeDictionaryIntoDictionary  recursing to merge a dictionary \"%s\" %p into %p", getName(), this, str, childSourceDictionary, localCopyOfTargetDictionary);
+            result = MergeDictionaryIntoDictionary(childSourceDictionary, localCopyOfTargetDictionary) ;
+			if ( result )
+			{
+				// Get the size of our provider's dictionary so to see if it's changed  (Yes, the size could remain the same but the contents
+				// could have changed, but this gives us a first approximation.  We're not doing anything with this result, although we could
+				// remerge
+				//
+				targetSizeAfterMerge = childTargetDictionary->getCapacity();
+				if ( targetSizeAfterMerge != targetSize )
+				{
+					USBError(1,"%s[%p]::MergeDictionaryIntoDictionary  our target's dictionary size changed (%d,%d)",getName(), this, (uint32_t) targetSize, (uint32_t) targetSizeAfterMerge);
+				}
+				
+				USBLog(5,"%s[%p]::MergeDictionaryIntoDictionary  setting  dictionary %s from merged dictionary (%p)", getName(), this, str, localCopyOfTargetDictionary);
+				result = parentTargetDictionary->setObject(keyObject, localCopyOfTargetDictionary);
+				if ( !result )
+				{
+					USBLog(3,"%s[%p]::MergeDictionaryIntoDictionary  setProperty %s , returned false", getName(), this, str);
+					break;
+				}
+			}
+			else
+			{
+				// If we got an error merging dictionaries, then just bail out without doing anything
+				//
+				USBLog(3,"%s[%p]::MergeDictionaryIntoDictionary  MergeDictionaryIntoDictionary(%p,%p) returned false", getName(), this, childSourceDictionary, localCopyOfTargetDictionary);
+				break;
+			}
         }
         else
         {

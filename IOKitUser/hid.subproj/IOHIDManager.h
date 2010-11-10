@@ -53,6 +53,24 @@
 
 __BEGIN_DECLS
 
+/*!
+ @enum IOHIDManagerOptions
+ @abstract Various options that can be supplied to IOHIDManager functions.
+ @const kIOHIDManagerOptionNone For those times when supplying 0 just isn't explicit enough.
+ @const kIOHIDManagerOptionUsePersistentProperties This constant can be supplied to @link IOHIDManagerCreate @/link
+ to create and/or use a persistent properties store.
+ @const kIOHIDManagerOptionDoNotLoadProperties This constant can be supplied to @link IOHIDManagerCreate when you wish to overwrite 
+ the persistent properties store without loading it first.
+ @const kIOHIDManagerOptionDoNotSaveProperties This constant can be supplied to @link IOHIDManagerCreate @/link when you want to 
+ use the persistent property store but do not want to add to it.
+ */
+typedef enum {
+    kIOHIDManagerOptionNone = 0x0,
+    kIOHIDManagerOptionUsePersistentProperties = 0x1,
+    kIOHIDManagerOptionDoNotLoadProperties = 0x2,
+    kIOHIDManagerOptionDoNotSaveProperties = 0x4,
+} IOHIDManagerOptions;
+
 /*! @typedef IOHIDManagerRef
 	@abstract This is the type of a reference to the IOHIDManager.
 */
@@ -72,7 +90,9 @@ AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
     @discussion The IOHIDManager object is meant as a global management system
                 for communicating with HID devices.
     @param      allocator Allocator to be used during creation.
-    @param      options Reserved for future use.
+    @param      options Supply @link kIOHIDManagerOptionUsePersistentProperties @/link to load
+                properties from the default persistent property store. Otherwise supply
+                @link kIOHIDManagerOptionNone @/link (or 0).                
     @result     Returns a new IOHIDManagerRef.
 */
 CF_EXPORT 
@@ -147,7 +167,7 @@ Boolean IOHIDManagerSetProperty(
                                 CFTypeRef                       value)
 AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
                                         
-/*! @function   IOHIDDeviceScheduleWithRunLoop
+/*! @function   IOHIDManagerScheduleWithRunLoop
     @abstract   Schedules HID manager with run loop.
     @discussion Formally associates manager with client's run loop. Scheduling
                 this device with the run loop is necessary before making use of
@@ -166,7 +186,7 @@ void IOHIDManagerScheduleWithRunLoop(
                                 CFStringRef                     runLoopMode)
 AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
 
-/*! @function   IOHIDDeviceUnscheduleFromRunLoop
+/*! @function   IOHIDManagerUnscheduleFromRunLoop
     @abstract   Unschedules HID manager with run loop.
     @discussion Formally disassociates device with client's run loop. This will 
                 propagate to current devices that are enumerated.
@@ -320,11 +340,31 @@ AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
 */
 CF_EXPORT
 void IOHIDManagerSetInputValueMatchingMultiple(
-                                IOHIDManagerRef                 manager,
-                                CFArrayRef                      multiple)
+                                               IOHIDManagerRef                 manager,
+                                               CFArrayRef                      multiple)
 AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
 
-                                    
+/*!
+ @abstract   Used to write out the current properties to a specific domain.
+ @discussion Using this function will cause the persistent properties to be saved out
+ replacing any properties that already existed in the specified domain. All arguments 
+ must be non-NULL except options.
+ @param     manager Reference to an IOHIDManager.
+ @param     applicationID Reference to a CFPreferences applicationID.
+ @param     userName Reference to a CFPreferences userName.
+ @param     hostName Reference to a CFPreferences hostName.
+ @param     options Reserved for future use.
+ */
+CF_EXPORT
+void IOHIDManagerSaveToPropertyDomain(IOHIDManagerRef                 manager,
+                                      CFStringRef                     applicationID,
+                                      CFStringRef                     userName,
+                                      CFStringRef                     hostName,
+                                      IOOptionBits                    options)
+AVAILABLE_MAC_OS_X_VERSION_10_6_AND_LATER;
+
+
+
 __END_DECLS
 
 #endif /* _IOKIT_HID_IOHIDMANAGER_H_ */

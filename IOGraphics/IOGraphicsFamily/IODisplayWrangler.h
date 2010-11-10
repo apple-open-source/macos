@@ -43,6 +43,8 @@ private:
     // false: use minutesToDim unless in emergency situation
     bool        fDimCaptured;
 
+    unsigned long fPendingPowerState;
+
     // ignore activity until time
     AbsoluteTime fIdleUntil;
 
@@ -89,9 +91,6 @@ private:
     virtual IOReturn setPowerState( unsigned long powerStateOrdinal, IOService* whatDevice );
 
     virtual unsigned long initialPowerStateForDomainState( IOPMPowerFlags domainState );
-
-    virtual void makeDisplaysUsable( void );
-    virtual void idleDisplays( void );
       
     static bool _displayHandler( void * target, void * ref,
                             IOService * newService, IONotifier * notifier );
@@ -115,7 +114,8 @@ public:
 
     static bool makeDisplayConnects( IOFramebuffer * fb );
     static void destroyDisplayConnects( IOFramebuffer * fb );
-    static void connectChange( IOFramebuffer * fb );
+    static void activityChange( IOFramebuffer * fb );
+    static unsigned long getDisplaysPowerState(void);
 
     virtual OSObject * copyProperty( const char * aKey) const;
 

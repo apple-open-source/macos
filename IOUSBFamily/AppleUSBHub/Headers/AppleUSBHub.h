@@ -107,6 +107,7 @@ class AppleUSBHub : public IOUSBHubPolicyMaker
 		
 	// bookkeeping
     bool								_needToClose;
+	bool								_okToCloseWhileOff;						// T if we can close from the OFF power state
     
 	bool								_needInterruptRead;						// T if we need a new interrupt read on either a power change or on the last I/O
 	bool								_needToCallResetDevice;
@@ -141,17 +142,19 @@ class AppleUSBHub : public IOUSBHubPolicyMaker
     UInt32								_outstandingIO;
 	UInt32								_raisedPowerStateCount;					// to keep track of when ports want our power state raised
 	UInt32								_outstandingResumes;
-
+	UInt32								_hubGetConfigResetRetries;				
 
     // Errata stuff
     UInt32								_errataBits;
     UInt32								_startupDelay;
 	AbsoluteTime						_wakeupTime;
 	bool								_ignoreDisconnectOnWakeup;
+	bool								_retryBogusPortStatus;
 	bool								_overCurrentNoticeDisplayed;
 	AbsoluteTime						_overCurrentNoticeTimeStamp;
 	bool								_hubWithExpressCardPort;				// T if this hub has a port that connects to an expresscard slot
 	int									_expressCardPort;						// Port # of the hub that connects to the express card slot
+	bool								_hasExtraPowerRequest;
 	
 	bool								_hubDeadCheckLock;
 	
@@ -216,6 +219,7 @@ class AppleUSBHub : public IOUSBHubPolicyMaker
     IOReturn		GetPortState(UInt8 *state, UInt16 port);
     IOReturn		SetPortFeature(UInt16 feature, UInt16 port);
     IOReturn		ClearPortFeature(UInt16 feature, UInt16 port);
+    IOReturn		GetDeviceStatus(USBStatus *status);
 
     void			PrintHubDescriptor(IOUSBHubDescriptor *desc);
 
@@ -247,6 +251,10 @@ class AppleUSBHub : public IOUSBHubPolicyMaker
 
 	
 	static const char *	HubMessageToString(UInt32 message);
+
+	bool				ValidateHubDevice();
+	bool				HasInternalDevice(UInt32 portnum);
+	
 	
 public:
 

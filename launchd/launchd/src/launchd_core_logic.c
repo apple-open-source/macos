@@ -16,7 +16,7 @@
  * @APPLE_APACHE_LICENSE_HEADER_END@
  */
 
-static const char *const __rcs_file_version__ = "$Revision: 24108 $";
+static const char *const __rcs_file_version__ = "$Revision: 24208 $";
 
 #include "config.h"
 #include "launchd_core_logic.h"
@@ -8292,6 +8292,12 @@ job_mig_init_session(job_t j, name_t session_type, mach_port_t audit_session)
 kern_return_t
 job_mig_switch_to_session(job_t j, mach_port_t requestor_port, name_t session_name, mach_port_t audit_session, mach_port_t *new_bsport)
 {
+	struct ldcred *ldc = runtime_get_caller_creds();
+	if (!jobmgr_assumes(root_jobmgr, j != NULL)) {
+		jobmgr_log(root_jobmgr, LOG_ERR, "%s() called with NULL job: PID %d", __func__, ldc->pid);
+		return BOOTSTRAP_NO_MEMORY;
+	}
+
 	job_log(j, LOG_DEBUG, "Job wants to move to %s session.", session_name);
 	
 	if( !job_assumes(j, pid1_magic == false) ) {

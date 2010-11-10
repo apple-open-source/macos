@@ -90,6 +90,8 @@ OSDefineMetaClassAndStructors ( IOSCSIParallelInterfaceDevice, IOSCSIProtocolSer
 #define kIOPropertyIOUnitKey		"IOUnit"
 #define kIODeviceLocationKey		"io-device-location"
 
+#define kMaxTaskRetryCount			3
+
 enum
 {
 	kWorldWideNameDataSize 		= 8,
@@ -543,6 +545,13 @@ IOSCSIParallelInterfaceDevice::DestroyTarget ( void )
 	// Get rid of the io-device-location property first.
 	removeProperty ( kIODeviceLocationKey );
 	
+	// Remove anything from the "resend queue".
+	IOSimpleLockLock ( fQueueLock );
+	
+	fAllowResends = false;
+	
+	IOSimpleLockUnlock ( fQueueLock );
+	
 	// Remove this entry from the IODeviceTree plane.
 	lockForArbitration ( );
 	
@@ -554,13 +563,6 @@ IOSCSIParallelInterfaceDevice::DestroyTarget ( void )
 	}
 	
 	unlockForArbitration ( );	
-	
-	// Remove anything from the "resend queue".
-	IOSimpleLockLock ( fQueueLock );
-	
-	fAllowResends = false;
-	
-	IOSimpleLockUnlock ( fQueueLock );
 	
 }
 
@@ -1219,6 +1221,8 @@ IOSCSIParallelInterfaceDevice::CompleteSCSITask (
 {
 	
 	SCSITaskIdentifier	clientRequest	= NULL;
+	SCSIParallelTask *	task			= ( SCSIParallelTask * ) completedTask;
+	UInt8				retryCount		= task->fTaskRetryCount;
 	
 	if ( completedTask == NULL )
 	{
@@ -1232,7 +1236,8 @@ IOSCSIParallelInterfaceDevice::CompleteSCSITask (
 	// Check if the device rejected the task because its queue is full.
 	if ( ( serviceResponse == kSCSIServiceResponse_TASK_COMPLETE ) &&
 		 ( completionStatus == kSCSITaskStatus_TASK_SET_FULL ) &&
-		 ( fAllowResends == true ) )
+		 ( fAllowResends == true ) &&
+		 ( retryCount < kMaxTaskRetryCount ) )
 	{
 		
 		// The task was not executed because the device reported
@@ -1244,7 +1249,7 @@ IOSCSIParallelInterfaceDevice::CompleteSCSITask (
 		return;
 		
 	} 
-		
+	
 	// Make sure that the task is removed from the outstanding task list
 	// so that the driver no longer sees this task as outstanding.
 	RemoveFromOutstandingTaskList ( completedTask );
@@ -1279,7 +1284,7 @@ IOSCSIParallelInterfaceDevice::CompleteSCSITask (
 	
 	// Release the SCSI Parallel Task object.
 	FreeSCSIParallelTask ( completedTask );
-	
+
 	// If there are requests on the resend queue, send them first.
 	// Currently only the element at the head of the queue will be sent.
 	// If the desire is to allow all elements to be sent, the break
@@ -1319,9 +1324,25 @@ IOSCSIParallelInterfaceDevice::CompleteSCSITask (
 		break;
 		
 	}
+
+	// If the IO completed with TASK_SET_FULL but has exhausted its max retries,
+	// complete it with taskStatus BUSY. The upper layer will retry it again.
+	if ( ( serviceResponse == kSCSIServiceResponse_TASK_COMPLETE ) &&
+		 ( completionStatus == kSCSITaskStatus_TASK_SET_FULL ) &&
+		 ( retryCount >= kMaxTaskRetryCount ) )
+	{
+		
+		CommandCompleted ( clientRequest, kSCSIServiceResponse_TASK_COMPLETE, kSCSITaskStatus_BUSY );
+		
+	}
 	
-	// Inform the client that the task has been executed.
-	CommandCompleted ( clientRequest, serviceResponse, completionStatus );
+	else
+	{
+		
+		// Inform the client that the task has been executed.
+		CommandCompleted ( clientRequest, serviceResponse, completionStatus );
+		
+	}
 	
 }
 
@@ -1664,7 +1685,8 @@ IOSCSIParallelInterfaceDevice::AddToResendTaskList (
 							SCSIParallelTaskIdentifier	parallelTask )
 {
 	
-	SCSIParallelTask *	task = ( SCSIParallelTask * ) parallelTask;
+	SCSIParallelTask *	task	= ( SCSIParallelTask * ) parallelTask;
+	thread_t			thread	= THREAD_NULL;
 	
 	if ( task == NULL )
 	{
@@ -1672,12 +1694,141 @@ IOSCSIParallelInterfaceDevice::AddToResendTaskList (
 	}
 	
 	IOSimpleLockLock ( fQueueLock );
-
+	
+	task->fTaskRetryCount++;
+	
 	queue_enter ( &fResendTaskList, task, SCSIParallelTask *, fResendTaskChain );
+	
+	// Some targets return TASK SET FULL even if they have no other pending
+	// IOs from the I-T nexus. In this case we don't want that IO to sit
+	// in a limbo on the fResendTaskList. So we start a thread that will drive 
+	// the list.
+	if ( fResendThreadScheduled == false )
+	{
+		
+		fResendThreadScheduled = true;
+		
+		IOSimpleLockUnlock ( fQueueLock );
+		
+		retain ( );
+		
+		kernel_thread_start ( 
+			OSMemberFunctionCast (
+				thread_continue_t,
+				this,
+				&IOSCSIParallelInterfaceDevice::SendFromResendTaskList ),
+			this,
+			&thread );
+		
+	}
+	
+	else
+	{
+		IOSimpleLockUnlock ( fQueueLock );
+	}
+	
+	return true;
+	
+}
+
+
+//-----------------------------------------------------------------------------
+//	SendFromResendTaskList - Drives the Resend Task List.
+//																	[PROTECTED]
+//-----------------------------------------------------------------------------
+
+void
+IOSCSIParallelInterfaceDevice::SendFromResendTaskList ( void )
+{
+	
+	thread_t					thread			= THREAD_NULL;
+	SCSIParallelTaskIdentifier 	parallelTask	= NULL;
+	SCSIParallelTask *			task			= NULL;
+	
+	// Sleep for 10 seconds before driving the queue
+	// only if we are not terminating.
+	if ( fAllowResends == true )
+	{
+	
+		// Wait 10 seconds before driving the list.
+		IOSleep ( 10000 );
+	
+	}
+	
+	
+	IOSimpleLockLock ( fQueueLock );
+	
+	// If there are requests on the resend queue, send them first.
+	// Currently only the element at the head of the queue will be sent.
+	// If the desire is to allow all elements to be sent, the break
+	// statement can be removed.
+	
+	while ( !queue_empty ( &fResendTaskList ) )
+	{
+		
+		parallelTask = ( SCSIParallelTaskIdentifier ) queue_first ( &fResendTaskList );
+		
+		task = ( SCSIParallelTask * ) parallelTask;
+		
+		queue_remove ( &fResendTaskList, task, SCSIParallelTask *, fResendTaskChain );
+		
+		IOSimpleLockUnlock ( fQueueLock );
+		
+		// If Device is not destroyed, send command to device, else
+		// complete the command with error.
+		if ( fAllowResends == true )
+		{
+		
+			if ( ExecuteParallelTask ( parallelTask ) == kSCSIServiceResponse_Request_In_Process )
+			{
+			
+				IOSimpleLockLock ( fQueueLock );
+
+				// A command was successfully sent. 
+				// The next IO in the Resend task list will be driven when
+				// this completes.
+				break;
+			
+			}
+		
+		}
+			
+		SCSITaskIdentifier		nextRequest	= NULL;
+			
+		// The task has already completed
+		RemoveFromOutstandingTaskList ( parallelTask );
+			
+		nextRequest = GetSCSITaskIdentifier ( parallelTask );
+			
+		// Release the SCSI Parallel Task object
+		FreeSCSIParallelTask ( parallelTask );
+
+		// Return taskStatus BUSY so that upper layer will retry the IO.
+		CommandCompleted ( nextRequest, kSCSIServiceResponse_TASK_COMPLETE, kSCSITaskStatus_BUSY );
+			
+		IOSimpleLockLock ( fQueueLock );
+			
+		// Since this command has already completed, start the next
+		// one on the queue.
+		continue;
+		
+	}
+	
+	
+Exit:
+	
+	
+	fResendThreadScheduled = false;
 	
 	IOSimpleLockUnlock ( fQueueLock );
 	
-	return true;
+	// Release our retain held while starting thread.
+	release ( );
+	
+	// Terminate the thread.
+	thread = current_thread ( );
+	thread_deallocate ( thread );
+	thread_terminate ( thread );
 	
 }
 

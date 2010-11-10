@@ -1,6 +1,6 @@
 Project        = mod_perl
 ProjectVersion = $(Project)-2.0.4
-Patches        = 
+Patches        = CVE-2009-0796.diff
 
 include $(MAKEFILEPATH)/CoreOS/ReleaseControl/Common.make
 

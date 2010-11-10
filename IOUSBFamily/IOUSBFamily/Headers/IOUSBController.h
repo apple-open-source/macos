@@ -45,6 +45,8 @@
 #include <IOKit/usb/IOUSBCommand.h>
 #include <IOKit/usb/IOUSBWorkLoop.h>
 
+#include <IOKit/acpi/IOACPIPlatformDevice.h>
+
 
 //================================================================================================
 //
@@ -74,9 +76,10 @@ enum
 	kErrataOHCINoGlobalSuspendOnSleep			= (1 << 17),	// when sleeping, do not put the OHCI controller in SUSPEND state. just leave it Operational with suspended downstream ports
 	kErrataMissingPortChangeInt					= (1 << 18),	// sometimes the port change interrupt may be missing
 	kErrataMCP79IgnoreDisconnect				= (1 << 19),	// MCP79 - need to ignore a connect/disconnect on wake
-	kErrataUse32bitEHCI							= (1 << 20)	,	// MCP79 - EHCI should only run with 32 bit DMA addresses
+	kErrataUse32bitEHCI							= (1 << 20),	// MCP79 - EHCI should only run with 32 bit DMA addresses
 	kErrataUHCISupportsResumeDetectOnConnect	= (1 << 21),	// UHCI controller will generate a ResumeDetect interrupt while in Global Suspend if a device is plugged in
-	kErrataDontUseCompanionController			= (1 << 22)		// For systems which will end up being EHCI only
+	kErrataDontUseCompanionController			= (1 << 22),	// For systems which will end up being EHCI only
+	kErrataIgnoreRootHubPowerClearFeature		= (1 << 23)		// MCP89 - don't power off the root hub ports
 };
 
 enum
@@ -110,6 +113,18 @@ struct ErrataListEntryStruct
 typedef struct ErrataListEntryStruct  ErrataListEntry, *ErrataListEntryPtr;
 
 
+struct SleepCurrentPerModelStruct
+{
+    char				model[14];
+	UInt32				totalExtraWakeCurrent;			// Above the 500mA available to each port
+    UInt32				maxWakeCurrentPerPort;			// Any one port can not exceed this
+    UInt32 				totalExtraSleepCurrent;			// Above the 500mA available to each port
+    UInt32				maxSleepCurrentPerPort;			// Any one port can not exceed this
+};
+
+typedef struct SleepCurrentPerModelStruct  SleepCurrentPerModel, *SleepCurrentPerModelPtr;
+
+
 //================================================================================================
 //
 //   Routines used to implement synchronous I/O
@@ -132,7 +147,7 @@ class IOUSBLog;
 class IOUSBHubDevice;
 class IOUSBRootHubDevice;
 class IOMemoryDescriptor;
-
+class AppleUSBHubPort;
 
 //================================================================================================
 //
@@ -156,6 +171,7 @@ class IOUSBController : public IOUSBBus
     OSDeclareAbstractStructors(IOUSBController)
     friend class IOUSBControllerV2;
     friend class IOUSBControllerV3;
+    friend class AppleUSBHub;
 
 protected:
 
@@ -165,7 +181,8 @@ protected:
     UInt32					_devZeroLock;
     static UInt32			_busCount;
     static bool				gUsedBusIDs[256];
-    
+	static UInt32			gExtraCurrentPropertiesInitialized;
+   
     struct ExpansionData 
     {
 		IOCommandPool		*freeUSBCommandPool;
@@ -184,7 +201,7 @@ protected:
 		IOService			*_provider;							// common name for our provider
 		bool				_controllerCanSleep;				// true iff the controller is able to support sleep/wake
 		bool				_needToClose;
-		UInt32				_isochMaxBusStall;					// value (in ns) of the maximum PCI bus stall allowed for Isoch..
+		UInt32				_isochMaxBusStall;					// value (in ns) of the maximum PCI bus stall allowed for Isoch.
     };
     ExpansionData *_expansionData;
 	
@@ -1067,6 +1084,32 @@ protected:
     void 	IncreaseCommandPool();
     void	ParsePCILocation(const char *str, int *deviceNum, int *functionNum);
     int		ValueOfHexDigit(char c);
+	
+	UInt32							ExpressCardPort( IORegistryEntry * provider );
+	IOACPIPlatformDevice *			CopyACPIDevice( IORegistryEntry * device );
+	bool							DumpUSBACPI( IORegistryEntry * acpiDevice );
+	bool							IsPortInternal( IORegistryEntry * provider, UInt32 portnum );
+	
+private:
+	bool							HasExpressCard( IORegistryEntry * acpiDevice, UInt32 * portnum );
+	bool							CheckACPIUPCTable( IORegistryEntry * acpiDevice, UInt32 portnum );
+};
+
+//================================================================================================
+//
+//   IOUSBController_ExtraCurrentIOLockClass
+//
+//	 Used for locking access to shared resources between all EHCI controllers
+//
+//================================================================================================
+//
+class IOUSBController_ExtraCurrentIOLockClass
+{
+public:
+	IOUSBController_ExtraCurrentIOLockClass(void);								// Constructor
+	virtual ~IOUSBController_ExtraCurrentIOLockClass(void);						// Destructor
+	
+	IOLock *lock;
 };
 
 #endif /* ! _IOKIT_IOUSBCONTROLLER_H */

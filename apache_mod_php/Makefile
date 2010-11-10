@@ -9,7 +9,7 @@ Project         = php
 ProjectName     = apache_mod_php
 UserType        = Developer
 ToolType        = Plugin
-Submission      = 53.1.1
+Submission      = 53.3.1
 
 GnuAfterInstall	= install-macosx
 # Environment is passed to BOTH configure AND make, which can cause problems if these
@@ -23,7 +23,8 @@ Environment	= YACC=/usr/local/bin/bison-1.28 \
 # This allows extra variables to be passed _just_ to configure.
 Extra_Configure_Environment	= CFLAGS="$$RC_CFLAGS -Os" \
 					LDFLAGS="$$RC_CFLAGS -Os" \
-					EXTRA_LIBS="-lresolv"
+					EXTRA_LIBS="-lresolv" \
+					EXTRA_LDFLAGS_PROGRAM="-mdynamic-no-pic"
 
 # The configure flags are ordered to match current output of ./configure --help.
 # Extra indentation represents suboptions.
@@ -82,15 +83,15 @@ CommonNoInstallSource	= YES
 
 # Additional project info used with AEP
 AEP		= YES
-AEP_Version	= 5.3.1
+AEP_Version	= 5.3.3
 AEP_LicenseFile	= $(Sources)/LICENSE
 AEP_Patches	= MacOSX_build.patch arches.patch \
-				NLS_remove_BIND8.patch iconv.patch \
-				mysql_sock.patch
+			iconv.patch mysql_sock.patch pear.patch
 AEP_ConfigDir	= $(ETCDIR)
+AEP_ManPages	= pear.1
 
 # Used only in this file
-PROJECT_FILES	= Makefile AEP.make $(ProjectName).plist 
+PROJECT_FILES	= Makefile AEP.make $(ProjectName).plist $(AEP_ManPages)
 
 # Local targets that must be defined before including the following
 # files to get the dependency order correct
@@ -133,6 +134,7 @@ ifdef AEP_Patches
 		$(CP) patches/$$patchfile $(SRCROOT)/patches; \
 	done
 endif
+	$(CP) patches/pearcmd.patch $(SRCROOT)/patches
 
 # Common.make's recurse doesn't reset SRCROOT and misdefines Sources
 build-dependencies: $(TMPDIR)
@@ -152,13 +154,19 @@ post-extract-source: extract-source
 	@echo "Executing extra patch after extraction..."
 	$(PERL) -i -pe 's|-i -a -n php5|-i -n php5|g' $(Sources)/configure
 
+# Invoke pearcmd.php manually (instead of via /usr/bin/pear) so we can force
+# lookups from DSTROOT instead of final install location.
+PEAR		= $(DSTROOT)$(USRBINDIR)/php -C -q \
+		-n -d include_path=$(DSTROOT)$(USRLIBDIR)/php $(PEAR_Cmd)
+PEAR_Cmd	= $(TMPDIR)/pearcmd.php
+
 install-macosx:
 	@echo "Cleaning up install for Mac OS X..."
 	-$(RMDIR) $(DSTROOT)$(ETCDIR)/apache2
 	$(CHOWN) -R root:wheel $(DSTROOT)/
 	$(INSTALL_FILE) $(Sources)/php.ini-production $(DSTROOT)$(AEP_ConfigDir)/php.ini.default
 	$(PERL) -i -pe 's|^extension_dir =.*|extension_dir = /usr/lib/php/extensions/no-debug-non-zts-20060613|' $(DSTROOT)$(AEP_ConfigDir)/php.ini.default
-	$(INSTALL_DIRECTORY) $(DSTROOT)/usr/lib/php/extensions/no-debug-non-zts-20060613
+	@echo "$(INSTALL_DIRECTORY) $(DSTROOT)/usr/lib/php/extensions/no-debug-non-zts-20060613"
 	@echo "Removing references to DSTROOT in php-config..."
 	$(CP) $(DSTROOT)$(USRBINDIR)/php-config $(SYMROOT)/php-config && $(SED) -e 's=-L$(DSTROOT)/usr/local/lib==' $(SYMROOT)/php-config | $(SED) -e 's@$(DSTROOT)@@g' > $(DSTROOT)$(USRBINDIR)/php-config
 	@echo "Archiving and stripping binaries..."
@@ -168,12 +176,24 @@ install-macosx:
 	$(_v) for file in "$(DSTROOT)`/usr/sbin/apxs -q LIBEXECDIR`/"*.so $(DSTROOT)/usr/bin/php;	\
 	do \
 		$(CP) $${file} $(SYMROOT);	\
+		$(DSYMUTIL) --out=$(SYMROOT)/$${file##*/}.dSYM $${file};	\
 		$(STRIP) -S $${file};		\
 	done
 	-$(MV) $(DSTROOT)$(USRDIR)/local/lib/* $(SYMROOT)
 	@echo "Deleting private dependencies..."
-	-$(RMDIR) $(DSTROOT)/usr/local/lib
-	-$(RMDIR) $(DSTROOT)/usr/local/include
+	-$(RMDIR) $(DSTROOT)$(USRDIR)/local/lib
+	-$(RMDIR) $(DSTROOT)$(USRDIR)/local/include
+	@echo "Fixing PEAR configuration file..."
+	if [ -e $(DSTROOT)/$(USRLIBDIR)/php/pearcmd.php ]; then \
+		$(CP) $(DSTROOT)/$(USRLIBDIR)/php/pearcmd.php $(PEAR_Cmd);	\
+		$(PATCH) -l $(PEAR_Cmd) $(SRCROOT)/patches/pearcmd.patch;	\
+		$(PEAR) -C $(DSTROOT)$(ETCDIR)/pear.conf config-set \
+			cache_dir /tmp/pear/cache system;	\
+		$(PEAR) -C $(DSTROOT)$(ETCDIR)/pear.conf config-set \
+			download_dir /tmp/pear/download system;	\
+		$(PEAR) -C $(DSTROOT)$(ETCDIR)/pear.conf config-set \
+			temp_dir /tmp/pear/temp system;	\
+	fi
 	@echo "Cleaning up PEAR junk files..."
 	-$(RMDIR) $(DSTROOT)/usr/lib/php/test
 	-$(RM) -rf $(DSTROOT)/.channels \
@@ -186,5 +206,5 @@ install-macosx:
 		$(DSTROOT)/usr/lib/php/.depdblock \
 	@echo "Mac OS X-specific cleanup complete."
 
-$(DSTROOT) $(DSTROOT)$(ETCDIR) $(DSTROOT)$(LIBEXECDIR)/apache2 $(TMPDIR):
+$(DSTROOT) $(DSTROOT)$(ETCDIR) $(DSTROOT)/usr/libexec/apache2 $(TMPDIR):
 	$(MKDIR) $@

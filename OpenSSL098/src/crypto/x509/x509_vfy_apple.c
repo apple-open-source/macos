@@ -27,9 +27,12 @@
 #include <openssl/x509.h>
 #include <openssl/x509v3.h>
 #include <TrustEvaluationAgent/TrustEvaluationAgent.h>
+#include <syslog.h>
 
 #include "cryptlib.h"
 #include "x509_vfy_apple.h"
+
+#define TEA_might_correct_error(err) (err == X509_V_ERR_UNABLE_TO_GET_ISSUER_CERT_LOCALLY || err == X509_V_ERR_UNABLE_TO_GET_ISSUER_CERT || err == X509_V_ERR_SELF_SIGNED_CERT_IN_CHAIN)
 
 /*
  * Please see comment in x509_vfy_apple.h
@@ -52,11 +55,11 @@ X509_verify_cert(X509_STORE_CTX *ctx)
 
 	/* Try OpenSSL, if we get a local certificate issue verify against trusted roots */
 	ret = X509_verify_cert_orig(ctx);
-	
+
 	/* Verify TEA is enabled and should be used. */
 	if (0 != X509_TEA_is_enabled() &&
-		ret != 1 && (ctx->error & X509_V_ERR_UNABLE_TO_GET_ISSUER_CERT_LOCALLY)) {
-		
+		ret != 1 && TEA_might_correct_error(ctx->error)) {
+
 		/* Verify that the certificate chain exists, otherwise make it. */
 		if (ctx->chain == NULL && (ctx->chain = sk_X509_new_null()) == NULL) {
 			TEALogDebug("Could not create the certificate chain");
@@ -179,6 +182,6 @@ X509_TEA_is_enabled()
 {
 	if (tea_enabled < 0)
 		tea_enabled = (NULL == getenv(X509_TEA_ENV_DISABLE));
-		
+
 	return tea_enabled != 0;
 }

@@ -64,6 +64,8 @@ uint32_t *				IOUSBControllerV3::_gHibernateState;
 #define _controllerCanSleep				_expansionData->_controllerCanSleep
 #define _rootHubPollingRate32			_v3ExpansionData->_rootHubPollingRate32
 #define _rootHubTransactionWasAborted	_v3ExpansionData->_rootHubTransactionWasAborted
+#define _externalUSBDeviceAssertionID	_v3ExpansionData->_externalUSBDeviceAssertionID
+#define _externalDeviceCount			_v3ExpansionData->_externalDeviceCount
 
 
 
@@ -189,6 +191,8 @@ IOUSBControllerV3::start( IOService * provider )
 void
 IOUSBControllerV3::stop( IOService * provider )
 {
+	IOPMrootDomain *	myRootDomain = getPMRootDomain();
+
     USBLog(5, "IOUSBControllerV3(%s)[%p]::stop isInactive = %d", getName(), this, isInactive());
     
 	if (_ehciController)
@@ -209,6 +213,12 @@ IOUSBControllerV3::stop( IOService * provider )
         _rootHubTimer->release();
         _rootHubTimer = NULL;
     }
+	
+	// 8051802 - release the deep sleep assertion stuff
+	if (myRootDomain && (kIOPMUndefinedDriverAssertionID != _externalUSBDeviceAssertionID))
+	{
+		myRootDomain->releasePMAssertion(_externalUSBDeviceAssertionID);
+	}
 	
 	super::stop(provider);
 }
@@ -501,7 +511,7 @@ IOUSBControllerV3::free()
     //
     if (_v3ExpansionData)
     {
-		IOFree(_v3ExpansionData, sizeof(ExpansionData));
+		IOFree(_v3ExpansionData, sizeof(V3ExpansionData));
 		_v3ExpansionData = NULL;
     }
 
@@ -708,7 +718,8 @@ IOUSBControllerV3::AllocatePowerStateArray(void)
 IOReturn
 IOUSBControllerV3::InitForPM(void)
 {
-	IOReturn		err;
+	IOReturn			err;
+	IOPMrootDomain *	myRootDomain = getPMRootDomain();
 
 	// initialize PM
 	// PMinit and joinPMtree are called in IOUSBController
@@ -719,6 +730,17 @@ IOUSBControllerV3::InitForPM(void)
 		USBLog(1, "IOUSBControllerV3(%s)[%p]::InitForPM - AllocatePowerStateArray returned (%p)", getName(), this, (void*)err);
 		USBTrace( kUSBTController, kTPInitForPM, (uintptr_t)this, err, 0, 0 );
 		return kIOReturnNoMemory;
+	}
+	
+	// 8051802 - USB support for deep sleep
+	// We need to create our deep sleep assertion even in the PMRootDomain
+	if (myRootDomain)
+	{
+		_externalUSBDeviceAssertionID = myRootDomain->createPMAssertion(kIOPMDriverAssertionUSBExternalDeviceBit, kIOPMDriverAssertionLevelOff, this, _device->getName());
+		if (kIOPMUndefinedDriverAssertionID == _externalUSBDeviceAssertionID)
+		{
+			USBLog(1, "IOUSBControllerV3(%s)[%p]::InitForPM - createPMAssertion failed", getName(), this);
+		}
 	}
 	
 	// start by calling makeUsablel, which is essentitally a changePowerStateToPriv(ON)
@@ -1034,6 +1056,55 @@ IOUSBControllerV3::GatedPowerChange(OSObject *owner, void *arg0, void *arg1, voi
 
 	// USBTrace_End( kUSBTController, kTPControllerGatedPowerChange, (uintptr_t)me);
 	
+	return kIOReturnSuccess;
+}
+
+
+// 8051802 - Keep track of our external device count (behind the WL gate)
+IOReturn
+IOUSBControllerV3::ChangeExternalDeviceCount(OSObject *owner, void *arg0, void *arg1, void *arg2, void *arg3 )
+{
+#pragma unused (arg1, arg2, arg3)
+    IOUSBControllerV3			*me = (IOUSBControllerV3 *)owner;
+	bool						addDevice = (bool)arg0;
+	IOPMrootDomain				*myRootDomain = me->getPMRootDomain();
+
+	if (myRootDomain && (kIOPMUndefinedDriverAssertionID != me->_externalUSBDeviceAssertionID))
+	{
+		if (addDevice)
+		{
+			if (me->_externalDeviceCount++ == 0)
+			{
+				// if we were 0 before we incremented, then we need to change our deep sleep assertion
+				if (myRootDomain)
+				{
+					USBLog(3, "IOUSBControllerV3(%s)[%p]::ChangeExternalDeviceCount - got first external device, changing assertion to ON", me->getName(), me);
+					myRootDomain->setPMAssertionLevel(me->_externalUSBDeviceAssertionID, kIOPMDriverAssertionLevelOn);
+				}
+			}
+		}
+		else
+		{
+			if (--(me->_externalDeviceCount) == 0)
+			{
+				// if we are 0 after decrementing then we need to change our deep sleep assertion
+				if (myRootDomain)
+				{
+					USBLog(3, "IOUSBControllerV3(%s)[%p]::ChangeExternalDeviceCount - removed final external device, changing assertion to OFF", me->getName(), me);
+					myRootDomain->setPMAssertionLevel(me->_externalUSBDeviceAssertionID, kIOPMDriverAssertionLevelOff);
+				}
+			}
+		}
+
+	}
+
+#if DEBUG_LEVEL != DEBUG_LEVEL_PRODUCTION
+	if (me->_externalDeviceCount < 0)
+	{
+		USBLog(1, "IOUSBControllerV3(%s)[%p]::ChangeExternalDeviceCount - count fell below 0!", me->getName(), me);
+	}
+	me->setProperty("External Device Count", me->_externalDeviceCount, 32);
+#endif
 	return kIOReturnSuccess;
 }
 
@@ -1372,6 +1443,33 @@ IOUSBControllerV3::ReturnExtraRootHubPortPower(UInt32 extraPowerReturned)
 	return;
 }
 
+
+
+// 8051802 - check for PM assertions based on devices being added
+IOReturn
+IOUSBControllerV3::CheckPMAssertions(IOUSBDevice *forDevice, bool deviceBeingAdded)
+{
+	UInt32			devInfo;
+	IOCommandGate	* commandGate = GetCommandGate();
+	
+	IOReturn		ret = kIOReturnInternalError;			// default in case we don't actually have an assertion ID
+	
+	ret = forDevice->GetDeviceInformation(&devInfo);
+	if (!ret)
+	{
+		if ((devInfo & kUSBInformationDeviceIsInternalMask) == 0)
+		{
+			// we have an external device
+			ret = commandGate->runAction(ChangeExternalDeviceCount, (void*)deviceBeingAdded);
+		}
+	}
+	
+	
+	return ret;
+}
+
+
+
 #pragma mark еееее IOUSBController methods еееее
 //
 // These methods are implemented in IOUSBController, and they all call runAction to synchronize them
@@ -1676,7 +1774,8 @@ IOUSBControllerV3::ReadV2(IOMemoryDescriptor *buffer, USBDeviceAddress	address, 
 
 
 OSMetaClassDefineReservedUsed(IOUSBControllerV3,  0);
-OSMetaClassDefineReservedUnused(IOUSBControllerV3,  1);
+OSMetaClassDefineReservedUsed(IOUSBControllerV3,  1);
+
 OSMetaClassDefineReservedUnused(IOUSBControllerV3,  2);
 OSMetaClassDefineReservedUnused(IOUSBControllerV3,  3);
 OSMetaClassDefineReservedUnused(IOUSBControllerV3,  4);

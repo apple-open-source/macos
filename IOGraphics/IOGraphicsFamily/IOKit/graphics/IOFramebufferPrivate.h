@@ -131,6 +131,7 @@
 	static void startControllerThread(struct IOFBController * controller);
 	static void controllerDidWork(IOFBController * controller, IOOptionBits work);
     static void startAsync(IOFBController * controller, uint32_t asyncWork);
+    static IOFBController * aliasController(IOFBController * controller);
 
 	static uint32_t controllerState(IOFBController * controller);
 
@@ -153,6 +154,8 @@
     static void delayedEvent(thread_call_param_t p0, thread_call_param_t p1);
     static void resetClamshell(void);
 
+    static void deferredVBLDisable(OSObject * owner,
+                                   IOInterruptEventSource * evtSrc, int intCount);
     static void updateVBL(OSObject * owner, IOTimerEventSource * sender);
     static void deferredCLUTSetTimer(OSObject * owner, IOTimerEventSource * sender);
     static void handleVBL(IOFramebuffer * inst, void * ref);
@@ -189,7 +192,7 @@
     static void sleepWork( void * arg );
     static void clamshellWork( thread_call_param_t p0, thread_call_param_t p1 );
     void saveFramebuffer(void);
-    void restoreFramebuffer(void);
+    IOReturn restoreFramebuffer(IOIndex event);
 
     IOReturn deliverDisplayModeDidChangeNotification( void );
     static IOReturn systemPowerChange( void * target, void * refCon,
@@ -239,6 +242,7 @@
     static IOReturn extSetCLUTWithEntries(OSObject * target, void * reference, IOExternalMethodArguments * args);
     static IOReturn extSetAttribute(OSObject * target, void * reference, IOExternalMethodArguments * args);
     static IOReturn extGetAttribute(OSObject * target, void * reference, IOExternalMethodArguments * args);
+    IOReturn extSetMirrorOne(uint32_t value, IOFramebuffer * other);
     static IOReturn extValidateDetailedTiming(OSObject * target, void * reference, IOExternalMethodArguments * args);
     static IOReturn extAcknowledgeNotification(OSObject * target, void * reference, IOExternalMethodArguments * args);
 
@@ -254,7 +258,8 @@ public:
     void fbLock( void );
     void fbUnlock( void );
 
-    static void displayOnline( IOOptionBits type, SInt32 delta );
+    void displayOnline( IODisplay * display, SInt32 delta );
+    static void updateDisplaysPowerState(void);
     static IOOptionBits clamshellState( void );
     static IOReturn setPreferences( IOService * props, OSDictionary * prefs );
     static OSObject * copyPreferences( void );

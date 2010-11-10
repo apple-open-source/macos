@@ -240,7 +240,21 @@ public:
     */
     virtual IOReturn GetEndpointProperties(UInt8 alternateSetting, UInt8 endpointNumber, UInt8 direction, UInt8 *transferType, UInt16 *maxPacketSize, UInt8 *interval);
     
-    OSMetaClassDeclareReservedUnused(IOUSBInterface,  1);
+	
+	OSMetaClassDeclareReservedUsed(IOUSBInterface,  1);
+    /*!
+	 @function FindNextPipe
+	 Find a pipe of the interface that matches the requirements, either
+	 starting from the beginning of the interface's pipe list or from a specified
+	 pipe.
+	 @param current Pipe to start searching from, NULL to start from beginning of list.
+	 @param request Requirements for pipe to match, updated with the found pipe's
+	 properties.
+	 @param withRetain Pass true to retain and the client should release it later after its use.
+	 @result Pointer to the pipe, or NULL if no pipe matches the request.
+	 */
+	virtual	IOUSBPipe* FindNextPipe(IOUSBPipe *current, IOUSBFindEndpointRequest *request, bool withRetain);
+
     OSMetaClassDeclareReservedUnused(IOUSBInterface,  2);
     OSMetaClassDeclareReservedUnused(IOUSBInterface,  3);
     OSMetaClassDeclareReservedUnused(IOUSBInterface,  4);

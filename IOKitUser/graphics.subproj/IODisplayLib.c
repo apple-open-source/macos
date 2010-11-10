@@ -675,13 +675,14 @@ ParseMonitorDescriptor(IOFBConnectRef connectRef, EDID * edid __unused, EDIDGene
                 if (vendor >= kNumVendors)
                     continue;
                 connectRef->vendorsFound |= (1 << vendor);
+#if DISABLED_7668853
                 byte = desc->data[idx + 1]; // bpp
                 if ((byte >= 6) && (byte <= 16))
                 {
                     connectRef->supportedComponentDepths[vendor] 
                         = (kIODisplayRGBColorComponentBits6 << ((byte - 6) >> 1));
                 }
-
+#endif
                 byte = desc->data[idx + 2]; // dither
                 connectRef->ditherControl[vendor] = (byte << kIODisplayDitherRGBShift);
 
@@ -1652,7 +1653,7 @@ InstallTiming( IOFBConnectRef                connectRef,
 
     if (connectRef->dualLinkCrossover)
     {
-        if (timing->detailedInfo.v2.pixelClock >= connectRef->dualLinkCrossover)
+        if (timing->detailedInfo.v2.pixelClock > connectRef->dualLinkCrossover)
             timing->detailedInfo.v2.numLinks = 2;
         else
             timing->detailedInfo.v2.numLinks = 1;

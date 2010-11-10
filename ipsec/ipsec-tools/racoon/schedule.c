@@ -51,7 +51,10 @@
 #include "var.h"
 #include "gcmalloc.h"
 
+#if !defined(__LP64__)
+// year 2038 problem and fix for 32-bit only
 #define FIXY2038PROBLEM
+#endif
 
 #ifndef TAILQ_FOREACH
 #define TAILQ_FOREACH(elm, head, field) \

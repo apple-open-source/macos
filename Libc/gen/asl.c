@@ -2745,7 +2745,7 @@ __private_extern__ int
 _asl_send_level_message(aslclient ac, aslmsg msg, int level, const char *message)
 {
 	char *str, *out_raw;
-	caddr_t out;
+	vm_address_t out;
 	uint32_t i, len, outlen, lmask, outstatus, filter, check, senderx, facilityx;
 	uint64_t v64;
 	const char *val;
@@ -2998,11 +2998,12 @@ _asl_send_level_message(aslclient ac, aslmsg msg, int level, const char *message
 		if ((out_raw != NULL) && (len != 0))
 		{
 			/* send a mach message to syslogd */
+			out = 0;
 			outlen = len + 11;
-			kstatus = vm_allocate(mach_task_self(), (vm_address_t *)&out, outlen + 1, TRUE);
+			kstatus = vm_allocate(mach_task_self(), &out, outlen + 1, TRUE);
 			if (kstatus == KERN_SUCCESS)
 			{
-				memset(out, 0, outlen + 1);
+				memset((void *)out, 0, outlen + 1);
 				snprintf((char *)out, outlen, "%10u %s", len, out_raw);
 
 				status = 0;
@@ -3021,7 +3022,7 @@ _asl_send_level_message(aslclient ac, aslmsg msg, int level, const char *message
 				pthread_mutex_unlock(&(_asl_global.port_lock));
 
 				if (kstatus == KERN_SUCCESS) kstatus = _asl_server_message(_asl_global.server_port, (caddr_t)out, outlen + 1);
-				else vm_deallocate(mach_task_self(), (vm_address_t)out, outlen + 1);
+				else vm_deallocate(mach_task_self(), out, outlen + 1);
 
 				if (kstatus == KERN_SUCCESS) outstatus = 0;
 			}
@@ -3038,17 +3039,17 @@ _asl_send_level_message(aslclient ac, aslmsg msg, int level, const char *message
 		if (asl->fd_list[i] < 0) continue;
 
 		len = 0;
-		out = asl_format_message(tmp_msg, asl->fd_mfmt[i], asl->fd_tfmt[i], asl->fd_encoding[i], &len);
-		if (out == NULL) continue;
+		str = asl_format_message(tmp_msg, asl->fd_mfmt[i], asl->fd_tfmt[i], asl->fd_encoding[i], &len);
+		if (str == NULL) continue;
 
-		status = write(asl->fd_list[i], out, len - 1);
+		status = write(asl->fd_list[i], str, len - 1);
 		if (status < 0)
 		{
 			asl->fd_list[i] = -1;
 			outstatus = -1;
 		}
 
-		free(out);
+		free(str);
 	}
 
 	asl_free((aslmsg)tmp_msg);

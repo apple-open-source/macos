@@ -509,7 +509,19 @@ cupsGetNamedDest(http_t     *http,	/* I - Connection to server or @code CUPS_HTT
     set_as_default = 1;
     name           = _cupsUserDefault(defname, sizeof(defname));
 
-    if (!name && home)
+    if (name)
+    {
+      char	*ptr;			/* Temporary pointer... */
+
+      if ((ptr = strchr(defname, '/')) != NULL)
+      {
+        *ptr++   = '\0';
+	instance = ptr;
+      }
+      else
+        instance = NULL;
+    }
+    else if (home)
     {
      /*
       * No default in the environment, try the user's lpoptions files...
@@ -1234,7 +1246,8 @@ appleSetDefault(const char *name)	/* I - Default printer/class name */
         CFArrayRemoveValueAtIndex(newlocations, locindex);
     }
     else
-      newlocations = CFArrayCreateMutable(kCFAllocatorDefault, 0, NULL);
+      newlocations = CFArrayCreateMutable(kCFAllocatorDefault, 0,
+					  &kCFTypeArrayCallBacks);
 
     newlocation = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
 					    &kCFTypeDictionaryKeyCallBacks,

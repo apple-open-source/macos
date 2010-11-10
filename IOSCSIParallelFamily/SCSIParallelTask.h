@@ -54,6 +54,10 @@ public:
 	queue_chain_t		fResendTaskChain;
 	queue_chain_t		fTimeoutChain;
 	
+	// Counter to keep track of the number of times the IO completes
+	// with TASK SET FULL status.
+	UInt8						fTaskRetryCount;
+	
 	static SCSIParallelTask *	Create ( UInt32 sizeOfHBAData, UInt64 alignmentMask ); 
 	
 	void 	free ( void );
@@ -170,7 +174,7 @@ private:
 	// Member variables to maintain the next element in the 
 	// timeout list and the timeout deadline.
 	AbsoluteTime				fTimeoutDeadline;
-	
+			
 };
 
 

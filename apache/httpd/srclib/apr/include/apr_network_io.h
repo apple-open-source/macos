@@ -348,6 +348,21 @@ APR_DECLARE(apr_status_t) apr_socket_connect(apr_socket_t *sock,
                                              apr_sockaddr_t *sa);
 
 /**
+ * Determine whether the receive part of the socket has been closed by
+ * the peer (such that a subsequent call to apr_socket_read would
+ * return APR_EOF), if the socket's receive buffer is empty.  This
+ * function does not block waiting for I/O.
+ *
+ * @param sock The socket to check
+ * @param atreadeof If APR_SUCCESS is returned, *atreadeof is set to
+ *                  non-zero if a subsequent read would return APR_EOF
+ * @return an error is returned if it was not possible to determine the
+ *         status, in which case *atreadeof is not changed.
+ */
+APR_DECLARE(apr_status_t) apr_socket_atreadeof(apr_socket_t *sock,
+                                               int *atreadeof);
+
+/**
  * Create apr_sockaddr_t from hostname, address family, and port.
  * @param sa The new apr_sockaddr_t.
  * @param hostname The hostname or numeric address string to resolve/parse, or
@@ -509,9 +524,10 @@ APR_DECLARE(apr_status_t) apr_socket_sendto(apr_socket_t *sock,
 
 /**
  * Read data from a socket.  On success, the address of the peer from
- * which the data was sent is copied into the @param from parameter,
- * and the @param len parameter is updated to give the number of bytes
- * written to @param buf.
+ * which the data was sent is copied into the @a from parameter, and the
+ * @a len parameter is updated to give the number of bytes written to
+ * @a buf.
+ *
  * @param from Updated with the address from which the data was received
  * @param sock The socket to use
  * @param flags The flags to use

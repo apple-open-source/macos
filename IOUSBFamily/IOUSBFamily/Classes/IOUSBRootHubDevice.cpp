@@ -30,6 +30,22 @@
 #include <IOKit/usb/IOUSBHubPolicyMaker.h>
 #include <IOKit/usb/IOUSBControllerV3.h>
 
+//================================================================================================
+//
+//   Globals
+//
+//================================================================================================
+//
+// Declare a statically-initialized instance of the class so that its constructor will be called on driver load 
+// and its destructor will be called on unload.
+static class IOUSBController_ExtraCurrentIOLockClass gExtraCurrentIOLockClass;
+
+//================================================================================================
+//
+//   Local Definitions
+//
+//================================================================================================
+//
 #define super	IOUSBHubDevice
 #define self	this
 
@@ -53,6 +69,7 @@ if (object) object->release();				\
 } while (0)
 
 #define _IORESOURCESENTRY					_expansionData->_IOResourcesEntry
+#define _STANDARD_PORT_POWER_IN_SLEEP		super::_expansionData->_standardPortSleepCurrent
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
@@ -440,6 +457,8 @@ IOUSBRootHubDevice::RequestExtraPower(UInt32 requestedPower)
 		return 0;
 	}
 	
+	IOLockLock(gExtraCurrentIOLockClass.lock);
+	
 	propertyObject = (_IORESOURCESENTRY)->copyProperty(kAppleCurrentExtra);
 	numberObject = OSDynamicCast(OSNumber, propertyObject);
 	if (numberObject)
@@ -460,11 +479,11 @@ IOUSBRootHubDevice::RequestExtraPower(UInt32 requestedPower)
 
 	USBLog(5, "%s[%p]::RequestExtraPower - requestedPower = %d, available: %d", getName(), this, (uint32_t)requestedPower, (uint32_t) totalExtraCurrent);
 	
-	// The power requested is a delta above the USB Spec for the port.  That's why we need to subtract the 500mA from the maxPowerPerPort value
-	if (requestedPower > (maxPowerPerPort-500))		// limit requests to the maximum the HW can support
+	// The power requested is a delta above the USB Spec for the port.  That's why we need to subtract the kUSB2MaxPowerPerPortmA from the maxPowerPerPort value
+	if (requestedPower > (maxPowerPerPort-kUSB2MaxPowerPerPort))		// limit requests to the maximum the HW can support
 	{
-		USBLog(5, "%s[%p]::RequestExtraPower - requestedPower = %d was grater than the maximum per port of %d.  Using that value instead", getName(), this, (uint32_t)requestedPower, (uint32_t) (maxPowerPerPort-500));
-		requestedPower = maxPowerPerPort-500;
+		USBLog(5, "%s[%p]::RequestExtraPower - requestedPower = %d was grater than the maximum per port of %d.  Using that value instead", getName(), this, (uint32_t)requestedPower, (uint32_t) (maxPowerPerPort-kUSB2MaxPowerPerPort));
+		requestedPower = maxPowerPerPort-kUSB2MaxPowerPerPort;
 	}
 	
 	if (requestedPower <= totalExtraCurrent)
@@ -475,10 +494,12 @@ IOUSBRootHubDevice::RequestExtraPower(UInt32 requestedPower)
 
 		USBLog(5, "%s[%p]::RequestExtraPower - setting kAppleCurrentExtra to %d", getName(), this, (uint32_t) totalExtraCurrent);
 		(_IORESOURCESENTRY)->setProperty(kAppleCurrentExtra, totalExtraCurrent, 32);
-	}
-	
+	}	
+
 	// this method may be overriden by the IOUSBRootHubDevice class to implement this
 	USBLog(5, "%s[%p]::RequestExtraPower - extraAllocated = %d", getName(), this, (uint32_t)extraAllocated);
+	
+	IOLockUnlock(gExtraCurrentIOLockClass.lock);
 	
 	return extraAllocated;
 }
@@ -500,6 +521,8 @@ IOUSBRootHubDevice::ReturnExtraPower(UInt32 returnedPower)
 		return;
 	}
 	
+	IOLockLock(gExtraCurrentIOLockClass.lock);
+
 	propertyObject = (_IORESOURCESENTRY)->copyProperty(kAppleCurrentExtra);
 	numberObject = OSDynamicCast(OSNumber, propertyObject);
 	if (numberObject)
@@ -515,147 +538,43 @@ IOUSBRootHubDevice::ReturnExtraPower(UInt32 returnedPower)
 		USBLog(5, "%s[%p]::ReturnExtraPower - setting kAppleCurrentExtra to %d", getName(), this, (uint32_t) powerAvailable);
 		(_IORESOURCESENTRY)->setProperty(kAppleCurrentExtra, powerAvailable, 32);
 	}
-	
-	return;
-	
+
+	IOLockUnlock(gExtraCurrentIOLockClass.lock);
 }
 
 void			
 IOUSBRootHubDevice::InitializeExtraPower(UInt32 maxPortCurrent, UInt32 totalExtraCurrent)
 {
-	OSNumber *		numberObject = NULL;
-	OSObject *		propertyObject = NULL;
-	UInt32			propertyValue = 0;
-	
-	USBLog(5, "%s[%p]::InitializeExtraPower - maxPortCurrent = %d, totalExtraCurrent: %d", getName(), this, (uint32_t)maxPortCurrent, (uint32_t) totalExtraCurrent);
-	
-	// Check to see if we have a property already in IOResources.  If we do then check to see if our value is different.  If we don't, then set it 
-
-	if ( _expansionData == NULL )
-	{
-		USBLog(5, "%s[%p]::InitializeExtraPower - _expansionData is NULL", getName(), this);
-		return;
-	}
-
-	if ( _IORESOURCESENTRY == NULL)
-	{
-		USBLog(5, "%s[%p]::InitializeExtraPower - no _IORESOURCESENTRY available", getName(), this);
-	}
-	else
-	{
-		propertyObject = (_IORESOURCESENTRY)->copyProperty(kAppleCurrentExtra);
-		numberObject = OSDynamicCast(OSNumber, propertyObject);
-		if (numberObject)
-		{
-			propertyValue = numberObject->unsigned32BitValue();
-			USBLog(5, "%s[%p]::InitializeExtraPower - we have a kAppleCurrentExtra with %d", getName(), this, (uint32_t) propertyValue);
-			if ( propertyValue < totalExtraCurrent)
-			{
-				USBLog(5, "%s[%p]::InitializeExtraPower - kAppleCurrentExtra, setting it to %d", getName(), this, (uint32_t) totalExtraCurrent);
-				(_IORESOURCESENTRY)->setProperty(kAppleCurrentExtra, totalExtraCurrent, 32);
-			}
-		}
-		else
-		{
-			USBLog(5, "%s[%p]::InitializeExtraPower - we did NOT have a kAppleCurrentExtra, setting it to %d", getName(), this, (uint32_t) totalExtraCurrent);
-			(_IORESOURCESENTRY)->setProperty(kAppleCurrentExtra, totalExtraCurrent, 32);
-		}
-		SAFE_RELEASE_NULL(propertyObject);
-	
-		propertyObject = (_IORESOURCESENTRY)->copyProperty(kAppleCurrentAvailable);
-		numberObject = OSDynamicCast(OSNumber, propertyObject);
-		if (numberObject)
-		{
-			propertyValue = numberObject->unsigned32BitValue();
-			USBLog(5, "%s[%p]::InitializeExtraPower - we have a kAppleCurrentAvailable with %d", getName(), this, (uint32_t) propertyValue);
-			if (propertyValue < maxPortCurrent )
-			{
-				USBLog(1, "%s[%p]::InitializeExtraPower - we have a kAppleCurrentAvailable with %d, but maxPortCurrent is %d, setting it to that", getName(), this, (uint32_t) propertyValue, (uint32_t) maxPortCurrent);
-				(_IORESOURCESENTRY)->setProperty(kAppleCurrentAvailable, maxPortCurrent, 32);
-			}
-		}
-		else
-		{
-			USBLog(5, "%s[%p]::InitializeExtraPower - we did NOT have a kAppleCurrentAvailable in IOResources, setting it to %d", getName(), this, (uint32_t) maxPortCurrent);
-			(_IORESOURCESENTRY)->setProperty(kAppleCurrentAvailable, maxPortCurrent, 32);
-			
-		}
-		SAFE_RELEASE_NULL(propertyObject);
-	}
-	
-	super::InitializeExtraPower(maxPortCurrent, totalExtraCurrent);
+#pragma unused (maxPortCurrent, totalExtraCurrent)
+	USBLog(1, "%s[%p]::InitializeExtraPower - Obsolete method called", getName(), this);
 }
+
 
 void
 IOUSBRootHubDevice::SetSleepCurrent(UInt32 sleepCurrent)
 {
-	OSNumber *		numberObject = NULL;
-	OSObject *		propertyObject = NULL;
-	UInt32			propertyValue = 0;
-	
 	USBLog(5, "%s[%p]::SetSleepCurrent -  %d", getName(), this, (uint32_t)sleepCurrent);
 	
-	if ( (_expansionData == NULL) || ( _IORESOURCESENTRY == NULL ))
-	{
-		USBLog(5, "%s[%p]::SetSleepCurrent - _expansionData or _IORESOURCESENTRY is NULL", getName(), this);
-		return;
-	}
-	
-	// Get the property from IOResources:  if that value is less than sleepCurrent, updated it to sleepCurrent
-	propertyObject = (_IORESOURCESENTRY)->copyProperty(kAppleCurrentInSleep);
-	numberObject = OSDynamicCast(OSNumber, propertyObject);
-	if (numberObject)
-	{
-		propertyValue = numberObject->unsigned32BitValue();
-		USBLog(5, "%s[%p]::SetSleepCurrent - we have a kAppleCurrentInSleep with %d", getName(), this, (uint32_t) propertyValue);
-	}
-	SAFE_RELEASE_NULL(propertyObject);
-	
-	if ( propertyValue < sleepCurrent )
-	{
-		USBLog(5, "%s[%p]::SetSleepCurrent - setting kAppleCurrentInSleep to %d", getName(), this, (uint32_t) sleepCurrent);
-		(_IORESOURCESENTRY)->setProperty(kAppleCurrentInSleep, sleepCurrent, 32);
-	}
-	
-	
+	super::SetSleepCurrent(sleepCurrent);
 }
 
 UInt32
 IOUSBRootHubDevice::GetSleepCurrent()
 {
-	OSNumber *		numberObject = NULL;
-	OSObject *		propertyObject = NULL;
-	UInt32			propertyValue = 0;
+	return super::GetSleepCurrent();
 	
-	if ( (_expansionData == NULL) || ( _IORESOURCESENTRY == NULL ))
-	{
-		USBLog(5, "%s[%p]::GetSleepCurrent - _expansionData or _IORESOURCESENTRY is NULL", getName(), this);
-		return 0;
-	}
-	
-	// Get the property from IOResources:  if that value is less than sleepCurrent, updated it to sleepCurrent
-	propertyObject = (_IORESOURCESENTRY)->copyProperty(kAppleCurrentInSleep);
-	numberObject = OSDynamicCast(OSNumber, propertyObject);
-	if (numberObject)
-	{
-		propertyValue = numberObject->unsigned32BitValue();
-		USBLog(5, "%s[%p]::SetSleepCurrent - we have a kAppleCurrentInSleep with %d", getName(), this, (uint32_t) propertyValue);
-	}
-	SAFE_RELEASE_NULL(propertyObject);
-	
-	USBLog(5, "%s[%p]::GetSleepCurrent -  returning %d", getName(), this, (uint32_t)propertyValue);
-	return propertyValue;
 }
 
 
+// The request for sleep is total sleep power, NOT the delta above 500mA.
 UInt32
 IOUSBRootHubDevice::RequestSleepPower(UInt32 requestedPower)
 {
 	OSNumber *		numberObject = NULL;
+	UInt32			totalExtraSleepCurrent = 0;
+	UInt32			maxSleepCurrentPerPort = 0;
+	UInt32			extraAllocated = 0;			// Above 500mA
 	OSObject *		propertyObject = NULL;
-	UInt32			totaSleepCurrent = 0;
-	UInt32			maxPowerPerPort = 0;
-	UInt32			extraAllocated = 0;
 	
 	if ( (_expansionData == NULL) || ( _IORESOURCESENTRY == NULL ))
 	{
@@ -663,46 +582,78 @@ IOUSBRootHubDevice::RequestSleepPower(UInt32 requestedPower)
 		return 0;
 	}
 	
-	propertyObject = (_IORESOURCESENTRY)->copyProperty(kAppleCurrentInSleep);
-	numberObject = OSDynamicCast(OSNumber, propertyObject);
-	if (numberObject)
+	if (requestedPower == 0)
 	{
-		totaSleepCurrent = numberObject->unsigned32BitValue();
-		USBLog(5, "%s[%p]::RequestSleepPower - we have a kAppleCurrentInSleep with %d", getName(), this, (uint32_t) totaSleepCurrent);
+		USBLog(5, "%s[%p]::RequestSleepPower - asked for 0, returning 0", getName(), this);
+		return 0;
 	}
+
+	// If we don't have any _standardPortSleepCurrent, then it means that we can't allocate any 
+	if ( _STANDARD_PORT_POWER_IN_SLEEP == 0)
+	{
+		USBLog(5, "%s[%p]::RequestSleepPower - port does not have any _STANDARD_PORT_POWER_IN_SLEEP, returning 0", getName(), this );
+		return 0;
+	}
+
+	// If we are requesting < _STANDARD_PORT_POWER_IN_SLEEP (i.e. 500mA), then we're good and just give it
+	if ( requestedPower <= _STANDARD_PORT_POWER_IN_SLEEP)	
+	{
+		USBLog(5, "%s[%p]::RequestSleepPower - requested <= _STANDARD_PORT_POWER_IN_SLEEP, returning %d", getName(), this, (uint32_t)requestedPower );
+		return requestedPower;
+	}
+
+	IOLockLock(gExtraCurrentIOLockClass.lock);
+
+	// OK, at this point, we have a request for sleep current that exceeds the "standard" USB load of 500mA, so we need to see if we can give it from our extra.  Note that the
+	// request is total current, while the extra is "extra above 500mA"
 	
-	propertyObject = (_IORESOURCESENTRY)->copyProperty(kAppleCurrentAvailable);
+	propertyObject = (_IORESOURCESENTRY)->copyProperty(kAppleCurrentExtraInSleep);
 	numberObject = OSDynamicCast(OSNumber, propertyObject);
 	if (numberObject)
 	{
-		maxPowerPerPort = numberObject->unsigned32BitValue();
-		USBLog(5, "%s[%p]::RequestSleepPower - we have a kAppleCurrentAvailable with %d", getName(), this, (uint32_t) maxPowerPerPort);
+		totalExtraSleepCurrent = numberObject->unsigned32BitValue();
+		USBLog(5, "%s[%p]::RequestSleepPower - we have a kAppleCurrentExtraInSleep with %d", getName(), this, (uint32_t) totalExtraSleepCurrent);
 	}
 	SAFE_RELEASE_NULL(propertyObject);
 	
-	USBLog(5, "%s[%p]::RequestSleepPower - requestedPower = %d, available: %d", getName(), this, (uint32_t)requestedPower, (uint32_t) totaSleepCurrent);
-	
-	if (requestedPower > maxPowerPerPort)		// limit requests to the maximum the HW can support
+	propertyObject = (_IORESOURCESENTRY)->copyProperty(kAppleMaxPortCurrentInSleep);
+	numberObject = OSDynamicCast(OSNumber, propertyObject);
+	if (numberObject)
 	{
-		USBLog(5, "%s[%p]::RequestSleepPower - requestedPower = %d was more than the maximum per port of: %d, limiting request to %d", getName(), this, (uint32_t)requestedPower, (uint32_t) maxPowerPerPort, (uint32_t) maxPowerPerPort);
-		requestedPower = maxPowerPerPort;
+		maxSleepCurrentPerPort = numberObject->unsigned32BitValue();
+		USBLog(5, "%s[%p]::RequestSleepPower - we have a kAppleMaxPortCurrentInSleep with %d", getName(), this, (uint32_t) maxSleepCurrentPerPort);
+	}
+	SAFE_RELEASE_NULL(propertyObject);
+	
+	USBLog(5, "%s[%p]::RequestSleepPower - extra requestedPower = %d, available: %d", getName(), this, (uint32_t) (requestedPower-_STANDARD_PORT_POWER_IN_SLEEP), (uint32_t) totalExtraSleepCurrent);
+	
+	// Will this exceed the max per port during sleep?
+	if (requestedPower > maxSleepCurrentPerPort)		// limit requests to the maximum the HW can support
+	{
+		USBLog(5, "%s[%p]::RequestSleepPower - requestedPower = %d was grater than the maximum per port of %d.  Using that value instead", getName(), this, (uint32_t)requestedPower, (uint32_t) maxSleepCurrentPerPort);
+		requestedPower = maxSleepCurrentPerPort;
 	}
 	
-	if (requestedPower <= totaSleepCurrent)
+	// Do we have enough extra for this request?
+	if ((requestedPower-_STANDARD_PORT_POWER_IN_SLEEP) <= totalExtraSleepCurrent)
 	{		
 		// honor the request if possible
-		extraAllocated = requestedPower;
-		totaSleepCurrent -= extraAllocated;
-
-		USBLog(5, "%s[%p]::RequestSleepPower - setting kAppleCurrentInSleep to %d", getName(), this, (uint32_t) totaSleepCurrent);
-		(_IORESOURCESENTRY)->setProperty(kAppleCurrentInSleep, totaSleepCurrent, 32);
-}
+		extraAllocated = (requestedPower-_STANDARD_PORT_POWER_IN_SLEEP);
+		totalExtraSleepCurrent -= extraAllocated;
+		
+		USBLog(5, "%s[%p]::RequestSleepPower - updating kAppleCurrentExtraInSleep to %d", getName(), this, (uint32_t) totalExtraSleepCurrent);
+		(_IORESOURCESENTRY)->setProperty(kAppleCurrentExtraInSleep, totalExtraSleepCurrent, 32);
+	}
 	
 	USBLog(5, "%s[%p]::RequestSleepPower - extraAllocated = %d", getName(), this, (uint32_t)extraAllocated);
 	
-	return extraAllocated;
+	IOLockUnlock(gExtraCurrentIOLockClass.lock);
+
+	return extraAllocated+_STANDARD_PORT_POWER_IN_SLEEP;
 }
 
+
+// The power here is overall, so we have to subtract the standard load
 void
 IOUSBRootHubDevice::ReturnSleepPower(UInt32 returnedPower)
 {
@@ -712,24 +663,25 @@ IOUSBRootHubDevice::ReturnSleepPower(UInt32 returnedPower)
 	
 	USBLog(5, "%s[%p]::ReturnSleepPower - returning = %d", getName(), this, (uint32_t)returnedPower);
 	
-	propertyObject = (_IORESOURCESENTRY)->copyProperty(kAppleCurrentInSleep);
+	IOLockLock(gExtraCurrentIOLockClass.lock);
+
+	propertyObject = (_IORESOURCESENTRY)->copyProperty(kAppleCurrentExtraInSleep);
 	numberObject = OSDynamicCast(OSNumber, propertyObject);
 	if (numberObject)
 	{
 		powerAvailable = numberObject->unsigned32BitValue();
-		USBLog(5, "%s[%p]::ReturnSleepPower - we have a kAppleCurrentInSleep with %d", getName(), this, (uint32_t) powerAvailable);
+		USBLog(5, "%s[%p]::ReturnSleepPower - we have a kAppleCurrentExtraInSleep with %d", getName(), this, (uint32_t) powerAvailable);
 	}
 	SAFE_RELEASE_NULL(propertyObject);
 	
-	if (returnedPower > 0)
+	if (returnedPower > _STANDARD_PORT_POWER_IN_SLEEP)
 	{
-		powerAvailable += returnedPower;
-		USBLog(5, "%s[%p]::ReturnSleepPower - setting kAppleCurrentInSleep to %d", getName(), this, (uint32_t) powerAvailable);
-		(_IORESOURCESENTRY)->setProperty(kAppleCurrentInSleep, powerAvailable, 32);
+		powerAvailable += (returnedPower-_STANDARD_PORT_POWER_IN_SLEEP);
+		USBLog(5, "%s[%p]::ReturnSleepPower - setting kAppleCurrentExtraInSleep to %d", getName(), this, (uint32_t) powerAvailable);
+		(_IORESOURCESENTRY)->setProperty(kAppleCurrentExtraInSleep, powerAvailable, 32);
 	}
 	
-	return;
-	
+	IOLockUnlock(gExtraCurrentIOLockClass.lock);
 }
 
 
@@ -766,10 +718,72 @@ IOUSBRootHubDevice::GetDeviceInformation(UInt32 *info)
 	return kIOReturnSuccess;
 }
 
+void			
+IOUSBRootHubDevice::SendExtraPowerMessage(UInt32 type, UInt32 returnedPower)
+{
+	// Tell all the EHCI Root Hub Simulations to attempt to give extra power
+	OSIterator *		rootHubDeviceiterator	= NULL;
+	OSIterator *		iterator				= NULL;
+	OSObject *			obj						= NULL;
+	
+	USBLog(5, "IOUSBRootHubDevice[%p]::SendExtraPowerMessage - type: %d, argument: %d", this, (uint32_t)type, (uint32_t) returnedPower);
+	
+	rootHubDeviceiterator = IOService::getMatchingServices(serviceMatching("IOUSBRootHubDevice"));
+	if ( rootHubDeviceiterator != NULL )
+	{
+		
+		while ( (obj = rootHubDeviceiterator->getNextObject()) )
+		{
+			IOService *                service = ( IOService * ) obj;
+
+			USBLog(7, "%s[%p]::SendExtraPowerMessage - found %s (%p)", getName(), this, service->getName(), service);
+			iterator = service->getParentEntry(gIOServicePlane)->getChildIterator(gIOServicePlane);
+			if ( !iterator )
+			{
+				USBLog(5, "%s[%p]::SendExtraPowerMessage - could not getChildIterator", getName(), this);
+				continue;
+			}
+			
+			if (iterator)
+			{
+				OSObject *next;
+				
+				while( (next = iterator->getNextObject()) )
+				{
+					IOUSBDevice *aDevice = OSDynamicCast(IOUSBDevice, next);
+					if ( aDevice )
+					{
+						if ( type == kUSBPowerRequestWakeRelease )
+						{
+							USBLog(5, "%s[%p]::SendExtraPowerMessage - sending  kIOUSBMessageReleaseExtraCurrent to %s", getName(), this, aDevice->getName());
+							aDevice->messageClients(kIOUSBMessageReleaseExtraCurrent,  &returnedPower, sizeof(UInt32));
+						}
+						else if ( type == kUSBPowerRequestWakeReallocate )
+						{
+							USBLog(5, "%s[%p]::SendExtraPowerMessage - sending  kIOUSBMessageReallocateExtraCurrent to %s", getName(), this, aDevice->getName());
+							aDevice->messageClients(kIOUSBMessageReallocateExtraCurrent, NULL, 0);
+						}
+
+					}
+					
+				}
+				iterator->release();
+			}
+		}
+		rootHubDeviceiterator->release();
+	}
+	else 
+	{
+		USBLog(5, "%s[%p]::RequestExtraPower - Could not find any IOUSBRootHubDevice's", getName(), this);
+	}
+
+}
+
+
 OSMetaClassDefineReservedUsed(IOUSBRootHubDevice,  0);
 OSMetaClassDefineReservedUsed(IOUSBRootHubDevice,  1);
 OSMetaClassDefineReservedUsed(IOUSBRootHubDevice,  2);
 OSMetaClassDefineReservedUsed(IOUSBRootHubDevice,  3);
-OSMetaClassDefineReservedUnused(IOUSBRootHubDevice,  4);
+OSMetaClassDefineReservedUsed(IOUSBRootHubDevice,  4);
 
 

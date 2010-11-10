@@ -96,7 +96,6 @@ int main(int argc, const char *argv[])
 	{
 	    BusProbeController *ctr = [[BusProbeController alloc] init];
 		[ctr dumpToTerminal:args :showHelp];
-		[ctr release];
 	}
 	
     [pool release];

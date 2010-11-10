@@ -1921,7 +1921,7 @@ IOUSBInterfaceClass::LowLatencyWriteIsochPipeAsync(UInt8 pipeRef, void *buf, UIn
     if ( frameListData != NULL )
     {
         input[7] = (uint64_t) frameListData->cookie;
-        input[8] = (uint64_t) (frameList64 - (UInt32)frameListData->bufferAddress);
+        input[8] = (uint64_t) (frameList64 - frameListData->bufferAddress);
         DEBUGPRINT("IOUSBInterfaceClass::LowLatencyWriteIsochPipeAsync Found FrameList buffer: offset = %qd, cookie = %qd\n", input[7], input[8]);
     }
     else

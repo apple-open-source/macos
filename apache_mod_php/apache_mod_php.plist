@@ -4,13 +4,13 @@
 <array>
 	<dict>
 		<key>OpenSourceImportDate</key>
-		<string>2009-11-19</string>
+		<string>2010-07-22</string>
 		<key>OpenSourceLicense</key>
 		<string>PHP</string>
 		<key>OpenSourceLicenseFile</key>
 		<string>apache_mod_php.txt</string>
 		<key>OpenSourceMD5</key>
-		<string>63e97ad450f0f7259e785100b634c797</string>
+		<string>21ceeeb232813c10283a5ca1b4c87b48</string>
 		<key>OpenSourceModifications</key>
 		<array>
 			<string>Support for building on Mac OS X</string>
@@ -19,53 +19,53 @@
 		<key>OpenSourceProject</key>
 		<string>php</string>
 		<key>OpenSourceSHA1</key>
-		<string>be08ca9337a4962cd4acf8709cd695e1e31c1149</string>
+		<string>9f66716b341119e4e4f8fe3d81b7d0a5daf3cbc8</string>
 		<key>OpenSourceURL</key>
-		<string>http://us2.php.net/distributions/php-5.3.1.tar.bz2</string>
+		<string>http://us2.php.net/distributions/php-5.3.3.tar.bz2</string>
 		<key>OpenSourceVersion</key>
-		<string>5.3.1</string>
+		<string>5.3.3</string>
 		<key>OpenSourceWebsiteURL</key>
 		<string>http://www.php.net/</string>
 	</dict>
 	<dict>
 		<key>OpenSourceImportDate</key>
-		<string>2010-01-29</string>
+		<string>2010-06-04</string>
 		<key>OpenSourceLicense</key>
-		<string>libpng</string>
+		<string>libjpeg</string>
 		<key>OpenSourceMD5</key>
-		<string>562066eb8557db91156eaeb309458488</string>
+		<string>e022acbc5b36cd2cb70785f5b575661e</string>
 		<key>OpenSourceModifications</key>
 		<array/>
 		<key>OpenSourceProject</key>
-		<string>libpng</string>
+		<string>libjpeg</string>
 		<key>OpenSourceSHA1</key>
-		<string>f29893a50fd25750ea9aadf3161468f49e7f7ad4</string>
+		<string>15dc1939ea1a5b9d09baea11cceb13ca59e4f9df</string>
 		<key>OpenSourceURL</key>
-		<string>http://prdownloads.sourceforge.net/libpng/libpng-1.2.42.tar.bz2?download</string>
+		<string>http://www.ijg.org/files/jpegsrc.v8b.tar.gz</string>
 		<key>OpenSourceVersion</key>
-		<string>1.2.42</string>
+		<string>8b</string>
 		<key>OpenSourceWebsiteURL</key>
-		<string>http://www.libpng.org/</string>
+		<string>http://www.ijg.org/</string>
 	</dict>
 	<dict>
 		<key>OpenSourceImportDate</key>
-		<string>2008-09-04</string>
+		<string>2010-06-28</string>
 		<key>OpenSourceLicense</key>
-		<string>libjpeg</string>
+		<string>libpng</string>
 		<key>OpenSourceMD5</key>
-		<string>dbd5f3b47ed13132f04c685d608a7547</string>
+		<string>df3521f61a1b8b69489d297c0ca8c1f8</string>
 		<key>OpenSourceModifications</key>
 		<array/>
 		<key>OpenSourceProject</key>
-		<string>libjpeg</string>
+		<string>libpng</string>
 		<key>OpenSourceSHA1</key>
-		<string>7079f0d6c42fad0cfba382cf6ad322add1ace8f9</string>
+		<string>dd56c9ecef2d41aa991740a3da6f136412e3b077</string>
 		<key>OpenSourceURL</key>
-		<string>http://www.ijg.org/files/jpegsrc.v6b.tar.gz</string>
+		<string>http://prdownloads.sourceforge.net/libpng/libpng-1.4.3.tar.gz?download</string>
 		<key>OpenSourceVersion</key>
-		<string>6b</string>
+		<string>1.4.3</string>
 		<key>OpenSourceWebsiteURL</key>
-		<string>http://www.ijg.org/</string>
+		<string>http://www.libpng.org/</string>
 	</dict>
 </array>
 </plist>

@@ -25,6 +25,8 @@
 <a href="./ko/configuring.html" hreflang="ko" rel="alternate" title="Korean">&nbsp;ko&nbsp;</a> |
 <a href="./tr/configuring.html" hreflang="tr" rel="alternate" title="Türkçe">&nbsp;tr&nbsp;</a></p>
 </div>
+<div class="outofdate">This translation may be out of date. Check the
+            English version for recent changes.</div>
 
 <p>この文書では、Apache HTTP サーバを設定するのに使用するファイルについて
 記述しています。</p>
@@ -70,7 +72,7 @@
     <p>設定ファイルのディレクティブは大文字小文字を区別しませんが、
     引数にはしばしば区別するものがあります。ハッシュ文字 "#"
     で始まる行はコメントと見なされて無視されます。
-    設定ディレクティブの後の行ではコメントが含まれていては<strong>いけません</strong>。ディレクティブの前の空行と空白は無視されますので、
+    設定ディレクティブと同一行の末尾にコメントが含まれていては<strong>いけません</strong>。ディレクティブの前の空行と空白は無視されますので、
     わかりやすくするためにディレクティブをインデントしても構いません。
     </p>
 

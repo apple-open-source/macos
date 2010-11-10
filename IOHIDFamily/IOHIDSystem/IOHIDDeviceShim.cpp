@@ -224,7 +224,6 @@ OSNumber * IOHIDDeviceShim::newLocationIDNumber() const
         }
         else 
         {
-            // Bullshit a location based on the ADB address and handler id        
             if (number = OSDynamicCast(OSNumber, _device->getProperty("address")))
                 location |= number->unsigned8BitValue() << 24;
                 

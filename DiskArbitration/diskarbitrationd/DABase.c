@@ -35,7 +35,6 @@
 #include <sys/stat.h>
 #include <CommonCrypto/CommonDigest.h>
 #include <CoreFoundation/CFBundlePriv.h>
-#include <IOKit/hidsystem/IOHIDLib.h>
 
 static vproc_transaction_t __vproc_transaction       = NULL;
 static size_t              __vproc_transaction_count = 0;
@@ -612,47 +611,6 @@ __private_extern__ CFStringRef ___CFURLCopyRawDeviceFileSystemPath( CFURLRef url
     }
 
     return path;
-}
-
-__private_extern__ void ___DADisplayUpdateActivity( void )
-{
-    /*
-     * Update display activity.
-     */
-
-    static io_connect_t   port = MACH_PORT_NULL;
-    static struct timeval time = { 0 };
-
-    if ( port == MACH_PORT_NULL )
-    {
-        io_service_t service;
-
-        service = IOServiceGetMatchingService( kIOMasterPortDefault, IOServiceMatching( kIOHIDSystemClass ) );
-
-        if ( service )
-        {
-            IOServiceOpen( service, mach_task_self( ), kIOHIDParamConnectType, &port );
-
-            IOObjectRelease( service );
-        }
-    }
-
-    if ( port )
-    {
-        struct timeval now;
-
-        gettimeofday( &now, NULL );
-
-        if ( time.tv_sec != now.tv_sec )
-        {
-            NXEventData data;
-            IOGPoint    location;
-
-            time.tv_sec = now.tv_sec;
-
-            IOHIDPostEvent( port, NX_NULLEVENT, location, &data, 0, 0, 0 );
-        }
-    }
 }
 
 __private_extern__ kern_return_t ___IORegistryEntryGetPath( io_registry_entry_t entry, const io_name_t plane, ___io_path_t path )

@@ -353,6 +353,8 @@ static request_rec *internal_internal_redirect(const char *new_uri,
     new->method_number   = r->method_number;
     new->allowed_methods = ap_make_method_list(new->pool, 2);
     ap_parse_uri(new, new_uri);
+    new->parsed_uri.port_str = r->parsed_uri.port_str;
+    new->parsed_uri.port = r->parsed_uri.port;
 
     new->request_config = ap_create_request_config(r->pool);
 
@@ -386,7 +388,6 @@ static request_rec *internal_internal_redirect(const char *new_uri,
     new->err_headers_out = r->err_headers_out;
     new->subprocess_env  = rename_original_env(r->pool, r->subprocess_env);
     new->notes           = apr_table_make(r->pool, 5);
-    new->allowed_methods = ap_make_method_list(new->pool, 2);
 
     new->htaccess        = r->htaccess;
     new->no_cache        = r->no_cache;

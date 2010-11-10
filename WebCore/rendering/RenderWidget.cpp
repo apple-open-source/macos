@@ -27,8 +27,13 @@
 #include "AnimationController.h"
 #include "GraphicsContext.h"
 #include "HitTestResult.h"
+#include "RenderCounter.h"
 #include "RenderView.h"
 #include "RenderWidgetProtector.h"
+
+#if USE(ACCELERATED_COMPOSITING)
+#include "RenderLayerBacking.h"
+#endif
 
 using namespace std;
 
@@ -114,6 +119,9 @@ void RenderWidget::destroy()
     if (RenderView* v = view())
         v->removeWidget(this);
 
+    if (m_hasCounterNodeMap)
+        RenderCounter::destroyCounterNodes(this);
+    
     if (AXObjectCache::accessibilityEnabled()) {
         document()->axObjectCache()->childrenChanged(this->parent());
         document()->axObjectCache()->remove(this);
@@ -166,6 +174,12 @@ bool RenderWidget::setWidgetGeometry(const IntRect& frame)
     RenderWidgetProtector protector(this);
     RefPtr<Node> protectedNode(node());
     m_widget->setFrameRect(frame);
+    
+#if USE(ACCELERATED_COMPOSITING)
+    if (hasLayer() && layer()->isComposited())
+        layer()->backing()->updateAfterWidgetResize();
+#endif
+    
     return boundsChanged;
 }
 
@@ -282,10 +296,15 @@ void RenderWidget::paint(PaintInfo& paintInfo, int tx, int ty)
             if (!paintOffset.isZero())
                 paintInfo.context->translate(-paintOffset);
         }
-        if (m_widget->isFrameView() && paintInfo.overlapTestRequests && !static_cast<FrameView*>(m_widget.get())->useSlowRepaintsIfNotOverlapped()) {
-            ASSERT(!paintInfo.overlapTestRequests->contains(this));
-            paintInfo.overlapTestRequests->set(this, m_widget->frameRect());
-        }
+
+        if (m_widget->isFrameView()) {
+            FrameView* frameView = static_cast<FrameView*>(m_widget.get());
+            bool runOverlapTests = !frameView->useSlowRepaintsIfNotOverlapped() || frameView->hasCompositedContent();
+            if (paintInfo.overlapTestRequests && runOverlapTests) {
+                ASSERT(!paintInfo.overlapTestRequests->contains(this));
+                paintInfo.overlapTestRequests->set(this, m_widget->frameRect());
+            }
+         }
     }
 
     if (style()->hasBorderRadius())
@@ -327,7 +346,7 @@ void RenderWidget::updateWidgetPosition()
 
     // if the frame bounds got changed, or if view needs layout (possibly indicating
     // content size is wrong) we have to do a layout to set the right widget size
-    if (m_widget->isFrameView()) {
+    if (m_widget && m_widget->isFrameView()) {
         FrameView* frameView = static_cast<FrameView*>(m_widget.get());
         if (boundsChanged || frameView->needsLayout())
             frameView->layout();

@@ -20,7 +20,7 @@ dnl Set the name of the config header file...
 AC_CONFIG_HEADER(config.h)
 
 dnl Version number information...
-CUPS_VERSION="1.4.4"
+CUPS_VERSION="1.4.5"
 CUPS_REVISION=""
 #if test -z "$CUPS_REVISION" -a -d .svn; then
 #	CUPS_REVISION="-r`svnversion . | awk -F: '{print $NF}' | sed -e '1,$s/[[a-zA-Z]]*//g'`"
@@ -179,6 +179,14 @@ AC_TRY_COMPILE([#include <time.h>],[struct tm t;
 	int o = t.tm_gmtoff;],
 	AC_MSG_RESULT(yes)
 	AC_DEFINE(HAVE_TM_GMTOFF),
+	AC_MSG_RESULT(no))
+
+dnl See if the stat structure has the st_gen member...
+AC_MSG_CHECKING(for st_gen member in stat structure)
+AC_TRY_COMPILE([#include <sys/stat.h>],[struct stat t;
+	int o = t.st_gen;],
+	AC_MSG_RESULT(yes)
+	AC_DEFINE(HAVE_ST_GEN),
 	AC_MSG_RESULT(no))
 
 dnl See if we have the removefile(3) function for securely removing files

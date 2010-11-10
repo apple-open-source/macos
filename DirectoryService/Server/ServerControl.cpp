@@ -54,6 +54,7 @@
 #include "DSTCPEndian.h"
 #include "CInternalDispatch.h"
 #include "COSUtils.h"
+#include "BaseDirectoryPlugin.h"
 
 #include <mach/mach.h>
 #include <mach/notify.h>
@@ -101,6 +102,8 @@ extern CCachePlugin	   *gCacheNode;
 extern dsBool			gDSLocalOnlyMode;
 extern dsBool			gDSInstallDaemonMode;
 extern DSEventSemaphore gKickCacheRequests;
+extern int              gKernelTimeout;
+extern uint32_t			gNumberOfCores;
 
 // ---------------------------------------------------------------------------
 //	* Globals
@@ -1409,84 +1412,163 @@ SInt32 ServerControl::RefDeallocProc ( UInt32 inRefNum, eRefType inRefType, CSer
 	return( dsResult );
 } // RefDeallocProc
 
+#pragma mark -
+#pragma mark Kernel Routines
+
+struct kauth_request {
+    STAILQ_ENTRY(kauth_request) stailq_entry;
+    kauth_identity_extlookup    kauth;
+};
+
+static dispatch_semaphore_t active_semaphore;
+
+static int
+_RegisterKernel(void)
+{
+    int kresult = syscall(SYS_identitysvc, KAUTH_EXTLOOKUP_REGISTER, (void *) gKernelTimeout);
+    if (kresult != 0) {
+        DbgLog( kLogError, "Fatal error registering for Kernel identity service requests - %d: %s", errno, strerror(errno) );
+        syslog( LOG_ERR, "Fatal error registering for Kernel identity service requests - %d: %s", errno, strerror(errno) );
+        
+        // if we can't re-register, let's exit gracefully and see if we can recover after relaunch
+        CFRunLoopStop(CFRunLoopGetMain()); 
+    } else {
+        SrvrLog(kLogApplication, "Successfully registered for Kernel identity service requests");
+    }
+    
+    return kresult;
+}
+
+static void
+__kauth_worker(void *context)
+{
+    struct kauth_request *request = (struct kauth_request *) context;
+    char *debugDataTag = NULL;
+    int result;
+    
+    CInternalDispatch::AddCapability();
+    
+    if (gDebugLogging || gLogAPICalls) {
+        static CRequestHandler handler;
+        
+        debugDataTag = handler.BuildAPICallDebugDataTag(NULL, request->kauth.el_info_pid, "mbr_syscall", "Server" );
+        DbgLog( kLogAPICalls, "%s : process kauth result %X", debugDataTag, request );
+    }
+    
+    request->kauth.el_flags |= kKernelRequest;
+    Mbrd_ProcessLookup(&request->kauth);
+    request->kauth.el_flags &= ~kKernelRequest;
+    
+    result = syscall(SYS_identitysvc, KAUTH_EXTLOOKUP_RESULT, &request->kauth);
+    if (result == 0) {
+        if (debugDataTag != NULL) {
+            DbgLog( kLogAPICalls, "%s : delivered kauth result %X", debugDataTag, request );
+        }
+    } else {
+        SrvrLog(kLogApplication, "Kernel identity service failed to deliver result - %d: %s", errno, strerror(errno));
+        syslog(LOG_ERR, "Kernel identity service failed to deliver result - %d: %s", errno, strerror(errno));
+    }
+    
+    DSFree(debugDataTag);
+    DSFree(request);
+    
+    dispatch_semaphore_signal(active_semaphore); // signal for more work
+}
+
 static void __StartKernelListener( void )
 {
-	static CRequestHandler handler;
-	
-	dispatch_async( dispatch_get_concurrent_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT), 
-				    ^(void) {
-						kern_return_t kresult = syscall( SYS_identitysvc, KAUTH_EXTLOOKUP_REGISTER, 0 );
-						if ( kresult == KERN_SUCCESS )
-						{
-							SrvrLog( kLogApplication, "Registered for Kernel identity service requests" );
+	static dispatch_once_t once;
+    static dispatch_semaphore_t workq_semaphore;
+    static dispatch_group_t group;
+    static STAILQ_HEAD( , kauth_request) request_workq = STAILQ_HEAD_INITIALIZER(request_workq);
+    static volatile OSSpinLock lock = OS_SPINLOCK_INIT;
 
-							do
-							{
-								kauth_identity_extlookup *request = (kauth_identity_extlookup *) calloc( 1, sizeof(kauth_identity_extlookup) );
-							   
-								kresult = syscall( SYS_identitysvc, KAUTH_EXTLOOKUP_WORKER, request );
-								if ( kresult == KERN_SUCCESS )
-								{
-#if 0
-									// 6449641
-									if ( (gDebugLogging) || (gLogAPICalls) ) {
-										char *debugDataTag = handler.BuildAPICallDebugDataTag( NULL, request->el_info_pid, 
-																							   "mbr_syscall", "Server" );
-										DbgLog( kLogAPICalls, "%s : dequeue kauth request %X", debugDataTag, request );
-									}
-#endif
-									
-									dispatch_async( dispatch_get_concurrent_queue(DISPATCH_QUEUE_PRIORITY_HIGH), 
-												    ^(void) {
-														char *debugDataTag = NULL;
-														
-														if ( (gDebugLogging) || (gLogAPICalls) ) {
-															debugDataTag = handler.BuildAPICallDebugDataTag( NULL, request->el_info_pid, 
-																											 "mbr_syscall", "Server" );
-															DbgLog( kLogAPICalls, "%s : process kauth result %X", debugDataTag, request );
-														}
-														
-														CInternalDispatch::AddCapability();
-														request->el_flags |= kKernelRequest;
-														Mbrd_ProcessLookup( request );
-														request->el_flags &= ~kKernelRequest;
-														
-														kern_return_t result = syscall( SYS_identitysvc, KAUTH_EXTLOOKUP_RESULT, request );
-														if ( debugDataTag != NULL ) {
-															if ( result == KERN_SUCCESS ) {
-																DbgLog( kLogAPICalls, "%s : delivered kauth result %X", debugDataTag, request );
-															}
-															else {
-																DbgLog( kLogAPICalls, "%s : failed to deliver kauth result %X - %d", 
-																	    debugDataTag, request, result );
-															}
-															
-															free( debugDataTag );
-														}
-														
-														free( request );
-													} );
-									request = NULL;
-								}
-								else
-								{
-									syslog( LOG_ERR, "Fatal error %d from KAUTH_EXTLOOKUP_WORKER setup (%d: %s)", kresult, errno, strerror(errno) );
-									DSFree( request );
-								}
-							} while ( kresult == KERN_SUCCESS );
-						}
-						else {
-							syslog( LOG_ERR, "Got error %d trying to register with kernel", kresult );
-						}
-					   
-						syscall( SYS_identitysvc, KAUTH_EXTLOOKUP_DEREGISTER, 0 );
-					} );
+	dispatch_once(&once, ^(void) {
+		active_semaphore = dispatch_semaphore_create(gNumberOfCores);
+        workq_semaphore = dispatch_semaphore_create(0);
+        group = dispatch_group_create();
+	});
+    
+    // our workq watcher
+    dispatch_async(dispatch_get_concurrent_queue(DISPATCH_QUEUE_PRIORITY_HIGH), ^(void) {
+        for (;;) {
+            kauth_request *request;
+            
+            dispatch_semaphore_wait(workq_semaphore, DISPATCH_TIME_FOREVER);
+            dispatch_semaphore_wait(active_semaphore, DISPATCH_TIME_FOREVER);
+            
+            dispatch_group_enter(group);
+            
+            OSSpinLockLock(&lock);
+            request = STAILQ_FIRST(&request_workq);
+            STAILQ_REMOVE_HEAD(&request_workq, stailq_entry);
+            OSSpinLockUnlock(&lock);
+            
+            dispatch_group_async_f(group, dispatch_get_concurrent_queue(DISPATCH_QUEUE_PRIORITY_HIGH), request, __kauth_worker);
+            dispatch_group_leave(group);
+        }
+    });
+    
+	dispatch_async(dispatch_get_concurrent_queue(DISPATCH_QUEUE_PRIORITY_HIGH), ^(void) {
+        int kresult = _RegisterKernel();
+        if (kresult == 0) {
+            do {
+                struct kauth_request *request = (struct kauth_request *) calloc(1, sizeof(*request));
+                
+                kresult = syscall(SYS_identitysvc, KAUTH_EXTLOOKUP_WORKER, &request->kauth);
+                if (kresult == KERN_SUCCESS) {
+                    OSSpinLockLock(&lock);
+                    STAILQ_INSERT_TAIL(&request_workq, request, stailq_entry);
+                    OSSpinLockUnlock(&lock);
+                    
+                    dispatch_semaphore_signal(workq_semaphore);
+                    request = NULL;
+                } else {
+                    if (errno == EPERM) {
+                        SrvrLog( kLogApplication, "Kernel identity service worker error - Permission Denied");
+                        syslog( LOG_ERR, "Kernel identity service worker error - Permission Denied");
+                        
+                        // drain our queue, we no longer have permission
+                        OSSpinLockLock(&lock);
+                        if (!STAILQ_EMPTY(&request_workq)) {
+                            DbgLog(kLogNotice, "Kernel identity service flushing backlog due to kernel Permission error");
+                        }
+                        
+                        for (struct kauth_request *drainReq = STAILQ_FIRST(&request_workq); drainReq != NULL; drainReq = STAILQ_FIRST(&request_workq)) {
+                            STAILQ_REMOVE_HEAD(&request_workq, stailq_entry);
+                            DSFree(drainReq);
+                        }
+                        OSSpinLockUnlock(&lock);
+                    } else {
+                        SrvrLog( kLogApplication, "Fatal error for Kernel identity service worker - %d: %s", errno, strerror(errno) );
+                        syslog( LOG_ERR, "Fatal error for Kernel identity service worker - %d: %s", errno, strerror(errno) );
+                    }
+
+                    // wait for the group to finish
+                    dispatch_group_wait(group, DISPATCH_TIME_FOREVER);
+                    
+                    kresult = syscall(SYS_identitysvc, KAUTH_EXTLOOKUP_DEREGISTER, NULL); // ensure we are really deregistered in case we hit the error directly
+                    if (kresult != 0) {
+                        SrvrLog(kLogApplication, "Error deregistering for Kernel identity service - %d: %s", errno, strerror(errno));
+                    }
+                    
+                    kresult = _RegisterKernel();
+                }
+                
+                DSFree(request);
+            } while (kresult == KERN_SUCCESS);
+            
+            syscall(SYS_identitysvc, KAUTH_EXTLOOKUP_DEREGISTER, 0);
+        }
+    });
 }
 
 void ServerControl::StartKernelListener( void )
 {
 	__StartKernelListener(); // 6453258
 }
+
+#pragma mark -
 
 SInt32 ServerControl::StartUpServer ( void )
 {
@@ -1637,11 +1719,11 @@ SInt32 ServerControl::StartUpServer ( void )
                                     StartKernelListener();
                                 }             
                                 
-                                // let's sweep the membership cache every 15 minutes to remove expired entries
+                                // let's sweep the membership cache every 24 hours to remove expired entries
                                 // the validation stuff will take care of expired entries if they are touched
                                 // this sweep is to remove stale entries
                                 dispatch_source_t ::mbrSweep = dispatch_source_timer_create( DISPATCH_TIMER_INTERVAL, 
-                                                                                             900ULL * NSEC_PER_SEC,
+                                                                                             24ull * 60ull * 60ull * NSEC_PER_SEC,
                                                                                              15ULL * NSEC_PER_SEC,
                                                                                              NULL,
                                                                                              concurrentQueue,
@@ -1709,11 +1791,12 @@ SInt32 ServerControl::ShutDownServer ( void )
 		
 		// we are in a syscall, so we must just deregister and error out from there
 		if ( gDSLocalOnlyMode == false && gDSDebugMode == false) {
-			if ( syscall(SYS_identitysvc, KAUTH_EXTLOOKUP_DEREGISTER, 0) == 0 ) {
+            result = syscall(SYS_identitysvc, KAUTH_EXTLOOKUP_DEREGISTER, 0);
+			if (result  == 0 ) {
 				SrvrLog( kLogApplication, "Deregistered Kernel identity service" );
 			}
 			else {
-				DbgLog( kLogError, "Failed to deregister Kernel identity service" );
+				DbgLog( kLogError, "Failed to deregister Kernel identity service - %d: %s", errno, strerror(errno) );
 			}
 		}
 		

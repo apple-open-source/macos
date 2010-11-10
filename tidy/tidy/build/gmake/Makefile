@@ -3,8 +3,8 @@
 #  CVS Info :
 #
 #     $Author: tduffy $ 
-#     $Date: 2008/01/04 22:49:34 $ 
-#     $Revision: 1.11 $ 
+#     $Date: 2009/08/26 20:33:25 $ 
+#     $Revision: 1.12 $ 
 #
 #  Copyright (c) 1998-2005 World Wide Web Consortium
 #  (Massachusetts Institute of Technology, European Research 
@@ -91,11 +91,17 @@ DOCDIR = ${TOPDIR}/htmldoc
 # CFLAGS etc..
 # For optimised builds, flags such as "-O2" should be added and -D_DEBUG=1
 # disabled.
-CC= gcc
 ifdef TIDY_APPLE_CHANGES
+ifneq ($(SDKROOT),)
+CFLAGS+= -isysroot $(SDKROOT)
+CC= $(shell xcrun -find -sdk $(SDKROOT) gcc)
+else
+CC= gcc
+endif
 CFLAGS+= -g -Wall -Wno-switch -Wno-parentheses -I $(INCDIR) \
     -fvisibility=hidden -DTIDY_EXPORT='__attribute__((visibility("default")))'
 else
+CC= gcc
 CFLAGS= -g -Wall -Wno-switch -Wno-parentheses -I $(INCDIR)
 endif
 # flags only supported with gcc 3.x

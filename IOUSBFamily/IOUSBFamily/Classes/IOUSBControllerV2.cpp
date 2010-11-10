@@ -232,13 +232,13 @@ void
 IOUSBControllerV2::ClearTT(USBDeviceAddress fnAddress, UInt8 endpt, Boolean IN)
 {
     UInt16						wValue;
-	IOBufferMemoryDescriptor	*memDesc;
-    IOUSBDevRequest				*clearRequest;
+	IOBufferMemoryDescriptor	*memDesc = NULL;
+    IOUSBDevRequest				*clearRequest = NULL;
     short						hubAddress;
-    IOUSBCommand				*clearCommand;
+    IOUSBCommand				*clearCommand = NULL;
     IOUSBCompletion				completion;
     int							i;
-    IOReturn					err;
+    IOReturn					err = kIOReturnSuccess;
 	IODMACommand				*dmaCommand = NULL;
 	
     USBLog(5,"+%s[%p]::ClearTT", getName(), this);
@@ -253,139 +253,197 @@ IOUSBControllerV2::ClearTT(USBDeviceAddress fnAddress, UInt8 endpt, Boolean IN)
     }
 	
 	memDesc = IOBufferMemoryDescriptor::withOptions(kIOMemoryUnshared | kIODirectionInOut, sizeof(IOUSBDevRequest));
-	if (!memDesc)
+	
+	do				// not really a loop - just a way to avoid gotos
 	{
-		USBLog(1,"%s[%p]::ClearTT Could not get a memory descriptor",getName(),this);
-		USBTrace( kUSBTController, kTPControllerClearTT, (uintptr_t)this, 0, 0, 2 );
-		return;
-	}
-
-    clearCommand = (IOUSBCommand *)_freeUSBCommandPool->getCommand(false);
-    if ( clearCommand == NULL )
-    {
-		IncreaseCommandPool();
+		if (!memDesc)
+		{
+			USBLog(1,"%s[%p]::ClearTT Could not get a memory descriptor",getName(),this);
+			USBTrace( kUSBTController, kTPControllerClearTT, (uintptr_t)this, 0, 0, 2 );
+			err = kIOReturnNoMemory;
+			break;
+		}
+		
+		err = memDesc->prepare();
+		if (err != kIOReturnSuccess)
+		{
+			USBError(1,"%s[%p]::ClearTT - err (%p) trying to prepare memory descriptor", getName(), this, (void*)err);
+			memDesc->release();
+			memDesc = NULL;
+			break;
+		}
+		
+		clearRequest = (IOUSBDevRequest*)memDesc->getBytesNoCopy();
+		if (!clearRequest)
+		{
+			USBLog(1,"%s[%p]::ClearTT Could not get a IOUSBDevRequest", getName(), this);
+			USBTrace( kUSBTController, kTPControllerClearTT, (uintptr_t)this, 0, 0, 5 );
+			err = kIOReturnNoMemory;
+			break;
+		}
+		USBLog(5, "%s[%p]::ClearTT - got IOUSBDevRequest (%p)", getName(), this, clearRequest);
 		
 		clearCommand = (IOUSBCommand *)_freeUSBCommandPool->getCommand(false);
 		if ( clearCommand == NULL )
 		{
-			USBLog(1,"%s[%p]::ClearTT Could not get a IOUSBCommand",getName(),this);
-			USBTrace( kUSBTController, kTPControllerClearTT, (uintptr_t)this, 0, 0, 3 );
-			memDesc->release();
-			return;
+			IncreaseCommandPool();
+			
+			clearCommand = (IOUSBCommand *)_freeUSBCommandPool->getCommand(false);
+			if ( clearCommand == NULL )
+			{
+				USBLog(1,"%s[%p]::ClearTT Could not get a IOUSBCommand",getName(),this);
+				USBTrace( kUSBTController, kTPControllerClearTT, (uintptr_t)this, 0, 0, 3 );
+				err = kIOReturnNoResources;
+				break;
+			}
 		}
-    }
-    USBLog(7, "%s[%p]::ClearTT V2 got command (%p)", getName(), this, clearCommand);
-
-	dmaCommand = clearCommand->GetDMACommand();
-	if (!dmaCommand)
-	{
-		USBError(1,"%s[%p]::ClearTT - No dmaCommand in the usb command", getName(), this);
-		USBTrace( kUSBTController, kTPControllerClearTT, (uintptr_t)this, 0, 0, 4 );
-		return;
-	}
-	
-	if (dmaCommand->getMemoryDescriptor())
-	{
-		IOMemoryDescriptor		*memDesc = (IOMemoryDescriptor *)dmaCommand->getMemoryDescriptor();
-		USBError(1,"%s[%p]::ClearTT - dmaCommand (%p) already had memory descriptor (%p) - clearing", getName(), this, dmaCommand, memDesc);
-		dmaCommand->clearMemoryDescriptor();
-		// memDesc->complete();					should i do this?
-		// memDesc->release();					should i do this?
-	}
-	
-    clearRequest = (IOUSBDevRequest*)memDesc->getBytesNoCopy();
-    if (!clearRequest)
-    {
-		USBLog(1,"%s[%p]::ClearTT Could not get a IOUSBDevRequest", getName(), this);
-		USBTrace( kUSBTController, kTPControllerClearTT, (uintptr_t)this, 0, 0, 5 );
-		_freeUSBCommandPool->returnCommand(clearCommand);
-		return;
-    }
-    USBLog(5, "%s[%p]::ClearTT - got IOUSBDevRequest (%p)", getName(), this, clearRequest);
-	
-    wValue = (endpt & 0xf) | ( (fnAddress & 0x7f) << 4);
-    if (IN)
-    {
-		wValue  |= (1 << 15);
-    }
-    USBLog(5,"%s[%p]::ClearTT - V2 EP (%d) ADDR (%d) wValue (0x%x)", getName(), this, endpt, fnAddress, wValue);
-	/*		
-		3..0 Endpoint Number
-		10..4 Device Address
-		12..11 Endpoint Type	- Always controll == zero.
-		14..13 Reserved, must be zero
-		15 Direction, 1 = IN, 0 = OUT
+		USBLog(7, "%s[%p]::ClearTT V2 got command (%p)", getName(), this, clearCommand);
+		if (clearCommand->GetBufferUSBCommand())
+		{
+			USBLog(1,"%s[%p]::ClearTT - unexpected BufferUSBCommand(%p) inside of new command(%p)", getName(), this, clearCommand->GetBufferUSBCommand(), clearCommand);
+			clearCommand->SetBufferUSBCommand(NULL);
+		}
+		if (clearCommand->GetRequestMemoryDescriptor())
+		{
+			USBLog(1,"%s[%p]::ClearTT - unexpected RequestMemoryDescriptor(%p) inside of new command(%p)", getName(), this, clearCommand->GetRequestMemoryDescriptor(), clearCommand);
+			clearCommand->SetRequestMemoryDescriptor(NULL);
+		}
 		
-		Endpoint Type
-		00 Control
-		01 Isochronous
-		10 Bulk
-		11 Interrupt
+		dmaCommand = clearCommand->GetDMACommand();
+		if (!dmaCommand)
+		{
+			USBError(1,"%s[%p]::ClearTT - No dmaCommand in the usb command", getName(), this);
+			USBTrace( kUSBTController, kTPControllerClearTT, (uintptr_t)this, 0, 0, 4 );
+			err = kIOReturnNoResources;
+			break;
+		}
 		
-		*/
-	
-	/* Request details largely copied from AppleUSBHubPort::ClearTT */
-	
-    clearRequest->bmRequestType = 0x23;
-    clearRequest->bRequest = 8;
-    clearRequest->wValue = HostToUSBWord(wValue);
-    if (_v2ExpansionData->_multiTT[hubAddress])
-    {  // MultiTT hub needs port address here
-		clearRequest->wIndex = HostToUSBWord(_highSpeedPort[fnAddress]);
-    }
-    else
-    {  // Single TT hubs need 1 here
-		clearRequest->wIndex = HostToUSBWord(1);
-    }
-    clearRequest->wLength = HostToUSBWord(0);
-    clearRequest->pData = NULL;
-    clearRequest->wLenDone = 0;
-	
-	/* This copies large parts of IOUSBController::DeviceRequest, its not using IOUSBController::DeviceRequest */
-	/* Because we're already inside the lock and don't want to go through the gate again. */
-	
-    completion.target    = (void *)this;
-    completion.action    = (IOUSBCompletionAction) &clearTTHandler;
-    completion.parameter = clearCommand;
-    clearCommand->SetUSLCompletion(completion);
-	
-    clearCommand->SetUseTimeStamp(false);
-    clearCommand->SetSelector(DEVICE_REQUEST);
-    clearCommand->SetRequest(clearRequest);
-    clearCommand->SetAddress(hubAddress);
-    clearCommand->SetEndpoint(0);
-    clearCommand->SetType(kUSBControl);
-    clearCommand->SetBuffer(0); 			// no buffer for device requests
-    clearCommand->SetClientCompletion(completion);
-    clearCommand->SetNoDataTimeout(5000);
-    clearCommand->SetCompletionTimeout(0);
-    clearCommand->SetStage(0);
-	clearCommand->SetBufferUSBCommand(NULL);
-	clearCommand->SetMultiTransferTransaction(false);
-	clearCommand->SetFinalTransferInTransaction(false);
+		if (dmaCommand->getMemoryDescriptor())
+		{
+			IOMemoryDescriptor		*XmemDesc = (IOMemoryDescriptor *)dmaCommand->getMemoryDescriptor();
+			USBError(1,"%s[%p]::ClearTT - dmaCommand (%p) already had memory descriptor (%p) - clearing", getName(), this, dmaCommand, XmemDesc);
+			dmaCommand->clearMemoryDescriptor();
+		}
 
-	memDesc->prepare();
-	clearCommand->SetRequestMemoryDescriptor(memDesc);
-	clearCommand->SetReqCount(8);
-    
-	USBLog(7,"%s[%p]::ClearTT - setting memory descriptor (%p) into dmaCommand (%p)", getName(), this, memDesc, dmaCommand);
-	err = dmaCommand->setMemoryDescriptor(memDesc);
-	if (err)
-	{
-		USBError(1,"%s[%p]::ClearTT - err (%p) setting memory descriptor (%p) into dmaCommand (%p)", getName(), this, (void*)err, memDesc, dmaCommand);
-		memDesc->complete();
-		memDesc->release();
-		return;
-	}
+		USBLog(7,"%s[%p]::ClearTT - setting memory descriptor (%p) into dmaCommand (%p)", getName(), this, memDesc, dmaCommand);
+		err = dmaCommand->setMemoryDescriptor(memDesc);
+		if (err)
+		{
+			USBError(1,"%s[%p]::ClearTT - err (%p) setting memory descriptor (%p) into dmaCommand (%p)", getName(), this, (void*)err, memDesc, dmaCommand);
+			break;
+		}
+		
+		clearCommand->SetRequestMemoryDescriptor(memDesc);
+		clearCommand->SetReqCount(8);
+		memDesc = NULL;						// to prevent a possibly double release now that it is in the command
+		
+		wValue = (endpt & 0xf) | ( (fnAddress & 0x7f) << 4);
+		if (IN)
+		{
+			wValue  |= (1 << 15);
+		}
+		USBLog(5,"%s[%p]::ClearTT - V2 EP (%d) ADDR (%d) wValue (0x%x)", getName(), this, endpt, fnAddress, wValue);
+		/*		
+		 3..0 Endpoint Number
+		 10..4 Device Address
+		 12..11 Endpoint Type	- Always controll == zero.
+		 14..13 Reserved, must be zero
+		 15 Direction, 1 = IN, 0 = OUT
+		 
+		 Endpoint Type
+		 00 Control
+		 01 Isochronous
+		 10 Bulk
+		 11 Interrupt
+		 
+		 */
+		
+		/* Request details largely copied from AppleUSBHubPort::ClearTT */
+		
+		clearRequest->bmRequestType = 0x23;
+		clearRequest->bRequest = 8;
+		clearRequest->wValue = HostToUSBWord(wValue);
+		if (_v2ExpansionData->_multiTT[hubAddress])
+		{  // MultiTT hub needs port address here
+			clearRequest->wIndex = HostToUSBWord(_highSpeedPort[fnAddress]);
+		}
+		else
+		{  // Single TT hubs need 1 here
+			clearRequest->wIndex = HostToUSBWord(1);
+		}
+		clearRequest->wLength = HostToUSBWord(0);
+		clearRequest->pData = NULL;
+		clearRequest->wLenDone = 0;
+		
+		/* This copies large parts of IOUSBController::DeviceRequest, its not using IOUSBController::DeviceRequest */
+		/* Because we're already inside the lock and don't want to go through the gate again. */
+		
+		completion.target    = (void *)this;
+		completion.action    = (IOUSBCompletionAction) &clearTTHandler;
+		completion.parameter = clearCommand;
+		clearCommand->SetUSLCompletion(completion);
+		
+		clearCommand->SetUseTimeStamp(false);
+		clearCommand->SetSelector(DEVICE_REQUEST);
+		clearCommand->SetRequest(clearRequest);
+		clearCommand->SetAddress(hubAddress);
+		clearCommand->SetEndpoint(0);
+		clearCommand->SetType(kUSBControl);
+		clearCommand->SetBuffer(0); 			// no buffer for device requests
+		clearCommand->SetClientCompletion(completion);
+		clearCommand->SetNoDataTimeout(5000);
+		clearCommand->SetCompletionTimeout(0);
+		clearCommand->SetStage(0);
+		clearCommand->SetBufferUSBCommand(NULL);
+		clearCommand->SetMultiTransferTransaction(false);
+		clearCommand->SetFinalTransferInTransaction(false);
+		
+		for (i=0; i < 10; i++)
+			clearCommand->SetUIMScratch(i, 0);
+		
+		err = ControlTransaction(clearCommand);					// Wait for completion? Or just fire and forget?
+		
+	} while (false);
 	
-    for (i=0; i < 10; i++)
-		clearCommand->SetUIMScratch(i, 0);
 	
-    err = ControlTransaction(clearCommand);	// Wait for completion? Or just fire and forget?
-    if (err)
+    if (kIOReturnSuccess != err)
     {
-		USBLog(1, "%s[%p]::ClearTT - error 0x%x returned from ControlTransaction", getName(), this, err);
+		// The only way we get in here is if we never called ControlTransaction, or if it returned an immediate error
+		// In all other circumstances, the cleanup is all done in the clearTTHandler
+		USBLog(1, "%s[%p]::ClearTT - error 0x%x cleaning up", getName(), this, err);
 		USBTrace( kUSBTController, kTPControllerClearTT, (uintptr_t)this, err, 0, 6 );
+		if (memDesc)
+		{
+			// this indicates that the memory descriptor was never successfully placed into the command
+			memDesc->complete();
+			memDesc->release();
+			memDesc = NULL;
+		}
+		if (clearCommand)
+		{
+			memDesc = (IOBufferMemoryDescriptor*)clearCommand->GetRequestMemoryDescriptor();
+			if (memDesc)
+				clearCommand->SetRequestMemoryDescriptor(NULL);
+			dmaCommand = clearCommand->GetDMACommand();
+		}
+		if (dmaCommand && dmaCommand->getMemoryDescriptor())
+		{
+			USBLog(2, "%s[%p]::ClearTT - clearing dmaCommand", getName(), this);
+			dmaCommand->clearMemoryDescriptor();
+		}
+		if (memDesc)
+		{
+			// we repeat this here on purpose, because it means that we got the MD out of the request, and that we enterred this part with it NULL
+			memDesc->complete();
+			memDesc->release();
+			memDesc = NULL;
+		}
+		if (clearCommand)
+		{
+			USBLog(7, "%s[%p]::ClearTT - returning command", getName(), this);
+			_freeUSBCommandPool->returnCommand(clearCommand);
+		}
+		
     }
 	
 	USBTrace_End( kUSBTController, kTPControllerClearTT, (uintptr_t)this, 0, 0, 0);
@@ -675,6 +733,7 @@ IOUSBControllerV2::ReadV2(IOMemoryDescriptor *buffer, USBDeviceAddress address, 
     IOUSBCompletion			theCompletion;
 	IODMACommand			*dmaCommand = NULL;
     int						i;
+	bool					isSyncTransfer = false;
 	
     USBLog(7, "%s[%p]::ReadV2 - reqCount = %d", getName(), this, (uint32_t)reqCount);
 	
@@ -707,7 +766,19 @@ IOUSBControllerV2::ReadV2(IOMemoryDescriptor *buffer, USBDeviceAddress address, 
         return kIOReturnInternalError;
     }
 	
-    // allocate the command
+    if (  (uintptr_t) completion->action == (uintptr_t) &IOUSBSyncCompletion )
+	{
+		isSyncTransfer = true;
+		// 7889995 - check to see if we are on the workloop thread before setting up the IOUSBCommand
+		if ( _workLoop->onThread() )
+		{
+            USBError(1,"IOUSBControllerV2(%s)[%p]::DoIOTransfer sync request on workloop thread.  Use async!", getName(), this);
+            return kIOUSBSyncRequestOnWLThread;
+		}
+	}
+	
+	
+	// allocate the command
     command = (IOUSBCommand *)_freeUSBCommandPool->getCommand(false);
 	
     // If we couldn't get a command, increase the allocation and try again
@@ -738,21 +809,13 @@ IOUSBControllerV2::ReadV2(IOMemoryDescriptor *buffer, USBDeviceAddress address, 
 			IOMemoryDescriptor		*memDesc = (IOMemoryDescriptor *)dmaCommand->getMemoryDescriptor();
 			USBError(1, "%s[%p]::ReadV2 - dma command (%p) already contains memory descriptor (%p) - clearing", getName(), this, dmaCommand, memDesc);
 			dmaCommand->clearMemoryDescriptor();
-			// memDesc->complete();					should i do this?
-			// memDesc->release();					should i do this?
 		}
-		// err = buffer->prepare();			should i do this?
-		if (0) // if (err)
-		{
-			USBError(1, "%s[%p]::ReadV2 - err(%p) attempting to prepare buffer (%p)", getName(), this, (void*)err, buffer);
-			return err;
-		}
+
 		USBLog(7, "%s[%p]::ReadV2 - setting memory descriptor (%p) into dmaCommand (%p)", getName(), this, buffer, dmaCommand);
 		err = dmaCommand->setMemoryDescriptor(buffer);
 		if (err)
 		{
 			USBError(1, "%s[%p]::ReadV2 - err(%p) attempting to set the memory descriptor to the dmaCommand", getName(), this, (void*)err);
-			// buffer->complete();			should i do this?
 			_freeUSBCommandPool->returnCommand(command);
 			return err;
 		}
@@ -764,10 +827,7 @@ IOUSBControllerV2::ReadV2(IOMemoryDescriptor *buffer, USBDeviceAddress address, 
 	
 	// Set up a flag indicating that we have a synchronous request in this command
 	//
-    if (  (uintptr_t) completion->action == (uintptr_t) &IOUSBSyncCompletion )
-		command->SetIsSyncTransfer(true);
-	else
-		command->SetIsSyncTransfer(false);
+	command->SetIsSyncTransfer(isSyncTransfer);
 	
     command->SetUseTimeStamp(true);
     command->SetSelector(READ);
@@ -794,7 +854,6 @@ IOUSBControllerV2::ReadV2(IOMemoryDescriptor *buffer, USBDeviceAddress address, 
     err = CheckForDisjointDescriptor(command, endpoint->maxPacketSize);
     if (kIOReturnSuccess == err)
 	{
-		bool	isSyncTransfer = command->GetIsSyncTransfer();
 		
         err = _commandGate->runAction(DoIOTransfer, command);
 		
