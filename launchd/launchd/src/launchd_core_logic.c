@@ -16,7 +16,7 @@
  * @APPLE_APACHE_LICENSE_HEADER_END@
  */
 
-static const char *const __rcs_file_version__ = "$Revision: 24208 $";
+static const char *const __rcs_file_version__ = "$Revision: 24498 $";
 
 #include "config.h"
 #include "launchd_core_logic.h"
@@ -2785,7 +2785,8 @@ job_reap(job_t j)
 		LIST_REMOVE(spi, sle);
 		free(spi);
 	}
-	
+
+	j->last_exit_status = status;
 	struct waiting_for_exit *w4e = NULL;
 	while( (w4e = LIST_FIRST(&j->exit_watchers)) ) {
 		waiting4exit_delete(j, w4e);
@@ -2810,7 +2811,6 @@ job_reap(job_t j)
 	} else if (!j->anonymous && !j->hopefully_exits_last) {
 		j->mgr->normal_active_cnt--;
 	}
-	j->last_exit_status = status;
 	j->sent_signal_time = 0;
 	j->sent_sigkill = false;
 	j->clean_kill = false;

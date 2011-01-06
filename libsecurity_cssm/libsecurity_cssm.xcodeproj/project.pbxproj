@@ -469,6 +469,12 @@
 			buildConfigurationList = C27AD3480987FCDE001272E0 /* Build configuration list for PBXProject "libsecurity_cssm" */;
 			compatibilityVersion = "Xcode 2.4";
 			hasScannedForEncodings = 1;
+			knownRegions = (
+				English,
+				Japanese,
+				French,
+				German,
+			);
 			mainGroup = 4CA1FEA7052A3C3800F22E42;
 			productRefGroup = 4CA1FEBF052A3C8100F22E42 /* Products */;
 			projectDirPath = "";
@@ -595,7 +601,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUILD_VARIANTS = debug;
-				CURRENT_PROJECT_VERSION = 36064;
+				CURRENT_PROJECT_VERSION = 40418;
 				EXECUTABLE_PREFIX = "";
 				EXECUTABLE_SUFFIX = "";
 				FRAMEWORK_SEARCH_PATHS = /usr/local/SecurityPieces/Frameworks;
@@ -644,7 +650,7 @@
 					normal,
 					debug,
 				);
-				CURRENT_PROJECT_VERSION = 36064;
+				CURRENT_PROJECT_VERSION = 40418;
 				EXECUTABLE_PREFIX = "";
 				EXECUTABLE_SUFFIX = "";
 				FRAMEWORK_SEARCH_PATHS = /usr/local/SecurityPieces/Frameworks;
@@ -690,7 +696,7 @@
 					normal,
 					debug,
 				);
-				CURRENT_PROJECT_VERSION = 36064;
+				CURRENT_PROJECT_VERSION = 40418;
 				EXECUTABLE_PREFIX = "";
 				EXECUTABLE_SUFFIX = "";
 				FRAMEWORK_SEARCH_PATHS = /usr/local/SecurityPieces/Frameworks;

@@ -1,4 +1,4 @@
-# Mac OS X 10.6.5
+# Mac OS X 10.6.6
 Apple16X50Serial	24
 AppleAPIC	13
 AppleFileSystemDriver	13
@@ -33,7 +33,7 @@ ICU	400.40
 IOACPIFamily	8
 IOATAFamily	251.0.1
 IOATAPIProtocolTransport	251.0.1
-IOAudioFamily	179.4.4
+IOAudioFamily	180.4.1
 IOBDStorageFamily	10
 IOCDStorageFamily	47
 IODVDStorageFamily	30
@@ -83,7 +83,7 @@ RubyGems	17.1
 RubyOnRails	28.1
 Security	37594
 SecurityTokend	36808
-SecurityTool	36576
+SecurityTool	40418
 SmartCardServices	36160
 SpamAssassin	144.2
 SquirrelMail	36
@@ -135,7 +135,7 @@ copyfile	66
 cron	35
 crontabs	43
 cscope	15
-cups	218.26
+cups	218.28
 curl	57.2
 cvs	42
 cvs_wrapped	15
@@ -184,7 +184,7 @@ ipv6configuration	31.1
 kext_tools	180.2
 keymgr	22
 ksh	16.1
-launchd	329.3.2
+launchd	329.3.3
 ld64	95.2.12
 less	22
 libarchive	14
@@ -204,7 +204,7 @@ libsecurity_apple_csp	36859
 libsecurity_apple_cspdl	36064
 libsecurity_apple_file_dl	36064
 libsecurity_apple_x509_cl	36064
-libsecurity_apple_x509_tp	39454
+libsecurity_apple_x509_tp	40473
 libsecurity_asn1	36064
 libsecurity_authorization	36329
 libsecurity_cdsa_client	36213
@@ -214,11 +214,11 @@ libsecurity_cdsa_utils	36064
 libsecurity_checkpw	36064
 libsecurity_cms	36064
 libsecurity_codesigning	36885
-libsecurity_cssm	36064
+libsecurity_cssm	40418
 libsecurity_dotmacdl	36606
 libsecurity_filedb	36725
 libsecurity_filevault	36064
-libsecurity_keychain	39594
+libsecurity_keychain	40418
 libsecurity_ldap_dl	38579
 libsecurity_manifest	36064
 libsecurity_mds	36495
@@ -240,7 +240,7 @@ llvmgcc42	2118
 lsof	42
 lukemftp	12
 lukemftpd	41
-mDNSResponder	258.13
+mDNSResponder	258.14
 mail_cmds	24
 mailman	132.1
 man	14
@@ -321,7 +321,7 @@ webdavfs	293.1
 wxWidgets	13
 xar	36.2
 xelf	1
-xnu	1504.9.17
+xnu	1504.9.26
 zip	11.1
 zlib	23.4
 zsh	53

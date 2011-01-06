@@ -58,6 +58,7 @@ static const CssmOid *theOidList[] = {
 	static_cast<const CssmOid *>(&CSSMOID_APPLE_TP_PACKAGE_SIGNING),
 	static_cast<const CssmOid *>(&CSSMOID_APPLE_TP_REVOCATION_CRL),
 	static_cast<const CssmOid *>(&CSSMOID_APPLE_TP_REVOCATION_OCSP),
+	static_cast<const CssmOid *>(&CSSMOID_APPLE_TP_MACAPPSTORE_RECEIPT),
     NULL	// sentinel
 };
 

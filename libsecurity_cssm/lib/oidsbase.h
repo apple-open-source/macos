@@ -275,6 +275,8 @@ representation is implied */
 #define APPLE_EKU_CODE_SIGNING			APPLE_EKU_OID, 1
 #define APPLE_EKU_CODE_SIGNING_LENGTH	APPLE_EKU_OID_LENGTH + 1
 
+/* -------------------------------------------------------------------------*/
+
 /*
  * Basis of Apple-specific Certificate Policy identifiers
  * appleCertificatePolicies OBJECT IDENTIFIER ::= 
@@ -283,6 +285,26 @@ representation is implied */
  */
 #define APPLE_CERT_POLICIES				APPLE_ADS_OID, 5
 #define APPLE_CERT_POLICIES_LENGTH		APPLE_ADS_OID_LENGTH + 1
+
+/*
+ * Base for MacAppStore Certificate Policy identifiers
+ * macAppStoreCertificatePolicyIDs OBJECT IDENTIFIER ::= 
+ *		{ appleCertificatePolicies 6 }
+ *		{ 1 2 840 113635 100 5 6 }
+ */
+#define APPLE_CERT_POLICIES_MACAPPSTORE		APPLE_CERT_POLICIES, 6
+#define APPLE_CERT_POLICIES_MACAPPSTORE_LENGTH	APPLE_CERT_POLICIES_LENGTH + 1
+
+/*
+ * MacAppStore receipt verification Certificate Policy identifier
+ * macAppStoreReceiptCertificatePolicyID OBJECT IDENTIFIER ::= 
+ *		{ appleCertificatePolicies 6 1 }
+ *		{ 1 2 840 113635 100 5 6 1 }
+ */
+#define APPLE_CERT_POLICIES_MACAPPSTORE_RECEIPT		APPLE_CERT_POLICIES_MACAPPSTORE, 1
+#define APPLE_CERT_POLICIES_MACAPPSTORE_RECEIPT_LENGTH	APPLE_CERT_POLICIES_MACAPPSTORE_LENGTH + 1
+
+/* -------------------------------------------------------------------------*/
 
 /*
  * Basis of Apple-specific certificate extensions
@@ -301,6 +323,15 @@ representation is implied */
  */
 #define APPLE_EXTENSION_CODE_SIGNING		APPLE_EXTENSION_OID, 1
 #define APPLE_EXTENSION_CODE_SIGNING_LENGTH	APPLE_EXTENSION_OID_LENGTH + 1
+
+/*
+ * Basis of MacAppStore receipt verification certificate extensions
+ * macAppStoreReceiptExtension OBJECT IDENTIFIER ::= 
+ *		{ appleCertificateExtensions 11 1 }
+ *		{ 1 2 840 113635 100 6 11 1 }
+ */
+#define APPLE_EXTENSION_MACAPPSTORE_RECEIPT		APPLE_EXTENSION_OID, 11, 1
+#define APPLE_EXTENSION_MACAPPSTORE_RECEIPT_LENGTH	APPLE_EXTENSION_OID_LENGTH + 2
 
 /*
  * Netscape OIDs.

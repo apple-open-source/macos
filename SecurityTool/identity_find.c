@@ -325,6 +325,9 @@ do_identity_search_with_policy(CFTypeRef keychainOrArray,
 	else if (compareOids(oidPtr, &CSSMOID_APPLE_X509_BASIC)) {
 		policyName = "X.509 Basic";
 	}
+	else if (compareOids(oidPtr, &CSSMOID_APPLE_TP_MACAPPSTORE_RECEIPT)) {
+		policyName = "Mac App Store Receipt";
+	}
 	
 	// set the policy's value, if there is one (this is specific to certain policies)
 	if (policy && policyValue)
@@ -433,6 +436,9 @@ do_find_identities(CFTypeRef keychainOrArray, const char *name, unsigned int pol
 	if (policyFlags & (1 << 9))
 		do_system_identity_search(kSecIdentityDomainKerberosKDC);	
 
+	if (policyFlags & (1 << 11))	// 10 RFE
+		do_identity_search_with_policy(keychainOrArray, name, &CSSMOID_APPLE_TP_MACAPPSTORE_RECEIPT, CSSM_KEYUSE_SIGN, TRUE, validOnly);
+
 	return result;
 }
 
@@ -478,6 +484,8 @@ keychain_find_identity(int argc, char * const *argv)
 						policyFlags |= 1 << 8;
 					else if (!strcmp(optarg, "sys-kerberos-kdc"))
 						policyFlags |= 1 << 9;
+					else if (!strcmp(optarg, "macappstore"))
+						policyFlags |= 1 << 11;
 					else {
 						result = 2; /* @@@ Return 2 triggers usage message. */
 						goto cleanup;

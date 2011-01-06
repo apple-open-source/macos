@@ -520,7 +520,9 @@ enum
 	/* invalid empty SubjectName */
 	CSSMERR_APPLETP_INVALID_EMPTY_SUBJECT = 		CSSM_TP_PRIVATE_ERROR + 55,
 	/* unknown critical Qualified Cert Statement ID */
-	CSSMERR_APPLETP_UNKNOWN_QUAL_CERT_STATEMENT = 	CSSM_TP_PRIVATE_ERROR + 56
+	CSSMERR_APPLETP_UNKNOWN_QUAL_CERT_STATEMENT = 	CSSM_TP_PRIVATE_ERROR + 56,
+	/* Missing required extension */
+	CSSMERR_APPLETP_MISSING_REQUIRED_EXTENSION =    CSSM_TP_PRIVATE_ERROR + 57
 };
 
 /* Apple .mac TP private error codes. */

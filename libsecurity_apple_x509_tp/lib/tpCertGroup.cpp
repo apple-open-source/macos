@@ -435,6 +435,10 @@ static bool checkPolicyOid(
 		tpPolicy = kTP_PackageSigning;
 		return true;
 	}
+	else if(tpCompareOids(&oid, &CSSMOID_APPLE_TP_MACAPPSTORE_RECEIPT)) {
+		tpPolicy = kTP_MacAppStoreRec;
+		return true;
+	}
 	return false;
 }
 

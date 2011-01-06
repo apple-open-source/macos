@@ -1,5 +1,15 @@
-CHANGES.txt - 2010-10-01
+CHANGES.txt - 2010-11-17
 ------------------------
+
+CHANGES IN CUPS V1.4.6
+
+	- Regression: The pstops filter did not support landscape printing of
+	  PostScript files (STR #3722)
+	- The scheduler killed retried (fax) jobs after restarting them
+	  (STR #3697)
+	- The cupsAdminSetServerSettings() function disabled sharing when
+	  debug logging was enabled (STR #3712)
+
 
 CHANGES IN CUPS V1.4.5
 

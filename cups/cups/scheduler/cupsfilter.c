@@ -484,10 +484,30 @@ main(int  argc,				/* I - Number of command-line args */
     filters = prefilters;
   }
 
+  /*
+   * Map sides to Duplex options if not already present.
+   */
+
+   const char*val;        /* Option value */
+   if(((val = cupsGetOption("Duplex", num_options, options)) == NULL) &&
+     ((val = cupsGetOption("sides", num_options, options)) != NULL) )
+   {
+    if (!strcasecmp(val, "one-sided"))
+      num_options = cupsAddOption("Duplex", "None",
+				  num_options, &options);
+    else if (!strcasecmp(val, "two-sided-long-edge"))
+      num_options = cupsAddOption("Duplex", "DuplexNoTumble",
+				  num_options, &options);
+    else if (!strcasecmp(val, "two-sided-short-edge"))
+      num_options = cupsAddOption("Duplex", "DuplexTumble",
+				  num_options, &options);
+  }
+  
+  
  /*
   * Do it!
   */
-
+  
   status = exec_filters(src, filters, infile, outfile, ppdfile, printer, user,
                         title, num_options, options);
 

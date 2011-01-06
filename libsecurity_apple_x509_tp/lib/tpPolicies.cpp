@@ -65,6 +65,7 @@ typedef struct {
 	iSignExtenInfo		netscapeCertType;
 	iSignExtenInfo		subjectAltName;
 	iSignExtenInfo		qualCertStatements;
+	iSignExtenInfo		certificatePolicies;
 	
 	/* flag indicating presence of a critical extension we don't understand */
 	CSSM_BOOL			foundUnknownCritical;
@@ -89,6 +90,10 @@ static const CSSM_OID_PTR knownQualifiedCertStatements[] =
 };
 #define NUM_KNOWN_QUAL_CERT_STATEMENTS (sizeof(knownQualifiedCertStatements) / sizeof(CSSM_OID_PTR))
 
+static CSSM_RETURN tp_verifyMacAppStoreReciptOpts(TPCertGroup &certGroup, 
+	const CSSM_DATA *fieldOpts,	const iSignCertInfo *certInfo);
+bool certificatePoliciesContainsOID(const CE_CertPolicies *certPolicies, const CSSM_OID *oidToFind);
+	
 /*
  * Setup a single iSignExtenInfo. Called once per known extension
  * per cert. 
@@ -339,6 +344,13 @@ static CSSM_RETURN iSignGetCertInfo(
 	if(crtn) {
 		return crtn;
 	}
+	crtn = iSignFetchExtension(alloc,
+		tpCert,
+		&CSSMOID_CertificatePolicies,
+		&certInfo->certificatePolicies);
+	if(crtn) {
+		return crtn;
+	}	
 	
 	/* check signature algorithm field */
 	iSignCheckSignatureAlgorithm(tpCert, certInfo);
@@ -382,6 +394,10 @@ static void iSignFreeCertInfo(
 	if(certInfo->subjectAltName.present) {
 		CSSM_CL_FreeFieldValue(clHand, &CSSMOID_SubjectAltName, 
 			certInfo->subjectAltName.valToFree);
+	}
+	if(certInfo->certificatePolicies.present) {
+		CSSM_CL_FreeFieldValue(clHand, &CSSMOID_CertificatePolicies, 
+			certInfo->certificatePolicies.valToFree);
 	}
 }
 
@@ -1634,6 +1650,85 @@ static CSSM_RETURN tp_verifyCodePkgSignOpts(
 }
 
 /*
+ * Verify MacAppStore receipt verification policy options. 
+ *
+ * -- Must have one intermediate cert
+ * -- intermediate must be the FairPlay intermediate
+ * -- leaf cert has the CSSMOID_APPLE_EXTENSION_MACAPPSTORE_RECEIPT marker extension
+ */
+static CSSM_RETURN tp_verifyMacAppStoreReciptOpts(
+	TPCertGroup &certGroup,
+	const CSSM_DATA *fieldOpts,			// currently unused
+	const iSignCertInfo *certInfo)		// all certs, size certGroup.numCerts()	
+{
+	unsigned numCerts = certGroup.numCerts();
+	if (numCerts < 3)
+	{
+		if (!certGroup.isAllowedError(CSSMERR_APPLETP_CS_BAD_CERT_CHAIN_LENGTH))
+		{
+			tpPolicyError("tp_verifyMacAppStoreReciptOpts: numCerts %u", numCerts);
+			return CSSMERR_APPLETP_CS_BAD_CERT_CHAIN_LENGTH;
+		}
+	}
+	
+	const iSignCertInfo *isCertInfo;
+	TPCertInfo *tpCert;
+
+	/* verify intermediate cert */
+	isCertInfo = &certInfo[1];
+	tpCert = certGroup.certAtIndex(1);
+
+	if (!isCertInfo->basicConstraints.present)
+	{
+		tpPolicyError("tp_verifyAppleIDSharingOpts: no basicConstraints in intermediate");
+		if (tpCert->addStatusCode(CSSMERR_APPLETP_CS_NO_BASIC_CONSTRAINTS))
+			return CSSMERR_APPLETP_CS_NO_BASIC_CONSTRAINTS;
+	}
+
+	// Now check the leaf
+	isCertInfo = &certInfo[0];
+	tpCert = certGroup.certAtIndex(0);
+	if (certInfo->certificatePolicies.present)
+	{
+//		syslog(LOG_ERR, "tp_verifyMacAppStoreReciptOpts: found certificatePolicies");
+		const CE_CertPolicies *certPolicies = 
+				&isCertInfo->certificatePolicies.extnData->certPolicies;
+		if (!certificatePoliciesContainsOID(certPolicies, &CSSMOID_MACAPPSTORE_RECEIPT_CERT_POLICY))
+			if (tpCert->addStatusCode(CSSMERR_APPLETP_MISSING_REQUIRED_EXTENSION))
+				return CSSMERR_APPLETP_MISSING_REQUIRED_EXTENSION;
+	}
+	else
+	{
+//		syslog(LOG_ERR, "tp_verifyMacAppStoreReciptOpts: no certificatePolicies present");	// DEBUG
+        tpPolicyError("tp_verifyMacAppStoreReciptOpts: no certificatePolicies present in leaf");
+        if (tpCert->addStatusCode(CSSMERR_APPLETP_MISSING_REQUIRED_EXTENSION))
+			return CSSMERR_APPLETP_MISSING_REQUIRED_EXTENSION;
+	}
+		
+	return CSSM_OK;
+}
+
+bool certificatePoliciesContainsOID(const CE_CertPolicies *certPolicies, const CSSM_OID *oidToFind)
+{
+    // returns true if the given OID is present in the cert policies
+    
+    if (!certPolicies || !oidToFind)
+		return false;
+
+    const uint32 maxIndex = 100;		// sanity check
+    for (uint32 policyIndex = 0; policyIndex < certPolicies->numPolicies && policyIndex < maxIndex; policyIndex++)
+	{
+        CE_PolicyInformation *certPolicyInfo = &certPolicies->policies[policyIndex];
+        CSSM_OID_PTR oid = &certPolicyInfo->certPolicyId;
+		if (oid && tpCompareOids(oid, oidToFind))	// found it
+			return true;
+    }
+	
+	return false;
+}
+
+
+/*
  * RFC2459 says basicConstraints must be flagged critical for
  * CA certs, but Verisign doesn't work that way.
  */
@@ -2165,6 +2260,9 @@ CSSM_RETURN tp_policyVerify(
 		case kTP_CodeSigning:
 		case kTP_PackageSigning:
 			policyError = tp_verifyCodePkgSignOpts(policy, *certGroup, policyFieldData, certInfo);
+			break;
+		case kTP_MacAppStoreRec:
+			policyError = tp_verifyMacAppStoreReciptOpts(*certGroup, policyFieldData, certInfo);
 			break;
 		case kTPx509Basic:
 		case kTPiSign:
