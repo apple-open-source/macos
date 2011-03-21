@@ -1,2 +1,0 @@
-%(member)s erabiltzailea %(listname)s zerrendako harpide da hemendik aurrera.
-

@@ -90,16 +90,17 @@ private:
     void applyInlineStyle(CSSMutableStyleDeclaration*);
     void applyInlineStyleToRange(CSSMutableStyleDeclaration*, const Position& start, const Position& end);
     void addBlockStyle(const StyleChange&, HTMLElement*);
-    void addInlineStyleIfNeeded(CSSMutableStyleDeclaration*, Node* start, Node* end);
-    bool splitTextAtStartIfNeeded(const Position& start, const Position& end);
-    bool splitTextAtEndIfNeeded(const Position& start, const Position& end);
-    bool splitTextElementAtStartIfNeeded(const Position& start, const Position& end);
-    bool splitTextElementAtEndIfNeeded(const Position& start, const Position& end);
+    void addInlineStyleIfNeeded(CSSMutableStyleDeclaration*, PassRefPtr<Node> start, PassRefPtr<Node> end);
+    void splitTextAtStart(const Position& start, const Position& end);
+    void splitTextAtEnd(const Position& start, const Position& end);
+    void splitTextElementAtStart(const Position& start, const Position& end);
+    void splitTextElementAtEnd(const Position& start, const Position& end);
+    bool isValidCaretPositionInTextNode(const Position& position);
     bool mergeStartWithPreviousIfIdentical(const Position& start, const Position& end);
     bool mergeEndWithNextIfIdentical(const Position& start, const Position& end);
     void cleanupUnstyledAppleStyleSpans(Node* dummySpanAncestor);
 
-    void surroundNodeRangeWithElement(Node* start, Node* end, PassRefPtr<Element>);
+    void surroundNodeRangeWithElement(PassRefPtr<Node> start, PassRefPtr<Node> end, PassRefPtr<Element>);
     float computedFontSize(const Node*);
     void joinChildTextNodes(Node*, const Position& start, const Position& end);
 

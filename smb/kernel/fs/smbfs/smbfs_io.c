@@ -178,8 +178,7 @@ int smbfs_readvdir(vnode_t vp, uio_t uio, vfs_context_t context, int flags, int3
 	if ((offset == 0) || (offset != np->d_offset) || (np->d_fctx == NULL)) {
 		SMBVDEBUG("Reopening search for %s %lld:%lld\n", np->n_name, offset, np->d_offset);
 		smbfs_closedirlookup(np, context);
-		error = smbfs_smb_findopen(np, "*", 1, SMB_FA_SYSTEM | SMB_FA_HIDDEN | SMB_FA_DIR,
-								   context, &np->d_fctx, NO_SFM_CONVERSIONS);
+		error = smbfs_smb_findopen(np, "*", 1, context, &np->d_fctx, TRUE);
 		if (error) {
 			SMBWARNING("Can't open search for %s, error = %d", np->n_name, error);
 			goto done;			

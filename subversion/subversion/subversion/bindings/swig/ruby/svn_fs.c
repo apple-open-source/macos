@@ -5990,7 +5990,7 @@ _wrap_svn_fs_paths_changed2(int argc, VALUE *argv, VALUE self) {
   }
   {
     vresult = SWIG_Ruby_AppendOutput(vresult, svn_swig_rb_apr_hash_to_hash_swig_type(*arg1,
-        "svn_fs_path_change_t *"));
+        "svn_fs_path_change2_t *"));
   }
   {
     VALUE target;

@@ -679,10 +679,11 @@ APU_DECLARE(apr_status_t) apr_brigade_destroy(apr_bucket_brigade *b);
 APU_DECLARE(apr_status_t) apr_brigade_cleanup(void *data);
 
 /**
- * Move the buckets from the tail end of the existing brigade @param b into
- * the brigade @param a. If @param a is NULL a new brigade is created. Buckets
- * from @param e to the last bucket (inclusively) of brigade @param b are moved
- * from @param b to the returned brigade @param a.
+ * Move the buckets from the tail end of the existing brigade @a b into
+ * the brigade @a a. If @a a is NULL a new brigade is created. Buckets
+ * from @a e to the last bucket (inclusively) of brigade @a b are moved
+ * from @a b to the returned brigade @a a.
+ *
  * @param b The brigade to split
  * @param e The first bucket to move
  * @param a The brigade which should be used for the result or NULL if
@@ -774,7 +775,7 @@ APU_DECLARE(apr_status_t) apr_brigade_split_line(apr_bucket_brigade *bbOut,
                                                  apr_off_t maxbytes);
 
 /**
- * create an iovec of the elements in a bucket_brigade... return number 
+ * Create an iovec of the elements in a bucket_brigade... return number 
  * of elements used.  This is useful for writing to a file or to the
  * network efficiently.
  * @param b The bucket brigade to create the iovec from

@@ -96,6 +96,9 @@ AP_DECLARE_DATA ap_filter_rec_t *ap_core_input_filter_handle;
 /* magic pointer for ErrorDocument xxx "default" */
 static char errordocument_default;
 
+/* Default ap_document_root_check to default value: true */
+AP_DECLARE_DATA int ap_document_root_check = 1;
+
 static void *create_core_dir_config(apr_pool_t *a, char *dir)
 {
     core_dir_config *conf;
@@ -1183,13 +1186,19 @@ static const char *set_document_root(cmd_parms *cmd, void *dummy,
         return err;
     }
 
+    /* When ap_document_root_check is false; skip all the stuff below */
+    if (!ap_document_root_check) {
+       conf->ap_document_root = arg;
+       return NULL;
+    }
+
     /* Make it absolute, relative to ServerRoot */
     arg = ap_server_root_relative(cmd->pool, arg);
     if (arg == NULL) {
         return "DocumentRoot must be a directory";
     }
 
-    /* TODO: ap_configtestonly && ap_docrootcheck && */
+    /* TODO: ap_configtestonly */
     if (apr_filepath_merge((char**)&conf->ap_document_root, NULL, arg,
                            APR_FILEPATH_TRUENAME, cmd->pool) != APR_SUCCESS
         || !ap_is_directory(cmd->pool, arg)) {
@@ -1829,13 +1838,6 @@ static const char *dirsection(cmd_parms *cmd, void *mconfig, const char *arg)
 
     if (!arg[0]) {
         return missing_container_arg(cmd);
-    }
-
-    if (!arg) {
-        if (thiscmd->cmd_data)
-            return "<DirectoryMatch > block must specify a path";
-        else
-            return "<Directory > block must specify a path";
     }
 
     cmd->path = ap_getword_conf(cmd->pool, &arg);

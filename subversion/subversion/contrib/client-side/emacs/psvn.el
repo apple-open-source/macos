@@ -2,7 +2,7 @@
 ;; Copyright (C) 2002-2009 by Stefan Reichoer
 
 ;; Author: Stefan Reichoer <stefan@xsteve.at>
-;; $Id: psvn.el 35820 2009-02-11 21:35:14Z xsteve $
+;; $Id: psvn.el 923804 2010-03-16 15:22:28Z cmpilato $
 
 ;; psvn.el is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
@@ -136,7 +136,7 @@
 ;; The latest version of psvn.el can be found at:
 ;;   http://www.xsteve.at/prg/emacs/psvn.el
 ;; Or you can check it out from the subversion repository:
-;;   svn co http://svn.collab.net/repos/svn/trunk/contrib/client-side/emacs emacs-svn
+;;   svn co http://svn.apache.org/repos/asf/subversion/trunk/contrib/client-side/emacs emacs-svn
 
 ;; TODO:
 ;; * shortcut for svn propset svn:keywords "Date" psvn.el
@@ -253,7 +253,7 @@
       (require 'diff-mode))
   (error nil))
 
-(defconst svn-psvn-revision "$Id: psvn.el 35820 2009-02-11 21:35:14Z xsteve $"
+(defconst svn-psvn-revision "$Id: psvn.el 923804 2010-03-16 15:22:28Z cmpilato $"
   "The revision number of psvn.")
 
 ;;; user setable variables
@@ -1701,7 +1701,7 @@ The results are used to build the `svn-status-info' variable."
           ;; (message "Going to skip %s" skip-double-external-dir-entry-name)
           nil)
          ((looking-at "--- Changelist") ; skip svn changelist header lines
-          ;; See: http://svn.collab.net/repos/svn/trunk/notes/changelist-design.txt
+          ;; See: http://svn.apache.org/repos/asf/subversion/trunk/notes/changelist-design.txt
           nil)
          (t
           (setq svn-marks (buffer-substring (point) (+ (point) svn-marks-length))

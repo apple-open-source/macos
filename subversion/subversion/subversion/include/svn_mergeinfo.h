@@ -152,6 +152,9 @@ typedef apr_hash_t *svn_mergeinfo_catalog_t;
  * inheritability are also allowed, but will be combined into a single
  * range when placed into @a *mergeinfo.
  *
+ * @a input may contain relative merge source paths, but these are
+ * converted to absolute paths in @a *mergeinfo.
+ *
  * @since New in 1.5.
  */
 svn_error_t *
@@ -285,7 +288,12 @@ svn_mergeinfo_intersect(svn_mergeinfo_t *mergeinfo,
  *
  * @a consider_inheritance determines how to account for the inheritability
  * of the two rangelist's ranges when calculating the intersection,
- * @see svn_mergeinfo_diff().
+ * @see svn_mergeinfo_diff().  If @a consider_inheritance is FALSE then
+ * ranges with different inheritance can intersect, but the the resulting
+ * @a *rangelist is non-inheritable only if the corresponding ranges from
+ * both @a rangelist1 and @a rangelist2 are non-inheritable.
+ * If @a consider_inheritance is TRUE, then ranges with different
+ * inheritance can never intersect.
  *
  * Note: @a rangelist1 and @a rangelist2 must be sorted as said by @c
  * svn_sort_compare_ranges(). @a *rangelist is guaranteed to be in sorted
@@ -362,6 +370,9 @@ svn_mergeinfo_inheritable(svn_mergeinfo_t *inheritable_mergeinfo,
 /** Take a mergeinfo in MERGEINPUT, and convert it back to unparsed
  *  mergeinfo in *OUTPUT.  If INPUT contains no elements, return the
  *  empty string.
+ *
+ * @a mergeinput may contain relative merge source paths, but these are
+ * converted to absolute paths in @a *output.
  *
  * @since New in 1.5.
 */

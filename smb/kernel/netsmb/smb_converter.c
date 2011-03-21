@@ -30,6 +30,7 @@
 #include <sys/systm.h>
 #include <sys/malloc.h>
 #include <sys/smb_apple.h>
+#include <sys/mchain.h>
 
 #include <netsmb/smb_subr.h>
 #include <netsmb/smb_converter.h>
@@ -390,6 +391,24 @@ smb_unitostr(char *dst, const u_int16_t *src, size_t inlen, size_t maxlen, int f
 }
 
 /*
+ * Does the same thing as strnlen, except on a utf16 string. The n_bytes is the 
+ * max number of bytes in the buffer. This routine always return the size in 
+ * the number of bytes.
+ */
+size_t 
+smb_utf16_strnsize(const uint16_t *s, size_t n_bytes) 
+{
+	const uint16_t *es = s, *p = s;
+	
+	es += n_bytes / 2;
+	while(*p && p != es)  {
+		p++;
+	}
+	return (uint8_t *)p - (uint8_t *)s;
+}
+
+
+/*
  * Does the same thing as strnlen, except on a utf16 string.
  */
 size_t
@@ -401,4 +420,219 @@ smb_utf16_strnlen(const uint16_t *s, size_t max) {
 	}
 
 	return (uint8_t *)p - (uint8_t *)s;
+}
+
+/*
+ * Internal strlchr that checks for buffer overflows.
+ */
+static void *
+smb_strlchr(const void *s, uint8_t ch, size_t max) 
+{
+	const uint8_t *str = s;
+	const uint8_t *es = str + max;
+	
+	while(*str && (str != es))  { 
+		if (*str == ch)
+			return (void *)str;
+		str++;
+	}
+	
+	return NULL;
+}
+
+/*
+ * Does the same thing as smb_strlchr, except on a utf16 string.
+ */
+static void *
+smb_utf16_strlchr(const uint16_t *s, uint16_t ch, size_t max) 
+{
+	const uint16_t *es = (const uint16_t *)((uint8_t *)s + max), *str = s;
+	
+	while(*str && (str != es))  { 
+		if (*str == ch)
+			return (void *)str;
+		str++;
+	}
+	
+	return NULL;
+}
+
+static char *
+set_network_delimiter(char *network, char ntwrk_delimiter, size_t delimiter_size, 
+					  size_t *resid)
+{	
+	if (*resid < delimiter_size)
+		return NULL;
+	*resid -= delimiter_size;
+	if (delimiter_size == 2) {
+		uint16_t *utf16_ptr = (uint16_t *)network;
+		
+		*utf16_ptr++ = htoles((uint16_t)ntwrk_delimiter);
+		return (char *)utf16_ptr;
+	} else {
+		*network++ = ntwrk_delimiter;
+		return network;
+	}
+}
+
+/* 
+ * Given a UTF8 path create a network path
+ *
+ * path				- A UTF8 string. 
+ * max_path_len		- Number of bytes in the path string
+ * network			- Either  UTF16 or ASCII string
+ * ntwrk_len		- On input max buffer size, on output length of network buffer
+ * ntwrk_delimiter	- Delimiter to use
+ * inflags			-
+ *					  SMB_UTF_SFM_CONVERSIONS - Indicates that we should set the 
+ *					  kernel UTF_SFM_CONVERSIONS (Use SFM mappings for illegal NTFS chars)
+ *					  flag. 
+ *					  SMB_FULLPATH_CONVERSIONS - Indicates they want a full path,
+ *					  if the output doesn't start with a delimiter, one should be
+ *					  add.
+ */
+int 
+smb_convert_path_to_network(char *path, size_t max_path_len, char *network, 
+							size_t *ntwrk_len, char ntwrk_delimiter, int inflags, 
+							int usingUnicode)
+{
+	int error = 0;
+	char * delimiter;
+	size_t component_len;	/* component length */
+	size_t path_resid;
+	size_t resid = *ntwrk_len;	/* Room left in the the network buffer */
+	size_t delimiter_size = (usingUnicode) ? 2 : 1;
+	int flags = (inflags & SMB_UTF_SFM_CONVERSIONS) ? UTF_SFM_CONVERSIONS : 0;
+	
+	if ((inflags & SMB_FULLPATH_CONVERSIONS) && (*path != '/')) {
+		network = set_network_delimiter(network, ntwrk_delimiter, delimiter_size, 
+										&resid);
+		if (network == NULL)
+			return E2BIG;
+	}
+	
+	while (path && resid && max_path_len) {
+		DBG_ASSERT(resid > 0);	/* Should never fail */
+		/* Find the next delimiter in the utf-8 string */
+		delimiter = smb_strlchr(path, '/', max_path_len);
+		/* Remove the delimiter so we can get the component */
+		if (delimiter) {
+			max_path_len -= 1; /* consume the delimiter */
+			*delimiter = 0;
+		}
+		/* Get the size of this component */
+		path_resid = component_len = strnlen(path, max_path_len);
+		/* Never SFM dot or dotdot */
+		if (((component_len == 1) && (*path == '.'))  || 
+			((component_len == 2) && (*path == '.') && (*(path+1) == '.'))) {
+			error = smb_convert_to_network((const char **)&path, &path_resid, 
+										   &network, &resid, 0, usingUnicode);
+			
+		} else {
+			error = smb_convert_to_network((const char **)&path, &path_resid, 
+										   &network, &resid, flags, usingUnicode);
+		}
+		if (error)
+			return error;
+		/* Put the path delimiter back and move the pointer pass it */
+		if (delimiter)
+			*delimiter++ = '/';
+		path = delimiter;
+		/* Remove the amount that was consumed by smb_convert_to_network */
+		max_path_len -= (component_len - path_resid);
+		/* If we have more to process then add a network delimiter */
+		if (path) {
+			network = set_network_delimiter(network, ntwrk_delimiter, 
+											delimiter_size, &resid);
+			if (network == NULL)
+				return E2BIG;
+		}
+	}
+	*ntwrk_len -= resid;
+	DBG_ASSERT((ssize_t)(*ntwrk_len) >= 0);
+	return error;
+}
+
+/* 
+ * Given a network string path create a UTF8 path
+ *
+ * network			- Either UTF16 or ASCII string
+ * max_ntwrk_len	- Number of bytes in the network string
+ * path				- UTF8 string. 
+ * path_len			- On input max buffer size, on output length of UTF8 string
+ * ntwrk_delimiter	- Delimiter to use
+ * inflags			-
+ *					  SMB_UTF_SFM_CONVERSIONS - Indicates that we should set the 
+ *					  kernel UTF_SFM_CONVERSIONS (Use SFM mappings for illegal NTFS chars)
+ *					  flag. 
+ *					  SMB_FULLPATH_CONVERSIONS - Indicates they want a full path,
+ *					  if the output doesn't start with a delimiter, one should be
+ *					  add. (Not currently supported, if required should be added.
+ */
+int 
+smb_convert_network_to_path(char *network, size_t max_ntwrk_len, char *path, 
+							size_t *path_len, char ntwrk_delimiter, int flags, 
+							int usingUnicode)
+{
+	int error = 0;
+	char * delimiter;
+	size_t component_len;	/* component length*/
+	size_t resid = *path_len;	/* Room left in the the path buffer */
+	size_t ntwrk_resid;
+	
+	while (network && resid && max_ntwrk_len) {
+		DBG_ASSERT(resid > 0);	/* Should never fail */
+		/* Find the next delimiter in the network string */
+		if (usingUnicode) {
+			delimiter = smb_utf16_strlchr((const uint16_t *)network, 
+										  htoles((uint16_t)ntwrk_delimiter), 
+										  max_ntwrk_len);
+			/* Remove the delimiter so we can get the component */
+			if (delimiter) {
+				max_ntwrk_len -= 2; /* consume the delimiter */
+				*((uint16_t *)delimiter) = 0;
+			}			/* Get the size of this component */
+			component_len = smb_utf16_strnsize((const uint16_t *)network, max_ntwrk_len);
+			
+		} else {
+			delimiter = smb_strlchr((const uint8_t *)network, ntwrk_delimiter, max_ntwrk_len);
+			/* Remove the delimiter so we can get the component */
+			if (delimiter) {
+				max_ntwrk_len -= 1; /* consume the delimiter */
+				*((uint8_t *)delimiter) = 0;
+			}
+			/* Get the size of this component */
+			component_len = strnlen(network, max_ntwrk_len);
+		}
+		ntwrk_resid = component_len; /* Amount that we want them to consume */
+		error = smb_convert_from_network((const char **)&network, &ntwrk_resid, 
+										 &path, &resid, flags, usingUnicode);
+		if (error) {
+			SMBDEBUG("smb_convert_from_network = %d\n", error);
+			return error;
+		}
+		/* Put the network delimiter back and move the pointer pass it */
+		if (delimiter) {
+			if (usingUnicode) {
+				*((uint16_t *)delimiter) = htoles(ntwrk_delimiter);
+				delimiter++;
+			} else {
+				*((uint8_t *)delimiter) = ntwrk_delimiter;
+			}
+			delimiter++;
+		}
+		network = delimiter;
+		/* Remove the amount that was consumed by smb_convert_from_network */
+		max_ntwrk_len -= (component_len - ntwrk_resid);
+		/* If we have more to process then add a UNIX delimiter */
+		if (network) {
+			if (!resid)
+				return E2BIG;
+			resid -= 1;
+			*path++ = '/';	
+		}
+	}
+	*path_len -= resid;
+	DBG_ASSERT((ssize_t)(*path_len) >= 0);
+	return error;
 }

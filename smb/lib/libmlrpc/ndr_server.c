@@ -361,10 +361,6 @@ mlrpc_s_bind(struct mlrpc_xaction *mxa)
 		mlrpc_uuid_to_str(as_uuid, as_buf, sizeof(as_buf));
 		mlrpc_uuid_to_str(ts_uuid, ts_buf, sizeof(ts_buf));
 
-		mlndo_printf(send_mlnds, 0, "mlrpc_s_bind: unknown service");
-		mlndo_printf(send_mlnds, 0, "abs=%s v%d, xfer=%s v%d",
-		    as_buf, as_vers, ts_buf, ts_vers);
-
 		result->result = MLRPC_PCDR_PROVIDER_REJECTION;
 		result->reason = MLRPC_PPR_ABSTRACT_SYNTAX_NOT_SUPPORTED;
 		return (MLRPC_DRC_OK);
@@ -529,11 +525,6 @@ mlrpc_s_request(struct mlrpc_xaction *mxa)
 	else
 		rc = mlrpc_generic_call_stub(mxa);
 
-	if (MLRPC_DRC_IS_FAULT(rc)) {
-		mlndo_printf(0, 0, "%s[0x%02x]: 0x%04x",
-		    msvc->name, mxa->opnum, rc);
-	}
-
 	return (rc);
 }
 
@@ -555,13 +546,10 @@ mlrpc_generic_call_stub(struct mlrpc_xaction *mxa)
 	int			rc;
 
 	if (mxa->heap == NULL) {
-		mlndo_printf(0, 0, "%s[0x%02x]: no heap", msvc->name, opnum);
 		return (MLRPC_DRC_FAULT_OUT_OF_MEMORY);
 	}
 
 	if ((ste = mlrpc_find_stub_in_svc(msvc, opnum)) == NULL) {
-		mlndo_printf(0, 0, "%s[0x%02x]: invalid opnum",
-		    msvc->name, opnum);
 		return (MLRPC_DRC_FAULT_REQUEST_OPNUM_INVALID);
 	}
 

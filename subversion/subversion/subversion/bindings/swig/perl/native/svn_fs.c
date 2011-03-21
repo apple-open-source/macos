@@ -5797,7 +5797,7 @@ XS(_wrap_svn_fs_paths_changed2) {
       }
     }
     {
-      if (argvi >= items) EXTEND(sp,1);  ST(argvi) = svn_swig_pl_convert_hash(*arg1, SWIGTYPE_p_svn_fs_path_change_t); argvi++  ;
+      if (argvi >= items) EXTEND(sp,1);  ST(argvi) = svn_swig_pl_convert_hash(*arg1, SWIGTYPE_p_svn_fs_path_change2_t); argvi++  ;
     }
     
     

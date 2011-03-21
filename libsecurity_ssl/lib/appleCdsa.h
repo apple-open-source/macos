@@ -206,8 +206,9 @@ OSStatus sslEcdhGenerateKeyPair(
 OSStatus sslEcdhKeyExchange(
 	SSLContext		*ctx,
 	SSLBuffer		*exchanged);
-OSStatus sslVerifyNegotiatedCipher(
-	SSLContext 		*ctx);
+OSStatus sslVerifySelectedCipher(
+	SSLContext		*ctx,
+	const SSLCipherSpec	*selectedCipherSpec);
 
 /* 
  * Convert between SSLBuffer and CSSM_DATA, which are after all identical.

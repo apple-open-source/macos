@@ -92,7 +92,12 @@ nb_upcall(socket_t so, void *arg, int waitflag)
 
 	/* sanity check make sure everything seems ok */
 	if ((so == NULL) || (nbp == NULL) || (nbp->nbp_tso == NULL) || (nbp->nbp_tso != so)) {
-		SMBDEBUG("UPCALLED: so = %p nbp = %p nbp->nbp_tso = %p\n", so, nbp, (nbp) ? nbp->nbp_tso : NULL);
+#ifdef SMB_DEBUG
+		/* Don't log if nbp_tso is null we could be getting called after a disconnect */
+		if (nbp->nbp_tso) {
+			SMBDEBUG("UPCALLED: so = %p nbp = %p nbp->nbp_tso = %p\n", so, nbp, (nbp) ? nbp->nbp_tso : NULL);
+		}
+#endif // SMB_DEBUG
 		return;
 	}
 		

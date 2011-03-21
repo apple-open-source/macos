@@ -1,1 +1,0 @@
-%(member)s törölve a(z) %(listname)s listáról.

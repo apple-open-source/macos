@@ -70,6 +70,9 @@
 
 #include <resolv.h>
 #include <TargetConditionals.h>
+#if __APPLE__
+#include <vproc_priv.h>
+#endif
 
 #include "libpfkey.h"
 
@@ -108,6 +111,7 @@
 
 
 extern pid_t racoon_pid;
+extern int launchedbylaunchd(void);
 static void close_session __P((void));
 static void check_rtsock __P((void *));
 static void initfds __P((void));
@@ -139,6 +143,35 @@ reinit_socks (void)
 	}
 	initfds();	
 }
+
+#ifdef __APPLE__
+static int64_t racoon_keepalive = -1;
+
+/*
+ * This is used to (manually) update racoon's launchd keepalive, which is needed because racoon is (mostly) 
+ * launched on demand and for <rdar://problem/8773022> requires a keepalive on dirty/failure exits.
+ * The launchd plist can't be used for this because RunOnLoad is required to have keepalive on a failure exit.
+ */
+int64_t
+launchd_update_racoon_keepalive (Boolean enabled)
+{
+	if (launchedbylaunchd()) {
+		vproc_t vp = vprocmgr_lookup_vproc("com.apple.racoon");
+		if (vp) {
+			int64_t     val = (__typeof__(val))enabled;
+			if (vproc_swap_integer(vp,
+								   VPROC_GSK_BASIC_KEEPALIVE,
+								   &val,
+								   &racoon_keepalive)) {
+				plog(LLV_ERROR2, LOCATION, NULL,
+					 "failed to swap launchd keepalive integer %d\n", enabled);
+			}
+			vproc_release(vp);
+		}
+	}
+	return racoon_keepalive;
+}
+#endif // __APPLE__
 
 int
 session(void)
@@ -226,7 +259,14 @@ session(void)
 				"cannot open %s", pid_file);
 		}
 	}
-	
+
+#ifdef __APPLE__
+#if !TARGET_OS_EMBEDDED
+	// enable keepalive for recovery (from crashes and bad exits... after init)
+	(void)launchd_update_racoon_keepalive(true);
+#endif // !TARGET_OS_EMBEDDED
+#endif // __APPLE__
+		
 	while (1) {
 		if (!TAILQ_EMPTY(&lcconf->saved_msg_queue))
 			pfkey_post_handler();
@@ -339,6 +379,13 @@ close_session()
 	flushph1(false);
 	close_sockets();
 	backupsa_clean();
+
+#ifdef __APPLE__
+#if !TARGET_OS_EMBEDDED
+	// a clean exit, so disable launchd keepalive
+	(void)launchd_update_racoon_keepalive(false);
+#endif // !TARGET_OS_EMBEDDED
+#endif // __APPLE__
 
 	plog(LLV_INFO, LOCATION, NULL, "racoon shutdown\n");
 	exit(0);

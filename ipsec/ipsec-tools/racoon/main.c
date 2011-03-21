@@ -108,7 +108,7 @@ static void restore_params __P((void));
 static void save_params __P((void));
 static void saverestore_params __P((int));
 static void cleanup_pidfile __P((void));
-static int launchedbylaunchd(void);
+int launchedbylaunchd __P((void));
 
 pid_t racoon_pid = 0;
 int print_pid = 1;	/* for racoon only */
@@ -391,7 +391,7 @@ skip:
 }
 
 
-static int
+int
 launchedbylaunchd(){
 	int             launchdlaunched = 1;
 	launch_data_t checkin_response = NULL;

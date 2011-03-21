@@ -1,8 +1,0 @@
-Vaša správa s predmetom:
-
-    %(subject)s
-
-bola úspešne doručená do konferencie %(listname)s.
-
-Informácie o konferencii: %(listinfo_url)s
-Vaše osobné nastavenia: %(optionsurl)s

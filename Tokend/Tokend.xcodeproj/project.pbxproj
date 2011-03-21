@@ -16,6 +16,7 @@
 				529252170BC6BEED00816597 /* PBXTargetDependency */,
 				52B260D90BC5A864007E00F1 /* PBXTargetDependency */,
 				52B260DB0BC5A864007E00F1 /* PBXTargetDependency */,
+				5203894212B8031D007C4317 /* PBXTargetDependency */,
 				52B260DD0BC5A864007E00F1 /* PBXTargetDependency */,
 			);
 			name = world;
@@ -24,6 +25,30 @@
 /* End PBXAggregateTarget section */
 
 /* Begin PBXBuildFile section */
+		5203890012B802BF007C4317 /* CACAttributeCoder.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4C7BA7490703990100E5719F /* CACAttributeCoder.cpp */; };
+		5203890112B802BF007C4317 /* CACError.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4C273A200708CE2C00CCB0FA /* CACError.cpp */; };
+		5203890212B802BF007C4317 /* CACKeyHandle.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4C7BA74B0703990100E5719F /* CACKeyHandle.cpp */; };
+		5203890312B802BF007C4317 /* CACRecord.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4CBF5C390704CDBF00EEADC2 /* CACRecord.cpp */; };
+		5203890412B802BF007C4317 /* CACSchema.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4C7BA74D0703990100E5719F /* CACSchema.cpp */; };
+		5203890512B802BF007C4317 /* CACToken.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4C7BA74F0703990100E5719F /* CACToken.cpp */; };
+		5203890712B802BF007C4317 /* libz.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 4CBF5CBE0704E76200EEADC2 /* libz.dylib */; };
+		5203890812B802BF007C4317 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 4CA8C4D606D6D19400F1BCC8 /* CoreFoundation.framework */; };
+		5203893012B80315007C4317 /* cacng.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5203891312B80315007C4317 /* cacng.cpp */; };
+		5203893112B80315007C4317 /* CACNGApplet.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5203891412B80315007C4317 /* CACNGApplet.cpp */; };
+		5203893212B80315007C4317 /* CACNGAttributeCoder.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5203891612B80315007C4317 /* CACNGAttributeCoder.cpp */; };
+		5203893312B80315007C4317 /* CACNGError.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5203891812B80315007C4317 /* CACNGError.cpp */; };
+		5203893412B80315007C4317 /* CACNGKeyHandle.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5203891A12B80315007C4317 /* CACNGKeyHandle.cpp */; };
+		5203893512B80315007C4317 /* CACNGRecord.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5203891C12B80315007C4317 /* CACNGRecord.cpp */; };
+		5203893612B80315007C4317 /* CACNGSchema.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5203891E12B80315007C4317 /* CACNGSchema.cpp */; };
+		5203893712B80315007C4317 /* CACNGToken.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5203892012B80315007C4317 /* CACNGToken.cpp */; };
+		5203893812B80315007C4317 /* CompressionTool.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5203892212B80315007C4317 /* CompressionTool.cpp */; };
+		5203893A12B80315007C4317 /* cacng_csp_capabilities.mdsinfo in Resources */ = {isa = PBXBuildFile; fileRef = 5203892612B80315007C4317 /* cacng_csp_capabilities.mdsinfo */; };
+		5203893B12B80315007C4317 /* cacng_csp_capabilities_common.mds in Resources */ = {isa = PBXBuildFile; fileRef = 5203892712B80315007C4317 /* cacng_csp_capabilities_common.mds */; };
+		5203893C12B80315007C4317 /* cacng_csp_primary.mdsinfo in Resources */ = {isa = PBXBuildFile; fileRef = 5203892812B80315007C4317 /* cacng_csp_primary.mdsinfo */; };
+		5203893D12B80315007C4317 /* cacng_dl_primary.mdsinfo in Resources */ = {isa = PBXBuildFile; fileRef = 5203892912B80315007C4317 /* cacng_dl_primary.mdsinfo */; };
+		5203893E12B80315007C4317 /* cacng_smartcard.mdsinfo in Resources */ = {isa = PBXBuildFile; fileRef = 5203892A12B80315007C4317 /* cacng_smartcard.mdsinfo */; };
+		5203893F12B80315007C4317 /* Padding.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5203892B12B80315007C4317 /* Padding.cpp */; };
+		5203894012B80315007C4317 /* TLV.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5203892D12B80315007C4317 /* TLV.cpp */; };
 		52A683110EEF1FB200F71D5B /* BELPICAttributeCoder.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 52A6830F0EEF1FB200F71D5B /* BELPICAttributeCoder.cpp */; };
 		52B260320BC5A864007E00F1 /* Adornment.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4C1B9B6406DBF99F00014414 /* Adornment.cpp */; };
 		52B260330BC5A864007E00F1 /* Attribute.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4C134A9606DBF81800FA17D9 /* Attribute.cpp */; };
@@ -126,6 +151,20 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
+		520388F712B802BF007C4317 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 52B2602D0BC5A864007E00F1;
+			remoteInfo = "libtokend (Upgraded)";
+		};
+		5203894112B8031D007C4317 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 520388F512B802BF007C4317;
+			remoteInfo = CACNG;
+		};
 		529252160BC6BEED00816597 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
@@ -298,6 +337,36 @@
 		4CC3947A0731A4DD00761DEE /* SCardError.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = SCardError.cpp; sourceTree = "<group>"; };
 		4CE2E6A406DC06AB00E21469 /* KeyRecord.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = KeyRecord.cpp; sourceTree = "<group>"; };
 		4CE2E6A506DC06AB00E21469 /* KeyRecord.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = KeyRecord.h; sourceTree = "<group>"; };
+		5203890C12B802BF007C4317 /* CACNG.tokend */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = CACNG.tokend; sourceTree = BUILT_PRODUCTS_DIR; };
+		5203891212B80315007C4317 /* byte_string.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = byte_string.h; sourceTree = "<group>"; };
+		5203891312B80315007C4317 /* cacng.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = cacng.cpp; sourceTree = "<group>"; };
+		5203891412B80315007C4317 /* CACNGApplet.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = CACNGApplet.cpp; sourceTree = "<group>"; };
+		5203891512B80315007C4317 /* CACNGApplet.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = CACNGApplet.h; sourceTree = "<group>"; };
+		5203891612B80315007C4317 /* CACNGAttributeCoder.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = CACNGAttributeCoder.cpp; sourceTree = "<group>"; };
+		5203891712B80315007C4317 /* CACNGAttributeCoder.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = CACNGAttributeCoder.h; sourceTree = "<group>"; };
+		5203891812B80315007C4317 /* CACNGError.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = CACNGError.cpp; sourceTree = "<group>"; };
+		5203891912B80315007C4317 /* CACNGError.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = CACNGError.h; sourceTree = "<group>"; };
+		5203891A12B80315007C4317 /* CACNGKeyHandle.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = CACNGKeyHandle.cpp; sourceTree = "<group>"; };
+		5203891B12B80315007C4317 /* CACNGKeyHandle.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = CACNGKeyHandle.h; sourceTree = "<group>"; };
+		5203891C12B80315007C4317 /* CACNGRecord.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = CACNGRecord.cpp; sourceTree = "<group>"; };
+		5203891D12B80315007C4317 /* CACNGRecord.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = CACNGRecord.h; sourceTree = "<group>"; };
+		5203891E12B80315007C4317 /* CACNGSchema.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = CACNGSchema.cpp; sourceTree = "<group>"; };
+		5203891F12B80315007C4317 /* CACNGSchema.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = CACNGSchema.h; sourceTree = "<group>"; };
+		5203892012B80315007C4317 /* CACNGToken.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = CACNGToken.cpp; sourceTree = "<group>"; };
+		5203892112B80315007C4317 /* CACNGToken.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = CACNGToken.h; sourceTree = "<group>"; };
+		5203892212B80315007C4317 /* CompressionTool.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = CompressionTool.cpp; sourceTree = "<group>"; };
+		5203892312B80315007C4317 /* CompressionTool.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = CompressionTool.h; sourceTree = "<group>"; };
+		5203892412B80315007C4317 /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		5203892612B80315007C4317 /* cacng_csp_capabilities.mdsinfo */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xml; path = cacng_csp_capabilities.mdsinfo; sourceTree = "<group>"; };
+		5203892712B80315007C4317 /* cacng_csp_capabilities_common.mds */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xml; path = cacng_csp_capabilities_common.mds; sourceTree = "<group>"; };
+		5203892812B80315007C4317 /* cacng_csp_primary.mdsinfo */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xml; path = cacng_csp_primary.mdsinfo; sourceTree = "<group>"; };
+		5203892912B80315007C4317 /* cacng_dl_primary.mdsinfo */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xml; path = cacng_dl_primary.mdsinfo; sourceTree = "<group>"; };
+		5203892A12B80315007C4317 /* cacng_smartcard.mdsinfo */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xml; path = cacng_smartcard.mdsinfo; sourceTree = "<group>"; };
+		5203892B12B80315007C4317 /* Padding.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = Padding.cpp; sourceTree = "<group>"; };
+		5203892C12B80315007C4317 /* Padding.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Padding.h; sourceTree = "<group>"; };
+		5203892D12B80315007C4317 /* TLV.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = TLV.cpp; sourceTree = "<group>"; };
+		5203892E12B80315007C4317 /* TLV.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = TLV.h; sourceTree = "<group>"; };
+		5203892F12B80315007C4317 /* TLVTemplates.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = TLVTemplates.h; sourceTree = "<group>"; };
 		523C07E70B7B940D00067DEA /* PIVDefines.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = PIVDefines.h; path = PIV/PIVDefines.h; sourceTree = "<group>"; };
 		523F79EC06D5AC27004256A0 /* security_cdsa_client.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; path = security_cdsa_client.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		523F79ED06D5AC27004256A0 /* security_cdsa_utilities.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; path = security_cdsa_utilities.framework; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -344,6 +413,15 @@
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
+		5203890612B802BF007C4317 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				5203890712B802BF007C4317 /* libz.dylib in Frameworks */,
+				5203890812B802BF007C4317 /* CoreFoundation.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		52B260740BC5A864007E00F1 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -386,6 +464,7 @@
 		08FB7794FE84155DC02AAC07 /* TokendMuscle */ = {
 			isa = PBXGroup;
 			children = (
+				5203891112B80315007C4317 /* CACNG */,
 				5280675F0B78E86F00D02C3A /* PIV */,
 				4C86D39F070B4122006A0C7F /* BELPIC */,
 				4C7BA7460703990100E5719F /* CAC */,
@@ -408,6 +487,7 @@
 				52B260960BC5A864007E00F1 /* CAC.tokend */,
 				52B260B80BC5A864007E00F1 /* MuscleCard.tokend */,
 				52B260D40BC5A864007E00F1 /* PIV.tokend */,
+				5203890C12B802BF007C4317 /* CACNG.tokend */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -604,6 +684,50 @@
 			name = "External Frameworks";
 			sourceTree = "<group>";
 		};
+		5203891112B80315007C4317 /* CACNG */ = {
+			isa = PBXGroup;
+			children = (
+				5203891212B80315007C4317 /* byte_string.h */,
+				5203891312B80315007C4317 /* cacng.cpp */,
+				5203891412B80315007C4317 /* CACNGApplet.cpp */,
+				5203891512B80315007C4317 /* CACNGApplet.h */,
+				5203891612B80315007C4317 /* CACNGAttributeCoder.cpp */,
+				5203891712B80315007C4317 /* CACNGAttributeCoder.h */,
+				5203891812B80315007C4317 /* CACNGError.cpp */,
+				5203891912B80315007C4317 /* CACNGError.h */,
+				5203891A12B80315007C4317 /* CACNGKeyHandle.cpp */,
+				5203891B12B80315007C4317 /* CACNGKeyHandle.h */,
+				5203891C12B80315007C4317 /* CACNGRecord.cpp */,
+				5203891D12B80315007C4317 /* CACNGRecord.h */,
+				5203891E12B80315007C4317 /* CACNGSchema.cpp */,
+				5203891F12B80315007C4317 /* CACNGSchema.h */,
+				5203892012B80315007C4317 /* CACNGToken.cpp */,
+				5203892112B80315007C4317 /* CACNGToken.h */,
+				5203892212B80315007C4317 /* CompressionTool.cpp */,
+				5203892312B80315007C4317 /* CompressionTool.h */,
+				5203892412B80315007C4317 /* Info.plist */,
+				5203892512B80315007C4317 /* mds */,
+				5203892B12B80315007C4317 /* Padding.cpp */,
+				5203892C12B80315007C4317 /* Padding.h */,
+				5203892D12B80315007C4317 /* TLV.cpp */,
+				5203892E12B80315007C4317 /* TLV.h */,
+				5203892F12B80315007C4317 /* TLVTemplates.h */,
+			);
+			path = CACNG;
+			sourceTree = "<group>";
+		};
+		5203892512B80315007C4317 /* mds */ = {
+			isa = PBXGroup;
+			children = (
+				5203892612B80315007C4317 /* cacng_csp_capabilities.mdsinfo */,
+				5203892712B80315007C4317 /* cacng_csp_capabilities_common.mds */,
+				5203892812B80315007C4317 /* cacng_csp_primary.mdsinfo */,
+				5203892912B80315007C4317 /* cacng_dl_primary.mdsinfo */,
+				5203892A12B80315007C4317 /* cacng_smartcard.mdsinfo */,
+			);
+			path = mds;
+			sourceTree = "<group>";
+		};
 		5280675F0B78E86F00D02C3A /* PIV */ = {
 			isa = PBXGroup;
 			children = (
@@ -676,6 +800,24 @@
 /* End PBXHeadersBuildPhase section */
 
 /* Begin PBXNativeTarget section */
+		520388F512B802BF007C4317 /* CACNG */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 5203890912B802BF007C4317 /* Build configuration list for PBXNativeTarget "CACNG" */;
+			buildPhases = (
+				520388F812B802BF007C4317 /* Resources */,
+				520388FE12B802BF007C4317 /* Sources */,
+				5203890612B802BF007C4317 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				520388F612B802BF007C4317 /* PBXTargetDependency */,
+			);
+			name = CACNG;
+			productName = "Common Access Card";
+			productReference = 5203890C12B802BF007C4317 /* CACNG.tokend */;
+			productType = "com.apple.product-type.application";
+		};
 		52B2602D0BC5A864007E00F1 /* libtokend */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 52B260450BC5A864007E00F1 /* Build configuration list for PBXNativeTarget "libtokend" */;
@@ -800,11 +942,24 @@
 				52B2607D0BC5A864007E00F1 /* CAC */,
 				52B260980BC5A864007E00F1 /* MuscleCard */,
 				52B260BA0BC5A864007E00F1 /* PIV */,
+				520388F512B802BF007C4317 /* CACNG */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
+		520388F812B802BF007C4317 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				5203893A12B80315007C4317 /* cacng_csp_capabilities.mdsinfo in Resources */,
+				5203893B12B80315007C4317 /* cacng_csp_capabilities_common.mds in Resources */,
+				5203893C12B80315007C4317 /* cacng_csp_primary.mdsinfo in Resources */,
+				5203893D12B80315007C4317 /* cacng_dl_primary.mdsinfo in Resources */,
+				5203893E12B80315007C4317 /* cacng_smartcard.mdsinfo in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		52B260670BC5A864007E00F1 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -887,6 +1042,30 @@
 /* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		520388FE12B802BF007C4317 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				5203890012B802BF007C4317 /* CACAttributeCoder.cpp in Sources */,
+				5203890112B802BF007C4317 /* CACError.cpp in Sources */,
+				5203890212B802BF007C4317 /* CACKeyHandle.cpp in Sources */,
+				5203890312B802BF007C4317 /* CACRecord.cpp in Sources */,
+				5203890412B802BF007C4317 /* CACSchema.cpp in Sources */,
+				5203890512B802BF007C4317 /* CACToken.cpp in Sources */,
+				5203893012B80315007C4317 /* cacng.cpp in Sources */,
+				5203893112B80315007C4317 /* CACNGApplet.cpp in Sources */,
+				5203893212B80315007C4317 /* CACNGAttributeCoder.cpp in Sources */,
+				5203893312B80315007C4317 /* CACNGError.cpp in Sources */,
+				5203893412B80315007C4317 /* CACNGKeyHandle.cpp in Sources */,
+				5203893512B80315007C4317 /* CACNGRecord.cpp in Sources */,
+				5203893612B80315007C4317 /* CACNGSchema.cpp in Sources */,
+				5203893712B80315007C4317 /* CACNGToken.cpp in Sources */,
+				5203893812B80315007C4317 /* CompressionTool.cpp in Sources */,
+				5203893F12B80315007C4317 /* Padding.cpp in Sources */,
+				5203894012B80315007C4317 /* TLV.cpp in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		52B260310BC5A864007E00F1 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -980,6 +1159,16 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
+		520388F612B802BF007C4317 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 52B2602D0BC5A864007E00F1 /* libtokend */;
+			targetProxy = 520388F712B802BF007C4317 /* PBXContainerItemProxy */;
+		};
+		5203894212B8031D007C4317 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 520388F512B802BF007C4317 /* CACNG */;
+			targetProxy = 5203894112B8031D007C4317 /* PBXContainerItemProxy */;
+		};
 		529252170BC6BEED00816597 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = 52B2602D0BC5A864007E00F1 /* libtokend */;
@@ -1028,6 +1217,114 @@
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
+		5203890A12B802BF007C4317 /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUILD_VARIANTS = debug;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 40596;
+				FRAMEWORK_SEARCH_PATHS = (
+					/usr/local/SecurityPieces/Frameworks,
+					"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
+				);
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_MODEL_TUNING = G5;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_WARN_ABOUT_MISSING_PROTOTYPES = YES;
+				GCC_WARN_CHECK_SWITCH_STATEMENTS = YES;
+				GCC_WARN_HIDDEN_VIRTUAL_FUNCTIONS = YES;
+				GCC_WARN_INHIBIT_ALL_WARNINGS = NO;
+				GCC_WARN_INITIALIZER_NOT_FULLY_BRACKETED = YES;
+				GCC_WARN_MISSING_PARENTHESES = YES;
+				GCC_WARN_NON_VIRTUAL_DESTRUCTOR = YES;
+				GCC_WARN_PEDANTIC = NO;
+				GCC_WARN_SHADOW = NO;
+				GCC_WARN_SIGN_COMPARE = YES;
+				GCC_WARN_TYPECHECK_CALLS_TO_PRINTF = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = NO;
+				GCC_WARN_UNKNOWN_PRAGMAS = YES;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_LABEL = YES;
+				GCC_WARN_UNUSED_PARAMETER = YES;
+				GCC_WARN_UNUSED_VALUE = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				INFOPLIST_FILE = CACNG/Info.plist;
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Security/tokend";
+				OPT_CPPXFLAGS = "$(OPT_CXFLAGS) -fno-enforce-eh-specs -fno-implement-inlines";
+				OPT_CXFLAGS = "-DNDEBUG $(OPT_INLINEXFLAGS)";
+				OPT_INLINEXFLAGS = " -finline-functions";
+				OPT_LDXFLAGS = "-dead_strip";
+				OPT_LDXNOPIC = ",_nopic";
+				OTHER_ASFLAGS_debug = "$(OTHER_CFLAGS)";
+				OTHER_ASFLAGS_normal = "$(OTHER_CFLAGS) -DNDEBUG";
+				OTHER_ASFLAGS_profile = "-DNDEBUG $(OTHER_CFLAGS) -pg";
+				OTHER_CFLAGS_debug = "$(OTHER_CFLAGS) -O0 -fno-inline";
+				OTHER_CFLAGS_normal = "$(OPT_CXFLAGS) $(OTHER_CFLAGS)";
+				OTHER_CFLAGS_profile = "$(OPT_CXFLAGS) $(OTHER_CFLAGS) -pg";
+				OTHER_CPLUSPLUSFLAGS_debug = "$(OTHER_CPLUSPLUSFLAGS) -O0 -fno-inline";
+				OTHER_CPLUSPLUSFLAGS_normal = "$(OPT_CPPXFLAGS) $(OTHER_CPLUSPLUSFLAGS)";
+				OTHER_CPLUSPLUSFLAGS_profile = "$(OPT_CPPXFLAGS) $(OTHER_CPLUSPLUSFLAGS) -pg";
+				OTHER_LDFLAGS_debug = "$(OTHER_LDFLAGS) -framework tokend,_debug -framework PCSC,_debug -framework SecurityTokend,_debug -framework Security,_debug -framework security_cdsa_client,_debug -framework security_cdsa_utilities,_debug -framework security_utilities,_debug";
+				OTHER_LDFLAGS_normal = "$(OPT_LDXFLAGS) $(OTHER_LDFLAGS) -framework tokend -framework PCSC -framework SecurityTokend -framework Security -framework security_cdsa_client$(OPT_LDXNOPIC) -framework security_cdsa_utilities$(OPT_LDXNOPIC) -framework security_utilities$(OPT_LDXNOPIC)";
+				OTHER_LDFLAGS_profile = "$(OPT_LDXFLAGS) $(OTHER_LDFLAGS) -pg -framework tokend,_profile -framework PCSC,_profile -framework SecurityTokend,_profile -framework Security,_profile -framework security_cdsa_client,_profile  -framework security_cdsa_utilities,_profile -framework security_utilities,_profile";
+				PRODUCT_NAME = CACNG;
+				VERSIONING_SYSTEM = "apple-generic";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = tokend;
+				ZERO_LINK = NO;
+			};
+			name = Development;
+		};
+		5203890B12B802BF007C4317 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUILD_VARIANTS = (
+					normal,
+					debug,
+				);
+				CURRENT_PROJECT_VERSION = 40596;
+				FRAMEWORK_SEARCH_PATHS = (
+					/usr/local/SecurityPieces/Frameworks,
+					"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
+				);
+				GCC_DYNAMIC_NO_PIC = YES;
+				GCC_MODEL_TUNING = G5;
+				INFOPLIST_FILE = CACNG/Info.plist;
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Security/tokend";
+				OPT_CPPXFLAGS = "$(OPT_CXFLAGS) -fno-enforce-eh-specs -fno-implement-inlines";
+				OPT_CXFLAGS = "-DNDEBUG $(OPT_INLINEXFLAGS)";
+				OPT_INLINEXFLAGS = " -finline-functions";
+				OPT_LDXFLAGS = "-dead_strip";
+				OPT_LDXNOPIC = ",_nopic";
+				OTHER_ASFLAGS_debug = "$(OTHER_CFLAGS)";
+				OTHER_ASFLAGS_normal = "$(OTHER_CFLAGS) -DNDEBUG";
+				OTHER_ASFLAGS_profile = "-DNDEBUG $(OTHER_CFLAGS) -pg";
+				OTHER_CFLAGS_debug = "$(OTHER_CFLAGS) -O0 -fno-inline";
+				OTHER_CFLAGS_normal = "$(OPT_CXFLAGS) $(OTHER_CFLAGS)";
+				OTHER_CFLAGS_profile = "$(OPT_CXFLAGS) $(OTHER_CFLAGS) -pg";
+				OTHER_CPLUSPLUSFLAGS_debug = "$(OTHER_CPLUSPLUSFLAGS) -O0 -fno-inline";
+				OTHER_CPLUSPLUSFLAGS_normal = "$(OPT_CPPXFLAGS) $(OTHER_CPLUSPLUSFLAGS)";
+				OTHER_CPLUSPLUSFLAGS_profile = "$(OPT_CPPXFLAGS) $(OTHER_CPLUSPLUSFLAGS) -pg";
+				OTHER_LDFLAGS_debug = "$(OTHER_LDFLAGS) -framework tokend,_debug -framework PCSC,_debug -framework SecurityTokend,_debug -framework Security,_debug -framework security_cdsa_client,_debug -framework security_cdsa_utilities,_debug -framework security_utilities,_debug";
+				OTHER_LDFLAGS_normal = "$(OPT_LDXFLAGS) $(OTHER_LDFLAGS) -framework tokend -framework PCSC -framework SecurityTokend -framework Security -framework security_cdsa_client$(OPT_LDXNOPIC) -framework security_cdsa_utilities$(OPT_LDXNOPIC) -framework security_utilities$(OPT_LDXNOPIC)";
+				OTHER_LDFLAGS_profile = "$(OPT_LDXFLAGS) $(OTHER_LDFLAGS) -pg -framework tokend,_profile -framework PCSC,_profile -framework SecurityTokend,_profile -framework Security,_profile -framework security_cdsa_client,_profile  -framework security_cdsa_utilities,_profile -framework security_utilities,_profile";
+				PRODUCT_NAME = CACNG;
+				VERSIONING_SYSTEM = "apple-generic";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = tokend;
+				ZERO_LINK = NO;
+			};
+			name = Deployment;
+		};
 		52B260290BC5A864007E00F1 /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -1073,7 +1370,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUILD_VARIANTS = debug;
-				CURRENT_PROJECT_VERSION = 37563;
+				CURRENT_PROJECT_VERSION = 40596;
 				FRAMEWORK_SEARCH_PATHS = (
 					/usr/local/SecurityPieces/Frameworks,
 					"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
@@ -1122,7 +1419,7 @@
 					nopic,
 				);
 				COPY_PHASE_STRIP = YES;
-				CURRENT_PROJECT_VERSION = 37563;
+				CURRENT_PROJECT_VERSION = 40596;
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
 					/usr/local/SecurityPieces/Frameworks,
@@ -1200,7 +1497,7 @@
 				ALWAYS_SEARCH_USER_PATHS = YES;
 				BUILD_VARIANTS = debug;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 37563;
+				CURRENT_PROJECT_VERSION = 40596;
 				FRAMEWORK_SEARCH_PATHS = (
 					/usr/local/SecurityPieces/Frameworks,
 					"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
@@ -1265,7 +1562,7 @@
 					normal,
 					debug,
 				);
-				CURRENT_PROJECT_VERSION = 37563;
+				CURRENT_PROJECT_VERSION = 40596;
 				FRAMEWORK_SEARCH_PATHS = (
 					/usr/local/SecurityPieces/Frameworks,
 					"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
@@ -1308,7 +1605,7 @@
 			buildSettings = {
 				BUILD_VARIANTS = debug;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 37563;
+				CURRENT_PROJECT_VERSION = 40596;
 				FRAMEWORK_SEARCH_PATHS = (
 					/usr/local/SecurityPieces/Frameworks,
 					"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
@@ -1373,7 +1670,7 @@
 					normal,
 					debug,
 				);
-				CURRENT_PROJECT_VERSION = 37563;
+				CURRENT_PROJECT_VERSION = 40596;
 				FRAMEWORK_SEARCH_PATHS = (
 					/usr/local/SecurityPieces/Frameworks,
 					"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
@@ -1416,7 +1713,7 @@
 			buildSettings = {
 				BUILD_VARIANTS = debug;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 37563;
+				CURRENT_PROJECT_VERSION = 40596;
 				FRAMEWORK_SEARCH_PATHS = (
 					/usr/local/SecurityPieces/Frameworks,
 					"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
@@ -1481,7 +1778,7 @@
 					normal,
 					debug,
 				);
-				CURRENT_PROJECT_VERSION = 37563;
+				CURRENT_PROJECT_VERSION = 40596;
 				FRAMEWORK_SEARCH_PATHS = (
 					/usr/local/SecurityPieces/Frameworks,
 					"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
@@ -1524,7 +1821,7 @@
 			buildSettings = {
 				BUILD_VARIANTS = debug;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 37563;
+				CURRENT_PROJECT_VERSION = 40596;
 				FRAMEWORK_SEARCH_PATHS = (
 					/usr/local/SecurityPieces/Frameworks,
 					"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
@@ -1589,7 +1886,7 @@
 					normal,
 					debug,
 				);
-				CURRENT_PROJECT_VERSION = 37563;
+				CURRENT_PROJECT_VERSION = 40596;
 				FRAMEWORK_SEARCH_PATHS = (
 					/usr/local/SecurityPieces/Frameworks,
 					"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
@@ -1646,6 +1943,15 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		5203890912B802BF007C4317 /* Build configuration list for PBXNativeTarget "CACNG" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				5203890A12B802BF007C4317 /* Development */,
+				5203890B12B802BF007C4317 /* Deployment */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Deployment;
+		};
 		52B260280BC5A864007E00F1 /* Build configuration list for PBXAggregateTarget "world" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (

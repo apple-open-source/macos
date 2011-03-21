@@ -36,7 +36,7 @@
 #define WEBDAVLIB_MAX_AGAIN_COUNT 10
 
 // This is what we send as the User Agent header
-#define WEBAVLIB_USER_AGENT_STRING "WebDAVLib/1.1"
+#define WEBAVLIB_USER_AGENT_STRING "WebDAVLib/1.2"
 
 /* Macro to simplify common CFRelease usage */
 #define CFReleaseNull(obj) do { if(obj != NULL) { CFRelease(obj); obj = NULL; } } while (0)
@@ -53,6 +53,10 @@ struct callback_ctx {
 	
 	boolean_t	triedServerCredentials;			// TRUE if we have tried server credentials
 	boolean_t	triedProxyServerCredentials;	// TRUE if we have tried proxy server credentials
+	
+	// Dealing with sending credentials securely
+	boolean_t	requireSecureLogin;			// TRUE if credentials must be sent securely (i.e. forbids BASIC Auth without SSL)
+	boolean_t	secureConnection;			// TRUE if SSL connection	
 	
 	// Proxy
 	CFStringRef				proxyRealm;
@@ -160,7 +164,7 @@ queryForProxy(CFURLRef a_url, CFMutableDictionaryRef proxyInfo, int *error)
 }
 
 enum WEBDAVLIBAuthStatus
-connectToServer(CFURLRef a_url, CFDictionaryRef creds, int *error)	
+connectToServer(CFURLRef a_url, CFDictionaryRef creds, boolean_t requireSecureLogin, int *error)	
 {	
 	enum WEBDAVLIBAuthStatus finalStatus;
 	int result;
@@ -168,6 +172,9 @@ connectToServer(CFURLRef a_url, CFDictionaryRef creds, int *error)
 	CFStringRef cf_port;
 	
 	initContext(&ctx);
+	
+	// remember if caller wants credentials to be sent securely
+	ctx.requireSecureLogin = requireSecureLogin;	
 
 	finalStatus = sendOptionsRequestAuthenticated(a_url, &ctx, creds, &result);
 	*error = result;
@@ -294,6 +301,7 @@ sendOptionsRequestAuthenticated(CFURLRef a_url, struct callback_ctx *ctx, CFDict
 {
 	CFHTTPMessageRef message;
 	CFReadStreamRef rdStream;
+	CFStringRef method;
 	boolean_t done, tryAgain;
 
 	enum WEBDAVLIBAuthStatus finalStatus;
@@ -368,17 +376,30 @@ sendOptionsRequestAuthenticated(CFURLRef a_url, struct callback_ctx *ctx, CFDict
 							syslog(LOG_DEBUG, "%s: Server CFHTTPAuthenticationIsValid is FALSE", __FUNCTION__);
 							*err = EIO;
 							done = TRUE;
-							continue;
 						}
 						
 						// Do we need credentials at this point?
-						if (CFHTTPAuthenticationRequiresUserNameAndPassword(ctx->serverAuth) == TRUE) {
+						if ( (done == FALSE) && (CFHTTPAuthenticationRequiresUserNameAndPassword(ctx->serverAuth) == TRUE) ) {
 							// Were we given server credentials?
 							if (CFDictionaryContainsKey(creds, kWebDAVLibUserNameKey) == FALSE) {
 								// No server credentials, so just return WEBDAVLIB_ServerAuth
 								syslog(LOG_DEBUG, "%s: No server credentials in dictionary", __FUNCTION__);
 								done = TRUE;
-							}						
+							}
+							
+							// Check if credentials must be sent securely
+							if ( (done == FALSE) && (ctx->requireSecureLogin == TRUE) && (ctx->secureConnection == FALSE) ) {
+								method = CFHTTPAuthenticationCopyMethod(ctx->serverAuth);
+								if ( method != NULL ) {
+									if (CFEqual(method, CFSTR("Basic")) == TRUE) {
+										// game over
+										syslog(LOG_ERR, "%s: Authentication (Basic) too weak", __FUNCTION__);
+										done = TRUE;
+										*err = EAUTH;
+									}
+									CFRelease(method);
+								}
+							}
 						}
 					}
 					else {
@@ -400,11 +421,10 @@ sendOptionsRequestAuthenticated(CFURLRef a_url, struct callback_ctx *ctx, CFDict
 								syslog(LOG_DEBUG, "%s: Server CFHTTPAuthenticationIsValid is FALSE", __FUNCTION__);
 								*err = EIO;
 								done = TRUE;
-								continue;
 							}
 							
 							// Do we need server credentials at this point?
-							if (CFHTTPAuthenticationRequiresUserNameAndPassword(ctx->serverAuth) == TRUE) {
+							if ( (done == FALSE) && (CFHTTPAuthenticationRequiresUserNameAndPassword(ctx->serverAuth) == TRUE) ) {
 								// Were we given server credentials?
 								if (CFDictionaryContainsKey(creds, kWebDAVLibUserNameKey) == FALSE) {
 									// No server credentials, so just return WEBDAVLIB_ServerAuth
@@ -413,10 +433,24 @@ sendOptionsRequestAuthenticated(CFURLRef a_url, struct callback_ctx *ctx, CFDict
 								}
 								
 								// Have we already tried server credentials?
-								if (ctx->triedServerCredentials == TRUE) {
+								if ( (done == FALSE) && (ctx->triedServerCredentials == TRUE) ) {
 									// The server credentials were rejected, just return WEBDAVLIB_ServerAuth
 									syslog(LOG_DEBUG, "%s: Server credentials were not accepted", __FUNCTION__);
 									done = TRUE;
+								}
+								
+								// Check if credentials must be sent securely
+								if ( (done == FALSE) && (ctx->requireSecureLogin == TRUE) && (ctx->secureConnection == FALSE)) {
+									method = CFHTTPAuthenticationCopyMethod(ctx->serverAuth);
+									if ( method != NULL ) {
+										if (CFEqual(method, CFSTR("Basic")) == TRUE) {
+											// game over
+											syslog(LOG_ERR, "%s: Authentication (Basic) too weak", __FUNCTION__);
+											done = TRUE;
+											*err = EAUTH;
+										}
+										CFRelease(method);
+									}
 								}
 							}
 						}
@@ -448,16 +482,29 @@ sendOptionsRequestAuthenticated(CFURLRef a_url, struct callback_ctx *ctx, CFDict
 							syslog(LOG_DEBUG, "%s: Proxy CFHTTPAuthenticationIsValid is FALSE", __FUNCTION__);
 							*err = EIO;
 							done = TRUE;
-							continue;
 						}
 						
 						// Do we need proxy server credentials at this point?
-						if (CFHTTPAuthenticationRequiresUserNameAndPassword(ctx->proxyAuth) == TRUE) {
+						if ( (done == FALSE) && (CFHTTPAuthenticationRequiresUserNameAndPassword(ctx->proxyAuth) == TRUE) ) {
 							// Were we given proxy server credentials?
 							if (CFDictionaryContainsKey(creds, kWebDAVLibProxyUserNameKey) == FALSE) {
 								// No proxyserver credentials, so just return WEBDAVLIB_ProxyAuth
 								syslog(LOG_DEBUG, "%s: No proxy server credentials in dictionary", __FUNCTION__);
 								done = TRUE;
+							}
+							
+							// Check if credentials must be sent securely
+							if ( (done == FALSE) && (ctx->requireSecureLogin == TRUE) && (ctx->secureConnection == FALSE)) {
+								method = CFHTTPAuthenticationCopyMethod(ctx->proxyAuth);
+								if ( method != NULL ) {
+									if (CFEqual(method, CFSTR("Basic")) == TRUE) {
+										// game over
+										syslog(LOG_ERR, "%s: Proxy Server authentication (Basic) too weak", __FUNCTION__);
+										done = TRUE;
+										*err = EAUTH;
+									}
+									CFRelease(method);
+								}
 							}
 						}
 					}
@@ -480,11 +527,10 @@ sendOptionsRequestAuthenticated(CFURLRef a_url, struct callback_ctx *ctx, CFDict
 								syslog(LOG_DEBUG, "%s: Proxy server CFHTTPAuthenticationIsValid is FALSE", __FUNCTION__);
 								*err = EIO;
 								done = TRUE;
-								continue;
 							}
 							
 							// Do we need proxy server credentials at this point?
-							if (CFHTTPAuthenticationRequiresUserNameAndPassword(ctx->proxyAuth) == TRUE) {
+							if ((done == FALSE) && (CFHTTPAuthenticationRequiresUserNameAndPassword(ctx->proxyAuth) == TRUE) ) {
 								// Were we given proxy server credentials?
 								if (CFDictionaryContainsKey(creds, kWebDAVLibProxyUserNameKey) == FALSE) {
 									// No proxyserver credentials, so just return WEBDAVLIB_ProxyAuth
@@ -493,11 +539,25 @@ sendOptionsRequestAuthenticated(CFURLRef a_url, struct callback_ctx *ctx, CFDict
 								}
 								
 								// Have we already tried proxy server credentials?
-								if (ctx->triedProxyServerCredentials == TRUE) {
+								if ((done == FALSE) && (ctx->triedProxyServerCredentials == TRUE) ) {
 									// The proxy server credentials were rejected, just return WEBDAVLIB_ProxyAuth
 									syslog(LOG_DEBUG, "%s: Proxy server credentials were not accepted", __FUNCTION__);
 									done = TRUE;
-								}								
+								}
+								
+								// Check if credentials must be sent securely
+								if ( (done == FALSE) && (ctx->requireSecureLogin == TRUE) && (ctx->secureConnection == FALSE)) {
+									method = CFHTTPAuthenticationCopyMethod(ctx->proxyAuth);
+									if ( method != NULL ) {
+										if (CFEqual(method, CFSTR("Basic")) == TRUE) {
+											// game over
+											syslog(LOG_ERR, "%s: Proxy Server authentication (Basic) too weak", __FUNCTION__);
+											done = TRUE;
+											*err = EAUTH;
+										}
+										CFRelease(method);
+									}
+								}
 							}
 						}
 						else {
@@ -670,6 +730,9 @@ handleSSLErrors(struct callback_ctx *ctx, boolean_t *tryAgain)
 	
 	// in most cases we try again
 	*tryAgain = TRUE;
+	
+	// indicate SSL connection
+	ctx->secureConnection = TRUE;	
 	
 	error = ctx->streamError.error;
 
@@ -894,6 +957,8 @@ static void initContext(struct callback_ctx *ctx)
 	ctx->againCount = 0;
 	ctx->triedServerCredentials = FALSE;
 	ctx->triedProxyServerCredentials = FALSE;
+	ctx->requireSecureLogin = FALSE;
+	ctx->secureConnection = FALSE;	
 	ctx->proxyRealm = NULL;
 	ctx->httpProxyEnabled = FALSE;
 	ctx->httpProxyServer = NULL;

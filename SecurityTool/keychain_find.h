@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003-2009 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2003-2010 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -66,7 +66,11 @@ extern SecKeychainItemRef find_unique_certificate(
 
 extern int keychain_find_internet_password(int argc, char * const *argv);
 
+extern int keychain_delete_internet_password(int argc, char * const *argv);
+
 extern int keychain_find_generic_password(int argc, char * const *argv);
+
+extern int keychain_delete_generic_password(int argc, char * const *argv);
 
 extern int keychain_find_certificate(int argc, char * const *argv);
 

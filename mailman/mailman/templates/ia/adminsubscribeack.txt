@@ -1,1 +1,0 @@
-%(member)s ha essite abonate a %(listname)s con successo.

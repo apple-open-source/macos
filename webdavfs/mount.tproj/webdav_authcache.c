@@ -201,9 +201,13 @@ int CopyMountCredentials(
 			*secureAuth = FALSE;
 		}
 	}
-
+	
 	/* make sure we aren't using Basic over an unsecure connnection if gSecureServerAuth is TRUE */
-	require_action_quiet(!gSecureServerAuth || (*secureAuth), SecureServerAuthRequired, result = EACCES);
+	if ( (gSecureServerAuth == TRUE) && (*secureAuth == FALSE) ) {
+		syslog(LOG_ERR, "Mount failed, Authentication method (Basic) too weak");
+		result = EAUTH;
+		goto SecureServerAuthRequired;
+	}	
 	
 	if ( mount_username != NULL )
 	{
@@ -333,19 +337,18 @@ int AddServerCredentials(
 		/* if we haven't tried the mount credentials, try them now */	
 		if ( (entry_ptr->authflags & kNoMountCredentials) == 0 )
 		{
-			if ( CopyMountCredentials(entry_ptr->auth, &username, &password, &domain, &secureAuth) == 0 )
+			result = CopyMountCredentials(entry_ptr->auth, &username, &password, &domain, &secureAuth);
+			if ( result == 0 )
 			{
 				ReleaseCredentials(entry_ptr);
 				SetCredentials(entry_ptr, username, password, domain);
 				entry_ptr->authflags |= kCredentialsFromMount;
-				result = 0;
 			}
 			else
 			{
 				/* there are no mount credentials */
 				syslog(LOG_DEBUG, "AddServerCred: no mount creds, req %p", request);
 				entry_ptr->authflags |= kNoMountCredentials;
-				result = EACCES;
 			}
 		}
 			
@@ -519,31 +522,32 @@ struct authcache_entry *CreateAuthenticationFromResponse(
 	uid_t uid,							/* -> uid of the user making the request */
 	CFHTTPMessageRef request,			/* -> the request message to apply authentication to */
 	CFHTTPMessageRef response,			/* -> the response message  */
+	int *result,						/* -> result of this function (errno) */													 
 	int isProxy)						/* -> if TRUE, create authcache_proxy_entry */
 {
 	struct authcache_entry *entry_ptr;
-	int result;
+	*result = 0;
 	
 	entry_ptr = calloc(1, sizeof(struct authcache_entry));
-	require(entry_ptr != NULL, calloc);
+	require_action(entry_ptr != NULL, calloc_err, *result = ENOMEM);
 	
 	entry_ptr->uid = uid;
 	entry_ptr->auth = CFHTTPAuthenticationCreateFromResponse(kCFAllocatorDefault, response);
-	require(entry_ptr->auth != NULL, CFHTTPAuthenticationCreateFromResponse);
+	require_action(entry_ptr->auth != NULL, CFHTTPAuthenticationCreateFromResponse, *result = EIO);
 	
-	require(CFHTTPAuthenticationIsValid(entry_ptr->auth, NULL), CFHTTPAuthenticationIsValid);
+	require_action(CFHTTPAuthenticationIsValid(entry_ptr->auth, NULL), CFHTTPAuthenticationIsValid, *result = EIO);
 	
 	if ( !isProxy )
 	{
-		result = AddServerCredentials(entry_ptr, request);
-		require_noerr_quiet(result, AddServerCredentials);
+		*result = AddServerCredentials(entry_ptr, request);
+		require_noerr_quiet(*result, AddServerCredentials);
 		
 		LIST_INSERT_HEAD(&authcache_list, entry_ptr, entries);
 	}
 	else
 	{
-		result = AddProxyCredentials(entry_ptr, request);
-		require_noerr_quiet(result, AddProxyCredentials);		
+		*result = AddProxyCredentials(entry_ptr, request);
+		require_noerr_quiet(*result, AddProxyCredentials);		
 	}
 	
 	++authcache_generation;
@@ -564,7 +568,7 @@ CFHTTPAuthenticationCreateFromResponse:
 	
 	free(entry_ptr);
 	
-calloc:
+calloc_err:
 	
 	return ( NULL );
 }
@@ -744,15 +748,7 @@ int DoServerAuthentication(
 	else
 	{
 		/* create a new authcache_entry */
-		entry_ptr = CreateAuthenticationFromResponse(uid, request, response, FALSE);
-		if ( entry_ptr != NULL )
-		{
-			result = 0;
-		}
-		else
-		{
-			result = EACCES;
-		}
+		entry_ptr = CreateAuthenticationFromResponse(uid, request, response, &result, FALSE);
 	}
 	
 	return ( result );

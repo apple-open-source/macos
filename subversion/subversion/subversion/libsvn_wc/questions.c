@@ -41,8 +41,8 @@
 
 #include "svn_private_config.h"
 #include "private/svn_wc_private.h"
+#include "private/svn_sqlite.h"
 
-
 /* ### todo: make this compare repository too?  Or do so in parallel
    code.  */
 svn_error_t *
@@ -95,7 +95,8 @@ svn_wc_check_wc(const char *path,
     }
   else if (err)
     return err;
-  else
+
+  if (*wc_format > 0)
     {
       /* If we managed to read the format file we assume that we
           are dealing with a real wc so we can return a nice
@@ -125,12 +126,9 @@ svn_wc__check_format(int wc_format, const char *path, apr_pool_t *pool)
          least post-1.5 crossgrades will be somewhat less painful. */
       return svn_error_createf
         (SVN_ERR_WC_UNSUPPORTED_FORMAT, NULL,
-         _("This client is too old to work with working copy '%s'.  You need\n"
-           "to get a newer Subversion client, or to downgrade this working "
-           "copy.\n"
-           "See "
-           "http://subversion.tigris.org/faq.html#working-copy-format-change\n"
-           "for details."
+         _("The path '%s' appears to be part of a Subversion 1.7 or greater\n"
+           "working copy.  Please upgrade your Subversion client to use this\n"
+           "working copy."
            ),
          svn_path_local_style(path, pool));
     }

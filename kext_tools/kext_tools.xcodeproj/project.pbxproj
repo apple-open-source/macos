@@ -1217,7 +1217,14 @@
 			isa = PBXProject;
 			buildConfigurationList = 0509730E094910F30034B52C /* Build configuration list for PBXProject "kext_tools" */;
 			compatibilityVersion = "Xcode 2.4";
+			developmentRegion = English;
 			hasScannedForEncodings = 1;
+			knownRegions = (
+				English,
+				Japanese,
+				French,
+				German,
+			);
 			mainGroup = 1492D16C01E53C3C02CA2A87;
 			productRefGroup = 1492D16F01E53C9002CA2A87 /* Products */;
 			projectDirPath = "";

@@ -555,6 +555,26 @@ smbfs_mount(struct mount *mp, vnode_t devvp, user_addr_t data,
 	error = smbfs_root(mp, &vp, context);
 	if (error)
 		goto bad;
+	
+	/*
+	 * This UNIX Server says it supports the UNIX Extensions, but it doesn't
+	 * support all the options we require. Turn off the UNIX Extensions, also
+	 * for now turn off ACL support. Once we have <rdar://problem/3968083> then
+	 * we should relook at the ACL part of this issue.
+	 */
+	if ((UNIX_CAPS(vcp) & UNIX_QFILEINFO_UNIX_INFO2_CAP) &&
+		((VTOSMB(vp)->n_flags_mask & EXT_REQUIRED_BY_MAC) != EXT_REQUIRED_BY_MAC)) {
+		/* Turn off the UNIX Info2  */
+		UNIX_CAPS(vcp) &= ~(UNIX_SFILEINFO_UNIX_INFO2_CAP);
+		/* Must be Linux, turn on the unlink call so we can delete symlink files */
+		UNIX_CAPS(vcp) |= UNIX_SFILEINFO_POSIX_UNLINK_CAP;
+
+		/* Force the root vnode to forget any UNIX Extensions Info */
+		VTOSMB(vp)->attribute_cache_timer = 0;
+		VTOSMB(vp)->n_uid = KAUTH_UID_NONE;
+		VTOSMB(vp)->n_gid = KAUTH_GID_NONE;
+	}
+	
 	/* Reset the ss_attributes to what they were before this call */
 	ssp->ss_attributes = save_attributes;
 
@@ -567,6 +587,11 @@ smbfs_mount(struct mount *mp, vnode_t devvp, user_addr_t data,
 		vfs_setauthcache_ttl(mp, SMB_ACL_MAXTIMO);
 		SMBWARNING("Turning on ACLs for %s using vfs_authcache_ttl = %d\n", 
 				   vfs_statfs(mp)->f_mntfromname, vfs_authcache_ttl(mp));
+	}
+	
+	if ((ssp->ss_attributes & FILE_SUPPORTS_REPARSE_POINTS) && 
+		(((!UNIX_CAPS(vcp)) || (SSTOVC(ssp)->vc_flags & SMBV_DARWIN)))) {
+		smp->sm_flags |= MNT_SUPPORTS_REPARSE_SYMLINKS;
 	}
 
 	/* 
@@ -593,16 +618,16 @@ smbfs_mount(struct mount *mp, vnode_t devvp, user_addr_t data,
 	 *
 	 */
 	if (ssp->ss_attributes & FILE_NAMED_STREAMS) {
-		struct smbfattr fap;
+		struct smbfattr fattr;
 		
 		/* Need to support NT messages if we are going to do streams, must be a stupid NAS server */
 		if ((vcp->vc_sopt.sv_caps & SMB_CAP_NT_SMBS) != SMB_CAP_NT_SMBS)
 			ssp->ss_attributes &= ~FILE_NAMED_STREAMS;
 		else if ((smp->sm_args.altflags & SMBFS_MNT_STREAMS_ON) || (UNIX_SERVER(SSTOVC(ssp)))) {
-			if (smbfs_smb_query_info(VTOSMB(vp), SMB_STREAMS_OFF, sizeof(SMB_STREAMS_OFF) - 1, &fap, context) == 0)
+			if (smbfs_smb_query_info(VTOSMB(vp), SMB_STREAMS_OFF, sizeof(SMB_STREAMS_OFF) - 1, &fattr, context) == 0)
 				ssp->ss_attributes &= ~FILE_NAMED_STREAMS;
 		}
-		else if (smbfs_smb_query_info(VTOSMB(vp), SMB_STREAMS_ON, sizeof(SMB_STREAMS_ON) -1 , &fap, context) != 0)
+		else if (smbfs_smb_query_info(VTOSMB(vp), SMB_STREAMS_ON, sizeof(SMB_STREAMS_ON) -1 , &fattr, context) != 0)
 			ssp->ss_attributes &= ~FILE_NAMED_STREAMS;
 		/* We would like to know if this is a SFM Volume, skip this check for unix servers. */
 		if ((! UNIX_SERVER(SSTOVC(ssp))) && (ssp->ss_attributes & FILE_NAMED_STREAMS)) {
@@ -616,12 +641,6 @@ smbfs_mount(struct mount *mp, vnode_t devvp, user_addr_t data,
 
 	/* smbfs_root did a vnode_get and a vnode_ref, so keep the ref but release the get */
 	vnode_put(vp);
-	/* 
-	 * The only way we can get an error at this point is if smbfs_smb_qfsattr
-	 * returns an error. Radar 3413772 makes smbfs_smb_qfsattr a void 
-	 * routine. So we will no longer have a error case at this point.
-	 */
-	mount_cnt++;
 	lck_mtx_lock(&ssp->ss_stlock);
 	ssp->ss_flags &= ~SMBS_INMOUNT;
 	lck_mtx_unlock(&ssp->ss_stlock);
@@ -629,6 +648,7 @@ smbfs_mount(struct mount *mp, vnode_t devvp, user_addr_t data,
 	if (vcp->throttle_info)
 		throttle_info_mount_ref(mp, vcp->throttle_info);
 	smbfs_notify_change_create_thread(smp);
+	mount_cnt++;
 	return (0);
 bad:
 	if (ssp) {
@@ -644,20 +664,14 @@ bad:
 		lck_mtx_free(smp->sm_hashlock, hash_lck_grp);
 		lck_mtx_destroy(&smp->sm_statfslock, smbfs_mutex_group);
 		lck_mtx_destroy(&smp->sm_renamelock, smbfs_mutex_group);
-		SMB_STRFREE(smp->sm_args.volume_name);	
-		if (smp->sm_args.path)
-			free(smp->sm_args.path, M_SMBFSDATA);
-		if (smp->sm_args.unique_id)
-			free(smp->sm_args.unique_id, M_SMBFSDATA);
-		if (smp->ntwrk_gids)
-		    free(smp->ntwrk_gids, M_TEMP);
-		if (smp->ntwrk_sids)
-		    free(smp->ntwrk_sids, M_TEMP);
-		free(smp, M_SMBFSDATA);
+		SMB_FREE(smp->sm_args.volume_name, M_SMBSTR);	
+		SMB_FREE(smp->sm_args.path, M_SMBFSDATA);
+		SMB_FREE(smp->sm_args.unique_id, M_SMBFSDATA);
+		SMB_FREE(smp->ntwrk_gids, M_TEMP);
+		SMB_FREE(smp->ntwrk_sids, M_TEMP);
+		SMB_FREE(smp, M_SMBFSDATA);
 	}
-	if (args)	/* Done with the args free them */
-		free(args, M_SMBFSDATA);
-		
+	SMB_FREE(args, M_SMBFSDATA); /* Done with the args free them */
 	return (error);
 }
 
@@ -723,20 +737,14 @@ smbfs_unmount(struct mount *mp, int mntflags, vfs_context_t context)
 	lck_mtx_free(smp->sm_hashlock, hash_lck_grp);
 	lck_mtx_destroy(&smp->sm_statfslock, smbfs_mutex_group);
 	lck_mtx_destroy(&smp->sm_renamelock, smbfs_mutex_group);
-	SMB_STRFREE(smp->sm_args.volume_name);	
-	if (smp->sm_args.path)
-		free(smp->sm_args.path, M_SMBFSDATA);
-	if (smp->sm_args.unique_id)
-		free(smp->sm_args.unique_id, M_SMBFSDATA);
-	if (smp->ntwrk_gids)
-	    free(smp->ntwrk_gids, M_TEMP);
-	if (smp->ntwrk_sids)
-		free(smp->ntwrk_sids, M_TEMP);
-	free(smp, M_SMBFSDATA);
+	SMB_FREE(smp->sm_args.volume_name, M_SMBSTR);	
+	SMB_FREE(smp->sm_args.path, M_SMBFSDATA);
+	SMB_FREE(smp->sm_args.unique_id, M_SMBFSDATA);
+	SMB_FREE(smp->ntwrk_gids, M_TEMP);
+	SMB_FREE(smp->ntwrk_sids, M_TEMP);
+	SMB_FREE(smp, M_SMBFSDATA);
 	vfs_clearflags(mp, MNT_LOCAL);
-	/* We should never have an error here, but just in case lets check for it */
-	if (!error) 
-		mount_cnt--;
+	mount_cnt--;
 	return (error);
 }
 
@@ -764,6 +772,7 @@ static int smbfs_root(struct mount *mp, vnode_t *vpp, vfs_context_t context)
 	/* Fill in the deafult values that we already know about the root vnode */
 	bzero(&fattr, sizeof(fattr));
 	nanouptime(&fattr.fa_reqtime);
+	fattr.fa_valid_mask |= FA_VTYPE_VALID;
 	fattr.fa_attr = SMB_FA_DIR;
 	fattr.fa_vtype = VDIR;
 	fattr.fa_ino = 2;

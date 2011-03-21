@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2009 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2002-2010 Apple Inc. All Rights Reserved.
  * 
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -211,20 +211,25 @@ void Trust::evaluate(bool disableEV)
 
 	/* 
 	 * Guarantee *some* action data... 
-	 * NOTE this only works with the local X509 TP. When this module can deal with other TPs
-	 * this must be revisited.
+	 * NOTE this only works with the local X509 TP. When this module can deal
+	 * with other TPs, this must be revisited.
 	 */
 	CSSM_APPLE_TP_ACTION_DATA localActionData;
 	memset(&localActionData, 0, sizeof(localActionData));
 	CssmData localActionCData((uint8 *)&localActionData, sizeof(localActionData));
 	CSSM_APPLE_TP_ACTION_DATA *actionDataP = &localActionData;
     if (mActionData) {
-        context.actionData() = cfData(mActionData);
+		context.actionData() = cfData(mActionData);
 		actionDataP = (CSSM_APPLE_TP_ACTION_DATA *)context.actionData().data();
 	}
 	else {
 		context.actionData() = localActionCData;
 	}
+	
+		if (policySpecified(mPolicies, CSSMOID_APPLE_TP_SSL)) {
+			// enable network cert fetch for SSL only: <rdar://7422356>
+			actionDataP->ActionFlags |= CSSM_TP_ACTION_FETCH_CERT_FROM_NET;
+		}
 	
     /*
 	 * Policies (one at least, please).

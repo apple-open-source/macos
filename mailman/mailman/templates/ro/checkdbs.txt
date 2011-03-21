@@ -1,7 +1,0 @@
-Lista de discuþii %(real_name)s@%(host_name)s are %(count)d request(s)
-în aºteptare (când aveþi timp) la:
-
-	%(adminDB)s
-
-Vã rugãm sã vizitaþi aceastã adresã de îndatã ce timpul vã permite.
-Aceastã notã de cereri în aºteptare va fi trimisã zilnic.

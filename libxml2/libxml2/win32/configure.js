@@ -165,6 +165,7 @@ function usage()
 	txt += "              (" + buildSoPrefix + ")\n";
 	txt += "  include:    Additional search path for the compiler, particularily\n";
 	txt += "              where iconv headers can be found (" + buildInclude + ")\n";
+	txt += "  rinclude:   Additional search path for the resource compiler\n";
 	txt += "  lib:        Additional search path for the linker, particularily\n";
 	txt += "              where iconv library can be found (" + buildLib + ")\n";
 	WScript.Echo(txt);
@@ -276,6 +277,7 @@ function discoverVersion()
 		vf.WriteLine("LIB=" + buildLib);
 		vf.WriteLine("DYNRUNTIME=" + (dynruntime? "1" : "0"));
 	}
+	vf.WriteLine("RINCLUDE=" + resourceInclude);
 	vf.Close();
 }
 
@@ -535,6 +537,8 @@ for (i = 0; (i < WScript.Arguments.length) && (error == 0); i++) {
 			buildIncPrefix = arg.substring(opt.length + 1, arg.length);
 		else if (opt == "include")
 			buildInclude = arg.substring(opt.length + 1, arg.length);
+		else if (opt == "rinclude")
+			resourceInclude = arg.substring(opt.length + 1, arg.length);
 		else if (opt == "lib")
 			buildLib = arg.substring(opt.length + 1, arg.length);
 		else if (opt == "release")
@@ -685,6 +689,7 @@ txtOut += "    Put headers in: " + buildIncPrefix + "\n";
 txtOut += "Put static libs in: " + buildLibPrefix + "\n";
 txtOut += "Put shared libs in: " + buildSoPrefix + "\n";
 txtOut += "      Include path: " + buildInclude + "\n";
+txtOut += "     RInclude path: " + resourceInclude + "\n";
 txtOut += "          Lib path: " + buildLib + "\n";
 WScript.Echo(txtOut);
 

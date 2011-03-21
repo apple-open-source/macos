@@ -1,6 +1,7 @@
 /*
  * Copyright (C) 2004, 2006, 2009 Apple Inc. All rights reserved.
  * Copyright (C) 2007 Alp Toker <alp@atoker.com>
+ * Copyright (C) 2010 Torch Mobile (Beijing) Co. Ltd. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -77,7 +78,8 @@ public:
 
     void paint(GraphicsContext*, const IntRect&);
 
-    void setObserver(CanvasObserver* observer) { m_observer = observer; }
+    void addObserver(CanvasObserver* observer);
+    void removeObserver(CanvasObserver* observer);
 
     CanvasRenderingContext* renderingContext() const { return m_context.get(); }
 
@@ -97,12 +99,16 @@ private:
     virtual void parseMappedAttribute(MappedAttribute*);
     virtual RenderObject* createRenderer(RenderArena*, RenderStyle*);
 
+    virtual void attach();
+
+    virtual void recalcStyle(StyleChange);
+
     void reset();
 
     bool m_rendererIsCanvas;
 
     OwnPtr<CanvasRenderingContext> m_context;
-    CanvasObserver* m_observer;
+    HashSet<CanvasObserver*> m_observers;
 
     bool m_ignoreReset;
     FloatRect m_dirtyRect;

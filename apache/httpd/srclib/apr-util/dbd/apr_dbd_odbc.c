@@ -1139,7 +1139,7 @@ static int odbc_start_transaction(apr_pool_t *pool, apr_dbd_t *handle,
     }
     handle->can_commit = APR_DBD_TRANSACTION_COMMIT;
     return APR_FROM_SQL_RESULT(rc);
-};
+}
 
 
 /** end_transaction: end a transaction **/
@@ -1324,7 +1324,7 @@ static apr_status_t odbc_datum_get(const apr_dbd_row_t * row, int col,
         return APR_ENOENT;          /* SQL NULL value */
     
     if (len < 0)
-        strcpy(data, p);
+       *(char**)data = (char *)p;
     else
         memcpy(data, p, len);
     
@@ -1452,9 +1452,9 @@ static int odbc_pvquery(apr_pool_t * pool, apr_dbd_t * handle, int *nrows,
 }
 
 /** pselect: select using a prepared statement + args **/
-int odbc_pselect(apr_pool_t * pool, apr_dbd_t * handle,
-                 apr_dbd_results_t ** res, apr_dbd_prepared_t * statement,
-                 int random, const char **args)
+static int odbc_pselect(apr_pool_t * pool, apr_dbd_t * handle,
+                        apr_dbd_results_t ** res, apr_dbd_prepared_t * statement,
+                        int random, const char **args)
 {
     SQLRETURN rc = SQL_SUCCESS;
     int i, argp;

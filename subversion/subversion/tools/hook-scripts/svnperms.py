@@ -1,10 +1,10 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-# $HeadURL: http://svn.collab.net/repos/svn/branches/1.6.x/tools/hook-scripts/svnperms.py $
+# $HeadURL: http://svn.apache.org/repos/asf/subversion/branches/1.6.x/tools/hook-scripts/svnperms.py $
 # $LastChangedDate: 2008-12-24 20:49:19 +0000 (Wed, 24 Dec 2008) $
 # $LastChangedBy: arfrever $
-# $LastChangedRevision: 34929 $
+# $LastChangedRevision: 875003 $
 
 import commands
 import sys, os

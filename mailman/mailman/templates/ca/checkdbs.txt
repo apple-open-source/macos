@@ -1,8 +1,0 @@
-La llista de correu de %(real_name)s@%(host_name)s té %(count)d sol·licituds
-pendents a:
-
-	%(adminDB)s
-	
-Us n'hauríeu d'ocupar tan bon punt us sigui possible.  En cas que n'hi
-hagi, se us enviarà aquesta notificació de sol·licituds pendents a
-diari.

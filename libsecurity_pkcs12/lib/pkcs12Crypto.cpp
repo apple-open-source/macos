@@ -567,6 +567,11 @@ CSSM_RETURN p12WrapKey(
 	CSSM_DATA descrData = {0, NULL};
 	CSSM_ACCESS_CREDENTIALS creds;
 	
+	/* key must be extractable */
+	if (!(privKey->KeyHeader.KeyAttr & CSSM_KEYATTR_EXTRACTABLE)) {
+		return errSecDataNotAvailable;
+	}
+
 	if(privKeyCreds == NULL) {
 		/* i.e., key is from the bare CSP with no ACL support */
 		memset(&creds, 0, sizeof(creds));

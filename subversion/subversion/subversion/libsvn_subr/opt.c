@@ -904,12 +904,6 @@ svn_opt__arg_canonicalize_url(const char **url_out, const char *url_in,
   /* Auto-escape some ASCII characters. */
   target = svn_path_uri_autoescape(target, pool);
 
-  /* The above doesn't guarantee a valid URI. */
-  if (! svn_path_is_uri_safe(target))
-    return svn_error_createf(SVN_ERR_BAD_URL, 0,
-                             _("URL '%s' is not properly URI-encoded"),
-                             target);
-
   /* Verify that no backpaths are present in the URL. */
   if (svn_path_is_backpath_present(target))
     return svn_error_createf(SVN_ERR_BAD_URL, 0,
@@ -970,7 +964,7 @@ svn_opt__print_version_info(const char *pgm_name,
                              SVN_VERSION, __DATE__, __TIME__));
   SVN_ERR(svn_cmdline_fputs(_("Copyright (C) 2000-2009 CollabNet.\n"
                               "Subversion is open source software, see"
-                              " http://subversion.tigris.org/\n"
+                              " http://subversion.apache.org/\n"
                               "This product includes software developed by "
                               "CollabNet (http://www.Collab.Net/).\n\n"),
                             stdout, pool));

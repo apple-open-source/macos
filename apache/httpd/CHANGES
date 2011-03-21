@@ -1,12 +1,108 @@
 ﻿                                                         -*- coding: utf-8 -*-
+Changes with Apache 2.2.17
+
+  *) prefork MPM: Run cleanups for final request when process exits gracefully
+     to work around a flaw in apr-util.  PR 43857.  [Tom Donovan]
+
+  *) mod_reqtimeout: Do not wrongly enforce timeouts for mod_proxy's backend
+     connections and other protocol handlers (like mod_ftp). Enforce the
+     timeout for AP_MODE_GETLINE. If there is a timeout, shorten the lingering
+     close time from 30 to 2 seconds. [Stefan Fritsch]
+
+  *) Proxy balancer: support setting error status according to HTTP response
+     code from a backend.  PR 48939.  [Daniel Ruggeri <DRuggeri primary.net>]
+
+  *) mod_authnz_ldap: If AuthLDAPCharsetConfig is set, also convert the
+     password to UTF-8. PR 45318.
+     [Johannes Müller <joh_m gmx.de>, Stefan Fritsch]
+
+  *) core: check symlink ownership if both FollowSymlinks and
+     SymlinksIfOwnerMatch are set [Nick Kew]
+
+  *) core: fix origin checking in SymlinksIfOwnerMatch
+     PR 36783 [Robert L Mathews <rob-apache.org.bugs tigertech.net>]
+
+  *) mod_headers: Enable multi-match-and-replace edit option
+     PR 46594 [Nick Kew]
+
+  *) mod_log_config: Make ${cookie}C correctly match whole cookie names
+     instead of substrings. PR 28037. [Dan Franklin <dan dan-franklin.com>,
+     Stefan Fritsch]
+
+  *) mod_dir, mod_negotiation: Pass the output filter information
+     to newly created sub requests; as these are later on used
+     as true requests with an internal redirect. This allows for
+     mod_cache et.al. to trap the results of the redirect.
+     PR 17629, 43939
+     [Dirk-Willem van Gulik, Jim Jagielski, Joe Orton, Ruediger Pluem]
+
+  *) rotatelogs: Fix possible buffer overflow if admin configures a
+     mongo log file path. [Jeff Trawick]
+
+  *) mod_ssl: Do not do overlapping memcpy. PR 45444 [Joe Orton]
+
+  *) vhost: A purely-numeric Host: header should not be treated as a port.
+     PR 44979 [Nick Kew]
+
+  *) core: (re)-introduce -T commandline option to suppress documentroot
+     check at startup.
+     PR 41887 [Jan van den Berg <janvdberg gmail.com>]
+
+Changes with Apache 2.2.16
+
+  *) SECURITY: CVE-2010-1452 (cve.mitre.org)
+     mod_dav, mod_cache: Fix Handling of requests without a path segment.
+     PR: 49246 [Mark Drayton, Jeff Trawick]
+
+  *) SECURITY: CVE-2010-2068 (cve.mitre.org)
+     mod_proxy_ajp, mod_proxy_http, mod_reqtimeout: Fix timeout detection
+     for platforms Windows, Netware and OS2.  PR: 49417. [Rainer Jung]
+
+  *) core: Filter init functions are now run strictly once per request
+     before handler invocation.  The init functions are no longer run
+     for connection filters.  PR 49328.  [Joe Orton]
+
+  *) mod_filter: enable it to act on non-200 responses.
+     PR 48377 [Nick Kew]
+
+  *) mod_ldap: LDAP caching was suppressed (and ldap-status handler returns
+     title page only) when any mod_ldap directives were used in VirtualHost
+     context.  [Eric Covener]
+
+  *) mod_ssl: Fix segfault at startup if proxy client certs are shared
+     across multiple vhosts.  PR 39915.  [Joe Orton]
+
+  *) mod_proxy_http: Log the port of the remote server in various messages.
+     PR 48812. [Igor Galić <i galic brainsware org>] 
+
+  *) apxs: Fix -A and -a options to ignore whitespace in httpd.conf
+     [Philip M. Gollucci]
+
+  *) mod_dir: add FallbackResource directive, to enable admin to specify
+     an action to happen when a URL maps to no file, without resorting
+     to ErrorDocument or mod_rewrite.  PR 47184 [Nick Kew]
+
+  *) mod_rewrite: Allow to set environment variables without explicitly
+     giving a value. [Rainer Jung]
+
+
 Changes with Apache 2.2.15
 
   *) SECURITY: CVE-2009-3555 (cve.mitre.org)
+     mod_ssl: Comprehensive fix of the TLS renegotiation prefix injection
+     attack when compiled against OpenSSL version 0.9.8m or later. Introduces
+     the 'SSLInsecureRenegotiation' directive to reopen this vulnerability
+     and offer unsafe legacy renegotiation with clients which do not yet
+     support the new secure renegotiation protocol, RFC 5746.
+     [Joe Orton, and with thanks to the OpenSSL Team]
+
+  *) SECURITY: CVE-2009-3555 (cve.mitre.org)
      mod_ssl: A partial fix for the TLS renegotiation prefix injection attack
-     by rejecting any client-initiated renegotiations. Forcibly disable
-     keepalive for the connection if there is any buffered data readable. Any
-     configuration which requires renegotiation for per-directory/location
-     access control is still vulnerable, unless using OpenSSL >= 0.9.8l.
+     for OpenSSL versions prior to 0.9.8l; reject any client-initiated
+     renegotiations. Forcibly disable keepalive for the connection if there
+     is any buffered data readable. Any configuration which requires
+     renegotiation for per-directory/location access control is still
+     vulnerable, unless using openssl 0.9.8l or later.
      [Joe Orton, Ruediger Pluem, Hartmut Keil <Hartmut.Keil adnovum.ch>]
 
   *) SECURITY: CVE-2010-0408 (cve.mitre.org)
@@ -19,9 +115,10 @@ Changes with Apache 2.2.15
      processing is completed, avoiding orphaned callback pointers.
      [Brett Gervasoni <brettg senseofsecurity.com>, Jeff Trawick]
 
-  *) Ensure each subrequest has a shallow copy of headers_in so that the
-     parent request headers are not corrupted.  Elimiates a problematic
-     optimization in the case of no request body.  PR 48359
+  *) SECURITY: CVE-2010-0434 (cve.mitre.org)
+     Ensure each subrequest has a shallow copy of headers_in so that the
+     parent request headers are not corrupted.  Eliminates a problematic
+     optimization in the case of no request body.  PR 48359.
      [Jake Scott, William Rowe, Ruediger Pluem]
 
   *) mod_reqtimeout: New module to set timeouts and minimum data rates for
@@ -34,7 +131,7 @@ Changes with Apache 2.2.15
   *) mod_negotiation: Preserve query string over multiviews negotiation.
      This buglet was fixed for type maps in 2.2.6, but the same issue
      affected multiviews and was overlooked.
-     PR 33112 [Joergen Thomsen <apache jth.net>]
+     PR 33112.  [Joergen Thomsen <apache jth.net>]
 
   *) mod_cache: Introduce the thundering herd lock, a mechanism to keep
      the flood of requests at bay that strike a backend webserver as
@@ -53,10 +150,6 @@ Changes with Apache 2.2.15
      responses if desired. Fix the default value of the SSIAccessEnable
      directive. [Graham Leggett]
 
-  *) mod_ssl: Add the 'SSLInsecureRenegotiation' directive, which
-     allows insecure renegotiation with clients which do not yet
-     support the secure renegotiation protocol.  [Joe Orton]
-
   *) mod_ssl: Fix a potential I/O hang if a long list of trusted CAs
      is configured for client cert auth. PR 46952.  [Joe Orton]
 
@@ -66,7 +159,7 @@ Changes with Apache 2.2.15
 
   *) mod_authnz_ldap: Add AuthLDAPBindAuthoritative to allow Authentication to
      try other providers in the case of an LDAP bind failure.
-     PR 46608 [Justin Erenkrantz, Joe Schaefer, Tony Stevenson]
+     PR 46608.  [Justin Erenkrantz, Joe Schaefer, Tony Stevenson]
 
   *) mod_proxy, mod_proxy_http: Support remote https proxies
      by using HTTP CONNECT.
@@ -86,21 +179,21 @@ Changes with Apache 2.2.15
      warning level.  [Eric Covener]
 
   *) core: Preserve Port information over internal redirects
-     PR 35999 [Jonas Ringh <jonas.ringh cixit.se>]
+     PR 35999.  [Jonas Ringh <jonas.ringh cixit.se>]
 
   *) mod_filter: fix FilterProvider matching where "dispatch" string
      doesn't exist.
-     PR 48054 [<tietw gmail.com>]
+     PR 48054.  [<tietew gmail.com>]
 
   *) Build: fix --with-module to work as documented
-     PR 43881 [Gez Saunders <gez.saunders virgin.net>]
+     PR 43881.  [Gez Saunders <gez.saunders virgin.net>]
 
   *) mod_mime: Make RemoveType override the info from TypesConfig.
-     PR 38330. [Stefan Fritsch]
+     PR 38330.  [Stefan Fritsch]
 
   *) mod_proxy: unable to connect to a backend is SERVICE_UNAVAILABLE,
      rather than BAD_GATEWAY or (especially) NOT_FOUND.
-     PR 46971 [evanc nortel.com]
+     PR 46971.  [Evan Champion <evanc nortel.com>]
 
   *) mod_charset_lite: Honor 'CharsetOptions NoImplicitAdd'.
      [Eric Covener]
@@ -109,20 +202,20 @@ Changes with Apache 2.2.15
      some cache entries and log a warning. Also increase the default
      LDAPSharedCacheSize to 500000. This is a more realistic size suitable
      for the default values of 1024 for LdapCacheEntries/LdapOpCacheEntries.
-     PR 46749. [Stefan Fritsch]
+     PR 46749.  [Stefan Fritsch]
 
   *) mod_disk_cache, mod_mem_cache: don't cache incomplete responses,
      per RFC 2616, 13.8.  PR15866.  [Dan Poirier]
 
   *) mod_rewrite: Make sure that a hostname:port isn't fully qualified if
-     the request is a CONNECT request. PR 47928
+     the request is a CONNECT request.  PR 47928.
      [Bill Zajac <billz consultla.com>]
 
   *) mod_cache: correctly consider s-maxage in cacheability
      decisions.  [Dan Poirier]
 
   *) core: Return APR_EOF if request body is shorter than the length announced
-     by the client. PR 33098 [ Stefan Fritsch <sf sfritsch.de>]
+     by the client. PR 33098.  [Stefan Fritsch]
 
   *) mod_rewrite: Add scgi scheme detection.  [André Malo]
 
@@ -1209,8 +1302,9 @@ Changes with Apache 2.2.6
      [Takashi Sato <serai  lans-tv.com>]
 
   *) mod_ldap: Remove the hardcoded size limit parameter for
-     ldap_search_ext_s and replace it with an APR_ defined
-     value that is set according to the LDAP SDK being used.
+     ldap_search_ext_s and replace it with an APR_ defined value that 
+     is set according to the LDAP SDK being used, resolving a problem
+     with SDKs that define LDAP_NO_LIMIT to something other than -1.
      [David Jones <oscaremma gmail com>]
 
   *) core: Correct a regression since 2.0.x in the handling of AllowOverride 

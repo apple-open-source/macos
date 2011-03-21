@@ -156,7 +156,11 @@ xdr_rmtcall_args(xdrs, cap)
 		if (! (*(cap->xdr_args))(xdrs, cap->args_ptr))
 		    return (FALSE);
 		position = XDR_GETPOS(xdrs);
+#ifdef __LP64__
+		cap->arglen = (uint32_t)position - (uint32_t)argposition;
+#else
 		cap->arglen = (u_long)position - (u_long)argposition;
+#endif
 		XDR_SETPOS(xdrs, lenposition);
 		if (! xdr_u_long(xdrs, &(cap->arglen)))
 		    return (FALSE);
@@ -178,14 +182,17 @@ xdr_rmtcallres(xdrs, crp)
 	caddr_t port_ptr;
 
 	port_ptr = (caddr_t)crp->port_ptr;
-	if (xdr_reference(xdrs, &port_ptr, sizeof (u_long), (xdrproc_t)xdr_u_long) && xdr_u_long(xdrs, &crp->resultslen)) {
 #ifdef __LP64__
+	if (xdr_reference(xdrs, &port_ptr, sizeof (uint32_t), (xdrproc_t)xdr_u_long) && xdr_u_long(xdrs, &crp->resultslen)) {
 		crp->port_ptr = (unsigned int *)port_ptr;
-#else
-		crp->port_ptr = (unsigned long *)port_ptr;
-#endif
 		return ((*(crp->xdr_results))(xdrs, crp->results_ptr));
 	}
+#else
+	if (xdr_reference(xdrs, &port_ptr, sizeof (u_long), (xdrproc_t)xdr_u_long) && xdr_u_long(xdrs, &crp->resultslen)) {
+		crp->port_ptr = (unsigned long *)port_ptr;
+		return ((*(crp->xdr_results))(xdrs, crp->results_ptr));
+	}
+#endif
 	return (FALSE);
 }
 
@@ -406,8 +413,13 @@ clnt_broadcast(prog, vers, proc, xargs, argsp, xresults, resultsp, eachresult)
 			stat = RPC_CANTRECV;
 			goto done_broad;
 		}
+#ifdef __LP64__
+		if (inlen < sizeof(uint32_t))
+			goto recv_again;
+#else
 		if (inlen < sizeof(u_long))
 			goto recv_again;
+#endif
 		/*
 		 * see if reply transaction id matches sent id.
 		 * If so, decode the results.

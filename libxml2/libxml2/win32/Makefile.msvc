@@ -81,10 +81,11 @@ LIBS = $(LIBS) iconv.lib
 !endif
 !endif 
 !if "$(WITH_ICU)" == "1"
+CFLAGS = $(CFLAGS) /DU_DISABLE_RENAMING=1
 !if "$(DEBUG)" == "1"
-LIBS = $(LIBS) icuuc_debug.lib
+LIBS = $(LIBS) libicuuc_debug.lib
 !else
-LIBS = $(LIBS) icuuc.lib
+LIBS = $(LIBS) libicuuc.lib
 !endif
 !endif
 !if "$(WITH_ZLIB)" == "1"
@@ -153,7 +154,8 @@ XML_OBJS = $(XML_INTDIR)\c14n.obj\
 	$(XML_INTDIR)\xmlwriter.obj\
 	$(XML_INTDIR)\xpath.obj\
 	$(XML_INTDIR)\xpointer.obj\
-	$(XML_INTDIR)\xmlstring.obj
+	$(XML_INTDIR)\xmlstring.obj\
+	$(XML_INTDIR)\version.res
 
 # Static libxml object files.
 XML_OBJS_A = $(XML_INTDIR_A)\c14n.obj\
@@ -357,6 +359,10 @@ $(XML_INTDIR_A_DLL) :
 # An implicit rule for static for dll libxml compilation.
 {$(XML_SRCDIR)}.c{$(XML_INTDIR_A_DLL)}.obj::
 	$(CC) $(CFLAGS) /D "LIBXML_STATIC" /D "LIBXML_STATIC_FOR_DLL" /Fo$(XML_INTDIR_A_DLL)\ /c $<
+
+# Compiles libxml resource files.
+{$(XML_SRCDIR)}.rc{$(XML_INTDIR)}.res:
+	rc.exe /i $(RINCLUDE) /fo $@ $<
 
 # Compiles libxml source. Uses the implicit rule for commands.
 $(XML_OBJS) : $(XML_INTDIR) 

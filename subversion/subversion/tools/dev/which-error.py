@@ -18,10 +18,10 @@
 # history and logs, available at http://subversion.tigris.org/.
 # ====================================================================
 #
-# $HeadURL: http://svn.collab.net/repos/svn/branches/1.6.x/tools/dev/which-error.py $
+# $HeadURL: http://svn.apache.org/repos/asf/subversion/branches/1.6.x/tools/dev/which-error.py $
 # $LastChangedDate: 2009-01-30 20:47:46 +0000 (Fri, 30 Jan 2009) $
 # $LastChangedBy: arfrever $
-# $LastChangedRevision: 35601 $
+# $LastChangedRevision: 875675 $
 #
 
 import sys

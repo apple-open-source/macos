@@ -44,6 +44,7 @@
 #include "SVGSymbolElement.h"
 #include "XLinkNames.h"
 #include "XMLSerializer.h"
+#include "XMLTokenizer.h"
 
 // Dump SVGElementInstance object tree - useful to debug instanceRoot problems
 // #define DUMP_INSTANCE_TREE
@@ -121,14 +122,14 @@ void SVGUseElement::insertedIntoDocument()
 {
     // This functions exists to assure assumptions made in the code regarding SVGElementInstance creation/destruction are satisfied.
     SVGElement::insertedIntoDocument();
-    ASSERT(!m_targetElementInstance);
+    ASSERT(!m_targetElementInstance || ((document()->isSVGDocument() || document()->isXHTMLDocument()) && !static_cast<XMLTokenizer*>(document()->tokenizer())->wellFormed()));
     ASSERT(!m_isPendingResource);
 }
 
 void SVGUseElement::removedFromDocument()
 {
-    m_targetElementInstance = 0;
-    SVGElement::removedFromDocument();
+    SVGStyledTransformableElement::removedFromDocument();
+    detachInstance();
 }
 
 void SVGUseElement::svgAttributeChanged(const QualifiedName& attrName)
@@ -458,8 +459,7 @@ void SVGUseElement::buildShadowAndInstanceTree(SVGShadowTreeRootElement* shadowR
     if (targetElement && targetElement->isSVGElement())
         target = static_cast<SVGElement*>(targetElement);
 
-    if (m_targetElementInstance)
-        m_targetElementInstance = 0;
+    detachInstance();
 
     // Do not allow self-referencing.
     // 'target' may be null, if it's a non SVG namespaced element.
@@ -485,7 +485,7 @@ void SVGUseElement::buildShadowAndInstanceTree(SVGShadowTreeRootElement* shadowR
     // SVG specification does not say a word about <use> & cycles. My view on this is: just ignore it!
     // Non-appearing <use> content is easier to debug, then half-appearing content.
     if (foundProblem) {
-        m_targetElementInstance = 0;
+        detachInstance();
         return;
     }
 
@@ -518,7 +518,7 @@ void SVGUseElement::buildShadowAndInstanceTree(SVGShadowTreeRootElement* shadowR
     // Do NOT leave an inconsistent instance tree around, instead destruct it.
     if (!m_targetElementInstance->shadowTreeElement()) {
         shadowRoot->removeAllChildren();
-        m_targetElementInstance = 0;
+        detachInstance();
         return;
     }
 
@@ -554,6 +554,14 @@ void SVGUseElement::buildShadowAndInstanceTree(SVGShadowTreeRootElement* shadowR
     updateContainerSizes();
 }
 
+void SVGUseElement::detachInstance()
+{
+    if (!m_targetElementInstance)
+        return;
+    m_targetElementInstance->clearUseElement();
+    m_targetElementInstance = 0;
+}
+
 RenderObject* SVGUseElement::createRenderer(RenderArena* arena, RenderStyle*)
 {
     return new (arena) RenderSVGShadowTreeRootContainer(this);
@@ -575,8 +583,8 @@ void SVGUseElement::attach()
 
 void SVGUseElement::detach()
 {
-    m_targetElementInstance = 0;
     SVGStyledTransformableElement::detach();
+    detachInstance();
 }
 
 static bool isDirectReference(Node* n)
@@ -762,6 +770,7 @@ void SVGUseElement::expandUseElementsInShadowTree(SVGShadowTreeRootElement* shad
         // Don't ASSERT(target) here, it may be "pending", too.
         // Setup sub-shadow tree root node
         RefPtr<SVGShadowTreeContainerElement> cloneParent = new SVGShadowTreeContainerElement(document());
+        use->cloneChildNodes(cloneParent.get());
 
         // Spec: In the generated content, the 'use' will be replaced by 'g', where all attributes from the
         // 'use' element except for x, y, width, height and xlink:href are transferred to the generated 'g' element.
@@ -771,14 +780,6 @@ void SVGUseElement::expandUseElementsInShadowTree(SVGShadowTreeRootElement* shad
         if (target && !isDisallowedElement(target)) {
             RefPtr<Element> newChild = target->cloneElementWithChildren();
 
-            // We don't walk the target tree element-by-element, and clone each element,
-            // but instead use cloneElementWithChildren(). This is an optimization for the common
-            // case where <use> doesn't contain disallowed elements (ie. <foreignObject>).
-            // Though if there are disallowed elements in the subtree, we have to remove them.
-            // For instance: <use> on <g> containing <foreignObject> (indirect case).
-            if (subtreeContainsDisallowedElement(newChild.get()))
-                removeDisallowedElementsFromSubtree(newChild.get());
-
             SVGElement* newChildPtr = 0;
             if (newChild->isSVGElement())
                 newChildPtr = static_cast<SVGElement*>(newChild.get());
@@ -787,6 +788,14 @@ void SVGUseElement::expandUseElementsInShadowTree(SVGShadowTreeRootElement* shad
             cloneParent->appendChild(newChild.release(), ec);
             ASSERT(!ec);
         }
+
+        // We don't walk the target tree element-by-element, and clone each element,
+        // but instead use cloneElementWithChildren(). This is an optimization for the common
+        // case where <use> doesn't contain disallowed elements (ie. <foreignObject>).
+        // Though if there are disallowed elements in the subtree, we have to remove them.
+        // For instance: <use> on <g> containing <foreignObject> (indirect case).
+        if (subtreeContainsDisallowedElement(cloneParent.get()))
+            removeDisallowedElementsFromSubtree(cloneParent.get());
 
         // Replace <use> with referenced content.
         ASSERT(use->parentNode()); 

@@ -3087,6 +3087,9 @@ static errno_t ntfs_write(ntfs_inode *ni, uio_t uio, int ioflags,
 	errno_t err;
 	BOOL was_locked, need_uptodate;
 
+	/* Do not allow writing if mounted read-only. */
+	if (NVolReadOnly(ni->vol))
+		return EROFS;
 	nr_truncated = 0;
 	ofs = old_ofs = uio_offset(uio);
 	count = old_count = uio_resid(uio);
@@ -3953,11 +3956,9 @@ static int ntfs_vnop_fsync(struct vnop_fsync_args *a)
 	ntfs_inode *ni = NTFS_I(vn);
 	int sync, err;
 
-	/* If we are mounted read-only, we shouldn't need
-	 * to fsync anything.
-	 */
-	if (vnode_vfsisrdonly(vn))
-		return (0);
+	/* If we are mounted read-only, we do not need to sync anything. */
+	if (NVolReadOnly(ni->vol))
+		return 0;
 	sync = (a->a_waitfor == MNT_WAIT) ? IO_SYNC : 0;
 	ntfs_debug("Entering for inode 0x%llx, waitfor 0x%x, %ssync i/o.",
 			(unsigned long long)ni->mft_no, a->a_waitfor,
@@ -7177,8 +7178,20 @@ static int ntfs_vnop_inactive(struct vnop_inactive_args *args)
 	 */
 	if (!is_delete || NInoRaw(ni)) {
 sync:
-		/* Commit dirty data to disk. */
-		err = ntfs_inode_sync(ni, IO_SYNC | IO_CLOSE, FALSE);
+		/*
+		 * Commit dirty data to disk unless mounted read-only.
+		 *
+		 * WARNING: Please see <rdar://problem/7202356> why this causes
+		 * stack exhaustion and kernel panics by creating a loop where
+		 * the VNOP_INACTIVE() calls ntfs_inode_sync() which ends up
+		 * doing ntfs_inode_get() which in turn triggers another
+		 * VNOP_INACTIVE() which in turn calls ntfs_inode_sync() and
+		 * thus ntfs_inode_get() which in turns calls VNOP_INACTIVE()
+		 * and so on until the stack overflows.
+		 */
+		err = 0;
+		if (!NVolReadOnly(vol))
+			err = ntfs_inode_sync(ni, IO_SYNC | IO_CLOSE, FALSE);
 		if (!err)
 			ntfs_debug("Done.");
 		else
@@ -8090,7 +8103,7 @@ static int ntfs_vnop_pageout(struct vnop_pageout_args *a)
 		err = EISDIR;
 		goto err;
 	}
-	if (vnode_vfsisrdonly(a->a_vp)) {
+	if (NVolReadOnly(vol)) {
 		err = EROFS;
 		goto err;
 	}

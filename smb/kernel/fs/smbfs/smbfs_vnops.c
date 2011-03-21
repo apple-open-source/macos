@@ -53,6 +53,8 @@
 #include <sys/smb_apple.h>
 #include <sys/attr.h>
 #include <sys/mchain.h>
+#include <sys/msfscc.h>
+
 #include <netsmb/smb.h>
 #include <netsmb/smb_conn.h>
 #include <netsmb/smb_subr.h>
@@ -65,104 +67,11 @@
 
 #include <sys/buf.h>
 #include <libkern/crypto/md5.h>
+#include <libkern/OSTypes.h>  /* for Boolean */
 
 char smb_symmagic[SMB_SYMMAGICLEN] = {'X', 'S', 'y', 'm', '\n'};
 
 int smbfs_setattr(vnode_t vp, struct vnode_attr *vap, vfs_context_t context);
-
-/*
- * Supports reading a faked up symbolic link. This is Conrad and Steve
- * French method for storing and reading symlinks on Window Servers.
- */
-static int smbfs_windows_readlink(struct smb_share *ssp, struct smbnode *np, 
-								  struct uio *a_uio, vfs_context_t context)
-{
-	unsigned char *wbuf, *cp;
-	u_int len, flen;
-	uio_t uio;
-	int error, cerror;
-	u_int16_t	fid = 0;
-	
-	flen = SMB_SYMLEN;
-	MALLOC(wbuf, void *, flen, M_TEMP, M_WAITOK);
-	
-	error = smbfs_smb_tmpopen(np, SA_RIGHT_FILE_READ_DATA, context, &fid);
-	if (error)
-		goto out;
-	uio = uio_create(1, 0, UIO_SYSSPACE, UIO_READ);
-	uio_addiov(uio, CAST_USER_ADDR_T(wbuf), flen);
-	error = smb_read(ssp, fid, uio, context);
-	uio_free(uio);
-	cerror = smbfs_smb_tmpclose(np, fid, context);
-	if (cerror)
-		SMBERROR("error %d closing fid %d file %s\n", cerror, fid, np->n_name);
-	if (error)
-		goto out;
-	for (len = 0, cp = wbuf + SMB_SYMMAGICLEN;
-	     cp < wbuf + SMB_SYMMAGICLEN + SMB_SYMLENLEN-1; cp++) {
-		if (*cp < '0' || *cp > '9') {
-			SMBERROR("symlink length nonnumeric: %c (0x%x)\n", *cp, *cp);
-			return (EINVAL);
-		}
-		len *= 10;
-		len += *cp - '0';
-	}
-	if (len != np->n_size) {
-		SMBERROR("symlink length payload changed from %u to %u\n", (unsigned)np->n_size, len);
-		np->n_size = len;
-	}
-	cp = wbuf + SMB_SYMHDRLEN;
-	error = uiomove((caddr_t)cp, (int)len, a_uio);
-out:;
-	FREE(wbuf, M_TEMP);
-	return (error);
-}
-
-/*
- * Create the data required for a faked up symbolic link. This is Conrad and Steve
- * French method for storing and reading symlinks on Window Servers.
- * 
- */
-static void * smbfs_create_windows_symlink_data(const char *target, size_t targetlen, 
-												u_int32_t *rtlen)
-{
-	MD5_CTX md5;
-	u_int32_t state[4];
-	u_int32_t datalen, filelen;
-	char *wbuf, *wp;
-	int	 maxwplen;
-	u_int32_t targlen = (u_int32_t)targetlen;
-	
-	datalen = SMB_SYMHDRLEN + targlen;
-	filelen = SMB_SYMLEN;
-	maxwplen = filelen;
-	
-	MALLOC(wbuf, void *, filelen, M_TEMP, M_WAITOK);
-	
-	wp = wbuf;
-	bcopy(smb_symmagic, wp, SMB_SYMMAGICLEN);
-	wp += SMB_SYMMAGICLEN;
-	maxwplen -= SMB_SYMMAGICLEN;
-	(void)snprintf(wp, maxwplen, "%04d\n", targlen);
-	wp += SMB_SYMLENLEN;
-	maxwplen -= SMB_SYMLENLEN;
-	MD5Init(&md5);
-	MD5Update(&md5, (unsigned char *)target, targlen);
-	MD5Final((u_char *)state, &md5);
-	(void)snprintf(wp, maxwplen, "%08x%08x%08x%08x\n", htobel(state[0]),
-				   htobel(state[1]), htobel(state[2]), htobel(state[3]));
-	wp += SMB_SYMMD5LEN;
-	bcopy(target, wp, targlen);
-	wp += targlen;
-	if (datalen < filelen) {
-		*wp++ = '\n';
-		datalen++;
-		if (datalen < filelen)
-			memset((caddr_t)wp, ' ', filelen - datalen);
-	}
-	*rtlen = filelen;
-	return wbuf;
-}
 
 /*
  * Free any memory and clear any value used by the acl caching
@@ -1779,6 +1688,11 @@ static int smbfs_vnop_inactive(struct vnop_inactive_args *ap)
 	(void) smbnode_lock(VTOSMB(vp), SMBFS_RECLAIM_LOCK);
 	np = VTOSMB(vp);
 	np->n_lastvop = smbfs_vnop_inactive;
+	
+	/* Clear any symlink cache, always safe to do even on non symlinks */
+	SMB_FREE(np->n_symlink_target, M_TEMP);
+	np->n_symlink_target_len = 0;
+	np->n_symlink_cache_timer = 0;
 
 	/* Node went inactive clear the ACL cache */
 	if (!vnode_isnamedstream(vp))
@@ -1880,6 +1794,11 @@ static int smbfs_vnop_reclaim(struct vnop_reclaim_args *ap)
 		if (!vnode_isnamedstream(vp))
 			lck_mtx_destroy(&np->rfrkMetaLock, smbfs_mutex_group);
 	}
+	
+	/* Clear any symlink cache, always safe to do even on non symlinks */
+	SMB_FREE(np->n_symlink_target, M_TEMP);
+	np->n_symlink_target_len = 0;
+	np->n_symlink_cache_timer = 0;
 
 	/* We are done with the node clear the acl cache and destroy the acl cache lock  */
 	if (!vnode_isnamedstream(vp)) {
@@ -1959,6 +1878,15 @@ static int smbfs_vnop_getattr(struct vnop_getattr_args *ap)
 	return (error);
 }
 
+
+
+/*
+ * The number of seconds between Jan 1, 1970 and Jan 1, 1980. In that
+ * interval there were 8 regular years and 2 leap years.
+ */
+#define	SECONDSTO1980	(((8 * 365) + (2 * 366)) * (24 * 60 * 60))
+static struct timespec fat1980_time = {SECONDSTO1980, 0};
+
 int smbfs_setattr(vnode_t vp, struct vnode_attr *vap, vfs_context_t context)
 {
 	struct smbnode *np = VTOSMB(vp);
@@ -1971,6 +1899,7 @@ int smbfs_setattr(vnode_t vp, struct vnode_attr *vap, vfs_context_t context)
 	off_t newround;
 	u_int16_t fid = 0;
 	u_int32_t rights;
+	Boolean useFatTimes = (ssp->ss_fstype == SMB_FS_FAT);
 
 	/* If this is a stream then they can only set the size */
 	if ((vnode_isnamedstream(vp)) && (vap->va_active & ~VNODE_ATTR_BIT(va_data_size))) {
@@ -2028,7 +1957,7 @@ int smbfs_setattr(vnode_t vp, struct vnode_attr *vap, vfs_context_t context)
 		VATTR_SET_SUPPORTED(vap, va_gid);
 
 	if ((VATTR_IS_ACTIVE(vap, va_mode)) ||(VATTR_IS_ACTIVE(vap, va_flags))) {
-		int unix_extensions = ((UNIX_CAPS(vcp) & CIFS_UNIX_POSIX_PATH_OPERATIONS_CAP)) ? TRUE : FALSE;
+		int unix_info2 = ((UNIX_CAPS(vcp) & UNIX_SFILEINFO_UNIX_INFO2_CAP)) ? TRUE : FALSE;		
 		int dosattr = np->n_dosattr;
 		u_int32_t vaflags = 0;
 		u_int32_t vaflags_mask = SMB_FLAGS_NO_CHANGE;
@@ -2074,7 +2003,7 @@ int smbfs_setattr(vnode_t vp, struct vnode_attr *vap, vfs_context_t context)
 			 * 
 			 * See Radar 5582956 for more details.
 			 */
-			if (unix_extensions || (! vnode_isdir(vp))) {
+			if (unix_info2 || (! vnode_isdir(vp))) {
 				if (vap->va_flags & (SF_IMMUTABLE | UF_IMMUTABLE)) {
 					dosattr |= SMB_FA_RDONLY;				
 					vaflags |= EXT_IMMUTABLE;				
@@ -2084,7 +2013,7 @@ int smbfs_setattr(vnode_t vp, struct vnode_attr *vap, vfs_context_t context)
 			/*
 			 * NOTE: Windows does not set ATTR_ARCHIVE bit for directories. 
 			 */
-			if ((! unix_extensions) && (vnode_isdir(vp)))
+			if ((! unix_info2) && (vnode_isdir(vp)))
 				dosattr &= ~SMB_FA_ARCHIVE;
 			
 			/* Now deal with the new Hidden bit */
@@ -2102,16 +2031,16 @@ int smbfs_setattr(vnode_t vp, struct vnode_attr *vap, vfs_context_t context)
 		 * chmod here it will get set on the target which would be bad. So ignore the fact
 		 * that they made this request.
 		 */
-		if (unix_extensions && (!vnode_islnk(vp)) && (VATTR_IS_ACTIVE(vap, va_mode))) {
+		if (unix_info2 && (!vnode_islnk(vp)) && (VATTR_IS_ACTIVE(vap, va_mode))) {
 			vamode = vap->va_mode & ACCESSPERMS;
 		} else if (dosattr == np->n_dosattr)
 			vaflags_mask = 0; /* Nothing really changes, no need to make the call */ 
 		
 		if (vaflags_mask || (vamode != SMB_MODE_NO_CHANGE)) {
-			if (unix_extensions)
+			if (unix_info2)
 				error = smbfs_set_unix_info2(np, NULL, NULL, NULL, SMB_SIZE_NO_CHANGE, vamode, vaflags, vaflags_mask, context);
 			else
-				error = smbfs_smb_setpattr(np, NULL, 0, dosattr, NULL, context);
+				error = smbfs_smb_setpattr(np, NULL, 0, dosattr, context);
 			if (error)
 				goto out;
 		}
@@ -2158,8 +2087,9 @@ int smbfs_setattr(vnode_t vp, struct vnode_attr *vap, vfs_context_t context)
 			error = smbfs_smb_setfsize(np, fid, vap->va_data_size, context);			
 		
 		cerror = smbfs_smb_tmpclose(np, fid, context);
-		if (cerror)
+		if (cerror) {
 			SMBWARNING("error %d closing fid %d file %s\n", cerror, fid, np->n_name);
+		}
 		if (error) {
 			smbfs_setsize(vp, (off_t)tsize);
 			goto out;
@@ -2201,15 +2131,15 @@ int smbfs_setattr(vnode_t vp, struct vnode_attr *vap, vfs_context_t context)
 	 * copy engine needs to be fixed, looking into that now. Looks like this will get fix
 	 * with Radar 4385758. We should retest once that radar is completed.
 	 */
-	if (crtime && (crtime->tv_sec == np->n_crtime.tv_sec)) {
+	if (crtime && (timespeccmp(crtime, &np->n_crtime, ==))) {
 		VATTR_SET_SUPPORTED(vap, va_create_time);
 		crtime = NULL;
 	}
-	if (mtime && (mtime->tv_sec == np->n_mtime.tv_sec)) {
+	if (mtime && (timespeccmp(mtime, &np->n_mtime, ==))) {
 		VATTR_SET_SUPPORTED(vap, va_modify_time);		
 		mtime = NULL;
 	}
-	if (atime && (atime->tv_sec == np->n_atime.tv_sec)) {
+	if (atime && (timespeccmp(atime, &np->n_atime, ==))) {
 		VATTR_SET_SUPPORTED(vap, va_access_time);
 		atime = NULL;
 	}
@@ -2238,95 +2168,145 @@ int smbfs_setattr(vnode_t vp, struct vnode_attr *vap, vfs_context_t context)
 	 * The HFS code also checks to make sure it was not the root vnode. Don 
 	 * Brady said that the SMB code should not use that part of the check.
 	 */
-	if (!crtime && mtime && mtime->tv_sec < np->n_crtime.tv_sec)
+	if (!crtime && mtime && (timespeccmp(mtime, &np->n_crtime, <))) {
 		crtime = mtime;
+	}
+	
+	if (!crtime && !mtime && !atime) {
+		/* Nothing left to do here get out */
+		goto out;
+	}	
 
-	if (crtime || mtime || atime) {
-		/*
-		 * Windows 95/98/Me do not allow you to open a directory. 
-		 * The previous code just punted on Windows 95/98/Me, 
-		 * so we are going to do the same. 
-		 */
-		if ((vcp->vc_flags & SMBV_WIN98) && vnode_isdir(vp)) {
-			error = 0;
-			goto timedone;
+retrySettingTime:
+#ifdef SMB_DEBUG
+	if (crtime && mtime) {
+		SMBDEBUG("%s crtime = %ld:%ld mtime = %ld:%ld\n", np->n_name, 
+				 crtime->tv_sec, crtime->tv_nsec, mtime->tv_sec, mtime->tv_nsec);
+	} else if (crtime) {
+		SMBDEBUG("%s crtime = %ld:%ld\n", np->n_name, crtime->tv_sec, crtime->tv_nsec);
+	} else if (mtime) {
+		SMBDEBUG("%s mtime = %ld:%ld\n", np->n_name, mtime->tv_sec, mtime->tv_nsec);
+	}
+#endif // SMB_DEBUG
+	/* 
+	 * FAT file systems don't support dates earlier than 1980, reset the
+	 * date to 1980. Now the Finder likes to set the create date to 1904 or 1946, 
+	 * should we treat this special? We could hold on to the original time 
+	 * and return that value until they reset it or the vnode goes away. Since
+	 * we never had any reports lets not add any extra code.
+	 */ 
+	if (useFatTimes) {
+		if (crtime && (timespeccmp(crtime, &fat1980_time, <))) {
+			crtime = &fat1980_time;
+			SMBDEBUG("%s FAT crtime.tv_sec = %ld crtime.tv_nsec = %ld\n",
+					 np->n_name, crtime->tv_sec, crtime->tv_nsec);
 		}
+		if (mtime && (timespeccmp(mtime, &fat1980_time, <))) {
+			mtime = &fat1980_time;
+			SMBDEBUG("%s FAT mtime.tv_sec = %ld mtime.tv_nsec = %ld\n", 
+					 np->n_name, mtime->tv_sec, mtime->tv_nsec);
+		}
+		/* Never let them set the access time before 1980 */
+		if (atime && (timespeccmp(atime, &fat1980_time, <))) {
+			atime = NULL;
+		}
+	}
+	/*
+	 * Windows 95/98/Me do not allow you to open a directory. 
+	 * The previous code just punted on Windows 95/98/Me, 
+	 * so we are going to do the same. 
+	 */
+	if ((vcp->vc_flags & SMBV_WIN98) && vnode_isdir(vp)) {
+		error = 0;
+		goto timedone;
+	}
+	
+	rights = SMB2_FILE_WRITE_ATTRIBUTES;
+	/*
+	 * For Windows 95/98/Me/NT4 and all old dialects we must have 
+	 * the item open before we can set the date and time. For all 
+	 * other systems; if the item is already open then make sure it 
+	 * has the correct open mode.
+	 *
+	 * We currently never do a NT style open with write attributes.
+	 * So for all systems except NT4 that spport the NTCreateAndX 
+	 * call we will fall through and just use the set path method.
+	 * In the future we may decide to add open deny support. So if
+	 * we decide to add write atributes access then this code will
+	 * work without any other changes.  
+	 */ 
+	if ((vcp->vc_flags & (SMBV_WIN98 | SMBV_NT4)) || 
+		(smp->sm_flags & MNT_REQUIRES_FILEID_FOR_TIME) ||
+		((!vnode_isdir(vp)) && np->f_refcnt && (np->f_rights & rights))) {
 		
-		rights = SA_RIGHT_FILE_WRITE_ATTRIBUTES;
 		/*
-		 * For Windows 95/98/Me/NT4 and all old dialects we must have 
-		 * the item open before we can set the date and time. For all 
-		 * other systems; if the item is already open then make sure it 
-		 * has the correct open mode.
+		 * np->f_rights holds different values depending on 
+		 * SMB_CAP_NT_SMBS. For NT systems we need the file open
+		 * for write attributes. 
 		 *
-		 * We currently never do a NT style open with write attributes.
-		 * So for all systems except NT4 that spport the NTCreateAndX 
-		 * call we will fall through and just use the set path method.
-		 * In the future we may decide to add open deny support. So if
-		 * we decide to add write atributes access then this code will
-		 * work without any other changes.  
-		 */ 
-		if ((vcp->vc_flags & (SMBV_WIN98 | SMBV_NT4)) || 
-			(smp->sm_flags & kRequiresFileInfoTime) ||
-			((!vnode_isdir(vp)) && np->f_refcnt && (np->f_rights & rights))) {
-			
-			/*
-			 * np->f_rights holds different values depending on 
-			 * SMB_CAP_NT_SMBS. For NT systems we need the file open
-			 * for write attributes. 
-			 *
-			 * Windows 98 just needs the file open for write. So 
-			 * either write access or all access will work. If they 
-			 * already have it open for all access just use that, 
-			 * otherwise use write. We corrected tmpopen
-			 * to work correctly now. So just ask for the NT access.
-			 */
+		 * Windows 98 just needs the file open for write. So 
+		 * either write access or all access will work. If they 
+		 * already have it open for all access just use that, 
+		 * otherwise use write. We corrected tmpopen
+		 * to work correctly now. So just ask for the NT access.
+		 */
 		
-			error = smbfs_smb_tmpopen(np, rights, context, &fid);
-			if (error)
-				goto out;
-			
-			error = smbfs_smb_setfattrNT(np, np->n_dosattr, fid, crtime, mtime, atime, NULL, context);
-			cerror = smbfs_smb_tmpclose(np, fid, context);
-			if (cerror)
-				SMBERROR("error %d closing fid %d file %s\n", cerror, fid, np->n_name);
-
-		}
-		else {
-			error = smbfs_smb_setpattrNT(np, np->n_dosattr, crtime, mtime, atime, NULL, context);
-			/* They don't support this call, we need to fallback to the old method; stupid NetApp */
-			if (error == ENOTSUP) {
-				SMBWARNING("Server does not support setting time by path, fallback to old method\n"); 
-				smp->sm_flags |= kRequiresFileInfoTime;	/* Never go down this path again */
-				error = smbfs_smb_tmpopen(np, rights, context, &fid);
-				if (!error) {
-					error = smbfs_smb_setfattrNT(np, np->n_dosattr, fid, crtime, mtime, atime, NULL, context);
-					(void)smbfs_smb_tmpclose(np, fid, context);				
-				}
-			}
-		}
-timedone:
+		error = smbfs_smb_tmpopen(np, rights, context, &fid);
 		if (error)
 			goto out;
-		if (crtime) {
-			VATTR_SET_SUPPORTED(vap, va_create_time);
-			np->n_crtime.tv_sec = crtime->tv_sec;
-			np->n_crtime.tv_nsec = crtime->tv_nsec;
-		}
-		if (mtime) {
-			VATTR_SET_SUPPORTED(vap, va_modify_time);
-			np->n_mtime.tv_sec = mtime->tv_sec;
-			np->n_mtime.tv_nsec = mtime->tv_nsec;
-		}
-		if (atime) {
-			VATTR_SET_SUPPORTED(vap, va_access_time);
-			np->n_atime.tv_sec = atime->tv_sec;
-			np->n_atime.tv_nsec = atime->tv_nsec;
-		}
-		/* Update the change time */
-		if (crtime || mtime || atime)
-			nanotime(&np->n_chtime); /* Need current date/time, so use nanotime */
+		
+		error = smbfs_smb_setfattrNT(np, np->n_dosattr, fid, crtime, mtime, atime, context);
+		cerror = smbfs_smb_tmpclose(np, fid, context);
+		if (cerror)
+			SMBERROR("error %d closing fid %d file %s\n", cerror, fid, np->n_name);
+		
 	}
+	else {
+		error = smbfs_smb_setpattrNT(np, np->n_dosattr, crtime, mtime, atime, context);
+		/* They don't support this call, we need to fallback to the old method; stupid NetApp */
+		if (error == ENOTSUP) {
+			SMBWARNING("Server does not support setting time by path, fallback to old method\n"); 
+			smp->sm_flags |= MNT_REQUIRES_FILEID_FOR_TIME;	/* Never go down this path again */
+			error = smbfs_smb_tmpopen(np, rights, context, &fid);
+			if (!error) {
+				error = smbfs_smb_setfattrNT(np, np->n_dosattr, fid, crtime, mtime, atime, context);
+				(void)smbfs_smb_tmpclose(np, fid, context);				
+			}
+		}
+	}
+	/* 
+	 * Some servers (NetApp) don't support setting time before 1970 and will
+	 * return an error here. So if we get an error and we were trying to set
+	 * the time to before 1970 lets try again, but this time lets treat them
+	 * the same as a FAT file system.
+	 */
+	if (error && !useFatTimes && 
+		((crtime && (crtime->tv_sec < 0)) || (mtime && (mtime->tv_sec < 0)))) {
+		error = 0;
+		useFatTimes = TRUE;
+		goto retrySettingTime;
+	}
+	
+timedone:
+	if (error)
+		goto out;
+	
+	if (crtime) {
+		VATTR_SET_SUPPORTED(vap, va_create_time);
+		np->n_crtime = *crtime;
+	}
+	if (mtime) {
+		VATTR_SET_SUPPORTED(vap, va_modify_time);
+		np->n_mtime = *mtime;
+	}
+	if (atime) {
+		VATTR_SET_SUPPORTED(vap, va_access_time);
+		np->n_atime = *atime;
+	}
+	/* Update the change time */
+	if (crtime || mtime || atime)
+		nanotime(&np->n_chtime); /* Need current date/time, so use nanotime */
+	
 out:
 	if (modified) {
 		/*
@@ -2743,8 +2723,8 @@ fixit:
 static void
 smbfs_composeacl(struct vnode_attr *vap, vnode_t vp, vfs_context_t context)
 {
-	struct smbnode *np = VTOSMB(vp);	
-	struct smb_vc *vcp = SSTOVC(np->n_mount->sm_share);
+	struct smbnode *np = VTOSMB(vp);
+	struct smbmount *smp = np->n_mount;
 	struct vnode_attr svrva;
 	kauth_acl_t newacl;
 	kauth_acl_t savedacl = NULL;
@@ -2752,6 +2732,7 @@ smbfs_composeacl(struct vnode_attr *vap, vnode_t vp, vfs_context_t context)
 	u_int32_t j;
 	int32_t entries, dupstart, allocated;
 	struct kauth_ace *acep;
+	int unix_info2 = ((UNIX_CAPS(SSTOVC(smp->sm_share)) & UNIX_QFILEINFO_UNIX_INFO2_CAP)) ? TRUE : FALSE;
 
 	/* 
 	 * Here is the deal. This routine is called by smbfs_mkdir and smbfs_create to set the vnode_attr
@@ -2774,26 +2755,31 @@ smbfs_composeacl(struct vnode_attr *vap, vnode_t vp, vfs_context_t context)
 	VATTR_CLEAR_ACTIVE(vap, va_modify_time);
 	VATTR_CLEAR_ACTIVE(vap, va_access_time);
 	VATTR_CLEAR_ACTIVE(vap, va_change_time);
-	/*
-	 * %%% - In the future couldn't we delay all of this until after the open? See Radar 5199099 for more details.
-	 *
-	 * This routine gets called from create. If this is a regular file they could be setting the posix
-	 * file modes to something that doesn't allow them to open the file for the permissions they requested. 
-	 *		Example: open(path, O_WRONLY | O_CREAT | O_EXCL,  0400)
-	 * We only care about this if the server supports setting/getting posix permissions. So if they are not giving the
-	 * owner read/write access then save the settings until after the open. We will just pretend to set them here.
-	 */
-	if (vnode_isreg(vp)  && (VATTR_IS_ACTIVE(vap, va_mode)) && 
-		((vap->va_mode & (S_IRUSR | S_IWUSR)) !=  (S_IRUSR | S_IWUSR)) &&
-		(UNIX_CAPS(vcp) & CIFS_UNIX_POSIX_PATH_OPERATIONS_CAP)) {
-		
-		np->create_va_mode = vap->va_mode;
-		np->set_create_va_mode = TRUE;
-		/* The server should always give us read/write on create */
-		VATTR_SET_SUPPORTED(vap, va_mode);
-		VATTR_CLEAR_ACTIVE(vap, va_mode);
-	 }
-	 
+	
+	if (VATTR_IS_ACTIVE(vap, va_mode)) {
+		/*
+		 * This routine gets called from create. If this is a regular file they 
+		 * could be setting the posix file modes to something that doesn't allow 
+		 * them to open the file with the permissions they requested. 
+		 *		Example: open(path, O_WRONLY | O_CREAT | O_EXCL,  0400)
+		 * We only care about this if the server supports setting/getting posix 
+		 * permissions. So if they are setting the owner with read/write access 
+		 * then save the settings until after the open. We will just pretend to 
+		 * set them here. The following radar will make this a mute point.
+		 *
+		 */
+		if (vnode_isreg(vp)  && unix_info2 && ((vap->va_mode & (S_IRUSR | S_IWUSR)) !=  (S_IRUSR | S_IWUSR))) {
+			np->create_va_mode = vap->va_mode;
+			np->set_create_va_mode = TRUE;
+			/* The server should always give us read/write on create */
+			VATTR_SET_SUPPORTED(vap, va_mode);
+			VATTR_CLEAR_ACTIVE(vap, va_mode);
+		} else if (!unix_info2) {
+			/* We can only set these if the server supports the unix extensions */
+			VATTR_SET_SUPPORTED(vap, va_mode);
+			VATTR_CLEAR_ACTIVE(vap, va_mode);
+		}
+	}
 
 	/*
 	 * To ensure no EA-fallback-ACL gets made by vnode_setattr_fallback...
@@ -2985,6 +2971,8 @@ out:
  * Create a regular file or a "symlink". In the symlink case we will have a target. Depending
  * on the sytle of symlink the target may be just what we set or we may need to encode it into
  * that wacky windows data 
+ *
+ * * The calling routine must hold a reference on the share
  */
 static int smbfs_create(struct vnop_create_args *ap, char *target, size_t targetlen)
 {
@@ -2994,56 +2982,52 @@ static int smbfs_create(struct vnop_create_args *ap, char *target, size_t target
 	struct componentname *cnp = ap->a_cnp;
 	struct smbnode *dnp = VTOSMB(dvp);
 	struct smbmount *smp = VTOSMBFS(dvp);
-	struct smb_vc *vcp = SSTOVC(dnp->n_mount->sm_share);
+	struct smb_share *share = smp->sm_share;
+	struct smb_vc *vcp = SSTOVC(share);
 	vnode_t 	vp;
 	struct smbfattr fattr;
 	const char *name = cnp->cn_nameptr;
 	size_t nmlen = cnp->cn_namelen;
-	int error, cerror;
-	uio_t uio;
-	u_int16_t fid = 0;
+	int error;
 	struct timespec ts;
-	int8_t UnixSymlnk = (UNIX_CAPS(vcp) & CIFS_UNIX_POSIX_PATH_OPERATIONS_CAP);
+	int unix_symlink = ((UNIX_CAPS(vcp) & UNIX_SFILEINFO_UNIX_LINK_CAP)) ? TRUE : FALSE;
 
 	*vpp = NULL;
 	if (vap->va_type != VREG && vap->va_type != VLNK)
 		return (ENOTSUP);
+
+	if (vap->va_type == VLNK) {
+		if (unix_symlink) {
+			error = smbfs_smb_create_unix_symlink(share, dnp, name, nmlen, target, 
+												  targetlen, &fattr , ap->a_context);
+		} else if (smp->sm_flags & MNT_SUPPORTS_REPARSE_SYMLINKS) {
+			error = smbfs_smb_create_reparse_symlink(share, dnp, name, nmlen, target, 
+													 targetlen, &fattr , ap->a_context);
+		} else {
+			error = smbfs_smb_create_windows_symlink(share, dnp, name, nmlen, target, 
+													 targetlen, &fattr , ap->a_context);				
+		}
+	} else {
+		/* Now create the file, sending a null fid pointer will cause it to be closed */
+		error = smbfs_smb_create(dnp, name, nmlen, SMB2_FILE_WRITE_DATA, 
+								 ap->a_context, NULL, NTCREATEX_DISP_CREATE, 0, 
+								 &fattr);
+	}
+	if (error) {
+		if (error == ENOENT) {
+			SMBDEBUG("Creating %s returned ENOENT, resetting to EACCES\n", name);
+			/* 
+			 * Some servers (Samba) support an option called veto. This prevents
+			 * clients from creating or access these files. The server returns
+			 * an ENOENT error in these cases. The VFS layer will loop forever
+			 * if a ENOENT error is returned on create, so we convert this error
+			 * to EACCES.
+			 */
+			error = EACCES;
+		}
+		return (error);
+	}
 	
-	/* UNIX style smylinks are created with a set path info call */
-	if ((vap->va_type == VLNK) && UnixSymlnk)
-		error = smbfs_smb_create_symlink(dnp, name, nmlen, target, targetlen, ap->a_context);
-	else
-		error = smbfs_smb_create(dnp, name, nmlen, SA_RIGHT_FILE_WRITE_DATA, ap->a_context, 
-								 &fid, NTCREATEX_DISP_CREATE, 0, &fattr);
-	if (error)
-		return (error);
-	/* Must be doing one of those wacky fake Windows symlinks. */ 
-	if ((vap->va_type == VLNK) && !UnixSymlnk) {
-		u_int32_t wlen = 0;
-		char *wdata = smbfs_create_windows_symlink_data(target, targetlen, &wlen);
-		
-		uio = uio_create(1, 0, UIO_SYSSPACE, UIO_WRITE);
-		uio_addiov(uio, CAST_USER_ADDR_T(wdata), wlen);
-		error = smb_write(smp->sm_share, fid, uio, ap->a_context, SMBWRTTIMO);
-		uio_free(uio);
-		if (!error)	/* We just changed the size of the file */
-			fattr.fa_size = wlen;
-		FREE(wdata, M_TEMP);
-	}
-	/* If we have a fid then close the file we are done */
-	if (fid) {
-		cerror = smbfs_smb_close(smp->sm_share, fid, ap->a_context);
-		if (cerror)
-			SMBWARNING("error %d closing \"%s/%s\"\n", cerror, dnp->n_name, name);		
-	}
-	if (error)
-		return (error);
- 	/* Old style create call (Windows 98). No attributes returned on the create */
-	if ((vcp->vc_sopt.sv_caps & SMB_CAP_NT_SMBS) != SMB_CAP_NT_SMBS) {
-		error = smbfs_smb_lookup(dnp, &name, &nmlen, &fattr, ap->a_context);
-		if (error)
-			return (error);
-	}
 	smbfs_attr_touchdir(smp->sm_share, dnp);
 	/* 
 	 * %%%
@@ -3067,12 +3051,12 @@ static int smbfs_create(struct vnop_create_args *ap, char *target, size_t target
 	smbfs_composeacl(vap, vp, ap->a_context);
 
 	if (vap->va_type == VLNK) {
+		smbfs_update_symlink_cache(VTOSMB(vp), target, targetlen);
 		VTOSMB(vp)->n_size = targetlen;	/* Set it to the correct size */
-		if (!UnixSymlnk)	/* Mark it as a Windows symlink */
+		if (!unix_symlink)	/* Mark it as a Windows symlink */
 			VTOSMB(vp)->n_flag |= NWINDOWSYMLNK;
 	}
 	*vpp = vp;
-	error = 0;
 	smbnode_unlock(VTOSMB(vp));	/* Done with the smbnode unlock it. */
 	
 	/* Remove any negative cache entries. */
@@ -3348,7 +3332,7 @@ static int smbfs_vnop_rename(struct vnop_rename_args *ap)
 	struct smbnode * lock_order[4] = {NULL};
 	int	lock_cnt = 0;
 	int ii;
-	int unix_extensions = ((UNIX_CAPS(SSTOVC(ssp)) & CIFS_UNIX_POSIX_PATH_OPERATIONS_CAP)) ? TRUE : FALSE;
+	int unix_info2 = ((UNIX_CAPS(SSTOVC(ssp)) & UNIX_QFILEINFO_UNIX_INFO2_CAP)) ? TRUE : FALSE;
 	
 	/* Check for cross-device rename */
 	if ( (vnode_mount(fvp) != vnode_mount(tdvp)) || (tvp && (vnode_mount(fvp) != vnode_mount(tvp))) )
@@ -3438,7 +3422,7 @@ static int smbfs_vnop_rename(struct vnop_rename_args *ap)
 	 * Check to see if the SMB_FA_RDONLY/IMMUTABLE are set. If they are set
 	 * then do not allow the rename. See HFS and AFP code.
 	 */
-	if ((unix_extensions || (!vnode_isdir(fvp))) && (fnp->n_dosattr & SMB_FA_RDONLY)) {
+	if ((unix_info2 || (!vnode_isdir(fvp))) && (fnp->n_dosattr & SMB_FA_RDONLY)) {
 		SMBWARNING( "Delete a locked file: Permissions error\n");
 		error = EPERM;
 		goto out;
@@ -3771,6 +3755,8 @@ static int smbfs_vnop_readlink(struct vnop_readlink_args *ap)
 	struct smbmount *smp = NULL;
 	int error;
 	struct smb_share *ssp = NULL;
+	time_t symlinktimeo;
+	struct timespec ts;
 
 	if (vnode_vtype(vp) != VLNK)
 		return (EINVAL);
@@ -3782,11 +3768,19 @@ static int smbfs_vnop_readlink(struct vnop_readlink_args *ap)
 	np->n_lastvop = smbfs_vnop_readlink;
 	smp = VTOSMBFS(vp);
 	ssp = smp->sm_share;
-		
-	if (np->n_flag & NWINDOWSYMLNK)
-		error = smbfs_windows_readlink(ssp, np, ap->a_uio, ap->a_context);
-	else 
-		error = smbfs_smb_read_symlink(ssp, np, ap->a_uio, ap->a_context);
+	SMB_CACHE_TIME(ts, np, symlinktimeo);
+	
+	if ((np->n_symlink_target) && ((ssp->ss_flags & SMBS_RECONNECTING) || 
+		(symlinktimeo > (ts.tv_sec - np->n_symlink_cache_timer)))) {
+		error = uiomove(np->n_symlink_target, (int)np->n_symlink_target_len, ap->a_uio);
+	} else if ((np->n_dosattr &  SMB_EFA_REPARSE_POINT) && 
+		(np->n_reparse_tag == IO_REPARSE_TAG_SYMLINK)) {
+			error = smbfs_smb_reparse_read_symlink(ssp, np, ap->a_uio, ap->a_context);
+	} else if (np->n_flag & NWINDOWSYMLNK) {
+		error = smbfs_smb_windows_read_symlink(ssp, np, ap->a_uio, ap->a_context);
+	} else {
+		error = smbfs_smb_unix_read_symlink(ssp, np, ap->a_uio, ap->a_context);
+	}
 	
 	smbnode_unlock(np);
 	return (error);
@@ -5579,7 +5573,7 @@ static int smbfs_vnop_setxattr(struct vnop_setxattr_args *ap)
 		 * the open stream file descriptor to change the time remove the directory attribute 
 		 * bit if set.
 		 */
-		(void)smbfs_smb_setfattrNT(np, (np->n_dosattr & ~SMB_FA_DIR), fid, NULL, &ts, NULL, NULL, ap->a_context);
+		(void)smbfs_smb_setfattrNT(np, (np->n_dosattr & ~SMB_FA_DIR), fid, NULL, &ts, NULL, ap->a_context);
 		/* Reset our cache timer and copy the new data into our cache */
 		if (!error) {
 			nanouptime(&ts);
@@ -5620,7 +5614,7 @@ static int smbfs_vnop_setxattr(struct vnop_setxattr_args *ap)
 	 * bit if set.	 
 	 */
 	if ((stype & kResourceFrk) != kResourceFrk)
-		(void)smbfs_smb_setfattrNT(np, (np->n_dosattr & ~SMB_FA_DIR), fid, NULL, &np->n_mtime, NULL, NULL, ap->a_context);
+		(void)smbfs_smb_setfattrNT(np, (np->n_dosattr & ~SMB_FA_DIR), fid, NULL, &np->n_mtime, NULL, ap->a_context);
 	
 out:
 	if (fid)
@@ -5723,9 +5717,6 @@ static int smbfs_vnop_removexattr(struct vnop_removexattr_args *ap)
 	struct smbnode *np = NULL;
 	struct smb_share *ssp = NULL;
 	enum stream_types stype = kNoStream;
-	uio_t afp_uio = NULL;
-	u_int16_t	fid = 0;
-	u_int8_t	afpinfo[60];
 	struct timespec ts;
 
 	DBG_ASSERT(!vnode_isnamedstream(vp));
@@ -5751,42 +5742,72 @@ static int smbfs_vnop_removexattr(struct vnop_removexattr_args *ap)
 		error = EINVAL;	
 		goto exit;		
 	}
-	
-	/* 
-	 * We do not allow them to remove the finder info stream on SFM Volume. It could hold other
-	 * information used by SFM. We just zero out the finder info data. If the volume is
-	 * just a normal NTFS Volume then deleting the stream is ok.
-	 */
-	if ((stype & kFinderInfo) && (ssp->ss_flags & SMBS_SFM_VOLUME)) {
-		u_int32_t	rights = SA_RIGHT_FILE_WRITE_DATA | SA_RIGHT_FILE_READ_DATA | SA_RIGHT_FILE_WRITE_ATTRIBUTES;	
-		
-		afp_uio = uio_create(1, 0, UIO_SYSSPACE, UIO_READ);
-		if (afp_uio) 
+
+	if (stype & kFinderInfo) {
+		if (ssp->ss_flags & SMBS_SFM_VOLUME) {
+			/* 
+			 * We do not allow them to remove the finder info stream on SFM 
+			 * Volume. It could hold other information used by SFM. 
+			 */
+			error = ENOTSUP;
+		} else {
+			/*
+			 * If the volume is just a normal NTFS Volume then deleting the named
+			 * stream should be ok, but some servers (EMC) don't support deleting
+			 * the named stream. In this case see if we can just zero out the
+			 * finder info.
+			 */
+			error = smbfs_smb_delete(np, ap->a_context, sfmname, 
+									 strnlen(sfmname, ssp->ss_maxfilenamelen+1), 1);
+		}
+		/* SFM server or the server doesn't support deleting named streams */
+		if ((error == ENOTSUP) || (error == EINVAL)) {
+			uio_t afp_uio = NULL;
+			u_int8_t	afpinfo[60];
+			u_int16_t	fid = 0;
+			u_int32_t	rights = SA_RIGHT_FILE_WRITE_DATA | SA_RIGHT_FILE_READ_DATA | SA_RIGHT_FILE_WRITE_ATTRIBUTES;	
+			
+			/* 
+			 * Either a SFM volume or the server doesn't support deleting named
+			 * streams. Just zero out the finder info data.
+			 */
+			afp_uio = uio_create(1, 0, UIO_SYSSPACE, UIO_READ);
+			if (!afp_uio) {
+				error = ENOMEM;
+				goto exit;
+			}			
 			error = uio_addiov( afp_uio, CAST_USER_ADDR_T(afpinfo), sizeof(afpinfo));
-		else error = ENOMEM;
-		
-		if (error)
-			goto exit;
-		
-		/* open and read the data */
-		error = smbfs_smb_openread(np, &fid, rights, afp_uio, NULL, sfmname, &ts, ap->a_context);
-		/* clear out the finder info data */
-		bzero(&afpinfo[AFP_INFO_FINDER_OFFSET], FINDERINFOSIZE);
-		
-		if (!error)	/* truncate the stream, this will wake up SFM */
-			error = smbfs_smb_seteof(ssp, fid, 0, ap->a_context); 
-		/* Reset our uio */
-		if (!error) {
-			uio_reset(afp_uio, 0, UIO_SYSSPACE, UIO_WRITE );
-			error = uio_addiov( afp_uio, CAST_USER_ADDR_T(afpinfo), sizeof(afpinfo));
-		}	
-		if (!error)
-			error = smb_write(ssp, fid, afp_uio,ap->a_context, SMBWRTTIMO);
-		/* Try to set the modify time back to the original time, ignore any errors */
-		(void)smbfs_smb_setfattrNT(np, np->n_dosattr, fid, NULL, &ts, NULL, NULL, ap->a_context);
-	}
-	else {
-		error = smbfs_smb_delete(np, ap->a_context, sfmname, strnlen(sfmname, ssp->ss_maxfilenamelen+1), 1);
+			if (error) {
+				uio_free(afp_uio);
+				goto exit;
+			}
+			
+			/* open and read the data */
+			error = smbfs_smb_openread(np, &fid, rights, afp_uio, NULL, 
+									   sfmname, &ts, ap->a_context);
+			/* clear out the finder info data */
+			bzero(&afpinfo[AFP_INFO_FINDER_OFFSET], FINDERINFOSIZE);
+			
+			if (!error)	/* truncate the stream, this will wake up SFM */
+				error = smbfs_smb_seteof(ssp, fid, 0, ap->a_context); 
+			/* Reset our uio */
+			if (!error) {
+				uio_reset(afp_uio, 0, UIO_SYSSPACE, UIO_WRITE );
+				error = uio_addiov( afp_uio, CAST_USER_ADDR_T(afpinfo), sizeof(afpinfo));
+			}	
+			if (!error)
+				error = smb_write(ssp, fid, afp_uio,ap->a_context, SMBWRTTIMO);
+			/* Try to set the modify time back to the original time, ignore any errors */
+			(void)smbfs_smb_setfattrNT(np, np->n_dosattr, fid, NULL, &ts, NULL, ap->a_context);
+			if (fid)
+				(void)smbfs_smb_close(ssp, fid, ap->a_context);
+			if (afp_uio) {
+				uio_free(afp_uio);
+			}
+		}
+	} else {
+		error = smbfs_smb_delete(np, ap->a_context, sfmname, 
+								 strnlen(sfmname, ssp->ss_maxfilenamelen+1), 1);
 	}
 
 	/* If Finder info then reset our cache timer and zero out our cached finder info */
@@ -5797,11 +5818,6 @@ static int smbfs_vnop_removexattr(struct vnop_removexattr_args *ap)
 	}
 	
 exit:
-	if (afp_uio)
-		uio_free(afp_uio);
-	
-	if (fid)
-		(void)smbfs_smb_close(ssp, fid, ap->a_context);
 	
 	if (error == ENOENT)
 		error = ENOATTR;
@@ -6175,7 +6191,6 @@ static int smbfs_vnop_makenamedstream(struct vnop_makenamedstream_args* ap)
 	struct smbnode *np = NULL;
 	int error = 0;
 	struct smbfattr fattr;
-	u_int16_t fid;
 	struct timespec ts;
 	int rsrcfrk = FALSE;
 	size_t max_name_len;
@@ -6205,12 +6220,11 @@ static int smbfs_vnop_makenamedstream(struct vnop_makenamedstream_args* ap)
 		goto exit;
 	}
 	
-	/* Now create the stream */
+	/* Now create the stream, sending a null fid pointer will cause it to be closed */
 	error = smbfs_smb_create(np, streamname, max_name_len, SA_RIGHT_FILE_WRITE_DATA, 
-							 ap->a_context, &fid, NTCREATEX_DISP_OPEN_IF, 1, &fattr);
+							 ap->a_context, NULL, NTCREATEX_DISP_OPEN_IF, 1, &fattr);
 	if (error)
 		goto exit;
-	(void)smbfs_smb_close(smp->sm_share, fid, ap->a_context);
 	
 	error = smbfs_vgetstrm(smp, vp, svpp, &fattr, streamname);
 	if (error == 0) {

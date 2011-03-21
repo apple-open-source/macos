@@ -432,7 +432,7 @@ def svn_fs_path_change2_create(*args):
   return apply(_fs.svn_fs_path_change2_create, args)
 
 def svn_fs_paths_changed2(*args):
-  """svn_fs_paths_changed2(apr_hash_t changed_paths_p, svn_fs_root_t root, apr_pool_t pool) -> svn_error_t"""
+  """svn_fs_paths_changed2(apr_hash_t changed_paths2_p, svn_fs_root_t root, apr_pool_t pool) -> svn_error_t"""
   return apply(_fs.svn_fs_paths_changed2, args)
 
 def svn_fs_paths_changed(*args):

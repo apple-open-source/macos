@@ -270,33 +270,42 @@ void Server::endConnection(Port replyPort)
 	mConnections.erase(it);
 }
 
-
 //
 // Handling dead-port notifications.
 // This receives DPNs for all kinds of ports we're interested in.
 //
 void Server::notifyDeadName(Port port)
 {
-	StLock<Mutex> _(*this);
+	// We need the lock to get a proper iterator on mConnections or mProcesses,
+	// but must release it before we call abort or kill, as these might also
+	// need the server lock
+	
+	StLock<Mutex> serverLock(*this);
 	secdebug("SSports", "port %d is dead", port.port());
     
     // is it a connection?
     PortMap<Connection>::iterator conIt = mConnections.find(port);
     if (conIt != mConnections.end()) {
 		SECURITYD_PORTS_DEAD_CONNECTION(port);
-		conIt->second->abort();
-		mConnections.erase(conIt);
-        return;
+        RefPointer<Connection> con = conIt->second;
+        mConnections.erase(conIt);
+        serverLock.unlock();
+		con->abort();        
+		return;
     }
     
     // is it a process?
     PortMap<Process>::iterator procIt = mProcesses.find(port);
     if (procIt != mProcesses.end()) {
 		SECURITYD_PORTS_DEAD_PROCESS(port);
-		Process *proc = procIt->second;
+        RefPointer<Process> proc = procIt->second;
+        mPids.erase(proc->pid());
+        mProcesses.erase(procIt);
+        serverLock.unlock();
+		// The kill may take some time; make sure there is a spare thread around
+		// to prevent deadlocks
+		StLock<MachServer, &Server::busy, &Server::idle> _(*this);
 		proc->kill();
-		mPids.erase(proc->pid());
-		mProcesses.erase(procIt);
         return;
     }
     

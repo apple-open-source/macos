@@ -35,7 +35,7 @@ namespace WebCore {
 
 using namespace HTMLNames;
 
-typedef HashMap<RefPtr<AtomicStringImpl>, CounterNode*> CounterMap;
+typedef HashMap<RefPtr<AtomicStringImpl>, RefPtr<CounterNode> > CounterMap;
 typedef HashMap<const RenderObject*, CounterMap*> CounterMaps;
 
 static CounterNode* makeCounterNode(RenderObject*, const AtomicString& identifier, bool alwaysCreateCounter);
@@ -136,6 +136,11 @@ static bool findPlaceForCounter(RenderObject* counterOwner, const AtomicString& 
     RenderObject* currentRenderer = counterOwner->previousInPreOrder();
     previousSibling = 0;
     while (currentRenderer) {
+        // A sibling without a parent means that the counter node tree was not constructed correctly so we stop
+        // traversing. In the future RenderCounter should handle RenderObjects that are not connected to the
+        // render tree at counter node creation. See bug 43812.
+        if (previousSibling && !previousSibling->parent())
+            return false;
         CounterNode* currentCounter = makeCounterNode(currentRenderer, identifier, false);
         if (searchEndRenderer == currentRenderer) {
             // We may be at the end of our search.
@@ -230,10 +235,12 @@ static CounterNode* makeCounterNode(RenderObject* object, const AtomicString& id
 {
     ASSERT(object);
 
-    if (object->m_hasCounterNodeMap)
-        if (CounterMap* nodeMap = counterMaps().get(object))
-            if (CounterNode* node = nodeMap->get(identifier.impl()))
+    if (object->m_hasCounterNodeMap) {
+        if (CounterMap* nodeMap = counterMaps().get(object)) {
+            if (CounterNode* node = nodeMap->get(identifier.impl()).get())
                 return node;
+        }
+    }
 
     bool isReset = false;
     int value = 0;
@@ -242,9 +249,9 @@ static CounterNode* makeCounterNode(RenderObject* object, const AtomicString& id
 
     CounterNode* newParent = 0;
     CounterNode* newPreviousSibling = 0;
-    CounterNode* newNode = new CounterNode(object, isReset, value);
+    RefPtr<CounterNode> newNode = CounterNode::create(object, isReset, value);
     if (findPlaceForCounter(object, identifier, isReset, newParent, newPreviousSibling))
-        newParent->insertAfter(newNode, newPreviousSibling, identifier);
+        newParent->insertAfter(newNode.get(), newPreviousSibling, identifier);
     CounterMap* nodeMap;
     if (object->m_hasCounterNodeMap)
         nodeMap = counterMaps().get(object);
@@ -255,7 +262,7 @@ static CounterNode* makeCounterNode(RenderObject* object, const AtomicString& id
     }
     nodeMap->set(identifier.impl(), newNode);
     if (newNode->parent() || !object->nextInPreOrder(object->parent()))
-        return newNode;
+        return newNode.get();
     // Checking if some nodes that were previously counter tree root nodes
     // should become children of this node now.
     CounterMaps& maps = counterMaps();
@@ -263,7 +270,7 @@ static CounterNode* makeCounterNode(RenderObject* object, const AtomicString& id
     for (RenderObject* currentRenderer = object->nextInPreOrder(stayWithin); currentRenderer; currentRenderer = currentRenderer->nextInPreOrder(stayWithin)) {
         if (!currentRenderer->m_hasCounterNodeMap)
             continue;
-        CounterNode* currentCounter = maps.get(currentRenderer)->get(identifier.impl());
+        CounterNode* currentCounter = maps.get(currentRenderer)->get(identifier.impl()).get();
         if (!currentCounter)
             continue;
         if (currentCounter->parent()) {
@@ -277,7 +284,7 @@ static CounterNode* makeCounterNode(RenderObject* object, const AtomicString& id
         if (currentRenderer->lastChild())
             currentRenderer = currentRenderer->lastChild();
     }
-    return newNode;
+    return newNode.get();
 }
 
 RenderCounter::RenderCounter(Document* node, const CounterContent& counter)
@@ -340,9 +347,9 @@ void RenderCounter::invalidate(const AtomicString& identifier)
 static void destroyCounterNodeWithoutMapRemoval(const AtomicString& identifier, CounterNode* node)
 {
     CounterNode* previous;
-    for (CounterNode* child = node->lastDescendant(); child && child != node; child = previous) {
+    for (RefPtr<CounterNode> child = node->lastDescendant(); child && child != node; child = previous) {
         previous = child->previousInPreOrder();
-        child->parent()->removeChild(child, identifier);
+        child->parent()->removeChild(child.get(), identifier);
         ASSERT(counterMaps().get(child->renderer())->get(identifier.impl()) == child);
         counterMaps().get(child->renderer())->remove(identifier.impl());
         if (!child->renderer()->documentBeingDestroyed()) {
@@ -350,7 +357,6 @@ static void destroyCounterNodeWithoutMapRemoval(const AtomicString& identifier, 
             if (children)
                 children->invalidateCounters(child->renderer(), identifier);
         }
-        delete child;
     }
     RenderObject* renderer = node->renderer();
     if (!renderer->documentBeingDestroyed()) {
@@ -359,7 +365,6 @@ static void destroyCounterNodeWithoutMapRemoval(const AtomicString& identifier, 
     }
     if (CounterNode* parent = node->parent())
         parent->removeChild(node, identifier);
-    delete node;
 }
 
 void RenderCounter::destroyCounterNodes(RenderObject* renderer)
@@ -372,7 +377,7 @@ void RenderCounter::destroyCounterNodes(RenderObject* renderer)
     CounterMap::const_iterator end = map->end();
     for (CounterMap::const_iterator it = map->begin(); it != end; ++it) {
         AtomicString identifier(it->first.get());
-        destroyCounterNodeWithoutMapRemoval(identifier, it->second);
+        destroyCounterNodeWithoutMapRemoval(identifier, it->second.get());
     }
     maps.remove(mapsIterator);
     delete map;
@@ -387,7 +392,7 @@ void RenderCounter::destroyCounterNode(RenderObject* renderer, const AtomicStrin
     CounterMap::iterator mapIterator = map->find(identifier.impl());
     if (mapIterator == map->end())
         return;
-    destroyCounterNodeWithoutMapRemoval(identifier, mapIterator->second);
+    destroyCounterNodeWithoutMapRemoval(identifier, mapIterator->second.get());
     map->remove(mapIterator);
     // We do not delete "map" here even if empty because we expect to reuse
     // it soon. In order for a renderer to lose all its counters permanently,
@@ -417,21 +422,24 @@ static void updateCounters(RenderObject* renderer)
     CounterMap* counterMap = counterMaps().get(renderer);
     ASSERT(counterMap);
     for (CounterDirectiveMap::const_iterator it = directiveMap->begin(); it != end; ++it) {
-        CounterNode* node = counterMap->get(it->first.get());
+        RefPtr<CounterNode> node = counterMap->get(it->first.get());
         if (!node) {
             makeCounterNode(renderer, AtomicString(it->first.get()), false);
             continue;
         }
         CounterNode* newParent = 0;
         CounterNode* newPreviousSibling;
+        
         findPlaceForCounter(renderer, AtomicString(it->first.get()), node->hasResetType(), newParent, newPreviousSibling);
+        if (node != counterMap->get(it->first.get()))
+            continue;
         CounterNode* parent = node->parent();
         if (newParent == parent && newPreviousSibling == node->previousSibling())
             continue;
         if (parent)
-            parent->removeChild(node, it->first.get());
+            parent->removeChild(node.get(), it->first.get());
         if (newParent)
-            newParent->insertAfter(node, newPreviousSibling, it->first.get());
+            newParent->insertAfter(node.get(), newPreviousSibling, it->first.get());
     }
 }
 

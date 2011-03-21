@@ -82,7 +82,6 @@ mlrpc_find_service_by_name(const char *name)
 		if (strcasecmp(name, msvc->name) != 0)
 			continue;
 
-		mlndo_printf(0, 0, "%s %s", msvc->name, msvc->desc);
 		return (msvc);
 	}
 
@@ -132,7 +131,6 @@ mlrpc_find_service_by_uuids(ndr_uuid_t *as_uuid, int as_vers,
 				continue;
 		}
 
-		mlndo_printf(0, 0, "%s %s", msvc->name, msvc->desc);
 		return (msvc);
 	}
 

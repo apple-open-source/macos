@@ -1,2 +1,0 @@
-%(member)s je odjavljen sa %(listname)s.
-

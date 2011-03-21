@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003-2009 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2003-2010 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -101,21 +101,21 @@ const command commands[] =
 	  "Show all commands, or show usage for a command." },
     
 	{ "list-keychains", keychain_list,
-	  "[-d user|system|common|alternate] [-s [keychain...]]\n"
+	  "[-d user|system|common|dynamic] [-s [keychain...]]\n"
 	  "    -d  Use the specified preference domain\n"
 	  "    -s  Set the search list to the specified keychains\n"
 	  "With no parameters, display the search list.",
 	  "Display or manipulate the keychain search list." },
 
 	{ "default-keychain", keychain_default,
-	  "[-d user|system|common|alternate] [-s [keychain]]\n"
+	  "[-d user|system|common|dynamic] [-s [keychain]]\n"
 	  "    -d  Use the specified preference domain\n"
 	  "    -s  Set the default keychain to the specified keychain\n"
 	  "With no parameters, display the default keychain.",
 	  "Display or set the default keychain." },
 
 	{ "login-keychain", keychain_login,
-	  "[-d user|system|common|alternate] [-s [keychain]]\n"
+	  "[-d user|system|common|dynamic] [-s [keychain]]\n"
 	  "    -d  Use the specified preference domain\n"
 	  "    -s  Set the login keychain to the specified keychain\n"
 	  "With no parameters, display the login keychain.",
@@ -266,6 +266,19 @@ const command commands[] =
 	  "If no keychains are specified to search, the default search list is used.",
 	  "Find a generic password item."},
 
+	{ "delete-generic-password", keychain_delete_generic_password,
+		"[-a account] [-s service] [options...] keychain...]\n"
+		"    -a  Match \"account\" string\n"
+		"    -c  Match \"creator\" (four-character code)\n"
+		"    -C  Match \"type\" (four-character code)\n"
+		"    -D  Match \"kind\" string\n"
+		"    -G  Match \"value\" string (generic attribute)\n"
+		"    -j  Match \"comment\" string\n"
+		"    -l  Match \"label\" string\n"
+		"    -s  Match \"service\" string\n"
+		"If no keychains are specified to search, the default search list is used.",
+		"Delete a generic password item."},
+
 	{ "find-internet-password", keychain_find_internet_password,
 	  "[-a account] [-s server] [options...] [-g] [keychain...]\n"
 	  "    -a  Match \"account\" string\n"
@@ -283,6 +296,23 @@ const command commands[] =
 	  "    -g  Display the password for the item found\n"
 	  "If no keychains are specified to search, the default search list is used.",
 	  "Find an internet password item."},
+
+	{ "delete-internet-password", keychain_delete_internet_password,
+		"[-a account] [-s server] [options...] [keychain...]\n"
+		"    -a  Match \"account\" string\n"
+		"    -c  Match \"creator\" (four-character code)\n"
+		"    -C  Match \"type\" (four-character code)\n"
+		"    -d  Match \"securityDomain\" string\n"
+		"    -D  Match \"kind\" string\n"
+		"    -j  Match \"comment\" string\n"
+		"    -l  Match \"label\" string\n"
+		"    -p  Match \"path\" string\n"
+		"    -P  Match port number\n"
+		"    -r  Match \"protocol\" (four-character code)\n"
+		"    -s  Match \"server\" string\n"
+		"    -t  Match \"authenticationType\" (four-character code)\n"
+		"If no keychains are specified to search, the default search list is used.",
+		"Delete an internet password item."},
 
 	{ "find-certificate", keychain_find_certificate,
 	  "[-a] [-c name] [-e emailAddress] [-m] [-p] [-Z] [keychain...]\n"
@@ -317,7 +347,8 @@ const command commands[] =
 	  "Delete a certificate from a keychain."},
 
 	{ "set-identity-preference", set_identity_preference,
-	  "[-c identity] [-s service] [-u keyUsage] [-Z hash] [keychain...]\n"
+	  "[-n] [-c identity] [-s service] [-u keyUsage] [-Z hash] [keychain...]\n"
+	  "    -n  Specify no identity (clears existing preference for service)\n"
 	  "    -c  Specify identity by common name of the certificate\n"
 	  "    -s  Specify service (may be a URL, RFC822 email address, DNS host, or\n"
 	  "        other name) for which this identity is to be preferred\n"
@@ -481,6 +512,7 @@ const command commands[] =
 	  "                              pkgSign, pkinitClient, pkinitServer, eap, macappstore); default is basic.\n"
 	  "    -k keychain         Keychain. Can be called multiple times. Default is default search list.\n"
 	  "    -n                  No keychain search list.\n"
+	  "    -L                  Local certificates only (do not try to fetch missing CA certs from net).\n"
 	  "    -l                  Leaf cert is a CA (normally an error, unless this option is given).\n"
 	  "    -e emailAddress     Email address for smime policy.\n"
 	  "    -s sslHost          SSL host name for ssl policy.\n"

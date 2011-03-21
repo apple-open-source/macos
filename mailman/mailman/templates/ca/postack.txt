@@ -1,7 +1,0 @@
-La llista de correu %(listname)s ha rebut correctament el vostre missatge
-anomenat
-
-    %(subject)s
-
-Pàgina d'informació de la llista: %(listinfo_url)s.
-Les vostres preferències: %(optionsurl)s.

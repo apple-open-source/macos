@@ -23,10 +23,10 @@
 # history and logs, available at http://subversion.tigris.org/.
 # ====================================================================
 
-# $HeadURL: http://svn.collab.net/repos/svn/branches/1.6.x/tools/backup/hot-backup.py.in $
+# $HeadURL: http://svn.apache.org/repos/asf/subversion/branches/1.6.x/tools/backup/hot-backup.py.in $
 # $LastChangedDate: 2009-01-25 06:09:04 +0000 (Sun, 25 Jan 2009) $
 # $LastChangedBy: arfrever $
-# $LastChangedRevision: 35454 $
+# $LastChangedRevision: 875528 $
 
 ######################################################################
 

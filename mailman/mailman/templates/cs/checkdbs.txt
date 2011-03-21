@@ -1,7 +1,0 @@
-Konference %(real_name)s@%(host_name)s má %(count)d po¾adavkù, které
-èekají na Va¹e rozhodnutí na:
-
-	%(adminDB)s
-	
-Prosím, rozhodnìte co nejdøíve o osudu èekajících po¾adavkù. Tato zpráva
-je zasílána jednou dennì, pokud nìjaké po¾adavky èekají na vyøízení.

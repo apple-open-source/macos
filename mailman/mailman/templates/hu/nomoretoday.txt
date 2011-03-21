@@ -1,8 +1,0 @@
-A(z) %(listname)s levelezõlista automatikus válaszokat küldõ címére
-a(z) `%(sender)s' címrõl ma már %(num)s üzenetet kaptunk.
-Ezek az üzenetek, lehet hogy egymásra hivatkozó levelek
-(mail loops), ezért a mai napon több automatikus válaszlevelet nem
-küldünk el neked. Kérünk holnap próbálkozz újra. 
-
-Ha úgy gondolod, hogy mi tévedtünk, vagy egyéb észrevételed van,
-akkor írj a lista tulajdonosának a(z) %(owneremail)s címre. 

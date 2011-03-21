@@ -1,8 +1,0 @@
-Recebemos uma mensagem do seu endereço `%(sender)s' pedindo uma
-resposta automática através da lista %(listname)s. Já recebemos %(num)s 
-mensagens dessas, da sua parte, hoje. Para evitar problemas tais como ciclos
-fechados entre respondedores automáticos, não lhe enviaremos mais respostas 
-hoje. Por favor tente de novo amanhã.
-
-Se pensa que esta mensagem está enganada, ou se tem questões a colocar,
-por favor contacte o dono da lista em %(owneremail)s.

@@ -6,10 +6,10 @@
 	<string>nofs</string>
 	<key>FSPersonalities</key>
 	<dict>
-		<key>ZFS (Not Mountable)</key>
+		<key>CoreStorage (Not Mountable)</key>
 		<dict>
 			<key>FSName</key>
-			<string>ZFS File System</string>
+			<string>Incompatible Format</string>
 		</dict>
 	</dict>
 </dict>

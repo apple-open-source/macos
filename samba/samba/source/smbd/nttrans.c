@@ -2489,6 +2489,7 @@ static int call_nt_transact_ioctl(connection_struct *conn, char *inbuf, char *ou
 		 */
 		DOM_SID sid;
 		uid_t uid;
+		BOOL ret;
 		size_t sid_len = MIN(data_count-4,SID_MAX_SIZE);
 		
 		DEBUG(10,("FSCTL_FIND_FILES_BY_SID: called on FID[0x%04X]\n",fidnum));
@@ -2498,7 +2499,13 @@ static int call_nt_transact_ioctl(connection_struct *conn, char *inbuf, char *ou
 		/* unknown 4 bytes: this is not the length of the sid :-(  */
 		/*unknown = IVAL(pdata,0);*/
 		
-		sid_parse(pdata+4,sid_len,&sid);
+		ret = sid_parse(pdata+4,sid_len,&sid);
+
+		if (ret == False) {
+			DEBUG(0,("FSCTL_FIND_FILES_BY_SID: sid_parse() failed\n"));
+			return ERROR_NT(NT_STATUS_INVALID_PARAMETER);
+		}
+
 		DEBUGADD(10,("for SID: %s\n",sid_string_static(&sid)));
 
 		if (!sid_to_uid(&sid, &uid)) {
@@ -2736,7 +2743,13 @@ static int call_nt_transact_get_user_quota(connection_struct *conn, char *inbuf,
 				break;
 			}
 
-			sid_parse(pdata+8,sid_len,&sid);
+			BOOL ret;
+			ret = sid_parse(pdata+8,sid_len,&sid);
+
+			if (ret == False) {
+				DEBUG(0,("TRANSACT_GET_USER_QUOTA_FOR_SID: sid_parse() failed\n"));
+				return ERROR_DOS(ERRDOS,ERRinvalidparam);
+			}
 		
 			if (vfs_get_ntquota(fsp, SMB_USER_QUOTA_TYPE, &sid, &qt)!=0) {
 				ZERO_STRUCT(qt);
@@ -2815,6 +2828,7 @@ static int call_nt_transact_set_user_quota(connection_struct *conn, char *inbuf,
 	size_t sid_len;
 	DOM_SID sid;
 	files_struct *fsp = NULL;
+	BOOL ret = False;
 
 	ZERO_STRUCT(qt);
 
@@ -2902,7 +2916,13 @@ static int call_nt_transact_set_user_quota(connection_struct *conn, char *inbuf,
 	}
 #endif /* LARGE_SMB_OFF_T */
 	
-	sid_parse(pdata+40,sid_len,&sid);
+	ret = sid_parse(pdata+40,sid_len,&sid);
+
+	if (ret == False) {
+		DEBUG(0,("TRANSACT_SET_USER_QUOTA: sid_parse() failed\n"));
+		return ERROR_DOS(ERRDOS,ERRinvalidparam);
+	}
+
 	DEBUGADD(8,("SID: %s\n",sid_string_static(&sid)));
 
 	/* 44 unknown bytes left... */

@@ -54,8 +54,8 @@
 #   on dll's shipped as part of the Subversion binaries, if the script cannot
 #   load the _fs dll it is because it cannot find the other Subversion dll's.
 #
-# $HeadURL: http://svn.collab.net/repos/svn/branches/1.6.x/contrib/hook-scripts/case-insensitive.py $
-# $LastChangedRevision: 27260 $
+# $HeadURL: http://svn.apache.org/repos/asf/subversion/branches/1.6.x/contrib/hook-scripts/case-insensitive.py $
+# $LastChangedRevision: 867334 $
 # $LastChangedDate: 2007-10-17 22:04:06 +0000 (Wed, 17 Oct 2007) $
 # $LastChangedBy: philip $
 

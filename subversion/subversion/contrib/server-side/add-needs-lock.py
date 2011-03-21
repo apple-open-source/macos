@@ -28,10 +28,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-# $HeadURL: http://svn.collab.net/repos/svn/branches/1.6.x/contrib/server-side/add-needs-lock.py $
+# $HeadURL: http://svn.apache.org/repos/asf/subversion/branches/1.6.x/contrib/server-side/add-needs-lock.py $
 # $LastChangedDate: 2008-07-30 15:08:35 +0000 (Wed, 30 Jul 2008) $
 # $LastChangedBy: blair $
-# $LastChangedRevision: 32334 $
+# $LastChangedRevision: 872408 $
 
 import sys
 import os

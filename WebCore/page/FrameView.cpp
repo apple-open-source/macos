@@ -188,7 +188,7 @@ void FrameView::reset()
     m_delayedLayout = false;
     m_doFullRepaint = true;
     m_layoutSchedulingEnabled = true;
-    m_midLayout = false;
+    m_inLayout = false;
     m_layoutCount = 0;
     m_nestedLayoutCount = 0;
     m_postLayoutTasksTimer.stop();
@@ -260,11 +260,11 @@ void FrameView::detachCustomScrollbars()
         return;
 
     Scrollbar* horizontalBar = horizontalScrollbar();
-    if (horizontalBar && horizontalBar->isCustomScrollbar() && !toRenderScrollbar(horizontalBar)->owningRenderer()->isRenderPart())
+    if (horizontalBar && horizontalBar->isCustomScrollbar())
         setHasHorizontalScrollbar(false);
 
     Scrollbar* verticalBar = verticalScrollbar();
-    if (verticalBar && verticalBar->isCustomScrollbar() && !toRenderScrollbar(verticalBar)->owningRenderer()->isRenderPart())
+    if (verticalBar && verticalBar->isCustomScrollbar())
         setHasVerticalScrollbar(false);
 
     if (m_scrollCorner) {
@@ -377,7 +377,7 @@ PassRefPtr<Scrollbar> FrameView::createScrollbar(ScrollbarOrientation orientatio
     // If we have an owning iframe/frame element, then it can set the custom scrollbar also.
     RenderPart* frameRenderer = m_frame->ownerRenderer();
     if (frameRenderer && frameRenderer->style()->hasPseudoStyle(SCROLLBAR))
-        return RenderScrollbar::createCustomScrollbar(this, orientation, frameRenderer);
+        return RenderScrollbar::createCustomScrollbar(this, orientation, 0, m_frame.get());
     
     // Nobody set a custom style, so we just use a native scrollbar.
     return ScrollView::createScrollbar(orientation);
@@ -496,10 +496,15 @@ bool FrameView::isEnclosedInCompositingLayer() const
 {
 #if USE(ACCELERATED_COMPOSITING)
     RenderObject* frameOwnerRenderer = m_frame->ownerRenderer();
-    return frameOwnerRenderer && frameOwnerRenderer->containerForRepaint();
-#else
-    return false;
+    if (frameOwnerRenderer && frameOwnerRenderer->containerForRepaint())
+        return true;
+
+    if (Frame* parentFrame = m_frame->tree()->parent()) {
+        if (FrameView* parentView = parentFrame->view())
+            return parentView->isEnclosedInCompositingLayer();
+    }
 #endif
+    return false;
 }
 
 bool FrameView::syncCompositingStateRecursive()
@@ -510,10 +515,10 @@ bool FrameView::syncCompositingStateRecursive()
     if (!contentRenderer)
         return true;    // We don't want to keep trying to update layers if we have no renderer.
 
-    if (m_layoutTimer.isActive()) {
-        // Don't sync layers if there's a layout pending.
+    // If we sync compositing layers when a layout is pending, we may cause painting of compositing
+    // layer content to occur before layout has happened, which will cause paintContents() to bail.
+    if (needsLayout())
         return false;
-    }
     
     if (GraphicsLayer* rootLayer = contentRenderer->compositor()->rootPlatformLayer())
         rootLayer->syncCompositingState();
@@ -568,7 +573,7 @@ RenderObject* FrameView::layoutRoot(bool onlyDuringLayout) const
 
 void FrameView::layout(bool allowSubtree)
 {
-    if (m_midLayout)
+    if (m_inLayout)
         return;
 
     m_layoutTimer.stop();
@@ -621,14 +626,14 @@ void FrameView::layout(bool allowSubtree)
     // Viewport-dependent media queries may cause us to need completely different style information.
     // Check that here.
     if (document->styleSelector()->affectedByViewportChange())
-        document->updateStyleSelector();
+        document->styleSelectorChanged(RecalcStyleImmediately);
 
     // Always ensure our style info is up-to-date.  This can happen in situations where
     // the layout beats any sort of style recalc update that needs to occur.
     if (m_frame->needsReapplyStyles())
         m_frame->reapplyStyles();
-    else if (document->childNeedsStyleRecalc())
-        document->recalcStyle();
+    else
+        document->updateStyleIfNeeded();
     
     bool subtree = m_layoutRoot;
 
@@ -740,11 +745,11 @@ void FrameView::layout(bool allowSubtree)
             view->disableLayoutState();
     }
         
-    m_midLayout = true;
+    m_inLayout = true;
     beginDeferredRepaints();
     root->layout();
     endDeferredRepaints();
-    m_midLayout = false;
+    m_inLayout = false;
 
     if (subtree) {
         RenderView* view = root->view();
@@ -904,6 +909,7 @@ void FrameView::removeFixedObject()
     --m_fixedObjectCount;
 }
 
+// Note that this gets called at painting time.
 void FrameView::setIsOverlapped(bool isOverlapped)
 {
     if (isOverlapped == m_isOverlapped)
@@ -914,10 +920,15 @@ void FrameView::setIsOverlapped(bool isOverlapped)
     
 #if USE(ACCELERATED_COMPOSITING)
     // Overlap can affect compositing tests, so if it changes, we need to trigger
-    // a recalcStyle in the parent document.
+    // a layer update in the parent document.
     if (hasCompositedContent()) {
-        if (Element* ownerElement = m_frame->document()->ownerElement())
-            ownerElement->setNeedsStyleRecalc(SyntheticStyleChange);
+        if (Frame* parentFrame = m_frame->tree()->parent()) {
+            if (RenderView* parentView = parentFrame->contentRenderer()) {
+                RenderLayerCompositor* compositor = parentView->compositor();
+                compositor->setCompositingLayersNeedRebuild();
+                compositor->scheduleCompositingLayerUpdate();
+            }
+        }
     }
 #endif    
 }
@@ -982,8 +993,11 @@ bool FrameView::scrollToAnchor(const String& name)
             if (anchorNode && anchorNode->hasTagName(SVGNames::viewTag)) {
                 RefPtr<SVGViewElement> viewElement = anchorNode->hasTagName(SVGNames::viewTag) ? static_cast<SVGViewElement*>(anchorNode) : 0;
                 if (viewElement.get()) {
-                    RefPtr<SVGSVGElement> svg = static_cast<SVGSVGElement*>(SVGLocatable::nearestViewportElement(viewElement.get()));
-                    svg->inheritViewAttributes(viewElement.get());
+                    SVGElement* element = SVGLocatable::nearestViewportElement(viewElement.get());
+                    if (element->hasTagName(SVGNames::svgTag)) {
+                        RefPtr<SVGSVGElement> svg = static_cast<SVGSVGElement*>(element);
+                        svg->inheritViewAttributes(viewElement.get());
+                    }
                 }
             }
         }
@@ -1840,13 +1854,6 @@ void FrameView::paintContents(GraphicsContext* p, const IntRect& rect)
     }
 #endif
 
-    ASSERT(!m_isPainting);
-        
-    m_isPainting = true;
-        
-    // m_nodeToDraw is used to draw only one element (and its descendants)
-    RenderObject* eltRenderer = m_nodeToDraw ? m_nodeToDraw->renderer() : 0;
-
     PaintBehavior oldPaintBehavior = m_paintBehavior;
     if (m_paintBehavior == PaintBehaviorNormal)
         document->invalidateRenderedRectsForMarkersInRect(rect);
@@ -1854,11 +1861,25 @@ void FrameView::paintContents(GraphicsContext* p, const IntRect& rect)
     if (document->printing())
         m_paintBehavior |= PaintBehaviorFlattenCompositingLayers;
 
+    bool flatteningPaint = m_paintBehavior & PaintBehaviorFlattenCompositingLayers;
+    bool isRootFrame = !document->ownerElement();
+    if (flatteningPaint && isRootFrame)
+        notifyWidgetsInAllFrames(WillPaintFlattened);
+
+    ASSERT(!m_isPainting);
+    m_isPainting = true;
+
+    // m_nodeToDraw is used to draw only one element (and its descendants)
+    RenderObject* eltRenderer = m_nodeToDraw ? m_nodeToDraw->renderer() : 0;
+
     contentRenderer->layer()->paint(p, rect, m_paintBehavior, eltRenderer);
-    
-    m_paintBehavior = oldPaintBehavior;
-    
+
     m_isPainting = false;
+
+    if (flatteningPaint && isRootFrame)
+        notifyWidgetsInAllFrames(DidPaintFlattened);
+
+    m_paintBehavior = oldPaintBehavior;
     m_lastPaintTime = currentTime();
 
 #if ENABLE(DASHBOARD_SUPPORT)
@@ -2123,6 +2144,14 @@ IntPoint FrameView::convertFromContainingView(const IntPoint& parentPoint) const
     }
     
     return parentPoint;
+}
+
+void FrameView::notifyWidgetsInAllFrames(WidgetNotification notification)
+{
+    for (Frame* frame = m_frame.get(); frame; frame = frame->tree()->traverseNext(m_frame.get())) {
+        if (RenderView* root = frame->contentRenderer())
+            root->notifyWidgets(notification);
+    }
 }
 
 } // namespace WebCore

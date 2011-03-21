@@ -25,6 +25,7 @@
 #include "config.h"
 #include "Node.h"
 
+#include "AXObjectCache.h"
 #include "Attr.h"
 #include "CSSParser.h"
 #include "CSSRule.h"
@@ -374,6 +375,9 @@ Node::~Node()
     if (renderer())
         detach();
 
+    if (AXObjectCache::accessibilityEnabled() && m_document && m_document->axObjectCacheExists())
+        m_document->axObjectCache()->removeNodeForUse(this);
+    
     if (m_previous)
         m_previous->setNextSibling(0);
     if (m_next)
@@ -431,8 +435,10 @@ void Node::setDocument(Document* document)
         document->addNodeListCache();
     }
 
-    if (m_document)
+    if (m_document) {
+        m_document->moveNodeIteratorsToNewDocument(this, document);
         m_document->selfOnlyDeref();
+    }
 
     m_document = document;
 
@@ -2961,7 +2967,7 @@ void Node::defaultEventHandler(Event* event)
             if (Frame* frame = document()->frame())
                 frame->eventHandler()->defaultTextInputEventHandler(static_cast<TextEvent*>(event));
 #if ENABLE(PAN_SCROLLING)
-    } else if (eventType == eventNames().mousedownEvent) {
+    } else if (eventType == eventNames().mousedownEvent && event->isMouseEvent()) {
         MouseEvent* mouseEvent = static_cast<MouseEvent*>(event);
         if (mouseEvent->button() == MiddleButton) {
             if (enclosingLinkEventParentOrSelf())

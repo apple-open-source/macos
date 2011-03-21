@@ -1,1241 +1,523 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-	<key>archiveVersion</key>
-	<string>1</string>
-	<key>classes</key>
-	<dict/>
-	<key>objectVersion</key>
-	<string>42</string>
-	<key>objects</key>
-	<dict>
-		<key>05396DB50417A34400003D05</key>
-		<dict>
-			<key>fileEncoding</key>
-			<string>4</string>
-			<key>isa</key>
-			<string>PBXFileReference</string>
-			<key>lastKnownFileType</key>
-			<string>sourcecode.cpp.cpp</string>
-			<key>path</key>
-			<string>pkcs12BagAttrs.cpp</string>
-			<key>sourceTree</key>
-			<string>&lt;group&gt;</string>
-		</dict>
-		<key>05396DB60417A34400003D05</key>
-		<dict>
-			<key>fileRef</key>
-			<string>05396DB50417A34400003D05</string>
-			<key>isa</key>
-			<string>PBXBuildFile</string>
-		</dict>
-		<key>05396DB90417B81000003D05</key>
-		<dict>
-			<key>fileEncoding</key>
-			<string>4</string>
-			<key>isa</key>
-			<string>PBXFileReference</string>
-			<key>lastKnownFileType</key>
-			<string>sourcecode.c.h</string>
-			<key>path</key>
-			<string>pkcs12Debug.h</string>
-			<key>sourceTree</key>
-			<string>&lt;group&gt;</string>
-		</dict>
-		<key>05396DBA0417B81000003D05</key>
-		<dict>
-			<key>fileRef</key>
-			<string>05396DB90417B81000003D05</string>
-			<key>isa</key>
-			<string>PBXBuildFile</string>
-		</dict>
-		<key>054289210416A4EA00003D05</key>
-		<dict>
-			<key>fileEncoding</key>
-			<string>4</string>
-			<key>isa</key>
-			<string>PBXFileReference</string>
-			<key>lastKnownFileType</key>
-			<string>sourcecode.c.h</string>
-			<key>path</key>
-			<string>pkcs12SafeBag.h</string>
-			<key>sourceTree</key>
-			<string>&lt;group&gt;</string>
-		</dict>
-		<key>054289220416A4EA00003D05</key>
-		<dict>
-			<key>fileRef</key>
-			<string>054289210416A4EA00003D05</string>
-			<key>isa</key>
-			<string>PBXBuildFile</string>
-		</dict>
-		<key>054289230416A5A800003D05</key>
-		<dict>
-			<key>fileEncoding</key>
-			<string>4</string>
-			<key>isa</key>
-			<string>PBXFileReference</string>
-			<key>lastKnownFileType</key>
-			<string>sourcecode.c.h</string>
-			<key>path</key>
-			<string>pkcs12BagAttrs.h</string>
-			<key>sourceTree</key>
-			<string>&lt;group&gt;</string>
-		</dict>
-		<key>054289240416A5A800003D05</key>
-		<dict>
-			<key>fileRef</key>
-			<string>054289230416A5A800003D05</string>
-			<key>isa</key>
-			<string>PBXBuildFile</string>
-		</dict>
-		<key>054289250416AA2F00003D05</key>
-		<dict>
-			<key>fileEncoding</key>
-			<string>4</string>
-			<key>isa</key>
-			<string>PBXFileReference</string>
-			<key>lastKnownFileType</key>
-			<string>sourcecode.c.h</string>
-			<key>path</key>
-			<string>pkcs12Coder.h</string>
-			<key>sourceTree</key>
-			<string>&lt;group&gt;</string>
-		</dict>
-		<key>054289260416AA2F00003D05</key>
-		<dict>
-			<key>fileRef</key>
-			<string>054289250416AA2F00003D05</string>
-			<key>isa</key>
-			<string>PBXBuildFile</string>
-		</dict>
-		<key>054289270416AA2F00003D05</key>
-		<dict>
-			<key>fileRef</key>
-			<string>054289250416AA2F00003D05</string>
-			<key>isa</key>
-			<string>PBXBuildFile</string>
-			<key>settings</key>
-			<dict>
-				<key>ATTRIBUTES</key>
-				<array>
-					<string>Private</string>
-				</array>
-			</dict>
-		</dict>
-		<key>054289280416B3D100003D05</key>
-		<dict>
-			<key>fileEncoding</key>
-			<string>4</string>
-			<key>isa</key>
-			<string>PBXFileReference</string>
-			<key>lastKnownFileType</key>
-			<string>sourcecode.cpp.cpp</string>
-			<key>path</key>
-			<string>pkcs12Coder.cpp</string>
-			<key>sourceTree</key>
-			<string>&lt;group&gt;</string>
-		</dict>
-		<key>054289290416B3D100003D05</key>
-		<dict>
-			<key>fileRef</key>
-			<string>054289280416B3D100003D05</string>
-			<key>isa</key>
-			<string>PBXBuildFile</string>
-		</dict>
-		<key>0542892B0416B65F00003D05</key>
-		<dict>
-			<key>fileEncoding</key>
-			<string>4</string>
-			<key>isa</key>
-			<string>PBXFileReference</string>
-			<key>lastKnownFileType</key>
-			<string>sourcecode.cpp.cpp</string>
-			<key>path</key>
-			<string>pkcs12Encode.cpp</string>
-			<key>sourceTree</key>
-			<string>&lt;group&gt;</string>
-		</dict>
-		<key>0542892C0416B65F00003D05</key>
-		<dict>
-			<key>fileRef</key>
-			<string>0542892B0416B65F00003D05</string>
-			<key>isa</key>
-			<string>PBXBuildFile</string>
-		</dict>
-		<key>0542892D0416B6C300003D05</key>
-		<dict>
-			<key>fileEncoding</key>
-			<string>4</string>
-			<key>isa</key>
-			<string>PBXFileReference</string>
-			<key>lastKnownFileType</key>
-			<string>sourcecode.cpp.cpp</string>
-			<key>path</key>
-			<string>pkcs12Decode.cpp</string>
-			<key>sourceTree</key>
-			<string>&lt;group&gt;</string>
-		</dict>
-		<key>0542892E0416B6C300003D05</key>
-		<dict>
-			<key>fileRef</key>
-			<string>0542892D0416B6C300003D05</string>
-			<key>isa</key>
-			<string>PBXBuildFile</string>
-		</dict>
-		<key>0542892F0416BB4500003D05</key>
-		<dict>
-			<key>isa</key>
-			<string>PBXTargetDependency</string>
-			<key>target</key>
-			<string>0592AC930415527A00003D05</string>
-			<key>targetProxy</key>
-			<string>4C9A5B87056AB50100B1BEFE</string>
-		</dict>
-		<key>054289300416BBF800003D05</key>
-		<dict>
-			<key>fileRef</key>
-			<string>054289230416A5A800003D05</string>
-			<key>isa</key>
-			<string>PBXBuildFile</string>
-			<key>settings</key>
-			<dict>
-				<key>ATTRIBUTES</key>
-				<array>
-					<string>Private</string>
-				</array>
-			</dict>
-		</dict>
-		<key>054289310416BC4100003D05</key>
-		<dict>
-			<key>fileRef</key>
-			<string>054289210416A4EA00003D05</string>
-			<key>isa</key>
-			<string>PBXBuildFile</string>
-			<key>settings</key>
-			<dict>
-				<key>ATTRIBUTES</key>
-				<array>
-					<string>Private</string>
-				</array>
-			</dict>
-		</dict>
-		<key>054289330416C36700003D05</key>
-		<dict>
-			<key>fileEncoding</key>
-			<string>4</string>
-			<key>isa</key>
-			<string>PBXFileReference</string>
-			<key>lastKnownFileType</key>
-			<string>sourcecode.cpp.cpp</string>
-			<key>path</key>
-			<string>pkcs12SafeBag.cpp</string>
-			<key>sourceTree</key>
-			<string>&lt;group&gt;</string>
-		</dict>
-		<key>054289340416C36700003D05</key>
-		<dict>
-			<key>fileRef</key>
-			<string>054289330416C36700003D05</string>
-			<key>isa</key>
-			<string>PBXBuildFile</string>
-		</dict>
-		<key>0592AC81041551E100003D05</key>
-		<dict>
-			<key>children</key>
-			<array>
-				<string>0592AC96041552BB00003D05</string>
-				<string>0592AC8D0415523C00003D05</string>
-			</array>
-			<key>isa</key>
-			<string>PBXGroup</string>
-			<key>sourceTree</key>
-			<string>&lt;group&gt;</string>
-		</dict>
-		<key>0592AC85041551E100003D05</key>
-		<dict>
-			<key>buildConfigurationList</key>
-			<string>C27AD3C80987FCDF001272E0</string>
-			<key>compatibilityVersion</key>
-			<string>Xcode 2.4</string>
-			<key>hasScannedForEncodings</key>
-			<string>1</string>
-			<key>isa</key>
-			<string>PBXProject</string>
-			<key>mainGroup</key>
-			<string>0592AC81041551E100003D05</string>
-			<key>productRefGroup</key>
-			<string>0592AC8D0415523C00003D05</string>
-			<key>projectDirPath</key>
-			<string></string>
-			<key>projectRoot</key>
-			<string></string>
-			<key>targets</key>
-			<array>
-				<string>0592AC8B0415523C00003D05</string>
-				<string>0592AC930415527A00003D05</string>
-			</array>
-		</dict>
-		<key>0592AC870415523C00003D05</key>
-		<dict>
-			<key>buildActionMask</key>
-			<string>2147483647</string>
-			<key>files</key>
-			<array>
-				<string>0592ACAD04156B4000003D05</string>
-				<string>0592ACAE04156B4000003D05</string>
-				<string>0592ACB004156B4000003D05</string>
-				<string>0592ACB104156B4000003D05</string>
-				<string>0592ACD1041665AE00003D05</string>
-				<string>054289220416A4EA00003D05</string>
-				<string>054289240416A5A800003D05</string>
-				<string>054289260416AA2F00003D05</string>
-				<string>05396DBA0417B81000003D05</string>
-			</array>
-			<key>isa</key>
-			<string>PBXHeadersBuildPhase</string>
-			<key>runOnlyForDeploymentPostprocessing</key>
-			<string>0</string>
-		</dict>
-		<key>0592AC880415523C00003D05</key>
-		<dict>
-			<key>buildActionMask</key>
-			<string>2147483647</string>
-			<key>files</key>
-			<array>
-				<string>05396DB60417A34400003D05</string>
-				<string>054289290416B3D100003D05</string>
-				<string>0592ACA004156B2B00003D05</string>
-				<string>0542892E0416B6C300003D05</string>
-				<string>0542892C0416B65F00003D05</string>
-				<string>05A9EF65041FB7C600003D05</string>
-				<string>054289340416C36700003D05</string>
-				<string>0592ACA204156B2B00003D05</string>
-				<string>0592ACA304156B2B00003D05</string>
-				<string>0592AC9F04156B2B00003D05</string>
-				<string>0592ACD404167B1F00003D05</string>
-			</array>
-			<key>isa</key>
-			<string>PBXSourcesBuildPhase</string>
-			<key>runOnlyForDeploymentPostprocessing</key>
-			<string>0</string>
-		</dict>
-		<key>0592AC890415523C00003D05</key>
-		<dict>
-			<key>buildActionMask</key>
-			<string>2147483647</string>
-			<key>files</key>
-			<array/>
-			<key>isa</key>
-			<string>PBXFrameworksBuildPhase</string>
-			<key>runOnlyForDeploymentPostprocessing</key>
-			<string>0</string>
-		</dict>
-		<key>0592AC8B0415523C00003D05</key>
-		<dict>
-			<key>buildConfigurationList</key>
-			<string>C27AD3C40987FCDF001272E0</string>
-			<key>buildPhases</key>
-			<array>
-				<string>0592AC870415523C00003D05</string>
-				<string>0592AC880415523C00003D05</string>
-				<string>0592AC890415523C00003D05</string>
-				<string>4C9A5BB2056AB5EC00B1BEFE</string>
-				<string>4C9A5BB3056AB5EF00B1BEFE</string>
-			</array>
-			<key>dependencies</key>
-			<array>
-				<string>0542892F0416BB4500003D05</string>
-			</array>
-			<key>isa</key>
-			<string>PBXNativeTarget</string>
-			<key>name</key>
-			<string>libsecurity_pkcs12</string>
-			<key>productInstallPath</key>
-			<string>/usr/local/lib</string>
-			<key>productName</key>
-			<string>libnsspkcs12</string>
-			<key>productReference</key>
-			<string>0592AC8C0415523C00003D05</string>
-			<key>productType</key>
-			<string>com.apple.product-type.library.static</string>
-		</dict>
-		<key>0592AC8C0415523C00003D05</key>
-		<dict>
-			<key>explicitFileType</key>
-			<string>compiled.mach-o.dylib</string>
-			<key>isa</key>
-			<string>PBXFileReference</string>
-			<key>path</key>
-			<string>security_pkcs12</string>
-			<key>sourceTree</key>
-			<string>BUILT_PRODUCTS_DIR</string>
-		</dict>
-		<key>0592AC8D0415523C00003D05</key>
-		<dict>
-			<key>children</key>
-			<array>
-				<string>0592AC8C0415523C00003D05</string>
-				<string>0592AC940415527A00003D05</string>
-			</array>
-			<key>isa</key>
-			<string>PBXGroup</string>
-			<key>name</key>
-			<string>Products</string>
-			<key>sourceTree</key>
-			<string>&lt;group&gt;</string>
-		</dict>
-		<key>0592AC8E0415527A00003D05</key>
-		<dict>
-			<key>buildActionMask</key>
-			<string>2147483647</string>
-			<key>files</key>
-			<array>
-				<string>054289300416BBF800003D05</string>
-				<string>054289270416AA2F00003D05</string>
-				<string>0592ACB504156B4000003D05</string>
-				<string>054289310416BC4100003D05</string>
-				<string>0592ACB704156B4000003D05</string>
-				<string>0592ACB804156B4000003D05</string>
-				<string>0592ACB404156B4000003D05</string>
-				<string>0592ACD2041665AE00003D05</string>
-			</array>
-			<key>isa</key>
-			<string>PBXHeadersBuildPhase</string>
-			<key>runOnlyForDeploymentPostprocessing</key>
-			<string>0</string>
-		</dict>
-		<key>0592AC930415527A00003D05</key>
-		<dict>
-			<key>buildConfigurationList</key>
-			<string>C27AD3C00987FCDF001272E0</string>
-			<key>buildPhases</key>
-			<array>
-				<string>0592AC8E0415527A00003D05</string>
-			</array>
-			<key>dependencies</key>
-			<array/>
-			<key>isa</key>
-			<string>PBXNativeTarget</string>
-			<key>name</key>
-			<string>security_pkcs12</string>
-			<key>productInstallPath</key>
-			<string>/System/Library/PrivateFrameworks</string>
-			<key>productName</key>
-			<string>SecurityNssPkcs12 Headers</string>
-			<key>productReference</key>
-			<string>0592AC940415527A00003D05</string>
-			<key>productType</key>
-			<string>com.apple.product-type.framework</string>
-		</dict>
-		<key>0592AC940415527A00003D05</key>
-		<dict>
-			<key>explicitFileType</key>
-			<string>wrapper.framework</string>
-			<key>isa</key>
-			<string>PBXFileReference</string>
-			<key>path</key>
-			<string>security_pkcs12.framework</string>
-			<key>sourceTree</key>
-			<string>BUILT_PRODUCTS_DIR</string>
-		</dict>
-		<key>0592AC96041552BB00003D05</key>
-		<dict>
-			<key>children</key>
-			<array>
-				<string>05396DB50417A34400003D05</string>
-				<string>054289230416A5A800003D05</string>
-				<string>054289280416B3D100003D05</string>
-				<string>054289250416AA2F00003D05</string>
-				<string>0592AC9904156B2B00003D05</string>
-				<string>0592ACA704156B4000003D05</string>
-				<string>05396DB90417B81000003D05</string>
-				<string>0542892D0416B6C300003D05</string>
-				<string>0542892B0416B65F00003D05</string>
-				<string>05A9EF64041FB7C600003D05</string>
-				<string>054289330416C36700003D05</string>
-				<string>054289210416A4EA00003D05</string>
-				<string>0592AC9B04156B2B00003D05</string>
-				<string>0592ACA904156B4000003D05</string>
-				<string>0592AC9C04156B2B00003D05</string>
-				<string>0592ACAA04156B4000003D05</string>
-				<string>0592AC9804156B2B00003D05</string>
-				<string>0592ACA604156B4000003D05</string>
-				<string>0592ACD304167B1F00003D05</string>
-				<string>0592ACD0041665AE00003D05</string>
-			</array>
-			<key>isa</key>
-			<string>PBXGroup</string>
-			<key>path</key>
-			<string>lib</string>
-			<key>sourceTree</key>
-			<string>&lt;group&gt;</string>
-		</dict>
-		<key>0592AC9804156B2B00003D05</key>
-		<dict>
-			<key>fileEncoding</key>
-			<string>30</string>
-			<key>isa</key>
-			<string>PBXFileReference</string>
-			<key>lastKnownFileType</key>
-			<string>sourcecode.cpp.cpp</string>
-			<key>path</key>
-			<string>pkcs7Templates.cpp</string>
-			<key>sourceTree</key>
-			<string>&lt;group&gt;</string>
-		</dict>
-		<key>0592AC9904156B2B00003D05</key>
-		<dict>
-			<key>fileEncoding</key>
-			<string>30</string>
-			<key>isa</key>
-			<string>PBXFileReference</string>
-			<key>lastKnownFileType</key>
-			<string>sourcecode.cpp.cpp</string>
-			<key>path</key>
-			<string>pkcs12Crypto.cpp</string>
-			<key>sourceTree</key>
-			<string>&lt;group&gt;</string>
-		</dict>
-		<key>0592AC9B04156B2B00003D05</key>
-		<dict>
-			<key>fileEncoding</key>
-			<string>30</string>
-			<key>isa</key>
-			<string>PBXFileReference</string>
-			<key>lastKnownFileType</key>
-			<string>sourcecode.cpp.cpp</string>
-			<key>path</key>
-			<string>pkcs12Templates.cpp</string>
-			<key>sourceTree</key>
-			<string>&lt;group&gt;</string>
-		</dict>
-		<key>0592AC9C04156B2B00003D05</key>
-		<dict>
-			<key>fileEncoding</key>
-			<string>30</string>
-			<key>isa</key>
-			<string>PBXFileReference</string>
-			<key>lastKnownFileType</key>
-			<string>sourcecode.cpp.cpp</string>
-			<key>path</key>
-			<string>pkcs12Utils.cpp</string>
-			<key>sourceTree</key>
-			<string>&lt;group&gt;</string>
-		</dict>
-		<key>0592AC9F04156B2B00003D05</key>
-		<dict>
-			<key>fileRef</key>
-			<string>0592AC9804156B2B00003D05</string>
-			<key>isa</key>
-			<string>PBXBuildFile</string>
-		</dict>
-		<key>0592ACA004156B2B00003D05</key>
-		<dict>
-			<key>fileRef</key>
-			<string>0592AC9904156B2B00003D05</string>
-			<key>isa</key>
-			<string>PBXBuildFile</string>
-		</dict>
-		<key>0592ACA204156B2B00003D05</key>
-		<dict>
-			<key>fileRef</key>
-			<string>0592AC9B04156B2B00003D05</string>
-			<key>isa</key>
-			<string>PBXBuildFile</string>
-		</dict>
-		<key>0592ACA304156B2B00003D05</key>
-		<dict>
-			<key>fileRef</key>
-			<string>0592AC9C04156B2B00003D05</string>
-			<key>isa</key>
-			<string>PBXBuildFile</string>
-		</dict>
-		<key>0592ACA604156B4000003D05</key>
-		<dict>
-			<key>fileEncoding</key>
-			<string>30</string>
-			<key>isa</key>
-			<string>PBXFileReference</string>
-			<key>lastKnownFileType</key>
-			<string>sourcecode.c.h</string>
-			<key>path</key>
-			<string>pkcs7Templates.h</string>
-			<key>sourceTree</key>
-			<string>&lt;group&gt;</string>
-		</dict>
-		<key>0592ACA704156B4000003D05</key>
-		<dict>
-			<key>fileEncoding</key>
-			<string>30</string>
-			<key>isa</key>
-			<string>PBXFileReference</string>
-			<key>lastKnownFileType</key>
-			<string>sourcecode.c.h</string>
-			<key>path</key>
-			<string>pkcs12Crypto.h</string>
-			<key>sourceTree</key>
-			<string>&lt;group&gt;</string>
-		</dict>
-		<key>0592ACA904156B4000003D05</key>
-		<dict>
-			<key>fileEncoding</key>
-			<string>30</string>
-			<key>isa</key>
-			<string>PBXFileReference</string>
-			<key>lastKnownFileType</key>
-			<string>sourcecode.c.h</string>
-			<key>path</key>
-			<string>pkcs12Templates.h</string>
-			<key>sourceTree</key>
-			<string>&lt;group&gt;</string>
-		</dict>
-		<key>0592ACAA04156B4000003D05</key>
-		<dict>
-			<key>fileEncoding</key>
-			<string>30</string>
-			<key>isa</key>
-			<string>PBXFileReference</string>
-			<key>lastKnownFileType</key>
-			<string>sourcecode.c.h</string>
-			<key>path</key>
-			<string>pkcs12Utils.h</string>
-			<key>sourceTree</key>
-			<string>&lt;group&gt;</string>
-		</dict>
-		<key>0592ACAD04156B4000003D05</key>
-		<dict>
-			<key>fileRef</key>
-			<string>0592ACA604156B4000003D05</string>
-			<key>isa</key>
-			<string>PBXBuildFile</string>
-		</dict>
-		<key>0592ACAE04156B4000003D05</key>
-		<dict>
-			<key>fileRef</key>
-			<string>0592ACA704156B4000003D05</string>
-			<key>isa</key>
-			<string>PBXBuildFile</string>
-		</dict>
-		<key>0592ACB004156B4000003D05</key>
-		<dict>
-			<key>fileRef</key>
-			<string>0592ACA904156B4000003D05</string>
-			<key>isa</key>
-			<string>PBXBuildFile</string>
-		</dict>
-		<key>0592ACB104156B4000003D05</key>
-		<dict>
-			<key>fileRef</key>
-			<string>0592ACAA04156B4000003D05</string>
-			<key>isa</key>
-			<string>PBXBuildFile</string>
-		</dict>
-		<key>0592ACB404156B4000003D05</key>
-		<dict>
-			<key>fileRef</key>
-			<string>0592ACA604156B4000003D05</string>
-			<key>isa</key>
-			<string>PBXBuildFile</string>
-			<key>settings</key>
-			<dict>
-				<key>ATTRIBUTES</key>
-				<array>
-					<string>Public</string>
-				</array>
-			</dict>
-		</dict>
-		<key>0592ACB504156B4000003D05</key>
-		<dict>
-			<key>fileRef</key>
-			<string>0592ACA704156B4000003D05</string>
-			<key>isa</key>
-			<string>PBXBuildFile</string>
-			<key>settings</key>
-			<dict>
-				<key>ATTRIBUTES</key>
-				<array>
-					<string>Public</string>
-				</array>
-			</dict>
-		</dict>
-		<key>0592ACB704156B4000003D05</key>
-		<dict>
-			<key>fileRef</key>
-			<string>0592ACA904156B4000003D05</string>
-			<key>isa</key>
-			<string>PBXBuildFile</string>
-			<key>settings</key>
-			<dict>
-				<key>ATTRIBUTES</key>
-				<array>
-					<string>Public</string>
-				</array>
-			</dict>
-		</dict>
-		<key>0592ACB804156B4000003D05</key>
-		<dict>
-			<key>fileRef</key>
-			<string>0592ACAA04156B4000003D05</string>
-			<key>isa</key>
-			<string>PBXBuildFile</string>
-			<key>settings</key>
-			<dict>
-				<key>ATTRIBUTES</key>
-				<array>
-					<string>Public</string>
-				</array>
-			</dict>
-		</dict>
-		<key>0592ACD0041665AE00003D05</key>
-		<dict>
-			<key>fileEncoding</key>
-			<string>4</string>
-			<key>isa</key>
-			<string>PBXFileReference</string>
-			<key>lastKnownFileType</key>
-			<string>sourcecode.c.h</string>
-			<key>path</key>
-			<string>SecPkcs12.h</string>
-			<key>sourceTree</key>
-			<string>&lt;group&gt;</string>
-		</dict>
-		<key>0592ACD1041665AE00003D05</key>
-		<dict>
-			<key>fileRef</key>
-			<string>0592ACD0041665AE00003D05</string>
-			<key>isa</key>
-			<string>PBXBuildFile</string>
-		</dict>
-		<key>0592ACD2041665AE00003D05</key>
-		<dict>
-			<key>fileRef</key>
-			<string>0592ACD0041665AE00003D05</string>
-			<key>isa</key>
-			<string>PBXBuildFile</string>
-			<key>settings</key>
-			<dict>
-				<key>ATTRIBUTES</key>
-				<array>
-					<string>Public</string>
-				</array>
-			</dict>
-		</dict>
-		<key>0592ACD304167B1F00003D05</key>
-		<dict>
-			<key>fileEncoding</key>
-			<string>4</string>
-			<key>isa</key>
-			<string>PBXFileReference</string>
-			<key>lastKnownFileType</key>
-			<string>sourcecode.cpp.cpp</string>
-			<key>path</key>
-			<string>SecPkcs12.cpp</string>
-			<key>sourceTree</key>
-			<string>&lt;group&gt;</string>
-		</dict>
-		<key>0592ACD404167B1F00003D05</key>
-		<dict>
-			<key>fileRef</key>
-			<string>0592ACD304167B1F00003D05</string>
-			<key>isa</key>
-			<string>PBXBuildFile</string>
-		</dict>
-		<key>05A9EF64041FB7C600003D05</key>
-		<dict>
-			<key>fileEncoding</key>
-			<string>4</string>
-			<key>isa</key>
-			<string>PBXFileReference</string>
-			<key>lastKnownFileType</key>
-			<string>sourcecode.cpp.cpp</string>
-			<key>path</key>
-			<string>pkcs12Keychain.cpp</string>
-			<key>sourceTree</key>
-			<string>&lt;group&gt;</string>
-		</dict>
-		<key>05A9EF65041FB7C600003D05</key>
-		<dict>
-			<key>fileRef</key>
-			<string>05A9EF64041FB7C600003D05</string>
-			<key>isa</key>
-			<string>PBXBuildFile</string>
-		</dict>
-		<key>4C9A5B87056AB50100B1BEFE</key>
-		<dict>
-			<key>containerPortal</key>
-			<string>0592AC85041551E100003D05</string>
-			<key>isa</key>
-			<string>PBXContainerItemProxy</string>
-			<key>proxyType</key>
-			<string>1</string>
-			<key>remoteGlobalIDString</key>
-			<string>0592AC930415527A00003D05</string>
-			<key>remoteInfo</key>
-			<string>SecurityNssPkcs12 Headers</string>
-		</dict>
-		<key>4C9A5BB2056AB5EC00B1BEFE</key>
-		<dict>
-			<key>buildActionMask</key>
-			<string>2147483647</string>
-			<key>files</key>
-			<array/>
-			<key>inputPaths</key>
-			<array/>
-			<key>isa</key>
-			<string>PBXShellScriptBuildPhase</string>
-			<key>outputPaths</key>
-			<array/>
-			<key>runOnlyForDeploymentPostprocessing</key>
-			<string>0</string>
-			<key>shellPath</key>
-			<string>/bin/sh</string>
-			<key>shellScript</key>
-			<string>for variant in ${BUILD_VARIANTS}
-do
-	postfix=`echo _${variant} | sed 's/_normal//'`
-	ditto -V "${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}${postfix}" "${SYMROOT}/${PRODUCT_NAME}${postfix}"
-	ln -fs "../../../${PRODUCT_NAME}${postfix}" ${SYMROOT}/${PRODUCT_NAME}.framework/Versions/A
-	ln -fs "Versions/Current/${PRODUCT_NAME}${postfix}" ${SYMROOT}/${PRODUCT_NAME}.framework
-done</string>
-		</dict>
-		<key>4C9A5BB3056AB5EF00B1BEFE</key>
-		<dict>
-			<key>buildActionMask</key>
-			<string>8</string>
-			<key>files</key>
-			<array/>
-			<key>inputPaths</key>
-			<array/>
-			<key>isa</key>
-			<string>PBXShellScriptBuildPhase</string>
-			<key>outputPaths</key>
-			<array/>
-			<key>runOnlyForDeploymentPostprocessing</key>
-			<string>1</string>
-			<key>shellPath</key>
-			<string>/bin/sh</string>
-			<key>shellScript</key>
-			<string>for variant in ${BUILD_VARIANTS}
-do
-	postfix=`echo _${variant} | sed 's/_normal//'`
-	cp -p "${SYMROOT}/${PRODUCT_NAME}${postfix}" ${DSTROOT}/usr/local/SecurityPieces/Frameworks/${PRODUCT_NAME}.framework/Versions/A
-	ranlib "${DSTROOT}/usr/local/SecurityPieces/Frameworks/${PRODUCT_NAME}.framework/Versions/A/${PRODUCT_NAME}${postfix}"
-	ln -fs "Versions/Current/${PRODUCT_NAME}${postfix}" ${DSTROOT}/usr/local/SecurityPieces/Frameworks/${PRODUCT_NAME}.framework
-done</string>
-		</dict>
-		<key>C27AD3C00987FCDF001272E0</key>
-		<dict>
-			<key>buildConfigurations</key>
-			<array>
-				<string>C27AD3C10987FCDF001272E0</string>
-				<string>C27AD3C20987FCDF001272E0</string>
-				<string>C27AD3C30987FCDF001272E0</string>
-			</array>
-			<key>defaultConfigurationIsVisible</key>
-			<string>0</string>
-			<key>defaultConfigurationName</key>
-			<string>Default</string>
-			<key>isa</key>
-			<string>XCConfigurationList</string>
-		</dict>
-		<key>C27AD3C10987FCDF001272E0</key>
-		<dict>
-			<key>buildSettings</key>
-			<dict>
-				<key>BUILD_VARIANTS</key>
-				<string>debug</string>
-				<key>EXECUTABLE_PREFIX</key>
-				<string></string>
-				<key>EXECUTABLE_SUFFIX</key>
-				<string></string>
-				<key>FRAMEWORK_VERSION</key>
-				<string>A</string>
-				<key>GCC_DYNAMIC_NO_PIC</key>
-				<string>NO</string>
-				<key>GCC_ENABLE_FIX_AND_CONTINUE</key>
-				<string>YES</string>
-				<key>GCC_GENERATE_DEBUGGING_SYMBOLS</key>
-				<string>YES</string>
-				<key>INFOPLIST_FILE</key>
-				<string>Info-security_pkcs12.plist</string>
-				<key>INSTALL_PATH</key>
-				<string>/usr/local/SecurityPieces/Frameworks</string>
-				<key>PRODUCT_NAME</key>
-				<string>security_pkcs12</string>
-				<key>WRAPPER_EXTENSION</key>
-				<string>framework</string>
-				<key>ZERO_LINK</key>
-				<string>YES</string>
-			</dict>
-			<key>isa</key>
-			<string>XCBuildConfiguration</string>
-			<key>name</key>
-			<string>Development</string>
-		</dict>
-		<key>C27AD3C20987FCDF001272E0</key>
-		<dict>
-			<key>buildSettings</key>
-			<dict>
-				<key>EXECUTABLE_PREFIX</key>
-				<string></string>
-				<key>EXECUTABLE_SUFFIX</key>
-				<string></string>
-				<key>FRAMEWORK_VERSION</key>
-				<string>A</string>
-				<key>GCC_ENABLE_FIX_AND_CONTINUE</key>
-				<string>NO</string>
-				<key>INFOPLIST_FILE</key>
-				<string>Info-security_pkcs12.plist</string>
-				<key>INSTALL_PATH</key>
-				<string>/usr/local/SecurityPieces/Frameworks</string>
-				<key>PRODUCT_NAME</key>
-				<string>security_pkcs12</string>
-				<key>WRAPPER_EXTENSION</key>
-				<string>framework</string>
-				<key>ZERO_LINK</key>
-				<string>NO</string>
-			</dict>
-			<key>isa</key>
-			<string>XCBuildConfiguration</string>
-			<key>name</key>
-			<string>Deployment</string>
-		</dict>
-		<key>C27AD3C30987FCDF001272E0</key>
-		<dict>
-			<key>buildSettings</key>
-			<dict>
-				<key>EXECUTABLE_PREFIX</key>
-				<string></string>
-				<key>EXECUTABLE_SUFFIX</key>
-				<string></string>
-				<key>FRAMEWORK_VERSION</key>
-				<string>A</string>
-				<key>INFOPLIST_FILE</key>
-				<string>Info-security_pkcs12.plist</string>
-				<key>INSTALL_PATH</key>
-				<string>/usr/local/SecurityPieces/Frameworks</string>
-				<key>PRODUCT_NAME</key>
-				<string>security_pkcs12</string>
-				<key>WRAPPER_EXTENSION</key>
-				<string>framework</string>
-			</dict>
-			<key>isa</key>
-			<string>XCBuildConfiguration</string>
-			<key>name</key>
-			<string>Default</string>
-		</dict>
-		<key>C27AD3C40987FCDF001272E0</key>
-		<dict>
-			<key>buildConfigurations</key>
-			<array>
-				<string>C27AD3C50987FCDF001272E0</string>
-				<string>C27AD3C60987FCDF001272E0</string>
-				<string>C27AD3C70987FCDF001272E0</string>
-			</array>
-			<key>defaultConfigurationIsVisible</key>
-			<string>0</string>
-			<key>defaultConfigurationName</key>
-			<string>Default</string>
-			<key>isa</key>
-			<string>XCConfigurationList</string>
-		</dict>
-		<key>C27AD3C50987FCDF001272E0</key>
-		<dict>
-			<key>buildSettings</key>
-			<dict>
-				<key>BUILD_VARIANTS</key>
-				<string>debug</string>
-				<key>CURRENT_PROJECT_VERSION</key>
-				<string>1</string>
-				<key>EXECUTABLE_PREFIX</key>
-				<string></string>
-				<key>EXECUTABLE_SUFFIX</key>
-				<string></string>
-				<key>FRAMEWORK_SEARCH_PATHS</key>
-				<array>
-					<string>/usr/local/SecurityPieces/Frameworks</string>
-					<string>/usr/local/SecurityPieces/Components/Security</string>
-				</array>
-				<key>GCC_DYNAMIC_NO_PIC</key>
-				<string>NO</string>
-				<key>GCC_ENABLE_FIX_AND_CONTINUE</key>
-				<string>YES</string>
-				<key>GCC_GENERATE_DEBUGGING_SYMBOLS</key>
-				<string>YES</string>
-				<key>HEADER_SEARCH_PATHS</key>
-				<array>
-					<string>$(BUILT_PRODUCTS_DIR)/SecurityPieces/Headers</string>
-					<string>$(BUILT_PRODUCTS_DIR)/SecurityPieces/PrivateHeaders</string>
-				</array>
-				<key>LIBRARY_STYLE</key>
-				<string>STATIC</string>
-				<key>OPT_CFLAGS</key>
-				<string>-DNDEBUG -Os $(OPT_INLINEFLAGS)</string>
-				<key>OPT_CPPFLAGS</key>
-				<string>$(OPT_CFLAGS)</string>
-				<key>OPT_INLINEFLAGS</key>
-				<string>-finline-functions</string>
-				<key>OPT_LDFLAGS</key>
-				<string></string>
-				<key>OTHER_ASFLAGS_debug</key>
-				<string>$(OTHER_CFLAGS)</string>
-				<key>OTHER_ASFLAGS_normal</key>
-				<string>-DNDEBUG $(OTHER_CFLAGS)</string>
-				<key>OTHER_ASFLAGS_profile</key>
-				<string>-DNDEBUG $(OTHER_CFLAGS) -pg</string>
-				<key>OTHER_CFLAGS_debug</key>
-				<string>$(OTHER_CFLAGS) -O0 -fno-inline</string>
-				<key>OTHER_CFLAGS_normal</key>
-				<string>$(OPT_CFLAGS)  $(OTHER_CFLAGS)</string>
-				<key>OTHER_CFLAGS_profile</key>
-				<string>$(OPT_CFLAGS)  $(OTHER_CFLAGS) -pg</string>
-				<key>OTHER_CPLUSPLUSFLAGS_debug</key>
-				<string>$(OTHER_CFLAGS) -O0 -fno-inline</string>
-				<key>OTHER_CPLUSPLUSFLAGS_normal</key>
-				<string>$(OPT_CPPFLAGS) $(OTHER_CFLAGS)</string>
-				<key>OTHER_CPLUSPLUSFLAGS_profile</key>
-				<string>$(OPT_CPPFLAGS) $(OTHER_CFLAGS) -pg</string>
-				<key>OTHER_LDFLAGS_debug</key>
-				<string></string>
-				<key>OTHER_LDFLAGS_normal</key>
-				<string>$(OPT_LDFLAGS) $(OTHER_LDFLAGS)</string>
-				<key>OTHER_LDFLAGS_profile</key>
-				<string>$(OPT_LDFLAGS) $(OTHER_LDFLAGS) -pg</string>
-				<key>PRODUCT_NAME</key>
-				<string>security_pkcs12</string>
-				<key>VERSIONING_SYSTEM</key>
-				<string>apple-generic</string>
-				<key>WARNING_CFLAGS</key>
-				<array>
-					<string>-Wmost</string>
-					<string>-Wno-four-char-constants</string>
-					<string>-Wno-unknown-pragmas</string>
-				</array>
-				<key>ZERO_LINK</key>
-				<string>YES</string>
-			</dict>
-			<key>isa</key>
-			<string>XCBuildConfiguration</string>
-			<key>name</key>
-			<string>Development</string>
-		</dict>
-		<key>C27AD3C60987FCDF001272E0</key>
-		<dict>
-			<key>buildSettings</key>
-			<dict>
-				<key>BUILD_VARIANTS</key>
-				<array>
-					<string>normal</string>
-					<string>debug</string>
-				</array>
-				<key>CURRENT_PROJECT_VERSION</key>
-				<string>1</string>
-				<key>EXECUTABLE_PREFIX</key>
-				<string></string>
-				<key>EXECUTABLE_SUFFIX</key>
-				<string></string>
-				<key>FRAMEWORK_SEARCH_PATHS</key>
-				<array>
-					<string>/usr/local/SecurityPieces/Frameworks</string>
-					<string>/usr/local/SecurityPieces/Components/Security</string>
-				</array>
-				<key>GCC_ENABLE_FIX_AND_CONTINUE</key>
-				<string>NO</string>
-				<key>HEADER_SEARCH_PATHS</key>
-				<array>
-					<string>$(BUILT_PRODUCTS_DIR)/SecurityPieces/Headers</string>
-					<string>$(BUILT_PRODUCTS_DIR)/SecurityPieces/PrivateHeaders</string>
-				</array>
-				<key>LIBRARY_STYLE</key>
-				<string>STATIC</string>
-				<key>OPT_CFLAGS</key>
-				<string>-DNDEBUG -Os $(OPT_INLINEFLAGS)</string>
-				<key>OPT_CPPFLAGS</key>
-				<string>$(OPT_CFLAGS)</string>
-				<key>OPT_INLINEFLAGS</key>
-				<string>-finline-functions</string>
-				<key>OPT_LDFLAGS</key>
-				<string></string>
-				<key>OTHER_ASFLAGS_debug</key>
-				<string>$(OTHER_CFLAGS)</string>
-				<key>OTHER_ASFLAGS_normal</key>
-				<string>-DNDEBUG $(OTHER_CFLAGS)</string>
-				<key>OTHER_ASFLAGS_profile</key>
-				<string>-DNDEBUG $(OTHER_CFLAGS) -pg</string>
-				<key>OTHER_CFLAGS_debug</key>
-				<string>$(OTHER_CFLAGS) -O0 -fno-inline</string>
-				<key>OTHER_CFLAGS_normal</key>
-				<string>$(OPT_CFLAGS)  $(OTHER_CFLAGS)</string>
-				<key>OTHER_CFLAGS_profile</key>
-				<string>$(OPT_CFLAGS)  $(OTHER_CFLAGS) -pg</string>
-				<key>OTHER_CPLUSPLUSFLAGS_debug</key>
-				<string>$(OTHER_CFLAGS) -O0 -fno-inline</string>
-				<key>OTHER_CPLUSPLUSFLAGS_normal</key>
-				<string>$(OPT_CPPFLAGS) $(OTHER_CFLAGS)</string>
-				<key>OTHER_CPLUSPLUSFLAGS_profile</key>
-				<string>$(OPT_CPPFLAGS) $(OTHER_CFLAGS) -pg</string>
-				<key>OTHER_LDFLAGS_debug</key>
-				<string></string>
-				<key>OTHER_LDFLAGS_normal</key>
-				<string>$(OPT_LDFLAGS) $(OTHER_LDFLAGS)</string>
-				<key>OTHER_LDFLAGS_profile</key>
-				<string>$(OPT_LDFLAGS) $(OTHER_LDFLAGS) -pg</string>
-				<key>PRODUCT_NAME</key>
-				<string>security_pkcs12</string>
-				<key>VERSIONING_SYSTEM</key>
-				<string>apple-generic</string>
-				<key>WARNING_CFLAGS</key>
-				<array>
-					<string>-Wmost</string>
-					<string>-Wno-four-char-constants</string>
-					<string>-Wno-unknown-pragmas</string>
-				</array>
-				<key>ZERO_LINK</key>
-				<string>NO</string>
-			</dict>
-			<key>isa</key>
-			<string>XCBuildConfiguration</string>
-			<key>name</key>
-			<string>Deployment</string>
-		</dict>
-		<key>C27AD3C70987FCDF001272E0</key>
-		<dict>
-			<key>buildSettings</key>
-			<dict>
-				<key>BUILD_VARIANTS</key>
-				<array>
-					<string>normal</string>
-					<string>debug</string>
-				</array>
-				<key>CURRENT_PROJECT_VERSION</key>
-				<string>1</string>
-				<key>EXECUTABLE_PREFIX</key>
-				<string></string>
-				<key>EXECUTABLE_SUFFIX</key>
-				<string></string>
-				<key>FRAMEWORK_SEARCH_PATHS</key>
-				<array>
-					<string>/usr/local/SecurityPieces/Frameworks</string>
-					<string>/usr/local/SecurityPieces/Components/Security</string>
-				</array>
-				<key>HEADER_SEARCH_PATHS</key>
-				<array>
-					<string>$(BUILT_PRODUCTS_DIR)/SecurityPieces/Headers</string>
-					<string>$(BUILT_PRODUCTS_DIR)/SecurityPieces/PrivateHeaders</string>
-				</array>
-				<key>LIBRARY_STYLE</key>
-				<string>STATIC</string>
-				<key>OPT_CFLAGS</key>
-				<string>-DNDEBUG -Os $(OPT_INLINEFLAGS)</string>
-				<key>OPT_CPPFLAGS</key>
-				<string>$(OPT_CFLAGS)</string>
-				<key>OPT_INLINEFLAGS</key>
-				<string>-finline-functions</string>
-				<key>OPT_LDFLAGS</key>
-				<string></string>
-				<key>OTHER_ASFLAGS_debug</key>
-				<string>$(OTHER_CFLAGS)</string>
-				<key>OTHER_ASFLAGS_normal</key>
-				<string>-DNDEBUG $(OTHER_CFLAGS)</string>
-				<key>OTHER_ASFLAGS_profile</key>
-				<string>-DNDEBUG $(OTHER_CFLAGS) -pg</string>
-				<key>OTHER_CFLAGS_debug</key>
-				<string>$(OTHER_CFLAGS) -O0 -fno-inline</string>
-				<key>OTHER_CFLAGS_normal</key>
-				<string>$(OPT_CFLAGS)  $(OTHER_CFLAGS)</string>
-				<key>OTHER_CFLAGS_profile</key>
-				<string>$(OPT_CFLAGS)  $(OTHER_CFLAGS) -pg</string>
-				<key>OTHER_CPLUSPLUSFLAGS_debug</key>
-				<string>$(OTHER_CFLAGS) -O0 -fno-inline</string>
-				<key>OTHER_CPLUSPLUSFLAGS_normal</key>
-				<string>$(OPT_CPPFLAGS) $(OTHER_CFLAGS)</string>
-				<key>OTHER_CPLUSPLUSFLAGS_profile</key>
-				<string>$(OPT_CPPFLAGS) $(OTHER_CFLAGS) -pg</string>
-				<key>OTHER_LDFLAGS_debug</key>
-				<string></string>
-				<key>OTHER_LDFLAGS_normal</key>
-				<string>$(OPT_LDFLAGS) $(OTHER_LDFLAGS)</string>
-				<key>OTHER_LDFLAGS_profile</key>
-				<string>$(OPT_LDFLAGS) $(OTHER_LDFLAGS) -pg</string>
-				<key>PRODUCT_NAME</key>
-				<string>security_pkcs12</string>
-				<key>VERSIONING_SYSTEM</key>
-				<string>apple-generic</string>
-				<key>WARNING_CFLAGS</key>
-				<array>
-					<string>-Wmost</string>
-					<string>-Wno-four-char-constants</string>
-					<string>-Wno-unknown-pragmas</string>
-				</array>
-			</dict>
-			<key>isa</key>
-			<string>XCBuildConfiguration</string>
-			<key>name</key>
-			<string>Default</string>
-		</dict>
-		<key>C27AD3C80987FCDF001272E0</key>
-		<dict>
-			<key>buildConfigurations</key>
-			<array>
-				<string>C27AD3C90987FCDF001272E0</string>
-				<string>C27AD3CA0987FCDF001272E0</string>
-				<string>C27AD3CB0987FCDF001272E0</string>
-			</array>
-			<key>defaultConfigurationIsVisible</key>
-			<string>0</string>
-			<key>defaultConfigurationName</key>
-			<string>Default</string>
-			<key>isa</key>
-			<string>XCConfigurationList</string>
-		</dict>
-		<key>C27AD3C90987FCDF001272E0</key>
-		<dict>
-			<key>buildSettings</key>
-			<dict>
-				<key>CONFIGURATION_BUILD_DIR</key>
-				<string>$(BUILD_DIR)</string>
-				<key>CONFIGURATION_TEMP_DIR</key>
-				<string>$(PROJECT_TEMP_DIR)</string>
-			</dict>
-			<key>isa</key>
-			<string>XCBuildConfiguration</string>
-			<key>name</key>
-			<string>Development</string>
-		</dict>
-		<key>C27AD3CA0987FCDF001272E0</key>
-		<dict>
-			<key>buildSettings</key>
-			<dict>
-				<key>CONFIGURATION_BUILD_DIR</key>
-				<string>$(BUILD_DIR)</string>
-				<key>CONFIGURATION_TEMP_DIR</key>
-				<string>$(PROJECT_TEMP_DIR)</string>
-			</dict>
-			<key>isa</key>
-			<string>XCBuildConfiguration</string>
-			<key>name</key>
-			<string>Deployment</string>
-		</dict>
-		<key>C27AD3CB0987FCDF001272E0</key>
-		<dict>
-			<key>buildSettings</key>
-			<dict>
-				<key>CONFIGURATION_BUILD_DIR</key>
-				<string>$(BUILD_DIR)</string>
-				<key>CONFIGURATION_TEMP_DIR</key>
-				<string>$(PROJECT_TEMP_DIR)</string>
-				<key>UNSTRIPPED_PRODUCT</key>
-				<string>YES</string>
-			</dict>
-			<key>isa</key>
-			<string>XCBuildConfiguration</string>
-			<key>name</key>
-			<string>Default</string>
-		</dict>
-	</dict>
-	<key>rootObject</key>
-	<string>0592AC85041551E100003D05</string>
-</dict>
-</plist>
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 42;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		05396DB60417A34400003D05 /* pkcs12BagAttrs.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 05396DB50417A34400003D05 /* pkcs12BagAttrs.cpp */; };
+		05396DBA0417B81000003D05 /* pkcs12Debug.h in Headers */ = {isa = PBXBuildFile; fileRef = 05396DB90417B81000003D05 /* pkcs12Debug.h */; };
+		054289220416A4EA00003D05 /* pkcs12SafeBag.h in Headers */ = {isa = PBXBuildFile; fileRef = 054289210416A4EA00003D05 /* pkcs12SafeBag.h */; };
+		054289240416A5A800003D05 /* pkcs12BagAttrs.h in Headers */ = {isa = PBXBuildFile; fileRef = 054289230416A5A800003D05 /* pkcs12BagAttrs.h */; };
+		054289260416AA2F00003D05 /* pkcs12Coder.h in Headers */ = {isa = PBXBuildFile; fileRef = 054289250416AA2F00003D05 /* pkcs12Coder.h */; };
+		054289270416AA2F00003D05 /* pkcs12Coder.h in Headers */ = {isa = PBXBuildFile; fileRef = 054289250416AA2F00003D05 /* pkcs12Coder.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		054289290416B3D100003D05 /* pkcs12Coder.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 054289280416B3D100003D05 /* pkcs12Coder.cpp */; };
+		0542892C0416B65F00003D05 /* pkcs12Encode.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 0542892B0416B65F00003D05 /* pkcs12Encode.cpp */; };
+		0542892E0416B6C300003D05 /* pkcs12Decode.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 0542892D0416B6C300003D05 /* pkcs12Decode.cpp */; };
+		054289300416BBF800003D05 /* pkcs12BagAttrs.h in Headers */ = {isa = PBXBuildFile; fileRef = 054289230416A5A800003D05 /* pkcs12BagAttrs.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		054289310416BC4100003D05 /* pkcs12SafeBag.h in Headers */ = {isa = PBXBuildFile; fileRef = 054289210416A4EA00003D05 /* pkcs12SafeBag.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		054289340416C36700003D05 /* pkcs12SafeBag.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 054289330416C36700003D05 /* pkcs12SafeBag.cpp */; };
+		0592AC9F04156B2B00003D05 /* pkcs7Templates.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 0592AC9804156B2B00003D05 /* pkcs7Templates.cpp */; };
+		0592ACA004156B2B00003D05 /* pkcs12Crypto.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 0592AC9904156B2B00003D05 /* pkcs12Crypto.cpp */; };
+		0592ACA204156B2B00003D05 /* pkcs12Templates.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 0592AC9B04156B2B00003D05 /* pkcs12Templates.cpp */; };
+		0592ACA304156B2B00003D05 /* pkcs12Utils.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 0592AC9C04156B2B00003D05 /* pkcs12Utils.cpp */; };
+		0592ACAD04156B4000003D05 /* pkcs7Templates.h in Headers */ = {isa = PBXBuildFile; fileRef = 0592ACA604156B4000003D05 /* pkcs7Templates.h */; };
+		0592ACAE04156B4000003D05 /* pkcs12Crypto.h in Headers */ = {isa = PBXBuildFile; fileRef = 0592ACA704156B4000003D05 /* pkcs12Crypto.h */; };
+		0592ACB004156B4000003D05 /* pkcs12Templates.h in Headers */ = {isa = PBXBuildFile; fileRef = 0592ACA904156B4000003D05 /* pkcs12Templates.h */; };
+		0592ACB104156B4000003D05 /* pkcs12Utils.h in Headers */ = {isa = PBXBuildFile; fileRef = 0592ACAA04156B4000003D05 /* pkcs12Utils.h */; };
+		0592ACB404156B4000003D05 /* pkcs7Templates.h in Headers */ = {isa = PBXBuildFile; fileRef = 0592ACA604156B4000003D05 /* pkcs7Templates.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		0592ACB504156B4000003D05 /* pkcs12Crypto.h in Headers */ = {isa = PBXBuildFile; fileRef = 0592ACA704156B4000003D05 /* pkcs12Crypto.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		0592ACB704156B4000003D05 /* pkcs12Templates.h in Headers */ = {isa = PBXBuildFile; fileRef = 0592ACA904156B4000003D05 /* pkcs12Templates.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		0592ACB804156B4000003D05 /* pkcs12Utils.h in Headers */ = {isa = PBXBuildFile; fileRef = 0592ACAA04156B4000003D05 /* pkcs12Utils.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		0592ACD1041665AE00003D05 /* SecPkcs12.h in Headers */ = {isa = PBXBuildFile; fileRef = 0592ACD0041665AE00003D05 /* SecPkcs12.h */; };
+		0592ACD2041665AE00003D05 /* SecPkcs12.h in Headers */ = {isa = PBXBuildFile; fileRef = 0592ACD0041665AE00003D05 /* SecPkcs12.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		0592ACD404167B1F00003D05 /* SecPkcs12.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 0592ACD304167B1F00003D05 /* SecPkcs12.cpp */; };
+		05A9EF65041FB7C600003D05 /* pkcs12Keychain.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 05A9EF64041FB7C600003D05 /* pkcs12Keychain.cpp */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		4C9A5B87056AB50100B1BEFE /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 0592AC85041551E100003D05 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 0592AC930415527A00003D05;
+			remoteInfo = "SecurityNssPkcs12 Headers";
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		05396DB50417A34400003D05 /* pkcs12BagAttrs.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = pkcs12BagAttrs.cpp; sourceTree = "<group>"; };
+		05396DB90417B81000003D05 /* pkcs12Debug.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = pkcs12Debug.h; sourceTree = "<group>"; };
+		054289210416A4EA00003D05 /* pkcs12SafeBag.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = pkcs12SafeBag.h; sourceTree = "<group>"; };
+		054289230416A5A800003D05 /* pkcs12BagAttrs.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = pkcs12BagAttrs.h; sourceTree = "<group>"; };
+		054289250416AA2F00003D05 /* pkcs12Coder.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = pkcs12Coder.h; sourceTree = "<group>"; };
+		054289280416B3D100003D05 /* pkcs12Coder.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = pkcs12Coder.cpp; sourceTree = "<group>"; };
+		0542892B0416B65F00003D05 /* pkcs12Encode.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = pkcs12Encode.cpp; sourceTree = "<group>"; };
+		0542892D0416B6C300003D05 /* pkcs12Decode.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = pkcs12Decode.cpp; sourceTree = "<group>"; };
+		054289330416C36700003D05 /* pkcs12SafeBag.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = pkcs12SafeBag.cpp; sourceTree = "<group>"; };
+		0592AC8C0415523C00003D05 /* security_pkcs12 */ = {isa = PBXFileReference; explicitFileType = archive.ar; path = security_pkcs12; sourceTree = BUILT_PRODUCTS_DIR; };
+		0592AC940415527A00003D05 /* security_pkcs12.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; path = security_pkcs12.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+		0592AC9804156B2B00003D05 /* pkcs7Templates.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = pkcs7Templates.cpp; sourceTree = "<group>"; };
+		0592AC9904156B2B00003D05 /* pkcs12Crypto.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = pkcs12Crypto.cpp; sourceTree = "<group>"; };
+		0592AC9B04156B2B00003D05 /* pkcs12Templates.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = pkcs12Templates.cpp; sourceTree = "<group>"; };
+		0592AC9C04156B2B00003D05 /* pkcs12Utils.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = pkcs12Utils.cpp; sourceTree = "<group>"; };
+		0592ACA604156B4000003D05 /* pkcs7Templates.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = pkcs7Templates.h; sourceTree = "<group>"; };
+		0592ACA704156B4000003D05 /* pkcs12Crypto.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = pkcs12Crypto.h; sourceTree = "<group>"; };
+		0592ACA904156B4000003D05 /* pkcs12Templates.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = pkcs12Templates.h; sourceTree = "<group>"; };
+		0592ACAA04156B4000003D05 /* pkcs12Utils.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = pkcs12Utils.h; sourceTree = "<group>"; };
+		0592ACD0041665AE00003D05 /* SecPkcs12.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SecPkcs12.h; sourceTree = "<group>"; };
+		0592ACD304167B1F00003D05 /* SecPkcs12.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = SecPkcs12.cpp; sourceTree = "<group>"; };
+		05A9EF64041FB7C600003D05 /* pkcs12Keychain.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = pkcs12Keychain.cpp; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		0592AC890415523C00003D05 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		0592AC81041551E100003D05 = {
+			isa = PBXGroup;
+			children = (
+				0592AC96041552BB00003D05 /* lib */,
+				0592AC8D0415523C00003D05 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		0592AC8D0415523C00003D05 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				0592AC8C0415523C00003D05 /* security_pkcs12 */,
+				0592AC940415527A00003D05 /* security_pkcs12.framework */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		0592AC96041552BB00003D05 /* lib */ = {
+			isa = PBXGroup;
+			children = (
+				05396DB50417A34400003D05 /* pkcs12BagAttrs.cpp */,
+				054289230416A5A800003D05 /* pkcs12BagAttrs.h */,
+				054289280416B3D100003D05 /* pkcs12Coder.cpp */,
+				054289250416AA2F00003D05 /* pkcs12Coder.h */,
+				0592AC9904156B2B00003D05 /* pkcs12Crypto.cpp */,
+				0592ACA704156B4000003D05 /* pkcs12Crypto.h */,
+				05396DB90417B81000003D05 /* pkcs12Debug.h */,
+				0542892D0416B6C300003D05 /* pkcs12Decode.cpp */,
+				0542892B0416B65F00003D05 /* pkcs12Encode.cpp */,
+				05A9EF64041FB7C600003D05 /* pkcs12Keychain.cpp */,
+				054289330416C36700003D05 /* pkcs12SafeBag.cpp */,
+				054289210416A4EA00003D05 /* pkcs12SafeBag.h */,
+				0592AC9B04156B2B00003D05 /* pkcs12Templates.cpp */,
+				0592ACA904156B4000003D05 /* pkcs12Templates.h */,
+				0592AC9C04156B2B00003D05 /* pkcs12Utils.cpp */,
+				0592ACAA04156B4000003D05 /* pkcs12Utils.h */,
+				0592AC9804156B2B00003D05 /* pkcs7Templates.cpp */,
+				0592ACA604156B4000003D05 /* pkcs7Templates.h */,
+				0592ACD304167B1F00003D05 /* SecPkcs12.cpp */,
+				0592ACD0041665AE00003D05 /* SecPkcs12.h */,
+			);
+			path = lib;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXHeadersBuildPhase section */
+		0592AC870415523C00003D05 /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				0592ACAD04156B4000003D05 /* pkcs7Templates.h in Headers */,
+				0592ACAE04156B4000003D05 /* pkcs12Crypto.h in Headers */,
+				0592ACB004156B4000003D05 /* pkcs12Templates.h in Headers */,
+				0592ACB104156B4000003D05 /* pkcs12Utils.h in Headers */,
+				0592ACD1041665AE00003D05 /* SecPkcs12.h in Headers */,
+				054289220416A4EA00003D05 /* pkcs12SafeBag.h in Headers */,
+				054289240416A5A800003D05 /* pkcs12BagAttrs.h in Headers */,
+				054289260416AA2F00003D05 /* pkcs12Coder.h in Headers */,
+				05396DBA0417B81000003D05 /* pkcs12Debug.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		0592AC8E0415527A00003D05 /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				054289300416BBF800003D05 /* pkcs12BagAttrs.h in Headers */,
+				054289270416AA2F00003D05 /* pkcs12Coder.h in Headers */,
+				0592ACB504156B4000003D05 /* pkcs12Crypto.h in Headers */,
+				054289310416BC4100003D05 /* pkcs12SafeBag.h in Headers */,
+				0592ACB704156B4000003D05 /* pkcs12Templates.h in Headers */,
+				0592ACB804156B4000003D05 /* pkcs12Utils.h in Headers */,
+				0592ACB404156B4000003D05 /* pkcs7Templates.h in Headers */,
+				0592ACD2041665AE00003D05 /* SecPkcs12.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXHeadersBuildPhase section */
+
+/* Begin PBXNativeTarget section */
+		0592AC8B0415523C00003D05 /* libsecurity_pkcs12 */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = C27AD3C40987FCDF001272E0 /* Build configuration list for PBXNativeTarget "libsecurity_pkcs12" */;
+			buildPhases = (
+				0592AC870415523C00003D05 /* Headers */,
+				0592AC880415523C00003D05 /* Sources */,
+				0592AC890415523C00003D05 /* Frameworks */,
+				4C9A5BB2056AB5EC00B1BEFE /* ShellScript */,
+				4C9A5BB3056AB5EF00B1BEFE /* ShellScript */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				0542892F0416BB4500003D05 /* PBXTargetDependency */,
+			);
+			name = libsecurity_pkcs12;
+			productInstallPath = /usr/local/lib;
+			productName = libnsspkcs12;
+			productReference = 0592AC8C0415523C00003D05 /* security_pkcs12 */;
+			productType = "com.apple.product-type.library.static";
+		};
+		0592AC930415527A00003D05 /* security_pkcs12 */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = C27AD3C00987FCDF001272E0 /* Build configuration list for PBXNativeTarget "security_pkcs12" */;
+			buildPhases = (
+				0592AC8E0415527A00003D05 /* Headers */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = security_pkcs12;
+			productInstallPath = /System/Library/PrivateFrameworks;
+			productName = "SecurityNssPkcs12 Headers";
+			productReference = 0592AC940415527A00003D05 /* security_pkcs12.framework */;
+			productType = "com.apple.product-type.framework";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		0592AC85041551E100003D05 /* Project object */ = {
+			isa = PBXProject;
+			buildConfigurationList = C27AD3C80987FCDF001272E0 /* Build configuration list for PBXProject "libsecurity_pkcs12" */;
+			compatibilityVersion = "Xcode 2.4";
+			hasScannedForEncodings = 1;
+			mainGroup = 0592AC81041551E100003D05;
+			productRefGroup = 0592AC8D0415523C00003D05 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				0592AC8B0415523C00003D05 /* libsecurity_pkcs12 */,
+				0592AC930415527A00003D05 /* security_pkcs12 */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		4C9A5BB2056AB5EC00B1BEFE /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "for variant in ${BUILD_VARIANTS}\ndo\n\tpostfix=`echo _${variant} | sed 's/_normal//'`\n\tditto -V \"${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}${postfix}\" \"${SYMROOT}/${PRODUCT_NAME}${postfix}\"\n\tln -fs \"../../../${PRODUCT_NAME}${postfix}\" ${SYMROOT}/${PRODUCT_NAME}.framework/Versions/A\n\tln -fs \"Versions/Current/${PRODUCT_NAME}${postfix}\" ${SYMROOT}/${PRODUCT_NAME}.framework\ndone";
+		};
+		4C9A5BB3056AB5EF00B1BEFE /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 8;
+			files = (
+			);
+			inputPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+			shellPath = /bin/sh;
+			shellScript = "for variant in ${BUILD_VARIANTS}\ndo\n\tpostfix=`echo _${variant} | sed 's/_normal//'`\n\tcp -p \"${SYMROOT}/${PRODUCT_NAME}${postfix}\" ${DSTROOT}/usr/local/SecurityPieces/Frameworks/${PRODUCT_NAME}.framework/Versions/A\n\tranlib \"${DSTROOT}/usr/local/SecurityPieces/Frameworks/${PRODUCT_NAME}.framework/Versions/A/${PRODUCT_NAME}${postfix}\"\n\tln -fs \"Versions/Current/${PRODUCT_NAME}${postfix}\" ${DSTROOT}/usr/local/SecurityPieces/Frameworks/${PRODUCT_NAME}.framework\ndone";
+		};
+/* End PBXShellScriptBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		0592AC880415523C00003D05 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				05396DB60417A34400003D05 /* pkcs12BagAttrs.cpp in Sources */,
+				054289290416B3D100003D05 /* pkcs12Coder.cpp in Sources */,
+				0592ACA004156B2B00003D05 /* pkcs12Crypto.cpp in Sources */,
+				0542892E0416B6C300003D05 /* pkcs12Decode.cpp in Sources */,
+				0542892C0416B65F00003D05 /* pkcs12Encode.cpp in Sources */,
+				05A9EF65041FB7C600003D05 /* pkcs12Keychain.cpp in Sources */,
+				054289340416C36700003D05 /* pkcs12SafeBag.cpp in Sources */,
+				0592ACA204156B2B00003D05 /* pkcs12Templates.cpp in Sources */,
+				0592ACA304156B2B00003D05 /* pkcs12Utils.cpp in Sources */,
+				0592AC9F04156B2B00003D05 /* pkcs7Templates.cpp in Sources */,
+				0592ACD404167B1F00003D05 /* SecPkcs12.cpp in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		0542892F0416BB4500003D05 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 0592AC930415527A00003D05 /* security_pkcs12 */;
+			targetProxy = 4C9A5B87056AB50100B1BEFE /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		C27AD3C10987FCDF001272E0 /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUILD_VARIANTS = debug;
+				EXECUTABLE_PREFIX = "";
+				EXECUTABLE_SUFFIX = "";
+				FRAMEWORK_VERSION = A;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				INFOPLIST_FILE = "Info-security_pkcs12.plist";
+				INSTALL_PATH = /usr/local/SecurityPieces/Frameworks;
+				PRODUCT_NAME = security_pkcs12;
+				WRAPPER_EXTENSION = framework;
+				ZERO_LINK = YES;
+			};
+			name = Development;
+		};
+		C27AD3C20987FCDF001272E0 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				EXECUTABLE_PREFIX = "";
+				EXECUTABLE_SUFFIX = "";
+				FRAMEWORK_VERSION = A;
+				INFOPLIST_FILE = "Info-security_pkcs12.plist";
+				INSTALL_PATH = /usr/local/SecurityPieces/Frameworks;
+				PRODUCT_NAME = security_pkcs12;
+				WRAPPER_EXTENSION = framework;
+				ZERO_LINK = NO;
+			};
+			name = Deployment;
+		};
+		C27AD3C30987FCDF001272E0 /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				EXECUTABLE_PREFIX = "";
+				EXECUTABLE_SUFFIX = "";
+				FRAMEWORK_VERSION = A;
+				INFOPLIST_FILE = "Info-security_pkcs12.plist";
+				INSTALL_PATH = /usr/local/SecurityPieces/Frameworks;
+				PRODUCT_NAME = security_pkcs12;
+				WRAPPER_EXTENSION = framework;
+			};
+			name = Default;
+		};
+		C27AD3C50987FCDF001272E0 /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUILD_VARIANTS = debug;
+				CURRENT_PROJECT_VERSION = 40627;
+				EXECUTABLE_PREFIX = "";
+				EXECUTABLE_SUFFIX = "";
+				FRAMEWORK_SEARCH_PATHS = (
+					/usr/local/SecurityPieces/Frameworks,
+					/usr/local/SecurityPieces/Components/Security,
+				);
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				HEADER_SEARCH_PATHS = (
+					"$(BUILT_PRODUCTS_DIR)/SecurityPieces/Headers",
+					"$(BUILT_PRODUCTS_DIR)/SecurityPieces/PrivateHeaders",
+				);
+				LIBRARY_STYLE = STATIC;
+				OPT_CFLAGS = "-DNDEBUG -Os $(OPT_INLINEFLAGS)";
+				OPT_CPPFLAGS = "$(OPT_CFLAGS)";
+				OPT_INLINEFLAGS = "-finline-functions";
+				OPT_LDFLAGS = "";
+				OTHER_ASFLAGS_debug = "$(OTHER_CFLAGS)";
+				OTHER_ASFLAGS_normal = "-DNDEBUG $(OTHER_CFLAGS)";
+				OTHER_ASFLAGS_profile = "-DNDEBUG $(OTHER_CFLAGS) -pg";
+				OTHER_CFLAGS_debug = "$(OTHER_CFLAGS) -O0 -fno-inline";
+				OTHER_CFLAGS_normal = "$(OPT_CFLAGS)  $(OTHER_CFLAGS)";
+				OTHER_CFLAGS_profile = "$(OPT_CFLAGS)  $(OTHER_CFLAGS) -pg";
+				OTHER_CPLUSPLUSFLAGS_debug = "$(OTHER_CFLAGS) -O0 -fno-inline";
+				OTHER_CPLUSPLUSFLAGS_normal = "$(OPT_CPPFLAGS) $(OTHER_CFLAGS)";
+				OTHER_CPLUSPLUSFLAGS_profile = "$(OPT_CPPFLAGS) $(OTHER_CFLAGS) -pg";
+				OTHER_LDFLAGS_debug = "";
+				OTHER_LDFLAGS_normal = "$(OPT_LDFLAGS) $(OTHER_LDFLAGS)";
+				OTHER_LDFLAGS_profile = "$(OPT_LDFLAGS) $(OTHER_LDFLAGS) -pg";
+				PRODUCT_NAME = security_pkcs12;
+				VERSIONING_SYSTEM = "apple-generic";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				ZERO_LINK = YES;
+			};
+			name = Development;
+		};
+		C27AD3C60987FCDF001272E0 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUILD_VARIANTS = (
+					normal,
+					debug,
+				);
+				CURRENT_PROJECT_VERSION = 40627;
+				EXECUTABLE_PREFIX = "";
+				EXECUTABLE_SUFFIX = "";
+				FRAMEWORK_SEARCH_PATHS = (
+					/usr/local/SecurityPieces/Frameworks,
+					/usr/local/SecurityPieces/Components/Security,
+				);
+				HEADER_SEARCH_PATHS = (
+					"$(BUILT_PRODUCTS_DIR)/SecurityPieces/Headers",
+					"$(BUILT_PRODUCTS_DIR)/SecurityPieces/PrivateHeaders",
+				);
+				LIBRARY_STYLE = STATIC;
+				OPT_CFLAGS = "-DNDEBUG -Os $(OPT_INLINEFLAGS)";
+				OPT_CPPFLAGS = "$(OPT_CFLAGS)";
+				OPT_INLINEFLAGS = "-finline-functions";
+				OPT_LDFLAGS = "";
+				OTHER_ASFLAGS_debug = "$(OTHER_CFLAGS)";
+				OTHER_ASFLAGS_normal = "-DNDEBUG $(OTHER_CFLAGS)";
+				OTHER_ASFLAGS_profile = "-DNDEBUG $(OTHER_CFLAGS) -pg";
+				OTHER_CFLAGS_debug = "$(OTHER_CFLAGS) -O0 -fno-inline";
+				OTHER_CFLAGS_normal = "$(OPT_CFLAGS)  $(OTHER_CFLAGS)";
+				OTHER_CFLAGS_profile = "$(OPT_CFLAGS)  $(OTHER_CFLAGS) -pg";
+				OTHER_CPLUSPLUSFLAGS_debug = "$(OTHER_CFLAGS) -O0 -fno-inline";
+				OTHER_CPLUSPLUSFLAGS_normal = "$(OPT_CPPFLAGS) $(OTHER_CFLAGS)";
+				OTHER_CPLUSPLUSFLAGS_profile = "$(OPT_CPPFLAGS) $(OTHER_CFLAGS) -pg";
+				OTHER_LDFLAGS_debug = "";
+				OTHER_LDFLAGS_normal = "$(OPT_LDFLAGS) $(OTHER_LDFLAGS)";
+				OTHER_LDFLAGS_profile = "$(OPT_LDFLAGS) $(OTHER_LDFLAGS) -pg";
+				PRODUCT_NAME = security_pkcs12;
+				VERSIONING_SYSTEM = "apple-generic";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				ZERO_LINK = NO;
+			};
+			name = Deployment;
+		};
+		C27AD3C70987FCDF001272E0 /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUILD_VARIANTS = (
+					normal,
+					debug,
+				);
+				CURRENT_PROJECT_VERSION = 40627;
+				EXECUTABLE_PREFIX = "";
+				EXECUTABLE_SUFFIX = "";
+				FRAMEWORK_SEARCH_PATHS = (
+					/usr/local/SecurityPieces/Frameworks,
+					/usr/local/SecurityPieces/Components/Security,
+				);
+				HEADER_SEARCH_PATHS = (
+					"$(BUILT_PRODUCTS_DIR)/SecurityPieces/Headers",
+					"$(BUILT_PRODUCTS_DIR)/SecurityPieces/PrivateHeaders",
+				);
+				LIBRARY_STYLE = STATIC;
+				OPT_CFLAGS = "-DNDEBUG -Os $(OPT_INLINEFLAGS)";
+				OPT_CPPFLAGS = "$(OPT_CFLAGS)";
+				OPT_INLINEFLAGS = "-finline-functions";
+				OPT_LDFLAGS = "";
+				OTHER_ASFLAGS_debug = "$(OTHER_CFLAGS)";
+				OTHER_ASFLAGS_normal = "-DNDEBUG $(OTHER_CFLAGS)";
+				OTHER_ASFLAGS_profile = "-DNDEBUG $(OTHER_CFLAGS) -pg";
+				OTHER_CFLAGS_debug = "$(OTHER_CFLAGS) -O0 -fno-inline";
+				OTHER_CFLAGS_normal = "$(OPT_CFLAGS)  $(OTHER_CFLAGS)";
+				OTHER_CFLAGS_profile = "$(OPT_CFLAGS)  $(OTHER_CFLAGS) -pg";
+				OTHER_CPLUSPLUSFLAGS_debug = "$(OTHER_CFLAGS) -O0 -fno-inline";
+				OTHER_CPLUSPLUSFLAGS_normal = "$(OPT_CPPFLAGS) $(OTHER_CFLAGS)";
+				OTHER_CPLUSPLUSFLAGS_profile = "$(OPT_CPPFLAGS) $(OTHER_CFLAGS) -pg";
+				OTHER_LDFLAGS_debug = "";
+				OTHER_LDFLAGS_normal = "$(OPT_LDFLAGS) $(OTHER_LDFLAGS)";
+				OTHER_LDFLAGS_profile = "$(OPT_LDFLAGS) $(OTHER_LDFLAGS) -pg";
+				PRODUCT_NAME = security_pkcs12;
+				VERSIONING_SYSTEM = "apple-generic";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+			};
+			name = Default;
+		};
+		C27AD3C90987FCDF001272E0 /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CONFIGURATION_BUILD_DIR = "$(BUILD_DIR)";
+				CONFIGURATION_TEMP_DIR = "$(PROJECT_TEMP_DIR)";
+			};
+			name = Development;
+		};
+		C27AD3CA0987FCDF001272E0 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CONFIGURATION_BUILD_DIR = "$(BUILD_DIR)";
+				CONFIGURATION_TEMP_DIR = "$(PROJECT_TEMP_DIR)";
+			};
+			name = Deployment;
+		};
+		C27AD3CB0987FCDF001272E0 /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CONFIGURATION_BUILD_DIR = "$(BUILD_DIR)";
+				CONFIGURATION_TEMP_DIR = "$(PROJECT_TEMP_DIR)";
+				UNSTRIPPED_PRODUCT = YES;
+			};
+			name = Default;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		C27AD3C00987FCDF001272E0 /* Build configuration list for PBXNativeTarget "security_pkcs12" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C27AD3C10987FCDF001272E0 /* Development */,
+				C27AD3C20987FCDF001272E0 /* Deployment */,
+				C27AD3C30987FCDF001272E0 /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+		C27AD3C40987FCDF001272E0 /* Build configuration list for PBXNativeTarget "libsecurity_pkcs12" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C27AD3C50987FCDF001272E0 /* Development */,
+				C27AD3C60987FCDF001272E0 /* Deployment */,
+				C27AD3C70987FCDF001272E0 /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+		C27AD3C80987FCDF001272E0 /* Build configuration list for PBXProject "libsecurity_pkcs12" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C27AD3C90987FCDF001272E0 /* Development */,
+				C27AD3CA0987FCDF001272E0 /* Deployment */,
+				C27AD3CB0987FCDF001272E0 /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 0592AC85041551E100003D05 /* Project object */;
+}

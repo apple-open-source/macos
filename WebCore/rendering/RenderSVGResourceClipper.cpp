@@ -65,6 +65,7 @@ void RenderSVGResourceClipper::invalidateClients()
     }
     deleteAllValues(m_clipper);
     m_clipper.clear();
+    m_clipBoundaries = FloatRect();
 }
 
 void RenderSVGResourceClipper::invalidateClient(RenderObject* object)
@@ -250,27 +251,44 @@ bool RenderSVGResourceClipper::createClipData(ClipperData* clipperData, const Fl
     return true;
 }
 
-FloatRect RenderSVGResourceClipper::resourceBoundingBox(const FloatRect& objectBoundingBox) const
+void RenderSVGResourceClipper::calculateClipContentRepaintRect()
 {
     // This is a rough heuristic to appraise the clip size and doesn't consider clip on clip.
-    FloatRect clipRect;
     for (Node* childNode = node()->firstChild(); childNode; childNode = childNode->nextSibling()) {
         RenderObject* renderer = childNode->renderer();
         if (!childNode->isSVGElement() || !static_cast<SVGElement*>(childNode)->isStyled() || !renderer)
             continue;
         if (!renderer->isRenderPath() && !renderer->isSVGText() && !renderer->isSVGShadowTreeRootContainer())
             continue;
-        clipRect.unite(renderer->localToParentTransform().mapRect(renderer->repaintRectInLocalCoordinates()));
+        RenderStyle* style = renderer->style();
+        if (!style || style->display() == NONE || style->visibility() != VISIBLE)
+             continue;
+        m_clipBoundaries.unite(renderer->localToParentTransform().mapRect(renderer->repaintRectInLocalCoordinates()));
     }
+}
+
+FloatRect RenderSVGResourceClipper::resourceBoundingBox(RenderObject* object)
+{
+    // Save the reference to the calling object for relayouting it on changing resource properties.
+    if (!m_clipper.contains(object))
+        m_clipper.set(object, new ClipperData);
+
+    // Resource was not layouted yet. Give back the boundingBox of the object.
+    if (selfNeedsLayout())
+        return object->objectBoundingBox();
+    
+    if (m_clipBoundaries.isEmpty())
+        calculateClipContentRepaintRect();
 
     if (static_cast<SVGClipPathElement*>(node())->clipPathUnits() == SVGUnitTypes::SVG_UNIT_TYPE_OBJECTBOUNDINGBOX) {
+        FloatRect objectBoundingBox = object->objectBoundingBox();
         AffineTransform transform;
         transform.translate(objectBoundingBox.x(), objectBoundingBox.y());
         transform.scaleNonUniform(objectBoundingBox.width(), objectBoundingBox.height());
-        return transform.mapRect(clipRect);
+        return transform.mapRect(m_clipBoundaries);
     }
 
-    return clipRect;
+    return m_clipBoundaries;
 }
 
 }

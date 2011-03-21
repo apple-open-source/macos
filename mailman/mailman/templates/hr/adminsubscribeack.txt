@@ -1,3 +1,0 @@
-%(member)s je uspjesno pretplacen na %(listname)s.
-
-

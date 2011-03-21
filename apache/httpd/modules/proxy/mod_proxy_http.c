@@ -1400,8 +1400,8 @@ apr_status_t ap_proxy_http_process_response(apr_pool_t * p, request_rec *r,
         if (len <= 0) {
             ap_log_rerror(APLOG_MARK, APLOG_ERR, rc, r,
                           "proxy: error reading status line from remote "
-                          "server %s", backend->hostname);
-            if (rc == APR_TIMEUP) {
+                          "server %s:%d", backend->hostname, backend->port);
+            if (APR_STATUS_IS_TIMEUP(rc)) {
                 ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r,
                               "proxy: read timeout");
             }
@@ -1417,14 +1417,14 @@ apr_status_t ap_proxy_http_process_response(apr_pool_t * p, request_rec *r,
              * we normally would handle timeouts
              */
             if (r->proxyreq == PROXYREQ_REVERSE && c->keepalives &&
-                rc != APR_TIMEUP) {
+                !APR_STATUS_IS_TIMEUP(rc)) {
                 apr_bucket *eos;
 
                 ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r,
                               "proxy: Closing connection to client because"
-                              " reading from backend server %s failed. Number"
-                              " of keepalives %i", backend->hostname, 
-                              c->keepalives);
+                              " reading from backend server %s:%d failed."
+                              " Number of keepalives %i", backend->hostname, 
+                              backend->port, c->keepalives);
                 ap_proxy_backend_broke(r, bb);
                 /*
                  * Add an EOC bucket to signal the ap_http_header_filter
@@ -1449,14 +1449,17 @@ apr_status_t ap_proxy_http_process_response(apr_pool_t * p, request_rec *r,
                     APR_BUCKET_INSERT_BEFORE(eos, e);
                 }
                 ap_pass_brigade(r->output_filters, bb);
+                /* Mark the backend connection for closing */
+                backend->close = 1;
                 /* Need to return OK to avoid sending an error message */
                 return OK;
             }
             else if (!c->keepalives) {
                      ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r,
                                    "proxy: NOT Closing connection to client"
-                                   " although reading from backend server %s"
-                                   " failed.", backend->hostname);
+                                   " although reading from backend server %s:%d"
+                                   " failed.", backend->hostname,
+                                   backend->port);
             }
             return ap_proxyerror(r, HTTP_BAD_GATEWAY,
                                  "Error reading from remote server");
@@ -1470,14 +1473,13 @@ apr_status_t ap_proxy_http_process_response(apr_pool_t * p, request_rec *r,
         if (apr_date_checkmask(buffer, "HTTP/#.# ###*")) {
             int major, minor;
 
-            if (2 != sscanf(buffer, "HTTP/%u.%u", &major, &minor)) {
-                major = 1;
-                minor = 1;
-            }
+            major = buffer[5] - '0';
+            minor = buffer[7] - '0';
+
             /* If not an HTTP/1 message or
              * if the status line was > 8192 bytes
              */
-            else if ((buffer[5] != '1') || (len >= sizeof(buffer)-1)) {
+            if ((major != 1) || (len >= sizeof(buffer)-1)) {
                 return ap_proxyerror(r, HTTP_BAD_GATEWAY,
                 apr_pstrcat(p, "Corrupt status line returned by remote "
                             "server: ", buffer, NULL));
@@ -1561,8 +1563,9 @@ apr_status_t ap_proxy_http_process_response(apr_pool_t * p, request_rec *r,
                  */
                 apr_table_unset(r->headers_out, "Content-Length");
                 ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, r->server,
-                             "proxy: server %s returned Transfer-Encoding"
-                             " and Content-Length", backend->hostname);
+                             "proxy: server %s:%d returned Transfer-Encoding"
+                             " and Content-Length", backend->hostname,
+                             backend->port);
                 backend->close += 1;
             }
 

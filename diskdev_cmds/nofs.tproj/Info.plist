@@ -20,12 +20,12 @@
 	<string>8.0</string>
 	<key>FSMediaTypes</key>
 	<dict>
-		<key>6A898CC3-1DD2-11B2-99A6-080020736631</key>
+		<key>53746F72-6167-11AA-AA11-00306543ECAC</key>
 		<dict>
 			<key>FSMediaProperties</key>
 			<dict>
 				<key>Content Hint</key>
-				<string>6A898CC3-1DD2-11B2-99A6-080020736631</string>
+				<string>53746F72-6167-11AA-AA11-00306543ECAC</string>
 				<key>Leaf</key>
 				<true/>
 			</dict>
@@ -39,10 +39,10 @@
 	</dict>
 	<key>FSPersonalities</key>
 	<dict>
-		<key>ZFS (Not Mountable)</key>
+		<key>CoreStorage (Not Mountable)</key>
 		<dict>
 			<key>FSName</key>
-			<string>ZFS File System</string>
+			<string>Incompatible Format</string>
 		</dict>
 	</dict>
 </dict>

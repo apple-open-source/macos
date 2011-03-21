@@ -1,3 +1,0 @@
-%(member)s byl úspì¹nì pøihlá¹en do konference %(listname)s.
-
-

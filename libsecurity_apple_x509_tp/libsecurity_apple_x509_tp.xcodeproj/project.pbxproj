@@ -292,6 +292,7 @@
 			isa = PBXProject;
 			buildConfigurationList = C27AD29B0987FCDD001272E0 /* Build configuration list for PBXProject "libsecurity_apple_x509_tp" */;
 			compatibilityVersion = "Xcode 2.4";
+			developmentRegion = English;
 			hasScannedForEncodings = 1;
 			knownRegions = (
 				English,
@@ -417,7 +418,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUILD_VARIANTS = debug;
-				CURRENT_PROJECT_VERSION = 40473;
+				CURRENT_PROJECT_VERSION = 40596;
 				EXECUTABLE_PREFIX = "";
 				EXECUTABLE_SUFFIX = "";
 				FRAMEWORK_SEARCH_PATHS = (
@@ -466,7 +467,7 @@
 					normal,
 					debug,
 				);
-				CURRENT_PROJECT_VERSION = 40473;
+				CURRENT_PROJECT_VERSION = 40596;
 				EXECUTABLE_PREFIX = "";
 				EXECUTABLE_SUFFIX = "";
 				FRAMEWORK_SEARCH_PATHS = (
@@ -512,7 +513,7 @@
 					normal,
 					debug,
 				);
-				CURRENT_PROJECT_VERSION = 40473;
+				CURRENT_PROJECT_VERSION = 40596;
 				EXECUTABLE_PREFIX = "";
 				EXECUTABLE_SUFFIX = "";
 				FRAMEWORK_SEARCH_PATHS = (

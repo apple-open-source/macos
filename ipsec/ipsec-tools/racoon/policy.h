@@ -117,7 +117,7 @@ do {                                                                         \
 struct ph2handle;
 struct policyindex;
 extern struct secpolicy *getsp __P((struct policyindex *));
-extern struct secpolicy *getsp_r __P((struct policyindex *));
+extern struct secpolicy *getsp_r __P((struct policyindex *, struct ph2handle *));
 struct secpolicy *getspbyspid __P((u_int32_t));
 extern int cmpspidxstrict __P((struct policyindex *, struct policyindex *));
 extern int cmpspidxwild __P((struct policyindex *, struct policyindex *));

@@ -1478,10 +1478,11 @@ static int copyfile_open(copyfile_state_t s)
 		    }
 		case EISDIR:
 		    copyfile_debug(3, "open failed because it is a directory (%s)", s->dst);
-		    if ((s->flags & COPYFILE_EXCL) ||
+		    if (((s->flags & COPYFILE_EXCL) ||
 			(!isdir && (s->flags & COPYFILE_DATA)))
+			&& !(s->flags & COPYFILE_UNPACK))
 			break;
-		    oflags = (oflags & ~O_WRONLY) | O_RDONLY;
+		    oflags = (oflags & ~(O_WRONLY|O_CREAT|O_TRUNC)) | O_RDONLY;
 		    continue;
 	    }
 	    copyfile_warn("open on %s", s->dst);
@@ -2440,7 +2441,7 @@ typedef struct rsrcfork_header {
 	u_int16_t	mh_Types;
 	u_int16_t	mh_Names;
 	u_int16_t	typeCount;
-} rsrcfork_header_t;
+} __attribute__((aligned(2), packed)) rsrcfork_header_t;
 #define RF_FIRST_RESOURCE    256
 #define RF_NULL_MAP_LENGTH    30   
 #define RF_EMPTY_TAG  "This resource fork intentionally left blank   "

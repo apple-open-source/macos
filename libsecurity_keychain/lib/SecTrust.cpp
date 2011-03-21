@@ -246,19 +246,27 @@ OSStatus SecTrustCopyAnchorCertificates(CFArrayRef *anchorCertificates)
 SecKeyRef SecTrustCopyPublicKey(SecTrustRef trust)
 {
 	SecKeyRef pubKey = NULL;
+	CFArrayRef certChain = NULL;
     OSStatus __secapiresult;
 	try {
-		//FIXME: implementation required
-		// - trust reference is required
-		// - check that trust reference has been evaluated first
-		// - return leaf certificate's public key
-		
-		__secapiresult=noErr;
+		Trust *trustObj = Trust::required(trust);
+		CSSM_TP_APPLE_EVIDENCE_INFO *statusChain = NULL;
+		// buildEvidence will throw an error if trust is not yet evaluated
+		trustObj->buildEvidence(certChain, TPEvidenceInfo::overlayVar(statusChain));
+		__secapiresult = noErr;
 	}
 	catch (const MacOSError &err) { __secapiresult=err.osStatus(); }
 	catch (const CommonError &err) { __secapiresult=SecKeychainErrFromOSStatus(err.osStatus()); }
 	catch (const std::bad_alloc &) { __secapiresult=memFullErr; }
 	catch (...) { __secapiresult=internalComponentErr; }
+	
+	if (certChain) {
+		if (CFArrayGetCount(certChain) > 0) {
+			SecCertificateRef cert = (SecCertificateRef) CFArrayGetValueAtIndex(certChain, 0);
+			__secapiresult = SecCertificateCopyPublicKey(cert, &pubKey);
+		}
+		CFRelease(certChain);
+	}
     return pubKey;
 }
 

@@ -47,6 +47,7 @@
 #include <sys/kauth.h>
 
 #include <sys/smb_apple.h>
+#include <sys/msfscc.h>
 
 #include <netsmb/smb.h>
 #include <netsmb/smb_subr.h>
@@ -58,6 +59,8 @@
 #include <fs/smbfs/smbfs_subr.h>
 #include <fs/smbfs/smbfs_lockf.h>
 #include <netsmb/smb_converter.h>
+#include <libkern/crypto/md5.h>
+#include <libkern/OSTypes.h>
 
 /*
  * Lack of inode numbers leads us to the problem of generating them.
@@ -158,9 +161,8 @@ smbfs_smb_qpathinfo(struct smbnode *np, struct smbfattr *fap,
 	int error, svtz;
 	struct mbchain *mbp;
 	struct mdchain *mdp;
-	u_int16_t date, time, wattr;
 	u_int64_t llint;
-	u_int32_t size, dattr;
+	u_int32_t size, dattr, eaSize;
 	const char *name = (namep ? *namep : NULL);
 	size_t nmlen = (nmlenp ? *nmlenp : 0);
 	char *ntwrkname = NULL;
@@ -206,46 +208,22 @@ smbfs_smb_qpathinfo(struct smbnode *np, struct smbfattr *fap,
 	}
 	svtz = vcp->vc_sopt.sv_tz;
 	switch (infolevel) {
-	case SMB_QFILEINFO_STANDARD:
-		md_get_uint16le(mdp, &date);
-		md_get_uint16le(mdp, &time);	/* creation time */
-		if (date || time) {
-			smb_dos2unixtime(date, time, 0, svtz, &fap->fa_crtime);
-		}
-		md_get_uint16le(mdp, &date);
-		md_get_uint16le(mdp, &time);	/* access time */
-		if (date || time) {
-			smb_dos2unixtime(date, time, 0, svtz, &fap->fa_atime);
-		}
-		md_get_uint16le(mdp, &date);
-		md_get_uint16le(mdp, &time);	/* modify time */
-		if (date || time) {
-			smb_dos2unixtime(date, time, 0, svtz, &fap->fa_mtime);
-		}
-		md_get_uint32le(mdp, &size);
-		fap->fa_size = size;
-		md_get_uint32le(mdp, &size);	/* allocation size */
-		fap->fa_data_alloc = size;
-		error = md_get_uint16le(mdp, &wattr);
-		fap->fa_attr = wattr;
-		fap->fa_vtype = (fap->fa_attr & SMB_FA_DIR) ? VDIR : VREG;
-		break;
 	case SMB_QFILEINFO_BASIC_INFO:
 		md_get_uint64le(mdp, &llint);	/* creation time */
 		if (llint) {
-			smb_time_NT2local(llint, svtz, &fap->fa_crtime);
+			smb_time_NT2local(llint, &fap->fa_crtime);
 		}
 		md_get_uint64le(mdp, &llint);
 		if (llint) {
-			smb_time_NT2local(llint, svtz, &fap->fa_atime);
+			smb_time_NT2local(llint, &fap->fa_atime);
 		}
 		md_get_uint64le(mdp, &llint);
 		if (llint) {
-			smb_time_NT2local(llint, svtz, &fap->fa_mtime);
+			smb_time_NT2local(llint, &fap->fa_mtime);
 		}
 		md_get_uint64le(mdp, &llint);
 		if (llint) {
-			smb_time_NT2local(llint, svtz, &fap->fa_chtime);
+			smb_time_NT2local(llint, &fap->fa_chtime);
 		}
 		error = md_get_uint32le(mdp, &dattr);
 		fap->fa_attr = dattr;
@@ -254,19 +232,19 @@ smbfs_smb_qpathinfo(struct smbnode *np, struct smbfattr *fap,
 	case SMB_QFILEINFO_ALL_INFO:								
 		md_get_uint64le(mdp, &llint);	/* creation time */
 		if (llint) {
-			smb_time_NT2local(llint, svtz, &fap->fa_crtime);
+			smb_time_NT2local(llint, &fap->fa_crtime);
 		}
 		md_get_uint64le(mdp, &llint);
 		if (llint) {			/* access time */
-			smb_time_NT2local(llint, svtz, &fap->fa_atime);
+			smb_time_NT2local(llint, &fap->fa_atime);
 		}
 		md_get_uint64le(mdp, &llint);
 		if (llint) {			/* write time */
-			smb_time_NT2local(llint, svtz, &fap->fa_mtime);
+			smb_time_NT2local(llint, &fap->fa_mtime);
 		}
 		md_get_uint64le(mdp, &llint);
 		if (llint) {			/* change time */
-			smb_time_NT2local(llint, svtz, &fap->fa_chtime);
+			smb_time_NT2local(llint, &fap->fa_chtime);
 		}
 		/* 
 		 * SNIA CIFS Technical Reference is wrong, this should be 
@@ -274,7 +252,15 @@ smbfs_smb_qpathinfo(struct smbnode *np, struct smbfattr *fap,
 		 */ 
 		md_get_uint32le(mdp, &dattr);	/* Attributes */
 		fap->fa_attr = dattr;
-		fap->fa_vtype = (fap->fa_attr & SMB_FA_DIR) ? VDIR : VREG;
+		/*
+		 * Because of the Steve/Conrad Symlinks we can never be completely
+		 * sure that we have the corret vnode type if its a file. For 
+		 * directories we always know the correct information.
+		 */
+		if (fap->fa_attr & SMB_EFA_DIRECTORY) {
+			fap->fa_valid_mask |= FA_VTYPE_VALID;
+		}			
+		fap->fa_vtype = (fap->fa_attr & SMB_EFA_DIRECTORY) ? VDIR : VREG;
 
 		/* 
 		 * SNIA CIFS Technical Reference is wrong, this should be 
@@ -294,8 +280,6 @@ smbfs_smb_qpathinfo(struct smbnode *np, struct smbfattr *fap,
 		if (error)
 			goto bad;			
 		fap->fa_ino = np->n_ino;
-		if (namep == NULL)
-			break;	/* We are done */
 		/* 
 		 * At this point the SNIA CIFS Technical Reference is wrong. 
 		 * It should have the following: 
@@ -307,7 +291,29 @@ smbfs_smb_qpathinfo(struct smbnode *np, struct smbfattr *fap,
 		 * Technical Reference.
 		 */
 		md_get_uint16(mdp, NULL);	/* Unknown */
-		md_get_uint32(mdp, NULL);	/* EASize */
+		/*
+		 * Confirmed from MS:
+		 * When the attribute has the Reparse Point bit set then the EASize
+		 * contains the reparse tag info. This behavior is consistent for 
+		 * Full, Both, FullId, or BothId query dir calls.  It will pack the 
+		 * reparse tag into the EaSize value if ATTRIBUTE_REPARSE_POINT is set.  
+		 * I verified with local MS Engineers, and they also checking to make 
+		 * sure the behavior is covered in MS-FSA. 
+		 *
+		 * EAs and reparse points cannot both be in a file at the same
+		 * time. We return different information for each case.
+		 *
+		 * NOTE: This is not true for this call (SMB_QFILEINFO_ALL_INFO), they
+		 * return the reparse bit but the eaSize size is always zero?
+		 */
+		md_get_uint32le(mdp, &eaSize);	/* extended attributes size */
+		if (fap->fa_attr & SMB_EFA_REPARSE_POINT) {
+			SMBDEBUG("Reparse point but tag equals %-4x, not supported by this call\n", eaSize);
+		}
+		/* We don't care about the name, so we can skip getting it */
+		if (namep == NULL)
+			break;	/* We are done */
+			
 		error = md_get_uint32le(mdp, &size);	/* Path name lengh */
 		if (error)
 			goto bad;			
@@ -450,15 +456,15 @@ bad:
 	
 		md_get_uint64le(mdp, &llint);	/* change time */
 		if (llint)
-			smb_time_NT2local(llint, svtz, &fap->fa_chtime);
+			smb_time_NT2local(llint, &fap->fa_chtime);
 		
 		md_get_uint64le(mdp, &llint);	/* access time */
 		if (llint)
-			smb_time_NT2local(llint, svtz, &fap->fa_atime);
+			smb_time_NT2local(llint, &fap->fa_atime);
 
 		md_get_uint64le(mdp, &llint);	/* write time */
 		if (llint)
-			smb_time_NT2local(llint, svtz, &fap->fa_mtime);
+			smb_time_NT2local(llint, &fap->fa_mtime);
 
 		md_get_uint64le(mdp, &llint);	/* Numeric user id for the owner */
 		fap->fa_uid = llint;
@@ -467,16 +473,15 @@ bad:
 		fap->fa_gid = llint;
 
 		md_get_uint32le(mdp, &dattr);	/* Enumeration specifying the file type, st_mode */
+		fap->fa_valid_mask |= FA_VTYPE_VALID;
 		/* Make sure the dos attributes are correct */ 
 		if (dattr & EXT_UNIX_DIR) {
-			fap->fa_attr |= SMB_FA_DIR;
+			fap->fa_attr |= SMB_EFA_DIRECTORY;
 			fap->fa_vtype = VDIR;
+		} else if (dattr & EXT_UNIX_SYMLINK) {
+			fap->fa_vtype = VLNK;
 		} else {
-			fap->fa_attr &= ~SMB_FA_DIR;
-			if (dattr & EXT_UNIX_SYMLINK)
-				fap->fa_vtype = VLNK;
-			else
-				fap->fa_vtype = VREG;
+			fap->fa_vtype = VREG;
 		}
 
 		md_get_uint64le(mdp, &llint);	/* Major device number if type is device */
@@ -484,12 +489,13 @@ bad:
 		md_get_uint64le(mdp, &llint);	/* This is a server-assigned unique id */
 		md_get_uint64le(mdp, &llint);	/* Standard UNIX permissions */
 		fap->fa_permissions = llint;
+		fap->fa_valid_mask |= FA_UNIX_MODES_VALID;
 		md_get_uint64le(mdp, &llint);	/* Number of hard link */
 		fap->fa_nlinks = llint;
 
 		md_get_uint64le(mdp, &llint);	/* creation time */
 		if (llint)
-			smb_time_NT2local(llint, svtz, &fap->fa_crtime);
+			smb_time_NT2local(llint, &fap->fa_crtime);
 
 		md_get_uint32le(mdp, &dattr);	/* File flags enumeration */
 		error = md_get_uint32le(mdp, &fap->fa_flags_mask);	/* Mask of valid flags */
@@ -564,85 +570,731 @@ bad:
 }
 
 /*
- * Support for creating a symbolic link that resides on a UNIX server. This allows
- * us to access and share symbolic links with AFP and NFS.
+ * smbfs_smb_markfordelete
+ *
+ * We have an open file that they want to delete. This call will tell the 
+ * server to delete the file when the last close happens. Currenly we know that 
+ * XP, Windows 2000 and Windows 2003 support this call. SAMBA does support the
+ * call, but currently has a bug that prevents it from working.
+ *
  */
-int smbfs_smb_create_symlink(struct smbnode *dnp, const char *name, size_t nmlen, 
-							 char *target, size_t targetlen, vfs_context_t context)
+static int
+smbfs_smb_markfordelete(struct smb_share *ssp, struct smbnode *np,
+						vfs_context_t context, u_int16_t *infid)
 {
 	struct smb_t2rq *t2p;
-	struct smb_share *ssp = dnp->n_mount->sm_share;
 	struct smb_vc *vcp = SSTOVC(ssp);
+	struct mbchain *mbp;
+	int error, cerror;
+	u_int16_t fid = (infid) ? *infid : 0;
+	
+	if (!(vcp->vc_sopt.sv_caps & SMB_CAP_NT_SMBS))
+		return (ENOTSUP);
+	
+	/* Must pass in either a fid pointer or a node pointer */
+	if (!np && !infid) {
+		return (EINVAL);
+	}	
+	
+	error = smb_t2_alloc(SSTOCP(ssp), SMB_TRANS2_SET_FILE_INFORMATION, context, &t2p);
+	if (error)
+		return error;
+	if (!infid) {
+		/* 
+		 * See if we can open the item with delete access. Requesting 
+		 * delete access can mean more then just requesting to delete
+		 * the file. It is used to mark the item for deletion on close
+		 * and for renaming an open file. If I find any other uses for 
+		 * it I will add them to this comment.  
+		 */
+		error = smbfs_smb_tmpopen(np, STD_RIGHT_DELETE_ACCESS, context, &fid);
+		if (error)
+			goto exit;
+	}
+	mbp = &t2p->t2_tparam;
+	mb_init(mbp);
+	mb_put_mem(mbp, (caddr_t)&fid, 2, MB_MSYSTEM);
+	if (vcp->vc_sopt.sv_caps & SMB_CAP_INFOLEVEL_PASSTHRU)
+		mb_put_uint16le(mbp, SMB_SFILEINFO_DISPOSITION_INFORMATION);
+	else
+		mb_put_uint16le(mbp, SMB_SFILEINFO_DISPOSITION_INFO);
+	mb_put_uint32le(mbp, 0);
+	mbp = &t2p->t2_tdata;
+	mb_init(mbp);
+	mb_put_uint8(mbp, 1);
+	t2p->t2_maxpcount = 2;
+	t2p->t2_maxdcount = 0;
+	error = smb_t2_request(t2p);
+exit:
+	if (!infid && fid) {
+		cerror = smbfs_smb_tmpclose(np, fid, context);
+		if (cerror) {
+			SMBWARNING("error %d closing fid %d\n", cerror, fid);
+		}
+	}
+	smb_t2_done(t2p);
+	return error;
+}
+
+/*
+ * Create the data required for a faked up symbolic link. This is Conrad and Steve
+ * French method for storing and reading symlinks on Window Servers.
+ */
+static void * 
+smbfs_create_windows_symlink_data(const char *target, size_t targetlen, 
+								  uint32_t *rtlen)
+{
+	MD5_CTX md5;
+	uint32_t state[4];
+	uint32_t datalen, filelen;
+	char *wbuf, *wp;
+	int	 maxwplen;
+	uint32_t targlen = (uint32_t)targetlen;
+	
+	datalen = SMB_SYMHDRLEN + targlen;
+	filelen = SMB_SYMLEN;
+	maxwplen = filelen;
+	
+	MALLOC(wbuf, void *, filelen, M_TEMP, M_WAITOK);
+	
+	wp = wbuf;
+	bcopy(smb_symmagic, wp, SMB_SYMMAGICLEN);
+	wp += SMB_SYMMAGICLEN;
+	maxwplen -= SMB_SYMMAGICLEN;
+	(void)snprintf(wp, maxwplen, "%04d\n", targlen);
+	wp += SMB_SYMLENLEN;
+	maxwplen -= SMB_SYMLENLEN;
+	MD5Init(&md5);
+	MD5Update(&md5, (unsigned char *)target, targlen);
+	MD5Final((u_char *)state, &md5);
+	(void)snprintf(wp, maxwplen, "%08x%08x%08x%08x\n", htobel(state[0]),
+				   htobel(state[1]), htobel(state[2]), htobel(state[3]));
+	wp += SMB_SYMMD5LEN;
+	bcopy(target, wp, targlen);
+	wp += targlen;
+	if (datalen < filelen) {
+		*wp++ = '\n';
+		datalen++;
+		if (datalen < filelen)
+			memset((caddr_t)wp, ' ', filelen - datalen);
+	}
+	*rtlen = filelen;
+	return wbuf;
+}
+
+/*
+ * Create a UNIX style symlink using the UNIX extension. This uses the smb trans2
+ * set path info call with a unix link info level. The server will create the symlink
+ * using the path, the data portion of the trans2 message will contain the target.
+ * The target will be a UNIX style target including using forward slashes as the
+ * delemiter.
+ */
+static int
+smb_setfile_unix_symlink(struct smb_share *share, struct smbnode *dnp, 
+						 const char *name, size_t nmlen, char *target, 
+						 size_t targetlen, vfs_context_t context)
+{
+	struct smb_t2rq *t2p = NULL;
 	struct mbchain *mbp;
 	int error;
 	char *ntwrkpath = NULL;
-	size_t ntwrkpathlen = targetlen * 2;	/* UTF8 to UTF16 most it can be is twice as big */
-	int flags = UTF_PRECOMPOSED|UTF_NO_NULL_TERM;
+	size_t ntwrkpathlen = targetlen * 2; /* UTF8 to UTF16 can be twice as big */
 	
-	MALLOC(ntwrkpath, char *, ntwrkpathlen, M_SMBFSDATA, M_WAITOK);
-	if (ntwrkpath == NULL)
-		error = ENOMEM;
-	else
-		error = smbfs_fullpath_to_network(ssp, (char *)target, ntwrkpath, &ntwrkpathlen, '/', flags);
-	if (!error)
-		error = smb_t2_alloc(SSTOCP(ssp), SMB_TRANS2_SET_PATH_INFORMATION, context, &t2p);
+	MALLOC(ntwrkpath, char *, ntwrkpathlen, M_SMBFSDATA, M_WAITOK | M_ZERO);
+	/* smb_convert_path_to_network sets the precomosed flag */
+	error = smb_convert_path_to_network(target, targetlen, ntwrkpath, 
+										&ntwrkpathlen, '/', NO_SFM_CONVERSIONS, 
+										SMB_UNICODE_STRINGS(SSTOVC(share)));
+	if (! error) {
+		error = smb_t2_alloc(SSTOCP(share), SMB_TRANS2_SET_PATH_INFORMATION, context, &t2p);
+	}
 	if (error) {
-		if (ntwrkpath)
-			free(ntwrkpath, M_SMBFSDATA);
-		SMBWARNING("Creating symlink for %s failed! error = %d\n", name, error);
-		return error;		
+		goto done;
 	}
 	mbp = &t2p->t2_tparam;
 	mb_init(mbp);
 	mb_put_uint16le(mbp, SMB_SFILEINFO_UNIX_LINK);
 	mb_put_uint32le(mbp, 0);		/* MBZ */
-	error = smbfs_fullpath(mbp, vcp, dnp, name, &nmlen, UTF_SFM_CONVERSIONS, '\\');
-	if (error)
-		goto out;
+	error = smbfs_fullpath(mbp, SSTOVC(share), dnp, name, &nmlen, UTF_SFM_CONVERSIONS, '\\');
+	if (error) {
+		goto done;
+	}
 	mbp = &t2p->t2_tdata;
 	mb_init(mbp);
 	mb_put_mem(mbp, (caddr_t)(ntwrkpath), ntwrkpathlen, MB_MSYSTEM);
 	t2p->t2_maxpcount = 2;
-	t2p->t2_maxdcount = vcp->vc_txmax;
+	t2p->t2_maxdcount = SSTOVC(share)->vc_txmax;
 	error = smb_t2_request(t2p);
 	
-out:
-	free(ntwrkpath, M_SMBFSDATA);
-	smb_t2_done(t2p);
-	if (error)
+done:
+	SMB_FREE(ntwrkpath, M_SMBFSDATA);
+	if (t2p) {
+		smb_t2_done(t2p);
+	}
+	return error;
+	
+}
+
+static int
+smbfs_smb_fsctl(struct smb_share *share,  uint32_t fsctl, uint16_t fid, 
+				uint32_t datacnt, struct mbchain *mbp, struct mdchain *mdp,
+				Boolean * moreDataRequired, vfs_context_t context)
+{
+	struct smb_ntrq *ntp = NULL;
+	
+	int error = smb_nt_alloc(SSTOCP(share), NT_TRANSACT_IOCTL, context, &ntp);
+	if (error) {
+		goto done;
+	}
+	/*
+	 * TotalParameterCount (4 bytes): 
+	 * ULONG This field MUST be set to 0x0000. 
+	 *
+	 * MaxParameterCount (4 bytes): 
+	 * ULONG This field MUST be set to 0x0000. 
+	 *
+	 * ParameterCount (4 bytes) : 
+	 * ULONG This field MUST be set to 0x0000.
+	 */
+	/*
+	 * MaxDataCount (4 bytes): 
+	 * ULONG The max data that can be returned. 
+	 */
+	ntp->nt_maxdcount = datacnt;
+	
+	/* The NT_TRANSACT_IOCTL setup structure */
+	mb_init(&ntp->nt_tsetup);
+	
+	/* 
+	 * FunctionCode (4 bytes): 
+	 * ULONG Windows NT device or file system control code.
+	 */
+	mb_put_uint32le(&ntp->nt_tsetup, fsctl);
+	
+	/* FID (2 bytes): 
+	 * USHORT MUST contain a valid FID obtained from a previously successful 
+	 * SMB open command. The FID MUST be for either an I/O device or for a 
+	 * file system control device. The type of FID being supplied is specified 
+	 * by IsFctl.
+	 */
+	mb_put_uint16le(&ntp->nt_tsetup, fid);
+	
+	/*
+	 * IsFctl (1 byte): 
+	 * BOOLEAN This field is TRUE if the command is a file system control 
+	 * command and the FID is a file system control device. Otherwise, the 
+	 * command is a device control command and FID is an I/O device.
+	 *
+	 * Currently always set to true 
+	 */
+	mb_put_uint8(&ntp->nt_tsetup, 1);
+	
+	/* 
+	 * IsFlags (1 byte): 
+	 * BOOLEAN If bit 0 is set, the command is to be applied to a share root 
+	 * handle. The share MUST be a Distributed File System (DFS) type.
+	 *
+	 * Currently always set to false 
+	 */
+	mb_put_uint8(&ntp->nt_tsetup, 0);
+	
+	/*
+	 * NT_Trans_Parameters (variable): (0 bytes): 
+	 * No NT_Trans parameters are sent in this request.
+	 */
+	/*
+	 * NT_Trans_Data (variable):
+	 * The raw bytes that are passed to the fsctl or ioctl function as the 
+	 * input buffer.
+	 */
+	if (mbp) {
+		/* Use the mbchain passed in */
+		ntp->nt_tdata = *mbp;
+		memset(mbp, 0, sizeof(*mbp));
+	}
+	
+	error = smb_nt_request(ntp);
+	if (error) {
+		SMBWARNING("smb_nt_request error = %d\n", error);
+		/* The data buffer wasn't big enough. Caller will have to retry. */
+		if (moreDataRequired && (ntp->nt_flags & SMBT2_MOREDATA)) {
+			*moreDataRequired = TRUE;
+		}
+		goto done;
+	}
+	if (ntp->nt_rdata.md_top && mdp) {		
+		SMBSYMDEBUG("Repase data size = %d\n", (int)datalen);
+		/* Store the mbuf info into their mdchain */
+		md_initm(mdp, ntp->nt_rdata.md_top);
+		/* Clear it out so we don't free the mbuf */
+		memset(&ntp->nt_rdata, 0, sizeof(ntp->nt_rdata));
+	}
+	
+done:
+	if (ntp) {
+		smb_nt_done(ntp);
+	}
+	
+	return error;
+	
+}
+
+void 
+smbfs_update_symlink_cache(struct smbnode *np, char *target, size_t targetlen)
+{
+	struct timespec ts;
+	
+	SMB_FREE(np->n_symlink_target, M_TEMP);
+	np->n_symlink_target_len = 0;
+	np->n_symlink_target = smb_strdup(target, targetlen);
+	if (np->n_symlink_target) {
+		np->n_symlink_target_len = targetlen;
+		nanouptime(&ts);
+		np->n_symlink_cache_timer = ts.tv_sec;
+	}
+}
+
+/*
+ * Create a symbolic link since the server supports the UNIX extensions. This 
+ * allows us to access and share symbolic links with AFP and NFS.
+ *
+ */
+int 
+smbfs_smb_create_unix_symlink(struct smb_share *share, struct smbnode *dnp, 
+							  const char *in_name, size_t in_nmlen, char *target, 
+							  size_t targetlen, struct smbfattr *fap,
+							  vfs_context_t context)
+{
+	const char *name = in_name;
+	size_t nmlen = in_nmlen;
+	int error;
+	
+	memset(fap, 0, sizeof(*fap));
+	error = smb_setfile_unix_symlink(share, dnp, name, nmlen, target, 
+									 targetlen, context);
+	if (error) {
+		goto done;
+	}
+	/* 
+	 * The smb_setfile_unix_symlink call does not return any meta data
+	 * info that includes the inode number of the item. We could just dummy up 
+	 * these values, but that wouldn't be correct and besides we would 
+	 * just need invalidate the cache, which would cause a lookup anyways.
+	 * 
+	 * Seems if wide links are turned off Snow Leopard servers will return
+	 * access denied on any lookup of the symbolic link. So for now dummy up
+	 * the file's attribute if an error is returned on the lookup. If this gets
+	 * fixed in the future then we could remove this code, but we need to cleanup
+	 * on failure.
+	 *
+	 * We should cleanup on failure, but we don't do that in any of the 
+	 * other failure case. See <rdar://problem/8498673>
+	 */
+	error = smbfs_smb_lookup(dnp, &name, &nmlen, fap, context);
+	if (error) {
+		struct smbmount *smp = dnp->n_mount;
+		
+		fap->fa_attr = SMB_EFA_NORMAL;
+		fap->fa_size = targetlen;
+		fap->fa_data_alloc = roundup(fap->fa_size, smp->sm_statfsbuf.f_bsize);
+		nanotime(&fap->fa_crtime);	/* Need current date/time, so use nanotime */
+		fap->fa_atime = fap->fa_crtime;
+		fap->fa_chtime = fap->fa_crtime;
+		fap->fa_mtime = fap->fa_crtime;
+		fap->fa_ino = smbfs_getino(dnp, in_name, in_nmlen);
+		nanouptime(&fap->fa_reqtime);
+		fap->fa_valid_mask |= FA_VTYPE_VALID;
+		fap->fa_vtype = VLNK;
+		fap->fa_nlinks = 1;
+		fap->fa_flags_mask = EXT_REQUIRED_BY_MAC;
+		fap->fa_unix = TRUE;	
+		error = 0;
+	}
+done:
+	/* If lookup returned a new name free it we never need that name */
+	if (name != in_name) {
+		SMB_FREE(name, M_SMBNODENAME);
+	}
+	if (error) {
 		SMBWARNING("Creating symlink for %s failed! error = %d\n", name, error);
+	}
+	return error;
+}
+
+/*
+ * This server doesn't support UNIX or reparse point style symbolic links, so
+ * create a faked up symbolic link, using the Conrad and Steve French method
+ * for storing and reading symlinks on Window Servers. 
+ *
+ * NOTE: We should remove creating these in the future, but first we need to see
+ * if we can get reparse point style symbolic links working.
+ *
+ */
+int 
+smbfs_smb_create_windows_symlink(struct smb_share *share, struct smbnode *dnp, 
+								 const char *name, size_t nmlen, char *target, 
+								 size_t targetlen, struct smbfattr *fap,
+								 vfs_context_t context)
+{
+	uint32_t wlen = 0;
+	uio_t uio;
+	char *wdata  = NULL;
+	int error;
+	uint16_t fid = 0;
+	
+	error = smbfs_smb_create(dnp, name, nmlen, SMB2_FILE_WRITE_DATA, 
+							 context, &fid, NTCREATEX_DISP_CREATE, 0, fap);
+	if (error) {
+		goto done;		
+	}
+	wdata = smbfs_create_windows_symlink_data(target, targetlen, &wlen);
+	if (!wdata) {
+		error = ENOMEM;
+		goto done;		
+	}
+	uio = uio_create(1, 0, UIO_SYSSPACE, UIO_WRITE);
+	uio_addiov(uio, CAST_USER_ADDR_T(wdata), wlen);
+	error = smb_write(share, fid, uio, context, SMBWRTTIMO);
+	uio_free(uio);
+	if (!error)	/* We just changed the size of the file */
+		fap->fa_size = wlen;
+done:
+	FREE(wdata, M_TEMP);
+	if (fid) {
+		(void)smbfs_smb_close(share, fid, context);
+	}
+	if (error) {
+		SMBWARNING("Creating symlink for %s failed! error = %d\n", name, error);
+	}
+	return error;
+}
+
+/*
+ * This server support reparse point style symbolic links, This allows us to 
+ * access and share symbolic links with AFP and NFS.
+ *
+ */
+int 
+smbfs_smb_create_reparse_symlink(struct smb_share *share, struct smbnode *dnp, 
+								 const char *name, size_t nmlen, char *target, 
+								 size_t targetlen, struct smbfattr *fap,
+								 vfs_context_t context)
+{
+	struct smbmount *smp = dnp->n_mount;
+	int error;
+	uint16_t fid = 0;
+	struct mbchain	mbp;
+	size_t path_len;
+	char *path;
+	uint16_t reparseLen;
+	uint16_t SubstituteNameOffset, SubstituteNameLength;
+	uint16_t PrintNameOffset, PrintNameLength;
+	
+	error = smbfs_smb_ntcreatex(dnp, SMB2_FILE_WRITE_DATA | SMB2_FILE_WRITE_ATTRIBUTES | SMB2_DELETE, 
+								NTCREATEX_SHARE_ACCESS_ALL, context, 
+								VLNK, &fid,  name, nmlen, NTCREATEX_DISP_CREATE,  
+								0, fap);
+	if (error) {
+		goto done;		
+	}
+	path_len = (targetlen * 2) + 2;	/* Start with the max possible size */
+	MALLOC(path, char *, path_len, M_TEMP, M_WAITOK | M_ZERO);
+	if (path == NULL) {
+		error = ENOMEM;
+		goto done;		
+	}
+	/* Convert it to a network style path */
+	error = smb_convert_path_to_network(target, targetlen, path,  &path_len, 
+										'\\', SMB_UTF_SFM_CONVERSIONS, SMB_UNICODE_STRINGS(SSTOVC(share)));
+	if (error) {
+		SMB_FREE(path, M_TEMP);
+		goto done;		
+	}
+	SubstituteNameLength = path_len;
+	SubstituteNameOffset = 0;
+	PrintNameOffset = SubstituteNameLength;
+	PrintNameLength = SubstituteNameLength;
+	reparseLen = SubstituteNameLength + PrintNameLength + 12;
+	mb_init(&mbp);
+	mb_put_uint32le(&mbp, IO_REPARSE_TAG_SYMLINK);
+	mb_put_uint16le(&mbp, reparseLen);
+	mb_put_uint16le(&mbp, 0);	/* Reserved */
+	mb_put_uint16le(&mbp, SubstituteNameOffset);
+	mb_put_uint16le(&mbp, SubstituteNameLength);
+	mb_put_uint16le(&mbp, PrintNameOffset);
+	mb_put_uint16le(&mbp, PrintNameLength);
+	/*
+	 * Flags field can be either SYMLINK_FLAG_ABSOLUTE or SYMLINK_FLAG_RELATIVE.
+	 * If the target starts with a slash assume its absolute otherwise it must
+	 * me realative.
+	 */
+	if (*target == '/') {
+		mb_put_uint32le(&mbp, SYMLINK_FLAG_ABSOLUTE);
+	} else {
+		mb_put_uint32le(&mbp, SYMLINK_FLAG_RELATIVE);
+	}	
+	mb_put_mem(&mbp, path, SubstituteNameLength, MB_MSYSTEM);
+	mb_put_mem(&mbp, path, PrintNameLength, MB_MSYSTEM);
+	SMB_FREE(path, M_TEMP);
+	error = smbfs_smb_fsctl(share,  FSCTL_SET_REPARSE_POINT, fid, 0, &mbp, 
+							NULL, NULL, context);
+	mb_done(&mbp);
+	/* 
+	 * Windows systems requires special user access to create a reparse symlinks.
+	 * They default to only allow administrator symlink create access. This can
+	 * be changed on the server, but we are going to run into this issue. So if
+	 * we get an access error on the fsctl then we assume this user doesn't have
+	 * create symlink rights and we need to fallback to the old Conrad/Steve
+	 * symlinks. Since the create work we know the user has access to the file
+	 * system, they just don't have create symlink rights. We never fallback if 
+	 * the server is running darwin.
+	 */
+	if ((error == EACCES) && !(SSTOVC(share)->vc_flags & SMBV_DARWIN)) {
+		smp->sm_flags &= ~MNT_SUPPORTS_REPARSE_SYMLINKS;
+	} 
+	
+	if (error) {
+		/* Failed to create the symlink, remove the file on close */
+		(void)smbfs_smb_markfordelete(share, NULL, context, &fid);
+	} else {
+		/* Reset any other fap information */
+		fap->fa_size = targetlen;
+		/* The FSCTL_SET_REPARSE_POINT succeeded, so mark it as a reparse point */
+		fap->fa_attr |= SMB_EFA_REPARSE_POINT;
+		fap->fa_valid_mask |= FA_REPARSE_TAG_VALID;
+		fap->fa_reparse_tag = IO_REPARSE_TAG_SYMLINK;
+		fap->fa_valid_mask |= FA_VTYPE_VALID;
+		fap->fa_vtype = VLNK;
+	}
+	
+done:
+	if (fid) {
+		(void)smbfs_smb_close(share, fid, context);
+	}
+	/* 
+	 * This user doesn't have access to create a reparse symlink, create the 
+	 * old style symlink. 
+	 */
+	if ((error == EACCES) && !(smp->sm_flags & MNT_SUPPORTS_REPARSE_SYMLINKS)) {
+		error = smbfs_smb_create_windows_symlink(share, dnp, name, nmlen, target, 
+												 targetlen, fap, context);
+	}
+	
+	if (error) {
+		SMBWARNING("Creating symlink for %s failed! error = %d\n", name, error);
+	}
+	return error;
+}
+
+/*
+ * The symbolic link is stored in a reparse point, support by some windows servers
+ * and Darwin servers.
+ *
+ */
+int 
+smbfs_smb_reparse_read_symlink(struct smb_share *share, struct smbnode *np, 
+							   struct uio *uiop, vfs_context_t context)
+{
+	int error;
+	Boolean moreDataRequired = FALSE;
+	uint32_t rdatacnt = SSTOVC(share)->vc_txmax;
+	struct mdchain mdp;
+	uint32_t reparseTag = 0;
+	uint16_t reparseLen = 0;
+	uint16_t SubstituteNameOffset = 0;
+	uint16_t SubstituteNameLength = 0;
+	uint16_t PrintNameOffset = 0;
+	uint16_t PrintNameLength = 0;
+	uint32_t Flags = 0;
+	uint16_t fid = 0;
+	char *ntwrkname = NULL;
+	char *target = NULL;
+	size_t targetlen;
+	
+	memset(&mdp, 0, sizeof(mdp));
+	error = smbfs_smb_tmpopen(np, SMB2_FILE_READ_DATA | SMB2_FILE_READ_ATTRIBUTES, context, &fid);
+	if (error) {
+		goto done;
+	}
+	
+	error = smbfs_smb_fsctl(share,  FSCTL_GET_REPARSE_POINT, fid, rdatacnt, NULL, 
+							&mdp, &moreDataRequired, context);
+	if (!error && !mdp.md_top) {
+		error = ENOENT;
+	}
+	if (error) {
+		goto done;
+	}
+	
+	md_get_uint32le(&mdp, &reparseTag);
+	/* Should have checked to make sure the node reparse tag matches */
+	if (reparseTag != IO_REPARSE_TAG_SYMLINK) {
+		md_done(&mdp);
+		goto done;
+	}
+	md_get_uint16le(&mdp, &reparseLen);
+	md_get_uint16le(&mdp, NULL);	/* Reserved */
+	md_get_uint16le(&mdp, &SubstituteNameOffset);
+	md_get_uint16le(&mdp, &SubstituteNameLength);
+	md_get_uint16le(&mdp, &PrintNameOffset);
+	md_get_uint16le(&mdp, &PrintNameLength);
+	/*
+	 * Flags field can be either SYMLINK_FLAG_ABSOLUTE or SYMLINK_FLAG_RELATIVE,
+	 * in either case we don't care and just ignore it for now.
+	 */
+	md_get_uint32le(&mdp, &Flags);
+	SMBSYMDEBUG("reparseLen = %d SubstituteNameOffset = %d SubstituteNameLength = %d PrintNameOffset = %d PrintNameLength = %d Flags = %d\n",
+				reparseLen, 
+				SubstituteNameOffset, SubstituteNameLength, 
+				PrintNameOffset, PrintNameLength, Flags);
+	/*
+	 * Mount Point Reparse Data Buffer
+	 * A mount point has a substitute name and a print name associated with it. 
+	 * The substitute name is a pathname (section 2.1.5) identifying the target 
+	 * of the mount point. The print name SHOULD be an informative pathname 
+	 * (section 2.1.5), suitable for display to a user, that also identifies the 
+	 * target of the mount point. Neither of these pathnames can contain dot 
+	 * directory names.
+	 * 
+	 * So the above implies that we should always use the substitute name, but
+	 * my guess is they are always the same in symbolic link case.
+	 */
+	/* Never allocate more than our transcation size buffer */
+	if (SubstituteNameLength > SSTOVC(share)->vc_txmax) {
+		error = ENOMEM;
+		SMBSYMDEBUG("%s SubstituteNameLength too large %d \n", np->n_name, SubstituteNameLength);
+		md_done(&mdp);
+		goto done;
+	}
+	
+	if (SubstituteNameOffset) {
+		md_get_mem(&mdp, NULL, SubstituteNameOffset, MB_MSYSTEM);
+	}
+	
+	MALLOC(ntwrkname, char *, (size_t)SubstituteNameLength, M_TEMP, M_WAITOK | M_ZERO);
+	if (ntwrkname == NULL) {
+		error = ENOMEM;
+	} else {
+		error = md_get_mem(&mdp, (void *)ntwrkname, (size_t)SubstituteNameLength, MB_MSYSTEM);
+	}
+	md_done(&mdp);
+	if (error) {
+		goto done;
+	}
+	targetlen = SubstituteNameLength * 9 + 1;
+	MALLOC(target, char *, targetlen, M_TEMP, M_WAITOK | M_ZERO);
+	if (target == NULL) {
+		error = ENOMEM;
+	} else {
+		error = smb_convert_network_to_path(ntwrkname, SubstituteNameLength, target, 
+											&targetlen, '\\', UTF_SFM_CONVERSIONS, 
+											SMB_UNICODE_STRINGS(SSTOVC(share)));
+	}
+	if (!error) {
+		SMBSYMDEBUG("%s --> %s\n", np->n_name, target);
+		smbfs_update_symlink_cache(np, target, targetlen);
+		error = uiomove(target, (int)targetlen, uiop);
+	}
+	
+done:
+	SMB_FREE(ntwrkname, M_TEMP);
+	SMB_FREE(target, M_TEMP);
+	if (fid) {
+		(void)smbfs_smb_tmpclose(np, fid, context);
+	}
+	if (error) {
+		SMBWARNING("%s failed %d\n", np->n_name, error);
+	}
 	return error;
 	
 }
 
 /*
+ * Supports reading a faked up symbolic link. This is Conrad and Steve
+ * French method for storing and reading symlinks on Window Servers.
+ *
+ */
+int 
+smbfs_smb_windows_read_symlink(struct smb_share *share, struct smbnode *np, 
+							   struct uio *uiop, vfs_context_t context)
+{
+	unsigned char *wbuf, *cp;
+	unsigned len, flen;
+	uio_t uio;
+	int error;
+	uint16_t fid = 0;
+	char *target = NULL;
+	
+	flen = SMB_SYMLEN;
+	MALLOC(wbuf, void *, flen, M_TEMP, M_WAITOK);
+	
+	error = smbfs_smb_tmpopen(np, SMB2_FILE_READ_DATA, context, &fid);
+	if (error)
+		goto out;
+	uio = uio_create(1, 0, UIO_SYSSPACE, UIO_READ);
+	uio_addiov(uio, CAST_USER_ADDR_T(wbuf), flen);
+	error = smb_read(share, fid, uio, context);
+	uio_free(uio);
+	(void)smbfs_smb_tmpclose(np, fid, context);
+	if (error)
+		goto out;
+	for (len = 0, cp = wbuf + SMB_SYMMAGICLEN;
+	     cp < wbuf + SMB_SYMMAGICLEN + SMB_SYMLENLEN-1; cp++) {
+		if (*cp < '0' || *cp > '9') {
+			SMBWARNING("symlink length nonnumeric: %c (0x%x)\n", *cp, *cp);
+			return (EINVAL);
+		}
+		len *= 10;
+		len += *cp - '0';
+	}
+	if (len != np->n_size) {
+		SMBWARNING("symlink length payload changed from %u to %u\n", 
+				   (unsigned)np->n_size, len);
+		np->n_size = len;
+	}
+	target = (char *)(wbuf + SMB_SYMHDRLEN);
+	SMBSYMDEBUG("%s --> %s\n", np->n_name, target);
+	smbfs_update_symlink_cache(np, target, len);
+	error = uiomove(target, (int)len, uiop);
+out:
+	FREE(wbuf, M_TEMP);
+	if (error) {
+		SMBWARNING("%s failed %d\n", np->n_name, error);
+	}
+	return (error);
+}
+
+/*
  * Support for reading a symbolic link that resides on a UNIX server. This allows
  * us to access and share symbolic links with AFP and NFS.
+ *
+ *
  */
-int smbfs_smb_read_symlink(struct smb_share *ssp, struct smbnode *np, struct uio *uio, vfs_context_t context)
+int 
+smbfs_smb_unix_read_symlink(struct smb_share *share, struct smbnode *np, 
+							struct uio *uiop, vfs_context_t context)
 {
-	struct smb_vc *vcp = SSTOVC(ssp);
 	struct smb_t2rq *t2p;
 	int error;
 	struct mbchain *mbp;
 	struct mdchain *mdp;
 	char *ntwrkname = NULL;
-	char *filename = NULL;
+	char *target;
+	size_t targetlen;
 	size_t nmlen;
-	char *endpath, *startpath, *nextpath;
 	
-	error = smb_t2_alloc(SSTOCP(ssp), SMB_TRANS2_QUERY_PATH_INFORMATION, context, &t2p);
+	error = smb_t2_alloc(SSTOCP(share), SMB_TRANS2_QUERY_PATH_INFORMATION, context, &t2p);
 	if (error)
 		return error;
 	mbp = &t2p->t2_tparam;
 	mb_init(mbp);
 	mb_put_uint16le(mbp, SMB_QFILEINFO_UNIX_LINK);
 	mb_put_uint32le(mbp, 0);
-	error = smbfs_fullpath(mbp, vcp, np, NULL, NULL, UTF_SFM_CONVERSIONS, '\\');
+	error = smbfs_fullpath(mbp, SSTOVC(share), np, NULL, NULL, UTF_SFM_CONVERSIONS, '\\');
 	if (error) 
 	    goto out;
 	t2p->t2_maxpcount = 2;
-	t2p->t2_maxdcount = vcp->vc_txmax;
+	t2p->t2_maxdcount = SSTOVC(share)->vc_txmax;
 	error = smb_t2_request(t2p);
 	if (error) 
 	    goto out;
@@ -658,11 +1310,13 @@ int smbfs_smb_read_symlink(struct smb_share *ssp, struct smbnode *np, struct uio
 	/* Get the size of the data that contains the symbolic link */
 	nmlen = mbuf_pkthdr_len(mdp->md_top);
 	SMBSYMDEBUG("network len of the symbolic link = %ld\n", nmlen);
-	MALLOC(ntwrkname, char *, nmlen, M_SMBFSDATA, M_WAITOK);
-	if (ntwrkname == NULL)
+	MALLOC(ntwrkname, char *, nmlen, M_TEMP, M_WAITOK);
+	if (ntwrkname == NULL) {
 		error = ENOMEM;
-	else /* Read in the data that contains the symbolic link */
+	} else {
+		/* Read in the data that contains the symbolic link */
 		error = md_get_mem(mdp, (void *)ntwrkname, nmlen, MB_MSYSTEM);
+	}
 	if (error) 
 	    goto out;
 #ifdef DEBUG_SYMBOLIC_LINKS
@@ -670,71 +1324,32 @@ int smbfs_smb_read_symlink(struct smb_share *ssp, struct smbnode *np, struct uio
 #endif // DEBUG_SYMBOLIC_LINKS
 	/*
 	 * The Symbolic link data is a UNIX style symbolic link, except it is in UTF16
-	 * format. The unix slash is the delemter used. We have no routine that can convert
-	 * the whole path, so we need to break it up and convert it section by section.
-	 *
-	 * The path should end with two null bytes as a terminator. The smbfs_ntwrkname_tolocal 
-	 * does not expect nmlen to include those bytes, so we can just back those bytes out.
-	 * We do an extra check just in case someone decided not to include the two null bytes.
-	 * Nothiing in the reference states that the null bytes are require, but this would be
-	 * the normal way to handle this type of string in SMB. We know that Samba 3.0.25 puts
-	 * the null bytes at the end, but there could be a server that doesn't so lets protect
-	 * ourself here.
+	 * format. The unix slash is the delemter used. The path should end with two 
+	 * null bytes as a terminator. The smb_convert_network_to_path  does not expect 
+	 * nmlen to include those bytes, so we can just back those bytes out. Nothiing 
+	 * in the reference states that the null bytes are require, but this would be
+	 * the normal way to handle this type of string in SMB. 
 	 */
-	nmlen -= 2;	/* make endpath point at the null bytes */
-	endpath = ntwrkname + nmlen;
-	/* Make sure endpath is pointing at the two null bytes, if we have any */
-	if ((*(int16_t *)endpath) != 0)
-		endpath += 2;
-	startpath = ntwrkname;
-	nextpath = ntwrkname;
-	while ((error == 0) && (nextpath < endpath)) {
-		if ((*nextpath == 0x2f) && (*(nextpath+1) == 0x00)) {
-			/* If startpath equals nextpath we have just a slash nothing to do here */
-			if (startpath != nextpath) {
-				nmlen = nextpath - startpath;	/* Get the length of this component of the path */
-				filename = smbfs_ntwrkname_tolocal(vcp, (const char *)startpath, &nmlen);
-				DBG_ASSERT(filename);
-				if (filename == NULL)
-					error = EINVAL;	/* Something bad just happen, just bail out! */
-				else {
-					filename[nmlen] = 0;	/* Just to be safe, smbfs_ntwrkname_tolocal doesn't null terminate */
-					SMBSYMDEBUG("filename = %s nmlen = %ld strnlen = %ld\n", filename, nmlen, strnlen(filename, PATH_MAX));
-					/* Copy the UTF8 string into uio */
-					error = uiomove(filename, (int)nmlen, uio);
-					free(filename, M_SMBFSDATA);
-				}
-			}
-			/* If we found an entry then we need a slash, just used the one that nextpath points to */
-			if (!error)
-				error = uiomove(nextpath, 1, uio);
-			nextpath += 2;
-			startpath = nextpath;
-		} else
-			nextpath += 2;
-	}
-	if (!error && (startpath < endpath)) {
-		nmlen = endpath - startpath;		/* Get the length of the last component of the path */
-		filename = smbfs_ntwrkname_tolocal(vcp, (const char *)startpath, &nmlen);
-		DBG_ASSERT(filename);
-		if (filename == NULL)
-			error = EINVAL;	/* Something bad just happen, just bail out! */
-		else {
-			filename[nmlen] = 0;	/* Just to be safe, smbfs_ntwrkname_tolocal doesn't null terminate */
-			SMBSYMDEBUG("Last part of path filename = %s nmlen = %ld strnlen = %ld\n", 
-					 filename, nmlen, strnlen(filename, PATH_MAX));
-			/* Copy the UTF8 string into uio */
-			error = uiomove(filename, (int)nmlen, uio);
-			free(filename, M_SMBFSDATA);					
-		}
+	nmlen -= 2;
+	targetlen = nmlen * 9 + 1;
+	MALLOC(target, char *, targetlen, M_TEMP, M_WAITOK | M_ZERO);
+	error = smb_convert_network_to_path(ntwrkname, nmlen, target, 
+										&targetlen, '/', UTF_SFM_CONVERSIONS, 
+										SMB_UNICODE_STRINGS(SSTOVC(share)));
+	if (!error) {
+		SMBSYMDEBUG("%s --> %s\n", np->n_name, target);
+		smbfs_update_symlink_cache(np, target, targetlen);
+		error = uiomove(target, (int)targetlen, uiop);
 	}
 	
+	SMB_FREE(target, M_TEMP);
+	
 out:
-	if (ntwrkname)
-		free(ntwrkname, M_SMBFSDATA);
+	SMB_FREE(ntwrkname, M_TEMP);
 	smb_t2_done(t2p);
-	if (error)
-		SMBWARNING("Reading symlink for %s failed! error = %d\n", np->n_name, error);
+	if (error) {
+		SMBWARNING("%s failed %d\n", np->n_name, error);
+	}
 	return error;
 }
 
@@ -759,11 +1374,17 @@ int smbfs_smb_qstreaminfo(struct smbnode *np, vfs_context_t context, uio_t uio, 
 	enum stream_types stype = kNoStream;
 	struct timespec ts;
 	int foundStream = (strmname) ? FALSE : TRUE; /* Are they looking for a specific stream */
-	
+
 	if (sizep)
 		*sizep = 0;
 	ctx.f_ssp = ssp;
 	ctx.f_name = NULL;
+	
+	if ((np->n_fstatus & kNO_SUBSTREAMS) || (np->n_dosattr &  SMB_EFA_REPARSE_POINT)) {
+		foundStream = FALSE;
+		error = ENOATTR;
+		goto done;
+	}	
 
 	error = smb_t2_alloc(SSTOCP(ssp), SMB_TRANS2_QUERY_PATH_INFORMATION, context, &t2p);
 	if (error)
@@ -960,7 +1581,9 @@ skipentry:
 	} while (next && !error);
 
 out:
-
+	smb_t2_done(t2p);
+	
+done:
 	/* If we searched the entire list and did not find a finder info stream, then reset the cache timer. */
 	if ((stype & kFinderInfo) != kFinderInfo) {
 		bzero(np->finfo, sizeof(np->finfo));	/* Negative cache the Finder Info */
@@ -977,7 +1600,6 @@ out:
 	}	
 	if (ctx.f_name)
 		free(ctx.f_name, M_SMBFSDATA);
-	smb_t2_done(t2p);
 	
 	if ((foundStream == FALSE) || (error == ENOENT))	/* We did not find the stream we were looking for */
 		error = ENOATTR;
@@ -1276,21 +1898,29 @@ static void smbfs_unix_qfsattr(struct smb_share *ssp, struct smbmount *smp, vfs_
 	md_get_uint16le(mdp, &minorv);
 	md_get_uint64le(mdp, &cap);
 	SMBWARNING("version %x.%x cap = %llx\n", majorv, minorv, cap);
+	UNIX_CAPS(SSTOVC(ssp)) = UNIX_QFS_UNIX_INFO_CAP | (cap & CIFS_UNIX_POSIX_PATH_OPERATIONS_CAP);
 	
-#ifdef SUPPORT_POSIX_LOCKS
-#else // SUPPORT_POSIX_LOCKS
-	/* Currently we do not support POSIX LOCKS, so turn them off */
-	cap &= ~CIFS_UNIX_FCNTL_LOCKS_CAP;
-#endif // SUPPORT_POSIX_LOCKS
+	if (UNIX_CAPS(SSTOVC(ssp)) & CIFS_UNIX_POSIX_PATH_OPERATIONS_CAP) {
+		UNIX_CAPS(SSTOVC(ssp)) |= UNIX_QFILEINFO_UNIX_LINK_CAP | UNIX_SFILEINFO_UNIX_LINK_CAP | 
+		UNIX_QFILEINFO_UNIX_INFO2_CAP | UNIX_SFILEINFO_UNIX_INFO2_CAP;
 
-	/* See if the server supports the who am I operation */ 
-	if (cap & CIFS_UNIX_POSIX_PATH_OPERATIONS_CAP) {
+		/*
+		 * Seems Leopard Servers don't handle the posix unlink call correctly.
+		 * They support the call and say it work, but they don't really delete
+		 * the item. So until we stop supporting Leopard don't set this unless
+		 * the server doesn't support the BSD flags. Mac servers support the 
+		 * BSD flags, but Linux servers don't. So in mount_smbfs we will turn 
+		 * this back on if we determine its a linux server.
+		 * NOTE: Snow Leopard seems to work correctly
+		 *
+		 * UNIX_CAPS(SSTOVC(ssp)) |= UNIX_SFILEINFO_POSIX_UNLINK_CAP;
+		 */
+		
+		/* See if the server supports the who am I operation */ 
 		error = smbfs_unix_whoami(ssp, smp, context);
-		if (error)
-			cap &= ~CIFS_UNIX_POSIX_PATH_OPERATIONS_CAP;
+		if (! error)
+			UNIX_CAPS(SSTOVC(ssp)) |= UNIX_QFS_POSIX_WHOAMI_CAP;
 	}
-	/* We now have the servers unix capiblities store them away */
-	UNIX_CAPS(SSTOVC(ssp)) = cap;
 done:
 	smb_t2_done(t2p);
 }
@@ -1624,67 +2254,6 @@ int smbfs_smb_seteof(struct smb_share *ssp, u_int16_t fid, u_int64_t newsize, vf
 	return error;
 }
 
-/*
- * smbfs_smb_markfordelete
- *
- * We have an open file that they want to delete. This call will tell the 
- * server to delete the file when the last close happens. Currenly we know that 
- * XP, Windows 2000 and Windows 2003 support this call. SAMBA does support the
- * call, but currently has a bug that prevents it from working.
- */
-static int
-smbfs_smb_markfordelete(struct smbnode *np, vfs_context_t context, u_int16_t *infid)
-{
-	struct smb_t2rq *t2p;
-	struct smb_share *ssp = np->n_mount->sm_share;
-	struct smb_vc *vcp = SSTOVC(ssp);
-	struct mbchain *mbp;
-	int error, cerror;
-	u_int16_t fid = (infid) ? *infid : 0;
-
-	if (!(vcp->vc_sopt.sv_caps & SMB_CAP_NT_SMBS))
-		return (ENOTSUP);
-		
-	error = smb_t2_alloc(SSTOCP(ssp), SMB_TRANS2_SET_FILE_INFORMATION, context, &t2p);
-	if (error)
-		return error;
-	if (!infid) {
-		/* 
-		 * See if we can open the item with delete access. Requesting 
-		 * delete access can mean more then just requesting to delete
-		 * the file. It is used to mark the item for deletion on close
-		 * and for renaming an open file. If I find any other uses for 
-		 * it I will add them to this comment.  
-		 */
-		error = smbfs_smb_tmpopen(np, STD_RIGHT_DELETE_ACCESS, context, &fid);
-		if (error)
-			goto exit;
-	}
-	mbp = &t2p->t2_tparam;
-	mb_init(mbp);
-	mb_put_mem(mbp, (caddr_t)&fid, 2, MB_MSYSTEM);
-	if (vcp->vc_sopt.sv_caps & SMB_CAP_INFOLEVEL_PASSTHRU)
-		mb_put_uint16le(mbp, SMB_SFILEINFO_DISPOSITION_INFORMATION);
-	else
-		mb_put_uint16le(mbp, SMB_SFILEINFO_DISPOSITION_INFO);
-	mb_put_uint32le(mbp, 0);
-	mbp = &t2p->t2_tdata;
-	mb_init(mbp);
-	mb_put_uint8(mbp, 1);
-	t2p->t2_maxpcount = 2;
-	t2p->t2_maxdcount = 0;
-	error = smb_t2_request(t2p);
-exit:
-	if (!infid && fid) {
-		cerror = smbfs_smb_tmpclose(np, fid, context);
-		if (cerror) {
-			SMBWARNING("error %d closing fid %d\n", cerror, fid);
-		}
-	}
-	smb_t2_done(t2p);
-	return error;
-}
-
 int
 smbfs_smb_t2rename(struct smbnode *np, const char *tname, size_t tnmlen, 
 				   vfs_context_t context, int overwrite, u_int16_t *infid)
@@ -1853,7 +2422,7 @@ smbfs_delete_openfile(struct smbnode *dnp, struct smbnode *np, vfs_context_t con
 		/* ignore any errors return from hiding the item */
 	(void)smbfs_smb_hideit(dnp, s_name, s_namlen, context);
 	
-	cerror = smbfs_smb_markfordelete(np, context, &fid);
+	cerror = smbfs_smb_markfordelete(np->n_mount->sm_share, np, context, &fid);
 	if (cerror) {	/* We will have to do the delete ourself! Could be SAMBA */
 		np->n_flag |= NDELETEONCLOSE;
 	}
@@ -1952,6 +2521,10 @@ smbfs_smb_setfsize(struct smbnode *np, u_int16_t fid, u_int64_t newsize, vfs_con
 	if (SSTOVC(ssp)->vc_sopt.sv_caps & SMB_CAP_NT_SMBS) {
 		if (!smbfs_smb_seteof(ssp, fid, newsize, context)) {
 			np->n_flag |= (NFLUSHWIRE | NATTRCHANGED);
+			if (ssp->ss_fstype == SMB_FS_FAT) {
+				if (smbfs_smb_flush(np, context) == 0)
+					np->n_flag &= ~NFLUSHWIRE;
+			}
 			return (0);
 		}
 	}
@@ -1985,7 +2558,10 @@ smbfs_smb_setfsize(struct smbnode *np, u_int16_t fid, u_int64_t newsize, vfs_con
 	return error;
 }
 
-
+/*
+ * XXX - We need to remove this routine and replace it with something more 
+ * modern. See <rdar://problem/7595213>
+ */
 int smbfs_smb_query_info(struct smbnode *np, const char *name, size_t len, 
 						 struct smbfattr *fap, vfs_context_t context)
 {
@@ -2047,29 +2623,24 @@ int smbfs_smb_query_info(struct smbnode *np, const char *name, size_t len,
 }
 
 /*
- * Set DOS file attributes. mtime should be NULL for dialects above lm10
+ * Set DOS file attributes, may want to replace with a more modern call
  */
 int smbfs_smb_setpattr(struct smbnode *np, const char *name, size_t len, 
-					   u_int16_t attr, struct timespec *mtime, 
-					   vfs_context_t context)
+					   u_int16_t attr, vfs_context_t context)
 {
 	struct smb_rq rq, *rqp = &rq;
 	struct smb_share *ssp = np->n_mount->sm_share;
 	struct mbchain *mbp;
 	u_int32_t time;
-	int error, svtz;
+	int error;
 
 	error = smb_rq_init(rqp, SSTOCP(ssp), SMB_COM_SET_INFORMATION, context);
 	if (error)
 		return error;
-	svtz = SSTOVC(ssp)->vc_sopt.sv_tz;
 	smb_rq_getrequest(rqp, &mbp);
 	smb_rq_wstart(rqp);
 	mb_put_uint16le(mbp, attr);
-	if (mtime) {
-		smb_time_local2server(mtime, svtz, &time);
-	} else
-		time = 0;
+	time = 0;
 	mb_put_uint32le(mbp, time);		/* mtime */
 	mb_put_mem(mbp, NULL, 5 * 2, MB_MZERO);
 	smb_rq_wend(rqp);
@@ -2105,7 +2676,7 @@ int smbfs_smb_hideit(struct smbnode *np, const char *name, size_t len,
 	attr = fa.fa_attr;
 	if (!error && !(attr & SMB_FA_HIDDEN)) {
 		attr |= SMB_FA_HIDDEN;
-		error = smbfs_smb_setpattr(np, name, len, attr, NULL, context);
+		error = smbfs_smb_setpattr(np, name, len, attr, context);
 	}
 	return (error);
 }
@@ -2122,7 +2693,7 @@ int smbfs_smb_unhideit(struct smbnode *np, const char *name, size_t len,
 	attr = fa.fa_attr;
 	if (!error && (attr & SMB_FA_HIDDEN)) {
 		attr &= ~SMB_FA_HIDDEN;
-		error = smbfs_smb_setpattr(np, name, len, attr, NULL, context);
+		error = smbfs_smb_setpattr(np, name, len, attr, context);
 	}
 	return (error);
 }
@@ -2166,14 +2737,14 @@ smbfs_set_unix_info2(struct smbnode *np, struct timespec *crtime, struct timespe
 
 	/* set the access time */	
 	if (atime)
-		smb_time_local2NT(atime, tzoff, &tm, FALSE);
+		smb_time_local2NT(atime, &tm, FALSE);
 	else 
 	     tm = 0;
 	mb_put_uint64le(mbp, tm);
 
 	/* set the write/modify time */	
 	if (mtime)
-		smb_time_local2NT(mtime, tzoff, &tm, FALSE);
+		smb_time_local2NT(mtime, &tm, FALSE);
 	else 
 	     tm = 0;
 	mb_put_uint64le(mbp, tm);
@@ -2203,7 +2774,7 @@ smbfs_set_unix_info2(struct smbnode *np, struct timespec *crtime, struct timespe
 	mb_put_uint64le(mbp, tm);
 	/* set the creation time */
 	if (crtime)
-		smb_time_local2NT(crtime, tzoff, &tm, FALSE);
+		smb_time_local2NT(crtime, &tm, FALSE);
 	else 
 	    tm = 0;
 	mb_put_uint64le(mbp, tm);
@@ -2230,8 +2801,7 @@ smbfs_set_unix_info2(struct smbnode *np, struct timespec *crtime, struct timespe
 int
 smbfs_smb_setpattrNT(struct smbnode *np, u_int32_t attr, 
 			struct timespec *crtime, struct timespec *mtime,
-			struct timespec *atime, struct timespec *chtime, 
-			vfs_context_t context)
+			struct timespec *atime, vfs_context_t context)
 {
 	struct smb_t2rq *t2p;
 	struct smb_share *ssp = np->n_mount->sm_share;
@@ -2239,9 +2809,6 @@ smbfs_smb_setpattrNT(struct smbnode *np, u_int32_t attr,
 	struct mbchain *mbp;
 	u_int64_t tm;
 	int error, tzoff;
-	int fat_fstype = (ssp->ss_fstype == SMB_FS_FAT);
-	/* 64 bit value for Jan 1 1980 */
-	u_int64_t DIFF1980TO1601 = 11960035200ULL*10000000ULL;
 
 	error = smb_t2_alloc(SSTOCP(ssp), SMB_TRANS2_SET_PATH_INFORMATION,
 	    context, &t2p);
@@ -2264,49 +2831,30 @@ smbfs_smb_setpattrNT(struct smbnode *np, u_int32_t attr,
 	
 	mbp = &t2p->t2_tdata;
 	mb_init(mbp);
-		/* set the creation time */
+	
+	/* set the creation time */
+	tm = 0;
 	if (crtime) {
-		smb_time_local2NT(crtime, tzoff, &tm, fat_fstype);
-		/* FAT file systems don't support dates earlier than 1980. */ 
-		if (fat_fstype && (tm < DIFF1980TO1601)) {
-			tm = DIFF1980TO1601;
-			smb_time_NT2local(tm, tzoff, crtime);
-		}
-	} else
-		tm = 0;
+		smb_time_local2NT(crtime, &tm, (ssp->ss_fstype == SMB_FS_FAT));
+	}
 	mb_put_uint64le(mbp, tm);
-		/* set the access time */	
+	
+	/* set the access time */
+	tm = 0;
 	if (atime) {
-		smb_time_local2NT(atime, tzoff, &tm, fat_fstype);
-		/* FAT file systems don't support dates earlier than 1980. */ 
-		if (fat_fstype && (tm < DIFF1980TO1601)) {
-			tm = DIFF1980TO1601;
-			smb_time_NT2local(tm, tzoff, atime);
-		}
-	} else
-		tm = 0;
+		smb_time_local2NT(atime, &tm, (ssp->ss_fstype == SMB_FS_FAT));
+	}
 	mb_put_uint64le(mbp, tm);
-		/* set the write/modify time */	
+	
+	/* set the write/modify time */	
+	tm = 0;
 	if (mtime) {
-		smb_time_local2NT(mtime, tzoff, &tm, fat_fstype);
-		/* FAT file systems don't support dates earlier than 1980. */ 
-		if (fat_fstype && (tm < DIFF1980TO1601)) {
-			tm = DIFF1980TO1601;
-			smb_time_NT2local(tm, tzoff, mtime);
-		}
-	} else
-		tm = 0;
+		smb_time_local2NT(mtime, &tm, (ssp->ss_fstype == SMB_FS_FAT));
+	}
 	mb_put_uint64le(mbp, tm);
-		/* set the change time */		
-	if (chtime) {
-		smb_time_local2NT(chtime, tzoff, &tm, fat_fstype);
-		/* FAT file systems don't support dates earlier than 1980. */ 
-		if (fat_fstype && (tm < DIFF1980TO1601)) {
-			tm = DIFF1980TO1601;
-			smb_time_NT2local(tm, tzoff, chtime);
-		}
-	} else
-		tm = 0;
+	
+	/* Never let them set the change time */		
+	tm = 0;
 	mb_put_uint64le(mbp, tm);
 	
 	mb_put_uint32le(mbp, attr);		/* attr */
@@ -2328,24 +2876,19 @@ smbfs_smb_setpattrNT(struct smbnode *np, u_int32_t attr,
 int
 smbfs_smb_setfattrNT(struct smbnode *np, u_int32_t attr, u_int16_t fid,
 			struct timespec *crtime, struct timespec *mtime,
-			struct timespec *atime, struct timespec *chtime, 
-			vfs_context_t context)
+			struct timespec *atime, vfs_context_t context)
 {
 	struct smb_t2rq *t2p;
 	struct smb_share *ssp = np->n_mount->sm_share;
 	struct smb_vc *vcp = SSTOVC(ssp);
 	struct mbchain *mbp;
 	u_int64_t tm;
-	int error, svtz;
-	int fat_fstype = (ssp->ss_fstype == SMB_FS_FAT);
-	/* 64 bit value for Jan 1 1980 */
-	u_int64_t DIFF1980TO1601 = 11960035200ULL*10000000ULL;
+	int error;
 
 	error = smb_t2_alloc(SSTOCP(ssp), SMB_TRANS2_SET_FILE_INFORMATION,
 	    context, &t2p);
 	if (error)
 		return error;
-	svtz = SSTOVC(ssp)->vc_sopt.sv_tz;
 	mbp = &t2p->t2_tparam;
 	mb_init(mbp);
 	mb_put_mem(mbp, (caddr_t)&fid, 2, MB_MSYSTEM);
@@ -2368,51 +2911,34 @@ smbfs_smb_setfattrNT(struct smbnode *np, u_int32_t attr, u_int16_t fid,
 		if (! mtime)
 			mtime = &np->n_mtime;
 		atime = mtime;
-		chtime = mtime;
 	}
 		/* set the creation time */	
+	tm = 0;
 	if (crtime) {
-		smb_time_local2NT(crtime, svtz, &tm, fat_fstype);
-		/* FAT file systems don't support dates earlier than 1980. */ 
-		if (fat_fstype && (tm < DIFF1980TO1601)) {
-			tm = DIFF1980TO1601;
-			smb_time_NT2local(tm, svtz, crtime);
-		}
-	} else
-		tm = 0;
+		smb_time_local2NT(crtime, &tm, (ssp->ss_fstype == SMB_FS_FAT));
+	}
 	mb_put_uint64le(mbp, tm);
-		/* set the access time */	
+	
+	/* set the access time */
+	tm = 0;
 	if (atime) {
-		smb_time_local2NT(atime, svtz, &tm, fat_fstype);
-		/* FAT file systems don't support dates earlier than 1980. */ 
-		if (fat_fstype && (tm < DIFF1980TO1601)) {
-			tm = DIFF1980TO1601;
-			smb_time_NT2local(tm, svtz, atime);
-		}
-	} else
-		tm = 0;
+		smb_time_local2NT(atime, &tm, (ssp->ss_fstype == SMB_FS_FAT));
+	}
 	mb_put_uint64le(mbp, tm);
-		/* set the write/modify time */		
+	
+	/* set the write/modify time */
+	tm = 0;
 	if (mtime) {
-		smb_time_local2NT(mtime, svtz, &tm, fat_fstype);
-		/* FAT file systems don't support dates earlier than 1980. */ 
-		if (fat_fstype && (tm < DIFF1980TO1601)) {
-			tm = DIFF1980TO1601;
-			smb_time_NT2local(tm, svtz, mtime);
-		}
-	} else
-		tm = 0;
+		smb_time_local2NT(mtime, &tm, (ssp->ss_fstype == SMB_FS_FAT));
+	}
 	mb_put_uint64le(mbp, tm);
-		/* set the change time */		
-	if (chtime) {
-		smb_time_local2NT(chtime, svtz, &tm, fat_fstype);
-		/* FAT file systems don't support dates earlier than 1980. */ 
-		if (fat_fstype && (tm < DIFF1980TO1601)) {
-			tm = DIFF1980TO1601;	
-			smb_time_NT2local(tm, svtz, chtime);
-		}
-	} else
-		tm = 0;
+	
+	/* We never allow anyone to set the change time, but see note above about Windows 98 */		
+	tm = 0;
+	if (vcp->vc_flags & SMBV_WIN98) {
+		smb_time_local2NT(&np->n_chtime, &tm, (ssp->ss_fstype == SMB_FS_FAT));
+	}
+	
 	mb_put_uint64le(mbp, tm);
 	
 	mb_put_uint32le(mbp, attr);
@@ -2436,15 +2962,15 @@ smbfs_smb_setfattrNT(struct smbnode *np, u_int32_t attr, u_int16_t fid,
  *   Else name is the thing to create under directory np.
  *   ...we will return *fidp,
  */
-static int smbfs_smb_ntcreatex(struct smbnode *np, u_int32_t rights, u_int32_t shareMode, 
-							   vfs_context_t context, enum vtype vt, u_int16_t *fidp, 
-							   const char *name, size_t in_nmlen, u_int32_t disp, 
-							   int xattr, struct smbfattr *fap)
+int smbfs_smb_ntcreatex(struct smbnode *np, u_int32_t rights, u_int32_t shareMode, 
+						vfs_context_t context, enum vtype vt, u_int16_t *fidp, 
+						const char *name, size_t in_nmlen, u_int32_t disp, 
+						int xattr, struct smbfattr *fap)
 {
 	struct smb_rq rq, *rqp = &rq;
 	struct smb_share *ssp = np->n_mount->sm_share;
-	int unix_extensions = ((UNIX_CAPS(SSTOVC(ssp)) & CIFS_UNIX_POSIX_PATH_OPERATIONS_CAP)) ? TRUE : FALSE;
 	struct smb_vc *vcp = SSTOVC(ssp);
+	int unix_info2 = ((UNIX_CAPS(vcp) & UNIX_QFILEINFO_UNIX_INFO2_CAP)) ? TRUE : FALSE;	
 	struct mbchain *mbp;
 	struct mdchain *mdp;
 	u_int8_t wc;
@@ -2489,7 +3015,7 @@ static int smbfs_smb_ntcreatex(struct smbnode *np, u_int32_t rights, u_int32_t s
 	 */
 	mb_put_uint32le(mbp, shareMode);
 	/*
-	 * If this is just an open call on a stream then always request it to bee create if it doesn't exist. See the 
+	 * If this is just an open call on a stream then always request it to be created if it doesn't exist. See the 
 	 * smbfs_vnop_removenamedstream for the reasons behind this decision.
 	 */ 
 	if ((np->n_vnode) && (vnode_isnamedstream(np->n_vnode)) && (!name) && (!xattr))
@@ -2501,6 +3027,13 @@ static int smbfs_smb_ntcreatex(struct smbnode *np, u_int32_t rights, u_int32_t s
 		if (vt == VDIR)
 			createopt |= NTCREATEX_OPTIONS_DIRECTORY;
 		/* (other create options currently not useful) */
+	}
+	/*
+	 * The server supports reparse points so open the item with a reparse point 
+	 * and bypass normal reparse point processing for the file.
+	 */
+	if (ssp->ss_attributes & FILE_SUPPORTS_REPARSE_POINTS) {
+		createopt |= NTCREATEX_OPTIONS_OPEN_REPARSE_POINT;
 	}
 	mb_put_uint32le(mbp, createopt);
 	mb_put_uint32le(mbp, NTCREATEX_IMPERSONATION_IMPERSONATION); /* (?) */
@@ -2527,11 +3060,21 @@ static int smbfs_smb_ntcreatex(struct smbnode *np, u_int32_t rights, u_int32_t s
 			break;
 		smb_rq_getreply(rqp, &mdp);
 		/*
-		 * spec says 26 for word count, but 34 words are defined
-		 * and observed from win2000
+		 * Spec say 26 for word count, but 34 words are defined and observed from 
+		 * all servers.  
+		 *
+		 * The spec is wrong and word count should always be 34 unless we request 
+		 * the extended reply. Now some server will always return 42 even it the 
+		 * NTCREATEX_FLAGS_EXTENDED flag is not set.
+		 * 
+		 * From the MS-SMB document concern the extend response:
+		 *
+		 * The word count for this response MUST be 0x2A (42). WordCount in this 
+		 * case is not used as the count of parameter words but is just a number.
 		 */
+		
 		if (md_get_uint8(mdp, &wc) != 0 ||
-		    (wc != 26 && wc != 34 && wc != 42)) {
+		    (wc != 26 && wc != NTCREATEX_NORMAL_WDCNT && wc != NTCREATEX_EXTENDED_WDCNT)) {
 			error = EBADRPC;
 			break;
 		}
@@ -2543,23 +3086,31 @@ static int smbfs_smb_ntcreatex(struct smbnode *np, u_int32_t rights, u_int32_t s
 		md_get_uint32le(mdp, NULL);     /* create_action */
 		md_get_uint64le(mdp, &llint);   /* creation time */
 		if (llint) {
-			smb_time_NT2local(llint, vcp->vc_sopt.sv_tz, &fap->fa_crtime);
+			smb_time_NT2local(llint, &fap->fa_crtime);
 		}
 		md_get_uint64le(mdp, &llint);   /* access time */
 		if (llint) {
-			smb_time_NT2local(llint, vcp->vc_sopt.sv_tz, &fap->fa_atime);
+			smb_time_NT2local(llint, &fap->fa_atime);
 		}
 		md_get_uint64le(mdp, &llint);   /* write time */
 		if (llint) {
-			smb_time_NT2local(llint, vcp->vc_sopt.sv_tz, &fap->fa_mtime);
+			smb_time_NT2local(llint, &fap->fa_mtime);
 		}
 		md_get_uint64le(mdp, &llint);   /* change time */
 		if (llint) {
-			smb_time_NT2local(llint, vcp->vc_sopt.sv_tz, &fap->fa_chtime);
+			smb_time_NT2local(llint, &fap->fa_chtime);
 		}
 		md_get_uint32le(mdp, &lint);    /* attributes */
 		fap->fa_attr = lint;
-		fap->fa_vtype = (fap->fa_attr & SMB_FA_DIR) ? VDIR : VREG;
+		/*
+		 * Because of the Steve/Conrad Symlinks we can never be completely
+		 * sure that we have the corret vnode type if its a file. For 
+		 * directories we always know the correct information.
+		 */
+		if (fap->fa_attr & SMB_EFA_DIRECTORY) {
+			fap->fa_valid_mask |= FA_VTYPE_VALID;
+		}		
+		fap->fa_vtype = (fap->fa_attr & SMB_EFA_DIRECTORY) ? VDIR : VREG;
 		md_get_uint64le(mdp, &llint);     /* allocation size */
 		fap->fa_data_alloc = llint;
 		md_get_uint64le(mdp, &llint);   /* EOF */
@@ -2588,12 +3139,12 @@ static int smbfs_smb_ntcreatex(struct smbnode *np, u_int32_t rights, u_int32_t s
 		goto WeAreDone;
 
 	/*
-	 * We only get to this point if the n_vnode exist and we are doing a normal open. If
-	 * we are using UNIX extensions then we can't trust some of the values returned from this
-	 * open response. We need to reset some of the value back to what we found in
-	 * in the UNIX Info2 lookup. See Radar 6807761 for more details.
+	 * We only get to this point if the n_vnode exist and we are doing a normal 
+	 * open. If we are using UNIX extensions then we can't trust some of the 
+	 * values returned from this open response. We need to reset some of the 
+	 * value back to what we found in in the UNIX Info2 lookup.
 	 */
-	if (unix_extensions) {
+	if (unix_info2) {
 		/* 
 		 * We are doing unix extensions yet this fap didn't come from a unix 
 		 * info2 call. The fa_attr and fa_vtype could be wrong. We cannot trust 
@@ -2601,14 +3152,26 @@ static int smbfs_smb_ntcreatex(struct smbnode *np, u_int32_t rights, u_int32_t s
 		 * from the last unix info2 call. We cannot trust the fa_vtype either so
 		 * leave it set to the value we got from the last unix info2 call. 
 		 */
+		/* Reset it to look like a UNIX Info2 lookup */
+		fap->fa_unix = TRUE;
+		fap->fa_flags_mask = np->n_flags_mask;
+		fap->fa_nlinks = np->n_nlinks;
+		
 		fap->fa_attr &= ~SMB_FA_RDONLY;
 		fap->fa_attr |= (np->n_dosattr & SMB_FA_RDONLY);
+		fap->fa_valid_mask |= FA_VTYPE_VALID;
 		fap->fa_vtype = vnode_vtype(np->n_vnode);
 		/* Make sure we have the correct fa_attr setting */
 		if (vnode_isdir(np->n_vnode))
 			fap->fa_attr |= SMB_FA_DIR;
 		else
 			fap->fa_attr &= ~SMB_FA_DIR;
+		/* 
+		 * Samba will return the modify time for the change time in this 
+		 * call. So if we are doing unix extensions never trust the change 
+		 * time retrieved from this call.
+		 */		
+		fap->fa_chtime = np->n_chtime;		
 	}  
 		
 	/* 
@@ -3012,7 +3575,7 @@ int smbfs_smb_openread(struct smbnode *np, u_int16_t *fid, u_int32_t rights, uio
 		
 		md_get_uint64le(mdp, &llint);   /* write time */
 		if (llint)
-			smb_time_NT2local(llint, vcp->vc_sopt.sv_tz, mtime);
+			smb_time_NT2local(llint, mtime);
 	}
 	else 
 		md_get_uint64le(mdp, NULL);   /* write time */
@@ -3333,7 +3896,6 @@ static int smbfs_smb_oldcreate(struct smbnode *dnp, const char *name, size_t nml
 	struct smb_share *ssp = dnp->n_mount->sm_share;
 	struct mbchain *mbp;
 	struct mdchain *mdp;
-	struct timespec ctime;
 	u_int8_t wc;
 	u_int32_t tm;
 	int error;
@@ -3347,8 +3909,12 @@ static int smbfs_smb_oldcreate(struct smbnode *dnp, const char *name, size_t nml
 	if (name && *name == '.')
 		attr |= SMB_FA_HIDDEN;
 	mb_put_uint16le(mbp, attr);		/* attributes  */
-	nanotime(&ctime);	/* Need current date/time, so use nanotime */
-	smb_time_local2server(&ctime, SSTOVC(ssp)->vc_sopt.sv_tz, &tm);
+	/* 
+	 * This is a depricated call, we assume no one looks at the create time
+	 * field. We assume any server that does looks at this value will take zero 
+	 * to mean don't set the create time.
+	 */
+	tm = 0;
 	mb_put_uint32le(mbp, tm);
 	smb_rq_wend(rqp);
 	smb_rq_bstart(rqp);
@@ -3372,11 +3938,16 @@ static int smbfs_smb_oldcreate(struct smbnode *dnp, const char *name, size_t nml
 }
 
 int
-smbfs_smb_create(struct smbnode *dnp, const char *name, size_t nmlen, u_int32_t rights,
+smbfs_smb_create(struct smbnode *dnp, const char *in_name, size_t in_nmlen, u_int32_t rights,
 				 vfs_context_t context, u_int16_t *fidp, u_int32_t disp, int xattr, 
 				 struct smbfattr *fap)
 {
-	struct smb_vc *vcp = SSTOVC(dnp->n_mount->sm_share);
+	const char *name = in_name;
+	size_t nmlen = in_nmlen;
+	uint16_t fid = 0;
+	int error;
+	struct smb_share *share = dnp->n_mount->sm_share;
+	struct smb_vc *vcp = SSTOVC(share);
 
 	/*
 	 * When the SMB_CAP_NT_SMBS mode is set we can pass access rights into the create
@@ -3384,23 +3955,43 @@ smbfs_smb_create(struct smbnode *dnp, const char *name, size_t nmlen, u_int32_t 
 	 * treatment as before. We are not removing any support just adding.
 	 */
 	if (vcp->vc_sopt.sv_caps & SMB_CAP_NT_SMBS) {
-		return (smbfs_smb_ntcreatex(dnp, rights, NTCREATEX_SHARE_ACCESS_ALL,
-					context, VREG,  fidp, name, nmlen, disp, xattr, fap));
-	} else
-		return (smbfs_smb_oldcreate(dnp, name, nmlen, context, fidp, xattr));
+		error = smbfs_smb_ntcreatex(dnp, rights, NTCREATEX_SHARE_ACCESS_ALL,
+					context, VREG,  &fid, name, nmlen, disp, xattr, fap);
+	} else {
+		/* Should be remove as part of <rdar://problem/8209715> */
+		bzero(fap, sizeof(*fap));		
+		error = smbfs_smb_oldcreate(dnp, name, nmlen, context, &fid, xattr);
+		if (!error) {
+			/* No attributes returned on the create, do a lookup */
+			error = smbfs_smb_lookup(dnp, &name, &nmlen, fap, context);
+		}
+		/* If lookup returned a new name free it we never need that name */
+		if (name != in_name) {
+			SMB_FREE(name, M_SMBNODENAME);
+		}		
+	}
+	if (fidp) {
+		/* Caller wants the FID, return it to them */
+		*fidp = fid;
+	} else if (fid) {
+		/* Caller doesn't want the FID, close it if we have it opened */
+		(void)smbfs_smb_close(share, fid, context);
+	}
+	
+	return error;
 }
 
-#ifdef POSIX_UNLINK_NOT_YET
 /*
- * Not sure we need this yet. It currently doesn't work, if I have time we should implement it for
- * open deletes.
+ * This is the only way to remove symlinks with a samba server.
  */
-static int smbfs_posix_unlink(struct smbnode *np, vfs_context_t context, const char *name, int nmlen)
+static int smbfs_posix_unlink(struct smbnode *np, vfs_context_t context, 
+							  const char *name, size_t nmlen)
 {
 	struct smb_t2rq *t2p;
 	struct smb_share *ssp = np->n_mount->sm_share;
 	struct mbchain *mbp;
 	int error;
+	u_int32_t isDir = (vnode_isdir(np->n_vnode)) ? 1 : 0;
 	
 	error = smb_t2_alloc(SSTOCP(ssp), SMB_TRANS2_SET_PATH_INFORMATION, context, &t2p);
 	if (error)
@@ -3417,13 +4008,14 @@ static int smbfs_posix_unlink(struct smbnode *np, vfs_context_t context, const c
 	
 	mbp = &t2p->t2_tdata;
 	mb_init(mbp);
+	mb_put_uint32le(mbp, isDir);
+	
 	t2p->t2_maxpcount = 2;
 	t2p->t2_maxdcount = SSTOVC(ssp)->vc_txmax;
 	error = smb_t2_request(t2p);
 	smb_t2_done(t2p);
 	return error;
 }
-#endif // POSIX_UNLINK_NOT_YET
 
 int smbfs_smb_delete(struct smbnode *np, vfs_context_t context, const char *name, 
 					 size_t nmlen, int xattr)
@@ -3433,12 +4025,35 @@ int smbfs_smb_delete(struct smbnode *np, vfs_context_t context, const char *name
 	struct mbchain *mbp;
 	int error;
 
-#ifdef POSIX_UNLINK_NOT_YET
-	/* Not doing extended attribute and they support posix the use the posix unlink call */
-	if (!xattr && (UNIX_CAPS(SSTOVC(ssp)) & CIFS_UNIX_POSIX_PATH_OPERATIONS_CAP))
-		return smbfs_posix_unlink(np, scrp, name, nmlen);
-#endif // POSIX_UNLINK_NOT_YET
-	
+	/* Not doing extended attribute and they support the posix unlink call */
+	if (!xattr && (UNIX_CAPS(SSTOVC(ssp)) & UNIX_SFILEINFO_POSIX_UNLINK_CAP)) {
+		error = smbfs_posix_unlink(np, context, name, nmlen);
+		
+		/* 
+		 * If the file doesn't have write posix modes then Samba returns 
+		 * NT_STATUS_CANNOT_DELETE, which we convert to EPERM. This seems
+		 * wrong we are expecting posix symantics from the call. So for now
+		 * try to change the mode and attempt the delete again.
+		 */
+		if (error == EPERM) {
+			int chmod_error;
+			uint64_t vamode = np->n_mode | S_IWUSR;
+			
+			/* See if we can chmod on the file */
+			chmod_error = smbfs_set_unix_info2(np, NULL, NULL, NULL, SMB_SIZE_NO_CHANGE, 
+											   vamode, SMB_FLAGS_NO_CHANGE, SMB_FLAGS_NO_CHANGE, context);
+			if (chmod_error == 0) {
+				error = smbfs_posix_unlink(np, context, name, nmlen);
+			}
+		}		
+		if (error != ENOTSUP) {
+			return error;
+		} else {
+			/* They don't really support this call, don't call them again */
+			UNIX_CAPS(SSTOVC(ssp)) &= ~UNIX_SFILEINFO_POSIX_UNLINK_CAP;
+		}
+	}
+
 	error = smb_rq_init(rqp, SSTOCP(ssp), SMB_COM_DELETE, context);
 	if (error)
 		return error;
@@ -3640,8 +4255,8 @@ smbfs_smb_trans2find2(struct smbfs_fctx *ctx, vfs_context_t context)
 		mb_put_uint16le(mbp, flags);
 		mb_put_uint16le(mbp, ctx->f_infolevel);
 		mb_put_uint32le(mbp, 0);
-		len = ctx->f_wclen;
-		error = smbfs_fullpath(mbp, vcp, ctx->f_dnp, ctx->f_wildcard,
+		len = ctx->f_lookupNameLen;
+		error = smbfs_fullpath(mbp, vcp, ctx->f_dnp, ctx->f_lookupName,
 				       &len, ctx->f_sfm_conversion, '\\');
 		if (error)
 			return error;
@@ -3786,9 +4401,10 @@ smbfs_smb_findnextLM2(struct smbfs_fctx *ctx, vfs_context_t context)
 	char *cp;
 	u_int32_t size, next, dattr, resumekey = 0;
 	u_int64_t llint;
-	int error, svtz, cnt, nmlen;
+	int error, cnt, nmlen;
 	u_int32_t fxsz, recsz;
 	struct timespec ts;
+	uint32_t eaSize;
 
 	if (ctx->f_ecnt == 0) {
 		if (ctx->f_flags & SMBFS_RDD_EOF)
@@ -3801,27 +4417,25 @@ smbfs_smb_findnextLM2(struct smbfs_fctx *ctx, vfs_context_t context)
 	}
 	t2p = ctx->f_t2;
 	mdp = &t2p->t2_rdata;
-	svtz = SSTOVC(ctx->f_ssp)->vc_sopt.sv_tz;
 	switch (ctx->f_infolevel) {
-	case SMB_FIND_DIRECTORY_INFO:
 	case SMB_FIND_BOTH_DIRECTORY_INFO:
 		md_get_uint32le(mdp, &next);
 		md_get_uint32le(mdp, &resumekey); /* file index (resume key) */
 		md_get_uint64le(mdp, &llint);	/* creation time */
 		if (llint) {
-			smb_time_NT2local(llint, svtz, &ctx->f_attr.fa_crtime);
+			smb_time_NT2local(llint, &ctx->f_attr.fa_crtime);
 		}
 		md_get_uint64le(mdp, &llint);
 		if (llint) {
-			smb_time_NT2local(llint, svtz, &ctx->f_attr.fa_atime);
+			smb_time_NT2local(llint, &ctx->f_attr.fa_atime);
 		}
 		md_get_uint64le(mdp, &llint);
 		if (llint) {
-			smb_time_NT2local(llint, svtz, &ctx->f_attr.fa_mtime);
+			smb_time_NT2local(llint, &ctx->f_attr.fa_mtime);
 		}
 		md_get_uint64le(mdp, &llint);
 		if (llint) {
-			smb_time_NT2local(llint, svtz, &ctx->f_attr.fa_chtime);
+			smb_time_NT2local(llint, &ctx->f_attr.fa_chtime);
 		}
 		md_get_uint64le(mdp, &llint);	/* data size */
 		ctx->f_attr.fa_size = llint;
@@ -3830,18 +4444,49 @@ smbfs_smb_findnextLM2(struct smbfs_fctx *ctx, vfs_context_t context)
 		/* freebsd bug: fa_attr endian bug */
 		md_get_uint32le(mdp, &dattr);	/* extended file attributes */
 		ctx->f_attr.fa_attr = dattr;
+		/*
+		* Because of the Steve/Conrad Symlinks we can never be completely
+		* sure that we have the corret vnode type if its a file. Since we 
+		* don't support Steve/Conrad Symlinks with Darwin we can always count 
+		* on the vtype being correct. For directories we always know the 
+		* correct information.
+		*/
+		if ((SSTOVC(ctx->f_ssp)->vc_flags & SMBV_DARWIN) ||
+			(ctx->f_attr.fa_attr & SMB_EFA_DIRECTORY)) {
+			ctx->f_attr.fa_valid_mask |= FA_VTYPE_VALID;
+		}
 		ctx->f_attr.fa_vtype = (ctx->f_attr.fa_attr & SMB_FA_DIR) ? VDIR : VREG;
 		md_get_uint32le(mdp, &size);	/* name len */
 		fxsz = 64; /* size ofinfo up to filename */
-		if (ctx->f_infolevel == SMB_FIND_BOTH_DIRECTORY_INFO) {
-			/* 
-			 * Skip EaSize (4 bytes), a byte of ShortNameLength,
-			 * a reserved byte, and ShortName (8.3 means 24 bytes,
-			 * as Leach defined it to always be Unicode)
-			 */
-			md_get_mem(mdp, NULL, 30, MB_MSYSTEM);
-			fxsz += 30;
+		/*
+		* Confirmed from MS:
+		* When the attribute has the Reparse Point bit set then the EASize
+		* contains the reparse tag info. This behavior is consistent for 
+		* Full, Both, FullId, or BothId query dir calls.  It will pack the 
+		* reparse tag into the EaSize value if ATTRIBUTE_REPARSE_POINT is set.  
+		* I verified with local MS Engineers, and they also checking to make 
+		* sure the behavior is covered in MS-FSA. 
+		*
+		* EAs and reparse points cannot both be in a file at the same
+		* time. We return different information for each case.
+		*/
+		ctx->f_attr.fa_valid_mask |= FA_REPARSE_TAG_VALID;
+		md_get_uint32le(mdp, &eaSize);	/* extended attributes size */			
+		if (ctx->f_attr.fa_attr &  SMB_EFA_REPARSE_POINT) {
+			ctx->f_attr.fa_reparse_tag = eaSize;
+			if (ctx->f_attr.fa_reparse_tag == IO_REPARSE_TAG_SYMLINK) {
+				SMBDEBUG("IO_REPARSE_TAG_SYMLINK\n");
+				ctx->f_attr.fa_valid_mask |= FA_VTYPE_VALID;
+				ctx->f_attr.fa_vtype = VLNK;
+			}
+		} else {
+			ctx->f_attr.fa_reparse_tag = IO_REPARSE_TAG_RESERVED_ZERO;
 		}
+		md_get_uint8(mdp, NULL);		/* Skip short name Length */
+		md_get_uint8(mdp, NULL);		/* Skip reserved byte */
+		/* Skip 8.3 short name, defined to be 12 WCHAR or 24 bytes. */
+		md_get_mem(mdp, NULL, 24, MB_MSYSTEM);
+		fxsz += 30;
 		recsz = next ? next : fxsz + size;
 		break;
 	case SMB_FIND_FILE_UNIX_INFO2:
@@ -3857,15 +4502,15 @@ smbfs_smb_findnextLM2(struct smbfs_fctx *ctx, vfs_context_t context)
 		
 		md_get_uint64le(mdp, &llint);	/* change time */
 		if (llint)
-			smb_time_NT2local(llint, svtz, &ctx->f_attr.fa_chtime);
+			smb_time_NT2local(llint, &ctx->f_attr.fa_chtime);
 		
 		md_get_uint64le(mdp, &llint);	/* access time */
 		if (llint)
-			smb_time_NT2local(llint, svtz, &ctx->f_attr.fa_atime);
+			smb_time_NT2local(llint, &ctx->f_attr.fa_atime);
 		
 		md_get_uint64le(mdp, &llint);	/* write time */
 		if (llint)
-			smb_time_NT2local(llint, svtz, &ctx->f_attr.fa_mtime);
+			smb_time_NT2local(llint, &ctx->f_attr.fa_mtime);
 		
 		md_get_uint64le(mdp, &llint);	/* Numeric user id for the owner */
 		ctx->f_attr.fa_uid = llint;
@@ -3891,12 +4536,13 @@ smbfs_smb_findnextLM2(struct smbfs_fctx *ctx, vfs_context_t context)
 		md_get_uint64le(mdp, &llint);	/* This is a server-assigned unique id */
 		md_get_uint64le(mdp, &llint);	/* Standard UNIX permissions */
 		ctx->f_attr.fa_permissions = llint;
+		ctx->f_attr.fa_valid_mask |= FA_UNIX_MODES_VALID;
 		md_get_uint64le(mdp, &llint);	/* Number of hard link */
 		ctx->f_attr.fa_nlinks = llint;
 		
 		md_get_uint64le(mdp, &llint);	/* creation time */
 		if (llint)
-			smb_time_NT2local(llint, svtz, &ctx->f_attr.fa_crtime);
+			smb_time_NT2local(llint, &ctx->f_attr.fa_crtime);
 		
 		md_get_uint32le(mdp, &dattr);	/* File flags enumeration */
 		md_get_uint32le(mdp, &ctx->f_attr.fa_flags_mask);	/* Mask of valid flags */
@@ -3994,9 +4640,8 @@ smbfs_smb_findnextLM2(struct smbfs_fctx *ctx, vfs_context_t context)
 	return 0;
 }
 
-int smbfs_smb_findopen(struct smbnode *dnp, const char *wildcard, size_t wclen, 
-					   int attr, vfs_context_t context, struct smbfs_fctx **ctxpp, 
-					   int conversion_flag)
+int smbfs_smb_findopen(struct smbnode *dnp, const char *lookupName, size_t lookupNameLen, 
+					   vfs_context_t context, struct smbfs_fctx **ctxpp, int wildCardLookup)
 {
 	struct smb_vc *vcp = SSTOVC(dnp->n_mount->sm_share);
 	struct smbfs_fctx *ctx;
@@ -4010,18 +4655,24 @@ int smbfs_smb_findopen(struct smbnode *dnp, const char *wildcard, size_t wclen,
 		ctx->f_ssp = dnp->n_mount->sm_share;
 	}
 	ctx->f_dnp = dnp;
+	ctx->f_flags |= SMBFS_RDD_FINDFIRST;
 	/*
-	 * If they are doing a wildcard lookup don't set the SFM Conversion flag.
-	 * Check to see if the name is a wildcard name. If it is a wildcard name
-	 * then make sure we are not setting the UTF_SFM_CONVERSIONS flag. Never
-	 * set the UTF_SFM_CONVERSIONS on a wildcard lookup. Since only FindFirst
-	 * message can do wildcard lookup reset f_sfm_conversion once we turn off
-	 * SMBFS_RDD_FINDFIRST flag. This means we are doing a FindNext message 
-	 * and we need to have UTF_SFM_CONVERSIONS flag set.
+	 * If this is a wildcard lookup then make sure we are not setting the 
+	 * UTF_SFM_CONVERSIONS flag. We are either doing a lookup by name or we are 
+	 * doing a wildcard lookup using the asterisk. When doing a wildcard lookup 
+	 * the  asterisk is legit, so we don't have to convert it. Now once we send
+	 * the FindFirst we need to turn the UTF_SFM_CONVERSIONS flag back on, this
+	 * is done in smbfs_smb_trans2find2. Also by definition non wildcard lookups
+	 * need to be single lookups, so if we are not doing a wildcard lookup then
+	 * set the SMBFS_RDD_FINDSINGLE flag.
 	 */
-	ctx->f_flags = SMBFS_RDD_FINDFIRST;
-	ctx->f_sfm_conversion = conversion_flag;	/* Is this a wildcard lookup or a name lookup */
-	if (UNIX_CAPS(SSTOVC(dnp->n_mount->sm_share)) & CIFS_UNIX_POSIX_PATH_OPERATIONS_CAP) {
+	if (!wildCardLookup) {
+		ctx->f_sfm_conversion = UTF_SFM_CONVERSIONS;
+		ctx->f_flags |= SMBFS_RDD_FINDSINGLE;
+		ctx->f_searchCount = 1;
+	}
+	
+	if (UNIX_CAPS(SSTOVC(dnp->n_mount->sm_share)) & UNIX_FIND_FILE_UNIX_INFO2_CAP) {
 		/* 
 		 * Search count is the clients request for the max number of items to 
 		 * be return. We could always request some large number, but lets just
@@ -4029,7 +4680,9 @@ int smbfs_smb_findopen(struct smbnode *dnp, const char *wildcard, size_t wclen,
 		 *
 		 * NOTE: We always make sure vc_txmax is 1k or larger.
 		 */
-		ctx->f_searchCount = vcp->vc_txmax / SMB_FIND_FILE_UNIX_INFO2_MIN_LEN;
+		if (wildCardLookup) {
+			ctx->f_searchCount = vcp->vc_txmax / SMB_FIND_FILE_UNIX_INFO2_MIN_LEN;
+		}
 		ctx->f_infolevel = SMB_FIND_FILE_UNIX_INFO2;
 	}
 	else {
@@ -4040,12 +4693,15 @@ int smbfs_smb_findopen(struct smbnode *dnp, const char *wildcard, size_t wclen,
 		 *
 		 * NOTE: We always make sure vc_txmax is 1k or larger.
 		 */
-		ctx->f_searchCount = vcp->vc_txmax / SMB_FIND_BOTH_DIRECTORY_INFO_MIN_LEN;
+		if (wildCardLookup) {
+			ctx->f_searchCount = vcp->vc_txmax / SMB_FIND_BOTH_DIRECTORY_INFO_MIN_LEN;
+		}
 		ctx->f_infolevel = SMB_FIND_BOTH_DIRECTORY_INFO;
 	}
-	ctx->f_attrmask = attr;
-	ctx->f_wildcard = wildcard;
-	ctx->f_wclen = wclen;
+	/* We always default to using the same attribute mask */
+	ctx->f_attrmask = SMB_FA_SYSTEM | SMB_FA_HIDDEN | SMB_FA_DIR;
+	ctx->f_lookupName = lookupName;
+	ctx->f_lookupNameLen = lookupNameLen;
 	
 	if (SMB_UNICODE_STRINGS(SSTOVC(ctx->f_ssp)))
 		ctx->f_name = malloc(SMB_MAXFNAMELEN*2, M_SMBFSDATA, M_WAITOK);
@@ -4141,22 +4797,20 @@ int smbfs_smb_lookup(struct smbnode *dnp, const char **namep, size_t *nmlenp,
 		else {
 			error = EINVAL;
 			
-			if (UNIX_CAPS(SSTOVC(dnp->n_mount->sm_share)) & CIFS_UNIX_POSIX_PATH_OPERATIONS_CAP)
+			if (UNIX_CAPS(SSTOVC(dnp->n_mount->sm_share)) & UNIX_QFILEINFO_UNIX_INFO2_CAP)
 				error = smbfs_smb_qpathinfo(dnp, fap, context, SMB_QFILEINFO_UNIX_INFO2, NULL, NULL);
 			else if (vcp->vc_sopt.sv_caps & SMB_CAP_NT_SMBS)
 				error = smbfs_smb_qpathinfo(dnp, fap, context, SMB_QFILEINFO_BASIC_INFO, NULL, NULL);
-			/* They don't support SMB_QFILEINFO_BASIC_INFO try SMB_QFILEINFO_STANDARD */
-			if (error == EINVAL)
-				error = smbfs_smb_qpathinfo(dnp, fap, context, SMB_QFILEINFO_STANDARD, NULL, NULL);
-			/* They don't support SMB_QFILEINFO_STANDARD try the very old stuff */
-			if (error == EINVAL)
+			/* They don't support SMB_QFILEINFO_BASIC_INFO try the very old stuff */
+			if ((error == EINVAL) || (error == ENOTSUP)) {
 				error = smbfs_smb_query_info(dnp, NULL, 0, fap, context);
+			}
 		}
 			
 		if (fap->fa_mtime.tv_sec == 0)
-			smb_time_NT2local(DIFF1980TO1601, 0, &fap->fa_mtime);
+			smb_time_NT2local(DIFF1980TO1601, &fap->fa_mtime);
 		if (fap->fa_crtime.tv_sec == 0)
-			smb_time_NT2local(DIFF1980TO1601, 0, &fap->fa_crtime);
+			smb_time_NT2local(DIFF1980TO1601, &fap->fa_crtime);
 		if (fap->fa_atime.tv_sec == 0)
 			fap->fa_atime = fap->fa_mtime;
 		if (fap->fa_chtime.tv_sec == 0)
@@ -4175,12 +4829,42 @@ int smbfs_smb_lookup(struct smbnode *dnp, const char **namep, size_t *nmlenp,
 			error = smbfs_smb_lookup(dnp->n_parent, NULL, NULL, fap, context);
 		return error;
 	}
+	bzero(fap, sizeof(*fap));
+	/* We keep track of the time the lookup call was requested */
+	nanouptime(&fap->fa_reqtime);
+
 	/*
-	 * Added a new info level call. We no longer use FindFirst to do normal 
-	 * lookups. If they claim to support the NT CAPS option and they do not 
-	 * return EINVAL then we will use the Trans2 Query All Info call instead 
-	 * of the FindFirst call. Both calls return the same information and 
-	 * this call will work with Drop boxes.
+	 * So we now default to using FindFirst, becasue of Dfs. Only FindFirst 
+	 * support getting the reparse point tag. If this is a stream node then
+	 * use the query info call to do the lookup. The FindFrist code doesn't 
+	 * handle stream nodes yet, may want to change that in the future.
+	 */
+	if ((dnp->n_vnode) && vnode_isnamedstream(dnp->n_vnode)) {
+		goto doQueryInfo;
+	}
+	
+	error = smbfs_smb_findopen(dnp, name, nmlen, context, &ctx, FALSE);
+	if (error) {
+		/* Can't happen we do wait ok */
+		return error;
+	}
+	error = smbfs_smb_findnext(ctx, context);
+	if (error == 0) {
+		*fap = ctx->f_attr;
+		if (name == NULL)
+			fap->fa_ino = dnp->n_ino;
+		if (namep)
+			*namep = (char *)smbfs_name_alloc((u_char *)(ctx->f_name), ctx->f_nmlen);
+		if (nmlenp)
+			*nmlenp = ctx->f_nmlen;
+	}
+	smbfs_smb_findclose(ctx, context);
+	/*
+	 * So if the FindFirst fails with an access error of some kind. If they support
+	 * the UNIX extensions we can try SMB_QFILEINFO_UNIX_INFO2. If they support 
+	 * the NT CAPS option we can try SMB_QFILEINFO_ALL_INFO. Both Trans2 Query
+	 * Info levels return the same information as FindFirst and will work 
+	 * with Drop boxes.
 	 *
 	 * Setting up a Drop Box for Windows 2000 and 2003
 	 * 
@@ -4239,52 +4923,24 @@ int smbfs_smb_lookup(struct smbnode *dnp, const char **namep, size_t *nmlenp,
 	 *    privileges. 
 	 * 	e.g. chmod 733 ./DropBox
 	 *
-	 * If they support CIFS_UNIX_POSIX_PATH_OPERATIONS_CAP then they must support UNIX_INFO2.
+	 * If they support UNIX_QFILEINFO_UNIX_INFO2_CAP then they must support UNIX_INFO2.
 	 * Hopefully everyone does this correctly. Remember the SMB_QFILEINFO_UNIX_INFO2 call does
-	 * not return the name. So if they are asking for the name fall through to the find first code
-	 * which will do a SMB_FIND_FILE_UNIX_INFO2 that does return the name.
+	 * not return the name. So if they are asking for the name then just fail.
 	 */
-	bzero(fap, sizeof(*fap));
-	/* We keep track of the time the lookup call was requested */
-	nanouptime(&fap->fa_reqtime);
-	if (UNIX_CAPS(SSTOVC(dnp->n_mount->sm_share)) & CIFS_UNIX_POSIX_PATH_OPERATIONS_CAP) {
+	if ((error != EACCES) || (error != EPERM))
+		return error;
+	
+doQueryInfo:
+	if (UNIX_CAPS(SSTOVC(dnp->n_mount->sm_share)) & UNIX_QFILEINFO_UNIX_INFO2_CAP) {
 		if (namep == NULL)
 			error = smbfs_smb_qpathinfo(dnp, fap, context, SMB_QFILEINFO_UNIX_INFO2, namep, nmlenp);
-		else /* If they are requesting the name fall through to the FindFrist call. */
-			error = EINVAL;
-	} else if (vcp->vc_sopt.sv_caps & SMB_CAP_NT_SMBS)
+		else {
+			/* If they are requesting the name, return error nothing else we can do here. */
+			error = EACCES;
+		}
+	} else if (vcp->vc_sopt.sv_caps & SMB_CAP_NT_SMBS) {
 		error = smbfs_smb_qpathinfo(dnp, fap, context, SMB_QFILEINFO_ALL_INFO, namep, nmlenp);
-
-	/* All EINVAL means is to fall through to the find first code */
-	if (error != EINVAL) {
-		if (error && (error != ENOENT) && (error != EACCES))
-			SMBERROR("smbfs_smb_qpathinfo error = %d\n", error);
-		return error;
 	}
-	
-	/*
-	 * This hides a server bug observable in Win98:
-	 * size changes may not show until a CLOSE or a FLUSH op
-	 */
-	if (SSTOVC(dnp->n_mount->sm_share)->vc_flags & SMBV_WIN98)
-		error = smbfs_smb_flush(dnp, context);
-
-	error = smbfs_smb_findopen(dnp, name, nmlen, SMB_FA_SYSTEM | SMB_FA_HIDDEN | SMB_FA_DIR, 
-							   context, &ctx, UTF_SFM_CONVERSIONS);
-	if (error)
-		return error;
-	ctx->f_flags |= SMBFS_RDD_FINDSINGLE;
-	error = smbfs_smb_findnext(ctx, context);
-	if (error == 0) {
-		*fap = ctx->f_attr;
-		if (name == NULL)
-			fap->fa_ino = dnp->n_ino;
-		if (namep)
-			*namep = (char *)smbfs_name_alloc((u_char *)(ctx->f_name), ctx->f_nmlen);
-		if (nmlenp)
-			*nmlenp = ctx->f_nmlen;
-	}
-	smbfs_smb_findclose(ctx, context);
 	return error;
 }
 

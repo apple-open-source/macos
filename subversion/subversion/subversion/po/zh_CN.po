@@ -3,6 +3,7 @@
 # This file is distributed under the same license as the subversion package.
 #
 # Update to new pot:
+#    ../../tools/po/po-update.sh zh_CN
 #    msgmerge --update zh_CN.po subversion.pot
 #
 # Check translation:
@@ -36,15 +37,17 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: subversion 1.6\n"
-"Report-Msgid-Bugs-To: dev@subversion.tigris.org\n"
-"POT-Creation-Date: 2009-06-18 11:25+0800\n"
-"PO-Revision-Date: 2009-06-18 11:27+0800\n"
-"Last-Translator: Subversion Developers <dev@subversion.tigris.org>\n"
-"Language-Team: Simplified Chinese <dev@subversion.tigris.org>\n"
+"Report-Msgid-Bugs-To: dev@subversion.apache.org\n"
+"POT-Creation-Date: 2010-09-05 21:45+0800\n"
+"PO-Revision-Date: 2010-09-05 21:33+0800\n"
+"Last-Translator: Subversion Developers <dev@subversion.apache.org>\n"
+"Language-Team: Simplified Chinese <dev@subversion.apache.org>\n"
+"Language: \n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=1; plural=0;\n"
+"X-Poedit-Language: Chinese\n"
 
 #. Constructing nice error messages for roots.
 #. Build an SVN_ERR_FS_NOT_FOUND error, with a detailed error text,
@@ -847,6 +850,9 @@ msgstr "没有外部合并工具可用"
 msgid "Assertion failure"
 msgstr "断言失败"
 
+msgid "GNOME Keyring is locked and we are non-interactive"
+msgstr "GNOME Keyring 被锁定，并且我们处于非交互方式"
+
 #, c-format
 msgid "Can't close directory '%s'"
 msgstr "无法关闭目录 “%s”"
@@ -1206,8 +1212,8 @@ msgstr "不能从 “%s” 插入外部引用的文件到工作副本，它来�
 
 #, c-format
 msgid ""
-"The file external from '%s' cannot overwrite the existing versioned item at '%"
-"s'"
+"The file external from '%s' cannot overwrite the existing versioned item at "
+"'%s'"
 msgstr "来源于 “%s” 的外部引用的文件不能覆写位于 “%s” 的已存版本控制条目"
 
 #, c-format
@@ -1498,6 +1504,12 @@ msgstr "URL “%s” 不是版本库根 URL “%s” 的子节点"
 msgid "Compression of svndiff data failed"
 msgstr "压缩 svndiff 数据失败"
 
+msgid "Decompression of svndiff data failed: no size"
+msgstr "解压 svndiff 数据失败: 没有长度"
+
+msgid "Decompression of svndiff data failed: size too large"
+msgstr "解压 svndiff 数据失败: 长度太大"
+
 msgid "Decompression of svndiff data failed"
 msgstr "解压 svndiff 数据失败"
 
@@ -1509,8 +1521,8 @@ msgid "Invalid diff stream: insn %d cannot be decoded"
 msgstr "无效的差异流: insn %d 不能解码"
 
 #, c-format
-msgid "Invalid diff stream: insn %d has non-positive length"
-msgstr "无效的差异流: insn %d 出现非正长度"
+msgid "Invalid diff stream: insn %d has length zero"
+msgstr "无效的差异流: insn %d 出现 0 长度"
 
 #, c-format
 msgid "Invalid diff stream: insn %d overflows the target view"
@@ -1537,6 +1549,9 @@ msgstr "Delta 没有包含足够新数据"
 
 msgid "Svndiff has invalid header"
 msgstr "Svndiff 数据包含无效头"
+
+msgid "Svndiff contains a too-large window"
+msgstr "Svndiff 数据包含太大的窗口"
 
 msgid "Svndiff contains corrupt window header"
 msgstr "Svndiff 数据包含无效窗口"
@@ -1625,10 +1640,13 @@ msgid "Missing required node revision ID"
 msgstr "缺少必须的节点版本 ID"
 
 msgid "Invalid change ordering: new node revision ID without delete"
-msgstr "无效的改变顺序: 有新的节点版本 ID 而没删除"
+msgstr "无效的改变顺序: 没有删除新节点版本 ID"
 
 msgid "Invalid change ordering: non-add change on deleted path"
-msgstr "无效的改变顺序: 对删除路径进行非增加的改变"
+msgstr "无效的改变顺序: 在已经删除的路径执行非增加修改"
+
+msgid "Invalid change ordering: add change on preexisting path"
+msgstr "无效的改变顺序: 在已有路径增加修改"
 
 msgid "creating cursor for reading changes"
 msgstr "正在为读取修改创建指针"
@@ -1922,8 +1940,8 @@ msgstr "打开文件系统“%s”的BDB环境句柄时出错: \n"
 
 #, c-format
 msgid ""
-"The '%s' feature requires version %d of the filesystem schema; filesystem '%"
-"s' uses only version %d"
+"The '%s' feature requires version %d of the filesystem schema; filesystem "
+"'%s' uses only version %d"
 msgstr "“%s”特性需要文件系统方案版本 %d；文件系统“%s”版本仅为 %d"
 
 #, c-format
@@ -1985,8 +2003,8 @@ msgstr "在修订版“%s”中diff的版本不一致"
 
 #, c-format
 msgid ""
-"Corruption detected whilst reading delta chain from representation '%s' to '%"
-"s'"
+"Corruption detected whilst reading delta chain from representation '%s' to "
+"'%s'"
 msgstr "从修订版“%s”到“%s”读差异链时检测到数据损坏"
 
 #, c-format
@@ -2193,12 +2211,12 @@ msgid "Can't create FSFS write-lock mutex"
 msgstr "不能创建文件系统写互斥体"
 
 #, c-format
-msgid "Can't create FSFS txn list mutex"
-msgstr "不能创建文件系统事务列表互斥体"
-
-#, c-format
 msgid "Can't create FSFS txn-current mutex"
 msgstr "不能创建 FSFS txn-current 互斥体"
+
+#, c-format
+msgid "Can't create FSFS txn list mutex"
+msgstr "不能创建文件系统事务列表互斥体"
 
 #, c-format
 msgid "Can't store FSFS shared data"
@@ -2278,6 +2296,19 @@ msgstr "“%s”包含非法文件系统格式选项“%s”"
 #, c-format
 msgid "Expected FS format between '1' and '%d'; found format '%d'"
 msgstr "期望文件系统格式在“1”到“%d”之间；发现格式“%d”"
+
+#, c-format
+msgid "'%s' is a directory. Please move it out of the way and try again"
+msgstr "“%s”是目录。请将它移走，然后重试。"
+
+#, c-format
+msgid ""
+"Failed to create hotcopy at '%s'. The file '%s' is missing from the source "
+"repository. Please create this file, for instance by running 'svnadmin "
+"upgrade %s'"
+msgstr ""
+"在“%s”创建热备份失败。源版本库丢失了文件“%s”。请创建此文件，例如通过执"
+"行“svnadmin upgrade %s”来创建它。"
 
 msgid "Found malformed header in revision file"
 msgstr "在版本文件中找到非法文件头"
@@ -2456,8 +2487,8 @@ msgstr "在表 rep_cache 中，只有 SHA1 校验和才能用作键。\n"
 #, c-format
 msgid ""
 "Representation key for checksum '%%s' exists in filesystem '%%s' with a "
-"different value (%%ld,%%%s,%%%s,%%%s) than what we were about to store (%%ld,%"
-"%%s,%%%s,%%%s)"
+"different value (%%ld,%%%s,%%%s,%%%s) than what we were about to store (%%ld,"
+"%%%s,%%%s,%%%s)"
 msgstr ""
 "校验和 “%%s” 的展现键已经存在于文件系统 “%%s” 中，取值(%%ld,%%%s,%%%s,%%%s)与"
 "我们要存储的值(%%ld,%%%s,%%%s,%%%s)不同"
@@ -2924,6 +2955,10 @@ msgid "'%s' path not found"
 msgstr "找不到路径 “%s”"
 
 #, c-format
+msgid "access to '%s' forbidden"
+msgstr "禁止访问“%s”"
+
+#, c-format
 msgid "Repository moved permanently to '%s'; please relocate"
 msgstr "版本库永久移到 “%s”；请重新定位。"
 
@@ -2985,9 +3020,6 @@ msgstr "OPTIONS 响应中没有包含请求的 activity-collection-set 值。"
 msgid "%s of '%s': %d %s (%s://%s)"
 msgstr "%s 于 '%s': %d %s (%s://%s)"
 
-msgid "The OPTIONS response did not include the requested checked-in value"
-msgstr "OPTIONS 响应中没有包含请求的 checked-in 值。"
-
 msgid ""
 "The OPTIONS response did not include the requested baseline-collection value"
 msgstr "OPTIONS 响应中没有包含请求的 baseline-collection 值。"
@@ -3010,6 +3042,9 @@ msgstr "版本库的 URL 非法"
 #, c-format
 msgid "Unlock request failed: %d %s"
 msgstr "解锁请求失败: %d %s"
+
+msgid "The OPTIONS response did not include the requested checked-in value"
+msgstr "OPTIONS 响应中没有包含请求的 checked-in 值。"
 
 msgid "The OPTIONS response did not include the requested version-name value"
 msgstr "OPTIONS 响应中没有包含请求的 version-name 值。"
@@ -3103,6 +3138,13 @@ msgstr "子进程错误: %s"
 #, c-format
 msgid "Can't create tunnel"
 msgstr "无法创建隧道"
+
+msgid ""
+"To better debug SSH connection problems, remove the -q option from 'ssh' in "
+"the [tunnels] section of your Subversion configuration file."
+msgstr ""
+"为了更好的诊断 SSH 连接问题，请从你的 Subversion 配置文件中，[tunnels] 节，删"
+"除 ssh 命令行参数 -q 。"
 
 #, c-format
 msgid "Illegal svn repository URL '%s'"
@@ -3218,6 +3260,9 @@ msgstr "服务器不支持重放范围命令"
 #, c-format
 msgid "Expected 'revprops', found '%s'"
 msgstr "期望“revprops”，发现“%s”"
+
+msgid "Error while replaying commit"
+msgstr "重演提交操作错误"
 
 msgid "'get-deleted-rev' not implemented"
 msgstr "未实现 “get-deleted-rev”"
@@ -3408,8 +3453,8 @@ msgstr "[没有可用的错误输出。]"
 
 #, c-format
 msgid ""
-"'%s' hook failed (did not exit cleanly: apr_exit_why_e was %d, exitcode was %"
-"d).  "
+"'%s' hook failed (did not exit cleanly: apr_exit_why_e was %d, exitcode was "
+"%d).  "
 msgstr "钩子“%s”失败(没有干净的退出: apr_exit_why_e 是 %d，exitcode 是 %d)。"
 
 msgid "Commit"
@@ -3986,16 +4031,8 @@ msgid "Can't remove file '%s'"
 msgstr "不能移动文件“%s”"
 
 #, c-format
-msgid "Can't open directory '%s'"
-msgstr "无法打开目录“%s”"
-
-#, c-format
 msgid "Can't remove '%s'"
 msgstr "无法删除“%s”"
-
-#, c-format
-msgid "Can't rewind directory '%s'"
-msgstr "无法重绕目录“%s”"
 
 #, c-format
 msgid "Can't create process '%s' attributes"
@@ -4139,6 +4176,10 @@ msgid "Can't hide directory '%s'"
 msgstr "无法隐藏目录 “%s”"
 
 #, c-format
+msgid "Can't open directory '%s'"
+msgstr "无法打开目录“%s”"
+
+#, c-format
 msgid "Can't remove directory '%s'"
 msgstr "无法删除目录 “%s”"
 
@@ -4228,7 +4269,7 @@ msgstr "空合并信息\n"
 
 #, c-format
 msgid "Can't convert string to UCS-2: '%s'"
-msgstr "不能把字符串转换为UCS-2: “%s”。"
+msgstr "不能把字符串转换为 UCS-2: “%s”。"
 
 msgid "Can't get module file name"
 msgstr "无法获取模块文件名"
@@ -4259,8 +4300,8 @@ msgid "'%s' is not a valid Subversion property name"
 msgstr "“%s”不是有效的 Subversion 属性名称"
 
 #, c-format
-msgid "URL '%s' is not properly URI-encoded"
-msgstr "URL“%s”不是正确的URI编码"
+msgid "'%s' is just a peg revision. Maybe try '%s@' instead?"
+msgstr "“%s” 是 peg 版本。或许你应该使用 “%s@” ?"
 
 #, c-format
 msgid "URL '%s' contains a '..' element"
@@ -4381,6 +4422,7 @@ msgstr "保存未加密的密码(yes/no)?"
 
 #, c-format
 msgid ""
+"\n"
 "-----------------------------------------------------------------------\n"
 "ATTENTION!  Your password for authentication realm:\n"
 "\n"
@@ -4395,6 +4437,7 @@ msgid ""
 "'%s'.\n"
 "-----------------------------------------------------------------------\n"
 msgstr ""
+"\n"
 "-----------------------------------------------------------------------\n"
 "注意!  你的密码，对于认证域:\n"
 "\n"
@@ -4412,6 +4455,7 @@ msgstr "保存未加密的密码(yes/no)?"
 
 #, c-format
 msgid ""
+"\n"
 "-----------------------------------------------------------------------\n"
 "ATTENTION!  Your passphrase for client certificate:\n"
 "\n"
@@ -4426,6 +4470,7 @@ msgid ""
 "'no' in '%s'.\n"
 "-----------------------------------------------------------------------\n"
 msgstr ""
+"\n"
 "-----------------------------------------------------------------------\n"
 "注意!  你的客户端证书密码:\n"
 "\n"
@@ -4657,6 +4702,11 @@ msgstr "文件“%s”有本地修改"
 
 msgid "Invalid 'conflict_result' argument"
 msgstr "无效的 “conflict_result” 参数"
+
+#, c-format
+msgid ""
+"Tree conflicts can only be resolved to 'working' state; '%s' not resolved"
+msgstr "树冲突只能解决为 “working” 状态；“%s” 还没有解决"
 
 #, c-format
 msgid "'%s' is a directory, and thus cannot be a member of a changelist"
@@ -5098,8 +5148,8 @@ msgid "File '%s' has binary mime type property"
 msgstr "文件“%s”有二进制的 mime 类型属性"
 
 #, c-format
-msgid "Unrecognized line ending style for '%s'"
-msgstr "“%s” 含有无法识别的行结束样式"
+msgid "Unrecognized line ending style '%s' for '%s'"
+msgstr "无法识别的行结束样式“%s”，对于“%s”"
 
 #, c-format
 msgid "Error parsing %s property on '%s': '%s'"
@@ -5131,21 +5181,27 @@ msgstr "无效属性 %s 位于 “%s”: 目标 “%s” 包含 “..” 或是�
 
 #, c-format
 msgid ""
+"The path '%s' appears to be part of a Subversion 1.7 or greater\n"
+"working copy rooted at '%s'.\n"
+"Please upgrade your Subversion client to use this working copy."
+msgstr ""
+"路径 '%s' 好像是 Subversion 1.7 或更高版本的工作副本，根路径是 '%s'。\n"
+"请升级你的 Subversion 客户端，以使用此工作副本。"
+
+#, c-format
+msgid ""
 "Working copy format of '%s' is too old (%d); please check out your working "
 "copy again"
 msgstr "“%s”的工作副本格式太旧(%d)；请重新取出工作副本"
 
 #, c-format
 msgid ""
-"This client is too old to work with working copy '%s'.  You need\n"
-"to get a newer Subversion client, or to downgrade this working copy.\n"
-"See http://subversion.tigris.org/faq.html#working-copy-format-change\n"
-"for details."
+"The path '%s' appears to be part of a Subversion 1.7 or greater\n"
+"working copy.  Please upgrade your Subversion client to use this\n"
+"working copy."
 msgstr ""
-"此客户端对于工作副本 “%s” 太旧。你需要取得更新的 Subversion 客户端，或者降级\n"
-"工作副本。参见 http://subversion.tigris.org/faq.html#working-copy-format-"
-"change\n"
-"以获得更详细的信息。"
+"路径 '%s' 好像是 Subversion 1.7 或更高版本的工作副本。请升级你的 Subversion\n"
+"客户端，以使用此工作副本。"
 
 #, c-format
 msgid ""
@@ -5178,8 +5234,9 @@ msgstr "树冲突描述中有非法的 “node_kind” 域"
 msgid "Error parsing tree conflict skel"
 msgstr "解析树冲突骨架出错"
 
-msgid "Attempt to add tree conflict that already exists"
-msgstr "试图增加已经存在的树冲突"
+#, c-format
+msgid "Attempt to add tree conflict that already exists at '%s'"
+msgstr "试图增加已经位于“%s”的树冲突"
 
 #, c-format
 msgid "No '.' entry in: '%s'"
@@ -7116,9 +7173,7 @@ msgid ""
 "     are applied to the obstructing path.\n"
 "\n"
 "     Use the --set-depth option to set a new working copy depth on the\n"
-"     targets of this operation.  Currently, the depth of a working copy\n"
-"     directory can only be increased (telescoped more deeply); you cannot\n"
-"     make a directory more shallow.\n"
+"     targets of this operation.\n"
 "\n"
 "  2. Rewrite working copy URL metadata to reflect a syntactic change only.\n"
 "     This is used when repository's root URL changes (such as a scheme\n"
@@ -7143,8 +7198,7 @@ msgstr ""
 "同，\n"
 "     将视为工作副本发生本地修改。版本库中的所有属性都应用于障碍路径。\n"
 "\n"
-"     使用 “--set-depth” 选项设置此操作目标的工作副本之新深度。目前工作副本的\n"
-"     深度只能增加(嵌入更深)；你不能让目录收缩。\n"
+"     使用 “--set-depth” 选项设置此操作目标的工作副本之新深度。\n"
 "\n"
 "  2、重写工作副本的 URL 元数据，以反映单纯的 URL 改变。当版本库的根 URL 改\n"
 "     变(比如方案或者主机名称变动)，但是工作副本仍旧对应同一版本库的同一目录\n"
@@ -7198,9 +7252,7 @@ msgid ""
 "  in the first column with code 'E'.\n"
 "\n"
 "  Use the --set-depth option to set a new working copy depth on the\n"
-"  targets of this operation.  Currently, the depth of a working copy\n"
-"  directory can only be increased (telescoped more deeply); you cannot\n"
-"  make a directory more shallow.\n"
+"  targets of this operation.\n"
 msgstr ""
 "将版本库的修改合并到工作副本中。\n"
 "用法: update [PATH...]\n"
@@ -7227,8 +7279,7 @@ msgstr ""
 "  不同，将视为工作副本发生本地修改。版本库中的所有属性都应用于障碍路径。\n"
 "  用第一列字符 “E” 来报告障碍路径。\n"
 "\n"
-"  使用“--set-depth”选项设置此操作目标的工作副本之新深度。目前工作副本的\n"
-"  深度只能增加(嵌入更深)；你不能让目录收缩。\n"
+"  使用“--set-depth”选项设置此操作目标的工作副本之新深度。\n"
 
 msgid "Caught signal"
 msgstr "捕捉到信号"
@@ -7387,6 +7438,9 @@ msgstr "--depth 不能与 --reintegrate 共存"
 
 msgid "--force cannot be used with --reintegrate"
 msgstr "--force 不能与 --reintegrate 共存"
+
+msgid "--reintegrate can only be used with a single merge source"
+msgstr "--reintegrate 只能用于单一合并源"
 
 msgid "Not enough arguments given"
 msgstr "没有提供足够的参数"
@@ -7740,7 +7794,7 @@ msgid "obstruction"
 msgstr "阻塞"
 
 msgid "missing"
-msgstr "丢失"
+msgstr "失踪"
 
 msgid "unversioned"
 msgstr "未版本控制"

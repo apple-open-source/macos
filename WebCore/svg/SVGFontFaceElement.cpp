@@ -287,7 +287,7 @@ void SVGFontFaceElement::rebuildFontFace()
             list = srcElement->srcValue();
     }
 
-    if (!list)
+    if (!list || !list->length())
         return;
 
     // Parse in-memory CSS rules
@@ -307,13 +307,14 @@ void SVGFontFaceElement::rebuildFontFace()
         }
     }
 
-    document()->updateStyleSelector();
+    document()->styleSelectorChanged(DeferRecalcStyle);
 }
 
 void SVGFontFaceElement::insertedIntoDocument()
 {
     SVGElement::insertedIntoDocument();
     document()->mappedElementSheet()->append(m_fontFaceRule);
+    m_fontFaceRule->setParent(document()->mappedElementSheet());
     rebuildFontFace();
 }
 
@@ -342,7 +343,7 @@ void SVGFontFaceElement::removeFromMappedElementSheet()
             break;
         }
     }
-    document()->updateStyleSelector();
+    document()->styleSelectorChanged(DeferRecalcStyle);
 }
 
 } // namespace WebCore

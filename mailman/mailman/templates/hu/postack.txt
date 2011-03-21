@@ -1,8 +1,0 @@
-Üzeneted a következõ tárggyal
-
-    %(subject)s
-
-%(listname)s levelezési listára sikeresen megérkezett.
-
-Lista honlapja: %(listinfo_url)s
-Saját beállításaid: %(optionsurl)s

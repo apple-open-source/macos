@@ -176,6 +176,11 @@ struct smbnode {
 	size_t				n_snmlen;	/* if a stream then the legnth of the stream name */
 	u_char				*n_sname;	/* if a stream then the the name of the stream */
 	LIST_ENTRY(smbnode)	n_hash;
+	uint32_t			n_reparse_tag;
+	uint16_t			n_fstatus;				/* Does the node have any named streams */
+	char				*n_symlink_target;
+	size_t				n_symlink_target_len;
+	time_t				n_symlink_cache_timer;
 };
 
 /* Directory items */

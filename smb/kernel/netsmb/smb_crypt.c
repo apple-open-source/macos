@@ -339,7 +339,7 @@ uint8_t *make_ntlmv2_blob(u_int64_t client_nonce, void *target_info, u_int16_t t
 	blobhdr = (struct ntlmv2_blobhdr *)(blob + SMB_NTLMV2_LEN);
 	blobhdr->header = htolel(0x00000101);
 	nanotime(&now);
-	smb_time_local2NT(&now, 0, &timestamp, 0);
+	smb_time_local2NT(&now, &timestamp, 0);
 	blobhdr->timestamp = htoleq(timestamp);
 	blobhdr->client_nonce = client_nonce;
 	

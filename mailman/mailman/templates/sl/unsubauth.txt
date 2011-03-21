@@ -1,9 +1,0 @@
-Potrebna je va¹a odobritev zahteve za odjavo s po¹tnega seznama:
-
-    Od:	%(username)s
-    Za:	%(listname)s@%(hostname)s
-
-Za obdelavo zahteve obi¹èite stran
-
-    %(admindb_url)s
-

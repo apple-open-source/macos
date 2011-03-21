@@ -481,7 +481,7 @@ void HTMLElement::setOuterText(const String &text, ExceptionCode& ec)
     // Is previous node a text node? If so, merge into it.
     Node* prev = t->previousSibling();
     if (prev && prev->isTextNode()) {
-        Text* textPrev = static_cast<Text*>(prev);
+        RefPtr<Text> textPrev = static_cast<Text*>(prev);
         textPrev->appendData(t->data(), ec);
         if (ec)
             return;
@@ -494,7 +494,7 @@ void HTMLElement::setOuterText(const String &text, ExceptionCode& ec)
     // Is next node a text node? If so, merge it in.
     Node* next = t->nextSibling();
     if (next && next->isTextNode()) {
-        Text* textNext = static_cast<Text*>(next);
+        RefPtr<Text> textNext = static_cast<Text*>(next);
         t->appendData(textNext->data(), ec);
         if (ec)
             return;
@@ -620,9 +620,9 @@ bool HTMLElement::isContentEditable() const
     if (document()->frame() && document()->frame()->isContentEditable())
         return true;
 
-    // FIXME: this is a terrible thing to do here:
-    // https://bugs.webkit.org/show_bug.cgi?id=21834
-    document()->updateStyleIfNeeded();
+    // Ideally we'd call ASSERT!needsStyleRecalc()) here, but
+    // ContainerNode::setFocus() calls setNeedsStyleRecalc(), so the assertion
+    // would fire in the middle of Document::setFocusedNode().
 
     if (!renderer()) {
         if (parentNode())
@@ -639,8 +639,6 @@ bool HTMLElement::isContentRichlyEditable() const
     if (document()->frame() && document()->frame()->isContentEditable())
         return true;
 
-    document()->updateStyleIfNeeded();
-
     if (!renderer()) {
         if (parentNode())
             return parentNode()->isContentEditable();
@@ -653,8 +651,6 @@ bool HTMLElement::isContentRichlyEditable() const
 
 String HTMLElement::contentEditable() const 
 {
-    document()->updateStyleIfNeeded();
-
     if (!renderer())
         return "false";
     

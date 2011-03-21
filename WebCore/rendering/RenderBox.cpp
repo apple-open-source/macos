@@ -110,8 +110,13 @@ void RenderBox::removeFloatingOrPositionedChildFromBlockLists()
                 outermostBlock = p;
         }
 
-        if (outermostBlock)
+        if (outermostBlock) {
+            RenderObject* parent = outermostBlock->parent();
+            if (parent && parent->isFlexibleBox())
+                outermostBlock = toRenderBlock(parent);
+
             outermostBlock->markAllDescendantsWithFloatsForLayout(this, false);
+        }
     }
 
     if (isPositioned()) {
@@ -2827,7 +2832,7 @@ bool RenderBox::shrinkToAvoidFloats() const
 
 bool RenderBox::avoidsFloats() const
 {
-    return isReplaced() || hasOverflowClip() || isHR();
+    return isReplaced() || hasOverflowClip() || isHR() || isLegend();
 }
 
 void RenderBox::addShadowOverflow()

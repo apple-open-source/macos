@@ -2618,7 +2618,6 @@ expire_lock_hosts(void)
 {
 	struct host *ihp;
 
-	debuglog("expire_lock_hosts: called\n");
 	for ( ;; ) {
 		ihp = TAILQ_LAST(&hostlst_unref, hostlst_head);
 		if (ihp == NULL)

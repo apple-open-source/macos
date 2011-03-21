@@ -1,7 +1,0 @@
-%(listname)s メーリングリストは、以下の件名で投稿された
-メールを受け取りました。
-
-    %(subject)s
-
-リスト案内ページ: %(listinfo_url)s
-個人オプションページ: %(optionsurl)s

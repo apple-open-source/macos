@@ -1,9 +1,0 @@
-Listil %(real_name)s@%(host_name)s on ootel %(count)d taotlus(t).
-Taotlustega saab tutvuda aadressil:
-
-	%(adminDB)s
-
-Palun tegele nendega esimesel sobival võimalusel
-
-Seda teadet ootelolevate taotluste kohta - kui neid on - 
-korrataks iga päev.

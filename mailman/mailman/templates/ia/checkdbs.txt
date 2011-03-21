@@ -1,8 +1,0 @@
-Le lista de correspondentia %(real_name)s@%(host_name)s ha
-%(count)d requesta(s) attendente tu consideration a:
-
-    %(adminDB)s
-
-Per favor face attention a isto le plus tosto possibile.
-Iste notification de requestas pendente, si alcun existe,
-essera expedite quotidianmente.

@@ -40,11 +40,11 @@
 #define VT_SMBFS	VT_OTHER
 
 #define SMBFS_VERMAJ	1
-#define SMBFS_VERMIN	6000
+#define SMBFS_VERMIN	6600
 #define SMBFS_VERSION	(SMBFS_VERMAJ*100000 + SMBFS_VERMIN)
 #define	SMBFS_VFSNAME	"smbfs"
-#define SMBFS_LANMAN	"SMBFS 1.6.5"		/* Needs to match current smbfs.kext version */
-#define SMBFS_NATIVEOS	"Mac OS X 10.6.5"	/* Needs to match last OS version smbfs.kext changed in */
+#define SMBFS_LANMAN	"SMBFS 1.6.6"		/* Needs to match current smbfs.kext version */
+#define SMBFS_NATIVEOS	"Mac OS X 10.6.7"	/* Needs to match last OS version smbfs.kext changed in */
 #define SMBFS_SLASH_TONAME "/Volumes/0x2f"
 
 /* Values for flags */
@@ -253,8 +253,10 @@ void smbfs_clear_acl_cache(struct smbnode *np);
  * use a file descriptor or a path name to do a get or set info call. Seems NetApp requires an file descriptor when 
  * setting the time on a file. 
  */
-#define kRequiresFileInfoTime	0x0001	/* Setting time requires a file descriptor */
-
+#define MNT_REQUIRES_FILEID_FOR_TIME		0x0001	/* Setting time requires a file descriptor */
+#define MNT_MAPS_NETWORK_LOCAL_USER		0x0002 /* Map  Network User <==> Local User */
+#define MNT_IS_SFM_VOLUME			0x0004	/* We mount a Service for Macintosh Volume */
+#define MNT_SUPPORTS_REPARSE_SYMLINKS		0x0008
 
 struct smbmount {
 	u_int64_t		ntwrk_uid;

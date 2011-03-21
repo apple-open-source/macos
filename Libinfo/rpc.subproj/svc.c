@@ -89,8 +89,13 @@ static SVCXPRT **xports;
  */
 static struct svc_callout {
 	struct svc_callout *sc_next;
+#ifdef __LP64__
+	uint32_t		    sc_prog;
+	uint32_t		    sc_vers;
+#else
 	u_long		    sc_prog;
 	u_long		    sc_vers;
+#endif
 	void		    (*sc_dispatch)();
 } *svc_head;
 
@@ -224,8 +229,13 @@ svc_unregister(prog, vers)
  */
 static struct svc_callout *
 svc_find(prog, vers, prev)
+#ifdef __LP64__
+	uint32_t prog;
+	uint32_t vers;
+#else
 	u_long prog;
 	u_long vers;
+#endif
 	struct svc_callout **prev;
 {
 	register struct svc_callout *s, *p;
@@ -417,21 +427,37 @@ svc_getreqset(readfds)
 	enum xprt_stat stat;
 	struct rpc_msg msg;
 	int prog_found;
+#ifdef __LP64__
+	uint32_t low_vers;
+	uint32_t high_vers;
+#else
 	u_long low_vers;
 	u_long high_vers;
+#endif
 	struct svc_req r;
 	register SVCXPRT *xprt;
+#ifdef __LP64__
+	register uint32_t mask;
+#else
 	register u_long mask;
+#endif
 	register int bit;
+#ifdef __LP64__
+	register uint32_t *maskp;
+#else
 	register u_long *maskp;
+#endif
 	register int sock;
 	char cred_area[2*MAX_AUTH_BYTES + RQCRED_SIZE];
 	msg.rm_call.cb_cred.oa_base = cred_area;
 	msg.rm_call.cb_verf.oa_base = &(cred_area[MAX_AUTH_BYTES]);
 	r.rq_clntcred = &(cred_area[2*MAX_AUTH_BYTES]);
 
-
+#ifdef __LP64__
+	maskp = (uint32_t *)readfds->fds_bits;
+#else
 	maskp = (u_long *)readfds->fds_bits;
+#endif
 	for (sock = 0; sock <= svc_maxfd; sock += NFDBITS) {
 	    for (mask = *maskp++; (bit = ffs(mask)); mask ^= (1 << (bit - 1))) {
 		if ((sock + bit) > (svc_maxfd + 1))

@@ -1,2 +1,0 @@
-%(member)s 已經訂閱 %(listname)s 成功了.
-

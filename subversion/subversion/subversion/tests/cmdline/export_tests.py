@@ -389,6 +389,74 @@ def export_creates_intermediate_folders(sbox):
                                         expected_output,
                                         svntest.main.greek_state.copy())
 
+def export_HEADplus1_fails(sbox):
+  "export -r {HEAD+1} fails"
+
+  sbox.build(create_wc = False, read_only = True)
+  
+  svntest.actions.run_and_verify_svn(None, None, '.*No such revision.*',
+                                     'export', sbox.repo_url, sbox.wc_dir,
+                                     '-r', 38956)
+
+# This is test for issue #3683 - 'Escape unsafe charaters in a URL during
+# export'
+def export_with_url_unsafe_characters(sbox):
+  "export file with URL unsafe characters"
+
+  ## See http://subversion.tigris.org/issues/show_bug.cgi?id=3683 ##
+
+  sbox.build()
+  wc_dir = sbox.wc_dir
+
+  # Define the paths
+  url_unsafe_path = os.path.join(wc_dir, 'A', 'test- @#$&.txt')
+  url_unsafe_path_url = sbox.repo_url + '/A/test- @#$&.txt@'
+  export_target = os.path.join(wc_dir, 'test- @#$&.txt')
+
+  # Create the file with special name and commit it.
+  svntest.main.file_write(url_unsafe_path, 'This is URL unsafe path file.')
+  svntest.main.run_svn(None, 'add', url_unsafe_path + '@')
+  svntest.actions.run_and_verify_svn(None, None, [], 'ci', '-m', 'log msg',
+                                     '--quiet', wc_dir)
+
+  # Export the file and verify it.
+  svntest.actions.run_and_verify_svn(None, None, [], 'export',
+                                     url_unsafe_path_url, export_target + '@')
+
+  if not os.path.exists(export_target):
+    raise svntest.Failure("export did not fetch file with URL unsafe path")
+
+def export_to_current_dir(sbox):
+  "export to current dir"
+  # Issue 3727: Forced export in current dir creates unexpected subdir.
+  sbox.build(create_wc = False, read_only = True)
+
+  svntest.main.safe_rmtree(sbox.wc_dir)
+  os.mkdir(sbox.wc_dir)
+
+  orig_dir = os.getcwd()
+  os.chdir(sbox.wc_dir)
+
+  export_url = sbox.repo_url + '/A/B/E'
+  export_target = '.'
+  expected_output = svntest.wc.State('', {
+    '.'         : Item(status='A '),
+    'alpha'     : Item(status='A '),
+    'beta'      : Item(status='A '),
+    })
+  expected_disk = svntest.wc.State('', {
+    'alpha'     : Item("This is the file 'alpha'.\n"),
+    'beta'      : Item("This is the file 'beta'.\n"),
+    })
+  svntest.actions.run_and_verify_export(export_url,
+                                        export_target,
+                                        expected_output,
+                                        expected_disk,
+                                        None, None, None, None,
+                                        '--force')
+
+  os.chdir(orig_dir)
+
 ########################################################################
 # Run the tests
 
@@ -411,6 +479,9 @@ test_list = [ None,
               export_unversioned_file,
               export_with_state_deleted,
               export_creates_intermediate_folders,
+              export_HEADplus1_fails,
+              export_with_url_unsafe_characters,
+              export_to_current_dir,
              ]
 
 if __name__ == '__main__':

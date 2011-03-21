@@ -117,8 +117,9 @@ domain2str(SecPreferencesDomain domain)
 	case kSecPreferencesDomainCommon:
 		return "common";
 	case kSecPreferencesDomainDynamic:
-	default:
 		return "dynamic";
+	default:
+		return "unknown";
 	}
 }
 

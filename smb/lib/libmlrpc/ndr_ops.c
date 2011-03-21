@@ -79,7 +79,6 @@ static void mlndo_tattle(struct mlndr_stream *, char *, struct ndr_reference *);
 static void mlndo_tattle_error(struct mlndr_stream *, struct ndr_reference *);
 static int mlndo_reset(struct mlndr_stream *);
 static void mlndo_destruct(struct mlndr_stream *);
-static void mlndo_hexfmt(uint8_t *, int, int, char *, int);
 
 /*
  * The mlndr stream operations table.
@@ -213,8 +212,6 @@ mlndo_grow_pdu(struct mlndr_stream *mlnds, unsigned long want_end_offset,
 	unsigned char *pdu_addr;
 	unsigned pdu_max_size;
 
-	mlndo_printf(mlnds, ref, "grow %d", want_end_offset);
-
 	pdu_max_size = mlnds->pdu_max_size;
 
 	if (want_end_offset > pdu_max_size) {
@@ -243,8 +240,6 @@ mlndo_pad_pdu(struct mlndr_stream *mlnds, unsigned long pdu_offset,
 	data = mlnds->pdu_base_addr;
 	data += pdu_offset;
 
-	mlndo_printf(mlnds, ref, "pad %d@%-3d", n_bytes, pdu_offset);
-
 	bzero(data, n_bytes);
 	return (1);
 }
@@ -263,15 +258,9 @@ mlndo_get_pdu(struct mlndr_stream *mlnds, unsigned long pdu_offset,
     struct ndr_reference *ref)
 {
 	unsigned char *data;
-	char hexbuf[NDOBUFSZ];
 
 	data = mlnds->pdu_base_addr;
 	data += pdu_offset;
-
-	mlndo_hexfmt(data, n_bytes, swap_bytes, hexbuf, NDOBUFSZ);
-
-	mlndo_printf(mlnds, ref, "get %d@%-3d = %s",
-	    n_bytes, pdu_offset, hexbuf);
 
 	if (!swap_bytes)
 		bcopy(data, buf, n_bytes);
@@ -294,15 +283,9 @@ mlndo_put_pdu(struct mlndr_stream *mlnds, unsigned long pdu_offset,
     struct ndr_reference *ref)
 {
 	unsigned char *data;
-	char hexbuf[NDOBUFSZ];
 
 	data = mlnds->pdu_base_addr;
 	data += pdu_offset;
-
-	mlndo_hexfmt((uint8_t *)buf, n_bytes, 0, hexbuf, NDOBUFSZ);
-
-	mlndo_printf(mlnds, ref, "put %d@%-3d = %s",
-	    n_bytes, pdu_offset, hexbuf);
 
 	bcopy(buf, data, n_bytes);
 	return (1);
@@ -312,27 +295,13 @@ static void
 mlndo_tattle(struct mlndr_stream *mlnds, char *what,
     struct ndr_reference *ref)
 {
-	mlndo_printf(mlnds, ref, what);
+	return;
 }
 
 static void
 mlndo_tattle_error(struct mlndr_stream *mlnds, struct ndr_reference *ref)
 {
-	unsigned char *data;
-	char hexbuf[NDOBUFSZ];
-
-	data = mlnds->pdu_base_addr;
-	if (ref)
-		data += ref->pdu_offset;
-	else
-		data += mlnds->pdu_scan_offset;
-
-	mlndo_hexfmt(data, 16, 0, hexbuf, NDOBUFSZ);
-
-	mlndo_printf(mlnds, ref, "ERROR=%d REF=%d OFFSET=%d SIZE=%d/%d",
-	    mlnds->error, mlnds->error_ref, mlnds->pdu_scan_offset,
-	    mlnds->pdu_size, mlnds->pdu_max_size);
-	mlndo_printf(mlnds, ref, "      %s", hexbuf);
+	return;
 }
 
 /*
@@ -344,8 +313,6 @@ mlndo_tattle_error(struct mlndr_stream *mlnds, struct ndr_reference *ref)
 static int
 mlndo_reset(struct mlndr_stream *mlnds)
 {
-	mlndo_printf(mlnds, 0, "reset");
-
 	mlnds->pdu_size = 0;
 	mlnds->pdu_scan_offset = 0;
 	mlnds->outer_queue_head = 0;
@@ -365,8 +332,6 @@ mlndo_reset(struct mlndr_stream *mlnds)
 static void
 mlndo_destruct(struct mlndr_stream *mlnds)
 {
-	mlndo_printf(mlnds, 0, "destruct");
-
 	if (mlnds->pdu_base_addr != 0) {
 		free(mlnds->pdu_base_addr);
 		mlnds->pdu_base_addr = 0;
@@ -377,85 +342,6 @@ mlndo_destruct(struct mlndr_stream *mlnds)
 	mlnds->outer_queue_tailp = &mlnds->outer_queue_head;
 }
 
-/*
- * Printf style formatting for NDR operations.
- */
-void
-mlndo_printf(struct mlndr_stream *mlnds, struct ndr_reference *ref,
-    const char *fmt, ...)
-{
-	va_list ap;
-	char buf[NDOBUFSZ];
-
-	va_start(ap, fmt);
-	(void) vsnprintf(buf, NDOBUFSZ, fmt, ap);
-	va_end(ap);
-
-	if (mlnds)
-		mlndo_fmt(mlnds, ref, buf);
-	else
-		mlndo_trace(buf);
-}
-
-/*
- * Main output formatter for NDR operations.
- *
- *	UI 03 ... rpc_vers           get 1@0   =    5 {05}
- *	UI 03 ... rpc_vers_minor     get 1@1   =    0 {00}
- *
- *	U       Marshalling flag (M=marshal, U=unmarshal)
- *	I       Direction flag (I=in, O=out)
- *	...     Field name
- *	get     PDU operation (get or put)
- *	1@0	Bytes @ offset (i.e. 1 byte at offset 0)
- *	{05}    Value
- */
-void
-mlndo_fmt(struct mlndr_stream *mlnds, struct ndr_reference *ref, char *note)
-{
-	struct ndr_reference *p;
-	int			indent;
-	char			ref_name[NDOBUFSZ];
-	char			buf[NDOBUFSZ];
-	int			m_op_c = '?', dir_c = '?';
-
-	switch (mlnds->m_op) {
-	case 0:				m_op_c = '-';	break;
-	case NDR_M_OP_MARSHALL:		m_op_c = 'M';	break;
-	case NDR_M_OP_UNMARSHALL:	m_op_c = 'U';	break;
-	default:			m_op_c = '?';	break;
-	}
-
-	switch (mlnds->dir) {
-	case 0:				dir_c = '-';	break;
-	case NDR_DIR_IN:		dir_c = 'I';	break;
-	case NDR_DIR_OUT:		dir_c = 'O';	break;
-	default:			dir_c = '?';	break;
-	}
-
-	for (indent = 0, p = ref; p; p = p->enclosing)
-		indent++;
-
-	if (ref && ref->name) {
-		if (*ref->name == '[' && ref->enclosing) {
-			indent--;
-			(void) snprintf(ref_name, NDOBUFSZ, "%s%s",
-			    ref->enclosing->name, ref->name);
-		} else {
-			(void) strlcpy(ref_name, ref->name, NDOBUFSZ);
-		}
-	} else {
-		(void) strlcpy(ref_name, "----", NDOBUFSZ);
-	}
-
-	(void) snprintf(buf, NDOBUFSZ, "%c%c %02d %-.*s %-*s  %s",
-	    m_op_c, dir_c, indent, indent,
-	    "....+....+....+....+....+....",
-	    20 - indent, ref_name, note);
-
-	mlndo_trace(buf);
-}
-
 /*ARGSUSED*/
 void
 mlndo_trace(const char *s)
@@ -464,76 +350,4 @@ mlndo_trace(const char *s)
 	 * Temporary fbt for dtrace until user space sdt enabled.
 	 */
 	syslog(LOG_DEBUG, "%s", s);
-}
-
-/*
- * Format data as hex bytes (limit is 10 bytes):
- *
- *	1188689424 {10 f6 d9 46}
- *
- * If the input data is greater than 10 bytes, an ellipsis will
- * be inserted before the closing brace.
- */
-static void
-mlndo_hexfmt(uint8_t *data, int size, int swap_bytes, char *buf, int len)
-{
-	int interp = 1;
-	uint32_t c;
-	int n, i;
-	char tmp[16 + 1];
-
-	n = (size > 10) ? 10 : size;
-	if (n > len-1)
-		n = len-1;
-
-	switch (size) {
-	case 1:
-		c = *(uint8_t *)data;
-		break;
-	case 2:
-		if (swap_bytes == 0) /*LINTED E_BAD_PTR_CAST_ALIGN*/
-			c = *(uint16_t *)data;
-		else
-			c = (data[0] << 8) | data[1];
-		break;
-	case 4:
-		if (swap_bytes == 0) { /*LINTED E_BAD_PTR_CAST_ALIGN*/
-			c = *(uint32_t *)data;
-		} else {
-			c = (data[0] << 24) | (data[1] << 16)
-			    | (data[2] << 8) | data[3];
-		}
-		break;
-	default:
-		c = 0;
-		interp = 0;
-		break;
-	}
-
-	if (interp) {
-		snprintf(tmp, sizeof (tmp), "%4u {", c);
-	} else {
-		snprintf(tmp, sizeof (tmp), " {");		
-	}
-	strlcpy(buf, tmp, len);
-	
-	snprintf(tmp, sizeof (tmp), "%02x", data[0]);
-	strlcat(buf, tmp, len);
-	
-	for (i = 1; i < n; i++) {
-		snprintf(tmp, sizeof (tmp), " %02x", data[i]);
-		strlcat(buf, tmp, len);
-	}
-	if (size > 10)
-		strlcat(buf, " ...}", len);
-	else
-		strlcat(buf, "}", len);
-
-	/*
-	 * Show c if it's a printable character or wide-char.
-	 */
-	if ((size < 4) && isprint((uint8_t)c)) {
-		snprintf(tmp, sizeof (tmp), " %c", (uint8_t)c);
-		strlcat(buf, tmp, len);		
-	}
 }

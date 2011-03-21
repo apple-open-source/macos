@@ -182,8 +182,8 @@ void StyleChange::extractTextStyles(CSSMutableStyleDeclaration* style)
 
     // Assuming reconcileTextDecorationProperties has been called, there should not be -webkit-text-decorations-in-effect
     // Furthermore, text-decoration: none has been trimmed so that text-decoration property is always a CSSValueList.
-    if (RefPtr<CSSValue> textDecoration = style->getPropertyCSSValue(CSSPropertyTextDecoration)) {
-        ASSERT(textDecoration->isValueList());
+    RefPtr<CSSValue> textDecoration = style->getPropertyCSSValue(CSSPropertyTextDecoration);
+    if (textDecoration && textDecoration->isValueList()) {
         DEFINE_STATIC_LOCAL(RefPtr<CSSPrimitiveValue>, underline, (CSSPrimitiveValue::createIdentifier(CSSValueUnderline)));
         DEFINE_STATIC_LOCAL(RefPtr<CSSPrimitiveValue>, lineThrough, (CSSPrimitiveValue::createIdentifier(CSSValueLineThrough)));
 
@@ -619,7 +619,11 @@ void ApplyStyleCommand::applyBlockStyle(CSSMutableStyleDeclaration *style)
                 if (!m_removeOnly)
                     addBlockStyle(styleChange, static_cast<HTMLElement*>(block.get()));
             }
+
+            if (nextParagraphStart.isOrphan())
+                nextParagraphStart = endOfParagraph(paragraphStart).next();
         }
+
         paragraphStart = nextParagraphStart;
         nextParagraphStart = endOfParagraph(paragraphStart).next();
     }
@@ -680,13 +684,14 @@ void ApplyStyleCommand::applyRelativeFontStyleChange(CSSMutableStyleDeclaration 
     }
 
     // Split the start text nodes if needed to apply style.
-    bool splitStart = splitTextAtStartIfNeeded(start, end); 
-    if (splitStart) {
+    if (isValidCaretPositionInTextNode(start)) {
+        splitTextAtStart(start, end);
         start = startPosition();
         end = endPosition();
     }
-    bool splitEnd = splitTextAtEndIfNeeded(start, end);
-    if (splitEnd) {
+
+    if (isValidCaretPositionInTextNode(end)) {
+        splitTextAtEnd(start, end);
         start = startPosition();
         end = endPosition();
     }
@@ -903,16 +908,18 @@ void ApplyStyleCommand::applyInlineStyle(CSSMutableStyleDeclaration *style)
     }
 
     // split the start node and containing element if the selection starts inside of it
-    bool splitStart = splitTextElementAtStartIfNeeded(start, end); 
+    bool splitStart = isValidCaretPositionInTextNode(start);
     if (splitStart) {
+        splitTextElementAtStart(start, end);
         start = startPosition();
         end = endPosition();
         startDummySpanAncestor = dummySpanAncestorForNode(start.node());
     }
 
     // split the end node and containing element if the selection ends inside of it
-    bool splitEnd = splitTextElementAtEndIfNeeded(start, end);
+    bool splitEnd = isValidCaretPositionInTextNode(end);
     if (splitEnd) {
+        splitTextElementAtEnd(start, end);
         start = startPosition();
         end = endPosition();
         endDummySpanAncestor = dummySpanAncestorForNode(end.node());
@@ -969,6 +976,8 @@ void ApplyStyleCommand::applyInlineStyle(CSSMutableStyleDeclaration *style)
 
     start = startPosition();
     end = endPosition();
+    if (start.isNull() || start.isOrphan() || end.isNull() || end.isOrphan())
+        return;
 
     if (splitStart) {
         bool mergedStart = mergeStartWithPreviousIfIdentical(start, end);
@@ -1498,9 +1507,7 @@ void ApplyStyleCommand::removeInlineStyle(PassRefPtr<CSSMutableStyleDeclaration>
             break;
         node = next;
     }
-    
-    ASSERT(s.node()->inDocument());
-    ASSERT(e.node()->inDocument());
+
     updateStartEnd(s, e);
 }
 
@@ -1525,62 +1532,61 @@ bool ApplyStyleCommand::nodeFullyUnselected(Node *node, const Position &start, c
     return isFullyBeforeStart || isFullyAfterEnd;
 }
 
-
-bool ApplyStyleCommand::splitTextAtStartIfNeeded(const Position &start, const Position &end)
+void ApplyStyleCommand::splitTextAtStart(const Position& start, const Position& end)
 {
-    if (start.node()->isTextNode() && start.deprecatedEditingOffset() > caretMinOffset(start.node()) && start.deprecatedEditingOffset() < caretMaxOffset(start.node())) {
-        int endOffsetAdjustment = start.node() == end.node() ? start.deprecatedEditingOffset() : 0;
-        Text *text = static_cast<Text *>(start.node());
-        splitTextNode(text, start.deprecatedEditingOffset());
-        updateStartEnd(Position(start.node(), 0), Position(end.node(), end.deprecatedEditingOffset() - endOffsetAdjustment));
-        return true;
-    }
-    return false;
+    int endOffsetAdjustment = start.node() == end.node() ? start.deprecatedEditingOffset() : 0;
+    Text* text = static_cast<Text*>(start.node());
+    splitTextNode(text, start.deprecatedEditingOffset());
+    updateStartEnd(Position(start.node(), 0), Position(end.node(), end.deprecatedEditingOffset() - endOffsetAdjustment));
 }
 
-bool ApplyStyleCommand::splitTextAtEndIfNeeded(const Position &start, const Position &end)
+void ApplyStyleCommand::splitTextAtEnd(const Position& start, const Position& end)
 {
-    if (end.node()->isTextNode() && end.deprecatedEditingOffset() > caretMinOffset(end.node()) && end.deprecatedEditingOffset() < caretMaxOffset(end.node())) {
-        Text *text = static_cast<Text *>(end.node());
-        splitTextNode(text, end.deprecatedEditingOffset());
-        
-        Node *prevNode = text->previousSibling();
-        ASSERT(prevNode);
-        Node *startNode = start.node() == end.node() ? prevNode : start.node();
-        ASSERT(startNode);
-        updateStartEnd(Position(startNode, start.deprecatedEditingOffset()), Position(prevNode, caretMaxOffset(prevNode)));
-        return true;
-    }
-    return false;
+    Text* text = static_cast<Text *>(end.node());
+    splitTextNode(text, end.deprecatedEditingOffset());
+
+    Node* prevNode = text->previousSibling();
+    ASSERT(prevNode);
+    Node* startNode = start.node() == end.node() ? prevNode : start.node();
+    ASSERT(startNode);
+    updateStartEnd(Position(startNode, start.deprecatedEditingOffset()), Position(prevNode, caretMaxOffset(prevNode)));
 }
 
-bool ApplyStyleCommand::splitTextElementAtStartIfNeeded(const Position &start, const Position &end)
+void ApplyStyleCommand::splitTextElementAtStart(const Position& start, const Position& end)
 {
-    if (start.node()->isTextNode() && start.deprecatedEditingOffset() > caretMinOffset(start.node()) && start.deprecatedEditingOffset() < caretMaxOffset(start.node())) {
-        int endOffsetAdjustment = start.node() == end.node() ? start.deprecatedEditingOffset() : 0;
-        Text *text = static_cast<Text *>(start.node());
-        splitTextNodeContainingElement(text, start.deprecatedEditingOffset());
+    Node* parent = start.node()->parentNode();
+    if (!parent || !parent->parentElement() || !parent->parentElement()->isContentEditable())
+        return splitTextAtStart(start, end);
 
-        updateStartEnd(Position(start.node()->parentNode(), start.node()->nodeIndex()), Position(end.node(), end.deprecatedEditingOffset() - endOffsetAdjustment));
-        return true;
-    }
-    return false;
+    int endOffsetAdjustment = start.node() == end.node() ? start.deprecatedEditingOffset() : 0;
+    Text* text = static_cast<Text*>(start.node());
+    splitTextNodeContainingElement(text, start.deprecatedEditingOffset());
+    updateStartEnd(Position(start.node()->parentNode(), start.node()->nodeIndex()), Position(end.node(), end.deprecatedEditingOffset() - endOffsetAdjustment));
 }
 
-bool ApplyStyleCommand::splitTextElementAtEndIfNeeded(const Position &start, const Position &end)
+void ApplyStyleCommand::splitTextElementAtEnd(const Position& start, const Position& end)
 {
-    if (end.node()->isTextNode() && end.deprecatedEditingOffset() > caretMinOffset(end.node()) && end.deprecatedEditingOffset() < caretMaxOffset(end.node())) {
-        Text *text = static_cast<Text *>(end.node());
-        splitTextNodeContainingElement(text, end.deprecatedEditingOffset());
+    Node* parent = end.node()->parentNode();
+    if (!parent || !parent->parentElement() || !parent->parentElement()->isContentEditable())
+        return splitTextAtEnd(start, end);
 
-        Node *prevNode = text->parent()->previousSibling()->lastChild();
-        ASSERT(prevNode);
-        Node *startNode = start.node() == end.node() ? prevNode : start.node();
-        ASSERT(startNode);
-        updateStartEnd(Position(startNode, start.deprecatedEditingOffset()), Position(prevNode->parent(), prevNode->nodeIndex() + 1));
-        return true;
-    }
-    return false;
+    Text* text = static_cast<Text*>(end.node());
+    splitTextNodeContainingElement(text, end.deprecatedEditingOffset());
+
+    Node* prevNode = text->parent()->previousSibling()->lastChild();
+    ASSERT(prevNode);
+    Node* startNode = start.node() == end.node() ? prevNode : start.node();
+    ASSERT(startNode);
+    updateStartEnd(Position(startNode, start.deprecatedEditingOffset()), Position(prevNode->parent(), prevNode->nodeIndex() + 1));
+}
+
+bool ApplyStyleCommand::isValidCaretPositionInTextNode(const Position& position)
+{
+    Node* node = position.node();
+    if (!node->isTextNode())
+        return false;
+    int offsetInText = position.deprecatedEditingOffset();
+    return (offsetInText > caretMinOffset(node) && offsetInText < caretMaxOffset(node));
 }
 
 static bool areIdenticalElements(Node *first, Node *second)
@@ -1700,18 +1706,19 @@ bool ApplyStyleCommand::mergeEndWithNextIfIdentical(const Position &start, const
     return false;
 }
 
-void ApplyStyleCommand::surroundNodeRangeWithElement(Node* startNode, Node* endNode, PassRefPtr<Element> elementToInsert)
+void ApplyStyleCommand::surroundNodeRangeWithElement(PassRefPtr<Node> passedStartNode, PassRefPtr<Node> endNode, PassRefPtr<Element> elementToInsert)
 {
-    ASSERT(startNode);
+    ASSERT(passedStartNode);
     ASSERT(endNode);
     ASSERT(elementToInsert);
+    RefPtr<Node> startNode = passedStartNode;
     RefPtr<Element> element = elementToInsert;
 
     insertNodeBefore(element, startNode);
-    
-    Node* node = startNode;
-    while (1) {
-        Node* next = node->traverseNextNode();
+
+    RefPtr<Node> node = startNode;
+    while (node) {
+        RefPtr<Node> next = node->traverseNextNode();
         if (node->childNodeCount() == 0 && node->renderer() && node->renderer()->isInline()) {
             removeNode(node);
             appendNode(node, element);
@@ -1721,17 +1728,17 @@ void ApplyStyleCommand::surroundNodeRangeWithElement(Node* startNode, Node* endN
         node = next;
     }
 
-    Node* nextSibling = element->nextSibling();
-    Node* previousSibling = element->previousSibling();
+    RefPtr<Node> nextSibling = element->nextSibling();
+    RefPtr<Node> previousSibling = element->previousSibling();
     if (nextSibling && nextSibling->isElementNode() && nextSibling->isContentEditable()
-        && areIdenticalElements(element.get(), static_cast<Element*>(nextSibling)))
-        mergeIdenticalElements(element, static_cast<Element*>(nextSibling));
+        && areIdenticalElements(element.get(), static_cast<Element*>(nextSibling.get())))
+        mergeIdenticalElements(element.get(), static_cast<Element*>(nextSibling.get()));
 
     if (previousSibling && previousSibling->isElementNode() && previousSibling->isContentEditable()) {
         Node* mergedElement = previousSibling->nextSibling();
         if (mergedElement->isElementNode() && mergedElement->isContentEditable()
-            && areIdenticalElements(static_cast<Element*>(previousSibling), static_cast<Element*>(mergedElement)))
-            mergeIdenticalElements(static_cast<Element*>(previousSibling), static_cast<Element*>(mergedElement));
+            && areIdenticalElements(static_cast<Element*>(previousSibling.get()), static_cast<Element*>(mergedElement)))
+            mergeIdenticalElements(static_cast<Element*>(previousSibling.get()), static_cast<Element*>(mergedElement));
     }
 
     // FIXME: We should probably call updateStartEnd if the start or end was in the node
@@ -1780,8 +1787,13 @@ static bool fontFaceChangesComputedStyle(RenderStyle* computedStyle, StyleChange
     return false;
 }
 
-void ApplyStyleCommand::addInlineStyleIfNeeded(CSSMutableStyleDeclaration *style, Node *startNode, Node *endNode)
+void ApplyStyleCommand::addInlineStyleIfNeeded(CSSMutableStyleDeclaration *style, PassRefPtr<Node> passedStart, PassRefPtr<Node> passedEnd)
 {
+    if (!passedStart || !passedEnd || !passedStart->inDocument() || !passedEnd->inDocument())
+        return;
+    RefPtr<Node> startNode = passedStart;
+    RefPtr<Node> endNode = passedEnd;
+
     if (m_removeOnly)
         return;
 

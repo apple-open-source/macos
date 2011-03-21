@@ -1,0 +1,56 @@
+diff -aur php-5.3.3/Zend/zend_multibyte.c php/Zend/zend_multibyte.c
+--- php-5.3.3/Zend/zend_multibyte.c	2010-01-05 12:46:53.000000000 -0800
++++ php/Zend/zend_multibyte.c	2010-11-19 19:01:25.000000000 -0800
+@@ -1128,6 +1128,22 @@
+ 	const unsigned char *p;
+ 	int wchar_size = 2;
+ 	int le = 0;
++	const unsigned char halt[] = "__halt_compiler();";
++	size_t len = strlen(halt);
++
++	p = script;
++	while ((p-script) < script_size) {
++		p = memchr(p, halt[0], script_size-(p-script));
++		if (!p) {
++			break;
++		}
++		if (!strncasecmp(p, halt, len)) {
++	        /* assume it's not UTF-16, UTF-32. To be thorough, we'd have to look for __halt_compiler(); in
++    	     * UTF-16 and 32, BE and LE and compare the offsets, but let's say this is a fair trade off */
++			return NULL;
++		}
++		p++;
++	}
+
+ 	/* utf-16 or utf-32? */
+ 	p = script;
+diff -aur php-5.3.3/ext/phar/Makefile.frag php/ext/phar/Makefile.frag
+--- php-5.3.3/ext/phar/Makefile.frag	2010-06-16 11:30:35.000000000 -0700
++++ php/ext/phar/Makefile.frag	2010-10-06 20:23:44.000000000 -0700
+@@ -19,7 +19,7 @@
+ 	else \
+ 		$(top_srcdir)/build/shtool echo -n -- "$(PHP_EXECUTABLE)"; \
+ 	fi;`
+-PHP_PHARCMD_BANG = `$(top_srcdir)/build/shtool echo -n -- "$(INSTALL_ROOT)$(bindir)/$(program_prefix)php$(program_suffix)$(EXEEXT)";`
++PHP_PHARCMD_BANG = `$(top_srcdir)/build/shtool echo -n -- "$(bindir)/$(program_prefix)php$(program_suffix)$(EXEEXT)";`
+ 
+ $(builddir)/phar/phar.inc: $(srcdir)/phar/phar.inc
+ 	-@test -d $(builddir)/phar || mkdir $(builddir)/phar
+@@ -27,14 +27,14 @@
+ 
+ $(builddir)/phar.php: $(srcdir)/build_precommand.php $(srcdir)/phar/*.inc $(srcdir)/phar/*.php $(SAPI_CLI_PATH)
+ 	-@echo "Generating phar.php"
+-	@$(PHP_PHARCMD_EXECUTABLE) $(PHP_PHARCMD_SETTINGS) $(srcdir)/build_precommand.php > $(builddir)/phar.php
++	$(PHP_PHARCMD_EXECUTABLE) $(PHP_PHARCMD_SETTINGS) $(srcdir)/build_precommand.php > $(builddir)/phar.php
+ 
+ $(builddir)/phar.phar: $(builddir)/phar.php $(builddir)/phar/phar.inc $(srcdir)/phar/*.inc $(srcdir)/phar/*.php $(SAPI_CLI_PATH)
+ 	-@echo "Generating phar.phar"
+ 	-@rm -f $(builddir)/phar.phar
+ 	-@rm -f $(srcdir)/phar.phar
+-	@$(PHP_PHARCMD_EXECUTABLE) $(PHP_PHARCMD_SETTINGS) $(builddir)/phar.php pack -f $(builddir)/phar.phar -a pharcommand -c auto -x \\.svn -p 0 -s $(srcdir)/phar/phar.php -h sha1 -b "$(PHP_PHARCMD_BANG)"  $(srcdir)/phar/
+-	-@chmod +x $(builddir)/phar.phar
++	$(PHP_PHARCMD_EXECUTABLE) $(PHP_PHARCMD_SETTINGS) $(builddir)/phar.php pack -f $(builddir)/phar.phar -a pharcommand -c auto -x \\.svn -p 0 -s $(srcdir)/phar/phar.php -h sha1 -b "$(PHP_PHARCMD_BANG)"  $(srcdir)/phar/
++	-chmod +x $(builddir)/phar.phar
+ 
+ install-pharcmd: pharcmd
+ 	-@$(mkinstalldirs) $(INSTALL_ROOT)$(bindir)

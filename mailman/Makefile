@@ -3,7 +3,7 @@
 #
 
 PROJECT=mailman
-VERSION=2.1.13
+VERSION=2.1.14
 
 SHELL := /bin/sh
 
@@ -25,12 +25,19 @@ PROJECT_NAME=mailman
 STRIP_FLAGS=-S
 SO_STRIP_FLAGS=-rx
 
+BUILD_DIR=$(OBJROOT)/build
+MM_BUILD_DIR=/$(BUILD_DIR)/$(PROJECT)-$(VERSION)
+MM_TAR_GZ=$(PROJECT)-$(VERSION).tgz
 HTTP_DIR=/usr/share/httpd/icons
 COMMON_DIR=/System/Library/ServerSetup/CommonExtras
 DOC_DIR=/Library/Documentation/Services/mailman
 OPEN_SRC_INFO_DIR=/Mailman.OpenSourceInfo
 SETUP_SRC_DIR=/Mailman.Setup
 PATCH_DIR=/Mailman.Patch
+BINARY_DIR=/Mailman.Bin
+
+# binaries
+GNUTAR=/usr/bin/gnutar
 
 README_FILES=FAQ NEWS README README-I18N.en README.CONTRIB README.NETSCAPE README.USERAGENT
 
@@ -66,30 +73,33 @@ installsrc :
 	find "$(SRCROOT)" -type d -name CVS -print0 | xargs -0 rm -rf
 
 clean_src :
-	$(SILENT) if [ -e "$(SRCROOT)/$(PROJECT_NAME)/Makefile" ]; then\
-		$(SILENT) ($(CD) "$(SRCROOT)/$(PROJECT_NAME)" && make distclean)\
+	$(SILENT) if [ -e "$(MM_BUILD_DIR)/Makefile" ]; then\
+		$(SILENT) ($(CD) "$(MM_BUILD_DIR)" && make distclean)\
 	fi
 
 patch_mm :
-	$(SILENT) ($(CD) "$(SRCROOT)/$(PROJECT_NAME)" && \
-		/usr/bin/patch -p1 < "$(SRCROOT)/$(PATCH_DIR)/apple-mods.diff")
+	$(SILENT) if [ ! -d "$(BUILD_DIR)" ]; then \
+		$(SILENT) (mkdir "$(BUILD_DIR)"); \
+	fi
+	$(SILENT) ($(CD) "$(BUILD_DIR)" && $(GNUTAR) -xzpf $(SRCROOT)$(BINARY_DIR)/$(MM_TAR_GZ) )
+	$(SILENT) ($(CD) "$(MM_BUILD_DIR)" && /usr/bin/patch -p1 < "$(SRCROOT)/$(PATCH_DIR)/apple-mods.diff")
 
 configure_mm : 
 	$(SILENT) $(ECHO) "--- Configuring $(PROJECT_NAME): Version: $(VERSION)"
 	$(SILENT) $(ECHO) "Configuring $(PROJECT_NAME)..."
-	$(SILENT) if [ ! -e "$(SRCROOT)/$(PROJECT_NAME)/Makefile" ]; then\
-		$(SILENT) ($(CD) "$(SRCROOT)/$(PROJECT_NAME)" && ./configure $(MAILMAN_CONFIG))\
+	$(SILENT) if [ ! -e "$(MM_BUILD_DIR)/Makefile" ]; then\
+		$(SILENT) ($(CD) "$(MM_BUILD_DIR)" && ./configure $(MAILMAN_CONFIG))\
 	fi
 	$(SILENT) $(ECHO) "--- Configuring $(PROJECT_NAME) complete."
 
 build_mm :
 	$(SILENT) $(ECHO) "--- Building $(PROJECT_NAME)"
 	$(SILENT) $(ECHO) "Configuring $(PROJECT_NAME)..."
-	$(SILENT) if [ ! -e "$(SRCROOT)/$(PROJECT_NAME)/Makefile" ]; then\
-		$(SILENT) ($(CD) "$(SRCROOT)/$(PROJECT_NAME)" && ./configure $(MAILMAN_CONFIG))\
+	$(SILENT) if [ ! -e "$(MM_BUILD_DIR)/Makefile" ]; then\
+		$(SILENT) ($(CD) "$(MM_BUILD_DIR)" && ./configure $(MAILMAN_CONFIG))\
 	fi
-	$(SILENT) ($(CD) "$(SRCROOT)/$(PROJECT_NAME)" && make $(INSTALL_FLAGS) )
-	$(SILENT) ($(CD) "$(SRCROOT)/$(PROJECT_NAME)" && make $(INSTALL_FLAGS) install)
+	$(SILENT) ($(CD) "$(MM_BUILD_DIR)" && make $(INSTALL_FLAGS) )
+	$(SILENT) ($(CD) "$(MM_BUILD_DIR)" && make $(INSTALL_FLAGS) install)
 	$(SILENT) $(ECHO) "--- Building $(PROJECT_NAME) complete."
 
 # Custom configuration:
@@ -136,7 +146,7 @@ install-readmes : $(DSTROOT)$(DOC_DIR)
 	$(SILENT) $(ECHO) "---- Installing Read Me files..."
 	for file in $(README_FILES); \
 	do \
-		$(SILENT) $(CP) "$(SRCROOT)/$(PROJECT)/$$file" "$(DSTROOT)$(DOC_DIR)"; \
+		$(SILENT) $(CP) "$(MM_BUILD_DIR)/$$file" "$(DSTROOT)$(DOC_DIR)"; \
 	done
 	$(SILENT) $(ECHO) "---- Installing Read Me files complete."
 

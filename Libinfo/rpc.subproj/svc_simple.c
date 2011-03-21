@@ -84,6 +84,9 @@ struct proglst *pl;
 
 int
 registerrpc(prognum, versnum, procnum, progname, inproc, outproc)
+	int prognum;
+	int versnum;
+	int procnum;
 	char *(*progname)();
 	xdrproc_t inproc, outproc;
 {
@@ -103,13 +106,23 @@ registerrpc(prognum, versnum, procnum, progname, inproc, outproc)
 			return (-1);
 		}
 	}
-	(void) pmap_unset((u_long)prognum, (u_long)versnum);
-	if (!svc_register(transp, (u_long)prognum, (u_long)versnum, 
+#ifdef __LP64__
+	(void) pmap_unset((uint32_t)prognum, (uint32_t)versnum);
+	if (!svc_register(transp, (uint32_t)prognum, (uint32_t)versnum, 
 	    universal, IPPROTO_UDP)) {
 	    	(void) fprintf(stderr, "couldn't register prog %d vers %d\n",
 		    prognum, versnum);
 		return (-1);
 	}
+#else
+	(void) pmap_unset((u_long)prognum, (u_long)versnum);
+	if (!svc_register(transp, (u_long)prognum, (u_long)versnum, 
+	    universal, IPPROTO_UDP)) {
+			(void) fprintf(stderr, "couldn't register prog %d vers %d\n",
+			prognum, versnum);
+		return (-1);
+	}
+#endif
 	pl = (struct proglst *)malloc(sizeof(struct proglst));
 	if (pl == NULL) {
 		(void) fprintf(stderr, "registerrpc: out of memory\n");

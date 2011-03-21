@@ -3830,6 +3830,8 @@ __sflags(const char *mode, int *optr)
 				if ( outAccepted != NULL )
 					*outAccepted = YES;
 					
+				//SKG: changelist now adds our TID to the remote record.  Copy it into our copy.
+				localRec.changeTransactionID = inRemoteRecord->changeTransactionID;
 				[self pwWait];
 				haveLock = [self pwLock:kLongerLockInterval];
 				[self pwSignal];
@@ -3894,7 +3896,7 @@ __sflags(const char *mode, int *optr)
 	// Check the modate for a winner.
 	// If the local kerb record exists and has a moddate at least as recent as the
 	// remote record, then remove the record from the list to update.
-	if ((localKerbRec != NULL) && (remoteKerbRec->GetRecordModDate() <= localKerbRec->GetRecordModDate()))
+	if ((localKerbRec != NULL) && (remoteKerbRec->GetRecordModDate() - inTimeSkew <= localKerbRec->GetRecordModDate()))
 	{
 		delete remoteKerbRec;
 		remoteKerbRec = NULL;

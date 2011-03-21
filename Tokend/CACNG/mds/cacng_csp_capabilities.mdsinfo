@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist SYSTEM "file://localhost/System/Library/DTDs/PropertyList.dtd">
+<plist version="0.9">
+<dict>
+	<key>Capabilities</key>
+	<string>file:cacng_csp_capabilities_common.mds</string>
+	<key>MdsFileDescription</key>
+	<string>CACNG Token CSPDL CSP Capabilities</string>
+	<key>MdsFileType</key>
+	<string>PluginSpecific</string>
+	<key>MdsRecordType</key>
+	<string>MDS_CDSADIR_CSP_CAPABILITY_RECORDTYPE</string>
+</dict>
+</plist>

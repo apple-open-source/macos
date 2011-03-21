@@ -19,7 +19,13 @@ fi
 #
 
 if [ -z ${SECTESTSDIR} ] ; then
-        SECTESTSDIR=${DEFAULT_SECURITYTESTS_DIR}
+        /bin/echo "SECTESTSDIR not set, bailing" 1>&2
+        exit 2
+fi
+
+if [ -z ${LOCAL_BUILD_DIR} ] ; then
+        /bin/echo "LOCAL_BUILD_DIR not set, bailing" 1>&2
+        exit 2
 fi
 
 #Make sure we are in a proper security_certificates directory
@@ -52,10 +58,12 @@ fi
 if [ ! -d "/System/Library/Keychains/saved" ] ; then
 	sudo mkdir /System/Library/Keychains/saved
 	sudo cp /System/Library/Keychains/System* /System/Library/Keychains/saved/
-	sudo cp $SECCERTDIR/BuiltKeychains/SystemRootCertificates.keychain $SECCERTDIR/BuiltKeychains/SystemTrustSettings.plist /System/Library/Keychains/
 fi
+
+sudo cp $SECCERTDIR/BuiltKeychains/SystemRootCertificates.keychain $SECCERTDIR/BuiltKeychains/SystemTrustSettings.plist $SECCERTDIR/BuiltKeychains/EVRoots.plist /System/Library/Keychains/
 
 "${LOCAL_BUILD_DIR}"/anchorTest t
 
+/bin/echo "--- Don't forget to run buildEVRoots ---"
 /bin/echo "------- Done ------"
 

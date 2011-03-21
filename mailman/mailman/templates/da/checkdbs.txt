@@ -1,7 +1,0 @@
-Listen %(real_name)s@%(host_name)s har %(count)d anmodning/anmodninger
-som afventer din behandling på:
-
-	%(adminDB)s
-
-Du bedes venligst behandle disse så snart du får tid.
-Denne påmindelse vil blive sent til dig daglig.

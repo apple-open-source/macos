@@ -1,8 +1,0 @@
-Thư của bạn có chủ đề
-
-    %(subject)s
-
-đã được nhận bởi hộp thư chung %(listname)s.
-
-Trang thông tin hộp thư : %(listinfo_url)s
-Tùy thích của bạn: %(optionsurl)s

@@ -108,6 +108,11 @@ public:
 
 	virtual const CssmData &itemID();
 	
+	void RawSign(SecPadding padding, CSSM_DATA dataToSign, CSSM_DATA& signedData);
+	void RawVerify(SecPadding padding, CSSM_DATA dataToVerify, CSSM_DATA signature);
+	void Encrypt(SecPadding padding, CSSM_DATA dataToEncrypt, CSSM_DATA& encryptedData);
+	void Decrypt(SecPadding padding, CSSM_DATA dataToEncrypt, CSSM_DATA& encryptedData);
+
 protected:
 	virtual PrimaryKey add(Keychain &keychain);
 private:

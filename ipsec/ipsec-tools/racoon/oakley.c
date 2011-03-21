@@ -2655,6 +2655,10 @@ oakley_savecr(iph1, gen)
 	case ISAKMP_CERT_X509SIGN:
 	case ISAKMP_CERT_KERBEROS:
 	case ISAKMP_CERT_SPKI:
+		if (iph1->cr_p) {
+			oakley_delcert(iph1->cr_p);
+			iph1->cr_p = NULL;
+		}
 		c = &iph1->cr_p;
 		break;
 	case ISAKMP_CERT_X509KE:
@@ -3297,7 +3301,7 @@ oakley_delcert(cert)
 		VPTRINIT(cert->pl);
 	racoon_free(cert);
 }
-
+	
 /*
  * compute IV and set to ph1handle
  *	IV = hash(g^xi | g^xr)

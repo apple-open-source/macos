@@ -1,7 +1,0 @@
-La liste %(real_name)s@%(host_name)s a %(count)d requête(s) en attente
-de votre décision à l'adresse : 
-
-	%(adminDB)s 
-
-A traiter aussi rapidement que possible.  Cet avis de requête(s)
-en attente (s'il y en a...) vous sera envoyé quotidiennement.

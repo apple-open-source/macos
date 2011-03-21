@@ -5,10 +5,10 @@
 # '=======' or '<<<<<<<' are found, the commit is aborted with a nice
 # error message.
 #
-# $HeadURL: http://svn.collab.net/repos/svn/branches/1.6.x/contrib/hook-scripts/detect-merge-conflicts.sh $
+# $HeadURL: http://svn.apache.org/repos/asf/subversion/branches/1.6.x/contrib/hook-scripts/detect-merge-conflicts.sh $
 # $LastChangedDate: 2007-04-16 18:45:22 +0000 (Mon, 16 Apr 2007) $
 # $LastChangedBy: dlr $
-# $LastChangedRevision: 24592 $
+# $LastChangedRevision: 864666 $
 
 REPOS=$1
 TXN=$2

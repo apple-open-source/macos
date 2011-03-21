@@ -175,6 +175,7 @@ typedef struct {
 	uint32_t ifnum;
 } mdns_reply_t;
 
+static uint32_t _mdns_generation = 0;
 DNSServiceRef _mdns_sdref;
 DNSServiceRef _mdns_old_sdref;
 
@@ -1240,6 +1241,8 @@ _mdns_parse_domain_name(const uint8_t *data, uint32_t datalen)
 	uint32_t domainlen = 0;
 	char *domain = NULL;
 
+	if ((data == NULL) || (datalen == 0)) return NULL;
+
 	// i: index into input data
 	// j: index into output string
 	while (datalen-- > 0) {
@@ -1419,6 +1422,7 @@ typedef struct {
 	size_t ansmaxlen; // DNS packet buffer maximum length
 	int type; // type of query: A, AAAA, PTR, SRV...
 	uint16_t last_type; // last type received
+	uint32_t sd_gen;
 	DNSServiceRef sd;
 	DNSServiceFlags flags;
 	DNSServiceErrorType error;
@@ -1451,6 +1455,7 @@ _mdns_query_start(mdns_query_context_t *ctx, mdns_reply_t *reply, uint8_t *answe
 
 	ctx->type = type;
 	ctx->sd = _mdns_sdref;
+	ctx->sd_gen = _mdns_generation;
 	ctx->kq = kq;
 	if (reply) {
 		ctx->reply = reply;
@@ -1527,10 +1532,13 @@ _mdns_query_clear(mdns_query_context_t *ctx)
 	int complete = _mdns_query_is_complete(ctx);
 	if (ctx == NULL) return complete;
 
-	if (ctx->sd != NULL) {
+	/* only dealloc this DNSServiceRef if the "main" _mdns_sdref has not been deallocated */
+	if (ctx->sd != NULL && ctx->sd_gen == _mdns_generation) {
 		DNSServiceRefDeallocate(ctx->sd);
-		ctx->sd = NULL;
 	}
+
+	ctx->sd = NULL;
+	ctx->sd_gen = 0;
 	ctx->flags = 0;
 	ctx->kq = -1;
 
@@ -1821,6 +1829,10 @@ _mdns_query_mDNSResponder(const char *name, int class, int type, const char *int
 	timeout = delta;
 	_mdns_now(&start);
 
+	for (i = 0; i < 2; ++i) {
+		memset(&ctx[i], 0 , sizeof(mdns_query_context_t));
+	}
+
 	// set up the kqueue
 	kq = kqueue();
 	EV_SET(&ev, 1, EVFILT_USER, EV_ADD | EV_CLEAR, 0, 0, 0);
@@ -1839,6 +1851,7 @@ _mdns_query_mDNSResponder(const char *name, int class, int type, const char *int
 
 			if (_mdns_sdref == NULL) {
 				if (_mdns_old_sdref != NULL) {
+					_mdns_generation++;
 					DNSServiceRefDeallocate(_mdns_old_sdref);
 					_mdns_old_sdref = NULL;
 				}
@@ -1870,6 +1883,7 @@ _mdns_query_mDNSResponder(const char *name, int class, int type, const char *int
 				err == kDNSServiceErr_ServiceNotRunning ||
 				err == kDNSServiceErr_BadReference) {
 				if (_mdns_sdref) {
+					_mdns_generation++;
 					DNSServiceRefDeallocate(_mdns_sdref);
 					_mdns_sdref = NULL;
 				}
@@ -1911,6 +1925,7 @@ _mdns_query_mDNSResponder(const char *name, int class, int type, const char *int
 				if (_mdns_debug) printf(";; DNSServiceProcessResult status %d\n", err);
 				err = 0;
 				// re-initialize the shared connection
+				_mdns_generation++;
 				DNSServiceRefDeallocate(_mdns_sdref);
 				_mdns_sdref = NULL;
 				initialize = 1;

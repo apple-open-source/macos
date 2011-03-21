@@ -1178,6 +1178,50 @@
 			<key>idVendor</key>
 			<integer>1857</integer>
 		</dict>
+		<key>Apple DFU Device Range</key>
+		<dict>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.driver.AppleUSBMergeNub</string>
+			<key>IOClass</key>
+			<string>AppleUSBMergeNub</string>
+			<key>IOProviderClass</key>
+			<string>IOUSBDevice</string>
+			<key>IOProviderMergeProperties</key>
+			<dict>
+				<key>NeedsAdministratorPrivilege</key>
+				<true/>
+			</dict>
+			<key>idProduct</key>
+			<integer>61440</integer>
+			<key>idProductMask</key>
+			<integer>1023</integer>
+			<key>idVendor</key>
+			<integer>1452</integer>
+		</dict>
+		<key>Apple DFU Interface Range</key>
+		<dict>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.driver.AppleUSBMergeNub</string>
+			<key>IOClass</key>
+			<string>AppleUSBMergeNub</string>
+			<key>IOProviderClass</key>
+			<string>IOUSBInterface</string>
+			<key>IOProviderMergeProperties</key>
+			<dict>
+				<key>NeedsAdministratorPrivilege</key>
+				<true/>
+			</dict>
+			<key>bConfigurationValue</key>
+			<string>*</string>
+			<key>bInterfaceNumber</key>
+			<string>*</string>
+			<key>idProduct</key>
+			<integer>61440</integer>
+			<key>idProductMask</key>
+			<integer>1023</integer>
+			<key>idVendor</key>
+			<integer>1452</integer>
+		</dict>
 		<key>Apple DFU Device</key>
 		<dict>
 			<key>CFBundleIdentifier</key>
@@ -1210,6 +1254,7 @@
 				<integer>34060</integer>
 				<integer>34061</integer>
 				<integer>34062</integer>
+				<integer>4358</integer>
 			</array>
 		</dict>
 		<key>Apple DFU Interface</key>
@@ -1248,6 +1293,7 @@
 				<integer>34060</integer>
 				<integer>34061</integer>
 				<integer>34062</integer>
+				<integer>4358</integer>
 			</array>
 		</dict>
 		<key>Apple 0x9226 Interface</key>

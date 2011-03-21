@@ -28,6 +28,7 @@
 #include "cl.h"
 
 #include "svn_private_config.h"
+#include "private/svn_opt_private.h"
 
 
 /*** Code. ***/
@@ -69,12 +70,18 @@ svn_cl__export(apr_getopt_t *os,
   else
     to = APR_ARRAY_IDX(targets, 1, const char *);
 
+  SVN_ERR(svn_opt__split_arg_at_peg_revision(&to, NULL, to, pool));
+
   if (! opt_state->quiet)
     svn_cl__get_notifier(&ctx->notify_func2, &ctx->notify_baton2, FALSE, TRUE,
                          FALSE, pool);
 
   if (opt_state->depth == svn_depth_unknown)
     opt_state->depth = svn_depth_infinity;
+
+  /* Decode the partially encoded URL and escape all URL unsafe characters. */
+  if (svn_path_is_url(truefrom))
+    truefrom = svn_path_uri_encode(svn_path_uri_decode(truefrom, pool), pool);
 
   /* Do the export. */
   err = svn_client_export4(NULL, truefrom, to, &peg_revision,

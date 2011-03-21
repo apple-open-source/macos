@@ -769,7 +769,7 @@ void DOMWindow::blur()
     m_frame->unfocusWindow();
 }
 
-void DOMWindow::close()
+void DOMWindow::close(ScriptExecutionContext* context)
 {
     if (!m_frame)
         return;
@@ -780,6 +780,16 @@ void DOMWindow::close()
 
     if (m_frame != page->mainFrame())
         return;
+
+    if (context) {
+        ASSERT(WTF::isMainThread());
+        Frame* activeFrame = static_cast<Document*>(context)->frame();
+        if (!activeFrame)
+            return;
+
+        if (!activeFrame->loader()->shouldAllowNavigation(m_frame))
+            return;
+    }
 
     Settings* settings = m_frame->settings();
     bool allowScriptsToCloseWindows = settings && settings->allowScriptsToCloseWindows();
@@ -1162,7 +1172,7 @@ PassRefPtr<CSSRuleList> DOMWindow::getMatchedCSSRules(Element* elt, const String
         return 0;
 
     Document* doc = m_frame->document();
-    return doc->styleSelector()->styleRulesForElement(elt, authorOnly);
+    return doc->styleSelector()->styleRulesForElement(elt, authorOnly, SameOriginCSSRulesOnly);
 }
 
 PassRefPtr<WebKitPoint> DOMWindow::webkitConvertPointFromNodeToPage(Node* node, const WebKitPoint* p) const
@@ -1236,7 +1246,7 @@ void DOMWindow::scrollTo(int x, int y) const
 
     m_frame->document()->updateLayoutIgnorePendingStylesheets();
 
-    FrameView* view = m_frame->view();
+    RefPtr<FrameView> view = m_frame->view();
     if (!view)
         return;
 

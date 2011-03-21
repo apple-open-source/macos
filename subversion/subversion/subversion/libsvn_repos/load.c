@@ -229,10 +229,20 @@ prefix_mergeinfo_paths(svn_string_t **mergeinfo_val,
   prefixed_mergeinfo = apr_hash_make(pool);
   for (hi = apr_hash_first(NULL, mergeinfo); hi; hi = apr_hash_next(hi))
     {
-      const char *path;
-      const void *merge_source;
-      apr_hash_this(hi, &merge_source, NULL, &rangelist);
-      path = svn_path_join(parent_dir, (const char*)merge_source+1, pool);
+      const void *key;
+      const char *path, *merge_source;
+
+      apr_hash_this(hi, &key, NULL, &rangelist);
+      merge_source = key;
+
+      /* The svn:mergeinfo property syntax demands absolute repository
+         paths, so prepend a leading slash if PARENT_DIR lacks one.  */
+      if (*parent_dir != '/')
+        path = svn_path_join_many(pool, "/", parent_dir, 
+                                  merge_source + 1, NULL);
+      else
+        path = svn_path_join(parent_dir, merge_source + 1, pool);
+
       apr_hash_set(prefixed_mergeinfo, path, APR_HASH_KEY_STRING, rangelist);
     }
   return svn_mergeinfo_to_string(mergeinfo_val, prefixed_mergeinfo, pool);
@@ -371,37 +381,6 @@ parse_property_block(svn_stream_t *stream,
               /* Now, send the property pair to the vtable! */
               if (is_node)
                 {
-                  /* svn_mergeinfo_parse() in parse_fns->set_node_property()
-                     will choke on mergeinfo with "\r\n" line endings, but we
-                     might legitimately encounter these in a dump stream.  If
-                     so normalize the line endings to '\n' and make a
-                     notification to PARSE_BATON->FEEDBACK_STREAM that we
-                     have made this correction. */
-                  if (strcmp(keybuf, SVN_PROP_MERGEINFO) == 0
-                      && strstr(propstring.data, "\r"))
-                    {
-                      const char *prop_eol_normalized;
-                      struct parse_baton *pb = parse_baton;
-
-                      SVN_ERR(svn_subst_translate_cstring2(
-                        propstring.data,
-                        &prop_eol_normalized,
-                        "\n",  /* translate to LF */
-                        FALSE, /* no repair */
-                        NULL,  /* no keywords */
-                        FALSE, /* no expansion */
-                        proppool));
-                      propstring.data = prop_eol_normalized;
-                      propstring.len = strlen(prop_eol_normalized);
-
-                      if (pb->outstream)
-                        SVN_ERR(svn_stream_printf(
-                          pb->outstream,
-                          proppool,
-                          _(" removing '\\r' from %s ..."),
-                          SVN_PROP_MERGEINFO));
-                    }
-
                   SVN_ERR(parse_fns->set_node_property(record_baton,
                                                        keybuf,
                                                        &propstring));
@@ -1187,13 +1166,41 @@ set_node_property(void *baton,
 {
   struct node_baton *nb = baton;
   struct revision_baton *rb = nb->rb;
-  const char *parent_dir = rb->pb->parent_dir;
+  struct parse_baton *pb = rb->pb;
+  const char *parent_dir = pb->parent_dir;
 
   if (strcmp(name, SVN_PROP_MERGEINFO) == 0)
     {
+      svn_string_t *renumbered_mergeinfo, *prop_val = (svn_string_t *)value;
+
+      /* Tolerate mergeinfo with "\r\n" line endings because some
+         dumpstream sources might contain as much.  If so normalize
+         the line endings to '\n' and make a notification to
+         PARSE_BATON->FEEDBACK_STREAM that we have made this
+         correction. */
+      if (strstr(prop_val->data, "\r"))
+        {
+          const char *prop_eol_normalized;
+
+          SVN_ERR(svn_subst_translate_cstring2(prop_val->data,
+                                               &prop_eol_normalized,
+                                               "\n",  /* translate to LF */
+                                               FALSE, /* no repair */
+                                               NULL,  /* no keywords */
+                                               FALSE, /* no expansion */
+                                               nb->pool));
+          prop_val->data = prop_eol_normalized;
+          prop_val->len = strlen(prop_eol_normalized);
+
+          if (pb->outstream)
+            SVN_ERR(svn_stream_printf(pb->outstream,
+                                      nb->pool,
+                                      _(" removing '\\r' from %s ..."),
+                                      SVN_PROP_MERGEINFO));
+        }
+
       /* Renumber mergeinfo as appropriate. */
-      svn_string_t *renumbered_mergeinfo;
-      SVN_ERR(renumber_mergeinfo_revs(&renumbered_mergeinfo, value, rb,
+      SVN_ERR(renumber_mergeinfo_revs(&renumbered_mergeinfo, prop_val, rb,
                                       nb->pool));
       value = renumbered_mergeinfo;
       if (parent_dir)

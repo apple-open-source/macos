@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003-2009 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2003-2010 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -42,6 +42,7 @@
 // SecDigestGetData, SecKeychainSearchCreateForCertificateByEmail, SecCertificateFindByEmail
 #include <Security/SecCertificatePriv.h>
 
+Boolean	gDeleteIt = 0;
 
 //	find_first_generic_password
 //
@@ -344,7 +345,9 @@ find_unique_certificate(CFTypeRef keychainOrArray,
 			if (!CFStringGetCString(nameRef, nameBuf, bufLen-1, kCFStringEncodingUTF8))
 				nameBuf[0]=0;
 			
-			CFRange find = CFStringFind(nameRef, matchRef, kCFCompareCaseInsensitive | kCFCompareNonliteral);
+			CFRange find = { kCFNotFound, 0 };
+			if (nameRef && matchRef)
+				find = CFStringFind(nameRef, matchRef, kCFCompareCaseInsensitive | kCFCompareNonliteral);
 			Boolean isExact = (find.location == 0 && find.length == nameLen);
 			if (find.location == kCFNotFound) {
 				free(nameBuf);
@@ -447,6 +450,51 @@ cleanup:
 }
 
 static int
+do_keychain_delete_generic_password(CFTypeRef keychainOrArray,
+	FourCharCode itemCreator,
+	FourCharCode itemType,
+	const char *kind,
+	const char *value,
+	const char *comment,
+	const char *label,
+	const char *serviceName,
+	const char *accountName)
+{
+	OSStatus result = noErr;
+    SecKeychainItemRef itemRef = NULL;
+	void *passwordData = NULL;
+	
+	itemRef = find_first_generic_password(keychainOrArray,
+										  itemCreator,
+										  itemType,
+										  kind,
+										  value,
+										  comment,
+										  label,
+										  serviceName,
+										  accountName);
+	if (!itemRef) {
+		result = errSecItemNotFound;
+		sec_perror("SecKeychainSearchCopyNext", result);
+		goto cleanup;
+	}
+	
+	print_keychain_item_attributes(stdout, itemRef, FALSE, FALSE, FALSE, FALSE);
+
+	result = SecKeychainItemDelete(itemRef);
+	
+	fputs("password has been deleted.\n", stderr);
+
+cleanup:
+	if (passwordData)
+		SecKeychainItemFreeContent(NULL, passwordData);
+	if (itemRef)
+		CFRelease(itemRef);
+	
+	return result;
+}
+
+static int
 do_keychain_find_internet_password(CFTypeRef keychainOrArray,
 	FourCharCode itemCreator,
 	FourCharCode itemType,
@@ -466,7 +514,7 @@ do_keychain_find_internet_password(CFTypeRef keychainOrArray,
     SecKeychainItemRef itemRef = NULL;
 	void *passwordData = NULL;
     UInt32 passwordLength = 0;
-
+	
 	itemRef = find_first_internet_password(keychainOrArray,
 										   itemCreator,
 										   itemType,
@@ -491,13 +539,66 @@ do_keychain_find_internet_password(CFTypeRef keychainOrArray,
 	}
 	
 	print_keychain_item_attributes(stdout, itemRef, FALSE, FALSE, FALSE, FALSE);
-
+	
 	if (get_password)
 	{
 		fputs("password: ", stderr);
 		print_buffer(stderr, passwordLength, passwordData); 
 		fputc('\n', stderr);
 	}
+	
+cleanup:
+	if (passwordData)
+		SecKeychainItemFreeContent(NULL, passwordData);
+	if (itemRef)
+		CFRelease(itemRef);
+	
+	return result;
+}
+
+static int
+do_keychain_delete_internet_password(CFTypeRef keychainOrArray,
+	FourCharCode itemCreator,
+	FourCharCode itemType,
+	const char *kind,
+	const char *comment,
+	const char *label,
+	const char *serverName,
+	const char *securityDomain,
+	const char *accountName,
+	const char *path,
+	UInt16 port,
+	SecProtocolType protocol,
+	SecAuthenticationType authenticationType)
+{
+	OSStatus result = noErr;
+    SecKeychainItemRef itemRef = NULL;
+	void *passwordData = NULL;
+
+	itemRef = find_first_internet_password(keychainOrArray,
+										   itemCreator,
+										   itemType,
+										   kind,
+										   comment,
+										   label,
+										   serverName,
+										   securityDomain,
+										   accountName,
+										   path,
+										   port,
+										   protocol,
+										   authenticationType);
+	if (!itemRef) {
+		result = errSecItemNotFound;
+		sec_perror("SecKeychainSearchCopyNext", result);
+		goto cleanup;
+	}
+	
+	print_keychain_item_attributes(stdout, itemRef, FALSE, FALSE, FALSE, FALSE);
+
+	result = SecKeychainItemDelete(itemRef);
+
+	fputs("password has been deleted.\n", stderr);
 
 cleanup:
 	if (passwordData)
@@ -557,12 +658,15 @@ do_keychain_find_certificate(CFTypeRef keychainOrArray,
 					safe_CFRelease(&itemRef);
 					continue; // no name, so no match is possible
 				}
-				CFRange find = CFStringFind(nameRef, matchRef, kCFCompareCaseInsensitive | kCFCompareNonliteral);
+				CFRange find = { kCFNotFound, 0 };
+				if (nameRef && matchRef)
+					find = CFStringFind(nameRef, matchRef, kCFCompareCaseInsensitive | kCFCompareNonliteral);
 				if (find.location == kCFNotFound) {
 					safe_CFRelease(&nameRef);
 					safe_CFRelease(&itemRef);
 					continue; // no match
 				}					
+				safe_CFRelease(&nameRef);
 			}
 			safe_CFRelease(&certificateRef);
 			certificateRef = (SecCertificateRef) itemRef;
@@ -584,17 +688,20 @@ do_keychain_find_certificate(CFTypeRef keychainOrArray,
 							safe_CFRelease(&itemRef);
 							continue; // no name, so no match is possible
 						}
-						CFRange find = CFStringFind(nameRef, matchRef, kCFCompareCaseInsensitive | kCFCompareNonliteral);
+						CFRange find = { kCFNotFound, 0 };
+						if (nameRef && matchRef)
+							find = CFStringFind(nameRef, matchRef, kCFCompareCaseInsensitive | kCFCompareNonliteral);
 						if (find.location == kCFNotFound) {
 							safe_CFRelease(&nameRef);
 							safe_CFRelease(&itemRef);
 							continue; // no match
 						}					
+						safe_CFRelease(&nameRef);
 					}
 					break; // we have a match!
 				}
 				if (result == errSecItemNotFound) {
-					sec_error("SecKeychainSearchCopyNext", result);
+					sec_perror("SecKeychainSearchCopyNext", result);
 					goto cleanup;
 				}
 				certificateRef = (SecCertificateRef) itemRef;
@@ -681,6 +788,109 @@ cleanup:
 	safe_CFRelease(&certificateRef);
 	safe_CFRelease(&matchRef);
 
+	return result;
+}
+
+int
+keychain_delete_internet_password(int argc, char * const *argv)
+{
+	char *serverName = NULL, *securityDomain = NULL, *accountName = NULL, *path = NULL;
+	char *kind = NULL, *label = NULL, *comment = NULL;
+	FourCharCode itemCreator = 0, itemType = 0;
+    UInt16 port = 0;
+    SecProtocolType protocol = 0;
+    SecAuthenticationType authenticationType = 0;
+	CFTypeRef keychainOrArray = NULL;
+	int ch, result = 0;
+	
+	/*
+	 *	"    -a  Match \"account\" string\n"
+	 *	"    -c  Match \"creator\" (four-character code)\n"
+	 *	"    -C  Match \"type\" (four-character code)\n"
+	 *	"    -d  Match \"securityDomain\" string\n"
+	 *	"    -D  Match \"kind\" string\n"
+	 *	"    -j  Match \"comment\" string\n"
+	 *	"    -l  Match \"label\" string\n"
+	 *	"    -p  Match \"path\" string\n"
+	 *	"    -P  Match port number\n"
+	 *	"    -r  Match \"protocol\" (four-character code)\n"
+	 *	"    -s  Match \"server\" string\n"
+	 *	"    -t  Match \"authenticationType\" (four-character code)\n"
+	 */
+	
+	while ((ch = getopt(argc, argv, "ha:c:C:d:D:hgj:l:p:P:r:s:t:")) != -1)
+	{
+		switch (ch)
+		{
+			case 'a':
+				accountName = optarg;
+				break;
+			case 'c':
+				result = parse_fourcharcode(optarg, &itemCreator);
+				if (result) goto cleanup;
+				break;
+			case 'C':
+				result = parse_fourcharcode(optarg, &itemType);
+				if (result) goto cleanup;
+				break;
+			case 'd':
+				securityDomain = optarg;
+				break;
+			case 'D':
+				kind = optarg;
+				break;
+			case 'j':
+				comment = optarg;
+				break;
+			case 'l':
+				label = optarg;
+				break;
+			case 'p':
+				path = optarg;
+				break;
+			case 'P':
+				port = atoi(optarg);
+				break;
+			case 'r':
+				result = parse_fourcharcode(optarg, &protocol);
+				if (result) goto cleanup;
+				break;
+			case 's':
+				serverName = optarg;
+				break;
+			case 't':
+				result = parse_fourcharcode(optarg, &authenticationType);
+				if (result) goto cleanup;
+				break;
+			case '?':
+			default:
+				result = 2; /* @@@ Return 2 triggers usage message. */
+				goto cleanup;
+		}
+	}
+	
+	argc -= optind;
+	argv += optind;
+	
+    keychainOrArray = keychain_create_array(argc, argv);
+	
+	result = do_keychain_delete_internet_password(keychainOrArray,
+												itemCreator,
+												itemType,
+												kind,
+												comment,
+												label,
+												serverName,
+												securityDomain,
+												accountName,
+												path,
+												port,
+												protocol,
+												authenticationType);
+cleanup:
+	if (keychainOrArray)
+		CFRelease(keychainOrArray);
+	
 	return result;
 }
 
@@ -790,6 +1000,84 @@ cleanup:
 	if (keychainOrArray)
 		CFRelease(keychainOrArray);
 
+	return result;
+}
+
+int
+keychain_delete_generic_password(int argc, char * const *argv)
+{
+	char *serviceName = NULL, *accountName = NULL;
+	char *kind = NULL, *label = NULL, *value = NULL, *comment = NULL;
+	FourCharCode itemCreator = 0, itemType = 0;
+	CFTypeRef keychainOrArray = nil;
+	int ch, result = 0;
+	
+	/*
+	 *	"    -a  Match \"account\" string\n"
+	 *	"    -c  Match \"creator\" (four-character code)\n"
+	 *	"    -C  Match \"type\" (four-character code)\n"
+	 *	"    -D  Match \"kind\" string\n"
+	 *	"    -G  Match \"value\" string (generic attribute)\n"
+	 *	"    -j  Match \"comment\" string\n"
+	 *	"    -l  Match \"label\" string\n"
+	 *	"    -s  Match \"service\" string\n"
+	 */
+	
+	while ((ch = getopt(argc, argv, "ha:c:C:D:G:j:l:s:g")) != -1)
+	{
+		switch  (ch)
+		{
+			case 'a':
+				accountName = optarg;
+				break;
+			case 'c':
+				result = parse_fourcharcode(optarg, &itemCreator);
+				if (result) goto cleanup;
+				break;
+			case 'C':
+				result = parse_fourcharcode(optarg, &itemType);
+				if (result) goto cleanup;
+				break;
+			case 'D':
+				kind = optarg;
+				break;
+			case 'G':
+				value = optarg;
+				break;
+			case 'j':
+				comment = optarg;
+				break;
+			case 'l':
+				label = optarg;
+				break;
+			case 's':
+				serviceName = optarg;
+				break;
+			case '?':
+			default:
+				result = 2; /* @@@ Return 2 triggers usage message. */
+				goto cleanup;
+		}
+	}
+	
+	argc -= optind;
+	argv += optind;
+	
+    keychainOrArray = keychain_create_array(argc, argv);
+	
+	result = do_keychain_delete_generic_password(keychainOrArray,
+											   itemCreator,
+											   itemType,
+											   kind,
+											   value,
+											   comment,
+											   label,
+											   serviceName,
+											   accountName);
+cleanup:
+	if (keychainOrArray)
+		CFRelease(keychainOrArray);
+	
 	return result;
 }
 

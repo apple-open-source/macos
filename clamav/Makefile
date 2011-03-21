@@ -17,7 +17,7 @@ CFLAGS=-O0 $(RC_CFLAGS)
 #
 
 PROJECT_NAME=clamav
-OS_VER=0.96.1
+OS_VER=0.96.5
 CLAMAV_TAR_GZ=clamav-$(OS_VER).tar.gz
 CLAMAV_PATCH_DIFFS=clamav-$(OS_VER).diff
 
@@ -28,15 +28,14 @@ PERL_DIR=/System/Library/Perl
 PERL_EXTRA_DIR=/System/Library/Perl/Extras
 PERL_EXTRA_VER_DIR=$(PERL_EXTRA_DIR)/$(PERL_VER)
 
-CLAMAV_BUILD_DIR=/clamav/clamav-$(OS_VER)
+BUILD_DIR=$(OBJROOT)/build
+CLAMAV_BUILD_DIR=/$(BUILD_DIR)/$(PROJECT_NAME)-$(OS_VER)
 ETC_DIR=/private/etc
 VAR_CLAM=/private/var/clamav
 CLAM_SHARE_DIR=/private/var/clamav/share
 CLAM_STATE_DIR=/private/var/clamav/state
-LIB_TOOL=$(SRCROOT)/$(CLAMAV_BUILD_DIR)/libtool
+LIB_TOOL=$(CLAMAV_BUILD_DIR)/libtool
 LAUNCHDDIR=/System/Library/LaunchDaemons
-
-TEMP_DIR=/Temp_Dir
 
 BINARY_DIR=clamav.Bin
 CONFIG_DIR=clamav.Conf
@@ -75,7 +74,27 @@ PERL_CONFIG = \
 # Clam Antivirus config
 #
 
-CLAMAV_CONFIG= \
+CLAMAV_CONFIG_SHARED= \
+	--exec-prefix=/usr \
+	--bindir=/usr/bin \
+	--sbindir=/usr/sbin \
+	--libexecdir=/usr/libexec \
+	--datadir=/usr/share/clamav \
+	--sysconfdir=/private/etc \
+	--sharedstatedir=/private/var/clamav/share \
+	--localstatedir=/private/var/clamav/state \
+	--disable-dependency-tracking \
+	--libdir=/usr/lib/clamav \
+	--includedir=/usr/share/clamav/include \
+	--oldincludedir=/usr/share/clamav/include \
+	--infodir=/usr/share/clamav/info \
+	--mandir=/usr/share/man \
+	--with-dbdir=/private/var/clamav \
+	--with-user=_clamav \
+	--with-group=_clamav \
+	--with-gnu-ld
+
+CLAMAV_CONFIG_STATIC= \
 	--prefix=/ \
 	--exec-prefix=/usr \
 	--bindir=/usr/bin \
@@ -86,7 +105,7 @@ CLAMAV_CONFIG= \
 	--sharedstatedir=/private/var/clamav/share \
 	--localstatedir=/private/var/clamav/state \
 	--disable-dependency-tracking \
-	--libdir=/usr/lib \
+	--libdir=/usr/lib/clamav \
 	--includedir=/usr/share/clamav/include \
 	--oldincludedir=/usr/share/clamav/include \
 	--infodir=/usr/share/clamav/info \
@@ -121,14 +140,17 @@ installsrc :
 
 make_clamav :
 	$(SILENT) $(ECHO) "------------ Make Clam AV ------------"
-	$(SILENT) if [ -e "$(SRCROOT)/$(BINARY_DIR)/$(CLAMAV_TAR_GZ)" ]; then\
-		$(SILENT) ($(CD) "$(SRCROOT)/$(PROJECT)" && $(GNUTAR) -xzpf "$(SRCROOT)/$(BINARY_DIR)/$(CLAMAV_TAR_GZ)") ; \
+	$(SILENT) if [ ! -d "$(BUILD_DIR)" ]; then \
+		$(SILENT) (mkdir "$(BUILD_DIR)"); \
 	fi
-	$(SILENT) if [ -e "$(SRCROOT)/$(BINARY_DIR)/$(CLAMAV_PATCH_DIFFS)" ]; then\
-		$(SILENT) ($(CD) "$(SRCROOT)$(CLAMAV_BUILD_DIR)" && $(PATCH) -p1 < "$(SRCROOT)/$(BINARY_DIR)/$(CLAMAV_PATCH_DIFFS)") ; \
+	$(SILENT) if [ -e "$(SRCROOT)/$(BINARY_DIR)/$(CLAMAV_TAR_GZ)" ]; then \
+		$(SILENT) ($(CD) "$(BUILD_DIR)" && $(GNUTAR) -xzpf "$(SRCROOT)/$(BINARY_DIR)/$(CLAMAV_TAR_GZ)") ; \
 	fi
-	$(SILENT) ($(CD) "$(SRCROOT)$(CLAMAV_BUILD_DIR)" && ./configure $(CLAMAV_CONFIG))
-	$(SILENT) ($(CD) "$(SRCROOT)$(CLAMAV_BUILD_DIR)" && make CFLAGS="$(CFLAGS)")
+	$(SILENT) if [ -e "$(SRCROOT)/$(BINARY_DIR)/$(CLAMAV_PATCH_DIFFS)" ]; then \
+		$(SILENT) ($(CD) "$(CLAMAV_BUILD_DIR)" && $(PATCH) -p1 < "$(SRCROOT)/$(BINARY_DIR)/$(CLAMAV_PATCH_DIFFS)") ; \
+	fi
+	$(SILENT) ($(CD) "$(CLAMAV_BUILD_DIR)" && ./configure $(CLAMAV_CONFIG))
+	$(SILENT) ($(CD) "$(CLAMAV_BUILD_DIR)" && make CFLAGS="$(CFLAGS)")
 	$(SILENT) ($(CD) "$(SRCROOT)/$(UPDATE_DIR)" && /usr/bin/xcodebuild)
 	$(SILENT) ($(CD) "$(SRCROOT)/$(UPDATE_DIR)" && /usr/bin/xcodebuild clean)
 
@@ -136,7 +158,11 @@ make_clamav_install :
 	# Unstuff archive
 	$(SILENT) $(ECHO) "------------ Make Install Perl Modules ------------"
 	$(SILENT) $(ECHO) "Perl Version: $(PERL_VER)"
-	$(SILENT) mkdir "$(OBJROOT)/build"
+
+	$(SILENT) if [ ! -d "$(BUILD_DIR)" ]; then \
+		$(SILENT) (mkdir "$(BUILD_DIR)"); \
+	fi
+
 	for perl_mod in $(MODULES); \
 	do \
 		$(CD) "$(OBJROOT)/build" && $(GNUTAR) -xzpf "$(SRCROOT)/$(BINARY_DIR)/$$perl_mod.tar.gz"; \
@@ -144,40 +170,57 @@ make_clamav_install :
 				make DESTDIR=$(DSTROOT) CFLAGS="$(RC_CFLAGS)" OTHERLDFLAGS="$(RC_CFLAGS)" install; \
 	done
 
-	$(SILENT) mkdir "$(DSTROOT)/usr"
-	$(SILENT) if [ -d "$(DSTROOT)/share" ]; then\
+	$(SILENT) if [ -d "$(DSTROOT)/share" ]; then \
 		$(SILENT) ($(MV) "$(DSTROOT)/share" "$(DSTROOT)/usr/"); \
 	fi
-	$(SILENT) if [ -d "$(DSTROOT)$(PERL_DIR)/$(PERL_VER)" ]; then\
+	$(SILENT) if [ -d "$(DSTROOT)$(PERL_DIR)/$(PERL_VER)" ]; then \
 		$(SILENT) ($(RM) -r "$(DSTROOT)$(PERL_DIR)/$(PERL_VER)"); \
 	fi
 	$(SILENT) $(ECHO) "------------ Make Install Perl Modules Done ------------"
 
 	$(SILENT) $(ECHO) "------------ Make Install Clam AV ------------"
 	$(SILENT) if [ -e "$(SRCROOT)/$(BINARY_DIR)/$(CLAMAV_TAR_GZ)" ]; then\
-		$(SILENT) ($(CD) "$(SRCROOT)/$(PROJECT)" && $(GNUTAR) -xzpf "$(SRCROOT)/$(BINARY_DIR)/$(CLAMAV_TAR_GZ)") ; \
+		$(SILENT) ($(CD) "$(BUILD_DIR)" && $(GNUTAR) -xzpf "$(SRCROOT)/$(BINARY_DIR)/$(CLAMAV_TAR_GZ)") ; \
 	fi
 	$(SILENT) if [ -e "$(SRCROOT)/$(BINARY_DIR)/$(CLAMAV_PATCH_DIFFS)" ]; then\
-		$(SILENT) ($(CD) "$(SRCROOT)$(CLAMAV_BUILD_DIR)" && $(PATCH) -p1 < "$(SRCROOT)/$(BINARY_DIR)/$(CLAMAV_PATCH_DIFFS)") ; \
+		$(SILENT) ($(CD) "$(CLAMAV_BUILD_DIR)" && $(PATCH) -p1 < "$(SRCROOT)/$(BINARY_DIR)/$(CLAMAV_PATCH_DIFFS)") ; \
 	fi
 
 	$(SILENT) ($(CD) "$(SRCROOT)/$(UPDATE_DIR)" && /usr/bin/xcodebuild install DSTROOT="$(DSTROOT)")
 	$(SILENT) ($(CD) "$(SRCROOT)/$(UPDATE_DIR)" && /usr/bin/xcodebuild clean)
 
 	# Configure and make Clam AV
-	$(SILENT) ($(CD) "$(SRCROOT)$(CLAMAV_BUILD_DIR)" && ./configure $(CLAMAV_CONFIG))
-	if grep -qs 'LTCFLAGS=\"-g -O2\"' $(SRCROOT)/$(CLAMAV_BUILD_DIR)/libtool ; then \
+	$(SILENT) ($(CD) "$(CLAMAV_BUILD_DIR)" && ./configure $(CLAMAV_CONFIG_SHARED))
+	if grep -qs 'LTCFLAGS=\"-g -O2\"' $(CLAMAV_BUILD_DIR)/libtool ; then \
 		mv $(LIB_TOOL) $(LIB_TOOL).bak ; \
 		sed -e 's/LTCFLAGS=\"-g -O2\"/LTCFLAGS=\"$(CFLAGS)"/g' $(LIB_TOOL).bak > $(LIB_TOOL) ; \
 	fi
-	$(SILENT) ($(CD) "$(SRCROOT)$(CLAMAV_BUILD_DIR)" && make CFLAGS="$(CFLAGS)" CPPFLAGS="$(CFLAGS)")
-	$(SILENT) ($(CD) "$(SRCROOT)$(CLAMAV_BUILD_DIR)" && make "DESTDIR=$(SRCROOT)/$(TEMP_DIR)" CFLAGS="$(CFLAGS)" CPPFLAGS="$(CFLAGS)" install)
+	$(SILENT) ($(CD) "$(CLAMAV_BUILD_DIR)" && make CFLAGS="$(CFLAGS)" CPPFLAGS="$(CFLAGS)")
+	$(SILENT) ($(CD) "$(CLAMAV_BUILD_DIR)" && make "DESTDIR=$(OBJROOT)/build/temp" CFLAGS="$(CFLAGS)" CPPFLAGS="$(CFLAGS)" install)
+
+	# next build
+	$(SILENT) ($(CD) $(CLAMAV_BUILD_DIR) && make distclean)
+	$(SILENT) ($(CD) "$(CLAMAV_BUILD_DIR)" && ./configure $(CLAMAV_CONFIG_STATIC))
+	if grep -qs 'LTCFLAGS=\"-g -O2\"' $(CLAMAV_BUILD_DIR)/libtool ; then \
+	mv $(LIB_TOOL) $(LIB_TOOL).bak ; \
+		sed -e 's/LTCFLAGS=\"-g -O2\"/LTCFLAGS=\"$(CFLAGS)"/g' $(LIB_TOOL).bak > $(LIB_TOOL) ; \
+	fi
+	$(SILENT) ($(CD) "$(CLAMAV_BUILD_DIR)" && make CFLAGS="$(CFLAGS)" CPPFLAGS="$(CFLAGS)")
+	$(SILENT) ($(CD) "$(CLAMAV_BUILD_DIR)" && make "DESTDIR=$(DSTROOT)" CFLAGS="$(CFLAGS)" CPPFLAGS="$(CFLAGS)" install)
+
 	install -m 0755 "$(DSTROOT)/System/Library/ServerSetup/MigrationExtras/UpgradeClamAV" \
 			"$(DSTROOT)/System/Library/ServerSetup/MigrationExtras/66_clamav_migrator"
 	$(SILENT) ($(RM) -rf "$(DSTROOT)/System/Library/ServerSetup/MigrationExtras/UpgradeClamAV")
 
+
+	# Install libs
+	$(SILENT) ($(RM) -rf $(DSTROOT)/usr/lib/clamav)
+	install -d -m 0755 "$(DSTROOT)/usr/lib/clamav"
+	install -m 0755 $(OBJROOT)/build/temp/usr/lib/clamav/libclamunrar.6.dylib $(DSTROOT)/usr/lib/clamav/libclamunrar.6.dylib
+	install -m 0755 $(OBJROOT)/build/temp/usr/lib/clamav/libclamunrar_iface.6.so $(DSTROOT)/usr/lib/clamav/libclamunrar_iface.6.so
+	$(SILENT) ($(CD) $(DSTROOT)/usr/lib/clamav/ && ln -s libclamunrar_iface.6.so libclamunrar_iface.so)
+
 	# Create install directories
-	install -d -m 0755 "$(DSTROOT)$(ETC_DIR)"
 	install -d -m 0755 "$(DSTROOT)$(CLAM_SHARE_DIR)"
 	install -d -m 0755 "$(DSTROOT)$(CLAM_STATE_DIR)"
 	install -d -m 0755 "$(DSTROOT)$(LAUNCHDDIR)"
@@ -192,38 +235,17 @@ make_clamav_install :
 	install -m 0644 "$(SRCROOT)/$(CONFIG_DIR)/freshclam.conf" "$(DSTROOT)$(ETC_DIR)/freshclam.conf.default"
 
 	# Install & strip binaries
-	install -d -m 0755 "$(DSTROOT)$(USR_BIN)"
-	install -m 0755 -s "$(SRCROOT)$(TEMP_DIR)$(USR_BIN)/clamdscan" "$(DSTROOT)$(USR_BIN)/clamdscan"
-	install -m 0755 -s "$(SRCROOT)$(TEMP_DIR)$(USR_BIN)/clamscan" "$(DSTROOT)$(USR_BIN)/clamscan"
-	install -m 0755 -s "$(SRCROOT)$(TEMP_DIR)$(USR_BIN)/freshclam" "$(DSTROOT)$(USR_BIN)/freshclam"
-	install -m 0755 -s "$(SRCROOT)$(TEMP_DIR)$(USR_BIN)/sigtool" "$(DSTROOT)$(USR_BIN)/sigtool"
 	$(SILENT) $(STRIP) -S "$(DSTROOT)/System/Library/Perl/Extras/5.10.0/darwin-thread-multi-2level/auto/Crypt/OpenSSL/RSA/RSA.bundle"
 	$(SILENT) $(RM) "$(DSTROOT)/System/Library/Perl/Extras/5.10.0/darwin-thread-multi-2level/auto/Crypt/OpenSSL/RSA/RSA.bs"
 
-	install -d -m 0755 "$(DSTROOT)$(USR_SBIN)"
-	install -m 0755 -s "$(SRCROOT)$(TEMP_DIR)$(USR_SBIN)/clamd" "$(DSTROOT)$(USR_SBIN)/clamd"
-
-	# Install man pages
-	install -d -m 0755 "$(DSTROOT)$(SHARE_1_DIR)"
-	install -m 0444 "$(SRCROOT)$(TEMP_DIR)$(SHARE_1_DIR)/clamdscan.1" "$(DSTROOT)$(SHARE_1_DIR)/clamdscan.1"
-	install -m 0444 "$(SRCROOT)$(TEMP_DIR)$(SHARE_1_DIR)/clamscan.1" "$(DSTROOT)$(SHARE_1_DIR)/clamscan.1"
-	install -m 0444 "$(SRCROOT)$(TEMP_DIR)$(SHARE_1_DIR)/freshclam.1" "$(DSTROOT)$(SHARE_1_DIR)/freshclam.1"
-	install -m 0444 "$(SRCROOT)$(TEMP_DIR)$(SHARE_1_DIR)/sigtool.1" "$(DSTROOT)$(SHARE_1_DIR)/sigtool.1"
-	#install -m 0444 "$(SRCROOT)/$(CONFIG_DIR)/clamav-config.1" "$(DSTROOT)$(SHARE_1_DIR)/clamav-config.1"
-
-	install -d -m 0755 "$(DSTROOT)$(SHARE_5_DIR)"
-	install -m 0444 "$(SRCROOT)$(TEMP_DIR)$(SHARE_5_DIR)/clamd.conf.5" "$(DSTROOT)$(SHARE_5_DIR)/clamd.conf.5"
-	install -m 0444 "$(SRCROOT)$(TEMP_DIR)$(SHARE_5_DIR)/freshclam.conf.5" "$(DSTROOT)$(SHARE_5_DIR)/freshclam.conf.5"
-
-	install -d -m 0755 "$(DSTROOT)$(SHARE_8_DIR)"
-	#install -m 0444 "$(SRCROOT)$(TEMP_DIR)$(SHARE_8_DIR)/clamav-milter.8" "$(DSTROOT)$(SHARE_8_DIR)/clamav-milter.8"
-	install -m 0444 "$(SRCROOT)$(TEMP_DIR)$(SHARE_8_DIR)/clamd.8" "$(DSTROOT)$(SHARE_8_DIR)/clamd.8"
-
 	# Install default clam databases
-	install -d -m 0755 "$(DSTROOT)$(VAR_CLAM)"
-	install -m 644 "$(SRCROOT)$(TEMP_DIR)$(VAR_CLAM)/daily.cvd" "$(DSTROOT)$(VAR_CLAM)/daily.cvd"
-	install -m 644 "$(SRCROOT)$(TEMP_DIR)$(VAR_CLAM)/main.cvd" "$(DSTROOT)$(VAR_CLAM)/main.cvd"
+	chmod 644 "$(DSTROOT)$(VAR_CLAM)/daily.cvd"
+	chmod 644 "$(DSTROOT)$(VAR_CLAM)/main.cvd"
 	chown -R 82 "$(DSTROOT)$(VAR_CLAM)"
+	chmod 755 "$(DSTROOT)$(VAR_CLAM)"
+	chmod 444 "$(DSTROOT)$(SHARE_1_DIR)/"*
+	chmod 444 "$(DSTROOT)$(SHARE_5_DIR)/"*
+	chmod 444 "$(DSTROOT)$(SHARE_8_DIR)/"*
 
 	# Install Setup Extras
 	install -m 0755 "$(SRCROOT)/$(SETUP_EXTRAS_SRC_DIR)/clamav" "$(DSTROOT)$(COMMON_EXTRAS_DST_DIR)/SetupClamAV.sh"
@@ -236,13 +258,11 @@ make_clamav_install :
 
 	# Set ownership of installed directories & files
 	$(SILENT) ($(CHOWN) -R root:wheel "$(DSTROOT)")
-	#$(SILENT) ($(CHOWN) -R clamav:clamav "$(DSTROOT)$(ETC_DIR)")
 	$(SILENT) ($(CHOWN) -R clamav:clamav "$(DSTROOT)$(VAR_CLAM)")
 	$(SILENT) ($(CHOWN) -R root:wheel "$(DSTROOT)/usr/share/man")
 	$(SILENT) ($(CHOWN) -R root:wheel "$(DSTROOT)/usr/bin")
 
-	$(SILENT) ($(RM) -rf "$(SRCROOT)/$(TEMP_DIR)")
-	$(SILENT) ($(RM) -rf "$(SRCROOT)/$(CLAMAV_BUILD_DIR)")
+	$(SILENT) ($(RM) -rf "$(DSTROOT)/usr/share/clamav")
 
 	$(SILENT) $(ECHO) "---- Building Clam AV complete."
 

@@ -1,8 +1,0 @@
-A rolda de distribución %(real_name)s@%(host_name)s ten
-%(count)d solicitude(s) pendente(s) para que as revisar na
-páxina seguinte:
-
-	%(adminDB)s
-	
-Por favor, aténdaas tan axiña como lle for posíbel. Enviaráselle
-esta notificación todos os días. 

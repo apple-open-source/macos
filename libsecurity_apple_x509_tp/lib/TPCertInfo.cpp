@@ -1330,6 +1330,7 @@ CSSM_RETURN TPCertGroup::buildCertGroup(
 	unsigned certDex;
 	TPCertInfo *anchorInfo = NULL;
 	bool foundPartialIssuer = false;
+	bool attemptNetworkFetch = false;
 	CSSM_BOOL firstSubjectIsInGroup = subjectIsInGroup;
 	TPCertInfo *endCert;
 	
@@ -1895,11 +1896,18 @@ post_anchor:
 		}
 	}
 	
-	/* If we get here, enable fetching issuer from network: <rdar://6113890> */
-	/* ... unless DB list is empty *and* anchors are empty: <rdar://7419584> */
-	if(!( (!dbList || (dbList->NumHandles == 0)) &&
-		 (!anchorCerts || (numAnchorCerts == 0))) ) {
-		actionFlags |= CSSM_TP_ACTION_FETCH_CERT_FROM_NET;
+	/* If we get here, determine if fetching the issuer from the network
+	 * should be attempted: <rdar://6113890&7419584&7422356>
+	 */
+	attemptNetworkFetch = (actionFlags & CSSM_TP_ACTION_FETCH_CERT_FROM_NET);
+	if( (!dbList || (dbList->NumHandles == 0)) &&
+		 (!anchorCerts || (numAnchorCerts == 0)) ) {
+		/* DB list is empty *and* anchors are empty; there is no point in going
+		 * out to the network, since we cannot build a chain to a trusted root.
+		 * (This can occur when the caller wants to evaluate a single certificate
+		 * without trying to build the chain, e.g. to check its key usage.)
+		 */
+		attemptNetworkFetch = false;
 	}
 	
 	/* 
@@ -1910,8 +1918,7 @@ post_anchor:
 	 * anchor certs).
 	 */
 	if(!verifiedToRoot && !verifiedToAnchor &&
-	   (endCert != NULL) &&
-	   (actionFlags & CSSM_TP_ACTION_FETCH_CERT_FROM_NET)) {
+		(endCert != NULL) && attemptNetworkFetch) {
 		TPCertInfo *issuer = NULL;
 		CSSM_RETURN cr = tpFetchIssuerFromNet(*endCert,
 			clHand,

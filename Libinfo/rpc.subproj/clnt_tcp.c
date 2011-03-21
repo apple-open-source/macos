@@ -267,19 +267,19 @@ fooy:
 CLIENT *
 clnttcp_create(raddr, prog, vers, sockp, sendsz, recvsz)
 #ifdef __LP64__
-struct sockaddr_in *raddr;
-uint32_t prog;
-uint32_t vers;
-int *sockp;
-uint32_t sendsz;
-uint32_t recvsz;
+	struct sockaddr_in *raddr;
+	uint32_t prog;
+	uint32_t vers;
+	int *sockp;
+	uint32_t sendsz;
+	uint32_t recvsz;
 #else
-struct sockaddr_in *raddr;
-u_long prog;
-u_long vers;
-register int *sockp;
-u_int sendsz;
-u_int recvsz;
+	struct sockaddr_in *raddr;
+	u_long prog;
+	u_long vers;
+	register int *sockp;
+	u_int sendsz;
+	u_int recvsz;
 #endif
 {
 	return clnttcp_create_timeout(raddr, (uint32_t)prog, (uint32_t)vers, sockp, (uint32_t)sendsz, (uint32_t)recvsz, NULL, NULL);
@@ -288,7 +288,11 @@ u_int recvsz;
 static enum clnt_stat
 clnttcp_call(h, proc, xdr_args, args_ptr, xdr_results, results_ptr, timeout)
 	register CLIENT *h;
+#ifdef __LP64__
+	uint32_t proc;
+#else
 	u_long proc;
+#endif
 	xdrproc_t xdr_args;
 	caddr_t args_ptr;
 	xdrproc_t xdr_results;
@@ -298,8 +302,13 @@ clnttcp_call(h, proc, xdr_args, args_ptr, xdr_results, results_ptr, timeout)
 	register struct ct_data *ct = (struct ct_data *) h->cl_private;
 	register XDR *xdrs = &(ct->ct_xdrs);
 	struct rpc_msg reply_msg;
+#ifdef __LP64__
+	uint32_t x_id;
+	uint32_t *msg_x_id = (uint32_t *)(ct->ct_mcall);	/* yuk */
+#else
 	u_long x_id;
 	u_long *msg_x_id = (u_long *)(ct->ct_mcall);	/* yuk */
+#endif
 	register bool_t shipnow;
 	int refreshes = 2;
 

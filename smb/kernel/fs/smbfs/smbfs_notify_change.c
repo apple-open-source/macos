@@ -116,6 +116,7 @@ static void smbfs_notified_vnode(struct smbnode *np, int throttleBack,
 		return; /* Nothing to do here */
 	
 	np->attribute_cache_timer = 0;
+	np->n_symlink_cache_timer = 0;
 	/* 
 	 * The fid changed while we were blocked just unlock and get out. If we are
 	 * throttling back then skip this notify.  
@@ -263,6 +264,7 @@ static void rcvd_notify_change(struct watch_item *watchItem, vfs_context_t conte
 	
 	/* Always reset the cache timer and force a lookup */
 	np->attribute_cache_timer = 0;
+	np->n_symlink_cache_timer = 0;
 
 	if ((error == ETIMEDOUT) || (error == ENOTCONN) || (error == ENOTSUP)) {
 		SMBDEBUG("Processing notify for %s error = %d\n", np->n_name, error);	
@@ -658,25 +660,17 @@ int smbfs_start_change_notify(struct smbnode *np, vfs_context_t context, int *re
 	struct smbmount *smp = np->n_mount;
 	int				error;
 	
-	/* 
-	 * We only set the capabilities VOL_CAP_INT_REMOTE_EVENT if the
-	 * server supports SMB_CAP_NT_SMBS. So if they calls us without checking the
-	 * capabilities then they get what they get.
-	 *
-	 * Setting STD_RIGHT_SYNCHRONIZE_ACCESS because XP does.
-	 */
-	if (np->d_kqrefcnt) {
-		np->d_kqrefcnt++;	/* Already processing this node, we are done */
-		return 0;		
-	}
-	
-	np->d_kqrefcnt++;
-	
 	if (smp->notify_thread == NULL) {
 		/* This server doesn't support notify change so turn on polling */
 		np->n_flag |= N_POLLNOTIFY;
 		SMBDEBUG("Monitoring %s with polling\n", np->n_name);
 	} else {
+		if (np->d_kqrefcnt) {
+			np->d_kqrefcnt++;	/* Already processing this node, we are done */
+			return 0;		
+		}
+		np->d_kqrefcnt++;
+		/* Setting SMB2_SYNCHRONIZE because XP does. */
 		error = smbfs_smb_tmpopen(np, SA_RIGHT_FILE_READ_DATA | STD_RIGHT_SYNCHRONIZE_ACCESS,  context, &np->d_fid);
 		if (error)	{
 			/* Open failed so turn on polling */
@@ -733,16 +727,18 @@ int smbfs_stop_change_notify(struct smbnode *np, int forceClose, vfs_context_t c
 	if (fid)
 		(void)smbfs_smb_tmpclose(np, fid, context);		
 	SMBDEBUG("We are no longer monitoring  %s\n", np->n_name);
-	/* 
-	 * We no longer need the node lock. So unlock the node so we have no
-	 * lock contention with the notify list lock.
-	 *
-	 * Make sure we tell the calling routine that we have released the
-	 * node lock.
-	 */
-	*releaseLock = FALSE;
-	smbnode_unlock(np);
-	dequeue_notify_change_request(smp->notify_thread, np);
+	if (smp->notify_thread) {
+		/* 
+		 * We no longer need the node lock. So unlock the node so we have no
+		 * lock contention with the notify list lock.
+		 *
+		 * Make sure we tell the calling routine that we have released the
+		 * node lock.
+		 */
+		*releaseLock = FALSE;
+		smbnode_unlock(np);
+		dequeue_notify_change_request(smp->notify_thread, np);
+	}
 	return 0;
 }
 

@@ -6,9 +6,11 @@ CFILES = nofsutil.c ui.c
 
 Extra_CC_Flags = -Wall -mdynamic-no-pic -Wuninitialized -Wunused
 Extra_LD_Flags = -dead_strip
-Extra_Frameworks = -framework CoreFoundation -framework DiskArbitration -framework IOKit
+Extra_Frameworks = -framework CoreFoundation -framework DiskArbitration -framework IOKit -framework SystemConfiguration
 
 include $(MAKEFILEPATH)/CoreOS/ReleaseControl/BSDCommon.make
+
+RC_ARCHS = i386 x86_64
 
 after_install:
 	$(INSTALL_DIRECTORY) "$(DSTROOT)$(Install_Dir)"/English.lproj

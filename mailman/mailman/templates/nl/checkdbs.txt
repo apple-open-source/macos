@@ -1,8 +1,0 @@
-De %(real_name)s@%(host_name)s maillijst heeft %(count)d verzoek(en)
-die wachten op behandeling op:
-
-	%(adminDB)s
-
-Gelieve deze af te handelen zodra het u schikt. Dit overzicht van
-onbehandelde verzoeken, mits aanwezig, zal u dagelijks worden
-toegezonden.

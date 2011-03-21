@@ -2721,20 +2721,31 @@ set_headers(request_rec *r, const dav_resource *resource)
       else if ((! resource->info->repos->is_svn_client)
                && r->content_type)
         mimetype = r->content_type;
-      else
-        mimetype = "application/octet-stream";
 
-      serr = svn_mime_type_validate(mimetype, resource->pool);
-      if (serr)
+      /* If we found a MIME type, we'll make sure it's Subversion-friendly. */
+      if (mimetype)
         {
-          /* Probably serr->apr == SVN_ERR_BAD_MIME_TYPE, but
-             there's no point even checking.  No matter what the
-             error is, we can't derive the mime type from the
-             svn:mime-type property.  So we resort to the infamous
-             "mime type of last resort." */
-          svn_error_clear(serr);
-          mimetype = "application/octet-stream";
+          if ((serr = svn_mime_type_validate(mimetype, resource->pool)))
+            {
+              /* Probably serr->apr == SVN_ERR_BAD_MIME_TYPE, but there's
+                 no point even checking.  No matter what the error is, we
+                 can't use this MIME type.  */
+              svn_error_clear(serr);
+              mimetype = NULL;
+            }
         }
+
+      /* We've found/calculated/validated no usable MIME type.  We
+         could fall back to "application/octet-stream" (aka "bag o'
+         bytes"), but many browsers have grown to expect "text/plain"
+         to mean "*shrug*", and kick off their own MIME type detection
+         routines when they see it.  So we'll use "text/plain".
+      
+         ### Why not just avoid sending a Content-type at all?  Is
+         ### that just bad form for HTTP?  */
+      if (! mimetype)
+        mimetype = "text/plain";
+
 
       /* if we aren't sending a diff, then we know the length of the file,
          so set up the Content-Length header */
@@ -2829,6 +2840,7 @@ deliver(const dav_resource *resource, ap_filter_t *output)
       apr_hash_t *entries;
       apr_pool_t *entry_pool;
       apr_array_header_t *sorted;
+      svn_revnum_t dir_rev = SVN_INVALID_REVNUM;
       int i;
 
       /* XML schema for the directory index if xslt_uri is set:
@@ -2905,6 +2917,7 @@ deliver(const dav_resource *resource, ap_filter_t *output)
         }
       else
         {
+          dir_rev = svn_fs_revision_root_revision(resource->info->root.root);
           serr = svn_fs_dir_entries(&entries, resource->info->root.root,
                                     resource->info->repos_path, resource->pool);
           if (serr != NULL)
@@ -2978,9 +2991,23 @@ deliver(const dav_resource *resource, ap_filter_t *output)
           && (resource->info->restype != DAV_SVN_RESTYPE_PARENTPATH_COLLECTION))
         {
           if (gen_html)
-            ap_fprintf(output, bb, "  <li><a href=\"../\">..</a></li>\n");
+            {
+              if (resource->info->pegged)
+                {
+                  ap_fprintf(output, bb,
+                             "  <li><a href=\"../?p=%ld\">..</a></li>\n",
+                             resource->info->root.rev);
+                }
+              else
+                {
+                  ap_fprintf(output, bb,
+                             "  <li><a href=\"../\">..</a></li>\n");
+                }
+            }
           else
-            ap_fprintf(output, bb, "    <updir />\n");
+            {
+              ap_fprintf(output, bb, "    <updir />\n");
+            }
         }
 
       /* get a sorted list of the entries */
@@ -2997,8 +3024,30 @@ deliver(const dav_resource *resource, ap_filter_t *output)
           const char *name = item->key;
           const char *href = name;
           svn_boolean_t is_dir = (entry->kind == svn_node_dir);
+          const char *repos_relpath = NULL;
 
           svn_pool_clear(entry_pool);
+
+          /* DIR_REV is set to a valid revision if we're looking at
+             the entries of a versioned directory.  Otherwise, we're
+             looking at a parent-path listing. */
+          if (SVN_IS_VALID_REVNUM(dir_rev))
+            {
+              repos_relpath = svn_path_join(resource->info->repos_path,
+                                            name, entry_pool);
+              if (! dav_svn__allow_read(resource->info->r,
+                                        resource->info->repos,
+                                        repos_relpath,
+                                        dir_rev,
+                                        entry_pool))
+                continue;
+            }
+          else
+            {
+              /* ### TODO:  We could test for readability of the root
+                     directory of each repository and hide those that
+                     the user can't see. */
+            }
 
           /* append a trailing slash onto the name for directories. we NEED
              this for the href portion so that the relative reference will
@@ -3069,11 +3118,27 @@ deliver(const dav_resource *resource, ap_filter_t *output)
       svn_pool_destroy(entry_pool);
 
       if (gen_html)
-        ap_fputs(output, bb,
-                 " </ul>\n <hr noshade><em>Powered by "
-                 "<a href=\"http://subversion.tigris.org/\">Subversion</a> "
-                 "version " SVN_VERSION "."
-                 "</em>\n</body></html>");
+        {
+          if (strcmp(ap_psignature("FOO", resource->info->r), "") != 0)
+            {
+              /* Apache's signature generation code didn't eat our prefix.
+                 ServerSignature must be enabled.  Print our version info.
+
+                 WARNING: This is a kludge!! ap_psignature() doesn't promise
+                 to return the empty string when ServerSignature is off.  We
+                 know it does by code inspection, but this behavior is subject
+                 to change. (Perhaps we should try to get the Apache folks to
+                 make this promise, though.  Seems harmless/useful enough...)
+              */
+              ap_fputs(output, bb,
+                       " </ul>\n <hr noshade><em>Powered by "
+                       "<a href=\"http://subversion.tigris.org/\">Subversion"
+                       "</a> version " SVN_VERSION "."
+                       "</em>\n</body></html>");
+            }
+          else
+            ap_fputs(output, bb, " </ul>\n</body></html>");
+        }
       else
         ap_fputs(output, bb, "  </index>\n</svn>\n");
 
@@ -3594,6 +3659,7 @@ do_walk(walker_ctx_t *ctx, int depth)
   apr_size_t uri_len;
   apr_size_t repos_len;
   apr_hash_t *children;
+  apr_pool_t *iterpool;
 
   /* Clear the temporary pool. */
   svn_pool_clear(ctx->info.pool);
@@ -3669,12 +3735,15 @@ do_walk(walker_ctx_t *ctx, int depth)
                                 params->pool);
 
   /* iterate over the children in this collection */
+  iterpool = svn_pool_create(params->pool);
   for (hi = apr_hash_first(params->pool, children); hi; hi = apr_hash_next(hi))
     {
       const void *key;
       apr_ssize_t klen;
       void *val;
       svn_fs_dirent_t *dirent;
+
+      svn_pool_clear(iterpool);
 
       /* fetch one of the children */
       apr_hash_this(hi, &key, &klen, &val);
@@ -3683,7 +3752,16 @@ do_walk(walker_ctx_t *ctx, int depth)
       /* authorize access to this resource, if applicable */
       if (params->walk_type & DAV_WALKTYPE_AUTH)
         {
-          /* ### how/what to do? */
+          const char *repos_relpath =
+            apr_pstrcat(iterpool, 
+                        apr_pstrmemdup(iterpool,
+                                       ctx->repos_path->data,
+                                       ctx->repos_path->len),
+                        key, NULL);
+          if (! dav_svn__allow_read(ctx->info.r, ctx->info.repos,
+                                    repos_relpath, ctx->info.root.rev,
+                                    iterpool))
+            continue;
         }
 
       /* append this child to our buffers */
@@ -3724,6 +3802,9 @@ do_walk(walker_ctx_t *ctx, int depth)
       ctx->uri->len = uri_len;
       ctx->repos_path->len = repos_len;
     }
+  
+  svn_pool_destroy(iterpool);
+
   return NULL;
 }
 
@@ -3739,6 +3820,12 @@ walk(const dav_walk_params *params, int depth, dav_response **response)
 
   walker_ctx_t ctx = { 0 };
   dav_error *err;
+
+  if (params->root->info->restype == DAV_SVN_RESTYPE_PARENTPATH_COLLECTION)
+    {
+      /* Cannot walk an SVNParentPath collection, there is no repository. */
+      return NULL;
+    }
 
   ctx.params = params;
 

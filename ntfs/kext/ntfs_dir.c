@@ -1,8 +1,8 @@
 /*
  * ntfs_dir.c - NTFS kernel directory operations.
  *
- * Copyright (c) 2006-2008 Anton Altaparmakov.  All Rights Reserved.
- * Portions Copyright (c) 2006-2008 Apple Inc.  All Rights Reserved.
+ * Copyright (c) 2006-2010 Anton Altaparmakov.  All Rights Reserved.
+ * Portions Copyright (c) 2006-2010 Apple Inc.  All Rights Reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -910,6 +910,7 @@ static ntfs_dirhint *ntfs_dirhint_get(ntfs_inode *ni, unsigned ofs)
 static void ntfs_dirhint_put(ntfs_inode *ni, ntfs_dirhint *dh)
 {
 	TAILQ_REMOVE(&ni->dirhint_list, dh, link);
+	ni->nr_dirhints--;
 	if (dh->fn_size)
 		OSFree(dh->fn, dh->fn_size, ntfs_malloc_tag);
 	OSFree(dh, sizeof(*dh), ntfs_malloc_tag);

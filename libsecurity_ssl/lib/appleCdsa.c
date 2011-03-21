@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2007 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2000-2010 Apple Inc. All Rights Reserved.
  * 
  * The contents of this file constitute Original Code as defined in and are
  * subject to the Apple Public Source License Version 1.2 (the 'License').
@@ -23,7 +23,7 @@
 
 	Written by:	Doug Mitchell
 
-	Copyright: (c) 1999-2007 Apple Inc., all rights reserved.
+	Copyright: (c) 1999-2010 Apple Inc., all rights reserved.
 
 */
 
@@ -2037,15 +2037,18 @@ errOut:
 
 /*
  * After ciphersuite negotiation is complete, verify that we have
- * the capability of actually performing the negotiated cipher.
+ * the capability of actually performing the selected cipher.
  * Currently we just verify that we have a cert and private signing 
  * key, if needed, and that the signing key's algorithm matches the
  * expected key exchange method.
- * This is currently only called from FindCipherSpec(), after
- * it sets ctx->selectedCipherSpec to a (supposedly) valid value.
+ *
+ * This is currently called from FindCipherSpec(), after it sets
+ * ctx->selectedCipherSpec to a (supposedly) valid value, and from
+ * sslBuildCipherSpecArray(), in server mode (pre-negotiation) only.
  */
-OSStatus sslVerifyNegotiatedCipher(
-	SSLContext *ctx)
+OSStatus sslVerifySelectedCipher(
+	SSLContext *ctx,
+	const SSLCipherSpec *selectedCipherSpec)
 {
 	if(ctx->protocolSide == SSL_ClientSide) {
 		return noErr;
@@ -2059,8 +2062,10 @@ OSStatus sslVerifyNegotiatedCipher(
 	#endif	/* SSL_PAC_SERVER_ENABLE */
 
 	CSSM_ALGORITHMS requireAlg = CSSM_ALGID_NONE;
-	
-    switch (ctx->selectedCipherSpec->keyExchangeMethod) {
+    if(selectedCipherSpec == NULL) {
+		return errSSLInternal;
+    }	
+    switch (selectedCipherSpec->keyExchangeMethod) {
 		case SSL_RSA:
         case SSL_RSA_EXPORT:
 		case SSL_DH_RSA:

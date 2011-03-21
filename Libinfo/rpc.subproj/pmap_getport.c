@@ -127,15 +127,15 @@ pmap_getport_timeout(struct sockaddr_in *address, uint32_t program, uint32_t ver
 u_short
 pmap_getport(address, program, version, protocol)
 #ifdef __LP64__
-struct sockaddr_in *address;
-uint32_t program;
-uint32_t version;
-uint32_t protocol;
+	struct sockaddr_in *address;
+	uint32_t program;
+	uint32_t version;
+	uint32_t protocol;
 #else
-struct sockaddr_in *address;
-u_long program;
-u_long version;
-u_int protocol;
+	struct sockaddr_in *address;
+	u_long program;
+	u_long version;
+	u_int protocol;
 #endif
 {
 	return pmap_getport_timeout(address, (uint32_t)program, (uint32_t)version, (uint32_t)protocol, NULL, NULL);

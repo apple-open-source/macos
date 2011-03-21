@@ -691,6 +691,7 @@ OSStatus sslBuildCipherSpecArray(SSLContext *ctx)
 	 *  -- trim ECDSA ciphers if TLSv1 disable or SSLv2 enabled (since
 	 *     we MUST do the Client Hello extensions to make these ciphers
 	 *     work reliably)
+	 *  -- trim ciphers incompatible with our private key in server mode
 	 */
 	SSLCipherSpec *dst = ctx->validCipherSpecs;
 	const SSLCipherSpec *src = KnownCipherSpecs;
@@ -741,6 +742,15 @@ OSStatus sslBuildCipherSpecArray(SSLContext *ctx)
 					continue;
 				default:
 					break;
+			}
+		}
+		if(ctx->protocolSide == SSL_ServerSide && ctx->signingPrivKeyRef != NULL) {
+			/* in server mode, trim out ciphers incompatible with our private key */
+			if(sslVerifySelectedCipher(ctx, src) != noErr) {
+				/* skip this one */
+				ctx->numValidCipherSpecs--;
+				src++;
+				continue;
 			}
 		}
 		
@@ -942,6 +952,6 @@ FindCipherSpec(SSLContext *ctx)
         return errSSLNegotiation;
 		
 	/* make sure we're configured to handle this one */
-	return sslVerifyNegotiatedCipher(ctx);
+	return sslVerifySelectedCipher(ctx, ctx->selectedCipherSpec);
 }
 

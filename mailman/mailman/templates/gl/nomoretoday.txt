@@ -1,9 +1,0 @@
-Recibiuse unha mensaxe procedente do seu enderezo de correo electrónico
-'%(sender)s' en que se solicita unha resposta automática da rolda de
-distribución %(listname)s. Cómpre salientar que  hoxe enviou %(num)s mensaxes.  Para evitar problemas como bucles infinitos de mensaxes
-entre robots de correo electrónico, hoxe non se lle enviarán máis mensaxes.
-Ténteo unha outra vez mañá.
-
-Se xulga que esta mensaxe está errada ou se ten calquera outra
-cuestión que facer, póñase en contacto co propietario da
-rolda a través do enderezo %(owneremail)s.

@@ -65,11 +65,11 @@ public:
     };
 
     enum Status {
-        NotCached,    // this URL is not cached
         Unknown,      // let cache decide what to do with it
-        New,          // inserting new item
         Pending,      // only partially loaded
-        Cached        // regular case
+        Cached,       // regular case
+        LoadError,
+        DecodeError
     };
 
     CachedResource(const String& url, Type);
@@ -81,8 +81,8 @@ public:
     virtual void setEncoding(const String&) { }
     virtual String encoding() const { return String(); }
     virtual void data(PassRefPtr<SharedBuffer> data, bool allDataReceived) = 0;
-    virtual void error() = 0;
-    virtual void httpStatusCodeError() { error(); } // Images keep loading in spite of HTTP errors (for legacy compat with <img>, etc.).
+    virtual void error(CachedResource::Status) = 0;
+    virtual void httpStatusCodeError() { error(LoadError); } // Images keep loading in spite of HTTP errors (for legacy compat with <img>, etc.).
 
     const String &url() const { return m_url; }
     Type type() const { return static_cast<Type>(m_type); }
@@ -156,8 +156,7 @@ public:
     String accept() const { return m_accept; }
     void setAccept(const String& accept) { m_accept = accept; }
 
-    bool errorOccurred() const { return m_errorOccurred; }
-    void setErrorOccurred(bool b) { m_errorOccurred = b; }
+    bool errorOccurred() const { return (status() == LoadError || status() == DecodeError); }
 
     bool sendResourceLoadCallbacks() const { return m_sendResourceLoadCallbacks; }
     
@@ -230,7 +229,6 @@ private:
     bool m_requestedFromNetworkingLayer : 1;
     bool m_sendResourceLoadCallbacks : 1;
 
-    bool m_errorOccurred : 1;
     bool m_inCache : 1;
     bool m_loading : 1;
 

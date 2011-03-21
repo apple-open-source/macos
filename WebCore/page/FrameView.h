@@ -88,6 +88,7 @@ public:
     void scheduleRelayoutOfSubtree(RenderObject*);
     void unscheduleRelayout();
     bool layoutPending() const;
+    bool isInLayout() const { return m_inLayout; }
 
     RenderObject* layoutRoot(bool onlyDuringLayout = false) const;
     int layoutCount() const { return m_layoutCount; }
@@ -269,6 +270,8 @@ private:
     virtual void updateScrollCorner();
     virtual void paintScrollCorner(GraphicsContext*, const IntRect& cornerRect);
 
+    void notifyWidgetsInAllFrames(WidgetNotification);
+    
     static double sCurrentPaintTimeStamp; // used for detecting decoded resource thrash in the cache
 
     IntSize m_size;
@@ -294,7 +297,7 @@ private:
     RenderObject* m_layoutRoot;
     
     bool m_layoutSchedulingEnabled;
-    bool m_midLayout;
+    bool m_inLayout;
     int m_layoutCount;
     unsigned m_nestedLayoutCount;
     Timer<FrameView> m_postLayoutTasksTimer;

@@ -402,91 +402,91 @@
 			isa = PBXContainerItemProxy;
 			containerPortal = 724862310EE86EB7001D0DE9 /* Project object */;
 			proxyType = 1;
-			remoteGlobalIDString = 726121530EE8881700AFED1B /* ifconfig */;
+			remoteGlobalIDString = 726121530EE8881700AFED1B;
 			remoteInfo = ifconfig;
 		};
 		72ABD0891083D753008C721C /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 724862310EE86EB7001D0DE9 /* Project object */;
 			proxyType = 1;
-			remoteGlobalIDString = 726121820EE8897C00AFED1B /* ip6conf */;
+			remoteGlobalIDString = 726121820EE8897C00AFED1B;
 			remoteInfo = ip6conf;
 		};
 		72ABD08B1083D75D008C721C /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 724862310EE86EB7001D0DE9 /* Project object */;
 			proxyType = 1;
-			remoteGlobalIDString = 724DAC0C0EE8940D008900D0 /* ndp */;
+			remoteGlobalIDString = 724DAC0C0EE8940D008900D0;
 			remoteInfo = ndp;
 		};
 		72ABD08D1083D75F008C721C /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 724862310EE86EB7001D0DE9 /* Project object */;
 			proxyType = 1;
-			remoteGlobalIDString = 7216D2450EE896C000AE70E4 /* netstat */;
+			remoteGlobalIDString = 7216D2450EE896C000AE70E4;
 			remoteInfo = netstat;
 		};
 		72ABD08F1083D762008C721C /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 724862310EE86EB7001D0DE9 /* Project object */;
 			proxyType = 1;
-			remoteGlobalIDString = 7216D27B0EE8980A00AE70E4 /* ping */;
+			remoteGlobalIDString = 7216D27B0EE8980A00AE70E4;
 			remoteInfo = ping;
 		};
 		72ABD0911083D764008C721C /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 724862310EE86EB7001D0DE9 /* Project object */;
 			proxyType = 1;
-			remoteGlobalIDString = 7216D2990EE898BD00AE70E4 /* ping6 */;
+			remoteGlobalIDString = 7216D2990EE898BD00AE70E4;
 			remoteInfo = ping6;
 		};
 		72ABD0931083D767008C721C /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 724862310EE86EB7001D0DE9 /* Project object */;
 			proxyType = 1;
-			remoteGlobalIDString = 7216D2CC0EE89B7900AE70E4 /* rarpd */;
+			remoteGlobalIDString = 7216D2CC0EE89B7900AE70E4;
 			remoteInfo = rarpd;
 		};
 		72ABD0951083D76A008C721C /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 724862310EE86EB7001D0DE9 /* Project object */;
 			proxyType = 1;
-			remoteGlobalIDString = 7216D2EC0EE89CBC00AE70E4 /* route */;
+			remoteGlobalIDString = 7216D2EC0EE89CBC00AE70E4;
 			remoteInfo = route;
 		};
 		72ABD0971083D76D008C721C /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 724862310EE86EB7001D0DE9 /* Project object */;
 			proxyType = 1;
-			remoteGlobalIDString = 7216D3130EE89E9E00AE70E4 /* rtadvd */;
+			remoteGlobalIDString = 7216D3130EE89E9E00AE70E4;
 			remoteInfo = rtadvd;
 		};
 		72ABD0991083D76F008C721C /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 724862310EE86EB7001D0DE9 /* Project object */;
 			proxyType = 1;
-			remoteGlobalIDString = 7216D3580EE8A02200AE70E4 /* rtsol */;
+			remoteGlobalIDString = 7216D3580EE8A02200AE70E4;
 			remoteInfo = rtsol;
 		};
 		72ABD09B1083D772008C721C /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 724862310EE86EB7001D0DE9 /* Project object */;
 			proxyType = 1;
-			remoteGlobalIDString = 7294F0F80EE8BB460052EC88 /* traceroute */;
+			remoteGlobalIDString = 7294F0F80EE8BB460052EC88;
 			remoteInfo = traceroute;
 		};
 		72ABD09D1083D774008C721C /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 724862310EE86EB7001D0DE9 /* Project object */;
 			proxyType = 1;
-			remoteGlobalIDString = 7294F1290EE8BD280052EC88 /* traceroute6 */;
+			remoteGlobalIDString = 7294F1290EE8BD280052EC88;
 			remoteInfo = traceroute6;
 		};
 		72ABD0A31083D818008C721C /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 724862310EE86EB7001D0DE9 /* Project object */;
 			proxyType = 1;
-			remoteGlobalIDString = 7261212C0EE8710B00AFED1B /* arp */;
+			remoteGlobalIDString = 7261212C0EE8710B00AFED1B;
 			remoteInfo = arp;
 		};
 		72CD1D9B0EE8C47C005F825D /* PBXContainerItemProxy */ = {
@@ -1708,7 +1708,14 @@
 			isa = PBXProject;
 			buildConfigurationList = 724862340EE86EB7001D0DE9 /* Build configuration list for PBXProject "network_cmds" */;
 			compatibilityVersion = "Xcode 3.1";
+			developmentRegion = English;
 			hasScannedForEncodings = 0;
+			knownRegions = (
+				English,
+				Japanese,
+				French,
+				German,
+			);
 			mainGroup = 7248622F0EE86EB7001D0DE9;
 			productRefGroup = 7261210D0EE8707500AFED1B /* Products */;
 			projectDirPath = "";

@@ -632,6 +632,10 @@ CSSM_RETURN impExpExportKeyCommon(
 		SecImpExpDbg("impExpExportKeyCommon SecKeyGetCSSMKey error");
 		return ortn;
 	}
+	else if(!(unwrappedKey->KeyHeader.KeyAttr & CSSM_KEYATTR_EXTRACTABLE)) {
+		SecImpExpDbg("impExpExportKeyCommon: CSSM key is non-extractable");
+		return errSecDataNotAvailable;
+	}
 
 	/*
 	 * Creds needed only for wrapping private keys.

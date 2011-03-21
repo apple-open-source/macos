@@ -302,6 +302,21 @@ bool SecurityOrigin::taintsCanvas(const KURL& url) const
     return true;
 }
 
+bool SecurityOrigin::canReceiveDragData(const SecurityOrigin* dragInitiator) const
+{
+    if (this == dragInitiator)
+        return true;
+
+    // FIXME: Currently we treat data URLs as having a unique origin, contrary to the
+    // current (9/19/2009) draft of the HTML5 specification. We still want to allow
+    // drop across data URLs, so we special case data URLs below. If we change to
+    // match HTML5 w.r.t. data URL security, then we can remove this check.
+    if (m_protocol == "data")
+        return true;
+
+    return canAccess(dragInitiator);  
+}
+
 bool SecurityOrigin::isAccessWhiteListed(const SecurityOrigin* targetOrigin) const
 {
     if (OriginAccessWhiteList* list = originAccessMap().get(toString())) {
@@ -331,6 +346,18 @@ bool SecurityOrigin::canLoad(const KURL& url, const String& referrer, Document* 
     if (!referrer.isEmpty())
         return shouldTreatURLAsLocal(referrer);
     return false;
+}
+
+bool SecurityOrigin::canDisplay(const KURL& url) const
+{
+    if (!shouldTreatURLAsLocal(url.string()))
+        return true;
+
+    // First check if the access has been white listed.
+    // Then we let its local file policy dictate the result.
+    if (isAccessWhiteListed(SecurityOrigin::create(url).get()))
+        return true;
+    return canLoadLocalResources();
 }
 
 void SecurityOrigin::grantLoadLocalResources()

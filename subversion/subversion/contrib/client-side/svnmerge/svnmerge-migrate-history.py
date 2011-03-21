@@ -17,10 +17,10 @@
 # history and logs, available at http://subversion.tigris.org/.
 # ====================================================================
 
-# $HeadURL: http://svn.collab.net/repos/svn/branches/1.6.x/contrib/client-side/svnmerge/svnmerge-migrate-history.py $
+# $HeadURL: http://svn.apache.org/repos/asf/subversion/branches/1.6.x/contrib/client-side/svnmerge/svnmerge-migrate-history.py $
 # $LastChangedDate: 2009-02-16 20:35:25 +0000 (Mon, 16 Feb 2009) $
 # $LastChangedBy: hwright $
-# $LastChangedRevision: 35895 $
+# $LastChangedRevision: 875969 $
 
 import warnings
 warnings.filterwarnings('ignore', '.*', DeprecationWarning)

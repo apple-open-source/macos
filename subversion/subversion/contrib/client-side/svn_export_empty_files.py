@@ -30,8 +30,8 @@ find what you are looking for.  This script was written to create a
 smaller non-working working copy that can be crawled with find or
 find's locate utility to make it easier to find files.
 
-$HeadURL: http://svn.collab.net/repos/svn/branches/1.6.x/contrib/client-side/svn_export_empty_files.py $
-$LastChangedRevision: 28522 $
+$HeadURL: http://svn.apache.org/repos/asf/subversion/branches/1.6.x/contrib/client-side/svn_export_empty_files.py $
+$LastChangedRevision: 868596 $
 $LastChangedDate: 2007-12-17 22:48:44 +0000 (Mon, 17 Dec 2007) $
 $LastChangedBy: epg $
 """

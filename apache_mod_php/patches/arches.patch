@@ -10,7 +10,7 @@ diff -aur php-5.3.2/acconfig.h php/acconfig.h
  #if defined(__GNUC__) && __GNUC__ >= 4
  # define ZEND_API __attribute__ ((visibility("default")))
  # define ZEND_DLEXPORT __attribute__ ((visibility("default")))
-@@ -120,6 +122,26 @@
+@@ -120,6 +122,29 @@
  #endif
  
  /*
@@ -24,10 +24,13 @@ diff -aur php-5.3.2/acconfig.h php/acconfig.h
 +#  define WORDS_BIGENDIAN 1
 +# endif
 +#/* This symbol must be allowed to be cleared. */ undef SIZEOF_LONG
++#/* This symbol must be allowed to be cleared. */ undef SIZEOF_SIZE_T
 +# ifdef __LP64__
 +#/* This symbol should not be modified by configure. */  define SIZEOF_LONG 8
++#/* This symbol should not be modified by configure. */  define SIZEOF_SIZE_T 8
 +# else
 +#/* This symbol should not be modified by configure. */  define SIZEOF_LONG 4
++#/* This symbol should not be modified by configure. */  define SIZEOF_SIZE_T 4
 +# endif
 +#endif
 +
@@ -38,8 +41,8 @@ diff -aur php-5.3.2/acconfig.h php/acconfig.h
   * tab-width: 4
   * c-basic-offset: 4
 diff -aur php-5.3.2/main/php_config.h.in php/main/php_config.h.in
---- php-5.3.2/main/php_config.h.in	2010-03-03 08:52:40.000000000 -0800
-+++ php/main/php_config.h.in	2010-03-05 16:38:04.000000000 -0800
+--- php-5.3.4/main/php_config.h.in	2010-12-08 13:47:02.000000000 -0800
++++ php/main/php_config.h.in	2010-12-10 14:41:17.000000000 -0800
 @@ -21,6 +21,8 @@
  
  /* $Id: acconfig.h 293155 2010-01-05 20:46:53Z sebastian $ */
@@ -49,7 +52,7 @@ diff -aur php-5.3.2/main/php_config.h.in php/main/php_config.h.in
  #if defined(__GNUC__) && __GNUC__ >= 4
  # define ZEND_API __attribute__ ((visibility("default")))
  # define ZEND_DLEXPORT __attribute__ ((visibility("default")))
-@@ -2993,6 +2995,26 @@
+@@ -2996,6 +2998,29 @@
  #endif
  
  /*
@@ -63,10 +66,13 @@ diff -aur php-5.3.2/main/php_config.h.in php/main/php_config.h.in
 +#  define WORDS_BIGENDIAN 1
 +# endif
 +#/* This symbol must be allowed to be cleared. */ undef SIZEOF_LONG
++#/* This symbol must be allowed to be cleared. */ undef SIZEOF_SIZE_T
 +# ifdef __LP64__
 +#/* This symbol should not be modified by configure. */  define SIZEOF_LONG 8
++#/* This symbol should not be modified by configure. */  define SIZEOF_SIZE_T 8
 +# else
 +#/* This symbol should not be modified by configure. */  define SIZEOF_LONG 4
++#/* This symbol should not be modified by configure. */  define SIZEOF_SIZE_T 4
 +# endif
 +#endif
 +

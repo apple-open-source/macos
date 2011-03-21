@@ -52,6 +52,27 @@ using namespace KeychainCore;
 
 /* 
  * Given an app-specified array of Policies, determine if at least one of them
+ * matches the given policy OID.
+ */
+bool Trust::policySpecified(CFArrayRef policies, const CSSM_OID &inOid)
+{
+	if(policies == NULL) {
+		return false;
+	}
+	CFIndex numPolicies = CFArrayGetCount(policies);
+	for(CFIndex dex=0; dex<numPolicies; dex++) {
+		SecPolicyRef secPol = (SecPolicyRef)CFArrayGetValueAtIndex(policies, dex);
+		SecPointer<Policy> pol = Policy::required(SecPolicyRef(secPol));
+		const CssmOid &oid = pol->oid();
+		if(oid == CssmOid::overlay(inOid)) {
+			return true;
+		}
+	}
+	return false;
+}
+
+/* 
+ * Given an app-specified array of Policies, determine if at least one of them
  * is an explicit revocation policy.
  */
 bool Trust::revocationPolicySpecified(CFArrayRef policies)

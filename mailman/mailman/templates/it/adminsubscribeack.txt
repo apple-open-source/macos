@@ -1,1 +1,0 @@
-%(member)s è stato iscritto con successo a %(listname)s. 

@@ -28,10 +28,10 @@
 #   Raman Gupta <rocketraman at fastmail dot fm> - bidirectional and transitive
 #     merging support
 #
-# $HeadURL: http://svn.collab.net/repos/svn/branches/1.6.x/contrib/client-side/svnmerge/svnmerge.py $
+# $HeadURL: http://svn.apache.org/repos/asf/subversion/branches/1.6.x/contrib/client-side/svnmerge/svnmerge.py $
 # $LastChangedDate: 2009-03-30 17:07:07 +0000 (Mon, 30 Mar 2009) $
 # $LastChangedBy: hwright $
-# $LastChangedRevision: 36856 $
+# $LastChangedRevision: 876930 $
 #
 # Requisites:
 # svnmerge.py has been tested with all SVN major versions since 1.1 (both
@@ -155,7 +155,7 @@ def kwextract(s):
     except IndexError:
         return "<unknown>"
 
-__revision__ = kwextract('$Rev: 36856 $')
+__revision__ = kwextract('$Rev: 876930 $')
 __date__ = kwextract('$Date: 2009-03-30 17:07:07 +0000 (Mon, 30 Mar 2009) $')
 
 # Additional options, not (yet?) mapped to command line flags

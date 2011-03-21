@@ -92,6 +92,7 @@
 #define	SMBV_NT4					0x00000100		/* Tells us the server is a NT4 */
 #define	SMBV_WIN2K_XP				0x00000200		/* Tells us the server is Windows 2000 or XP */
 #define	SMBV_WIN98					0x00000400		/* The server is a Windows 95, 98 or Me OS */
+#define SMBV_DARWIN					0x00000800		/* Mac OS X Server */
 #define SMBV_SERVER_MODE_MASK		0x0000ff00		/* This nible is resvered for special server types */
 #define SMBV_MECHTYPE_KRB5			0x00020000		/* Server supports Kerberos Mech Type */
 #define SMBV_MECHTYPE_NTLMSSP		0x00040000		/* Server supports NTLMSSP Mech Type */
@@ -335,6 +336,8 @@ struct smb_share {
 #define CPTOSS(cp)	((struct smb_share*)(cp))
 #define	SSTOVC(ssp)	CPTOVC(((ssp)->obj.co_parent))
 #define SSTOCP(ssp)	(&(ssp)->obj)
+
+#define VC_CAPS(a) ((a)->vc_sopt.sv_caps)
 
 /*
  * Session level functions

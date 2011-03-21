@@ -1720,10 +1720,12 @@ static void dump_guid(const char *field, struct berval **values)
 static void dump_sid(const char *field, struct berval **values)
 {
 	int i;
+	BOOL ret;
 	for (i=0; values[i]; i++) {
 		DOM_SID sid;
-		sid_parse(values[i]->bv_val, values[i]->bv_len, &sid);
-		printf("%s: %s\n", field, sid_string_static(&sid));
+		ret = sid_parse(values[i]->bv_val, values[i]->bv_len, &sid);
+		if (ret == True)
+			printf("%s: %s\n", field, sid_string_static(&sid));
 	}
 }
 

@@ -105,6 +105,7 @@ private:
 	void				freePreferenceRevocationPolicies(CFArrayRef policies,
 							uint32 numAdded, 
 							Allocator &alloc);
+	bool				policySpecified(CFArrayRef policies, const CSSM_OID &inOid);
 	bool				revocationPolicySpecified(CFArrayRef policies);
 	CFMutableArrayRef	forceOCSPRevocationPolicy(uint32 &numAdded, 
 							Allocator &alloc);

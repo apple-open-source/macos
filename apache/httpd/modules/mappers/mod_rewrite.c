@@ -2349,11 +2349,13 @@ static void do_expand_env(data_item *env, rewrite_ctx *ctx)
         name = do_expand(env->data, ctx, NULL);
         if ((val = ap_strchr(name, ':')) != NULL) {
             *val++ = '\0';
-
-            apr_table_set(ctx->r->subprocess_env, name, val);
-            rewritelog((ctx->r, 5, NULL, "setting env variable '%s' to '%s'",
-                        name, val));
+        } else {
+            val = "";
         }
+
+        apr_table_set(ctx->r->subprocess_env, name, val);
+        rewritelog((ctx->r, 5, NULL, "setting env variable '%s' to '%s'",
+                    name, val));
 
         env = env->next;
     }
@@ -3014,7 +3016,7 @@ static const char *cmd_rewritelock(cmd_parms *cmd, void *dconf, const char *a1)
     lockname = ap_server_root_relative(cmd->pool, a1);
 
     if (!lockname) {
-        return apr_pstrcat(cmd->pool, "Invalid RewriteLock path ", a1);
+        return apr_pstrcat(cmd->pool, "Invalid RewriteLock path ", a1, NULL);
     }
 
     return NULL;
@@ -3178,7 +3180,7 @@ static const char *cmd_rewritecond(cmd_parms *cmd, void *in_dconf,
     }
 
     /* determine the pattern type */
-    newcond->ptype = 0;
+    newcond->ptype = CONDPAT_REGEX;
     if (*a2 && a2[1]) {
         if (!a2[2] && *a2 == '-') {
             switch (a2[1]) {

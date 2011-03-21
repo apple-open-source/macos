@@ -1,9 +1,0 @@
-以下のメーリングリストへの入会申請は、承認が必要です。
-
-    申請者:	%(username)s
-    リスト:	%(listname)s@%(hostname)s
-
-適当な時に、以下のURLで承認作業をしてください。
-
-	%(admindb_url)s
-

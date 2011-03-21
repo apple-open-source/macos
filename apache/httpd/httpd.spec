@@ -5,7 +5,7 @@
 
 Summary: Apache HTTP Server
 Name: httpd
-Version: 2.2.15
+Version: 2.2.17
 Release: 1
 URL: http://httpd.apache.org/
 Vendor: Apache Software Foundation

@@ -185,6 +185,7 @@ namespace JSC {
         JSValue get(ExecState*, unsigned propertyName) const;
         JSValue get(ExecState*, unsigned propertyName, PropertySlot&) const;
         void put(ExecState*, const Identifier& propertyName, JSValue, PutPropertySlot&);
+        void putDirect(ExecState*, const Identifier& propertyName, JSValue, PutPropertySlot&);
         void put(ExecState*, unsigned propertyName, JSValue);
 
         bool needsThisConversion() const;
@@ -847,7 +848,8 @@ namespace JSC {
         return asValue() == jsNull();
     }
 #endif // USE(JSVALUE32_64)
-
+    
+    typedef std::pair<JSValue, UString> ValueStringPair;
 } // namespace JSC
 
 #endif // JSValue_h

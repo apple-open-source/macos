@@ -3757,7 +3757,6 @@ _wrap_svn_txdelta_apply(int argc, VALUE *argv, VALUE self) {
   void **arg7 = (void **) 0 ;
   VALUE _global_svn_swig_rb_pool ;
   apr_pool_t *_global_pool ;
-  unsigned char temp3[APR_MD5_DIGESTSIZE] ;
   svn_txdelta_window_handler_t temp6 ;
   void *temp7 ;
   VALUE vresult = Qnil;
@@ -3767,7 +3766,7 @@ _wrap_svn_txdelta_apply(int argc, VALUE *argv, VALUE self) {
     _global_pool = arg5;
     svn_swig_rb_push_pool(_global_svn_swig_rb_pool);
   }
-  arg3 = temp3;
+  arg3 = NULL;
   arg6 = &temp6;
   arg7 = &temp7;
   if ((argc < 3) || (argc > 4)) {
@@ -3796,10 +3795,6 @@ _wrap_svn_txdelta_apply(int argc, VALUE *argv, VALUE self) {
     
   }
   vresult = rb_ary_new();
-  {
-    char *digest_string = (char *)svn_md5_digest_to_cstring(arg3, _global_pool);
-    vresult = SWIG_Ruby_AppendOutput(vresult, rb_str_new2(digest_string));
-  }
   {
     vresult = SWIG_Ruby_AppendOutput(vresult, SWIG_NewPointerObj(*arg6, SWIGTYPE_p_f_p_svn_txdelta_window_t_p_void__p_svn_error_t, 0));
   }
@@ -7246,7 +7241,6 @@ _wrap_svn_txdelta_apply_wrapper(int argc, VALUE *argv, VALUE self) {
   apr_pool_t *arg7 = (apr_pool_t *) 0 ;
   VALUE _global_svn_swig_rb_pool ;
   apr_pool_t *_global_pool ;
-  unsigned char temp3[APR_MD5_DIGESTSIZE] ;
   svn_txdelta_window_handler_t temp5 ;
   void *temp6 ;
   VALUE vresult = Qnil;
@@ -7256,7 +7250,7 @@ _wrap_svn_txdelta_apply_wrapper(int argc, VALUE *argv, VALUE self) {
     _global_pool = arg7;
     svn_swig_rb_push_pool(_global_svn_swig_rb_pool);
   }
-  arg3 = temp3;
+  arg3 = NULL;
   arg5 = &temp5;
   arg6 = &temp6;
   if ((argc < 3) || (argc > 4)) {
@@ -7285,10 +7279,6 @@ _wrap_svn_txdelta_apply_wrapper(int argc, VALUE *argv, VALUE self) {
     
   }
   vresult = rb_ary_new();
-  {
-    char *digest_string = (char *)svn_md5_digest_to_cstring(arg3, _global_pool);
-    vresult = SWIG_Ruby_AppendOutput(vresult, rb_str_new2(digest_string));
-  }
   {
     vresult = SWIG_Ruby_AppendOutput(vresult, SWIG_NewPointerObj(*arg5, SWIGTYPE_p_f_p_svn_txdelta_window_t_p_void__p_svn_error_t, 0));
   }

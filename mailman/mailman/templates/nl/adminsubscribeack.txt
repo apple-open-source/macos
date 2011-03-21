@@ -1,3 +1,0 @@
-%(member)s is succesvol ingeschreven op de %(listname)s maillijst.
-
-

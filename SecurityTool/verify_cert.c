@@ -75,6 +75,7 @@ verify_cert(int argc, char * const *argv)
 	CSSM_APPLE_TP_SSL_OPTIONS	sslOpts;
 	CSSM_APPLE_TP_SMIME_OPTIONS	smimeOpts;
 	CSSM_APPLE_TP_ACTION_FLAGS actionFlags = 0;
+	bool				forceActionFlags = false;
 	CSSM_APPLE_TP_ACTION_DATA	actionData;
 	CSSM_DATA			optionData;
 	CFDataRef			cfActionData = NULL;
@@ -84,18 +85,20 @@ verify_cert(int argc, char * const *argv)
 	if(argc < 2) {
 		return 2; /* @@@ Return 2 triggers usage message. */
 	}
+	/* permit network cert fetch unless explicitly turned off with '-L' */
+	actionFlags |= CSSM_TP_ACTION_FETCH_CERT_FROM_NET;
 	optind = 1;
-	while ((arg = getopt(argc, argv, "c:r:p:k:e:s:lnq")) != -1) {
+	while ((arg = getopt(argc, argv, "c:r:p:k:e:s:Llnq")) != -1) {
 		switch (arg) {
 			case 'c':
-				/* this can be specifed multiple times */
+				/* this can be specified multiple times */
 				if(addCertFile(optarg, &certs)) {
 					ourRtn = 1;
 					goto errOut;
 				}
 				break;
 			case 'r':
-				/* this can be specifed multiple times */
+				/* this can be specified multiple times */
 				if(addCertFile(optarg, &roots)) {
 					ourRtn = 1;
 					goto errOut;
@@ -115,12 +118,16 @@ verify_cert(int argc, char * const *argv)
 					ourRtn = 1;
 					goto errOut;
 				}
-				/* this can be specifed multiple times */
+				/* this can be specified multiple times */
 				if(keychains == NULL) {
 					keychains = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
 				}	
 				CFArrayAppendValue(keychains, kcRef);
 				CFRelease(kcRef);
+				break;
+			case 'L':
+				actionFlags &= ~CSSM_TP_ACTION_FETCH_CERT_FROM_NET;
+				forceActionFlags = true;
 				break;
 			case 'l':
 				actionFlags |= CSSM_TP_ACTION_LEAF_IS_CA;
@@ -239,7 +246,7 @@ verify_cert(int argc, char * const *argv)
 			goto errOut;
 		}
 	}
-	if(actionFlags) {
+	if(actionFlags || forceActionFlags) {
 		memset(&actionData, 0, sizeof(actionData));
 		actionData.Version = CSSM_APPLE_TP_ACTION_VERSION;
 		actionData.ActionFlags = actionFlags;

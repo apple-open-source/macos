@@ -565,7 +565,10 @@ void Element::setAttribute(const AtomicString& name, const AtomicString& value, 
     else if (!old && !value.isNull())
         namedAttrMap->addAttribute(createAttribute(QualifiedName(nullAtom, localName, nullAtom), value));
     else if (old && !value.isNull()) {
-        old->setValue(value);
+        if (Attr* attrNode = old->attr())
+            attrNode->setValue(value);
+        else
+            old->setValue(value);
         attributeChanged(old);
     }
 
@@ -594,7 +597,10 @@ void Element::setAttribute(const QualifiedName& name, const AtomicString& value,
     else if (!old && !value.isNull())
         namedAttrMap->addAttribute(createAttribute(name, value));
     else if (old) {
-        old->setValue(value);
+        if (Attr* attrNode = old->attr())
+            attrNode->setValue(value);
+        else
+            old->setValue(value);
         attributeChanged(old);
     }
 
@@ -639,8 +645,10 @@ void Element::updateAfterAttributeChanged(Attribute* attr)
         document()->axObjectCache()->contentChanged(renderer());
     } else if (attrName == aria_selectedAttr)
         document()->axObjectCache()->selectedChildrenChanged(renderer());
+    else if (attrName == aria_hiddenAttr)
+        document()->axObjectCache()->childrenChanged(renderer());
 }
-    
+
 void Element::recalcStyleIfNeededAfterAttributeChanged(Attribute* attr)
 {
     if (document()->attached() && document()->styleSelector()->hasSelectorForAttribute(attr->name().localName()))
@@ -1292,9 +1300,6 @@ void Element::focus(bool restorePreviousSelection)
     if (doc->focusedNode() == this)
         return;
 
-    if (!supportsFocus())
-        return;
-
     // If the stylesheets have already been loaded we can reliably check isFocusable.
     // If not, we continue and set the focused node on the focus controller below so
     // that it can be updated soon after attach. 
@@ -1303,6 +1308,9 @@ void Element::focus(bool restorePreviousSelection)
         if (!isFocusable())
             return;
     }
+
+    if (!supportsFocus())
+        return;
 
     RefPtr<Node> protect;
     if (Page* page = doc->page()) {

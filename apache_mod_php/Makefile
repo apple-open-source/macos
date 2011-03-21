@@ -8,10 +8,9 @@
 Project         = php
 ProjectName     = apache_mod_php
 UserType        = Developer
-ToolType        = Plugin
-Submission      = 53.3.1
+ToolType        = Commands
+Submission      = 53.4
 
-GnuAfterInstall	= install-macosx
 # Environment is passed to BOTH configure AND make, which can cause problems if these
 # variables are intended to help configure, but not override the result.
 Environment	= YACC=/usr/local/bin/bison-1.28 \
@@ -21,8 +20,8 @@ Environment	= YACC=/usr/local/bin/bison-1.28 \
 			INSTALL_ROOT="$(DSTROOT)" \
 			TMPDIR="$(TMPDIR)" TEMPDIR="$(TMPDIR)"
 # This allows extra variables to be passed _just_ to configure.
-Extra_Configure_Environment	= CFLAGS="$$RC_CFLAGS -Os" \
-					LDFLAGS="$$RC_CFLAGS -Os" \
+Extra_Configure_Environment	= CFLAGS="$$RC_CFLAGS -Os -g" \
+					LDFLAGS="$$RC_CFLAGS -Os -g" \
 					EXTRA_LIBS="-lresolv" \
 					EXTRA_LDFLAGS_PROGRAM="-mdynamic-no-pic"
 
@@ -60,6 +59,7 @@ Extra_Configure_Flags	= --sysconfdir=$(ETCDIR) \
 			--enable-soap \
 			--enable-sockets \
 			--enable-sysvmsg --enable-sysvsem --enable-sysvshm \
+			--enable-wddx \
 			--with-xmlrpc \
 				--with-iconv-dir=/usr \
 			--with-xsl=/usr \
@@ -77,18 +77,19 @@ ifneq ($(strip $(wildcard /usr/local/include/pcre.*)),)
 Extra_Configure_Flags	+= --with-pcre-regex=/usr
 endif
 
-Dependencies	= libjpeg libpng
 # Let this Makefile manage source copying.
 CommonNoInstallSource	= YES
 
 # Additional project info used with AEP
 AEP		= YES
-AEP_Version	= 5.3.3
+AEP_Version	= 5.3.4
 AEP_LicenseFile	= $(Sources)/LICENSE
 AEP_Patches	= MacOSX_build.patch arches.patch \
-			iconv.patch mysql_sock.patch pear.patch
+			iconv.patch mysql_sock.patch pear.patch phar.patch
 AEP_ConfigDir	= $(ETCDIR)
-AEP_ManPages	= pear.1
+AEP_ManPages	= pear.1 phar.1 phar.phar.1
+Dependencies	= libjpeg libpng
+GnuAfterInstall	= install-macosx
 
 # Used only in this file
 PROJECT_FILES	= Makefile AEP.make $(ProjectName).plist $(AEP_ManPages)
@@ -167,8 +168,13 @@ install-macosx:
 	$(INSTALL_FILE) $(Sources)/php.ini-production $(DSTROOT)$(AEP_ConfigDir)/php.ini.default
 	$(PERL) -i -pe 's|^extension_dir =.*|extension_dir = /usr/lib/php/extensions/no-debug-non-zts-20060613|' $(DSTROOT)$(AEP_ConfigDir)/php.ini.default
 	@echo "$(INSTALL_DIRECTORY) $(DSTROOT)/usr/lib/php/extensions/no-debug-non-zts-20060613"
-	@echo "Removing references to DSTROOT in php-config..."
-	$(CP) $(DSTROOT)$(USRBINDIR)/php-config $(SYMROOT)/php-config && $(SED) -e 's=-L$(DSTROOT)/usr/local/lib==' $(SYMROOT)/php-config | $(SED) -e 's@$(DSTROOT)@@g' > $(DSTROOT)$(USRBINDIR)/php-config
+	@echo "Removing references to DSTROOT in php-config and include files..."
+	$(CP) $(DSTROOT)$(USRBINDIR)/php-config $(SYMROOT)/php-config \
+		&& $(SED) -e 's=-L$(DSTROOT)$(USRDIR)/local/lib==' $(SYMROOT)/php-config \
+		| $(SED) -e 's@$(DSTROOT)@@g' > $(DSTROOT)$(USRBINDIR)/php-config
+	$(CP) $(DSTROOT)$(USRINCLUDEDIR)/$(Project)/main/build-defs.h $(SYMROOT) \
+		&& $(SED) -e 's@$(DSTROOT)@@g' $(SYMROOT)/build-defs.h \
+			> $(DSTROOT)$(USRINCLUDEDIR)/$(Project)/main/build-defs.h
 	@echo "Archiving and stripping binaries..."
 	if [ ! -d $(SYMROOT) ]; then \
 		$(MKDIR) -m 755 $(SYMROOT); \

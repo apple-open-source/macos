@@ -120,6 +120,7 @@ typedef struct
 
 /**
  * Creates a crc32 hash used to split keys between servers
+ * @param mc The memcache client object to use
  * @param data Data to be hashed
  * @param data_len Length of the data to use
  * @return crc32 hash of data
@@ -150,21 +151,20 @@ APU_DECLARE(apr_uint32_t) apr_memcache_hash_default(void *baton,
  * @return server that controls specified hash
  * @see apr_memcache_hash
  */
-APU_DECLARE(apr_memcache_server_t *) apr_memcache_find_server_hash(apr_memcache_t *mc, 
+APU_DECLARE(apr_memcache_server_t *) apr_memcache_find_server_hash(apr_memcache_t *mc,
                                                                    const apr_uint32_t hash);
 
 /**
  * server selection compatible with the standard Perl Client.
  */
-APU_DECLARE(apr_memcache_server_t *)
-apr_memcache_find_server_hash_default(void *baton,
-                                      apr_memcache_t *mc, 
-                                      const apr_uint32_t hash);
+APU_DECLARE(apr_memcache_server_t *) apr_memcache_find_server_hash_default(void *baton,
+                                                                           apr_memcache_t *mc, 
+                                                                           const apr_uint32_t hash);
 
 /**
  * Adds a server to a client object
  * @param mc The memcache client object to use
- * @param ms Server to add
+ * @param server Server to add
  * @remark Adding servers is not thread safe, and should be done once at startup.
  * @warning Changing servers after startup may cause keys to go to
  * different servers.
@@ -267,7 +267,7 @@ APU_DECLARE(void) apr_memcache_add_multget_key(apr_pool_t *data_pool,
 /**
  * Gets multiple values from the server, allocating the values out of p
  * @param mc client to use
- * @param temp_pool Pool used for tempoary allocations. May be cleared inside this
+ * @param temp_pool Pool used for temporary allocations. May be cleared inside this
  *        call.
  * @param data_pool Pool used to allocate data for the returned values.
  * @param values hash of apr_memcache_value_t keyed by strings, contains the
@@ -284,9 +284,12 @@ APU_DECLARE(apr_status_t) apr_memcache_multgetp(apr_memcache_t *mc,
  * @param mc client to use
  * @param key   null terminated string containing the key
  * @param baton data to store on the server
- * @param len   length of data at baton
+ * @param data_size   length of data at baton
  * @param timeout time in seconds for the data to live on the server
  * @param flags any flags set by the client for this key
+ * @bug timeout is not implemented
+ * @bug timeouts for apr must be prototyped in apr_interval_time_t;
+ * this changes in 2.0
  */
 APU_DECLARE(apr_status_t) apr_memcache_set(apr_memcache_t *mc,
                                            const char *key,
@@ -300,7 +303,7 @@ APU_DECLARE(apr_status_t) apr_memcache_set(apr_memcache_t *mc,
  * @param mc client to use
  * @param key   null terminated string containing the key
  * @param baton data to store on the server
- * @param len   length of data at baton
+ * @param data_size   length of data at baton
  * @param timeout time for the data to live on the server
  * @param flags any flags set by the client for this key
  * @return APR_SUCCESS if the key was added, APR_EEXIST if the key 
@@ -318,7 +321,7 @@ APU_DECLARE(apr_status_t) apr_memcache_add(apr_memcache_t *mc,
  * @param mc client to use
  * @param key   null terminated string containing the key
  * @param baton data to store on the server
- * @param len   length of data at baton
+ * @param data_size   length of data at baton
  * @param timeout time for the data to live on the server
  * @param flags any flags set by the client for this key
  * @return APR_SUCCESS if the key was added, APR_EEXIST if the key 
@@ -326,7 +329,7 @@ APU_DECLARE(apr_status_t) apr_memcache_add(apr_memcache_t *mc,
  */
 APU_DECLARE(apr_status_t) apr_memcache_replace(apr_memcache_t *mc,
                                                const char *key,
-                                               char *data,
+                                               char *baton,
                                                const apr_size_t data_size,
                                                apr_uint32_t timeout,
                                                apr_uint16_t flags);
@@ -345,7 +348,7 @@ APU_DECLARE(apr_status_t) apr_memcache_delete(apr_memcache_t *mc,
  * @param mc client to use
  * @param key   null terminated string containing the key
  * @param n     number to increment by
- * @param nv    new value after incrmenting
+ * @param nv    new value after incrementing
  */
 APU_DECLARE(apr_status_t) apr_memcache_incr(apr_memcache_t *mc, 
                                             const char *key,
@@ -357,7 +360,7 @@ APU_DECLARE(apr_status_t) apr_memcache_incr(apr_memcache_t *mc,
  * @param mc client to use
  * @param key   null terminated string containing the key
  * @param n     number to decrement by
- * @param nv    new value after decrementing
+ * @param new_value    new value after decrementing
  */
 APU_DECLARE(apr_status_t) apr_memcache_decr(apr_memcache_t *mc, 
                                             const char *key,

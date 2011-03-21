@@ -17,10 +17,10 @@
 ## quarl 2005-09-01 refactor, documentation; new options: --force, --keep,
 ##                  --simulate, --trace
 
-# $HeadURL: http://svn.collab.net/repos/svn/branches/1.6.x/contrib/server-side/svn-fast-backup $
-# $LastChangedRevision: 23027 $
-# $LastChangedDate: 2007-01-16 04:07:02 +0000 (Tue, 16 Jan 2007) $
-# $LastChangedBy: blair $
+# $HeadURL: http://svn.apache.org/repos/asf/subversion/branches/1.6.x/contrib/server-side/svn-fast-backup $
+# $LastChangedRevision: 923804 $
+# $LastChangedDate: 2010-03-16 15:22:28 +0000 (Tue, 16 Mar 2010) $
+# $LastChangedBy: cmpilato $
 
 # Originally based on svn-hot-backup.py, whose copyright notice states:
 
@@ -251,7 +251,7 @@ def do_rsync_backup():
     ### Use rsync to make a copy.
     # We need to copy the 'current' file first.
     # Don't copy the transactions/ directory.
-    # See http://svn.collab.net/repos/svn/trunk/notes/fsfs
+    # See http://svn.apache.org/repos/asf/subversion/trunk/notes/fsfs
 
     rsync_dest = os.path.join(backup_tmpdir,'')
 

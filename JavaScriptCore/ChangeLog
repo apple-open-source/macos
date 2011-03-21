@@ -1,3 +1,280 @@
+2011-01-27  Mark Rowe  <mrowe@apple.com>
+
+        Merge r73623.
+
+    2010-12-09  Michael Saboff  <msaboff@apple.com>
+
+        Reviewed by Geoffrey Garen.
+
+        Addressed the "FIXME" issues in array sort for toString() methods that
+        mutate the array in either size or contents.  The change is to mark
+        the temporary array contents so that they are not garbage collected
+        and to make sure the array is large enough to hold the contents
+        of the sorted temporary vector.
+        https://bugs.webkit.org/show_bug.cgi?id=50718
+
+        * runtime/Collector.cpp:
+        (JSC::Heap::addTempSortVector):
+        (JSC::Heap::removeTempSortVector):
+        (JSC::Heap::markTempSortVectors):
+        (JSC::Heap::markRoots):
+        * runtime/Collector.h:
+        * runtime/JSArray.cpp:
+        (JSC::JSArray::sort):
+        * runtime/JSValue.h:
+
+2011-01-27  Mark Rowe  <mrowe@apple.com>
+
+        Merge r72209.
+
+    2010-11-17  David Kilzer  <ddkilzer@apple.com>
+
+        <http://webkit.org/b/49634> Make overflow guards in WTF::String::utf8 explicit
+
+        Reviewed by Darin Adler.
+
+        Add an explicit overflow check prior to allocating our buffer,
+        rather than implicitly relying on the guard in convertUTF16ToUTF8.
+
+        * wtf/text/WTFString.cpp:
+        (WTF::String::utf8):
+
+2011-01-27  Mark Rowe  <mrowe@apple.com>
+
+        Merge r69414.
+
+    2010-10-08  Chris Evans  <cevans@google.com>
+
+        Reviewed by David Levin.
+
+        https://bugs.webkit.org/show_bug.cgi?id=47393
+
+        Use unsigned consistently to check for max StringImpl length.
+        Add a few integer overflow checks.
+        Uses the existing paradigm of CRASH() when we can't reasonably handle a crazily large request.
+
+        * wtf/text/WTFString.cpp:
+        * wtf/text/StringImpl.h:
+        * wtf/text/StringImpl.cpp:
+        Better use of size_t vs. unsigned; check for integer overflows.
+
+2011-01-27  Mark Rowe  <mrowe@apple.com>
+
+        Merge r72114.
+
+    2010-11-15  Darin Adler  <darin@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        Harden additional string functions against large lengths
+        https://bugs.webkit.org/show_bug.cgi?id=49574
+
+        * wtf/text/CString.cpp:
+        (WTF::CString::init): Check for length that is too large for CString.
+        (WTF::CString::newUninitialized): Ditto.
+        (WTF::CString::copyBufferIfNeeded): Fix types so the length stays
+        in a size_t.
+
+        * wtf/text/WTFString.cpp:
+        (WTF::String::append): Check for length that is too large.
+
+2011-01-27  Mark Rowe  <mrowe@apple.com>
+
+        Merge r71867.
+
+    2010-11-11  Darin Adler  <darin@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        Harden some string functions against large lengths
+        https://bugs.webkit.org/show_bug.cgi?id=49293
+
+        * wtf/text/StringImpl.cpp:
+        (WTF::StringImpl::create): Fix incorrect use of PassRefPtr. Check for
+        strlen results that are too large for StringImpl.
+        (WTF::StringImpl::lower): Check for lengths that are too large for
+        int32_t.
+        (WTF::StringImpl::upper): Fix incorrect use of PassRefPtr. Check for
+        lengths that are too large for int32_t.
+        (WTF::StringImpl::secure): Fix incorect use of PassRefPtr. Use unsigned
+        rather than int and int32_t so we can handle any length.
+        (WTF::StringImpl::foldCase): Fix incorrect use of PassRefPtr. Check for
+        lengths that are too large for int32_t.
+        (WTF::StringImpl::find): Check for strlen results that are too large for
+        StringImpl.
+        (WTF::StringImpl::findIgnoringCase): Ditto.
+        (WTF::StringImpl::replace): Fix incorrect use of PassRefPtr.
+        (WTF::StringImpl::createWithTerminatingNullCharacter): Check before
+        incrementing length.
+
+2011-01-27  Mark Rowe  <mrowe@apple.com>
+
+        Merge r65920.
+
+    2010-08-24  Oliver Hunt  <oliver@apple.com>
+
+        Reviewed by Beth Dakin.
+
+        Make overflow guards in UString::utf8 explicit
+        https://bugs.webkit.org/show_bug.cgi?id=44540
+
+        Add an explicit overflow check prior to allocating our buffer,
+        rather than implicitly relying on the guard in convertUTF16ToUTF8.
+
+        * runtime/UString.cpp:
+        (JSC::UString::utf8):
+
+2011-01-27  Mark Rowe  <mrowe@apple.com>
+
+        Merge r74887.
+
+    2011-01-02  Dan Bernstein  <mitz@apple.com>
+
+        Rubber-stamped by Simon Fraser.
+
+        <rdar://problem/8812159> Update copyright strings
+
+        * Info.plist:
+
+2010-10-01  Mark Rowe  <mrowe@apple.com>
+
+        Merge r68812.
+
+    2010-09-29  Sam Weinig  <sam@webkit.org>
+
+        Reviewed by Darin Adler.
+
+        Add additional checks to StringBuffer.
+        <rdar://problem/7756381>
+
+        * wtf/text/StringBuffer.h:
+        (WTF::StringBuffer::StringBuffer):
+        (WTF::StringBuffer::resize):
+
+2010-09-29  Mark Rowe  <mrowe@apple.com>
+
+        Merge r66119.
+
+    2010-08-25  Oliver Hunt  <oliver@apple.com>
+
+        Reviewed by Geoffrey Garen.
+
+        Improve overflow handling in StringImpl::Replace
+        https://bugs.webkit.org/show_bug.cgi?id=42502
+        <rdar://problem/8203794>
+
+        Harden StringImpl::replace against overflow -- I can't see how this
+        could be abused, but it's better to be safe than sorry.
+
+        * wtf/text/StringImpl.cpp:
+        (WTF::StringImpl::replace):
+
+2010-09-29  Mark Rowe  <mrowe@apple.com>
+
+        Merge r65947.
+
+    2010-08-24  Oliver Hunt  <oliver@apple.com>
+
+        Reviewed by Geoff Garen.
+
+        Don't seed the JS random number generator from time()
+        https://bugs.webkit.org/show_bug.cgi?id=41868
+        <rdar://problem/8171025>
+
+        Switch to using the secure random number generator to
+        seed the fast random generator, and make the generator
+        be per global object.
+
+        * runtime/JSGlobalData.cpp:
+        (JSC::JSGlobalData::JSGlobalData):
+        * runtime/JSGlobalData.h:
+        * runtime/JSGlobalObject.h:
+        (JSC::JSGlobalObject::JSGlobalObjectData::JSGlobalObjectData):
+        (JSC::JSGlobalObject::weakRandomNumber):
+        * runtime/MathObject.cpp:
+        (JSC::mathProtoFuncRandom):
+
+2010-09-28  Mark Rowe  <mrowe@apple.com>
+
+        Merge r65847.
+
+    2010-08-23  Oliver Hunt  <oliver@apple.com>
+
+        Reviewed by Darin Adler.
+
+        [REGRESSION] Interpreter incorrectly excludes prototype chain when validating put_by_id_transition
+        https://bugs.webkit.org/show_bug.cgi?id=44240
+        <rdar://problem/8328995>
+
+        Fix an error I introduced when cleaning up the interpreter side of the logic
+        to prevent setters being called in object initialisers.
+
+        * interpreter/Interpreter.cpp:
+        (JSC::Interpreter::privateExecute):
+
+2010-09-28  Mark Rowe  <mrowe@apple.com>
+
+        Merge r62896.
+
+    2010-07-08  Oliver Hunt  <oliver@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        Property declarations in an object literal should not consider the prototype chain when being added to the new object
+        https://bugs.webkit.org/show_bug.cgi?id=41929
+
+        To fix this all we need to do is ensure that all new properties are
+        added with putDirect rather than a fully generic call to put.  This
+        is safe as an object literal is by definition going to produce a
+        completely normal object.
+
+        Rather than duplicating all the put_by_id logic we add an additional
+        flag to op_put_by_id to indicate it should be using putDirect.  In
+        the interpreter this adds a runtime branch, but in the jit this is
+        essentially free as the branch is taken at compile time.  This does
+        actually improve object literal creation time even in the interpreter
+        as we no longer need to walk the prototype chain to verify that the
+        cached put is safe.
+
+        We still emit normal put_by_id code when emitting __proto__ as we want
+        to get the correct handling for changing the prototype.
+
+        Sunspider claims this is a 0.7% speedup which is conceivably real due
+        to the performance improvement in object literals, but I suspect its
+        really just the result of code motion.
+
+        * bytecode/Opcode.h:
+        * bytecompiler/BytecodeGenerator.cpp:
+        (JSC::BytecodeGenerator::emitPutById):
+        (JSC::BytecodeGenerator::emitDirectPutById):
+        * bytecompiler/BytecodeGenerator.h:
+        * bytecompiler/NodesCodegen.cpp:
+        (JSC::PropertyListNode::emitBytecode):
+        * interpreter/Interpreter.cpp:
+        (JSC::Interpreter::privateExecute):
+        * jit/JIT.h:
+        (JSC::JIT::compilePutByIdTransition):
+        * jit/JITPropertyAccess.cpp:
+        (JSC::JIT::emit_op_put_by_id):
+        (JSC::JIT::emitSlow_op_put_by_id):
+        (JSC::JIT::privateCompilePutByIdTransition):
+        (JSC::JIT::patchPutByIdReplace):
+        * jit/JITPropertyAccess32_64.cpp:
+        (JSC::JIT::emitSlow_op_put_by_id):
+        (JSC::JIT::privateCompilePutByIdTransition):
+        (JSC::JIT::patchPutByIdReplace):
+        * jit/JITStubs.cpp:
+        (JSC::JITThunks::tryCachePutByID):
+        (JSC::DEFINE_STUB_FUNCTION):
+        * jit/JITStubs.h:
+        (JSC::):
+        * runtime/JSGlobalData.cpp:
+        (JSC::JSGlobalData::JSGlobalData):
+        * runtime/JSObject.h:
+        (JSC::JSObject::putDirect):
+        (JSC::JSValue::putDirect):
+        * runtime/JSValue.h:
+
 2010-08-09  Mark Rowe  <mrowe@apple.com>
 
         Merge r64706.

@@ -76,7 +76,7 @@ extern enum WEBDAVLIBAuthStatus queryForProxy(CFURLRef a_url, CFMutableDictionar
 
 
 //
-// enum WEBDAVLIBAuthStatus connectToServer(CFURLRef a_url, CFDictionaryRef creds, int *error)
+// enum WEBDAVLIBAuthStatus connectToServer(CFURLRef a_url, CFDictionaryRef creds, boolean_t requireSecureLogin, int *error)
 //
 // Test if a connection can be established with a server by sending an OPTIONS request,
 // performing authentication when required.  SSL connections are supported.  This provides
@@ -89,6 +89,10 @@ extern enum WEBDAVLIBAuthStatus queryForProxy(CFURLRef a_url, CFMutableDictionar
 //			kWebDAVLibPasswordKey		(CFString)
 //			kWebDAVLibProxyUserNameKey	(CFString)
 //			kWebDAVLibProxyPasswordKey	(CFString)
+//
+// If 'requireSecureLogin' is TRUE, then the connection will fail (EAUTH) if credentials cannot be
+// sent securely (fails for Basic Authentication without an SSL connection).  In this case the
+// return value is  WEBDAVLIB_ServerAuth or  WEBDAVLIB_ProxyAuth and 'error' is set to EAUTH.
 //
 // Return Values:
 //
@@ -115,6 +119,6 @@ extern enum WEBDAVLIBAuthStatus queryForProxy(CFURLRef a_url, CFMutableDictionar
 #define kWebDAVLibProxyUserNameKey	CFSTR("ProxyUserName")
 #define kWebDAVLibProxyPasswordKey	CFSTR("ProxyPassword")
 
-extern enum WEBDAVLIBAuthStatus connectToServer(CFURLRef a_url, CFDictionaryRef creds, int *error);
+extern enum WEBDAVLIBAuthStatus connectToServer(CFURLRef a_url, CFDictionaryRef creds, boolean_t requireSecureLogin, int *error);
 
 #endif

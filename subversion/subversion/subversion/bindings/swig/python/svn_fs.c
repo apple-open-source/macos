@@ -6381,7 +6381,7 @@ SWIGINTERN PyObject *_wrap_svn_fs_paths_changed2(PyObject *SWIGUNUSEDPARM(self),
   }
   {
     resultobj = SWIG_Python_AppendOutput(resultobj, svn_swig_py_convert_hash(*arg1,
-        SWIGTYPE_p_svn_fs_path_change_t,
+        SWIGTYPE_p_svn_fs_path_change2_t,
         _global_py_pool));
   }
   {
@@ -10433,7 +10433,7 @@ static PyMethodDef SwigMethods[] = {
 		"svn_fs_path_change2_create(svn_fs_id_t node_rev_id, svn_fs_path_change_kind_t change_kind, \n"
 		"    apr_pool_t pool) -> svn_fs_path_change2_t\n"
 		""},
-	 { (char *)"svn_fs_paths_changed2", _wrap_svn_fs_paths_changed2, METH_VARARGS, (char *)"svn_fs_paths_changed2(apr_hash_t changed_paths_p, svn_fs_root_t root, apr_pool_t pool) -> svn_error_t"},
+	 { (char *)"svn_fs_paths_changed2", _wrap_svn_fs_paths_changed2, METH_VARARGS, (char *)"svn_fs_paths_changed2(apr_hash_t changed_paths2_p, svn_fs_root_t root, apr_pool_t pool) -> svn_error_t"},
 	 { (char *)"svn_fs_paths_changed", _wrap_svn_fs_paths_changed, METH_VARARGS, (char *)"svn_fs_paths_changed(apr_hash_t changed_paths_p, svn_fs_root_t root, apr_pool_t pool) -> svn_error_t"},
 	 { (char *)"svn_fs_check_path", _wrap_svn_fs_check_path, METH_VARARGS, (char *)"\n"
 		"svn_fs_check_path(svn_node_kind_t kind_p, svn_fs_root_t root, char path, \n"

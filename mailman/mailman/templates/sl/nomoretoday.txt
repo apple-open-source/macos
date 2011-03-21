@@ -1,9 +1,0 @@
-Z va¹ega e-po¹tnega naslova `%(sender)s' smo prejeli zahtevo za
-samodejni odgovor s po¹tnega seznama %(listname)s. Danes smo s
-tega naslova prejeli ¾e %(num)s sporoèil. Da bi se izognili te¾avam,
-kot so po¹tne zanke v programih za e-po¹to, vam danes ne bomo veè
-po¹iljali takih odgovorov. Poskusite znova jutri.
-
-Èe menite, da je pri¹lo do napake, ali èe imate kak¹na vpra¹anja,
-se obrnite na skrbnika seznama na naslov %(owneremail)s.
-

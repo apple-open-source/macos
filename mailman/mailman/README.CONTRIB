@@ -1,17 +1,0 @@
-Mailman - The GNU Mailing List Management System
-Copyright (C) 2001,2002 by the Free Software Foundation, Inc.
-51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA
-
-Encrypted mailing lists
-
-    Raphinou <rb@raphinou.com> has documented a setup for encrypted
-    mailing lists at
-
-        http://www.raphinou.com/smailman
-
-
-
-Local Variables:
-mode: indented-text
-indent-tabs-mode: nil
-End:

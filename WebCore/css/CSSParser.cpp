@@ -66,12 +66,12 @@
 #include "Pair.h"
 #include "Rect.h"
 #include "ShadowValue.h"
-#include "StringBuffer.h"
 #include "WebKitCSSKeyframeRule.h"
 #include "WebKitCSSKeyframesRule.h"
 #include "WebKitCSSTransformValue.h"
 #include <limits.h>
 #include <wtf/dtoa.h>
+#include <wtf/text/StringBuffer.h>
 
 #if ENABLE(DASHBOARD_SUPPORT)
 #include "DashboardRegion.h"
@@ -329,6 +329,9 @@ void CSSParser::parseSelector(const String& string, Document* doc, CSSSelectorLi
     cssyyparse(this);
 
     m_selectorListForParseSelector = 0;
+
+    // The style sheet will be deleted right away, so it won't outlive the document.
+    ASSERT(dummyStyleSheet->hasOneRef());
 }
 
 bool CSSParser::parseDeclaration(CSSMutableStyleDeclaration* declaration, const String& string)
@@ -3514,7 +3517,7 @@ bool CSSParser::parseFontFaceSrc()
             // There are two allowed functions: local() and format().             
             CSSParserValueList* args = val->function->args;
             if (args && args->size() == 1) {
-                if (equalIgnoringCase(val->function->name, "local(") && !expectComma) {
+                if (equalIgnoringCase(val->function->name, "local(") && !expectComma && (args->current()->unit == CSSPrimitiveValue::CSS_STRING || args->current()->unit == CSSPrimitiveValue::CSS_IDENT)) {
                     expectComma = true;
                     allowFormat = false;
                     CSSParserValue* a = args->current();

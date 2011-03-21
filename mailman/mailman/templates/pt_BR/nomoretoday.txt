@@ -1,8 +1,0 @@
-Foi recebida uma mensagem de seu endereço '%(sender)s' requisitando uma
-resposta automática da lista de discussão %(listname)s. Foram verificadas
-%(num)s de tais mensagens vindas de seu endereço hoje. Para evitar problemas como
-loops de e-mails entre robôs de e-mails, não estarão sendo mais encaminhadas respostas
-para seu endereço hoje. Por favor, tente novamente amanhã. 
-
-Se acreditar que esta mensagem é um erro, ou tiver quaisquer questões, 
-contacte o dono da lista em %(owneremail)s.

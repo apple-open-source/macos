@@ -5,6 +5,6 @@
 #ifndef UI_H
 #define UI_H
 
-extern SInt32 AlertZFSNotInstalled(void);
+extern SInt32 AlertCoreStorageNotInstalled(void);
 
 #endif

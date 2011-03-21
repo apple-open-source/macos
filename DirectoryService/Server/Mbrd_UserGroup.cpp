@@ -187,19 +187,27 @@ void UserGroup_Merge( UserGroup *existing, UserGroup *source, bool includeMember
 	}
 	
 	// X509 field
-	for ( int ii = 0; ii < kMaxAltIdentities; ii++ ) {
-		DSFree( existing->fX509DN[ii] );
-		if ( source->fX509DN[ii] != NULL ) {
-			existing->fX509DN[ii] = strdup( source->fX509DN[ii] );
+	if (source->fFlags & kUGFlagHasX509DN) {
+		for ( int ii = 0; ii < kMaxAltIdentities; ii++ ) {
+			DSFree( existing->fX509DN[ii] );
+			if ( source->fX509DN[ii] != NULL ) {
+				existing->fX509DN[ii] = strdup( source->fX509DN[ii] );
+			}
 		}
+	} else {
+		existing->fFlags &= ~kUGFlagHasX509DN;
 	}
 	
 	// Kerberos field
-	for ( int ii = 0; ii < kMaxAltIdentities; ii++ ) {
-		DSFree( existing->fKerberos[ii] );
-		if ( source->fKerberos[ii] != NULL ) {
-			existing->fKerberos[ii] = strdup( source->fKerberos[ii] );
+	if (source->fFlags & kUGFlagHasKerberos) {
+		for ( int ii = 0; ii < kMaxAltIdentities; ii++ ) {
+			DSFree( existing->fKerberos[ii] );
+			if ( source->fKerberos[ii] != NULL ) {
+				existing->fKerberos[ii] = strdup( source->fKerberos[ii] );
+			}
 		}
+	} else {
+		existing->fFlags &= ~kUGFlagHasKerberos;
 	}
 	
 	existing->fRecordType = source->fRecordType;

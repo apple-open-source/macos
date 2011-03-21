@@ -17,10 +17,10 @@
 # history and logs, available at http://subversion.tigris.org/.
 # ====================================================================
 
-# $HeadURL: http://svn.collab.net/repos/svn/branches/1.6.x/contrib/client-side/svnmerge/svnmerge-migrate-history-remotely.py $
+# $HeadURL: http://svn.apache.org/repos/asf/subversion/branches/1.6.x/contrib/client-side/svnmerge/svnmerge-migrate-history-remotely.py $
 # $Date: 2009-01-20 22:25:54 +0000 (Tue, 20 Jan 2009) $
 # $Author: cmpilato $
-# $Rev: 35358 $
+# $Rev: 875432 $
 
 
 ### THE SVNMERGE HISTORY MIGRATION ALGORITHM EMPLOYED HEREIN

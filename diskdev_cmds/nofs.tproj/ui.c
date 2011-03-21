@@ -1,21 +1,17 @@
 /*
- * Copyright (c) 2009 Apple Inc. All rights reserved.
+ * Copyright (c) 2009-2010 Apple Inc. All rights reserved.
  */
 
 #include <CoreFoundation/CoreFoundation.h>
 #include <CoreFoundation/CFUserNotificationPriv.h>
 #include "ui.h"
 
-#define ZFS_NOT_INSTALLED_HEADER_KEY \
-	"The disk you inserted was not readable by this computer."
-#define ZFS_NOT_INSTALLED_MSG_KEY \
-	"This disk is formatted with the ZFS format. Your files and " \
-	"information are still on the disk, but you cannot access " \
-	"them with the version of the software you have installed."
+#define CS_NOT_INSTALLED_HEADER_KEY "CS_NOT_INSTALLED_HEADER_KEY"
+#define CS_NOT_INSTALLED_MSG_KEY "CS_NOT_INSTALLED_MSG_KEY"
 #define OK_KEY "OK"
 
 SInt32
-AlertZFSNotInstalled(void)
+AlertCoreStorageNotInstalled(void)
 {
 	CFMutableDictionaryRef noteDict;
 	CFUserNotificationRef noteRef = NULL;
@@ -43,10 +39,10 @@ AlertZFSNotInstalled(void)
 
 	CFDictionarySetValue(noteDict,
 	                   kCFUserNotificationAlertHeaderKey,
-	                   CFSTR(ZFS_NOT_INSTALLED_HEADER_KEY));
+	                   CFSTR(CS_NOT_INSTALLED_HEADER_KEY));
 	CFDictionarySetValue(noteDict,
 	                   kCFUserNotificationAlertMessageKey,
-	                   CFSTR(ZFS_NOT_INSTALLED_MSG_KEY));
+	                   CFSTR(CS_NOT_INSTALLED_MSG_KEY));
 	CFDictionaryAddValue(noteDict,
 	                   kCFUserNotificationDefaultButtonTitleKey,
 	                   CFSTR(OK_KEY));

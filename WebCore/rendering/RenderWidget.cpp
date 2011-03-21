@@ -158,7 +158,6 @@ RenderWidget::~RenderWidget()
 
 bool RenderWidget::setWidgetGeometry(const IntRect& frame)
 {
-    ASSERT(!widgetHierarchyUpdateSuspendCount);
     if (!node())
         return false;
 
@@ -233,6 +232,12 @@ void RenderWidget::showSubstituteImage(PassRefPtr<Image> prpImage)
 {
     m_substituteImage = prpImage;
     repaint();
+}
+
+void RenderWidget::notifyWidget(WidgetNotification notification)
+{
+    if (m_widget)
+        m_widget->notifyWidget(notification);
 }
 
 void RenderWidget::paint(PaintInfo& paintInfo, int tx, int ty)

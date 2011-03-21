@@ -43,7 +43,7 @@ RSC=rc.exe
 # PROP Intermediate_Dir "LibR"
 # PROP Target_Dir ""
 # ADD BASE CPP /nologo /MD /W3 /O2 /D "WIN32" /D "NDEBUG" /D "_WINDOWS" /D "_MBCS" /FD /c
-# ADD CPP /nologo /MD /W3 /Zi /O2 /Oy- /I "." /D "WIN32" /D "NDEBUG" /D "_WINDOWS" /D "_MBCS" /D VERSION=\"expat_1.95.2\" /Fo"$(INTDIR)\" /Fd"$(OUTDIR)\xml" /FD /c
+# ADD CPP /nologo /MD /W3 /Zi /O2 /Oy- /I "." /D "WIN32" /D "NDEBUG" /D "_WINDOWS" /D "_MBCS" /D "COMPILED_FROM_DSP" /D "XML_STATIC" /Fo"$(INTDIR)\" /Fd"$(OUTDIR)\xml" /FD /c
 # ADD BASE RSC /l 0x409
 # ADD RSC /l 0x409
 BSC32=bscmake.exe
@@ -67,7 +67,7 @@ LIB32=link.exe -lib
 # PROP Ignore_Export_Lib 0
 # PROP Target_Dir ""
 # ADD BASE CPP /nologo /MDd /W3 /Zi /Od /D "WIN32" /D "_DEBUG" /D "_WINDOWS" /D "_MBCS" /FD /EHsc /c
-# ADD CPP /nologo /MDd /W3 /Zi /Od /I "." /D "WIN32" /D "_DEBUG" /D "_WINDOWS" /D "_MBCS" /D VERSION=\"expat_1.95.2\" /Fo"$(INTDIR)\" /Fd"$(OUTDIR)\xml" /FD /EHsc /c
+# ADD CPP /nologo /MDd /W3 /Zi /Od /I "." /D "WIN32" /D "_DEBUG" /D "_WINDOWS" /D "_MBCS" /D "COMPILED_FROM_DSP" /D "XML_STATIC" /Fo"$(INTDIR)\" /Fd"$(OUTDIR)\xml" /FD /EHsc /c
 # ADD BASE RSC /l 0x409
 # ADD RSC /l 0x409
 BSC32=bscmake.exe
@@ -90,7 +90,7 @@ LIB32=link.exe -lib
 # PROP Intermediate_Dir "x64\LibR"
 # PROP Target_Dir ""
 # ADD BASE CPP /nologo /MD /W3 /O2 /D "WIN32" /D "NDEBUG" /D "_WINDOWS" /D "_MBCS" /FD /c
-# ADD CPP /nologo /MD /W3 /Zi /O2 /Oy- /I "." /D "WIN32" /D "NDEBUG" /D "_WINDOWS" /D "_MBCS" /D VERSION=\"expat_1.95.2\" /Fo"$(INTDIR)\" /Fd"$(OUTDIR)\xml" /FD /c
+# ADD CPP /nologo /MD /W3 /Zi /O2 /Oy- /I "." /D "WIN32" /D "NDEBUG" /D "_WINDOWS" /D "_MBCS" /D "COMPILED_FROM_DSP" /D "XML_STATIC" /Fo"$(INTDIR)\" /Fd"$(OUTDIR)\xml" /FD /c
 # ADD BASE RSC /l 0x409
 # ADD RSC /l 0x409
 BSC32=bscmake.exe
@@ -114,7 +114,7 @@ LIB32=link.exe -lib
 # PROP Ignore_Export_Lib 0
 # PROP Target_Dir ""
 # ADD BASE CPP /nologo /MDd /W3 /Zi /Od /D "WIN32" /D "_DEBUG" /D "_WINDOWS" /D "_MBCS" /FD /EHsc /c
-# ADD CPP /nologo /MDd /W3 /Zi /Od /I "." /D "WIN32" /D "_DEBUG" /D "_WINDOWS" /D "_MBCS" /D VERSION=\"expat_1.95.2\" /Fo"$(INTDIR)\" /Fd"$(OUTDIR)\xml" /FD /EHsc /c
+# ADD CPP /nologo /MDd /W3 /Zi /Od /I "." /D "WIN32" /D "_DEBUG" /D "_WINDOWS" /D "_MBCS" /D "COMPILED_FROM_DSP" /D "XML_STATIC" /Fo"$(INTDIR)\" /Fd"$(OUTDIR)\xml" /FD /EHsc /c
 # ADD BASE RSC /l 0x409
 # ADD RSC /l 0x409
 BSC32=bscmake.exe
@@ -171,10 +171,6 @@ SOURCE=.\asciitab.h
 # End Source File
 # Begin Source File
 
-SOURCE=.\config.h
-# End Source File
-# Begin Source File
-
 SOURCE=.\expat.h
 # End Source File
 # Begin Source File
@@ -195,6 +191,10 @@ SOURCE=.\utf8tab.h
 # End Source File
 # Begin Source File
 
+SOURCE=.\winconfig.h
+# End Source File
+# Begin Source File
+
 SOURCE=.\xmlrole.h
 # End Source File
 # Begin Source File
@@ -204,104 +204,6 @@ SOURCE=.\xmltok.h
 # Begin Source File
 
 SOURCE=.\xmltok_impl.h
-# End Source File
-# End Group
-# Begin Group "Generated Header Files"
-
-# PROP Default_Filter ""
-# Begin Source File
-
-SOURCE=.\expat.h.in
-
-!IF  "$(CFG)" == "xml - Win32 Release"
-
-# Begin Custom Build - Creating expat.h from expat.h.in 
-InputPath=.\expat.h.in
-
-".\expat.h" : $(SOURCE) "$(INTDIR)" "$(OUTDIR)"
-	type .\expat.h.in > .\expat.h
-	
-# End Custom Build
-
-!ELSEIF  "$(CFG)" == "xml - Win32 Debug"
-
-# Begin Custom Build - Creating expat.h from expat.h.in 
-InputPath=.\expat.h.in
-
-".\expat.h" : $(SOURCE) "$(INTDIR)" "$(OUTDIR)"
-	type .\expat.h.in > .\expat.h
-	
-# End Custom Build
-
-!ELSEIF  "$(CFG)" == "xml - x64 Release"
-
-# Begin Custom Build - Creating expat.h from expat.h.in 
-InputPath=.\expat.h.in
-
-".\expat.h" : $(SOURCE) "$(INTDIR)" "$(OUTDIR)"
-	type .\expat.h.in > .\expat.h
-	
-# End Custom Build
-
-!ELSEIF  "$(CFG)" == "xml - x64 Debug"
-
-# Begin Custom Build - Creating expat.h from expat.h.in 
-InputPath=.\expat.h.in
-
-".\expat.h" : $(SOURCE) "$(INTDIR)" "$(OUTDIR)"
-	type .\expat.h.in > .\expat.h
-	
-# End Custom Build
-
-!ENDIF 
-
-# End Source File
-# Begin Source File
-
-SOURCE=.\winconfig.h
-
-!IF  "$(CFG)" == "xml - Win32 Release"
-
-# Begin Custom Build - Creating config.h from winconfig.h 
-InputPath=.\winconfig.h
-
-".\config.h" : $(SOURCE) "$(INTDIR)" "$(OUTDIR)"
-	type .\winconfig.h > .\config.h
-	
-# End Custom Build
-
-!ELSEIF  "$(CFG)" == "xml - Win32 Debug"
-
-# Begin Custom Build - Creating config.h from winconfig.h 
-InputPath=.\winconfig.h
-
-".\config.h" : $(SOURCE) "$(INTDIR)" "$(OUTDIR)"
-	type .\winconfig.h > .\config.h
-	
-# End Custom Build
-
-!ELSEIF  "$(CFG)" == "xml - x64 Release"
-
-# Begin Custom Build - Creating config.h from winconfig.h 
-InputPath=.\winconfig.h
-
-".\config.h" : $(SOURCE) "$(INTDIR)" "$(OUTDIR)"
-	type .\winconfig.h > .\config.h
-	
-# End Custom Build
-
-!ELSEIF  "$(CFG)" == "xml - x64 Debug"
-
-# Begin Custom Build - Creating config.h from winconfig.h 
-InputPath=.\winconfig.h
-
-".\config.h" : $(SOURCE) "$(INTDIR)" "$(OUTDIR)"
-	type .\winconfig.h > .\config.h
-	
-# End Custom Build
-
-!ENDIF 
-
 # End Source File
 # End Group
 # Begin Source File

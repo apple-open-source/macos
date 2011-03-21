@@ -90,14 +90,66 @@ getsp(spidx)
  */
 #if 1
 struct secpolicy *
-getsp_r(spidx)
+getsp_r(spidx, iph2)
 	struct policyindex *spidx;
+	struct ph2handle *iph2;
 {
 	struct secpolicy *p;
+	int mismatched_outer_addr = 0;
 
 	for (p = TAILQ_FIRST(&sptree); p; p = TAILQ_NEXT(p, chain)) {
-		if (!cmpspidxwild(spidx, &p->spidx))
-			return p;
+		if (!cmpspidxwild(spidx, &p->spidx)) {
+			if (spidx->dir != IPSEC_DIR_ANY) {
+				struct ipsecrequest *isr;
+				for (isr = p->req; isr != NULL; isr = isr->next) {
+					if (isr->saidx.mode != IPSEC_MODE_TUNNEL) {
+						plog(LLV_DEBUG2, LOCATION, NULL, "%s, skipping policy. dir %d, mode %d\n",
+							 __FUNCTION__, spidx->dir, isr->saidx.mode);
+						continue;
+					}
+
+					// for tunnel mode: verify the outer ip addresses match the phase2's addresses
+					if (spidx->dir == IPSEC_DIR_INBOUND) {
+						// TODO: look out for wildcards
+						if (!cmpsaddrwop(iph2->dst, (struct sockaddr *)&isr->saidx.src) &&
+							!cmpsaddrwop(iph2->src, (struct sockaddr *)&isr->saidx.dst)) {
+							plog(LLV_DEBUG2, LOCATION, NULL, "%s, inbound policy outer addresses matched phase2's addresses\n",
+								 __FUNCTION__);
+							return p;
+						} else {
+							mismatched_outer_addr = 1;
+						}
+					} else if (spidx->dir == IPSEC_DIR_OUTBOUND) {
+						// TODO: look out for wildcards
+						if (!cmpsaddrwop(iph2->src, (struct sockaddr *)&isr->saidx.src) &&
+							!cmpsaddrwop(iph2->dst, (struct sockaddr *)&isr->saidx.dst)) {
+							plog(LLV_DEBUG2, LOCATION, NULL, "%s, outbound policy outer addresses matched phase2's addresses\n",
+								 __FUNCTION__);
+							return p;
+						} else {
+							mismatched_outer_addr = 1;
+						}
+					} else {
+						mismatched_outer_addr = 1;
+					}
+					if (mismatched_outer_addr) {
+						plog(LLV_DEBUG2, LOCATION, NULL, "%s, policy outer addresses matched phase2's addresses: dir %d\n",
+							 __FUNCTION__, spidx->dir);
+						plog(LLV_DEBUG, LOCATION, NULL, "src1: %s\n",
+							 saddr2str(iph2->src));
+						plog(LLV_DEBUG, LOCATION, NULL, "src2: %s\n",
+							 saddr2str((struct sockaddr *)&isr->saidx.src));
+						plog(LLV_DEBUG, LOCATION, NULL, "dst1: %s\n",
+							 saddr2str(iph2->dst));
+						plog(LLV_DEBUG, LOCATION, NULL, "dst2: %s\n",
+							 saddr2str((struct sockaddr *)&isr->saidx.dst));
+					}
+				}
+			}
+			if (!mismatched_outer_addr) {
+				return p;
+			}
+		}
 	}
 
 	return NULL;

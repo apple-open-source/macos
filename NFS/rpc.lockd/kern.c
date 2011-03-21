@@ -113,8 +113,8 @@ static OWNER owner;
 
 static char hostname[MAXHOSTNAMELEN + 1];	/* Hostname. */
 
-static time_t shutdown_time_client = 1;
-static time_t shutdown_time_server = 1;
+static time_t shutdown_time_client = 0;
+static time_t shutdown_time_server = 0;
 
 static void	set_auth(CLIENT *cl, struct xucred *ucred);
 int	lock_request(LOCKD_MSG *);
@@ -181,7 +181,7 @@ shutdown_timer(void)
 	/* shut down statd too */
 	statd_stop();
 
-	handle_sig_cleanup(SIGTERM);
+	handle_sig_cleanup(0);
 	/*NOTREACHED*/
 }
 
@@ -308,12 +308,6 @@ svc_lockd_shutdown(mach_port_t mp __attribute__((unused)))
 		return (KERN_FAILURE);
 	}
 
-	if ((shutdown_time_client == 1) && (shutdown_time_server == 1)) {
-		/* both times have their init values - were we started by a shutdown request? */
-		syslog(LOG_INFO, "lockd_shutdown: spurious wakeup? %d %d %d", mounts, servers, maxservers);
-		return (KERN_FAILURE);
-	}
-
 	gettimeofday(&now, NULL);
 
 	if ((!servers || !maxservers) && !shutdown_time_server) {
@@ -369,6 +363,10 @@ client_mach_request(void)
 #endif
 	struct sigaction sigalarm;
 	kern_return_t kr;
+	int mounts, servers, maxservers;
+	struct timeval now;
+	time_t shutdown_time;
+	unsigned int delay;
 
 	/*
 	 * Check in with launchd to get the receive right.
@@ -398,11 +396,34 @@ client_mach_request(void)
 		    strerror(errno));
 	}
 
-	/*
-	 * Set the shutdown timer to go off in a minute, just in case
-	 * we've somehow been spuriously woken up with a shutdown request.
-	 */
-	alarm(60);
+	/* Check the current status of the NFS server and NFS mounts */
+	gettimeofday(&now, NULL);
+	mounts = servers = maxservers = 0;
+	if (get_client_and_server_state(&mounts, &servers, &maxservers))
+		syslog(LOG_ERR, "lockd setup: sysctl failed");
+
+	if (!servers || !maxservers) {
+		/* nfsd is not running, set server shutdown time */
+		shutdown_time_server = now.tv_sec + config.shutdown_delay_server;
+	} else {
+		shutdown_time_server = 0;
+	}
+	if (!mounts) {
+		/* no NFS mounts, set client shutdown time */
+		shutdown_time_client = now.tv_sec + config.shutdown_delay_client;
+	} else {
+		shutdown_time_client = 0;
+	}
+
+	if (shutdown_time_client && shutdown_time_server) {
+		/* No server and no mounts, so plan for shutdown. */
+		/* Figure out when the timer should go off. */
+		shutdown_time = MAX(shutdown_time_client, shutdown_time_server);
+		delay = shutdown_time - now.tv_sec;
+		syslog(LOG_DEBUG, "lockd setup: no client or server, arm timer, delay %d", delay);
+		/* arm the timer */
+		alarm(delay);
+	}
 
 #if 0
 	pthread_attr_init(attr);

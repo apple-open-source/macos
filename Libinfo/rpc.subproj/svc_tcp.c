@@ -123,7 +123,11 @@ struct tcp_rendezvous { /* kept in xprt->xp_p1 */
 
 struct tcp_conn {  /* kept in xprt->xp_p1 */
 	enum xprt_stat strm_stat;
+#ifdef __LP64__
+	uint32_t x_id;
+#else
 	u_long x_id;
+#endif
 	XDR xdrs;
 	char verf_body[MAX_AUTH_BYTES];
 };

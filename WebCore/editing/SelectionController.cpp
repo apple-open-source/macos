@@ -116,6 +116,7 @@ void SelectionController::setSelection(const VisibleSelection& s, bool closeTypi
         m_selection = s;
         m_needsLayout = true;
         invalidateCaretRect();
+        layout();
         return;
     }
     if (!m_frame) {
@@ -945,10 +946,10 @@ RenderObject* SelectionController::caretRenderer() const
     return paintedByBlock ? renderer : renderer->containingBlock();
 }
 
-IntRect SelectionController::localCaretRect() const
+IntRect SelectionController::localCaretRect()
 {
     if (m_needsLayout)
-        const_cast<SelectionController*>(this)->layout();
+        layout();
     
     return m_caretRect;
 }
@@ -980,7 +981,7 @@ static IntRect repaintRectForCaret(IntRect caret)
 
 IntRect SelectionController::caretRepaintRect() const
 {
-    return absoluteBoundsForLocalRect(repaintRectForCaret(localCaretRect()));
+    return absoluteBoundsForLocalRect(repaintRectForCaret(localCaretRectForPainting()));
 }
 
 bool SelectionController::recomputeCaretRect()
@@ -1072,7 +1073,7 @@ void SelectionController::paintCaret(GraphicsContext* context, int tx, int ty, c
     if (!m_selection.isCaret())
         return;
 
-    IntRect drawingRect = localCaretRect();
+    IntRect drawingRect = localCaretRectForPainting();
     drawingRect.move(tx, ty);
     IntRect caret = intersection(drawingRect, clipRect);
     if (caret.isEmpty())
@@ -1433,6 +1434,9 @@ void SelectionController::updateAppearance()
         }
     }
 #endif
+
+    // We need to update style in case the node containing the selection is made display:none.
+    m_frame->document()->updateStyleIfNeeded();
 
     RenderView* view = m_frame->contentRenderer();
     if (!view)

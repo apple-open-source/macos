@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003-2009 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2003-2010 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -52,19 +52,21 @@ do_set_identity_preference(CFTypeRef keychainOrArray,
 	CFStringRef serviceRef = NULL;
 	SecIdentityRef identityRef = NULL;
 
-	// must have a service name, and identity must be specified by either its name or SHA-1 hash
-	if ((!service) || (!identity && !hash)) {
+	// must have a service name
+	if (!service) {
 		return 2;
 	}
 	
-	// find identity
-	identityRef = find_identity(keychainOrArray, identity, hash, keyUsage);
-	if (!identityRef) {
-		sec_error("No matching identity found for \"%s\"", (hash) ? hash : identity);
-		result = 1;
-		goto cleanup;
+	// find identity (if specified by name or hash)
+	if (identity || hash) {
+		identityRef = find_identity(keychainOrArray, identity, hash, keyUsage);
+		if (!identityRef) {
+			sec_error("No matching identity found for \"%s\"", (hash) ? hash : identity);
+			result = 1;
+			goto cleanup;
+		}
 	}
-	
+
 	// set the identity preference
 	serviceRef = CFStringCreateWithCString(NULL, service, kCFStringEncodingUTF8);
 	result = SecIdentitySetPreference(identityRef, serviceRef, keyUsage);
@@ -177,6 +179,7 @@ set_identity_preference(int argc, char * const *argv)
 	CFTypeRef keychainOrArray = NULL;
 	
 	/*
+	 *	"    -n  Specify no identity (clears existing preference for service)\n"
 	 *	"    -c  Specify identity by common name of the certificate\n"
 	 *	"    -s  Specify service (URI, email address, DNS host, or other name)\n"
 	 *  "        for which this identity is to be preferred\n"
@@ -184,10 +187,13 @@ set_identity_preference(int argc, char * const *argv)
 	 *	"    -Z  Specify identity by SHA-1 hash of certificate (optional)\n"
 	 */
 	
-	while ((ch = getopt(argc, argv, "hc:s:u:Z:")) != -1)
+	while ((ch = getopt(argc, argv, "hnc:s:u:Z:")) != -1)
 	{
 		switch  (ch)
 		{
+			case 'n':
+				identity = NULL;
+				break;
 			case 'c':
 				identity = optarg;
 				break;

@@ -1,6 +1,6 @@
 --- configure.orig	2008-06-19 11:19:52.000000000 -0700
 +++ configure	2008-06-19 11:20:36.000000000 -0700
-@@ -11786,8 +11786,8 @@
+@@ -10440,8 +10440,8 @@
        link_all_deplibs=yes
      if test "$GCC" = yes ; then
      	output_verbose_link_cmd='echo'

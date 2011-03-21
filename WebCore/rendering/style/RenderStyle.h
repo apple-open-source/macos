@@ -329,6 +329,7 @@ public:
 
     RenderStyle* getCachedPseudoStyle(PseudoId) const;
     RenderStyle* addCachedPseudoStyle(PassRefPtr<RenderStyle>);
+    void removeCachedPseudoStyle(PseudoId);
 
     const PseudoStyleCache* cachedPseudoStyles() const { return m_cachedPseudoStyles.get(); }
 
@@ -1218,6 +1219,18 @@ private:
     
     const Color colorIncludingFallback(int colorProperty, EBorderStyle borderStyle) const;
 };
+
+inline int adjustForAbsoluteZoom(int value, const RenderStyle* style)
+{
+    double zoomFactor = style->effectiveZoom();
+    if (zoomFactor == 1)
+        return value;
+    // Needed because computeLengthInt truncates (rather than rounds) when scaling up.
+    if (zoomFactor > 1)
+        value++;
+
+    return roundForImpreciseConversion<int, INT_MAX, INT_MIN>(value / zoomFactor);
+}
 
 } // namespace WebCore
 

@@ -1,9 +1,0 @@
-Am primit un mesaj de la adresa dumneavoastrã '%(sender)s' prin care
-cereþi un rãspuns automat de la lista de discuþii %(listname)s.  Am primit
-alte %(num)s asemenea mesaje de la dumneavoastrã astãzi.  Pentru a preveni
-eventualele probleme precum buclele între roboþii de email, nu vã vom
-mai trimite nici un alt rãspuns automat azi.  Vã rugãm sã mai încercaþi mâine.
-
-Dacã credeþi cã acest mesaj v-a fost trimis din greºealã, sau dacã aveþi orice
-alte întrebãri, vã rugãm sã contactaþi proprietarul listei, la adresa
-%(owneremail)s.

@@ -97,6 +97,7 @@
 		<string>MITKRB5-SA-2010-001.patch</string>
 		<string>MITKRB5-SA-2010-003.patch</string>
 		<string>MITKRB5-SA-2010-004.patch</string>
+		<string>MITKRB5-SA-2010-007.patch</string>
 	</array>
 	<key>OpenSourceProject</key>
 	<string>Kerberos</string>

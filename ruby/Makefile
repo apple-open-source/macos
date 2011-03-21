@@ -154,7 +154,8 @@ AEP_Patches    = patch-configure \
                  lib_irb_init.rb.diff \
                  dtrace.diff \
                  rexml_bugs.diff \
-		 lib_webrick_httpresponse.rb.diff
+		 lib_webrick_httpresponse.rb.diff \
+		 ext_bigdecimal_bigdecimal.c.diff
 
 # Extract the source.
 install_source::

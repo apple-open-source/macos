@@ -5,7 +5,7 @@
 # using mailer.py for post-commit and post-revprop change
 # notifications.  If you wish to improve or add features to a
 # post-commit notification script, please do that work on mailer.py.
-# See http://svn.collab.net/repos/svn/trunk/tools/hook-scripts/mailer .
+# See http://svn.apache.org/repos/asf/subversion/trunk/tools/hook-scripts/mailer .
 # ====================================================================
 
 # ====================================================================
@@ -17,10 +17,10 @@
 #
 # This script requires Subversion 1.2.0 or later.
 #
-# $HeadURL: http://svn.collab.net/repos/svn/branches/1.6.x/contrib/hook-scripts/commit-email.pl.in $
-# $LastChangedDate: 2008-11-11 05:00:22 +0000 (Tue, 11 Nov 2008) $
-# $LastChangedBy: psamuelson $
-# $LastChangedRevision: 34134 $
+# $HeadURL: http://svn.apache.org/repos/asf/subversion/branches/1.6.x/contrib/hook-scripts/commit-email.pl.in $
+# $LastChangedDate: 2010-03-16 15:22:28 +0000 (Tue, 16 Mar 2010) $
+# $LastChangedBy: cmpilato $
+# $LastChangedRevision: 923804 $
 #
 # ====================================================================
 # Copyright (c) 2000-2006 CollabNet.  All rights reserved.

@@ -1,6 +1,7 @@
 /*
  * Copyright (C) 2004, 2006, 2007 Apple Inc. All rights reserved.
  * Copyright (C) 2007 Alp Toker <alp@atoker.com>
+ * Copyright (C) 2010 Torch Mobile (Beijing) Co. Ltd. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -56,7 +57,6 @@ using namespace HTMLNames;
 HTMLCanvasElement::HTMLCanvasElement(const QualifiedName& tagName, Document* doc)
     : HTMLElement(tagName, doc)
     , CanvasSurface(doc->frame() ? doc->frame()->page()->chrome()->scaleFactor() : 1)
-    , m_observer(0)
     , m_ignoreReset(false)
 {
     ASSERT(hasTagName(canvasTag));
@@ -64,8 +64,9 @@ HTMLCanvasElement::HTMLCanvasElement(const QualifiedName& tagName, Document* doc
 
 HTMLCanvasElement::~HTMLCanvasElement()
 {
-    if (m_observer)
-        m_observer->canvasDestroyed(this);
+    HashSet<CanvasObserver*>::iterator end = m_observers.end();
+    for (HashSet<CanvasObserver*>::iterator it = m_observers.begin(); it != end; ++it)
+        (*it)->canvasDestroyed(this);
 }
 
 #if ENABLE(DASHBOARD_SUPPORT)
@@ -108,6 +109,17 @@ RenderObject* HTMLCanvasElement::createRenderer(RenderArena* arena, RenderStyle*
 
     m_rendererIsCanvas = false;
     return HTMLElement::createRenderer(arena, style);
+}
+
+
+void HTMLCanvasElement::addObserver(CanvasObserver* observer)
+{
+    m_observers.add(observer);
+}
+
+void HTMLCanvasElement::removeObserver(CanvasObserver* observer)
+{
+    m_observers.remove(observer);
 }
 
 void HTMLCanvasElement::setHeight(int value)
@@ -182,9 +194,10 @@ void HTMLCanvasElement::willDraw(const FloatRect& rect)
         m_dirtyRect.unite(r);
         ro->repaintRectangle(enclosingIntRect(m_dirtyRect));
     }
-    
-    if (m_observer)
-        m_observer->canvasChanged(this, rect);
+
+    HashSet<CanvasObserver*>::iterator end = m_observers.end();
+    for (HashSet<CanvasObserver*>::iterator it = m_observers.begin(); it != end; ++it)
+        (*it)->canvasChanged(this, rect);
 }
 
 void HTMLCanvasElement::reset()
@@ -221,8 +234,9 @@ void HTMLCanvasElement::reset()
         }
     }
 
-    if (m_observer)
-        m_observer->canvasResized(this);
+    HashSet<CanvasObserver*>::iterator end = m_observers.end();
+    for (HashSet<CanvasObserver*>::iterator it = m_observers.begin(); it != end; ++it)
+        (*it)->canvasResized(this);
 }
 
 void HTMLCanvasElement::paint(GraphicsContext* context, const IntRect& r)
@@ -262,5 +276,26 @@ bool HTMLCanvasElement::is3D() const
     return m_context && m_context->is3d();
 }
 #endif
+
+void HTMLCanvasElement::attach()
+{
+    HTMLElement::attach();
+
+    if (m_context && m_context->is2d()) {
+        CanvasRenderingContext2D* ctx = static_cast<CanvasRenderingContext2D*>(m_context.get());
+        ctx->updateFont();
+    }
+}
+
+void HTMLCanvasElement::recalcStyle(StyleChange change)
+{
+    HTMLElement::recalcStyle(change);
+
+    // Update font if needed.
+    if (change == Force && m_context && m_context->is2d()) {
+        CanvasRenderingContext2D* ctx = static_cast<CanvasRenderingContext2D*>(m_context.get());
+        ctx->updateFont();
+    }
+}
 
 }

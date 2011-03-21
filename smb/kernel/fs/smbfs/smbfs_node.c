@@ -51,6 +51,7 @@
 
 #include <sys/smb_apple.h>
 #include <sys/mchain.h>
+#include <sys/msfscc.h>
 #include <netsmb/smb.h>
 #include <netsmb/smb_conn.h>
 #include <netsmb/smb_subr.h>
@@ -358,23 +359,60 @@ loop:
 /*
  * We need to test to see if the vtype changed on the node. We currently only support
  * three types of vnodes (VDIR, VLNK, and VREG). If the network transacition came
- * from one of the new UNIX extensions then we can just test to make sure the vtype
+ * from Unix extensions, Darwin or a create then we can just test to make sure the vtype
  * is the same. Otherwise we cannot tell the difference between a symbolic link and
  * a regular file at this point. So we just make sure it didn't change from a file
- * to a directory or vise versa. 
+ * to a directory or vise versa. Also make sure it didn't change from a reparse point
+ * to a non reparse point or vise versa.
  */
 static int node_vtype_changed(vnode_t vp, enum vtype node_vtype, struct smbfattr *fap)
 {
+	int rt_value = FALSE;	/* Always default to it no changing */
+	
+	/* Root node can never change, bad things will happen */
+	if (vnode_isvroot(vp))
+		return FALSE;
+
 	if (vnode_isnamedstream(vp))	/* Streams have no type so ignore them */
 		return FALSE;
-	/* UNIX extension call trust it */
-	if (fap->fa_unix)
-		return (fap->fa_vtype != node_vtype);
-	else if ((node_vtype == VDIR) && (fap->fa_vtype == VDIR)) 
-		return FALSE;
-	else if ((node_vtype != VDIR) && (fap->fa_vtype != VDIR))
-		return FALSE;
-	return TRUE;
+
+	/* 
+	 * The vtype is valid, use it to make the decision, Unix extensions, Darwin
+	 * or a create.
+	 */
+	if (fap->fa_valid_mask & FA_VTYPE_VALID) {
+		if ((VTOSMB(vp)->n_flag & NWINDOWSYMLNK) && (fap->fa_vtype == VREG)) {
+			/* 
+			 * This is a windows fake symlink, so the node type will come is as
+			 * a relgular file. Never let it change unless the node type comes
+			 * in as something other than a regular file.
+			 */
+			rt_value = FALSE;
+		} else {
+			rt_value = (fap->fa_vtype != node_vtype);
+		}
+		goto done;
+	}
+	
+	/* Once a directory, always a directory*/
+	if (((node_vtype == VDIR) && !(VTOSMB(vp)->n_dosattr & SMB_EFA_DIRECTORY)) ||
+		((node_vtype != VDIR) && (VTOSMB(vp)->n_dosattr & SMB_EFA_DIRECTORY))) {
+		rt_value = TRUE;
+		goto done;
+	}
+	
+	/* Once a reparse point, always a reprase point */
+	if ((VTOSMB(vp)->n_dosattr &  SMB_EFA_REPARSE_POINT) != (fap->fa_attr & SMB_EFA_REPARSE_POINT)) {
+		rt_value = TRUE;
+		goto done;
+	}
+done:
+	if (rt_value) {
+		SMBWARNING("%s had node type and attr of %d 0x%x now its %d  0x%x\n", 
+				   VTOSMB(vp)->n_name, node_vtype, fap->fa_vtype,
+				   VTOSMB(vp)->n_dosattr, fap->fa_attr);
+	}
+	return rt_value;
 }
 
 /* 
@@ -434,6 +472,7 @@ int smbfs_nget(struct mount *mp, vnode_t dvp, const char *name, size_t nmlen,
 			cache_purge(*vpp);
 			smb_vhashrem(VTOSMB(*vpp));
 			VTOSMB(*vpp)->attribute_cache_timer = 0;
+			VTOSMB(*vpp)->n_symlink_cache_timer = 0;
 			smbnode_unlock(VTOSMB(*vpp));	/* Release the smbnode lock */
 			vnode_put(*vpp);
 			/* Now fall through and create the node with the correct vtype */
@@ -464,7 +503,18 @@ int smbfs_nget(struct mount *mp, vnode_t dvp, const char *name, size_t nmlen,
 	/* if we error out, don't forget to unlock this */
 	locked = 1;
 	np->n_lastvop = smbfs_nget;
-
+	
+	/* 
+	 * The node_vtype_changed routine looks at the attributes field to 
+	 * detemine if the node has changed from being a reparse point. So before 
+	 * entering the smbfs_attr_cacheenter we need to make sure that the attributes
+	 * field has been set when the node is created.
+	 * 
+	 * We only set the ReparseTag here, once a tag is set its always set. We 
+	 * use node_vtype_changed to test if a reparse point has been removed. 
+	 */
+	np->n_reparse_tag = fap->fa_reparse_tag;
+	np->n_dosattr = fap->fa_attr;
 	np->n_vnode = NULL;	/* redundant, but emphatic! */
 	np->n_mount = smp;
 	np->n_size = fap->fa_size;
@@ -491,12 +541,6 @@ int smbfs_nget(struct mount *mp, vnode_t dvp, const char *name, size_t nmlen,
 	}
 
 	vfsp.vnfs_mp = mp;
-	/*
-	 * We now keep the type of node in fa_vtype. We fill this in ourself depending on information we obtain from
-	 * the network or we determine from one of the create routines. In the future the UNIX extensions will 
-	 * return this information and we can support all vtype if we want to, but for now we only support VDIR, VREG, 
-	 * and VLNK.
-	 */
 	vfsp.vnfs_vtype = fap->fa_vtype;
 	vfsp.vnfs_str = "smbfs";
 	vfsp.vnfs_dvp = dvp;
@@ -528,12 +572,18 @@ int smbfs_nget(struct mount *mp, vnode_t dvp, const char *name, size_t nmlen,
 		DBG_ASSERT(dvp);
 		if (smb_check_for_windows_symlink(ssp, np, &symlen, context) == 0) {
 			vfsp.vnfs_vtype = VLNK;
+			fap->fa_valid_mask |= FA_VTYPE_VALID;
 			fap->fa_vtype = VLNK;
 			np->n_size = symlen;
 			np->n_flag |= NWINDOWSYMLNK;			
 		}
 	}
 	vfsp.vnfs_filesize = np->n_size;
+	
+	if (np->n_dosattr &  SMB_EFA_REPARSE_POINT) {
+		SMBWARNING("%s - reparse point tag 0x%x\n", np->n_name, np->n_reparse_tag);
+	}
+	
 	error = vnode_create(VNCREATE_FLAVOR, (uint32_t)VCREATESIZE, &vfsp, &vp);
 	if (error)
 		goto errout;
@@ -925,6 +975,7 @@ smbfs_attr_cacheenter(vnode_t vp, struct smbfattr *fap, int UpdateResourceParent
 	if (node_vtype_changed(vp, node_vtype, fap)) {
 		SMBWARNING("%s was %d now its %d\n", np->n_name, node_vtype, fap->fa_vtype);
 		np->attribute_cache_timer = 0;
+		np->n_symlink_cache_timer = 0;
 		cache_purge(vp);
 		smb_vhashrem(np);
 		monitorHint |= VNODE_EVENT_RENAME | VNODE_EVENT_ATTRIB;
@@ -959,10 +1010,27 @@ smbfs_attr_cacheenter(vnode_t vp, struct smbfattr *fap, int UpdateResourceParent
 	if (fap->fa_unix) {
 		np->n_flags_mask = fap->fa_flags_mask;
 		np->n_nlinks = fap->fa_nlinks;
-		/* Clear out the access mode bits so we can fill them correctly. */
-		np->n_mode &= ~ACCESSPERMS;
 		
-		if (ssp->ss_attributes & FILE_PERSISTENT_ACLS) {
+		if ((fap->fa_valid_mask & FA_UNIX_MODES_VALID) != FA_UNIX_MODES_VALID) {
+			/*
+			 * The call made to get this information did not contain the uid,
+			 * gid or posix modes. So just keep using the ones we have, unless
+			 * we have uninitialize values, then use the default values.
+			 */
+			if (np->n_uid == KAUTH_UID_NONE) {
+				np->n_uid = smp->sm_args.uid;
+				if (vnode_isdir(np->n_vnode)) {
+					np->n_mode |= smp->sm_args.dir_mode;
+				} else {
+					np->n_mode |= smp->sm_args.file_mode;
+				}
+			}
+			if (np->n_gid == KAUTH_GID_NONE) {
+				np->n_gid = smp->sm_args.gid;
+			} 			
+		} else if (ssp->ss_attributes & FILE_PERSISTENT_ACLS) {
+			/* Clear out the access mode bits so we can fill them correctly. */
+			np->n_mode &= ~ACCESSPERMS;
 			/* 
 			 * Use the uid, gid, and posix modes sent across the network. We have
 			 * ACLs and POSIX Modes. Since we have both we can support POSIX modes 
@@ -974,6 +1042,8 @@ smbfs_attr_cacheenter(vnode_t vp, struct smbfattr *fap, int UpdateResourceParent
 		} else if ((fap->fa_permissions & ACCESSPERMS) &&
 			(smp->sm_args.uid == (uid_t)smp->ntwrk_uid) &&
 			(smp->sm_args.gid == (gid_t)smp->ntwrk_gid)) {
+			/* Clear out the access mode bits so we can fill them correctly. */
+			np->n_mode &= ~ACCESSPERMS;
 			/* 
 			 * The server gave us POSIX modes and the local user matches the network 
 			 * user, so assume they are in the same directory name space. 
@@ -985,6 +1055,8 @@ smbfs_attr_cacheenter(vnode_t vp, struct smbfattr *fap, int UpdateResourceParent
 			int uid_match = (fap->fa_uid == smp->ntwrk_uid);
 			int gid_match = smb_gid_match(smp, fap->fa_gid);
 			
+			/* Clear out the access mode bits so we can fill them correctly. */
+			np->n_mode &= ~ACCESSPERMS;
 			np->n_uid = smp->sm_args.uid;
 			np->n_gid = smp->sm_args.gid;
 			/* 
@@ -1085,7 +1157,7 @@ smbfs_attr_cachelookup(vnode_t vp, struct vnode_attr *va, vfs_context_t context,
 	struct smbnode *np = VTOSMB(vp);
 	struct smbmount *smp = VTOSMBFS(vp);
 	struct smb_share *ssp = smp->sm_share;
-	int unix_extensions = ((UNIX_CAPS(SSTOVC(ssp)) & CIFS_UNIX_POSIX_PATH_OPERATIONS_CAP)) ? TRUE : FALSE;
+	int	unix_info2 = ((UNIX_CAPS(SSTOVC(ssp)) & UNIX_QFILEINFO_UNIX_INFO2_CAP)) ? TRUE : FALSE;
 	time_t attrtimeo;
 	struct timespec ts;
 
@@ -1117,7 +1189,7 @@ smbfs_attr_cachelookup(vnode_t vp, struct vnode_attr *va, vfs_context_t context,
 		return (0);
 	
 	VATTR_RETURN(va, va_rdev, 0);
-	if (unix_extensions)
+	if (unix_info2)
 		VATTR_RETURN(va, va_nlink, np->n_nlinks);
 	else
 		VATTR_RETURN(va, va_nlink, 1);
@@ -1198,7 +1270,7 @@ smbfs_attr_cachelookup(vnode_t vp, struct vnode_attr *va, vfs_context_t context,
 		 * as it does for files. Doing this translation was confusing customers and really
 		 * didn't work the way Mac users would expect.
 		 */
-		if ((unix_extensions || (!vnode_isdir(vp))) && (np->n_dosattr & SMB_FA_RDONLY))
+		if ((unix_info2 || (!vnode_isdir(vp))) && (np->n_dosattr & SMB_FA_RDONLY))
 			va->va_flags |= UF_IMMUTABLE;
 		/* The server has it marked as hidden set the new UF_HIDDEN bit. */
  		if (np->n_dosattr & SMB_FA_HIDDEN)
@@ -1830,6 +1902,7 @@ void smbfs_reconnect(struct smb_share *ssp)
 					np->d_needReopen = TRUE;
 				/* Force a network lookup */
 				np->attribute_cache_timer = 0;
+				np->n_symlink_cache_timer = 0;
 				np->d_needsUpdate = TRUE;
 			}
 			

@@ -13,8 +13,8 @@
 # 2) Allow a command line option to specify the configuration file to
 #    load the auto-properties from.
 #
-# $HeadURL: http://svn.collab.net/repos/svn/branches/1.6.x/contrib/client-side/svn_apply_autoprops.py $
-# $LastChangedRevision: 20787 $
+# $HeadURL: http://svn.apache.org/repos/asf/subversion/branches/1.6.x/contrib/client-side/svn_apply_autoprops.py $
+# $LastChangedRevision: 860861 $
 # $LastChangedDate: 2006-07-20 03:41:28 +0000 (Thu, 20 Jul 2006) $
 # $LastChangedBy: blair $
 #

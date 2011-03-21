@@ -181,12 +181,36 @@ const HashSet<SVGElementInstance*>& SVGElement::instancesForElement() const
 
 void SVGElement::setCursorElement(SVGCursorElement* cursorElement)
 {
-    ensureRareSVGData()->setCursorElement(cursorElement);
+    SVGElementRareData* rareData = ensureRareSVGData();
+    if (SVGCursorElement* oldCursorElement = rareData->cursorElement()) {
+        if (cursorElement == oldCursorElement)
+            return;
+        oldCursorElement->removeReferencedElement(this);
+    }
+    rareData->setCursorElement(cursorElement);
+}
+
+void SVGElement::cursorElementRemoved() 
+{
+    ASSERT(hasRareSVGData());
+    rareSVGData()->setCursorElement(0);
 }
 
 void SVGElement::setCursorImageValue(CSSCursorImageValue* cursorImageValue)
 {
-    ensureRareSVGData()->setCursorImageValue(cursorImageValue);
+    SVGElementRareData* rareData = ensureRareSVGData();
+    if (CSSCursorImageValue* oldCursorImageValue = rareData->cursorImageValue()) {
+        if (cursorImageValue == oldCursorImageValue)
+            return;
+        oldCursorImageValue->removeReferencedElement(this);
+    }
+    rareData->setCursorImageValue(cursorImageValue);
+}
+
+void SVGElement::cursorImageValueRemoved()
+{
+    ASSERT(hasRareSVGData());
+    rareSVGData()->setCursorImageValue(0);
 }
 
 void SVGElement::parseMappedAttribute(MappedAttribute* attr)
@@ -310,7 +334,10 @@ void SVGElement::attributeChanged(Attribute* attr, bool preserveDecls)
     if (isSynchronizingSVGAttributes())
         return;
 
-    svgAttributeChanged(attr->name());
+    // Changes to the style attribute are processed lazily (see Element::getAttribute() and related methods),
+    // so we don't want changes to the style attribute to result in extra work here.
+    if (attr->name() != HTMLNames::styleAttr)
+        svgAttributeChanged(attr->name());
 }
 
 void SVGElement::updateAnimatedSVGAttribute(const QualifiedName& name) const

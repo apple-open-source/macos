@@ -39,6 +39,7 @@
 #include "dtrace.h"
 #include <sys/sysctl.h>
 #include <mach/clock_types.h>
+#include <mach/mach_time.h>
 #include <errno.h>
 #include <security_utilities/logging.h>
 #include <sys/sysctl.h>
@@ -94,36 +95,57 @@ void EntropyManager::action()
 // does not provide enough of a delay to worry about it. If we ever get worried,
 // we could call longTermActivity on the server object to get another thread going.
 //
+
 void EntropyManager::collectEntropy()
 {
 	SECURITYD_ENTROPY_COLLECT();
+
     int mib[4];
     mib[0] = CTL_KERN;
     mib[1] = KERN_KDEBUG;
     mib[2] = KERN_KDGETENTROPY;
     mib[3] = 1;	// milliseconds maximum delay
-    mach_timespec_t timings[timingsToCollect];
-    size_t size = sizeof(timings);
-    if (sysctl(mib, 4, timings, &size, NULL, 0)) {
-        Syslog::alert("entropy collection failed (errno=%d)", errno);
-        return;
-    }
-	size /= sizeof(mach_timespec_t); // convert to element count
-	if (size > timingsToCollect)
-		size = timingsToCollect;	// pure paranoia
-    char buffer[timingsToCollect];
-    size /= sizeof(mach_timespec_t); // convert to element count
-    if (size > timingsToCollect)
-        size = timingsToCollect;    // pure paranoia
-    for (unsigned n = 0; n < size; n++)
-        buffer[n] = timings[n].tv_nsec;	// truncating to LSB
-	secdebug("entropy", "Entropy size %d: %02x %02x %02x %02x %02x %02x %02x %02x...",
-		(int)size, 
-		(unsigned char)buffer[0], (unsigned char)buffer[1], (unsigned char)buffer[2],
-		(unsigned char)buffer[3], (unsigned char)buffer[4], (unsigned char)buffer[5],
-		(unsigned char)buffer[6], (unsigned char)buffer[7]);
-	SECURITYD_ENTROPY_SEED((void *)buffer, size);
-    addEntropy(buffer, size);
+	
+	/*
+		The kernel doesn't follow the specification for sysctl.
+		The documentation clearly states that the oldlenp and
+		newlenp point to the size of the buffer to be processed.
+		Unfortunately, the KDGETENTROPY call wants the NUMBER of
+		mach_timespec_t values in the buffer, not the buffer size.
+	*/
+	
+	int numTimings = timingsToCollect + 1;
+	mach_timespec_t buffer[numTimings];
+	
+	int result;
+	
+	size_t size = timingsToCollect;
+	
+	result = sysctl(mib,4, buffer, &size, NULL, 0);
+	if (result == -1) {
+        Syslog::alert("entropy measurement returned no entropy (errno=%d)", errno);
+	}
+	else if (size == 0)
+	{
+		Syslog::alert("entropy measurement returned no entropy.");
+	}
+	
+	// add a little more jitter to the buffer
+	mach_timebase_info_data_t    sTimebaseInfo;
+	mach_timebase_info(&sTimebaseInfo);
+	double seconds = (double) mach_absolute_time() * sTimebaseInfo.numer / sTimebaseInfo.denom * 1000000000.0;
+	buffer[numTimings].tv_sec = (int) seconds;
+	buffer[numTimings].tv_nsec = (int) ((seconds - buffer[numTimings].tv_sec) * 1000000000.0);
+	
+	/*
+		Yes, we don't check to see if we filled the entire buffer.
+		In entropy collection, something is better than nothing.
+		Please don't fiddle with this code unless you really
+		have determined that you know what you are doing.
+	*/
+	
+	SECURITYD_ENTROPY_SEED((void *)buffer, sizeof(buffer));
+    addEntropy(buffer, sizeof(buffer));
 }
 
 

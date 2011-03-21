@@ -33,8 +33,8 @@
 # This tool is provided under GPL license.  Please read
 # http://www.gnu.org/licenses/gpl.html for the original text.
 #
-# $HeadURL: http://svn.collab.net/repos/svn/branches/1.6.x/contrib/client-side/svn-merge-vendor.py $
-# $LastChangedRevision: 27289 $
+# $HeadURL: http://svn.apache.org/repos/asf/subversion/branches/1.6.x/contrib/client-side/svn-merge-vendor.py $
+# $LastChangedRevision: 867363 $
 # $LastChangedDate: 2007-10-19 08:17:06 +0000 (Fri, 19 Oct 2007) $
 # $LastChangedBy: aogier $
 

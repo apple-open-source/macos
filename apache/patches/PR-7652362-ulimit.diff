@@ -1,0 +1,15 @@
+--- configure.orig	2010-03-17 13:53:26.000000000 -0700
++++ configure	2010-03-17 13:53:47.000000000 -0700
+@@ -15463,11 +15463,7 @@
+         APACHECTL_ULIMIT="ulimit -S -n \`ulimit -h -n\`"
+         ;;
+     *)
+-        if TMP_ULIMIT=`ulimit -H -n` && ulimit -S -n $TMP_ULIMIT ; then
+-            APACHECTL_ULIMIT="ulimit -S -n \`ulimit -H -n\`"
+-        else
+-            APACHECTL_ULIMIT=""
+-        fi
++        APACHECTL_ULIMIT=""
+         ;;
+ esac
+ 

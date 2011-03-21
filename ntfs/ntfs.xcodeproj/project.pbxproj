@@ -652,7 +652,7 @@
 				MODULE_NAME = com.apple.filesystems.ntfs;
 				MODULE_START = ntfs_module_start;
 				MODULE_STOP = ntfs_module_stop;
-				MODULE_VERSION = 3.3;
+				MODULE_VERSION = 3.4;
 				PREBINDING = NO;
 				PRODUCT_NAME = ntfs;
 				STRIP_INSTALLED_PRODUCT = YES;
@@ -677,7 +677,7 @@
 				MODULE_NAME = com.apple.filesystems.ntfs;
 				MODULE_START = ntfs_module_start;
 				MODULE_STOP = ntfs_module_stop;
-				MODULE_VERSION = 3.3;
+				MODULE_VERSION = 3.4;
 				PREBINDING = NO;
 				PRODUCT_NAME = ntfs;
 				STRIP_INSTALLED_PRODUCT = YES;

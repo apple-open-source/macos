@@ -1,6 +1,0 @@
-Recibióse un mensax procedente de la to direición de corréu-e
-'%(sender)s' pidiendo una rempuesta automática procedente de la llista de distribución %(listname)s.  Decatámosnos de qu'unviaste %(num)s mensaxes güei.  Pa evitar problemes como los mensaxes dientro d'un bucle infinitu ente robots de corréu-e, güei nun van unviásete más mensaxes. Téntalo mañana.
-
-Si camientes qu'esti mensax ye un error, o si tienes cualesquier otra
-entruga que facer, por favor ponte en contautu col propietariu de la
-llista en %(owneremail)s.

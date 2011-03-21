@@ -18,7 +18,7 @@
  
  # these commands link the wrapper objects into an extension library/module
  LINK_PY_WRAPPER = $(LIBTOOL) $(LTFLAGS) --mode=link $(SWIG_PY_LINK) $(SWIG_LDFLAGS) -rpath $(swig_pydir) -avoid-version -module
-@@ -677,7 +678,7 @@
+@@ -682,7 +683,7 @@
  	./config.status subversion/bindings/swig/perl/native/Makefile.PL
  
  $(SWIG_PL_DIR)/native/Makefile: $(SWIG_PL_DIR)/native/Makefile.PL
@@ -27,7 +27,7 @@
  
  swig-pl_DEPS = autogen-swig-pl libsvn_swig_perl \
    $(SWIG_PL_DIR)/native/Makefile
-@@ -685,13 +686,13 @@
+@@ -690,13 +691,13 @@
  	if test "$(SWIG_PL_DIR)" != "$(SWIG_PL_SRC_DIR)"; then \
  	  ln -sf $(SWIG_PL_SRC_DIR)/native/*.c $(SWIG_PL_DIR)/native; \
  	fi
@@ -44,7 +44,7 @@
  
  EXTRACLEAN_SWIG_PL=rm -f $(SWIG_PL_SRC_DIR)/native/svn_*.c \
                           $(SWIG_PL_SRC_DIR)/native/core.c
-@@ -709,7 +710,7 @@
+@@ -714,7 +715,7 @@
  	  rm -rf *.lo *.la *.o .libs; \
  	done
  	if [ -f "$(SWIG_PL_DIR)/native/Makefile" ]; then \

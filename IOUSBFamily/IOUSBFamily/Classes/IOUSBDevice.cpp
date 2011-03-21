@@ -1221,7 +1221,10 @@ IOUSBDevice::_ResetDevice(OSObject *target, __unused void *arg0, __unused void *
 	}
 	
 	USBLog(6,"%s[%p]::_ResetDevice _HUBPARENT->ResetPort returned 0x%x", me->getName(), me, (uint32_t)status);
-
+	
+	// Since we have reset the device, make sure we set our configuration to 0
+	me->_currentConfigValue = 0;
+	
 	// Recreate PipeZero object
 	me->_pipeZero = IOUSBPipe::ToEndpoint(&me->_endpointZero, me, me->_controller, NULL);
 	if (!me->_pipeZero)

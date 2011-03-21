@@ -1,8 +1,0 @@
-Sua mensagem com o assunto
-
-    %(subject)s
-
-Foi recebida com sucesso pela lista de discussão %(listname)s.
-
-Página de informações da lista: %(listinfo_url)s
-Suas preferências: %(optionsurl)s

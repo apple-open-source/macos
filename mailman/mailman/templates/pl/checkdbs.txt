@@ -1,6 +1,0 @@
-Liczba zadañ administracyjnych dla listy %(real_name)s@%(host_name)s: %(count)d 
-
-Zaloguj siê do panelu administracyjnego pod adresem:
-	%(adminDB)s
-	
-To przypomnienie bêdzie wysy³ane codziennie.

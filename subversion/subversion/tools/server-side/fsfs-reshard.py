@@ -41,10 +41,10 @@
 # history and logs, available at http://subversion.tigris.org/.
 # ====================================================================
 #
-# $HeadURL: http://svn.collab.net/repos/svn/branches/1.6.x/tools/server-side/fsfs-reshard.py $
+# $HeadURL: http://svn.apache.org/repos/asf/subversion/branches/1.6.x/tools/server-side/fsfs-reshard.py $
 # $LastChangedDate: 2008-12-24 01:58:11 +0000 (Wed, 24 Dec 2008) $
 # $LastChangedBy: arfrever $
-# $LastChangedRevision: 34911 $
+# $LastChangedRevision: 874985 $
 
 import os, stat, sys
 

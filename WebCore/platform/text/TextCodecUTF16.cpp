@@ -27,9 +27,11 @@
 #include "TextCodecUTF16.h"
 
 #include "PlatformString.h"
-#include "StringBuffer.h"
+#include <wtf/text/StringBuffer.h>
 #include <wtf/text/CString.h>
 #include <wtf/PassOwnPtr.h>
+
+using namespace std;
 
 namespace WebCore {
 
@@ -115,23 +117,27 @@ String TextCodecUTF16::decode(const char* bytes, size_t length, bool, bool, bool
 
 CString TextCodecUTF16::encode(const UChar* characters, size_t length, UnencodableHandling)
 {
+    if (length > numeric_limits<size_t>::max() / 2)
+        CRASH();
+
     char* bytes;
     CString string = CString::newUninitialized(length * 2, bytes);
 
     // FIXME: CString is not a reasonable data structure for encoded UTF-16, which will have
-    // null characters inside it. Perhaps the result of encode should not be a CString?
-    if (m_littleEndian)
+    // null characters inside it. Perhaps the result of encode should not be a CString.
+    if (m_littleEndian) {
         for (size_t i = 0; i < length; ++i) {
             UChar c = characters[i];
             bytes[i * 2] = c;
             bytes[i * 2 + 1] = c >> 8;
         }
-    else
+    } else {
         for (size_t i = 0; i < length; ++i) {
             UChar c = characters[i];
             bytes[i * 2] = c >> 8;
             bytes[i * 2 + 1] = c;
         }
+    }
 
     return string;
 }

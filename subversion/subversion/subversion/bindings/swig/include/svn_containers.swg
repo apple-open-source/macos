@@ -667,6 +667,16 @@
 /* -----------------------------------------------------------------------
    Input of apr_array_header_t * <svn_opt_revision_range_t *>
 */
+#ifdef SWIGPYTHON
+%typemap(in) apr_array_header_t *REVISION_RANGE_LIST {
+  $1 = (apr_array_header_t *) svn_swig_py_struct_ptr_list_to_array($input,
+    $descriptor(svn_opt_revision_range_t *), _global_pool);
+  if (PyErr_Occurred()) {
+    SWIG_fail;
+  }
+}
+#endif
+
 #ifdef SWIGRUBY
 %typemap(in) apr_array_header_t *REVISION_RANGE_LIST {
   $1 = svn_swig_rb_array_to_apr_array_revision_range($input, _global_pool);
@@ -797,4 +807,14 @@
 #if defined(SWIGPYTHON) || defined(SWIGRUBY)
 %typemap(argout) apr_array_header_t **RANGELIST_INOUT =
    apr_array_header_t **RANGELIST;
+#endif
+
+/* -----------------------------------------------------------------------
+   Output of apr_array_header_t * <svn_auth_provider_object_t *>
+*/
+#ifdef SWIGPERL
+%typemap(argout) apr_array_header_t **providers {
+  %append_output(svn_swig_pl_convert_array(*$1,
+                    $descriptor(svn_auth_provider_object_t *)));
+}
 #endif

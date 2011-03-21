@@ -51,8 +51,8 @@
 # TXN="$2"
 # svn-keyword-check.pl --repos $REPOS --transaction $TXT --text .java --text .txt
 #
-# $HeadURL: http://svn.collab.net/repos/svn/branches/1.6.x/contrib/hook-scripts/svn-keyword-check.pl $
-# $LastChangedRevision: 31213 $
+# $HeadURL: http://svn.apache.org/repos/asf/subversion/branches/1.6.x/contrib/hook-scripts/svn-keyword-check.pl $
+# $LastChangedRevision: 871287 $
 # $LastChangedDate: 2008-05-15 18:24:14 +0000 (Thu, 15 May 2008) $
 # $LastChangedBy: blair $
 

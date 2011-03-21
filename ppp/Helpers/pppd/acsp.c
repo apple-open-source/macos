@@ -2019,6 +2019,11 @@ acsp_ipdata_input_client(int unit, u_char *pkt, int len, u_int32_t ouraddr, u_in
 				} while (tok != NULL);
 				if (domain_list) {
 					acsp_plugin_add_domains(domain_list);
+					while (domain_list) {
+						domain = domain_list;
+						domain_list = domain_list->next;
+						free(domain);
+					}
 				}
 				break;
 			case DHCP_OPTION_STATIC_ROUTE:

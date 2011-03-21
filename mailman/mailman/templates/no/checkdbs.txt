@@ -1,7 +1,0 @@
-Listen %(real_name)s@%(host_name)s har %(count)d forespørsel/forespørsler
-som venter på din behandling på:
-
-	%(adminDB)s
-
-Vennligst behandle disse så snart du får tid.
-Denne påminnelsen vil bli sent til deg daglig.

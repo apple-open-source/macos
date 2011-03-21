@@ -15,6 +15,8 @@ extern "C" {
 
 #define RUBY_TYPEDEFS "___dtrace_typedefs$ruby$v2"
 
+#if !defined(DTRACE_PROBES_DISABLED) || !DTRACE_PROBES_DISABLED
+
 #define	RUBY_FUNCTION_ENTRY(arg0, arg1, arg2, arg3) \
 do { \
 	__asm__ volatile(".reference " RUBY_TYPEDEFS); \
@@ -22,7 +24,9 @@ do { \
 	__asm__ volatile(".reference " RUBY_STABILITY); \
 } while (0)
 #define	RUBY_FUNCTION_ENTRY_ENABLED() \
-	__dtrace_isenabled$ruby$function__entry$v1()
+	({ int _r = __dtrace_isenabled$ruby$function__entry$v1(); \
+		__asm__ volatile(""); \
+		_r; })
 #define	RUBY_FUNCTION_RETURN(arg0, arg1, arg2, arg3) \
 do { \
 	__asm__ volatile(".reference " RUBY_TYPEDEFS); \
@@ -30,7 +34,9 @@ do { \
 	__asm__ volatile(".reference " RUBY_STABILITY); \
 } while (0)
 #define	RUBY_FUNCTION_RETURN_ENABLED() \
-	__dtrace_isenabled$ruby$function__return$v1()
+	({ int _r = __dtrace_isenabled$ruby$function__return$v1(); \
+		__asm__ volatile(""); \
+		_r; })
 #define	RUBY_GC_BEGIN() \
 do { \
 	__asm__ volatile(".reference " RUBY_TYPEDEFS); \
@@ -38,7 +44,9 @@ do { \
 	__asm__ volatile(".reference " RUBY_STABILITY); \
 } while (0)
 #define	RUBY_GC_BEGIN_ENABLED() \
-	__dtrace_isenabled$ruby$gc__begin$v1()
+	({ int _r = __dtrace_isenabled$ruby$gc__begin$v1(); \
+		__asm__ volatile(""); \
+		_r; })
 #define	RUBY_GC_END() \
 do { \
 	__asm__ volatile(".reference " RUBY_TYPEDEFS); \
@@ -46,7 +54,9 @@ do { \
 	__asm__ volatile(".reference " RUBY_STABILITY); \
 } while (0)
 #define	RUBY_GC_END_ENABLED() \
-	__dtrace_isenabled$ruby$gc__end$v1()
+	({ int _r = __dtrace_isenabled$ruby$gc__end$v1(); \
+		__asm__ volatile(""); \
+		_r; })
 #define	RUBY_LINE(arg0, arg1) \
 do { \
 	__asm__ volatile(".reference " RUBY_TYPEDEFS); \
@@ -54,7 +64,9 @@ do { \
 	__asm__ volatile(".reference " RUBY_STABILITY); \
 } while (0)
 #define	RUBY_LINE_ENABLED() \
-	__dtrace_isenabled$ruby$line$v1()
+	({ int _r = __dtrace_isenabled$ruby$line$v1(); \
+		__asm__ volatile(""); \
+		_r; })
 #define	RUBY_OBJECT_CREATE_DONE(arg0, arg1, arg2) \
 do { \
 	__asm__ volatile(".reference " RUBY_TYPEDEFS); \
@@ -62,7 +74,9 @@ do { \
 	__asm__ volatile(".reference " RUBY_STABILITY); \
 } while (0)
 #define	RUBY_OBJECT_CREATE_DONE_ENABLED() \
-	__dtrace_isenabled$ruby$object__create__done$v1()
+	({ int _r = __dtrace_isenabled$ruby$object__create__done$v1(); \
+		__asm__ volatile(""); \
+		_r; })
 #define	RUBY_OBJECT_CREATE_START(arg0, arg1, arg2) \
 do { \
 	__asm__ volatile(".reference " RUBY_TYPEDEFS); \
@@ -70,7 +84,9 @@ do { \
 	__asm__ volatile(".reference " RUBY_STABILITY); \
 } while (0)
 #define	RUBY_OBJECT_CREATE_START_ENABLED() \
-	__dtrace_isenabled$ruby$object__create__start$v1()
+	({ int _r = __dtrace_isenabled$ruby$object__create__start$v1(); \
+		__asm__ volatile(""); \
+		_r; })
 #define	RUBY_OBJECT_FREE(arg0) \
 do { \
 	__asm__ volatile(".reference " RUBY_TYPEDEFS); \
@@ -78,7 +94,9 @@ do { \
 	__asm__ volatile(".reference " RUBY_STABILITY); \
 } while (0)
 #define	RUBY_OBJECT_FREE_ENABLED() \
-	__dtrace_isenabled$ruby$object__free$v1()
+	({ int _r = __dtrace_isenabled$ruby$object__free$v1(); \
+		__asm__ volatile(""); \
+		_r; })
 #define	RUBY_RAISE(arg0, arg1, arg2) \
 do { \
 	__asm__ volatile(".reference " RUBY_TYPEDEFS); \
@@ -86,7 +104,9 @@ do { \
 	__asm__ volatile(".reference " RUBY_STABILITY); \
 } while (0)
 #define	RUBY_RAISE_ENABLED() \
-	__dtrace_isenabled$ruby$raise$v1()
+	({ int _r = __dtrace_isenabled$ruby$raise$v1(); \
+		__asm__ volatile(""); \
+		_r; })
 #define	RUBY_RESCUE(arg0, arg1) \
 do { \
 	__asm__ volatile(".reference " RUBY_TYPEDEFS); \
@@ -94,7 +114,9 @@ do { \
 	__asm__ volatile(".reference " RUBY_STABILITY); \
 } while (0)
 #define	RUBY_RESCUE_ENABLED() \
-	__dtrace_isenabled$ruby$rescue$v1()
+	({ int _r = __dtrace_isenabled$ruby$rescue$v1(); \
+		__asm__ volatile(""); \
+		_r; })
 #define	RUBY_RUBY_PROBE(arg0, arg1) \
 do { \
 	__asm__ volatile(".reference " RUBY_TYPEDEFS); \
@@ -102,7 +124,9 @@ do { \
 	__asm__ volatile(".reference " RUBY_STABILITY); \
 } while (0)
 #define	RUBY_RUBY_PROBE_ENABLED() \
-	__dtrace_isenabled$ruby$ruby__probe$v1()
+	({ int _r = __dtrace_isenabled$ruby$ruby__probe$v1(); \
+		__asm__ volatile(""); \
+		_r; })
 
 
 extern void __dtrace_probe$ruby$function__entry$v1$63686172202a$63686172202a$63686172202a$696e74(const char *, const char *, const char *, int);
@@ -127,6 +151,56 @@ extern void __dtrace_probe$ruby$rescue$v1$63686172202a$696e74(const char *, int)
 extern int __dtrace_isenabled$ruby$rescue$v1(void);
 extern void __dtrace_probe$ruby$ruby__probe$v1$63686172202a$63686172202a(const char *, const char *);
 extern int __dtrace_isenabled$ruby$ruby__probe$v1(void);
+
+#else
+
+#define	RUBY_FUNCTION_ENTRY(arg0, arg1, arg2, arg3) \
+do { \
+	} while (0)
+#define	RUBY_FUNCTION_ENTRY_ENABLED() (0)
+#define	RUBY_FUNCTION_RETURN(arg0, arg1, arg2, arg3) \
+do { \
+	} while (0)
+#define	RUBY_FUNCTION_RETURN_ENABLED() (0)
+#define	RUBY_GC_BEGIN() \
+do { \
+	} while (0)
+#define	RUBY_GC_BEGIN_ENABLED() (0)
+#define	RUBY_GC_END() \
+do { \
+	} while (0)
+#define	RUBY_GC_END_ENABLED() (0)
+#define	RUBY_LINE(arg0, arg1) \
+do { \
+	} while (0)
+#define	RUBY_LINE_ENABLED() (0)
+#define	RUBY_OBJECT_CREATE_DONE(arg0, arg1, arg2) \
+do { \
+	} while (0)
+#define	RUBY_OBJECT_CREATE_DONE_ENABLED() (0)
+#define	RUBY_OBJECT_CREATE_START(arg0, arg1, arg2) \
+do { \
+	} while (0)
+#define	RUBY_OBJECT_CREATE_START_ENABLED() (0)
+#define	RUBY_OBJECT_FREE(arg0) \
+do { \
+	} while (0)
+#define	RUBY_OBJECT_FREE_ENABLED() (0)
+#define	RUBY_RAISE(arg0, arg1, arg2) \
+do { \
+	} while (0)
+#define	RUBY_RAISE_ENABLED() (0)
+#define	RUBY_RESCUE(arg0, arg1) \
+do { \
+	} while (0)
+#define	RUBY_RESCUE_ENABLED() (0)
+#define	RUBY_RUBY_PROBE(arg0, arg1) \
+do { \
+	} while (0)
+#define	RUBY_RUBY_PROBE_ENABLED() (0)
+
+#endif /* !defined(DTRACE_PROBES_DISABLED) || !DTRACE_PROBES_DISABLED */
+
 
 #ifdef	__cplusplus
 }

@@ -2,8 +2,10 @@
 
 install:
 # ========== libxml2 ==========
+	set PATH=$(PATH);$(CYGWINPATH)
+	$(CYGWINPATH)\bash "$(SRCROOT)\AppleInternal\tools\scripts\auto-version.sh" "$(OBJROOT)\libxml\obj"
 	cd "$(SRCROOT)\libxml2\win32"
-	cscript //nologo configure.js cruntime=/MD prefix="$(OBJROOT)\libxml" include="$(SRCROOT)\AppleInternal\include;$(SRCROOT)\AppleInternal\include\CoreFoundation\OSXCompatibilityHeaders\GNUCompatibility" lib="$(SRCROOT)\AppleInternal\lib" iconv=no icu=yes
+	cscript //nologo configure.js cruntime=/MD prefix="$(OBJROOT)\libxml" rinclude="$(OBJROOT)\libxml\obj\include" include="$(SRCROOT)\AppleInternal\include;$(SRCROOT)\AppleInternal\include\CoreFoundation\OSXCompatibilityHeaders\GNUCompatibility" lib="$(SRCROOT)\AppleInternal\lib" iconv=no icu=yes
 	nmake /f Makefile.msvc
 	nmake /f Makefile.msvc install	
 	xcopy "$(OBJROOT)\libxml\bin\libxml2.*" "$(DSTROOT)\AppleInternal\bin" /e/v/i/h/y
@@ -13,8 +15,10 @@ install:
 
 install_DEBUG:
 # ========== libxml2 ==========
+	set PATH=$(PATH);$(CYGWINPATH)
+	$(CYGWINPATH)\bash "$(SRCROOT)\AppleInternal\tools\scripts\auto-version.sh" "$(OBJROOT)\libxml\obj"
 	cd "$(SRCROOT)\libxml2\win32"
-	cscript //nologo configure.js debug=1 cruntime=/MDd prefix="$(OBJROOT)\libxml" include="$(SRCROOT)\AppleInternal\include;$(SRCROOT)\AppleInternal\include\CoreFoundation\OSXCompatibilityHeaders\GNUCompatibility" lib="$(SRCROOT)\AppleInternal\lib" iconv=no icu=yes
+	cscript //nologo configure.js debug=1 cruntime=/MDd prefix="$(OBJROOT)\libxml" rinclude="$(OBJROOT)\libxml\obj\include" include="$(SRCROOT)\AppleInternal\include;$(SRCROOT)\AppleInternal\include\CoreFoundation\OSXCompatibilityHeaders\GNUCompatibility" lib="$(SRCROOT)\AppleInternal\lib" iconv=no icu=yes
 	nmake /f Makefile.msvc
 	nmake /f Makefile.msvc install
 	xcopy "$(OBJROOT)\libxml\bin\libxml*" "$(DSTROOT)\AppleInternal\bin" /e/v/i/h/y

@@ -54,7 +54,19 @@ MALLOC_DECLARE(M_SMBFSDATA);
 #define	SMB_LOCK_SHARED		1
 #define	SMB_LOCK_RELEASE	2
 
+/*
+ * Currently the valid mask is only used for the reparse tag and vtype, but in
+ * the future I would like to use it for all items in the fa.
+ * NOTE: the vtype valid mask doesn't mean we don't have it, just that we are 
+ * not sure if its correct.
+ */
+#define FA_VTYPE_VALID			1
+#define FA_REPARSE_TAG_VALID	2
+#define FA_FSTATUS_VALID		4
+#define FA_UNIX_MODES_VALID		8
+
 struct smbfattr {
+	uint64_t		fa_valid_mask;
 	int				fa_attr;
 	u_quad_t		fa_size;	/* data stream size */
 	u_quad_t		fa_data_alloc;	/* data stream allocation size */
@@ -71,6 +83,7 @@ struct smbfattr {
 	u_int64_t		fa_nlinks;
 	u_int32_t		fa_flags_mask;
 	u_int32_t		fa_unix;		/* Currently TRUE OR FALSE if we got the UNIX Info 2 data */
+	uint32_t		fa_reparse_tag;	
 };
 
 /*
@@ -105,8 +118,8 @@ struct smbfs_fctx {
 	u_int16_t	f_searchCount;	/* maximum number of entries to be returned */
 	int		f_attrmask;	/* SMB_FA_ */
 	int		f_sfm_conversion;	/* SFM Conversion Flag */
-	size_t	f_wclen;
-	const char *	f_wildcard;
+	size_t			f_lookupNameLen;
+	const char *	f_lookupName;
 	struct smbnode*	f_dnp;
 	struct smb_share *f_ssp;
 	union {
@@ -134,20 +147,35 @@ struct smbfs_fctx {
  */
 int smbfs_fullpath_to_network(struct smb_share *, char * /*utf8str*/, char * /*network*/, size_t * /*ntwrk_len*/, 
 							  char /*ntwrk_delimiter*/, int /*flags*/);
-int smbfs_smb_read_symlink(struct smb_share *, struct smbnode *, struct uio *, vfs_context_t );
-int smbfs_smb_create_symlink(struct smbnode *, const char * /*name*/, size_t /*nmlen*/, char * /*target*/, 
-							 size_t /*targetlen*/, vfs_context_t);
+int smbfs_smb_create_unix_symlink(struct smb_share *share, struct smbnode *dnp, 
+								  const char *name, size_t nmlen, char *target, 
+								  size_t targetlen, struct smbfattr *fap,
+								  vfs_context_t context);
+int smbfs_smb_create_windows_symlink(struct smb_share *share, struct smbnode *dnp, 
+									 const char *name, size_t nmlen, char *target, 
+									 size_t targetlen, struct smbfattr *fap,
+									 vfs_context_t context);
+int smbfs_smb_create_reparse_symlink(struct smb_share *share, struct smbnode *dnp, 
+									 const char *name, size_t nmlen, char *target, 
+									 size_t targetlen, struct smbfattr *fap,
+									 vfs_context_t context);
+void smbfs_update_symlink_cache(struct smbnode *np, char *target, size_t targetlen);
+int smbfs_smb_reparse_read_symlink(struct smb_share *share, struct smbnode *np, 
+								   struct uio *uiop, vfs_context_t context);
+int smbfs_smb_windows_read_symlink(struct smb_share *share, struct smbnode *np, 
+								   struct uio *uiop, vfs_context_t context);
+int smbfs_smb_unix_read_symlink(struct smb_share *share, struct smbnode *np, 
+								struct uio *uiop, vfs_context_t context);
 int smbfs_smb_statfs(struct smb_share *, struct vfsstatfs *, vfs_context_t);
 void smbfs_smb_qfsattr(struct smb_share *, struct smbmount *, vfs_context_t);
 int smbfs_smb_setfsize(struct smbnode *, u_int16_t /*fid*/, u_int64_t /*newsize*/, vfs_context_t);
 int smbfs_smb_seteof(struct smb_share *, u_int16_t /*fid*/, u_int64_t  /*newsize*/, vfs_context_t);
 int smbfs_smb_query_info(struct smbnode *, const char * /*name*/, size_t /*nmlen*/, struct smbfattr *, vfs_context_t);
-int smbfs_smb_setpattr(struct smbnode *, const char * /*name*/, size_t  /*nmlen*/, u_int16_t /*attr*/, 
-					   struct timespec * /*mtime*/, vfs_context_t);
+int smbfs_smb_setpattr(struct smbnode *, const char * /*name*/, size_t  /*nmlen*/, u_int16_t /*attr*/, vfs_context_t);
 int smbfs_smb_setpattrNT(struct smbnode *, u_int32_t /*attr*/, struct timespec * /*crtime*/, struct timespec * /*mtime*/, 
-						 struct timespec * /*atime*/, struct timespec * /*chtime*/, vfs_context_t);
+						 struct timespec * /*atime*/, vfs_context_t);
 int smbfs_smb_setfattrNT(struct smbnode *, u_int32_t /*attr*/, u_int16_t /*fid*/, struct timespec * /*crtime*/, 
-						 struct timespec * /*mtime*/, struct timespec * /*atime*/, struct timespec * /*chtime*/, vfs_context_t);
+						 struct timespec * /*mtime*/, struct timespec * /*atime*/, vfs_context_t);
 int smbfs_smb_open(struct smbnode *, u_int32_t /*rights*/, u_int32_t /*shareMode*/, vfs_context_t, u_int16_t */*fidp*/);
 int smbfs_smb_open_xattr(struct smbnode *, u_int32_t /*rights*/, u_int32_t /*shareMode*/, vfs_context_t, u_int16_t */*fidp*/, 
 						 const char */*name*/, size_t */*sizep*/);
@@ -165,8 +193,8 @@ int smbfs_smb_t2rename(struct smbnode *, const char */*tname*/, size_t /*tnmlen*
 int smbfs_delete_openfile(struct smbnode */*dnp*/, struct smbnode */*np*/, vfs_context_t);
 int smbfs_smb_mkdir(struct smbnode *, const char */*name*/, size_t /*nmlen*/, vfs_context_t, struct smbfattr *);
 int smbfs_smb_rmdir(struct smbnode *, vfs_context_t);
-int smbfs_smb_findopen(struct smbnode *, const char */*wildcard*/, size_t /*wclen*/, int /*attr*/, vfs_context_t, 
-					   struct smbfs_fctx **, int /*conversion_flag*/);
+int smbfs_smb_findopen(struct smbnode *, const char */*lookupName*/, size_t /*lookupNameLen*/, 
+					   vfs_context_t, struct smbfs_fctx **, int /*wildCardLookup*/);
 int smbfs_smb_findnext(struct smbfs_fctx *, vfs_context_t);
 void smbfs_closedirlookup(struct smbnode *, vfs_context_t);
 int smbfs_fullpath(struct mbchain *, struct smb_vc *, struct smbnode *, const char */*name*/, size_t */*nmlenp*/, 
@@ -183,13 +211,15 @@ int smbfs_smb_qstreaminfo(struct smbnode *, vfs_context_t, uio_t, size_t */*size
 int smbfs_smb_flush(struct smbnode *, vfs_context_t);
 void smbfs_fname_tolocal(struct smbfs_fctx *);
 char *smbfs_ntwrkname_tolocal(struct smb_vc *, const char */*ntwrk_name*/, size_t */*nmlen*/);
-void smb_time_local2server(struct timespec *, int /*tzoff*/, u_int32_t */*seconds*/);
 void smb_time_server2local(u_long /*seconds*/, int /*tzoff*/, struct timespec *);
-void smb_time_NT2local(u_int64_t /*nsec*/, int /*tzoff*/, struct timespec *);
-void smb_time_local2NT(struct timespec *, int /*tzoff*/, u_int64_t */*nsec*/, int /*fat_fstype*/);
-void smb_dos2unixtime (u_int /*dd*/, u_int /*dt*/, u_int /*dh*/, int /*tzoff*/, struct timespec *);
+void smb_time_NT2local(u_int64_t /*nsec*/, struct timespec *);
+void smb_time_local2NT(struct timespec *, u_int64_t */*nsec*/, int /*fat_fstype*/);
 int smbfs_smb_lock(struct smbnode *, int /*op*/, u_int16_t /*fid*/, u_int32_t /*pid*/, off_t /*start*/, u_int64_t /*len*/, 
 				   vfs_context_t, u_int32_t /*timo*/);
+int smbfs_smb_ntcreatex(struct smbnode *np, u_int32_t rights, u_int32_t shareMode, 
+						vfs_context_t context, enum vtype vt, u_int16_t *fidp, 
+						const char *name, size_t in_nmlen, u_int32_t disp, 
+						int xattr, struct smbfattr *fap);
 #ifdef USE_SIDEBAND_CHANNEL_RPC
 int smbfs_spotlight(struct smbnode *, vfs_context_t, void */*idata*/, void */*odata*/, size_t /*isize*/, size_t */*osize*/);
 #endif // USE_SIDEBAND_CHANNEL_RPC

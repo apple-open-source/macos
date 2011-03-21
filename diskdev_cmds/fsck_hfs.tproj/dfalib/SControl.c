@@ -200,6 +200,8 @@ External
 
 ------------------------------------------------------------------------------*/
 
+static jmp_buf	envBuf;
+
 int
 CheckHFS( const char *rdevnode, int fsReadRef, int fsWriteRef, int checkLevel, 
 	  int repairLevel, fsck_ctx_t fsckContext, int lostAndFoundMode, 
@@ -215,7 +217,6 @@ CheckHFS( const char *rdevnode, int fsReadRef, int fsWriteRef, int checkLevel,
 	Boolean 			autoRepair;
 	Boolean				exitEarly = 0;
 	__block int *msgCounts = NULL;
-	jmp_buf				envBuf;
 	Boolean				majorErrors = 0;
 
 	if (checkLevel == kMajorCheck) {

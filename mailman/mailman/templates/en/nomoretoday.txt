@@ -1,8 +1,0 @@
-We have received a message from your address `%(sender)s' requesting
-an automated response from the %(listname)s mailing list.  We have
-seen %(num)s such messages from you today.  In order to avoid problems
-such as mail loops between email robots, we will not be sending you
-any further email responses today.  Please try again tomorrow.
-
-If you believe this message is in error, or if you have any questions,
-please contact the list owner at %(owneremail)s.

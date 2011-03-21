@@ -78,6 +78,11 @@ extern int smbfs_loglevel;
 		printf("%s: "format, __FUNCTION__ ,## args); \
 }while(0)
 
+#define SMB_LOG_ACCESS(format, args...) do { \
+if (smbfs_loglevel == SMB_ACL_LOG_LEVEL) \
+printf("%s: "format, __FUNCTION__ ,## args); \
+}while(0)
+
 #ifdef SMB_DEBUG
 #define DBG_ASSERT(a) { if (!(a)) { panic("File "__FILE__", line %d: assertion '%s' failed.\n", __LINE__, #a); } }
 #define DBG_LOCKLIST_ASSERT(lock_cnt, lock_order) { \
@@ -130,6 +135,8 @@ void m_dumpm(mbuf_t m);
 #include <sys/lock.h>
 
 #define SMB_STRFREE(p)	do { if (p) free(p, M_SMBSTR);  p = NULL; } while(0)
+
+#define SMB_FREE(addr, type)	do { if (addr) FREE(addr, type); addr = NULL; } while(0);
 
 /*
  * The simple try/catch/finally interface.

@@ -1,1 +1,0 @@
-%(member)s feliratkozott a(z) %(listname)s listára.

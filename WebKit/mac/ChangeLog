@@ -1,3 +1,144 @@
+2011-02-01  Mark Rowe  <mrowe@apple.com>
+
+        Merge r73444.
+
+    2010-12-06  Darin Adler  <darin@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        Pass security origin to make local file decision correctly
+        https://bugs.webkit.org/show_bug.cgi?id=48603
+
+        * WebView/WebPDFView.mm:
+        (-[WebPDFView PDFViewWillClickOnLink:withURL:]): Pass security origin.
+
+2011-02-01  Mark Rowe  <mrowe@apple.com>
+
+        Merge r74524.
+
+    2010-12-22  Simon Fraser  <simon.fraser@apple.com>
+
+        Reviewed by Darin Adler.
+
+        Cache snapshots of plug-ins before painting, to avoid script running during painting
+        https://bugs.webkit.org/show_bug.cgi?id=51493
+
+        When FrameView is asked to do a flattening paint (e.g. when Safari snapshots,
+        or when printing), plug-ins which otherwise use the CA rendering model
+        are sent a paint event. Some plug-ins may run script while handling this event,
+        or out of process plug-ins may process queued requests at this time. Running
+        script while inside layout or painting can have bad consequences, because it
+        can result in arbitrary changes to the render tree.
+        
+        This patch avoids sending plug-ins paint events inside of painting. Instead,
+        we ask the plug-ins to cache a snapshot before we paint, and then the software
+        paint simply draws that snapshot.
+
+        * Plugins/Hosted/WebHostedNetscapePluginView.mm:
+        (-[WebHostedNetscapePluginView drawRect:]): If we have a cached snapshot,
+        draw it. Also only send the snapshot message to the plugin proxy if we
+        know we're snapshotting, since even if creating the snapshot image failed,
+        we still don't want to call to the plug-in.
+
+        * Plugins/WebBaseNetscapePluginView.h: Add a retained NSImage member for the snapshot.
+        * Plugins/WebBaseNetscapePluginView.mm:
+        (-[WebBaseNetscapePluginView cacheSnapshot]): Create an image and draw the snapshot into it.
+        (-[WebBaseNetscapePluginView clearCachedSnapshot]): Clear the snapshot.
+
+        * Plugins/WebNetscapePluginView.mm:
+        (-[WebNetscapePluginView drawRect:]): If we have a cached snapshot, use it.
+        * WebCoreSupport/WebFrameLoaderClient.mm:
+        (NetscapePluginWidget::notifyWidget): Implement notifyWidget() and use it
+        to cache and clear the snapshots.
+
+2011-01-27  Mark Rowe  <mrowe@apple.com>
+
+        Merge r76191.
+
+    2011-01-19  Darin Adler  <darin@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        Would like script debugging protocol method to differentiate between caught and uncaught exceptions
+        https://bugs.webkit.org/show_bug.cgi?id=52104
+        rdar://problem/8704226
+
+        * WebView/WebDelegateImplementationCaching.h:
+        Fix type of second integer in CallScriptDebugDelegate function overload
+        to be int to match the actual Objective-C method. Added a new overload
+        that includes a BOOL in the right place. Added a boolean named
+        exceptionWasRaisedExpectsHasHandlerFlag.
+
+        * WebView/WebDelegateImplementationCaching.mm:
+        (CallDelegate): Added overloads as above.
+        (CallScriptDebugDelegate): Ditto.
+
+        * WebView/WebScriptDebugDelegate.h: Added new method with the additional
+        boolean argument. Marked the old method informally deprecated.
+
+        * WebView/WebScriptDebugger.mm:
+        (WebScriptDebugger::exception): Added code to call with or without the
+        boolean depending on exceptionWasRaisedExpectsHasHandlerFlag.
+
+        * WebView/WebView.mm:
+        (-[WebView _cacheScriptDebugDelegateImplementations]): Set up the
+        exceptionWasRaisedExpectsHasHandlerFlag. Also fixed old code that was not
+        guaranteed to set didParseSourceExpectsBaseLineNumber to NO.
+
+2011-01-27  Mark Rowe  <mrowe@apple.com>
+
+        Merge r75851.
+
+    2011-01-14  Dan Bernstein  <mitz@apple.com>
+
+        Reviewed by Simon Fraser.
+
+        WebKit/mac part of <rdar://problem/8441312> Crash in -[NSView _invalidateGStatesForTree]
+
+        * WebView/WebHTMLView.mm:
+        (-[WebHTMLView _invalidateGStatesForTree]): Override this NSView method, and bracket the call
+        to the superclass implementation with suspending WebCore Widget hierarchy updates. This ensures
+        that the NSView tree doesn’t change from under AppKit as it traverses it.
+
+2011-01-27  Mark Rowe  <mrowe@apple.com>
+
+        Merge r71426.
+
+    2010-11-04  Alexey Proskuryakov  <ap@apple.com>
+
+        Reviewed by Darin Adler.
+
+        https://bugs.webkit.org/show_bug.cgi?id=49008
+        <rdar://problem/7906226> Frequent crashes on mail.yahoo.co.jp
+
+        Callers of NetscapePluginInstanceProxy::waitForReply() are not prepared to be deleted during
+        the call, unless it returns 0. There are two reasons for NetscapePluginInstanceProxy to be
+        deleted during wait:
+        - plugin crashed;
+        - plugin was stopped (e.g. due to a DOM modification performed by another reply that came in
+        while waiting).
+
+        We didn't recognize the latter.
+
+        * Plugins/Hosted/NetscapePluginHostProxy.mm:
+        (WebKit::PluginDestroyDeferrer::~PluginDestroyDeferrer):
+        * Plugins/Hosted/NetscapePluginInstanceProxy.h:
+        (WebKit::NetscapePluginInstanceProxy::waitForReply):
+        * Plugins/Hosted/NetscapePluginInstanceProxy.mm:
+        (WebKit::NetscapePluginInstanceProxy::didCallPluginFunction):
+
+2011-01-27  Mark Rowe  <mrowe@apple.com>
+
+        Merge r74887.
+
+    2011-01-02  Dan Bernstein  <mitz@apple.com>
+
+        Rubber-stamped by Simon Fraser.
+
+        <rdar://problem/8812159> Update copyright strings
+
+        * Info.plist:
+
 2010-08-09  Mark Rowe  <mrowe@apple.com>
 
         Merge r62872.

@@ -439,10 +439,7 @@ struct mlndr_stream {
 int mlndo_process(struct mlndr_stream *, struct ndr_typeinfo *, char *);
 int mlndo_operation(struct mlndr_stream *, struct ndr_typeinfo *,
     int opnum, char *);
-void mlndo_printf(struct mlndr_stream *, struct ndr_reference *,
-    const char *, ...);
 void mlndo_trace(const char *);
-void mlndo_fmt(struct mlndr_stream *, struct ndr_reference *, char *);
 
 int mlndr_params(struct ndr_reference *);
 int mlndr_topmost(struct ndr_reference *);

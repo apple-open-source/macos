@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2008 Apple Inc. All rights reserved.
+ * Copyright (c) 2008-2010 Apple Inc. All rights reserved.
  *
  * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
  *
@@ -459,8 +459,10 @@ struct	iftot {
 	u_int64_t	ift_dr;			/* drops */
 	u_int64_t	ift_ib;			/* input bytes */
 	u_int64_t	ift_ob;			/* output bytes */
-	u_int64_t	ift_obgp;		/* output bg packets */
-	u_int64_t	ift_obgb;		/* output bg bytes */
+	u_int64_t	ift_itcp;		/* input tc packets */
+	u_int64_t	ift_itcb;		/* input tc bytes */
+	u_int64_t	ift_otcp;		/* output tc packets */
+	u_int64_t	ift_otcb;		/* output tc bytes */
 };
 
 u_char	signalled;			/* set if alarm goes off "early" */
@@ -485,7 +487,6 @@ sidewaysintpr()
 	int interesting_row;
 	sigset_t sigset, oldsigset;
 	struct itimerval timer_interval;
-
 
 	/* Common OID prefix */
 	name[0] = CTL_NET;
@@ -536,21 +537,30 @@ sidewaysintpr()
 	(void)setitimer(ITIMER_REAL, &timer_interval, NULL);
 	first = 1;
 banner:
-	printf("%17s %14s %16s", "input",
-	    interesting ? interesting->ift_name : "(Total)", "output");
+	if (prioflag)
+		printf("%37s %14s %16s", "input",
+		    interesting ? interesting->ift_name : "(Total)", "output");
+	else
+		printf("%17s %14s %16s", "input",
+		    interesting ? interesting->ift_name : "(Total)", "output");
 	putchar('\n');
-	printf("%10s %5s %10s %10s %5s %10s %5s",
-	    "packets", "errs", "bytes", "packets", "errs", "bytes", "colls");
+	printf("%10s %5s %10s ", 
+	    "packets", "errs", "bytes");
+	if (prioflag)
+		printf(" %10s %10s", "tcpkts", "tcbytes");
+	printf("%10s %5s %10s %5s",
+	    "packets", "errs", "bytes", "colls");
 	if (dflag)
 		printf(" %5.5s", "drops");
 	if (prioflag)
-		printf(" %10s %10s", "obgpkts", "obgbytes");
+		printf(" %10s %10s", "tcpkts", "tcbytes");
 	putchar('\n');
 	fflush(stdout);
 	line = 0;
 loop:
 	if (interesting != NULL) {
 		struct ifmibdata ifmd;
+		struct ifmibdata_supplemental ifmsupp;
 		
 		len = sizeof(struct ifmibdata);
 		name[3] = IFMIB_IFDATA;
@@ -559,21 +569,64 @@ loop:
 		if (sysctl(name, 6, &ifmd, &len, (void *)0, 0) == -1)
 			err(1, "sysctl IFDATA_GENERAL %d", interesting_row);
 
+		if (prioflag) {
+			len = sizeof(struct ifmibdata_supplemental);
+			name[3] = IFMIB_IFDATA;
+			name[4] = interesting_row;
+			name[5] = IFDATA_SUPPLEMENTAL;
+			if (sysctl(name, 6, &ifmsupp, &len, (void *)0, 0) == -1)
+				err(1, "sysctl IFDATA_SUPPLEMENTAL %d", interesting_row);
+		}
 		if (!first) {
-			printf("%10llu %5llu %10llu %10llu %5llu %10llu %5llu",
+			printf("%10llu %5llu %10llu ",
 				ifmd.ifmd_data.ifi_ipackets - interesting->ift_ip,
 				ifmd.ifmd_data.ifi_ierrors - interesting->ift_ie,
-				ifmd.ifmd_data.ifi_ibytes - interesting->ift_ib,
+				ifmd.ifmd_data.ifi_ibytes - interesting->ift_ib);
+			switch (prioflag) {
+				case SO_TC_BK:
+					printf("%10llu %10llu ",
+					    ifmsupp.ifmd_traffic_class.ifi_ibkpackets - interesting->ift_itcp,
+					    ifmsupp.ifmd_traffic_class.ifi_ibkbytes - interesting->ift_itcb);
+					break;
+				case SO_TC_VI:
+					printf("%10llu %10llu ",
+					    ifmsupp.ifmd_traffic_class.ifi_ivipackets - interesting->ift_itcp,
+					    ifmsupp.ifmd_traffic_class.ifi_ivibytes - interesting->ift_itcb);
+					break;
+				case SO_TC_VO:
+					printf("%10llu %10llu ",
+					    ifmsupp.ifmd_traffic_class.ifi_ivopackets - interesting->ift_itcp,
+					    ifmsupp.ifmd_traffic_class.ifi_ivobytes - interesting->ift_itcb);
+					break;
+				default:
+					break;
+			}
+			printf("%10llu %5llu %10llu %5llu",
 				ifmd.ifmd_data.ifi_opackets - interesting->ift_op,
 				ifmd.ifmd_data.ifi_oerrors - interesting->ift_oe,
 				ifmd.ifmd_data.ifi_obytes - interesting->ift_ob,
 				ifmd.ifmd_data.ifi_collisions - interesting->ift_co);
 			if (dflag)
 				printf(" %5llu", ifmd.ifmd_snd_drops - interesting->ift_dr);
-			if (prioflag)
-				printf(" %10llu %10llu",
-				    ifmd.ifmd_filler[0] - interesting->ift_obgp,
-				    ifmd.ifmd_filler[1] - interesting->ift_obgb);
+			switch (prioflag) {
+				case SO_TC_BK:
+					printf(" %10llu %10llu",
+					    ifmsupp.ifmd_traffic_class.ifi_obkpackets - interesting->ift_otcp,
+					    ifmsupp.ifmd_traffic_class.ifi_obkbytes - interesting->ift_otcb);
+					break;
+				case SO_TC_VI:
+					printf(" %10llu %10llu",
+					    ifmsupp.ifmd_traffic_class.ifi_ovipackets - interesting->ift_otcp,
+					    ifmsupp.ifmd_traffic_class.ifi_ovibytes - interesting->ift_otcb);
+					break;
+				case SO_TC_VO:
+					printf(" %10llu %10llu",
+					    ifmsupp.ifmd_traffic_class.ifi_ovopackets - interesting->ift_otcp,
+					    ifmsupp.ifmd_traffic_class.ifi_ovobytes - interesting->ift_otcb);
+					break;
+				default:
+					break;
+			}
 		}
 		interesting->ift_ip = ifmd.ifmd_data.ifi_ipackets;
 		interesting->ift_ie = ifmd.ifmd_data.ifi_ierrors;
@@ -584,10 +637,31 @@ loop:
 		interesting->ift_co = ifmd.ifmd_data.ifi_collisions;
 		interesting->ift_dr = ifmd.ifmd_snd_drops;
 		/* private counters */
-		interesting->ift_obgp = ifmd.ifmd_filler[0];
-		interesting->ift_obgb = ifmd.ifmd_filler[1];
+		switch (prioflag) {
+			case SO_TC_BK:
+				interesting->ift_itcp = ifmsupp.ifmd_traffic_class.ifi_ibkpackets;
+				interesting->ift_itcb = ifmsupp.ifmd_traffic_class.ifi_ibkbytes;
+				interesting->ift_otcp = ifmsupp.ifmd_traffic_class.ifi_obkpackets;
+				interesting->ift_otcb = ifmsupp.ifmd_traffic_class.ifi_obkbytes;
+				break;
+			case SO_TC_VI:
+				interesting->ift_itcp = ifmsupp.ifmd_traffic_class.ifi_ivipackets;
+				interesting->ift_itcb = ifmsupp.ifmd_traffic_class.ifi_ivibytes;
+				interesting->ift_otcp = ifmsupp.ifmd_traffic_class.ifi_ovipackets;
+				interesting->ift_otcb = ifmsupp.ifmd_traffic_class.ifi_ovibytes;
+				break;
+			case SO_TC_VO:
+				interesting->ift_itcp = ifmsupp.ifmd_traffic_class.ifi_ivopackets;
+				interesting->ift_itcb = ifmsupp.ifmd_traffic_class.ifi_ivobytes;
+				interesting->ift_otcp = ifmsupp.ifmd_traffic_class.ifi_ovopackets;
+				interesting->ift_otcb = ifmsupp.ifmd_traffic_class.ifi_ovobytes;
+				break;
+			default:
+				break;
+		}
 	} else {
 		unsigned int latest_ifcount;
+		struct ifmibdata_supplemental *ifmsuppall = NULL;
 		
 		len = sizeof(int);
 		name[3] = IFMIB_SYSTEM;
@@ -600,7 +674,7 @@ loop:
 			free(ifmdall);
 			ifmdall = malloc(len);
 			if (ifmdall == 0)
-				err(1, "malloc failed");
+				err(1, "malloc ifmdall failed");
 		} else if (latest_ifcount > ifcount) {
 			ifcount = latest_ifcount;
 			len = ifcount * sizeof(struct ifmibdata);
@@ -611,7 +685,17 @@ loop:
 		name[5] = IFDATA_GENERAL;
 		if (sysctl(name, 6, ifmdall, &len, (void *)0, 0) == -1)
 			err(1, "sysctl IFMIB_IFALLDATA");
-			
+		if (prioflag) {
+			len = ifcount * sizeof(struct ifmibdata_supplemental);
+			ifmsuppall = malloc(len);
+			if (ifmsuppall == NULL)
+				err(1, "malloc ifmsuppall failed");
+			name[3] = IFMIB_IFALLDATA;
+			name[4] = 0;
+			name[5] = IFDATA_SUPPLEMENTAL;
+			if (sysctl(name, 6, ifmsuppall, &len, (void *)0, 0) == -1)
+				err(1, "sysctl IFMIB_IFALLDATA SUPPLEMENTAL");
+		}			
 		sum->ift_ip = 0;
 		sum->ift_ie = 0;
 		sum->ift_ib = 0;
@@ -620,8 +704,10 @@ loop:
 		sum->ift_ob = 0;
 		sum->ift_co = 0;
 		sum->ift_dr = 0;
-		sum->ift_obgp = 0;
-		sum->ift_obgb = 0;
+		sum->ift_itcp = 0;
+		sum->ift_itcb = 0;
+		sum->ift_otcp = 0;
+		sum->ift_otcb = 0;
 		for (i = 0; i < ifcount; i++) {
 			struct ifmibdata *ifmd = ifmdall + i;
 			
@@ -634,14 +720,42 @@ loop:
 			sum->ift_co += ifmd->ifmd_data.ifi_collisions;
 			sum->ift_dr += ifmd->ifmd_snd_drops;
 			/* private counters */
-			sum->ift_obgp += ifmd->ifmd_filler[0];
-			sum->ift_obgb += ifmd->ifmd_filler[1];
+			if (prioflag) {
+				struct ifmibdata_supplemental *ifmsupp = ifmsuppall + i;
+				switch (prioflag) {
+					case SO_TC_BK:
+						sum->ift_itcp += ifmsupp->ifmd_traffic_class.ifi_ibkpackets;
+						sum->ift_itcb += ifmsupp->ifmd_traffic_class.ifi_ibkbytes;
+						sum->ift_otcp += ifmsupp->ifmd_traffic_class.ifi_obkpackets;
+						sum->ift_otcb += ifmsupp->ifmd_traffic_class.ifi_obkbytes;
+						break;
+					case SO_TC_VI:
+						sum->ift_itcp += ifmsupp->ifmd_traffic_class.ifi_ivipackets;
+						sum->ift_itcb += ifmsupp->ifmd_traffic_class.ifi_ivibytes;
+						sum->ift_otcp += ifmsupp->ifmd_traffic_class.ifi_ovipackets;
+						sum->ift_otcb += ifmsupp->ifmd_traffic_class.ifi_ovibytes;
+						break;
+					case SO_TC_VO:
+						sum->ift_itcp += ifmsupp->ifmd_traffic_class.ifi_ivopackets;
+						sum->ift_itcb += ifmsupp->ifmd_traffic_class.ifi_ivobytes;
+						sum->ift_otcp += ifmsupp->ifmd_traffic_class.ifi_ovopackets;
+						sum->ift_otcb += ifmsupp->ifmd_traffic_class.ifi_ovobytes;
+						break;
+					default:
+						break;
+				}
+			}
 		}
 		if (!first) {
-			printf("%10llu %5llu %10llu %10llu %5llu %10llu %5llu",
+			printf("%10llu %5llu %10llu ",
 				sum->ift_ip - total->ift_ip,
 				sum->ift_ie - total->ift_ie,
-				sum->ift_ib - total->ift_ib,
+				sum->ift_ib - total->ift_ib);
+			if (prioflag)
+				printf(" %10llu %10llu",
+				    sum->ift_itcp - total->ift_itcp,
+				    sum->ift_itcb - total->ift_itcb);
+			printf("%10llu %5llu %10llu %5llu",
 				sum->ift_op - total->ift_op,
 				sum->ift_oe - total->ift_oe,
 				sum->ift_ob - total->ift_ob,
@@ -650,8 +764,8 @@ loop:
 				printf(" %5llu", sum->ift_dr - total->ift_dr);
 			if (prioflag)
 				printf(" %10llu %10llu",
-				    sum->ift_obgp - total->ift_obgp,
-				    sum->ift_obgb - total->ift_obgb);
+				    sum->ift_otcp - total->ift_otcp,
+				    sum->ift_otcb - total->ift_otcb);
 		}
 		*total = *sum;
 	}

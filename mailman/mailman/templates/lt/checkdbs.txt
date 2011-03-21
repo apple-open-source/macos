@@ -1,9 +1,0 @@
-Diskusijø forume %(real_name)s@%(host_name)s jûsø 
-patvirtinimo laukianèiø laiðkø skaièius: %(count)d.
-
-Praðome kuo greièiau juos patvirtinti tinklapyje
-
-	%(adminDB)s
-
-Tokie praneðimai apie laukianèius laiðkus (jei tokiø
-yra) siunèiami kiekvienà dienà.

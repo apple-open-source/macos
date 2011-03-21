@@ -1,7 +1,0 @@
-A súa mensaxe co asunto seguinte:
-
-    %(subject)s
-
-distribuíuse satisfactoriamente na rolda %(listname)s.
-
-Páxina de información da rolda: %(listinfo_url)s

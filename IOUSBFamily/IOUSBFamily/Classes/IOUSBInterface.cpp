@@ -1062,7 +1062,6 @@ IOUSBInterface::SetAlternateInterface(IOService *forClient, UInt16 alternateSett
 
     if (res != kIOReturnSuccess) 
     {
-        close(forClient);
         goto ErrorExit;
     }
     

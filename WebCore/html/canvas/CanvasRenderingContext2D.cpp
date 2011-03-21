@@ -4,6 +4,7 @@
  * Copyright (C) 2007 Alp Toker <alp@atoker.com>
  * Copyright (C) 2008 Eric Seidel <eric@webkit.org>
  * Copyright (C) 2008 Dirk Schulze <krit@webkit.org>
+ * Copyright (C) 2010 Torch Mobile (Beijing) Co. Ltd. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -1270,7 +1271,7 @@ PassRefPtr<CanvasPattern> CanvasRenderingContext2D::createPattern(HTMLImageEleme
     if (!cachedImage || !image->cachedImage()->image())
         return CanvasPattern::create(Image::nullImage(), repeatX, repeatY, true);
 
-    bool originClean = !canvas()->securityOrigin().taintsCanvas(KURL(KURL(), cachedImage->url())) && cachedImage->image()->hasSingleSecurityOrigin();
+    bool originClean = !canvas()->securityOrigin().taintsCanvas(KURL(KURL(), cachedImage->response().url())) && cachedImage->image()->hasSingleSecurityOrigin();
     return CanvasPattern::create(cachedImage->image(), repeatX, repeatY, originClean);
 }
 
@@ -1457,7 +1458,16 @@ void CanvasRenderingContext2D::setFont(const String& newFont)
     state().m_font.update(styleSelector->fontSelector());
     state().m_realizedFont = true;
 }
-        
+
+void CanvasRenderingContext2D::updateFont()
+{
+    if (!state().m_realizedFont)
+        return;
+
+    const Font& font = state().m_font;
+    font.update(font.fontSelector());
+}
+
 String CanvasRenderingContext2D::textAlign() const
 {
     return textAlignName(state().m_textAlign);
@@ -1520,7 +1530,7 @@ void CanvasRenderingContext2D::drawTextInternal(const String& text, float x, flo
         return;
     
     const Font& font = accessFont();
-
+    
     // FIXME: Handle maxWidth.
     // FIXME: Need to turn off font smoothing.
 
@@ -1623,6 +1633,8 @@ void CanvasRenderingContext2D::drawTextInternal(const String& text, float x, flo
 
 const Font& CanvasRenderingContext2D::accessFont()
 {
+    canvas()->document()->updateStyleIfNeeded();
+
     if (!state().m_realizedFont)
         setFont(state().m_unparsedFont);
     return state().m_font;

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2009 Apple Inc.  All rights reserved.
+ * Copyright (c) 2002-2010 Apple Inc.  All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -70,7 +70,6 @@ __RCSID("$NetBSD: lockd.c,v 1.7 2000/08/12 18:08:44 thorpej Exp $");
 
 /* make sure we can handle lots of file descriptors */
 #include <sys/syslimits.h>
-#define FD_SETSIZE OPEN_MAX
 #define _DARWIN_UNLIMITED_SELECT
 
 #include <sys/types.h>
@@ -272,7 +271,7 @@ main(argc, argv)
 	switch (child = fork()) {
 	case -1:
 		syslog(LOG_ERR, "Could not fork server");
-		handle_sig_cleanup(0);
+		handle_sig_cleanup(SIGQUIT);
 		/*NOTREACHED*/
 	case 0:
 		/* Server doesn't need to block */
@@ -285,13 +284,13 @@ main(argc, argv)
 		sigwait(&waitset, &server_sig);
 		if (server_sig != SIGUSR1) {
 			syslog(LOG_ERR, "Lockd got unexpected signal %d\n", server_sig);
-			handle_sig_cleanup(0);
+			handle_sig_cleanup(SIGQUIT);
 		}
 		sigprocmask(SIG_SETMASK, &osigset, NULL); /* Reset signal mask */
 		client_mach_request();
 		/* We should never return, but if we do kill our other half */
 		syslog(LOG_ERR,	"Lockd: client_mach_request(), returned unexpectedly");
-		handle_sig_cleanup(0);
+		handle_sig_cleanup(SIGQUIT);
 		/*NOTREACHED*/
 	}
 
@@ -390,7 +389,7 @@ main(argc, argv)
 		syslog(LOG_WARNING, "getrlimit(RLIMIT_NOFILE) failed: %s",
 			strerror(errno));
 	} else {
-		rlp.rlim_cur = MIN(rlp.rlim_max, OPEN_MAX);
+		rlp.rlim_cur = MIN(rlp.rlim_max, 2*FD_SETSIZE);
 		if (setrlimit(RLIMIT_NOFILE, &rlp)) {
 			syslog(LOG_WARNING, "setrlimit(RLIMIT_NOFILE) failed: %s",
 				strerror(errno));
@@ -506,9 +505,9 @@ handle_sig_cleanup(int sig)
 		pmap_unset(NLM_PROG, NLM_VERSX);
 		pmap_unset(NLM_PROG, NLM_VERS4);
 	}
-	if (pfh)
+	if (pfh && !sig)
 		pidfile_remove(pfh);
-	exit((sig == SIGTERM) ? 0 : 1);
+	exit(!sig ? 0 : 1);
 }
 
 /*
@@ -527,7 +526,7 @@ handle_sigchld(int sig __unused)
 		if (status)
 			syslog(LOG_ERR, "lockd server %d failed with status %d",
 				pid, WEXITSTATUS(status));
-		handle_sig_cleanup(0);
+		handle_sig_cleanup(SIGCHLD);
 		/*NOTREACHED*/
 	}
 }
@@ -543,15 +542,14 @@ my_svc_run(void)
 	struct timeval now;
 	int error;
 	int hashosts = 0;
-	int tsize = 0;
 	struct timeval *top;
+	extern int svc_maxfd;
 
 
 	for( ;; ) {
 		timeout.tv_sec = config.host_monitor_cache_timeout + 1;
 		timeout.tv_usec = 0;
 
-		tsize = getdtablesize();
 		bcopy(&svc_fdset, &readfds, sizeof(svc_fdset));
 		/*
 		 * If there are any expired hosts then sleep with a
@@ -561,7 +559,7 @@ my_svc_run(void)
 			top = &timeout;
 		else
 			top = NULL;
-		error = select(tsize, &readfds, NULL, NULL, top);
+		error = select(svc_maxfd+1, &readfds, NULL, NULL, top);
 		if (error == -1) {
 			if (errno == EINTR)
 				continue;

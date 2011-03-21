@@ -504,6 +504,8 @@ void ResourceHandle::willSendRequest(ResourceRequest& request, const ResourceRes
     d->m_pass = url.pass();
     d->m_lastHTTPMethod = request.httpMethod();
     request.removeCredentials();
+    if (!protocolHostAndPortAreEqual(request.url(), redirectResponse.url()))
+        request.clearHTTPAuthorization();
 
     client()->willSendRequest(this, request, redirectResponse);
 }
@@ -539,12 +541,25 @@ void ResourceHandle::didReceiveAuthenticationChallenge(const AuthenticationChall
     }
 
 #ifndef BUILDING_ON_TIGER
-    if (!challenge.previousFailureCount() && (!client() || client()->shouldUseCredentialStorage(this))) {
-        Credential credential = CredentialStorage::get(challenge.protectionSpace());
-        if (!credential.isEmpty() && credential != d->m_initialCredential) {
-            ASSERT(credential.persistence() == CredentialPersistenceNone);
-            [challenge.sender() useCredential:mac(credential) forAuthenticationChallenge:mac(challenge)];
-            return;
+    if (!client() || client()->shouldUseCredentialStorage(this)) {
+        if (!d->m_initialCredential.isEmpty() || challenge.previousFailureCount()) {
+            // The stored credential wasn't accepted, stop using it.
+            // There is a race condition here, since a different credential might have already been stored by another ResourceHandle,
+            // but the observable effect should be very minor, if any.
+            CredentialStorage::remove(challenge.protectionSpace());
+        }
+
+        if (!challenge.previousFailureCount()) {
+            Credential credential = CredentialStorage::get(challenge.protectionSpace());
+            if (!credential.isEmpty() && credential != d->m_initialCredential) {
+                ASSERT(credential.persistence() == CredentialPersistenceNone);
+                if (challenge.failureResponse().httpStatusCode() == 401) {
+                    // Store the credential back, possibly adding it as a default for this directory.
+                    CredentialStorage::set(credential, challenge.protectionSpace(), d->m_request.url());
+                }
+                [challenge.sender() useCredential:mac(credential) forAuthenticationChallenge:mac(challenge)];
+                return;
+            }
         }
     }
 #endif
@@ -1034,6 +1049,10 @@ void ResourceHandle::receivedCancellation(const AuthenticationChallenge& challen
         Credential credential = CredentialStorage::get(core([challenge protectionSpace]));
         if (!credential.isEmpty() && credential != m_initialCredential) {
             ASSERT(credential.persistence() == CredentialPersistenceNone);
+            if ([[challenge failureResponse] isKindOfClass:[NSHTTPURLResponse class]] && [(NSHTTPURLResponse *)[challenge failureResponse] statusCode] == 401) {
+                // Store the credential back, possibly adding it as a default for this directory.
+                CredentialStorage::set(credential, core([challenge protectionSpace]), m_url);
+            }
             [[challenge sender] useCredential:mac(credential) forAuthenticationChallenge:challenge];
             return;
         }

@@ -1,8 +1,0 @@
-Vasa poruka naslovljena
-
-    %(subject)s
-
-uspjesno je primljena na %(listname)s mailing listu.
-
-Informacijska stranica liste: %(listinfo_url)s
-Vase postavke: %(optionsurl)s

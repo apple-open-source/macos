@@ -3857,6 +3857,8 @@ IOUSBController::HasExpressCard( IORegistryEntry *acpiDevice, UInt32 * portnum )
 				{
 					entry->getPath(path, &length, acpiPlane);
 					
+					// Determining the USB port number. we might go thru this twice but pick 
+					// the later number for the port number. 
 					if (portnum)
 					{
 						*portnum = strtoul(port->getLocation(), NULL, 10);
@@ -3864,7 +3866,7 @@ IOUSBController::HasExpressCard( IORegistryEntry *acpiDevice, UInt32 * portnum )
 					
 					match = true;
 					USBLog(5, "IOUSBController[%p]::HasExpressCard _EJD:  %s", this, path);
-				} // end of EJD parsing - pre-K17 projects
+				} // end of EJD parsing 
 				
 				if ( (port->validateObject("_UPC") == kIOReturnSuccess) && (match == false) )
 				{
@@ -3971,12 +3973,11 @@ IOUSBController::DumpUSBACPI( IORegistryEntry * provider )
 						entry->getPath(path, &length, acpiPlane);
 						
 						// Determining the USB port number. we might go thru this twice but pick 
-						// the later number for the port number. This is a known bug in pre-K17 ACPI
-						// definitions
+						// the later number for the port number.
 						portnum = strtoul(port->getLocation(), NULL, 10);
 						
 						USBLog(5, "IOUSBController[%p]::DumpUSBACPI  _EJD: %s portnum %d", this, path,  (unsigned int)portnum);
-					} // end of EJD parsing - pre-K17 projects
+					} // end of EJD parsing
 					
 					if ( (port->validateObject( "_UPC" ) == kIOReturnSuccess) )
 					{

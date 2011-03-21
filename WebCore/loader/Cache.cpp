@@ -112,7 +112,12 @@ CachedResource* Cache::requestResource(DocLoader* docLoader, CachedResource::Typ
             FrameLoader::reportLocalLoadFailed(doc->frame(), url.string());
         return 0;
     }
-    
+
+    if (resource && resource->type() != type) {
+        evict(resource);
+        resource = 0;
+    }
+
     if (!resource) {
         // The resource does not exist. Create it.
         resource = createResource(type, url, charset);
@@ -141,9 +146,6 @@ CachedResource* Cache::requestResource(DocLoader* docLoader, CachedResource::Typ
             resource->setDocLoader(docLoader);
         }
     }
-
-    if (resource->type() != type)
-        return 0;
 
     if (!disabled()) {
         // This will move the resource to the front of its LRU list and increase its access count.

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003-2009 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2003-2010 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -123,7 +123,9 @@ find_identity(CFTypeRef keychainOrArray,
 				safe_CFRelease(&cert);
 				break;
 			}
-			CFRange find = CFStringFind(nameRef, matchRef, kCFCompareCaseInsensitive | kCFCompareNonliteral);
+			CFRange find = { kCFNotFound, 0 };
+			if (nameRef && matchRef)
+				find = CFStringFind(nameRef, matchRef, kCFCompareCaseInsensitive | kCFCompareNonliteral);
 			Boolean isExact = (find.location == 0 && find.length == nameLen);
 			if (find.location == kCFNotFound) {
 				free(nameBuf);

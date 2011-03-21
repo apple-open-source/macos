@@ -48,15 +48,17 @@
 
 #define HANDLE_INHERIT(prop, Prop) \
 if (isInherit) \
-{\
-    svgstyle->set##Prop(m_parentStyle->svgStyle()->prop());\
-    return;\
+{ \
+    svgstyle->set##Prop(m_parentStyle->svgStyle()->prop()); \
+    return; \
 }
 
 #define HANDLE_INHERIT_AND_INITIAL(prop, Prop) \
 HANDLE_INHERIT(prop, Prop) \
-else if (isInitial) \
-    svgstyle->set##Prop(SVGRenderStyle::initial##Prop());
+if (isInitial) { \
+    svgstyle->set##Prop(SVGRenderStyle::initial##Prop()); \
+    return; \
+}
 
 namespace WebCore {
 
@@ -90,15 +92,13 @@ static int angleToGlyphOrientation(float angle)
     return -1;
 }
 
-static Color colorFromSVGColorCSSValue(CSSValue* value, const Color& fgColor)
+static Color colorFromSVGColorCSSValue(SVGColor* svgColor, const Color& fgColor)
 {
-    ASSERT(value->isSVGColor());
-    SVGColor* c = static_cast<SVGColor*>(value);
     Color color;
-    if (c->colorType() == SVGColor::SVG_COLORTYPE_CURRENTCOLOR)
+    if (svgColor->colorType() == SVGColor::SVG_COLORTYPE_CURRENTCOLOR)
         color = fgColor;
     else
-        color = c->color();
+        color = svgColor->color();
     return color;
 }
 
@@ -161,7 +161,8 @@ void CSSStyleSelector::applySVGProperty(int id, CSSValue* value)
         case CSSPropertyKerning:
         {
             HANDLE_INHERIT_AND_INITIAL(kerning, Kerning);
-            svgstyle->setKerning(primitiveValue);
+            if (primitiveValue)
+                svgstyle->setKerning(primitiveValue);
             break;
         }
         case CSSPropertyDominantBaseline:
@@ -253,8 +254,22 @@ void CSSStyleSelector::applySVGProperty(int id, CSSValue* value)
         case CSSPropertyStrokeDasharray:
         {
             HANDLE_INHERIT_AND_INITIAL(strokeDashArray, StrokeDashArray)
-            if (value->isValueList())
-                svgstyle->setStrokeDashArray(static_cast<CSSValueList*>(value));
+            if (!value->isValueList())
+                break;
+
+            CSSValueList* dashes = static_cast<CSSValueList*>(value);
+
+            RefPtr<CSSValueList> array = CSSValueList::createCommaSeparated();
+            size_t length = dashes->length();
+            for (size_t i = 0; i < length; ++i) {
+                CSSValue* currValue = dashes->itemWithoutBoundsCheck(i);
+                if (!currValue->isPrimitiveValue())
+                    continue;
+
+                array->append(currValue);
+            }
+
+            svgstyle->setStrokeDashArray(array.release());
             break;
         }
         case CSSPropertyStrokeDashoffset:
@@ -454,13 +469,15 @@ void CSSStyleSelector::applySVGProperty(int id, CSSValue* value)
         case CSSPropertyStopColor:
         {
             HANDLE_INHERIT_AND_INITIAL(stopColor, StopColor);
-            svgstyle->setStopColor(colorFromSVGColorCSSValue(value, m_style->color()));
+            if (value->isSVGColor())
+                svgstyle->setStopColor(colorFromSVGColorCSSValue(static_cast<SVGColor*>(value), m_style->color()));
             break;
         }
        case CSSPropertyLightingColor:
         {
             HANDLE_INHERIT_AND_INITIAL(lightingColor, LightingColor);
-            svgstyle->setLightingColor(colorFromSVGColorCSSValue(value, m_style->color()));
+            if (value->isSVGColor())
+                svgstyle->setLightingColor(colorFromSVGColorCSSValue(static_cast<SVGColor*>(value), m_style->color()));
             break;
         }
         case CSSPropertyFloodOpacity:
@@ -483,11 +500,9 @@ void CSSStyleSelector::applySVGProperty(int id, CSSValue* value)
         }
         case CSSPropertyFloodColor:
         {
-            if (isInitial) {
-                svgstyle->setFloodColor(SVGRenderStyle::initialFloodColor());
-                return;
-            }
-            svgstyle->setFloodColor(colorFromSVGColorCSSValue(value, m_style->color()));
+            HANDLE_INHERIT_AND_INITIAL(floodColor, FloodColor);
+            if (value->isSVGColor())
+                svgstyle->setFloodColor(colorFromSVGColorCSSValue(static_cast<SVGColor*>(value), m_style->color()));
             break;
         }
         case CSSPropertyGlyphOrientationHorizontal:
@@ -535,8 +550,13 @@ void CSSStyleSelector::applySVGProperty(int id, CSSValue* value)
                 return;
 
             CSSValueList *list = static_cast<CSSValueList*>(value);
-            ASSERT(list->length() == 1);
-            ShadowValue* item = static_cast<ShadowValue*>(list->itemWithoutBoundsCheck(0));
+            if (!list->length())
+                return;
+
+            CSSValue* firstValue = list->itemWithoutBoundsCheck(0);
+            if (!firstValue->isShadowValue())
+                return;
+            ShadowValue* item = static_cast<ShadowValue*>(firstValue);
             int x = item->x->computeLengthInt(style(), m_rootElementStyle);
             int y = item->y->computeLengthInt(style(), m_rootElementStyle);
             int blur = item->blur ? item->blur->computeLengthInt(style(), m_rootElementStyle) : 0;

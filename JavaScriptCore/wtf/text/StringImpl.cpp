@@ -32,6 +32,8 @@
 #include <wtf/WTFThreadData.h>
 
 using namespace WTF;
+using namespace std;
+
 using namespace Unicode;
 
 namespace WebCore {
@@ -76,7 +78,7 @@ PassRefPtr<StringImpl> StringImpl::createUninitialized(unsigned length, UChar*& 
     // Allocate a single buffer large enough to contain the StringImpl
     // struct as well as the data which it contains. This removes one 
     // heap allocation from this call.
-    if (length > ((std::numeric_limits<size_t>::max() - sizeof(StringImpl)) / sizeof(UChar)))
+    if (length > ((std::numeric_limits<unsigned>::max() - sizeof(StringImpl)) / sizeof(UChar)))
         CRASH();
     size_t size = sizeof(StringImpl) + length * sizeof(UChar);
     StringImpl* string = static_cast<StringImpl*>(fastMalloc(size));
@@ -91,9 +93,9 @@ PassRefPtr<StringImpl> StringImpl::create(const UChar* characters, unsigned leng
         return empty();
 
     UChar* data;
-    PassRefPtr<StringImpl> string = createUninitialized(length, data);
+    RefPtr<StringImpl> string = createUninitialized(length, data);
     memcpy(data, characters, length * sizeof(UChar));
-    return string;
+    return string.release();
 }
 
 PassRefPtr<StringImpl> StringImpl::create(const char* characters, unsigned length)
@@ -102,19 +104,22 @@ PassRefPtr<StringImpl> StringImpl::create(const char* characters, unsigned lengt
         return empty();
 
     UChar* data;
-    PassRefPtr<StringImpl> string = createUninitialized(length, data);
+    RefPtr<StringImpl> string = createUninitialized(length, data);
     for (unsigned i = 0; i != length; ++i) {
         unsigned char c = characters[i];
         data[i] = c;
     }
-    return string;
+    return string.release();
 }
 
 PassRefPtr<StringImpl> StringImpl::create(const char* string)
 {
     if (!string)
         return empty();
-    return create(string, strlen(string));
+    size_t length = strlen(string);
+    if (length > numeric_limits<unsigned>::max())
+        CRASH();
+    return create(string, length);
 }
 
 PassRefPtr<StringImpl> StringImpl::create(const UChar* characters, unsigned length, PassRefPtr<SharedUChar> sharedBuffer)
@@ -200,7 +205,10 @@ PassRefPtr<StringImpl> StringImpl::lower()
     if (noUpper && !(ored & ~0x7F))
         return this;
 
+    if (m_length > static_cast<unsigned>(numeric_limits<int32_t>::max()))
+        CRASH();
     int32_t length = m_length;
+
     UChar* data;
     RefPtr<StringImpl> newImpl = createUninitialized(m_length, data);
 
@@ -231,7 +239,10 @@ PassRefPtr<StringImpl> StringImpl::upper()
     // but in empirical testing, few actual calls to upper() are no-ops, so
     // it wouldn't be worth the extra time for pre-scanning.
     UChar* data;
-    PassRefPtr<StringImpl> newImpl = createUninitialized(m_length, data);
+    RefPtr<StringImpl> newImpl = createUninitialized(m_length, data);
+
+    if (m_length > static_cast<unsigned>(numeric_limits<int32_t>::max()))
+        CRASH();
     int32_t length = m_length;
 
     // Do a faster loop for the case where all the characters are ASCII.
@@ -242,7 +253,7 @@ PassRefPtr<StringImpl> StringImpl::upper()
         data[i] = toASCIIUpper(c);
     }
     if (!(ored & ~0x7F))
-        return newImpl;
+        return newImpl.release();
 
     // Do a slower implementation for cases that include non-ASCII characters.
     bool error;
@@ -253,45 +264,47 @@ PassRefPtr<StringImpl> StringImpl::upper()
     Unicode::toUpper(data, realLength, m_data, m_length, &error);
     if (error)
         return this;
-    return newImpl;
+    return newImpl.release();
 }
 
-PassRefPtr<StringImpl> StringImpl::secure(UChar aChar)
+PassRefPtr<StringImpl> StringImpl::secure(UChar character)
 {
     UChar* data;
-    PassRefPtr<StringImpl> newImpl = createUninitialized(m_length, data);
-    int32_t length = m_length;
-    for (int i = 0; i < length; ++i)
-        data[i] = aChar;
-    return newImpl;
+    RefPtr<StringImpl> newImpl = createUninitialized(m_length, data);
+    for (unsigned i = 0; i < m_length; ++i)
+        data[i] = character;
+    return newImpl.release();
 }
 
 PassRefPtr<StringImpl> StringImpl::foldCase()
 {
     UChar* data;
-    PassRefPtr<StringImpl> newImpl = createUninitialized(m_length, data);
+    RefPtr<StringImpl> newImpl = createUninitialized(m_length, data);
+
+    if (m_length > static_cast<unsigned>(numeric_limits<int32_t>::max()))
+        CRASH();
     int32_t length = m_length;
 
     // Do a faster loop for the case where all the characters are ASCII.
     UChar ored = 0;
-    for (int i = 0; i < length; i++) {
+    for (int32_t i = 0; i < length; i++) {
         UChar c = m_data[i];
         ored |= c;
         data[i] = toASCIILower(c);
     }
     if (!(ored & ~0x7F))
-        return newImpl;
+        return newImpl.release();
 
     // Do a slower implementation for cases that include non-ASCII characters.
     bool error;
     int32_t realLength = Unicode::foldCase(data, length, m_data, m_length, &error);
     if (!error && realLength == length)
-        return newImpl;
+        return newImpl.release();
     newImpl = createUninitialized(realLength, data);
     Unicode::foldCase(data, realLength, m_data, m_length, &error);
     if (error)
         return this;
-    return newImpl;
+    return newImpl.release();
 }
 
 PassRefPtr<StringImpl> StringImpl::stripWhiteSpace()
@@ -479,7 +492,10 @@ int StringImpl::find(const char* chs, int index, bool caseSensitive)
     if (!chs || index < 0)
         return -1;
 
-    int chsLength = strlen(chs);
+    size_t matchStringLength = strlen(chs);
+    if (matchStringLength > numeric_limits<unsigned>::max())
+        CRASH();
+    int chsLength = matchStringLength;
     int n = m_length - index;
     if (n < 0)
         return -1;
@@ -658,7 +674,7 @@ PassRefPtr<StringImpl> StringImpl::replace(UChar oldC, UChar newC)
         return this;
 
     UChar* data;
-    PassRefPtr<StringImpl> newImpl = createUninitialized(m_length, data);
+    RefPtr<StringImpl> newImpl = createUninitialized(m_length, data);
 
     for (i = 0; i != m_length; ++i) {
         UChar ch = m_data[i];
@@ -666,7 +682,7 @@ PassRefPtr<StringImpl> StringImpl::replace(UChar oldC, UChar newC)
             ch = newC;
         data[i] = ch;
     }
-    return newImpl;
+    return newImpl.release();
 }
 
 PassRefPtr<StringImpl> StringImpl::replace(unsigned position, unsigned lengthToReplace, StringImpl* str)
@@ -677,14 +693,18 @@ PassRefPtr<StringImpl> StringImpl::replace(unsigned position, unsigned lengthToR
     if (!lengthToReplace && !lengthToInsert)
         return this;
     UChar* data;
-    PassRefPtr<StringImpl> newImpl =
+
+    if ((length() - lengthToReplace) >= (numeric_limits<unsigned>::max() - lengthToInsert))
+        CRASH();
+
+    RefPtr<StringImpl> newImpl =
         createUninitialized(length() - lengthToReplace + lengthToInsert, data);
     memcpy(data, characters(), position * sizeof(UChar));
     if (str)
         memcpy(data + position, str->characters(), lengthToInsert * sizeof(UChar));
     memcpy(data + position + lengthToInsert, characters() + position + lengthToReplace,
         (length() - position - lengthToReplace) * sizeof(UChar));
-    return newImpl;
+    return newImpl.release();
 }
 
 PassRefPtr<StringImpl> StringImpl::replace(UChar pattern, StringImpl* replacement)
@@ -694,7 +714,7 @@ PassRefPtr<StringImpl> StringImpl::replace(UChar pattern, StringImpl* replacemen
         
     int repStrLength = replacement->length();
     int srcSegmentStart = 0;
-    int matchCount = 0;
+    unsigned matchCount = 0;
     
     // Count the matches
     while ((srcSegmentStart = find(pattern, srcSegmentStart)) >= 0) {
@@ -706,9 +726,18 @@ PassRefPtr<StringImpl> StringImpl::replace(UChar pattern, StringImpl* replacemen
     if (!matchCount)
         return this;
     
+    if (repStrLength && matchCount > numeric_limits<unsigned>::max() / repStrLength)
+        CRASH();
+
+    unsigned replaceSize = matchCount * repStrLength;
+    unsigned newSize = m_length - matchCount;
+    if (newSize >= (numeric_limits<unsigned>::max() - replaceSize))
+        CRASH();
+
+    newSize += replaceSize;
+
     UChar* data;
-    PassRefPtr<StringImpl> newImpl =
-        createUninitialized(m_length - matchCount + (matchCount * repStrLength), data);
+    RefPtr<StringImpl> newImpl = createUninitialized(newSize, data);
 
     // Construct the new data
     int srcSegmentEnd;
@@ -730,7 +759,7 @@ PassRefPtr<StringImpl> StringImpl::replace(UChar pattern, StringImpl* replacemen
 
     ASSERT(dstOffset + srcSegmentLength == static_cast<int>(newImpl->length()));
 
-    return newImpl;
+    return newImpl.release();
 }
 
 PassRefPtr<StringImpl> StringImpl::replace(StringImpl* pattern, StringImpl* replacement)
@@ -744,7 +773,7 @@ PassRefPtr<StringImpl> StringImpl::replace(StringImpl* pattern, StringImpl* repl
         
     int repStrLength = replacement->length();
     int srcSegmentStart = 0;
-    int matchCount = 0;
+    unsigned matchCount = 0;
     
     // Count the matches
     while ((srcSegmentStart = find(pattern, srcSegmentStart)) >= 0) {
@@ -756,9 +785,17 @@ PassRefPtr<StringImpl> StringImpl::replace(StringImpl* pattern, StringImpl* repl
     if (!matchCount)
         return this;
     
+    unsigned newSize = m_length - matchCount * patternLength;
+    if (repStrLength && matchCount > numeric_limits<unsigned>::max() / repStrLength)
+        CRASH();
+
+    if (newSize > (numeric_limits<unsigned>::max() - matchCount * repStrLength))
+        CRASH();
+
+    newSize += matchCount * repStrLength;
+
     UChar* data;
-    PassRefPtr<StringImpl> newImpl =
-        createUninitialized(m_length + matchCount * (repStrLength - patternLength), data);
+    RefPtr<StringImpl> newImpl = createUninitialized(newSize, data);
     
     // Construct the new data
     int srcSegmentEnd;
@@ -780,7 +817,7 @@ PassRefPtr<StringImpl> StringImpl::replace(StringImpl* pattern, StringImpl* repl
 
     ASSERT(dstOffset + srcSegmentLength == static_cast<int>(newImpl->length()));
 
-    return newImpl;
+    return newImpl.release();
 }
 
 bool equal(const StringImpl* a, const StringImpl* b)
@@ -910,9 +947,11 @@ PassRefPtr<StringImpl> StringImpl::adopt(StringBuffer& buffer)
 PassRefPtr<StringImpl> StringImpl::createWithTerminatingNullCharacter(const StringImpl& string)
 {
     // Use createUninitialized instead of 'new StringImpl' so that the string and its buffer
-    // get allocated in a single malloc block.
+    // get allocated in a single memory block.
     UChar* data;
-    int length = string.m_length;
+    unsigned length = string.m_length;
+    if (length >= numeric_limits<unsigned>::max())
+        CRASH();
     RefPtr<StringImpl> terminatedString = createUninitialized(length + 1, data);
     memcpy(data, string.m_data, length * sizeof(UChar));
     data[length] = 0;

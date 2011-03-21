@@ -152,15 +152,30 @@ mlrpc_netshareenum(struct smb_ctx * smbctx, int *entriesp, int *totalp,
 
 	*entriesp = arg.result.bufptr.bufptr1->entriesread;
 	*totalp = arg.totalentries;
+	if (*entriesp > *totalp) {
+		/* Should never happen but protect ourself just in case */
+		smb_log_info("%s: total entries is less then number of entries!", error, 
+					 ASL_LEVEL_DEBUG, __FUNCTION__);
+		*entriesp = *totalp;
+	}
 	*entries_listp = calloc(*entriesp, sizeof (struct share_info));
 
 	for (int i = 0; i < *entriesp; ++i) {
 		struct mslm_SHARE_INFO_1 * info1;
 
 		info1 = &(arg.result.bufptr.bufptr1->entries[i]);
+		if (info1->shi1_netname == NULL) {
+			/* Something wrong stop here */
+			smb_log_info("%s: entry %i is empty?", error, ASL_LEVEL_DEBUG, 
+						 __FUNCTION__, i);
+			*entriesp = *totalp = i;
+			break;
+		}
 		(*entries_listp)[i].type = info1->shi1_type;
 		(*entries_listp)[i].netname = strdup((const char *)info1->shi1_netname);
-		(*entries_listp)[i].remark = strdup((const char *)info1->shi1_remark);
+		if (info1->shi1_remark) {
+			(*entries_listp)[i].remark = strdup((const char *)info1->shi1_remark);
+		}
 	}
 
 	mlsvc_rpc_free(handle.context, &heap);
@@ -172,12 +187,12 @@ static int
 rap_netshareenum(struct smb_ctx *ctx, int *entriesp, int *totalp,
     struct share_info **entries_listp)
 {
-	int error, bufsize, i, entries, total, nreturned;
+	int error, i, entries, total, nreturned;
 	struct smb_share_info_1 *rpbuf, *ep;
 	struct share_info *entry_list, *elp;
-
-	bufsize = 0xffe0;	/* samba notes win2k bug for 65535 */
-	rpbuf = malloc(bufsize);
+	u_int32_t  bufsize = 0xffe0;	/* samba notes win2k bug for 65535 */
+	
+	rpbuf = calloc(1, bufsize+1);
 	if (rpbuf == NULL)
 		return errno;
 
@@ -200,7 +215,7 @@ rap_netshareenum(struct smb_ctx *ctx, int *entriesp, int *totalp,
 		elp->netname = convert_wincs_to_utf8(ep->shi1_netname);
 		if (elp->netname == NULL)
 			continue;	/* punt on this entry */
-		if (ep->shi1_remark != 0) {
+		if ((ep->shi1_remark) && (ep->shi1_remark < bufsize)) {
 			char *comments = (char *)rpbuf + ep->shi1_remark;
 			elp->remark = convert_wincs_to_utf8(comments);
 		} else

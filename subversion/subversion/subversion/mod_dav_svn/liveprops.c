@@ -139,7 +139,7 @@ get_path_revprop(svn_string_t **propval,
 {
   *propval = NULL;
 
-  if (! dav_svn__allow_read(resource, committed_rev, pool))
+  if (! dav_svn__allow_read_resource(resource, committed_rev, pool))
     return SVN_NO_ERROR;
 
   /* Get the property of the created revision. The authz is already
@@ -466,7 +466,7 @@ insert_prop(const dav_resource *resource,
                      && resource->info->r->content_type)
               mime_type = resource->info->r->content_type;
             else
-              mime_type = "application/octet-stream";
+              mime_type = "text/plain";
 
             if ((serr = svn_mime_type_validate(mime_type, p)))
               {

@@ -105,8 +105,8 @@ struct runloopInfo {
 #pragma pack()
 #endif
 
-/* the host name of the .Mac iDisk server */
-#define IDISK_SERVER_NAME "idisk.mac.com"
+/* the host names of .Mac iDisk servers */
+char *idisk_server_names[] = {"idisk.mac.com", "idisk.me.com", NULL};
 
 /* Macro to simplify common CFRelease usage */
 #define CFReleaseNull(obj) do { if(obj != NULL) { CFRelease(obj); obj = NULL; } } while (0)
@@ -142,6 +142,33 @@ void percent_decode_in_place(char *uri)
 		}
 	}
 	*s = '\0';
+}
+
+static char* createUTF8CStringFromCFString(CFStringRef in_string)
+{
+	char* out_cstring = NULL;
+	
+	CFIndex bufSize;
+	
+	/* make sure we're not passed garbage */
+	if ( in_string == NULL )
+		return NULL;
+	
+	/* Add one to account for NULL termination. */
+	bufSize = CFStringGetMaximumSizeForEncoding(CFStringGetLength(in_string) + 1, kCFStringEncodingUTF8);
+	
+	out_cstring = (char *)calloc(1, bufSize);
+	
+	/* Make sure malloc succeeded then convert cstring */
+	if ( out_cstring == NULL ) 
+		return NULL;
+	
+	if ( CFStringGetCString(in_string, out_cstring, bufSize, kCFStringEncodingUTF8) == FALSE ) {
+		free(out_cstring);
+		out_cstring = NULL;
+	}
+	
+	return out_cstring;
 }
 
 static int
@@ -344,26 +371,97 @@ Return:
     return result;
 }
 
+static int cfurl_is_idisk(CFURLRef url)
+{
+	int found_idisk;
+	size_t len, host_len;
+	char** idisk_server;
+	char *cstr = NULL;
+	CFStringRef host = NULL;
+	
+	found_idisk = FALSE;
+	
+	host = CFURLCopyHostName(url);
+	
+	if (host == NULL)
+		return (found_idisk);
+	
+	cstr = createUTF8CStringFromCFString(host);
+	CFRelease(host);
+	
+	if (cstr == NULL)
+		return (found_idisk);
+	
+	host_len = strlen(cstr);
+	idisk_server = idisk_server_names;
+	
+	while (*idisk_server) {
+		len = strlen(*idisk_server);
+		if (host_len >= len) {
+			// check for match
+			if ( strncasecmp(cstr, *idisk_server, len) == 0 ) {
+				found_idisk = TRUE;
+				break;
+			}
+		}
+		idisk_server++;
+	}
+	
+	free(cstr);
+	
+	return (found_idisk);
+}
+
 static int curl_is_idisk(const char* url)
 {
-    char* colon = NULL;
-    uint idisk_len = sizeof(IDISK_SERVER_NAME) - 1;
-    
-    if (url == NULL)
-		return FALSE;
-    
-    colon = strchr(url, ':');
-    if ( (colon == NULL) || (strlen(colon) < idisk_len) )
-		return FALSE;
-    
+	int found_idisk;
+	size_t len, shortest_len, url_len;
+	char*  colon;
+	char** idisk_server;
+	
+	found_idisk = FALSE;
+	
+	if (url == NULL)
+		return (found_idisk);
+	
+	colon = strchr(url, ':');
+	if (colon == NULL)
+		return (found_idisk);
+	
+	// First, find the length of the shortest idisk server name
+	idisk_server = idisk_server_names;
+	shortest_len = strlen(*idisk_server);
+	while (*idisk_server != NULL) {
+		len = strlen(*idisk_server);
+		if (len < shortest_len)
+			shortest_len = len;
+		idisk_server++;
+	}
+	
+	if (strlen(colon) < shortest_len)
+		return (found_idisk);	// too short, not an idisk server name
+	
     /*
      * Move colon past "://".  We've already verified that
-     * colon is at least as long as IDISK_SERVER_NAME
+     * colon is at least as long as the shortest iDisk server name
      * so not worried about buffer overflows
-     */
-    colon += 3;
-    
-    return  0 == strncasecmp(colon, IDISK_SERVER_NAME, idisk_len);
+     */	
+	colon += 3;
+	url_len = strlen(colon);
+	idisk_server = idisk_server_names;
+	while (*idisk_server) {
+		len = strlen(*idisk_server);
+		if (url_len >= len) {
+			// check for match
+			if ( strncasecmp(colon, *idisk_server, len) == 0 ) {
+				found_idisk = TRUE;
+				break;
+			}
+		}
+		idisk_server++;
+	}
+	
+	return (found_idisk);
 }
 
 
@@ -1109,7 +1207,13 @@ netfsError WebDAV_OpenSession(CFURLRef in_URL,
 		// before passing to webdavlib
 		a_url = copyStripUserPassFromCFURL(in_URL);
 
-		authStat = connectToServer(a_url, serverCredsDict, &error);
+		if (cfurl_is_idisk(a_url)) {
+			// iDisk server - we require credentials to be sent securely
+			authStat = connectToServer(a_url, serverCredsDict, TRUE, &error);
+		}
+		else
+			authStat = connectToServer(a_url, serverCredsDict, FALSE, &error);
+		
 		CFReleaseNull(a_url);
 		
 		switch (authStat) {

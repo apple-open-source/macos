@@ -1,7 +1,0 @@
-%(count)d zahtev(a) èaka na va¹o odloèitev za po¹tni seznam
-%(real_name)s@%(host_name)s na naslovu:
-
-	%(adminDB)s
-
-Prosimo, da se naloge lotite èimprej. To sporoèilo o èakajoèih
-zahtevah boste prejemali dnevno.

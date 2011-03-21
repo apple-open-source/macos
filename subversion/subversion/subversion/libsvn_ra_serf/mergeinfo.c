@@ -111,16 +111,17 @@ end_element(svn_ra_serf__xml_parser_t *parser, void *userData,
   else if (state == MERGEINFO_ITEM
            && strcmp(name.name, SVN_DAV__MERGEINFO_ITEM) == 0)
     {
-      if (mergeinfo_ctx->curr_info && mergeinfo_ctx->curr_path->len)
+      if (mergeinfo_ctx->curr_info && mergeinfo_ctx->curr_path)
         {
           svn_mergeinfo_t path_mergeinfo;
+
+          SVN_ERR_ASSERT(mergeinfo_ctx->curr_path->data);
           SVN_ERR(svn_mergeinfo_parse(&path_mergeinfo,
                                       mergeinfo_ctx->curr_info->data,
                                       mergeinfo_ctx->pool));
           apr_hash_set(mergeinfo_ctx->result_catalog,
-                       apr_pstrmemdup(mergeinfo_ctx->pool,
-                                      mergeinfo_ctx->curr_path->data,
-                                      mergeinfo_ctx->curr_path->len),
+                       apr_pstrdup(mergeinfo_ctx->pool,
+                                   mergeinfo_ctx->curr_path->data),
                        APR_HASH_KEY_STRING, path_mergeinfo);
         }
       svn_ra_serf__xml_pop_state(parser);
@@ -237,9 +238,8 @@ svn_ra_serf__get_mergeinfo(svn_ra_session_t *ra_session,
   const char *relative_url, *basecoll_url;
   const char *path;
 
-  SVN_ERR(svn_ra_serf__get_baseline_info(&basecoll_url, &relative_url,
-                                         session, NULL, revision,
-                                         NULL, pool));
+  SVN_ERR(svn_ra_serf__get_baseline_info(&basecoll_url, &relative_url, session,
+                                         NULL, NULL, revision, NULL, pool));
 
   path = svn_path_url_add_component(basecoll_url, relative_url, pool);
 

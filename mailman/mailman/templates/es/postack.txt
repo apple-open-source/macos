@@ -1,7 +1,0 @@
-Su mensaje que trata sobre:
-
-    %(subject)s
-
-se ha distribuido satisfactoriamente a la lista %(listname)s.
-
-Página de información de la lista: %(listinfo_url)s

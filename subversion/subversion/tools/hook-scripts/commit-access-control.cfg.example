@@ -1,6 +1,6 @@
 # This is a sample configuration file for commit-access-control.pl.
 #
-# $Id: commit-access-control.cfg.example 5288 2003-03-12 05:56:21Z kfogel $
+# $Id: commit-access-control.cfg.example 845362 2003-03-12 05:56:21Z kfogel $
 #
 # This file uses the Windows ini style, where the file consists of a
 # number of sections, each section starts with a unique section name

@@ -66,6 +66,7 @@ static char *rcsid = "$Id: svc_udp.c,v 1.5 2004/10/13 00:24:07 jkh Exp $";
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdint.h>
 #include <string.h>
 #include <unistd.h>
 #include <rpc/rpc.h>
@@ -100,7 +101,11 @@ extern int errno;
  */
 struct svcudp_data {
 	u_int   su_iosz;	/* byte size of send.recv buffer */
+#ifdef __LP64__
+	uint32_t	su_xid;		/* transaction id */
+#else
 	u_long	su_xid;		/* transaction id */
+#endif
 	XDR	su_xdrs;	/* XDR handle */
 	char	su_verfbody[MAX_AUTH_BYTES];	/* verifier body */
 	char * 	su_cache;	/* cached data, NULL if no cache */
@@ -205,15 +210,24 @@ svcudp_recv(xprt, msg)
 	register XDR *xdrs = &(su->su_xdrs);
 	register int rlen;
 	char *reply;
+#ifdef __LP64__
+	uint32_t replylen;
+#else
 	u_long replylen;
+#endif
 
     again:
 	xprt->xp_addrlen = sizeof(struct sockaddr_in);
 	rlen = recvfrom(xprt->xp_sock, rpc_buffer(xprt), (int) su->su_iosz, 0, (struct sockaddr *)&(xprt->xp_raddr), (unsigned int *)&(xprt->xp_addrlen));
 	if (rlen == -1 && errno == EINTR)
 		goto again;
+#ifdef __LP64__
+	if (rlen < 4*sizeof(uint32_t))
+		return (FALSE);
+#else
 	if (rlen < 4*sizeof(u_long))
 		return (FALSE);
+#endif
 	xdrs->x_op = XDR_DECODE;
 	XDR_SETPOS(xdrs, 0);
 	if (! xdr_callmsg(xdrs, msg))
@@ -249,7 +263,11 @@ svcudp_reply(xprt, msg)
 		    == slen) {
 			stat = TRUE;
 			if (su->su_cache && slen >= 0) {
+#ifdef __LP64__
+				cache_set(xprt, (uint32_t) slen);
+#else
 				cache_set(xprt, (u_long) slen);
+#endif
 			}
 		}
 	}
@@ -320,16 +338,27 @@ struct cache_node {
 	/*
 	 * Index into cache is xid, proc, vers, prog and address
 	 */
+#ifdef __LP64__
+	uint32_t cache_xid;
+	uint32_t cache_proc;
+	uint32_t cache_vers;
+	uint32_t cache_prog;
+#else
 	u_long cache_xid;
 	u_long cache_proc;
 	u_long cache_vers;
 	u_long cache_prog;
+#endif
 	struct sockaddr_in cache_addr;
 	/*
 	 * The cached reply and length
 	 */
 	char * cache_reply;
+#ifdef __LP64__
+	uint32_t cache_replylen;
+#else
 	u_long cache_replylen;
+#endif
 	/*
  	 * Next node on the list, if there is a collision
 	 */
@@ -342,13 +371,24 @@ struct cache_node {
  * The entire cache
  */
 struct udp_cache {
+#ifdef __LP64__
+	uint32_t uc_size;		/* size of cache */
+#else
 	u_long uc_size;		/* size of cache */
+#endif
 	cache_ptr *uc_entries;	/* hash table of entries in cache */
 	cache_ptr *uc_fifo;	/* fifo list of entries in cache */
+#ifdef __LP64__
+	uint32_t uc_nextvictim;	/* points to next victim in fifo list */
+	uint32_t uc_prog;		/* saved program number */
+	uint32_t uc_vers;		/* saved version number */
+	uint32_t uc_proc;		/* saved procedure number */
+#else
 	u_long uc_nextvictim;	/* points to next victim in fifo list */
 	u_long uc_prog;		/* saved program number */
 	u_long uc_vers;		/* saved version number */
 	u_long uc_proc;		/* saved procedure number */
+#endif	
 	struct sockaddr_in uc_addr; /* saved caller's address */
 };
 
@@ -367,7 +407,11 @@ struct udp_cache {
 int
 svcudp_enablecache(transp, size)
 	SVCXPRT *transp;
+#ifdef __LP64__
+	uint32_t size;
+#else
 	u_long size;
+#endif
 {
 	struct svcudp_data *su = su_data(transp);
 	struct udp_cache *uc;
@@ -406,7 +450,11 @@ svcudp_enablecache(transp, size)
 static void
 cache_set(xprt, replylen)
 	SVCXPRT *xprt;
-	u_long replylen;	
+#ifdef __LP64__
+	uint32_t replylen;
+#else
+	u_long replylen;
+#endif
 {
 	register cache_ptr victim;	
 	register cache_ptr *vicp;
@@ -473,7 +521,11 @@ cache_get(xprt, msg, replyp, replylenp)
 	SVCXPRT *xprt;
 	struct rpc_msg *msg;
 	char **replyp;
+#ifdef __LP64__
+	uint32_t *replylenp;
+#else
 	u_long *replylenp;
+#endif
 {
 	u_int loc;
 	register cache_ptr ent;

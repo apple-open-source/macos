@@ -13,6 +13,12 @@
 #include <servers/bootstrap.h>
 #include <sysexits.h>
 
+#ifdef LOG_32BIT_KEXT_LOAD_INFO_8980953
+#if !TARGET_OS_EMBEDDED
+#include <asl.h>
+#endif /* !TARGET_OS_EMBEDDED */
+#endif 
+
 #include <IOKit/kext/KextManager.h>
 #include <IOKit/kext/KextManagerPriv.h>
 #include <IOKit/kext/kextmanager_types.h>
@@ -29,6 +35,14 @@
 *******************************************************************************/
 const char      * progname     = "(unknown)";
 static Boolean    sKextdActive = FALSE;
+
+#ifdef LOG_32BIT_KEXT_LOAD_INFO_8980953
+#if !TARGET_OS_EMBEDDED
+static aslclient	asl = NULL;
+static void log32BitOnlyKexts(OSKextRef theKext, char * thePath);
+#endif /* !TARGET_OS_EMBEDDED */
+#endif 
+
 
 #pragma mark Main Routine
 /*******************************************************************************
@@ -75,6 +89,11 @@ main(int argc, char * const * argv)
         goto finish;
     }
 
+#if 0 // force verbose logging for testing
+    OSKextSetLogFilter(0xfff, /* kernel? */ false);
+    OSKextSetLogFilter(0xfff, /* kernel? */ true);
+#endif 
+	
    /*****
     * Assemble the list of URLs to scan, in this order (the OSKext lib inverts it
     * for last-opened-wins semantics):
@@ -113,6 +132,14 @@ main(int argc, char * const * argv)
 
 finish:
 
+#ifdef LOG_32BIT_KEXT_LOAD_INFO_8980953
+#if !TARGET_OS_EMBEDDED
+	if (asl) {
+		asl_close(asl);
+	}
+#endif /* !TARGET_OS_EMBEDDED */
+#endif 
+	
    /* We're actually not going to free anything else because we're exiting!
     */
     exit(result);
@@ -404,8 +431,20 @@ ExitStatus loadKextsViaKextd(KextloadArgs * toolArgs)
                 "%s loaded successfully (or already loaded).",
                 scratchCString);
         }
-    }
+#ifdef LOG_32BIT_KEXT_LOAD_INFO_8980953
+#if !TARGET_OS_EMBEDDED
 
+		OSKextRef theKext = NULL; // must release
+		theKext = OSKextGetKextWithIdentifier(kextID);
+		
+		if (theKext) {
+			log32BitOnlyKexts(theKext, scratchCString);
+			SAFE_RELEASE(theKext);
+		}
+#endif /* !TARGET_OS_EMBEDDED */
+#endif /* 8980953 */
+	}		
+	
     count = CFArrayGetCount(toolArgs->kextURLs);
     for (index = 0; index < count; index++) {
         CFURLRef kextURL = CFArrayGetValueAtIndex(toolArgs->kextURLs, index);
@@ -439,8 +478,19 @@ ExitStatus loadKextsViaKextd(KextloadArgs * toolArgs)
                 "%s loaded successfully (or already loaded).",
                 scratchCString);
         }
-    }
-
+#ifdef LOG_32BIT_KEXT_LOAD_INFO_8980953
+#if !TARGET_OS_EMBEDDED
+		
+		OSKextRef theKext = NULL; // must release
+		theKext = OSKextCreate(kCFAllocatorDefault, kextURL);
+		if (theKext) {
+			log32BitOnlyKexts(theKext, scratchCString);
+			SAFE_RELEASE(theKext);
+		}
+#endif /* !TARGET_OS_EMBEDDED */
+#endif /* 8980953 */
+	}
+	
     return result;
 }
 
@@ -593,6 +643,83 @@ ExitStatus exitStatusForOSReturn(OSReturn osReturn)
     }
     return result;
 }
+
+#ifdef LOG_32BIT_KEXT_LOAD_INFO_8980953
+#if !TARGET_OS_EMBEDDED
+/*******************************************************************************
+ * The purpose of this logging code is to let us know how many K32 only kexts  
+ * are out there.  See radar 8980953 and related for details.  This logging is  
+ * not needed for Barolo or beyond.
+ *
+ * Description:
+ * 1) we bail if we find an "x86_64" architecture in the kext
+ * 2) if we do NOT find an "x86_64" architecture we log it (since this kext 
+ *    would not load in K64 only systems and that's really what we want to know)
+ * 3) we only care about kexts loaded via kextload and when kextd is active
+ *    (kexts loaded during single user mode, no kextd running, are not logged, 
+ *    see radar 8860974 for details)
+ * 4) we log whether the kext loads or not
+ *******************************************************************************/
+void log32BitOnlyKexts(OSKextRef theKext, char *thePath)
+{
+	const NXArchInfo ** arches = NULL;  // must free
+	aslmsg				aslMsg = NULL;
+	int					i, err;
+	
+	arches = OSKextCopyArchitectures(theKext);
+	if (!arches || !arches[0]) {
+		goto cleanupAndReturn;
+	}
+	
+	for (i = 0; arches[i]; i++) {
+		/* bail out if we find a 64-bit architecture for this kext */
+		if (strcmp(arches[i]->name, "x86_64") == 0) {
+			goto cleanupAndReturn;
+		}
+	}
+	
+	/* did not find a 64-bit architecture for this kext so log it */
+	if (asl == NULL) {
+		asl = asl_open("kextloadlogger", 
+                       "com.apple.kextload.32bitkext.path", 
+                       ASL_OPT_NO_DELAY);
+		
+		if (asl == NULL) {
+			OSKextLog(/* kext */ NULL,
+					  kOSKextLogErrorLevel | kOSKextLogLoadFlag | 
+                      kOSKextLogIPCFlag,
+					  "asl_open failed!");
+			goto cleanupAndReturn;
+		}
+	}
+	
+	aslMsg = asl_new(ASL_TYPE_MSG);
+	if (aslMsg == NULL) {
+		OSKextLog(/* kext */ NULL,
+				  kOSKextLogErrorLevel | kOSKextLogLoadFlag | kOSKextLogIPCFlag,
+				  "asl_new failed!");
+		goto cleanupAndReturn;
+	}
+	
+	err = asl_log(asl, aslMsg, ASL_LEVEL_NOTICE, "%s", thePath);
+	if (err != 0) {
+		OSKextLog(/* kext */ NULL,
+				  kOSKextLogErrorLevel | kOSKextLogLoadFlag | kOSKextLogIPCFlag,
+				  "asl_log failed with error %d!", err);
+	}
+	
+cleanupAndReturn:
+	if (arches) {
+		SAFE_FREE(arches);
+	}
+  	if (aslMsg) {
+		asl_free(aslMsg);
+	}
+	return;
+}
+#endif /* !TARGET_OS_EMBEDDED */
+#endif /* 8980953 */
+
 
 /*******************************************************************************
 * usage()

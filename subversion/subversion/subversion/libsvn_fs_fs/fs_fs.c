@@ -33,6 +33,7 @@
 
 #include "svn_pools.h"
 #include "svn_fs.h"
+#include "svn_dirent_uri.h"
 #include "svn_path.h"
 #include "svn_hash.h"
 #include "svn_props.h"
@@ -541,7 +542,7 @@ with_some_lock(svn_error_t *(*body)(void *baton,
                                     apr_pool_t *pool),
                void *baton,
                const char *lock_filename,
-#if APR_HAS_THREADS
+#if SVN_FS_FS__USE_LOCK_MUTEX
                apr_thread_mutex_t *lock_mutex,
 #endif
                apr_pool_t *pool)
@@ -549,7 +550,7 @@ with_some_lock(svn_error_t *(*body)(void *baton,
   apr_pool_t *subpool = svn_pool_create(pool);
   svn_error_t *err;
 
-#if APR_HAS_THREADS
+#if SVN_FS_FS__USE_LOCK_MUTEX
   apr_status_t status;
 
   /* POSIX fcntl locks are per-process, so we need to serialize locks
@@ -568,7 +569,7 @@ with_some_lock(svn_error_t *(*body)(void *baton,
 
   svn_pool_destroy(subpool);
 
-#if APR_HAS_THREADS
+#if SVN_FS_FS__USE_LOCK_MUTEX
   status = apr_thread_mutex_unlock(lock_mutex);
   if (status && !err)
     return svn_error_wrap_apr(status,
@@ -586,7 +587,7 @@ svn_fs_fs__with_write_lock(svn_fs_t *fs,
                            void *baton,
                            apr_pool_t *pool)
 {
-#if APR_HAS_THREADS
+#if SVN_FS_FS__USE_LOCK_MUTEX
   fs_fs_data_t *ffd = fs->fsap_data;
   fs_fs_shared_data_t *ffsd = ffd->shared;
   apr_thread_mutex_t *mutex = ffsd->fs_write_lock;
@@ -594,7 +595,7 @@ svn_fs_fs__with_write_lock(svn_fs_t *fs,
 
   return with_some_lock(body, baton,
                         path_lock(fs, pool),
-#if APR_HAS_THREADS
+#if SVN_FS_FS__USE_LOCK_MUTEX
                         mutex,
 #endif
                         pool);
@@ -609,7 +610,7 @@ with_txn_current_lock(svn_fs_t *fs,
                       void *baton,
                       apr_pool_t *pool)
 {
-#if APR_HAS_THREADS
+#if SVN_FS_FS__USE_LOCK_MUTEX
   fs_fs_data_t *ffd = fs->fsap_data;
   fs_fs_shared_data_t *ffsd = ffd->shared;
   apr_thread_mutex_t *mutex = ffsd->txn_current_lock;
@@ -617,7 +618,7 @@ with_txn_current_lock(svn_fs_t *fs,
 
   return with_some_lock(body, baton,
                         path_txn_current_lock(fs, pool),
-#if APR_HAS_THREADS
+#if SVN_FS_FS__USE_LOCK_MUTEX
                         mutex,
 #endif
                         pool);
@@ -790,7 +791,7 @@ get_writable_proto_rev_body(svn_fs_t *fs, const void *baton, apr_pool_t *pool)
   if (!err)
     {
       apr_off_t offset = 0;
-      err = svn_io_file_seek(*file, APR_END, &offset, 0);
+      err = svn_io_file_seek(*file, APR_END, &offset, pool);
     }
 
   if (err)
@@ -1058,6 +1059,27 @@ svn_fs_fs__fs_supports_mergeinfo(svn_fs_t *fs)
 }
 
 static svn_error_t *
+read_config(svn_fs_t *fs,
+            apr_pool_t *pool)
+{
+  fs_fs_data_t *ffd = fs->fsap_data;
+
+  SVN_ERR(svn_config_read(&ffd->config,
+                          svn_path_join(fs->path, PATH_CONFIG, pool),
+                          FALSE, fs->pool));
+
+  /* Initialize ffd->rep_sharing_allowed. */
+  if (ffd->format >= SVN_FS_FS__MIN_REP_SHARING_FORMAT)
+    SVN_ERR(svn_config_get_bool(ffd->config, &ffd->rep_sharing_allowed,
+                                CONFIG_SECTION_REP_SHARING,
+                                CONFIG_OPTION_ENABLE_REP_SHARING, TRUE));
+  else
+    ffd->rep_sharing_allowed = FALSE;
+
+  return SVN_NO_ERROR;
+}
+
+static svn_error_t *
 write_config(svn_fs_t *fs,
              apr_pool_t *pool)
 {
@@ -1147,7 +1169,6 @@ svn_fs_fs__open(svn_fs_t *fs, const char *path, apr_pool_t *pool)
   int format, max_files_per_dir;
   char buf[APR_UUID_FORMATTED_LENGTH + 2];
   apr_size_t limit;
-  svn_boolean_t rep_sharing_allowed;
 
   fs->path = apr_pstrdup(fs->pool, path);
 
@@ -1175,17 +1196,7 @@ svn_fs_fs__open(svn_fs_t *fs, const char *path, apr_pool_t *pool)
     SVN_ERR(update_min_unpacked_rev(fs, pool));
 
   /* Read the configuration file. */
-  SVN_ERR(svn_config_read(&ffd->config,
-                          svn_path_join(fs->path, PATH_CONFIG, pool),
-                          FALSE, fs->pool));
-  SVN_ERR(svn_config_get_bool(ffd->config, &rep_sharing_allowed,
-                              CONFIG_SECTION_REP_SHARING,
-                              CONFIG_OPTION_ENABLE_REP_SHARING, TRUE));
-
-  /* Open the rep cache. */
-  if (ffd->format >= SVN_FS_FS__MIN_REP_SHARING_FORMAT
-        && rep_sharing_allowed)
-    SVN_ERR(svn_fs_fs__open_rep_cache(fs, fs->pool));
+  SVN_ERR(read_config(fs, pool));
 
   return get_youngest(&(ffd->youngest_rev_cache), path, pool);
 }
@@ -1211,11 +1222,29 @@ upgrade_body(void *baton, apr_pool_t *pool)
   svn_fs_t *fs = baton;
   int format, max_files_per_dir;
   const char *format_path = path_format(fs, pool);
+  svn_node_kind_t kind;
 
   /* Read the FS format number and max-files-per-dir setting. */
   SVN_ERR(read_format(&format, &max_files_per_dir, format_path, pool));
 
-  /* If we're already up-to-date, there's nothing to be done here. */
+  /* If the config file does not exist, create one. */
+  SVN_ERR(svn_io_check_path(svn_dirent_join(fs->path, PATH_CONFIG, pool),
+                            &kind, pool));
+  switch (kind)
+    {
+    case svn_node_none:
+      SVN_ERR(write_config(fs, pool));
+      break;
+    case svn_node_dir:
+      return svn_error_createf(SVN_ERR_FS_GENERAL, NULL,
+                               _("'%s' is a directory. Please move it out of "
+                                 "the way and try again"),
+                               svn_dirent_join(fs->path, PATH_CONFIG, pool));
+    default:
+      break;
+    }
+
+  /* If we're already up-to-date, there's nothing else to be done here. */
   if (format == SVN_FS_FS__FORMAT_NUMBER)
     return SVN_NO_ERROR;
 
@@ -1412,6 +1441,63 @@ svn_fs_fs__hotcopy(const char *src_path,
                       svn_path_join(src_path, PATH_FORMAT, pool),
                       pool));
   SVN_ERR(check_format(format));
+
+  /* Try to copy the config.
+   *
+   * ### We try copying the config file before doing anything else,
+   * ### because higher layers will abort the hotcopy if we throw
+   * ### an error from this function, and that renders the hotcopy
+   * ### unusable anyway. */
+  if (format >= SVN_FS_FS__MIN_CONFIG_FILE)
+    {
+      svn_error_t *err;
+
+      err = svn_io_dir_file_copy(src_path, dst_path, PATH_CONFIG, pool);
+      if (err)
+        {
+          if (APR_STATUS_IS_ENOENT(err->apr_err))
+            {
+              /* 1.6.0 to 1.6.11 did not copy the configuration file during
+               * hotcopy. So if we're hotcopying a repository which has been
+               * created as a hotcopy itself, it's possible that fsfs.conf
+               * does not exist. Ask the user to re-create it.
+               *
+               * ### It would be nice to make this a non-fatal error,
+               * ### but this function does not get an svn_fs_t object
+               * ### so we have no way of just printing a warning via
+               * ### the fs->warning() callback. */
+
+              const char *msg;
+              const char *src_abspath;
+              const char *dst_abspath;
+              const char *config_relpath;
+              svn_error_t *err2;
+
+              config_relpath = svn_dirent_join(src_path, PATH_CONFIG, pool);
+              err2 = svn_dirent_get_absolute(&src_abspath, src_path, pool);
+              if (err2)
+                return svn_error_compose_create(err, err2);
+              err2 = svn_dirent_get_absolute(&dst_abspath, dst_path, pool);
+              if (err2)
+                return svn_error_compose_create(err, err2);
+              
+              /* ### hack: strip off the 'db/' directory from paths so
+               * ### they make sense to the user */
+              src_abspath = svn_dirent_dirname(src_abspath, pool);
+              dst_abspath = svn_dirent_dirname(dst_abspath, pool);
+
+              msg = apr_psprintf(pool,
+                                 _("Failed to create hotcopy at '%s'. "
+                                   "The file '%s' is missing from the source "
+                                   "repository. Please create this file, for "
+                                   "instance by running 'svnadmin upgrade %s'"),
+                                 dst_abspath, config_relpath, src_abspath);
+              return svn_error_quick_wrap(err, msg);
+            }
+          else
+            return err;
+        }
+    }
 
   /* Copy the current file. */
   SVN_ERR(svn_io_dir_file_copy(src_path, dst_path, PATH_CURRENT, pool));
@@ -3695,6 +3781,15 @@ fold_change(apr_hash_t *changes,
           (SVN_ERR_FS_CORRUPT, NULL,
            _("Invalid change ordering: non-add change on deleted path"));
 
+      /* Sanity check: an add can't follow anything except
+         a delete or reset.  */
+      if ((change->kind == svn_fs_path_change_add)
+          && (old_change->change_kind != svn_fs_path_change_delete)
+          && (old_change->change_kind != svn_fs_path_change_reset))
+        return svn_error_create
+          (SVN_ERR_FS_CORRUPT, NULL,
+           _("Invalid change ordering: add change on preexisting path"));
+
       /* Now, merge that change in. */
       switch (change->kind)
         {
@@ -5016,7 +5111,8 @@ rep_write_contents_close(void *baton)
 
   /* Check and see if we already have a representation somewhere that's
      identical to the one we just wrote out. */
-  if (ffd->format >= SVN_FS_FS__MIN_REP_SHARING_FORMAT)
+  if (ffd->rep_sharing_allowed)
+    /* ### TODO: ignore errors opening the DB (issue #3506) * */
     SVN_ERR(svn_fs_fs__get_rep_reference(&old_rep, b->fs, rep->sha1_checksum,
                                          b->parent_pool));
   else
@@ -5263,6 +5359,8 @@ write_final_rev(const svn_fs_id_t **new_id_p,
                 const svn_fs_id_t *id,
                 const char *start_node_id,
                 const char *start_copy_id,
+                apr_array_header_t *reps_to_cache,
+                apr_pool_t *reps_pool,
                 apr_pool_t *pool)
 {
   node_revision_t *noderev;
@@ -5301,6 +5399,7 @@ write_final_rev(const svn_fs_id_t **new_id_p,
           dirent = val;
           SVN_ERR(write_final_rev(&new_id, file, rev, fs, dirent->id,
                                   start_node_id, start_copy_id,
+                                  reps_to_cache, reps_pool,
                                   subpool));
           if (new_id && (svn_fs_fs__id_rev(new_id) == rev))
             dirent->id = svn_fs_fs__id_copy(new_id, pool);
@@ -5396,10 +5495,14 @@ write_final_rev(const svn_fs_id_t **new_id_p,
                                    pool));
 
   /* Save the data representation's hash in the rep cache. */
-  if (ffd->format >= SVN_FS_FS__MIN_REP_SHARING_FORMAT
+  if (ffd->rep_sharing_allowed
         && noderev->data_rep && noderev->kind == svn_node_file
         && noderev->data_rep->revision == rev)
-    SVN_ERR(svn_fs_fs__set_rep_reference(fs, noderev->data_rep, FALSE, pool));
+    {
+      SVN_ERR_ASSERT(reps_to_cache && reps_pool);
+      APR_ARRAY_PUSH(reps_to_cache, representation_t *)
+        = svn_fs_fs__rep_copy(noderev->data_rep, reps_pool);
+    }
 
   /* Return our ID that references the revision file. */
   *new_id_p = noderev->id;
@@ -5640,6 +5743,8 @@ struct commit_baton {
   svn_revnum_t *new_rev_p;
   svn_fs_t *fs;
   svn_fs_txn_t *txn;
+  apr_array_header_t *reps_to_cache;
+  apr_pool_t *reps_pool;
 };
 
 /* The work-horse for svn_fs_fs__commit, called with the FS write lock.
@@ -5693,6 +5798,7 @@ commit_body(void *baton, apr_pool_t *pool)
   root_id = svn_fs_fs__id_txn_create("0", "0", cb->txn->id, pool);
   SVN_ERR(write_final_rev(&new_root_id, proto_file, new_rev, cb->fs, root_id,
                           start_node_id, start_copy_id,
+                          cb->reps_to_cache, cb->reps_pool,
                           pool));
 
   /* Write the changed-path information. */
@@ -5814,28 +5920,42 @@ struct commit_sqlite_txn_baton
   apr_pool_t *pool;
 };
 
+/* Add the representations in REPS_TO_CACHE (an array of representation_t *)
+ * to the rep-cache database of FS. */
+static svn_error_t *
+write_reps_to_cache(svn_fs_t *fs,
+                    apr_array_header_t *reps_to_cache,
+                    apr_pool_t *scratch_pool)
+{
+  int i;
+
+  for (i = 0; i < reps_to_cache->nelts; i++)
+    {
+      representation_t *rep = APR_ARRAY_IDX(reps_to_cache, i, representation_t *);
+
+      /* FALSE because we don't care if another parallel commit happened to
+       * collide with us.  (Non-parallel collisions will not be detected.) */
+      SVN_ERR(svn_fs_fs__set_rep_reference(fs, rep, FALSE, scratch_pool));
+    }
+
+  return SVN_NO_ERROR;
+}
+
 /* Implements svn_sqlite__transaction_callback_t. */
 static svn_error_t *
 commit_sqlite_txn_callback(void *baton, svn_sqlite__db_t *db)
 {
   struct commit_sqlite_txn_baton *cstb = baton;
-  return commit_body(cstb->cb, cstb->pool);
-}
+  struct commit_baton *cb = cstb->cb;
 
-/* Wrapper around commit_body() which implements SQLite transactions.  Arguments
-   the same as commit_body().  */
-static svn_error_t *
-commit_body_rep_cache(void *baton, apr_pool_t *pool)
-{
-  struct commit_sqlite_txn_baton cstb;
-  struct commit_baton *cb = baton;
-  fs_fs_data_t *ffd = cb->fs->fsap_data;
+  /* Write new entries to the rep-sharing database.
+   *
+   * We use an sqlite transcation to speed things up;
+   * see <http://www.sqlite.org/faq.html#q19>.
+   */
+  SVN_ERR(write_reps_to_cache(cb->fs, cb->reps_to_cache, cstb->pool));
 
-  cstb.cb = cb;
-  cstb.pool = pool;
-
-  return svn_sqlite__with_transaction(ffd->rep_cache_db,
-                                      commit_sqlite_txn_callback, &cstb);
+  return SVN_NO_ERROR;
 }
 
 svn_error_t *
@@ -5850,10 +5970,34 @@ svn_fs_fs__commit(svn_revnum_t *new_rev_p,
   cb.new_rev_p = new_rev_p;
   cb.fs = fs;
   cb.txn = txn;
-  return svn_fs_fs__with_write_lock(fs,
-                                    ffd->rep_cache_db ? commit_body_rep_cache :
-                                                        commit_body,
-                                    &cb, pool);
+
+  if (ffd->rep_sharing_allowed)
+    {
+      cb.reps_to_cache = apr_array_make(pool, 5, sizeof(representation_t *));
+      cb.reps_pool = pool;
+    }
+  else
+    {
+      cb.reps_to_cache = NULL;
+      cb.reps_pool = NULL;
+    }
+
+  SVN_ERR(svn_fs_fs__with_write_lock(fs, commit_body, &cb, pool));
+
+  if (ffd->rep_sharing_allowed)
+    {
+      struct commit_sqlite_txn_baton cstb;
+      cstb.cb = &cb;
+      cstb.pool = pool;
+
+      /* ### TODO: ignore errors opening the DB (issue #3506) * */
+      SVN_ERR(svn_fs_fs__open_rep_cache(fs, pool));
+      SVN_ERR(svn_sqlite__with_transaction(ffd->rep_cache_db,
+                                           commit_sqlite_txn_callback,
+                                           &cstb));
+    }
+
+  return SVN_NO_ERROR;
 }
 
 svn_error_t *
@@ -5885,11 +6029,12 @@ svn_fs_fs__reserve_copy_id(const char **copy_id_p,
 static svn_error_t *
 write_revision_zero(svn_fs_t *fs)
 {
+  const char *path_revision_zero = path_rev(fs, 0, fs->pool);
   apr_hash_t *proplist;
   svn_string_t date;
 
   /* Write out a rev file for revision 0. */
-  SVN_ERR(svn_io_file_create(path_rev(fs, 0, fs->pool),
+  SVN_ERR(svn_io_file_create(path_revision_zero,
                              "PLAIN\nEND\nENDREP\n"
                              "id: 0.0.r0/17\n"
                              "type: dir\n"
@@ -5898,6 +6043,7 @@ write_revision_zero(svn_fs_t *fs)
                              "2d2977d1c96f487abe4a1e202dd03b4e\n"
                              "cpath: /\n"
                              "\n\n17 107\n", fs->pool));
+  SVN_ERR(svn_io_set_file_read_only(path_revision_zero, FALSE, fs->pool));
 
   /* Set a date on revision 0. */
   date.data = svn_time_to_cstring(apr_time_now(), fs->pool);
@@ -5914,7 +6060,6 @@ svn_fs_fs__create(svn_fs_t *fs,
 {
   int format = SVN_FS_FS__FORMAT_NUMBER;
   fs_fs_data_t *ffd = fs->fsap_data;
-  svn_boolean_t rep_sharing_allowed;
 
   fs->path = apr_pstrdup(pool, path);
   /* See if we had an explicitly requested pre-1.4- or pre-1.5-compatible.  */
@@ -5974,17 +6119,7 @@ svn_fs_fs__create(svn_fs_t *fs,
   SVN_ERR(write_config(fs, pool));
 
   /* Read the configuration file. */
-  SVN_ERR(svn_config_read(&ffd->config,
-                          svn_path_join(fs->path, PATH_CONFIG, pool),
-                          FALSE, fs->pool));
-  SVN_ERR(svn_config_get_bool(ffd->config, &rep_sharing_allowed,
-                              CONFIG_SECTION_REP_SHARING,
-                              CONFIG_OPTION_ENABLE_REP_SHARING, TRUE));
-
-  /* Create the rep cache. */
-  if (ffd->format >= SVN_FS_FS__MIN_REP_SHARING_FORMAT
-        && rep_sharing_allowed)
-    SVN_ERR(svn_fs_fs__open_rep_cache(fs, fs->pool));
+  SVN_ERR(read_config(fs, pool));
 
   /* Create the min unpacked rev file. */
   if (ffd->format >= SVN_FS_FS__MIN_PACKED_FORMAT)
@@ -6942,6 +7077,8 @@ pack_shard(const char *revs_dir,
   SVN_ERR(svn_stream_close(manifest_stream));
   SVN_ERR(svn_stream_close(pack_stream));
   SVN_ERR(svn_fs_fs__dup_perms(pack_file_dir, shard_path, pool));
+  SVN_ERR(svn_io_set_file_read_only(pack_file_path, FALSE, pool));
+  SVN_ERR(svn_io_set_file_read_only(manifest_file_path, FALSE, pool));
 
   /* Update the min-unpacked-rev file to reflect our newly packed shard.
    * (ffd->min_unpacked_rev will be updated by open_pack_or_rev_file().)

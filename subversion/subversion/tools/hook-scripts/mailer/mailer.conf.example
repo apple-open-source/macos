@@ -1,7 +1,7 @@
 #
 # mailer.conf: example configuration file for mailer.py
 #
-# $Id: mailer.conf.example 26780 2007-09-25 15:15:57Z cmpilato $
+# $Id: mailer.conf.example 866854 2007-09-25 15:15:57Z cmpilato $
 
 [general]
 

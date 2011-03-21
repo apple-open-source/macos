@@ -1,9 +1,0 @@
-Wij hebben een bericht ontvangen van uw adres `%(sender)s' dat om een
-automatisch antwoord vraagt van de %(listname)s maillijst.  Wij hebben
-vandaag %(num)s van dergelijke berichten gezien.  Om problemen
-zoals mail 'loops' tussen email robots te voorkomen, zullen wij u
-vandaag geen verdere email beantwoordingen sturen.  Probeert u het
-morgen nog een keer.
-
-Als u vermoedt dat dit bericht foutief is, of als u vragen heeft,
-gelieve contact op te nemen met de lijstbeheerder op %(owneremail)s.

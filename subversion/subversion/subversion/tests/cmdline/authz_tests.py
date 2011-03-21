@@ -148,7 +148,7 @@ def authz_read_access(sbox):
   chi_url = H_url + '/chi'
 
   if sbox.repo_url.startswith("http"):
-    expected_err = ".*403 Forbidden.*"
+    expected_err = ".*[Ff]orbidden.*"
   else:
     expected_err = ".*svn: Authorization failed.*"
 
@@ -252,7 +252,7 @@ def authz_write_access(sbox):
   write_restrictive_svnserve_conf(sbox.repo_dir)
 
   if sbox.repo_url.startswith('http'):
-    expected_err = ".*403 Forbidden.*"
+    expected_err = ".*[Ff]orbidden.*"
   else:
     expected_err = ".*svn: Access denied.*"
 
@@ -347,7 +347,7 @@ def authz_checkout_test(sbox):
 
   # write an authz file with *= on /
   if sbox.repo_url.startswith('http'):
-    expected_err = ".*403 Forbidden.*"
+    expected_err = ".*[Ff]orbidden.*"
   else:
     expected_err = ".*svn: Authorization failed.*"
 
@@ -475,7 +475,7 @@ def authz_log_and_tracing_test(sbox):
 
   # write an authz file with *=rw on /
   if sbox.repo_url.startswith('http'):
-    expected_err = ".*403 Forbidden.*"
+    expected_err = ".*[Ff]orbidden.*"
   else:
     expected_err = ".*svn: Authorization failed.*"
 
@@ -506,7 +506,7 @@ def authz_log_and_tracing_test(sbox):
   # now disable read access on the first version of rho, keep the copy in
   # /A/D readable.
   if sbox.repo_url.startswith('http'):
-    expected_err = ".*403 Forbidden.*"
+    expected_err = ".*[Ff]orbidden.*"
   else:
     expected_err = ".*svn: Authorization failed.*"
 
@@ -592,7 +592,7 @@ def authz_aliases(sbox):
   write_restrictive_svnserve_conf(sbox.repo_dir)
 
   if sbox.repo_url.startswith("http"):
-    expected_err = ".*403 Forbidden.*"
+    expected_err = ".*[Ff]orbidden.*"
   else:
     expected_err = ".*svn: Authorization failed.*"
 
@@ -637,7 +637,7 @@ def authz_validate(sbox):
                            "/A/B" : "@undefined_group = rw" })
 
   if sbox.repo_url.startswith("http"):
-    expected_err = ".*403 Forbidden.*"
+    expected_err = ".*[Ff]orbidden.*"
   elif sbox.repo_url.startswith("svn"):
     expected_err = ".*Invalid authz configuration"
   else:
@@ -657,7 +657,7 @@ devs2 = @admins, dev2
 devs = @devs1, dev3, dev4""" })
 
   if sbox.repo_url.startswith("http"):
-    expected_err = ".*403 Forbidden.*"
+    expected_err = ".*[Ff]orbidden.*"
   elif sbox.repo_url.startswith("svn"):
     expected_err = ".*Invalid authz configuration"
   else:
@@ -693,7 +693,7 @@ def authz_locking(sbox):
   write_restrictive_svnserve_conf(sbox.repo_dir)
 
   if sbox.repo_url.startswith('http'):
-    expected_err = ".*403 Forbidden.*"
+    expected_err = ".*[Ff]orbidden.*"
   else:
     expected_err = ".*svn: Authorization failed.*"
 
@@ -822,6 +822,78 @@ def authz_switch_to_directory(sbox):
   # Switch /A/B/E to /A/B/F.
   svntest.main.run_svn(None, 'switch', sbox.repo_url + "/A/B/E", G_path)
 
+
+def authz_access_required_at_repo_root2(sbox):
+  "more authz issue #3242 - update to renamed file"
+
+  sbox.build(create_wc = False)
+  root_url = sbox.repo_url
+
+  # Now we get all restrictive.
+  write_authz_file(sbox, {'/': '* =',
+                          '/A': 'jrandom = rw'})
+  write_restrictive_svnserve_conf(sbox.repo_dir)
+
+  # Rename a file.
+  svntest.main.run_svn(None, 'mv',
+                       '-m', 'rename file in readable writable space',
+                       root_url + '/A/B/E/alpha',
+                       root_url + '/A/B/E/alpha-renamed')
+  
+  # Check out original greek sub tree below /A/B/E 
+  # and update it to the above rename.
+  wc_dir = sbox.add_wc_path('ABE')
+  os.mkdir(wc_dir)
+  svntest.main.run_svn(None, 'co', '-r', '1', root_url + '/A/B/E', wc_dir)
+  svntest.main.run_svn(None, 'up', wc_dir)
+
+  # Rename a directory.
+  svntest.main.run_svn(None, 'mv',
+                       '-m', 'rename diretory in readable writable space',
+                       root_url + '/A/D/H',
+                       root_url + '/A/D/a g e')
+  
+  # Check out original greek sub tree below /A/D
+  # and update it to the above rename.
+  wc_dir = sbox.add_wc_path('AD')
+  os.mkdir(wc_dir)
+  svntest.main.run_svn(None, 'co', '-r', '1', root_url + '/A/D', wc_dir)
+  svntest.main.run_svn(None, 'up', wc_dir)
+
+def authz_recursive_ls(sbox):
+  "recursive ls with private subtrees"
+
+  sbox.build(create_wc = False)
+  local_dir = sbox.wc_dir
+  write_restrictive_svnserve_conf(sbox.repo_dir)
+
+  write_authz_file(sbox, {'/'       : '* = r',
+                          '/A/B/E'  : '* =',
+                          '/A/mu'   : '* =',
+                          })
+  expected_entries = [
+    'A/',
+    'A/B/',
+    'A/B/F/',
+    'A/B/lambda',
+    'A/C/',
+    'A/D/',
+    'A/D/G/',
+    'A/D/G/pi',
+    'A/D/G/rho',
+    'A/D/G/tau',
+    'A/D/H/',
+    'A/D/H/chi',
+    'A/D/H/omega',
+    'A/D/H/psi',
+    'A/D/gamma',
+    'iota',
+    ]
+  svntest.actions.run_and_verify_svn('recursive ls from /',
+                                     map(lambda x: x + '\n', expected_entries),
+                                     [], 'ls', '-R',
+                                     sbox.repo_url)
+
 ########################################################################
 # Run the tests
 
@@ -845,6 +917,10 @@ test_list = [ None,
                                svntest.main.is_ra_type_svn)),
               XFail(Skip(authz_switch_to_directory,
                          svntest.main.is_ra_type_file)),
+              Skip(authz_access_required_at_repo_root2,
+                   svntest.main.is_ra_type_file),
+              Skip(authz_recursive_ls,
+                   svntest.main.is_ra_type_file),
              ]
 
 if __name__ == '__main__':

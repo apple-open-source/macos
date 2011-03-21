@@ -1,7 +1,0 @@
-The %(real_name)s@%(host_name)s mailing list has %(count)d request(s)
-waiting for your consideration at:
-
-	%(adminDB)s
-	
-Please attend to this at your earliest convenience.  This notice of
-pending requests, if any, will be sent out daily.

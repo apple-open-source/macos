@@ -773,7 +773,6 @@ AppleUSBEHCI::RestartControllerFromReset(void)
 	_savedUSBIntr = HostToUSBLong(kEHCICompleteIntBit | kEHCIErrorIntBit | kEHCIHostErrorIntBit | kEHCIFrListRolloverIntBit | kEHCIPortChangeIntBit);	
 	
 	_outSlot = kEHCIPeriodicListEntries+1;	/* No Isoc transactions currently. */
-	_frameNumber = 0;
 
 	return kIOReturnSuccess;
 }

@@ -1,3 +1,0 @@
-%(member)s 已成功地添加到 %(listname)s 中。
-
-

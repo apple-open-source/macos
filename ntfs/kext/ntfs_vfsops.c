@@ -1386,6 +1386,7 @@ static errno_t ntfs_mft_mirror_load(ntfs_volume *vol)
 		ntfs_error(vol->mp, "vnode_ref() failed!");
 	OSIncrementAtomic(&ni->nr_refs);
 	lck_rw_unlock_shared(&ni->lock);
+	(void)vnode_recycle(vn);
 	(void)vnode_put(vn);
 	vol->mftmirr_ni = ni;
 	ntfs_debug("Done.");
@@ -2047,6 +2048,7 @@ unm:
 	ntfs_page_unmap(ni, upl, pl, FALSE);
 put:
 	lck_rw_unlock_shared(&ni->lock);
+	(void)vnode_recycle(ni->vn);
 	(void)vnode_put(ni->vn);
 	return err;
 }
@@ -3351,9 +3353,9 @@ static int ntfs_unmount_callback_recycle(vnode_t vn, void *data __unused)
  * ntfs_unmount_inode_detach - detach an inode at umount time
  * @pni:	pointer to the attached ntfs inode to detach
  *
- * The vnode of the ntfs inode is already marked for termination thus we simply
- * need to detach the ntfs inode *@pni from the mounted ntfs volume @vol by
- * dropping the reference on its vnode and setting *@pni to NULL.
+ * Mark the vnode of the ntfs inode *@pni for termination and detach the ntfs
+ * inode *@pni from the mounted ntfs volume @vol by dropping the reference on its
+ * vnode and setting *@pni to NULL.
  */
 static void ntfs_unmount_inode_detach(ntfs_inode **pni)
 {
@@ -3362,8 +3364,10 @@ static void ntfs_unmount_inode_detach(ntfs_inode **pni)
 		ntfs_debug("Entering for mft_no 0x%llx.",
 				(unsigned long long)ni->mft_no);
 		OSDecrementAtomic(&ni->nr_refs);
-		if (ni->vn)
+		if (ni->vn) {
+			(void)vnode_recycle(ni->vn);
 			vnode_rele(ni->vn);
+		}
 		*pni = NULL;
 		ntfs_debug("Done.");
 	}
@@ -3678,9 +3682,12 @@ err:
  */
 static int ntfs_sync(struct mount *mp, int waitfor, vfs_context_t context)
 {
-	ntfs_volume *vol;
+	ntfs_volume *vol = NTFS_MP(mp);
 	struct ntfs_sync_args args;
 
+	/* If we are mounted read-only, we do not need to sync anything. */
+	if (NVolReadOnly(vol))
+		return 0;
 	ntfs_debug("Entering.");
 	args.sync = (waitfor == MNT_WAIT) ? IO_SYNC : 0;
 	args.err = 0;
@@ -3691,7 +3698,6 @@ static int ntfs_sync(struct mount *mp, int waitfor, vfs_context_t context)
 	 * the sync twice to ensure that any interdependent changes that are
 	 * flushed from one inode to the other are actually written to disk.
 	 */
-	vol = NTFS_MP(mp);
 	ntfs_sync_helper(vol->mftmirr_ni, &args, TRUE);
 	ntfs_sync_helper(vol->mft_ni, &args, TRUE);
 	ntfs_sync_helper(vol->mftmirr_ni, &args, FALSE);

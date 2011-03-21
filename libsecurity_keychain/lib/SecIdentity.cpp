@@ -610,17 +610,29 @@ OSStatus SecIdentityAddPreferenceItem(
         catch (const std::bad_alloc &)  { status=memFullErr; }
         catch (...)                     { status=internalComponentErr; }
     }
-    if (total > 1) {
-        // add item for top path level (last element in array)
-        OSStatus tmpStatus = noErr;
-        CFStringRef aName = (CFStringRef)CFArrayGetValueAtIndex(names, total-1);
-        try {
-            tmpStatus = _SecIdentityAddPreferenceItemWithName(keychainRef, identityRef, aName, itemRef);
-        }
-        catch (const MacOSError &err)   { tmpStatus=err.osStatus(); }
-        catch (const CommonError &err)  { tmpStatus=SecKeychainErrFromOSStatus(err.osStatus()); }
-        catch (const std::bad_alloc &)  { tmpStatus=memFullErr; }
-        catch (...)                     { tmpStatus=internalComponentErr; }
+    if (total > 2) {
+		Boolean setDomainDefaultIdentity = FALSE;
+		CFTypeRef val = (CFTypeRef)CFPreferencesCopyValue(CFSTR("SetDomainDefaultIdentity"),
+														  CFSTR("com.apple.security.identities"),
+														  kCFPreferencesCurrentUser,
+														  kCFPreferencesAnyHost);
+		if (val) {
+			if (CFGetTypeID(val) == CFBooleanGetTypeID())
+				setDomainDefaultIdentity = CFBooleanGetValue((CFBooleanRef)val) ? TRUE : FALSE;
+			CFRelease(val);
+		}
+		if (setDomainDefaultIdentity) {
+			// add item for domain (second-to-last element in array, e.g. "*.apple.com")
+			OSStatus tmpStatus = noErr;
+			CFStringRef aName = (CFStringRef)CFArrayGetValueAtIndex(names, total-2);
+			try {
+				tmpStatus = _SecIdentityAddPreferenceItemWithName(keychainRef, identityRef, aName, itemRef);
+			}
+			catch (const MacOSError &err)   { tmpStatus=err.osStatus(); }
+			catch (const CommonError &err)  { tmpStatus=SecKeychainErrFromOSStatus(err.osStatus()); }
+			catch (const std::bad_alloc &)  { tmpStatus=memFullErr; }
+			catch (...)                     { tmpStatus=internalComponentErr; }
+		}
     }
 
     CFRelease(names);

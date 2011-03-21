@@ -205,6 +205,8 @@ unsigned int ifscope;
 #if defined(IP_FORCE_OUT_IFP) && TARGET_OS_EMBEDDED
 char boundifname[IFNAMSIZ];
 #endif /* IP_FORCE_OUT_IFP */
+int how_traffic_class = 0;
+int traffic_class = -1;
 
 /* counters */
 long nmissedmax;		/* max value of ntransmitted - nreceived - 1 */
@@ -302,7 +304,7 @@ main(argc, argv)
 
 	outpack = outpackhdr + sizeof(struct ip);
 	while ((ch = getopt(argc, argv,
-		"Aab:c:DdfG:g:h:I:i:Ll:M:m:nop:QqRrS:s:T:t:vW:z:"
+		"Aab:c:DdfG:g:h:I:i:k:Ll:M:m:nop:QqRrS:s:T:t:vW:z:"
 #ifdef IPSEC
 #ifdef IPSEC_POLICY_IPSEC
 		"P:"
@@ -418,6 +420,10 @@ main(argc, argv)
 				errno = EPERM;
 				err(EX_NOPERM, "-i interval too short");
 			}
+			break;
+		case 'k':
+			how_traffic_class++;
+			traffic_class = atoi(optarg);
 			break;
 		case 'L':
 			options |= F_NOLOOP;
@@ -678,6 +684,10 @@ main(argc, argv)
 	if (options & F_SO_DONTROUTE)
 		(void)setsockopt(s, SOL_SOCKET, SO_DONTROUTE, (char *)&hold,
 		    sizeof(hold));
+	if (how_traffic_class == 1) {
+		(void)setsockopt(s, SOL_SOCKET, SO_TRAFFIC_CLASS, (void *)&traffic_class,
+						 sizeof(traffic_class));
+	}
 #ifdef IPSEC
 #ifdef IPSEC_POLICY_IPSEC
 	if (options & F_POLICY) {
@@ -1058,9 +1068,34 @@ pinger(void)
 		ip->ip_sum = in_cksum((u_short *)outpackhdr, cc);
 		packet = outpackhdr;
 	}
-	i = sendto(s, (char *)packet, cc, 0, (struct sockaddr *)&whereto,
-	    sizeof(whereto));
+	if (how_traffic_class == 2) {
+		struct msghdr msg;
+		struct iovec iov;
+		char *cmbuf[CMSG_SPACE(sizeof(int))];
+		struct cmsghdr *cm = (struct cmsghdr *)cmbuf;
 
+		msg.msg_name = &whereto;
+		msg.msg_namelen = sizeof(whereto);
+
+		iov.iov_base = packet;
+		iov.iov_len = cc;
+		msg.msg_iov = &iov;
+		msg.msg_iovlen = 1;
+
+		cm->cmsg_len = CMSG_LEN(sizeof(int));
+		cm->cmsg_level = SOL_SOCKET;
+		cm->cmsg_type = SO_TRAFFIC_CLASS;
+		*(int *)CMSG_DATA(cm) = traffic_class;
+		msg.msg_control = cm;
+		msg.msg_controllen = CMSG_SPACE(sizeof(int));
+
+		msg.msg_flags = 0;
+
+		i = sendmsg(s, &msg, 0);
+	} else {
+		i = sendto(s, (char *)packet, cc, 0, (struct sockaddr *)&whereto,
+			sizeof(whereto));
+	}
 	if (i < 0 || i != cc)  {
 		if (i < 0) {
 			if (options & F_FLOOD && errno == ENOBUFS) {

@@ -1,8 +1,0 @@
-Uw bericht met het onderwerp
-
-    %(subject)s
-
-is in goede orde ontvangen door de %(listname)s maillijst.
-
-Lijst-info pagina: %(listinfo_url)s
-Uw instellingen: %(optionsurl)s

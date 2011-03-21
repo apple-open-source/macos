@@ -10258,7 +10258,8 @@ SWIGINTERN PyObject *_wrap_svn_client_log5(PyObject *SWIGUNUSEDPARM(self), PyObj
     }
   }
   {
-    arg3 = (apr_array_header_t *)svn_swig_MustGetPtr(obj2, SWIGTYPE_p_apr_array_header_t, svn_argnum_obj2);
+    arg3 = (apr_array_header_t *) svn_swig_py_struct_ptr_list_to_array(obj2,
+      SWIGTYPE_p_svn_opt_revision_range_t, _global_pool);
     if (PyErr_Occurred()) {
       SWIG_fail;
     }
@@ -13349,7 +13350,8 @@ SWIGINTERN PyObject *_wrap_svn_client_merge_peg3(PyObject *SWIGUNUSEDPARM(self),
   arg12 = _global_pool;
   if (!PyArg_ParseTuple(args,(char *)"sOOsOOOOOOO|O:svn_client_merge_peg3",&arg1,&obj1,&obj2,&arg4,&obj4,&obj5,&obj6,&obj7,&obj8,&obj9,&obj10,&obj11)) SWIG_fail;
   {
-    arg2 = (apr_array_header_t *)svn_swig_MustGetPtr(obj1, SWIGTYPE_p_apr_array_header_t, svn_argnum_obj1);
+    arg2 = (apr_array_header_t *) svn_swig_py_struct_ptr_list_to_array(obj1,
+      SWIGTYPE_p_svn_opt_revision_range_t, _global_pool);
     if (PyErr_Occurred()) {
       SWIG_fail;
     }

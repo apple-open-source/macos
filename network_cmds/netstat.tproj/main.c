@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2008 Apple Inc. All rights reserved.
+ * Copyright (c) 2008-2010 Apple Inc. All rights reserved.
  *
  * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
  * 
@@ -307,7 +307,7 @@ main(argc, argv)
 
 	af = AF_UNSPEC;
 
-	while ((ch = getopt(argc, argv, "Aabdf:gI:iLlmnPp:rRstuWw:")) != -1)
+	while ((ch = getopt(argc, argv, "Aabdf:gI:iLlmnP:p:rRstuWw:")) != -1)
 		switch(ch) {
 		case 'A':
 			Aflag = 1;
@@ -370,7 +370,7 @@ main(argc, argv)
 			nflag = 1;
 			break;
 		case 'P':
-			prioflag = 1;
+			prioflag = atoi(optarg);
 			break;
 		case 'p':
 			if ((tp = name2protox(optarg)) == NULL) {

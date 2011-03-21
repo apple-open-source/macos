@@ -1,8 +1,0 @@
-Va¹e zpráva ve vìci:
-
-    %(subject)s
-
-byla úspì¹nì doruèena do konference %(listname)s.
-
-Informace o konferenci: %(listinfo_url)s
-Konfigurace Va¹eho úètu: %(optionsurl)s

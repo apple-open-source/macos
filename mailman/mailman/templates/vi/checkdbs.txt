@@ -1,5 +1,0 @@
-Hộp thư chung %(real_name)s@%(host_name)s có %(count)d yêu cầu đợi bạn suy tính tại:
-
-	%(adminDB)s
-	
-Vui lòng quyết định trường hợp này lúc nào thuận tiện nhất cho bạn. Thông báo yêu cầu bị hoãn nào sẽ được gởi hàng ngày.

@@ -2597,7 +2597,7 @@ get_proposal_r_remote(iph2, use_remote_addr)
 		spidx.ul_proto = IPSEC_ULPROTO_ANY;
 
 	/* get inbound policy */
-	sp_in = getsp_r(&spidx);
+	sp_in = getsp_r(&spidx, iph2);
 	if (sp_in == NULL || sp_in->policy == IPSEC_POLICY_GENERATE) {
 		if (iph2->ph1->rmconf->gen_policy) {
 		        if (sp_in)
@@ -2622,21 +2622,6 @@ get_proposal_r_remote(iph2, use_remote_addr)
 			        "no policy found: %s\n", spidx2str(&spidx));
 			return ISAKMP_INTERNAL_ERROR;
 		}
-	} else {
-	        /* Refresh existing generated policies
-		 */
-	        if (iph2->ph1->rmconf->gen_policy) {
-		        plog(LLV_INFO, LOCATION, NULL,
-			        "Update the generated policy : %s\n",
-			        spidx2str(&spidx));
-			iph2->spidx_gen = racoon_malloc(sizeof(spidx));
-			if (!iph2->spidx_gen) {
-			        plog(LLV_ERROR, LOCATION, NULL,
-				        "buffer allocation failed.\n");
-				return ISAKMP_INTERNAL_ERROR;
-			}
-			memcpy(iph2->spidx_gen, &spidx, sizeof(spidx));
-		}
 	}
     
 	/* get outbound policy */
@@ -2652,7 +2637,7 @@ get_proposal_r_remote(iph2, use_remote_addr)
 	spidx.prefs = spidx.prefd;
 	spidx.prefd = pref;
 
-	sp_out = getsp_r(&spidx);
+	sp_out = getsp_r(&spidx, iph2);
 	if (!sp_out) {
 		plog(LLV_WARNING, LOCATION, NULL,
 			"no outbound policy found: %s\n",

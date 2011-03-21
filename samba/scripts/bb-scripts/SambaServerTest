@@ -6,7 +6,7 @@
 # actual test suite implementation that lives in the svn source tree.
 #
 # The canonical version of this file is:
-# $HeadURL: svn+ssh://src.apple.com/svn/fs/samba/tags/samba-235.5/scripts/bb-scripts/SambaServerTest $
+# $HeadURL: svn+ssh://src.apple.com/svn/fs/samba/tags/samba-235.6/scripts/bb-scripts/SambaServerTest $
 # $Id: SambaServerTest 30931 2007-04-16 17:44:14Z jpeach $
 
 # Set up the test machine.

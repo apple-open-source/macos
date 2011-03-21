@@ -31,10 +31,14 @@ Skip = svntest.testcase.Skip
 SkipUnless = svntest.testcase.SkipUnless
 
 from merge_tests import set_up_branch
-
+from merge_tests import expected_merge_output
+from svntest.main import is_ra_type_dav
+from svntest.main import is_ra_type_svn
 from svntest.main import SVN_PROP_MERGEINFO
 from svntest.main import write_restrictive_svnserve_conf
 from svntest.main import write_authz_file
+from svntest.main import is_ra_type_dav
+from svntest.main import is_ra_type_svn
 from svntest.main import server_has_mergeinfo
 from svntest.actions import fill_file_with_lines
 from svntest.actions import make_conflict_marker_text
@@ -356,7 +360,6 @@ def mergeinfo_and_skipped_paths(sbox):
                                        None, None, None, None,
                                        None, 1, 0, '-c5', '-c8')
 
-
   # Test issue #2829 'Improve handling for skipped paths encountered
   # during a merge'
 
@@ -408,6 +411,242 @@ def mergeinfo_and_skipped_paths(sbox):
                                        None, None, None, None,
                                        None, 1, 0)
 
+def reintegrate_fails_if_no_root_access(sbox):
+  "reintegrate fails if no root access"
+
+  # If a user is authorized to a reintegrate source and target, they
+  # should be able to reintegrate, regardless of what authorization
+  # they have to parents of the source and target.
+  #
+  # See http://subversion.tigris.org/issues/show_bug.cgi?id=3242#desc78
+
+  # Some paths we'll care about
+  wc_dir = sbox.wc_dir
+  A_path          = os.path.join(wc_dir, 'A')
+  A_COPY_path     = os.path.join(wc_dir, 'A_COPY')
+  beta_COPY_path  = os.path.join(wc_dir, 'A_COPY', 'B', 'E', 'beta')
+  rho_COPY_path   = os.path.join(wc_dir, 'A_COPY', 'D', 'G', 'rho')
+  omega_COPY_path = os.path.join(wc_dir, 'A_COPY', 'D', 'H', 'omega')
+  psi_COPY_path   = os.path.join(wc_dir, 'A_COPY', 'D', 'H', 'psi')
+      
+  # Copy A@1 to A_COPY in r2, and then make some changes to A in r3-6.
+  sbox.build()
+  wc_dir = sbox.wc_dir
+  expected_disk, expected_status = set_up_branch(sbox)
+
+  # Make a change on the branch, to A_COPY/mu, commit in r7.
+  svntest.main.file_write(os.path.join(wc_dir, "A_COPY", "mu"),
+                          "Changed on the branch.")
+  expected_output = wc.State(wc_dir, {'A_COPY/mu' : Item(verb='Sending')})
+  expected_status.tweak('A_COPY/mu', wc_rev=7)
+  svntest.actions.run_and_verify_commit(wc_dir, expected_output,
+                                        expected_status, None, wc_dir)
+  expected_disk.tweak('A_COPY/mu', contents='Changed on the branch.')
+
+  # Update the WC.
+  svntest.main.run_svn(None, 'up', wc_dir)
+
+
+  # Sync A_COPY with A.
+  expected_output = expected_merge_output([[2,7]],
+                                          ['U    ' + beta_COPY_path  + '\n',
+                                           'U    ' + rho_COPY_path   + '\n',
+                                           'U    ' + omega_COPY_path + '\n',
+                                           'U    ' + psi_COPY_path   + '\n',
+                                           # Mergeinfo notification
+                                           ' U   ' + A_COPY_path     + '\n'])
+  svntest.actions.run_and_verify_svn(None, expected_output, [], 'merge',
+                                     sbox.repo_url + '/A', A_COPY_path)
+  svntest.main.run_svn(None, 'ci', '-m', 'synch A_COPY with A', wc_dir)
+
+  # Update so we are ready for reintegrate.
+  svntest.main.run_svn(None, 'up', wc_dir)
+
+  # Change authz file so everybody has access to everything but the root.  
+  if is_ra_type_svn() or is_ra_type_dav():
+    write_restrictive_svnserve_conf(sbox.repo_dir)
+    write_authz_file(sbox, {"/"       : "* =",
+                            "/A"      : "* = rw",
+                            "/A_COPY" : "* = rw",
+                            "/iota"   : "* = rw"})
+
+  # Now reintegrate A_COPY back to A.  The lack of access to the root of the
+  # repository shouldn't be a problem.
+  expected_output = wc.State(A_path, {
+    'mu'           : Item(status='U '),
+    })
+  expected_disk = wc.State('', {
+    ''          : Item(props={SVN_PROP_MERGEINFO : '/A_COPY:2-8'}),
+    'B'         : Item(),
+    'B/lambda'  : Item("This is the file 'lambda'.\n"),
+    'B/E'       : Item(),
+    'B/E/alpha' : Item("This is the file 'alpha'.\n"),
+    'B/E/beta'  : Item("New content"),
+    'B/F'       : Item(),
+    'mu'        : Item("Changed on the branch."),
+    'C'         : Item(),
+    'D'         : Item(),
+    'D/gamma'   : Item("This is the file 'gamma'.\n"),
+    'D/G'       : Item(),
+    'D/G/pi'    : Item("This is the file 'pi'.\n"),
+    'D/G/rho'   : Item("New content"),
+    'D/G/tau'   : Item("This is the file 'tau'.\n"),
+    'D/H'       : Item(),
+    'D/H/chi'   : Item("This is the file 'chi'.\n"),
+    'D/H/omega' : Item("New content"),
+    'D/H/psi'   : Item("New content"),
+  })
+  expected_status = wc.State(A_path, {
+    "B"            : Item(status='  ', wc_rev=8),
+    "B/lambda"     : Item(status='  ', wc_rev=8),
+    "B/E"          : Item(status='  ', wc_rev=8),
+    "B/E/alpha"    : Item(status='  ', wc_rev=8),
+    "B/E/beta"     : Item(status='  ', wc_rev=8),
+    "B/F"          : Item(status='  ', wc_rev=8),
+    "mu"           : Item(status='M ', wc_rev=8),
+    "C"            : Item(status='  ', wc_rev=8),
+    "D"            : Item(status='  ', wc_rev=8),
+    "D/gamma"      : Item(status='  ', wc_rev=8),
+    "D/G"          : Item(status='  ', wc_rev=8),
+    "D/G/pi"       : Item(status='  ', wc_rev=8),
+    "D/G/rho"      : Item(status='  ', wc_rev=8),
+    "D/G/tau"      : Item(status='  ', wc_rev=8),
+    "D/H"          : Item(status='  ', wc_rev=8),
+    "D/H/chi"      : Item(status='  ', wc_rev=8),
+    "D/H/omega"    : Item(status='  ', wc_rev=8),
+    "D/H/psi"      : Item(status='  ', wc_rev=8),
+    ""             : Item(status=' M', wc_rev=8),
+  })
+  expected_skip = wc.State(A_path, {})
+  svntest.actions.run_and_verify_merge(A_path, None, None,
+                                       sbox.repo_url + '/A_COPY',
+                                       expected_output,
+                                       expected_disk,
+                                       expected_status,
+                                       expected_skip,
+                                       None, None, None, None,
+                                       None, True, True,
+                                       '--reintegrate')
+  
+def merge_fails_if_subtree_is_deleted_on_src(sbox):
+  "merge fails if subtree is deleted on src"
+
+  ## See http://subversion.tigris.org/issues/show_bug.cgi?id=2876. ##
+
+  # Create a WC
+  sbox.build()
+  wc_dir = sbox.wc_dir
+
+  if is_ra_type_svn() or is_ra_type_dav():
+    write_authz_file(sbox, {"/" : "* = rw",
+                            "/unrelated" : ("* =\n" +
+                             svntest.main.wc_author2 + " = rw")})
+
+  # Some paths we'll care about
+  Acopy_path = os.path.join(wc_dir, 'A_copy')
+  gamma_path = os.path.join(wc_dir, 'A', 'D', 'gamma')
+  Acopy_gamma_path = os.path.join(wc_dir, 'A_copy', 'D', 'gamma')
+  Acopy_D_path = os.path.join(wc_dir, 'A_copy', 'D')
+  A_url = sbox.repo_url + '/A'
+  Acopy_url = sbox.repo_url + '/A_copy'
+
+  # Contents to be added to 'gamma'
+  new_content = "line1\nline2\nline3\nline4\nline5\n"
+
+  svntest.main.file_write(gamma_path, new_content)
+
+  # Create expected output tree for commit
+  expected_output = wc.State(wc_dir, {
+    'A/D/gamma' : Item(verb='Sending'),
+    })
+
+  # Create expected status tree for commit
+  expected_status = svntest.actions.get_virginal_state(wc_dir, 1)
+  expected_status.tweak('A/D/gamma', wc_rev=2)
+
+  # Commit the new content
+  svntest.actions.run_and_verify_commit(wc_dir, expected_output,
+                                        expected_status, None, wc_dir)
+
+  svntest.actions.run_and_verify_svn(None, None, [], 'cp', A_url, Acopy_url,
+                                     '-m', 'create a new copy of A')
+
+  # Update working copy
+  svntest.actions.run_and_verify_svn(None, None, [], 'up', wc_dir)
+
+  svntest.main.file_substitute(gamma_path, "line1", "this is line1")
+  # Create expected output tree for commit
+  expected_output = wc.State(wc_dir, {
+    'A/D/gamma' : Item(verb='Sending'),
+    })
+
+  # Create expected status tree for commit
+  expected_status.tweak(wc_rev=3)
+  expected_status.tweak('A/D/gamma', wc_rev=4)
+  expected_status.add({
+    'A_copy'          : Item(status='  ', wc_rev=3),
+    'A_copy/B'        : Item(status='  ', wc_rev=3),
+    'A_copy/B/lambda' : Item(status='  ', wc_rev=3),
+    'A_copy/B/E'      : Item(status='  ', wc_rev=3),
+    'A_copy/B/E/alpha': Item(status='  ', wc_rev=3),
+    'A_copy/B/E/beta' : Item(status='  ', wc_rev=3),
+    'A_copy/B/F'      : Item(status='  ', wc_rev=3),
+    'A_copy/mu'       : Item(status='  ', wc_rev=3),
+    'A_copy/C'        : Item(status='  ', wc_rev=3),
+    'A_copy/D'        : Item(status='  ', wc_rev=3),
+    'A_copy/D/gamma'  : Item(status='  ', wc_rev=3),
+    'A_copy/D/G'      : Item(status='  ', wc_rev=3),
+    'A_copy/D/G/pi'   : Item(status='  ', wc_rev=3),
+    'A_copy/D/G/rho'  : Item(status='  ', wc_rev=3),
+    'A_copy/D/G/tau'  : Item(status='  ', wc_rev=3),
+    'A_copy/D/H'      : Item(status='  ', wc_rev=3),
+    'A_copy/D/H/chi'  : Item(status='  ', wc_rev=3),
+    'A_copy/D/H/omega': Item(status='  ', wc_rev=3),
+    'A_copy/D/H/psi'  : Item(status='  ', wc_rev=3),
+    })
+
+  svntest.actions.run_and_verify_commit(wc_dir, expected_output,
+                                        expected_status, None, wc_dir)
+
+  # Delete A/D/gamma from working copy
+  svntest.actions.run_and_verify_svn(None, None, [], 'delete', gamma_path)
+  # Create expected output tree for commit
+  expected_output = wc.State(wc_dir, {
+    'A/D/gamma' : Item(verb='Deleting'),
+    })
+
+  expected_status.remove('A/D/gamma')
+
+  svntest.actions.run_and_verify_commit(wc_dir,
+                                        expected_output,
+                                        expected_status,
+                                        None,
+                                        wc_dir, wc_dir)
+  svntest.actions.run_and_verify_svn(None, expected_merge_output([[3,4]],
+                                     'U    ' + Acopy_gamma_path + '\n'),
+                                     [], 'merge', '-r1:4',
+                                     A_url + '/D/gamma' + '@4',
+                                     Acopy_gamma_path)
+
+  # r6: create an empty (unreadable) commit.
+  # Empty or unreadable revisions used to crash a svn 1.6+ client when
+  # used with a 1.5 server:
+  # http://svn.haxx.se/dev/archive-2009-04/0476.shtml
+  svntest.main.run_svn(None, 'mkdir', sbox.repo_url + '/unrelated',
+                       '--username', svntest.main.wc_author2,
+                       '-m', 'creating a rev with no paths.')
+
+  # This merge causes a tree conflict. Since the result of the previous
+  # merge of A/D/gamma into A_copy/D has not yet been committed, it is
+  # considered a local modification of A_Copy/D/gamma by the following
+  # merge. A delete merged ontop of a modified file is a tree conflict.
+  # See notes/tree-conflicts/detection.txt
+  svntest.actions.run_and_verify_svn(None, expected_merge_output([[6], [3,6]],
+                                     ['D    ' + Acopy_gamma_path + '\n',
+                                     'C    ' + Acopy_D_path + '\n']),
+                                     [], 'merge', '-r1:6', '--force',
+                                     A_url, Acopy_path)
+
 ########################################################################
 # Run the tests
 
@@ -417,6 +656,11 @@ test_list = [ None,
               SkipUnless(Skip(mergeinfo_and_skipped_paths,
                               svntest.main.is_ra_type_file),
                          svntest.main.server_has_mergeinfo),
+              SkipUnless(Skip(reintegrate_fails_if_no_root_access,
+                              svntest.main.is_ra_type_file),
+                         svntest.main.server_has_mergeinfo),
+              SkipUnless(merge_fails_if_subtree_is_deleted_on_src,
+                         server_has_mergeinfo),
              ]
 
 if __name__ == '__main__':

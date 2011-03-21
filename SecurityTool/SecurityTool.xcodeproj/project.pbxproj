@@ -340,6 +340,7 @@
 			isa = PBXProject;
 			buildConfigurationList = C27AD1BA0987FCDB001272E0 /* Build configuration list for PBXProject "SecurityTool" */;
 			compatibilityVersion = "Xcode 3.1";
+			developmentRegion = English;
 			hasScannedForEncodings = 1;
 			knownRegions = (
 				English,
@@ -403,7 +404,7 @@
 			buildSettings = {
 				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
 				BUILD_VARIANTS = debug;
-				CURRENT_PROJECT_VERSION = 40418;
+				CURRENT_PROJECT_VERSION = 40596;
 				FRAMEWORK_SEARCH_PATHS = (
 					/usr/local/SecurityPieces/Frameworks,
 					/usr/local/SecurityPieces/Components/Security,
@@ -446,7 +447,7 @@
 					normal,
 					debug,
 				);
-				CURRENT_PROJECT_VERSION = 40418;
+				CURRENT_PROJECT_VERSION = 40596;
 				FRAMEWORK_SEARCH_PATHS = (
 					/usr/local/SecurityPieces/Frameworks,
 					/usr/local/SecurityPieces/Components/Security,
@@ -483,7 +484,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUILD_VARIANTS = normal;
-				CURRENT_PROJECT_VERSION = 40418;
+				CURRENT_PROJECT_VERSION = 40596;
 				FRAMEWORK_SEARCH_PATHS = (
 					/usr/local/SecurityPieces/Frameworks,
 					/usr/local/SecurityPieces/Components/Security,
@@ -523,7 +524,7 @@
 					normal,
 					debug,
 				);
-				CURRENT_PROJECT_VERSION = 40418;
+				CURRENT_PROJECT_VERSION = 40596;
 				FRAMEWORK_SEARCH_PATHS = (
 					/usr/local/SecurityPieces/Frameworks,
 					/usr/local/SecurityPieces/Components/Security,

@@ -1,3 +1,0 @@
-Nos ha recipite un message de tu adresse `%(sender)s' demandante un responsa automatic del lista de correspondentia %(listname)s. Nos ha vidite %(num)s de tal messages de te hodie. A fin de evitar problemas como reexpedition de messages inter robotes de messages, nos non va inviar te ulle responsas ulterior hodie. Per favor, essaya de novo deman.
-
-Si tu crede que iste message es inviate a te erroneemente, o si tu ha ulle questiones, per favor, contacta le possessor del lista al adresse %(owneremail)s.

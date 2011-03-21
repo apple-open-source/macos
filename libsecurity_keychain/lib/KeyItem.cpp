@@ -32,6 +32,9 @@
 #include <security_keychain/KeyItem.h>
 #include <security_cdsa_client/wrapkey.h>
 #include <security_cdsa_client/genkey.h>
+#include <security_cdsa_client/signclient.h>
+#include <security_cdsa_client/cryptoclient.h>
+
 #include <security_keychain/Globals.h>
 #include "KCEventNotifier.h"
 
@@ -41,6 +44,7 @@ static CSSM_DB_NAME_ATTR(kInfoKeyLabel, kSecKeyLabel, (char*) "Label", 0, NULL, 
 static CSSM_DB_NAME_ATTR(kInfoKeyApplicationTag, kSecKeyApplicationTag, (char*) "ApplicationTag", 0, NULL, BLOB);
 
 using namespace KeychainCore;
+using namespace CssmClient;
 
 KeyItem::KeyItem(const Keychain &keychain, const PrimaryKey &primaryKey, const CssmClient::DbUniqueRecord &uniqueId) :
 	ItemImpl(keychain, primaryKey, uniqueId),
@@ -957,3 +961,225 @@ KeyItem::generate(Keychain keychain,
 	
 	return item;
 }
+
+
+
+void KeyItem::RawSign(SecPadding padding, CSSM_DATA dataToSign, CSSM_DATA& signature)
+{
+	CSSM_ALGORITHMS baseAlg = key()->header().algorithm();
+	if (baseAlg != CSSM_ALGID_RSA)
+	{
+		MacOSError::throwMe(paramErr);
+	}
+	
+	CSSM_ALGORITHMS paddingAlg = CSSM_PADDING_PKCS1;
+	
+	switch (padding)
+	{
+		case kSecPaddingPKCS1:
+		{
+			paddingAlg = CSSM_PADDING_PKCS1;
+			break;
+		}
+		
+		case kSecPaddingPKCS1MD2:
+		{
+			baseAlg = CSSM_ALGID_MD2WithRSA;
+			break;
+		}
+		
+		case kSecPaddingPKCS1MD5:
+		{
+			baseAlg = CSSM_ALGID_MD2WithRSA;
+			break;
+		}
+		
+		case kSecPaddingPKCS1SHA1:
+		{
+			baseAlg = CSSM_ALGID_MD2WithRSA;
+			break;
+		}
+		
+		default:
+		{
+			paddingAlg = CSSM_PADDING_NONE;
+			break;
+		}
+	}
+
+	Sign signContext(csp(), baseAlg);
+	signContext.key(key());
+	signContext.set(CSSM_ATTRIBUTE_PADDING, paddingAlg);
+
+	CssmData data(dataToSign.Data, dataToSign.Length);
+	signContext.sign(data);
+	
+	CssmData sig = signContext(); // yes, this is an accessor.  Believe it, or not.
+	
+	int bytesToReturn = sig.length() < signature.Length ? sig.length() : signature.Length;
+	signature.Length = bytesToReturn;
+	memmove(signature.Data, sig.data(), bytesToReturn);
+}
+
+
+
+void KeyItem::RawVerify(SecPadding padding, CSSM_DATA dataToVerify, CSSM_DATA sig)
+{
+	CSSM_ALGORITHMS baseAlg = key()->header().algorithm();
+	if (baseAlg != CSSM_ALGID_RSA)
+	{
+		MacOSError::throwMe(paramErr);
+	}
+	
+	CSSM_ALGORITHMS paddingAlg = CSSM_PADDING_PKCS1;
+	
+	switch (padding)
+	{
+		case kSecPaddingPKCS1:
+		{
+			paddingAlg = CSSM_PADDING_PKCS1;
+			break;
+		}
+		
+		case kSecPaddingPKCS1MD2:
+		{
+			baseAlg = CSSM_ALGID_MD2WithRSA;
+			break;
+		}
+		
+		case kSecPaddingPKCS1MD5:
+		{
+			baseAlg = CSSM_ALGID_MD2WithRSA;
+			break;
+		}
+		
+		case kSecPaddingPKCS1SHA1:
+		{
+			baseAlg = CSSM_ALGID_MD2WithRSA;
+			break;
+		}
+		
+		default:
+		{
+			paddingAlg = CSSM_PADDING_NONE;
+			break;
+		}
+	}
+	
+	Verify verifyContext(csp(), baseAlg);
+	verifyContext.key(key());
+	verifyContext.set(CSSM_ATTRIBUTE_PADDING, paddingAlg);
+
+	CssmData data(dataToVerify.Data, dataToVerify.Length);
+	CssmData signature(sig.Data, sig.Length);
+	verifyContext.verify(data, signature);
+}
+
+
+
+void KeyItem::Encrypt(SecPadding padding, CSSM_DATA dataToEncrypt, CSSM_DATA& encryptedData)
+{
+	CSSM_ALGORITHMS baseAlg = key()->header().algorithm();
+	if (baseAlg != CSSM_ALGID_RSA)
+	{
+		MacOSError::throwMe(paramErr);
+	}
+	
+	CSSM_ALGORITHMS paddingAlg = CSSM_PADDING_PKCS1;
+	
+	switch (padding)
+	{
+		case kSecPaddingPKCS1:
+		{
+			paddingAlg = CSSM_PADDING_PKCS1;
+			break;
+		}
+		
+		case kSecPaddingPKCS1MD2:
+		{
+			baseAlg = CSSM_ALGID_MD2WithRSA;
+			break;
+		}
+		
+		case kSecPaddingPKCS1MD5:
+		{
+			baseAlg = CSSM_ALGID_MD2WithRSA;
+			break;
+		}
+		
+		case kSecPaddingPKCS1SHA1:
+		{
+			baseAlg = CSSM_ALGID_MD2WithRSA;
+			break;
+		}
+		
+		default:
+		{
+			paddingAlg = CSSM_PADDING_NONE;
+			break;
+		}
+	}
+	
+	CssmClient::Encrypt encryptContext(csp(), baseAlg);
+	encryptContext.key(key());
+	encryptContext.set(CSSM_ATTRIBUTE_PADDING, paddingAlg);
+
+	CssmData inData(dataToEncrypt.Data, dataToEncrypt.Length);
+	CssmData outData(encryptedData.Data, encryptedData.Length);
+	encryptContext.encrypt(inData, outData);
+}
+
+
+
+void KeyItem::Decrypt(SecPadding padding, CSSM_DATA dataToDecrypt, CSSM_DATA& decryptedData)
+{
+	CSSM_ALGORITHMS baseAlg = key()->header().algorithm();
+	if (baseAlg != CSSM_ALGID_RSA)
+	{
+		MacOSError::throwMe(paramErr);
+	}
+	
+	CSSM_ALGORITHMS paddingAlg = CSSM_PADDING_PKCS1;
+	
+	switch (padding)
+	{
+		case kSecPaddingPKCS1:
+		{
+			paddingAlg = CSSM_PADDING_PKCS1;
+			break;
+		}
+		
+		case kSecPaddingPKCS1MD2:
+		{
+			MacOSError::throwMe(paramErr);
+			break;
+		}
+		
+		case kSecPaddingPKCS1MD5:
+		{
+			MacOSError::throwMe(paramErr);
+			break;
+		}
+		
+		case kSecPaddingPKCS1SHA1:
+		{
+			MacOSError::throwMe(paramErr);
+			break;
+		}
+		
+		default:
+		{
+			paddingAlg = CSSM_PADDING_NONE;
+			break;
+		}
+	}
+
+	CssmClient::Decrypt decryptContext(csp(), baseAlg);
+	decryptContext.key(key());
+	decryptContext.set(CSSM_ATTRIBUTE_PADDING, paddingAlg);
+
+	CssmData inData(dataToDecrypt.Data, dataToDecrypt.Length);
+	CssmData outData(decryptedData.Data, decryptedData.Length);
+	decryptContext.decrypt(inData, outData);
+}
+

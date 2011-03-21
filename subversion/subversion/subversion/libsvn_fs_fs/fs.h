@@ -25,6 +25,7 @@
 
 #include "svn_fs.h"
 #include "svn_config.h"
+#include "private/svn_atomic.h"
 #include "private/svn_cache.h"
 #include "private/svn_fs_private.h"
 #include "private/svn_sqlite.h"
@@ -112,6 +113,9 @@ extern "C" {
 /* The minimum format number that stores node kinds in changed-paths lists. */
 #define SVN_FS_FS__MIN_KIND_IN_CHANGED_FORMAT 4
 
+/* The minimum format number that supports a configuration file (fsfs.conf) */
+#define SVN_FS_FS__MIN_CONFIG_FILE 4
+
 /* Private FSFS-specific data shared between all svn_txn_t objects that
    relate to a particular transaction in a filesystem (as identified
    by transaction id and filesystem UUID).  Objects of this type are
@@ -142,6 +146,15 @@ typedef struct fs_fs_shared_txn_data_t
   apr_pool_t *pool;
 } fs_fs_shared_txn_data_t;
 
+/* On most operating systems apr implements file locks per process, not
+   per file.  On Windows apr implements the locking as per file handle
+   locks, so we don't have to add our own mutex for just in-process
+   synchronization. */
+#if APR_HAS_THREADS && !defined(WIN32)
+#define SVN_FS_FS__USE_LOCK_MUTEX 1
+#else
+#define SVN_FS_FS__USE_LOCK_MUTEX 0
+#endif
 
 /* Private FSFS-specific data shared between all svn_fs_t objects that
    relate to a particular filesystem, as identified by filesystem UUID.
@@ -161,7 +174,8 @@ typedef struct
 #if APR_HAS_THREADS
   /* A lock for intra-process synchronization when accessing the TXNS list. */
   apr_thread_mutex_t *txn_list_lock;
-
+#endif
+#if SVN_FS_FS__USE_LOCK_MUTEX
   /* A lock for intra-process synchronization when grabbing the
      repository write lock. */
   apr_thread_mutex_t *fs_write_lock;
@@ -223,8 +237,15 @@ typedef struct
   /* The sqlite database used for rep caching. */
   svn_sqlite__db_t *rep_cache_db;
 
+  /* Thread-safe boolean */
+  svn_atomic_t rep_cache_db_opened;
+
   /* The oldest revision not in a pack file. */
   svn_revnum_t min_unpacked_rev;
+
+  /* Whether rep-sharing is supported by the filesystem
+   * and allowed by the configuration. */
+  svn_boolean_t rep_sharing_allowed;
 } fs_fs_data_t;
 
 

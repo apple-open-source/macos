@@ -252,6 +252,15 @@ bool RenderObject::isHR() const
     return node() && node()->hasTagName(hrTag);
 }
 
+bool RenderObject::isLegend() const
+{
+    return node() && (node()->hasTagName(legendTag)
+#if ENABLE(WML)
+                      || node()->hasTagName(WMLNames::insertedLegendTag)
+#endif
+                     );
+}
+
 bool RenderObject::isHTMLMarquee() const
 {
     return node() && node()->renderer() == this && node()->hasTagName(marqueeTag);
@@ -546,6 +555,19 @@ RenderBox* RenderObject::enclosingBox() const
         curr = curr->parent();
     }
     
+    ASSERT_NOT_REACHED();
+    return 0;
+}
+
+RenderBoxModelObject* RenderObject::enclosingBoxModelObject() const
+{
+    RenderObject* curr = const_cast<RenderObject*>(this);
+    while (curr) {
+        if (curr->isBoxModelObject())
+            return toRenderBoxModelObject(curr);
+        curr = curr->parent();
+    }
+
     ASSERT_NOT_REACHED();
     return 0;
 }
@@ -1795,7 +1817,7 @@ void RenderObject::getTransformFromContainer(const RenderObject* containerObject
     if (containerObject && containerObject->hasLayer() && containerObject->style()->hasPerspective()) {
         // Perpsective on the container affects us, so we have to factor it in here.
         ASSERT(containerObject->hasLayer());
-        FloatPoint perspectiveOrigin = toRenderBox(containerObject)->layer()->perspectiveOrigin();
+        FloatPoint perspectiveOrigin = toRenderBoxModelObject(containerObject)->layer()->perspectiveOrigin();
 
         TransformationMatrix perspectiveMatrix;
         perspectiveMatrix.applyPerspective(containerObject->style()->perspective());

@@ -120,9 +120,13 @@ callrpc(host, prognum, versnum, procnum, inproc, in, outproc, out)
 		bcopy(hp->h_addr, (char *)&server_addr.sin_addr, hp->h_length);
 		server_addr.sin_family = AF_INET;
 		server_addr.sin_port =  0;
-		if ((crp->client = clntudp_create(&server_addr, (u_long)prognum,
-		    (u_long)versnum, timeout, &crp->socket)) == NULL)
+#ifdef __LP64__
+		if ((crp->client = clntudp_create(&server_addr, (uint32_t)prognum, (uint32_t)versnum, timeout, &crp->socket)) == NULL)
 			return ((int) rpc_createerr.cf_stat);
+#else
+		if ((crp->client = clntudp_create(&server_addr, (u_long)prognum, (u_long)versnum, timeout, &crp->socket)) == NULL)
+			return ((int) rpc_createerr.cf_stat);
+#endif
 		crp->valid = 1;
 		crp->oldprognum = prognum;
 		crp->oldversnum = versnum;

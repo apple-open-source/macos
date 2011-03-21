@@ -9485,8 +9485,6 @@ _wrap_svn_client_log5(int argc, VALUE *argv, VALUE self) {
   VALUE _global_svn_swig_rb_pool ;
   apr_pool_t *_global_pool ;
   svn_opt_revision_t rev2 ;
-  void *argp3 = 0 ;
-  int res3 = 0 ;
   int val4 ;
   int ecode4 = 0 ;
   void *argp11 = 0 ;
@@ -9515,11 +9513,9 @@ _wrap_svn_client_log5(int argc, VALUE *argv, VALUE self) {
     arg2 = &rev2;
     svn_swig_rb_set_revision(&rev2, argv[1]);
   }
-  res3 = SWIG_ConvertPtr(argv[2], &argp3,SWIGTYPE_p_apr_array_header_t, 0 |  0 );
-  if (!SWIG_IsOK(res3)) {
-    SWIG_exception_fail(SWIG_ArgError(res3), Ruby_Format_TypeError( "", "apr_array_header_t const *","svn_client_log5", 3, argv[2] )); 
+  {
+    arg3 = svn_swig_rb_array_to_apr_array_revision_range(argv[2], _global_pool);
   }
-  arg3 = (apr_array_header_t *)(argp3);
   ecode4 = SWIG_AsVal_int(argv[3], &val4);
   if (!SWIG_IsOK(ecode4)) {
     SWIG_exception_fail(SWIG_ArgError(ecode4), Ruby_Format_TypeError( "", "int","svn_client_log5", 4, argv[3] ));

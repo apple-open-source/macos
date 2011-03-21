@@ -328,34 +328,36 @@ bool FrameLoader::canHandleRequest(const ResourceRequest& request)
     return m_client->canHandleRequest(request);
 }
 
-void FrameLoader::changeLocation(const KURL& url, const String& referrer, bool lockHistory, bool lockBackForwardList, bool userGesture, bool refresh)
+void FrameLoader::changeLocation(PassRefPtr<SecurityOrigin> securityOrigin, const KURL& url, const String& referrer, bool lockHistory, bool lockBackForwardList, bool userGesture, bool refresh)
 {
     RefPtr<Frame> protect(m_frame);
-
-    ResourceRequest request(url, referrer, refresh ? ReloadIgnoringCacheData : UseProtocolCachePolicy);
-    
-    if (m_frame->script()->executeIfJavaScriptURL(request.url(), userGesture))
-        return;
-
-    urlSelected(request, "_self", 0, lockHistory, lockBackForwardList, userGesture, SendReferrer);
+    urlSelected(FrameLoadRequest(securityOrigin, ResourceRequest(url, referrer, refresh ? ReloadIgnoringCacheData : UseProtocolCachePolicy), "_self"),
+                0, lockHistory, lockBackForwardList, userGesture, SendReferrer, ReplaceDocumentIfJavaScriptURL);
 }
 
-void FrameLoader::urlSelected(const ResourceRequest& request, const String& passedTarget, PassRefPtr<Event> triggeringEvent, bool lockHistory, bool lockBackForwardList, bool userGesture, ReferrerPolicy referrerPolicy)
+void FrameLoader::urlSelected(const KURL& url, const String& passedTarget, PassRefPtr<Event> triggeringEvent, bool lockHistory, bool lockBackForwardList, bool userGesture, ReferrerPolicy referrerPolicy)
+{
+    urlSelected(FrameLoadRequest(m_frame->document()->securityOrigin(), ResourceRequest(url), passedTarget),
+                triggeringEvent, lockHistory, lockBackForwardList, userGesture, referrerPolicy, DoNotReplaceDocumentIfJavaScriptURL);
+}
+
+// The shouldReplaceDocumentIfJavaScriptURL parameter will go away when the FIXME to eliminate the
+// corresponding parameter from ScriptController::executeIfJavaScriptURL() is addressed.
+void FrameLoader::urlSelected(const FrameLoadRequest& passedRequest, PassRefPtr<Event> triggeringEvent, bool lockHistory, bool lockBackForwardList, bool userGesture, ReferrerPolicy referrerPolicy, ShouldReplaceDocumentIfJavaScriptURL shouldReplaceDocumentIfJavaScriptURL)
 {
     ASSERT(!m_suppressOpenerInNewFrame);
 
-    if (m_frame->script()->executeIfJavaScriptURL(request.url(), userGesture, false))
+    FrameLoadRequest frameRequest(passedRequest);
+
+    if (m_frame->script()->executeIfJavaScriptURL(frameRequest.resourceRequest().url(), userGesture, shouldReplaceDocumentIfJavaScriptURL))
         return;
 
-    String target = passedTarget;
-    if (target.isEmpty())
-        target = m_frame->document()->baseTarget();
-
-    FrameLoadRequest frameRequest(request, target);
+    if (frameRequest.frameName().isEmpty())
+        frameRequest.setFrameName(m_frame->document()->baseTarget());
 
     if (referrerPolicy == NoReferrer)
         m_suppressOpenerInNewFrame = true;
-    else if (frameRequest.resourceRequest().httpReferrer().isEmpty())
+    if (frameRequest.resourceRequest().httpReferrer().isEmpty())
         frameRequest.resourceRequest().setHTTPReferrer(m_outgoingReferrer);
     addHTTPOriginIfNeeded(frameRequest.resourceRequest(), outgoingOrigin());
 
@@ -375,12 +377,7 @@ bool FrameLoader::requestFrame(HTMLFrameOwnerElement* ownerElement, const String
     } else
         url = completeURL(urlString);
 
-    Frame* frame = ownerElement->contentFrame();
-    if (frame)
-        frame->redirectScheduler()->scheduleLocationChange(url.string(), m_outgoingReferrer, lockHistory, lockBackForwardList, isProcessingUserGesture());
-    else
-        frame = loadSubframe(ownerElement, url, frameName, m_outgoingReferrer);
-    
+    Frame* frame = loadOrRedirectSubframe(ownerElement, url, frameName, lockHistory, lockBackForwardList);
     if (!frame)
         return false;
 
@@ -388,6 +385,16 @@ bool FrameLoader::requestFrame(HTMLFrameOwnerElement* ownerElement, const String
         frame->script()->executeIfJavaScriptURL(scriptURL);
 
     return true;
+}
+
+Frame* FrameLoader::loadOrRedirectSubframe(HTMLFrameOwnerElement* ownerElement, const KURL& url, const AtomicString& frameName, bool lockHistory, bool lockBackForwardList)
+{
+    Frame* frame = ownerElement->contentFrame();
+    if (frame)
+        frame->redirectScheduler()->scheduleLocationChange(frame->document()->securityOrigin(), url.string(), m_outgoingReferrer, lockHistory, lockBackForwardList, isProcessingUserGesture());
+    else
+        frame = loadSubframe(ownerElement, url, frameName, m_outgoingReferrer);
+    return frame;
 }
 
 Frame* FrameLoader::loadSubframe(HTMLFrameOwnerElement* ownerElement, const KURL& url, const String& name, const String& referrer)
@@ -467,12 +474,12 @@ void FrameLoader::submitForm(const char* action, const String& url, PassRefPtr<F
 
     if (protocolIsJavaScript(u)) {
         m_isExecutingJavaScriptFormAction = true;
-        m_frame->script()->executeIfJavaScriptURL(u, false, false);
+        m_frame->script()->executeIfJavaScriptURL(u, false, DoNotReplaceDocumentIfJavaScriptURL);
         m_isExecutingJavaScriptFormAction = false;
         return;
     }
 
-    FrameLoadRequest frameRequest;
+    FrameLoadRequest frameRequest(m_frame->document()->securityOrigin());
 
     String targetOrBaseTarget = target.isEmpty() ? m_frame->document()->baseTarget() : target;
     Frame* targetFrame = m_frame->tree()->find(targetOrBaseTarget);
@@ -1139,10 +1146,10 @@ bool FrameLoader::requestObject(RenderEmbeddedObject* renderer, const String& ur
     ASSERT(renderer->node()->hasTagName(objectTag) || renderer->node()->hasTagName(embedTag));
     HTMLPlugInElement* element = static_cast<HTMLPlugInElement*>(renderer->node());
 
-    // If the plug-in element already contains a subframe, requestFrame will re-use it. Otherwise,
+    // If the plug-in element already contains a subframe, loadOrRedirectSubframe will re-use it. Otherwise,
     // it will create a new frame and set it as the RenderPart's widget, causing what was previously 
     // in the widget to be torn down.
-    return requestFrame(element, completedURL, frameName);
+    return loadOrRedirectSubframe(element, completedURL, frameName, true, true);
 }
 
 bool FrameLoader::shouldUsePlugin(const KURL& url, const String& mimeType, bool hasFallback, bool& useFallback)
@@ -1674,7 +1681,7 @@ void FrameLoader::loadInSameDocument(const KURL& url, SerializedScriptValue* sta
     }
     
     if (hashChange) {
-        m_frame->document()->enqueueHashchangeEvent(oldURL, m_URL);
+        m_frame->document()->enqueueHashchangeEvent(oldURL, url);
         m_client->dispatchDidChangeLocationWithinPage();
     }
     
@@ -1761,20 +1768,19 @@ void FrameLoader::loadFrameRequest(const FrameLoadRequest& request, bool lockHis
 {    
     KURL url = request.resourceRequest().url();
 
+    ASSERT(m_frame->document());
+    // FIXME: Should we move the isFeedWithNestedProtocolInHTTPFamily logic inside SecurityOrigin::canDisplay?
+    if (SecurityOrigin::shouldTreatURLAsLocal(url.string()) && !isFeedWithNestedProtocolInHTTPFamily(url) && !request.requester()->canDisplay(url)) {
+        reportLocalLoadFailed(m_frame, url.string());
+        return;
+    }
+
     String referrer;
     String argsReferrer = request.resourceRequest().httpReferrer();
     if (!argsReferrer.isEmpty())
         referrer = argsReferrer;
     else
         referrer = m_outgoingReferrer;
-
-    ASSERT(frame()->document());
-    if (SecurityOrigin::shouldTreatURLAsLocal(url.string()) && !isFeedWithNestedProtocolInHTTPFamily(url)) {
-        if (!SecurityOrigin::canLoad(url, String(), frame()->document()) && !SecurityOrigin::canLoad(url, referrer, 0)) {
-            FrameLoader::reportLocalLoadFailed(m_frame, url.string());
-            return;
-        }
-    }
 
     if (SecurityOrigin::shouldHideReferrer(url, referrer) || referrerPolicy == NoReferrer)
         referrer = String();
@@ -1946,6 +1952,9 @@ void FrameLoader::load(DocumentLoader* newDocumentLoader)
 
 void FrameLoader::loadWithDocumentLoader(DocumentLoader* loader, FrameLoadType type, PassRefPtr<FormState> prpFormState)
 {
+    // Retain because dispatchBeforeLoadEvent may release the last reference to it.
+    RefPtr<Frame> protect(m_frame);
+
     ASSERT(m_client->hasWebView());
 
     // Unfortunately the view must be non-nil, this is ultimately due
@@ -3079,9 +3088,12 @@ void FrameLoader::detachFromParent()
     RefPtr<Frame> protect(m_frame);
 
     closeURL();
-    stopAllLoaders();
     history()->saveScrollPositionAndViewStateToItem(history()->currentItem());
     detachChildren();
+    // stopAllLoaders() needs to be called after detachChildren(), because detachedChildren()
+    // will trigger the unload event handlers of any child frames, and those event
+    // handlers might start a new subresource load in this frame.
+    stopAllLoaders();
 
 #if ENABLE(INSPECTOR)
     if (Page* page = m_frame->page())

@@ -1,8 +1,0 @@
-Seuraava listalleliittymispyyntö vaatii hyväksyntäsi:
-
-    For:  %(username)s
-    List: %(listname)s@%(hostname)s
-
-Asian voit hoitaa www-sivulla:
-
-    %(admindb_url)s

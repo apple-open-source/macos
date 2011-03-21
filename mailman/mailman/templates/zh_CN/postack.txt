@@ -1,8 +1,0 @@
-您的名为
-
-     %(subject)s
-
-的邮件已经被 %(listname)s 邮件列表成功接收。
-
-列表信息页为： %(listinfo_url)s
-您的偏好设置为： %(optionsurl)s

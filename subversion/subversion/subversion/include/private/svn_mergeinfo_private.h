@@ -33,6 +33,12 @@ extern "C" {
 #endif /* __cplusplus */
 
 
+/* Set inheritability of all ranges in RANGELIST to INHERITABLE.
+   If RANGELIST is NULL do nothing. */
+void
+svn_rangelist__set_inheritance(apr_array_header_t *rangelist,
+                               svn_boolean_t inheritable);
+
 /* Return whether INFO1 and INFO2 are equal in *IS_EQUAL.
 
    CONSIDER_INERITANCE determines how the rangelists in the two
@@ -79,6 +85,19 @@ svn_mergeinfo__remove_prefix_from_catalog(svn_mergeinfo_catalog_t *out_catalog,
                                           const char *prefix,
                                           apr_pool_t *pool);
 
+/* Make a shallow (ie, mergeinfos are not duped, or altered at all;
+   though keys are reallocated) copy of IN_CATALOG in *OUT_CATALOG,
+   adding PREFIX_PATH to the beginning of each key in the catalog.
+
+   The new hash keys are allocated in RESULT_POOL.  SCRATCH_POOL
+   is used for any temporary allocations.*/
+svn_error_t *
+svn_mergeinfo__add_prefix_to_catalog(svn_mergeinfo_catalog_t *out_catalog,
+                                     svn_mergeinfo_catalog_t in_catalog,
+                                     const char *prefix_path,
+                                     apr_pool_t *result_pool,
+                                     apr_pool_t *scratch_pool);
+
 /* Create a string representation of CATALOG in *OUTPUT, allocated in POOL.
    The hash keys of CATALOG and the merge source paths of each key's mergeinfo
    are represented in sorted order as per svn_sort_compare_items_as_paths.
@@ -87,7 +106,10 @@ svn_mergeinfo__remove_prefix_from_catalog(svn_mergeinfo_catalog_t *out_catalog,
    appropriate newline terminated string.  If KEY_PREFIX is not NULL then
    prepend KEY_PREFIX to each key (path) in *OUTPUT.  if VAL_PREFIX is not
    NULL then prepend VAL_PREFIX to each merge source:rangelist line in
-   *OUTPUT. */
+   *OUTPUT.
+
+   Any relative merge source paths in the mergeinfo in CATALOG are converted
+   to absolute paths in *OUTPUT. */
 svn_error_t *
 svn_mergeinfo__catalog_to_formatted_string(svn_string_t **output,
                                            svn_mergeinfo_catalog_t catalog,
@@ -99,7 +121,10 @@ svn_mergeinfo__catalog_to_formatted_string(svn_string_t **output,
    Unlike svn_mergeinfo_to_string(), NULL MERGEINFO is tolerated and results
    in *OUTPUT set to "\n".  If SVN_DEBUG is true, then NULL or empty MERGEINFO
    causes *OUTPUT to be set to an appropriate newline terminated string.  If
-   PREFIX is not NULL then prepend PREFIX to each line in *OUTPUT. */
+   PREFIX is not NULL then prepend PREFIX to each line in *OUTPUT.
+
+   Any relative merge source paths in MERGEINFO are converted to absolute
+   paths in *OUTPUT.*/
 svn_error_t *
 svn_mergeinfo__to_formatted_string(svn_string_t **output,
                                    svn_mergeinfo_t mergeinfo,
@@ -140,6 +165,18 @@ svn_mergeinfo__filter_catalog_by_ranges(
   svn_revnum_t oldest_rev,
   apr_pool_t *pool);
 
+/* Combine one mergeinfo catalog, CHANGES_CATALOG, into another mergeinfo
+  catalog MERGEINFO_CATALOG.  If both catalogs have mergeinfo for the same
+  key, use svn_mergeinfo_merge() to combine the mergeinfos.
+ 
+  Additions to MERGEINFO_CATALOG are deep copies allocated in
+  RESULT_POOL.  Temporary allocations are made in SCRATCH_POOL. */
+svn_error_t *
+svn_mergeinfo__catalog_merge(svn_mergeinfo_catalog_t mergeinfo_catalog,
+                             svn_mergeinfo_catalog_t changes_catalog,
+                             apr_pool_t *result_pool,
+                             apr_pool_t *scratch_pool);
+                            
 /* Removes ERASER (the subtrahend) from WHITEBOARD (the
    minuend), and places the resulting difference in *MERGEINFO.
    Allocates *MERGEINFO in RESULT_POOL.  Temporary allocations

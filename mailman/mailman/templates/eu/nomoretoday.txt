@@ -1,9 +1,0 @@
-Zure `%(sender)s' helbidetik mezu bat jaso dugu 
-%(listname)s posta zerrendari erantzun automatikoa eskatuz. 
-
-Horrelako %(num)s mezu jaso ditugu gaur. Email roboten bukleak eta antzeko arazoak 
-sahiesteko, gaur ez dizugu beste erantzun mezurik bidaliko. 
-Mesedez, ahalegindu zaitez bihar.
-
-Mezu hau akatsa dela uste baduzu, edo galderaren bat baduzu,
-idatzi zerrendaren jabeari helbide honetara: %(owneremail)s

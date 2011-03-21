@@ -1,0 +1,483 @@
+.\"	$Id: phar.1,v 1.13 2010/01/26 00:59:49 cjalbert Exp $
+.\"
+.\" Copyright (c) 2010 Apple Inc. and The PHP Group, all rights reserved.
+.\"/usr/share/misc/mdoc.template
+.mso www.tmac
+.Dd November 12, 2010
+.Dt phar 1
+.Sh NAME
+.Nm phar ,
+.Nm phar.phar
+.Nd PHP archive command
+.Sh SYNOPSIS
+.Nm
+.Ar command
+.Fl f Ar file 
+.Op command-options
+.Sh DESCRIPTION
+PHP's phar extension provides a way to put entire PHP applications into a
+single file called a
+.Qq phar
+(PHP Archive) for easy distribution and installation. In addition to providing
+this service, the phar extension also provides a file-format abstraction method
+for creating and manipulating tar and zip files through the PharData class.
+.Pp
+What is phar? Phar archives are best characterized as a convenient way to group
+several files into a single file. As such, a phar archive provides a way to
+distribute a complete PHP application in a single file and run it from that
+file without the need to extract it to disk. Additionally, phar archives can be
+executed by PHP as easily as any other file, both on the commandline and from a
+web server. Phar is kind of like a thumb drive for PHP applications.
+.Pp
+Run
+.Ql Cm phar help
+to access the built-in tool documentation.
+.Pp
+Run
+.Ql Cm phar help Ar command
+to retrieve help for a specific command.
+.Pp
+Run
+.Ql Cm phar help-list
+to list all available commands.
+.Pp
+Run
+.Ql Cm phar version
+to get information about the PHAR environment and the tool version.
+.Sh COMMAND SUMMARY
+The following file operation commands are available.
+.Bl -tag -width ".Cm compress" -offset indent -compact
+.It Cm add
+Add entries to a PHAR package
+.It Cm compress
+Compress or uncompress all files or a selected entry
+.It Cm delete
+Delete entry from a PHAR archive
+.It Cm extract
+Extract a PHAR package to a directory
+.It Cm info
+Get information about a PHAR package
+.It Cm list
+List contents of a PHAR archive
+.It Cm meta-del
+Delete meta information of a PHAR entry or a PHAR package
+.It Cm meta-get
+Get meta information of a PHAR entry or a PHAR package in serialized form
+.It Cm meta-set
+Set meta information of a PHAR entry or a PHAR package using serialized input
+.It Cm pack
+Pack files into a PHAR archive
+.It Cm sign
+Set signature hash algorithm
+.It Cm stub-get
+Get the stub of a PHAR file
+.It Cm stub-set
+Set the stub of a PHAR file
+.It Cm tree
+Get a directory tree for a PHAR archive
+.El
+.Sh COMMON OPTIONS
+Every file operation command requires at least one argument:
+.Bl -tag -width ".Fl h Ar method" -offset indent -compact
+.It Fl f Ar file
+Specifies the phar file to work on
+.El
+.Pp
+Some commands also accept or require the following arguments as noted below in
+their extended descriptions:
+.Bl -tag -width ".Fl h Ar method" -offset indent -compact
+.It Fl c Ar algo
+Selects the compression algorithm from the following:
+.Bl -tag -width ".Ar openssl" -offset 3m -compact
+.It Ar 0
+No compression
+.It Ar none
+No compression
+.It Ar auto
+Automatically select compression algorithm
+.It Ar gz
+GZip compression
+.It Ar gzip
+GZip compression
+.It Ar bz2
+BZip2 compression
+.It Ar bzip2
+BZip2 compression
+.El
+.It Fl h Ar method
+Selects the hash algorithm from the following:
+.Bl -tag -width ".Ar openssl" -offset 3m -compact
+.It Ar md5
+MD5
+.It Ar sha1
+SHA1
+.It Ar sha256
+SHA256
+.It Ar sha512
+SHA512
+.It Ar openssl
+OpenSSL
+.El
+.It Fl k Ar index
+Subscription index (a string
+.Qq key
+associated with a dictionary entry) to operate upon. Valid values currently
+include:
+.Bl -tag -width ".Ar openssl" -offset 3m -compact
+.It Ar Alias
+.It Ar Hash-type
+.It Ar Hash
+.It Ar Entries
+.It Ar Uncompressed-files
+.It Ar Compressed-files
+.It Ar Compressed-gz
+.It Ar Compressed-bz2
+.It Ar Uncompressed-size
+.It Ar Compressed-size
+.It Ar Compression-ratio
+.It Ar Metadata-global
+.It Ar Metadata-files
+.It Ar Stub-size
+.El
+.El
+.Sh COMMAND DETAILS
+The following file operation commands are available.
+.Bl -tag -width 6n
+.\"		-- add --
+.It Cm add Fl f Ar file Oo command-options Oc Ar ...
+.Bl -item
+.It
+Additional required arguments:
+.Bl -tag -width ".Fl h Ar method" -offset 3m -compact
+.It Ar ...
+Any number of input files and directories. If
+.Fl i
+is in use then ONLY files and matching the given regular expression are being
+packed. If
+.Fl x
+is given then files matching that regular expression are NOT being packed.
+.El
+.It
+Optional arguments:
+.Bl -tag -width ".Fl h Ar method" -offset 3m -compact
+.It Fl a Ar alias
+Provide an alias name for the phar file
+.It Fl c Ar algo
+Compression algorithm (see COMMON OPTIONS above)
+.It Fl i Ar regex
+Specifies a regular expression for input files
+.It Fl l Ar level
+Number of preceeding subdirectories to strip from file entries
+.It Fl x Ar regex
+Regular expression for input files to exclude
+.El
+.El
+.\"		-- compress --
+.It Cm compress Fl f Ar file Fl c Ar algo Op Fl e Ar entry
+.Bl -item
+.It
+Additional required arguments:
+.Bl -tag -width ".Fl h Ar method" -offset 3m -compact
+.It Fl c Ar algo
+Compression algorithm (see COMMON OPTIONS above)
+.El
+.It
+Optional arguments:
+.Bl -tag -width ".Fl h Ar method" -offset 3m -compact
+.It Fl e Ar entry
+Name of entry to work on (must include PHAR internal directory name if any)
+.El
+.El
+.\"		-- delete --
+.It Cm delete Fl f Ar file Fl e Ar entry
+.Bl -item
+.It
+Additional required arguments:
+.Bl -tag -width ".Fl h Ar method" -offset 3m -compact
+.It Fl e Ar entry
+Name of entry to work on (must include PHAR internal directory name if any)
+.El
+.El
+.\"		-- extract --
+.It Cm extract Fl f Ar file Oo Fl i Ar regex Oc Oo Fl x Ar regex Oc Oo Ar ... Oc
+.Bl -item
+.It
+Optional arguments:
+.Bl -tag -width ".Fl h Ar method" -offset 3m -compact
+.It Fl i Ar regex
+Specifies a regular expression for input files
+.It Fl x Ar regex
+Regular expression for input files to exclude
+.It Ar ...
+Directory to extract to (defaults to '.')
+.El
+.El
+.\"		-- info --
+.It Cm info Fl f Ar file Op Fl k Ar index
+.Bl -item
+.It
+Optional arguments:
+.Bl -tag -width ".Fl h Ar method" -offset 3m -compact
+.It Fl k Ar index
+Return the single value associated with the given subscription index
+.El
+.El
+.\"		-- list --
+.It Cm list Fl f Ar file Oo Fl i Ar regex Oc Oo Fl x Ar regex Oc
+.Bl -item
+.It
+Optional arguments:
+.Bl -tag -width ".Fl h Ar method" -offset 3m -compact
+.It Fl i Ar regex
+Specifies a regular expression for input files
+.It Fl x Ar regex
+Regular expression for input files to exclude
+.El
+.El
+.\"		-- meta-del --
+.It Cm meta-del Fl f Ar file Oo Fl e Ar entry Oc Oo Fl k Ar index Oc
+.Bl -item
+.It
+Optional arguments:
+.Bl -tag -width ".Fl h Ar method" -offset 3m -compact
+.It Fl e Ar entry
+Name of entry to work on (must include PHAR internal directory name if any)
+.It Fl k Ar index
+Delete the given subscription index in the array of metadata
+.El
+.It
+If something was deleted the return value is 0 otherwise it is 1.
+.El
+.\"		-- meta-get --
+.It Cm meta-get Fl f Ar file Oo Fl e Ar entry Oc Oo Fl k Ar index Oc
+.Bl -item
+.It
+If no output file is specified for metadata then print to stdout.
+.It
+Optional arguments:
+.Bl -tag -width ".Fl h Ar method" -offset 3m -compact
+.It Fl e Ar entry
+Name of entry to work on (must include PHAR internal directory name if any)
+.It Fl k Ar index
+Return the given subscription index in the array of metadata using echo
+rather than serialize. If that index does not exist or no metadata is present,
+then the return value is 1.
+.El
+.El
+.\"		-- meta-set --
+.It Cm meta-set Fl f Ar file Fl m Ar meta Oo Fl e Ar entry Oc Oo Fl k Ar index Oc
+.Bl -item
+.It
+If no input file is specified for meta data then stdin is used.
+.It
+Additional required arguments:
+.Bl -tag -width ".Fl h Ar method" -offset 3m -compact
+.It Fl m Ar meta
+Meta data to store with entry (serialized php data)
+.El
+.It
+Optional arguments:
+.Bl -tag -width ".Fl h Ar method" -offset 3m -compact
+.It Fl e Ar entry
+Name of entry to work on (must include PHAR internal directory name if any)
+.It Fl k Ar index
+Take the input directly (instead of serialized) and set the value for the
+given index in the array of metadata. If the metadata is not present or empty
+a new array will be created.
+If the metadata is present and a flat value, then the return value is 1.
+.El
+.El
+.\"		-- pack --
+.It Cm pack Fl f Ar file  Oo command-options Oc Ar ...
+.Bl -item
+.It
+When using
+.Fl s Ar stub ,
+the stub file is excluded from the list of input files/dirs. To create an
+archive that contains PEAR's class
+.Vt PHP_Archive
+then point
+.Fl p
+argument to
+.Pa PHP/Archive.php .
+.It
+Additional required arguments:
+.Bl -tag -width ".Fl h Ar method" -offset 3m -compact
+.It Ar ...
+Any number of input files and directories. If
+.Fl i
+is in use then ONLY files and matching the given regular expression are being
+packed. If
+.Fl x
+is given then files matching that regular expression are NOT being packed.
+.El
+.It
+Optional arguments:
+.Bl -tag -width ".Fl h Ar method" -offset 3m -compact
+.It Fl a Ar alias
+Provide an alias name for the phar file.
+.It Fl b Ar bang
+Hash-bang line to start the archive (e.g.
+.Pa #!/usr/bin/php ) .
+The hash mark itself
+.Qq #!
+and the newline character are optional.
+.It Fl c Ar algo
+Compression algorithm (see COMMON OPTIONS above)
+.It Fl h Ar method
+Selects the hash algorithm (see COMMON OPTIONS above)
+.It Fl i Ar regex
+Specifies a regular expression for input files
+.It Fl l Ar level
+Number of preceeding subdirectories to strip from file entries
+.It Fl p Ar loader
+Location of
+.Vt PHP_Archive
+class file (
+.Cm pear list-files PHP_Archive
+). You can use '0' or '1' to locate it automatically using the mentioned
+.Xr pear 1
+command. Passing '0' causes the command to not error out when the class file
+cannot be located. This switch also adds some code around the stub so that
+class
+.Vt PHP_Archive
+gets registered as the phar:// stream wrapper if necessary. Finally, this
+switch adds the file
+.Pa phar.inc
+from this package and loads it to ensure class
+.Vt Phar
+is present.
+.It Fl s Ar stub
+Select the stub file
+.It Fl x Ar regex
+Regular expression for input files to exclude
+.It Fl y Ar key
+Private key for OpenSSL signing
+.El
+.El
+.\"		-- sign --
+.It Cm sign Fl f Ar file Fl h Ar method Op Fl y Ar key
+.Bl -item
+.It
+Additional required arguments:
+.Bl -tag -width ".Fl h Ar method" -offset 3m -compact
+.It Fl h Ar method
+Selects the hash algorithm (see COMMON OPTIONS above)
+.El
+.It
+Optional arguments:
+.Bl -tag -width ".Fl h Ar method" -offset 3m -compact
+.It Fl y Ar key
+Private key for OpenSSL signing
+.El
+.El
+.\"		-- stub-get --
+.It Cm stub-get Fl f Ar file Op Fl s Ar stub
+.Bl -item
+.It
+If no output file is specified then print the stub to stdout.
+.It
+Optional arguments:
+.Bl -tag -width ".Fl h Ar method" -offset 3m -compact
+.It Fl s Ar stub
+Select the stub file
+.El
+.El
+.\"		-- stub-set --
+.It Cm stub-set Fl f Ar file Oo Fl b Ar bang Oc Oo Fl p Ar loader Oc Oo Fl s Ar stub Oc
+.Bl -item
+.It
+If no input file is specified then stdin is used as the source of the stub.
+.It
+Optional arguments:
+.Bl -tag -width ".Fl h Ar method" -offset 3m -compact
+.It Fl b Ar bang
+Hash-bang line to start the archive (e.g.
+.Pa #!/usr/bin/php ) .
+The hash mark itself
+.Qq #!
+and the newline character are optional.
+.It Fl p Ar loader
+Location of
+.Vt PHP_Archive
+class file (
+.Cm pear list-files PHP_Archive
+). You can use '0' or '1' to locate it automatically using the mentioned
+.Xr pear 1
+command. Passing '0' causes the command to not error out when the class file
+cannot be located. This switch also adds some code around the stub so that
+class
+.Vt PHP_Archive
+gets registered as the phar:// stream wrapper if necessary. Finally, this
+switch adds the file
+.Pa phar.inc
+from this package and loads it to ensure class
+.Vt Phar
+is present.
+.It Fl s Ar stub
+Select the stub file
+.El
+.El
+.\"		-- tree --
+.It Cm tree Fl f Ar file Oo Fl i Ar regex Oc Oo Fl x Ar regex Oc
+.Bl -item
+.It
+Optional arguments:
+.Bl -tag -width ".Fl h Ar method" -offset 3m -compact
+.It Fl i Ar regex
+Specifies a regular expression for input files
+.It Fl x Ar regex
+Regular expression for input files to exclude
+.El
+.El
+.\"		-- end of file commands --
+.El
+.Sh SEE ALSO
+For a complete description of Phar see
+.Bl -item -offset 4n -compact
+.It
+.URL http://\:www.php.net/\:manual/\:en/\:book.phar.php
+.El
+.Xr pear 1 ,
+.Xr php 1
+.Sh BUGS
+You can view the list of known bugs or report any new bug you
+found at
+.Bl -item -offset 4n -compact
+.It
+.URL http://\:www.php.net
+.El
+.Sh AUTHORS
+The PHP Group: Thies C. Arntzen, Stig Bakken, Andi Gutmans, Rasmus Lerdorf,
+Sam Ruby, Sascha Schumann, Zeev Suraski, Jim Winstead, Andrei Zmievski.
+.Pp
+Additional work for the CLI sapi was done by Edin Kadribasic, Marcus Boerger
+and Johannes Schlueter.
+.Pp
+A list of active developers can be found on the PHP web site
+.Bl -item -offset 4n -compact
+.It
+.URL http://\:www.php.net/\:credits.php
+.El
+.Pp
+And last but not least PHP was developed with the help of a huge amount of 
+contributors all around the world.
+.Sh VERSION INFORMATION
+This manpage describes
+.Cm php
+version 5.3.3.
+.Sh COPYRIGHT
+Copyright \(co 1997\-2010 The PHP Group
+.Pp
+This source file is subject to version 3.01 of the PHP license,
+that is bundled with this package in the file LICENSE, and is
+available through the world-wide-web at the following url:
+.Bl -item -offset 4n -compact
+.It
+.URL http://\:www.php.net/\:license/\:3_01.txt
+.El
+.Pp
+If you did not receive a copy of the PHP license and are unable to
+obtain it through the world-wide-web, please send a note to
+.MTO license@php.net
+so we can mail you a copy immediately.

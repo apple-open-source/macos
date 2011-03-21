@@ -1,9 +1,0 @@
-E' stato ricevuto un messaggio proveniente dal tuo indirizzo 
-`%(sender)s' con richiesta di una risposta automatica per la
-lista %(listname)s. 
-Sono stati rilevati altri %(num)s simili messaggi da parte tua oggi. 
-Per evitare problemi quali mail loop tra i robot, non ti verranno 
-inviate ulteriori risposte oggi.  Per piacere prova ancora domani.
-
-Se credi che questo sia un errore, o hai qualche domanda, per piacere 
-contatta l'amministratore all'indirizzo %(owneremail)s.

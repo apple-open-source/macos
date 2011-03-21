@@ -204,7 +204,7 @@ buildall:
 	    $(MAKE) $(MAKEOPT) -f apr_dbd_%d.mak CFG="apr_dbd_%d - $(ARCH)" RECURSE=0 $(CTARGET)
 	cd ..
 	cd dbm
-	  for %d in ($(DBM_LIST)) do \
+	  for %d in ($(DBM_LIST) x) do if not %d == x \
 	    $(MAKE) $(MAKEOPT) -f apr_dbm_%d.mak CFG="apr_dbm_%d - $(ARCH)" RECURSE=0 $(CTARGET)
 	cd ..
 
@@ -213,7 +213,7 @@ buildall:
 clean:
 	-for %d in (odbc $(DBD_LIST)) do \
 	  devenv aprutil.sln /useenv /clean "$(SLNARCH)" /project apr_dbd_%d
-	-for %d in ($(DBM_LIST)) do \
+	-for %d in ($(DBM_LIST) x) do if not %d == x \
 	  devenv aprutil.sln /useenv /clean "$(SLNARCH)" /project apr_dbm_%d
 	-devenv aprutil.sln /useenv /clean "$(SLNARCH)" /project apr_ldap
 	-devenv aprutil.sln /useenv /clean "$(SLNARCH)" /project libaprutil
@@ -237,7 +237,7 @@ buildall:
 	devenv aprutil.sln /useenv /build "$(SLNARCH)" /project apr_ldap
 	for %d in (odbc $(DBD_LIST)) do \
 	  devenv aprutil.sln /useenv /build "$(SLNARCH)" /project apr_dbd_%d
-	for %d in ($(DBM_LIST)) do \
+	for %d in ($(DBM_LIST) x) do if not %d == x \
 	  devenv aprutil.sln /useenv /build "$(SLNARCH)" /project apr_dbm_%d
 
 !ELSE
@@ -246,7 +246,7 @@ buildall:
 clean:
 	-for %d in (odbc $(DBD_LIST)) do \
 	  msdev aprutil.dsw /USEENV /MAKE "apr_dbd_%d - $(ARCH)" /CLEAN
-	-for %d in ($(DBM_LIST)) do \
+	-for %d in ($(DBM_LIST) x) do if not %d == x \
 	  msdev aprutil.dsw /USEENV /MAKE "apr_dbm_%d - $(ARCH)" /CLEAN
 	-msdev aprutil.dsw /USEENV /MAKE "apr_ldap - $(ARCH)" /CLEAN
 	-msdev aprutil.dsw /USEENV /MAKE "libaprutil - $(ARCH)" /CLEAN
@@ -270,7 +270,7 @@ buildall:
 	@msdev aprutil.dsw /USEENV /MAKE "apr_ldap - $(ARCH)"
 	@for %d in (odbc $(DBD_LIST)) do \
 	  msdev aprutil.dsw /USEENV /MAKE "apr_dbd_%d - $(ARCH)"
-	@for %d in ($(DBM_LIST)) do \
+	@for %d in ($(DBM_LIST) x) do if not %d == x \
 	  msdev aprutil.dsw /USEENV /MAKE "apr_dbm_%d - $(ARCH)"
 
 !ENDIF
@@ -332,7 +332,7 @@ install:
 	  copy $(APU_PATH)\dbd\$(ARCHPATH)\apr_dbd_%d-1.dll "$(PREFIX)\bin\" <.y && \
 	  copy $(APU_PATH)\dbd\$(ARCHPATH)\apr_dbd_%d-1.pdb "$(PREFIX)\bin\" <.y \
 	)
-	for %d in ($(DBM_LIST)) do ( \
+	for %d in ($(DBM_LIST) x) do if not %d == x ( \
 	  copy $(APU_PATH)\dbm\$(ARCHPATH)\apr_dbm_%d-1.dll "$(PREFIX)\bin\" <.y && \
 	  copy $(APU_PATH)\dbm\$(ARCHPATH)\apr_dbm_%d-1.pdb "$(PREFIX)\bin\" <.y \
 	)

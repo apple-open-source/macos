@@ -5,15 +5,15 @@
 	<key>OpenSourceProject</key>
 	<string>subversion</string>
 	<key>OpenSourceVersion</key>
-	<string>1.6.5</string>
+	<string>1.6.15</string>
 	<key>OpenSourceWebsiteURL</key>
-	<string>http://subversion.tigris.org/</string>
+	<string>http://subversion.apache.org/</string>
 	<key>OpenSourceURL</key>
-	<string>http://subversion.tigris.org/downloads/subversion-1.6.5.tar.bz2</string>
+	<string>http://subversion.tigris.org/downloads/subversion-1.6.15.tar.bz2</string>
 	<key>OpenSourceSHA1</key>
-	<string>c575c5facf972e501049ad47a9be05c5cf228388</string>
+	<string>b6fadf944a94b86f989f07bc2d781be41df017bf</string>
 	<key>OpenSourceImportDate</key>
-	<string>2009-09-22</string>
+	<string>2010-12-01</string>
 	<key>OpenSourceLicense</key>
 	<string>BSD</string>
 	<key>OpenSourceLicenseFile</key>

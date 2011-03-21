@@ -255,6 +255,20 @@ def main():
   run_svnmucc(['M /foo/bar'], #---------
               'propdel', 'testprop', 'foo/bar')
 
+  # revision 18
+  run_svnmucc(['M /foo/z.c',
+               'M /foo/foo',
+               ], #---------
+              'propset', 'testprop', 'true', 'foo/z.c',
+              'propset', 'testprop', 'true', 'foo/foo')
+
+  # revision 19
+  run_svnmucc(['M /foo/z.c',
+               'M /foo/foo',
+               ], #---------
+              'propsetf', 'testprop', sys.argv[0], 'foo/z.c',
+              'propsetf', 'testprop', sys.argv[0], 'foo/foo')
+
   # Expected missing revision error
   xrun_svnmucc(['svnmucc: \'a\' is not a revision'
                 ], #---------

@@ -57,7 +57,7 @@ struct sSearchState
 	int					fFileFD;
 	char				*fFileData;
 	char				*fSearchContext;
-	int					fFileMapSize;
+	size_t				fFileMapSize;
 	sqlite3_stmt		*fStmt;
 	CFMutableArrayRef	fPendingResults;
 	sFileMapping		*fMapping;
@@ -180,6 +180,40 @@ CFMutableDictionaryRef FlatFileNode::CopyNodeInfo( CFArrayRef inAttributes )
 	return cfNodeInfo;
 }
 
+/*
+ * mmap wrapper; see 8826000
+ * Note that this function requires the fd cursor to be at 0.
+ */
+static char *
+ff_mmap(int fd, off_t filesize, size_t *mapsize)
+{
+	char *ptr;
+
+	if ((filesize % getpagesize()) != 0) {
+		/* In this case, mmap will zero-fill the rest of the last page. */
+		*mapsize = filesize;
+		ptr = (char *)mmap(NULL, *mapsize, PROT_READ | PROT_WRITE, MAP_FILE | MAP_PRIVATE, fd, 0);
+	} else {
+		/* Need to ensure we have an additional NUL byte. MAP_FILE will not work. */
+		*mapsize = filesize + 1;
+		ptr = (char *)mmap(NULL, *mapsize, PROT_READ | PROT_WRITE, MAP_ANON | MAP_PRIVATE, -1, 0);
+		if (ptr != MAP_FAILED) {
+			if (read(fd, ptr, filesize) == filesize) {
+				ptr[filesize] = '\0';
+			} else {
+				(void)munmap(ptr, *mapsize);
+				ptr = NULL;
+			}
+		}
+	}
+
+	if (ptr == MAP_FAILED) {
+		ptr = NULL;
+	}
+
+	return ptr;
+}
+
 tDirStatus FlatFileNode::VerifyCredentials( CFStringRef inRecordType, CFStringRef inRecordName, CFStringRef inPassword )
 {
 	tDirStatus	siResult	= eNotHandledByThisNode;
@@ -203,12 +237,10 @@ tDirStatus FlatFileNode::VerifyCredentials( CFStringRef inRecordType, CFStringRe
 			{
 				if ( fstat(fileFD, &statInfo) == 0 && statInfo.st_size > 0 )
 				{
-					int		pagesize	= getpagesize();
-					int		mapSize		= (((statInfo.st_size / pagesize) + 1) * pagesize);
+					size_t	mapSize;
 					char	*lnResult	= NULL;
 					
-					// we add a page so we guarantee we have a NULL at the end of the data
-					char *pFileData = (char *) mmap( NULL, mapSize, PROT_READ | PROT_WRITE, MAP_PRIVATE, fileFD, 0 );
+					char *pFileData = ff_mmap(fileFD, statInfo.st_size, &mapSize);
 					
 					if ( pFileData != NULL )
 					{
@@ -503,11 +535,7 @@ SInt32 FlatFileNode::InternalSearchRecords( sBDPISearchRecordsContext *inContext
 				continue;
 			}
 			
-			int pagesize = getpagesize();
-			
-			// we add a page so we guarantee we have a NULL at the end of the data
-			stateInfo->fFileMapSize = (((statInfo.st_size / pagesize) + 1) * pagesize);
-			stateInfo->fFileData = (char *) mmap( NULL, stateInfo->fFileMapSize, PROT_READ | PROT_WRITE, MAP_PRIVATE, fileFD, 0 );
+			stateInfo->fFileData = ff_mmap(fileFD, statInfo.st_size, &stateInfo->fFileMapSize);
 			stateInfo->fFileFD = fileFD;
 			stateInfo->fSearchContext = NULL;
 		}

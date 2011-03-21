@@ -1,7 +1,0 @@
-您的訊息標題為:
-
-    %(subject)s
-
-%(listname)s 論壇已經成功收到了.
-
-本論壇相關資訊網頁在 : %(listinfo_url)s

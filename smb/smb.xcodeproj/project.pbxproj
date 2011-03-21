@@ -607,6 +607,7 @@
 		45CE6C820F5B2DD500FE9345 /* rosetta.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = rosetta.h; path = cmd/tests/rosetta.h; sourceTree = SOURCE_ROOT; };
 		45CE6C830F5B2DD500FE9345 /* rosetta.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = rosetta.c; path = cmd/tests/rosetta.c; sourceTree = SOURCE_ROOT; };
 		72312691043A70A300CA2BB7 /* Kerberos.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Kerberos.framework; path = /System/Library/Frameworks/Kerberos.framework; sourceTree = "<absolute>"; };
+		72A3E94E129249D600AEF792 /* msfscc.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = msfscc.h; sourceTree = "<group>"; };
 		9B7880D2011A1AF717CA28FA /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = /System/Library/Frameworks/Foundation.framework; sourceTree = "<absolute>"; };
 		9B923E1201290EB117CA28FA /* status.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = status.c; sourceTree = "<group>"; };
 		A21A77E10AF825D40062C8C6 /* smb_gss.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = smb_gss.h; sourceTree = "<group>"; };
@@ -982,6 +983,7 @@
 		2D8D2F9300967DAF7F000001 /* sys */ = {
 			isa = PBXGroup;
 			children = (
+				72A3E94E129249D600AEF792 /* msfscc.h */,
 				2D8D2F9400967DAF7F000001 /* mchain.h */,
 			);
 			path = sys;
@@ -1603,7 +1605,14 @@
 			isa = PBXProject;
 			buildConfigurationList = 45A29CF509DC5046005888E7 /* Build configuration list for PBXProject "smb" */;
 			compatibilityVersion = "Xcode 3.2";
+			developmentRegion = English;
 			hasScannedForEncodings = 1;
+			knownRegions = (
+				English,
+				Japanese,
+				French,
+				German,
+			);
 			mainGroup = 2D8D2F39009679647F000001;
 			productRefGroup = 2D8D2F3A009679827F000001 /* Products */;
 			projectDirPath = "";

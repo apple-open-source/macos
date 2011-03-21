@@ -1,4 +1,0 @@
-%(member)s, başarıyla %(listname)s listesine üye oldu.
-
-
-

@@ -37,10 +37,10 @@
 #
 #-------------------------------------------------------------------------
 
-# $HeadURL: http://svn.collab.net/repos/svn/branches/1.6.x/contrib/client-side/asvn $
+# $HeadURL: http://svn.apache.org/repos/asf/subversion/branches/1.6.x/contrib/client-side/asvn $
 # $LastChangedDate: 2008-01-28 00:24:25 +0000 (Mon, 28 Jan 2008) $
 # $LastChangedBy: blair $
-# $LastChangedRevision: 29065 $
+# $LastChangedRevision: 869139 $
 
 SVN=/usr/bin/svn
 ACTION=""

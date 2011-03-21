@@ -1,2 +1,0 @@
-%(member)s on eronnut listalta %(listname)s.
-

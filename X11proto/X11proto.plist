@@ -36,21 +36,21 @@
 	</dict>
 	<dict>
 		<key>OpenSourceImportDate</key>
-		<string>2010-08-10</string>
+		<string>2010-12-12</string>
 		<key>OpenSourceLicense</key>
 		<string>modified BSD (with credit clause)</string>
-		<key>OpenSourceLicenseFile</key>
-		<string>freetype.txt</string>
 		<key>OpenSourceProject</key>
 		<string>freetype</string>
 		<key>OpenSourceSHA1</key>
-		<string>cc257ceda2950b8c80950d780ccf3ce665a815d1</string>
+		<string>1d136cbc51c67b212c91ba04dc5db797f35e64e6</string>
 		<key>OpenSourceURL</key>
-		<string>http://download.savannah.gnu.org/releases/freetype/freetype-2.4.2.tar.bz2</string>
+		<string>http://download.savannah.gnu.org/releases/freetype/freetype-2.4.4.tar.bz2</string>
 		<key>OpenSourceVersion</key>
-		<string>2.4.2</string>
+		<string>2.4.4</string>
 		<key>OpenSourceWebsiteURL</key>
 		<string>http://www.freetype.org</string>
+		<key>OpenSourceLicenseFile</key>
+		<string>freetype.txt</string>
 	</dict>
 	<dict>
 		<key>OpenSourceImportDate</key>

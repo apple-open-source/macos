@@ -192,7 +192,8 @@ public:
 
     // Convenience function for getting to the nearest enclosing box of a RenderObject.
     RenderBox* enclosingBox() const;
-    
+    RenderBoxModelObject* enclosingBoxModelObject() const;
+
     virtual bool isEmpty() const { return firstChild() == 0; }
 
 #ifndef NDEBUG
@@ -309,6 +310,7 @@ public:
     bool isRoot() const { return document()->documentElement() == m_node; }
     bool isBody() const;
     bool isHR() const;
+    bool isLegend() const;
 
     bool isHTMLMarquee() const;
 
@@ -1036,13 +1038,7 @@ inline void makeMatrixRenderable(TransformationMatrix& matrix, bool has3DRenderi
 
 inline int adjustForAbsoluteZoom(int value, RenderObject* renderer)
 {
-    float zoomFactor = renderer->style()->effectiveZoom();
-    if (zoomFactor == 1)
-        return value;
-    // Needed because computeLengthInt truncates (rather than rounds) when scaling up.
-    if (zoomFactor > 1)
-        value++;
-    return static_cast<int>(value / zoomFactor);
+    return adjustForAbsoluteZoom(value, renderer->style());
 }
 
 inline void adjustIntRectForAbsoluteZoom(IntRect& rect, RenderObject* renderer)

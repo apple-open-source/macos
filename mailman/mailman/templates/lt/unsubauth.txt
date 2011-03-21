@@ -1,8 +1,0 @@
-Turite patvirtinti atsijungimà nuo diskusijø forumo.
-
-    Dalyvis: %(username)s
-    Forumas: %(listname)s@%(hostname)s
-
-Padarykite tai apsilankydami ðiuo adresu:
-
-    %(admindb_url)s

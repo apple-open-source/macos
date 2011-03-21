@@ -143,12 +143,28 @@
 #define CIFS_UNIX_MAJOR_VERSION 1
 #define CIFS_UNIX_MINOR_VERSION 0
 
+/* UNIX PROTOCOL EXTENSIONS CAP */
 #define CIFS_UNIX_FCNTL_LOCKS_CAP           	0x1
 #define CIFS_UNIX_POSIX_ACLS_CAP            	0x2
 #define CIFS_UNIX_XATTTR_CAP	            	0x4 /* for support of other xattr namespaces such as system, security and trusted */
 #define CIFS_UNIX_EXTATTR_CAP			0x8 /* for support of chattr (chflags) and lsattr */
 #define CIFS_UNIX_POSIX_PATHNAMES_CAP		0x10 /* Use POSIX pathnames on the wire. */
 #define CIFS_UNIX_POSIX_PATH_OPERATIONS_CAP	0x20 /* Support new info */
+
+/* 
+ * INTERNAL UNIX EXTENSIONS CAP
+ *
+ * Define which unix call we can make to the server
+ */
+#define UNIX_QFS_UNIX_INFO_CAP				0x01
+#define UNIX_QFS_POSIX_WHOAMI_CAP			0x02
+#define UNIX_QFS_POSIX_WHOAMI_SID_CAP		0x04
+#define UNIX_QFILEINFO_UNIX_LINK_CAP		0x08
+#define UNIX_SFILEINFO_UNIX_LINK_CAP		0x10
+#define UNIX_QFILEINFO_UNIX_INFO2_CAP		0x20
+#define UNIX_FIND_FILE_UNIX_INFO2_CAP		UNIX_QFILEINFO_UNIX_INFO2_CAP
+#define UNIX_SFILEINFO_UNIX_INFO2_CAP		0x40
+#define UNIX_SFILEINFO_POSIX_UNLINK_CAP		0x80
 
 /* Use by the client to say we are using posix names, not sure about are client */
 #define SMB_QUERY_POSIX_FS_INFO     0x201
@@ -162,6 +178,18 @@
 #define	SMB_FA_VOLUME		0x08
 #define	SMB_FA_DIR		0x10
 #define	SMB_FA_ARCHIVE		0x20
+
+/*
+ * If the ResourceType field is FileTypeDisk, then this field MUST be the 
+ * FileStatusFlags field:
+ *
+ * FileStatusFlags (2 bytes): A 16-bit field that shows extra information about 
+ * the opened file or directory. Any combination of the following flags is valid. 
+ * Unused bit fields SHOULD be set to zero by the server and MUST be ignored by the client.
+ */
+#define kNO_EAS			0x0001	/* The file or directory has no extended attributes. */
+#define kNO_SUBSTREAMS	0x0002	/* The file or directory has no data streams other than the main data stream. */
+#define kNO_REPARSETAG	0x0004	/* The file or directory is not a reparse point. */
 
 /*
  * Extended file attributes
@@ -203,6 +231,10 @@
 #define	SMB_SM_DENYREADEXEC	0x0030
 #define	SMB_SM_DENYNONE		0x0040
 
+/* NT_CREATE_ANDX reply word count */
+#define NTCREATEX_NORMAL_WDCNT		34
+#define NTCREATEX_EXTENDED_WDCNT	42
+
 /* NT_CREATE_ANDX flags */
 #define NTCREATEX_FLAGS_REQUEST_OPLOCK          0x02
 #define NTCREATEX_FLAGS_REQUEST_BATCH_OPLOCK    0x04
@@ -236,6 +268,18 @@
 #define NTCREATEX_OPTIONS_RANDOM_ACCESS         0x0800
 #define NTCREATEX_OPTIONS_DELETE_ON_CLOSE       0x1000
 #define NTCREATEX_OPTIONS_OPEN_BY_FILE_ID       0x2000
+
+/* 
+ * If the CreateOptions parameter specifies the FILE_OPEN_REPARSE_POINT flag and 
+ * NtCreateFile opens a file with a reparse point, normal reparse processing does 
+ * not occur and NtCreateFile attempts to directly open the reparse point file. 
+ * If the FILE_OPEN_REPARSE_POINT flag is not specified, normal reparse point 
+ * processing occurs for the file. In either case, if the open operation was 
+ * successful, NtCreateFile returns STATUS_SUCCESS; otherwise, an error code. 
+ * The NtCreateFile function never returns STATUS_REPARSE, if FILE_OPEN_REPARSE_POINT
+ * is set.
+ */
+#define NTCREATEX_OPTIONS_OPEN_REPARSE_POINT	0x00200000
 
 /* NT_CREATE_ANDX "impersonation" */
 #define NTCREATEX_IMPERSONATION_ANONYMOUS       0
@@ -568,6 +612,8 @@
 #define EXT_DO_NOT_BACKUP               0x00000020
 #define EXT_NO_UPDATE_ATIME             0x00000040
 #define EXT_HIDDEN                     0x00000080
+/* The minimum set that is required by the Mac Client */
+#define EXT_REQUIRED_BY_MAC		(EXT_IMMUTABLE | EXT_HIDDEN | EXT_DO_NOT_BACKUP)
 
 /* Still expected to only contain 12 bits (little endian): */
 #define EXT_UNIX_S_ISUID    0004000   /* set UID bit */
@@ -693,6 +739,31 @@ struct ntace {
 #define wset_acerights(a, r) ((a)->ace_rights = htolel(r))
 #define aceace(a) ((struct ntace *)((char *)(a) + acelen(a)))
 #define acesid(a) ((struct ntsid *)((char *)(a) + sizeof(struct ntace)))
+
+/*
+ * We take the Windows SMB2 define access modes and add a SMB2 in front to protect 
+ * us from namespace collisions. May want to move these to a more general include
+ * file in the future. Would have been nice if the kauth.h file had used the same
+ * number scheme as Windows.
+ */
+#define SMB2_FILE_READ_DATA			0x00000001	/* Indicates the right to read data from the file, directory or named pipe. */
+#define SMB2_FILE_WRITE_DATA		0x00000002	/* Indicates the right to write data into the file or named pipe beyond the end of the file. */
+#define SMB2_FILE_APPEND_DATA		0x00000004	/* Indicates the right to append data into the file or named pipe. */
+#define SMB2_FILE_READ_EA			0x00000008	/* Indicates the right to read the extended attributes of the file, directory or named pipe. */
+#define SMB2_FILE_WRITE_EA			0x00000010	/* Indicates the right to write or change the extended attributes to the file, directory or named pipe. */
+#define SMB2_FILE_EXECUTE			0x00000020	/* Indicates the right to execute the file. */
+#define SMB2_FILE_DELETE_CHILD		0x00000040	/* Indicates the right to delete the files and directories within this directory. */
+#define SMB2_FILE_READ_ATTRIBUTES	0x00000080	/* Indicates the right to read the attributes of the file or directory. */
+#define SMB2_FILE_WRITE_ATTRIBUTES	0x00000100	/* Indicates the right to change the attributes of the file or directory. */
+#define SMB2_DELETE					0x00010000	/* Indicates the right to delete the file or directory */
+
+#define SA_RIGHT_FILE_ALL_ACCESS	0x000001FF
+#define STD_RIGHT_ALL_ACCESS		0x001F0000
+
+#define SMB2_GENERIC_ALL			0x10000000	/* Indicates a request for all the access flags that are previously listed except MAXIMAL_ACCESS and ACCESS_SYSTEM_SECURITY. */
+#define SMB2_GENERIC_EXECUTE		0x20000000	/* Indicates a request for the following combination of access flags listed above: FILE_READ_ATTRIBUTES| FILE_EXECUTE| SYNCHRONIZE| READ_CONTROL. */
+#define SMB2_GENERIC_WRITE			0x40000000	/* Indicates a request for the following combination of access flags listed above: FILE_WRITE_DATA| FILE_APPEND_DATA| FILE_WRITE_ATTRIBUTES| FILE_WRITE_EA| SYNCHRONIZE| READ_CONTROL. */
+#define SMB2_GENERIC_READ			0x80000000	/* Indicates a request for the following combination of access flags listed above: FILE_READ_DATA| FILE_READ_ATTRIBUTES| FILE_READ_EA| SYNCHRONIZE| READ_CONTROL. */
 
 /*
  * ace_rights

@@ -40,16 +40,16 @@
 # Acknowledgements:
 #   John Belmonte <john@neggie.net> - metadata and usability improvements
 #
-# $HeadURL: http://svn.collab.net/repos/svn/branches/1.6.x/contrib/client-side/svnmerge/svnmerge.sh $
+# $HeadURL: http://svn.apache.org/repos/asf/subversion/branches/1.6.x/contrib/client-side/svnmerge/svnmerge.sh $
 # $LastChangedDate: 2007-03-16 07:03:39 +0000 (Fri, 16 Mar 2007) $
 # $LastChangedBy: kfogel $
-# $LastChangedRevision: 23865 $
+# $LastChangedRevision: 863939 $
 
 # Definitions (would like ':' in property names but can't because of bug 1971)
 NAME="svnmerge"
 SVN_MERGE_SVN="svn"
 SVN_MERGE_PROP="${NAME}-integrated"
-SRCREV=`echo '$Rev: 23865 $' | sed 's/^\$Rev: \([0-9]\{1,\}\).\{0,\}$/\1/g'`
+SRCREV=`echo '$Rev: 863939 $' | sed 's/^\$Rev: \([0-9]\{1,\}\).\{0,\}$/\1/g'`
 SRCDATE=`echo '$Date: 2007-03-16 07:03:39 +0000 (Fri, 16 Mar 2007) $' | sed 's/^\$Date: .\{0,\}(\(.\{0,\}\)).\{0,\}$/\1/g'`
 
 # We expect non-localized output

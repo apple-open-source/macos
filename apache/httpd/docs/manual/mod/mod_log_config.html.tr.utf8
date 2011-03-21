@@ -94,7 +94,7 @@
           '<code>0</code>' çıktılanır.</td></tr>
 <tr class="odd"><td><code>%{<var>Fesmekan</var>}C</code></td>
         <td>İstek içinde sunucuya gönderilen <var>Fesmekan</var> çerezinin
-          içeriği.</td></tr>
+          içeriği. Sadece 0. sürüm çerezler tam olarak desteklenir.</td></tr>
 <tr><td><code>%D</code></td>
         <td>Mikrosaniye cinsinden isteği sunmak için harcanan zaman.</td></tr>
 <tr class="odd"><td><code>%{<var>FALANCA</var>}e</code></td>
@@ -116,7 +116,8 @@
         '2', ikinci bağlantıyı, ..., vb. gösterir;
           <code class="directive"><a href="../mod/core.html#keepalive">KeepAlive</a></code> kullanılmışsa
           değer anlamlıdır; aksi takdirde değer daima (ilk isteği
-          belirten) 0’dır.</td></tr>
+          belirten) 0’dır. 2.2.11 sürümünden beri kullanılabilmektedir.
+          </td></tr>
 <tr class="odd"><td><code>%l</code></td>
         <td>Uzak kullanıcı kimliği (sağlanmışsa, identd üzerinden).
           <code class="module"><a href="../mod/mod_ident.html">mod_ident</a></code> modülü mevcut ve <code class="directive"><a href="../mod/mod_ident.html#identitycheck">IdentityCheck</a></code> yönergesine değer
@@ -346,7 +347,8 @@ kullanılır.</td></tr>
       <dt><var>borulu-süreç</var></dt>
       <dd>"<code>|</code>" boru karakteri ile öncelenmiş olarak günlük
         bilgisini standart girdisinden kabul edecek sürecin ismi (veya komut
-        satırı).
+        satırı) Daha fazla bilgi için <a href="../logs.html#piped">borulu
+        günlükler</a> ile ilgili ek bilgilere bakın.
 
       <div class="warning"><h3>Güvenlik:</h3>
       <p>Bir borulu süreç kullanılmışsa, süreç <code class="program"><a href="../programs/httpd.html">httpd</a></code>’yi

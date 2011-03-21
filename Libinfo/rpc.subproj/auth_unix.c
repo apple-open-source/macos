@@ -106,7 +106,11 @@ static struct auth_ops auth_unix_ops = {
 struct audata {
 	struct opaque_auth	au_origcred;	/* original credentials */
 	struct opaque_auth	au_shcred;	/* short hand cred */
+#ifdef __LP64__
+	uint32_t			au_shfaults;	/* short hand cache faults */
+#else
 	u_long			au_shfaults;	/* short hand cache faults */
+#endif
 	char			au_marshed[MAX_AUTH_BYTES];
 	u_int			au_mpos;	/* xdr pos at end of marshed */
 };

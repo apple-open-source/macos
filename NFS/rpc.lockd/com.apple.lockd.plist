@@ -18,5 +18,13 @@
         </array>
         <key>HopefullyExitsLast</key>
         <true/>
+        <key>KeepAlive</key>
+        <dict>
+                <key>PathState</key>
+		<dict>
+			<key>/var/run/lockd.pid</key>
+			<true/>
+		</dict>
+        </dict>
 </dict>
 </plist>

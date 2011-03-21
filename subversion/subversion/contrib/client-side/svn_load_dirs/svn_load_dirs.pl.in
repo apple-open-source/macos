@@ -1,9 +1,15 @@
 #!/usr/bin/perl -w
 
-# $HeadURL: http://svn.collab.net/repos/svn/branches/1.6.x/contrib/client-side/svn_load_dirs/svn_load_dirs.pl.in $
-# $LastChangedDate: 2008-03-25 14:42:32 +0000 (Tue, 25 Mar 2008) $
-# $LastChangedBy: arfrever $
-# $LastChangedRevision: 30041 $
+# Copyright (c) 2002,2003,2004,2005,2006,2007,2009 Dolby.  All rights reserved.
+#
+# Licensed under the Academic Free License version 3.0.  See LICENSE_AFL3.txt
+# or http://www.opensource.org/licenses/academic.php for a copy of the license
+# text.
+
+# $HeadURL: http://svn.apache.org/repos/asf/subversion/branches/1.6.x/contrib/client-side/svn_load_dirs/svn_load_dirs.pl.in $
+# $LastChangedDate: 2009-10-12 12:57:16 +0000 (Mon, 12 Oct 2009) $
+# $LastChangedBy: hwright $
+# $LastChangedRevision: 880030 $
 
 $| = 1;
 

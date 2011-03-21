@@ -1,3 +1,0 @@
-%(member)s 已經取消訂閱 %(listname)s 了.
-
-

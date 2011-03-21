@@ -65,7 +65,8 @@ int gSecureServerAuth = FALSE;		/* if TRUE, the authentication for server challe
 char gWebdavCachePath[MAXPATHLEN + 1] = ""; /* the current path to the cache directory */
 int gSecureConnection = FALSE;	/* if TRUE, the connection is secure */
 CFURLRef gBaseURL = NULL;		/* the base URL for this mount */
-uint32_t gServerIdent = 0;		/* identifies some (not all) types of servers we are connected to (i.e. WEBDAV_IDISK_SERVER) */ 
+uint32_t gServerIdent = 0;		/* identifies some (not all) types of servers we are connected to (i.e. WEBDAV_IDISK_SERVER) */
+boolean_t gUrlIsIdisk = FALSE;	/* True if URL host domain is of form idisk.mac.com or idisk.me.com */
 
 /*
  * mount_webdav.c file globals
@@ -73,6 +74,9 @@ uint32_t gServerIdent = 0;		/* identifies some (not all) types of servers we are
 static int wakeupFDs[2] = { -1, -1 };	/* used by webdav_kill() to communicate with main select loop */
 static char mountPoint[MAXPATHLEN];		/* path to our mount point */
 static char mntfromname[MNAMELEN];		/* the mntfromname */
+
+/* host names of .Mac iDisk servers */
+char *idisk_server_names[] = {"idisk.mac.com", "idisk.me.com", NULL};
 
 /*
  * We want getmntopts() to simply ignore
@@ -189,6 +193,59 @@ char *GetMountURI(char *arguri, int *isHTTPS)
 malloc_uri:
 
 	return ( uri );
+}
+
+/*****************************************************************************/
+
+static boolean_t urlIsIdisk(const char *url) {
+	boolean_t found_idisk;
+	size_t len, shortest_len, url_len;
+	char*  colon;
+	char** idisk_server;
+	
+	found_idisk = FALSE;
+	
+	if (url == NULL)
+		return (found_idisk);
+	
+	colon = strchr(url, ':');
+	if (colon == NULL)
+		return (found_idisk);
+	
+	// First, find the length of the shortest idisk server name
+	idisk_server = idisk_server_names;
+	shortest_len = strlen(*idisk_server);
+	while (*idisk_server != NULL) {
+		len = strlen(*idisk_server);
+		if (len < shortest_len)
+			shortest_len = len;
+		idisk_server++;
+	}
+	
+	if (strlen(colon) < shortest_len)
+		return (found_idisk);	// too short, not an idisk server name
+	
+    /*
+     * Move colon past "://".  We've already verified that
+     * colon is at least as long as the shortest iDisk server name
+     * so not worried about buffer overflows
+     */	
+	colon += 3;
+	url_len = strlen(colon);
+	idisk_server = idisk_server_names;
+	while (*idisk_server) {
+		len = strlen(*idisk_server);
+		if (url_len >= len) {
+			// check for match
+			if ( strncasecmp(colon, *idisk_server, len) == 0 ) {
+				found_idisk = TRUE;
+				break;
+			}
+		}
+		idisk_server++;
+	}
+	
+	return (found_idisk);
 }
 
 /*****************************************************************************/
@@ -813,7 +870,7 @@ int main(int argc, char *argv[])
 				break;
 			
 			case 's':	/* authentication to server must be secure */
-				gSecureServerAuth = 1;
+				gSecureServerAuth = TRUE;
 				break;
 			
 			case 'o':	/* Get the mount options */
@@ -892,6 +949,13 @@ int main(int argc, char *argv[])
 	/* Get uri (fix it up if needed) */
 	uri = GetMountURI(argv[optind], &gSecureConnection);
 	require_action_quiet(uri != NULL, error_exit, error = EINVAL);
+	
+	// check if this is an iDisk URL
+	gUrlIsIdisk = urlIsIdisk(uri);
+	
+	// Credentials must always be sent securely to iDisk servers
+	if (gUrlIsIdisk == TRUE)
+		gSecureServerAuth = TRUE;	
 
 	/* Create a mntfromname from the uri. Make sure the string is no longer than MNAMELEN */
 	strncpy(mntfromname, uri , MNAMELEN);

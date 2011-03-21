@@ -1,2 +1,0 @@
-%(member)s harpideak %(listname)s zerrenda utzi egin du.
-

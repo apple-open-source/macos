@@ -70,8 +70,8 @@
     used to log each request to the log file. It can contain literal
     characters copied into the log files and the C-style control
     characters "\n" and "\t" to represent new-lines and tabs.
-    Literal quotes and back-slashes should be escaped with
-    back-slashes.</p>
+    Literal quotes and backslashes should be escaped with
+    backslashes.</p>
 
     <p>The characteristics of the request itself are logged by
     placing "<code>%</code>" directives in the format string, which are
@@ -92,7 +92,7 @@
         a '<code>-</code>' rather than a 0 when no bytes are sent.</td></tr>
 <tr class="odd"><td><code>%{<var>Foobar</var>}C</code></td>
         <td>The contents of cookie <var>Foobar</var> in the request sent
-        to the server.</td></tr>
+        to the server. Only version 0 cookies are fully supported.</td></tr>
 <tr><td><code>%D</code></td>
         <td>The time taken to serve the request, in microseconds.</td></tr>
 <tr class="odd"><td><code>%{<var>FOOBAR</var>}e</code></td>
@@ -114,7 +114,8 @@
           <code class="directive"><a href="../mod/core.html#keepalive">KeepAlive</a></code> is being used, so that,
           for example, a '1' means the first keepalive request after the initial
           one, '2' the second, etc...;
-          otherwise this is always 0 (indicating the initial request).</td></tr>
+          otherwise this is always 0 (indicating the initial request).
+          Available in versions 2.2.11 and later.</td></tr>
 <tr class="odd"><td><code>%l</code></td>
         <td>Remote logname (from identd, if supplied). This will return a
         dash unless <code class="module"><a href="../mod/mod_ident.html">mod_ident</a></code> is present and <code class="directive"><a href="../mod/mod_ident.html#identitycheck">IdentityCheck</a></code> is set
@@ -350,7 +351,8 @@
       <dt><var>pipe</var></dt>
       <dd>The pipe character "<code>|</code>", followed by the path
       to a program to receive the log information on its standard
-      input.
+      input. See the notes on <a href="../logs.html#piped">piped logs</a>
+      for more information.
 
       <div class="warning"><h3>Security:</h3>
       <p>If a program is used, then it will be run as the user who

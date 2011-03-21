@@ -1,2 +1,0 @@
-%(member)s has been removed from %(listname)s.
-

@@ -1,9 +1,0 @@
-Hyväksyntääsi tarvitaan postituslistalta eroamispyyntöön:
-
-    By:   %(username)s
-    From: %(listname)s@%(hostname)s
-
-Asian voit hoitaa www-sivulla:
-
-    %(admindb_url)s
-

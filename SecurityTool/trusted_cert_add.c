@@ -168,7 +168,7 @@ static int appendConstraintsToDict(
 	}
 	
 	if(policyStr != NULL) {
-		CFStringRef pstr = CFStringCreateWithCString(NULL, policyStr, kCFStringEncodingASCII);
+		CFStringRef pstr = CFStringCreateWithCString(NULL, policyStr, kCFStringEncodingUTF8);
 		CFDictionaryAddValue(*dict, kSecTrustSettingsPolicyString, pstr);
 		CFRelease(pstr);
 	}
