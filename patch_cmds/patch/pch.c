@@ -650,6 +650,19 @@ intuit_diff_type (void)
       if (name[i])
 	free (name[i]);
 
+    if (inname)
+      {
+	/* If inname starts with "../" ends with "/.." or contains
+	   "/../", then issue a fatal error.  */
+	size_t len = strlen (inname);
+	if (len >= 3
+	    && (strnEQ (inname, "../", 3)
+		|| strnEQ (inname + len - 3, "/..", 3)
+		|| strstr (inname, "/../")))
+	  fatal ("rejecting file name with \"..\" component: %s",
+		 quotearg (inname));
+      }
+
     return retval;
 }
 

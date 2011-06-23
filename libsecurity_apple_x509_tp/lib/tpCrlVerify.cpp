@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002 Apple Computer, Inc. All Rights Reserved.
+ * Copyright (c) 2002-2011 Apple Inc. All Rights Reserved.
  * 
  * The contents of this file constitute Original Code as defined in and are
  * subject to the Apple Public Source License Version 1.2 (the 'License').
@@ -18,8 +18,6 @@
 
 /*
  * tpCrlVerify.cpp - routines to verify CRLs and to verify certs against CRLs.
- *
- * Written 9/26/02 by Doug Mitchell.
  */
 
 #include "tpCrlVerify.h"
@@ -29,10 +27,13 @@
 #include "tpdebugging.h"
 #include "TPNetwork.h"
 #include "TPDatabase.h"
+#include <CommonCrypto/CommonDigest.h>
 #include <Security/oidscert.h>
+#include <security_ocspd/ocspdClient.h>
 #include <security_utilities/globalizer.h>
 #include <security_utilities/threading.h>
 #include <security_cdsa_utilities/cssmerrors.h>
+#include <sys/stat.h>
 
 /* general purpose, switch to policy-specific code based on TPVerifyContext.policy */
 CSSM_RETURN tpRevocationPolicyVerify(
@@ -224,8 +225,8 @@ static CSSM_RETURN tpFindCrlForCert(
 	foundCrl = crl;
 	return CSSM_OK;
 }
-	
-/* 
+
+/*
  * Dispose of a CRL obtained from tpFindCrlForCert().
  */
 static void tpDisposeCrl(
@@ -271,6 +272,34 @@ static bool tpCertHasCrlDistPt(
 }
 
 /*
+ * Get current CRL status for a certificate and its issuers.
+ *
+ * Possible results:
+ *
+ * CSSM_OK (we have a valid CRL; certificate is not revoked)
+ * CSSMERR_TP_CERT_REVOKED (we have a valid CRL; certificate is revoked)
+ * CSSMERR_APPLETP_NETWORK_FAILURE (CRL not available, download in progress)
+ * CSSMERR_APPLETP_CRL_NOT_FOUND (CRL not available, and not being fetched)
+ * CSSMERR_TP_INTERNAL_ERROR (unexpected error)
+ *
+ * Note that ocspdCRLStatus does NOT wait for the CRL to be downloaded before
+ * returning, nor does it initiate a CRL download.
+ */
+CSSM_RETURN tpGetCrlStatusForCert(
+	TPCertInfo						&subject,
+	const CSSM_DATA					&issuers)
+{
+	CSSM_DATA *serialNumber=NULL;
+	CSSM_RETURN crtn = subject.fetchField(&CSSMOID_X509V1SerialNumber, &serialNumber);
+	if(crtn || !serialNumber) {
+		return CSSMERR_TP_INTERNAL_ERROR;
+	}
+	crtn = ocspdCRLStatus(*serialNumber, issuers, subject.issuerName(), NULL);
+	subject.freeField(&CSSMOID_X509V1SerialNumber, serialNumber);
+	return crtn;
+}
+
+/*
  * Perform CRL verification on a cert group.
  * The cert group has already passed basic issuer/subject and signature
  * verification. The status of the incoming CRLs is completely unknown. 
@@ -289,6 +318,7 @@ CSSM_RETURN tpVerifyCertGroupWithCrls(
 	assert(vfyCtx.clHand != 0);
 	assert(vfyCtx.policy == kRevokeCrlBasic);
 	tpCrlDebug("tpVerifyCertGroupWithCrls numCerts %u", certGroup.numCerts());
+	CSSM_DATA issuers = { 0, NULL };
 	CSSM_APPLE_TP_CRL_OPT_FLAGS optFlags = 0;
 	if(vfyCtx.crlOpts != NULL) {
 		optFlags = vfyCtx.crlOpts->CrlFlags;
@@ -301,7 +331,10 @@ CSSM_RETURN tpVerifyCertGroupWithCrls(
 		
 		unsigned certDex;
 		TPCrlInfo *crl = NULL;
-		
+
+		/* get issuers as PEM-encoded data blob; we need to release */
+		certGroup.encodeIssuers(issuers);
+
 		/* main loop, verify each cert */
 		for(certDex=0; certDex<certGroup.numCerts(); certDex++) {
 			TPCertInfo *cert = certGroup.certAtIndex(certDex);
@@ -320,9 +353,52 @@ CSSM_RETURN tpVerifyCertGroupWithCrls(
 			}
 			crl = NULL;
 			do {
+				/* first, see if we have CRL status available for this cert */
+				crtn = tpGetCrlStatusForCert(*cert, issuers);
+				tpCrlDebug("...tpGetCrlStatusForCert: %u", crtn);
+				if(crtn == CSSM_OK) {
+					tpCrlDebug("tpVerifyCertGroupWithCrls: cert %u verified by local .crl\n",
+								cert->index());
+					cert->revokeCheckGood(true);
+					if(optFlags & CSSM_TP_ACTION_CRL_SUFFICIENT) {
+						/* no more revocation checking necessary for this cert */
+						cert->revokeCheckComplete(true);
+					}
+					break;
+				}
+				if(crtn == CSSMERR_TP_CERT_REVOKED) {
+					tpCrlDebug("tpVerifyCertGroupWithCrls: cert %u revoked in local .crl\n",
+								cert->index());
+					cert->addStatusCode(crtn);
+					break;
+				}
+				if(crtn == CSSMERR_APPLETP_NETWORK_FAILURE) {
+					/* crl is being fetched from net, but we don't have it yet */
+					if((optFlags & CSSM_TP_ACTION_REQUIRE_CRL_IF_PRESENT) &&
+								tpCertHasCrlDistPt(*cert)) {
+						/* crl is required; we don't have it yet, so we fail */
+						tpCrlDebug("   ...cert %u: REQUIRE_CRL_IF_PRESENT abort",
+								cert->index());
+						break;
+					}
+					/* "Best Attempt" case, so give the cert a pass for now */
+					tpCrlDebug("   ...cert %u: no CRL; tolerating", cert->index());
+					crtn = CSSM_OK;
+					break;
+				}
+				/* all other CRL status results: try to fetch the CRL */
+
 				/* find a CRL for this cert by hook or crook */
 				crtn = tpFindCrlForCert(*cert, crl, vfyCtx);
 				if(crtn) {
+					/* tpFindCrlForCert may have simply caused ocspd to start
+					 * downloading a CRL asynchronously; depending on the speed
+					 * of the network and the CRL size, this may return 0 bytes
+					 * of data with a CSSMERR_APPLETP_NETWORK_FAILURE result.
+					 * We won't know the actual revocation result until the
+					 * next time we call tpGetCrlStatusForCert after the full
+					 * CRL has been downloaded successfully.
+					 */
 					if(optFlags & CSSM_TP_ACTION_REQUIRE_CRL_PER_CERT) {
 						tpCrlDebug("   ...cert %u: REQUIRE_CRL_PER_CERT abort",
 								cert->index());
@@ -383,6 +459,10 @@ CSSM_RETURN tpVerifyCertGroupWithCrls(
 		TPCrlInfo *crl = foundCrls.crlAtIndex(dex);
 		assert(crl != NULL);
 		tpDisposeCrl(*crl, vfyCtx);
+	}
+	/* release issuers */
+	if(issuers.Data) {
+		free(issuers.Data);
 	}
 	return ourRtn;
 }

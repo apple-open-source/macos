@@ -2,13 +2,13 @@
         <key>OpenSourceProject</key>
         <string>macholib</string>
         <key>OpenSourceVersion</key>
-        <string>1.2.1.dev-r432</string>
+        <string>1.3.0</string>
         <key>OpenSourceWebsiteURL</key>
         <string>http://undefined.org/python/#macholib</string>
         <key>OpenSourceSVN</key>
-        <string>svn export http://svn.red-bean.com/pyobjc/trunk/pyobjc/macholib</string>
+        <string>https://svn.red-bean.com/pyobjc/tags/pyobjc-2.3.1/macholib</string>
         <key>OpenSourceImportDate</key>
-        <string>2009-01-21</string>
+        <string>2010-08-24</string>
         <key>OpenSourceLicense</key>
         <string>MIT</string>
         <key>OpenSourceLicenseFile</key>

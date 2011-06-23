@@ -74,6 +74,7 @@ struct sainfoalg {
 extern struct sainfo *getsainfo __P((const vchar_t *,
 	const vchar_t *, const vchar_t *, int));
 #ifdef __APPLE__
+extern struct sainfo *getsainfo_by_dst_id __P((const vchar_t *, const vchar_t *));
 extern int            link_sainfo_to_ph2 __P((struct sainfo *));
 extern int            unlink_sainfo_from_ph2 __P((struct sainfo *));
 #endif

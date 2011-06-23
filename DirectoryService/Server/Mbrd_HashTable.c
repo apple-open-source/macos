@@ -498,33 +498,38 @@ void HashTable_FreeContents( HashTable *hash )
 	hash->fQueue = NULL;
 }
 
+void
+_HashTable_Reset(HashTable *hash)
+{
+    struct rb_tree *tree = &hash->fRBtree;
+    struct rb_node *node = RB_TREE_MIN( tree );
+    
+    // we have to delete after we iterate forward
+    while ( node != NULL ) {
+        struct rb_node	*delNode	= node;
+        struct UserGroup *entry		= RBNODE_TO_USERGROUP( delNode );
+        
+        node = rb_tree_iterate( tree, node, RB_DIR_RIGHT );
+        
+        // now let's remove the node
+        rb_tree_remove_node( tree, delNode );
+        DSFree( delNode );
+        
+        // release it if owner and entry are not the same (don't self release)
+        if ( entry != hash->fOwner ) {
+            UserGroup_Release( entry );
+            entry = NULL;
+        }
+    };
+    
+    hash->fNumEntries = 0;
+}
+
 void HashTable_Reset( HashTable* hash )
 {
-	dispatch_sync( hash->fQueue, 
-				   ^(void) {
-					   struct rb_tree *tree = &hash->fRBtree;
-					   struct rb_node *node = RB_TREE_MIN( tree );
-						
-					   // we have to delete after we iterate forward
-					   while ( node != NULL ) {
-						   struct rb_node	*delNode	= node;
-						   struct UserGroup *entry		= RBNODE_TO_USERGROUP( delNode );
-							
-						   node = rb_tree_iterate( tree, node, RB_DIR_RIGHT );
-
-						   // now let's remove the node
-						   rb_tree_remove_node( tree, delNode );
-						   DSFree( delNode );
-						   
-						   // release it if owner and entry are not the same (don't self release)
-						   if ( entry != hash->fOwner ) {
-							   UserGroup_Release( entry );
-							   entry = NULL;
-						   }
-					   };
-						
-					   hash->fNumEntries = 0;
-				   } );
+	dispatch_sync(hash->fQueue, ^(void) {
+        _HashTable_Reset(hash);
+    });
 }
 
 int HashTable_ResetMemberships( HashTable *hash )
@@ -638,7 +643,7 @@ void HashTable_Remove( HashTable* hash, UserGroup* item )
 				   } );
 }
 
-void HashTable_Merge( HashTable* destination, HashTable* source )
+void HashTable_Replace( HashTable* destination, HashTable* source )
 {
 	UserGroup **tempArray = NULL;
 	
@@ -652,6 +657,7 @@ void HashTable_Merge( HashTable* destination, HashTable* source )
 					   ^(void) {
 						   int i;
 							
+                           _HashTable_Reset(destination);
 						   for ( i = 0; i < count; i++ ) {
 							   __HashTable_Add( destination, tempArray[i], true );
 							   UserGroup_Release( tempArray[i] );
@@ -660,6 +666,8 @@ void HashTable_Merge( HashTable* destination, HashTable* source )
 							
 						   free( tempArray );
 					   } );
+	} else {
+        HashTable_Reset(destination);
 	}
 }
 

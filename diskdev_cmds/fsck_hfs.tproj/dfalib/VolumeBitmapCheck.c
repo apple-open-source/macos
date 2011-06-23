@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2002, 2004-2008 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2002, 2004-2010 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -30,6 +30,8 @@
  */
 
 #include "Scavenger.h"
+
+#include <sys/disk.h>
 
 #include <bitstring.h>
 
@@ -1069,6 +1071,189 @@ int AllocateContigBitmapBits (SVCB *vcb, UInt32 numBlocks, UInt32 *actualStartBl
 	}
 
 	return error;
+}
+
+enum { kMaxTrimExtents = 256 };
+dk_extent_t gTrimExtents[kMaxTrimExtents];
+dk_unmap_t gTrimData;
+
+static void TrimInit(void)
+{
+	bzero(&gTrimData, sizeof(gTrimData));
+	gTrimData.extents = gTrimExtents;
+}
+
+static void TrimFlush(void)
+{
+	int err;
+	
+	if (gTrimData.extentsCount == 0)
+	{
+		dprintf(d_info|d_trim, "TrimFlush: nothing to flush\n");
+		return;	
+	}
+	
+	err = ioctl(fsreadfd, DKIOCUNMAP, &gTrimData);
+	if (err == -1)
+	{
+		dprintf(d_error|d_trim, "TrimFlush: error %d\n", errno);
+	}
+	gTrimData.extentsCount = 0;
+}
+
+static void TrimExtent(SGlobPtr g, UInt32 startBlock, UInt32 blockCount)
+{
+	UInt64 offset;
+	UInt64 length;
+	
+	dprintf(d_info|d_trim, "Trimming: startBlock=%10u, blockCount=%10u\n", startBlock, blockCount);
+
+	offset = (UInt64) startBlock * g->calculatedVCB->vcbBlockSize;
+	if (VolumeObjectIsHFSPlus())
+		offset += g->calculatedVCB->vcbEmbeddedOffset;
+	else
+		offset += g->calculatedVCB->vcbAlBlSt * 512ULL;
+	length = (UInt64) blockCount * g->calculatedVCB->vcbBlockSize;
+	
+	gTrimExtents[gTrimData.extentsCount].offset = offset;
+	gTrimExtents[gTrimData.extentsCount].length = length;
+	if (++gTrimData.extentsCount == kMaxTrimExtents)
+		TrimFlush();
+}
+
+/* Function: TrimFreeBlocks
+ *
+ * Description: Find contiguous ranges of free allocation blocks (cleared bits
+ * in the bitmap) and issue DKIOCUNMAP requests to tell the underlying device
+ * that those blocks are not in use.  This allows the device to reclaim that
+ * space.
+ *
+ * Input:
+ *	g - global scavenger structure pointer
+ */
+void TrimFreeBlocks(SGlobPtr g)
+{
+	UInt32 *buffer;
+	UInt32 bit;
+	UInt32 wordWithinSegment;
+	UInt32 bitWithinWordMask;
+	UInt32 currentWord;
+	UInt32 startBlock;
+	UInt32 blockCount;
+	UInt32 totalTrimmed = 0;
+	
+	TrimInit();
+	
+	/* We haven't seen any free blocks yet. */
+	startBlock = 0;
+	blockCount = 0;
+	
+	/* Loop through bitmap segments */
+	for (bit = 0; bit < gTotalBits; /* bit incremented below */) {
+		assert((bit % kBitsPerSegment) == 0);
+		
+		(void) GetSegmentBitmap(bit, &buffer, kTestingBits);
+
+		if (buffer == gFullBitmapSegment) {
+			/*
+			 * There are no free blocks in this segment, so trim any previous
+			 * extent (that ended at the end of the previous segment).
+			 */
+			if (blockCount != 0) {
+				TrimExtent(g, startBlock, blockCount);
+				totalTrimmed += blockCount;
+				blockCount = 0;
+			}
+			bit += kBitsPerSegment;
+			continue;
+		}
+		
+		if (buffer == gEmptyBitmapSegment) {
+			/*
+			 * This entire segment is free.  Add it to a previous extent, or
+			 * start a new one.
+			 */
+			if (blockCount == 0) {
+				startBlock = bit;
+			}
+			if (gTotalBits - bit < kBitsPerSegment) {
+				blockCount += gTotalBits - bit;
+			} else {
+				blockCount += kBitsPerSegment;
+			}
+			bit += kBitsPerSegment;
+			continue;
+		}
+		
+		/*
+		 * If we get here, the current segment has some free and some used
+		 * blocks, so we have to iterate over them.
+		 */
+		for (wordWithinSegment = 0;
+		     wordWithinSegment < kWordsPerSegment && bit < gTotalBits;
+		     ++wordWithinSegment)
+		{
+			assert((bit % kBitsPerWord) == 0);
+			
+			currentWord = SWAP_BE32(buffer[wordWithinSegment]);
+
+			/* Iterate over all the bits in the current word. */
+			for (bitWithinWordMask = kMSBBitSetInWord;
+			     bitWithinWordMask != 0 && bit < gTotalBits;
+			     ++bit, bitWithinWordMask >>= 1)
+			{
+				if (currentWord & bitWithinWordMask) {
+					/* Found a used block. */
+					if (blockCount != 0) {
+						TrimExtent(g, startBlock, blockCount);
+						totalTrimmed += blockCount;
+						blockCount = 0;
+					}
+				} else {
+					/*
+					 * Found an unused block.  Add it to the current extent,
+					 * or start a new one.
+					 */
+					if (blockCount == 0) {
+						startBlock = bit;
+					}
+					++blockCount;
+				}
+			}
+		}
+	}
+	if (blockCount != 0) {
+		TrimExtent(g, startBlock, blockCount);
+		totalTrimmed += blockCount;
+		blockCount = 0;
+	}
+	
+	TrimFlush();
+	dprintf(d_info|d_trim, "Trimmed %u allocation blocks.\n", totalTrimmed);
+}
+
+/* Function: IsTrimSupported
+ *
+ * Description: Determine whether the device we're verifying/repairing suppports
+ * trimming (i.e., whether it supports DKIOCUNMAP).
+ *
+ * Result:
+ *	non-zero	Trim supported
+ *	zero		Trim not supported
+ */
+int IsTrimSupported(void)
+{
+	int err;
+    uint32_t features = 0;
+	
+	err = ioctl(fsreadfd, DKIOCGETFEATURES, &features);
+	if (err < 0)
+	{
+		/* Can't tell if UNMAP is supported.  Assume no. */
+		return 0;
+	}
+	
+	return features & DK_FEATURE_UNMAP;
 }
 
 /*

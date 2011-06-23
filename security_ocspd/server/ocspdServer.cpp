@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004 Apple Computer, Inc. All Rights Reserved.
+ * Copyright (c) 2004-2011 Apple Inc. All Rights Reserved.
  * 
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -23,23 +23,48 @@
 
 /*
  * ocspdServer.cpp - Server class for OCSP helper
- *
- * Created 6 July 2004 by dmitch
  */
 
+#if OCSP_DEBUG
+#define OCSP_USE_SYSLOG	1
+#endif
 #include "ocspdServer.h"
 #include <security_ocspd/ocspdDebug.h>
 #include <security_ocspd/ocspdUtils.h>
+#include <security_utilities/threading.h>
+#include <security_cdsa_utils/cuFileIo.h>
 #include "ocspdNetwork.h"
 #include "ocspdDb.h"
 #include "crlDb.h"
 #include <Security/Security.h>
+#include <CommonCrypto/CommonDigest.h>
 #include <CoreFoundation/CoreFoundation.h>
 #include <Security/SecAsn1Coder.h>
 #include <Security/ocspTemplates.h>
 #include <Security/cssmapple.h>
 #include <stdlib.h>
+#include <fcntl.h>
+#include <time.h>
+#include <sys/stat.h>
 #include <security_ocspd/ocspd.h>						/* created by MIG */
+
+
+/* How long to wait for a CRL download to complete before ignoring result
+ * and letting it complete in the background. */
+#define CRL_MAX_DOWNLOAD_WAIT	3.0
+
+/* Maximum CRL length to consider putting in the cache db (128KB) */
+#define CRL_MAX_DATA_LENGTH (1024*128)
+
+/* Lock while a CRL file is being written (short-term) */
+Mutex gCRLWriteLock;
+
+/* Lock while a CRL file is being downloaded (long-term) */
+Mutex gCRLFetchLock;
+
+/* File currently downloading (must hold both locks to change this value) */
+char *gCRLFileName;
+
 
 #pragma mark ----- OCSP utilities -----
 
@@ -118,6 +143,258 @@ static SecAsn1OCSPDReply *ocspdHandleReq(
 
 	return NULL;
 }
+
+#pragma mark ----- CRL utilities -----
+
+/*
+ * Generate and malloc a CRL filename given a lookup key,
+ * which can be either the issuer's distinguished name or
+ * a distribution point URL. Caller must free.
+ */
+static char* crlGenerateFileName(
+    unsigned char *key,
+    size_t keyLen,
+	const char *pathPrefix,
+	const char *extension)
+{
+    if(!key || !keyLen) {
+        return NULL;
+    }
+    const size_t prefixLen = strlen(pathPrefix);
+    const size_t suffixLen = strlen(extension);
+    const size_t fileNameLen = prefixLen+(CC_SHA1_DIGEST_LENGTH*2)+suffixLen+1;
+    char *fileName = (char*)malloc(fileNameLen);
+
+    if(!fileName) {
+        return NULL;
+    }
+    unsigned char digest[CC_SHA1_DIGEST_LENGTH];
+    unsigned char *dataPtr = key;
+    size_t dataLen = keyLen;
+
+    CC_SHA1(dataPtr, dataLen, digest);
+    char *outPtr = &fileName[0];
+    size_t outLen = fileNameLen;
+    strlcpy(outPtr, pathPrefix, outLen);
+    outPtr += prefixLen;
+    outLen -= prefixLen;
+    dataPtr = &digest[0];
+    for(dataLen=CC_SHA1_DIGEST_LENGTH; dataLen > 0; dataLen--) {
+        snprintf(outPtr, outLen, "%02X", *dataPtr++);
+        outPtr+=2;
+        outLen-=2;
+        *outPtr='\0';
+    }
+    strncat(fileName, extension, outLen-1);
+
+    return fileName;
+}
+
+/*
+ * Given a pointer and length, malloc and return a string which contains
+ * the hex representation of the data. Caller must free.
+ */
+static char* crlPrintableStringWithData(
+    unsigned char *inData,
+    size_t inLen)
+{
+    size_t outStrLen = (inLen*2)+1;
+    char *outStr = (char*)malloc(outStrLen);
+    if(!outStr) {
+        return NULL;
+    }
+    unsigned char *dataPtr = inData;
+    size_t dataLen = inLen;
+    char *outPtr = &outStr[0];
+    size_t outLen = outStrLen;
+    for(; dataLen > 0; dataLen--) {
+        snprintf(outPtr, outLen, "%02X", *dataPtr++);
+        outPtr+=2;
+        outLen-=2;
+        *outPtr='\0';
+    }
+    return outStr;
+}
+
+/* Given a path to a DER-encoded CRL file and a path to a PEM-encoded
+ * CA issuers file, use OpenSSL to validate the CRL. This is a hack,
+ * necessitated by performance issues with inserting extremely large
+ * numbers of CRL entries into a CSSM DB (see <rdar://8934440>).
+ *
+ * Returns true if the signature on crlFileName is valid, false otherwise.
+ */
+bool crlSignatureValid(
+	const char *crlFileName,
+	const char *issuersFileName,
+	const char *updateFileName,
+	const char *revokedFileName)
+{
+	const char *vc1 = "/usr/bin/openssl crl -inform DER -noout -in \"";
+	const char *vc2 = "\" -CAfile \"";
+	const char *vc3 = "\" 2>&1 | /usr/bin/grep OK";
+	size_t cmdLen = strlen(vc1)+strlen(crlFileName)+
+					strlen(vc2)+strlen(issuersFileName)+
+					strlen(vc3)+1;
+	char *command = (char*)malloc(cmdLen);
+	size_t tmpLen = cmdLen;
+	strlcpy(command, vc1, tmpLen);
+	tmpLen -= strlen(vc1);
+	strncat(command, crlFileName, tmpLen);
+	tmpLen -= strlen(crlFileName);
+	strncat(command, vc2, tmpLen);
+	tmpLen -= strlen(vc2);
+	strncat(command, issuersFileName, tmpLen);
+	tmpLen -= strlen(issuersFileName);
+	strncat(command, vc3, tmpLen);
+
+	bool valid = (system(command) == 0);
+	free(command);
+	if(!valid) {
+		ocspdCrlDebug("crlSignatureValid: CRL failed to verify: %s\n", crlFileName);
+		return false;
+	}
+
+	if(updateFileName) {
+		/* create .update file to hold nextUpdate value */
+		const char *uc1 = "/usr/bin/openssl crl -inform DER -noout -nextupdate -in \"";
+		const char *uc2 = "\" | /usr/bin/awk -F= '{print $2}' > \"";
+		const char *uc3 = "\"";
+		cmdLen = strlen(uc1)+strlen(crlFileName)+
+			strlen(uc2)+strlen(updateFileName)+
+			strlen(uc3)+1;
+		command = (char*)malloc(cmdLen);
+		tmpLen = cmdLen;
+		strlcpy(command, uc1, tmpLen);
+		tmpLen -= strlen(uc1);
+		strncat(command, crlFileName, tmpLen);
+		tmpLen -= strlen(crlFileName);
+		strncat(command, uc2, tmpLen);
+		tmpLen -= strlen(uc2);
+		strncat(command, updateFileName, tmpLen);
+		tmpLen -= strlen(updateFileName);
+		strncat(command, uc3, tmpLen);
+
+		system(command);
+		free(command);
+
+		if(chmod(updateFileName, 0644)) {
+			ocspdErrorLog("crlSignatureValid: chmod error %d for %s",
+				errno, updateFileName);
+		}
+	}
+
+	if(revokedFileName) {
+		/* create .revoked file to hold validated cache of revoked serials */
+		const char *rc1 = "/usr/bin/openssl crl -inform DER -noout -text -in \"";
+		const char *rc2 = "\" | /usr/bin/grep \"Number:\" | /usr/bin/awk '{print $3}' > \"";
+		const char *rc3 = "\"";
+		cmdLen = strlen(rc1)+strlen(crlFileName)+
+			strlen(rc2)+strlen(revokedFileName)+
+			strlen(rc3)+1;
+		command = (char*)malloc(cmdLen);
+		tmpLen = cmdLen;
+		strlcpy(command, rc1, tmpLen);
+		tmpLen -= strlen(rc1);
+		strncat(command, crlFileName, tmpLen);
+		tmpLen -= strlen(crlFileName);
+		strncat(command, rc2, tmpLen);
+		tmpLen -= strlen(rc2);
+		strncat(command, revokedFileName, tmpLen);
+		tmpLen -= strlen(revokedFileName);
+		strncat(command, rc3, tmpLen);
+
+		system(command);
+		free(command);
+
+		if(chmod(revokedFileName, 0644)) {
+			ocspdErrorLog("crlSignatureValid: chmod error %d for %s",
+				errno, revokedFileName);
+		}
+	}
+
+	return true;
+}
+
+/* Given a path to a file containing the CRL's nextUpdate date,
+ * return true if this date is greater than the current date,
+ * otherwise false.
+ */
+bool crlUpdateValid(
+	const char *updateFileName)
+{
+	bool result = false;
+	unsigned char *updateBytes = NULL;
+	unsigned int updateLen = 0;
+	int err;
+	if((err=readFile(updateFileName, &updateBytes, &updateLen) != 0)) {
+		ocspdCrlDebug("crlUpdateValid: error %d reading %s\n",
+			err, updateFileName);
+		return result;
+	}
+	/* check for special case where nextUpdate value is NONE */
+	if(updateLen >= 4 && !memcmp(updateBytes, "NONE", 4)) {
+		ocspdCrlDebug("crlUpdateValid: nextUpdate is NONE\n");
+		result = true;
+	}
+	else {
+		/* update time is expressed in POSIX locale and GMT timezone */
+		tm tm_next;
+		const char *format = "%b %d %H:%M:%S %Y %Z";
+		setlocale(LC_TIME, "POSIX");
+		if(strptime((const char *)updateBytes, format, &tm_next)) {
+			time_t now = time(NULL);
+			time_t next = timegm(&tm_next);
+			result = (now < next);
+
+			#if OCSP_DEBUG
+			char buf[updateLen+1];
+			strncpy(buf, (char *)updateBytes, updateLen);
+			buf[updateLen-1]='\0'; /* deliberately cutting off final LF byte */
+			ocspdCrlDebug("crlUpdateValid: nextUpdate=%s (%s)\n",
+				buf, (result) ? "valid" : "must refetch!");
+			#endif
+		}
+		else {
+			ocspdCrlDebug("crlUpdateValid: no nextUpdate date found!\n");
+		}
+	}
+	free(updateBytes);
+	return result;
+}
+
+/* Given a path to a validated cache file and a serial number string,
+ * determine whether that serial number is revoked in the cache.
+ * This should only be called after crlSignatureValid has confirmed the
+ * validity of the CRL and the cache file.
+ */
+bool crlSerialNumberRevoked(
+	const char *revokedFileName,
+	const char *serialNumber)
+{
+	const char *sc1 = "/usr/bin/grep -e \"^";
+	const char *sc2 = "$\" \"";
+	const char *sc3 = "\" 2>&1 >/dev/null";
+	size_t cmdLen = strlen(sc1)+strlen(serialNumber)+
+					strlen(sc2)+strlen(revokedFileName)+
+					strlen(sc3)+1;
+	char *command = (char*)malloc(cmdLen);
+	size_t tmpLen = cmdLen;
+	strlcpy(command, sc1, tmpLen);
+	tmpLen -= strlen(sc1);
+	strncat(command, serialNumber, tmpLen);
+	tmpLen -= strlen(serialNumber);
+	strncat(command, sc2, tmpLen);
+	tmpLen -= strlen(sc2);
+	strncat(command, revokedFileName, tmpLen);
+	tmpLen -= strlen(revokedFileName);
+	strncat(command, sc3, tmpLen);
+
+	bool revoked = (system(command) == 0);
+	free(command);
+
+	return revoked;
+}
+
 
 #pragma mark ----- Mig-referenced OCSP routines -----
 
@@ -256,9 +533,6 @@ void passDataToCaller(
  * date attribute or a URI, so we'd have to cook up yet another cert schema
  * (The system already has two - the Open Group standard and the custom version
  * we use) and I really don't want to do that. 
- *
- * Perhaps a future enhancement. As of Tiger this feature is never really used
- * (though it certainly works). 
  */
 kern_return_t ocsp_server_certFetch (
 	mach_port_t serverport,
@@ -294,6 +568,124 @@ kern_return_t ocsp_server_certFetch (
 	return krtn;
 }
 
+/*
+ * Get CRL status, given serial number and issuer (or URL).
+ */
+kern_return_t ocsp_server_crlStatus (
+    mach_port_t serverport,
+    Data serial_number,
+    mach_msg_type_number_t serial_numberCnt,
+    Data cert_issuers,
+    mach_msg_type_number_t cert_issuersCnt,
+    Data crl_issuer,                            // optional
+    mach_msg_type_number_t crl_issuerCnt,
+    Data crl_url,                               // optional
+    mach_msg_type_number_t crl_urlCnt)
+{
+	ServerActivity();
+    kern_return_t krtn;
+    size_t dataLen = (crl_issuerCnt) ? crl_issuerCnt : crl_urlCnt;
+    unsigned char *dataPtr = (unsigned char *)((crl_issuerCnt) ? crl_issuer : crl_url);
+    if(!dataLen || !dataPtr) {
+        return CSSMERR_TP_INTERNAL_ERROR;
+    }
+    char *crlFileName = crlGenerateFileName(dataPtr, dataLen, "/var/db/crls/", ".crl");
+    if(!crlFileName) {
+        return CSSMERR_TP_INTERNAL_ERROR;
+    }
+
+	/* Are we currently downloading this CRL? */
+	{
+		StLock<Mutex> w_(gCRLWriteLock); /* lock before examining filename */
+		if(gCRLFileName && !strncmp(gCRLFileName, crlFileName, strlen(crlFileName))) {
+			free(crlFileName);
+			return CSSMERR_APPLETP_NETWORK_FAILURE; /* busy! */
+		}
+	}
+
+    /* Check whether the file is present */
+    struct stat sb;
+    if(stat(crlFileName, &sb) != 0) {
+		free(crlFileName);
+		return CSSMERR_APPLETP_CRL_NOT_FOUND;
+	}
+
+	char *issuersFileName = crlGenerateFileName(dataPtr, dataLen,
+		"/var/db/crls/", ".pem");
+    char *updateFileName = crlGenerateFileName(dataPtr, dataLen,
+		"/var/db/crls/", ".update");
+    char *revokedFileName = crlGenerateFileName(dataPtr, dataLen,
+		"/var/db/crls/", ".revoked");
+	if(!issuersFileName || !updateFileName || !revokedFileName) {
+		return CSSMERR_TP_INTERNAL_ERROR;
+	}
+
+	/* Check whether we have previously validated the CRL, and if so, whether
+	 * the nextUpdate date has passed.
+	 */
+	bool crlValid = false;
+    if(stat(updateFileName, &sb) == 0) {
+		if(!crlUpdateValid(updateFileName) || stat(revokedFileName, &sb) != 0) {
+			/* Remove invalid files and bail out */
+			remove(updateFileName);
+			remove(revokedFileName);
+			remove(issuersFileName);
+			remove(crlFileName);
+			free(updateFileName);
+			free(revokedFileName);
+			free(issuersFileName);
+			free(crlFileName);
+			return CSSMERR_APPLETP_CRL_NOT_FOUND;
+		}
+		crlValid = true;
+	}
+
+	if(!crlValid) {
+		/* validate CRL signature (creates .update and .revoked files) */
+		writeFile(issuersFileName, (const unsigned char *)cert_issuers, cert_issuersCnt);
+		if(chmod(issuersFileName, 0644)) {
+			ocspdErrorLog("ocsp_server_crlStatus: chmod error %d for %s",
+				errno, issuersFileName);
+		}
+		crlValid = crlSignatureValid(crlFileName,
+			issuersFileName, updateFileName, revokedFileName);
+	}
+
+	if(crlValid) {
+		char *serialStr = crlPrintableStringWithData((unsigned char*)serial_number,
+			serial_numberCnt);
+		if(serialStr) {
+			if(crlSerialNumberRevoked(revokedFileName, serialStr)) {
+				krtn = CSSMERR_TP_CERT_REVOKED;
+				ocspdCrlDebug("crlSignatureValid: found revoked serial number %s\n",
+					serialStr);
+			}
+			else {
+				krtn = CSSM_OK;
+				ocspdCrlDebug("crlSignatureValid: CRL did not contain serial number %s\n",
+					serialStr);
+			}
+			free(serialStr);
+		}
+		else {
+			krtn = CSSMERR_TP_INTERNAL_ERROR;
+		}
+	}
+	else {
+		krtn = CSSMERR_APPLETP_CRL_NOT_FOUND;
+	}
+
+	free(updateFileName);
+	free(revokedFileName);
+	free(issuersFileName);
+	free(crlFileName);
+
+	return krtn;
+}
+
+/*
+ * Fetch a CRL from the net.
+ */
 kern_return_t ocsp_server_crlFetch (
 	mach_port_t serverport,
 	Data crl_url,
@@ -311,7 +703,7 @@ kern_return_t ocsp_server_crlFetch (
 	const CSSM_DATA urlData = {crl_urlCnt, (uint8 *)crl_url};
 	CSSM_DATA crlData = {0, NULL};
 	Allocator &alloc = OcspdServer::active().alloc();
-	
+
 	/*
 	 * 1. Read from cache if enabled. Look up by issuer if we have it, else
 	 *    look up by URL. Per Radar 4565280, the same CRL might be
@@ -346,8 +738,8 @@ kern_return_t ocsp_server_crlFetch (
 			return 0;
 		}
 	}
-	
-	/* 
+
+	/*
 	 * 2. Obtain from net
 	 */
 	CSSM_RETURN crtn;
@@ -355,28 +747,79 @@ kern_return_t ocsp_server_crlFetch (
 	/* preparing for net fetch: enable another thread */
 	OcspdServer::active().longTermActivity();
 
-	crtn = ocspdNetFetch(alloc, urlData, LT_Crl, crlData);
-	if(crtn) {
-		ocspdErrorLog("server_crlFetch: CRL not found on net");
-		return CSSMERR_APPLETP_NETWORK_FAILURE;
+	size_t dataLen = (crl_issuerCnt) ? crl_issuerCnt : crl_urlCnt;
+	unsigned char *dataPtr = (unsigned char *)((crl_issuerCnt) ? crl_issuer : crl_url);
+	if(!dataLen || !dataPtr) {
+		return CSSMERR_TP_INTERNAL_ERROR;
 	}
-	else {
-		if(crlData.Length == 0) {
-			ocspdErrorLog("server_crlFetch: no CRL data found\n");
-			return CSSMERR_APPLETP_NETWORK_FAILURE;
+	async_fetch_t *fetchParams =
+		(async_fetch_t *)malloc(sizeof(async_fetch_t));
+	if(!fetchParams) {
+		return CSSMERR_TP_INTERNAL_ERROR;
+	}
+	memset(fetchParams, 0, sizeof(async_fetch_t));
+	fetchParams->alloc = &alloc;
+	fetchParams->url.Data = (uint8*)malloc(urlData.Length);
+	fetchParams->url.Length = urlData.Length;
+	memmove(fetchParams->url.Data, urlData.Data, urlData.Length);
+	fetchParams->lfType = LT_Crl;
+	fetchParams->outFile = crlGenerateFileName(dataPtr, dataLen,
+		"/var/db/crls/", ".crl");
+	fetchParams->freeOnDone = 0;
+	fetchParams->finished = 0;
+
+	/* ready to start this download.
+	 * wait for concurrent CRL downloads to complete, then post this filename to
+	 * the global which tells other callers of the crlStatus MIG function
+	 * that we are already downloading this CRL.
+	 */
+	{
+		StLock<Mutex> f_(gCRLFetchLock); /* other downloads must be finished */
+		StLock<Mutex> w_(gCRLWriteLock); /* lock before modifying filename */
+		gCRLFileName = fetchParams->outFile;
+	}
+	crtn = ocspdStartNetFetch(fetchParams);
+
+	if(!crtn) {
+		/* cycle the run loop until we finish downloading or time out */
+		CFAbsoluteTime stopTime = CFAbsoluteTimeGetCurrent() + CRL_MAX_DOWNLOAD_WAIT;
+		while (!fetchParams->finished) {
+			(void)CFRunLoopRunInMode(kCFRunLoopDefaultMode, 0.1, TRUE);
+			CFAbsoluteTime curTime = CFAbsoluteTimeGetCurrent();
+			if (curTime > stopTime) {
+				/* fetchParams are now dead to us; other thread will clean up. */
+				/* FIXME: need a mutex for this; in the worst case, we'll leak */
+				fetchParams->freeOnDone = 1;
+				ocspdCrlDebug("ocsp_server_crlFetch reached wait timeout (%f seconds)",
+					CRL_MAX_DOWNLOAD_WAIT);
+				return CSSMERR_APPLETP_NETWORK_FAILURE;
+			}
 		}
-		else {
-			/* Pass CRL back to caller & dealloc */
+		/* we finished the download and can provide data right away */
+		crtn = fetchParams->result;
+		if(fetchParams->fetched.Data && fetchParams->fetched.Length) {
+			/* Pass CRL back to caller & schedule dealloc after we return */
+			crlData = fetchParams->fetched;
 			passDataToCaller(crlData, crl_data, crl_dataCnt);
 			ocspdCrlDebug("ocsp_server_crlFetch got %lu bytes from net", crlData.Length);
 		}
 	}
-	
-	/* 
+
+	if(fetchParams->url.Data) free(fetchParams->url.Data);
+	if(fetchParams->outFile) free(fetchParams->outFile);
+	free(fetchParams);
+	if(crlData.Data == NULL || crlData.Length == 0) {
+		ocspdCrlDebug("ocsp_server_crlFetch will not cache (length=%lu, data=%p)",
+			crlData.Length, crlData.Data);
+		return crtn;
+	}
+
+	/*
 	 * 3. Add to cache if enabled
 	 */
 	if(cache_write) {
 		crlCacheAdd(crlData, urlData);
+		ocspdCrlDebug("ocsp_server_crlFetch added CRL to cache db");
 	}
 
 	return 0;

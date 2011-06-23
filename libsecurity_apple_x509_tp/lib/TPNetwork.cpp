@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002 Apple Computer, Inc. All Rights Reserved.
+ * Copyright (c) 2002-2011 Apple Inc. All Rights Reserved.
  * 
  * The contents of this file constitute Original Code as defined in and are
  * subject to the Apple Public Source License Version 1.2 (the 'License').
@@ -18,8 +18,6 @@
 
 /*
  * TPNetwork.h - LDAP, HTTP and (eventually) other network tools 
- *
- * Written 10/3/2002 by Doug Mitchell.
  */
  
 #include "TPNetwork.h"
@@ -364,7 +362,7 @@ CSSM_RETURN tpFetchCrlFromNet(
 			case CE_CDNT_NameRelativeToCrlIssuer:
 				/* not yet */
 				tpErrorLog("tpFetchCrlFromNet: "
-					"CE_CDNT_NameRelativeToCrlIssuer not implemented\n");
+					"CE_CDNT_NameRelativeToCrlIssuer not implemented\n");
 				break;
 				
 			case CE_CDNT_FullName:

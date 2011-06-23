@@ -41,7 +41,10 @@ private:
     
 public:
 
-    static AppleEHCIsitdMemoryBlock 			*NewMemoryBlock(void);
+ 	// OSObject call used to free the buffer when we are done
+    virtual void free();
+	
+	static AppleEHCIsitdMemoryBlock 			*NewMemoryBlock(void);
     void										SetNextBlock(AppleEHCIsitdMemoryBlock *next);
     AppleEHCIsitdMemoryBlock					*GetNextBlock(void);
     UInt32										NumTDs(void);

@@ -39,6 +39,7 @@
 		A613B29E0D46AA65007BA726 /* IOPCIPrivate.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = A6DD8EEF0937A0EC000A918D /* IOPCIPrivate.h */; };
 		A637FAF40F2FE2B80008E04C /* IOPCIPrivate.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = A6DD8EEF0937A0EC000A918D /* IOPCIPrivate.h */; };
 		A655D6E50E4BB51D00550BCC /* IOPCIDeviceMappedIO.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A655D6E40E4BB51D00550BCC /* IOPCIDeviceMappedIO.cpp */; };
+		A6849D13126539090033F95C /* IOPCIRange.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A6849D12126539090033F95C /* IOPCIRange.cpp */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -113,6 +114,7 @@
 		A613B28D0D46AA65007BA726 /* IOPCIFamily.kext */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = IOPCIFamily.kext; sourceTree = BUILT_PRODUCTS_DIR; };
 		A613B2A30D46AA65007BA726 /* IOPCIFamily Headers */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = "IOPCIFamily Headers"; sourceTree = BUILT_PRODUCTS_DIR; };
 		A655D6E40E4BB51D00550BCC /* IOPCIDeviceMappedIO.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = IOPCIDeviceMappedIO.cpp; sourceTree = "<group>"; };
+		A6849D12126539090033F95C /* IOPCIRange.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = IOPCIRange.cpp; sourceTree = "<group>"; };
 		A6DD8EEE0937A0EC000A918D /* IOPCIConfigurator.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = IOPCIConfigurator.h; path = IOKit/pci/IOPCIConfigurator.h; sourceTree = SOURCE_ROOT; };
 		A6DD8EEF0937A0EC000A918D /* IOPCIPrivate.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = IOPCIPrivate.h; path = IOKit/pci/IOPCIPrivate.h; sourceTree = SOURCE_ROOT; };
 		A6F210C10A78022400875EC6 /* AppleSamplePCI.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = AppleSamplePCI.cpp; sourceTree = "<group>"; };
@@ -178,6 +180,7 @@
 			isa = PBXGroup;
 			children = (
 				1590524609368A190010639A /* IOPCIConfigurator.cpp */,
+				A6849D12126539090033F95C /* IOPCIRange.cpp */,
 				4094C51900CEE7A80ACA2928 /* IOPCIBridge.cpp */,
 				4094C51A00CEE7A80ACA2928 /* IOPCIDevice.cpp */,
 				4094C51B00CEE7A80ACA2928 /* IOPCIDeviceI386.cpp */,
@@ -377,6 +380,7 @@
 				A613B2820D46AA65007BA726 /* IOPCIDeviceI386.cpp in Sources */,
 				A613B2840D46AA65007BA726 /* IOPCIConfigurator.cpp in Sources */,
 				A655D6E50E4BB51D00550BCC /* IOPCIDeviceMappedIO.cpp in Sources */,
+				A6849D13126539090033F95C /* IOPCIRange.cpp in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

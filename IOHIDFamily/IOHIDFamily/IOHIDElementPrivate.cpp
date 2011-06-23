@@ -59,7 +59,7 @@
 #define GetArrayItemSel(index) \
             (index + _logicalMin)
 			
-OSDefineMetaClassAndAbstractStructors(IOHIDElement, OSObject)
+OSDefineMetaClassAndAbstractStructors(IOHIDElement, OSCollection)
 OSMetaClassDefineReservedUnused(IOHIDElement,  0);
 OSMetaClassDefineReservedUnused(IOHIDElement,  1);
 OSMetaClassDefineReservedUnused(IOHIDElement,  2);
@@ -201,11 +201,11 @@ IOHIDElementPrivate::buttonElement( IOHIDDevice *     owner,
     }
 
     // Register with owner and parent, then spawn sub-elements.
-
     if ( ( parent && ( parent->addChildElement(element, IsArrayElement(element)) == true ) )
     &&   ( owner->registerElement( element, &element->_cookie ) == true )
     &&   ( element->createSubElements() == true ))
     {
+        element->createProperties();
         return element;
     }
 
@@ -283,6 +283,7 @@ IOHIDElementPrivate::valueElement( IOHIDDevice *     owner,
     &&   ( ( parent && ( parent->addChildElement(element, IsArrayElement(element)) == true ) ) ) 
     &&   ( element->createSubElements() == true ))
     {
+        element->createProperties();
         return element;
     }
 
@@ -331,6 +332,9 @@ IOHIDElementPrivate::collectionElement( IOHIDDevice *         owner,
         element->release();
         element = 0;
     }
+    else {
+        element->createProperties();
+    }
 
     return element;
 }
@@ -364,6 +368,9 @@ IOHIDElementPrivate * IOHIDElementPrivate::reportHandlerElement(
     {
         element->release();
         element = 0;
+    }
+    else {
+        element->createProperties();
     }
     
     return element;
@@ -433,6 +440,9 @@ IOHIDElementPrivate * IOHIDElementPrivate::newSubElement( UInt16 rangeIndex ) co
         element->release();
         element = 0;
     }
+    else {
+        element->createProperties();
+    }
 
     return element;
 }
@@ -466,6 +476,8 @@ bool IOHIDElementPrivate::createSubElements()
 
 void IOHIDElementPrivate::free()
 {
+    super::setOptions(0, kImmutable);
+    
     if ( _childArray )
     {
         _childArray->release();
@@ -501,7 +513,10 @@ void IOHIDElementPrivate::free()
         _colArrayReportHandlers->release();
         _colArrayReportHandlers = 0;
     }
-	
+    
+    OSSafeRelease(_properties);
+    _properties = 0;
+    
     super::free();
 }
 
@@ -652,7 +667,8 @@ IOHIDElementPrivate * IOHIDElementPrivate::arrayHandlerElement(
         ( parent && ( parent->addChildElement(element) == true )) &&
         ( element->createSubElements() == true ))
     {
-	return element;
+        element->createProperties();
+        return element;
     }
         
     
@@ -708,69 +724,71 @@ void IOHIDElementPrivate::setupResolution()
 
 }
 
-OSDictionary * IOHIDElementPrivate::createProperties() const
+void IOHIDElementPrivate::createProperties()
 {
-	OSDictionary	* properties = NULL;
-    IORegistryEntry * entry = NULL;
-    UInt32            usage;
-        
-    do {
-        entry = new IORegistryEntry;
-        if ( entry == 0 ) break;
+    UInt32          usage;
+    
+    OSSafeRelease(_properties);
+    _properties = OSDictionary::withCapacity(9);
 
-        if ( entry->init() == false ) break;
-
-        usage = (_usageMax != _usageMin) ? _usageMin + _rangeIndex  : _usageMin;
-        
-        entry->setProperty( kIOHIDElementKey, _childArray );
-        entry->setProperty( kIOHIDElementCookieKey, (UInt32) _cookie, 32 );
-        entry->setProperty( kIOHIDElementTypeKey, _type, 32 );
-        entry->setProperty( kIOHIDElementUsageKey, usage, 32 );
-        entry->setProperty( kIOHIDElementUsagePageKey, _usagePage, 32 );
-        entry->setProperty( kIOHIDElementReportIDKey, _reportID, 32 );
-
-        if ( _type == kIOHIDElementTypeCollection )
-        {
-            entry->setProperty( kIOHIDElementCollectionTypeKey, _collectionType, 32 );
-            break;
-        }
-
-		entry->setProperty( kIOHIDElementSizeKey, (_reportBits * _reportCount), 32 );
-		entry->setProperty( kIOHIDElementReportSizeKey, _reportBits, 32 );
-		entry->setProperty( kIOHIDElementReportCountKey, _reportCount, 32 );
-                            
-        if ( _isInterruptReportHandler ) break;
-
-        entry->setProperty( kIOHIDElementFlagsKey, _flags, 32 );
-        entry->setProperty( kIOHIDElementHasNullStateKey, _flags & kHIDDataNullState );
-        entry->setProperty( kIOHIDElementHasPreferredStateKey, !(_flags & kHIDDataNoPreferred) );
-        entry->setProperty( kIOHIDElementIsNonLinearKey, _flags & kHIDDataNonlinear );
-        entry->setProperty( kIOHIDElementIsRelativeKey, _flags & kHIDDataRelative );
-        entry->setProperty( kIOHIDElementIsWrappingKey, _flags & kHIDDataWrap );
-        entry->setProperty( kIOHIDElementIsArrayKey, IsArrayElement(this) );
-        entry->setProperty( kIOHIDElementMaxKey, _logicalMax, 32 );
-        entry->setProperty( kIOHIDElementMinKey, _logicalMin, 32 );
-        entry->setProperty( kIOHIDElementScaledMaxKey, _physicalMax, 32 );
-        entry->setProperty( kIOHIDElementScaledMinKey, _physicalMin, 32 );
-        entry->setProperty( kIOHIDElementUnitKey, _units, 32 );
-        entry->setProperty( kIOHIDElementUnitExponentKey, _unitExponent, 32 );
-
-        if ( IsDuplicateElement(this) && !IsDuplicateReportHandler(this))
-        {
-            entry->setProperty( kIOHIDElementDuplicateIndexKey, _rangeIndex, 32);
-        }
+    if (!_properties) {
+        kprintf("%s - no properties\n", __PRETTY_FUNCTION__);
+        goto done;
     }
-    while ( false );
+    _properties->setCapacityIncrement(15);
 
-    if ( entry )
-    {
-        if (properties = entry->getPropertyTable()) 
-			properties->retain();
-		
-        entry->release();
+    usage = (_usageMax != _usageMin) ? _usageMin + _rangeIndex  : _usageMin;
+    
+#define SET_NUMBER(Y, Z) \
+    do { \
+        OSNumber *number = OSNumber::withNumber(Z, 32); \
+        _properties->setObject(Y, number); \
+        number->release(); \
+    } \
+    while (false)
+    
+    SET_NUMBER(kIOHIDElementCookieKey, (UInt32) _cookie);
+    SET_NUMBER(kIOHIDElementTypeKey, _type);
+    SET_NUMBER(kIOHIDElementUsageKey, usage);
+    SET_NUMBER(kIOHIDElementUsagePageKey, _usagePage);
+    SET_NUMBER(kIOHIDElementReportIDKey, _reportID);
+    
+    if ( _type == kIOHIDElementTypeCollection ) {
+        SET_NUMBER(kIOHIDElementCollectionTypeKey, _collectionType);
+        goto done;
     }
     
-	return properties;
+    SET_NUMBER(kIOHIDElementSizeKey, (_reportBits * _reportCount));
+    SET_NUMBER(kIOHIDElementReportSizeKey, _reportBits);
+    SET_NUMBER(kIOHIDElementReportCountKey, _reportCount);
+    
+    if ( _isInterruptReportHandler ) {
+        goto done;
+    }
+    
+    SET_NUMBER(kIOHIDElementFlagsKey, _flags);
+    SET_NUMBER(kIOHIDElementMaxKey, _logicalMax);
+    SET_NUMBER(kIOHIDElementMinKey, _logicalMin);
+    SET_NUMBER(kIOHIDElementScaledMaxKey, _physicalMax);
+    SET_NUMBER(kIOHIDElementScaledMinKey, _physicalMin);
+    SET_NUMBER(kIOHIDElementUnitKey, _units);
+    SET_NUMBER(kIOHIDElementUnitExponentKey, _unitExponent);
+    
+    if ( IsDuplicateElement(this) && !IsDuplicateReportHandler(this)) {
+        SET_NUMBER(kIOHIDElementDuplicateIndexKey, _rangeIndex);
+    }
+
+    _properties->setObject( kIOHIDElementHasNullStateKey, OSBoolean::withBoolean( _flags & kHIDDataNullState ));
+    _properties->setObject( kIOHIDElementHasPreferredStateKey, OSBoolean::withBoolean( !(_flags & kHIDDataNoPreferred) ));
+    _properties->setObject( kIOHIDElementIsNonLinearKey, OSBoolean::withBoolean( _flags & kHIDDataNonlinear ));
+    _properties->setObject( kIOHIDElementIsRelativeKey, OSBoolean::withBoolean( _flags & kHIDDataRelative ));
+    _properties->setObject( kIOHIDElementIsWrappingKey, OSBoolean::withBoolean( _flags & kHIDDataWrap ));
+    _properties->setObject( kIOHIDElementIsArrayKey, OSBoolean::withBoolean( IsArrayElement(this) ));
+
+#undef SET_NUMBER
+done:
+    unsigned options = setOptions(0,0);
+    _properties->setOptions(options, options);
 }
 
 //---------------------------------------------------------------------------
@@ -778,17 +796,34 @@ OSDictionary * IOHIDElementPrivate::createProperties() const
 
 bool IOHIDElementPrivate::serialize( OSSerialize * s ) const
 {
-    bool			ret = true;
-	OSDictionary *	properties = createProperties();
-	
-	if ( properties )
-	{
-        if ( !(IsDuplicateElement(this) && !IsDuplicateReportHandler(this) && (GetDuplicateElementCount(this) > 32)) )
-            ret = properties->serialize(s);
-            
-		properties->release();
-	}
-	
+    bool            ret = true;
+    
+    if (!s->previouslySerialized(this)) {
+        if ( !(IsDuplicateElement(this) && !IsDuplicateReportHandler(this) && (GetDuplicateElementCount(this) > 32)) ) {
+            if ( _properties ) {
+                if (_childArray) {
+                    // we can use a shallow copy here to save space
+                    OSDictionary *copy = OSDictionary::withDictionary(_properties);
+                    if (copy) {
+                        copy->setObject( kIOHIDElementKey, _childArray );
+                        ret = copy->serialize(s);
+                        copy->release();
+                    }
+                    else {
+                        kprintf("%s - unable to copy properties\n", __PRETTY_FUNCTION__);
+                        _properties->serialize(s);
+                    }
+                }
+                else {
+                    ret = _properties->serialize(s);
+                }
+            }
+            else {
+                kprintf("%s - no properties\n", __PRETTY_FUNCTION__);
+                ret = false;
+            }
+        }
+    }
     return ret;
 }
 
@@ -862,7 +897,6 @@ static inline bool CompareProperty( OSDictionary * properties, OSDictionary * ma
 
 bool IOHIDElementPrivate::matchProperties(OSDictionary * matching)
 {
-	OSDictionary *  properties  = NULL;
 	bool			ret			= true;
 	
 	// Compare properties.
@@ -870,41 +904,40 @@ bool IOHIDElementPrivate::matchProperties(OSDictionary * matching)
 		if ( !matching )
 			break;
 			
-		if ( !( properties	= createProperties() ) )
+		if ( !( _properties ) )
 		{
+            kprintf("%s - no properties\n", __PRETTY_FUNCTION__);
 			ret = false;
 			break;
 		}			
-		
-		if (   !CompareProperty(properties, matching, kIOHIDElementCookieKey)
-			|| !CompareProperty(properties, matching, kIOHIDElementTypeKey)
-			|| !CompareProperty(properties, matching, kIOHIDElementCollectionTypeKey)
-			|| !CompareProperty(properties, matching, kIOHIDElementUsageKey)
-			|| !CompareProperty(properties, matching, kIOHIDElementUsagePageKey)
-			|| !CompareProperty(properties, matching, kIOHIDElementMinKey)
-			|| !CompareProperty(properties, matching, kIOHIDElementMaxKey)
-			|| !CompareProperty(properties, matching, kIOHIDElementScaledMaxKey)
-			|| !CompareProperty(properties, matching, kIOHIDElementSizeKey)
-			|| !CompareProperty(properties, matching, kIOHIDElementReportSizeKey)
-			|| !CompareProperty(properties, matching, kIOHIDElementReportCountKey)
-			|| !CompareProperty(properties, matching, kIOHIDElementIsArrayKey)
-			|| !CompareProperty(properties, matching, kIOHIDElementIsRelativeKey)
-			|| !CompareProperty(properties, matching, kIOHIDElementIsWrappingKey)
-			|| !CompareProperty(properties, matching, kIOHIDElementIsNonLinearKey)
-			|| !CompareProperty(properties, matching, kIOHIDElementHasPreferredStateKey)
-			|| !CompareProperty(properties, matching, kIOHIDElementHasNullStateKey)
-			|| !CompareProperty(properties, matching, kIOHIDElementVendorSpecificKey)
-			|| !CompareProperty(properties, matching, kIOHIDElementUnitKey)
-			|| !CompareProperty(properties, matching, kIOHIDElementUnitExponentKey)
-			|| !CompareProperty(properties, matching, kIOHIDElementNameKey)
-			|| !CompareProperty(properties, matching, kIOHIDElementValueLocationKey)
-			|| !CompareProperty(properties, matching, kIOHIDElementDuplicateIndexKey)
-			|| !CompareProperty(properties, matching, kIOHIDElementParentCollectionKey))
+        
+		if (   !CompareProperty(_properties, matching, kIOHIDElementCookieKey)
+			|| !CompareProperty(_properties, matching, kIOHIDElementTypeKey)
+			|| !CompareProperty(_properties, matching, kIOHIDElementCollectionTypeKey)
+			|| !CompareProperty(_properties, matching, kIOHIDElementUsageKey)
+			|| !CompareProperty(_properties, matching, kIOHIDElementUsagePageKey)
+			|| !CompareProperty(_properties, matching, kIOHIDElementMinKey)
+			|| !CompareProperty(_properties, matching, kIOHIDElementMaxKey)
+			|| !CompareProperty(_properties, matching, kIOHIDElementScaledMaxKey)
+			|| !CompareProperty(_properties, matching, kIOHIDElementSizeKey)
+			|| !CompareProperty(_properties, matching, kIOHIDElementReportSizeKey)
+			|| !CompareProperty(_properties, matching, kIOHIDElementReportCountKey)
+			|| !CompareProperty(_properties, matching, kIOHIDElementIsArrayKey)
+			|| !CompareProperty(_properties, matching, kIOHIDElementIsRelativeKey)
+			|| !CompareProperty(_properties, matching, kIOHIDElementIsWrappingKey)
+			|| !CompareProperty(_properties, matching, kIOHIDElementIsNonLinearKey)
+			|| !CompareProperty(_properties, matching, kIOHIDElementHasPreferredStateKey)
+			|| !CompareProperty(_properties, matching, kIOHIDElementHasNullStateKey)
+			|| !CompareProperty(_properties, matching, kIOHIDElementVendorSpecificKey)
+			|| !CompareProperty(_properties, matching, kIOHIDElementUnitKey)
+			|| !CompareProperty(_properties, matching, kIOHIDElementUnitExponentKey)
+			|| !CompareProperty(_properties, matching, kIOHIDElementNameKey)
+			|| !CompareProperty(_properties, matching, kIOHIDElementValueLocationKey)
+			|| !CompareProperty(_properties, matching, kIOHIDElementDuplicateIndexKey)
+			|| !CompareProperty(_properties, matching, kIOHIDElementParentCollectionKey))
 		{
 			ret = false;
-		}
-		properties->release();
-		
+		}		
 	} while ( false );
 	
 	return ret;
@@ -1092,9 +1125,10 @@ bool IOHIDElementPrivate::processReport(
         if ( _reportID != reportID )
             break;
             
+        // Skip reports that are too short
         if ( (_reportStartBit + (_reportBits * _reportCount)) > reportBits )
             break;
-
+            
         if ( ( _usagePage == kHIDPage_KeyboardOrKeypad )
              && ( getUsage() >= kHIDUsage_KeyboardLeftControl )
              && ( getUsage() <= kHIDUsage_KeyboardRightGUI )
@@ -1795,3 +1829,86 @@ IOByteCount IOHIDElementPrivate::getByteSize()
 	
 	return byteSize;
 }
+
+unsigned int IOHIDElementPrivate::iteratorSize() const
+{
+    return 0;
+}
+
+bool IOHIDElementPrivate::initIterator(void * iterationContext) const
+{
+    return false;
+}
+
+bool IOHIDElementPrivate::getNextObjectForIterator(void      * iterationContext,
+                                                   OSObject ** nextObject) const
+{
+    *nextObject = NULL;
+    return 0;
+}
+
+unsigned int IOHIDElementPrivate::getCount() const
+{
+    return 1;
+}
+
+unsigned int IOHIDElementPrivate::getCapacity() const
+{
+    return 1;
+}
+
+unsigned int IOHIDElementPrivate::getCapacityIncrement() const
+{
+    return 0;
+}
+
+unsigned int IOHIDElementPrivate::setCapacityIncrement(unsigned increment __unused)
+{
+    return 0;
+}
+
+unsigned int IOHIDElementPrivate::ensureCapacity(unsigned int newCapacity __unused)
+{
+    return 0;
+}
+
+void IOHIDElementPrivate::flushCollection()
+{
+}
+
+unsigned IOHIDElementPrivate::setOptions(unsigned options,
+                                         unsigned mask,
+                                         void * context __unused)
+{
+    unsigned old = super::setOptions(options, mask);
+    if ((old ^ options) & mask) {
+        // Value changed need to set all of the child collections
+        if (_childArray)
+            _childArray->setOptions(options, mask);
+        if (_properties)
+            _properties->setOptions(options, mask);
+    }
+    return old;
+}
+
+OSCollection * IOHIDElementPrivate::copyCollection(OSDictionary * cycleDict)
+{
+    OSCollection *ret = NULL;
+    if (_properties) {
+        // make sure to force deep copy
+        ret = _properties->copyCollection(cycleDict);
+        OSDictionary *copy = OSDynamicCast(OSDictionary, ret);
+        if (_childArray && copy) {
+            OSCollection *childCopy = _childArray->copyCollection(cycleDict);
+            if (childCopy) {
+                copy->setObject( kIOHIDElementKey, childCopy );
+                childCopy->release();
+            }
+        }
+    }
+    else {
+        kprintf("%s - no properties\n", __PRETTY_FUNCTION__);
+    }
+    return ret;
+}
+

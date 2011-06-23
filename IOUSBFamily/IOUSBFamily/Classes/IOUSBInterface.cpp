@@ -63,6 +63,8 @@ extern KernelDebugLevel	    gKernelDebugLevel;
 #define _WORKLOOP		_expansionData->_workLoop
 #define _NEED_TO_CLOSE	_expansionData->_needToClose
 #define _PIPEOBJLOCK	_expansionData->_pipeObjLock
+#define _OPEN_CLIENTS	_expansionData->_openClients
+
 
 /* Convert USBLog to use kprintf debugging */
 #define IOUSBINTERFACE_USE_KPRINTF 0
@@ -89,6 +91,12 @@ __attribute__((format(printf, 1, 2)));
 OSDefineMetaClassAndStructors(IOUSBInterface, IOUSBNub)
 
 #pragma mark ееееееее IOService Methods еееееееее
+
+//================================================================================================
+//
+//   start
+//
+//================================================================================================
 bool 
 IOUSBInterface::start(IOService *provider)
 {
@@ -102,6 +110,8 @@ IOUSBInterface::start(IOService *provider)
 	
     if ( !super::start(provider))
         return false;
+	
+	retain();
 	
     _device = device;
     _GATE = IOCommandGate::commandGate(this);
@@ -140,6 +150,8 @@ IOUSBInterface::start(IOService *provider)
 	USBLog(6, "IOUSBInterface[%p]::start - opening device[%p]", this, _device);
 	_device->open(this);
 	
+	release();
+	
     return true;
 	
 ErrorExit:
@@ -156,17 +168,21 @@ ErrorExit:
         _WORKLOOP = NULL;
     }
 	
+	release();
+	
     return false;
 	
 }
 
 
-
+//================================================================================================
+//
+//	open
 // 
-// open - the IOService open method
-// note that we don't actually do anything related to the open here. we just run the call through our workLoop gate
+//	Note that we don't actually do anything related to the open here. we just run the call through our workLoop gate
 // the actual open work is handled in handleOpen
 //
+//================================================================================================
 bool 
 IOUSBInterface::open( IOService *forClient, IOOptionBits options, void *arg )
 {
@@ -198,78 +214,116 @@ IOUSBInterface::open( IOService *forClient, IOOptionBits options, void *arg )
 }
 
 
-
+//================================================================================================
+//
+//	handleOpen
+//
+//================================================================================================
 bool 
 IOUSBInterface::handleOpen( IOService *forClient, IOOptionBits options, void *arg )
 {
     UInt16		altInterface;
     IOReturn		err = kIOReturnSuccess;
-	
+	bool		result = false;
+	bool		exclusiveOpen = (options & kUSBOptionBitOpenExclusivelyMask) ? true : false;
 	
     USBLog(6, "+%s[%p]::handleOpen (device %s)", getName(), this, _device->getName());
-    if (!super::handleOpen(forClient, options, arg))
-    {
-        USBLog(2,"%s[%p]::handleOpen failing because super::handleOpen failed (someone already has it open)", getName(), this);
-		return false;
-    }
 	
-    if (options & kIOUSBInterfaceOpenAlt)
+	if (forClient->metaCast("IOUSBInterfaceUserClientV2") && !exclusiveOpen)
     {
-        altInterface = (UInt16)(uintptr_t)arg;
-        
-        // Note that SetAlternateInterface will actually create the pipes
-        //
-        USBLog(5, "%s[%p]::handleOpen calling SetAlternateInterface(%d)", getName(), this, altInterface);
-        err =  SetAlternateInterface(forClient, altInterface);
-        if ( err != kIOReturnSuccess) 
+		if (_OPEN_CLIENTS == NULL)
 		{
-            USBLog(1, "%s[%p]::handleOpen: SetAlternateInterface failed (0x%x)", getName(), this, err);
+			_OPEN_CLIENTS = OSSet::withCapacity(1);
 		}
-        
-    }
-    else
-    {
-        err = CreatePipes();
-        if ( err != kIOReturnSuccess) 
+		if (_OPEN_CLIENTS)
 		{
-            USBError(1, "%s[%p]::handleOpen: CreatePipes failed (0x%x)", getName(), this, err);
-        }
-    }
-    
-    if (err != kIOReturnSuccess)
-    {
-        close(forClient);
-        return false;
-    }
-	
-    return true;
-}
+			_OPEN_CLIENTS->setObject(forClient);
 
+			USBLog(6, "%s[%p]::handleOpen - %s[%p] added to open set", getName(), this, forClient->getName(), forClient);
+			result = true;
+		}
+	}
+	else
+	{
+		USBLog(5, "%s[%p]::handleOpen - [%p] is a %s, exclusiveOpen = %s", getName(), this, forClient, forClient->getName(), exclusiveOpen ? "TRUE":"FALSE");
+		result = super::handleOpen(forClient, options, arg);
+		USBLog(6, "%s[%p]::handleOpen - super::handleOpen returned 0x%x", getName(), this, result);
+		
+		if (result)
+		{
+			if (options & kIOUSBInterfaceOpenAlt)
+			{
+				altInterface = (UInt16)(uintptr_t)arg;
+				
+				// Note that SetAlternateInterface will actually create the pipes
+				//
+				USBLog(5, "%s[%p]::handleOpen calling SetAlternateInterface(%d)", getName(), this, altInterface);
+				err =  SetAlternateInterface(forClient, altInterface);
+				if ( err != kIOReturnSuccess) 
+				{
+					USBLog(1, "%s[%p]::handleOpen: SetAlternateInterface failed (0x%x)", getName(), this, err);
+				}
+			}
+			else
+			{
+				err = CreatePipes();
+				if ( err != kIOReturnSuccess) 
+				{
+					USBError(1, "%s[%p]::handleOpen: CreatePipes failed (0x%x)", getName(), this, err);
+				}
+			}
+		}
+		
+		if (err != kIOReturnSuccess)
+		{
+			close(forClient);
+			result = false;
+		}
+	}
+	
+    return result;
+}
 
 
 // 
 // close - the IOService close method
-// note that we don't actually do all of the close stuff here
-// the rest of the actual close work is handled in handleClose
+// note that we don't actually do anything related to the close here. we just run the call through our workLoop gate
+// the actual close work is handled in handleClose
 //
 void 
 IOUSBInterface::close( IOService *forClient, IOOptionBits options)
 {
 	int			i;
 	IOUSBPipe	*pipe;
+	bool		exclusiveOpen = (options & kUSBOptionBitOpenExclusivelyMask) ? true : false;
 	
-	// before we go through the WL gate, we go ahead and grab the PIPEOBJLOCK and Abort the pipes
-	// this can help prevent a deadlock
-	
-	IOLockLock(_PIPEOBJLOCK);
-	
-    for( i=0; i < kUSBMaxPipes; i++) 
+	if (forClient->metaCast("IOUSBInterfaceUserClientV2") && !exclusiveOpen)
 	{
-        if ( (pipe = OSDynamicCast(IOUSBPipe,_pipeList[i]))) 
-			pipe->Abort(); 
+        USBLog(6,"%s[%p]::close  called from an IOUSBInterfaceUserClientV2 client that was not open exclusively, so no need to abort pipes", getName(), this);
 	}
-	
-	IOLockUnlock(_PIPEOBJLOCK);
+	else
+	{
+		// If our client is the IOUSBUserClientV2 and we are inactive, then we don't need to Abort() the pipes.  The IOKit termination would have taken care of it via the ClosePipes().
+		if (forClient->metaCast("IOUSBInterfaceUserClientV2") && isInactive())
+		{
+	        USBLog(6,"%s[%p]::close  called from an IOUSBInterfaceUserClientV2 client but we are inactive.  Not aborting pipes", getName(), this);
+		}
+		else
+		{
+			// before we go through the WL gate, we go ahead and grab the PIPEOBJLOCK and Abort the pipes
+			// this can help prevent a deadlock
+			
+			IOLockLock(_PIPEOBJLOCK);
+			
+			for( i=0; i < kUSBMaxPipes; i++) 
+			{
+				if ( (pipe = OSDynamicCast(IOUSBPipe,_pipeList[i]))) 
+					pipe->Abort(); 
+			}
+			
+			IOLockUnlock(_PIPEOBJLOCK);
+		}
+	}
 	
     if ( _expansionData && _GATE )
     {
@@ -284,22 +338,99 @@ IOUSBInterface::close( IOService *forClient, IOOptionBits options)
 }
 
 
-
+//================================================================================================
+//
+//	handleClose
+//
+//================================================================================================
 void 
 IOUSBInterface::handleClose(IOService *	forClient, IOOptionBits	options )
 {	
-    USBLog(6,"+IOUSBInterface[%p]::handleClose", this);
+	bool			exclusiveOpen = (options & kUSBOptionBitOpenExclusivelyMask) ? true : false;
+
+    USBLog(6,"+%s[%p]::handleClose", getName(), this);
 	
-    super::handleClose(forClient, options);
-	
+	if (forClient->metaCast("IOUSBInterfaceUserClientV2") && !exclusiveOpen)
+	{
+		if (_OPEN_CLIENTS)
+		{
+			_OPEN_CLIENTS->removeObject(forClient);
+
+			USBLog(6, "%s[%p]::handleClose - %s[%p] removed from open set", getName(), this, forClient->getName(), forClient);
+		}
+		else
+		{
+			USBLog(2, "%s[%p]::handleClose - _OPEN_CLIENTS is NULL", getName(), this);
+		}
+	}
+	else
+	{
+		USBLog(5, "%s[%p]::handleClose - [%p] is a %s, exclusiveOpen = %s", getName(), this, forClient, forClient->getName(), exclusiveOpen ? "TRUE":"FALSE");
+		super::handleClose(forClient, options);
+		USBLog(6,"%s[%p]::handleClose  after super::handleClose  _OPEN_CLIENTS: %p, ->getCount(): %d", getName(), this, _OPEN_CLIENTS, _OPEN_CLIENTS ? _OPEN_CLIENTS->getCount() : 0);
+
+	}
+
+	// Check to see if we need to close our device now
 	if (_expansionData && _NEED_TO_CLOSE)
 	{
-		USBLog(5,"IOUSBInterface[%p]::handleClose - now closing our provider from deferred close", this);
+		USBLog(5,"%s[%p]::handleClose - now closing our provider from deferred close", getName(), this);
 		_device->close(this);
 		_NEED_TO_CLOSE = false;
 	}
-    USBLog(6,"-IOUSBInterface[%p]::handleClose", this);
+
+	USBLog(6,"-%s[%p]::handleClose", getName(), this);
 }
+
+
+
+//================================================================================================
+//
+//	handleIsOpen
+//
+//	Note that a client that opened us exclusively will not be in our known set of clients who opened us.  Unfortunately handleIsOpen() does
+//	not have a variation on whether it was opened with some particular IOOptionBits.  Not sure if this will be a problem, but as long as we
+//	know that it is the case, we can work around that limitation
+//
+//================================================================================================
+bool
+IOUSBInterface::handleIsOpen(const IOService *forClient) const
+{
+	bool	result = false;
+	
+	if (forClient == NULL)
+	{
+		if (_OPEN_CLIENTS && (_OPEN_CLIENTS->getCount() > 0))
+			result = true;
+	}
+	else if (forClient->metaCast("IOUSBInterfaceUserClientV2"))
+	{
+		if (_OPEN_CLIENTS)
+		{
+			if (_OPEN_CLIENTS->containsObject(forClient))
+			{
+				USBLog(6, "%s[%p]::handleIsOpen - %s[%p] has us open", getName(), this, forClient->getName(), forClient);
+				result = true;
+			}
+			else
+			{
+				USBLog(2, "%s[%p]::handleIsOpen - %s[%p] is not in _OPEN_CLIENTS", getName(), this, forClient->getName(), forClient);
+			}
+		}
+		else
+		{
+			USBLog(2, "%s[%p]::handleIsOpen - no _OPEN_CLIENTS", getName(), this);
+		}
+	}
+	
+	if (!result)
+	{
+		result = super::handleIsOpen(forClient);
+	}
+	
+	return result;
+}
+
 
 
 
@@ -308,8 +439,6 @@ IOUSBInterface::message( UInt32 type, IOService * provider,  void * argument )
 {
 #pragma unused (provider)
 	IOReturn	err = kIOReturnSuccess;
-    IOUSBPipe *	pipe;
-    int			i;
 	
     switch ( type )
     {
@@ -321,28 +450,22 @@ IOUSBInterface::message( UInt32 type, IOService * provider,  void * argument )
 		break;
 		
 	case kIOUSBMessagePortHasBeenReset:
-		
-		// First, reset all our pipes so that the UIM clears any state
-		//
-		IOLockLock(_PIPEOBJLOCK);
-
-		for ( i = 0; i < kUSBMaxPipes; i++)
+		if ( _expansionData && _GATE )
 		{
-			pipe = OSDynamicCast(IOUSBPipe,_pipeList[i]);
-			if ( pipe ) 
+			USBLog(6,"%s[%p]::message calling _ResetPipes with gate", getName(), this);
+			err = _GATE->runAction( _ResetPipes, (void *)this, (void *)NULL, (void *)NULL );
+			if ( err != kIOReturnSuccess )
 			{
-				pipe->Reset(); 
+				USBLog(2,"%s[%p]:message _ResetPipes failed (0x%x)", getName(), this, err);
+			}
+			else
+			{
+				// Forward the message to our clients
+				//
+				USBLog(6, "%s[%p]::message - received kIOUSBMessagePortHasBeenReset", getName(), this);
+				messageClients( kIOUSBMessagePortHasBeenReset, argument, sizeof(IOReturn) );
 			}
 		}
-		
-		IOLockUnlock(_PIPEOBJLOCK);
-
-		// We should also set the alternate interface here if we have set it in the past
-		
-		// Forward the message to our clients
-		//
-		USBLog(6, "%s[%p]::message - received kIOUSBMessagePortHasBeenReset", getName(), this);
-		messageClients( kIOUSBMessagePortHasBeenReset, argument, sizeof(IOReturn) );
 		break;
 		
 	case kIOUSBMessagePortHasBeenResumed:
@@ -385,7 +508,7 @@ IOUSBInterface::message( UInt32 type, IOService * provider,  void * argument )
 
 
 //
-// IOUSBDevice::terminate
+// IOUSBInterface::terminate
 //
 // Since IOUSBInterface is most often terminated directly by the USB family, willTerminate and didTerminate will not be called most of the time
 // therefore we do things which we might otherwise have done in those methods before and after we call super::terminate (5024412)
@@ -415,9 +538,14 @@ IOUSBInterface::terminate( IOOptionBits options )
 		USBLog(2, "%s[%p]::didTerminate - NULL _device!!", getName(), this);
 	}
 	
-	USBLog(5, "-%s[%p]::terminate", getName(), this);
+	if (_expansionData && _OPEN_CLIENTS)
+	{
+		USBLog(5, "%s[%p]::terminate - _OPEN_CLIENTS has a count of %d", getName(), this, _OPEN_CLIENTS->getCount());
+	}
 	
+	USBLog(6, "%s[%p]::terminate  calling super::terminate", getName(), this);
 	retValue = super::terminate(options);
+	USBLog(6, "-%s[%p]::terminate", getName(), this);
 	
 	return retValue;
 }
@@ -461,7 +589,7 @@ IOUSBInterface::finalize(IOOptionBits options)
 void
 IOUSBInterface::free()
 {
-	USBLog(5, "+%s[%p]::free", getName(), this);
+    USBLog(6,"+IOUSBInterface[%p]::free", this);
 
     //  This needs to be the LAST thing we do, as it disposes of our "fake" member
     //  variables.
@@ -486,11 +614,24 @@ IOUSBInterface::free()
 			_PIPEOBJLOCK = 0;
 		}
 
+		if (_OPEN_CLIENTS)
+		{
+			if (_OPEN_CLIENTS->getCount())
+			{
+				USBLog(2, "IOUSBInterface[%p]::free - called with %d _OPEN_CLIENTS", this, _OPEN_CLIENTS->getCount());
+			}
+			else
+			{
+				_OPEN_CLIENTS->release();
+				_OPEN_CLIENTS = NULL;
+			}
+		}
+
         IOFree(_expansionData, sizeof(ExpansionData));
         _expansionData = NULL;
     }
 
-	USBLog(5, "-%s[%p]::free", getName(), this);
+	USBLog(6, "-IOUSBInterface[%p]::free", this);
 
     super::free();
 }
@@ -750,7 +891,7 @@ IOUSBInterface::ClosePipes(void)
 {
     IOUSBPipe * pipe;
 
-    USBLog(7,"+%s[%p]::ClosePipes", getName(), this);
+    USBLog(6,"+%s[%p]::ClosePipes", getName(), this);
 
 	IOLockLock(_PIPEOBJLOCK);
 
@@ -770,6 +911,54 @@ IOUSBInterface::ClosePipes(void)
     USBLog(7,"-%s[%p]::ClosePipes", getName(), this);
 }
 
+IOReturn
+IOUSBInterface::_ResetPipes(OSObject *target, void *param1, void *param2, void *param3, void *param4)
+{
+#pragma unused (param1, param2, param3, param4)
+	
+    IOUSBInterface*	me	= OSDynamicCast(IOUSBInterface, target);
+    IOReturn		ret = kIOReturnSuccess;
+	
+    if (!me)
+    {
+        USBLog(1, "IOUSBInterface::_ResetPipes - invalid target");
+        return kIOReturnBadArgument;
+    }
+	
+    ret = me->ResetPipes();
+	
+    return ret;
+}
+
+IOReturn
+IOUSBInterface::ResetPipes(void)
+{
+	IOUSBPipe*	pipe;
+    IOReturn	ret = kIOReturnSuccess;
+
+	USBLog(7,"+%s[%p]::ResetPipes", getName(), this);
+
+	// First, reset all our pipes so that the UIM clears any state
+	//
+	IOLockLock(_PIPEOBJLOCK);
+	
+	for ( unsigned int i = 0; i < kUSBMaxPipes; i++ )
+	{
+		pipe = OSDynamicCast(IOUSBPipe,_pipeList[i]);
+		if ( pipe ) 
+		{
+			ret = pipe->Reset(); 
+		}
+		
+		if(ret != kIOReturnSuccess) break;
+	}
+	
+	IOLockUnlock(_PIPEOBJLOCK);
+	
+	USBLog(7,"-%s[%p]::ResetPipes", getName(), this);
+	
+	return ret;
+}
 
 IOReturn
 IOUSBInterface::CreatePipes(void)
@@ -800,7 +989,11 @@ IOUSBInterface::CreatePipes(void)
             makePipeFailed = true;
         }
             
-        i++;
+		// bounds checking
+        if( ++i >= kUSBMaxPipes )
+		{
+			break;
+		}
     }
     
    // Relax the checkin on whether the # of pipes created was the same as the bNumEndpoints
@@ -886,7 +1079,7 @@ IOUSBInterface::FindNextPipe(IOUSBPipe *current,
 	
 	if (current != 0)
 	{
-		for(i=0;i < numEndpoints; i++)
+		for(i=0; (i < numEndpoints) && (i < kUSBMaxPipes) ; i++)
 		{
 			if (_pipeList[i] == current)
 			{
@@ -900,7 +1093,7 @@ IOUSBInterface::FindNextPipe(IOUSBPipe *current,
 		i = 0;	// Start at beginning.
 	}
 	
-	for ( ;i < numEndpoints; i++) 
+	for ( ; (i < numEndpoints) && (i < kUSBMaxPipes) ; i++) 
 	{
 		pipe = OSDynamicCast(IOUSBPipe,_pipeList[i]);
 		if (!pipe)

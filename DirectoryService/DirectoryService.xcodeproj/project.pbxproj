@@ -2684,7 +2684,14 @@
 			isa = PBXProject;
 			buildConfigurationList = 61105F4108B53C1300CF6233 /* Build configuration list for PBXProject "DirectoryService" */;
 			compatibilityVersion = "Xcode 3.1";
+			developmentRegion = English;
 			hasScannedForEncodings = 1;
+			knownRegions = (
+				English,
+				Japanese,
+				French,
+				German,
+			);
 			mainGroup = 0035DA8C00AB410A00DD2B59;
 			productRefGroup = 0035DB1400AB596200DD2B59 /* Products */;
 			projectDirPath = "";

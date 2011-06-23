@@ -101,7 +101,8 @@ BOOL winbindd_init_sockets(int *public_sock, int *priv_sock,
 		*priv_sock = open_winbindd_priv_socket();
 		*idle_timeout_sec = -1;
 
-		if (*public_sock == -1 || *priv_sock == -1) {
+		if (*public_sock < 0 || *public_sock >= FD_SETSIZE ||
+			*priv_sock < 0 || *priv_sock >= FD_SETSIZE) {
 			DEBUG(0, ("failed to open winbindd pipes: %s\n",
 			    errno ? strerror(errno) : "unknown error"));
 			return False;

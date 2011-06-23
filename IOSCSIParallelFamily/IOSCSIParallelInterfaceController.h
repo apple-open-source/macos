@@ -1542,8 +1542,9 @@ private:
 	// These shall not be overridden by the HBA child classes.
 	bool			start ( IOService * 				provider );
 	void			stop ( 	IOService *  				provider );
-
-
+	virtual void	free ( void );
+	
+	
 protected:
 	
 	// These may be overriden by the HBA child classes if necessary, but should

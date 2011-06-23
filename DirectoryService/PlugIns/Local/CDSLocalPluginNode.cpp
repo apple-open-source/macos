@@ -51,6 +51,8 @@
 #include <dispatch/dispatch.h>
 #include <uuid/uuid.h>
 #include <Mbrd_MembershipResolver.h>
+#include <unistd.h>
+#include <System/sys/fsctl.h>
 
 #define kGeneratedUIDStr			"generateduid"
 #define kAuthAuthorityStr			"authentication_authority"
@@ -934,12 +936,10 @@ tDirStatus CDSLocalPluginNode::FlushRecord( CFStringRef inRecordFilePath, CFStri
 	CFStringRef recordTypeDirPath = NULL;
 	CFDataRef recordDictData = NULL;
 	CFStringRef changedNameRecordFilePath = NULL;
-	FILE* tempFile = NULL;
 	char* cStr = NULL;
 	size_t cStrSize = 0;
 	char* cStr2 = NULL;
 	size_t cStrSize2 = 0;
-	bool needRecordTypeDirPath = false;
 	CFDictionaryRef recordDict = inRecordDict;
 	CFMutableDictionaryRef recordMutableDict = NULL;
 	
@@ -1007,21 +1007,9 @@ tDirStatus CDSLocalPluginNode::FlushRecord( CFStringRef inRecordFilePath, CFStri
 		
 		// open the temp file for writing
 		const char* tempFilePathCStr = CStrFromCFString( mutableTempFilePath, &cStr, &cStrSize, NULL );
-		tempFile = ::fopen( tempFilePathCStr, "w" );
-		if ( tempFile != NULL )
-		{
-			int rc = ::chmod( tempFilePathCStr, S_IRUSR | S_IWUSR );
-			if ( rc != 0 )
-				DbgLog(  kLogError, "CDSLocalPluginNode::FlushRecord() got an error %d while trying to chmod %s",
-					errno, tempFilePathCStr );
-		}
-
 		// this can happen if the containing directory doesn't exist.
-		if ( tempFile == NULL )
-			needRecordTypeDirPath = true;
-
-		if ( needRecordTypeDirPath )
-		{
+        int fd = open(tempFilePathCStr, O_RDWR | O_NOFOLLOW | O_CREAT, S_IRUSR | S_IWUSR);
+        if (fd == -1) {
 			CFRange lastSlashRange = CFStringFind( inRecordFilePath, CFSTR( "/" ), kCFCompareBackwards );
 			if ( lastSlashRange.location == kCFNotFound )
 			{
@@ -1034,25 +1022,16 @@ tDirStatus CDSLocalPluginNode::FlushRecord( CFStringRef inRecordFilePath, CFStri
 				throw( eMemoryAllocError );
 		}
 
-		if ( tempFile == NULL )
-		{
+		if ( fd == -1 ) {
 			const char* recordTypeDirCStr = CStrFromCFString( recordTypeDirPath, &cStr2, &cStrSize2, NULL );
 			
 			if ( EnsureDirs(recordTypeDirCStr, 0700, 0700) == 0 )
 			{
-				tempFile = ::fopen( tempFilePathCStr, "w" );
-				if ( tempFile == NULL )
-				{
+                fd = open(tempFilePathCStr, O_RDWR | O_NOFOLLOW | O_CREAT, S_IRUSR | S_IWUSR);
+				if (fd == -1) {
 					DbgLog( kLogError, "CDSLocalPluginNode::FlushRecord(): fopen() returned NULL while attempting to open \'w\' \"%s\"",
 						   tempFilePathCStr );
 					throw( ePlugInDataError );
-				}
-				else
-				{
-					int rc = ::chmod( tempFilePathCStr, S_IRUSR | S_IWUSR );
-					if ( rc != 0 )
-						DbgLog(  kLogPlugin, "CDSLocalPluginNode::FlushRecord() got an error %d while trying to chmod %s",
-							   errno, tempFilePathCStr );
 				}
 			}
 			else
@@ -1060,25 +1039,38 @@ tDirStatus CDSLocalPluginNode::FlushRecord( CFStringRef inRecordFilePath, CFStri
 				DbgLog( kLogError, "CDSLocalPluginNode::FlushRecord() failed to create Directory structure %s", recordTypeDirCStr );
 				throw( ePlugInDataError );
 			}
-		}
+        }
 		
 		// write the bytes to the temp file
-		size_t numBlocksWritten = ::fwrite( ::CFDataGetBytePtr( recordDictData ),
-			(size_t)::CFDataGetLength( recordDictData ), 1, tempFile );
-		::fclose( tempFile );
-		tempFile = NULL;
-		if ( numBlocksWritten != 1 )
-		{
-			DbgLog(  kLogPlugin, "CDSLocalPluginNode::FlushRecord(): fwrite() returned unexpected number of blocks written: %d",
-				numBlocksWritten );
-			throw( ePlugInDataError );
-		}
-		
-		// replace the original file (if it's there) with the temp file
 		const char* recFilePathCStr = CStrFromCFString( inRecordFilePath, &cStr2, &cStrSize2, NULL );
-		if ( ::rename( tempFilePathCStr, recFilePathCStr ) != 0 )
-		{
-			DbgLog(  kLogPlugin, "CDSLocalPluginNode::FlushRecord(): rename() failed to move temp file into proper place" );
+        ssize_t bytesToWrite = CFDataGetLength(recordDictData);
+        ssize_t numBytesWritten = write(fd, CFDataGetBytePtr(recordDictData), bytesToWrite);
+        if (bytesToWrite == numBytesWritten) {
+            // extra paranoid about writing of our files, ensure they are sync
+            int flags = FSCTL_SYNC_WAIT | FSCTL_SYNC_FULLSYNC;
+            int tempfd = open(recFilePathCStr, O_RDONLY); // open the file so it thinks it is in use
+            
+            // flush contents of the new file
+            ffsctl(fd, FSCTL_SYNC_VOLUME, &flags, sizeof(flags));
+            close(fd);
+            
+            // rename it into position and flush the cache, if it fails cleanup
+            if (rename(tempFilePathCStr, recFilePathCStr) == -1) {
+                close(tempfd);
+                unlink(tempFilePathCStr);
+                
+                DbgLog(  kLogPlugin, "CDSLocalPluginNode::FlushRecord(): rename() failed to move temp file into proper place" );
+                throw( ePlugInDataError );
+            }
+			
+			ffsctl(tempfd, FSCTL_SYNC_VOLUME, &flags, sizeof(flags));
+			close(tempfd);
+        } else {
+			close(fd);
+			unlink(tempFilePathCStr);
+			
+			DbgLog(  kLogPlugin, "CDSLocalPluginNode::FlushRecord(): fwrite() returned unexpected number of blocks written: %d",
+				numBytesWritten );
 			throw( ePlugInDataError );
 		}
 		
@@ -1151,11 +1143,6 @@ tDirStatus CDSLocalPluginNode::FlushRecord( CFStringRef inRecordFilePath, CFStri
 	
 	DSFreeString( cStr );
 	DSFreeString( cStr2 );
-	if ( tempFile != NULL )
-	{
-		::fclose( tempFile );
-		tempFile = NULL;
-	}
 	if ( recordDictData != NULL )
 	{
 		::CFRelease( recordDictData );

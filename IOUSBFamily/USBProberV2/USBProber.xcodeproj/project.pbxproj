@@ -84,6 +84,10 @@
 		72E78FB204B4C1AD00644F51 /* DecodeAudioInterfaceDescriptor.m in Sources */ = {isa = PBXBuildFile; fileRef = 72E78FB004B4C1AD00644F51 /* DecodeAudioInterfaceDescriptor.m */; };
 		72E78FC104B4CF0D00644F51 /* DecodeCommClassDescriptor.h in Headers */ = {isa = PBXBuildFile; fileRef = 72E78FBF04B4CF0C00644F51 /* DecodeCommClassDescriptor.h */; };
 		72E78FC204B4CF0D00644F51 /* DecodeCommClassDescriptor.m in Sources */ = {isa = PBXBuildFile; fileRef = 72E78FC004B4CF0D00644F51 /* DecodeCommClassDescriptor.m */; };
+		84281E60126782430039577F /* PortStatusController.h in Headers */ = {isa = PBXBuildFile; fileRef = 84281E5E126782430039577F /* PortStatusController.h */; };
+		84281E61126782430039577F /* PortStatusController.m in Sources */ = {isa = PBXBuildFile; fileRef = 84281E5F126782430039577F /* PortStatusController.m */; };
+		84281E64126783230039577F /* PortStatusGatherer.h in Headers */ = {isa = PBXBuildFile; fileRef = 84281E62126783230039577F /* PortStatusGatherer.h */; };
+		84281E65126783230039577F /* PortStatusGatherer.m in Sources */ = {isa = PBXBuildFile; fileRef = 84281E63126783230039577F /* PortStatusGatherer.m */; };
 		8D11072A0486CEB800E47090 /* MainMenu.nib in Resources */ = {isa = PBXBuildFile; fileRef = 29B97318FDCFA39411CA2CEA /* MainMenu.nib */; };
 		8D11072B0486CEB800E47090 /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = 089C165CFE840E0CC02AAC07 /* InfoPlist.strings */; };
 		8D11072D0486CEB800E47090 /* main.m in Sources */ = {isa = PBXBuildFile; fileRef = 29B97316FDCFA39411CA2CEA /* main.m */; settings = {ATTRIBUTES = (); }; };
@@ -199,6 +203,10 @@
 		72E78FB004B4C1AD00644F51 /* DecodeAudioInterfaceDescriptor.m */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.objc; path = DecodeAudioInterfaceDescriptor.m; sourceTree = "<group>"; };
 		72E78FBF04B4CF0C00644F51 /* DecodeCommClassDescriptor.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = DecodeCommClassDescriptor.h; sourceTree = "<group>"; };
 		72E78FC004B4CF0D00644F51 /* DecodeCommClassDescriptor.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = DecodeCommClassDescriptor.m; sourceTree = "<group>"; };
+		84281E5E126782430039577F /* PortStatusController.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = PortStatusController.h; sourceTree = "<group>"; };
+		84281E5F126782430039577F /* PortStatusController.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = PortStatusController.m; sourceTree = "<group>"; };
+		84281E62126783230039577F /* PortStatusGatherer.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = PortStatusGatherer.h; sourceTree = "<group>"; };
+		84281E63126783230039577F /* PortStatusGatherer.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = PortStatusGatherer.m; sourceTree = "<group>"; };
 		8D1107310486CEB800E47090 /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		8D1107320486CEB800E47090 /* USB Prober.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "USB Prober.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
@@ -240,6 +248,7 @@
 				72BE7DDA04A3899600EB1451 /* Kernel Extensions */,
 				72D2097B04A3CCCF0011EEA5 /* IORegistry */,
 				7265848804A8E8760093A8FB /* USB Logger */,
+				84281E5D126782010039577F /* Port Status */,
 			);
 			name = Classes;
 			sourceTree = "<group>";
@@ -432,6 +441,17 @@
 			name = IORegistry;
 			sourceTree = "<group>";
 		};
+		84281E5D126782010039577F /* Port Status */ = {
+			isa = PBXGroup;
+			children = (
+				84281E5E126782430039577F /* PortStatusController.h */,
+				84281E5F126782430039577F /* PortStatusController.m */,
+				84281E62126783230039577F /* PortStatusGatherer.h */,
+				84281E63126783230039577F /* PortStatusGatherer.m */,
+			);
+			name = "Port Status";
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 
 /* Begin PBXHeadersBuildPhase section */
@@ -477,6 +497,8 @@
 				726E123604BF743C00AF9680 /* IORegOutlineViewNode.h in Headers */,
 				72DC699804C3842E000F9492 /* IORegDetailOutlineViewNode.h in Headers */,
 				3E0EA9FB050D22BA009D1D9C /* USBLoggerFilterWindowController.h in Headers */,
+				84281E60126782430039577F /* PortStatusController.h in Headers */,
+				84281E64126783230039577F /* PortStatusGatherer.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -531,7 +553,14 @@
 			isa = PBXProject;
 			buildConfigurationList = 3E420D2E08E1B98300FD1873 /* Build configuration list for PBXProject "USBProber" */;
 			compatibilityVersion = "Xcode 2.4";
+			developmentRegion = English;
 			hasScannedForEncodings = 1;
+			knownRegions = (
+				English,
+				Japanese,
+				French,
+				German,
+			);
 			mainGroup = 29B97314FDCFA39411CA2CEA /* USB Prober */;
 			projectDirPath = "";
 			projectRoot = "";
@@ -645,6 +674,8 @@
 				726E123704BF743C00AF9680 /* IORegOutlineViewNode.m in Sources */,
 				72DC699904C3842E000F9492 /* IORegDetailOutlineViewNode.m in Sources */,
 				3E0EA9FC050D22BA009D1D9C /* USBLoggerFilterWindowController.m in Sources */,
+				84281E61126782430039577F /* PortStatusController.m in Sources */,
+				84281E65126783230039577F /* PortStatusGatherer.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -801,7 +832,7 @@
 			buildSettings = {
 				ARCHS = "$(ONLY_ACTIVE_ARCH_PRE_XCODE_3_1)";
 				GCC_PREPROCESSOR_DEFINITIONS = "_FORTIFY_SOURCE=2";
-				ONLY_ACTIVE_ARCH_PRE_XCODE_3_1 = "$(NATIVE_ARCH)";
+				ONLY_ACTIVE_ARCH_PRE_XCODE_3_1 = "$(NATIVE_ARCH_ACTUAL)";
 				VALID_ARCHS = "x86_64 i386 ppc";
 			};
 			name = Development;
@@ -811,7 +842,7 @@
 			buildSettings = {
 				ARCHS = "$(ONLY_ACTIVE_ARCH_PRE_XCODE_3_1)";
 				GCC_PREPROCESSOR_DEFINITIONS = "_FORTIFY_SOURCE=2";
-				ONLY_ACTIVE_ARCH_PRE_XCODE_3_1 = "$(NATIVE_ARCH)";
+				ONLY_ACTIVE_ARCH_PRE_XCODE_3_1 = "$(NATIVE_ARCH_ACTUAL)";
 				VALID_ARCHS = "x86_64 i386 ppc";
 			};
 			name = Deployment;
@@ -821,7 +852,7 @@
 			buildSettings = {
 				ARCHS = "$(ONLY_ACTIVE_ARCH_PRE_XCODE_3_1)";
 				GCC_PREPROCESSOR_DEFINITIONS = "_FORTIFY_SOURCE=2";
-				ONLY_ACTIVE_ARCH_PRE_XCODE_3_1 = "$(NATIVE_ARCH)";
+				ONLY_ACTIVE_ARCH_PRE_XCODE_3_1 = "$(NATIVE_ARCH_ACTUAL)";
 				VALID_ARCHS = "x86_64 i386 ppc";
 			};
 			name = Default;

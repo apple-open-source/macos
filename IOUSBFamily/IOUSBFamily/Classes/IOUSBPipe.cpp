@@ -1146,6 +1146,7 @@ IOUSBPipe::ControlRequest(IOUSBDevRequest *request, UInt32 noDataTimeout, UInt32
 	if ( _DEVICE && request && (_DEVICE->GetVendorID() == kAppleVendorID) && (request->bmRequestType == USBmakebmRequestType(kUSBOut, kUSBVendor, kUSBDevice)) && (request->bRequest == 0x40) && (request->wLength == 0) )
 	{
 		USBLog(1, "IOUSBPipe[%p]::ControlRequest  Possible charging command sent to %s @ 0x%x, operating: %d extra, sleep: %d", this, _DEVICE->getName(), (uint32_t)_DEVICE->_expansionData->_locationID, request->wIndex, request->wValue );
+		USBTrace(kUSBTPipe,  kTPPipeControlRequest, (uintptr_t)this, (uintptr_t)_DEVICE->_expansionData->_locationID, (uintptr_t)(request->wIndex<< 16 | request->wValue), 1 );
 	}
 
 
@@ -1200,6 +1201,7 @@ IOUSBPipe::ControlRequest(IOUSBDevRequestDesc *request, UInt32 noDataTimeout, UI
 	if ( _DEVICE && request && (_DEVICE->GetVendorID() == kAppleVendorID) && (request->bmRequestType == USBmakebmRequestType(kUSBOut, kUSBVendor, kUSBDevice)) && (request->bRequest == 0x40) && (request->wLength == 0) )
 	{
 		USBLog(1, "IOUSBPipe[%p]::ControlRequest  Possible charging command sent to %s @ 0x%x, operating: %d extra, sleep: %d", this, _DEVICE->getName(), (uint32_t)_DEVICE->_expansionData->_locationID, request->wIndex, request->wValue );
+		USBTrace(kUSBTPipe,  kTPPipeControlRequest, (uintptr_t)this, (uintptr_t)_DEVICE->_expansionData->_locationID, (uintptr_t)(request->wIndex<< 16 | request->wValue), 2 );
 	}
 	
 	

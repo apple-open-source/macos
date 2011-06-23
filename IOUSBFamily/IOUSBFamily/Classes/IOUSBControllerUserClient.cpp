@@ -187,6 +187,9 @@ IOUSBControllerUserClient::initWithTask(task_t owningTask, void *security_id, UI
 bool
 IOUSBControllerUserClient::start( IOService * provider )
 {
+    IOWorkLoop	*		workLoop = NULL;
+    IOCommandGate *		commandGate = NULL;
+
     fOwner = OSDynamicCast(IOUSBController, provider);
 
     if (!fOwner)
@@ -203,8 +206,53 @@ IOUSBControllerUserClient::start( IOService * provider )
         return kIOReturnNoResources;
     }
 
+    commandGate = IOCommandGate::commandGate(this);
+	
+    if (!commandGate)
+    {
+		USBError(1, "IOUSBControllerUserClient[%p]::start - unable to create command gate",  this);
+		goto ErrorExit;
+    }
+	
+	// Get the USB controller workloop
+    workLoop = fOwner->getWorkLoop();
+    if (!workLoop)
+    {
+		USBError(1, "IOUSBControllerUserClient[%p]::start - unable to find my workloop",  this);
+		goto ErrorExit;
+    }
+    workLoop->retain();
+	
+    if (workLoop->addEventSource(commandGate) != kIOReturnSuccess)
+    {
+		USBError(1, "IOUSBControllerUserClient[%p]::start - unable to add gate to work loop",  this);
+		goto ErrorExit;
+    }
+	
+	// Now that we have succesfully added our gate to the workloop, set our member variables
+    //
+    fGate = commandGate;
+    fWorkLoop = workLoop;
+
     return true;
+
+ErrorExit:
+	
+	if ( commandGate != NULL )
+	{
+		commandGate->release();
+		commandGate = NULL;
+	}
+	
+    if ( workLoop != NULL )
+    {
+        workLoop->release();
+        workLoop = NULL;
+    }
+	
+    return false;
 }
+
 
 
 IOReturn
@@ -296,16 +344,51 @@ IOUSBControllerUserClient::GetDebuggingType(KernelDebuggingOutputType * inType)
 
 
 
+IOReturn
+IOUSBControllerUserClient::GatedMessage(OSObject *owner, void *arg0, void *arg1, void *arg2, void *arg3 )
+{
+#pragma unused (arg1, arg2, arg3)
+    IOUSBControllerUserClient *me = (IOUSBControllerUserClient *)owner;
+	
+	USBLog(6, "IOUSBControllerUserClient[%p]::GatedMessage: %p", me, arg0);
+	return me->fOwner->message(kIOUSBMessageController, me, arg0);
+}
+
+
+
 void
 IOUSBControllerUserClient::stop( IOService * provider )
 {
-	super::stop( provider );
-
+    USBLog(6, "IOUSBControllerUserClient[%p]::stop(%p)",  this, provider);
+	
     if (fMemMap)
     {
         fMemMap->release();
         fMemMap = NULL;
     }
+
+	if (fWorkLoop && fGate)
+	{
+		fWorkLoop->removeEventSource(fGate);
+		
+		if (fGate)
+		{
+			fGate->release();
+			fGate = NULL;
+		}
+		
+		if (fWorkLoop)
+		{
+			fWorkLoop->release();
+			fWorkLoop = NULL;
+		}
+	}
+	
+	super::stop(provider);
+	
+    USBLog(7, "-IOUSBControllerUserClient[%p]::stop(%p)",  this, provider);
+	super::stop( provider );
+
 }
 
 IOReturn

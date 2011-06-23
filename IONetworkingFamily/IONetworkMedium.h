@@ -134,6 +134,7 @@ enum {
     kIOMediumOptionFullDuplex     = IFM_FDX,
     kIOMediumOptionHalfDuplex     = IFM_HDX,
     kIOMediumOptionFlowControl    = IFM_FLOW,
+    kIOMediumOptionEEE            = IFM_EEE,
     kIOMediumOptionFlag0          = IFM_FLAG0,
     kIOMediumOptionFlag1          = IFM_FLAG1,
     kIOMediumOptionFlag2          = IFM_FLAG2,

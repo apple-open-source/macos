@@ -111,7 +111,14 @@
 			isa = PBXProject;
 			buildConfigurationList = 4263B1A308BCCC2D00E7B1D3 /* Build configuration list for PBXProject "AppleSMBIOS" */;
 			compatibilityVersion = "Xcode 2.4";
+			developmentRegion = English;
 			hasScannedForEncodings = 1;
+			knownRegions = (
+				English,
+				Japanese,
+				French,
+				German,
+			);
 			mainGroup = 089C166AFE841209C02AAC07 /* AppleSMBIOS */;
 			projectDirPath = "";
 			projectRoot = "";
@@ -210,7 +217,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleSMBIOS;
-				MODULE_VERSION = 1.6;
+				MODULE_VERSION = 1.7;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -241,7 +248,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleSMBIOS;
-				MODULE_VERSION = 1.6;
+				MODULE_VERSION = 1.7;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -270,7 +277,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleSMBIOS;
-				MODULE_VERSION = 1.6;
+				MODULE_VERSION = 1.7;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";

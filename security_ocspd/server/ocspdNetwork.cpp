@@ -1,26 +1,27 @@
 /*
- * Copyright (c) 2000-2010 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
- * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ *
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ *
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
- * 
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 
-/* 
+/*
  * ocspdNetwork.cpp - Network support for ocspd and CRL/cert fetch
  */
 #if OCSP_DEBUG
@@ -31,7 +32,10 @@
 #include <security_ocspd/ocspdUtils.h>
 #include <CoreFoundation/CoreFoundation.h>
 #include <security_cdsa_utils/cuEnc64.h>
+#include <security_cdsa_utils/cuFileIo.h>
 #include <stdlib.h>
+#include <sys/stat.h>
+#include <dispatch/dispatch.h>
 #include <Security/cssmapple.h>
 #include <security_utilities/cfutilities.h>
 #include <CoreServices/CoreServices.h>
@@ -48,9 +52,13 @@
 #define CFReleaseNull(CF) { CFTypeRef _cf = (CF); \
 	if (_cf) { (CF) = NULL; CFRelease(_cf); } }
 
+extern Mutex gCRLWriteLock;
+extern Mutex gCRLFetchLock;
+extern char *gCRLFileName;
+
 #pragma mark ----- async HTTP -----
 
-/* how long to wait */
+/* how long to wait for more data to come in before we give up */
 #define READ_STREAM_TIMEOUT	7.0
 
 /* read buffer size */
@@ -65,7 +73,8 @@ typedef struct asynchttp_s {
 	CFHTTPMessageRef response;
 	CFMutableDataRef data;
 	CFIndex increment;
-	size_t responseLength;
+	size_t responseLength; /* how much data we have currently read */
+	size_t previousLength; /* how much data we had read when the timer was started */
 	CFReadStreamRef stream;
 	CFRunLoopTimerRef timer;
 	int finished;
@@ -114,7 +123,25 @@ static void asynchttp_timer_proc(
     if(req_url) CFRelease(req_url);
     if(req_meth) CFRelease(req_meth);
 #endif
-    asynchttp_complete(http);
+	bool hasNewData = (http->responseLength > http->previousLength);
+	http->previousLength = http->responseLength;
+
+	if(hasNewData) {
+		/* Still getting data, so restart the timer. */
+		CFRunLoopTimerContext timerContext = { 0, NULL, NULL, NULL, NULL };
+		timerContext.info = http;
+		CFRunLoopTimerInvalidate(http->timer);
+		CFReleaseNull(http->timer);
+		http->timer = CFRunLoopTimerCreate(kCFAllocatorDefault,
+			CFAbsoluteTimeGetCurrent() + READ_STREAM_TIMEOUT,
+			0, 0, 0, asynchttp_timer_proc, &timerContext);
+		if (http->timer) {
+			CFRunLoopAddTimer(CFRunLoopGetCurrent(), http->timer, kCFRunLoopDefaultMode);
+			return;
+		}
+	}
+	/* Haven't gotten any more data since last time (or failed to restart timer) */
+	asynchttp_complete(http);
 }
 
 static void handle_server_response(
@@ -207,8 +234,6 @@ static CFStringRef kAppOcspRequest	= CFSTR("application/ocsp-request");
 #define OCSP_RESP_FILE	"/tmp/ocspResp"
 
 #if		DUMP_BLOBS
-
-#include <security_cdsa_utils/cuFileIo.h>
 
 static void writeBlob(
 	const char *fileName,
@@ -691,8 +716,10 @@ cleanup:
 static CSSM_RETURN httpFetch(
 	Allocator			&alloc, 
 	const CSSM_DATA 	&url,
+	LF_Type				lfType,
 	CSSM_DATA			&fetched)	// mallocd in alloc space and RETURNED
 {
+	#pragma unused (lfType)
 	ocspdHttpDebug("httpFetch: start\n");
 
 	CSSM_RETURN result = CSSM_OK;
@@ -865,9 +892,103 @@ CSSM_RETURN ocspdNetFetch(
 	}
 	if(!strncmp((char *)url.Data, "http:", 5) ||
 	   !strncmp((char *)url.Data, "https:", 6)) {	
-		return httpFetch(alloc, url, fetched);
+		return httpFetch(alloc, url, lfType, fetched);
 	}
 	return CSSMERR_APPLETP_CRL_BAD_URI;
 }
 
+/* Maximum CRL length to consider putting in the cache db (128KB) */
+#define CRL_MAX_DATA_LENGTH (1024*128)
+
+/* Post-process network fetched data after finishing download. */
+CSSM_RETURN ocspdFinishNetFetch(
+	async_fetch_t *fetchParams)
+{
+	CSSM_RETURN crtn = CSSMERR_APPLETP_NETWORK_FAILURE;
+	if(!fetchParams) {
+		return crtn;
+	}
+	if(fetchParams->result != CSSM_OK) {
+		ocspdErrorLog("ocspdFinishNetFetch: CRL not found on net");
+		crtn = fetchParams->result;
+	}
+	else if(fetchParams->fetched.Length == 0) {
+		ocspdErrorLog("ocspdFinishNetFetch: no CRL data found");
+		crtn = CSSMERR_APPLETP_NETWORK_FAILURE;
+	}
+	else if(fetchParams->fetched.Length > CRL_MAX_DATA_LENGTH) {
+		if (fetchParams->fetched.Data) {
+			/* Write oversize CRL data to file */
+			StLock<Mutex> w_(gCRLWriteLock);
+			int rtn = writeFile(fetchParams->outFile, fetchParams->fetched.Data,
+				fetchParams->fetched.Length);
+			if(rtn) {
+				ocspdErrorLog("Error %d writing %s\n", rtn, fetchParams->outFile);
+			}
+			else {
+				ocspdCrlDebug("ocspdFinishNetFetch wrote %lu bytes to %s",
+					fetchParams->fetched.Length, fetchParams->outFile);
+
+				if(chmod(fetchParams->outFile, 0644)) {
+					ocspdErrorLog("ocspdFinishNetFetch: chmod error %d for %s",
+						errno, fetchParams->outFile);
+				}
+			}
+			(*(fetchParams->alloc)).free(fetchParams->fetched.Data);
+			fetchParams->fetched.Data = NULL;
+		}
+		crtn = CSSMERR_APPLETP_NETWORK_FAILURE;
+	}
+	return crtn;
+}
+
+/* Fetch cert or CRL from net asynchronously. */
+void ocspdNetFetchAsync(
+	void *context)
+{
+	async_fetch_t *params = (async_fetch_t *)context;
+	ocspdCrlDebug("ocspdNetFetchAsync with context %p", context);
+
+	params->finished = 0;
+	{
+		StLock<Mutex> f_(gCRLFetchLock);
+
+		params->result = ocspdNetFetch(*(params->alloc),
+			params->url, params->lfType, params->fetched);
+
+		params->result = ocspdFinishNetFetch(params);
+
+		StLock<Mutex> w_(gCRLWriteLock);
+		gCRLFileName = NULL; /* no longer downloading a CRL */
+	}
+	params->finished = 1;
+
+	if(params->freeOnDone) {
+		/* caller does not expect a reply; we must clean up everything. */
+		if(params->url.Data) {
+			free(params->url.Data);
+		}
+		if(params->outFile) {
+			free(params->outFile);
+		}
+		if(params->fetched.Data) {
+			(*(params->alloc)).free(params->fetched.Data);
+		}
+		free(params);
+	}
+}
+
+/* Kick off net fetch of a cert or a CRL and return immediately. */
+CSSM_RETURN ocspdStartNetFetch(
+	async_fetch_t		*fetchParams)
+{
+	dispatch_queue_t queue = dispatch_get_global_queue(
+		DISPATCH_QUEUE_PRIORITY_DEFAULT, 0);
+
+	ocspdCrlDebug("ocspdStartNetFetch with context %p", (void*)fetchParams);
+
+	dispatch_async_f(queue, fetchParams, ocspdNetFetchAsync);
+
+	return 0;
+}
 

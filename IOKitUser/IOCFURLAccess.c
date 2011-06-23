@@ -516,6 +516,7 @@ Boolean _IOReadBytesFromFile(CFAllocatorRef alloc, const char *path, void **byte
         *bytes = CFAllocatorAllocate(alloc, desiredLength, 0);
         if (read(fd, *bytes, desiredLength) < 0) {
             CFAllocatorDeallocate(alloc, *bytes);
+            *bytes = NULL;
             close(fd);
             return FALSE;
         }

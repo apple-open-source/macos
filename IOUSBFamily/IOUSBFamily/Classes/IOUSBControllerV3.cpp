@@ -30,6 +30,7 @@
 //================================================================================================
 //
 
+#include <libkern/version.h>
 #include <libkern/OSDebug.h>
 
 #include <IOKit/pwr_mgt/RootDomain.h>
@@ -66,6 +67,7 @@ uint32_t *				IOUSBControllerV3::_gHibernateState;
 #define _rootHubTransactionWasAborted	_v3ExpansionData->_rootHubTransactionWasAborted
 #define _externalUSBDeviceAssertionID	_v3ExpansionData->_externalUSBDeviceAssertionID
 #define _externalDeviceCount			_v3ExpansionData->_externalDeviceCount
+#define _inCheckPowerModeSleeping		_v3ExpansionData->_inCheckPowerModeSleeping
 
 
 
@@ -221,6 +223,22 @@ IOUSBControllerV3::stop( IOService * provider )
 	}
 	
 	super::stop(provider);
+}
+
+bool		
+IOUSBControllerV3::willTerminate(IOService * provider, IOOptionBits options)
+{
+	USBLog(5, "IOUSBControllerV3(%s)[%p]::willTerminate - isInactive(%s)", getName(), this, isInactive() ? "true" : "false");
+	return super::willTerminate(provider, options);
+}
+
+
+
+bool		
+IOUSBControllerV3::didTerminate( IOService * provider, IOOptionBits options, bool * defer )
+{
+	USBLog(5, "IOUSBControllerV3(%s)[%p]::didTerminate - isInactive(%s)", getName(), this, isInactive() ? "true" : "false");
+	return super::didTerminate(provider, options, defer);
 }
 
 
@@ -793,6 +811,71 @@ IOUSBControllerV3::CheckPowerModeBeforeGatedCall(char *fromStr)
 				USBTrace( kUSBTController, kTPControllerCheckPowerModeBeforeGatedCall, (uintptr_t)this, (int)_myPowerState, kr, 1 );
 			}
 		}
+		else if (_workLoop->inGate())
+		{
+			// We are holding the workloop gate, but in order to complete the power change to ON we need the gate, so commandSleep() with timeout and wait for the wakeup
+			AbsoluteTime	deadline;
+			IOCommandGate	* commandGate = GetCommandGate();
+			
+			if ( !commandGate )
+			{
+				USBLog(1,"IOUSBControllerV3(%s)[%p]::CheckPowerModeBeforeGatedCall commandGate is NULL, returning kIOReturnNoMemory", getName(), this);
+				kr = kIOReturnNoMemory;
+			}
+			else
+			{
+				USBLog(5,"IOUSBControllerV3(%s)[%p]::CheckPowerModeBeforeGatedCall  inGate() is true, so commandSleep()'ing and waiting for our powerChange", getName(), this);
+				USBTrace( kUSBTController, kTPControllerCheckPowerModeBeforeGatedCall, (uintptr_t)this, _myPowerState, 0, 10 );
+
+				_inCheckPowerModeSleeping = true;
+				
+				clock_interval_to_deadline(5, kSecondScale, &deadline);
+				IOReturn err = commandGate->commandSleep(&_inCheckPowerModeSleeping, deadline, THREAD_ABORTSAFE);
+				
+				switch (err)
+				{
+					case THREAD_AWAKENED:
+						USBLog(6,"IOUSBControllerV3(%s)[%p]::CheckPowerModeBeforeGatedCall commandSleep woke up normally (THREAD_AWAKENED) _myPowerState: %d", getName(), this, (uint32_t)_myPowerState );
+						USBTrace( kUSBTController, kTPControllerCheckPowerModeBeforeGatedCall, (uintptr_t)this, _myPowerState, err, 4 );
+						kr = kIOReturnSuccess;
+						break;
+						
+					case THREAD_TIMED_OUT:
+						USBLog(3,"IOUSBControllerV3(%s)[%p]::CheckPowerModeBeforeGatedCall commandSleep timeout out (THREAD_TIMED_OUT) _myPowerState: %d", getName(), this, (uint32_t)_myPowerState );
+						USBTrace( kUSBTController, kTPControllerCheckPowerModeBeforeGatedCall, (uintptr_t)this, _myPowerState, err, 5 );
+						_inCheckPowerModeSleeping = false;
+						kr = kIOReturnTimeout;
+						break;
+						
+					case THREAD_INTERRUPTED:
+						USBLog(3,"IOUSBControllerV3(%s)[%p]::CheckPowerModeBeforeGatedCall commandSleep interrupted (THREAD_INTERRUPTED) _myPowerState: %d", getName(), this, (uint32_t)_myPowerState );
+						USBTrace( kUSBTController, kTPControllerCheckPowerModeBeforeGatedCall, (uintptr_t)this, _myPowerState, err, 6 );
+						_inCheckPowerModeSleeping = false;
+						kr = kIOReturnAborted;
+						break;
+						
+					case THREAD_RESTART:
+						USBLog(3,"IOUSBControllerV3(%s)[%p]::CheckPowerModeBeforeGatedCall commandSleep restarted (THREAD_RESTART) _myPowerState: %d", getName(), this, (uint32_t)_myPowerState);
+						USBTrace( kUSBTController, kTPControllerCheckPowerModeBeforeGatedCall, (uintptr_t)this, _myPowerState, err, 7 );
+						_inCheckPowerModeSleeping = false;
+						kr = kIOReturnInternalError;
+						break;
+						
+					case kIOReturnNotPermitted:
+						USBLog(3,"IOUSBControllerV3(%s)[%p]::CheckPowerModeBeforeGatedCall woke up with status (kIOReturnNotPermitted) - we do not hold the WL!", getName(), this);
+						USBTrace( kUSBTController, kTPControllerCheckPowerModeBeforeGatedCall, (uintptr_t)this, _myPowerState, err, 8 );
+						_inCheckPowerModeSleeping = false;
+						kr = kIOReturnNotPermitted;
+						break;
+						
+					default:
+						USBLog(3,"IOUSBControllerV3(%s)[%p]::CheckPowerModeBeforeGatedCall woke up with unknown status %p, _myPowerState: %d",  getName(), this, (void*)kr, (uint32_t)_myPowerState);
+						USBTrace( kUSBTController, kTPControllerCheckPowerModeBeforeGatedCall, (uintptr_t)this, _myPowerState, err, 9 );
+						_inCheckPowerModeSleeping = false;
+						kr = kIOReturnNotPermitted;
+				}
+			}
+		}
 		else
 		{
 			// we are not on the thread, but we are about to be. In that case, sleep the running thread until we wake up
@@ -977,7 +1060,7 @@ IOUSBControllerV3::GatedPowerChange(OSObject *owner, void *arg0, void *arg1, voi
 	unsigned long				powerStateOrdinal = (unsigned long)arg0;
 	unsigned long				oldState = me->_myPowerState;
 
-	// USBTrace_Start( kUSBTController, kTPControllerGatedPowerChange, (uintptr_t)me, powerStateOrdinal, oldState );
+	USBTrace_Start( kUSBTController, kTPControllerGatedPowerChange, (uintptr_t)me, powerStateOrdinal, oldState, 0 );
 	
 	switch (powerStateOrdinal)
 	{
@@ -1034,12 +1117,12 @@ IOUSBControllerV3::GatedPowerChange(OSObject *owner, void *arg0, void *arg1, voi
 		{
 			IOReturn err;
 			
-			USBLog(5, "IOUSBControllerV3(%s)[%p]::powerStateDidChangeTo - calling CreateRootHubDevice", me->getName(), me);
+			USBLog(5, "IOUSBControllerV3(%s)[%p]::GatedPowerChange - calling CreateRootHubDevice", me->getName(), me);
 			err = me->CreateRootHubDevice( me->_device, &(me->_rootHubDevice) );
-			USBLog(5,"IOUSBControllerV3(%s)[%p]::powerStateDidChangeTo - done with CreateRootHubDevice - return (%p)", me->getName(), me, (void*)err);
+			USBLog(5,"IOUSBControllerV3(%s)[%p]::GatedPowerChange - done with CreateRootHubDevice - return (%p)", me->getName(), me, (void*)err);
 			if ( err != kIOReturnSuccess )
 			{
-				USBLog(1,"AppleUSBEHCI[%p]::powerStateDidChangeTo - Could not create root hub device upon wakeup (%x)!", me, err);
+				USBLog(1,"AppleUSBEHCI[%p]::GatedPowerChange - Could not create root hub device upon wakeup (%x)!", me, err);
 				USBTrace( kUSBTController, kTPControllerGatedPowerChange, (uintptr_t)me, err, 0, 0 );
 			}
 			else
@@ -1054,7 +1137,27 @@ IOUSBControllerV3::GatedPowerChange(OSObject *owner, void *arg0, void *arg1, voi
 		}
 	}
 
-	// USBTrace_End( kUSBTController, kTPControllerGatedPowerChange, (uintptr_t)me);
+	// We only need to wake up when we get back to on
+	if ( powerStateOrdinal == kUSBPowerStateOn && me->_inCheckPowerModeSleeping )
+	{
+		IOCommandGate * 	commandGate = me->GetCommandGate();
+		if ( !commandGate )
+		{
+			USBLog(1,"IOUSBController::GatedPowerChange commandGate is NULL");
+			USBTrace( kUSBTController, kTPControllerGatedPowerChange, (uintptr_t)me, 0, 0, 1 );
+		}
+		else
+		{
+			USBLog(5, "IOUSBControllerV3(%s)[%p]::GatedPowerChange - _inCheckPowerModeSleeping was true, calling commandWakeup", me->getName(), me);
+			commandGate->commandWakeup(&me->_inCheckPowerModeSleeping,  false);
+			USBTrace( kUSBTController, kTPControllerGatedPowerChange, (uintptr_t)me, 0, 0, 2 );
+			
+			me->_inCheckPowerModeSleeping = false;
+		}
+
+	}
+	
+	USBTrace_End( kUSBTController, kTPControllerGatedPowerChange, (uintptr_t)me, me->_myPowerState, 0, 0);
 	
 	return kIOReturnSuccess;
 }
@@ -1214,7 +1317,7 @@ IOUSBControllerV3::CheckForRootHubChanges(void)
 	// now I only have to do anything if there is something in the status changed bitmap
 	if (_rootHubStatusChangedBitmap)
 	{
-		USBLog(5, "IOUSBControllerV3(%s)[%p]::CheckForRootHubChanges - got _rootHubStatusChangedBitmap(%p)", getName(), this, (void*)_rootHubStatusChangedBitmap);
+		USBLog(5, "IOUSBControllerV3(%s)[%p]::CheckForRootHubChanges - got _rootHubStatusChangedBitmap(%p) isInactive(%s)", getName(), this, (void*)_rootHubStatusChangedBitmap, isInactive() ? "true" : "false");
  		if (_rootHubDevice && _rootHubDevice->GetPolicyMaker())
 		{
 			USBLog(5, "IOUSBControllerV3(%s)[%p]::CheckForRootHubChanges - making sure root hub driver AppleUSBHub[%p] is usable", getName(), this, _rootHubDevice->GetPolicyMaker());
@@ -1423,23 +1526,22 @@ IOUSBControllerV3::RootHubStopTimer(void)
 
 
 
-// someone is asking for extra power
-// by default, return NoResources, indicating no extra power
-// this will be overriden be a controller which can actually allocate extra power
+// DEPRECATED API
 UInt32
 IOUSBControllerV3::AllocateExtraRootHubPortPower(UInt32 extraPowerRequested)
 {
 #pragma unused (extraPowerRequested)
-	USBLog(2, "IOUSBControllerV3(%s)[%p]::AllocateExtraRootHubPortPower - not available on this controller", getName(), this);
+	USBLog(1, "IOUSBControllerV3(%s)[%p]::AllocateExtraRootHubPortPower - DEPRECATED API called", getName(), this);
 	return 0;
 }
 
 
+// DEPRECATED API
 void
 IOUSBControllerV3::ReturnExtraRootHubPortPower(UInt32 extraPowerReturned)
 {
 #pragma unused (extraPowerReturned)
-	USBLog(2, "IOUSBControllerV3(%s)[%p]::ReturnExtraRootHubPortPower - not available on this controller", getName(), this);
+	USBLog(1, "IOUSBControllerV3(%s)[%p]::ReturnExtraRootHubPortPower - DEPRECATED API called", getName(), this);
 	return;
 }
 
@@ -1771,6 +1873,17 @@ IOUSBControllerV3::ReadV2(IOMemoryDescriptor *buffer, USBDeviceAddress	address, 
 
 	return IOUSBControllerV2::ReadV2(buffer, address, endpoint, completion, noDataTimeout, completionTimeout, reqCount);
 }
+
+
+
+UInt32			
+IOUSBControllerV3::GetErrataBits(UInt16 vendorID, UInt16 deviceID, UInt16 revisionID )
+{
+	UInt32	errataBits = IOUSBController::GetErrataBits(vendorID, deviceID, revisionID);
+	
+	return errataBits;
+}
+
 
 
 OSMetaClassDefineReservedUsed(IOUSBControllerV3,  0);

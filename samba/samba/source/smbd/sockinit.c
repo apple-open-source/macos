@@ -67,7 +67,7 @@ static int init_sockets_smbd(const char *smb_ports, int listenset[FD_SETSIZE])
 					continue;
 				}
 				s = listenset[num_sockets] = open_socket_in(SOCK_STREAM, port, 0, ifip->s_addr, True);
-				if(s == -1)
+				if (s < 0 || s >= FD_SETSIZE)
 					return 0;
 
 				/* ready to listen */
@@ -105,7 +105,7 @@ static int init_sockets_smbd(const char *smb_ports, int listenset[FD_SETSIZE])
 			/* open an incoming socket */
 			s = open_socket_in(SOCK_STREAM, port, 0,
 					   interpret_addr(lp_socket_address()),True);
-			if (s == -1)
+			if (s < 0 || s >= FD_SETSIZE)
 				return 0;
 
 			/* ready to listen */

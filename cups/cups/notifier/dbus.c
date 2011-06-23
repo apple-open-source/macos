@@ -1,5 +1,5 @@
 /*
- * "$Id: dbus.c 959 2008-09-11 00:27:16Z msweet $"
+ * "$Id: dbus.c 3027 2011-03-04 20:02:14Z msweet $"
  *
  *   D-Bus notifier for the Common UNIX Printing System (CUPS).
  *
@@ -332,7 +332,7 @@ main(int  argc,				/* I - Number of command-line args */
       const char *word2 = event + 4;	/* Second word */
 
       params = PARAMS_JOB;
-      if (!strcmp(word2, "state"))
+      if (!strcmp(word2, "state-changed"))
 	signame = "JobState";
       else if (!strcmp(word2, "created"))
 	signame = "JobCreated";
@@ -548,5 +548,5 @@ acquire_lock(int    *fd,		/* O - Lock file descriptor */
 
 
 /*
- * End of "$Id: dbus.c 959 2008-09-11 00:27:16Z msweet $".
+ * End of "$Id: dbus.c 3027 2011-03-04 20:02:14Z msweet $".
  */

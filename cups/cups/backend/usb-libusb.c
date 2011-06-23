@@ -1,9 +1,9 @@
 /*
- * "$Id: usb-libusb.c 2485 2010-08-13 03:54:00Z msweet $"
+ * "$Id: usb-libusb.c 3027 2011-03-04 20:02:14Z msweet $"
  *
  *   Libusb interface code for CUPS.
  *
- *   Copyright 2007-2010 by Apple Inc.
+ *   Copyright 2007-2011 by Apple Inc.
  *
  *   These coded instructions, statements, and computer programs are the
  *   property of Apple Inc. and are protected by Federal copyright
@@ -100,7 +100,7 @@ print_device(const char *uri,		/* I - Device URI */
   usb_printer_t	*printer;		/* Printer */
   ssize_t	bytes,			/* Bytes read/written */
 		tbytes;			/* Total bytes written */
-  char		buffer[8192];		/* Print data buffer */
+  char		buffer[512];		/* Print data buffer */
   struct sigaction action;		/* Actions for POSIX signals */
   struct pollfd	pfds[2];		/* Poll descriptors */
 
@@ -411,7 +411,7 @@ get_device_id(usb_printer_t *printer,	/* I - Printer */
 
   if (usb_control_msg(printer->handle,
                       USB_TYPE_CLASS | USB_ENDPOINT_IN | USB_RECIP_INTERFACE,
-		      0, printer->conf, printer->iface,
+		      0, printer->conf, (printer->iface << 8) | printer->altset,
 		      buffer, bufsize, 5000) < 0)
   {
     *buffer = '\0';
@@ -675,6 +675,7 @@ open_device(usb_printer_t *printer,	/* I - Printer */
     goto error;
   }
 
+#if 0 /* STR #3801: Claiming interface 0 causes problems with some printers */
   if (number != 0)
     while (usb_claim_interface(printer->handle, 0) < 0)
     {
@@ -685,6 +686,7 @@ open_device(usb_printer_t *printer,	/* I - Printer */
 
       goto error;
     }
+#endif /* 0 */
 
  /*
   * Set alternate setting...
@@ -748,7 +750,7 @@ side_cb(usb_printer_t *printer,		/* I - Printer */
 {
   ssize_t		bytes,		/* Bytes read/written */
 			tbytes;		/* Total bytes written */
-  char			buffer[8192];	/* Print data buffer */
+  char			buffer[512];	/* Print data buffer */
   struct pollfd		pfd;		/* Poll descriptor */
   cups_sc_command_t	command;	/* Request command */
   cups_sc_status_t	status;		/* Request/response status */
@@ -828,6 +830,6 @@ side_cb(usb_printer_t *printer,		/* I - Printer */
 
 
 /*
- * End of "$Id: usb-libusb.c 2485 2010-08-13 03:54:00Z msweet $".
+ * End of "$Id: usb-libusb.c 3027 2011-03-04 20:02:14Z msweet $".
  */
 

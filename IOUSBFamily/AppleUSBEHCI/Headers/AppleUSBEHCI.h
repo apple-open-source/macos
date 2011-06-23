@@ -189,6 +189,7 @@ class AppleUSBEHCI : public IOUSBControllerV3
 		UInt32			prevErrors2Strikes;
 		UInt32			errors3Strikes;
 		UInt32			prevErrors3Strikes;
+		UInt32			controlBulkTxOut;
 	} UIMDiagnostics;
 	
 	
@@ -196,7 +197,9 @@ private:
 	
     void							showRegisters(UInt32 level, const char *s);
     void							printTD(EHCIGeneralTransferDescriptorPtr pTD, int level);
-    void							printAsyncQueue(int level, const char *str);
+    void							printAsyncQueue(int level, const char *str, bool printSkipped, bool printTDs);
+    void							printInactiveQueue(int level, const char *str, bool printSkipped, bool printTDs);
+    void							printPeriodicList(int level, const char *str, bool printSkipped, bool printTDs);
     
     void							AddIsocFramesToSchedule(AppleEHCIIsochEndpoint*);
     IOReturn						AbortIsochEP(AppleEHCIIsochEndpoint*);
@@ -443,10 +446,13 @@ protected:
 public:
 	virtual bool		init(OSDictionary * propTable);
     virtual bool		start( IOService * provider );
-    virtual void		free();
+    virtual void 		stop( IOService * provider );
     virtual IOReturn 	message( UInt32 type, IOService * provider,  void * argument = 0 );
 	virtual IOReturn	powerStateDidChangeTo ( IOPMPowerFlags, unsigned long, IOService* );
 	virtual void		powerChangeDone ( unsigned long fromState );
+	virtual bool		willTerminate(IOService * provider, IOOptionBits options);
+	virtual bool		didTerminate( IOService * provider, IOOptionBits options, bool * defer );
+    virtual void		free();
 	
 	
     IOReturn UIMInitialize(IOService * provider);

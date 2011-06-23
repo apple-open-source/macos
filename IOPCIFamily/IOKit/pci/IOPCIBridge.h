@@ -35,31 +35,6 @@
 #include <IOKit/IOFilterInterruptEventSource.h>
 #include <IOKit/pci/IOAGPDevice.h>
 
-
-/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
-
-typedef uint64_t IOPCIScalar;
-
-struct IOPCIRange
-{
-    IOPCIScalar         start;
-    IOPCIScalar         size;
-    IOPCIScalar         alignment;
-    UInt32              type;
-    UInt32              flags;
-    struct IOPCIRange * next;
-    struct IOPCIRange * nextSubRange;
-    struct IOPCIRange * subRange;
-};
-
-enum {
-    kIOPCIResourceTypeMemory = 0,
-    kIOPCIResourceTypePrefetchMemory,
-    kIOPCIResourceTypeIO,
-    kIOPCIResourceTypeBusNumber,
-    kIOPCIResourceTypeCount
-};
-
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 /*!
     @class IOPCIBridge
@@ -67,6 +42,15 @@ enum {
 */
 class IOPCIConfigurator;
 class IOPCIDevice;
+
+enum {
+    kIOPCIResourceTypeMemory         = 0,
+    kIOPCIResourceTypePrefetchMemory = 1,
+    kIOPCIResourceTypeIO             = 2,
+    kIOPCIResourceTypeBusNumber      = 3,
+    kIOPCIResourceTypeCount          = 4,
+};
+
 
 class IOPCIBridge : public IOService
 {
@@ -91,20 +75,18 @@ protected:
     static void nvLocation( IORegistryEntry * entry,
                             UInt8 * busNum, UInt8 * deviceNum, UInt8 * functionNum );
     static SInt32 compareAddressCell( UInt32 cellCount, UInt32 cleft[], UInt32 cright[] );
-        void checkTerminateChildren(IOService * bridgeDevice, bool eject);
     IOReturn setDeviceASPMBits(IOPCIDevice * device, IOOptionBits state);
+    static IOReturn configOp(IOService * device, uintptr_t op, void * result);
 
-    IORangeAllocator *  bridgeMemoryRanges;
-    IORangeAllocator *  bridgeIORanges;
+    void * __reserved1;
+    void * __reserved2;
 
 /*! @struct ExpansionData
     @discussion This structure will be used to expand the capablilties of the IOPCIBridge in the future.
 */    
     struct ExpansionData
     {
-        friend class IOPCIConfigurator;
-        IORangeAllocator * cardBusMemoryRanges;
-        IOPCIRange *       rangeLists[kIOPCIResourceTypeCount];
+        struct IOPCIRange * rangeLists[kIOPCIResourceTypeCount];
     };
 
 /*! @var reserved
@@ -134,8 +116,10 @@ public:
 
     virtual bool addBridgeIORange( IOByteCount start, IOByteCount length );
 
+
+private:
     virtual bool constructRange( IOPCIAddressSpace * flags,
-                                 IOPhysicalAddress phys, IOPhysicalLength len,
+                                 IOPhysicalAddress64 phys, IOPhysicalLength64 len,
                                  OSArray * array );
 
     virtual bool matchNubWithPropertyTable( IOService * nub,
@@ -224,9 +208,14 @@ public:
 
 protected:
     OSMetaClassDeclareReservedUsed(IOPCIBridge, 0);
+private:
     virtual bool addBridgePrefetchableMemoryRange( IOPhysicalAddress start,
                                                    IOPhysicalLength length,
                                                    bool host );
+protected:
+    bool addBridgePrefetchableMemoryRange( addr64_t start, addr64_t length );
+    IOReturn kernelRequestProbe(IOPCIDevice * device, uint32_t options);
+    IOReturn protectDevice(IOPCIDevice * device, uint32_t space, uint32_t prot);
 
     OSMetaClassDeclareReservedUsed(IOPCIBridge, 1);
     virtual UInt32 extendedFindPCICapability( IOPCIAddressSpace space,
@@ -236,8 +225,10 @@ protected:
     virtual IOReturn setDeviceASPMState(IOPCIDevice * device,
                                 IOService * client, IOOptionBits state);
 
+    OSMetaClassDeclareReservedUsed(IOPCIBridge, 3);
+	virtual IOReturn checkLink(uint32_t options = 0);
+
     // Unused Padding
-    OSMetaClassDeclareReservedUnused(IOPCIBridge,  3);
     OSMetaClassDeclareReservedUnused(IOPCIBridge,  4);
     OSMetaClassDeclareReservedUnused(IOPCIBridge,  5);
     OSMetaClassDeclareReservedUnused(IOPCIBridge,  6);
@@ -266,9 +257,6 @@ protected:
     OSMetaClassDeclareReservedUnused(IOPCIBridge, 29);
     OSMetaClassDeclareReservedUnused(IOPCIBridge, 30);
     OSMetaClassDeclareReservedUnused(IOPCIBridge, 31);
-
-
-
 };
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
@@ -290,21 +278,27 @@ private:
 
 protected:
 /*! @struct ExpansionData
-    @discussion This structure will be used to expand the capablilties of the IOWorkLoop in the future.
+    @discussion This structure will be used to expand the capablilties of the class in the future.
     */    
     struct ExpansionData
     {
-    // /hotp
         IOByteCount                 xpressCapability;
-        IOFilterInterruptEventSource *    bridgeInterruptSource;
-        IOWorkLoop *                workLoop;
+        IOByteCount                 pwrMgtCapability;
+        IOFilterInterruptEventSource * bridgeInterruptSource;
+		IOTimerEventSource *	    timerProbeES;
+		IOWorkLoop *                workLoop;
         uint32_t                    hotplugCount;
         uint8_t                     presence;
         uint8_t                     waitingLinkEnable;
         uint8_t                     linkChangeOnly;
         uint8_t                     interruptEnablePending;
-        uint8_t                     __reserved[4];
-    // hotp/
+        uint8_t                     needProbe;
+        uint8_t                     presenceInt;
+		uint8_t						bridgeMSI;
+		uint8_t						noDevice;
+		uint8_t						linkControlWithPM;
+		uint8_t						powerState;
+		char						logName[32];
     };
 
 /*! @var reserved
@@ -340,6 +334,11 @@ public:
     IOReturn setPowerState( unsigned long powerState,
                             IOService * whatDevice );
 
+	void adjustPowerState(unsigned long state);
+
+    virtual IOReturn saveDeviceState( IOPCIDevice * device,
+                                      IOOptionBits options = 0 );
+
     virtual bool publishNub( IOPCIDevice * nub, UInt32 index );
 
     virtual IODeviceMemory * ioDeviceMemory( void );
@@ -359,6 +358,8 @@ public:
     virtual IOReturn setDeviceASPMState(IOPCIDevice * device,
                                 IOService * client, IOOptionBits state);
 
+	virtual IOReturn checkLink(uint32_t options = 0);
+
     // Unused Padding
     OSMetaClassDeclareReservedUnused(IOPCI2PCIBridge,  0);
     OSMetaClassDeclareReservedUnused(IOPCI2PCIBridge,  1);
@@ -371,11 +372,16 @@ public:
     OSMetaClassDeclareReservedUnused(IOPCI2PCIBridge,  8);
 
 protected:
+	void startHotPlug(IOService * provider);
+
+public:
+	void startBootDefer(IOService * provider);
+
     bool filterInterrupt( IOFilterInterruptEventSource * source);
                             
     void handleInterrupt( IOInterruptEventSource * source,
                              int                      count );
-
+	void timerProbe(IOTimerEventSource * es);
 };
 
 #endif /* ! _IOKIT_IOPCIBRIDGE_H */

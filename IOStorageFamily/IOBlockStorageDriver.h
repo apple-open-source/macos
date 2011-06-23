@@ -889,23 +889,25 @@ public:
     virtual IOReturn synchronizeCache(IOService * client);
 
     /*!
-     * @function discard
+     * @function unmap
      * @discussion
-     * Delete unused data from the storage object at the specified byte offset,
+     * Delete unused data from the storage object at the specified byte offsets,
      * synchronously.
      * @param client
      * Client requesting the operation.
-     * @param byteStart
-     * Starting byte offset for the operation.
-     * @param byteCount
-     * Size of the operation.
+     * @param extents
+     * List of extents.  See IOStorageExtent.  It is legal for the callee to
+     * overwrite the contents of this buffer in order to satisfy the request.
+     * @param extentsCount
+     * Number of extents.
      * @result
      * Returns the status of the operation.
      */
 
-    virtual IOReturn discard(IOService * client,
-                             UInt64      byteStart,
-                             UInt64      byteCount);
+    virtual IOReturn unmap(IOService *       client,
+                           IOStorageExtent * extents,
+                           UInt32            extentsCount,
+                           UInt32            options = 0);
 
     /*!
      * @function ejectMedia

@@ -48,53 +48,54 @@ class IOHIDElementPrivate: public IOHIDElement
     OSDeclareDefaultStructors( IOHIDElementPrivate )
 
 protected:
-    IOHIDDevice *        _owner;
-    IOHIDElementType     _type;
-    IOHIDElementCookie   _cookie;
-    IOHIDElementPrivate *       _nextReportHandler;
-    IOHIDElementValue *  _elementValue;
-    void *               _elementValueLocation;
-    IOHIDElementPrivate *       _parent;
-    OSArray *            _childArray;
-    OSArray *            _queueArray;
-    UInt32               _flags;
-    IOHIDElementCollectionType               _collectionType;
+    IOHIDDevice            *_owner;
+    IOHIDElementType        _type;
+    IOHIDElementCookie      _cookie;
+    IOHIDElementPrivate    *_nextReportHandler;
+    IOHIDElementValue      *_elementValue;
+    void                   *_elementValueLocation;
+    IOHIDElementPrivate    *_parent;
+    OSArray                *_childArray;
+    OSArray                *_queueArray;
+    UInt32                  _flags;
+    IOHIDElementCollectionType  _collectionType;
 
-    UInt32               _reportSize;
-    UInt32		 _reportCount;
-    UInt32               _reportStartBit;
-    UInt32               _reportBits;
-    UInt32                _reportID;
+    UInt32                  _reportSize;
+    UInt32                  _reportCount;
+    UInt32                  _reportStartBit;
+    UInt32                  _reportBits;
+    UInt32                  _reportID;
 
-    UInt32               _usagePage;
-    UInt32               _usageMin;
-    UInt32               _usageMax;
-    UInt32               _rangeIndex;
+    UInt32                  _usagePage;
+    UInt32                  _usageMin;
+    UInt32                  _usageMax;
+    UInt32                  _rangeIndex;
 
-    UInt32               _logicalMin;
-    UInt32               _logicalMax;
-    UInt32               _physicalMin;
-    UInt32               _physicalMax;
+    UInt32                  _logicalMin;
+    UInt32                  _logicalMax;
+    UInt32                  _physicalMin;
+    UInt32                  _physicalMax;
     
-    UInt32               _unitExponent;
-    UInt32               _units;
+    UInt32                  _unitExponent;
+    UInt32                  _units;
     
-    UInt32               _transactionState;
+    UInt32                  _transactionState;
 	
-	OSData *			 _dataValue;
+	OSData                 *_dataValue;
     
-    IOHIDElementPrivate *	 _duplicateReportHandler;
+    IOHIDElementPrivate    *_duplicateReportHandler;
     
-    IOHIDElementPrivate *	 _arrayReportHandler;
-    IOHIDElementPrivate **	 _rollOverElementPtr;
-    OSDictionary *       _colArrayReportHandlers;
-    OSArray *       	 _arrayItems;
-    OSArray *		 _duplicateElements;
-    UInt32 *		 _oldArraySelectors;
+    IOHIDElementPrivate    *_arrayReportHandler;
+    IOHIDElementPrivate   **_rollOverElementPtr;
+    OSDictionary           *_colArrayReportHandlers;
+    OSArray                *_arrayItems;
+    OSArray                *_duplicateElements;
+    UInt32                 *_oldArraySelectors;
+    OSDictionary           *_properties;
     
-    bool                 _isInterruptReportHandler;
+    bool                    _isInterruptReportHandler;
     
-    bool                _shouldTickleActivity;
+    bool                    _shouldTickleActivity;
     
     virtual bool init( IOHIDDevice * owner, IOHIDElementType type );
 
@@ -110,13 +111,19 @@ protected:
                                 IOHIDElementPrivate * child,
                                 IOHIDElementPrivate * parent);
 
-	virtual OSDictionary *  createProperties() const;
+	void  createProperties();
 
 	virtual IOByteCount		getByteSize();
 	
 	virtual void			setupResolution();
 
 	void setDataBits(OSData *data);
+    
+    unsigned int    iteratorSize() const;
+    bool            initIterator(void * iterationContext) const;
+    bool            getNextObjectForIterator(void      * iterationContext,
+                                             OSObject ** nextObject) const;
+    
         
 public:
     static IOHIDElementPrivate * buttonElement(
@@ -243,6 +250,17 @@ public:
 	virtual OSData *					getDataValue();
 	virtual void						setValue(UInt32 value);
 	virtual void						setDataValue(OSData * value);
+
+    unsigned int getCount() const;
+    unsigned int getCapacity() const;
+    unsigned int getCapacityIncrement() const;
+    unsigned int setCapacityIncrement(unsigned increment);
+    unsigned int ensureCapacity(unsigned int newCapacity);
+    void flushCollection();
+    virtual unsigned setOptions(unsigned   options,
+                                unsigned   mask,
+                                void     * context = 0);
+    virtual OSCollection *copyCollection(OSDictionary * cycleDict = 0);
 };
 
 #endif /* !_IOKIT_HID_IOHIDELEMENTPRIVATE_H */

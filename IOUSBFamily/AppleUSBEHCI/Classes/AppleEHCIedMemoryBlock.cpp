@@ -62,6 +62,7 @@ AppleEHCIedMemoryBlock::NewMemoryBlock(void)
 			{
 				USBError(1, "AppleEHCIedMemoryBlock::NewMemoryBlock - could not prepare buffer");
 				me->_buffer->release();
+				me->_buffer = NULL;
 				me->release();
 				dmaCommand->release();
 				return NULL;
@@ -74,6 +75,7 @@ AppleEHCIedMemoryBlock::NewMemoryBlock(void)
 				USBError(1, "AppleEHCIedMemoryBlock::NewMemoryBlock - could not set memory descriptor");
 				me->_buffer->complete();
 				me->_buffer->release();
+				me->_buffer = NULL;
 				me->release();
 				dmaCommand->release();
 				return NULL;
@@ -86,6 +88,7 @@ AppleEHCIedMemoryBlock::NewMemoryBlock(void)
 				USBError(1, "AppleEHCIedMemoryBlock::NewMemoryBlock - could not get physical segment");
 				me->_buffer->complete();
 				me->_buffer->release();
+				me->_buffer = NULL;
 				me->release();
 				return NULL;
 			}
@@ -147,4 +150,16 @@ void
 AppleEHCIedMemoryBlock::SetNextBlock(AppleEHCIedMemoryBlock* next)
 {
     _nextBlock = next;
+}
+
+
+void
+AppleEHCIedMemoryBlock::free()
+{
+	if (_buffer)
+	{
+		_buffer->complete();
+		_buffer->release();
+	}
+	super::free();
 }

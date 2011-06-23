@@ -65,15 +65,15 @@ public:
     void anchors(CFArrayRef anchorList)			{ mAnchors.take(cfArrayize(anchorList)); }
     StorageManager::KeychainList &searchLibs()	{ return mSearchLibs; }
     void searchLibs(StorageManager::KeychainList &libs)	{ mSearchLibs = libs; }
-    
+
 	// perform evaluation
     void evaluate(bool disableEV=false);
-    
+
 	// get at evaluation results
     void buildEvidence(CFArrayRef &certChain, TPEvidenceInfo * &statusChain);
     CSSM_TP_VERIFY_CONTEXT_RESULT_PTR cssmResult();
 	void extendedResult(CFDictionaryRef &extendedResult);
-    
+
     SecTrustResultType result() const			{ return mResult; }
 	OSStatus cssmResultCode() const				{ return mTpReturn; }
     TP getTPHandle() const						{ return mTP; }
@@ -107,12 +107,13 @@ private:
 							Allocator &alloc);
 	bool				policySpecified(CFArrayRef policies, const CSSM_OID &inOid);
 	bool				revocationPolicySpecified(CFArrayRef policies);
-	CFMutableArrayRef	forceOCSPRevocationPolicy(uint32 &numAdded, 
-							Allocator &alloc);
-	
+	CFMutableArrayRef	forceRevocationPolicies(uint32 &numAdded, 
+							Allocator &alloc,
+							bool requirePerCert=false);
+
 private:
     TP mTP;							// our TP
-    
+
     // input arguments: set up before evaluate()
     CSSM_TP_ACTION mAction;			// TP action to verify
     CFRef<CFDataRef> mActionData;	// action data

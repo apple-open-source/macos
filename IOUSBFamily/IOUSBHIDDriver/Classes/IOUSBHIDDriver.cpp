@@ -85,7 +85,7 @@ __attribute__((format(printf, 1, 2)));
 #define	_MYPOWERSTATE							_usbHIDExpansionData->_myPowerState
 #define	_PENDINGREAD							_usbHIDExpansionData->_pendingRead
 #define _DEAD_DEVICE_CHECK_LOCK					_usbHIDExpansionData->_deviceDeadCheckLock
-#define _RETRYGETREPORT							_usbHIDExpansionData->_retryGetReport
+#define _HANDLEREPORTTIMESTAMP					_usbHIDExpansionData->_handleReportTimeStamp
 
 #define ABORTEXPECTED                       _deviceIsDead
 
@@ -1030,13 +1030,6 @@ IOUSBHIDDriver::handleStart(IOService * provider)
 	_interface->retain();
 	_device->retain();
 	
-	// See if we have a workaround property
-	if (_device != NULL)
-    {
-		OSBoolean * boolObj = OSDynamicCast( OSBoolean, _device->getProperty("retryGetReport") );
-		_RETRYGETREPORT = ( boolObj && boolObj->isTrue() );
-    }
-
 	USBTrace_End( kUSBTHID, kTPHIDhandleStart, (uintptr_t)this, (uintptr_t)_interface, (uintptr_t)_device, 0);
     return true;
 }
@@ -1595,6 +1588,8 @@ IOUSBHIDDriver::InterruptReadHandler(IOReturn status, UInt32 bufferSizeRemaining
 					// pending, and we need to drop our outstandingIO count.
 					IncrementOutstandingIO();
 					_QUEUED_REPORTS++;				// do this while we are still inside the gate
+					_HANDLEREPORTTIMESTAMP = mach_absolute_time();
+
 					if ( thread_call_enter1(_HANDLE_REPORT_THREAD, (thread_call_param_t) &_INTERRUPT_TIMESTAMP) == TRUE)
 					{
 						USBLog(3, "IOUSBHIDDriver(%s)[%p]::InterruptReadHandler  _HANDLE_REPORT_THREAD was already queued!", getName(), this);
@@ -1720,7 +1715,7 @@ IOUSBHIDDriver::InterruptReadHandler(IOReturn status, UInt32 bufferSizeRemaining
             // We should handle other errors more intelligently, but
             // for now just return and assume the error is recoverable.
             USBLog(3, "IOUSBHIDDriver(%s)[%p]::InterruptReadHandler Unknown error (0x%x) reading interrupt pipe", getName(), this, status);
-			USBTrace( kUSBTHID,  kTPHIDInterruptRead, (uintptr_t)this, status, 0, 12);
+			USBTrace( kUSBTHID,  kTPHIDInterruptRead, (uintptr_t)this, status, 0, 13);
 
 			if ( !isInactive() && _interruptPipe )
                 _interruptPipe->ClearStall();
@@ -1960,10 +1955,16 @@ void
 IOUSBHIDDriver::HandleReportEntry(OSObject *target, thread_call_param_t timeStamp)
 {
     IOUSBHIDDriver *	me = OSDynamicCast(IOUSBHIDDriver, target);
+	uint64_t			currentTime = mach_absolute_time();
+	uint64_t			timeElapsed;
 	
     if (!me)
         return;
     
+	SUB_ABSOLUTETIME(&currentTime, &me->_HANDLEREPORTTIMESTAMP);
+	absolutetime_to_nanoseconds(*(AbsoluteTime *)&currentTime, &timeElapsed);
+	
+	USBTrace( kUSBTHID,  kTPHIDInterruptRead, (uintptr_t)me, timeElapsed/1000, 0, 14);
     me->HandleReport(  * (AbsoluteTime *)timeStamp );
     me->DecrementOutstandingIO();
 }
@@ -2231,50 +2232,47 @@ IOUSBHIDDriver::GetHIDDescriptor(UInt8 inDescriptorType, UInt8 inDescriptorIndex
                     requestPB.wLength = descSize;
                     requestPB.pData = vOutBuf;						// So we don't have to do any allocation here.
 					requestPB.wLenDone = 0;
-					
-                    err = _device->DeviceRequest(&requestPB, 5000, 0);
+
+					err = _device->DeviceRequest(&requestPB, 5000, 0);
                     if (err != kIOReturnSuccess)
                     {
                         USBLog(3, "IOUSBHIDDriver(%s)[%p]::GetHIDDescriptor Final request failed; err = 0x%x", getName(), this, err);
                         return err;
                     }
-					else 
+ 					else 
 					{
                         USBLog(7, "IOUSBHIDDriver(%s)[%p]::GetHIDDescriptor Final request descSize: %d, wLenDone: %d", getName(), this, descSize, (uint32_t)requestPB.wLenDone);
 					}
-
+					
 					if ( requestPB.wLenDone != descSize )
 					{
-                        USBLog(1, "IOUSBHIDDriver(%s)[%p]::GetHIDDescriptor Final request asked for %d, but got only %d (super::start would have failed)", getName(), this, descSize, (uint32_t)requestPB.wLenDone);
-						if ( _RETRYGETREPORT )
+                        USBLog(1, "IOUSBHIDDriver(%s)[%p]::GetHIDDescriptor Final request asked for %d, but got only %d", getName(), this, descSize, (uint32_t)requestPB.wLenDone);
+						
+						// Wait to retry
+						IOSleep(100);
+						requestPB.bmRequestType = USBmakebmRequestType(kUSBIn, kUSBStandard, kUSBInterface);
+						requestPB.bRequest = kUSBRqGetDescriptor;
+						requestPB.wValue = (inDescriptorType << 8) + typeIndex;		// type and index
+						requestPB.wIndex = _interface->GetInterfaceNumber();
+						requestPB.wLength = descSize;
+						requestPB.pData = vOutBuf;						// So we don't have to do any allocation here.
+						requestPB.wLenDone = 0;
+						
+						err = _device->DeviceRequest(&requestPB, 5000, 0);
+						if (err != kIOReturnSuccess)
 						{
-							// Wait to retry
-							IOSleep(100);
-							requestPB.bmRequestType = USBmakebmRequestType(kUSBIn, kUSBStandard, kUSBInterface);
-							requestPB.bRequest = kUSBRqGetDescriptor;
-							requestPB.wValue = (inDescriptorType << 8) + typeIndex;		// type and index
-							requestPB.wIndex = _interface->GetInterfaceNumber();
-							requestPB.wLength = descSize;
-							requestPB.pData = vOutBuf;						// So we don't have to do any allocation here.
-							requestPB.wLenDone = 0;
-							
-							err = _device->DeviceRequest(&requestPB, 5000, 0);
-							if (err != kIOReturnSuccess)
-							{
-								USBLog(1, "IOUSBHIDDriver(%s)[%p]::GetHIDDescriptor Final request#2 failed; err = 0x%x", getName(), this, err);
-								return err;
-							}
-							if ( requestPB.wLenDone != descSize )
-							{
-								USBLog(1, "IOUSBHIDDriver(%s)[%p]::GetHIDDescriptor Final request#2 asked for %d, but got only %d, bailing", getName(), this, descSize, (uint32_t)requestPB.wLenDone);
-							}
-							else 
-							{
-								USBLog(1, "IOUSBHIDDriver(%s)[%p]::GetHIDDescriptor Final request#2  got the full one after waiting 100ms", getName(), this);
-							}
+							USBLog(1, "IOUSBHIDDriver(%s)[%p]::GetHIDDescriptor Final request#2 failed; err = 0x%x", getName(), this, err);
+							return err;
 						}
-					}
-                }
+						if ( requestPB.wLenDone != descSize )
+						{
+							USBLog(3, "IOUSBHIDDriver(%s)[%p]::GetHIDDescriptor Final request#2 asked for %d, but got only %d, bailing", getName(), this, descSize, (uint32_t)requestPB.wLenDone);
+						}
+						else 
+						{
+							USBLog(7, "IOUSBHIDDriver(%s)[%p]::GetHIDDescriptor Final request#2  got the full one after waiting 100ms", getName(), this);
+						}
+					}               }
                 break;	// out of for i loop.
             }
             // Make sure we add 3 bytes not 4 regardless of struct alignment.

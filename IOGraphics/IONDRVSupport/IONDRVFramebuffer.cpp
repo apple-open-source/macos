@@ -23,6 +23,7 @@
 #include <IOKit/IOLib.h>
 #include <IOKit/platform/ApplePlatformExpert.h>
 #include <IOKit/IODeviceTreeSupport.h>
+#include <IOKit/IOSubMemoryDescriptor.h>
 #include <IOKit/IOLocks.h>
 #include <IOKit/IOMessage.h>
 #include <IOKit/pwr_mgt/RootDomain.h>
@@ -112,10 +113,9 @@ struct IONDRVFramebufferPrivate
     IODisplayModeID             depthMapModeID;
     UInt8                       indexToDepthMode[kDepthMode6 - kDepthMode1 + 1];
     UInt8                       depthModeToIndex[kDepthMode6 - kDepthMode1 + 1];
+    IOPhysicalAddress64         physicalFramebuffer;
+
 };
-
-/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
-
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
@@ -123,16 +123,14 @@ class IOBootNDRV : public IONDRV
 {
     OSDeclareDefaultStructors(IOBootNDRV)
 
-private:
+public:
     enum { kIOBootNDRVDisplayMode = 100 };
 
-    void *      fAddress;
-    UInt32      fRowBytes;
-    UInt32      fWidth;
-    UInt32      fHeight;
-    UInt32      fBitsPerPixel;
-
-public:
+    IOMemoryDescriptor * fVRAMDesc;
+    UInt32               fRowBytes;
+    UInt32               fWidth;
+    UInt32               fHeight;
+    UInt32               fBitsPerPixel;
 
     static IONDRV * fromRegistryEntry( IORegistryEntry * regEntry );
 
@@ -1816,28 +1814,28 @@ void IONDRVFramebuffer::getCurrentConfiguration( void )
 
         mach_vm_address_t vAddr = (mach_vm_address_t) switchInfo.csBaseAddr;
         ppnum_t           page  = 0;
+
+
+        if (!vramMemory)
+            vramMemory = getVRAMRange();
+
         if (vAddr)
         {
-            if (1 & vAddr)
-                physicalFramebuffer = vAddr ^ 1;
-            else
-            {
-                page = pmap_find_phys(kernel_pmap, vAddr);
-                if (!page)
-                    panic("pmap_find_phys %qx", vAddr);
-                physicalFramebuffer = ptoa_32(page) + (PAGE_MASK & vAddr);
-            }
+            page = pmap_find_phys(kernel_pmap, vAddr);
+            if (!page)
+                panic("pmap_find_phys %qx", vAddr);
+            __private->physicalFramebuffer = ptoa_64(page) + (PAGE_MASK & vAddr);
         }
     }
 }
 
 IODeviceMemory * IONDRVFramebuffer::makeSubRange(
-    IOPhysicalAddress   start,
-    IOPhysicalLength    length )
+    IOPhysicalAddress64   start,
+    IOPhysicalLength64    length )
 {
-    IODeviceMemory *    mem = 0;
-    UInt32              numMaps, i;
-    IOService *         device;
+    IOMemoryDescriptor * mem = 0;
+    UInt32               numMaps, i;
+    IOService *          device;
 
     device = nub;
     numMaps = device->getDeviceMemoryCount();
@@ -1847,13 +1845,17 @@ IODeviceMemory * IONDRVFramebuffer::makeSubRange(
         mem = device->getDeviceMemoryWithIndex(i);
         if (!mem)
             continue;
-        mem = IODeviceMemory::withSubRange( mem,
-                                            start - mem->getPhysicalAddress(), length );
+
+        mem = IOSubMemoryDescriptor::withSubRange(
+                             mem,
+                             start - mem->getPhysicalSegment(0, 0, kIOMemoryMapperNone),
+                             length, kIODirectionNone);
     }
     if (!mem)
-        mem = IODeviceMemory::withRange( start, length );
+        mem = IOMemoryDescriptor::withAddressRange(
+			start, length, kIODirectionNone | kIOMemoryMapperNone, NULL);
 
-    return (mem);
+    return ((IODeviceMemory *) mem);
 }
 
 IODeviceMemory * IONDRVFramebuffer::getApertureRange( IOPixelAperture aper )
@@ -1862,15 +1864,15 @@ IODeviceMemory * IONDRVFramebuffer::getApertureRange( IOPixelAperture aper )
     IOPixelInformation          info;
     IOByteCount                 bytes;
 
-    if (!physicalFramebuffer)
+    if (!__private->physicalFramebuffer)
     {
         if (!vramMemory)
             vramMemory = getVRAMRange();
         if (vramMemory)
-            physicalFramebuffer = vramMemory->getPhysicalAddress();
+            __private->physicalFramebuffer = vramMemory->getPhysicalSegment(0, 0, kIOMemoryMapperNone);
     }
 
-    if (!physicalFramebuffer)
+    if (!__private->physicalFramebuffer)
         return (NULL);
 
     err = getPixelInformation( currentDisplayMode, currentDepth, aper,
@@ -1883,68 +1885,19 @@ IODeviceMemory * IONDRVFramebuffer::getApertureRange( IOPixelAperture aper )
 
     bytes = (info.bytesPerRow * info.activeHeight) + 128;
 
-    return (makeSubRange(physicalFramebuffer, bytes));
+    return (makeSubRange(__private->physicalFramebuffer, bytes));
 }
 
 IODeviceMemory * IONDRVFramebuffer::findVRAM( void )
 {
-    IODeviceMemory *    mem = 0;
-    IOPhysicalAddress   vramBase;
-    enum {              kMinimumVRAMLength = 512*1024 };
-    IOByteCount         length = kMinimumVRAMLength, vramLength = 16*1024*1024;
-    OSData *            prop;
-
-    prop = OSDynamicCast( OSData, nub->getProperty("AAPL,vram-memory"));
-    if (prop && (prop->getLength() >= (2 * sizeof32(IOByteCount))))
+    IOBootNDRV * bootndrv;
+    if ((bootndrv = OSDynamicCast(IOBootNDRV, ndrv)))
     {
-        IOByteCount * lengths;
-
-        lengths = (IOByteCount *) prop->getBytesNoCopy();
-        length = lengths[1];
-        vramBase = lengths[0];
-    }
-    else
-    {
-        vramBase = physicalFramebuffer;
-        prop = OSDynamicCast( OSData, nub->getProperty("VRAM,memsize"));
-        if (prop)
-            length = *((IOByteCount *) prop->getBytesNoCopy());
-        if (length < kMinimumVRAMLength)
-            prop = 0;
+        bootndrv->fVRAMDesc->retain();
+        return ((IODeviceMemory *) bootndrv->fVRAMDesc);
     }
 
-    if (prop)
-    {
-        length = (length + (vramBase & 0xffff) + 0xffff) & 0xffff0000;
-        vramBase &= 0xffff0000;
-
-        for (vramLength = page_size; (vramLength < length) && vramLength; vramLength <<= 1)
-        {}
-        if (!vramLength)
-            vramLength = length;
-
-        mem = makeSubRange( vramBase, vramLength );
-    }
-    else
-    {
-        for (UInt32 i = 0; (mem = nub->getDeviceMemoryWithIndex(i)); i++)
-        {
-            if ((physicalFramebuffer >= mem->getPhysicalAddress())
-                    && (physicalFramebuffer < (mem->getPhysicalAddress() + mem->getLength())))
-                break;
-        }
-        if (mem)
-        {
-            vramBase = mem->getPhysicalAddress();
-            vramLength = mem->getLength();
-            mem->retain();
-        }
-        else
-            mem = makeSubRange( vramBase, vramLength );
-    }
-
-    DEBG(thisName, " %s: vram [%08lx:%08lx]\n", nub->getName(),  (long) vramBase, (long) vramLength);
-    return (mem);
+    return (NULL);
 }
 
 const char * IONDRVFramebuffer::getPixelFormats( void )
@@ -2809,9 +2762,9 @@ IOReturn IONDRVFramebuffer::getAttribute( IOSelect attribute, uintptr_t * value 
             }
 
         case kIOVRAMSaveAttribute:
-            DEBG(thisName, " kIOVRAMSaveAttribute on(%d), mirr(%d), prim(%d)\n",
+            DEBG1(thisName, " kIOVRAMSaveAttribute on(%d), mirr(%d), prim(%d)\n",
                  online, mirrored, mirrorPrimary );
-            *value = (online && (!mirrored || mirrorPrimary));
+            *value = (online && (!mirrored || !mirrorPrimary));
             break;
 
         default:
@@ -3129,7 +3082,7 @@ bool IONDRVFramebuffer::getOnlineState( void )
 IOReturn IONDRVFramebuffer::ndrvGetSetFeature( UInt32 feature,
                                                uintptr_t newValue, uintptr_t * currentValue )
 {
-#define CHAR(c)    ((c) ? c : '0')
+#define CHAR(c)    ((c) ? (char) (c) : '0')
 #define FEAT(f)    CHAR(f>>24), CHAR(f>>16), CHAR(f>>8), CHAR(f>>0)
 
     IOReturn err;
@@ -3138,7 +3091,7 @@ IOReturn IONDRVFramebuffer::ndrvGetSetFeature( UInt32 feature,
     bzero( &configRec, sizeof( configRec));
     configRec.csConfigFeature = feature;
 
-    DEBG(thisName, "(0x%08x '%c%c%c%c')\n", feature, FEAT(feature));
+    DEBG(thisName, "(0x%08x '%c%c%c%c')\n", (int) feature, FEAT(feature));
 
     TIMESTART();
     err = _doStatus( this, cscGetFeatureConfiguration, &configRec );
@@ -4073,9 +4026,6 @@ IOReturn IONDRVFramebuffer::ndrvSetPowerState( UInt32 newState )
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
-
-/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
-
 #undef super
 #define super IONDRV
 OSDefineMetaClassAndStructors(IOBootNDRV, IONDRV)
@@ -4097,81 +4047,66 @@ bool IOBootNDRV::getUInt32Property( IORegistryEntry * regEntry, const char * nam
 IONDRV * IOBootNDRV::fromRegistryEntry( IORegistryEntry * regEntry )
 {
     IOBootNDRV *  inst;
-    IOBootNDRV *  result = 0;
-    OSData *      data;
-#ifndef __ppc__
+    IOBootNDRV *  result = NULL;
     IOService *   device;
-#endif
+    IOByteCount   bytes;
 
-    do
+    inst = new IOBootNDRV;
+    if (inst && !inst->init())
     {
-        inst = new IOBootNDRV;
-        if (!inst)
-            continue;
-        if (!inst->init())
-            continue;
-        if (!getUInt32Property(regEntry, "address", (UInt32 *) &inst->fAddress))
-            continue;
-        if (!getUInt32Property(regEntry, "linebytes", &inst->fRowBytes))
-            continue;
-        if (!getUInt32Property(regEntry, "width", &inst->fWidth))
-            continue;
-        if (!getUInt32Property(regEntry, "height", &inst->fHeight))
-            continue;
-        if (!getUInt32Property(regEntry, "depth", &inst->fBitsPerPixel))
-            continue;
-
-        if ((data = OSDynamicCast(OSData, regEntry->getProperty("display-type")))
-          && data->isEqualTo("NONE", 4 /*strlen("NONE")*/))
-            continue;
-
-        result = inst;
+        inst->release();
+        inst = NULL;
     }
-    while (false);
 
-    if (!result 
-#ifdef __ppc__
-        && regEntry->getProperty("AAPL,boot-display")
-#else
-        && (device = OSDynamicCast(IOService, regEntry))
-#endif
-    )
+    if (inst && (device = OSDynamicCast(IOService, regEntry)))
+    do
     {
         PE_Video        bootDisplay;
         UInt32          bpp;
 
         IOService::getPlatform()->getConsoleInfo( &bootDisplay);
 
-#ifndef __ppc__
-        IODeviceMemory * mem;
-        IOPCIDevice *    pciDevice;
-        UInt32           numMaps, i;
-        bool             matched = false;
+		IOPhysicalAddress64 consolePhysAddress = bootDisplay.v_baseAddr & ~3;
+#ifndef __LP64__
+		consolePhysAddress |= (((uint64_t) bootDisplay.v_baseAddrHigh) << 32);
+#endif
 
-        numMaps = device->getDeviceMemoryCount();
-        for (i = 0; (!matched) && (i < numMaps); i++)
-        {
-            mem = device->getDeviceMemoryWithIndex(i);
-            if (!mem)
-                continue;
-            matched = (bootDisplay.v_baseAddr >= mem->getPhysicalAddress())
-                    && ((bootDisplay.v_baseAddr < (mem->getPhysicalAddress() + mem->getLength())));
-        }
+        IOMemoryDescriptor * mem = NULL;
+        IOPCIDevice *        pciDevice;
+        UInt32               numMaps, i;
 
         OSNumber * num = OSDynamicCast(OSNumber, device->getProperty(kIOFBDependentIndexKey));
         if (num && (0 != num->unsigned32BitValue()))
-            matched = false;
+            break;
         else if ((pciDevice = OSDynamicCast(IOPCIDevice, device))
                     && pciDevice->getFunctionNumber())
-            matched = false;
+            break;
 
-        if (matched)
-#endif
+        bytes = (bootDisplay.v_rowBytes * bootDisplay.v_height);
+        numMaps = device->getDeviceMemoryCount();
+        for (i = 0; (!mem) && (i < numMaps); i++)
         {
-            inst->fAddress          = (void *) bootDisplay.v_baseAddr;
-            inst->fRowBytes         = (UInt32) bootDisplay.v_rowBytes;
-            inst->fWidth            = (UInt32) bootDisplay.v_width;
-            inst->fHeight           = (UInt32) bootDisplay.v_height;
+            addr64_t pa;
+            mem = device->getDeviceMemoryWithIndex(i);
+            if (!mem)
+                continue;
+            pa = mem->getPhysicalSegment(0, 0, kIOMemoryMapperNone);
+            if ((consolePhysAddress < pa) || (consolePhysAddress >= (pa + mem->getLength())))
+                mem = NULL;
+            else
+            {
+                mem = IOSubMemoryDescriptor::withSubRange(mem,
+                                            consolePhysAddress - pa,
+                                            bytes, kIODirectionNone);
+            }
+        }
+
+        if (mem)
+        {
+            inst->fVRAMDesc = mem;
+            inst->fRowBytes = (UInt32) bootDisplay.v_rowBytes;
+            inst->fWidth    = (UInt32) bootDisplay.v_width;
+            inst->fHeight   = (UInt32) bootDisplay.v_height;
             bpp = (UInt32) bootDisplay.v_depth;
             if (bpp == 15)
                 bpp = 16;
@@ -4182,6 +4117,7 @@ IONDRV * IOBootNDRV::fromRegistryEntry( IORegistryEntry * regEntry )
             result = inst;
         }
     }
+    while (false);
 
     if (inst && !result)
         inst->release();
@@ -4265,7 +4201,7 @@ IOReturn IOBootNDRV::doStatus( UInt32 code, void * params )
                 switchInfo->csData     = kIOBootNDRVDisplayMode;
                 switchInfo->csMode     = kDepthMode1;
                 switchInfo->csPage     = 1;
-                switchInfo->csBaseAddr = (Ptr) (1 | (uintptr_t) fAddress);
+                switchInfo->csBaseAddr = NULL;
                 ret = kIOReturnSuccess;
             }
             break;

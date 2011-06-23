@@ -105,8 +105,8 @@
 #define ARG_MOTIONSENSOR2   "ams"
 #define ARG_TTYKEEPAWAKE    "ttyskeepawake"
 #define ARG_GPU             "gpuswitch"
-#define ARG_DEEPSLEEP       "deepsleep"
-#define ARG_DEEPSLEEPDELAY  "deepsleepdelay"
+#define ARG_DEEPSLEEP       "standby"
+#define ARG_DEEPSLEEPDELAY  "standbydelay"
 
 // Scheduling options
 #define ARG_SCHEDULE        "schedule"

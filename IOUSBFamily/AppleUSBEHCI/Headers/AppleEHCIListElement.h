@@ -60,6 +60,7 @@
 
 class AppleEHCIIsochEndpoint;
 class AppleUSBEHCISplitPeriodicEndpoint;
+class AppleUSBEHCI;
 
 class AppleEHCIQueueHead : public IOUSBControllerListElement
 {
@@ -76,7 +77,7 @@ public:
     virtual void							SetPhysicalLink(IOPhysicalAddress next);
     virtual IOPhysicalAddress				GetPhysicalLink(void);
     virtual IOPhysicalAddress				GetPhysicalAddrWithType(void);
-    virtual void							print(int level);
+    virtual void							print(int level, AppleUSBEHCI *ehci);
     
     // not a virtual method, because the return type assumes knowledge of the element type
     EHCIQueueHeadSharedPtr					GetSharedLogical(void);

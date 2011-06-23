@@ -53,12 +53,34 @@
 #define WANT_A6_PLUS_MAPPED_A4 3
 #define WANT_A6_OR_MAPPED_A4_IF_NO_A6 4
 
+#define TEREDO_PREFIX_32 0x20010000
 #define V6TO4_PREFIX_16 0x2002
+#define ULA_PREFIX_8 0xfc
+
+#define NET_TYPE_UNKNOWN	0x00000000
+#define NET_TYPE_V4			0x00000001
+#define NET_TYPE_V6			0x00000002
+#define NET_TYPE_TEREDO		0x00000012
+#define NET_TYPE_6TO4		0x00000022
+#define NET_TYPE_LINKLOCAL	0x00000042
+#define NET_TYPE_SITELOCAL	0x00000082
+#define NET_TYPE_ULA		0x00000102
+#define NET_MASK_T6LSU		0x000001f0
+
+typedef struct
+{
+	int v4_count;
+	int v6_count;
+	int v6to4_count;
+	int teredo_count;
+	int ula_count;
+	int ll_count;
+	int sl_count;
+	int gai_v6_preferred;
+} config_stats_t;
 
 static int net_config_token = -1;
-static uint32_t net_v4_count = 0;
-static uint32_t net_v6_count = 0;	// includes 6to4 addresses
-static uint32_t net_v6to4_count = 0;
+static config_stats_t config_stats_global;
 static pthread_mutex_t net_config_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 typedef struct {
@@ -69,14 +91,45 @@ typedef struct {
 } build_hostent_t;
 
 static int
-_si_netconfig(uint32_t *v4, uint32_t *v6, uint32_t *v6to4)
+_si_net_addr_type(const struct sockaddr *s)
 {
-	int status, checkit;
+	const struct sockaddr_in6 *sa6 = (const struct sockaddr_in6 *)s;
+
+	if (s == NULL) return NET_TYPE_UNKNOWN;
+	else if (s->sa_family == AF_INET) return NET_TYPE_V4;
+	else if (s->sa_family != AF_INET6) return NET_TYPE_UNKNOWN;
+	else if (sa6->sin6_addr.__u6_addr.__u6_addr32[0] == ntohs(TEREDO_PREFIX_32)) return NET_TYPE_TEREDO;
+	else if (sa6->sin6_addr.__u6_addr.__u6_addr16[0] == ntohs(V6TO4_PREFIX_16)) return NET_TYPE_6TO4;
+	else if (IN6_IS_ADDR_LINKLOCAL(&(sa6->sin6_addr))) return NET_TYPE_LINKLOCAL;
+	else if (IN6_IS_ADDR_SITELOCAL(&(sa6->sin6_addr))) return NET_TYPE_SITELOCAL;
+	else if ((sa6->sin6_addr.__u6_addr.__u6_addr8[0] & 0xfe) == ULA_PREFIX_8) return NET_TYPE_ULA;
+
+	return NET_TYPE_V6;
+}
+
+static int
+_si_net_type_is_IPv6_globably_reachable_non_transitional(int t)
+{
+	if (t & NET_TYPE_V6)
+	{
+		if (t & NET_MASK_T6LSU) return 0;
+		return 1;
+	}
+
+	return 0;
+}
+
+static int
+_si_netconfig(config_stats_t *stats)
+{
+	int status, checkit, net_type;
 	struct ifaddrs *ifa, *ifap;
-	struct sockaddr_in6 *sa6;
+
+	if (stats == NULL) return 0;
 
 	pthread_mutex_lock(&net_config_mutex);
 
+	status = 0;
 	checkit = 1;
 
 	if (net_config_token < 0)
@@ -91,8 +144,6 @@ _si_netconfig(uint32_t *v4, uint32_t *v6, uint32_t *v6to4)
 		if (status != 0) checkit = 1;
 	}
 
-	status = 0;
-
 	if (checkit != 0)
 	{
 		if (getifaddrs(&ifa) < 0)
@@ -101,23 +152,53 @@ _si_netconfig(uint32_t *v4, uint32_t *v6, uint32_t *v6to4)
 		}
 		else
 		{
-			net_v4_count = 0;
-			net_v6_count = 0;
-			net_v6to4_count = 0;
+			memset(&config_stats_global, 0, sizeof(config_stats_t));
+
 			for (ifap = ifa; ifap != NULL; ifap = ifap->ifa_next)
 			{
 				if (ifap->ifa_addr == NULL) continue;
 				if ((ifap->ifa_flags & IFF_UP) == 0) continue;
 
-				if (ifap->ifa_addr->sa_family == AF_INET)
+				net_type = _si_net_addr_type(ifap->ifa_addr);
+		
+				if (net_type == NET_TYPE_UNKNOWN)
 				{
-					net_v4_count++;
 				}
-				else if (ifap->ifa_addr->sa_family == AF_INET6)
+				else if (net_type == NET_TYPE_V4)
 				{
-					net_v6_count++;
-					sa6 = (struct sockaddr_in6 *)ifap->ifa_addr;
-					if (sa6->sin6_addr.__u6_addr.__u6_addr16[0] == ntohs(V6TO4_PREFIX_16)) net_v6to4_count++;
+					config_stats_global.v4_count++;
+				}
+				else
+				{
+					config_stats_global.v6_count++;
+
+					if (net_type == NET_TYPE_LINKLOCAL)
+					{
+						config_stats_global.ll_count++;
+						continue;
+					}
+					else if (net_type == NET_TYPE_ULA)
+					{
+						config_stats_global.ula_count++;
+						if (!strncmp(ifap->ifa_name, "utun", 4)) continue;
+					}
+					if (net_type == NET_TYPE_TEREDO)
+					{
+						config_stats_global.teredo_count++;
+					}
+					else if (net_type == NET_TYPE_6TO4)
+					{
+						config_stats_global.v6to4_count++;
+					}
+					else if (net_type == NET_TYPE_SITELOCAL)
+					{
+						config_stats_global.sl_count++;
+					}
+
+					if (_si_net_type_is_IPv6_globably_reachable_non_transitional(net_type))
+					{
+						config_stats_global.gai_v6_preferred = 1;
+					}
 				}
 			}
 
@@ -125,15 +206,24 @@ _si_netconfig(uint32_t *v4, uint32_t *v6, uint32_t *v6to4)
 		}
 	}
 
-	if (v4 != NULL) *v4 = net_v4_count;
-	if (v6 != NULL) *v6 = net_v6_count;
-	if (v6to4 != NULL) *v6to4 = net_v6to4_count;
+	*stats = config_stats_global;
 
 	pthread_mutex_unlock(&net_config_mutex);
 
 	return status;
 }
-	
+
+__private_extern__ int
+si_inet_config(uint32_t *inet4, uint32_t *inet6)
+{
+	config_stats_t x;
+
+	if (_si_netconfig(&x) < 0) return -1;
+	if (inet4 != NULL) *inet4 = x.v4_count;
+	if (inet6 != NULL) *inet6 = x.v6_count;
+	return 0;
+}
+
 void
 freeaddrinfo(struct addrinfo *a)
 {
@@ -650,54 +740,69 @@ si_addrinfo_list_from_hostent(si_mod_t *si, uint32_t socktype, uint32_t proto, u
 	return out;
 }
 
+int
+_gai_sa_dst_compare(const struct sockaddr *a, const struct sockaddr *b, int unused)
+{
+	int ta, tb, posn_a, posn_b;
+
+	ta = _si_net_addr_type(a);
+	tb = _si_net_addr_type(b);
+
+	posn_a = 2;
+	posn_b = 2;
+
+	if (ta & NET_TYPE_V4) posn_a = 1;
+	if (tb & NET_TYPE_V4) posn_b = 1;
+
+	if (_si_net_type_is_IPv6_globably_reachable_non_transitional(ta)) posn_a = 0;
+	if (_si_net_type_is_IPv6_globably_reachable_non_transitional(tb)) posn_b = 0;
+
+	return (posn_a - posn_b);
+}
+
+int
+_gai_addr_sort(void *thunk, const void *a, const void *b)
+{
+	si_item_t **ia, **ib;
+	si_addrinfo_t *p, *q;
+	struct sockaddr *sp, *sq;
+	uint32_t *v4first = (uint32_t *)thunk;
+
+	ia = (si_item_t **)a;
+	ib = (si_item_t **)b;
+	
+	p = (si_addrinfo_t *)((uintptr_t)*ia + sizeof(si_item_t));
+	q = (si_addrinfo_t *)((uintptr_t)*ib + sizeof(si_item_t));
+
+	sp = (struct sockaddr *)p->ai_addr.x;
+	sq = (struct sockaddr *)q->ai_addr.x;
+
+	if (*v4first == 1)
+	{
+		if (sp->sa_family == sq->sa_family) return 0;
+		if (sp->sa_family == AF_INET) return -1;
+		return 1;
+	}
+
+	return _gai_sa_dst_compare(sp, sq, 0);
+}
+
 static si_list_t *
 _gai_sort_list(si_list_t *in)
 {
-	si_list_t *out;
-	int lead;
-	uint32_t i, v6to4;
-	si_addrinfo_t *a;
+	uint32_t v4first;
+	config_stats_t x;
 
 	if (in == NULL) return NULL;
 
-	v6to4 = 0;
-	if (_si_netconfig(NULL, NULL, &v6to4) < 0) v6to4 = 0;
+	memset(&x, 0, sizeof(config_stats_t));
+	if (_si_netconfig(&x) < 0) return in;
 
-	out = (si_list_t *)calloc(1, sizeof(si_list_t));
-	if (out == NULL) return in;
+	v4first = 1;
+	if (x.gai_v6_preferred != 0) v4first = 0;
 
-	out->refcount = in->refcount;
-	out->count = in->count;
-	out->entry = (si_item_t **)calloc(in->count, sizeof(si_item_t *));
-	if (out->entry == NULL)
-	{
-		free(out);
-		return in;
-	}
-
-	lead = AF_INET6;
-	if (v6to4 > 0) lead = AF_INET;
-
-	out->curr = 0;
-
-	for (i = 0; i < in->count; i++)
-	{
-		a = (si_addrinfo_t *)((uintptr_t)in->entry[i] + sizeof(si_item_t));
-		if (a->ai_family == lead) out->entry[out->curr++] = in->entry[i];
-	}
-
-	for (i = 0; i < in->count; i++)
-	{
-		a = (si_addrinfo_t *)((uintptr_t)in->entry[i] + sizeof(si_item_t));
-		if (a->ai_family != lead) out->entry[out->curr++] = in->entry[i];
-	}
-
-	free(in->entry);
-	free(in);
-
-	out->curr = 0;
-
-	return out;
+	qsort_r(&in->entry[0], in->count, sizeof(si_item_t *), (void *)&v4first, _gai_addr_sort);
+	return in;
 }
 
 /* _gai_simple
@@ -1268,13 +1373,13 @@ __private_extern__ si_item_t *
 si_ipnode_byname(si_mod_t *si, const char *name, int family, int flags, const char *interface, uint32_t *err)
 {
 	int i, status, want;
-	uint32_t if4, if6;
 	struct in_addr addr4;
 	struct in6_addr addr6;
 	si_item_t *item4, *item6;
 	build_hostent_t *out;
 	struct hostent *h;
 	uint64_t unused;
+	config_stats_t ifstats;
 
 	memset(&addr4, 0, sizeof(struct in_addr));
 	memset(&addr6, 0, sizeof(struct in6_addr));
@@ -1348,19 +1453,18 @@ si_ipnode_byname(si_mod_t *si, const char *name, int family, int flags, const ch
 	 * IF AI_ADDRCONFIG is set, we need to know what interface flavors we really have.
 	 */
 
-	if4 = 0;
-	if6 = 0;
+	memset(&ifstats, 0, sizeof(config_stats_t));
 
 	if (flags & AI_ADDRCONFIG)
 	{
-		if (_si_netconfig(&if4, &if6, NULL) < 0)
+		if (_si_netconfig(&ifstats) < 0)
 		{
 			if (err != NULL) *err = SI_STATUS_H_ERRNO_NO_RECOVERY;
 			return NULL;
 		}
 
 		/* Bail out if there are no interfaces */
-		if ((if4 == 0) && (if6 == 0))
+		if ((ifstats.v4_count == 0) && (ifstats.v6_count == 0))
 		{
 			if (err != NULL) *err = SI_STATUS_H_ERRNO_NO_RECOVERY;
 			return NULL;
@@ -1375,7 +1479,7 @@ si_ipnode_byname(si_mod_t *si, const char *name, int family, int flags, const ch
 
 	if (family == AF_INET)
 	{
-		if ((flags & AI_ADDRCONFIG) && (if4 == 0))
+		if ((flags & AI_ADDRCONFIG) && (ifstats.v4_count == 0))
 		{
 			if (err != NULL) *err = SI_STATUS_H_ERRNO_NO_RECOVERY;
 			return NULL;
@@ -1399,7 +1503,7 @@ si_ipnode_byname(si_mod_t *si, const char *name, int family, int flags, const ch
 		}
 		else
 		{
-			if ((flags & AI_ADDRCONFIG) && (if6 == 0)) 
+			if ((flags & AI_ADDRCONFIG) && (ifstats.v6_count == 0)) 
 			{
 				if (err != NULL) *err = SI_STATUS_H_ERRNO_NO_RECOVERY;
 				return NULL;

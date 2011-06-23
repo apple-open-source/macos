@@ -68,6 +68,7 @@ fsck_messages_common[] = {
     { fsckCorruptFilesDirectory,            "Look for links to corrupt files in %s directory.",                         fsckMsgDamageInfo,  fsckLevel0,   1, (const int[]) { fsckTypeDirectory }},
     { fsckInformation,                      "Executing %s (version %s).",                                               fsckMsgInfo,        fsckLevel1,   2, (const int[]) { fsckTypeString, fsckTypeString }},
     { fsckProgress,                         "%d %%",                                                                    fsckMsgProgress,    fsckLevel0,   1, (const int[]) { fsckTypeProgress } },
+    { fsckTrimming,                         "Trimming unused blocks.",                                                  fsckMsgVerify,      fsckLevel0,   0 },
     { 0, },
 };
 

@@ -2,13 +2,13 @@
         <key>OpenSourceProject</key>
         <string>altgraph</string>
         <key>OpenSourceVersion</key>
-        <string>0.6.8</string>
+        <string>0.7.1</string>
         <key>OpenSourceWebsiteURL</key>
         <string>http://undefined.org/python/#altgraph</string>
         <key>OpenSourceSVN</key>
-        <string>svn export http://svn.red-bean.com/pyobjc/trunk/pyobjc/altgraph</string>
+        <string>https://svn.red-bean.com/pyobjc/tags/pyobjc-2.3.1/altgraph</string>
         <key>OpenSourceImportDate</key>
-        <string>2009-01-21</string>
+        <string>2010-08-24</string>
         <key>OpenSourceLicense</key>
         <string>MIT</string>
         <key>OpenSourceLicenseFile</key>

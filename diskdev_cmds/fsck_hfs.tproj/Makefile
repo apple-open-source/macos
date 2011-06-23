@@ -11,8 +11,10 @@ CFILES = fsck_hfs.c utilities.c cache.c fsck_debug.c \
 	$(OBJROOT)/$(Project)/_version.c
 MANPAGES = fsck_hfs.8
 
-Extra_CC_Flags = -Wall -Werror -Wno-error=deprecated-declarations -mdynamic-no-pic \
-	-Idfalib
+export CONFIG_HFS_TRIM ?= 1
+
+Extra_CC_Flags = -DCONFIG_HFS_TRIM=$(CONFIG_HFS_TRIM) -Wall -Werror \
+	-Wno-error=deprecated-declarations -mdynamic-no-pic -Idfalib
 Extra_LD_Flags = -dead_strip \
 	-L"$(SYMROOT)" -ldfalib
 

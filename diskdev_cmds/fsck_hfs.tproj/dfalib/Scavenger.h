@@ -1412,6 +1412,8 @@ extern int  ReleaseBitmapBits(UInt32 startBit, UInt32 bitCount);
 extern int  CheckVolumeBitMap(SGlobPtr g, Boolean repair);
 extern void UpdateFreeBlockCount(SGlobPtr g);
 extern int 	AllocateContigBitmapBits (SVCB *vcb, UInt32 numBlocks, UInt32 *actualStartBlock);
+extern int  IsTrimSupported(void);
+extern void TrimFreeBlocks(SGlobPtr g);
 
 /*
  * Variables and routines to support mapping a physical block number to a

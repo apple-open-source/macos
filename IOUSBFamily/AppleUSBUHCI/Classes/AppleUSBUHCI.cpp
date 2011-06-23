@@ -356,7 +356,23 @@ AppleUSBUHCI::UIMInitialize(IOService * provider)
         // Disable the master interrupt
         EnableUSBInterrupt(false);
 
-        _ioMap = _device->mapDeviceMemoryWithIndex(0);
+		SetVendorInfo();
+		
+        SetDeviceName();
+        
+        // Do not use standardized errata bits yet
+        _errataBits = GetErrataBits(_vendorID, _deviceID, _revisionID);
+		
+		if ((_errataBits & kErrataDontUseCompanionController) && !(gUSBStackDebugFlags & kUSBForceCompanionControllersMask))
+		{
+			USBLog(3, "AppleUSBUHCI[%p]::UIMInitialize - companion controllers disallowed. Not initializing", this);
+            return kIOReturnUnsupported;
+		}
+		
+		
+  		setProperty("Errata", _errataBits, 32);
+		
+		_ioMap = _device->mapDeviceMemoryWithIndex(0);
 		
         USBLog(7, "AppleUSBUHCI[%p]::UIMInitialize - _ioMap = %p", this, _ioMap);
         if (_ioMap) 
@@ -386,25 +402,6 @@ AppleUSBUHCI::UIMInitialize(IOService * provider)
 		tempTime = mach_absolute_time();
 		_lastTime = *(AbsoluteTime*)&tempTime;
        
-        SetVendorInfo();
-		
-        SetDeviceName();
-        
-        // Do not use standardized errata bits yet
-        _errataBits = GetErrataBits(_vendorID, _deviceID, _revisionID);
-		
-		if (_errataBits & kErrataDontUseCompanionController)
-		{
-			IOLockFree(_frameLock);
-			_frameLock = NULL;
-			
-			USBLog(3, "AppleUSBUHCI[%p]::UIMInitialize - companion controllers disallowed. Not initializing", this);
-            return kIOReturnUnsupported;
-		}
-		
-		
-  		setProperty("Errata", _errataBits, 32);
-      
 		USBLog(7, "AppleUSBUHCI[%p]::UIMInitialize - there are %d interrupt sources", this, _numInterruptSources);
         
         //_interruptSource = IOInterruptEventSource::interruptEventSource(this, &InterruptHandler, _device);

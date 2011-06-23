@@ -1,0 +1,6 @@
+/os.environ\['MACOSX_DEPLOYMENT_TARGET'\]/s/10\.3/###PRODUCTVERSION###/
+g/-arch [^ ]* /s///g
+/os\.system/a
+	os.system('strip -Sx "%(dest)s"' % locals())
+.
+w

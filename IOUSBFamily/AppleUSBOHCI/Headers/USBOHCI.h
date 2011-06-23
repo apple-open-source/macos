@@ -503,9 +503,11 @@ struct OHCIIsochTransferDescriptorShared
     UInt16									offset[8];		// 0x10
 };															// 0x20 total length
 
-#define kOHCIPageOffsetMask	( kOHCIPageSize - 1 )		// mask off just the offset bits (low 12)
-#define kOHCIPageMask 		(~(kOHCIPageOffsetMask))	// mask off just the page number (high 20)
+#define kOHCIPageOffsetMask	( kOHCIPageSize - 1 )			// mask off just the offset bits (low 12)
+#define kOHCIPageMask 		(~(kOHCIPageOffsetMask))		// mask off just the page number (high 20)
 
 #define	kOHCIStructureAllocationPhysicalMask	0x00000000FFFFF000ULL			// for use with inTaskWithPhysicalMask (below 4GB and 4K aligned)
+
+#define kOHCIInvalidRegisterValue	0xFFFFFFFF				// if a register returns this value, the controller is likely gone
 
 #endif

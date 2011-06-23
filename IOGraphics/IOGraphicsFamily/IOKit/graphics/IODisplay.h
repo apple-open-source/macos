@@ -35,6 +35,8 @@ extern const OSSymbol * gIODisplayMaxValueKey;
 
 extern const OSSymbol * gIODisplayContrastKey;
 extern const OSSymbol * gIODisplayBrightnessKey;
+extern const OSSymbol * gIODisplayLinearBrightnessKey;
+extern const OSSymbol * gIODisplayUsableLinearBrightnessKey;
 extern const OSSymbol * gIODisplayHorizontalPositionKey;
 extern const OSSymbol * gIODisplayHorizontalSizeKey;
 extern const OSSymbol * gIODisplayVerticalPositionKey;
@@ -70,6 +72,9 @@ extern const OSSymbol * gIODisplayAudioBalanceLRKey;
 extern const OSSymbol * gIODisplayAudioProcessorModeKey;
 extern const OSSymbol * gIODisplayPowerModeKey;
 extern const OSSymbol * gIODisplayManufacturerSpecificKey;
+
+extern const OSSymbol * gIODisplayPowerStateKey;
+extern const OSSymbol * gIODisplayControllerIDKey;
 
 extern const OSSymbol * gIODisplayParametersCommitKey;
 extern const OSSymbol * gIODisplayParametersDefaultKey;
@@ -213,36 +218,6 @@ private:
 class IOBacklightDisplay : public IODisplay
 {
     OSDeclareDefaultStructors(IOBacklightDisplay)
-
-protected:
-    // User preferred brightness level
-    SInt32      fCurrentUserBrightness;
-    SInt32      fCurrentBrightness;
-    UInt32      fCurrentPowerState;
-    SInt32      fMinBrightness;
-    SInt32      fMaxBrightness;
-    UInt16      fMaxBrightnessLevel[kIODisplayNumPowerStates];
-
-public:
-    virtual IOService * probe( IOService *, SInt32 * );
-    virtual void stop( IOService * provider );
-    virtual IOReturn setPowerState( unsigned long, IOService * );
-    virtual unsigned long maxCapabilityForDomainState( IOPMPowerFlags );
-    virtual unsigned long initialPowerStateForDomainState( IOPMPowerFlags );
-    virtual unsigned long powerStateForDomainState( IOPMPowerFlags );
-
-    // 
-    virtual void initPowerManagement( IOService * );
-
-public:
-    virtual bool doIntegerSet( OSDictionary * params,
-                               const OSSymbol * paramName, UInt32 value );
-    virtual bool doUpdate( void );
-    virtual void makeDisplayUsable( void );
-    virtual bool setBrightness( SInt32 value );
-
-private:
-    void handlePMSettingCallback(const OSSymbol *, OSObject *, uintptr_t);
 
     OSMetaClassDeclareReservedUnused(IOBacklightDisplay, 0);
     OSMetaClassDeclareReservedUnused(IOBacklightDisplay, 1);

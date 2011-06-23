@@ -109,8 +109,23 @@ IOReturn AppleUSBOHCI::GetRootHubDescriptor(IOUSBHubDescriptor *desc)
 	OSNumber *			appleCaptiveProperty = NULL;
 
     descriptorA = USBToHostLong(_pOHCIRegisters->hcRhDescriptorA);
+	
+	if (descriptorA == kOHCIInvalidRegisterValue)
+	{
+		USBLog(2, "AppleUSBOHCI[%p]::GetRootHubDescriptor - invalid register (A). We must be disconnected", this);
+		_controllerAvailable = false;
+		return kIOReturnNotResponding;
+	}
+	
     descriptorB = USBToHostLong(_pOHCIRegisters->hcRhDescriptorB);
 
+	if (descriptorB == kOHCIInvalidRegisterValue)
+	{
+		USBLog(2, "AppleUSBOHCI[%p]::GetRootHubDescriptor - invalid register (B). We must be disconnected", this);
+		_controllerAvailable = false;
+		return kIOReturnNotResponding;
+	}
+	
     hubDesc.length = sizeof(IOUSBHubDescriptor);
     hubDesc.hubType = kUSBHubDescriptorType;
     hubDesc.numPorts = ((descriptorA & kOHCIHcRhDescriptorA_NDP) >> kOHCIHcRhDescriptorA_NDPPhase);
@@ -169,11 +184,11 @@ IOReturn AppleUSBOHCI::GetRootHubDescriptor(IOUSBHubDescriptor *desc)
                        (sizeof(hubDesc.pwrCtlPortFlags) - numBytes));
     
     if (!desc)
-        return(kIOReturnNoMemory);
+        return kIOReturnNoMemory;
 
     bcopy(&hubDesc, desc, hubDesc.length);
 
-    return(kIOReturnSuccess);
+    return kIOReturnSuccess;
 }
 
 
@@ -239,12 +254,28 @@ IOReturn AppleUSBOHCI::SetRootHubDescriptor(OSData * buffer)
 
 IOReturn AppleUSBOHCI::GetRootHubStatus(IOUSBHubStatus *status)
 {
+	UInt32		rhStatus = 0;
+	IOReturn	ret = kIOReturnSuccess;
+	
     if ( _controllerAvailable )
-		*(UInt32*)status = _pOHCIRegisters->hcRhStatus;
+	{
+		rhStatus = _pOHCIRegisters->hcRhStatus;
+		if (rhStatus == kOHCIInvalidRegisterValue)
+		{
+			USBLog(2, "AppleUSBOHCI[%p]::GetRootHubStatus - it appears that we no longer have real access to our registers", this);
+			rhStatus = 0;
+			_controllerAvailable = false;
+			ret = kIOReturnNotResponding;
+		}
+	}
 	else
-		*(UInt32*)status = 0;					// if the controller is not available, just return 0. The OC bit is the only really important bit anyway
+	{
+		rhStatus = 0;					// if the controller is not available, just return 0. The OC bit is the only really important bit anyway
+		ret = kIOReturnNotResponding;
+	}
 
-    return kIOReturnSuccess;
+	*(UInt32*)status = rhStatus;
+    return ret;
 }
 
 

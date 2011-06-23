@@ -61,6 +61,7 @@ enum fsck_msgnum {
     fsckCorruptFilesDirectory           = 117,  /* Look for links to corrupt files in %s directory */
     fsckInformation                     = 118,  /* Using %s (version %s) for checking volume %s of type %s. */
     fsckProgress                        = 119,  /* %d */
+    fsckTrimming                        = 120,  /* Trimming unused blocks */
 };
 
 #endif

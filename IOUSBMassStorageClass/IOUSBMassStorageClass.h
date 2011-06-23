@@ -59,10 +59,16 @@
 #define kIOUSBMassStorageDoNotMatch				"Do Not Match MSC"
 #define kIOUSBMassStorageDoNotOperate			"Do Not Operate"
 #define kIOUSBMassStorageEnableSuspendResumePM	"Enable Port Suspend-Resume PM"
+#define kIOUSBMassStoragePostResetCoolDown		"Reset Recovery Time"
 
 enum 
 {
 	kUSBDAddressLength = 10
+};
+
+enum 
+{
+	kIOUSBMassStorageReconfigurationTimeoutMS = 5000
 };
 
 #pragma mark -
@@ -190,6 +196,8 @@ protected:
 		bool					fClearStallInProgress;				/* OBSOLETE */
 		bool					fTerminationDeferred;
 		UInt32					fRequiredMaxBusStall;
+		bool					fBlockOnResetThread;
+		UInt32					fPostDeviceResetCoolDownInterval;
 	};
     ExpansionData *				reserved;
 	
@@ -213,6 +221,8 @@ protected:
 	#define fClearStallInProgress				reserved->fClearStallInProgress
 	#define fTerminationDeferred				reserved->fTerminationDeferred
 	#define fRequiredMaxBusStall				reserved->fRequiredMaxBusStall
+	#define fBlockOnResetThread					reserved->fBlockOnResetThread
+	#define fPostDeviceResetCoolDownInterval	reserved->fPostDeviceResetCoolDownInterval
 	
 	// Enumerated constants used to control various aspects of this
 	// driver.

@@ -261,6 +261,19 @@ AppleUSBEHCI::ResumeUSBBus()
 		// rdar://7315326 - Make sure that the threshold is set back to what we want it.. Some controllers appear to change it during sleep
 		USBCmd &= ~kEHCICMDIntThresholdMask;
 		USBCmd |= 1 << kEHCICMDIntThresholdOffset;						// Interrupt every micro frame as needed (4745296)
+
+		// same with Async Park Mode
+		if (_errataBits & kErrataDisableAsynchronousParkMode)
+		{
+			// get rid of the count as well as the enable bit
+			USBCmd &= ~kEHCICMDAsyncParkModeCountMask;
+			
+			// this would allow a different count if we stayed enabled
+			// USBCmd |= (2 << kEHCICMDAsyncParkModeCountMaskPhase);
+			
+			// this line will eliminate park mode completely
+			USBCmd &= ~kEHCICMDAsyncParkModeEnable;
+		}
 		USBCmd |= kEHCICMDRunStop;
 		
 		USBLog(5, "AppleUSBEHCI[%p]::ResumeUSBBus - initial restart - USBCMD is <%p> will be <%p>",  this, (void*)USBToHostLong(_pEHCIRegisters->USBCMD), (void*)USBCmd);
@@ -533,11 +546,11 @@ AppleUSBEHCI::SaveControllerStateForSleep(void)
 		RestartUSBBus();
 	}
 	USBLog(7, "AppleUSBEHCI[%p]::SaveControllerStateForSleep - about to suspend bus - showing queue", this);
-	printAsyncQueue(7, "SaveControllerStateForSleep");
+	printAsyncQueue(7, "SaveControllerStateForSleep", true, false);
 	SuspendUSBBus();
 	
 	USBLog(7, "AppleUSBEHCI[%p]::SaveControllerStateForSleep The bus is now suspended - showing queue", this);
-	printAsyncQueue(7, "SaveControllerStateForSleep");
+	printAsyncQueue(7, "SaveControllerStateForSleep", true, false);
 
 	_myBusState = kUSBBusStateSuspended;
 
@@ -555,13 +568,24 @@ AppleUSBEHCI::SaveControllerStateForSleep(void)
 IOReturn				
 AppleUSBEHCI::RestoreControllerStateFromSleep(void)
 {
+	UInt32			sts = USBToHostLong(_pEHCIRegisters->USBSTS);
+	
+	// if I am trying to restore from sleep and the controller has gone away, then I will just return success (which allows the power change to complete)
+	// and wait for a termination
+	
+	if (sts == kEHCIInvalidRegisterValue)
+	{
+		_controllerAvailable = false;
+		return kIOReturnSuccess;
+	}
+	
 	USBLog(5, "AppleUSBEHCI[%p]::RestoreControllerStateFromSleep - setPowerState powering on USB",  this);
 	
 	showRegisters(7, "+RestoreControllerStateFromSleep");
 
 	// at this point, interrupts are disabled, and we are waking up. If the Port Change interrupt is active
 	// then it is likely that we are responsible for the system issuing the wakeup
-	if ((USBToHostLong(_pEHCIRegisters->USBSTS) & kEHCIPortChangeIntBit) || (_errataBits & kErrataMissingPortChangeInt))
+	if (( sts & kEHCIPortChangeIntBit) || (_errataBits & kErrataMissingPortChangeInt))
 	{
 		UInt32			port;
 		
@@ -623,10 +647,10 @@ AppleUSBEHCI::RestoreControllerStateFromSleep(void)
 	}
 	
 	USBLog(7, "AppleUSBEHCI[%p]::RestoreControllerStateFromSleep - about to resume bus - showing queue", this);
-	printAsyncQueue(7, "RestoreControllerStateFromSleep");
+	printAsyncQueue(7, "RestoreControllerStateFromSleep", true, false);
 	ResumeUSBBus();
 	USBLog(7, "AppleUSBEHCI[%p]::RestoreControllerStateFromSleep - bus has been resumed - showing queue", this);
-	printAsyncQueue(7, "RestoreControllerStateFromSleep");
+	printAsyncQueue(7, "RestoreControllerStateFromSleep", true, false);
 	_myBusState = kUSBBusStateRunning;
 	
 	showRegisters(7, "-RestoreControllerStateFromSleep");
@@ -750,6 +774,19 @@ AppleUSBEHCI::RestartControllerFromReset(void)
 
 	USBCmd &= ~kEHCICMDIntThresholdMask;
 	USBCmd |= 1 << kEHCICMDIntThresholdOffset;						// Interrupt every micro frame as needed (4745296)
+
+	if (_errataBits & kErrataDisableAsynchronousParkMode)
+	{
+		// get rid of the count as well as the enable bit
+		USBCmd &= ~kEHCICMDAsyncParkModeCountMask;
+		
+		// this would allow a different count if we stayed enabled
+		// USBCmd |= (2 << kEHCICMDAsyncParkModeCountMaskPhase);
+		
+		// this line will eliminate park mode completely
+		USBCmd &= ~kEHCICMDAsyncParkModeEnable;
+	}
+	
 	_pEHCIRegisters->USBCMD = HostToUSBLong(USBCmd);				// start your engines
 	
 	_pEHCIRegisters->ConfigFlag = HostToUSBLong(kEHCIPortRoutingBit);  		// Route ports to EHCI
@@ -943,7 +980,7 @@ AppleUSBEHCI::powerChangeDone ( unsigned long fromState)
 	unsigned long newState = getPowerState();
 	
 	USBTrace( kUSBTEHCI, kTPEHCIPowerState, (uintptr_t)this, fromState, newState, 1);
-	USBLog((fromState == newState) ? 7 : 4, "AppleUSBEHCI[%p]::powerChangeDone from state (%d) to state (%d) _controllerAvailable(%s)", this, (int)fromState, (int)newState, _controllerAvailable ? "true" : "false");
+	USBLog((fromState == newState) || !_controllerAvailable ? 7 : 4, "AppleUSBEHCI[%p]::powerChangeDone from state (%d) to state (%d) _controllerAvailable(%s)", this, (int)fromState, (int)newState, _controllerAvailable ? "true" : "false");
 	if (_wakingFromHibernation)
 	{
 		USBLog(2, "AppleUSBEHCI[%p]::powerChangeDone - _wakingFromHibernation - _savedAsyncListAddr(%p) AsyncListAddr(%p) _AsyncHead(%p)", this, (void*)USBToHostLong(_savedAsyncListAddr), (void*)_pEHCIRegisters->AsyncListAddr, _AsyncHead);		

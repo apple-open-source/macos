@@ -113,6 +113,31 @@ ErrorExit:
 
 
 
+void 		
+AppleUSBEHCI::stop( IOService * provider )
+{
+	USBLog(5, "AppleUSBEHCI[%p]::stop - isInactive(%s) - USBCMD(%p) USBSTS(%p)", this, isInactive() ? "true" : "false", (void*)USBToHostLong(_pEHCIRegisters->USBCMD), (void*)USBToHostLong(_pEHCIRegisters->USBSTS));
+	super::stop(provider);
+}
+
+
+bool		
+AppleUSBEHCI::willTerminate(IOService * provider, IOOptionBits options)
+{
+	USBLog(5, "AppleUSBEHCI[%p]::willTerminate - isInactive(%s) - USBCMD(%p) USBSTS(%p)", this, isInactive() ? "true" : "false", (void*)USBToHostLong(_pEHCIRegisters->USBCMD), (void*)USBToHostLong(_pEHCIRegisters->USBSTS));
+	return super::willTerminate(provider, options);
+}
+
+
+
+bool		
+AppleUSBEHCI::didTerminate( IOService * provider, IOOptionBits options, bool * defer )
+{
+	USBLog(5, "AppleUSBEHCI[%p]::didTerminate - isInactive(%s) - USBCMD(%p) USBSTS(%p)", this, isInactive() ? "true" : "false", (void*)USBToHostLong(_pEHCIRegisters->USBCMD), (void*)USBToHostLong(_pEHCIRegisters->USBSTS));
+	return super::didTerminate(provider, options, defer);
+}
+
+
 void
 AppleUSBEHCI::free()
 {
@@ -131,11 +156,17 @@ AppleUSBEHCI::free()
 
 void AppleUSBEHCI::showRegisters(UInt32 level, const char *s)
 {
-    int i;
+    int				i;
 
 	if (!_controllerAvailable)
 		return;
-		
+
+	if (_pEHCIRegisters->USBCMD == kEHCIInvalidRegisterValue)
+	{
+		USBLog(level,"AppleUSBEHCI[%p]::showRegisters - called from %s - registers are not available", this, s);
+		return;
+	}
+	
     USBLog(level,"AppleUSBEHCI[%p]::showRegisters - called from %s - version: 0x%x", this, s, USBToHostWord(_pEHCICapRegisters->HCIVersion));
 #define SHOW_PCI_REGS
 #ifdef SHOW_PCI_REGS
@@ -328,9 +359,22 @@ AppleUSBEHCI::UIMInitialize(IOService * provider)
 			break;
 		}
 		_frameListSize = 1024;
-		_myBusState = kUSBBusStateRunning;
 		USBCmd &= ~kEHCICMDIntThresholdMask;
 		USBCmd |= 1 << kEHCICMDIntThresholdOffset;						// Interrupt every micro frame as needed (4745296)
+
+		if (_errataBits & kErrataDisableAsynchronousParkMode)
+		{
+			// get rid of the count as well as the enable bit
+			USBCmd &= ~kEHCICMDAsyncParkModeCountMask;
+			
+			// this would allow a different count if we stayed enabled
+			// USBCmd |= (2 << kEHCICMDAsyncParkModeCountMaskPhase);
+			
+			// this line will eliminate park mode completely
+			USBCmd &= ~kEHCICMDAsyncParkModeEnable;
+		}
+		
+		_myBusState = kUSBBusStateRunning;
 		_pEHCIRegisters->USBCMD = USBToHostLong(USBCmd);
 		
 		_pEHCIRegisters->ConfigFlag = HostToUSBLong(kEHCIPortRoutingBit);  		// Route ports to EHCI
@@ -592,7 +636,7 @@ AppleUSBEHCI::InterruptInitialize (void)
 IOReturn 
 AppleUSBEHCI::UIMFinalize(void)
 {
-    int 	i;
+    int			i;
     IOReturn	err = kIOReturnSuccess;
 	
     if ( _deviceBase )
@@ -685,6 +729,72 @@ AppleUSBEHCI::UIMFinalize(void)
 		IOSync();
 			
     }
+
+	// Free the TD memory blocks
+    if (_tdMBHead)
+    {
+		AppleEHCItdMemoryBlock *curBlock = _tdMBHead;
+		AppleEHCItdMemoryBlock *nextBlock;
+		
+		_tdMBHead = NULL;
+		while (curBlock)
+		{
+			nextBlock = curBlock->GetNextBlock();
+			curBlock->release();
+			curBlock = nextBlock;
+		}
+    }
+	
+	// Free the ITD memory blocks
+    if (_itdMBHead)
+    {
+		AppleEHCIitdMemoryBlock *curBlock = _itdMBHead;
+		AppleEHCIitdMemoryBlock *nextBlock;
+		
+		_itdMBHead = NULL;
+		while (curBlock)
+		{
+			nextBlock = curBlock->GetNextBlock();
+			curBlock->release();
+			curBlock = nextBlock;
+		}
+    }
+	
+	// Free the QHs and Memory Blocks
+	while (_pFreeQH)
+	{
+		AppleEHCIQueueHead* qh = _pFreeQH;
+		_pFreeQH = OSDynamicCast(AppleEHCIQueueHead, qh->_logicalNext);
+		USBLog(5, "AppleUSBEHCI[%p]::UIMFinalize - freeing QH[%p] - AsyncHead[%p] InactiveAsyncHead[%p]", this, qh, _AsyncHead, _InactiveAsyncHead);
+		qh->release();
+	}
+
+	// free the dummt interrupt QHs
+	for (i=0; i < kEHCIMaxPollingInterval; i++)
+	{
+		AppleEHCIQueueHead* qh = _dummyIntQH[i];
+		if (qh)
+		{
+			USBLog(5, "AppleUSBEHCI[%p]::UIMFinalize - freeing dummy QH[%p]", this, qh);
+			qh->release();
+		}
+	}
+	
+	
+    if (_edMBHead)
+    {
+		AppleEHCIedMemoryBlock *curBlock = _edMBHead;
+		AppleEHCIedMemoryBlock *nextBlock;
+		
+		_edMBHead = NULL;
+		while (curBlock)
+		{
+			nextBlock = curBlock->GetNextBlock();
+			curBlock->release();
+			curBlock = nextBlock;
+		}
+    }
+    
 	
     // Free the memory allocated in the InterruptInitialize()
     //
@@ -748,11 +858,18 @@ AppleUSBEHCI::GetBandwidthAvailable()
 UInt32 
 AppleUSBEHCI::GetFrameNumber32()
 {
-    UInt32	temp1, temp2;
+    UInt32		temp1, temp2;
     register 	UInt32	frindex;
+	UInt32		sts = USBToHostLong(_pEHCIRegisters->USBSTS);
     
+	if (sts == kEHCIInvalidRegisterValue)
+	{
+		USBLog(2, "AppleUSBEHCI[%p]::GetFrameNumber32: can't access register",  this);
+		return 0;
+	}
+	
 	// If the controller is halted, then we should just bail out
-	if ( USBToHostLong(_pEHCIRegisters->USBSTS) & kEHCIHCHaltedBit)
+	if ( sts & kEHCIHCHaltedBit)
 	{
 		USBLog(1, "AppleUSBEHCI[%p]::GetFrameNumber32 called but controller is halted",  this);
 		USBTrace( kUSBTEHCI, kTPEHCIGetFrameNumber32 , (uintptr_t)this, USBToHostLong(_pEHCIRegisters->USBSTS), kEHCIHCHaltedBit, 0);
@@ -783,8 +900,9 @@ AppleUSBEHCI::GetFrameNumber32()
 UInt64 
 AppleUSBEHCI::GetFrameNumber()
 {
-    UInt64	temp1, temp2;
+    UInt64		temp1, temp2;
     register 	UInt32	frindex;
+	UInt32		sts = USBToHostLong(_pEHCIRegisters->USBSTS);
     
 	//*******************************************************************************************************
 	// ************* WARNING WARNING WARNING ****************************************************************
@@ -792,8 +910,13 @@ AppleUSBEHCI::GetFrameNumber()
 	// So don't call USBLog for example (see AddIsochFramesToSchedule)
 	//*******************************************************************************************************
 
+	if (sts == kEHCIInvalidRegisterValue)
+	{
+		return 0;
+	}
+	
 	// If the controller is halted, then we should just bail out
-	if ( USBToHostLong(_pEHCIRegisters->USBSTS) & kEHCIHCHaltedBit)
+	if ( sts & kEHCIHCHaltedBit)
 	{
 		// USBLog(1, "AppleUSBEHCI[%p]::GetFrameNumber called but controller is halted",  this);
 		USBTrace( kUSBTEHCI, kTPEHCIGetFrameNumber , (uintptr_t)this, USBToHostLong(_pEHCIRegisters->USBSTS), kEHCIHCHaltedBit, 0);
@@ -1180,7 +1303,7 @@ AppleUSBEHCI::DeallocateSITD (AppleEHCISplitIsochTransferDescriptor *pTD)
 	{
 		// the UIM has completed its work with this SITD, but it could still be accessed by the hardware, so we need to delay
 		// putting it on the free list until we know that the hardware is no longer accessing it (based on the frame number)
-		USBLog(3, "AppleUSBEHCI::DeallocateSITD - pTD(%p) is for the current frame (%Ld) - delaying", pTD, pTD->_frameNumber);
+		USBLog(7, "AppleUSBEHCI::DeallocateSITD - pTD(%p) is for the current frame (%Ld) - delaying", pTD, pTD->_frameNumber);
 		if (_pLastDelayedSITD)
 		{
 			_pLastDelayedSITD->_logicalNext = pTD;
@@ -1211,14 +1334,14 @@ AppleUSBEHCI::DeallocateSITD (AppleEHCISplitIsochTransferDescriptor *pTD)
 	pTD = _pDelayedSITD;
 	if (pTD)
 	{
-		USBLog(6, "AppleUSBEHCI::DeallocateSITD - looking at _pDelayedSITD(%p)", pTD);
+		USBLog(7, "AppleUSBEHCI::DeallocateSITD - looking at _pDelayedSITD(%p)", pTD);
 	}
 	
 	while (pTD && (pTD->_frameNumber < GetFrameNumber()))
 	{
 		AppleEHCISplitIsochTransferDescriptor *nextSITD = (AppleEHCISplitIsochTransferDescriptor *)pTD->_logicalNext;
 		
-		USBLog(6, "AppleUSBEHCI::DeallocateSITD - pTD(%p) was delayed (frame %Ld) and I am now freeing it", pTD, pTD->_frameNumber);
+		USBLog(7, "AppleUSBEHCI::DeallocateSITD - pTD(%p) was delayed (frame %Ld) and I am now freeing it", pTD, pTD->_frameNumber);
 		pTD->_logicalNext = NULL;
 		if (_pLastFreeSITD)
 		{

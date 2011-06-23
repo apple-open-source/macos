@@ -3,7 +3,7 @@
  *
  *   Client routines for the Common UNIX Printing System (CUPS) scheduler.
  *
- *   Copyright 2007-2010 by Apple Inc.
+ *   Copyright 2007-2011 by Apple Inc.
  *   Copyright 1997-2007 by Easy Software Products, all rights reserved.
  *
  *   This file contains Kerberos support code, copyright 2006 by
@@ -54,7 +54,9 @@
 
 #ifdef HAVE_CDSASSL
 #  include <Security/Security.h>
-#  include <Security/SecItem.h>
+#  ifdef HAVE_SECITEM_H
+#    include <Security/SecItem.h>
+#  endif /* HAVE_SECITEM_H */
 #  ifdef HAVE_SECITEMPRIV_H
 #    include <Security/SecItemPriv.h>
 #  else /* Declare constant from that header... */
@@ -3425,14 +3427,16 @@ get_cdsa_certificate(
   servername = CFStringCreateWithCString(kCFAllocatorDefault, con->servername,
 					 kCFStringEncodingUTF8);
 
-  if ((policy = SecPolicyCreateSSL(1, servername)) == NULL)
+  policy = SecPolicyCreateSSL(1, servername);
+
+  if (servername)
+    CFRelease(servername);
+
+  if (!policy)
   {
     cupsdLogMessage(CUPSD_LOG_ERROR, "Cannot create ssl policy reference");
     goto cleanup;
   }
-
-  if (servername)
-    CFRelease(servername);
 
   if (!(query = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
 					  &kCFTypeDictionaryKeyCallBacks,
@@ -3467,14 +3471,16 @@ get_cdsa_certificate(
   
     CFRelease(policy);
 
-    if ((policy = SecPolicyCreateSSL(1, servername)) == NULL)
+    policy = SecPolicyCreateSSL(1, servername);
+
+    if (servername)
+      CFRelease(servername);
+
+    if (!policy)
     {
       cupsdLogMessage(CUPSD_LOG_ERROR, "Cannot create ssl policy reference");
       goto cleanup;
     }
-
-    if (servername)
-      CFRelease(servername);
 
     CFDictionarySetValue(query, kSecMatchPolicy, policy);
 
@@ -4881,8 +4887,18 @@ pipe_command(cupsd_client_t *con,	/* I - Client connection */
 
   sprintf(server_port, "SERVER_PORT=%d", con->serverport);
 
-  snprintf(server_name, sizeof(server_name), "SERVER_NAME=%s",
-           con->servername);
+  if (con->http.fields[HTTP_FIELD_HOST][0])
+  {
+    char *nameptr;			/* Pointer to ":port" */
+
+    snprintf(server_name, sizeof(server_name), "SERVER_NAME=%s",
+	     con->http.fields[HTTP_FIELD_HOST]);
+    if ((nameptr = strrchr(server_name, ':')) != NULL && !strchr(nameptr, ']'))
+      *nameptr = '\0';			/* Strip trailing ":port" */
+  }
+  else
+    snprintf(server_name, sizeof(server_name), "SERVER_NAME=%s",
+	     con->servername);
 
   envc = cupsdLoadEnv(envp, (int)(sizeof(envp) / sizeof(envp[0])));
 

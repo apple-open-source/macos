@@ -159,6 +159,7 @@ class IOFramebuffer : public IOGraphicsDevice
 {
     friend class IOFramebufferUserClient;
     friend class IOFramebufferSharedUserClient;
+    friend class IOFramebufferParameterHandler;
     friend class IODisplay;
 
     OSDeclareDefaultStructors(IOFramebuffer)

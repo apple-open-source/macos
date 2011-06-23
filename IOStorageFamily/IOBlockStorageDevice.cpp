@@ -190,22 +190,45 @@ IOBlockStorageDevice::doDiscard(UInt64 block, UInt64 nblks)
     return(kIOReturnUnsupported);
 }
 
+IOReturn
+IOBlockStorageDevice::doUnmap(IOBlockStorageDeviceExtent * extents,
+                              UInt32                       extentsCount,
+                              UInt32                       options)
+{
+    if (options) {
+        return(kIOReturnUnsupported);
+    } else {
+        UInt32 i;
+
+        for (i = 0; i < extentsCount; i++) {
+            IOReturn result;
+
+            result = doDiscard(extents[i].blockStart, extents[i].blockCount);
+            if (result != kIOReturnSuccess) {
+                return(result);
+            }
+        }
+    }
+
+    return(kIOReturnSuccess);
+}
+
+OSMetaClassDefineReservedUsed(IOBlockStorageDevice,  0);
 #ifdef __LP64__
-OSMetaClassDefineReservedUnused(IOBlockStorageDevice,  0);
 OSMetaClassDefineReservedUnused(IOBlockStorageDevice,  1);
 OSMetaClassDefineReservedUnused(IOBlockStorageDevice,  2);
 OSMetaClassDefineReservedUnused(IOBlockStorageDevice,  3);
 OSMetaClassDefineReservedUnused(IOBlockStorageDevice,  4);
 OSMetaClassDefineReservedUnused(IOBlockStorageDevice,  5);
+OSMetaClassDefineReservedUnused(IOBlockStorageDevice,  6);
 #else /* !__LP64__ */
-OSMetaClassDefineReservedUsed(IOBlockStorageDevice,  0);
 OSMetaClassDefineReservedUsed(IOBlockStorageDevice,  1);
 OSMetaClassDefineReservedUsed(IOBlockStorageDevice,  2);
 OSMetaClassDefineReservedUsed(IOBlockStorageDevice,  3);
 OSMetaClassDefineReservedUsed(IOBlockStorageDevice,  4);
 OSMetaClassDefineReservedUsed(IOBlockStorageDevice,  5);
+OSMetaClassDefineReservedUsed(IOBlockStorageDevice,  6);
 #endif /* !__LP64__ */
-OSMetaClassDefineReservedUnused(IOBlockStorageDevice,  6);
 OSMetaClassDefineReservedUnused(IOBlockStorageDevice,  7);
 OSMetaClassDefineReservedUnused(IOBlockStorageDevice,  8);
 OSMetaClassDefineReservedUnused(IOBlockStorageDevice,  9);

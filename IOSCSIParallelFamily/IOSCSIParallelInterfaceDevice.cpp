@@ -465,20 +465,28 @@ IOSCSIParallelInterfaceDevice::InitTarget (
 							IORegistryEntry *			entry )
 {
 	
-	OSObject *	value 	= NULL;
-	bool		result	= false;
+	bool	result	= false;
 	
 	result = super::init ( 0 );
 	require ( result, ERROR_EXIT );
 	
+	queue_init ( &fOutstandingTaskList );
+	queue_init ( &fResendTaskList );
+	
+	// Allocate the lock for the Task Queue
+	fQueueLock = IOSimpleLockAlloc ( );
+	require_nonzero ( fQueueLock, ERROR_EXIT );
+	
 	if ( entry != NULL )
 	{
+		
+		OSObject *	value = NULL;
 		
 		lockForArbitration ( );
 		result = attachToParent ( entry, gIODTPlane );
 		unlockForArbitration ( );
 		
-		require ( result, ERROR_EXIT );
+		require ( result, ATTACH_TO_PARENT_FAILURE );
 		
 		value = entry->copyProperty ( kIODeviceLocationKey );
 		if ( value != NULL )
@@ -491,13 +499,6 @@ IOSCSIParallelInterfaceDevice::InitTarget (
 	// Set all of the fields to their defaults
 	fHBADataSize		= sizeOfHBAData;
 	fTargetIdentifier	= targetID;
-	
-	queue_init ( &fOutstandingTaskList );
-	queue_init ( &fResendTaskList );
-	
-	// Allocate the lock for the Task Queue
-	fQueueLock = IOSimpleLockAlloc ( );
-	require_nonzero ( fQueueLock, ERROR_EXIT );
 	
 	fAllowResends = true;
 	
@@ -515,6 +516,7 @@ IOSCSIParallelInterfaceDevice::InitTarget (
 	
 	
 HBA_DATA_ALLOC_FAILURE:
+ATTACH_TO_PARENT_FAILURE:
 	
 	
 	require_nonzero_quiet ( fQueueLock, ERROR_EXIT );
@@ -1813,10 +1815,6 @@ IOSCSIParallelInterfaceDevice::SendFromResendTaskList ( void )
 		continue;
 		
 	}
-	
-	
-Exit:
-	
 	
 	fResendThreadScheduled = false;
 	

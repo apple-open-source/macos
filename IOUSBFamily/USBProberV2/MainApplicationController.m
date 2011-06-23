@@ -64,6 +64,9 @@
         case 2:
             [IORegController Refresh:sender];
             break;
+        case 4:
+            [PSController Refresh:sender];
+            break;
         case 3:
         default:
             // do nothing
@@ -84,6 +87,9 @@
             break;
         case 3:
             [LoggerController SaveOutput:sender];
+            break;
+        case 4:
+            [PSController SaveOutput:sender];
             break;
         default:
             // do nothing
@@ -111,6 +117,9 @@
             case 3:
                 [[USBLoggerOutput window] makeFirstResponder:USBLoggerOutput];
                 break;
+            case 4:
+                [[PortStatusOutput window] makeFirstResponder:PortStatusOutput];
+                break;
             default:
                 // do nothing
                 break;
@@ -127,7 +136,7 @@
     
     if (tabIndex != nil) {
         int index = [tabIndex intValue];
-        if (index >= 0 && index <= 3) {
+        if (index >= 0 && index <= 4) {
             [MainTabView selectTabViewItemAtIndex:index];
         }
     }
@@ -138,7 +147,8 @@
 }
 
 - (void)applicationWillTerminate:(NSNotification *)aNotification {
-    [[NSUserDefaults standardUserDefaults] setObject:[NSNumber numberWithInt:[MainTabView indexOfTabViewItem:[MainTabView selectedTabViewItem]]] forKey:@"SelectedMainTabViewItem"];
+	NSInteger index = [MainTabView indexOfTabViewItem:[MainTabView selectedTabViewItem]];
+    [[NSUserDefaults standardUserDefaults] setObject:[NSNumber numberWithInt:index] forKey:@"SelectedMainTabViewItem"];
     [[NSUserDefaults standardUserDefaults] synchronize];
 }
 

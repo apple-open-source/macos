@@ -116,7 +116,7 @@ int BLCreateVolumeInformationDictionary(BLContextPtr context, const char * mount
     }
 
     
-    {
+    if (0) {
 
       fbootstraptransfer_t        bbr;
       int                         fd;

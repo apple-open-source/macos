@@ -39,11 +39,6 @@
 #define ACPI_SUPPORT            1
 #endif
 
-#if OSTYPES_K64_REV < 1
-typedef long IOInterruptVectorNumber;
-#endif
-
-
 struct IOPCIDeviceExpansionData
 {
     UInt8   pmSleepEnabled;     // T if a client has enabled PCI Power Management
@@ -57,6 +52,13 @@ struct IOPCIDeviceExpansionData
     UInt8   msiBlockSize;
     UInt8   msiMode;
     UInt8   msiEnable;
+    uint8_t configProt;
+    uint8_t pmState;
+    uint8_t pmWait;
+
+	IOLock * lock;
+
+    struct IOPCIConfigEntry * configEntry;
 };
 
 enum
@@ -68,16 +70,24 @@ enum
     kIOPCIVolatileRegsMask      = ((1 << kIOPCIConfigShadowRegs) - 1)
                                 & ~(1 << (kIOPCIConfigVendorID >> 2))
                                 & ~(1 << (kIOPCIConfigRevisionID >> 2))
-                                & ~(1 << (kIOPCIConfigSubSystemVendorID >> 2))
+                                & ~(1 << (kIOPCIConfigSubSystemVendorID >> 2)),
+
+    kIOPCISaveRegsMask          = kIOPCIVolatileRegsMask 
+                                | (1 << (kIOPCIConfigVendorID >> 2))
 };
+
 
 struct IOPCIConfigShadow
 {
-    UInt32        savedConfig[kIOPCIConfigShadowSize];
-    UInt32        flags;
-    queue_chain_t link;
-    IOPCIDevice * device;
-    IOPCI2PCIBridge * bridge;
+    UInt32                   savedConfig[kIOPCIConfigShadowSize];
+    UInt32                   flags;
+    queue_chain_t            link;
+    IOPCIDevice *            device;
+    IOPCI2PCIBridge *        bridge;
+    OSObject *               tunnelID;
+    OSObject *               tunnelControllerID;
+    IOPCIDeviceConfigHandler handler;
+    void *                   handlerRef;
 };
 
 #define configShadow(device)    ((IOPCIConfigShadow *) &device->savedConfig[0])
@@ -86,10 +96,12 @@ struct IOPCIConfigShadow
 // flags in kIOPCIConfigShadowFlags
 enum
 {
-    kIOPCIConfigShadowValid        = 0x00000001,
-    kIOPCIConfigShadowBridge       = 0x00000002,
-    kIOPCIConfigShadowHostBridge   = 0x00000004,
-    kIOPCIConfigShadowBridgeDriver = 0x00000008
+    kIOPCIConfigShadowValid            = 0x00000001,
+    kIOPCIConfigShadowBridge           = 0x00000002,
+    kIOPCIConfigShadowHostBridge       = 0x00000004,
+    kIOPCIConfigShadowBridgeDriver     = 0x00000008,
+    kIOPCIConfigShadowBridgeInterrupts = 0x00000010,
+	kIOPCIConfigShadowSleepLinkDisable = 0x00000020
 };
 
 // whatToDo for setDevicePowerState()
@@ -101,14 +113,23 @@ enum
     kRestoreBridgeState = 3
 };
 
+#define PCI_ADDRESS_TUPLE(device)   \
+        device->space.s.busNum,     \
+        device->space.s.deviceNum,  \
+        device->space.s.functionNum
 
-#define kIOPCIEjectableKey  "IOPCIEjectable"
-#define kIOPCIHotPlugKey    "IOPCIHotPlug"
-#define kIOPCILinkChangeKey "IOPCILinkChange"
-#define kIOPCIResetKey      "IOPCIReset"
-#define kIOPCIOnlineKey     "IOPCIOnline"
-#define kIOPCIConfiguredKey "IOPCIConfigured"
-#define kIOPCIResourcedKey  "IOPCIResourced"
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+
+#define kIOPCIEjectableKey        "IOPCIEjectable"
+#define kIOPCIHotPlugKey          "IOPCIHotPlug"
+#define kIOPCILinkChangeKey       "IOPCILinkChange"
+#define kIOPCITunnelLinkChangeKey "IOPCITunnelLinkChange"
+#define kIOPCITunnelBootDeferKey  "IOPCITunnelBootDefer"
+#define kIOPCIResetKey            "IOPCIReset"
+#define kIOPCIOnlineKey           "IOPCIOnline"
+#define kIOPCIConfiguredKey       "IOPCIConfigured"
+#define kIOPCIResourcedKey        "IOPCIResourced"
 
 #ifndef kACPIDevicePathKey
 #define kACPIDevicePathKey             "acpi-path"
@@ -127,11 +148,6 @@ enum
 extern const IORegistryPlane * gIOPCIACPIPlane;
 extern const OSSymbol *        gIOPlatformDeviceASPMEnableKey;
 
-enum
-{
-    kIOPCIProbeOptionEject = 0x00100000 
-};
-
 #endif /* defined(KERNEL) */
 
 enum
@@ -139,6 +155,10 @@ enum
     kIOPCIDeviceDiagnosticsClientType = 0x99000001
 };
 
+enum
+{
+    kIOPCIProbeOptionLinkInt      = 0x40000000,
+};
 
 #endif /* ! _IOKIT_IOPCIPRIVATE_H */
 

@@ -28,6 +28,7 @@
 #import "KernelExtensionsController.h"
 #import "IORegistryController.h"
 #import "USBLoggerController.h"
+#import "PortStatusController.h"
 
 @interface MainApplicationController : NSObject
 {
@@ -41,6 +42,8 @@
     IBOutlet id MainTabView;
     IBOutlet id LoggerController;
     IBOutlet id USBLoggerOutput;
+	IBOutlet id PSController;
+	IBOutlet id PortStatusOutput;
 }
 
 - (IBAction)ChooseTab:(id)sender;

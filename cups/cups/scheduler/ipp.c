@@ -3,7 +3,7 @@
  *
  *   IPP routines for the Common UNIX Printing System (CUPS) scheduler.
  *
- *   Copyright 2007-2010 by Apple Inc.
+ *   Copyright 2007-2011 by Apple Inc.
  *   Copyright 1997-2007 by Easy Software Products, all rights reserved.
  *
  *   This file contains Kerberos support code, copyright 2006 by
@@ -1958,7 +1958,7 @@ add_job(cupsd_client_t  *con,		/* I - Client connection */
   }
   else if ((attr = ippFindAttribute(job->attrs, "job-sheets",
                                     IPP_TAG_ZERO)) != NULL)
-    job->sheets = attr;
+    job->job_sheets = attr;
 
  /*
   * Fill in the response info...
@@ -3403,41 +3403,54 @@ apple_register_profiles(
         * See if this is the default profile...
 	*/
 
-        if (!default_profile_id)
+        if (!default_profile_id && q1_choice && q2_choice && q3_choice)
 	{
-	  if (q2_choice)
-	  {
-	    if (q3_choice)
-	    {
-	      snprintf(selector, sizeof(selector), "%s.%s.%s",
-	               q1_choice, q2_choice, q3_choice);
-              if (!strcmp(selector, attr->spec))
-	        default_profile_id = profile_id;
-            }
+	  snprintf(selector, sizeof(selector), "%s.%s.%s", q1_choice, q2_choice,
+	           q3_choice);
+	  if (!strcmp(selector, attr->spec))
+	    default_profile_id = profile_id;
+	}
 
-            if (!default_profile_id)
-	    {
-	      snprintf(selector, sizeof(selector), "%s.%s.", q1_choice,
-	               q2_choice);
-              if (!strcmp(selector, attr->spec))
-	        default_profile_id = profile_id;
-	    }
-          }
+        if (!default_profile_id && q1_choice && q2_choice)
+	{
+	  snprintf(selector, sizeof(selector), "%s.%s.", q1_choice, q2_choice);
+	  if (!strcmp(selector, attr->spec))
+	    default_profile_id = profile_id;
+	}
 
-          if (!default_profile_id && q3_choice)
-	  {
-	    snprintf(selector, sizeof(selector), "%s..%s", q1_choice,
-	             q3_choice);
-	    if (!strcmp(selector, attr->spec))
-	      default_profile_id = profile_id;
-	  }
+        if (!default_profile_id && q1_choice && q3_choice)
+	{
+	  snprintf(selector, sizeof(selector), "%s..%s", q1_choice, q3_choice);
+	  if (!strcmp(selector, attr->spec))
+	    default_profile_id = profile_id;
+	}
 
-          if (!default_profile_id)
-	  {
-	    snprintf(selector, sizeof(selector), "%s..", q1_choice);
-	    if (!strcmp(selector, attr->spec))
-	      default_profile_id = profile_id;
-	  }
+        if (!default_profile_id && q1_choice)
+	{
+	  snprintf(selector, sizeof(selector), "%s..", q1_choice);
+	  if (!strcmp(selector, attr->spec))
+	    default_profile_id = profile_id;
+	}
+
+        if (!default_profile_id && q2_choice && q3_choice)
+	{
+	  snprintf(selector, sizeof(selector), ".%s.%s", q2_choice, q3_choice);
+	  if (!strcmp(selector, attr->spec))
+	    default_profile_id = profile_id;
+	}
+
+        if (!default_profile_id && q2_choice)
+	{
+	  snprintf(selector, sizeof(selector), ".%s.", q2_choice);
+	  if (!strcmp(selector, attr->spec))
+	    default_profile_id = profile_id;
+	}
+
+        if (!default_profile_id && q3_choice)
+	{
+	  snprintf(selector, sizeof(selector), "..%s", q3_choice);
+	  if (!strcmp(selector, attr->spec))
+	    default_profile_id = profile_id;
 	}
       }
 
@@ -5001,7 +5014,11 @@ copy_banner(cupsd_client_t *con,	/* I - Client connection */
 	  case IPP_TAG_ENUM :
 	      if (!strncmp(s, "time-at-", 8))
 	      {
-	        struct timeval tv = { attr->values[i].integer, 0 };
+	        struct timeval tv;	/* Time value */
+
+		tv.tv_sec  = attr->values[i].integer;
+		tv.tv_usec = 0;
+
 	        cupsFilePuts(out, cupsdGetDateTime(&tv, CUPSD_TIME_STANDARD));
 	      }
 	      else
@@ -6781,7 +6798,8 @@ get_document(cupsd_client_t  *con,	/* I - Client connection */
   * Check policy...
   */
 
-  if ((status = cupsdCheckPolicy(DefaultPolicyPtr, con, NULL)) != HTTP_OK)
+  if ((status = cupsdCheckPolicy(DefaultPolicyPtr, con, 
+                                 job->username)) != HTTP_OK)
   {
     send_http_error(con, status, NULL);
     return;
@@ -10032,8 +10050,9 @@ send_document(cupsd_client_t  *con,	/* I - Client connection */
     if (!filetype)
       filetype = mimeType(MimeDatabase, super, type);
 
-    cupsdLogJob(job, CUPSD_LOG_DEBUG, "Request file type is %s/%s.",
-		filetype->super, filetype->type);
+    if (filetype)
+      cupsdLogJob(job, CUPSD_LOG_DEBUG, "Request file type is %s/%s.",
+		  filetype->super, filetype->type);
   }
   else
     filetype = mimeType(MimeDatabase, super, type);

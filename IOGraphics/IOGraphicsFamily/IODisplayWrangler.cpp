@@ -560,7 +560,7 @@ IOReturn IODisplayWrangler::setAggressiveness( unsigned long type, unsigned long
             if (getPowerState() < kIODisplayWranglerMaxPowerState)
             {
                 // yes, bring displays up again
-                activityTickle(0,0);
+//                activityTickle(0,0);
                 changePowerStateToPriv( kIODisplayWranglerMaxPowerState );
             }
         }

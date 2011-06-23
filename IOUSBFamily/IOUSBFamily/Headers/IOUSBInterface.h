@@ -64,6 +64,7 @@ protected:
         IOWorkLoop			*_workLoop;
 		bool				_needToClose;
 		IOLock *			_pipeObjLock;											// Lock to synchronize accesses to our pipeObjects
+		OSSet *				_openClients;
     };
     ExpansionData * _expansionData;
 
@@ -71,18 +72,22 @@ protected:
     virtual void		ClosePipes(void);				// close all pipes (except pipe zero)
     virtual IOReturn	CreatePipes(void);				// open all pipes in the current interface/alt interface
     virtual void		SetProperties(void);			// update my property table with the correct properties		
+
+    IOReturn 			ResetPipes(void);				// reset all pipes (except pipe zero) (not virtual)
 	
 public:
 	// static methods
-    static IOUSBInterface *withDescriptors(const IOUSBConfigurationDescriptor *cfDesc, const IOUSBInterfaceDescriptor *ifDesc);
-    static IOReturn	CallSuperOpen(OSObject *target, void *arg0, void *arg1, void *arg2, void *arg3);
-    static IOReturn     CallSuperClose(OSObject *target, void *arg0, void *arg1, void *arg2, void *arg3);
-	static UInt8 hex2char( UInt8 digit );
+    static IOUSBInterface *		withDescriptors(const IOUSBConfigurationDescriptor *cfDesc, const IOUSBInterfaceDescriptor *ifDesc);
+    static IOReturn				CallSuperOpen(OSObject *target, void *arg0, void *arg1, void *arg2, void *arg3);
+    static IOReturn     		CallSuperClose(OSObject *target, void *arg0, void *arg1, void *arg2, void *arg3);
+	static IOReturn 			_ResetPipes(OSObject *target, void *arg0, void *arg1, void *arg2, void *arg3);
+	static UInt8 				hex2char( UInt8 digit );
     
 	// IOService methods
     virtual bool		start(IOService * provider);
     virtual bool		handleOpen(IOService *forClient, IOOptionBits options = 0, void *arg = 0 );
-    virtual bool		open(IOService *forClient, IOOptionBits options = 0, void *arg = 0 );
+ 	virtual bool		handleIsOpen(const IOService *forClient) const;
+	virtual bool		open(IOService *forClient, IOOptionBits options = 0, void *arg = 0 );
     virtual void		close(IOService *forClient, IOOptionBits options = 0);
     virtual void		handleClose(IOService *forClient, IOOptionBits options = 0);
     virtual IOReturn 	message( UInt32 type, IOService * provider,  void * argument = 0 );
@@ -273,6 +278,10 @@ public:
     OSMetaClassDeclareReservedUnused(IOUSBInterface,  17);
     OSMetaClassDeclareReservedUnused(IOUSBInterface,  18);
     OSMetaClassDeclareReservedUnused(IOUSBInterface,  19);
+
+protected:
+
+    
 };
 
 #endif /* _IOKIT_IOUSBINTERFACE_H */

@@ -41,6 +41,9 @@ private:
     
 public:
 
+	// OSObject call used to free the buffer when we are done
+    virtual void free();
+
     static AppleEHCItdMemoryBlock		*NewMemoryBlock(void);
     UInt32								NumTDs(void);
     EHCIGeneralTransferDescriptorPtr	GetTD(UInt32 index);

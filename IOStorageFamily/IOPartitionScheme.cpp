@@ -354,16 +354,17 @@ IOReturn IOPartitionScheme::synchronizeCache(IOService * client)
     return getProvider()->synchronizeCache(this);
 }
 
-IOReturn IOPartitionScheme::discard(IOService * client,
-                                    UInt64      byteStart,
-                                    UInt64      byteCount)
+IOReturn IOPartitionScheme::unmap(IOService *       client,
+                                  IOStorageExtent * extents,
+                                  UInt32            extentsCount,
+                                  UInt32            options)
 {
     //
-    // Delete unused data from the storage object at the specified byte offset,
+    // Delete unused data from the storage object at the specified byte offsets,
     // synchronously.
     //
 
-    return getProvider( )->discard( this, byteStart, byteCount );
+    return getProvider( )->unmap( this, extents, extentsCount, options );
 }
 
 #ifdef __LP64__

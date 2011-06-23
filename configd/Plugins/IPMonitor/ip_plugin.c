@@ -2954,7 +2954,6 @@ update_ipv6(CFDictionaryRef	service_info,
 	}
     }
     if (ipv6_dict != NULL) {
-	CFArrayRef		addrs;
 	CFMutableDictionaryRef	dict = NULL;
 	CFStringRef		if_name = NULL;
 	char			ifn[IFNAMSIZ] = { '\0' };
@@ -2966,17 +2965,15 @@ update_ipv6(CFDictionaryRef	service_info,
 					 &kCFTypeDictionaryKeyCallBacks,
 					 &kCFTypeDictionaryValueCallBacks);
 	val_router = CFDictionaryGetValue(ipv6_dict, kSCPropNetIPv6Router);
-	addrs = CFDictionaryGetValue(ipv6_dict,
-				     kSCPropNetIPv6Addresses);
 	if (val_router != NULL) {
+	    CFArrayRef		addrs;
+
 	    /* no router if router is one of our IP addresses */
+	    addrs = CFDictionaryGetValue(ipv6_dict,
+					 kSCPropNetIPv6Addresses);
 	    is_direct = router_is_our_ipv6_address(val_router, addrs);
 	    CFDictionarySetValue(dict, kSCPropNetIPv6Router,
 				 val_router);
-	}
-	else {
-	    val_router = CFArrayGetValueAtIndex(addrs, 0);
-	    is_direct = TRUE;
 	}
 	if_name = CFDictionaryGetValue(ipv6_dict, kSCPropInterfaceName);
 	if (if_name) {
@@ -2993,7 +2990,7 @@ update_ipv6(CFDictionaryRef	service_info,
 	keyChangeListSetValue(keys, S_state_global_ipv6, dict);
 	CFRelease(dict);
 
-	{ /* route add default ... */
+	if (val_router != NULL) { /* route add default ... */
 	    struct in6_addr	router;
 
 	    (void)cfstring_to_ip6(val_router, &router);

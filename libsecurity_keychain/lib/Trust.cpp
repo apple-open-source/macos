@@ -65,7 +65,7 @@ ModuleNexus<TrustStore> Trust::gStore;
 
 //
 // TrustKeychains maintains a global reference to standard system keychains,
-// to avoid having them be opened anew for each Trust instance. 
+// to avoid having them be opened anew for each Trust instance.
 //
 class TrustKeychains 
 {
@@ -83,7 +83,7 @@ private:
 
 //
 // Singleton maintaining open references to standard system keychains,
-// to avoid having them be opened anew every time SecTrust is used. 
+// to avoid having them be opened anew every time SecTrust is used.
 //
 
 static ModuleNexus<TrustKeychains> trustKeychains;
@@ -119,7 +119,7 @@ Trust::Trust(CFTypeRef certificates, CFTypeRef policies)
 //
 // Clean up a Trust object
 //
-Trust::~Trust() 
+Trust::~Trust()
 {
 	clearResults();
 }
@@ -238,10 +238,11 @@ void Trust::evaluate(bool disableEV)
 	CFMutableArrayRef allPolicies = NULL;
 	uint32 numSpecAdded = 0;
 	uint32 numPrefAdded = 0;
-	if (isEVCandidate) {
-		// force OCSP revocation checking for this evaluation
-		secdebug("evTrust", "Trust::evaluate() forcing OCSP revocation checking");
-		allPolicies = forceOCSPRevocationPolicy(numPrefAdded, context.allocator);
+	bool requirePerCert = (actionDataP->ActionFlags & CSSM_TP_ACTION_REQUIRE_REV_PER_CERT);
+	if (isEVCandidate || requirePerCert) {
+		// force revocation checking for this evaluation
+		secdebug("evTrust", "Trust::evaluate() forcing OCSP/CRL revocation checking");
+		allPolicies = forceRevocationPolicies(numPrefAdded, context.allocator, requirePerCert);
 	}
 	else if (mAnchors && (CFArrayGetCount(mAnchors)==0) && (mSearchLibs.size()==0)) {
 		// caller explicitly provided empty anchors and no keychain list;
@@ -249,13 +250,13 @@ void Trust::evaluate(bool disableEV)
 		allPolicies = NULL; // use only mPolicies
 	}
 	else if(!(revocationPolicySpecified(mPolicies))) {
-		/* 
+		/*
 		 * None specified in mPolicies; see if any specified via SPI.
 		 */
 		allPolicies = addSpecifiedRevocationPolicies(numSpecAdded, context.allocator);
 		if(allPolicies == NULL) {
-			/* 
-			 * None there; try preferences. 
+			/*
+			 * None there; try preferences.
 			 */
 			allPolicies = Trust::addPreferenceRevocationPolicies(numPrefAdded,
 				context.allocator);
@@ -284,7 +285,7 @@ void Trust::evaluate(bool disableEV)
 				(isEVCandidate) ? "EV" : "caller");
 		context.anchors(roots, roots);
 	}
-    
+
 	// dlDbList (keychain list)
 	vector<CSSM_DL_DB_HANDLE> dlDbList;
 	{

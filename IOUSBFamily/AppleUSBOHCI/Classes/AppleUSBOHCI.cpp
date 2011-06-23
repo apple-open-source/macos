@@ -92,11 +92,11 @@ ErrorExit:
 bool
 AppleUSBOHCI::start( IOService * provider )
 {
-	uint64_t		currentTime;
+	uint64_t			currentTime;
 	
     USBLog(5,"+AppleUSBOHCI[%p]::start", this);
-	
-    if ( !super::start(provider))
+		    
+	if ( !super::start(provider))
         return false;
 	
     // Set our initial time for root hub inactivity
@@ -215,6 +215,30 @@ AppleUSBOHCI::InitializeOperationalRegisters(void)
 }
 
 
+void 		
+AppleUSBOHCI::stop( IOService * provider )
+{
+	USBLog(5, "AppleUSBOHCI[%p]::stop - isInactive(%s) - hcCommandStatus(%p)", this, isInactive() ? "true" : "false", (void*)USBToHostLong(_pOHCIRegisters->hcCommandStatus));
+	super::stop(provider);
+}
+
+
+bool		
+AppleUSBOHCI::willTerminate(IOService * provider, IOOptionBits options)
+{
+	USBLog(5, "AppleUSBOHCI[%p]::willTerminate - isInactive(%s) - hcCommandStatus(%p)", this, isInactive() ? "true" : "false", (void*)USBToHostLong(_pOHCIRegisters->hcCommandStatus));
+	return super::willTerminate(provider, options);
+}
+
+
+
+bool		
+AppleUSBOHCI::didTerminate( IOService * provider, IOOptionBits options, bool * defer )
+{
+	USBLog(5, "AppleUSBOHCI[%p]::didTerminate - isInactive(%s) - hcCommandStatus(%p)", this, isInactive() ? "true" : "false", (void*)USBToHostLong(_pOHCIRegisters->hcCommandStatus));
+	return super::didTerminate(provider, options, defer);
+}
+
 
 IOReturn 
 AppleUSBOHCI::UIMInitialize(IOService * provider)
@@ -244,6 +268,21 @@ AppleUSBOHCI::UIMInitialize(IOService * provider)
 				break;
 			}
 			
+			SetVendorInfo();
+			
+			/*
+			 * Initialize my data and the hardware
+			 */
+			_errataBits = GetErrataBits(_vendorID, _deviceID, _revisionID);
+
+			if ((_errataBits & kErrataDontUseCompanionController) && !(gUSBStackDebugFlags & kUSBForceCompanionControllersMask))
+			{
+				USBLog(3, "AppleUSBOHCI[%p]::UIMInitialize - companion controllers disallowed. Not initializing", this);
+				err =  kIOReturnUnsupported;
+				break;
+			}
+
+			// set up MMIO
 			_deviceBase = provider->mapDeviceMemoryWithIndex(0);
 			if (!_deviceBase)
 			{
@@ -253,8 +292,6 @@ AppleUSBOHCI::UIMInitialize(IOService * provider)
 			}
 			
 			USBLog(3, "AppleUSBOHCI[%p]::UIMInitialize config @ %x (%x)", this, (uint32_t)_deviceBase->getVirtualAddress(), (uint32_t)_deviceBase->getPhysicalAddress());
-			
-			SetVendorInfo();
 			
 			// Set up a filter interrupt source (this process both primary (thru filter function) and secondary (thru action function)
 			// interrupts.
@@ -276,10 +313,6 @@ AppleUSBOHCI::UIMInitialize(IOService * provider)
 				break;
 			}
 			
-			/*
-			 * Initialize my data and the hardware
-			 */
-			_errataBits = GetErrataBits(_vendorID, _deviceID, _revisionID);
 			setProperty("Errata", _errataBits, 32);
 			
 			if (_errataBits & kErrataLucentSuspendResume)
@@ -1599,15 +1632,38 @@ AppleUSBOHCI::GetBandwidthAvailable()
 UInt64 
 AppleUSBOHCI::GetFrameNumber()
 {
-    UInt64	bigFrameNumber;
-    UInt16	framenumber16;
+    UInt64		bigFrameNumber;
+    UInt16		framenumber16;
 	
-    
+    if (!_controllerAvailable)
+		return 0;
+	
     framenumber16 = USBToHostWord(*(UInt16*)(_pHCCA + 0x80));
+	if (framenumber16 == 0xFFFF)
+	{
+		// the register might read 0xFFFF because that's what frame we are in, or it might be because we are disconnected
+		// check another register to see if it is the latter
+		UInt32	usbStatus = USBToHostLong(_pOHCIRegisters->hcCommandStatus);
+		if (usbStatus == kOHCIInvalidRegisterValue)
+		{
+			_controllerAvailable = false;
+			return 0;
+		}
+	}
+
     bigFrameNumber = _frameNumber + framenumber16;
     if (framenumber16 < 200)
-        if (_pOHCIRegisters->hcInterruptStatus & HostToUSBLong(kOHCIHcInterrupt_FNO))
+	{
+		UInt32		intStatus = USBToHostLong(_pOHCIRegisters->hcInterruptStatus);
+		if (intStatus == kOHCIInvalidRegisterValue)
+		{
+			_controllerAvailable = false;
+			return 0;
+		}
+		
+        if (intStatus & kOHCIHcInterrupt_FNO)
             bigFrameNumber += kOHCIFrameOverflowBit;
+	}
     return bigFrameNumber;
 }
 
@@ -1619,11 +1675,34 @@ AppleUSBOHCI::GetFrameNumber32()
     UInt16	framenumber16;
     UInt32	largishFrameNumber;
     
+    if (!_controllerAvailable)
+		return 0;
+	
     framenumber16 = USBToHostWord(*(UInt16*)(_pHCCA + 0x80));
+	if (framenumber16 == 0xFFFF)
+	{
+		// the register might read 0xFFFF because that's what frame we are in, or it might be because we are disconnected
+		// check another register to see if it is the latter
+		UInt32	usbStatus = USBToHostLong(_pOHCIRegisters->hcCommandStatus);
+		if (usbStatus == kOHCIInvalidRegisterValue)
+		{
+			_controllerAvailable = false;
+			return 0;
+		}
+	}
+	
     largishFrameNumber = ((UInt32)_frameNumber) + framenumber16;
     if (framenumber16 < 200)
-        if (_pOHCIRegisters->hcInterruptStatus & HostToUSBLong(kOHCIHcInterrupt_FNO))
+	{
+		UInt32		intStatus = USBToHostLong(_pOHCIRegisters->hcInterruptStatus);
+		if (intStatus == kOHCIInvalidRegisterValue)
+		{
+			_controllerAvailable = false;
+			return 0;
+		}
+        if (intStatus & kOHCIHcInterrupt_FNO)
             largishFrameNumber += kOHCIFrameOverflowBit;
+	}
     return largishFrameNumber;
 }
 
@@ -1809,26 +1888,36 @@ AppleUSBOHCI::ReturnOneTransaction(AppleOHCIGeneralTransferDescriptorPtr	transac
 IOReturn 
 AppleUSBOHCI::message( UInt32 type, IOService * provider,  void * argument )
 {
-	if (type == kIOUSBMessageExpressCardCantWake)
-	{
-		IOService *					nub = (IOService*)argument;
-		const IORegistryPlane *		usbPlane = getPlane(kIOUSBPlane);
-		IOUSBRootHubDevice *		parentHub = OSDynamicCast(IOUSBRootHubDevice, nub->getParentEntry(usbPlane));
-		
-		nub->retain();
-		USBLog(1, "AppleUSBOHCI[%p]::message - got kIOUSBMessageExpressCardCantWake from driver %s[%p] argument is %s[%p]", this, provider->getName(), provider, nub->getName(), nub);
-		USBTrace( kUSBTOHCI, kTPOHCIMessage, (uintptr_t)this, kIOUSBMessageExpressCardCantWake, 0, 0 );
-		if (parentHub == _rootHubDevice)
-		{
-			USBLog(3, "AppleUSBOHCI[%p]::message - device is attached to my root hub (port %d)!!", this, (int)_ExpressCardPort);
-			_badExpressCardAttached = true;
-		}
-		nub->release();
-		return kIOReturnSuccess;
-	}
+	IOService *					nub = NULL;
+	const IORegistryPlane *		usbPlane = NULL;
+	IOUSBRootHubDevice *		parentHub = NULL;
+	IOReturn					returnValue = kIOReturnSuccess;
 	
-    USBLog(6, "AppleUSBOHCI[%p]::message type: 0x%x, isInactive = %d", this, (uint32_t)type, isInactive());
-    return super::message( type, provider, argument );
+    // Let our superclass decide handle this method
+    // messages
+    //
+    returnValue = super::message( type, provider, argument );
+	
+	switch (type)
+	{
+		case kIOUSBMessageExpressCardCantWake:
+			nub = (IOService*)argument;
+			usbPlane = getPlane(kIOUSBPlane);
+			parentHub = OSDynamicCast(IOUSBRootHubDevice, nub->getParentEntry(usbPlane));
+			
+			nub->retain();
+			USBLog(1, "AppleUSBOHCI[%p]::message - got kIOUSBMessageExpressCardCantWake from driver %s[%p] argument is %s[%p]", this, provider->getName(), provider, nub->getName(), nub);
+			USBTrace( kUSBTOHCI, kTPOHCIMessage, (uintptr_t)this, kIOUSBMessageExpressCardCantWake, 0, 0 );
+			if (parentHub == _rootHubDevice)
+			{
+				USBLog(3, "AppleUSBOHCI[%p]::message - device is attached to my root hub (port %d)!!", this, (int)_ExpressCardPort);
+				_badExpressCardAttached = true;
+			}
+			nub->release();
+			returnValue = kIOReturnSuccess;  // this message was handled
+			break;
+			
+	return returnValue;
     
 }
 
@@ -1875,6 +1964,13 @@ AppleUSBOHCI::showRegisters(UInt32 level, const char *s)
 		return;
 		
     descriptorA = USBToHostLong(_pOHCIRegisters->hcRhDescriptorA);
+	
+	if (descriptorA == kOHCIInvalidRegisterValue)
+	{
+		USBLog(level,"OHCIUIM -- showRegisters %s -- registers unavailable", s);
+		_controllerAvailable = false;
+		return;
+	}
 
     numPorts = ((descriptorA & kOHCIHcRhDescriptorA_NDP) >> kOHCIHcRhDescriptorA_NDPPhase);
 

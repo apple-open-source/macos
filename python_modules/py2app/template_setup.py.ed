@@ -1,6 +1,13 @@
-/os.environ\['MACOSX_DEPLOYMENT_TARGET'\]/s/10\.3/###PRODUCTVERSION###/
-g/-arch [^ ]* /s///g
-/os\.system/a
-	os.system('strip -Sx "%(dest)s"' % locals())
+/^gPreBuildVariants/a
 .
+/'name'/s/-[^']*'/'/
+.+1,/}/-1d
+/{/,/^\]/-1d
+g/entry\['cc'\]/s//cfg['CC']/
+g/entry\['cflags'\]/s//cfg['ARCHFLAGS'] + ' -fPIE -pie'/
+/'MACOSX_DEPLOYMENT_TARGET'/d
+/os\.system/a
+            os.system('strip -Sx "%(dest)s"' % locals())
+.
+/'main-' + arch/s//'main'/
 w

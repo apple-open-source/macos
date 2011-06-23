@@ -86,8 +86,34 @@ CSSM_RETURN ocspdCRLFetch(
 	CSSM_TIMESTRING 	verifyTime,
 	CSSM_DATA			&crlData);		// mallocd via alloc and RETURNED
 
-/* 
- * Refresh the CRL cache. 
+/*
+ * fetch CRL revocation status, given a certificate's serial number and
+ * its issuers, along with an identifier for the CRL (either its issuer name
+ * or distribution point URL)
+ *
+ * This may return one of the following result codes:
+ *
+ * CSSM_OK (valid CRL was found for this issuer, serial number is not on it)
+ * CSSMERR_TP_CERT_REVOKED (valid CRL was found, serial number is revoked)
+ * CSSMERR_APPLETP_NETWORK_FAILURE (crl not available, download in progress)
+ * CSSMERR_APPLETP_CRL_NOT_FOUND (crl not available, and not in progress)
+ *
+ * The first three error codes can be considered definitive answers (with the
+ * NETWORK_FAILURE case indicating a possible retry later if required); the
+ * last error requires a subsequent call to ocspdCRLFetch to either retrieve
+ * the CRL from the on-disk cache or initiate a download of the CRL.
+ *
+ * Note: CSSMERR_TP_INTERNAL_ERROR can also be returned if there is a problem
+ * with the provided arguments, or an error communicating with ocspd.
+ */
+CSSM_RETURN ocspdCRLStatus(
+	const CSSM_DATA		&serialNumber,
+	const CSSM_DATA		&certIssuers,
+	const CSSM_DATA		*crlIssuer,		// optional if URL is supplied
+	const CSSM_DATA		*crlURL);		// optional if issuer is supplied
+
+/*
+ * Refresh the CRL cache.
  */
 CSSM_RETURN ocspdCRLRefresh(
 	unsigned			staleDays,
@@ -95,9 +121,9 @@ CSSM_RETURN ocspdCRLRefresh(
 	bool				purgeAll,
 	bool				fullCryptoVerify);
 
-/* 
- * Flush all CRLs obtained from specified URL from cache. Called by client when 
- * *it* detects a bad CRL. 
+/*
+ * Flush all CRLs obtained from specified URL from cache. Called by client when
+ * *it* detects a bad CRL.
  */
 CSSM_RETURN ocspdCRLFlush(
 	const CSSM_DATA		&crlURL);

@@ -583,5 +583,9 @@ enum {
     kEHCI_USBLEGSUP_OSOwned   = kEHCIBit24
 };
 
+
+#define kEHCIInvalidRegisterValue	0xFFFFFFFF				// if a register returns this value, the controller is likely gone
+
+
 #pragma mark ---end----
 #endif

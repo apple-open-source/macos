@@ -481,8 +481,10 @@ IOCDBlockStorageDriver::init(OSDictionary * properties)
 
     _minBlockNumberAudio = 0;
     _maxBlockNumberAudio = 0;
+#ifndef __LP64__
     _maxReadByteTransfer = 196608;
     _maxWriteByteTransfer = 196608;
+#endif /* !__LP64__ */
     _toc = NULL;
     _tocSize = 0;
 

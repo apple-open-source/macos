@@ -19,7 +19,7 @@
  * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
- */
+ */ 
 
 #ifndef _IOKIT_IOUSBDEVICEUSERCLIENT_H
 #define _IOKIT_IOUSBDEVICEUSERCLIENT_H
@@ -77,6 +77,9 @@ class IOUSBDeviceUserClientV2 : public IOUserClient
     {
 		UInt32						fSleepPowerAllocated;
 		UInt32						fWakePowerAllocated;
+		bool						fOpenedForExclusiveAccess;
+		bool						fDelayedWorkLoopFree;
+		bool						fOwnerWasReleased;
     };
    
     IOUSBDeviceUserClientExpansionData * fIOUSBDeviceUserClientExpansionData;
@@ -181,6 +184,7 @@ public:
     virtual UInt32                      GetOutstandingIO(void);
 	
 	void								PrintExternalMethodArgs( IOExternalMethodArguments * arguments, UInt32 level );
+	void								ReleaseWorkLoopAndGate();
 
     // Getters
     //
@@ -193,10 +197,11 @@ public:
     
     // static methods
     //
-    static void 			ReqComplete(void *obj, void *param, IOReturn status, UInt32 remaining);
-    static IOReturn			ChangeOutstandingIO(OSObject *target, void *arg0, void *arg1, void *arg2, void *arg3);
-    static IOReturn			GetGatedOutstandingIO(OSObject *target, void *arg0, void *arg1, void *arg2, void *arg3);
-    static IOReturn			ClientCloseGated(OSObject *target, void *arg0 = 0, void *arg1 = 0, void *arg2 = 0, void *arg3 = 0);
+    static void							ReqComplete(void *obj, void *param, IOReturn status, UInt32 remaining);
+    static IOReturn						ChangeOutstandingIO(OSObject *target, void *arg0, void *arg1, void *arg2, void *arg3);
+    static IOReturn						GetGatedOutstandingIO(OSObject *target, void *arg0, void *arg1, void *arg2, void *arg3);
+    static IOReturn						ClientCloseEntry(OSObject *target, void *arg0 = 0, void *arg1 = 0, void *arg2 = 0, void *arg3 = 0);
+	static IOReturn						closeGated(OSObject *target, void *param1, void *param2, void *param3, void *param4);
 
     // padding methods
     //
@@ -204,7 +209,7 @@ public:
 	virtual IOReturn					CreateInterfaceIterator(IOUSBFindInterfaceRequest *reqIn, uint64_t *returnIter);
 
     OSMetaClassDeclareReservedUsed(IOUSBDeviceUserClientV2,  1);
-	virtual IOReturn					ClientClose( void );
+	virtual IOReturn					ClientCloseGated( void );
 
     OSMetaClassDeclareReservedUnused(IOUSBDeviceUserClientV2,  2);
     OSMetaClassDeclareReservedUnused(IOUSBDeviceUserClientV2,  3);

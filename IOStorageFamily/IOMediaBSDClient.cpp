@@ -681,6 +681,22 @@ typedef struct
     uint8_t       reserved0096[4];
 } dk_format_capacities_64_t;
 
+typedef struct
+{
+    user32_addr_t extents;
+    uint32_t      extentsCount;
+
+    uint8_t       reserved0064[8];
+} dk_unmap_32_t;
+
+typedef struct
+{
+    user64_addr_t extents;
+    uint32_t      extentsCount;
+
+    uint8_t       reserved0096[4];
+} dk_unmap_64_t;
+
 static IOStorageAccess DK_ADD_ACCESS(IOStorageAccess a1, IOStorageAccess a2)
 {
     static UInt8 table[4][4] =
@@ -1565,10 +1581,19 @@ int dkioctl(dev_t dev, u_long cmd, caddr_t data, int flags, proc_t proc)
                     capacity.blockCount = capacities[index] / blockSize;
                     capacity.blockSize  = blockSize;
 
-                    error = copyout(
-                      /* kaddr */ &capacity,
-                      /* uaddr */ request.capacities + index * sizeof(dk_format_capacity_t),
-                      /* len   */ sizeof(dk_format_capacity_t) );
+                    if ( proc == kernproc )
+                    {
+                        bcopy( /* src */ &capacity,
+                               /* dst */ (void *) (request.capacities + index * sizeof(dk_format_capacity_t)),
+                               /* n   */ sizeof(dk_format_capacity_t) );
+                    }
+                    else
+                    {
+                        error = copyout( /* kaddr */ &capacity,
+                                         /* uaddr */ request.capacities + index * sizeof(dk_format_capacity_t),
+                                         /* len   */ sizeof(dk_format_capacity_t) );
+                    }
+
                     if ( error )  break; 
                 }
 
@@ -1609,8 +1634,9 @@ int dkioctl(dev_t dev, u_long cmd, caddr_t data, int flags, proc_t proc)
             // This ioctl asks that the media object delete unused data.
             //
 
-            dk_discard_t * request;
-            IOReturn       status;
+            IOStorageExtent extent;
+            dk_discard_t *  request;
+            IOReturn        status;
 
             request = (dk_discard_t *) data;
 
@@ -1618,11 +1644,80 @@ int dkioctl(dev_t dev, u_long cmd, caddr_t data, int flags, proc_t proc)
 
             // Delete unused data from the media.
 
-            status = minor->media->discard( /* client    */ minor->client,
-                                            /* byteStart */ request->offset,
-                                            /* byteCount */ request->length );
+            extent.byteStart = request->offset;
+            extent.byteCount = request->length;
+
+            status = minor->media->unmap( /* client       */ minor->client,
+                                          /* extents      */ &extent,
+                                          /* extentsCount */ 1 );
 
             error = minor->media->errnoFromReturn(status);
+
+        } break;
+
+        case DKIOCUNMAP:                                         // (dk_unmap_t)
+        {
+            //
+            // This ioctl asks that the media object delete unused data.
+            //
+
+            IOStorageExtent * extents;
+            dk_unmap_64_t     request;
+            dk_unmap_32_t *   request32;
+            dk_unmap_64_t *   request64;
+            IOReturn          status;
+
+            assert(sizeof(dk_extent_t) == sizeof(IOStorageExtent));
+
+            request32 = (dk_unmap_32_t *) data;
+            request64 = (dk_unmap_64_t *) data;
+
+            if ( proc_is64bit(proc) )
+            {
+                if ( DKIOC_IS_RESERVED(data, 0xF000) )  { error = EINVAL;  break; }
+
+                request.extents      = request64->extents;
+                request.extentsCount = request64->extentsCount;
+            }
+            else
+            {
+                if ( DKIOC_IS_RESERVED(data, 0xFF00) )  { error = EINVAL;  break; }
+
+                request.extents      = request32->extents;
+                request.extentsCount = request32->extentsCount;
+            }
+
+            // Delete unused data from the media.
+
+            if ( request.extents == 0 )  { error = EINVAL;  break; }
+
+            extents = IONew(IOStorageExtent, request.extentsCount);
+
+            if ( extents == 0 )  { error = ENOMEM;  break; }
+
+            if ( proc == kernproc )
+            {
+                bcopy( /* src */ (void *) request.extents,
+                       /* dst */ extents,
+                       /* n   */ request.extentsCount * sizeof(IOStorageExtent) );
+            }
+            else
+            {
+                error = copyin( /* uaddr */ request.extents,
+                                /* kaddr */ extents,
+                                /* len   */ request.extentsCount * sizeof(IOStorageExtent) );
+            }
+
+            if ( error == 0 )
+            {
+                status = minor->media->unmap( /* client       */ minor->client,
+                                              /* extents      */ extents,
+                                              /* extentsCount */ request.extentsCount );
+
+                error = minor->media->errnoFromReturn(status);
+            }
+
+            IODelete(extents, IOStorageExtent, request.extentsCount);
 
         } break;
 
@@ -1767,10 +1862,10 @@ int dkioctl(dev_t dev, u_long cmd, caddr_t data, int flags, proc_t proc)
                 boolean = OSDynamicCast( 
                          /* class  */ OSBoolean,
                          /* object */ dictionary->getObject(
-                                 /* key   */ kIOStorageFeatureDiscard ) );
+                                 /* key   */ kIOStorageFeatureUnmap ) );
 
                 if ( boolean == kOSBooleanTrue )
-                    *(uint32_t *)data |= DK_FEATURE_DISCARD;
+                    *(uint32_t *)data |= DK_FEATURE_UNMAP;
 
                 boolean = OSDynamicCast( 
                          /* class  */ OSBoolean,

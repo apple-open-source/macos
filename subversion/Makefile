@@ -1,7 +1,7 @@
 RBLIBDIR = $(shell ruby -r mkmf -e 'puts Config.expand($$libdir)')
 
 Project               = subversion
-ProjectVersion        = 1.6.15
+ProjectVersion        = 1.6.16
 
 #-------------------------------------------------------------------------
 # build/get-py-info.py appends "-framework Python" to its --link and --libs

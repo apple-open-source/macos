@@ -863,14 +863,17 @@ IOReturn IOMedia::synchronizeCache(IOService * client)
     return getProvider()->synchronizeCache(this);
 }
 
-IOReturn IOMedia::discard(IOService * client,
-                          UInt64      byteStart,
-                          UInt64      byteCount)
+IOReturn IOMedia::unmap(IOService *       client,
+                        IOStorageExtent * extents,
+                        UInt32            extentsCount,
+                        UInt32            options)
 {
     //
-    // Delete unused data from the storage object at the specified byte offset,
+    // Delete unused data from the storage object at the specified byte offsets,
     // synchronously.
     //
+
+    UInt32 extentsIndex;
 
     if (isInactive())
     {
@@ -899,13 +902,17 @@ IOReturn IOMedia::discard(IOService * client,
         return kIOReturnUnformattedMedia;
     }
 
-    if (_mediaSize < byteStart + byteCount)
+    for (extentsIndex = 0; extentsIndex < extentsCount; extentsIndex++)
     {
-        return kIOReturnBadArgument;
+        if (_mediaSize < extents[extentsIndex].byteStart + extents[extentsIndex].byteCount)
+        {
+            return kIOReturnBadArgument;
+        }
+
+        extents[extentsIndex].byteStart += _mediaBase;
     }
 
-    byteStart += _mediaBase;
-    return getProvider()->discard(this, byteStart, byteCount);
+    return getProvider()->unmap(this, extents, extentsCount, options);
 }
 
 UInt64 IOMedia::getPreferredBlockSize() const

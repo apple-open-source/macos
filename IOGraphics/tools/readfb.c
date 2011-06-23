@@ -123,7 +123,7 @@ IOAccelReadFramebuffer(io_service_t framebuffer, uint32_t width, uint32_t height
 int main(int argc, char * argv[])
 {
     IOReturn            err;
-    CGDirectDisplayID   dspy;
+    CGDirectDisplayID   dspy = CGMainDisplayID();
     io_service_t        framebuffer;
     CGRect              bounds;
     vm_address_t        buffer;

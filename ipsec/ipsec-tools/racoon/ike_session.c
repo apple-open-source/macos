@@ -620,8 +620,9 @@ ike_session_has_other_negoing_ph2 (ike_session_t *session, struct ph2handle *iph
 	}
 	
 	for (p = LIST_FIRST(&session->ikev1_state.ph2tree); p; p = LIST_NEXT(p, ph2ofsession_chain)) {
+		plog(LLV_DEBUG2, LOCATION, NULL, "%s: ph2 sub spid %d, db spid %d\n", __FUNCTION__, iph2->spid, p->spid);
 		if (iph2 != p && !p->is_dying && iph2->spid == p->spid) {
-			if (p->status >= PHASE2ST_START && p->status < PHASE2ST_ESTABLISHED) {
+			if (p->status >= PHASE2ST_START && p->status <= PHASE2ST_ESTABLISHED) {
 				return 1;
 			}
 		}
@@ -859,6 +860,7 @@ ike_session_ph2_established (struct ph2handle *iph2)
     iph2->parent_session->term_reason = NULL;
 
 	ike_session_update_mode(iph2);
+	plog(LLV_DEBUG2, LOCATION, NULL, "%s phase2 established, spid %d.\n", __FUNCTION__, iph2->spid);
 }
 
 void
@@ -894,6 +896,13 @@ ike_session_cleanup_other_established_ph1s (ike_session_t    *session,
 
 	if (!session || !new_iph1 || session != new_iph1->parent_session) {
 		plog(LLV_DEBUG2, LOCATION, NULL, "invalid parameters in %s.\n", __FUNCTION__);
+		return;
+	}
+
+	/*
+	 * if we are responder, then we should wait until the server sends a delete notification.
+	 */
+	if (session->is_client && new_iph1->side == RESPONDER) {
 		return;
 	}
 
@@ -987,6 +996,13 @@ ike_session_cleanup_other_established_ph2s (ike_session_t    *session,
 
 	if (!session || !new_iph2 || session != new_iph2->parent_session) {
 		plog(LLV_DEBUG2, LOCATION, NULL, "invalid parameters in %s.\n", __FUNCTION__);
+		return;
+	}
+
+	/*
+	 * if we are responder, then we should wait until the server sends a delete notification.
+	 */
+	if (session->is_client && new_iph2->side == RESPONDER) {
 		return;
 	}
 
@@ -1592,8 +1608,13 @@ ike_session_get_sainfo_r (struct ph2handle *iph2)
 				plog(LLV_DEBUG2, LOCATION, NULL, "candidate ph2 found in %s.\n", __FUNCTION__);
 				if (ipany_ids ||
 				    ike_session_cmp_ph2_ids(iph2, p) == 0) {
-					plog(LLV_DEBUG2, LOCATION, NULL, "candidate ph2 matched in %s.\n", __FUNCTION__);
+					plog(LLV_DEBUG2, LOCATION, NULL, "candidate ph2 matched in %s, spid %d.\n", __FUNCTION__, p->spid);
 					iph2->sainfo = p->sainfo;
+					if (!iph2->spid) {
+						iph2->spid = p->spid;
+					} else {
+						plog(LLV_DEBUG2, LOCATION, NULL, "%s: pre-assigned spid %d.\n", __FUNCTION__, iph2->spid);
+					}
 					if (p->ext_nat_id) {
 						if (iph2->ext_nat_id) {
 							vfree(iph2->ext_nat_id);
@@ -1632,6 +1653,11 @@ ike_session_get_proposal_r (struct ph2handle *iph2)
 				    ike_session_cmp_ph2_ids(iph2, p) == 0) {
 					plog(LLV_DEBUG2, LOCATION, NULL, "candidate ph2 matched in %s.\n", __FUNCTION__);
 					iph2->proposal = dupsaprop(p->approval, 1);
+					if (!iph2->spid) {
+						iph2->spid = p->spid;
+					} else {
+						plog(LLV_DEBUG2, LOCATION, NULL, "%s: pre-assigned spid %d.\n", __FUNCTION__, iph2->spid);
+					}
 					return 0;
 				}
 			}
@@ -1690,6 +1716,7 @@ ike_session_ph2_retransmits (struct ph2handle *iph2)
 		iph2->is_rekey &&
 		iph2->ph1 &&
 		iph2->ph1->sce_rekey && !iph2->ph1->sce_rekey->dead &&
+		iph2->side == INITIATOR &&
 		iph2->parent_session &&
 		!iph2->parent_session->is_cisco_ipsec && /* not for Cisco */
 		iph2->parent_session->is_client) {

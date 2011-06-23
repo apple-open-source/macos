@@ -101,6 +101,7 @@ void UserGroup_Initialize( UserGroup *source )
 	source->fTimestamp = time( NULL );
 	source->fQueue = dispatch_queue_create( "UserGroup queue", NULL );
 	source->fRefreshQueue = dispatch_queue_create( "UserGroup refresh queue", NULL );
+    source->fRefreshGroup = dispatch_group_create();
 
 	HashTable_Initialize( &source->fGUIDMembershipHash, "GUID", source, eGUIDHash );
 	HashTable_Initialize( &source->fSIDMembershipHash, "SID", source, eSIDHash );
@@ -135,6 +136,7 @@ void UserGroup_Free( UserGroup *source )
 	
 	dispatch_release( source->fQueue );
 	dispatch_release( source->fRefreshQueue );
+    dispatch_release( source->fRefreshGroup );
 	
 	HashTable_FreeContents( &source->fGUIDMembershipHash );
 	HashTable_FreeContents( &source->fSIDMembershipHash );
@@ -220,14 +222,9 @@ void UserGroup_Merge( UserGroup *existing, UserGroup *source, bool includeMember
 	{
 		assert( pthread_mutex_lock(&existing->fHashLock) == 0 );
 
-		HashTable_Reset( &existing->fGUIDMembershipHash );
-		HashTable_Merge( &existing->fGUIDMembershipHash, &source->fGUIDMembershipHash );
-
-		HashTable_Reset( &existing->fSIDMembershipHash );
-		HashTable_Merge( &existing->fSIDMembershipHash, &source->fSIDMembershipHash );
-
-		HashTable_Reset( &existing->fGIDMembershipHash );
-		HashTable_Merge( &existing->fGIDMembershipHash, &source->fGIDMembershipHash );
+		HashTable_Replace( &existing->fGUIDMembershipHash, &source->fGUIDMembershipHash );
+		HashTable_Replace( &existing->fSIDMembershipHash, &source->fSIDMembershipHash );
+		HashTable_Replace( &existing->fGIDMembershipHash, &source->fGIDMembershipHash );
 		
 		assert( pthread_mutex_unlock(&existing->fHashLock) == 0 );
 

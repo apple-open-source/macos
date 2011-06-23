@@ -107,12 +107,21 @@ static ErrataListEntry  errataList[] = {
 	{0x8086, 0x3b3e, 0x00, 0xff, kErrataDontUseCompanionController },   // P55 UHCI #6
 	{0x8086, 0x3b3f, 0x00, 0xff, kErrataDontUseCompanionController },   // P55 UHCI #7
 	{0x8086, 0x3b34, 0x00, 0xff, kErrataDontUseCompanionController },	// P55 EHCI #1
-	{0x8086, 0x3b3c, 0x00, 0xff, kErrataDontUseCompanionController }	// P55 EHCI #2
+	{0x8086, 0x3b3c, 0x00, 0xff, kErrataDontUseCompanionController },	// P55 EHCI #2
 	
+	{0x8086, 0x1c27, 0x00, 0xff, kErrataDontUseCompanionController },   // PCH UHCI #1
+	{0x8086, 0x1c28, 0x00, 0xff, kErrataDontUseCompanionController },   // PCH UHCI #2
+	{0x8086, 0x1c29, 0x00, 0xff, kErrataDontUseCompanionController },   // PCH UHCI #3
+	{0x8086, 0x1c2a, 0x00, 0xff, kErrataDontUseCompanionController },   // PCH UHCI #4
+	{0x8086, 0x1c2c, 0x00, 0xff, kErrataDontUseCompanionController },   // PCH UHCI #5
+	{0x8086, 0x1c2e, 0x00, 0xff, kErrataDontUseCompanionController },   // PCH UHCI #6
+	{0x8086, 0x1c2f, 0x00, 0xff, kErrataDontUseCompanionController },   // PCH UHCI #7
+	{0x8086, 0x1c26, 0x00, 0xff, kErrataDontUseCompanionController },	// PCH EHCI #1
+	{0x8086, 0x1c2d, 0x00, 0xff, kErrataDontUseCompanionController },	// PCH EHCI #2
 
-	,
 	{0x10de, 0x0d9d, 0x00, 0xff, kErrataIgnoreRootHubPowerClearFeature },			// MCP89 EHCI #1,2
 	{0x10de, 0x0d9c, 0x00, 0xff, kErrataIgnoreRootHubPowerClearFeature }			// MCP89 OHCI #1,2
+
 	
 };
 
@@ -120,9 +129,9 @@ static ErrataListEntry  errataList[] = {
 
 UInt32 IOUSBController::GetErrataBits(UInt16 vendorID, UInt16 deviceID, UInt16 revisionID)
 {
-    ErrataListEntry		*entryPtr;
-    UInt32				i, errata = 0;
-    
+    ErrataListEntry			*entryPtr;
+    UInt32					i, errata = 0;
+	
     for(i = 0, entryPtr = errataList; i < errataListLength; i++, entryPtr++)
     {
         if (vendorID == entryPtr->vendID &&
@@ -134,6 +143,7 @@ UInt32 IOUSBController::GetErrataBits(UInt16 vendorID, UInt16 deviceID, UInt16 r
             errata |= entryPtr->errata;
         }
     }
+	
 	
 	//USBError(1, "Errata bits for controller 0x%x/0x%x(rev 0x%x) are 0x%x", vendorID, deviceID, revisionID, errata);
 

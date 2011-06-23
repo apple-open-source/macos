@@ -942,7 +942,8 @@ void IOHIPointing::dispatchScrollWheelEventWithAccelInfo(
         
         DEVICE_UNLOCK;
         
-        nub->terminate(kIOServiceSynchronous);
+    //  nub->terminate(kIOServiceSynchronous);
+        nub->terminate(kIOServiceAsynchronous); // rdar://8810574
         nub->release();
         
         nub = IOHIDPointingDevice::newPointingDeviceAndStart(this, buttonCount(), resolution() >> 16, true);

@@ -102,6 +102,9 @@ bool AppleUSBEHCIDiagnostics::serialize( OSSerialize * s ) const
 	UpdateNumberEntry( dictionary, _UIM->_UIMDiagnostics.resets-_UIM->_UIMDiagnostics.prevResets, "Resets (New)");
 	_UIM->_UIMDiagnostics.prevResets = _UIM->_UIMDiagnostics.resets;
 	
+
+	_UIM->_UIMDiagnostics.controlBulkTxOut = _UIM->_controlBulkTransactionsOut;
+	UpdateNumberEntry( dictionary, _UIM->_UIMDiagnostics.controlBulkTxOut, "ControlBulkTxOut");
 	
 	ok = dictionary->serialize(s);
 	dictionary->release();

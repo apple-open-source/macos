@@ -1,9 +1,9 @@
 /*
- * "$Id: pwg-ppd.c 2771 2010-10-06 19:50:44Z msweet $"
+ * "$Id: pwg-ppd.c 3029 2011-03-04 21:44:16Z msweet $"
  *
  *   PWG PPD mapping API implementation for CUPS.
  *
- *   Copyright 2010 by Apple Inc.
+ *   Copyright 2010-2011 by Apple Inc.
  *
  *   These coded instructions, statements, and computer programs are the
  *   property of Apple Inc. and are protected by Federal copyright
@@ -156,7 +156,7 @@ _pwgCreateWithPPD(ppd_file_t *ppd)	/* I - PPD file */
 
     if (!strcasecmp(ppd_size->name, "Custom"))
       continue;
-	
+
    /*
     * Convert the PPD size name to the corresponding PWG keyword name.
     */
@@ -225,12 +225,12 @@ _pwgCreateWithPPD(ppd_file_t *ppd)	/* I - PPD file */
 	               old_size->right == 0 && old_size->top == 0;
       old_known_pwg  = strncmp(old_size->map.pwg, "oe_", 3) &&
 		       strncmp(old_size->map.pwg, "om_", 3);
-		
+
       similar = old_borderless == new_borderless &&
                 _PWG_EQUIVALENT(old_size->width, new_width) &&
 	        _PWG_EQUIVALENT(old_size->length, new_length);
 
-      if (similar && 
+      if (similar &&
           (new_known_pwg || (!old_known_pwg && new_imageable > old_imageable)))
       {
        /*
@@ -254,7 +254,7 @@ _pwgCreateWithPPD(ppd_file_t *ppd)	/* I - PPD file */
 
       new_size = pwg_size ++;
       pwg->num_sizes ++;
-    } 
+    }
 
     if (new_size)
     {
@@ -513,7 +513,7 @@ _pwgCreateWithPPD(ppd_file_t *ppd)	/* I - PPD file */
 
         if (pwg_print_quality != _PWG_PRINT_QUALITY_HIGH && paper_coating &&
 	    strcmp(paper_coating, "none") &&
-	    strcmp(paper_coating, "autodetect"))		
+	    strcmp(paper_coating, "autodetect"))
 	  continue;
 
        /*
@@ -896,7 +896,7 @@ const char *				/* O - PPD PageSize or NULL */
 _pwgGetPageSize(_pwg_t     *pwg,	/* I - PWG mapping data */
                 ipp_t      *job,	/* I - Job attributes or NULL */
 		const char *keyword,	/* I - Keyword string or NULL */
-		int        *exact)	/* I - 1 if exact match, 0 otherwise */
+		int        *exact)	/* O - 1 if exact match, 0 otherwise */
 {
   int		i;			/* Looping var */
   _pwg_size_t	*size,			/* Current size */
@@ -967,14 +967,15 @@ _pwgGetPageSize(_pwg_t     *pwg,	/* I - PWG mapping data */
       DEBUG_printf(("2_pwgGetPageSize: size[%d]=[\"%s\" \"%s\"]",
                     (int)(size - pwg->sizes), size->map.pwg, size->map.ppd));
 
-      if (!strcasecmp(ppd_name, size->map.ppd))
+      if (!strcasecmp(ppd_name, size->map.ppd) ||
+          !strcasecmp(ppd_name, size->map.pwg))
       {
 	if (exact)
 	  *exact = 1;
 
         DEBUG_printf(("1_pwgGetPageSize: Returning \"%s\"", ppd_name));
 
-        return (ppd_name);
+        return (size->map.ppd);
       }
     }
   }
@@ -1016,55 +1017,59 @@ _pwgGetPageSize(_pwg_t     *pwg,	/* I - PWG mapping data */
   closest  = NULL;
   dclosest = 999999999;
 
-  for (i = pwg->num_sizes, size = pwg->sizes; i > 0; i --, size ++)
+  if (!ppd_name || strncasecmp(ppd_name, "Custom.", 7) ||
+      strncasecmp(ppd_name, "custom_", 7))
   {
-   /*
-    * Adobe uses a size matching algorithm with an epsilon of 5 points, which
-    * is just about 176/2540ths...
-    */
-
-    dwidth  = size->width - jobsize.width;
-    dlength = size->length - jobsize.length;
-
-    if (dwidth <= -176 || dwidth >= 176 || dlength <= -176 || dlength >= 176)
-      continue;
-
-    if (margins_set)
+    for (i = pwg->num_sizes, size = pwg->sizes; i > 0; i --, size ++)
     {
      /*
-      * Use a tighter epsilon of 1 point (35/2540ths) for margins...
+      * Adobe uses a size matching algorithm with an epsilon of 5 points, which
+      * is just about 176/2540ths...
       */
 
-      dleft   = size->left - jobsize.left;
-      dright  = size->right - jobsize.right;
-      dtop    = size->top - jobsize.top;
-      dbottom = size->bottom - jobsize.bottom;
+      dwidth  = size->width - jobsize.width;
+      dlength = size->length - jobsize.length;
 
-      if (dleft <= -35 || dleft >= 35 || dright <= -35 || dright >= 35 ||
-          dtop <= -35 || dtop >= 35 || dbottom <= -35 || dbottom >= 35)
-      {
-        dleft   = dleft < 0 ? -dleft : dleft;
-        dright  = dright < 0 ? -dright : dright;
-        dbottom = dbottom < 0 ? -dbottom : dbottom;
-        dtop    = dtop < 0 ? -dtop : dtop;
-	dmin    = dleft + dright + dbottom + dtop;
-
-        if (dmin < dclosest)
-	{
-	  dclosest = dmin;
-	  closest  = size;
-	}
-
+      if (dwidth <= -176 || dwidth >= 176 || dlength <= -176 || dlength >= 176)
 	continue;
+
+      if (margins_set)
+      {
+       /*
+	* Use a tighter epsilon of 1 point (35/2540ths) for margins...
+	*/
+
+	dleft   = size->left - jobsize.left;
+	dright  = size->right - jobsize.right;
+	dtop    = size->top - jobsize.top;
+	dbottom = size->bottom - jobsize.bottom;
+
+	if (dleft <= -35 || dleft >= 35 || dright <= -35 || dright >= 35 ||
+	    dtop <= -35 || dtop >= 35 || dbottom <= -35 || dbottom >= 35)
+	{
+	  dleft   = dleft < 0 ? -dleft : dleft;
+	  dright  = dright < 0 ? -dright : dright;
+	  dbottom = dbottom < 0 ? -dbottom : dbottom;
+	  dtop    = dtop < 0 ? -dtop : dtop;
+	  dmin    = dleft + dright + dbottom + dtop;
+
+	  if (dmin < dclosest)
+	  {
+	    dclosest = dmin;
+	    closest  = size;
+	  }
+
+	  continue;
+	}
       }
+
+      if (exact)
+	*exact = 1;
+
+      DEBUG_printf(("1_pwgGetPageSize: Returning \"%s\"", size->map.ppd));
+
+      return (size->map.ppd);
     }
-
-    if (exact)
-      *exact = 1;
-
-    DEBUG_printf(("1_pwgGetPageSize: Returning \"%s\"", size->map.ppd));
-
-    return (size->map.ppd);
   }
 
   if (closest)
@@ -1482,5 +1487,5 @@ pwg_unppdize_name(const char *ppd,	/* I - PPD keyword */
 
 
 /*
- * End of "$Id: pwg-ppd.c 2771 2010-10-06 19:50:44Z msweet $".
+ * End of "$Id: pwg-ppd.c 3029 2011-03-04 21:44:16Z msweet $".
  */

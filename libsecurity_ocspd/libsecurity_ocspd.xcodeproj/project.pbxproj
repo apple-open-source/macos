@@ -438,7 +438,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUILD_VARIANTS = debug;
-				CURRENT_PROJECT_VERSION = 40592;
+				CURRENT_PROJECT_VERSION = 55004;
 				EXECUTABLE_PREFIX = "";
 				EXECUTABLE_SUFFIX = "";
 				FRAMEWORK_SEARCH_PATHS = (
@@ -489,7 +489,7 @@
 					normal,
 					debug,
 				);
-				CURRENT_PROJECT_VERSION = 40592;
+				CURRENT_PROJECT_VERSION = 55004;
 				EXECUTABLE_PREFIX = "";
 				EXECUTABLE_SUFFIX = "";
 				FRAMEWORK_SEARCH_PATHS = (
@@ -537,7 +537,7 @@
 					normal,
 					debug,
 				);
-				CURRENT_PROJECT_VERSION = 40592;
+				CURRENT_PROJECT_VERSION = 55004;
 				EXECUTABLE_PREFIX = "";
 				EXECUTABLE_SUFFIX = "";
 				FRAMEWORK_SEARCH_PATHS = (

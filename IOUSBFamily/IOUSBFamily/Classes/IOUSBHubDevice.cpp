@@ -169,6 +169,7 @@ IOUSBHubDevice::SetHubCharacteristics(UInt32 characteristics)
 UInt32
 IOUSBHubDevice::GetHubCharacteristics()
 {
+	USBLog(5, "IOUSBHubDevice[%p]::GetHubCharacteristics - returning (0x%x)", this, (int)_myCharacteristics);
 	return _myCharacteristics;
 }
 
@@ -245,7 +246,8 @@ IOUSBHubDevice::RequestExtraPower(uint64_t requestedPower, uint64_t * powerAlloc
 {	
 	uint64_t		extraAllocated = 0;
 	
-	USBLog(5, "IOUSBHubDevice[%p]::RequestExtraPower(thru gate) - requestedPower = %d, hub has %d available", this, (uint32_t)requestedPower, (uint32_t) _TOTALEXTRACURRENT);
+	USBLog(5, "IOUSBHubDevice[%p]::RequestExtraPower(thru gate) - requestedPower = %d, hub has %d available (_REQUESTFROMPARENT: %d, _CANREQUESTEXTRAPOWER: %d, _EXTRAPOWERALLOCATED: %d, _EXTRAPOWERFORPORTS: %d)", 
+				this, (uint32_t)requestedPower, (uint32_t) _TOTALEXTRACURRENT, (uint32_t)_REQUESTFROMPARENT, (uint32_t)_CANREQUESTEXTRAPOWER, (uint32_t)_EXTRAPOWERALLOCATED, (uint32_t)_EXTRAPOWERFORPORTS);
 	
 	if (requestedPower == 0)
 	{
@@ -281,9 +283,23 @@ IOUSBHubDevice::RequestExtraPower(uint64_t requestedPower, uint64_t * powerAlloc
 		USBLog(5, "IOUSBHubDevice[%p]:::RequestExtraPower(thru gate) - requested %d from our parent and got %d ", this, (uint32_t) parentPowerRequest, (uint32_t)parentPowerRequest);
 		if ( parentPowerRequest == requestedPower )
 		{
+			OSNumber * currentValueProperty = NULL;
+			UInt32		currentValue;
+			
 			// We only can return _EXTRAPOWERFORPORTS, not less
 			extraAllocated = requestedPower;
-			setProperty("PortActualRequestExtraPower", extraAllocated, 32);
+			
+			currentValueProperty = (OSNumber *) getProperty("PortActualRequestExtraPower");
+			if ( currentValueProperty )
+			{
+				currentValue = currentValueProperty->unsigned32BitValue();
+				USBLog(5, "IOUSBHubDevice[%p]:::RequestExtraPower(thru gate) -  found a  PortActualRequestExtraPower with value of %d", this, (uint32_t) currentValue);
+				currentValue += extraAllocated;
+			}
+			else
+				currentValue = extraAllocated;
+
+			setProperty("PortActualRequestExtraPower", currentValue, 32);
 		}
 		else
 		{
@@ -293,7 +309,7 @@ IOUSBHubDevice::RequestExtraPower(uint64_t requestedPower, uint64_t * powerAlloc
 	}
 	else
 	{
-		if ( (_CANREQUESTEXTRAPOWER != 0) and not _EXTRAPOWERALLOCATED)
+		if ( (_CANREQUESTEXTRAPOWER != 0) and  (_EXTRAPOWERALLOCATED < 2))
 		{
 			if ( requestedPower > _EXTRAPOWERFORPORTS )
 			{
@@ -312,8 +328,9 @@ IOUSBHubDevice::RequestExtraPower(uint64_t requestedPower, uint64_t * powerAlloc
 				{
 					// We only can return _EXTRAPOWERFORPORTS, not less
 					extraAllocated = _EXTRAPOWERFORPORTS;
-					_EXTRAPOWERALLOCATED = true;
+					_EXTRAPOWERALLOCATED++;
 					setProperty("PortActualRequestExtraPower", extraAllocated, 32);
+					setProperty("ExtraWakePowerAllocated", _EXTRAPOWERALLOCATED, 32);
 				}
 				else
 				{
@@ -369,13 +386,14 @@ IOUSBHubDevice::ReturnExtraPower(uint64_t returnedPower)
 	// Check to see if we had the extraPower allocated
 	// (Note:  There might be a bug here in that we are assuming that any power allocated by this hub will set _EXTRAPOWERALLOCATED, and when we return ANY amount
 	//         of power, we will return _CANREQUESTEXTRAPOWER, regardless.  This works, but seems fragile)
-	if ( _EXTRAPOWERALLOCATED )
+	if ( _EXTRAPOWERALLOCATED > 0 )
 	{
 		USBLog(5, "IOUSBHubDevice[%p]::ReturnExtraPower(thru gate) - we had _EXTRAPOWERALLOCATED calling our parent to return %d", this, (uint32_t)_CANREQUESTEXTRAPOWER);
 		
 		// We allocated power from our parent, so return it now
 		super::ReturnExtraPower(kUSBPowerDuringWake, _CANREQUESTEXTRAPOWER);	
-		_EXTRAPOWERALLOCATED = false;
+		_EXTRAPOWERALLOCATED--;
+		setProperty("ExtraWakePowerAllocated", _EXTRAPOWERALLOCATED, 32);
 	}
 	else if ( _REQUESTFROMPARENT )
 	{
@@ -507,7 +525,9 @@ IOUSBHubDevice::RequestSleepPower(uint64_t requestedPower, uint64_t *powerAlloca
 		else
 		{
 			// If we don't get the full request from our parent, just return.  The user should call back to return it if they don't want it
-			USBLog(6, "IOUSBHubDevice[%p]::RequestSleepPower(thru gate) - we didn't get the full amount we requested", this);
+			USBLog(6, "IOUSBHubDevice[%p]::RequestSleepPower(thru gate) - we didn't get the full amount we requested, we got only %d", this, (uint32_t)parentPowerRequest);
+			extraAllocated = parentPowerRequest- _STANDARD_PORT_POWER_IN_SLEEP;
+			setProperty("PortActualRequestExtraSleepPower", extraAllocated, 32);
 		}
 	}
 	else 
@@ -535,7 +555,7 @@ IOUSBHubDevice::RequestSleepPower(uint64_t requestedPower, uint64_t *powerAlloca
 
 #if 0  // for M84/89  (not supporting providing sleep current on those hubs, for now)
 	{
-		if ( (_CANREQUESTEXTRASLEEPPOWER != 0) and not _EXTRASLEEPPOWERALLOCATED)
+		if ( (_CANREQUESTEXTRASLEEPPOWER != 0) (_EXTRASLEEPPOWERALLOCATED < 2) )
 		{
 			if ( requestedPower > _EXTRAPOWERFORPORTS )
 			{
@@ -554,8 +574,9 @@ IOUSBHubDevice::RequestSleepPower(uint64_t requestedPower, uint64_t *powerAlloca
 				{
 					// We only can return _EXTRAPOWERFORPORTS, not less
 					extraAllocated = _EXTRAPOWERFORPORTS;
-					_EXTRASLEEPPOWERALLOCATED = true;
+					_EXTRASLEEPPOWERALLOCATED++;
 					setProperty("PortActualRequestExtraSleepPower", extraAllocated, 32);
+					setProperty("ExtraSleepPowerAllocated", _EXTRASLEEPPOWERALLOCATED, 32);
 				}
 				else
 				{
@@ -608,13 +629,14 @@ IOUSBHubDevice::ReturnSleepPower(uint64_t returnedPower)
 	// Check to see if we had the extraPower allocated
 	// (Note:  There might be a bug here in that we are assuming that any power allocated by this hub will set _EXTRAPOWERALLOCATED, and when we return ANY amount
 	//         of power, we will return _CANREQUESTEXTRAPOWER, regardless.  This works, but seems fragile)
-	if ( _EXTRASLEEPPOWERALLOCATED )
+	if ( _EXTRASLEEPPOWERALLOCATED > 0)
 	{
 		USBLog(5, "IOUSBHubDevice[%p]::ReturnSleepPower(thru gate) - we had _EXTRASLEEPPOWERALLOCATED calling our parent to return %d", this, (uint32_t)_CANREQUESTEXTRASLEEPPOWER);
 		
 		// We allocated power from our parent, so return it now
 		super::ReturnExtraPower(kUSBPowerDuringSleep, _CANREQUESTEXTRASLEEPPOWER);	
-		_EXTRAPOWERALLOCATED = false;
+		_EXTRAPOWERALLOCATED--;
+		setProperty("ExtraWakePowerAllocated", _EXTRASLEEPPOWERALLOCATED, 32);
 	}
 #endif		
 

@@ -59,13 +59,15 @@ extern "C" {
 		kUSBEnableDebugLoggingBit		= 0,	// bit 0 currently not used
 		kUSBEnableTracePointsBit		= 1,	// bit 1 used to turn on Trace Points when a USB controller first loads
 		kUSBEnableErrorLogBit			= 2,	// bit 2 (4) turns level 1 log for errors
+		kUSBForceCompanionControllers	= 4,	// bit 4 (0x10) forces companion controllers to be on even if they might not normally
 		kUSBDebugRetryCountShift		= 8,	// bits 8 and 9 will set the retry count for low level bus transactions
 		kUSBDebugRetryCountReserved		= 9,	// must be 1, 2, or 3 (0 is invalid, 3 is the default)
 		
-		kUSBEnableDebugLoggingMask		= (1 << kUSBEnableDebugLoggingBit),
-		kUSBEnableTracePointsMask		= (1 << kUSBEnableTracePointsBit),
-		kUSBDebugRetryCountMask			= (3 << kUSBDebugRetryCountShift),
-		kUSBEnableErrorLogMask				= (1 << kUSBEnableErrorLogBit)
+		kUSBEnableDebugLoggingMask			= (1 << kUSBEnableDebugLoggingBit),
+		kUSBEnableTracePointsMask			= (1 << kUSBEnableTracePointsBit),
+		kUSBDebugRetryCountMask				= (3 << kUSBDebugRetryCountShift),
+		kUSBEnableErrorLogMask				= (1 << kUSBEnableErrorLogBit),
+		kUSBForceCompanionControllersMask	= (1 << kUSBForceCompanionControllers)
 	};
 	
 	
@@ -125,10 +127,12 @@ extern "C" {
 
 		kUSBTOHCI					= 14,
 		kUSBTOHCIInterrupts			= 15,
+		kUSBTOHCIDumpQueues			= 16,
 		
 		kUSBTEHCI					= 20,
 		kUSBTEHCIHubInfo			= 22,
 		kUSBTEHCIInterrupts			= 23,
+		kUSBTEHCIDumpQueues			= 24,
 		
 		// 30-33 reserved
 
@@ -491,7 +495,8 @@ extern "C" {
 		kTPEHCIEnableInterrupts					= 44,
 		kTPEHCIPowerState						= 45,
 		kTPEHCIStopUSBBus						= 46,
-		kTPEHCIRestartControllerFromReset		= 47
+		kTPEHCIRestartControllerFromReset		= 47,
+		kTPEHCIDemarcation						= 48
 	};
 
 	// USB EHCI Interrupt Tracepoints			
@@ -501,6 +506,7 @@ extern "C" {
 		kTPEHCIInterruptsPollInterrupts			= 1,
 		kTPEHCIInterruptsPrimaryInterruptFilter	= 2,
 		kTPEHCIUpdateFrameList					= 3,
+		kTPEHCIUpdateFrameListBits				= 4
 	};
 	
 	
@@ -536,7 +542,8 @@ extern "C" {
 		KTPOHCIDozeController					= 18,
 		KTPOHCIWakeControllerFromDoze			= 19,
 		KTPOHCIPowerState						= 20,
-		kTPOHCIDoneQueueCompletion				= 21
+		kTPOHCIDoneQueueCompletion				= 21,
+		kTPOHCIDemarcation						= 22
 	};
 		
 	// USB OHCI Interrupt Tracepoints			
@@ -548,7 +555,49 @@ extern "C" {
 		kTPOHCIUpdateFrameList					= 3
 	};
 	
-
+	// USB OHCI DumpQs Tracepoints			
+	// kUSBTOHCIDumpQueues
+	enum
+	{
+		kTPOHCIDumpQED1							= 1,
+		kTPOHCIDumpQED2							= 2,
+		kTPOHCIDumpQED3							= 3,
+		kTPOHCIDumpQTD1							= 4,
+		kTPOHCIDumpQTD2							= 5,
+		kTPOHCIDumpQTD3							= 6,
+		kTPOHCIDumpQTD4							= 7,
+		kTPOHCIDumpQTD5							= 8,
+		kTPOHCIDumpQTD6							= 9
+	};
+	//
+	
+	// USB EHCI DumpQs Tracepoints			
+	// kUSBTEHCIDumpQueues
+	enum
+	{
+		kTPEHCIDumpQH1							= 1,
+		kTPEHCIDumpQH2							= 2,
+		kTPEHCIDumpQH3							= 3,
+		kTPEHCIDumpQH4							= 4,
+		kTPEHCIDumpQH5							= 5,
+		kTPEHCIDumpQH6							= 6,
+		kTPEHCIDumpQH7							= 7,
+		kTPEHCIDumpQH8							= 8,
+		kTPEHCIDumpQH9							= 9,
+		kTPEHCIDumpQH10							= 10,
+		kTPEHCIDumpQH11							= 11,
+		// reserve some room
+		kTPEHCIDumpTD1							= 15,
+		kTPEHCIDumpTD2							= 16,
+		kTPEHCIDumpTD3							= 17,
+		kTPEHCIDumpTD4							= 18,
+		kTPEHCIDumpTD5							= 19,
+		kTPEHCIDumpTD6							= 20,
+		kTPEHCIDumpTD7							= 21,
+		kTPEHCIDumpTD8							= 22
+	};
+	//
+	
 	// USB HubPolicyMaker Tracepoints			
 	// kUSBTHubPolicyMaker
 	enum
@@ -616,10 +665,12 @@ extern "C" {
 
 #define USB_OHCI_TRACE(code)					USB_TRACE( kUSBTOHCI, code, DBG_FUNC_NONE )
 #define USB_OHCI_INTERRUPTS_TRACE(code)			USB_TRACE( kUSBTOHCIInterrupts, code, DBG_FUNC_NONE )
+#define USB_OHCI_DUMPQS_TRACE(code)				USB_TRACE( kUSBTOHCIDumpQueues, code, DBG_FUNC_NONE )
 
 #define USB_EHCI_TRACE(code)					USB_TRACE( kUSBTEHCI, code, DBG_FUNC_NONE )
 #define USB_EHCI_HUBINFO_TRACE(code)			USB_TRACE( kUSBTEHCIHubInfo, code, DBG_FUNC_NONE )
 #define USB_EHCI_INTERRUPTS_TRACE(code)			USB_TRACE( kUSBTEHCIInterrupts, code, DBG_FUNC_NONE )
+#define USB_EHCI_DUMPQS_TRACE(code)				USB_TRACE( kUSBTEHCIDumpQueues, code, DBG_FUNC_NONE )
 
 #define USB_HUB_POLICYMAKER_TRACE(code)			USB_TRACE( kUSBTHubPolicyMaker, code, DBG_FUNC_NONE )
 #define USB_COMPOSITE_DRIVER_TRACE(code)		USB_TRACE( kUSBTCompositeDriver, code, DBG_FUNC_NONE )

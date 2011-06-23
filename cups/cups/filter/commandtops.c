@@ -1,9 +1,9 @@
 /*
- * "$Id: commandtops.c 1115 2009-01-09 23:40:08Z msweet $"
+ * "$Id: commandtops.c 3027 2011-03-04 20:02:14Z msweet $"
  *
  *   PostScript command filter for CUPS.
  *
- *   Copyright 2008 by Apple Inc.
+ *   Copyright 2008-2011 by Apple Inc.
  *
  *   These coded instructions, statements, and computer programs are the
  *   property of Apple Inc. and are protected by Federal copyright
@@ -197,7 +197,7 @@ auto_configure(ppd_file_t *ppd,		/* I - PPD file */
     * Read the response data...
     */
 
-    while ((bytes = cupsBackChannelRead(buffer, sizeof(buffer) - 1, 5.0)) > 0)
+    while ((bytes = cupsBackChannelRead(buffer, sizeof(buffer) - 1, 90.0)) > 0)
     {
      /*
       * Trim whitespace from both ends...
@@ -213,11 +213,20 @@ auto_configure(ppd_file_t *ppd,		/* I - PPD file */
 
       for (bufptr = buffer; isspace(*bufptr & 255); bufptr ++);
 
+      fprintf(stderr, "DEBUG: Got \"%s\" (%d bytes)\n", bufptr, (int)bytes);
+
      /*
       * Skip blank lines...
       */
 
       if (!*bufptr)
+        continue;
+
+     /*
+      * Verify the result is a valid option choice...
+      */
+
+      if (!ppdFindChoice(option, bufptr))
         continue;
 
      /*
@@ -343,5 +352,5 @@ report_levels(ppd_file_t *ppd,		/* I - PPD file */
 
 
 /*
- * End of "$Id: commandtops.c 1115 2009-01-09 23:40:08Z msweet $".
+ * End of "$Id: commandtops.c 3027 2011-03-04 20:02:14Z msweet $".
  */

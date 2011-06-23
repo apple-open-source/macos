@@ -352,9 +352,14 @@ public:
   /* Unregister the IODataQueue for the new user events */
   virtual IOReturn unregisterEventQueue(IODataQueue * queue);
 
-  /* Set the port for event available notify msg */
-  virtual void     setEventPort(mach_port_t port);
-  /* Set the port for the special key keypress msg */
+    /* Set the port for event available notify msg */
+    virtual void    setEventPort(mach_port_t port);
+private:
+    static IOReturn doSetEventPort(IOHIDSystem *self, void *port_void, void *arg1, void *arg2, void *arg3);
+    void            setEventPortGated(mach_port_t port);
+public:
+
+    /* Set the port for the special key keypress msg */
   virtual IOReturn setSpecialKeyPort(
                      /* keyFlavor */ int         special_key,
                      /* keyPort */   mach_port_t key_port);
@@ -551,11 +556,13 @@ public:
  */
 
 public:
-  virtual int registerScreen(IOGraphicsDevice * instance,
-             /* bounds */    IOGBounds * bp);
-//           /* shmem */     void **  addr,
-//           /* size */      int *    size)
-  virtual void unregisterScreen(int index);
+    virtual int     registerScreen(IOGraphicsDevice * instance, IOGBounds * bp);
+private:
+    static IOReturn doRegisterScreen(IOHIDSystem *self, IOGraphicsDevice *io_gd, IOGBounds *bp, void *arg2, void *arg3);
+    void            registerScreenGated(IOGraphicsDevice *io_gd, IOGBounds *bp);
+public:
+    
+    virtual void    unregisterScreen(int index);
     
 /*
  * HISTORICAL NOTE:

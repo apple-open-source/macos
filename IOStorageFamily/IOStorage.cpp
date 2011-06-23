@@ -388,19 +388,37 @@ IOReturn IOStorage::discard(IOService * client,
                             UInt64      byteStart,
                             UInt64      byteCount)
 {
+    //
+    // Delete unused data from the storage object at the specified byte offset,
+    // synchronously.
+    //
+
     return kIOReturnUnsupported;
 }
 
+IOReturn IOStorage::unmap(IOService *       client,
+                          IOStorageExtent * extents,
+                          UInt32            extentsCount,
+                          UInt32            options)
+{
+    //
+    // Delete unused data from the storage object at the specified byte offsets,
+    // synchronously.
+    //
+
+    return kIOReturnUnsupported;
+}
+
+OSMetaClassDefineReservedUsed(IOStorage,  0);
 #ifdef __LP64__
-OSMetaClassDefineReservedUnused(IOStorage,  0);
 OSMetaClassDefineReservedUnused(IOStorage,  1);
 OSMetaClassDefineReservedUnused(IOStorage,  2);
+OSMetaClassDefineReservedUnused(IOStorage,  3);
 #else /* !__LP64__ */
-OSMetaClassDefineReservedUsed(IOStorage,  0);
 OSMetaClassDefineReservedUsed(IOStorage,  1);
 OSMetaClassDefineReservedUsed(IOStorage,  2);
+OSMetaClassDefineReservedUsed(IOStorage,  3);
 #endif /* !__LP64__ */
-OSMetaClassDefineReservedUnused(IOStorage,  3);
 OSMetaClassDefineReservedUnused(IOStorage,  4);
 OSMetaClassDefineReservedUnused(IOStorage,  5);
 OSMetaClassDefineReservedUnused(IOStorage,  6);

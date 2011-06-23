@@ -480,6 +480,8 @@ public:
      */
     static IOReturn setPowerStateAction(OSObject *owner, void *arg1, void *arg2, void *arg3, void *arg4);
     
+	static IOReturn _setPowerStateAction(OSObject *target, void *arg0, void *arg1, void *arg2, void *arg3);	// <rdar://8508064>
+
     /*!
      * @function protectedSetPowerState
      * @abstract Called by setPowerStateAction() to deal with a power state change from the IOService

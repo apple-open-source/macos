@@ -11,10 +11,6 @@
 .\" 2. Redistributions in binary form must reproduce the above copyright
 .\"    notice, this list of conditions and the following disclaimer in the
 .\"    documentation and/or other materials provided with the distribution.
-.\" 3. All advertising materials mentioning features or use of this software
-.\"    must display the following acknowledgement:
-.\"	This product includes software developed by the University of
-.\"	California, Berkeley and its contributors.
 .\" 4. Neither the name of the University nor the names of its contributors
 .\"    may be used to endorse or promote products derived from this software
 .\"    without specific prior written permission.
@@ -32,7 +28,7 @@
 .\" SUCH DAMAGE.
 .\"
 .\"     @(#)glob.3	8.3 (Berkeley) 4/16/94
-.\" $FreeBSD: src/lib/libc/gen/glob.3,v 1.30 2004/09/01 23:28:27 tjr Exp $
+.\" $FreeBSD: src/lib/libc/gen/glob.3,v 1.32 2007/01/09 00:27:54 imp Exp $
 .\"
 .Dd September 1, 2004
 .Dt GLOB 3
@@ -63,9 +59,9 @@ defines the structure type
 which contains at least the following fields:
 .Bd -literal
 typedef struct {
-	int gl_pathc;		/* count of total paths so far */
-	int gl_matchc;		/* count of paths matching pattern */
-	int gl_offs;		/* reserved at beginning of gl_pathv */
+	size_t gl_pathc;	/* count of total paths so far */
+	size_t gl_matchc;	/* count of paths matching pattern */
+	size_t gl_offs;		/* reserved at beginning of gl_pathv */
 	int gl_flags;		/* returned flags */
 	char **gl_pathv;	/* list of paths matching pattern */
 } glob_t;

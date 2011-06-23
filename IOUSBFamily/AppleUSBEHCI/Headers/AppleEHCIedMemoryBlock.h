@@ -43,6 +43,9 @@ private:
     
 public:
 
+	// OSObject call used to free the buffer when we are done
+    virtual void free();
+	
     static AppleEHCIedMemoryBlock 	*NewMemoryBlock(void);
     void							SetNextBlock(AppleEHCIedMemoryBlock *next);
     AppleEHCIedMemoryBlock			*GetNextBlock(void);

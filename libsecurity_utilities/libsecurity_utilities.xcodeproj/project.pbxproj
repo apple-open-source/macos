@@ -642,6 +642,12 @@
 			buildConfigurationList = C27AD4140987FCDF001272E0 /* Build configuration list for PBXProject "libsecurity_utilities" */;
 			compatibilityVersion = "Xcode 2.4";
 			hasScannedForEncodings = 1;
+			knownRegions = (
+				English,
+				Japanese,
+				French,
+				German,
+			);
 			mainGroup = 4CA2A52F0523D2CD00978A7B;
 			productRefGroup = 4CA2A53B0523D32800978A7B /* Products */;
 			projectDirPath = "";
@@ -843,7 +849,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUILD_VARIANTS = debug;
-				CURRENT_PROJECT_VERSION = 38535;
+				CURRENT_PROJECT_VERSION = 55010;
 				EXECUTABLE_PREFIX = "";
 				EXECUTABLE_SUFFIX = "";
 				GCC_DYNAMIC_NO_PIC = NO;
@@ -889,7 +895,7 @@
 					debug,
 					nopic,
 				);
-				CURRENT_PROJECT_VERSION = 38535;
+				CURRENT_PROJECT_VERSION = 55010;
 				EXECUTABLE_PREFIX = "";
 				EXECUTABLE_SUFFIX = "";
 				GCC_DEBUGGING_SYMBOLS = default;
@@ -930,7 +936,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUILD_VARIANTS = normal;
-				CURRENT_PROJECT_VERSION = 38535;
+				CURRENT_PROJECT_VERSION = 55010;
 				EXECUTABLE_PREFIX = "";
 				EXECUTABLE_SUFFIX = "";
 				HEADER_SEARCH_PATHS = "\"$(BUILT_PRODUCTS_DIR)/derived_src\"";
@@ -973,7 +979,7 @@
 					debug,
 					nopic,
 				);
-				CURRENT_PROJECT_VERSION = 38535;
+				CURRENT_PROJECT_VERSION = 55010;
 				EXECUTABLE_PREFIX = "";
 				EXECUTABLE_SUFFIX = "";
 				HEADER_SEARCH_PATHS = "\"$(BUILT_PRODUCTS_DIR)/derived_src\"";

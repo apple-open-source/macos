@@ -1,9 +1,9 @@
 //
-// "$Id: sample.drv 2114 2010-04-23 20:27:40Z msweet $"
+// "$Id: sample.drv 3036 2011-03-10 02:54:04Z msweet $"
 //
 //   Driver info file for CUPS-supplied PPDs.
 //
-//   Copyright 2007-2010 by Apple Inc.
+//   Copyright 2007-2011 by Apple Inc.
 //   Copyright 1993-2006 by Easy Software Products.
 //
 //   These coded instructions, statements, and computer programs are the
@@ -117,7 +117,7 @@ Attribute "FileSystem" "" "False"
 Attribute "LandscapeOrientation" "" "Plus90"
 Attribute "TTRasterizer" "" "Type42"
 
-Copyright "Copyright 2007-2010 by Apple Inc."
+Copyright "Copyright 2007-2011 by Apple Inc."
 Copyright "Copyright 1997-2007 by Easy Software Products."
 Copyright ""
 Copyright "These coded instructions, statements, and computer programs are the"
@@ -154,9 +154,9 @@ Version "1.4"
   MediaSize w41h144
   MediaSize w153h198
 
-  Resolution k 1 0 0 0 136dpi 
-  Resolution k 1 0 0 0 203dpi 
-  *Resolution k 1 0 0 0 300dpi 
+  Resolution k 1 0 0 0 136dpi
+  Resolution k 1 0 0 0 203dpi
+  *Resolution k 1 0 0 0 300dpi
 
   Darkness 0 Light
   Darkness 1 Medium
@@ -211,7 +211,7 @@ Version "1.4"
     MediaSize A4
     MediaSize FanFoldUS
 
-    Resolution k 1 8 0 0 60x720dpi
+    Resolution k 1 8 0 0 60x72dpi
     *Resolution k 1 8 0 0 120x72dpi
     Resolution k 1 8 0 0 240x72dpi
   }
@@ -364,7 +364,7 @@ Version "1.4"
     Attribute NickName "" "Generic PostScript Printer"
     PCFileName "generic.ppd"
     Throughput 8
-    ColorDevice No
+    ColorDevice Yes
     Attribute PSVersion "" "(2016.0) 0"
     Attribute LanguageLevel "" 2
 
@@ -387,11 +387,12 @@ Version "1.4"
 
     Option "InputSlot/Media Source" PickOne AnySetup 10
       *Choice "Default/Printer Default" ""
-      Choice "Tray1/Tray 1" "<</ManualFeed false>>setpagedevice"
+      Choice "Upper/Cassette" "<</ManualFeed false>>setpagedevice"
       Choice "Manual/Manual Feed" "<</ManualFeed true>>setpagedevice"
 
     Duplex Yes
     Installable "Option1/Duplexer"
+    Attribute "?Option1" "" "save currentpagedevice/Duplex known{(True)}{(False)}ifelse = flush restore"
   }
 }
 
@@ -443,7 +444,7 @@ Version "1.4"
     Resolution - 1 0 0 0 600dpi
 
     *InputSlot 1 Tray
-    InputSlot 2 "Manual/Manual Feed" 
+    InputSlot 2 "Manual/Manual Feed"
     InputSlot 3 "Envelope/Envelope Feed"
 
     *MediaType 0 "Plain/Plain Paper"
@@ -527,7 +528,7 @@ Version "1.4"
 
   *MediaSize w288h432
 
-  *Resolution k 1 0 0 0 300dpi 
+  *Resolution k 1 0 0 0 300dpi
 
   Group "PrinterSettings/Printer Settings"
     Option "inPrintDensity/Print Density" PickOne DocumentSetup 20.0
@@ -652,7 +653,7 @@ Version "1.4"
     ModelNumber $EPSON_9PIN
     ColorDevice No
 
-    Resolution k 1 8 0 0 60x720dpi
+    Resolution k 1 8 0 0 60x72dpi
     *Resolution k 1 8 0 0 120x72dpi
     Resolution k 1 8 0 0 240x72dpi
   }
@@ -1245,5 +1246,5 @@ Version "1.4"
 }
 
 //
-// End of "$Id: sample.drv 2114 2010-04-23 20:27:40Z msweet $".
+// End of "$Id: sample.drv 3036 2011-03-10 02:54:04Z msweet $".
 //

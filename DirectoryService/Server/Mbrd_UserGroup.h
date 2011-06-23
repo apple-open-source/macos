@@ -110,6 +110,7 @@ typedef struct UserGroup
 	bool                fNodeAvailable;
 	dispatch_queue_t	fQueue;
 	dispatch_queue_t	fRefreshQueue;
+    dispatch_group_t    fRefreshGroup;
 	bool				fRefreshActive;	// used to track inflight refresh
 
 	char*				fName;

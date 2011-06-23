@@ -106,13 +106,14 @@ AppleEHCIQueueHead::NormalizedPollingRate(void)
 
 
 void
-AppleEHCIQueueHead::print(int level)
+AppleEHCIQueueHead::print(int level, AppleUSBEHCI *ehci)
 {
     EHCIQueueHeadSharedPtr shared = GetSharedLogical();
 	UInt32					flags = USBToHostLong(shared->flags);
 	UInt32					splitFlags = USBToHostLong(shared->splitFlags);
 	
     super::print(level);
+	USBLog(level, "AppleEHCIQueueHead::print - QH(%p) _sharedPhysical(%p)", this, (void*)_sharedPhysical);
     USBLog(level, "AppleEHCIQueueHead::print - shared.nextQH[%p]", (void*)USBToHostLong(shared->nextQH));
     USBLog(level, "AppleEHCIQueueHead::print - shared.flags[%p] (ADDR[%d] EP[%d] %s)", (void*)flags, (int)(flags & kEHCIEDFlags_FA), (int)((flags & kEHCIEDFlags_EN) >> kEHCIEDFlags_ENPhase), (flags & kEHCIEDFlags_H) ? "HEAD" : " ");
     USBLog(level, "AppleEHCIQueueHead::print - shared.splitFlags[%p](Hub[%d] Port[%d] C-mask[0x%02x] S-mask[0x%02x])", (void*)splitFlags, (int)(splitFlags  & kEHCIEDSplitFlags_HubAddr) >> kEHCIEDSplitFlags_HubAddrPhase, (int)(splitFlags  & kEHCIEDSplitFlags_Port) >> kEHCIEDSplitFlags_PortPhase, (int)(splitFlags  & kEHCIEDSplitFlags_CMask) >> kEHCIEDSplitFlags_CMaskPhase, (int)(splitFlags  & kEHCIEDSplitFlags_SMask) >> kEHCIEDSplitFlags_SMaskPhase);
@@ -144,6 +145,21 @@ AppleEHCIQueueHead::print(int level)
 	USBLog(level, "AppleEHCIQueueHead::print - _startFrame[%p]", (void*)_startFrame);
 	USBLog(level, "AppleEHCIQueueHead::print - _pollingRate[%p]", (void*)_pollingRate);
 	USBLog(level, "----------------------------------------------------");
+
+	if (level < 7)
+	{
+		USBTrace( kUSBTEHCIDumpQueues, kTPEHCIDumpQH1, (uintptr_t)ehci, (uintptr_t)this, (uint32_t)_sharedPhysical, (uintptr_t)_logicalNext );
+		USBTrace( kUSBTEHCIDumpQueues, kTPEHCIDumpQH2, (uintptr_t)ehci, (uint32_t)USBToHostLong(shared->nextQH), (uint32_t)flags, (uint32_t)splitFlags );
+		USBTrace( kUSBTEHCIDumpQueues, kTPEHCIDumpQH3, (uintptr_t)ehci, (uint32_t)USBToHostLong(shared->CurrqTDPtr), (uint32_t)USBToHostLong(shared->NextqTDPtr), (uint32_t)USBToHostLong(shared->AltqTDPtr) );
+		USBTrace( kUSBTEHCIDumpQueues, kTPEHCIDumpQH4, (uintptr_t)ehci, (uint32_t)USBToHostLong(shared->qTDFlags), (uint32_t)USBToHostLong(shared->BuffPtr[0]), (uint32_t)USBToHostLong(shared->BuffPtr[1]) );
+		USBTrace( kUSBTEHCIDumpQueues, kTPEHCIDumpQH5, (uintptr_t)ehci, (uint32_t)USBToHostLong(shared->BuffPtr[2]), (uint32_t)USBToHostLong(shared->BuffPtr[3]), (uint32_t)USBToHostLong(shared->BuffPtr[4]) );
+		USBTrace( kUSBTEHCIDumpQueues, kTPEHCIDumpQH6, (uintptr_t)ehci, (uint32_t)USBToHostLong(shared->extBuffPtr[0]), (uint32_t)USBToHostLong(shared->extBuffPtr[1]), (uint32_t)USBToHostLong(shared->extBuffPtr[2]) );
+		USBTrace( kUSBTEHCIDumpQueues, kTPEHCIDumpQH7, (uintptr_t)ehci, (uint32_t)USBToHostLong(shared->extBuffPtr[3]), (uint32_t)USBToHostLong(shared->extBuffPtr[4]), (uintptr_t)_qTD );
+		USBTrace( kUSBTEHCIDumpQueues, kTPEHCIDumpQH8, (uintptr_t)ehci, (uintptr_t)_TailTD, (uintptr_t)_pSPE, (uint32_t)_maxPacketSize );
+		USBTrace( kUSBTEHCIDumpQueues, kTPEHCIDumpQH9, (uintptr_t)ehci, (uint32_t)_functionNumber, (uint32_t)_endpointNumber, (uint32_t)_direction );
+		USBTrace( kUSBTEHCIDumpQueues, kTPEHCIDumpQH10, (uintptr_t)ehci, (uint32_t)_responseToStall, (uint32_t)_queueType, (uint32_t)_speed );
+		USBTrace( kUSBTEHCIDumpQueues, kTPEHCIDumpQH11, (uintptr_t)ehci, (uint32_t)_bInterval, (uint32_t)_startFrame, (uint32_t)_pollingRate );
+	}
 }
 
 
@@ -452,10 +468,12 @@ AppleEHCISplitIsochTransferDescriptor::UpdateFrameList(AbsoluteTime timeStamp)
     }
     else if (statFlags & kEHCIsiTDStatStatusERR)
     {
+		USBTrace( kUSBTEHCIInterrupts, kTPEHCIUpdateFrameListBits, (uintptr_t)((_pEndpoint->direction << 24) | ( _pEndpoint->functionAddress << 8) | _pEndpoint->endpointNumber), 0, 0, 6);
 		frStatus = kIOReturnNotResponding;
     }
     else if (statFlags & kEHCIsiTDStatStatusDBE)
     {
+		USBTrace( kUSBTEHCIInterrupts, kTPEHCIUpdateFrameListBits, (uintptr_t)((_pEndpoint->direction << 24) | ( _pEndpoint->functionAddress << 8) | _pEndpoint->endpointNumber), 0, 0, 5);
 		if (_pEndpoint->direction == kUSBOut)
 			frStatus = kIOUSBBufferUnderrunErr;
 		else
@@ -463,6 +481,7 @@ AppleEHCISplitIsochTransferDescriptor::UpdateFrameList(AbsoluteTime timeStamp)
     }
     else if (statFlags & kEHCIsiTDStatStatusBabble)
     {
+		USBTrace( kUSBTEHCIInterrupts, kTPEHCIUpdateFrameListBits, (uintptr_t)((_pEndpoint->direction << 24) | ( _pEndpoint->functionAddress << 8) | _pEndpoint->endpointNumber), 0, 0, 4);
 		if (_pEndpoint->direction == kUSBOut)
 			frStatus = kIOReturnNotResponding;							// babble on OUT. this should never happen
 		else
@@ -470,10 +489,12 @@ AppleEHCISplitIsochTransferDescriptor::UpdateFrameList(AbsoluteTime timeStamp)
     }
     else if (statFlags & kEHCIsiTDStatStatusXActErr)
     {
+		USBTrace( kUSBTEHCIInterrupts, kTPEHCIUpdateFrameListBits, (uintptr_t)((_pEndpoint->direction << 24) | ( _pEndpoint->functionAddress << 8) | _pEndpoint->endpointNumber), 0, 0, 3);
 		frStatus = kIOUSBWrongPIDErr;
     }
     else if (statFlags & kEHCIsiTDStatStatusMMF)
     {
+		USBTrace( kUSBTEHCIInterrupts, kTPEHCIUpdateFrameListBits, (uintptr_t)((_pEndpoint->direction << 24) | ( _pEndpoint->functionAddress << 8) | _pEndpoint->endpointNumber), 0, 0, 2);
 		frStatus = kIOUSBNotSent1Err;
     }
     else
@@ -510,11 +531,11 @@ AppleEHCISplitIsochTransferDescriptor::UpdateFrameList(AbsoluteTime timeStamp)
 			pLLFrames[_frameIndex].frActCount = frActualCount;
 			pLLFrames[_frameIndex].frTimeStamp = timeStamp;
 			pLLFrames[_frameIndex].frStatus = frStatus;
-			
-#ifdef __LP64__
-			USBTrace( kUSBTUHCIInterrupts, kTPUHCIUpdateFrameList , (uintptr_t)((_pEndpoint->direction << 24) | ( _pEndpoint->functionAddress << 8) | _pEndpoint->endpointNumber), (uintptr_t)&pLLFrames[_frameIndex], (uintptr_t)frActualCount, (uintptr_t)timeStamp );
+
+#ifdef ABSOLUTETIME_SCALAR_TYPE
+ 			USBTrace( kUSBTEHCIInterrupts, kTPEHCIUpdateFrameList , (uintptr_t)((_pEndpoint->direction << 24) | ( _pEndpoint->functionAddress << 8) | _pEndpoint->endpointNumber), (uintptr_t)&pLLFrames[_frameIndex], (uintptr_t)frActualCount, (uintptr_t)timeStamp );
 #else
-			USBTrace( kUSBTEHCIInterrupts, kTPEHCIUpdateFrameList , (uintptr_t)((_pEndpoint->direction << 24) | ( _pEndpoint->functionAddress << 8) | _pEndpoint->endpointNumber), (uintptr_t)&pLLFrames[_frameIndex], (uintptr_t)(timeStamp.hi), (uintptr_t)timeStamp.lo );
+ 			USBTrace( kUSBTEHCIInterrupts, kTPEHCIUpdateFrameList , (uintptr_t)((_pEndpoint->direction << 24) | ( _pEndpoint->functionAddress << 8) | _pEndpoint->endpointNumber), (uintptr_t)&pLLFrames[_frameIndex], (uintptr_t)(timeStamp.hi), (uintptr_t)timeStamp.lo );
 #endif
 		}
     }

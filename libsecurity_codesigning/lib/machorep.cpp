@@ -328,12 +328,12 @@ string MachORep::format()
 					it != archs.end(); ++it) {
 				if (it != archs.begin())
 					s += " ";
-				s += it->name();
+				s += it->displayName();
 			}
 			return s + ")";
 		} else {
 			assert(archs.size() == 1);
-			return string("Mach-O thin (") + archs.begin()->name() + ")";
+			return string("Mach-O thin (") + archs.begin()->displayName() + ")";
 		}
 	} else
 		return "Mach-O (unrecognized format)";

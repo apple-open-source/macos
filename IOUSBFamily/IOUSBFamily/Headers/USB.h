@@ -772,14 +772,18 @@ typedef struct {
 
 
 /*!
-    @enum IOOptionBits
-    @discussion Parameter passed to an IOService::open() call.
+	@enum IOUSBFamilyIOOptionBit
+	@discussion Options used exclusively by the USB Family when calling calling IOService APIs, such as open() and close(). 
     @constant kIOUSBInterfaceOpenAlt Open the alternate interface specified when creating the interface.
+ @constant	kUSBOptionBitOpenExclusivelyBit	Used in open()'ing the IOUSBDevice or IOUSBInterface by the corresponding user client.  Only 1 user client can have exclusive access to those objects
 */
 enum {
-    kIOUSBInterfaceOpenAlt	= 0x00010000
+    kIOUSBInterfaceOpenAlt	= 0x00010000,
+    kIOUSBInterfaceOpenAlternateInterfaceBit	= 16,
+	kUSBOptionBitOpenExclusivelyBit				= 17,
+	kIOUSBInterfaceOpenAlternateInterfaceMask	= ( 1 << kIOUSBInterfaceOpenAlternateInterfaceBit),
+	kUSBOptionBitOpenExclusivelyMask			= ( 1 << kUSBOptionBitOpenExclusivelyBit)
 };
-
 #endif
 
 // Internal structure to pass parameters between IOUSBLib and UserClient

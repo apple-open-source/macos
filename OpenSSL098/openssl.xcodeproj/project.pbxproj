@@ -1038,6 +1038,7 @@
 		4C111690110F5C6B00FCEEB6 /* client.pem in Resources */ = {isa = PBXBuildFile; fileRef = 4C11168C110F5C6B00FCEEB6 /* client.pem */; };
 		4C111691110F5C6B00FCEEB6 /* server.pem in Resources */ = {isa = PBXBuildFile; fileRef = 4C11168D110F5C6B00FCEEB6 /* server.pem */; };
 		4C111692110F5C6B00FCEEB6 /* signed.pem in Resources */ = {isa = PBXBuildFile; fileRef = 4C11168E110F5C6B00FCEEB6 /* signed.pem */; };
+		4C50815E1345539000328938 /* t1_reneg.c in Sources */ = {isa = PBXBuildFile; fileRef = 4C50815A134530A600328938 /* t1_reneg.c */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -2836,6 +2837,8 @@
 		4C11168C110F5C6B00FCEEB6 /* client.pem */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = client.pem; sourceTree = "<group>"; };
 		4C11168D110F5C6B00FCEEB6 /* server.pem */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = server.pem; sourceTree = "<group>"; };
 		4C11168E110F5C6B00FCEEB6 /* signed.pem */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = signed.pem; sourceTree = "<group>"; };
+		4C508159134530A600328938 /* ssl_task.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = ssl_task.c; path = src/ssl/ssl_task.c; sourceTree = "<group>"; };
+		4C50815A134530A600328938 /* t1_reneg.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = t1_reneg.c; path = src/ssl/t1_reneg.c; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -4259,6 +4262,8 @@
 			children = (
 				1C6C3C170F783CBB005DE0AD /* kssl.h */,
 				1C6C3C160F783CBB005DE0AD /* kssl.c */,
+				4C508159134530A600328938 /* ssl_task.c */,
+				4C50815A134530A600328938 /* t1_reneg.c */,
 				1C343BDF0F71AB990045E860 /* bio_ssl.c */,
 				1C343BE00F71AB990045E860 /* d1_both.c */,
 				1C343BE10F71AB990045E860 /* d1_clnt.c */,
@@ -5034,7 +5039,11 @@
 			isa = PBXProject;
 			buildConfigurationList = 1DEB914E08733D8E0010E9CD /* Build configuration list for PBXProject "openssl" */;
 			compatibilityVersion = "Xcode 3.2";
+			developmentRegion = English;
 			hasScannedForEncodings = 1;
+			knownRegions = (
+				en,
+			);
 			mainGroup = 08FB7794FE84155DC02AAC07 /* openssl */;
 			projectDirPath = "";
 			projectRoot = "";
@@ -6304,6 +6313,7 @@
 				1C4D8C400F72E3F100732E83 /* t1_lib.c in Sources */,
 				1C4D8C410F72E3F100732E83 /* t1_meth.c in Sources */,
 				1C4D8C420F72E3F100732E83 /* t1_srvr.c in Sources */,
+				4C50815E1345539000328938 /* t1_reneg.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -7629,9 +7639,12 @@
 					OPENSSL_THREADS,
 					ZLIB,
 				);
+				GCC_VERSION = "";
 				HEADER_SEARCH_PATHS = "$(SRCROOT)/src/include";
 				PUBLIC_HEADERS_FOLDER_PATH = /usr/include/openssl;
+				SDKROOT = "";
 				STRIP_STYLE = debugging;
+				VALID_ARCHS = "armv6 armv7 i386 x86_64 ppc";
 			};
 			name = Release;
 		};

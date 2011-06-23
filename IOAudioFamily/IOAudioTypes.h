@@ -341,6 +341,8 @@ enum {
     kIOAudioControlTypeSelector			= 'slct'
 };
 
+//	<rdar://8325563>	Added kIOAudioToggleControlSubTypePhantomPower, kIOAudioToggleControlSubTypePhaseInvert & 
+//	kIOAudioSelectorControlSubTypeChannelHighPassFilter
 enum {
     kIOAudioLevelControlSubTypeVolume						= 'vlme',
 	kIOAudioLevelControlSubTypeLFEVolume					= 'subv',
@@ -349,6 +351,8 @@ enum {
     kIOAudioToggleControlSubTypeSolo						= 'solo',
 	kIOAudioToggleControlSubTypeLFEMute						= 'subm',
 	kIOAudioToggleControlSubTypeiSubAttach					= 'atch',
+	kIOAudioToggleControlSubTypePhantomPower				= 'phan',
+	kIOAudioToggleControlSubTypePhaseInvert					= 'phsi',
     kIOAudioSelectorControlSubTypeOutput					= 'outp',
     kIOAudioSelectorControlSubTypeInput						= 'inpt',
     kIOAudioSelectorControlSubTypeClockSource				= 'clck',
@@ -358,7 +362,8 @@ enum {
 	kIOAudioSelectorControlSubTypeChannelLevelMinus10dBV	= '10db',
 	kIOAudioSelectorControlSubTypeChannelLevelMinus20dBV	= '20db',
 	kIOAudioSelectorControlSubTypeChannelLevelMicLevel		= 'micl',
-	kIOAudioSelectorControlSubTypeChannelLevelInstrumentLevel		= 'istl'
+	kIOAudioSelectorControlSubTypeChannelLevelInstrumentLevel		= 'istl',
+	kIOAudioSelectorControlSubTypeChannelHighPassFilter		= 'hipf'
 };
 
 enum {

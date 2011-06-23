@@ -606,7 +606,7 @@ AppleUSBEHCI::UIMCreateControlEndpoint(UInt8 functionAddress, UInt8 endpointNumb
 	// note that by the time the _queueType is updated, the endpoint is already active on the QH list. However, because we are inside of the 
 	// workloop gate, and this field is not used by either the HC hardware or by the FilterInterrupt routine, this is OK.
 	pEP->_queueType = kEHCITypeControl;
- 	printAsyncQueue(7, "UIMCreateControlEndpoint");
+ 	printAsyncQueue(7, "UIMCreateControlEndpoint", true, false);
     return kIOReturnSuccess;
 }
 
@@ -660,12 +660,12 @@ AppleUSBEHCI::UIMCreateControlTransfer(short					functionAddress,
     if (status == kIOReturnSuccess)
     {
 		USBLog(7, "AppleUSBEHCI[%p]::UIMCreateControlTransfer allocateTDS done - CMD = 0x%x, STS = 0x%x", this, USBToHostLong(_pEHCIRegisters->USBCMD), USBToHostLong(_pEHCIRegisters->USBSTS));
-		printAsyncQueue(7, "UIMCreateControlTransfer");
+		printAsyncQueue(7, "UIMCreateControlTransfer", true, false);
 		EnableAsyncSchedule(false);
     }
     else
     {
-        USBError(1, "AppleUSBEHCI[%p]::UIMCreateControlTransfer - allocateTDs returned error %x", this, status);
+        USBLog(1, "AppleUSBEHCI[%p]::UIMCreateControlTransfer (adr=%d:%d) - allocateTDs returned error %x", this, functionAddress, endpointNumber, status);
     }
     
     return status;
@@ -1071,7 +1071,7 @@ AppleUSBEHCI::allocateTDs(AppleEHCIQueueHead* pEDQueue, IOUSBCommand *command, I
 	
     if (status)
     {
-		USBLog(3, "AppleUSBEHCI[%p] CreateGeneralTransfer: returning status 0x%x", this, status);
+		USBLog(3, "AppleUSBEHCI[%p::allocateTDs  returning status 0x%x", this, status);
     }
     return status;
 }
@@ -1280,7 +1280,7 @@ AppleUSBEHCI::EHCIUIMDoDoneQueueProcessing(EHCIGeneralTransferDescriptorPtr pHCD
 			return kIOReturnSuccess;
 		} else 
 		{
-			USBLog(3, "AppleUSBEHCI[%p]::EHCIUIMDoDoneQueueProcessing queue buffer overflow (%d)", this, (int)_nextDoneQueue);
+			USBError(1, "AppleUSBEHCI[%p]::EHCIUIMDoDoneQueueProcessing queue buffer overflow (%d)", this, (int)_nextDoneQueue);
 			currentQueue = _nextDoneQueue--;
 			doOnce = TRUE;
 			doLoop = FALSE;
@@ -1360,22 +1360,30 @@ AppleUSBEHCI::EHCIUIMDoDoneQueueProcessing(EHCIGeneralTransferDescriptorPtr pHCD
 						_UIMDiagnostics.totalBytes -= bufferSizeRemaining;
 							
 						Complete(completion, errStatus, bufferSizeRemaining);
-						if ((pHCDoneTD->pQH->_queueType == kEHCITypeControl) || (pHCDoneTD->pQH->_queueType == kEHCITypeBulk))
+						
+						if(pHCDoneTD->pQH)
 						{
-							if (!_controlBulkTransactionsOut)
+							if ((pHCDoneTD->pQH->_queueType == kEHCITypeControl) || (pHCDoneTD->pQH->_queueType == kEHCITypeBulk))
 							{
-								USBError(1, "AppleUSBEHCI[%p]::EHCIUIMDoDoneQueueProcessing - _controlBulkTransactionsOut underrun!", this);
-							}
-							else
-							{
-								_controlBulkTransactionsOut--;
-								USBLog(7, "AppleUSBEHCI[%p]::EHCIUIMDoDoneQueueProcessing - _controlBulkTransactionsOut(%p) pHCDoneTD(%p)", this, (void*)_controlBulkTransactionsOut, pHCDoneTD);
 								if (!_controlBulkTransactionsOut)
 								{
-									USBLog(7, "AppleUSBEHCI[%p]::EHCIUIMDoDoneQueueProcessing - no more _controlBulkTransactionsOut - halting AsyncQueue", this);
-									DisableAsyncSchedule(false);
+									USBError(1, "AppleUSBEHCI[%p]::EHCIUIMDoDoneQueueProcessing - _controlBulkTransactionsOut underrun!", this);
+								}
+								else
+								{
+									_controlBulkTransactionsOut--;
+									USBLog(7, "AppleUSBEHCI[%p]::EHCIUIMDoDoneQueueProcessing - _controlBulkTransactionsOut(%p) pHCDoneTD(%p)", this, (void*)_controlBulkTransactionsOut, pHCDoneTD);
+									if (!_controlBulkTransactionsOut)
+									{
+										USBLog(7, "AppleUSBEHCI[%p]::EHCIUIMDoDoneQueueProcessing - no more _controlBulkTransactionsOut - halting AsyncQueue", this);
+										DisableAsyncSchedule(false);
+									}
 								}
 							}
+						}
+						else 
+						{
+							USBError(1, "The EHCI driver has detected an error [pHCDoneTD->pQH == NULL]");
 						}
 					}
 					else
@@ -1820,7 +1828,7 @@ AppleUSBEHCI::UIMCreateBulkEndpoint(UInt8				functionAddress,
 	// workloop gate, and this field is not used by either the HC hardware or by the FilterInterrupt routine, this is OK.
 	pEP->_queueType = kEHCITypeBulk;
 	
-	printAsyncQueue(7, "UIMCreateBulkEndpoint");
+	printAsyncQueue(7, "UIMCreateBulkEndpoint", true, false);
     return kIOReturnSuccess;
 	
 }
@@ -1855,7 +1863,7 @@ AppleUSBEHCI::UIMCreateBulkTransfer(IOUSBCommand* command)
 	}
     else
     {
-        USBLog(1, "AppleUSBEHCI[%p]::UIMCreateBulkTransfer- allocateTDs returned error %x", this, status);
+        USBLog(1, "AppleUSBEHCI[%p]::UIMCreateBulkTransfer- allocateTDs (adr=%d:%d(%s))  returned error %x", this, command->GetAddress(), command->GetEndpoint(), direction == kUSBIn ? "in" : "out", status);
 		USBTrace( kUSBTEHCI, kTPEHCICreateBulkTransfer, (uintptr_t)this, status, 0, 0);
     }
     
@@ -1888,7 +1896,7 @@ AppleUSBEHCI::returnTransactions(AppleEHCIQueueHead *pED, EHCIGeneralTransferDes
     bool								removedSome = false;
 	
     USBLog(5, "AppleUSBEHCI[%p]::returnTransactions, pED(%p) until (%p), clearToggle: %d", this, pED, untilThisOne, clearToggle);
-    pED->print(7);
+    pED->print(7, this);
 	
     if (!(USBToHostLong(pED->GetSharedLogical()->qTDFlags) & kEHCITDStatus_Halted))
     {
@@ -2081,27 +2089,34 @@ AppleUSBEHCI::linkAsyncEndpoint(AppleEHCIQueueHead *CBED)
 		CBED->_logicalNext = NULL;
 		_AsyncHead = CBED;
 		newPhysicalAddr = HostToUSBLong(CBED->_sharedPhysical);
-		_pEHCIRegisters->AsyncListAddr = newPhysicalAddr;
-		
-		if (_pEHCIRegisters->AsyncListAddr != newPhysicalAddr)
+		if (!isInactive())
 		{
-			USBLog(1, "AppleUSBEHCI[%p]::linkAsyncEndpoint - AsyncListAddr did not stick right away..", this);
-		}
-		
-		IOSync();
-		
-		while (retries-- && (_pEHCIRegisters->AsyncListAddr != newPhysicalAddr))
-		{
-			if ((retries % 10) == 0)
-				{
-					USBLog(1, "AppleUSBEHCI[%p]::linkAsyncEndpoint - AsyncListAddr not sticking yet, retries=%d", this, retries);
-				}
-		}
+			_pEHCIRegisters->AsyncListAddr = newPhysicalAddr;
+			
+			if (_pEHCIRegisters->AsyncListAddr != newPhysicalAddr)
+			{
+				USBLog(1, "AppleUSBEHCI[%p]::linkAsyncEndpoint - AsyncListAddr did not stick right away..", this);
+			}
+			
+			IOSync();
+			
+			while (retries-- && (_pEHCIRegisters->AsyncListAddr != newPhysicalAddr))
+			{
+				if ((retries % 10) == 0)
+					{
+						USBLog(1, "AppleUSBEHCI[%p]::linkAsyncEndpoint - AsyncListAddr not sticking yet, retries=%d", this, retries);
+					}
+			}
 		
 #if DEBUG_LEVEL != DEBUG_LEVEL_PRODUCTION
-		if (!_pEHCIRegisters->AsyncListAddr)
-			panic("AppleUSBEHCI::linkAsyncEndpoint.. AsyncListAddr is NULL after filling in with CBED->_sharedPhysical!!\n");
+			if (!_pEHCIRegisters->AsyncListAddr)
+				panic("AppleUSBEHCI::linkAsyncEndpoint.. AsyncListAddr is NULL after filling in with CBED->_sharedPhysical!!\n");
 #endif
+		}
+		else
+		{
+			USBLog(2, "AppleUSBEHCI[%p]::linkAsyncEndpoint - I am inActive, so I don't need to set AsyncListAddr", this);
+		}
     }
     else
     {
@@ -2121,6 +2136,8 @@ AppleUSBEHCI::linkAsyncEndpoint(AppleEHCIQueueHead *CBED)
 	}
 }
 
+
+
 // This one can link the QH to the Async queue, or the inactive queue
 // as necessary
 void AppleUSBEHCI::maybeLinkAsyncEndpoint(AppleEHCIQueueHead *CBED)
@@ -2128,6 +2145,8 @@ void AppleUSBEHCI::maybeLinkAsyncEndpoint(AppleEHCIQueueHead *CBED)
 	// For now, just link to active
 	linkAsyncEndpoint(CBED);
 }
+
+
 
 void 
 AppleUSBEHCI::unlinkAsyncEndpoint(AppleEHCIQueueHead * pED, AppleEHCIQueueHead * pEDQueueBack)
@@ -2140,7 +2159,7 @@ AppleUSBEHCI::unlinkAsyncEndpoint(AppleEHCIQueueHead * pED, AppleEHCIQueueHead *
         USBLog(7, "AppleUSBEHCI[%p]::unlinkAsyncEndpoint: removing sole endpoint %lx", this, (long)pED);
 		// this is the only endpoint in the queue. we will leave list processing disabled
 		DisableAsyncSchedule(true);
-		printAsyncQueue(7, "unlinkAsyncEndpoint");
+		printAsyncQueue(7, "unlinkAsyncEndpoint", true, false);
 		pED->GetSharedLogical()->flags &= ~HostToUSBLong(kEHCIEDFlags_H);
 		_AsyncHead = NULL;
 		_pEHCIRegisters->AsyncListAddr = NULL;
@@ -2165,7 +2184,7 @@ AppleUSBEHCI::unlinkAsyncEndpoint(AppleEHCIQueueHead * pED, AppleEHCIQueueHead *
 			pEDQueueBack = OSDynamicCast(AppleEHCIQueueHead, pED->_logicalNext);
 			while (pEDQueueBack->_logicalNext)
 				pEDQueueBack = OSDynamicCast(AppleEHCIQueueHead, pEDQueueBack->_logicalNext);
-			printAsyncQueue(7, "unlinkAsyncEndpoint");
+			printAsyncQueue(7, "unlinkAsyncEndpoint", true, false);
 			pNewHeadED = OSDynamicCast(AppleEHCIQueueHead, pED->_logicalNext); 
 
 			_AsyncHead = pNewHeadED;
@@ -2185,16 +2204,21 @@ AppleUSBEHCI::unlinkAsyncEndpoint(AppleEHCIQueueHead * pED, AppleEHCIQueueHead *
 		}
 		else if(pEDQueueBack != NULL)
 		{
-			printAsyncQueue(7, "unlinkAsyncEndpoint");
+			printAsyncQueue(7, "unlinkAsyncEndpoint", true, false);
 			pEDQueueBack->SetPhysicalLink(pED->GetPhysicalLink());
 			pEDQueueBack->_logicalNext = pED->_logicalNext;
-			printAsyncQueue(7, "unlinkAsyncEndpoint");
+			printAsyncQueue(7, "unlinkAsyncEndpoint", true, false);
 		}
 		else
 		{
 			USBLog(7, "AppleUSBEHCI[%p]::unlinkAsyncEndpoint: ED not head, but pEDQueueBack not NULL",this);
 		}
 		
+		if (isInactive())
+		{
+			USBLog(2, "AppleUSBEHCI[%p]::unlinkAsyncEndpoint: I am inactive, so not worrying about STS and CMD",this);
+			return;
+		}
 		
 		STS = USBToHostLong(_pEHCIRegisters->USBSTS);
 		CMD = USBToHostLong(_pEHCIRegisters->USBCMD);
@@ -2252,7 +2276,7 @@ AppleUSBEHCI::unlinkAsyncEndpoint(AppleEHCIQueueHead * pED, AppleEHCIQueueHead *
 				IOSync();
 				if ((_pEHCIRegisters->AsyncListAddr & 0xFFFFFFE0) == pED->_sharedPhysical)
 				{
-					USBLog(1, "AppleUSBEHCI[%p]::unlinkAsyncEndpoint - pED[%p] seems to still be the AsyncListAddr after doorbell", this, pED);
+					USBError(1, "AppleUSBEHCI[%p]::unlinkAsyncEndpoint - pED[%p] seems to still be the AsyncListAddr after doorbell", this, pED);
 					if (pNewHeadED)
 					{
 						_pEHCIRegisters->AsyncListAddr = HostToUSBLong(pNewHeadED->_sharedPhysical);
@@ -2287,7 +2311,7 @@ AppleUSBEHCI::unlinkAsyncEndpoint(AppleEHCIQueueHead * pED, AppleEHCIQueueHead *
 
 
 void
-AppleUSBEHCI::printAsyncQueue(int level, const char* str)
+AppleUSBEHCI::printAsyncQueue(int level, const char* str, bool printSkipped, bool printTDs)
 {
     AppleEHCIQueueHead *pED = _AsyncHead;
     
@@ -2298,7 +2322,16 @@ AppleUSBEHCI::printAsyncQueue(int level, const char* str)
 		USBLog(level, "AppleUSBEHCI[%p]::printAsyncQueue: _AsyncHead[%p], AsyncListAddr[0x%x]", this, _AsyncHead, USBToHostLong(_pEHCIRegisters->AsyncListAddr));
 		while (pED)
 		{
-			pED->print(level);
+			pED->print(level, this);
+			if (printTDs)
+			{
+				EHCIGeneralTransferDescriptorPtr	td = pED->_qTD;
+				while (td != pED->_TailTD)
+				{
+					printTD(td, level);
+					td = td->pLogicalNext;
+				}
+			}
 			pED = OSDynamicCast(AppleEHCIQueueHead, pED->_logicalNext);
 		}
     }
@@ -2306,6 +2339,43 @@ AppleUSBEHCI::printAsyncQueue(int level, const char* str)
     {
 		USBLog(level, "AppleUSBEHCI[%p]::printAsyncQueue: NULL Async Queue called from %s", this, str);
     }
+}
+
+
+
+void
+AppleUSBEHCI::printInactiveQueue(int level, const char* str, bool printSkipped, bool printTDs)
+{
+    AppleEHCIQueueHead *pED = _InactiveAsyncHead;
+    
+    if (pED)
+    {
+		USBLog(level, "AppleUSBEHCI[%p]::printInactiveQueue called from %s", this, str);
+		USBLog(level, "--------------------");
+		USBLog(level, "AppleUSBEHCI[%p]::printInactiveQueue: _InactiveAsyncHead[%p]", this, _InactiveAsyncHead);
+		while (pED)
+		{
+			pED->print(level, this);
+			if (printTDs)
+			{
+				// TODO
+			}
+			
+			pED = OSDynamicCast(AppleEHCIQueueHead, pED->_logicalNext);
+		}
+    }
+    else
+    {
+		USBLog(level, "AppleUSBEHCI[%p]::printAsyncQueue: NULL Async Queue called from %s", this, str);
+    }
+}
+
+
+
+void
+AppleUSBEHCI::printPeriodicList(int level, const char* str, bool printSkipped, bool printTDs)
+{
+		// TODO
 }
 
 
@@ -2330,7 +2400,18 @@ AppleUSBEHCI::printTD(EHCIGeneralTransferDescriptorPtr pTD, int level)
 	USBLog(level, "AppleUSBEHCI[%p]::printTD: logicalBuffer:   %p", this, (pTD->logicalBuffer));	
 	USBLog(level, "AppleUSBEHCI[%p]::printTD: callbackOnTD: %s", this, pTD->callbackOnTD ? "TRUE" : "FALSE");	
 	USBLog(level, "AppleUSBEHCI[%p]::printTD: multiXferTransaction: %s", this, pTD->multiXferTransaction ? "TRUE" : "FALSE");	
-	USBLog(level, "AppleUSBEHCI[%p]::printTD: finalXferInTransaction: %s", this, pTD->finalXferInTransaction ? "TRUE" : "FALSE");	
+	USBLog(level, "AppleUSBEHCI[%p]::printTD: finalXferInTransaction: %s", this, pTD->finalXferInTransaction ? "TRUE" : "FALSE");
+	if (level < 7)
+	{
+		USBTrace( kUSBTEHCIDumpQueues, kTPEHCIDumpTD1, (uintptr_t)this, (uintptr_t)pTD, (uint32_t)pTD->pPhysical, (uintptr_t)pTD->pLogicalNext );
+		USBTrace( kUSBTEHCIDumpQueues, kTPEHCIDumpTD2, (uintptr_t)this, (uint32_t)USBToHostLong(pTD->pShared->nextTD), (uint32_t)USBToHostLong(pTD->pShared->altTD), (uint32_t)USBToHostLong(pTD->pShared->flags) );
+		USBTrace( kUSBTEHCIDumpQueues, kTPEHCIDumpTD3, (uintptr_t)this, (uint32_t)USBToHostLong(pTD->pShared->BuffPtr[0]), (uint32_t)USBToHostLong(pTD->pShared->BuffPtr[1]), (uint32_t)USBToHostLong(pTD->pShared->BuffPtr[2]) );
+		USBTrace( kUSBTEHCIDumpQueues, kTPEHCIDumpTD4, (uintptr_t)this, (uint32_t)USBToHostLong(pTD->pShared->BuffPtr[3]), (uint32_t)USBToHostLong(pTD->pShared->BuffPtr[4]), 0 );
+		USBTrace( kUSBTEHCIDumpQueues, kTPEHCIDumpTD5, (uintptr_t)this, (uint32_t)USBToHostLong(pTD->pShared->extBuffPtr[0]), (uint32_t)USBToHostLong(pTD->pShared->extBuffPtr[1]), (uint32_t)USBToHostLong(pTD->pShared->extBuffPtr[2]) );
+		USBTrace( kUSBTEHCIDumpQueues, kTPEHCIDumpTD6, (uintptr_t)this, (uint32_t)USBToHostLong(pTD->pShared->extBuffPtr[3]), (uint32_t)USBToHostLong(pTD->pShared->extBuffPtr[4]), 0 );
+		USBTrace( kUSBTEHCIDumpQueues, kTPEHCIDumpTD7, (uintptr_t)this, (uintptr_t)pTD->logicalBuffer, (uint32_t)pTD->callbackOnTD, (uintptr_t)pTD->multiXferTransaction );
+		USBTrace( kUSBTEHCIDumpQueues, kTPEHCIDumpTD8, (uintptr_t)this, (uint32_t)pTD->finalXferInTransaction, 0, 0 );
+	}
 }
 
 
@@ -2607,7 +2688,7 @@ AppleUSBEHCI::UIMCreateInterruptTransfer(IOUSBCommand* command)
     status = allocateTDs(pEDQueue, command, buffer, command->GetBuffer()->getLength(), direction, false );
     if(status != kIOReturnSuccess)
     {
-        USBLog(1, "AppleUSBEHCI[%p]::UIMCreateInterruptTransfer allocateTDs failed %x", this, status);
+        USBLog(1, "AppleUSBEHCI[%p]::UIMCreateInterruptTransfer ((adr=%d:%d(%s)) allocateTDs returned error 0x%x", this, command->GetAddress(), command->GetEndpoint(), direction == kUSBIn ? "in" : "out", status);
 		USBTrace( kUSBTEHCI, kTPEHCICreateInterruptTransfer , (uintptr_t)this, command->GetAddress(), status, 2 );
     }
     else
@@ -2718,7 +2799,7 @@ AppleUSBEHCI::linkInterruptEndpoint(AppleEHCIQueueHead *pEP)
 	pollingRate = pEP->NormalizedPollingRate();
 
     USBLog(7, "AppleUSBEHCI[%p]::linkInterruptEndpoint %p rate %d", this, pEP, pollingRate);
-	pEP->print(7);
+	pEP->print(7, this);
     newHorizPtr = pEP->GetPhysicalAddrWithType();
     while( offset < kEHCIPeriodicListEntries)
     {
@@ -3234,6 +3315,7 @@ AppleUSBEHCI::CreateHSIsochTransfer(AppleEHCIIsochEndpoint * pEP, IOUSBIsocComma
 	IODMACommand::Segment64				segments;
 	UInt32								numSegments;
 	UInt32								transfersPerTD;
+	UInt32								numberOfTDs = 0;
 	UInt32								baseTransferIndex;
 	UInt32								epInterval;
 	IOReturn							status;
@@ -3280,11 +3362,8 @@ AppleUSBEHCI::CreateHSIsochTransfer(AppleEHCIIsochEndpoint * pEP, IOUSBIsocComma
     // Format all the TDs, attach them to the pseudo endpoint. 
     // let the frame interrupt routine put them in the periodic list
 	
-	// At this point we would calculate the number of frames to put before each IOC bit.  The updateFrequency is expresed in terms
-	// of ms.  On EHCI, we always need to set things up so that we get interrupted every ms.  (In OHCI, we
-	// could put 8ms worth of transfers in 1 TD, so we had to look and see if we needed to get interrupted more often
-	// than that, so that's where the update frequency comes from).  Thus, in EHCI we just need to make sure
-	// that each TD has a transaction with the IOC bit set.
+	// We will set the IOC bit on the last TD of the transaction, unless this is a low latency request and the
+	// updateFrequency is between 1 and 8.  0 and > 8 mean only update at the end of the transaction.
 	
 	// We must enforce the invariant, "there must always be enough transfers left on the framelist
 	// to completely fill the current TD". 99% of the time, this is trivial, since the vast majority
@@ -3416,11 +3495,18 @@ AppleUSBEHCI::CreateHSIsochTransfer(AppleEHCIIsochEndpoint * pEP, IOUSBIsocComma
 				page++;
 			}
 		}
-
-		// Now, set the IOC bit for the last transaction in this TD. Note that we index by minus epInterval
-		// to reach the transaction that had a TD
+		
+		// Now, check to see if we need to set the IOC bit for the last transaction in this TD.  At this point, we have
+		// a TD with transfers for 1ms, so this is the granularity that we need for updateFrequency.
 		//
-		*savedTransactionPtr |= HostToUSBLong(kEHCI_ITDTr_IOC);
+		if (lowLatency && (updateFrequency > 0) && (updateFrequency <= 8 ))
+		{
+			if (numberOfTDs % updateFrequency == 0)
+			{
+				USBLog(7, "AppleUSBEHCI[%p]::CreateHSIsochTransfer - Setting IOC bit on TD baseTransferIndex: %d, microFrame: %d, frameIndex: %d, interval %d", this, (uint32_t)baseTransferIndex, (uint32_t) transfer, (uint32_t)(baseTransferIndex + transfer), (uint32_t)epInterval);
+				*savedTransactionPtr |= HostToUSBLong(kEHCI_ITDTr_IOC);
+			}
+		}
 		
 		// Finish updating the other fields in the TD
 		//
@@ -3445,12 +3531,17 @@ AppleUSBEHCI::CreateHSIsochTransfer(AppleEHCIIsochEndpoint * pEP, IOUSBIsocComma
 		// Increase our frameNumberStart each time around the loop;
 		//
 		frameNumberStart += frameNumberIncrease;
+		numberOfTDs++;
     }
 	
 	// Add the completion action to the last TD
 	//
 	USBLog(7, "AppleUSBEHCI[%p]::CreateHSIsochTransfer - in TD (%p) setting _completion action (%p)", this, pNewITD, pNewITD->_completion.action);
 	pNewITD->_completion = command->GetUSLCompletion();
+	
+	// Always set the IOC bit on the last transaction.
+	if (savedTransactionPtr)
+		*savedTransactionPtr |= HostToUSBLong(kEHCI_ITDTr_IOC);
 	
 	// Add the request to the schedule
 	//
@@ -3965,6 +4056,7 @@ AppleUSBEHCI::AddIsocFramesToSchedule(AppleEHCIIsochEndpoint	*pEP)
     UInt16										nextSlot, firstOutSlot;
     uint64_t									timeStamp;
 	bool										fetchNewTDFromToDoList = true;
+	bool										lostRegisterAccess = false;
 
     if (pEP->toDoList == NULL)
     {
@@ -3988,6 +4080,12 @@ AppleUSBEHCI::AddIsocFramesToSchedule(AppleEHCIIsochEndpoint	*pEP)
 	}
 	
 	USBLog(7, "AppleUSBEHCI[%p]::AddIsocFramesToSchedule - scheduledTDs = %d, deferredTDs = %d", this, (uint32_t)pEP->scheduledTDs, (uint32_t)pEP->deferredTDs);
+	
+	if (_pEHCIRegisters->USBSTS == kEHCIInvalidRegisterValue)
+	{
+		USBLog(1, "AppleUSBEHCI[%p]::AddIsocFramesToSchedule - registers not accessible. Giving up", this);
+		return;
+	}
 	
 	// 4211382 - This routine is already non-reentrant, since it runs on the WL.
 	// However, we also need to disable preemption while we are in here, since we have to get everything
@@ -4049,6 +4147,12 @@ AppleUSBEHCI::AddIsocFramesToSchedule(AppleEHCIIsochEndpoint	*pEP)
 			return;
 		}
 		newCurrFrame = GetFrameNumber();
+		if (newCurrFrame == 0)
+		{
+			lostRegisterAccess = true;						// we lost access to our registers
+			break;
+		}
+		
 		if (newCurrFrame > currFrame)
 		{
 			//USBLog(1, "AppleUSBEHCI[%p]::AddIsocFramesToSchedule - Current frame moved (0x%Lx->0x%Lx) resetting", this, currFrame, newCurrFrame);
@@ -4056,100 +4160,104 @@ AppleUSBEHCI::AddIsocFramesToSchedule(AppleEHCIIsochEndpoint	*pEP)
 		}		
     }
     
-	firstOutSlot = currFrame & (kEHCIPeriodicListEntries-1);									// this will be used if the _outSlot is not yet initialized
-	
-    currFrame = pEP->toDoList->_frameNumber;													// start looking at the first available number
-	
-    // This needs to be fixed up when we have variable length lists.
-    pEP->inSlot = currFrame & (kEHCIPeriodicListEntries-1);
-	
-    do
-    {		
-		nextSlot = (pEP->inSlot + 1) & (kEHCIPeriodicListEntries-1);
-		if (pEP->inSlot == _outSlot)
-		{
-			// USBLog(2, "AppleUSBEHCI[%p]::AddIsocFramesToSchedule - caught up pEP->inSlot (0x%x) _outSlot (0x%x)", this, pEP->inSlot, _outSlot);
-			break;
-		}
-		if ( nextSlot == _outSlot) 								// weve caught up with our tail
-		{
-			// USBLog(2, "AppleUSBEHCI[%p]::AddIsocFramesToSchedule - caught up nextSlot (0x%x) _outSlot (0x%x)", this, nextSlot, _outSlot);
-			break;
-		}
+	if (!lostRegisterAccess)
+	{
+		firstOutSlot = currFrame & (kEHCIPeriodicListEntries-1);									// this will be used if the _outSlot is not yet initialized
 		
-		if ( fetchNewTDFromToDoList )
-		{
-			pTD = GetTDfromToDoList(pEP);
-			pSITD = OSDynamicCast(AppleEHCISplitIsochTransferDescriptor, pTD);
-			// USBLog(5, "AppleUSBEHCI[%p]::AddIsocFramesToSchedule - checking TD(%p) FN(0x%Lx) against currFrame (0x%Lx)", this, pTD, pTD->_frameNumber, currFrame);
-		}
+		currFrame = pEP->toDoList->_frameNumber;													// start looking at the first available number
 		
-		if (currFrame == pTD->_frameNumber)
-		{
-			IOUSBControllerListElement					*linkAfter = NULL;
-			IOUSBControllerIsochListElement				*prevIsochLE;				// could be split or HS
-			AppleEHCISplitIsochTransferDescriptor		*prevSITD;
-			
-			if (_outSlot > kEHCIPeriodicListEntries)
+		// This needs to be fixed up when we have variable length lists.
+		pEP->inSlot = currFrame & (kEHCIPeriodicListEntries-1);
+		
+		do
+		{		
+			nextSlot = (pEP->inSlot + 1) & (kEHCIPeriodicListEntries-1);
+			if (pEP->inSlot == _outSlot)
 			{
-				_outSlot = firstOutSlot;
+				// USBLog(2, "AppleUSBEHCI[%p]::AddIsocFramesToSchedule - caught up pEP->inSlot (0x%x) _outSlot (0x%x)", this, pEP->inSlot, _outSlot);
+				break;
 			}
-			// Place TD in list
-			
-			//USBLog(5, "AppleUSBEHCI[%p]::AddIsocFramesToSchedule - linking TD (%p) with frame (0x%Lx) into slot (0x%x) - curr next log (%p) phys (%p)", this, pTD, pTD->_frameNumber, pEP->inSlot, _logicalPeriodicList[pEP->inSlot], (void *)USBToHostLong(_periodicList[pEP->inSlot]));
-			//pTD->print(7);
-			if (pEP->pSPE)
+			if ( nextSlot == _outSlot) 								// weve caught up with our tail
 			{
-				prevIsochLE = OSDynamicCast(IOUSBControllerIsochListElement, GetPeriodicListLogicalEntry(pEP->inSlot));
-				while (prevIsochLE)
+				// USBLog(2, "AppleUSBEHCI[%p]::AddIsocFramesToSchedule - caught up nextSlot (0x%x) _outSlot (0x%x)", this, nextSlot, _outSlot);
+				break;
+			}
+			
+			if ( fetchNewTDFromToDoList )
+			{
+				pTD = GetTDfromToDoList(pEP);
+				pSITD = OSDynamicCast(AppleEHCISplitIsochTransferDescriptor, pTD);
+				// USBLog(5, "AppleUSBEHCI[%p]::AddIsocFramesToSchedule - checking TD(%p) FN(0x%Lx) against currFrame (0x%Lx)", this, pTD, pTD->_frameNumber, currFrame);
+			}
+			
+			if (currFrame == pTD->_frameNumber)
+			{
+				IOUSBControllerListElement					*linkAfter = NULL;
+				IOUSBControllerIsochListElement				*prevIsochLE;				// could be split or HS
+				AppleEHCISplitIsochTransferDescriptor		*prevSITD;
+				
+				if (_outSlot > kEHCIPeriodicListEntries)
 				{
-					prevSITD = OSDynamicCast(AppleEHCISplitIsochTransferDescriptor, prevIsochLE);
-					if (prevSITD)
-					{
-						AppleEHCIIsochEndpoint	*pPrevEP = OSDynamicCast(AppleEHCIIsochEndpoint, prevSITD->_pEndpoint);
-
-						if (pPrevEP && pPrevEP->pSPE && (pPrevEP->pSPE->_myTT == pEP->pSPE->_myTT) && (pPrevEP->pSPE->_startTime < pEP->pSPE->_startTime))
-							linkAfter = prevSITD;
-					}
-					prevIsochLE = OSDynamicCast(IOUSBControllerIsochListElement, prevIsochLE->_logicalNext);
+					_outSlot = firstOutSlot;
 				}
-			}
-			if (linkAfter)
-			{
-				pTD->SetPhysicalLink(linkAfter->GetPhysicalLink());
-				pTD->_logicalNext = linkAfter->_logicalNext;
-				linkAfter->_logicalNext = pTD;
-				linkAfter->SetPhysicalLink(pTD->GetPhysicalAddrWithType());
+				// Place TD in list
+				
+				//USBLog(5, "AppleUSBEHCI[%p]::AddIsocFramesToSchedule - linking TD (%p) with frame (0x%Lx) into slot (0x%x) - curr next log (%p) phys (%p)", this, pTD, pTD->_frameNumber, pEP->inSlot, _logicalPeriodicList[pEP->inSlot], (void *)USBToHostLong(_periodicList[pEP->inSlot]));
+				//pTD->print(7);
+				if (pEP->pSPE)
+				{
+					prevIsochLE = OSDynamicCast(IOUSBControllerIsochListElement, GetPeriodicListLogicalEntry(pEP->inSlot));
+					while (prevIsochLE)
+					{
+						prevSITD = OSDynamicCast(AppleEHCISplitIsochTransferDescriptor, prevIsochLE);
+						if (prevSITD)
+						{
+							AppleEHCIIsochEndpoint	*pPrevEP = OSDynamicCast(AppleEHCIIsochEndpoint, prevSITD->_pEndpoint);
+
+							if (pPrevEP && pPrevEP->pSPE && (pPrevEP->pSPE->_myTT == pEP->pSPE->_myTT) && (pPrevEP->pSPE->_startTime < pEP->pSPE->_startTime))
+								linkAfter = prevSITD;
+						}
+						prevIsochLE = OSDynamicCast(IOUSBControllerIsochListElement, prevIsochLE->_logicalNext);
+					}
+				}
+				if (linkAfter)
+				{
+					pTD->SetPhysicalLink(linkAfter->GetPhysicalLink());
+					pTD->_logicalNext = linkAfter->_logicalNext;
+					linkAfter->_logicalNext = pTD;
+					linkAfter->SetPhysicalLink(pTD->GetPhysicalAddrWithType());
+				}
+				else
+				{
+					pTD->SetPhysicalLink(GetPeriodicListPhysicalEntry(pEP->inSlot));
+					pTD->_logicalNext = GetPeriodicListLogicalEntry(pEP->inSlot);
+					SetPeriodicListEntry(pEP->inSlot, pTD);
+				}
+				
+				OSIncrementAtomic(&(pEP->scheduledTDs));
+				fetchNewTDFromToDoList = true;
+				// USBLog(5, "AppleUSBEHCI[%p]::AddIsocFramesToSchedule - _periodicList[%x]:%x", this, pEP->inSlot, USBToHostLong(_periodicList[pEP->inSlot]));
 			}
 			else
 			{
-				pTD->SetPhysicalLink(GetPeriodicListPhysicalEntry(pEP->inSlot));
-				pTD->_logicalNext = GetPeriodicListLogicalEntry(pEP->inSlot);
-				SetPeriodicListEntry(pEP->inSlot, pTD);
+				// USBLog(3, "AppleUSBEHCI[%p]::AddIsocFramesToSchedule - expected frame (%qd) and see frame (%qd) -  will increment our slot/frame number without fetching a new TD", this, currFrame, pTD->_frameNumber);
+				fetchNewTDFromToDoList = false;
 			}
 			
-			OSIncrementAtomic(&(pEP->scheduledTDs));
-			fetchNewTDFromToDoList = true;
-			// USBLog(5, "AppleUSBEHCI[%p]::AddIsocFramesToSchedule - _periodicList[%x]:%x", this, pEP->inSlot, USBToHostLong(_periodicList[pEP->inSlot]));
-		}
-		else
-		{
-			// USBLog(3, "AppleUSBEHCI[%p]::AddIsocFramesToSchedule - expected frame (%qd) and see frame (%qd) -  will increment our slot/frame number without fetching a new TD", this, currFrame, pTD->_frameNumber);
-			fetchNewTDFromToDoList = false;
-		}
-		
-		if (!pSITD || !(pSITD->_isDummySITD))
-		{
-			currFrame++;
-			pEP->inSlot = nextSlot;
-		}
-		//USBLog(5, "AppleUSBEHCI[%p]::AddIsocFramesToSchedule - pEP->inSlot is now 0x%x", this, pEP->inSlot);	
-	} while(pEP->toDoList != NULL);
+			if (!pSITD || !(pSITD->_isDummySITD))
+			{
+				currFrame++;
+				pEP->inSlot = nextSlot;
+			}
+			//USBLog(5, "AppleUSBEHCI[%p]::AddIsocFramesToSchedule - pEP->inSlot is now 0x%x", this, pEP->inSlot);	
+		} while(pEP->toDoList != NULL);
+
+		finFrame = GetFrameNumber();
+	}
 	
-	finFrame = GetFrameNumber();
 	// Unlock, reenable preemption, so we can log
 	IOSimpleLockUnlock(_isochScheduleLock);
-	if ((finFrame - startFrame) > 1)
+	if (!lostRegisterAccess && (finFrame - startFrame) > 1)
 	{
 		USBLog(1, "AppleUSBEHCI[%p]::AddIsocFramesToSchedule - end -  startFrame(0x%Lx) finFrame(0x%Lx)", this, startFrame, finFrame);
 	}
@@ -4252,6 +4360,8 @@ AppleUSBEHCI::findBufferRemaining(AppleEHCIQueueHead *pED)
 	return(bufferSizeRemaining);
 }
 
+
+
 bool
 AppleUSBEHCI::CheckEDListForTimeouts(AppleEHCIQueueHead *head)
 {
@@ -4259,17 +4369,23 @@ AppleUSBEHCI::CheckEDListForTimeouts(AppleEHCIQueueHead *head)
     AppleEHCIQueueHead				*pEDBack = NULL, *pEDBack1 = NULL;
     IOPhysicalAddress				pTDPhys;
     EHCIGeneralTransferDescriptor 	*pTD;
-	EHCIQueueHeadShared *   pQH;
+	EHCIQueueHeadShared				*pQH;
 	
     UInt32 				noDataTimeout;
     UInt32				completionTimeout;
     UInt32				rem;
     UInt32				curFrame = GetFrameNumber32();
 	
+	if (curFrame == 0)
+	{
+		USBLog(2, "AppleUSBEHCI[%p]::CheckEDListForTimeouts - curFrame is 0, not doing anything", this);
+		return false;
+	}
+	
     for (; pED != 0; pED = (AppleEHCIQueueHead *)pED->_logicalNext)
     {
 		USBLog(7, "AppleUSBEHCI[%p]::CheckEDListForTimeouts - checking ED [%p]", this, pED);
-		pED->print(7);
+		pED->print(7, this);
 		// Need to keep a note of the previous ED for back links. Usually I'd
 		// put a pEDBack = pED at the end of the loop, but there are lots of 
 		// continues in this loop so it was getting skipped (and unlinking the
@@ -4347,13 +4463,13 @@ AppleUSBEHCI::CheckEDListForTimeouts(AppleEHCIQueueHead *head)
 		{
 			USBLog(1, "AppleUSBEHCI[%p]::CheckEDListForTimeouts - ED (%p) - TD is TAIL but there is a command - pTD (%p)", this, pED, pTD);
 			USBTrace( kUSBTEHCI, kTPEHCICheckEDListForTimeouts, (uintptr_t)this, (uintptr_t)pED, (uintptr_t)pTD, 0);
-			pED->print(5);
+			pED->print(5, this);
 		}
 		
 		if((pTDPhys != pTD->pPhysical) && !(pED->GetSharedLogical()->qTDFlags & USBToHostLong(kEHCITDStatus_Halted | kEHCITDStatus_Active)  ))
 		{
 			USBLog(6, "AppleUSBEHCI[%p]::CheckEDListForTimeouts - pED (%p) - mismatched logical and physical - TD (L:%p - P:%p) will be scavenged later", this, pED, pTD, (void*)pTD->pPhysical);
-			pED->print(7);
+			pED->print(7, this);
 			printTD(pTD, 7);
 			if (pTD->pLogicalNext)
 				printTD(pTD->pLogicalNext, 7);
@@ -4377,7 +4493,7 @@ AppleUSBEHCI::CheckEDListForTimeouts(AppleEHCIQueueHead *head)
 				
 				USBLog(2, "AppleUSBEHCI[%p]::CheckEDListForTimeout - Found a TD [%p] on QH [%p] past the completion deadline, timing out! (0x%x - 0x%x)", this, pTD, pED, (uint32_t)curFrame, (uint32_t)firstActiveFrame);
 				USBError(1, "AppleUSBEHCI[%p]::Found a transaction past the completion deadline on bus 0x%x, timing out! (Addr: %d, EP: %d)", this, (uint32_t) _busNumber, ((myFlags & kEHCIEDFlags_FA) >> kEHCIEDFlags_FAPhase), ((myFlags & kEHCIEDFlags_EN) >> kEHCIEDFlags_ENPhase) );
-				pED->print(2);
+				pED->print(2, this);
 				_UIMDiagnostics.timeouts++;
 				ReturnOneTransaction(pTD, pED, pEDBack, kIOUSBTransactionTimeout, head == _InactiveAsyncHead);
 				continue;
@@ -4576,7 +4692,7 @@ AppleUSBEHCI::UIMEnableAddressEndpoints(USBDeviceAddress address, bool enable)
 	
 	
 	USBLog(5, "AppleUSBEHCI[%p]::UIMEnableAddressEndpoints(%d, %s)", this, (int)address, enable ? "true" : "false");
-	printAsyncQueue(7, "+UIMEnableAddressEndpoints");
+	printAsyncQueue(7, "+UIMEnableAddressEndpoints", true, false);
 	showRegisters(7, "+UIMEnableAddressEndpoints");
 	
 	if (enable)
@@ -4708,7 +4824,7 @@ AppleUSBEHCI::UIMEnableAddressEndpoints(USBDeviceAddress address, bool enable)
 			pQH = OSDynamicCast(AppleEHCIQueueHead, pQH->_logicalNext);
 		}
 	}
-	printAsyncQueue(7, "-UIMEnableAddressEndpoints");
+	printAsyncQueue(7, "-UIMEnableAddressEndpoints", true, false);
 	showRegisters(7, "-UIMEnableAddressEndpoints");
 	return kIOReturnSuccess;
 }
@@ -4728,7 +4844,7 @@ AppleUSBEHCI::UIMEnableAllEndpoints(bool enable)
 	
 	USBLog(5, "AppleUSBEHCI[%p]::UIMEnableAllEndpoints(%s)", this, enable ? "true" : "false");
 	showRegisters(7, "+UIMEnableAllEndpoints");
-	printAsyncQueue(7, "+UIMEnableAllEndpoints");
+	printAsyncQueue(7, "+UIMEnableAllEndpoints", true, false);
 	if (enable)
 	{
 		pQH = _disabledQHList;
@@ -4822,7 +4938,7 @@ AppleUSBEHCI::UIMEnableAllEndpoints(bool enable)
 	}
 	
 	showRegisters(7, "-UIMEnableAllEndpoints");
-	printAsyncQueue(7, "-UIMEnableAllEndpoints");
+	printAsyncQueue(7, "-UIMEnableAllEndpoints", true, false);
 	return kIOReturnSuccess;
 }
 
@@ -5059,7 +5175,7 @@ AppleUSBEHCI::ReturnInterruptBandwidth(AppleEHCIQueueHead	*pED)
 	}
 	
 	ShowPeriodicBandwidthUsed(EHCISPLITTRANSFERLOGGING, "+ReturnInterruptBandwidth");
-	pED->print(EHCISPLITTRANSFERLOGGING);
+	pED->print(EHCISPLITTRANSFERLOGGING, this);
 	if (pED->_speed == kUSBDeviceSpeedHigh)
 	{
 		UInt16				HSallocation;
@@ -5531,7 +5647,6 @@ AppleUSBEHCI::AllocateHSPeriodicSplitBandwidth(AppleUSBEHCISplitPeriodicEndpoint
 				if (hostuFrame >= kEHCIuFramesPerFrame)
 				{
 					// this is the back link case
-					USBLog(2, "AppleUSBEHCI[%p]::AllocateIsochBandwidth - need to imlement FSTN", this);
 					pSPE->_CSflags |= (1 << (hostuFrame % kEHCIuFramesPerFrame));
 					pSPE->_wraparound = true;
 				}

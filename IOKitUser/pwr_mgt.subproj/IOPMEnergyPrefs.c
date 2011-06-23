@@ -1387,7 +1387,8 @@ ProcessHibernateSettings(CFDictionaryRef dict, io_registry_entry_t rootDomain)
             ret = sysctlbyname("kern.bootsignature", NULL, NULL, sigBytes, sigLen);
         else
             ret = -1;
-        CFAllocatorDeallocate(alloc, sigBytes);
+        if (sigBytes)
+            CFAllocatorDeallocate(alloc, sigBytes);
 	CFRelease(alloc);
         if (0 != ret)
             break;

@@ -56,22 +56,12 @@ void decodeBytes10( UInt8 *descriptor, BusProbeDevice * thisDevice ) {
     UInt16					srcIndex;
     GenericAudioDescriptorPtr			desc = (GenericAudioDescriptorPtr) descriptor;
 
-    if ( ((GenericAudioDescriptorPtr)desc)->descType == kUSBAudioEndPointDesc )
+    if ( ((GenericAudioDescriptorPtr)desc)->descType == CS_ENDPOINT )
     {
         IOUSBEndpointDescriptor	*	pEndpointDesc = ( IOUSBEndpointDescriptor * ) desc;
 
-        if ( sizeof( AS_IsocEndPtDesc ) == desc->descLen )
-            sprintf((char *)buf, "Standard AS Audio EndPoint");
-        else
-            sprintf((char *)buf, "Class-Specific AS Audio EndPoint"); 
+        sprintf((char *)buf, "Class-Specific AS Audio EndPoint"); 
 
-        sprintf((char *)buf2, " - %s ",
-                ((pEndpointDesc->bmAttributes & 0x3) == 3) ? "Interrupt":
-                ((pEndpointDesc->bmAttributes & 0x3) == 2) ? "Bulk":
-                ((pEndpointDesc->bmAttributes & 0x3) == 1) ? "Isochronous" : "Control");
-        strcat((char *)buf, (char *)buf2);
-        sprintf((char *)buf2, "%s", (pEndpointDesc->bEndpointAddress & 0x80) ? "input" : "output");
-        strcat((char *)buf, (char *)buf2);
         [thisDevice addProperty:buf withValue:"" atDepth:(int)INTERFACE_LEVEL];
 
         sprintf((char *)buf, "0x%02x  %s %s %s", pEndpointDesc->bmAttributes,
@@ -87,7 +77,7 @@ void decodeBytes10( UInt8 *descriptor, BusProbeDevice * thisDevice ) {
                 "(RESERVED)" );
         [thisDevice addProperty:"bLockDelayUnits:" withValue:buf atDepth:INTERFACE_LEVEL+1];
 
-        sprintf((char *)buf, "%d    %s", Swap16(&((CSAS_IsocEndPtDescPtr)pEndpointDesc)->wLockDelay),
+        sprintf((char *)buf, "%d %s", Swap16(&((CSAS_IsocEndPtDescPtr)pEndpointDesc)->wLockDelay),
                 (1 == ((CSAS_IsocEndPtDescPtr)pEndpointDesc)->bLockDelayUnits) ? "ms" :
                 (2 == ((CSAS_IsocEndPtDescPtr)pEndpointDesc)->bLockDelayUnits) ? "Decoded PCM Samples" :
                 "" );
@@ -818,40 +808,31 @@ void decodeBytes20( UInt8 *descriptor, BusProbeDevice * thisDevice ) {
     UInt16					srcIndex;
     GenericAudioDescriptorPtr			desc = (GenericAudioDescriptorPtr) descriptor;
 
-    if ( ((GenericAudioDescriptorPtr)desc)->descType == kUSBAudioEndPointDesc )
+    if ( ((GenericAudioDescriptorPtr)desc)->descType == CS_ENDPOINT )
     {
         IOUSBEndpointDescriptor	*	pEndpointDesc = ( IOUSBEndpointDescriptor * ) desc;
 
-        if ( sizeof( AS_IsocEndPtDesc ) == desc->descLen )
-            sprintf((char *)buf, "Standard AS Audio EndPoint");
-        else
-            sprintf((char *)buf, "Class-Specific AS Audio EndPoint"); 
+        sprintf((char *)buf, "Class-Specific AS Audio EndPoint"); 
 
-        sprintf((char *)buf2, " - %s ",
-                ((pEndpointDesc->bmAttributes & 0x3) == 3) ? "Interrupt":
-                ((pEndpointDesc->bmAttributes & 0x3) == 2) ? "Bulk":
-                ((pEndpointDesc->bmAttributes & 0x3) == 1) ? "Isochronous" : "Control");
-        strcat((char *)buf, (char *)buf2);
-        sprintf((char *)buf2, "%s", (pEndpointDesc->bEndpointAddress & 0x80) ? "input" : "output");
-        strcat((char *)buf, (char *)buf2);
         [thisDevice addProperty:buf withValue:"" atDepth:(int)INTERFACE_LEVEL];
 
-        sprintf((char *)buf, "0x%02x  %s %s %s", pEndpointDesc->bmAttributes,
-                ((pEndpointDesc->bmAttributes & 0x01) == 0x01) ? "Sample Frequency,":"",
-                ((pEndpointDesc->bmAttributes & 0x02) == 0x02) ? "Pitch,":"",
+        sprintf((char *)buf, "0x%02x  %s", pEndpointDesc->bmAttributes,
                 ((pEndpointDesc->bmAttributes & 0x80) == 0x80) ? "MaxPacketsOnly":"" );
         [thisDevice addProperty:"Attributes:" withValue:buf atDepth:INTERFACE_LEVEL+1];
+		
+		sprintf((char *)buf, "0x%02x", ((CSAS20_IsocEndPtDescPtr)pEndpointDesc)->bmControls);
+        [thisDevice addProperty:"bmControls:" withValue:buf atDepth:INTERFACE_LEVEL+1];
 
-        sprintf((char *)buf, "0x%02x  %s", ((CSAS_IsocEndPtDescPtr)pEndpointDesc)->bLockDelayUnits,
-                (0 == ((CSAS_IsocEndPtDescPtr)pEndpointDesc)->bLockDelayUnits) ? "(UNDEFINED)" :
-                (1 == ((CSAS_IsocEndPtDescPtr)pEndpointDesc)->bLockDelayUnits) ? "(Milliseconds)" :
-                (2 == ((CSAS_IsocEndPtDescPtr)pEndpointDesc)->bLockDelayUnits) ? "(Decoded PCM Samples)" :
+        sprintf((char *)buf, "0x%02x  %s", ((CSAS20_IsocEndPtDescPtr)pEndpointDesc)->bLockDelayUnits,
+                (0 == ((CSAS20_IsocEndPtDescPtr)pEndpointDesc)->bLockDelayUnits) ? "(UNDEFINED)" :
+                (1 == ((CSAS20_IsocEndPtDescPtr)pEndpointDesc)->bLockDelayUnits) ? "(Milliseconds)" :
+                (2 == ((CSAS20_IsocEndPtDescPtr)pEndpointDesc)->bLockDelayUnits) ? "(Decoded PCM Samples)" :
                 "(RESERVED)" );
         [thisDevice addProperty:"bLockDelayUnits:" withValue:buf atDepth:INTERFACE_LEVEL+1];
 
-        sprintf((char *)buf, "%d    %s", Swap16(&((CSAS_IsocEndPtDescPtr)pEndpointDesc)->wLockDelay),
-                (1 == ((CSAS_IsocEndPtDescPtr)pEndpointDesc)->bLockDelayUnits) ? "ms" :
-                (2 == ((CSAS_IsocEndPtDescPtr)pEndpointDesc)->bLockDelayUnits) ? "Decoded PCM Samples" :
+        sprintf((char *)buf, "%d %s", Swap16(&((CSAS20_IsocEndPtDescPtr)pEndpointDesc)->wLockDelay),
+                (1 == ((CSAS20_IsocEndPtDescPtr)pEndpointDesc)->bLockDelayUnits) ? "ms" :
+                (2 == ((CSAS20_IsocEndPtDescPtr)pEndpointDesc)->bLockDelayUnits) ? "Decoded PCM Samples" :
                 "" );
         [thisDevice addProperty:"wLockDelay:" withValue:buf atDepth:INTERFACE_LEVEL+1];
     }

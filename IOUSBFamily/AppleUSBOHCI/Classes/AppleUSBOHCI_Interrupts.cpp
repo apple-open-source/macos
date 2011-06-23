@@ -256,17 +256,17 @@ bool
 AppleUSBOHCI::FilterInterrupt(int index)
 {
 	
-	register UInt32				activeInterrupts;
-	register UInt32				enabledInterrupts;
-	IOPhysicalAddress				physicalAddress;
+	register UInt32							activeInterrupts;
+	register UInt32							enabledInterrupts;
+	IOPhysicalAddress						physicalAddress;
 	AppleOHCIGeneralTransferDescriptorPtr 	pHCDoneTD = NULL;
 	AppleOHCIGeneralTransferDescriptorPtr	nextTD = NULL, prevTD = NULL;
-	uint64_t				timeStamp;
-	UInt32					numberOfTDs = 0;
-	IOPhysicalAddress				oldHead;
-	IOPhysicalAddress				cachedHead;
-	UInt32					cachedProducer;
-	Boolean					needSecondary = false;
+	uint64_t								timeStamp;
+	UInt32									numberOfTDs = 0;
+	IOPhysicalAddress						oldHead;
+	IOPhysicalAddress						cachedHead;
+	UInt32									cachedProducer;
+	Boolean									needSecondary = false;
 	
 	
 	// Check if the OHCI has written the DoneHead yet.  First we get the list of
@@ -274,8 +274,26 @@ AppleUSBOHCI::FilterInterrupt(int index)
 	// is enabled and that we do have an interrupt to process. 
 	//
 	enabledInterrupts = USBToHostLong(_pOHCIRegisters->hcInterruptEnable);
-	activeInterrupts = enabledInterrupts & USBToHostLong(_pOHCIRegisters->hcInterruptStatus);
 	
+	if (enabledInterrupts == kOHCIInvalidRegisterValue)
+	{
+		_controllerAvailable = false;
+		return false;
+	}
+	
+	activeInterrupts = USBToHostLong(_pOHCIRegisters->hcInterruptStatus);
+
+	
+	if (activeInterrupts == kOHCIInvalidRegisterValue)
+	{
+		_controllerAvailable = false;
+		return false;
+	}
+	
+	activeInterrupts = activeInterrupts & enabledInterrupts;
+	
+#define _provider						_expansionData->_provider
+
 	if ((enabledInterrupts & kOHCIHcInterrupt_MIE) && (activeInterrupts != 0))
 	{
 		
@@ -399,6 +417,13 @@ AppleUSBOHCI::FilterInterrupt(int index)
 				newValue = USBToHostLong(_pOHCIRegisters->hcInterruptStatus);			// this bit SHOULD now be cleared
 				while ((count++ < 10) && (newValue & kOHCIHcInterrupt_RHSC))
 				{
+					if (newValue == kOHCIInvalidRegisterValue)
+					{
+						// we got disconnected
+						_controllerAvailable = false;
+						return false;
+					}
+					
 					// can't log in the FilterInterrupt routine
 					_pOHCIRegisters->hcInterruptStatus = HostToUSBLong(kOHCIHcInterrupt_RHSC);
 					IOSync();
@@ -445,6 +470,13 @@ AppleUSBOHCI::FilterInterrupt(int index)
 				newValue = USBToHostLong(_pOHCIRegisters->hcInterruptStatus);			// this bit SHOULD now be cleared
 				while ((count++ < 10) && (newValue & kOHCIHcInterrupt_RD))
 				{
+					if (newValue == kOHCIInvalidRegisterValue)
+					{
+						// we got disconnected
+						_controllerAvailable = false;
+						return false;
+					}
+					
 					// can't log in the FilterInterrupt routine
 					_pOHCIRegisters->hcInterruptStatus = HostToUSBLong(kOHCIHcInterrupt_RD);
 					IOSync();
@@ -508,8 +540,6 @@ AppleUSBOHCI::FilterInterrupt(int index)
 			//
 			_pOHCIRegisters->hcInterruptStatus = HostToUSBLong(kOHCIHcInterrupt_WDH);
 			IOSync();
-			
-			_writeDoneHeadInterrupt = kOHCIHcInterrupt_WDH;
 			
 			prevTD = NULL;
 			
@@ -615,7 +645,7 @@ AppleUSBOHCI::FilterInterrupt(int index)
 						{
 							pFrames[pITD->frameNum + i].frActCount = frActCount;
 							pFrames[pITD->frameNum + i].frStatus = frStatus;
-#ifdef __LP64__
+#ifdef ABSOLUTETIME_SCALAR_TYPE
 							USBTrace( kUSBTOHCIInterrupts, kTPOHCIUpdateFrameList , 0, (uintptr_t)&pFrames[pITD->frameNum + i], (uintptr_t)frActCount, (uintptr_t)timeStamp );
 #else
 							USBTrace( kUSBTOHCIInterrupts, kTPOHCIUpdateFrameList , 0, (uintptr_t)&pFrames[pITD->frameNum + i], (uintptr_t)(pFrames[pITD->frameNum + i].frTimeStamp.hi), (uintptr_t)pFrames[pITD->frameNum + i].frTimeStamp.lo );
@@ -661,6 +691,10 @@ AppleUSBOHCI::FilterInterrupt(int index)
 			_producerCount = cachedProducer;	// Validates _producerCount;
 			
 			IOSimpleLockUnlock( _wdhLock );
+
+			// 8394970:  Make sure we set the flag AFTER we have incremented our producer count.
+			_writeDoneHeadInterrupt = kOHCIHcInterrupt_WDH;
+			
 			needSecondary = true;
 		}
 	}

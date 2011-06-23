@@ -106,7 +106,7 @@ static bool weLikeTheDisk(DADiskRef disk)
     That will prevent deep sleep.     
       USB hard drive    : Protocol = USB
       USB thumb drive   : Protocol = USB 
-      SD Card           : Protocol = USB 
+      SD Card           : Protocol = USB, Protocol = Secure Digital
 
     These disks do not cause us to create an ExternalMedia assertion;
       CD/DVD            : Protocol = ATAPI
@@ -118,7 +118,9 @@ static bool weLikeTheDisk(DADiskRef disk)
 
         protocol = CFDictionaryGetValue(description, kDADiskDescriptionDeviceProtocolKey);
 
-        if (protocol && CFEqual(protocol, CFSTR(kIOPropertyPhysicalInterconnectTypeUSB)))
+        if (protocol &&
+            (CFEqual(protocol, CFSTR(kIOPropertyPhysicalInterconnectTypeUSB)) ||
+             CFEqual(protocol, CFSTR(kIOPropertyPhysicalInterconnectTypeSecureDigital))))
         {
             ret = true;
         }

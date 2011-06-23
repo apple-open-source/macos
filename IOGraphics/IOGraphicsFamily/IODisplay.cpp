@@ -44,6 +44,8 @@ const OSSymbol * gIODisplayMaxValueKey;
 
 const OSSymbol * gIODisplayContrastKey;
 const OSSymbol * gIODisplayBrightnessKey;
+const OSSymbol * gIODisplayLinearBrightnessKey;
+const OSSymbol * gIODisplayUsableLinearBrightnessKey;
 const OSSymbol * gIODisplayHorizontalPositionKey;
 const OSSymbol * gIODisplayHorizontalSizeKey;
 const OSSymbol * gIODisplayVerticalPositionKey;
@@ -79,6 +81,9 @@ const OSSymbol * gIODisplayAudioBalanceLRKey;
 const OSSymbol * gIODisplayAudioProcessorModeKey;
 const OSSymbol * gIODisplayPowerModeKey;
 const OSSymbol * gIODisplayManufacturerSpecificKey;
+
+const OSSymbol * gIODisplayPowerStateKey;
+const OSSymbol * gIODisplayControllerIDKey;
 
 const OSSymbol * gIODisplayParametersCommitKey;
 const OSSymbol * gIODisplayParametersDefaultKey;
@@ -155,6 +160,10 @@ void IODisplay::initialize( void )
                                         kIODisplayContrastKey );
     gIODisplayBrightnessKey     = OSSymbol::withCStringNoCopy(
                                         kIODisplayBrightnessKey );
+    gIODisplayLinearBrightnessKey = OSSymbol::withCStringNoCopy(
+                                        kIODisplayLinearBrightnessKey );
+    gIODisplayUsableLinearBrightnessKey = OSSymbol::withCStringNoCopy(
+                                        kIODisplayUsableLinearBrightnessKey );
     gIODisplayHorizontalPositionKey = OSSymbol::withCStringNoCopy(
                                           kIODisplayHorizontalPositionKey );
     gIODisplayHorizontalSizeKey = OSSymbol::withCStringNoCopy(
@@ -227,6 +236,12 @@ void IODisplay::initialize( void )
                                             kIODisplayPowerModeKey);
     gIODisplayManufacturerSpecificKey = OSSymbol::withCStringNoCopy(
                                             kIODisplayManufacturerSpecificKey);
+
+    gIODisplayPowerStateKey = OSSymbol::withCStringNoCopy(
+                                            kIODisplayPowerStateKey);
+
+	gIODisplayControllerIDKey = OSSymbol::withCStringNoCopy(
+											kIODisplayControllerIDKey);
 
     IORegistryEntry * entry;
     if ((entry = getServiceRoot())
@@ -546,7 +561,10 @@ bool IODisplay::removeParameterHandler( IODisplayParameterHandler * parameterHan
 void IODisplay::stop( IOService * provider )
 {
     if (fConnection)
+    {
         fConnection->getFramebuffer()->displayOnline(this, -1);
+        fConnection = 0;
+    }
 
     IODisplayUpdateNVRAM(this, 0);
 
@@ -732,6 +750,10 @@ IOReturn IODisplay::setProperties( OSObject * properties )
     bool                        ok;
 
     IOFramebuffer *             framebuffer = NULL;
+
+    if (isInactive())
+        return (kIOReturnNotReady);
+
     if (fConnection)
         framebuffer = fConnection->getFramebuffer();
     if (!framebuffer)

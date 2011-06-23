@@ -43,8 +43,8 @@
 #define SMBFS_VERMIN	6600
 #define SMBFS_VERSION	(SMBFS_VERMAJ*100000 + SMBFS_VERMIN)
 #define	SMBFS_VFSNAME	"smbfs"
-#define SMBFS_LANMAN	"SMBFS 1.6.6"		/* Needs to match current smbfs.kext version */
-#define SMBFS_NATIVEOS	"Mac OS X 10.6.7"	/* Needs to match last OS version smbfs.kext changed in */
+#define SMBFS_LANMAN	"SMBFS 1.6.7"		/* Needs to match current smbfs.kext version */
+#define SMBFS_NATIVEOS	"Mac OS X 10.6.8"	/* Needs to match last OS version smbfs.kext changed in */
 #define SMBFS_SLASH_TONAME "/Volumes/0x2f"
 
 /* Values for flags */

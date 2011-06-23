@@ -390,7 +390,12 @@ UserGroup* MbrdCache_GetAndRetain( MbrdCache *cache, int recordType, int idType,
 	ntsid_t		tempsid;
 	ntsid_t		*sid			= (ntsid_t *) idValue;
 	const char *reqOrigin = ((flags & kKernelRequest) != 0 ? "mbr_syscall" : "mbr_mig");
+	int rc;
 
+	// need to hold the lock until we add, otherwise we run into race condition
+	rc = pthread_mutex_lock( &cache->fCacheLock );
+	assert(rc == 0);
+	
 	switch ( idType )
 	{
 		case ID_TYPE_UID:
@@ -476,6 +481,9 @@ UserGroup* MbrdCache_GetAndRetain( MbrdCache *cache, int recordType, int idType,
 	if ( cacheResult != NULL ) {
 		DbgLog( kLogDebug, "%s - Membership - Cache hit - %s (%X)", reqOrigin, (cacheResult->fName ? : "\"no name\""), cacheResult );
 	}
+	
+	rc = pthread_mutex_unlock(&cache->fCacheLock);
+	assert(rc == 0);
 		
 	return cacheResult;
 }

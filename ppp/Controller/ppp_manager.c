@@ -636,7 +636,7 @@ static
 int send_pppd_params(struct service *serv, CFDictionaryRef service, CFDictionaryRef options, u_int8_t onTraffic)
 {
     char 			str[MAXPATHLEN], str2[256];
-    int 			needpasswd = 0, tokendone = 0, auth_default = 1, from_service, optfd, awaketime;
+    int 			needpasswd = 0, tokendone = 0, auth_default = 1, from_service, optfd, awaketime, overrideprimary = 0;
     u_int32_t			auth_bits = 0xF; /* PAP + CHAP + MSCHAP1 + MPCHAP2 */
     u_int32_t			len, lval, lval1, i;
     u_char 			sopt[OPT_STR_LEN];
@@ -1008,9 +1008,9 @@ int send_pppd_params(struct service *serv, CFDictionaryRef service, CFDictionary
         // OverridePrimary option not handled yet in Setup by IPMonitor
         get_int_option(serv, kSCEntNetIPv4, kSCPropNetOverridePrimary, 0 /* don't look in options */, service, &lval, 0);
         if (lval) {
+			overrideprimary = 1;
             writeparam(optfd, "defaultroute");
-	    writeparam(optfd, "noacsp"); // acsp not need when all traffic is sent over PPP
-	}
+		}
     
         // -----------------
         // vj compression option 
@@ -1077,16 +1077,24 @@ int send_pppd_params(struct service *serv, CFDictionaryRef service, CFDictionary
     }
 
     // -----------------
-    // acsp options 
-    get_int_option(serv, kSCEntNetPPP, kSCPropNetPPPACSPEnabled, options, service, &lval, 0);
-    if (lval == 0)
-        writeparam(optfd, "noacsp");
+	// acsp options and DHCP options
 
-	// dhcp is on by default for vpn, and off for everything else 
-    get_int_option(serv, kSCEntNetPPP, CFSTR("UseDHCP"), options, service, &lval,  (serv->subtype == PPP_TYPE_L2TP || serv->subtype == PPP_TYPE_PPTP) ? 1 : 0);
-    if (lval == 1)
-        writeparam(optfd, "use-dhcp");
-    
+    if (overrideprimary) {
+		// acsp and dhcp not need when all traffic is sent over PPP
+		writeparam(optfd, "noacsp"); 
+		writeparam(optfd, "no-use-dhcp"); 
+	}
+	else {
+		// acsp options
+		get_int_option(serv, kSCEntNetPPP, kSCPropNetPPPACSPEnabled, options, service, &lval, 0);
+		if (lval == 0)
+			writeparam(optfd, "noacsp");
+		
+		// dhcp is on by default for vpn, and off for everything else 
+		get_int_option(serv, kSCEntNetPPP, CFSTR("UseDHCP"), options, service, &lval,  (serv->subtype == PPP_TYPE_L2TP || serv->subtype == PPP_TYPE_PPTP) ? 1 : 0);
+		if (lval == 1)
+			writeparam(optfd, "use-dhcp");
+	}
 
     // -----------------
     // authentication options 

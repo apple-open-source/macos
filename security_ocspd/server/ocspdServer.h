@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2004 Apple Computer, Inc. All Rights Reserved.
+ * Copyright (c) 2000-2004, 2011 Apple Inc. All Rights Reserved.
  * 
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -28,7 +28,7 @@
 #include <Security/cssmtype.h>
 #include <security_ocspd/ocspd.h>						/* created by MIG */
 
-#define MAX_OCSPD_THREADS		6
+#define MAX_OCSPD_THREADS		128
 
 void ServerActivity();
 
@@ -55,7 +55,7 @@ protected:
 	{
 		NOCOPY(OcspdTimer)
 	public:
-		/* TImer(false) --> !longTerm --> avoid spawning a thread for this */
+		/* Timer(false) --> !longTerm --> avoid spawning a thread for this */
 		OcspdTimer(OcspdServer &server) : Timer(true), mServer(server) {}
 		virtual ~OcspdTimer() {}
 		virtual void action();

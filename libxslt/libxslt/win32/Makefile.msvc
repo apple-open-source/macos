@@ -100,7 +100,8 @@ XSLT_OBJS = $(XSLT_INTDIR)\attributes.obj\
 	$(XSLT_INTDIR)\variables.obj\
 	$(XSLT_INTDIR)\xslt.obj\
 	$(XSLT_INTDIR)\xsltutils.obj\
-	$(XSLT_INTDIR)\attrvt.obj
+	$(XSLT_INTDIR)\attrvt.obj\
+	$(XSLT_INTDIR)\version.res
 
 # Static libxslt object files.
 XSLT_OBJS_A = $(XSLT_INTDIR_A)\attributes.obj\
@@ -132,7 +133,8 @@ EXSLT_OBJS = $(EXSLT_INTDIR)\common.obj\
 	$(EXSLT_INTDIR)\saxon.obj\
 	$(EXSLT_INTDIR)\sets.obj\
 	$(EXSLT_INTDIR)\strings.obj\
-	$(EXSLT_INTDIR)\dynamic.obj
+	$(EXSLT_INTDIR)\dynamic.obj\
+	$(EXSLT_INTDIR)\version.res
 
 # Static libexslt object files.
 EXSLT_OBJS_A = $(EXSLT_INTDIR_A)\common.obj\
@@ -236,6 +238,14 @@ $(XSLT_INTDIR_A) :
 {$(XSLT_SRCDIR)}.c{$(XSLT_INTDIR_A)}.obj::
 	$(CC) $(CFLAGS) /D "LIBXML_STATIC" /D "LIBXSLT_STATIC" \
 		/Fo$(XSLT_INTDIR_A)\ /c $<
+
+# Compiles libxslt resource files.
+{$(XSLT_SRCDIR)}.rc{$(XSLT_INTDIR)}.res:
+	rc.exe /i $(RINCLUDE) /fo $@ $<
+
+# Compiles libexslt resource files.
+{$(EXSLT_SRCDIR)}.rc{$(EXSLT_INTDIR)}.res:
+	rc.exe /i $(RINCLUDE) /fo $@ $<
 
 # Compiles libxslt source. Uses the implicit rule for commands.
 $(XSLT_OBJS) : $(XSLT_INTDIR)

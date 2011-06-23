@@ -3,7 +3,7 @@
  *
  *   Configuration routines for the Common UNIX Printing System (CUPS).
  *
- *   Copyright 2007-2010 by Apple Inc.
+ *   Copyright 2007-2011 by Apple Inc.
  *   Copyright 1997-2007 by Easy Software Products, all rights reserved.
  *
  *   These coded instructions, statements, and computer programs are the
@@ -496,7 +496,7 @@ cupsdReadConfiguration(void)
   cupsdSetString(&ErrorLog, CUPS_LOGDIR "/error_log");
   cupsdSetString(&PageLog, CUPS_LOGDIR "/page_log");
   cupsdSetString(&PageLogFormat,
-                 "%p %j %u %T %P %C %{job-billing} "
+                 "%p %u %j %T %P %C %{job-billing} "
 		 "%{job-originating-host-name} %{job-name} %{media} %{sides}");
   cupsdSetString(&Printcap, CUPS_DEFAULT_PRINTCAP);
   cupsdSetString(&PrintcapGUI, "/usr/bin/glpoptions");
@@ -693,6 +693,12 @@ cupsdReadConfiguration(void)
 #ifdef __APPLE__
   AppleQuotas = TRUE;
 #endif  /* __APPLE__ */
+
+ /*
+  * Setup environment variables...
+  */
+
+  cupsdInitEnv();
 
  /*
   * Read the configuration file...
@@ -1037,10 +1043,10 @@ cupsdReadConfiguration(void)
   }
 
  /*
-  * Setup environment variables...
+  * Update environment variables...
   */
 
-  cupsdInitEnv();
+  cupsdUpdateEnv();
 
  /*
   * Update default paper size setting as needed...

@@ -138,14 +138,15 @@ private:
     void						ResumeUSBBus(bool wakingFromSleep);
     void						SuspendUSBBus(bool goingToSleep);
     void						printTD(AppleOHCIGeneralTransferDescriptorPtr pTD, int level);
-    void						print_td(AppleOHCIGeneralTransferDescriptorPtr x);
-    void						print_itd(AppleOHCIIsochTransferDescriptorPtr x);
-    void						print_ed(AppleOHCIEndpointDescriptorPtr x);
-    void						print_isoc_ed(AppleOHCIEndpointDescriptorPtr x);
-    void						print_list(AppleOHCIEndpointDescriptorPtr pListHead, AppleOHCIEndpointDescriptorPtr pListTail);
-    void						print_control_list(void);
-    void						print_bulk_list(void);
-    void						print_int_list(void);
+    void						printED(AppleOHCIEndpointDescriptorPtr pED, int level);
+    void						print_td(AppleOHCIGeneralTransferDescriptorPtr x, int level);
+    void						print_itd(AppleOHCIIsochTransferDescriptorPtr x, int level);
+    void						print_ed(AppleOHCIEndpointDescriptorPtr x, int level);
+    void						print_isoc_ed(AppleOHCIEndpointDescriptorPtr x, int level, bool printSkipped, bool printTDs);
+    void						print_list(AppleOHCIEndpointDescriptorPtr pListHead, AppleOHCIEndpointDescriptorPtr pListTail, int level, bool printSkipped, bool printTDs);
+    void						print_control_list(int level, bool printSkipped, bool printTDs);
+    void						print_bulk_list(int level, bool printSkipped, bool printTDs);
+    void						print_int_list(int level, bool printSkipped, bool printTDs);
     bool						IsValidPhysicalAddress(IOPhysicalAddress pageAddr);
     void						showRegisters(UInt32 level, const char *s);
 		
@@ -226,7 +227,6 @@ protected:
 	bool									_badExpressCardAttached;			// True if a driver has identified a bad ExpressCard
 	bool									_needToReEnableRHSCInterrupt;		// True when we have disabled the RHSC and we need to enable it once we clear the root hub change
 	bool									_rootHubStatuschangedInterruptReceived;	// True when we receive a RHSC interrupt so that we can tell whether a controller waking from Doze is from a device or from software
-
 	// saved root hub port registers
 	UInt32									_savedHcRhPortStatus[15];
 
@@ -340,10 +340,13 @@ public:
 	// IOKit methods
     virtual bool		init(OSDictionary * propTable);
     virtual bool		start( IOService * provider );
+    virtual void 		stop( IOService * provider );
     virtual bool		finalize(IOOptionBits options);
     virtual IOReturn 	message( UInt32 type, IOService * provider,  void * argument = 0 );
-    virtual void		free();
 	virtual void		powerChangeDone ( unsigned long fromState);
+	virtual bool		willTerminate(IOService * provider, IOOptionBits options);
+	virtual bool		didTerminate( IOService * provider, IOOptionBits options, bool * defer );
+    virtual void		free();
 
     /*
      * UIM methods

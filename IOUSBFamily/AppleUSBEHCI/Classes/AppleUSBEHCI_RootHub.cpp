@@ -288,7 +288,7 @@ AppleUSBEHCI::GetRootHubPortStatus(IOUSBHubPortStatus *status, UInt16 port)
     UInt32		portSC, portSCChange;
 	
 	
-    if ( _myBusState == kUSBBusStateSuspended )
+    if ( (_myBusState == kUSBBusStateSuspended) || !_controllerAvailable )
         return kIOReturnNotResponding;
 	
     //adjust port number for array use
@@ -300,7 +300,13 @@ AppleUSBEHCI::GetRootHubPortStatus(IOUSBHubPortStatus *status, UInt16 port)
     }
 	
     portSC = USBToHostLong (_pEHCIRegisters->PortSC[port]);
-    USBLog(7,"AppleUSBEHCI[%p]::GetRootHubPortStatus for port %d, current: 0x%x, previous: 0x%x",  this, port+1, (unsigned int)portSC, (unsigned int)_rhPrevStatus[port] );
+	
+	if (portSC == kEHCIInvalidRegisterValue)
+	{
+		USBLog(2,"AppleUSBEHCI[%p]::GetRootHubPortStatus for port %d, invalid value: %p",  this, port+1, (void*)portSC );
+		_controllerAvailable = false;
+		return kIOReturnNotResponding;
+	}
 	
     
     // translate EHCI's random flag order into same order as hub report (and OHCI reg)
@@ -720,7 +726,7 @@ AppleUSBEHCI::EHCIRootHubResetPort (UInt16 port)
 	
     if ( ((value & kEHCIPortSC_LineSt) >> kEHCIPortSC_LineStPhase) == kEHCILine_Low)
     {
-		if (!(_errataBits & kErrataDontUseCompanionController))
+		if (!(_errataBits & kErrataDontUseCompanionController) || (gUSBStackDebugFlags & kUSBForceCompanionControllersMask))
 		{
 
 			value |= kEHCIPortSC_Owner;
@@ -836,7 +842,7 @@ AppleUSBEHCI::EHCIRootHubResetPort (UInt16 port)
     if ( (portSC & kEHCIPortSC_Enabled) == 0)
     {
 		// USBLog(2, "AppleUSBEHCI[%p]::EHCIRootHubResetPort-  full speed device (no enable) releasing device %x",  this, portSC);
-		if (!(_errataBits & kErrataDontUseCompanionController))
+		if (!(_errataBits & kErrataDontUseCompanionController) || (gUSBStackDebugFlags & kUSBForceCompanionControllersMask))
 		{
 			value = getPortSCForWriting(_pEHCIRegisters, port);
 			value |= kEHCIPortSC_Owner;
@@ -1503,11 +1509,22 @@ AppleUSBEHCI::RHCheckForPortResumes()
     int				i;
 	UInt32			port;
 	
+	if (!_controllerAvailable)
+		return;
+	
 	for (port = 0; port < _rootHubNumPorts; port++)
 	{
 		if (!_rhPortBeingResumed[port])
 		{
 			UInt32		portStatus = USBToHostLong(_pEHCIRegisters->PortSC[port]);
+			
+			if (portStatus == kEHCIInvalidRegisterValue)
+			{
+				USBLog(2, "AppleUSBEHCI[%p]::RHCheckForPortResumes port (%d) has an invalid portStatus (%p) - bailing", this, (int)port+1, (void*)portStatus);
+				_controllerAvailable = false;
+				return;
+			}
+
 			if (portStatus & kEHCIPortSC_Resume)
 			{
 				USBLog(5, "AppleUSBEHCI[%p]::RHCheckForPortResumes - port %d appears to be resuming from a remote wakeup - spawning thread to resume", this, (int)port+1);

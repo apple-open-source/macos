@@ -2324,26 +2324,26 @@ IOFireWireSerialBusProtocolTransport::DeallocateResources ( void )
 		
 	}
 	
-	// Drain the queue when requesting close so there are no in use commands when this is called.
-	while ( ( orb = ( IOFireWireSBP2ORB * ) reserved->fCommandPool->getCommand ( false ) ) )
-	{
-		
-		clientData = ( SBP2ClientOrbData * ) orb->getRefCon ( );
-		if ( clientData != NULL )
-		{
-			
-			IOFree ( clientData, sizeof ( SBP2ClientOrbData ) );
-			clientData = NULL;
-			
-		}
-		
-		orb->release ( );
-		orb = NULL;
-		
-	}
-	
 	if ( reserved != NULL )
 	{
+		
+		// Drain the queue when requesting close so there are no in use commands when this is called.
+		while ( ( orb = ( IOFireWireSBP2ORB * ) reserved->fCommandPool->getCommand ( false ) ) )
+		{
+			
+			clientData = ( SBP2ClientOrbData * ) orb->getRefCon ( );
+			if ( clientData != NULL )
+			{
+				
+				IOFree ( clientData, sizeof ( SBP2ClientOrbData ) );
+				clientData = NULL;
+				
+			}
+			
+			orb->release ( );
+			orb = NULL;
+			
+		}
 		
 		reserved->fCommandPool->release ( );
 		reserved->fCommandPool = NULL;

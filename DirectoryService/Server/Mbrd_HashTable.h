@@ -70,7 +70,7 @@ bool HashTable_Add( HashTable* hash, struct UserGroup* item, bool replaceExistin
 struct UserGroup* HashTable_GetAndRetain( HashTable* hash, const void* data );
 void HashTable_Remove( HashTable* hash, struct UserGroup* item );
 
-void HashTable_Merge( HashTable* destination, HashTable* source );
+void HashTable_Replace( HashTable* destination, HashTable* source );
 int HashTable_CreateItemArray( HashTable *hash, struct UserGroup*** itemArray );
 
 __END_DECLS

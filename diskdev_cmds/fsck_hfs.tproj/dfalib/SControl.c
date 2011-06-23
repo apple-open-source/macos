@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2008 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2010 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -41,6 +41,10 @@
 
 #include "Scavenger.h"
 #include <setjmp.h>
+
+#ifndef CONFIG_HFS_TRIM
+#define CONFIG_HFS_TRIM 1
+#endif
 
 #define	DisplayTimeRemaining 0
 
@@ -200,8 +204,6 @@ External
 
 ------------------------------------------------------------------------------*/
 
-static jmp_buf	envBuf;
-
 int
 CheckHFS( const char *rdevnode, int fsReadRef, int fsWriteRef, int checkLevel, 
 	  int repairLevel, fsck_ctx_t fsckContext, int lostAndFoundMode, 
@@ -217,6 +219,7 @@ CheckHFS( const char *rdevnode, int fsReadRef, int fsWriteRef, int checkLevel,
 	Boolean 			autoRepair;
 	Boolean				exitEarly = 0;
 	__block int *msgCounts = NULL;
+	jmp_buf				envBuf;
 	Boolean				majorErrors = 0;
 
 	if (checkLevel == kMajorCheck) {
@@ -388,6 +391,14 @@ EarlyExitLabel:
 	}
 
 	if ( scavError == noErr && dataArea.RepLevel == repairLevelNoProblemsFound ) {
+		if (CONFIG_HFS_TRIM &&
+		    (dataArea.canWrite != 0) && (dataArea.writeRef != -1) &&
+		    IsTrimSupported())
+		{
+			fsckPrint(dataArea.context, fsckTrimming);
+			TrimFreeBlocks(&dataArea);
+		}
+
 		if (scanCount == 0) {
 			fsckPrint(dataArea.context, fsckVolumeOK, dataArea.volumeName);
 		} else {

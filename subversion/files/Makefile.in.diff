@@ -25,10 +25,10 @@
 -	cd $(SWIG_PL_DIR)/native; $(PERL) Makefile.PL
 +	cd $(SWIG_PL_DIR)/native; $(PERL) Makefile.PL $(PLARGS)
  
- swig-pl_DEPS = autogen-swig-pl libsvn_swig_perl \
-   $(SWIG_PL_DIR)/native/Makefile
-@@ -690,13 +691,13 @@
- 	if test "$(SWIG_PL_DIR)" != "$(SWIG_PL_SRC_DIR)"; then \
+ # There is a "readlink -f" command on some systems for the same purpose,
+ # but it's not as portable (e.g. Mac OS X doesn't have it).  These should
+@@ -696,13 +697,13 @@
+ 	if test "`$(READLINK_PL) $(SWIG_PL_DIR)`" != "`$(READLINK_PL) $(SWIG_PL_SRC_DIR)`"; then \
  	  ln -sf $(SWIG_PL_SRC_DIR)/native/*.c $(SWIG_PL_DIR)/native; \
  	fi
 -	cd $(SWIG_PL_DIR)/native; $(MAKE) OPTIMIZE="" OTHERLDFLAGS="$(SWIG_LDFLAGS)"
@@ -44,7 +44,7 @@
  
  EXTRACLEAN_SWIG_PL=rm -f $(SWIG_PL_SRC_DIR)/native/svn_*.c \
                           $(SWIG_PL_SRC_DIR)/native/core.c
-@@ -714,7 +715,7 @@
+@@ -720,7 +721,7 @@
  	  rm -rf *.lo *.la *.o .libs; \
  	done
  	if [ -f "$(SWIG_PL_DIR)/native/Makefile" ]; then \

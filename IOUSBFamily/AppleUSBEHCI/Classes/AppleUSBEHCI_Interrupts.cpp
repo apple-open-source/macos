@@ -206,11 +206,39 @@ AppleUSBEHCI::FilterInterrupt(int index)
     uint64_t				timeStamp;
     
     enabledInterrupts = USBToHostLong(_pEHCIRegisters->USBIntr);
-    activeInterrupts = enabledInterrupts & USBToHostLong(_pEHCIRegisters->USBSTS);
+
+	if (enabledInterrupts == kEHCIInvalidRegisterValue)
+	{
+		// our controller appears to have gone away - perhaps we could put an iVar here to track that and return before reading
+		_controllerAvailable = false;
+		return false;
+	}
+	
+    activeInterrupts = USBToHostLong(_pEHCIRegisters->USBSTS);
+
+	if (activeInterrupts == kEHCIInvalidRegisterValue)
+	{
+		// our controller appears to have gone away
+		_controllerAvailable = false;
+		return false;
+	}
+	
+    activeInterrupts = activeInterrupts & enabledInterrupts;
 
     if (activeInterrupts != 0)
-    {
-		USBTrace( kUSBTEHCIInterrupts, kTPEHCIInterruptsPrimaryInterruptFilter, (uintptr_t)this, enabledInterrupts, activeInterrupts, (_frameNumber << 3) + USBToHostLong(_pEHCIRegisters->FRIndex) );
+    {		
+		UInt32			frindex;
+
+		// get the frame index (if possible) so that we can stamp our Tracepoint but will also bail if it has gone away
+		frindex = USBToHostLong(_pEHCIRegisters->FRIndex);
+		if (frindex == kEHCIInvalidRegisterValue)
+		{
+			// we got disconnected
+			_controllerAvailable = false;
+			return false;
+		}
+		
+		USBTrace( kUSBTEHCIInterrupts, kTPEHCIInterruptsPrimaryInterruptFilter, (uintptr_t)this, enabledInterrupts, activeInterrupts, (_frameNumber << 3) + frindex );
 
 		// One of our 6 interrupts fired.  Process the ones which need to be processed at primary int time
         //
@@ -219,12 +247,10 @@ AppleUSBEHCI::FilterInterrupt(int index)
         //
         if (activeInterrupts & kEHCIFrListRolloverIntBit)
         {
-			UInt32			frindex;
 			uint64_t		tempTime;
 			
 			// NOTE: This code depends upon the fact that we do not change the Frame List Size
 			// in the USBCMD register. If the frame list size changes, then this code needs to change
-			frindex = USBToHostLong(_pEHCIRegisters->FRIndex);
 			if (frindex < kEHCIFRIndexRolloverBit)
 				_frameNumber += kEHCIFrameNumberIncrement;
 
@@ -263,6 +289,12 @@ AppleUSBEHCI::FilterInterrupt(int index)
 				newValue = USBToHostLong(_pEHCIRegisters->USBSTS);											// this bit SHOULD now be cleared
 				while ((count++ < 10) && (newValue & kEHCIPortChangeIntBit))
 				{
+					if (newValue == kEHCIInvalidRegisterValue)
+					{
+						// we got disconnected
+						_controllerAvailable = false;
+						return false;
+					}
 					// can't log in the FilterInterrupt routine
 					// USBError(1, "EHCI driver: FilterInterrupt - PCD bit not sticking. Retrying.");
 					_pEHCIRegisters->USBSTS = HostToUSBLong(kEHCIPortChangeIntBit);							// clear the bit again
@@ -286,7 +318,6 @@ AppleUSBEHCI::FilterInterrupt(int index)
             //
 			timeStamp = mach_absolute_time();
 
-			_completeInterrupt = kEHCICompleteIntBit;
 			_pEHCIRegisters->USBSTS = HostToUSBLong(kEHCICompleteIntBit);			// clear the interrupt
             IOSync();
 			needSignal = true;
@@ -304,6 +335,13 @@ AppleUSBEHCI::FilterInterrupt(int index)
 				UInt16							curMicroFrame;
 				
 				frIndex = USBToHostLong(_pEHCIRegisters->FRIndex);
+				if (frIndex == kEHCIInvalidRegisterValue)
+				{
+					// we got disconnected
+					_controllerAvailable = false;
+					return false;
+				}
+				
 				curSlot = (frIndex >> 3) & (kEHCIPeriodicListEntries-1);
 				stopSlot = (curSlot+1) & (kEHCIPeriodicListEntries-1);
 				curMicroFrame = frIndex & 7;
@@ -318,7 +356,8 @@ AppleUSBEHCI::FilterInterrupt(int index)
 				{
 					IOUSBControllerListElement				*thing, *prevThing, *nextThing;
 					IOUSBControllerIsochListElement			*isochEl;
-					AppleEHCISplitIsochTransferDescriptor	*splitTD;
+					AppleEHCISplitIsochTransferDescriptor	*splitTD = NULL;
+					AppleEHCIIsochTransferDescriptor		*hsIsocTD = NULL;
 					bool									needToRescavenge = false;
 					
 					nextSlot = (testSlot+1) & (kEHCIPeriodicListEntries-1);
@@ -347,6 +386,9 @@ AppleUSBEHCI::FilterInterrupt(int index)
 							continue;
 						}
 						
+						if (!splitTD)
+							hsIsocTD = OSDynamicCast(AppleEHCIIsochTransferDescriptor, isochEl);
+						
 						if (testSlot == curSlot)
 						{
 							bool scavengeThisThing = false;
@@ -365,6 +407,26 @@ AppleUSBEHCI::FilterInterrupt(int index)
 								}
 
 							}
+							else if (hsIsocTD)
+							{
+								int			uFrame;
+								UInt32		*transactionPtr = &hsIsocTD->GetSharedLogical()->Transaction0;
+
+								for (uFrame = 0; uFrame < kEHCIuFramesPerFrame; uFrame++)
+								{
+									if (USBToHostLong(*transactionPtr++) & kEHCI_ITDStatus_Active)
+									{
+										scavengeThisThing = false;
+										break;
+									}
+								}
+								if (uFrame >= kEHCIuFramesPerFrame)
+								{
+									// we made it all the way throught the 8 uFrames and found none that were marked active, so we should go ahead and scavenge this
+									scavengeThisThing = true;
+								}
+							}
+							
 							if (!scavengeThisThing)
 							{
 								prevThing = thing;
@@ -414,6 +476,8 @@ AppleUSBEHCI::FilterInterrupt(int index)
 				
 				IOSimpleLockUnlock( _wdhLock );
 			}
+			// 8394970:  Make sure we set the flag AFTER we have incremented our producer count.
+			_completeInterrupt = kEHCICompleteIntBit;
 		}
     }
 	

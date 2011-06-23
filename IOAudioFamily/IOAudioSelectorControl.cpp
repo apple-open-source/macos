@@ -34,9 +34,9 @@ OSDefineMetaClassAndStructors(IOAudioSelectorControl, IOAudioControl)
 OSMetaClassDefineReservedUsed(IOAudioSelectorControl, 0);
 OSMetaClassDefineReservedUsed(IOAudioSelectorControl, 1);
 OSMetaClassDefineReservedUsed(IOAudioSelectorControl, 2);
+OSMetaClassDefineReservedUsed(IOAudioSelectorControl, 3);										// <rdar://8202424>
 
-OSMetaClassDefineReservedUnused(IOAudioSelectorControl, 3);
-OSMetaClassDefineReservedUnused(IOAudioSelectorControl, 4);
+OSMetaClassDefineReservedUnused(IOAudioSelectorControl, 4);										// <rdar://8202424>
 OSMetaClassDefineReservedUnused(IOAudioSelectorControl, 5);
 OSMetaClassDefineReservedUnused(IOAudioSelectorControl, 6);
 OSMetaClassDefineReservedUnused(IOAudioSelectorControl, 7);
@@ -367,6 +367,65 @@ IOReturn IOAudioSelectorControl::addAvailableSelection(SInt32 selectionValue, OS
 		sendChangeNotification(kIOAudioControlRangeChangeNotification);
 	}
 
+    return result;
+}
+
+// <rdar://8202424>
+IOReturn IOAudioSelectorControl::addAvailableSelection(SInt32 selectionValue, OSString *selectionDescription, const char* tagName, OSObject* tag)
+{
+	OSArray *newSelections;
+	OSArray *oldAvailableSelections;
+    IOReturn result = kIOReturnSuccess;
+    
+	oldAvailableSelections = availableSelections;
+	newSelections = OSArray::withArray(availableSelections);
+	if (!newSelections)
+		return kIOReturnNoMemory;
+
+    if (selectionDescription == NULL) {
+        result = kIOReturnBadArgument;
+    } else {
+        if (valueExists(selectionValue)) {
+            result = kIOReturnError;
+        } else {
+            OSDictionary *newSelection;
+            
+            newSelection = OSDictionary::withCapacity(2);
+            
+            if (newSelection) {
+                OSNumber *number;
+				
+                number = OSNumber::withNumber(selectionValue, sizeof(SInt32)*8);
+                
+                if (number) {
+                    newSelection->setObject(kIOAudioSelectorControlSelectionValueKey, number);
+                    newSelection->setObject(kIOAudioSelectorControlSelectionDescriptionKey, selectionDescription);
+                    newSelections->setObject(newSelection);
+					
+                    number->release();
+                } else {
+                    result = kIOReturnError;
+                }
+				
+				if ( tagName && tag ) {
+					newSelection->setObject(tagName, tag);
+				}
+				
+				availableSelections = newSelections;
+				setProperty(kIOAudioSelectorControlAvailableSelectionsKey, availableSelections);
+				oldAvailableSelections->release();
+                
+                newSelection->release();
+            } else {
+                result = kIOReturnError;
+            }
+        }
+    }
+    
+	if (kIOReturnSuccess == result) {
+		sendChangeNotification(kIOAudioControlRangeChangeNotification);
+	}
+	
     return result;
 }
 

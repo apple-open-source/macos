@@ -4208,3 +4208,43 @@ setscopeid(sp_addr0, sa_addr0)
 	return 0;
 }
 #endif
+
+vchar_t *
+isakmp_plist_append_initial_contact (iph1, plist)
+struct ph1handle *iph1;
+struct payload_list *plist;
+{
+	if (!iph1->is_rekey && iph1->rmconf->ini_contact && !getcontacted(iph1->remote)) {
+		vchar_t *notp_ini = NULL;
+		struct isakmp_pl_n np, *nptr;
+		char *cptr;
+		
+		np.doi = htonl(iph1->rmconf->doitype);
+		np.proto_id = IPSECDOI_PROTO_ISAKMP;
+		np.spi_size = sizeof(isakmp_index);
+		np.type = htons(ISAKMP_NTYPE_INITIAL_CONTACT);
+		if ((notp_ini = vmalloc(sizeof(struct isakmp_pl_n) - sizeof(struct isakmp_gen) 
+								+ sizeof(isakmp_index)))) {
+			nptr = &np;
+			memcpy(notp_ini->v, &nptr->doi, sizeof(struct isakmp_pl_n) - sizeof(struct isakmp_gen));
+			cptr = notp_ini->v + sizeof(struct isakmp_pl_n) - sizeof(struct isakmp_gen);
+			memcpy(cptr, &iph1->index, sizeof(isakmp_index));
+			plist = isakmp_plist_append(plist, notp_ini, ISAKMP_NPTYPE_N);
+			plog(LLV_DEBUG2, LOCATION, iph1->remote,
+				 "added initial-contact payload.\n");
+			
+			/* insert a node into contacted list. */
+			if (inscontacted(iph1->remote) == -1) {
+				plog(LLV_ERROR, LOCATION, iph1->remote,
+					 "failed to add contacted list.\n");
+				/* ignore */
+			}
+			return notp_ini;
+		} else {
+			plog(LLV_ERROR, LOCATION, iph1->remote,
+				 "failed to allocate notification payload.\n");
+			return NULL;
+		}
+	}
+	return NULL;
+}

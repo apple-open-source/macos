@@ -26,7 +26,7 @@
 //   Headers
 //
 //================================================================================================
-//
+// 
 #include <libkern/OSByteOrder.h>
 
 #include <IOKit/IOUserClient.h>
@@ -241,7 +241,7 @@ private:
     IOWorkLoop	*                               fWorkLoop;
     IOUSBLowLatencyUserClientBufferInfoV4 *		fUserClientBufferInfoListHead;
     IOCommandPool *                             fFreeUSBLowLatencyCommandPool;
-    uint32_t									fOutstandingIO;
+    volatile uint32_t							fOutstandingIO;
     bool                                        fDead;
     bool                                        fNeedToClose;
 	bool										fClientRunningUnderRosetta;					// True if our user space client is running PPC code under Rosetta
@@ -250,6 +250,9 @@ private:
 
     struct IOUSBInterfaceUserClientExpansionData 
     {
+		bool									fOpenedForExclusiveAccess;
+		bool									fDelayedWorkLoopFree;
+		bool									fOwnerWasReleased;
     };
     
     IOUSBInterfaceUserClientExpansionData *		fIOUSBInterfaceUserClientExpansionData;
@@ -268,6 +271,7 @@ public:
     virtual void                                free();
     virtual bool                                willTerminate( IOService * provider, IOOptionBits options );
     virtual bool                                didTerminate( IOService * provider, IOOptionBits options, bool * defer );
+    virtual bool								terminate( IOOptionBits options = 0 );
     virtual IOReturn							message( UInt32 type, IOService * provider,  void * argument = 0 );
   
 	// IOUserClient methods
@@ -276,7 +280,9 @@ public:
 	virtual IOReturn							externalMethod(	uint32_t selector, IOExternalMethodArguments * arguments, IOExternalMethodDispatch * dispatch, OSObject * target, void * reference);
     virtual IOReturn                            clientClose( void );
     virtual IOReturn                            clientDied( void );
-	
+ 
+    static	IOReturn                            ClientCloseEntry(OSObject *target, void *param1, void *param2, void *param3, void *param4);
+
 	// Open the IOUSBInterface
     static	IOReturn							_open(IOUSBInterfaceUserClientV2 * target, void * reference, IOExternalMethodArguments * arguments);
     virtual IOReturn                            open(bool seize);
@@ -284,6 +290,8 @@ public:
 	// Close the IOUSBInterface
 	static	IOReturn							_close(IOUSBInterfaceUserClientV2 * target, void * reference, IOExternalMethodArguments * arguments);
     virtual IOReturn                            close(void);
+	static	IOReturn                            closeGated(OSObject *target, void *param1, void *param2, void *param3, void *param4);
+	
 
     // IOUSBInterface methods
     //
@@ -393,7 +401,7 @@ public:
     virtual void                                IncreaseCommandPool();
 	
 	void										PrintExternalMethodArgs( IOExternalMethodArguments * arguments, UInt32 level );
-	
+	void										ReleaseWorkLoopAndGate();
 	
     // static methods
     //
@@ -441,7 +449,9 @@ public:
     OSMetaClassDeclareReservedUsed(IOUSBInterfaceUserClientV2, 11);
     virtual bool                                RemoveDataBufferFromList( IOUSBLowLatencyUserClientBufferInfoV4 *removeBuffer);
 
-    OSMetaClassDeclareReservedUnused(IOUSBInterfaceUserClientV2, 12);
+    OSMetaClassDeclareReservedUsed(IOUSBInterfaceUserClientV2, 12);
+	virtual IOReturn                            ClientCloseGated( void );
+
     OSMetaClassDeclareReservedUnused(IOUSBInterfaceUserClientV2, 13);
     OSMetaClassDeclareReservedUnused(IOUSBInterfaceUserClientV2, 14);
     OSMetaClassDeclareReservedUnused(IOUSBInterfaceUserClientV2, 15);

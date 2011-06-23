@@ -23,6 +23,82 @@
 #ifndef _IOPCICONFIGURATOR_H
 #define _IOPCICONFIGURATOR_H
 
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+
+typedef uint64_t IOPCIScalar;
+
+enum {
+    kIOPCIRangeFlagMaximizeSize  = 0x00000001,
+    kIOPCIRangeFlagNoCollapse    = 0x00000002,
+    kIOPCIRangeFlagSplay         = 0x00000004,
+    kIOPCIRangeFlagRelocatable   = 0x00000008,
+	kIOPCIRangeFlagMaximizeFlags = kIOPCIRangeFlagMaximizeSize
+								  | kIOPCIRangeFlagNoCollapse
+};
+
+struct IOPCIRange
+{
+    IOPCIScalar         start;
+    IOPCIScalar         size;
+    IOPCIScalar         proposedSize;
+
+    // end marker
+    IOPCIScalar         end;
+    IOPCIScalar         zero;
+
+    IOPCIScalar         alignment;
+    IOPCIScalar         minAddress;
+    IOPCIScalar         maxAddress;
+
+    uint32_t            type;
+    uint32_t            flags;
+    struct IOPCIRange * next;
+    struct IOPCIRange * nextSubRange;
+    struct IOPCIRange * allocations;
+};
+
+IOPCIScalar IOPCIScalarAlign(IOPCIScalar num, IOPCIScalar alignment);
+IOPCIScalar IOPCIScalarTrunc(IOPCIScalar num, IOPCIScalar alignment);
+
+IOPCIRange * IOPCIRangeAlloc(void);
+
+void IOPCIRangeFree(IOPCIRange * range);
+
+void IOPCIRangeInit(IOPCIRange * range, uint32_t type,
+                  IOPCIScalar start, IOPCIScalar size, IOPCIScalar alignment = 0);
+
+void IOPCIRangeDump(IOPCIRange * head);
+
+bool IOPCIRangeListAddRange(IOPCIRange ** rangeList,
+                          uint32_t type,
+                          IOPCIScalar start,
+                          IOPCIScalar size,
+                          IOPCIScalar alignment = 1);
+
+bool IOPCIRangeDeallocateSubRange(IOPCIRange * headRange,
+                                IOPCIRange * oldRange);
+
+bool IOPCIRangeListAllocateSubRange(IOPCIRange * headRange,
+                                  IOPCIRange * newRange,
+                                  IOPCIScalar  newStart = 0);
+
+bool IOPCIRangeListDeallocateSubRange(IOPCIRange * headRange,
+                                IOPCIRange * oldRange);
+
+bool IOPCIRangeAppendSubRange(IOPCIRange ** headRange,
+                              IOPCIRange * newRange );
+
+IOPCIScalar IOPCIRangeListCollapse(IOPCIRange * headRange, IOPCIScalar alignment);
+
+IOPCIScalar IOPCIRangeCollapse(IOPCIRange * headRange, IOPCIScalar alignment);
+
+IOPCIScalar IOPCIRangeListLastFree(IOPCIRange * headRange, IOPCIScalar align);
+IOPCIScalar IOPCIRangeLastFree(IOPCIRange * headRange, IOPCIScalar align);
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+
+#ifdef KERNEL
+
 #include <IOKit/IOLib.h>
 #include <IOKit/pci/IOPCIBridge.h>
 
@@ -31,28 +107,30 @@
 #define kPCIBridgeMemoryAlignment    (1024*1024)
 #define kPCIBridgeBusNumberAlignment (1)
 
-#define BRIDGE_RANGE_NUM(type)      ((type) + kIOPCIRangeBridgeMemory)
 
 #define FOREACH_CHILD(bridge, child) \
-    for(pci_dev_t (child) = (bridge)->child; (child); (child) = (child)->peer)
-
-#define PCI_ADDRESS_TUPLE(device)   \
-        device->space.s.busNum,     \
-        device->space.s.deviceNum,  \
-        device->space.s.functionNum
+    for(IOPCIConfigEntry * (child) = (bridge)->child; (child); (child) = (child)->peer)
 
 enum {
-    kIOPCIConfiguratorEnable   = 0x00000001,
-    kIOPCIConfiguratorAllocate = 0x00000002,
-    kIOPCIConfiguratorReset    = 0x00000004,
-    kIOPCIConfiguratorIOLog    = 0x00010000,
-    kIOPCIConfiguratorKPrintf  = 0x00020000
+    kIOPCIConfiguratorIOLog          = 0x00000001,
+    kIOPCIConfiguratorKPrintf        = 0x00000002,
+//    kIOPCIConfiguratorTunnelLinkInts = 0x00000004,
+    
+    kIOPCIConfiguratorCheckTunnel    = 0x00000008,
+    kIOPCIConfiguratorNoTunnelDrv    = 0x00000010,
+    kIOPCIConfiguratorNoTerminate    = 0x00000020,
+
+    kIOPCIConfiguratorLogSaveRestore = 0x00000040,
+    kIOPCIConfiguratorDeferHotPlug   = 0x00000080,
+    
+    kIOPCIConfiguratorAllocate       = 0x00001000,
+    kIOPCIConfiguratorPFM64          = 0x00002000,
+    kIOPCIConfiguratorBoot	         = 0x00004000,
+    kIOPCIConfiguratorReset          = 0x00010000,
+
+    kIOPCIConfiguratorBootDefer      = kIOPCIConfiguratorDeferHotPlug | kIOPCIConfiguratorBoot,
 };
 
-
-enum {
-    kIOPCIRangeFlagMaximizeSize = 0x00000001,
-};
 enum {
     kIOPCIRangeBAR0               = 0,
     kIOPCIRangeBAR1               = 1,
@@ -68,40 +146,35 @@ enum {
     kIOPCIRangeBridgeIO           = 9,
     kIOPCIRangeBridgeBusNumber    = 10,
 
-    kIOPCIRangeCount
+    kIOPCIRangeCount,
+
+	kIOPCIRangeAllMask		  	  = (1 << kIOPCIRangeCount) - 1,
+	kIOPCIRangeAllBarsMask		  = (1 << (kIOPCIRangeExpansionROM + 1)) - 1,
+	kIOPCIRangeAllBridgeMask	  =  (1 << kIOPCIRangeBridgeMemory)
+								   | (1 << kIOPCIRangeBridgePFMemory)
+								   | (1 << kIOPCIRangeBridgeIO)
+								   | (1 << kIOPCIRangeBridgeBusNumber),
+	
+
 };
 
 enum {
-    kPCIDeviceStateBIOSConfig = 0,
-    kPCIDeviceStateResourceWait,
-    kPCIDeviceStateResourceAssigned,
-    kPCIDeviceStateConfigurationDone
-};
+//    kPCIDeviceStateResourceAssigned  = 0x00000001,
+    kPCIDeviceStatePropertiesDone    = 0x00000002,
+    kPCIDeviceStateConfigurationDone = 0x00000008,
 
-/*
- * PCI device struct (including bridges)
- */
-struct pci_dev
-{
-    struct pci_dev *    child;
-    struct pci_dev *    peer;
-    uint32_t            classCode;
-    IOPCIAddressSpace   space;
-    IOPCIRange          ranges[kIOPCIRangeCount];
-    uint8_t             headerType;
-    uint8_t             isBridge;
-    uint8_t             isHostBridge;
-    uint8_t             supportsHotPlug;
-    uint8_t             deviceState;
-    uint8_t             secBusNum;  // bridge only
-    uint8_t             subBusNum;  // bridge only
-    IORegistryEntry *   dtNub;
-#if ACPI_SUPPORT
-    IORegistryEntry *   acpiDevice;
-#endif
-};
+    kPCIDeviceStateScanned          = 0x00000010,
+    kPCIDeviceStateAllocatedBus     = 0x00000020,
+    kPCIDeviceStateAllocated        = 0x00000040,
+    kPCIDeviceStateNoLink           = 0x00000080,
 
-typedef struct pci_dev * pci_dev_t;
+	kPCIDeviceStateConfigProtectShift = 15,
+	kPCIDeviceStateConfigRProtect	= (VM_PROT_READ  << kPCIDeviceStateConfigProtectShift),
+	kPCIDeviceStateConfigWProtect	= (VM_PROT_WRITE << kPCIDeviceStateConfigProtectShift),
+
+    kPCIDeviceStateDead             = 0x80000000,
+    kPCIDeviceStateEjected          = 0x40000000,
+};
 
 enum {
     kPCIHeaderType0 = 0,
@@ -111,9 +184,12 @@ enum {
 
 // value of supportsHotPlug
 enum {
-    kPCIStatic     = 0,
-    kPCIHotPlug    = 1,
-    kPCILinkChange = 2
+    kPCIStatic            = 0,
+    kPCILinkChange        = 1,
+    kPCIHotPlug           = 2,
+    kPCIHotPlugRoot       = 3,
+    kPCIHotPlugTunnel     = 4,
+    kPCIHotPlugTunnelRoot = 5,
 };
 
 enum {
@@ -132,20 +208,86 @@ enum {
 
 #define kPCIBridgeMaxCount  256
 
+enum 
+{
+    kConfigOpAddHostBridge = 1,
+    kConfigOpScan,
+    kConfigOpGetState,
+    kConfigOpNeedsScan,
+    kConfigOpEject,
+    kConfigOpTerminated,
+    kConfigOpProtect
+};
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+
+struct IOPCIConfigEntry
+{
+    IOPCIConfigEntry *  parent;
+    IOPCIConfigEntry *  child;
+    IOPCIConfigEntry *  peer;
+    uint32_t            classCode;
+    IOPCIAddressSpace   space;
+    uint32_t            vendorProduct;
+
+	uint32_t			expressCapBlock;
+	uint32_t			expressDeviceCaps1;
+
+    IOPCIRange *        ranges[kIOPCIRangeCount];
+    IOPCIRange          busResv;
+    uint32_t            rangeBaseChanges;
+    uint32_t            rangeSizeChanges;
+    uint32_t            rangeRequestChanges;
+
+    uint32_t            deviceState;
+    uint8_t             iterator;
+
+    uint8_t             headerType;
+    uint8_t             isBridge;
+    uint8_t             isHostBridge;
+    uint8_t             supportsHotPlug;
+    uint8_t				linkInterrupts;
+    uint8_t             clean64;
+    uint8_t             secBusNum;  // bridge only
+    uint8_t             subBusNum;  // bridge only
+
+	uint32_t			linkCaps;
+	uint16_t			expressCaps;
+    uint8_t   			expressMaxPayload;
+    uint8_t   			expressPayloadSetting;
+
+    IORegistryEntry *   dtNub;
+#if ACPI_SUPPORT
+    IORegistryEntry *   acpiDevice;
+#endif
+};
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
 class IOPCIConfigurator : public IOService
 {
+    friend class IOPCIBridge;
     OSDeclareDefaultStructors( IOPCIConfigurator );
 
+    IOWorkLoop *            fWL;
     IOOptionBits            fFlags;
-    IOPCIBridge *           fRootBridge;
-    UInt8                   fCacheLineSize;
-    pci_dev_t               fPCIBridgeList[kPCIBridgeMaxCount];
-    int                     fPCIBridgeIndex;
-    int                     fPCIBridgeTailIndex;
+    IOPCIBridge *           fHostBridge;
+    IOPCIConfigEntry *      fRoot;
+	uint32_t				fRootVendorProduct;
+
+	uint8_t					fMaxPayload;
+
+    IOPCIRange *            fConsoleRange;
+    IOPCIScalar             fPFMConsole;
+
+    OSSet *                 fChangedServices;
+
+    int                     fBridgeCount;
+    int                     fDeviceCount;
+
     int                     fBridgeConfigCount;
     int                     fDeviceConfigCount;
-    int                     fYentaConfigCount;
+    int                     fCardBusConfigCount;
 
 protected:
 
@@ -155,54 +297,83 @@ protected:
     static void matchDTEntry( IORegistryEntry * dtEntry, void * _context );
 #if ACPI_SUPPORT
     static void matchACPIEntry( IORegistryEntry * dtEntry, void * _context );
+	void        removeFixedRanges(IORegistryEntry * root);
 #endif
-    void    checkPCIConfiguration( void );
-    void    pciBridgeScanBus( pci_dev_t bridge, 
-                                          UInt8 busNum, UInt8 * nextBusNum, UInt8 lastBusNum );
-    void    pciRangeAppendSubRange( IOPCIRange * headRange, IOPCIRange * newRange );
-    void    pciBridgeCheckConfiguration( pci_dev_t bridge );
-    void    pciBridgeClipRanges( IOPCIRange * rangeList, 
-                                 IOPCIScalar start, IOPCIScalar size );
-    void    pciBridgeAllocateResource( pci_dev_t bridge );
-    void    pciBridgeDistributeResource( pci_dev_t bridge );
-    void    pciBridgeDistributeResourceType( pci_dev_t bridge, UInt32 type );
-    void    pciApplyConfiguration( pci_dev_t device );
-    void    pciDeviceApplyConfiguration( pci_dev_t device );
-    void    pciBridgeApplyConfiguration( pci_dev_t bridge );
-    UInt16  pciDisableAccess( pci_dev_t device );
-    void    pciRestoreAccess( pci_dev_t device, UInt16 command );
-    void    pciBridgeAddChild( pci_dev_t bridge, pci_dev_t child );
-    void    pciBridgeProbeChild( pci_dev_t bridge, IOPCIAddressSpace space );
-    void    pciProbeBaseAddressRegister( pci_dev_t device, UInt32 lastBarNum );
-    void    pciSafeProbeBaseAddressRegister( pci_dev_t device, UInt32 lastBarNum );
-    void    pciDeviceProbeRanges( pci_dev_t device );
-    void    pciBridgeProbeRanges( pci_dev_t bridge );
-    void    pciYentaProbeRanges( pci_dev_t yenta );
-    void    pciBridgeProbeBusRange( pci_dev_t bridge );
-    void    pciCheckCacheLineSize( pci_dev_t device );
-    void    pciWriteLatencyTimer( pci_dev_t device );
-    void    pciBridgeConnectDeviceTree( pci_dev_t bridge );
-    void    pciBridgeConstructDeviceTree( pci_dev_t bridge );
-    OSDictionary * constructProperties( pci_dev_t device );
-    void           constructAddressingProperties( pci_dev_t device, OSDictionary * propTable );
+
+    typedef bool (IOPCIConfigurator::*IterateProc)(void * ref, IOPCIConfigEntry * bridge);
+    void    iterate(uint32_t options, 
+                    IterateProc topProc, IterateProc bottomProc, 
+                    void * ref = NULL);
+
+    bool    scanProc(void * ref, IOPCIConfigEntry * bridge);
+    bool    totalProc(void * ref, IOPCIConfigEntry * bridge);
+    bool    allocateProc(void * ref, IOPCIConfigEntry * bridge);
+
+    void    configure(uint32_t options);
+    void    bridgeScanBus(IOPCIConfigEntry * bridge, uint8_t busNum);
+
+    IOPCIRange * bridgeGetRange(IOPCIConfigEntry * bridge, uint32_t type);
+    bool    bridgeTotalResources(IOPCIConfigEntry * bridge, uint32_t typeMask);
+    bool    bridgeAllocateResources( IOPCIConfigEntry * bridge, uint32_t typeMask );
+
+	bool    bridgeDeallocateChildRanges(IOPCIConfigEntry * bridge, IOPCIConfigEntry * dead,
+								        uint32_t deallocTypes, uint32_t freeTypes);
+
+    void    doConfigure(uint32_t options);
+
+    void    applyConfiguration(IOPCIConfigEntry * device, uint32_t typeMask);
+    void    deviceApplyConfiguration(IOPCIConfigEntry * device, uint32_t typeMask);
+    void    bridgeApplyConfiguration(IOPCIConfigEntry * bridge, uint32_t typeMask);
+    uint16_t disableAccess(IOPCIConfigEntry * device, bool disable);
+    void    restoreAccess(IOPCIConfigEntry * device, UInt16 command);
+    void    bridgeAddChild(IOPCIConfigEntry * bridge, IOPCIConfigEntry * child);
+    void    bridgeRemoveChild(IOPCIConfigEntry * bridge, IOPCIConfigEntry * dead,
+								uint32_t deallocTypes, uint32_t freeTypes,
+								IOPCIConfigEntry ** childList);
+	void    bridgeMoveChildren(IOPCIConfigEntry * to, IOPCIConfigEntry * list);
+    void    bridgeDeadChild(IOPCIConfigEntry * bridge, IOPCIConfigEntry * dead);
+    void    bridgeProbeChild(IOPCIConfigEntry * bridge, IOPCIAddressSpace space);
+    void    probeBaseAddressRegister(IOPCIConfigEntry * device, uint32_t lastBarNum, uint8_t reset);
+    void    safeProbeBaseAddressRegister(IOPCIConfigEntry * device, uint32_t lastBarNum, uint8_t reset);
+    void    deviceProbeRanges(IOPCIConfigEntry * device, uint8_t reset);
+    void    bridgeProbeRanges(IOPCIConfigEntry * bridge, uint8_t reset);
+    void    cardbusProbeRanges(IOPCIConfigEntry * bridge, uint8_t reset);
+    void    bridgeProbeBusRange(IOPCIConfigEntry * bridge, uint8_t reset);
+	uint32_t findPCICapability(IOPCIConfigEntry * device,
+                               uint32_t capabilityID, uint32_t * found);
+    void    checkCacheLineSize(IOPCIConfigEntry * device);
+    void    writeLatencyTimer(IOPCIConfigEntry * device);
+	bool    bridgeFinalizeConfig(void * unused, IOPCIConfigEntry * bridge);
+    void    bridgeConnectDeviceTree(IOPCIConfigEntry * bridge);
+    bool    bridgeConstructDeviceTree(void * unused, IOPCIConfigEntry * bridge);
+    OSDictionary * constructProperties(IOPCIConfigEntry * device);
+    void           constructAddressingProperties(IOPCIConfigEntry * device, OSDictionary * propTable);
+
+    bool     createRoot(void);
+    IOReturn addHostBridge(IOPCIBridge * hostBridge);
+
+	bool     configAccess(IOPCIConfigEntry * device, bool write);
+
+    uint32_t configRead32( IOPCIAddressSpace space, uint32_t offset);
+	void     configWrite32(IOPCIAddressSpace space, uint32_t offset, uint32_t data);
+	uint32_t findPCICapability(IOPCIAddressSpace space,
+                               uint32_t capabilityID, uint32_t * found);
+
+    uint32_t configRead32( IOPCIConfigEntry * device, uint32_t offset);
+    uint16_t configRead16( IOPCIConfigEntry * device, uint32_t offset);
+    uint8_t  configRead8(  IOPCIConfigEntry * device, uint32_t offset);
+    void     configWrite32(IOPCIConfigEntry * device, uint32_t offset, uint32_t data);
+    void     configWrite16(IOPCIConfigEntry * device, uint32_t offset, uint16_t data);
+    void     configWrite8( IOPCIConfigEntry * device, uint32_t offset, uint8_t  data);
 
 public:
+    bool init(IOWorkLoop * wl, uint32_t flags);
+    virtual IOWorkLoop * getWorkLoop() const;
+    virtual void     free(void);
 
-    virtual bool    start( IOService * provider );
-    virtual void    free( void );
-
-    virtual bool    createRoot( IOService * provider );
-
-    virtual UInt32  configRead32( IOPCIAddressSpace space, UInt32 offset );
-    virtual UInt16  configRead16( IOPCIAddressSpace space, UInt32 offset );
-    virtual UInt8   configRead8(  IOPCIAddressSpace space, UInt32 offset );
-    virtual void    configWrite32( IOPCIAddressSpace space,
-                           UInt32 offset, UInt32 data );
-    virtual void    configWrite16( IOPCIAddressSpace space,
-                           UInt32 offset, UInt16 data );
-    virtual void    configWrite8(  IOPCIAddressSpace space,
-                           UInt32 offset, UInt8 data );
+    IOReturn configOp(IOService * device, uintptr_t op, void * result);
 };
 
+#endif /* KERNEL */
 
 #endif /* !_IOPCICONFIGURATOR_H */

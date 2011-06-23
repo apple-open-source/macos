@@ -102,6 +102,7 @@ bool IOPCIDevice::attach( IOService * provider )
     registerPowerDriver( this, (IOPMPowerState *) powerStates,
                          kIOPCIDevicePowerStateCount );
     // join the tree
+	reserved->pmState = true;
     provider->joinPMtree( this);
 
 #if 0
@@ -119,45 +120,62 @@ void IOPCIDevice::detach( IOService * provider )
         parent->removeDevice(this);
 
     PMstop();
+
+	IOLockLock(reserved->lock);
+	while (reserved->pmState)
+	{
+		reserved->pmWait = true;
+		IOLockSleep(reserved->lock, &reserved->pmState, THREAD_UNINT);
+	}
+	IOLockUnlock(reserved->lock);
+
     super::detach(provider);
 
     detachAbove(gIODTPlane);
 }
 
+void
+IOPCIDevice::detachAbove( const IORegistryPlane * plane )
+{
+	super::detachAbove(plane);
+
+    if (plane == gIOPowerPlane)
+	{
+		IOLockLock(reserved->lock);
+		reserved->pmState = false;
+		if (reserved->pmWait)
+			IOLockWakeup(reserved->lock, &reserved->pmState, true);
+		IOLockUnlock(reserved->lock);
+	}
+}
+
+bool 
+IOPCIDevice::initReserved(void)
+{
+    // allocate our expansion data
+    if (!reserved)
+    {
+        reserved = IONew(IOPCIDeviceExpansionData, 1);
+        if (!reserved)
+            return (false);
+        bzero(reserved, sizeof(IOPCIDeviceExpansionData));
+		reserved->lock = IOLockAlloc();
+    }
+    return (true);
+}
+
 bool 
 IOPCIDevice::init(OSDictionary * propTable)
 {
-    if (!super::init(propTable))  return false;
-    
-    // allocate our expansion data
-    if (!reserved)
-    {
-        reserved = IONew(IOPCIDeviceExpansionData, 1);
-        if (!reserved)
-            return false;
-        bzero(reserved, sizeof(IOPCIDeviceExpansionData));
-    }
-    
-    return true;
+    if (!super::init(propTable))  return (false);
+    return (initReserved());
 }
-
 
 bool IOPCIDevice::init( IORegistryEntry * from, const IORegistryPlane * inPlane )
 {
-    if (!super::init(from, inPlane))  return false;
-
-    // allocate our expansion data
-    if (!reserved)
-    {
-        reserved = IONew(IOPCIDeviceExpansionData, 1);
-        if (!reserved)
-            return false;
-        bzero(reserved, sizeof(IOPCIDeviceExpansionData));
-    }
-    
-    return true;
+    if (!super::init(from, inPlane))  return (false);
+    return (initReserved());
 }
-
 
 void IOPCIDevice::free()
 {
@@ -170,12 +188,14 @@ void IOPCIDevice::free()
     //  variables.
     //
     if (reserved)
+	{
+		if (reserved->lock)
+			IOLockFree(reserved->lock);
         IODelete(reserved, IOPCIDeviceExpansionData, 1);
+	}
 
     super::free();
 }
-
-
 
 IOReturn IOPCIDevice::powerStateWillChangeTo (IOPMPowerFlags  capabilities, 
                                               unsigned long   stateNumber, 
@@ -219,6 +239,9 @@ IOReturn IOPCIDevice::powerStateWillChangeTo (IOPMPowerFlags  capabilities,
 IOReturn IOPCIDevice::setPowerState( unsigned long powerState,
                                      IOService * whatDevice )
 {
+    if (isInactive())
+        return (kIOPMAckImplied);
+
     LOG("%s[%p]::setPowerState(%d, %p)\n", getName(), this, (int)powerState, whatDevice);
     
     if (kIOPCIDeviceDozeState == powerState)
@@ -331,33 +354,56 @@ void IOPCIDevice::configWrite8( IOPCIAddressSpace _space,
     parent->configWrite8( _space, offset, data );
 }
 
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+
+bool IOPCIDevice::configAccess(bool write)
+{
+	bool ok = 
+		(reserved && (0 == ((write ? VM_PROT_WRITE : VM_PROT_READ) & reserved->configProt)));
+	if (!ok)
+	{
+		OSReportWithBacktrace("config protect fail(2) for device %u:%u:%u\n",
+								PCI_ADDRESS_TUPLE(this));
+	}
+	return (ok);
+}
+
 UInt32 IOPCIDevice::configRead32( UInt8 offset )
 {
+	if (!configAccess(false)) return (0xFFFFFFFF);
     return (parent->configRead32(space, offset));
 }
 
 void IOPCIDevice::configWrite32( UInt8 offset, UInt32 data )
 {
+	if (!configAccess(true)) return;
     parent->configWrite32( space, offset, data );
 }
 
 UInt16 IOPCIDevice::configRead16( UInt8 offset )
 {
+	if (!configAccess(false)) return (0xFFFF);
     return (parent->configRead16(space, offset));
 }
 
 void IOPCIDevice::configWrite16( UInt8 offset, UInt16 data )
 {
+	if (!configAccess(true)) return;
     parent->configWrite16( space, offset, data );
+
+//if ((4 == offset) && !strcmp("NHI0", getName())) protectDevice(kIOPCIConfigSpace, VM_PROT_WRITE);
+
 }
 
 UInt8 IOPCIDevice::configRead8( UInt8 offset )
 {
+	if (!configAccess(false)) return (0xFF);
     return (parent->configRead8(space, offset));
 }
 
 void IOPCIDevice::configWrite8( UInt8 offset, UInt8 data )
 {
+	if (!configAccess(true)) return;
     parent->configWrite8( space, offset, data );
 }
 
@@ -365,49 +411,49 @@ void IOPCIDevice::configWrite8( UInt8 offset, UInt8 data )
 
 UInt32 IOPCIDevice::extendedConfigRead32( IOByteCount offset )
 {
+	if (!configAccess(false)) return (0xFFFFFFFF);
     IOPCIAddressSpace _space = space;
     _space.es.registerNumExtended = (offset >> 8);
-
     return (configRead32(_space, offset));
 }
 
 void IOPCIDevice::extendedConfigWrite32( IOByteCount offset, UInt32 data )
 {
+	if (!configAccess(true)) return;
     IOPCIAddressSpace _space = space;
     _space.es.registerNumExtended = (offset >> 8);
-
     configWrite32(_space, offset, data);
 }
 
 UInt16 IOPCIDevice::extendedConfigRead16( IOByteCount offset )
 {
+	if (!configAccess(false)) return (0xFFFF);
     IOPCIAddressSpace _space = space;
     _space.es.registerNumExtended = (offset >> 8);
-
     return (configRead16(_space, offset));
 }
 
 void IOPCIDevice::extendedConfigWrite16( IOByteCount offset, UInt16 data )
 {
+	if (!configAccess(true)) return;
     IOPCIAddressSpace _space = space;
     _space.es.registerNumExtended = (offset >> 8);
-
     configWrite16(_space, offset, data);
 }
 
 UInt8 IOPCIDevice::extendedConfigRead8( IOByteCount offset )
 {
+	if (!configAccess(false)) return (0xFF);
     IOPCIAddressSpace _space = space;
     _space.es.registerNumExtended = (offset >> 8);
-
     return (configRead8(space, offset));
 }
 
 void IOPCIDevice::extendedConfigWrite8( IOByteCount offset, UInt8 data )
 {
+	if (!configAccess(true)) return;
     IOPCIAddressSpace _space = space;
     _space.es.registerNumExtended = (offset >> 8);
-
     configWrite8(_space, offset, data);
 }
 
@@ -691,44 +737,69 @@ IOPCIDevice::callPlatformFunction(const char * functionName,
 IOReturn
 IOPCIDevice::setProperties(OSObject * properties)
 {
+    IOReturn       ret = kIOReturnUnsupported;
     OSDictionary * dict;
-    IOService * device;
-    IOService * parent;
+    IOService *    ejectable;
+    IOService *    topEjectable = NULL;
 
     dict = OSDynamicCast(OSDictionary, properties);
     if (dict)
     {
         if (kOSBooleanFalse == dict->getObject(kIOPCIOnlineKey))
         {
-            if (!getProperty(kIOPCIEjectableKey))
-                return (kIOReturnUnsupported);
-            
-            if (kIOReturnSuccess != IOUserClient::clientHasPrivilege(current_task(), 
-                                        kIOClientPrivilegeLocalUser))
-            {
-                IOLog("IOPCIDevice eject failed insufficient privileges\n");
-                return (kIOReturnNotPrivileged);
-            }
-    
-            device = this;
+            ejectable = this;
             do
             {
-                if (device->getProperty(kIOPCIEjectableKey))
-                    device->setProperty(kIOPCIOnlineKey, kOSBooleanFalse);
-                parent = device->getProvider();
-                if (parent && parent->getProperty(kIOPCIHotPlugKey))
-                    break;
-                device = parent;
+                if (ejectable->getProperty(kIOPCIEjectableKey))
+                {
+                    ejectable->setProperty(kIOPCIOnlineKey, kOSBooleanFalse);
+                    topEjectable = ejectable;
+                }
+                ejectable = ejectable->getProvider();
             }
-            while (device);
-            if (parent)
-                return (parent->requestProbe(kIOPCIProbeOptionEject));
-            else
-                return (kIOReturnError);
+            while (ejectable);
+            if (topEjectable)
+            {
+                ret = topEjectable->requestProbe(kIOPCIProbeOptionEject | kIOPCIProbeOptionDone);
+            }
+            return (ret);
         }
     }
 
     return (super::setProperties(properties));
+}
+
+IOReturn IOPCIDevice::requestProbe(IOOptionBits options)
+{
+    if (kIOReturnSuccess != IOUserClient::clientHasPrivilege(current_task(), 
+                                kIOClientPrivilegeLocalUser))
+    {
+        IOLog("IOPCIDevice requestProbe failed insufficient privileges\n");
+        return (kIOReturnNotPrivileged);
+    }
+
+    // debug
+    return (kernelRequestProbe(options));
+}
+
+IOReturn IOPCIDevice::kernelRequestProbe(uint32_t options)
+{
+    return (parent->kernelRequestProbe(this, options));
+}
+
+IOReturn IOPCIDevice::protectDevice(uint32_t space, uint32_t prot)
+{
+	if (space != kIOPCIConfigSpace)
+		return (kIOReturnUnsupported);
+
+	reserved->configProt = prot;
+
+    return (parent->protectDevice(this, space, prot));
+}
+
+IOReturn IOPCIDevice::checkLink(uint32_t options)
+{
+    return (parent->checkLink(options));
 }
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
@@ -783,6 +854,26 @@ IOPCIDevice::newUserClient( task_t owningTask, void * securityID,
         *handler = NULL;
         return (kIOReturnUnsupported);
     }
+}
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+
+IOReturn
+IOPCIDevice::setConfigHandler(IOPCIDeviceConfigHandler handler, void * ref,
+                              IOPCIDeviceConfigHandler * currentHandler, void ** currentRef)
+{
+    if (!configShadow(this))
+        return (kIOReturnError);
+
+    if (currentHandler)
+        *currentHandler = configShadow(this)->handler;
+    if (currentRef)
+        *currentRef = configShadow(this)->handlerRef;
+
+	configShadow(this)->handler    = handler;
+	configShadow(this)->handlerRef = ref;
+
+    return (kIOReturnSuccess);
 }
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */

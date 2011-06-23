@@ -195,8 +195,9 @@ globals_destructor(void *value)		/* I - Data to free */
     free(buffer);
   }
 
-  cupsArrayDelete(cg->pwg_size_lut);
   cupsArrayDelete(cg->leg_size_lut);
+  cupsArrayDelete(cg->ppd_size_lut);
+  cupsArrayDelete(cg->pwg_size_lut);
 
   free(value);
 }

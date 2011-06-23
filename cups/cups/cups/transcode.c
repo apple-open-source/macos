@@ -1,9 +1,9 @@
 /*
  * "$Id: transcode.c 7560 2008-05-13 06:34:04Z mike $"
  *
- *   Transcoding support for the Common UNIX Printing System (CUPS).
+ *   Transcoding support for CUPS.
  *
- *   Copyright 2007-2009 by Apple Inc.
+ *   Copyright 2007-2011 by Apple Inc.
  *   Copyright 1997-2007 by Easy Software Products.
  *
  *   These coded instructions, statements, and computer programs are the
@@ -279,7 +279,7 @@ cupsCharsetToUTF8(
   * Handle identity conversions...
   */
 
-  if (encoding == CUPS_UTF8 ||
+  if (encoding == CUPS_UTF8 || encoding <= CUPS_US_ASCII ||
       encoding < 0 || encoding >= CUPS_ENCODING_VBCS_END)
   {
     strlcpy((char *)dest, src, maxout);
@@ -385,13 +385,14 @@ cupsUTF8ToCharset(
   * Handle UTF-8 to ISO-8859-1 directly...
   */
 
-  if (encoding == CUPS_ISO8859_1)
+  if (encoding == CUPS_ISO8859_1 || encoding == CUPS_US_ASCII)
   {
-    int		ch;			/* Character from string */
+    int		ch,			/* Character from string */
+		maxch;			/* Maximum character for charset */
     char	*destptr,		/* Pointer into ISO-8859-1 buffer */
 		*destend;		/* End of ISO-8859-1 buffer */
 
-
+    maxch   = encoding == CUPS_ISO8859_1 ? 256 : 128;
     destptr = dest;
     destend = dest + maxout - 1;
 
@@ -403,7 +404,7 @@ cupsUTF8ToCharset(
       {
 	ch = ((ch & 0x1f) << 6) | (*src++ & 0x3f);
 
-	if (ch < 256)
+	if (ch < maxch)
           *destptr++ = ch;
 	else
           *destptr++ = '?';

@@ -1,7 +1,7 @@
 ##---------------------------------------------------------------------
 # Makefile for python_modules (supporting multiple versions)
 ##---------------------------------------------------------------------
-PROJECT = python_modules
+Project = python_modules
 PYTHONPROJECT = python
 MYFIX = $(SRCROOT)/fix
 VERSIONERDIR = /usr/local/versioner
@@ -12,6 +12,8 @@ VERSIONS := $(filter-out $(INCOMPATIBLE), $(shell grep '^[0-9]' $(PYTHONVERSIONS
 ORDEREDVERS := $(DEFAULT) $(filter-out $(DEFAULT),$(VERSIONS))
 VERSIONERFLAGS = -std=gnu99 -Wall -mdynamic-no-pic -I$(VERSIONERDIR)/$(PYTHONPROJECT) -I$(MYFIX) -framework CoreFoundation
 NO64 = 2.5
+OSV = OpenSourceVersions
+OSL = OpenSourceLicenses
 
 RSYNC = rsync -rlpt
 PWD = $(shell pwd)
@@ -44,7 +46,7 @@ ifndef RC_NONARCH_CFLAGS
 export RC_NONARCH_CFLAGS = -pipe
 endif
 ifndef RC_ProjectName
-export RC_ProjectName = $(PROJECT)
+export RC_ProjectName = $(Project)
 endif
 
 FIX = $(VERSIONERDIR)/$(PYTHONPROJECT)/fix
@@ -52,23 +54,43 @@ TESTOK := -f $(shell echo $(foreach vers,$(VERSIONS),$(OBJROOT)/$(vers)/.ok) | s
 
 include $(MAKEFILEPATH)/CoreOS/ReleaseControl/Common.make
 
+installsrc: afterinstallsrc
+
+afterinstallsrc:
+	$(MAKE) -f Makefile afterinstallsrc Project=$(Project)
+	for vers in $(VERSIONS); do \
+	    [ ! -d $$vers ] || $(MAKE) -C $$vers -f Makefile afterinstallsrc Project=$(Project) SRCROOT="$(SRCROOT)/$$vers" || exit 1; \
+	done
+
 build::
+	$(MKDIR) $(OBJROOT)/$(OSL)
+	$(MKDIR) $(OBJROOT)/$(OSV)
 	@set -x && \
 	for vers in $(VERSIONS); do \
 	    no64= && \
-	    if echo $(NO64) | fgrep -q $$vers; then \
-		no64=YES; \
+	    for n in $(NO64); do \
+		if [ $$n = $$vers ]; then \
+		    no64=YES; \
+		    break; \
+		fi; \
+	    done && \
+	    Copt= && \
+	    srcroot='$(SRCROOT)' && \
+	    if [ -d $$vers ]; then \
+		srcroot="$(SRCROOT)/$$vers"; \
+		Copt="-C $$vers"; \
 	    fi && \
 	    mkdir -p "$(SYMROOT)/$$vers" && \
 	    mkdir -p "$(OBJROOT)/$$vers/DSTROOT" || exit 1; \
 	    (echo "######## Building $$vers:" `date` '########' > "$(SYMROOT)/$$vers/LOG" 2>&1 && \
-		TOPSRCROOT='$(SRCROOT)' \
 		VERSIONER_PYTHON_VERSION=$$vers \
 		VERSIONER_PYTHON_PREFER_32_BIT=yes \
-		$(MAKE) -f Makefile install NO64=$$no64 \
+		$(MAKE) $$Copt -f Makefile install Project=$(Project) NO64=$$no64 \
+		SRCROOT="$$srcroot" \
 		OBJROOT="$(OBJROOT)/$$vers" \
 		DSTROOT="$(OBJROOT)/$$vers/DSTROOT" \
 		SYMROOT="$(SYMROOT)/$$vers" \
+		OSL='$(OBJROOT)/$(OSL)' OSV='$(OBJROOT)/$(OSV)' \
 		RC_ARCHS='$(RC_ARCHS)' >> "$(SYMROOT)/$$vers/LOG" 2>&1 && \
 		touch "$(OBJROOT)/$$vers/.ok" && \
 		echo "######## Finished $$vers:" `date` '########' >> "$(SYMROOT)/$$vers/LOG" 2>&1 \
@@ -85,9 +107,23 @@ build::
 	    echo '#### error detected, not merging'; \
 	    exit 1; \
 	fi
+	$(MKDIR) $(DSTROOT)/usr/local/$(OSL)
+	@set -x && \
+	cd $(OBJROOT)/$(OSL) && \
+	for i in *; do \
+	    echo '##########' `basename $$i` '##########' && \
+	    cat $$i || exit 1; \
+	done > $(DSTROOT)/usr/local/$(OSL)/$(Project).txt
+	$(MKDIR) $(DSTROOT)/usr/local/$(OSV)
+	(cd $(OBJROOT)/$(OSV) && \
+	echo '<plist version="1.0">' && \
+	echo '<array>' && \
+	cat * && \
+	echo '</array>' && \
+	echo '</plist>') > $(DSTROOT)/usr/local/$(OSV)/$(Project).plist
 
 #merge: mergebegin mergedefault mergeversions mergebin mergeman
-merge: mergebegin mergeversions mergebin mergedefault
+merge: mergebegin mergeversions mergebin
 
 mergebegin:
 	@echo ####### Merging #######
@@ -114,11 +150,6 @@ mergebin:
 	    done || exit 1; \
 	done
 	rm -f $(DSTROOT)$(MERGEBIN)/$(DUMMY)
-
-MERGEDEFAULT = \
-    usr/local
-mergedefault:
-	cd $(OBJROOT)/$(DEFAULT)/DSTROOT && rsync -Ra $(MERGEDEFAULT) $(DSTROOT)
 
 #MYVERSIONMANLIST = $(OBJROOT)/usr-share-man.list
 #VERSIONMANLIST = $(VERSIONERDIR)/$(PYTHONPROJECT)/usr-share-man.list

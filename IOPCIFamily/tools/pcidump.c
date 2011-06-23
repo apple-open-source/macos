@@ -325,6 +325,28 @@ static uint32_t physRead32(io_connect_t connect, uint64_t offset)
     return ((uint32_t) param.value);
 }
 
+static uint32_t ioRead32(io_connect_t connect, uint64_t offset)
+{
+    AddressSpaceParam param;
+    kern_return_t     status;
+
+    param.spaceID   = kIOACPIAddressSpaceIDSystemIO;
+    param.bitWidth  = 16;
+    param.bitOffset = 0;
+    param.options   = 0;
+
+    param.address.addr64 = offset;
+    param.value          = -1ULL;
+
+    size_t outSize = sizeof(param);
+    status = IOConnectCallStructMethod(connect, kACPIMethodAddressSpaceRead,
+                                            &param, sizeof(param),
+                                            &param, &outSize);
+    assert(kIOReturnSuccess == status);
+
+    return ((uint32_t) param.value);
+}
+
 io_registry_entry_t lookService(uint32_t segment,
                                 uint32_t bus, uint32_t device, uint32_t function)
 {
@@ -472,9 +494,11 @@ int main(int argc, char **argv)
         bus    = strtoul(argv[1], NULL, 0);
         device = strtoul(argv[2], NULL, 0);
         fn     = strtoul(argv[3], NULL, 0);
-        dumpDevice(connect, segment, bus, device, fn, NULL, NULL);
-        count++;
-
+		if (argc == 3)
+		{
+            dumpDevice(connect, segment, bus, device, fn, NULL, NULL);
+    	    count++;
+		}
         if (argc > 5)
         {
             uint32_t offs;
@@ -483,6 +507,14 @@ int main(int argc, char **argv)
             data = strtoul(argv[5], NULL, 0);
             configWrite32(connect, segment, bus, device, fn, offs, data);
             printf("wrote 0x%08x to [%d, %d, %d]:0x%X\n", data, bus, device, fn, offs);
+        }
+        else if (argc > 4)
+        {
+            uint32_t offs;
+            uint32_t data;
+            offs    = strtoul(argv[4], NULL, 0);
+            data = configRead32(connect, segment, bus, device, fn, offs);
+            printf("read 0x%08x from [%d, %d, %d]:0x%X\n", data, bus, device, fn, offs);
         }
     }
     else if (argc > 2)
@@ -499,8 +531,16 @@ int main(int argc, char **argv)
         uint64_t offs;
         uint32_t data;
         offs = strtoull(argv[1], NULL, 0);
-        data = physRead32(connect, offs);
-        printf("read 0x%08x from 0x%llX\n", data, offs);
+		if (offs > 0x10000ULL)
+		{
+			data = physRead32(connect, offs);
+			printf("read 0x%08x from mem 0x%llX\n", data, offs);
+		}
+		else
+		{
+			data = ioRead32(connect, offs);
+			printf("read 0x%08x from i/o 0x%llX\n", data, offs);
+		}
     }
     else for (bus = 0; bus <= maxBus; bus++)
     {

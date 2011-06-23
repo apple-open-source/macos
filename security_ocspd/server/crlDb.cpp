@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004 Apple Computer, Inc. All Rights Reserved.
+ * Copyright (c) 2004-2011 Apple Inc. All Rights Reserved.
  * 
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -23,8 +23,6 @@
 
 /*
  * crlDb.cpp - CRL cache
- *
- * Created 30 September 2004 by dmitch at Apple
  */
 
 #include "crlDb.h"
@@ -124,7 +122,7 @@ CrlDatabase::CrlDatabase()
 }
 
 /* 
- * I believe that this code actually never executes due to ModuleNExus limitations,
+ * I believe that this code actually never executes due to ModuleNexus limitations,
  * but it may run someday.
  */
 CrlDatabase::~CrlDatabase()

@@ -434,6 +434,7 @@ adjustPCIDeviceEFI( IOService * pciDevice )
 {
 	IOACPIPlatformDevice *	acpiDevice;
 	UInt32					slotNum;
+	UInt32					isRemovable = 1;
 	OSString *				acpiPath;
 	IORegistryEntry *		acpiEntry = NULL;
 
@@ -470,7 +471,8 @@ adjustPCIDeviceEFI( IOService * pciDevice )
 				name->release();
 			}
 		}
-		else if (acpiDevice->validateObject("_RMV") == kIOReturnSuccess)
+		else if ((acpiDevice->evaluateInteger("_RMV", &isRemovable) == kIOReturnSuccess) &&
+                 (isRemovable != 0))
 		{
 			// no slot name?
 		}

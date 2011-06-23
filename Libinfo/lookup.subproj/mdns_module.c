@@ -118,6 +118,8 @@
 #include <dns_util.h>
 #include <TargetConditionals.h>
 
+__private_extern__ int si_inet_config(uint32_t *inet4, uint32_t *inet6);
+
 /* from dns_util.c */
 #define DNS_MAX_RECEIVE_SIZE 65536
 
@@ -125,6 +127,12 @@
 #define INET_NTOP_AF_INET6_OFFSET 8
 
 #define IPPROTO_UNSPEC 0
+
+#define GOT_DATA 1
+#define GOT_ERROR 2
+#define SHORT_AAAA_EXTRA 2
+#define MEDIUM_AAAA_EXTRA 5
+#define LONG_AAAA_EXTRA 10
 
 static int _mdns_debug = 0;
 
@@ -1793,8 +1801,13 @@ _mdns_query_mDNSResponder(const char *name, int class, int type, const char *int
 	struct kevent ev;
 	struct timespec start, finish, delta, timeout;
 	int res = 0;
-	int i, complete, got_response = 0;
+	int i, complete, got_a_response = 0;
 	int initialize = 1;
+	uint32_t n_iface_4 = 0;
+
+	// determine number of IPv4 interfaces (ignore loopback)
+	si_inet_config(&n_iface_4, NULL);
+	if (n_iface_4 > 0) n_iface_4--;
 
 	// 2 for A and AAAA parallel queries
 	int n_ctx = 0;
@@ -1937,7 +1950,8 @@ _mdns_query_mDNSResponder(const char *name, int class, int type, const char *int
 		for (i = 0; i < n_ctx; ++i) {
 			if (_mdns_query_is_complete(&ctx[i]) || ctx[i].error != 0) {
 				if (ctx[i].type == ns_t_a) {
-					got_response = 1;
+					got_a_response = GOT_DATA;
+					if (ctx[i].error != 0) got_a_response = GOT_ERROR;
 				}
 			} else {
 				complete = 0;
@@ -1951,21 +1965,31 @@ _mdns_query_mDNSResponder(const char *name, int class, int type, const char *int
 		} else if (complete == 1) {
 			if (_mdns_debug) printf(";; done\n");
 			break;
-		} else if (got_response == 1) {
-			// got A, adjust deadline for AAAA
-			struct timespec now, tn, ms100;
+		} else if (got_a_response != 0) {
+			// Got A record or NXERROR for A query, adjust deadline for AAAA.
+			struct timespec now, tn, extra;
 
 			// delta = now - start
 			_mdns_now(&now);
 			_mdns_sub_time(&delta, &now, &start);
 
+			extra.tv_sec = SHORT_AAAA_EXTRA;
+			extra.tv_nsec = 0;
+
+			// if delta is really small, we probably got a result from mDNSResponder's cache
+			if ((delta.tv_sec == 0) && (delta.tv_nsec <= 200000000)) {
+				extra.tv_sec = LONG_AAAA_EXTRA;
+			}
+			else if (n_iface_4 == 0) {
+				extra.tv_sec = LONG_AAAA_EXTRA;
+			} else if (got_a_response == GOT_ERROR) {
+				extra.tv_sec = MEDIUM_AAAA_EXTRA;
+			}
 			// tn = 2 * delta
 			_mdns_add_time(&tn, &delta, &delta);
 
-			// delta = tn + 100ms
-			ms100.tv_sec = 0;
-			ms100.tv_nsec = 100000000;
-			_mdns_add_time(&delta, &tn, &ms100);
+			// delta = tn + extra
+			_mdns_add_time(&delta, &tn, &extra);
 
 			// check that delta doesn't exceed our total timeout
 			_mdns_sub_time(&tn, &timeout, &delta);

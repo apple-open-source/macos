@@ -70,16 +70,16 @@
 #define kIOStorageFeaturesKey "IOStorageFeatures"
 
 /*!
- * @defined kIOStorageFeatureDiscard
+ * @defined kIOStorageFeatureUnmap
  * @abstract
- * Describes the presence of the Discard feature.
+ * Describes the presence of the Unmap feature.
  * @discussion
  * This property describes the ability of the storage stack to delete unused
  * data from the media.  It is one of the feature entries listed under the top-
  * level kIOStorageFeaturesKey property table.  It has an OSBoolean value.
  */
 
-#define kIOStorageFeatureDiscard "Discard"
+#define kIOStorageFeatureUnmap "Unmap"
 
 /*!
  * @defined kIOStorageFeatureForceUnitAccess
@@ -168,6 +168,22 @@ struct IOStorageAttributes
     UInt64           reserved0128;
     UInt64           reserved0192;
 #endif /* __LP64__ */
+};
+
+/*!
+ * @struct IOStorageExtent
+ * @discussion
+ * Extent for unmap storage requests.
+ * @field byteStart
+ * Starting byte offset for the operation.
+ * @field byteCount
+ * Size of the operation.
+ */
+
+struct IOStorageExtent
+{
+    UInt64 byteStart;
+    UInt64 byteCount;
 };
 
 /*!
@@ -514,35 +530,41 @@ public:
                        IOStorageCompletion * completion); /* 10.5.0 */
 #endif /* !__LP64__ */
 
+    virtual IOReturn discard(IOService * client,
+                             UInt64      byteStart,
+                             UInt64      byteCount) __attribute__ ((deprecated));
+
     /*!
-     * @function discard
+     * @function unmap
      * @discussion
-     * Delete unused data from the storage object at the specified byte offset,
+     * Delete unused data from the storage object at the specified byte offsets,
      * synchronously.
      * @param client
      * Client requesting the operation.
-     * @param byteStart
-     * Starting byte offset for the operation.
-     * @param byteCount
-     * Size of the operation.
+     * @param extents
+     * List of extents.  See IOStorageExtent.  It is legal for the callee to
+     * overwrite the contents of this buffer in order to satisfy the request.
+     * @param extentsCount
+     * Number of extents.
      * @result
      * Returns the status of the operation.
      */
 
-    virtual IOReturn discard(IOService * client,
-                             UInt64      byteStart,
-                             UInt64      byteCount); /* 10.6.0 */
+    virtual IOReturn unmap(IOService *       client,
+                           IOStorageExtent * extents,
+                           UInt32            extentsCount,
+                           UInt32            options = 0); /* 10.6.6 */
 
+    OSMetaClassDeclareReservedUsed(IOStorage,  0);
 #ifdef __LP64__
-    OSMetaClassDeclareReservedUnused(IOStorage,  0);
     OSMetaClassDeclareReservedUnused(IOStorage,  1);
     OSMetaClassDeclareReservedUnused(IOStorage,  2);
+    OSMetaClassDeclareReservedUnused(IOStorage,  3);
 #else /* !__LP64__ */
-    OSMetaClassDeclareReservedUsed(IOStorage,  0);
     OSMetaClassDeclareReservedUsed(IOStorage,  1);
     OSMetaClassDeclareReservedUsed(IOStorage,  2);
+    OSMetaClassDeclareReservedUsed(IOStorage,  3);
 #endif /* !__LP64__ */
-    OSMetaClassDeclareReservedUnused(IOStorage,  3);
     OSMetaClassDeclareReservedUnused(IOStorage,  4);
     OSMetaClassDeclareReservedUnused(IOStorage,  5);
     OSMetaClassDeclareReservedUnused(IOStorage,  6);

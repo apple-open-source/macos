@@ -16,7 +16,7 @@ include $(MAKEFILEPATH)/pb_makefiles/platform.make
 include $(MAKEFILEPATH)/pb_makefiles/commands-$(OS).make
 
 PROJECT_NAME	  = MySQL
-MYSQL_VERSION	  = 5.0.91
+MYSQL_VERSION	  = 5.0.92
 MYSQL_BASE_DIR	  = mysql-$(MYSQL_VERSION)
 MYSQL_TAR_FILE	  = $(MYSQL_BASE_DIR)-apple.tar.gz
 BUILD_DIR         = /usr

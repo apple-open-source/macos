@@ -2,7 +2,7 @@
  * Copyright (c) 2000-2001 Boris Popov
  * All rights reserved.
  *
- * Portions Copyright (C) 2001 - 2009 Apple Inc. All rights reserved.
+ * Portions Copyright (C) 2001 - 2011 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -1957,7 +1957,9 @@ int smbfs_setattr(vnode_t vp, struct vnode_attr *vap, vfs_context_t context)
 		VATTR_SET_SUPPORTED(vap, va_gid);
 
 	if ((VATTR_IS_ACTIVE(vap, va_mode)) ||(VATTR_IS_ACTIVE(vap, va_flags))) {
-		int unix_info2 = ((UNIX_CAPS(vcp) & UNIX_SFILEINFO_UNIX_INFO2_CAP)) ? TRUE : FALSE;		
+		int supportUnixBSDFlags = ((UNIX_CAPS(vcp) & UNIX_SFILEINFO_UNIX_INFO2_CAP)) ? TRUE : FALSE;
+		int supportUnixInfo2 = ((UNIX_CAPS(vcp) & UNIX_QFILEINFO_UNIX_INFO2_CAP)) ? TRUE : FALSE;
+		int darwin = (vcp->vc_flags & SMBV_DARWIN) ? TRUE : FALSE;
 		int dosattr = np->n_dosattr;
 		u_int32_t vaflags = 0;
 		u_int32_t vaflags_mask = SMB_FLAGS_NO_CHANGE;
@@ -2003,17 +2005,18 @@ int smbfs_setattr(vnode_t vp, struct vnode_attr *vap, vfs_context_t context)
 			 * 
 			 * See Radar 5582956 for more details.
 			 */
-			if (unix_info2 || (! vnode_isdir(vp))) {
+			if (supportUnixBSDFlags || darwin || (! vnode_isdir(vp))) {
 				if (vap->va_flags & (SF_IMMUTABLE | UF_IMMUTABLE)) {
-					dosattr |= SMB_FA_RDONLY;				
+					dosattr |= SMB_EFA_RDONLY;				
 					vaflags |= EXT_IMMUTABLE;				
-				} else
-					dosattr &= ~SMB_FA_RDONLY;
+				} else {
+					dosattr &= ~SMB_EFA_RDONLY;
+				}
 			}
 			/*
 			 * NOTE: Windows does not set ATTR_ARCHIVE bit for directories. 
 			 */
-			if ((! unix_info2) && (vnode_isdir(vp)))
+			if ((! supportUnixBSDFlags) && (vnode_isdir(vp)))
 				dosattr &= ~SMB_FA_ARCHIVE;
 			
 			/* Now deal with the new Hidden bit */
@@ -2031,23 +2034,50 @@ int smbfs_setattr(vnode_t vp, struct vnode_attr *vap, vfs_context_t context)
 		 * chmod here it will get set on the target which would be bad. So ignore the fact
 		 * that they made this request.
 		 */
-		if (unix_info2 && (!vnode_islnk(vp)) && (VATTR_IS_ACTIVE(vap, va_mode))) {
-			vamode = vap->va_mode & ACCESSPERMS;
-		} else if (dosattr == np->n_dosattr)
+		if (VATTR_IS_ACTIVE(vap, va_mode)) {
+			if (supportUnixInfo2 && (!vnode_islnk(vp))) {
+				vamode = vap->va_mode & ACCESSPERMS;
+			} else if ((ssp->ss_attributes & FILE_PERSISTENT_ACLS) &&
+					   (darwin || !UNIX_CAPS(vcp))) {
+				vamode = vap->va_mode & ACCESSPERMS;
+			}
+		}
+		if (dosattr == np->n_dosattr) {
 			vaflags_mask = 0; /* Nothing really changes, no need to make the call */ 
-		
+		}
 		if (vaflags_mask || (vamode != SMB_MODE_NO_CHANGE)) {
-			if (unix_info2)
-				error = smbfs_set_unix_info2(np, NULL, NULL, NULL, SMB_SIZE_NO_CHANGE, vamode, vaflags, vaflags_mask, context);
-			else
-				error = smbfs_smb_setpattr(np, NULL, 0, dosattr, context);
+			if (!supportUnixInfo2) {
+				/* Windows style server */
+				if (vaflags_mask) {
+					error = smbfs_smb_setpattr(np, NULL, 0, dosattr, context);
+				}
+			} else if (supportUnixBSDFlags) {
+				/* Samba server that does support the BSD flags (Mac OS) */
+				error = smbfs_set_unix_info2(np, NULL, NULL, NULL, 
+											 SMB_SIZE_NO_CHANGE,  vamode, vaflags, 
+											 vaflags_mask, context);
+			} else {				
+				/* Samba server that doesn't support the BSD flags, Linux */
+				if (vamode != SMB_MODE_NO_CHANGE) {
+					/* Now set the posix modes, using unix info level */
+					error = smbfs_set_unix_info2(np, NULL, NULL, NULL, 
+												 SMB_SIZE_NO_CHANGE, vamode,
+												 SMB_FLAGS_NO_CHANGE, vaflags_mask, 
+												 context);
+				}
+				if (vaflags_mask) {
+					/* Set the BSD flags using normal smb info level  */
+					error = smbfs_smb_setpattr(np, NULL, 0, dosattr, context);
+				}
+			}
 			if (error)
 				goto out;
 		}
 		/* Everything work update the local cache and mark that we did the work */
 		if (VATTR_IS_ACTIVE(vap, va_mode)) {
-	    	if (vamode != SMB_MODE_NO_CHANGE)
+	    	if (vamode != SMB_MODE_NO_CHANGE) {
 				np->n_mode = vamode;
+            }
 			VATTR_SET_SUPPORTED(vap, va_mode);
 		}
 		if (VATTR_IS_ACTIVE(vap, va_flags)) {

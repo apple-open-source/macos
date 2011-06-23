@@ -207,6 +207,7 @@ __private_extern__ void dynamicStoreNotifyCallBack(
                 CFArrayRef          changedKeys,
                 void                *info);
 
+
 /* load
  *
  * configd entry point
@@ -329,8 +330,6 @@ void *pm_run_thread(void *arg)
     CFRunLoopRun();
     return NULL;
 }
-
-
 
 static void BatteryMatch(
     void *refcon, 

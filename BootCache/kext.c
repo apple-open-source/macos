@@ -1636,7 +1636,7 @@ BC_init_cache(size_t length, user_addr_t uptr, u_int64_t blocksize)
 {
 	u_int32_t blksize;
 	u_int64_t blkcount;
-	int error;
+	int error, max_byte_count;
 	unsigned int boot_arg;
 	thread_t rthread;
 
@@ -1689,6 +1689,19 @@ BC_init_cache(size_t length, user_addr_t uptr, u_int64_t blocksize)
 	    (caddr_t)&BC_cache->c_maxread,		/* data */
 	    0,						/* fflag */
 	    kernproc);					/* proc */
+    max_byte_count = 0;
+	BC_cache->c_devsw->d_ioctl(BC_cache->c_dev,
+	    DKIOCGETMAXBYTECOUNTREAD,
+	    (caddr_t)&max_byte_count,
+	    0,
+	    kernproc);
+    if (BC_cache->c_maxread > max_byte_count && max_byte_count > 0) {
+        BC_cache->c_maxread = max_byte_count;
+    }
+	if (BC_cache->c_maxread > ubc_upl_maxbufsize()) {
+		/* max read size isn't larger than the max UPL size */
+		BC_cache->c_maxread = ubc_upl_maxbufsize();
+	}
 	if (BC_cache->c_maxread < PAGE_SIZE) {
 		debug("can't determine device read size; using default");
 		BC_cache->c_maxread = MAXPHYS;

@@ -121,6 +121,7 @@ mimeAddFilter(mime_t      *mime,	/* I - MIME database */
     strlcpy(temp->filter, filter, sizeof(temp->filter));
 
     cupsArrayAdd(mime->filters, temp);
+    cupsArrayAdd(mime->srcs, temp);
   }
 
  /*

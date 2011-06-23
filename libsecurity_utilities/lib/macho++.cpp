@@ -67,6 +67,15 @@ const char *Architecture::name() const
 		return NULL;
 }
 
+std::string Architecture::displayName() const
+{
+       if (const char *s = this->name())
+               return s;
+       char buf[20];
+       snprintf(buf, sizeof(buf), "(%d:%d)", cpuType(), cpuSubtype());
+	   return buf;
+}
+
 
 //
 // Create a MachO object from an open file and a starting offset.

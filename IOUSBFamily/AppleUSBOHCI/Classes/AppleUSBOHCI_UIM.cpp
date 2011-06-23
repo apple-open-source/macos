@@ -38,8 +38,6 @@ extern "C" {
 #include "AppleUSBOHCIMemoryBlocks.h"
 #include "USBTracepoints.h"
 
-#define DEBUGGING_LEVEL 0	// 1 = low; 2 = high; 3 = extreme
-
 #define super IOUSBControllerV3
 
 static inline OHCIEDFormat
@@ -273,11 +271,8 @@ AppleUSBOHCI::CreateGeneralTransfer(AppleOHCIEndpointDescriptorPtr queue, IOUSBC
         }
     }
 
-	printTD(pOHCIGeneralTransferDescriptor, 7);
+	// printTD(pOHCIGeneralTransferDescriptor, 7);
 	
-#if (DEBUGGING_LEVEL > 2)
-    print_td(pOHCIGeneralTransferDescriptor);
-#endif
     if (status)
 	{
         USBLog(1, "AppleUSBOHCI[%p] CreateGeneralTransfer: returning status 0x%x", this, status);
@@ -334,13 +329,6 @@ AppleUSBOHCI::UIMCreateControlEndpoint(UInt8 functionAddress, UInt8 endpointNumb
                                                kOHCIEDDirectionTD,
                                                pED,
                                                kOHCIEDFormatGeneralTD);
-
-#if (DEBUGGING_LEVEL > 2)
-    if ((speed == kUSBDeviceSpeedFull) && _OptiOn)
-        print_bulk_list();
-    else
-	print_control_list();
-#endif
 
     if (pOHCIEndpointDescriptor == NULL)
         return kIOReturnNoMemory;
@@ -692,9 +680,7 @@ AppleUSBOHCI::UIMCreateInterruptEndpoint(
 	// Write back the toggle in case we deleted the EP and recreated it
 	pOHCIEndpointDescriptor->pShared->tdQueueHeadPtr |= HostToUSBLong(currentToggle);
 		
-#if (DEBUGGING_LEVEL > 2)
-    print_int_list();
-#endif
+   //  print_int_list(7);
     
     return (kIOReturnSuccess);
 }
@@ -1070,11 +1056,8 @@ AppleUSBOHCI::UIMDeleteEndpoint(
 
     //deallocate ED
     DeallocateED(pED);
-#if (DEBUGGING_LEVEL > 2)
-        print_bulk_list();
-        print_control_list();
-#endif
-    return (kIOReturnSuccess);
+       
+	return (kIOReturnSuccess);
 }
 
 
@@ -1455,6 +1438,7 @@ bool AppleUSBOHCI::DetermineInterruptOffset(
     return (true);
 }
 
+#pragma mark Debug Output
 void 
 AppleUSBOHCI::printTD(AppleOHCIGeneralTransferDescriptorPtr pTD, int level)
 {
@@ -1470,7 +1454,7 @@ AppleUSBOHCI::printTD(AppleOHCIGeneralTransferDescriptorPtr pTD, int level)
     dir = (w0 & kOHCIGTDControl_DP) >> kOHCIGTDControl_DPPhase;
 
  	USBLog(level, "AppleUSBOHCI[%p]::printTD: ------pTD at %p (%s)", this, pTD, dir == 0 ? "SETUP" : (dir==2?"IN":"OUT"));
-	USBLog(level, "AppleUSBOHCI[%p]::printTD: pEndpoint:                %p (%d:%d)", this, pTD->pEndpoint, 
+	USBLog(level, "AppleUSBOHCI[%p]::printTD: pEndpoint:               %p (%d:%d)", this, pTD->pEndpoint, 
 		   (USBToHostLong((pTD->pEndpoint)->pShared->flags) & kOHCIEDControl_FA) >> kOHCIEDControl_FAPhase,
 		   (USBToHostLong((pTD->pEndpoint)->pShared->flags) & kOHCIEDControl_EN) >> kOHCIEDControl_ENPhase
 		   );
@@ -1488,10 +1472,56 @@ AppleUSBOHCI::printTD(AppleOHCIGeneralTransferDescriptorPtr pTD, int level)
 	USBLog(level, "AppleUSBOHCI[%p]::printTD: lastRemaining:            0x%x",  this, (uint32_t)(pTD->lastRemaining));
 	USBLog(level, "AppleUSBOHCI[%p]::printTD: bufferSize:               0x%x",  this, (uint32_t)(pTD->bufferSize));
 	
+	USBTrace( kUSBTOHCIDumpQueues, kTPOHCIDumpQTD1, (uintptr_t)this, (uintptr_t)pTD, (uintptr_t)pTD->pEndpoint, (uint32_t)USBToHostLong(pTD->pShared->ohciFlags) );
+	USBTrace( kUSBTOHCIDumpQueues, kTPOHCIDumpQTD6, (uintptr_t)this, (uintptr_t)pTD->pEndpoint, (uint32_t)USBToHostLong((pTD->pEndpoint)->pShared->flags), 0);
+	USBTrace( kUSBTOHCIDumpQueues, kTPOHCIDumpQTD2, (uintptr_t)this, (uint32_t)USBToHostLong(pTD->pShared->currentBufferPtr), (uint32_t)USBToHostLong(pTD->pShared->nextTD), (uint32_t)USBToHostLong(pTD->pShared->nextTD));
+	USBTrace( kUSBTOHCIDumpQueues, kTPOHCIDumpQTD3, (uintptr_t)this, (uint32_t)USBToHostLong(pTD->pShared->bufferEnd), (uint32_t)pTD->pType, (uint32_t)pTD->uimFlags);
+	USBTrace( kUSBTOHCIDumpQueues, kTPOHCIDumpQTD4, (uintptr_t)this, (uint32_t)pTD->pPhysical, (uintptr_t)pTD->pLogicalNext, (uint32_t)pTD->lastFrame);
+	USBTrace( kUSBTOHCIDumpQueues, kTPOHCIDumpQTD5, (uintptr_t)this, (uint32_t)pTD->lastRemaining, (uintptr_t)pTD->bufferSize, 0);
 }
 
-#if (DEBUGGING_LEVEL > 2)
-static char *cc_errors[] = {
+void 
+AppleUSBOHCI::printED(AppleOHCIEndpointDescriptorPtr pED, int level)
+{
+    UInt32 w0, dir;
+
+    if (pED == 0)
+    {
+        USBLog(level, "AppleUSBOHCI[%p]::printED  Attempt to print null ED", this);
+        return;
+    }
+
+    w0 = USBToHostLong(pED->pShared->flags);
+    dir = (w0 & kOHCIGTDControl_DP) >> kOHCIGTDControl_DPPhase;
+
+	
+ 	USBLog(level, "AppleUSBOHCI[%p]::printED: ------ pED at %p (%d:%d)", this, pED, 
+		   (uint32_t)(w0 & kOHCIEDControl_FA) >> kOHCIEDControl_FAPhase,
+		   (uint32_t)(w0 & kOHCIEDControl_EN) >> kOHCIEDControl_ENPhase
+		   );
+	USBLog(level, "AppleUSBOHCI[%p]::printED: shared.flags:             0x%x %s", this, USBToHostLong(pED->pShared->flags),
+		   w0 & kOHCIEDControl_K?"( SKIP )":""
+		   );
+	USBLog(level, "AppleUSBOHCI[%p]::printED: shared.tdQueueTailPtr:    0x%x", this, USBToHostLong(pED->pShared->tdQueueTailPtr));
+	USBLog(level, "AppleUSBOHCI[%p]::printED: shared.tdQueueHeadPtr:    0x%x %s", this, USBToHostLong(pED->pShared->tdQueueHeadPtr),
+		   USBToHostLong(pED->pShared->tdQueueHeadPtr) & kOHCIHeadPointer_H?"( HALTED )":""
+		   );
+	USBLog(level, "AppleUSBOHCI[%p]::printED: shared.nextED:            0x%x", this, USBToHostLong(pED->pShared->nextED));
+	
+	USBLog(level, "AppleUSBOHCI[%p]::printED: pPhysical:                0x%x", this, (uint32_t)(pED->pPhysical));
+	USBLog(level, "AppleUSBOHCI[%p]::printED: pLogicalNext:             %p", this, (pED->pLogicalNext));
+	
+	USBLog(level, "AppleUSBOHCI[%p]::printED: pLogicalTailP:            %p",  this, (pED->pLogicalTailP));
+	USBLog(level, "AppleUSBOHCI[%p]::printED: pLogicalHeadP:            %p",  this, (pED->pLogicalHeadP));
+	USBLog(level, "AppleUSBOHCI[%p]::printED: pAborting:                %s",  this, (pED->pAborting ? "YES" : "NO"));
+	
+	USBTrace( kUSBTOHCIDumpQueues, kTPOHCIDumpQED1, (uintptr_t)this, (uintptr_t)pED, (uint32_t)USBToHostLong(pED->pShared->flags), (uint32_t)USBToHostLong(pED->pShared->tdQueueTailPtr) );
+	USBTrace( kUSBTOHCIDumpQueues, kTPOHCIDumpQED2, (uintptr_t)this, (uint32_t)USBToHostLong(pED->pShared->tdQueueHeadPtr), (uint32_t)USBToHostLong(pED->pShared->nextED), (uint32_t)pED->pPhysical );
+	USBTrace( kUSBTOHCIDumpQueues, kTPOHCIDumpQED3, (uintptr_t)this, (uintptr_t)pED->pLogicalNext, (uintptr_t)(pED->pLogicalTailP), (uintptr_t)pED->pLogicalHeadP );
+
+}
+
+static const char *cc_errors[] = {
     "NO ERROR",			/* 0 */
     "CRC",			/* 1 */
     "BIT STUFFING",		/* 2 */
@@ -1513,33 +1543,33 @@ static char *cc_errors[] = {
 
 
 void 
-AppleUSBOHCI::print_td(AppleOHCIGeneralTransferDescriptorPtr pTD)
+AppleUSBOHCI::print_td(AppleOHCIGeneralTransferDescriptorPtr pTD, int level)
 {
     UInt32 w0, dir, err;
-
+	
     if (pTD == 0) return;
-
+	
     w0 = USBToHostLong(pTD->pShared->ohciFlags);
     dir = (w0 & kOHCIGTDControl_DP) >> kOHCIGTDControl_DPPhase;
     err = (w0 & kOHCIGTDControl_CC) >> kOHCIGTDControl_CCPhase;
-    USBLog(7, "AppleUSBOHCI[%p]\tTD(0x%08lx->0x%08lx) dir=%s cc=%s errc=%ld t=%ld rd=%s: c=0x%08lx cbp=0x%08lx, next=0x%08lx, bend=0x%08lx",
-        this,
-	(UInt32)pTD, pTD->pPhysical,
-	dir == 0 ? "SETUP" : (dir==2?"IN":"OUT"),
-	cc_errors[err],
-	(w0 & kOHCIGTDControl_EC) >> kOHCIGTDControl_ECPhase,
-	(w0 & kOHCIGTDControl_T)  >> kOHCIGTDControl_TPhase,
-	(w0 & kOHCIGTDControl_R)?"yes":"no",
-	USBToHostLong(pTD->pShared->ohciFlags),
-	USBToHostLong(pTD->pShared->currentBufferPtr),
-	USBToHostLong(pTD->pShared->nextTD),
-	USBToHostLong(pTD->pShared->bufferEnd));
+    USBLog(level, "AppleUSBOHCI[%p]\tTD(%p->%p) dir=%s cc=%s errc=%d t=%d rd=%s: c=0x%08x cbp=0x%08x, next=0x%08x, bend=0x%08x",
+		   this,
+		   pTD, (void*)pTD->pPhysical,
+		   dir == 0 ? "SETUP" : (dir==2?"IN":"OUT"),
+		   cc_errors[err],
+		   (uint32_t)(w0 & kOHCIGTDControl_EC) >> kOHCIGTDControl_ECPhase,
+		   (uint32_t)(w0 & kOHCIGTDControl_T)  >> kOHCIGTDControl_TPhase,
+		   (w0 & kOHCIGTDControl_R)?"yes":"no",
+		   USBToHostLong(pTD->pShared->ohciFlags),
+		   USBToHostLong(pTD->pShared->currentBufferPtr),
+		   USBToHostLong(pTD->pShared->nextTD),
+		   USBToHostLong(pTD->pShared->bufferEnd));
 }
 
 
 
 void 
-AppleUSBOHCI::print_itd(AppleOHCIIsochTransferDescriptorPtr pTD)
+AppleUSBOHCI::print_itd(AppleOHCIIsochTransferDescriptorPtr pTD, int level)
 {
     UInt32 w0, err;
     int i;
@@ -1547,51 +1577,52 @@ AppleUSBOHCI::print_itd(AppleOHCIIsochTransferDescriptorPtr pTD)
 
     w0 = USBToHostLong(pTD->pShared->flags);
     err = (w0 & kOHCIITDControl_CC) >> kOHCIITDControl_CCPhase;
-    USBLog(5, "AppleUSBOHCI[%p]\tTD(%p->%p) cc=%s fc=%ld sf=0x%lx c=0x%08lx bp0=%p, bend=%p, next=%p",
+    USBLog(level, "AppleUSBOHCI[%p]\tTD(%p->%p) cc=%s fc=%d sf=0x%x c=0x%08x bp0=0x%08x, bend=0x%08x, next=0x%08x",
            this,
-           (UInt32)pTD, pTD->pPhysical,
+           pTD, (void *)pTD->pPhysical,
            cc_errors[err],
-           (w0 & kOHCIITDControl_FC) >> kOHCIITDControl_FCPhase,
-           (w0 & kOHCIITDControl_SF)  >> kOHCIITDControl_SFPhase,
-           w0,
+           (uint32_t)(w0 & kOHCIITDControl_FC) >> kOHCIITDControl_FCPhase,
+           (uint32_t)(w0 & kOHCIITDControl_SF)  >> kOHCIITDControl_SFPhase,
+           (uint32_t)w0,
            USBToHostLong(pTD->pShared->bufferPage0),
            USBToHostLong(pTD->pShared->bufferEnd),
            USBToHostLong(pTD->pShared->nextTD)
            );
     for(i=0; i<8; i++)
     {
-        USBLog(5, "Offset/PSW %d = 0x%x", i, USBToHostWord(pTD->pShared->offset[i]));
+        USBLog(level, "Offset/PSW %d = 0x%x", i, USBToHostWord(pTD->pShared->offset[i]));
     }
-    USBLog(5, "frames = 0x%lx, FrameNumber %ld", (UInt32)pTD->pIsocFrame, pTD->frameNum);
+    USBLog(level, "frames =%p, FrameNumber %d", (void *)pTD->pIsocFrame, (uint32_t)pTD->frameNum);
 }
 
 
 
 void 
-AppleUSBOHCI::print_ed(AppleOHCIEndpointDescriptorPtr pED)
+AppleUSBOHCI::print_ed(AppleOHCIEndpointDescriptorPtr pED, int level)
 {
     AppleOHCIGeneralTransferDescriptorPtr	pTD;
     UInt32 w0;
 
 
-    if (pED == 0) {
-	kprintf("Null ED\n");
-	return;
+    if (pED == 0) 
+	{
+		//kprintf("Null ED\n");
+		return;
     }
     w0 = USBToHostLong(pED->pShared->flags);
 
     if ((w0 & kOHCIEDControl_K) == 0 /*noskip*/)
     {
-        USBLog(7, "AppleUSBOHCI[%p] ED(0x%08lx->0x%08lx) %ld:%ld d=%ld s=%s sk=%s i=%s max=%ld : c=0x%08lx tail=0x%08lx, head=0x%08lx, next=0x%08lx",
+        USBLog(level, "AppleUSBOHCI[%p] ED(%p->%p) %d:%d d=%d s=%s sk=%s i=%s max=%d : c=0x%08x tail=0x%08x, head=0x%08x, next=0x%08x",
               this, 
-              (UInt32)pED, (UInt32)pED->pPhysical,
-              (w0 & kOHCIEDControl_FA) >> kOHCIEDControl_FAPhase,
-              (w0 & kOHCIEDControl_EN) >> kOHCIEDControl_ENPhase,
-              (w0 & kOHCIEDControl_D)  >> kOHCIEDControl_DPhase,
+              pED, (void *)pED->pPhysical,
+              (uint32_t)(w0 & kOHCIEDControl_FA) >> kOHCIEDControl_FAPhase,
+              (uint32_t)(w0 & kOHCIEDControl_EN) >> kOHCIEDControl_ENPhase,
+              (uint32_t)(w0 & kOHCIEDControl_D)  >> kOHCIEDControl_DPhase,
               w0 & kOHCIEDControl_S?"low":"full",
               w0 & kOHCIEDControl_K?"yes":"no",
               w0 & kOHCIEDControl_F?"yes":"no",
-              (w0 & kOHCIEDControl_MPS) >> kOHCIEDControl_MPSPhase,
+              (uint32_t)(w0 & kOHCIEDControl_MPS) >> kOHCIEDControl_MPSPhase,
               USBToHostLong(pED->pShared->flags),
               USBToHostLong(pED->pShared->tdQueueTailPtr),
               USBToHostLong(pED->pShared->tdQueueHeadPtr),
@@ -1602,16 +1633,21 @@ AppleUSBOHCI::print_ed(AppleOHCIEndpointDescriptorPtr pED)
        while (pTD != 0)
         {
             // DEBUGLOG("\t");
-            print_td(pTD);
+            printTD(pTD, level);
             pTD = pTD->pLogicalNext;
         }
     }
+	else 
+	{
+		USBLog(level,"AppleUSBOHCI[%p]::print_ed  skipping %p because it K bit set", this, pED);
+	}
+
 }
 
 
 
 void 
-AppleUSBOHCI::print_isoc_ed(AppleOHCIEndpointDescriptorPtr pED)
+AppleUSBOHCI::print_isoc_ed(AppleOHCIEndpointDescriptorPtr pED, int level, bool printSkipped, bool printTDs)
 {
     AppleOHCIIsochTransferDescriptorPtr	pTD;
     UInt32 w0;
@@ -1625,16 +1661,16 @@ AppleUSBOHCI::print_isoc_ed(AppleOHCIEndpointDescriptorPtr pED)
 
     if ((w0 & kOHCIEDControl_K) == 0 /*noskip*/)
     {
-        USBLog(7, "AppleUSBOHCI[%p] ED(0x%08lx->0x%08lx) %ld:%ld d=%ld s=%s sk=%s i=%s max=%ld : c=0x%08lx tail=0x%08lx, head=0x%08lx, next=0x%08lx",
+        USBLog(level, "AppleUSBOHCI[%p] ED(0x%p->%p) %d:%d d=%d s=%s sk=%s i=%s max=%d : c=0x%08x tail=0x%08x, head=0x%08x, next=0x%08x",
               this,
-              (UInt32)pED, (UInt32)pED->pPhysical,
-              (w0 & kOHCIEDControl_FA) >> kOHCIEDControl_FAPhase,
-              (w0 & kOHCIEDControl_EN) >> kOHCIEDControl_ENPhase,
-              (w0 & kOHCIEDControl_D)  >> kOHCIEDControl_DPhase,
+              pED, (void *)pED->pPhysical,
+              (uint32_t)(w0 & kOHCIEDControl_FA) >> kOHCIEDControl_FAPhase,
+              (uint32_t)(w0 & kOHCIEDControl_EN) >> kOHCIEDControl_ENPhase,
+              (uint32_t)(w0 & kOHCIEDControl_D)  >> kOHCIEDControl_DPhase,
               w0 & kOHCIEDControl_S?"low":"hi",
               w0 & kOHCIEDControl_K?"yes":"no",
               w0 & kOHCIEDControl_F?"yes":"no",
-              (w0 & kOHCIEDControl_MPS) >> kOHCIEDControl_MPSPhase,
+              (uint32_t)(w0 & kOHCIEDControl_MPS) >> kOHCIEDControl_MPSPhase,
               USBToHostLong(pED->pShared->flags),
               USBToHostLong(pED->pShared->tdQueueTailPtr),
               USBToHostLong(pED->pShared->tdQueueHeadPtr),
@@ -1644,7 +1680,7 @@ AppleUSBOHCI::print_isoc_ed(AppleOHCIEndpointDescriptorPtr pED)
         while (pTD != 0)
         {
            //  DEBUGLOG("\t");
-            print_itd(pTD);
+            print_itd(pTD, level);
             pTD = pTD->pLogicalNext;
         }
     }
@@ -1653,66 +1689,108 @@ AppleUSBOHCI::print_isoc_ed(AppleOHCIEndpointDescriptorPtr pED)
 
 
 void 
-AppleUSBOHCI::print_list(AppleOHCIEndpointDescriptorPtr pListHead, AppleOHCIEndpointDescriptorPtr pListTail)
+AppleUSBOHCI::print_list(AppleOHCIEndpointDescriptorPtr pListHead, AppleOHCIEndpointDescriptorPtr pListTail, int level, bool printSkipped, bool printTDs)
 {
     AppleOHCIEndpointDescriptorPtr		pED, pEDTail;
 
+    USBLog(level, "AppleUSBOHCI[%p]:print_list  Head: %p, Tail: %p", this, pListHead, pListTail);
 
     pED = (AppleOHCIEndpointDescriptorPtr) pListHead;
     pEDTail = (AppleOHCIEndpointDescriptorPtr) pListTail;
 
     while (pED != pEDTail)
     {
-        print_ed(pED);
-        pED = pED->pLogicalNext;
+		AppleOHCIGeneralTransferDescriptorPtr	pTD;
+
+		if ((USBToHostLong(pED->pShared->flags) & kOHCIEDControl_K) == 0 || printSkipped)
+			printED(pED, level);
+ 
+		if ( printTDs )
+		{
+			// get the top TD
+			pTD = (AppleOHCIGeneralTransferDescriptorPtr) (USBToHostLong(pED->pShared->tdQueueHeadPtr) & kOHCIHeadPMask);
+			// convert physical to logical
+			pTD = AppleUSBOHCIgtdMemoryBlock::GetGTDFromPhysical((IOPhysicalAddress)pTD);
+			if ( pTD && !(pTD == pED->pLogicalTailP) )
+			{
+				printTD(pTD, level);
+				while ( pTD && pTD->pLogicalNext != NULL )
+				{
+					printTD(pTD->pLogicalNext, level);
+					pTD = pTD->pLogicalNext;
+				}
+			}
+		}
+		
+		pED = pED->pLogicalNext;
     }
-    print_ed(pEDTail);
+	if ((USBToHostLong(pED->pShared->flags) & kOHCIEDControl_K) == 0 || printSkipped)
+		printED(pEDTail, level);
 }
 
 
 
 void 
-AppleUSBOHCI::print_control_list()
+AppleUSBOHCI::print_control_list(int level, bool printSkipped, bool printTDs)
 {
-    USBLog(7, "AppleUSBOHCI[%p] Control List: h/w head = 0x%lx", this, USBToHostLong(_pOHCIRegisters->hcControlHeadED));
-    print_list(_pControlHead, _pControlTail);
+    USBLog(level, "AppleUSBOHCI[%p] Control List: h/w head = 0x%x", this, USBToHostLong(_pOHCIRegisters->hcControlHeadED));
+    print_list(_pControlHead, _pControlTail, level, printSkipped, printTDs);
 }
 
 
 
 void 
-AppleUSBOHCI::print_bulk_list()
+AppleUSBOHCI::print_bulk_list(int level, bool printSkipped, bool printTDs)
 {
-    USBLog(7, "AppleUSBOHCI[%p] Bulk List: h/w head = 0x%lx", this, USBToHostLong(_pOHCIRegisters->hcBulkHeadED));
-    print_list((AppleOHCIEndpointDescriptorPtr) _pBulkHead, (AppleOHCIEndpointDescriptorPtr) _pBulkTail);
+    USBLog(level, "AppleUSBOHCI[%p] Bulk List: h/w head = 0x%x", this, USBToHostLong(_pOHCIRegisters->hcBulkHeadED));
+    print_list((AppleOHCIEndpointDescriptorPtr) _pBulkHead, (AppleOHCIEndpointDescriptorPtr) _pBulkTail,level, printSkipped, printTDs);
 }
 
 
 
 void 
-AppleUSBOHCI::print_int_list()
+AppleUSBOHCI::print_int_list(int level, bool printSkipped, bool printTDs)
 {
     int				i;
     UInt32			w0;
     AppleOHCIEndpointDescriptorPtr 	pED;
 
 
-    USBLog(7, "AppleUSBOHCI[%p]Interrupt List:", this);
-    for (i = 0; i < 63; i++)
+    for (i = 0; i <= 63; i++)
     {
         pED = _pInterruptHead[i].pHead->pLogicalNext;
-        w0 = USBToHostLong(pED->pShared->flags);
 
-        if ((w0 & kOHCIEDControl_K) == 0 /*noskip*/)
-        {
-            USBLog(7, "%d:", i);
-            print_ed(pED);
-        }
+		w0 = USBToHostLong(pED->pShared->flags);
+		
+		if ((USBToHostLong(pED->pShared->flags) & kOHCIEDControl_K) == 0 || printSkipped)
+		{
+			USBLog(level, "AppleUSBOHCI[%p]Interrupt List  level[%d]:", this, i);
+			printED(pED, level);
+			
+			if ( printTDs )
+			{
+				AppleOHCIGeneralTransferDescriptorPtr	pTD;
+
+				// get the top TD
+				pTD = (AppleOHCIGeneralTransferDescriptorPtr) (USBToHostLong(pED->pShared->tdQueueHeadPtr) & kOHCIHeadPMask);
+				// convert physical to logical
+				pTD = AppleUSBOHCIgtdMemoryBlock::GetGTDFromPhysical((IOPhysicalAddress)pTD);
+				if ( pTD && !(pTD == pED->pLogicalTailP) )
+				{
+					printTD(pTD, level);
+					while ( pTD && pTD->pLogicalNext != NULL )
+					{
+						printTD(pTD->pLogicalNext, level);
+						pTD = pTD->pLogicalNext;
+					}
+				}
+			}
+			
+		}
     }
 }
-#endif
 
-
+#pragma mark Timeout Checks
 #define	kOHCIUIMScratchFirstActiveFrame	0
 
 void
@@ -1726,6 +1804,9 @@ AppleUSBOHCI::CheckEDListForTimeouts(AppleOHCIEndpointDescriptorPtr head, AppleO
     UInt32				rem;
     UInt32				curFrame = GetFrameNumber32();
 
+	if (curFrame == 0)
+		return;
+	
     for (pED = pED->pLogicalNext; pED != tail; pED = pED->pLogicalNext)
     {
         // get the top TD
@@ -2003,6 +2084,9 @@ AppleUSBOHCI::UIMCreateIsochTransfer(IOUSBIsocCommand *command)
         USBLog(3,"AppleUSBOHCI[%p]::UIMCreateIsochTransfer bad frameCount: %d", this, (uint32_t)frameCount);
         return kIOReturnBadArgument;
     }
+	
+	if (curFrameNumber == 0)
+		return kIOReturnInternalError;
 	
     if (direction == kUSBOut) 
 	{

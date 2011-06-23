@@ -4927,7 +4927,7 @@ int smbfs_smb_lookup(struct smbnode *dnp, const char **namep, size_t *nmlenp,
 	 * Hopefully everyone does this correctly. Remember the SMB_QFILEINFO_UNIX_INFO2 call does
 	 * not return the name. So if they are asking for the name then just fail.
 	 */
-	if ((error != EACCES) || (error != EPERM))
+	if ((error != EACCES) && (error != EPERM) && (error != EAGAIN))
 		return error;
 	
 doQueryInfo:

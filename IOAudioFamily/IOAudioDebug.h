@@ -25,17 +25,24 @@
 
 #ifdef DEBUG
 	#define DEBUG_LEVEL 1
-	#define DEBUG_USE_FIRELOG 1
+	//#define DEBUG_USE_FIRELOG 1
+	#define DEBUG_USE_FIREWIRE_KPRINTF 1
 	
 	#ifdef DEBUG_USE_FIRELOG
 	#include <IOKit/firewire/FireLog.h>
 	#define audioDebugIOLog( level, message... ) \
 		do {FireLog(  message ); FireLog("\n");} while (0)
-			
-	#else
+	#endif
+	
+	#ifdef DEBUG_USE_IOUSBLOG
 	#include <IOKit/usb/IOUSBLog.h>
 	#define audioDebugIOLog( level, message... ) \
 		do {USBLog( level, message );} while (0)
+	#endif
+
+	#ifdef DEBUG_USE_FIREWIRE_KPRINTF
+	#define audioDebugIOLog( level, message... ) \
+		do { if (level <= DEBUG_LEVEL) kprintf( message );} while (0)
 	#endif
 
 

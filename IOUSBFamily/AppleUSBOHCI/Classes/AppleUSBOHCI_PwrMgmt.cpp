@@ -374,7 +374,8 @@ AppleUSBOHCI::ResumeUSBBus(bool wakingFromSleep)
 			{
 				if (_rootHubDevice && _rootHubDevice->GetPolicyMaker())
 				{
-					_rootHubDevice->GetPolicyMaker()->message(kIOUSBMessageRootHubWakeEvent, this, (void *)(uintptr_t) (port+1));
+					// Make sure to send port index, not port number
+					_rootHubDevice->GetPolicyMaker()->message(kIOUSBMessageRootHubWakeEvent, this, (void *)(uintptr_t) (port));
 				}
 				else
 				{

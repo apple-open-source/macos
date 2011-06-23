@@ -202,7 +202,6 @@ IOReturn KernelDebugFindKernelLogger()
 	IOReturn			error 				= 0;
 	IOService *			matchingService		= NULL;
 	
-#define NSEC_PER_MS	1000000		/* nanosecond per millisecond */
 	// Get matching dictionary.
 	
 	matchingDictionary = IOService::serviceMatching( kLogKextName );
@@ -215,7 +214,7 @@ IOReturn KernelDebugFindKernelLogger()
 	
 	// Get an iterator for the 'KLog'. Wait for up to 30 secs
 	
-	matchingService = IOService::waitForMatchingService( matchingDictionary, NSEC_PER_MS * 1000 * 30ULL);
+	matchingService = IOService::waitForMatchingService( matchingDictionary, kSecondScale * 30ULL);
 	if ( !matchingService )
 	{
 		error = kIOReturnError;

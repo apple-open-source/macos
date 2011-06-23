@@ -35,6 +35,10 @@ import <stdint.h>;
 type Data = array [] of char;
 type OSStatus = int32_t;
 
+// *** IMPORTANT ***
+// Always add new routines to the end of the file,
+// to avoid renumbering of existing routines!
+
 //
 // Normal OCSP request. Depending on contents of encoded SecAsn1OCSPDRequests,
 // this optionally performs cache lookup, local responder OCSP, and normal
@@ -123,3 +127,15 @@ routine trustSettingsWrite(
 	in authBlob: Data;
 	in trustSettings : Data;
 	out rcode: OSStatus);
+
+//
+// Get CRL status for given serial number and PEM-encoded issuers,
+// along with issuer name or distribution point URL.
+//
+routine crlStatus(
+	requestport serverport : mach_port_t;
+	in serial_number: Data;
+	in cert_issuers : Data;
+	in crl_issuer : Data;
+	in crl_url : Data);
+

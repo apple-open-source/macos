@@ -151,15 +151,15 @@ enum {
 };
 
 #ifndef kIOFBLowPowerAggressiveness
-#define kIOFBLowPowerAggressiveness     iokit_family_err(sub_iokit_graphics, 1)
+#define kIOFBLowPowerAggressiveness     ((uint32_t) iokit_family_err(sub_iokit_graphics, 1))
 #endif
 
 #ifndef kIOFBCaptureAggressiveness
-#define kIOFBCaptureAggressiveness      iokit_family_err(sub_iokit_graphics, 2)
+#define kIOFBCaptureAggressiveness      ((uint32_t) iokit_family_err(sub_iokit_graphics, 2))
 #endif
 
 #ifndef kIODisplayDimAggressiveness
-#define kIODisplayDimAggressiveness     iokit_family_err(sub_iokit_graphics, 3)
+#define kIODisplayDimAggressiveness     ((uint32_t) iokit_family_err(sub_iokit_graphics, 3))
 #endif
 
 #define kIOFBMessageConnectChange       iokit_family_err(sub_iokit_graphics, 100)

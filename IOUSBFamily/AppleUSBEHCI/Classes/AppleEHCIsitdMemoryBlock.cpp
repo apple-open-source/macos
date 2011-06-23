@@ -62,6 +62,7 @@ AppleEHCIsitdMemoryBlock::NewMemoryBlock(void)
 			{
 				USBError(1, "AppleEHCIsitdMemoryBlock::NewMemoryBlock - could not prepare buffer");
 				me->_buffer->release();
+				me->_buffer = NULL;
 				me->release();
 				dmaCommand->release();
 				return NULL;
@@ -74,6 +75,7 @@ AppleEHCIsitdMemoryBlock::NewMemoryBlock(void)
 				USBError(1, "AppleEHCIsitdMemoryBlock::NewMemoryBlock - could not set memory descriptor");
 				me->_buffer->complete();
 				me->_buffer->release();
+				me->_buffer = NULL;
 				me->release();
 				dmaCommand->release();
 				return NULL;
@@ -86,6 +88,7 @@ AppleEHCIsitdMemoryBlock::NewMemoryBlock(void)
 				USBError(1, "AppleEHCIsitdMemoryBlock::NewMemoryBlock - could not get physical segment");
 				me->_buffer->complete();
 				me->_buffer->release();
+				me->_buffer = NULL;
 				me->release();
 				return NULL;
 			}
@@ -118,8 +121,10 @@ IOPhysicalAddress
 AppleEHCIsitdMemoryBlock::GetPhysicalPtr(UInt32 index)
 {
     IOPhysicalAddress		ret = NULL;
+	
     if (index < SITDsPerBlock)
-	ret = _sharedPhysical + (index * sizeof(EHCISplitIsochTransferDescriptorShared));
+		ret = _sharedPhysical + (index * sizeof(EHCISplitIsochTransferDescriptorShared));
+	
     return ret;
 }
 
@@ -128,8 +133,10 @@ EHCISplitIsochTransferDescriptorSharedPtr
 AppleEHCIsitdMemoryBlock::GetLogicalPtr(UInt32 index)
 {
     EHCISplitIsochTransferDescriptorSharedPtr ret = NULL;
+	
     if (index < SITDsPerBlock)
-	ret = &_sharedLogical[index];
+		ret = &_sharedLogical[index];
+	
     return ret;
 }
 
@@ -147,3 +154,16 @@ AppleEHCIsitdMemoryBlock::SetNextBlock(AppleEHCIsitdMemoryBlock* next)
 {
     _nextBlock = next;
 }
+
+
+void
+AppleEHCIsitdMemoryBlock::free()
+{
+	if (_buffer)
+	{
+		_buffer->complete();
+		_buffer->release();
+	}
+	super::free();
+}
+

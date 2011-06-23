@@ -2225,6 +2225,7 @@ ident_ir3mx(iph1)
 	vchar_t *gsstoken = NULL;
 	vchar_t *gsshash = NULL;
 #endif
+	vchar_t *notp_ini = NULL;
 
 	switch (AUTHMETHOD(iph1)) {
 	case OAKLEY_ATTR_AUTH_METHOD_PSKEY:
@@ -2337,6 +2338,10 @@ ident_ir3mx(iph1)
 		goto end;
 	}
 
+	if (iph1->side == INITIATOR) {
+		notp_ini = isakmp_plist_append_initial_contact(iph1, plist);
+	}
+	
 	buf = isakmp_plist_set_all (&plist, iph1);
 	
 #ifdef HAVE_PRINT_ISAKMP_C
@@ -2368,6 +2373,8 @@ end:
 		vfree(buf);
 		buf = NULL;
 	}
+	if (notp_ini)
+		vfree(notp_ini);
 
 	return buf;
 }

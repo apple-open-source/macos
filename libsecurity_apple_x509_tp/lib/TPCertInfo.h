@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2001 Apple Computer, Inc. All Rights Reserved.
+ * Copyright (c) 2000-2011 Apple Inc. All Rights Reserved.
  * 
  * The contents of this file constitute Original Code as defined in and are
  * subject to the Apple Public Source License Version 1.2 (the 'License').
@@ -18,8 +18,6 @@
 
 /*
  * TPCertInfo.h - TP's private certificate info and cert group classes
- *
- * Written 10/23/2000 by Doug Mitchell.
  */
  
 #ifndef	_TP_CERT_INFO_H_
@@ -301,6 +299,10 @@ public:
 	 */
 	bool 					hasPartialKey();
 	 
+	/* Indicate whether this cert should be explicitly rejected.
+	 */
+	bool					shouldReject();
+
 	/*
 	 * Flag to indicate that at least one revocation policy has successfully
 	 * achieved a positive verification of the cert. 
@@ -393,9 +395,9 @@ typedef enum {
 } TPGroupOwner;
 
 /*
- * TP's private Cert Group class. Provides a list of TPCertInfo pointers, 
- * to which caller can append additional elements, access an element at 
- * an arbitrary position, and remover an element at an arbitrrary position. 
+ * TP's private Cert Group class. Provides a list of TPCertInfo pointers,
+ * to which caller can append additional elements, access an element at
+ * an arbitrary position, and remove an element at an arbitrary position.
  */
 class TPCertGroup
 {
@@ -528,7 +530,7 @@ public:
 	/* Given a status for basic construction of a cert group and a status
 	 * of (optional) policy verification, plus the implicit notBefore/notAfter
 	 * status in the certs, calculate a global return code. This just 
-	 * encapsulates a policy for CertGroupeConstruct and CertGroupVerify.
+	 * encapsulates a policy for CertGroupConstruct and CertGroupVerify.
 	 */
 	CSSM_RETURN getReturnCode(
 		CSSM_RETURN					constructStatus,
@@ -560,6 +562,13 @@ public:
 	 * Determine if we already have the specified cert in this group.
 	 */
 	bool isInGroup(TPCertInfo &certInfo);
+
+	/*
+	 * Given a constructed cert group, encode all the issuers
+	 * (i.e. chain minus the leaf, unless numCerts() is 1) as a PEM data blob.
+	 * Caller is responsible for freeing the data.
+	 */
+	void encodeIssuers(CSSM_DATA &issuers);
 	
 private:
 	

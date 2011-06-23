@@ -820,6 +820,12 @@ enum
     kIODisplayNeedsCEAUnderscan      = 0x00000001,
 };
 
+enum
+{
+	kIODisplayPowerStateOff       =	0,
+	kIODisplayPowerStateMinUsable =	1,
+	kIODisplayPowerStateOn        = 2,
+};
 
 #define IO_DISPLAY_CAN_FILL             0x00000040
 #define IO_DISPLAY_CAN_BLIT             0x00000020
@@ -1117,6 +1123,7 @@ enum {
 #define kIOFBModeTMKey                  "TM"
 #define kIOFBModeAIDKey                 "AID"
 #define kIOFBModeDFKey                  "DF"
+#define kIOFBModePIKey                  "PI"
 
 // display property keys
 
@@ -1224,20 +1231,22 @@ enum {
 #define kIODisplayMinValueKey           "min"
 #define kIODisplayMaxValueKey           "max"
 
-#define kIODisplayBrightnessKey         "brightness"
-#define kIODisplayContrastKey           "contrast"
-#define kIODisplayHorizontalPositionKey "horizontal-position"
-#define kIODisplayHorizontalSizeKey     "horizontal-size"
-#define kIODisplayVerticalPositionKey   "vertical-position"
-#define kIODisplayVerticalSizeKey       "vertical-size"
-#define kIODisplayTrapezoidKey          "trapezoid"
-#define kIODisplayPincushionKey         "pincushion"
-#define kIODisplayParallelogramKey      "parallelogram"
-#define kIODisplayRotationKey           "rotation"
-#define kIODisplayTheatreModeKey        "theatre-mode"
-#define kIODisplayTheatreModeWindowKey  "theatre-mode-window"
-#define kIODisplayOverscanKey           "oscn"
-#define kIODisplayVideoBestKey          "vbst"
+#define kIODisplayBrightnessKey             "brightness"
+#define kIODisplayLinearBrightnessKey       "linear-brightness"
+#define kIODisplayUsableLinearBrightnessKey "usable-linear-brightness"
+#define kIODisplayContrastKey               "contrast"
+#define kIODisplayHorizontalPositionKey     "horizontal-position"
+#define kIODisplayHorizontalSizeKey     	"horizontal-size"
+#define kIODisplayVerticalPositionKey   	"vertical-position"
+#define kIODisplayVerticalSizeKey           "vertical-size"
+#define kIODisplayTrapezoidKey              "trapezoid"
+#define kIODisplayPincushionKey             "pincushion"
+#define kIODisplayParallelogramKey          "parallelogram"
+#define kIODisplayRotationKey               "rotation"
+#define kIODisplayTheatreModeKey            "theatre-mode"
+#define kIODisplayTheatreModeWindowKey      "theatre-mode-window"
+#define kIODisplayOverscanKey               "oscn"
+#define kIODisplayVideoBestKey              "vbst"
 
 #define kIODisplaySpeakerVolumeKey              "speaker-volume"
 #define kIODisplaySpeakerSelectKey              "speaker-select"
@@ -1251,6 +1260,9 @@ enum {
 #define kIODisplayPowerModeKey                  "power-mode"
 #define kIODisplayManufacturerSpecificKey       "manufacturer-specific"
 
+#define kIODisplayPowerStateKey       			"dsyp"
+
+#define kIODisplayControllerIDKey				"IODisplayControllerID"
 
 #define kIODisplayRedGammaScaleKey      "rgsc"
 #define kIODisplayGreenGammaScaleKey    "ggsc"

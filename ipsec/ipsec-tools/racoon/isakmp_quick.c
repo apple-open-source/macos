@@ -2331,6 +2331,18 @@ get_sainfo_r(iph2)
 				plog(LLV_DEBUG2, LOCATION, NULL,
 					 "get_sainfo_r case 2.\n");
 			}
+			// still no sainfo (or anonymous): fallback to sainfo picked by dst id
+			if ((iph2->sainfo == NULL || iph2->sainfo->idsrc == NULL) && iph2->id_p) {
+				plog(LLV_DEBUG2, LOCATION, NULL,
+					 "get_sainfo_r about to try dst id only.\n");
+				iph2->sainfo = getsainfo_by_dst_id(iph2->id_p, iph2->ph1->id_p);
+				if (iph2->sainfo) {
+					plog(LLV_DEBUG2, LOCATION, NULL,
+						 "get_sainfo_r case 3.\n");
+					if (iph2->sainfo->idsrc == NULL)
+						anonymous = iph2->sainfo;
+				}
+			}
 		}
 	}
 	if (iph2->sainfo == NULL) {
@@ -2400,9 +2412,9 @@ get_proposal_r(iph2)
  * NOTE: This function is only for responder.
  */
 static int
-get_proposal_r_remote(iph2, use_remote_addr)
+get_proposal_r_remote(iph2, ignore_id)
 	struct ph2handle *iph2;
-	int use_remote_addr;
+	int ignore_id;
 {
 	struct policyindex spidx;
 	struct secpolicy *sp_in, *sp_out;
@@ -2418,12 +2430,15 @@ get_proposal_r_remote(iph2, use_remote_addr)
 		return ISAKMP_NTYPE_INVALID_ID_INFORMATION;
 	}
 
-	/* make sure if id[src,dst] is null. */
-	if (iph2->src_id || iph2->dst_id) {
+	/* make sure if id[src,dst] is null (if use_remote_addr == 0). */
+	if (!ignore_id && (iph2->src_id || iph2->dst_id)) {
 		plog(LLV_ERROR, LOCATION, NULL,
 			"Why do ID[src,dst] exist already.\n");
 		return ISAKMP_INTERNAL_ERROR;
 	}
+
+	plog(LLV_DEBUG, LOCATION, NULL,
+		 "%s: ignore_id %x.\n", __FUNCTION__, ignore_id);
 
 	memset(&spidx, 0, sizeof(spidx));
 
@@ -2440,7 +2455,7 @@ get_proposal_r_remote(iph2, use_remote_addr)
 	 * use the nat's address in the ID payload.
 	 */
 	if (iph2->id != NULL
-	 && use_remote_addr == 0
+	 && ignore_id == 0
 	 && (_XIDT(iph2->id) == IPSECDOI_ID_IPV4_ADDR
 	  || _XIDT(iph2->id) == IPSECDOI_ID_IPV6_ADDR
 	  || _XIDT(iph2->id) == IPSECDOI_ID_IPV4_ADDR_SUBNET
@@ -2506,7 +2521,7 @@ get_proposal_r_remote(iph2, use_remote_addr)
 
 	/* make source address in spidx */
 	if (iph2->id_p != NULL
-	 && use_remote_addr == 0
+	 && ignore_id == 0
 	 && (_XIDT(iph2->id_p) == IPSECDOI_ID_IPV4_ADDR
 	  || _XIDT(iph2->id_p) == IPSECDOI_ID_IPV6_ADDR
 	  || _XIDT(iph2->id_p) == IPSECDOI_ID_IPV4_ADDR_SUBNET

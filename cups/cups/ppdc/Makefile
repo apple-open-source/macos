@@ -1,9 +1,9 @@
 #
-# "$Id: Makefile 2114 2010-04-23 20:27:40Z msweet $"
+# "$Id: Makefile 3027 2011-03-04 20:02:14Z msweet $"
 #
 #   Makefile for the CUPS PPD Compiler.
 #
-#   Copyright 2007-2010 by Apple Inc.
+#   Copyright 2007-2011 by Apple Inc.
 #   Copyright 2002-2006 by Easy Software Products.
 #
 #   These coded instructions, statements, and computer programs are the
@@ -294,7 +294,7 @@ ppdi-static:		ppdc-static ppdi.o libcupsppdc.a  ../cups/libcups.a
 	./ppdc-static -I ../data sample.drv
 	./ppdi-static -I ../data -o sample-import.drv ppd/*
 	./ppdc-static -I ../data -d ppd2 sample-import.drv
-	if diff -qr ppd ppd2; then \
+	if diff -r ppd ppd2 >/dev/null; then \
 		echo PPD import OK; \
 	else \
 		echo PPD import FAILED; \
@@ -400,5 +400,5 @@ include Dependencies
 
 
 #
-# End of "$Id: Makefile 2114 2010-04-23 20:27:40Z msweet $".
+# End of "$Id: Makefile 3027 2011-03-04 20:02:14Z msweet $".
 #

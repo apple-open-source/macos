@@ -45,6 +45,9 @@
 #define super IOUserClient
 
 // ExpansionData members
+#define FOPENED_FOR_EXCLUSIVEACCESS					fIOUSBInterfaceUserClientExpansionData->fOpenedForExclusiveAccess
+#define FDELAYED_WORKLOOP_FREE						fIOUSBInterfaceUserClientExpansionData->fDelayedWorkLoopFree
+#define FOWNER_WAS_RELEASED							fIOUSBInterfaceUserClientExpansionData->fOwnerWasReleased
 
 #ifndef kIOUserClientCrossEndianKey
 #define kIOUserClientCrossEndianKey "IOUserClientCrossEndian"
@@ -296,7 +299,7 @@ IOUSBInterfaceUserClientV2::ReqComplete(void *obj, void *param, IOReturn res, UI
     if (!me)
 		return;
 	
-    USBLog(7, "IOUSBInterfaceUserClientV2[%p]::ReqComplete, res = 0x%x, req = %08x, remaining = %08x",  me, res, (int)pb->fMax, (int)remaining);
+    USBLog(7, "IOUSBInterfaceUserClientV2[%p]::ReqComplete, result = 0x%x (%s), req = %08x, remaining = %08x",  me, res, USBStringFromReturn(res), (int)pb->fMax, (int)remaining);
 	
 	USBTrace( kUSBTInterfaceUserClient,  kTPInterfaceUCReqComplete, (uintptr_t)me, res, remaining, pb->fMax );
 
@@ -335,7 +338,7 @@ IOUSBInterfaceUserClientV2::IsoReqComplete(void *obj, void *param, IOReturn res,
     if (!me)
 		return;
 	
-    USBLog(7, "IOUSBInterfaceUserClientV2[%p]::IsoReqComplete, result = 0x%x, dataMem: %p",  me, res, pb->dataMem);
+    USBLog(7, "IOUSBInterfaceUserClientV2[%p]::IsoReqComplete, result = 0x%x (%s), dataMem: %p",  me, res, USBStringFromReturn(res), pb->dataMem);
 	
 	USBTrace( kUSBTInterfaceUserClient,  kTPInterfaceUCIsoReqComplete, (uintptr_t)me, res, (uintptr_t) pb->frameBase, 0 );
 
@@ -382,7 +385,7 @@ IOUSBInterfaceUserClientV2::LowLatencyIsoReqComplete(void *obj, void *param, IOR
     if (!me)
 		return;
 	
-	USBLog(7, "%s[%p]::LowLatencyIsoReqComplete, result = 0x%x", me->getName(), me, res);
+	USBLog(7, "%s[%p]::LowLatencyIsoReqComplete, result = 0x%x (%s)", me->getName(), me, res, USBStringFromReturn(res));
 	
 	USBTrace( kUSBTInterfaceUserClient,  kTPInterfaceUCLLIsoReqComplete, (uintptr_t)me, res, (uintptr_t) command->GetFrameBase(), 0 );
 
@@ -493,27 +496,47 @@ IOUSBInterfaceUserClientV2::start( IOService * provider )
     IOWorkLoop	*			workLoop = NULL;
     IOCommandGate *			commandGate = NULL;
 	
-    USBLog(7, "+IOUSBInterfaceUserClientV2[%p]::start(%p)",  this, provider);
+    USBLog(6, "+IOUSBInterfaceUserClientV2[%p]::start(%p)",  this, provider);
     
-	// retain ourselves so we don't go away while start()'ing
+	// See comment below for when this is release()'d. 
 	retain();
-	
-    fOwner = OSDynamicCast(IOUSBInterface, provider);
-	
-    if (!fOwner)
-    {
-        USBError(1, "IOUSBInterfaceUserClientV2[%p]::start - provider is NULL!",  this);
-        goto ErrorExit;
-    }
-    
-	// Now, retain our provider since we will not open() it until our user-space client open()'s it
-	fOwner->retain();
 	
     if (!super::start(provider))
     {
         USBError(1, "IOUSBInterfaceUserClientV2[%p]::start - super::start returned false!",  this);
-        goto ErrorExit;
+		release();
+		return false;
     }
+	
+    fOwner = OSDynamicCast(IOUSBInterface, provider);
+    if (!fOwner)
+    {
+        USBError(1, "IOUSBInterfaceUserClientV2[%p]::start - provider is NULL!",  this);
+		release();
+        return false;
+    }
+    
+    // We will retain our owner/provider (above) and ourselves here.  We will release those when
+    // we are done:  In clientCloseGated() when our user space client goes away (nicely or not), or in didTerminate() 
+    // when our iokit device goes away.  If we have i/o pending when those 2 methods are called, we will do the release's
+    // in Decrement/ChangeOutstandingIO() 
+
+	fOwner->retain();
+	FOWNER_WAS_RELEASED = false;
+	
+ 	// Now, open() our provider, but not exclusively.  This will keep us from being release()'d until we close() it
+	if ( !fOwner->open(this))
+	{
+		USBError(1, "IOUSBInterfaceUserClientV2[%p]::start -  could not open() our provider(%p)!",  this, fOwner);
+		if ( !FOWNER_WAS_RELEASED )
+		{
+			USBLog(6, "IOUSBInterfaceUserClientV2[%p]::start -  releasing fOwner(%p) and UC!",  this, fOwner);
+			FOWNER_WAS_RELEASED = true;
+			fOwner->release();
+			release();
+		}
+		return false;
+	}
 	
 	
 	commandGate = IOCommandGate::commandGate(this);
@@ -550,13 +573,19 @@ IOUSBInterfaceUserClientV2::start( IOService * provider )
         goto ErrorExit;
     }
 	
+	if ( isInactive() )
+	{
+		USBLog(6, "IOUSBInterfaceUserClientV2[%p]::start  we are inActive, so bailing out",  this);
+        goto ErrorExit;
+	}
+		
     // Now that we have succesfully added our gate to the workloop, set our member variables
     //
     fGate = commandGate;
     fWorkLoop = workLoop;
 	
     
-    USBLog(7, "-IOUSBInterfaceUserClientV2[%p]::start",  this);
+    USBLog(6, "-IOUSBInterfaceUserClientV2[%p]::start",  this);
 		
     return true;
     
@@ -575,10 +604,19 @@ ErrorExit:
         workLoop = NULL;
     }
 	
-	if ( fOwner )
-		fOwner->release();
-	
-	release();
+	if ( !FOWNER_WAS_RELEASED )
+	{
+		FOWNER_WAS_RELEASED = true;
+		if (fOwner)
+		{
+			fOwner->close(this);
+			fOwner->release();
+		}
+		
+		release();
+	}
+
+    USBLog(6, "-IOUSBInterfaceUserClientV2[%p]::start returning FALSE",  this);
 	
     return false;
 }
@@ -588,40 +626,61 @@ IOReturn IOUSBInterfaceUserClientV2::_open(IOUSBInterfaceUserClientV2 * target, 
 {
 #pragma unused (reference)
 	USBLog(7, "+IOUSBInterfaceUserClientV2[%p]::_open",  target);
-	return target->open((bool)arguments->scalarInput[0]);
+	
+	target->retain();
+	IOReturn kr = target->open((bool)arguments->scalarInput[0]);
+	target->release();
+	
+	return kr;
 }
 
 IOReturn 
 IOUSBInterfaceUserClientV2::open(bool seize)
 {
+	IOReturn		ret = kIOReturnSuccess;
     IOOptionBits	options = seize ? (IOOptionBits)kIOServiceSeize : 0;
 	
-    USBLog(7, "+IOUSBInterfaceUserClientV2[%p]::open",  this);
-    
-    if (!fOwner)
-        return kIOReturnNotAttached;
+    USBLog(5, "+IOUSBInterfaceUserClientV2[%p]::open isInactive: %d",  this, isInactive());
+    IncrementOutstandingIO();
 	
-    if (!fOwner->open(this, options))
+	// Open our provider exclusively, to be closed in ::close()
+    if (fOwner)
     {
-        USBLog(3, "+IOUSBInterfaceUserClientV2[%p]::open failed",  this);
-        return kIOReturnExclusiveAccess;
+		if (fOwner->open(this, options | kUSBOptionBitOpenExclusivelyMask))
+		{
+			FOPENED_FOR_EXCLUSIVEACCESS = true;
+		}
+		else
+		{
+			USBLog(5, "IOUSBInterfaceUserClientV2[%p]::open fOwner->open() failed.  Returning kIOReturnExclusiveAccess",  this);
+			ret = kIOReturnExclusiveAccess;
+		}
+    }
+    else
+    {
+        ret = kIOReturnNotAttached;
     }
     
-	// If we are running under Rosetta, add a property to the interface nub:
-	if ( fClientRunningUnderRosetta )
+    if ( ret == kIOReturnSuccess )
 	{
-		USBLog(5, "IOUSBInterfaceUserClientV2[%p]::open  setting kIOUserClientCrossEndianCompatibleKey TRUE on %p",  this, fOwner);
-		fOwner->setProperty(kIOUserClientCrossEndianCompatibleKey, kOSBooleanTrue);
+		// If we are running under Rosetta, add a property to the interface nub:
+		if ( fClientRunningUnderRosetta )
+		{
+			USBLog(5, "IOUSBInterfaceUserClientV2[%p]::open  setting kIOUserClientCrossEndianCompatibleKey TRUE on %p",  this, fOwner);
+			fOwner->setProperty(kIOUserClientCrossEndianCompatibleKey, kOSBooleanTrue);
+		}
+		else
+		{
+			USBLog(5, "IOUSBInterfaceUserClientV2[%p]::open  setting kIOUserClientCrossEndianCompatibleKey FALSE on %p",  this, fOwner);
+			fOwner->setProperty(kIOUserClientCrossEndianCompatibleKey, kOSBooleanFalse);
+		}
+		
+		fNeedToClose = false;
 	}
-	else
-	{
-		USBLog(5, "IOUSBInterfaceUserClientV2[%p]::open  setting kIOUserClientCrossEndianCompatibleKey FALSE on %p",  this, fOwner);
-		fOwner->setProperty(kIOUserClientCrossEndianCompatibleKey, kOSBooleanFalse);
-	}
-	
-    fNeedToClose = false;
     
-    return kIOReturnSuccess;
+    USBLog(5, "-IOUSBInterfaceUserClientV2[%p]::open - returning 0x%x (%s)", this, ret, USBStringFromReturn(ret));    
+    DecrementOutstandingIO();
+    return ret;
 }
 
 
@@ -629,9 +688,56 @@ IOReturn
 IOUSBInterfaceUserClientV2::_close(IOUSBInterfaceUserClientV2 * target, void * reference, IOExternalMethodArguments * arguments)
 {
 #pragma unused (reference, arguments)
+	IOReturn	ret;
+	
     USBLog(7, "+IOUSBInterfaceUserClientV2[%p]::_close",  target);
-    return target->close();
+
+	target->retain();
+	
+	if (!target->isInactive() && target->fGate && target->fWorkLoop)
+	{
+		IOCommandGate *	gate = target->fGate;
+		IOWorkLoop *	workLoop = target->fWorkLoop;
+		
+		workLoop->retain();
+		gate->retain();
+		
+		ret = gate->runAction(closeGated);
+	
+		if ( ret != kIOReturnSuccess)
+		{
+			USBLog(3, "IOUSBInterfaceUserClientV2[%p]::_close  runAction returned 0x%x, isInactive(%s)",  target, ret, target->isInactive() ? "true" : "false");
+		}
+		
+		gate->release();
+		workLoop->release();
+	}
+	else
+	{
+		USBLog(1, "+IOUSBInterfaceUserClientV2[%p]::_close  no fGate, calling close() directly", target);
+		ret = target->close();
+	}
+	
+	target->release();
+	
+	return ret;
 }
+
+IOReturn  
+IOUSBInterfaceUserClientV2::closeGated(OSObject *target, void *param1, void *param2, void *param3, void *param4)
+{
+#pragma unused (param1, param2, param3, param4)
+	IOUSBInterfaceUserClientV2 *			me = OSDynamicCast(IOUSBInterfaceUserClientV2, target);
+    if (!me)
+    {
+		USBLog(1, "IOUSBInterfaceUserClientV2::closeGated - invalid target");
+		return kIOReturnBadArgument;
+    }
+	
+    USBLog(5, "+IOUSBInterfaceUserClientV2[%p]::closeGated",  me);
+	return me->close();
+}
+
 
 // This is NOT the normal IOService::close(IOService*) method.
 // We are treating this is a proxy that we should close our parent, but
@@ -641,31 +747,46 @@ IOUSBInterfaceUserClientV2::close()
 {
     IOReturn 	ret = kIOReturnSuccess;
     
-    USBLog(7, "+IOUSBInterfaceUserClientV2[%p]::close",  this);
-    IncrementOutstandingIO();
+    USBLog(5, "+IOUSBInterfaceUserClientV2[%p]::close",  this);
     
-    if (fOwner && !isInactive())
-    {
-		if (fOwner->isOpen(this))
+    if (fOwner)
+	{
+		if (fOutstandingIO > 0)
 		{
-			fNeedToClose = true;				// the last outstanding IO will close this
-			if (GetOutstandingIO() > 1)				// 1 for the one at the top of this routine
+			int		i;
+			
+			// we need to abort any outstanding IO to allow us to close
+			USBLog(5, "IOUSBInterfaceUserClientV2[%p]::close - outstanding IO - aborting pipes",  this);
+			
+			for (i = 1; i <= kUSBMaxPipes; i++)
 			{
-				int		i;
-				
-				USBLog(6, "IOUSBInterfaceUserClientV2[%p]::close - outstanding IO, aborting pipes",  this);
-				for (i=1; i <= kUSBMaxPipes; i++)
-					AbortPipe(i);
+				AbortPipe(i);
 			}
 		}
+		
+		if (FOPENED_FOR_EXCLUSIVEACCESS)
+		{
+			IOOptionBits	options = kUSBOptionBitOpenExclusivelyMask;
+			
+			USBLog(6, "IOUSBInterfaceUserClientV2[%p]::close  we were open exclusively, closing exclusively",  this);
+			FOPENED_FOR_EXCLUSIVEACCESS = false;
+			
+			fOwner->close(this, options);
+		}
 		else
+		{
+			USBLog(5, "IOUSBInterfaceUserClientV2[%p]::close - interface was not open for exclusive access",  this);
 			ret = kIOReturnNotOpen;
+		}
     }
     else
+	{
+		USBLog(5, "IOUSBInterfaceUserClientV2[%p]::close - fOwner was NULL",  this);
 		ret = kIOReturnNotAttached;
+	}
 	
-    USBLog(7, "-IOUSBInterfaceUserClientV2[%p]::close - returning %x",  this, ret);
-    DecrementOutstandingIO();
+    USBLog(5, "-IOUSBInterfaceUserClientV2[%p]::close - returning 0x%x (%s)", this, ret, USBStringFromReturn(ret));
+	
     return ret;
 }
 
@@ -676,7 +797,12 @@ IOReturn IOUSBInterfaceUserClientV2::_SetAlternateInterface(IOUSBInterfaceUserCl
 {
 #pragma unused (reference)
     USBLog(7, "+IOUSBInterfaceUserClientV2[%p]::_SetAlternateInterface",  target);
-    return target->SetAlternateInterface((UInt8)arguments->scalarInput[0]);
+	
+	target->retain();
+    IOReturn kr = target->SetAlternateInterface((UInt8)arguments->scalarInput[0]);
+	target->release();
+	
+	return kr;
 }
 
 
@@ -685,7 +811,7 @@ IOUSBInterfaceUserClientV2::SetAlternateInterface(UInt8 altSetting)
 {
     IOReturn	ret;
     
-    USBLog(7, "+IOUSBInterfaceUserClientV2[%p]::SetAlternateInterface to %d",  this, altSetting);
+    USBLog(6, "+IOUSBInterfaceUserClientV2[%p]::SetAlternateInterface to %d",  this, altSetting);
     IncrementOutstandingIO();
     
     if (fOwner && !isInactive())
@@ -695,7 +821,7 @@ IOUSBInterfaceUserClientV2::SetAlternateInterface(UInt8 altSetting)
 	
     if (ret)
 	{
-		USBLog(3, "IOUSBInterfaceUserClientV2[%p]::SetAlternateInterface - returning err %x",  this, ret);
+		USBLog(3, "IOUSBInterfaceUserClientV2[%p]::SetAlternateInterface - returning err 0x%x (%s)", this, ret, USBStringFromReturn(ret));
 	}
 	
     DecrementOutstandingIO();
@@ -707,9 +833,13 @@ IOUSBInterfaceUserClientV2::SetAlternateInterface(UInt8 altSetting)
 IOReturn IOUSBInterfaceUserClientV2::_GetDevice(IOUSBInterfaceUserClientV2 * target, void * reference, IOExternalMethodArguments * arguments)
 {
 #pragma unused (reference)
-	
     USBLog(7, "+IOUSBInterfaceUserClientV2[%p]::_GetDevice",  target);
-    return target->GetDevice(&(arguments->scalarOutput[0]));
+
+	target->retain();
+    IOReturn kr = target->GetDevice(&(arguments->scalarOutput[0]));
+	target->release();
+	
+	return kr;
 }
 
 IOReturn 
@@ -718,8 +848,8 @@ IOUSBInterfaceUserClientV2::GetDevice(uint64_t *device)
     IOReturn		ret;
     io_object_t  	service;
 	
-    USBLog(7, "+IOUSBInterfaceUserClientV2[%p]::GetDevice (%p, 0x%qx)",  this, device, *device);
-    IncrementOutstandingIO();
+    USBLog(7, "+IOUSBInterfaceUserClientV2[%p]::GetDevice (%p, 0x%qx), isInactive: %d",  this, device, *device, isInactive());
+	IncrementOutstandingIO();
 	
 	*device = NULL;
 	
@@ -738,7 +868,7 @@ IOUSBInterfaceUserClientV2::GetDevice(uint64_t *device)
 	
     if (ret)
 	{
-		USBLog(3, "IOUSBInterfaceUserClientV2[%p]::GetDevice - returning  %x",  this, ret);
+		USBLog(3, "IOUSBInterfaceUserClientV2[%p]::GetDevice - returning  0x%x (%s)", this, ret, USBStringFromReturn(ret));
 	}
 	
     DecrementOutstandingIO();
@@ -751,7 +881,12 @@ IOReturn IOUSBInterfaceUserClientV2::_GetFrameNumber(IOUSBInterfaceUserClientV2 
 {
 #pragma unused (reference)
     USBLog(7, "+IOUSBInterfaceUserClientV2[%p]::_GetFrameNumber",  target);
-	return target->GetFrameNumber((IOUSBGetFrameStruct *)arguments->structureOutput, (UInt32 *)&(arguments->structureOutputSize));
+
+	target->retain();
+	IOReturn kr = target->GetFrameNumber((IOUSBGetFrameStruct *)arguments->structureOutput, (UInt32 *)&(arguments->structureOutputSize));
+	target->release();
+	
+	return kr;
 }  
 
 IOReturn 
@@ -775,7 +910,7 @@ IOUSBInterfaceUserClientV2::GetFrameNumber(IOUSBGetFrameStruct *data, UInt32 *si
 	
     if (ret)
 	{
-		USBLog(3, "IOUSBInterfaceUserClientV2[%p]::GetFrameNumber - returning err %x",  this, ret);
+		USBLog(3, "IOUSBInterfaceUserClientV2[%p]::GetFrameNumber - returning err 0x%x (%s)", this, ret, USBStringFromReturn(ret));
 	}
 	
     DecrementOutstandingIO();
@@ -789,7 +924,12 @@ IOReturn IOUSBInterfaceUserClientV2::_GetMicroFrameNumber(IOUSBInterfaceUserClie
 {
 #pragma unused (reference)
     USBLog(7, "+IOUSBInterfaceUserClientV2[%p]::_GetMicroFrameNumber",  target);
-	return target->GetMicroFrameNumber((IOUSBGetFrameStruct *)arguments->structureOutput, (UInt32 *)&(arguments->structureOutputSize));
+	
+	target->retain();
+	IOReturn kr = target->GetMicroFrameNumber((IOUSBGetFrameStruct *)arguments->structureOutput, (UInt32 *)&(arguments->structureOutputSize));
+	target->release();
+	
+	return kr;
 }  
 
 IOReturn
@@ -837,7 +977,7 @@ IOUSBInterfaceUserClientV2::GetMicroFrameNumber(IOUSBGetFrameStruct *data, UInt3
 	
     if (ret)
 	{
-        USBLog(3, "IOUSBInterfaceUserClientV2[%p]::GetFrameNumber - returning err %x",  this, ret);
+        USBLog(3, "IOUSBInterfaceUserClientV2[%p]::GetFrameNumber - returning err 0x%x (%s)", this, ret, USBStringFromReturn(ret));
 	}
 	
     DecrementOutstandingIO();
@@ -849,7 +989,12 @@ IOReturn IOUSBInterfaceUserClientV2::_GetFrameNumberWithTime(IOUSBInterfaceUserC
 {
 #pragma unused (reference)
 	USBLog(7, "+IOUSBInterfaceUserClientV2[%p]::_GetFrameNumberWithTime",  target);
-	return target->GetFrameNumberWithTime( (IOUSBGetFrameStruct*) arguments->structureOutput, (UInt32 *)&(arguments->structureOutputSize));
+	
+	target->retain();
+	IOReturn kr = target->GetFrameNumberWithTime( (IOUSBGetFrameStruct*) arguments->structureOutput, (UInt32 *)&(arguments->structureOutputSize));
+	target->release();
+	
+	return kr;
 }  
 
 
@@ -882,7 +1027,7 @@ IOUSBInterfaceUserClientV2::GetFrameNumberWithTime(IOUSBGetFrameStruct *data, UI
 	
     if (ret)
 	{
-		USBLog(3, "IOUSBInterfaceUserClientV2[%p]::GetFrameNumberWithTime - returning err %x",  this, ret);
+		USBLog(3, "IOUSBInterfaceUserClientV2[%p]::GetFrameNumberWithTime - returning err 0x%x (%s)", this, ret, USBStringFromReturn(ret));
 	}
 	
     return ret;
@@ -894,7 +1039,12 @@ IOReturn IOUSBInterfaceUserClientV2::_GetBandwidthAvailable(IOUSBInterfaceUserCl
 {
 #pragma unused (reference)
     USBLog(7, "+IOUSBInterfaceUserClientV2[%p]::_GetBandwidthAvailable",  target);
-    return target->GetBandwidthAvailable(&(arguments->scalarOutput[0]));
+	
+	target->retain();
+    IOReturn kr = target->GetBandwidthAvailable(&(arguments->scalarOutput[0]));
+	target->release();
+	
+	return kr;
 }
 
 IOReturn
@@ -913,7 +1063,7 @@ IOUSBInterfaceUserClientV2::GetBandwidthAvailable(uint64_t *bandwidth)
 	
     if (ret)
 	{
-        USBLog(3, "IOUSBInterfaceUserClientV2[%p]::GetBandwidthAvailable - returning err %x",  this, ret);
+        USBLog(3, "IOUSBInterfaceUserClientV2[%p]::GetBandwidthAvailable - returning err 0x%x (%s)", this, ret, USBStringFromReturn(ret));
 	}
 	
     return ret;
@@ -924,7 +1074,12 @@ IOReturn IOUSBInterfaceUserClientV2::_GetFrameListTime(IOUSBInterfaceUserClientV
 {
 #pragma unused (reference)
     USBLog(7, "+IOUSBInterfaceUserClientV2[%p]::_GetFrameListTime",  target);
-    return target->GetFrameListTime(&(arguments->scalarOutput[0]));
+
+	target->retain();
+	IOReturn kr = target->GetFrameListTime(&(arguments->scalarOutput[0]));
+	target->release();
+	
+	return kr;
 }
 
 IOReturn
@@ -960,7 +1115,7 @@ IOUSBInterfaceUserClientV2::GetFrameListTime(uint64_t *microsecondsInFrame)
 	
     if (ret)
 	{
-        USBLog(3, "IOUSBInterfaceUserClientV2[%p]::GetFrameListTime - returning err %x",  this, ret);
+        USBLog(3, "IOUSBInterfaceUserClientV2[%p]::GetFrameListTime - returning err 0x%x (%s)", this, ret, USBStringFromReturn(ret));
 	}
 	
     return ret;
@@ -971,8 +1126,13 @@ IOReturn IOUSBInterfaceUserClientV2::_GetEndpointProperties(IOUSBInterfaceUserCl
 {
 #pragma unused (reference)
     USBLog(7, "+IOUSBInterfaceUserClientV2[%p]::_GetEndpointProperties",  target);
-    return target->GetEndpointProperties((UInt8)arguments->scalarInput[0], (UInt8)arguments->scalarInput[1], (UInt8)arguments->scalarInput[2], 
+	
+	target->retain();
+    IOReturn kr = target->GetEndpointProperties((UInt8)arguments->scalarInput[0], (UInt8)arguments->scalarInput[1], (UInt8)arguments->scalarInput[2], 
 									&(arguments->scalarOutput[0]), &(arguments->scalarOutput[1]), &(arguments->scalarOutput[2]));
+	target->release();
+	
+	return kr;
 }
 
 IOReturn 
@@ -992,7 +1152,7 @@ IOUSBInterfaceUserClientV2::GetEndpointProperties(UInt8 alternateSetting, UInt8 
 	
     if (ret)
 	{
-		USBLog(3, "IOUSBInterfaceUserClientV2[%p]::GetEndpointProperties - returning err %x",  this, ret);
+		USBLog(3, "IOUSBInterfaceUserClientV2[%p]::GetEndpointProperties - returning err 0x%x (%s)", this, ret, USBStringFromReturn(ret));
 	}
     else
     {
@@ -1007,11 +1167,20 @@ IOReturn
 IOUSBInterfaceUserClientV2::_GetConfigDescriptor(IOUSBInterfaceUserClientV2 * target, void * reference, IOExternalMethodArguments * arguments)
 {
 #pragma unused (reference)
+	IOReturn	kr;
+	
 	USBLog(7, "+IOUSBInterfaceUserClientV2[%p]::_GetConfigDescriptor",  target);
+	
+	target->retain();
+
     if ( arguments->structureOutputDescriptor ) 
-        return target->GetConfigDescriptor((UInt8)arguments->scalarInput[0], arguments->structureOutputDescriptor, &(arguments->structureOutputDescriptorSize));
+        kr = target->GetConfigDescriptor((UInt8)arguments->scalarInput[0], arguments->structureOutputDescriptor, &(arguments->structureOutputDescriptorSize));
     else
-        return target->GetConfigDescriptor((UInt8)arguments->scalarInput[0], (IOUSBConfigurationDescriptorPtr) arguments->structureOutput, (UInt32 *)&(arguments->structureOutputSize));
+        kr = target->GetConfigDescriptor((UInt8)arguments->scalarInput[0], (IOUSBConfigurationDescriptorPtr) arguments->structureOutput, (UInt32 *)&(arguments->structureOutputSize));
+
+	target->release();
+	
+	return kr;
 }  
 
 
@@ -1048,7 +1217,7 @@ IOUSBInterfaceUserClientV2::GetConfigDescriptor(UInt8 configIndex, IOUSBConfigur
 	
    	if (ret)
 	{
-		USBLog(5, "IOUSBInterfaceUserClientV2[%p]::GetConfigDescriptor - returning err %x",  this, ret);
+		USBLog(5, "IOUSBInterfaceUserClientV2[%p]::GetConfigDescriptor - returning err 0x%x (%s)", this, ret, USBStringFromReturn(ret));
 	}
 	
     DecrementOutstandingIO();
@@ -1100,7 +1269,7 @@ IOUSBInterfaceUserClientV2::GetConfigDescriptor(UInt8 configIndex, IOMemoryDescr
 	
    	if (ret)
 	{
-		USBLog(5, "IOUSBInterfaceUserClientV2[%p]::GetConfigDescriptor - returning err %x",  this, ret);
+		USBLog(5, "IOUSBInterfaceUserClientV2[%p]::GetConfigDescriptor - returning err 0x%x (%s)", this, ret, USBStringFromReturn(ret));
 	}
 	
     DecrementOutstandingIO();
@@ -1148,11 +1317,11 @@ IOReturn IOUSBInterfaceUserClientV2::_ReadPipe(IOUSBInterfaceUserClientV2 * targ
         tap.parameter = pb;
 		
 		ret = target->ReadPipe(	(UInt8) arguments->scalarInput[0],				// pipeRef
-								(UInt32) arguments->scalarInput[1],				// noDataTimeout
-								(UInt32) arguments->scalarInput[2],				// completionTimeout
-								(mach_vm_address_t) arguments->scalarInput[3],	// buffer (in user task)
-								(mach_vm_size_t) arguments->scalarInput[4],		// size of buffer
-								&tap);											// completion
+							   (UInt32) arguments->scalarInput[1],				// noDataTimeout
+							   (UInt32) arguments->scalarInput[2],				// completionTimeout
+							   (mach_vm_address_t) arguments->scalarInput[3],	// buffer (in user task)
+							   (mach_vm_size_t) arguments->scalarInput[4],		// size of buffer
+							   &tap);											// completion
 		
         if ( ret ) 
 		{
@@ -1163,19 +1332,31 @@ IOReturn IOUSBInterfaceUserClientV2::_ReadPipe(IOUSBInterfaceUserClientV2 * targ
 			target->release();
 		}
 	}
-	else if ( arguments->structureOutputDescriptor ) 
-        ret = target->ReadPipe(	(UInt8)arguments->scalarInput[0], (UInt32)arguments->scalarInput[1], (UInt32)arguments->scalarInput[2],
-						arguments->structureOutputDescriptor, (IOByteCount *)&(arguments->structureOutputDescriptorSize));
-    else
-        ret = target->ReadPipe((UInt8)arguments->scalarInput[0], (UInt32)arguments->scalarInput[1], (UInt32)arguments->scalarInput[2],
-								arguments->structureOutput, (UInt32 *)&(arguments->structureOutputSize));
+	else 
+	{
+		target->retain();
+		
+		if ( arguments->structureOutputDescriptor ) 
+		{
+			ret = target->ReadPipe(	(UInt8)arguments->scalarInput[0], (UInt32)arguments->scalarInput[1], (UInt32)arguments->scalarInput[2],
+								   arguments->structureOutputDescriptor, (IOByteCount *)&(arguments->structureOutputDescriptorSize));
+		}
+		else
+		{
+			ret = target->ReadPipe((UInt8)arguments->scalarInput[0], (UInt32)arguments->scalarInput[1], (UInt32)arguments->scalarInput[2],
+								   arguments->structureOutput, (UInt32 *)&(arguments->structureOutputSize));
+		}
+		
+		target->release();
+	}
+	
 	return ret;
 }  
 
 IOReturn
 IOUSBInterfaceUserClientV2::ReadPipe(UInt8 pipeRef, UInt32 noDataTimeout, UInt32 completionTimeout, mach_vm_address_t buffer, mach_vm_size_t size, IOUSBCompletion * completion)
 {
-	IOReturn					ret = kIOReturnNotAttached;
+	IOReturn				ret = kIOReturnNotAttached;
     IOMemoryDescriptor *	mem = NULL;
     IOUSBPipe *				pipeObj = NULL;
 	
@@ -1211,7 +1392,7 @@ IOUSBInterfaceUserClientV2::ReadPipe(UInt8 pipeRef, UInt32 noDataTimeout, UInt32
 			ret = mem->prepare();
 			if ( ret != kIOReturnSuccess)
 			{
-				USBLog(3,"IOUSBInterfaceUserClientV2[%p]::ReadPipe (async) mem->prepare() returned 0x%x",  this, ret); 
+				USBLog(3,"IOUSBInterfaceUserClientV2[%p]::ReadPipe (async) mem->prepare() returned 0x%x (%s)", this, ret, USBStringFromReturn(ret)); 
 				mem->release();
 				goto Exit;
 			}
@@ -1222,7 +1403,7 @@ IOUSBInterfaceUserClientV2::ReadPipe(UInt8 pipeRef, UInt32 noDataTimeout, UInt32
 			ret = pipeObj->Read(mem, noDataTimeout, completionTimeout, completion, NULL);
 			if ( ret != kIOReturnSuccess)
 			{
-				USBLog(5,"IOUSBInterfaceUserClientV2[%p]::ReadPipe (async) returned 0x%x",  this, ret); 
+				USBLog(5,"IOUSBInterfaceUserClientV2[%p]::ReadPipe (async) returned 0x%x (%s)", this, ret, USBStringFromReturn(ret)); 
 				if (mem != NULL)
 				{
 					mem->complete();
@@ -1244,7 +1425,7 @@ Exit:
 	
     if (ret)
 	{
-		USBLog(3, "IOUSBInterfaceUserClientV2[%p]::ReadPipe (async - returning err %x",  this, ret);
+		USBLog(3, "IOUSBInterfaceUserClientV2[%p]::ReadPipe (async - returning err 0x%x (%s)", this, ret, USBStringFromReturn(ret));
 	}
 	
 	return ret;
@@ -1281,7 +1462,7 @@ IOUSBInterfaceUserClientV2::ReadPipe(UInt8 pipeRef, UInt32 noDataTimeout, UInt32
 				}
 				else
 				{
-					USBLog(3,"IOUSBInterfaceUserClientV2[%p]::ReadPipe (sync < 4K) mem->prepare() returned 0x%x",  this, ret); 
+					USBLog(3,"IOUSBInterfaceUserClientV2[%p]::ReadPipe (sync < 4K) mem->prepare() returned 0x%x (%s)", this, ret, USBStringFromReturn(ret)); 
 				}
 				mem->release();
 				mem = NULL;
@@ -1302,6 +1483,7 @@ IOUSBInterfaceUserClientV2::ReadPipe(UInt8 pipeRef, UInt32 noDataTimeout, UInt32
 	}
 	
     DecrementOutstandingIO();
+
     return ret;
 }
 
@@ -1313,7 +1495,7 @@ IOUSBInterfaceUserClientV2::ReadPipe(UInt8 pipeRef, UInt32 noDataTimeout, UInt32
     IOReturn				ret = kIOReturnSuccess;
     IOUSBPipe 			*	pipeObj;
 	
-    USBLog(7, "+IOUSBInterfaceUserClientV2[%p]::ReadPipe > 4K (pipeRef: %d, %d, %d, IOMD: %p)",  this, pipeRef, (uint32_t)noDataTimeout, (uint32_t)completionTimeout, mem);
+    USBLog(6, "+IOUSBInterfaceUserClientV2[%p]::ReadPipe > 4K (pipeRef: %d, %d, %d, IOMD: %p)",  this, pipeRef, (uint32_t)noDataTimeout, (uint32_t)completionTimeout, mem);
 	
     IncrementOutstandingIO();				// do this to "hold" ourselves until we complete
     
@@ -1332,7 +1514,7 @@ IOUSBInterfaceUserClientV2::ReadPipe(UInt8 pipeRef, UInt32 noDataTimeout, UInt32
 				}
 				else
 				{
-					USBLog(3,"IOUSBInterfaceUserClientV2[%p]::ReadPipe (sync > 4K) mem->prepare() returned 0x%x",  this, ret);
+					USBLog(3,"IOUSBInterfaceUserClientV2[%p]::ReadPipe (sync > 4K) mem->prepare() returned 0x%x (%s)", this, ret, USBStringFromReturn(ret));
 				}
 			}
 			else
@@ -1349,7 +1531,7 @@ IOUSBInterfaceUserClientV2::ReadPipe(UInt8 pipeRef, UInt32 noDataTimeout, UInt32
 	
     if (ret)
 	{
-		USBLog(3, "IOUSBInterfaceUserClientV2[%p]::ReadPipe > 4K - returning err %x",  this, ret);
+		USBLog(3, "IOUSBInterfaceUserClientV2[%p]::ReadPipe > 4K - returning err 0x%x (%s)", this, ret, USBStringFromReturn(ret));
 	}
 	
 	DecrementOutstandingIO();
@@ -1409,12 +1591,24 @@ IOReturn IOUSBInterfaceUserClientV2::_WritePipe(IOUSBInterfaceUserClientV2 * tar
 			target->release();
 		}
 	}
-	else if ( arguments->structureInputDescriptor ) 
-        ret = target->WritePipe(	(UInt8)arguments->scalarInput[0], (UInt32)arguments->scalarInput[1], (UInt32)arguments->scalarInput[2],
-					arguments->structureInputDescriptor);
-    else
-        ret = target->WritePipe((UInt16)arguments->scalarInput[0], (UInt32)arguments->scalarInput[1], (UInt32)arguments->scalarInput[2],
-					arguments->structureInput, arguments->structureInputSize);
+	else 
+	{
+		target->retain();
+		
+		if ( arguments->structureInputDescriptor ) 
+		{
+			ret = target->WritePipe(	(UInt8)arguments->scalarInput[0], (UInt32)arguments->scalarInput[1], (UInt32)arguments->scalarInput[2],
+									arguments->structureInputDescriptor);
+		}
+		else
+		{
+			ret = target->WritePipe((UInt16)arguments->scalarInput[0], (UInt32)arguments->scalarInput[1], (UInt32)arguments->scalarInput[2],
+									arguments->structureInput, arguments->structureInputSize);
+		}
+		
+		target->release();
+	}
+	
 	return ret;
 }  
 
@@ -1457,7 +1651,7 @@ IOUSBInterfaceUserClientV2::WritePipe(UInt8 pipeRef, UInt32 noDataTimeout, UInt3
 			ret = mem->prepare();
 			if ( ret != kIOReturnSuccess)
 			{
-				USBLog(3,"IOUSBInterfaceUserClientV2[%p]::WritePipe (async) mem->prepare() returned 0x%x",  this, ret); 
+				USBLog(3,"IOUSBInterfaceUserClientV2[%p]::WritePipe (async) mem->prepare() returned 0x%x (%s)", this, ret, USBStringFromReturn(ret)); 
 				mem->release();
 				goto Exit;
 			}
@@ -1468,7 +1662,7 @@ IOUSBInterfaceUserClientV2::WritePipe(UInt8 pipeRef, UInt32 noDataTimeout, UInt3
 			ret = pipeObj->Write(mem, noDataTimeout, completionTimeout, completion);
 			if ( ret != kIOReturnSuccess)
 			{
-				USBLog(5,"IOUSBInterfaceUserClientV2[%p]::WritePipe (async) returned 0x%x",  this, ret); 
+				USBLog(5,"IOUSBInterfaceUserClientV2[%p]::WritePipe (async) returned 0x%x (%s)", this, ret, USBStringFromReturn(ret)); 
 				if (mem != NULL)
 				{
 					mem->complete();
@@ -1489,7 +1683,7 @@ Exit:
 	
     if (ret)
 	{
-		USBLog(3, "IOUSBInterfaceUserClientV2[%p]::WritePipe (async - returning err %x",  this, ret);
+		USBLog(3, "IOUSBInterfaceUserClientV2[%p]::WritePipe (async - returning err 0x%x (%s)", this, ret, USBStringFromReturn(ret));
 	}
 	
 	return ret;
@@ -1521,13 +1715,13 @@ IOUSBInterfaceUserClientV2::WritePipe(UInt8 pipeRef, UInt32 noDataTimeout, UInt3
 					ret = pipeObj->Write(mem, noDataTimeout, completionTimeout);
 					if ( ret != kIOReturnSuccess)
 					{
-						USBLog(5,"IOUSBInterfaceUserClientV2[%p]::WritePipe (sync < 4K) returned 0x%x",  this, ret); 
+						USBLog(5,"IOUSBInterfaceUserClientV2[%p]::WritePipe (sync < 4K) returned 0x%x (%s)", this, ret, USBStringFromReturn(ret)); 
 					}
 					mem->complete();
 				}
 				else
 				{
-					USBLog(3,"IOUSBInterfaceUserClientV2[%p]::WritePipe (sync < 4K) mem->prepare() returned 0x%x",  this, ret); 
+					USBLog(3,"IOUSBInterfaceUserClientV2[%p]::WritePipe (sync < 4K) mem->prepare() returned 0x%x (%s)", this, ret, USBStringFromReturn(ret)); 
 				}
 				
 				mem->release();
@@ -1546,7 +1740,7 @@ IOUSBInterfaceUserClientV2::WritePipe(UInt8 pipeRef, UInt32 noDataTimeout, UInt3
 	
     if (ret)
 	{
-		USBLog(3, "IOUSBInterfaceUserClientV2[%p]::WritePipe < 4K - returning err %x",  this, ret);
+		USBLog(3, "IOUSBInterfaceUserClientV2[%p]::WritePipe < 4K - returning err 0x%x (%s)", this, ret, USBStringFromReturn(ret));
 	}
 
     DecrementOutstandingIO();
@@ -1585,7 +1779,7 @@ IOUSBInterfaceUserClientV2::WritePipe(UInt8 pipeRef, UInt32 noDataTimeout, UInt3
 				}
 				else
 				{
-					USBLog(1,"IOUSBInterfaceUserClientV2[%p]::WritePipe > (sync > 4K) mem->prepare() returned 0x%x",  this, ret); 
+					USBLog(1,"IOUSBInterfaceUserClientV2[%p]::WritePipe > (sync > 4K) mem->prepare() returned 0x%x (%s)", this, ret, USBStringFromReturn(ret)); 
 					USBTrace( kUSBTInterfaceUserClient,  kTPInterfaceUCWritePipe, (uintptr_t)this, ret, 0, 0 );
 				}
 			}
@@ -1603,7 +1797,7 @@ IOUSBInterfaceUserClientV2::WritePipe(UInt8 pipeRef, UInt32 noDataTimeout, UInt3
 	
     if (ret)
 	{
-		USBLog(3, "IOUSBInterfaceUserClientV2[%p]::WritePipe > 4K - returning err %x",  this, ret);
+		USBLog(3, "IOUSBInterfaceUserClientV2[%p]::WritePipe > 4K - returning err 0x%x (%s)", this, ret, USBStringFromReturn(ret));
 	}
 	
     DecrementOutstandingIO();
@@ -1616,8 +1810,12 @@ IOReturn IOUSBInterfaceUserClientV2::_GetPipeProperties(IOUSBInterfaceUserClient
 #pragma unused (reference)
     USBLog(7, "+IOUSBInterfaceUserClientV2[%p]::_GetPipeProperties",  target);
 	
-    return target->GetPipeProperties((UInt8)arguments->scalarInput[0], &(arguments->scalarOutput[0]),&(arguments->scalarOutput[1]), 
+	target->retain();
+    IOReturn kr = target->GetPipeProperties((UInt8)arguments->scalarInput[0], &(arguments->scalarOutput[0]),&(arguments->scalarOutput[1]), 
 										&(arguments->scalarOutput[2]), &(arguments->scalarOutput[3]), &(arguments->scalarOutput[4]));
+	target->release();
+	
+	return kr;
 }
 
 IOReturn
@@ -1626,24 +1824,24 @@ IOUSBInterfaceUserClientV2::GetPipeProperties(UInt8 pipeRef, uint64_t *direction
     IOUSBPipe 			*pipeObj;
     IOReturn			ret = kIOReturnSuccess;
 	
-    USBLog(7, "+IOUSBInterfaceUserClientV2[%p]::GetPipeProperties for pipe %d",  this, pipeRef);
+    USBLog(7, "+IOUSBInterfaceUserClientV2[%p]::GetPipeProperties for pipe %d, isInactive: %d",  this, pipeRef, isInactive());
 	
-    IncrementOutstandingIO();
+	IncrementOutstandingIO();
     if (fOwner && !isInactive())
     {
 		pipeObj = GetPipeObj(pipeRef);    
 		if (pipeObj)
 		{
 			if (direction)
-			*direction = pipeObj->GetDirection();
+				*direction = pipeObj->GetDirection();
 			if (number)
-			*number = pipeObj->GetEndpointNumber();
+				*number = pipeObj->GetEndpointNumber();
 			if (transferType)
-			*transferType = pipeObj->GetType();
+				*transferType = pipeObj->GetType();
 			if (maxPacketSize)
-			*maxPacketSize = pipeObj->GetMaxPacketSize();
+				*maxPacketSize = pipeObj->GetMaxPacketSize();
 			if (interval)
-			*interval = pipeObj->GetInterval();
+				*interval = pipeObj->GetInterval();
 			pipeObj->release();
 		}
 		else
@@ -1654,7 +1852,7 @@ IOUSBInterfaceUserClientV2::GetPipeProperties(UInt8 pipeRef, uint64_t *direction
 	
     if (ret)
 	{
-		USBLog(3, "IOUSBInterfaceUserClientV2[%p]::GetPipeProperties - returning err %x",  this, ret);
+		USBLog(3, "IOUSBInterfaceUserClientV2[%p]::GetPipeProperties - returning err 0x%x (%s)", this, ret, USBStringFromReturn(ret));
 	}
 	
     DecrementOutstandingIO();
@@ -1666,7 +1864,12 @@ IOReturn IOUSBInterfaceUserClientV2::_GetPipeStatus(IOUSBInterfaceUserClientV2 *
 {
 #pragma unused (reference)
     USBLog(7, "+IOUSBInterfaceUserClientV2[%p]::_GetPipeStatus",  target);
-    return target->GetPipeStatus((UInt8)arguments->scalarInput[0]);
+
+	target->retain();
+	IOReturn kr = target->GetPipeStatus((UInt8)arguments->scalarInput[0]);
+	target->release();
+	
+	return kr;
 }
 
 
@@ -1703,7 +1906,12 @@ IOReturn IOUSBInterfaceUserClientV2::_AbortPipe(IOUSBInterfaceUserClientV2 * tar
 {
 #pragma unused (reference)
     USBLog(7, "+IOUSBInterfaceUserClientV2[%p]::_AbortPipe",  target);
-    return target->AbortPipe((UInt8)arguments->scalarInput[0]);
+	
+	target->retain();
+    IOReturn kr = target->AbortPipe((UInt8)arguments->scalarInput[0]);
+	target->release();
+	
+	return kr;
 }
 
 IOReturn 
@@ -1732,13 +1940,13 @@ IOUSBInterfaceUserClientV2::AbortPipe(UInt8 pipeRef)
 	
     if (ret)
     {
-        if ( ret == kIOUSBUnknownPipeErr )
+        if ( ret == kIOUSBUnknownPipeErr || ret == kIOReturnNotAttached)
 		{
-            USBLog(6, "IOUSBInterfaceUserClientV2[%p]::AbortPipe - returning err %x",  this, ret);
+            USBLog(6, "IOUSBInterfaceUserClientV2[%p]::AbortPipe(%d) - returning err %x (%s)",  this, pipeRef, ret, USBStringFromReturn(ret));
 		}
         else
 		{
-            USBLog(3, "IOUSBInterfaceUserClientV2[%p]::AbortPipe - returning err %x",  this, ret);
+            USBLog(3, "IOUSBInterfaceUserClientV2[%p]::AbortPipe(%d) - returning err %x (%s)",  this, pipeRef, ret, USBStringFromReturn(ret));
 		}
     }
     
@@ -1752,7 +1960,12 @@ IOReturn IOUSBInterfaceUserClientV2::_ResetPipe(IOUSBInterfaceUserClientV2 * tar
 {
 #pragma unused (reference)
     USBLog(7, "+IOUSBInterfaceUserClientV2[%p]::_ResetPipe",  target);
-    return target->ResetPipe((UInt8)arguments->scalarInput[0]);
+	
+	target->retain();
+    IOReturn kr = target->ResetPipe((UInt8)arguments->scalarInput[0]);
+	target->release();
+	
+	return kr;
 }
 
 IOReturn 
@@ -1781,7 +1994,7 @@ IOUSBInterfaceUserClientV2::ResetPipe(UInt8 pipeRef)
 	
     if (ret)
 	{
-		USBLog(3, "IOUSBInterfaceUserClientV2[%p]::ResetPipe - returning err %x",  this, ret);
+		USBLog(3, "IOUSBInterfaceUserClientV2[%p]::ResetPipe - returning err 0x%x (%s)",  this, ret, USBStringFromReturn(ret));
     }
 	
     DecrementOutstandingIO();
@@ -1794,7 +2007,12 @@ IOReturn IOUSBInterfaceUserClientV2::_ClearPipeStall(IOUSBInterfaceUserClientV2 
 {
 #pragma unused (reference)
     USBLog(7, "+IOUSBInterfaceUserClientV2[%p]::_ClearPipeStall",  target);
-    return target->ClearPipeStall((UInt8)arguments->scalarInput[0], (bool)arguments->scalarInput[1]);
+	
+	target->retain();
+    IOReturn kr = target->ClearPipeStall((UInt8)arguments->scalarInput[0], (bool)arguments->scalarInput[1]);
+	target->release();
+	
+	return kr;
 }
 
 IOReturn 
@@ -1824,7 +2042,7 @@ IOUSBInterfaceUserClientV2::ClearPipeStall(UInt8 pipeRef, bool bothEnds)
 	
     if (ret)
 	{
-		USBLog(3, "IOUSBInterfaceUserClientV2[%p]::ClearPipeStall - returning err %x",  this, ret);
+		USBLog(3, "IOUSBInterfaceUserClientV2[%p]::ClearPipeStall - returning err 0x%x (%s)", this, ret, USBStringFromReturn(ret));
 	}
 	
     DecrementOutstandingIO();
@@ -1837,7 +2055,12 @@ IOReturn IOUSBInterfaceUserClientV2::_SetPipePolicy(IOUSBInterfaceUserClientV2 *
 {
 #pragma unused (reference)
     USBLog(7, "+IOUSBInterfaceUserClientV2[%p]::_SetPipePolicy",  target);
-    return target->SetPipePolicy((UInt8)arguments->scalarInput[0], (UInt16)arguments->scalarInput[1], (UInt8)arguments->scalarInput[2]);
+	
+	target->retain();
+    IOReturn kr = target->SetPipePolicy((UInt8)arguments->scalarInput[0], (UInt16)arguments->scalarInput[1], (UInt8)arguments->scalarInput[2]);
+	target->release();
+	
+	return kr;
 }
 
 IOReturn 
@@ -1867,7 +2090,7 @@ IOUSBInterfaceUserClientV2::SetPipePolicy(UInt8 pipeRef, UInt16 maxPacketSize, U
 	
     if (ret)
 	{
-		USBLog(3, "IOUSBInterfaceUserClientV2[%p]::SetPipePolicy - returning err %x",  this, ret);
+		USBLog(3, "IOUSBInterfaceUserClientV2[%p]::SetPipePolicy - returning err 0x%x (%s)", this, ret, USBStringFromReturn(ret));
 	}
 	
 	DecrementOutstandingIO();
@@ -1927,10 +2150,14 @@ IOUSBInterfaceUserClientV2::_ControlRequestOut(IOUSBInterfaceUserClientV2 * targ
 			target->release();
 		}
 	}
-	else if ( arguments->structureInputDescriptor ) 
+	else 
 	{
-		// ControlRequestOut, Sync, > 4K
-        ret = target->ControlRequestOut(	(UInt8)arguments->scalarInput[0],			// pipeRef
+		target->retain();
+		
+		if ( arguments->structureInputDescriptor ) 
+		{
+			// ControlRequestOut, Sync, > 4K
+			ret = target->ControlRequestOut(	(UInt8)arguments->scalarInput[0],			// pipeRef
 											(UInt8)arguments->scalarInput[1],			// bmRequestType,
 											(UInt8)arguments->scalarInput[2],			// bRequest,
 											(UInt16)arguments->scalarInput[3],			// wValue,
@@ -1938,11 +2165,11 @@ IOUSBInterfaceUserClientV2::_ControlRequestOut(IOUSBInterfaceUserClientV2 * targ
 											(UInt32)arguments->scalarInput[7],			// noDataTimeout,
 											(UInt32)arguments->scalarInput[8],			// completionTimeout,
 											arguments->structureInputDescriptor);		// IOMD for request
-	}
-    else
-	{
-		// ControlRequestOut, Sync, < 4K
-        ret = target->ControlRequestOut(	(UInt8)arguments->scalarInput[0],			// pipeRef
+		}
+		else
+		{
+			// ControlRequestOut, Sync, < 4K
+			ret = target->ControlRequestOut(	(UInt8)arguments->scalarInput[0],			// pipeRef
 											(UInt8)arguments->scalarInput[1],			// bmRequestType,
 											(UInt8)arguments->scalarInput[2],			// bRequest,
 											(UInt16)arguments->scalarInput[3],			// wValue,
@@ -1951,7 +2178,11 @@ IOUSBInterfaceUserClientV2::_ControlRequestOut(IOUSBInterfaceUserClientV2 * targ
 											(UInt32)arguments->scalarInput[8],			// completionTimeout,
 											arguments->structureInput,					// bufferPtr
 											arguments->structureInputSize);				// buffer size
+		}
+		
+		target->release();
 	}
+	
 	return ret;
 	
 }  
@@ -2004,7 +2235,7 @@ IOUSBInterfaceUserClientV2::ControlRequestOut(UInt8 pipeRef, UInt8 bmRequestType
 				ret = mem->prepare();
 				if ( ret != kIOReturnSuccess)
 				{
-					USBLog(3,"IOUSBInterfaceUserClientV2[%p]::ControlRequestOut (async) mem->prepare() returned 0x%x",  this, ret); 
+					USBLog(3,"IOUSBInterfaceUserClientV2[%p]::ControlRequestOut (async) mem->prepare() returned 0x%x (%s)", this, ret, USBStringFromReturn(ret)); 
 					mem->release();
 					goto Exit;
 				}
@@ -2023,7 +2254,7 @@ IOUSBInterfaceUserClientV2::ControlRequestOut(UInt8 pipeRef, UInt8 bmRequestType
 			ret = pipeObj->ControlRequest(&pb->req, noDataTimeout, completionTimeout, completion);
 			if ( ret != kIOReturnSuccess)
 			{
-				USBLog(5,"IOUSBInterfaceUserClientV2[%p]::ControlRequestOut (async) returned 0x%x",  this, ret); 
+				USBLog(5,"IOUSBInterfaceUserClientV2[%p]::ControlRequestOut (async) returned 0x%x (%s)", this, ret, USBStringFromReturn(ret)); 
 				if (mem != NULL)
 				{
 					mem->complete();
@@ -2044,7 +2275,7 @@ Exit:
 	
     if (ret)
 	{
-		USBLog(3, "IOUSBInterfaceUserClientV2[%p]::ControlRequestOut (async) - returning err %x",  this, ret);
+		USBLog(3, "IOUSBInterfaceUserClientV2[%p]::ControlRequestOut (async) - returning err 0x%x (%s)", this, ret, USBStringFromReturn(ret));
 	}
 	
 	return ret;
@@ -2096,7 +2327,7 @@ IOUSBInterfaceUserClientV2::ControlRequestOut(UInt8 pipeRef, UInt8 bmRequestType
 	
 	if (ret)
 	{
-		USBLog(3, "IOUSBInterfaceUserClientV2[%p]::ControlRequest - returning err %x",  this, ret);
+		USBLog(3, "IOUSBInterfaceUserClientV2[%p]::ControlRequest - returning err 0x%x (%s)", this, ret, USBStringFromReturn(ret));
 	}
 	
 	DecrementOutstandingIO();
@@ -2150,7 +2381,7 @@ IOUSBInterfaceUserClientV2::ControlRequestOut(UInt8 pipeRef, UInt8 bmRequestType
 			}
 			else
 			{
-				USBLog(4,"IOUSBInterfaceUserClientV2[%p]::ControlRequestOut > 4K mem->prepare() returned 0x%x",  this, ret); 
+				USBLog(4,"IOUSBInterfaceUserClientV2[%p]::ControlRequestOut > 4K mem->prepare() returned 0x%x (%s)", this, ret, USBStringFromReturn(ret)); 
 			}
 			
 			pipeObj->release();
@@ -2163,7 +2394,7 @@ IOUSBInterfaceUserClientV2::ControlRequestOut(UInt8 pipeRef, UInt8 bmRequestType
 	
 	if (ret)
 	{
-		USBLog(3, "IOUSBInterfaceUserClientV2[%p]::ControlRequestOut (sync OOL) - returning err %x",  this, ret);
+		USBLog(3, "IOUSBInterfaceUserClientV2[%p]::ControlRequestOut (sync OOL) - returning err 0x%x (%s)", this, ret, USBStringFromReturn(ret));
 	}
 	
 	DecrementOutstandingIO();
@@ -2221,46 +2452,53 @@ IOReturn IOUSBInterfaceUserClientV2::_ControlRequestIn(IOUSBInterfaceUserClientV
 			target->release();
 		}
 	}
-	else if ( arguments->structureOutputDescriptor ) 
+	else 
 	{
-		// ControlRequestIn, Sync, > 4K
-        ret = target->ControlRequestIn(	(UInt8)arguments->scalarInput[0],			// pipeRef
-										(UInt8)arguments->scalarInput[1],			// bmRequestType,
-										(UInt8)arguments->scalarInput[2],			// bRequest,
-										(UInt16)arguments->scalarInput[3],			// wValue,
-										(UInt16)arguments->scalarInput[4],			// wIndex,
-										(UInt32)arguments->scalarInput[7],			// noDataTimeout,
-										(UInt32)arguments->scalarInput[8],			// completionTimeout,
-										arguments->structureOutputDescriptor,		// IOMD for request
-										&(arguments->structureOutputDescriptorSize));// IOMD size
-	}
-    else
-	{
-		// ControlRequestIn, Sync, < 4K
-        ret = target->ControlRequestIn(	(UInt8)arguments->scalarInput[0],			// pipeRef
-										(UInt8)arguments->scalarInput[1],			// bmRequestType,
-										(UInt8)arguments->scalarInput[2],			// bRequest,
-										(UInt16)arguments->scalarInput[3],			// wValue,
-										(UInt16)arguments->scalarInput[4],			// wIndex,
-										(UInt32)arguments->scalarInput[7],			// noDataTimeout,
-										(UInt32)arguments->scalarInput[8],			// completionTimeout,
-										arguments->structureOutput,					// bufferPtr
-										&(arguments->structureOutputSize));			// buffer size
-	}
-
-	// If asked, and if we got an overrun, send a flag back and squash overrun status.
-	if (arguments->scalarOutputCount > 0)
-	{
-		if (ret == kIOReturnOverrun)
+		target->retain();
+		
+		if ( arguments->structureOutputDescriptor ) 
 		{
-			USBLog(3, "+IOUSBDeviceUserClientV2[%p]::_DeviceRequestIn kIOReturnOverrun",  target);
-			arguments->scalarOutput[0] = 1;
-			ret = kIOReturnSuccess;
+			// ControlRequestIn, Sync, > 4K
+			ret = target->ControlRequestIn(	(UInt8)arguments->scalarInput[0],			// pipeRef
+										   (UInt8)arguments->scalarInput[1],			// bmRequestType,
+										   (UInt8)arguments->scalarInput[2],			// bRequest,
+										   (UInt16)arguments->scalarInput[3],			// wValue,
+										   (UInt16)arguments->scalarInput[4],			// wIndex,
+										   (UInt32)arguments->scalarInput[7],			// noDataTimeout,
+										   (UInt32)arguments->scalarInput[8],			// completionTimeout,
+										   arguments->structureOutputDescriptor,		// IOMD for request
+										   &(arguments->structureOutputDescriptorSize));// IOMD size
 		}
-		else 
+		else
 		{
-			arguments->scalarOutput[0] = 0;
+			// ControlRequestIn, Sync, < 4K
+			ret = target->ControlRequestIn(	(UInt8)arguments->scalarInput[0],			// pipeRef
+										   (UInt8)arguments->scalarInput[1],			// bmRequestType,
+										   (UInt8)arguments->scalarInput[2],			// bRequest,
+										   (UInt16)arguments->scalarInput[3],			// wValue,
+										   (UInt16)arguments->scalarInput[4],			// wIndex,
+										   (UInt32)arguments->scalarInput[7],			// noDataTimeout,
+										   (UInt32)arguments->scalarInput[8],			// completionTimeout,
+										   arguments->structureOutput,					// bufferPtr
+										   &(arguments->structureOutputSize));			// buffer size
 		}
+		
+		// If asked, and if we got an overrun, send a flag back and squash overrun status.
+		if (arguments->scalarOutputCount > 0)
+		{
+			if (ret == kIOReturnOverrun)
+			{
+				USBLog(3, "+IOUSBInterfaceUserClientV2[%p]::_DeviceRequestIn kIOReturnOverrun",  target);
+				arguments->scalarOutput[0] = 1;
+				ret = kIOReturnSuccess;
+			}
+			else 
+			{
+				arguments->scalarOutput[0] = 0;
+			}
+		}
+		
+		target->release();
 	}
 	
 	return ret;
@@ -2315,7 +2553,7 @@ IOUSBInterfaceUserClientV2::ControlRequestIn(UInt8 pipeRef, UInt8 bmRequestType,
 				ret = mem->prepare();
 				if ( ret != kIOReturnSuccess)
 				{
-					USBLog(3,"IOUSBInterfaceUserClientV2[%p]::ControlRequestIn (async) mem->prepare() returned 0x%x",  this, ret); 
+					USBLog(3,"IOUSBInterfaceUserClientV2[%p]::ControlRequestIn (async) mem->prepare() returned 0x%x (%s)", this, ret, USBStringFromReturn(ret)); 
 					mem->release();
 					goto Exit;
 				}
@@ -2334,7 +2572,7 @@ IOUSBInterfaceUserClientV2::ControlRequestIn(UInt8 pipeRef, UInt8 bmRequestType,
 			ret = pipeObj->ControlRequest(&pb->req, noDataTimeout, completionTimeout, completion);
 			if ( ret != kIOReturnSuccess)
 			{
-				USBLog(5,"IOUSBInterfaceUserClientV2[%p]::ControlRequestIn (async) returned 0x%x",  this, ret); 
+				USBLog(5,"IOUSBInterfaceUserClientV2[%p]::ControlRequestIn (async) returned 0x%x (%s)", this, ret, USBStringFromReturn(ret)); 
 				if (mem != NULL)
 				{
 					mem->complete();
@@ -2356,7 +2594,7 @@ Exit:
 	
     if (ret)
 	{
-		USBLog(3, "IOUSBInterfaceUserClientV2[%p]::ControlRequestIn (async) - returning err %x",  this, ret);
+		USBLog(3, "IOUSBInterfaceUserClientV2[%p]::ControlRequestIn (async) - returning err 0x%x (%s)", this, ret, USBStringFromReturn(ret));
 	}
 	
 	return ret;
@@ -2404,7 +2642,7 @@ IOUSBInterfaceUserClientV2::ControlRequestIn(UInt8 pipeRef, UInt8 bmRequestType,
 			}
 			else 
 			{
-				USBLog(3, "IOUSBInterfaceUserClientV2[%p]::ControlRequestIn (sync < 4k) err:0x%x",  this, ret);
+				USBLog(3, "IOUSBInterfaceUserClientV2[%p]::ControlRequestIn (sync < 4k) err:0x%x (%s)", this, ret, USBStringFromReturn(ret));
 				*size = 0;
 			}
 			pipeObj->release();
@@ -2488,7 +2726,7 @@ IOUSBInterfaceUserClientV2::ControlRequestIn(UInt8 pipeRef, UInt8 bmRequestType,
 			}
 			else
 			{
-				USBLog(4,"IOUSBInterfaceUserClientV2[%p]::ControlRequestIn > 4K mem->prepare() returned 0x%x",  this, ret); 
+				USBLog(4,"IOUSBInterfaceUserClientV2[%p]::ControlRequestIn > 4K mem->prepare() returned 0x%x (%s)", this, ret, USBStringFromReturn(ret)); 
 			}
 			pipeObj->release();
 		}
@@ -2701,7 +2939,7 @@ IOUSBInterfaceUserClientV2::DoIsochPipeAsync(IOUSBIsocStructV3 *isocData, io_use
 	
     if (kIOReturnSuccess != ret) 
     {
-		USBLog(3, "IOUSBInterfaceUserClientV2[%p]::DoIsochPipeAsync err 0x%x",  this, ret);
+		USBLog(3, "IOUSBInterfaceUserClientV2[%p]::DoIsochPipeAsync err 0x%x (%s)", this, ret, USBStringFromReturn(ret));
 		if (dataMem)
         {
             if ( dataMemPrepared )
@@ -2722,7 +2960,7 @@ IOUSBInterfaceUserClientV2::DoIsochPipeAsync(IOUSBIsocStructV3 *isocData, io_use
 	
 	if ( ret != kIOReturnSuccess )
 	{
-		USBLog(3, "IOUSBInterfaceUserClientV2[%p]::-DoIsochPipeAsync err 0x%x",  this, ret);
+		USBLog(3, "IOUSBInterfaceUserClientV2[%p]::-DoIsochPipeAsync err 0x%x (%s)", this, ret, USBStringFromReturn(ret));
 	}
 	
     return ret;
@@ -2794,8 +3032,23 @@ IOReturn IOUSBInterfaceUserClientV2::_LowLatencyReadIsochPipe(IOUSBInterfaceUser
 			llIsocData.fFrameListBufferCookie = arguments->scalarInput[7];
 			llIsocData.fFrameListBufferOffset = arguments->scalarInput[8];
 
-			if (target->fGate)
-				ret = (target->fGate)->runAction(target->DoLowLatencyIsochPipeAsyncGated, &llIsocData,  &tap, (void* )kIODirectionIn);
+			if (!target->isInactive() && target->fGate && target->fWorkLoop)
+			{
+				IOCommandGate *	gate = target->fGate;
+				IOWorkLoop *	workLoop = target->fWorkLoop;
+				
+				workLoop->retain();
+				gate->retain();
+				
+				ret = gate->runAction(target->DoLowLatencyIsochPipeAsyncGated, &llIsocData,  &tap, (void* )kIODirectionIn);
+				if ( ret != kIOReturnSuccess)
+				{
+					USBLog(3, "IOUSBInterfaceUserClientV2[%p]::_LowLatencyReadIsochPipe  runAction returned 0x%x, isInactive(%s)",  target, ret, target->isInactive() ? "true" : "false");
+				}
+				
+				gate->release();
+				workLoop->release();
+			}
 			else
 				ret = kIOReturnNoResources;
 		}
@@ -2814,7 +3067,7 @@ IOReturn IOUSBInterfaceUserClientV2::_LowLatencyReadIsochPipe(IOUSBInterfaceUser
 		}
 	}
 
-	ErrorExit:
+ErrorExit:
 	return ret;
 }  
 
@@ -2882,15 +3135,30 @@ IOReturn IOUSBInterfaceUserClientV2::_LowLatencyWriteIsochPipe(IOUSBInterfaceUse
 			llIsocData.fFrameListBufferCookie = arguments->scalarInput[7];
 			llIsocData.fFrameListBufferOffset = arguments->scalarInput[8];
 			
-			if (target->fGate)
-				ret = (target->fGate)->runAction(target->DoLowLatencyIsochPipeAsyncGated, &llIsocData,  &tap, (void* )kIODirectionOut);
+			if (!target->isInactive() && target->fGate && target->fWorkLoop)
+			{
+				IOCommandGate *	gate = target->fGate;
+				IOWorkLoop *	workLoop = target->fWorkLoop;
+				
+				workLoop->retain();
+				gate->retain();
+				
+				ret = gate->runAction(target->DoLowLatencyIsochPipeAsyncGated, &llIsocData,  &tap, (void* )kIODirectionOut);
+				if ( ret != kIOReturnSuccess)
+				{
+					USBLog(3, "IOUSBInterfaceUserClientV2[%p]::_LowLatencyWriteIsochPipe  runAction returned 0x%x, isInactive(%s)",  target, ret, target->isInactive() ? "true" : "false");
+				}
+				
+				gate->release();
+				workLoop->release();
+			}
 			else
 				ret = kIOReturnNoResources;
 		}
 		
 		if (kIOReturnSuccess != ret) 
 		{
-			USBLog(3, "IOUSBInterfaceUserClientV2[%p]::_LowLatencyReadIsochPipe err 0x%x",  target, ret);
+			USBLog(3, "IOUSBInterfaceUserClientV2[%p]::_LowLatencyWriteIsochPipe err 0x%x",  target, ret);
 			
 			// return command
 			if ( command )
@@ -3021,7 +3289,7 @@ IOUSBInterfaceUserClientV2::DoLowLatencyIsochPipeAsync(IOUSBLowLatencyIsocStruct
 	
     if (kIOReturnSuccess != ret) 
     {
-		USBLog(3, "IOUSBInterfaceUserClientV2[%p]::DoLowLatencyIsochPipeAsync err 0x%x",  this, ret);
+		USBLog(3, "IOUSBInterfaceUserClientV2[%p]::DoLowLatencyIsochPipeAsync err 0x%x (%s)", this, ret, USBStringFromReturn(ret));
 		
         if ( aDescriptor )
         {
@@ -3051,8 +3319,24 @@ IOReturn IOUSBInterfaceUserClientV2::_LowLatencyPrepareBuffer(IOUSBInterfaceUser
 	bufferData.isPrepared = arguments->scalarInput[4];
 	bufferData.nextBuffer = (LowLatencyUserBufferInfoV3 *) arguments->scalarInput[6];
 	
-	if (target->fGate)
-		kr = (target->fGate)->runAction(target->LowLatencyPrepareBufferGated, &bufferData, &(arguments->scalarOutput[0]));
+	if (!target->isInactive() && target->fGate && target->fWorkLoop)
+	{
+		IOCommandGate *	gate = target->fGate;
+		IOWorkLoop *	workLoop = target->fWorkLoop;
+		
+		workLoop->retain();
+		gate->retain();
+		
+		kr = gate->runAction(target->LowLatencyPrepareBufferGated, &bufferData, &(arguments->scalarOutput[0]));
+		if ( kr != kIOReturnSuccess)
+		{
+			USBLog(3, "IOUSBInterfaceUserClientV2[%p]::_LowLatencyPrepareBuffer  runAction returned 0x%x, isInactive(%s)",  target, kr, target->isInactive() ? "true" : "false");
+			
+		}
+		
+		gate->release();
+		workLoop->release();
+	}
 	else
 		kr = kIOReturnNoResources;
 	
@@ -3282,7 +3566,7 @@ ErrorExit:
 		
 		if (ret)
 		{
-			USBLog(3, "IOUSBInterfaceUserClientV2[%p]::LowLatencyPrepareBuffer - returning err %x",  this, ret);
+			USBLog(3, "IOUSBInterfaceUserClientV2[%p]::LowLatencyPrepareBuffer - returning err 0x%x (%s)", this, ret, USBStringFromReturn(ret));
 			
 			if ( dataBufferDescriptor )
 			{
@@ -3317,8 +3601,24 @@ IOReturn IOUSBInterfaceUserClientV2::_LowLatencyReleaseBuffer(IOUSBInterfaceUser
 	dataBuffer.bufferType = arguments->scalarInput[3];
 	dataBuffer.nextBuffer = (LowLatencyUserBufferInfoV3 *)arguments->scalarInput[6];
 	
-	if (target->fGate)
-		kr = (target->fGate)->runAction(target->LowLatencyReleaseBufferGated, &dataBuffer);
+	if (!target->isInactive() && target->fGate && target->fWorkLoop)
+	{
+		IOCommandGate *	gate = target->fGate;
+		IOWorkLoop *	workLoop = target->fWorkLoop;
+		
+		workLoop->retain();
+		gate->retain();
+
+		kr = gate->runAction(target->LowLatencyReleaseBufferGated, &dataBuffer);
+		if ( kr != kIOReturnSuccess)
+		{
+			USBLog(3, "IOUSBInterfaceUserClientV2[%p]::_LowLatencyReleaseBuffer  runAction returned 0x%x, isInactive(%s)",  target, kr, target->isInactive() ? "true" : "false");
+			
+		}
+		
+		gate->release();
+		workLoop->release();
+	}
 	else
 		kr = kIOReturnNoResources;
 	
@@ -3397,7 +3697,7 @@ ErrorExit:
 		
 	if (ret)
 	{
-		USBLog(3, "IOUSBInterfaceUserClientV2[%p]::LowLatencyReleaseBuffer - returning err %x",  this, ret);
+		USBLog(3, "IOUSBInterfaceUserClientV2[%p]::LowLatencyReleaseBuffer - returning err 0x%x (%s)", this, ret, USBStringFromReturn(ret));
 	}
 	
     DecrementOutstandingIO();
@@ -3573,42 +3873,85 @@ IOUSBInterfaceUserClientV2::RemoveDataBufferFromList( IOUSBLowLatencyUserClientB
 void
 IOUSBInterfaceUserClientV2::DecrementOutstandingIO(void)
 {
-    if (!fGate)
+ 	IOCommandGate *	gate = fGate;
+	IOWorkLoop *	workLoop = fWorkLoop;
+
+	if (!fGate)
     {
-		if (!--fOutstandingIO && fNeedToClose)
+		if (!--fOutstandingIO && fNeedToClose && !FOWNER_WAS_RELEASED)
 		{
-			USBLog(3, "IOUSBInterfaceUserClientV2[%p]::DecrementOutstandingIO isInactive = %d, outstandingIO = %d - closing device",  this, isInactive(), fOutstandingIO);
-			if (fOwner && fOwner->isOpen(this) ) 
-			{
-				fOwner->close(this);
-				fNeedToClose = false;
-				if ( isInactive() )
-					fOwner = NULL;
-			}
+			USBLog(3, "IOUSBInterfaceUserClientV2[%p]::DecrementOutstandingIO isInactive(%s), outstandingIO = %d - closing device",  this, isInactive() ? "true" : "false" , (int)fOutstandingIO);
 			
-            if ( fDead) 
+			// Want to set this one if fOwner is not valid, just in case
+			FOWNER_WAS_RELEASED = true;
+			if (fOwner)
 			{
-				fDead = false;
-				release();
+				USBLog(6, "IOUSBInterfaceUserClientV2[%p]::DecrementOutstandingIO  closing and releasing fOwner(%p)",  this, fOwner);
+				fOwner->close(this);
+				fOwner->release();
+				fNeedToClose = false;
 			}
+			release();
 		}
-		return;
     }
-	//USBTrace( kUSBTOutstandingIO, kTPInterfaceUCDecrement , (uintptr_t)this, (int)fOutstandingIO );
-    fGate->runAction(ChangeOutstandingIO, (void*)-1);
+	else
+	{
+		//USBTrace( kUSBTOutstandingIO, kTPInterfaceUCDecrement , (uintptr_t)this, (int)fOutstandingIO );
+		workLoop->retain();
+		gate->retain();
+
+		IOReturn kr = gate->runAction(ChangeOutstandingIO, (void*)-1);
+		if ( kr != kIOReturnSuccess)
+		{
+			USBLog(3, "IOUSBInterfaceUserClientV2[%p]::DecrementOutstandingIO runAction returned 0x%x, isInactive(%s)",  this, kr, isInactive() ? "true" : "false");
+
+		}
+		
+		gate->release();
+		workLoop->release();
+	}
+	
+	if (fOutstandingIO == 0 && FDELAYED_WORKLOOP_FREE)
+	{
+		FDELAYED_WORKLOOP_FREE = false;
+		
+		USBLog(6, "IOUSBInterfaceUserClientV2[%p]::DecrementOutstandingIO  calling ReleaseWorkLoopAndGate()", this);
+		ReleaseWorkLoopAndGate();
+	}
+	
 }
 
 
 void
 IOUSBInterfaceUserClientV2::IncrementOutstandingIO(void)
 {
+	IOCommandGate *	gate = fGate;
+	IOWorkLoop *	workLoop = fWorkLoop;
+	
+	if ( isInactive() )
+	{
+		USBLog(5, "IOUSBInterfaceUserClientV2[%p]::IncrementOutstandingIO  but we are inActive!",  this);
+	}
+	
     if (!fGate)
     {
 		fOutstandingIO++;
 		return;
     }
 	//USBTrace( kUSBTOutstandingIO, kTPInterfaceUCIncrement , (uintptr_t)this, (int)fOutstandingIO );
-    fGate->runAction(ChangeOutstandingIO, (void*)1);
+	workLoop->retain();
+	gate->retain();
+	
+    IOReturn kr = gate->runAction(ChangeOutstandingIO, (void*)1);
+	if ( kr != kIOReturnSuccess)
+	{
+		USBLog(3, "IOUSBInterfaceUserClientV2[%p]::IncrementOutstandingIO runAction returned 0x%x, isInactive(%s)",  this, kr, isInactive() ? "true" : "false");
+		
+	}
+	
+	gate->release();
+	workLoop->release();
+	
 }
 
 
@@ -3633,22 +3976,21 @@ IOUSBInterfaceUserClientV2::ChangeOutstandingIO(OSObject *target, void *param1, 
 			break;
 			
 		case -1:
-			if (!--me->fOutstandingIO && me->fNeedToClose)
+			if (!--me->fOutstandingIO && me->fNeedToClose && !me->FOWNER_WAS_RELEASED)
             {
                 USBLog(6, "IOUSBInterfaceUserClientV2[%p]::ChangeOutstandingIO isInactive = %d, outstandingIO = %d - closing device",  me, me->isInactive(), me->fOutstandingIO);
-                if (me->fOwner && me->fOwner->isOpen(me)) 
-				{
-					me->fOwner->close(me);
-					me->fNeedToClose = false;
-					if ( me->isInactive() )
-						me->fOwner = NULL;
-				}
 				
-                if ( me->fDead) 
+				// Want to set this one if fOwner is not valid, just in case
+				me->FOWNER_WAS_RELEASED = true;
+
+				if (me->fOwner) 
 				{
-					me->fDead = false;
-					me->release();
+					USBLog(6, "IOUSBInterfaceUserClientV2[%p]::ChangeOutstandingIO closing fOwner(%p)",  me, me->fOwner);
+					me->fOwner->close(me);
+					me->fOwner->release();
+					me->fNeedToClose = false;
 				}
+				me->release();
 			}
 			break;
 			
@@ -3664,15 +4006,29 @@ IOUSBInterfaceUserClientV2::ChangeOutstandingIO(OSObject *target, void *param1, 
 UInt32
 IOUSBInterfaceUserClientV2::GetOutstandingIO()
 {
-    UInt32	count = 0;
-    
+    UInt32			count = 0;
+  	IOCommandGate *	gate = fGate;
+	IOWorkLoop *	workLoop = fWorkLoop;
+	
+	
     if (!fGate)
     {
 		return fOutstandingIO;
     }
     
-    fGate->runAction(GetGatedOutstandingIO, (void*)&count);
-    
+	workLoop->retain();
+	gate->retain();
+	
+	IOReturn kr = gate->runAction(GetGatedOutstandingIO, (void*)&count);
+	if ( kr != kIOReturnSuccess)
+	{
+		USBLog(3, "IOUSBInterfaceUserClientV2[%p]::GetOutstandingIO  runAction returned 0x%x, isInactive(%s)",  this, kr, isInactive() ? "true" : "false");
+		
+	}
+	
+	gate->release();
+	workLoop->release();
+	
     return count;
 }
 
@@ -3772,142 +4128,9 @@ IOUSBInterfaceUserClientV2::GetPipeObj(UInt8 pipeNo)
     return pipe;
 }
 
-
-#pragma mark IOKit Methods
-
-//
-// clientClose - my client on the user side has released the mach port, so I will no longer
-// be talking to him
-//
-IOReturn  
-IOUSBInterfaceUserClientV2::clientClose( void )
+void
+IOUSBInterfaceUserClientV2::ReleaseWorkLoopAndGate()
 {
-    USBLog(7, "+IOUSBInterfaceUserClientV2[%p]::clientClose(%p), IO: %d",  this, fUserClientBufferInfoListHead, fOutstandingIO);
-	
-    // Sleep for 1 ms to allow other threads that are pending to run
-    //
-    IOSleep(1);
-    
-    // We need to destroy the pipes so that any bandwidth gets returned -- our client has died so keeping them around 
-    // is not useful
-    //
-    if ( fDead && fOwner && !isInactive() && fOwner->isOpen(this) )
-	{
-		// If the interface is other than 0, set it to 0 before closing the pipes
-		UInt8	altSetting = fOwner->GetAlternateSetting();
-		
-		if ( altSetting != 0 )
-		{
-			IOUSBDevice *			device = fOwner->GetDevice();
-			
-			USBLog(6, "+IOUSBInterfaceUserClientV2[%p]::clientClose setting Alternate Interface to 0 before closing pipes",  this);
-			fOwner->SetAlternateInterface(this, 0);
-			
-			if ( device )
-			{
-				OSObject *				propertyObj = NULL;
-				OSBoolean *				boolObj = NULL;
-				
-				// If we have the suspend property in the device, then suspend it
-				propertyObj = device->copyProperty(kUSBSuspendPort);
-				boolObj = OSDynamicCast( OSBoolean, propertyObj);
-				if ( boolObj && boolObj->isTrue())
-				{
-					if ( !device->open(this) )
-					{
-						USBLog(6, "+IOUSBInterfaceUserClientV2[%p]::clientClose  device->open returned FALSE",  this);
-					}
-					else
-					{
-						IOReturn kr = device->SuspendDevice(true);
-						if (kr != kIOReturnSuccess )
-						{
-							USBLog(6, "+IOUSBInterfaceUserClientV2[%p]::clientClose  device->SuspendDevice returned 0x%x",  this, kr);
-						}
-					}
-					device->close(this);
-				}
-				
-				if (propertyObj)
-					propertyObj->release();
-			}
-		}
-		
-		if ( fOwner)
-			fOwner->ClosePipes();
-	}
-    
-	// If we are already inactive, it means that our IOUSBInterface is going/has gone away.  In that case
-	// we really do not need to do anything as the IOKit termination will take care of cleaning things.
-	if ( !isInactive() )
-	{
-		if ( fOutstandingIO == 0 )
-		{
-			USBLog(6, "+IOUSBInterfaceUserClientV2[%p]::clientClose closing provider",  this);
-			
-			if ( fOwner && fOwner->isOpen(this)) 
-			{
-				// Since this is call that tells us that our user space client has gone away, we can
-				// close our provider.  We don't set it to NULL because the IOKit object representing
-				// it has not gone away.  That will come in thru did/willTerminate.  Also, we should
-				// be checking whether fOwner was open before closing it, but we will do that later.
-				fOwner->close(this);
-				fNeedToClose = false;
-			}
-			
-			if ( fDead) 
-			{
-				fDead = false;
-				release();
-			}
-		}
-		else
-		{
-			USBLog(5, "+IOUSBInterfaceUserClientV2[%p]::clientClose will close provider later",  this);
-			fNeedToClose = true;
-		}
-		
-		fTask = NULL;
-		
-		terminate();
-	}
-	
-    USBLog(7, "-IOUSBInterfaceUserClientV2[%p]::clientClose(%p)",  this, fUserClientBufferInfoListHead);
-	
-    return kIOReturnSuccess;			// DONT call super::clientClose, which just returns notSupported
-}
-
-
-IOReturn 
-IOUSBInterfaceUserClientV2::clientDied( void )
-{
-    IOReturn ret;
-	
-    USBLog(6, "+IOUSBInterfaceUserClientV2[%p]::clientDied() IO: %d",  this, fOutstandingIO);
-    
-    retain();                       // We will release once any outstandingIO is finished
-	
-    fDead = true;				// don't send any mach messages in this case
-    ret = super::clientDied();
-	
-    USBLog(6, "-IOUSBInterfaceUserClientV2[%p]::clientDied()",  this);
-	
-    return ret;
-}
-
-//
-// stop
-// 
-// This IOService method is called AFTER we have closed our provider, assuming that the provider was 
-// ever opened. If we issue I/O to the provider, then we must have it open, and we will not close
-// our provider until all of that I/O is completed.
-void 
-IOUSBInterfaceUserClientV2::stop(IOService * provider)
-{
-    
-    USBLog(7, "+IOUSBInterfaceUserClientV2[%p]::stop(%p), IO: %d",  this, provider, fOutstandingIO);
-	
-
     // If we have any kernelDataBuffer pointers, then release them now
     //
     if (fUserClientBufferInfoListHead != NULL)
@@ -3923,42 +4146,236 @@ IOUSBInterfaceUserClientV2::stop(IOService * provider)
     }
 	
 	if (fWorkLoop && fGate)
+	{
 		fWorkLoop->removeEventSource(fGate);
+		
+		if (fGate)
+		{
+			fGate->release();
+			fGate = NULL;
+		}
+		
+		if (fWorkLoop)
+		{
+			fWorkLoop->release();
+			fWorkLoop = NULL;
+		}
+	}
+}
+
+#pragma mark IOKit Methods
+
+//
+// clientClose - my client on the user side has released the mach port, so I will no longer
+// be talking to him
+//
+IOReturn  
+IOUSBInterfaceUserClientV2::clientClose( void )
+{
+	IOReturn ret = kIOReturnNoDevice;
+
+	retain();
 	
-	// Undo the retain() that we issued on ourselves and our provider from start()
-	if ( fOwner )
-		fOwner->release();
+	USBLog(6, "IOUSBInterfaceUserClientV2[%p]::clientClose", this);
+	
+	// If we are inActive(), this means that we have been terminated.  This should not happen, as the user client connection should be severed by now
+	if ( isInactive())
+	{
+		USBLog(1, "IOUSBInterfaceUserClientV2[%p]::clientClose  We are inactive, returning",  this);
+	}
+	else 
+	{
+		IOCommandGate *	gate = fGate;
+		IOWorkLoop *	workLoop = fWorkLoop;
+
+		if (gate && workLoop)
+		{
+			workLoop->retain();
+			gate->retain();
+
+			ret = gate->runAction(ClientCloseEntry);
+			if ( ret != kIOReturnSuccess)
+			{
+				USBLog(3, "IOUSBInterfaceUserClientV2[%p]::clientClose  runAction returned 0x%x, isInactive(%s)",  this, ret, isInactive() ? "true" : "false");
+			}
+			
+			gate->release();
+			workLoop->release();
+		}
+		else
+		{
+			ret = kIOReturnNoResources;
+		}
+	}
 	
 	release();
-		
-    super::stop(provider);
 	
-    USBLog(7, "-IOUSBInterfaceUserClientV2[%p]::stop(%p)",  this, provider);
+	return ret;
+}
+
+IOReturn  
+IOUSBInterfaceUserClientV2::ClientCloseEntry(OSObject *target, void *param1, void *param2, void *param3, void *param4)
+{
+#pragma unused (param1, param2, param3, param4)
+	IOUSBInterfaceUserClientV2 *			me = OSDynamicCast(IOUSBInterfaceUserClientV2, target);
+    if (!me)
+    {
+		USBLog(1, "IOUSBInterfaceUserClientV2::ClientCloseEntry - invalid target");
+		return kIOReturnBadArgument;
+    }
+	
+	USBLog(6, "IOUSBInterfaceUserClientV2[%p]::ClientCloseEntry  calling ClientCloseGated", me);
+	return me->ClientCloseGated();
+}
+
+IOReturn  
+IOUSBInterfaceUserClientV2::ClientCloseGated( void )
+{
+	USBLog(5, "+IOUSBInterfaceUserClientV2[%p]::ClientCloseGated  isInactive = %d, fOutstandingIO = %d, FOWNER_WAS_RELEASED: %d",  this, isInactive(), fOutstandingIO, FOWNER_WAS_RELEASED);
+	
+	// If we are inActive(), this means that we have been terminated.
+	if ( isInactive())
+	{
+		USBLog(6, "IOUSBInterfaceUserClientV2[%p]::ClientCloseGated  We are inactive, returning kIOReturnNoDevice",  this);
+		return kIOReturnNoDevice;
+	}
+	
+	// retain()/release() ourselves because we might close our fOwner and hence could be terminated
+	retain();
+    
+	// First, close any return any bandwith that might still be around, and close any pipes that might be open
+	if ( fOwner && FOPENED_FOR_EXCLUSIVEACCESS )
+	{
+		// If the interface is other than 0, set it to 0 before closing the pipes
+		UInt8	altSetting = fOwner->GetAlternateSetting();
+		
+		if ( altSetting != 0 )
+		{
+			IOUSBDevice *			device = fOwner->GetDevice();
+			
+			USBLog(6, "+IOUSBInterfaceUserClientV2[%p]::ClientCloseGated setting Alternate Interface(%d) to 0 before closing pipes",  this, altSetting);
+			fOwner->SetAlternateInterface(this, 0);
+			
+			if ( device )
+			{
+				OSObject *				propertyObj = NULL;
+				OSBoolean *				boolObj = NULL;
+				
+				// If we have the suspend property in the device, then suspend it
+				propertyObj = device->copyProperty(kUSBSuspendPort);
+				boolObj = OSDynamicCast( OSBoolean, propertyObj);
+				if ( boolObj && boolObj->isTrue())
+				{
+					if ( !device->open(this) )
+					{
+						USBLog(6, "+IOUSBInterfaceUserClientV2[%p]::ClientCloseGated  device->open returned FALSE",  this);
+					}
+					else
+					{
+						IOReturn kr = device->SuspendDevice(true);
+						if (kr != kIOReturnSuccess )
+						{
+							USBLog(6, "+IOUSBInterfaceUserClientV2[%p]::ClientCloseGated  device->SuspendDevice returned 0x%x",  this, kr);
+						}
+					}
+					device->close(this);
+				}
+				
+				if (propertyObj)
+					propertyObj->release();
+			}
+		}
+		
+		// If we are inactive, that means that our provider is being terminated or has been terminated, so the pipes will be closed
+		// by that termination, so we don't have to do it again.  ClosePipes() will need to grab the USB workloop to abort the endpoints.
+		if ( fOwner && !isInactive())
+		{
+			USBLog(6, "+IOUSBInterfaceUserClientV2[%p]::ClientCloseGated  closing pipes",  this);
+			fOwner->ClosePipes();
+		}
+
+		// Check to see if the client forgot to call ::close()
+		if ( FOPENED_FOR_EXCLUSIVEACCESS )
+		{
+			IOOptionBits	options = kUSBOptionBitOpenExclusivelyMask;
+			
+			USBLog(6, "IOUSBInterfaceUserClientV2[%p]::ClientCloseGated  we were open exclusively, closing exclusively",  this);
+			FOPENED_FOR_EXCLUSIVEACCESS = false;
+			fOwner->close(this, options);
+		}
+	}
+			
+	// Note that the terminate will end up calling provider->close(), so this is where the fOwner->open() from start() is balanced.  We don't want to do this
+	// if we are inActive() or we have pendingIO.
+	
+	if (!isInactive() && (fOutstandingIO == 0) && !FOWNER_WAS_RELEASED)
+	{
+		USBLog(6, "IOUSBInterfaceUserClientV2[%p]::ClientCloseGated  calling fOwner(%p)->release()",  this, fOwner);
+		FOWNER_WAS_RELEASED = true;
+		fOwner->release();
+		release();
+	}
+	
+	fTask = NULL;
+		
+	USBLog(5, "+IOUSBInterfaceUserClientV2[%p]::ClientCloseGated  calling terminate()",  this);
+	
+	terminate();
+
+    USBLog(6, "-IOUSBInterfaceUserClientV2[%p]::ClientCloseGated isInactive(%d), fOutstandingIO (%d)",  this,isInactive(), fOutstandingIO);
+	
+	release();
+	
+    return kIOReturnSuccess;			// DONT call super::clientClose, which just returns notSupported
+	
+}
+
+
+IOReturn 
+IOUSBInterfaceUserClientV2::clientDied( void )
+{
+    IOReturn ret;
+	
+    USBLog(6, "+IOUSBInterfaceUserClientV2[%p]::clientDied() IO: %d",  this, fOutstandingIO);
+    
+    fDead = true;				// don't send any mach messages in this case
+    ret = super::clientDied();
+	
+    USBLog(6, "-IOUSBInterfaceUserClientV2[%p]::clientDied()",  this);
+	
+    return ret;
+}
+
+//
+// stop
+// 
+void 
+IOUSBInterfaceUserClientV2::stop(IOService * provider)
+{
+    
+    USBLog(6, "+IOUSBInterfaceUserClientV2[%p]::stop(%p), IsInactive: %d, outstandingIO: %d, inGate: %s",  this, provider, isInactive(), fOutstandingIO, fWorkLoop ? (fWorkLoop->inGate() ? "Yes" : "No"): "No workloop!");
+	
+	if (fOutstandingIO == 0)
+	{
+		ReleaseWorkLoopAndGate();
+	}
+	else 
+	{
+		USBLog(6, "+IOUSBInterfaceUserClientV2[%p]::stop, fOutstandingIO was not 0, so delaying free()'ing fGate and fWorkLoop",  this);
+		FDELAYED_WORKLOOP_FREE = true;
+	}
+	
+	super::stop(provider);
+	
+    USBLog(6, "-IOUSBInterfaceUserClientV2[%p]::stop(%p)",  this, provider);
 	
 }
 
 void 
 IOUSBInterfaceUserClientV2::free()
 {
-    // If we have any kernelDataBuffer pointers, then release them now
-    //
-    if (fUserClientBufferInfoListHead != NULL)
-    {
-        ReleasePreparedDescriptors();
-    }
-    
-	if (fGate)
-	{
-		fGate->release();
-		fGate = NULL;
-	}
+    USBLog(6, "+IOUSBInterfaceUserClientV2[%p]::free",  this);	
 	
-	if (fWorkLoop)
-	{
-		fWorkLoop->release();
-		fWorkLoop = NULL;
-	}
-
 	//  This needs to be the LAST thing we do, as it disposes of our "fake" member
     //  variables.
     //
@@ -3977,7 +4394,7 @@ IOUSBInterfaceUserClientV2::finalize( IOOptionBits options )
 {
     bool ret;
 	
-    USBLog(7, "+IOUSBInterfaceUserClientV2[%p]::finalize(%08x)",  this, (int)options);
+    USBLog(6, "+IOUSBInterfaceUserClientV2[%p]::finalize(%08x), isInactive = %d, fOutstandingIO = %d, inGate: %s",  this, (int)options, isInactive(), fOutstandingIO, fWorkLoop ? (fWorkLoop->inGate() ? "Yes" : "No"): "No workloop!");
     
     ret = super::finalize(options);
     
@@ -3989,46 +4406,28 @@ IOUSBInterfaceUserClientV2::finalize( IOOptionBits options )
 bool
 IOUSBInterfaceUserClientV2::willTerminate( IOService * provider, IOOptionBits options )
 {
-    IOUSBPipe 		*pipe = NULL;
-    IOReturn		ret;
-    UInt32		ioPending = 0;
-	
     // this method is intended to be used to stop any pending I/O and to make sure that
     // we have begun getting our callbacks in order. by the time we get here, the
     // isInactive flag is set, so we really are marked as being done. we will do in here
     // what we used to do in the message method (this happens first)
 	
-    USBLog(3, "IOUSBInterfaceUserClientV2[%p]::willTerminate isInactive = %d",  this, isInactive());
+    USBLog(5, "IOUSBInterfaceUserClientV2[%p]::willTerminate isInactive = %d, outstandingIO = %d inGate: %s",  this, isInactive(), (uint32_t)fOutstandingIO, fWorkLoop ? (fWorkLoop->inGate() ? "Yes" : "No"): "No workloop!");
 	
     //  We have seen cases where our fOwner is not valid at this point.  This is strange
     //  but we'll code defensively and only execute if our provider (fOwner) is still around
     //
-    if ( fOwner )
+    if ( fWorkLoop && fOwner )
     {
-        IncrementOutstandingIO();
-		
-        ioPending = GetOutstandingIO();
-        
-        if ( (ioPending > 1) && fOwner )
+        if ( fOutstandingIO > 0 )
         {
             int		i;
 			
-            USBLog(7, "IOUSBInterfaceUserClientV2[%p]::willTerminate - outstanding IO(%d), aborting pipes",  this, (uint32_t)ioPending);
-            for (i=1; i <= kUSBMaxPipes; i++)
-            {
-                pipe = fOwner->GetPipeObj(i-1);
-				
-                if (pipe)
-                {
-                    pipe->retain();
-                    ret =  pipe->Abort();
-                    pipe->release();
-                }
+			USBLog(6, "IOUSBInterfaceUserClientV2[%p]::willTerminate - outstanding IO(%d), aborting pipes",  this, (uint32_t)fOutstandingIO);
+			for (i = 1; i <= kUSBMaxPipes; i++)
+			{
+				AbortPipe(i);
             }
-			
         }
-        
-        DecrementOutstandingIO();
     }
 	
     return super::willTerminate(provider, options);
@@ -4041,24 +4440,66 @@ IOUSBInterfaceUserClientV2::didTerminate( IOService * provider, IOOptionBits opt
     // this method comes at the end of the termination sequence. Hopefully, all of our outstanding IO is complete
     // in which case we can just close our provider and IOKit will take care of the rest. Otherwise, we need to 
     // hold on to the device and IOKit will terminate us when we close it later
-	USBLog(3, "IOUSBInterfaceUserClientV2[%p]::didTerminate isInactive = %d, outstandingIO = %d",  this, isInactive(), fOutstandingIO);
+	USBLog(5, "IOUSBInterfaceUserClientV2[%p]::didTerminate isInactive = %d, outstandingIO = %d, FOWNER_WAS_RELEASED: %d, inGate: %s",  this, isInactive(), fOutstandingIO, FOWNER_WAS_RELEASED, fWorkLoop ? (fWorkLoop->inGate() ? "Yes" : "No"): "No workloop!");
 	
-    if ( fOwner && fOwner->isOpen(this))
-    {
-        if ( fOutstandingIO == 0 )
+	if ( fWorkLoop)
+	{
+		// At this point, we are inactive, so if we have been opened for exclusive acces, we need to close it
+		if ( FOPENED_FOR_EXCLUSIVEACCESS && fOwner)
 		{
-            fOwner->close(this);
-			fNeedToClose = false;
-			if ( isInactive() )
-				fOwner = NULL;
+			IOOptionBits	options = kUSBOptionBitOpenExclusivelyMask;
+			
+			FOPENED_FOR_EXCLUSIVEACCESS = false;
+			USBLog(5, "IOUSBInterfaceUserClientV2[%p]::didTerminate  FOPENED_FOR_EXCLUSIVEACCESS was true, closing fOwner(kUSBOptionBitOpenExclusivelyMask)",  this);
+			fOwner->close(this, options);
 		}
-        else
-            fNeedToClose = true;
+		
+		// now, if we still have our owner open, then we need to close it
+		if ( fOutstandingIO == 0)
+		{
+			bool	releaseIt = !FOWNER_WAS_RELEASED;
+			FOWNER_WAS_RELEASED = true;
+			
+			USBLog(6, "+IOUSBInterfaceUserClientV2[%p]::didTerminate  fOutstandingIO is 0, releaseIt: %d",  this, releaseIt);
+
+			if (fOwner && fOwner->isOpen(this))
+			{
+				
+				USBLog(6, "+IOUSBInterfaceUserClientV2[%p]::didTerminate  closing fOwner",  this);
+				
+				fNeedToClose = false;
+				fOwner->close(this);
+			}
+			
+			if (fOwner && releaseIt)
+			{
+				USBLog(6, "+IOUSBInterfaceUserClientV2[%p]::didTerminate  releasing fOwner(%p) and UC",  this, fOwner);
+				fOwner->release();
+				release();
+			}
+		}
+		else
+		{
+			USBLog(5, "+IOUSBInterfaceUserClientV2[%p]::didTerminate  will close fOwner later because IO is %d",  this, (uint32_t)fOutstandingIO);
+			fNeedToClose = true;
+		}
     }
-    
+	
     return super::didTerminate(provider, options, defer);
 }
 
+
+bool	
+IOUSBInterfaceUserClientV2::terminate( IOOptionBits options )
+{
+	bool	retValue;
+	
+	USBLog(6, "%s[%p]::terminate  calling super::terminate", getName(), this);
+	retValue = super::terminate(options);
+	USBLog(6, "-%s[%p]::terminate", getName(), this);
+	
+	return retValue;
+}
 
 IOReturn 
 IOUSBInterfaceUserClientV2::message( UInt32 type, IOService * provider,  void * argument )
@@ -4227,8 +4668,8 @@ OSMetaClassDefineReservedUsed(IOUSBInterfaceUserClientV2,  8);
 OSMetaClassDefineReservedUsed(IOUSBInterfaceUserClientV2,  9);
 OSMetaClassDefineReservedUsed(IOUSBInterfaceUserClientV2, 10);
 OSMetaClassDefineReservedUsed(IOUSBInterfaceUserClientV2, 11);
+OSMetaClassDefineReservedUsed(IOUSBInterfaceUserClientV2, 12);
 
-OSMetaClassDefineReservedUnused(IOUSBInterfaceUserClientV2, 12);
 OSMetaClassDefineReservedUnused(IOUSBInterfaceUserClientV2, 13);
 OSMetaClassDefineReservedUnused(IOUSBInterfaceUserClientV2, 14);
 OSMetaClassDefineReservedUnused(IOUSBInterfaceUserClientV2, 15);

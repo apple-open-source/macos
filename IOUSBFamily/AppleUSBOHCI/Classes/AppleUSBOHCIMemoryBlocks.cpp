@@ -62,6 +62,7 @@ AppleUSBOHCIedMemoryBlock::NewMemoryBlock(void)
 			{
 				USBError(1, "AppleUSBOHCIedMemoryBlock::NewMemoryBlock - could not prepare buffer");
 				me->_buffer->release();
+				me->_buffer = NULL;
 				me->release();
 				dmaCommand->release();
 				return NULL;
@@ -74,6 +75,7 @@ AppleUSBOHCIedMemoryBlock::NewMemoryBlock(void)
 				USBError(1, "AppleUSBOHCIedMemoryBlock::NewMemoryBlock - could not set memory descriptor");
 				me->_buffer->complete();
 				me->_buffer->release();
+				me->_buffer = NULL;
 				me->release();
 				dmaCommand->release();
 				return NULL;
@@ -86,6 +88,7 @@ AppleUSBOHCIedMemoryBlock::NewMemoryBlock(void)
 				USBError(1, "AppleUSBOHCIedMemoryBlock::NewMemoryBlock - could not get physical segment");
 				me->_buffer->complete();
 				me->_buffer->release();
+				me->_buffer = NULL;
 				me->release();
 				return NULL;
 			}
@@ -168,8 +171,11 @@ void
 AppleUSBOHCIedMemoryBlock::free()
 {
     // IOKit calls this when we are going away
-     if (_buffer) 
-		_buffer->complete();						// we need to unmap our buffer
+     if (_buffer)
+	 {
+		 _buffer->complete();						// we need to unmap our buffer
+		 _buffer->release();
+	 }
     super::free();
 }
 
@@ -211,6 +217,7 @@ AppleUSBOHCIgtdMemoryBlock::NewMemoryBlock(void)
 			{
 				USBError(1, "AppleUSBOHCIedMemoryBlock::NewMemoryBlock - could not prepare buffer");
 				me->_buffer->release();
+				me->_buffer = NULL;
 				me->release();
 				dmaCommand->release();
 				return NULL;
@@ -223,6 +230,7 @@ AppleUSBOHCIgtdMemoryBlock::NewMemoryBlock(void)
 				USBError(1, "AppleUSBOHCIedMemoryBlock::NewMemoryBlock - could not set memory descriptor");
 				me->_buffer->complete();
 				me->_buffer->release();
+				me->_buffer = NULL;
 				me->release();
 				dmaCommand->release();
 				return NULL;
@@ -235,6 +243,7 @@ AppleUSBOHCIgtdMemoryBlock::NewMemoryBlock(void)
 				USBError(1, "AppleUSBOHCIedMemoryBlock::NewMemoryBlock - could not get physical segment");
 				me->_buffer->complete();
 				me->_buffer->release();
+				me->_buffer = NULL;
 				me->release();
 				return NULL;
 			}
@@ -368,8 +377,11 @@ void
 AppleUSBOHCIgtdMemoryBlock::free()
 {
     // IOKit calls this when we are going away
-    if (_buffer) 
+    if (_buffer)
+	{
 		_buffer->complete();				// we need to unmap our buffer
+		_buffer->release();
+	}
     super::free();
 }
 
@@ -411,6 +423,7 @@ AppleUSBOHCIitdMemoryBlock::NewMemoryBlock(void)
 			{
 				USBError(1, "AppleUSBOHCIitdMemoryBlock::NewMemoryBlock - could not prepare buffer");
 				me->_buffer->release();
+				me->_buffer = NULL;
 				me->release();
 				dmaCommand->release();
 				return NULL;
@@ -423,6 +436,7 @@ AppleUSBOHCIitdMemoryBlock::NewMemoryBlock(void)
 				USBError(1, "AppleUSBOHCIitdMemoryBlock::NewMemoryBlock - could not set memory descriptor");
 				me->_buffer->complete();
 				me->_buffer->release();
+				me->_buffer = NULL;
 				me->release();
 				dmaCommand->release();
 				return NULL;
@@ -435,6 +449,7 @@ AppleUSBOHCIitdMemoryBlock::NewMemoryBlock(void)
 				USBError(1, "AppleUSBOHCIitdMemoryBlock::NewMemoryBlock - could not get physical segment");
 				me->_buffer->complete();
 				me->_buffer->release();
+				me->_buffer = NULL;
 				me->release();
 				return NULL;
 			}
@@ -566,7 +581,10 @@ void
 AppleUSBOHCIitdMemoryBlock::free()
 {
     // IOKit calls this when we are going away
-    if (_buffer) 
+    if (_buffer)
+	{
 		_buffer->complete();				// we need to unmap our buffer
+		_buffer->release();					// and release it
+	}
     super::free();
 }

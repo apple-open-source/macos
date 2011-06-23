@@ -156,7 +156,7 @@ bool IOAudioControlUserClient::initWithAudioControl(IOAudioControl *control, tas
 
 void IOAudioControlUserClient::free()
 {
-    audioDebugIOLog(3, "IOAudioControlUserClient[%p]::free()", this);
+    audioDebugIOLog(3, "+ IOAudioControlUserClient[%p]::free()\n", this);
     
     if (notificationMessage) {
         IOFreeAligned(notificationMessage, sizeof(IOAudioNotificationMessage));
@@ -173,11 +173,12 @@ void IOAudioControlUserClient::free()
 	}
 
     super::free();
+    audioDebugIOLog(3, "- IOAudioControlUserClient[%p]::free()\n", this);
 }
 
 IOReturn IOAudioControlUserClient::clientClose()
 {
-    audioDebugIOLog(3, "IOAudioControlUserClient[%p]::clientClose()", this);
+    audioDebugIOLog(3, "+ IOAudioControlUserClient[%p]::clientClose()\n", this);
 
     if (audioControl) {
 		if (!audioControl->isInactive () && !isInactive()) {
@@ -187,14 +188,20 @@ IOReturn IOAudioControlUserClient::clientClose()
         audioControl = 0;
     }
     
+    audioDebugIOLog(3, "- IOAudioControlUserClient[%p]::clientClose() returns 0x%lX\n", this, (long unsigned int)kIOReturnSuccess );
     return kIOReturnSuccess;
 }
 
 IOReturn IOAudioControlUserClient::clientDied()
 {
-    audioDebugIOLog(3, "IOAudioControlUserClient[%p]::clientDied()", this);
+	IOReturn			result = kIOReturnError;
+	
+    audioDebugIOLog(3, "+ IOAudioControlUserClient[%p]::clientDied()\n", this);
 
-    return clientClose();
+    result =  clientClose();
+	
+    audioDebugIOLog(3, "- IOAudioControlUserClient[%p]::clientDied() returns 0x%lX\n", this, (long unsigned int)result );
+	return result;
 }
 
 IOReturn IOAudioControlUserClient::registerNotificationPort(mach_port_t port,

@@ -52,7 +52,8 @@ public:
 
 	cpu_type_t cpuType() const { return this->first; }
 	cpu_subtype_t cpuSubtype() const { return this->second; }
-	const char *name() const;
+	const char *name() const;			// NULL if unknown
+	std::string displayName() const;	// always display-able
 	
 	static const cpu_type_t none = 0;
 	operator bool () const { return cpuType() != none; }

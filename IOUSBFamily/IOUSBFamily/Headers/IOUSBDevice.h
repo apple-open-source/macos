@@ -530,6 +530,12 @@ private:
 	
     static IOReturn		_ResetDevice(OSObject *target, void *arg0, void *arg1, void *arg2, void *arg3);
     static IOReturn		_ReEnumerateDevice(OSObject *target, void *arg0, void *arg1, void *arg2, void *arg3);
+	static IOReturn		_DeviceRequest(OSObject *target, void *arg0, void *arg1, __unused void *arg2, __unused void *arg3);
+	static IOReturn		_DeviceRequestDesc(OSObject *target, void *arg0, void *arg1, __unused void *arg2, __unused void *arg3);
+	static IOReturn		_GetConfiguration(OSObject *target, void *arg0,  __unused void *arg1, __unused void *arg2, __unused void *arg3);
+	static IOReturn		_GetDeviceStatus(OSObject *target, void *arg0,  __unused void *arg1, __unused void *arg2, __unused void *arg3);
+	static IOReturn		_DeviceRequestWithTimeout(OSObject *target, void *arg0, void *arg1, void *arg2, void *arg3);
+	static IOReturn		_DeviceRequestDescWithTimeout(OSObject *target, void *arg0, void *arg1, void *arg2, void *arg3);
 
 };
 

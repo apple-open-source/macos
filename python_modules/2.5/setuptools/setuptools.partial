@@ -1,0 +1,16 @@
+<dict>
+        <key>OpenSourceProject</key>
+        <string>setuptools</string>
+        <key>OpenSourceVersion</key>
+        <string>0.6c9</string>
+        <key>OpenSourceWebsiteURL</key>
+        <string>http://pypi.python.org/pypi/setuptools</string>
+        <key>OpenSourceURL</key>
+        <string>http://svn.python.org/projects/sandbox/trunk/setuptools/</string>
+        <key>OpenSourceImportDate</key>
+        <string>2008-09-27</string>
+        <key>OpenSourceLicense</key>
+        <string>PSFL</string>
+        <key>OpenSourceLicenseFile</key>
+        <string>python_modules.txt</string>
+</dict>

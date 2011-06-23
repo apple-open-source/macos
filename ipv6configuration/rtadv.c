@@ -204,6 +204,7 @@ rtadv_verify_packet(interface_t * if_p)
     int			ifindex = 0;
     struct cmsghdr	*cm;
     struct in6_pktinfo	*pi = NULL;
+    struct nd_router_advert * ndra_p;
     char 		ntopbuf[INET6_ADDRSTRLEN], ifnamebuf[IFNAMSIZ];
 
     /* extract optional information via Advanced API */
@@ -249,7 +250,6 @@ rtadv_verify_packet(interface_t * if_p)
 		if_indextoname(pi->ipi6_ifindex, ifnamebuf));
 	return (-1);
     }
-
     if (*hlimp != 255) {
 	my_log(LOG_ERR, "RTADV_VERIFY_PACKET: invalid RA with hop limit(%d) from %s on %s",
 		*hlimp,
@@ -264,7 +264,11 @@ rtadv_verify_packet(interface_t * if_p)
 		if_indextoname(pi->ipi6_ifindex, ifnamebuf));
 	return (-1);
     }
-
+    ndra_p = (struct nd_router_advert *)(icp);
+    if (ndra_p->nd_ra_router_lifetime == 0) {
+	/* ignore RA with lifetime zero */
+	return (-1);
+    }
     my_log(LOG_DEBUG, "RTADV_VERIFY_PACKET: received RA from %s on %s",
 	    inet_ntop(AF_INET6, &from.sin6_addr, ntopbuf, sizeof(ntopbuf)),
 	    if_p->name);

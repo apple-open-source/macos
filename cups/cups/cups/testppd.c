@@ -1,9 +1,9 @@
 /*
  * "$Id: testppd.c 7897 2008-09-02 19:33:19Z mike $"
  *
- *   PPD test program for the Common UNIX Printing System (CUPS).
+ *   PPD test program for CUPS.
  *
- *   Copyright 2007-2010 by Apple Inc.
+ *   Copyright 2007-2011 by Apple Inc.
  *   Copyright 1997-2006 by Easy Software Products.
  *
  *   These coded instructions, statements, and computer programs are the
@@ -445,6 +445,21 @@ main(int  argc,				/* I - Number of command-line arguments */
     else
       puts("PASS");
 
+    fputs("cupsMarkOptions(media=oe_letter-fullbleed_8.5x11in): ", stdout);
+    num_options = cupsAddOption("media", "oe_letter-fullbleed_8.5x11in", 0,
+                                &options);
+    cupsMarkOptions(ppd, num_options, options);
+    cupsFreeOptions(num_options, options);
+
+    size = ppdPageSize(ppd, NULL);
+    if (!size || strcmp(size->name, "Letter.Fullbleed"))
+    {
+      printf("FAIL (%s)\n", size ? size->name : "unknown");
+      status ++;
+    }
+    else
+      puts("PASS");
+
     fputs("cupsMarkOptions(media=A4): ", stdout);
     num_options = cupsAddOption("media", "A4", 0, &options);
     cupsMarkOptions(ppd, num_options, options);
@@ -714,7 +729,7 @@ main(int  argc,				/* I - Number of command-line arguments */
     }
     else
       puts("FAIL (No conflicts!)");
-    
+
     fputs("ppdInstallableConflict(): ", stdout);
     if (ppdInstallableConflict(ppd, "Duplex", "DuplexNoTumble") &&
         !ppdInstallableConflict(ppd, "Duplex", "None"))
@@ -830,10 +845,23 @@ main(int  argc,				/* I - Number of command-line arguments */
 
     if (!strncmp(argv[1], "-d", 2))
     {
-      filename = cupsGetPPD(argv[1] + 2);
+      const char *printer;		/* Printer name */
+
+      if (argv[1][2])
+	printer = argv[1] + 2;
+      else if (argv[2])
+	printer = argv[2];
+      else
+      {
+        puts("Usage: ./testppd -d printer");
+	return (1);
+      }
+
+      filename = cupsGetPPD(printer);
+
       if (!filename)
       {
-        printf("%s: %s\n", argv[1], cupsLastErrorString());
+        printf("%s: %s\n", printer, cupsLastErrorString());
         return (1);
       }
     }

@@ -32,7 +32,7 @@
 //===========================================================================
 // An object that describes a single HID element.
     
-class IOHIDElement: public OSObject
+class IOHIDElement: public OSCollection
 {
     OSDeclareAbstractStructors( IOHIDElement )
     

@@ -128,6 +128,7 @@ IOUSBRootHubDevice::InitializeCharacteristics()
 		characteristics |= kIOUSBHubDeviceIsOnHighSpeedBus;
 		
 	SetHubCharacteristics(characteristics);
+	
 	return true;
 }
 
@@ -183,12 +184,14 @@ IOUSBRootHubDevice::stop( IOService *provider )
 void
 IOUSBRootHubDevice::free()
 {
+	USBLog(2, "IOUSBRootHubDevice[%p]::+free", this);
     if (_expansionData)
     {
         IOFree(_expansionData, sizeof(ExpansionData));
         _expansionData = NULL;
     }
     super::free();
+	USBLog(2, "IOUSBRootHubDevice[%p]::-free", this);
 }
 
 
@@ -482,7 +485,7 @@ IOUSBRootHubDevice::RequestExtraPower(UInt32 requestedPower)
 	// The power requested is a delta above the USB Spec for the port.  That's why we need to subtract the kUSB2MaxPowerPerPortmA from the maxPowerPerPort value
 	if (requestedPower > (maxPowerPerPort-kUSB2MaxPowerPerPort))		// limit requests to the maximum the HW can support
 	{
-		USBLog(5, "%s[%p]::RequestExtraPower - requestedPower = %d was grater than the maximum per port of %d.  Using that value instead", getName(), this, (uint32_t)requestedPower, (uint32_t) (maxPowerPerPort-kUSB2MaxPowerPerPort));
+		USBLog(5, "%s[%p]::RequestExtraPower - requestedPower = %d was greater than the maximum per port of %d.  Using that value instead", getName(), this, (uint32_t)requestedPower, (uint32_t) (maxPowerPerPort-kUSB2MaxPowerPerPort));
 		requestedPower = maxPowerPerPort-kUSB2MaxPowerPerPort;
 	}
 	
@@ -630,7 +633,7 @@ IOUSBRootHubDevice::RequestSleepPower(UInt32 requestedPower)
 	// Will this exceed the max per port during sleep?
 	if (requestedPower > maxSleepCurrentPerPort)		// limit requests to the maximum the HW can support
 	{
-		USBLog(5, "%s[%p]::RequestSleepPower - requestedPower = %d was grater than the maximum per port of %d.  Using that value instead", getName(), this, (uint32_t)requestedPower, (uint32_t) maxSleepCurrentPerPort);
+		USBLog(5, "%s[%p]::RequestSleepPower - requestedPower = %d was greater than the maximum per port of %d.  Using that value instead", getName(), this, (uint32_t)requestedPower, (uint32_t) maxSleepCurrentPerPort);
 		requestedPower = maxSleepCurrentPerPort;
 	}
 	
@@ -660,6 +663,11 @@ IOUSBRootHubDevice::ReturnSleepPower(UInt32 returnedPower)
 	OSNumber *		numberObject = NULL;
 	OSObject *		propertyObject = NULL;
 	UInt32			powerAvailable = 0;
+	
+	if ( (_expansionData == NULL) || ( _IORESOURCESENTRY == NULL ))
+	{
+		USBLog(5, "%s[%p]::ReturnSleepPower - _expansionData or _IORESOURCESENTRY is NULL", getName(), this);
+	}
 	
 	USBLog(5, "%s[%p]::ReturnSleepPower - returning = %d", getName(), this, (uint32_t)returnedPower);
 	

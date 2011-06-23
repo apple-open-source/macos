@@ -32,7 +32,8 @@ enum debug_message_type {
 
 	/* Category of verify/repair operation */
 	d_xattr		=	0x0010,	/* Extended attributes related messages */
-	d_overlap	=	0x0020 	/* Overlap extents related messages */
+	d_overlap	=	0x0020,	/* Overlap extents related messages */
+	d_trim		=	0x0040	/* TRIM (discard/unmap) related messages */
 };
 
 /* Current debug level of fsck_hfs for printing messages via dprintf */

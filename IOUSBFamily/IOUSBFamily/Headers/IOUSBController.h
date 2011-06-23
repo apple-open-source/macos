@@ -79,7 +79,8 @@ enum
 	kErrataUse32bitEHCI							= (1 << 20),	// MCP79 - EHCI should only run with 32 bit DMA addresses
 	kErrataUHCISupportsResumeDetectOnConnect	= (1 << 21),	// UHCI controller will generate a ResumeDetect interrupt while in Global Suspend if a device is plugged in
 	kErrataDontUseCompanionController			= (1 << 22),	// For systems which will end up being EHCI only
-	kErrataIgnoreRootHubPowerClearFeature		= (1 << 23)		// MCP89 - don't power off the root hub ports
+	kErrataIgnoreRootHubPowerClearFeature		= (1 << 23),	// MCP89 - don't power off the root hub ports
+	kErrataDisableAsynchronousParkMode			= (1 << 24)		// some controllers which default to using Async Park Mode don't quite work with it
 };
 
 enum
@@ -1088,11 +1089,11 @@ protected:
 	UInt32							ExpressCardPort( IORegistryEntry * provider );
 	IOACPIPlatformDevice *			CopyACPIDevice( IORegistryEntry * device );
 	bool							DumpUSBACPI( IORegistryEntry * acpiDevice );
-	bool							IsPortInternal( IORegistryEntry * provider, UInt32 portnum );
+	bool							IsPortInternal( IORegistryEntry * provider, UInt32 portnum, UInt32 locationID );
 	
 private:
 	bool							HasExpressCard( IORegistryEntry * acpiDevice, UInt32 * portnum );
-	bool							CheckACPIUPCTable( IORegistryEntry * acpiDevice, UInt32 portnum );
+	bool							CheckACPIUPCTable( IORegistryEntry * acpiDevice, UInt32 portnum, UInt32 locationID );
 };
 
 //================================================================================================

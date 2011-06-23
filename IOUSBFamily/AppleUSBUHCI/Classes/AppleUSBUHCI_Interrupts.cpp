@@ -260,7 +260,6 @@ AppleUSBUHCI::FilterInterrupt(void)
 		{
 			// Normal IOC interrupt - we need to check out low latency Isoch as well
 			timeStamp = mach_absolute_time();
-			_usbCompletionInterrupt = kUHCI_STS_INT;
 			ioWrite16(kUHCI_STS, kUHCI_STS_INT);
 			needSignal = true;
 						
@@ -329,7 +328,11 @@ AppleUSBUHCI::FilterInterrupt(void)
 				_producerCount = cachedProducer;	// Validates _producerCount;
 				
 				IOSimpleLockUnlock( _wdhLock );
+
 			}
+		
+			// 8394970:  Make sure we set the flag AFTER we have incremented our producer count.
+			_usbCompletionInterrupt = kUHCI_STS_INT;
 		}
 	}
 	

@@ -2,13 +2,15 @@
         <key>OpenSourceProject</key>
         <string>setuptools</string>
         <key>OpenSourceVersion</key>
-        <string>0.6c9</string>
+        <string>0.6c11</string>
         <key>OpenSourceWebsiteURL</key>
         <string>http://pypi.python.org/pypi/setuptools</string>
         <key>OpenSourceURL</key>
-        <string>http://svn.python.org/projects/sandbox/trunk/setuptools/</string>
+        <string>http://pypi.python.org/packages/source/s/setuptools/setuptools-0.6c11.tar.gz#md5=7df2a529a074f613b509fb44feefe74e</string>
         <key>OpenSourceImportDate</key>
-        <string>2008-09-27</string>
+        <string>2010-07-25</string>
+        <key>OpenSourceMD5</key>
+        <string>7df2a529a074f613b509fb44feefe74e</string>
         <key>OpenSourceLicense</key>
         <string>PSFL</string>
         <key>OpenSourceLicenseFile</key>

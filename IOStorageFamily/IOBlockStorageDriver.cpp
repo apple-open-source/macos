@@ -1871,24 +1871,46 @@ IOBlockStorageDriver::synchronizeCache(IOService *client)
 }
 
 IOReturn
-IOBlockStorageDriver::discard(IOService *client,
-                              UInt64 byteStart,UInt64 byteCount)
+IOBlockStorageDriver::unmap(IOService *       client,
+                            IOStorageExtent * extents,
+                            UInt32            extentsCount,
+                            UInt32            options)
 {
-    UInt64 block;
-    UInt64 nblks;
+    UInt32                       extentsIndex;
+    IOBlockStorageDeviceExtent * extentsOut;
+    UInt32                       extentsOutCount;
 
-    if (byteCount >= _mediaBlockSize) {
-        block = (byteStart + _mediaBlockSize - 1) / _mediaBlockSize;
-        nblks = ((byteStart + byteCount) / _mediaBlockSize) - block;
-    } else {
-        block = 0;
-        nblks = 0;
+    assert( sizeof( IOStorageExtent ) == sizeof( IOBlockStorageDeviceExtent ) );
+
+    extentsOut      = ( IOBlockStorageDeviceExtent * ) extents;
+    extentsOutCount = 0;
+
+    for ( extentsIndex = 0; extentsIndex < extentsCount; extentsIndex++ )
+    {
+        UInt64 blockStart;
+        UInt64 blockCount;
+
+        blockStart = ( extents[ extentsIndex ].byteStart + _mediaBlockSize - 1 ) / _mediaBlockSize;
+        blockCount = ( extents[ extentsIndex ].byteStart + extents[ extentsIndex ].byteCount ) / _mediaBlockSize;
+
+        if ( blockCount > blockStart )
+        {
+            blockCount = blockCount - blockStart;
+
+            extentsOut[ extentsOutCount ].blockStart = blockStart;
+            extentsOut[ extentsOutCount ].blockCount = blockCount;
+
+            extentsOutCount++;
+        }
     }
 
-    if (nblks) {
-        return(getProvider()->doDiscard(block,nblks));
-    } else {
-        return(kIOReturnSuccess);
+    if ( extentsOutCount )
+    {
+        return getProvider( )->doUnmap( extentsOut, extentsOutCount, options );
+    }
+    else
+    {
+        return kIOReturnSuccess;
     }
 }
 

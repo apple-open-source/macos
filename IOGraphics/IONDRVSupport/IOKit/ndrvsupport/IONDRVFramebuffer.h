@@ -65,8 +65,8 @@ protected:
     IOIndex                     currentPage;
     UInt8                       __reservedE;
 
-    IOPhysicalAddress           physicalFramebuffer;
-    IODeviceMemory      *       vramRange;
+    IOPhysicalAddress           __resv_was_physicalFramebuffer;
+    IOMemoryDescriptor *        vramRange;
 
     UInt8                       gammaWidth;
     UInt8                       __reservedD;
@@ -212,8 +212,8 @@ public:
 
     virtual IOReturn enableController( void );
 
-    virtual IODeviceMemory * makeSubRange( IOPhysicalAddress start,
-                                           IOPhysicalLength length );
+    virtual IODeviceMemory * makeSubRange( IOPhysicalAddress64 start,
+                                           IOPhysicalLength64  length );
     virtual IODeviceMemory * getApertureRange( IOPixelAperture aperture );
     virtual IODeviceMemory * getVRAMRange( void );
 

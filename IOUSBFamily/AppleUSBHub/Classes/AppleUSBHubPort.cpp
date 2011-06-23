@@ -937,8 +937,8 @@ AppleUSBHubPort::Suspend( bool fromDevice, bool portStatusSuspended )
 	}
 	else
 	{
-		// Wait for 3ms and if you are in gate, make sure you use command sleep with timeout.
-		WaitForSuspendCommand( &_portPMState, 3 );
+		// Wait for 10ms (the device should be in the suspended state in 10ms) and if you are in gate, make sure you use command sleep with timeout.
+		WaitForSuspendCommand( &_portPMState, 10 );
 	}
 
 	return status;
@@ -1592,7 +1592,7 @@ AppleUSBHubPort::AddDeviceResetChangeHandler(UInt16 changeFlags, UInt16 statusFl
     	{	
 			if ( _addDeviceThreadActive)
 			{
-				USBLog(1, "AppleUSBHubPort[%p]::AddDeviceResetChangeHandler - port %d of hub @ 0x%x, _addDeviceThreadActive after SetAddress(), before IOSleep(2) ", this, _portNum,  (uint32_t)_hub->_locationID);
+				USBLog(7, "AppleUSBHubPort[%p]::AddDeviceResetChangeHandler - port %d of hub @ 0x%x, _addDeviceThreadActive after SetAddress(), before IOSleep(2) ", this, _portNum,  (uint32_t)_hub->_locationID);
 			}
 			
             // Section 9.2.6.3 of the spec gives the device 2ms to recover from the SetAddress
@@ -1763,7 +1763,7 @@ AppleUSBHubPort::AddDeviceResetChangeHandler(UInt16 changeFlags, UInt16 statusFl
 		{
 			UInt32			extraPowerAllocated = 0;
 			bool			keepExtraPower = false;
-			SInt32			loops = 2;
+			SInt32			loops = 3;
 			
 			while (loops-- > 0 )
 			{
@@ -3462,11 +3462,19 @@ AppleUSBHubPort::DetectExpressCardCantWake()
 {
 	if ( _hub && !_detectedExpressCardCantWake )
 	{
-		USBLog(2, "AppleUSBHubPort[%p]::DetectExpressCardCantWake (%s) found an express card device which will disconnect across sleep  port %d of hub @ 0x%x ", this, _portDevice->getName(), (uint32_t)_portNum, (uint32_t)_hub->_locationID );
+		USBLog(2, "AppleUSBHubPort[%p]::DetectExpressCardCantWake found an express card device which will disconnect across sleep  port %d of hub @ 0x%x ", this, (uint32_t)_portNum, (uint32_t)_hub->_locationID );
 
 		_detectedExpressCardCantWake	 = true;
-		_cachedBadExpressCardVID = _portDevice->GetVendorID();
-		_cachedBadExpressCardPID = _portDevice->GetProductID();
+		
+		if (_portDevice)
+		{
+			IOUSBDevice	*cachedPortDevice = _portDevice;
+
+			cachedPortDevice->retain();
+			_cachedBadExpressCardVID = cachedPortDevice->GetVendorID();
+			_cachedBadExpressCardPID = cachedPortDevice->GetProductID();
+			cachedPortDevice->release();
+		}
 		
 		return true;
 	}

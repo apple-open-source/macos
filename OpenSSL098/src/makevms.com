@@ -7,18 +7,19 @@ $!                A-Com Computing, Inc.
 $!                byer@mail.all-net.net
 $!
 $! Changes by Richard Levitte <richard@levitte.org>
+$!	      Zoltan Arpadffy <zoli@polarhome.com>
 $!
 $! This procedure creates the SSL libraries of "[.xxx.EXE.CRYPTO]LIBCRYPTO.OLB"
 $! "[.xxx.EXE.SSL]LIBSSL.OLB"
-$! The "xxx" denotes the machine architecture of AXP or VAX.
+$! The "xxx" denotes the machine architecture of ALPHA, IA64 or VAX.
 $!
 $! This procedures accepts two command line options listed below.
 $!
 $! Specify one of the following build options for P1.
 $!
 $!      ALL       Just build "everything".
-$!      CONFIG    Just build the "[.CRYPTO]OPENSSLCONF.H" file.
-$!      BUILDINF  Just build the "[.CRYPTO]BUILDINF.H" file.
+$!      CONFIG    Just build the "[.CRYPTO._<ARCH>]OPENSSLCONF.H" file.
+$!      BUILDINF  Just build the "[.CRYPTO._<ARCH>]BUILDINF.H" file.
 $!      SOFTLINKS Just fix the Unix soft links.
 $!      BUILDALL  Same as ALL, except CONFIG, BUILDINF and SOFTILNKS aren't done.
 $!      CRYPTO    Just build the "[.xxx.EXE.CRYPTO]LIBCRYPTO.OLB" library.
@@ -62,6 +63,10 @@ $!
 $! P6, if defined, sets a compiler thread NOT needed on OpenVMS 7.1 (and up)
 $!
 $!
+$ DEF_ORIG = F$ENVIRONMENT( "DEFAULT")
+$ ON ERROR THEN GOTO TIDY
+$ ON CONTROL_C THEN GOTO TIDY
+$!
 $! Check if we're in a batch job, and make sure we get to 
 $! the directory this script is in
 $!
@@ -72,22 +77,23 @@ $   COMPATH=F$PARSE("A.;",COMNAME) - "A.;"
 $   SET DEF 'COMPATH'
 $ ENDIF
 $!
-$! Check Which Architecture We Are Using.
+$! Check What Architecture We Are Using.
 $!
-$ IF (F$GETSYI("CPU").GE.128)
+$ IF (F$GETSYI("CPU").LT.128)
 $ THEN
 $!
-$!  The Architecture Is AXP.
+$!  The Architecture Is VAX.
 $!
-$   ARCH := AXP
+$   ARCH := VAX
 $!
 $! Else...
 $!
 $ ELSE
 $!
-$!  The Architecture Is VAX.
+$!  The Architecture Is Alpha, IA64 or whatever comes in the future.
 $!
-$   ARCH := VAX
+$   ARCH = F$EDIT( F$GETSYI( "ARCH_NAME"), "UPCASE")
+$   IF (ARCH .EQS. "") THEN ARCH = "UNK"
 $!
 $! End The Architecture Check.
 $!
@@ -155,25 +161,34 @@ $ ENDIF
 $!
 $! Time To EXIT.
 $!
-$ EXIT
+$ GOTO TIDY
 $!
-$! Rebuild The "[.CRYPTO]OPENSSLCONF.H" file.
+$! Rebuild The "[.CRYPTO._''ARCH']OPENSSLCONF.H" file.
 $!
 $ CONFIG:
 $!
-$! Tell The User We Are Creating The [.CRYPTO]OPENSSLCONF.H File.
+$! Tell The User We Are Creating The [.CRYPTO._<ARCH>]OPENSSLCONF.H File.
 $!
-$ WRITE SYS$OUTPUT "Creating [.CRYPTO]OPENSSLCONF.H Include File."
+$ WRITE SYS$OUTPUT "Creating [.CRYPTO._''ARCH']OPENSSLCONF.H Include File."
 $!
-$! Create The [.CRYPTO]OPENSSLCONF.H File.
+$! First, make sure the directory exists.
 $!
-$ OPEN/WRITE H_FILE SYS$DISK:[.CRYPTO]OPENSSLCONF.H
+$ IF F$PARSE("SYS$DISK:[.CRYPTO._''ARCH']") .EQS. "" THEN -
+     CREATE/DIRECTORY SYS$DISK:[.CRYPTO._'ARCH']
 $!
-$! Write The [.CRYPTO]OPENSSLCONF.H File.
+$! Create The [.CRYPTO._<ARCH>]OPENSSLCONF.H File.
+$! Make sure it has the right format.
+$!
+$ OSCH_NAME = "SYS$DISK:[.CRYPTO._''ARCH']OPENSSLCONF.H"
+$ CREATE /FDL=SYS$INPUT: 'OSCH_NAME'
+RECORD
+        FORMAT stream_lf
+$ OPEN /APPEND H_FILE 'OSCH_NAME'
+$!
+$! Write The [.CRYPTO._<ARCH>]OPENSSLCONF.H File.
 $!
 $ WRITE H_FILE "/* This file was automatically built using makevms.com */"
-$ WRITE H_FILE "/* and [.CRYPTO]OPENSSLCONF.H_IN */"
-$
+$ WRITE H_FILE "/* and [.CRYPTO._''ARCH']OPENSSLCONF.H_IN */"
 $!
 $! Write a few macros that indicate how this system was built.
 $!
@@ -245,11 +260,12 @@ $     THEN
 $       TYPE [.CRYPTO]OPENSSLCONF.H.IN /OUTPUT=H_FILE:
 $     ELSE
 $       WRITE SYS$ERROR "Couldn't find a [.CRYPTO]OPENSSLCONF.H_IN.  Exiting!"
-$       EXIT 0
+$       $STATUS = %X00018294 ! "%RMS-F-FNF, file not found".
+$       GOTO TIDY
 $     ENDIF
 $   ENDIF
 $ ENDIF
-$ IF ARCH .EQS. "AXP"
+$ IF ARCH .NES. "VAX"
 $ THEN
 $!
 $!  Write the Alpha specific data
@@ -318,10 +334,11 @@ $   WRITE H_FILE "#undef SIXTEEN_BIT"
 $   WRITE H_FILE "#undef EIGHT_BIT"
 $   WRITE H_FILE "#endif"
 $!
-$   WRITE H_FILE "#if defined(HEADER_SHA_H)"
+$! Oddly enough, the following symbol is tested in crypto/sha/sha512.c
+$! before sha.h gets included (and HEADER_SHA_H defined), so we will not
+$! protect this one...
 $   WRITE H_FILE "#undef OPENSSL_NO_SHA512"
 $   WRITE H_FILE "#define OPENSSL_NO_SHA512"
-$   WRITE H_FILE "#endif"
 $!
 $   WRITE H_FILE "#undef OPENSSL_EXPORT_VAR_AS_FUNCTION"
 $   WRITE H_FILE "#define OPENSSL_EXPORT_VAR_AS_FUNCTION"
@@ -330,39 +347,56 @@ $!  End
 $!
 $ ENDIF
 $!
-$! Close the [.CRYPTO]OPENSSLCONF.H file
+$! There are many places where this is needed.
+$!
+$!!! WRITE H_FILE "#define _XOPEN_SOURCE_EXTENDED"
+$!
+$! Close the [.CRYPTO._<ARCH>]OPENSSLCONF.H file
 $!
 $ CLOSE H_FILE
+$!
+$! Purge The [.CRYPTO._<ARCH>]OPENSSLCONF.H file
+$!
+$ PURGE SYS$DISK:[.CRYPTO._'ARCH']OPENSSLCONF.H
 $!
 $! That's All, Time To RETURN.
 $!
 $ RETURN
 $!
-$! Rebuild The "[.CRYPTO]BUILDINF.H" file.
+$! Rebuild The "[.CRYPTO._<ARCH>]BUILDINF.H" file.
 $!
 $ BUILDINF:
 $!
-$! Tell The User We Are Creating The [.CRYPTO]BUILDINF.H File.
+$! Tell The User We Are Creating The [.CRYPTO._<ARCH>]BUILDINF.H File.
 $!
-$ WRITE SYS$OUTPUT "Creating [.CRYPTO]BUILDINF.H Include File."
+$ WRITE SYS$OUTPUT "Creating [.CRYPTO._''ARCH']BUILDINF.H Include File."
 $!
-$! Create The [.CRYPTO]BUILDINF.H File.
+$! Create The [.CRYPTO._<ARCH>]BUILDINF.H File.
 $!
-$ OPEN/WRITE H_FILE SYS$DISK:[.CRYPTO]BUILDINF.H
+$ BIH_NAME = "SYS$DISK:[.CRYPTO._''ARCH']BUILDINF.H"
+$ CREATE /FDL=SYS$INPUT: 'BIH_NAME'
+RECORD
+        FORMAT stream_lf
+$!
+$ OPEN /APPEND H_FILE 'bih_name'
 $!
 $! Get The Current Date & Time.
 $!
 $ TIME = F$TIME()
 $!
-$! Write The [.CRYPTO]BUILDINF.H File.
+$! Write The [.CRYPTO._<ARCH>]BUILDINF.H File.
 $!
 $ WRITE H_FILE "#define CFLAGS """" /* Not filled in for now */"
-$ WRITE H_FILE "#define PLATFORM ""VMS"""
+$ WRITE H_FILE "#define PLATFORM ""VMS ''ARCH' ''VMS_VER'"""
 $ WRITE H_FILE "#define DATE ""''TIME'"" "
 $!
-$! Close The [.CRYPTO]BUILDINF.H File.
+$! Close The [.CRYPTO._<ARCH>]BUILDINF.H File.
 $!
 $ CLOSE H_FILE
+$!
+$! Purge The [.CRYPTO._<ARCH>]BUILDINF.H File.
+$!
+$ PURGE SYS$DISK:[.CRYPTO._'ARCH']BUILDINF.H
 $!
 $! That's All, Time To RETURN.
 $!
@@ -374,41 +408,13 @@ $ SOFTLINKS:
 $!
 $! Tell The User We Are Partly Rebuilding The [.APPS] Directory.
 $!
-$ WRITE SYS$OUTPUT "Rebuilding The '[.APPS]MD4.C', '[.APPS]MD5.C' And '[.APPS]RMD160.C' Files."
+$ WRITE SYS$OUTPUT "Rebuilding The '[.APPS]MD4.C' File."
 $!
-$ DELETE SYS$DISK:[.APPS]MD4.C;*,MD5.C;*,RMD160.C;*
+$ DELETE SYS$DISK:[.APPS]MD4.C;*
 $!
 $! Copy MD4.C from [.CRYPTO.MD4] into [.APPS]
 $!
 $ COPY SYS$DISK:[.CRYPTO.MD4]MD4.C SYS$DISK:[.APPS]
-$!
-$! Copy MD5.C from [.CRYPTO.MD5] into [.APPS]
-$!
-$ COPY SYS$DISK:[.CRYPTO.MD5]MD5.C SYS$DISK:[.APPS]
-$!
-$! Copy RMD160.C from [.CRYPTO.RIPEMD] into [.APPS]
-$!
-$ COPY SYS$DISK:[.CRYPTO.RIPEMD]RMD160.C SYS$DISK:[.APPS]
-$!
-$! Tell The User We Are Partly Rebuilding The [.TEST] Directory.
-$!
-$ WRITE SYS$OUTPUT "Rebuilding The '[.TEST]*.C' Files."
-$!
-$! First, We Have To "Rebuild" The "[.TEST]" Directory, So Delete
-$! All The "C" Files That Are Currently There Now.
-$!
-$ DELETE SYS$DISK:[.TEST]*.C;*
-$ DELETE SYS$DISK:[.TEST]EVPTESTS.TXT;*
-$!
-$! Copy all the *TEST.C files from [.CRYPTO...] into [.TEST]
-$!
-$ COPY SYS$DISK:[.CRYPTO.*]%*TEST.C SYS$DISK:[.TEST]
-$ COPY SYS$DISK:[.CRYPTO.SHA]SHA%%%T.C SYS$DISK:[.TEST]
-$ COPY SYS$DISK:[.CRYPTO.EVP]EVPTESTS.TXT SYS$DISK:[.TEST]
-$!
-$! Copy all the *TEST.C files from [.SSL...] into [.TEST]
-$!
-$ COPY SYS$DISK:[.SSL]%*TEST.C SYS$DISK:[.TEST]
 $!
 $! Tell The User We Are Rebuilding The [.INCLUDE.OPENSSL] Directory.
 $!
@@ -427,6 +433,7 @@ $!
 $! Copy All The ".H" Files From The [.CRYPTO] Directory Tree.
 $!
 $ SDIRS := ,-
+   _'ARCH',-
    OBJECTS,-
    MD2,MD4,MD5,SHA,MDC2,HMAC,RIPEMD,-
    DES,AES,RC2,RC4,RC5,IDEA,BF,CAST,CAMELLIA,SEED,-
@@ -434,8 +441,9 @@ $ SDIRS := ,-
    BUFFER,BIO,STACK,LHASH,RAND,ERR,-
    EVP,ASN1,PEM,X509,X509V3,CONF,TXT_DB,PKCS7,PKCS12,COMP,OCSP,UI,KRB5,-
    STORE,CMS,PQUEUE,JPAKE
-$ EXHEADER_ := crypto.h,tmdiff.h,opensslv.h,opensslconf.h,ebcdic.h,symhacks.h,-
+$ EXHEADER_ := crypto.h,tmdiff.h,opensslv.h,ebcdic.h,symhacks.h,-
 		ossl_typ.h
+$ EXHEADER__'ARCH' := opensslconf.h
 $ EXHEADER_OBJECTS := objects.h,obj_mac.h
 $ EXHEADER_MD2 := md2.h
 $ EXHEADER_MD4 := md4.h
@@ -702,7 +710,8 @@ $!
 $   IF (P1.EQS."CONFIG").OR.(P1.EQS."BUILDINF").OR.(P1.EQS."SOFTLINKS") -
        .OR.(P1.EQS."BUILDALL") -
        .OR.(P1.EQS."CRYPTO").OR.(P1.EQS."SSL") -
-       .OR.(P1.EQS."SSL_TASK").OR.(P1.EQS."TEST").OR.(P1.EQS."APPS")
+       .OR.(P1.EQS."SSL_TASK").OR.(P1.EQS."TEST").OR.(P1.EQS."APPS") -
+       .OR.(P1.EQS."ENGINES")
 $   THEN
 $!
 $!    A Valid Arguement.
@@ -716,11 +725,15 @@ $!
 $!    Tell The User We Don't Know What They Want.
 $!
 $     WRITE SYS$OUTPUT ""
-$     WRITE SYS$OUTPUT "The Option ",P1," Is Invalid.  The Valid Options Are:"
+$     WRITE SYS$OUTPUT "USAGE:   @MAKEVMS.COM [Target] [not-used option] [Debug option] <Compiler>"
+$     WRITE SYS$OUTPUT ""
+$     WRITE SYS$OUTPUT "Example: @MAKEVMS.COM ALL NORSAREF NODEBUG "
+$     WRITE SYS$OUTPUT ""
+$     WRITE SYS$OUTPUT "The Target ",P1," Is Invalid.  The Valid Target Options Are:"
 $     WRITE SYS$OUTPUT ""
 $     WRITE SYS$OUTPUT "    ALL      :  Just Build Everything."
-$     WRITE SYS$OUTPUT "    CONFIG   :  Just build the [.CRYPTO]OPENSSLCONF.H file."
-$     WRITE SYS$OUTPUT "    BUILDINF :  Just build the [.CRYPTO]BUILDINF.H file."
+$     WRITE SYS$OUTPUT "    CONFIG   :  Just build the [.CRYPTO._''ARCH']OPENSSLCONF.H file."
+$     WRITE SYS$OUTPUT "    BUILDINF :  Just build the [.CRYPTO._''ARCH']BUILDINF.H file."
 $     WRITE SYS$OUTPUT "    SOFTLINKS:  Just Fix The Unix soft links."
 $     WRITE SYS$OUTPUT "    BUILDALL :  Same as ALL, except CONFIG, BUILDINF and SOFTILNKS aren't done."
 $     WRITE SYS$OUTPUT "    CRYPTO   :  To Build Just The [.xxx.EXE.CRYPTO]LIBCRYPTO.OLB Library."
@@ -730,16 +743,18 @@ $     WRITE SYS$OUTPUT "    SSL      :  To Build Just The [.xxx.EXE.SSL]LIBSSL.O
 $     WRITE SYS$OUTPUT "    SSL_TASK :  To Build Just The [.xxx.EXE.SSL]SSL_TASK.EXE Program."
 $     WRITE SYS$OUTPUT "    TEST     :  To Build Just The OpenSSL Test Programs."
 $     WRITE SYS$OUTPUT "    APPS     :  To Build Just The OpenSSL Application Programs."
+$     WRITE SYS$OUTPUT "    ENGINES  :  To Build Just The ENGINES"
 $     WRITE SYS$OUTPUT ""
 $     WRITE SYS$OUTPUT " Where 'xxx' Stands For:"
 $     WRITE SYS$OUTPUT ""
-$     WRITE SYS$OUTPUT "        AXP  :  Alpha Architecture."
-$     WRITE SYS$OUTPUT "        VAX  :  VAX Architecture."
+$     WRITE SYS$OUTPUT "    ALPHA    :  Alpha Architecture."
+$     WRITE SYS$OUTPUT "    IA64     :  IA64 Architecture."
+$     WRITE SYS$OUTPUT "    VAX      :  VAX Architecture."
 $     WRITE SYS$OUTPUT ""
 $!
 $!    Time To EXIT.
 $!
-$     EXIT
+$     GOTO TIDY
 $!
 $!  End The Valid Argument Check.
 $!
@@ -786,7 +801,7 @@ $     WRITE SYS$OUTPUT ""
 $!
 $!    Time To EXIT.
 $!
-$     EXIT
+$     GOTO TIDY
 $!
 $!  End The Valid Arguement Check.
 $!
@@ -943,7 +958,7 @@ $     WRITE SYS$OUTPUT ""
 $!
 $!    Time To EXIT.
 $!
-$     EXIT
+$     GOTO TIDY
 $!
 $!  End The Valid Arguement Check.
 $!
@@ -1071,7 +1086,7 @@ $     WRITE SYS$OUTPUT ""
 $!
 $!    Time To EXIT.
 $!
-$     EXIT
+$     GOTO TIDY
 $   ELSE
 $!
 $! If TCPIP is not defined, then hardcode it to make
@@ -1130,3 +1145,8 @@ $!
 $!  Time To RETURN...
 $!
 $ RETURN
+$!
+$ TIDY:
+$ SET DEFAULT 'DEF_ORIG'
+$ EXIT
+$!

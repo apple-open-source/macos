@@ -1,9 +1,9 @@
 /*
- * "$Id: conflicts.c 2485 2010-08-13 03:54:00Z msweet $"
+ * "$Id: conflicts.c 3027 2011-03-04 20:02:14Z msweet $"
  *
- *   Option marking routines for the Common UNIX Printing System (CUPS).
+ *   Option marking routines for CUPS.
  *
- *   Copyright 2007-2009 by Apple Inc.
+ *   Copyright 2007-2011 by Apple Inc.
  *   Copyright 1997-2007 by Easy Software Products, all rights reserved.
  *
  *   These coded instructions, statements, and computer programs are the
@@ -483,13 +483,13 @@ cupsResolveConflicts(
           }
         }
       }
+    }
 
-      if (!changed)
-      {
-	DEBUG_puts("1ppdResolveConflicts: Unable to automatically resolve "
-		   "constraint!");
-	goto error;
-      }
+    if (!changed)
+    {
+      DEBUG_puts("1ppdResolveConflicts: Unable to automatically resolve "
+		 "constraint!");
+      goto error;
     }
 
     cupsArrayClear(pass);
@@ -1143,5 +1143,5 @@ ppd_test_constraints(
 
 
 /*
- * End of "$Id: conflicts.c 2485 2010-08-13 03:54:00Z msweet $".
+ * End of "$Id: conflicts.c 3027 2011-03-04 20:02:14Z msweet $".
  */

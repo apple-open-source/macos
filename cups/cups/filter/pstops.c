@@ -242,7 +242,7 @@ main(int  argc,				/* I - Number of command-line args */
   cups_option_t	*options;		/* Print options */
   char		line[8192];		/* Line buffer */
   size_t	len;			/* Length of line buffer */
-  const char*val;                       /* Option value */
+  const char	*val;			/* Option value */
 #if defined(HAVE_SIGACTION) && !defined(HAVE_SIGSET)
   struct sigaction action;		/* Actions for POSIX signals */
 #endif /* HAVE_SIGACTION && !HAVE_SIGSET */
@@ -321,21 +321,21 @@ main(int  argc,				/* I - Number of command-line args */
   num_options = cupsParseOptions(argv[5], 0, &options);
 
  /*
-  * Map sides to Duplex options if one isn't there already
-  */
-
-  if(((val = cupsGetOption("Duplex", num_options, options)) == NULL) &&
-     ((val = cupsGetOption("sides", num_options, options)) != NULL))
+ *	Map sides to Duplex options if one isn't there already
+ */
+  if( ((val = cupsGetOption("Duplex", num_options, options)) == NULL) &&
+  		((val = cupsGetOption("sides", num_options, options)) != NULL)
+  )
   {
     if (!strcasecmp(val, "one-sided"))
       num_options = cupsAddOption("Duplex", "None",
-                                         num_options, &options);
+				  num_options, &options);
     else if (!strcasecmp(val, "two-sided-long-edge"))
       num_options = cupsAddOption("Duplex", "DuplexNoTumble",
-                                          num_options, &options);
-   else if (!strcasecmp(val, "two-sided-short-edge"))
+				  num_options, &options);
+    else if (!strcasecmp(val, "two-sided-short-edge"))
       num_options = cupsAddOption("Duplex", "DuplexTumble",
-					  num_options, &options);
+				  num_options, &options);
   }
 
   ppd         = SetCommonOptions(num_options, options, 1);
@@ -2947,9 +2947,6 @@ start_nup(pstops_doc_t *doc,		/* I - Document information */
   else if (doc->number_up > 1 || doc->fitplot)
     doc_printf(doc, "%.1f %.1f translate\n", PageLeft, PageBottom);
 
-  if (doc->mirror)
-    doc_printf(doc, "%.1f 0.0 translate -1 1 scale\n", PageWidth);
-
   switch (doc->number_up)
   {
     default :
@@ -3299,6 +3296,13 @@ start_nup(pstops_doc_t *doc,		/* I - Document information */
                bboxx + margin, bboxy + margin,
                bboxw - 2 * margin, bboxl - 2 * margin);
   }
+
+ /*
+  * Mirror the page as needed...
+  */
+
+  if (doc->mirror)
+    doc_printf(doc, "%.1f 0.0 translate -1 1 scale\n", PageWidth);
 }
 
 

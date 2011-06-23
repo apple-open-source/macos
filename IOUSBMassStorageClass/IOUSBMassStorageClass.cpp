@@ -309,8 +309,18 @@ IOUSBMassStorageClass::start ( IOService * provider )
     // Certain Bulk-Only device are subject to erroneous CSW tags.
     fKnownCSWTagMismatchIssues = false;
 	
-    // Used to determine if we're going to block on the reset thread or not.
+	// Flag to let us know if we've seen the reconfiguration message following a device reset. 
+	// If we proceed with operations prior to receiving the message we may end up booting a 
+	// CBW out on the bus prior to the SET_CONFIGURATION which follows the reset. This will
+	// hamper recovery and confuse the state machine of the USB device we're operating.
 	fWaitingForReconfigurationMessage = false;
+	
+    // Used to determine if we're going to block on the reset thread or not.
+	fBlockOnResetThread = false;
+	
+	// Some devices with complicated interal logic require some "cool down" time following a 
+	// USB device reset before they can resume servicing requests.
+	fPostDeviceResetCoolDownInterval = 0;
     
     // Used to determine where we should close our provider at time of termination.
     fTerminating = false;
@@ -380,12 +390,31 @@ IOUSBMassStorageClass::start ( IOService * provider )
             fPortSuspendResumeForPMEnabled = true;
         }
        		
-       	// Check if this device is known to have problems when waking from sleep
+       	// Check to se if this device is known to have problems when waking from sleep.
 		if ( characterDict->getObject( kIOUSBMassStorageResetOnResume ) != NULL )
 		{
 		
 			STATUS_LOG ( ( 4, "%s[%p]: knownResetOnResumeDevice", getName(), this ) );
 			fRequiresResetOnResume = true;
+			
+		}
+		
+		// Check to see if this device requires some time after USB reset to collect itself.
+		if ( characterDict->getObject( kIOUSBMassStoragePostResetCoolDown ) != NULL )
+		{
+			
+			OSNumber * coolDownPeriod = NULL; 
+			
+			coolDownPeriod = OSDynamicCast ( OSNumber, characterDict->getObject( kIOUSBMassStoragePostResetCoolDown ) );
+			
+			// Ensure we didn't get something of thew wrong type. 
+			if ( coolDownPeriod != NULL )
+			{
+				
+				// Fetch our cool down interval.
+				fPostDeviceResetCoolDownInterval = coolDownPeriod->unsigned32BitValue ( );
+				
+			}
 			
 		}
                     
@@ -825,6 +854,12 @@ IOUSBMassStorageClass::message ( UInt32 type, IOService * provider, void * argum
 			
 		}
 		break;
+			
+		case kIOUSBMessageCompositeDriverReconfigured:
+		{
+			fWaitingForReconfigurationMessage = false;
+		}
+		break;
 					
 		default:
 		{
@@ -882,6 +917,25 @@ IOUSBMassStorageClass::didTerminate ( IOService * provider, IOOptionBits options
     // hold on to the device and IOKit will terminate us when we close it later.
     
     STATUS_LOG ( ( 3 , "%s[%p]::didTerminate: Entered with options=0x%x defer=%d", getName ( ), this, options, ( defer ? *defer : false ) ) );
+	
+	// Abort pipes to ensure that any outstanding USB requests are returned to us. 
+	// For USB it is the responsibility of the client driver to request outstanding
+	// I/O requests be returned once driver termination has been initiated. 
+	
+	if ( fBulkInPipe != NULL )
+	{
+		fBulkInPipe->Abort ( );
+	}
+	
+	if ( fBulkOutPipe != NULL )
+	{
+		fBulkOutPipe->Abort ( );
+	}
+	
+	if ( fInterruptPipe != NULL )
+	{
+		fInterruptPipe->Abort ( );
+	}
 	
 	//	If we have a SCSI task outstanding, we will block here until it completes.
 	//	This ensures that we don't try to send requests to our provider after we have closed it.
@@ -1172,7 +1226,7 @@ IOUSBMassStorageClass::SendSCSICommand (
 	//	Now that we have committed to accepting this task, we must return kSCSIServiceResponse_Request_In_Progress,
 	//	even if we subsequently fail that task from within this method via CommandCompleted().
 	
-	*taskStatus = kSCSITaskStatus_No_Status;
+	*taskStatus =		kSCSITaskStatus_No_Status;
 	*serviceResponse =  kSCSIServiceResponse_Request_In_Process;
     
 	GetCommandDescriptorBlock( request, &cdbData );
@@ -1215,13 +1269,9 @@ IOUSBMassStorageClass::SendSCSICommand (
                     cdbData[14], cdbData[15] ) );
 #endif
 	
-	if ( isInactive ( ) ) {
-		
-		status = kIOReturnNoDevice;
-		
-	}
+	require_action ( ( isInactive ( ) == false ), ErrorExit, status = kIOReturnNoDevice );
 	
-   	else if ( GetInterfaceProtocol() == kProtocolBulkOnly )
+   	if ( GetInterfaceProtocol() == kProtocolBulkOnly )
 	{
 	
 		status = SendSCSICommandForBulkOnlyProtocol ( request );
@@ -1250,6 +1300,10 @@ IOUSBMassStorageClass::SendSCSICommand (
 	//	We never fail a task with an immediate serviceResponse, because the retain which ExecuteTask() took on us on
 	//	behalf of the SCSI task would never be released, preventing us from being freed.
 
+
+ErrorExit:
+
+
 	if ( status != kIOReturnSuccess )
 	{
 		
@@ -1263,9 +1317,9 @@ IOUSBMassStorageClass::SendSCSICommand (
 			OSMemberFunctionCast (	IOCommandGate::Action,
 									this,
 									&IOUSBMassStorageClass::GatedCompleteSCSICommand ),
-			request,
-			( void * ) &localServiceResponse,
-			( void * ) &localTaskStatus );
+									request,
+									( void * ) &localServiceResponse,
+									( void * ) &localTaskStatus );
 		
 	}
 
@@ -2367,6 +2421,12 @@ IOUSBMassStorageClass::sResetDevice ( void * refcon )
 	RecordUSBTimeStamp ( UMC_TRACE ( kUSBDeviceResetReturned ), ( uintptr_t ) driver, status, NULL, NULL );
 	require ( ( status == kIOReturnSuccess ), ErrorExit );
 
+	// We successfully reset the device. Now we have to wait for the fWaitingForReconfigurationMessage
+	// message in order for the reset process to be considered complete. If we resume activity prior
+	// to receive the message our I/O may resume before the SET_CONFIGURATION following device reset
+	// makes it to our device. 
+	driver->fWaitingForReconfigurationMessage = true;
+	
 	// Reset host side data toggles.
 	if ( driver->fBulkInPipe != NULL )
 	{
@@ -2400,6 +2460,36 @@ ErrorExit:
         driver->SendNotification_DeviceRemoved ( );
 		
 	}
+	
+	else 
+	{
+	
+		UInt16	timeout	= 0;
+		
+		while ( ( timeout < kIOUSBMassStorageReconfigurationTimeoutMS ) && 
+			    ( driver->fWaitingForReconfigurationMessage == true ) )
+		{
+			
+			// Hang out for a ms. 
+			IOSleep ( 1 );
+			
+			// Increment our timeout counter.
+			timeout++;
+			
+		}
+		
+		// Do we have a device which requires some to collect itself following a USB device reset?
+		// We only do this if the device successfully reconfigured.
+		if ( ( driver->fPostDeviceResetCoolDownInterval != 0 ) && 
+			 ( driver->fWaitingForReconfigurationMessage == false ) )
+		{
+			
+			// We do. Wait the prescribed amount of time.
+			IOSleep ( driver->fPostDeviceResetCoolDownInterval );
+			
+		}
+		
+	}
      
 	// We complete the failed I/O with kSCSIServiceResponse_SERVICE_DELIVERY_OR_TARGET_FAILURE  
 	// and either kSCSITaskStatus_DeliveryFailure or kSCSITaskStatus_DeviceNotPresent,
@@ -2416,7 +2506,7 @@ ErrorExit:
 	
 	driver->fResetInProgress = false;
         
-	if ( driver->fWaitingForReconfigurationMessage == false )
+	if ( driver->fBlockOnResetThread == false )
 	{
         // Unblock our main thread.
 		driver->fCommandGate->commandWakeup ( &driver->fResetInProgress, false );
@@ -2647,7 +2737,7 @@ IOUSBMassStorageClass::ResetDeviceNow ( bool waitForReset )
 	// or we can not block and wait for the IOUSBFamily to send us a message about our device being 
 	// reset. If we're reseting from a callback thread, we can't block, so we have to use the message option. 
 	
-	fWaitingForReconfigurationMessage = !waitForReset;
+	fBlockOnResetThread = !waitForReset;
 	
 	result = kernel_thread_start (	( thread_continue_t ) &IOUSBMassStorageClass::sResetDevice,
 									this,
@@ -2661,6 +2751,16 @@ IOUSBMassStorageClass::ResetDeviceNow ( bool waitForReset )
 	
 	
 Exit:
+
+	
+	// If the reset didnt happen complete the failed command with an error here.
+	if ( ( result == KERN_FAILURE ) && 
+         ( fBulkOnlyCommandStructInUse | fCBICommandStructInUse ) )
+	{
+		AbortCurrentSCSITask ( );
+	}
+	
+	STATUS_LOG ( ( 4, "%s[%p]: ResetDeviceNow exiting\n", getName(), this ) );
 
 
 	return;

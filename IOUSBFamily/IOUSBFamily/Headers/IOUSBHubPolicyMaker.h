@@ -63,8 +63,8 @@ protected:
 	bool								_dontAllowSleepPower;		// If true, we will not allow extra sleep power for a self powered hub.
 	SInt32								_powerStateChangingTo;		// a power state if we are changing to one, or -1 if we are stable
 	unsigned long						_myPowerState;				// my current state (since getPowerState doesn't always change in time)
-	UInt32								_extraPower;				// how much extra power we might be able to get from our parent hub
-	UInt32								_extraPowerRemaining;		// how many milliamps we can still give to any one port
+	UInt32								_extraPower;				// DEPRECATED
+	UInt32								_extraPowerRemaining;		// DEPRECATED
 	UInt32								_hubResumeRecoveryTime;		// # of ms that we will wait before issuing any transactions on our port (nominally 10ms)
     struct ExpansionData 
 	{ 

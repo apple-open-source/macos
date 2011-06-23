@@ -1045,6 +1045,10 @@ ProcessTracepoint( kd_buf tracepoint )
 				CollectTraceOHCIInterrupts	(tracepoint); 
 				break;
 				
+			case USB_OHCI_DUMPQS_TRACE(0):	
+				CollectTraceOHCIDumpQs	(tracepoint); 
+				break;
+				
 			case USB_EHCI_TRACE(0):	
 				CollectTraceEHCI	(tracepoint); 
 				break;
@@ -1055,6 +1059,10 @@ ProcessTracepoint( kd_buf tracepoint )
 				
 			case USB_EHCI_INTERRUPTS_TRACE(0):	
 				CollectTraceEHCIInterrupts	(tracepoint); 
+				break;
+				
+			case USB_EHCI_DUMPQS_TRACE(0):	
+				CollectTraceEHCIDumpQs	(tracepoint); 
 				break;
 				
 			case USB_HUB_POLICYMAKER_TRACE(0):	
@@ -1456,27 +1464,57 @@ CollectTraceController( kd_buf tracepoint )
 		case USB_CONTROLLER_TRACE( kTPControllerCheckPowerModeBeforeGatedCall ):
 			if ( qualifier == DBG_FUNC_START ) 
 			{
-				log(info, "Controller", "CheckPowerModeBeforeGatedCall Start", parg1, NULL );
+				log(info, "Controller", "CheckPowerModeBeforeGated Start", parg1, NULL );
 			} 
 			else if ( qualifier == DBG_FUNC_END ) 
 			{
-				log(info, "Controller", "CheckPowerModeBeforeGatedCall End", parg1, "status 0x%x", arg2 );
+				log(info, "Controller", "CheckPowerModeBeforeGated End", parg1, "status 0x%x", arg2 );
 			} 
 			else 
 			{
 				if ( arg4 == 1 )
 				{
-					log(info, "Controller", "CheckPowerModeBeforeGatedCall", parg1, "myPowerState %d onThread is true while !_controllerAvailable status 0x%x", arg2, arg3 );
+					log(info, "Controller", "CheckPowerModeBeforeGated", parg1, "myPowerState %d onThread is true while !_controllerAvailable status 0x%x", arg2, arg3 );
 				}
 				else if ( arg4 == 2 )
-					log(info, "Controller", "CheckPowerModeBeforeGatedCall", parg1, "myPowerState %d status 0x%x", arg2, arg3 );
+				{
+					log(info, "Controller", "CheckPowerModeBeforeGated", parg1, "myPowerState %d status 0x%x", arg2, arg3 );
+				}
+				else if ( arg4 == 4 )
+				{
+					log(info, "Controller", "CheckPowerModeBeforeGated", parg1, "commandSleep woke up normally (THREAD_AWAKENED) _myPowerState = %d", arg2);
+				}
+				else if ( arg4 == 5 )
+				{
+					log(info, "Controller", "CheckPowerModeBeforeGated", parg1, "commandSleep timed out (THREAD_TIMED_OUT) _myPowerState = %d", arg2);
+				}
+				else if ( arg4 == 6 )
+				{
+					log(info, "Controller", "CheckPowerModeBeforeGated", parg1, "commandSleep interrupted (THREAD_INTERRUPTED) _myPowerState = %d", arg2);
+				}
+				else if ( arg4 == 7 )
+				{
+					log(info, "Controller", "CheckPowerModeBeforeGated", parg1, "commandSleep restarted (THREAD_RESTART) _myPowerState = %d", arg2);
+				}
+				else if ( arg4 == 8 )
+				{
+					log(info, "Controller", "CheckPowerModeBeforeGated", parg1, "woke up with status (kIOReturnNotPermitted) _myPowerState = %d", arg2);
+				}
+				else if ( arg4 == 9 )
+				{
+					log(info, "Controller", "CheckPowerModeBeforeGated", parg1, "woke up with unknown status 0x%x", arg3);
+				}
+				else if ( arg4 == 10 )
+				{
+					log(info, "Controller", "CheckPowerModeBeforeGated", parg1, "we are inGate(), so calling commandSleep(), _myPowerState %d", arg2 );
+				}
 			}
 			break;
 			
 		case USB_CONTROLLER_TRACE( kTPControllerGatedPowerChange ):
 			if ( qualifier == DBG_FUNC_START ) 
 			{
-				log(info, "Controller", "GatedPowerChange Start", parg1, "powerStateOrdinal %d OldState %d", arg2, arg3 );
+				log(info, "Controller", "GatedPowerChange Start", parg1, "powerStateOrdinal %d _myPowerState %d", arg2, arg3 );
 			} 
 			else if ( qualifier == DBG_FUNC_END ) 
 			{
@@ -1484,7 +1522,18 @@ CollectTraceController( kd_buf tracepoint )
 			} 
 			else 
 			{
+				if ( arg4 == 0 )
+				{
 				log(info, "Controller", "GatedPowerChange", parg1, "Could not create root hub device upon wakeup - error 0x%x!", arg2 );
+			}
+				else if ( arg4 == 1 )
+				{
+					log(info, "Controller", "GatedPowerChange", parg1, "commandGate is NULL");
+				}
+				else if ( arg4 == 2 )
+				{
+					log(info, "Controller", "GatedPowerChange", parg1, "calling commandWakeup for CheckPowerModeBeforeGated");
+				}
 			}
 			break;
 
@@ -2081,11 +2130,25 @@ CollectTraceDevice ( kd_buf tracepoint )
 
 
 		case USB_DEVICE_TRACE( kTPDeviceGetConfiguration ):
-			log(info, "Device", "Get Config", parg1, "error 0x%x getting config bmRequestType 0x%x", arg2, arg3 );
+			if(arg4 == 0)
+			{
+				log(info, "Device", "Get Config", parg1, "error 0x%x getting config bmRequestType 0x%x", arg2, arg3 );
+			}
+			else if(arg4 == 1)
+			{
+				log(info, "Device", "Get Config", parg1, "called while inactive, returning kIOReturnNotResponding");
+			}
 			break;
 
 		case USB_DEVICE_TRACE( kTPDeviceGetDeviceStatus ):
-			log(info, "Device", "Get DeviceStatus", parg1, "error 0x%x getting device status bmRequestType 0x%x", arg2, arg3 );
+			if(arg4 == 0)
+			{
+				log(info, "Device", "Get DeviceStatus", parg1, "error 0x%x getting device status bmRequestType 0x%x", arg2, arg3 );
+			}
+			else if(arg4 == 1)
+			{
+				log(info, "Device", "Get DeviceStatus", parg1, "called while inactive, returning kIOReturnNotResponding");
+			}
 			break;
 
 		case USB_DEVICE_TRACE( kTPDeviceSuspendDevice ):
@@ -3516,7 +3579,15 @@ CollectTraceHID	( kd_buf tracepoint )
 			}
 			else if ( arg4 == 12)
 			{			   
+				log(info, "HID", "InterruptRead", parg1, "_clearFeatureEndpointHaltThread already queued");
+			}
+			else if ( arg4 == 13)
+			{			   
 				log(info, "HID", "InterruptRead", parg1, "Unknown error (0x%x) reading interrupt pipe", arg2);
+			}
+			else if ( arg4 == 14)
+			{			   
+				log(info, "HID", "InterruptRead", parg1, "HandleReport callout thread took %d microsecs to schedule", arg2);
 			}
 			break;
 			
@@ -3694,6 +3765,17 @@ CollectTracePipe ( kd_buf tracepoint )
 			else if ( qualifier == DBG_FUNC_END ) 
 			{
 	        	log(info, "Pipe", "Control Req end", parg1, "error 0x%x ", arg2 );
+			}
+			else
+			{
+				if ( arg4 == 1 )
+				{		        	
+					log(info, "Pipe", "ControlRequest", parg1, "Possible charging command sent to device @ 0x%x, operating: %d extra, sleep: %d", arg2, arg3>>16, arg3 & 0xFF );
+				}
+				else if ( arg4 == 2 )
+				{		        	
+					log(info, "Pipe", "ControlRequest", parg1, "Possible charging command sent to device @ 0x%x, operating: %d extra, sleep: %d", arg2, arg3>>16, arg3 & 0xFF );
+				}
 			}
 			break;
 		
@@ -4644,6 +4726,29 @@ CollectTraceOHCI ( kd_buf tracepoint )
 			log(info, "OHCI", "powerChangeDone", parg1, "from state (%d) to state (%d)", arg2, arg3);
 			break;
 			
+		case USB_OHCI_TRACE( kTPOHCIDemarcation ):
+			if ( arg4 == 1 )
+			{
+				log(info, "OHCI", "DumpQueues", parg1, "--------- Control Endpoints ---------");
+			}
+			else if ( arg4 == 2 )
+			{
+				log(info, "OHCI", "DumpQueues", parg1, "--------- Bulk Endpoints ---------");
+			}
+			else if ( arg4 == 3 )
+			{
+				log(info, "OHCI", "DumpQueues", parg1, "--------- Interrupt Endpoints ---------");
+			}
+			else if ( arg4 == 4 )
+			{
+				log(info, "OHCI", "DumpQueues", parg1, "--------- Isoch Endpoints ---------");
+			}
+			else if ( arg4 == 5 )
+			{
+				log(info, "OHCI", "DumpQueues", parg1, "--------- WriteDone Queue ---------");
+			}
+			break;
+
 		default:
 			CollectTraceUnknown( tracepoint );
 			break;	
@@ -4731,6 +4836,101 @@ CollectTraceOHCIInterrupts	( kd_buf tracepoint )
 			{
 				log(info, "OHCI", "Primary Interrupt", parg1, "enabledInterrupts 0x%8.08x activeInterrupts 0x%8.08x", arg2, arg3 );
 			}
+			break;
+			
+		default:
+			CollectTraceUnknown( tracepoint );
+			break;	
+	} // End of switch
+}
+
+
+static void 
+CollectTraceOHCIDumpQs	( kd_buf tracepoint ) 
+{
+	uint32_t 			debugID;
+	uint32_t 			type;
+	int					qualifier;
+	uintptr_t			parg1, parg2, parg3, parg4;
+	uint32_t			arg1, arg2, arg3, arg4;
+	time_t 				currentTime;
+	
+	debugID = tracepoint.debugid;
+	type = debugID & ~(DBG_FUNC_START | DBG_FUNC_END);
+	qualifier = debugID & 0x3;
+	
+	parg1 = tracepoint.arg1;
+	parg2 = tracepoint.arg2;
+	parg3 = tracepoint.arg3;
+	parg4 = tracepoint.arg4;
+	
+	arg1 = (uint32_t)parg1;
+	arg2 = (uint32_t)parg2;
+	arg3 = (uint32_t)parg3;
+	arg4 = (uint32_t)parg4;
+	
+	trace_info info;
+	info.timestamp = kdbg_get_timestamp(&tracepoint);
+	info.thread = tracepoint.arg5;
+	info.debugid = tracepoint.debugid;
+	info.cpuid = kdbg_get_cpu(&tracepoint);
+	
+	currentTime = time ( NULL );
+	
+	switch ( type )
+	{	
+		case USB_OHCI_DUMPQS_TRACE( kTPOHCIDumpQED1 ):
+			log(info, "OHCI", "printED", parg1, "------ pED at %p (%d:%d)", (void*)parg2,
+				(uint32_t)(arg3 & kOHCIEDControl_FA) >> kOHCIEDControl_FAPhase,
+				(uint32_t)(arg3 & kOHCIEDControl_EN) >> kOHCIEDControl_ENPhase
+				);
+			log(info, "OHCI", "printED", parg1, "shared.flags:             0x%x %s", arg3,
+				arg3 & kOHCIEDControl_K?"( SKIP )":""
+				);
+			log(info, "OHCI", "printED", parg1, "shared.tdQueueTailPtr:    0x%x", arg4);
+			break;
+			
+		case USB_OHCI_DUMPQS_TRACE( kTPOHCIDumpQED2 ):
+			log(info, "OHCI", "printED", parg1, "shared.tdQueueHeadPtr:    0x%x", arg2);
+			log(info, "OHCI", "printED", parg1, "shared.nextED:            0x%x", arg3);
+			log(info, "OHCI", "printED", parg1, "pPhysical:                0x%x", arg4);
+			break;
+		case USB_OHCI_DUMPQS_TRACE( kTPOHCIDumpQED3 ):
+			log(info, "OHCI", "printED", parg1, "pLogicalNext:             %p", (void*)parg2);
+			log(info, "OHCI", "printED", parg1, "pLogicalTailP:            %p", (void*)parg3);
+			log(info, "OHCI", "printED", parg1, "pLogicalHeadP:            %p", (void*)parg4);
+			break;
+			
+		case USB_OHCI_DUMPQS_TRACE( kTPOHCIDumpQTD1 ):
+			UInt32	w0, dir;
+			w0 = arg4;
+			dir = (w0 & kOHCIGTDControl_DP) >> kOHCIGTDControl_DPPhase;
+			log(info, "OHCI", "printTD", parg1, "------ pTD at %p (%s)", (void*)parg2, dir == 0 ? "SETUP" : (dir==2?"IN":"OUT"));
+			break;
+		case USB_OHCI_DUMPQS_TRACE( kTPOHCIDumpQTD6 ):
+			log(info, "OHCI", "printTD", parg1, "pEndpoint:                %p (%d:%d)", (void *)parg2,
+				(arg3 & kOHCIEDControl_FA) >> kOHCIEDControl_FAPhase,
+				(arg3 & kOHCIEDControl_EN) >> kOHCIEDControl_ENPhase
+				);
+			break;
+		case USB_OHCI_DUMPQS_TRACE( kTPOHCIDumpQTD2 ):
+			log(info, "OHCI", "printTD", parg1, "shared.ohciFlags:         0x%x", arg2);
+			log(info, "OHCI", "printTD", parg1, "shared.currentBufferPtr:  0x%x", arg3);
+			log(info, "OHCI", "printTD", parg1, "shared.nextTD:            0x%x", arg4);
+			break;
+		case USB_OHCI_DUMPQS_TRACE( kTPOHCIDumpQTD3 ):
+			log(info, "OHCI", "printTD", parg1, "shared.bufferEnd:         0x%x", arg2);
+			log(info, "OHCI", "printTD", parg1, "pType:                    0x%x", arg3);
+			log(info, "OHCI", "printTD", parg1, "uimFlags:                 0x%x", arg4);
+			break;
+		case USB_OHCI_DUMPQS_TRACE( kTPOHCIDumpQTD4 ):
+			log(info, "OHCI", "printTD", parg1, "pPhysical:                0x%x", arg2);
+			log(info, "OHCI", "printTD", parg1, "pLogicalNext:             %p", (void*)parg3);
+			log(info, "OHCI", "printTD", parg1, "lastFrame:                0x%x", arg4);
+			break;
+		case USB_OHCI_DUMPQS_TRACE( kTPOHCIDumpQTD5 ):
+			log(info, "OHCI", "printTD", parg1, "lastRemaining:            0x%x", arg2);
+			log(info, "OHCI", "printTD", parg1, "bufferSize:               0x%x", arg4);
 			break;
 			
 		default:
@@ -5112,6 +5312,20 @@ CollectTraceEHCI ( kd_buf tracepoint )
 		}
 			break;
 			
+		case USB_EHCI_TRACE( kTPEHCIDemarcation ):
+			if ( arg4 == 1 )
+			{
+				log(info, "EHCI", "DumpQueues", parg1, "--------- Async List --------- _AsyncHead(%p) AsyncListAddr(0x%x)", (void*)parg2, arg3);
+			}
+			else if ( arg4 == 2 )
+			{
+				log(info, "EHCI", "DumpQueues", parg1, "--------- Inactive List --------- _InactiveAsyncHead(%p)", (void*)parg2);
+			}
+			else if ( arg4 == 3 )
+			{
+				log(info, "EHCI", "DumpQueues", parg1, "--------- Periodic List ---------");
+			}
+			break;
 		default:
 			CollectTraceUnknown( tracepoint );
 			break;	
@@ -5292,12 +5506,194 @@ CollectTraceEHCIInterrupts	( kd_buf tracepoint )
 #endif
 			break;
 			
+		case USB_EHCI_INTERRUPTS_TRACE( kTPEHCIUpdateFrameListBits ):
+			if (arg4 == 2)
+			{
+				log(info, "EHCI", "kTPEHCIUpdateFrameListBits", parg1, "MMF");
+			}
+			else if (arg4 == 3)
+			{
+				log(info, "EHCI", "kTPEHCIUpdateFrameListBits", parg1, "XAct");
+			}
+			else if (arg4 == 4)
+			{
+				log(info, "EHCI", "kTPEHCIUpdateFrameListBits", parg1, "Babble");
+			}
+			else if (arg4 == 5)
+			{
+				log(info, "EHCI", "kTPEHCIUpdateFrameListBits", parg1, "DBE");
+			}
+			else if (arg4 == 6)
+			{
+				log(info, "EHCI", "kTPEHCIUpdateFrameListBits", parg1, "TTErr");
+			}
+			break;
+			
 		default:
 			CollectTraceUnknown( tracepoint );
 			break;	
 	} // End of switch
 }
 
+
+static void 
+CollectTraceEHCIDumpQs	( kd_buf tracepoint ) 
+{
+	uint32_t 			debugID;
+	uint32_t 			type;
+	int					qualifier;
+	uintptr_t			parg1, parg2, parg3, parg4;
+	uint32_t			arg1, arg2, arg3, arg4;
+	time_t 				currentTime;
+	
+	debugID = tracepoint.debugid;
+	type = debugID & ~(DBG_FUNC_START | DBG_FUNC_END);
+	qualifier = debugID & 0x3;
+	
+	parg1 = tracepoint.arg1;
+	parg2 = tracepoint.arg2;
+	parg3 = tracepoint.arg3;
+	parg4 = tracepoint.arg4;
+	
+	arg1 = (uint32_t)parg1;
+	arg2 = (uint32_t)parg2;
+	arg3 = (uint32_t)parg3;
+	arg4 = (uint32_t)parg4;
+	
+	trace_info info;
+	info.timestamp = kdbg_get_timestamp(&tracepoint);
+	info.thread = tracepoint.arg5;
+	info.debugid = tracepoint.debugid;
+	info.cpuid = kdbg_get_cpu(&tracepoint);
+	
+	currentTime = time ( NULL );
+	
+	switch ( type )
+	{	
+		case USB_EHCI_DUMPQS_TRACE( kTPEHCIDumpQH1 ):
+			log(info, "EHCI", "printQH", parg1, "------ pQH at %p _sharedPhysical[0x%x]", (void*)parg2, arg3);
+			log(info, "EHCI", "printQH", parg1, "_logicalNext:          %p", (void*)parg4);
+			break;
+			
+		case USB_EHCI_DUMPQS_TRACE( kTPEHCIDumpQH2 ):
+			log(info, "EHCI", "printQH", parg1, "shared.nextQH:         0x%x (%s @ 0x%x)", arg2,
+								(((arg2 & kEHCIEDNextED_Typ) >> kEHCIEDNextED_TypPhase) ==  kEHCITyp_QH) ? "QH" : (((arg2 & kEHCIEDNextED_Typ) >> kEHCIEDNextED_TypPhase) ==  kEHCITyp_siTD) ? "SITD" : "ITD",
+								arg2 & kEHCIEDTDPtrMask);
+			log(info, "EHCI", "printQH", parg1, "shared.flags:          0x%x (FA %d:EN %d) %s", arg3,
+								(uint32_t)(arg3 & kEHCIEDFlags_FA) >> kEHCIEDFlags_FAPhase,
+								(uint32_t)(arg3 & kEHCIEDFlags_EN) >> kEHCIEDFlags_ENPhase,
+								(arg3 & kEHCIEDFlags_H) ? "HEAD" : "");
+			log(info, "EHCI", "printQH", parg1, "shared.splitFlags:     0x%x Hub %d Port %d C-mask 0x%02x S-mask 0x%02x", arg4,
+								(arg4  & kEHCIEDSplitFlags_HubAddr) >> kEHCIEDSplitFlags_HubAddrPhase, 
+								(arg4  & kEHCIEDSplitFlags_Port) >> kEHCIEDSplitFlags_PortPhase, 
+								(arg4  & kEHCIEDSplitFlags_CMask) >> kEHCIEDSplitFlags_CMaskPhase, 
+								(arg4  & kEHCIEDSplitFlags_SMask) >> kEHCIEDSplitFlags_SMaskPhase);
+			break;
+			
+		case USB_EHCI_DUMPQS_TRACE( kTPEHCIDumpQH3 ):
+			log(info, "EHCI", "printQH", parg1, "shared.CurrqTDPtr:     0x%x", arg2);
+			log(info, "EHCI", "printQH", parg1, "shared.NextqTDPtr:     0x%x", arg3);
+			log(info, "EHCI", "printQH", parg1, "shared.AltqTDPtr:      0x%x", arg4);
+			break;
+			
+		case USB_EHCI_DUMPQS_TRACE( kTPEHCIDumpQH4 ):
+			log(info, "EHCI", "printQH", parg1, "shared.qTDFlags:       0x%x", arg2);
+			log(info, "EHCI", "printQH", parg1, "shared.BuffPtr[0]:     0x%x", arg3);
+			log(info, "EHCI", "printQH", parg1, "shared.BuffPtr[1]:     0x%x", arg4);
+			break;
+			
+		case USB_EHCI_DUMPQS_TRACE( kTPEHCIDumpQH5 ):
+			log(info, "EHCI", "printQH", parg1, "shared.BuffPtr[2]:     0x%x", arg2);
+			log(info, "EHCI", "printQH", parg1, "shared.BuffPtr[3]:     0x%x", arg3);
+			log(info, "EHCI", "printQH", parg1, "shared.BuffPtr[4]:     0x%x", arg4);
+			break;
+			
+		case USB_EHCI_DUMPQS_TRACE( kTPEHCIDumpQH6 ):
+			log(info, "EHCI", "printQH", parg1, "shared.extBuffPtr[0]:  0x%x", arg2);
+			log(info, "EHCI", "printQH", parg1, "shared.extBuffPtr[1]:  0x%x", arg3);
+			log(info, "EHCI", "printQH", parg1, "shared.extBuffPtr[2]:  0x%x", arg4);
+			break;
+			
+		case USB_EHCI_DUMPQS_TRACE( kTPEHCIDumpQH7 ):
+			log(info, "EHCI", "printQH", parg1, "shared.extBuffPtr[3]:  0x%x", arg2);
+			log(info, "EHCI", "printQH", parg1, "shared.extBuffPtr[4]:  0x%x", arg3);
+			log(info, "EHCI", "printQH", parg1, "_qTD:                  %p", (void*)parg4);
+			break;
+			
+		case USB_EHCI_DUMPQS_TRACE( kTPEHCIDumpQH8 ):
+			log(info, "EHCI", "printQH", parg1, "_TailTD:               %p", (void*)parg2);
+			log(info, "EHCI", "printQH", parg1, "_pSPE:                 %p", (void*)parg3);
+			log(info, "EHCI", "printQH", parg1, "_maxPacketSize:        %d", arg4);
+			break;
+			
+		case USB_EHCI_DUMPQS_TRACE( kTPEHCIDumpQH9 ):
+			log(info, "EHCI", "printQH", parg1, "_functionNumber:       %d", arg2);
+			log(info, "EHCI", "printQH", parg1, "_endpointNumber:       %d", arg3);
+			log(info, "EHCI", "printQH", parg1, "_direction:            %d", arg4);
+			break;
+			
+		case USB_EHCI_DUMPQS_TRACE( kTPEHCIDumpQH10 ):
+			log(info, "EHCI", "printQH", parg1, "_responseToStall:      %d", arg2);
+			log(info, "EHCI", "printQH", parg1, "_queueType:            %d", arg3);
+			log(info, "EHCI", "printQH", parg1, "_speed:                %d", arg4);
+			break;
+			
+		case USB_EHCI_DUMPQS_TRACE( kTPEHCIDumpQH11 ):
+			log(info, "EHCI", "printQH", parg1, "_bInterval:            %d", arg2);
+			log(info, "EHCI", "printQH", parg1, "_startFrame:           %d", arg3);
+			log(info, "EHCI", "printQH", parg1, "_pollingRate:          %d", arg4);
+			log(info, "EHCI", "printQH", parg1, "--------------------------------------------------");
+			break;
+			
+		case USB_EHCI_DUMPQS_TRACE( kTPEHCIDumpTD1 ):
+			log(info, "EHCI", "printTD", parg1, "------ pTD at %p pPhysical[0x%x]", (void*)parg2, arg3);
+			log(info, "EHCI", "printTD", parg1, "_logicalNext:          %p", (void*)parg4);
+			break;
+			
+		case USB_EHCI_DUMPQS_TRACE( kTPEHCIDumpTD2 ):
+			log(info, "EHCI", "printTD", parg1, "shared.nextTD:         0x%x", arg2);
+			log(info, "EHCI", "printTD", parg1, "shared.altTD:          0x%x", arg3);
+			log(info, "EHCI", "printTD", parg1, "shared.flags:          0x%x", arg4);
+			break;
+
+		case USB_EHCI_DUMPQS_TRACE( kTPEHCIDumpTD3 ):
+			log(info, "EHCI", "printTD", parg1, "shared.BuffPtr[0]:     0x%x", arg2);
+			log(info, "EHCI", "printTD", parg1, "shared.BuffPtr[1]:     0x%x", arg3);
+			log(info, "EHCI", "printTD", parg1, "shared.BuffPtr[2]:     0x%x", arg4);
+			break;
+			
+		case USB_EHCI_DUMPQS_TRACE( kTPEHCIDumpTD4 ):
+			log(info, "EHCI", "printTD", parg1, "shared.BuffPtr[3]:     0x%x", arg2);
+			log(info, "EHCI", "printTD", parg1, "shared.BuffPtr[4]:     0x%x", arg3);
+			break;
+
+		case USB_EHCI_DUMPQS_TRACE( kTPEHCIDumpTD5 ):
+			log(info, "EHCI", "printTD", parg1, "shared.extBuffPtr[0]:  0x%x", arg2);
+			log(info, "EHCI", "printTD", parg1, "shared.extBuffPtr[1]:  0x%x", arg3);
+			log(info, "EHCI", "printTD", parg1, "shared.extBuffPtr[2]:  0x%x", arg4);
+			break;
+			
+		case USB_EHCI_DUMPQS_TRACE( kTPEHCIDumpTD6 ):
+			log(info, "EHCI", "printTD", parg1, "shared.extBuffPtr[3]:  0x%x", arg2);
+			log(info, "EHCI", "printTD", parg1, "shared.extBuffPtr[4]:  0x%x", arg3);
+			break;
+			
+		case USB_EHCI_DUMPQS_TRACE( kTPEHCIDumpTD7 ):
+			log(info, "EHCI", "printTD", parg1, "logicalBuffer:         %p", (void*)parg2);
+			log(info, "EHCI", "printTD", parg1, "callbackOnTD:          %s", arg3 ? "YES" : "NO");
+			log(info, "EHCI", "printTD", parg1, "multiXferTransaction:  %s", arg4 ? "YES" : "NO");
+			break;
+
+		case USB_EHCI_DUMPQS_TRACE( kTPEHCIDumpTD8 ):
+			log(info, "EHCI", "printTD", parg1, "finalXferInTransaction:%s", arg4 ? "YES" : "NO");
+			log(info, "EHCI", "printTD", parg1, "--------------------------------------------------");
+			break;
+			
+		default:
+			CollectTraceUnknown( tracepoint );
+			break;	
+	} // End of switch
+}
 
 static void 
 CollectTraceHubPolicyMaker	( kd_buf tracepoint )

@@ -178,7 +178,7 @@ IOReturn IOFramebufferUserClient::externalMethod( uint32_t selector, IOExternalM
         /*[8]*/  { (IOExternalMethodAction) &IOFramebuffer::extGetVRAMMapOffset,
                     1, 0, 1, 0 },
         /*[9]*/  { (IOExternalMethodAction) &IOFramebuffer::extSetBounds,
-                    0, sizeof(IOGBounds), 0, 0 },
+                    0, kIOUCVariableStructureSize, 0, 0 },
         /*[10]*/ { (IOExternalMethodAction) &IOFramebuffer::extSetNewCursor,
                     3, 0, 0, 0 },
         /*[11]*/ { (IOExternalMethodAction) &IOFramebuffer::extSetGammaTable,

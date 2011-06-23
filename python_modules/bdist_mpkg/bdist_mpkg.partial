@@ -2,15 +2,15 @@
         <key>OpenSourceProject</key>
         <string>bdist_mpkg</string>
         <key>OpenSourceVersion</key>
-        <string>0.4.3</string>
+        <string>0.4.4</string>
         <key>OpenSourceWebsiteURL</key>
         <string>http://undefined.org/python/#bdist_mpkg</string>
         <key>OpenSourceURL</key>
-        <string>http://pypi.python.org/packages/source/b/bdist_mpkg/bdist_mpkg-0.4.3.tar.gz</string>
+        <string>http://pypi.python.org/packages/source/b/bdist_mpkg/bdist_mpkg-0.4.4.tar.gz#md5=848dfd00fda59092dea4e97f4a711797</string>
 	<key>OpenSourceMD5</key>
-	<string>4d848ecda7a454b702160a4d7f39ca50</string>
+	<string>848dfd00fda59092dea4e97f4a711797</string>
         <key>OpenSourceImportDate</key>
-        <string>2007-04-19</string>
+        <string>2010-07-25</string>
         <key>OpenSourceLicense</key>
         <string>MIT</string>
         <key>OpenSourceLicenseFile</key>

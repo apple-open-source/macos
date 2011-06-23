@@ -200,7 +200,14 @@
 			isa = PBXProject;
 			buildConfigurationList = ACBBA9B50D4FDAA300E75387 /* Build configuration list for PBXProject "IOFireWireSerialBusProtocolTransport" */;
 			compatibilityVersion = "Xcode 2.4";
+			developmentRegion = English;
 			hasScannedForEncodings = 1;
+			knownRegions = (
+				English,
+				Japanese,
+				French,
+				German,
+			);
 			mainGroup = 075F51C7FFE0D39C11CE15BF /* IOFireWireSerialBusProtocolTransport */;
 			productRefGroup = 075F51D9FFE0D39C11CE15BF /* Products */;
 			projectDirPath = "";
@@ -322,7 +329,7 @@
 				KERNEL_MODULE = YES;
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOFireWireSerialBusProtocolTransport;
-				MODULE_VERSION = 2.0.0;
+				MODULE_VERSION = 2.1.0;
 				OTHER_CFLAGS = "-Wno-format";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -353,7 +360,7 @@
 				KERNEL_MODULE = YES;
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOFireWireSerialBusProtocolTransport;
-				MODULE_VERSION = 2.0.0;
+				MODULE_VERSION = 2.1.0;
 				OTHER_CFLAGS = "-Wno-format";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -383,7 +390,7 @@
 				KERNEL_MODULE = YES;
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOFireWireSerialBusProtocolTransport;
-				MODULE_VERSION = 2.0.0;
+				MODULE_VERSION = 2.1.0;
 				OTHER_CFLAGS = "-Wno-format";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";

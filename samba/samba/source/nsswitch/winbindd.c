@@ -747,6 +747,10 @@ static int process_loop(int listen_sock, int listen_priv_sock)
 
 	maxfd = MAX(listen_sock, listen_priv_sock);
 
+	/* Ranges for listen_sock and
+	   listen_priv_sock were already checked
+	   by winbindd_init_sockets(). */
+
 	FD_ZERO(&r_fds);
 	FD_ZERO(&w_fds);
 	FD_SET(listen_sock, &r_fds);
@@ -778,6 +782,12 @@ static int process_loop(int listen_sock, int listen_priv_sock)
 	}
 
 	for (ev = fd_events; ev; ev = ev->next) {
+		if (ev->fd < 0 || ev->fd >= FD_SETSIZE) {
+			/* Ignore here - event_add_to_select_args
+			   should make this impossible. */
+			continue;
+		}
+
 		if (ev->flags & EVENT_FD_READ) {
 			FD_SET(ev->fd, &r_fds);
 			maxfd = MAX(ev->fd, maxfd);
@@ -912,7 +922,8 @@ static void winbindd_process_loop(enum smb_server_mode server_mode)
 
 	starttime = timeval_current();
 
-	if (listen_public == -1 || listen_priv == -1) {
+	if (listen_public < 0 || listen_public >= FD_SETSIZE ||
+		listen_priv < 0 || listen_priv >= FD_SETSIZE) {
 		DEBUG(0, ("failed to open winbindd pipes: %s\n",
 			    errno ? strerror(errno) : "unknown error"));
 		terminate();

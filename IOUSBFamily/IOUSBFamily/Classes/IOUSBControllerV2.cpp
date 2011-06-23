@@ -204,6 +204,7 @@ IOUSBControllerV2::clearTTHandler(OSObject *target, void *parameter, IOReturn st
 		{
 			USBLog(6, "clearTTHandler - completing and freeing memory descriptor (%p)", memDesc);
 			USBTrace( kUSBTController, kTPControllerClearTTHandler, (uintptr_t)me, (uintptr_t)memDesc, 0, 3 );
+			command->SetRequestMemoryDescriptor(NULL);
 			memDesc->complete();
 			memDesc->release();
 		}

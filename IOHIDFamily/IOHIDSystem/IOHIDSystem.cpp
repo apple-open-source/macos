@@ -1008,8 +1008,8 @@ IOReturn IOHIDSystem::evCloseGated(void)
 	    lastShmemPtr = (void *)0;
 	}
 	// Remove port notification for the eventPort and clear the port out
-	setEventPort(MACH_PORT_NULL);
-//	ipc_port_release_send(event_port);
+    setEventPortGated(MACH_PORT_NULL);
+//  ipc_port_release_send(event_port);
 
 	// Clear local state to shutdown
     evStateChanging = false;
@@ -1160,45 +1160,58 @@ void IOHIDSystem::_resetMouseParameters(void)
  *	Driver.
  */
 
-int IOHIDSystem::registerScreen(IOGraphicsDevice * instance,
-                /* bounds */    IOGBounds * bp)
+int IOHIDSystem::registerScreen(IOGraphicsDevice *io_gd,
+                                IOGBounds *bounds)
 {
-    EvScreen *esp;
-    OSNumber *num;
-
-    if( (false == eventsOpen) || (0 == bp) )
+    if( (false == eventsOpen) || (0 == bounds) )
     {
-	return -1;
+        return -1;
     }
+    
+    workLoop->runAction((IOWorkLoop::Action)&IOHIDSystem::doRegisterScreen, this, io_gd, bounds);
+    
+    return(SCREENTOKEN + screens);
+}
 
+IOReturn IOHIDSystem::doRegisterScreen(IOHIDSystem *self, IOGraphicsDevice *io_gd, IOGBounds *bounds, void *arg2 __unused, void *arg3 __unused)
+{
+    self->registerScreenGated(io_gd, bounds);
+    
+    return kIOReturnSuccess;
+}
+
+void IOHIDSystem::registerScreenGated(IOGraphicsDevice *io_gd, IOGBounds *bounds)
+{
+    EvScreen            *esp;
+    OSNumber            *num;
+    
     if ( lastShmemPtr == (void *)0 )
-	lastShmemPtr = evs;
+        lastShmemPtr = evs;
     
     /* shmemSize and bounds already set */
     esp = &((EvScreen*)evScreen)[screens];
-    esp->instance = instance;
-    esp->bounds = bp;
+    esp->instance = io_gd;
+    esp->bounds = bounds;
     // Update our idea of workSpace bounds
-    if ( bp->minx < workSpace.minx )
-	workSpace.minx = bp->minx;
-    if ( bp->miny < workSpace.miny )
-	workSpace.miny = bp->miny;
-    if ( bp->maxx < workSpace.maxx )
-	workSpace.maxx = bp->maxx;
+    if ( bounds->minx < workSpace.minx )
+        workSpace.minx = bounds->minx;
+    if ( bounds->miny < workSpace.miny )
+        workSpace.miny = bounds->miny;
+    if ( bounds->maxx < workSpace.maxx )
+        workSpace.maxx = bounds->maxx;
     if ( esp->bounds->maxy < workSpace.maxy )
-	workSpace.maxy = bp->maxy;
-
-    if( (num = OSDynamicCast(OSNumber, instance->getProperty(kIOFBWaitCursorFramesKey)))
-      && (num->unsigned32BitValue() > maxWaitCursorFrame)) {
-	firstWaitCursorFrame = 0;
-        maxWaitCursorFrame   = num->unsigned32BitValue();
-        evg->lastFrame	     = maxWaitCursorFrame;
+        workSpace.maxy = bounds->maxy;
+    
+    if((num = OSDynamicCast(OSNumber, io_gd->getProperty(kIOFBWaitCursorFramesKey)))
+       && (num->unsigned32BitValue() > maxWaitCursorFrame)) {
+        firstWaitCursorFrame    = 0;
+        maxWaitCursorFrame      = num->unsigned32BitValue();
+        evg->lastFrame          = maxWaitCursorFrame;
     }
-    if( (num = OSDynamicCast(OSNumber, instance->getProperty(kIOFBWaitCursorPeriodKey))))
+    if( (num = OSDynamicCast(OSNumber, io_gd->getProperty(kIOFBWaitCursorPeriodKey))))
         clock_interval_to_absolutetime_interval(num->unsigned32BitValue(), kNanosecondScale,
                                                 &waitFrameRate);
-
-    return(SCREENTOKEN + screens++);
+    screens++;
 }
 
 
@@ -1435,35 +1448,48 @@ void IOHIDSystem::initShmem(bool clean)
 //
 void IOHIDSystem::setEventPort(mach_port_t port)
 {
-	static struct _eventMsg init_msg = { {
-            // mach_msg_bits_t	msgh_bits;
-            MACH_MSGH_BITS(MACH_MSG_TYPE_COPY_SEND,0),
-            // mach_msg_size_t	msgh_size;
-            sizeof (struct _eventMsg),
-            // mach_port_t	msgh_remote_port;
-            MACH_PORT_NULL,
-            // mach_port_t	msgh_local_port;
-            MACH_PORT_NULL,
-            // mach_msg_size_t 	msgh_reserved;
-            0,
-            // mach_msg_id_t	msgh_id;
-            0
-        } };
+    if ((eventPort != port) && (workLoop))
+        workLoop->runAction((IOWorkLoop::Action)&IOHIDSystem::doSetEventPort, this, (void*)port);
+}
 
-	if ( eventMsg == NULL )
-		eventMsg = IOMalloc( sizeof (struct _eventMsg) );
-	eventPort = port;
-	// Initialize the events available message.
-	*((struct _eventMsg *)eventMsg) = init_msg;
+IOReturn IOHIDSystem::doSetEventPort(IOHIDSystem *self, void *port_void, void *arg1 __unused, void *arg2 __unused, void *arg3 __unused)
+{
+    self->setEventPortGated((mach_port_t)port_void);
+    return kIOReturnSuccess;
+}
 
-	((struct _eventMsg *)eventMsg)->h.msgh_remote_port = port;
-        
-        // RY: Added this check so that the event consumer
-        // can get notified if the queue in not empty.
-        // Otherwise the event consumer will never get a 
-        // notification.
-        if (EventsInQueue())
-            kickEventConsumer();
+void IOHIDSystem::setEventPortGated(mach_port_t port)
+{
+    static struct _eventMsg init_msg = { {
+        // mach_msg_bits_t  msgh_bits;
+        MACH_MSGH_BITS(MACH_MSG_TYPE_COPY_SEND,0),
+        // mach_msg_size_t  msgh_size;
+        sizeof (struct _eventMsg),
+        // mach_port_t  msgh_remote_port;
+        MACH_PORT_NULL,
+        // mach_port_t  msgh_local_port;
+        MACH_PORT_NULL,
+        // mach_msg_size_t  msgh_reserved;
+        0,
+        // mach_msg_id_t    msgh_id;
+        0
+    } };
+    
+    init_msg.h.msgh_remote_port = port;
+    
+    if ( eventMsg == NULL )
+        eventMsg = IOMalloc( sizeof (struct _eventMsg) );
+
+    // Initialize the events available message.
+    *((struct _eventMsg *)eventMsg) = init_msg;
+    eventPort = port;
+    
+    // RY: Added this check so that the event consumer
+    // can get notified if the queue in not empty.
+    // Otherwise the event consumer will never get a 
+    // notification.
+    if (EventsInQueue())
+        kickEventConsumer();
 }
 
 //
@@ -2450,11 +2476,13 @@ void IOHIDSystem::relativePointerEventGated(int buttons, int dx, int dy, Absolut
         SUB_ABSOLUTETIME( &eventDeltaTime, &lastRelativeEventTime );
         lastRelativeEventTime = ts;
 
-        IOGraphicsDevice * instance = ((EvScreen*)evScreen)[cursorPinScreen].instance;
-        if( instance) {
-            instance->getVBLTime( (AbsoluteTime *)&nextVBL, (AbsoluteTime *)&vblDeltaTime );
-        } else
+        IOGraphicsDevice * io_gd = ((EvScreen*)evScreen)[cursorPinScreen].instance;
+        if( io_gd ) {
+            io_gd->getVBLTime( (AbsoluteTime *)&nextVBL, (AbsoluteTime *)&vblDeltaTime );
+        } 
+        else {
             nextVBL.hi = nextVBL.lo = vblDeltaTime.hi = vblDeltaTime.lo = 0;
+        }
 
         if( dx && ((dx ^ accumDX) < 0))
             accumDX = 0;

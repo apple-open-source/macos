@@ -433,7 +433,7 @@ PROVIDER_START_FAILURE:
 
 
 //-----------------------------------------------------------------------------
-//	stop - Ends provided services.									  [PRIVATE]
+//	stop - Ends provided services.									   [PUBLIC]
 //-----------------------------------------------------------------------------
 
 void
@@ -459,6 +459,20 @@ IOSCSIParallelInterfaceController::stop ( IOService * provider )
 	// Release all WorkLoop related resources
 	ReleaseWorkLoop ( );
 	
+	super::stop ( provider );
+	
+}
+
+
+
+//-----------------------------------------------------------------------------
+//	free - Frees resources.											[PROTECTED]
+//-----------------------------------------------------------------------------
+
+void
+IOSCSIParallelInterfaceController::free ( void )
+{
+	
 	if ( fDeviceLock != NULL )
 	{
 		
@@ -467,7 +481,7 @@ IOSCSIParallelInterfaceController::stop ( IOService * provider )
 		
 	}
 	
-	super::stop ( provider );
+	super::free ( );
 	
 }
 
@@ -482,9 +496,17 @@ IOSCSIParallelInterfaceController::willTerminate (
 	IOService * 		provider,
 	IOOptionBits		options )
 {
+
+	SCSITargetIdentifier	index = 0;
 	
 	// Prevent any new requests from being sent to the controller.
 	fHBACanAcceptClientRequests = false;
+
+	for ( index = 0; index < fHighestSupportedDeviceID; index++ )
+	{		
+		DestroyTargetForID ( index );
+	}
+	
 	return true;
 	
 }

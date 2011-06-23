@@ -50,6 +50,7 @@ private:
     mach_port_t					fWakePort;
     bool						fDead;
 	bool						fIsTaskPrileged;
+    IOWorkLoop	*				fWorkLoop;
 
     static const IOExternalMethod	sMethods[kNumUSBControllerMethods];
     static const IOItemCount 		sMethodCount;

@@ -3,9 +3,9 @@
 <plist version="1.0">
 <dict>
 	<key>OpenSourceImportDate</key>
-	<string>2009-11-10</string>
+	<string>2011-03-21</string>
 	<key>OpenSourceLicense</key>
-	<string>Apache-style</string>
+	<string>openssl</string>
 	<key>OpenSourceLicenseFile</key>
 	<string>OpenSSL.txt</string>
 	<key>OpenSourceModifications</key>
@@ -26,11 +26,11 @@
 	<key>OpenSourceProject</key>
 	<string>OpenSSL</string>
 	<key>OpenSourceSHA1</key>
-	<string>d3fb6ec89532ab40646b65af179bb1770f7ca28f</string>
+	<string>a02411e5f4d463cac4a2a4a357a4a0b93bf65e72</string>
 	<key>OpenSourceURL</key>
-	<string>http://www.openssl.org/source/openssl-0.9.8l.tar.gz</string>
+	<string>http://www.openssl.org/source/openssl-0.9.8r.tar.gz</string>
 	<key>OpenSourceVersion</key>
-	<string>0.9.8l</string>
+	<string>0.9.8r</string>
 	<key>OpenSourceWebsiteURL</key>
 	<string>http://www.openssl.org/</string>
 </dict>

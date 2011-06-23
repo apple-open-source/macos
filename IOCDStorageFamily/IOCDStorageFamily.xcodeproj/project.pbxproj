@@ -302,7 +302,7 @@
 				INFOPLIST_PREPROCESS = YES;
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
 				MODULE_NAME = com.apple.iokit.IOCDStorageFamily;
-				MODULE_VERSION = 1.6;
+				MODULE_VERSION = 1.6.1;
 				PRODUCT_NAME = IOCDStorageFamily;
 				WARNING_CFLAGS = "-Wall";
 				WRAPPER_EXTENSION = kext;
@@ -316,7 +316,7 @@
 				INFOPLIST_PREPROCESS = YES;
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
 				MODULE_NAME = com.apple.iokit.IOCDStorageFamily;
-				MODULE_VERSION = 1.6;
+				MODULE_VERSION = 1.6.1;
 				PRODUCT_NAME = IOCDStorageFamily;
 				WARNING_CFLAGS = "-Wall";
 				WRAPPER_EXTENSION = kext;

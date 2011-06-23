@@ -208,8 +208,6 @@ IOUSBHubPolicyMaker::start(IOService * provider)
 		if (deviceCharacteristics & kIOUSBHubDeviceIsRootHub)
 		{
 			_isRootHub = true;
-			// if my provider is an IOUSBRootHubDevice nub, then I should attach this hub device nub to the root.
-			_device->attachToParent(getRegistryRoot(), usbPlane);
 			
 			// and since this is a root hub, we attach to the controller in the power tree
 			USBLog(5, "IOUSBHubPolicyMaker[%p]::start - root policyMaker on bus[%p]", this, _bus);
@@ -261,7 +259,7 @@ IOUSBHubPolicyMaker::start(IOService * provider)
 	// call the old AppleUSBHub::start method, now renamed to ConfigureHubDriver
 	if (!ConfigureHubDriver())
 	{
-		USBError(1, "IOUSBHubPolicyMaker[%p]::start - ConfigureHubDriver returned false", this);
+		USBLog(1, "IOUSBHubPolicyMaker[%p]::start - ConfigureHubDriver returned false", this);
 		PMstop();
 		return false;
 	}

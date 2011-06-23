@@ -34,6 +34,7 @@
 #include <libkern/OSByteOrder.h>
 #include <libkern/c++/OSDictionary.h>
 #include <libkern/c++/OSData.h>
+#include <libkern/version.h>
 
 #include <IOKit/assert.h>
 #include <IOKit/IOMessage.h>
@@ -140,7 +141,6 @@ USBGlobals::~USBGlobals ( void )
 //================================================================================================
 #define kUSBSetup				kUSBNone
 #define	kMaxNumberUSBBusses		256
-#define NSEC_PER_MS				1000000		/* nanosecond per millisecond */
 
 #define super IOUSBBus
 
@@ -1976,7 +1976,7 @@ IOUSBController::ProtectedDevZeroLock(OSObject *target, void* lock, void* arg2, 
 			
 			USBLog(5, "%s[%p]::ProtectedDevZeroLock - somebody already has it - running commandSleep", me->getName(), me);
 			
-			clock_interval_to_deadline(DEV_ZEROLOCK_DEADLINE_IN_SECS, NSEC_PER_SEC, &deadline);
+			clock_interval_to_deadline(DEV_ZEROLOCK_DEADLINE_IN_SECS, kSecondScale, &deadline);
 			IOReturn kr = commandGate->commandSleep(&me->_devZeroLock, deadline, THREAD_ABORTSAFE);
 			USBTrace( kUSBTController, kTPDevZeroLock, (uintptr_t)me, 0, 0, 1 );
 			switch (kr)
@@ -2360,15 +2360,6 @@ IOUSBController::didTerminate( IOService * provider, IOOptionBits options, bool 
 {
     USBLog(5, "IOUSBController(%s)[%p]::didTerminate isInactive[%s]", getName(), this, isInactive() ? "true" : "false");
     
-	if ( _rootHubDevice )
-	{
-		_needToClose = true;
-	}
-	else
-	{
-		_provider->close(this);
-	}
-	
 	return super::didTerminate(provider, options, defer);
 }
 
@@ -2457,7 +2448,7 @@ IOUSBController::stop( IOService * provider )
 	if ( _workLoop && _commandGate)
 		_workLoop->removeEventSource( _commandGate );
 	
-    USBLog(5,"-%s[%p]::stop (%p)", getName(), this, provider);
+	USBLog(5,"-%s[%p]::stop (%p)", getName(), this, provider);
     
 }
 
@@ -2466,7 +2457,25 @@ IOUSBController::stop( IOService * provider )
 bool 
 IOUSBController::finalize(IOOptionBits options)
 {
-    return(super::finalize(options));
+	bool	ret;
+	
+    ret = super::finalize(options);
+
+	USBLog(5, "IOUSBController(%s)[%p]::finalize - _rootHubDevice(%p) isOpen(%s)", getName(), this, _rootHubDevice, _provider->isOpen(this) ? "true" : "false");
+
+	if ( _rootHubDevice )
+    {
+        _rootHubDevice->detachFromParent(getRegistryRoot(), gIOUSBPlane);
+        _rootHubDevice->release();
+        _rootHubDevice = NULL;	    
+    }
+	
+	if (_provider->isOpen(this))
+	{
+        _provider->close(this);
+    }
+	
+	return ret;
 }
 
 
@@ -3443,6 +3452,7 @@ IOUSBController::CreateRootHubDevice( IOService * provider, IOUSBRootHubDevice *
         goto ErrorExit;
     }
 	
+
     // Increment our global _busCount (# of USB Buses) and set the properties on
     // our provider for busNumber and locationID.  This is used by Apple System Profiler.  The _busCount is NOT
     // guaranteed by IOKit to be the same across reboots (as the loading of the USB Controller driver can happen
@@ -3514,6 +3524,9 @@ IOUSBController::CreateRootHubDevice( IOService * provider, IOUSBRootHubDevice *
     (*rootHubDevice)->setLocation(provider->getLocation());
     (*rootHubDevice)->setLocation(provider->getLocation(), gIOUSBPlane);
 	
+	// attach the new IOUSBHubDevice to the registry root.
+	(*rootHubDevice)->attachToParent(getRegistryRoot(), gIOUSBPlane);
+
 	// 2505931 If the provider has an APPL,current-available property, then stick it in the new root hub device
     //
     aProperty = provider->copyProperty(kAppleCurrentAvailable);
@@ -3634,7 +3647,7 @@ IOUSBController::CreateRootHubDevice( IOService * provider, IOUSBRootHubDevice *
 		
 		USBLog(2, "%s[%p]::CreateRootHubDevice -  gExtraCurrentPropertiesInitialized have not been initialized, doing so", getName(), this);
 		
-		ioResources = waitForMatchingService( serviceMatching("IOResources"), NSEC_PER_MS * 1000 * 10ULL);
+		ioResources = waitForMatchingService( serviceMatching("IOResources"), kSecondScale	* 10ULL);
 		if ( ioResources != NULL )
 		{
 			// Let's add the properties that are used to parcel out the extra current during sleep and wake
@@ -3813,6 +3826,80 @@ const char *DecodeUSBConnectorType( UInt8 type )
 		default							: return "Unknown/Reserved connector";
 	}
 }
+
+//================================================================================================
+//
+//   calculateUSBDepth
+//
+//		Calculate the depth of a hub at a paricular locationID in the USB chain (depth 0 is the root hub)
+//
+//
+//		Note that the device at the locationID had better be a HUB or something is wrong
+//================================================================================================
+//
+int calculateUSBDepth(UInt32 locationID)
+{
+	SInt32		shift;
+	int			ret = 0;
+	
+	for ( shift = 20; shift >= 0; shift -= 4)
+	{
+		if ((locationID & (0x0f << shift)) == 0)
+		{
+			break;
+		}
+		ret++;
+	}
+	return ret;
+}
+
+
+
+//================================================================================================
+//
+//   calculateACPIDepth
+// 
+// This nifty little function calculates the depth in the ACPI table of a PORT object which is on a hub which
+// is known to be internal to the system hardware. The USB depth of the hub in question is passed in, and should be either
+// 0 for the root hub or 1 for another built in hub. However, the algroithm will account for future possibilites of 
+// more internal chained hubs.
+//================================================================================================
+//
+int calculateACPIDepth(int hubUSBDepth)
+{
+	int		ret;
+	
+	if (hubUSBDepth > 1)
+	{
+		USBLog(1, "calculateACPIDepth (in IOUSBController.cpp) - hubUSBDepth of %d unexpected", hubUSBDepth);
+	}
+	
+	if (hubUSBDepth == 0)
+	{
+		// root hub port
+		// The normal ACPI depth of a root hub port is 7, for example:
+		//  1        2      3       4      5       6       7
+		// root :: acpi :: _SB :: PCI0 :: EHC1 :: HUB1 :: PRT1
+		ret = 7;
+
+
+	}
+	else
+	{
+		// port on a built in non root hub
+		// The normal ACPI depth of a port on a built in hub is 8, for example
+		//  1        2      3       4      5       6       7       8
+		// root :: acpi :: _SB :: PCI0 :: EHC1 :: HUBN :: PRTN :: PRT1
+		
+		// presumable a second downstream hub which is built in would add 2 more layers
+		// although this has not been tested
+		ret = 6 + (2 * hubUSBDepth);
+	}
+	return ret;
+}
+
+
+
 //================================================================================================
 //
 //   HasExpressCard
@@ -3857,7 +3944,7 @@ IOUSBController::HasExpressCard( IORegistryEntry *acpiDevice, UInt32 * portnum )
 				{
 					entry->getPath(path, &length, acpiPlane);
 					
-					// Determining the USB port number. we might go thru this twice but pick 
+					// Determining the USB port number. We might go thru this twice but pick 
 					// the later number for the port number. 
 					if (portnum)
 					{
@@ -3866,7 +3953,7 @@ IOUSBController::HasExpressCard( IORegistryEntry *acpiDevice, UInt32 * portnum )
 					
 					match = true;
 					USBLog(5, "IOUSBController[%p]::HasExpressCard _EJD:  %s", this, path);
-				} // end of EJD parsing 
+				}
 				
 				if ( (port->validateObject("_UPC") == kIOReturnSuccess) && (match == false) )
 				{
@@ -3973,11 +4060,11 @@ IOUSBController::DumpUSBACPI( IORegistryEntry * provider )
 						entry->getPath(path, &length, acpiPlane);
 						
 						// Determining the USB port number. we might go thru this twice but pick 
-						// the later number for the port number.
+						// the later number for the port number. 
 						portnum = strtoul(port->getLocation(), NULL, 10);
 						
 						USBLog(5, "IOUSBController[%p]::DumpUSBACPI  _EJD: %s portnum %d", this, path,  (unsigned int)portnum);
-					} // end of EJD parsing
+					} 
 					
 					if ( (port->validateObject( "_UPC" ) == kIOReturnSuccess) )
 					{
@@ -4070,16 +4157,28 @@ IOUSBController::ExpressCardPort( IORegistryEntry* provider )
 	return(portNum);
 }
 
+
+//
+//	bool IsPortInternal
+//
+//	Checks to see if a particular port is internal to the hardware.
+//
+//	provider is the IORegistryEntry for the IOPCIDevice which is the Host Controller hardware
+//	portnum is the port number for some hub which is known to be internal to the hardware that controller is part of
+//	locationID is the locationID for the HUB whose port we are interested in
+//	
 bool 
-IOUSBController::IsPortInternal( IORegistryEntry * provider, UInt32 portnum )
+IOUSBController::IsPortInternal( IORegistryEntry * provider, UInt32 portnum, UInt32 locationID )
 {
 	IOACPIPlatformDevice *	acpiDevice;
 	bool					isInternal = false;
 	
+	USBLog(5, "IOUSBController(%s)[%p]::IsPortInternal - provider(%p) portNum(%d) locationID(0x%x)", getName(), this, provider, (int)portnum, (int)locationID);
+	
 	acpiDevice = CopyACPIDevice( provider );
 	if (acpiDevice)
 	{
-		isInternal = CheckACPIUPCTable( acpiDevice, portnum );	
+		isInternal = CheckACPIUPCTable( acpiDevice, portnum, locationID );	
 		acpiDevice->release();
 		acpiDevice = NULL;
 	}
@@ -4087,14 +4186,30 @@ IOUSBController::IsPortInternal( IORegistryEntry * provider, UInt32 portnum )
 	return isInternal;
 }
 
+
+
+//
+//	bool	CheckACPIUPCTable
+//
+//	Check the _UPC properties in the ACPI code (from EFI) to see if a particular hubport is listed (meaning the platform knows about it)
+//	and is marked as "proprietary connector" - which would indicate that it is an internal device
+//
+//	acpiDevice is the ACPI table copied from a USB Host Controller (so it contains information about ports on that controller and any other
+//				ports that EFI knows about which are part of that controller (e.g. an internal hub)
+//	portnum is the port number we are interested in on some hub which is known to be internal to the hardware
+//	locationID is the locationID of that hub. for current hardware, it will be a number either 0xZZ000000 (for a root hub on bus ZZ)
+//				or (0xZZn00000) for an internal hub conneted to port n of the root hub of bus ZZ
+//
+
 bool 
-IOUSBController::CheckACPIUPCTable( IORegistryEntry * acpiDevice, UInt32 portnum )
+IOUSBController::CheckACPIUPCTable( IORegistryEntry * acpiDevice, UInt32 portnum, UInt32 locationID )
 {
 	const IORegistryPlane*	acpiPlane;
 	bool					match = false;
 	IORegistryIterator*		iter = NULL;
 	IORegistryEntry*		entry;
 	
+	USBLog(5, "IOUSBController(%s)[%p]::CheckACPIUPCTable - acpiDevice(%p) portNum(%d) locationID(0x%x)", getName(), this, acpiDevice, (int)portnum, (int)locationID);
 	if( acpiDevice )
 	{
 		acpiPlane = acpiDevice->getPlane( "IOACPIPlane" );
@@ -4107,6 +4222,9 @@ IOUSBController::CheckACPIUPCTable( IORegistryEntry * acpiDevice, UInt32 portnum
 		}
 	}
 	
+	// we will now iterate recursively over the entire ACPI tree starting with a particular USB Host Controller
+	// we will only look at leaf nodes (which will have no child entries) which means will will only be looking
+	// at PRTx nodes representing USB port hardware
 	if (iter)
 	{
 		while (!match && (entry = iter->getNextObject()))
@@ -4115,8 +4233,21 @@ IOUSBController::CheckACPIUPCTable( IORegistryEntry * acpiDevice, UInt32 portnum
 			// must be an IOACPIPlatformDevice.
 			if ((entry->getChildEntry(acpiPlane) == 0) && entry->metaCast("IOACPIPlatformDevice"))
 			{
-				char path[255];
-				int	 length = 254;
+				char	path[255];
+				int		length		= 254;
+				int		acpiDepth	= 0;
+				int		hubDepth;
+				int		hubPortACPIDepth;
+				
+				// calculate the hub depth of the hub whose port we are checking. with current hardware, this should return either
+				// 0 (root hub) or 1 (integrated hub) - any other return at this point is probably errant
+				hubDepth = calculateUSBDepth(locationID);
+				USBLog(5, "IOUSBController(%s)[%p]::CheckACPIUPCTable - locationID(0x%x) is at hub depth(%d)", getName(), this, (int)locationID, hubDepth);
+				
+				// calculate the depth in the ACPI table for a port which is attached to a hub at the given USB hub depth
+				hubPortACPIDepth = calculateACPIDepth(hubDepth);
+				USBLog(5, "IOUSBController(%s)[%p]::CheckACPIUPCTable - hubDepth(%d) is at PortACPIDepth(%d)", getName(), this, hubDepth, hubPortACPIDepth);
+				
 				
 				IOACPIPlatformDevice * port = (IOACPIPlatformDevice *) entry;
 				
@@ -4126,6 +4257,10 @@ IOUSBController::CheckACPIUPCTable( IORegistryEntry * acpiDevice, UInt32 portnum
 					
 					entry->getPath(path, &length, acpiPlane);
 					
+					acpiDepth = entry->getDepth(acpiPlane);
+					
+					USBLog(5, "IOUSBController[%p]::CheckACPIUPCTable locationID %x hubPortACPIDepth %d @ port %d acpiDepth %d _UPC: %s ", this, (uint32_t)locationID, hubPortACPIDepth, (unsigned int)portnum, acpiDepth, path);
+
 					OSObject*	theObject;
 					IOReturn	status = port->evaluateObject("_UPC", &theObject);
 					
@@ -4141,10 +4276,10 @@ IOUSBController::CheckACPIUPCTable( IORegistryEntry * acpiDevice, UInt32 portnum
 							if (theUPCObject)
 							{
 								UInt8 upcPackageValue = theUPCObject->unsigned8BitValue();
-								
+
 								// Ignoring express card slots because it is connectable to external devices. We want to include
 								// only ports which are connected internally.
-								if ( (upcPackageValue == kUSBProprietaryConnector) && (portNumber == portnum) )
+								if ( (upcPackageValue == kUSBProprietaryConnector) && (portNumber == portnum) && (acpiDepth == hubPortACPIDepth) )
 								{
 									match = true;
 								}
@@ -4161,11 +4296,11 @@ IOUSBController::CheckACPIUPCTable( IORegistryEntry * acpiDevice, UInt32 portnum
 	
 	if (match == true) 
 	{
-		USBLog(5, "IOUSBController[%p]::CheckACPIUPCTable found an internal device @ port %d", this, (unsigned int)portnum);
+		USBLog(5, "IOUSBController[%p]::CheckACPIUPCTable locationID %x found an internal device @ port %d", this, (uint32_t)locationID, (unsigned int)portnum);
 	}
 	else
 	{
-		USBLog(5, "IOUSBController[%p]::CheckACPIUPCTable did not find an internal device @ port %d", this, (unsigned int)portnum);
+		USBLog(5, "IOUSBController[%p]::CheckACPIUPCTable locationID %x did not find an internal device @ port %d", this, (uint32_t)locationID, (unsigned int)portnum);
 	}
 	
 	return match;

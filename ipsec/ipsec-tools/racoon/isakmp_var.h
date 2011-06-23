@@ -121,6 +121,8 @@ extern struct payload_list *isakmp_plist_append __P((struct payload_list *plist,
 	vchar_t *payload, int payload_type));
 extern vchar_t *isakmp_plist_set_all __P((struct payload_list **plist,
 	struct ph1handle *iph1));
+extern vchar_t *isakmp_plist_append_initial_contact __P((struct ph1handle *,
+														 struct payload_list *));
 
 #ifdef HAVE_PRINT_ISAKMP_C
 extern void isakmp_printpacket __P((vchar_t *, struct sockaddr *,

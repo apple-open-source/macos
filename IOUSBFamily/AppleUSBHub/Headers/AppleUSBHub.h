@@ -156,7 +156,7 @@ class AppleUSBHub : public IOUSBHubPolicyMaker
 	int									_expressCardPort;						// Port # of the hub that connects to the express card slot
 	bool								_hasExtraPowerRequest;
 	
-	bool								_hubDeadCheckLock;
+	volatile UInt32						_hubDeadCheckLock;
 	
 	
     static void 	InterruptReadHandlerEntry(OSObject *target, void *param, IOReturn status, UInt32 bufferSizeRemaining);

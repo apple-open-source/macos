@@ -108,6 +108,7 @@ enum {
 
 /* Status register definitions */
 enum {
+	kIOPCIStatusInterrupt				= 0x0008,
     kIOPCIStatusCapabilities            = 0x0010,
     kIOPCIStatusPCI66                   = 0x0020,
     kIOPCIStatusUDF                     = 0x0040,
@@ -209,9 +210,13 @@ struct IOPCIPhysicalAddress {
 #define kIOPCIPrimaryMatchKey           "IOPCIPrimaryMatch"
 #define kIOPCISecondaryMatchKey         "IOPCISecondaryMatch"
 #define kIOPCIClassMatchKey             "IOPCIClassMatch"
+#define kIOPCITunnelCompatibleKey       "IOPCITunnelCompatible"
+#define kIOPCITunnelledKey 		  		"IOPCITunnelled"
 
 // property to control PCI default config space save on sleep
 #define kIOPMPCIConfigSpaceVolatileKey  "IOPMPCIConfigSpaceVolatile"
+// property to disable express link on sleep
+#define kIOPMPCISleepLinkDisableKey     "IOPMPCISleepLinkDisable"
 
 // pci express link status
 #define kIOPCIExpressLinkStatusKey       "IOPCIExpressLinkStatus"
@@ -228,6 +233,16 @@ struct IOPCIPhysicalAddress {
 
 #define kIOPCIPMEOptionsKey             "IOPCIPMEOptions"
 
+#define kIOPCITunnelIDKey               "IOPCITunnelID"
+#define kIOPCITunnelControllerIDKey     "IOPCITunnelControllerID"
+
+#ifndef kIOMessageDeviceWillPowerOn
+#define kIOMessageDeviceWillPowerOn        iokit_common_msg(0x215)
+#endif
+
+#ifndef kIOMessageDeviceHasPoweredOff
+#define kIOMessageDeviceHasPoweredOff        iokit_common_msg(0x225)
+#endif
 
 enum {
     kIOPCIDevicePowerStateCount = 3,
@@ -242,9 +257,15 @@ enum
     kIOInterruptTypePCIMessaged = 0x00010000
 };
 
+
+class IOPCIDevice;
 class IOPCIBridge;
 class IOPCI2PCIBridge;
 class IOPCIMessagedInterruptController;
+class IOPCIConfigurator;
+
+typedef IOReturn (*IOPCIDeviceConfigHandler)(void * ref,
+                                                IOMessage message, IOPCIDevice * device, uint32_t state);
 
 /*! @class IOPCIDevice : public IOService
     @abstract An IOService class representing a PCI device.
@@ -315,6 +336,7 @@ class IOPCIDevice : public IOService
     friend class IOPCIBridge;
     friend class IOPCI2PCIBridge;
     friend class IOPCIMessagedInterruptController;
+    friend class IOPCIConfigurator;
 
 protected:
     IOPCIBridge *       parent;
@@ -338,10 +360,13 @@ public:
     virtual void free();
     virtual bool attach( IOService * provider );
     virtual void detach( IOService * provider );
+	virtual void detachAbove(const IORegistryPlane *);
 
     virtual IOReturn newUserClient( task_t owningTask, void * securityID,
                                     UInt32 type,  OSDictionary * properties,
                                     IOUserClient ** handler );
+
+    virtual IOReturn requestProbe( IOOptionBits options );
 
     virtual IOReturn powerStateWillChangeTo (IOPMPowerFlags  capabilities, 
                                              unsigned long   stateNumber, 
@@ -362,6 +387,12 @@ public:
                                           bool waitForFunction,
                                           void * p1, void * p2,
                                           void * p3, void * p4);
+
+private:
+	bool configAccess(bool write);
+	bool initReserved(void);
+
+public:
 
     /* Config space accessors */
 
@@ -667,6 +698,30 @@ public:
     @param data An 8-bit value to be written. */
 
     void extendedConfigWrite8( IOByteCount offset, UInt8 data );
+
+    // pass NULL or currentHandler, currentRef to get current handler installed
+    // pass NULL or handler, ref to set handler for device
+    // messages: kIOMessageDeviceWillPowerOff, kIOMessageDeviceHasPoweredOff,
+    //           kIOMessageDeviceWillPowerOn, kIOMessageDeviceHasPoweredOn
+    // state: D3
+    IOReturn setConfigHandler(IOPCIDeviceConfigHandler handler, void * ref,
+                              IOPCIDeviceConfigHandler * currentHandler, void ** currentRef);
+
+    // 
+    IOReturn kernelRequestProbe(uint32_t options);
+
+	// (kIOPCIConfigSpace, VM_PROT_READ/WRITE to disable that access)
+	IOReturn protectDevice(uint32_t space, uint32_t prot);
+
+	IOReturn checkLink(uint32_t options = 0);
+};
+
+enum
+{
+    kIOPCIProbeOptionDone      = 0x80000000,
+
+    kIOPCIProbeOptionEject     = 0x00100000,
+    kIOPCIProbeOptionNeedsScan = 0x00200000,
 };
 
 #endif /* ! _IOKIT_IOPCIDEVICE_H */

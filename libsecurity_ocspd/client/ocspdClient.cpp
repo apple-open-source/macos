@@ -267,7 +267,40 @@ CSSM_RETURN ocspdCRLFetch(
 	return CSSM_OK;
 }
 
-/* 
+/*
+ * Get CRL status for given serial number and issuing entity
+ */
+CSSM_RETURN ocspdCRLStatus(
+	const CSSM_DATA		&serialNumber,
+	const CSSM_DATA		&issuers,
+	const CSSM_DATA		*crlIssuer,		// optional if URL is supplied
+	const CSSM_DATA		*crlURL)		// optional if issuer is supplied
+{
+	mach_port_t serverPort = 0;
+	kern_return_t krtn;
+
+	if(!crlIssuer && !crlURL) {
+		ocspdErrorLog("ocspdCRLStatus: either an issuer or URL is required\n");
+		return CSSMERR_TP_INTERNAL_ERROR;
+	}
+	try {
+		serverPort = OcspdGlobals().serverPort();
+	}
+	catch(...) {
+		ocspdErrorLog("ocspdCRLStatus: OCSPD server error\n");
+		return CSSMERR_TP_INTERNAL_ERROR;
+	}
+
+	krtn = ocsp_client_crlStatus(serverPort,
+		serialNumber.Data, serialNumber.Length,
+		issuers.Data, issuers.Length,
+		crlIssuer ? crlIssuer->Data : NULL, crlIssuer ? crlIssuer->Length : 0,
+		crlURL ? crlURL->Data : NULL, crlURL ? crlURL->Length : 0);
+
+	return krtn;
+}
+
+/*
  * Refresh the CRL cache. 
  */
 CSSM_RETURN ocspdCRLRefresh(
@@ -296,9 +329,9 @@ CSSM_RETURN ocspdCRLRefresh(
 	return CSSM_OK;
 }
 
-/* 
- * Flush all CRLs obtained from specified URL from cache. Called by client when 
- * *it* detects a bad CRL. 
+/*
+ * Flush all CRLs obtained from specified URL from cache. Called by client when
+ * *it* detects a bad CRL.
  */
 CSSM_RETURN ocspdCRLFlush(
 	const CSSM_DATA		&crlURL)

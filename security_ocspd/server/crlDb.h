@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004 Apple Computer, Inc. All Rights Reserved.
+ * Copyright (c) 2004-2011 Apple Inc. All Rights Reserved.
  * 
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -23,8 +23,6 @@
 
 /*
  * crlDb.h - CRL cache
- *
- * Created 30 September 2004 by dmitch at Apple
  */
  
 #ifndef	_OCSPD_CRL_DB_H_

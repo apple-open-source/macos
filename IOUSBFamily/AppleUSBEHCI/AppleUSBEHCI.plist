@@ -34,6 +34,8 @@
 			<string>AppleUSBEHCI</string>
 			<key>IOPCIClassMatch</key>
 			<string>0x0c032000</string>
+			<key>IOPCITunnelCompatible</key>
+			<true/>
 			<key>IOProviderClass</key>
 			<string>IOPCIDevice</string>
 			<key>IOUserClientClass</key>
@@ -49,6 +51,8 @@
 			<string>OMI_EHCI</string>
 			<key>IOPCIClassMatch</key>
 			<string>0x0c032000</string>
+			<key>IOPCITunnelCompatible</key>
+			<false/>
 			<key>IOProbeScore</key>
 			<integer>10</integer>
 			<key>IOProviderClass</key>

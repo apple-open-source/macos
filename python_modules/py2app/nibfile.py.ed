@@ -1,0 +1,6 @@
+/^@converts(suffix=".nib")/i
+# Don't convert .nib files, to allow NibClassBuilder to continue to work
+.
+/'ibtool', '--compile', destination, source/s//'ditto', source, destination/
+/ibtool failed/s//ditto failed/
+w

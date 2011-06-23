@@ -1607,6 +1607,23 @@ parse_querystring(request_rec *r, const char *query,
 }
 
 
+/* Return TRUE iff STR exactly matches any of the elements of LIST. */
+static svn_boolean_t
+match_list(const char *str, const apr_array_header_t *list)
+{
+  int i;
+
+  for (i = 0; i < list->nelts; i++)
+    {
+      const char *this_str = APR_ARRAY_IDX(list, i, char *);
+
+      if (strcmp(this_str, str) == 0)
+        return TRUE;
+    }
+
+  return FALSE;
+}
+
 
 static dav_error *
 get_resource(request_rec *r,
@@ -1815,8 +1832,7 @@ get_resource(request_rec *r,
             apr_array_header_t *vals
               = svn_cstring_split(val, ",", TRUE, r->pool);
 
-            if (svn_cstring_match_glob_list(SVN_DAV_NS_DAV_SVN_MERGEINFO,
-                                            vals))
+            if (match_list(SVN_DAV_NS_DAV_SVN_MERGEINFO, vals))
               {
                 apr_hash_set(repos->client_capabilities,
                              SVN_RA_CAPABILITY_MERGEINFO,
@@ -1923,8 +1939,10 @@ get_resource(request_rec *r,
       dav_locktoken_list *list = ltl;
 
       serr = svn_fs_get_access(&access_ctx, repos->fs);
-      if (serr)
+      if (serr || !access_ctx)
         {
+          if (serr == NULL)
+            serr = svn_error_create(SVN_ERR_FS_LOCK_OWNER_MISMATCH, NULL, NULL);
           return dav_svn__sanitize_error(serr, "Lock token is in request, "
                                          "but no user name",
                                          HTTP_BAD_REQUEST, r);

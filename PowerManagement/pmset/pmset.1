@@ -187,24 +187,24 @@ We do not recommend modifying hibernation settings. Any changes you make are not
 Please note that
 .Ar hibernatefile
 may only point to a file located on the root volume.
-.Sh DEEP SLEEP ARGUMENTS
-.Ar deepsleep
+.Sh STANDBY ARGUMENTS
+.Ar standby
 causes kernel power management to automatically hibernate a machine after it has slept for a specified time period. This saves power while asleep. This setting defaults to
 .Ar ON
 for supported hardware. The setting
-.Ar deepsleep
+.Ar standby
 will be visible in
 .Nm
 .Fl g
 if the feature is supported on this machine.
 .Pp
-.Ar deepsleep 
+.Ar standby 
 only works if
 .Ar hibernation
 is turned on to hibernatemode 3 or 25.
 .Pp
-.Ar deepsleepdelay
-specifies the delay, in seconds, before writing the hibernation image to disk and powering off memory for Deep Sleep.
+.Ar standbydelay
+specifies the delay, in seconds, before writing the hibernation image to disk and powering off memory for standby.
 .Sh UPS SPECIFIC ARGUMENTS
 .br
 UPS-specific arguments are only valid following the 

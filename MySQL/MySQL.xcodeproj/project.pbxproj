@@ -7,7 +7,7 @@
 	objects = {
 
 /* Begin PBXFileReference section */
-		AA0EC26510C876380043222D /* mysql-5.0.88a.tar.gz */ = {isa = PBXFileReference; lastKnownFileType = archive.gzip; path = "mysql-5.0.88a.tar.gz"; sourceTree = SOURCE_ROOT; };
+		61ED5895133974AE00CF7928 /* mysql-5.0.92-apple.tar.gz */ = {isa = PBXFileReference; lastKnownFileType = archive.gzip; name = "mysql-5.0.92-apple.tar.gz"; path = "../MySQL/mysql-5.0.92-apple.tar.gz"; sourceTree = SOURCE_ROOT; };
 		AA5702260F143D5A009D23D9 /* QL_mysql.rb */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.ruby; name = QL_mysql.rb; path = test/QL_mysql.rb; sourceTree = SOURCE_ROOT; };
 		AA5702270F143D5A009D23D9 /* QuickLookTool.rb */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.ruby; name = QuickLookTool.rb; path = test/QuickLookTool.rb; sourceTree = SOURCE_ROOT; };
 		AA8624930E5E5B8C0014D34F /* applemysqlcheckcnf */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; path = applemysqlcheckcnf; sourceTree = SOURCE_ROOT; };
@@ -22,39 +22,39 @@
 		AA86249F0E5E5B8D0014D34F /* mysqlman.1 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.man; path = mysqlman.1; sourceTree = SOURCE_ROOT; };
 		AA8624A00E5E5B8D0014D34F /* README */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = README; sourceTree = SOURCE_ROOT; };
 		AACD37BD0F55F684000A2A46 /* mtr_timer_pl.patch */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = mtr_timer_pl.patch; path = patch/apple/mtr_timer_pl.patch; sourceTree = SOURCE_ROOT; };
-		AAF594ED0E92B03A00F802B2 /* btr0cur.c.patch */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = btr0cur.c.patch; path = ../Volumes/MacHD/Users/steve/Projects2/Servers/MySQL/patch/google/5.0.67/innobase/btr/btr0cur.c.patch; sourceTree = SYSTEM_DEVELOPER_DIR; };
-		AAF594EE0E92B03A00F802B2 /* btr0sea.c.patch */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = btr0sea.c.patch; path = ../Volumes/MacHD/Users/steve/Projects2/Servers/MySQL/patch/google/5.0.67/innobase/btr/btr0sea.c.patch; sourceTree = SYSTEM_DEVELOPER_DIR; };
-		AAF594F00E92B03A00F802B2 /* buf0buf.c.patch */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = buf0buf.c.patch; path = ../Volumes/MacHD/Users/steve/Projects2/Servers/MySQL/patch/google/5.0.67/innobase/buf/buf0buf.c.patch; sourceTree = SYSTEM_DEVELOPER_DIR; };
-		AAF594F10E92B03A00F802B2 /* configure.in.patch */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = configure.in.patch; path = ../Volumes/MacHD/Users/steve/Projects2/Servers/MySQL/patch/google/5.0.67/innobase/configure.in.patch; sourceTree = SYSTEM_DEVELOPER_DIR; };
-		AAF594F20E92B03A00F802B2 /* configure.patch */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = configure.patch; path = ../Volumes/MacHD/Users/steve/Projects2/Servers/MySQL/patch/google/5.0.67/innobase/configure.patch; sourceTree = SYSTEM_DEVELOPER_DIR; };
-		AAF594F30E92B03A00F802B2 /* ib_config.h.in.patch */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = ib_config.h.in.patch; path = ../Volumes/MacHD/Users/steve/Projects2/Servers/MySQL/patch/google/5.0.67/innobase/ib_config.h.in.patch; sourceTree = SYSTEM_DEVELOPER_DIR; };
-		AAF594F40E92B03A00F802B2 /* ib_config.h.patch */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = ib_config.h.patch; path = ../Volumes/MacHD/Users/steve/Projects2/Servers/MySQL/patch/google/5.0.67/innobase/ib_config.h.patch; sourceTree = SYSTEM_DEVELOPER_DIR; };
-		AAF594F60E92B03A00F802B2 /* buf0buf.ic.patch */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = buf0buf.ic.patch; path = ../Volumes/MacHD/Users/steve/Projects2/Servers/MySQL/patch/google/5.0.67/innobase/include/buf0buf.ic.patch; sourceTree = SYSTEM_DEVELOPER_DIR; };
-		AAF594F70E92B03A00F802B2 /* os0sync.h.patch */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = os0sync.h.patch; path = ../Volumes/MacHD/Users/steve/Projects2/Servers/MySQL/patch/google/5.0.67/innobase/include/os0sync.h.patch; sourceTree = SYSTEM_DEVELOPER_DIR; };
-		AAF594F80E92B03A00F802B2 /* os0sync.ic.patch */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = os0sync.ic.patch; path = ../Volumes/MacHD/Users/steve/Projects2/Servers/MySQL/patch/google/5.0.67/innobase/include/os0sync.ic.patch; sourceTree = SYSTEM_DEVELOPER_DIR; };
-		AAF594F90E92B03A00F802B2 /* srv0srv.h.patch */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = srv0srv.h.patch; path = ../Volumes/MacHD/Users/steve/Projects2/Servers/MySQL/patch/google/5.0.67/innobase/include/srv0srv.h.patch; sourceTree = SYSTEM_DEVELOPER_DIR; };
-		AAF594FA0E92B03A00F802B2 /* sync0rw.h.patch */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = sync0rw.h.patch; path = ../Volumes/MacHD/Users/steve/Projects2/Servers/MySQL/patch/google/5.0.67/innobase/include/sync0rw.h.patch; sourceTree = SYSTEM_DEVELOPER_DIR; };
-		AAF594FB0E92B03A00F802B2 /* sync0rw.ic.patch */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = sync0rw.ic.patch; path = ../Volumes/MacHD/Users/steve/Projects2/Servers/MySQL/patch/google/5.0.67/innobase/include/sync0rw.ic.patch; sourceTree = SYSTEM_DEVELOPER_DIR; };
-		AAF594FC0E92B03A00F802B2 /* sync0sync.h.patch */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = sync0sync.h.patch; path = ../Volumes/MacHD/Users/steve/Projects2/Servers/MySQL/patch/google/5.0.67/innobase/include/sync0sync.h.patch; sourceTree = SYSTEM_DEVELOPER_DIR; };
-		AAF594FD0E92B03A00F802B2 /* sync0sync.ic.patch */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = sync0sync.ic.patch; path = ../Volumes/MacHD/Users/steve/Projects2/Servers/MySQL/patch/google/5.0.67/innobase/include/sync0sync.ic.patch; sourceTree = SYSTEM_DEVELOPER_DIR; };
-		AAF594FE0E92B03A00F802B2 /* univ.i.patch */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = univ.i.patch; path = ../Volumes/MacHD/Users/steve/Projects2/Servers/MySQL/patch/google/5.0.67/innobase/include/univ.i.patch; sourceTree = SYSTEM_DEVELOPER_DIR; };
-		AAF595000E92B03A00F802B2 /* mem0pool.c.patch */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = mem0pool.c.patch; path = ../Volumes/MacHD/Users/steve/Projects2/Servers/MySQL/patch/google/5.0.67/innobase/mem/mem0pool.c.patch; sourceTree = SYSTEM_DEVELOPER_DIR; };
-		AAF595020E92B03A00F802B2 /* row0sel.c.patch */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = row0sel.c.patch; path = ../Volumes/MacHD/Users/steve/Projects2/Servers/MySQL/patch/google/5.0.67/innobase/row/row0sel.c.patch; sourceTree = SYSTEM_DEVELOPER_DIR; };
-		AAF595040E92B03A00F802B2 /* srv0srv.c.patch */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = srv0srv.c.patch; path = ../Volumes/MacHD/Users/steve/Projects2/Servers/MySQL/patch/google/5.0.67/innobase/srv/srv0srv.c.patch; sourceTree = SYSTEM_DEVELOPER_DIR; };
-		AAF595050E92B03A00F802B2 /* srv0start.c.patch */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = srv0start.c.patch; path = ../Volumes/MacHD/Users/steve/Projects2/Servers/MySQL/patch/google/5.0.67/innobase/srv/srv0start.c.patch; sourceTree = SYSTEM_DEVELOPER_DIR; };
-		AAF595070E92B03A00F802B2 /* sync0arr.c.patch */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = sync0arr.c.patch; path = ../Volumes/MacHD/Users/steve/Projects2/Servers/MySQL/patch/google/5.0.67/innobase/sync/sync0arr.c.patch; sourceTree = SYSTEM_DEVELOPER_DIR; };
-		AAF595080E92B03A00F802B2 /* sync0rw.c.patch */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = sync0rw.c.patch; path = ../Volumes/MacHD/Users/steve/Projects2/Servers/MySQL/patch/google/5.0.67/innobase/sync/sync0rw.c.patch; sourceTree = SYSTEM_DEVELOPER_DIR; };
-		AAF595090E92B03A00F802B2 /* sync0sync.c.patch */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = sync0sync.c.patch; path = ../Volumes/MacHD/Users/steve/Projects2/Servers/MySQL/patch/google/5.0.67/innobase/sync/sync0sync.c.patch; sourceTree = SYSTEM_DEVELOPER_DIR; };
-		AAF5950B0E92B03A00F802B2 /* ha_innodb.cc.patch */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = ha_innodb.cc.patch; path = ../Volumes/MacHD/Users/steve/Projects2/Servers/MySQL/patch/google/5.0.67/libmysqld/ha_innodb.cc.patch; sourceTree = SYSTEM_DEVELOPER_DIR; };
-		AAF5950D0E92B03A00F802B2 /* ha_innodb.cc.patch */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = ha_innodb.cc.patch; path = ../Volumes/MacHD/Users/steve/Projects2/Servers/MySQL/patch/google/5.0.67/sql/ha_innodb.cc.patch; sourceTree = SYSTEM_DEVELOPER_DIR; };
+		AAF594ED0E92B03A00F802B2 /* btr0cur.c.patch */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = btr0cur.c.patch; path = patch/google/5.0.67/innobase/btr/btr0cur.c.patch; sourceTree = SOURCE_ROOT; };
+		AAF594EE0E92B03A00F802B2 /* btr0sea.c.patch */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = btr0sea.c.patch; path = patch/google/5.0.67/innobase/btr/btr0sea.c.patch; sourceTree = SOURCE_ROOT; };
+		AAF594F00E92B03A00F802B2 /* buf0buf.c.patch */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = buf0buf.c.patch; path = patch/google/5.0.67/innobase/buf/buf0buf.c.patch; sourceTree = SOURCE_ROOT; };
+		AAF594F10E92B03A00F802B2 /* configure.in.patch */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = configure.in.patch; path = patch/google/5.0.67/innobase/configure.in.patch; sourceTree = SOURCE_ROOT; };
+		AAF594F20E92B03A00F802B2 /* configure.patch */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = configure.patch; path = patch/google/5.0.67/innobase/configure.patch; sourceTree = SOURCE_ROOT; };
+		AAF594F30E92B03A00F802B2 /* ib_config.h.in.patch */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = ib_config.h.in.patch; path = patch/google/5.0.67/innobase/ib_config.h.in.patch; sourceTree = SOURCE_ROOT; };
+		AAF594F40E92B03A00F802B2 /* ib_config.h.patch */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = ib_config.h.patch; path = patch/google/5.0.67/innobase/ib_config.h.patch; sourceTree = SOURCE_ROOT; };
+		AAF594F60E92B03A00F802B2 /* buf0buf.ic.patch */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = buf0buf.ic.patch; path = patch/google/5.0.67/innobase/include/buf0buf.ic.patch; sourceTree = SOURCE_ROOT; };
+		AAF594F70E92B03A00F802B2 /* os0sync.h.patch */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = os0sync.h.patch; path = patch/google/5.0.67/innobase/include/os0sync.h.patch; sourceTree = SOURCE_ROOT; };
+		AAF594F80E92B03A00F802B2 /* os0sync.ic.patch */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = os0sync.ic.patch; path = patch/google/5.0.67/innobase/include/os0sync.ic.patch; sourceTree = SOURCE_ROOT; };
+		AAF594F90E92B03A00F802B2 /* srv0srv.h.patch */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = srv0srv.h.patch; path = patch/google/5.0.67/innobase/include/srv0srv.h.patch; sourceTree = SOURCE_ROOT; };
+		AAF594FA0E92B03A00F802B2 /* sync0rw.h.patch */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = sync0rw.h.patch; path = patch/google/5.0.67/innobase/include/sync0rw.h.patch; sourceTree = SOURCE_ROOT; };
+		AAF594FB0E92B03A00F802B2 /* sync0rw.ic.patch */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = sync0rw.ic.patch; path = patch/google/5.0.67/innobase/include/sync0rw.ic.patch; sourceTree = SOURCE_ROOT; };
+		AAF594FC0E92B03A00F802B2 /* sync0sync.h.patch */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = sync0sync.h.patch; path = patch/google/5.0.67/innobase/include/sync0sync.h.patch; sourceTree = SOURCE_ROOT; };
+		AAF594FD0E92B03A00F802B2 /* sync0sync.ic.patch */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = sync0sync.ic.patch; path = patch/google/5.0.67/innobase/include/sync0sync.ic.patch; sourceTree = SOURCE_ROOT; };
+		AAF594FE0E92B03A00F802B2 /* univ.i.patch */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = univ.i.patch; path = patch/google/5.0.67/innobase/include/univ.i.patch; sourceTree = SOURCE_ROOT; };
+		AAF595000E92B03A00F802B2 /* mem0pool.c.patch */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = mem0pool.c.patch; path = patch/google/5.0.67/innobase/mem/mem0pool.c.patch; sourceTree = SOURCE_ROOT; };
+		AAF595020E92B03A00F802B2 /* row0sel.c.patch */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = row0sel.c.patch; path = patch/google/5.0.67/innobase/row/row0sel.c.patch; sourceTree = SOURCE_ROOT; };
+		AAF595040E92B03A00F802B2 /* srv0srv.c.patch */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = srv0srv.c.patch; path = patch/google/5.0.67/innobase/srv/srv0srv.c.patch; sourceTree = SOURCE_ROOT; };
+		AAF595050E92B03A00F802B2 /* srv0start.c.patch */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = srv0start.c.patch; path = patch/google/5.0.67/innobase/srv/srv0start.c.patch; sourceTree = SOURCE_ROOT; };
+		AAF595070E92B03A00F802B2 /* sync0arr.c.patch */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = sync0arr.c.patch; path = patch/google/5.0.67/innobase/sync/sync0arr.c.patch; sourceTree = SOURCE_ROOT; };
+		AAF595080E92B03A00F802B2 /* sync0rw.c.patch */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = sync0rw.c.patch; path = patch/google/5.0.67/innobase/sync/sync0rw.c.patch; sourceTree = SOURCE_ROOT; };
+		AAF595090E92B03A00F802B2 /* sync0sync.c.patch */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = sync0sync.c.patch; path = patch/google/5.0.67/innobase/sync/sync0sync.c.patch; sourceTree = SOURCE_ROOT; };
+		AAF5950B0E92B03A00F802B2 /* ha_innodb.cc.patch */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = ha_innodb.cc.patch; path = patch/google/5.0.67/libmysqld/ha_innodb.cc.patch; sourceTree = SOURCE_ROOT; };
+		AAF5950D0E92B03A00F802B2 /* ha_innodb.cc.patch */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = ha_innodb.cc.patch; path = patch/google/5.0.67/sql/ha_innodb.cc.patch; sourceTree = SOURCE_ROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
-		AA3F69940E5E5AE3000DE7DD /* /Volumes/haza/peralta/Projects2/Servers/MySQL/MySQL.xcodeproj */ = {
+		AA3F69940E5E5AE3000DE7DD /* MySQL.xcodeproj */ = {
 			isa = PBXGroup;
 			children = (
 				AA8624960E5E5B8D0014D34F /* Makefile */,
-				AA0EC26510C876380043222D /* mysql-5.0.88a.tar.gz */,
+				61ED5895133974AE00CF7928 /* mysql-5.0.92-apple.tar.gz */,
 				AA8624990E5E5B8D0014D34F /* MySQL.plist */,
 				AA86249B0E5E5B8D0014D34F /* MySQL.txt */,
 				AA8624930E5E5B8C0014D34F /* applemysqlcheckcnf */,
@@ -64,7 +64,7 @@
 				AA8624A00E5E5B8D0014D34F /* README */,
 				AA5702290F143D61009D23D9 /* test */,
 			);
-			path = /Volumes/haza/peralta/Projects2/Servers/MySQL/MySQL.xcodeproj;
+			path = MySQL.xcodeproj;
 			sourceTree = "<absolute>";
 		};
 		AA5702290F143D61009D23D9 /* test */ = {
@@ -95,17 +95,16 @@
 				AAF594E90E92B03A00F802B2 /* google */,
 			);
 			name = patch;
-			path = ../Volumes/MacHD/Users/steve/Projects2/Servers/MySQL/patch;
-			sourceTree = SYSTEM_DEVELOPER_DIR;
+			path = ../MySQL/patch;
+			sourceTree = SOURCE_ROOT;
 		};
 		AAF594E90E92B03A00F802B2 /* google */ = {
 			isa = PBXGroup;
 			children = (
 				AAF594EA0E92B03A00F802B2 /* 5.0.67 */,
 			);
-			name = google;
-			path = ../Volumes/MacHD/Users/steve/Projects2/Servers/MySQL/patch/google;
-			sourceTree = SYSTEM_DEVELOPER_DIR;
+			path = google;
+			sourceTree = "<group>";
 		};
 		AAF594EA0E92B03A00F802B2 /* 5.0.67 */ = {
 			isa = PBXGroup;
@@ -114,9 +113,8 @@
 				AAF5950A0E92B03A00F802B2 /* libmysqld */,
 				AAF5950C0E92B03A00F802B2 /* sql */,
 			);
-			name = 5.0.67;
-			path = ../Volumes/MacHD/Users/steve/Projects2/Servers/MySQL/patch/google/5.0.67;
-			sourceTree = SYSTEM_DEVELOPER_DIR;
+			path = 5.0.67;
+			sourceTree = "<group>";
 		};
 		AAF594EB0E92B03A00F802B2 /* innobase */ = {
 			isa = PBXGroup;
@@ -133,9 +131,8 @@
 				AAF595030E92B03A00F802B2 /* srv */,
 				AAF595060E92B03A00F802B2 /* sync */,
 			);
-			name = innobase;
-			path = ../Volumes/MacHD/Users/steve/Projects2/Servers/MySQL/patch/google/5.0.67/innobase;
-			sourceTree = SYSTEM_DEVELOPER_DIR;
+			path = innobase;
+			sourceTree = "<group>";
 		};
 		AAF594EC0E92B03A00F802B2 /* btr */ = {
 			isa = PBXGroup;
@@ -144,8 +141,8 @@
 				AAF594EE0E92B03A00F802B2 /* btr0sea.c.patch */,
 			);
 			name = btr;
-			path = ../Volumes/MacHD/Users/steve/Projects2/Servers/MySQL/patch/google/5.0.67/innobase/btr;
-			sourceTree = SYSTEM_DEVELOPER_DIR;
+			path = patch/google/5.0.67/innobase/btr;
+			sourceTree = SOURCE_ROOT;
 		};
 		AAF594EF0E92B03A00F802B2 /* buf */ = {
 			isa = PBXGroup;
@@ -153,8 +150,8 @@
 				AAF594F00E92B03A00F802B2 /* buf0buf.c.patch */,
 			);
 			name = buf;
-			path = ../Volumes/MacHD/Users/steve/Projects2/Servers/MySQL/patch/google/5.0.67/innobase/buf;
-			sourceTree = SYSTEM_DEVELOPER_DIR;
+			path = patch/google/5.0.67/innobase/buf;
+			sourceTree = SOURCE_ROOT;
 		};
 		AAF594F50E92B03A00F802B2 /* include */ = {
 			isa = PBXGroup;
@@ -170,8 +167,8 @@
 				AAF594FE0E92B03A00F802B2 /* univ.i.patch */,
 			);
 			name = include;
-			path = ../Volumes/MacHD/Users/steve/Projects2/Servers/MySQL/patch/google/5.0.67/innobase/include;
-			sourceTree = SYSTEM_DEVELOPER_DIR;
+			path = patch/google/5.0.67/innobase/include;
+			sourceTree = SOURCE_ROOT;
 		};
 		AAF594FF0E92B03A00F802B2 /* mem */ = {
 			isa = PBXGroup;
@@ -179,8 +176,8 @@
 				AAF595000E92B03A00F802B2 /* mem0pool.c.patch */,
 			);
 			name = mem;
-			path = ../Volumes/MacHD/Users/steve/Projects2/Servers/MySQL/patch/google/5.0.67/innobase/mem;
-			sourceTree = SYSTEM_DEVELOPER_DIR;
+			path = patch/google/5.0.67/innobase/mem;
+			sourceTree = SOURCE_ROOT;
 		};
 		AAF595010E92B03A00F802B2 /* row */ = {
 			isa = PBXGroup;
@@ -188,8 +185,8 @@
 				AAF595020E92B03A00F802B2 /* row0sel.c.patch */,
 			);
 			name = row;
-			path = ../Volumes/MacHD/Users/steve/Projects2/Servers/MySQL/patch/google/5.0.67/innobase/row;
-			sourceTree = SYSTEM_DEVELOPER_DIR;
+			path = patch/google/5.0.67/innobase/row;
+			sourceTree = SOURCE_ROOT;
 		};
 		AAF595030E92B03A00F802B2 /* srv */ = {
 			isa = PBXGroup;
@@ -198,8 +195,8 @@
 				AAF595050E92B03A00F802B2 /* srv0start.c.patch */,
 			);
 			name = srv;
-			path = ../Volumes/MacHD/Users/steve/Projects2/Servers/MySQL/patch/google/5.0.67/innobase/srv;
-			sourceTree = SYSTEM_DEVELOPER_DIR;
+			path = patch/google/5.0.67/innobase/srv;
+			sourceTree = SOURCE_ROOT;
 		};
 		AAF595060E92B03A00F802B2 /* sync */ = {
 			isa = PBXGroup;
@@ -209,8 +206,8 @@
 				AAF595090E92B03A00F802B2 /* sync0sync.c.patch */,
 			);
 			name = sync;
-			path = ../Volumes/MacHD/Users/steve/Projects2/Servers/MySQL/patch/google/5.0.67/innobase/sync;
-			sourceTree = SYSTEM_DEVELOPER_DIR;
+			path = patch/google/5.0.67/innobase/sync;
+			sourceTree = SOURCE_ROOT;
 		};
 		AAF5950A0E92B03A00F802B2 /* libmysqld */ = {
 			isa = PBXGroup;
@@ -218,8 +215,8 @@
 				AAF5950B0E92B03A00F802B2 /* ha_innodb.cc.patch */,
 			);
 			name = libmysqld;
-			path = ../Volumes/MacHD/Users/steve/Projects2/Servers/MySQL/patch/google/5.0.67/libmysqld;
-			sourceTree = SYSTEM_DEVELOPER_DIR;
+			path = patch/google/5.0.67/libmysqld;
+			sourceTree = SOURCE_ROOT;
 		};
 		AAF5950C0E92B03A00F802B2 /* sql */ = {
 			isa = PBXGroup;
@@ -227,8 +224,8 @@
 				AAF5950D0E92B03A00F802B2 /* ha_innodb.cc.patch */,
 			);
 			name = sql;
-			path = ../Volumes/MacHD/Users/steve/Projects2/Servers/MySQL/patch/google/5.0.67/sql;
-			sourceTree = SYSTEM_DEVELOPER_DIR;
+			path = patch/google/5.0.67/sql;
+			sourceTree = SOURCE_ROOT;
 		};
 /* End PBXGroup section */
 
@@ -254,8 +251,15 @@
 			isa = PBXProject;
 			buildConfigurationList = 5DC3CA0308EC876D0050DD76 /* Build configuration list for PBXProject "MySQL" */;
 			compatibilityVersion = "Xcode 2.4";
+			developmentRegion = English;
 			hasScannedForEncodings = 1;
-			mainGroup = AA3F69940E5E5AE3000DE7DD /* /Volumes/haza/peralta/Projects2/Servers/MySQL/MySQL.xcodeproj */;
+			knownRegions = (
+				English,
+				Japanese,
+				French,
+				German,
+			);
+			mainGroup = AA3F69940E5E5AE3000DE7DD /* MySQL.xcodeproj */;
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (

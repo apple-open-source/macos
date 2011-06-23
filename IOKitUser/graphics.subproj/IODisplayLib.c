@@ -569,6 +569,7 @@ MaxTimingRangeRec( IODisplayTimingRange * range )
     range->charSizeHorizontalBlanking           = 1;
     range->charSizeHorizontalSyncOffset         = 1;
     range->charSizeHorizontalSyncPulse          = 1;
+    range->charSizeVerticalActive               = 1;
     range->charSizeVerticalBlanking             = 1;
     range->charSizeVerticalSyncOffset           = 1;
     range->charSizeVerticalSyncPulse            = 1;
@@ -1470,6 +1471,8 @@ CheckTimingWithRange( IOFBConnectRef connectRef __unused,
         return(23);
     if( timing->horizontalSyncPulseWidth % range->charSizeHorizontalSyncPulse)
         return(24);
+    if( timing->verticalActive % range->charSizeVerticalActive)
+        return(34);
     if( timing->verticalBlanking % range->charSizeVerticalBlanking)
         return(25);
     if( timing->verticalSyncOffset % range->charSizeVerticalSyncOffset)
@@ -3066,25 +3069,16 @@ _IODisplayCreateInfoDictionary(
 #warning             ****************
 #warning             ** SPOOF_EDID **
 #warning             ****************
-
-//      if (!connectRef || !connectRef->dependentID || connectRef->dependentIndex)
-        {
-            vm_offset_t                 bytes;
-            vm_size_t                   byteLen;
-    
-            if (kIOReturnSuccess == readFile( "/testedid", &bytes, &byteLen ))
-            {
-                data = CFDataCreateWithBytesNoCopy( kCFAllocatorDefault,
-                                                    (const void *) bytes, byteLen, kCFAllocatorNull );
-//              vm_deallocate( mach_task_self(), bytes, byteLen );
-            }
-            else
-                data = CFDataCreateWithBytesNoCopy( kCFAllocatorDefault,
-                                                    spoofEDID, 128, kCFAllocatorNull );
-
+		if (data)
+		{
+            EDIDInfo( (EDID *) CFDataGetBytePtr(data), &vendor, &product, NULL, NULL, NULL);
+			if (0x10ac == vendor)
+			{
+				data = CFDataCreateWithBytesNoCopy(kCFAllocatorDefault,
+												   spoofEDID, 128, kCFAllocatorNull);
+			}
+			vendor = product = 0;
         }
-
-        vendor = product = 0;
 #endif
         if( !data)
             continue;
